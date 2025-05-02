@@ -1414,8 +1414,12 @@ def test_penalty_htlc_tx_timeout(node_factory, bitcoind, chainparams, anchors):
 
     l1, l2, l3, l4, l5 = node_factory.get_nodes(5, opts=opts)
 
-    node_factory.join_nodes([l1, l2, l3, l4], wait_for_announce=True)
-    node_factory.join_nodes([l3, l5], wait_for_announce=True)
+    node_factory.join_nodes([l1, l2, l3, l4])
+    node_factory.join_nodes([l3, l5])
+    bitcoind.generate_block(5)
+    # Make sure all nodes see all channels!
+    for n in (l1, l2, l3, l4, l5):
+        wait_for(lambda: len(n.rpc.listchannels()['channels']) == 4 * 2)
 
     channel_id = first_channel_id(l2, l3)
 
