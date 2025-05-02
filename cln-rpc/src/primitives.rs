@@ -237,6 +237,11 @@ impl FromStr for ShortChannelId {
         ))
     }
 }
+impl From<u64> for ShortChannelId {
+    fn from(scid: u64) -> Self {
+        ShortChannelId(scid)
+    }
+}
 impl Display for ShortChannelId {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}x{}x{}", self.block(), self.txindex(), self.outnum())
