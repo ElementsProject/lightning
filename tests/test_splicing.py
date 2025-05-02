@@ -269,7 +269,6 @@ def test_invalid_splice(node_factory, bitcoind):
     assert l1.db_query("SELECT count(*) as c FROM channeltxs;")[0]['c'] == 0
 
 
-@unittest.skip("Test is flaky causing CI to be unusable.")
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
@@ -293,23 +292,18 @@ def test_commit_crash_splice(node_factory, bitcoind):
     # The splicing inflight should have been left pending in the DB
     assert l1.db_query("SELECT count(*) as c FROM channel_funding_inflights;")[0]['c'] == 1
 
-    l1.daemon.wait_for_log(r'Restarting channeld after tx_abort on CHANNELD_NORMAL channel')
+    l1.daemon.wait_for_log(r'peer_out WIRE_CHANNEL_REESTABLISH')
+    l1.daemon.wait_for_log(r'Got reestablish commit=1 revoke=0 inflights: 1, active splices: 1')
+    l1.daemon.wait_for_log(r'Splice resume check with local_next_funding: sent, remote_next_funding: received, inflights: 1')
+    l1.daemon.wait_for_log(r'Splice negotation, will not send commit, not recv commit, send signature, recv signature as initiator')
 
     assert l1.db_query("SELECT count(*) as c FROM channel_funding_inflights;")[0]['c'] == 1
-
-    result = l1.rpc.splice_init(chan_id, -105000, l1.rpc.addpsbtoutput(100000)['psbt'])
-    result = l1.rpc.splice_update(chan_id, result['psbt'])
-    assert(result['commitments_secured'] is False)
-    result = l1.rpc.splice_update(chan_id, result['psbt'])
-    assert(result['commitments_secured'] is True)
-    result = l1.rpc.splice_signed(chan_id, result['psbt'])
 
     l2.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
     l1.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
 
     mempool = bitcoind.rpc.getrawmempool(True)
     assert len(list(mempool.keys())) == 1
-    assert result['txid'] in list(mempool.keys())
 
     bitcoind.generate_block(6, wait_for_mempool=1)
 
