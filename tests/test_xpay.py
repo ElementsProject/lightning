@@ -3,7 +3,8 @@ from fixtures import TEST_NETWORK
 from pyln.client import RpcError
 from pyln.testing.utils import FUNDAMOUNT, only_one
 from utils import (
-    TIMEOUT, first_scid, GenChannel, generate_gossip_store, wait_for
+    TIMEOUT, first_scid, GenChannel, generate_gossip_store, wait_for,
+    sync_blockheight,
 )
 
 import os
@@ -776,7 +777,7 @@ def test_fail_after_success(node_factory, bitcoind, executor, slow_mode):
                        'successful_parts': 1}
 
 
-def test_xpay_twohop_bug(node_factory):
+def test_xpay_twohop_bug(node_factory, bitcoind):
     """From https://github.com/ElementsProject/lightning/issues/8119:
     Oh, interesting! I tried again and got a two-hop blinded path. xpay returned the same error you saw while pay was successful.
 
@@ -817,6 +818,9 @@ lightning-cli pay lni1qqgv5nalmz08ukj4av074kyk6pepq93pqvvhnlnvurnfanndnxjtcjnmxr
     assert path['first_node_id'] == l3.info['id']
     assert len(path['path']) == 2
     assert path['payinfo']['cltv_expiry_delta'] == 200 + 400
+
+    # Make sure l1 is on correct height, so CLTV is as expected.
+    sync_blockheight(bitcoind, [l1])
 
     # This works.
     l1.rpc.pay(inv)
