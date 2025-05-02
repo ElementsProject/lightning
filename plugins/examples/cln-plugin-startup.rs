@@ -76,6 +76,7 @@ async fn main() -> Result<(), anyhow::Error> {
             "send a test_custom_notification event",
             test_send_custom_notification,
         )
+        .rpcmethod("test-log-levels", "send on all log levels", test_log_levels)
         .subscribe("connect", connect_handler)
         .subscribe("test_custom_notification", test_receive_custom_notification)
         .hook("peer_connected", peer_connected_handler)
@@ -160,4 +161,16 @@ async fn peer_connected_handler(
 ) -> Result<serde_json::Value, Error> {
     log::info!("Got a connect hook call: {}", v);
     Ok(json!({"result": "continue"}))
+}
+
+async fn test_log_levels(
+    _p: Plugin<()>,
+    _v: serde_json::Value,
+) -> Result<serde_json::Value, Error> {
+    log::trace!("log::trace! working");
+    log::debug!("log::debug! working");
+    log::info!("log::info! working");
+    log::warn!("log::warn! working");
+    log::error!("log::error! working");
+    Ok(json!({}))
 }

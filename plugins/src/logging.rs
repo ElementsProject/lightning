@@ -22,6 +22,7 @@ enum LogLevel {
     Info,
     Warn,
     Error,
+    Trace,
 }
 
 impl From<log::Level> for LogLevel {
@@ -30,7 +31,8 @@ impl From<log::Level> for LogLevel {
             log::Level::Error => LogLevel::Error,
             log::Level::Warn => LogLevel::Warn,
             log::Level::Info => LogLevel::Info,
-            log::Level::Debug | log::Level::Trace => LogLevel::Debug,
+            log::Level::Debug => LogLevel::Debug,
+            log::Level::Trace => LogLevel::Trace,
         }
     }
 }
@@ -130,7 +132,7 @@ mod trace {
                 &Level::ERROR => LogLevel::Error,
                 &Level::INFO => LogLevel::Info,
                 &Level::WARN => LogLevel::Warn,
-                &Level::TRACE => LogLevel::Debug,
+                &Level::TRACE => LogLevel::Trace,
             }
         }
     }
