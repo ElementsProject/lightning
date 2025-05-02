@@ -322,6 +322,7 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	/* Nothing happened yet */
 	memset(&channel->stats, 0, sizeof(channel->stats));
 	channel->state_changes = tal_arr(channel, struct channel_state_change *, 0);
+	channel->replied_to_announcement_sigs = false;
 
 	/* No shachain yet */
 	channel->their_shachain.id = 0;
@@ -632,6 +633,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->num_onchain_spent_calls = 0;
 	channel->stats = *stats;
 	channel->state_changes = tal_steal(channel, state_changes);
+	channel->replied_to_announcement_sigs = false;
 
  	/* Populate channel->channel_gossip */
 	channel_gossip_init(channel, take(peer_update));
