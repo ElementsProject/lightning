@@ -105,6 +105,20 @@ def test_plugin_options_handle_defaults(node_factory):
     assert opts["multi-i64-option-default"] == [-42]
 
 
+def test_plugin_log_levels(node_factory):
+    """Start a minimal plugin and ensure it logs all levels"""
+    bin_path = Path.cwd() / "target" / RUST_PROFILE / "examples" / "cln-plugin-startup"
+    l1 = node_factory.get_node(
+        options={"plugin": str(bin_path)}, broken_log=r"log::error! working"
+    )
+    l1.rpc.test_log_levels()
+    wait_for(lambda: l1.daemon.is_in_log(r"cln-plugin-startup: log::trace! working"))
+    wait_for(lambda: l1.daemon.is_in_log(r"cln-plugin-startup: log::debug! working"))
+    wait_for(lambda: l1.daemon.is_in_log(r"cln-plugin-startup: log::info! working"))
+    wait_for(lambda: l1.daemon.is_in_log(r"cln-plugin-startup: log::warn! working"))
+    wait_for(lambda: l1.daemon.is_in_log(r"cln-plugin-startup: log::error! working"))
+
+
 def test_grpc_connect(node_factory):
     """Attempts to connect to the grpc interface and call getinfo"""
     # These only exist if we have rust!
