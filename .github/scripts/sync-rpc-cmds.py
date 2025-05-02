@@ -70,7 +70,7 @@ def extract_rpc_commands(rst_content):
         commands = re.findall(
             r"\b([a-zA-Z0-9_-]+)" r"\s+<([^>]+)>\n", manpages_block.group(1)
         )
-        return [(re.sub(r"\blightning-", "", rpc_name), file_name) for rpc_name, file_name in commands]
+        return commands
     return []
 
 
