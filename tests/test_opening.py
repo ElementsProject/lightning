@@ -2718,8 +2718,10 @@ def test_zeroconf_forget(node_factory, bitcoind, dopay: bool):
 
     l1.daemon.rpcproxy.mock_rpc("sendrawtransaction", censoring_sendrawtx)
 
-    l1.connect(l2)
     l1.fundwallet(10**7)
+    l3.fundwallet(10**7)
+
+    l1.connect(l2)
     l1.rpc.fundchannel(l2.info["id"], 10**6, mindepth=0)
     sync_blockheight(bitcoind, [l1, l2])
     wait_for(lambda: l2.rpc.listincoming()["incoming"] != [])
@@ -2736,7 +2738,6 @@ def test_zeroconf_forget(node_factory, bitcoind, dopay: bool):
 
     # We need *another* channel to make it forget the first though!
     l3.connect(l2)
-    l3.fundwallet(10**7)
     l3.rpc.fundchannel(l2.info["id"], 10**6, mindepth=0)
     bitcoind.generate_block(1)
 
