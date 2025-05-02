@@ -6,6 +6,7 @@ if ! type python3 > /dev/null 2>&1; then
     # No python3 binary.
     # Fortunately, CLN gives us JSON in a very standard way, so we can assume:
     # Eg. {"jsonrpc":"2.0","id":2,"method":"getmanifest","params":{}}\n\n
+    set -e
     read -r JSON
     read -r _
     id=$(echo "$JSON" | sed 's/.*"id" *: *\([^,]*\),.*/\1/')
