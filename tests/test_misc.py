@@ -4338,15 +4338,16 @@ def test_setconfig(node_factory, bitcoind):
         assert lines == ["# Created and update by setconfig, but you can edit this manually when node is stopped.", "min-capacity-sat=400000"]
 
 
-def test_setconfig_access(node_factory, bitcoind, db_provider):
+def test_setconfig_access(node_factory, bitcoind):
     """Test that we correctly fail (not crash) if config file/dir not writable"""
 
     # Disable bookkeeper, with its separate db which gets upset under CI.
     options = {'disable-plugin': 'bookkeeper'}
 
     # sqlite3 gets upset if the directory is non-writable when it tries to commit.
-    if db_provider == 'sqlite3':
-        options['wallet'] = os.path.join(node_factory.directory, 'l1.sqlite3')
+    if os.getenv('TEST_DB_PROVIDER', 'sqlite3') == 'sqlite3':
+        options['wallet'] = 'sqlite3://' + os.path.join(node_factory.directory, 'l1.sqlite3')
+
     l1 = node_factory.get_node(options=options)
 
     netconfigfile = os.path.join(l1.daemon.opts.get("lightning-dir"), TEST_NETWORK, 'config')
