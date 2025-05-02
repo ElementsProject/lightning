@@ -1838,6 +1838,7 @@ void plugin_logv(struct plugin *p, enum log_level l,
 			l == LOG_DBG ? "debug"
 			: l == LOG_INFORM ? "info"
 			: l == LOG_UNUSUAL ? "warn"
+			: l == LOG_TRACE ? "trace"
 			: "error");
 	json_out_addv(js->jout, "message", true, fmt, ap);
 	json_object_end(js);
