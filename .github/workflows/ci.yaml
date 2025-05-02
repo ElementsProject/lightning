@@ -480,7 +480,8 @@ jobs:
           poetry run pytest tests/ -vvv -n 2 ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}
 
   update-docs-examples:
-    name: Update examples in doc schemas 
+    name: Update examples in doc schemas (disabled temporarily!)
+    if: false
     runs-on: ubuntu-22.04
     timeout-minutes: 30
     strategy:
