@@ -57,6 +57,6 @@ Useful commands:
 
 Once you've started for the first time, there's a script called `contrib/bootstrap-node.sh` which will connect you to other nodes on the lightning network.
 
-There are also numerous plugins available for Core Lightning which add capabilities: see the [Plugins](doc:plugins) guide, and check out the plugin collection at: <https://github.com/lightningd/plugins>, including [helpme](https://github.com/lightningd/plugins/tree/master/helpme) which guides you through setting up your first channels and customising your node.
+There are also numerous plugins available for Core Lightning which add capabilities: see the [Plugins](doc:plugins) guide, and check out the plugin collection at: <https://github.com/lightningd/plugins>.
 
 For a less reckless experience, you can encrypt the HD wallet seed: see [HD wallet encryption](doc:backup-and-recovery#hsm-secret-backup).
