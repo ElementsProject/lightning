@@ -777,6 +777,28 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("fetchinvoice", payload)
 
+    def dev_fetchinvoice(self, offer, amount_msat=None, quantity=None, recurrence_counter=None,
+                         recurrence_start=None, recurrence_label=None, timeout=None, payer_note=None,
+                         payer_metadata=None, bip353=None, dev_reply_path=None, dev_path_use_scidd=None):
+        """
+        A dev version of `fetchinvoice`, used for testing. Fetch an invoice for an offer.
+        """
+        payload = {
+            "offer": offer,
+            "amount_msat": amount_msat,
+            "quantity": quantity,
+            "recurrence_counter": recurrence_counter,
+            "recurrence_start": recurrence_start,
+            "recurrence_label": recurrence_label,
+            "timeout": timeout,
+            "payer_note": payer_note,
+            "payer_metadata": payer_metadata,
+            "bip353": bip353,
+            "dev_reply_path": dev_reply_path,
+            "dev_path_use_scidd": dev_path_use_scidd,
+        }
+        return self.call("fetchinvoice", payload)
+
     def fundchannel(self, node_id, amount, feerate=None, announce=True,
                     minconf=None, utxos=None, push_msat=None, close_to=None,
                     request_amt=None, compact_lease=None,
@@ -1144,6 +1166,30 @@ class LightningRpc(UnixDomainSocketRpc):
             "recurrence_limit": recurrence_limit,
             "single_use": single_use,
             "recurrence_start_any_period": recurrence_start_any_period,
+        }
+        return self.call("offer", payload)
+
+    def dev_offer(self, amount, description=None, issuer=None, label=None, quantity_max=None, absolute_expiry=None,
+                  recurrence=None, recurrence_base=None, recurrence_paywindow=None, recurrence_limit=None,
+                  single_use=None, recurrence_start_any_period=None, dev_paths=None):
+        """
+        A dev version of `offer`, used for testing. Create an offer (or returns an existing one), which is a precursor to creating one or more invoices.
+        It automatically enables the processing of an incoming invoice_request, and issuing of invoices.
+        """
+        payload = {
+            "amount": amount,
+            "description": description,
+            "issuer": issuer,
+            "label": label,
+            "quantity_max": quantity_max,
+            "absolute_expiry": absolute_expiry,
+            "recurrence": recurrence,
+            "recurrence_base": recurrence_base,
+            "recurrence_paywindow": recurrence_paywindow,
+            "recurrence_limit": recurrence_limit,
+            "single_use": single_use,
+            "recurrence_start_any_period": recurrence_start_any_period,
+            "dev_paths": dev_paths,
         }
         return self.call("offer", payload)
 

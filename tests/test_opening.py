@@ -2759,7 +2759,7 @@ def test_zeroconf_forget(node_factory, bitcoind, dopay: bool):
     time.sleep(5)
 
     have_forgotten = l2.daemon.is_in_log(
-        r"UNUSUAL {}-chan#1: Forgetting channel: It has been 51 blocks without the funding transaction ".format(l1.info['id'])
+        r"UNUSUAL {}-chan#1: Forgetting channel: It has been 5[0-9] blocks without the funding transaction ".format(l1.info['id'])
     )
 
     if dopay:

@@ -4737,7 +4737,7 @@ def test_fetchinvoice_disconnected_reply(node_factory, bitcoind):
 
     # l2 is already connected to l3, so it can fetch.  It specifies a reply
     # path of l1->l2.  l3 knows it can simply route reply to l1 via l2.
-    l2.rpc.fetchinvoice(offer=offer['bolt12'], dev_reply_path=[l1.info['id'], l2.info['id']])
+    l2.rpc.dev_fetchinvoice(offer=offer['bolt12'], dev_reply_path=[l1.info['id'], l2.info['id']])
     assert l3.rpc.listpeers(l1.info['id']) == {'peers': []}
 
 
@@ -5709,7 +5709,7 @@ def test_blinded_reply_path_scid(node_factory):
 
     chan = only_one(l1.rpc.listpeerchannels()['channels'])
     scidd = "{}/{}".format(chan['short_channel_id'], chan['direction'])
-    inv = l1.rpc.fetchinvoice(offer=offer['bolt12'], dev_path_use_scidd=scidd)['invoice']
+    inv = l1.rpc.dev_fetchinvoice(offer=offer['bolt12'], dev_path_use_scidd=scidd)['invoice']
 
     l1.rpc.pay(inv)
 
@@ -5740,9 +5740,9 @@ def test_offer_paths(node_factory, bitcoind):
 
     chan = only_one(l1.rpc.listpeerchannels()['channels'])
     scidd = "{}/{}".format(chan['short_channel_id'], chan['direction'])
-    offer = l2.rpc.offer(amount='100sat', description='test_offer_paths',
-                         dev_paths=[[scidd, l2.info['id']],
-                                    [l3.info['id'], l2.info['id']]])
+    offer = l2.rpc.dev_offer(amount='100sat', description='test_offer_paths',
+                             dev_paths=[[scidd, l2.info['id']],
+                                        [l3.info['id'], l2.info['id']]])
 
     paths = l1.rpc.decode(offer['bolt12'])['offer_paths']
     assert len(paths) == 2
