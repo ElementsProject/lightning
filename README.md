@@ -106,9 +106,6 @@ the lightning network.
 There are also numerous plugins available for Core Lightning which add
 capabilities: in particular there's a collection at: https://github.com/lightningd/plugins
 
-Including [helpme][helpme-github] which guides you through setting up
-your first channels and customizing your node.
-
 For a less reckless experience, you can encrypt the HD wallet seed:
  see [HD wallet encryption](#hd-wallet-encryption).
 

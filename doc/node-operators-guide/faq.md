@@ -8,34 +8,6 @@ updatedAt: "2023-07-05T09:42:38.017Z"
 ---
 # General questions
 
-### I don't know where to start, help me !
-
-There is a Core Lightning plugin specifically for this purpose, it's called [`helpme`](https://github.com/lightningd/plugins/tree/master/helpme).
-
-Assuming you have followed the [installation steps](doc:installation), have `lightningd` up and running, and `lightning-cli` in your `$PATH` you can start the plugin like so:
-
-```shell
-# Clone the plugins repository
-git clone https://github.com/lightningd/plugins
-# Make sure the helpme plugin is executable (git should have already handled this)
-chmod +x plugins/helpme/helpme.py
-# Install its dependencies (there is only one actually)
-pip3 install --user -r plugins/helpme/requirements.txt
-# Then just start it :)
-lightning-cli plugin start $PWD/plugins/helpme/helpme.py
-```
-
-
-
-The plugin registers a new command `helpme` which will guide you through the main  
-components of C-lightning:
-
-```shell
-lightning-cli helpme
-```
-
-
-
 ### How to get the balance of each channel ?
 
 You can use the `listfunds` command and take a ratio of `our_amount_msat` over  
