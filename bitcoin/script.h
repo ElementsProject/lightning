@@ -13,6 +13,16 @@ struct ripemd160;
 struct rel_locktime;
 struct abs_locktime;
 
+enum scriptpubkey_type {
+	scriptpubkey_type_unknown = 0,
+	scriptpubkey_type_p2pk,
+	scriptpubkey_type_p2pkh,
+	scriptpubkey_type_p2sh,
+	scriptpubkey_type_p2wpkh,
+	scriptpubkey_type_p2wsh,
+	scriptpubkey_type_p2tr,
+};
+
 /* tal_count() gives the length of the script. */
 u8 *bitcoin_redeem_2of2(const tal_t *ctx,
 			const struct pubkey *key1,
@@ -173,8 +183,14 @@ bool is_p2wpkh(const u8 *script, size_t script_len, struct bitcoin_address *addr
 /* Is this a taproot output? (extract xonly_pubkey bytes if not NULL) */
 bool is_p2tr(const u8 *script, size_t script_len, u8 xonly_pubkey[32]);
 
+/* What type of script is this? */
+enum scriptpubkey_type scriptpubkey_type(const u8 *script, size_t script_len);
+
 /* Is this one of the above script types? */
-bool is_known_scripttype(const u8 *script, size_t script_len);
+static inline bool is_known_scripttype(const u8 *script, size_t script_len)
+{
+	return scriptpubkey_type(script, script_len) != scriptpubkey_type_unknown;
+}
 
 /* Is this a witness script type? */
 bool is_known_segwit_scripttype(const u8 *script, size_t script_len);

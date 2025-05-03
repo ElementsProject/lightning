@@ -1,4 +1,5 @@
 #include "config.h"
+#include <bitcoin/script.h>
 #include <common/utxo.h>
 #include <wire/wire.h>
 
@@ -64,7 +65,9 @@ struct utxo *fromwire_utxo(const tal_t *ctx, const u8 **ptr, size_t *max)
 
 size_t utxo_spend_weight(const struct utxo *utxo, size_t min_witness_weight)
 {
-	size_t wit_weight = bitcoin_tx_simple_input_witness_weight();
+	size_t wit_weight = bitcoin_tx_simple_input_witness_weight(
+			scriptpubkey_type(utxo->scriptPubkey,
+					  tal_bytelen(utxo->scriptPubkey)));
 	/* If the min is less than what we'd use for a 'normal' tx,
 	 * we return the value with the greater added/calculated */
 	if (wit_weight < min_witness_weight)
