@@ -1334,6 +1334,20 @@ def location_from_name(plugin_name: str) -> (str, str):
         return (Path(plugin_name).parent.parent, Path(plugin_name).with_suffix('').name)
 
 
+def _enable_installed(installed: InstInfo, plugin_name: str) -> Union[str, None]:
+    """Enable the plugin in the active config file and dynamically activate
+    if a lightningd rpc is available."""
+    if not installed:
+        log.warning(f'{plugin_name}: installation aborted')
+        return None
+
+    if enable(installed.name):
+        return f"{installed.source_loc}"
+
+    log.error(('dynamic activation failed: '
+              f'{installed.name} not found in reckless directory'))
+    return None
+
 def install(plugin_name: str) -> Union[str, None]:
     """Downloads plugin from source repos, installs and activates plugin.
     Returns the location of the installed plugin or "None" in the case of
@@ -1363,9 +1377,11 @@ def install(plugin_name: str) -> Union[str, None]:
         if search(name):
             global LAST_FOUND
             src = LAST_FOUND
+            LAST_FOUND = None
             src.commit = commit
             log.debug(f'Retrieving {src.name} from {src.source_loc}')
         else:
+            LAST_FOUND = None
             return None
 
     try:
@@ -1373,22 +1389,8 @@ def install(plugin_name: str) -> Union[str, None]:
     except FileExistsError as err:
         log.error(f'File exists: {err.filename}')
         return None
-    LAST_FOUND = None
-    if not installed:
-        log.warning(f'{plugin_name}: installation aborted')
-        return None
+    return _enable_installed(installed, plugin_name)
 
-    # Match case of the containing directory
-    for dirname in os.listdir(RECKLESS_CONFIG.reckless_dir):
-        if dirname.lower() == installed.name.lower():
-            inst_path = Path(RECKLESS_CONFIG.reckless_dir)
-            inst_path = inst_path / dirname / installed.entry
-            RECKLESS_CONFIG.enable_plugin(inst_path)
-            enable(installed.name)
-            return f"{installed.source_loc}"
-    log.error(('dynamic activation failed: '
-              f'{installed.name} not found in reckless directory'))
-    return None
 
 
 def uninstall(plugin_name: str) -> str:
