@@ -1099,12 +1099,16 @@ def add_installation_metadata(installed: InstInfo,
     updating the plugin."""
     install_dir = Path(installed.source_loc)
     assert install_dir.is_dir()
+    if urlparse(original_request.source_loc).scheme in ['http', 'https']:
+        abs_source_path = original_request.source_loc
+    else:
+        abs_source_path = Path(original_request.source_loc).resolve()
     data = ('installation date\n'
             f'{datetime.date.today().isoformat()}\n'
             'installation time\n'
             f'{int(time.time())}\n'
             'original source\n'
-            f'{original_request.source_loc}\n'
+            f'{abs_source_path}\n'
             'requested commit\n'
             f'{original_request.commit}\n'
             'installed commit\n'
