@@ -1522,8 +1522,8 @@ def enable(plugin_name: str):
             log.error(err)
             return None
     except RPCError:
-        log.debug(('lightningd rpc unavailable. '
-                   'Skipping dynamic activation.'))
+        log.info(('lightningd rpc unavailable. '
+                  'Skipping dynamic activation.'))
     RECKLESS_CONFIG.enable_plugin(path)
     log.info(f'{inst.name} enabled')
     return 'enabled'
