@@ -1201,7 +1201,7 @@ static u8 *send_commit_part(const tal_t *ctx,
 					  struct tlv_commitment_signed_tlvs_splice_info);
 
 		cs_tlv->splice_info->batch_size = batch_size;
-		derive_channel_id(&cs_tlv->splice_info->funding_txid, funding);
+		cs_tlv->splice_info->funding_txid = funding->txid;
 	}
 
 	txs = channel_txs(tmpctx, funding, funding_sats, &htlc_map,
@@ -1934,7 +1934,6 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 	const u8 * msg2;
 	struct bitcoin_outpoint outpoint;
 	struct amount_sat funding_sats;
-	struct channel_id active_id;
 	const struct commitsig **commitsigs;
 	int remote_anchor_outnum;
 	struct pubkey funding_pubkeys[NUM_SIDES] =
@@ -1960,16 +1959,16 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 	 * ...
 	 *     - MUST ignore `commitment_signed` messages where `splice_channel_id`
 	 *       does not match the `channel_id` of the confirmed splice. */
-	derive_channel_id(&active_id, &peer->channel->funding);
 	if (peer->splice_state->await_commitment_succcess
 	    && !tal_count(peer->splice_state->inflights) && cs_tlv && cs_tlv->splice_info) {
-		if (!channel_id_eq(&active_id,
-				   &cs_tlv->splice_info->funding_txid)) {
+	    	if (!bitcoin_txid_eq(&peer->channel->funding.txid,
+	    			     &cs_tlv->splice_info->funding_txid)) {
 			status_info("Ignoring stale commit_sig for channel_id"
 				    " %s, as %s is locked in now.",
-				    fmt_channel_id(tmpctx,
-				    		   &cs_tlv->splice_info->funding_txid),
-				    fmt_channel_id(tmpctx, &active_id));
+				    fmt_bitcoin_txid(tmpctx,
+				    		     &cs_tlv->splice_info->funding_txid),
+				    fmt_bitcoin_txid(tmpctx,
+				    		     &peer->channel->funding.txid));
 			return NULL;
 		}
 	}
@@ -2071,8 +2070,8 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 				 fmt_bitcoin_outpoint(tmpctx, &outpoint),
 				 fmt_amount_sat(tmpctx, funding_sats),
 				 cs_tlv && cs_tlv->splice_info
-				 	? fmt_channel_id(tmpctx,
-							 &cs_tlv->splice_info->funding_txid)
+				 	? fmt_bitcoin_txid(tmpctx,
+							   &cs_tlv->splice_info->funding_txid)
 				 	: "N/A",
 				 peer->splice_state->await_commitment_succcess ? "yes"
 				 					: "no",
