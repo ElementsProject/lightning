@@ -779,6 +779,7 @@ static struct command_result *json_signpsbt(struct command *cmd,
 	struct json_stream *response;
 	struct wally_psbt *psbt, *signed_psbt;
 	struct utxo **utxos;
+	const struct hsm_utxo **hsm_utxos;
 	u32 *input_nums;
 	u32 psbt_version;
 
@@ -826,9 +827,8 @@ static struct command_result *json_signpsbt(struct command *cmd,
 
 	/* FIXME: hsm will sign almost anything, but it should really
 	 * fail cleanly (not abort!) and let us report the error here. */
-	u8 *msg = towire_hsmd_sign_withdrawal(cmd,
-					     cast_const2(const struct utxo **, utxos),
-					     psbt);
+	hsm_utxos = utxos_to_hsm_utxos(tmpctx, utxos);
+	u8 *msg = towire_hsmd_sign_withdrawal(cmd, hsm_utxos, psbt);
 
 	if (!wire_sync_write(cmd->ld->hsm_fd, take(msg)))
 		fatal("Could not write sign_withdrawal to HSM: %s",

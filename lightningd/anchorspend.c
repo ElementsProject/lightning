@@ -327,6 +327,7 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 	struct amount_sat psbt_fee, diff;
 	struct bitcoin_tx *tx;
 	struct utxo **psbt_utxos;
+	const struct hsm_utxo **hsm_utxos;
 	struct wally_psbt *psbt, *signed_psbt;
 	struct amount_msat total_value;
 	const struct deadline_value *unimportant_deadline;
@@ -491,11 +492,11 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 		  * 1000 / psbt_weight);
 
 	/* OK, HSM, sign it! */
+	hsm_utxos = utxos_to_hsm_utxos(tmpctx, psbt_utxos);
 	msg = towire_hsmd_sign_anchorspend(NULL,
 					   &channel->peer->id,
 					   channel->dbid,
-					   cast_const2(const struct utxo **,
-						       psbt_utxos),
+					   hsm_utxos,
 					   psbt);
 	msg = hsm_sync_req(tmpctx, ld, take(msg));
 	if (!fromwire_hsmd_sign_anchorspend_reply(tmpctx, msg, &signed_psbt))

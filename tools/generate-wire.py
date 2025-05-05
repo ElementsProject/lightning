@@ -233,7 +233,7 @@ class Type(FieldSet):
         'existing_htlc',
         'simple_htlc',
         'inflight',
-        'utxo',
+        'hsm_utxo',
         'bitcoin_tx',
         'wirestring',
         'per_peer_state',
