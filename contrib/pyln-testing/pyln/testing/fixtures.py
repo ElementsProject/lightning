@@ -403,7 +403,7 @@ def _extra_validator(is_request: bool):
     def is_currency(checker, instance):
         """currency including currency code"""
         pattern = re.compile(r'^\d+(\.\d+)?[A-Z][A-Z][A-Z]$')
-        if pattern.match(instance):
+        if checker.is_type(instance, "string") and pattern.match(instance):
             return True
         return False
 
