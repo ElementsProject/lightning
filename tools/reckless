@@ -1674,7 +1674,7 @@ def update_plugin(plugin_name: str) -> Union[str, None]:
     metadata_file = Path(RECKLESS_CONFIG.reckless_dir) / plugin_name / '.metadata'
     if not metadata_file.exists():
         log.warning(f"no metadata file for {plugin_name}")
-        return
+        return None
 
     metadata = {'installation date': None,
                 'installation time': None,
@@ -1706,16 +1706,20 @@ def update_plugin(plugin_name: str) -> Union[str, None]:
 def update_plugins(plugin_name: str):
     """user requested plugin upgrade(s)"""
     if plugin_name:
-        update_plugin(plugin_name)
-        return
+        installed = update_plugin(plugin_name)
+        if not installed:
+            log.error(f'{plugin_name} update aborted')
+        return installed
 
     log.info("updating all plugins")
+    update_results = []
     for plugin in os.listdir(RECKLESS_CONFIG.reckless_dir):
         if not (Path(RECKLESS_CONFIG.reckless_dir) / plugin).is_dir():
             continue
         if len(plugin) > 0 and plugin[0] == '.':
             continue
-        update_plugin(plugin)
+        update_results.append(update_plugin(plugin))
+    return update_results
 
 
 def report_version() -> str:
