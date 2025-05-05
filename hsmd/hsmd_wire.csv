@@ -229,6 +229,13 @@ msgdata,hsmd_sign_commitment_tx,commit_num,u64,
 msgtype,hsmd_sign_commitment_tx_reply,105
 msgdata,hsmd_sign_commitment_tx_reply,sig,bitcoin_signature,
 
+#include <common/htlc_wire.h> // For enum side and towire_side
+subtype,simple_htlc
+subtypedata,simple_htlc,side,enum side,
+subtypedata,simple_htlc,amount,amount_msat,
+subtypedata,simple_htlc,payment_hash,sha256,
+subtypedata,simple_htlc,cltv_expiry,u32,
+
 # Validate the counterparty's commitment signatures.
 msgtype,hsmd_validate_commitment_tx,35
 msgdata,hsmd_validate_commitment_tx,tx,bitcoin_tx,
@@ -290,7 +297,6 @@ msgdata,hsmd_sign_local_htlc_tx,wscript,u8,wscript_len
 msgdata,hsmd_sign_local_htlc_tx,option_anchor_outputs,bool,
 
 # Openingd/channeld asks HSM to sign the other sides' commitment tx.
-#include <common/htlc_wire.h>
 msgtype,hsmd_sign_remote_commitment_tx,19
 msgdata,hsmd_sign_remote_commitment_tx,tx,bitcoin_tx,
 msgdata,hsmd_sign_remote_commitment_tx,remote_funding_key,pubkey,

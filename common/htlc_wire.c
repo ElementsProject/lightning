@@ -24,20 +24,6 @@ static struct failed_htlc *failed_htlc_dup(const tal_t *ctx,
 	return newf;
 }
 
-struct simple_htlc *new_simple_htlc(const tal_t *ctx,
-				    enum side side,
-				    struct amount_msat amount,
-				    const struct sha256 *payment_hash,
-				    u32 cltv_expiry)
-{
-	struct simple_htlc *simple = tal(ctx, struct simple_htlc);
-	simple->side = side;
-	simple->amount = amount;
-	simple->payment_hash = *payment_hash;
-	simple->cltv_expiry = cltv_expiry;
-	return simple;
-}
-
 struct existing_htlc *new_existing_htlc(const tal_t *ctx,
 					u64 id,
 					enum htlc_state state,
@@ -111,14 +97,6 @@ void towire_existing_htlc(u8 **pptr, const struct existing_htlc *existing)
 		towire_pubkey(pptr, existing->path_key);
 	} else
 		towire_bool(pptr, false);
-}
-
-void towire_simple_htlc(u8 **pptr, const struct simple_htlc *simple)
-{
-	towire_side(pptr, simple->side);
-	towire_amount_msat(pptr, simple->amount);
-	towire_sha256(pptr, &simple->payment_hash);
-	towire_u32(pptr, simple->cltv_expiry);
 }
 
 void towire_fulfilled_htlc(u8 **pptr, const struct fulfilled_htlc *fulfilled)
@@ -215,18 +193,6 @@ struct existing_htlc *fromwire_existing_htlc(const tal_t *ctx,
 	} else
 		existing->path_key = NULL;
 	return existing;
-}
-
-struct simple_htlc *fromwire_simple_htlc(const tal_t *ctx,
-					 const u8 **cursor, size_t *max)
-{
-	struct simple_htlc *simple = tal(ctx, struct simple_htlc);
-
-	simple->side = fromwire_side(cursor, max);
-	simple->amount = fromwire_amount_msat(cursor, max);
-	fromwire_sha256(cursor, max, &simple->payment_hash);
-	simple->cltv_expiry = fromwire_u32(cursor, max);
-	return simple;
 }
 
 void fromwire_fulfilled_htlc(const u8 **cursor, size_t *max,
