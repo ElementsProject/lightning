@@ -40,9 +40,9 @@ static void set_scid(struct short_channel_id *scid)
 	memset(scid, 2, sizeof(struct short_channel_id));
 }
 
-static void set_cid(struct channel_id *cid)
+static void set_bitcoin_txid(struct bitcoin_txid *cid)
 {
-	memset(cid, 2, sizeof(struct channel_id));
+	memset(cid, 2, sizeof(struct bitcoin_txid));
 }
 
 /* Size up to field. */
@@ -1028,7 +1028,7 @@ int main(int argc, char *argv[])
 	cs.tlvs = tlv_commitment_signed_tlvs_new(tmpctx);
 	cs.tlvs->splice_info = tal(ctx, struct tlv_commitment_signed_tlvs_splice_info);
 	cs.tlvs->splice_info->batch_size = 1;
-	set_cid(&cs.tlvs->splice_info->funding_txid);
+	set_bitcoin_txid(&cs.tlvs->splice_info->funding_txid);
 
 	msg = towire_struct_commitment_signed(ctx, &cs);
 	cs2 = fromwire_struct_commitment_signed(ctx, msg);
