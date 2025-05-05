@@ -294,14 +294,16 @@ static struct wally_psbt *try_anchor_psbt(const tal_t *ctx,
 	struct wally_psbt *psbt;
 	struct amount_sat fee;
 
-	/* Ask for some UTXOs which could meet this feerate */
+	/* Ask for some UTXOs which could meet this feerate, and since
+	 * we need one output, meet the minumum output requirement */
 	*total_weight = base_weight;
 	*utxos = wallet_utxo_boost(ctx,
 				   ld->wallet,
 				   get_block_height(ld->topology),
 				   anch->info.commitment_fee,
+				   chainparams->dust_limit,
 				   feerate_target,
-				   total_weight);
+				   total_weight, NULL);
 
 	/* Create a new candidate PSBT */
 	psbt = anchor_psbt(ctx, channel, anch, *utxos, feerate_target,
