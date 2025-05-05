@@ -18,6 +18,7 @@ import pytest
 import re
 import subprocess
 import threading
+import time
 import unittest
 
 
@@ -4233,7 +4234,7 @@ def test_onchain_reestablish_reply(node_factory, bitcoind, executor):
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd anchors not supportd')
 def test_onchain_slow_anchor(node_factory, bitcoind):
     """We still use anchors for non-critical closes"""
-    l1, l2 = node_factory.line_graph(2)
+    l1, l2 = node_factory.line_graph(2, opts={'feerates': (15000, 11000, 253, 253)})
 
     # Don't let l1 succeed in sending commit tx
     def censoring_sendrawtx(r):
@@ -4247,12 +4248,14 @@ def test_onchain_slow_anchor(node_factory, bitcoind):
     l1.rpc.disconnect(l2.info['id'], force=True)
     l1.rpc.close(l2.info['id'], unilateraltimeout=1)
 
-    # We will have a super-low-prio anchor spend.
-    l1.daemon.wait_for_log(r"Low-priority anchorspend aiming for block {} \(feerate 253\)".format(close_start_depth + 2016))
+    # We will *not* have a super-low-prio anchor spend, since we're there already.
+    time.sleep(5)
+    assert not l1.daemon.is_in_log(r"Low-priority anchorspend")
 
-    # Restart with reduced block time.
+    # Restart with reduced block time, and increase feerates.
     l1.stop()
     l1.daemon.opts['dev-low-prio-anchor-blocks'] = 20
+    l1.set_feerates((15000, 11000, 7500, 3750), wait_for_effect=False)
     l1.start()
 
     l1.daemon.wait_for_log("Low-priority anchorspend aiming for block {}".format(close_start_depth + 20))
@@ -4268,7 +4271,7 @@ def test_onchain_slow_anchor(node_factory, bitcoind):
     height = bitcoind.rpc.getblockchaininfo()['blocks']
     l1.daemon.wait_for_log(r"Low-priority anchorspend aiming for block {} \(feerate 7458\)".format(height + 13))
     # Can be out-by-one (short sig)!
-    l1.daemon.wait_for_log(r"Anchorspend for local commit tx fee (12335|12328)sat \(w=714\), commit_tx fee 4545sat \(w=76[78]\): package feerate 1139[02] perkw")
+    l1.daemon.wait_for_log(r"Anchorspend for local commit tx fee 12335sat \(w=714\), commit_tx fee 1735sat \(w=768\): package feerate 9493 perkw")
     assert not l1.daemon.is_in_log("Low-priority anchorspend aiming for block {}".format(height + 12))
 
     bitcoind.generate_block(1)
