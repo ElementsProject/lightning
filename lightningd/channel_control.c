@@ -753,15 +753,21 @@ static void handle_splice_sending_sigs(struct lightningd *ld,
 				       " splice_confirmed_signed txid %s",
 				       fmt_bitcoin_txid(tmpctx, &txid));
 
-	/* Signing a splice after it has confirmed is safe and can happen during
-	 * reestablish if one node is late seeing blocks */
-	if (channel->state == CHANNELD_AWAITING_SPLICE)
-		return;
+	/* We can get here because of a splice RBF or because re-signing during
+	 * or because of a splice RBF. In the latter case, we will be adding
+	 * adding a harmless second txid watch on the inflight. */
+	if (channel->state != CHANNELD_NORMAL
+		&& channel->state != CHANNELD_AWAITING_SPLICE) {
+		log_unusual(channel->log, "Setting state to"
+			    " CHANNELD_AWAITING_SPLICE but existing channel"
+			    " state is unexpected value %s",
+			    channel_state_str(channel->state));
+	}
 
 	cc = splice_command_for_chan(ld, channel);
 	/* If matching user command found, this was a user intiated splice */
 	channel_set_state(channel,
-			  CHANNELD_NORMAL,
+			  channel->state,
 			  CHANNELD_AWAITING_SPLICE,
 			  cc ? REASON_USER : REASON_REMOTE,
 			  "Splice signatures sent");
