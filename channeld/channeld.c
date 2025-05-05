@@ -1942,8 +1942,9 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 		  remote_funding };
 
 	status_debug("handle_peer_commit_sig(splice: %d, remote_splice: %d,"
-		     " index: %"PRIu64")",
-		     (int)splice_amnt, (int)remote_splice_amnt, local_index);
+		     " commit_index: %"PRIu32", local_index: %"PRIu64", msg: %p)",
+		     (int)splice_amnt, (int)remote_splice_amnt, commit_index,
+		     local_index, msg);
 
 	struct tlv_commitment_signed_tlvs *cs_tlv
 		= tlv_commitment_signed_tlvs_new(tmpctx);
@@ -2057,8 +2058,9 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 		dump_htlcs(peer->channel, "receiving commit_sig");
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Bad commit_sig signature %"PRIu64" %s for tx"
-				 " %s wscript %s key %s feerate %u. Cur funding"
-				 " %s, splice_info: %s, race_await_commit: %s,"
+				 " %s wscript %s key %s feerate %u. Outpoint"
+				 " %s, funding_sats: %s, splice_info: %s,"
+				 " race_await_commit: %s,"
 				 " inflight splice count: %zu",
 				 local_index,
 				 fmt_bitcoin_signature(msg, &commit_sig),
@@ -2066,7 +2068,8 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 				 tal_hex(msg, funding_wscript),
 				 fmt_pubkey(msg, &remote_funding),
 				 channel_feerate(peer->channel, LOCAL),
-				 fmt_channel_id(tmpctx,	&active_id),
+				 fmt_bitcoin_outpoint(tmpctx, &outpoint),
+				 fmt_amount_sat(tmpctx, funding_sats),
 				 cs_tlv && cs_tlv->splice_info
 				 	? fmt_channel_id(tmpctx,
 							 &cs_tlv->splice_info->funding_txid)
