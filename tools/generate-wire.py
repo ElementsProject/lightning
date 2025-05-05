@@ -231,7 +231,6 @@ class Type(FieldSet):
         'gossip_getchannels_entry',
         'failed_htlc',
         'existing_htlc',
-        'simple_htlc',
         'inflight',
         'hsm_utxo',
         'bitcoin_tx',

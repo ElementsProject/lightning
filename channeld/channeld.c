@@ -912,37 +912,22 @@ static u8 *master_wait_sync_reply(const tal_t *ctx,
 	return reply;
 }
 
-/* Collect the htlcs for call to hsmd. */
-static struct simple_htlc *new_simple_htlc(const tal_t *ctx,
-					   enum side side,
-					   struct amount_msat amount,
-					   const struct sha256 *payment_hash,
-					   u32 cltv_expiry)
+static struct hsm_htlc *collect_htlcs(const tal_t *ctx,
+				      const struct htlc **htlc_map)
 {
-	struct simple_htlc *simple = tal(ctx, struct simple_htlc);
-	simple->side = side;
-	simple->amount = amount;
-	simple->payment_hash = *payment_hash;
-	simple->cltv_expiry = cltv_expiry;
-	return simple;
-}
+	struct hsm_htlc *htlcs;
 
-static struct simple_htlc **collect_htlcs(const tal_t *ctx, const struct htlc **htlc_map)
-{
-	struct simple_htlc **htlcs;
-
-	htlcs = tal_arr(ctx, struct simple_htlc *, 0);
+	htlcs = tal_arr(ctx, struct hsm_htlc, 0);
 	size_t num_entries = tal_count(htlc_map);
 	for (size_t ndx = 0; ndx < num_entries; ++ndx) {
 		struct htlc const *hh = htlc_map[ndx];
 		if (hh) {
-			struct simple_htlc *simple =
-				new_simple_htlc(htlcs,
-						htlc_state_owner(hh->state),
-						hh->amount,
-						&hh->rhash,
-						hh->expiry.locktime);
-			tal_arr_expand(&htlcs, simple);
+			struct hsm_htlc htlc;
+			htlc.side = htlc_state_owner(hh->state);
+			htlc.amount = hh->amount;
+			htlc.payment_hash = hh->rhash;
+			htlc.cltv_expiry = hh->expiry.locktime;
+			tal_arr_expand(&htlcs, htlc);
 		}
 	}
 	return htlcs;
@@ -960,7 +945,7 @@ static struct bitcoin_signature *calc_commitsigs(const tal_t *ctx,
 						  struct bitcoin_signature *commit_sig,
 						  struct pubkey remote_funding_pubkey)
 {
-	struct simple_htlc **htlcs;
+	struct hsm_htlc *htlcs;
 	size_t i;
 	struct pubkey local_htlckey;
 	const u8 *msg;
@@ -973,7 +958,7 @@ static struct bitcoin_signature *calc_commitsigs(const tal_t *ctx,
 						    channel_has(peer->channel,
 								OPT_STATIC_REMOTEKEY),
 						    commit_index,
-						    (const struct simple_htlc **) htlcs,
+						    htlcs,
 						    channel_feerate(peer->channel, REMOTE));
 
 	msg = hsm_req(tmpctx, take(msg));
@@ -1897,7 +1882,7 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 	const struct htlc **htlc_map;
 	const u8 *funding_wscript;
 	size_t i;
-	struct simple_htlc **htlcs;
+	const struct hsm_htlc *htlcs;
 	const u8 * msg2;
 	u8 *splice_msg;
 	int type;
@@ -2105,7 +2090,7 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 	htlcs = collect_htlcs(NULL, htlc_map);
 	msg2 = towire_hsmd_validate_commitment_tx(NULL,
 						  txs[0],
-						  (const struct simple_htlc **) htlcs,
+						  htlcs,
 						  local_index,
 						  channel_feerate(peer->channel, LOCAL),
 						  &commit_sig,

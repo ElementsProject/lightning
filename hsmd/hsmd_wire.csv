@@ -230,17 +230,17 @@ msgtype,hsmd_sign_commitment_tx_reply,105
 msgdata,hsmd_sign_commitment_tx_reply,sig,bitcoin_signature,
 
 #include <common/htlc_wire.h> // For enum side and towire_side
-subtype,simple_htlc
-subtypedata,simple_htlc,side,enum side,
-subtypedata,simple_htlc,amount,amount_msat,
-subtypedata,simple_htlc,payment_hash,sha256,
-subtypedata,simple_htlc,cltv_expiry,u32,
+subtype,hsm_htlc
+subtypedata,hsm_htlc,side,enum side,
+subtypedata,hsm_htlc,amount,amount_msat,
+subtypedata,hsm_htlc,payment_hash,sha256,
+subtypedata,hsm_htlc,cltv_expiry,u32,
 
 # Validate the counterparty's commitment signatures.
 msgtype,hsmd_validate_commitment_tx,35
 msgdata,hsmd_validate_commitment_tx,tx,bitcoin_tx,
 msgdata,hsmd_validate_commitment_tx,num_htlcs,u16,
-msgdata,hsmd_validate_commitment_tx,htlcs,simple_htlc,num_htlcs
+msgdata,hsmd_validate_commitment_tx,htlcs,hsm_htlc,num_htlcs
 msgdata,hsmd_validate_commitment_tx,commit_num,u64,
 msgdata,hsmd_validate_commitment_tx,feerate,u32,
 msgdata,hsmd_validate_commitment_tx,sig,bitcoin_signature,
@@ -304,7 +304,7 @@ msgdata,hsmd_sign_remote_commitment_tx,remote_per_commit,pubkey,
 msgdata,hsmd_sign_remote_commitment_tx,option_static_remotekey,bool,
 msgdata,hsmd_sign_remote_commitment_tx,commit_num,u64,
 msgdata,hsmd_sign_remote_commitment_tx,num_htlcs,u16,
-msgdata,hsmd_sign_remote_commitment_tx,htlcs,simple_htlc,num_htlcs
+msgdata,hsmd_sign_remote_commitment_tx,htlcs,hsm_htlc,num_htlcs
 msgdata,hsmd_sign_remote_commitment_tx,feerate,u32,
 
 # channeld asks HSM to sign remote HTLC tx.

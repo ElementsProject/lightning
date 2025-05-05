@@ -1107,7 +1107,6 @@ static u8 *msg_for_remote_commit(const tal_t *ctx,
 	struct wally_tx_output *direct_outputs[NUM_SIDES];
 	struct bitcoin_tx *remote_commit;
 	struct bitcoin_signature local_sig;
-	struct simple_htlc **htlcs = tal_arr(tmpctx, struct simple_htlc *, 0);
 	u32 feerate = 0; // unused since there are no htlcs
 	u64 commit_num = 0;
         u8 *msg;
@@ -1132,7 +1131,7 @@ static u8 *msg_for_remote_commit(const tal_t *ctx,
 						    &state->first_per_commitment_point[REMOTE],
 						    true,
 						    commit_num,
-						    (const struct simple_htlc **) htlcs,
+						    NULL, /* no HTLCS */
 						    feerate);
 	wire_sync_write(HSM_FD, take(msg));
 	msg = wire_sync_read(tmpctx, HSM_FD);
