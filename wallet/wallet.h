@@ -83,34 +83,34 @@ static inline enum output_status output_status_in_db(enum output_status s)
 /* /!\ This is a DB ENUM, please do not change the numbering of any
  * already defined elements (adding is ok) /!\ */
 enum wallet_output_type {
-	p2sh_wpkh = 0,
-	to_local = 1,
-	htlc_offer = 3,
-	htlc_recv = 4,
-	our_change = 5,
-	p2wpkh = 6
+	WALLET_OUTPUT_P2SH_WPKH = 0,
+	WALLET_OUTPUT_TO_LOCAL = 1,
+	WALLET_OUTPUT_HTLC_OFFER = 3,
+	WALLET_OUTPUT_HTLC_RECV = 4,
+	WALLET_OUTPUT_OUR_CHANGE = 5,
+	WALLET_OUTPUT_P2WPKH = 6
 };
 
 static inline enum wallet_output_type wallet_output_type_in_db(enum wallet_output_type w)
 {
 	switch (w) {
-	case p2sh_wpkh:
-		BUILD_ASSERT(p2sh_wpkh == 0);
+	case WALLET_OUTPUT_P2SH_WPKH:
+		BUILD_ASSERT(WALLET_OUTPUT_P2SH_WPKH == 0);
 		return w;
-	case to_local:
-		BUILD_ASSERT(to_local == 1);
+	case WALLET_OUTPUT_TO_LOCAL:
+		BUILD_ASSERT(WALLET_OUTPUT_TO_LOCAL == 1);
 		return w;
-	case htlc_offer:
-		BUILD_ASSERT(htlc_offer == 3);
+	case WALLET_OUTPUT_HTLC_OFFER:
+		BUILD_ASSERT(WALLET_OUTPUT_HTLC_OFFER == 3);
 		return w;
-	case htlc_recv:
-		BUILD_ASSERT(htlc_recv == 4);
+	case WALLET_OUTPUT_HTLC_RECV:
+		BUILD_ASSERT(WALLET_OUTPUT_HTLC_RECV == 4);
 		return w;
-	case our_change:
-		BUILD_ASSERT(our_change == 5);
+	case WALLET_OUTPUT_OUR_CHANGE:
+		BUILD_ASSERT(WALLET_OUTPUT_OUR_CHANGE == 5);
 		return w;
-	case p2wpkh:
-		BUILD_ASSERT(p2wpkh == 6);
+	case WALLET_OUTPUT_P2WPKH:
+		BUILD_ASSERT(WALLET_OUTPUT_P2WPKH == 6);
 		return w;
 	}
 	fatal("%s: %u is invalid", __func__, w);

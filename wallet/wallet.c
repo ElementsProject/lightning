@@ -364,7 +364,7 @@ static struct utxo *wallet_stmt2output(const tal_t *ctx, struct db_stmt *stmt)
 
 	utxo->scriptPubkey = db_col_arr(utxo, stmt, "scriptpubkey", u8);
 	/* FIXME: add p2tr to type? */
-	if (db_col_int(stmt, "type") == p2sh_wpkh)
+	if (wallet_output_type_in_db(db_col_int(stmt, "type")) == WALLET_OUTPUT_P2SH_WPKH)
 		utxo->utxotype = UTXO_P2SH_P2WPKH;
 	else if (is_p2wpkh(utxo->scriptPubkey, tal_bytelen(utxo->scriptPubkey), NULL))
 		utxo->utxotype = UTXO_P2WPKH;
@@ -897,7 +897,7 @@ bool wallet_add_onchaind_utxo(struct wallet *w,
 	db_bind_txid(stmt, &outpoint->txid);
 	db_bind_int(stmt, outpoint->n);
 	db_bind_amount_sat(stmt, &amount);
-	db_bind_int(stmt, wallet_output_type_in_db(p2wpkh));
+	db_bind_int(stmt, wallet_output_type_in_db(WALLET_OUTPUT_P2WPKH));
 	db_bind_int(stmt, OUTPUT_STATE_AVAILABLE);
 	db_bind_int(stmt, 0);
 	db_bind_u64(stmt, channel->dbid);
@@ -3087,7 +3087,7 @@ type_ok:
 		notify_chain_mvt(w->ld, mvt);
 	}
 
-	if (!wallet_add_utxo(w, utxo, utxo->utxotype == UTXO_P2SH_P2WPKH ? p2sh_wpkh : our_change)) {
+	if (!wallet_add_utxo(w, utxo, utxo->utxotype == UTXO_P2SH_P2WPKH ? WALLET_OUTPUT_P2SH_WPKH : WALLET_OUTPUT_OUR_CHANGE)) {
 		/* In case we already know the output, make
 		 * sure we actually track its
 		 * blockheight. This can happen when we grab

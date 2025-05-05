@@ -1234,7 +1234,7 @@ void fillin_missing_scriptpubkeys(struct lightningd *ld, struct db *db)
 			db_col_ignore(stmt, "peer_id");
 			db_col_ignore(stmt, "commitment_point");
 			bip32_pubkey(ld, &key, keyindex);
-			if (type == p2sh_wpkh) {
+			if (type == WALLET_OUTPUT_P2SH_WPKH) {
 				u8 *redeemscript = bitcoin_redeem_p2sh_p2wpkh(stmt, &key);
 				scriptPubkey = scriptpubkey_p2sh(tmpctx, redeemscript);
 			} else
