@@ -574,13 +574,29 @@ struct utxo *wallet_utxo_get(const tal_t *ctx, struct wallet *w,
 	return utxo;
 }
 
+static u32 calc_feerate(struct amount_sat excess_sats,
+			struct amount_sat output_sats_required,
+			size_t weight)
+{
+	struct amount_sat fee;
+	u32 feerate;
+
+	if (!amount_sat_sub(&fee, excess_sats, output_sats_required))
+		return 0;
+	if (!amount_feerate(&feerate, fee, weight))
+		abort();
+	return feerate;
+}
+
 /* Gather enough utxos to meet feerate, otherwise all we can. */
 struct utxo **wallet_utxo_boost(const tal_t *ctx,
 				struct wallet *w,
 				u32 blockheight,
-				struct amount_sat fee_amount,
+				struct amount_sat excess_sats,
+				struct amount_sat output_sats_required,
 				u32 feerate_target,
-				size_t *weight)
+				size_t *weight,
+				bool *insufficient)
 {
 	struct utxo **all_utxos = wallet_get_unspent_utxos(tmpctx, w);
 	struct utxo **utxos = tal_arr(ctx, struct utxo *, 0);
@@ -589,20 +605,26 @@ struct utxo **wallet_utxo_boost(const tal_t *ctx,
 	/* Select in random order */
 	tal_arr_randomize(all_utxos, struct utxo *);
 
-	/* Can't overflow, it's from our tx! */
-	if (!amount_feerate(&feerate, fee_amount, *weight))
-		abort();
+	feerate = calc_feerate(excess_sats, output_sats_required, *weight);
 
 	for (size_t i = 0; i < tal_count(all_utxos); i++) {
 		u32 new_feerate;
 		size_t new_weight;
-		struct amount_sat new_fee_amount;
+		struct amount_sat new_excess_sats;
 		/* Convenience var */
 		struct utxo *utxo = all_utxos[i];
 
 		/* Are we already happy? */
-		if (feerate >= feerate_target)
-			break;
+		if (feerate >= feerate_target) {
+			log_debug(w->log, "wallet_utxo_boost: got %zu UTXOs, excess %s (needed %s), weight %zu, feerate %u >= %u",
+				  tal_count(utxos),
+				  fmt_amount_sat(tmpctx, excess_sats),
+				  fmt_amount_sat(tmpctx, output_sats_required),
+				  *weight, feerate, feerate_target);
+			if (insufficient)
+				*insufficient = false;
+			return utxos;
+		}
 
 		/* Don't add reserved ones */
 		if (utxo_is_reserved(utxo, blockheight))
@@ -613,13 +635,13 @@ struct utxo **wallet_utxo_boost(const tal_t *ctx,
 			continue;
 
 		/* UTXOs must be sane amounts */
-		if (!amount_sat_add(&new_fee_amount,
-				    fee_amount, utxo->amount))
+		if (!amount_sat_add(&new_excess_sats,
+				    excess_sats, utxo->amount))
 			abort();
 
 		new_weight = *weight + utxo_spend_weight(utxo, 0);
-		if (!amount_feerate(&new_feerate, new_fee_amount, new_weight))
-			abort();
+		new_feerate = calc_feerate(new_excess_sats, output_sats_required,
+					   new_weight);
 
 		/* Don't add uneconomic ones! */
 		if (new_feerate < feerate)
@@ -627,10 +649,14 @@ struct utxo **wallet_utxo_boost(const tal_t *ctx,
 
 		feerate = new_feerate;
 		*weight = new_weight;
-		fee_amount = new_fee_amount;
+		excess_sats = new_excess_sats;
 		tal_arr_expand(&utxos, tal_steal(utxos, utxo));
 	}
 
+	log_debug(w->log, "wallet_utxo_boost: fell short, returning %zu UTXOs",
+		  tal_count(utxos));
+	if (insufficient)
+		*insufficient = true;
 	return utxos;
 }
 

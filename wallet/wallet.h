@@ -571,9 +571,11 @@ struct utxo *wallet_utxo_get(const tal_t *ctx, struct wallet *w,
  * @ctx: context to tal return array from
  * @w: the wallet
  * @blockheight: current height (to determine reserved status)
- * @fee_amount: amount already paying in fees
+ * @excess_sats: how much excess it's already got.
+ * @output_sats_required: minimum amount required to output
  * @feerate_target: feerate we want, in perkw.
  * @weight: (in)existing weight before any utxos added, (out)final weight with utxos added.
+ * @insufficient: (out) if non-NULL, set true if we run out of utxos, otherwise false.
  *
  * May not meet the feerate, but will spend all available utxos to try.
  * You may also need to create change, as it may exceed.
@@ -581,9 +583,11 @@ struct utxo *wallet_utxo_get(const tal_t *ctx, struct wallet *w,
 struct utxo **wallet_utxo_boost(const tal_t *ctx,
 				struct wallet *w,
 				u32 blockheight,
-				struct amount_sat fee_amount,
+				struct amount_sat excess_sats,
+				struct amount_sat output_sats_required,
 				u32 feerate_target,
-				size_t *weight);
+				size_t *weight,
+				bool *insufficient);
 
 /**
  * wallet_can_spend - Do we have the private key matching this scriptpubkey?

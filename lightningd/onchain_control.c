@@ -1091,9 +1091,10 @@ static bool consider_onchain_htlc_tx_rebroadcast(struct channel *channel,
 	utxos = wallet_utxo_boost(tmpctx,
 				  ld->wallet,
 				  get_block_height(ld->topology),
+				  AMOUNT_SAT(0),
 				  bitcoin_tx_compute_fee(newtx),
 				  feerate,
-				  &weight);
+				  &weight, NULL);
 
 	/* Add those to create a new PSBT */
 	psbt = psbt_using_utxos(tmpctx, ld->wallet, utxos, locktime,
