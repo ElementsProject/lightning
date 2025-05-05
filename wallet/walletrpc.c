@@ -349,7 +349,7 @@ static void json_add_utxo(struct json_stream *response,
 	json_add_num(response, "output", utxo->outpoint.n);
 	json_add_amount_sat_msat(response, "amount_msat", utxo->amount);
 
-	if (utxo->is_p2sh) {
+	if (utxo->utxotype == UTXO_P2SH_P2WPKH) {
 		struct pubkey key;
 		bip32_pubkey(wallet->ld, &key, utxo->keyindex);
 
@@ -693,7 +693,7 @@ static struct command_result *match_psbt_inputs_to_utxos(struct command *cmd,
 		if (!psbt->inputs[i].utxo && !psbt->inputs[i].witness_utxo) {
 			u8 *scriptPubKey;
 
-			if (utxo->is_p2sh) {
+			if (utxo->utxotype == UTXO_P2SH_P2WPKH) {
 				struct pubkey key;
 				u8 *redeemscript;
 				int wally_err;

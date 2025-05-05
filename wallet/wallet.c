@@ -338,7 +338,6 @@ static struct utxo *wallet_stmt2output(const tal_t *ctx, struct db_stmt *stmt)
 	db_col_txid(stmt, "prev_out_tx", &utxo->outpoint.txid);
 	utxo->outpoint.n = db_col_int(stmt, "prev_out_index");
 	utxo->amount = db_col_amount_sat(stmt, "value");
-	utxo->is_p2sh = db_col_int(stmt, "type") == p2sh_wpkh;
 	utxo->status = db_col_int(stmt, "status");
 	utxo->keyindex = db_col_int(stmt, "keyindex");
 
@@ -364,6 +363,19 @@ static struct utxo *wallet_stmt2output(const tal_t *ctx, struct db_stmt *stmt)
 	}
 
 	utxo->scriptPubkey = db_col_arr(utxo, stmt, "scriptpubkey", u8);
+	/* FIXME: add p2tr to type? */
+	if (db_col_int(stmt, "type") == p2sh_wpkh)
+		utxo->utxotype = UTXO_P2SH_P2WPKH;
+	else if (is_p2wpkh(utxo->scriptPubkey, tal_bytelen(utxo->scriptPubkey), NULL))
+		utxo->utxotype = UTXO_P2WPKH;
+	else if (is_p2tr(utxo->scriptPubkey, tal_bytelen(utxo->scriptPubkey), NULL))
+		utxo->utxotype = UTXO_P2TR;
+	else if (is_p2wsh(utxo->scriptPubkey, tal_bytelen(utxo->scriptPubkey), NULL)) {
+		if (!utxo->close_info)
+			fatal("Unspendable scriptPubkey without close_info %s", tal_hex(tmpctx, utxo->scriptPubkey));
+		utxo->utxotype = UTXO_P2WSH_FROM_CLOSE;
+	} else
+		fatal("Unknown utxo type %s", tal_hex(tmpctx, utxo->scriptPubkey));
 
 	utxo->blockheight = NULL;
 	utxo->spendheight = NULL;
@@ -776,7 +788,7 @@ struct utxo *wallet_find_utxo(const tal_t *ctx, struct wallet *w,
 	while (!utxo && db_step(stmt)) {
 		utxo = wallet_stmt2output(ctx, stmt);
 		if (excluded(excludes, utxo)
-		    || (nonwrapped && utxo->is_p2sh)
+		    || (nonwrapped && utxo->utxotype == UTXO_P2SH_P2WPKH)
 		    || !deep_enough(maxheight, utxo, current_blockheight))
 			utxo = tal_free(utxo);
 
@@ -3028,7 +3040,24 @@ static void got_utxo(struct wallet *w,
 	struct amount_asset asset = wally_tx_output_get_amount(txout);
 
 	utxo->keyindex = keyindex;
-	utxo->is_p2sh = (addrtype == ADDR_P2SH_SEGWIT);
+	/* This switch() pattern catches anyone adding new cases, plus
+	 * runtime errors */
+	switch (addrtype) {
+	case ADDR_P2SH_SEGWIT:
+		utxo->utxotype = UTXO_P2SH_P2WPKH;
+		goto type_ok;
+	case ADDR_BECH32:
+		utxo->utxotype = UTXO_P2WPKH;
+		goto type_ok;
+	case ADDR_P2TR:
+		utxo->utxotype = UTXO_P2TR;
+		goto type_ok;
+	case ADDR_ALL:
+		break;
+	}
+	abort();
+
+type_ok:
 	utxo->amount = amount_asset_to_sat(&asset);
 	utxo->status = OUTPUT_STATE_AVAILABLE;
 	wally_txid(wtx, &utxo->outpoint.txid);
@@ -3042,7 +3071,7 @@ static void got_utxo(struct wallet *w,
 	log_debug(w->log, "Owning output %zu %s (%s) txid %s%s%s",
 		  outnum,
 		  fmt_amount_sat(tmpctx, utxo->amount),
-		  utxo->is_p2sh ? "P2SH" : "SEGWIT",
+		  utxotype_to_str(utxo->utxotype),
 		  fmt_bitcoin_txid(tmpctx, &utxo->outpoint.txid),
 		  blockheight ? " CONFIRMED" : "",
 		  is_coinbase ? " COINBASE" : "");
@@ -3058,7 +3087,7 @@ static void got_utxo(struct wallet *w,
 		notify_chain_mvt(w->ld, mvt);
 	}
 
-	if (!wallet_add_utxo(w, utxo, utxo->is_p2sh ? p2sh_wpkh : our_change)) {
+	if (!wallet_add_utxo(w, utxo, utxo->utxotype == UTXO_P2SH_P2WPKH ? p2sh_wpkh : our_change)) {
 		/* In case we already know the output, make
 		 * sure we actually track its
 		 * blockheight. This can happen when we grab
@@ -3070,7 +3099,7 @@ static void got_utxo(struct wallet *w,
 	}
 
 	/* This is an unconfirmed change output, we should track it */
-	if (!utxo->is_p2sh && !blockheight)
+	if (utxo->utxotype != UTXO_P2SH_P2WPKH && !blockheight)
 		txfilter_add_scriptpubkey(w->ld->owned_txfilter, txout->script);
 
 	outpointfilter_add(w->owned_outpoints, &utxo->outpoint);

@@ -8,10 +8,10 @@ size_t utxo_spend_weight(const struct utxo *utxo, size_t min_witness_weight)
 	/* If the min is less than what we'd use for a 'normal' tx,
 	 * we return the value with the greater added/calculated */
 	if (wit_weight < min_witness_weight)
-		return bitcoin_tx_input_weight(utxo->is_p2sh,
+		return bitcoin_tx_input_weight(utxo->utxotype == UTXO_P2SH_P2WPKH,
 					       min_witness_weight);
 
-	return bitcoin_tx_input_weight(utxo->is_p2sh, wit_weight);
+	return bitcoin_tx_input_weight(utxo->utxotype == UTXO_P2SH_P2WPKH, wit_weight);
 }
 
 u32 utxo_is_immature(const struct utxo *utxo, u32 blockheight)
@@ -30,4 +30,19 @@ u32 utxo_is_immature(const struct utxo *utxo, u32 blockheight)
 		/* Non-coinbase outputs are always mature. */
 		return 0;
 	}
+}
+
+const char *utxotype_to_str(enum utxotype utxotype)
+{
+	switch (utxotype) {
+	case UTXO_P2SH_P2WPKH:
+		return "p2sh_p2wpkh";
+	case UTXO_P2WPKH:
+		return "p2wpkh";
+	case UTXO_P2WSH_FROM_CLOSE:
+		return "p2wsh_from_close";
+	case UTXO_P2TR:
+		return "p2tr";
+	}
+	abort();
 }
