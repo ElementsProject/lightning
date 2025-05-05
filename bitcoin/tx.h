@@ -48,6 +48,17 @@ struct bitcoin_tx_output {
 	u8 *script;
 };
 
+enum utxotype {
+	/* Obsolete: we used to have P2SH-wrapped outputs (removed in 24.02, though can still have old UTXOs) */
+	UTXO_P2SH_P2WPKH = 1,
+	/* "bech32" addresses */
+	UTXO_P2WPKH = 2,
+	/* Used for closing addresses: implies ->close_info is non-NULL */
+	UTXO_P2WSH_FROM_CLOSE = 3,
+	/* "p2tr" addresses. */
+	UTXO_P2TR = 4,
+};
+
 struct bitcoin_tx_output *new_tx_output(const tal_t *ctx,
 					struct amount_sat amount,
 					const u8 *script);
@@ -320,11 +331,8 @@ size_t bitcoin_tx_input_sig_weight(void);
  * but not the varint_size() for the number of elements. */
 size_t bitcoin_tx_input_weight(bool p2sh, size_t witness_weight);
 
-/* The witness weight for a simple (sig + key) input */
-size_t bitcoin_tx_simple_input_witness_weight(void);
-
-/* We only do segwit inputs, and we assume witness is sig + key  */
-size_t bitcoin_tx_simple_input_weight(bool p2sh);
+/* The witness weight */
+size_t bitcoin_tx_input_witness_weight(enum utxotype utxotype);
 
 /* The witness for our 2of2 input (closing or commitment tx). */
 size_t bitcoin_tx_2of2_input_witness_weight(void);

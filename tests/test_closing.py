@@ -889,17 +889,17 @@ def test_channel_lease_post_expiry(node_factory, bitcoind, chainparams):
     l2.daemon.wait_for_log('Resolved FUNDING_TRANSACTION/FUNDING_OUTPUT by MUTUAL_CLOSE')
 
     channel_mvts_1 = [
-        {'type': 'chain_mvt', 'credit_msat': 506432000, 'debit_msat': 0, 'tags': ['channel_open', 'opener', 'leased']},
-        {'type': 'channel_mvt', 'credit_msat': 0, 'debit_msat': 6432000, 'tags': ['lease_fee'], 'fees_msat': '0msat'},
+        {'type': 'chain_mvt', 'credit_msat': 506268000, 'debit_msat': 0, 'tags': ['channel_open', 'opener', 'leased']},
+        {'type': 'channel_mvt', 'credit_msat': 0, 'debit_msat': 6268000, 'tags': ['lease_fee'], 'fees_msat': '0msat'},
         {'type': 'channel_mvt', 'credit_msat': 0, 'debit_msat': 10000, 'tags': ['invoice'], 'fees_msat': '0msat'},
         {'type': 'chain_mvt', 'credit_msat': 0, 'debit_msat': 499990000, 'tags': ['channel_close']},
     ]
 
     channel_mvts_2 = [
         {'type': 'chain_mvt', 'credit_msat': 500000000, 'debit_msat': 0, 'tags': ['channel_open', 'leased']},
-        {'type': 'channel_mvt', 'credit_msat': 6432000, 'debit_msat': 0, 'tags': ['lease_fee'], 'fees_msat': '0msat'},
+        {'type': 'channel_mvt', 'credit_msat': 6268000, 'debit_msat': 0, 'tags': ['lease_fee'], 'fees_msat': '0msat'},
         {'type': 'channel_mvt', 'credit_msat': 10000, 'debit_msat': 0, 'tags': ['invoice'], 'fees_msat': '0msat'},
-        {'type': 'chain_mvt', 'credit_msat': 0, 'debit_msat': 506442000, 'tags': ['channel_close']},
+        {'type': 'chain_mvt', 'credit_msat': 0, 'debit_msat': 506278000, 'tags': ['channel_close']},
     ]
 
     check_coin_moves(l1, channel_id, channel_mvts_1, chainparams)

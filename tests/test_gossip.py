@@ -1117,7 +1117,7 @@ def test_gossip_lease_rates(node_factory, bitcoind):
     rates = l1.rpc.call('funderupdate')
     assert rates['channel_fee_max_base_msat'] == Millisatoshi('500000msat')
     assert rates['channel_fee_max_proportional_thousandths'] == 200
-    assert rates['funding_weight'] == 666  # Default on regtest
+    assert rates['funding_weight'] == 584  # Default on regtest
     assert rates['lease_fee_base_msat'] == Millisatoshi('2000msat')
     assert rates['lease_fee_basis'] == 50
 
@@ -1150,7 +1150,7 @@ def test_gossip_lease_rates(node_factory, bitcoind):
     rates = l1_nodeinfo['option_will_fund']
     assert rates['channel_fee_max_base_msat'] == Millisatoshi('500000msat')
     assert rates['channel_fee_max_proportional_thousandths'] == 200
-    assert rates['funding_weight'] == 666  # Default on regtest
+    assert rates['funding_weight'] == 584  # Default on regtest
     assert rates['lease_fee_base_msat'] == Millisatoshi('2000msat')
     assert rates['lease_fee_basis'] == 50
 
@@ -1176,7 +1176,7 @@ def test_gossip_lease_rates(node_factory, bitcoind):
     rates = l2_nodeinfo['option_will_fund']
     assert rates['channel_fee_max_base_msat'] == Millisatoshi('30000msat')
     assert rates['channel_fee_max_proportional_thousandths'] == 100
-    assert rates['funding_weight'] == 666  # Default on regtest
+    assert rates['funding_weight'] == 584  # Default on regtest
     assert rates['lease_fee_base_msat'] == Millisatoshi('400000msat')
     assert rates['lease_fee_basis'] == 20
 
