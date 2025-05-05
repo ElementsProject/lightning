@@ -344,6 +344,10 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 	psbt = NULL;
 	unimportant_deadline = NULL;
 
+	/* We start with furthest feerate target, and keep going backwards
+	 * until it's either not worth making an anchor at that price for all
+	 * the HTLCs from that point on, or we have an anchor for the closest
+	 * HTLC deadline */
 	for (int i = tal_count(anch->adet->vals) - 1; i >= 0; --i) {
 		const struct deadline_value *val = &anch->adet->vals[i];
 		u32 feerate, feerate_target;
@@ -363,6 +367,16 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 			abort();
 
 		feerate_target = feerate_for_target(ld->topology, val->block);
+
+		/* If the feerate for the commitment tx is already
+		 * sufficient, don't try for anchor. */
+		if (amount_feerate(&feerate,
+				   anch->info.commitment_fee,
+				   anch->info.commitment_weight)
+		    && feerate >= feerate_target) {
+			continue;
+		}
+
 		candidate_psbt = try_anchor_psbt(tmpctx, channel, anch,
 						 feerate_target,
 						 base_weight,
@@ -424,23 +438,34 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 			block_target = get_block_height(ld->topology) + 12;
 		feerate_target = feerate_for_target(ld->topology, block_target);
 
-		log_debug(channel->log,
-			  "Low-priority anchorspend aiming for block %u (feerate %u)",
-			  block_target, feerate_target);
-		psbt = try_anchor_psbt(tmpctx, channel, anch,
-				       feerate_target,
-				       base_weight,
-				       &psbt_weight,
-				       &psbt_fee,
-				       &feerate,
-				       &psbt_utxos);
-		/* Don't bother with anchor if we don't add UTXOs */
-		if (tal_count(psbt_utxos) == 0) {
-			if (!psbt)
-				log_unusual(channel->log,
-					    "No utxos to bump commit_tx to feerate %uperkw!",
-					    feerate_target);
-			psbt = tal_free(psbt);
+		/* If the feerate for the commitment tx is already
+		 * sufficient, don't try for anchor. */
+		if (!amount_feerate(&feerate,
+				    anch->info.commitment_fee,
+				    anch->info.commitment_weight)
+		    || feerate < feerate_target) {
+			log_debug(channel->log,
+				  "Low-priority anchorspend aiming for block %u (feerate %u)",
+				  block_target, feerate_target);
+			psbt = try_anchor_psbt(tmpctx, channel, anch,
+					       feerate_target,
+					       base_weight,
+					       &psbt_weight,
+					       &psbt_fee,
+					       &feerate,
+					       &psbt_utxos);
+			/* Don't bother with anchor if we don't add UTXOs */
+			if (tal_count(psbt_utxos) == 0) {
+				if (!psbt)
+					log_unusual(channel->log,
+						    "No utxos to bump commit_tx to feerate %uperkw!",
+						    feerate_target);
+				psbt = tal_free(psbt);
+			}
+		} else {
+			log_debug(channel->log,
+				  "Avoiding anchorspend: feerate already %u for target %u",
+				  feerate, feerate_target);
 		}
 	}
 
