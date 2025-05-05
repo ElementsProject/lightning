@@ -1199,7 +1199,10 @@ static u8 *send_commit_part(const tal_t *ctx,
 		*anchor = tal(ctx, struct local_anchor_info);
 		bitcoin_txid(txs[0], &(*anchor)->anchor_point.txid);
 		(*anchor)->anchor_point.n = local_anchor_outnum;
-		(*anchor)->commitment_weight = bitcoin_tx_weight(txs[0]);
+		/* Actual weight will include witnesses!  Note: this assumes
+		 * 73 byte sigs (worst case as per BOLT), whereas we grind to
+		 * 71, and so does everyone else. */
+		(*anchor)->commitment_weight = bitcoin_tx_weight(txs[0]) + bitcoin_tx_2of2_input_witness_weight() - 4;
 		(*anchor)->commitment_fee = bitcoin_tx_compute_fee(txs[0]);
 	}
 
