@@ -2015,6 +2015,22 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 	if (commit_index) {
 		outpoint = peer->splice_state->inflights[commit_index - 1]->outpoint;
 		funding_sats = peer->splice_state->inflights[commit_index - 1]->amnt;
+
+		if (!cs_tlv || !cs_tlv->splice_info)
+			peer_failed_err(peer->pps, &peer->channel_id,
+					"Must set funding_txid for each"
+					" extra commitment_signed message.");
+
+		status_info("handle_peer_commit_sig for inflight outpoint %s", fmt_bitcoin_txid(tmpctx, &peer->splice_state->inflights[commit_index - 1]->outpoint.txid));
+		status_info("handle_peer_commit_sig cs_tlv->splice_info->funding_txid %s", fmt_bitcoin_txid(tmpctx, &cs_tlv->splice_info->funding_txid));
+
+		if (!bitcoin_txid_eq(&peer->splice_state->inflights[commit_index - 1]->outpoint.txid,
+				     &cs_tlv->splice_info->funding_txid))
+			peer_failed_err(peer->pps, &peer->channel_id,
+					"Expected commit sig message for %s but"
+					" got %s",
+					fmt_bitcoin_txid(tmpctx, &peer->splice_state->inflights[commit_index - 1]->outpoint.txid),
+					fmt_bitcoin_txid(tmpctx, &cs_tlv->splice_info->funding_txid));
 	}
 	else {
 		outpoint = peer->channel->funding;
