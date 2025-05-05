@@ -913,6 +913,20 @@ static u8 *master_wait_sync_reply(const tal_t *ctx,
 }
 
 /* Collect the htlcs for call to hsmd. */
+static struct simple_htlc *new_simple_htlc(const tal_t *ctx,
+					   enum side side,
+					   struct amount_msat amount,
+					   const struct sha256 *payment_hash,
+					   u32 cltv_expiry)
+{
+	struct simple_htlc *simple = tal(ctx, struct simple_htlc);
+	simple->side = side;
+	simple->amount = amount;
+	simple->payment_hash = *payment_hash;
+	simple->cltv_expiry = cltv_expiry;
+	return simple;
+}
+
 static struct simple_htlc **collect_htlcs(const tal_t *ctx, const struct htlc **htlc_map)
 {
 	struct simple_htlc **htlcs;
