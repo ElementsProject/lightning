@@ -2223,7 +2223,7 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
  */
 static int commit_index_from_msg(const u8 *msg, struct peer *peer)
 {
-	struct channel_id funding_id;
+	struct bitcoin_txid funding_txid;
 	struct channel_id channel_id;
 	struct bitcoin_signature commit_sig;
 	secp256k1_ecdsa_signature *raw_sigs;
@@ -2232,18 +2232,18 @@ static int commit_index_from_msg(const u8 *msg, struct peer *peer)
 	fromwire_commitment_signed(tmpctx, msg, &channel_id, &commit_sig.s,
 				   &raw_sigs, &cs_tlv);
 
-	derive_channel_id(&funding_id, &peer->channel->funding);
-	if (channel_id_eq(&funding_id, &channel_id))
+	if (!cs_tlv || !cs_tlv->splice_info)
+		return -1;
+
+	funding_txid = cs_tlv->splice_info->funding_txid;
+
+	if (bitcoin_txid_eq(&funding_txid, &peer->channel->funding.txid))
 		return 0;
 
-	for (int i = 0; i < tal_count(peer->splice_state->inflights); i++) {
-		struct channel_id splice_id;
-		derive_channel_id(&splice_id,
-				  &peer->splice_state->inflights[i]->outpoint);
-
-		if (channel_id_eq(&splice_id, &channel_id))
+	for (int i = 0; i < tal_count(peer->splice_state->inflights); i++)
+		if (bitcoin_txid_eq(&funding_txid,
+				    &peer->splice_state->inflights[i]->outpoint.txid))
 			return i + 1;
-	}
 
 	return -1;
 }
