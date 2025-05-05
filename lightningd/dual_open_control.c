@@ -1825,13 +1825,37 @@ static void handle_peer_tx_sigs_sent(struct subd *dualopend,
 	    !inflight->tx_broadcast) {
 		inflight->tx_broadcast = true;
 
-		wtx = psbt_final_tx(NULL, inflight->funding_psbt);
+		wtx = psbt_final_tx(tmpctx, inflight->funding_psbt);
 		if (!wtx) {
 			channel_internal_error(channel,
 					       "Unable to extract final tx"
 					       " from PSBT %s",
 					       fmt_wally_psbt(tmpctx,
 							      inflight->funding_psbt));
+			return;
+		}
+
+		/* BOLT #2
+		 * The receiving node:  ...
+		 * - MUST fail the channel if:
+		 *   - the `witness_stack` weight lowers the
+		 *   effective `feerate` below the agreed upon
+		 *   transaction `feerate`
+		 */
+		if (!feerate_satisfied(inflight->funding_psbt,
+				       inflight->funding->feerate)) {
+			char *errmsg = tal_fmt(tmpctx,
+					       "Witnesses lower effective"
+					       " feerate below agreed upon rate"
+					       " of %dperkw. Failing channel."
+					       " Offending PSBT: %s",
+					       inflight->funding->feerate,
+					       fmt_wally_psbt(tmpctx,
+							      inflight->funding_psbt));
+
+			/* Notify the peer we're failing */
+			subd_send_msg(dualopend,
+				      take(towire_dualopend_fail(NULL, errmsg)));
 			return;
 		}
 
@@ -1857,29 +1881,6 @@ static void handle_peer_tx_sigs_sent(struct subd *dualopend,
 					      &channel->funding_sats,
 					      &channel->funding.txid,
 					      channel->remote_channel_ready);
-
-		/* BOLT #2
-		 * The receiving node:  ...
-		 * - MUST fail the channel if:
-		 *   - the `witness_stack` weight lowers the
-		 *   effective `feerate` below the agreed upon
-		 *   transaction `feerate`
-		 */
-		if (!feerate_satisfied(inflight->funding_psbt,
-				       inflight->funding->feerate)) {
-			char *errmsg = tal_fmt(tmpctx,
-					       "Witnesses lower effective"
-					       " feerate below agreed upon rate"
-					       " of %dperkw. Failing channel."
-					       " Offending PSBT: %s",
-					       inflight->funding->feerate,
-					       fmt_wally_psbt(tmpctx,
-							      inflight->funding_psbt));
-
-			/* Notify the peer we're failing */
-			subd_send_msg(dualopend,
-				      take(towire_dualopend_fail(NULL, errmsg)));
-		}
 	}
 }
 
@@ -2170,7 +2171,7 @@ static void handle_peer_tx_sigs_msg(struct subd *dualopend,
 
 		/* Saves the now finalized version of the psbt */
 		wallet_inflight_save(ld->wallet, inflight);
-		wtx = psbt_final_tx(NULL, inflight->funding_psbt);
+		wtx = psbt_final_tx(tmpctx, inflight->funding_psbt);
 		if (!wtx) {
 			channel_internal_error(channel,
 					       "Unable to extract final tx"
@@ -2179,26 +2180,6 @@ static void handle_peer_tx_sigs_msg(struct subd *dualopend,
 							      inflight->funding_psbt));
 			return;
 		}
-
-		send_funding_tx(channel, take(wtx));
-
-		assert(channel->state == DUALOPEND_OPEN_COMMITTED
-		       /* We might be reconnecting */
-		       || channel->state == DUALOPEND_AWAITING_LOCKIN);
-		channel_set_state(channel, channel->state,
-				  DUALOPEND_AWAITING_LOCKIN,
-				  REASON_UNKNOWN,
-				  "Sigs exchanged, waiting for lock-in");
-
-		/* Mimic the old behavior, notify a channel has been opened,
-		 * for the accepter side */
-		if (channel->opener == REMOTE)
-			/* Tell plugins about the success */
-			notify_channel_opened(dualopend->ld,
-					      &channel->peer->id,
-					      &channel->funding_sats,
-					      &channel->funding.txid,
-					      channel->remote_channel_ready);
 
 		/* BOLT #2
 		 * The receiving node:  ...
@@ -2221,7 +2202,28 @@ static void handle_peer_tx_sigs_msg(struct subd *dualopend,
 			/* Notify the peer we're failing */
 			subd_send_msg(dualopend,
 				      take(towire_dualopend_fail(NULL, errmsg)));
+			return;
 		}
+		send_funding_tx(channel, take(wtx));
+
+		assert(channel->state == DUALOPEND_OPEN_COMMITTED
+		       /* We might be reconnecting */
+		       || channel->state == DUALOPEND_AWAITING_LOCKIN);
+		channel_set_state(channel, channel->state,
+				  DUALOPEND_AWAITING_LOCKIN,
+				  REASON_UNKNOWN,
+				  "Sigs exchanged, waiting for lock-in");
+
+		/* Mimic the old behavior, notify a channel has been opened,
+		 * for the accepter side */
+		if (channel->opener == REMOTE)
+			/* Tell plugins about the success */
+			notify_channel_opened(dualopend->ld,
+					      &channel->peer->id,
+					      &channel->funding_sats,
+					      &channel->funding.txid,
+					      channel->remote_channel_ready);
+
 	}
 
 	/* Send notification with peer's signed PSBT */
