@@ -359,7 +359,7 @@ def test_ping(node_factory):
     ping_tests(l1, l2)
 
 
-def test_htlc_sig_persistence(node_factory, bitcoind, executor):
+def test_htlc_sig_persistence(node_factory, bitcoind, executor, chainparams):
     """Interrupt a payment between two peers, then fail and recover funds using the HTLC sig.
     """
     # Feerates identical so we don't get gratuitous commit to update them
@@ -399,8 +399,9 @@ def test_htlc_sig_persistence(node_factory, bitcoind, executor):
 
     bitcoind.generate_block(5)
     bitcoind.generate_block(1, wait_for_mempool=txid)
+    outtype = 'p2tr' if not chainparams['elements'] else 'p2wpkh'
     l1.daemon.wait_for_logs([
-        r'Owning output . (\d+)sat .SEGWIT. txid',
+        rf'Owning output . (\d+)sat \({outtype}\) txid {txid} CONFIRMED',
     ])
 
     # We should now have 1) the unilateral to us, and b) the HTLC respend to us

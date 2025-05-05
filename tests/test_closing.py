@@ -76,8 +76,9 @@ def test_closing_simple(node_factory, bitcoind, chainparams):
     ]
     bitcoind.generate_block(1)
 
-    l1.daemon.wait_for_log(r'Owning output.* \(SEGWIT\).* txid %s.* CONFIRMED' % closetxid)
-    l2.daemon.wait_for_log(r'Owning output.* \(SEGWIT\).* txid %s.* CONFIRMED' % closetxid)
+    outtype = 'p2tr' if not chainparams['elements'] else 'p2wpkh'
+    l1.daemon.wait_for_log(rf'Owning output.* \({outtype}\).* txid %s.* CONFIRMED' % closetxid)
+    l2.daemon.wait_for_log(rf'Owning output.* \({outtype}\).* txid %s.* CONFIRMED' % closetxid)
 
     # Make sure both nodes have grabbed their close tx funds
     assert closetxid in set([o['txid'] for o in l1.rpc.listfunds()['outputs']])
@@ -333,13 +334,15 @@ def test_closing_specified_destination(node_factory, bitcoind, chainparams):
     bitcoind.generate_block(1)
     sync_blockheight(bitcoind, [l1, l2, l3, l4])
 
+    outtype = 'p2tr' if not chainparams['elements'] else 'p2wpkh'
+
     # l1 can't spent the output to addr.
     for txid in closetxs.values():
-        assert not l1.daemon.is_in_log(r'Owning output.* \(SEGWIT\).* txid {}.* CONFIRMED'.format(txid))
+        assert not l1.daemon.is_in_log(rf'Owning output.* \({outtype}\).* txid {txid}.* CONFIRMED')
 
     # Check the txid has at least 1 confirmation
     for n, txid in closetxs.items():
-        n.daemon.wait_for_log(r'Owning output.* \(SEGWIT\).* txid {}.* CONFIRMED'.format(txid))
+        n.daemon.wait_for_log(rf'Owning output.* \({outtype}\).* txid {txid}.* CONFIRMED')
 
     for n in [l2, l3, l4]:
         # Make sure both nodes have grabbed their close tx funds

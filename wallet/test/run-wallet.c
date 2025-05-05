@@ -1403,9 +1403,11 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 	u.close_info->peer_id = id;
 	u.close_info->commitment_point = &pk;
 	u.close_info->option_anchors = false;
-	/* Arbitrarily set scriptpubkey len to 20 */
-	u.scriptPubkey = tal_arr(w, u8, 20);
-	memset(u.scriptPubkey, 1, 20);
+	/* P2WSH */
+	u.scriptPubkey = tal_arr(w, u8, BITCOIN_SCRIPTPUBKEY_P2WSH_LEN);
+	u.scriptPubkey[0] = OP_0;
+	u.scriptPubkey[1] = sizeof(struct sha256);
+	memset(u.scriptPubkey + 2, 1, sizeof(struct sha256));
 	CHECK_MSG(wallet_add_utxo(w, &u, our_change),
 		  "wallet_add_utxo with close_info");
 
@@ -1473,8 +1475,10 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 	CHECK_MSG(!wallet_err, wallet_err);
 
 	u.blockheight = blockheight;
-	u.scriptPubkey = tal_arr(w, u8, 20);
-	memset(u.scriptPubkey, 1, 20);
+	u.scriptPubkey = tal_arr(w, u8, BITCOIN_SCRIPTPUBKEY_P2WPKH_LEN);
+	u.scriptPubkey[0] = OP_0;
+	u.scriptPubkey[1] = sizeof(struct ripemd160);
+	memset(u.scriptPubkey + 2, 1, sizeof(struct ripemd160));
 	CHECK_MSG(wallet_add_utxo(w, &u, p2sh_wpkh),
 		  "wallet_add_utxo with close_info no commitment_point");
 	CHECK_MSG(!wallet_err, wallet_err);
