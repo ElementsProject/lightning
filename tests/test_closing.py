@@ -4000,26 +4000,36 @@ def test_peer_anchor_push(node_factory, bitcoind, executor, chainparams):
     # We put l3's tx in the mempool, but won't mine it.
     bitcoind.rpc.sendrawtransaction(closetx)
 
-    # We aim for feerate ~3750, so this won't mine it.
-    # HTLC's going to time out at block 119
-    for block in range(108, 119):
+    # We aim for feerate ~3750, so this won't mine l3's unilateral close.
+    # HTLC's going to time out at block 120 (we give one block grace)
+    for block in range(110, 120):
         bitcoind.generate_block(1, needfeerate=5000)
+        assert bitcoind.rpc.getblockcount() == block
         sync_blockheight(bitcoind, [l2])
+    assert only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['state'] == 'CHANNELD_NORMAL'
 
     # Drops to chain
+    bitcoind.generate_block(1, needfeerate=5000)
     wait_for(lambda: only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['state'] == 'AWAITING_UNILATERAL')
 
-    # But, l3's tx already there, and identical feerate will not RBF
+    # But, l3's tx already there, and identical feerate will not RBF.
     l2.daemon.wait_for_log("rejecting replacement")
-    assert bitcoind.rpc.getrawmempool() != []
+    wait_for(lambda: len(bitcoind.rpc.getrawmempool()) == 2)
 
     # As blocks pass, we will use anchor to boost l3's tx.
-    for block in range(119, 124):
-        bitcoind.generate_block(1, needfeerate=5000)
+    for block, feerate in zip(range(120, 124), (12000, 13000, 14000, 15000)):
+        l2.daemon.wait_for_log(fr"Worth fee [0-9]*sat for remote commit tx to get 100000000msat at block 125 \(\+{125 - block}\) at feerate {feerate}perkw")
+        bitcoind.generate_block(1, needfeerate=16000)
         sync_blockheight(bitcoind, [l2])
+        assert len(bitcoind.rpc.getrawmempool()) == 2
 
-    # mempool should be empty, but our 'needfeerate' logic is bogus and leaves
-    # the anchor spend tx!  So just check that l2 did see the commitment tx
+    # Feerate tops out at +1, so this is the same.  This time we mine it!
+    l2.daemon.wait_for_log(fr"Worth fee [0-9]*sat for remote commit tx to get 100000000msat at block 125 \(\+1\) at feerate 15000perkw")
+    l2.daemon.wait_for_log("sendrawtx exit 0")
+
+    bitcoind.generate_block(1, needfeerate=15000)
+
+    assert bitcoind.rpc.getrawmempool() == []
     wait_for(lambda: only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['state'] == 'ONCHAIN')
 
 
@@ -4274,7 +4284,7 @@ def test_onchain_slow_anchor(node_factory, bitcoind):
     height = bitcoind.rpc.getblockchaininfo()['blocks']
     l1.daemon.wait_for_log(r"Low-priority anchorspend aiming for block {} \(feerate 7458\)".format(height + 13))
     # Can be out-by-one (short sig)!
-    l1.daemon.wait_for_log(r"Anchorspend for local commit tx fee 12037 \(w=674\), commit_tx fee 1735sat \(w=768\): package feerate 9550 perkw")
+    l1.daemon.wait_for_log(r"Anchorspend for local commit tx fee 9377sat \(w=722\), commit_tx fee 1735sat \(w=768\): package feerate 7457 perkw")
     assert not l1.daemon.is_in_log("Low-priority anchorspend aiming for block {}".format(height + 12))
 
     bitcoind.generate_block(1)
