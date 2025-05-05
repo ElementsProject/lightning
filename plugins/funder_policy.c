@@ -127,9 +127,9 @@ default_lease_rates(const tal_t *ctx)
 	rates->channel_fee_max_base_msat = 5000000;
 
 	/* Let's set our default max weight to two inputs + an output
-	 * (use helpers b/c elements) */
+	 * (use helpers b/c elements).  We're mainly taproot now. */
 	rates->funding_weight
-		= 2 * bitcoin_tx_simple_input_weight(false)
+		= 2 * bitcoin_tx_input_weight(false, bitcoin_tx_input_witness_weight(UTXO_P2TR))
 		+ bitcoin_tx_output_weight(BITCOIN_SCRIPTPUBKEY_P2WPKH_LEN);
 
 	return rates;

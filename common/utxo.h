@@ -31,17 +31,6 @@ enum output_status {
 	OUTPUT_STATE_ANY = 255
 };
 
-enum utxotype {
-	/* Obsolete: we used to have P2SH-wrapped outputs (removed in 24.02, though can still have old UTXOs) */
-	UTXO_P2SH_P2WPKH = 1,
-	/* "bech32" addresses */
-	UTXO_P2WPKH = 2,
-	/* Used for closing addresses: implies ->close_info is non-NULL */
-	UTXO_P2WSH_FROM_CLOSE = 3,
-	/* "p2tr" addresses. */
-	UTXO_P2TR = 4,
-};
-
 const char *utxotype_to_str(enum utxotype utxotype);
 
 struct utxo {
