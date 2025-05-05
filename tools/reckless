@@ -206,6 +206,36 @@ class InstInfo:
         return (f'InstInfo({self.name}, {self.source_loc}, {self.git_url}, '
                 f'{self.entry}, {self.deps}, {self.subdir})')
 
+    def get_repo_commit(self) -> Union[str, None]:
+        """The latest commit from a remote repo or the HEAD of a local repo."""
+        if self.srctype in [Source.LOCAL_REPO, Source.GIT_LOCAL_CLONE]:
+            git = run(['git', 'rev-parse', 'HEAD'], cwd=str(self.source_loc),
+                      stdout=PIPE, stderr=PIPE, text=True, check=False, timeout=10)
+            if git.returncode != 0:
+                return None
+            return git.stdout.splitlines()[0]
+
+        if self.srctype == Source.GITHUB_REPO:
+            parsed_url = urlparse(self.source_loc)
+            if 'github.com' not in parsed_url.netloc:
+                return None
+            if len(parsed_url.path.split('/')) < 2:
+                return None
+            start = 1
+            # Maybe we were passed an api.github.com/repo/<user> url
+            if 'api' in parsed_url.netloc:
+                start += 1
+            repo_user = parsed_url.path.split('/')[start]
+            repo_name = parsed_url.path.split('/')[start + 1]
+            api_url = f'{API_GITHUB_COM}/repos/{repo_user}/{repo_name}/commits?ref=HEAD'
+            r = urlopen(api_url, timeout=5)
+            if r.status != 200:
+                return None
+            try:
+                return json.loads(r.read().decode())['0']['sha']
+            except:
+                return None
+
     def get_inst_details(self) -> bool:
         """Search the source_loc for plugin install details.
         This may be necessary if a contents api is unavailable.
@@ -1694,6 +1724,15 @@ def update_plugin(plugin_name: str) -> Union[str, None]:
 
     src = InstInfo(plugin_name,
                    metadata['original source'], None)
+    if not src.get_inst_details():
+        log.error(f'cannot locate {plugin_name} in original source {metadata["original_source"]}')
+        return None
+    repo_commit = src.get_repo_commit()
+    if not repo_commit:
+        log.debug('source commit not available')
+    if repo_commit and repo_commit == metadata['installed commit']:
+        log.debug(f'Installed {plugin_name} is already latest - {repo_commit}')
+        return None
     uninstall(plugin_name)
     try:
         installed = _install_plugin(src)
