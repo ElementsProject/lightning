@@ -356,6 +356,7 @@ struct lightningd {
 	/* hsmd characteristic tweaks */
 	bool dev_hsmd_no_preapprove_check;
 	bool dev_hsmd_fail_preapprove;
+	bool dev_hsmd_warn_on_overgrind;
 
 	/* Tell connectd not to talk after handshake */
 	bool dev_handshake_no_reply;

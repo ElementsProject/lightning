@@ -40,6 +40,7 @@ bool initialized = false;
 /* Do we fail all preapprove requests? */
 bool dev_fail_preapprove = false;
 bool dev_no_preapprove_check = false;
+bool dev_warn_on_overgrind = false;
 
 struct hsmd_client *hsmd_client_new_main(const tal_t *ctx, u64 capabilities,
 					 void *extra)
@@ -553,6 +554,7 @@ static void sign_our_inputs(struct hsm_utxo **utxos, struct wally_psbt *psbt)
 		for (size_t j = 0; j < psbt->num_inputs; j++) {
 			struct privkey privkey;
 			struct pubkey pubkey;
+			bool needed_sig;
 
 			if (!wally_psbt_input_spends(&psbt->inputs[j],
 						   &utxo->outpoint))
@@ -590,6 +592,10 @@ static void sign_our_inputs(struct hsm_utxo **utxos, struct wally_psbt *psbt)
 				wally_psbt_signing_cache_enable(psbt, 0);
 				is_cache_enabled = true;
 			}
+
+			/* We watch for pre-taproot variable-length sigs */
+			needed_sig = (psbt->inputs[j].signatures.num_items == 0);
+
 			if (wally_psbt_sign(psbt, privkey.secret.data,
 					    sizeof(privkey.secret.data),
 					    EC_FLAG_GRIND_R) != WALLY_OK) {
@@ -601,6 +607,14 @@ static void sign_our_inputs(struct hsm_utxo **utxos, struct wally_psbt *psbt)
 				    "sign input %zu with key %s. PSBT: %s",
 				    j, fmt_pubkey(tmpctx, &pubkey),
 				    fmt_wally_psbt(tmpctx, psbt));
+			}
+			if (dev_warn_on_overgrind
+			    && needed_sig
+			    && psbt->inputs[j].signatures.num_items == 1
+			    && psbt->inputs[j].signatures.items[0].value_len < 71) {
+				hsmd_status_fmt(LOG_BROKEN, NULL,
+						"overgrind: short signature length %zu",
+						psbt->inputs[j].signatures.items[0].value_len);
 			}
 			tal_wally_end(psbt);
 		}

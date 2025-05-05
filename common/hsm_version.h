@@ -27,7 +27,7 @@
  * v5 with preapprove_check: 0ed6dd4ea2c02b67c51b1420b3d07ab2227a4c06ce7e2942d946967687e9baf7
  * v6 no secret from get_per_commitment_point: 0cad1790beb3473d64355f4cb4f64daa80c28c8a241998b7ef0223385d7ffff9
  * v6 with sign_bolt12_2 (tweak using node id): 8fcb731279a10af3f95aeb8be1da6b2ced76a1984afa18c5f46a03515d70ea0e
- * v6 (internal rework only): 22dc3adfb0d63dbd6a92ff1daacbb6218c5efa3080f8910933a18683ce75bf5f
+ * v6 with dev_warn_on_overgrind: a273b68e19336073e551c01a78bcd1e1f8cc510da7d0dde3afc45e249f9830cc
 */
 #define HSM_MIN_VERSION 5
 #define HSM_MAX_VERSION 6
