@@ -1697,14 +1697,25 @@ def list_source():
     return sources_from_file()
 
 
-def update_plugin(plugin_name: str) -> Union[str, None]:
+class UpdateStatus(Enum):
+    SUCCESS = 0
+    LATEST = 1
+    UNINSTALLED = 2
+    ERROR = 3
+    METADATA_MISSING = 4
+
+
+def update_plugin(plugin_name: str) -> tuple:
     """Check for an installed plugin, if metadata for it exists, update
     to the latest available while using the same source."""
     log.info(f"updating {plugin_name}")
+    if not (Path(RECKLESS_CONFIG.reckless_dir) / plugin_name).exists():
+        log.error(f'{plugin_name} is not installed')
+        return (None, UpdateStatus.UNINSTALLED)
     metadata_file = Path(RECKLESS_CONFIG.reckless_dir) / plugin_name / '.metadata'
     if not metadata_file.exists():
         log.warning(f"no metadata file for {plugin_name}")
-        return None
+        return (None, UpdateStatus.METADATA_MISSING)
 
     metadata = {'installation date': None,
                 'installation time': None,
@@ -1726,29 +1737,34 @@ def update_plugin(plugin_name: str) -> Union[str, None]:
                    metadata['original source'], None)
     if not src.get_inst_details():
         log.error(f'cannot locate {plugin_name} in original source {metadata["original_source"]}')
-        return None
+        return (None, UpdateStatus.ERROR)
     repo_commit = src.get_repo_commit()
     if not repo_commit:
         log.debug('source commit not available')
+    else:
+        log.debug(f'source commit: {repo_commit}')
     if repo_commit and repo_commit == metadata['installed commit']:
-        log.debug(f'Installed {plugin_name} is already latest - {repo_commit}')
-        return None
+        log.info(f'Installed {plugin_name} is already latest @{repo_commit}')
+        return (None, UpdateStatus.LATEST)
     uninstall(plugin_name)
     try:
         installed = _install_plugin(src)
     except FileExistsError as err:
         log.error(f'File exists: {err.filename}')
-        return None
-    return _enable_installed(installed, plugin_name)
+        return (None, UpdateStatus.ERROR)
+    result = _enable_installed(installed, plugin_name)
+    if result:
+        return (result, UpdateStatus.SUCCESS)
+    return (result, UpdateStatus.ERROR)
 
 
 def update_plugins(plugin_name: str):
     """user requested plugin upgrade(s)"""
     if plugin_name:
         installed = update_plugin(plugin_name)
-        if not installed:
+        if not installed[0] and installed[1] != UpdateStatus.LATEST:
             log.error(f'{plugin_name} update aborted')
-        return installed
+        return installed[0]
 
     log.info("updating all plugins")
     update_results = []
@@ -1757,7 +1773,7 @@ def update_plugins(plugin_name: str):
             continue
         if len(plugin) > 0 and plugin[0] == '.':
             continue
-        update_results.append(update_plugin(plugin))
+        update_results.append(update_plugin(plugin)[0])
     return update_results
 
 
