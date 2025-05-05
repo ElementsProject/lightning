@@ -118,7 +118,7 @@ msgdata,hsmd_forget_channel,dbid,u64,
 msgtype,hsmd_forget_channel_reply,134
 
 # Return signature for a funding tx.
-#include <common/utxo.h>
+#include <hsmd/hsm_utxo.h>
 
 # Master asks the HSM to sign a node_announcement
 msgtype,hsmd_node_announcement_sig_req,6
@@ -132,7 +132,7 @@ msgdata,hsmd_node_announcement_sig_reply,signature,secp256k1_ecdsa_signature,
 #include <bitcoin/psbt.h>
 msgtype,hsmd_sign_withdrawal,7
 msgdata,hsmd_sign_withdrawal,num_inputs,u16,
-msgdata,hsmd_sign_withdrawal,inputs,utxo,num_inputs
+msgdata,hsmd_sign_withdrawal,inputs,hsm_utxo,num_inputs
 msgdata,hsmd_sign_withdrawal,psbt,wally_psbt,
 
 msgtype,hsmd_sign_withdrawal_reply,107
@@ -425,7 +425,7 @@ msgtype,hsmd_sign_anchorspend,147
 msgdata,hsmd_sign_anchorspend,peerid,node_id,
 msgdata,hsmd_sign_anchorspend,channel_dbid,u64,
 msgdata,hsmd_sign_anchorspend,num_inputs,u16,
-msgdata,hsmd_sign_anchorspend,inputs,utxo,num_inputs
+msgdata,hsmd_sign_anchorspend,inputs,hsm_utxo,num_inputs
 msgdata,hsmd_sign_anchorspend,psbt,wally_psbt,
 
 msgtype,hsmd_sign_anchorspend_reply,148
@@ -474,7 +474,7 @@ msgtype,hsmd_sign_htlc_tx_mingle,149
 msgdata,hsmd_sign_htlc_tx_mingle,peerid,node_id,
 msgdata,hsmd_sign_htlc_tx_mingle,channel_dbid,u64,
 msgdata,hsmd_sign_htlc_tx_mingle,num_inputs,u16,
-msgdata,hsmd_sign_htlc_tx_mingle,inputs,utxo,num_inputs
+msgdata,hsmd_sign_htlc_tx_mingle,inputs,hsm_utxo,num_inputs
 msgdata,hsmd_sign_htlc_tx_mingle,psbt,wally_psbt,
 
 msgtype,hsmd_sign_htlc_tx_mingle_reply,150

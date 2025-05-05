@@ -81,9 +81,6 @@ static inline bool utxo_is_csv_locked(const struct utxo *utxo, u32 current_heigh
 	return *utxo->blockheight + utxo->close_info->csv > current_height;
 }
 
-void towire_utxo(u8 **pptr, const struct utxo *utxo);
-struct utxo *fromwire_utxo(const tal_t *ctx, const u8 **ptr, size_t *max);
-
 /* Estimate of (signed) UTXO weight in transaction */
 size_t utxo_spend_weight(const struct utxo *utxo, size_t min_witness_weight);
 

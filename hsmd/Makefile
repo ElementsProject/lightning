@@ -2,6 +2,7 @@
 
 HSMD_SRC := hsmd/hsmd.c	\
 	hsmd/hsmd_wiregen.c \
+	hsmd/hsm_utxo.c \
 	hsmd/libhsmd.c
 
 HSMD_HEADERS := hsmd/hsmd_wiregen.h hsmd/permissions.h
@@ -12,6 +13,7 @@ $(HSMD_OBJS): $(HSMD_HEADERS)
 # Other programs which use the hsm need this.
 HSMD_CLIENT_OBJS := \
 	hsmd/hsmd_wiregen.o			\
+	hsmd/hsm_utxo.o				\
 	common/htlc_wire.o
 
 # Make sure these depend on everything.
@@ -50,7 +52,6 @@ HSMD_COMMON_OBJS :=				\
 	common/status_wiregen.o			\
 	common/subdaemon.o			\
 	common/utils.o				\
-	common/utxo.o				\
 	common/version.o			\
 	common/wireaddr.o
 
