@@ -588,17 +588,17 @@ struct utxo **wallet_utxo_boost(const tal_t *ctx,
 /**
  * wallet_can_spend - Do we have the private key matching this scriptpubkey?
  *
- * FIXME: This is very slow with lots of inputs!
- *
  * @w: (in) wallet holding the pubkeys to check against (privkeys are on HSM)
  * @script: (in) the script to check
  * @script_len: (in) the length of @script
  * @index: (out) the bip32 derivation index that matched the script
+ * @addrtype: (out) if non-NULL, set to address type of script.
  */
 bool wallet_can_spend(struct wallet *w,
 		      const u8 *script,
 		      size_t script_len,
-		      u32 *index);
+		      u32 *index,
+		      enum addrtype *addrtype);
 
 /**
  * wallet_get_newindex - get a new index from the wallet.

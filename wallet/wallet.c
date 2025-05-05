@@ -910,7 +910,7 @@ bool wallet_add_onchaind_utxo(struct wallet *w,
 }
 
 bool wallet_can_spend(struct wallet *w, const u8 *script, size_t script_len,
-		      u32 *index)
+		      u32 *index, enum addrtype *addrtype)
 {
 	u64 bip32_max_index;
 	const struct wallet_address *waddr;
@@ -931,6 +931,8 @@ bool wallet_can_spend(struct wallet *w, const u8 *script, size_t script_len,
 		db_set_intvar(w->db, "bip32_max_index", waddr->index);
 
 	*index = waddr->index;
+	if (addrtype)
+		*addrtype = waddr->addrtype;
 	return true;
 }
 
@@ -3014,6 +3016,7 @@ void wallet_confirm_tx(struct wallet *w,
 
 static void got_utxo(struct wallet *w,
 		     u64 keyindex,
+		     enum addrtype addrtype,
 		     const struct wally_tx *wtx,
 		     size_t outnum,
 		     bool is_coinbase,
@@ -3025,7 +3028,7 @@ static void got_utxo(struct wallet *w,
 	struct amount_asset asset = wally_tx_output_get_amount(txout);
 
 	utxo->keyindex = keyindex;
-	utxo->is_p2sh = is_p2sh(txout->script, txout->script_len, NULL);
+	utxo->is_p2sh = (addrtype == ADDR_P2SH_SEGWIT);
 	utxo->amount = amount_asset_to_sat(&asset);
 	utxo->status = OUTPUT_STATE_AVAILABLE;
 	wally_txid(wtx, &utxo->outpoint.txid);
@@ -3087,14 +3090,15 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct wally_tx *wtx,
 		const struct wally_tx_output *txout = &wtx->outputs[i];
 		u32 keyindex;
 		struct amount_asset asset = wally_tx_output_get_amount(txout);
+		enum addrtype addrtype;
 
 		if (!amount_asset_is_main(&asset))
 			continue;
 
-		if (!wallet_can_spend(w, txout->script, txout->script_len, &keyindex))
+		if (!wallet_can_spend(w, txout->script, txout->script_len, &keyindex, &addrtype))
 			continue;
 
-		got_utxo(w, keyindex, wtx, i, is_coinbase, blockheight, NULL);
+		got_utxo(w, keyindex, addrtype, wtx, i, is_coinbase, blockheight, NULL);
 		num_utxos++;
 	}
 	return num_utxos;
@@ -6751,7 +6755,7 @@ static void mutual_close_p2pkh_catch(struct bitcoind *bitcoind,
 					   missing->addrs[n].scriptpubkey,
 					   tal_bytelen(missing->addrs[n].scriptpubkey)))
 					continue;
-				got_utxo(w, missing->addrs[n].keyidx,
+				got_utxo(w, missing->addrs[n].keyidx, ADDR_BECH32,
 					 wtx, outnum, i == 0, &height, &outp);
 				log_broken(bitcoind->ld->log, "Rescan found %s!",
 					   fmt_bitcoin_outpoint(tmpctx, &outp));
