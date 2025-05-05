@@ -1777,10 +1777,11 @@ static bool missing_user_signatures(const struct peer *peer,
 	return false;
 }
 
-static void check_tx_abort(struct peer *peer, const u8 *msg)
+/* `txid` is which tx to abort (aka remove inflight). NULL means just restart
+ * channeld and dont abort any specific inflight. */
+static void check_tx_abort(struct peer *peer, const u8 *msg, struct bitcoin_txid *txid)
 {
-	struct inflight *inflight = last_inflight(peer);
-	struct bitcoin_outpoint *outpoint;
+	struct inflight *inflight;
 	struct channel_id channel_id;
 	u8 *data;
 	char *reason;
@@ -1788,11 +1789,20 @@ static void check_tx_abort(struct peer *peer, const u8 *msg)
 	if (fromwire_peektype(msg) != WIRE_TX_ABORT)
 		return;
 
-	if (have_i_signed_inflight(peer, inflight)) {
-		peer_failed_err(peer->pps, &peer->channel_id, "tx_abort"
-			        " is not allowed after I have sent my"
-			        " signature. msg: %s",
-			        tal_hex(tmpctx, msg));
+	inflight = NULL;
+	for (size_t i = 0; txid && i < tal_count(peer->splice_state->inflights); i++) {
+		struct inflight *itr = peer->splice_state->inflights[i];
+		if (!bitcoin_txid_eq(&itr->outpoint.txid, txid))
+			continue;
+		if (have_i_signed_inflight(peer, inflight)) {
+			peer_failed_err(peer->pps, &peer->channel_id, "tx_abort"
+				        " is not allowed after I have sent my"
+				        " signature. msg: %s txid: %s",
+				        tal_hex(tmpctx, msg),
+				        fmt_bitcoin_txid(tmpctx,
+				        		 &itr->outpoint.txid));
+		}
+		inflight = itr;
 	}
 
 	if (!fromwire_tx_abort(tmpctx, msg, &channel_id, &data))
@@ -1804,10 +1814,6 @@ static void check_tx_abort(struct peer *peer, const u8 *msg)
 	peer_write(peer->pps,
 		   take(towire_tx_abort(NULL, &peer->channel_id, NULL)));
 
-	outpoint = NULL;
-	if (inflight)
-		outpoint = &inflight->outpoint;
-
 	status_info("Send tx_abort to master");
 
 	reason = sanitize_error(tmpctx, msg, &peer->channel_id);
@@ -1816,7 +1822,9 @@ static void check_tx_abort(struct peer *peer, const u8 *msg)
 
 	wire_sync_write(MASTER_FD,
 			take(towire_channeld_splice_abort(NULL, false,
-							  outpoint,
+							  inflight
+							  	? &inflight->outpoint
+							  	: NULL,
 							  tal_fmt(tmpctx,
 							  "Peer aborted"
 							  " for reason: %s",
@@ -2297,7 +2305,7 @@ static struct commitsig_info *handle_peer_commit_sig_batch(struct peer *peer,
 		struct tlv_commitment_signed_tlvs *sub_cs_tlv
 			= tlv_commitment_signed_tlvs_new(tmpctx);
 		u8 *sub_msg = peer_read(tmpctx, peer->pps);
-		check_tx_abort(peer, sub_msg);
+		check_tx_abort(peer, sub_msg, NULL);
 
 		/* Check type for cleaner failure message */
 		type = fromwire_peektype(sub_msg);
@@ -2960,7 +2968,7 @@ static struct commitsig *interactive_send_commitments(struct peer *peer,
 					    WIRE_TX_SIGNATURES,
 					    WIRE_TX_ABORT);
 
-		check_tx_abort(peer, msg);
+		check_tx_abort(peer, msg, &inflight->outpoint.txid);
 
 		if (msg_received)
 			*msg_received = msg;
@@ -3538,7 +3546,7 @@ static void resume_splice_negotiation(struct peer *peer,
 						    recv_commitments,
 						    &msg_received);
 
-	check_tx_abort(peer, msg_received);
+	check_tx_abort(peer, msg_received, &inflight->outpoint.txid);
 
 	if (their_commit) {
 		if (inflight->last_tx != their_commit->tx)
@@ -3654,7 +3662,7 @@ static void resume_splice_negotiation(struct peer *peer,
 
 		type = fromwire_peektype(msg);
 
-		check_tx_abort(peer, msg);
+		check_tx_abort(peer, msg, &inflight->outpoint.txid);
 
 		if (handle_peer_error_or_warning(peer->pps, msg))
 			return;
@@ -4018,7 +4026,7 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 		peer_failed_err(peer->pps, &peer->channel_id,
 				"Interactive splicing error: %s", error);
 
-	check_tx_abort(peer, abort_msg);
+	check_tx_abort(peer, abort_msg, NULL);
 
 	assert(ictx->pause_when_complete == false);
 	peer->splicing->sent_tx_complete = true;
@@ -4270,7 +4278,7 @@ static void splice_initiator_user_finalized(struct peer *peer)
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Splice interactivetx error: %s", error);
 
-	check_tx_abort(peer, abort_msg);
+	check_tx_abort(peer, abort_msg, NULL);
 
 	/* With pause_when_complete fase, this assert should never fail */
 	assert(peer->splicing->received_tx_complete);
@@ -4436,7 +4444,7 @@ static void splice_initiator_user_update(struct peer *peer, const u8 *inmsg)
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				"Splice update error: %s", error);
 
-	check_tx_abort(peer, abort_msg);
+	check_tx_abort(peer, abort_msg, NULL);
 
 	peer->splicing->tx_add_input_count = ictx->tx_add_input_count;
 	peer->splicing->tx_add_output_count = ictx->tx_add_output_count;
@@ -4747,7 +4755,7 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	if (handle_peer_error_or_warning(peer->pps, msg))
 		return;
 
-	check_tx_abort(peer, msg);
+	check_tx_abort(peer, msg, NULL);
 
 	/* If we're in STFU mode and aren't waiting for a STFU mode
 	 * specific message, the only valid message was tx_abort */
@@ -4846,7 +4854,7 @@ static void peer_in(struct peer *peer, const u8 *msg)
 		handle_peer_splice_locked(peer, msg);
 		return;
 	case WIRE_TX_ABORT:
-		check_tx_abort(peer, msg);
+		check_tx_abort(peer, msg, NULL);
 		return;
 	case WIRE_INIT:
 	case WIRE_OPEN_CHANNEL:
@@ -6434,7 +6442,6 @@ static void req_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNELD_SPLICE_FEERATE_ERROR:
 	case WIRE_CHANNELD_SPLICE_FUNDING_ERROR:
 	case WIRE_CHANNELD_SPLICE_ABORT:
-		check_tx_abort(peer, msg);
 	case WIRE_CHANNELD_CONFIRMED_STFU:
 		break;
  	case WIRE_CHANNELD_DEV_REENABLE_COMMIT:
