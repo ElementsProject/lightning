@@ -2253,16 +2253,28 @@ static int commit_cmp(const void *a, const void *n, void *peer)
 	int commit_index_a = commit_index_from_msg(*(u8**)a, peer);
 	int commit_index_n = commit_index_from_msg(*(u8**)n, peer);
 
-	if (commit_index_a == commit_index_n)
+	status_debug("commit_cmp a: %p, n: %p result: %d & %d",
+		    *(u8**)a, *(u8**)n, commit_index_a, commit_index_n);
+
+	if (commit_index_a == commit_index_n) {
+		status_debug("commit_cmp: return 0");
 		return 0;
+	}
 
 	/* Unrecognized commits go on the end */
-	if (commit_index_a == -1)
+	if (commit_index_a == -1) {
+		status_debug("commit_cmp: return 1");
 		return 1;
+	}
 
-	if (commit_index_n == -1)
+	if (commit_index_n == -1) {
+		status_debug("commit_cmp: return -1");
 		return -1;
+	}
 
+	status_debug("commit_cmp: return %d - %d = %d",
+		    commit_index_a, commit_index_n,
+		    commit_index_a - commit_index_n);
 	/* Otherwise we sort by commit_index */
 	return commit_index_a - commit_index_n;
 }
@@ -2300,7 +2312,7 @@ static struct commitsig_info *handle_peer_commit_sig_batch(struct peer *peer,
 
 	msg_batch = tal_arr(tmpctx, const u8*, batch_size);
 	msg_batch[0] = msg;
-	status_info("msg_batch[0]: %p", msg_batch[0]);
+	status_debug("msg_batch[0]: %p", msg_batch[0]);
 
 	/* Already received commitment signed once, so start at i = 1 */
 	for (u16 i = 1; i < batch_size; i++) {
@@ -2316,7 +2328,7 @@ static struct commitsig_info *handle_peer_commit_sig_batch(struct peer *peer,
 					"Expected splice related "
 					"WIRE_COMMITMENT_SIGNED but got %s",
 					peer_wire_name(type));
-		status_info("fromwire_commitment_signed(%p) splice index %d", sub_msg, (int)i);
+		status_debug("fromwire_commitment_signed(%p) splice index %d", sub_msg, (int)i);
 		if (!fromwire_commitment_signed(tmpctx, sub_msg,
 						&channel_id, &commit_sig.s,
 						&raw_sigs, &sub_cs_tlv))
@@ -2335,10 +2347,10 @@ static struct commitsig_info *handle_peer_commit_sig_batch(struct peer *peer,
 					tal_hex(sub_msg, sub_msg));
 
 		msg_batch[i] = sub_msg;
-		status_info("msg_batch[%d]: %p", (int)i, msg_batch[i]);
+		status_debug("msg_batch[%d]: %p", (int)i, msg_batch[i]);
 	}
 
-	status_info("Sorting the msg_batch of tal_count %d, batch_size: %d", (int)tal_count(msg_batch), (int)batch_size);
+	status_debug("Sorting the msg_batch of tal_count %d, batch_size: %d", (int)tal_count(msg_batch), (int)batch_size);
 	asort(msg_batch, tal_count(msg_batch), commit_cmp, peer);
 
 	return handle_peer_commit_sig(peer, msg, commit_index, remote_funding,
