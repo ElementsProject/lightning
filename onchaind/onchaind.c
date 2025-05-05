@@ -186,9 +186,9 @@ static void trim_maximum_feerate(struct amount_sat funding,
 	 *   * `txin[0]` script bytes: 0
 	 *   * `txin[0]` witness: `0 <signature_for_pubkey1> <signature_for_pubkey2>`
 	 */
-	/* Account for witness (1 byte count + 1 empty + sig + sig) */
+	/* Account for witness (1 empty + sig + sig) */
 	assert(tal_count(commitment->inputs) == 1);
-	weight += bitcoin_tx_input_weight(false, 1 + 1 + 2 * bitcoin_tx_input_sig_weight());
+	weight += bitcoin_tx_input_weight(false, 1 + 2 * bitcoin_tx_input_sig_weight());
 
 	for (size_t i = 0; i < tal_count(commitment->outputs); i++) {
 		struct amount_asset amt;
