@@ -2736,7 +2736,11 @@ def test_zeroconf_forget(node_factory, bitcoind, dopay: bool):
         l1.rpc.pay(inv["bolt11"])
         wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['to_us_msat'] == 1)
 
-    # We need *another* channel to make it forget the first though!
+    # We need *another* channel to make it forget the first though!  (One block later, otherwise
+    # *this* might be forgotten).
+    bitcoind.generate_block(1)
+    sync_blockheight(bitcoind, [l2])
+
     l3.connect(l2)
     l3.rpc.fundchannel(l2.info["id"], 10**6, mindepth=0)
     bitcoind.generate_block(1)
@@ -2744,7 +2748,7 @@ def test_zeroconf_forget(node_factory, bitcoind, dopay: bool):
     # Now stop, in order to cause catchup and re-evaluate whether to forget the channel
     l2.stop()
 
-    # Now we generate enough blocks to cause l2 to forget the channel.
+    # Now we generate enough blocks to cause l2 consider both channels forgettable.
     bitcoind.generate_block(blocks - 1)  # > blocks
     l2.start()
 
@@ -2755,16 +2759,14 @@ def test_zeroconf_forget(node_factory, bitcoind, dopay: bool):
     bitcoind.generate_block(1)
     sync_blockheight(bitcoind, [l1, l2])
 
-    # This may take a moment!
-    time.sleep(5)
-
-    have_forgotten = l2.daemon.is_in_log(
-        r"UNUSUAL {}-chan#1: Forgetting channel: It has been 51 blocks without the funding transaction ".format(l1.info['id'])
-    )
-
+    # If we made a payment it will *not* consider there to tbe two forgettable channels.
     if dopay:
-        assert not have_forgotten
+        # This may take a moment!
+        time.sleep(5)
+
+        assert not l2.daemon.is_in_log('Forgetting channel')
         assert set([c['peer_id'] for c in l2.rpc.listpeerchannels()["channels"]]) == set([l1.info['id'], l3.info['id']])
     else:
-        assert have_forgotten
+        # It will forget the older one.
+        l2.daemon.wait_for_log(r"UNUSUAL {}-chan#1: Forgetting channel: It has been {} blocks without the funding transaction ".format(l1.info['id'], blocks + 1))
         assert [c['peer_id'] for c in l2.rpc.listpeerchannels()["channels"]] == [l3.info['id']]
