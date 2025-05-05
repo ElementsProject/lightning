@@ -241,8 +241,6 @@ void validate_initial_commitment_signature(int hsm_fd,
 					   struct bitcoin_tx *tx,
 					   struct bitcoin_signature *sig)
 {
-	struct existing_htlc **htlcs;
-	struct bitcoin_signature *htlc_sigs;
 	u32 feerate;
 	u64 commit_num;
 	const u8 *msg;
@@ -250,19 +248,15 @@ void validate_initial_commitment_signature(int hsm_fd,
 	struct pubkey next_point;
 
 	/* Validate the counterparty's signature. */
-	htlcs = tal_arr(NULL, struct existing_htlc *, 0);
-	htlc_sigs = tal_arr(NULL, struct bitcoin_signature, 0);
 	feerate = 0; /* unused since there are no htlcs */
 	commit_num = 0;
 	msg = towire_hsmd_validate_commitment_tx(NULL,
 						 tx,
-						 (const struct simple_htlc **) htlcs,
+						 NULL, /* No htlcs */
 						 commit_num,
 						 feerate,
 						 sig,
-						 htlc_sigs);
-	tal_free(htlc_sigs);
-	tal_free(htlcs);
+						 NULL /* No htlc_sigs */);
 	wire_sync_write(hsm_fd, take(msg));
 	msg = wire_sync_read(tmpctx, hsm_fd);
 	if (!fromwire_hsmd_validate_commitment_tx_reply(tmpctx, msg, &old_secret, &next_point))
