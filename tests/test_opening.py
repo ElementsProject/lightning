@@ -2720,10 +2720,10 @@ def test_zeroconf_forget(node_factory, bitcoind, dopay: bool):
 
     l1.fundwallet(10**7)
     l3.fundwallet(10**7)
+    sync_blockheight(bitcoind, [l2])
 
     l1.connect(l2)
     l1.rpc.fundchannel(l2.info["id"], 10**6, mindepth=0)
-    sync_blockheight(bitcoind, [l1, l2])
     wait_for(lambda: l2.rpc.listincoming()["incoming"] != [])
 
     # If we are told to pay while still not confirmed we perform one
