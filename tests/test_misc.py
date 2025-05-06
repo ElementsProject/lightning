@@ -172,12 +172,15 @@ def test_bitcoin_pruned(node_factory, bitcoind):
             "result": [
                 {
                     "id": 1,
+                    "services": "000000000000040d",
                 },
                 {
                     "id": 2,
+                    "services": "0000000000000001",
                 },
                 {
                     "id": 3,
+                    "services": "0000000000000000",
                 },
             ],
         }
@@ -210,10 +213,10 @@ def test_bitcoin_pruned(node_factory, bitcoind):
     l1.daemon.rpcproxy.mock_rpc("getblockfrompeer", mock_getblockfrompeer())
     l1.start(wait_for_bitcoind_sync=False)
 
-    # check that we fetched a block from a peer (1st peer (from the back) in this case).
+    # check that we fetched a block from a peer (1st peer (from the back) in this case, but not from 3 which isn't a full node).
     pruned_block = bitcoind.rpc.getblockhash(bitcoind.rpc.getblockcount())
     l1.daemon.wait_for_log(f"failed to fetch block {pruned_block} from the bitcoin backend")
-    l1.daemon.wait_for_log(rf"try to fetch block {pruned_block} from peer 3")
+    l1.daemon.wait_for_log(rf"try to fetch block {pruned_block} from peer 2")
     l1.daemon.wait_for_log(rf"Adding block (\d+): {pruned_block}")
 
     # check that we can also fetch from a peer > 1st (from the back).
@@ -222,8 +225,8 @@ def test_bitcoin_pruned(node_factory, bitcoind):
 
     pruned_block = bitcoind.rpc.getblockhash(bitcoind.rpc.getblockcount())
     l1.daemon.wait_for_log(f"failed to fetch block {pruned_block} from the bitcoin backend")
-    l1.daemon.wait_for_log(rf"failed to fetch block {pruned_block} from peer 3")
-    l1.daemon.wait_for_log(rf"try to fetch block {pruned_block} from peer (\d+)")
+    l1.daemon.wait_for_log(rf"failed to fetch block {pruned_block} from peer 2")
+    l1.daemon.wait_for_log(rf"try to fetch block {pruned_block} from peer 1")
     l1.daemon.wait_for_log(rf"Adding block (\d+): {pruned_block}")
 
     # check that we retry if we could not fetch any block
