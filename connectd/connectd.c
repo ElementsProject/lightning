@@ -796,6 +796,7 @@ static void reconnect(struct important_id *imp)
 	/* Do gossmap lookup to find any addresses from there, and append. */
 	append_gossmap_addresses(&addrs, imp->daemon, &imp->id);
 
+	imp->reconnect_timer = NULL;
 	try_connect_peer(imp->daemon, &imp->id, take(addrs), false);
 }
 
@@ -811,7 +812,7 @@ static void schedule_reconnect_if_important(struct daemon *daemon,
 		return;
 
 	/* Already on it? */
-	if (find_connecting(daemon, id))
+	if (find_connecting(daemon, id) || imp->reconnect_timer)
 		return;
 
 	/* --dev-no-reconnect?  Don't reconnect. */
@@ -822,10 +823,10 @@ static void schedule_reconnect_if_important(struct daemon *daemon,
 			  imp->reconnect_secs);
 	/* We fuzz the timer by up to 1 second, to avoid getting into
 	 * simultanous-reconnect deadlocks with peer. */
-	notleak(new_reltimer(&daemon->timers, imp,
-			     timerel_add(time_from_sec(imp->reconnect_secs),
-					 time_from_usec(pseudorand(1000000))),
-			     reconnect, imp));
+	imp->reconnect_timer = new_reltimer(&daemon->timers, imp,
+					    timerel_add(time_from_sec(imp->reconnect_secs),
+							time_from_usec(pseudorand(1000000))),
+					    reconnect, imp);
 
 	/* Back off next time if that fails */
 	imp->reconnect_secs *= 2;
@@ -1972,6 +1973,7 @@ static void connect_to_peer(struct daemon *daemon, const u8 *msg)
 						    struct wireaddr_internal,
 						    addrs);
 			imp->reconnect_secs = INITIAL_WAIT_SECONDS;
+			imp->reconnect_timer = NULL;
 			tal_add_destructor(imp, destroy_important_id);
 			important_id_htable_add(daemon->important_ids, imp);
 		} else
