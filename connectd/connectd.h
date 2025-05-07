@@ -149,7 +149,10 @@ struct important_id {
 
 	struct node_id id;
 	struct wireaddr_internal *addrs;
+
+	/* Backoff timer (increases by 2 each time) */
 	size_t reconnect_secs;
+	struct oneshot *reconnect_timer;
 };
 
 static const struct node_id *important_id_keyof(const struct important_id *imp)
