@@ -78,51 +78,11 @@ static void try_connect_one_addr(struct connecting *connect);
  * timer to call a higher function again, so has to be pre-declared. */
 static void try_connect_peer(struct daemon *daemon,
 			     const struct node_id *id,
-			     struct wireaddr_internal *addrs TAKES,
-			     bool dns_fallback);
+			     struct wireaddr_internal *addrs TAKES);
 
 /* We track peers which are important, and try to reconnect (with backoff) */
 static void schedule_reconnect_if_important(struct daemon *daemon,
 					    const struct node_id *id);
-
-/*~ Some ISP resolvers will reply with a dummy IP to queries that would otherwise
- * result in an NXDOMAIN reply. This just checks whether we have one such
- * resolver upstream and remembers its reply so we can try to filter future
- * dummies out.
- */
-static bool broken_resolver(struct daemon *daemon)
-{
-	struct addrinfo *addrinfo;
-	struct addrinfo hints;
-	const char *hostname = "nxdomain-test.doesntexist";
-	int err;
-
-	/* If they told us to never do DNS queries, don't even do this one and
-	 * also not if we just say that we don't */
-	if (!daemon->use_dns || daemon->always_use_proxy) {
-		daemon->broken_resolver_response = NULL;
-		return false;
-	}
-
-	memset(&hints, 0, sizeof(hints));
-	hints.ai_family = AF_UNSPEC;
-	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_protocol = 0;
-	hints.ai_flags = AI_ADDRCONFIG;
-	err = getaddrinfo(hostname, tal_fmt(tmpctx, "%d", 42),
-			  &hints, &addrinfo);
-
-	/*~ Note the use of tal_dup here: it is a memdup for tal, but it's
-	 * type-aware so it's less error-prone. */
-	if (err == 0) {
-		daemon->broken_resolver_response
-			= tal_dup(daemon, struct sockaddr, addrinfo->ai_addr);
-		freeaddrinfo(addrinfo);
-	} else
-		daemon->broken_resolver_response = NULL;
-
-	return daemon->broken_resolver_response != NULL;
-}
 
 /*~ Here we see our first tal destructor: in this case the 'struct connect'
  * simply removes itself from the table of all 'connecting' structs. */
@@ -797,7 +757,7 @@ static void reconnect(struct important_id *imp)
 	append_gossmap_addresses(&addrs, imp->daemon, &imp->id);
 
 	imp->reconnect_timer = NULL;
-	try_connect_peer(imp->daemon, &imp->id, take(addrs), false);
+	try_connect_peer(imp->daemon, &imp->id, take(addrs));
 }
 
 static void schedule_reconnect_if_important(struct daemon *daemon,
@@ -1656,11 +1616,6 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 	} else
 		daemon->proxyaddr = NULL;
 
-	if (broken_resolver(daemon)) {
-		status_debug("Broken DNS resolver detected, will check for "
-			     "dummy replies");
-	}
-
 	/* Figure out our addresses. */
 	daemon->listen_fds = setup_listeners(daemon, daemon,
 					     proposed_wireaddr,
@@ -1798,39 +1753,6 @@ static const char **seednames(const tal_t *ctx, const struct node_id *id)
 	return seednames;
 }
 
-/*~ As a last resort, we do a DNS lookup to the lightning DNS seed to
- * resolve a node name when they say to connect to it.  This is synchronous,
- * so connectd blocks, but it's not very common so we haven't fixed it.
- *
- * This "seed by DNS" approach is similar to what bitcoind uses, and in fact
- * has the nice property that DNS is cached, and the seed only sees a request
- * from the ISP, not directly from the user. */
-static void add_seed_addrs(struct wireaddr_internal **addrs,
-			   const struct node_id *id,
-			   struct sockaddr *broken_reply)
-{
-	struct wireaddr *new_addrs;
-	const char **hostnames = seednames(tmpctx, id);
-
-	for (size_t i = 0; i < tal_count(hostnames); i++) {
-		status_peer_debug(id, "Resolving %s", hostnames[i]);
-		new_addrs = wireaddr_from_hostname(tmpctx, hostnames[i], chainparams_get_ln_port(chainparams),
-		                                   NULL, broken_reply, NULL);
-		if (new_addrs) {
-			for (size_t j = 0; j < tal_count(new_addrs); j++) {
-				if (new_addrs[j].type == ADDR_TYPE_DNS)
-					continue;
-				status_peer_debug(id, "Resolved %s to %s", hostnames[i],
-						  fmt_wireaddr(tmpctx, &new_addrs[j]));
-				append_addr(addrs, &new_addrs[j]);
-			}
-			/* Other seeds will likely have the same information. */
-			return;
-		} else
-			status_peer_debug(id, "Could not resolve %s", hostnames[i]);
-	}
-}
-
 static bool addr_in(const struct wireaddr_internal *needle,
 		    const struct wireaddr_internal haystack[])
 {
@@ -1844,8 +1766,7 @@ static bool addr_in(const struct wireaddr_internal *needle,
 /*~ Try to connect to a single peer, given some addresses (in order) */
 static void try_connect_peer(struct daemon *daemon,
 			     const struct node_id *id,
-			     struct wireaddr_internal *addrs TAKES,
-			     bool dns_fallback)
+			     struct wireaddr_internal *addrs TAKES)
 {
 	bool use_proxy = daemon->always_use_proxy;
 	struct connecting *connect;
@@ -1886,14 +1807,11 @@ static void try_connect_peer(struct daemon *daemon,
 				                         chainparams_get_ln_port(chainparams));
 				tal_arr_expand(&addrs, unresolved);
 			}
-		} else if (daemon->use_dns && dns_fallback) {
-			add_seed_addrs(&addrs, id,
-			               daemon->broken_resolver_response);
 		}
 	}
 
-	/* Still no address?  Fail immediately.  Lightningd can still choose
-	* to retry; an address may get gossiped or appear on the DNS seed. */
+	/* Still no address?  Fail immediately.  Important ones get
+	 * retried; an address may get gossiped. */
 	if (tal_count(addrs) == 0) {
 		connect_failed(daemon, id,
 			       CONNECT_NO_KNOWN_ADDRESS,
@@ -1937,13 +1855,11 @@ static void connect_to_peer(struct daemon *daemon, const u8 *msg)
 {
 	struct node_id id;
 	struct wireaddr_internal *addrs;
-	bool dns_fallback;
 	bool transient;
 	struct important_id *imp;
 
 	if (!fromwire_connectd_connect_to_peer(tmpctx, msg,
 					       &id, &addrs,
-					       &dns_fallback,
 					       &transient))
 		master_badmsg(WIRE_CONNECTD_CONNECT_TO_PEER, msg);
 
@@ -1983,7 +1899,7 @@ static void connect_to_peer(struct daemon *daemon, const u8 *msg)
 	/* Do gossmap lookup to find any addresses from there, and append. */
 	append_gossmap_addresses(&addrs, daemon, &id);
 
-	try_connect_peer(daemon, &id, addrs, dns_fallback);
+	try_connect_peer(daemon, &id, addrs);
 }
 
 /* lightningd tells us a peer should be disconnected. */

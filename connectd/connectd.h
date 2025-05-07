@@ -296,10 +296,6 @@ struct daemon {
 	 * resort, but doing so leaks our address so can be disabled. */
 	bool use_dns;
 
-	/* The address that the broken response returns instead of
-	 * NXDOMAIN. NULL if we have not detected a broken resolver. */
-	struct sockaddr *broken_resolver_response;
-
 	/* File descriptors to listen on once we're activated. */
 	const struct listen_fd **listen_fds;
 
