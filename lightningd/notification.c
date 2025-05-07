@@ -255,6 +255,7 @@ void notify_channel_opened(struct lightningd *ld,
 }
 
 static void channel_state_changed_notification_serialize(struct json_stream *stream,
+							 struct lightningd *ld,
 							 const struct node_id *peer_id,
 							 const struct channel_id *cid,
 							 const struct short_channel_id *scid,
@@ -271,7 +272,10 @@ static void channel_state_changed_notification_serialize(struct json_stream *str
 	else
 		json_add_null(stream, "short_channel_id");
 	json_add_timeiso(stream, "timestamp", timestamp);
-	json_add_string(stream, "old_state", channel_state_str(old_state));
+	if (old_state != 0 || lightningd_deprecated_out_ok(ld, ld->deprecated_ok,
+							   "channel_state_changed", "old_state.unknown",
+							   "v25.05", "v26.02"))
+		json_add_string(stream, "old_state", channel_state_str(old_state));
 	json_add_string(stream, "new_state", channel_state_str(new_state));
 	json_add_string(stream, "cause", channel_change_state_reason_str(cause));
 	if (message != NULL)
@@ -293,7 +297,7 @@ void notify_channel_state_changed(struct lightningd *ld,
 				  const char *message)
 {
 	struct jsonrpc_notification *n = notify_start("channel_state_changed");
-	channel_state_changed_notification_serialize(n->stream, peer_id, cid, scid, timestamp, old_state, new_state, cause, message);
+	channel_state_changed_notification_serialize(n->stream, ld, peer_id, cid, scid, timestamp, old_state, new_state, cause, message);
 	notify_send(ld, n);
 }
 

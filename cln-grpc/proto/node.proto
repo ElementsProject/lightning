@@ -4140,7 +4140,7 @@ message ChannelStateChangedNotification {
 	bytes channel_id = 2;
 	string short_channel_id = 3;
 	string timestamp = 4;
-	ChannelState old_state = 5;
+	optional ChannelState old_state = 5;
 	ChannelState new_state = 6;
 	ChannelStateChangedCause cause = 7;
 	string message = 8;
