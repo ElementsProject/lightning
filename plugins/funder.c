@@ -1140,10 +1140,11 @@ static struct command_result *json_channel_state_changed(struct command *cmd,
 	struct channel_id cid;
 	const char *err, *old_state, *new_state;
 
+	old_state = NULL;
 	err = json_scan(tmpctx, buf, params,
 			"{channel_state_changed:"
 			"{channel_id:%"
-			",old_state:%"
+			",old_state?:%"
 			",new_state:%}}",
 			JSON_SCAN(json_to_channel_id, &cid),
 			JSON_SCAN_TAL(cmd, json_strdup, &old_state),
@@ -1159,6 +1160,9 @@ static struct command_result *json_channel_state_changed(struct command *cmd,
 	/* Moving out of "awaiting lockin",
 	 * means we clean up the datastore */
 	/* FIXME: splicing state? */
+	if (!old_state)
+		return notification_handled(cmd);
+
 	if (!streq(old_state, "DUALOPEND_AWAITING_LOCKIN")
 	    && !streq(old_state, "CHANNELD_AWAITING_LOCKIN"))
 		return notification_handled(cmd);

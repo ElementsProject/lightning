@@ -36672,7 +36672,6 @@
           "channel_id",
           "short_channel_id",
           "timestamp",
-          "old_state",
           "new_state",
           "cause",
           "message"
@@ -36725,7 +36724,8 @@
               "DUALOPEND_OPEN_COMMIT_READY"
             ],
             "description": [
-              "The channel state, in particular \"CHANNELD_NORMAL\" means the channel can be used normally"
+              "The channel state, in particular \"CHANNELD_NORMAL\" means the channel can be used normally.",
+              "The deprecated value 'unknown' is also present for new channels: after 26.02 this field will be omitted instead."
             ],
             "added": "pre-v0.10.1"
           },

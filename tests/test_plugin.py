@@ -869,7 +869,7 @@ def test_channel_state_changed_bilateral(node_factory, bitcoind):
         assert(event2['cause'] == "remote")
 
         for ev in [event1, event2]:
-            assert(ev['old_state'] == "unknown")
+            'old_state' not in ev
             assert(ev['new_state'] == "CHANNELD_AWAITING_LOCKIN")
             assert(ev['message'] == "new channel opened")
 
@@ -1006,7 +1006,7 @@ def test_channel_state_changed_unilateral(node_factory, bitcoind):
         assert event2['new_state'] == "DUALOPEND_AWAITING_LOCKIN"
         assert event2['message'] == "Sigs exchanged, waiting for lock-in"
     else:
-        assert(event2['old_state'] == "unknown")
+        assert "unknown" not in event2
         assert(event2['new_state'] == "CHANNELD_AWAITING_LOCKIN")
         assert(event2['message'] == "new channel opened")
 
