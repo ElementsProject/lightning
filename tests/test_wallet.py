@@ -6,7 +6,7 @@ from pyln.client import RpcError, Millisatoshi
 from utils import (
     only_one, wait_for, sync_blockheight,
     VALGRIND, check_coin_moves, TailableProc, scriptpubkey_addr,
-    check_utxos_channel
+    check_utxos_channel, check_feerate, did_short_sig
 )
 
 import os
@@ -302,21 +302,6 @@ def feerate_from_psbt(chainparams, bitcoind, node, psbt):
     fee = int(bitcoind.rpc.analyzepsbt(psbt)['fee'] * 100_000_000)
     weight = bitcoind.rpc.decoderawtransaction(final['tx'])['weight']
     return fee / weight * 1000
-
-
-# I wish we could force libwally to use different entropy and thus force it to
-# create 71-byte sigs always!
-def did_short_sig(node):
-    # This can take a moment to appear in the log!
-    time.sleep(1)
-    return node.daemon.is_in_log('overgrind: short signature length')
-
-
-def check_feerate(node, actual_feerate, expected_feerate):
-    # Feerate can't be lower.
-    assert actual_feerate > expected_feerate - 2
-    if not did_short_sig(node):
-        assert actual_feerate < expected_feerate + 2
 
 
 def test_txprepare(node_factory, bitcoind, chainparams):
