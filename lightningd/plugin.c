@@ -2447,6 +2447,20 @@ static bool plugin_subscriptions_contains(struct plugin *plugin,
 	return false;
 }
 
+bool plugins_anyone_cares(struct plugins *plugins, const char *method)
+{
+	struct plugin *p;
+
+	if (!plugins)
+		return false;
+
+	list_for_each(&plugins->plugins, p, list) {
+		if (plugin_subscriptions_contains(p, method))
+			return true;
+	}
+	return false;
+}
+
 bool plugin_single_notify(struct plugin *p,
 			  const struct jsonrpc_notification *n TAKES)
 {
