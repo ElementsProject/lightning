@@ -25,21 +25,24 @@ jobs:
           sudo mv bitcoin-${BITCOIND_VERSION}/bin/* /usr/local/bin
           rm -rf bitcoin-${BITCOIND_VERSION}-${TARGET_ARCH}.tar.gz bitcoin-${BITCOIND_VERSION}
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
       - name: Install dependencies
         run: |
           export PATH="/usr/local/opt:/Users/runner/.local/bin:/opt/homebrew/bin/python3.10/bin:$PATH"
 
           brew install gnu-sed python@3.10 autoconf automake libtool protobuf
-          python3.10 -m pip install -U --user poetry==1.8.0 wheel pip mako
-          python3.10 -m poetry install
+
+          uv sync --all-groups
 
       - name: Build and install CLN
         run: |
           export CPATH=/opt/homebrew/include
           export LIBRARY_PATH=/opt/homebrew/lib
 
-          python3.10 -m poetry run ./configure --disable-valgrind --disable-compat
-          python3.10 -m poetry run make
+          uv run ./configure --disable-valgrind --disable-compat
+          uv run make
 
       - name: Start bitcoind in regtest mode
         run: |
