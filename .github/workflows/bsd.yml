@@ -44,7 +44,8 @@ jobs:
             pkgconf \
             jq \
             protobuf \
-            curl
+            curl \
+            uv
 
             python3.10 -m ensurepip
             python3.10 -m pip install --upgrade pip
@@ -53,9 +54,7 @@ jobs:
 
         run: |
           PATH=/root/.local/bin:$PATH:/root/.cargo/bin; export PATH
-          pip install --user -U wheel pip
-          pip3 install --user poetry
-          poetry install
+          uv sync --all-extras --all-groups
 
           git clone https://github.com/lightning/bolts.git ../bolts
           # fatal: unsafe repository ('/Users/runner/work/lightning/lightning' is owned by someone else)
@@ -68,12 +67,11 @@ jobs:
           cat config.vars
 
           cat << EOF > pytest.ini
-          [pytest]
           addopts=-p no:logging --color=yes --timeout=1800 --timeout-method=thread --test-group-random-seed=42 --junitxml=report.xml --json-report --json-report-file=report.json --json-report-indent=2
           markers =
               slow_test: marks tests as slow (deselect with '-m "not slow_test"')
           EOF
 
           # Just run a "quick" test without memory checking
-          poetry run gmake
+          uv run gmake
 

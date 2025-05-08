@@ -71,16 +71,14 @@ jobs:
       - name: Set up Python 3.10
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: "3.10"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
         run: |
           bash -x .github/scripts/setup.sh
-          pip install -U pip wheel poetry
-          poetry self add poetry-plugin-export
-          # Export and then use pip to install into the current env
-          poetry export -o /tmp/requirements.txt --without-hashes --with dev
-          pip install -r /tmp/requirements.txt
           # We're going to check BOLT quotes, so get the latest version
           git clone https://github.com/lightning/bolts.git ../${BOLTDIR}
       - name: Configure
@@ -89,11 +87,12 @@ jobs:
         env:
           VALGRIND: 0
           PYTEST_OPTS: --timeout=1200
-        run: make check-source BASE_REF="origin/${{ github.base_ref }}"
+        run: |
+          uv run make check-source BASE_REF="origin/${{ github.base_ref }}"
       - name: Check Generated Files have been updated
-        run: make check-gen-updated
+        run: uv run make check-gen-updated
       - name: Check docs
-        run: make check-doc
+        run: uv run make check-doc
 
   compile:
     name: Compile CLN ${{ matrix.cfg }}
@@ -128,7 +127,10 @@ jobs:
       - name: Set up Python 3.10
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: "3.10"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
         run: |
@@ -144,13 +146,9 @@ jobs:
           CFG: ${{ matrix.CFG }}
         run: |
           set -e
-          pip3 install --user pip wheel poetry
-          poetry self add poetry-plugin-export
-          poetry export -o requirements.txt --with dev --without-hashes
-          python3 -m pip install -r requirements.txt
           ./configure --enable-debugbuild CC="$COMPILER" ${{ matrix.COPTFLAGS_VAR }}
 
-          make -j $(nproc) testpack.tar.bz2
+          uv run make -j $(nproc) testpack.tar.bz2
 
           # Rename now so we don't clash
           mv testpack.tar.bz2 cln-${CFG}.tar.bz2
@@ -186,18 +184,16 @@ jobs:
       - name: Set up Python 3.10
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: "3.10"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
         run: |
           bash -x .github/scripts/setup.sh
           sudo apt-get update -qq
           sudo apt-get install -y -qq lowdown
-          pip install -U pip wheel poetry
-          poetry self add poetry-plugin-export
-          # Export and then use pip to install into the current env
-          poetry export -o /tmp/requirements.txt --without-hashes --with dev
-          pip install -r /tmp/requirements.txt
           # We're going to check BOLT quotes, so get the latest version
           git clone https://github.com/lightning/bolts.git ../${BOLTDIR}
 
@@ -209,7 +205,7 @@ jobs:
       - name: Check
         run: |
           tar -xaf cln-${{ matrix.CFG }}.tar.bz2
-          eatmydata make -j $(nproc) check-units installcheck VALGRIND=${{ matrix.VALGRIND }}
+          uv run eatmydata make -j $(nproc) check-units installcheck VALGRIND=${{ matrix.VALGRIND }}
 
   check-fuzz:
     name: Run fuzz regression tests
@@ -223,28 +219,26 @@ jobs:
       - name: Set up Python 3.10
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: "3.10"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
         run: |
           bash -x .github/scripts/setup.sh
-          pip install -U pip wheel poetry
-          poetry self add poetry-plugin-export
-          # Export and then use pip to install into the current env
-          poetry export -o /tmp/requirements.txt --without-hashes --with dev
-          pip install -r /tmp/requirements.txt
 
       - name: Build
         run: |
           ./configure --enable-debugbuild --enable-fuzzing --enable-address-sanitizer --enable-ub-sanitizer --disable-valgrind CC=clang
-          make -j $(nproc) check-fuzz
+          uv run make -j $(nproc) check-fuzz
 
   integration:
     name: Test CLN ${{ matrix.name }}
     runs-on: ubuntu-22.04
     timeout-minutes: 120
     env:
-      RUST_PROFILE: release  # Has to match the one in the compile step
+      RUST_PROFILE: release # Has to match the one in the compile step
       PYTEST_OPTS: --timeout=1200
     needs:
       - compile
@@ -297,12 +291,14 @@ jobs:
       - name: Set up Python 3.10
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: "3.10"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
         run: |
-          pip3 install --user pip wheel poetry
-          poetry install
+          bash -x .github/scripts/setup.sh
 
       - name: Install bitcoind
         env:
@@ -343,14 +339,14 @@ jobs:
         run: |
           env
           cat config.vars
-          VALGRIND=0 poetry run eatmydata pytest tests/ -vvv -n ${PYTEST_PAR} ${PYTEST_OPTS}
+          VALGRIND=0 uv run eatmydata pytest tests/ -vvv -n ${PYTEST_PAR} ${PYTEST_OPTS}
 
   integration-valgrind:
     name: Valgrind Test CLN ${{ matrix.name }}
     runs-on: ubuntu-22.04
     timeout-minutes: 120
     env:
-      RUST_PROFILE: release  # Has to match the one in the compile step
+      RUST_PROFILE: release # Has to match the one in the compile step
       CFG: compile-gcc
       PYTEST_OPTS: --test-group-random-seed=42 --timeout=1800
     needs:
@@ -386,14 +382,16 @@ jobs:
       - name: Set up Python 3.10
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: "3.10"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
         run: |
           sudo apt-get update -qq
           sudo apt-get install -yyq valgrind
-          pip3 install --user pip wheel poetry
-          poetry install
+          bash -x .github/scripts/setup.sh
 
       - name: Install bitcoind
         run: .github/scripts/install-bitcoind.sh
@@ -411,7 +409,7 @@ jobs:
           SLOW_MACHINE: 1
           TEST_DEBUG: 1
         run: |
-          VALGRIND=1 poetry run eatmydata pytest tests/ -vvv -n 3 ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}
+          VALGRIND=1 uv run eatmydata pytest tests/ -vvv -n 3 ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}
 
   integration-sanitizers:
     name: Sanitizers Test CLN
@@ -455,14 +453,14 @@ jobs:
       - name: Set up Python 3.10
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: "3.10"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
         run: |
           bash -x .github/scripts/setup.sh
-          set -e
-          pip3 install --user wheel poetry
-          poetry install --with dev --no-root
 
       - name: Install bitcoind
         run: .github/scripts/install-bitcoind.sh
@@ -477,7 +475,7 @@ jobs:
 
       - name: Test
         run: |
-          poetry run eatmydata pytest tests/ -vvv -n 2 ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}
+          uv run eatmydata pytest tests/ -vvv -n 2 ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}
 
   update-docs-examples:
     name: Update examples in doc schemas (disabled temporarily!)
@@ -499,14 +497,14 @@ jobs:
       - name: Set up Python 3.10
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: "3.10"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
       - name: Install dependencies
         run: |
           bash -x .github/scripts/setup.sh
-          pip install -U pip wheel poetry
-          poetry self add poetry-plugin-export
-          poetry export -o /tmp/requirements.txt --without-hashes --with dev
-          pip install -r /tmp/requirements.txt
       - name: Install bitcoind
         env:
           TEST_NETWORK: regtest
@@ -520,14 +518,14 @@ jobs:
           tar -xaf cln-compile-gcc.tar.bz2
       - name: Test
         run: |
-          eatmydata make -j $(nproc) check-doc-examples
+          uv run eatmydata make -j $(nproc) check-doc-examples
 
   min-btc-support:
     name: Test minimum supported BTC v${{ matrix.MIN_BTC_VERSION }} with ${{ matrix.NAME }}
     runs-on: ubuntu-22.04
     timeout-minutes: 120
     env:
-      RUST_PROFILE: release  # Has to match the one in the compile step
+      RUST_PROFILE: release # Has to match the one in the compile step
       PYTEST_OPTS: --timeout=1200
     needs:
       - compile
@@ -540,7 +538,7 @@ jobs:
             TEST_DB_PROVIDER: sqlite3
             COMPILER: clang
             TEST_NETWORK: regtest
-            MIN_BTC_VERSION: '25.0'
+            MIN_BTC_VERSION: "25.0"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -548,12 +546,14 @@ jobs:
       - name: Set up Python 3.10
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: "3.10"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
         run: |
-          pip3 install --user pip wheel poetry
-          poetry install
+          bash -x .github/scripts/setup.sh
 
       - name: Download Bitcoin Core
         run: wget "https://bitcoincore.org/bin/bitcoin-core-${{ matrix.MIN_BTC_VERSION }}/bitcoin-${{ matrix.MIN_BTC_VERSION }}-x86_64-linux-gnu.tar.gz"
@@ -592,7 +592,7 @@ jobs:
         run: |
           env
           cat config.vars
-          VALGRIND=0 poetry run eatmydata pytest tests/ -vvv -n ${PYTEST_PAR} ${PYTEST_OPTS}
+          VALGRIND=0 uv run eatmydata pytest tests/ -vvv -n ${PYTEST_PAR} ${PYTEST_OPTS}
 
   check-flake:
     name: Check Nix Flake
@@ -603,7 +603,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          submodules: 'recursive'
+          submodules: "recursive"
       - name: Check Nix flake inputs
         uses: DeterminateSystems/flake-checker-action@v8
       - name: Install Nix
