@@ -537,7 +537,8 @@ def test_txprepare_feerate(node_factory, bitcoind, chainparams):
 @pytest.mark.parametrize("addrtype", ["bech32", "p2tr"])
 @unittest.skipIf(TEST_NETWORK != 'regtest', "FIXME: Elements fees are not quite right")
 def test_fundpsbt_feerates(node_factory, bitcoind, chainparams, addrtype):
-    l1 = node_factory.get_node()
+    l1 = node_factory.get_node(options={'dev-warn-on-overgrind': None},
+                               broken_log='overgrind: short signature length')
 
     # Add some funds to withdraw later
     for i in range(20):
@@ -581,7 +582,10 @@ def test_fundpsbt_feerates(node_factory, bitcoind, chainparams, addrtype):
             signed = l1.rpc.signpsbt(prep['psbt'])['signed_psbt']
             sent = l1.rpc.sendpsbt(signed)
             txinfo = bitcoind.rpc.getmempoolentry(sent['txid'])
-            assert txinfo['weight'] == prep['estimated_final_weight']
+            if did_short_sig(l1):
+                assert txinfo['weight'] <= prep['estimated_final_weight']
+            else:
+                assert txinfo['weight'] == prep['estimated_final_weight']
             # We never actually added that `amount` output to PSBT, so that appears as "fee"
             fee = int(txinfo['fees']['base'] * 100_000_000) - amount
             actual_feerate = fee / (txinfo['weight'] / 1000)
