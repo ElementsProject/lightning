@@ -4311,7 +4311,7 @@ def test_onchain_slow_anchor(node_factory, bitcoind):
     height = bitcoind.rpc.getblockchaininfo()['blocks']
     l1.daemon.wait_for_log(r"Low-priority anchorspend aiming for block {} \(feerate 7458\)".format(height + 13))
     # Can be out-by-one (short sig)!
-    l1.daemon.wait_for_log(r"Anchorspend for local commit tx fee 9377sat \(w=722\), commit_tx fee 1735sat \(w=768\): package feerate 7457 perkw")
+    l1.daemon.wait_for_log(r"Anchorspend for local commit tx fee (9377|9369)sat \(w=722\), commit_tx fee 1735sat \(w=76[78]\): package feerate 7457 perkw")
     assert not l1.daemon.is_in_log("Low-priority anchorspend aiming for block {}".format(height + 12))
 
     bitcoind.generate_block(1)
