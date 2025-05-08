@@ -1060,14 +1060,13 @@ def test_rbf_reconnect_tx_sigs(node_factory, bitcoind, chainparams):
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
 def test_rbf_to_chain_before_commit(node_factory, bitcoind, chainparams):
-    disconnects = ['=WIRE_TX_ADD_INPUT',  # Initial funding succeeds
-                   '=WIRE_COMMITMENT_SIGNED',
+    disconnects = ['=WIRE_COMMITMENT_SIGNED',
                    '-WIRE_COMMITMENT_SIGNED']
     l1, l2 = node_factory.get_nodes(2,
-                                    opts=[{'disconnect': disconnects,
-                                           'may_reconnect': True,
+                                    opts=[{'may_reconnect': True,
                                            'dev-no-reconnect': None},
-                                          {'may_reconnect': True,
+                                          {'disconnect': disconnects,
+                                           'may_reconnect': True,
                                            'dev-no-reconnect': None}])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
