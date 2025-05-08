@@ -4185,7 +4185,7 @@ def test_anchorspend_using_to_remote(node_factory, bitcoind, anchors):
     node_factory.join_nodes([l1, l2], wait_for_announce=True)
     node_factory.join_nodes([l3, l2], wait_for_announce=True)
     l3.rpc.pay(l2.rpc.invoice(200000000, 'test2', 'test2')['bolt11'])
-    wait_for(lambda: only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['htlcs'] != [])
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['htlcs'] == [])
 
     # Get HTLC stuck, so l2 has reason to push commitment tx.
     amt = 100_000_000
