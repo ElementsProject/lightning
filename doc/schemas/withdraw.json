@@ -22,7 +22,7 @@
       "satoshi": {
         "type": "sat_or_all",
         "description": [
-          "The amount to be withdrawn from the internal wallet (expressed, as name suggests, in satoshi). The string *all* can be used to specify withdrawal of all available funds (but if we have any anchor channels, this will always leave at least `min-emergency-msat` as change). Otherwise, it is in satoshi precision; it can be a whole number, a whole number ending in *sat*, a whole number ending in *000msat*, or a number with 1 to 8 decimal places ending in *btc*."
+          "The amount to be withdrawn from the internal wallet (expressed, as name suggests, in satoshi). The string *all* can be used to specify withdrawal of all available funds (possibly restricted by the `utxos` parameter, and note that if we have any anchor channels, this will always leave at least `min-emergency-msat` as change).  Otherwise, it is in satoshi precision; it can be a whole number, a whole number ending in *sat*, a whole number ending in *000msat*, or a number with 1 to 8 decimal places ending in *btc*."
         ]
       },
       "feerate": {
