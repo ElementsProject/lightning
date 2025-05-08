@@ -4780,9 +4780,11 @@ def test_onionmessage_forward_fail(node_factory, bitcoind):
                                          opts=[{},
                                                {'dev-allow-localhost': None,
                                                 'may_reconnect': True,
+                                                'dev-no-reconnect': None,
                                                 'plugin': os.path.join(os.getcwd(), 'tests/plugins/onionmessage_forward_fail_notification.py'),
                                                 },
                                                {'dev-allow-localhost': None,
+                                                'dev-no-reconnect': None,
                                                 'may_reconnect': True}])
 
     offer = l3.rpc.offer(300, "test_onionmessage_forward_fail")
