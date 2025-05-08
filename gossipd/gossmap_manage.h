@@ -111,4 +111,7 @@ void gossmap_manage_tell_lightningd_locals(struct daemon *daemon,
  * The seeker uses this if we're at startup and want complete gossip.
  */
 bool gossmap_manage_populated(const struct gossmap_manage *gm);
+
+/* For memleak to see inside of maps */
+void gossmap_manage_memleak(struct htable *memtable, const struct gossmap_manage *gm);
 #endif /* LIGHTNING_GOSSIPD_GOSSMAP_MANAGE_H */
