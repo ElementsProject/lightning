@@ -3423,11 +3423,10 @@ def test_reject_invalid_payload(node_factory):
                      first_hop=first_hop,
                      payment_hash=inv['payment_hash'],
                      shared_secrets=onion['shared_secrets'])
-
-    l2.daemon.wait_for_log(r'Failing HTLC because of an invalid payload')
-
     with pytest.raises(RpcError, match=r'WIRE_INVALID_ONION_PAYLOAD'):
         l1.rpc.waitsendpay(inv['payment_hash'])
+
+    l2.daemon.wait_for_log(r'Failing HTLC because of an invalid payload')
 
 
 @unittest.skip("Test is flaky causing CI to be unusable.")

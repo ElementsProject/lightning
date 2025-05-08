@@ -4822,7 +4822,6 @@ def test_private_channel_no_reconnect(node_factory):
     assert only_one(l1.rpc.listpeers()['peers'])['connected'] is False
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(VALGRIND, "We assume machine is reasonably fast")
 def test_no_delay(node_factory):
     """Is our Nagle disabling for critical messages working?"""
