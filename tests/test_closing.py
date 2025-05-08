@@ -4042,6 +4042,7 @@ def test_peer_anchor_push(node_factory, bitcoind, executor, chainparams):
     # As blocks pass, we will use anchor to boost l3's tx.
     for block, feerate in zip(range(120, 124), (12000, 13000, 14000, 15000)):
         l2.daemon.wait_for_log(fr"Worth fee [0-9]*sat for remote commit tx to get 100000000msat at block 125 \(\+{125 - block}\) at feerate {feerate}perkw")
+        l2.daemon.wait_for_log("sendrawtx exit 0")
         # Check feerate for entire package (commitment tx + anchor) is ~ correct
         details = bitcoind.rpc.getrawmempool(True).values()
         total_weight = sum([d['weight'] for d in details])
