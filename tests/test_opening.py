@@ -921,6 +921,8 @@ def test_rbf_reconnect_tx_construct(node_factory, bitcoind, chainparams):
     # abort doesn't cause a disconnect
     assert l1.rpc.getpeer(l2.info['id'])['connected']
 
+    log_after_connect = l1.daemon.logsearch_start
+
     # The next TX_COMPLETE break (both remember) + they break on the
     # COMMITMENT_SIGNED during the reconnect
     bump = l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'])
@@ -945,12 +947,16 @@ def test_rbf_reconnect_tx_construct(node_factory, bitcoind, chainparams):
     l2.daemon.wait_for_logs([r'Got dualopend reestablish',
                              r'No commitment, not sending our sigs',
                              # This is a BROKEN log, it's expected!
-                             r'dualopend daemon died before signed PSBT returned|dualopend: Owning subdaemon dualopend died'])
+                             r'dualopend daemon died before signed PSBT returned|dualopend: Owning subdaemon dualopend died',
+                             r'Owning subdaemon dualopend died'])
 
-    # We don't have the commtiments yet, there's no scratch_txid
+    # If we received their commitment_signed first, we *will* have scratch!
     inflights = only_one(l1.rpc.listpeerchannels()['channels'])['inflight']
     assert len(inflights) == 2
-    assert 'scratch_txid' not in inflights[1]
+    if l1.daemon.is_in_log('peer_in WIRE_COMMITMENT_SIGNED', start=log_after_connect):
+        assert 'scratch_txid' in inflights[1]
+    else:
+        assert 'scratch_txid' not in inflights[1]
 
     # After reconnecting, we have a scratch txid!
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
