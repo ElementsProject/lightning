@@ -624,7 +624,6 @@ jobs:
       - check-units
       - integration-valgrind
       - integration-sanitizers
-      - update-docs-examples
       - min-btc-support
       - check-flake
     steps:
