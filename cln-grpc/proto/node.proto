@@ -3988,6 +3988,7 @@ message AskrenebiaschannelRequest {
 	string short_channel_id_dir = 2;
 	sint64 bias = 3;
 	optional string description = 4;
+	optional bool relative = 5;
 }
 
 message AskrenebiaschannelResponse {

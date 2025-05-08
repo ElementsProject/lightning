@@ -597,6 +597,7 @@
             "AskRene-Bias-Channel.bias": 3,
             "AskRene-Bias-Channel.description": 4,
             "AskRene-Bias-Channel.layer": 1,
+            "AskRene-Bias-Channel.relative": 5,
             "AskRene-Bias-Channel.short_channel_id_dir": 2
         },
         "Askrene-bias-channelResponse": {
@@ -3946,6 +3947,10 @@
         },
         "AskRene-Bias-Channel.layer": {
             "added": "v24.11",
+            "deprecated": null
+        },
+        "AskRene-Bias-Channel.relative": {
+            "added": "v25.05",
             "deprecated": null
         },
         "AskRene-Bias-Channel.short_channel_id_dir": {

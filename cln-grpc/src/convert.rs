@@ -5990,6 +5990,7 @@ impl From<requests::AskrenebiaschannelRequest> for pb::AskrenebiaschannelRequest
             bias: c.bias, // Rule #2 for type integer
             description: c.description, // Rule #2 for type string?
             layer: c.layer, // Rule #2 for type string
+            relative: c.relative, // Rule #2 for type boolean?
             short_channel_id_dir: c.short_channel_id_dir.to_string(), // Rule #2 for type short_channel_id_dir
         }
     }
@@ -7654,6 +7655,7 @@ impl From<pb::AskrenebiaschannelRequest> for requests::AskrenebiaschannelRequest
             bias: c.bias, // Rule #1 for type integer
             description: c.description, // Rule #1 for type string?
             layer: c.layer, // Rule #1 for type string
+            relative: c.relative, // Rule #1 for type boolean?
             short_channel_id_dir: cln_rpc::primitives::ShortChannelIdDir::from_str(&c.short_channel_id_dir).unwrap(), // Rule #1 for type short_channel_id_dir
         }
     }
