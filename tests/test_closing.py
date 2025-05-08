@@ -8,7 +8,7 @@ from utils import (
     scriptpubkey_addr, calc_lease_fee,
     check_utxos_channel, check_coin_moves,
     mine_funding_to_announce, check_inspect_channel,
-    first_scid
+    first_scid, check_feerate
 )
 
 import bitcoin
@@ -3981,7 +3981,9 @@ def test_closing_minfee(node_factory, bitcoind):
 def test_peer_anchor_push(node_factory, bitcoind, executor, chainparams):
     """Test that we use anchor on peer's commit to CPFP tx"""
     l1, l2, l3 = node_factory.line_graph(3, opts=[{},
-                                                  {'min-emergency-msat': 546000},
+                                                  {'min-emergency-msat': 546000,
+                                                   'dev-warn-on-overgrind': None,
+                                                   'broken_log': 'overgrind: short signature length'},
                                                   {'disconnect': ['-WIRE_UPDATE_FULFILL_HTLC']}],
                                          wait_for_announce=True)
 
@@ -4045,7 +4047,7 @@ def test_peer_anchor_push(node_factory, bitcoind, executor, chainparams):
         total_weight = sum([d['weight'] for d in details])
         total_fees = sum([float(d['fees']['base']) * 100_000_000 for d in details])
         total_feerate_perkw = total_fees / total_weight * 1000
-        assert feerate - 1 < total_feerate_perkw < feerate + 1
+        check_feerate(l2, total_feerate_perkw, feerate)
         bitcoind.generate_block(1, needfeerate=16000)
         sync_blockheight(bitcoind, [l2])
         assert len(bitcoind.rpc.getrawmempool()) == 2

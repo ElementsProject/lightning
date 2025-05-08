@@ -658,3 +658,18 @@ def serialize_payload_final_tlv(amount_msat, delay, total_msat, blockheight, pay
     #        * [`tu64`:`total_msat`]
     payload.add_field(8, bytes.fromhex(payment_secret) + tu64_encode(int(total_msat)))
     return payload.to_bytes()
+
+
+# I wish we could force libwally to use different entropy and thus force it to
+# create 71-byte sigs always!
+def did_short_sig(node):
+    # This can take a moment to appear in the log!
+    time.sleep(1)
+    return node.daemon.is_in_log('overgrind: short signature length')
+
+
+def check_feerate(node, actual_feerate, expected_feerate):
+    # Feerate can't be lower.
+    assert actual_feerate > expected_feerate - 2
+    if not did_short_sig(node):
+        assert actual_feerate < expected_feerate + 2
