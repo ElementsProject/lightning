@@ -249,7 +249,7 @@ jobs:
     needs:
       - compile
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         include:
           - NAME: gcc
@@ -356,7 +356,7 @@ jobs:
     needs:
       - compile
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         include:
           - NAME: Valgrind (01/10)
@@ -425,7 +425,7 @@ jobs:
     needs:
       - compile
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         include:
           - NAME: ASan/UBSan (01/10)
@@ -485,7 +485,7 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 30
     strategy:
-      fail-fast: true
+      fail-fast: false
     env:
       VALGRIND: 0
       GENERATE_EXAMPLES: 1
@@ -532,7 +532,7 @@ jobs:
     needs:
       - compile
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         include:
           - NAME: clang
