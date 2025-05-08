@@ -829,9 +829,11 @@ static struct node_id *get_random_node(const tal_t *ctx,
 		struct node_id id;
 
 		gossmap_node_get_id(gossmap, node, &id);
+
 		/* Make sure it *has* an announcement, and we're not
 		 * already connected */
-		if (gossmap_node_get_announce(tmpctx, gossmap, node)
+		if (!node_id_eq(&id, &seeker->daemon->id)
+		    && gossmap_node_get_announce(tmpctx, gossmap, node)
 		    && !find_peer(seeker->daemon, &id)) {
 			return tal_dup(ctx, struct node_id, &id);
 		}
