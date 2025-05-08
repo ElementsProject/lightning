@@ -75,6 +75,8 @@ struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
 	p->plugin_idx = 0;
 	p->dev_builtin_plugins_unimportant = false;
 	p->want_db_transaction = true;
+	p->subscriptions = tal(p, struct plugin_subscription_htable);
+	plugin_subscription_htable_init(p->subscriptions);
 
 	return p;
 }
@@ -86,13 +88,13 @@ static void plugin_check_subscriptions(struct plugins *plugins,
 				       struct plugin *plugin)
 {
 	for (size_t i = 0; i < tal_count(plugin->subscriptions); i++) {
-		const char *topic = plugin->subscriptions[i];
-		if (!streq(topic, "*")
-		    && !notifications_have_topic(plugins, topic))
+		struct plugin_subscription *sub = &plugin->subscriptions[i];
+		if (!streq(sub->topic, "*")
+		    && !notifications_have_topic(plugins, sub->topic))
 			log_unusual(
 			    plugin->log,
 			    "topic '%s' is not a known notification topic",
-			    topic);
+			    sub->topic);
 	}
 }
 
@@ -272,6 +274,12 @@ static void destroy_plugin(struct plugin *p)
 	}
 	/* Now free all the requests */
 	tal_free(reqs);
+
+	/* Remove any topics from the hash table */
+	for (size_t i = 0; i < tal_count(p->subscriptions); i++) {
+		plugin_subscription_htable_del(p->plugins->subscriptions,
+					       &p->subscriptions[i]);
+	}
 
 	/* If this was last one manifests were waiting for, handle deps */
 	if (p->plugin_state == AWAITING_GETMANIFEST_RESPONSE)
@@ -1474,13 +1482,13 @@ static const char *plugin_subscriptions_add(struct plugin *plugin,
 		plugin->subscriptions = NULL;
 		return NULL;
 	}
-	plugin->subscriptions = tal_arr(plugin, char *, 0);
+	plugin->subscriptions = tal_arr(plugin, struct plugin_subscription, 0);
 	if (subscriptions->type != JSMN_ARRAY) {
 		return tal_fmt(plugin, "\"result.subscriptions\" is not an array");
 	}
 
 	json_for_each_arr(i, s, subscriptions) {
-		char *topic;
+		struct plugin_subscription sub;
 		if (s->type != JSMN_STRING) {
 			return tal_fmt(plugin,
 				       "result.subscriptions[%zu] is not a string: '%.*s'", i,
@@ -1492,9 +1500,17 @@ static const char *plugin_subscriptions_add(struct plugin *plugin,
 		 * manifest, without checking that they exist, since
 		 * later plugins may also emit notifications of custom
 		 * types that we don't know about yet. */
-		topic = json_strdup(plugin, plugin->buffer, s);
-		tal_arr_expand(&plugin->subscriptions, topic);
+		sub.topic = json_strdup(plugin, plugin->buffer, s);
+		sub.owner = plugin;
+		tal_arr_expand(&plugin->subscriptions, sub);
 	}
+
+	/* Now they won't move with reallocation, we can add to htable */
+	for (i = 0; i < tal_count(plugin->subscriptions); i++) {
+		plugin_subscription_htable_add(plugin->plugins->subscriptions,
+					       &plugin->subscriptions[i]);
+	}
+
 	return NULL;
 }
 
@@ -2438,9 +2454,9 @@ static bool plugin_subscriptions_contains(struct plugin *plugin,
 					  const char *method)
 {
 	for (size_t i = 0; i < tal_count(plugin->subscriptions); i++) {
-		if (streq(method, plugin->subscriptions[i])
+		if (streq(method, plugin->subscriptions[i].topic)
 		    || is_asterix_notification(method,
-					       plugin->subscriptions[i]))
+					       plugin->subscriptions[i].topic))
 			return true;
 	}
 
@@ -2449,23 +2465,29 @@ static bool plugin_subscriptions_contains(struct plugin *plugin,
 
 bool plugins_anyone_cares(struct plugins *plugins, const char *method)
 {
-	struct plugin *p;
+	struct plugin_subscription_htable_iter it;
 
 	if (!plugins)
 		return false;
 
-	list_for_each(&plugins->plugins, p, list) {
-		if (plugin_subscriptions_contains(p, method))
-			return true;
-	}
-	return false;
+	if (plugin_subscription_htable_getfirst(plugins->subscriptions,
+						method, &it) != NULL)
+		return true;
+
+	/* Wildcards cover everything except "log" */
+	if (streq(method, "log"))
+		return false;
+	return plugin_subscription_htable_getfirst(plugins->subscriptions,
+						   "*", &it) != NULL;
 }
 
 bool plugin_single_notify(struct plugin *p,
 			  const struct jsonrpc_notification *n TAKES)
 {
 	bool interested;
-	if (p->plugin_state == INIT_COMPLETE && plugin_subscriptions_contains(p, n->method)) {
+
+	if (p->plugin_state == INIT_COMPLETE
+	    && plugin_subscriptions_contains(p, n->method)) {
 		plugin_send(p, json_stream_dup(p, n->stream, p->log));
 		interested = true;
 	} else
@@ -2480,15 +2502,37 @@ bool plugin_single_notify(struct plugin *p,
 void plugins_notify(struct plugins *plugins,
 		    const struct jsonrpc_notification *n TAKES)
 {
-	struct plugin *p;
+	struct plugin_subscription_htable_iter it;
 
 	if (taken(n))
 		tal_steal(tmpctx, n);
 
 	/* If we're shutting down, ld->plugins will be NULL */
-	if (plugins) {
-		list_for_each(&plugins->plugins, p, list) {
-			plugin_single_notify(p, n);
+	if (!plugins)
+		return;
+
+	for (struct plugin_subscription *sub
+		     = plugin_subscription_htable_getfirst(plugins->subscriptions,
+							   n->method, &it);
+	     sub != NULL;
+	     sub = plugin_subscription_htable_getnext(plugins->subscriptions,
+						      n->method, &it)) {
+		if (sub->owner->plugin_state != INIT_COMPLETE)
+			continue;
+		plugin_send(sub->owner, json_stream_dup(sub->owner, n->stream, sub->owner->log));
+	}
+
+	/* "log" doesn't go to wildcards */
+	if (!streq(n->method, "log")) {
+		for (struct plugin_subscription *sub
+			     = plugin_subscription_htable_getfirst(plugins->subscriptions,
+								   "*", &it);
+		     sub != NULL;
+		     sub = plugin_subscription_htable_getnext(plugins->subscriptions,
+							      "*", &it)) {
+			if (sub->owner->plugin_state != INIT_COMPLETE)
+				continue;
+			plugin_send(sub->owner, json_stream_dup(sub->owner, n->stream, sub->owner->log));
 		}
 	}
 }
