@@ -208,6 +208,13 @@ static void log_to_files(const char *log_prefix,
 {
 	char tstamp[sizeof("YYYY-mm-ddTHH:MM:SS.nnnZ ")];
 	char *entry, nodestr[hex_str_size(PUBKEY_CMPR_LEN)];
+	char buf[sizeof("%s%s%s %s-%s: %s\n")
+		 + strlen(log_prefix)
+		 + sizeof(tstamp)
+		 + strlen(level_prefix(level))
+		 + sizeof(nodestr)
+		 + strlen(entry_prefix)
+		 + strlen(str)];
 	bool filtered;
 
 	if (print_timestamps) {
@@ -235,14 +242,18 @@ static void log_to_files(const char *log_prefix,
 					entry_prefix, str, dir, hex);
 		tal_free(hex);
 	} else {
+		size_t len;
+		entry = buf;
 		if (!node_id)
-			entry = tal_fmt(tmpctx, "%s%s%s %s: %s\n",
-					log_prefix, tstamp, level_prefix(level), entry_prefix, str);
+			len = snprintf(buf, sizeof(buf),
+				       "%s%s%s %s: %s\n",
+				       log_prefix, tstamp, level_prefix(level), entry_prefix, str);
 		else
-			entry = tal_fmt(tmpctx, "%s%s%s %s-%s: %s\n",
-					log_prefix, tstamp, level_prefix(level),
-					nodestr,
-					entry_prefix, str);
+			len = snprintf(buf, sizeof(buf), "%s%s%s %s-%s: %s\n",
+				       log_prefix, tstamp, level_prefix(level),
+				       nodestr,
+				       entry_prefix, str);
+		assert(len < sizeof(buf));
 	}
 
 	/* In complex configurations, we tell loggers to overshare: then we
