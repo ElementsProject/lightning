@@ -932,6 +932,9 @@ def test_channel_lease_unilat_closes(node_factory, bitcoind):
     l2.fundwallet(20000000)
     l3.fundwallet(20000000)
 
+    # Make sure we are at known height for lease.
+    sync_blockheight(bitcoind, [l1, l2, l3])
+
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     rates = l1.rpc.dev_queryrates(l2.info['id'], amount, amount)
     # l1 leases a channel from l2
