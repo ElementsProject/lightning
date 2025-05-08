@@ -4601,6 +4601,8 @@ pub mod requests {
 	pub struct AskrenebiaschannelRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub description: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub relative: Option<bool>,
 	    pub bias: i64,
 	    pub layer: String,
 	    pub short_channel_id_dir: ShortChannelIdDir,
