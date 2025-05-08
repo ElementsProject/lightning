@@ -25,6 +25,11 @@ jobs:
           sudo mv bitcoin-${BITCOIND_VERSION}/bin/* /usr/local/bin
           rm -rf bitcoin-${BITCOIND_VERSION}-${TARGET_ARCH}.tar.gz bitcoin-${BITCOIND_VERSION}
 
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
       - name: Install uv
         uses: astral-sh/setup-uv@v5
 
@@ -32,8 +37,11 @@ jobs:
         run: |
           export PATH="/usr/local/opt:/Users/runner/.local/bin:/opt/homebrew/bin/python3.10/bin:$PATH"
 
-          brew install gnu-sed python@3.10 autoconf automake libtool protobuf
+          brew install gnu-sed autoconf automake libtool protobuf openssl
 
+          # https://github.com/grpc/grpc/issues/31737#issuecomment-1323796842
+          export GRPC_PYTHON_BUILD_SYSTEM_OPENSSL=1
+          export GRPC_PYTHON_BUILD_SYSTEM_ZLIB=1
           uv sync --all-groups
 
       - name: Build and install CLN
