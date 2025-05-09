@@ -626,11 +626,20 @@ static struct command_result *process_getpeerinfo(struct bitcoin_cli *bcli)
 	json_for_each_arr(i, t, toks)
 	{
 		int id;
-		if (json_scan(tmpctx, bcli->output, t, "{id:%}",
-			      JSON_SCAN(json_to_int, &id)) == NULL) {
-			// fixme: future optimization: a) filter for full nodes,
-			// b) sort by last ping
-			tal_arr_expand(&stash->peers, id);
+		u8 *services;
+
+		if (json_scan(tmpctx, bcli->output, t, "{id:%,services:%}",
+			      JSON_SCAN(json_to_int, &id),
+			      JSON_SCAN_TAL(tmpctx, json_tok_bin_from_hex, &services)) == NULL) {
+			/* From bitcoin source:
+			 *  // NODE_NETWORK means that the node is capable of serving the complete block chain. It is currently
+			 *  // set by all Bitcoin Core non pruned nodes, and is unset by SPV clients or other light clients.
+			 * NODE_NETWORK = (1 << 0)
+			 */
+			if (tal_count(services) > 0 && (services[tal_count(services)-1] & (1<<0))) {
+				// fixme: future optimization: sort by last ping
+				tal_arr_expand(&stash->peers, id);
+			}
 		}
 	}
 
