@@ -362,7 +362,7 @@ static enum watch_result closed_inflight_depth_cb(struct lightningd *ld,
 		return KEEP_WATCHING;
 
 	/* This is now the main tx. */
-	update_channel_from_inflight(ld, inflight->channel, inflight);
+	update_channel_from_inflight(ld, inflight->channel, inflight, false);
 	channel_fail_saw_onchain(inflight->channel,
 				 REASON_UNKNOWN,
 				 tx,
@@ -2105,14 +2105,18 @@ void peer_disconnect_done(struct lightningd *ld, const u8 *msg)
 
 void update_channel_from_inflight(struct lightningd *ld,
 				  struct channel *channel,
-				  const struct channel_inflight *inflight)
+				  const struct channel_inflight *inflight,
+				  bool is_splice)
 {
-	struct wally_psbt *psbt_copy;
-
 	channel->funding = inflight->funding->outpoint;
 	channel->funding_sats = inflight->funding->total_funds;
 
 	channel->our_funds = inflight->funding->our_funds;
+
+	/* At this point, our_msat *becomes* our_funds because the splice
+	 * confirms. Any excess millisats stay in our_msats */
+	if (is_splice)
+		channel->our_funds = amount_msat_to_sat_round_down(channel->our_msat);
 
 	if (!amount_sat_add_sat_s64(&channel->our_funds, channel->our_funds,
 				    inflight->funding->splice_amnt)) {
@@ -2122,7 +2126,7 @@ void update_channel_from_inflight(struct lightningd *ld,
 				       "Updaing channel view for splice causes"
 				       " an invalid satoshi amount wrapping,"
 				       " channel: %s, initial funds: %s, splice"
-				       " banace change: %s",
+				       " balance change: "PRIi64,
 				       fmt_channel_id(tmpctx,
 						      &channel->cid),
 				       fmt_amount_sat(tmpctx, channel->our_funds),
@@ -2143,10 +2147,9 @@ void update_channel_from_inflight(struct lightningd *ld,
 							channel->opener,
 							&inflight->lease_blockheight_start);
 
-	/* Make a 'clone' of this tx */
-	psbt_copy = clone_psbt(channel, inflight->last_tx->psbt);
 	channel_set_last_tx(channel,
-			    bitcoin_tx_with_psbt(channel, psbt_copy),
+			    bitcoin_tx_with_psbt(channel,
+			    			 inflight->last_tx->psbt),
 			    &inflight->last_sig);
 
 	/* If the remote side rotated their pubkey during splice, update now */

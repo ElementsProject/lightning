@@ -272,6 +272,7 @@ msgtype,channeld_update_inflight,7219
 msgdata,channeld_update_inflight,psbt,wally_psbt,
 msgdata,channeld_update_inflight,last_tx,?bitcoin_tx,
 msgdata,channeld_update_inflight,last_sig,?bitcoin_signature,
+msgdata,channeld_update_inflight,locked_scid,?short_channel_id,
 
 # channeld->master: A funding error has occured
 msgtype,channeld_splice_funding_error,7220

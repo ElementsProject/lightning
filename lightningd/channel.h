@@ -81,6 +81,11 @@ struct channel_inflight {
 	/* On reestablish recovery; should I sign first? */
 	bool force_sign_first;
 
+	/* Has this inflight reached sufficent depth on chain? This is needed
+	 * for splices that need to coordinate `splice_locked` with their
+	 * peer through reconnect flows. */
+	struct short_channel_id *locked_scid;
+
 	/* Note: This field is not stored in the database.
 	 *
 	 * After splice_locked, we need a way to stop the chain watchers from
@@ -348,6 +353,9 @@ struct channel {
 
 	/* Our change history. */
 	struct channel_state_change **state_changes;
+
+	/* Have we replied to announcement_signatures once? */
+	bool replied_to_announcement_sigs;
 };
 
 /* Is channel owned (and should be talking to peer) */

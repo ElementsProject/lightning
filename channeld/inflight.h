@@ -7,6 +7,7 @@
 #include <common/amount.h>
 
 struct inflight {
+	/* The new channel outpoint */
 	struct bitcoin_outpoint outpoint;
 	struct pubkey remote_funding;
 	struct amount_sat amnt;
@@ -18,7 +19,7 @@ struct inflight {
 	struct bitcoin_signature last_sig;
 	bool i_am_initiator;
 	bool force_sign_first;
-	bool is_locked;
+	struct short_channel_id *locked_scid;
 };
 
 struct inflight *fromwire_inflight(const tal_t *ctx, const u8 **cursor, size_t *max);

@@ -229,6 +229,7 @@ msgdata,splice_ack,relative_satoshis,s64,
 msgdata,splice_ack,funding_pubkey,point,
 msgtype,splice_locked,77,
 msgdata,splice_locked,channel_id,channel_id,
+msgdata,splice_locked,splice_txid,sha256,
 msgtype,shutdown,38
 msgdata,shutdown,channel_id,channel_id,
 msgdata,shutdown,len,u16,
@@ -300,7 +301,7 @@ msgdata,commitment_signed,htlc_signature,signature,num_htlcs
 msgdata,commitment_signed,splice_channel_id,commitment_signed_tlvs,
 tlvtype,commitment_signed_tlvs,splice_info,0
 tlvdata,commitment_signed_tlvs,splice_info,batch_size,u16,
-tlvdata,commitment_signed_tlvs,splice_info,funding_txid,channel_id,
+tlvdata,commitment_signed_tlvs,splice_info,funding_txid,sha256,
 msgtype,revoke_and_ack,133
 msgdata,revoke_and_ack,channel_id,channel_id,
 msgdata,revoke_and_ack,per_commitment_secret,byte,32
@@ -319,16 +320,10 @@ msgdata,channel_reestablish,your_last_per_commitment_secret,byte,32
 msgdata,channel_reestablish,my_current_per_commitment_point,point,
 tlvtype,channel_reestablish_tlvs,next_funding,0
 tlvdata,channel_reestablish_tlvs,next_funding,next_funding_txid,sha256,
-tlvtype,channel_reestablish_tlvs,next_funding,0
-tlvdata,channel_reestablish_tlvs,next_funding,next_funding_txid,sha256,
-tlvtype,channel_reestablish_tlvs,next_to_send,1
-tlvdata,channel_reestablish_tlvs,next_to_send,commitment_number,tu64,
-tlvtype,channel_reestablish_tlvs,desired_channel_type,3
-tlvdata,channel_reestablish_tlvs,desired_channel_type,type,byte,...
-tlvtype,channel_reestablish_tlvs,current_channel_type,5
-tlvdata,channel_reestablish_tlvs,current_channel_type,type,byte,...
-tlvtype,channel_reestablish_tlvs,upgradable_channel_type,7
-tlvdata,channel_reestablish_tlvs,upgradable_channel_type,type,byte,...
+tlvtype,channel_reestablish_tlvs,your_last_funding_locked_txid,1
+tlvdata,channel_reestablish_tlvs,your_last_funding_locked_txid,your_last_funding_locked_txid,sha256,
+tlvtype,channel_reestablish_tlvs,my_current_funding_locked_txid,3
+tlvdata,channel_reestablish_tlvs,my_current_funding_locked_txid,my_current_funding_locked_txid,sha256,
 msgtype,announcement_signatures,259
 msgdata,announcement_signatures,channel_id,channel_id,
 msgdata,announcement_signatures,short_channel_id,short_channel_id,

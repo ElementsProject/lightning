@@ -1,5 +1,4 @@
 from fixtures import *  # noqa: F401,F403
-from flaky import flaky
 from pyln.client import RpcError
 import pytest
 import unittest
@@ -12,7 +11,6 @@ from utils import (
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
-@flaky
 def test_splice(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, fundamount=1000000, wait_for_announce=True, opts={'experimental-splicing': None})
 
@@ -35,6 +33,63 @@ def test_splice(node_factory, bitcoind):
     mempool = bitcoind.rpc.getrawmempool(True)
     assert len(list(mempool.keys())) == 1
     assert result['txid'] in list(mempool.keys())
+
+    bitcoind.generate_block(6, wait_for_mempool=1)
+
+    l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+    l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+
+    inv = l2.rpc.invoice(10**2, '3', 'no_3')
+    l1.rpc.pay(inv['bolt11'])
+
+    # Check that the splice doesn't generate a unilateral close transaction
+    time.sleep(5)
+    assert l1.db_query("SELECT count(*) as c FROM channeltxs;")[0]['c'] == 0
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_splice_rbf(node_factory, bitcoind):
+    l1, l2 = node_factory.line_graph(2, fundamount=1000000, wait_for_announce=True, opts={'experimental-splicing': None})
+
+    chan_id = l1.get_channel_id(l2)
+
+    funds_result = l1.rpc.addpsbtoutput(100000)
+
+    # Pay with fee by subjtracting 5000 from channel balance
+    result = l1.rpc.splice_init(chan_id, -105000, funds_result['psbt'])
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert(result['commitments_secured'] is False)
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert(result['commitments_secured'] is True)
+    result = l1.rpc.splice_signed(chan_id, result['psbt'])
+
+    l2.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+    l1.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+
+    mempool = bitcoind.rpc.getrawmempool(True)
+    assert len(list(mempool.keys())) == 1
+    assert result['txid'] in list(mempool.keys())
+
+    inv = l2.rpc.invoice(10**2, '1', 'no_1')
+    l1.rpc.pay(inv['bolt11'])
+
+    funds_result = l1.rpc.addpsbtoutput(100000)
+
+    # Pay with fee by subjtracting 5000 from channel balance
+    result = l1.rpc.splice_init(chan_id, -110000, funds_result['psbt'])
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert(result['commitments_secured'] is False)
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert(result['commitments_secured'] is True)
+    result = l1.rpc.splice_signed(chan_id, result['psbt'])
+
+    l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_AWAITING_SPLICE')
+    l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_AWAITING_SPLICE')
+
+    inv = l2.rpc.invoice(10**2, '2', 'no_2')
+    l1.rpc.pay(inv['bolt11'])
 
     bitcoind.generate_block(6, wait_for_mempool=1)
 
@@ -269,7 +324,6 @@ def test_invalid_splice(node_factory, bitcoind):
     assert l1.db_query("SELECT count(*) as c FROM channeltxs;")[0]['c'] == 0
 
 
-@unittest.skip("Test is flaky causing CI to be unusable.")
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
@@ -293,23 +347,18 @@ def test_commit_crash_splice(node_factory, bitcoind):
     # The splicing inflight should have been left pending in the DB
     assert l1.db_query("SELECT count(*) as c FROM channel_funding_inflights;")[0]['c'] == 1
 
-    l1.daemon.wait_for_log(r'Restarting channeld after tx_abort on CHANNELD_NORMAL channel')
+    l1.daemon.wait_for_log(r'peer_out WIRE_CHANNEL_REESTABLISH')
+    l1.daemon.wait_for_log(r'Got reestablish commit=1 revoke=0 inflights: 1, active splices: 1')
+    l1.daemon.wait_for_log(r'Splice resume check with local_next_funding: sent, remote_next_funding: received, inflights: 1')
+    l1.daemon.wait_for_log(r'Splice negotation, will not send commit, not recv commit, send signature, recv signature as initiator')
 
     assert l1.db_query("SELECT count(*) as c FROM channel_funding_inflights;")[0]['c'] == 1
-
-    result = l1.rpc.splice_init(chan_id, -105000, l1.rpc.addpsbtoutput(100000)['psbt'])
-    result = l1.rpc.splice_update(chan_id, result['psbt'])
-    assert(result['commitments_secured'] is False)
-    result = l1.rpc.splice_update(chan_id, result['psbt'])
-    assert(result['commitments_secured'] is True)
-    result = l1.rpc.splice_signed(chan_id, result['psbt'])
 
     l2.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
     l1.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
 
     mempool = bitcoind.rpc.getrawmempool(True)
     assert len(list(mempool.keys())) == 1
-    assert result['txid'] in list(mempool.keys())
 
     bitcoind.generate_block(6, wait_for_mempool=1)
 

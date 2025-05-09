@@ -111,7 +111,8 @@ bool bitcoin_txid_to_hex(const struct bitcoin_txid *txid,
 			 char *hexstr, size_t hexstr_len);
 
 /* Create a bitcoin_tx from a psbt */
-struct bitcoin_tx *bitcoin_tx_with_psbt(const tal_t *ctx, struct wally_psbt *psbt);
+struct bitcoin_tx *bitcoin_tx_with_psbt(const tal_t *ctx,
+					struct wally_psbt *psbt TAKES);
 
 /* Internal de-linearization functions. */
 /* Pull a bitcoin tx, and create a PSBT wrapper for it */

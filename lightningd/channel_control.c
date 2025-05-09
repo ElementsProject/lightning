@@ -50,6 +50,8 @@ struct splice_command {
 	struct channel_id **channel_ids;
 	/* For multi-channel stfu command: the pending result */
 	struct stfu_result **results;
+	/* The user provided PSBT's version */
+	u32 user_psbt_ver;
 };
 
 void channel_update_feerates(struct lightningd *ld, const struct channel *channel)
@@ -399,6 +401,13 @@ static void handle_splice_confirmed_init(struct lightningd *ld,
 		return;
 	}
 
+	if (psbt->version != cc->user_psbt_ver
+	     && !psbt_set_version(psbt, cc->user_psbt_ver))
+		channel_internal_error(channel, "Splice failed to convert from"
+				       " internal version "PRIu32" to user"
+				       " version "PRIu32, psbt->version,
+				       cc->user_psbt_ver);
+
 	struct json_stream *response = json_stream_success(cc->cmd);
 	json_add_string(response, "psbt", fmt_wally_psbt(tmpctx, psbt));
 
@@ -432,6 +441,13 @@ static void handle_splice_confirmed_update(struct lightningd *ld,
 				       tal_hex(channel, msg));
 		return;
 	}
+
+	if (psbt->version != cc->user_psbt_ver
+	     && !psbt_set_version(psbt, cc->user_psbt_ver))
+		channel_internal_error(channel, "Splice failed to convert from"
+				       " internal version "PRIu32" to user"
+				       " version "PRIu32, psbt->version,
+				       cc->user_psbt_ver);
 
 	struct json_stream *response = json_stream_success(cc->cmd);
 	json_add_string(response, "psbt", fmt_wally_psbt(tmpctx, psbt));
@@ -737,15 +753,21 @@ static void handle_splice_sending_sigs(struct lightningd *ld,
 				       " splice_confirmed_signed txid %s",
 				       fmt_bitcoin_txid(tmpctx, &txid));
 
-	/* Signing a splice after it has confirmed is safe and can happen during
-	 * reestablish if one node is late seeing blocks */
-	if (channel->state == CHANNELD_AWAITING_SPLICE)
-		return;
+	/* We can get here because of a splice RBF or because re-signing during
+	 * or because of a splice RBF. In the latter case, we will be adding
+	 * adding a harmless second txid watch on the inflight. */
+	if (channel->state != CHANNELD_NORMAL
+		&& channel->state != CHANNELD_AWAITING_SPLICE) {
+		log_unusual(channel->log, "Setting state to"
+			    " CHANNELD_AWAITING_SPLICE but existing channel"
+			    " state is unexpected value %s",
+			    channel_state_str(channel->state));
+	}
 
 	cc = splice_command_for_chan(ld, channel);
 	/* If matching user command found, this was a user intiated splice */
 	channel_set_state(channel,
-			  CHANNELD_NORMAL,
+			  channel->state,
 			  CHANNELD_AWAITING_SPLICE,
 			  cc ? REASON_USER : REASON_REMOTE,
 			  "Splice signatures sent");
@@ -875,9 +897,10 @@ static void handle_update_inflight(struct lightningd *ld,
 	struct bitcoin_txid txid;
 	struct bitcoin_tx *last_tx;
 	struct bitcoin_signature *last_sig;
+	struct short_channel_id *locked_scid;
 
 	if (!fromwire_channeld_update_inflight(tmpctx, msg, &psbt, &last_tx,
-					       &last_sig)) {
+					       &last_sig, &locked_scid)) {
 		channel_internal_error(channel,
 				       "bad channel_add_inflight %s",
 				       tal_hex(channel, msg));
@@ -904,6 +927,8 @@ static void handle_update_inflight(struct lightningd *ld,
 
 	if (last_sig)
 		inflight->last_sig = *last_sig;
+
+	inflight->locked_scid = tal_steal(inflight, locked_scid);
 
 	tal_wally_start();
 	if (wally_psbt_combine(inflight->funding_psbt, psbt) != WALLY_OK) {
@@ -1093,6 +1118,11 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 				       " locked_txid %s",
 				       fmt_bitcoin_txid(tmpctx, &locked_txid));
 
+	wallet_htlcsigs_confirm_inflight(channel->peer->ld->wallet, channel,
+					 &inflight->funding->outpoint);
+
+	update_channel_from_inflight(channel->peer->ld, channel, inflight, true);
+
 	/* Stash prev funding data so we can log it after scid is updated
 	 * (to get the blockheight) */
 	prev_our_msats = channel->our_msat;
@@ -1102,11 +1132,6 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 	channel->our_msat.millisatoshis += splice_amnt * 1000; /* Raw: splicing */
 	channel->msat_to_us_min.millisatoshis += splice_amnt * 1000; /* Raw: splicing */
 	channel->msat_to_us_max.millisatoshis += splice_amnt * 1000; /* Raw: splicing */
-
-	wallet_htlcsigs_confirm_inflight(channel->peer->ld->wallet, channel,
-					 &inflight->funding->outpoint);
-
-	update_channel_from_inflight(channel->peer->ld, channel, inflight);
 
 	/* Remember that we got the lockin */
 	wallet_channel_save(channel->peer->ld->wallet, channel);
@@ -1793,13 +1818,11 @@ bool peer_start_channeld(struct channel *channel,
 		infcopy->amnt = inflight->funding->total_funds;
 		infcopy->remote_tx_sigs = inflight->remote_tx_sigs;
 		infcopy->splice_amnt = inflight->funding->splice_amnt;
-		if (inflight->last_tx)
-			infcopy->last_tx = tal_dup(infcopy, struct bitcoin_tx, inflight->last_tx);
-		else
-			infcopy->last_tx = NULL;
+		infcopy->last_tx = tal_dup_or_null(infcopy, struct bitcoin_tx, inflight->last_tx);
 		infcopy->last_sig = inflight->last_sig;
 		infcopy->i_am_initiator = inflight->i_am_initiator;
 		infcopy->force_sign_first = inflight->force_sign_first;
+		infcopy->locked_scid = tal_dup_or_null(infcopy, struct short_channel_id, inflight->locked_scid);
 
 		tal_wally_start();
 		wally_psbt_clone_alloc(inflight->funding_psbt, 0, &infcopy->psbt);
@@ -2187,11 +2210,12 @@ static struct command_result *channel_for_splice(struct command *cmd,
 				    "abnormal owner state %s",
 				    (*channel)->owner->name);
 
-	if ((*channel)->state != CHANNELD_NORMAL)
+	if ((*channel)->state != CHANNELD_NORMAL
+		&& (*channel)->state != CHANNELD_AWAITING_SPLICE)
 		return command_fail(cmd,
 				    SPLICE_INVALID_CHANNEL_STATE,
-				    "Channel needs to be in normal state but "
-				    "is in state %s",
+				    "Channel needs to be in normal or awaiting"
+				    " splice state but is in state %s",
 				    channel_state_name(*channel));
 
 	return NULL;
@@ -2275,6 +2299,12 @@ static struct command_result *json_splice_init(struct command *cmd,
 	cc->channel = channel;
 	cc->channel_ids = NULL;
 	cc->results = NULL;
+	cc->user_psbt_ver = initialpsbt->version;
+
+	if (initialpsbt->version != 2 && !psbt_set_version(initialpsbt, 2))
+		return command_fail(cmd,
+				    SPLICE_INPUT_ERROR,
+				    "Splice failed to convert to v2");
 
 	msg = towire_channeld_splice_init(NULL, initialpsbt, *relative_amount,
 					  *feerate_per_kw, *force_feerate,
@@ -2321,6 +2351,12 @@ static struct command_result *json_splice_update(struct command *cmd,
 	cc->channel = channel;
 	cc->channel_ids = NULL;
 	cc->results = NULL;
+	cc->user_psbt_ver = psbt->version;
+
+	if (psbt->version != 2 && !psbt_set_version(psbt, 2))
+		return command_fail(cmd,
+				    SPLICE_INPUT_ERROR,
+				    "Splice failed to convert to v2");
 
 	subd_send_msg(channel->owner,
 		      take(towire_channeld_splice_update(NULL, psbt)));
@@ -2351,6 +2387,12 @@ static struct command_result *single_splice_signed(struct command *cmd,
 	cc->channel = channel;
 	cc->channel_ids = NULL;
 	cc->results = NULL;
+	cc->user_psbt_ver = psbt->version;
+
+	if (psbt->version != 2 && !psbt_set_version(psbt, 2))
+		return command_fail(cmd,
+				    SPLICE_INPUT_ERROR,
+				    "Splice failed to convert to v2");
 
 	msg = towire_channeld_splice_signed(tmpctx, psbt, sign_first);
 	subd_send_msg(channel->owner, take(msg));
@@ -2381,6 +2423,9 @@ static struct command_result *json_splice_signed(struct command *cmd,
 	if (!validate_psbt(psbt))
 		return command_fail(cmd, SPLICE_INPUT_ERROR,
 				    "PSBT failed to validate.");
+
+	log_debug(cmd->ld->log, "splice_signed input PSBT version %d",
+		  psbt->version);
 
 	/* If a single channel is specified, we do that and finish. */
 	if (channel) {
