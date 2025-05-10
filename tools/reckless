@@ -206,6 +206,36 @@ class InstInfo:
         return (f'InstInfo({self.name}, {self.source_loc}, {self.git_url}, '
                 f'{self.entry}, {self.deps}, {self.subdir})')
 
+    def get_repo_commit(self) -> Union[str, None]:
+        """The latest commit from a remote repo or the HEAD of a local repo."""
+        if self.srctype in [Source.LOCAL_REPO, Source.GIT_LOCAL_CLONE]:
+            git = run(['git', 'rev-parse', 'HEAD'], cwd=str(self.source_loc),
+                      stdout=PIPE, stderr=PIPE, text=True, check=False, timeout=10)
+            if git.returncode != 0:
+                return None
+            return git.stdout.splitlines()[0]
+
+        if self.srctype == Source.GITHUB_REPO:
+            parsed_url = urlparse(self.git_url)
+            if 'github.com' not in parsed_url.netloc:
+                return None
+            if len(parsed_url.path.split('/')) < 2:
+                return None
+            start = 1
+            # Maybe we were passed an api.github.com/repo/<user> url
+            if 'api' in parsed_url.netloc:
+                start += 1
+            repo_user = parsed_url.path.split('/')[start]
+            repo_name = parsed_url.path.split('/')[start + 1]
+            api_url = f'{API_GITHUB_COM}/repos/{repo_user}/{repo_name}/commits?ref=HEAD'
+            r = urlopen(api_url, timeout=5)
+            if r.status != 200:
+                return None
+            try:
+                return json.loads(r.read().decode())['0']['sha']
+            except:
+                return None
+
     def get_inst_details(self) -> bool:
         """Search the source_loc for plugin install details.
         This may be necessary if a contents api is unavailable.
@@ -1099,12 +1129,13 @@ def add_installation_metadata(installed: InstInfo,
     updating the plugin."""
     install_dir = Path(installed.source_loc)
     assert install_dir.is_dir()
+    abs_source_path = Path(original_request.source_loc).resolve()
     data = ('installation date\n'
             f'{datetime.date.today().isoformat()}\n'
             'installation time\n'
             f'{int(time.time())}\n'
             'original source\n'
-            f'{original_request.source_loc}\n'
+            f'{abs_source_path}\n'
             'requested commit\n'
             f'{original_request.commit}\n'
             'installed commit\n'
@@ -1175,10 +1206,11 @@ def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
         log.debug(f'{clone_path} already exists - deleting')
         shutil.rmtree(clone_path)
     if src.srctype == Source.DIRECTORY:
+        full_source_path = Path(src.source_loc) / src.subdir
         log.debug(("copying local directory contents from"
-                   f" {src.source_loc}"))
+                   f" {full_source_path}"))
         create_dir(clone_path)
-        shutil.copytree(src.source_loc, plugin_path)
+        shutil.copytree(full_source_path, plugin_path)
     elif src.srctype in [Source.LOCAL_REPO, Source.GITHUB_REPO,
                          Source.OTHER_URL, Source.GIT_LOCAL_CLONE]:
         # clone git repository to /tmp/reckless-...
@@ -1297,6 +1329,50 @@ def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
     return staged_src
 
 
+def location_from_name(plugin_name: str) -> (str, str):
+    """Maybe the location was passed in place of the plugin name.  Check
+    if this looks like a filepath or URL and return that as well as the
+    plugin name."""
+    if not Path(plugin_name).exists():
+        try:
+            parsed = urlparse(plugin_name)
+            if parsed.scheme in ['http', 'https']:
+                return (plugin_name, Path(plugin_name).with_suffix('').name)
+        except ValueError:
+            pass
+        # No path included, return the name only.
+        return (None, plugin_name)
+
+    # Directory containing the plugin? The plugin name should match the dir.
+    if os.path.isdir(plugin_name):
+        return (Path(plugin_name).parent, Path(plugin_name).name)
+
+    # Possibly the entrypoint itself was passed?
+    elif os.path.isfile(plugin_name):
+        if Path(plugin_name).with_suffix('').name != Path(plugin_name).parent.name or \
+                not Path(plugin_name).parent.parent.exists():
+            # If the directory is not named for the plugin, we can't infer what
+            # should be done.
+            # FIXME: return InstInfo with entrypoint rather than source str.
+            return (None, plugin_name)
+        # We have to make inferences as to the naming here.
+        return (Path(plugin_name).parent.parent, Path(plugin_name).with_suffix('').name)
+
+
+def _enable_installed(installed: InstInfo, plugin_name: str) -> Union[str, None]:
+    """Enable the plugin in the active config file and dynamically activate
+    if a lightnignd rpc is available."""
+    if not installed:
+        log.warning(f'{plugin_name}: installation aborted')
+        return None
+
+    if enable(installed.name):
+        return f"{installed.source_loc}"
+
+    log.error(('dynamic activation failed: '
+              f'{installed.name} not found in reckless directory'))
+    return None
+
 def install(plugin_name: str) -> Union[str, None]:
     """Downloads plugin from source repos, installs and activates plugin.
     Returns the location of the installed plugin or "None" in the case of
@@ -1309,34 +1385,37 @@ def install(plugin_name: str) -> Union[str, None]:
     else:
         name = plugin_name
         commit = None
-    log.debug(f"Searching for {name}")
-    if search(name):
-        global LAST_FOUND
-        src = LAST_FOUND
-        src.commit = commit
-        log.debug(f'Retrieving {src.name} from {src.source_loc}')
-        try:
-            installed = _install_plugin(src)
-        except FileExistsError as err:
-            log.error(f'File exists: {err.filename}')
-            return None
-        LAST_FOUND = None
-        if not installed:
-            log.warning(f'{plugin_name}: installation aborted')
+    # Is the install request specifying a path to the plugin?
+    direct_location, name = location_from_name(name)
+    src = None
+    if direct_location:
+        logging.debug(f"install of {name} requested from {direct_location}")
+        src = InstInfo(name, direct_location, None)
+        if not src.get_inst_details():
+            src = None
+        # Treating a local git repo as a directory allows testing
+        # uncommitted changes.
+        if src and src.srctype == Source.LOCAL_REPO:
+            src.srctype = Source.DIRECTORY
+    if not direct_location or not src:
+        log.debug(f"Searching for {name}")
+        if search(name):
+            global LAST_FOUND
+            src = LAST_FOUND
+            LAST_FOUND = None
+            src.commit = commit
+            log.debug(f'Retrieving {src.name} from {src.source_loc}')
+        else:
+            LAST_FOUND = None
             return None
 
-        # Match case of the containing directory
-        for dirname in os.listdir(RECKLESS_CONFIG.reckless_dir):
-            if dirname.lower() == installed.name.lower():
-                inst_path = Path(RECKLESS_CONFIG.reckless_dir)
-                inst_path = inst_path / dirname / installed.entry
-                RECKLESS_CONFIG.enable_plugin(inst_path)
-                enable(installed.name)
-                return f"{installed.source_loc}"
-        log.error(('dynamic activation failed: '
-                  f'{installed.name} not found in reckless directory'))
+    try:
+        installed = _install_plugin(src)
+    except FileExistsError as err:
+        log.error(f'File exists: {err.filename}')
         return None
-    return None
+    return _enable_installed(installed, plugin_name)
+
 
 
 def uninstall(plugin_name: str) -> str:
@@ -1385,6 +1464,8 @@ def search(plugin_name: str) -> Union[InstInfo, None]:
         if srctype in [Source.DIRECTORY, Source.LOCAL_REPO,
                        Source.GITHUB_REPO, Source.OTHER_URL]:
             found = _source_search(plugin_name, source)
+            if found:
+                log.debug(f"{found}, {found.srctype}")
         if not found:
             continue
         log.info(f"found {found.name} in source: {found.source_loc}")
@@ -1466,8 +1547,8 @@ def enable(plugin_name: str):
             log.error(err)
             return None
     except RPCError:
-        log.debug(('lightningd rpc unavailable. '
-                   'Skipping dynamic activation.'))
+        log.info(('lightningd rpc unavailable. '
+                  'Skipping dynamic activation.'))
     RECKLESS_CONFIG.enable_plugin(path)
     log.info(f'{inst.name} enabled')
     return 'enabled'
@@ -1611,6 +1692,86 @@ def list_source():
     return sources_from_file()
 
 
+class UpdateStatus(Enum):
+    SUCCESS = 0
+    LATEST = 1
+    UNINSTALLED = 2
+    ERROR = 3
+    METADATA_MISSING = 4
+
+
+def update_plugin(plugin_name: str) -> tuple:
+    """Check for an installed plugin, if metadata for it exists, update
+    to the latest available while using the same source."""
+    log.info(f"updating {plugin_name}")
+    if not (Path(RECKLESS_CONFIG.reckless_dir) / plugin_name).exists():
+        log.error(f'{plugin_name} is not installed')
+        return (None, UpdateStatus.UNINSTALLED)
+    metadata_file = Path(RECKLESS_CONFIG.reckless_dir) / plugin_name / '.metadata'
+    if not metadata_file.exists():
+        log.warning(f"no metadata file for {plugin_name}")
+        return (None, UpdateStatus.METADATA_MISSING)
+
+    metadata = {'installation date': None,
+                'installation time': None,
+                'original source': None,
+                'requested commit': None,
+                'installed commit': None,
+                }
+    with open(metadata_file, "r") as meta:
+        metadata_lines = meta.readlines()
+        for line_no, line in enumerate(metadata_lines):
+            if line_no > 0 and metadata_lines[line_no - 1].strip() in metadata:
+                metadata.update({metadata_lines[line_no - 1].strip(): line.strip()})
+    for key in metadata:
+        if metadata[key].lower() == 'none':
+            metadata[key] = None
+    log.debug(f'{plugin_name} installation metadata: {str(metadata)}')
+
+    src = InstInfo(plugin_name,
+                   metadata['original source'], None)
+    if not src.get_inst_details():
+        log.error(f'cannot locate {plugin_name} in original source {metadata["original_source"]}')
+        return (None, UpdateStatus.ERROR)
+    repo_commit = src.get_repo_commit()
+    if not repo_commit:
+        log.debug('source commit not available')
+    else:
+        log.debug(f'source commit: {repo_commit}')
+    if repo_commit and repo_commit == metadata['installed commit']:
+        log.info(f'Installed {plugin_name} is already latest @{repo_commit}')
+        return (None, UpdateStatus.LATEST)
+    uninstall(plugin_name)
+    try:
+        installed = _install_plugin(src)
+    except FileExistsError as err:
+        log.error(f'File exists: {err.filename}')
+        return (None, UpdateStatus.ERROR)
+    result = _enable_installed(installed, plugin_name)
+    if result:
+        return (result, UpdateStatus.SUCCESS)
+    return (result, UpdateStatus.ERROR)
+
+
+def update_plugins(plugin_name: str):
+    """user requested plugin upgrade(s)"""
+    if plugin_name:
+        installed = update_plugin(plugin_name)
+        if not installed[0] and installed[1] != UpdateStatus.LATEST:
+            log.error(f'{plugin_name} update aborted')
+        return installed[0]
+
+    log.info("updating all plugins")
+    update_results = []
+    for plugin in os.listdir(RECKLESS_CONFIG.reckless_dir):
+        if not (Path(RECKLESS_CONFIG.reckless_dir) / plugin).is_dir():
+            continue
+        if len(plugin) > 0 and plugin[0] == '.':
+            continue
+        update_results.append(update_plugin(plugin)[0])
+    return update_results
+
+
 def report_version() -> str:
     """return reckless version"""
     log.info(__VERSION__)
@@ -1706,6 +1867,9 @@ if __name__ == '__main__':
                                         'repository')
     source_rem.add_argument('targets', type=str, nargs='*')
     source_rem.set_defaults(func=remove_source)
+    update = cmd1.add_parser('update', help='update plugins to lastest version')
+    update.add_argument('targets', type=str, nargs='*')
+    update.set_defaults(func=update_plugins)
 
     help_cmd = cmd1.add_parser('help', help='for contextual help, use '
                                '"reckless <cmd> -h"')
@@ -1716,7 +1880,8 @@ if __name__ == '__main__':
                         help='print version and exit')
 
     all_parsers = [parser, install_cmd, uninstall_cmd, search_cmd, enable_cmd,
-                   disable_cmd, list_parse, source_add, source_rem, help_cmd]
+                   disable_cmd, list_parse, source_add, source_rem, help_cmd,
+                   update]
     for p in all_parsers:
         # This default depends on the .lightning directory
         p.add_argument('-d', '--reckless-dir', action=StoreIdempotent,
@@ -1797,19 +1962,25 @@ if __name__ == '__main__':
     if 'GITHUB_API_FALLBACK' in os.environ:
         GITHUB_API_FALLBACK = os.environ['GITHUB_API_FALLBACK']
 
-    if 'targets' in args:
-        # FIXME: Catch missing argument
+    if 'targets' in args: # and len(args.targets) > 0:
         if args.func.__name__ == 'help_alias':
             args.func(args.targets)
             sys.exit(0)
+        # Catch a missing argument so that we can overload functions.
+        if len(args.targets) == 0:
+            args.targets=[None]
         for target in args.targets:
             # Accept single item arguments, or a json array
-            target_list = unpack_json_arg(target)
-            if target_list:
-                for tar in target_list:
-                    log.add_result(args.func(tar))
-            else:
-                log.add_result(args.func(target))
+            try:
+                target_list = unpack_json_arg(target)
+                if target_list:
+                    for tar in target_list:
+                        log.add_result(args.func(tar))
+                else:
+                    log.add_result(args.func(target))
+            except TypeError:
+                if len(args.targets) == 1:
+                    log.add_result(args.func(target))
     elif 'func' in args:
         log.add_result(args.func())
 
