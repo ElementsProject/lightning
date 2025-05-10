@@ -11,6 +11,8 @@ from utils import (
     first_scid, check_feerate
 )
 
+from typing import List, Optional
+
 import bitcoin
 import os
 import queue
@@ -398,10 +400,9 @@ def closing_negotiation_step(node_factory, bitcoind, chainparams, opts):
     status_agreed_regex = re.compile("agreed on a closing fee of ([0-9]+) satoshi")
 
     # [fee_from_opener_status, fee_from_peer_status]
-    fees_from_status = [None, None]
+    fees_from_status: List[Optional[int], Optional[int]] = [None, None]
 
     def get_fee_from_status(node, peer_id, i):
-        nonlocal fees_from_status
         channel = only_one(node.rpc.listpeerchannels(peer_id)['channels'])
         status = channel['status'][0]
 
