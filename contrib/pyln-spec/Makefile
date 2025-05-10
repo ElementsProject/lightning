@@ -17,18 +17,18 @@ CODE_DIRS := $(foreach b,$(BOLTS),bolt$b/pyln/spec/bolt$b)
 
 check: $(DIRS:%=check-pytest-%)
 check-pytest-%:
-	cd $* && pytest 
+	cd $* && uv run pytest 
 
 check-source: check-source-flake8 check-source-mypy
 check-source-flake8: $(DIRS:%=check-source-flake8-%)
 check-source-mypy: $(DIRS:%=check-source-mypy-%)
 
 check-source-flake8-%:
-	cd $* && flake8 --ignore=E501,E731,W503,E741 --exclude=text.py
+	cd $* && uv run flake8 --ignore=E501,E731,W503,E741 --exclude=text.py
 
 # mypy . does not recurse.  I have no idea why...
 check-source-mypy-%:
-	cd $* && mypy --ignore-missing-imports `find * -name '*.py'`
+	cd $* && uv run mypy --ignore-missing-imports `find * -name '*.py'`
 
 # Given a bolt number and a variable, get the value from inside the package.
 extract = $(shell cat bolt$1/pyln/spec/bolt$1/gen_*version.py | sed -n 's/^$2 = \"\(.*\)\"/\1/p')
@@ -45,32 +45,33 @@ sdistfiles = $(foreach b,$(BOLTS),bolt$b/dist/pyln-bolt$b-$(call version,$b).tar
 bdistfiles = $(foreach b,$(BOLTS),bolt$b/dist/pyln_bolt$b-$(call version,$b)-py3-none-any.whl)
 
 %.tar.gz:
-	cd $(dir $@)/.. && python3 setup.py sdist
+	cd $(dir $@)/.. && uv build
 
 %.whl:
-	cd $(dir $@)/.. && python3 setup.py bdist_wheel
+	cd $(dir $@)/.. && uv build
 
 ARTEFACTS := $(foreach b,$(BOLTS),$(call bdistfiles,$b) $(call sdistfiles,$b))
 
 test-release-%:
-	cd bolt$b && poetry publish --repository testpypi
+	cd bolt$* && uv publish --publish-url https://test.pypi.org/legacy/
 
 test-release: $(BOLTS:%=prod-release-%)
 
 prod-release-%:
-	cd bolt$b && poetry publish
+	cd bolt$* && uv publish
 
 prod-release: $(BOLTS:%=prod-release-%)
 
 # Pattern rules don't work reliably with multiple % in prereqs!
 refresh-1: bolt1/pyln/spec/bolt1/gen_csv_version.py bolt1/pyln/spec/bolt1/gen_version.py
-	cd bolt1 && poetry version $(call version,1)
+	# Update version in pyproject.toml using sed (uv doesn't have version command)
+	cd bolt1 && sed -i 's/^version = .*/version = "$(call version,1)"/' pyproject.toml
 refresh-2: bolt2/pyln/spec/bolt2/gen_csv_version.py bolt2/pyln/spec/bolt2/gen_version.py
-	cd bolt2 && poetry version $(call version,2)
+	cd bolt2 && sed -i 's/^version = .*/version = "$(call version,2)"/' pyproject.toml
 refresh-4: bolt4/pyln/spec/bolt4/gen_csv_version.py bolt4/pyln/spec/bolt4/gen_version.py
-	cd bolt4 && poetry version $(call version,4)
+	cd bolt4 && sed -i 's/^version = .*/version = "$(call version,4)"/' pyproject.toml
 refresh-7: bolt7/pyln/spec/bolt7/gen_csv_version.py bolt7/pyln/spec/bolt7/gen_version.py
-	cd bolt7 && poetry version $(call version,7)
+	cd bolt7 && sed -i 's/^version = .*/version = "$(call version,7)"/' pyproject.toml
 
 refresh: $(BOLTS:%=refresh-%)
 
