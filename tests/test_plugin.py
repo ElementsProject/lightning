@@ -1335,6 +1335,32 @@ def test_channel_opened_notification(node_factory):
                            .format(l1.info["id"], amount))
 
 
+def test_channel_closed_notification(node_factory):
+    """
+    Test the 'channel_closed' notification sent at channel closing success.
+    """
+    plugin_path = os.path.join(os.getcwd(), "tests/plugins/misc_notifications.py")
+    opts = [{"plugin": plugin_path}, {"plugin": plugin_path}]
+    amount = 10**6
+    l1, l2 = node_factory.line_graph(2, fundchannel=True, fundamount=amount, opts=opts)
+
+    cid = l1.get_channel_id(l2)
+    scid = l1.get_channel_scid(l2)
+    closing_txid = only_one(l2.rpc.close(l1.info["id"])["txids"])
+
+    l1.daemon.wait_for_log(
+        r"A channel was closed to us {{'peer_id': '{}', 'channel_id': '{}', 'short_channel_id': '{}', 'closing_txid': '{}', 'cause': 'remote'}}".format(
+            l2.rpc.getinfo()["id"], cid, scid, closing_txid
+        )
+    )
+
+    l2.daemon.wait_for_log(
+        r"A channel was closed to us {{'peer_id': '{}', 'channel_id': '{}', 'short_channel_id': '{}', 'closing_txid': '{}', 'cause': 'user'}}".format(
+            l1.rpc.getinfo()["id"], cid, scid, closing_txid
+        )
+    )
+
+
 def test_forward_event_notification(node_factory, bitcoind, executor):
     """ test 'forward_event' notifications
     """
