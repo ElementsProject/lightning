@@ -3382,7 +3382,7 @@ def test_listforwards_and_listhtlcs(node_factory, bitcoind):
     assert l2.rpc.wait('htlcs', 'deleted', 0)['deleted'] == 0
 
     # 99 blocks is not enough for them to be deleted.
-    bitcoind.generate_block(97)
+    bitcoind.generate_block(97, wait_for_mempool=1)
     assert l2.rpc.wait('htlcs', 'deleted', 0)['deleted'] == 0
 
     # This will forget c23
