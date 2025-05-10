@@ -4808,7 +4808,7 @@ def test_dev_rawrequest(node_factory):
     # Get fetchinvoice to make us an invoice_request
     l1.rpc.call('fetchinvoice', {'offer': offer['bolt12']})
 
-    m = re.search(r'invoice_request: \\"([a-z0-9]*)\\"', l1.daemon.is_in_log('invoice_request:'))
+    m = re.search(r'invoice_request: "([a-z0-9]*)"', l1.daemon.is_in_log('invoice_request:'))
     ret = l1.rpc.call('dev-rawrequest', {'invreq': m.group(1),
                                          'nodeid': l2.info['id'],
                                          'timeout': 10})
@@ -5936,7 +5936,7 @@ def test_offer_experimental_fields(node_factory):
         l2.rpc.fetchinvoice(mangled)
 
     # invice request contains the unknown field
-    m = re.search(r'invoice_request: \\"([a-z0-9]*)\\"', l2.daemon.is_in_log('invoice_request:'))
+    m = re.search(r'invoice_request: "([a-z0-9]*)"', l2.daemon.is_in_log('invoice_request:'))
     assert l1.rpc.decode(m.group(1))['unknown_invoice_request_tlvs'] == [{'type': 1000000001, 'length': 1, 'value': '00'}]
 
 

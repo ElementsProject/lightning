@@ -3,6 +3,7 @@
 #include <ccan/ccan/tal/grab_file/grab_file.h>
 #include <ccan/crc32c/crc32c.h>
 #include <ccan/io/io.h>
+#include <ccan/json_escape/json_escape.h>
 #include <ccan/mem/mem.h>
 #include <ccan/opt/opt.h>
 #include <ccan/pipecmd/pipecmd.h>
@@ -512,9 +513,27 @@ static const char *plugin_log_handle(struct plugin *plugin,
 	}
 
 	call_notifier = (level == LOG_BROKEN || level == LOG_UNUSUAL)? true : false;
-	/* FIXME: Let plugin specify node_id? */
-	log_(plugin->log, level, NULL, call_notifier, "%.*s", msgtok->end - msgtok->start,
-	     plugin->buffer + msgtok->start);
+
+	/* Only bother unescaping and splitting if it has \ */
+	if (memchr(plugin->buffer + msgtok->start, '\\', msgtok->end - msgtok->start)) {
+		const char *log_escaped = plugin->buffer + msgtok->start;
+		const size_t log_escaped_len = msgtok->end - msgtok->start;
+		struct json_escape *esc = json_escape_string_(tmpctx, log_escaped, log_escaped_len);
+		const char *log_msg = json_escape_unescape(tmpctx, esc);
+		char **lines;
+
+		lines = tal_strsplit(tmpctx, log_msg, "\n", STR_EMPTY_OK);
+
+		for (size_t i = 0; lines[i]; i++) {
+			/* FIXME: Let plugin specify node_id? */
+			log_(plugin->log, level, NULL, call_notifier, "%s", lines[i]);
+		}
+	} else {
+		log_(plugin->log, level, NULL, call_notifier, "%.*s",
+		     msgtok->end - msgtok->start,
+		     plugin->buffer + msgtok->start);
+	}
+
 	return NULL;
 }
 
