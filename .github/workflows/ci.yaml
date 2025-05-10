@@ -616,7 +616,7 @@ jobs:
   gather:
     # A dummy task that depends on the full matrix of tests, and
     # signals successful completion. Used for the PR status to pass
-    # before merging.
+    # before merging.  Needs to run even if they failed!
     name: CI completion
     runs-on: ubuntu-22.04
     needs:
@@ -626,7 +626,28 @@ jobs:
       - integration-sanitizers
       - min-btc-support
       - check-flake
+    if: ${{ always() }}
     steps:
       - name: Complete
+        env:
+          JOB_NAMES: "INTEGRATION CHECK_UNITS VALGRIND SANITIZERS BTC FLAKE"
+          INTEGRATION: ${{ needs.integration.result }}
+          CHECK_UNITS: ${{ needs['check-units'].result }}
+          VALGRIND: ${{ needs['integration-valgrind'].result }}
+          SANITIZERS: ${{ needs['integration-sanitizers'].result }}
+          DOCS: ${{ needs['update-docs-examples'].result }}
+          BTC: ${{ needs['min-btc-support'].result }}
+          FLAKE: ${{ needs['check-flake'].result }}
         run: |
-          echo CI completed successfully
+          failed=""
+          for name in $JOB_NAMES; do
+            result="${!name}"
+            echo "$name: $result"
+            if [[ "$result" != "success" ]]; then
+              failed="yes"
+            fi
+          done
+          if [[ "$failed" == "yes" ]]; then
+            echo "One or more required jobs failed"
+            exit 1
+          fi
