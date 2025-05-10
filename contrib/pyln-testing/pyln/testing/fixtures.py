@@ -74,7 +74,6 @@ def directory(request, test_base_dir, test_name):
     This makes a unique test-directory even if a test is rerun multiple times.
 
     """
-    global __attempts
     # Auto set value if it isn't in the dict yet
     __attempts[test_name] = __attempts.get(test_name, 0) + 1
     directory = os.path.join(test_base_dir, "{}_{}".format(test_name, __attempts[test_name]))
