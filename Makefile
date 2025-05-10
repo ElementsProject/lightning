@@ -477,11 +477,11 @@ check: check-units installcheck pytest
 
 pytest: $(ALL_PROGRAMS) $(DEFAULT_TARGETS) $(ALL_TEST_PROGRAMS) $(ALL_TEST_GEN)
 ifeq ($(PYTEST),)
-	@echo "py.test is required to run the integration tests, please install using 'pip3 install -r requirements.txt', and rerun 'configure'."
+	@echo "pytest is required to run the integration tests, please install using 'uv sync --all-extras --all-groups', and rerun 'configure'."
 	exit 1
 else
 # Explicitly hand VALGRIND so you can override on make cmd line.
-	PYTHONPATH=$(MY_CHECK_PYTHONPATH) TEST_DEBUG=1 VALGRIND=$(VALGRIND) $(PYTEST) $(PYTEST_TESTS) $(PYTEST_OPTS)
+	PYTHONPATH=$(MY_CHECK_PYTHONPATH) TEST_DEBUG=1 VALGRIND=$(VALGRIND) uv run $(PYTEST) $(PYTEST_TESTS) $(PYTEST_OPTS)
 endif
 
 check-fuzz: $(ALL_FUZZ_TARGETS)
@@ -542,7 +542,7 @@ PYSRC=$(shell git ls-files "*.py" | grep -v /text.py)
 # allows it to find that
 PYLN_PATH=$(shell pwd)/lightningd:$(PATH)
 check-pyln-%: $(BIN_PROGRAMS) $(PKGLIBEXEC_PROGRAMS) $(PLUGINS)
-	@(cd contrib/$(shell echo $@ | cut -b 7-) && PATH=$(PYLN_PATH) PYTHONPATH=$(MY_CHECK_PYTHONPATH) $(MAKE) check)
+	@(cd contrib/$(shell echo $@ | cut -b 7-) && PATH=$(PYLN_PATH) PYTHONPATH=$(MY_CHECK_PYTHONPATH) uv run $(MAKE) check)
 
 check-python: check-python-flake8 check-pytest-pyln-proto check-pyln-client check-pyln-testing
 
@@ -551,10 +551,10 @@ check-python-flake8:
 	@# E731 do not assign a lambda expression, use a def
 	@# W503: line break before binary operator
 	@# E741: ambiguous variable name
-	@flake8 --ignore=E501,E731,E741,W503,F541,E275 --exclude $(shell echo ${PYTHON_GENERATED} | sed 's/ \+/,/g') ${PYSRC}
+	@uv run flake8 --ignore=E501,E731,E741,W503,F541,E275 --exclude $(shell echo ${PYTHON_GENERATED} | sed 's/ \+/,/g') ${PYSRC}
 
 check-pytest-pyln-proto:
-	PATH=$(PYLN_PATH) PYTHONPATH=$(MY_CHECK_PYTHONPATH) $(PYTEST) contrib/pyln-proto/tests/
+	PATH=$(PYLN_PATH) PYTHONPATH=$(MY_CHECK_PYTHONPATH) uv run $(PYTEST) contrib/pyln-proto/tests/
 
 check-includes: check-src-includes check-hdr-includes
 	@tools/check-includes.sh
@@ -745,29 +745,19 @@ clean: obsclean
 	find . -name '*gcno' -delete
 	find . -name '*.nccout' -delete
 	if [ "${RUST}" -eq "1" ]; then cargo clean; fi
+	rm -rf .venv
 
 
 PYLNS=client proto testing
 # See doc/contribute-to-core-lightning/contributor-workflow.md
-update-versions: update-pyln-versions update-wss-proxy-version update-poetry-lock update-dot-version update-doc-examples
-
-update-pyln-versions: $(PYLNS:%=update-pyln-version-%)
-
-update-pyln-version-%:
-	@if [ -z "$(NEW_VERSION)" ]; then echo "Set NEW_VERSION!" >&2; exit 1; fi
-	cd contrib/pyln-$* && $(MAKE) upgrade-version
 
 pyln-release:  $(PYLNS:%=pyln-release-%)
 
 pyln-release-%:
 	cd contrib/pyln-$* && $(MAKE) prod-release
 
-update-wss-proxy-version:
-	@if [ -z "$(NEW_VERSION)" ]; then echo "Set NEW_VERSION!" >&2; exit 1; fi
-	cd plugins/wss-proxy && $(MAKE) upgrade-version
-
-update-poetry-lock:
-	poetry update wss-proxy pyln-client pyln-proto pyln-testing update-reckless-version
+update-lock:
+	uv sync --all-extras --all-groups
 
 update-reckless-version:
 	@if [ -z "$(NEW_VERSION)" ]; then echo "Set NEW_VERSION!" >&2; exit 1; fi
