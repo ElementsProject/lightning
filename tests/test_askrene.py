@@ -277,6 +277,23 @@ def test_layers(node_factory):
     with pytest.raises(RpcError, match="bias: should be a number between -100 and 100"):
         l2.rpc.askrene_bias_channel('test_layers', '1x1x1/1', 101, "bigger bias")
 
+    # We can make them relative.
+    l2.rpc.askrene_bias_channel('test_layers', '1x1x1/1', 1, 'adding bias', True)
+    expect['biases'] = [{'short_channel_id_dir': '1x1x1/1', 'bias': -4, 'description': "adding bias"}]
+    listlayers = l2.rpc.askrene_listlayers('test_layers')
+    assert listlayers == {'layers': [expect]}
+
+    l2.rpc.askrene_bias_channel(layer='test_layers', short_channel_id_dir='1x1x1/1', bias=-1, relative=True)
+    expect['biases'] = [{'short_channel_id_dir': '1x1x1/1', 'bias': -5}]
+    listlayers = l2.rpc.askrene_listlayers('test_layers')
+    assert listlayers == {'layers': [expect]}
+
+    # They truncate on +/- 100 though:
+    l2.rpc.askrene_bias_channel('test_layers', '1x1x1/1', -99, None, True)
+    expect['biases'] = [{'short_channel_id_dir': '1x1x1/1', 'bias': -100}]
+    listlayers = l2.rpc.askrene_listlayers('test_layers')
+    assert listlayers == {'layers': [expect]}
+
     # We can remove them.
     l2.rpc.askrene_bias_channel('test_layers', '1x1x1/1', 0)
     expect['biases'] = []

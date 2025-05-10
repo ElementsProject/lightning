@@ -1104,8 +1104,8 @@ static struct command_result *json_askrene_bias_channel(struct command *cmd,
 		   p_req("layer", param_known_layer, &layer),
 		   p_req("short_channel_id_dir", param_short_channel_id_dir, &scidd),
 		   p_req("bias", param_s8_hundred, &bias),
-		   p_opt_def("relative", param_bool, &relative, false),
 		   p_opt("description", param_string, &description),
+		   p_opt_def("relative", param_bool, &relative, false),
 		   NULL))
 		return command_param_failed();
 	plugin_log(cmd->plugin, LOG_TRACE, "%s called: %.*s", __func__,

@@ -309,18 +309,18 @@
               "The bias, positive being good and negative being bad (0 being no bias).  Useful values are +/-1 through +/-10, though -100 through +100 are possible values."
             ]
           },
+          "description": {
+            "type": "string",
+            "description": [
+              "Description/annotation to display in askrene-listlayers(7)"
+            ]
+          },
           "relative": {
             "type": "boolean",
             "added": "v25.05",
             "default": false,
             "description": [
               "The bias will be added to the previous value."
-            ]
-          },
-          "description": {
-            "type": "string",
-            "description": [
-              "Description/annotation to display in askrene-listlayers(7)"
             ]
           }
         }

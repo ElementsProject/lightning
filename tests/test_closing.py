@@ -4187,9 +4187,18 @@ def test_anchorspend_using_to_remote(node_factory, bitcoind, anchors):
     # Don't need l4 any more
     l4.stop()
 
+    for n in (l1, l2, l3):
+        wait_for(lambda: n.rpc.listchannels() == {'channels': []})
+
     # Now l1->l2<-l3 but push funds to l2 so it can forward.
-    node_factory.join_nodes([l1, l2], wait_for_announce=True)
-    node_factory.join_nodes([l3, l2], wait_for_announce=True)
+    node_factory.join_nodes([l1, l2])
+    node_factory.join_nodes([l3, l2])
+
+    # Make sure everyone knows about everyone else!
+    bitcoind.generate_block(5)
+    for n in (l1, l2, l3):
+        wait_for(lambda: len(n.rpc.listchannels()['channels']) == 4)
+
     l3.rpc.pay(l2.rpc.invoice(200000000, 'test2', 'test2')['bolt11'])
     wait_for(lambda: only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['htlcs'] == [])
 
@@ -4203,13 +4212,13 @@ def test_anchorspend_using_to_remote(node_factory, bitcoind, anchors):
     # Give l2 a sense of urgency, by ensuring there's an HTLC in-channel
     # when it needs to go onchain.
     # Make sure HTLC expiry is what we expect!
-    l2.daemon.wait_for_log('Adding HTLC 0 amount=100000000msat cltv=128 gave CHANNEL_ERR_ADD_OK')
+    l2.daemon.wait_for_log('Adding HTLC 0 amount=100000000msat cltv=123 gave CHANNEL_ERR_ADD_OK')
 
     # Kill l1 and l3, we just care about l2.
     l3.stop()
     l1.stop()
 
-    for block in range(117, 128):
+    for block in range(112, 123):
         bitcoind.generate_block(1)
         sync_blockheight(bitcoind, [l2])
 

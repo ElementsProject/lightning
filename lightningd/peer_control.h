@@ -165,6 +165,9 @@ command_find_channel(struct command *cmd,
 		     const char *buffer, const jsmntok_t *tok,
 		     struct channel **channel);
 
+/* We do this lazily, when reconnecting */
+void peer_channels_cleanup(struct peer *peer);
+
 /* Ancient (0.7.0 and before) releases could create invalid commitment txs! */
 bool invalid_last_tx(const struct bitcoin_tx *tx);
 

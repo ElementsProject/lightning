@@ -236,6 +236,12 @@ static struct command_result *json_connect(struct command *cmd,
 					   &peer->addr);
 	}
 
+	/* When a peer disconnects, we give subds time to clean themselves up
+	 * (this lets connectd ensure they've seen the final messages).  But
+	 * now it's going to try to reconnect, we've gotta force them out. */
+	if (peer)
+		peer_channels_cleanup(peer);
+
 	subd_send_msg(cmd->ld->connectd,
 		      take(towire_connectd_connect_to_peer(NULL, &id_addr.id, addr, true)));
 
