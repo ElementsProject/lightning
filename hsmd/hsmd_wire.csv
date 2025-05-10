@@ -364,6 +364,15 @@ msgdata,hsmd_sign_message,msg,u8,len
 msgtype,hsmd_sign_message_reply,123
 msgdata,hsmd_sign_message_reply,sig,secp256k1_ecdsa_recoverable_signature,
 
+# sign a raw message with a derived key
+msgtype,hsmd_bip137_sign_message,45
+msgdata,hsmd_bip137_sign_message,len,u16,
+msgdata,hsmd_bip137_sign_message,msg,u8,len
+msgdata,hsmd_bip137_sign_message,keyidx,u32,
+
+msgtype,hsmd_bip137_sign_message_reply,145
+msgdata,hsmd_bip137_sign_message_reply,sig,secp256k1_ecdsa_recoverable_signature,
+
 # lightningd needs to get a scriptPubkey for a utxo with closeinfo
 msgtype,hsmd_get_output_scriptpubkey,24
 msgdata,hsmd_get_output_scriptpubkey,channel_id,u64,
