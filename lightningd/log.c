@@ -1,6 +1,7 @@
 #include "config.h"
 #include <ccan/err/err.h>
 #include <ccan/io/io.h>
+#include <ccan/json_escape/json_escape.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/link/link.h>
@@ -569,23 +570,17 @@ static void maybe_notify_log(struct logger *log,
 		notify_log(log->log_book->ld, l);
 }
 
-void logv(struct logger *log, enum log_level level,
-	  const struct node_id *node_id,
-	  bool call_notifier,
-	  const char *fmt, va_list ap)
+static void add_one_log_entry(struct logger *log, enum log_level level,
+			      const struct node_id *node_id, bool call_notifier,
+			      const char *log_msg)
 {
-	int save_errno = errno;
 	struct log_entry *l = new_log_entry(log, level, node_id);
 
-	/* This is WARN_UNUSED_RESULT, because everyone should somehow deal
-	 * with OOM, even though nobody does. */
-	if (vasprintf(&l->log, fmt, ap) == -1)
-		abort();
+	l->log = strdup(log_msg);
 
-	size_t log_len = strlen(l->log);
-
-	/* Sanitize any non-printable characters, and replace with '?' */
-	for (size_t i=0; i<log_len; i++)
+	/* Sanitize any non-printable characters, and replace with '?'
+	 */
+	for (size_t i = 0; log_msg[i] != '\0'; i++)
 		if (l->log[i] < ' ' || l->log[i] >= 0x7f)
 			l->log[i] = '?';
 
@@ -596,6 +591,39 @@ void logv(struct logger *log, enum log_level level,
 
 	if (call_notifier)
 		notify_warning(log->log_book->ld, l);
+}
+
+void logv(struct logger *log, enum log_level level,
+	  const struct node_id *node_id,
+	  bool call_notifier,
+	  const char *fmt, va_list ap)
+{
+	int save_errno = errno;
+	char *log_msg = NULL;
+	const char *unescaped_log;
+
+	/* This is WARN_UNUSED_RESULT, because everyone should somehow deal
+	 * with OOM, even though nobody does. */
+	if (vasprintf(&log_msg, fmt, ap) == -1)
+		abort();
+
+	/* Nothing to escape: simple copy */
+	if (!strchr(log_msg, '\\'))
+		add_one_log_entry(log, level, node_id, call_notifier, log_msg);
+	/* If it's weird, unescaping can fail */
+	else if ((unescaped_log = json_escape_unescape(
+		      tmpctx, (struct json_escape *)log_msg)) == NULL)
+		add_one_log_entry(log, level, node_id, call_notifier, log_msg);
+	else {
+		char **lines = tal_strsplit(unescaped_log, unescaped_log, "\n",
+					    STR_EMPTY_OK);
+		/* Split to lines and log them separately. */
+		for (size_t i = 0; lines[i]; i++)
+			add_one_log_entry(log, level, node_id, call_notifier,
+					  lines[i]);
+	}
+
+	free(log_msg);
 
 	errno = save_errno;
 }
