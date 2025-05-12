@@ -30,8 +30,8 @@ def test_splice(node_factory, bitcoind):
     l2.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
     l1.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
 
+    wait_for(lambda: len(list(bitcoind.rpc.getrawmempool(True).keys())) == 1)
     mempool = bitcoind.rpc.getrawmempool(True)
-    assert len(list(mempool.keys())) == 1
     assert result['txid'] in list(mempool.keys())
 
     bitcoind.generate_block(6, wait_for_mempool=1)
@@ -68,8 +68,8 @@ def test_splice_rbf(node_factory, bitcoind):
     l2.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
     l1.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
 
+    wait_for(lambda: len(list(bitcoind.rpc.getrawmempool(True).keys())) == 1)
     mempool = bitcoind.rpc.getrawmempool(True)
-    assert len(list(mempool.keys())) == 1
     assert result['txid'] in list(mempool.keys())
 
     inv = l2.rpc.invoice(10**2, '1', 'no_1')
@@ -249,8 +249,8 @@ def test_splice_out(node_factory, bitcoind):
     l2.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
     l1.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
 
+    wait_for(lambda: len(list(bitcoind.rpc.getrawmempool(True).keys())) == 1)
     mempool = bitcoind.rpc.getrawmempool(True)
-    assert len(list(mempool.keys())) == 1
     assert result['txid'] in list(mempool.keys())
 
     bitcoind.generate_block(6, wait_for_mempool=1)
@@ -307,8 +307,8 @@ def test_invalid_splice(node_factory, bitcoind):
     result = l1.rpc.signpsbt(result['psbt'])
     result = l1.rpc.splice_signed(chan_id, result['signed_psbt'])
 
+    wait_for(lambda: len(list(bitcoind.rpc.getrawmempool(True).keys())) == 1)
     mempool = bitcoind.rpc.getrawmempool(True)
-    assert len(list(mempool.keys())) == 1
     assert result['txid'] in list(mempool.keys())
 
     bitcoind.generate_block(6, wait_for_mempool=1)
@@ -357,15 +357,14 @@ def test_commit_crash_splice(node_factory, bitcoind):
     l2.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
     l1.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
 
-    mempool = bitcoind.rpc.getrawmempool(True)
-    assert len(list(mempool.keys())) == 1
+    wait_for(lambda: len(list(bitcoind.rpc.getrawmempool(True).keys())) == 1)
 
     bitcoind.generate_block(6, wait_for_mempool=1)
 
     l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
     l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
 
-    time.sleep(1)
+    time.sleep(5)
 
     assert l1.db_query("SELECT count(*) as c FROM channel_funding_inflights;")[0]['c'] == 0
 
@@ -407,8 +406,8 @@ def test_splice_stuck_htlc(node_factory, bitcoind, executor):
     l2.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
     l1.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
 
+    wait_for(lambda: len(list(bitcoind.rpc.getrawmempool(True).keys())) == 1)
     mempool = bitcoind.rpc.getrawmempool(True)
-    assert len(list(mempool.keys())) == 1
     assert result['txid'] in list(mempool.keys())
 
     bitcoind.generate_block(1, wait_for_mempool=1)
