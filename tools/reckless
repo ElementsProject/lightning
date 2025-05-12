@@ -1703,6 +1703,7 @@ class UpdateStatus(Enum):
     UNINSTALLED = 2
     ERROR = 3
     METADATA_MISSING = 4
+    REFUSING_UPDATE = 5
 
 
 def update_plugin(plugin_name: str) -> tuple:
@@ -1731,7 +1732,10 @@ def update_plugin(plugin_name: str) -> tuple:
     for key in metadata:
         if metadata[key].lower() == 'none':
             metadata[key] = None
-    log.debug(f'{plugin_name} installation metadata: {str(metadata)}')
+    log.debug(f'{plugin_name} previous installation metadata: {str(metadata)}')
+    if metadata['requested commit']:
+        log.warning(f'refusing to upgrade {plugin_name}@{metadata["requested commit"]} due to previously requested tag/commit')
+        return (None, UpdateStatus.REFUSING_UPDATE)
 
     src = InstInfo(plugin_name,
                    metadata['original source'], None)
