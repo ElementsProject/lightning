@@ -235,15 +235,23 @@ def test_local_dir_install(node_factory):
     """Test search and install from local directory source."""
     n = get_reckless_node(node_factory)
     n.start()
-    r = reckless([f"--network={NETWORK}", "-v", "source", "add",
-                  os.path.join(n.lightning_dir, '..', 'lightningd', 'testplugpass')],
-                 dir=n.lightning_dir)
+    source_dir = str(Path(n.lightning_dir / '..' / 'lightningd' / 'testplugpass').resolve())
+    r = reckless([f"--network={NETWORK}", "-v", "source", "add", source_dir], dir=n.lightning_dir)
     assert r.returncode == 0
     r = reckless([f"--network={NETWORK}", "-v", "install", "testplugpass"], dir=n.lightning_dir)
     assert r.returncode == 0
     assert 'testplugpass enabled' in r.stdout
     plugin_path = Path(n.lightning_dir) / 'reckless/testplugpass'
     print(plugin_path)
+    assert os.path.exists(plugin_path)
+
+    # Retry with a direct install passing the full path to the local source
+    r = reckless(['uninstall', 'testplugpass', '-v'], dir=n.lightning_dir)
+    assert not os.path.exists(plugin_path)
+    r = reckless(['source', 'remove', source_dir], dir=n.lightning_dir)
+    assert 'plugin source removed' in r.stdout
+    r = reckless(['install', '-v', source_dir], dir=n.lightning_dir)
+    assert 'testplugpass enabled' in r.stdout
     assert os.path.exists(plugin_path)
 
 
