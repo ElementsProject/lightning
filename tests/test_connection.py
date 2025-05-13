@@ -4065,6 +4065,7 @@ def test_htlc_failed_noclose(node_factory):
     assert l1.rpc.getpeer(l2.info['id'])['connected']
 
 
+@pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 def test_multichan_stress(node_factory, executor, bitcoind):
     """Test multiple channels between same nodes"""
@@ -4101,7 +4102,7 @@ def test_multichan_stress(node_factory, executor, bitcoind):
 
     wait_for(lambda: only_one(l3.rpc.listpeers(l2.info['id'])['peers'])['connected'])
     inv = l3.rpc.invoice(50000000, "invoice4", "invoice4")
-    l1.rpc.pay(inv['bolt11'])
+    l1.rpc.xpay(inv['bolt11'])
 
 
 def test_old_feerate(node_factory):
