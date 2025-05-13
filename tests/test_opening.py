@@ -2722,6 +2722,7 @@ def test_zeroconf_forget(node_factory, bitcoind, dopay: bool):
         return {"id": tx["id"], "result": {}}
 
     l1.daemon.rpcproxy.mock_rpc("sendrawtransaction", censoring_sendrawtx)
+    l3.daemon.rpcproxy.mock_rpc("sendrawtransaction", censoring_sendrawtx)
 
     l1.fundwallet(10**7)
     l3.fundwallet(10**7)
