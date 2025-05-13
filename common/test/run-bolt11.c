@@ -731,6 +731,11 @@ int main(int argc, char *argv[])
 	assert(!bolt11_decode(tmpctx, "lnbc1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdqcgfskggz423rz6wp6yrc2pgpqcqpjmyveg8ccprmlssyae9l33an2m0qz3qcfcavt7wdzrdqyx5q7hqmp7ne08uvwlwaaqwt4lxgmjh5gce3hv0m8tzwkzfshpdv9d5p9pcsp5v86r0", NULL, NULL, NULL, &fail));
 	assert(streq(fail, "d: invalid utf8"));
 
+	/* Invalid private routes. */
+	/* Invalid route pubkey. */
+	assert(!bolt11_decode(tmpctx, "lnbc1qqygh9qpp50qzxqqqqqpqqrzjcqqqqqqqqqqqqqqqqqqqqqqqqqqcqpjqqqqqqrzjcqqqqqcqpjqqqqqqqqqqqqqqqqqqqqqqqqqcq9qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqdqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqlqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqlqqqqqqqqqqqqqqqqqqqqqqq4murj7", NULL, NULL, NULL, &fail));
+	assert(streq(fail, "r: hop 0 pubkey invalid"));
+
 	/* FIXME: Test the others! */
 	common_shutdown();
 }

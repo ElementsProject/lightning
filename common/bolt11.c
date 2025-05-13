@@ -501,6 +501,9 @@ static const char *decode_r(struct bolt11 *b11,
 		if (!fromwire_route_info(&r8, &rlen, &ri)) {
 			return tal_fmt(b11, "r: hop %zu truncated", n);
 		}
+		if (!node_id_valid(&ri.pubkey)) {
+			return tal_fmt(b11, "r: hop %zu pubkey invalid", n);
+		}
 		tal_arr_expand(&r, ri);
 	} while (rlen);
 
