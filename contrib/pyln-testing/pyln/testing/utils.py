@@ -1212,8 +1212,7 @@ class LightningNode(object):
         return (chanid, 0) in active and (chanid, 1) in active
 
     def wait_for_channel_onchain(self, peerid):
-        txid = only_one(self.rpc.listpeerchannels(peerid)['channels'])['scratch_txid']
-        wait_for(lambda: txid in self.bitcoin.rpc.getrawmempool())
+        wait_for(lambda: only_one(self.rpc.listpeerchannels(peerid)['channels'])['scratch_txid'] in self.bitcoin.rpc.getrawmempool())
 
     def wait_channel_active(self, scid):
         wait_for(lambda: self.is_channel_active(scid))
