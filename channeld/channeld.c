@@ -2314,7 +2314,7 @@ static struct commitsig_info *handle_peer_commit_sig_batch(struct peer *peer,
 	enum peer_wire type;
 	struct tlv_commitment_signed_tlvs *cs_tlv
 		= tlv_commitment_signed_tlvs_new(tmpctx);
-	status_info("fromwire_commitment_signed(%p) primary", msg);
+	status_debug("fromwire_commitment_signed(%p) primary", msg);
 	if (!fromwire_commitment_signed(tmpctx, msg,
 					&channel_id, &commit_sig.s, &raw_sigs,
 					&cs_tlv))
@@ -5339,7 +5339,8 @@ static void peer_reconnect(struct peer *peer,
 	bool dataloss_protect, check_extra_fields;
 	const u8 **premature_msgs = tal_arr(peer, const u8 *, 0);
 	struct inflight *inflight;
-	struct bitcoin_txid *local_next_funding, *remote_next_funding;
+	struct bitcoin_txid *local_next_funding, *remote_next_funding,
+			    *remote_your_last_funding;
 	u64 send_next_commitment_number;
 
 	struct tlv_channel_reestablish_tlvs *send_tlvs, *recv_tlvs;
@@ -5636,10 +5637,14 @@ static void peer_reconnect(struct peer *peer,
 							 &inflight->outpoint.txid));
 		}
 	} else if (remote_next_funding) { /* No current inflight */
+		/* If our peer is trying to negotiate details about a splice
+		 * that is already onchain, jump ahead to sending splice_lock */
 		if (bitcoin_txid_eq(remote_next_funding,
 				    &peer->channel->funding.txid)) {
 			status_info("We have no pending splice but peer"
-				    " expects one; resending splice_lock");
+				    " is negotiating one; resending"
+				    " splice_lock %s",
+				    fmt_bitcoin_outpoint(tmpctx, &peer->channel->funding));
 			peer_write(peer->pps,
 				   take(towire_splice_locked(NULL,
 				   			     &peer->channel_id,
@@ -5657,11 +5662,41 @@ static void peer_reconnect(struct peer *peer,
 		if (!itr->locked_scid)
 			continue;
 
+		status_info("Resending splice_locked because an inflight %s is"
+			    " locked",
+			    fmt_bitcoin_outpoint(tmpctx, &itr->outpoint));
 		peer_write(peer->pps,
 			   take(towire_splice_locked(NULL,
 						     &peer->channel_id,
 						     &itr->outpoint.txid)));
 		peer->splice_state->locked_ready[LOCAL] = true;
+	}
+
+	/* If no inflight, no splice negotiation, but
+	   `your_last_funding_locked_txid is stale, re-send `splice_locked`. */
+	if (!inflight && !remote_next_funding
+	    && feature_negotiated(peer->our_features, peer->their_features,
+				  OPT_SPLICE)) {
+		remote_your_last_funding = recv_tlvs
+			? recv_tlvs->your_last_funding_locked_txid : NULL;
+		if (remote_your_last_funding
+			&& !bitcoin_txid_eq(&peer->channel->funding.txid,
+					    remote_your_last_funding)) {
+			status_info("Resending splice_locked with no inflight,"
+				    " no splice negotation, but we did recv"
+				    " remote_your_last_funding value of %s"
+				    " instead of %s. Our sent splice_locked"
+				    " value is %s.",
+				    remote_your_last_funding
+				    	? fmt_bitcoin_txid(tmpctx, remote_your_last_funding)
+				    	: "NULL",
+				    fmt_bitcoin_outpoint(tmpctx, &peer->channel->funding),
+				    fmt_bitcoin_txid(tmpctx, &peer->channel->funding.txid));
+			peer_write(peer->pps,
+				   take(towire_splice_locked(NULL,
+							     &peer->channel_id,
+							     &peer->channel->funding.txid)));
+		}
 	}
 
 	/* BOLT #2:
