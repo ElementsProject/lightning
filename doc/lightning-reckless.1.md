@@ -16,6 +16,11 @@ lightningd config file. Reckless does all of these by invoking:
 
 **reckless** **install**[@*commit/tag*] *plugin\_name*
 
+Alternatively, the source path or URL to the plugin repository can be
+passed directly in place of the *plugin\_name*.  In either case, the
+containing directory or repository should be named for the plugin, don't
+pass the plugin's executable/entrypoint directly.
+
 reckless will exit early in the event that:
 
 - the plugin is not found in any available source repositories
@@ -81,7 +86,7 @@ Available option flags:
 NOTES
 -----
 
-Reckless currently supports python and javascript plugins.
+Reckless currently supports python, rust, and javascript plugins.
 
 Running the first time will prompt the user that their lightningd's
 bitcoin config will be appended (or created) to inherit the reckless
