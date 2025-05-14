@@ -1867,7 +1867,8 @@ def test_v2_replay_bookkeeping(node_factory, bitcoind):
 
     opts = [{'funder-policy': 'match', 'funder-policy-mod': 100,
              'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
-             'rescan': 10, 'funding-confirms': 6, 'may_reconnect': True},
+             'rescan': 10, 'funding-confirms': 6, 'may_reconnect': True,
+             'broken_log': 'channeld.*current blockheight [0-9]* less than last'},
             {'funder-policy': 'match', 'funder-policy-mod': 100,
              'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
              'may_reconnect': True}]
@@ -1928,7 +1929,8 @@ def test_buy_liquidity_ad_check_bookkeeping(node_factory, bitcoind):
     opts = [{'funder-policy': 'match', 'funder-policy-mod': 100,
              'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
              'rescan': 10, 'disable-plugin': 'bookkeeper',
-             'funding-confirms': 6, 'may_reconnect': True},
+             'funding-confirms': 6, 'may_reconnect': True,
+             'broken_log': 'channeld.*current blockheight [0-9]* less than last'},
             {'funder-policy': 'match', 'funder-policy-mod': 100,
              'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
              'may_reconnect': True}]
