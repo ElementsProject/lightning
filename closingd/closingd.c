@@ -267,8 +267,8 @@ receive_offer(struct per_peer_state *pps,
 		 */
 		else if (fromwire_peektype(msg) == WIRE_SHUTDOWN)
 			msg = tal_free(msg);
-		/* channeld may have sent ping: ignore pong! */
-		else if (fromwire_peektype(msg) == WIRE_PONG)
+		/* We can get announcement signatures: too late! */
+		else if (fromwire_peektype(msg) == WIRE_ANNOUNCEMENT_SIGNATURES)
 			msg = tal_free(msg);
 	} while (!msg);
 
