@@ -254,8 +254,10 @@ static void gossipd_new_blockheight_reply(struct subd *gossipd,
 			     gossipd->ld->gossip_blockheight);
 }
 
-void gossip_notify_new_block(struct lightningd *ld, u32 blockheight)
+void gossip_notify_new_block(struct lightningd *ld)
 {
+	u32 blockheight = get_block_height(ld->topology);
+
 	/* Only notify gossipd once we're synced. */
 	if (!topology_synced(ld->topology))
 		return;
@@ -268,7 +270,7 @@ void gossip_notify_new_block(struct lightningd *ld, u32 blockheight)
 static void gossip_topology_synced(struct chain_topology *topo, void *unused)
 {
 	/* Now we start telling gossipd about blocks. */
-	gossip_notify_new_block(topo->ld, get_block_height(topo));
+	gossip_notify_new_block(topo->ld);
 }
 
 /* We make sure gossipd is started before plugins (which may want gossip_map) */

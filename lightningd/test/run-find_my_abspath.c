@@ -11,12 +11,10 @@ int unused_main(int argc, char *argv[]);
 void begin_topology(struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "begin_topology called!\n"); abort(); }
 /* Generated stub for channel_gossip_notify_new_block */
-void channel_gossip_notify_new_block(struct lightningd *ld UNNEEDED,
-				     u32 block_height UNNEEDED)
+void channel_gossip_notify_new_block(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "channel_gossip_notify_new_block called!\n"); abort(); }
 /* Generated stub for channel_notify_new_block */
-void channel_notify_new_block(struct lightningd *ld UNNEEDED,
-			      u32 block_height UNNEEDED)
+void channel_notify_new_block(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "channel_notify_new_block called!\n"); abort(); }
 /* Generated stub for connectd_activate */
 void connectd_activate(struct lightningd *ld UNNEEDED)
@@ -112,7 +110,7 @@ bool fromwire_status_version(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, 
 void gossip_init(struct lightningd *ld UNNEEDED, int connectd_fd UNNEEDED)
 { fprintf(stderr, "gossip_init called!\n"); abort(); }
 /* Generated stub for gossip_notify_new_block */
-void gossip_notify_new_block(struct lightningd *ld UNNEEDED, u32 blockheight UNNEEDED)
+void gossip_notify_new_block(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "gossip_notify_new_block called!\n"); abort(); }
 /* Generated stub for handle_early_opts */
 void handle_early_opts(struct lightningd *ld UNNEEDED, int argc UNNEEDED, char *argv[])
@@ -130,7 +128,7 @@ size_t hash_htlc_key(const struct htlc_key *htlc_key UNNEEDED)
 struct ext_key *hsm_init(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "hsm_init called!\n"); abort(); }
 /* Generated stub for htlcs_notify_new_block */
-void htlcs_notify_new_block(struct lightningd *ld UNNEEDED, u32 height UNNEEDED)
+void htlcs_notify_new_block(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "htlcs_notify_new_block called!\n"); abort(); }
 /* Generated stub for htlcs_resubmit */
 void htlcs_resubmit(struct lightningd *ld UNNEEDED,
@@ -283,8 +281,7 @@ struct txfilter *txfilter_new(const tal_t *ctx UNNEEDED)
 const char *version(void)
 { fprintf(stderr, "version called!\n"); abort(); }
 /* Generated stub for waitblockheight_notify_new_block */
-void waitblockheight_notify_new_block(struct lightningd *ld UNNEEDED,
-				      u32 block_height UNNEEDED)
+void waitblockheight_notify_new_block(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "waitblockheight_notify_new_block called!\n"); abort(); }
 /* Generated stub for wallet_begin_old_close_rescan */
 void wallet_begin_old_close_rescan(struct lightningd *ld UNNEEDED)

@@ -775,14 +775,14 @@ static int io_poll_lightningd(struct pollfd *fds, nfds_t nfds, int timeout)
  * like this, and it's always better to have compile-time calls than runtime,
  * as it makes the code more explicit.  But pasting in direct calls is also an
  * abstraction violation, so we use this middleman function. */
-void notify_new_block(struct lightningd *ld, u32 block_height)
+void notify_new_block(struct lightningd *ld)
 {
 	/* Inform our subcomponents individually. */
-	htlcs_notify_new_block(ld, block_height);
-	channel_notify_new_block(ld, block_height);
-	channel_gossip_notify_new_block(ld, block_height);
-	gossip_notify_new_block(ld, block_height);
-	waitblockheight_notify_new_block(ld, block_height);
+	htlcs_notify_new_block(ld);
+	channel_notify_new_block(ld);
+	channel_gossip_notify_new_block(ld);
+	gossip_notify_new_block(ld);
+	waitblockheight_notify_new_block(ld);
 }
 
 static void on_sigint(int _ UNUSED)

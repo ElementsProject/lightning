@@ -2786,9 +2786,10 @@ static void consider_failing_incoming(struct lightningd *ld,
 	local_fail_in_htlc(hout->in, take(towire_permanent_channel_failure(NULL)));
 }
 
-void htlcs_notify_new_block(struct lightningd *ld, u32 height)
+void htlcs_notify_new_block(struct lightningd *ld)
 {
 	bool removed;
+	u32 height = get_block_height(ld->topology);
 
 	/* BOLT #2:
 	 *

@@ -103,7 +103,7 @@ static bool report_chan_balance(const struct channel *chan)
 	abort();
 }
 
-void send_account_balance_snapshot(struct lightningd *ld, u32 blockheight)
+void send_account_balance_snapshot(struct lightningd *ld)
 {
 	struct balance_snapshot *snap = tal(NULL, struct balance_snapshot);
 	struct account_balance *bal;
@@ -112,7 +112,7 @@ void send_account_balance_snapshot(struct lightningd *ld, u32 blockheight)
 	struct peer *p;
 	struct peer_node_id_map_iter it;
 
-	snap->blockheight = blockheight;
+	snap->blockheight = get_block_height(ld->topology);
 	snap->timestamp = time_now().ts.tv_sec;
 	snap->node_id = &ld->our_nodeid;
 

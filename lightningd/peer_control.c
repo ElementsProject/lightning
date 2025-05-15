@@ -2979,9 +2979,9 @@ timeout_waitblockheight_waiter(struct waitblockheight_waiter *w)
 				 "Timed out."));
 }
 /* Called by lightningd at each new block.  */
-void waitblockheight_notify_new_block(struct lightningd *ld,
-				      u32 block_height)
+void waitblockheight_notify_new_block(struct lightningd *ld)
 {
+	u32 block_height = get_block_height(ld->topology);
 	struct waitblockheight_waiter *w, *n;
 	char *to_delete = tal(NULL, char);
 
@@ -2996,8 +2996,7 @@ void waitblockheight_notify_new_block(struct lightningd *ld,
 		list_del(&w->list);
 		w->removed = true;
 		tal_steal(to_delete, w);
-		was_pending(waitblockheight_complete(w->cmd,
-						     block_height));
+		was_pending(waitblockheight_complete(w->cmd, block_height));
 	}
 	tal_free(to_delete);
 }

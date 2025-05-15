@@ -23,8 +23,7 @@ void channel_gossip_update(struct channel *channel);
 void channel_gossip_scid_changed(struct channel *channel);
 
 /* Block height changed */
-void channel_gossip_notify_new_block(struct lightningd *ld,
-				     u32 block_height);
+void channel_gossip_notify_new_block(struct lightningd *ld);
 
 /* Got announcement_signatures from peer */
 void channel_gossip_got_announcement_sigs(struct channel *channel,
