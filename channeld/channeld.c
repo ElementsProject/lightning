@@ -1197,11 +1197,12 @@ static u8 *send_commit_part(const tal_t *ctx,
 			     (int)splice_amnt, (int)remote_splice_amnt,
 			     remote_index);
 
-		cs_tlv->splice_info = tal(cs_tlv,
-					  struct tlv_commitment_signed_tlvs_splice_info);
+		if (batch_size > 1) {
+			cs_tlv->splice_info = tal(cs_tlv, struct tlv_commitment_signed_tlvs_splice_info);
 
-		cs_tlv->splice_info->batch_size = batch_size;
-		cs_tlv->splice_info->funding_txid = funding->txid;
+			cs_tlv->splice_info->batch_size = batch_size;
+			cs_tlv->splice_info->funding_txid = funding->txid;
+		}
 	}
 
 	txs = channel_txs(tmpctx, funding, funding_sats, &htlc_map,
@@ -2016,20 +2017,21 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 		outpoint = peer->splice_state->inflights[commit_index - 1]->outpoint;
 		funding_sats = peer->splice_state->inflights[commit_index - 1]->amnt;
 
-		if (!cs_tlv || !cs_tlv->splice_info)
+		if (cs_tlv && cs_tlv->splice_info
+		    && cs_tlv->splice_info->batch_size == 1)
 			peer_failed_err(peer->pps, &peer->channel_id,
-					"Must set funding_txid for each"
-					" extra commitment_signed message.");
+					"batch_size can never be 1");
 
-		status_info("handle_peer_commit_sig for inflight outpoint %s", fmt_bitcoin_txid(tmpctx, &peer->splice_state->inflights[commit_index - 1]->outpoint.txid));
-		status_info("handle_peer_commit_sig cs_tlv->splice_info->funding_txid %s", fmt_bitcoin_txid(tmpctx, &cs_tlv->splice_info->funding_txid));
+		status_debug("handle_peer_commit_sig for inflight outpoint %s",
+			     fmt_bitcoin_txid(tmpctx, &outpoint.txid));
 
-		if (!bitcoin_txid_eq(&peer->splice_state->inflights[commit_index - 1]->outpoint.txid,
-				     &cs_tlv->splice_info->funding_txid))
+		if (cs_tlv->splice_info
+		    && !bitcoin_txid_eq(&outpoint.txid,
+					&cs_tlv->splice_info->funding_txid))
 			peer_failed_err(peer->pps, &peer->channel_id,
 					"Expected commit sig message for %s but"
 					" got %s",
-					fmt_bitcoin_txid(tmpctx, &peer->splice_state->inflights[commit_index - 1]->outpoint.txid),
+					fmt_bitcoin_txid(tmpctx, &outpoint.txid),
 					fmt_bitcoin_txid(tmpctx, &cs_tlv->splice_info->funding_txid));
 	}
 	else {
@@ -2352,6 +2354,13 @@ static struct commitsig_info *handle_peer_commit_sig_batch(struct peer *peer,
 					 "Bad commit_sig %s"
 					 " in commit_sig batch:"
 					 " [%"PRIu16"/%"PRIu16"]",
+					 tal_hex(sub_msg, sub_msg), i, batch_size);
+
+		if (!sub_cs_tlv->splice_info)
+			peer_failed_warn(peer->pps, &peer->channel_id,
+					 "commit_sig %s in commit_sig batch:"
+					 " [%"PRIu16"/%"PRIu16"] missing"
+					 " splice_info",
 					 tal_hex(sub_msg, sub_msg), i, batch_size);
 
 		if (!sub_cs_tlv->splice_info
