@@ -393,8 +393,9 @@ def test_connect_by_gossip(node_factory, bitcoind):
 def test_gossip_jsonrpc(node_factory):
     l1, l2 = node_factory.line_graph(2, fundchannel=True, wait_for_announce=False)
 
-    # Shouldn't send announce signatures until 6 deep.
-    assert not l1.daemon.is_in_log('peer_out WIRE_ANNOUNCEMENT_SIGNATURES')
+    # We will exchange announcement signatures immediately.
+    l1.daemon.wait_for_logs(['peer_out WIRE_ANNOUNCEMENT_SIGNATURES',
+                             'peer_in WIRE_ANNOUNCEMENT_SIGNATURES'])
 
     # Make sure we can route through the channel, will raise on failure
     l1.rpc.getroute(l2.info['id'], 100, 1)
@@ -412,9 +413,6 @@ def test_gossip_jsonrpc(node_factory):
 
     # Now proceed to funding-depth and do a full gossip round
     l1.bitcoin.generate_block(5)
-    # Could happen in either order.
-    l1.daemon.wait_for_logs(['peer_out WIRE_ANNOUNCEMENT_SIGNATURES',
-                             'peer_in WIRE_ANNOUNCEMENT_SIGNATURES'])
 
     # Just wait for the update to kick off and then check the effect
     needle = "Received node_announcement for node"

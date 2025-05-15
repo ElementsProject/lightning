@@ -1,4 +1,5 @@
 #include "config.h"
+#include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
 #include <ccan/mem/mem.h>
 #include <common/memleak.h>
@@ -16,14 +17,30 @@
 #include <lightningd/subd.h>
 
 enum channel_gossip_state {
-	/* Not a public channel */
+	/* It's dead, so don't talk about it. */
+	CGOSSIP_CHANNEL_DEAD,
+	/* It's dying, but not announced */
+	CGOSSIP_CHANNEL_UNANNOUNCED_DYING,
+	/* It's dying, but we can still broadcast the "disabled" update. */
+	CGOSSIP_CHANNEL_ANNOUNCED_DYING,
+	/* It's dead: send the "disabled" update only as error reply. */
+	CGOSSIP_CHANNEL_ANNOUNCED_DEAD,
+
+	/* Unannounced channels: without alias or scid */
+	CGOSSIP_PRIVATE_WAITING_FOR_USABLE,
+	/* With alias/scid */
 	CGOSSIP_PRIVATE,
-	/* We can't yet send (non-forwardable) channel_update. */
-	CGOSSIP_NOT_USABLE,
-	/* Not yet in at announcable depth. */
-	CGOSSIP_NOT_DEEP_ENOUGH,
-	/* We want the peer's announcement_signatures. */
-	CGOSSIP_NEED_PEER_SIGS,
+
+	/* Public channels: */
+	/* Not usable. */
+	CGOSSIP_WAITING_FOR_USABLE,
+	/* No scid (zeroconf can be in CHANNELD_NORMAL without scid) */
+	CGOSSIP_WAITING_FOR_SCID,
+	/* Sent ours, we want the peer's announcement_signatures (or
+	 * we have it, but different scids) */
+	CGOSSIP_WAITING_FOR_MATCHING_PEER_SIGS,
+	/* Not yet in at announceable depth (6). */
+	CGOSSIP_WAITING_FOR_ANNOUNCE_DEPTH,
 	/* We have received sigs, and announced. */
 	CGOSSIP_ANNOUNCED,
 };
@@ -31,18 +48,122 @@ enum channel_gossip_state {
 static const char *channel_gossip_state_str(enum channel_gossip_state s)
 {
 	switch (s) {
+	case CGOSSIP_PRIVATE_WAITING_FOR_USABLE:
+		return "CGOSSIP_PRIVATE_WAITING_FOR_USABLE";
 	case CGOSSIP_PRIVATE:
 		return "CGOSSIP_PRIVATE";
-	case CGOSSIP_NOT_USABLE:
-		return "CGOSSIP_NOT_USABLE";
-	case CGOSSIP_NOT_DEEP_ENOUGH:
-		return "CGOSSIP_NOT_DEEP_ENOUGH";
-	case CGOSSIP_NEED_PEER_SIGS:
-		return "CGOSSIP_NEED_PEER_SIGS";
+	case CGOSSIP_WAITING_FOR_USABLE:
+		return "CGOSSIP_WAITING_FOR_USABLE";
+	case CGOSSIP_WAITING_FOR_SCID:
+		return "CGOSSIP_WAITING_FOR_SCID";
+	case CGOSSIP_WAITING_FOR_MATCHING_PEER_SIGS:
+		return "CGOSSIP_WAITING_FOR_MATCHING_PEER_SIGS";
+	case CGOSSIP_WAITING_FOR_ANNOUNCE_DEPTH:
+		return "CGOSSIP_WAITING_FOR_ANNOUNCE_DEPTH";
 	case CGOSSIP_ANNOUNCED:
 		return "CGOSSIP_ANNOUNCED";
+	case CGOSSIP_CHANNEL_DEAD:
+		return "CGOSSIP_CHANNEL_DEAD";
+	case CGOSSIP_CHANNEL_UNANNOUNCED_DYING:
+		return "CGOSSIP_CHANNEL_UNANNOUNCED_DYING";
+	case CGOSSIP_CHANNEL_ANNOUNCED_DYING:
+		return "CGOSSIP_CHANNEL_ANNOUNCED_DYING";
+	case CGOSSIP_CHANNEL_ANNOUNCED_DEAD:
+		return "CGOSSIP_CHANNEL_ANNOUNCED_DEAD";
 	}
 	return "***INVALID***";
+}
+
+struct state_transition {
+	enum channel_gossip_state from, to;
+	const char *description;
+};
+
+static struct state_transition allowed_transitions[] = {
+	/* Private channels */
+	{ CGOSSIP_PRIVATE_WAITING_FOR_USABLE, CGOSSIP_CHANNEL_DEAD,
+	  "Unannounced channel closed before it had scid or alias" },
+	{ CGOSSIP_PRIVATE_WAITING_FOR_USABLE, CGOSSIP_PRIVATE,
+	  "Unannounced channel live" },
+	{ CGOSSIP_PRIVATE, CGOSSIP_CHANNEL_DEAD,
+	  "Unannounced channel closed" },
+
+	/* Public channels, startup */
+	{ CGOSSIP_WAITING_FOR_USABLE, CGOSSIP_CHANNEL_DEAD,
+	  "Channel closed before it had scid or alias" },
+	{ CGOSSIP_WAITING_FOR_USABLE, CGOSSIP_WAITING_FOR_SCID,
+	  "Channel usable (zeroconf) but no scid yet" },
+	{ CGOSSIP_WAITING_FOR_SCID, CGOSSIP_CHANNEL_DEAD,
+	  "Zeroconf channel closed before funding tx mined" },
+	{ CGOSSIP_WAITING_FOR_USABLE, CGOSSIP_WAITING_FOR_MATCHING_PEER_SIGS,
+	  "Channel mined, but we haven't got matching announcment sigs from peer" },
+	{ CGOSSIP_WAITING_FOR_USABLE, CGOSSIP_WAITING_FOR_ANNOUNCE_DEPTH,
+	  "Channel mined, they had already sent announcement sigs when we noticed" },
+	{ CGOSSIP_WAITING_FOR_SCID, CGOSSIP_WAITING_FOR_ANNOUNCE_DEPTH,
+	  "Channel mined (zeroconf), they had already sent announcement sigs when we noticed" },
+	{ CGOSSIP_WAITING_FOR_SCID, CGOSSIP_WAITING_FOR_MATCHING_PEER_SIGS,
+	  "Channel mined (zeroconf), but we haven't got matching announcment sigs from peer" },
+	{ CGOSSIP_WAITING_FOR_MATCHING_PEER_SIGS, CGOSSIP_CHANNEL_UNANNOUNCED_DYING,
+	  "Channel closing while waiting for announcement sigs from peer" },
+	{ CGOSSIP_WAITING_FOR_MATCHING_PEER_SIGS, CGOSSIP_CHANNEL_DEAD,
+	  "Channel closed while waiting for announcement sigs from peer" },
+	{ CGOSSIP_WAITING_FOR_MATCHING_PEER_SIGS, CGOSSIP_WAITING_FOR_ANNOUNCE_DEPTH,
+	  "Channel now waiting for 6 confirms to publish announcement" },
+	{ CGOSSIP_WAITING_FOR_ANNOUNCE_DEPTH, CGOSSIP_CHANNEL_DEAD,
+	  "Channel closed before 6 confirms" },
+	{ CGOSSIP_WAITING_FOR_ANNOUNCE_DEPTH, CGOSSIP_CHANNEL_UNANNOUNCED_DYING,
+	  "Channel closing before 6 confirms" },
+	{ CGOSSIP_CHANNEL_UNANNOUNCED_DYING, CGOSSIP_CHANNEL_DEAD,
+	  "Unannounced channel closed onchain." },
+	{ CGOSSIP_CHANNEL_UNANNOUNCED_DYING, CGOSSIP_CHANNEL_ANNOUNCED_DYING,
+	  "Unannounced closing channel reached announce depth." },
+	{ CGOSSIP_WAITING_FOR_ANNOUNCE_DEPTH, CGOSSIP_ANNOUNCED,
+	  "Channel fully announced" },
+	{ CGOSSIP_WAITING_FOR_MATCHING_PEER_SIGS, CGOSSIP_ANNOUNCED,
+	  "Got peer announcement signatures after already at 6 confirmations" },
+	{ CGOSSIP_WAITING_FOR_USABLE, CGOSSIP_CHANNEL_UNANNOUNCED_DYING,
+	  "Closed while waiting for first confirmation" },
+	{ CGOSSIP_WAITING_FOR_USABLE, CGOSSIP_ANNOUNCED,
+	  "We got peer sigs first, then 6 confirms, then finally received CHANNEL_READY" },
+
+	/* Splice */
+	{ CGOSSIP_ANNOUNCED, CGOSSIP_WAITING_FOR_MATCHING_PEER_SIGS,
+	  "Splicing"},
+	{ CGOSSIP_WAITING_FOR_ANNOUNCE_DEPTH, CGOSSIP_WAITING_FOR_MATCHING_PEER_SIGS,
+	  "Splicing before 6 confirmations"},
+
+	/* Public channels, closing */
+	{ CGOSSIP_ANNOUNCED, CGOSSIP_CHANNEL_ANNOUNCED_DYING,
+	  "Announced channel closing, but close tx not seen onchain yet." },
+	{ CGOSSIP_ANNOUNCED, CGOSSIP_CHANNEL_ANNOUNCED_DEAD,
+	  "Announced channel closed by seeing onchain tx." },
+	{ CGOSSIP_CHANNEL_ANNOUNCED_DYING, CGOSSIP_CHANNEL_ANNOUNCED_DEAD,
+	  "Announced channel closed onchain." },
+	{ CGOSSIP_CHANNEL_DEAD, CGOSSIP_CHANNEL_ANNOUNCED_DEAD,
+	  "Channel closed before 6 confirms, but now has 6 confirms so could be announced." },
+	{ CGOSSIP_WAITING_FOR_ANNOUNCE_DEPTH, CGOSSIP_CHANNEL_ANNOUNCED_DYING,
+	  "Channel hit announced depth, but closed" },
+};
+
+static void check_state_transition(const struct channel *channel,
+				   enum channel_gossip_state oldstate,
+				   enum channel_gossip_state newstate)
+{
+	/* Check transition */
+	for (size_t i = 0; i < ARRAY_SIZE(allowed_transitions); i++) {
+		if (allowed_transitions[i].from == oldstate
+		    && allowed_transitions[i].to == newstate) {
+			log_debug(channel->log, "gossip state: %s->%s (%s)",
+				  channel_gossip_state_str(oldstate),
+				  channel_gossip_state_str(newstate),
+				  allowed_transitions[i].description);
+			return;
+		}
+	}
+
+	log_broken(channel->log, "Illegal gossip state transition: %s->%s",
+		   channel_gossip_state_str(oldstate),
+		   channel_gossip_state_str(newstate));
 }
 
 struct remote_announce_sigs {
@@ -66,71 +187,176 @@ struct channel_gossip {
 
 	/* Details of latest channel_update sent by peer */
 	const struct peer_update *peer_update;
+
+	/* To avoid a storm, we only respond to announcement_signatures with
+	 * our own signatures once */
+	bool sent_sigs;
 };
 
 static bool starting_up = true, gossipd_init_done = false;
 
-/* We send non-forwardable channel updates if we can. */
-static bool can_send_channel_update(const struct channel *channel)
+static bool is_private(const struct channel *channel)
 {
-	/* Can't send if we can't talk about it. */
-	if (!channel->scid && !channel->alias[REMOTE])
-		return false;
-	if (channel_state_pre_open(channel->state))
-		return false;
-	return true;
+	return !(channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL);
 }
 
-/* We send start the channel announcement signatures if we can.
- * Caller must check it's not CGOSSIP_PRIVATE, but this is used
- * to set up state so we cannot assert here!
- */
-static bool channel_announceable(const struct channel *channel,
-				 u32 block_height)
+static bool is_usable(const struct channel *channel)
 {
-	if (!channel->scid)
+	if (channel_state_pre_open(channel->state))
 		return false;
+	/* Can't send if we can't talk about it. */
+	return channel->scid != NULL || channel->alias[REMOTE] != NULL;
+}
+
+static bool has_scid(const struct channel *channel)
+{
+	if (!is_usable(channel))
+		return false;
+	return channel->scid != NULL;
+}
+
+static bool has_matching_peer_sigs(const struct channel *channel)
+{
+	const struct channel_gossip *cg = channel->channel_gossip;
+
+	if (!has_scid(channel))
+		return false;
+
+	if (!cg->remote_sigs)
+		return false;
+
+	return short_channel_id_eq(cg->remote_sigs->scid, *channel->scid);
+}
+
+static bool has_announce_depth(const struct channel *channel)
+{
+	u32 block_height = get_block_height(channel->peer->ld->topology);
+
+	if (!has_matching_peer_sigs(channel))
+		return false;
+
 	return is_scid_depth_announceable(*channel->scid, block_height);
+}
+
+/* Truly dead once we've seen spend onchain */
+static bool is_dead(const struct channel *channel)
+{
+	return channel_state_funding_spent_onchain(channel->state);
+}
+
+static bool is_unannounced_dying(const struct channel *channel)
+{
+	return !is_private(channel)
+		&& channel_state_closing(channel->state)
+		&& !has_announce_depth(channel)
+		&& !channel_state_funding_spent_onchain(channel->state);
+}
+
+static bool is_announced_dying(const struct channel *channel)
+{
+	return !is_private(channel)
+		&& has_announce_depth(channel)
+		&& channel_state_closing(channel->state)
+		&& !channel_state_funding_spent_onchain(channel->state);
+}
+
+static bool is_announced_dead(const struct channel *channel)
+{
+	return !is_private(channel)
+		&& has_announce_depth(channel)
+		&& channel_state_funding_spent_onchain(channel->state);
 }
 
 static void check_channel_gossip(const struct channel *channel)
 {
 	struct channel_gossip *cg = channel->channel_gossip;
+	bool enabled;
 
 	/* Note: we can't assert is_scid_depth_announceable, for two reasons:
-	 * 1. on restart and rescan, block numbers can go backwards.'
+	 * 1. on restar_t and rescan, block numbers can go backwards.'
 	 * 2. We don't get notified via channel_gossip_notify_new_block until
 	 *    there are no new blocks to add, not on every block.
 	 */
 	switch (cg->state) {
-	case CGOSSIP_PRIVATE:
-		assert(!(channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL));
+	case CGOSSIP_PRIVATE_WAITING_FOR_USABLE:
+		assert(is_private(channel));
+		assert(!is_dead(channel));
+		assert(!is_usable(channel));
 		assert(!cg->remote_sigs);
 		assert(!cg->refresh_timer);
 		return;
-
-	case CGOSSIP_NOT_USABLE:
-		assert(channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL);
-		assert(!can_send_channel_update(channel));
+	case CGOSSIP_PRIVATE:
+		assert(is_private(channel));
+		assert(!is_dead(channel));
+		assert(is_usable(channel));
+		assert(!cg->remote_sigs);
 		assert(!cg->refresh_timer);
 		return;
-	case CGOSSIP_NOT_DEEP_ENOUGH:
-		assert(channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL);
-		assert(can_send_channel_update(channel));
+	case CGOSSIP_WAITING_FOR_USABLE:
+		assert(!is_private(channel));
+		assert(!is_dead(channel));
+		assert(!is_usable(channel));
 		assert(!cg->refresh_timer);
 		return;
-	case CGOSSIP_NEED_PEER_SIGS:
-		assert(can_send_channel_update(channel));
-		assert(channel->scid);
-		/* If we have sigs, they don't match */
-		if (cg->remote_sigs)
-			assert(!channel->scid || !short_channel_id_eq(cg->remote_sigs->scid, *channel->scid));
+	case CGOSSIP_WAITING_FOR_SCID:
+		assert(!is_private(channel));
+		assert(!is_dead(channel));
+		assert(!has_scid(channel));
+		assert(!cg->refresh_timer);
+		return;
+	case CGOSSIP_WAITING_FOR_MATCHING_PEER_SIGS:
+		assert(has_scid(channel));
+		assert(!is_private(channel));
+		assert(!is_dead(channel));
+		assert(!has_matching_peer_sigs(channel));
+		assert(!cg->refresh_timer);
+		return;
+	case CGOSSIP_WAITING_FOR_ANNOUNCE_DEPTH:
+		assert(!is_private(channel));
+		assert(!is_dead(channel));
+		/* We can't actually know !has_announce_depth: current
+		 * block height may not have been updated to match! */
 		assert(!cg->refresh_timer);
 		return;
 	case CGOSSIP_ANNOUNCED:
-		assert(can_send_channel_update(channel));
-		assert(channel->scid);
-		assert(cg->remote_sigs);
+		assert(!is_private(channel));
+		assert(!is_dead(channel));
+		/* We can't actually know !has_announce_depth: current
+		 * block height may not have been updated to match! */
+		/* refresh_timer is not always set at init */
+		return;
+	case CGOSSIP_CHANNEL_UNANNOUNCED_DYING:
+		assert(!is_dead(channel));
+		assert(!has_announce_depth(channel));
+		assert(!cg->refresh_timer);
+		return;
+	case CGOSSIP_CHANNEL_ANNOUNCED_DYING:
+		assert(!is_dead(channel));
+		assert(has_announce_depth(channel));
+		/* We may not have a cupdate in some odd cases, e.g. reorg */
+		if (cg->cupdate) {
+			assert(channel_update_details(cg->cupdate, NULL,
+						      &enabled));
+			assert(!enabled);
+		}
+		assert(!cg->refresh_timer);
+		return;
+	case CGOSSIP_CHANNEL_ANNOUNCED_DEAD:
+		assert(is_dead(channel));
+		assert(is_announced_dead(channel));
+		/* We may not have a cupdate in some odd cases, e.g. reorg */
+		if (cg->cupdate) {
+			assert(channel_update_details(cg->cupdate, NULL,
+						      &enabled));
+			assert(!enabled);
+		}
+		assert(!cg->refresh_timer);
+		return;
+	case CGOSSIP_CHANNEL_DEAD:
+		assert(is_dead(channel));
+		assert(!is_announced_dying(channel));
+		assert(!cg->cupdate);
+		assert(!cg->refresh_timer);
 		return;
 	}
 	fatal("Bad channel_gossip_state %u", cg->state);
@@ -179,6 +405,10 @@ static void broadcast_new_gossip(struct lightningd *ld,
 	if (taken(msg))
 		tal_steal(tmpctx, msg);
 
+	/* Don't crash if shutting down */
+	if (!ld->gossip)
+		return;
+
 	/* Tell gossipd about it */
 	subd_req(ld->gossip, ld->gossip,
 		 take(towire_gossipd_addgossip(NULL, msg, known_channel)),
@@ -199,23 +429,37 @@ static void broadcast_new_gossip(struct lightningd *ld,
 /* Recursion */
 static void cupdate_timer_refresh(struct channel *channel);
 
-static enum channel_gossip_state init_public_state(struct channel *channel,
-						   const struct remote_announce_sigs *remote_sigs)
+static enum channel_gossip_state derive_channel_state(const struct channel *channel)
 {
-	struct lightningd *ld = channel->peer->ld;
+	if (is_unannounced_dying(channel))
+		return CGOSSIP_CHANNEL_UNANNOUNCED_DYING;
 
-	if (!can_send_channel_update(channel))
-		return CGOSSIP_NOT_USABLE;
+	if (is_announced_dying(channel))
+		return CGOSSIP_CHANNEL_ANNOUNCED_DYING;
 
-	/* Note: depth when we startup is not actually reliable, since
-	 * we step one block back.  We'll fix this up when gossipd
-	 * tells us it's announced, or, when we add the block. */
-	if (!channel_announceable(channel, get_block_height(ld->topology)))
-		return CGOSSIP_NOT_DEEP_ENOUGH;
+	if (is_announced_dead(channel))
+		return CGOSSIP_CHANNEL_ANNOUNCED_DEAD;
 
-	if (!remote_sigs) {
-		return CGOSSIP_NEED_PEER_SIGS;
+	if (is_dead(channel))
+		return CGOSSIP_CHANNEL_DEAD;
+
+	if (is_private(channel)) {
+		if (!is_usable(channel))
+			return CGOSSIP_PRIVATE_WAITING_FOR_USABLE;
+		return CGOSSIP_PRIVATE;
 	}
+
+	if (!is_usable(channel))
+		return CGOSSIP_WAITING_FOR_USABLE;
+
+	if (!has_scid(channel))
+		return CGOSSIP_WAITING_FOR_SCID;
+
+	if (!has_matching_peer_sigs(channel))
+		return CGOSSIP_WAITING_FOR_MATCHING_PEER_SIGS;
+
+	if (!has_announce_depth(channel))
+		return CGOSSIP_WAITING_FOR_ANNOUNCE_DEPTH;
 
 	return CGOSSIP_ANNOUNCED;
 }
@@ -242,10 +486,6 @@ static void send_private_cupdate(struct channel *channel, bool even_if_redundant
 	struct channel_gossip *cg = channel->channel_gossip;
 	const u8 *cupdate;
 	struct short_channel_id scid;
-
-	/* Only useful channels: not if closing */
-	if (!channel_state_can_add_htlc(channel->state))
-		return;
 
 	/* BOLT #7:
 	 *
@@ -416,26 +656,33 @@ static void stash_remote_announce_sigs(struct channel *channel,
 		  "channel_gossip: received announcement sigs for %s (we have %s)",
 		  fmt_short_channel_id(tmpctx, scid),
 		  channel->scid ? fmt_short_channel_id(tmpctx, *channel->scid) : "none");
-}
 
-static bool apply_remote_sigs(struct channel *channel)
-{
-	struct channel_gossip *cg = channel->channel_gossip;
-
-	if (!cg->remote_sigs)
-		return false;
+	/* Save to db if we like these signatures */
+	if (!channel->scid)
+		return;
 
 	if (!short_channel_id_eq(cg->remote_sigs->scid, *channel->scid)) {
 		log_debug(channel->log, "We have remote sigs, but wrong scid!");
-		return false;
+		return;
 	}
 
 	wallet_announcement_save(channel->peer->ld->wallet,
 				 channel->dbid,
 				 &cg->remote_sigs->node_sig,
 				 &cg->remote_sigs->bitcoin_sig);
-	return true;
 }
+
+/* BOLT #7:
+ * A node:
+ * - If the `open_channel` message has the `announce_channel` bit set AND a
+ *   `shutdown` message has not been sent:
+ *    - After `channel_ready` has been sent and received AND the funding
+ *       transaction has enough confirmations to ensure that it won't be
+ *       reorganized:
+ *       - MUST send `announcement_signatures` for the funding transaction.
+ * - Otherwise:
+ *   - MUST NOT send the `announcement_signatures` message.
+ */
 
 static void send_channel_announce_sigs(struct channel *channel)
 {
@@ -444,17 +691,17 @@ static void send_channel_announce_sigs(struct channel *channel)
 	struct lightningd *ld = channel->peer->ld;
 	struct sha256_double hash;
 	secp256k1_ecdsa_signature local_node_sig, local_bitcoin_sig;
+	struct channel_gossip *cg = channel->channel_gossip;
 	const u8 *ca, *msg;
-
-	/* If it's already closing, don't bother. */
-	if (!channel_state_can_add_htlc(channel->state))
-		return;
 
 	/* Wait until we've exchanged reestablish messages */
 	if (!channel->reestablished) {
 		log_debug(channel->log, "channel_gossip: not sending channel_announcement_sigs until reestablished");
 		return;
 	}
+
+	if (cg->sent_sigs)
+		return;
 
 	ca = create_channel_announcement(tmpctx, channel, *channel->scid,
 					 NULL, NULL, NULL, NULL);
@@ -485,8 +732,10 @@ static void send_channel_announce_sigs(struct channel *channel)
 					     &channel->cid, *channel->scid,
 					     &local_node_sig, &local_bitcoin_sig);
 	msg_to_peer(channel->peer, take(msg));
+	cg->sent_sigs = true;
 }
 
+/* Sends channel_announcement */
 static void send_channel_announcement(struct channel *channel)
 {
 	secp256k1_ecdsa_signature local_node_sig, local_bitcoin_sig;
@@ -508,10 +757,6 @@ static void send_channel_announcement(struct channel *channel)
 							&local_bitcoin_sig))
 		fatal("Reading hsmd_sign_any_cannouncement_reply: %s", tal_hex(tmpctx, msg));
 
-	/* Don't crash if shutting down */
-	if (!ld->gossip)
-		return;
-
 	ca = create_channel_announcement(tmpctx, channel, *channel->scid,
 					 &local_node_sig,
 					 &local_bitcoin_sig,
@@ -520,15 +765,6 @@ static void send_channel_announcement(struct channel *channel)
 
 	/* Send everyone our new channel announcement */
 	broadcast_new_gossip(ld, ca, &channel->funding_sats, "channel announcement");
-
-	/* Any private cupdate will be different from this, so will force a refresh. */
-	update_channel_update(channel, channel_should_enable(channel, true));
-
-	broadcast_new_gossip(ld, cg->cupdate, NULL, "channel update");
-	arm_refresh_timer(channel);
-
-	/* And maybe our first node_announcement */
-	channel_gossip_node_announce(ld);
 }
 
 static void set_gossip_state(struct channel *channel,
@@ -536,30 +772,143 @@ static void set_gossip_state(struct channel *channel,
 {
 	struct channel_gossip *cg = channel->channel_gossip;
 
+	check_state_transition(channel, cg->state, state);
+
+	/* Steps as we leave old state */
+	switch (cg->state) {
+	case CGOSSIP_PRIVATE_WAITING_FOR_USABLE:
+	case CGOSSIP_WAITING_FOR_USABLE:
+	case CGOSSIP_PRIVATE:
+	case CGOSSIP_WAITING_FOR_SCID:
+	case CGOSSIP_WAITING_FOR_MATCHING_PEER_SIGS:
+	case CGOSSIP_WAITING_FOR_ANNOUNCE_DEPTH:
+	case CGOSSIP_CHANNEL_ANNOUNCED_DYING:
+	case CGOSSIP_CHANNEL_UNANNOUNCED_DYING:
+		break;
+	case CGOSSIP_ANNOUNCED:
+		/* Stop refreshing (if we were) */
+		cg->refresh_timer = tal_free(cg->refresh_timer);
+		break;
+
+	/* We should never leave these */
+	case CGOSSIP_CHANNEL_ANNOUNCED_DEAD:
+	case CGOSSIP_CHANNEL_DEAD:
+		break;
+	}
+
 	cg->state = state;
 
+	/* Now the state we're entering */
 	switch (cg->state) {
-	case CGOSSIP_PRIVATE:
+	/* These are initial states, never set */
+	case CGOSSIP_PRIVATE_WAITING_FOR_USABLE:
+	case CGOSSIP_WAITING_FOR_USABLE:
 		abort();
-	case CGOSSIP_NOT_USABLE:
+
+	/* We don't do anything when we first enter these states */
+	case CGOSSIP_PRIVATE:
+	case CGOSSIP_WAITING_FOR_SCID:
 		return;
-	case CGOSSIP_NOT_DEEP_ENOUGH:
-		/* But it exists, so try sending private channel_update */
-		send_private_cupdate(channel, false);
+
+	/* Always ready to send sigs (once) if we're waiting
+	 * for theirs: particularly for splicing. */
+	case CGOSSIP_WAITING_FOR_MATCHING_PEER_SIGS:
+		cg->sent_sigs = false;
 		return;
-	case CGOSSIP_NEED_PEER_SIGS:
-		send_channel_announce_sigs(channel);
-		/* We may already have remote signatures */
-		if (!apply_remote_sigs(channel))
-			return;
-		cg->state = CGOSSIP_ANNOUNCED;
-		/* fall thru */
+
+	case CGOSSIP_WAITING_FOR_ANNOUNCE_DEPTH:
+		wallet_announcement_save(channel->peer->ld->wallet,
+					 channel->dbid,
+					 &cg->remote_sigs->node_sig,
+					 &cg->remote_sigs->bitcoin_sig);
+		return;
+
 	case CGOSSIP_ANNOUNCED:
-		/* Any previous update was private, so clear. */
-		cg->cupdate = tal_free(cg->cupdate);
+		/* In case this snuck up on us (fast confirmations),
+		 * make sure we sent sigs */
+		send_channel_announce_sigs(channel);
+
+		/* BOLT #7:
+		 * A recipient node:
+		 *...
+		 *   - If it has sent AND received a valid `announcement_signatures`
+		 *     message:
+		 *     - If the funding transaction has at least 6 confirmations:
+		 *       - SHOULD queue the `channel_announcement` message for
+		 *         its peers.
+		 */
 		send_channel_announcement(channel);
+
+		/* Any private cupdate will be different from this, so will force a refresh. */
+		update_channel_update(channel, channel_should_enable(channel, true));
+		broadcast_new_gossip(channel->peer->ld, cg->cupdate, NULL, "channel update");
+
+		/* We need to refresh channel update every 13 days */
+		arm_refresh_timer(channel);
+
+		/* And maybe our first node_announcement */
+		channel_gossip_node_announce(channel->peer->ld);
+		return;
+
+	case CGOSSIP_CHANNEL_ANNOUNCED_DYING:
+		/* Make sure update tells them it's disabled */
+		if (update_channel_update(channel, false)) {
+			/* We might have skipped over CGOSSIP_ANNOUNCED, so tell
+			 * gossipd about us now, so it doesn't complain. */
+			send_channel_announcement(channel);
+			/* And tell the world */
+			broadcast_new_gossip(channel->peer->ld, cg->cupdate, NULL,
+					     "channel update");
+		}
+		return;
+
+	case CGOSSIP_CHANNEL_ANNOUNCED_DEAD:
+		/* It's disabled, but gossipd has forgotten it, so no
+		 * broadcast */
+		update_channel_update(channel, false);
+		return;
+
+	case CGOSSIP_CHANNEL_UNANNOUNCED_DYING:
+	case CGOSSIP_CHANNEL_DEAD:
 		return;
 	}
+	fatal("Bad channel_gossip_state %u", cg->state);
+}
+
+static void update_gossip_state(struct channel *channel)
+{
+	enum channel_gossip_state newstate;
+	struct channel_gossip *cg = channel->channel_gossip;
+
+	newstate = derive_channel_state(channel);
+	if (newstate != cg->state)
+		set_gossip_state(channel, newstate);
+
+	switch (cg->state) {
+	case CGOSSIP_CHANNEL_DEAD:
+	case CGOSSIP_CHANNEL_UNANNOUNCED_DYING:
+	case CGOSSIP_CHANNEL_ANNOUNCED_DYING:
+	case CGOSSIP_CHANNEL_ANNOUNCED_DEAD:
+	case CGOSSIP_WAITING_FOR_USABLE:
+	case CGOSSIP_PRIVATE_WAITING_FOR_USABLE:
+		return;
+	case CGOSSIP_WAITING_FOR_MATCHING_PEER_SIGS:
+	case CGOSSIP_WAITING_FOR_ANNOUNCE_DEPTH:
+		send_channel_announce_sigs(channel);
+		/* fall thru */
+	case CGOSSIP_WAITING_FOR_SCID:
+	case CGOSSIP_PRIVATE:
+		/* Always try to send private cupdate: ignored if redundant */
+		send_private_cupdate(channel, false);
+		return;
+	case CGOSSIP_ANNOUNCED:
+		/* If a channel parameter has changed, send new update */
+		if (update_channel_update(channel, channel_should_enable(channel, true)))
+			broadcast_new_gossip(channel->peer->ld, cg->cupdate, NULL,
+					     "channel update");
+		return;
+	}
+
 	fatal("Bad channel_gossip_state %u", cg->state);
 }
 
@@ -576,6 +925,7 @@ void channel_gossip_init(struct channel *channel,
 	cg->refresh_timer = NULL;
 	cg->peer_update = tal_dup_or_null(channel, struct peer_update, remote_update);
 	cg->remote_sigs = NULL;
+	cg->sent_sigs = false;
 
 	/* If we have an scid, we might have announcement signatures
 	 * saved in the db already. */
@@ -590,10 +940,9 @@ void channel_gossip_init(struct channel *channel,
 		}
 	}
 
-	if (public)
-		cg->state = init_public_state(channel, cg->remote_sigs);
-	else
-		cg->state = CGOSSIP_PRIVATE;
+	cg->state = derive_channel_state(channel);
+	log_debug(channel->log, "Initial channel state %s",
+		  channel_gossip_state_str(cg->state));
 
 	check_channel_gossip(channel);
 }
@@ -601,51 +950,13 @@ void channel_gossip_init(struct channel *channel,
 /* Something about channel changed: update if required */
 void channel_gossip_update(struct channel *channel)
 {
-	struct lightningd *ld = channel->peer->ld;
 	struct channel_gossip *cg = channel->channel_gossip;
 
 	/* Ignore unsaved channels */
 	if (!cg)
 		return;
 
-	switch (cg->state) {
-	case CGOSSIP_NOT_USABLE:
-		/* Change might make it usable */
-		if (!can_send_channel_update(channel)) {
-			check_channel_gossip(channel);
-			return;
-		}
-		set_gossip_state(channel, CGOSSIP_NOT_DEEP_ENOUGH);
-		/* fall thru */
-	case CGOSSIP_NOT_DEEP_ENOUGH:
-		/* Now we can send at non-forwardable update */
-		send_private_cupdate(channel, false);
-		/* Might have gotten straight from not-usable to announceable
-		 * if we have a flurry of blocks, or minconf >= 6. */
-		if (!channel_announceable(channel, get_block_height(ld->topology))) {
-			check_channel_gossip(channel);
-			return;
-		}
-		set_gossip_state(channel, CGOSSIP_NEED_PEER_SIGS);
-		/* Could have actually already had sigs! */
-		if (cg->state == CGOSSIP_ANNOUNCED)
-			goto announced;
-		/* fall thru */
-	case CGOSSIP_PRIVATE:
-	case CGOSSIP_NEED_PEER_SIGS:
-		send_private_cupdate(channel, false);
-		check_channel_gossip(channel);
-		return;
-	case CGOSSIP_ANNOUNCED:
-	announced:
-		/* We don't penalize disconnected clients normally: we only
-		 * do that if we actually try to send an htlc through */
-		update_channel_update(channel, true);
-		broadcast_new_gossip(ld, cg->cupdate, NULL, "channel update");
-		check_channel_gossip(channel);
-		return;
-	}
-	fatal("Bad channel_gossip_state %u", channel->channel_gossip->state);
+	update_gossip_state(channel);
 }
 
 void channel_gossip_got_announcement_sigs(struct channel *channel,
@@ -659,7 +970,14 @@ void channel_gossip_got_announcement_sigs(struct channel *channel,
 		return;
 	}
 
+	/* Ignore the weird cases */
 	switch (channel->channel_gossip->state) {
+	case CGOSSIP_CHANNEL_DEAD:
+	case CGOSSIP_CHANNEL_UNANNOUNCED_DYING:
+	case CGOSSIP_CHANNEL_ANNOUNCED_DYING:
+	case CGOSSIP_CHANNEL_ANNOUNCED_DEAD:
+		return;
+	case CGOSSIP_PRIVATE_WAITING_FOR_USABLE:
 	case CGOSSIP_PRIVATE:
 		log_unusual(channel->log, "They sent an announcement_signatures message for a private channel?  Ignoring.");
 		u8 *warning = towire_warningfmt(NULL,
@@ -667,38 +985,24 @@ void channel_gossip_got_announcement_sigs(struct channel *channel,
 						"You sent announcement_signatures for private channel");
 		msg_to_peer(channel->peer, take(warning));
 		return;
-	case CGOSSIP_NOT_USABLE:
-	case CGOSSIP_NOT_DEEP_ENOUGH:
-		/* They're early? */
-		stash_remote_announce_sigs(channel,
-					   scid, node_sig, bitcoin_sig);
-		check_channel_gossip(channel);
-		return;
-	case CGOSSIP_NEED_PEER_SIGS:
-		stash_remote_announce_sigs(channel,
-					   scid, node_sig, bitcoin_sig);
-		if (apply_remote_sigs(channel))
-			set_gossip_state(channel, CGOSSIP_ANNOUNCED);
-		check_channel_gossip(channel);
+	case CGOSSIP_WAITING_FOR_USABLE:
+	case CGOSSIP_WAITING_FOR_SCID:
+		stash_remote_announce_sigs(channel, scid, node_sig, bitcoin_sig);
 		return;
 	case CGOSSIP_ANNOUNCED:
-		/* BOLT #7:
-		 * - Upon reconnection (once the above timing requirements
-                 *   have been met):
-		 *...
-		 *    - If it receives `announcement_signatures` for the
-		 *      funding transaction:
-		 *       - MUST respond with its own `announcement_signatures`
-		 *        message.
-		 */
-		if(!channel->replied_to_announcement_sigs) {
-			send_channel_announce_sigs(channel);
-			channel->replied_to_announcement_sigs = true;
-		}
-		check_channel_gossip(channel);
-		return;
+		/* We don't care what they said, but it does prompt our response */
+		goto send_our_sigs;
+	case CGOSSIP_WAITING_FOR_MATCHING_PEER_SIGS:
+	case CGOSSIP_WAITING_FOR_ANNOUNCE_DEPTH:
+		stash_remote_announce_sigs(channel, scid, node_sig, bitcoin_sig);
+		update_gossip_state(channel);
+		goto send_our_sigs;
 	}
 	fatal("Bad channel_gossip_state %u", channel->channel_gossip->state);
+
+send_our_sigs:
+	/* This only works once, so we won't spam them. */
+	send_channel_announce_sigs(channel);
 }
 
 /* Short channel id changed (splice, or reorg). */
@@ -715,64 +1019,39 @@ void channel_gossip_scid_changed(struct channel *channel)
 	cg->cupdate = tal_free(cg->cupdate);
 
 	/* Any announcement signatures we received for old scid are no longer
-	 * valid. */
+	 * valid.  We keep cg->remote_sigs though: it's common that they
+	 * have already sent them for the new scid. */
 	wallet_remote_ann_sigs_clear(ld->wallet, channel);
 
+	/* Sanity check */
 	switch (cg->state) {
-	case CGOSSIP_PRIVATE:
-		/* Still private, just send new channel_update */
-		send_private_cupdate(channel, false);
-		check_channel_gossip(channel);
-		return;
-	case CGOSSIP_NOT_USABLE:
+	case CGOSSIP_PRIVATE_WAITING_FOR_USABLE:
+	case CGOSSIP_WAITING_FOR_USABLE:
+	case CGOSSIP_WAITING_FOR_SCID:
+	case CGOSSIP_CHANNEL_ANNOUNCED_DYING:
+	case CGOSSIP_CHANNEL_ANNOUNCED_DEAD:
+	case CGOSSIP_CHANNEL_DEAD:
 		/* Shouldn't happen. */
+		log_broken(channel->log, "Got scid change in state %s!",
+			   channel_gossip_state_str(cg->state));
 		return;
-	case CGOSSIP_NOT_DEEP_ENOUGH:
-	case CGOSSIP_NEED_PEER_SIGS:
+	case CGOSSIP_PRIVATE:
+	case CGOSSIP_WAITING_FOR_MATCHING_PEER_SIGS:
+	case CGOSSIP_WAITING_FOR_ANNOUNCE_DEPTH:
+	case CGOSSIP_CHANNEL_UNANNOUNCED_DYING:
 	case CGOSSIP_ANNOUNCED:
-		log_debug(channel->log, "channel_gossip: scid now %s",
-			  fmt_short_channel_id(tmpctx, *channel->scid));
-		/* Start again. */
-		/* Maybe remote announcement signatures now apply?  If not,
-		 * free them */
-		if (cg->remote_sigs
-		    && !short_channel_id_eq(cg->remote_sigs->scid,
-					    *channel->scid)) {
-			cg->remote_sigs = tal_free(cg->remote_sigs);
-		}
-
-		/* Stop refresh timer, we're not announcing the old one. */
-		cg->refresh_timer = tal_free(cg->refresh_timer);
-
-		set_gossip_state(channel,
- 				 init_public_state(channel, cg->remote_sigs));
-		send_channel_announce_sigs(channel);
-		check_channel_gossip(channel);
-		return;
+		break;
 	}
-	fatal("Bad channel_gossip_state %u", cg->state);
+
+	update_gossip_state(channel);
 }
 
 /* Block height changed */
 static void new_blockheight(struct lightningd *ld,
 			    struct channel *channel)
 {
-	switch (channel->channel_gossip->state) {
-	case CGOSSIP_PRIVATE:
-	case CGOSSIP_NEED_PEER_SIGS:
-	case CGOSSIP_ANNOUNCED:
-	case CGOSSIP_NOT_USABLE:
-		return;
-	case CGOSSIP_NOT_DEEP_ENOUGH:
-		if (!channel_announceable(channel, get_block_height(ld->topology))) {
-			check_channel_gossip(channel);
-			return;
-		}
-		set_gossip_state(channel, CGOSSIP_NEED_PEER_SIGS);
-		check_channel_gossip(channel);
-		return;
-	}
-	fatal("Bad channel_gossip_state %u", channel->channel_gossip->state);
+	/* This can change state if we're CGOSSIP_WAITING_FOR_ANNOUNCE_DEPTH */
+	update_gossip_state(channel);
 }
 
 void channel_gossip_notify_new_block(struct lightningd *ld)
@@ -790,7 +1069,6 @@ void channel_gossip_notify_new_block(struct lightningd *ld)
 				continue;
 
 			new_blockheight(ld, channel);
-			check_channel_gossip(channel);
 		}
 	}
 }
@@ -811,25 +1089,25 @@ void channel_gossip_update_from_gossipd(struct channel *channel,
 	/* We might still want signatures from peer (we lost state?) */
 	switch (channel->channel_gossip->state) {
 	case CGOSSIP_PRIVATE:
-		log_broken(channel->log,
-			   "gossipd gave channel_update for private channel? update=%s",
-			   tal_hex(tmpctx, channel_update));
-		return;
-	/* This happens: we step back a block when restarting.  We can
-	 * fast-forward in this case. */
-	case CGOSSIP_NOT_DEEP_ENOUGH:
-		set_gossip_state(channel, CGOSSIP_NEED_PEER_SIGS);
-		check_channel_gossip(channel);
-		break;
-
-	case CGOSSIP_NOT_USABLE:
-	case CGOSSIP_NEED_PEER_SIGS:
+	case CGOSSIP_PRIVATE_WAITING_FOR_USABLE:
+	case CGOSSIP_WAITING_FOR_USABLE:
+	case CGOSSIP_CHANNEL_DEAD:
+	case CGOSSIP_CHANNEL_UNANNOUNCED_DYING:
+	case CGOSSIP_CHANNEL_ANNOUNCED_DYING:
+	case CGOSSIP_CHANNEL_ANNOUNCED_DEAD:
+		/* Shouldn't happen. */
 		if (taken(channel_update))
 			tal_free(channel_update);
 		log_broken(channel->log,
-			   "gossipd gave us channel_update for channel in gossip_state %s",
-			   channel_gossip_state_str(channel->channel_gossip->state));
+			   "gossipd gave channel_update in %s? update=%s",
+			   channel_gossip_state_str(channel->channel_gossip->state),
+			   tal_hex(tmpctx, channel_update));
 		return;
+
+	/* This happens: we step back a block when restarting. */
+	case CGOSSIP_WAITING_FOR_SCID:
+	case CGOSSIP_WAITING_FOR_MATCHING_PEER_SIGS:
+	case CGOSSIP_WAITING_FOR_ANNOUNCE_DEPTH:
 	case CGOSSIP_ANNOUNCED:
 		break;
 	}
@@ -894,8 +1172,16 @@ void channel_gossip_init_done(struct lightningd *ld)
 				    "gossipd lost track of announced channel: re-announcing!");
 			check_channel_gossip(channel);
 			send_channel_announcement(channel);
+			update_channel_update(channel, channel_should_enable(channel, true));
+			broadcast_new_gossip(ld, channel->channel_gossip->cupdate, NULL, "channel update");
+
+			/* We need to refresh channel update every 13 days */
+			arm_refresh_timer(channel);
 		}
 	}
+
+	/* And maybe our first node_announcement */
+	channel_gossip_node_announce(ld);
 }
 
 static void channel_reestablished_stable(struct channel *channel)
@@ -921,27 +1207,35 @@ void channel_gossip_channel_reestablished(struct channel *channel)
 	if (!channel->channel_gossip)
 		return;
 
+	/* We can re-xmit sigs once per reconnect */
+	channel->channel_gossip->sent_sigs = false;
+
+	/* BOLT #7:
+	 * - Upon reconnection (once the above timing requirements have
+	 *   been met):
+	 *    - If it has NOT previously received
+	 *      `announcement_signatures` for the funding transaction:
+	 *        - MUST send its own `announcement_signatures` message.
+	 */
+	/* We also always send a private channel_update, even if redundant
+	 * (they might have lost it) */
 	switch (channel->channel_gossip->state) {
-	case CGOSSIP_NOT_USABLE:
-		return;
-	case CGOSSIP_PRIVATE:
-	case CGOSSIP_NOT_DEEP_ENOUGH:
-		send_private_cupdate(channel, true);
-		check_channel_gossip(channel);
-		return;
-	case CGOSSIP_NEED_PEER_SIGS:
-		/* BOLT #7:
-		 * - Upon reconnection (once the above timing requirements have
-		 *   been met):
-		 *    - If it has NOT previously received
-		 *      `announcement_signatures` for the funding transaction:
-		 *        - MUST send its own `announcement_signatures` message.
-		 */
-		send_private_cupdate(channel, true);
-		send_channel_announce_sigs(channel);
-		check_channel_gossip(channel);
-		return;
+	case CGOSSIP_CHANNEL_DEAD:
+	case CGOSSIP_CHANNEL_UNANNOUNCED_DYING:
+	case CGOSSIP_CHANNEL_ANNOUNCED_DYING:
+	case CGOSSIP_CHANNEL_ANNOUNCED_DEAD:
 	case CGOSSIP_ANNOUNCED:
+	case CGOSSIP_WAITING_FOR_USABLE:
+	case CGOSSIP_PRIVATE_WAITING_FOR_USABLE:
+		check_channel_gossip(channel);
+		return;
+	case CGOSSIP_WAITING_FOR_MATCHING_PEER_SIGS:
+		send_channel_announce_sigs(channel);
+		/* fall thru */
+	case CGOSSIP_PRIVATE:
+	case CGOSSIP_WAITING_FOR_ANNOUNCE_DEPTH:
+	case CGOSSIP_WAITING_FOR_SCID:
+		send_private_cupdate(channel, true);
 		check_channel_gossip(channel);
 		return;
 	}
@@ -963,11 +1257,18 @@ const u8 *channel_gossip_update_for_error(const tal_t *ctx,
 	struct channel_gossip *cg = channel->channel_gossip;
 
 	switch (cg->state) {
+	case CGOSSIP_CHANNEL_DEAD:
+	case CGOSSIP_CHANNEL_UNANNOUNCED_DYING:
+	case CGOSSIP_PRIVATE_WAITING_FOR_USABLE:
 	case CGOSSIP_PRIVATE:
-	case CGOSSIP_NOT_USABLE:
-	case CGOSSIP_NOT_DEEP_ENOUGH:
-	case CGOSSIP_NEED_PEER_SIGS:
+	case CGOSSIP_WAITING_FOR_USABLE:
+	case CGOSSIP_WAITING_FOR_SCID:
+	case CGOSSIP_WAITING_FOR_MATCHING_PEER_SIGS:
+	case CGOSSIP_WAITING_FOR_ANNOUNCE_DEPTH:
 		return NULL;
+	case CGOSSIP_CHANNEL_ANNOUNCED_DYING:
+	case CGOSSIP_CHANNEL_ANNOUNCED_DEAD:
+		return cg->cupdate;
 	case CGOSSIP_ANNOUNCED:
 		/* At this point we actually disable disconnected peers. */
 		if (update_channel_update(channel, channel_should_enable(channel, false))) {
@@ -1045,7 +1346,7 @@ void channel_gossip_set_remote_update(struct lightningd *ld,
 	/* For public channels, it could come from anywhere.  Private
 	 * channels must come from gossipd itself (the old store
 	 * migration!) or the correct peer. */
-	if (cg->state == CGOSSIP_PRIVATE
+	if (is_private(channel)
 	    && source
 	    && !node_id_eq(source, &channel->peer->id)) {
 		log_unusual(ld->log, "Bad gossip order: %s sent us a channel update for a "
