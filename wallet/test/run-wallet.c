@@ -374,9 +374,6 @@ bool fromwire_tlv(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 		  void *record UNNEEDED, struct tlv_field **fields UNNEEDED,
 		  const u64 *extra_types UNNEEDED, size_t *err_off UNNEEDED, u64 *err_type UNNEEDED)
 { fprintf(stderr, "fromwire_tlv called!\n"); abort(); }
-/* Generated stub for get_block_height */
-u32 get_block_height(const struct chain_topology *topo UNNEEDED)
-{ fprintf(stderr, "get_block_height called!\n"); abort(); }
 /* Generated stub for get_network_blockheight */
 u32 get_network_blockheight(const struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "get_network_blockheight called!\n"); abort(); }
@@ -1308,6 +1305,12 @@ void txfilter_add_scriptpubkey(struct txfilter *filter UNNEEDED, const u8 *scrip
 {
 	if (taken(script))
 		tal_free(script);
+}
+
+/* Can actually be called by new_channel */
+u32 get_block_height(const struct chain_topology *topo UNNEEDED)
+{
+	return 0;
 }
 
 /**
