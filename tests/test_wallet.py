@@ -328,7 +328,7 @@ def test_txprepare(node_factory, bitcoind, chainparams):
     assert len(decode['vin']) == 4
     assert len(decode['vout']) == 2 if not chainparams['feeoutput'] else 3
     if not chainparams['elements']:  # FIXME
-        check_feerate(l1, feerate_from_psbt(chainparams, bitcoind, l1, prep['psbt']), normal_feerate_perkw)
+        check_feerate([l1], feerate_from_psbt(chainparams, bitcoind, l1, prep['psbt']), normal_feerate_perkw)
 
     # One output will be correct.
     outnum = [i for i, o in enumerate(decode['vout']) if o['value'] == Decimal(amount * 3) / 10**8][0]
@@ -357,7 +357,7 @@ def test_txprepare(node_factory, bitcoind, chainparams):
     assert decode['vout'][0]['scriptPubKey']['type'] == 'witness_v0_keyhash'
     assert scriptpubkey_addr(decode['vout'][0]['scriptPubKey']) == addr
     if not chainparams['elements']:  # FIXME
-        check_feerate(l1, feerate_from_psbt(chainparams, bitcoind, l1, prep2['psbt']), normal_feerate_perkw)
+        check_feerate([l1], feerate_from_psbt(chainparams, bitcoind, l1, prep2['psbt']), normal_feerate_perkw)
 
     # If I cancel the first one, I can get those first 4 outputs.
     discard = l1.rpc.txdiscard(prep['txid'])
@@ -377,7 +377,7 @@ def test_txprepare(node_factory, bitcoind, chainparams):
     assert decode['vout'][0]['scriptPubKey']['type'] == 'witness_v0_keyhash'
     assert scriptpubkey_addr(decode['vout'][0]['scriptPubKey']) == addr
     if not chainparams['elements']:  # FIXME
-        check_feerate(l1, feerate_from_psbt(chainparams, bitcoind, l1, prep3['psbt']), normal_feerate_perkw)
+        check_feerate([l1], feerate_from_psbt(chainparams, bitcoind, l1, prep3['psbt']), normal_feerate_perkw)
 
     # Cannot discard twice.
     with pytest.raises(RpcError, match=r'not an unreleased txid'):
@@ -399,7 +399,7 @@ def test_txprepare(node_factory, bitcoind, chainparams):
     assert decode['vout'][0]['scriptPubKey']['type'] == 'witness_v0_keyhash'
     assert scriptpubkey_addr(decode['vout'][0]['scriptPubKey']) == addr
     if not chainparams['elements']:  # FIXME
-        check_feerate(l1, feerate_from_psbt(chainparams, bitcoind, l1, prep4['psbt']), normal_feerate_perkw)
+        check_feerate([l1], feerate_from_psbt(chainparams, bitcoind, l1, prep4['psbt']), normal_feerate_perkw)
     l1.rpc.txdiscard(prep4['txid'])
 
     # Try passing in a utxo set
@@ -408,7 +408,7 @@ def test_txprepare(node_factory, bitcoind, chainparams):
     prep5 = l1.rpc.txprepare([{addr:
                              Millisatoshi(amount * 3.5 * 1000)}], utxos=utxos)
     if not chainparams['elements']:  # FIXME
-        check_feerate(l1, feerate_from_psbt(chainparams, bitcoind, l1, prep3['psbt']), normal_feerate_perkw)
+        check_feerate([l1], feerate_from_psbt(chainparams, bitcoind, l1, prep3['psbt']), normal_feerate_perkw)
 
     # Try passing unconfirmed utxos
     unconfirmed_utxo = l1.rpc.withdraw(l1.rpc.newaddr()["bech32"], 10**5)
@@ -420,7 +420,7 @@ def test_txprepare(node_factory, bitcoind, chainparams):
     unconfirmed_tx = bitcoind.rpc.getrawmempool(True)[unconfirmed_utxo["txid"]]
     feerate_perkw = int(unconfirmed_tx['fees']['base'] * 100_000_000) * 1000 / unconfirmed_tx['weight']
     if not chainparams['elements']:  # FIXME
-        check_feerate(l1, feerate_perkw, normal_feerate_perkw)
+        check_feerate([l1], feerate_perkw, normal_feerate_perkw)
 
     decode = bitcoind.rpc.decoderawtransaction(prep5['unsigned_tx'])
     assert decode['txid'] == prep5['txid']
@@ -451,7 +451,7 @@ def test_txprepare(node_factory, bitcoind, chainparams):
                               {addr: 'all'}])
     # Feerate should be ~ as we asked for
     if not chainparams['elements']:  # FIXME
-        check_feerate(l1, feerate_from_psbt(chainparams, bitcoind, l1, prep5['psbt']), normal_feerate_perkw)
+        check_feerate([l1], feerate_from_psbt(chainparams, bitcoind, l1, prep5['psbt']), normal_feerate_perkw)
     l1.rpc.txdiscard(prep5['txid'])
     with pytest.raises(RpcError, match=r"'all'"):
         prep5 = l1.rpc.txprepare([{addr: 'all'}, {addr: 'all'}])
@@ -460,7 +460,7 @@ def test_txprepare(node_factory, bitcoind, chainparams):
                               {addr: Millisatoshi(amount * 3 * 500 - 100000)}])
     # Feerate should be ~ as we asked for
     if not chainparams['elements']:  # FIXME
-        check_feerate(l1, feerate_from_psbt(chainparams, bitcoind, l1, prep5['psbt']), normal_feerate_perkw)
+        check_feerate([l1], feerate_from_psbt(chainparams, bitcoind, l1, prep5['psbt']), normal_feerate_perkw)
     decode = bitcoind.rpc.decoderawtransaction(prep5['unsigned_tx'])
     assert decode['txid'] == prep5['txid']
     # 4 inputs, 3 outputs(include change).
@@ -574,7 +574,7 @@ def test_fundpsbt_feerates(node_factory, bitcoind, chainparams, addrtype):
             # We never actually added that `amount` output to PSBT, so that appears as "fee"
             fee = int(txinfo['fees']['base'] * 100_000_000) - amount
             actual_feerate = fee / (txinfo['weight'] / 1000)
-            check_feerate(l1, actual_feerate, feerate)
+            check_feerate([l1], actual_feerate, feerate)
 
 
 def test_reserveinputs(node_factory, bitcoind, chainparams):

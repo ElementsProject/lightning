@@ -668,8 +668,11 @@ def did_short_sig(node):
     return node.daemon.is_in_log('overgrind: short signature length')
 
 
-def check_feerate(node, actual_feerate, expected_feerate):
+def check_feerate(nodes, actual_feerate, expected_feerate):
     # Feerate can't be lower.
     assert actual_feerate > expected_feerate - 2
-    if not did_short_sig(node):
-        assert actual_feerate < expected_feerate + 2
+    if actual_feerate >= expected_feerate + 2:
+        if any([did_short_sig(n) for n in nodes]):
+            return
+    # Use assert as it shows the actual values on failure
+    assert actual_feerate < expected_feerate + 2

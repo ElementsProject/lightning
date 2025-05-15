@@ -3987,7 +3987,9 @@ def test_peer_anchor_push(node_factory, bitcoind, executor, chainparams):
                                                   {'min-emergency-msat': 546000,
                                                    'dev-warn-on-overgrind': None,
                                                    'broken_log': 'overgrind: short signature length'},
-                                                  {'disconnect': ['-WIRE_UPDATE_FULFILL_HTLC']}],
+                                                  {'disconnect': ['-WIRE_UPDATE_FULFILL_HTLC'],
+                                                   'dev-warn-on-overgrind': None,
+                                                   'broken_log': 'overgrind: short signature length'}],
                                          wait_for_announce=True)
 
     # We splinter l2's funds so it's forced to use more than one UTXO to push.
@@ -4051,7 +4053,7 @@ def test_peer_anchor_push(node_factory, bitcoind, executor, chainparams):
         total_weight = sum([d['weight'] for d in details])
         total_fees = sum([float(d['fees']['base']) * 100_000_000 for d in details])
         total_feerate_perkw = total_fees / total_weight * 1000
-        check_feerate(l2, total_feerate_perkw, feerate)
+        check_feerate([l3, l2], total_feerate_perkw, feerate)
         bitcoind.generate_block(1, needfeerate=16000)
         sync_blockheight(bitcoind, [l2])
         assert len(bitcoind.rpc.getrawmempool()) == 2
