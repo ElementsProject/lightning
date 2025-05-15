@@ -199,50 +199,6 @@ static void broadcast_new_gossip(struct lightningd *ld,
 /* Recursion */
 static void cupdate_timer_refresh(struct channel *channel);
 
-static void set_public_cupdate(struct channel *channel,
-			       const u8 *cupdate TAKES,
-			       bool refresh_later)
-{
-	struct lightningd *ld = channel->peer->ld;
-	struct channel_gossip *cg = channel->channel_gossip;
-	u32 timestamp;
-	bool enabled;
-	struct timeabs now, due;
-
-	if (!channel_update_details(cupdate, &timestamp, &enabled)) {
-		log_broken(channel->log, "Invalid channel_update %s: ignoring",
-			   tal_hex(tmpctx, cupdate));
-		if (taken(cupdate))
-			tal_free(cupdate);
-		return;
-	}
-
-	tal_free(cg->cupdate);
-	cg->cupdate = tal_dup_talarr(cg, u8, cupdate);
-
-	cg->refresh_timer = tal_free(cg->refresh_timer);
-
-	/* If enabled, we refresh, based on old timestamp */
-	if (!enabled || !refresh_later)
-		return;
-
-	due.ts.tv_sec = timestamp;
-	due.ts.tv_nsec = 0;
-	due = timeabs_add(due,
-			  time_from_sec(GOSSIP_PRUNE_INTERVAL(ld->dev_fast_gossip_prune)
-					- GOSSIP_BEFORE_DEADLINE(ld->dev_fast_gossip_prune)));
-
-	/* In case it's passed, timer should be zero */
-	now = time_now();
-	if (time_after(now, due))
-		due = now;
-
-	cg->refresh_timer = new_reltimer(ld->timers, cg,
-					 time_between(due, now),
-					 cupdate_timer_refresh,
-					 channel);
-}
-
 static enum channel_gossip_state init_public_state(struct channel *channel,
 						   const struct remote_announce_sigs *remote_sigs)
 {
@@ -328,36 +284,17 @@ static void send_private_cupdate(struct channel *channel, bool even_if_redundant
 	msg_to_peer(channel->peer, cg->cupdate);
 }
 
-/* Send gossipd a channel_update, if not redundant. */
-static void broadcast_public_cupdate(struct channel *channel,
-				     bool ok_if_disconnected)
+/* Sets channel->channel_gossip->cupdate.  Returns true if it changed. */
+static bool update_channel_update(const struct channel *channel,
+				  bool enable)
 {
-	struct lightningd *ld = channel->peer->ld;
 	struct channel_gossip *cg = channel->channel_gossip;
 	const u8 *cupdate;
 	u32 old_timestamp;
-	bool enable, have_old;
+	bool have_old;
 
 	/* If we have no previous channel_update, this fails */
-	have_old = channel_update_details(cg->cupdate,
-					  &old_timestamp, &enable);
-
-	if (!channel_state_can_add_htlc(channel->state)) {
-		/* If it's (no longer) usable, it's a simply courtesy
-		 * to disable */
-		enable = false;
-	} else if (channel->owner) {
-		/* If it's live, it's enabled */
-		enable = true;
-	} else if (starting_up) {
-		/* If we are starting up, don't change it! */
-		if (!have_old)
-			/* Assume the best if we don't have an updated */
-			enable = true;
-	} else {
-		enable = ok_if_disconnected;
-	}
-
+	have_old = channel_update_details(cg->cupdate, &old_timestamp, NULL);
 	cupdate = unsigned_channel_update(tmpctx, channel, *channel->scid,
 					  have_old ? &old_timestamp : NULL,
 					  true,
@@ -365,16 +302,73 @@ static void broadcast_public_cupdate(struct channel *channel,
 
 	/* Suppress redundant ones */
 	if (cg->cupdate && channel_update_same(cg->cupdate, cupdate))
-		return;
+		return false;
 
-	set_public_cupdate(channel,
-			   take(sign_update(NULL, channel->peer->ld, cupdate)),
-			   true);
-	broadcast_new_gossip(ld, cg->cupdate, NULL, "channel update");
+	tal_free(cg->cupdate);
+	cg->cupdate = sign_update(cg, channel->peer->ld, cupdate);
+	return true;
+}
+
+/* Using default logic, should this channel be enabled? */
+static bool channel_should_enable(const struct channel *channel,
+				  bool ok_if_disconnected)
+{
+	bool enable, have_old;
+
+	/* If we have no previous channel_update, this fails */
+	have_old = channel_update_details(channel->channel_gossip->cupdate,
+					  NULL, &enable);
+
+	if (!channel_state_can_add_htlc(channel->state)) {
+		/* If it's (no longer) usable, it's a simply courtesy
+		 * to disable */
+		return false;
+	} else if (channel->owner) {
+		/* If it's live, it's enabled */
+		return true;
+	} else if (starting_up) {
+		/* If we are starting up, don't change it! */
+		if (!have_old)
+			/* Assume the best if we don't have an updated */
+			enable = true;
+		return enable;
+	} else {
+		return ok_if_disconnected;
+	}
+}
+
+/* Based on existing update, schedule next refresh */
+static void arm_refresh_timer(struct channel *channel)
+{
+	struct lightningd *ld = channel->peer->ld;
+	struct channel_gossip *cg = channel->channel_gossip;
+	struct timeabs now = time_now(), due;
+	u32 timestamp;
+
+	if (!channel_update_details(cg->cupdate, &timestamp, NULL)) {
+		log_broken(channel->log, "Missing channel_update for refresh?");
+		return;
+	}
+	due.ts.tv_sec = timestamp;
+	due.ts.tv_nsec = 0;
+
+	due = timeabs_add(due,
+			  time_from_sec(GOSSIP_PRUNE_INTERVAL(ld->dev_fast_gossip_prune)
+					- GOSSIP_BEFORE_DEADLINE(ld->dev_fast_gossip_prune)));
+
+	/* In case it's passed, timer should be zero */
+	if (time_after(now, due))
+		due = now;
+
+	cg->refresh_timer = new_reltimer(ld->timers, cg,
+					 time_between(due, now),
+					 cupdate_timer_refresh,
+					 channel);
 }
 
 static void cupdate_timer_refresh(struct channel *channel)
 {
+	struct lightningd *ld = channel->peer->ld;
 	struct channel_gossip *cg = channel->channel_gossip;
 
 	/* Don't try to free this again if set_public_cupdate called later */
@@ -385,7 +379,10 @@ static void cupdate_timer_refresh(struct channel *channel)
 
 	/* Free old cupdate to force a new one to be generated */
 	cg->cupdate = tal_free(cg->cupdate);
-	broadcast_public_cupdate(channel, true);
+	update_channel_update(channel, channel_should_enable(channel, true));
+
+	broadcast_new_gossip(ld, cg->cupdate, NULL, "channel update");
+	arm_refresh_timer(channel);
 }
 
 static void stash_remote_announce_sigs(struct channel *channel,
@@ -523,8 +520,13 @@ static void send_channel_announcement(struct channel *channel)
 
 	/* Send everyone our new channel announcement */
 	broadcast_new_gossip(ld, ca, &channel->funding_sats, "channel announcement");
-	/* We can also send our first public channel_update now */
-	broadcast_public_cupdate(channel, true);
+
+	/* Any private cupdate will be different from this, so will force a refresh. */
+	update_channel_update(channel, channel_should_enable(channel, true));
+
+	broadcast_new_gossip(ld, cg->cupdate, NULL, "channel update");
+	arm_refresh_timer(channel);
+
 	/* And maybe our first node_announcement */
 	channel_gossip_node_announce(ld);
 }
@@ -638,7 +640,8 @@ void channel_gossip_update(struct channel *channel)
 	announced:
 		/* We don't penalize disconnected clients normally: we only
 		 * do that if we actually try to send an htlc through */
-		broadcast_public_cupdate(channel, true);
+		update_channel_update(channel, true);
+		broadcast_new_gossip(ld, cg->cupdate, NULL, "channel update");
 		check_channel_gossip(channel);
 		return;
 	}
@@ -798,6 +801,8 @@ void channel_gossip_notify_new_block(struct lightningd *ld,
 void channel_gossip_update_from_gossipd(struct channel *channel,
 					const u8 *channel_update TAKES)
 {
+	struct channel_gossip *cg = channel->channel_gossip;
+
 	if (!channel->channel_gossip) {
 		log_broken(channel->log,
 			   "gossipd gave channel_update for unsaved channel? update=%s",
@@ -831,10 +836,20 @@ void channel_gossip_update_from_gossipd(struct channel *channel,
 		break;
 	}
 
+	/* In case we generated one before gossipd told us? */
+	if (cg->cupdate) {
+		tal_free(cg->cupdate);
+		cg->refresh_timer = tal_free(cg->refresh_timer);
+	}
+
 	/* We don't set refresh timer if we're not ANNOUNCED, we're just saving updates
 	 * for later! */
-	set_public_cupdate(channel, channel_update,
-			   channel->channel_gossip->state == CGOSSIP_ANNOUNCED);
+	cg->cupdate = tal_dup_talarr(cg, u8, channel_update);
+	if (cg->state == CGOSSIP_ANNOUNCED) {
+		broadcast_new_gossip(channel->peer->ld,
+				     cg->cupdate, NULL, "channel update");
+		arm_refresh_timer(channel);
+	}
 	check_channel_gossip(channel);
 }
 
@@ -956,7 +971,12 @@ const u8 *channel_gossip_update_for_error(const tal_t *ctx,
 	case CGOSSIP_NEED_PEER_SIGS:
 		return NULL;
 	case CGOSSIP_ANNOUNCED:
-		broadcast_public_cupdate(channel, false);
+		/* At this point we actually disable disconnected peers. */
+		if (update_channel_update(channel, channel_should_enable(channel, false))) {
+			broadcast_new_gossip(channel->peer->ld,
+					     cg->cupdate, NULL,
+					     "channel update");
+		}
 		check_channel_gossip(channel);
 		return cg->cupdate;
 	}
