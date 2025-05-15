@@ -755,8 +755,7 @@ void channel_gossip_scid_changed(struct channel *channel)
 
 /* Block height changed */
 static void new_blockheight(struct lightningd *ld,
-			    struct channel *channel,
-			    u32 block_height)
+			    struct channel *channel)
 {
 	switch (channel->channel_gossip->state) {
 	case CGOSSIP_PRIVATE:
@@ -765,7 +764,7 @@ static void new_blockheight(struct lightningd *ld,
 	case CGOSSIP_NOT_USABLE:
 		return;
 	case CGOSSIP_NOT_DEEP_ENOUGH:
-		if (!channel_announceable(channel, block_height)) {
+		if (!channel_announceable(channel, get_block_height(ld->topology))) {
 			check_channel_gossip(channel);
 			return;
 		}
@@ -776,8 +775,7 @@ static void new_blockheight(struct lightningd *ld,
 	fatal("Bad channel_gossip_state %u", channel->channel_gossip->state);
 }
 
-void channel_gossip_notify_new_block(struct lightningd *ld,
-				     u32 block_height)
+void channel_gossip_notify_new_block(struct lightningd *ld)
 {
 	struct peer *peer;
 	struct channel *channel;
@@ -791,7 +789,7 @@ void channel_gossip_notify_new_block(struct lightningd *ld,
 			if (!channel->channel_gossip)
 				continue;
 
-			new_blockheight(ld, channel, block_height);
+			new_blockheight(ld, channel);
 			check_channel_gossip(channel);
 		}
 	}

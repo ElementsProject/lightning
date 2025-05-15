@@ -22,8 +22,7 @@ void channeld_tell_depth(struct channel *channel,
 			 u32 depth);
 
 /* Notify channels of new blocks. */
-void channel_notify_new_block(struct lightningd *ld,
-			      u32 block_height);
+void channel_notify_new_block(struct lightningd *ld);
 
 /* Cancel the channel after `fundchannel_complete` succeeds
  * but before funding broadcasts. */

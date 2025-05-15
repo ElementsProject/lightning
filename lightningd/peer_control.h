@@ -155,8 +155,7 @@ struct leak_detect;
 void peer_dev_memleak(struct lightningd *ld, struct leak_detect *leaks);
 
 /* Triggered at each new block.  */
-void waitblockheight_notify_new_block(struct lightningd *ld,
-				      u32 block_height);
+void waitblockheight_notify_new_block(struct lightningd *ld);
 
 
 /* JSON parameter by channel_id or scid (caller must check state!) */

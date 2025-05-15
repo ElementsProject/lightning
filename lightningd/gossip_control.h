@@ -14,6 +14,6 @@ void gossipd_notify_spends(struct lightningd *ld,
 			   u32 blockheight,
 			   const struct short_channel_id *scids);
 
-void gossip_notify_new_block(struct lightningd *ld, u32 blockheight);
+void gossip_notify_new_block(struct lightningd *ld);
 
 #endif /* LIGHTNING_LIGHTNINGD_GOSSIP_CONTROL_H */
