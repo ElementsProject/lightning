@@ -185,6 +185,7 @@ pub enum Request {
 	InjectPaymentOnion(requests::InjectpaymentonionRequest),
 	InjectOnionMessage(requests::InjectonionmessageRequest),
 	Xpay(requests::XpayRequest),
+	SignMessageWithKey(requests::SignmessagewithkeyRequest),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -360,6 +361,7 @@ pub enum Response {
 	InjectPaymentOnion(responses::InjectpaymentonionResponse),
 	InjectOnionMessage(responses::InjectonionmessageResponse),
 	Xpay(responses::XpayResponse),
+	SignMessageWithKey(responses::SignmessagewithkeyResponse),
 }
 
 
@@ -4738,6 +4740,29 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "xpay"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct SignmessagewithkeyRequest {
+	    pub address: String,
+	    pub message: String,
+	}
+
+	impl From<SignmessagewithkeyRequest> for Request {
+	    fn from(r: SignmessagewithkeyRequest) -> Self {
+	        Request::SignMessageWithKey(r)
+	    }
+	}
+
+	impl IntoRequest for SignmessagewithkeyRequest {
+	    type Response = super::responses::SignmessagewithkeyResponse;
+	}
+
+	impl TypedRequest for SignmessagewithkeyRequest {
+	    type Response = super::responses::SignmessagewithkeyResponse;
+
+	    fn method(&self) -> &str {
+	        "signmessagewithkey"
 	    }
 	}
 }
@@ -11812,6 +11837,25 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::Xpay(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct SignmessagewithkeyResponse {
+	    pub address: String,
+	    pub base64: String,
+	    pub pubkey: PublicKey,
+	    pub signature: String,
+	}
+
+	impl TryFrom<Response> for SignmessagewithkeyResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::SignMessageWithKey(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

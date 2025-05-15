@@ -3189,6 +3189,15 @@ def xpay2py(m):
     })
 
 
+def signmessagewithkey2py(m):
+    return remove_default({
+        "address": m.address,  # PrimitiveField in generate_composite
+        "base64": m.base64,  # PrimitiveField in generate_composite
+        "pubkey": hexlify(m.pubkey),  # PrimitiveField in generate_composite
+        "signature": hexlify(m.signature),  # PrimitiveField in generate_composite
+    })
+
+
 def decodekeysend_routes2py(m): # manual override
     return remove_default({
         "expirydelta": m.expirydelta,
