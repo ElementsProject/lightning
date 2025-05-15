@@ -4788,7 +4788,8 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	check_tx_abort(peer, msg, NULL);
 
 	/* If we're in STFU mode and aren't waiting for a STFU mode
-	 * specific message, the only valid message was tx_abort */
+	 * specific message, the only valid message was tx_abort (or a
+	 * belated announcement_signatures!) */
 	if (is_stfu_active(peer) && !peer->stfu_wait_single_msg) {
 		if (peer->splicing && type == WIRE_TX_SIGNATURES) {
 			if (peer->splicing->tx_sig_msg)
@@ -4798,7 +4799,7 @@ static void peer_in(struct peer *peer, const u8 *msg)
 			peer->splicing->tx_sig_msg = tal_steal(peer->splicing,
 							       msg);
 			return;
-		} else {
+		} else if (type != WIRE_ANNOUNCEMENT_SIGNATURES) {
 			peer_failed_warn(peer->pps, &peer->channel_id,
 					 "Received message %s when only TX_ABORT was"
 					 " valid", peer_wire_name(type));
