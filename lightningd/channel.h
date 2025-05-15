@@ -610,6 +610,29 @@ static inline bool channel_state_failing_onchain(enum channel_state state)
 	abort();
 }
 
+static inline bool channel_state_funding_spent_onchain(enum channel_state state)
+{
+	switch (state) {
+	case CHANNELD_AWAITING_LOCKIN:
+	case CHANNELD_NORMAL:
+	case CHANNELD_AWAITING_SPLICE:
+	case CLOSINGD_SIGEXCHANGE:
+	case CHANNELD_SHUTTING_DOWN:
+	case CLOSINGD_COMPLETE:
+	case DUALOPEND_OPEN_INIT:
+	case DUALOPEND_OPEN_COMMIT_READY:
+	case DUALOPEND_OPEN_COMMITTED:
+	case DUALOPEND_AWAITING_LOCKIN:
+	case AWAITING_UNILATERAL:
+		return false;
+	case CLOSED:
+	case FUNDING_SPEND_SEEN:
+	case ONCHAIN:
+		return true;
+	}
+	abort();
+}
+
 static inline bool channel_state_pre_open(enum channel_state state)
 {
 	switch (state) {
