@@ -961,7 +961,7 @@ static const struct config testnet_config = {
 	.max_htlc_cltv = 2016,
 
 	/* We're fairly trusting, under normal circumstances. */
-	.anchor_confirms = 1,
+	.funding_confirms = 1,
 
 	/* Testnet blockspace is free. */
 	.max_concurrent_htlcs = 483,
@@ -1029,7 +1029,7 @@ static const struct config mainnet_config = {
 	.max_htlc_cltv = 2016,
 
 	/* We're fairly trusting, under normal circumstances. */
-	.anchor_confirms = 3,
+	.funding_confirms = 3,
 
 	/* While up to 483 htlcs are possible we do 30 by default (as eclair does) to save blockspace */
 	.max_concurrent_htlcs = 30,
@@ -1103,8 +1103,8 @@ static void check_config(struct lightningd *ld)
 	if (ld->config.max_concurrent_htlcs < 1 || ld->config.max_concurrent_htlcs > 483)
 		fatal("--max-concurrent-htlcs value must be between 1 and 483 it is: %u",
 		      ld->config.max_concurrent_htlcs);
-	if (ld->config.anchor_confirms == 0)
-		fatal("anchor-confirms must be greater than zero");
+	if (ld->config.funding_confirms == 0)
+		fatal("funding-confirms must be greater than zero");
 
 	if (ld->always_use_proxy && !ld->proxyaddr)
 		fatal("--always-use-proxy needs --proxy");
@@ -1501,7 +1501,7 @@ static void register_opts(struct lightningd *ld)
 	opt_register_arg("--max-locktime-blocks", opt_set_max_htlc_cltv, NULL,
 			 ld, opt_hidden);
 	clnopt_witharg("--funding-confirms", OPT_SHOWINT, opt_set_u32, opt_show_u32,
-			 &ld->config.anchor_confirms,
+			 &ld->config.funding_confirms,
 			 "Confirmations required for funding transaction");
 	clnopt_witharg("--require-confirmed-inputs", OPT_SHOWBOOL,
 		       opt_set_bool_arg, opt_show_bool,
