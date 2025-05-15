@@ -2626,7 +2626,9 @@ def test_update_fee_reconnect(node_factory, bitcoind):
     assert l1.daemon.is_in_log('got commitsig [0-9]*: feerate 14005')
     assert l2.daemon.is_in_log('got commitsig [0-9]*: feerate 14005')
 
-    # Now shutdown cleanly.
+    # Now shutdown cleanly.  (Make sure l1 has raised min_acceptable: if it
+    # changes while it negotiates, it may reject the result and unilaterally close!)
+    wait_for(lambda: l1.rpc.feerates(style='perkw')['perkw']['min_acceptable'] == 7000)
     l1.rpc.close(chan)
 
     # And should put closing into mempool.
