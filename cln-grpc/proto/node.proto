@@ -142,6 +142,7 @@ service Node {
 	rpc InjectPaymentOnion(InjectpaymentonionRequest) returns (InjectpaymentonionResponse) {}
 	rpc InjectOnionMessage(InjectonionmessageRequest) returns (InjectonionmessageResponse) {}
 	rpc Xpay(XpayRequest) returns (XpayResponse) {}
+	rpc SignMessageWithKey(SignmessagewithkeyRequest) returns (SignmessagewithkeyResponse) {}
 
 	rpc SubscribeBlockAdded(StreamBlockAddedRequest) returns (stream BlockAddedNotification) {}
 	rpc SubscribeChannelOpenFailed(StreamChannelOpenFailedRequest) returns (stream ChannelOpenFailedNotification) {}
@@ -4061,6 +4062,18 @@ message XpayResponse {
 	uint64 successful_parts = 3;
 	Amount amount_msat = 4;
 	Amount amount_sent_msat = 5;
+}
+
+message SignmessagewithkeyRequest {
+	string message = 1;
+	string address = 2;
+}
+
+message SignmessagewithkeyResponse {
+	string address = 1;
+	bytes pubkey = 2;
+	bytes signature = 3;
+	string base64 = 4;
 }
 
 message StreamBlockAddedRequest {

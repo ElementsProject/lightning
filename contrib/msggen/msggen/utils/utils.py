@@ -143,6 +143,7 @@ grpc_method_names = [
     "InjectPaymentOnion",
     "InjectOnionMessage",
     "Xpay",
+    "SignMessageWithKey",
 ]
 
 grpc_notification_names = [

@@ -4320,6 +4320,18 @@ impl From<responses::XpayResponse> for pb::XpayResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::SignmessagewithkeyResponse> for pb::SignmessagewithkeyResponse {
+    fn from(c: responses::SignmessagewithkeyResponse) -> Self {
+        Self {
+            address: c.address, // Rule #2 for type string
+            base64: c.base64, // Rule #2 for type string
+            pubkey: c.pubkey.serialize().to_vec(), // Rule #2 for type pubkey
+            signature: hex::decode(&c.signature).unwrap(), // Rule #2 for type hex
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<notifications::BlockAddedNotification> for pb::BlockAddedNotification {
     fn from(c: notifications::BlockAddedNotification) -> Self {
         Self {
@@ -6050,6 +6062,16 @@ impl From<requests::XpayRequest> for pb::XpayRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::SignmessagewithkeyRequest> for pb::SignmessagewithkeyRequest {
+    fn from(c: requests::SignmessagewithkeyRequest) -> Self {
+        Self {
+            address: c.address, // Rule #2 for type string
+            message: c.message, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<notifications::requests::StreamBlockAddedRequest> for pb::StreamBlockAddedRequest {
     fn from(c: notifications::requests::StreamBlockAddedRequest) -> Self {
         Self {
@@ -7710,6 +7732,16 @@ impl From<pb::XpayRequest> for requests::XpayRequest {
             maxfee: c.maxfee.map(|a| a.into()), // Rule #1 for type msat?
             partial_msat: c.partial_msat.map(|a| a.into()), // Rule #1 for type msat?
             retry_for: c.retry_for, // Rule #1 for type u32?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::SignmessagewithkeyRequest> for requests::SignmessagewithkeyRequest {
+    fn from(c: pb::SignmessagewithkeyRequest) -> Self {
+        Self {
+            address: c.address, // Rule #1 for type string
+            message: c.message, // Rule #1 for type string
         }
     }
 }

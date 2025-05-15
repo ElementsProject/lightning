@@ -4370,6 +4370,38 @@ impl Node for Server
 
     }
 
+    async fn sign_message_with_key(
+        &self,
+        request: tonic::Request<pb::SignmessagewithkeyRequest>,
+    ) -> Result<tonic::Response<pb::SignmessagewithkeyResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::SignmessagewithkeyRequest = req.into();
+        debug!("Client asked for sign_message_with_key");
+        trace!("sign_message_with_key request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::SignMessageWithKey(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method SignMessageWithKey: {:?}", e)))?;
+        match result {
+            Response::SignMessageWithKey(r) => {
+               trace!("sign_message_with_key response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call SignMessageWithKey",
+                    r
+                )
+            )),
+        }
+
+    }
+
 
 
     type SubscribeBlockAddedStream = NotificationStream<pb::BlockAddedNotification>;
