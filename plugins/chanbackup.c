@@ -565,13 +565,11 @@ static struct command_result *after_staticbackup(struct command *cmd,
 	plugin_log(cmd->plugin, LOG_DBG, "Updating the SCB");
 
 	update_scb(cmd->plugin, scb_chan);
-	struct info *info = tal(cmd, struct info);
-	info->idx = 0;
 	req = jsonrpc_request_start(cmd,
                                     "listpeers",
                                     after_listpeers,
                                     plugin_broken_cb,
-                                    info);
+                                    NULL);
 	return send_outreq(req);
 }
 
