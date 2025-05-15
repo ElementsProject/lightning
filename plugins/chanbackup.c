@@ -774,8 +774,7 @@ static struct command_result *handle_your_peer_storage(struct command *cmd,
 					     	    datastore_failed,
 						    "Saving latestscb");
 	} else {
-		plugin_log(cmd->plugin, LOG_DBG,
-			   "Peer sent bad custom message for chanbackup!");
+		/* Any other message we ignore */
 		return command_hook_success(cmd);
         }
 }
