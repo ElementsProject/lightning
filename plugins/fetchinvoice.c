@@ -240,6 +240,11 @@ static struct command_result *handle_invreq_response(struct command *cmd,
 		badfield = "invoice_payment_hash";
 		goto badinv;
 	}
+	/* Currently the following check fails for offers that do not contain
+	 * offer_issuer_id and for which an invoice is fetched from a CLN node,
+	 * because listoffers_done in offers_invrek_hook.c sets invoice_node_id
+	 * to offer_issuer_id regardless.
+	 */
 	if (!inv->invoice_node_id) {
 		badfield = "invoice_node_id";
 		goto badinv;
