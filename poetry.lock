@@ -1550,7 +1550,7 @@ files = [
 
 [[package]]
 name = "pyln-client"
-version = "25.02"
+version = "25.05rc1"
 description = "Client library and plugin library for Core Lightning"
 optional = false
 python-versions = "^3.8"
@@ -1586,7 +1586,7 @@ url = "contrib/pyln-grpc-proto"
 
 [[package]]
 name = "pyln-proto"
-version = "25.02"
+version = "25.05rc1"
 description = "This package implements some of the Lightning Network protocol in pure python. It is intended for protocol testing and some minor tooling only. It is not deemed secure enough to handle any amount of real funds (you have been warned!)."
 optional = false
 python-versions = "^3.8"
@@ -1607,7 +1607,7 @@ url = "contrib/pyln-proto"
 
 [[package]]
 name = "pyln-testing"
-version = "25.02"
+version = "25.05rc1"
 description = "Test your Core Lightning integration, plugins or whatever you want"
 optional = false
 python-versions = "^3.8"
@@ -2205,7 +2205,7 @@ h11 = ">=0.9.0,<1"
 
 [[package]]
 name = "wss-proxy"
-version = "25.02"
+version = "25.05rc1"
 description = "Web secure socket proxy"
 optional = false
 python-versions = "^3.8"
@@ -2214,7 +2214,7 @@ files = []
 develop = true
 
 [package.dependencies]
-pyln-client = ">=24.11 <25.05"
+pyln-client = ">=24.11 <25.09"
 websockets = "^12.0"
 
 [package.source]

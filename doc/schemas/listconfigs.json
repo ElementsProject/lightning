@@ -1941,10 +1941,6 @@
             "set": true,
             "source": "cmdline"
           },
-          "experimental-peer-storage": {
-            "set": false,
-            "source": "default"
-          },
           "experimental-quiesce": {
             "set": false,
             "source": "default"

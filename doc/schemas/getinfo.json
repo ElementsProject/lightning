@@ -410,14 +410,14 @@
             "port": 19735
           }
         ],
-        "version": "v25.02",
+        "version": "v25.05rc1",
         "blockheight": 110,
         "network": "regtest",
         "fees_collected_msat": 0,
         "lightning-dir": "/tmp/.lightning/regtest",
         "our_features": {
-          "init": "08a0882a8a59a1",
-          "node": "88a0882a8a59a1",
+          "init": "08a8882a8a59a1",
+          "node": "88a8882a8a59a1",
           "channel": "",
           "invoice": "02000002024100"
         }
