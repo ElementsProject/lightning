@@ -65,6 +65,10 @@ sudo chmod 0440 /etc/sudoers.d/tester
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- \
      -y --default-toolchain ${RUST_VERSION}
 
+uv sync --all-extras --all-groups
+# required for reckless till poetry to uv migration
+uv tool install poetry
+
 # We also need a relatively recent protobuf-compiler, at least 3.12.0,
 # in order to support the experimental `optional` flag.
 
