@@ -1260,9 +1260,9 @@ static char *opt_set_shutdown_wrong_funding(struct lightningd *ld)
 
 static char *opt_set_peer_storage(struct lightningd *ld)
 {
-	feature_set_or(ld->our_features,
-		       take(feature_set_for_feature(NULL,
-						    OPTIONAL_FEATURE(OPT_PROVIDE_STORAGE))));
+	if (!opt_deprecated_ok(ld, "experimental-peer-storage", NULL,
+			       "v25.05", "v25.11"))
+		return "--experimental-peer-storage is now enabled by default";
 	return NULL;
 }
 
@@ -1472,7 +1472,7 @@ static void register_opts(struct lightningd *ld)
 				 "EXPERIMENTAL: allow shutdown with alternate txids");
 	opt_register_early_noarg("--experimental-peer-storage",
 				 opt_set_peer_storage, ld,
-				 "EXPERIMENTAL: enable peer backup storage and restore");
+				 opt_hidden);
 	opt_register_early_noarg("--experimental-quiesce",
 				 opt_set_quiesce, ld,
 				 "experimental: Advertise ability to quiesce"

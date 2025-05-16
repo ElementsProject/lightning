@@ -452,6 +452,9 @@ def test_grpc_custommsg_notification(node_factory):
     l2.rpc.sendcustommsg(l1.info["id"], "3131313174657374")
 
     for custommsg in custommsg_stream:
+        # Ignore peer storage message!
+        if custommsg.payload.hex().startswith('0007'):
+            continue
         assert custommsg.peer_id.hex() == l2.info["id"]
         assert custommsg.payload.hex() == "3131313174657374"
         assert custommsg.payload == b"1111test"

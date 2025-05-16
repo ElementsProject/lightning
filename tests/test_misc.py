@@ -2404,6 +2404,7 @@ def test_list_features_only(node_factory):
                 'option_shutdown_anysegwit/odd',
                 'option_quiesce/odd',
                 'option_onion_messages/odd',
+                'option_provide_storage/odd',
                 'option_channel_type/odd',
                 'option_scid_alias/odd',
                 'option_zeroconf/odd']
@@ -3088,27 +3089,11 @@ def test_emergencyrecover(node_factory, bitcoind):
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 def test_recover_plugin(node_factory, bitcoind):
-    l1 = node_factory.get_node(
-        may_reconnect=True,
-        allow_warning=True,
-        feerates=(7500, 7500, 7500, 7500),
-        options={
-            'log-level': 'info',
-            'experimental-peer-storage': None,
-            'dev-no-reconnect': None,
-        },
-    )
-    l2 = node_factory.get_node(
-        may_reconnect=True,
-        feerates=(7500, 7500, 7500, 7500),
-        broken_log='.*',
-        allow_bad_gossip=True,
-        options={
-            'log-level': 'info',
-            'experimental-peer-storage': None,
-            'dev-no-reconnect': None,
-        },
-    )
+    l1, l2 = node_factory.get_nodes(2, opts=[{'may_reconnect': True,
+                                              'dev-no-reconnect': None},
+                                             {'may_reconnect': True,
+                                              'dev-no-reconnect': None,
+                                              'broken_log': 'Cannot broadcast our commitment tx: they have a future one|ERROR: Unknown commitment #[0-9]*, recovering our funds!'}])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l2.fundchannel(l1, 10**6)
@@ -3159,11 +3144,9 @@ def test_restorefrompeer(node_factory, bitcoind):
     Test restorefrompeer
     """
     l1, l2 = node_factory.get_nodes(2, [{'broken_log': 'ERROR: Unknown commitment #.*, recovering our funds!',
-                                         'experimental-peer-storage': None,
                                          'may_reconnect': True,
                                          'allow_bad_gossip': True},
-                                        {'experimental-peer-storage': None,
-                                         'may_reconnect': True}])
+                                        {'may_reconnect': True}])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
