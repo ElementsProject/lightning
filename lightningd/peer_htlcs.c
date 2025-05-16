@@ -2,6 +2,7 @@
 #include <ccan/cast/cast.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
+#include <ccan/time/time.h>
 #include <channeld/channeld_wiregen.h>
 #include <common/amount.h>
 #include <common/blinding.h>
@@ -10,6 +11,7 @@
 #include <common/json_parse.h>
 #include <common/onion_decode.h>
 #include <common/onionreply.h>
+#include <common/sphinx.h>
 #include <common/timeout.h>
 #include <db/exec.h>
 #include <lightningd/channel.h>
@@ -318,13 +320,17 @@ static void fail_out_htlc(struct htlc_out *hout, const char *localfail)
 
 		/* If we have an onion, simply copy it. */
 		if (hout->failonion)
-			failonion = hout->failonion;
+			failonion = dup_onionreply(hout, hout->failonion);
 		/* Otherwise, we need to onionize this local error. */
 		else
 			failonion = create_onionreply(hout,
 						      hout->in->shared_secret,
 						      hout->failmsg);
-		fail_in_htlc(hout->in, failonion);
+
+		update_attributable_data(failonion, hold_times, hout->in->shared_secret);
+
+		final_failonion = failonion;
+		fail_in_htlc(hout->in, final_failonion);
 	} else {
 		log_broken(hout->key.channel->log, "Neither origin nor in?");
 	}
