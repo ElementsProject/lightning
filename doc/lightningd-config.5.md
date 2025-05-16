@@ -811,12 +811,6 @@ The operations will be bundled into a single transaction. The channel will remai
 active while awaiting splice confirmation, however you can only spend the smaller
 of the prior channel balance and the new one.
 
-* **experimental-peer-storage**
-
-  Specifying this option means we will store up to 64k of encrypted
-data for our peers, and give them our (encrypted!) backup data to
-store as well, based on a protocol similar to [bolt][bolt] #881.
-
 * **experimental-quiesce**
 
   Specifying this option advertizes `option_quiesce`.  Not very useful

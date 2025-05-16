@@ -4563,8 +4563,7 @@ def test_exposesecret(node_factory):
 def test_peer_storage(node_factory, bitcoind):
     """Test that we offer and re-xmit peer storage for our peers if they have a channel or are explicitly enabled"""
     l1, l2, l3 = node_factory.get_nodes(3,
-                                        opts={'experimental-peer-storage': None,
-                                              'may_reconnect': True,
+                                        opts={'may_reconnect': True,
                                               'dev-no-reconnect': None})
 
     # Connect them, no peer storage yet anyway.
