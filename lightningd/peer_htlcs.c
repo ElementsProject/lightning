@@ -2,6 +2,7 @@
 #include <ccan/cast/cast.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
+#include <ccan/time/time.h>
 #include <channeld/channeld_wiregen.h>
 #include <common/blinding.h>
 #include <common/configdir.h>
@@ -10,6 +11,7 @@
 #include <common/json_param.h>
 #include <common/onion_decode.h>
 #include <common/onionreply.h>
+#include <common/sphinx.h>
 #include <common/timeout.h>
 #include <connectd/connectd_wiregen.h>
 #include <db/exec.h>
@@ -313,16 +315,22 @@ static void fail_out_htlc(struct htlc_out *hout, const char *localfail)
 			       hout->failmsg,
 			       localfail);
 	} else if (hout->in) {
+		const struct onionreply *final_failonion;
+		struct onionreply *failonion;
 		const u32 hold_times = time_between(time_now(), hout->send_timestamp).ts.tv_nsec/1000000;
 		/* If we have an onion, simply copy it. */
 		if (hout->failonion)
-			failonion = hout->failonion;
+			failonion = dup_onionreply(hout, hout->failonion);
 		/* Otherwise, we need to onionize this local error. */
 		else
 			failonion = create_onionreply(hout,
 						      hout->in->shared_secret,
 						      hout->failmsg);
-		fail_in_htlc(hout->in, failonion);
+
+		update_attributable_data(failonion, hold_times, hout->in->shared_secret);
+
+		final_failonion = failonion;
+		fail_in_htlc(hout->in, final_failonion);
 	} else {
 		log_broken(hout->key.channel->log, "Neither origin nor in?");
 	}
