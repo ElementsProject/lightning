@@ -233,11 +233,55 @@ static void run_unit_tests(void)
 	assert(origin_index == 4);
 }
 
+static void run_unit_tests_from_bolt(void) {
+	struct onionreply *reply;
+	u8 *oreply;
+	char *s = "400f0000000000000064000c3500fd84d1fd012c8080808080808080808";
+	u8 *raw = tal_hexdata(tmpctx, s, strlen(s));
+	int origin_index;
+
+	/* Shared secrets we already have from the forward path */
+	char *secrets[] = {
+	    "53eb63ea8a3fec3b3cd433b85cd62a4b145e1dda09391b348c4e1cd36a03ea66",
+	    "a6519e98832a0b179f62123b3567c106db99ee37bef036e783263602f3488fae",
+	    "3a6b412548762f0dbccce5c7ae7bb8147d1caf9b5471c34120b30bc9c04891cc",
+	    "21e13c2d7cfe7e18836df50872466117a295783ab8aab0e7ecc8c725503ad02d",
+	    "b5756b9b542727dbafc6765a49488b023a725d631af688fc031217e90770c328",
+	};
+	struct secret ss[] = {
+		secret_from_hex(secrets[0]),
+		secret_from_hex(secrets[1]),
+		secret_from_hex(secrets[2]),
+		secret_from_hex(secrets[3]),
+		secret_from_hex(secrets[4])
+	};
+
+	reply = create_onionreply(tmpctx, &ss[4], raw);
+	update_attributable_data(reply, 1, &ss[4]);
+	reply = wrap_onionreply(tmpctx, &ss[4], reply);
+
+	for (int i = 3; i >= 0; i--) {
+		u32 hold_time = 5 - i;
+		update_attributable_data(reply, hold_time, &ss[i]);
+		reply = wrap_onionreply(tmpctx, &ss[i], reply);
+
+		printf("obfuscated packet %s\n", tal_hex(tmpctx, reply->contents));
+		printf("obfuscated hold_times %s\n", tal_hex(tmpctx, reply->attr_data->htlc_hold_time));
+		printf("obfuscated trunHMACs %s\n", tal_hex(tmpctx, reply->attr_data->truncated_hmac));
+	}
+
+	oreply = unwrap_onionreply(tmpctx, ss, 5, reply, &origin_index);
+
+	assert(tal_arr_eq(oreply, raw));
+	assert(origin_index == 4);
+}
+
 int main(int argc, char **argv)
 {
 	common_setup(argv[0]);
 	run_unit_tests();
 
+	run_unit_tests_from_bolt();
 	common_shutdown();
 	return 0;
 }
