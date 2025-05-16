@@ -18,6 +18,11 @@ struct node_id;
 #define ROUTING_INFO_SIZE 1300
 #define TOTAL_PACKET_SIZE(payload) (VERSION_SIZE + PUBKEY_SIZE + (payload) + HMAC_SIZE)
 
+#define HOLD_TIME_LEN 4
+#define MAX_HOPS 20
+#define HMAC_COUNT 210
+#define TRUNC_HMAC_LEN 4
+
 struct onionpacket {
 	/* Cleartext information */
 	u8 version;
@@ -174,6 +179,21 @@ u8 *unwrap_onionreply(const tal_t *ctx,
 		      const int numhops,
 		      const struct onionreply *reply,
 		      int *origin_index);
+
+/**
+ * update_attributable_data - Add this hop's attribution entry to a failure onion.
+ *
+ * Called by an intermediate node while propagating a failure reply upstream:
+ * shifts existing attribution data one hop deeper, writes this hop's
+ * hold_time into the head slot, and generates its 20 truncated HMACs.
+ * Instantiates an all-zeros attribution_data block if the incoming failonion
+ * doesn't yet have one (per BOLT #4).
+ *
+ * @failonion: the reply being propagated; its attr_data is updated in place
+ * @hold_times: this hop's HTLC hold time, in 100ms units
+ * @shared_secret: the shared secret with the upstream peer
+ */
+void update_attributable_data(struct onionreply *failonion, u32 hold_times, struct secret *shared_secret);
 
 /**
  * Create a new empty sphinx_path.

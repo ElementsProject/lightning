@@ -800,6 +800,7 @@ struct onionreply *create_onionreply(const tal_t *ctx,
 	towire(&reply->contents, payload, tal_count(payload));
 	tal_free(payload);
 
+	reply->attr_data = NULL;
 	return reply;
 }
 
@@ -807,7 +808,7 @@ struct onionreply *wrap_onionreply(const tal_t *ctx,
 				   const struct secret *shared_secret,
 				   const struct onionreply *reply)
 {
-	struct secret key;
+	struct secret key, attr_key;
 	struct onionreply *result = tal(ctx, struct onionreply);
 
 	/* BOLT #4:
@@ -819,7 +820,268 @@ struct onionreply *wrap_onionreply(const tal_t *ctx,
 	subkey_from_hmac("ammag", shared_secret, &key);
 	result->contents = tal_dup_talarr(result, u8, reply->contents);
 	xor_cipher_stream(result->contents, &key, tal_bytelen(result->contents));
+
+	if (reply->attr_data) {
+		/* BOLT #4:
+		 *
+		 * Finally a new key is generated, using the key type
+		 * `ammagext`. This key is then used to generate a
+		 * pseudo-random stream, which is in turn applied to the
+		 * `attribution_data` field using `XOR`.
+		 */
+		result->attr_data = tal_dup(ctx, struct attribution_data,
+					    reply->attr_data);
+		subkey_from_hmac("ammagext", shared_secret, &attr_key);
+		xor_cipher_stream_off(&attr_key, 0,
+				      result->attr_data->data,
+				      ATTR_DATA_SIZE);
+	} else {
+		result->attr_data = NULL;
+	}
+
 	return result;
+}
+
+static void write_downstream_hmacs(struct crypto_auth_hmacsha256_state *state, int pos, const u8 *truncated_hmac) {
+	int hmac_idx = MAX_HOPS + MAX_HOPS - pos - 1;
+	for (int i = 0; i < pos; i++) {
+		hmac_update(state, truncated_hmac + (hmac_idx * TRUNC_HMAC_LEN), TRUNC_HMAC_LEN);
+		int block_size = MAX_HOPS - i - 1;
+		hmac_idx += block_size;
+	}
+}
+
+/* BOLT #4:
+ *
+ * Each HMAC is computed from the combination of the following elements,
+ * concatenated in the specified order.
+ *
+ * * The return packet before applying the pseudo-random byte stream.
+ *
+ * * The concatenation of the first `y+1` hold times in `htlc_hold_times`. For
+ *   example, `hmac_0_2` would cover all three hold times.
+ *
+ * * The concatenation of `y` downstream hmacs that correspond to downstream
+ *   node positions relative to `x`. For example, `hmac_0_2` would cover
+ *   `hmac_1_1` and `hmac_2_0`.
+ *
+ * The erring node stores its 20 HMACs at the start of the array and zeroes
+ * out the rest.
+ */
+static void add_hmacs_to_attribution_data(struct onionreply *failonion, struct secret *shared_secret) {
+	struct secret um_key;
+	u8 *hold_times = failonion->attr_data->data;
+	u8 *hmacs = failonion->attr_data->data + ATTR_HMAC_OFFSET;
+	subkey_from_hmac("um", shared_secret, &um_key);
+	for (int i = 0; i < MAX_HOPS; i++) {
+		struct crypto_auth_hmacsha256_state state;
+		struct hmac hmac;
+		int pos = MAX_HOPS - i - 1;
+		hmac_start(&state, um_key.data, sizeof(um_key.data));
+		hmac_update(&state, failonion->contents, tal_bytelen(failonion->contents));
+		hmac_update(&state, hold_times, (pos + 1) * HOLD_TIME_LEN);
+		write_downstream_hmacs(&state, pos, hmacs);
+		hmac_done(&state, &hmac);
+		memcpy(hmacs + (i * TRUNC_HMAC_LEN), hmac.bytes, TRUNC_HMAC_LEN);
+	}
+
+}
+
+/* attr_data_wrap - Shift attribution_data one hop deeper (toward the erring
+ * node) so that slot 0 of each sub-array becomes free for this hop's new
+ * entry.
+ *
+ * Layout of the attribution TLV value:
+ *   htlc_hold_times: MAX_HOPS fixed-size u32 slots (indexed 0..MAX_HOPS-1).
+ *   truncated_hmacs: triangular packed array of MAX_HOPS blocks with sizes
+ *                    MAX_HOPS, MAX_HOPS-1, ..., 1 (total HMAC_COUNT = 210).
+ *   Block b starts at index (b*MAX_HOPS - b*(b-1)/2) and has (MAX_HOPS - b)
+ *   slots. Slot s within block b holds `hmac_x_y` where x=b and y=MAX_HOPS-1-s.
+ *
+ * BOLT #4:
+ *
+ * * Shift all existing hold times to the right (4 bytes).
+ *
+ * * Shift and prune all existing HMACs.
+ *
+ *   At each step backwards, one HMAC for every hop can be pruned. When HMACs
+ *   for all 20 positions are present, and it turns out that there is another
+ *   hop upstream, each existing HMAC that now corresponds to position 21 due
+ *   to the preceding hop becomes obsolete.
+ *
+ *   ...The former `hmac_x'_y` now becomes `hmac_x+1_y`. The left-most HMAC
+ *   for each hop is discarded.
+ *
+ * Implementation notes:
+ *   - htlc_hold_times: one memmove that shifts entries [0..MAX_HOPS-1) into
+ *     slots [1..MAX_HOPS). Slot 0 is left to be overwritten by the caller
+ *     with this hop's fresh hold_time.
+ *   - truncated_hmacs: MAX_HOPS-1 memmoves, one per source block. Each block
+ *     b (walked from MAX_HOPS-2 down to 0) drops its slot 0 (the "left-most
+ *     HMAC" the spec discards) and copies its remaining (MAX_HOPS-b-1) slots
+ *     into block b+1's slot range. Because the block sizes decrease as b
+ *     grows, every block shifts by a different amount and the operation
+ *     cannot be collapsed into a single memmove. Block MAX_HOPS-1 is fully
+ *     overwritten by block MAX_HOPS-2's tail; its old contents fall off the
+ *     end.
+ */
+static void attr_data_wrap(struct attribution_data *ad)
+{
+	u8 *hold_time_data = ad->data;
+	u8 *hmac_data = ad->data + ATTR_HMAC_OFFSET;
+
+	memmove(&hold_time_data[HOLD_TIME_LEN], hold_time_data,
+		HOLD_TIME_LEN * (MAX_HOPS - 1));
+
+	int src_index = HMAC_COUNT - 2;
+	int dest_index = HMAC_COUNT - 1;
+	int copy_len = 1;
+
+	for (int i = 0; i < MAX_HOPS - 1; i++) {
+		memmove(&hmac_data[dest_index * TRUNC_HMAC_LEN],
+			&hmac_data[src_index * TRUNC_HMAC_LEN],
+			copy_len * TRUNC_HMAC_LEN);
+		if (i == MAX_HOPS - 2)
+			break;
+
+		copy_len += 1;
+		src_index -= copy_len + 1;
+		dest_index -= copy_len;
+	}
+}
+
+/* attr_data_unwrap - Inverse of attr_data_wrap. Applied at the origin node
+ * while iteratively decrypting the return message: once the HMAC for the
+ * current hop's position has been verified, shift attribution_data one hop
+ * toward the source so that the next iteration operates on the next hop's
+ * view of the arrays.
+ *
+ * BOLT #4:
+ *
+ * It then iteratively decrypts the message, using each hop's `ammag` and
+ * `ammagext` keys. At each hop, the following steps are carried out:
+ *
+ *   * Verify the HMAC in `attribution_data` that corresponds to the hop's
+ *     position in the path using the hop's `um` key. If the HMAC is
+ *     invalid, processing of the message can stop and the node should
+ *     penalize this hop for future path selection.
+ *
+ * This function is the mirror of attr_data_wrap: the wrap operation adds a
+ * hop by shifting arrays right and dropping the left-most HMAC of each
+ * block; unwrap consumes a hop by shifting arrays left, moving each block
+ * b+1's contents into block b's slot range so that the next hop's data
+ * lines up at slot 0.
+ *
+ * Implementation notes:
+ *   - htlc_hold_times: one memmove that shifts entries [1..MAX_HOPS) into
+ *     slots [0..MAX_HOPS-1). The trailing slot MAX_HOPS-1 is stale after
+ *     this operation but not consulted again for this hop.
+ *   - truncated_hmacs: MAX_HOPS-1 memmoves, one per destination block. Each
+ *     block b (walked from 0 upward) is populated by copying block b+1's
+ *     slots [0..MAX_HOPS-b-1) into block b's slots [1..MAX_HOPS-b). Slot 0
+ *     of each destination block is left untouched here.
+ */
+static void attr_data_unwrap(struct attribution_data *ad)
+{
+	u8 *hold_time_data = ad->data;
+	u8 *hmac_data = ad->data + ATTR_HMAC_OFFSET;
+
+	memmove(hold_time_data, &hold_time_data[HOLD_TIME_LEN],
+		HOLD_TIME_LEN * (MAX_HOPS - 1));
+
+	int src_index = MAX_HOPS;
+	int dest_index = 1;
+	int copy_len = MAX_HOPS - 1;
+
+	for (int i = 0; i < MAX_HOPS - 1; i++) {
+		memmove(&hmac_data[dest_index * TRUNC_HMAC_LEN],
+			&hmac_data[src_index * TRUNC_HMAC_LEN],
+			copy_len * TRUNC_HMAC_LEN);
+
+		src_index += copy_len;
+		dest_index += copy_len + 1;
+		copy_len -= 1;
+	}
+}
+
+/* BOLT #4:
+ *
+ * ### Update of `attribution_data`
+ *
+ * * Put the node's hold time at the start of `htlc_hold_times`. The shift
+ *   operation above has opened up a slot for that.
+ *
+ * * Calculate its own 20 truncated HMACs and put them at the start of
+ *   `hmacs` in the newly opened slots.
+ *
+ * * Generate the node's `ammagext` key, generate the pseudo-random byte
+ *   stream, and apply the result to obfuscate the `attribution_data`
+ *   field. This obfuscation step is identical to the obfuscation steps
+ *   that the erring node carries out.
+ *
+ * Note: the obfuscation step is applied in wrap_onionreply(); this function
+ * only performs the shift + hold_time + HMAC steps.
+ */
+void update_attributable_data(struct onionreply *failonion, u32 hold_times, struct secret *shared_secret) {
+	if (!failonion->attr_data) {
+		/* BOLT #4:
+		 *
+		 * - if `attribution_data` is received from downstream:
+		 *   - MUST transform `attribution_data` as described above
+		 * - otherwise:
+		 *   - MUST instantiate an all-zeroes `attribution_data` block
+		 */
+		failonion->attr_data = talz(failonion, struct attribution_data);
+	} else {
+		attr_data_wrap(failonion->attr_data);
+	}
+	u8 *hold_times_be = tal_arr(failonion, u8, 0);
+	towire_u32(&hold_times_be, hold_times);
+	memcpy(failonion->attr_data->data, hold_times_be, HOLD_TIME_LEN);
+	add_hmacs_to_attribution_data(failonion, shared_secret);
+}
+
+/* BOLT #4:
+ *
+ * * Verify the HMAC in `attribution_data` that corresponds to the hop's
+ *   position in the path using the hop's `um` key. If the HMAC is invalid,
+ *   processing of the message can stop and the node should penalize this
+ *   hop for future path selection. This is what makes the failure
+ *   'attributable'.
+ *
+ *   Because HMACs cover all data including HMACs added by downstream nodes,
+ *   it is not possible for a malicious node to tamper with the message
+ *   without revealing themselves.
+ */
+static u8 *verify_attr_data(struct onionreply *reply,
+		     int pos,
+		     const struct secret *shared_secret)
+{
+	struct secret um_key;
+	struct hmac hmac;
+	struct crypto_auth_hmacsha256_state state;
+	u8 expected_hmac[4], actual_hmac[4];
+	const u8 *hold_times = reply->attr_data->data;
+	const u8 *hmacs = reply->attr_data->data + ATTR_HMAC_OFFSET;
+
+	subkey_from_hmac("um", shared_secret, &um_key);
+
+	hmac_start(&state, um_key.data, sizeof(um_key.data));
+	hmac_update(&state, reply->contents, tal_bytelen(reply->contents));
+	hmac_update(&state, hold_times, (pos + 1) * HOLD_TIME_LEN);
+	write_downstream_hmacs(&state, pos, hmacs);
+	hmac_done(&state, &hmac);
+	memcpy(expected_hmac, hmac.bytes, TRUNC_HMAC_LEN);
+
+	/* Compare with actual index. */
+	int hmac_idx = MAX_HOPS - pos - 1;
+	memcpy(actual_hmac, hmacs + hmac_idx * TRUNC_HMAC_LEN, TRUNC_HMAC_LEN);
+
+	if (memcmp(actual_hmac, expected_hmac, 4) != 0) {
+		return NULL;
+	}
+
+	return tal_dup_arr(reply, u8, hold_times, 4, 0);
 }
 
 u8 *unwrap_onionreply(const tal_t *ctx,
@@ -833,9 +1095,10 @@ u8 *unwrap_onionreply(const tal_t *ctx,
 	size_t max;
 	u8 *ret;
 
-	r = new_onionreply(tmpctx, reply->contents);
+	r = new_onionreply(tmpctx, reply->contents, reply->attr_data);
 	*origin_index = -1;
 	ret = NULL;
+	int attr_hop_count = numhops > 20 ? 20 : numhops;
 
 	/* BOLT #4:
 	 * The _origin node_:
@@ -871,6 +1134,20 @@ u8 *unwrap_onionreply(const tal_t *ctx,
 
 		cursor = r->contents;
 		max = tal_count(r->contents);
+
+		/* Check attribution error HMACs, If present. */
+		if (r->attr_data) {
+			if (i < attr_hop_count) {
+				int pos = attr_hop_count - i - 1;
+				u8 *hop_time = verify_attr_data(r, pos, &shared_secrets[i]);
+				if (hop_time) {
+					attr_data_unwrap(r->attr_data);
+				} else {
+					/* FIXME: Add logging */
+					// printf("Invalid HMAC at pos: %d", i);
+				}
+			}
+		}
 
 		fromwire_hmac(&cursor, &max, &hmac);
 		/* Too short. */

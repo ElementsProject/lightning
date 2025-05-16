@@ -130,6 +130,8 @@ struct msg_update_fulfill_htlc {
 	struct channel_id channel_id;
 	u64 id;
 	struct preimage payment_preimage;
+
+	struct tlv_update_fulfill_htlc_tlvs *tlvs;
 };
 struct msg_shutdown {
 	struct channel_id channel_id;
@@ -210,6 +212,8 @@ struct msg_update_fail_htlc {
 	struct channel_id channel_id;
 	u64 id;
 	u8 *reason;
+
+	struct tlv_update_fail_htlc_tlvs *tlvs;
 };
 struct msg_channel_announcement {
 	secp256k1_ecdsa_signature node_signature_1;
@@ -496,7 +500,8 @@ static void *towire_struct_update_fail_htlc(const tal_t *ctx,
 	return towire_update_fail_htlc(ctx,
 				       &s->channel_id,
 				       s->id,
-				       s->reason);
+				       s->reason,
+				       s->tlvs);
 }
 
 static struct msg_update_fail_htlc *fromwire_struct_update_fail_htlc(const tal_t *ctx, const void *p)
@@ -506,7 +511,8 @@ static struct msg_update_fail_htlc *fromwire_struct_update_fail_htlc(const tal_t
 	if (!fromwire_update_fail_htlc(ctx, p,
 				      &s->channel_id,
 				      &s->id,
-				      &s->reason))
+				      &s->reason,
+				      &s->tlvs))
 		return tal_free(s);
 	return s;
 
@@ -518,7 +524,8 @@ static void *towire_struct_update_fulfill_htlc(const tal_t *ctx,
 	return towire_update_fulfill_htlc(ctx,
 				       &s->channel_id,
 				       s->id,
-				       &s->payment_preimage);
+				       &s->payment_preimage,
+				       s->tlvs);
 }
 
 static struct msg_update_fulfill_htlc *fromwire_struct_update_fulfill_htlc(const tal_t *ctx, const void *p)
@@ -528,7 +535,8 @@ static struct msg_update_fulfill_htlc *fromwire_struct_update_fulfill_htlc(const
 	if (fromwire_update_fulfill_htlc(p,
 				      &s->channel_id,
 				      &s->id,
-				      &s->payment_preimage))
+				      &s->payment_preimage,
+				      &s->tlvs))
 		return s;
 	return tal_free(s);
 }
@@ -792,12 +800,19 @@ static bool announcement_signatures_eq(const struct msg_announcement_signatures 
 	return eq_upto(a, b, short_channel_id) &&
 		short_channel_id_eq(a->short_channel_id, b->short_channel_id);
 }
+static bool tlv_update_fail_htlc_eq(const struct tlv_update_fail_htlc_tlvs_attribution_data *a,
+				    const struct tlv_update_fail_htlc_tlvs_attribution_data *b)
+{
+	return eq_field(a, b, htlc_hold_times)
+		&& eq_field(a, b, truncated_hmacs);
+}
 
 static bool update_fail_htlc_eq(const struct msg_update_fail_htlc *a,
 				const struct msg_update_fail_htlc *b)
 {
 	return eq_with(a, b, id)
-		&& eq_var(a, b, reason);
+		&& eq_var(a, b, reason)
+		&& eq_tlv(a, b, attribution_data, tlv_update_fail_htlc_eq);
 }
 
 static bool commitment_signed_eq(const struct msg_commitment_signed *a,
@@ -820,10 +835,18 @@ static bool closing_signed_eq(const struct msg_closing_signed *a,
 	return memcmp(a, b, sizeof(*a)) == 0;
 }
 
+static bool tlv_update_fulfill_htlc_eq(const struct tlv_update_fulfill_htlc_tlvs_attribution_data *a,
+				       const struct tlv_update_fulfill_htlc_tlvs_attribution_data *b)
+{
+	return eq_field(a, b, htlc_hold_times)
+		&& eq_field(a, b, truncated_hmacs);
+}
+
 static bool update_fulfill_htlc_eq(const struct msg_update_fulfill_htlc *a,
 				   const struct msg_update_fulfill_htlc *b)
 {
-	return memcmp(a, b, sizeof(*a)) == 0;
+	return eq_upto(a, b, tlvs)
+		&& eq_tlv(a, b, attribution_data, tlv_update_fulfill_htlc_eq);
 }
 
 static bool error_eq(const struct msg_error *a,
@@ -1016,12 +1039,15 @@ int main(int argc, char *argv[])
 
 	memset(&ufh, 2, sizeof(ufh));
  	ufh.reason = tal_arr(ctx, u8, 2);
- 	memset(ufh.reason, 2, 2);
+	ufh.tlvs = tlv_update_fail_htlc_tlvs_new(tmpctx);
+	ufh.tlvs->attribution_data = tal(ctx, struct tlv_update_fail_htlc_tlvs_attribution_data);
+	memset(ufh.tlvs->attribution_data, 3, sizeof(struct tlv_update_fail_htlc_tlvs_attribution_data));
+	memset(ufh.reason, 2, 2);
 
 	msg = towire_struct_update_fail_htlc(ctx, &ufh);
 	ufh2 = fromwire_struct_update_fail_htlc(ctx, msg);
 	assert(update_fail_htlc_eq(&ufh, ufh2));
-	test_corruption(&ufh, ufh2, update_fail_htlc);
+	test_corruption_tlv(&ufh, ufh2, update_fail_htlc);
 
 	memset(&cs, 2, sizeof(cs));
 	cs.htlc_signature = tal_arr(ctx, secp256k1_ecdsa_signature, 2);
@@ -1050,11 +1076,14 @@ int main(int argc, char *argv[])
 	test_corruption(&cls, cls2, closing_signed);
 
 	memset(&uflh, 2, sizeof(uflh));
+	uflh.tlvs = tlv_update_fulfill_htlc_tlvs_new(tmpctx);
+	uflh.tlvs->attribution_data = tal(ctx, struct tlv_update_fulfill_htlc_tlvs_attribution_data);
+	memset(uflh.tlvs->attribution_data, 3, sizeof(struct tlv_update_fulfill_htlc_tlvs_attribution_data));
 
 	msg = towire_struct_update_fulfill_htlc(ctx, &uflh);
 	uflh2 = fromwire_struct_update_fulfill_htlc(ctx, msg);
 	assert(update_fulfill_htlc_eq(&uflh, uflh2));
-	test_corruption(&uflh, uflh2, update_fulfill_htlc);
+	test_corruption_tlv(&uflh, uflh2, update_fulfill_htlc);
 
 	memset(&e, 2, sizeof(e));
 	e.data = tal_arr(ctx, u8, 2);
