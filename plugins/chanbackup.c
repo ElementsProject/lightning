@@ -28,6 +28,9 @@
 /* VERSION is the current version of the data encrypted in the file */
 #define VERSION ((u64)1)
 
+/* How many peers do we send a backup to? */
+#define NUM_BACKUP_PEERS 2
+
 struct peer_backup {
 	struct node_id peer;
 	/* Empty if it's a placeholder */
@@ -561,7 +564,7 @@ static struct command_result *send_to_peers(struct command *cmd)
 					    get_file_data(tmpctx, cmd->plugin));
 
 	*idx = 0;
-	for (peer = peer_map_first(cb->peers, &it);
+	for (peer = peer_map_pick(cb->peers, pseudorand_u64(), &it);
 	     peer;
 	     peer = peer_map_next(cb->peers, &it)) {
 		struct info *info = tal(cmd, struct info);
@@ -579,6 +582,10 @@ static struct command_result *send_to_peers(struct command *cmd)
 		json_add_hex_talarr(req->js, "msg", serialise_scb);
 		(*info->idx)++;
 		send_outreq(req);
+
+		/* Only send to NUM_BACKUP_PEERS for each update */
+		if (*info->idx == NUM_BACKUP_PEERS)
+			break;
 	}
 
 	if (*idx == 0)
