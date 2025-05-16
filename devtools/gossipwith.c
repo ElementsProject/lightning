@@ -13,6 +13,7 @@
 #include <common/features.h>
 #include <common/peer_failed.h>
 #include <common/per_peer_state.h>
+#include <common/ping.h>
 #include <common/status.h>
 #include <inttypes.h>
 #include <netdb.h>
@@ -26,6 +27,7 @@
 #define io_close simple_close
 static bool stream_stdin = false;
 static bool no_init = false;
+static bool handle_pings = false;
 static bool hex = false;
 static bool explicit_network = false;
 static int timeout_after = -1;
@@ -250,9 +252,17 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 				sync_crypto_write(peer_fd, cs, take(msg));
 			}
 		} else if (pollfd[1].revents & POLLIN) {
+			u8 *pong;
+
 			msg = sync_crypto_read(NULL, peer_fd, cs);
 			if (!msg)
 				err(1, "Reading msg");
+			if (handle_pings
+			    && fromwire_peektype(msg) == WIRE_PING
+			    && check_ping_make_pong(tmpctx, msg, &pong)
+			    && pong) {
+				sync_crypto_write(peer_fd, cs, take(pong));
+			}
 			if (!accept_message(msg)) {
 				tal_free(msg);
 				continue;
@@ -330,6 +340,8 @@ int main(int argc, char *argv[])
 
 	opt_register_noarg("--all-gossip", opt_set_bool, &all_gossip,
 			   "Stream complete gossip history at start");
+	opt_register_noarg("--handle-pings", opt_set_bool, &handle_pings,
+			   "Reply to pings");
 	opt_register_noarg("--no-gossip", opt_set_bool, &no_gossip,
 			   "Suppress all gossip at start");
 	opt_register_arg("--filter", opt_set_filter, NULL, &accept_messages,
