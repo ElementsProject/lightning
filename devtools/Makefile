@@ -79,7 +79,7 @@ devtools/onion.c: ccan/config.h
 
 devtools/onion: $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(BITCOIN_OBJS) common/onion_decode.o common/onion_encode.o common/onionreply.o wire/fromwire.o wire/towire.o devtools/onion.o common/sphinx.o
 
-devtools/gossipwith: $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o wire/peer_wiregen.o devtools/gossipwith.o common/cryptomsg.o common/cryptomsg.o
+devtools/gossipwith: $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o wire/peer_wiregen.o devtools/gossipwith.o common/cryptomsg.o common/ping.o
 
 $(DEVTOOLS_OBJS) $(DEVTOOLS_TOOL_OBJS): wire/wire.h
 
