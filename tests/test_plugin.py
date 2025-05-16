@@ -4639,6 +4639,10 @@ def test_peer_storage(node_factory, bitcoind):
 
     # Now try restarting l2 and connecting that way instead.
     l2.restart()
+    # Could happen before or after Started message.
+    l2.daemon.logsearch_start = 0
+    l2.daemon.wait_for_log("INFO.*chanbackup: Loaded 1 stored backups for peers")
+
     l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
 
     l1.daemon.wait_for_logs([r'peer_out WIRE_PEER_STORAGE_RETRIEVAL',
