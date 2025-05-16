@@ -2253,12 +2253,13 @@ def test_gossip_force_broadcast_channel_msgs(node_factory, bitcoind):
     # It will send timestamp_filter. It should also send a channel_announcement, a
     # channel_update, and a node_announcement, even though we said no gossip.
     # It may or may not send:
-    #  query_short_channel_ids, query_channel_range, a ping.
+    #  query_short_channel_ids, query_channel_range, a ping (which we gossipwith replies to)
     process = subprocess.Popen(['devtools/gossipwith',
                                 '--no-gossip',
                                 '--hex',
                                 '--network={}'.format(TEST_NETWORK),
                                 '--max-messages={}'.format(7),
+                                '--handle-pings',
                                 '--timeout-after=30',
                                 '{}@localhost:{}'.format(l1.info['id'], l1.port)],
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -2308,7 +2309,7 @@ def test_gossip_force_broadcast_channel_msgs(node_factory, bitcoind):
                             '--hex',
                             '--network={}'.format(TEST_NETWORK),
                             '--max-messages={}'.format(10),
-                            '--timeout-after={}'.format(120),
+                            '--handle-pings',
                             '{}@localhost:{}'.format(l1.info['id'], l1.port)],
                            check=True,
                            timeout=120 + TIMEOUT, stdout=subprocess.PIPE).stdout.decode('utf-8').split()
