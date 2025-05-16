@@ -4558,3 +4558,94 @@ def test_exposesecret(node_factory):
 
     with pytest.raises(RpcError, match="maybe encrypted"):
         l1.rpc.exposesecret(passphrase=password)
+
+
+def test_peer_storage(node_factory, bitcoind):
+    """Test that we offer and re-xmit peer storage for our peers if they have a channel or are explicitly enabled"""
+    l1, l2, l3 = node_factory.get_nodes(3,
+                                        opts={'experimental-peer-storage': None,
+                                              'may_reconnect': True,
+                                              'dev-no-reconnect': None})
+
+    # Connect them, no peer storage yet anyway.
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    assert not l1.daemon.is_in_log(r'WIRE_PEER_STORAGE_RETRIEVAL')
+    assert not l2.daemon.is_in_log(r'WIRE_PEER_STORAGE_RETRIEVAL')
+
+    # And they won't store.
+    assert l1.rpc.listdatastore(['chanbackup', 'peers', l2.info['id']]) == {'datastore': []}
+    assert l2.rpc.listdatastore(['chanbackup', 'peers', l1.info['id']]) == {'datastore': []}
+
+    # Reconnect, still no xmit.
+    l1.rpc.disconnect(l2.info['id'])
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # Give it time to make sure we *would* catch it if it happened.
+    time.sleep(10)
+    assert not l1.daemon.is_in_log(r'WIRE_PEER_STORAGE_RETRIEVAL')
+    assert not l2.daemon.is_in_log(r'WIRE_PEER_STORAGE_RETRIEVAL')
+
+    # But we can force it manually by creating an empty one.
+    l1.rpc.datastore(['chanbackup', 'peers', l2.info['id']], hex='')
+    assert l1.rpc.listdatastore(['chanbackup', 'peers', l2.info['id']])['datastore'][0]['hex'] == ''
+    l1.restart()
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # Note: l1 may or may not send peer_storage_retrieval: if it
+    # receives storage fast enough, it will, otherwise not.
+    wait_for(lambda: l1.rpc.listdatastore(['chanbackup', 'peers', l2.info['id']])['datastore'][0]['hex'] != '')
+
+    # Next reconnect, l1 will send it back.
+    l1.rpc.disconnect(l2.info['id'])
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    l1.daemon.wait_for_log(r'peer_out WIRE_PEER_STORAGE_RETRIEVAL')
+    l2.daemon.wait_for_log(r'peer_in WIRE_PEER_STORAGE_RETRIEVAL')
+    assert not l1.daemon.is_in_log(r'peer_in WIRE_PEER_STORAGE_RETRIEVAL')
+    assert not l2.daemon.is_in_log(r'peer_out WIRE_PEER_STORAGE_RETRIEVAL')
+
+    # It must be valid.
+    l2.daemon.wait_for_log(r'Received peer_storage from peer')
+    assert not l2.daemon.is_in_log(r'PeerStorageFailed')
+
+    # l2 will only store if we have an ESTABLISHED channel.
+    l1.openchannel(l2, confirm=False, wait_for_announce=False)
+    assert l2.rpc.listdatastore(['chanbackup', 'peers', l1.info['id']]) == {'datastore': []}
+
+    # But it will create an entry once it hits CHANNELD_NORMAL.
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    wait_for(lambda: l2.rpc.listdatastore(['chanbackup', 'peers', l1.info['id']]) != {'datastore': []})
+
+    # Now it will store l1's backup when channels change.
+    l1.openchannel(l3, wait_for_announce=False)
+    wait_for(lambda: l2.rpc.listdatastore(['chanbackup', 'peers', l1.info['id']])['datastore'][0]['hex'] != '')
+
+    # Now every time we reconnect, both sides restore.
+    l1.restart()
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    l1.daemon.wait_for_logs([r'peer_out WIRE_PEER_STORAGE_RETRIEVAL',
+                             r'peer_in WIRE_PEER_STORAGE_RETRIEVAL'])
+    l2.daemon.wait_for_logs([r'peer_out WIRE_PEER_STORAGE_RETRIEVAL',
+                             r'peer_in WIRE_PEER_STORAGE_RETRIEVAL'])
+
+    # Even if we close channel, and it's long forgotten, we will store for
+    # them as a courtesy.
+    l1.rpc.close(l2.info['id'])
+    assert len(l1.rpc.listpeerchannels()['channels']) == 2
+    bitcoind.generate_block(100, wait_for_mempool=1)
+    wait_for(lambda: len(l1.rpc.listpeerchannels()['channels']) == 1)
+
+    # Now try restarting l2 and connecting that way instead.
+    l2.restart()
+    l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
+
+    l1.daemon.wait_for_logs([r'peer_out WIRE_PEER_STORAGE_RETRIEVAL',
+                             r'peer_in WIRE_PEER_STORAGE_RETRIEVAL'])
+    l2.daemon.wait_for_logs([r'peer_out WIRE_PEER_STORAGE_RETRIEVAL',
+                             r'peer_in WIRE_PEER_STORAGE_RETRIEVAL'])
+
+    # This should never happen
+    assert not l1.daemon.is_in_log(r'PeerStorageFailed')
+    assert not l2.daemon.is_in_log(r'PeerStorageFailed')
