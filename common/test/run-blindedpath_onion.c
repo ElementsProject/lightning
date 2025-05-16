@@ -76,7 +76,7 @@ void fromwire_sciddir_or_pubkey(const u8 **cursor UNNEEDED, size_t *max UNNEEDED
 				struct sciddir_or_pubkey *sciddpk UNNEEDED)
 { fprintf(stderr, "fromwire_sciddir_or_pubkey called!\n"); abort(); }
 /* Generated stub for new_onionreply */
-struct onionreply *new_onionreply(const tal_t *ctx UNNEEDED, const u8 *contents TAKES UNNEEDED)
+struct onionreply *new_onionreply(const tal_t *ctx UNNEEDED, const u8 *contents TAKES UNNEEDED, const struct attribution_data *attr_data TAKES UNNEEDED)
 { fprintf(stderr, "new_onionreply called!\n"); abort(); }
 /* Generated stub for pubkey_from_node_id */
 bool pubkey_from_node_id(struct pubkey *key UNNEEDED, const struct node_id *id UNNEEDED)
