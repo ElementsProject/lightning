@@ -86,7 +86,7 @@ bool fromwire_tlv(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 const char *mvt_tag_str(enum mvt_tag tag UNNEEDED)
 { fprintf(stderr, "mvt_tag_str called!\n"); abort(); }
 /* Generated stub for new_onionreply */
-struct onionreply *new_onionreply(const tal_t *ctx UNNEEDED, const u8 *contents TAKES UNNEEDED)
+struct onionreply *new_onionreply(const tal_t *ctx UNNEEDED, const u8 *contents TAKES UNNEEDED, const u8 htlc_hold_time[80] TAKES UNNEEDED, const u8 truncated_hmac[840] TAKES UNNEEDED)
 { fprintf(stderr, "new_onionreply called!\n"); abort(); }
 /* Generated stub for node_id_from_hexstr */
 bool node_id_from_hexstr(const char *str UNNEEDED, size_t slen UNNEEDED, struct node_id *id UNNEEDED)
