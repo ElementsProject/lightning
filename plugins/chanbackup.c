@@ -536,20 +536,16 @@ static struct command_result *after_send_scb_single_fail(struct command *cmd,
 	return notification_or_hook_done(cmd);
 }
 
-static struct command_result *after_listpeers(struct command *cmd,
-					      const char *method,
-					      const char *buf,
-					      const jsmntok_t *params,
-					      void *cb_arg UNUSED)
+static struct command_result *send_to_peers(struct command *cmd)
 {
-	const jsmntok_t *peers, *peer;
         struct out_req *req;
-	size_t i;
 	size_t *idx = tal(cmd, size_t);
-	bool is_connected;
         u8 *serialise_scb;
+	struct peer_map_iter it;
+	const struct node_id *peer;
+	struct chanbackup *cb = chanbackup(cmd->plugin);
 
-	if (!chanbackup(cmd->plugin)->peer_backup)
+	if (!cb->peer_backup)
 		return notification_or_hook_done(cmd);
 
 	/* BOLT #1:
@@ -564,42 +560,25 @@ static struct command_result *after_listpeers(struct command *cmd,
 	serialise_scb = towire_peer_storage(cmd,
 					    get_file_data(tmpctx, cmd->plugin));
 
-	peers = json_get_member(buf, params, "peers");
-
 	*idx = 0;
-	json_for_each_arr(i, peer, peers) {
-		const char *err;
-		u8 *features;
+	for (peer = peer_map_first(cb->peers, &it);
+	     peer;
+	     peer = peer_map_next(cb->peers, &it)) {
+		struct info *info = tal(cmd, struct info);
 
-		/* If connected is false, features is missing, so this fails */
-		err = json_scan(cmd, buf, peer,
-				"{connected:%,features:%}",
-				JSON_SCAN(json_to_bool, &is_connected),
-				JSON_SCAN_TAL(tmpctx, json_tok_bin_from_hex,
-					      &features));
-		if (err || !is_connected)
-			continue;
+		info->idx = idx;
+		info->node_id = *peer;
 
-		/* We shouldn't have to check, but LND hangs up? */
-		if (feature_offered(features, OPT_PROVIDE_STORAGE)) {
-			const jsmntok_t *nodeid;
-			struct info *info = tal(cmd, struct info);
+		req = jsonrpc_request_start(cmd,
+					    "sendcustommsg",
+					    after_send_scb_single,
+					    after_send_scb_single_fail,
+					    info);
 
-			info->idx = idx;
-			nodeid = json_get_member(buf, peer, "id");
-			json_to_node_id(buf, nodeid, &info->node_id);
-
-			req = jsonrpc_request_start(cmd,
-						    "sendcustommsg",
-						    after_send_scb_single,
-						    after_send_scb_single_fail,
-						    info);
-
-			json_add_node_id(req->js, "node_id", &info->node_id);
-			json_add_hex_talarr(req->js, "msg", serialise_scb);
-			(*info->idx)++;
-			send_outreq(req);
-		}
+		json_add_node_id(req->js, "node_id", &info->node_id);
+		json_add_hex_talarr(req->js, "msg", serialise_scb);
+		(*info->idx)++;
+		send_outreq(req);
 	}
 
 	if (*idx == 0)
@@ -615,17 +594,12 @@ static struct command_result *after_staticbackup(struct command *cmd,
 {
 	struct modern_scb_chan **scb_chan;
 	const jsmntok_t *scbs = json_get_member(buf, params, "scb");
-	struct out_req *req;
+
 	json_to_scb_chan(buf, scbs, &scb_chan);
 	plugin_log(cmd->plugin, LOG_DBG, "Updating the SCB");
 
 	update_scb(cmd->plugin, scb_chan);
-	req = jsonrpc_request_start(cmd,
-                                    "listpeers",
-                                    after_listpeers,
-                                    plugin_broken_cb,
-                                    NULL);
-	return send_outreq(req);
+	return send_to_peers(cmd);
 }
 
 /* Write to the datastore */
