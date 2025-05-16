@@ -2696,10 +2696,11 @@ static void handle_peer_fail_htlc(struct peer *peer, const u8 *msg)
 	u8 *reason;
 	struct htlc *htlc;
 	struct failed_htlc *f;
+	struct tlv_update_fail_htlc_tlvs *fail_tlvs;
 
 	/* reason is not an onionreply because spec doesn't know about that */
 	if (!fromwire_update_fail_htlc(msg, msg,
-				       &channel_id, &id, &reason)) {
+				       &channel_id, &id, &reason, &fail_tlvs)) {
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Bad update_fail_htlc %s", tal_hex(msg, msg));
 	}
@@ -2707,10 +2708,29 @@ static void handle_peer_fail_htlc(struct peer *peer, const u8 *msg)
 	e = channel_fail_htlc(peer->channel, LOCAL, id, &htlc);
 	switch (e) {
 	case CHANNEL_ERR_REMOVE_OK: {
+		struct attribution_data *attr;
+
 		htlc->failed = f = tal(htlc, struct failed_htlc);
 		f->id = id;
 		f->sha256_of_onion = NULL;
-		f->onion = new_onionreply(f, take(reason));
+
+		/* attribution_data is an optional TLV; peers that don't
+		 * support option_attribution_data will send update_fail_htlc
+		 * without it. */
+		if (fail_tlvs && fail_tlvs->attribution_data) {
+			attr = tal(f, struct attribution_data);
+			memcpy(attr->data,
+			       fail_tlvs->attribution_data->htlc_hold_times,
+			       ATTR_HOLD_TIMES_SIZE);
+			memcpy(attr->data + ATTR_HMAC_OFFSET,
+			       fail_tlvs->attribution_data->truncated_hmacs,
+			       ATTR_HMAC_SIZE);
+		} else {
+			attr = NULL;
+		}
+
+		f->onion = new_onionreply(f, take(reason), attr);
+
 		start_commit_timer(peer);
 		return;
 	}
@@ -5285,8 +5305,22 @@ static void send_fail_or_fulfill(struct peer *peer, const struct htlc *h)
 								f->sha256_of_onion,
 								f->badonion);
 		} else {
-			msg = towire_update_fail_htlc(peer, &peer->channel_id, h->id,
-						      f->onion->contents);
+			struct tlv_update_fail_htlc_tlvs *fail_tlvs = tlv_update_fail_htlc_tlvs_new(tmpctx);
+			/* attribution_data is an optional TLV; only include it
+			 * when we actually have it (locally-originated failures
+			 * and failures inherited from non-supporting peers
+			 * won't). */
+			if (f->onion->attr_data) {
+				fail_tlvs->attribution_data = tal(fail_tlvs, struct tlv_update_fail_htlc_tlvs_attribution_data);
+				memcpy(fail_tlvs->attribution_data->htlc_hold_times,
+				       f->onion->attr_data->data,
+				       ATTR_HOLD_TIMES_SIZE);
+				memcpy(fail_tlvs->attribution_data->truncated_hmacs,
+				       f->onion->attr_data->data + ATTR_HMAC_OFFSET,
+				       ATTR_HMAC_SIZE);
+			}
+			msg = towire_update_fail_htlc(NULL, &peer->channel_id, h->id,
+						      f->onion->contents, fail_tlvs);
 		}
 	} else if (h->r) {
 		msg = towire_update_fulfill_htlc(NULL, &peer->channel_id, h->id,
