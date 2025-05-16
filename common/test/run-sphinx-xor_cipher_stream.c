@@ -98,7 +98,7 @@ void hmac_update(crypto_auth_hmacsha256_state *state UNNEEDED,
 		 const void *src UNNEEDED, size_t slen UNNEEDED)
 { fprintf(stderr, "hmac_update called!\n"); abort(); }
 /* Generated stub for new_onionreply */
-struct onionreply *new_onionreply(const tal_t *ctx UNNEEDED, const u8 *contents TAKES UNNEEDED)
+struct onionreply *new_onionreply(const tal_t *ctx UNNEEDED, const u8 *contents TAKES UNNEEDED, const u8 htlc_hold_time[80] TAKES UNNEEDED, const u8 truncated_hmac[840] TAKES UNNEEDED)
 { fprintf(stderr, "new_onionreply called!\n"); abort(); }
 /* Generated stub for pubkey_from_node_id */
 bool pubkey_from_node_id(struct pubkey *key UNNEEDED, const struct node_id *id UNNEEDED)

@@ -7,6 +7,8 @@
 /* A separate type for an onion reply, to differentiate from a wire msg. */
 struct onionreply {
 	u8 *contents;
+	u8 *htlc_hold_time;
+	u8 *truncated_hmac;
 };
 
 /**
@@ -20,5 +22,5 @@ struct onionreply *fromwire_onionreply(const tal_t *ctx,
 struct onionreply *dup_onionreply(const tal_t *ctx,
 				  const struct onionreply *r TAKES);
 
-struct onionreply *new_onionreply(const tal_t *ctx, const u8 *contents TAKES);
+struct onionreply *new_onionreply(const tal_t *ctx, const u8 *contents TAKES, const u8 htlc_hold_time[80] TAKES, const u8 truncated_hmac[840] TAKES);
 #endif /* LIGHTNING_COMMON_ONIONREPLY_H */
