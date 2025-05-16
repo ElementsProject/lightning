@@ -18,6 +18,11 @@ struct node_id;
 #define ROUTING_INFO_SIZE 1300
 #define TOTAL_PACKET_SIZE(payload) (VERSION_SIZE + PUBKEY_SIZE + (payload) + HMAC_SIZE)
 
+#define HOLD_TIME_LEN 4
+#define MAX_HOPS 20
+#define HMAC_COUNT 210
+#define TRUNC_HMAC_LEN 4
+
 struct onionpacket {
 	/* Cleartext information */
 	u8 version;
@@ -241,6 +246,7 @@ struct onionpacket *sphinx_decompress(const tal_t *ctx,
 				      const struct sphinx_compressed_onion *src,
 				      const struct secret *shared_secret);
 
+void update_attributable_data(struct onionreply *failonion, u32 hold_times, struct secret *shared_secret);
 /**
  * Use ECDH to generate a shared secret from a privkey and a pubkey.
  *
