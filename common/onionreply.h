@@ -4,9 +4,16 @@
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 
+/* A separate type for attribution data. */
+struct attribution_data {
+	u8 *htlc_hold_time;
+	u8 *truncated_hmac;
+};
+
 /* A separate type for an onion reply, to differentiate from a wire msg. */
 struct onionreply {
 	u8 *contents;
+	struct attribution_data *attr_data;
 };
 
 /**
@@ -20,5 +27,5 @@ struct onionreply *fromwire_onionreply(const tal_t *ctx,
 struct onionreply *dup_onionreply(const tal_t *ctx,
 				  const struct onionreply *r TAKES);
 
-struct onionreply *new_onionreply(const tal_t *ctx, const u8 *contents TAKES);
+struct onionreply *new_onionreply(const tal_t *ctx, const u8 *contents TAKES, const struct attribution_data *attr_data TAKES);
 #endif /* LIGHTNING_COMMON_ONIONREPLY_H */
