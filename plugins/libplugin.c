@@ -929,7 +929,7 @@ struct command_result *jsonrpc_set_datastore_(struct command *cmd,
 	struct out_req *req;
 
 	if (!cb)
-		cb = ignore_cb;
+		cb = ignore_and_complete;
 	if (!errcb)
 		errcb = plugin_broken_cb;
 
