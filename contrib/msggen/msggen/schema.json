@@ -6597,7 +6597,7 @@
                 "netaddr": [
                   "127.0.0.1:19736"
                 ],
-                "features": "08a0882a8a59a1"
+                "features": "08a8882a8a59a1"
               }
             ]
           }
@@ -6830,7 +6830,7 @@
           },
           "response": {
             "id": "nodeid020202020202020202020202020202020202020202020202020202020202",
-            "features": "08a0882a8a59a1",
+            "features": "08a8882a8a59a1",
             "direction": "out",
             "address": {
               "type": "ipv4",
@@ -6851,7 +6851,7 @@
           },
           "response": {
             "id": "nodeid030303030303030303030303030303030303030303030303030303030303",
-            "features": "08a0882a8a59a1",
+            "features": "08a8882a8a59a1",
             "direction": "out",
             "address": {
               "type": "ipv4",
@@ -7974,7 +7974,7 @@
           "response": {
             "datastoreusage": {
               "key": "[]",
-              "total_bytes": 161
+              "total_bytes": 2909
             }
           }
         },
@@ -15384,14 +15384,14 @@
                 "port": 19735
               }
             ],
-            "version": "v25.02",
+            "version": "v25.05rc1",
             "blockheight": 110,
             "network": "regtest",
             "fees_collected_msat": 0,
             "lightning-dir": "/tmp/.lightning/regtest",
             "our_features": {
-              "init": "08a0882a8a59a1",
-              "node": "88a0882a8a59a1",
+              "init": "08a8882a8a59a1",
+              "node": "88a8882a8a59a1",
               "channel": "",
               "invoice": "02000002024100"
             }
@@ -20167,10 +20167,6 @@
                 "set": true,
                 "source": "cmdline"
               },
-              "experimental-peer-storage": {
-                "set": false,
-                "source": "default"
-              },
               "experimental-quiesce": {
                 "set": false,
                 "source": "default"
@@ -21716,7 +21712,7 @@
                 "updated_index": 18,
                 "short_channel_id": "109x1x1",
                 "id": 1,
-                "expiry": 136,
+                "expiry": 135,
                 "direction": "out",
                 "amount_msat": 10001,
                 "payment_hash": "paymenthashinvl0310031003100310031003100310031003100310031003100",
@@ -22625,7 +22621,7 @@
                 "alias": "HOPPINGFIRE",
                 "color": "035d2b",
                 "last_timestamp": 1738000000,
-                "features": "88a0882a8a59a1",
+                "features": "88a8882a8a59a1",
                 "addresses": []
               }
             ]
@@ -22644,7 +22640,7 @@
                 "alias": "SILENTARTIST",
                 "color": "022d22",
                 "last_timestamp": 1738000000,
-                "features": "88a0882a8a59a1",
+                "features": "88a8882a8a59a1",
                 "addresses": []
               },
               {
@@ -22652,7 +22648,7 @@
                 "alias": "JUNIORBEAM",
                 "color": "0266e4",
                 "last_timestamp": 1738010000,
-                "features": "88a0882a8a59a1",
+                "features": "88a8882a8a59a1",
                 "addresses": []
               },
               {
@@ -22660,7 +22656,7 @@
                 "alias": "HOPPINGFIRE",
                 "color": "035d2b",
                 "last_timestamp": 1738020000,
-                "features": "88a0882a8a59a1",
+                "features": "88a8882a8a59a1",
                 "addresses": []
               },
               {
@@ -22668,7 +22664,7 @@
                 "alias": "JUNIORFELONY",
                 "color": "0382ce",
                 "last_timestamp": 1738030000,
-                "features": "88a0882a8a59a1",
+                "features": "88a8882a8a59a1",
                 "addresses": []
               }
             ]
@@ -25345,7 +25341,7 @@
                 "netaddr": [
                   "127.0.0.1:19736"
                 ],
-                "features": "08a0882a8a59a1"
+                "features": "08a8882a8a59a1"
               }
             ]
           }
@@ -25365,7 +25361,7 @@
                 "netaddr": [
                   "127.0.0.1:19734"
                 ],
-                "features": "08a0882a8a59a1"
+                "features": "08a8882a8a59a1"
               },
               {
                 "id": "nodeid030303030303030303030303030303030303030303030303030303030303",
@@ -25374,13 +25370,13 @@
                 "netaddr": [
                   "127.0.0.1:19736"
                 ],
-                "features": "08a0882a8a59a1"
+                "features": "08a8882a8a59a1"
               },
               {
                 "id": "nodeid040404040404040404040404040404040404040404040404040404040404",
                 "connected": false,
                 "num_channels": 1,
-                "features": "08a0882a8a59a1"
+                "features": "08a8882a8a59a1"
               }
             ]
           }
