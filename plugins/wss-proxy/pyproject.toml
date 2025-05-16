@@ -1,12 +1,12 @@
 [tool.poetry]
 name = "wss-proxy"
-version = "25.02"
+version = "25.05rc1"
 description = "Web secure socket proxy"
 authors = ["ShahanaFarooqui <sfarooqui@blockstream.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.8"
-pyln-client = ">=24.11 <25.05"
+pyln-client = ">=24.11 <25.09"
 websockets = "^12.0"
 
 
