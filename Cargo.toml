@@ -10,4 +10,5 @@ members = [
     "plugins/grpc-plugin",
     "plugins/rest-plugin",
     "plugins/lsps-plugin",
+    "plugins/wss-proxy-plugin",
 ]
