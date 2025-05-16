@@ -577,10 +577,6 @@ def test_v2_rbf_liquidity_ad(node_factory, bitcoind, chainparams):
 
     l1, l2 = node_factory.get_nodes(2, opts=opts)
 
-    # Other plugins use datastore, but we want to make sure our own
-    # data is cleared!
-    empty_datastore = l1.rpc.listdatastore()
-
     # what happens when we RBF?
     feerate = 2000
     amount = 500000
@@ -637,7 +633,7 @@ def test_v2_rbf_liquidity_ad(node_factory, bitcoind, chainparams):
     l1.rpc.openchannel_signed(chan_id, signed_psbt)
 
     # There's data in the datastore now (l2 only)
-    assert l1.rpc.listdatastore() == empty_datastore
+    assert l1.rpc.listdatastore(['funder']) == {'datastore': []}
     only_one(l2.rpc.listdatastore("funder/{}".format(chan_id))['datastore'])
 
     # what happens when the channel opens?
@@ -645,8 +641,8 @@ def test_v2_rbf_liquidity_ad(node_factory, bitcoind, chainparams):
     l1.daemon.wait_for_log('to CHANNELD_NORMAL')
 
     # Datastore should be cleaned up!
-    assert l1.rpc.listdatastore() == empty_datastore
-    wait_for(lambda: l2.rpc.listdatastore() == empty_datastore)
+    assert l1.rpc.listdatastore(['funder']) == {'datastore': []}
+    wait_for(lambda: l2.rpc.listdatastore(['funder']) == {'datastore': []})
 
     # This should be the accepter's amount
     fundings = only_one(l1.rpc.listpeerchannels()['channels'])['funding']
