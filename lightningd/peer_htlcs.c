@@ -308,7 +308,11 @@ static void fail_out_htlc(struct htlc_out *hout, const char *localfail)
 			       hout->failmsg,
 			       localfail);
 	} else if (hout->in) {
-		const struct onionreply *failonion;
+		struct onionreply *failonion;
+
+		struct timerel delta = time_between(hout->send_timestamp, hout->in->received_time);
+		long total_ms = delta.ts.tv_sec * 1000 + delta.ts.tv_nsec / 1000000;
+		u32 hold_times = total_ms / 100;
 
 		/* If we have an onion, simply copy it. */
 		if (hout->failonion)
@@ -318,6 +322,9 @@ static void fail_out_htlc(struct htlc_out *hout, const char *localfail)
 			failonion = create_onionreply(hout,
 						      hout->in->shared_secret,
 						      hout->failmsg);
+
+		update_attributable_data(failonion, hold_times, hout->in->shared_secret);
+
 		fail_in_htlc(hout->in, failonion);
 	} else {
 		log_broken(hout->key.channel->log, "Neither origin nor in?");
@@ -743,7 +750,7 @@ const u8 *send_htlc_out(const tal_t *ctx,
 			      path_key, extra_tlvs,
 			      in == NULL,
 			      final_msat,
-			      partid, groupid, in);
+			      partid, groupid, in, time_now());
 	tal_add_destructor(*houtp, destroy_hout_subd_died);
 
 	/* Give channel 30 seconds to commit this htlc. */
@@ -1153,7 +1160,7 @@ static bool htlc_accepted_hook_deserialize(struct htlc_accepted_hook_payload *re
 					   " Ignoring 'failure_message'.");
 
 			fail_in_htlc(hin, take(new_onionreply(NULL,
-							      failonion)));
+							      failonion, NULL)));
 			return false;
 		}
 		if (!failmsgtok) {

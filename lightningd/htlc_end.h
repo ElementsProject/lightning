@@ -112,6 +112,8 @@ struct htlc_out {
 
 	/* Extra tlvs that are extended to the update_add_htlc_tlvs */
 	struct tlv_field *extra_tlvs;
+
+	struct timeabs send_timestamp;
 };
 
 static inline const struct htlc_key *keyof_htlc_in(const struct htlc_in *in)
@@ -180,7 +182,8 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 			      struct amount_msat final_msat,
 			      u64 partid,
 			      u64 groupid,
-			      struct htlc_in *in);
+			      struct htlc_in *in,
+			      struct timeabs send_timestamp);
 
 void connect_htlc_in(struct htlc_in_map *map, struct htlc_in *hin);
 void connect_htlc_out(struct htlc_out_map *map, struct htlc_out *hout);
