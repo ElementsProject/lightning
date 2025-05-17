@@ -1093,13 +1093,14 @@ void channel_gossip_update_from_gossipd(struct channel *channel,
 	case CGOSSIP_WAITING_FOR_USABLE:
 	case CGOSSIP_CHANNEL_DEAD:
 	case CGOSSIP_CHANNEL_UNANNOUNCED_DYING:
-	case CGOSSIP_CHANNEL_ANNOUNCED_DYING:
 	case CGOSSIP_CHANNEL_ANNOUNCED_DEAD:
 		/* Shouldn't happen. */
 		log_broken(channel->log,
 			   "gossipd gave channel_update in %s? update=%s",
 			   channel_gossip_state_str(channel->channel_gossip->state),
 			   tal_hex(tmpctx, channel_update));
+	/* fall thru */
+	case CGOSSIP_CHANNEL_ANNOUNCED_DYING:
 		if (taken(channel_update))
 			tal_free(channel_update);
 		return;
