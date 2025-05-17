@@ -17,7 +17,7 @@ websocket-client = "^1.2.3"
 grpcio-tools = "^1"
 grpcio = "^1"
 # We want a specific version of protobuf to match CI's .github/scripts/setup.sh
-protobuf = "4.21.12"
+protobuf = "5.29.4"
 cryptography = "^42"
 
 [tool.poetry.group.dev.dependencies]
