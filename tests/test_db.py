@@ -521,7 +521,6 @@ def test_db_forward_migrate(bitcoind, node_factory):
     wait_for(lambda: l1.rpc.listforwards()['forwards'] == [])
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Canned db used")
 @unittest.skipIf(TEST_NETWORK != 'regtest', "The DB migration is network specific due to the chain var.")
 def test_channel_htlcs_id_change(bitcoind, node_factory):
