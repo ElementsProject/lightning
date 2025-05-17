@@ -30,9 +30,9 @@ def test_connect_basic(node_factory):
     l1id = l1.info['id']
     l2id = l2.info['id']
 
-    # These should be in openingd.
+    # These should be in connectd.
     assert l1.rpc.getpeer(l2id)['connected']
-    assert l2.rpc.getpeer(l1id)['connected']
+    wait_for(lambda: l2.rpc.getpeer(l1id)['connected'])
     assert len(l1.rpc.listpeerchannels(l2id)['channels']) == 0
     assert len(l2.rpc.listpeerchannels(l1id)['channels']) == 0
 
@@ -1145,6 +1145,7 @@ def test_funding_fail(node_factory, bitcoind):
     del l2.daemon.opts['watchtime-blocks']
     l2.restart()
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    wait_for(lambda: [p['connected'] for p in l2.rpc.listpeers()['peers']] == [True])
 
     # We don't have enough left to cover fees if we try to spend it all.
     with pytest.raises(RpcError, match=r'not afford'):
@@ -1152,8 +1153,6 @@ def test_funding_fail(node_factory, bitcoind):
 
     # Should still be connected (we didn't contact the peer)
     assert only_one(l1.rpc.listpeers()['peers'])['connected']
-    l2.daemon.wait_for_log('Handed peer, entering loop')
-    assert only_one(l2.rpc.listpeers()['peers'])['connected']
 
     # This works.
     l1.rpc.fundchannel(l2.info['id'], int(funds / 10))
