@@ -88,8 +88,8 @@ static void insert_addrtype_to_addresses(struct lightningd *ld,
 					   struct db *db);
 static void migrate_convert_old_channel_keyidx(struct lightningd *ld,
 					       struct db *db);
-static void migrate_initialize_channel_htlcs_wait_indexes(struct lightningd *ld,
-							  struct db *db);
+static void migrate_initialize_channel_htlcs_wait_indexes_and_fixup_forwards(struct lightningd *ld,
+									     struct db *db);
 
 /* Do not reorder or remove elements from this array, it is used to
  * migrate existing databases from a previous state, based on the
@@ -1039,8 +1039,9 @@ static struct migration dbmigrations[] = {
 	 "  VALUES('needs_p2wpkh_close_rescan', 1)"), NULL},
     {SQL("ALTER TABLE channel_htlcs ADD updated_index BIGINT DEFAULT 0"), NULL},
     {SQL("CREATE INDEX channel_htlcs_updated_idx ON channel_htlcs (updated_index)"), NULL},
-    {NULL, migrate_initialize_channel_htlcs_wait_indexes},
+    {NULL, NULL}, /* Old, incorrect channel_htlcs_wait_indexes migration */
     {SQL("ALTER TABLE channel_funding_inflights ADD locked_scid BIGINT DEFAULT 0;"), NULL},
+    {NULL, migrate_initialize_channel_htlcs_wait_indexes_and_fixup_forwards},
 };
 
 /**
@@ -1856,14 +1857,17 @@ static void migrate_initialize_forwards_wait_indexes(struct lightningd *ld,
 					"MAX(rowid)");
 }
 
-static void migrate_initialize_channel_htlcs_wait_indexes(struct lightningd *ld,
-							  struct db *db)
+static void migrate_initialize_channel_htlcs_wait_indexes_and_fixup_forwards(struct lightningd *ld,
+									     struct db *db)
 {
+	/* A previous badly-written migration (now NULL-ed out) set
+	 * the forwards, not htlc index!  Set the htlcs migration, and fixup forwards. */
 	migrate_initialize_wait_indexes(db,
-					WAIT_SUBSYSTEM_FORWARD,
+					WAIT_SUBSYSTEM_HTLCS,
 					WAIT_INDEX_CREATED,
 					SQL("SELECT MAX(id) FROM channel_htlcs;"),
 					"MAX(id)");
+	migrate_initialize_forwards_wait_indexes(ld, db);
 }
 
 static void complain_unfixed(struct lightningd *ld,
