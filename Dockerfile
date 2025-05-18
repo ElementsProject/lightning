@@ -3,7 +3,6 @@
 # There are four main stages:
 # * downloader: Downloads specific binaries needed for core lightning for each architecture.
 # * builder: Cross-compiles for each architecture.
-# * builder-python: Builds Python dependencies for wss-proxy with QEMU.
 # * final: Creates the runtime image.
 
 ARG DEFAULT_TARGETPLATFORM="linux/amd64"
@@ -108,9 +107,8 @@ COPY . /tmp/lightning
 RUN git clone --recursive /tmp/lightning . && \
     git checkout $(git --work-tree=/tmp/lightning --git-dir=/tmp/lightning/.git rev-parse HEAD)
 
-# Do not build python plugins (wss-proxy) here, python doesn't support cross compilation.
-RUN sed -i '/^wss-proxy/d' pyproject.toml && \
-    poetry lock && \
+# Do not build python plugins here, python doesn't support cross compilation.
+RUN poetry lock && \
     poetry export -o requirements.txt --without-hashes
 RUN mkdir -p /root/.venvs && \
     python3 -m venv /root/.venvs/cln && \
@@ -237,14 +235,10 @@ RUN poetry lock && poetry install && \
 
 # Ensure that git differences are removed before making bineries, to avoid `-modded` suffix
 # poetry.lock changed due to pyln-client, pyln-proto and pyln-testing version updates
-# pyproject.toml was updated to exclude wss-proxy plugins in base-builder stage
 RUN git reset --hard HEAD
 
 RUN ./configure --prefix=/tmp/lightning_install --enable-static && poetry run make install
 
-# Export the requirements for the plugins so we can install them in builder-python stage
-WORKDIR /opt/lightningd/plugins/wss-proxy
-RUN poetry lock && poetry export -o requirements.txt --without-hashes
 WORKDIR /opt/lightningd
 RUN echo 'RUSTUP_INSTALL_OPTS="${RUSTUP_INSTALL_OPTS}"' > /tmp/rustup_install_opts.txt
 
@@ -280,11 +274,6 @@ COPY --from=builder /tmp/rustup_install_opts.txt /tmp/rustup_install_opts.txt
 RUN export $(cat /tmp/rustup_install_opts.txt)
 ENV PATH="/root/.cargo/bin:/root/.venvs/cln/bin:$PATH"
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y ${RUSTUP_INSTALL_OPTS}
-
-WORKDIR /opt/lightningd/plugins/wss-proxy
-COPY --from=builder /opt/lightningd/plugins/wss-proxy/requirements.txt .
-RUN pip3 install -r requirements.txt
-RUN pip3 cache purge
 
 WORKDIR /opt/lightningd
 
