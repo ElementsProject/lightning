@@ -48,7 +48,7 @@ void run(const uint8_t *data, size_t size)
 	bech32_convert_bits(data_out, &data_out_len, 8, data, size, 5, 0);
 
 	addr = tal_arr(tmpctx, char, 73 + strlen(hrp_addr));
-	for (int wit_version = 0; wit_version < 2; ++wit_version) {
+	for (int wit_version = 0; wit_version <= 16; ++wit_version) {
 		if (segwit_addr_encode(addr, hrp_addr, wit_version, data,
 				       size) == 0)
 			continue;
