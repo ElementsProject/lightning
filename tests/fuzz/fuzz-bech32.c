@@ -39,13 +39,28 @@ void run(const uint8_t *data, size_t size)
 		assert(memcmp(data_out, data + 1, data_out_len) == 0);
 	}
 
-	data_out = tal_arr(tmpctx, uint8_t, size);
+	/* Convert data to 5-bit values (0-31) */
+	u8 *five_bit_data = tal_dup_arr(tmpctx, u8, data, size, 0);
+	for (size_t i = 0; i < size; i++)
+		five_bit_data[i] &= 0x1F;
 
-	/* This is also used as part of sign and check message. */
+	u8 *eight_bit_data = tal_arr(tmpctx, u8, size);
+	size_t eight_bit_len = 0;
+	/* Convert 5-to-8 without padding */
+	if (bech32_convert_bits(eight_bit_data, &eight_bit_len, 8,
+				five_bit_data, size, 5, 0)) {
+		u8 *five_bit_deconv = tal_arr(tmpctx, u8, size);
+		size_t five_bit_deconv_len = 0;
+		/* Convert 8-to-5 with padding */
+		if (bech32_convert_bits(five_bit_deconv, &five_bit_deconv_len, 5,
+					eight_bit_data, eight_bit_len, 8, 1)) {
+			assert(five_bit_deconv_len == size);
+			assert(memcmp(five_bit_data, five_bit_deconv, five_bit_deconv_len) == 0);
+		}
+	}
+
+	data_out = tal_arr(tmpctx, uint8_t, size);
 	data_out_len = 0;
-	bech32_convert_bits(data_out, &data_out_len, 8, data, size, 5, 1);
-	data_out_len = 0;
-	bech32_convert_bits(data_out, &data_out_len, 8, data, size, 5, 0);
 
 	addr = tal_arr(tmpctx, char, 73 + strlen(hrp_addr));
 	for (int wit_version = 0; wit_version <= 16; ++wit_version) {
