@@ -60,5 +60,18 @@ void run(const uint8_t *data, size_t size)
 		assert(memcmp(data_out, data, data_out_len) == 0);
 	}
 
+	/* Test 8-to-5 bit roundtrip conversion */
+	uint8_t *converted = tal_arr(tmpctx, uint8_t, size * 2);
+	size_t converted_len = 0;
+	if (bech32_convert_bits(converted, &converted_len, 5, data, size, 8, 1)) {
+		uint8_t *deconverted = tal_arr(tmpctx, uint8_t, converted_len * 2);
+		size_t deconverted_len = 0;
+		if (bech32_convert_bits(deconverted, &deconverted_len, 8,
+								converted, converted_len, 5, 0)) {
+			assert(deconverted_len <= size);
+			assert(memcmp(data, deconverted, deconverted_len) == 0);
+		}
+	}
+
 	clean_tmpctx();
 }
