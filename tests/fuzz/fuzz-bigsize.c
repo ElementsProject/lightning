@@ -20,9 +20,11 @@ void run(const uint8_t *data, size_t size)
 			wire_max = tal_count(wire_chunks[i]);
 			wire_ptr = wire_chunks[i];
 
-			bigsize_t bs = fromwire_bigsize(&wire_ptr, &wire_max);
+			bigsize_t bs = fromwire_bigsize(&wire_ptr, &wire_max), bs_decoded;
 			assert(bigsize_put(buff, bs) > 0);
 			assert(bigsize_len(bs));
+			assert(bigsize_get(buff, sizeof(buff), &bs_decoded) == bigsize_len(bs));
+			assert(bs_decoded == bs);
 
 			wire_buff = tal_arr(NULL, uint8_t, 8);
 			towire_bigsize(&wire_buff, bs);
