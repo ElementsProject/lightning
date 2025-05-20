@@ -48,8 +48,13 @@ FUZZ_COMMON_OBJS := \
 	common/memleak.o				\
 	common/msg_queue.o				\
 	common/node_id.o				\
+	common/peer_billboard.o				\
+	common/peer_failed.o				\
+	common/peer_io.o				\
+	common/peer_status_wiregen.o			\
 	common/permute_tx.o				\
 	common/psbt_keypath.o				\
+	common/read_peer_msg.o				\
 	common/sciddir_or_pubkey.o			\
 	common/setup.o					\
 	common/status.o					\
@@ -58,6 +63,7 @@ FUZZ_COMMON_OBJS := \
 	common/utils.o					\
 	common/version.o				\
 	common/wireaddr.o				\
+	common/wire_error.o				\
 	wire/bolt12_wiregen.o				\
 	wire/channel_type_wiregen.o			\
 	wire/fromwire.o					\
