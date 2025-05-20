@@ -13,24 +13,24 @@ FUZZ_TARGETS_OBJS := $(FUZZ_TARGETS_SRC:.c=.o)
 FUZZ_TARGETS_BIN := $(FUZZ_TARGETS_SRC:.c=)
 
 FUZZ_COMMON_OBJS := \
-	common/amount.o					\
 	common/addr.o					\
+	common/amount.o					\
 	common/autodata.o				\
 	common/base32.o					\
 	common/base64.o					\
 	common/bech32.o					\
 	common/bech32_util.o				\
-	common/bip32.o					\
 	common/bigsize.o				\
+	common/bip32.o					\
 	common/blockheight_states.o			\
 	common/bolt11.o					\
 	common/bolt12_merkle.o				\
 	common/channel_config.o				\
+	common/channel_id.o				\
+	common/channel_type.o				\
 	common/close_tx.o				\
 	common/configdir.o				\
 	common/configvar.o				\
-	common/channel_id.o				\
-	common/channel_type.o				\
 	common/cryptomsg.o				\
 	common/daemon.o					\
 	common/daemon_conn.o				\
@@ -41,16 +41,15 @@ FUZZ_COMMON_OBJS := \
 	common/hash_u5.o				\
 	common/hsm_encryption.o				\
 	common/htlc_state.o				\
-	common/permute_tx.o				\
 	common/initial_channel.o			\
 	common/initial_commit_tx.o			\
 	common/key_derive.o				\
 	common/keyset.o					\
-	common/msg_queue.o				\
 	common/memleak.o				\
+	common/msg_queue.o				\
 	common/node_id.o				\
+	common/permute_tx.o				\
 	common/psbt_keypath.o				\
-	common/wireaddr.o				\
 	common/sciddir_or_pubkey.o			\
 	common/setup.o					\
 	common/status.o					\
@@ -58,12 +57,13 @@ FUZZ_COMMON_OBJS := \
 	common/status_wiregen.o				\
 	common/utils.o					\
 	common/version.o				\
+	common/wireaddr.o				\
 	wire/bolt12_wiregen.o				\
+	wire/channel_type_wiregen.o			\
 	wire/fromwire.o					\
 	wire/onion_wiregen.o				\
 	wire/peer_wire.o				\
 	wire/peer_wiregen.o				\
-	wire/channel_type_wiregen.o			\
 	wire/tlvstream.o				\
 	wire/towire.o					\
 	wire/wire_io.o					\
