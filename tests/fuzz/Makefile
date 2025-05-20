@@ -73,5 +73,11 @@ FUZZ_COMMON_OBJS := \
 $(FUZZ_TARGETS_OBJS): $(COMMON_HEADERS) $(WIRE_HEADERS) $(COMMON_SRC)
 $(FUZZ_TARGETS_BIN): $(LIBFUZZ_OBJS) $(FUZZ_COMMON_OBJS) $(BITCOIN_OBJS)
 
+tests/fuzz/fuzz-error-warning:	common/peer_billboard.o		\
+				common/wire_error.o		\
+				common/peer_io.o		\
+				common/read_peer_msg.o		\
+				common/peer_status_wiregen.o
+
 ALL_C_SOURCES += $(FUZZ_TARGETS_SRC) $(LIBFUZZ_SRC)
 ALL_FUZZ_TARGETS += $(FUZZ_TARGETS_BIN)
