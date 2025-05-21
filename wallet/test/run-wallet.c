@@ -1218,6 +1218,9 @@ u8 *unwrap_onionreply(const tal_t *ctx UNNEEDED,
 		      const struct onionreply *reply UNNEEDED,
 		      int *origin_index UNNEEDED)
 { fprintf(stderr, "unwrap_onionreply called!\n"); abort(); }
+/* Generated stub for update_attributable_data */
+void update_attributable_data(struct onionreply *failonion UNNEEDED, u32 hold_times UNNEEDED, struct secret *shared_secret UNNEEDED)
+{ fprintf(stderr, "update_attributable_data called!\n"); abort(); }
 /* Generated stub for watch_opening_inflight */
 void watch_opening_inflight(struct lightningd *ld UNNEEDED,
 			    struct channel_inflight *inflight UNNEEDED)
@@ -2229,7 +2232,7 @@ static bool test_htlc_crud(struct lightningd *ld, const tal_t *ctx)
 	CHECK_MSG(
 		transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, SENT_REMOVE_HTLC, &payment_key, 0, 0, NULL, NULL, &we_filled, in.key.id, in.key.channel, REMOTE, &in.payment_hash, in.cltv_expiry, in.msat)),
 	    "Update HTLC with payment_key failed");
-	onionreply = new_onionreply(tmpctx, tal_arrz(tmpctx, u8, 100));
+	onionreply = new_onionreply(tmpctx, tal_arrz(tmpctx, u8, 100), NULL);
 	CHECK_MSG(
 		transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, SENT_REMOVE_HTLC, NULL, 0, 0, onionreply, NULL, &we_filled, in.key.id, in.key.channel, REMOTE, &in.payment_hash, in.cltv_expiry, in.msat)),
 	    "Update HTLC with failonion failed");
