@@ -31,13 +31,31 @@ struct flow **minflow(const tal_t *ctx,
 		      const struct gossmap_node *target,
 		      struct amount_msat amount,
 		      u32 mu,
-		      double delay_feefactor,
-		      bool single_part);
+		      double delay_feefactor);
 
 /* To sanity check: this is the approximation mcf uses for the cost
  * of each channel. */
 struct amount_msat linear_flow_cost(const struct flow *flow,
 				    struct amount_msat total_amount,
 				    double delay_feefactor);
+
+/* A wrapper to the min. cost flow solver that actually takes into consideration
+ * the extra msats per channel needed to pay for fees. */
+const char *default_routes(const tal_t *ctx, struct route_query *rq,
+			   const struct gossmap_node *srcnode,
+			   const struct gossmap_node *dstnode,
+			   struct amount_msat amount,
+			   struct amount_msat maxfee, u32 finalcltv,
+			   u32 maxdelay, struct flow ***flows,
+			   double *probability);
+
+/* A wrapper to the single-path constrained solver. */
+const char *single_path_routes(const tal_t *ctx, struct route_query *rq,
+			       const struct gossmap_node *srcnode,
+			       const struct gossmap_node *dstnode,
+			       struct amount_msat amount,
+			       struct amount_msat maxfee, u32 finalcltv,
+			       u32 maxdelay, struct flow ***flows,
+			       double *probability);
 
 #endif /* LIGHTNING_PLUGINS_ASKRENE_MCF_H */

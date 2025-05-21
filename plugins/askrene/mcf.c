@@ -11,9 +11,11 @@
 #include <plugins/askrene/algorithm.h>
 #include <plugins/askrene/askrene.h>
 #include <plugins/askrene/dijkstra.h>
+#include <plugins/askrene/explain_failure.h>
 #include <plugins/askrene/flow.h>
 #include <plugins/askrene/graph.h>
 #include <plugins/askrene/mcf.h>
+#include <plugins/askrene/refine.h>
 #include <plugins/libplugin.h>
 #include <stdint.h>
 
@@ -947,6 +949,46 @@ get_flow_paths(const tal_t *ctx,
 	return flows;
 }
 
+/* Given a single path build a flow set. */
+static struct flow **
+get_flow_singlepath(const tal_t *ctx, const tal_t *working_ctx,
+		    const struct graph *graph, const struct gossmap *gossmap,
+		    const struct node source, const struct node destination,
+		    const u64 pay_amount, const struct arc *prev)
+{
+	struct flow **flows = tal_arr(ctx, struct flow *, 0);
+
+	size_t length = 0;
+
+	for (u32 cur_idx = destination.idx; cur_idx != source.idx;) {
+		assert(cur_idx != INVALID_INDEX);
+		length++;
+		struct arc arc = prev[cur_idx];
+		struct node next = arc_tail(graph, arc);
+		cur_idx = next.idx;
+	}
+	struct flow *f = tal(ctx, struct flow);
+	f->path = tal_arr(f, const struct gossmap_chan *, length);
+	f->dirs = tal_arr(f, int, length);
+
+	for (u32 cur_idx = destination.idx; cur_idx != source.idx;) {
+		int chandir;
+		u32 chanidx;
+		struct arc arc = prev[cur_idx];
+		arc_to_parts(arc, &chanidx, &chandir, NULL, NULL);
+
+		length--;
+		f->path[length] = gossmap_chan_byidx(gossmap, chanidx);
+		f->dirs[length] = chandir;
+
+		struct node next = arc_tail(graph, arc);
+		cur_idx = next.idx;
+	}
+
+	tal_arr_expand(&flows, f);
+	return flows;
+}
+
 // TODO(eduardo): choose some default values for the minflow parameters
 /* eduardo: I think it should be clear that this module deals with linear
  * flows, ie. base fees are not considered. Hence a flow along a path is
@@ -965,8 +1007,7 @@ struct flow **minflow(const tal_t *ctx,
 		      const struct gossmap_node *target,
 		      struct amount_msat amount,
 		      u32 mu,
-		      double delay_feefactor,
-		      bool single_part)
+		      double delay_feefactor)
 {
 	struct flow **flow_paths;
 	/* We allocate everything off this, and free it at the end,
@@ -1049,34 +1090,284 @@ struct flow **minflow(const tal_t *ctx,
 		goto fail;
 	}
 	tal_free(working_ctx);
-
-	/* This is dumb, but if you don't support MPP you don't deserve any
-	 * better.  Pile it into the largest part if not already. */
-	if (single_part) {
-		struct flow *best = flow_paths[0];
-		for (size_t i = 1; i < tal_count(flow_paths); i++) {
-			if (amount_msat_greater(flow_paths[i]->delivers, best->delivers))
-				best = flow_paths[i];
-		}
-		for (size_t i = 0; i < tal_count(flow_paths); i++) {
-			if (flow_paths[i] == best)
-				continue;
-			if (!amount_msat_accumulate(&best->delivers,
-						    flow_paths[i]->delivers)) {
-				rq_log(tmpctx, rq, LOG_BROKEN,
-				       "%s: failed to extract accumulate flow paths %s+%s",
-				       __func__,
-				       fmt_amount_msat(tmpctx, best->delivers),
-				       fmt_amount_msat(tmpctx, flow_paths[i]->delivers));
-				goto fail;
-			}
-		}
-		flow_paths[0] = best;
-		tal_resize(&flow_paths, 1);
-	}
 	return flow_paths;
 
 fail:
 	tal_free(working_ctx);
 	return NULL;
+}
+
+static struct flow **single_path_flow(const tal_t *ctx,
+				      const struct route_query *rq,
+				      const struct gossmap_node *source,
+				      const struct gossmap_node *target,
+				      struct amount_msat amount, u32 mu,
+				      double delay_feefactor)
+{
+	struct flow **flow_paths;
+	/* We allocate everything off this, and free it at the end,
+	 * as we can be called multiple times without cleaning tmpctx! */
+	tal_t *working_ctx = tal(NULL, char);
+	struct pay_parameters *params = tal(working_ctx, struct pay_parameters);
+
+	params->rq = rq;
+	params->source = source;
+	params->target = target;
+	params->amount = amount;
+	/* for the single-path solver the accuracy does not detriment
+	 * performance */
+	params->accuracy = AMOUNT_MSAT(1000);
+	params->delay_feefactor = delay_feefactor;
+	params->base_fee_penalty = base_fee_penalty_estimate(amount);
+
+	// build the uncertainty network with linearization and residual arcs
+	struct linear_network *linear_network =
+	    init_linear_network(working_ctx, params);
+
+	const size_t max_num_chans = gossmap_max_chan_idx(rq->gossmap);
+	const size_t max_num_arcs = max_num_chans * ARCS_PER_CHANNEL;
+	const size_t max_num_nodes = gossmap_max_node_idx(rq->gossmap);
+
+	struct graph *graph = graph_new(working_ctx, max_num_nodes,
+					max_num_arcs, ARC_DUAL_BITOFF);
+	double *arc_prob_cost = tal_arr(working_ctx, double, max_num_arcs);
+	for (size_t i = 0; i < max_num_arcs; ++i)
+		arc_prob_cost[i] = DBL_MAX;
+	s64 *arc_fee_cost = tal_arr(working_ctx, s64, max_num_arcs);
+	for (size_t i = 0; i < max_num_arcs; ++i)
+		arc_fee_cost[i] = INT64_MAX;
+	s64 *capacity = tal_arrz(working_ctx, s64, max_num_arcs);
+
+	// FIXME: compute costs for arcs
+
+	const struct node dst = {.idx = gossmap_node_idx(rq->gossmap, target)};
+	const struct node src = {.idx = gossmap_node_idx(rq->gossmap, source)};
+
+	/* Since we have constraint accuracy, ask to find a payment solution
+	 * that can pay a bit more than the actual value rather than undershoot
+	 * it. That's why we use the ceil function here. */
+	const u64 pay_amount =
+	    amount_msat_ratio_ceil(params->amount, params->accuracy);
+
+	// FIXME: combine cost functions
+	combine_cost_function(working_ctx, linear_network, residual_network,
+			      rq->biases, mu);
+
+	s64 *potential = tal_arrz(working_ctx, s64, max_num_nodes);
+	s64 *distance = tal_arrz(working_ctx, s64, max_num_nodes);
+	struct arc *prev = tal_arrz(working_ctx, struct arc, max_num_nodes);
+
+	/* We solve a linear cost flow problem. */
+	if (!dijkstra_path(working_ctx, linear_network->graph, src, dst,
+			   /* prune = */ true, residual_network->cap,
+			   pay_amount, residual_network->cost, potential, prev,
+			   distance)) {
+		rq_log(tmpctx, rq, LOG_BROKEN,
+		       "%s: could not find a feasible single path", __func__);
+		goto fail;
+	}
+
+	/* We dissect the flow into payment routes.
+	 * Actual amounts considering fees are computed for every
+	 * channel in the routes. */
+	flow_paths =
+	    get_flow_singlepath(ctx, working_ctx, linear_network->graph,
+				rq->gossmap, src, dst, pay_amount, prev);
+	if (!flow_paths) {
+		rq_log(tmpctx, rq, LOG_BROKEN,
+		       "%s: failed to extract flow paths from the single-path "
+		       "solution",
+		       __func__);
+		goto fail;
+	}
+	if (tal_count(flow_paths) != 1) {
+		rq_log(
+		    tmpctx, rq, LOG_BROKEN,
+		    "%s: single-path solution returned a multi route solution",
+		    __func__);
+		goto fail;
+	}
+	tal_free(working_ctx);
+
+	return flow_paths;
+
+fail:
+	tal_free(working_ctx);
+	return NULL;
+}
+
+static struct amount_msat linear_flows_cost(struct flow **flows,
+					    struct amount_msat total_amount,
+					    double delay_feefactor)
+{
+	struct amount_msat total = AMOUNT_MSAT(0);
+
+	for (size_t i = 0; i < tal_count(flows); i++) {
+		if (!amount_msat_accumulate(&total,
+					    linear_flow_cost(flows[i],
+							     total_amount,
+							     delay_feefactor)))
+			abort();
+	}
+	return total;
+}
+
+static const char *linear_routes(
+    const tal_t *ctx, struct route_query *rq,
+    const struct gossmap_node *srcnode, const struct gossmap_node *dstnode,
+    struct amount_msat amount, struct amount_msat maxfee, u32 finalcltv,
+    u32 maxdelay, struct flow ***flows, double *probability,
+    struct flow **(*solver_cb)(const tal_t *, const struct route_query *,
+			       const struct gossmap_node *,
+			       const struct gossmap_node *, struct amount_msat,
+			       u32, double))
+{
+	const char *ret;
+	double delay_feefactor = 1.0 / 1000000;
+
+	/* First up, don't care about fees (well, just enough to tiebreak!) */
+	u32 mu = 1;
+	*flows = solver_cb(ctx, rq, srcnode, dstnode, amount, mu, delay_feefactor);
+	if (!*flows) {
+		ret = explain_failure(ctx, rq, srcnode, dstnode, amount);
+		goto fail;
+	}
+
+	/* Too much delay? */
+	while (finalcltv + flows_worst_delay(*flows) > maxdelay) {
+		delay_feefactor *= 2;
+		rq_log(tmpctx, rq, LOG_UNUSUAL,
+		       "The worst flow delay is %" PRIu64
+		       " (> %i), retrying with delay_feefactor %f...",
+		       flows_worst_delay(*flows), maxdelay - finalcltv,
+		       delay_feefactor);
+		*flows = solver_cb(ctx, rq, srcnode, dstnode, amount, mu,
+				   delay_feefactor);
+		if (!*flows || delay_feefactor > 10) {
+			ret = rq_log(
+			    ctx, rq, LOG_UNUSUAL,
+			    "Could not find route without excessive delays");
+			goto fail;
+		}
+	}
+
+	/* Too expensive? */
+too_expensive:
+	while (amount_msat_greater(flowset_fee(rq->plugin, *flows), maxfee)) {
+		struct flow **new_flows;
+
+		if (mu == 1)
+			mu = 10;
+		else
+			mu += 10;
+		rq_log(tmpctx, rq, LOG_UNUSUAL,
+		       "The flows had a fee of %s, greater than max of %s, "
+		       "retrying with mu of %u%%...",
+		       fmt_amount_msat(tmpctx, flowset_fee(rq->plugin, *flows)),
+		       fmt_amount_msat(tmpctx, maxfee), mu);
+		new_flows = solver_cb(ctx, rq, srcnode, dstnode, amount,
+				      mu > 100 ? 100 : mu, delay_feefactor);
+		if (!*flows || mu >= 100) {
+			ret = rq_log(
+			    ctx, rq, LOG_UNUSUAL,
+			    "Could not find route without excessive cost");
+			goto fail;
+		}
+
+		/* This is possible, because MCF's linear fees are not the same.
+		 */
+		if (amount_msat_greater(flowset_fee(rq->plugin, new_flows),
+					flowset_fee(rq->plugin, *flows))) {
+			struct amount_msat old_cost =
+			    linear_flows_cost(*flows, amount, delay_feefactor);
+			struct amount_msat new_cost = linear_flows_cost(
+			    new_flows, amount, delay_feefactor);
+			if (amount_msat_greater_eq(new_cost, old_cost)) {
+				rq_log(tmpctx, rq, LOG_BROKEN,
+				       "Old flows cost %s:",
+				       fmt_amount_msat(tmpctx, old_cost));
+				for (size_t i = 0; i < tal_count(*flows); i++) {
+					rq_log(
+					    tmpctx, rq, LOG_BROKEN,
+					    "Flow %zu/%zu: %s (linear cost %s)",
+					    i, tal_count(*flows),
+					    fmt_flow_full(tmpctx, rq, *flows[i]),
+					    fmt_amount_msat(
+						tmpctx, linear_flow_cost(
+							    *flows[i], amount,
+							    delay_feefactor)));
+				}
+				rq_log(tmpctx, rq, LOG_BROKEN,
+				       "Old flows cost %s:",
+				       fmt_amount_msat(tmpctx, new_cost));
+				for (size_t i = 0; i < tal_count(new_flows);
+				     i++) {
+					rq_log(
+					    tmpctx, rq, LOG_BROKEN,
+					    "Flow %zu/%zu: %s (linear cost %s)",
+					    i, tal_count(new_flows),
+					    fmt_flow_full(tmpctx, rq,
+							  new_flows[i]),
+					    fmt_amount_msat(
+						tmpctx,
+						linear_flow_cost(
+						    new_flows[i], amount,
+						    delay_feefactor)));
+				}
+			}
+		}
+		tal_free(*flows);
+		*flows = new_flows;
+	}
+
+	if (finalcltv + flows_worst_delay(*flows) > maxdelay) {
+		ret = rq_log(
+		    ctx, rq, LOG_UNUSUAL,
+		    "Could not find route without excessive cost or delays");
+		goto fail;
+	}
+
+	/* The above did not take into account the extra funds to pay
+	 * fees, so we try to adjust now.  We could re-run MCF if this
+	 * fails, but failure basically never happens where payment is
+	 * still possible */
+	ret = refine_with_fees_and_limits(ctx, rq, amount, flows, probability);
+	if (ret)
+		goto fail;
+
+	/* Again, a tiny corner case: refine step can make us exceed maxfee */
+	if (amount_msat_greater(flowset_fee(rq->plugin, *flows), maxfee)) {
+		rq_log(tmpctx, rq, LOG_UNUSUAL,
+		       "After final refinement, fee was excessive: retrying");
+		goto too_expensive;
+	}
+
+	return NULL;
+fail:
+	assert(ret != NULL);
+	return ret;
+}
+
+const char *default_routes(const tal_t *ctx, struct route_query *rq,
+			   const struct gossmap_node *srcnode,
+			   const struct gossmap_node *dstnode,
+			   struct amount_msat amount, struct amount_msat maxfee,
+			   u32 finalcltv, u32 maxdelay, struct flow ***flows,
+			   double *probability)
+{
+	return linear_routes(ctx, rq, srcnode, dstnode, amount, maxfee,
+			     finalcltv, maxdelay, flows, probability, minflow);
+}
+
+const char *single_path_routes(const tal_t *ctx, struct route_query *rq,
+			       const struct gossmap_node *srcnode,
+			       const struct gossmap_node *dstnode,
+			       struct amount_msat amount,
+			       struct amount_msat maxfee, u32 finalcltv,
+			       u32 maxdelay, struct flow ***flows,
+			       double *probability)
+{
+	return linear_routes(ctx, rq, srcnode, dstnode, amount, maxfee,
+			     finalcltv, maxdelay, flows, probability,
+			     single_path_flow);
 }
