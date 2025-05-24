@@ -935,6 +935,11 @@ static struct command_result *listoffers_done(struct command *cmd,
 	 *     - MUST set `invoice_node_id` to the `offer_issuer_id`
 	 */
 	/* FIXME: We always provide an offer_issuer_id! */
+	/* The following line is wrong when offer_issuer_id is not used.
+	 * According to fetchinvoice.c, it should be "equal to the final
+	 * `blinded_node_id` it [the payer] sent the invoice request to", when
+	 * offer_issuer_id is not set and offer_paths is set
+	 */
 	ir->inv->invoice_node_id = ir->inv->offer_issuer_id;
 
 	/* BOLT #12:
