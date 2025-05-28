@@ -947,8 +947,7 @@ struct flow **minflow(const tal_t *ctx,
 		      const struct gossmap_node *target,
 		      struct amount_msat amount,
 		      u32 mu,
-		      double delay_feefactor,
-		      bool single_part)
+		      double delay_feefactor)
 {
 	struct flow **flow_paths;
 	/* We allocate everything off this, and free it at the end,
@@ -1039,31 +1038,6 @@ struct flow **minflow(const tal_t *ctx,
 		goto fail;
 	}
 	tal_free(working_ctx);
-
-	/* This is dumb, but if you don't support MPP you don't deserve any
-	 * better.  Pile it into the largest part if not already. */
-	if (single_part) {
-		struct flow *best = flow_paths[0];
-		for (size_t i = 1; i < tal_count(flow_paths); i++) {
-			if (amount_msat_greater(flow_paths[i]->delivers, best->delivers))
-				best = flow_paths[i];
-		}
-		for (size_t i = 0; i < tal_count(flow_paths); i++) {
-			if (flow_paths[i] == best)
-				continue;
-			if (!amount_msat_accumulate(&best->delivers,
-						    flow_paths[i]->delivers)) {
-				rq_log(tmpctx, rq, LOG_BROKEN,
-				       "%s: failed to extract accumulate flow paths %s+%s",
-				       __func__,
-				       fmt_amount_msat(tmpctx, best->delivers),
-				       fmt_amount_msat(tmpctx, flow_paths[i]->delivers));
-				goto fail;
-			}
-		}
-		flow_paths[0] = best;
-		tal_resize(&flow_paths, 1);
-	}
 	return flow_paths;
 
 fail:
@@ -1268,13 +1242,16 @@ fail:
 	return NULL;
 }
 
-const char *default_routes(const tal_t *ctx, struct route_query *rq,
-			   const struct gossmap_node *srcnode,
-			   const struct gossmap_node *dstnode,
-			   struct amount_msat amount, bool single_path,
-			   struct amount_msat maxfee, u32 finalcltv,
-			   u32 maxdelay, struct flow ***flows,
-			   double *probability)
+static const char *
+linear_routes(const tal_t *ctx, struct route_query *rq,
+	      const struct gossmap_node *srcnode,
+	      const struct gossmap_node *dstnode, struct amount_msat amount,
+	      struct amount_msat maxfee, u32 finalcltv, u32 maxdelay,
+	      struct flow ***flows, double *probability,
+	      struct flow **(*solver)(const tal_t *, const struct route_query *,
+				      const struct gossmap_node *,
+				      const struct gossmap_node *,
+				      struct amount_msat, u32, double))
 {
 	*flows = NULL;
 	const char *ret;
@@ -1283,8 +1260,7 @@ const char *default_routes(const tal_t *ctx, struct route_query *rq,
 	/* First up, don't care about fees (well, just enough to tiebreak!) */
 	u32 mu = 1;
 	tal_free(*flows);
-	*flows = minflow(ctx, rq, srcnode, dstnode, amount, mu, delay_feefactor,
-			single_path);
+	*flows = solver(ctx, rq, srcnode, dstnode, amount, mu, delay_feefactor);
 	if (!*flows) {
 		ret = explain_failure(ctx, rq, srcnode, dstnode, amount);
 		goto fail;
@@ -1299,8 +1275,8 @@ const char *default_routes(const tal_t *ctx, struct route_query *rq,
 		       flows_worst_delay(*flows), maxdelay - finalcltv,
 		       delay_feefactor);
 		tal_free(*flows);
-		*flows = minflow(ctx, rq, srcnode, dstnode, amount, mu,
-				delay_feefactor, single_path);
+		*flows = solver(ctx, rq, srcnode, dstnode, amount, mu,
+				delay_feefactor);
 		if (!*flows || delay_feefactor > 10) {
 			ret = rq_log(
 			    ctx, rq, LOG_UNUSUAL,
@@ -1323,9 +1299,8 @@ too_expensive:
 		       "retrying with mu of %u%%...",
 		       fmt_amount_msat(tmpctx, flowset_fee(rq->plugin, *flows)),
 		       fmt_amount_msat(tmpctx, maxfee), mu);
-		new_flows =
-		    minflow(ctx, rq, srcnode, dstnode, amount,
-			    mu > 100 ? 100 : mu, delay_feefactor, single_path);
+		new_flows = solver(ctx, rq, srcnode, dstnode, amount,
+				   mu > 100 ? 100 : mu, delay_feefactor);
 		if (!*flows || mu >= 100) {
 			ret = rq_log(
 			    ctx, rq, LOG_UNUSUAL,
@@ -1405,4 +1380,28 @@ too_expensive:
 fail:
 	assert(ret != NULL);
 	return ret;
+}
+
+const char *default_routes(const tal_t *ctx, struct route_query *rq,
+			   const struct gossmap_node *srcnode,
+			   const struct gossmap_node *dstnode,
+			   struct amount_msat amount, struct amount_msat maxfee,
+			   u32 finalcltv, u32 maxdelay, struct flow ***flows,
+			   double *probability)
+{
+	return linear_routes(ctx, rq, srcnode, dstnode, amount, maxfee,
+			     finalcltv, maxdelay, flows, probability, minflow);
+}
+
+const char *single_path_routes(const tal_t *ctx, struct route_query *rq,
+			       const struct gossmap_node *srcnode,
+			       const struct gossmap_node *dstnode,
+			       struct amount_msat amount,
+			       struct amount_msat maxfee, u32 finalcltv,
+			       u32 maxdelay, struct flow ***flows,
+			       double *probability)
+{
+	return linear_routes(ctx, rq, srcnode, dstnode, amount, maxfee,
+			     finalcltv, maxdelay, flows, probability,
+			     single_path_flow);
 }
