@@ -299,48 +299,17 @@ struct pay_parameters {
 	double base_fee_penalty;
 };
 
-/* Representation of the linear MCF network.
- * This contains the topology of the extended network (after linearization and
- * addition of arc duality).
- * This contains also the arc probability and linear fee cost, as well as
- * capacity; these quantities remain constant during MCF execution. */
-struct linear_network
-{
-	struct graph *graph;
-
-	// probability and fee cost associated to an arc
-	double *arc_prob_cost;
-	s64 *arc_fee_cost;
-	s64 *capacity;
-};
-
-/* This is the structure that keeps track of the network properties while we
- * seek for a solution. */
-struct residual_network {
-	/* residual capacity on arcs */
-	s64 *cap;
-
-	/* some combination of prob. cost and fee cost on arcs */
-	s64 *cost;
-
-	/* potential function on nodes */
-	s64 *potential;
-
-	/* auxiliary data, the excess of flow on nodes */
-	s64 *excess;
-};
-
 /* Helper function.
  * Given an arc of the network (not residual) give me the flow. */
 static s64 get_arc_flow(
-		const struct residual_network *network,
+		const s64 *arc_residual_capacity,
 		const struct graph *graph,
 		const struct arc arc)
 {
 	assert(!arc_is_dual(graph, arc));
 	struct arc dual = arc_dual(graph, arc);
-	assert(dual.idx < tal_count(network->cap));
-	return network->cap[dual.idx];
+	assert(dual.idx < tal_count(arc_residual_capacity));
+	return arc_residual_capacity[dual.idx];
 }
 
 /* Set *capacity to value, up to *cap_on_capacity.  Reduce cap_on_capacity */
@@ -385,49 +354,6 @@ static void linearize_channel(const struct pay_parameters *params,
 	}
 }
 
-static struct residual_network *
-alloc_residual_network(const tal_t *ctx, const size_t max_num_nodes,
-		      const size_t max_num_arcs)
-{
-	struct residual_network *residual_network =
-	    tal(ctx, struct residual_network);
-
-	residual_network->cap = tal_arrz(residual_network, s64, max_num_arcs);
-	residual_network->cost = tal_arrz(residual_network, s64, max_num_arcs);
-	residual_network->potential =
-	    tal_arrz(residual_network, s64, max_num_nodes);
-	residual_network->excess =
-	    tal_arrz(residual_network, s64, max_num_nodes);
-
-	return residual_network;
-}
-
-static void init_residual_network(
-		const struct linear_network * linear_network,
-		struct residual_network* residual_network)
-{
-	const struct graph *graph = linear_network->graph;
-	const size_t max_num_arcs = graph_max_num_arcs(graph);
-	const size_t max_num_nodes = graph_max_num_nodes(graph);
-
-	for (struct arc arc = {.idx = 0}; arc.idx < max_num_arcs; ++arc.idx) {
-		if (arc_is_dual(graph, arc) || !arc_enabled(graph, arc))
-			continue;
-
-		struct arc dual = arc_dual(graph, arc);
-		residual_network->cap[arc.idx] =
-		    linear_network->capacity[arc.idx];
-		residual_network->cap[dual.idx] = 0;
-
-		residual_network->cost[arc.idx] =
-		    residual_network->cost[dual.idx] = 0;
-	}
-	for (u32 i = 0; i < max_num_nodes; ++i) {
-		residual_network->potential[i] = 0;
-		residual_network->excess[i] = 0;
-	}
-}
-
 static int cmp_u64(const u64 *a, const u64 *b, void *unused)
 {
 	if (*a < *b)
@@ -447,9 +373,10 @@ static int cmp_double(const double *a, const double *b, void *unused)
 }
 
 static double get_median_ratio(const tal_t *working_ctx,
-			       const struct linear_network* linear_network)
+			       const struct graph *graph,
+			       const double *arc_prob_cost,
+			       const s64 *arc_fee_cost)
 {
-	const struct graph *graph = linear_network->graph;
 	const size_t max_num_arcs = graph_max_num_arcs(graph);
 	u64 *u64_arr = tal_arr(working_ctx, u64, max_num_arcs);
 	double *double_arr = tal_arr(working_ctx, double, max_num_arcs);
@@ -460,8 +387,8 @@ static double get_median_ratio(const tal_t *working_ctx,
 		if (arc_is_dual(graph, arc) || !arc_enabled(graph, arc))
 			continue;
 		assert(n < max_num_arcs/2);
-		u64_arr[n] = linear_network->arc_fee_cost[arc.idx];
-		double_arr[n] = linear_network->arc_prob_cost[arc.idx];
+		u64_arr[n] = arc_fee_cost[arc.idx];
+		double_arr[n] = arc_prob_cost[arc.idx];
 		n++;
 	}
 	asort(u64_arr, n, cmp_u64, NULL);
@@ -475,18 +402,17 @@ static double get_median_ratio(const tal_t *working_ctx,
 	return u64_arr[n/2] / double_arr[n/2];
 }
 
-static void combine_cost_function(
-		const tal_t *working_ctx,
-		const struct linear_network* linear_network,
-		struct residual_network *residual_network,
-		const s8 *biases,
-		s64 mu)
+static void combine_cost_function(const tal_t *working_ctx,
+				  const struct graph *graph,
+				  const double *arc_prob_cost,
+				  const s64 *arc_fee_cost, const s8 *biases,
+				  s64 mu, s64 *arc_cost)
 {
 	/* probabilty and fee costs are not directly comparable!
 	 * Scale by ratio of (positive) medians. */
-	const double k = get_median_ratio(working_ctx, linear_network);
+	const double k =
+	    get_median_ratio(working_ctx, graph, arc_prob_cost, arc_fee_cost);
 	const double ln_30 = log(30);
-	const struct graph *graph = linear_network->graph;
 	const size_t max_num_arcs = graph_max_num_arcs(graph);
 
 	for(struct arc arc = {.idx=0};arc.idx < max_num_arcs; ++arc.idx)
@@ -494,8 +420,8 @@ static void combine_cost_function(
 		if (arc_is_dual(graph, arc) || !arc_enabled(graph, arc))
 			continue;
 
-		const double pcost = linear_network->arc_prob_cost[arc.idx];
-		const s64 fcost = linear_network->arc_fee_cost[arc.idx];
+		const double pcost = arc_prob_cost[arc.idx];
+		const s64 fcost = arc_fee_cost[arc.idx];
 		double combined;
 		u32 chanidx;
 		int chandir;
@@ -515,13 +441,13 @@ static void combine_cost_function(
 			 *    e^(-bias / (100/ln(30)))
 			 */
 			double bias_factor = exp(-bias / (100 / ln_30));
-			residual_network->cost[arc.idx] = combined * bias_factor;
+			arc_cost[arc.idx] = combined * bias_factor;
 		} else {
-			residual_network->cost[arc.idx] = combined;
+			arc_cost[arc.idx] = combined;
 		}
 		/* and the respective dual */
 		struct arc dual = arc_dual(graph, arc);
-		residual_network->cost[dual.idx] = -combined;
+		arc_cost[dual.idx] = -combined;
 	}
 }
 
@@ -578,31 +504,26 @@ struct amount_msat linear_flow_cost(const struct flow *flow,
 	return msat_cost;
 }
 
-/* FIXME: Instead of mapping one-to-one the indexes in the gossmap, try to
- * reduce the number of nodes and arcs used by taking only those that are
- * enabled. We might save some cpu if the work with a pruned network. */
-static struct linear_network *
-init_linear_network(const tal_t *ctx, const struct pay_parameters *params)
+static void init_linear_network(const tal_t *ctx,
+				const struct pay_parameters *params,
+				struct graph **graph, double **arc_prob_cost,
+				s64 **arc_fee_cost, s64 **arc_capacity)
 {
-	struct linear_network * linear_network = tal(ctx, struct linear_network);
 	const struct gossmap *gossmap = params->rq->gossmap;
-
 	const size_t max_num_chans = gossmap_max_chan_idx(gossmap);
 	const size_t max_num_arcs = max_num_chans * ARCS_PER_CHANNEL;
 	const size_t max_num_nodes = gossmap_max_node_idx(gossmap);
 
-	linear_network->graph =
-	    graph_new(ctx, max_num_nodes, max_num_arcs, ARC_DUAL_BITOFF);
+	*graph = graph_new(ctx, max_num_nodes, max_num_arcs, ARC_DUAL_BITOFF);
+	*arc_prob_cost = tal_arr(ctx, double, max_num_arcs);
+	for (size_t i = 0; i < max_num_arcs; ++i)
+		(*arc_prob_cost)[i] = DBL_MAX;
 
-	linear_network->arc_prob_cost = tal_arr(linear_network,double,max_num_arcs);
-	for(size_t i=0;i<max_num_arcs;++i)
-		linear_network->arc_prob_cost[i]=DBL_MAX;
+	*arc_fee_cost = tal_arr(ctx, s64, max_num_arcs);
+	for (size_t i = 0; i < max_num_arcs; ++i)
+		(*arc_fee_cost)[i] = INT64_MAX;
 
-	linear_network->arc_fee_cost = tal_arr(linear_network,s64,max_num_arcs);
-	for(size_t i=0;i<max_num_arcs;++i)
-		linear_network->arc_fee_cost[i]=INFINITE;
-
-	linear_network->capacity = tal_arrz(linear_network,s64,max_num_arcs);
+	*arc_capacity = tal_arrz(ctx, s64, max_num_arcs);
 
 	for(struct gossmap_node *node = gossmap_first_node(gossmap);
 	    node;
@@ -660,25 +581,23 @@ init_linear_network(const tal_t *ctx, const struct pay_parameters *params)
 
 				struct arc arc = arc_from_parts(chan_id, half, k, false);
 
-				graph_add_arc(linear_network->graph, arc,
+				graph_add_arc(*graph, arc,
 					      node_obj(node_id),
 					      node_obj(next_id));
 
-				linear_network->capacity[arc.idx] = capacity[k];
-				linear_network->arc_prob_cost[arc.idx] = prob_cost[k];
-				linear_network->arc_fee_cost[arc.idx] = fee_cost;
+				(*arc_capacity)[arc.idx] = capacity[k];
+				(*arc_prob_cost)[arc.idx] = prob_cost[k];
+				(*arc_fee_cost)[arc.idx] = fee_cost;
 
 				// + the respective dual
-				struct arc dual = arc_dual(linear_network->graph, arc);
+				struct arc dual = arc_dual(*graph, arc);
 
-				linear_network->capacity[dual.idx] = 0;
-				linear_network->arc_prob_cost[dual.idx] = -prob_cost[k];
-				linear_network->arc_fee_cost[dual.idx] = -fee_cost;
+				(*arc_capacity)[dual.idx] = 0;
+				(*arc_prob_cost)[dual.idx] = -prob_cost[k];
+				(*arc_fee_cost)[dual.idx] = -fee_cost;
 			}
 		}
 	}
-
-	return linear_network;
 }
 
 // flow on directed channels
@@ -873,8 +792,8 @@ static struct flow **
 get_flow_paths(const tal_t *ctx,
 	       const tal_t *working_ctx,
 	       const struct pay_parameters *params,
-	       const struct linear_network *linear_network,
-	       const struct residual_network *residual_network)
+	       const struct graph *graph,
+	       const s64 *arc_residual_capacity)
 {
 	struct flow **flows = tal_arr(ctx,struct flow*,0);
 
@@ -897,7 +816,6 @@ get_flow_paths(const tal_t *ctx,
 	// Convert the arc based residual network flow into a flow in the
 	// directed channel network.
 	// Compute balance on the nodes.
-	const struct graph *graph = linear_network->graph;
 	for (struct node n = {.idx = 0}; n.idx < max_num_nodes; n.idx++) {
 		for(struct arc arc = node_adjacency_begin(graph,n);
 		        !node_adjacency_end(arc);
@@ -906,7 +824,7 @@ get_flow_paths(const tal_t *ctx,
 			if(arc_is_dual(graph, arc))
 				continue;
 			struct node m = arc_head(graph,arc);
-			s64 flow = get_arc_flow(residual_network,
+			s64 flow = get_arc_flow(arc_residual_capacity,
 						graph, arc);
 			u32 chanidx;
 			int chandir;
@@ -1000,17 +918,25 @@ struct flow **minflow(const tal_t *ctx,
 	params->base_fee_penalty = base_fee_penalty_estimate(amount);
 
 	// build the uncertainty network with linearization and residual arcs
-	struct linear_network *linear_network= init_linear_network(working_ctx, params);
-	const struct graph *graph = linear_network->graph;
+	struct graph *graph;
+	double *arc_prob_cost;
+	s64 *arc_fee_cost;
+	s64 *arc_capacity;
+	init_linear_network(working_ctx, params, &graph, &arc_prob_cost,
+			    &arc_fee_cost, &arc_capacity);
+
 	const size_t max_num_arcs = graph_max_num_arcs(graph);
 	const size_t max_num_nodes = graph_max_num_nodes(graph);
-	struct residual_network *residual_network =
-	    alloc_residual_network(working_ctx, max_num_nodes, max_num_arcs);
+	s64 *arc_cost;
+	s64 *node_potential;
+	s64 *node_excess;
+	arc_cost = tal_arrz(working_ctx, s64, max_num_arcs);
+	node_potential = tal_arrz(working_ctx, s64, max_num_nodes);
+	node_excess = tal_arrz(working_ctx, s64, max_num_nodes);
 
 	const struct node dst = {.idx = gossmap_node_idx(rq->gossmap, target)};
 	const struct node src = {.idx = gossmap_node_idx(rq->gossmap, source)};
 
-	init_residual_network(linear_network,residual_network);
 
 	/* Since we have constraint accuracy, ask to find a payment solution
 	 * that can pay a bit more than the actual value rathen than undershoot it.
@@ -1018,22 +944,22 @@ struct flow **minflow(const tal_t *ctx,
 	const u64 pay_amount =
 	    amount_msat_ratio_ceil(params->amount, params->accuracy);
 
-	if (!simple_feasibleflow(working_ctx, linear_network->graph, src, dst,
-				 residual_network->cap, pay_amount)) {
+	if (!simple_feasibleflow(working_ctx, graph, src, dst,
+				 arc_capacity, pay_amount)) {
 		rq_log(tmpctx, rq, LOG_INFORM,
 		       "%s failed: unable to find a feasible flow.", __func__);
 		goto fail;
 	}
-	combine_cost_function(working_ctx, linear_network, residual_network,
-			      rq->biases, mu);
+	combine_cost_function(working_ctx, graph, arc_prob_cost, arc_fee_cost,
+			      rq->biases, mu, arc_cost);
 
 	/* We solve a linear MCF problem. */
 	if (!mcf_refinement(working_ctx,
-			    linear_network->graph,
-			    residual_network->excess,
-			    residual_network->cap,
-			    residual_network->cost,
-			    residual_network->potential)) {
+			    graph,
+			    node_excess,
+			    arc_capacity,
+			    arc_cost,
+			    node_potential)) {
 		rq_log(tmpctx, rq, LOG_BROKEN,
 		       "%s: MCF optimization step failed", __func__);
 		goto fail;
@@ -1043,7 +969,7 @@ struct flow **minflow(const tal_t *ctx,
 	 * Actual amounts considering fees are computed for every
 	 * channel in the routes. */
 	flow_paths = get_flow_paths(ctx, working_ctx, params,
-				    linear_network, residual_network);
+				    graph, arc_capacity);
 	if(!flow_paths){
 		rq_log(tmpctx, rq, LOG_BROKEN,
 		       "%s: failed to extract flow paths from the MCF solution",
