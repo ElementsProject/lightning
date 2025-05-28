@@ -34,6 +34,28 @@ struct flow **minflow(const tal_t *ctx,
 		      double delay_feefactor,
 		      bool single_part);
 
+/**
+ * API for min cost single path.
+ * @ctx: context to allocate returned flows from
+ * @rq: the route_query we're processing (for logging)
+ * @source: the source to start from
+ * @target: the target to pay
+ * @amount: the amount we want to reach @target
+ * @mu: 0 = corresponds to only probabilities, 100 corresponds to only fee.
+ * @delay_feefactor: convert 1 block delay into msat.
+ *
+ * @delay_feefactor converts 1 block delay into msat, as if it were an additional
+ * fee.  So if a CLTV delay on a node is 5 blocks, that's treated as if it
+ * were a fee of 5 * @delay_feefactor.
+ *
+ * Returns an array with one flow which deliver amount to target, or NULL.
+ */
+struct flow **single_path_flow(const tal_t *ctx, const struct route_query *rq,
+			       const struct gossmap_node *source,
+			       const struct gossmap_node *target,
+			       struct amount_msat amount, u32 mu,
+			       double delay_feefactor);
+
 /* To sanity check: this is the approximation mcf uses for the cost
  * of each channel. */
 struct amount_msat linear_flow_cost(const struct flow *flow,
