@@ -332,7 +332,11 @@ const char *fmt_flow_full(const tal_t *ctx,
 }
 
 enum algorithm {
+	/* Min. Cost Flow by successive shortests paths. */
 	ALGO_DEFAULT,
+	/* Algorithm that finds the optimal routing solution constrained to a
+	 * single path. */
+	ALGO_SINGLE_PATH,
 };
 
 static struct command_result *
@@ -343,6 +347,8 @@ param_algorithm(struct command *cmd, const char *name, const char *buffer,
 	*algo = tal(cmd, enum algorithm);
 	if (streq(algo_str, "default"))
 		**algo = ALGO_DEFAULT;
+	else if (streq(algo_str, "single-path"))
+		**algo = ALGO_SINGLE_PATH;
 	else
 		return command_fail_badparam(cmd, name, buffer, tok,
 					     "unknown algorithm");
@@ -581,15 +587,29 @@ static struct command_result *do_getroutes(struct command *cmd,
 		goto fail;
 	}
 
+	/* auto.no_mpp_support layer overrides any choice of algorithm. */
+	if (have_layer(info->layers, "auto.no_mpp_support") &&
+	    *info->dev_algo != ALGO_SINGLE_PATH) {
+		*info->dev_algo = ALGO_SINGLE_PATH;
+		rq_log(tmpctx, rq, LOG_DBG,
+		       "Layer no_mpp_support is active we switch to a "
+		       "single path algorithm.");
+	}
+
 	/* Compute the routes. At this point we might select between multiple
 	 * algorithms. Right now there is only one algorithm available. */
 	struct timemono time_start = time_mono();
-	assert(*info->dev_algo == ALGO_DEFAULT);
-	err = default_routes(rq, rq, srcnode, dstnode, *info->amount,
-			     /* only one path? = */
-			     have_layer(info->layers, "auto.no_mpp_support"),
-			     *info->maxfee, *info->finalcltv, *info->maxdelay,
-			     &flows, &probability);
+	if (*info->dev_algo == ALGO_SINGLE_PATH){
+		err = single_path_routes(
+		    rq, rq, srcnode, dstnode, *info->amount,
+		    *info->maxfee, *info->finalcltv, *info->maxdelay, &flows,
+		    &probability);
+	} else {
+		assert(*info->dev_algo == ALGO_DEFAULT);
+		err = default_routes(rq, rq, srcnode, dstnode, *info->amount,
+				     *info->maxfee, *info->finalcltv,
+				     *info->maxdelay, &flows, &probability);
+	}
 	struct timerel time_delta = timemono_between(time_mono(), time_start);
 
 	/* log the time of computation */
