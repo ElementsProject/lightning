@@ -319,6 +319,28 @@ static void set_capacity(s64 *capacity, u64 value, u64 *cap_on_capacity)
 	*cap_on_capacity -= *capacity;
 }
 
+/* FIXME: unit test this */
+/* The probability of forwarding a payment amount given a high and low liquidity
+ * bounds.
+ * @low: the liquidity is known to be greater or equal than "low"
+ * @high: the liquidity is known to be less than "high"
+ * @amount: how much is required to forward */
+static double pickhardt_richter_probability(struct amount_msat low,
+					    struct amount_msat high,
+					    struct amount_msat amount)
+{
+	struct amount_msat all_states, good_states;
+	if (amount_msat_greater_eq(amount, high))
+		return 0.0;
+	if (!amount_msat_sub(&amount, amount, low))
+		return 1.0;
+	if (!amount_msat_sub(&all_states, high, low))
+		abort(); // we expect high > low
+	if (!amount_msat_sub(&good_states, all_states, amount))
+		abort(); // we expect high > amount
+	return amount_msat_ratio(good_states, all_states);
+}
+
 // TODO(eduardo): unit test this
 /* Split a directed channel into parts with linear cost function. */
 static void linearize_channel(const struct pay_parameters *params,
@@ -867,6 +889,46 @@ get_flow_paths(const tal_t *ctx,
 	return flows;
 }
 
+/* Given a single path build a flow set. */
+static struct flow **
+get_flow_singlepath(const tal_t *ctx, const struct pay_parameters *params,
+		    const struct graph *graph, const struct gossmap *gossmap,
+		    const struct node source, const struct node destination,
+		    const u64 pay_amount, const struct arc *prev)
+{
+	struct flow **flows, *f;
+	flows = tal_arr(ctx, struct flow *, 1);
+	f = flows[0] = tal(flows, struct flow);
+
+	size_t length = 0;
+
+	for (u32 cur_idx = destination.idx; cur_idx != source.idx;) {
+		assert(cur_idx != INVALID_INDEX);
+		length++;
+		struct arc arc = prev[cur_idx];
+		struct node next = arc_tail(graph, arc);
+		cur_idx = next.idx;
+	}
+	f->path = tal_arr(f, const struct gossmap_chan *, length);
+	f->dirs = tal_arr(f, int, length);
+
+	for (u32 cur_idx = destination.idx; cur_idx != source.idx;) {
+		int chandir;
+		u32 chanidx;
+		struct arc arc = prev[cur_idx];
+		arc_to_parts(arc, &chanidx, &chandir, NULL, NULL);
+
+		length--;
+		f->path[length] = gossmap_chan_byidx(gossmap, chanidx);
+		f->dirs[length] = chandir;
+
+		struct node next = arc_tail(graph, arc);
+		cur_idx = next.idx;
+	}
+	f->delivers = params->amount;
+	return flows;
+}
+
 // TODO(eduardo): choose some default values for the minflow parameters
 /* eduardo: I think it should be clear that this module deals with linear
  * flows, ie. base fees are not considered. Hence a flow along a path is
@@ -1025,6 +1087,186 @@ static struct amount_msat linear_flows_cost(struct flow **flows,
 	return total;
 }
 
+/* Initialize the data vectors for the single-path solver. */
+static void init_linear_network_single_path(
+    const tal_t *ctx, const struct pay_parameters *params, struct graph **graph,
+    double **arc_prob_cost, s64 **arc_fee_cost, s64 **arc_capacity)
+{
+	const size_t max_num_chans = gossmap_max_chan_idx(params->rq->gossmap);
+	const size_t max_num_arcs = max_num_chans * ARCS_PER_CHANNEL;
+	const size_t max_num_nodes = gossmap_max_node_idx(params->rq->gossmap);
+
+	*graph = graph_new(ctx, max_num_nodes, max_num_arcs, ARC_DUAL_BITOFF);
+	*arc_prob_cost = tal_arr(ctx, double, max_num_arcs);
+	for (size_t i = 0; i < max_num_arcs; ++i)
+		(*arc_prob_cost)[i] = DBL_MAX;
+
+	*arc_fee_cost = tal_arr(ctx, s64, max_num_arcs);
+	for (size_t i = 0; i < max_num_arcs; ++i)
+		(*arc_fee_cost)[i] = INT64_MAX;
+	*arc_capacity = tal_arrz(ctx, s64, max_num_arcs);
+
+	const struct gossmap *gossmap = params->rq->gossmap;
+
+	for (struct gossmap_node *node = gossmap_first_node(gossmap); node;
+	     node = gossmap_next_node(gossmap, node)) {
+		const u32 node_id = gossmap_node_idx(gossmap, node);
+
+		for (size_t j = 0; j < node->num_chans; ++j) {
+			int half;
+			const struct gossmap_chan *c =
+			    gossmap_nth_chan(gossmap, node, j, &half);
+                        struct amount_msat mincap, maxcap;
+
+			if (!gossmap_chan_set(c, half) ||
+			    !c->half[half].enabled)
+				continue;
+
+			/* If a channel cannot forward the total amount we don't
+			 * use it. */
+			if (amount_msat_less(params->amount,
+					     gossmap_chan_htlc_min(c, half)) ||
+			    amount_msat_greater(params->amount,
+						gossmap_chan_htlc_max(c, half)))
+				continue;
+
+			get_constraints(params->rq, c, half, &mincap, &maxcap);
+			/* Assume if min > max, min is wrong */
+			if (amount_msat_greater(mincap, maxcap))
+				mincap = maxcap;
+			/* It is preferable to work on 1msat past the known
+			 * bound. */
+			if (!amount_msat_accumulate(&maxcap, amount_msat(1)))
+				abort();
+
+			/* If amount is greater than the known liquidity upper
+			 * bound we get infinite probability cost. */
+			if (amount_msat_greater_eq(params->amount, maxcap))
+				continue;
+
+			const u32 chan_id = gossmap_chan_idx(gossmap, c);
+
+			const struct gossmap_node *next =
+			    gossmap_nth_node(gossmap, c, !half);
+
+			const u32 next_id = gossmap_node_idx(gossmap, next);
+
+			/* channel to self? */
+			if (node_id == next_id)
+				continue;
+
+			struct arc arc =
+			    arc_from_parts(chan_id, half, 0, false);
+
+			graph_add_arc(*graph, arc, node_obj(node_id),
+				      node_obj(next_id));
+
+			(*arc_capacity)[arc.idx] = 1;
+			(*arc_prob_cost)[arc.idx] =
+			    (-1.0) * log(pickhardt_richter_probability(
+					 mincap, maxcap, params->amount));
+
+			struct amount_msat fee;
+			if (!amount_msat_fee(&fee, params->amount,
+					     c->half[half].base_fee,
+					     c->half[half].proportional_fee))
+				abort();
+			u32 fee_msat;
+			if (!amount_msat_to_u32(fee, &fee_msat))
+				continue;
+			(*arc_fee_cost)[arc.idx] =
+			    fee_msat +
+			    params->delay_feefactor * c->half[half].delay;
+		}
+	}
+}
+
+/* Similar to minflow but computes routes that have a single path. */
+struct flow **single_path_flow(const tal_t *ctx, const struct route_query *rq,
+			       const struct gossmap_node *source,
+			       const struct gossmap_node *target,
+			       struct amount_msat amount, u32 mu,
+			       double delay_feefactor)
+{
+	struct flow **flow_paths;
+	/* We allocate everything off this, and free it at the end,
+	 * as we can be called multiple times without cleaning tmpctx! */
+	tal_t *working_ctx = tal(NULL, char);
+	struct pay_parameters *params = tal(working_ctx, struct pay_parameters);
+
+	params->rq = rq;
+	params->source = source;
+	params->target = target;
+	params->amount = amount;
+	/* for the single-path solver the accuracy does not detriment
+	 * performance */
+	params->accuracy = amount;
+	params->delay_feefactor = delay_feefactor;
+	params->base_fee_penalty = base_fee_penalty_estimate(amount);
+
+	struct graph *graph;
+	double *arc_prob_cost;
+	s64 *arc_fee_cost;
+	s64 *arc_capacity;
+
+	init_linear_network_single_path(working_ctx, params, &graph,
+					&arc_prob_cost, &arc_fee_cost,
+					&arc_capacity);
+
+	const struct node dst = {.idx = gossmap_node_idx(rq->gossmap, target)};
+	const struct node src = {.idx = gossmap_node_idx(rq->gossmap, source)};
+
+	const size_t max_num_nodes = graph_max_num_nodes(graph);
+	const size_t max_num_arcs = graph_max_num_arcs(graph);
+
+	s64 *potential = tal_arrz(working_ctx, s64, max_num_nodes);
+	s64 *distance = tal_arrz(working_ctx, s64, max_num_nodes);
+	s64 *arc_cost = tal_arrz(working_ctx, s64, max_num_arcs);
+	struct arc *prev = tal_arrz(working_ctx, struct arc, max_num_nodes);
+
+	combine_cost_function(working_ctx, graph, arc_prob_cost, arc_fee_cost,
+			      rq->biases, mu, arc_cost);
+
+	/* We solve a linear cost flow problem. */
+	if (!dijkstra_path(working_ctx, graph, src, dst,
+			   /* prune = */ true, arc_capacity,
+			   /*threshold = */ 1, arc_cost, potential, prev,
+			   distance)) {
+                /* This might fail if we are unable to find a suitable route, it
+                 * doesn't mean the plugin is broken, that's why we LOG_INFORM. */
+		rq_log(tmpctx, rq, LOG_INFORM,
+		       "%s: could not find a feasible single path", __func__);
+		goto fail;
+	}
+	const u64 pay_amount =
+	    amount_msat_ratio_ceil(params->amount, params->accuracy);
+
+	/* We dissect the flow into payment routes.
+	 * Actual amounts considering fees are computed for every
+	 * channel in the routes. */
+	flow_paths = get_flow_singlepath(ctx, params, graph, rq->gossmap,
+					 src, dst, pay_amount, prev);
+	if (!flow_paths) {
+		rq_log(tmpctx, rq, LOG_BROKEN,
+		       "%s: failed to extract flow paths from the single-path "
+		       "solution",
+		       __func__);
+		goto fail;
+	}
+	if (tal_count(flow_paths) != 1) {
+		rq_log(
+		    tmpctx, rq, LOG_BROKEN,
+		    "%s: single-path solution returned a multi route solution",
+		    __func__);
+		goto fail;
+	}
+	tal_free(working_ctx);
+	return flow_paths;
+
+fail:
+	tal_free(working_ctx);
+	return NULL;
+}
 
 const char *default_routes(const tal_t *ctx, struct route_query *rq,
 			   const struct gossmap_node *srcnode,
