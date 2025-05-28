@@ -568,25 +568,88 @@ def test_getroutes(node_factory):
                             'amount_msat': 5500005,
                             'delay': 99 + 6}]])
 
-    # We realize that this is impossible in a single path:
-    with pytest.raises(RpcError, match="The shortest path is 0x2x1, but 0x2x1/1 marked disabled by layer auto.no_mpp_support."):
-        l1.rpc.getroutes(source=nodemap[0],
-                         destination=nodemap[2],
-                         amount_msat=10000000,
-                         layers=['auto.no_mpp_support'],
-                         maxfee_msat=1000,
-                         final_cltv=99)
 
-    # But this will work.
-    check_getroute_paths(l1,
-                         nodemap[0],
-                         nodemap[2],
-                         9000000,
-                         [[{'short_channel_id_dir': '0x2x3/1',
-                            'next_node_id': nodemap[2],
-                            'amount_msat': 9000009,
-                            'delay': 99 + 6}]],
-                         layers=['auto.no_mpp_support'])
+def test_getroutes_single_path(node_factory):
+    """Test getroutes generating single path payments"""
+    gsfile, nodemap = generate_gossip_store(
+        [
+            GenChannel(0, 1),
+            GenChannel(1, 2, capacity_sats=9000),
+            GenChannel(1, 2, capacity_sats=10000),
+        ]
+    )
+    # Set up l1 with this as the gossip_store
+    l1 = node_factory.get_node(gossip_store_file=gsfile.name)
+
+    # To be able to route this amount two parts are needed, therefore a single
+    # pay search will fail.
+    # FIXME: the explanation for the failure is wrong
+    with pytest.raises(RpcError):
+        l1.rpc.getroutes(
+            source=nodemap[1],
+            destination=nodemap[2],
+            amount_msat=10000001,
+            layers=["auto.no_mpp_support"],
+            maxfee_msat=1000,
+            final_cltv=99,
+        )
+
+    # For this amount, only one solution is possible
+    check_getroute_paths(
+        l1,
+        nodemap[1],
+        nodemap[2],
+        10000000,
+        [
+            [
+                {
+                    "short_channel_id_dir": "1x2x2/1",
+                    "next_node_id": nodemap[2],
+                    "amount_msat": 10000010,
+                    "delay": 99 + 6,
+                }
+            ]
+        ],
+        layers=["auto.no_mpp_support"],
+    )
+
+    # To be able to route this amount two parts are needed, therefore a single
+    # pay search will fail.
+    # FIXME: the explanation for the failure is wrong
+    with pytest.raises(RpcError):
+        l1.rpc.getroutes(
+            source=nodemap[0],
+            destination=nodemap[2],
+            amount_msat=10000001,
+            layers=["auto.no_mpp_support"],
+            maxfee_msat=1000,
+            final_cltv=99,
+        )
+
+    # For this amount, only one solution is possible
+    check_getroute_paths(
+        l1,
+        nodemap[0],
+        nodemap[2],
+        10000000,
+        [
+            [
+                {
+                    "short_channel_id_dir": "0x1x0/1",
+                    "next_node_id": nodemap[1],
+                    "amount_msat": 10000020,
+                    "delay": 99 + 6 + 6,
+                },
+                {
+                    "short_channel_id_dir": "1x2x2/1",
+                    "next_node_id": nodemap[2],
+                    "amount_msat": 10000010,
+                    "delay": 99 + 6,
+                },
+            ]
+        ],
+        layers=["auto.no_mpp_support"],
+    )
 
 
 def test_getroutes_fee_fallback(node_factory):
