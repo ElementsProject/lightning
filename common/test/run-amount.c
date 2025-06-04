@@ -163,6 +163,75 @@ static void test_amount_with_fee(void)
 			    2100000001234567890ULL);
 }
 
+static void test_case_amount_div(u64 input, u64 div, u64 expected)
+{
+	struct amount_msat msat = amount_msat(input);
+	struct amount_msat expected_msat = amount_msat(expected);
+	struct amount_msat result_msat = amount_msat_div(msat, div);
+	assert(amount_msat_eq(result_msat, expected_msat));
+}
+
+static void test_case_amount_div_ceil(u64 input, u64 div, u64 expected)
+{
+	struct amount_msat msat = amount_msat(input);
+	struct amount_msat expected_msat = amount_msat(expected);
+	struct amount_msat result_msat = amount_msat_div_ceil(msat, div);
+	assert(amount_msat_eq(result_msat, expected_msat));
+}
+
+static void test_amount_div(void)
+{
+	test_case_amount_div(1, 1, 1);
+	test_case_amount_div(1, 2, 0);
+	test_case_amount_div(1, 3, 0);
+
+	test_case_amount_div(2, 1, 2);
+	test_case_amount_div(2, 2, 1);
+	test_case_amount_div(2, 3, 0);
+
+	test_case_amount_div(3, 1, 3);
+	test_case_amount_div(3, 2, 1);
+	test_case_amount_div(3, 3, 1);
+	test_case_amount_div(3, 4, 0);
+
+	test_case_amount_div(10, 1, 10);
+	test_case_amount_div(10, 2, 5);
+	test_case_amount_div(10, 3, 3);
+	test_case_amount_div(10, 4, 2);
+	test_case_amount_div(10, 5, 2);
+	test_case_amount_div(10, 6, 1);
+	test_case_amount_div(10, 7, 1);
+	test_case_amount_div(10, 8, 1);
+	test_case_amount_div(10, 9, 1);
+	test_case_amount_div(10, 10, 1);
+	test_case_amount_div(10, 11, 0);
+
+	test_case_amount_div_ceil(1, 1, 1);
+	test_case_amount_div_ceil(1, 2, 1);
+	test_case_amount_div_ceil(1, 3, 1);
+
+	test_case_amount_div_ceil(2, 1, 2);
+	test_case_amount_div_ceil(2, 2, 1);
+	test_case_amount_div_ceil(2, 3, 1);
+
+	test_case_amount_div_ceil(3, 1, 3);
+	test_case_amount_div_ceil(3, 2, 2);
+	test_case_amount_div_ceil(3, 3, 1);
+	test_case_amount_div_ceil(3, 4, 1);
+
+	test_case_amount_div_ceil(10, 1, 10);
+	test_case_amount_div_ceil(10, 2, 5);
+	test_case_amount_div_ceil(10, 3, 4);
+	test_case_amount_div_ceil(10, 4, 3);
+	test_case_amount_div_ceil(10, 5, 2);
+	test_case_amount_div_ceil(10, 6, 2);
+	test_case_amount_div_ceil(10, 7, 2);
+	test_case_amount_div_ceil(10, 8, 2);
+	test_case_amount_div_ceil(10, 9, 2);
+	test_case_amount_div_ceil(10, 10, 1);
+	test_case_amount_div_ceil(10, 11, 1);
+}
+
 #define FAIL_MSAT(msatp, str)					\
 	assert(!parse_amount_msat((msatp), (str), strlen(str)))
 #define PASS_MSAT(msatp, str, val)					\
@@ -330,5 +399,6 @@ int main(int argc, char *argv[])
 	}
 
 	test_amount_with_fee();
+	test_amount_div();
 	common_shutdown();
 }
