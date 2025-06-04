@@ -365,9 +365,13 @@ static void linearize_channel(const struct pay_parameters *params,
 	    b = 1 + amount_msat_ratio_floor(maxcap, params->accuracy);
 
 	/* An extra bound on capacity, here we use it to reduce the flow such
-	 * that it does not exceed htlcmax. */
+	 * that it does not exceed htlcmax.
+	 * Also there is no need to keep track of more capacity than the payment
+	 * amount, this can help us prune some arcs. */
 	u64 cap_on_capacity =
-	    amount_msat_ratio_floor(gossmap_chan_htlc_max(c, dir), params->accuracy);
+	    MIN(amount_msat_ratio_floor(gossmap_chan_htlc_max(c, dir),
+					params->accuracy),
+		amount_msat_ratio_ceil(params->amount, params->accuracy));
 
 	set_capacity(&capacity[0], a, &cap_on_capacity);
 	cost[0]=0;
@@ -603,8 +607,9 @@ static void init_linear_network(const tal_t *ctx,
 			// when the `i` hits the `next` node.
 			for(size_t k=0;k<CHANNEL_PARTS;++k)
 			{
-				/* FIXME: Can we prune arcs with 0 capacity?
-				 * if(capacity[k]==0)continue; */
+				/* prune arcs with 0 capacity */
+				if (capacity[k] == 0)
+					continue;
 
 				struct arc arc = arc_from_parts(chan_id, half, k, false);
 
@@ -964,10 +969,14 @@ struct flow **minflow(const tal_t *ctx,
 	params->source = source;
 	params->target = target;
 	params->amount = amount;
-	params->accuracy = AMOUNT_MSAT(1000);
-	/* FIXME: params->accuracy = amount_msat_max(amount_msat_div(amount,
-	 * 1000), AMOUNT_MSAT(1));
+	/* -> At most 1M units of flow are allowed, that reduces the
+	 * computational burden for algorithms that depend on it, eg. "capacity
+	 * scaling" and "successive shortest path".
+	 * -> Using Ceil operation instead of Floor so that
+	 *      accuracy x 1M >= amount
 	 * */
+	params->accuracy = amount_msat_max(
+	    AMOUNT_MSAT(1), amount_msat_div_ceil(amount, 1000000));
 
 	// template the channel partition into linear arcs
 	params->cap_fraction[0]=0;
