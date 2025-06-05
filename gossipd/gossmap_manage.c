@@ -481,6 +481,12 @@ const char *gossmap_manage_channel_announcement(const tal_t *ctx,
 		return NULL;
 	}
 
+	/* Already known? */
+	if (gossmap_find_chan(gossmap, &scid)
+	    || map_get(&gm->pending_ann_map, scid)
+	    || map_get(&gm->early_ann_map, scid))
+		return NULL;
+
 	warn = sigcheck_channel_announcement(ctx, &node_id_1, &node_id_2,
 					     &bitcoin_key_1, &bitcoin_key_2,
 					     &node_signature_1, &node_signature_2,
@@ -488,10 +494,6 @@ const char *gossmap_manage_channel_announcement(const tal_t *ctx,
 					     announce);
 	if (warn)
 		return warn;
-
-	/* Already known? */
-	if (gossmap_find_chan(gossmap, &scid))
-		return NULL;
 
 	pca = tal(gm, struct pending_cannounce);
 	pca->scriptpubkey = scriptpubkey_p2wsh(pca,
@@ -504,9 +506,7 @@ const char *gossmap_manage_channel_announcement(const tal_t *ctx,
 	/* Are we supposed to add immediately without checking with lightningd?
 	 * Unless we already got it from a peer and we're processing now!
 	 */
-	if (known_amount
-	    && !map_get(&gm->pending_ann_map, scid)
-	    && !map_get(&gm->early_ann_map, scid)) {
+	if (known_amount) {
 		/* Set with timestamp 0 (we will update once we have a channel_update) */
 		gossip_store_add(gm->daemon->gs, announce, 0, false,
 				 towire_gossip_store_channel_amount(tmpctx, *known_amount));
