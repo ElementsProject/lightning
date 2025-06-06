@@ -267,7 +267,7 @@ jobs:
           - NAME: postgres
             CFG: compile-gcc
             COMPILER: gcc
-            TEST_DB_PROVIDER: postgres
+            TEST_DB_PROVIDER: system-postgres
             TEST_NETWORK: regtest
           # And don't forget about elements (like cdecker did when
           # reworking the CI...)
@@ -290,6 +290,22 @@ jobs:
             COMPILER: gcc
             TEST_NETWORK: regtest
             EXPERIMENTAL_SPLICING: 1
+    services:
+      postgres:
+        # Docker Hub image
+        image: postgres
+        # Provide the password for postgres
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_INITDB_ARGS: "-c max_connections=2000"
+        ports:
+          - "5432:5432"
+        # Set health checks to wait until postgres has started
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -340,6 +356,8 @@ jobs:
           TEST_DB_PROVIDER: ${{ matrix.TEST_DB_PROVIDER }}
           TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
           LIGHTNINGD_POSTGRES_NO_VACUUM: 1
+          # Yes, that DSN is silly :-) It's only used for the TEST_DB_PROVIDER=system-postgres
+          CLN_TEST_POSTGRES_DSN: "postgres://postgres:postgres@127.0.0.1:5432/postgres"
         run: |
           env
           cat config.vars
