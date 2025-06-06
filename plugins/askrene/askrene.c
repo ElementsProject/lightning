@@ -337,6 +337,8 @@ enum algorithm {
 	/* Algorithm that finds the optimal routing solution constrained to a
 	 * single path. */
 	ALGO_SINGLE_PATH,
+	/* Min. Cost Flow by Successive Approximations, aka. Cost Scaling. */
+	ALGO_GOLDBERG_TARJAN,
 };
 
 static struct command_result *
@@ -349,6 +351,8 @@ param_algorithm(struct command *cmd, const char *name, const char *buffer,
 		**algo = ALGO_DEFAULT;
 	else if (streq(algo_str, "single-path"))
 		**algo = ALGO_SINGLE_PATH;
+	else if (streq(algo_str, "goldberg-tarjan"))
+		**algo = ALGO_GOLDBERG_TARJAN;
 	else
 		return command_fail_badparam(cmd, name, buffer, tok,
 					     "unknown algorithm");
@@ -604,6 +608,10 @@ static struct command_result *do_getroutes(struct command *cmd,
 		    rq, rq, srcnode, dstnode, *info->amount,
 		    *info->maxfee, *info->finalcltv, *info->maxdelay, &flows,
 		    &probability);
+	} else if (*info->dev_algo == ALGO_GOLDBERG_TARJAN) {
+		err = goldberg_tarjan_routes(
+		    rq, rq, srcnode, dstnode, *info->amount, *info->maxfee,
+		    *info->finalcltv, *info->maxdelay, &flows, &probability);
 	} else {
 		assert(*info->dev_algo == ALGO_DEFAULT);
 		err = default_routes(rq, rq, srcnode, dstnode, *info->amount,

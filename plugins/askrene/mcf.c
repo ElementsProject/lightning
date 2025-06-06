@@ -1256,6 +1256,109 @@ fail:
 	return NULL;
 }
 
+static struct flow **goldberg_tarjan_mincostflow(
+    const tal_t *ctx, const struct route_query *rq,
+    const struct gossmap_node *source, const struct gossmap_node *target,
+    struct amount_msat amount, u32 mu, double delay_feefactor)
+{
+	struct flow **flow_paths;
+	/* We allocate everything off this, and free it at the end,
+	 * as we can be called multiple times without cleaning tmpctx! */
+	tal_t *working_ctx = tal(NULL, char);
+	struct pay_parameters *params = tal(working_ctx, struct pay_parameters);
+
+	params->rq = rq;
+	params->source = source;
+	params->target = target;
+	params->amount = amount;
+	/* -> At most 1M units of flow are allowed, that reduces the
+	 * computational burden for algorithms that depend on it, eg. "capacity
+	 * scaling" and "successive shortest path".
+	 * -> Using Ceil operation instead of Floor so that
+	 *      accuracy x 1M >= amount
+	 * */
+	params->accuracy = amount_msat_max(
+	    AMOUNT_MSAT(1), amount_msat_div_ceil(amount, 1000000));
+
+	// template the channel partition into linear arcs
+	params->cap_fraction[0] = 0;
+	params->cost_fraction[0] = 0;
+	for (size_t i = 1; i < CHANNEL_PARTS; ++i) {
+		params->cap_fraction[i] =
+		    CHANNEL_PIVOTS[i] - CHANNEL_PIVOTS[i - 1];
+		params->cost_fraction[i] =
+		    log((1 - CHANNEL_PIVOTS[i - 1]) / (1 - CHANNEL_PIVOTS[i])) /
+		    params->cap_fraction[i];
+	}
+
+	params->delay_feefactor = delay_feefactor;
+	params->base_fee_penalty = base_fee_penalty_estimate(amount);
+
+	// build the uncertainty network with linearization and residual arcs
+	struct graph *graph;
+	double *arc_prob_cost;
+	s64 *arc_fee_cost;
+	s64 *arc_capacity;
+	/* FIXME: with cost scaling it might be a good idea to put also an upper
+	 * bound on the cost per unit flow on arcs. */
+	init_linear_network(working_ctx, params, &graph, &arc_prob_cost,
+			    &arc_fee_cost, &arc_capacity);
+
+	const size_t max_num_arcs = graph_max_num_arcs(graph);
+	const size_t max_num_nodes = graph_max_num_nodes(graph);
+	s64 *arc_cost = tal_arrz(working_ctx, s64, max_num_arcs);
+	s64 *node_excess = tal_arrz(working_ctx, s64, max_num_nodes);
+
+	const struct node dst = {.idx = gossmap_node_idx(rq->gossmap, target)};
+	const struct node src = {.idx = gossmap_node_idx(rq->gossmap, source)};
+
+	/* Since we have constraint accuracy, ask to find a payment solution
+	 * that can pay a bit more than the actual value rathen than undershoot
+	 * it. That's why we use the ceil function here. */
+	const u64 pay_amount =
+	    amount_msat_ratio_ceil(params->amount, params->accuracy);
+
+	/* FIXME: review this combine cost function, with cost scaling we want
+	 * the cost to be limited so it might be a good idea to combine fee and
+	 * probability costs with a max preserving transformation, eg. a
+	 * rotation. */
+	combine_cost_function(working_ctx, graph, arc_prob_cost, arc_fee_cost,
+			      rq->biases, mu, arc_cost);
+	node_excess[src.idx] = pay_amount;
+	node_excess[dst.idx] = -pay_amount;
+
+	/* We solve a linear MCF problem. */
+        /* FIXME: return to the caller the value of the optimal cost function */
+        /* FIXME: given the fact that this algorithm is based on successive
+         * approximations, we might add a parameter here to limit the accuracy
+         * of the final solution, so that we can exchange accuracy for runtime
+         * performance. */
+	if (!goldberg_tarjan_mcf(working_ctx, graph, node_excess, arc_capacity,
+				 arc_cost)) {
+		rq_log(tmpctx, rq, LOG_INFORM,
+		       "%s: unable to find a feasible flow.", __func__);
+		goto fail;
+	}
+
+	/* We dissect the solution of the MCF into payment routes.
+	 * Actual amounts considering fees are computed for every
+	 * channel in the routes. */
+	flow_paths =
+	    get_flow_paths(ctx, working_ctx, params, graph, arc_capacity);
+	if (!flow_paths) {
+		rq_log(tmpctx, rq, LOG_BROKEN,
+		       "%s: failed to extract flow paths from the MCF solution",
+		       __func__);
+		goto fail;
+	}
+	tal_free(working_ctx);
+	return flow_paths;
+
+fail:
+	tal_free(working_ctx);
+	return NULL;
+}
+
 static const char *
 linear_routes(const tal_t *ctx, struct route_query *rq,
 	      const struct gossmap_node *srcnode,
@@ -1418,4 +1521,17 @@ const char *single_path_routes(const tal_t *ctx, struct route_query *rq,
 	return linear_routes(ctx, rq, srcnode, dstnode, amount, maxfee,
 			     finalcltv, maxdelay, flows, probability,
 			     single_path_flow);
+}
+
+const char *goldberg_tarjan_routes(const tal_t *ctx, struct route_query *rq,
+				   const struct gossmap_node *srcnode,
+				   const struct gossmap_node *dstnode,
+				   struct amount_msat amount,
+				   struct amount_msat maxfee, u32 finalcltv,
+				   u32 maxdelay, struct flow ***flows,
+				   double *probability)
+{
+	return linear_routes(ctx, rq, srcnode, dstnode, amount, maxfee,
+			     finalcltv, maxdelay, flows, probability,
+			     goldberg_tarjan_mincostflow);
 }

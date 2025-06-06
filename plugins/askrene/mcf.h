@@ -80,4 +80,13 @@ const char *single_path_routes(const tal_t *ctx, struct route_query *rq,
 			       u32 maxdelay, struct flow ***flows,
 			       double *probability);
 
+/* A wrapper to the Goldberg-Tarjan's MCF solver. */
+const char *goldberg_tarjan_routes(const tal_t *ctx, struct route_query *rq,
+				   const struct gossmap_node *srcnode,
+				   const struct gossmap_node *dstnode,
+				   struct amount_msat amount,
+				   struct amount_msat maxfee, u32 finalcltv,
+				   u32 maxdelay, struct flow ***flows,
+				   double *probability);
+
 #endif /* LIGHTNING_PLUGINS_ASKRENE_MCF_H */
