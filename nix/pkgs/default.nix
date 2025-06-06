@@ -43,7 +43,7 @@ stdenv.mkDerivation {
     ]
     ++ lib.optionals postgresSupport [ postgresql ]
     ++ lib.optionals stdenv.isDarwin [
-      cctools
+      darwin.cctools
       darwin.autoSignDarwinBinariesHook
     ];
 
