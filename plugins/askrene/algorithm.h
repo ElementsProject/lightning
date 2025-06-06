@@ -176,4 +176,23 @@ bool mcf_refinement(const tal_t *ctx,
 		    const s64 *cost,
 		    s64 *potential);
 
+/* Minimum-Cost Flow "cost scaling, push/relabel"
+ *
+ * see Goldberg-Tarjan "Finding Minimum-Cost Circulations by Successive
+ * Approximation" Math. of Op. Research, Vol. 15, No. 3 (Aug. 1990), pp.
+ * 430--466.
+ *
+ * @ctx: allocator.
+ * @graph: graph, assumes the existence of reverse (dual) arcs.
+ * @supply: supply/demand encoding, supply[i]>0 for source nodes and supply[i]<0
+ * for sinks. It is modified by the algorithm execution. When a feasible
+ * solution is found supply[i] = 0 for every node.
+ * @residual_capacity: residual capacity on arcs, here the final solution is
+ * encoded.
+ * @cost: cost per unit of flow on arcs. It is assumed that dual arcs have the
+ * opposite cost of its twin: cost[i] = -cost[dual(i)].
+ * */
+bool goldberg_tarjan_mcf(const tal_t *ctx, const struct graph *graph,
+			 s64 *supply, s64 *residual_capacity, const s64 *cost);
+
 #endif /* LIGHTNING_PLUGINS_ASKRENE_ALGORITHM_H */
