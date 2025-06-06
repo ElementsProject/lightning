@@ -128,4 +128,6 @@ common/test/run-htable:					\
 
 common/test/run-shutdown_scriptpubkey: wire/towire.o wire/fromwire.o
 
+common/test/run-wireaddr: wire/towire.o wire/fromwire.o
+
 check-units: $(COMMON_TEST_PROGRAMS:%=unittest/%)
