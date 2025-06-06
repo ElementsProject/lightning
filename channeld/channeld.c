@@ -2577,10 +2577,11 @@ static void handle_peer_fail_htlc(struct peer *peer, const u8 *msg)
 	u8 *reason;
 	struct htlc *htlc;
 	struct failed_htlc *f;
+	struct tlv_update_fail_htlc_tlvs *tlvs_attr_data;
 
 	/* reason is not an onionreply because spec doesn't know about that */
 	if (!fromwire_update_fail_htlc(msg, msg,
-				       &channel_id, &id, &reason)) {
+				       &channel_id, &id, &reason, &tlvs_attr_data)) {
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Bad update_fail_htlc %s", tal_hex(msg, msg));
 	}
@@ -2591,7 +2592,12 @@ static void handle_peer_fail_htlc(struct peer *peer, const u8 *msg)
 		htlc->failed = f = tal(htlc, struct failed_htlc);
 		f->id = id;
 		f->sha256_of_onion = NULL;
-		f->onion = new_onionreply(f, take(reason));
+		struct attribution_data *attr = tal(f, struct attribution_data);
+		attr->htlc_hold_time = tal_dup_arr(f, u8, tlvs_attr_data->attribution_data->htlc_hold_times, 80, 0);
+		attr->truncated_hmac = tal_dup_arr(f, u8, tlvs_attr_data->attribution_data->truncated_hmacs, 840, 0);
+		f->onion = new_onionreply(f, take(reason),
+					  attr);
+
 		start_commit_timer(peer);
 		return;
 	}
@@ -4964,8 +4970,12 @@ static void send_fail_or_fulfill(struct peer *peer, const struct htlc *h)
 								f->sha256_of_onion,
 								f->badonion);
 		} else {
+			struct tlv_update_fail_htlc_tlvs *attr_data_tlv = tlv_update_fail_htlc_tlvs_new(peer);
+			attr_data_tlv->attribution_data = tal(peer, struct tlv_update_fail_htlc_tlvs_attribution_data);
+			memcpy(attr_data_tlv->attribution_data->htlc_hold_times, f->onion->attr_data->htlc_hold_time, 80);
+			memcpy(attr_data_tlv->attribution_data->truncated_hmacs, f->onion->attr_data->truncated_hmac, 840);
 			msg = towire_update_fail_htlc(peer, &peer->channel_id, h->id,
-						      f->onion->contents);
+						      f->onion->contents, attr_data_tlv);
 		}
 	} else if (h->r) {
 		msg = towire_update_fulfill_htlc(NULL, &peer->channel_id, h->id,
