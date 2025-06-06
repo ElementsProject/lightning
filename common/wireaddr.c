@@ -48,7 +48,6 @@ bool fromwire_wireaddr(const u8 **cursor, size_t *max, struct wireaddr *addr)
 	case ADDR_TYPE_DNS:
 		addr->addrlen = fromwire_u8(cursor, max);
 		memset(&addr->addr, 0, sizeof(addr->addr));
-		addr->addr[addr->addrlen] = 0;
 		break;
 	default:
 		return false;
