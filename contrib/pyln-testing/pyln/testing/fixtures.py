@@ -1,5 +1,5 @@
 from concurrent import futures
-from pyln.testing.db import SqliteDbProvider, PostgresDbProvider
+from pyln.testing.db import SqliteDbProvider, PostgresDbProvider, SystemPostgresDbProvider
 from pyln.testing.utils import NodeFactory, BitcoinD, ElementsD, env, LightningNode, TEST_DEBUG, TEST_NETWORK
 from pyln.client import Millisatoshi
 from typing import Dict
@@ -640,6 +640,7 @@ def checkMemleak(node):
 providers = {
     'sqlite3': SqliteDbProvider,
     'postgres': PostgresDbProvider,
+    'system-postgres': SystemPostgresDbProvider,
 }
 
 
