@@ -12,6 +12,7 @@ import string
 import subprocess
 import time
 from typing import Dict, List, Optional, Union
+from urllib.parse import urlparse
 
 
 class BaseDb(object):
@@ -241,3 +242,48 @@ class PostgresDbProvider(object):
         self.proc.wait()
         shutil.rmtree(self.pgdir)
         drop_unused_port(self.port)
+
+
+class SystemPostgresDbProvider(PostgresDbProvider):
+    """A DB provider that uses an externally controlled postgres instance.
+
+    Spinning postgres instances up and down is costly. We are keeping
+    tests separate by assigning them random names, so we can share a
+    single DB cluster. This provider does just that: it talks to an
+    externally managed cluster, creates and deletes DBs on demand, but
+    does not manage the cluster's lifecycle.
+
+    The external cluster to talk to can be specified via the
+    `CLN_TEST_POSTGRES_DSN` environment variable.
+
+    Please make sure that the user specified in the DSN has the
+    permission to create new DBs.
+
+    Since tests, may end up interrupted, and may not clean up the
+    databases they created, be aware that over time your cluster may
+    accumulate quite a few databases. This mode is mostly intended for
+    CI where a throwaway postgre cluster can be spun up and tested
+    against.
+
+    """
+
+    def __init__(self, directory):
+        self.dsn = os.environ.get("CLN_TEST_POSTGRES_DSN")
+        self.conn = None
+        parts = urlparse(self.dsn)
+
+        self.hostname = parts.hostname
+        self.username = parts.username
+        self.port = parts.port
+        self.dbname = parts.path
+
+    def stop(self):
+        pass
+
+    def start(self):
+        self.conn = psycopg2.connect(self.dsn)
+        cur = self.conn.cursor()
+        cur.execute("SELECT 1")
+        cur.close()
+        # Required for CREATE DATABASE to work
+        self.conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
