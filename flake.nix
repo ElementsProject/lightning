@@ -2,7 +2,7 @@
   description = "Core Lightning (CLN): A specification compliant Lightning Network implementation in C";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
 
     flake-parts.url = "github:hercules-ci/flake-parts";
 
