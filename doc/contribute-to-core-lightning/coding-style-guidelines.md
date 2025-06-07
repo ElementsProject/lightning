@@ -122,10 +122,6 @@ Sometimes the right way is unclear, so it's best not to spend time on it.  It's 
 
 Don't overdesign: complexity is a killer.  If you need a fancy data structure, start with a brute force linked list.  Once that's working, perhaps consider your fancy structure, but don't implement a generic thing.  Use `/* FIXME: ...*/` to salve your conscience.
 
-## Keep Your Patches Reviewable
-
-Try to make a single change at a time.  It's tempting to do "drive-by" fixes as you see other things, and a minimal amount is unavoidable, but you can end up shaving infinite yaks.  This is a good time to drop a `/* FIXME: ...*/` comment and move on.
-
 ## Creating JSON APIs
 
 Our JSON RPCs always return a top-level object.  This allows us to add warnings (e.g. that we're still starting up) or other optional fields later.
@@ -150,9 +146,70 @@ So, only output it if `allow-deprecated-apis` is true, so users can test their c
 
 Changing existing input parameters is harder, and should generally be avoided.  Adding input parameters is possible, but should be done cautiously as too many parameters get unwieldy quickly.
 
-## Github Workflows
+## Github Workflows: Pull Requests
 
 We have adopted a number of workflows to facilitate the development of Core Lightning, and to make things more pleasant for contributors.
+
+### Draft Requests Don't Get Reviewed
+
+You can create draft PRs to run CI and do experimentation; these will not generally be reviewed (unless you specifically ask).
+
+### Commit Format
+
+The subject line should be "subsystem: intent" where subsystem is the subdaemon
+or directory name (e.g. "doc", "lightningd", or "common").  Don't annotate with "Chore" etc.  That should be clear from your subject.  Here are some examples:
+
+	wallet: fix incorrect channel_htlcs id migration.
+	lightningd: enable peer storage by default.
+	common: don't enable steal loop checking unless we're doing memleak checking.
+
+Following this is an english language description of what you did.  Your commits are permitted to know the future, such as "we will use this to FOO": this provides much-needed context for readers, as well as making you look like a certifiable wizard.
+
+Feel free to use "Fixes:" lines to trigger closes on GitHub, but always assume GitHub will vanish tomorrow.  The commit message must contain all the context, including direct quotes of the bug report or error message it is fixing (critical for future searches, should anyone run into this problem again!).
+
+I use `Signed-off-by` lines on my commits to indicate that I have the right to contribute this code, but we do not enforce this on others.
+
+### Creating Pull Requests
+
+Generally, a PR should implement one feature or fix one bug, though sometimes it makes sense to cluster (e.g. you find one bug, then you look for other related ones).
+
+Each commit must be self-contained: it should pass CI, and explain itself without any context (e.g. once it's included, it won't be in a PR, so it won't be obvious what it's related to).
+
+### Changing Internal APIs
+
+Here's how you introduce a new API:
+
+1. Introduce New Thing
+2. Convert all users to New Thing
+3. Remove Old Thing
+
+These may be in a single commit if it's trivial, but three separate commits if not.  Consider the reviewer!
+
+You should always make sure that API changes break old users: give them a different name, or change argument types or number so that it won't work at all.  This is critical with distributed development, so you have no way of knowing what other development is happening in parallel.
+
+### Making a Fix
+
+A common pattern is:
+
+1. Write a test which demonstrates the problem.
+2. Mark the test `@pytest.mark.xfail(strict=True)` and commit it.
+3. Write the fix (may involve multiple commits if you have to create new APIs, etc) and remove the marker in the final commit.
+
+### Keep Your Patches Reviewable
+
+Try to make a single change at a time.  It's tempting to do "drive-by" fixes as you see other things, and a minimal amount is unavoidable, but you can end up shaving infinite yaks.  This is a good time to drop a `/* FIXME: ...*/` comment and move on, or at least use a separate commit.  If you end up with a lot of cleanups, consider an entire PR of just cleanups.
+
+### Use of Milestones
+
+We generally attach Milestones to specific PRs and issues to indicate where we hope they will land.  This is not guaranteed until they're actually included, but it does focus review and attention as the release deadline closes.
+
+### Handling Feedback
+
+Feedback should generally be addressed (unless trivial) by appending fixup! commits, which must be folded before final inclusion into the master branch.  We generally don't require multiple rounds of feedback: unless the reviewer says otherwise, just address them, then apply the PR.
+
+### When Your PR is Ready
+
+You must always rebase, never merge.  Merging preserves blame, but that's not as critical as preserving bisectability.  Non-trivial merges completely break bisect, which is often a vital tool in debugging once you have reproduced a problem.
 
 ### Changelog Entries in Commit Messages
 
@@ -165,8 +222,8 @@ We are maintaining a changelog in the top-level directory of this project. Howev
 - `Changelog-Removed: ` if a (previously deprecated) feature has been removed
 - `Changelog-Experimental: ` if it only affects experimental- config options
 
-In case you think the pull request is small enough not to require a changelog entry please use `Changelog-None` in one of the commit messages to opt out.
+In case you think the pull request is small enough not to require a changelog entry (or only alters things made in the same release) please use `Changelog-None` in one of the commit messages to opt out.
 
 Under some circumstances a feature may be removed even without deprecation warning if it was not part of a released version yet, or the removal is urgent.
 
-In order to ensure that each pull request has the required `Changelog-*:` line for the changelog our trusty @bitcoin-bot will check logs whenever a pull request is created or updated and search for the required line. If there is no such line it'll mark the pull request as `pending` to call out the need for an entry.
+In order to ensure that each pull request has the required `Changelog-*:` line for the changelog our CI will check logs whenever a pull request is created or updated and search for the required line. You can simply put "Changelog-None" in the PR description to override it.
