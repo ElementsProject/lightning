@@ -354,7 +354,7 @@ jobs:
           TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
           LIGHTNINGD_POSTGRES_NO_VACUUM: 1
           # Yes, that DSN is silly :-) It's only used for the TEST_DB_PROVIDER=system-postgres
-          CLN_TEST_POSTGRES_DSN: postgres://postgres:postgres@postgress:5432/postgres
+          CLN_TEST_POSTGRES_DSN: postgres://postgres:postgres@postgres:5432/postgres
         run: |
           env
           cat config.vars
