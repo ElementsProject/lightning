@@ -22,6 +22,7 @@ PLUGIN_ASKRENE_HEADER := \
 	plugins/askrene/explain_failure.h \
 	plugins/askrene/graph.h \
 	plugins/askrene/priorityqueue.h \
+	plugins/askrene/queue.h \
 	plugins/askrene/algorithm.h
 
 PLUGIN_ASKRENE_OBJS := $(PLUGIN_ASKRENE_SRC:.c=.o)
