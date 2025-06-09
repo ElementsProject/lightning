@@ -1197,12 +1197,7 @@ static u8 *send_commit_part(const tal_t *ctx,
 			     (int)splice_amnt, (int)remote_splice_amnt,
 			     remote_index);
 
-		if (batch_size > 1) {
-			cs_tlv->splice_info = tal(cs_tlv, struct tlv_commitment_signed_tlvs_splice_info);
-
-			cs_tlv->splice_info->batch_size = batch_size;
-			cs_tlv->splice_info->funding_txid = funding->txid;
-		}
+		cs_tlv->splice_info = tal_dup(cs_tlv, struct bitcoin_txid, &funding->txid);
 	}
 
 	txs = channel_txs(tmpctx, funding, funding_sats, &htlc_map,
@@ -1272,6 +1267,69 @@ static u8 *send_commit_part(const tal_t *ctx,
 static s64 sats_diff(struct amount_sat a, struct amount_sat b)
 {
         return (s64)a.satoshis - (s64)b.satoshis; /* Raw: splicing numbers can wrap! */
+}
+
+static void send_message_batch(struct peer *peer, u8 **msgs)
+{
+	size_t size;
+	size_t hdr_size = tal_bytelen(towire_protocol_batch_element(tmpctx, 0));
+	u8 *batch_msg, *final_msg, *final_msg_ptr;
+	struct tlv_start_batch_tlvs *tlvs;
+
+	/* We prefix each message with an interal wire type,
+	 * protocol_batch_element. connectd will eat each message so they don't
+	 * actually go out to the peer. It's just so connectd can chop up the
+	 * message batch back out into individual messages. */
+
+	size = 0;
+	for(u32 i = 0; i < tal_count(msgs); i++)
+		size += tal_bytelen(msgs[i]) + hdr_size;
+
+	/* Compiler mistakenly thinks batch_msg may be used uninitialized */
+	batch_msg = NULL;
+
+	/* Only append `start_batch` if batch is more than 1 */
+	if (tal_count(msgs) > 1) {
+		tlvs = tlv_start_batch_tlvs_new(tmpctx);
+		tlvs->batch_info = tal(tlvs, u16);
+		*tlvs->batch_info = WIRE_COMMITMENT_SIGNED;
+		batch_msg = towire_start_batch(NULL, &peer->channel_id,
+					       tal_count(msgs), tlvs);
+		size += tal_bytelen(batch_msg);
+	}
+
+	/* Now we know the size of our `final_msg` so we allocate. */
+	final_msg = tal_arr(NULL, u8, size);
+	final_msg_ptr = final_msg;
+
+	/* Append the `start_batch` here, again if batch is more than 1 */
+	if (tal_count(msgs) > 1) {
+		memcpy(final_msg_ptr,
+		       towire_protocol_batch_element(tmpctx,
+		       				     tal_bytelen(batch_msg)),
+		       				     hdr_size);
+		final_msg_ptr += hdr_size;
+
+		memcpy(final_msg_ptr, batch_msg, tal_bytelen(batch_msg));
+		final_msg_ptr += tal_bytelen(batch_msg);
+		tal_free(batch_msg);
+	}
+
+	/* Now copy the bytes from all messages in `msgs` */
+	for(u32 i = 0; i < tal_count(msgs); i++) {
+		memcpy(final_msg_ptr,
+		       towire_protocol_batch_element(tmpctx,
+		       				     tal_bytelen(msgs[i])),
+		       				     hdr_size);
+		final_msg_ptr += hdr_size;
+
+		memcpy(final_msg_ptr, msgs[i], tal_bytelen(msgs[i]));
+		final_msg_ptr += tal_bytelen(msgs[i]);
+	}
+
+	assert(final_msg + size == final_msg_ptr);
+	peer_write(peer->pps, final_msg);
+	tal_free(final_msg);
 }
 
 static void send_commit(struct peer *peer)
@@ -1440,8 +1498,7 @@ static void send_commit(struct peer *peer)
 
 	peer->next_index[REMOTE]++;
 
-	for(u32 i = 0; i < tal_count(msgs); i++)
-		peer_write(peer->pps, take(msgs[i]));
+	send_message_batch(peer, msgs);
 
 	maybe_send_shutdown(peer);
 
@@ -1963,11 +2020,11 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 	if (peer->splice_state->await_commitment_succcess
 	    && !tal_count(peer->splice_state->inflights) && cs_tlv && cs_tlv->splice_info) {
 	    	if (!bitcoin_txid_eq(&peer->channel->funding.txid,
-	    			     &cs_tlv->splice_info->funding_txid)) {
+	    			     cs_tlv->splice_info)) {
 			status_info("Ignoring stale commit_sig for channel_id"
 				    " %s, as %s is locked in now.",
 				    fmt_bitcoin_txid(tmpctx,
-				    		     &cs_tlv->splice_info->funding_txid),
+				    		     cs_tlv->splice_info),
 				    fmt_bitcoin_txid(tmpctx,
 				    		     &peer->channel->funding.txid));
 			return NULL;
@@ -2017,22 +2074,17 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 		outpoint = peer->splice_state->inflights[commit_index - 1]->outpoint;
 		funding_sats = peer->splice_state->inflights[commit_index - 1]->amnt;
 
-		if (cs_tlv && cs_tlv->splice_info
-		    && cs_tlv->splice_info->batch_size == 1)
-			peer_failed_err(peer->pps, &peer->channel_id,
-					"batch_size can never be 1");
-
 		status_debug("handle_peer_commit_sig for inflight outpoint %s",
 			     fmt_bitcoin_txid(tmpctx, &outpoint.txid));
 
 		if (cs_tlv->splice_info
 		    && !bitcoin_txid_eq(&outpoint.txid,
-					&cs_tlv->splice_info->funding_txid))
+					cs_tlv->splice_info))
 			peer_failed_err(peer->pps, &peer->channel_id,
 					"Expected commit sig message for %s but"
 					" got %s",
 					fmt_bitcoin_txid(tmpctx, &outpoint.txid),
-					fmt_bitcoin_txid(tmpctx, &cs_tlv->splice_info->funding_txid));
+					fmt_bitcoin_txid(tmpctx, cs_tlv->splice_info));
 	}
 	else {
 		outpoint = peer->channel->funding;
@@ -2089,7 +2141,7 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 				 fmt_amount_sat(tmpctx, funding_sats),
 				 cs_tlv && cs_tlv->splice_info
 				 	? fmt_bitcoin_txid(tmpctx,
-							   &cs_tlv->splice_info->funding_txid)
+							   cs_tlv->splice_info)
 				 	: "N/A",
 				 peer->splice_state->await_commitment_succcess ? "yes"
 				 					: "no",
@@ -2253,7 +2305,7 @@ static int commit_index_from_msg(const u8 *msg, struct peer *peer)
 	if (!cs_tlv || !cs_tlv->splice_info)
 		return -1;
 
-	funding_txid = cs_tlv->splice_info->funding_txid;
+	funding_txid = *cs_tlv->splice_info;
 
 	if (bitcoin_txid_eq(&funding_txid, &peer->channel->funding.txid))
 		return 0;
@@ -2306,27 +2358,29 @@ static struct commitsig_info *handle_peer_commit_sig_batch(struct peer *peer,
 							   s64 remote_splice_amnt,
 							   u64 local_index,
 							   const struct pubkey *local_per_commit,
-							   bool allow_empty_commit)
+							   bool allow_empty_commit,
+							   u16 batch_size)
 {
 	struct channel_id channel_id;
 	struct bitcoin_signature commit_sig;
 	secp256k1_ecdsa_signature *raw_sigs;
-	u16 batch_size;
 	const u8 **msg_batch;
 	enum peer_wire type;
 	struct tlv_commitment_signed_tlvs *cs_tlv
 		= tlv_commitment_signed_tlvs_new(tmpctx);
 	status_debug("fromwire_commitment_signed(%p) primary", msg);
+	check_tx_abort(peer, msg, NULL);
+	type = fromwire_peektype(msg);
+	if (type != WIRE_COMMITMENT_SIGNED)
+		peer_failed_err(peer->pps, &peer->channel_id,
+				"Expected splice related "
+				"WIRE_COMMITMENT_SIGNED but got %s.",
+				peer_wire_name(type));
 	if (!fromwire_commitment_signed(tmpctx, msg,
 					&channel_id, &commit_sig.s, &raw_sigs,
 					&cs_tlv))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Bad commit_sig %s", tal_hex(msg, msg));
-
-	/* Default batch_size is 1 */
-	batch_size = 1;
-	if (cs_tlv->splice_info && cs_tlv->splice_info->batch_size)
-		batch_size = cs_tlv->splice_info->batch_size;
 
 	msg_batch = tal_arr(tmpctx, const u8*, batch_size);
 	msg_batch[0] = msg;
@@ -2363,14 +2417,6 @@ static struct commitsig_info *handle_peer_commit_sig_batch(struct peer *peer,
 					 " splice_info",
 					 tal_hex(sub_msg, sub_msg), i, batch_size);
 
-		if (!sub_cs_tlv->splice_info
-			|| sub_cs_tlv->splice_info->batch_size != batch_size)
-			peer_failed_err(peer->pps, &peer->channel_id,
-					"batch_size value mismatch in"
-					" commit_sig bundle, item [%"PRIu16
-					"/%"PRIu16"] %s", i, batch_size,
-					tal_hex(sub_msg, sub_msg));
-
 		msg_batch[i] = sub_msg;
 		status_debug("msg_batch[%d]: %p", (int)i, msg_batch[i]);
 	}
@@ -2384,6 +2430,24 @@ static struct commitsig_info *handle_peer_commit_sig_batch(struct peer *peer,
 				      local_index, local_per_commit,
 				      allow_empty_commit, msg_batch);
 }
+
+static void handle_peer_start_batch(struct peer *peer, const u8 *msg)
+{
+	u16 batch_size;
+	struct channel_id channel_id;
+	if (!fromwire_start_batch(tmpctx, msg, &channel_id, &batch_size, NULL))
+		peer_failed_warn(peer->pps, &peer->channel_id,
+				 "Bad start_batch %s", tal_hex(msg, msg));
+
+	handle_peer_commit_sig_batch(peer, peer_read(tmpctx, peer->pps), 0,
+				     peer->channel->funding_pubkey[REMOTE],
+				     NULL, 0, 0,
+				     peer->next_index[LOCAL],
+				     &peer->next_local_per_commit,
+				     false,
+				     batch_size);
+}
+
 
 /* Pops the penalty base for the given commitnum from our internal list. There
  * may not be one, in which case we return NULL and leave the list
@@ -4850,13 +4914,17 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	case WIRE_UPDATE_ADD_HTLC:
 		handle_peer_add_htlc(peer, msg);
 		return;
+	case WIRE_START_BATCH:
+		handle_peer_start_batch(peer, msg);
+		return;
 	case WIRE_COMMITMENT_SIGNED:
 		handle_peer_commit_sig_batch(peer, msg, 0,
 					     peer->channel->funding_pubkey[REMOTE],
 					     NULL, 0, 0,
 					     peer->next_index[LOCAL],
 					     &peer->next_local_per_commit,
-					     false);
+					     false,
+					     1);
 		return;
 	case WIRE_UPDATE_FEE:
 		handle_peer_feechange(peer, msg);
@@ -4920,6 +4988,7 @@ static void peer_in(struct peer *peer, const u8 *msg)
 		return;
 
 	/* These are all swallowed by connectd */
+	case WIRE_PROTOCOL_BATCH_ELEMENT:
 	case WIRE_CHANNEL_ANNOUNCEMENT:
 	case WIRE_CHANNEL_UPDATE:
 	case WIRE_NODE_ANNOUNCEMENT:
@@ -5122,8 +5191,7 @@ static void resend_commitment(struct peer *peer, struct changed_htlc *last)
 						peer->splice_state->inflights[i]->remote_funding));
 	}
 
-	for(i = 0; i < tal_count(msgs); i++)
-		peer_write(peer->pps, take(msgs[i]));
+	send_message_batch(peer, msgs);
 
 	/* If we have already received the revocation for the previous, the
 	 * other side shouldn't be asking for a retransmit! */
