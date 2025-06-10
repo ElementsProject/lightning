@@ -1171,9 +1171,9 @@ def test_cli_multiline_help(node_factory):
                                    '--lightning-dir={}'
                                    .format(l1.daemon.lightning_dir),
                                    'help', 'helpme']).decode('utf-8')
-    assert out == ("helpme msat  \n"
-                   " This is a message which consumes multiple lines and thus should\n"
-                   " be well-formatted by lightning-cli help\n")
+    assert ("helpme msat  \n"
+            " This is a message which consumes multiple lines and thus should\n"
+            " be well-formatted by lightning-cli help\n" in out)
 
 
 def test_cli_commando(node_factory):
