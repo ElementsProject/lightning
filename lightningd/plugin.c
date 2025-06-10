@@ -522,6 +522,10 @@ static const char *plugin_log_handle(struct plugin *plugin,
 		const char *log_msg = json_escape_unescape(tmpctx, esc);
 		char **lines;
 
+		/* Weird \ escapes aren't handled by json_escape_unescape.  This is for you, clboss! */
+		if (!log_msg)
+			goto print_raw;
+
 		lines = tal_strsplit(tmpctx, log_msg, "\n", STR_EMPTY_OK);
 
 		for (size_t i = 0; lines[i]; i++) {
@@ -529,6 +533,7 @@ static const char *plugin_log_handle(struct plugin *plugin,
 			log_(plugin->log, level, NULL, call_notifier, "%s", lines[i]);
 		}
 	} else {
+	print_raw:
 		log_(plugin->log, level, NULL, call_notifier, "%.*s",
 		     msgtok->end - msgtok->start,
 		     plugin->buffer + msgtok->start);
