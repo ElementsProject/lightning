@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 This release named by @USERNAME.
 
+**WARNING**: `--experimental-splicing` is incompatible with previous CLN versions!  You will not
+              be able to reestablish channels with older nodes at all, if this is enabled!
+
 ### Added
 
  - Protocol: we now offer peer storage to any peers who create a channel. ([#8140])
@@ -30,7 +33,7 @@ This release named by @USERNAME.
 
 ### Changed
 
- - Splicing: The splicing protocol is now compatible with Eclair. ([#8021])
+ - Splicing: The splicing protocol is now compatible with Eclair, incompatible with previous CLN versions ([#8021])
  - Protocol: We now exchange `announcement_signatures` as soon as we're ready, rather than waiting for 6 blocks (as per recent BOLT update.) ([#8136])
  - Protocol: We won't forget still-opening channels after 2016 blocks, unless there are more than 100. ([#8162])
  - Reckless: Accepts a source url or local directory as an argument to `reckless install`. ([#8266])
