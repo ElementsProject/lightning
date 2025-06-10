@@ -36,6 +36,7 @@ FUZZ_COMMON_OBJS := \
 	common/daemon_conn.o				\
 	common/derive_basepoints.o			\
 	common/descriptor_checksum.o			\
+	common/dev_disconnect.o				\
 	common/features.o				\
 	common/fee_states.o				\
 	common/hash_u5.o				\
@@ -58,6 +59,7 @@ FUZZ_COMMON_OBJS := \
 	common/status_wiregen.o				\
 	common/utils.o					\
 	common/version.o				\
+	common/wire_error.o				\
 	wire/bolt12_wiregen.o				\
 	wire/fromwire.o					\
 	wire/onion_wiregen.o				\
