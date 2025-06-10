@@ -4382,6 +4382,7 @@ def test_setconfig(node_factory, bitcoind):
         assert lines == ["# Created and update by setconfig, but you can edit this manually when node is stopped.", "min-capacity-sat=400000"]
 
 
+@pytest.mark.skipif(os.getuid() == 0, reason="Test requires non-root user for permission checks to work")
 def test_setconfig_access(node_factory, bitcoind):
     """Test that we correctly fail (not crash) if config file/dir not writable"""
 
