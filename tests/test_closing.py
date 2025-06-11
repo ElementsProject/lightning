@@ -122,6 +122,12 @@ def test_closing_simple(node_factory, bitcoind, chainparams):
     tags = check_utxos_channel(l1, [channel_id], expected_1)
     check_utxos_channel(l2, [channel_id], expected_2, tags)
 
+    # Forget channel
+    bitcoind.generate_block(50)
+    sync_blockheight(bitcoind, [l1])
+    l1.restart()
+    assert only_one(l1.rpc.listclosedchannels()['closedchannels'])['channel_id'] == channel_id
+
 
 def test_closing_while_disconnected(node_factory, bitcoind, executor):
     l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True})
