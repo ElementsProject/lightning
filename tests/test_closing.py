@@ -4171,7 +4171,10 @@ def test_closing_ignore_fee_limits(node_factory, bitcoind, executor):
 def test_anchorspend_using_to_remote(node_factory, bitcoind, anchors):
     """Make sure we can use `to_remote` output of previous close to spend anchor"""
     # Try with old output from both anchor and non-anchor channel.
-    l4_opts = {}
+
+    # We want l2 to process the WIRE_UPDATE_FULFILL_HTLC, so l4 drops
+    # on WIRE_REVOKE_AND_ACK after that.
+    l4_opts = {'disconnect': ['-WIRE_REVOKE_AND_ACK*2']}
     if anchors is False:
         l4_opts['dev-force-features'] = "-23"
 
@@ -4184,11 +4187,12 @@ def test_anchorspend_using_to_remote(node_factory, bitcoind, anchors):
     # this to use anchor.
     node_factory.join_nodes([l4, l2])
 
-    # l4 unilaterally closes, l2 gets to-remote with its output.
+    # l4 disconnects after receiving fulfill.  It then unilaterally
+    # closes, l2 gets to-remote with its output.
     l4.rpc.pay(l2.rpc.invoice(100000000, 'test', 'test')['bolt11'])
     wait_for(lambda: only_one(l4.rpc.listpeerchannels()['channels'])['htlcs'] != [])
 
-    l4.rpc.disconnect(l2.info['id'], force=True)
+    wait_for(lambda: only_one(l4.rpc.listpeers()['peers'])['connected'] is False)
     close = l4.rpc.close(l2.info['id'], 1)
     bitcoind.generate_block(1, wait_for_mempool=only_one(close['txids']))
     wait_for(lambda: len(l2.rpc.listfunds()['outputs']) == 1)
