@@ -11,7 +11,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = "^3.9"
 pytest = "^7"
 ephemeral-port-reserve = "^1.1.4"
 psycopg2-binary = "^2.9"
