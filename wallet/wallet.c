@@ -2344,6 +2344,7 @@ bool wallet_init_channels(struct wallet *w)
 {
 	/* We set the max channel database id separately */
 	set_max_channel_dbid(w);
+	wallet_load_closed_channels(w, w->ld->closed_channels);
 	return wallet_channels_load_active(w);
 }
 
