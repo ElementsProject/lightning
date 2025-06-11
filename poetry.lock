@@ -1019,30 +1019,6 @@ test = ["flufl.flake8", "importlib-resources (>=1.3)", "jaraco.test (>=5.4)", "p
 type = ["pytest-mypy"]
 
 [[package]]
-name = "importlib-resources"
-version = "6.4.5"
-description = "Read resources from Python packages"
-optional = false
-python-versions = ">=3.8"
-groups = ["dev"]
-markers = "python_version < \"3.9\""
-files = [
-    {file = "importlib_resources-6.4.5-py3-none-any.whl", hash = "sha256:ac29d5f956f01d5e4bb63102a5a19957f1b9175e45649977264a1416783bb717"},
-    {file = "importlib_resources-6.4.5.tar.gz", hash = "sha256:980862a1d16c9e147a59603677fa2aa5fd82b87f223b6cb870695bcfce830065"},
-]
-
-[package.dependencies]
-zipp = {version = ">=3.1.0", markers = "python_version < \"3.10\""}
-
-[package.extras]
-check = ["pytest-checkdocs (>=2.4)", "pytest-ruff (>=0.2.1)"]
-cover = ["pytest-cov"]
-doc = ["furo", "jaraco.packaging (>=9.3)", "jaraco.tidelift (>=1.4)", "rst.linker (>=1.9)", "sphinx (>=3.5)", "sphinx-lint"]
-enabler = ["pytest-enabler (>=2.2)"]
-test = ["jaraco.test (>=5.4)", "pytest (>=6,!=8.1.*)", "zipp (>=3.17)"]
-type = ["pytest-mypy"]
-
-[[package]]
 name = "iniconfig"
 version = "2.0.0"
 description = "brain-dead simple config-ini parsing"
@@ -1121,9 +1097,7 @@ files = [
 
 [package.dependencies]
 attrs = ">=22.2.0"
-importlib-resources = {version = ">=1.4.0", markers = "python_version < \"3.9\""}
 jsonschema-specifications = ">=2023.03.6"
-pkgutil-resolve-name = {version = ">=1.3.10", markers = "python_version < \"3.9\""}
 referencing = ">=0.28.4"
 rpds-py = ">=0.7.1"
 
@@ -1144,7 +1118,6 @@ files = [
 ]
 
 [package.dependencies]
-importlib-resources = {version = ">=1.4.0", markers = "python_version < \"3.9\""}
 referencing = ">=0.31.0"
 
 [[package]]
@@ -1322,19 +1295,6 @@ groups = ["dev"]
 files = [
     {file = "packaging-24.2-py3-none-any.whl", hash = "sha256:09abb1bccd265c01f4a3aa3f7a7db064b36514d2cba19a2f694fe6150451a759"},
     {file = "packaging-24.2.tar.gz", hash = "sha256:c228a6dc5e932d346bc5739379109d49e8853dd8223571c7c5b55260edc0b97f"},
-]
-
-[[package]]
-name = "pkgutil-resolve-name"
-version = "1.3.10"
-description = "Resolve a name to an object."
-optional = false
-python-versions = ">=3.6"
-groups = ["dev"]
-markers = "python_version < \"3.9\""
-files = [
-    {file = "pkgutil_resolve_name-1.3.10-py3-none-any.whl", hash = "sha256:ca27cc078d25c5ad71a9de0a7a330146c4e014c2462d9af19c6b828280649c5e"},
-    {file = "pkgutil_resolve_name-1.3.10.tar.gz", hash = "sha256:357d6c9e6a755653cfd78893817c0853af365dd51ec97f3d358a819373bbd174"},
 ]
 
 [[package]]
@@ -1545,7 +1505,7 @@ name = "pyln-client"
 version = "25.05rc1"
 description = "Client library and plugin library for Core Lightning"
 optional = false
-python-versions = "^3.8"
+python-versions = "^3.9"
 groups = ["main", "dev"]
 files = []
 develop = true
@@ -1563,7 +1523,7 @@ name = "pyln-grpc-proto"
 version = "0.1.2"
 description = "The compiled GRPC proto for CLN"
 optional = false
-python-versions = "^3.8"
+python-versions = "^3.9"
 groups = ["main", "dev"]
 files = []
 develop = true
@@ -1581,7 +1541,7 @@ name = "pyln-proto"
 version = "25.05rc1"
 description = "This package implements some of the Lightning Network protocol in pure python. It is intended for protocol testing and some minor tooling only. It is not deemed secure enough to handle any amount of real funds (you have been warned!)."
 optional = false
-python-versions = "^3.8"
+python-versions = "^3.9"
 groups = ["main", "dev"]
 files = []
 develop = true
@@ -1602,7 +1562,7 @@ name = "pyln-testing"
 version = "25.05rc1"
 description = "Test your Core Lightning integration, plugins or whatever you want"
 optional = false
-python-versions = "^3.8"
+python-versions = "^3.9"
 groups = ["dev"]
 files = []
 develop = true
@@ -2200,7 +2160,7 @@ name = "wss-proxy"
 version = "25.05rc1"
 description = "Web secure socket proxy"
 optional = false
-python-versions = "^3.8"
+python-versions = "^3.9"
 groups = ["main"]
 files = []
 develop = true
@@ -2236,5 +2196,5 @@ type = ["pytest-mypy"]
 
 [metadata]
 lock-version = "2.1"
-python-versions = ">=3.8.1,<4.0"
-content-hash = "e07068cbadfe73a4db739197abeba3c1feba25a61bebad2447a3f21be88e1071"
+python-versions = ">=3.9,<4.0"
+content-hash = "9613aba2ff439af2a285f3f3f56fbd4c30bb10ac665eabe772cce151ec0887fc"

@@ -7,7 +7,7 @@ authors = ["Christian Decker <cdecker@blockstream.com>"]
 
 [tool.poetry.dependencies]
 # Build dependencies belong here
-python = ">=3.8.1,<4.0"
+python = ">=3.9,<4.0"
 pyln-client = { path = "contrib/pyln-client", develop = true }
 pyln-proto = { path = "contrib/pyln-proto", develop = true }
 pyln-grpc-proto = { path = "contrib/pyln-grpc-proto", develop = true }
