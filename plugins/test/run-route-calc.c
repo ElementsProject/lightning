@@ -628,6 +628,43 @@ int main(int argc, char *argv[])
 				     path[0].dir,
 				     gossmap_find_chan(gossmap, &path[0].scid));
 		assert(dij[0].score == score);
+
+		/*
+		 * Test for a 'NaN-cast' bug in route_score().
+		 *
+		 * This test reproduces a bug that occurs when attempting to
+		 * route a payment whose amount exceeds the capacity of the channel
+		 * it's routed through. The expected behavior is for route() to
+		 * return NULL and set errmsg to "No path found".
+		 *
+		 * However, due to the imprecision of the htlc_max type (fp16_t), the
+		 * channel is not correctly discarded. This causes the route's score
+		 * to be calculated as NaN, and when this NaN is subsequently cast to
+		 * a u64, it results in a runtime error.
+		 *
+		 * The expected UBSan error is:
+		 * runtime error: nan is outside the range of representable values of type 'unsigned long'
+		 */
+		add_connection(store_fd, 'X', 'Y',
+				/* base fee */ 40333,
+				/* prop fee */ 57981,
+				/* delay */ 138,
+				/* capacity */ AMOUNT_SAT(7875));
+
+		node_id('X', &src);
+		node_id('Y', &dst);
+
+		gossmap_refresh(global_gossmap);
+
+		r = route(tmpctx, gossmap,
+				gossmap_find_node(gossmap, &src),
+				gossmap_find_node(gossmap, &dst),
+				/* amount */ AMOUNT_MSAT(7876357),
+				/* Final delay */ 2655,
+				/* riskfactor */ 57.00,
+				/* Max hops */ ROUTING_MAX_HOPS,
+				/* payment */ p,
+				&errmsg);
 	}
 
 	common_shutdown();
