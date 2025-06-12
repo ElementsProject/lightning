@@ -310,6 +310,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Check disk space pre-cleanup
+        run: df -h
+      - name: Free up disk space
+        # We need more space than GHA usually provides when testing
+        # against the `postgres` service. This step frees some space
+        # on the volume containing tools, in the hope of freeing
+        # enough space for postgres tests to succeed.
+        uses: jlumbroso/free-disk-space@main
+        with:
+          # Enable all cleanup options
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          swift: true
+          golang: true
+          php: true
+      - name: Check disk space pre-cleanup
+        run: df -h
+        
       - name: Set up Python 3.10
         uses: actions/setup-python@v5
         with:

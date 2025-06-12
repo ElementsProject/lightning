@@ -122,6 +122,7 @@ class PostgresDb(BaseDb):
         cur = conn.cursor()
         cur.execute("DROP DATABASE {};".format(self.dbname))
         cur.close()
+        conn.close()
 
     def wipe_db(self):
         cur = self.conn.cursor()
