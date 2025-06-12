@@ -1252,11 +1252,20 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
 				    close_subd_timeout, subd));
        }
 
-       /* Wait for them to wake us */
-       peer->peer_in_lastmsg = type;
-       peer->peer_in_lasttime = time_mono();
+       /* We used to io_wait after every message, but that means we don't read
+	* *non-channel* messages (gossip, pings) either.  So as a compromise,
+	* we allow a handful of messages to be queued before we ignore the
+	* peer until we've drained the outgoing queue. */
+       if (msg_queue_length(subd->outq) > 5) {
+	       /* Wait for them to wake us (oldest packet) */
+	       if (peer->peer_in_lastmsg == -1) {
+		       peer->peer_in_lastmsg = type;
+		       peer->peer_in_lasttime = time_mono();
+	       }
 
-       return io_wait(peer_conn, &peer->peer_in, next_read, peer);
+	       return io_wait(peer_conn, &peer->peer_in, next_read, peer);
+       }
+       return next_read(peer_conn, peer);
 }
 
 static struct io_plan *read_body_from_peer(struct io_conn *peer_conn,
