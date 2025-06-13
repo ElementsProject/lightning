@@ -1272,9 +1272,16 @@ static s64 sats_diff(struct amount_sat a, struct amount_sat b)
 static void send_message_batch(struct peer *peer, u8 **msgs)
 {
 	size_t size;
-	size_t hdr_size = tal_bytelen(towire_protocol_batch_element(tmpctx, 0));
+	size_t hdr_size = tal_bytelen(towire_protocol_batch_element(tmpctx,
+								    &peer->channel_id,
+								    0));
 	u8 *batch_msg, *final_msg, *final_msg_ptr;
 	struct tlv_start_batch_tlvs *tlvs;
+
+	assert(tal_count(msgs) > 0);
+
+	if (tal_count(msgs) == 1)
+		peer_write(peer->pps, msgs[0]);
 
 	/* We prefix each message with an interal wire type,
 	 * protocol_batch_element. connectd will eat each message so they don't
@@ -1285,40 +1292,35 @@ static void send_message_batch(struct peer *peer, u8 **msgs)
 	for(u32 i = 0; i < tal_count(msgs); i++)
 		size += tal_bytelen(msgs[i]) + hdr_size;
 
-	/* Compiler mistakenly thinks batch_msg may be used uninitialized */
-	batch_msg = NULL;
-
-	/* Only append `start_batch` if batch is more than 1 */
-	if (tal_count(msgs) > 1) {
-		tlvs = tlv_start_batch_tlvs_new(tmpctx);
-		tlvs->batch_info = tal(tlvs, u16);
-		*tlvs->batch_info = WIRE_COMMITMENT_SIGNED;
-		batch_msg = towire_start_batch(NULL, &peer->channel_id,
-					       tal_count(msgs), tlvs);
-		size += tal_bytelen(batch_msg);
-	}
+	tlvs = tlv_start_batch_tlvs_new(tmpctx);
+	tlvs->batch_info = tal(tlvs, u16);
+	*tlvs->batch_info = WIRE_COMMITMENT_SIGNED;
+	batch_msg = towire_start_batch(tmpctx, &peer->channel_id,
+				       tal_count(msgs), tlvs);
+	size += tal_bytelen(batch_msg) + hdr_size;
 
 	/* Now we know the size of our `final_msg` so we allocate. */
-	final_msg = tal_arr(NULL, u8, size);
+	final_msg = tal_arr(tmpctx, u8, size);
 	final_msg_ptr = final_msg;
 
-	/* Append the `start_batch` here, again if batch is more than 1 */
-	if (tal_count(msgs) > 1) {
-		memcpy(final_msg_ptr,
-		       towire_protocol_batch_element(tmpctx,
-		       				     tal_bytelen(batch_msg)),
-		       				     hdr_size);
-		final_msg_ptr += hdr_size;
+	status_debug("proto_batch Building batch with %zu bytes, msgs: %zu",
+		     size, tal_count(msgs));
 
-		memcpy(final_msg_ptr, batch_msg, tal_bytelen(batch_msg));
-		final_msg_ptr += tal_bytelen(batch_msg);
-		tal_free(batch_msg);
-	}
+	memcpy(final_msg_ptr,
+	       towire_protocol_batch_element(tmpctx,
+	       				     &peer->channel_id,
+	       				     tal_bytelen(batch_msg)),
+	       				     hdr_size);
+	final_msg_ptr += hdr_size;
+
+	memcpy(final_msg_ptr, batch_msg, tal_bytelen(batch_msg));
+	final_msg_ptr += tal_bytelen(batch_msg);
 
 	/* Now copy the bytes from all messages in `msgs` */
 	for(u32 i = 0; i < tal_count(msgs); i++) {
 		memcpy(final_msg_ptr,
 		       towire_protocol_batch_element(tmpctx,
+	       					     &peer->channel_id,
 		       				     tal_bytelen(msgs[i])),
 		       				     hdr_size);
 		final_msg_ptr += hdr_size;
@@ -1328,8 +1330,7 @@ static void send_message_batch(struct peer *peer, u8 **msgs)
 	}
 
 	assert(final_msg + size == final_msg_ptr);
-	peer_write(peer->pps, final_msg);
-	tal_free(final_msg);
+	peer_write(peer->pps, take(final_msg));
 }
 
 static void send_commit(struct peer *peer)
@@ -2435,9 +2436,17 @@ static void handle_peer_start_batch(struct peer *peer, const u8 *msg)
 {
 	u16 batch_size;
 	struct channel_id channel_id;
-	if (!fromwire_start_batch(tmpctx, msg, &channel_id, &batch_size, NULL))
+	struct tlv_start_batch_tlvs *tlvs;
+	if (!fromwire_start_batch(tmpctx, msg, &channel_id, &batch_size, &tlvs))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Bad start_batch %s", tal_hex(msg, msg));
+
+	if (!tlvs || !tlvs->batch_info
+            || *tlvs->batch_info != WIRE_COMMITMENT_SIGNED)
+		peer_failed_warn(peer->pps, &peer->channel_id,
+				 "Must set a start_batch message_type value of"
+				 " WIRE_COMMITMENT_SIGNED aka %d",
+				 (int)WIRE_COMMITMENT_SIGNED);
 
 	handle_peer_commit_sig_batch(peer, peer_read(tmpctx, peer->pps), 0,
 				     peer->channel->funding_pubkey[REMOTE],

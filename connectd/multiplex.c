@@ -408,6 +408,9 @@ static u8 *process_batch_elements(struct peer *peer, const u8 *msg TAKES)
 	const u8 *cursor = msg;
 	size_t plen = tal_count(msg);
 
+	status_debug("Processing batch elements of %zu bytes. %s", plen,
+		     tal_hex(tmpctx, msg));
+
 	do {
 		u8 *element_bytes;
 		u16 element_size;
@@ -434,13 +437,16 @@ static u8 *process_batch_elements(struct peer *peer, const u8 *msg TAKES)
 				      " %s",
 				      tal_hexstr(tmpctx, cursor, plen));
 
+		status_debug("Processing batch extracted item %s. %s",
+			     peer_wire_name(fromwire_peektype(element_bytes)),
+			     tal_hex(tmpctx, element_bytes));
+
 		enc_msg = cryptomsg_encrypt_msg(tmpctx, &peer->cs,
 						take(element_bytes));
 
 		tal_resize(&ret, ret_size + tal_bytelen(enc_msg));
 		memcpy(&ret[ret_size], enc_msg, tal_bytelen(enc_msg));
 		ret_size += tal_bytelen(enc_msg);
-		index++;
 
 	} while(plen);
 
