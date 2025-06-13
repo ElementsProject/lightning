@@ -1233,14 +1233,6 @@ static char *opt_set_splicing(struct lightningd *ld)
 	return NULL;
 }
 
-static char *opt_set_onion_messages(struct lightningd *ld)
-{
-	if (!opt_deprecated_ok(ld, "experimental-onion-messages", NULL,
-			       "v24.08", "v25.02"))
-		return "--experimental-onion-message is now enabled by default";
-	return NULL;
-}
-
 static char *opt_set_shutdown_wrong_funding(struct lightningd *ld)
 {
 	feature_set_or(ld->our_features,
@@ -1262,14 +1254,6 @@ static char *opt_set_quiesce(struct lightningd *ld)
 	if (!opt_deprecated_ok(ld, "experimental-quiesce", NULL,
 			       "v24.11", "v25.05"))
 		return "--experimental-quiesce is now enabled by default";
-	return NULL;
-}
-
-static char *opt_set_anchor_zero_fee_htlc_tx(struct lightningd *ld)
-{
-	if (!opt_deprecated_ok(ld, "experimental-anchors", NULL,
-			       "v24.02", "v25.02"))
-		return "--experimental-anchors is now enabled by default";
 	return NULL;
 }
 
@@ -1452,9 +1436,6 @@ static void register_opts(struct lightningd *ld)
 				 " channels using splicing");
 
 	/* This affects our features, so set early. */
-	opt_register_early_noarg("--experimental-onion-messages",
-				 opt_set_onion_messages, ld,
-				 opt_hidden);
 	opt_register_early_noarg("--experimental-offers",
 				 opt_set_offers, ld,
 				 opt_hidden);
@@ -1468,9 +1449,6 @@ static void register_opts(struct lightningd *ld)
 				 opt_set_quiesce, ld,
 				 "experimental: Advertise ability to quiesce"
 				 " channels.");
-	opt_register_early_noarg("--experimental-anchors",
-				 opt_set_anchor_zero_fee_htlc_tx, ld,
-				 opt_hidden);
 
 	clnopt_noarg("--help|-h", OPT_EXITS,
 		     opt_lightningd_usage, ld, "Print this message.");
