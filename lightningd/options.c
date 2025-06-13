@@ -616,15 +616,6 @@ static char *opt_set_hsm_password(struct lightningd *ld)
 	return NULL;
 }
 
-static char *opt_set_max_htlc_cltv(const char *arg, struct lightningd *ld)
-{
-	if (!opt_deprecated_ok(ld, "max-locktime-blocks", NULL,
-			       "v24.05", "v24.11"))
-		return "--max-locktime-blocks has been deprecated (BOLT #4 says 2016)";
-
-	return opt_set_u32(arg, &ld->config.max_htlc_cltv);
-}
-
 static char *opt_force_privkey(const char *optarg, struct lightningd *ld)
 {
 	tal_free(ld->dev_force_privkey);
@@ -1498,8 +1489,6 @@ static void register_opts(struct lightningd *ld)
 	clnopt_witharg("--watchtime-blocks", OPT_SHOWINT, opt_set_u32, opt_show_u32,
 			 &ld->config.locktime_blocks,
 			 "Blocks before peer can unilaterally spend funds");
-	opt_register_arg("--max-locktime-blocks", opt_set_max_htlc_cltv, NULL,
-			 ld, opt_hidden);
 	clnopt_witharg("--funding-confirms", OPT_SHOWINT, opt_set_u32, opt_show_u32,
 			 &ld->config.funding_confirms,
 			 "Confirmations required for funding transaction");
