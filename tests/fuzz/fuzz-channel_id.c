@@ -23,14 +23,13 @@ void run(const uint8_t *data, size_t size)
 	size_t wire_max;
 	uint8_t *wire_buf;
 
-	/* 32 (txid) + 4 (vout) */
-	if (size < 36)
+	if (size < sizeof(outpoint))
 		return;
 
-	v1_chunks = get_chunks(NULL, data, size, 36);
+	v1_chunks = get_chunks(NULL, data, size, sizeof(outpoint));
 	for (size_t i = 0; i < tal_count(v1_chunks); i++) {
 		wire_ptr = v1_chunks[i];
-		wire_max = 36;
+		wire_max = sizeof(outpoint);
 		fromwire_bitcoin_outpoint(&wire_ptr, &wire_max, &outpoint);
 		assert(wire_ptr);
 		derive_channel_id(&chan_id, &outpoint);
@@ -54,7 +53,7 @@ void run(const uint8_t *data, size_t size)
 	}
 	tal_free(v2_chunks);
 
-	marshal_chunks = get_chunks(NULL, data, size, 32);
+	marshal_chunks = get_chunks(NULL, data, size, sizeof(chan_id));
 	for (size_t i = 0; i < tal_count(marshal_chunks); i++) {
 		wire_ptr = marshal_chunks[i];
 		wire_max = tal_count(marshal_chunks[i]);
