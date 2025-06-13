@@ -372,6 +372,14 @@ void json_add_timeabs(struct json_stream *result, const char *fieldname,
 			       (u64)t.ts.tv_sec, (u64)t.ts.tv_nsec);
 }
 
+void json_add_timerel(struct json_stream *result, const char *fieldname,
+		      struct timerel t)
+{
+	json_add_primitive_fmt(result, fieldname,
+			       "%" PRIu64 ".%09" PRIu64,
+			       (u64)t.ts.tv_sec, (u64)t.ts.tv_nsec);
+}
+
 void json_add_timestr(struct json_stream *result, const char *fieldname,
 			  struct timespec ts)
 {
