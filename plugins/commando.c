@@ -711,79 +711,6 @@ static struct command_result *json_commando(struct command *cmd,
 	return send_more_cmd(cmd, NULL, NULL, NULL, outgoing);
 }
 
-/* Handles error or success */
-static struct command_result *forward_reply(struct command *cmd,
-					    const char *method,
-					    const char *buf,
-					    const jsmntok_t *result,
-					    void *arg)
-{
-	const jsmntok_t *err = json_get_member(buf, result, "error");
-	if (err)
-		return forward_error(cmd, method, buf, err, arg);
-	return forward_result(cmd, method, buf, json_get_member(buf, result, "result"), arg);
-}
-
-static struct command_result *forward_command(struct command *cmd,
-					      const char *buffer,
-					      const jsmntok_t *params,
-					      const char *method)
-{
-	/* params could be an array, so use low-level helper */
-	struct out_req *req;
-
-	req = jsonrpc_request_whole_object_start(cmd, method, NULL,
-						 forward_reply, NULL);
-	json_add_tok(req->js, "params", params, buffer);
-	return send_outreq(req);
-}
-
-static struct command_result *json_commando_rune(struct command *cmd,
-						 const char *buffer,
-						 const jsmntok_t *params)
-{
-	const char *unused1, *unused2;
-
-	/* param call needed to generate help messages */
-	if (!param(cmd, buffer, params,
-		   p_opt("rune", param_string, &unused1),
-		   p_opt("restrictions", param_string, &unused2),
-		   NULL))
-		return command_param_failed();
-
-	return forward_command(cmd, buffer, params, "createrune");
-}
-
-static struct command_result *json_commando_blacklist(struct command *cmd,
-						 const char *buffer,
-						 const jsmntok_t *params)
-{
-	const char *unused1, *unused2;
-
-	/* param call needed to generate help messages */
-	if (!param(cmd, buffer, params,
-		   p_opt("start", param_string, &unused1),
-		   p_opt("end", param_string, &unused2),
-		   NULL))
-		return command_param_failed();
-
-	return forward_command(cmd, buffer, params, "blacklistrune");
-}
-
-static struct command_result *json_commando_listrunes(struct command *cmd,
-						 const char *buffer,
-						 const jsmntok_t *params)
-{
-	const char *unused;
-
-	/* param call needed to generate help messages */
-	if (!param(cmd, buffer, params,
-		   p_opt("rune", param_string, &unused), NULL))
-		return command_param_failed();
-
-	return forward_command(cmd, buffer, params, "showrunes");
-}
-
 static void memleak_mark_globals(struct plugin *p, struct htable *memtable)
 {
 	memleak_scan_obj(memtable, outgoing_commands);
@@ -804,23 +731,6 @@ static const char *init(struct command *init_cmd,
 static const struct plugin_command commands[] = { {
 	"commando",
 	json_commando,
-	}, {
-	"commando-rune",
-	json_commando_rune,
-	"v23.08",
-	"v25.02",
-	},
-	{
-	"commando-listrunes",
-	json_commando_listrunes,
-	"v23.08",
-	"v25.02",
-	},
-	{
-	"commando-blacklist",
-	json_commando_blacklist,
-	"v23.08",
-	"v25.02",
 	},
 };
 
