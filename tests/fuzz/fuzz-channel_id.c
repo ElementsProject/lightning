@@ -58,9 +58,12 @@ void run(const uint8_t *data, size_t size)
 	for (size_t i = 0; i < tal_count(marshal_chunks); i++) {
 		wire_ptr = marshal_chunks[i];
 		wire_max = tal_count(marshal_chunks[i]);
+
 		fromwire_channel_id(&wire_ptr, &wire_max, &chan_id);
-		wire_buf = tal_arr(NULL, uint8_t, tal_count(marshal_chunks[i]));
+		wire_buf = tal_arr(NULL, uint8_t, 0);
 		towire_channel_id(&wire_buf, &chan_id);
+		assert(!memcmp(marshal_chunks[i], wire_buf, tal_count(marshal_chunks[i])));
+
 		tal_free(wire_buf);
 	}
 	tal_free(marshal_chunks);
