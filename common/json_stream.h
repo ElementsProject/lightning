@@ -253,8 +253,13 @@ void json_add_hex_talarr(struct json_stream *result,
 			 const char *fieldname,
 			 const tal_t *data);
 
+/* '"fieldname" : 1749785122.000000001 */
 void json_add_timeabs(struct json_stream *result, const char *fieldname,
 		      struct timeabs t);
+
+/* '"fieldname" : 1.000000001 */
+void json_add_timerel(struct json_stream *result, const char *fieldname,
+		      struct timerel t);
 
 /* used in log.c and notification.c*/
 void json_add_timestr(struct json_stream *result, const char *fieldname,
