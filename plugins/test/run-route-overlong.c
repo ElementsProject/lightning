@@ -296,10 +296,10 @@ void plugin_log(struct plugin *p UNNEEDED, enum log_level l UNNEEDED, const char
 { fprintf(stderr, "plugin_log called!\n"); abort(); }
 /* Generated stub for plugin_notification_end */
 void plugin_notification_end(struct plugin *plugin UNNEEDED,
-			     struct json_stream *stream TAKES UNNEEDED)
+			     struct json_stream *stream STEALS UNNEEDED)
 { fprintf(stderr, "plugin_notification_end called!\n"); abort(); }
 /* Generated stub for plugin_notification_start */
-struct json_stream *plugin_notification_start(struct plugin *plugins UNNEEDED,
+struct json_stream *plugin_notification_start(const tal_t *ctx UNNEEDED,
 					      const char *method UNNEEDED)
 { fprintf(stderr, "plugin_notification_start called!\n"); abort(); }
 /* Generated stub for plugin_notify_message */
