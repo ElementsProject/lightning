@@ -1859,10 +1859,10 @@ void plugin_gossmap_logcb(struct plugin *plugin,
 	va_end(ap);
 }
 
-struct json_stream *plugin_notification_start(struct plugin *plugin,
+struct json_stream *plugin_notification_start(const tal_t *ctx,
 					      const char *method)
 {
-	struct json_stream *js = new_json_stream(plugin, NULL, NULL);
+	struct json_stream *js = new_json_stream(ctx, NULL, NULL);
 
 	json_object_start(js, NULL);
 	json_add_string(js, "jsonrpc", "2.0");
@@ -1873,7 +1873,7 @@ struct json_stream *plugin_notification_start(struct plugin *plugin,
 }
 
 void plugin_notification_end(struct plugin *plugin,
-			     struct json_stream *stream)
+			     struct json_stream *stream STEALS)
 {
 	json_object_end(stream);
 	jsonrpc_finish_and_send(plugin, stream);
