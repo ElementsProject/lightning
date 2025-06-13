@@ -30,6 +30,7 @@ static bool no_init = false;
 static bool handle_pings = false;
 static bool hex = false;
 static bool explicit_network = false;
+static bool no_early_close = false;
 static int timeout_after = -1;
 static u8 *features;
 
@@ -154,6 +155,8 @@ static u8 *sync_crypto_read(const tal_t *ctx, int peer_fd, struct crypto_state *
 
 	if (!read_all(peer_fd, hdr, sizeof(hdr))) {
 		status_debug("Failed reading header: %s", strerror(errno));
+		if (no_early_close)
+			exit(1);
 		exit(0);
 	}
 
@@ -237,8 +240,12 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 		u8 *msg;
 
 		if (poll(pollfd, ARRAY_SIZE(pollfd),
-			 timeout_after < 0 ? -1 : timeout_after * 1000) == 0)
-			return 0;
+			 timeout_after < 0 ? -1 : timeout_after * 1000) == 0) {
+			/* Timeout */
+			if (no_early_close)
+				exit(1);
+			exit(0);
+		}
 
 		/* We always to stdin first if we can */
 		if (pollfd[0].revents & POLLIN) {
@@ -288,6 +295,8 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 		err(1, "failed to shutdown write to peer: %s", strerror(errno));
 
 	while (sync_crypto_read(NULL, peer_fd, cs));
+	if (max_messages != 0 && no_early_close)
+		exit(1);
 	exit(0);
 }
 
@@ -368,6 +377,8 @@ int main(int argc, char *argv[])
 	                 "Select the network parameters (bitcoin, testnet, signet,"
 	                 " regtest, liquid, liquid-regtest, litecoin or"
 	                 " litecoin-testnet)");
+	opt_register_noarg("--must-get-max-messages", opt_set_bool, &no_early_close,
+			   "Fail with exit code 1 unless we reach maximum messages");
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
 			   "id@addr[:port] [hex-msg-tosend...]\n"
 			   "Connect to a lightning peer and relay gossip messages from it",
@@ -436,5 +447,6 @@ int main(int argc, char *argv[])
 
 	initiator_handshake(conn, &us, &them, &addr, NULL, NORMAL_SOCKET,
 			    handshake_success, argv+2);
-	exit(0);
+	/* Unreachable */
+	abort();
 }
