@@ -288,6 +288,9 @@ msgdata,update_fail_htlc,channel_id,channel_id,
 msgdata,update_fail_htlc,id,u64,
 msgdata,update_fail_htlc,len,u16,
 msgdata,update_fail_htlc,reason,byte,len
+tlvtype,update_fail_htlc_tlvs,attribution_data,1
+tlvdata,update_fail_htlc_tlvs,attribution_data,htlc_hold_times,u8,80
+tlvdata,update_fail_htlc_tlvs,attribution_data,truncated_hmacs,u8,840
 msgtype,update_fail_malformed_htlc,135
 msgdata,update_fail_malformed_htlc,channel_id,channel_id,
 msgdata,update_fail_malformed_htlc,id,u64,
