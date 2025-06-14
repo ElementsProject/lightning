@@ -110,8 +110,8 @@ Here's a checklist for the release process.
 1. Create a new branch named `release-<VERSION>.<POINT_VERSION>`, where each new branch is based on the commit from the previous release tag. For example, `release-<VERSION>.1` is based on `release-<VERSION>`, `release-<VERSION>.2` is based on `release-<VERSION>.1`, and so on.
 2. Cherry-pick all necessary commits for the hotfix into the new branch.
 3. Add entries for changes and fixed issues in `CHANGELOG.md` under a new heading for `v<VERSION>.<POINT_VERSION>`.
-4. Update the python package versions by running `make update-py-versions NEW_VERSION=<VERSION>.<POINT_VERSION>`
-5. Create a new commit that includes the updates from `update-py-versions` and `CHANGELOG.md`.
+4. Update the python package versions by running `make update-versions NEW_VERSION=<VERSION>.<POINT_VERSION>`
+5. Create a new commit that includes the updates from `update-versions` and `CHANGELOG.md`.
 6. Tag the release with `git pull && git tag -s v<VERSION>.<POINT_VERSION>`. You will be prompted to enter a tag message, ensure this is filled out.
 7. Confirm that the tag is properly set up for builds by running `git describe`.
 8. Push the tag to the remote repository `git push --tags`.
