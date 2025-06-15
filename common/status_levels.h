@@ -37,6 +37,9 @@ enum status_failreason {
 	/* Gossipd sent unknown/malformed command, or fd failed */
 	STATUS_FAIL_GOSSIP_IO,
 
+	/* Connect daemon received a malformed protocol_batch_element */
+	STATUS_FAIL_PROTO_BATCH,
+
 	/* Other internal error. */
 	STATUS_FAIL_INTERNAL_ERROR,
 };

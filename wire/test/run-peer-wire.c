@@ -792,19 +792,12 @@ static bool update_fail_htlc_eq(const struct msg_update_fail_htlc *a,
 		&& eq_var(a, b, reason);
 }
 
-static bool tlv_splice_info_eq(const struct tlv_commitment_signed_tlvs *a,
-			       const struct tlv_commitment_signed_tlvs *b)
-{
-	return a->splice_info == b->splice_info
-		|| bitcoin_txid_eq(a->splice_info, b->splice_info);
-}
-
 static bool commitment_signed_eq(const struct msg_commitment_signed *a,
-			  const struct msg_commitment_signed *b)
+				 const struct msg_commitment_signed *b)
 {
 	return eq_upto(a, b, htlc_signature)
 		&& eq_var(a, b, htlc_signature)
-		&& tlv_splice_info_eq(a->tlvs, b->tlvs);
+		&& eq_tlv(a, b, splice_info, bitcoin_txid_eq);
 }
 
 static bool funding_signed_eq(const struct msg_funding_signed *a,

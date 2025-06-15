@@ -418,7 +418,8 @@ static u8 *process_batch_elements(struct peer *peer, const u8 *msg TAKES)
 		u8 *enc_msg;
 
 		if (fromwire_u16(&cursor, &plen) != WIRE_PROTOCOL_BATCH_ELEMENT)
-			status_broken("process_batch_elements on msg that is"
+			status_failed(STATUS_FAIL_PROTO_BATCH,
+				      "process_batch_elements on msg that is"
 				      " not WIRE_PROTOCOL_BATCH_ELEMENT. %s",
 				      tal_hexstr(tmpctx, cursor, plen));
 
@@ -426,14 +427,16 @@ static u8 *process_batch_elements(struct peer *peer, const u8 *msg TAKES)
 
 	 	element_size = fromwire_u16(&cursor, &plen);
 	 	if (!element_size)
-			status_broken("process_batch_elements cannot have zero"
+			status_failed(STATUS_FAIL_PROTO_BATCH,
+				      "process_batch_elements cannot have zero"
 				      " length elements. %s",
 				      tal_hexstr(tmpctx, cursor, plen));
 
 		element_bytes = fromwire_tal_arrn(NULL, &cursor, &plen,
 						  element_size);
 		if (!element_bytes)
-			status_broken("process_batch_elements fromwire_tal_arrn"
+			status_failed(STATUS_FAIL_PROTO_BATCH,
+				      "process_batch_elements fromwire_tal_arrn"
 				      " %s",
 				      tal_hexstr(tmpctx, cursor, plen));
 
