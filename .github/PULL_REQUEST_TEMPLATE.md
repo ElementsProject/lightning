@@ -1,10 +1,10 @@
 > [!IMPORTANT]
 >
-> 25.05 FREEZE MAY 05TH: Non-bugfix PRs not ready by this date will wait for 25.08.
+> 25.09 FREEZE July 28TH: Non-bugfix PRs not ready by this date will wait for 25.12.
 >
-> RC1 is scheduled on _May 12th_, RC2 on _May 16th_, ...
+> RC1 is scheduled on _August 11th_
 >
-> The final release is on MAY 20TH.
+> The final release is scheduled for September 1st.
 
 
 ## Checklist
