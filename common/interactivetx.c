@@ -167,6 +167,8 @@ static u8 *read_next_msg(const tal_t *ctx,
 		case WIRE_UPDATE_FULFILL_HTLC:
 		case WIRE_UPDATE_FAIL_HTLC:
 		case WIRE_UPDATE_FAIL_MALFORMED_HTLC:
+		case WIRE_PROTOCOL_BATCH_ELEMENT:
+		case WIRE_START_BATCH:
 		case WIRE_COMMITMENT_SIGNED:
 		case WIRE_REVOKE_AND_ACK:
 		case WIRE_UPDATE_FEE:
@@ -821,6 +823,8 @@ char *process_interactivetx_updates(const tal_t *ctx,
 		case WIRE_UPDATE_FULFILL_HTLC:
 		case WIRE_UPDATE_FAIL_HTLC:
 		case WIRE_UPDATE_FAIL_MALFORMED_HTLC:
+		case WIRE_PROTOCOL_BATCH_ELEMENT:
+		case WIRE_START_BATCH:
 		case WIRE_COMMITMENT_SIGNED:
 		case WIRE_REVOKE_AND_ACK:
 		case WIRE_UPDATE_FEE:

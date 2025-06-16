@@ -382,6 +382,8 @@ static bool is_urgent(enum peer_wire type)
 	/* These are time-sensitive, and so send without delay. */
 	case WIRE_PING:
 	case WIRE_PONG:
+	case WIRE_PROTOCOL_BATCH_ELEMENT:
+	case WIRE_START_BATCH:
 	case WIRE_COMMITMENT_SIGNED:
 	case WIRE_REVOKE_AND_ACK:
 		return true;
