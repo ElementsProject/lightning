@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "wss-proxy"
-version = "25.05rc1"
+version = "25.05"
 description = "Web secure socket proxy"
 authors = ["ShahanaFarooqui <sfarooqui@blockstream.com>"]
 
