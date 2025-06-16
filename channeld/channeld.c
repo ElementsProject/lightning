@@ -2270,6 +2270,12 @@ static struct commitsig_info *handle_peer_commit_sig_batch(struct peer *peer,
 	struct tlv_commitment_signed_tlvs *cs_tlv
 		= tlv_commitment_signed_tlvs_new(tmpctx);
 	status_debug("fromwire_commitment_signed(%p) primary", msg);
+	check_tx_abort(peer, msg, NULL);
+	type = fromwire_peektype(msg);
+	if (type != WIRE_COMMITMENT_SIGNED)
+		peer_failed_err(peer->pps, &peer->channel_id,
+				"Expected WIRE_COMMITMENT_SIGNED but got %s.",
+				peer_wire_name(type));
 	if (!fromwire_commitment_signed(tmpctx, msg,
 					&channel_id, &commit_sig.s, &raw_sigs,
 					&cs_tlv))
