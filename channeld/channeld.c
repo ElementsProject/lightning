@@ -2325,6 +2325,35 @@ static struct commitsig_info *handle_peer_commit_sig_batch(struct peer *peer,
 				      allow_empty_commit, msg_batch);
 }
 
+static void handle_peer_start_batch(struct peer *peer, const u8 *msg)
+{
+	u16 batch_size;
+	struct channel_id channel_id;
+	struct tlv_start_batch_tlvs *tlvs;
+	if (!fromwire_start_batch(tmpctx, msg, &channel_id, &batch_size, &tlvs))
+		peer_failed_warn(peer->pps, &peer->channel_id,
+				 "Bad start_batch %s", tal_hex(msg, msg));
+
+	if (!tlvs || !tlvs->batch_info
+            || *tlvs->batch_info != WIRE_COMMITMENT_SIGNED) {
+		status_unusual("Ignoring Unrecognized start_batch message type"
+			       " %s, expected WIRE_COMMITMENT_SIGNED.",
+			       tlvs && tlvs->batch_info
+			           ? peer_wire_name(*tlvs->batch_info)
+			           : "N/A");
+		return;
+	}
+
+	handle_peer_commit_sig_batch(peer, peer_read(tmpctx, peer->pps), 0,
+				     peer->channel->funding_pubkey[REMOTE],
+				     NULL, 0, 0,
+				     peer->next_index[LOCAL],
+				     &peer->next_local_per_commit,
+				     false,
+				     batch_size);
+}
+
+
 /* Pops the penalty base for the given commitnum from our internal list. There
  * may not be one, in which case we return NULL and leave the list
  * unmodified. */
@@ -4884,6 +4913,7 @@ static void peer_in(struct peer *peer, const u8 *msg)
 		handle_peer_add_htlc(peer, msg);
 		return;
 	case WIRE_START_BATCH:
+		handle_peer_start_batch(peer, msg);
 		return;
 	case WIRE_COMMITMENT_SIGNED:
 		handle_peer_commit_sig_batch(peer, msg, 0,
