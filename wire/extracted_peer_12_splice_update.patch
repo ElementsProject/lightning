@@ -22,3 +22,11 @@ index 9abcb0e64..e2aae8efb 100644
  msgtype,commitment_signed,132
  msgdata,commitment_signed,channel_id,channel_id,
  msgdata,commitment_signed,signature,signature,
+@@ -309,6 +309,5 @@ msgdata,commitment_signed,num_htlcs,u16,
+ msgdata,commitment_signed,htlc_signature,signature,num_htlcs
+ msgdata,commitment_signed,splice_channel_id,commitment_signed_tlvs,
+ tlvtype,commitment_signed_tlvs,splice_info,0
+-tlvdata,commitment_signed_tlvs,splice_info,batch_size,u16,
+ tlvdata,commitment_signed_tlvs,splice_info,funding_txid,sha256,
+ msgtype,revoke_and_ack,133
+ msgdata,revoke_and_ack,channel_id,channel_id,
