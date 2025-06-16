@@ -23684,7 +23684,7 @@
                   ],
                   "deprecated": [
                     "v25.02",
-                    "v26.05"
+                    "v26.06"
                   ]
                 },
                 "their_max_htlc_value_in_flight_msat": {
@@ -34884,7 +34884,7 @@
                   "additionalProperties": false,
                   "deprecated": [
                     "v25.05",
-                    "v26.05"
+                    "v26.06"
                   ],
                   "properties": {
                     "status": {
@@ -34998,7 +34998,7 @@
                   "additionalProperties": false,
                   "deprecated": [
                     "v25.05",
-                    "v26.05"
+                    "v26.06"
                   ],
                   "properties": {
                     "status": {
@@ -35114,7 +35114,7 @@
                   "additionalProperties": false,
                   "deprecated": [
                     "v25.05",
-                    "v26.05"
+                    "v26.06"
                   ],
                   "properties": {
                     "status": {
