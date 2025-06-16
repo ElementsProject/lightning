@@ -4906,6 +4906,8 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	case WIRE_UPDATE_ADD_HTLC:
 		handle_peer_add_htlc(peer, msg);
 		return;
+	case WIRE_START_BATCH:
+		return;
 	case WIRE_COMMITMENT_SIGNED:
 		handle_peer_commit_sig_batch(peer, msg, 0,
 					     peer->channel->funding_pubkey[REMOTE],
@@ -4976,6 +4978,7 @@ static void peer_in(struct peer *peer, const u8 *msg)
 		return;
 
 	/* These are all swallowed by connectd */
+	case WIRE_PROTOCOL_BATCH_ELEMENT:
 	case WIRE_CHANNEL_ANNOUNCEMENT:
 	case WIRE_CHANNEL_UPDATE:
 	case WIRE_NODE_ANNOUNCEMENT:

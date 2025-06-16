@@ -1673,6 +1673,8 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state)
 		case WIRE_UPDATE_FULFILL_HTLC:
 		case WIRE_UPDATE_FAIL_HTLC:
 		case WIRE_UPDATE_FAIL_MALFORMED_HTLC:
+		case WIRE_PROTOCOL_BATCH_ELEMENT:
+		case WIRE_START_BATCH:
 		case WIRE_COMMITMENT_SIGNED:
 		case WIRE_REVOKE_AND_ACK:
 		case WIRE_UPDATE_FEE:
@@ -2057,6 +2059,8 @@ static bool run_tx_interactive(struct state *state,
 		case WIRE_UPDATE_FULFILL_HTLC:
 		case WIRE_UPDATE_FAIL_HTLC:
 		case WIRE_UPDATE_FAIL_MALFORMED_HTLC:
+		case WIRE_PROTOCOL_BATCH_ELEMENT:
+		case WIRE_START_BATCH:
 		case WIRE_COMMITMENT_SIGNED:
 		case WIRE_REVOKE_AND_ACK:
 		case WIRE_UPDATE_FEE:
@@ -4196,6 +4200,9 @@ static u8 *handle_peer_in(struct state *state)
 		}
 		accepter_start(state, msg);
 		return NULL;
+	case WIRE_START_BATCH:
+		/* We ignore batch messages as we dont need them */
+		return NULL;
 	case WIRE_COMMITMENT_SIGNED:
 		handle_commit_signed(state, msg);
 		return NULL;
@@ -4257,6 +4264,7 @@ static u8 *handle_peer_in(struct state *state)
 	case WIRE_SPLICE:
 	case WIRE_SPLICE_ACK:
 	case WIRE_SPLICE_LOCKED:
+	case WIRE_PROTOCOL_BATCH_ELEMENT:
 		break;
 	}
 
