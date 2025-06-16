@@ -74,7 +74,7 @@ void json_add_uncommitted_channel(struct command *cmd,
 	if (feature_negotiated(uc->peer->ld->our_features,
 			       uc->peer->their_features,
 			       OPT_ANCHORS_ZERO_FEE_HTLC_TX)) {
-		if (command_deprecated_out_ok(cmd, "features", "v24.08", "v25.08"))
+		if (command_deprecated_out_ok(cmd, "features", "v24.08", "v25.09"))
 			json_add_string(response, NULL, "option_anchors_zero_fee_htlc_tx");
 		json_add_string(response, NULL, "option_anchors");
 	}
