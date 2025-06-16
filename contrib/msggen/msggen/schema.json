@@ -36806,7 +36806,7 @@
             ],
             "description": [
               "The channel state, in particular \"CHANNELD_NORMAL\" means the channel can be used normally.",
-              "The deprecated value 'unknown' is also present for new channels: after 26.02 this field will be omitted instead."
+              "The deprecated value 'unknown' is also present for new channels: after v26.03 this field will be omitted instead."
             ],
             "added": "pre-v0.10.1"
           },
