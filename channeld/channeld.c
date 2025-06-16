@@ -1197,12 +1197,7 @@ static u8 *send_commit_part(const tal_t *ctx,
 			     (int)splice_amnt, (int)remote_splice_amnt,
 			     remote_index);
 
-		if (batch_size > 1) {
-			cs_tlv->splice_info = tal(cs_tlv, struct tlv_commitment_signed_tlvs_splice_info);
-
-			cs_tlv->splice_info->batch_size = batch_size;
-			cs_tlv->splice_info->funding_txid = funding->txid;
-		}
+		cs_tlv->splice_info = tal_dup(cs_tlv, struct bitcoin_txid, &funding->txid);
 	}
 
 	txs = channel_txs(tmpctx, funding, funding_sats, &htlc_map,
@@ -1963,11 +1958,11 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 	if (peer->splice_state->await_commitment_succcess
 	    && !tal_count(peer->splice_state->inflights) && cs_tlv && cs_tlv->splice_info) {
 	    	if (!bitcoin_txid_eq(&peer->channel->funding.txid,
-	    			     &cs_tlv->splice_info->funding_txid)) {
+	    			     cs_tlv->splice_info)) {
 			status_info("Ignoring stale commit_sig for channel_id"
 				    " %s, as %s is locked in now.",
 				    fmt_bitcoin_txid(tmpctx,
-				    		     &cs_tlv->splice_info->funding_txid),
+				    		     cs_tlv->splice_info),
 				    fmt_bitcoin_txid(tmpctx,
 				    		     &peer->channel->funding.txid));
 			return NULL;
@@ -2017,22 +2012,17 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 		outpoint = peer->splice_state->inflights[commit_index - 1]->outpoint;
 		funding_sats = peer->splice_state->inflights[commit_index - 1]->amnt;
 
-		if (cs_tlv && cs_tlv->splice_info
-		    && cs_tlv->splice_info->batch_size == 1)
-			peer_failed_err(peer->pps, &peer->channel_id,
-					"batch_size can never be 1");
-
 		status_debug("handle_peer_commit_sig for inflight outpoint %s",
 			     fmt_bitcoin_txid(tmpctx, &outpoint.txid));
 
 		if (cs_tlv->splice_info
 		    && !bitcoin_txid_eq(&outpoint.txid,
-					&cs_tlv->splice_info->funding_txid))
+					cs_tlv->splice_info))
 			peer_failed_err(peer->pps, &peer->channel_id,
 					"Expected commit sig message for %s but"
 					" got %s",
 					fmt_bitcoin_txid(tmpctx, &outpoint.txid),
-					fmt_bitcoin_txid(tmpctx, &cs_tlv->splice_info->funding_txid));
+					fmt_bitcoin_txid(tmpctx, cs_tlv->splice_info));
 	}
 	else {
 		outpoint = peer->channel->funding;
@@ -2089,7 +2079,7 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 				 fmt_amount_sat(tmpctx, funding_sats),
 				 cs_tlv && cs_tlv->splice_info
 				 	? fmt_bitcoin_txid(tmpctx,
-							   &cs_tlv->splice_info->funding_txid)
+							   cs_tlv->splice_info)
 				 	: "N/A",
 				 peer->splice_state->await_commitment_succcess ? "yes"
 				 					: "no",
@@ -2253,7 +2243,7 @@ static int commit_index_from_msg(const u8 *msg, struct peer *peer)
 	if (!cs_tlv || !cs_tlv->splice_info)
 		return -1;
 
-	funding_txid = cs_tlv->splice_info->funding_txid;
+	funding_txid = *cs_tlv->splice_info;
 
 	if (bitcoin_txid_eq(&funding_txid, &peer->channel->funding.txid))
 		return 0;
@@ -2306,12 +2296,12 @@ static struct commitsig_info *handle_peer_commit_sig_batch(struct peer *peer,
 							   s64 remote_splice_amnt,
 							   u64 local_index,
 							   const struct pubkey *local_per_commit,
-							   bool allow_empty_commit)
+							   bool allow_empty_commit,
+							   u16 batch_size)
 {
 	struct channel_id channel_id;
 	struct bitcoin_signature commit_sig;
 	secp256k1_ecdsa_signature *raw_sigs;
-	u16 batch_size;
 	const u8 **msg_batch;
 	enum peer_wire type;
 	struct tlv_commitment_signed_tlvs *cs_tlv
@@ -2322,11 +2312,6 @@ static struct commitsig_info *handle_peer_commit_sig_batch(struct peer *peer,
 					&cs_tlv))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Bad commit_sig %s", tal_hex(msg, msg));
-
-	/* Default batch_size is 1 */
-	batch_size = 1;
-	if (cs_tlv->splice_info && cs_tlv->splice_info->batch_size)
-		batch_size = cs_tlv->splice_info->batch_size;
 
 	msg_batch = tal_arr(tmpctx, const u8*, batch_size);
 	msg_batch[0] = msg;
@@ -2362,14 +2347,6 @@ static struct commitsig_info *handle_peer_commit_sig_batch(struct peer *peer,
 					 " [%"PRIu16"/%"PRIu16"] missing"
 					 " splice_info",
 					 tal_hex(sub_msg, sub_msg), i, batch_size);
-
-		if (!sub_cs_tlv->splice_info
-			|| sub_cs_tlv->splice_info->batch_size != batch_size)
-			peer_failed_err(peer->pps, &peer->channel_id,
-					"batch_size value mismatch in"
-					" commit_sig bundle, item [%"PRIu16
-					"/%"PRIu16"] %s", i, batch_size,
-					tal_hex(sub_msg, sub_msg));
 
 		msg_batch[i] = sub_msg;
 		status_debug("msg_batch[%d]: %p", (int)i, msg_batch[i]);
@@ -4858,7 +4835,8 @@ static void peer_in(struct peer *peer, const u8 *msg)
 					     NULL, 0, 0,
 					     peer->next_index[LOCAL],
 					     &peer->next_local_per_commit,
-					     false);
+					     false,
+					     1);
 		return;
 	case WIRE_UPDATE_FEE:
 		handle_peer_feechange(peer, msg);
