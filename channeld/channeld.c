@@ -1232,6 +1232,78 @@ static s64 sats_diff(struct amount_sat a, struct amount_sat b)
         return (s64)a.satoshis - (s64)b.satoshis; /* Raw: splicing numbers can wrap! */
 }
 
+static void send_message_batch(struct peer *peer, u8 **msgs)
+{
+	size_t size;
+	size_t hdr_size = tal_bytelen(towire_protocol_batch_element(tmpctx,
+								    &peer->channel_id,
+								    0));
+	u8 *batch_msg, *final_msg, *final_msg_ptr;
+	struct tlv_start_batch_tlvs *tlvs;
+
+	assert(tal_count(msgs) > 0);
+
+	/* When sending one message, no batching is required */
+	if (tal_count(msgs) == 1) {
+		peer_write(peer->pps, msgs[0]);
+		return;
+	}
+
+	/* We prefix each message with an interal wire type,
+	 * protocol_batch_element. connectd will eat each message so they don't
+	 * actually go out to the peer. It's just so connectd can chop up the
+	 * message batch back out into individual messages. */
+
+	/* We start by calculating the total size */
+	size = 0;
+
+	/* Build the `start_batch` msg now so know it's size */
+	tlvs = tlv_start_batch_tlvs_new(tmpctx);
+	tlvs->batch_info = tal(tlvs, u16);
+	*tlvs->batch_info = WIRE_COMMITMENT_SIGNED;
+	batch_msg = towire_start_batch(tmpctx, &peer->channel_id,
+				       tal_count(msgs), tlvs);
+	size += tal_bytelen(batch_msg) + hdr_size;
+
+	/* Count the size of all the messages in the batch */
+	for(u32 i = 0; i < tal_count(msgs); i++)
+		size += tal_bytelen(msgs[i]) + hdr_size;
+
+	/* Now we know the size of our `final_msg` so we allocate */
+	final_msg = tal_arr(tmpctx, u8, size);
+	final_msg_ptr = final_msg;
+
+	status_debug("proto_batch Building batch with %zu bytes, msgs: %zu",
+		     size, tal_count(msgs));
+
+	/* Copy the bytes for `start_batch` prefix */
+	memcpy(final_msg_ptr,
+	       towire_protocol_batch_element(tmpctx,
+	       				     &peer->channel_id,
+	       				     tal_bytelen(batch_msg)),
+	       				     hdr_size);
+	final_msg_ptr += hdr_size;
+
+	memcpy(final_msg_ptr, batch_msg, tal_bytelen(batch_msg));
+	final_msg_ptr += tal_bytelen(batch_msg);
+
+	/* Now copy the bytes from all messages in `msgs` */
+	for(u32 i = 0; i < tal_count(msgs); i++) {
+		memcpy(final_msg_ptr,
+		       towire_protocol_batch_element(tmpctx,
+	       					     &peer->channel_id,
+		       				     tal_bytelen(msgs[i])),
+		       				     hdr_size);
+		final_msg_ptr += hdr_size;
+
+		memcpy(final_msg_ptr, msgs[i], tal_bytelen(msgs[i]));
+		final_msg_ptr += tal_bytelen(msgs[i]);
+	}
+
+	assert(final_msg + size == final_msg_ptr);
+	peer_write(peer->pps, take(final_msg));
+}
+
 static void send_commit(struct peer *peer)
 {
 	const struct htlc **changed_htlcs;
@@ -1398,8 +1470,7 @@ static void send_commit(struct peer *peer)
 
 	peer->next_index[REMOTE]++;
 
-	for(u32 i = 0; i < tal_count(msgs); i++)
-		peer_write(peer->pps, take(msgs[i]));
+	send_message_batch(peer, msgs);
 
 	maybe_send_shutdown(peer);
 
@@ -5195,8 +5266,7 @@ static void resend_commitment(struct peer *peer, struct changed_htlc *last)
 						peer->splice_state->inflights[i]->remote_funding));
 	}
 
-	for(i = 0; i < tal_count(msgs); i++)
-		peer_write(peer->pps, take(msgs[i]));
+	send_message_batch(peer, msgs);
 
 	/* If we have already received the revocation for the previous, the
 	 * other side shouldn't be asking for a retransmit! */

@@ -399,6 +399,69 @@ static struct io_plan *io_sock_shutdown_cb(struct io_conn *conn, struct peer *un
 	return io_sock_shutdown(conn);
 }
 
+/* Process and eat protocol_batch_element messages, encrypt each element message
+ * and return the encrypted messages as one long byte array. */
+static u8 *process_batch_elements(struct peer *peer, const u8 *msg TAKES)
+{
+	u8 *ret = tal_arr(peer, u8, 0);
+	size_t ret_size = 0;
+	const u8 *cursor = msg;
+	size_t plen = tal_count(msg);
+
+	status_debug("Processing batch elements of %zu bytes. %s", plen,
+		     tal_hex(tmpctx, msg));
+
+	do {
+		u8 *element_bytes;
+		u16 element_size;
+		struct channel_id channel_id;
+		u8 *enc_msg;
+
+		if (fromwire_u16(&cursor, &plen) != WIRE_PROTOCOL_BATCH_ELEMENT) {
+			status_broken("process_batch_elements on msg that is"
+				      " not WIRE_PROTOCOL_BATCH_ELEMENT. %s",
+				      tal_hexstr(tmpctx, cursor, plen));
+			return tal_free(ret);
+		}
+
+		fromwire_channel_id(&cursor, &plen, &channel_id);
+
+	 	element_size = fromwire_u16(&cursor, &plen);
+	 	if (!element_size) {
+			status_broken("process_batch_elements cannot have zero"
+				      " length elements. %s",
+				      tal_hexstr(tmpctx, cursor, plen));
+			return tal_free(ret);
+	 	}
+
+		element_bytes = fromwire_tal_arrn(NULL, &cursor, &plen,
+						  element_size);
+		if (!element_bytes) {
+			status_broken("process_batch_elements fromwire_tal_arrn"
+				      " %s",
+				      tal_hexstr(tmpctx, cursor, plen));
+			return tal_free(ret);
+		}
+
+		status_debug("Processing batch extracted item %s. %s",
+			     peer_wire_name(fromwire_peektype(element_bytes)),
+			     tal_hex(tmpctx, element_bytes));
+
+		enc_msg = cryptomsg_encrypt_msg(tmpctx, &peer->cs,
+						take(element_bytes));
+
+		tal_resize(&ret, ret_size + tal_bytelen(enc_msg));
+		memcpy(&ret[ret_size], enc_msg, tal_bytelen(enc_msg));
+		ret_size += tal_bytelen(enc_msg);
+
+	} while(plen);
+
+	if (taken(msg))
+		tal_free(msg);
+
+	return ret;
+}
+
 static struct io_plan *encrypt_and_send(struct peer *peer,
 					const u8 *msg TAKES,
 					struct io_plan *(*next)
@@ -442,8 +505,17 @@ static struct io_plan *encrypt_and_send(struct peer *peer,
 
 	set_urgent_flag(peer, is_urgent(type));
 
+	/* Special message type directing us to process batch items. */
+	if (type == WIRE_PROTOCOL_BATCH_ELEMENT) {
+		peer->sent_to_peer = process_batch_elements(peer, msg);
+		if (!peer->sent_to_peer)
+			return io_close(peer->to_peer);
+	}
+	else {
+		peer->sent_to_peer = cryptomsg_encrypt_msg(peer, &peer->cs, msg);
+	}
 	/* We free this and the encrypted version in next write_to_peer */
-	peer->sent_to_peer = cryptomsg_encrypt_msg(peer, &peer->cs, msg);
+
 	return io_write(peer->to_peer,
 			peer->sent_to_peer,
 			tal_bytelen(peer->sent_to_peer),
