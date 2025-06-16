@@ -1060,7 +1060,7 @@ static void NON_NULL_ARGS(1, 2, 4, 5) json_add_channel(struct command *cmd,
 	if (channel_has(channel, OPT_ANCHOR_OUTPUTS_DEPRECATED))
 		json_add_string(response, NULL, "option_anchor_outputs");
 	if (channel_has(channel, OPT_ANCHORS_ZERO_FEE_HTLC_TX)) {
-		if (command_deprecated_out_ok(cmd, "features", "v24.08", "v25.08"))
+		if (command_deprecated_out_ok(cmd, "features", "v24.08", "v25.09"))
 			json_add_string(response, NULL, "option_anchors_zero_fee_htlc_tx");
 		json_add_string(response, NULL, "option_anchors");
 	}
