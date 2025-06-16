@@ -115,7 +115,7 @@
               "type": "hex",
               "deprecated": [
                 "v24.11",
-                "v25.11"
+                "v25.12"
               ],
               "description": [
                 "The raw bitcoin transaction used to close the channel (if it was open)."
@@ -125,7 +125,7 @@
               "type": "txid",
               "deprecated": [
                 "v24.11",
-                "v25.11"
+                "v25.12"
               ],
               "description": [
                 "The transaction id of the *tx* field."

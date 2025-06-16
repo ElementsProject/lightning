@@ -1261,7 +1261,7 @@ static char *opt_set_shutdown_wrong_funding(struct lightningd *ld)
 static char *opt_set_peer_storage(struct lightningd *ld)
 {
 	if (!opt_deprecated_ok(ld, "experimental-peer-storage", NULL,
-			       "v25.05", "v25.11"))
+			       "v25.05", "v25.12"))
 		return "--experimental-peer-storage is now enabled by default";
 	return NULL;
 }

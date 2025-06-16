@@ -5277,7 +5277,7 @@
                   "type": "hex",
                   "deprecated": [
                     "v24.11",
-                    "v25.11"
+                    "v25.12"
                   ],
                   "description": [
                     "The raw bitcoin transaction used to close the channel (if it was open)."
@@ -5287,7 +5287,7 @@
                   "type": "txid",
                   "deprecated": [
                     "v24.11",
-                    "v25.11"
+                    "v25.12"
                   ],
                   "description": [
                     "The transaction id of the *tx* field."
@@ -10497,7 +10497,7 @@
       "added": "v23.05",
       "depecated": [
         "v24.11",
-        "v25.11"
+        "v25.12"
       ],
       "rpc": "decodepay",
       "title": "Command for decoding a bolt11 string (low-level)",
