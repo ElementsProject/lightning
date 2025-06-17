@@ -23,4 +23,14 @@ refine_with_fees_and_limits(const tal_t *ctx,
 			    struct amount_msat deliver,
 			    struct flow ***flows,
 			    double *flowset_probability);
+
+/* Create a new set of temporary reservations.
+ * Reservations are removed on destruction. */
+struct reserve_hop *new_reservations(const tal_t *ctx,
+				     const struct route_query *rq);
+
+/* Add a flow to an existing reservation set. */
+void create_flow_reservations(const struct route_query *rq,
+			      struct reserve_hop **reservations,
+			      const struct flow *flow);
 #endif /* LIGHTNING_PLUGINS_ASKRENE_REFINE_H */
