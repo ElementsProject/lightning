@@ -783,7 +783,7 @@ static u64 route_score(struct amount_msat fee,
 	 */
 	score = (capacity_bias(global_gossmap, c, dir, total) + 1)
 		* msat.millisatoshis; /* Raw: Weird math */
-	if (score > 0xFFFFFFFF)
+	if (score != score || score > 0xFFFFFFFF)
 		return 0xFFFFFFFF;
 
 	/* Cast unnecessary, but be explicit! */
