@@ -1970,6 +1970,38 @@ impl Node for Server
 
     }
 
+    async fn fetch_bip353(
+        &self,
+        request: tonic::Request<pb::Fetchbip353Request>,
+    ) -> Result<tonic::Response<pb::Fetchbip353Response>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::Fetchbip353Request = req.into();
+        debug!("Client asked for fetch_bip353");
+        trace!("fetch_bip353 request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::FetchBip353(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method FetchBip353: {:?}", e)))?;
+        match result {
+            Response::FetchBip353(r) => {
+               trace!("fetch_bip353 response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call FetchBip353",
+                    r
+                )
+            )),
+        }
+
+    }
+
     async fn fetch_invoice(
         &self,
         request: tonic::Request<pb::FetchinvoiceRequest>,

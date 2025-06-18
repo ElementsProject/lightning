@@ -65,6 +65,7 @@ grpc_method_names = [
     "EnableOffer",
     "Disconnect",
     "Feerates",
+    "FetchBip353",
     "FetchInvoice",
     "FundChannel_Cancel",
     "FundChannel_Complete",
