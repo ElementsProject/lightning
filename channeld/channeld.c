@@ -3560,7 +3560,8 @@ static void resume_splice_negotiation(struct peer *peer,
 		msg = towire_channeld_update_inflight(NULL, current_psbt,
 						      their_commit->tx,
 						      &their_commit->commit_signature,
-						      inflight->locked_scid);
+						      inflight->locked_scid,
+						      inflight->i_sent_sigs);
 		wire_sync_write(MASTER_FD, take(msg));
 	}
 
@@ -3631,7 +3632,8 @@ static void resume_splice_negotiation(struct peer *peer,
 		&& send_signature) {
 		msg = towire_channeld_update_inflight(NULL, current_psbt,
 						      NULL, NULL,
-						      inflight->locked_scid);
+						      inflight->locked_scid,
+						      inflight->i_sent_sigs);
 		wire_sync_write(MASTER_FD, take(msg));
 
 		msg = towire_channeld_splice_sending_sigs(tmpctx, &final_txid);
@@ -3829,7 +3831,8 @@ static void resume_splice_negotiation(struct peer *peer,
 		/* We let core validate our peer's signatures are correct. */
 		msg = towire_channeld_update_inflight(NULL, current_psbt, NULL,
 						      NULL,
-						      inflight->locked_scid);
+						      inflight->locked_scid,
+						      inflight->i_sent_sigs);
 		wire_sync_write(MASTER_FD, take(msg));
 	}
 
@@ -4094,7 +4097,8 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 					   peer->splicing->accepter_relative,
 					   ictx->current_psbt,
 					   false,
-					   peer->splicing->force_sign_first);
+					   peer->splicing->force_sign_first,
+					   false);
 
 	master_wait_sync_reply(tmpctx, peer, take(msg),
 			       WIRE_CHANNELD_GOT_INFLIGHT);
@@ -4112,6 +4116,7 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 	new_inflight->i_am_initiator = false;
 	new_inflight->force_sign_first = peer->splicing->force_sign_first;
 	new_inflight->locked_scid = NULL;
+	new_inflight->i_sent_sigs = false;
 
 	current_push_val = relative_splice_balance_fundee(peer, our_role,ictx->current_psbt,
 					  outpoint.n, splice_funding_index);
@@ -4344,7 +4349,8 @@ static void splice_initiator_user_finalized(struct peer *peer)
 					      peer->splicing->opener_relative,
 					      ictx->current_psbt,
 					      true,
-					      peer->splicing->force_sign_first);
+					      peer->splicing->force_sign_first,
+					      false);
 
 	master_wait_sync_reply(tmpctx, peer, take(outmsg),
 			       WIRE_CHANNELD_GOT_INFLIGHT);
@@ -4361,6 +4367,7 @@ static void splice_initiator_user_finalized(struct peer *peer)
 	new_inflight->i_am_initiator = true;
 	new_inflight->force_sign_first = peer->splicing->force_sign_first;
 	new_inflight->locked_scid = NULL;
+	new_inflight->i_sent_sigs = false;
 
 	audit_psbt(ictx->current_psbt, ictx->current_psbt);
 
@@ -4392,7 +4399,8 @@ static void splice_initiator_user_finalized(struct peer *peer)
 	outmsg = towire_channeld_update_inflight(NULL, new_inflight->psbt,
 						 their_commit->tx,
 						 &their_commit->commit_signature,
-						 new_inflight->locked_scid);
+						 new_inflight->locked_scid,
+						 new_inflight->i_sent_sigs);
 	wire_sync_write(MASTER_FD, take(outmsg));
 
 	sign_first = do_i_sign_first(peer, new_inflight->psbt, our_role,
@@ -4586,7 +4594,8 @@ static void splice_initiator_user_signed(struct peer *peer, const u8 *inmsg)
 	outmsg = towire_channeld_update_inflight(NULL, inflight->psbt,
 						 inflight->last_tx,
 						 &inflight->last_sig,
-						 inflight->locked_scid);
+						 inflight->locked_scid,
+						 inflight->i_sent_sigs);
 
 	wire_sync_write(MASTER_FD, take(outmsg));
 
@@ -5900,7 +5909,8 @@ static void handle_funding_depth(struct peer *peer, const u8 *msg)
 									      inflight->psbt,
 									      NULL,
 									      NULL,
-									      inflight->locked_scid);
+									      inflight->locked_scid,
+									      inflight->i_sent_sigs);
 					wire_sync_write(MASTER_FD, take(msg));
 					inflight_match = inflight;
 				}
