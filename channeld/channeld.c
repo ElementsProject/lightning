@@ -3512,6 +3512,7 @@ static void resume_splice_negotiation(struct peer *peer,
 	const u8 *msg_received;
 	struct witness **inws;
 	struct bitcoin_signature *their_sig;
+	size_t remote_inputs_needing_sigs;
 
 	if (peer->splicing) {
 		inws = peer->splicing->inws;
@@ -3755,6 +3756,28 @@ static void resume_splice_negotiation(struct peer *peer,
 					 " received",
 					 tal_count(inws) - current_psbt->num_inputs);
 
+		remote_inputs_needing_sigs = 0;
+		for (size_t i = 0; i < current_psbt->num_inputs; i++) {
+			struct wally_psbt_input *in =
+				&current_psbt->inputs[i];
+			u64 in_serial;
+
+			if (!psbt_get_serial_id(&in->unknowns, &in_serial)) {
+				status_broken("PSBT input %zu missing serial_id"
+					      " %s", i,
+					      fmt_wally_psbt(tmpctx,
+							     current_psbt));
+				return;
+			}
+			if (in_serial % 2 == our_role)
+				continue;
+
+			if (i == splice_funding_index)
+				continue;
+
+			remote_inputs_needing_sigs++;
+		}
+
 		/* We put the PSBT + sigs all together */
 		for (size_t j = 0, i = 0; i < current_psbt->num_inputs; i++) {
 			struct wally_psbt_input *in =
@@ -3774,12 +3797,18 @@ static void resume_splice_negotiation(struct peer *peer,
 			if (i == splice_funding_index)
 				continue;
 
-			if (j == tal_count(inws))
+			if (j == tal_count(inws)) {
 				peer_failed_warn(peer->pps,
 						 &peer->channel_id,
 						 "Mismatch witness stack count."
 						 " Most likely you are missing"
-						 " signatures.");
+						 " signatures. We have %zu"
+						 " remote inputs needing sigs"
+						 " and you sent %zu witness"
+						 " bundles.",
+						 remote_inputs_needing_sigs,
+						 tal_count(inws));
+			}
 
 			psbt_finalize_input(current_psbt, in,
 					    inws[j++]);
