@@ -1814,7 +1814,7 @@ static void splice_abort(struct peer *peer, const char *fmt, ...)
 	reason = tal_vfmt(NULL, fmt, ap);
 	va_end(ap);
 
-	if (have_i_signed_inflight(peer, inflight))
+	if (inflight && inflight->i_sent_sigs)
 		peer_failed_err(peer->pps, &peer->channel_id,
 			      "I needed to abort a splice where I have already"
 			      " sent my signatures");
