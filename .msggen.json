@@ -1598,6 +1598,20 @@
             "Feerates.perkw": 3,
             "Feerates.warning_missing_feerates": 1
         },
+        "Fetchbip353Instructions": {
+            "FetchBip353.instructions[].description": 1,
+            "FetchBip353.instructions[].offchain_amount_msat": 4,
+            "FetchBip353.instructions[].offer": 2,
+            "FetchBip353.instructions[].onchain": 3,
+            "FetchBip353.instructions[].onchain_amount_sat": 5
+        },
+        "Fetchbip353Request": {
+            "FetchBip353.address": 1
+        },
+        "Fetchbip353Response": {
+            "FetchBip353.instructions[]": 2,
+            "FetchBip353.proof": 1
+        },
         "FetchinvoiceChanges": {
             "FetchInvoice.changes.amount_msat": 5,
             "FetchInvoice.changes.description": 2,
@@ -6890,6 +6904,42 @@
         },
         "Feerates.warning_missing_feerates": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "FetchBip353": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "FetchBip353.address": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "FetchBip353.instructions[]": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "FetchBip353.instructions[].description": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "FetchBip353.instructions[].offchain_amount_msat": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "FetchBip353.instructions[].offer": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "FetchBip353.instructions[].onchain": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "FetchBip353.instructions[].onchain_amount_sat": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "FetchBip353.proof": {
+            "added": "v25.09",
             "deprecated": null
         },
         "FetchInvoice": {

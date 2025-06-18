@@ -78,6 +78,7 @@ pub enum Request {
 	EnableOffer(requests::EnableofferRequest),
 	Disconnect(requests::DisconnectRequest),
 	Feerates(requests::FeeratesRequest),
+	FetchBip353(requests::Fetchbip353Request),
 	FetchInvoice(requests::FetchinvoiceRequest),
 	#[serde(rename = "fundchannel_cancel")]
 	FundChannelCancel(requests::FundchannelCancelRequest),
@@ -254,6 +255,7 @@ pub enum Response {
 	EnableOffer(responses::EnableofferResponse),
 	Disconnect(responses::DisconnectResponse),
 	Feerates(responses::FeeratesResponse),
+	FetchBip353(responses::Fetchbip353Response),
 	FetchInvoice(responses::FetchinvoiceResponse),
 	#[serde(rename = "fundchannel_cancel")]
 	FundChannelCancel(responses::FundchannelCancelResponse),
@@ -2318,6 +2320,28 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "feerates"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct Fetchbip353Request {
+	    pub address: String,
+	}
+
+	impl From<Fetchbip353Request> for Request {
+	    fn from(r: Fetchbip353Request) -> Self {
+	        Request::FetchBip353(r)
+	    }
+	}
+
+	impl IntoRequest for Fetchbip353Request {
+	    type Response = super::responses::Fetchbip353Response;
+	}
+
+	impl TypedRequest for Fetchbip353Request {
+	    type Response = super::responses::Fetchbip353Response;
+
+	    fn method(&self) -> &str {
+	        "fetchbip353"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -8086,6 +8110,37 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::Feerates(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct Fetchbip353Instructions {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub description: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub offchain_amount_msat: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub offer: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub onchain: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub onchain_amount_sat: Option<u64>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct Fetchbip353Response {
+	    pub instructions: Vec<Fetchbip353Instructions>,
+	    pub proof: String,
+	}
+
+	impl TryFrom<Response> for Fetchbip353Response {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::FetchBip353(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

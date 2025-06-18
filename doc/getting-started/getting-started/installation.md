@@ -117,7 +117,7 @@ sudo apt-get install -y valgrind libpq-dev shellcheck cppcheck \
 
 If you can't install `lowdown`, a version will be built in-tree.
 
-If you want to build the Rust plugins (cln-grpc, clnrest, and wss-proxy):
+If you want to build the Rust plugins (cln-grpc, clnrest, cln-bip353 and wss-proxy):
 
 ```shell
 sudo apt-get install -y cargo rustfmt protobuf-compiler
@@ -141,7 +141,7 @@ sudo RUST_PROFILE=release make install
 
 > 📘 
 > 
-> If you want to disable Rust because you don’t need it or its plugins (cln-grpc, clnrest, or wss-proxy), you can use `./configure --disable-rust`.
+> If you want to disable Rust because you don’t need it or its plugins (cln-grpc, clnrest, cln-bip353 or wss-proxy), you can use `./configure --disable-rust`.
 
 To build CLN for development:
 
