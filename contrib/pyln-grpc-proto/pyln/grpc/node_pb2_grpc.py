@@ -329,6 +329,11 @@ class NodeStub(object):
                 request_serializer=node__pb2.FeeratesRequest.SerializeToString,
                 response_deserializer=node__pb2.FeeratesResponse.FromString,
                 _registered_method=True)
+        self.FetchBip353 = channel.unary_unary(
+                '/cln.Node/FetchBip353',
+                request_serializer=node__pb2.Fetchbip353Request.SerializeToString,
+                response_deserializer=node__pb2.Fetchbip353Response.FromString,
+                _registered_method=True)
         self.FetchInvoice = channel.unary_unary(
                 '/cln.Node/FetchInvoice',
                 request_serializer=node__pb2.FetchinvoiceRequest.SerializeToString,
@@ -1093,6 +1098,12 @@ class NodeServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def Feerates(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def FetchBip353(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1887,6 +1898,11 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.Feerates,
                     request_deserializer=node__pb2.FeeratesRequest.FromString,
                     response_serializer=node__pb2.FeeratesResponse.SerializeToString,
+            ),
+            'FetchBip353': grpc.unary_unary_rpc_method_handler(
+                    servicer.FetchBip353,
+                    request_deserializer=node__pb2.Fetchbip353Request.FromString,
+                    response_serializer=node__pb2.Fetchbip353Response.SerializeToString,
             ),
             'FetchInvoice': grpc.unary_unary_rpc_method_handler(
                     servicer.FetchInvoice,
@@ -3892,6 +3908,33 @@ class Node(object):
             '/cln.Node/Feerates',
             node__pb2.FeeratesRequest.SerializeToString,
             node__pb2.FeeratesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def FetchBip353(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/cln.Node/FetchBip353',
+            node__pb2.Fetchbip353Request.SerializeToString,
+            node__pb2.Fetchbip353Response.FromString,
             options,
             channel_credentials,
             insecure,

@@ -84,6 +84,7 @@ target
 plugins/cln-grpc
 plugins/clnrest
 plugins/wss-proxy
+plugins/cln-bip353
 
 # Build directories
 bionic/
