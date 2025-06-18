@@ -73,8 +73,10 @@ void run(const uint8_t *data, size_t size)
 
 	/* TODO: determine if it makes sense to check at each step for libfuzzer
 	 * to deduce pertinent inputs */
-	if (!data || !size)
+	if (!data || !size) {
+		clean_tmpctx();
 		return;
+	}
 
 	for (enum side opener = 0; opener < NUM_SIDES; opener++) {
 		channel = new_initial_channel(tmpctx, &cid, &funding,
