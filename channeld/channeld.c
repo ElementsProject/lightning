@@ -4277,6 +4277,8 @@ static void splice_initiator_user_finalized(struct peer *peer)
 	u8 *outmsg;
 	struct interactivetx_context *ictx;
 	struct bitcoin_tx *prev_tx;
+	struct bitcoin_tx *bitcoin_tx;
+	struct bitcoin_signature splice_sig;
 	bool sign_first;
 	char *error;
 	u32 chan_output_index, splice_funding_index;
@@ -4288,6 +4290,7 @@ static void splice_initiator_user_finalized(struct peer *peer)
 	struct amount_msat current_push_val;
 	const enum tx_role our_role = TX_INITIATOR;
 	u8 *abort_msg;
+	const u8* msg;
 
 	/* We must loading the funding tx as our previous utxo */
 	prev_tx = bitcoin_tx_from_txid(peer, peer->channel->funding.txid);
@@ -4335,6 +4338,44 @@ static void splice_initiator_user_finalized(struct peer *peer)
 	new_chan_output->amount = both_amount.satoshis; /* Raw: type conv */
 
 	psbt_elements_normalize_fees(ictx->current_psbt);
+
+	/* We have to sign the shared output early (here) for cases where we are
+	 * splicing between multiple channels simultaneously. This is so the
+	 * we can build a complete `tx_signatures` message when there are two
+	 * or more shared outputs between mulitple peers */
+
+	splice_sig.sighash_type = SIGHASH_ALL;
+
+	bitcoin_tx = bitcoin_tx_with_psbt(tmpctx, ictx->current_psbt);
+
+	status_info("Splice pre-signing tx: %s",
+		    tal_hex(tmpctx, linearize_tx(tmpctx, bitcoin_tx)));
+
+	msg = towire_hsmd_sign_splice_tx(tmpctx, bitcoin_tx,
+					 &peer->channel->funding_pubkey[REMOTE],
+					 splice_funding_index);
+
+	msg = hsm_req(tmpctx, take(msg));
+	if (!fromwire_hsmd_sign_tx_reply(msg, &splice_sig))
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "Reading sign_splice_tx reply: %s",
+			      tal_hex(tmpctx, msg));
+
+	/* Set the splice_sig on the splice funding tx psbt */
+	if (!psbt_input_set_signature(ictx->current_psbt, splice_funding_index,
+				      &peer->channel->funding_pubkey[LOCAL],
+				      &splice_sig))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Unable to pre-set signature internally "
+			      "funding_index: %d "
+			      "my pubkey: %s "
+			      "my signature: %s "
+			      "psbt: %s",
+			      splice_funding_index,
+			      fmt_pubkey(tmpctx,
+					 &peer->channel->funding_pubkey[LOCAL]),
+			      fmt_bitcoin_signature(tmpctx, &splice_sig),
+			      fmt_wally_psbt(tmpctx, ictx->current_psbt));
 
 	status_debug("Splice adding inflight: %s",
 		     fmt_wally_psbt(tmpctx, ictx->current_psbt));
