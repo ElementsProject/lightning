@@ -842,7 +842,7 @@ static void handle_add_inflight(struct lightningd *ld,
 	s64 splice_amnt;
 	struct wally_psbt *psbt;
 	struct channel_inflight *inflight;
-	bool i_am_initiator, force_sign_first;
+	bool i_am_initiator, force_sign_first, i_sent_sigs;
 
 	if (!fromwire_channeld_add_inflight(tmpctx,
 					    msg,
@@ -854,7 +854,8 @@ static void handle_add_inflight(struct lightningd *ld,
 					    &splice_amnt,
 					    &psbt,
 					    &i_am_initiator,
-					    &force_sign_first)) {
+					    &force_sign_first,
+					    &i_sent_sigs)) {
 		channel_internal_error(channel,
 				       "bad channel_add_inflight %s",
 				       tal_hex(channel, msg));
@@ -877,7 +878,8 @@ static void handle_add_inflight(struct lightningd *ld,
 				AMOUNT_SAT(0),
 				splice_amnt,
 				i_am_initiator,
-				force_sign_first);
+				force_sign_first,
+				i_sent_sigs);
 
 	log_debug(channel->log, "lightningd adding inflight with txid %s",
 		  fmt_bitcoin_txid(tmpctx,
@@ -898,9 +900,11 @@ static void handle_update_inflight(struct lightningd *ld,
 	struct bitcoin_tx *last_tx;
 	struct bitcoin_signature *last_sig;
 	struct short_channel_id *locked_scid;
+	bool i_sent_sigs;
 
 	if (!fromwire_channeld_update_inflight(tmpctx, msg, &psbt, &last_tx,
-					       &last_sig, &locked_scid)) {
+					       &last_sig, &locked_scid,
+					       &i_sent_sigs)) {
 		channel_internal_error(channel,
 				       "bad channel_add_inflight %s",
 				       tal_hex(channel, msg));
@@ -929,6 +933,7 @@ static void handle_update_inflight(struct lightningd *ld,
 		inflight->last_sig = *last_sig;
 
 	inflight->locked_scid = tal_steal(inflight, locked_scid);
+	inflight->i_sent_sigs = i_sent_sigs;
 
 	tal_wally_start();
 	if (wally_psbt_combine(inflight->funding_psbt, psbt) != WALLY_OK) {
@@ -1823,6 +1828,7 @@ bool peer_start_channeld(struct channel *channel,
 		infcopy->i_am_initiator = inflight->i_am_initiator;
 		infcopy->force_sign_first = inflight->force_sign_first;
 		infcopy->locked_scid = tal_dup_or_null(infcopy, struct short_channel_id, inflight->locked_scid);
+		infcopy->i_sent_sigs = inflight->i_sent_sigs;
 
 		tal_wally_start();
 		wally_psbt_clone_alloc(inflight->funding_psbt, 0, &infcopy->psbt);

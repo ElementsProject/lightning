@@ -1300,6 +1300,7 @@ wallet_update_channel(struct lightningd *ld,
 				lease_amt,
 				0,
 				false,
+				false,
 				false);
 	wallet_inflight_add(ld->wallet, inflight);
 
@@ -1537,6 +1538,7 @@ wallet_commit_channel(struct lightningd *ld,
 				channel->push,
 				lease_amt,
 				0,
+				false,
 				false,
 				false);
 	wallet_inflight_add(ld->wallet, inflight);

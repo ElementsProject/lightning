@@ -272,7 +272,8 @@ struct channel_inflight *new_inflight(struct channel *channel UNNEEDED,
 	     const struct amount_sat lease_amt UNNEEDED,
 	     s64 splice_amnt UNNEEDED,
 	     bool i_am_initiator UNNEEDED,
-	     bool force_sign_first UNNEEDED)
+	     bool force_sign_first UNNEEDED,
+	     bool i_sent_sigs UNNEEDED)
 { fprintf(stderr, "new_inflight called!\n"); abort(); }
 /* Generated stub for new_logger */
 struct logger *new_logger(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED,
