@@ -3667,6 +3667,7 @@ static void resume_splice_negotiation(struct peer *peer,
 	if (do_i_sign_first(peer, current_psbt, our_role,
 			    inflight->force_sign_first)
 		&& send_signature) {
+		inflight->i_sent_sigs = true;
 		msg = towire_channeld_update_inflight(NULL, current_psbt,
 						      NULL, NULL,
 						      inflight->locked_scid,
@@ -3869,7 +3870,7 @@ static void resume_splice_negotiation(struct peer *peer,
 		msg = towire_channeld_update_inflight(NULL, current_psbt, NULL,
 						      NULL,
 						      inflight->locked_scid,
-						      inflight->i_sent_sigs);
+						      send_signature || inflight->i_sent_sigs);
 		wire_sync_write(MASTER_FD, take(msg));
 	}
 
@@ -3879,6 +3880,7 @@ static void resume_splice_negotiation(struct peer *peer,
 		msg = towire_channeld_splice_sending_sigs(tmpctx, &final_txid);
 		wire_sync_write(MASTER_FD, take(msg));
 
+		inflight->i_sent_sigs = true;
 		peer_write(peer->pps, sigmsg);
 		status_debug("Splice: we signed second");
 	}
