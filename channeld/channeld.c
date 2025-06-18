@@ -3283,7 +3283,10 @@ static struct amount_sat check_balances(struct peer *peer,
 	if (!amount_msat_add_sat_s64(&funding_amount, funding_amount,
 				     peer->splicing->opener_relative))
 		splice_abort(peer, "Splice initiator did not provide enough"
-			     " funding");
+			     " funding, funding_amount: %s, opener_relative:"
+			     " %"PRIu64,
+			     fmt_amount_msat(tmpctx, funding_amount),
+			     peer->splicing->opener_relative);
 	if (!amount_msat_add_sat_s64(&out[TX_INITIATOR], out[TX_INITIATOR],
 				     peer->splicing->opener_relative))
 		peer_failed_warn(peer->pps, &peer->channel_id,
@@ -3309,11 +3312,16 @@ static struct amount_sat check_balances(struct peer *peer,
 				 " amount. Initiator contributing %s but they"
 				 " committed to %s. Pending offered HTLC"
 				 " balance of %s is not available for this"
-				 " operation.",
+				 " operation. We are%s the opener. We began the"
+				 " operation being owed/owing %s and expect"
+				 " that amount to change %"PRIu64"000",
 				 fmt_amount_msat(tmpctx, in[TX_INITIATOR]),
 				 fmt_amount_msat(tmpctx, out[TX_INITIATOR]),
 				 fmt_amount_msat(tmpctx,
-				 		 pending_htlcs[TX_INITIATOR]));
+				 		 pending_htlcs[TX_INITIATOR]),
+				 opener ? "" : " not",
+				 fmt_amount_msat(tmpctx, peer->channel->view->owed[opener ? LOCAL : REMOTE]),
+				 peer->splicing->opener_relative);
 	}
 
 	if (!amount_msat_sub(&initiator_fee, in[TX_INITIATOR], out[TX_INITIATOR]))
