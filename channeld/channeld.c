@@ -3627,6 +3627,7 @@ static void resume_splice_negotiation(struct peer *peer,
 
 	psbt_txid(tmpctx, current_psbt, &final_txid, NULL);
 
+	inflight->i_sent_sigs = send_signature;
 	if (do_i_sign_first(peer, current_psbt, our_role,
 			    inflight->force_sign_first)
 		&& send_signature) {
@@ -3827,7 +3828,7 @@ static void resume_splice_negotiation(struct peer *peer,
 					     wit_stack);
 	}
 
-	if (recv_signature) {
+	if (recv_signature || send_signature) {
 		/* We let core validate our peer's signatures are correct. */
 		msg = towire_channeld_update_inflight(NULL, current_psbt, NULL,
 						      NULL,
