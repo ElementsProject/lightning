@@ -47,11 +47,11 @@ jobs:
         echo "DISTRIBUTION LOCATION: $DISTLOCATION"
 
     - name: Setup rust
-      uses: dtolnay/rust-toolchain@1.75
+      uses: dtolnay/rust-toolchain@1.77
 
     - name: Install cargo release
       run: |
-        cargo install cargo-release
+        cargo install cargo-release --version v0.25.10
 
     - name: Bump pre-release version
       if: github.repository == 'daywalker90/lightning' && steps.set-values.outputs.DISTLOCATION == 'test'
