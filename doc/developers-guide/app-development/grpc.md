@@ -35,18 +35,10 @@ The gRPC interface is described in the [protobuf file](https://github.com/Elemen
 
 In this tutorial, we walk through the steps for Python, however they are mostly the same for other languages. For instance, if you're developing in Rust, use [`tonic-build`](https://docs.rs/tonic-build/latest/tonic_build/) to generate the bindings. For other languages, see the official [gRPC docs](https://grpc.io/docs/languages/) on how to generate gRPC client library for your specific language using the protobuf file.
 
-We start by downloading the dependencies and `protoc` compiler:
-
-```shell
-pip install grpcio-tools
-```
-
-
-
-Next we generate the bindings in the current directory:
+We generate the bindings in the current directory:
 
 ```bash
-python -m grpc_tools.protoc \
+uv run -m grpc_tools.protoc \
   -I path/to/cln-grpc/proto \
   path/to/cln-grpc/proto/node.proto \
   --python_out=. \

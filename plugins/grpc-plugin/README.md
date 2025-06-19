@@ -23,7 +23,7 @@ if they don't already exist:
  - `client.pem` and `client-key.pem`: this is an example identity that
    can be used by a client to connect to the plugin, and issue
    requests. It is also signed by the CA.
-   
+
 These files are generated with sane defaults, however you can generate
 custom certificates should you require some changes (see below for
 details).
@@ -39,16 +39,10 @@ bindings.
 In this example we walk through the steps for python, however they are
 mostly the same for other languages.
 
-We start by downloading the dependencies and `protoc` compiler:
+We generate the bindings in the current directory:
 
 ```bash
-pip install grpcio-tools
-```
-
-Next we generate the bindings in the current directory:
-
-```bash
-python -m grpc_tools.protoc \
+uv run -m grpc_tools.protoc \
   -I path/to/cln-grpc/proto \
   path/to/cln-grpc/proto/node.proto \
   --python_out=. \
@@ -62,7 +56,7 @@ This will generate two files in the current directory:
    exchanging with the server.
  - `node_pb2_grpc.py`: the service and method stubs representing the
    server-side methods as local objects and associated methods.
-   
+
 And finally we can use the generated stubs and mTLS identity to
 connect to the node:
 

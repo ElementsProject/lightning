@@ -21,7 +21,7 @@ installing into your python3 environment:
 ```bash
 git clone https://github.com/ElementsProject/lightning.git
 cd lightning/contrib/pyln-client
-poetry install
+uv sync
 ```
 
 This will add links to the library into your environment so changing the
