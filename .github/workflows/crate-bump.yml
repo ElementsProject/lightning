@@ -56,16 +56,12 @@ jobs:
     - name: Bump pre-release version
       if: github.repository == 'daywalker90/lightning' && steps.set-values.outputs.DISTLOCATION == 'test'
       run: |
-        cargo release version -p cln-rpc rc --execute --no-confirm
-        cargo release version -p cln-grpc rc --execute --no-confirm
-        cargo release version -p cln-plugin rc --execute --no-confirm
+        cargo release version -p cln-rpc -p cln-grpc -p cln-plugin rc --execute --no-confirm
 
     - name: Bump release version
       if: github.repository == 'daywalker90/lightning' && steps.set-values.outputs.DISTLOCATION == 'prod'
       run: |
-        cargo release version -p cln-rpc minor --execute --no-confirm
-        cargo release version -p cln-grpc minor --execute --no-confirm
-        cargo release version -p cln-plugin minor --execute --no-confirm
+        cargo release version -p cln-rpc -p cln-grpc -p cln-plugin minor --execute --no-confirm
 
     - name: Create Pull Request
       if: github.repository == 'daywalker90/lightning'
