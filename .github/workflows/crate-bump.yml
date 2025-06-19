@@ -12,9 +12,10 @@ on:
         description: 'Distribution location'
         type: choice
         options:
-          - test
-          - prod
-        default: 'test'
+          - rc
+          - major
+          - minor
+        default: 'rc'
         required: false
 
 jobs:
@@ -37,10 +38,16 @@ jobs:
       run: |
         if [[ "${{ github.event.inputs.dist-location }}" != "" ]]; then
           DISTLOCATION=${{ github.event.inputs.dist-location }}
-        elif [[ "${{ github.ref_type }}" == "tag" ]] && [[ ! "${{ github.ref_name }}" =~ rc ]]; then
-          DISTLOCATION="prod"
+        elif [[ "${{ github.ref_type }}" == "tag" ]]; then
+          if [[ ! "${{ github.ref_name }}" =~ ^v[0-9]+\.[0-9]+$ ]]; then
+            DISTLOCATION="major"
+          elif [[ ! "${{ github.ref_name }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            DISTLOCATION="minor"
+          else
+            DISTLOCATION="rc"
+          fi
         else
-          DISTLOCATION="test"
+          DISTLOCATION="rc"
         fi
         echo "DISTLOCATION=$DISTLOCATION" >> $GITHUB_OUTPUT
         echo "EVENT DISTLOCATION: ${{ github.event.inputs.dist-location }}"
@@ -53,15 +60,20 @@ jobs:
       run: |
         cargo install --locked cargo-release --version 0.25.10
 
-    - name: Bump pre-release version
-      if: github.repository == 'daywalker90/lightning' && steps.set-values.outputs.DISTLOCATION == 'test'
+    - name: Bump rc version
+      if: github.repository == 'daywalker90/lightning' && steps.set-values.outputs.DISTLOCATION == 'rc'
       run: |
         cargo release version -p cln-rpc -p cln-grpc -p cln-plugin rc --execute --no-confirm
 
-    - name: Bump release version
-      if: github.repository == 'daywalker90/lightning' && steps.set-values.outputs.DISTLOCATION == 'prod'
+    - name: Bump minor release version
+      if: github.repository == 'daywalker90/lightning' && steps.set-values.outputs.DISTLOCATION == 'major'
       run: |
         cargo release version -p cln-rpc -p cln-grpc -p cln-plugin minor --execute --no-confirm
+
+    - name: Bump patch release version
+      if: github.repository == 'daywalker90/lightning' && steps.set-values.outputs.DISTLOCATION == 'minor'
+      run: |
+        cargo release version -p cln-rpc -p cln-grpc -p cln-plugin patch --execute --no-confirm
 
     - name: Create Pull Request
       if: github.repository == 'daywalker90/lightning'
