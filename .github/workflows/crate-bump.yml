@@ -51,7 +51,7 @@ jobs:
 
     - name: Install cargo release
       run: |
-        cargo install cargo-release --version 0.25.10
+        cargo install --locked cargo-release --version 0.25.10
 
     - name: Bump pre-release version
       if: github.repository == 'daywalker90/lightning' && steps.set-values.outputs.DISTLOCATION == 'test'
