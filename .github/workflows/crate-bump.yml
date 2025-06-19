@@ -54,21 +54,21 @@ jobs:
         cargo install cargo-release
 
     - name: Bump pre-release version
-      if: github.repository == 'ElementsProject/lightning' && steps.set-values.outputs.DISTLOCATION == 'test'
+      if: github.repository == 'daywalker90/lightning' && steps.set-values.outputs.DISTLOCATION == 'test'
       run: |
         cargo release version -p cln-rpc rc --execute
         cargo release version -p cln-grpc rc --execute
         cargo release version -p cln-plugin rc --execute
 
     - name: Bump release version
-      if: github.repository == 'ElementsProject/lightning' && steps.set-values.outputs.DISTLOCATION == 'prod'
+      if: github.repository == 'daywalker90/lightning' && steps.set-values.outputs.DISTLOCATION == 'prod'
       run: |
         cargo release version -p cln-rpc minor --execute
         cargo release version -p cln-grpc minor --execute
         cargo release version -p cln-plugin minor --execute
 
     - name: Create Pull Request
-      if: github.repository == 'ElementsProject/lightning'
+      if: github.repository == 'daywalker90/lightning'
       uses: peter-evans/create-pull-request@v7
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
