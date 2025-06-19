@@ -34,7 +34,7 @@ Alternatively you can also install the development version to get access to curr
 ```shell
 git clone https://github.com/ElementsProject/lightning.git
 cd lightning/contrib/pyln-client
-poetry install
+uv sync
 ```
 
 

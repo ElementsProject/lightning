@@ -35,6 +35,37 @@ It will also print out (to stderr) the gdb command for manual connection.  The s
 make -j$(nproc)
 ```
 
+## Building Python Packages
+
+Core Lightning includes several Python packages in the workspace that can be built individually or all at once:
+
+```shell
+# Build all Python packages
+make pyln-build-all
+
+# Build individual packages
+make pyln-build-client
+make pyln-build-proto
+make pyln-build-testing
+make pyln-build-grpc-proto
+
+# Build bolt specification packages
+make pyln-build-bolt1
+make pyln-build-bolt2
+make pyln-build-bolt4
+make pyln-build-bolt7
+
+# Build wss-proxy plugin
+make pyln-build-wss-proxy
+```
+
+You can also build packages directly with uv:
+
+```shell
+uv build contrib/pyln-client/
+uv build contrib/pyln-proto/
+```
+
 ## Making BOLT Modifications
 
 All of code for marshalling/unmarshalling BOLT protocol messages is generated directly from the spec. These are pegged to the BOLTVERSION, as specified in `Makefile`.
