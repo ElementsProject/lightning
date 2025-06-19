@@ -47,7 +47,7 @@ jobs:
         echo "DISTRIBUTION LOCATION: $DISTLOCATION"
 
     - name: Setup rust
-      uses: dtolnay/rust-toolchain@stable
+      uses: dtolnay/rust-toolchain@1.75
 
     - name: Install cargo release
       run: |
