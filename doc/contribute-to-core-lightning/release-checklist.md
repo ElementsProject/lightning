@@ -82,10 +82,10 @@ Here's a checklist for the release process.
    4. Send your signatures from `release/SHA256SUMS.new` to release captain.
    5. Or follow [link](https://docs.corelightning.org/docs/repro#verifying-a-reproducible-build) for manual verification instructions.
 10. Append signatures shared by the team into the `SHA256SUMS.asc` file, verify with `gpg --verify SHA256SUMS.asc` and include the file in the draft release.
-11. The GitHub action `Publish Python 🐍 distributions 📦 to PyPI and TestPyPI` should upload the pyln modules to pypi.org. However, this can also be done manually by running `make pyln-release`. This process requires keys for each of the `pyln-client`, `pyln-proto`, and `pyln-testing` modules to be accessible to Poetry. You can configure the Python keyring library with a suitable backend to handle this, or alternatively, set the key as an environment variable and build and publish each pyln release independently:
-    - `export POETRY_PYPI_TOKEN_PYPI=<pyln-client token>`
+11. The GitHub action `Publish Python 🐍 distributions 📦 to PyPI and TestPyPI` should upload the pyln modules to pypi.org. However, this can also be done manually by running `make pyln-release`. This process requires keys for each of the `pyln-client`, `pyln-proto`, and `pyln-testing` modules to be accessible to uv. You can set the key as an environment variable and build and publish each pyln release independently:
+    - `export UV_PUBLISH_TOKEN=<pyln-client token>`
     - `make pyln-release-client`
-    - ... repeat for each pyln package.
+    - ... repeat for each pyln package with the appropriate token.
 12. Publish multi-arch Docker images (`elementsproject/lightningd:v${VERSION}` and `elementsproject/lightningd:latest`) to Docker Hub either using the GitHub action `Build and push multi-platform docker images` or by running the `tools/build-release.sh docker` script. Prior to building docker images by `tools/build-release.sh` script, ensure that `multiarch/qemu-user-static` setup is working on your system as described [here](https://docs.corelightning.org/docs/docker-images#setting-up-multiarchqemu-user-static).
 
 
