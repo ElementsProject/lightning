@@ -1,0 +1,88 @@
+name: Bump Rust 🦀 crate versions
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+[0-9a-z]+'
+  workflow_dispatch:
+    inputs:
+      dist-location:
+        description: 'Distribution location'
+        type: choice
+        options:
+          - test
+          - prod
+        default: 'test'
+        required: false
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        # Need to fetch entire history in order to locate the version tag
+        fetch-depth: 0
+
+    - name: Check version tag
+      run: >-
+        git describe --tags --always --dirty=-modded --abbrev=7
+
+    - name: Set up values
+      id: set-values
+      run: |
+        if [[ "${{ github.event.inputs.dist-location }}" != "" ]]; then
+          DISTLOCATION=${{ github.event.inputs.dist-location }}
+        elif [[ "${{ github.ref_type }}" == "tag" ]] && [[ ! "${{ github.ref_name }}" =~ rc ]]; then
+          DISTLOCATION="prod"
+        else
+          DISTLOCATION="test"
+        fi
+        echo "DISTLOCATION=$DISTLOCATION" >> $GITHUB_OUTPUT
+        echo "EVENT DISTLOCATION: ${{ github.event.inputs.dist-location }}"
+        echo "DISTRIBUTION LOCATION: $DISTLOCATION"
+
+    - name: Setup rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Install cargo release
+      run: |
+        cargo install cargo-release
+
+    - name: Bump pre-release version
+      if: github.repository == 'ElementsProject/lightning' && steps.set-values.outputs.DISTLOCATION == 'test'
+      run: |
+        cargo release version -p cln-rpc rc --execute
+        cargo release version -p cln-grpc rc --execute
+        cargo release version -p cln-plugin rc --execute
+
+    - name: Bump release version
+      if: github.repository == 'ElementsProject/lightning' && steps.set-values.outputs.DISTLOCATION == 'prod'
+      run: |
+        cargo release version -p cln-rpc minor --execute
+        cargo release version -p cln-grpc minor --execute
+        cargo release version -p cln-plugin minor --execute
+
+    - name: Create Pull Request
+      if: github.repository == 'ElementsProject/lightning'
+      uses: peter-evans/create-pull-request@v7
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: "crates: Bump crate versions for ${{ github.ref_name }}"
+        title: "Bump crate versions for ${{ github.ref_name }}"
+        body: |
+          This PR bumps the crate versions for:
+          - cln-rpc
+          - cln-grpc
+          - cln-plugin
+
+          Triggered by tag: ${{ github.ref_name }}
+          Distribution location: ${{ steps.set-values.outputs.DISTLOCATION }}
+        branch: "bump-crate-versions-${{ github.ref_name }}"
+        base: master
+        labels: version-bump, automated
+        delete-branch: true
