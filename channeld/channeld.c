@@ -4521,6 +4521,9 @@ static void splice_initiator_user_update(struct peer *peer, const u8 *inmsg)
 
 	/* If there no are no changes, we consider the splice user finalized */
 	if (!interactivetx_has_changes(ictx, ictx->desired_psbt)) {
+		peer->splicing->current_psbt = tal_free(peer->splicing->current_psbt);
+		peer->splicing->current_psbt = clone_psbt(peer->splicing,
+							  ictx->desired_psbt);
 		splice_initiator_user_finalized(peer);
 		tal_steal(last_inflight(peer), last_inflight(peer)->psbt);
 		return;
