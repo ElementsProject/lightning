@@ -174,6 +174,9 @@ static const double CHANNEL_PIVOTS[]={0,0.5,0.8,0.95};
 static const s64 INFINITE = INT64_MAX;
 static const s64 MU_MAX = 100;
 
+/* every payment under 1000sat will be routed through a single path */
+static const struct amount_msat SINGLE_PATH_THRESHOLD = AMOUNT_MSAT(1000000);
+
 /* Let's try this encoding of arcs:
  * Each channel `c` has two possible directions identified by a bit
  * `half` or `!half`, and each one of them has to be
@@ -322,6 +325,15 @@ static void set_capacity(s64 *capacity, u64 value, u64 *cap_on_capacity)
 {
 	*capacity = MIN(value, *cap_on_capacity);
 	*cap_on_capacity -= *capacity;
+}
+
+/* Helper to check whether a channel is available */
+static bool channel_is_available(const struct route_query *rq,
+				 const struct gossmap_chan *chan, const int dir)
+{
+	const u32 c_idx = gossmap_chan_idx(rq->gossmap, chan);
+	return gossmap_chan_set(chan, dir) && chan->half[dir].enabled &&
+	       !bitmap_test_bit(rq->disabled_chans, c_idx * 2 + dir);
 }
 
 /* FIXME: unit test this */
@@ -567,15 +579,14 @@ static void init_linear_network(const tal_t *ctx,
 			int half;
 			const struct gossmap_chan *c = gossmap_nth_chan(gossmap,
 			                                                node, j, &half);
+			const u32 chan_id = gossmap_chan_idx(gossmap, c);
 
-			if (!gossmap_chan_set(c, half) || !c->half[half].enabled)
+			if (!channel_is_available(params->rq, c, half))
 				continue;
 
 			/* If a channel insists on more than our total, remove it */
 			if (amount_msat_less(params->amount, gossmap_chan_htlc_min(c, half)))
 				continue;
-
-			const u32 chan_id = gossmap_chan_idx(gossmap, c);
 
 			const struct gossmap_node *next = gossmap_nth_node(gossmap,
 									   c,!half);
@@ -644,8 +655,8 @@ struct chan_flow
  * */
 static struct node find_path_or_cycle(
 		const tal_t *working_ctx,
-		const struct gossmap *gossmap,
-		const struct chan_flow *chan_flow,
+		const struct route_query *rq,
+                const struct chan_flow *chan_flow,
 		const struct node source,
 		const s64 *balance,
 
@@ -653,6 +664,7 @@ static struct node find_path_or_cycle(
 		int *prev_dir,
 		u32 *prev_idx)
 {
+	const struct gossmap *gossmap = rq->gossmap;
 	const size_t max_num_nodes = gossmap_max_node_idx(gossmap);
 	bitmap *visited =
 	    tal_arrz(working_ctx, bitmap, BITMAP_NWORDS(max_num_nodes));
@@ -670,11 +682,10 @@ static struct node find_path_or_cycle(
 			int dir;
 			const struct gossmap_chan *c =
 			    gossmap_nth_chan(gossmap, cur, i, &dir);
-
-			if (!gossmap_chan_set(c, dir) || !c->half[dir].enabled)
-				continue;
-
 			const u32 c_idx = gossmap_chan_idx(gossmap, c);
+
+			if (!channel_is_available(rq, c, dir))
+				continue;
 
 			/* follow the flow */
 			if (chan_flow[c_idx].half[dir] > 0) {
@@ -877,7 +888,7 @@ get_flow_paths(const tal_t *ctx,
 		while (balance[source.idx] < 0) {
 			prev_chan[source.idx] = NULL;
 			struct node sink = find_path_or_cycle(
-			    working_ctx, params->rq->gossmap, chan_flow, source,
+			    working_ctx, params->rq, chan_flow, source,
 			    balance, prev_chan, prev_dir, prev_idx);
 
 			if (balance[sink.idx] > 0)
@@ -1059,22 +1070,6 @@ fail:
 	return NULL;
 }
 
-static struct amount_msat linear_flows_cost(struct flow **flows,
-					    struct amount_msat total_amount,
-					    double delay_feefactor)
-{
-	struct amount_msat total = AMOUNT_MSAT(0);
-
-	for (size_t i = 0; i < tal_count(flows); i++) {
-		if (!amount_msat_accumulate(&total,
-					    linear_flow_cost(flows[i],
-							     total_amount,
-							     delay_feefactor)))
-			abort();
-	}
-	return total;
-}
-
 /* Initialize the data vectors for the single-path solver. */
 static void init_linear_network_single_path(
     const tal_t *ctx, const struct pay_parameters *params, struct graph **graph,
@@ -1105,9 +1100,9 @@ static void init_linear_network_single_path(
 			const struct gossmap_chan *c =
 			    gossmap_nth_chan(gossmap, node, j, &half);
                         struct amount_msat mincap, maxcap;
+			const u32 chan_id = gossmap_chan_idx(gossmap, c);
 
-			if (!gossmap_chan_set(c, half) ||
-			    !c->half[half].enabled)
+			if (!channel_is_available(params->rq, c, half))
 				continue;
 
 			/* If a channel cannot forward the total amount we don't
@@ -1131,8 +1126,6 @@ static void init_linear_network_single_path(
 			 * bound we get infinite probability cost. */
 			if (amount_msat_greater_eq(params->amount, maxcap))
 				continue;
-
-			const u32 chan_id = gossmap_chan_idx(gossmap, c);
 
 			const struct gossmap_node *next =
 			    gossmap_nth_node(gossmap, c, !half);
@@ -1256,6 +1249,67 @@ fail:
 	return NULL;
 }
 
+/* Get the scidd for the i'th hop in flow */
+static void get_scidd(const struct gossmap *gossmap, const struct flow *flow,
+		      size_t i, struct short_channel_id_dir *scidd)
+{
+	scidd->scid = gossmap_chan_scid(gossmap, flow->path[i]);
+	scidd->dir = flow->dirs[i];
+}
+
+/* We use an fp16_t approximatin for htlc_max/min: this gets the exact value. */
+static struct amount_msat
+get_chan_htlc_max(const struct route_query *rq, const struct gossmap_chan *c,
+		  const struct short_channel_id_dir *scidd)
+{
+	struct amount_msat htlc_max;
+
+	gossmap_chan_get_update_details(rq->gossmap, c, scidd->dir, NULL, NULL,
+					NULL, NULL, NULL, NULL, NULL,
+					&htlc_max);
+	return htlc_max;
+}
+
+static struct amount_msat
+get_chan_htlc_min(const struct route_query *rq, const struct gossmap_chan *c,
+		  const struct short_channel_id_dir *scidd)
+{
+	struct amount_msat htlc_min;
+
+	gossmap_chan_get_update_details(rq->gossmap, c, scidd->dir, NULL, NULL,
+					NULL, NULL, NULL, NULL, &htlc_min,
+					NULL);
+	return htlc_min;
+}
+
+static bool check_htlc_limits(struct route_query *rq, struct flow **flows)
+{
+
+	for (size_t k = 0; k < tal_count(flows); k++) {
+		struct flow *flow = flows[k];
+		size_t pathlen = tal_count(flow->path);
+		struct amount_msat hop_amt = flow->delivers;
+		for (size_t i = pathlen - 1; i < pathlen; i--) {
+			const struct half_chan *h = flow_edge(flow, i);
+			struct short_channel_id_dir scidd;
+
+			get_scidd(rq->gossmap, flow, i, &scidd);
+			struct amount_msat htlc_min =
+			    get_chan_htlc_min(rq, flow->path[i], &scidd);
+			struct amount_msat htlc_max =
+			    get_chan_htlc_max(rq, flow->path[i], &scidd);
+			if (amount_msat_greater(hop_amt, htlc_max) ||
+			    amount_msat_less(hop_amt, htlc_min))
+				return false;
+
+			if (!amount_msat_add_fee(&hop_amt, h->base_fee,
+						 h->proportional_fee))
+				abort();
+		}
+	}
+	return true;
+}
+
 /* FIXME: add extra constraint maximum route length, use an activation
  * probability cost for each channel. Recall that every activation cost, eg.
  * base fee and activation probability can only be properly added modifying the
@@ -1287,43 +1341,50 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 	double delay_feefactor = 1e-6;
 
 	struct flow **new_flows = NULL;
+	struct amount_msat all_deliver;
 
 	*flows = tal_arr(working_ctx, struct flow *, 0);
 
 	/* Re-use the reservation system to make flows aware of each other. */
 	struct reserve_hop *reservations = new_reservations(working_ctx, rq);
 
-	while (!amount_msat_is_zero(amount_to_deliver)) {
-		new_flows = tal_free(new_flows);
+	/* compute the probability one flow at a time. */
+        *probability = 1.0;
 
-		new_flows = solver(working_ctx, rq, srcnode, dstnode,
+	while (!amount_msat_is_zero(amount_to_deliver)) {
+                new_flows = tal_free(new_flows);
+
+		/* If the amount_to_deliver is very small we better use a single
+		 * path computation because:
+		 * 1. we save cpu cycles
+		 * 2. we have better control over htlc_min violations.
+                 * We need to make the distinction here because after
+                 * refine_with_fees_and_limits we might have a set of flows that
+                 * do not deliver the entire payment amount by just a small
+                 * amount. */
+		if(amount_msat_less_eq(amount_to_deliver, SINGLE_PATH_THRESHOLD)){
+                        new_flows = single_path_flow(working_ctx, rq, srcnode, dstnode,
+                                amount_to_deliver, mu, delay_feefactor);
+		} else {
+
+			new_flows =
+			    solver(working_ctx, rq, srcnode, dstnode,
 				   amount_to_deliver, mu, delay_feefactor);
+		}
+
 		if (!new_flows) {
 			error_message = explain_failure(
 			    ctx, rq, srcnode, dstnode, amount_to_deliver);
 			goto fail;
 		}
 
-		// TODO:
-		// trim flows to meet htlc_max constraints
-		// trim flows to deliver no more amount_to_deliver
-		//
-		// ? increase flows to deliver no less than amount_to_deliver,
-		// but
-		//      take max_deliverable into consideration
-		//
-		// remove flows that have htlc_min violations, disable the
-		//      culprit channel
-
-		// for each flow
-		//      compute amounts and adjust to htlc max
-		//      disable some channels to void violations of htlc_min
-		//      call refine_with_fees_and_limits?
-		//
+		error_message = refine_with_fees_and_limits(
+		    ctx, rq, amount_to_deliver, &new_flows);
+		if (error_message)
+			goto fail;
 
 		/* we finished removing flows and excess */
-		const struct amount_msat all_deliver =
-		    flowset_delivers(rq->plugin, new_flows);
+		all_deliver = flowset_delivers(rq->plugin, new_flows);
 		if (amount_msat_is_zero(all_deliver)) {
 			/* We removed all flows and we have not modified the
 			 * MCF parameters. We will not have an infinite loop
@@ -1335,6 +1396,15 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 		/* We might want to overpay sometimes, eg. shadow routing, but
 		 * right now if all_deliver > amount_to_deliver means a bug. */
 		assert(amount_msat_greater_eq(amount_to_deliver, all_deliver));
+
+		/* we should have fixed all htlc violations, "don't trust,
+		 * verify" */
+		assert(check_htlc_limits(rq, new_flows));
+
+		/* no flows should send 0 amount */
+		for (size_t i = 0; i < tal_count(new_flows); i++) {
+			assert(!amount_msat_is_zero(new_flows[i]->delivers));
+		}
 
 		/* Is this set of flows too expensive?
 		 * We can check if the new flows are within the fee budget,
@@ -1356,7 +1426,7 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 			error_message =
 			    rq_log(ctx, rq, LOG_BROKEN,
 				   "%s: failed to scale the fee budget (%s) by "
-				   "fraction (%ld)",
+				   "fraction (%lf)",
 				   __func__, fmt_amount_msat(tmpctx, feebudget),
 				   deliver_fraction);
 			goto fail;
@@ -1422,7 +1492,8 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 		/* add the new flows to the final solution */
 		for (size_t i = 0; i < tal_count(new_flows); i++) {
 			tal_arr_expand(flows, new_flows[i]);
-			tal_steal(flows, new_flows[i]);
+			tal_steal(*flows, new_flows[i]);
+			*probability *= flow_probability(new_flows[i], rq);
 			create_flow_reservations(rq, &reservations,
 						 new_flows[i]);
 		}
