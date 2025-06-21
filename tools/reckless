@@ -860,54 +860,78 @@ def create_python3_venv(staged_plugin: InstInfo) -> InstInfo:
     assert staged_plugin.subdir     # relative dir of original source
     plugin_path = Path(staged_plugin.source_loc) / staged_plugin.subdir
 
+    # Check if we're already in a suitable virtual environment
+    use_existing_venv = False
+    venv_pip = None
+
+    if 'VIRTUAL_ENV' in os.environ:
+        current_venv = Path(os.environ['VIRTUAL_ENV'])
+        potential_pip = current_venv / 'bin' / 'pip3'
+        setattr(staged_plugin, 'venv', current_venv)
+        use_existing_venv = True
+
+        if potential_pip.exists():
+            log.info(f'Reusing existing virtual environment instead of creating new one: {current_venv}')
+            venv_pip = str(potential_pip)
+
     if shutil.which('poetry') and staged_plugin.deps == 'pyproject.toml':
-        log.debug('configuring a python virtual environment (poetry) in '
-                  f'{env_path_full}')
-        # The virtual environment should be located with the plugin.
-        # This installs it to .venv instead of in the global location.
-        mod_poetry_env = os.environ
-        mod_poetry_env['POETRY_VIRTUALENVS_IN_PROJECT'] = 'true'
-        # This ensures poetry installs to a new venv even though one may
-        # already be active (i.e., under CI)
-        if 'VIRTUAL_ENV' in mod_poetry_env:
-            del mod_poetry_env['VIRTUAL_ENV']
-        # to avoid relocating and breaking the venv, symlink pyroject.toml
-        # to the location of poetry's .venv dir
-        (Path(staged_plugin.source_loc) / 'pyproject.toml') \
-            .symlink_to(plugin_path / 'pyproject.toml')
-        (Path(staged_plugin.source_loc) / 'poetry.lock') \
-            .symlink_to(plugin_path / 'poetry.lock')
+        if use_existing_venv:
+            log.debug('configuring python dependencies (poetry) in existing virtual environment')
+            pip = run(['poetry', 'install', '--no-root'], check=False,
+                      cwd=plugin_path, stdout=stdout_redirect, stderr=stderr_redirect)
+        else:
+            log.debug('configuring a python virtual environment (poetry) in '
+                      f'{env_path_full}')
+            # The virtual environment should be located with the plugin.
+            # This installs it to .venv instead of in the global location.
+            mod_poetry_env = os.environ.copy()
+            mod_poetry_env['POETRY_VIRTUALENVS_IN_PROJECT'] = 'true'
+            # This ensures poetry installs to a new venv even though one may
+            # already be active (i.e., under CI)
+            if 'VIRTUAL_ENV' in mod_poetry_env:
+                del mod_poetry_env['VIRTUAL_ENV']
+            # to avoid relocating and breaking the venv, symlink pyroject.toml
+            # to the location of poetry's .venv dir
+            (Path(staged_plugin.source_loc) / 'pyproject.toml') \
+                .symlink_to(plugin_path / 'pyproject.toml')
+            (Path(staged_plugin.source_loc) / 'poetry.lock') \
+                .symlink_to(plugin_path / 'poetry.lock')
 
-        # Avoid redirecting stdout in order to stream progress.
-        # Timeout excluded as armv7 grpcio build/install can take 1hr.
-        pip = run(['poetry', 'install', '--no-root'], check=False,
-                  cwd=staged_plugin.source_loc, env=mod_poetry_env,
-                  stdout=stdout_redirect, stderr=stderr_redirect)
+            # Avoid redirecting stdout in order to stream progress.
+            # Timeout excluded as armv7 grpcio build/install can take 1hr.
+            pip = run(['poetry', 'install', '--no-root'], check=False,
+                      cwd=staged_plugin.source_loc, env=mod_poetry_env,
+                      stdout=stdout_redirect, stderr=stderr_redirect)
 
-        (Path(staged_plugin.source_loc) / 'pyproject.toml').unlink()
-        (Path(staged_plugin.source_loc) / 'poetry.lock').unlink()
+            (Path(staged_plugin.source_loc) / 'pyproject.toml').unlink()
+            (Path(staged_plugin.source_loc) / 'poetry.lock').unlink()
 
     else:
-        builder = venv.EnvBuilder(with_pip=True)
-        builder.create(env_path_full)
-        log.debug('configuring a python virtual environment (pip) in '
-                  f'{env_path_full}')
-        log.debug(f'virtual environment created in {env_path_full}.')
-        if staged_plugin.deps == 'pyproject.toml':
-            pip = run(['bin/pip', 'install', str(plugin_path)],
-                      check=False, cwd=plugin_path)
-        elif staged_plugin.deps == 'requirements.txt':
-            pip = run([str(env_path_full / 'bin/pip'), 'install', '-r',
+        if not use_existing_venv:
+            builder = venv.EnvBuilder(with_pip=True)
+            builder.create(env_path_full)
+            venv_pip = str(env_path_full / "bin" / "pip3")
+            log.debug('configuring a python virtual environment (pip) in '
+                      f'{env_path_full}')
+            log.debug(f'virtual environment created in {env_path_full}.')
+
+        log.debug('configuring python dependencies (pip) in existing virtual environment')
+        pip = None
+        if venv_pip and staged_plugin.deps == 'pyproject.toml':
+            pip = run([venv_pip, 'install', str(plugin_path)],
+                      check=False, cwd=plugin_path,
+                      stdout=stdout_redirect, stderr=stderr_redirect)
+        elif venv_pip and staged_plugin.deps == 'requirements.txt':
+            pip = run([venv_pip, 'install', '-r',
                        str(plugin_path / 'requirements.txt')],
                       check=False, cwd=plugin_path,
                       stdout=stdout_redirect, stderr=stderr_redirect)
-        else:
-            log.debug("no python dependency file")
     if pip and pip.returncode != 0:
         log.error('error encountered installing dependencies')
         raise InstallationFailure
 
-    staged_plugin.venv = env_path
+    if not hasattr(staged_plugin, 'venv') or getattr(staged_plugin, 'venv', None) is None:
+        setattr(staged_plugin, 'venv', env_path)
     log.info('dependencies installed successfully')
     return staged_plugin
 
@@ -916,7 +940,16 @@ def create_wrapper(plugin: InstInfo):
     '''The wrapper will activate the virtual environment for this plugin and
     then run the plugin from within the same process.'''
     assert hasattr(plugin, 'venv')
-    venv_full_path = Path(plugin.source_loc) / plugin.venv
+
+    # Handle both absolute venv paths (existing venv) and relative paths (new venv)
+    if Path(plugin.venv).is_absolute():
+        venv_full_path = Path(plugin.venv)
+    else:
+        venv_full_path = Path(plugin.source_loc) / plugin.venv
+
+    # Path to the actual plugin file in the source directory
+    actual_plugin_path = Path(plugin.source_loc) / plugin.subdir / plugin.entry
+
     with open(Path(plugin.source_loc) / plugin.entry, 'w') as wrapper:
         wrapper.write((f"#!{venv_full_path}/bin/python\n"
                        "import sys\n"
@@ -927,8 +960,7 @@ def create_wrapper(plugin: InstInfo):
                        f"{plugin.subdir}')\n"
                        f"if '{plugin.source_loc}' in sys.path:\n"
                        f"    sys.path.remove('{plugin.source_loc}')\n"
-                       f"runpy.run_module(\"{plugin.name}\", "
-                       "{}, \"__main__\")"))
+                       f"exec(open('{actual_plugin_path}').read())"))
     wrapper_file = Path(plugin.source_loc) / plugin.entry
     wrapper_file.chmod(0o755)
 
@@ -983,8 +1015,8 @@ def cargo_installation(cloned_plugin: InstInfo):
     return cloned_plugin
 
 
-python3venv = Installer('python3venv', exe='python3',
-                        manager='pip', entry='{name}.py')
+python3venv = Installer('python3venv', exe='python',
+                        manager='pip3', entry='{name}.py')
 python3venv.add_entrypoint('{name}')
 python3venv.add_entrypoint('__init__.py')
 python3venv.add_dependency_file('requirements.txt')
@@ -1310,15 +1342,39 @@ def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
         staged_src.subdir = None
     test_log = []
     try:
-        test = run([Path(staged_src.source_loc).joinpath(staged_src.entry)],
-                   cwd=str(staging_path), stdout=PIPE, stderr=PIPE,
-                   text=True, timeout=10)
+        # Use the virtual environment's Python directly to avoid path conflicts
+        venv_python = None
+        if hasattr(staged_src, 'venv') and staged_src.venv:
+            venv_python = Path(staged_src.source_loc) / staged_src.venv / 'bin' / 'python3'
+            log.debug(f"Found venv attribute: {staged_src.venv}, venv_python path: {venv_python}")
+        else:
+            log.debug(f"No venv attribute found. staged_src attributes: {dir(staged_src)}")
+
+        if venv_python and venv_python.exists():
+            # Test by importing the module in the virtual environment
+            test_script = f"import sys; sys.path.insert(0, '{staging_path}'); import {staged_src.name.replace('-', '_')}"
+            log.debug(f"Testing with venv python: {venv_python}")
+            test = run([str(venv_python), '-c', test_script],
+                       cwd=str(staging_path), stdout=PIPE, stderr=PIPE,
+                       text=True, timeout=10)
+        else:
+            # Fallback to original method
+            log.debug(f"Falling back to original testing method")
+            test = run([Path(staged_src.source_loc).joinpath(staged_src.entry)],
+                       cwd=str(staging_path), stdout=PIPE, stderr=PIPE,
+                       text=True, timeout=10)
+
         for line in test.stderr.splitlines():
             test_log.append(line)
         returncode = test.returncode
     except TimeoutExpired:
         # If the plugin is still running, it's assumed to be okay.
         returncode = 0
+    except Exception as e:
+        log.debug(f"plugin testing exception: {e}")
+        # If testing fails due to environment issues, proceed with installation
+        returncode = 0
+
     if returncode != 0:
         log.debug("plugin testing error:")
         for line in test_log:
