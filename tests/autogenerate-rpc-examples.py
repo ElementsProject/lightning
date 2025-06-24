@@ -33,9 +33,7 @@ ALL_RPC_EXAMPLES = {}
 EXAMPLES_JSON = {}
 LOG_FILE = './tests/autogenerate-examples-status.log'
 TEMP_EXAMPLES_FILE = './tests/autogenerate-examples.json'
-IGNORE_RPCS_LIST = ['dev-splice', 'reckless', 'sql-template',
-                    # Deprecated, pending complete removal
-                    'commando-rune', 'commando-listrunes', 'commando-blacklist']
+IGNORE_RPCS_LIST = ['dev-splice', 'reckless', 'sql-template']
 
 # Constants for replacing values in examples
 NEW_VALUES_LIST = {
