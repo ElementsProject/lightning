@@ -34,10 +34,7 @@ MARKDOWNPAGES := doc/addgossip.7 \
 	doc/checkmessage.7 \
 	doc/checkrune.7 \
 	doc/close.7 \
-	doc/commando-blacklist.7 \
 	doc/commando.7 \
-	doc/commando-listrunes.7 \
-	doc/commando-rune.7 \
 	doc/connect.7 \
 	doc/createinvoice.7 \
 	doc/createonion.7 \
