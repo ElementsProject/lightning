@@ -31,6 +31,24 @@ void init(int *argc, char ***argv)
 	chainparams = chainparams_for_network("bitcoin");
 }
 
+#define MAX_SATS (u64)WALLY_SATOSHI_PER_BTC * WALLY_BTC_MAX
+
+static void test_channel_update_funding(struct channel *channel, const u8 **cursor, size_t *max) {
+	struct bitcoin_outpoint funding;
+	struct amount_sat funding_sats;
+	s64 splice_amnt;
+
+	if (*max < sizeof(funding) + sizeof(funding_sats) + sizeof(splice_amnt))
+		return;
+
+	fromwire_bitcoin_outpoint(cursor, max, &funding);
+	funding_sats = fromwire_amount_sat(cursor, max);
+	funding_sats.satoshis %= MAX_SATS; /* Raw: fuzzing */
+	splice_amnt = fromwire_s64(cursor, max) % MAX_SATS;
+
+	channel_update_funding(channel, &funding, funding_sats, splice_amnt);
+}
+
 void run(const uint8_t *data, size_t size)
 {
 	struct channel_id cid;
@@ -51,7 +69,7 @@ void run(const uint8_t *data, size_t size)
 	minimum_depth = fromwire_u32(&data, &size);
 	funding_sats = fromwire_amount_sat(&data, &size);
 	local_msatoshi = fromwire_amount_msat(&data, &size);
-	max = AMOUNT_SAT((u32)WALLY_SATOSHI_PER_BTC * WALLY_BTC_MAX);
+	max = AMOUNT_SAT(MAX_SATS);
 	if (amount_sat_greater(funding_sats, max))
 		funding_sats = max;
 	feerate_per_kw = fromwire_u32(&data, &size);
@@ -95,8 +113,8 @@ void run(const uint8_t *data, size_t size)
 					      channel_type,
 					      wumbo, opener);
 
-		/* TODO: make initial_channel_tx() work with ASAN.. */
-		(void)channel;
+		if (channel)
+			test_channel_update_funding(channel, &data, &size);
 	}
 
 	clean_tmpctx();
