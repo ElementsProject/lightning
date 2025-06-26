@@ -18,7 +18,7 @@ There are several ways to connect and interact with a Core Lightning node in ord
   "images": [
     {
       "image": [
-        "https://files.readme.io/a7cf433-CLN-App-Development.png",
+        "https://files.readme.io/3eeb3ddc8687fa45432c215777e478c40998bf94c42aeb1591c8096aac102e40-CLN-App-Development.png",
         null,
         "A visual chart of all interface and transport protocols to interact with a CLN node."
       ],
