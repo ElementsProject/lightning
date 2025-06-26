@@ -7,7 +7,7 @@ from enum import Enum
 # readme url
 URL = "https://dash.readme.com/api/v1"
 # category id for API reference
-CATEGORY_ID = "63e4e160c60b2e001dd1cc4e"
+CATEGORY_ID = "685ce4df1df887006ff221c5"
 CATEGORY_SLUG = "json-rpc-apis"
 
 
