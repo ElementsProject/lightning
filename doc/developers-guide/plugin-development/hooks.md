@@ -576,7 +576,7 @@ Note: The `rpc_command` hook is chainable. If two or more plugins try to replace
 
 ### `custommsg`
 
-The `custommsg` plugin hook is the receiving counterpart to the [`sendcustommsg`](ref:lightning-sendcustommsg) RPC method and allows plugins to handle messages that are not handled internally. The goal of these two components is to allow the implementation of custom protocols or prototypes on top of a Core Lightning node, without having to change the node's implementation itself.
+The `custommsg` plugin hook is the receiving counterpart to the [`sendcustommsg`](ref:sendcustommsg) RPC method and allows plugins to handle messages that are not handled internally. The goal of these two components is to allow the implementation of custom protocols or prototypes on top of a Core Lightning node, without having to change the node's implementation itself.
 
 The payload for a call follows this format:
 
