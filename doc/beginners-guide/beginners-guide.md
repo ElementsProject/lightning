@@ -35,23 +35,23 @@ You can start `lightningd` with the following command:
 lightningd --network=bitcoin --log-level=debug
 ```
 
-This creates a `.lightning/` subdirectory in your home directory: see `man -l doc/lightningd.8` (or [???](???)) for more runtime options.
+This creates a `.lightning/` subdirectory in your home directory: see `man -l doc/lightningd.8` (or [lightningd-config](ref:lightningd-config)) for more runtime options.
 
 ## Using The JSON-RPC Interface
 
-Core Lightning exposes a [JSON-RPC 2.0](https://www.jsonrpc.org/specification) interface over a Unix Domain socket; the [`lightning-cli`](ref:lightning-cli) tool can be used to access it, or there is a [python client library](???).
+Core Lightning exposes a [JSON-RPC 2.0](https://www.jsonrpc.org/specification) interface over a Unix Domain socket; the [`lightning-cli`](ref:lightning-cli) tool can be used to access it, or there is a [python client library](doc:json-rpc#using-python).
 
-You can use `[lightning-cli](ref:lightning-cli) help` to print a table of RPC methods; `[lightning-cli](lightning-cli) help <command>` will offer specific information on that command.
+You can use `lightning-cli help` to print a table of RPC methods; `lightning-cli help <command>` will offer specific information on that command.
 
 Useful commands:
 
-- [lightning-newaddr](ref:lightning-newaddr): get a bitcoin address to deposit funds into your lightning node.
-- [lightning-listfunds](ref:lightning-listfunds): see where your funds are.
-- [lightning-connect](ref:lightning-connect): connect to another lightning node.
-- [lightning-fundchannel](ref:lightning-fundchannel): create a channel to another connected node.
-- [lightning-invoice](ref:lightning-invoice): create an invoice to get paid by another node.
-- [lightning-pay](ref:lightning-pay): pay someone else's invoice.
-- [lightning-plugin](ref:lightning-plugin): commands to control extensions.
+- [newaddr](ref:newaddr): get a bitcoin address to deposit funds into your lightning node.
+- [listfunds](ref:listfunds): see where your funds are.
+- [connect](ref:connect): connect to another lightning node.
+- [fundchannel](ref:fundchannel): create a channel to another connected node.
+- [invoice](ref:invoice): create an invoice to get paid by another node.
+- [pay](ref:pay): pay someone else's invoice.
+- [plugin](ref:plugin): commands to control extensions.
 
 ## Care And Feeding Of Your New Lightning Node
 
