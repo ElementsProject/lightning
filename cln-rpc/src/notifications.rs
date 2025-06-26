@@ -190,6 +190,8 @@ impl ToString for ChannelStateChangedCause {
 pub struct ChannelStateChangedNotification {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub old_state: Option<ChannelState>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub short_channel_id: Option<ShortChannelId>,
     // Path `channel_state_changed.cause`
     pub cause: ChannelStateChangedCause,
     // Path `channel_state_changed.new_state`
@@ -197,7 +199,6 @@ pub struct ChannelStateChangedNotification {
     pub channel_id: Sha256,
     pub message: String,
     pub peer_id: PublicKey,
-    pub short_channel_id: ShortChannelId,
     pub timestamp: String,
 }
 
