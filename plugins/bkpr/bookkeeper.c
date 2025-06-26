@@ -1498,7 +1498,7 @@ parse_and_log_chain_move(struct command *cmd,
 
 	if (err)
 		plugin_err(cmd->plugin,
-			   "`coin_movement` payload did"
+			   "`coin_movement` parameters did"
 			   " not scan %s: %.*s",
 			   err, json_tok_full_len(params),
 			   json_tok_full(buf, params));
@@ -1795,7 +1795,7 @@ static struct command_result *json_utxo_deposit(struct command *cmd, const char 
 	const char *err;
 
 	err = json_scan(tmpctx, buf, params,
-			"{payload:{utxo_deposit:{"
+			"{utxo_deposit:{"
 			"account:%"
 			",transfer_from:%"
 			",outpoint:%"
@@ -1803,7 +1803,7 @@ static struct command_result *json_utxo_deposit(struct command *cmd, const char 
 			",coin_type:%"
 			",timestamp:%"
 			",blockheight:%"
-			"}}}",
+			"}}",
 			JSON_SCAN_TAL(tmpctx, json_strdup, &ev->acct_name),
 			JSON_SCAN_TAL(tmpctx, json_strdup, &ev->origin_acct),
 			JSON_SCAN(json_to_outpoint, &ev->outpoint),
@@ -1814,7 +1814,7 @@ static struct command_result *json_utxo_deposit(struct command *cmd, const char 
 
 	if (err)
 		plugin_err(cmd->plugin,
-			   "`%s` payload did not scan %s: %.*s",
+			   "`%s` parameters did not scan %s: %.*s",
 			   move_tag, err, json_tok_full_len(params),
 			   json_tok_full(buf, params));
 
@@ -1873,7 +1873,7 @@ static struct command_result *json_utxo_spend(struct command *cmd, const char *b
 
 	ev->spending_txid = tal(ev, struct bitcoin_txid);
 	err = json_scan(tmpctx, buf, params,
-			"{payload:{utxo_spend:{"
+			"{utxo_spend:{"
 			"account:%"
 			",outpoint:%"
 			",spending_txid:%"
@@ -1881,7 +1881,7 @@ static struct command_result *json_utxo_spend(struct command *cmd, const char *b
 			",coin_type:%"
 			",timestamp:%"
 			",blockheight:%"
-			"}}}",
+			"}}",
 			JSON_SCAN_TAL(tmpctx, json_strdup, &acct_name),
 			JSON_SCAN(json_to_outpoint, &ev->outpoint),
 			JSON_SCAN(json_to_txid, ev->spending_txid),
@@ -1892,7 +1892,7 @@ static struct command_result *json_utxo_spend(struct command *cmd, const char *b
 
 	if (err)
 		plugin_err(cmd->plugin,
-			   "`%s` payload did not scan %s: %.*s",
+			   "`%s` parameters did not scan %s: %.*s",
 			   move_tag, err, json_tok_full_len(params),
 			   json_tok_full(buf, params));
 
@@ -1987,7 +1987,7 @@ static struct command_result *json_coin_moved(struct command *cmd,
 
 	if (err)
 		plugin_err(cmd->plugin,
-			   "`coin_movement` payload did not scan %s: %.*s",
+			   "`coin_movement` parameters did not scan %s: %.*s",
 			   err, json_tok_full_len(params),
 			   json_tok_full(buf, params));
 
@@ -1996,7 +1996,7 @@ static struct command_result *json_coin_moved(struct command *cmd,
 			 &tags);
 	if (err)
 		plugin_err(cmd->plugin,
-			   "`coin_movement` payload did not scan %s: %.*s",
+			   "`coin_movement` parameters did not scan %s: %.*s",
 			   err, json_tok_full_len(params),
 			   json_tok_full(buf, params));
 

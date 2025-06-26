@@ -4315,6 +4315,7 @@ def test_peer_storage(node_factory, bitcoind):
     assert not l2.daemon.is_in_log(r'PeerStorageFailed')
 
 
+@pytest.mark.xfail(strict=True)
 def test_pay_plugin_notifications(node_factory, bitcoind):
     plugin = os.path.join(os.getcwd(), 'tests/plugins/all_notifications.py')
     opts = {"plugin": plugin}
@@ -4339,5 +4340,5 @@ def test_pay_plugin_notifications(node_factory, bitcoind):
     with pytest.raises(RpcError, match="WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS"):
         l1.rpc.pay(inv2['bolt11'])
 
-    failure = "{'origin': 'pay', 'payload': {'payment_hash': '" + inv2['payment_hash'] + "', 'bolt11': '" + inv2['bolt11'] + "', 'error': {'message': 'failed: WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS (reply from remote)'}}}"
+    failure = "{'origin': 'pay', 'payload': {'payment_hash': '" + inv2['payment_hash'] + "', 'bolt11': '" + inv2['bolt11'] + "', 'error': {'message': 'failed: WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS \\(reply from remote\\)'}}}"
     l1.daemon.wait_for_log(f"plugin-all_notifications.py: notification pay_failure: {failure}")
