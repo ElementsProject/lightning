@@ -191,7 +191,7 @@ struct channel_hint *channel_hint_from_json(const tal_t *ctx,
 	payload = json_get_member(buffer, toks, "payload");
 	/* Modern API includes fields directly */
 	if (!payload) {
-		jhint = json_get_member(buffer, toks, "channel_hint");
+		jhint = json_get_member(buffer, toks, "channel_hint_update");
 	} else {
 		jhint = json_get_member(buffer, payload, "channel_hint");
 	}
