@@ -1,5 +1,5 @@
 ---
-title: "Commando"
+title: "Commando Plugin"
 slug: "commando-plugin"
 hidden: false
 createdAt: "2023-02-08T09:54:01.784Z"
