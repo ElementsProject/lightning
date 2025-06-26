@@ -1,6 +1,6 @@
 ---
-title: "Deprecated Feature"
-slug: "deprecations"
+title: "Deprecated Features"
+slug: "deprecated-features"
 excerpt: "Deprecated features and timeline for old feature removals."
 hidden: false
 ---
