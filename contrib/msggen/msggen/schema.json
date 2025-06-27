@@ -15298,6 +15298,39 @@
                   "description": [
                     "The command."
                   ]
+                },
+                "clnrest": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "path",
+                    "method",
+                    "content_type",
+                    "rune"
+                  ],
+                  "added": "v25.09",
+                  "properties": {
+                    "path": {
+                      "type": "string",
+                      "description": "the path to the HTTP endpoint for this command",
+                      "added": "v25.09"
+                    },
+                    "method": {
+                      "type": "string",
+                      "description": "the HTTP method for this command",
+                      "added": "v25.09"
+                    },
+                    "content_type": {
+                      "type": "string",
+                      "description": "http content-type that clnrest should return",
+                      "added": "v25.09"
+                    },
+                    "rune": {
+                      "type": "boolean",
+                      "description": "whether or not this command requires a rune for authentication",
+                      "added": "v25.09"
+                    }
+                  }
                 }
               }
             }
