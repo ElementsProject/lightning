@@ -8,6 +8,7 @@ from urllib3.util.retry import Retry
 import socketio
 import time
 import pytest
+import json
 
 
 def http_session_with_retry():
@@ -494,3 +495,146 @@ def test_websocket_upgrade_header(node_factory):
     sio.disconnect()
 
     assert len(notifications) == 0
+
+
+def test_accept_header_types(node_factory):
+    l1, base_url, ca_cert = start_node_with_clnrest(node_factory)
+    http_session = http_session_with_retry()
+
+    rune = l1.rpc.createrune(restrictions=[])['rune']
+
+    response = http_session.post(base_url + '/v1/getinfo',
+                                 headers={'Rune': rune},
+                                 verify=ca_cert)
+    response.raise_for_status()
+    assert response.json()['id'] == l1.info['id']
+
+    response = http_session.post(base_url + '/v1/getinfo',
+                                 headers={'Rune': rune, 'Accept': 'application/json'},
+                                 verify=ca_cert)
+    response.raise_for_status()
+    assert response.json()['id'] == l1.info['id']
+
+    response = http_session.post(base_url + '/v1/getinfo',
+                                 headers={'Rune': rune, 'Accept': 'application/yaml'},
+                                 verify=ca_cert)
+    response.raise_for_status()
+    assert f"id: '{l1.info['id']}'" in response.text
+
+    response = http_session.post(base_url + '/v1/getinfo',
+                                 headers={'Rune': rune, 'Accept': 'application/xml'},
+                                 verify=ca_cert)
+    response.raise_for_status()
+    assert f"<id>{l1.info['id']}</id>" in response.text
+
+    response = http_session.post(base_url + '/v1/getinfo',
+                                 headers={'Rune': rune, 'Accept': 'application/x-www-form-urlencoded'},
+                                 verify=ca_cert)
+    response.raise_for_status()
+    assert f"id={l1.info['id']}" in response.text
+
+
+def test_content_type_header_types(node_factory):
+    l1, base_url, ca_cert = start_node_with_clnrest(node_factory)
+    http_session = http_session_with_retry()
+
+    datastore_res = l1.rpc.datastore(key=['project'], string='core lightning', mode='must-create')
+    rune = l1.rpc.createrune(restrictions=[])['rune']
+
+    listdatastore_res = http_session.post(base_url + '/v1/listdatastore',
+                                          headers={'Rune': rune},
+                                          data=json.dumps({'key': ['project']}),
+                                          verify=ca_cert)
+    listdatastore_res.raise_for_status()
+    datastore_key = listdatastore_res.json()["datastore"]
+    assert len(datastore_key) == 1
+    assert datastore_key[0]['key'] == datastore_res['key']
+    assert datastore_key[0]['string'] == datastore_res['string']
+
+    listdatastore_res = http_session.post(base_url + '/v1/listdatastore',
+                                          headers={'Rune': rune, 'Content-Type': 'application/json'},
+                                          data=json.dumps({'key': ['project']}),
+                                          verify=ca_cert)
+    listdatastore_res.raise_for_status()
+    datastore_key = listdatastore_res.json()["datastore"]
+    assert len(datastore_key) == 1
+    assert datastore_key[0]['key'] == datastore_res['key']
+    assert datastore_key[0]['string'] == datastore_res['string']
+
+    listdatastore_res = http_session.post(base_url + '/v1/listdatastore',
+                                          headers={'Rune': rune, 'Content-Type': 'application/yaml'},
+                                          data=f"key: {datastore_res['key']}",
+                                          verify=ca_cert)
+    listdatastore_res.raise_for_status()
+    datastore_key = listdatastore_res.json()["datastore"]
+    assert len(datastore_key) == 1
+    assert datastore_key[0]['key'] == datastore_res['key']
+    assert datastore_key[0]['string'] == datastore_res['string']
+
+    listdatastore_res = http_session.post(base_url + '/v1/listdatastore',
+                                          headers={'Rune': rune, 'Content-Type': 'application/xml'},
+                                          data=f"<listdatastore><key>{datastore_res['key'][0]}</key></listdatastore>",
+                                          verify=ca_cert)
+    listdatastore_res.raise_for_status()
+    datastore_key = listdatastore_res.json()["datastore"]
+    assert len(datastore_key) == 1
+    assert datastore_key[0]['key'] == datastore_res['key']
+    assert datastore_key[0]['string'] == datastore_res['string']
+
+    listdatastore_res = http_session.post(base_url + '/v1/listdatastore',
+                                          headers={'Rune': rune, 'Content-Type': 'application/x-www-form-urlencoded'},
+                                          data={'key': datastore_res['key']},
+                                          verify=ca_cert)
+    listdatastore_res.raise_for_status()
+    datastore_key = listdatastore_res.json()["datastore"]
+    assert len(datastore_key) == 1
+    assert datastore_key[0]['key'] == datastore_res['key']
+    assert datastore_key[0]['string'] == datastore_res['string']
+
+
+def test_matching_accept_and_content_types(node_factory):
+    l1, base_url, ca_cert = start_node_with_clnrest(node_factory)
+    http_session = http_session_with_retry()
+
+    datastore_res = l1.rpc.datastore(key=['project'], string='core lightning', mode='must-create')
+
+    rune = l1.rpc.createrune(restrictions=[])['rune']
+
+    listdatastore_res = http_session.post(base_url + '/v1/listdatastore',
+                                          headers={'Rune': rune},
+                                          data=json.dumps({'key': datastore_res['key']}),
+                                          verify=ca_cert)
+    listdatastore_res.raise_for_status()
+    datastore_key = listdatastore_res.json()["datastore"]
+    assert len(datastore_key) == 1
+    assert datastore_key[0]['key'] == datastore_res['key']
+
+    listdatastore_res = http_session.post(base_url + '/v1/listdatastore',
+                                          headers={'Rune': rune, 'Content-Type': 'application/json', 'Accept': 'application/json'},
+                                          data=json.dumps({'key': datastore_res['key']}),
+                                          verify=ca_cert)
+    listdatastore_res.raise_for_status()
+    datastore_key = listdatastore_res.json()["datastore"]
+    assert len(datastore_key) == 1
+    assert datastore_key[0]['key'] == datastore_res['key']
+
+    listdatastore_res = http_session.post(base_url + '/v1/listdatastore',
+                                          headers={'Rune': rune, 'Content-Type': 'application/yaml', 'Accept': 'application/yaml'},
+                                          data=f"key: {datastore_res['key']}",
+                                          verify=ca_cert)
+    listdatastore_res.raise_for_status()
+    assert f"key:\n  - {datastore_res['key'][0]}" in listdatastore_res.text
+
+    listdatastore_res = http_session.post(base_url + '/v1/listdatastore',
+                                          headers={'Rune': rune, 'Content-Type': 'application/xml', 'Accept': 'application/xml'},
+                                          data=f"<listdatastore><key>{datastore_res['key'][0]}</key></listdatastore>",
+                                          verify=ca_cert)
+    listdatastore_res.raise_for_status()
+    assert f"<key>{datastore_res['key'][0]}</key>" in listdatastore_res.text
+
+    listdatastore_res = http_session.post(base_url + '/v1/listdatastore',
+                                          headers={'Rune': rune, 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/x-www-form-urlencoded'},
+                                          data={'key': datastore_res['key']},
+                                          verify=ca_cert)
+    listdatastore_res.raise_for_status()
+    assert f"datastore[0][key][0]={datastore_res['key'][0]}" in listdatastore_res.text
