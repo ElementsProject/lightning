@@ -270,15 +270,10 @@ static void set_remote_upfront_shutdown(struct state *state,
 
 /* Since we can't send OPT_SCID_ALIAS due to compat issues, intuit whether
  * we really actually want it anyway, we just can't say that. */
-static bool intuit_scid_alias_type(struct state *state, u8 channel_flags,
-				   bool peer_sent_channel_type)
+static bool intuit_scid_alias_type(struct state *state, u8 channel_flags)
 {
 	/* Don't need to intuit if actually set */
 	if (channel_type_has(state->channel_type, OPT_SCID_ALIAS))
-		return false;
-
-	/* Old clients didn't send channel_type at all */
-	if (!peer_sent_channel_type)
 		return false;
 
 	/* Modern peer: no intuit hacks necessary. */
@@ -446,14 +441,13 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags,
 	 *   `open_channel`, and they are not equal types:
 	 *    - MUST fail the channel.
 	 */
+	if (!accept_tlvs->channel_type) {
+		negotiation_failed(state,
+				   "accept_channel without a channel_type");
+	}
 
 	/* Simple case: caller specified, don't allow any variants */
 	if (ctype) {
-		if (!accept_tlvs->channel_type) {
-			negotiation_failed(state,
-					   "They replied without a channel_type");
-			return NULL;
-		}
 		if (!featurebits_eq(accept_tlvs->channel_type, state->channel_type->features)) {
 			negotiation_failed(state,
 					   "Return unoffered channel_type: %s",
@@ -461,7 +455,7 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags,
 							   accept_tlvs->channel_type));
 			return NULL;
 		}
-	} else if (accept_tlvs->channel_type) {
+	} else {
 		/* Except that v23.05 could set OPT_SCID_ALIAS in reply! */
 		struct channel_type *atype;
 
@@ -587,8 +581,7 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags,
 		       tal_hex(tmpctx, funding_output_script));
 
 	/* Backwards/cross compat hack */
-	if (!ctype && intuit_scid_alias_type(state, channel_flags,
-					     accept_tlvs->channel_type != NULL)) {
+	if (!ctype && intuit_scid_alias_type(state, channel_flags)) {
 		channel_type_set_scid_alias(state->channel_type);
 	}
 
@@ -902,7 +895,6 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	struct tlv_accept_channel_tlvs *accept_tlvs;
 	struct tlv_open_channel_tlvs *open_tlvs;
 	struct amount_sat *reserve;
-	bool open_channel_had_channel_type;
 
 	/* BOLT #2:
 	 *
@@ -943,30 +935,27 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	 *     - if `type` is not suitable.
 	 *     - if `type` includes `option_zeroconf` and it does not trust the sender to open an unconfirmed channel.
 	 */
-	if (open_tlvs->channel_type) {
-		open_channel_had_channel_type = true;
-		state->channel_type = channel_type_accept(
-		    state, open_tlvs->channel_type, state->our_features);
-		if (!state->channel_type) {
-			if (state->dev_accept_any_channel_type) {
-				status_unusual("dev-any-channel-type: accepting %s",
-					       fmt_featurebits(tmpctx,
-							       open_tlvs->channel_type));
-				state->channel_type = channel_type_from(state, open_tlvs->channel_type);
-			} else {
-				negotiation_failed(state,
-						   "Did not support channel_type [%s]",
-						   fmt_featurebits(tmpctx,
-								   open_tlvs->channel_type));
-				return NULL;
-			}
+	/* option_channel_type is compulsory. */
+	if (!open_tlvs->channel_type) {
+		negotiation_failed(state,
+				   "Did not set channel_type in open_channel message");
+	}
+
+	state->channel_type = channel_type_accept(
+		state, open_tlvs->channel_type, state->our_features);
+	if (!state->channel_type) {
+		if (state->dev_accept_any_channel_type) {
+			status_unusual("dev-any-channel-type: accepting %s",
+				       fmt_featurebits(tmpctx,
+						       open_tlvs->channel_type));
+			state->channel_type = channel_type_from(state, open_tlvs->channel_type);
+		} else {
+			negotiation_failed(state,
+					   "Did not support channel_type [%s]",
+					   fmt_featurebits(tmpctx,
+							   open_tlvs->channel_type));
+			return NULL;
 		}
-	} else {
-		open_channel_had_channel_type = false;
-		state->channel_type
-			= default_channel_type(state,
-					       state->our_features,
-					       state->their_features);
 	}
 
 	/* BOLT #2:
@@ -1191,8 +1180,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				fmt_channel_id(msg, &id_in));
 
 	/* Backwards/cross compat hack */
-	if (intuit_scid_alias_type(state, channel_flags,
-				   open_channel_had_channel_type)) {
+	if (intuit_scid_alias_type(state, channel_flags)) {
 		channel_type_set_scid_alias(state->channel_type);
 	}
 
