@@ -2405,7 +2405,7 @@ def test_list_features_only(node_factory):
                 'option_quiesce/odd',
                 'option_onion_messages/odd',
                 'option_provide_storage/odd',
-                'option_channel_type/odd',
+                'option_channel_type/even',
                 'option_scid_alias/odd',
                 'option_zeroconf/odd']
     expected += ['supports_open_accept_channel_type']
