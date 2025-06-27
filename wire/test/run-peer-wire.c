@@ -202,6 +202,8 @@ struct msg_update_fail_htlc {
 	struct channel_id channel_id;
 	u64 id;
 	u8 *reason;
+
+	struct tlv_update_fail_htlc_tlvs *tlvs;
 };
 struct msg_channel_announcement {
 	secp256k1_ecdsa_signature node_signature_1;
@@ -488,7 +490,8 @@ static void *towire_struct_update_fail_htlc(const tal_t *ctx,
 	return towire_update_fail_htlc(ctx,
 				       &s->channel_id,
 				       s->id,
-				       s->reason);
+				       s->reason,
+				       s->tlvs);
 }
 
 static struct msg_update_fail_htlc *fromwire_struct_update_fail_htlc(const tal_t *ctx, const void *p)
@@ -498,7 +501,8 @@ static struct msg_update_fail_htlc *fromwire_struct_update_fail_htlc(const tal_t
 	if (!fromwire_update_fail_htlc(ctx, p,
 				      &s->channel_id,
 				      &s->id,
-				      &s->reason))
+				      &s->reason,
+				      &s->tlvs))
 		return tal_free(s);
 	return s;
 
@@ -784,12 +788,19 @@ static bool announcement_signatures_eq(const struct msg_announcement_signatures 
 	return eq_upto(a, b, short_channel_id) &&
 		short_channel_id_eq(a->short_channel_id, b->short_channel_id);
 }
+static bool tlv_update_fail_htlc_eq(const struct tlv_update_fail_htlc_tlvs_attribution_data *a,
+				    const struct tlv_update_fail_htlc_tlvs_attribution_data *b)
+{
+	return eq_field(a, b, htlc_hold_times)
+		&& eq_field(a, b, truncated_hmacs);
+}
 
 static bool update_fail_htlc_eq(const struct msg_update_fail_htlc *a,
 				const struct msg_update_fail_htlc *b)
 {
 	return eq_with(a, b, id)
-		&& eq_var(a, b, reason);
+		&& eq_var(a, b, reason)
+		&& eq_tlv(a, b, attribution_data, tlv_update_fail_htlc_eq);
 }
 
 static bool tlv_splice_info_eq(const struct tlv_commitment_signed_tlvs_splice_info *a,
@@ -1015,12 +1026,15 @@ int main(int argc, char *argv[])
 
 	memset(&ufh, 2, sizeof(ufh));
  	ufh.reason = tal_arr(ctx, u8, 2);
- 	memset(ufh.reason, 2, 2);
+	ufh.tlvs = tlv_update_fail_htlc_tlvs_new(tmpctx);
+	ufh.tlvs->attribution_data = tal(ctx, struct tlv_update_fail_htlc_tlvs_attribution_data);
+	memset(ufh.tlvs->attribution_data, 3, sizeof(struct tlv_update_fail_htlc_tlvs_attribution_data));
+	memset(ufh.reason, 2, 2);
 
 	msg = towire_struct_update_fail_htlc(ctx, &ufh);
 	ufh2 = fromwire_struct_update_fail_htlc(ctx, msg);
 	assert(update_fail_htlc_eq(&ufh, ufh2));
-	test_corruption(&ufh, ufh2, update_fail_htlc);
+	test_corruption_tlv(&ufh, ufh2, update_fail_htlc);
 
 	memset(&cs, 2, sizeof(cs));
 	cs.htlc_signature = tal_arr(ctx, secp256k1_ecdsa_signature, 2);
