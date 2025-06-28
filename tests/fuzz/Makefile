@@ -5,6 +5,7 @@ LIBFUZZ_OBJS := $(LIBFUZZ_SRC:.c=.o)
 tests/fuzz/fuzz-connectd-handshake-act*.o: tests/fuzz/connectd_handshake.h
 tests/fuzz/fuzz-ripemd160: LDLIBS += -lcrypto
 tests/fuzz/fuzz-sha256: LDLIBS += -lcrypto
+tests/fuzz/fuzz-hmac-sha256: LDLIBS += -lcrypto
 tests/fuzz/fuzz-wire-*.o: tests/fuzz/wire.h
 tests/fuzz/fuzz-bolt12-*.o: tests/fuzz/bolt12.h
 
