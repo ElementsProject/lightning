@@ -1,6 +1,7 @@
 import flask
 import json
 import os
+from markupsafe import escape
 
 
 def create_app(test_config=None):
@@ -9,8 +10,8 @@ def create_app(test_config=None):
     @app.route("/api/repos/<github_user>/<github_repo>/contents/")
     def github_plugins_repo_api(github_user, github_repo):
         '''This emulates api.github.com calls to lightningd/plugins'''
-        user = flask.escape(github_user)
-        repo = flask.escape(github_repo)
+        user = escape(github_user)
+        repo = escape(github_repo)
         canned_api = os.environ.get('REDIR_GITHUB') + f'/rkls_api_{user}_{repo}.json'
         with open(canned_api, 'rb') as f:
             canned_data = f.read(-1)
