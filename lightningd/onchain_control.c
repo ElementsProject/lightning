@@ -120,11 +120,14 @@ static bool tell_if_missing(const struct channel *channel,
 	 *
 	 *   - for any committed HTLC that does NOT have an output in this
 	 *     commitment transaction:
-	 *     - once the commitment transaction has reached reasonable depth:
-	 *       - MUST fail the corresponding incoming HTLC (if any).
-	 *     - if no *valid* commitment transaction contains an output
-	 *       corresponding to the HTLC.
-	 *       - MAY fail the corresponding incoming HTLC sooner.
+	 *     - if the payment preimage is known:
+	 *       - MUST fulfill the corresponding incoming HTLC (if any).
+	 *     - otherwise:
+	 *       - once the commitment transaction has reached reasonable depth:
+	 *         - MUST fail the corresponding incoming HTLC (if any).
+	 *       - if no *valid* commitment transaction contains an output
+	 *         corresponding to the HTLC:
+	 *         - MAY fail the corresponding incoming HTLC sooner.
 	 */
 	if (hout->hstate >= RCVD_ADD_REVOCATION
 	    && hout->hstate < SENT_REMOVE_REVOCATION)
@@ -484,12 +487,16 @@ static void handle_missing_htlc_output(struct channel *channel, const u8 *msg)
 	 *
 	 *   - for any committed HTLC that does NOT have an output in this
 	 *     commitment transaction:
-	 *     - once the commitment transaction has reached reasonable depth:
-	 *       - MUST fail the corresponding incoming HTLC (if any).
-	 *     - if no *valid* commitment transaction contains an output
-	 *       corresponding to the HTLC.
-	 *       - MAY fail the corresponding incoming HTLC sooner.
+	 *     - if the payment preimage is known:
+	 *       - MUST fulfill the corresponding incoming HTLC (if any).
+	 *     - otherwise:
+	 *       - once the commitment transaction has reached reasonable depth:
+	 *         - MUST fail the corresponding incoming HTLC (if any).
+	 *       - if no *valid* commitment transaction contains an output
+	 *         corresponding to the HTLC:
+	 *         - MAY fail the corresponding incoming HTLC sooner.
 	 */
+	/* Note: we already succeeded any incoming which we preimage for */
 	onchain_failed_our_htlc(channel, &htlc, "missing in commitment tx", false);
 }
 

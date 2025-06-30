@@ -822,7 +822,7 @@ def test_rune_bolt11_parse(node_factory):
                      method='pay',
                      params={'bolt11': inv})
     # Node comparison failure
-    other_inv = 'lntb30m1pw2f2yspp5s59w4a0kjecw3zyexm7zur8l8n4scw674w8sftjhwec33km882gsdpa2pshjmt9de6zqun9w96k2um5ypmkjargypkh2mr5d9cxzun5ypeh2ursdae8gxqruyqvzddp68gup69uhnzwfj9cejuvf3xshrwde68qcrswf0d46kcarfwpshyaplw3skw0tdw4k8g6tsv9e8gu2etcvsym36pdjpz04wm9nn96f9ntc3t3h5r08pe9d62p3js5wt5rkurqnrl7zkj2fjpvl3rmn7wwazt80letwxlm22hngu8n88g7hsp542qpl'
+    other_inv = 'lnbcrt1u1pwuedm6pp5ve584t0cv27hwmy0cx9ca8uwyqyfw9y9dm3r8vus9fv36r2l9yjsdqaw3jhxazlwpshjhmwda0hxetrwfjhgxq8pmnt9qqcqp9sp52au0npwmw4xxv2rfrat04kh9p3jlmklgavhfxqukx0l05pw5tccs9qypqsqa286dmt2xh3jy8cd8ndeyr845q8a7nhgjkerdqjns76jraux6j25ddx9f5k5r2ey0kk942x3uhaff66794kyjxxcd48uevf7p6ja53gqjj5ur7'
     with pytest.raises(RpcError, match='Not permitted: invoice parameter bolt11_node is not equal to ' + l1.info['id']):
         l1.rpc.checkrune(nodeid=l1.info['id'],
                          rune=rune_node_l1,

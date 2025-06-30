@@ -1076,7 +1076,6 @@ static struct channel *handle_init(struct info *info, const u8 *init_msg)
 	u8 *final_scriptpubkey;
 	u8 *their_features;
 	u8 *remote_upfront_shutdown_script;
-	bool experimental_upgrade;
 	u32 *dev_disable_commit;
 	struct inflight **inflights;
 	struct short_channel_id local_alias;
@@ -1136,7 +1135,6 @@ static struct channel *handle_init(struct info *info, const u8 *init_msg)
 				    &channel_type,
 				    &dev_disable_commit,
 				    &pbases,
-				    &experimental_upgrade,
 				    &inflights,
 				    &local_alias))
 		abort();
