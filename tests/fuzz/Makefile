@@ -32,6 +32,7 @@ FUZZ_COMMON_OBJS := \
 	common/close_tx.o				\
 	common/configdir.o				\
 	common/configvar.o				\
+	common/codex32.o				\
 	common/cryptomsg.o				\
 	common/daemon.o					\
 	common/daemon_conn.o				\
