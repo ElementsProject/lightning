@@ -2995,16 +2995,20 @@ def test_sendonion_rpc(node_factory):
     invs = l4.rpc.listinvoices(label="lbl")['invoices']
     assert(len(invs) == 1 and invs[0]['status'] == 'paid')
 
-    pays = l1.rpc.listsendpays()['payments']
-    assert(len(pays) == 1 and pays[0]['status'] == 'complete'
-           and pays[0]['payment_hash'] == inv['payment_hash'])
+    pay = only_one(l1.rpc.listsendpays()['payments'])
+    assert (pay['status'] == 'complete'
+            and pay['payment_hash'] == inv['payment_hash'])
+
+    # listsendpays promised that amount would be missing if sendonion didn't
+    # specify
+    assert 'amount_msat' not in pay
 
     # And now for a failing payment, using a payment_hash that doesn't match an
     # invoice
     payment_hash = "00" * 32
     onion = l1.rpc.createonion(hops=hops, assocdata=payment_hash)
     l1.rpc.sendonion(onion=onion['onion'], first_hop=first_hop,
-                     payment_hash=payment_hash)
+                     payment_hash=payment_hash, amount_msat=amt)
 
     try:
         l1.rpc.waitsendpay(payment_hash=payment_hash)
@@ -3013,13 +3017,16 @@ def test_sendonion_rpc(node_factory):
         assert(e.error['code'] == 202)
         assert(e.error['message'] == "Malformed error reply")
 
-    pays = l1.rpc.listsendpays(payment_hash=payment_hash)['payments']
-    assert(len(pays) == 1 and pays[0]['status'] == 'failed'
-           and pays[0]['payment_hash'] == payment_hash)
-    assert('erroronion' in pays[0])
+    pay = only_one(l1.rpc.listsendpays(payment_hash=payment_hash)['payments'])
+    assert(pay['status'] == 'failed'
+           and pay['payment_hash'] == payment_hash)
+    assert 'erroronion' in pay
+
+    # Since we told sendonion the destination amount, listsendpays will know:
+    assert pay['amount_msat'] == amt
 
     # Fail onion is msg + padding = 256 + 2*2 byte lengths + 32 byte HMAC
-    assert(len(pays[0]['erroronion']) == (256 + 32 + 2 + 2) * 2)
+    assert(len(pay['erroronion']) == (256 + 32 + 2 + 2) * 2)
 
     # Let's try that again, this time we give it the shared_secrets so it
     # should be able to decode the error.
