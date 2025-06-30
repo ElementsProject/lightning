@@ -1851,7 +1851,7 @@ static void splice_abort(struct peer *peer, const char *fmt, ...)
 	reason = tal_vfmt(NULL, fmt, ap);
 	va_end(ap);
 
-	if (have_i_signed_inflight(peer, inflight))
+	if (inflight && inflight->i_sent_sigs)
 		peer_failed_err(peer->pps, &peer->channel_id,
 			      "I needed to abort a splice where I have already"
 			      " sent my signatures");
@@ -3320,7 +3320,10 @@ static struct amount_sat check_balances(struct peer *peer,
 	if (!amount_msat_add_sat_s64(&funding_amount, funding_amount,
 				     peer->splicing->opener_relative))
 		splice_abort(peer, "Splice initiator did not provide enough"
-			     " funding");
+			     " funding, funding_amount: %s, opener_relative:"
+			     " %"PRIu64,
+			     fmt_amount_msat(tmpctx, funding_amount),
+			     peer->splicing->opener_relative);
 	if (!amount_msat_add_sat_s64(&out[TX_INITIATOR], out[TX_INITIATOR],
 				     peer->splicing->opener_relative))
 		peer_failed_warn(peer->pps, &peer->channel_id,
@@ -3346,11 +3349,16 @@ static struct amount_sat check_balances(struct peer *peer,
 				 " amount. Initiator contributing %s but they"
 				 " committed to %s. Pending offered HTLC"
 				 " balance of %s is not available for this"
-				 " operation.",
+				 " operation. We are%s the opener. We began the"
+				 " operation being owed/owing %s and expect"
+				 " that amount to change %"PRIu64"000",
 				 fmt_amount_msat(tmpctx, in[TX_INITIATOR]),
 				 fmt_amount_msat(tmpctx, out[TX_INITIATOR]),
 				 fmt_amount_msat(tmpctx,
-				 		 pending_htlcs[TX_INITIATOR]));
+				 		 pending_htlcs[TX_INITIATOR]),
+				 opener ? "" : " not",
+				 fmt_amount_msat(tmpctx, peer->channel->view->owed[opener ? LOCAL : REMOTE]),
+				 peer->splicing->opener_relative);
 	}
 
 	if (!amount_msat_sub(&initiator_fee, in[TX_INITIATOR], out[TX_INITIATOR]))
@@ -3549,6 +3557,7 @@ static void resume_splice_negotiation(struct peer *peer,
 	const u8 *msg_received;
 	struct witness **inws;
 	struct bitcoin_signature *their_sig;
+	size_t remote_inputs_needing_sigs;
 
 	if (peer->splicing) {
 		inws = peer->splicing->inws;
@@ -3596,7 +3605,8 @@ static void resume_splice_negotiation(struct peer *peer,
 		msg = towire_channeld_update_inflight(NULL, current_psbt,
 						      their_commit->tx,
 						      &their_commit->commit_signature,
-						      inflight->locked_scid);
+						      inflight->locked_scid,
+						      inflight->i_sent_sigs);
 		wire_sync_write(MASTER_FD, take(msg));
 	}
 
@@ -3665,9 +3675,11 @@ static void resume_splice_negotiation(struct peer *peer,
 	if (do_i_sign_first(peer, current_psbt, our_role,
 			    inflight->force_sign_first)
 		&& send_signature) {
+		inflight->i_sent_sigs = true;
 		msg = towire_channeld_update_inflight(NULL, current_psbt,
 						      NULL, NULL,
-						      inflight->locked_scid);
+						      inflight->locked_scid,
+						      inflight->i_sent_sigs);
 		wire_sync_write(MASTER_FD, take(msg));
 
 		msg = towire_channeld_splice_sending_sigs(tmpctx, &final_txid);
@@ -3792,6 +3804,28 @@ static void resume_splice_negotiation(struct peer *peer,
 					 " received",
 					 tal_count(inws) - current_psbt->num_inputs);
 
+		remote_inputs_needing_sigs = 0;
+		for (size_t i = 0; i < current_psbt->num_inputs; i++) {
+			struct wally_psbt_input *in =
+				&current_psbt->inputs[i];
+			u64 in_serial;
+
+			if (!psbt_get_serial_id(&in->unknowns, &in_serial)) {
+				status_broken("PSBT input %zu missing serial_id"
+					      " %s", i,
+					      fmt_wally_psbt(tmpctx,
+							     current_psbt));
+				return;
+			}
+			if (in_serial % 2 == our_role)
+				continue;
+
+			if (i == splice_funding_index)
+				continue;
+
+			remote_inputs_needing_sigs++;
+		}
+
 		/* We put the PSBT + sigs all together */
 		for (size_t j = 0, i = 0; i < current_psbt->num_inputs; i++) {
 			struct wally_psbt_input *in =
@@ -3811,12 +3845,18 @@ static void resume_splice_negotiation(struct peer *peer,
 			if (i == splice_funding_index)
 				continue;
 
-			if (j == tal_count(inws))
+			if (j == tal_count(inws)) {
 				peer_failed_warn(peer->pps,
 						 &peer->channel_id,
 						 "Mismatch witness stack count."
 						 " Most likely you are missing"
-						 " signatures.");
+						 " signatures. We have %zu"
+						 " remote inputs needing sigs"
+						 " and you sent %zu witness"
+						 " bundles.",
+						 remote_inputs_needing_sigs,
+						 tal_count(inws));
+			}
 
 			psbt_finalize_input(current_psbt, in,
 					    inws[j++]);
@@ -3837,7 +3877,8 @@ static void resume_splice_negotiation(struct peer *peer,
 		/* We let core validate our peer's signatures are correct. */
 		msg = towire_channeld_update_inflight(NULL, current_psbt, NULL,
 						      NULL,
-						      inflight->locked_scid);
+						      inflight->locked_scid,
+						      send_signature || inflight->i_sent_sigs);
 		wire_sync_write(MASTER_FD, take(msg));
 	}
 
@@ -3847,6 +3888,7 @@ static void resume_splice_negotiation(struct peer *peer,
 		msg = towire_channeld_splice_sending_sigs(tmpctx, &final_txid);
 		wire_sync_write(MASTER_FD, take(msg));
 
+		inflight->i_sent_sigs = true;
 		peer_write(peer->pps, sigmsg);
 		status_debug("Splice: we signed second");
 	}
@@ -4102,7 +4144,8 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 					   peer->splicing->accepter_relative,
 					   ictx->current_psbt,
 					   false,
-					   peer->splicing->force_sign_first);
+					   peer->splicing->force_sign_first,
+					   false);
 
 	master_wait_sync_reply(tmpctx, peer, take(msg),
 			       WIRE_CHANNELD_GOT_INFLIGHT);
@@ -4120,6 +4163,7 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 	new_inflight->i_am_initiator = false;
 	new_inflight->force_sign_first = peer->splicing->force_sign_first;
 	new_inflight->locked_scid = NULL;
+	new_inflight->i_sent_sigs = false;
 
 	current_push_val = relative_splice_balance_fundee(peer, our_role,ictx->current_psbt,
 					  outpoint.n, splice_funding_index);
@@ -4279,6 +4323,8 @@ static void splice_initiator_user_finalized(struct peer *peer)
 	u8 *outmsg;
 	struct interactivetx_context *ictx;
 	struct bitcoin_tx *prev_tx;
+	struct bitcoin_tx *bitcoin_tx;
+	struct bitcoin_signature splice_sig;
 	bool sign_first;
 	char *error;
 	u32 chan_output_index, splice_funding_index;
@@ -4290,6 +4336,7 @@ static void splice_initiator_user_finalized(struct peer *peer)
 	struct amount_msat current_push_val;
 	const enum tx_role our_role = TX_INITIATOR;
 	u8 *abort_msg;
+	const u8* msg;
 
 	/* We must loading the funding tx as our previous utxo */
 	prev_tx = bitcoin_tx_from_txid(peer, peer->channel->funding.txid);
@@ -4338,6 +4385,44 @@ static void splice_initiator_user_finalized(struct peer *peer)
 
 	psbt_elements_normalize_fees(ictx->current_psbt);
 
+	/* We have to sign the shared output early (here) for cases where we are
+	 * splicing between multiple channels simultaneously. This is so the
+	 * we can build a complete `tx_signatures` message when there are two
+	 * or more shared outputs between mulitple peers */
+
+	splice_sig.sighash_type = SIGHASH_ALL;
+
+	bitcoin_tx = bitcoin_tx_with_psbt(tmpctx, ictx->current_psbt);
+
+	status_info("Splice pre-signing tx: %s",
+		    tal_hex(tmpctx, linearize_tx(tmpctx, bitcoin_tx)));
+
+	msg = towire_hsmd_sign_splice_tx(tmpctx, bitcoin_tx,
+					 &peer->channel->funding_pubkey[REMOTE],
+					 splice_funding_index);
+
+	msg = hsm_req(tmpctx, take(msg));
+	if (!fromwire_hsmd_sign_tx_reply(msg, &splice_sig))
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "Reading sign_splice_tx reply: %s",
+			      tal_hex(tmpctx, msg));
+
+	/* Set the splice_sig on the splice funding tx psbt */
+	if (!psbt_input_set_signature(ictx->current_psbt, splice_funding_index,
+				      &peer->channel->funding_pubkey[LOCAL],
+				      &splice_sig))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Unable to pre-set signature internally "
+			      "funding_index: %d "
+			      "my pubkey: %s "
+			      "my signature: %s "
+			      "psbt: %s",
+			      splice_funding_index,
+			      fmt_pubkey(tmpctx,
+					 &peer->channel->funding_pubkey[LOCAL]),
+			      fmt_bitcoin_signature(tmpctx, &splice_sig),
+			      fmt_wally_psbt(tmpctx, ictx->current_psbt));
+
 	status_debug("Splice adding inflight: %s",
 		     fmt_wally_psbt(tmpctx, ictx->current_psbt));
 
@@ -4352,7 +4437,8 @@ static void splice_initiator_user_finalized(struct peer *peer)
 					      peer->splicing->opener_relative,
 					      ictx->current_psbt,
 					      true,
-					      peer->splicing->force_sign_first);
+					      peer->splicing->force_sign_first,
+					      false);
 
 	master_wait_sync_reply(tmpctx, peer, take(outmsg),
 			       WIRE_CHANNELD_GOT_INFLIGHT);
@@ -4369,6 +4455,7 @@ static void splice_initiator_user_finalized(struct peer *peer)
 	new_inflight->i_am_initiator = true;
 	new_inflight->force_sign_first = peer->splicing->force_sign_first;
 	new_inflight->locked_scid = NULL;
+	new_inflight->i_sent_sigs = false;
 
 	audit_psbt(ictx->current_psbt, ictx->current_psbt);
 
@@ -4400,7 +4487,8 @@ static void splice_initiator_user_finalized(struct peer *peer)
 	outmsg = towire_channeld_update_inflight(NULL, new_inflight->psbt,
 						 their_commit->tx,
 						 &their_commit->commit_signature,
-						 new_inflight->locked_scid);
+						 new_inflight->locked_scid,
+						 new_inflight->i_sent_sigs);
 	wire_sync_write(MASTER_FD, take(outmsg));
 
 	sign_first = do_i_sign_first(peer, new_inflight->psbt, our_role,
@@ -4471,6 +4559,9 @@ static void splice_initiator_user_update(struct peer *peer, const u8 *inmsg)
 
 	/* If there no are no changes, we consider the splice user finalized */
 	if (!interactivetx_has_changes(ictx, ictx->desired_psbt)) {
+		peer->splicing->current_psbt = tal_free(peer->splicing->current_psbt);
+		peer->splicing->current_psbt = clone_psbt(peer->splicing,
+							  ictx->desired_psbt);
 		splice_initiator_user_finalized(peer);
 		tal_steal(last_inflight(peer), last_inflight(peer)->psbt);
 		return;
@@ -4594,7 +4685,8 @@ static void splice_initiator_user_signed(struct peer *peer, const u8 *inmsg)
 	outmsg = towire_channeld_update_inflight(NULL, inflight->psbt,
 						 inflight->last_tx,
 						 &inflight->last_sig,
-						 inflight->locked_scid);
+						 inflight->locked_scid,
+						 inflight->i_sent_sigs);
 
 	wire_sync_write(MASTER_FD, take(outmsg));
 
@@ -6050,7 +6142,8 @@ static void handle_funding_depth(struct peer *peer, const u8 *msg)
 									      inflight->psbt,
 									      NULL,
 									      NULL,
-									      inflight->locked_scid);
+									      inflight->locked_scid,
+									      inflight->i_sent_sigs);
 					wire_sync_write(MASTER_FD, take(msg));
 					inflight_match = inflight;
 				}
