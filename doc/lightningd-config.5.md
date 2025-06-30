@@ -816,13 +816,6 @@ of the prior channel balance and the new one.
   Specifying this option advertizes `option_quiesce`.  Not very useful
 by itself, except for testing.
 
-* **experimental-upgrade-protocol**
-
-  Specifying this option means we send (and allow receipt of) a simple
-protocol to update channel types.  At the moment, we only support setting
-`option_static_remotekey` to ancient channels.  The peer must also support
-this option.
-
 
 
 BUGS
