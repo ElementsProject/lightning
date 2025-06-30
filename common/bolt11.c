@@ -179,16 +179,15 @@ static const char *decode_p(struct bolt11 *b11,
 {
 	/* BOLT #11:
 	 *
-	 * A payer... SHOULD use the first `p` field that it did NOT
-	 * skip as the payment hash.
+	 * A payer... SHOULD use the first `p` field as the payment hash.
 	 */
 	assert(!*have_p);
 
 	/* BOLT #11:
 	 *
-	 * A reader... MUST skip over unknown fields, OR an `f` field
-	 * with unknown `version`, OR `p`, `h`, `s` or `n` fields that do
-	 * NOT have `data_length`s of 52, 52, 52 or 53, respectively.
+	 * A reader...
+	 * - MUST fail the payment if any mandatory field (`p`, `h`, `s`, `n`)
+	 *   does not have the correct length (52, 52, 52, 53).
 	 */
 	return pull_expected_length(b11, hu5, data, field_len, 52, 'p',
 				    have_p, &b11->payment_hash);
@@ -240,9 +239,9 @@ static const char *decode_h(struct bolt11 *b11,
 	assert(!*have_h);
 	/* BOLT #11:
 	 *
-	 * A reader... MUST skip over unknown fields, OR an `f` field
-	 * with unknown `version`, OR `p`, `h`, `s` or `n` fields that do
-	 * NOT have `data_length`s of 52, 52, 52 or 53, respectively. */
+	 * A reader...
+	 * - MUST fail the payment if any mandatory field (`p`, `h`, `s`, `n`)
+	 *   does not have the correct length (52, 52, 52, 53). */
 	err = pull_expected_length(b11, hu5, data, field_len, 52, 'h',
 				    have_h, &hash);
 
@@ -325,9 +324,9 @@ static const char *decode_n(struct bolt11 *b11,
 	assert(!*have_n);
 	/* BOLT #11:
 	 *
-	 * A reader... MUST skip over unknown fields, OR an `f` field
-	 * with unknown `version`, OR `p`, `h`, `s` or `n` fields that do
-	 * NOT have `data_length`s of 52, 52, 52 or 53, respectively. */
+	 * A reader...
+	 * - MUST fail the payment if any mandatory field (`p`, `h`, `s`, `n`)
+	 *   does not have the correct length (52, 52, 52, 53). */
 	err = pull_expected_length(b11, hu5, data, field_len, 53, 'n', have_n,
 				   &b11->receiver_id.k);
 
@@ -361,9 +360,9 @@ static const char *decode_s(struct bolt11 *b11,
 
 	/* BOLT #11:
 	 *
-	 * A reader... MUST skip over unknown fields, OR an `f` field
-	 * with unknown `version`, OR `p`, `h`, `s` or `n` fields that do
-	 * NOT have `data_length`s of 52, 52, 52 or 53, respectively. */
+	 * A reader...
+	 * - MUST fail the payment if any mandatory field (`p`, `h`, `s`, `n`)
+	 *   does not have the correct length (52, 52, 52, 53). */
 	err = pull_expected_length(b11, hu5, data, field_len, 52, 's',
 				   have_s, &secret);
 	if (*have_s)
@@ -443,6 +442,9 @@ static const char *decode_f(struct bolt11 *b11,
 		fallback = scriptpubkey_witness_raw(b11, version,
 						    f, tal_count(f));
 	} else {
+		/* BOLT #11:
+		 *   - MUST skip over `f` fields that use an unknown `version`.
+		 */
 		/* Restore version for unknown field! */
 		*data = orig_data;
 		*field_len = orig_len;
@@ -664,8 +666,7 @@ struct decoder {
 static const struct decoder decoders[] = {
 	/* BOLT #11:
 	 *
-	 * A payer... SHOULD use the first `p` field that it did NOT
-	 * skip as the payment hash.
+	 * A payer... SHOULD use the first `p` field as the payment hash.
 	 */
 	{ 'p', false, decode_p },
 	{ 'd', false, decode_d },
