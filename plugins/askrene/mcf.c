@@ -1310,6 +1310,56 @@ static bool check_htlc_limits(struct route_query *rq, struct flow **flows)
 	return true;
 }
 
+static bool check_htlc_min_limits(struct route_query *rq, struct flow **flows)
+{
+
+	for (size_t k = 0; k < tal_count(flows); k++) {
+		struct flow *flow = flows[k];
+		size_t pathlen = tal_count(flow->path);
+		struct amount_msat hop_amt = flow->delivers;
+		for (size_t i = pathlen - 1; i < pathlen; i--) {
+			const struct half_chan *h = flow_edge(flow, i);
+			struct short_channel_id_dir scidd;
+
+			get_scidd(rq->gossmap, flow, i, &scidd);
+			struct amount_msat htlc_min =
+			    get_chan_htlc_min(rq, flow->path[i], &scidd);
+			if (amount_msat_less(hop_amt, htlc_min))
+				return false;
+
+			if (!amount_msat_add_fee(&hop_amt, h->base_fee,
+						 h->proportional_fee))
+				abort();
+		}
+	}
+	return true;
+}
+
+static bool check_htlc_max_limits(struct route_query *rq, struct flow **flows)
+{
+
+	for (size_t k = 0; k < tal_count(flows); k++) {
+		struct flow *flow = flows[k];
+		size_t pathlen = tal_count(flow->path);
+		struct amount_msat hop_amt = flow->delivers;
+		for (size_t i = pathlen - 1; i < pathlen; i--) {
+			const struct half_chan *h = flow_edge(flow, i);
+			struct short_channel_id_dir scidd;
+
+			get_scidd(rq->gossmap, flow, i, &scidd);
+			struct amount_msat htlc_max =
+			    get_chan_htlc_max(rq, flow->path[i], &scidd);
+			if (amount_msat_greater(hop_amt, htlc_max))
+				return false;
+
+			if (!amount_msat_add_fee(&hop_amt, h->base_fee,
+						 h->proportional_fee))
+				abort();
+		}
+	}
+	return true;
+}
+
 /* FIXME: add extra constraint maximum route length, use an activation
  * probability cost for each channel. Recall that every activation cost, eg.
  * base fee and activation probability can only be properly added modifying the
@@ -1399,6 +1449,8 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 
 		/* we should have fixed all htlc violations, "don't trust,
 		 * verify" */
+		assert(check_htlc_min_limits(rq, new_flows));
+		assert(check_htlc_max_limits(rq, new_flows));
 		assert(check_htlc_limits(rq, new_flows));
 
 		/* no flows should send 0 amount */
