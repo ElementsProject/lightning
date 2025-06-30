@@ -929,6 +929,9 @@ struct bolt11 *bolt11_decode_nosig(const tal_t *ctx, const char *str,
 	if (!have_field[bech32_charset_rev['p']])
 		return decode_fail(b11, fail, "No valid 'p' field found");
 
+	if (!have_field[bech32_charset_rev['s']])
+		return decode_fail(b11, fail, "Missing required payment secret (s field)");
+
 	if (have_field[bech32_charset_rev['h']] && description) {
 		struct sha256 sha;
 
