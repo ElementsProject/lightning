@@ -8,6 +8,8 @@ from urllib3.util.retry import Retry
 import socketio
 import time
 import pytest
+import json
+import unittest
 
 
 def http_session_with_retry():
@@ -494,3 +496,132 @@ def test_websocket_upgrade_header(node_factory):
     sio.disconnect()
 
     assert len(notifications) == 0
+
+
+def test_accept_header_types(node_factory):
+    l1, base_url, ca_cert = start_node_with_clnrest(node_factory)
+    http_session = http_session_with_retry()
+
+    rune = l1.rpc.createrune(restrictions=[])['rune']
+
+    response = http_session.post(base_url + '/v1/getinfo',
+                                 headers={'Rune': rune},
+                                 verify=ca_cert)
+    response.raise_for_status()
+    assert response.json()['id'] == l1.info['id']
+
+    response = http_session.post(base_url + '/v1/getinfo',
+                                 headers={'Rune': rune, 'Accept': 'application/json'},
+                                 verify=ca_cert)
+    response.raise_for_status()
+    assert response.json()['id'] == l1.info['id']
+
+    response = http_session.post(base_url + '/v1/getinfo',
+                                 headers={'Rune': rune, 'Accept': 'application/yaml'},
+                                 verify=ca_cert)
+    response.raise_for_status()
+    assert f"id: '{l1.info['id']}'" in response.text
+
+    response = http_session.post(base_url + '/v1/getinfo',
+                                 headers={'Rune': rune, 'Accept': 'application/xml'},
+                                 verify=ca_cert)
+    response.raise_for_status()
+    assert f"<id>{l1.info['id']}</id>" in response.text
+
+    response = http_session.post(base_url + '/v1/getinfo',
+                                 headers={'Rune': rune, 'Accept': 'application/x-www-form-urlencoded'},
+                                 verify=ca_cert)
+    response.raise_for_status()
+    assert f"id={l1.info['id']}" in response.text
+
+
+@unittest.skipIf(
+    TEST_NETWORK == 'liquid-regtest',
+    'p2tr addresses are not supported on liquid-regtest')
+def test_content_type_header_types(node_factory):
+    l1, base_url, ca_cert = start_node_with_clnrest(node_factory)
+    http_session = http_session_with_retry()
+
+    newaddr = l1.rpc.newaddr('p2tr')['p2tr']
+    l1.rpc.newaddr('p2tr')['p2tr']
+    l1.rpc.newaddr('p2tr')['p2tr']
+
+    rune = l1.rpc.createrune(restrictions=[])['rune']
+
+    response = http_session.post(base_url + '/v1/listaddresses',
+                                 headers={'Rune': rune, 'Content-Type': 'application/json'},
+                                 data=json.dumps({'address': newaddr}),
+                                 verify=ca_cert)
+    response.raise_for_status()
+    json_response = response.json()["addresses"]
+    assert len(json_response) == 1
+    assert json_response[0]['p2tr'] == newaddr
+
+    response = http_session.post(base_url + '/v1/listaddresses',
+                                 headers={'Rune': rune, 'Content-Type': 'application/yaml'},
+                                 data=f"address: {newaddr}",
+                                 verify=ca_cert)
+    response.raise_for_status()
+    json_response = response.json()["addresses"]
+    assert len(json_response) == 1
+    assert json_response[0]['p2tr'] == newaddr
+
+    response = http_session.post(base_url + '/v1/listaddresses',
+                                 headers={'Rune': rune, 'Content-Type': 'application/x-www-form-urlencoded'},
+                                 data={'address': newaddr},
+                                 verify=ca_cert)
+    response.raise_for_status()
+    json_response = response.json()["addresses"]
+    assert len(json_response) == 1
+    assert json_response[0]['p2tr'] == newaddr
+
+    response = http_session.post(base_url + '/v1/listaddresses',
+                                 headers={'Rune': rune, 'Content-Type': 'application/xml'},
+                                 data=f"<listaddresses><address>{newaddr}</address></listaddresses>",
+                                 verify=ca_cert)
+    response.raise_for_status()
+    json_response = response.json()["addresses"]
+    assert len(json_response) == 1
+    assert json_response[0]['p2tr'] == newaddr
+
+
+@unittest.skipIf(
+    TEST_NETWORK == 'liquid-regtest',
+    'p2tr addresses are not supported on liquid-regtest')
+def test_matching_accept_and_content_type(node_factory):
+    l1, base_url, ca_cert = start_node_with_clnrest(node_factory)
+    http_session = http_session_with_retry()
+
+    newaddr = l1.rpc.newaddr('p2tr')['p2tr']
+
+    rune = l1.rpc.createrune(restrictions=[])['rune']
+
+    response = http_session.post(base_url + '/v1/listaddresses',
+                                 headers={'Rune': rune, 'Content-Type': 'application/json', 'Accept': 'application/json'},
+                                 data=json.dumps({'address': newaddr}),
+                                 verify=ca_cert)
+    response.raise_for_status()
+    json_response = response.json()["addresses"]
+    assert len(json_response) == 1
+    assert json_response[0]['p2tr'] == newaddr
+
+    response = http_session.post(base_url + '/v1/listaddresses',
+                                 headers={'Rune': rune, 'Content-Type': 'application/yaml', 'Accept': 'application/yaml'},
+                                 data=f"address: {newaddr}",
+                                 verify=ca_cert)
+    response.raise_for_status()
+    assert f"p2tr: {newaddr}" in response.text
+
+    response = http_session.post(base_url + '/v1/listaddresses',
+                                 headers={'Rune': rune, 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/x-www-form-urlencoded'},
+                                 data={'address': newaddr},
+                                 verify=ca_cert)
+    response.raise_for_status()
+    assert f"addresses[0][p2tr]={newaddr}" in response.text
+
+    response = http_session.post(base_url + '/v1/listaddresses',
+                                 headers={'Rune': rune, 'Content-Type': 'application/xml', 'Accept': 'application/xml'},
+                                 data=f"<listaddresses><address>{newaddr}</address></listaddresses>",
+                                 verify=ca_cert)
+    response.raise_for_status()
+    assert f"<p2tr>{newaddr}</p2tr>" in response.text
