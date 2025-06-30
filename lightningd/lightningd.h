@@ -410,9 +410,6 @@ struct lightningd {
 	 * since we otherwise would outright reject them. */
 	u64 *accept_extra_tlv_types;
 
-	/* --experimental-upgrade-protocol */
-	bool experimental_upgrade_protocol;
-
 	/* --invoices-onchain-fallback */
 	bool unified_invoices;
 
