@@ -420,6 +420,20 @@ const char *refine_with_fees_and_limits(const tal_t *ctx,
                 tal_arr_remove(&flows_index, i);
 	}
 
-        tal_free(working_ctx);
+	/* finally write the remaining flows */
+	struct flow **tmp_flows = tal_arr(working_ctx, struct flow *, 0);
+	for (size_t i = 0; i < tal_count(flows_index); i++) {
+		tal_arr_expand(&tmp_flows, (*flows)[flows_index[i]]);
+		(*flows)[flows_index[i]] = NULL;
+	}
+	for (size_t i = 0; i < tal_count(*flows); i++) {
+		(*flows)[i] = tal_free((*flows)[i]);
+	}
+	tal_resize(flows, 0);
+	for (size_t i = 0; i < tal_count(tmp_flows); i++) {
+		tal_arr_expand(flows, tmp_flows[i]);
+	}
+
+	tal_free(working_ctx);
         return NULL;
 }
