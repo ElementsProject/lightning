@@ -242,6 +242,75 @@ struct open_attempt *new_channel_open_attempt(struct channel *channel)
 	return oa;
 }
 
+static void chanmap_remove(struct lightningd *ld,
+			   const struct channel *channel,
+			   struct short_channel_id scid)
+{
+	struct scid_to_channel *scc = channel_scid_map_get(ld->channels_by_scid, scid);
+	assert(scc->channel == channel);
+	tal_free(scc);
+}
+
+static void destroy_scid_to_channel(struct scid_to_channel *scc,
+				    struct lightningd *ld)
+{
+	if (!channel_scid_map_del(ld->channels_by_scid, scc))
+		abort();
+}
+
+static void chanmap_add(struct lightningd *ld,
+			struct channel *channel,
+			struct short_channel_id scid)
+{
+	struct scid_to_channel *scc = tal(channel, struct scid_to_channel);
+	scc->channel = channel;
+	scc->scid = scid;
+	channel_scid_map_add(ld->channels_by_scid, scc);
+	tal_add_destructor2(scc, destroy_scid_to_channel, ld);
+}
+
+static void channel_set_random_local_alias(struct channel *channel)
+{
+	assert(channel->alias[LOCAL] == NULL);
+	channel->alias[LOCAL] = tal(channel, struct short_channel_id);
+	randombytes_buf(channel->alias[LOCAL], sizeof(struct short_channel_id));
+	/* We don't check for uniqueness.  We would crash on a clash, but your machine is
+	 * probably broken beyond repair if it gets two equal 64 bit numbers */
+	chanmap_add(channel->peer->ld, channel, *channel->alias[LOCAL]);
+}
+
+void channel_set_scid(struct channel *channel, const struct short_channel_id *new_scid)
+{
+	struct lightningd *ld = channel->peer->ld;
+
+	/* Get rid of old one (if any) */
+	if (channel->scid != NULL) {
+		chanmap_remove(ld, channel, *channel->scid);
+		channel->scid = tal_free(channel->scid);
+	}
+
+	/* Add new one (if any) */
+	if (new_scid) {
+		channel->scid = tal_dup(channel, struct short_channel_id, new_scid);
+		chanmap_add(ld, channel, *new_scid);
+	}
+}
+
+void channel_add_old_scid(struct channel *channel,
+			  struct short_channel_id old_scid)
+{
+	/* If this is not public, we skip */
+	if (!(channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL))
+		return;
+
+	if (!channel->old_scids)
+		channel->old_scids = tal_dup(channel, struct short_channel_id, &old_scid);
+	else
+		tal_arr_expand(&channel->old_scids, old_scid);
+
+	chanmap_add(channel->peer->ld, channel, old_scid);
+}
+
 struct channel *new_unsaved_channel(struct peer *peer,
 				    u32 feerate_base,
 				    u32 feerate_ppm)
@@ -275,6 +344,7 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	channel->last_htlc_sigs = NULL;
 	channel->remote_channel_ready = false;
 	channel->scid = NULL;
+	channel->old_scids = NULL;
 	channel->next_index[LOCAL] = 1;
 	channel->next_index[REMOTE] = 1;
 	channel->next_htlc_id = 0;
@@ -286,10 +356,8 @@ struct channel *new_unsaved_channel(struct peer *peer,
 		= CLOSING_FEE_NEGOTIATION_STEP_UNIT_PERCENTAGE;
 	channel->shutdown_wrong_funding = NULL;
 	channel->closing_feerate_range = NULL;
-	channel->alias[REMOTE] = NULL;
-	/* We don't even bother checking for clashes. */
-	channel->alias[LOCAL] = tal(channel, struct short_channel_id);
-	randombytes_buf(channel->alias[LOCAL], sizeof(struct short_channel_id));
+	channel->alias[REMOTE] = channel->alias[LOCAL] = NULL;
+	channel_set_random_local_alias(channel);
 
 	channel->shutdown_scriptpubkey[REMOTE] = NULL;
 	channel->last_was_revoke = false;
@@ -411,6 +479,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    bool remote_channel_ready,
 			    /* NULL or stolen */
 			    struct short_channel_id *scid,
+			    struct short_channel_id *old_scids TAKES,
 			    struct short_channel_id *alias_local TAKES,
 			    struct short_channel_id *alias_remote STEALS,
 			    struct channel_id *cid,
@@ -538,12 +607,20 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->our_funds = our_funds;
 	channel->remote_channel_ready = remote_channel_ready;
 	channel->scid = tal_steal(channel, scid);
+	channel->old_scids = tal_dup_talarr(channel, struct short_channel_id, old_scids);
 	channel->alias[LOCAL] = tal_dup_or_null(channel, struct short_channel_id, alias_local);
+	/* All these possible short_channel_id variants go in the lookup table! */
+	if (channel->scid)
+		chanmap_add(peer->ld, channel, *channel->scid);
+	if (channel->alias[LOCAL])
+		chanmap_add(peer->ld, channel, *channel->alias[LOCAL]);
+	for (size_t i = 0; i < tal_count(channel->old_scids); i++)
+		chanmap_add(peer->ld, channel, channel->old_scids[i]);
+
 	/* We always make sure this is set (historical channels from db might not) */
-	if (!channel->alias[LOCAL]) {
-		channel->alias[LOCAL] = tal(channel, struct short_channel_id);
-		randombytes_buf(channel->alias[LOCAL], sizeof(struct short_channel_id));
-	}
+	if (!channel->alias[LOCAL])
+		channel_set_random_local_alias(channel);
+
 	channel->alias[REMOTE] = tal_steal(channel, alias_remote);  /* Haven't gotten one yet. */
 	channel->cid = *cid;
 	channel->our_msat = our_msat;
@@ -737,37 +814,28 @@ struct channel *any_channel_by_scid(struct lightningd *ld,
 				    struct short_channel_id scid,
 				    bool privacy_leak_ok)
 {
-	struct peer *p;
-	struct channel *chan;
-	struct peer_node_id_map_iter it;
+	const struct scid_to_channel *scc = channel_scid_map_get(ld->channels_by_scid, scid);
+	if (!scc)
+		return NULL;
 
-	/* FIXME: Support lookup by scid directly! */
-	for (p = peer_node_id_map_first(ld->peers, &it);
-	     p;
-	     p = peer_node_id_map_next(ld->peers, &it)) {
-		list_for_each(&p->channels, chan, list) {
-			/* BOLT #2:
-			 * - MUST always recognize the `alias` as a
-			 *   `short_channel_id` for incoming HTLCs to this
-			 *   channel.
-			 */
-			if (chan->alias[LOCAL] &&
-			    short_channel_id_eq(scid, *chan->alias[LOCAL]))
-				return chan;
-			/* BOLT #2:
-			 * - if `channel_type` has `option_scid_alias` set:
-			 *   - MUST NOT allow incoming HTLCs to this channel
-			 *     using the real `short_channel_id`
-			 */
-			if (!privacy_leak_ok
-			    && channel_type_has(chan->type, OPT_SCID_ALIAS))
-				continue;
-			if (chan->scid
-			    && short_channel_id_eq(scid, *chan->scid))
-				return chan;
-		}
-	}
-	return NULL;
+	/* BOLT #2:
+	 * - MUST always recognize the `alias` as a `short_channel_id` for
+	 *   incoming HTLCs to this channel.
+	 */
+	if (scc->channel->alias[LOCAL]
+	    && short_channel_id_eq(scid, *scc->channel->alias[LOCAL]))
+		return scc->channel;
+
+	/* BOLT #2:
+	 * - if `channel_type` has `option_scid_alias` set:
+	 *   - MUST NOT allow incoming HTLCs to this channel using the real
+	 *     `short_channel_id`
+	 */
+	/* This means any scids other than the alias (handled above) cannot be exposed */
+	if (!privacy_leak_ok && channel_type_has(scc->channel->type, OPT_SCID_ALIAS))
+		return NULL;
+
+	return scc->channel;
 }
 
 struct channel *channel_by_dbid(struct lightningd *ld, const u64 dbid)

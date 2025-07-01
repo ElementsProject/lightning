@@ -209,6 +209,10 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->peers_by_dbid = tal(ld, struct peer_dbid_map);
 	peer_dbid_map_init(ld->peers_by_dbid);
 
+	/*~ This speeds lookups for short_channel_ids to their channels. */
+	ld->channels_by_scid = tal(ld, struct channel_scid_map);
+	channel_scid_map_init(ld->channels_by_scid);
+
 	/*~ For multi-part payments, we need to keep some incoming payments
 	 * in limbo until we get all the parts, or we time them out. */
 	ld->htlc_sets = tal(ld, struct htlc_set_map);
