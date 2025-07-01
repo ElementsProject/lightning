@@ -1038,7 +1038,7 @@ static enum watch_result opening_depth_cb(struct lightningd *ld,
 	if (!inflight->channel->scid) {
 		wallet_annotate_txout(ld->wallet, &inflight->funding->outpoint,
 				      TX_CHANNEL_FUNDING, inflight->channel->dbid);
-		inflight->channel->scid = tal_dup(inflight->channel, struct short_channel_id, &scid);
+		channel_set_scid(inflight->channel, &scid);
 		wallet_channel_save(ld->wallet, inflight->channel);
 	} else if (!short_channel_id_eq(*inflight->channel->scid, scid)) {
 		/* We freaked out if required when original was
@@ -1046,7 +1046,7 @@ static enum watch_result opening_depth_cb(struct lightningd *ld,
 		log_info(inflight->channel->log, "Short channel id changed from %s->%s",
 			 fmt_short_channel_id(tmpctx, *inflight->channel->scid),
 			 fmt_short_channel_id(tmpctx, scid));
-		*inflight->channel->scid = scid;
+		channel_set_scid(inflight->channel, &scid);
 		wallet_channel_save(ld->wallet, inflight->channel);
 	}
 

@@ -803,7 +803,7 @@ bool depthcb_update_scid(struct channel *channel,
 	if (!channel->scid) {
 		wallet_annotate_txout(ld->wallet, outpoint,
 				      TX_CHANNEL_FUNDING, channel->dbid);
-		channel->scid = tal_dup(channel, struct short_channel_id, &scid);
+		channel_set_scid(channel, &scid);
 
 		/* If we have a zeroconf channel, i.e., no scid yet
 		 * but have exchange `channel_ready` messages, then we
@@ -822,7 +822,7 @@ bool depthcb_update_scid(struct channel *channel,
 		log_info(channel->log, "Short channel id changed from %s->%s",
 			 fmt_short_channel_id(tmpctx, *channel->scid),
 			 fmt_short_channel_id(tmpctx, scid));
-		*channel->scid = scid;
+		channel_set_scid(channel, &scid);
 		/* In case we broadcast it before (e.g. splice!) */
 		channel_add_old_scid(channel, old_scid);
 		channel_gossip_scid_changed(channel);
