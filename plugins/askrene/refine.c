@@ -12,6 +12,7 @@ struct channel_data {
 	struct amount_msat htlc_min, htlc_max, liquidity_max;
 	u32 fee_base_msat, fee_proportional_millionths;
         struct short_channel_id_dir scidd;
+        u32 idx;
 };
 
 
@@ -148,31 +149,36 @@ enum why_capped {
 	CAPPED_CAPACITY,
 };
 
-static void remove_htlc_min_violations(const tal_t *ctx, struct route_query *rq,
-				       const struct flow *flow,
-				       const struct channel_data *channels)
+static const char *
+remove_htlc_min_violations(const tal_t *ctx, struct route_query *rq,
+			   const struct flow *flow,
+			   const struct channel_data *channels)
 {
-
+	const char *error_message = NULL;
 	struct amount_msat msat = flow->delivers;
 	for (size_t i = tal_count(flow->path) - 1; i < tal_count(flow->path);
 	     i--) {
 		if (amount_msat_less(msat, channels[i].htlc_min)) {
 			rq_log(
-			    ctx, rq, LOG_UNUSUAL,
-			    "Sending %s across %s would violate htlc_min (~%s)",
+			    ctx, rq, LOG_DBG,
+			    "Sending %s across %s would violate htlc_min "
+			    "(~%s), disabling this channel",
 			    fmt_amount_msat(ctx, msat),
 			    fmt_short_channel_id_dir(ctx, &channels[i].scidd),
 			    fmt_amount_msat(ctx, channels[i].htlc_min));
+			bitmap_set_bit(rq->disabled_chans, channels[i].idx);
 			break;
 		}
 		if (!amount_msat_add_fee(
 			&msat, channels[i].fee_base_msat,
 			channels[i].fee_proportional_millionths)) {
-			plugin_err(rq->plugin, "%s: Adding fee to amount",
-				   __func__);
-			// TODO: fail this function and report to caller
+			error_message =
+			    rq_log(ctx, rq, LOG_BROKEN,
+				   "%s: Adding fee to amount", __func__);
+			break;
 		}
 	}
+	return error_message;
 }
 
 /* Cache channel data along the path used by this flow. */
@@ -199,6 +205,8 @@ static struct channel_data *new_channel_path_cache(const tal_t *ctx,
 		path[i].fee_proportional_millionths = h->proportional_fee;
 		path[i].liquidity_max = known_max;
                 path[i].scidd = scidd;
+		path[i].idx = scidd.dir +
+			      2 * gossmap_chan_idx(rq->gossmap, flow->path[i]);
 	}
 	return path;
 }
@@ -380,7 +388,8 @@ const char *refine_with_fees_and_limits(const tal_t *ctx,
 					struct flow ***flows)
 {
 	const tal_t *working_ctx = tal(ctx, tal_t);
-        struct amount_msat *max_deliverable;
+	const char *error_message = NULL;
+	struct amount_msat *max_deliverable;
         struct amount_msat *min_deliverable;
 	struct channel_data **channel_mpp_cache;
 	size_t *flows_index;
@@ -423,8 +432,10 @@ const char *refine_with_fees_and_limits(const tal_t *ctx,
                 }
                 /* htlc_min is not met for this flow */
 		tal_arr_remove(&flows_index, i);
-		remove_htlc_min_violations(working_ctx, rq, (*flows)[k],
-					   channel_mpp_cache[k]);
+		error_message = remove_htlc_min_violations(
+		    working_ctx, rq, (*flows)[k], channel_mpp_cache[k]);
+		if (error_message)
+			goto fail;
 	}
          
         /* remove 0 amount flows if any */
@@ -451,4 +462,8 @@ const char *refine_with_fees_and_limits(const tal_t *ctx,
 
 	tal_free(working_ctx);
         return NULL;
+
+fail:
+	tal_free(working_ctx);
+	return error_message;
 }
