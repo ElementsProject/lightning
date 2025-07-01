@@ -217,6 +217,11 @@ static struct channel_data **new_channel_mpp_cache(const tal_t *ctx,
 	return paths;
 }
 
+// TODO: unit test:
+//      -> make a path
+//      -> compute x = path_max_deliverable
+//      -> check that htlc_max are all satisfied
+//      -> check that (x+1) at least one htlc_max is violated
 /* Given the channel constraints, return the maximum amount that can be
  * delivered. */
 static struct amount_msat path_max_deliverable(struct channel_data *path)
@@ -232,25 +237,16 @@ static struct amount_msat path_max_deliverable(struct channel_data *path)
 	return deliver;
 }
 
-/* Given the channel constraints, return the maximum amount that can be
- * delivered for the least sendable. ie. the minimum amount one can deliver such
- * that all htlc_min are satisfied and forwarding fees are not overpayed.
- * Notice:
- * - the minimum amount that can be delivered is trivially the htlc_min in the
- *   last hop: least_delvr,
- * - the minimum amount that can be sent is the least we can insert at be
- *   begining of the path to ensure all htlc_min are satisfied along the way
- *   until the destination, including least_delvr at the destination:
- *   least_send,
- * - usually the sender tries to route with the least routing costs, that
- *   includes maximizing the amount at the destination, so least_send_max_delvr
- *   (what this function computes) is the maximum we can deliver at the
- *   destination when sending least_send, this already implies that htlc_min are
- *   satisfied. For simplicity we call this min_deliverable even though
- *   technically it isn't. */
+// TODO: unit test:
+//      -> make a path
+//      -> compute x = path_min_deliverable
+//      -> check that htlc_min are all satisfied
+//      -> check that (x-1) at least one htlc_min is violated
+/* The least amount that we can deliver at the destination such that when one
+ * computes the hop amounts backwards the htlc_min are always met. */
 static struct amount_msat path_min_deliverable(struct channel_data *path)
 {
-	struct amount_msat least_send = AMOUNT_MSAT(0);
+	struct amount_msat least_send = AMOUNT_MSAT(1);
 	const size_t pathlen = tal_count(path);
 	for (size_t i = pathlen - 1; i < pathlen; i--) {
 		least_send = amount_msat_max(least_send, path[i].htlc_min);
@@ -258,15 +254,34 @@ static struct amount_msat path_min_deliverable(struct channel_data *path)
 					 path[i].fee_proportional_millionths))
 			abort();
 	}
-	struct amount_msat max_destination = least_send;
+	/* least_send: is the least amount we can send in order to deliver at
+	 * least 1 msat at the destination. */
+	struct amount_msat least_destination = least_send;
 	for (size_t i = 0; i < pathlen; i++) {
-		max_destination =
-		    amount_msat_sub_fee(max_destination, path[i].fee_base_msat,
+		struct amount_msat in_value = least_destination;
+		struct amount_msat out_value =
+		    amount_msat_sub_fee(in_value, path[i].fee_base_msat,
 					path[i].fee_proportional_millionths);
+		assert(amount_msat_greater_eq(out_value, path[i].htlc_min));
+		struct amount_msat x = out_value;
+		if (!amount_msat_add_fee(&x, path[i].fee_base_msat,
+					 path[i].fee_proportional_millionths))
+			abort();
+		/* if the in_value computed from the out_value is smaller than
+		 * it should, then we add 1msat */
+		if (amount_msat_less(x, in_value) &&
+		    !amount_msat_accumulate(&out_value, AMOUNT_MSAT(1)))
+			abort();
+		/* check conditions */
+		assert(amount_msat_greater_eq(out_value, path[i].htlc_min));
+		x = out_value;
 		assert(
-		    amount_msat_greater_eq(max_destination, path[i].htlc_min));
+		    amount_msat_add_fee(&x, path[i].fee_base_msat,
+					path[i].fee_proportional_millionths) &&
+		    amount_msat_greater_eq(x, in_value));
+		least_destination = out_value;
 	}
-	return max_destination;
+	return least_destination;
 }
 
 /* Reverse order: bigger first */

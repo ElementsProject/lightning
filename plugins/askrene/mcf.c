@@ -1282,34 +1282,6 @@ get_chan_htlc_min(const struct route_query *rq, const struct gossmap_chan *c,
 	return htlc_min;
 }
 
-static bool check_htlc_limits(struct route_query *rq, struct flow **flows)
-{
-
-	for (size_t k = 0; k < tal_count(flows); k++) {
-		struct flow *flow = flows[k];
-		size_t pathlen = tal_count(flow->path);
-		struct amount_msat hop_amt = flow->delivers;
-		for (size_t i = pathlen - 1; i < pathlen; i--) {
-			const struct half_chan *h = flow_edge(flow, i);
-			struct short_channel_id_dir scidd;
-
-			get_scidd(rq->gossmap, flow, i, &scidd);
-			struct amount_msat htlc_min =
-			    get_chan_htlc_min(rq, flow->path[i], &scidd);
-			struct amount_msat htlc_max =
-			    get_chan_htlc_max(rq, flow->path[i], &scidd);
-			if (amount_msat_greater(hop_amt, htlc_max) ||
-			    amount_msat_less(hop_amt, htlc_min))
-				return false;
-
-			if (!amount_msat_add_fee(&hop_amt, h->base_fee,
-						 h->proportional_fee))
-				abort();
-		}
-	}
-	return true;
-}
-
 static bool check_htlc_min_limits(struct route_query *rq, struct flow **flows)
 {
 
@@ -1449,9 +1421,18 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 
 		/* we should have fixed all htlc violations, "don't trust,
 		 * verify" */
-		assert(check_htlc_min_limits(rq, new_flows));
-		assert(check_htlc_max_limits(rq, new_flows));
-		assert(check_htlc_limits(rq, new_flows));
+		if (!check_htlc_min_limits(rq, new_flows)) {
+			error_message = rq_log(
+			    rq, rq, LOG_BROKEN,
+			    "%s: check_htlc_min_limits failed", __func__);
+			goto fail;
+		}
+		if (!check_htlc_max_limits(rq, new_flows)) {
+			error_message = rq_log(
+			    rq, rq, LOG_BROKEN,
+			    "%s: check_htlc_max_limits failed", __func__);
+			goto fail;
+		}
 
 		/* no flows should send 0 amount */
 		for (size_t i = 0; i < tal_count(new_flows); i++) {
