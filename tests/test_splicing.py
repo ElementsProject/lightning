@@ -423,7 +423,6 @@ def test_splice_stuck_htlc(node_factory, bitcoind, executor):
     assert l1.db_query("SELECT count(*) as c FROM channeltxs;")[0]['c'] == 0
 
 
-@pytest.mark.xfail(strict=True)
 def test_route_by_old_scid(node_factory, bitcoind):
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True, opts={'experimental-splicing': None})
 
