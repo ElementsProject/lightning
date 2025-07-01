@@ -1042,6 +1042,7 @@ static struct migration dbmigrations[] = {
     {NULL, NULL}, /* Old, incorrect channel_htlcs_wait_indexes migration */
     {SQL("ALTER TABLE channel_funding_inflights ADD locked_scid BIGINT DEFAULT 0;"), NULL},
     {NULL, migrate_initialize_channel_htlcs_wait_indexes_and_fixup_forwards},
+    {SQL("ALTER TABLE channels ADD old_scids BLOB DEFAULT NULL;"), NULL},
 };
 
 /**

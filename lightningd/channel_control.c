@@ -815,12 +815,16 @@ bool depthcb_update_scid(struct channel *channel,
 			lockin_has_completed(channel, false);
 
 	} else {
+		struct short_channel_id old_scid = *channel->scid;
+
 		/* We freaked out if required when original was
 		 * removed, so just update now */
 		log_info(channel->log, "Short channel id changed from %s->%s",
 			 fmt_short_channel_id(tmpctx, *channel->scid),
 			 fmt_short_channel_id(tmpctx, scid));
 		*channel->scid = scid;
+		/* In case we broadcast it before (e.g. splice!) */
+		channel_add_old_scid(channel, old_scid);
 		channel_gossip_scid_changed(channel);
 	}
 
