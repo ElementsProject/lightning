@@ -1,0 +1,100 @@
+name: Bump Rust 🦀 crate versions
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+[0-9a-z]+'
+  workflow_dispatch:
+    inputs:
+      dist-location:
+        description: 'Distribution location'
+        type: choice
+        options:
+          - rc
+          - major
+          - minor
+        default: 'rc'
+        required: false
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        # Need to fetch entire history in order to locate the version tag
+        fetch-depth: 0
+
+    - name: Check version tag
+      run: >-
+        git describe --tags --always --dirty=-modded --abbrev=7
+
+    - name: Set up values
+      id: set-values
+      run: |
+        if [[ "${{ github.event.inputs.dist-location }}" != "" ]]; then
+          DISTLOCATION=${{ github.event.inputs.dist-location }}
+        elif [[ "${{ github.ref_type }}" == "tag" ]]; then
+          if [[ "${{ github.ref_name }}" =~ ^v[0-9]+\.[0-9]+$ ]]; then
+            DISTLOCATION="major"
+          elif [[ "${{ github.ref_name }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            DISTLOCATION="minor"
+          elif [[ "${{ github.ref_name }}" =~ ^v[0-9]+\.[0-9]+[0-9a-z]+$ ]]; then
+            DISTLOCATION="rc"
+          else
+            echo "Tag format not recognized"
+            exit 1
+          fi
+        else
+          echo "Neither tag nor workflow dispatch"
+          exit 1
+        fi
+        echo "DISTLOCATION=$DISTLOCATION" >> $GITHUB_OUTPUT
+        echo "EVENT DISTLOCATION: ${{ github.event.inputs.dist-location }}"
+        echo "DISTRIBUTION LOCATION: $DISTLOCATION"
+
+    - name: Setup rust
+      uses: dtolnay/rust-toolchain@1.77
+
+    - name: Install cargo release
+      run: |
+        cargo install --locked cargo-release --version 0.25.10
+
+    - name: Bump rc version
+      if: github.repository == 'daywalker90/lightning' && steps.set-values.outputs.DISTLOCATION == 'rc'
+      run: |
+        cargo release version -p cln-rpc -p cln-grpc -p cln-plugin rc --execute --no-confirm
+
+    - name: Bump minor release version
+      if: github.repository == 'daywalker90/lightning' && steps.set-values.outputs.DISTLOCATION == 'major'
+      run: |
+        cargo release version -p cln-rpc -p cln-grpc -p cln-plugin minor --execute --no-confirm
+
+    - name: Bump patch release version
+      if: github.repository == 'daywalker90/lightning' && steps.set-values.outputs.DISTLOCATION == 'minor'
+      run: |
+        cargo release version -p cln-rpc -p cln-grpc -p cln-plugin patch --execute --no-confirm
+
+    - name: Create Pull Request
+      if: github.repository == 'ElementsProject/lightning'
+      uses: peter-evans/create-pull-request@v7
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: "crates: Bump crate versions for ${{ github.ref_name }}"
+        title: "Bump crate versions for ${{ github.ref_name }}"
+        body: |
+          This PR bumps the crate versions for:
+          - cln-rpc
+          - cln-grpc
+          - cln-plugin
+
+          Triggered by tag: ${{ github.ref_name }}
+          Distribution location: ${{ steps.set-values.outputs.DISTLOCATION }}
+        branch: "bump-crate-versions-${{ github.ref_name }}"
+        base: master
+        labels: version-bump, automated
+        delete-branch: true

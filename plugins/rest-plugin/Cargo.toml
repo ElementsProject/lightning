@@ -27,7 +27,7 @@ utoipa = { version = "5", features = ['axum_extras'] }
 log-panics = "2"
 socketioxide = "0.15"
 
-cln-plugin = { version = "0.4", path = "../../plugins" }
-cln-rpc = { version = "0.4", path = "../../cln-rpc" }
+cln-plugin = { workspace = true }
+cln-rpc = { workspace = true }
 utoipa-swagger-ui = { version = "9.0.0", features = ["vendored", "axum"] }
 
