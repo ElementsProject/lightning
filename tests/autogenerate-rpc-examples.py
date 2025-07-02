@@ -364,7 +364,6 @@ def update_examples_in_schema_files():
         updated_examples = {}
         for method, method_examples in EXAMPLES_JSON.items():
             try:
-                global CWD
                 file_path = os.path.join(CWD, 'doc', 'schemas', f'{method}.json') if method != 'sql' else os.path.join(CWD, 'doc', 'schemas', f'{method}-template.json')
                 logger.info(f'Updating examples for {method} in file {file_path}')
                 with open(file_path, 'r+', encoding='utf-8') as file:
@@ -439,7 +438,6 @@ def setup_test_nodes(node_factory, bitcoind):
         l6.info['id']: 0265b6ab5ec860cd257865d61ef0bbf5b3339c36cbda8b26b74e7f1dca490b6518
     """
     try:
-        global FUND_WALLET_AMOUNT_SAT, FUND_CHANNEL_AMOUNT_SAT
         options = [
             {
                 'experimental-dual-fund': None,
@@ -535,7 +533,6 @@ def generate_transactions_examples(l1, l2, l3, l4, l5, c25, bitcoind):
     """Generate examples for various transactions and forwards"""
     try:
         logger.info('Simple Transactions Start...')
-        global FUND_CHANNEL_AMOUNT_SAT
         # Simple Transactions by creating invoices, paying invoices, keysends
         inv_l31 = update_example(node=l3, method='invoice', params={'amount_msat': 10**4, 'label': 'lbl_l31', 'description': 'Invoice description l31'})
         route_l1_l3 = update_example(node=l1, method='getroute', params={'id': l3.info['id'], 'amount_msat': 10**4, 'riskfactor': 1})['route']
@@ -1155,7 +1152,6 @@ def generate_utils_examples(l1, l2, l3, l4, l5, l6, c23_2, c34_2, inv_l11, inv_l
     """Generates other utilities examples"""
     try:
         logger.info('General Utils Start...')
-        global CWD, FUND_CHANNEL_AMOUNT_SAT
         update_example(node=l2, method='batching', params={'enable': True})
         update_example(node=l2, method='ping', params={'id': l1.info['id'], 'len': 128, 'pongbytes': 128})
         update_example(node=l2, method='ping', params={'id': l3.info['id'], 'len': 1000, 'pongbytes': 65535})
@@ -1303,7 +1299,6 @@ def generate_splice_examples(node_factory, bitcoind):
     """Generates splice related examples"""
     try:
         logger.info('Splice Start...')
-        global FUND_WALLET_AMOUNT_SAT, FUND_CHANNEL_AMOUNT_SAT
         # Basic setup for l7->l8
         options = [
             {
@@ -1376,7 +1371,6 @@ def generate_channels_examples(node_factory, bitcoind, l1, l3, l4, l5):
     """Generates fundchannel and openchannel related examples"""
     try:
         logger.info('Channels Start...')
-        global FUND_WALLET_AMOUNT_SAT, FUND_CHANNEL_AMOUNT_SAT
         # Basic setup for l9->l10 for fundchannel examples
         options = [
             {
@@ -1684,7 +1678,6 @@ def generate_autoclean_delete_examples(l1, l2, l3, l4, l5, c12, c23):
     """Records autoclean and delete examples"""
     try:
         logger.info('Auto-clean and Delete Start...')
-        global FUND_CHANNEL_AMOUNT_SAT
         l2.rpc.close(l5.info['id'])
         dfc_res1 = update_example(node=l2, method='dev-forget-channel', params={'id': l5.info['id']}, description=[f'Forget a channel by peer pubkey when only one channel exists with the peer:'])
 
@@ -2034,7 +2027,6 @@ def generate_list_examples(l1, l2, l3, c12, c23_2, inv_l31, inv_l32, offer_l23, 
 
 @pytest.fixture(autouse=True)
 def setup_logging():
-    global logger
     logger.setLevel(logging.DEBUG)
     formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s", "%H:%M:%S")
     stream_handler = logging.StreamHandler()
@@ -2054,7 +2046,6 @@ def test_generate_examples(node_factory, bitcoind, executor):
         def list_all_examples():
             """list all methods used in 'update_example' calls to ensure that all methods are covered"""
             try:
-                global REGENERATING_RPCS
                 methods = []
                 file_path = os.path.abspath(__file__)
 
@@ -2076,7 +2067,6 @@ def test_generate_examples(node_factory, bitcoind, executor):
         def list_missing_examples():
             """Checks for missing example & log an error if missing."""
             try:
-                global ALL_RPC_EXAMPLES
                 missing_examples = ''
                 for file_name in os.listdir('doc/schemas'):
                     if not file_name.endswith('.json'):
