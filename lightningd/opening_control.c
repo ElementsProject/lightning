@@ -1477,7 +1477,6 @@ static struct channel *stub_chan(struct command *cmd,
 	struct peer *peer;
 	struct pubkey localFundingPubkey;
 	struct pubkey pk;
-	struct short_channel_id *scid;
 	u32 blockht;
 	u32 feerate;
 	struct channel_stats zero_channel_stats;
@@ -1555,12 +1554,6 @@ static struct channel *stub_chan(struct command *cmd,
 	channel_info->old_remote_per_commit = pk;
 
 	blockht = 100;
-	scid = tal(cmd, struct short_channel_id);
-
-	/*To indicate this is an stub channel we keep it's scid to 1x1x1.*/
-	if (!mk_short_channel_id(scid, 1, 1, 1))
-                fatal("Failed to make short channel 1x1x1!");
-
 	memset(&zero_channel_stats, 0, sizeof(zero_channel_stats));
 
 	/* Channel Shell with Dummy data(mostly) */
@@ -1579,10 +1572,10 @@ static struct channel *stub_chan(struct command *cmd,
 			      AMOUNT_MSAT(0),
 			      AMOUNT_SAT(0),
 			      true, /* remote_channel_ready */
-			      scid,
 			      NULL,
-			      scid,
-			      scid,
+			      NULL,
+			      NULL,
+			      NULL,
 			      &cid,
 			      /* The three arguments below are msatoshi_to_us,
 			       * msatoshi_to_us_min, and msatoshi_to_us_max.
@@ -1627,6 +1620,12 @@ static struct channel *stub_chan(struct command *cmd,
 			      0,
 			      &zero_channel_stats,
 			      tal_arr(NULL, struct channel_state_change *, 0));
+
+	/* We fill in scid manually here, so it doesn't go in the hash table! */
+	channel->scid = tal(cmd, struct short_channel_id);
+	/*To indicate this is an stub channel we keep it's scid to 1x1x1.*/
+	if (!mk_short_channel_id(channel->scid, 1, 1, 1))
+                fatal("Failed to make short channel 1x1x1!");
 
 	/* We don't want to gossip about this, ever. */
 	channel->channel_gossip = tal_free(channel->channel_gossip);
