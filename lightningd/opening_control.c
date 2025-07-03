@@ -110,6 +110,7 @@ wallet_commit_channel(struct lightningd *ld,
 	struct timeabs timestamp;
 	struct channel_stats zero_channel_stats;
 	enum addrtype addrtype;
+	struct short_channel_id local_alias;
 
 	/* We can't have any payments yet */
 	memset(&zero_channel_stats, 0, sizeof(zero_channel_stats));
@@ -172,6 +173,8 @@ wallet_commit_channel(struct lightningd *ld,
 	else
 		static_remotekey_start = 0x7FFFFFFFFFFFFFFF;
 
+	local_alias = random_scid();
+
 	channel = new_channel(uc->peer, uc->dbid,
 			      NULL, /* No shachain yet */
 			      CHANNELD_AWAITING_LOCKIN,
@@ -190,7 +193,7 @@ wallet_commit_channel(struct lightningd *ld,
 			      false, /* !remote_channel_ready */
 			      NULL, /* no scid yet */
 			      NULL, /* no old scids */
-			      NULL, /* assign random local alias */
+			      &local_alias, /* random local alias */
 			      NULL, /* They haven't told us an alias yet */
 			      cid,
 			      /* The three arguments below are msatoshi_to_us,
@@ -1621,11 +1624,14 @@ static struct channel *stub_chan(struct command *cmd,
 			      &zero_channel_stats,
 			      tal_arr(NULL, struct channel_state_change *, 0));
 
-	/* We fill in scid manually here, so it doesn't go in the hash table! */
+	/* We fill in scid & local alias manually here, so it doesn't go in the hash table! */
 	channel->scid = tal(cmd, struct short_channel_id);
 	/*To indicate this is an stub channel we keep it's scid to 1x1x1.*/
 	if (!mk_short_channel_id(channel->scid, 1, 1, 1))
                 fatal("Failed to make short channel 1x1x1!");
+	/* Every channel is assumed to have a non-NULL local alias */
+	channel->alias[LOCAL] = tal(channel, struct short_channel_id);
+	*channel->alias[LOCAL] = *channel->scid;
 
 	/* We don't want to gossip about this, ever. */
 	channel->channel_gossip = tal_free(channel->channel_gossip);

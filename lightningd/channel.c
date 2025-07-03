@@ -268,16 +268,6 @@ static void chanmap_add(struct lightningd *ld,
 	tal_add_destructor2(scc, destroy_scid_to_channel, ld);
 }
 
-static void channel_set_random_local_alias(struct channel *channel)
-{
-	assert(channel->alias[LOCAL] == NULL);
-	channel->alias[LOCAL] = tal(channel, struct short_channel_id);
-	*channel->alias[LOCAL] = random_scid();
-	/* We don't check for uniqueness.  We would crash on a clash, but your machine is
-	 * probably broken beyond repair if it gets two equal 64 bit numbers */
-	chanmap_add(channel->peer->ld, channel, *channel->alias[LOCAL]);
-}
-
 void channel_set_scid(struct channel *channel, const struct short_channel_id *new_scid)
 {
 	struct lightningd *ld = channel->peer->ld;
@@ -355,8 +345,12 @@ struct channel *new_unsaved_channel(struct peer *peer,
 		= CLOSING_FEE_NEGOTIATION_STEP_UNIT_PERCENTAGE;
 	channel->shutdown_wrong_funding = NULL;
 	channel->closing_feerate_range = NULL;
-	channel->alias[REMOTE] = channel->alias[LOCAL] = NULL;
-	channel_set_random_local_alias(channel);
+	channel->alias[REMOTE] = NULL;
+	channel->alias[LOCAL] = tal(channel, struct short_channel_id);
+	*channel->alias[LOCAL] = random_scid();
+	/* We don't check for uniqueness.  We would crash on a clash, but your machine is
+	 * probably broken beyond repair if it gets two equal 64 bit numbers */
+	chanmap_add(channel->peer->ld, channel, *channel->alias[LOCAL]);
 
 	channel->shutdown_scriptpubkey[REMOTE] = NULL;
 	channel->last_was_revoke = false;
@@ -611,14 +605,11 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	/* All these possible short_channel_id variants go in the lookup table! */
 	if (channel->scid)
 		chanmap_add(peer->ld, channel, *channel->scid);
+	/* This is always set, *EXCEPT* for stub channels! */
 	if (channel->alias[LOCAL])
 		chanmap_add(peer->ld, channel, *channel->alias[LOCAL]);
 	for (size_t i = 0; i < tal_count(channel->old_scids); i++)
 		chanmap_add(peer->ld, channel, channel->old_scids[i]);
-
-	/* We always make sure this is set (historical channels from db might not) */
-	if (!channel->alias[LOCAL])
-		channel_set_random_local_alias(channel);
 
 	channel->alias[REMOTE] = tal_steal(channel, alias_remote);  /* Haven't gotten one yet. */
 	channel->cid = *cid;
