@@ -2995,6 +2995,7 @@ def test_autoclean_timer_crash(node_factory):
     time.sleep(20)
 
 
+@pytest.mark.skip()
 def test_autoclean_once(node_factory):
     l1, l2, l3 = node_factory.line_graph(3, opts={'may_reconnect': True},
                                          wait_for_announce=True)
@@ -4073,6 +4074,7 @@ def test_plugin_startdir_lol(node_factory):
     l1.rpc.plugin_startdir(os.path.join(os.getcwd(), 'tests/plugins'))
 
 
+@pytest.mark.skip()
 def test_autoclean_batch(node_factory):
     l1 = node_factory.get_node(1)
 

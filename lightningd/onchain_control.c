@@ -1141,6 +1141,10 @@ static bool consider_onchain_htlc_tx_rebroadcast(struct channel *channel,
 		return true;
 	}
 
+	if (chainparams->is_elements) {
+		psbt_elements_normalize_fees(psbt);
+	}
+
 	/* Now, get HSM to sign off. */
 	hsm_utxos = utxos_to_hsm_utxos(tmpctx, utxos);
 	msg = towire_hsmd_sign_htlc_tx_mingle(NULL,

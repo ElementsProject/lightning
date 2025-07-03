@@ -1755,13 +1755,6 @@ void handle_early_opts(struct lightningd *ld, int argc, char *argv[])
 	else
 		ld->config = mainnet_config;
 
-	/* No anchors if we're elements */
-	if (chainparams->is_elements) {
-		feature_set_sub(ld->our_features,
-				feature_set_for_feature(tmpctx,
-							OPTIONAL_FEATURE(OPT_ANCHORS_ZERO_FEE_HTLC_TX)));
-	}
-
 	/* Set the ln_port given from chainparams */
 	ld->config.ip_discovery_port = chainparams->ln_port;
 

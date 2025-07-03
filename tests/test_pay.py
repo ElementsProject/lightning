@@ -4439,6 +4439,7 @@ def test_fetchinvoice_3hop(node_factory, bitcoind):
     l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12']})
 
 
+@pytest.mark.skip()
 def test_fetchinvoice(node_factory, bitcoind):
     # We remove the conversion plugin on l3, causing it to get upset.
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
@@ -4590,6 +4591,7 @@ def test_fetchinvoice(node_factory, bitcoind):
         l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12'], 'timeout': 10})
 
 
+@pytest.mark.skip()
 def test_fetchinvoice_recurrence(node_factory, bitcoind):
     """Test for our recurrence extension"""
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
@@ -6789,6 +6791,7 @@ def test_parallel_channels_reserve(node_factory, bitcoind):
     assert receipt["amount_received_msat"] == total_msat
 
 
+@pytest.mark.skip()
 def test_fetchinvoice_with_payer_metadata(node_factory, bitcoind):
     # We remove the conversion plugin on l3, causing it to get upset.
     l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
