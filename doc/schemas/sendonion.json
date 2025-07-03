@@ -4,6 +4,7 @@
   "rpc": "sendonion",
   "title": "Send a payment with a custom onion packet",
   "description": [
+    "Note: you probably want to use the more modern and flexible `injectpaymentonion` command instead of this.",
     "The **sendonion** RPC command can be used to initiate a payment attempt with a custom onion packet. The onion packet is used to deliver instructions for hops along the route on how to behave. Normally these instructions are indications on where to forward a payment and what parameters to use, or contain details of the payment for the final hop. However, it is possible to add arbitrary information for hops in the custom onion, allowing for custom extensions that are not directly supported by Core Lightning.",
     "",
     "If the first element of *route* does not have \"channel\" set, a suitable channel (if any) will be chosen, otherwise that specific short-channel-id is used. The following is an example of a 3 hop onion:",
@@ -329,6 +330,7 @@
     "Christian Decker <<decker.christian@gmail.com>> is mainly responsible."
   ],
   "see_also": [
+    "lightning-injectpaymentonion(7)",
     "lightning-createonion(7)",
     "lightning-sendpay(7)",
     "lightning-listsendpays(7)"

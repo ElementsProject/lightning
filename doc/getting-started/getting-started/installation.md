@@ -294,7 +294,7 @@ pkg_add autoconf # (select highest version, autoconf-2.69p2 at time of writing)
 Install `mako` otherwise we run into build errors:
 
 ```shell
-pip3.8 install --user poetry
+pip3 install --user poetry
 poetry install
 ```
 
@@ -356,7 +356,7 @@ If you need Python 3.x for mako (or get a mako build error):
 brew install pyenv
 echo -e 'if command -v pyenv 1>/dev/null 2>&1; then\n  eval "$(pyenv init -)"\nfi' >> ~/.bash_profile
 source ~/.bash_profile
-pyenv install 3.8.10
+pyenv install 3.9
 pip install --upgrade pip
 pip install poetry==2.0.1
 ```

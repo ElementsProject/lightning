@@ -6,7 +6,7 @@ authors = ["Alex Myers <alex@endothermic.dev>"]
 
 [tool.poetry.dependencies]
 # Build dependencies belong here
-python = "^3.8"
+python = "^3.9"
 pyln-client = "^23.11"
 
 [build-system]

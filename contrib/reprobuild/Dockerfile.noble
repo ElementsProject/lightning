@@ -4,7 +4,7 @@ ENV TZ=UTC
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 ENV RUST_PROFILE=release
 ENV PATH=/root/.pyenv/shims:/root/.pyenv/bin:/root/.cargo/bin:$PATH
-ENV PROTOC_VERSION=22.0
+ENV PROTOC_VERSION=29.4
 
 RUN sed -i '/updates/d' /etc/apt/sources.list && \
     sed -i '/security/d' /etc/apt/sources.list

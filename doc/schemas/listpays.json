@@ -192,7 +192,7 @@
                   "amount_msat": {
                     "type": "msat",
                     "description": [
-                      "The amount of millisatoshi we intended to send to the destination."
+                      "The amount of millisatoshi we intended to send to the destination. This can only be missing in the case of someone manually calling sendonion without the `amount_msat` parameter (which no plugin currently does)."
                     ]
                   },
                   "amount_sent_msat": {

@@ -199,7 +199,7 @@
       },
       "response": {
         "id": "nodeid020202020202020202020202020202020202020202020202020202020202",
-        "features": "08a0882a8a59a1",
+        "features": "08a8882a8a59a1",
         "direction": "out",
         "address": {
           "type": "ipv4",
@@ -220,7 +220,7 @@
       },
       "response": {
         "id": "nodeid030303030303030303030303030303030303030303030303030303030303",
-        "features": "08a0882a8a59a1",
+        "features": "08a8882a8a59a1",
         "direction": "out",
         "address": {
           "type": "ipv4",

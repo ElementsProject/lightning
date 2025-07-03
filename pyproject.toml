@@ -7,7 +7,7 @@ authors = ["Christian Decker <cdecker@blockstream.com>"]
 
 [tool.poetry.dependencies]
 # Build dependencies belong here
-python = ">=3.8.1,<4.0"
+python = ">=3.9,<4.0"
 pyln-client = { path = "contrib/pyln-client", develop = true }
 pyln-proto = { path = "contrib/pyln-proto", develop = true }
 pyln-grpc-proto = { path = "contrib/pyln-grpc-proto", develop = true }
@@ -17,7 +17,7 @@ websocket-client = "^1.2.3"
 grpcio-tools = "^1"
 grpcio = "^1"
 # We want a specific version of protobuf to match CI's .github/scripts/setup.sh
-protobuf = "4.21.12"
+protobuf = "5.29.4"
 cryptography = "^42"
 
 [tool.poetry.group.dev.dependencies]

@@ -4,7 +4,7 @@
 VERSION=$(shell git describe --tags --always --dirty=-modded --abbrev=7 2>/dev/null || pwd | sed -n 's|.*/c\{0,1\}lightning-v\{0,1\}\([0-9a-f.rc\-]*\)$$|v\1|gp')
 
 # Next release.
-CLN_NEXT_VERSION := v25.05
+CLN_NEXT_VERSION := v25.09
 
 # --quiet / -s means quiet, dammit!
 ifeq ($(findstring s,$(word 1, $(MAKEFLAGS))),s)

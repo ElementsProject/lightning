@@ -13,19 +13,7 @@ updatedAt: "2023-02-21T13:50:10.086Z"
 
 Core Lightning exposes a [JSON-RPC 2.0](https://www.jsonrpc.org/specification) interface over a Unix Domain socket; the [`lightning-cli`](ref:lightning-cli) tool can be used to access it, or there is a [python client library](doc:json-rpc#using-python).
 
-You can use `[lightning-cli](ref:lightning-cli) help` to print a table of RPC methods; `[lightning-cli](lightning-cli) help <command>` will offer specific information on that command.
-
-Useful commands:
-
-- [lightning-newaddr](ref:lightning-newaddr): get a bitcoin address to deposit funds into your lightning node.
-- [lightning-listfunds](ref:lightning-listfunds): see where your funds are.
-- [lightning-connect](ref:lightning-connect): connect to another lightning node.
-- [lightning-fundchannel](ref:lightning-fundchannel): create a channel to another connected node.
-- [lightning-invoice](ref:lightning-invoice): create an invoice to get paid by another node.
-- [lightning-pay](ref:lightning-pay): pay someone else's invoice.
-- [lightning-plugin](ref:lightning-plugin): commands to control extensions.
-
-A complete list of all JSON-RPC commands is available at [API Reference](ref:lightning-addgossip).
+You can use `lightning-cli help` to print a table of RPC methods; `lightning-cli help <command>` will offer specific information on that command. A complete list of all JSON-RPC commands is available at [API Reference](ref:get_list_methods_resource).
 
 ## Using Python
 
