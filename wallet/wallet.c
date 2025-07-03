@@ -1814,7 +1814,8 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 
 	scid = db_col_optional_scid(tmpctx, stmt, "scid");
 	old_scids = db_col_short_channel_id_arr(tmpctx, stmt, "old_scids");
-	alias[LOCAL] = db_col_optional_scid(tmpctx, stmt, "alias_local");
+	alias[LOCAL] = tal(tmpctx, struct short_channel_id);
+	*alias[LOCAL] = db_col_short_channel_id(stmt, "alias_local");
 	alias[REMOTE] = db_col_optional_scid(tmpctx, stmt, "alias_remote");
 
  	ok &= wallet_shachain_load(w, db_col_u64(stmt, "shachain_remote_id"),
