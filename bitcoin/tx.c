@@ -542,9 +542,34 @@ struct bitcoin_tx *bitcoin_tx(const tal_t *ctx,
 	return tx;
 }
 
+static void elements_maybe_remove_fee_output(struct bitcoin_tx *tx)
+{
+	struct amount_sat fee = bitcoin_tx_compute_fee(tx);
+	int pos;
+
+	/* If we aren't using elements, we don't add explicit fee outputs */
+	if (!chainparams->is_elements)
+		return;
+
+	/* If we have a fee we must keep the fee output. */
+	if (!amount_sat_eq(fee, AMOUNT_SAT(0)))
+		return;
+
+	/* Try to find any existing fee output */
+	for (pos = 0; pos < tx->wtx->num_outputs; pos++) {
+		if (elements_tx_output_is_fee(tx, pos))
+			break;
+	}
+
+	if (pos != tx->wtx->num_outputs) {
+		wally_tx_remove_output(tx->wtx, pos);
+	}
+}
+
 void bitcoin_tx_finalize(struct bitcoin_tx *tx)
 {
 	elements_tx_add_fee_output(tx);
+	elements_maybe_remove_fee_output(tx);
 	assert(bitcoin_tx_check(tx));
 }
 
