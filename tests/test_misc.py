@@ -1390,7 +1390,7 @@ def test_funding_reorg_private(node_factory, bitcoind):
             'dev-fast-reconnect': None,
             # if it's not zeroconf, we'll terminate on reorg.
             'plugin': os.path.join(os.getcwd(), 'tests/plugins/zeroconf-selective.py'),
-            'zeroconf-allow': 'any'}
+            'zeroconf_allow': 'any'}
     l1, l2 = node_factory.line_graph(2, fundchannel=False, opts=opts)
     l1.fundwallet(10000000)
     sync_blockheight(bitcoind, [l1])                # height 102
@@ -1433,7 +1433,7 @@ def test_funding_reorg_remote_lags(node_factory, bitcoind):
             'allow_warning': True, 'dev-fast-reconnect': None,
             # if it's not zeroconf, l2 will terminate on reorg.
             'plugin': os.path.join(os.getcwd(), 'tests/plugins/zeroconf-selective.py'),
-            'zeroconf-allow': 'any'}
+            'zeroconf_allow': 'any'}
     l1, l2 = node_factory.line_graph(2, fundchannel=False, opts=opts)
     l1.fundwallet(10000000)
     sync_blockheight(bitcoind, [l1])                # height 102

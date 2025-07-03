@@ -5278,7 +5278,7 @@ def test_pay_multichannel_use_zeroconf(bitcoind, node_factory):
                                      fundamount=200_000,
                                      opts=[{},
                                            {'plugin': zeroconf_plugin,
-                                            'zeroconf-allow': 'any'}])
+                                            'zeroconf_allow': 'any'}])
 
     # 1. Open a zeoconf channel l1 -> l2
     zeroconf_sats = 1_000_000
