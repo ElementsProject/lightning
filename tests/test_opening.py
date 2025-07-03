@@ -1836,6 +1836,26 @@ def test_zeroconf_forward(node_factory, bitcoind):
     l3.rpc.pay(inv)
 
 
+def test_zeroconf_refusal(bitcoind, node_factory, chainparams):
+    """If we're not going to give you zeroconf, we should tell you!"""
+    l1, l2 = node_factory.get_nodes(2)
+    l1.fundwallet(10**6)
+    l1.connect(l2)
+
+    # option_static_remotekey, option_zeroconf
+    ctype = [12, 50]
+    # No anchors for elements
+    if not chainparams['elements']:
+        ctype += [22]
+    with pytest.raises(RpcError, match="You required zeroconf, but you're not on our allowlist"):
+        l1.rpc.fundchannel(l2.info['id'], 'all', channel_type=ctype)
+
+    # OK, let's add ourselves to allow list.
+    plugin_path = str(Path(__file__).parent / "plugins" / "zeroconf-selective.py")
+    l2.rpc.plugin_start(plugin_path, zeroconf_allow=l1.info['id'])
+    l1.rpc.fundchannel(l2.info['id'], 'all', channel_type=ctype)
+
+
 @pytest.mark.openchannel('v1')
 def test_buy_liquidity_ad_no_v2(node_factory, bitcoind):
     """ Test that you can't actually request amt for a
