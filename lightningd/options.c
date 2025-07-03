@@ -1585,9 +1585,6 @@ static void register_opts(struct lightningd *ld)
 		       "--subdaemon=hsmd:remote_signer "
 		       "would use a hypothetical remote signing subdaemon.");
 
-	opt_register_noarg("--experimental-upgrade-protocol",
-			   opt_set_bool, &ld->experimental_upgrade_protocol,
-			   "experimental: allow channel types to be upgraded on reconnect");
 	opt_register_noarg("--invoices-onchain-fallback",
 			   opt_set_bool, &ld->unified_invoices,
 			   "Include an onchain address in invoices and mark them as paid if payment is received on-chain");
