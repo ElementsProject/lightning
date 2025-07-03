@@ -300,6 +300,8 @@ int main(int argc, char *argv[])
 	b11 = new_bolt11(tmpctx, &msatoshi);
 	b11->chain = chainparams_for_network("bitcoin");
 	b11->timestamp = 1496314658;
+	b11->payment_secret = tal(b11, struct secret);
+	memset(b11->payment_secret, 0x11, sizeof(*b11->payment_secret));
 	if (!hex_decode("0001020304050607080900010203040506070809000102030405060708090102",
 			strlen("0001020304050607080900010203040506070809000102030405060708090102"),
 			&b11->payment_hash, sizeof(b11->payment_hash)))
@@ -308,9 +310,7 @@ int main(int argc, char *argv[])
 	b11->description = "1 cup coffee";
 	b11->expiry = 60;
 
- 	dev_bolt11_omit_c_value = true;
-	test_b11("LNBC2500U1PVJLUEZPP5QQQSYQCYQ5RQWZQFQQQSYQCYQ5RQWZQFQQQSYQCYQ5RQWZQFQYPQDQ5XYSXXATSYP3K7ENXV4JSXQZPUAZTRNWNGZN3KDZW5HYDLZF03QDGM2HDQ27CQV3AGM2AWHZ5SE903VRUATFHQ77W3LS4EVS3CH9ZW97J25EMUDUPQ63NYW24CG27H2RSPFJ9SRP", b11, NULL);
-	dev_bolt11_omit_c_value = false;
+	test_b11("LNBC2500U1PVJLUEZSP5ZYG3ZYG3ZYG3ZYG3ZYG3ZYG3ZYG3ZYG3ZYG3ZYG3ZYG3ZYG3ZYGSPP5QQQSYQCYQ5RQWZQFQQQSYQCYQ5RQWZQFQQQSYQCYQ5RQWZQFQYPQDQ5XYSXXATSYP3K7ENXV4JSXQZPUCQPJEJ3HDW922T23KQLTFQDTUF2MGFQESVYFKKAQVE0HW8VD0CHQSTEJ60K02J4W6NP4CUJV87TUS82EDUYX7YTWFW4S58CJTG0U0A6TD6CQ3ADH8K", b11, NULL);
 
 	/* Unknown field handling */
 	if (!node_id_from_hexstr("02330d13587b67a85c0a36ea001c4dba14bcd48dda8988f7303275b040bffb6abd", strlen("02330d13587b67a85c0a36ea001c4dba14bcd48dda8988f7303275b040bffb6abd"), &node))
@@ -319,6 +319,8 @@ int main(int argc, char *argv[])
 	b11 = new_bolt11(tmpctx, &msatoshi);
 	b11->chain = chainparams_for_network("testnet");
 	b11->timestamp = 1554294928;
+	b11->payment_secret = tal(b11, struct secret);
+	memset(b11->payment_secret, 0x11, sizeof(*b11->payment_secret));
 	if (!hex_decode("850aeaf5f69670e8889936fc2e0cff3ceb0c3b5eab8f04ae57767118db673a91",
 			strlen("850aeaf5f69670e8889936fc2e0cff3ceb0c3b5eab8f04ae57767118db673a91"),
 			&b11->payment_hash, sizeof(b11->payment_hash)))
@@ -334,9 +336,7 @@ int main(int argc, char *argv[])
 		extra->data[i] = bech32_charset_rev[(u8)"dp68gup69uhnzwfj9cejuvf3xshrwde68qcrswf0d46kcarfwpshyaplw3skw0tdw4k8g6tsv9e8g"[i]];
 	list_add(&b11->extra_fields, &extra->list);
 
-	dev_bolt11_omit_c_value = true;
-	test_b11("lntb30m1pw2f2yspp5s59w4a0kjecw3zyexm7zur8l8n4scw674w8sftjhwec33km882gsdpa2pshjmt9de6zqun9w96k2um5ypmkjargypkh2mr5d9cxzun5ypeh2ursdae8gxqruyqvzddp68gup69uhnzwfj9cejuvf3xshrwde68qcrswf0d46kcarfwpshyaplw3skw0tdw4k8g6tsv9e8g4a3hx0v945csrmpm7yxyaamgt2xu7mu4xyt3vp7045n4k4czxf9kj0vw0m8dr5t3pjxuek04rtgyy8uzss5eet5gcyekd6m7u0mzv5sp7mdsag", b11, NULL);
-	dev_bolt11_omit_c_value = false;
+	test_b11("lntb30m1pw2f2yssp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygspp5s59w4a0kjecw3zyexm7zur8l8n4scw674w8sftjhwec33km882gsdpa2pshjmt9de6zqun9w96k2um5ypmkjargypkh2mr5d9cxzun5ypeh2ursdae8gxqruyqcqpjvzddp68gup69uhnzwfj9cejuvf3xshrwde68qcrswf0d46kcarfwpshyaplw3skw0tdw4k8g6tsv9e8gcz45tperrgam4d3t6hc9kaguyzx08mrqsfhfxkx5fmpufvxfvypypyjcpxzvnnzq9jwsm3htpkwkxqsp8jt95ekkzq8ck5vze4lpehqq5cdj22", b11, NULL);
 
 	/* BOLT #11:
 	 *
@@ -689,6 +689,13 @@ int main(int argc, char *argv[])
 	 */
 	assert(!bolt11_decode(tmpctx, "lnbc2500000001p1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpusp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygs9qrsgq0lzc236j96a95uv0m3umg28gclm5lqxtqqwk32uuk4k6673k6n5kfvx3d2h8s295fad45fdhmusm8sjudfhlf6dcsxmfvkeywmjdkxcp99202x", NULL, NULL, NULL, &fail));
 	assert(streq(fail, "Invalid sub-millisatoshi amount '2500000001p'"));
+
+	/* BOLT #11:
+	 * > ### Missing required `s` field.
+	 * > lnbc20m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqhp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqs9qrsgq7ea976txfraylvgzuxs8kgcw23ezlrszfnh8r6qtfpr6cxga50aj6txm9rxrydzd06dfeawfk6swupvz4erwnyutnjq7x39ymw6j38gp49qdkj
+	 */
+	assert(!bolt11_decode(tmpctx, "lnbc20m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqhp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqs9qrsgq7ea976txfraylvgzuxs8kgcw23ezlrszfnh8r6qtfpr6cxga50aj6txm9rxrydzd06dfeawfk6swupvz4erwnyutnjq7x39ymw6j38gp49qdkj", NULL, NULL, NULL, &fail));
+	assert(streq(fail, "Missing required payment secret (s field)"));
 
 	/* Invalid UTF-8 tests. */
 	/* Description: Bad UTF-8: 0xC0" */
