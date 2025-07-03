@@ -1999,7 +1999,8 @@ def test_scid_alias_private(node_factory, bitcoind):
                                                                      {'log-level': 'io'}])
 
     l2.fundwallet(5000000)
-    l2.rpc.fundchannel(l3.info['id'], 'all', announce=False)
+    fc = l2.rpc.fundchannel(l3.info['id'], 'all', announce=False)
+    assert 'scid_alias/even' in fc['channel_type']['names']
 
     bitcoind.generate_block(1, wait_for_mempool=1)
     wait_for(lambda: only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['state'] == 'CHANNELD_NORMAL')
