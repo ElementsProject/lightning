@@ -178,6 +178,7 @@ static struct command_result *handle_invreq_response(struct command *cmd,
 	struct json_stream *out;
 	const char *badfield;
 	u64 *expected_amount;
+	const struct recurrence *recurrence;
 
 	invtok = json_get_member(buf, om, "invoice");
 	if (!invtok) {
@@ -315,7 +316,8 @@ static struct command_result *handle_invreq_response(struct command *cmd,
 	json_object_end(out);
 
 	/* We tell them about next period at this point, if any. */
-	if (inv->offer_recurrence) {
+	recurrence = invoice_recurrence(inv);
+	if (recurrence) {
 		u64 next_counter, next_period_idx;
 		u64 paywindow_start, paywindow_end;
 
@@ -334,13 +336,13 @@ static struct command_result *handle_invreq_response(struct command *cmd,
 			json_add_u64(out, "starttime",
 				     offer_period_start(*inv->invoice_recurrence_basetime,
 							next_period_idx,
-							inv->offer_recurrence));
+							recurrence));
 			json_add_u64(out, "endtime",
 				     offer_period_start(*inv->invoice_recurrence_basetime,
 							next_period_idx + 1,
-							inv->offer_recurrence) - 1);
+							recurrence) - 1);
 
-			offer_period_paywindow(inv->offer_recurrence,
+			offer_period_paywindow(recurrence,
 					       inv->offer_recurrence_paywindow,
 					       inv->offer_recurrence_base,
 					       *inv->invoice_recurrence_basetime,
@@ -661,6 +663,7 @@ static struct command_result *invreq_done(struct command *cmd,
 	struct tlv_onionmsg_tlv *payload;
 	const jsmntok_t *t;
 	char *fail;
+	const struct recurrence *recurrence;
 
 	/* Get invoice request */
 	t = json_get_member(buf, result, "bolt12");
@@ -689,6 +692,7 @@ static struct command_result *invreq_done(struct command *cmd,
 				    json_tok_full(buf, t),
 				    fail);
 
+	recurrence = invreq_recurrence(sent->invreq);
 	/* Now that's given us the previous base, check this is an OK time
 	 * to request an invoice. */
 	if (sent->invreq->invreq_recurrence_counter) {
@@ -733,7 +737,7 @@ static struct command_result *invreq_done(struct command *cmd,
 
 		if (base) {
 			u64 period_start, period_end, now = time_now().ts.tv_sec;
-			offer_period_paywindow(sent->invreq->offer_recurrence,
+			offer_period_paywindow(recurrence,
 					       sent->invreq->offer_recurrence_paywindow,
 					       sent->invreq->offer_recurrence_base,
 					       *base, period_idx,
@@ -924,7 +928,7 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 	/* BOLT-recurrence #12:
 	 * - if the offer contained `recurrence`:
 	 */
-	if (invreq->offer_recurrence) {
+	if (invreq_recurrence(invreq)) {
 		struct sha256 offer_id, tweak;
 		u8 *tweak_input;
 
@@ -956,8 +960,7 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 		 */
 		if (invreq->offer_recurrence_base) {
 			if (!invreq->invreq_recurrence_start)
-				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-						    "needs recurrence_start");
+				invreq->invreq_recurrence_start = talz(invreq, u32);
 		} else {
 			if (invreq->invreq_recurrence_start)
 				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
@@ -1040,7 +1043,7 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 		if (strstarts(bip353, "₿"))
 			bip353 += strlen("₿");
 		invreq->invreq_bip_353_name
-			= tal(invreq, struct tlv_invoice_request_invreq_bip_353_name);
+			= tal(invreq, struct bip_353_name);
 		/* Not nul-terminated! */
 		invreq->invreq_bip_353_name->name
 			= tal_dup_arr(invreq->invreq_bip_353_name, u8,
@@ -1430,7 +1433,7 @@ struct command_result *json_sendinvoice(struct command *cmd,
 	}
 
 	/* FIXME: recurrence? */
-	if (sent->inv->offer_recurrence)
+	if (invoice_recurrence(sent->inv))
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "FIXME: handle recurring invreq?");
 
