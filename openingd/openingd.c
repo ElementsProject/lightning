@@ -268,28 +268,6 @@ static void set_remote_upfront_shutdown(struct state *state,
 		peer_failed_err(state->pps, &state->channel_id, "%s", err);
 }
 
-/* Since we can't send OPT_SCID_ALIAS due to compat issues, intuit whether
- * we really actually want it anyway, we just can't say that. */
-static bool intuit_scid_alias_type(struct state *state, u8 channel_flags)
-{
-	/* Don't need to intuit if actually set */
-	if (channel_type_has(state->channel_type, OPT_SCID_ALIAS))
-		return false;
-
-	/* Modern peer: no intuit hacks necessary. */
-	if (channel_type_has(state->channel_type, OPT_ANCHORS_ZERO_FEE_HTLC_TX))
-		return false;
-
-	/* Public channel: don't want OPT_SCID_ALIAS which means "only use
-	 * alias". */
-	if (channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL)
-		return false;
-
-	/* If we both support it, presumably we want it? */
-	return feature_negotiated(state->our_features, state->their_features,
-				  OPT_SCID_ALIAS);
-}
-
 /* We start the 'open a channel' negotation with the supplied peer, but
  * stop when we get to the part where we need the funding txid */
 static u8 *funder_channel_start(struct state *state, u8 channel_flags,
@@ -431,34 +409,12 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags,
 	}
 
 	/* Simple case: caller specified, don't allow any variants */
-	if (ctype) {
-		if (!featurebits_eq(accept_tlvs->channel_type, state->channel_type->features)) {
-			negotiation_failed(state,
-					   "Return unoffered channel_type: %s",
-					   fmt_featurebits(tmpctx,
-							   accept_tlvs->channel_type));
-			return NULL;
-		}
-	} else {
-		/* Except that v23.05 could set OPT_SCID_ALIAS in reply! */
-		struct channel_type *atype;
-
-		atype = channel_type_from(tmpctx, accept_tlvs->channel_type);
-		if (!channel_type_has(atype, OPT_ANCHORS_ZERO_FEE_HTLC_TX))
-			featurebits_unset(&atype->features, OPT_SCID_ALIAS);
-
-		if (!channel_type_eq(atype, state->channel_type)) {
-			negotiation_failed(state,
-					   "Return unoffered channel_type: %s",
-					   fmt_featurebits(tmpctx,
-							   accept_tlvs->channel_type));
-			return NULL;
-		}
-
-		/* If they "accepted" SCID_ALIAS, roll with it. */
-		tal_free(state->channel_type);
-		state->channel_type = channel_type_from(state,
-							accept_tlvs->channel_type);
+	if (!featurebits_eq(accept_tlvs->channel_type, state->channel_type->features)) {
+		negotiation_failed(state,
+				   "Return unoffered channel_type: %s",
+				   fmt_featurebits(tmpctx,
+						   accept_tlvs->channel_type));
+		return NULL;
 	}
 
 	/* BOLT #2:
@@ -563,11 +519,6 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags,
 	peer_billboard(false,
 		       "Funding channel start: awaiting funding_txid with output to %s",
 		       tal_hex(tmpctx, funding_output_script));
-
-	/* Backwards/cross compat hack */
-	if (!ctype && intuit_scid_alias_type(state, channel_flags)) {
-		channel_type_set_scid_alias(state->channel_type);
-	}
 
 	return towire_openingd_funder_start_reply(state,
 						  funding_output_script,
@@ -1162,11 +1113,6 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				fmt_channel_id(msg,
 					       &state->channel_id),
 				fmt_channel_id(msg, &id_in));
-
-	/* Backwards/cross compat hack */
-	if (intuit_scid_alias_type(state, channel_flags)) {
-		channel_type_set_scid_alias(state->channel_type);
-	}
 
 	/*~ Channel is ready; Report the channel parameters to the signer. */
 	msg = towire_hsmd_setup_channel(NULL,
