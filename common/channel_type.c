@@ -72,26 +72,6 @@ struct channel_type *channel_type_anchors_zero_fee_htlc(const tal_t *ctx)
 	return type;
 }
 
-struct channel_type *default_channel_type(const tal_t *ctx,
-					  const struct feature_set *our_features,
-					  const u8 *their_features)
-{
-	/* BOLT #2:
-	 * Both peers:
-	 *   - if `channel_type` was present in both `open_channel` and `accept_channel`:
-	 *     - This is the `channel_type` (they must be equal, required above)
-	 *   - otherwise:
-	 *     - if `option_anchors` was negotiated:
-	 *       - the `channel_type` is `option_anchors` and `option_static_remotekey` (bits 22 and 12)
-	 * - otherwise:
-	 *   - the `channel_type` is `option_static_remotekey` (bit 12)
-	 */
-	if (feature_negotiated(our_features, their_features,
-			       OPT_ANCHORS_ZERO_FEE_HTLC_TX))
-		return channel_type_anchors_zero_fee_htlc(ctx);
-	return channel_type_static_remotekey(ctx);
-}
-
 bool channel_type_has(const struct channel_type *type, int feature)
 {
 	return feature_offered(type->features, feature);
