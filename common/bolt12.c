@@ -377,11 +377,6 @@ static void add_months(struct tm *tm, u32 number)
 	tm->tm_mon += number;
 }
 
-static void add_years(struct tm *tm, u32 number)
-{
-	tm->tm_year += number;
-}
-
 static u64 time_change(u64 prevstart, u32 number,
 		       void (*add_time)(struct tm *tm, u32 number),
 		       bool day_const)
@@ -412,8 +407,7 @@ u64 offer_period_start(u64 basetime, size_t n,
 		       const struct recurrence *recur)
 {
 	/* BOLT-recurrence #12:
-	 * 1. A `time_unit` defining 0 (seconds), 1 (days), 2 (months),
-	 *    3 (years).
+	 * 1. A `time_unit` defining 0 (seconds), 1 (days), or 2 (months).
 	 */
 	switch (recur->time_unit) {
 	case 0:
@@ -422,8 +416,6 @@ u64 offer_period_start(u64 basetime, size_t n,
 		return time_change(basetime, recur->period * n, add_days, false);
 	case 2:
 		return time_change(basetime, recur->period * n, add_months, true);
-	case 3:
-		return time_change(basetime, recur->period * n, add_years, true);
 	default:
 		/* This is our offer, how did we get here? */
 		return 0;

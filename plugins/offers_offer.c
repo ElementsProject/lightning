@@ -99,7 +99,7 @@ static struct command_result *param_amount(struct command *cmd,
 }
 
 /* BOLT 13:
- * - MUST set `time_unit` to 0 (seconds), 1 (days), 2 (months), 3 (years).
+ * - MUST set `time_unit` to 0 (seconds), 1 (days), or 2 (months).
  */
 struct time_string {
 	const char *suffix;
@@ -124,8 +124,6 @@ static const struct time_string *json_to_time(const char *buffer,
 		{ "weeks", 1, 7 },
 		{ "month", 2, 1 },
 		{ "months", 2, 1 },
-		{ "year", 3, 1 },
-		{ "years", 3, 1 },
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(suffixes); i++) {
