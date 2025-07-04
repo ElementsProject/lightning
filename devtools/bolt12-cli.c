@@ -191,9 +191,6 @@ static bool print_recurrance(const struct recurrence *recurrence,
 	 * 4. An optional `recurrence_base`:
 	 *    * `basetime`, defining when the first period starts
 	 *       in seconds since 1970-01-01 UTC.
-	 *    * `start_any_period` if non-zero, meaning you don't have to start
-	 *       paying at the period indicated by `basetime`, but can use
-	 *       `recurrence_start` to indicate what period you are starting at.
 	 * 5. An optional `recurrence_paywindow`:
 	 *    * `seconds_before`, defining how many seconds prior to the start of
 	 *       the period a payment will be accepted.
@@ -228,8 +225,6 @@ static bool print_recurrance(const struct recurrence *recurrence,
 		printf(" start %"PRIu64" (%s)",
 		       base->basetime,
 		       fmt_time(tmpctx, base->basetime));
-		if (base->start_any_period)
-			printf(" (can start any period)");
 	}
 	if (paywindow) {
 		printf(" paywindow -%u to +%u",

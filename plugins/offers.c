@@ -772,8 +772,6 @@ static bool json_add_offer_fields(struct command *cmd,
 		if (offer_recurrence_base) {
 			json_add_u64(js, "basetime",
 				     offer_recurrence_base->basetime);
-			if (offer_recurrence_base->start_any_period)
-				json_add_bool(js, "start_any_period", true);
 		}
 		if (offer_recurrence_limit)
 			json_add_u32(js, "limit", *offer_recurrence_limit);
