@@ -3249,8 +3249,11 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 				    "by peer");
 	}
 
-	if (info->ctype &&
-	    !cmd->ld->dev_any_channel_type &&
+	if (!info->ctype)
+		info->ctype = desired_channel_type(info, cmd->ld->our_features,
+						   peer->their_features);
+
+	if (!cmd->ld->dev_any_channel_type &&
 	    !channel_type_accept(tmpctx,
 				 info->ctype->features,
 				 cmd->ld->our_features)) {

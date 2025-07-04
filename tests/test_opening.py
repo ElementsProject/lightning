@@ -2614,8 +2614,9 @@ def test_opening_explicit_channel_type(node_factory, bitcoind):
                       [STATIC_REMOTEKEY, ANCHORS_ZERO_FEE_HTLC_TX]):
             ret = l1.rpc.fundchannel_start(l2.info['id'], FUNDAMOUNT,
                                            channel_type=ctype + zeroconf)
-            assert ret['channel_type']['bits'] == ctype + zeroconf
-            assert only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['bits'] == ctype + zeroconf
+            # We get zeroconf even without asking for it.
+            assert ret['channel_type']['bits'] == ctype + [ZEROCONF]
+            assert only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['bits'] == ctype + [ZEROCONF]
             # Note: l2 doesn't show it in listpeerchannels yet...
             l1.rpc.fundchannel_cancel(l2.info['id'])
 
@@ -2664,8 +2665,8 @@ def test_opening_explicit_channel_type(node_factory, bitcoind):
     l1.connect(l2)
 
     ret = l1.rpc.fundchannel_start(l2.info['id'], FUNDAMOUNT, channel_type=[STATIC_REMOTEKEY, ANCHORS_OLD])
-    assert ret['channel_type']['bits'] == [STATIC_REMOTEKEY, ANCHORS_OLD]
-    assert only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['bits'] == [STATIC_REMOTEKEY, ANCHORS_OLD]
+    assert ret['channel_type']['bits'] == [STATIC_REMOTEKEY, ANCHORS_OLD, ZEROCONF]
+    assert only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['bits'] == [STATIC_REMOTEKEY, ANCHORS_OLD, ZEROCONF]
     # Note: l3 doesn't show it in listpeerchannels yet...
     l1.rpc.fundchannel_cancel(l2.info['id'])
 
@@ -2673,8 +2674,8 @@ def test_opening_explicit_channel_type(node_factory, bitcoind):
 
     # Works with fundchannel / multifundchannel
     ret = l1.rpc.fundchannel(l2.info['id'], FUNDAMOUNT // 3, channel_type=[STATIC_REMOTEKEY])
-    assert ret['channel_type']['bits'] == [STATIC_REMOTEKEY]
-    assert only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['bits'] == [STATIC_REMOTEKEY]
+    assert ret['channel_type']['bits'] == [STATIC_REMOTEKEY, ZEROCONF]
+    assert only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['bits'] == [STATIC_REMOTEKEY, ZEROCONF]
     assert only_one(l2.rpc.listpeerchannels()['channels'])['channel_type']['bits'] == [STATIC_REMOTEKEY]
     # FIXME: Check type is actually correct!
 
