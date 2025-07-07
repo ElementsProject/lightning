@@ -10,3 +10,8 @@ if git --no-pager grep -nHiEP '(?<!en|htl)ctlv' -- . ':!tools/check-spelling.sh'
     echo "It's check lock time verify, not check time lock verify!" >&2
     exit 1
 fi
+
+if git --no-pager grep -nHiEP 'recurrance' -- . ':!tools/check-spelling.sh'; then
+    echo "It's recurrEnce not recurrAnce!" >&2
+    exit 1
+fi
