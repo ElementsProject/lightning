@@ -1046,61 +1046,40 @@ static void wait_and_check_bitcoind(struct plugin *p)
 {
 	int in, from, status, ret;
 	pid_t child;
-	const char **cmd = gather_args(bitcoind, "getnetworkinfo", NULL);
-	bool printed = false;
+	const char **cmd = gather_args(bitcoind, "-rpcwait", "getnetworkinfo", NULL);
 	char *output = NULL;
 
-	for (;;) {
-		tal_free(output);
+	child = pipecmdarr(&in, &from, &from, cast_const2(char **, cmd));
 
-		child = pipecmdarr(&in, &from, &from, cast_const2(char **, cmd));
+	if (bitcoind->rpcpass)
+		write_all(in, bitcoind->rpcpass, strlen(bitcoind->rpcpass));
+	close(in);
 
-		if (bitcoind->rpcpass)
-			write_all(in, bitcoind->rpcpass, strlen(bitcoind->rpcpass));
+	if (child < 0) {
+		if (errno == ENOENT)
+			bitcoind_failure(p, "bitcoin-cli not found. Is bitcoin-cli "
+							"(part of Bitcoin Core) available in your PATH?");
+		plugin_err(p, "%s exec failed: %s", cmd[0], strerror(errno));
+	}
 
-		close(in);
+	output = grab_fd(cmd, from);
 
-		if (child < 0) {
-			if (errno == ENOENT)
-				bitcoind_failure(p, "bitcoin-cli not found. Is bitcoin-cli "
-						    "(part of Bitcoin Core) available in your PATH?");
-			plugin_err(p, "%s exec failed: %s", cmd[0], strerror(errno));
-		}
+	while ((ret = waitpid(child, &status, 0)) < 0 && errno == EINTR);
+	if (ret != child)
+		bitcoind_failure(p, tal_fmt(bitcoind, "Waiting for %s: %s",
+							cmd[0], strerror(errno)));
+	if (!WIFEXITED(status))
+		bitcoind_failure(p, tal_fmt(bitcoind, "Death of %s: signal %i",
+							cmd[0], WTERMSIG(status)));
 
-		output = grab_fd(cmd, from);
-
-		while ((ret = waitpid(child, &status, 0)) < 0 && errno == EINTR);
-		if (ret != child)
-			bitcoind_failure(p, tal_fmt(bitcoind, "Waiting for %s: %s",
-						    cmd[0], strerror(errno)));
-		if (!WIFEXITED(status))
-			bitcoind_failure(p, tal_fmt(bitcoind, "Death of %s: signal %i",
-						   cmd[0], WTERMSIG(status)));
-
-		if (WEXITSTATUS(status) == 0)
-			break;
-
-		/* bitcoin/src/rpc/protocol.h:
-		 *	RPC_IN_WARMUP = -28, //!< Client still warming up
-		 */
-		if (WEXITSTATUS(status) != 28) {
-			if (WEXITSTATUS(status) == 1)
-				bitcoind_failure(p, "Could not connect to bitcoind using"
-						    " bitcoin-cli. Is bitcoind running?");
-			bitcoind_failure(p, tal_fmt(bitcoind, "%s exited with code %i: %s",
-						    cmd[0], WEXITSTATUS(status), output));
-		}
-
-		if (!printed) {
-			plugin_log(p, LOG_UNUSUAL,
-				   "Waiting for bitcoind to warm up...");
-			printed = true;
-		}
-		sleep(1);
+	if (WEXITSTATUS(status) != 0) {
+		if (WEXITSTATUS(status) == 1)
+			bitcoind_failure(p, "Could not connect to bitcoind using bitcoin-cli. Is bitcoind running?");
+		bitcoind_failure(p, tal_fmt(bitcoind, "%s exited with code %i: %s",
+					    cmd[0], WEXITSTATUS(status), output));
 	}
 
 	parse_getnetworkinfo_result(p, output);
-
 	tal_free(cmd);
 }
 
