@@ -143,7 +143,7 @@ struct daemon_conn *daemon_conn_new_(const tal_t *ctx, int fd,
 				     void (*outq_empty)(void *),
 				     void *arg)
 {
-	struct daemon_conn *dc = tal(NULL, struct daemon_conn);
+	struct daemon_conn *dc = tal(ctx, struct daemon_conn);
 
 	dc->recv = recv;
 	dc->outq_empty = outq_empty;
