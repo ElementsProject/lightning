@@ -331,11 +331,31 @@ const char *fmt_flow_full(const tal_t *ctx,
 	return str;
 }
 
+enum algorithm {
+	ALGO_DEFAULT,
+};
+
+static struct command_result *
+param_algorithm(struct command *cmd, const char *name, const char *buffer,
+		const jsmntok_t *tok, enum algorithm **algo)
+{
+	const char *algo_str = json_strdup(cmd, buffer, tok);
+	*algo = tal(cmd, enum algorithm);
+	if (streq(algo_str, "default"))
+		**algo = ALGO_DEFAULT;
+	else
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "unknown algorithm");
+	return NULL;
+}
+
 struct getroutes_info {
 	struct command *cmd;
 	struct node_id source, dest;
 	struct amount_msat amount, maxfee;
 	u32 finalcltv, maxdelay;
+	/* algorithm selection, only dev */
+	enum algorithm dev_algo;
 	const char **layers;
 	struct additional_cost_htable *additional_costs;
 	/* Non-NULL if we are told to use "auto.localchans" */
@@ -567,8 +587,9 @@ static struct command_result *do_getroutes(struct command *cmd,
 	}
 
 	/* Compute the routes. At this point we might select between multiple
-	 * algorithms. */
+	 * algorithms. Right now there is only one algorithm available. */
 	struct timemono time_start = time_mono();
+	assert(info->dev_algo == ALGO_DEFAULT);
 	err = default_routes(rq, rq, srcnode, dstnode, info->amount,
 			     /* only one path? = */
 			     have_layer(info->layers, "auto.no_mpp_support"),
@@ -722,6 +743,7 @@ static struct command_result *json_getroutes(struct command *cmd,
 	struct node_id *source, *dest;
 	struct amount_msat *amount, *maxfee;
 	u32 *finalcltv, *maxdelay;
+	enum algorithm *dev_algo;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("source", param_node_id, &source),
@@ -732,6 +754,8 @@ static struct command_result *json_getroutes(struct command *cmd,
 			 p_req("final_cltv", param_u32, &finalcltv),
 			 p_opt_def("maxdelay", param_u32, &maxdelay,
 				   maxdelay_allowed),
+			 p_opt_dev("dev_algorithm", param_algorithm,
+				   &dev_algo, ALGO_DEFAULT),
 			 NULL))
 		return command_param_failed();
 	plugin_log(cmd->plugin, LOG_TRACE, "%s called: %.*s", __func__,
@@ -758,6 +782,7 @@ static struct command_result *json_getroutes(struct command *cmd,
 	info->maxfee = *maxfee;
 	info->finalcltv = *finalcltv;
 	info->maxdelay = *maxdelay;
+	info->dev_algo = *dev_algo;
 	info->additional_costs = tal(info, struct additional_cost_htable);
 	additional_cost_htable_init(info->additional_costs);
 
