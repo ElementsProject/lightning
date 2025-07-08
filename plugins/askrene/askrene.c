@@ -425,6 +425,40 @@ static struct route **convert_flows_to_routes(const tal_t *ctx,
 	return routes;
 }
 
+static void json_add_getroutes(struct json_stream *js,
+			       struct route **routes,
+			       const struct amount_msat *amounts,
+			       double probability,
+			       u32 final_cltv)
+{
+	json_add_u64(js, "probability_ppm", (u64)(probability * 1000000));
+	json_array_start(js, "routes");
+	for (size_t i = 0; i < tal_count(routes); i++) {
+		json_object_start(js, NULL);
+		json_add_u64(js, "probability_ppm",
+			     (u64)(routes[i]->success_prob * 1000000));
+		json_add_amount_msat(js, "amount_msat", amounts[i]);
+		json_add_u32(js, "final_cltv", final_cltv);
+		json_array_start(js, "path");
+		for (size_t j = 0; j < tal_count(routes[i]->hops); j++) {
+			struct short_channel_id_dir scidd;
+			const struct route_hop *r = &routes[i]->hops[j];
+			json_object_start(js, NULL);
+			scidd.scid = r->scid;
+			scidd.dir = r->direction;
+			json_add_short_channel_id_dir(
+			    js, "short_channel_id_dir", scidd);
+			json_add_node_id(js, "next_node_id", &r->node_id);
+			json_add_amount_msat(js, "amount_msat", r->amount);
+			json_add_u32(js, "delay", r->delay);
+			json_object_end(js);
+		}
+		json_array_end(js);
+		json_object_end(js);
+	}
+	json_array_end(js);
+}
+
 /* Returns an error message, or sets *routes */
 static const char *get_routes(const tal_t *ctx,
 			      struct command *cmd,
@@ -585,30 +619,8 @@ static struct command_result *do_getroutes(struct command *cmd,
 		return command_fail(cmd, PAY_ROUTE_NOT_FOUND, "%s", err);
 
 	response = jsonrpc_stream_success(cmd);
-	json_add_u64(response, "probability_ppm", (u64)(probability * 1000000));
-	json_array_start(response, "routes");
-	for (size_t i = 0; i < tal_count(routes); i++) {
-		json_object_start(response, NULL);
-		json_add_u64(response, "probability_ppm", (u64)(routes[i]->success_prob * 1000000));
-		json_add_amount_msat(response, "amount_msat", amounts[i]);
-		json_add_u32(response, "final_cltv", *info->finalcltv);
-		json_array_start(response, "path");
-		for (size_t j = 0; j < tal_count(routes[i]->hops); j++) {
-			struct short_channel_id_dir scidd;
-			const struct route_hop *r = &routes[i]->hops[j];
-			json_object_start(response, NULL);
-			scidd.scid = r->scid;
-			scidd.dir = r->direction;
-			json_add_short_channel_id_dir(response, "short_channel_id_dir", scidd);
-			json_add_node_id(response, "next_node_id", &r->node_id);
-			json_add_amount_msat(response, "amount_msat", r->amount);
-			json_add_u32(response, "delay", r->delay);
-			json_object_end(response);
-		}
-		json_array_end(response);
-		json_object_end(response);
-	}
-	json_array_end(response);
+	json_add_getroutes(response, routes, amounts, probability,
+			   *info->finalcltv);
 	return command_finished(cmd, response);
 }
 
