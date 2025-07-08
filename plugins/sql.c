@@ -1581,16 +1581,16 @@ static const char *fmt_indexes(const tal_t *ctx, const char *table)
 		assert(!ret);
 		BUILD_ASSERT(ARRAY_SIZE(indices[i].fields) == 2);
 		if (indices[i].fields[1])
-			ret = tal_fmt(tmpctx, "%s and %s",
+			ret = tal_fmt(tmpctx, "`%s` and `%s`",
 				      indices[i].fields[0],
 				      indices[i].fields[1]);
 		else
-			ret = tal_fmt(tmpctx, "%s",
+			ret = tal_fmt(tmpctx, "`%s`",
 				      indices[i].fields[0]);
 	}
 	if (!ret)
 		return "";
-	return tal_fmt(ctx, " indexed by `%s`", ret);
+	return tal_fmt(ctx, " indexed by %s", ret);
 }
 
 static const char *json_prefix(const tal_t *ctx,
