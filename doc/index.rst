@@ -38,6 +38,7 @@ Core Lightning Documentation
    bkpr-listbalances <bkpr-listbalances.7.md>
    bkpr-listincome <bkpr-listincome.7.md>
    blacklistrune <blacklistrune.7.md>
+   cancelrecurringinvoice <cancelrecurringinvoice.7.md>
    check <check.7.md>
    checkmessage <checkmessage.7.md>
    checkrune <checkrune.7.md>
