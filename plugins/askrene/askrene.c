@@ -459,110 +459,6 @@ static void json_add_getroutes(struct json_stream *js,
 	json_array_end(js);
 }
 
-/* Returns an error message, or sets *routes */
-static const char *get_routes(const tal_t *ctx,
-			      struct command *cmd,
-			      const struct node_id *source,
-			      const struct node_id *dest,
-			      struct amount_msat amount,
-			      struct amount_msat maxfee,
-			      u32 finalcltv,
-			      u32 maxdelay,
-			      const char **layers,
-			      struct gossmap_localmods *localmods,
-			      const struct layer *local_layer,
-			      bool single_path,
-			      struct route ***routes,
-			      struct amount_msat **amounts,
-			      const struct additional_cost_htable *additional_costs,
-			      double *probability)
-{
-	struct askrene *askrene = get_askrene(cmd->plugin);
-	struct route_query *rq = tal(ctx, struct route_query);
-	struct flow **flows;
-	const struct gossmap_node *srcnode, *dstnode;
-	const char *ret;
-	struct timerel time_delta;
-	struct timemono time_start = time_mono();
-
-	if (gossmap_refresh(askrene->gossmap)) {
-		/* FIXME: gossmap_refresh callbacks to we can update in place */
-		tal_free(askrene->capacities);
-		askrene->capacities = get_capacities(askrene, askrene->plugin, askrene->gossmap);
-	}
-
-	rq->cmd = cmd;
-	rq->plugin = cmd->plugin;
-	rq->gossmap = askrene->gossmap;
-	rq->reserved = askrene->reserved;
-	rq->layers = tal_arr(rq, const struct layer *, 0);
-	rq->capacities = tal_dup_talarr(rq, fp16_t, askrene->capacities);
-	rq->additional_costs = additional_costs;
-
-	apply_layers(askrene, rq, source, amount, localmods, layers, local_layer);
-
-	/* Clear scids with reservations, too, so we don't have to look up
-	 * all the time! */
-	reserves_clear_capacities(askrene->reserved, askrene->gossmap, rq->capacities);
-
-	gossmap_apply_localmods(askrene->gossmap, localmods);
-
-	/* localmods can add channels, so we need to allocate biases array *afterwards* */
-	rq->biases = tal_arrz(rq, s8, gossmap_max_chan_idx(askrene->gossmap) * 2);
-
-	/* Note any channel biases */
-	for (size_t i = 0; i < tal_count(rq->layers); i++)
-		layer_apply_biases(rq->layers[i], askrene->gossmap, rq->biases);
-
-	srcnode = gossmap_find_node(askrene->gossmap, source);
-	if (!srcnode) {
-		ret = rq_log(ctx, rq, LOG_INFORM,
-			     "Unknown source node %s",
-			     fmt_node_id(tmpctx, source));
-		goto fail;
-	}
-
-	dstnode = gossmap_find_node(askrene->gossmap, dest);
-	if (!dstnode) {
-		ret = rq_log(ctx, rq, LOG_INFORM,
-			     "Unknown destination node %s",
-			     fmt_node_id(tmpctx, dest));
-		goto fail;
-	}
-
-	/* FIXME: single_path should signal a change in algorithm. */
-	ret = default_routes(rq, rq, srcnode, dstnode, amount, single_path,
-			     maxfee, finalcltv, maxdelay, &flows, probability);
-	if (ret) {
-		goto fail;
-	}
-	assert(tal_count(flows) > 0);
-	rq_log(tmpctx, rq, LOG_DBG, "Final answer has %zu flows",
-	       tal_count(flows));
-
-	/* convert flows to routes */
-	*routes = convert_flows_to_routes(rq, rq, finalcltv, flows, amounts);
-	assert(tal_count(*routes) == tal_count(flows));
-	assert(tal_count(*amounts) == tal_count(flows));
-
-	/* At last we remove the localmods from the gossmap. */
-	gossmap_remove_localmods(askrene->gossmap, localmods);
-	time_delta = timemono_between(time_mono(), time_start);
-	rq_log(tmpctx, rq, LOG_DBG, "get_routes completed in %" PRIu64 " ms",
-	       time_to_msec(time_delta));
-	return NULL;
-
-	/* Explicit failure path keeps the compiler (gcc version 12.3.0 -O3) from
-	 * warning about uninitialized variables in the caller */
-fail:
-	assert(ret != NULL);
-	gossmap_remove_localmods(askrene->gossmap, localmods);
-	time_delta = timemono_between(time_mono(), time_start);
-	rq_log(tmpctx, rq, LOG_DBG, "get_routes failed after %" PRIu64 " ms",
-	       time_to_msec(time_delta));
-	return ret;
-}
-
 void get_constraints(const struct route_query *rq,
 		     const struct gossmap_chan *chan,
 		     int dir,
@@ -603,26 +499,115 @@ static struct command_result *do_getroutes(struct command *cmd,
 					   struct gossmap_localmods *localmods,
 					   const struct getroutes_info *info)
 {
+	struct askrene *askrene = get_askrene(cmd->plugin);
+	struct route_query *rq = tal(cmd, struct route_query);
 	const char *err;
 	double probability;
 	struct amount_msat *amounts;
 	struct route **routes;
+	struct flow **flows;
 	struct json_stream *response;
 
-	err = get_routes(cmd, cmd,
-			 info->source, info->dest,
-			 *info->amount, *info->maxfee, *info->finalcltv,
-			 *info->maxdelay, info->layers, localmods, info->local_layer,
-			 have_layer(info->layers, "auto.no_mpp_support"),
-			 &routes, &amounts, info->additional_costs, &probability);
-	if (err)
-		return command_fail(cmd, PAY_ROUTE_NOT_FOUND, "%s", err);
+	/* update the gossmap */
+	if (gossmap_refresh(askrene->gossmap)) {
+		/* FIXME: gossmap_refresh callbacks to we can update in place */
+		tal_free(askrene->capacities);
+		askrene->capacities =
+		    get_capacities(askrene, askrene->plugin, askrene->gossmap);
+	}
 
+	/* build this request structure */
+	rq->cmd = cmd;
+	rq->plugin = cmd->plugin;
+	rq->gossmap = askrene->gossmap;
+	rq->reserved = askrene->reserved;
+	rq->layers = tal_arr(rq, const struct layer *, 0);
+	rq->capacities = tal_dup_talarr(rq, fp16_t, askrene->capacities);
+	/* FIXME: we still need to do something useful with these */
+	rq->additional_costs = info->additional_costs;
+
+	/* apply selected layers to the localmods */
+	apply_layers(askrene, rq, info->source, *info->amount, localmods,
+		     info->layers, info->local_layer);
+
+	/* Clear scids with reservations, too, so we don't have to look up
+	 * all the time! */
+	reserves_clear_capacities(askrene->reserved, askrene->gossmap,
+				  rq->capacities);
+
+	/* we temporarily apply localmods */
+	gossmap_apply_localmods(askrene->gossmap, localmods);
+
+	/* localmods can add channels, so we need to allocate biases array
+	 * *afterwards* */
+	rq->biases =
+	    tal_arrz(rq, s8, gossmap_max_chan_idx(askrene->gossmap) * 2);
+
+	/* Note any channel biases */
+	for (size_t i = 0; i < tal_count(rq->layers); i++)
+		layer_apply_biases(rq->layers[i], askrene->gossmap, rq->biases);
+
+	/* checkout the source */
+	const struct gossmap_node *srcnode =
+	    gossmap_find_node(askrene->gossmap, info->source);
+	if (!srcnode) {
+		err = rq_log(tmpctx, rq, LOG_INFORM, "Unknown source node %s",
+			     fmt_node_id(tmpctx, info->source));
+		goto fail;
+	}
+
+	/* checkout the destination */
+	const struct gossmap_node *dstnode =
+	    gossmap_find_node(askrene->gossmap, info->dest);
+	if (!dstnode) {
+		err = rq_log(tmpctx, rq, LOG_INFORM,
+			     "Unknown destination node %s",
+			     fmt_node_id(tmpctx, info->dest));
+		goto fail;
+	}
+
+	/* Compute the routes. At this point we might select between multiple
+	 * algorithms. */
+	struct timemono time_start = time_mono();
+	err = default_routes(rq, rq, srcnode, dstnode, *info->amount,
+			     /* only one path? = */
+			     have_layer(info->layers, "auto.no_mpp_support"),
+			     *info->maxfee, *info->finalcltv, *info->maxdelay,
+			     &flows, &probability);
+	struct timerel time_delta = timemono_between(time_mono(), time_start);
+
+	/* log the time of computation */
+	rq_log(tmpctx, rq, LOG_DBG, "get_routes %s %" PRIu64 " ms",
+	       err ? "failed after" : "completed in",
+	       time_to_msec(time_delta));
+	if (err)
+		goto fail;
+
+	/* otherwise we continue */
+	assert(tal_count(flows) > 0);
+	rq_log(tmpctx, rq, LOG_DBG, "Final answer has %zu flows",
+	       tal_count(flows));
+
+	/* convert flows to routes */
+	routes = convert_flows_to_routes(rq, rq, *info->finalcltv, flows,
+					 &amounts);
+	assert(tal_count(routes) == tal_count(flows));
+	assert(tal_count(amounts) == tal_count(flows));
+
+	/* At last we remove the localmods from the gossmap. */
+	gossmap_remove_localmods(askrene->gossmap, localmods);
+
+	/* output the results */
 	response = jsonrpc_stream_success(cmd);
 	json_add_getroutes(response, routes, amounts, probability,
 			   *info->finalcltv);
 	return command_finished(cmd, response);
-}
+
+fail:
+	assert(err);
+	gossmap_remove_localmods(askrene->gossmap, localmods);
+	return command_fail(cmd, PAY_ROUTE_NOT_FOUND, "%s", err);
+ }
 
 static void add_localchan(struct gossmap_localmods *mods,
 			  const struct node_id *self,
