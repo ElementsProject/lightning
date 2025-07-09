@@ -23,4 +23,9 @@ refine_with_fees_and_limits(const tal_t *ctx,
 			    struct amount_msat deliver,
 			    struct flow ***flows,
 			    double *flowset_probability);
+
+/* Modify flows to meet HTLC min/max requirements.
+ * It takes into account the exact value of the fees expected at each hop. */
+const char *refine_flows(const tal_t *ctx, struct route_query *rq,
+			 struct amount_msat deliver, struct flow ***flows);
 #endif /* LIGHTNING_PLUGINS_ASKRENE_REFINE_H */
