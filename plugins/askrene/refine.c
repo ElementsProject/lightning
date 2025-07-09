@@ -35,8 +35,8 @@ static void destroy_reservations(struct reserve_hop *rhops, struct askrene *askr
 		reserve_remove(askrene->reserved, &rhops[i]);
 }
 
-static struct reserve_hop *new_reservations(const tal_t *ctx,
-					    const struct route_query *rq)
+struct reserve_hop *new_reservations(const tal_t *ctx,
+				     const struct route_query *rq)
 {
 	struct reserve_hop *rhops = tal_arr(ctx, struct reserve_hop, 0);
 
@@ -108,9 +108,9 @@ static void subtract_reservation(struct reserve_hop **reservations,
 	reserve_add(askrene->reserved, prev, rq->cmd->id);
 }
 
-static void create_flow_reservations(const struct route_query *rq,
-				     struct reserve_hop **reservations,
-				     const struct flow *flow)
+void create_flow_reservations(const struct route_query *rq,
+			      struct reserve_hop **reservations,
+			      const struct flow *flow)
 {
 	struct amount_msat msat;
 
