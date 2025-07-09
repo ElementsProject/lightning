@@ -735,6 +735,38 @@ static struct amount_msat path_min_deliverable(struct channel_data *path)
 	return least_destination;
 }
 
+static const char *
+remove_htlc_min_violations(const tal_t *ctx, struct route_query *rq,
+			   const struct flow *flow,
+			   const struct channel_data *channels)
+{
+	const char *error_message = NULL;
+	struct amount_msat msat = flow->delivers;
+	for (size_t i = tal_count(flow->path) - 1; i < tal_count(flow->path);
+	     i--) {
+		if (amount_msat_less(msat, channels[i].htlc_min)) {
+			rq_log(
+			    ctx, rq, LOG_INFORM,
+			    "Sending %s across %s would violate htlc_min "
+			    "(~%s), disabling this channel",
+			    fmt_amount_msat(ctx, msat),
+			    fmt_short_channel_id_dir(ctx, &channels[i].scidd),
+			    fmt_amount_msat(ctx, channels[i].htlc_min));
+			bitmap_set_bit(rq->disabled_chans, channels[i].idx);
+			break;
+		}
+		if (!amount_msat_add_fee(
+			&msat, channels[i].fee_base_msat,
+			channels[i].fee_proportional_millionths)) {
+			error_message =
+			    rq_log(ctx, rq, LOG_BROKEN,
+				   "%s: Adding fee to amount", __func__);
+			break;
+		}
+	}
+	return error_message;
+}
+
 static struct amount_msat sum_all_deliver(struct flow **flows,
 					  size_t *flows_index)
 {
@@ -819,6 +851,7 @@ const char *refine_flows(const tal_t *ctx, struct route_query *rq,
 			 struct amount_msat deliver, struct flow ***flows)
 {
 	const tal_t *working_ctx = tal(ctx, tal_t);
+	const char *error_message = NULL;
 	struct amount_msat *max_deliverable;
 	struct amount_msat *min_deliverable;
 	struct channel_data **channel_mpp_cache;
@@ -863,6 +896,10 @@ const char *refine_flows(const tal_t *ctx, struct route_query *rq,
 		}
 		/* htlc_min is not met for this flow */
 		tal_arr_remove(&flows_index, i);
+		error_message = remove_htlc_min_violations(
+		    working_ctx, rq, (*flows)[k], channel_mpp_cache[k]);
+		if (error_message)
+			goto fail;
 	}
 
 	/* remove 0 amount flows if any */
@@ -889,4 +926,8 @@ const char *refine_flows(const tal_t *ctx, struct route_query *rq,
 
 	tal_free(working_ctx);
 	return NULL;
+
+fail:
+	tal_free(working_ctx);
+	return error_message;
 }
