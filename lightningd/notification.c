@@ -505,8 +505,10 @@ static void channel_movement_notification_serialize(struct json_stream *stream,
 	/* push funding / leases don't have a payment_hash */
 	if (chan_mvt->payment_hash)
 		json_add_sha256(stream, "payment_hash", chan_mvt->payment_hash);
-	if (chan_mvt->part_id)
-		json_add_u64(stream, "part_id", *chan_mvt->part_id);
+	if (chan_mvt->part_and_group) {
+		json_add_u64(stream, "part_id", chan_mvt->part_and_group->part_id);
+		json_add_u64(stream, "group_id", chan_mvt->part_and_group->group_id);
+	}
 	json_add_amount_msat(stream, "credit_msat", chan_mvt->credit);
 	json_add_amount_msat(stream, "debit_msat", chan_mvt->debit);
 	json_add_amount_msat(stream, "fees_msat", chan_mvt->fees);

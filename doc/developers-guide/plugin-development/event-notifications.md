@@ -333,6 +333,7 @@ A notification for topic `coin_movement` is sent to record the movement of coins
 		"vout":1, // (`chain_mvt` only)
 		"payment_hash": "xxx", // (either type, optional on both)
 		"part_id": 0, // (`channel_mvt` only, optional)
+		"group_id": 0, // (`channel_mvt` only, optional)
 		"credit_msat":2000000000,
 		"debit_msat":0,
 		"output_msat": 2000000000, // ('chain_mvt' only)
@@ -364,7 +365,7 @@ _Only_ tagged on external events (deposits/withdrawals to an external party).
 
 `payment_hash` is the hash of the preimage used to move this payment. Only present for HTLC mediated moves (both `chain_mvt` and `channel_mvt`) A `chain_mvt` will have a `payment_hash` iff it's recording an htlc that was fulfilled onchain.
 
-`part_id` is an identifier for parts of a multi-part payment. useful for aggregating payments for an invoice or to indicate why a payment hash appears multiple times. `channel_mvt` only
+`part_id` and `group_id` are identifiers for parts of a multi-part payment. useful for aggregating payments for an invoice or to indicate why a payment hash appears multiple times. `channel_mvt` only
 
 `credit` and `debit` are millisatoshi denominated amounts of the fund movement. A  
 'credit' is funds deposited into an account; a `debit` is funds withdrawn.
