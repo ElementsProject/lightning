@@ -1073,6 +1073,16 @@ static struct io_plan *write_to_subd(struct io_conn *subd_conn,
 
 		/* Tell them to read again. */
 		io_wake(&subd->peer->peer_in);
+		if (subd->peer->peer_in_lastmsg != -1) {
+			u64 msec = time_to_msec(timemono_between(time_mono(),
+								 subd->peer->peer_in_lasttime));
+			if (msec > 1000)
+				status_peer_broken(&subd->peer->id,
+						   "wake delay for %s: %"PRIu64"msec",
+						   peer_wire_name(subd->peer->peer_in_lastmsg),
+						   msec);
+			subd->peer->peer_in_lastmsg = -1;
+		}
 
 		/* Wait for them to wake us */
 		return msg_queue_wait(subd_conn, subd->outq,
@@ -1242,8 +1252,20 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
 				    close_subd_timeout, subd));
        }
 
-       /* Wait for them to wake us */
-       return io_wait(peer_conn, &peer->peer_in, next_read, peer);
+       /* We used to io_wait after every message, but that means we don't read
+	* *non-channel* messages (gossip, pings) either.  So as a compromise,
+	* we allow a handful of messages to be queued before we ignore the
+	* peer until we've drained the outgoing queue. */
+       if (msg_queue_length(subd->outq) > 5) {
+	       /* Wait for them to wake us (oldest packet) */
+	       if (peer->peer_in_lastmsg == -1) {
+		       peer->peer_in_lastmsg = type;
+		       peer->peer_in_lasttime = time_mono();
+	       }
+
+	       return io_wait(peer_conn, &peer->peer_in, next_read, peer);
+       }
+       return next_read(peer_conn, peer);
 }
 
 static struct io_plan *read_body_from_peer(struct io_conn *peer_conn,
