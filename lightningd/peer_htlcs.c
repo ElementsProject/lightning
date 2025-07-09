@@ -17,6 +17,7 @@
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/coin_mvts.h>
+#include <lightningd/notification.h>
 #include <lightningd/pay.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/peer_htlcs.h>

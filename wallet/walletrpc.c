@@ -17,10 +17,10 @@
 #include <hsmd/hsmd_wiregen.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
-#include <lightningd/coin_mvts.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
+#include <lightningd/notification.h>
 #include <lightningd/peer_control.h>
 #include <wallet/txfilter.h>
 #include <wallet/walletrpc.h>
