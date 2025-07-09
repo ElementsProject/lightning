@@ -1,10 +1,19 @@
 #include "config.h"
+#include <ccan/asort/asort.h>
 #include <ccan/tal/str/str.h>
 #include <common/gossmap.h>
 #include <plugins/askrene/askrene.h>
 #include <plugins/askrene/flow.h>
 #include <plugins/askrene/refine.h>
 #include <plugins/askrene/reserve.h>
+
+/* Channel data for fast retrieval. */
+struct channel_data {
+	struct amount_msat htlc_min, htlc_max, liquidity_max;
+	u32 fee_base_msat, fee_proportional_millionths;
+	struct short_channel_id_dir scidd;
+	u32 idx;
+};
 
 /* We (ab)use the reservation system to place temporary reservations
  * on channels while we are refining each flow.  This has the effect
@@ -603,4 +612,218 @@ refine_with_fees_and_limits(const tal_t *ctx,
 out:
 	tal_free(reservations);
 	return ret;
+}
+
+/* Cache channel data along the path used by this flow. */
+static struct channel_data *new_channel_path_cache(const tal_t *ctx,
+						   struct route_query *rq,
+						   struct flow *flow)
+{
+	const size_t pathlen = tal_count(flow->path);
+	struct channel_data *path = tal_arr(ctx, struct channel_data, pathlen);
+
+	for (size_t i = 0; i < pathlen; i++) {
+		/* knowledge on liquidity bounds */
+		struct amount_msat known_min, known_max;
+		const struct half_chan *h = flow_edge(flow, i);
+		struct short_channel_id_dir scidd;
+
+		get_scidd(rq->gossmap, flow, i, &scidd);
+		get_constraints(rq, flow->path[i], flow->dirs[i], &known_min,
+				&known_max);
+
+		path[i].htlc_min = get_chan_htlc_min(rq, flow->path[i], &scidd);
+		path[i].htlc_max = get_chan_htlc_max(rq, flow->path[i], &scidd);
+		path[i].fee_base_msat = h->base_fee;
+		path[i].fee_proportional_millionths = h->proportional_fee;
+		path[i].liquidity_max = known_max;
+		path[i].scidd = scidd;
+		path[i].idx = scidd.dir +
+			      2 * gossmap_chan_idx(rq->gossmap, flow->path[i]);
+	}
+	return path;
+}
+
+/* Cache channel data along multiple paths. */
+static struct channel_data **new_channel_mpp_cache(const tal_t *ctx,
+						   struct route_query *rq,
+						   struct flow **flows)
+{
+	const size_t npaths = tal_count(flows);
+	struct channel_data **paths =
+	    tal_arr(ctx, struct channel_data *, npaths);
+	for (size_t i = 0; i < npaths; i++) {
+		paths[i] = new_channel_path_cache(paths, rq, flows[i]);
+	}
+	return paths;
+}
+
+/* Reverse order: bigger first */
+static int revcmp_flows(const size_t *a, const size_t *b, struct flow **flows)
+{
+	if (amount_msat_eq(flows[*a]->delivers, flows[*b]->delivers))
+		return 0;
+	if (amount_msat_greater(flows[*a]->delivers, flows[*b]->delivers))
+		return -1;
+	return 1;
+}
+
+// TODO: unit test:
+//      -> make a path
+//      -> compute x = path_max_deliverable
+//      -> check that htlc_max are all satisfied
+//      -> check that (x+1) at least one htlc_max is violated
+/* Given the channel constraints, return the maximum amount that can be
+ * delivered. */
+static struct amount_msat path_max_deliverable(struct channel_data *path)
+{
+	struct amount_msat deliver = AMOUNT_MSAT(-1);
+	for (size_t i = 0; i < tal_count(path); i++) {
+		deliver =
+		    amount_msat_sub_fee(deliver, path[i].fee_base_msat,
+					path[i].fee_proportional_millionths);
+		deliver = amount_msat_min(deliver, path[i].htlc_max);
+		deliver = amount_msat_min(deliver, path[i].liquidity_max);
+	}
+	return deliver;
+}
+
+static struct amount_msat sum_all_deliver(struct flow **flows,
+					  size_t *flows_index)
+{
+	struct amount_msat all_deliver = AMOUNT_MSAT(0);
+	for (size_t i = 0; i < tal_count(flows_index); i++) {
+		if (!amount_msat_accumulate(&all_deliver,
+					    flows[flows_index[i]]->delivers))
+			abort();
+	}
+	return all_deliver;
+}
+
+/* It reduces the amount of the flows and/or removes some flows in order to
+ * deliver no more than max_deliver. It will leave at least one flow.
+ * Returns the total delivery amount. */
+static struct amount_msat remove_excess(struct flow **flows,
+					size_t **flows_index,
+					struct amount_msat max_deliver)
+{
+	if (tal_count(flows) == 0)
+		return AMOUNT_MSAT(0);
+
+	struct amount_msat all_deliver, excess;
+	all_deliver = sum_all_deliver(flows, *flows_index);
+
+	/* early exit: there is no excess */
+	if (!amount_msat_sub(&excess, all_deliver, max_deliver) ||
+	    amount_msat_is_zero(excess))
+		return all_deliver;
+
+	asort(*flows_index, tal_count(*flows_index), revcmp_flows, flows);
+
+	/* Remove the smaller parts if they deliver less than the
+	 * excess.  */
+	for (int i = tal_count(*flows_index) - 1; i >= 0; i--) {
+		if (!amount_msat_sub(&excess, excess,
+				     flows[(*flows_index)[i]]->delivers))
+			break;
+		if (!amount_msat_sub(&all_deliver, all_deliver,
+				     flows[(*flows_index)[i]]->delivers))
+			abort();
+		tal_arr_remove(flows_index, i);
+	}
+
+	/* If we still have some excess, remove it from the
+	 * current flows in the same proportion every flow contributes to the
+	 * total. */
+	struct amount_msat old_excess = excess;
+	struct amount_msat old_deliver = all_deliver;
+	for (size_t i = 0; i < tal_count(*flows_index); i++) {
+		double fraction = amount_msat_ratio(
+		    flows[(*flows_index)[i]]->delivers, old_deliver);
+		struct amount_msat remove;
+
+		if (!amount_msat_scale(&remove, old_excess, fraction))
+			abort();
+
+		/* rounding errors: don't remove more than excess */
+		remove = amount_msat_min(remove, excess);
+
+		if (!amount_msat_sub(&excess, excess, remove))
+			abort();
+
+		if (!amount_msat_sub(&all_deliver, all_deliver, remove) ||
+		    !amount_msat_sub(&flows[(*flows_index)[i]]->delivers,
+				     flows[(*flows_index)[i]]->delivers,
+				     remove))
+			abort();
+	}
+
+	/* any rounding error left, take it from the first */
+	assert(tal_count(*flows_index) > 0);
+	if (!amount_msat_sub(&all_deliver, all_deliver, excess) ||
+	    !amount_msat_sub(&flows[(*flows_index)[0]]->delivers,
+			     flows[(*flows_index)[0]]->delivers, excess))
+		abort();
+	return all_deliver;
+}
+
+/* FIXME: on failure return error message */
+const char *refine_flows(const tal_t *ctx, struct route_query *rq,
+			 struct amount_msat deliver, struct flow ***flows)
+{
+	const tal_t *working_ctx = tal(ctx, tal_t);
+	struct amount_msat *max_deliverable;
+	struct channel_data **channel_mpp_cache;
+	size_t *flows_index;
+
+	/* we might need to access this data multiple times, so we cache
+	 * it */
+	channel_mpp_cache = new_channel_mpp_cache(working_ctx, rq, *flows);
+	max_deliverable = tal_arrz(working_ctx, struct amount_msat,
+				   tal_count(channel_mpp_cache));
+	flows_index = tal_arrz(working_ctx, size_t, tal_count(*flows));
+	for (size_t i = 0; i < tal_count(channel_mpp_cache); i++) {
+		// FIXME: does path_max_deliverable work for a single
+		// channel with 0 fees?
+		max_deliverable[i] = path_max_deliverable(channel_mpp_cache[i]);
+		/* We use an array of indexes to keep track of the order
+		 * of the flows. Likewise flows can be removed by simply
+		 * shrinking the flows_index array. */
+		flows_index[i] = i;
+	}
+
+	/* do not deliver more than HTLC_MAX allow us */
+	for (size_t i = 0; i < tal_count(flows_index); i++) {
+		(*flows)[flows_index[i]]->delivers =
+		    amount_msat_min((*flows)[flows_index[i]]->delivers,
+				    max_deliverable[flows_index[i]]);
+	}
+
+	/* remove excess from MCF granularity if any */
+	remove_excess(*flows, &flows_index, deliver);
+
+	/* remove 0 amount flows if any */
+	asort(flows_index, tal_count(flows_index), revcmp_flows, *flows);
+	for (int i = tal_count(flows_index) - 1; i >= 0; i--) {
+		if (!amount_msat_is_zero((*flows)[flows_index[i]]->delivers))
+			break;
+		tal_arr_remove(&flows_index, i);
+	}
+
+	/* finally write the remaining flows */
+	struct flow **tmp_flows = tal_arr(working_ctx, struct flow *, 0);
+	for (size_t i = 0; i < tal_count(flows_index); i++) {
+		tal_arr_expand(&tmp_flows, (*flows)[flows_index[i]]);
+		(*flows)[flows_index[i]] = NULL;
+	}
+	for (size_t i = 0; i < tal_count(*flows); i++) {
+		(*flows)[i] = tal_free((*flows)[i]);
+	}
+	tal_resize(flows, 0);
+	for (size_t i = 0; i < tal_count(tmp_flows); i++) {
+		tal_arr_expand(flows, tmp_flows[i]);
+	}
+
+	tal_free(working_ctx);
+	return NULL;
 }
