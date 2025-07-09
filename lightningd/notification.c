@@ -455,12 +455,32 @@ static void json_add_mvt_account_id(struct json_stream *stream,
 		json_add_string(stream, fieldname, account_id->alt_account);
 }
 
+static void add_movement_tags(struct json_stream *stream,
+			      struct lightningd *ld,
+			      const struct mvt_tags tags)
+{
+	const char **tagstrs = mvt_tag_strs(tmpctx, tags);
+
+	if (lightningd_deprecated_out_ok(ld, ld->deprecated_ok,
+					 "coin_movement", "tags",
+					 "v25.05", "v26.09")) {
+		json_array_start(stream, "tags");
+		for (size_t i = 0; i < tal_count(tagstrs); i++)
+			json_add_string(stream, NULL, tagstrs[i]);
+		json_array_end(stream);
+	}
+
+	json_add_string(stream, "primary_tag", tagstrs[0]);
+	json_array_start(stream, "extra_tags");
+	for (size_t i = 1; i < tal_count(tagstrs); i++)
+		json_add_string(stream, NULL, tagstrs[i]);
+	json_array_end(stream);
+}
+
 static void chain_movement_notification_serialize(struct json_stream *stream,
 						  struct lightningd *ld,
 						  const struct chain_coin_mvt *chain_mvt)
 {
-	const char **tags;
-
 	json_add_num(stream, "version", COIN_MVT_VERSION);
 	json_add_string(stream, "type", "chain_mvt");
 	json_add_node_id(stream, "node_id", &ld->our_nodeid);
@@ -497,11 +517,7 @@ static void chain_movement_notification_serialize(struct json_stream *stream,
 	if (chain_mvt->output_count > 0)
 		json_add_num(stream, "output_count", chain_mvt->output_count);
 
-	json_array_start(stream, "tags");
-	tags = mvt_tag_strs(tmpctx, chain_mvt->tags);
-	for (size_t i = 0; i < tal_count(tags); i++)
-		json_add_string(stream, NULL, tags[i]);
-	json_array_end(stream);
+	add_movement_tags(stream, ld, chain_mvt->tags);
 
 	json_add_u32(stream, "blockheight", chain_mvt->blockheight);
 	json_add_u32(stream, "timestamp", time_now().ts.tv_sec);
@@ -512,8 +528,6 @@ static void channel_movement_notification_serialize(struct json_stream *stream,
 						    struct lightningd *ld,
 						    const struct channel_coin_mvt *chan_mvt)
 {
-	const char **tags;
-
 	json_add_num(stream, "version", COIN_MVT_VERSION);
 	json_add_string(stream, "type", "channel_mvt");
 	json_add_node_id(stream, "node_id", &ld->our_nodeid);
@@ -529,11 +543,7 @@ static void channel_movement_notification_serialize(struct json_stream *stream,
 	json_add_amount_msat(stream, "debit_msat", chan_mvt->debit);
 	json_add_amount_msat(stream, "fees_msat", chan_mvt->fees);
 
-	json_array_start(stream, "tags");
-	tags = mvt_tag_strs(tmpctx, chan_mvt->tags);
-	for (size_t i = 0; i < tal_count(tags); i++)
-		json_add_string(stream, NULL, tags[i]);
-	json_array_end(stream);
+	add_movement_tags(stream, ld, chan_mvt->tags);
 
 	json_add_u32(stream, "timestamp", time_now().ts.tv_sec);
 	json_add_string(stream, "coin_type", chainparams->lightning_hrp);

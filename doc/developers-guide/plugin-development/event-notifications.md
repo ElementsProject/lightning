@@ -339,7 +339,8 @@ A notification for topic `coin_movement` is sent to record the movement of coins
 		"output_msat": 2000000000, // ('chain_mvt' only)
 		"output_count": 2, // ('chain_mvt' only, typically only channel closes)
 		"fees_msat": 382, // ('channel_mvt' only)
-		"tags": ["deposit"],
+		"primary_tag": "deposit",
+		"extra_tags": [],
 		"blockheight":102, // 'chain_mvt' only
 		"timestamp":1585948198,
 		"coin_type":"bc"
@@ -376,7 +377,7 @@ _Only_ tagged on external events (deposits/withdrawals to an external party).
 
 `fees` is an HTLC annotation for the amount of fees either paid or earned. For "invoice" tagged events, the fees are the total fees paid to send that payment. The end amount can be found by subtracting the total fees from the `debited` amount. For "routed" tagged events, both the debit/credit contain fees. Technically routed debits are the 'fee generating' event, however we include them on routed credits as well.
 
-`tag` is a movement descriptor. Current tags are as follows:
+`primary_tag` is a movement descriptor. Current primary tags are as follows:
 
 - `deposit`: funds deposited
 - `withdrawal`: funds withdrawn
@@ -391,15 +392,21 @@ _Only_ tagged on external events (deposits/withdrawals to an external party).
 - `htlc_fulfill`: on-chian htlc fulfill output
 - `htlc_tx`: on-chain htlc tx has happened
 - `to_wallet`: output being spent into our wallet
-- `ignored`: output is being ignored
 - `anchor`: an anchor output
 - `to_them`: output intended to peer's wallet
 - `penalized`: output we've 'lost' due to a penalty (failed cheat attempt)
 - `stolen`: output we've 'lost' due to peer's cheat
 - `to_miner`: output we've burned to miner (OP_RETURN)
-- `opener`: tags channel_open, we are the channel opener
 - `lease_fee`: amount paid as lease fee
-- `leased`: tags channel_open, channel contains leased funds
+- `channel_proposed`: a zero-conf channel
+
+`extra_tags` is zero or more additional tags.  Current extra tags are as follows:
+
+- `ignored`: output is being ignored
+- `opener`: tags `channel_open` or `channel_proposed`, we are the channel opener
+- `stealable`: funds can be taken by the other party
+- `leased`: tags `channel_open` or `channel_proposed`, channel contains leased funds
+- `splice`: a channel close due to splice operation.
 
 `blockheight` is the block the txid is included in. `channel_mvt`s will be null, so will the blockheight for withdrawals to external parties (we issue these events when we send the tx containing them, before they're included in the chain).
 
