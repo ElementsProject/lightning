@@ -6,6 +6,7 @@
 #include <plugins/askrene/flow.h>
 #include <plugins/askrene/refine.h>
 #include <plugins/askrene/reserve.h>
+#include <string.h>
 
 /* Channel data for fast retrieval. */
 struct channel_data {
@@ -35,8 +36,8 @@ static void destroy_reservations(struct reserve_hop *rhops, struct askrene *askr
 		reserve_remove(askrene->reserved, &rhops[i]);
 }
 
-static struct reserve_hop *new_reservations(const tal_t *ctx,
-					    const struct route_query *rq)
+struct reserve_hop *new_reservations(const tal_t *ctx,
+				     const struct route_query *rq)
 {
 	struct reserve_hop *rhops = tal_arr(ctx, struct reserve_hop, 0);
 
@@ -108,9 +109,9 @@ static void subtract_reservation(struct reserve_hop **reservations,
 	reserve_add(askrene->reserved, prev, rq->cmd->id);
 }
 
-static void create_flow_reservations(const struct route_query *rq,
-				     struct reserve_hop **reservations,
-				     const struct flow *flow)
+void create_flow_reservations(const struct route_query *rq,
+			      struct reserve_hop **reservations,
+			      const struct flow *flow)
 {
 	struct amount_msat msat;
 
@@ -168,6 +169,32 @@ static void change_flow_delivers(const struct route_query *rq,
 	remove_flow_reservations(rq, reservations, flow);
 	flow->delivers = new;
 	create_flow_reservations(rq, reservations, flow);
+}
+
+bool create_flow_reservations_verify(const struct route_query *rq,
+				     struct reserve_hop **reservations,
+				     const struct flow *flow)
+{
+	struct amount_msat msat;
+	msat = flow->delivers;
+	for (int i = tal_count(flow->path) - 1; i >= 0; i--) {
+		struct amount_msat known_min, known_max;
+		const struct half_chan *h = flow_edge(flow, i);
+		struct amount_msat amount_to_reserve = msat;
+		struct short_channel_id_dir scidd;
+
+		get_scidd(rq->gossmap, flow, i, &scidd);
+		get_constraints(rq, flow->path[i], flow->dirs[i], &known_min,
+				&known_max);
+		if (amount_msat_greater(amount_to_reserve, known_max))
+			return false;
+
+		if (!amount_msat_add_fee(&msat, h->base_fee,
+					 h->proportional_fee))
+			abort();
+	}
+	create_flow_reservations(rq, reservations, flow);
+	return true;
 }
 
 /* We use an fp16_t approximatin for htlc_max/min: this gets the exact value. */
@@ -846,6 +873,24 @@ static struct amount_msat remove_excess(struct flow **flows,
 	return all_deliver;
 }
 
+static void write_selected_flows(const tal_t *ctx, size_t *flows_index,
+				 struct flow ***flows)
+{
+	struct flow **tmp_flows = tal_arr(ctx, struct flow *, 0);
+	for (size_t i = 0; i < tal_count(flows_index); i++) {
+		tal_arr_expand(&tmp_flows, (*flows)[flows_index[i]]);
+		(*flows)[flows_index[i]] = NULL;
+	}
+	for (size_t i = 0; i < tal_count(*flows); i++) {
+		(*flows)[i] = tal_free((*flows)[i]);
+	}
+	tal_resize(flows, 0);
+	for (size_t i = 0; i < tal_count(tmp_flows); i++) {
+		tal_arr_expand(flows, tmp_flows[i]);
+	}
+	tal_free(tmp_flows);
+}
+
 /* FIXME: on failure return error message */
 const char *refine_flows(const tal_t *ctx, struct route_query *rq,
 			 struct amount_msat deliver, struct flow ***flows)
@@ -911,18 +956,7 @@ const char *refine_flows(const tal_t *ctx, struct route_query *rq,
 	}
 
 	/* finally write the remaining flows */
-	struct flow **tmp_flows = tal_arr(working_ctx, struct flow *, 0);
-	for (size_t i = 0; i < tal_count(flows_index); i++) {
-		tal_arr_expand(&tmp_flows, (*flows)[flows_index[i]]);
-		(*flows)[flows_index[i]] = NULL;
-	}
-	for (size_t i = 0; i < tal_count(*flows); i++) {
-		(*flows)[i] = tal_free((*flows)[i]);
-	}
-	tal_resize(flows, 0);
-	for (size_t i = 0; i < tal_count(tmp_flows); i++) {
-		tal_arr_expand(flows, tmp_flows[i]);
-	}
+	write_selected_flows(working_ctx, flows_index, flows);
 
 	tal_free(working_ctx);
 	return NULL;
@@ -930,4 +964,81 @@ const char *refine_flows(const tal_t *ctx, struct route_query *rq,
 fail:
 	tal_free(working_ctx);
 	return error_message;
+}
+
+/* Order of flows according to path string */
+static int cmppath_flows(const size_t *a, const size_t *b, char **paths_str)
+{
+	return strcmp(paths_str[*a], paths_str[*b]);
+}
+
+void squash_flows(const tal_t *ctx, struct route_query *rq,
+		  struct flow ***flows)
+{
+	const tal_t *working_ctx = tal(ctx, tal_t);
+	size_t *flows_index = tal_arrz(working_ctx, size_t, tal_count(*flows));
+	char **paths_str = tal_arrz(working_ctx, char *, tal_count(*flows));
+	struct channel_data **channel_mpp_cache =
+	    new_channel_mpp_cache(working_ctx, rq, *flows);
+	struct amount_msat *max_deliverable = tal_arrz(
+	    working_ctx, struct amount_msat, tal_count(channel_mpp_cache));
+
+	for (size_t i = 0; i < tal_count(flows_index); i++) {
+		struct flow *flow = (*flows)[i];
+		struct short_channel_id_dir scidd;
+		flows_index[i] = i;
+		paths_str[i] = tal_strdup(working_ctx, "");
+		max_deliverable[i] = path_max_deliverable(channel_mpp_cache[i]);
+
+		for (size_t j = 0; j < tal_count(flow->path); j++) {
+			scidd.scid =
+			    gossmap_chan_scid(rq->gossmap, flow->path[j]);
+			scidd.dir = flow->dirs[j];
+			tal_append_fmt(
+			    &paths_str[i], "%s%s", j > 0 ? "->" : "",
+			    fmt_short_channel_id_dir(working_ctx, &scidd));
+		}
+	}
+
+	asort(flows_index, tal_count(flows_index), cmppath_flows, paths_str);
+	for (size_t i = 0; i < tal_count(flows_index); i++) {
+		const size_t j = i + 1;
+		struct amount_msat combined;
+		struct amount_msat max = max_deliverable[flows_index[i]];
+
+		/* same path? We merge */
+		while (j < tal_count(flows_index) &&
+		       cmppath_flows(&flows_index[i],
+				     &flows_index[j],
+                                     paths_str) == 0) {
+			if (!amount_msat_add(
+				&combined, (*flows)[flows_index[i]]->delivers,
+				(*flows)[flows_index[j]]->delivers))
+				abort();
+			/* do we break any HTLC max limits */
+			if (amount_msat_greater(combined, max))
+				break;
+			(*flows)[flows_index[i]]->delivers = combined;
+			tal_arr_remove(&flows_index, j);
+		}
+	}
+
+	write_selected_flows(working_ctx, flows_index, flows);
+
+	tal_free(working_ctx);
+}
+
+double flows_probability(const tal_t *ctx, struct route_query *rq,
+			 struct flow ***flows)
+{
+	const tal_t *working_ctx = tal(ctx, tal_t);
+	struct reserve_hop *reservations = new_reservations(working_ctx, rq);
+	double probability = 1.0;
+
+	for (size_t i = 0; i < tal_count(*flows); i++) {
+		probability *= flow_probability((*flows)[i], rq);
+		create_flow_reservations(rq, &reservations, (*flows)[i]);
+	}
+	tal_free(working_ctx);
+	return probability;
 }
