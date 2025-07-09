@@ -1253,6 +1253,89 @@ fail:
 	return NULL;
 }
 
+/* Get the scidd for the i'th hop in flow */
+static void get_scidd(const struct gossmap *gossmap, const struct flow *flow,
+		      size_t i, struct short_channel_id_dir *scidd)
+{
+	scidd->scid = gossmap_chan_scid(gossmap, flow->path[i]);
+	scidd->dir = flow->dirs[i];
+}
+
+/* We use an fp16_t approximatin for htlc_max/min: this gets the exact value. */
+static struct amount_msat
+get_chan_htlc_max(const struct route_query *rq, const struct gossmap_chan *c,
+		  const struct short_channel_id_dir *scidd)
+{
+	struct amount_msat htlc_max;
+
+	gossmap_chan_get_update_details(rq->gossmap, c, scidd->dir, NULL, NULL,
+					NULL, NULL, NULL, NULL, NULL,
+					&htlc_max);
+	return htlc_max;
+}
+
+static struct amount_msat
+get_chan_htlc_min(const struct route_query *rq, const struct gossmap_chan *c,
+		  const struct short_channel_id_dir *scidd)
+{
+	struct amount_msat htlc_min;
+
+	gossmap_chan_get_update_details(rq->gossmap, c, scidd->dir, NULL, NULL,
+					NULL, NULL, NULL, NULL, &htlc_min,
+					NULL);
+	return htlc_min;
+}
+
+static bool check_htlc_min_limits(struct route_query *rq, struct flow **flows)
+{
+
+	for (size_t k = 0; k < tal_count(flows); k++) {
+		struct flow *flow = flows[k];
+		size_t pathlen = tal_count(flow->path);
+		struct amount_msat hop_amt = flow->delivers;
+		for (size_t i = pathlen - 1; i < pathlen; i--) {
+			const struct half_chan *h = flow_edge(flow, i);
+			struct short_channel_id_dir scidd;
+
+			get_scidd(rq->gossmap, flow, i, &scidd);
+			struct amount_msat htlc_min =
+			    get_chan_htlc_min(rq, flow->path[i], &scidd);
+			if (amount_msat_less(hop_amt, htlc_min))
+				return false;
+
+			if (!amount_msat_add_fee(&hop_amt, h->base_fee,
+						 h->proportional_fee))
+				abort();
+		}
+	}
+	return true;
+}
+
+static bool check_htlc_max_limits(struct route_query *rq, struct flow **flows)
+{
+
+	for (size_t k = 0; k < tal_count(flows); k++) {
+		struct flow *flow = flows[k];
+		size_t pathlen = tal_count(flow->path);
+		struct amount_msat hop_amt = flow->delivers;
+		for (size_t i = pathlen - 1; i < pathlen; i--) {
+			const struct half_chan *h = flow_edge(flow, i);
+			struct short_channel_id_dir scidd;
+
+			get_scidd(rq->gossmap, flow, i, &scidd);
+			struct amount_msat htlc_max =
+			    get_chan_htlc_max(rq, flow->path[i], &scidd);
+			if (amount_msat_greater(hop_amt, htlc_max))
+				return false;
+
+			if (!amount_msat_add_fee(&hop_amt, h->base_fee,
+						 h->proportional_fee))
+				abort();
+		}
+	}
+	return true;
+}
+
 /* FIXME: add extra constraint maximum route length, use an activation
  * probability cost for each channel. Recall that every activation cost, eg.
  * base fee and activation probability can only be properly added modifying the
@@ -1335,6 +1418,21 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 		/* We might want to overpay sometimes, eg. shadow routing, but
 		 * right now if all_deliver > amount_to_deliver means a bug. */
 		assert(amount_msat_greater_eq(amount_to_deliver, all_deliver));
+
+		/* we should have fixed all htlc violations, "don't trust,
+		 * verify" */
+		if (!check_htlc_min_limits(rq, new_flows)) {
+			error_message = rq_log(
+			    rq, rq, LOG_BROKEN,
+			    "%s: check_htlc_min_limits failed", __func__);
+			goto fail;
+		}
+		if (!check_htlc_max_limits(rq, new_flows)) {
+			error_message = rq_log(
+			    rq, rq, LOG_BROKEN,
+			    "%s: check_htlc_max_limits failed", __func__);
+			goto fail;
+		}
 
 		/* no flows should send 0 amount */
 		for (size_t i = 0; i < tal_count(new_flows); i++) {
