@@ -7,8 +7,8 @@
 
 
 struct channel_coin_mvt *new_channel_mvt_invoice_hin(const tal_t *ctx,
-						     struct htlc_in *hin,
-						     struct channel *channel)
+						     const struct htlc_in *hin,
+						     const struct channel *channel)
 {
 	return new_channel_coin_mvt(ctx, &channel->cid,
 				    &hin->payment_hash, NULL,
@@ -17,8 +17,8 @@ struct channel_coin_mvt *new_channel_mvt_invoice_hin(const tal_t *ctx,
 }
 
 struct channel_coin_mvt *new_channel_mvt_routed_hin(const tal_t *ctx,
-						    struct htlc_in *hin,
-						    struct channel *channel)
+						    const struct htlc_in *hin,
+						    const struct channel *channel)
 {
 	struct amount_msat fees_collected;
 
@@ -36,8 +36,8 @@ struct channel_coin_mvt *new_channel_mvt_routed_hin(const tal_t *ctx,
 }
 
 struct channel_coin_mvt *new_channel_mvt_invoice_hout(const tal_t *ctx,
-						      struct htlc_out *hout,
-						      struct channel *channel)
+						      const struct htlc_out *hout,
+						      const struct channel *channel)
 {
 	return new_channel_coin_mvt(ctx, &channel->cid,
 				    &hout->payment_hash, &hout->partid,
@@ -46,8 +46,8 @@ struct channel_coin_mvt *new_channel_mvt_invoice_hout(const tal_t *ctx,
 }
 
 struct channel_coin_mvt *new_channel_mvt_routed_hout(const tal_t *ctx,
-						     struct htlc_out *hout,
-						     struct channel *channel)
+						     const struct htlc_out *hout,
+						     const struct channel *channel)
 {
 	return new_channel_coin_mvt(ctx, &channel->cid,
 				    &hout->payment_hash, NULL,
