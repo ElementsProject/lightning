@@ -32,17 +32,24 @@ struct amount_msat flowset_delivers(struct plugin *plugin,
 	return final;
 }
 
-static double edge_probability(struct amount_msat sent,
-			       struct amount_msat mincap,
-			       struct amount_msat maxcap,
-			       struct amount_msat used)
+/* Stolen whole-cloth from @Lagrang3 in renepay's flow.c.  Wrong
+ * because of htlc overhead in reservations! */
+static double edge_probability(const struct route_query *rq,
+			       const struct short_channel_id_dir *scidd,
+			       struct amount_msat sent)
 {
 	struct amount_msat numerator, denominator;
+	struct amount_msat mincap, maxcap, additional;
+	const struct gossmap_chan *c = gossmap_find_chan(rq->gossmap, &scidd->scid);
 
-	if (!amount_msat_sub(&mincap, mincap, used))
-		mincap = AMOUNT_MSAT(0);
-	if (!amount_msat_sub(&maxcap, maxcap, used))
-		maxcap = AMOUNT_MSAT(0);
+	get_constraints(rq, c, scidd->dir, &mincap, &maxcap);
+
+	/* We add an extra per-htlc reservation for the *next* HTLC, so we "over-reserve"
+	 * on local channels.  Undo that! */
+	additional = get_additional_per_htlc_cost(rq, scidd);
+	if (!amount_msat_accumulate(&mincap, additional)
+	    || !amount_msat_accumulate(&maxcap, additional))
+		abort();
 
 	if (amount_msat_less_eq(sent, mincap))
 		return 1.0;
@@ -129,10 +136,11 @@ double flow_probability(const struct flow *flow,
 
 	for (int i = (int)pathlen - 1; i >= 0; i--) {
 		const struct half_chan *h = flow_edge(flow, i);
-		struct amount_msat mincap, maxcap;
+		struct short_channel_id_dir scidd;
+		scidd.scid = gossmap_chan_scid(rq->gossmap, flow->path[i]);
+		scidd.dir = flow->dirs[i];
 
-		get_constraints(rq, flow->path[i], flow->dirs[i], &mincap, &maxcap);
-		prob *= edge_probability(spend, mincap, maxcap, AMOUNT_MSAT(0));
+		prob *= edge_probability(rq, &scidd, spend);
 
 		if (!amount_msat_add_fee(&spend, h->base_fee,
 					 h->proportional_fee)) {
