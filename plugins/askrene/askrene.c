@@ -564,6 +564,13 @@ static struct command_result *do_getroutes(struct command *cmd,
 	/* we temporarily apply localmods */
 	gossmap_apply_localmods(askrene->gossmap, localmods);
 
+	/* I want to be able to disable channels while working on this query.
+	 * Layers are for user interaction and cannot be used for this purpose.
+	 */
+	rq->disabled_chans =
+	    tal_arrz(rq, bitmap,
+		     2 * BITMAP_NWORDS(gossmap_max_chan_idx(askrene->gossmap)));
+
 	/* localmods can add channels, so we need to allocate biases array
 	 * *afterwards* */
 	rq->biases =

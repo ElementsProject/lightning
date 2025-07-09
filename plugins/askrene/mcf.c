@@ -319,6 +319,15 @@ static void set_capacity(s64 *capacity, u64 value, u64 *cap_on_capacity)
 	*cap_on_capacity -= *capacity;
 }
 
+/* Helper to check whether a channel is available */
+static bool channel_is_available(const struct route_query *rq,
+				 const struct gossmap_chan *chan, const int dir)
+{
+	const u32 c_idx = gossmap_chan_idx(rq->gossmap, chan);
+	return gossmap_chan_set(chan, dir) && chan->half[dir].enabled &&
+	       !bitmap_test_bit(rq->disabled_chans, c_idx * 2 + dir);
+}
+
 /* FIXME: unit test this */
 /* The probability of forwarding a payment amount given a high and low liquidity
  * bounds.
@@ -568,7 +577,7 @@ static void init_linear_network(const tal_t *ctx,
 			const struct gossmap_chan *c = gossmap_nth_chan(gossmap,
 			                                                node, j, &half);
 
-			if (!gossmap_chan_set(c, half) || !c->half[half].enabled)
+			if (!channel_is_available(params->rq, c, half))
 				continue;
 
 			/* If a channel insists on more than our total, remove it */
@@ -644,7 +653,7 @@ struct chan_flow
  * */
 static struct node find_path_or_cycle(
 		const tal_t *working_ctx,
-		const struct gossmap *gossmap,
+		const struct route_query *rq,
 		const struct chan_flow *chan_flow,
 		const struct node source,
 		const s64 *balance,
@@ -653,6 +662,7 @@ static struct node find_path_or_cycle(
 		int *prev_dir,
 		u32 *prev_idx)
 {
+	const struct gossmap *gossmap = rq->gossmap;
 	const size_t max_num_nodes = gossmap_max_node_idx(gossmap);
 	bitmap *visited =
 	    tal_arrz(working_ctx, bitmap, BITMAP_NWORDS(max_num_nodes));
@@ -671,7 +681,7 @@ static struct node find_path_or_cycle(
 			const struct gossmap_chan *c =
 			    gossmap_nth_chan(gossmap, cur, i, &dir);
 
-			if (!gossmap_chan_set(c, dir) || !c->half[dir].enabled)
+			if (!channel_is_available(rq, c, dir))
 				continue;
 
 			const u32 c_idx = gossmap_chan_idx(gossmap, c);
@@ -877,7 +887,7 @@ get_flow_paths(const tal_t *ctx,
 		while (balance[source.idx] < 0) {
 			prev_chan[source.idx] = NULL;
 			struct node sink = find_path_or_cycle(
-			    working_ctx, params->rq->gossmap, chan_flow, source,
+			    working_ctx, params->rq, chan_flow, source,
 			    balance, prev_chan, prev_dir, prev_idx);
 
 			if (balance[sink.idx] > 0)
@@ -1107,8 +1117,7 @@ static void init_linear_network_single_path(
 			    gossmap_nth_chan(gossmap, node, j, &half);
                         struct amount_msat mincap, maxcap;
 
-			if (!gossmap_chan_set(c, half) ||
-			    !c->half[half].enabled)
+			if (!channel_is_available(params->rq, c, half))
 				continue;
 
 			/* If a channel cannot forward the total amount we don't
