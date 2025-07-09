@@ -882,7 +882,7 @@ static void record_wallet_spend(struct lightningd *ld,
 
 	notify_chain_mvt(ld, new_coin_wallet_withdraw(tmpctx, txid, outpoint,
 						      tx_blockheight,
-						      utxo->amount, WITHDRAWAL));
+						      utxo->amount, MVT_WITHDRAWAL));
 }
 
 /**

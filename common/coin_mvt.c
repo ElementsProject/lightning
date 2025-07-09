@@ -223,10 +223,10 @@ struct chain_coin_mvt *new_coin_channel_close(const tal_t *ctx,
 					      bool is_splice)
 {
 	struct chain_coin_mvt *mvt;
-	enum mvt_tag *tags = new_tag_arr(NULL, CHANNEL_CLOSE);
+	enum mvt_tag *tags = new_tag_arr(NULL, MVT_CHANNEL_CLOSE);
 
 	if (is_splice)
-		tal_arr_expand(&tags, SPLICE);
+		tal_arr_expand(&tags, MVT_SPLICE);
 
 	mvt = new_chain_coin_mvt(ctx, channel, alt_account, txid,
 				 out, NULL, blockheight,
@@ -249,16 +249,16 @@ struct chain_coin_mvt *new_coin_channel_open_proposed(const tal_t *ctx,
 	struct chain_coin_mvt *mvt;
 
 	mvt = new_chain_coin_mvt(ctx, channel, NULL, NULL, out, NULL, 0,
-				 take(new_tag_arr(NULL, CHANNEL_PROPOSED)),
+				 take(new_tag_arr(NULL, MVT_CHANNEL_PROPOSED)),
 				 COIN_CREDIT, amount, output_val, 0);
 	mvt->peer_id = tal_dup(mvt, struct node_id, peer_id);
 
 	/* If we're the opener, add to the tag list */
 	if (is_opener)
-		tal_arr_expand(&mvt->tags, OPENER);
+		tal_arr_expand(&mvt->tags, MVT_OPENER);
 
 	if (is_leased)
-		tal_arr_expand(&mvt->tags, LEASED);
+		tal_arr_expand(&mvt->tags, MVT_LEASED);
 
 	return mvt;
 }
@@ -276,17 +276,17 @@ struct chain_coin_mvt *new_coin_channel_open(const tal_t *ctx,
 	struct chain_coin_mvt *mvt;
 
 	mvt = new_chain_coin_mvt(ctx, channel, NULL, NULL, out, NULL, blockheight,
-				 take(new_tag_arr(NULL, CHANNEL_OPEN)),
+				 take(new_tag_arr(NULL, MVT_CHANNEL_OPEN)),
 				 COIN_CREDIT, amount,
 				 output_val, 0);
 	mvt->peer_id = tal_dup(mvt, struct node_id, peer_id);
 
 	/* If we're the opener, add to the tag list */
 	if (is_opener)
-		tal_arr_expand(&mvt->tags, OPENER);
+		tal_arr_expand(&mvt->tags, MVT_OPENER);
 
 	if (is_leased)
-		tal_arr_expand(&mvt->tags, LEASED);
+		tal_arr_expand(&mvt->tags, MVT_LEASED);
 
 	return mvt;
 }
@@ -300,7 +300,7 @@ struct chain_coin_mvt *new_onchain_htlc_deposit(const tal_t *ctx,
 	return new_chain_coin_mvt_sat(ctx, NULL, "", NULL,
 				      outpoint, payment_hash,
 				      blockheight,
-				      take(new_tag_arr(NULL, HTLC_FULFILL)),
+				      take(new_tag_arr(NULL, MVT_HTLC_FULFILL)),
 				      COIN_CREDIT, amount);
 }
 
@@ -316,7 +316,7 @@ struct chain_coin_mvt *new_onchain_htlc_withdraw(const tal_t *ctx,
 	return new_chain_coin_mvt_sat(ctx, NULL, EXTERNAL, NULL,
 				      outpoint, payment_hash,
 				      blockheight,
-				      take(new_tag_arr(NULL, HTLC_FULFILL)),
+				      take(new_tag_arr(NULL, MVT_HTLC_FULFILL)),
 				      COIN_CREDIT, amount);
 }
 
