@@ -78,9 +78,9 @@ u8 fromwire_u8(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 /* Generated stub for fromwire_u8_array */
 void fromwire_u8_array(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, u8 *arr UNNEEDED, size_t num UNNEEDED)
 { fprintf(stderr, "fromwire_u8_array called!\n"); abort(); }
-/* Generated stub for mvt_tag_str */
-const char *mvt_tag_str(enum mvt_tag tag UNNEEDED)
-{ fprintf(stderr, "mvt_tag_str called!\n"); abort(); }
+/* Generated stub for mvt_tag_parse */
+bool mvt_tag_parse(const char *buf UNNEEDED, size_t len UNNEEDED, enum mvt_tag *tag UNNEEDED)
+{ fprintf(stderr, "mvt_tag_parse called!\n"); abort(); }
 /* Generated stub for node_id_from_hexstr */
 bool node_id_from_hexstr(const char *str UNNEEDED, size_t slen UNNEEDED, struct node_id *id UNNEEDED)
 { fprintf(stderr, "node_id_from_hexstr called!\n"); abort(); }

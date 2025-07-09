@@ -630,16 +630,7 @@ bool json_to_channel_id(const char *buffer, const jsmntok_t *tok,
 bool json_to_coin_mvt_tag(const char *buffer, const jsmntok_t *tok,
 			  enum mvt_tag *tag)
 {
-	enum mvt_tag i_tag;
-	for (size_t i = 0; i < NUM_MVT_TAGS; i++) {
-		i_tag = (enum mvt_tag) i;
-		if (json_tok_streq(buffer, tok, mvt_tag_str(i_tag))) {
-			*tag = i_tag;
-			return true;
-		}
-	}
-
-	return false;
+	return mvt_tag_parse(buffer + tok->start, tok->end - tok->start, tag);
 }
 
 bool split_tok(const char *buffer, const jsmntok_t *tok,
