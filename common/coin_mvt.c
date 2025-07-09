@@ -90,9 +90,11 @@ struct channel_coin_mvt *new_channel_coin_mvt(const tal_t *ctx,
 		assert(!group_id);
 		mvt->part_and_group = NULL;
 	} else {
-		mvt->part_and_group = tal(mvt, struct channel_coin_mvt_id);
-		mvt->part_and_group->part_id = *part_id;
-		mvt->part_and_group->group_id = *group_id;
+		/* Temporary for non-const */
+		struct channel_coin_mvt_id *pg;
+		mvt->part_and_group = pg = tal(mvt, struct channel_coin_mvt_id);
+		pg->part_id = *part_id;
+		pg->group_id = *group_id;
 	}
 
 	mvt->tags = tal_dup_talarr(mvt, enum mvt_tag, tags);
@@ -478,8 +480,9 @@ void fromwire_chain_coin_mvt(const u8 **cursor, size_t *max, struct chain_coin_m
 		mvt->tx_txid = NULL;
 
 	if (fromwire_bool(cursor, max)) {
-		mvt->payment_hash = tal(mvt, struct sha256);
-		fromwire_sha256(cursor, max, mvt->payment_hash);
+		struct sha256 *ph;
+		mvt->payment_hash = ph = tal(mvt, struct sha256);
+		fromwire_sha256(cursor, max, ph);
 	} else
 		mvt->payment_hash = NULL;
 	mvt->blockheight = fromwire_u32(cursor, max);
