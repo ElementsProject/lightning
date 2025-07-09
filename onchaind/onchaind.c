@@ -3465,7 +3465,7 @@ int main(int argc, char *argv[])
 			   FUNDING_OUTPUT, NULL, NULL, NULL);
 
 	/* Record funding output spent */
-	send_coin_mvt(take(new_coin_channel_close(NULL, NULL, &tx->txid,
+	send_coin_mvt(take(new_coin_channel_close(NULL, NULL, "", &tx->txid,
 						  &funding, tx_blockheight,
 						  our_msat,
 						  funding_sats,

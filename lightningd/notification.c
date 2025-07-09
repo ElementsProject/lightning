@@ -445,6 +445,16 @@ void notify_sendpay_failure(struct lightningd *ld,
 	notify_send(ld, n);
 }
 
+static void json_add_mvt_account_id(struct json_stream *stream,
+				    const char *fieldname,
+				    const struct mvt_account_id *account_id)
+{
+	if (account_id->channel)
+		json_add_channel_id(stream, fieldname, &account_id->channel->cid);
+	else
+		json_add_string(stream, fieldname, account_id->alt_account);
+}
+
 static void chain_movement_notification_serialize(struct json_stream *stream,
 						  struct lightningd *ld,
 						  const struct chain_coin_mvt *chain_mvt)
@@ -454,10 +464,11 @@ static void chain_movement_notification_serialize(struct json_stream *stream,
 	json_add_node_id(stream, "node_id", &ld->our_nodeid);
 	if (chain_mvt->peer_id)
 		json_add_node_id(stream, "peer_id", chain_mvt->peer_id);
-	json_add_string(stream, "account_id", chain_mvt->account_name);
+	json_add_mvt_account_id(stream, "account_id", &chain_mvt->account);
+
 	if (chain_mvt->originating_acct)
-		json_add_string(stream, "originating_account",
-				chain_mvt->originating_acct);
+		json_add_mvt_account_id(stream, "originating_account", chain_mvt->originating_acct);
+
 	/* some 'journal entries' don't have a txid */
 	if (chain_mvt->tx_txid)
 		json_add_string(stream, "txid",
@@ -501,7 +512,7 @@ static void channel_movement_notification_serialize(struct json_stream *stream,
 	json_add_num(stream, "version", COIN_MVT_VERSION);
 	json_add_string(stream, "type", "channel_mvt");
 	json_add_node_id(stream, "node_id", &ld->our_nodeid);
-	json_add_channel_id(stream, "account_id", &chan_mvt->chan_id);
+	json_add_mvt_account_id(stream, "account_id", &chan_mvt->account);
 	/* push funding / leases don't have a payment_hash */
 	if (chan_mvt->payment_hash)
 		json_add_sha256(stream, "payment_hash", chan_mvt->payment_hash);
