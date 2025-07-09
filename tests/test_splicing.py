@@ -91,6 +91,9 @@ def test_splice_rbf(node_factory, bitcoind):
     inv = l2.rpc.invoice(10**2, '2', 'no_2')
     l1.rpc.pay(inv['bolt11'])
 
+    # Make sure l1 doesn't unilateral close if HTLC hasn't completely settled before deadline.
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+
     bitcoind.generate_block(6, wait_for_mempool=1)
 
     l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
