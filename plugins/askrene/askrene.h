@@ -2,6 +2,7 @@
 #define LIGHTNING_PLUGINS_ASKRENE_ASKRENE_H
 #include "config.h"
 #include <bitcoin/short_channel_id.h>
+#include <ccan/bitmap/bitmap.h>
 #include <ccan/htable/htable_type.h>
 #include <ccan/list/list.h>
 #include <common/amount.h>
@@ -60,6 +61,9 @@ struct route_query {
 
 	/* Additional per-htlc cost for local channels */
 	const struct additional_cost_htable *additional_costs;
+
+	/* channels we disable during computation to meet constraints */
+	bitmap *disabled_chans;
 };
 
 /* Given a gossmap channel, get the current known min/max */
