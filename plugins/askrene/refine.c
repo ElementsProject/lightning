@@ -688,6 +688,53 @@ static struct amount_msat path_max_deliverable(struct channel_data *path)
 	return deliver;
 }
 
+// TODO: unit test:
+//      -> make a path
+//      -> compute x = path_min_deliverable
+//      -> check that htlc_min are all satisfied
+//      -> check that (x-1) at least one htlc_min is violated
+/* The least amount that we can deliver at the destination such that when one
+ * computes the hop amounts backwards the htlc_min are always met. */
+static struct amount_msat path_min_deliverable(struct channel_data *path)
+{
+	struct amount_msat least_send = AMOUNT_MSAT(1);
+	const size_t pathlen = tal_count(path);
+	for (size_t i = pathlen - 1; i < pathlen; i--) {
+		least_send = amount_msat_max(least_send, path[i].htlc_min);
+		if (!amount_msat_add_fee(&least_send, path[i].fee_base_msat,
+					 path[i].fee_proportional_millionths))
+			abort();
+	}
+	/* least_send: is the least amount we can send in order to deliver at
+	 * least 1 msat at the destination. */
+	struct amount_msat least_destination = least_send;
+	for (size_t i = 0; i < pathlen; i++) {
+		struct amount_msat in_value = least_destination;
+		struct amount_msat out_value =
+		    amount_msat_sub_fee(in_value, path[i].fee_base_msat,
+					path[i].fee_proportional_millionths);
+		assert(amount_msat_greater_eq(out_value, path[i].htlc_min));
+		struct amount_msat x = out_value;
+		if (!amount_msat_add_fee(&x, path[i].fee_base_msat,
+					 path[i].fee_proportional_millionths))
+			abort();
+		/* if the in_value computed from the out_value is smaller than
+		 * it should, then we add 1msat */
+		if (amount_msat_less(x, in_value) &&
+		    !amount_msat_accumulate(&out_value, AMOUNT_MSAT(1)))
+			abort();
+		/* check conditions */
+		assert(amount_msat_greater_eq(out_value, path[i].htlc_min));
+		x = out_value;
+		assert(
+		    amount_msat_add_fee(&x, path[i].fee_base_msat,
+					path[i].fee_proportional_millionths) &&
+		    amount_msat_greater_eq(x, in_value));
+		least_destination = out_value;
+	}
+	return least_destination;
+}
+
 static struct amount_msat sum_all_deliver(struct flow **flows,
 					  size_t *flows_index)
 {
@@ -773,6 +820,7 @@ const char *refine_flows(const tal_t *ctx, struct route_query *rq,
 {
 	const tal_t *working_ctx = tal(ctx, tal_t);
 	struct amount_msat *max_deliverable;
+	struct amount_msat *min_deliverable;
 	struct channel_data **channel_mpp_cache;
 	size_t *flows_index;
 
@@ -781,11 +829,14 @@ const char *refine_flows(const tal_t *ctx, struct route_query *rq,
 	channel_mpp_cache = new_channel_mpp_cache(working_ctx, rq, *flows);
 	max_deliverable = tal_arrz(working_ctx, struct amount_msat,
 				   tal_count(channel_mpp_cache));
+	min_deliverable = tal_arrz(working_ctx, struct amount_msat,
+				   tal_count(channel_mpp_cache));
 	flows_index = tal_arrz(working_ctx, size_t, tal_count(*flows));
 	for (size_t i = 0; i < tal_count(channel_mpp_cache); i++) {
 		// FIXME: does path_max_deliverable work for a single
 		// channel with 0 fees?
 		max_deliverable[i] = path_max_deliverable(channel_mpp_cache[i]);
+		min_deliverable[i] = path_min_deliverable(channel_mpp_cache[i]);
 		/* We use an array of indexes to keep track of the order
 		 * of the flows. Likewise flows can be removed by simply
 		 * shrinking the flows_index array. */
@@ -801,6 +852,18 @@ const char *refine_flows(const tal_t *ctx, struct route_query *rq,
 
 	/* remove excess from MCF granularity if any */
 	remove_excess(*flows, &flows_index, deliver);
+
+	/* detect htlc_min violations */
+	for (size_t i = 0; i < tal_count(flows_index);) {
+		size_t k = flows_index[i];
+		if (amount_msat_greater_eq((*flows)[k]->delivers,
+					   min_deliverable[k])) {
+			i++;
+			continue;
+		}
+		/* htlc_min is not met for this flow */
+		tal_arr_remove(&flows_index, i);
+	}
 
 	/* remove 0 amount flows if any */
 	asort(flows_index, tal_count(flows_index), revcmp_flows, *flows);
