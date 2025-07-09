@@ -781,7 +781,7 @@ def test_getroutes_auto_sourcefree(node_factory):
 
 def test_getroutes_maxdelay(node_factory):
     gsfile, nodemap = generate_gossip_store([GenChannel(0, 1, forward=GenChannel.Half(propfee=10000, delay=80)),
-                                             GenChannel(0, 1, forward=GenChannel.Half(propfee=10001, delay=40))])
+                                             GenChannel(0, 1, forward=GenChannel.Half(propfee=20000, delay=40))])
 
     # Set up l1 with this as the gossip_store
     l1 = node_factory.get_node(gossip_store_file=gsfile.name)
@@ -814,7 +814,7 @@ def test_getroutes_maxdelay(node_factory):
                                                           'amount_msat': 1000,
                                                           'path': [{'short_channel_id_dir': '0x1x1/1',
                                                                     'next_node_id': nodemap[1],
-                                                                    'amount_msat': 1010,
+                                                                    'amount_msat': 1020,
                                                                     'delay': 139}]}]}
 
     # Excessive maxdelay parameter
@@ -1204,10 +1204,10 @@ def test_real_data(node_factory, bitcoind):
     # CI, it's slow.
     if SLOW_MACHINE:
         limit = 25
-        expected = (6, 25, 1568821, 143649, 91)
+        expected = (6, 25, 1568821, 144649, 91)
     else:
         limit = 100
-        expected = (9, 96, 6565467, 630668, 91)
+        expected = (9, 96, 6565466, 668476, 90)
 
     fees = {}
     for n in range(0, limit):
@@ -1321,10 +1321,10 @@ def test_real_biases(node_factory, bitcoind):
     # CI, it's slow.
     if SLOW_MACHINE:
         limit = 25
-        expected = ({1: 6, 2: 6, 4: 7, 8: 12, 16: 14, 32: 19, 64: 25, 100: 25}, 0)
+        expected = ({1: 6, 2: 6, 4: 7, 8: 10, 16: 15, 32: 20, 64: 25, 100: 25}, 0)
     else:
         limit = 100
-        expected = ({1: 22, 2: 25, 4: 36, 8: 53, 16: 69, 32: 80, 64: 96, 100: 96}, 0)
+        expected = ({1: 19, 2: 27, 4: 36, 8: 48, 16: 71, 32: 83, 64: 95, 100: 96}, 0)
 
     l1.rpc.askrene_create_layer('biases')
     num_changed = {}

@@ -169,6 +169,9 @@ static const double CHANNEL_PIVOTS[]={0,0.5,0.8,0.95};
 static const s64 INFINITE = INT64_MAX;
 static const s64 MU_MAX = 100;
 
+/* every payment under 1000sat will be routed through a single path */
+static const struct amount_msat SINGLE_PATH_THRESHOLD = AMOUNT_MSAT(1000000);
+
 /* Let's try this encoding of arcs:
  * Each channel `c` has two possible directions identified by a bit
  * `half` or `!half`, and each one of them has to be
@@ -1070,22 +1073,6 @@ fail:
 	return NULL;
 }
 
-static struct amount_msat linear_flows_cost(struct flow **flows,
-					    struct amount_msat total_amount,
-					    double delay_feefactor)
-{
-	struct amount_msat total = AMOUNT_MSAT(0);
-
-	for (size_t i = 0; i < tal_count(flows); i++) {
-		if (!amount_msat_accumulate(&total,
-					    linear_flow_cost(flows[i],
-							     total_amount,
-							     delay_feefactor)))
-			abort();
-	}
-	return total;
-}
-
 /* Initialize the data vectors for the single-path solver. */
 static void init_linear_network_single_path(
     const tal_t *ctx, const struct pay_parameters *params, struct graph **graph,
@@ -1266,6 +1253,13 @@ fail:
 	return NULL;
 }
 
+/* FIXME: add extra constraint maximum route length, use an activation
+ * probability cost for each channel. Recall that every activation cost, eg.
+ * base fee and activation probability can only be properly added modifying the
+ * graph topology by creating an activation node for every half channel. */
+/* FIXME: add extra constraint maximum number of routes, fixes issue 8331. */
+/* FIXME: add a boolean option to make recipient pay for fees, fixes issue 8353.
+ */
 static const char *
 linear_routes(const tal_t *ctx, struct route_query *rq,
 	      const struct gossmap_node *srcnode,
@@ -1277,133 +1271,213 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 				      const struct gossmap_node *,
 				      struct amount_msat, u32, double))
 {
-	*flows = NULL;
-	const char *ret;
-	double delay_feefactor = 1.0 / 1000000;
+	const tal_t *working_ctx = tal(ctx, tal_t);
+	const char *error_message;
+	struct amount_msat amount_to_deliver = amount;
+	struct amount_msat feebudget = maxfee;
 
-	/* First up, don't care about fees (well, just enough to tiebreak!) */
+	/* FIXME: mu is an integer from 0 to MU_MAX that we use to combine fees
+	 * and probability costs, but I think we can make it a real number from
+	 * 0 to 1. */
 	u32 mu = 1;
-	tal_free(*flows);
-	*flows = solver(ctx, rq, srcnode, dstnode, amount, mu, delay_feefactor);
-	if (!*flows) {
-		ret = explain_failure(ctx, rq, srcnode, dstnode, amount);
-		goto fail;
-	}
+	/* we start at 1e-6 and increase it exponentially (x2) up to 10. */
+	double delay_feefactor = 1e-6;
 
-	/* Too much delay? */
-	while (finalcltv + flows_worst_delay(*flows) > maxdelay) {
-		delay_feefactor *= 2;
-		rq_log(tmpctx, rq, LOG_UNUSUAL,
-		       "The worst flow delay is %" PRIu64
-		       " (> %i), retrying with delay_feefactor %f...",
-		       flows_worst_delay(*flows), maxdelay - finalcltv,
-		       delay_feefactor);
-		tal_free(*flows);
-		*flows = solver(ctx, rq, srcnode, dstnode, amount, mu,
-				delay_feefactor);
-		if (!*flows || delay_feefactor > 10) {
-			ret = rq_log(
-			    ctx, rq, LOG_UNUSUAL,
-			    "Could not find route without excessive delays");
-			goto fail;
+	struct flow **new_flows = NULL;
+	struct amount_msat all_deliver;
+
+	*flows = tal_arr(working_ctx, struct flow *, 0);
+
+	/* Re-use the reservation system to make flows aware of each other. */
+	struct reserve_hop *reservations = new_reservations(working_ctx, rq);
+
+	while (!amount_msat_is_zero(amount_to_deliver)) {
+                new_flows = tal_free(new_flows);
+
+		/* If the amount_to_deliver is very small we better use a single
+		 * path computation because:
+		 * 1. we save cpu cycles
+		 * 2. we have better control over htlc_min violations.
+                 * We need to make the distinction here because after
+                 * refine_with_fees_and_limits we might have a set of flows that
+                 * do not deliver the entire payment amount by just a small
+                 * amount. */
+		if(amount_msat_less_eq(amount_to_deliver, SINGLE_PATH_THRESHOLD)){
+                        new_flows = single_path_flow(working_ctx, rq, srcnode, dstnode,
+                                amount_to_deliver, mu, delay_feefactor);
+		} else {
+			new_flows =
+			    solver(working_ctx, rq, srcnode, dstnode,
+				   amount_to_deliver, mu, delay_feefactor);
 		}
-	}
 
-	/* Too expensive? */
-too_expensive:
-	while (amount_msat_greater(flowset_fee(rq->plugin, *flows), maxfee)) {
-		struct flow **new_flows;
-
-		if (mu == 1)
-			mu = 10;
-		else
-			mu += 10;
-		rq_log(tmpctx, rq, LOG_UNUSUAL,
-		       "The flows had a fee of %s, greater than max of %s, "
-		       "retrying with mu of %u%%...",
-		       fmt_amount_msat(tmpctx, flowset_fee(rq->plugin, *flows)),
-		       fmt_amount_msat(tmpctx, maxfee), mu);
-		new_flows = solver(ctx, rq, srcnode, dstnode, amount,
-				   mu > 100 ? 100 : mu, delay_feefactor);
-		if (!*flows || mu >= 100) {
-			ret = rq_log(
-			    ctx, rq, LOG_UNUSUAL,
-			    "Could not find route without excessive cost");
+		if (!new_flows) {
+			error_message = explain_failure(
+			    ctx, rq, srcnode, dstnode, amount_to_deliver);
 			goto fail;
 		}
 
-		/* This is possible, because MCF's linear fees are not the same.
-		 */
-		if (amount_msat_greater(flowset_fee(rq->plugin, new_flows),
-					flowset_fee(rq->plugin, *flows))) {
-			struct amount_msat old_cost =
-			    linear_flows_cost(*flows, amount, delay_feefactor);
-			struct amount_msat new_cost = linear_flows_cost(
-			    new_flows, amount, delay_feefactor);
-			if (amount_msat_greater_eq(new_cost, old_cost)) {
-				rq_log(tmpctx, rq, LOG_BROKEN,
-				       "Old flows cost %s:",
-				       fmt_amount_msat(tmpctx, old_cost));
-				for (size_t i = 0; i < tal_count(*flows); i++) {
-					rq_log(
-					    tmpctx, rq, LOG_BROKEN,
-					    "Flow %zu/%zu: %s (linear cost %s)",
-					    i, tal_count(*flows),
-					    fmt_flow_full(tmpctx, rq, (*flows)[i]),
-					    fmt_amount_msat(
-						tmpctx, linear_flow_cost(
-							    (*flows)[i], amount,
-							    delay_feefactor)));
-				}
-				rq_log(tmpctx, rq, LOG_BROKEN,
-				       "Old flows cost %s:",
-				       fmt_amount_msat(tmpctx, new_cost));
-				for (size_t i = 0; i < tal_count(new_flows);
-				     i++) {
-					rq_log(
-					    tmpctx, rq, LOG_BROKEN,
-					    "Flow %zu/%zu: %s (linear cost %s)",
-					    i, tal_count(new_flows),
-					    fmt_flow_full(tmpctx, rq,
-							  new_flows[i]),
-					    fmt_amount_msat(
-						tmpctx,
-						linear_flow_cost(
-						    new_flows[i], amount,
-						    delay_feefactor)));
-				}
+		error_message =
+		    refine_flows(ctx, rq, amount_to_deliver, &new_flows);
+		if (error_message)
+			goto fail;
+
+		/* we finished removing flows and excess */
+		all_deliver = flowset_delivers(rq->plugin, new_flows);
+		if (amount_msat_is_zero(all_deliver)) {
+			/* We removed all flows and we have not modified the
+			 * MCF parameters. We will not have an infinite loop
+			 * here because at least we have disabled some channels.
+			 */
+			continue;
+		}
+
+		/* We might want to overpay sometimes, eg. shadow routing, but
+		 * right now if all_deliver > amount_to_deliver means a bug. */
+		assert(amount_msat_greater_eq(amount_to_deliver, all_deliver));
+
+		/* no flows should send 0 amount */
+		for (size_t i = 0; i < tal_count(new_flows); i++) {
+                        // FIXME: replace all assertions with LOG_BROKEN
+			assert(!amount_msat_is_zero(new_flows[i]->delivers));
+		}
+
+		/* Is this set of flows too expensive?
+		 * We can check if the new flows are within the fee budget,
+		 * however in some cases we have discarded some flows at this
+		 * point and the new flows do not deliver all the value we need
+		 * so that a further solver iteration is needed. Hence we
+		 * check if the fees paid by these new flows are below the
+		 * feebudget proportionally adjusted by the amount this set of
+		 * flows deliver with respect to the total remaining amount,
+		 * ie. we avoid "consuming" all the feebudget if we still need
+		 * to run MCF again for some remaining amount. */
+		struct amount_msat all_fees =
+		    flowset_fee(rq->plugin, new_flows);
+		const double deliver_fraction =
+		    amount_msat_ratio(all_deliver, amount_to_deliver);
+		struct amount_msat partial_feebudget;
+		if (!amount_msat_scale(&partial_feebudget, feebudget,
+				       deliver_fraction)) {
+			error_message =
+			    rq_log(ctx, rq, LOG_BROKEN,
+				   "%s: failed to scale the fee budget (%s) by "
+				   "fraction (%lf)",
+				   __func__, fmt_amount_msat(tmpctx, feebudget),
+				   deliver_fraction);
+			goto fail;
+		}
+		if (amount_msat_greater(all_fees, partial_feebudget)) {
+			if (mu < MU_MAX) {
+				/* all_fees exceed the strong budget limit, try
+				 * to fix it increasing mu. */
+				if (mu == 1)
+					mu = 10;
+				else
+					mu += 10;
+				mu = MIN(mu, MU_MAX);
+				rq_log(
+				    tmpctx, rq, LOG_INFORM,
+				    "The flows had a fee of %s, greater than "
+				    "max of %s, retrying with mu of %u%%...",
+				    fmt_amount_msat(tmpctx, all_fees),
+				    fmt_amount_msat(tmpctx, partial_feebudget),
+				    mu);
+				continue;
+			} else if (amount_msat_greater(all_fees, feebudget)) {
+				/* we cannot increase mu anymore and all_fees
+				 * already exceeds feebudget we fail. */
+				error_message =
+				    rq_log(ctx, rq, LOG_UNUSUAL,
+					   "Could not find route without "
+					   "excessive cost");
+				goto fail;
+			} else {
+				/* mu cannot be increased but at least all_fees
+				 * does not exceed feebudget, we give it a shot.
+				 */
+				rq_log(
+				    tmpctx, rq, LOG_UNUSUAL,
+				    "The flows had a fee of %s, greater than "
+				    "max of %s, but still within the fee "
+				    "budget %s, we accept those flows.",
+				    fmt_amount_msat(tmpctx, all_fees),
+				    fmt_amount_msat(tmpctx, partial_feebudget),
+				    fmt_amount_msat(tmpctx, feebudget));
 			}
 		}
-		tal_free(*flows);
-		*flows = new_flows;
-	}
 
-	if (finalcltv + flows_worst_delay(*flows) > maxdelay) {
-		ret = rq_log(
-		    ctx, rq, LOG_UNUSUAL,
-		    "Could not find route without excessive cost or delays");
-		goto fail;
-	}
+		/* Too much delay? */
+		if (finalcltv + flows_worst_delay(new_flows) > maxdelay) {
+			if (delay_feefactor > 10) {
+				error_message =
+				    rq_log(ctx, rq, LOG_UNUSUAL,
+					   "Could not find route without "
+					   "excessive delays");
+				goto fail;
+			}
 
-	/* The above did not take into account the extra funds to pay
-	 * fees, so we try to adjust now.  We could re-run MCF if this
-	 * fails, but failure basically never happens where payment is
-	 * still possible */
-	ret = refine_with_fees_and_limits(ctx, rq, amount, flows, probability);
-	if (ret)
-		goto fail;
+			delay_feefactor *= 2;
+			rq_log(tmpctx, rq, LOG_INFORM,
+			       "The worst flow delay is %" PRIu64
+			       " (> %i), retrying with delay_feefactor %f...",
+			       flows_worst_delay(new_flows), maxdelay - finalcltv,
+			       delay_feefactor);
+                        continue;
+		}
 
-	/* Again, a tiny corner case: refine step can make us exceed maxfee */
-	if (amount_msat_greater(flowset_fee(rq->plugin, *flows), maxfee)) {
-		rq_log(tmpctx, rq, LOG_UNUSUAL,
-		       "After final refinement, fee was excessive: retrying");
-		goto too_expensive;
+		all_fees = AMOUNT_MSAT(0);
+		all_deliver = AMOUNT_MSAT(0);
+		/* add the new flows to the final solution */
+		for (size_t i = 0; i < tal_count(new_flows); i++) {
+			/* last check: every time we add a new reservation to a
+			 * local channel we remove some amount to pay for fees
+			 * on the additional HTLC. */
+			if (create_flow_reservations_verify(rq, &reservations,
+							    new_flows[i])) {
+				tal_arr_expand(flows, new_flows[i]);
+				tal_steal(*flows, new_flows[i]);
+				if (!amount_msat_accumulate(
+					&all_deliver, new_flows[i]->delivers) ||
+				    !amount_msat_accumulate(
+					&all_fees,
+					flow_fee(rq->plugin, new_flows[i])))
+					abort();
+			}
+		}
+
+		if (!amount_msat_sub(&feebudget, feebudget, all_fees) ||
+		    !amount_msat_sub(&amount_to_deliver, amount_to_deliver,
+				     all_deliver)) {
+			error_message =
+			    rq_log(ctx, rq, LOG_BROKEN,
+				   "%s: unexpected arithmetic operation "
+				   "failure on amount_msat",
+				   __func__);
+			goto fail;
+		}
 	}
+	/* transfer ownership */
+	*flows = tal_steal(ctx, *flows);
+
+	/* cleanup */
+	tal_free(working_ctx);
+
+	/* all set! Now squash flows that use the same path */
+	squash_flows(ctx, rq, flows);
+
+	/* flows_probability re-does a temporary reservation so we need to call
+	 * it after we have cleaned the reservations we used to build the flows
+	 * hence after we freed working_ctx. */
+	*probability = flows_probability(ctx, rq, flows);
 
 	return NULL;
 fail:
-	assert(ret != NULL);
-	return ret;
+	/* cleanup */
+	tal_free(working_ctx);
+
+	assert(error_message != NULL);
+	return error_message;
 }
 
 const char *default_routes(const tal_t *ctx, struct route_query *rq,
