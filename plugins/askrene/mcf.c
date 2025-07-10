@@ -11,9 +11,11 @@
 #include <plugins/askrene/algorithm.h>
 #include <plugins/askrene/askrene.h>
 #include <plugins/askrene/dijkstra.h>
+#include <plugins/askrene/explain_failure.h>
 #include <plugins/askrene/flow.h>
 #include <plugins/askrene/graph.h>
 #include <plugins/askrene/mcf.h>
+#include <plugins/askrene/refine.h>
 #include <plugins/libplugin.h>
 #include <stdint.h>
 
@@ -1079,4 +1081,160 @@ struct flow **minflow(const tal_t *ctx,
 fail:
 	tal_free(working_ctx);
 	return NULL;
+}
+
+static struct amount_msat linear_flows_cost(struct flow **flows,
+					    struct amount_msat total_amount,
+					    double delay_feefactor)
+{
+	struct amount_msat total = AMOUNT_MSAT(0);
+
+	for (size_t i = 0; i < tal_count(flows); i++) {
+		if (!amount_msat_accumulate(&total,
+					    linear_flow_cost(flows[i],
+							     total_amount,
+							     delay_feefactor)))
+			abort();
+	}
+	return total;
+}
+
+
+const char *default_routes(const tal_t *ctx, struct route_query *rq,
+			   const struct gossmap_node *srcnode,
+			   const struct gossmap_node *dstnode,
+			   struct amount_msat amount, bool single_path,
+			   struct amount_msat maxfee, u32 finalcltv,
+			   u32 maxdelay, struct flow ***flows,
+			   double *probability)
+{
+	*flows = NULL;
+	const char *ret;
+	double delay_feefactor = 1.0 / 1000000;
+
+	/* First up, don't care about fees (well, just enough to tiebreak!) */
+	u32 mu = 1;
+	tal_free(*flows);
+	*flows = minflow(ctx, rq, srcnode, dstnode, amount, mu, delay_feefactor,
+			single_path);
+	if (!*flows) {
+		ret = explain_failure(ctx, rq, srcnode, dstnode, amount);
+		goto fail;
+	}
+
+	/* Too much delay? */
+	while (finalcltv + flows_worst_delay(*flows) > maxdelay) {
+		delay_feefactor *= 2;
+		rq_log(tmpctx, rq, LOG_UNUSUAL,
+		       "The worst flow delay is %" PRIu64
+		       " (> %i), retrying with delay_feefactor %f...",
+		       flows_worst_delay(*flows), maxdelay - finalcltv,
+		       delay_feefactor);
+		tal_free(*flows);
+		*flows = minflow(ctx, rq, srcnode, dstnode, amount, mu,
+				delay_feefactor, single_path);
+		if (!*flows || delay_feefactor > 10) {
+			ret = rq_log(
+			    ctx, rq, LOG_UNUSUAL,
+			    "Could not find route without excessive delays");
+			goto fail;
+		}
+	}
+
+	/* Too expensive? */
+too_expensive:
+	while (amount_msat_greater(flowset_fee(rq->plugin, *flows), maxfee)) {
+		struct flow **new_flows;
+
+		if (mu == 1)
+			mu = 10;
+		else
+			mu += 10;
+		rq_log(tmpctx, rq, LOG_UNUSUAL,
+		       "The flows had a fee of %s, greater than max of %s, "
+		       "retrying with mu of %u%%...",
+		       fmt_amount_msat(tmpctx, flowset_fee(rq->plugin, *flows)),
+		       fmt_amount_msat(tmpctx, maxfee), mu);
+		new_flows =
+		    minflow(ctx, rq, srcnode, dstnode, amount,
+			    mu > 100 ? 100 : mu, delay_feefactor, single_path);
+		if (!*flows || mu >= 100) {
+			ret = rq_log(
+			    ctx, rq, LOG_UNUSUAL,
+			    "Could not find route without excessive cost");
+			goto fail;
+		}
+
+		/* This is possible, because MCF's linear fees are not the same.
+		 */
+		if (amount_msat_greater(flowset_fee(rq->plugin, new_flows),
+					flowset_fee(rq->plugin, *flows))) {
+			struct amount_msat old_cost =
+			    linear_flows_cost(*flows, amount, delay_feefactor);
+			struct amount_msat new_cost = linear_flows_cost(
+			    new_flows, amount, delay_feefactor);
+			if (amount_msat_greater_eq(new_cost, old_cost)) {
+				rq_log(tmpctx, rq, LOG_BROKEN,
+				       "Old flows cost %s:",
+				       fmt_amount_msat(tmpctx, old_cost));
+				for (size_t i = 0; i < tal_count(*flows); i++) {
+					rq_log(
+					    tmpctx, rq, LOG_BROKEN,
+					    "Flow %zu/%zu: %s (linear cost %s)",
+					    i, tal_count(*flows),
+					    fmt_flow_full(tmpctx, rq, (*flows)[i]),
+					    fmt_amount_msat(
+						tmpctx, linear_flow_cost(
+							    (*flows)[i], amount,
+							    delay_feefactor)));
+				}
+				rq_log(tmpctx, rq, LOG_BROKEN,
+				       "Old flows cost %s:",
+				       fmt_amount_msat(tmpctx, new_cost));
+				for (size_t i = 0; i < tal_count(new_flows);
+				     i++) {
+					rq_log(
+					    tmpctx, rq, LOG_BROKEN,
+					    "Flow %zu/%zu: %s (linear cost %s)",
+					    i, tal_count(new_flows),
+					    fmt_flow_full(tmpctx, rq,
+							  new_flows[i]),
+					    fmt_amount_msat(
+						tmpctx,
+						linear_flow_cost(
+						    new_flows[i], amount,
+						    delay_feefactor)));
+				}
+			}
+		}
+		tal_free(*flows);
+		*flows = new_flows;
+	}
+
+	if (finalcltv + flows_worst_delay(*flows) > maxdelay) {
+		ret = rq_log(
+		    ctx, rq, LOG_UNUSUAL,
+		    "Could not find route without excessive cost or delays");
+		goto fail;
+	}
+
+	/* The above did not take into account the extra funds to pay
+	 * fees, so we try to adjust now.  We could re-run MCF if this
+	 * fails, but failure basically never happens where payment is
+	 * still possible */
+	ret = refine_with_fees_and_limits(ctx, rq, amount, flows, probability);
+	if (ret)
+		goto fail;
+
+	/* Again, a tiny corner case: refine step can make us exceed maxfee */
+	if (amount_msat_greater(flowset_fee(rq->plugin, *flows), maxfee)) {
+		rq_log(tmpctx, rq, LOG_UNUSUAL,
+		       "After final refinement, fee was excessive: retrying");
+		goto too_expensive;
+	}
+
+	return NULL;
+fail:
+	assert(ret != NULL);
+	return ret;
 }
