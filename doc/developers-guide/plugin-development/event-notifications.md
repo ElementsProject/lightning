@@ -520,6 +520,22 @@ In the shutdown case, plugins should not interact with lightnind except via (id-
 }
 ```
 
+### `channel_closed`
+
+A notification for topic `channel_closed` is sent when a channel has been successfully closed with a peer. It includes the `peer_id`, `channel_id`, `short_channel_id`, `closing_txid` and the type of `cause`.
+
+```json
+{
+	"channel_closed": {
+		"peer_id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+		"channel_id": "889cf218b4bfd3275b3cfc99d4e5a794467dafb20b4557e984a20eec3b7bbeef",
+		"short_channel_id": "103x1x0",
+		"closing_txid": "dabfce5556fe902075d9c641cf3bbbf9ed34c73ab22483f33986abc62373de81",
+		"cause": "remote"
+	}
+}
+```
+
 ### `plugin_started` (v25.02 onward) 
 
 Emitted when a plugin has completed startup.
