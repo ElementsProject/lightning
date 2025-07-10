@@ -3882,7 +3882,7 @@ def test_htlc_no_force_close(node_factory, bitcoind, anchors):
         for opt in opts:
             opt['dev-force-features'] = "-23"
 
-    l1, l2, l3 = node_factory.line_graph(3, opts=opts)
+    l1, l2, l3 = node_factory.line_graph(3, opts=opts, wait_for_announce=True)
 
     MSATS = 12300000
     inv = l3.rpc.invoice(MSATS, 'label', 'description')
@@ -3911,11 +3911,11 @@ def test_htlc_no_force_close(node_factory, bitcoind, anchors):
     # l3 gets upset, drops to chain when there are < 4 blocks remaining.
     # But tx doesn't get mined...
     bitcoind.generate_block(8)
-    l3.daemon.wait_for_log("Peer permanent failure in CHANNELD_NORMAL: Fulfilled HTLC 0 SENT_REMOVE_.* cltv 114 hit deadline")
+    l3.daemon.wait_for_log("Peer permanent failure in CHANNELD_NORMAL: Fulfilled HTLC 0 SENT_REMOVE_.* cltv 119 hit deadline")
 
     # l2 closes drops the commitment tx at block 115 (one block after timeout)
     bitcoind.generate_block(4)
-    l2.daemon.wait_for_log("Peer permanent failure in CHANNELD_NORMAL: Offered HTLC 0 SENT_ADD_ACK_REVOCATION cltv 114 hit deadline")
+    l2.daemon.wait_for_log("Peer permanent failure in CHANNELD_NORMAL: Offered HTLC 0 SENT_ADD_ACK_REVOCATION cltv 119 hit deadline")
     l1.set_feerates((15000, 15000, 15000, 15000))
 
     # Two more blocks, with no htlc tx.
@@ -3926,7 +3926,7 @@ def test_htlc_no_force_close(node_factory, bitcoind, anchors):
     bitcoind.generate_block(1, needfeerate=9999999)
 
     # l2 will have abandoned l2->l3 HTLC to close l1->l2.
-    l2.daemon.wait_for_log(r'Abandoning unresolved onchain HTLC at block 117 \(expired at 114\) to avoid peer closing incoming HTLC at block 120')
+    l2.daemon.wait_for_log(r'Abandoning unresolved onchain HTLC at block 122 \(expired at 119\) to avoid peer closing incoming HTLC at block 125')
 
     # l1 should not have force-closed, htlc should be finished by l2.
     assert not l1.daemon.is_in_log('Peer permanent failure in CHANNELD_NORMAL')
