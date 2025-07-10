@@ -375,6 +375,56 @@ static void apply_layers(struct askrene *askrene, struct route_query *rq,
 		layer_clear_overridden_capacities(l, askrene->gossmap, rq->capacities);
 	}
 }
+
+/* Convert back into routes, with delay and other information fixed */
+static struct route **convert_flows_to_routes(const tal_t *ctx,
+					      struct route_query *rq,
+					      u32 finalcltv,
+					      struct flow **flows,
+					      struct amount_msat **amounts)
+{
+	struct route **routes;
+	routes = tal_arr(ctx, struct route *, tal_count(flows));
+	*amounts = tal_arr(ctx, struct amount_msat, tal_count(flows));
+
+	for (size_t i = 0; i < tal_count(flows); i++) {
+		struct route *r;
+		struct amount_msat msat;
+		u32 delay;
+
+		routes[i] = r = tal(routes, struct route);
+		r->success_prob = flow_probability(flows[i], rq);
+		r->hops = tal_arr(r, struct route_hop, tal_count(flows[i]->path));
+
+		/* Fill in backwards to calc amount and delay */
+		msat = flows[i]->delivers;
+		delay = finalcltv;
+
+		for (int j = tal_count(flows[i]->path) - 1; j >= 0; j--) {
+			struct route_hop *rh = &r->hops[j];
+			struct gossmap_node *far_end;
+			const struct half_chan *h = flow_edge(flows[i], j);
+
+			if (!amount_msat_add_fee(&msat, h->base_fee, h->proportional_fee))
+				plugin_err(rq->plugin, "Adding fee to amount");
+			delay += h->delay;
+
+			rh->scid = gossmap_chan_scid(rq->gossmap, flows[i]->path[j]);
+			rh->direction = flows[i]->dirs[j];
+			far_end = gossmap_nth_node(rq->gossmap, flows[i]->path[j], !flows[i]->dirs[j]);
+			gossmap_node_get_id(rq->gossmap, far_end, &rh->node_id);
+			rh->amount = msat;
+			rh->delay = delay;
+		}
+		(*amounts)[i] = flows[i]->delivers;
+		rq_log(tmpctx, rq, LOG_INFORM, "Flow %zu/%zu: %s",
+		       i, tal_count(flows),
+		       fmt_route(tmpctx, r, (*amounts)[i], finalcltv));
+	}
+
+	return routes;
+}
+
 /* Returns an error message, or sets *routes */
 static const char *get_routes(const tal_t *ctx,
 			      struct command *cmd,
@@ -456,44 +506,12 @@ static const char *get_routes(const tal_t *ctx,
 	rq_log(tmpctx, rq, LOG_DBG, "Final answer has %zu flows",
 	       tal_count(flows));
 
-	/* Convert back into routes, with delay and other information fixed */
-	*routes = tal_arr(ctx, struct route *, tal_count(flows));
-	*amounts = tal_arr(ctx, struct amount_msat, tal_count(flows));
-	for (size_t i = 0; i < tal_count(flows); i++) {
-		struct route *r;
-		struct amount_msat msat;
-		u32 delay;
+	/* convert flows to routes */
+	*routes = convert_flows_to_routes(rq, rq, finalcltv, flows, amounts);
+	assert(tal_count(*routes) == tal_count(flows));
+	assert(tal_count(*amounts) == tal_count(flows));
 
-		(*routes)[i] = r = tal(*routes, struct route);
-		r->success_prob = flow_probability(flows[i], rq);
-		r->hops = tal_arr(r, struct route_hop, tal_count(flows[i]->path));
-
-		/* Fill in backwards to calc amount and delay */
-		msat = flows[i]->delivers;
-		delay = finalcltv;
-
-		for (int j = tal_count(flows[i]->path) - 1; j >= 0; j--) {
-			struct route_hop *rh = &r->hops[j];
-			struct gossmap_node *far_end;
-			const struct half_chan *h = flow_edge(flows[i], j);
-
-			if (!amount_msat_add_fee(&msat, h->base_fee, h->proportional_fee))
-				plugin_err(rq->plugin, "Adding fee to amount");
-			delay += h->delay;
-
-			rh->scid = gossmap_chan_scid(rq->gossmap, flows[i]->path[j]);
-			rh->direction = flows[i]->dirs[j];
-			far_end = gossmap_nth_node(rq->gossmap, flows[i]->path[j], !flows[i]->dirs[j]);
-			gossmap_node_get_id(rq->gossmap, far_end, &rh->node_id);
-			rh->amount = msat;
-			rh->delay = delay;
-		}
-		(*amounts)[i] = flows[i]->delivers;
-		rq_log(tmpctx, rq, LOG_INFORM, "Flow %zu/%zu: %s",
-		       i, tal_count(flows),
-		       fmt_route(tmpctx, r, (*amounts)[i], finalcltv));
-	}
-
+	/* At last we remove the localmods from the gossmap. */
 	gossmap_remove_localmods(askrene->gossmap, localmods);
 	time_delta = timemono_between(time_mono(), time_start);
 	rq_log(tmpctx, rq, LOG_DBG, "get_routes completed in %" PRIu64 " ms",
