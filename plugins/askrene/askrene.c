@@ -333,9 +333,9 @@ const char *fmt_flow_full(const tal_t *ctx,
 
 struct getroutes_info {
 	struct command *cmd;
-	struct node_id *source, *dest;
-	struct amount_msat *amount, *maxfee;
-	u32 *finalcltv, *maxdelay;
+	struct node_id source, dest;
+	struct amount_msat amount, maxfee;
+	u32 finalcltv, maxdelay;
 	const char **layers;
 	struct additional_cost_htable *additional_costs;
 	/* Non-NULL if we are told to use "auto.localchans" */
@@ -527,7 +527,7 @@ static struct command_result *do_getroutes(struct command *cmd,
 	rq->additional_costs = info->additional_costs;
 
 	/* apply selected layers to the localmods */
-	apply_layers(askrene, rq, info->source, *info->amount, localmods,
+	apply_layers(askrene, rq, &info->source, info->amount, localmods,
 		     info->layers, info->local_layer);
 
 	/* Clear scids with reservations, too, so we don't have to look up
@@ -549,30 +549,30 @@ static struct command_result *do_getroutes(struct command *cmd,
 
 	/* checkout the source */
 	const struct gossmap_node *srcnode =
-	    gossmap_find_node(askrene->gossmap, info->source);
+	    gossmap_find_node(askrene->gossmap, &info->source);
 	if (!srcnode) {
 		err = rq_log(tmpctx, rq, LOG_INFORM, "Unknown source node %s",
-			     fmt_node_id(tmpctx, info->source));
+			     fmt_node_id(tmpctx, &info->source));
 		goto fail;
 	}
 
 	/* checkout the destination */
 	const struct gossmap_node *dstnode =
-	    gossmap_find_node(askrene->gossmap, info->dest);
+	    gossmap_find_node(askrene->gossmap, &info->dest);
 	if (!dstnode) {
 		err = rq_log(tmpctx, rq, LOG_INFORM,
 			     "Unknown destination node %s",
-			     fmt_node_id(tmpctx, info->dest));
+			     fmt_node_id(tmpctx, &info->dest));
 		goto fail;
 	}
 
 	/* Compute the routes. At this point we might select between multiple
 	 * algorithms. */
 	struct timemono time_start = time_mono();
-	err = default_routes(rq, rq, srcnode, dstnode, *info->amount,
+	err = default_routes(rq, rq, srcnode, dstnode, info->amount,
 			     /* only one path? = */
 			     have_layer(info->layers, "auto.no_mpp_support"),
-			     *info->maxfee, *info->finalcltv, *info->maxdelay,
+			     info->maxfee, info->finalcltv, info->maxdelay,
 			     &flows, &probability);
 	struct timerel time_delta = timemono_between(time_mono(), time_start);
 
@@ -589,7 +589,7 @@ static struct command_result *do_getroutes(struct command *cmd,
 	       tal_count(flows));
 
 	/* convert flows to routes */
-	routes = convert_flows_to_routes(rq, rq, *info->finalcltv, flows,
+	routes = convert_flows_to_routes(rq, rq, info->finalcltv, flows,
 					 &amounts);
 	assert(tal_count(routes) == tal_count(flows));
 	assert(tal_count(amounts) == tal_count(flows));
@@ -600,7 +600,7 @@ static struct command_result *do_getroutes(struct command *cmd,
 	/* output the results */
 	response = jsonrpc_stream_success(cmd);
 	json_add_getroutes(response, routes, amounts, probability,
-			   *info->finalcltv);
+			   info->finalcltv);
 	return command_finished(cmd, response);
 
 fail:
@@ -718,36 +718,46 @@ static struct command_result *json_getroutes(struct command *cmd,
 	/* FIXME: Typo in spec for CLTV in descripton! But it breaks our spelling check, so we omit it above */
 	const u32 maxdelay_allowed = 2016;
 	struct getroutes_info *info = tal(cmd, struct getroutes_info);
+	/* param functions require pointers */
+	struct node_id *source, *dest;
+	struct amount_msat *amount, *maxfee;
+	u32 *finalcltv, *maxdelay;
 
 	if (!param_check(cmd, buffer, params,
-			 p_req("source", param_node_id, &info->source),
-			 p_req("destination", param_node_id, &info->dest),
-			 p_req("amount_msat", param_msat, &info->amount),
+			 p_req("source", param_node_id, &source),
+			 p_req("destination", param_node_id, &dest),
+			 p_req("amount_msat", param_msat, &amount),
 			 p_req("layers", param_layer_names, &info->layers),
-			 p_req("maxfee_msat", param_msat, &info->maxfee),
-			 p_req("final_cltv", param_u32, &info->finalcltv),
-			 p_opt_def("maxdelay", param_u32, &info->maxdelay,
+			 p_req("maxfee_msat", param_msat, &maxfee),
+			 p_req("final_cltv", param_u32, &finalcltv),
+			 p_opt_def("maxdelay", param_u32, &maxdelay,
 				   maxdelay_allowed),
 			 NULL))
 		return command_param_failed();
 	plugin_log(cmd->plugin, LOG_TRACE, "%s called: %.*s", __func__,
 		   json_tok_full_len(params), json_tok_full(buffer, params));
 
-	if (amount_msat_is_zero(*info->amount)) {
+	if (amount_msat_is_zero(*amount)) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "amount must be non-zero");
 	}
 
-	if (command_check_only(cmd))
-		return command_check_done(cmd);
-
-	if (*info->maxdelay > maxdelay_allowed) {
+	if (*maxdelay > maxdelay_allowed) {
 		return command_fail(cmd, PAY_USER_ERROR,
 				    "maximum delay allowed is %d",
 				    maxdelay_allowed);
 	}
 
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
+
 	info->cmd = cmd;
+	info->source = *source;
+	info->dest = *dest;
+	info->amount = *amount;
+	info->maxfee = *maxfee;
+	info->finalcltv = *finalcltv;
+	info->maxdelay = *maxdelay;
 	info->additional_costs = tal(info, struct additional_cost_htable);
 	additional_cost_htable_init(info->additional_costs);
 
