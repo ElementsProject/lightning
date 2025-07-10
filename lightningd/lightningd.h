@@ -215,6 +215,8 @@ struct lightningd {
 	struct peer_node_id_map *peers;
 	/* And those in database by dbid */
 	struct peer_dbid_map *peers_by_dbid;
+	/* Here are all our channels and their aliases */
+	struct channel_scid_map *channels_by_scid;
 
 	/* Outstanding connect commands. */
 	struct list_head connects;

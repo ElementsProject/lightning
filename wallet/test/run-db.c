@@ -188,6 +188,7 @@ struct channel *new_channel(struct peer *peer UNNEEDED, u64 dbid UNNEEDED,
 			    bool remote_channel_ready UNNEEDED,
 			    /* NULL or stolen */
 			    struct short_channel_id *scid STEALS UNNEEDED,
+			    struct short_channel_id *old_scids TAKES UNNEEDED,
 			    struct short_channel_id *alias_local STEALS UNNEEDED,
 			    struct short_channel_id *alias_remote STEALS UNNEEDED,
 			    struct channel_id *cid UNNEEDED,
