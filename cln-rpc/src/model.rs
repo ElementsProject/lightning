@@ -10794,7 +10794,17 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct HelpHelpClnrest {
+	    pub content_type: String,
+	    pub method: String,
+	    pub path: String,
+	    pub rune: bool,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct HelpHelp {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub clnrest: Option<HelpHelpClnrest>,
 	    pub command: String,
 	}
 
