@@ -331,6 +331,17 @@ const char *fmt_flow_full(const tal_t *ctx,
 	return str;
 }
 
+struct getroutes_info {
+	struct command *cmd;
+	struct node_id *source, *dest;
+	struct amount_msat *amount, *maxfee;
+	u32 *finalcltv, *maxdelay;
+	const char **layers;
+	struct additional_cost_htable *additional_costs;
+	/* Non-NULL if we are told to use "auto.localchans" */
+	struct layer *local_layer;
+};
+
 /* Returns an error message, or sets *routes */
 static const char *get_routes(const tal_t *ctx,
 			      struct command *cmd,
@@ -526,17 +537,6 @@ void get_constraints(const struct route_query *rq,
 	reserve_sub(rq->reserved, &scidd, min);
 	reserve_sub(rq->reserved, &scidd, max);
 }
-
-struct getroutes_info {
-	struct command *cmd;
-	struct node_id *source, *dest;
-	struct amount_msat *amount, *maxfee;
-	u32 *finalcltv, *maxdelay;
-	const char **layers;
-	struct additional_cost_htable *additional_costs;
-	/* Non-NULL if we are told to use "auto.localchans" */
-	struct layer *local_layer;
-};
 
 static struct command_result *do_getroutes(struct command *cmd,
 					   struct gossmap_localmods *localmods,
