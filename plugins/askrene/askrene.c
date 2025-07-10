@@ -342,6 +342,39 @@ struct getroutes_info {
 	struct layer *local_layer;
 };
 
+static void apply_layers(struct askrene *askrene, struct route_query *rq,
+			 const struct node_id *source,
+			 struct amount_msat amount,
+			 struct gossmap_localmods *localmods,
+			 const char **layers,
+			 const struct layer *local_layer)
+{
+	/* Layers must exist, but might be special ones! */
+	for (size_t i = 0; i < tal_count(layers); i++) {
+		const struct layer *l = find_layer(askrene, layers[i]);
+		if (!l) {
+			if (streq(layers[i], "auto.localchans")) {
+				plugin_log(rq->plugin, LOG_DBG, "Adding auto.localchans");
+				l = local_layer;
+			} else if (streq(layers[i], "auto.no_mpp_support")) {
+				plugin_log(rq->plugin, LOG_DBG, "Adding auto.no_mpp_support, sorry");
+				l = remove_small_channel_layer(layers, askrene, amount, localmods);
+			} else {
+				assert(streq(layers[i], "auto.sourcefree"));
+				plugin_log(rq->plugin, LOG_DBG, "Adding auto.sourcefree");
+				l = source_free_layer(layers, askrene, source, localmods);
+			}
+		}
+
+		tal_arr_expand(&rq->layers, l);
+		/* FIXME: Implement localmods_merge, and cache this in layer? */
+		layer_add_localmods(l, rq->gossmap, localmods);
+
+		/* Clear any entries in capacities array if we
+		 * override them (incl local channels) */
+		layer_clear_overridden_capacities(l, askrene->gossmap, rq->capacities);
+	}
+}
 /* Returns an error message, or sets *routes */
 static const char *get_routes(const tal_t *ctx,
 			      struct command *cmd,
@@ -382,31 +415,7 @@ static const char *get_routes(const tal_t *ctx,
 	rq->capacities = tal_dup_talarr(rq, fp16_t, askrene->capacities);
 	rq->additional_costs = additional_costs;
 
-	/* Layers must exist, but might be special ones! */
-	for (size_t i = 0; i < tal_count(layers); i++) {
-		const struct layer *l = find_layer(askrene, layers[i]);
-		if (!l) {
-			if (streq(layers[i], "auto.localchans")) {
-				plugin_log(rq->plugin, LOG_DBG, "Adding auto.localchans");
-				l = local_layer;
-			} else if (streq(layers[i], "auto.no_mpp_support")) {
-				plugin_log(rq->plugin, LOG_DBG, "Adding auto.no_mpp_support, sorry");
-				l = remove_small_channel_layer(layers, askrene, amount, localmods);
-			} else {
-				assert(streq(layers[i], "auto.sourcefree"));
-				plugin_log(rq->plugin, LOG_DBG, "Adding auto.sourcefree");
-				l = source_free_layer(layers, askrene, source, localmods);
-			}
-		}
-
-		tal_arr_expand(&rq->layers, l);
-		/* FIXME: Implement localmods_merge, and cache this in layer? */
-		layer_add_localmods(l, rq->gossmap, localmods);
-
-		/* Clear any entries in capacities array if we
-		 * override them (incl local channels) */
-		layer_clear_overridden_capacities(l, askrene->gossmap, rq->capacities);
-	}
+	apply_layers(askrene, rq, source, amount, localmods, layers, local_layer);
 
 	/* Clear scids with reservations, too, so we don't have to look up
 	 * all the time! */
