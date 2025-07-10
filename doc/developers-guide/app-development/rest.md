@@ -33,13 +33,6 @@ An online demo for the REST interface is available at [REST API REFERENCE](ref:g
 > Note: This setup is for **testing only**. It is **highly recommended** to test with _non-mainnet_ (regtest/testnet) setup only.
 
 
-## Installation
-
-Note: if you have the older c-lightning-REST plugin, you can configure Core Lightning with `disable-plugin=clnrest`
-option to avoid confusion with this one. You can also run both plugins simultaneously till all your applications
-are not migrated to `clnrest`.
-
-
 ## Configuration
 
 If `clnrest-port` is not specified, the plugin will disable itself.
