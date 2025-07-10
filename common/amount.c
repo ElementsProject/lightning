@@ -532,6 +532,13 @@ struct amount_msat amount_msat_div(struct amount_msat msat, u64 div)
 	return msat;
 }
 
+struct amount_msat amount_msat_div_ceil(struct amount_msat msat, u64 div)
+{
+	u64 res = msat.millisatoshis / div;
+	msat.millisatoshis = res + (div * res == msat.millisatoshis ? 0 : 1);
+	return msat;
+}
+
 struct amount_sat amount_sat_div(struct amount_sat sat, u64 div)
 {
 	sat.satoshis /= div;
