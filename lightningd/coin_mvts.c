@@ -6,42 +6,20 @@
 #include <lightningd/peer_control.h>
 
 
-void notify_channel_mvt(struct lightningd *ld, const struct channel_coin_mvt *mvt)
-{
-	const struct coin_mvt *cm;
-	u32 timestamp;
-
-	timestamp = time_now().ts.tv_sec;
-	cm = finalize_channel_mvt(mvt, mvt, chainparams->lightning_hrp,
-				  timestamp, &ld->our_nodeid);
-
-	notify_coin_mvt(ld, cm);
-}
-
-void notify_chain_mvt(struct lightningd *ld, const struct chain_coin_mvt *mvt)
-{
-	const struct coin_mvt *cm;
-	u32 timestamp;
-
-	timestamp = time_now().ts.tv_sec;
-	cm = finalize_chain_mvt(mvt, mvt, chainparams->lightning_hrp,
-				timestamp, &ld->our_nodeid);
-	notify_coin_mvt(ld, cm);
-}
-
 struct channel_coin_mvt *new_channel_mvt_invoice_hin(const tal_t *ctx,
-						     struct htlc_in *hin,
-						     struct channel *channel)
+						     const struct htlc_in *hin,
+						     const struct channel *channel)
 {
-	return new_channel_coin_mvt(ctx, &channel->cid,
-				    &hin->payment_hash, NULL,
-				    hin->msat, new_tag_arr(ctx, INVOICE),
-				    true, AMOUNT_MSAT(0));
+	return new_channel_coin_mvt(ctx, channel,
+				    &hin->payment_hash, NULL, NULL,
+				    COIN_CREDIT, hin->msat,
+				    mk_mvt_tags(MVT_INVOICE),
+				    AMOUNT_MSAT(0));
 }
 
 struct channel_coin_mvt *new_channel_mvt_routed_hin(const tal_t *ctx,
-						    struct htlc_in *hin,
-						    struct channel *channel)
+						    const struct htlc_in *hin,
+						    const struct channel *channel)
 {
 	struct amount_msat fees_collected;
 
@@ -52,30 +30,34 @@ struct channel_coin_mvt *new_channel_mvt_routed_hin(const tal_t *ctx,
 			     hin->payload->amt_to_forward))
 		return NULL;
 
-	return new_channel_coin_mvt(ctx, &channel->cid,
-				    &hin->payment_hash, NULL,
-				    hin->msat, new_tag_arr(ctx, ROUTED),
-				    true, fees_collected);
+	return new_channel_coin_mvt(ctx, channel,
+				    &hin->payment_hash, NULL, NULL,
+				    COIN_CREDIT, hin->msat,
+				    mk_mvt_tags(MVT_ROUTED),
+				    fees_collected);
 }
 
 struct channel_coin_mvt *new_channel_mvt_invoice_hout(const tal_t *ctx,
-						      struct htlc_out *hout,
-						      struct channel *channel)
+						      const struct htlc_out *hout,
+						      const struct channel *channel)
 {
-	return new_channel_coin_mvt(ctx, &channel->cid,
-				    &hout->payment_hash, &hout->partid,
-				    hout->msat, new_tag_arr(ctx, INVOICE),
-				    false, hout->fees);
+	return new_channel_coin_mvt(ctx, channel,
+				    &hout->payment_hash,
+				    &hout->partid,
+				    &hout->groupid,
+				    COIN_DEBIT, hout->msat,
+				    mk_mvt_tags(MVT_INVOICE),
+				    hout->fees);
 }
 
 struct channel_coin_mvt *new_channel_mvt_routed_hout(const tal_t *ctx,
-						     struct htlc_out *hout,
-						     struct channel *channel)
+						     const struct htlc_out *hout,
+						     const struct channel *channel)
 {
-	return new_channel_coin_mvt(ctx, &channel->cid,
-				    &hout->payment_hash, NULL,
-				    hout->msat, new_tag_arr(ctx, ROUTED),
-				    false,
+	return new_channel_coin_mvt(ctx, channel,
+				    &hout->payment_hash, NULL, NULL,
+				    COIN_DEBIT, hout->msat,
+				    mk_mvt_tags(MVT_ROUTED),
 				    hout->fees);
 }
 
