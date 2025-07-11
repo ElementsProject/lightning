@@ -821,6 +821,9 @@ class InferInstall():
             for tier in range(0, 10):
                 # Look for each installers preferred entrypoint format first
                 for inst in INSTALLERS:
+                    # All of this installer's entrypoint options exhausted.
+                    if tier >= len(inst.entries):
+                        continue
                     fmt = inst.entries[tier]
                     if '{name}' in fmt:
                         pre = fmt.split('{name}')[0]
