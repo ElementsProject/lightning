@@ -604,7 +604,7 @@ def test_xpay_zeroconf(node_factory):
     l1, l2 = node_factory.get_nodes(2,
                                     opts=[{},
                                           {'plugin': zeroconf_plugin,
-                                           'zeroconf-allow': 'any'}])
+                                           'zeroconf_allow': 'any'}])
 
     l1.fundwallet(FUNDAMOUNT * 2)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)

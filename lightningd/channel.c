@@ -242,6 +242,16 @@ struct open_attempt *new_channel_open_attempt(struct channel *channel)
 	return oa;
 }
 
+struct channel_type *desired_channel_type(const tal_t *ctx,
+					  const struct feature_set *our_features,
+					  const u8 *their_features)
+{
+	if (feature_negotiated(our_features, their_features,
+			       OPT_ANCHORS_ZERO_FEE_HTLC_TX))
+		return channel_type_anchors_zero_fee_htlc(ctx);
+	return channel_type_static_remotekey(ctx);
+}
+
 struct channel *new_unsaved_channel(struct peer *peer,
 				    u32 feerate_base,
 				    u32 feerate_ppm)
@@ -305,7 +315,7 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	channel->close_blockheight = NULL;
 	/* In case someone looks at channels before open negotiation,
 	 * initialize this with default */
-	channel->type = default_channel_type(channel,
+	channel->type = desired_channel_type(channel,
 					     ld->our_features,
 					     peer->their_features);
 
