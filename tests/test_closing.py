@@ -4056,6 +4056,7 @@ def test_peer_anchor_push(node_factory, bitcoind, executor, chainparams):
         l2.daemon.wait_for_log("sendrawtx exit 0")
         # Check feerate for entire package (commitment tx + anchor) is ~ correct
         details = bitcoind.rpc.getrawmempool(True).values()
+        print(f"mempool = {details}")
         total_weight = sum([d['weight'] for d in details])
         total_fees = sum([float(d['fees']['base']) * 100_000_000 for d in details])
         total_feerate_perkw = total_fees / total_weight * 1000
