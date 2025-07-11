@@ -47,8 +47,7 @@ void json_add_uncommitted_channel(struct command *cmd,
 	json_object_start(response, NULL);
 	json_add_node_id(response, "peer_id", &peer->id);
 	json_add_bool(response, "peer_connected", peer->connected == PEER_CONNECTED);
-	if (uc->fc->channel_type)
-			json_add_channel_type(response, "channel_type", uc->fc->channel_type);
+	json_add_channel_type(response, "channel_type", uc->fc->channel_type);
 	json_add_string(response, "state", "OPENINGD");
 	json_add_string(response, "owner", "lightning_openingd");
 	json_add_string(response, "opener", "local");
@@ -331,6 +330,10 @@ static void opening_funder_start_replied(struct subd *openingd, const u8 *resp,
 					 struct funding_channel *fc)
 {
 	bool supports_shutdown_script;
+
+	/* It will tell us the resulting channel type (which can vary
+	 * by ZEROCONF and SCID_ALIAS), so free old one */
+	tal_free(fc->channel_type);
 
 	if (!fromwire_openingd_funder_start_reply(fc, resp,
 						  &fc->funding_scriptpubkey,
@@ -1297,7 +1300,7 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 			}
 		}
 	} else {
-		fc->channel_type = NULL;
+		fc->channel_type = NULL; /* set later */
 	}
 
 	if (!mindepth)
@@ -1389,6 +1392,11 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
 
+	/* Now we know the peer, we can derive the channel type to ask for */
+	if (!fc->channel_type)
+		fc->channel_type = desired_channel_type(fc, cmd->ld->our_features,
+							peer->their_features);
+
 	fc->push = push_msat ? *push_msat : AMOUNT_MSAT(0);
 	fc->channel_flags = OUR_CHANNEL_FLAGS;
 	if (!*announce_channel) {
@@ -1426,7 +1434,7 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 			&tmp_channel_id,
 			fc->channel_flags,
 			reserve,
-			ctype);
+			fc->channel_type);
 
 	if (!topology_synced(cmd->ld->topology)) {
 		struct fundchannel_start_info *info

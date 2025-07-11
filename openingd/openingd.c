@@ -294,7 +294,7 @@ static bool intuit_scid_alias_type(struct state *state, u8 channel_flags)
  * stop when we get to the part where we need the funding txid */
 static u8 *funder_channel_start(struct state *state, u8 channel_flags,
 				u32 nonanchor_feerate, u32 anchor_feerate,
-				const struct channel_type *ctype)
+				const struct channel_type *ctype TAKES)
 {
 	u8 *msg;
 	u8 *funding_output_script;
@@ -323,28 +323,12 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags,
 						     state->our_features,
 						     state->their_features);
 
-	if (ctype) {
-		state->channel_type = channel_type_dup(state, ctype);
-	} else {
-		state->channel_type = default_channel_type(state,
-							   state->our_features,
-							   state->their_features);
-
-		/* Spec says we should use the option_scid_alias variation if we
-		 * want them to *only* use the scid_alias (which we do for unannounced
-		 * channels!).
-		 *
-		 * But:
-		 * 1. We didn't accept this in CLN prior to v23.05.
-		 * 2. LND won't accept that without OPT_ANCHORS_ZERO_FEE_HTLC_TX.
-		 * 3. LND <= 18 won't accept OPT_SCID_ALIAS unless it advertizes it,
-		 *    which it does not by default.
-		 */
-		if (channel_type_has(state->channel_type, OPT_ANCHORS_ZERO_FEE_HTLC_TX)
-		    && feature_offered(state->their_features, OPT_SCID_ALIAS)) {
-			if (!(channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL))
-				channel_type_set_scid_alias(state->channel_type);
-		}
+	state->channel_type = channel_type_dup(state, ctype);
+	/* We set scid alias if we're not announcing */
+	if (feature_negotiated(state->our_features, state->their_features,
+			       OPT_SCID_ALIAS)
+	    && !(channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL)) {
+		channel_type_set_scid_alias(state->channel_type);
 	}
 
 	/* Which feerate do we use?  (We can lowball fees if using anchors!) */
@@ -569,7 +553,7 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags,
 		    "We negotiated option_zeroconf, using our minimum_depth=%d",
 		    state->minimum_depth);
 		/* We set this now to show we're zeroconf */
-		if (their_mindepth == 0 && !ctype)
+		if (their_mindepth == 0)
 			channel_type_set_zeroconf(state->channel_type);
 	} else {
 		state->minimum_depth = their_mindepth;
