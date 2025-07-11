@@ -73,5 +73,16 @@ FUZZ_COMMON_OBJS := \
 $(FUZZ_TARGETS_OBJS): $(COMMON_HEADERS) $(WIRE_HEADERS) $(COMMON_SRC)
 $(FUZZ_TARGETS_BIN): $(LIBFUZZ_OBJS) $(FUZZ_COMMON_OBJS) $(BITCOIN_OBJS)
 
+tests/fuzz/fuzz-open_channel:	common/shutdown_scriptpubkey.o		\
+				common/penalty_base.o			\
+				common/read_peer_msg.o			\
+				common/peer_io.o			\
+				common/peer_billboard.o			\
+				common/peer_status_wiregen.o		\
+				common/per_peer_state.o			\
+				openingd/common.o			\
+				openingd/openingd_wiregen.o		\
+				hsmd/hsmd_wiregen.o
+
 ALL_C_SOURCES += $(FUZZ_TARGETS_SRC) $(LIBFUZZ_SRC)
 ALL_FUZZ_TARGETS += $(FUZZ_TARGETS_BIN)
