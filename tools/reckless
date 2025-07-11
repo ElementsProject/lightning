@@ -986,6 +986,37 @@ def cargo_installation(cloned_plugin: InstInfo):
     return cloned_plugin
 
 
+def install_python_uv(cloned_plugin: InstInfo):
+    """This uses the rust-based python plugin manager uv to manage the python
+    installation and create a virtual environment."""
+
+    source = Path(cloned_plugin.source_loc) / 'source' / cloned_plugin.name
+    # This virtual env path matches the other python installations and allows
+    # creating the wrapper in the same manner. Otherwise uv would build it in
+    # the source/{name} subdirectory.
+    cloned_plugin.venv = Path('.venv')
+
+    # We want the virtual env at the head of our directory structure and uv
+    # will need a pyproject.toml there in order to get started.
+    (Path(cloned_plugin.source_loc) / 'pyproject.toml').\
+        symlink_to(source / 'pyproject.toml')
+
+    call = ['uv', '-v', 'sync']
+    uv = run(call, cwd=str(cloned_plugin.source_loc), stdout=PIPE, stderr=PIPE,
+             text=True, check=False)
+    if uv.returncode != 0:
+        for line in uv.stderr.splitlines():
+            log.debug(line)
+        log.error('Failed to install virtual environment')
+        raise InstallationFailure('Failed to create virtual environment!')
+
+    # Delete entrypoint symlink so that a venv wrapper can take it's place
+    (Path(cloned_plugin.source_loc) / cloned_plugin.entry).unlink()
+
+    create_wrapper(cloned_plugin)
+    return cloned_plugin
+
+
 python3venv = Installer('python3venv', exe='python3',
                         manager='pip', entry='{name}.py')
 python3venv.add_entrypoint('{name}')
@@ -997,6 +1028,7 @@ poetryvenv = Installer('poetryvenv', exe='python3',
                        manager='poetry', entry='{name}.py')
 poetryvenv.add_entrypoint('{name}')
 poetryvenv.add_entrypoint('__init__.py')
+poetryvenv.add_dependency_file('poetry.lock')
 poetryvenv.add_dependency_file('pyproject.toml')
 poetryvenv.dependency_call = install_to_python_virtual_environment
 
@@ -1007,6 +1039,9 @@ pyprojectViaPip.add_entrypoint('__init__.py')
 pyprojectViaPip.add_dependency_file('pyproject.toml')
 pyprojectViaPip.dependency_call = install_to_python_virtual_environment
 
+pythonuv = Installer('pythonuv', exe='python3', manager='uv', entry="{name}.py")
+pythonuv.add_dependency_file('uv.lock')
+pythonuv.dependency_call = install_python_uv
 
 # Nodejs plugin installer
 nodejs = Installer('nodejs', exe='node',
@@ -1020,7 +1055,8 @@ rust_cargo = Installer('rust', manager='cargo', entry='Cargo.toml')
 rust_cargo.add_dependency_file('Cargo.toml')
 rust_cargo.dependency_call = cargo_installation
 
-INSTALLERS = [python3venv, poetryvenv, pyprojectViaPip, nodejs, rust_cargo]
+INSTALLERS = [pythonuv, python3venv, poetryvenv, pyprojectViaPip, nodejs,
+              rust_cargo]
 
 
 def help_alias(targets: list):
