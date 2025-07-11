@@ -39,13 +39,19 @@ There are four kinds of tests:
 
 - **blackbox tests** - These tests setup a mini-regtest environment and test lightningd as a whole.  They can be run individually:
 
-  `PYTHONPATH=contrib/pyln-client:contrib/pyln-testing:contrib/pyln-proto:contrib/pyln-grpc-proto py.test -v tests/`
+  `uv run python -m pytest -v tests/`
+  
+  Note: For testing that requires grpc functionality, ensure you have the grpc extras installed: `uv sync --extra grpc`
 
   You can also append `-k TESTNAME` to run a single test.  Environment variables `DEBUG_SUBD=[<path>:]<subdaemon>` (where path must match the end of the lightning daemon path, for matching only one of several lightningd instances) and `TIMEOUT=<seconds>` can be useful for debugging subdaemons on individual tests, and `DEBUG_LIGHTNINGD` for attaching a debugger to each `lightningd` instance created.
 
   Alternatively, to run a specific test via the `Makefile`, you can specify the test by setting the environment variable `PYTEST_TESTS`:
 
   `PYTEST_TESTS="tests/test_askrene.py::test_layers" make pytest`
+  
+  Or run tests directly with uv:
+  
+  `uv run python -m pytest tests/test_askrene.py::test_layers -v`
 
 - **pylightning tests** - will check contrib pylightning for codestyle and run the tests in `contrib/pylightning/tests` afterwards:
 
