@@ -899,5 +899,9 @@ const u8 *channel_update_for_error(const tal_t *ctx,
 
 struct amount_msat htlc_max_possible_send(const struct channel *channel);
 
+/* Given features, what channel_type do we want? */
+struct channel_type *desired_channel_type(const tal_t *ctx,
+					  const struct feature_set *our_features,
+					  const u8 *their_features);
 
 #endif /* LIGHTNING_LIGHTNINGD_CHANNEL_H */

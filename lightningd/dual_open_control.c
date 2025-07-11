@@ -3249,8 +3249,11 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 				    "by peer");
 	}
 
-	if (info->ctype &&
-	    !cmd->ld->dev_any_channel_type &&
+	if (!info->ctype)
+		info->ctype = desired_channel_type(info, cmd->ld->our_features,
+						   peer->their_features);
+
+	if (!cmd->ld->dev_any_channel_type &&
 	    !channel_type_accept(tmpctx,
 				 info->ctype->features,
 				 cmd->ld->our_features)) {
@@ -3882,7 +3885,9 @@ static struct command_result *json_queryrates(struct command *cmd,
 						NULL : request_amt,
 					   get_block_height(cmd->ld->topology),
 					   true,
-					   NULL, NULL);
+					   desired_channel_type(tmpctx, cmd->ld->our_features,
+								peer->their_features),
+					   NULL);
 
 	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
 		return command_fail(cmd, FUND_MAX_EXCEEDED,

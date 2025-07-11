@@ -21,11 +21,6 @@ struct channel_type *channel_type_dup(const tal_t *ctx,
 struct channel_type *channel_type_from(const tal_t *ctx,
 				       const u8 *features TAKES);
 
-/* Derive channel type from feature negotiation */
-struct channel_type *default_channel_type(const tal_t *ctx,
-					  const struct feature_set *our_features,
-					  const u8 *their_features);
-
 /* Does this type include this feature? */
 bool channel_type_has(const struct channel_type *type, int feature);
 
