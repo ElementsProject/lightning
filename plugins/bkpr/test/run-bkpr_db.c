@@ -112,10 +112,11 @@ bool is_asterix_notification(const char *notification_name UNNEEDED,
 const char *json_get_id(const tal_t *ctx UNNEEDED,
 			const char *buffer UNNEEDED, const jsmntok_t *obj UNNEEDED)
 { fprintf(stderr, "json_get_id called!\n"); abort(); }
-/* Generated stub for json_get_member */
-const jsmntok_t *json_get_member(const char *buffer UNNEEDED, const jsmntok_t tok[] UNNEEDED,
-				 const char *label UNNEEDED)
-{ fprintf(stderr, "json_get_member called!\n"); abort(); }
+/* Generated stub for json_get_membern */
+const jsmntok_t *json_get_membern(const char *buffer UNNEEDED,
+				  const jsmntok_t tok[] UNNEEDED,
+				  const char *label UNNEEDED, size_t len UNNEEDED)
+{ fprintf(stderr, "json_get_membern called!\n"); abort(); }
 /* Generated stub for json_next */
 const jsmntok_t *json_next(const jsmntok_t *tok UNNEEDED)
 { fprintf(stderr, "json_next called!\n"); abort(); }
@@ -194,9 +195,10 @@ int json_tok_full_len(const jsmntok_t *t UNNEEDED)
 void json_tok_remove(jsmntok_t **tokens UNNEEDED,
 		     jsmntok_t *obj_or_array UNNEEDED, const jsmntok_t *tok UNNEEDED, size_t num UNNEEDED)
 { fprintf(stderr, "json_tok_remove called!\n"); abort(); }
-/* Generated stub for json_tok_streq */
-bool json_tok_streq(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, const char *str UNNEEDED)
-{ fprintf(stderr, "json_tok_streq called!\n"); abort(); }
+/* Generated stub for json_tok_strneq */
+bool json_tok_strneq(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+		     const char *str UNNEEDED, size_t len UNNEEDED)
+{ fprintf(stderr, "json_tok_strneq called!\n"); abort(); }
 /* Generated stub for last_fee_state */
 enum htlc_state last_fee_state(enum side opener UNNEEDED)
 { fprintf(stderr, "last_fee_state called!\n"); abort(); }

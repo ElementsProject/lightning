@@ -579,10 +579,11 @@ void json_array_end(struct json_stream *js UNNEEDED)
 /* Generated stub for json_array_start */
 void json_array_start(struct json_stream *js UNNEEDED, const char *fieldname UNNEEDED)
 { fprintf(stderr, "json_array_start called!\n"); abort(); }
-/* Generated stub for json_get_member */
-const jsmntok_t *json_get_member(const char *buffer UNNEEDED, const jsmntok_t tok[] UNNEEDED,
-				 const char *label UNNEEDED)
-{ fprintf(stderr, "json_get_member called!\n"); abort(); }
+/* Generated stub for json_get_membern */
+const jsmntok_t *json_get_membern(const char *buffer UNNEEDED,
+				  const jsmntok_t tok[] UNNEEDED,
+				  const char *label UNNEEDED, size_t len UNNEEDED)
+{ fprintf(stderr, "json_get_membern called!\n"); abort(); }
 /* Generated stub for json_next */
 const jsmntok_t *json_next(const jsmntok_t *tok UNNEEDED)
 { fprintf(stderr, "json_next called!\n"); abort(); }
@@ -636,9 +637,10 @@ bool json_tok_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEE
 /* Generated stub for json_tok_full */
 const char *json_tok_full(const char *buffer UNNEEDED, const jsmntok_t *t UNNEEDED)
 { fprintf(stderr, "json_tok_full called!\n"); abort(); }
-/* Generated stub for json_tok_streq */
-bool json_tok_streq(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, const char *str UNNEEDED)
-{ fprintf(stderr, "json_tok_streq called!\n"); abort(); }
+/* Generated stub for json_tok_strneq */
+bool json_tok_strneq(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+		     const char *str UNNEEDED, size_t len UNNEEDED)
+{ fprintf(stderr, "json_tok_strneq called!\n"); abort(); }
 /* Generated stub for kill_uncommitted_channel */
 void kill_uncommitted_channel(struct uncommitted_channel *uc UNNEEDED,
 			      const char *why UNNEEDED)

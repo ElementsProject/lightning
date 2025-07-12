@@ -14,12 +14,16 @@ const char *json_tok_full(const char *buffer, const jsmntok_t *t);
 /* Include " if it's a string. */
 int json_tok_full_len(const jsmntok_t *t);
 
-/* Is this a string equal to str? */
-bool json_tok_streq(const char *buffer, const jsmntok_t *tok, const char *str);
-
 /* Is this a string equal to str of length len? */
 bool json_tok_strneq(const char *buffer, const jsmntok_t *tok,
 		     const char *str, size_t len);
+
+/* Is this a string equal to str? */
+static inline bool json_tok_streq(const char *buffer, const jsmntok_t *tok,
+				  const char *str)
+{
+	return json_tok_strneq(buffer, tok, str, strlen(str));
+}
 
 /* Does this string token start with prefix? */
 bool json_tok_startswith(const char *buffer, const jsmntok_t *tok,
@@ -66,8 +70,12 @@ const jsmntok_t *json_get_membern(const char *buffer,
 				  const char *label, size_t len);
 
 /* Get top-level member. */
-const jsmntok_t *json_get_member(const char *buffer, const jsmntok_t tok[],
-				 const char *label);
+static inline const jsmntok_t *json_get_member(const char *buffer,
+					       const jsmntok_t tok[],
+					       const char *label)
+{
+	return json_get_membern(buffer, tok, label, strlen(label));
+}
 
 /* Get index'th array member. */
 const jsmntok_t *json_get_arr(const jsmntok_t tok[], size_t index);
