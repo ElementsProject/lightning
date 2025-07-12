@@ -4,7 +4,7 @@
 VERSION=$(shell git describe --tags --always --dirty=-modded --abbrev=7 2>/dev/null || pwd | sed -n 's|.*/c\{0,1\}lightning-v\{0,1\}\([0-9a-f.rc\-]*\)$$|v\1|gp')
 
 # Next release.
-CLN_NEXT_VERSION := v25.05
+CLN_NEXT_VERSION := v25.09
 
 # --quiet / -s means quiet, dammit!
 ifeq ($(findstring s,$(word 1, $(MAKEFLAGS))),s)
@@ -26,7 +26,7 @@ CCANDIR := ccan
 
 # Where we keep the BOLT RFCs
 BOLTDIR := ../bolts/
-DEFAULT_BOLTVERSION := ccfa38ed4f592c3711156bb4ded77f44ec01101d
+DEFAULT_BOLTVERSION := 68881992b97f20aca29edf7a4d673b8e6a70379a
 # Can be overridden on cmdline.
 BOLTVERSION := $(DEFAULT_BOLTVERSION)
 

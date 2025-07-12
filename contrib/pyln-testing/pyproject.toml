@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pyln-testing"
-version = "25.05rc1"
+version = "25.05"
 description = "Test your Core Lightning integration, plugins or whatever you want"
 authors = ["Christian Decker <decker.christian@gmail.com>"]
 license = "BSD-MIT"
@@ -11,7 +11,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = "^3.9"
 pytest = "^7"
 ephemeral-port-reserve = "^1.1.4"
 psycopg2-binary = "^2.9"

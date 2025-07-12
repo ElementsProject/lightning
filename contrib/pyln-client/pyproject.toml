@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pyln-client"
-version = "25.05rc1"
+version = "25.05"
 description = "Client library and plugin library for Core Lightning"
 authors = ["Christian Decker <decker.christian@gmail.com>"]
 license = "BSD-MIT"
@@ -11,7 +11,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = "^3.9"
 pyln-proto = ">=23"
 pyln-bolt7 = ">=1.0"
 

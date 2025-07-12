@@ -20,12 +20,14 @@ fi
 git log "$PREV_TAG".. --format="%an|%ae" | sort | uniq -c | sort -rn > /tmp/authors.$$
 sed -n 's/.*[Nn]amed by //p' < CHANGELOG.md | sed 's/(.*)//' | tr -dc '[:alnum:][:space:]' > /tmp/namers.$$
 git log "$PREV_TAG" --format="%an|%ae" | sort -u > /tmp/prev-authors.$$
+# Include aliases
+printf "Alex Myers\nShahanaFarooqui\nMatt Whitlock\n" >> /tmp/namers.$$
 
 NAMER=""
 BACKUP_NAMER=""
 TOTAL=0
 while read LINE; do
-    COUNT=${LINE%% [! 0123456789]*}
+    COUNT=$(echo "$LINE" | sed -r "s/[^0-9].*//")
     TOTAL=$((TOTAL + COUNT))
     LINE=${LINE#*[1234567890] }
     NAME=${LINE%%|*}

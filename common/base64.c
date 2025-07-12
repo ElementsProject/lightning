@@ -14,3 +14,12 @@ char *b64_encode(const tal_t *ctx, const void *data, size_t len)
 	str[enclen] = '\0';
 	return str;
 }
+
+u8 *b64_decode(const tal_t *ctx, const char *str, size_t len)
+{
+	size_t dlen = base64_decoded_length(len);
+	u8 *ret = tal_arr(ctx, u8, dlen);
+	if (base64_decode((char *)ret, dlen, str, len) < 0)
+		return tal_free(ret);
+	return ret;
+}

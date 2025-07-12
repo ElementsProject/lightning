@@ -1641,7 +1641,7 @@ static struct command_result *json_xpay_core(struct command *cmd,
 		payment->final_cltv = 0;
 		/* We will start honoring this flag in future */
 		payment->disable_mpp = !feature_offered(b12inv->invoice_features, OPT_BASIC_MPP);
-		if (payment->disable_mpp && command_deprecated_in_ok(cmd, "ignore_bolt12_mpp", "v25.05", "v25.11"))
+		if (payment->disable_mpp && command_deprecated_in_ok(cmd, "ignore_bolt12_mpp", "v25.05", "v25.12"))
 			payment->disable_mpp = false;
 	} else {
 		struct bolt11 *b11

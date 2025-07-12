@@ -9,6 +9,7 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/str/str.h>
+#include <ccan/time/time.h>
 #include <common/dijkstra.h>
 #include <common/gossmap.h>
 #include <common/gossmods_listpeerchannels.h>
@@ -18,11 +19,9 @@
 #include <errno.h>
 #include <math.h>
 #include <plugins/askrene/askrene.h>
-#include <plugins/askrene/explain_failure.h>
 #include <plugins/askrene/flow.h>
 #include <plugins/askrene/layer.h>
 #include <plugins/askrene/mcf.h>
-#include <plugins/askrene/refine.h>
 #include <plugins/askrene/reserve.h>
 
 /* "spendable" for a channel assumes a single HTLC: for additional HTLCs,
@@ -332,62 +331,44 @@ const char *fmt_flow_full(const tal_t *ctx,
 	return str;
 }
 
-static struct amount_msat linear_flows_cost(struct flow **flows,
-					    struct amount_msat total_amount,
-					    double delay_feefactor)
-{
-	struct amount_msat total = AMOUNT_MSAT(0);
+enum algorithm {
+	ALGO_DEFAULT,
+};
 
-	for (size_t i = 0; i < tal_count(flows); i++) {
-		if (!amount_msat_accumulate(&total,
-					    linear_flow_cost(flows[i],
-							     total_amount,
-							     delay_feefactor)))
-			abort();
-	}
-	return total;
+static struct command_result *
+param_algorithm(struct command *cmd, const char *name, const char *buffer,
+		const jsmntok_t *tok, enum algorithm **algo)
+{
+	const char *algo_str = json_strdup(cmd, buffer, tok);
+	*algo = tal(cmd, enum algorithm);
+	if (streq(algo_str, "default"))
+		**algo = ALGO_DEFAULT;
+	else
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "unknown algorithm");
+	return NULL;
 }
 
-/* Returns an error message, or sets *routes */
-static const char *get_routes(const tal_t *ctx,
-			      struct command *cmd,
-			      const struct node_id *source,
-			      const struct node_id *dest,
-			      struct amount_msat amount,
-			      struct amount_msat maxfee,
-			      u32 finalcltv,
-			      u32 maxdelay,
-			      const char **layers,
-			      struct gossmap_localmods *localmods,
-			      const struct layer *local_layer,
-			      bool single_path,
-			      struct route ***routes,
-			      struct amount_msat **amounts,
-			      const struct additional_cost_htable *additional_costs,
-			      double *probability)
+struct getroutes_info {
+	struct command *cmd;
+	struct node_id source, dest;
+	struct amount_msat amount, maxfee;
+	u32 finalcltv, maxdelay;
+	/* algorithm selection, only dev */
+	enum algorithm dev_algo;
+	const char **layers;
+	struct additional_cost_htable *additional_costs;
+	/* Non-NULL if we are told to use "auto.localchans" */
+	struct layer *local_layer;
+};
+
+static void apply_layers(struct askrene *askrene, struct route_query *rq,
+			 const struct node_id *source,
+			 struct amount_msat amount,
+			 struct gossmap_localmods *localmods,
+			 const char **layers,
+			 const struct layer *local_layer)
 {
-	struct askrene *askrene = get_askrene(cmd->plugin);
-	struct route_query *rq = tal(ctx, struct route_query);
-	struct flow **flows;
-	const struct gossmap_node *srcnode, *dstnode;
-	double delay_feefactor;
-	u32 mu;
-	const char *ret;
-
-	if (gossmap_refresh(askrene->gossmap)) {
-		/* FIXME: gossmap_refresh callbacks to we can update in place */
-		tal_free(askrene->capacities);
-		askrene->capacities = get_capacities(askrene, askrene->plugin, askrene->gossmap);
-	}
-
-	rq->cmd = cmd;
-	rq->plugin = cmd->plugin;
-	rq->gossmap = askrene->gossmap;
-	rq->reserved = askrene->reserved;
-	rq->layers = tal_arr(rq, const struct layer *, 0);
-	rq->capacities = tal_dup_talarr(rq, fp16_t, askrene->capacities);
-	rq->additional_costs = additional_costs;
-
 	/* Layers must exist, but might be special ones! */
 	for (size_t i = 0; i < tal_count(layers); i++) {
 		const struct layer *l = find_layer(askrene, layers[i]);
@@ -413,149 +394,25 @@ static const char *get_routes(const tal_t *ctx,
 		 * override them (incl local channels) */
 		layer_clear_overridden_capacities(l, askrene->gossmap, rq->capacities);
 	}
+}
 
-	/* Clear scids with reservations, too, so we don't have to look up
-	 * all the time! */
-	reserves_clear_capacities(askrene->reserved, askrene->gossmap, rq->capacities);
-
-	gossmap_apply_localmods(askrene->gossmap, localmods);
-
-	/* localmods can add channels, so we need to allocate biases array *afterwards* */
-	rq->biases = tal_arrz(rq, s8, gossmap_max_chan_idx(askrene->gossmap) * 2);
-
-	/* Note any channel biases */
-	for (size_t i = 0; i < tal_count(rq->layers); i++)
-		layer_apply_biases(rq->layers[i], askrene->gossmap, rq->biases);
-
-	srcnode = gossmap_find_node(askrene->gossmap, source);
-	if (!srcnode) {
-		ret = rq_log(ctx, rq, LOG_INFORM,
-			     "Unknown source node %s",
-			     fmt_node_id(tmpctx, source));
-		goto fail;
-	}
-
-	dstnode = gossmap_find_node(askrene->gossmap, dest);
-	if (!dstnode) {
-		ret = rq_log(ctx, rq, LOG_INFORM,
-			     "Unknown destination node %s",
-			     fmt_node_id(tmpctx, dest));
-		goto fail;
-	}
-
-	delay_feefactor = 1.0/1000000;
-
-	/* First up, don't care about fees (well, just enough to tiebreak!) */
-	mu = 1;
-	flows = minflow(rq, rq, srcnode, dstnode, amount,
-			mu, delay_feefactor, single_path);
-	if (!flows) {
-		ret = explain_failure(ctx, rq, srcnode, dstnode, amount);
-		goto fail;
-	}
-
-	/* Too much delay? */
-	while (finalcltv + flows_worst_delay(flows) > maxdelay) {
-		delay_feefactor *= 2;
-		rq_log(tmpctx, rq, LOG_UNUSUAL,
-		       "The worst flow delay is %"PRIu64" (> %i), retrying with delay_feefactor %f...",
-		       flows_worst_delay(flows), maxdelay - finalcltv, delay_feefactor);
-		flows = minflow(rq, rq, srcnode, dstnode, amount,
-				mu, delay_feefactor, single_path);
-		if (!flows || delay_feefactor > 10) {
-			ret = rq_log(ctx, rq, LOG_UNUSUAL,
-				     "Could not find route without excessive delays");
-			goto fail;
-		}
-	}
-
-	/* Too expensive? */
-too_expensive:
-	while (amount_msat_greater(flowset_fee(rq->plugin, flows), maxfee)) {
-		struct flow **new_flows;
-
-		if (mu == 1)
-			mu = 10;
-		else
-			mu += 10;
-		rq_log(tmpctx, rq, LOG_UNUSUAL,
-		       "The flows had a fee of %s, greater than max of %s, retrying with mu of %u%%...",
-		       fmt_amount_msat(tmpctx, flowset_fee(rq->plugin, flows)),
-		       fmt_amount_msat(tmpctx, maxfee),
-		       mu);
-		new_flows = minflow(rq, rq, srcnode, dstnode, amount,
-				    mu > 100 ? 100 : mu, delay_feefactor, single_path);
-		if (!flows || mu >= 100) {
-			ret = rq_log(ctx, rq, LOG_UNUSUAL,
-				     "Could not find route without excessive cost");
-			goto fail;
-		}
-
-		/* This is possible, because MCF's linear fees are not the same. */
-		if (amount_msat_greater(flowset_fee(rq->plugin, new_flows),
-					flowset_fee(rq->plugin, flows))) {
-			struct amount_msat old_cost = linear_flows_cost(flows, amount, delay_feefactor);
-			struct amount_msat new_cost = linear_flows_cost(new_flows, amount, delay_feefactor);
-			if (amount_msat_greater_eq(new_cost, old_cost)) {
-				rq_log(tmpctx, rq, LOG_BROKEN, "Old flows cost %s:",
-				       fmt_amount_msat(tmpctx, old_cost));
-				for (size_t i = 0; i < tal_count(flows); i++) {
-					rq_log(tmpctx, rq, LOG_BROKEN,
-					       "Flow %zu/%zu: %s (linear cost %s)", i, tal_count(flows),
-					       fmt_flow_full(tmpctx, rq, flows[i]),
-					       fmt_amount_msat(tmpctx, linear_flow_cost(flows[i],
-											amount,
-											delay_feefactor)));
-				}
-				rq_log(tmpctx, rq, LOG_BROKEN, "Old flows cost %s:",
-				       fmt_amount_msat(tmpctx, new_cost));
-				for (size_t i = 0; i < tal_count(new_flows); i++) {
-					rq_log(tmpctx, rq, LOG_BROKEN,
-					       "Flow %zu/%zu: %s (linear cost %s)", i, tal_count(new_flows),
-					       fmt_flow_full(tmpctx, rq, new_flows[i]),
-					       fmt_amount_msat(tmpctx, linear_flow_cost(new_flows[i],
-											amount,
-											delay_feefactor)));
-				}
-			}
-		}
-		tal_free(flows);
-		flows = new_flows;
-	}
-
-	if (finalcltv + flows_worst_delay(flows) > maxdelay) {
-		ret = rq_log(ctx, rq, LOG_UNUSUAL,
-			     "Could not find route without excessive cost or delays");
-		goto fail;
-	}
-
-	/* The above did not take into account the extra funds to pay
-	 * fees, so we try to adjust now.  We could re-run MCF if this
-	 * fails, but failure basically never happens where payment is
-	 * still possible */
-	ret = refine_with_fees_and_limits(ctx, rq, amount, &flows, probability);
-	if (ret)
-		goto fail;
-
-	/* Again, a tiny corner case: refine step can make us exceed maxfee */
-	if (amount_msat_greater(flowset_fee(rq->plugin, flows), maxfee)) {
-		rq_log(tmpctx, rq, LOG_UNUSUAL,
-		       "After final refinement, fee was excessive: retrying");
-		goto too_expensive;
-	}
-
-	rq_log(tmpctx, rq, LOG_DBG, "Final answer has %zu flows with mu=%u",
-	       tal_count(flows), mu);
-
-	/* Convert back into routes, with delay and other information fixed */
-	*routes = tal_arr(ctx, struct route *, tal_count(flows));
+/* Convert back into routes, with delay and other information fixed */
+static struct route **convert_flows_to_routes(const tal_t *ctx,
+					      struct route_query *rq,
+					      u32 finalcltv,
+					      struct flow **flows,
+					      struct amount_msat **amounts)
+{
+	struct route **routes;
+	routes = tal_arr(ctx, struct route *, tal_count(flows));
 	*amounts = tal_arr(ctx, struct amount_msat, tal_count(flows));
+
 	for (size_t i = 0; i < tal_count(flows); i++) {
 		struct route *r;
 		struct amount_msat msat;
 		u32 delay;
 
-		(*routes)[i] = r = tal(*routes, struct route);
+		routes[i] = r = tal(routes, struct route);
 		r->success_prob = flow_probability(flows[i], rq);
 		r->hops = tal_arr(r, struct route_hop, tal_count(flows[i]->path));
 
@@ -585,16 +442,41 @@ too_expensive:
 		       fmt_route(tmpctx, r, (*amounts)[i], finalcltv));
 	}
 
-	gossmap_remove_localmods(askrene->gossmap, localmods);
+	return routes;
+}
 
-	return NULL;
-
-	/* Explicit failure path keeps the compiler (gcc version 12.3.0 -O3) from
-	 * warning about uninitialized variables in the caller */
-fail:
-	assert(ret != NULL);
-	gossmap_remove_localmods(askrene->gossmap, localmods);
-	return ret;
+static void json_add_getroutes(struct json_stream *js,
+			       struct route **routes,
+			       const struct amount_msat *amounts,
+			       double probability,
+			       u32 final_cltv)
+{
+	json_add_u64(js, "probability_ppm", (u64)(probability * 1000000));
+	json_array_start(js, "routes");
+	for (size_t i = 0; i < tal_count(routes); i++) {
+		json_object_start(js, NULL);
+		json_add_u64(js, "probability_ppm",
+			     (u64)(routes[i]->success_prob * 1000000));
+		json_add_amount_msat(js, "amount_msat", amounts[i]);
+		json_add_u32(js, "final_cltv", final_cltv);
+		json_array_start(js, "path");
+		for (size_t j = 0; j < tal_count(routes[i]->hops); j++) {
+			struct short_channel_id_dir scidd;
+			const struct route_hop *r = &routes[i]->hops[j];
+			json_object_start(js, NULL);
+			scidd.scid = r->scid;
+			scidd.dir = r->direction;
+			json_add_short_channel_id_dir(
+			    js, "short_channel_id_dir", scidd);
+			json_add_node_id(js, "next_node_id", &r->node_id);
+			json_add_amount_msat(js, "amount_msat", r->amount);
+			json_add_u32(js, "delay", r->delay);
+			json_object_end(js);
+		}
+		json_array_end(js);
+		json_object_end(js);
+	}
+	json_array_end(js);
 }
 
 void get_constraints(const struct route_query *rq,
@@ -633,63 +515,120 @@ void get_constraints(const struct route_query *rq,
 	reserve_sub(rq->reserved, &scidd, max);
 }
 
-struct getroutes_info {
-	struct command *cmd;
-	struct node_id *source, *dest;
-	struct amount_msat *amount, *maxfee;
-	u32 *finalcltv, *maxdelay;
-	const char **layers;
-	struct additional_cost_htable *additional_costs;
-	/* Non-NULL if we are told to use "auto.localchans" */
-	struct layer *local_layer;
-};
-
 static struct command_result *do_getroutes(struct command *cmd,
 					   struct gossmap_localmods *localmods,
 					   const struct getroutes_info *info)
 {
+	struct askrene *askrene = get_askrene(cmd->plugin);
+	struct route_query *rq = tal(cmd, struct route_query);
 	const char *err;
 	double probability;
 	struct amount_msat *amounts;
 	struct route **routes;
+	struct flow **flows;
 	struct json_stream *response;
 
-	err = get_routes(cmd, cmd,
-			 info->source, info->dest,
-			 *info->amount, *info->maxfee, *info->finalcltv,
-			 *info->maxdelay, info->layers, localmods, info->local_layer,
-			 have_layer(info->layers, "auto.no_mpp_support"),
-			 &routes, &amounts, info->additional_costs, &probability);
-	if (err)
-		return command_fail(cmd, PAY_ROUTE_NOT_FOUND, "%s", err);
-
-	response = jsonrpc_stream_success(cmd);
-	json_add_u64(response, "probability_ppm", (u64)(probability * 1000000));
-	json_array_start(response, "routes");
-	for (size_t i = 0; i < tal_count(routes); i++) {
-		json_object_start(response, NULL);
-		json_add_u64(response, "probability_ppm", (u64)(routes[i]->success_prob * 1000000));
-		json_add_amount_msat(response, "amount_msat", amounts[i]);
-		json_add_u32(response, "final_cltv", *info->finalcltv);
-		json_array_start(response, "path");
-		for (size_t j = 0; j < tal_count(routes[i]->hops); j++) {
-			struct short_channel_id_dir scidd;
-			const struct route_hop *r = &routes[i]->hops[j];
-			json_object_start(response, NULL);
-			scidd.scid = r->scid;
-			scidd.dir = r->direction;
-			json_add_short_channel_id_dir(response, "short_channel_id_dir", scidd);
-			json_add_node_id(response, "next_node_id", &r->node_id);
-			json_add_amount_msat(response, "amount_msat", r->amount);
-			json_add_u32(response, "delay", r->delay);
-			json_object_end(response);
-		}
-		json_array_end(response);
-		json_object_end(response);
+	/* update the gossmap */
+	if (gossmap_refresh(askrene->gossmap)) {
+		/* FIXME: gossmap_refresh callbacks to we can update in place */
+		tal_free(askrene->capacities);
+		askrene->capacities =
+		    get_capacities(askrene, askrene->plugin, askrene->gossmap);
 	}
-	json_array_end(response);
+
+	/* build this request structure */
+	rq->cmd = cmd;
+	rq->plugin = cmd->plugin;
+	rq->gossmap = askrene->gossmap;
+	rq->reserved = askrene->reserved;
+	rq->layers = tal_arr(rq, const struct layer *, 0);
+	rq->capacities = tal_dup_talarr(rq, fp16_t, askrene->capacities);
+	/* FIXME: we still need to do something useful with these */
+	rq->additional_costs = info->additional_costs;
+
+	/* apply selected layers to the localmods */
+	apply_layers(askrene, rq, &info->source, info->amount, localmods,
+		     info->layers, info->local_layer);
+
+	/* Clear scids with reservations, too, so we don't have to look up
+	 * all the time! */
+	reserves_clear_capacities(askrene->reserved, askrene->gossmap,
+				  rq->capacities);
+
+	/* we temporarily apply localmods */
+	gossmap_apply_localmods(askrene->gossmap, localmods);
+
+	/* localmods can add channels, so we need to allocate biases array
+	 * *afterwards* */
+	rq->biases =
+	    tal_arrz(rq, s8, gossmap_max_chan_idx(askrene->gossmap) * 2);
+
+	/* Note any channel biases */
+	for (size_t i = 0; i < tal_count(rq->layers); i++)
+		layer_apply_biases(rq->layers[i], askrene->gossmap, rq->biases);
+
+	/* checkout the source */
+	const struct gossmap_node *srcnode =
+	    gossmap_find_node(askrene->gossmap, &info->source);
+	if (!srcnode) {
+		err = rq_log(tmpctx, rq, LOG_INFORM, "Unknown source node %s",
+			     fmt_node_id(tmpctx, &info->source));
+		goto fail;
+	}
+
+	/* checkout the destination */
+	const struct gossmap_node *dstnode =
+	    gossmap_find_node(askrene->gossmap, &info->dest);
+	if (!dstnode) {
+		err = rq_log(tmpctx, rq, LOG_INFORM,
+			     "Unknown destination node %s",
+			     fmt_node_id(tmpctx, &info->dest));
+		goto fail;
+	}
+
+	/* Compute the routes. At this point we might select between multiple
+	 * algorithms. Right now there is only one algorithm available. */
+	struct timemono time_start = time_mono();
+	assert(info->dev_algo == ALGO_DEFAULT);
+	err = default_routes(rq, rq, srcnode, dstnode, info->amount,
+			     /* only one path? = */
+			     have_layer(info->layers, "auto.no_mpp_support"),
+			     info->maxfee, info->finalcltv, info->maxdelay,
+			     &flows, &probability);
+	struct timerel time_delta = timemono_between(time_mono(), time_start);
+
+	/* log the time of computation */
+	rq_log(tmpctx, rq, LOG_DBG, "get_routes %s %" PRIu64 " ms",
+	       err ? "failed after" : "completed in",
+	       time_to_msec(time_delta));
+	if (err)
+		goto fail;
+
+	/* otherwise we continue */
+	assert(tal_count(flows) > 0);
+	rq_log(tmpctx, rq, LOG_DBG, "Final answer has %zu flows",
+	       tal_count(flows));
+
+	/* convert flows to routes */
+	routes = convert_flows_to_routes(rq, rq, info->finalcltv, flows,
+					 &amounts);
+	assert(tal_count(routes) == tal_count(flows));
+	assert(tal_count(amounts) == tal_count(flows));
+
+	/* At last we remove the localmods from the gossmap. */
+	gossmap_remove_localmods(askrene->gossmap, localmods);
+
+	/* output the results */
+	response = jsonrpc_stream_success(cmd);
+	json_add_getroutes(response, routes, amounts, probability,
+			   info->finalcltv);
 	return command_finished(cmd, response);
-}
+
+fail:
+	assert(err);
+	gossmap_remove_localmods(askrene->gossmap, localmods);
+	return command_fail(cmd, PAY_ROUTE_NOT_FOUND, "%s", err);
+ }
 
 static void add_localchan(struct gossmap_localmods *mods,
 			  const struct node_id *self,
@@ -800,36 +739,50 @@ static struct command_result *json_getroutes(struct command *cmd,
 	/* FIXME: Typo in spec for CLTV in descripton! But it breaks our spelling check, so we omit it above */
 	const u32 maxdelay_allowed = 2016;
 	struct getroutes_info *info = tal(cmd, struct getroutes_info);
+	/* param functions require pointers */
+	struct node_id *source, *dest;
+	struct amount_msat *amount, *maxfee;
+	u32 *finalcltv, *maxdelay;
+	enum algorithm *dev_algo;
 
 	if (!param_check(cmd, buffer, params,
-			 p_req("source", param_node_id, &info->source),
-			 p_req("destination", param_node_id, &info->dest),
-			 p_req("amount_msat", param_msat, &info->amount),
+			 p_req("source", param_node_id, &source),
+			 p_req("destination", param_node_id, &dest),
+			 p_req("amount_msat", param_msat, &amount),
 			 p_req("layers", param_layer_names, &info->layers),
-			 p_req("maxfee_msat", param_msat, &info->maxfee),
-			 p_req("final_cltv", param_u32, &info->finalcltv),
-			 p_opt_def("maxdelay", param_u32, &info->maxdelay,
+			 p_req("maxfee_msat", param_msat, &maxfee),
+			 p_req("final_cltv", param_u32, &finalcltv),
+			 p_opt_def("maxdelay", param_u32, &maxdelay,
 				   maxdelay_allowed),
+			 p_opt_dev("dev_algorithm", param_algorithm,
+				   &dev_algo, ALGO_DEFAULT),
 			 NULL))
 		return command_param_failed();
 	plugin_log(cmd->plugin, LOG_TRACE, "%s called: %.*s", __func__,
 		   json_tok_full_len(params), json_tok_full(buffer, params));
 
-	if (amount_msat_is_zero(*info->amount)) {
+	if (amount_msat_is_zero(*amount)) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "amount must be non-zero");
 	}
 
-	if (command_check_only(cmd))
-		return command_check_done(cmd);
-
-	if (*info->maxdelay > maxdelay_allowed) {
+	if (*maxdelay > maxdelay_allowed) {
 		return command_fail(cmd, PAY_USER_ERROR,
 				    "maximum delay allowed is %d",
 				    maxdelay_allowed);
 	}
 
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
+
 	info->cmd = cmd;
+	info->source = *source;
+	info->dest = *dest;
+	info->amount = *amount;
+	info->maxfee = *maxfee;
+	info->finalcltv = *finalcltv;
+	info->maxdelay = *maxdelay;
+	info->dev_algo = *dev_algo;
 	info->additional_costs = tal(info, struct additional_cost_htable);
 	additional_cost_htable_init(info->additional_costs);
 

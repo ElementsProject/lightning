@@ -35,7 +35,7 @@ RUN chown root:root /usr/lib/sudo/sudoers.so
 RUN wget -O /usr/local/bin/jq https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64 \
     && chmod +x /usr/local/bin/jq
 
-# install Python3.8 (more reproducible than relying on python3-setuptools)
+# install Python3.10 (more reproducible than relying on python3-setuptools)
 RUN git clone https://github.com/pyenv/pyenv.git /root/.pyenv && \
     apt-get install -y --no-install-recommends \
     libbz2-dev \

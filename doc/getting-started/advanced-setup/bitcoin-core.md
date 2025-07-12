@@ -15,7 +15,7 @@ The lightning daemon will poll `bitcoind` for new blocks that it hasn't processe
 
 If `bitcoind` prunes a block that Core Lightning has not processed yet, e.g., Core Lightning was not running for a prolonged period, then `bitcoind` will not be able to serve the missing blocks, hence Core Lightning will not be able to synchronize anymore and will be stuck.
 
-In order to avoid this situation you should be monitoring the gap between Core Lightning's blockheight using `[lightning-cli](ref:lightning-cli) getinfo` and `bitcoind`'s blockheight using `bitcoin-cli getblockchaininfo`. If the two blockheights drift apart it might be necessary to intervene.
+In order to avoid this situation you should be monitoring the gap between Core Lightning's blockheight using `lightning-cli getinfo` and `bitcoind`'s blockheight using `bitcoin-cli getblockchaininfo`. If the two blockheights drift apart it might be necessary to intervene.
 
 # Connecting to Bitcoin Core remotely
 

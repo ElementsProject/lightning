@@ -43,9 +43,6 @@ Core Lightning Documentation
    checkrune <checkrune.7.md>
    close <close.7.md>
    commando <commando.7.md>
-   commando-blacklist <commando-blacklist.7.md>
-   commando-listrunes <commando-listrunes.7.md>
-   commando-rune <commando-rune.7.md>
    connect <connect.7.md>
    createinvoice <createinvoice.7.md>
    createonion <createonion.7.md>

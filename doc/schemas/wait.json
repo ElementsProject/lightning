@@ -117,7 +117,7 @@
               "additionalProperties": false,
               "deprecated": [
                 "v25.05",
-                "v26.05"
+                "v26.06"
               ],
               "properties": {
                 "status": {
@@ -231,7 +231,7 @@
               "additionalProperties": false,
               "deprecated": [
                 "v25.05",
-                "v26.05"
+                "v26.06"
               ],
               "properties": {
                 "status": {
@@ -347,7 +347,7 @@
               "additionalProperties": false,
               "deprecated": [
                 "v25.05",
-                "v26.05"
+                "v26.06"
               ],
               "properties": {
                 "status": {
