@@ -9,6 +9,16 @@ tests/fuzz/fuzz-hmac-sha256: LDLIBS += -lcrypto
 tests/fuzz/fuzz-wire-*.o: tests/fuzz/wire.h
 tests/fuzz/fuzz-bolt12-*.o: tests/fuzz/bolt12.h
 
+tests/fuzz/fuzz-handle_onion_message:	common/sphinx.o				\
+					common/blindedpath.o			\
+					common/hmac.o				\
+					common/blinding.o			\
+					common/onionreply.o			\
+					common/dev_disconnect.o			\
+					common/onion_message_parse.o		\
+	                                connectd/onion_message.o		\
+					connectd/connectd_wiregen.o
+
 FUZZ_TARGETS_SRC := $(wildcard tests/fuzz/fuzz-*.c)
 FUZZ_TARGETS_OBJS := $(FUZZ_TARGETS_SRC:.c=.o)
 FUZZ_TARGETS_BIN := $(FUZZ_TARGETS_SRC:.c=)
