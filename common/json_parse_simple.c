@@ -33,11 +33,6 @@ bool json_tok_strneq(const char *buffer, const jsmntok_t *tok,
 	return memeq(buffer + tok->start, tok->end - tok->start, str, len);
 }
 
-bool json_tok_streq(const char *buffer, const jsmntok_t *tok, const char *str)
-{
-	return json_tok_strneq(buffer, tok, str, strlen(str));
-}
-
 bool json_tok_startswith(const char *buffer, const jsmntok_t *tok,
 			 const char *prefix)
 {
@@ -215,12 +210,6 @@ const jsmntok_t *json_get_membern(const char *buffer,
 			return t + 1;
 
 	return NULL;
-}
-
-const jsmntok_t *json_get_member(const char *buffer, const jsmntok_t tok[],
-				 const char *label)
-{
-	return json_get_membern(buffer, tok, label, strlen(label));
 }
 
 const jsmntok_t *json_get_arr(const jsmntok_t tok[], size_t index)
