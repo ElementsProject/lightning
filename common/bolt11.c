@@ -810,6 +810,7 @@ struct bolt11 *bolt11_decode_nosig(const tal_t *ctx, const char *str,
 		 * anything except a `multiplier` (see table above)... MUST fail the
 		 * payment.
 		 **/
+		errno = 0;
 		amount = strtoull(amountstr, &end, 10);
 		if (amount == ULLONG_MAX && errno == ERANGE)
 			return decode_fail(b11, fail,
