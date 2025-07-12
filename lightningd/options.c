@@ -16,7 +16,7 @@
 #include <common/configdir.h>
 #include <common/configvar.h>
 #include <common/features.h>
-#include <common/hsm_encryption.h>
+#include <common/hsm_secret.h>
 #include <common/json_command.h>
 #include <common/json_param.h>
 #include <common/version.h>
@@ -564,14 +564,22 @@ static void prompt(struct lightningd *ld, const char *str)
  * The algorithm used to derive the key is Argon2(id), to which libsodium
  * defaults. However argon2id-specific constants are used in case someone runs it
  * with a libsodium version which default constants differs (typically <1.0.9).
+ * 
+ * DEPRECATED: Use --hsm-passphrase instead.
  */
 static char *opt_set_hsm_password(struct lightningd *ld)
 {
-	char *passwd, *passwd_confirmation;
-	const char *err_msg;
+	const char *passwd, *passwd_confirmation;
+	enum hsm_secret_error err;
 	int is_encrypted;
 
-        is_encrypted = is_hsm_secret_encrypted("hsm_secret");
+	/* Show deprecation warning */
+	if (!opt_deprecated_ok(ld, "--encrypted-hsm", 
+			      "Use --hsm-passphrase=<passphrase> instead",
+			      "v25.05", "v26.05"))
+		return "--encrypted-hsm is deprecated, use --hsm-passphrase=<passphrase> instead";
+
+        is_encrypted = is_legacy_hsm_secret_encrypted("hsm_secret");
 	/* While lightningd is performing the first initialization
 	 * this check is always true because the file does not exist.
 	 *
@@ -586,33 +594,48 @@ static char *opt_set_hsm_password(struct lightningd *ld)
 	       "decrypt it and start the node you must provide the password.");
 	prompt(ld, "Enter hsm_secret password:");
 
-	passwd = read_stdin_pass_with_exit_code(&err_msg, &opt_exitcode);
-	if (!passwd)
-		return cast_const(char *, err_msg);
+	passwd = read_stdin_pass(tmpctx, &err);
+	if (err != HSM_SECRET_OK) {
+		opt_exitcode = EXITCODE_HSM_PASSWORD_INPUT_ERR;
+		return tal_strdup(tmpctx, hsm_secret_error_str(err));
+	}
+	
 	if (!is_encrypted) {
 		prompt(ld, "Confirm hsm_secret password:");
 		fflush(stdout);
-		passwd_confirmation = read_stdin_pass_with_exit_code(&err_msg, &opt_exitcode);
-		if (!passwd_confirmation)
-			return cast_const(char *, err_msg);
+		passwd_confirmation = read_stdin_pass(tmpctx, &err);
+		if (err != HSM_SECRET_OK) {
+			opt_exitcode = EXITCODE_HSM_PASSWORD_INPUT_ERR;
+			return tal_strdup(tmpctx, hsm_secret_error_str(err));
+		}
 
 		if (!streq(passwd, passwd_confirmation)) {
 			opt_exitcode = EXITCODE_HSM_BAD_PASSWORD;
 			return "Passwords confirmation mismatch.";
 		}
-		free(passwd_confirmation);
 	}
 	prompt(ld, "");
 
 	ld->config.keypass = tal(NULL, struct secret);
 
-	opt_exitcode = hsm_secret_encryption_key_with_exitcode(passwd, ld->config.keypass, &err_msg);
-	if (opt_exitcode > 0)
-		return cast_const(char *, err_msg);
+	/* Derive encryption key from passphrase using the same function as hsm_secret.c */
+	ld->config.keypass = get_encryption_key(tmpctx, passwd);
+	if (!ld->config.keypass) {
+		opt_exitcode = EXITCODE_HSM_BAD_PASSWORD;
+		return "Could not derive encryption key from password.";
+	}
 
 	ld->encrypted_hsm = true;
-	free(passwd);
 
+	return NULL;
+}
+
+/* Set flag to indicate hsm_secret needs a passphrase.
+ * This replaces the old --encrypted-hsm option which was for legacy encrypted secrets.
+ */
+static char *opt_set_hsm_passphrase(struct lightningd *ld)
+{
+	ld->hsm_passphrase_required = true;
 	return NULL;
 }
 
@@ -1550,9 +1573,12 @@ static void register_opts(struct lightningd *ld)
 	opt_register_early_noarg("--disable-dns", opt_set_invbool, &ld->config.use_dns,
 				 "Disable DNS lookups of peers");
 
+	/* Deprecated: use --hsm-passphrase instead */
 	opt_register_noarg("--encrypted-hsm", opt_set_hsm_password, ld,
-					  "Set the password to encrypt hsm_secret with. If no password is passed through command line, "
-					  "you will be prompted to enter it.");
+					  opt_hidden);
+
+	opt_register_noarg("--hsm-passphrase", opt_set_hsm_passphrase, ld,
+			 "Prompt for passphrase for encrypted hsm_secret (replaces --encrypted-hsm)");
 
 	opt_register_arg("--rpc-file-mode", &opt_set_mode, &opt_show_mode,
 			 &ld->rpc_filemode,
@@ -1861,5 +1887,6 @@ bool is_known_opt_cb_arg(char *(*cb_arg)(const char *, void *))
 		|| cb_arg == (void *)opt_force_privkey
 		|| cb_arg == (void *)opt_force_bip32_seed
 		|| cb_arg == (void *)opt_force_channel_secrets
-		|| cb_arg == (void *)opt_force_tmp_channel_id;
+		|| cb_arg == (void *)opt_force_tmp_channel_id
+		|| cb_arg == (void *)opt_set_hsm_passphrase;
 }

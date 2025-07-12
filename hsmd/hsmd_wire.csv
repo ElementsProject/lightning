@@ -43,6 +43,9 @@ msgdata,hsmd_init_reply_v4,hsm_capabilities,u32,num_hsm_capabilities
 msgdata,hsmd_init_reply_v4,node_id,node_id,
 msgdata,hsmd_init_reply_v4,bip32,ext_key,
 msgdata,hsmd_init_reply_v4,bolt12,pubkey,
+msgdata,hsmd_init,tlvs,hsmd_init_tlvs,
+tlvtype,hsmd_init_tlvs,hsm_passphrase,1
+tlvdata,hsmd_init_tlvs,hsm_passphrase,passphrase,wirestring,
 
 # Declare a new channel.
 msgtype,hsmd_new_channel,30

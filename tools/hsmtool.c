@@ -183,7 +183,7 @@ static int encrypt_hsm(const char *hsm_secret_path)
 {
 	int fd;
 	struct hsm_secret *hsms;
-	struct encrypted_hsm_secret encrypted_hsm_secret;
+	u8 encrypted_hsm_secret[ENCRYPTED_HSM_SECRET_LEN];
 	const char *passwd, *passwd_confirmation;
 	const char *dir, *backup;
 	enum hsm_secret_error pass_err;
@@ -229,7 +229,7 @@ static int encrypt_hsm(const char *hsm_secret_path)
 	if (!encryption_key)
 		errx(ERROR_LIBSODIUM, "Could not derive encryption key");
 
-	if (!encrypt_legacy_hsm_secret(encryption_key, &hsms->secret, &encrypted_hsm_secret))
+	if (!encrypt_legacy_hsm_secret(encryption_key, &hsms->secret, encrypted_hsm_secret))
 		errx(ERROR_LIBSODIUM, "Could not encrypt the hsm_secret seed.");
 
 	/* Securely discard the encryption key */
@@ -242,8 +242,8 @@ static int encrypt_hsm(const char *hsm_secret_path)
 		errx(EXITCODE_ERROR_HSM_FILE, "Could not open new hsm_secret");
 
 	/* Write the encrypted hsm_secret. */
-	if (!write_all(fd, encrypted_hsm_secret.data,
-		       sizeof(encrypted_hsm_secret.data))) {
+	if (!write_all(fd, encrypted_hsm_secret,
+		       ENCRYPTED_HSM_SECRET_LEN)) {
 		unlink_noerr(hsm_secret_path);
 		close(fd);
 		rename(backup, hsm_secret_path);
@@ -425,19 +425,14 @@ static int generate_hsm(const char *hsm_secret_path)
 		errx(ERROR_USAGE, "Unable to create hsm_secret file");
 	}
 	
-	if (passphrase) {
-		/* Write passphrase hash (32 bytes) + mnemonic for protected format */
-		struct sha256 sha;
-		sha256(&sha, passphrase, strlen(passphrase));
-		
-		if (!write_all(fd, sha.u.u8, PASSPHRASE_HASH_LEN))
-			errx(ERROR_USAGE, "Error writing passphrase hash to hsm_secret file");
-	} else {
-		/* Write 32 zero bytes + mnemonic for non-protected format */
-		u8 zero_hash[PASSPHRASE_HASH_LEN] = {0};
-		if (!write_all(fd, zero_hash, PASSPHRASE_HASH_LEN))
-			errx(ERROR_USAGE, "Error writing zero hash to hsm_secret file");
-	}
+	/* Hash the derived seed for validation */
+	struct sha256 seed_hash;
+	if (!derive_seed_hash(mnemonic, passphrase, &seed_hash))
+		errx(ERROR_USAGE, "Error deriving seed from mnemonic");
+	
+	/* Write seed hash (32 bytes) + mnemonic */
+	if (!write_all(fd, &seed_hash, sizeof(seed_hash)))
+		errx(ERROR_USAGE, "Error writing seed hash to hsm_secret file");
 	
 	/* Write the mnemonic */
 	if (!write_all(fd, mnemonic, strlen(mnemonic)))

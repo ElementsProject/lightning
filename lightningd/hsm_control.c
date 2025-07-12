@@ -1,11 +1,12 @@
 #include "config.h"
 #include <ccan/err/err.h>
 #include <ccan/fdpass/fdpass.h>
+#include <ccan/tal/str/str.h>
 #include <common/bolt12_id.h>
 #include <common/ecdh.h>
 #include <common/errcode.h>
 #include <common/hsm_capable.h>
-#include <common/hsm_encryption.h>
+#include <common/hsm_secret.h>
 #include <common/hsm_version.h>
 #include <common/json_command.h>
 #include <common/json_param.h>
@@ -81,6 +82,28 @@ bool hsm_capable(struct lightningd *ld, u32 msgtype)
 	return hsm_is_capable(ld->hsm_capabilities, msgtype);
 }
 
+/* Read hsm passphrase if needed for mnemonic-based hsm_secret */
+static const char *read_hsm_passphrase_if_needed(struct lightningd *ld)
+{
+	if (!ld->hsm_passphrase_required)
+		return NULL;
+
+	printf("The hsm_secret uses a mnemonic with a passphrase. In order to "
+	       "derive the seed and start the node you must provide the passphrase.\n");
+	printf("Enter hsm_secret passphrase: ");
+	fflush(stdout);
+
+	enum hsm_secret_error err;
+	const char *passphrase = read_stdin_pass(tmpctx, &err);
+	if (err != HSM_SECRET_OK) {
+		fatal("Failed to read passphrase: %s", hsm_secret_error_str(err));
+	}
+
+	printf("\n");
+
+	return passphrase;
+}
+
 struct ext_key *hsm_init(struct lightningd *ld)
 {
 	u8 *msg;
@@ -88,6 +111,12 @@ struct ext_key *hsm_init(struct lightningd *ld)
 	struct ext_key *bip32_base;
 	u32 hsm_version;
 	struct pubkey unused;
+	const char *hsm_passphrase = NULL;
+
+	/* Read passphrase if needed for mnemonic-based hsm_secret */
+	if (ld->hsm_passphrase_required) {
+		hsm_passphrase = read_hsm_passphrase_if_needed(ld);
+	}
 
 	/* We actually send requests synchronously: only status is async. */
 	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0)
@@ -104,7 +133,7 @@ struct ext_key *hsm_init(struct lightningd *ld)
 	 * not passed, don't let hsmd use the first 32 bytes of the cypher as the
 	 * actual secret. */
 	if (!ld->config.keypass) {
-		if (is_hsm_secret_encrypted("hsm_secret") == 1)
+		if (is_legacy_hsm_secret_encrypted("hsm_secret") == 1)
 			errx(EXITCODE_HSM_ERROR_IS_ENCRYPT, "hsm_secret is encrypted, you need to pass the "
 			     "--encrypted-hsm startup option.");
 	}
@@ -127,6 +156,13 @@ struct ext_key *hsm_init(struct lightningd *ld)
 		    err(EXITCODE_HSM_GENERIC_ERROR, "Writing preinit msg to hsm");
 	}
 
+	/* Create TLV for passphrase if needed */
+	struct tlv_hsmd_init_tlvs *tlv = NULL;
+	if (hsm_passphrase) {
+		tlv = tlv_hsmd_init_tlvs_new(tmpctx);
+		tlv->hsm_passphrase = tal_strdup(tlv, hsm_passphrase);
+	}
+
 	if (!wire_sync_write(ld->hsm_fd, towire_hsmd_init(tmpctx,
 							  &chainparams->bip32_key_version,
 							  chainparams,
@@ -136,7 +172,8 @@ struct ext_key *hsm_init(struct lightningd *ld)
 							  ld->dev_force_channel_secrets,
 							  ld->dev_force_channel_secrets_shaseed,
 							  HSM_MIN_VERSION,
-							  HSM_MAX_VERSION)))
+							  HSM_MAX_VERSION,
+							  tlv)))
 		err(EXITCODE_HSM_GENERIC_ERROR, "Writing init msg to hsm");
 
 	bip32_base = tal(ld, struct ext_key);

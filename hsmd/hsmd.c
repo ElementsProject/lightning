@@ -12,9 +12,10 @@
 #include <ccan/io/fdpass/fdpass.h>
 #include <ccan/noerr/noerr.h>
 #include <ccan/read_write_all/read_write_all.h>
+#include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/str/str.h>
 #include <common/daemon_conn.h>
-#include <common/hsm_encryption.h>
+#include <common/hsm_secret.h>
 #include <common/memleak.h>
 #include <common/status.h>
 #include <common/status_wiregen.h>
@@ -26,6 +27,7 @@
 #include <hsmd/permissions.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <wally_bip39.h>
 #include <wire/wire_io.h>
 
 /*~ Each subdaemon is started with stdin connected to lightningd (for status
@@ -35,7 +37,7 @@
 #define REQ_FD 3
 
 /* Temporary storage for the secret until we pass it to `hsmd_init` */
-struct secret hsm_secret;
+struct hsm_secret hsm_secret;
 
 /*~ We keep track of clients, but there's not much to keep. */
 struct client {
@@ -270,33 +272,66 @@ static struct io_plan *req_reply(struct io_conn *conn,
 	return io_write_wire(conn, msg_out, client_read_next, c);
 }
 
-/*~ This encrypts the content of the `struct secret hsm_secret` and
- * stores it in hsm_secret, this is called instead of create_hsm() if
- * `lightningd` is started with --encrypted-hsm.
- */
-static void create_encrypted_hsm(int fd, const struct secret *encryption_key)
+static void create_hsm(int fd, const char *passphrase)
 {
-	struct encrypted_hsm_secret cipher;
-
-	if (!encrypt_hsm_secret(encryption_key, &hsm_secret,
-				&cipher))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Encrypting hsm_secret");
-	if (!write_all(fd, cipher.data, ENCRYPTED_HSM_SECRET_LEN)) {
+	u8 *hsm_secret_data;
+	size_t hsm_secret_len;
+	
+	/* Always create a mnemonic-based hsm_secret */
+	u8 entropy[BIP39_ENTROPY_LEN_128];
+	char *mnemonic;
+	struct sha256 seed_hash;
+	
+	/* Generate random entropy for new mnemonic */
+	randombytes_buf(entropy, sizeof(entropy));
+	
+	/* Generate mnemonic from entropy */
+	if (bip39_mnemonic_from_bytes(NULL, entropy, sizeof(entropy), &mnemonic) != WALLY_OK) {
 		unlink_noerr("hsm_secret");
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-		              "Writing encrypted hsm_secret: %s", strerror(errno));
+			      "Failed to generate mnemonic from entropy");
 	}
-}
-
-static void create_hsm(int fd)
-{
-	/*~ ccan/read_write_all has a more convenient return than write() where
-	 * we'd have to check the return value == the length we gave: write()
-	 * can return short on normal files if we run out of disk space. */
-	if (!write_all(fd, &hsm_secret, sizeof(hsm_secret))) {
-		/* ccan/noerr contains useful routines like this, which don't
-		 * clobber errno, so we can use it in our error report. */
+	
+	if (!mnemonic) {
+		unlink_noerr("hsm_secret");
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Failed to get generated mnemonic");
+	}
+	
+	/* Derive seed hash from mnemonic + passphrase (or zero if no passphrase) */
+	if (!derive_seed_hash(mnemonic, passphrase, &seed_hash)) {
+		unlink_noerr("hsm_secret");
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Failed to derive seed hash from mnemonic");
+	}
+	
+	/* Create hsm_secret format: seed_hash (32 bytes) + mnemonic */
+	hsm_secret_len = PASSPHRASE_HASH_LEN + strlen(mnemonic);
+	hsm_secret_data = tal_arr(tmpctx, u8, hsm_secret_len);
+	
+	/* Copy seed hash first */
+	memcpy(hsm_secret_data, &seed_hash, PASSPHRASE_HASH_LEN);
+	/* Copy mnemonic after seed hash */
+	memcpy(hsm_secret_data + PASSPHRASE_HASH_LEN, mnemonic, strlen(mnemonic));
+	
+	/* Derive the actual secret from mnemonic + passphrase for our global hsm_secret */
+	u8 bip32_seed[BIP39_SEED_LEN_512];
+	size_t bip32_seed_len;
+	
+	if (bip39_mnemonic_to_seed(mnemonic, passphrase, bip32_seed, sizeof(bip32_seed), &bip32_seed_len) != WALLY_OK) {
+		unlink_noerr("hsm_secret");
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Failed to derive seed from mnemonic");
+	}
+	
+	/* Use first 32 bytes for hsm_secret */
+	memcpy(&hsm_secret.secret, bip32_seed, sizeof(hsm_secret.secret));
+	
+	/* Clean up the mnemonic */
+	wally_free_string(mnemonic);
+	
+	/* Write the hsm_secret data to file */
+	if (!write_all(fd, hsm_secret_data, hsm_secret_len)) {
 		unlink_noerr("hsm_secret");
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 		              "writing: %s", strerror(errno));
@@ -304,9 +339,12 @@ static void create_hsm(int fd)
 }
 
 /*~ We store our root secret in a "hsm_secret" file (like all of Core Lightning,
- * we run in the user's .lightning directory). */
-static void maybe_create_new_hsm(const struct secret *encryption_key,
-                                 bool random_hsm)
+ * we run in the user's .lightning directory).
+ *
+ * NOTE: This function no longer creates encrypted 32-byte secrets. New hsm_secret
+ * files will use mnemonic format with passphrases. 
+ */
+static void maybe_create_new_hsm(const char *passphrase)
 {
 	/*~ Note that this is opened for write-only, even though the permissions
 	 * are set to read-only.  That's perfectly valid! */
@@ -319,17 +357,9 @@ static void maybe_create_new_hsm(const struct secret *encryption_key,
 		              "creating: %s", strerror(errno));
 	}
 
-	/*~ This is libsodium's cryptographic randomness routine: we assume
-	 * it's doing a good job. */
-	if (random_hsm)
-		randombytes_buf(&hsm_secret, sizeof(hsm_secret));
-
-	/*~ If an encryption_key was provided, store an encrypted seed. */
-	if (encryption_key)
-		create_encrypted_hsm(fd, encryption_key);
-	/*~ Otherwise store the seed in clear.. */
-	else
-		create_hsm(fd);
+	/*~ Store the seed in clear. New hsm_secret files will use mnemonic format
+	 * with passphrases, not encrypted 32-byte secrets. */
+	create_hsm(fd, passphrase);
 	/*~ fsync (mostly!) ensures that the file has reached the disk. */
 	if (fsync(fd) != 0) {
 		unlink_noerr("hsm_secret");
@@ -367,62 +397,32 @@ static void maybe_create_new_hsm(const struct secret *encryption_key,
 /*~ We always load the HSM file, even if we just created it above.  This
  * both unifies the code paths, and provides a nice sanity check that the
  * file contents are as they will be for future invocations. */
-static void load_hsm(const struct secret *encryption_key)
+static void load_hsm(const char *passphrase)
 {
-	struct stat st;
-	int fd = open("hsm_secret", O_RDONLY);
-	if (fd < 0)
+	u8 *hsm_secret_contents;
+	struct hsm_secret *hsms;
+	enum hsm_secret_error err;
+
+	/* Read the hsm_secret file */
+	hsm_secret_contents = grab_file(tmpctx, "hsm_secret");
+	if (!hsm_secret_contents)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "opening: %s", strerror(errno));
-	if (stat("hsm_secret", &st) != 0)
+			      "Could not read hsm_secret: %s", strerror(errno));
+
+	/* Remove the NUL terminator that grab_file adds */
+	tal_resize(&hsm_secret_contents, tal_bytelen(hsm_secret_contents) - 1);
+
+	/* Extract the secret using the new hsm_secret module */
+	hsms = extract_hsm_secret(tmpctx, hsm_secret_contents, 
+				 tal_bytelen(hsm_secret_contents),
+				 passphrase, &err);
+	if (!hsms) {
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-		              "stating: %s", strerror(errno));
-
-	/* If the seed is stored in clear. */
-	if (st.st_size == 32) {
-		if (!read_all(fd, &hsm_secret, sizeof(hsm_secret)))
-			status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			              "reading: %s", strerror(errno));
-		/* If an encryption key was passed with a not yet encrypted hsm_secret,
-		 * remove the old one and create an encrypted one. */
-		if (encryption_key) {
-			if (close(fd) != 0)
-				status_failed(STATUS_FAIL_INTERNAL_ERROR,
-				              "closing: %s", strerror(errno));
-			if (remove("hsm_secret") != 0)
-				status_failed(STATUS_FAIL_INTERNAL_ERROR,
-				              "removing clear hsm_secret: %s", strerror(errno));
-			maybe_create_new_hsm(encryption_key, false);
-			fd = open("hsm_secret", O_RDONLY);
-			if (fd < 0)
-				status_failed(STATUS_FAIL_INTERNAL_ERROR,
-				              "opening: %s", strerror(errno));
-		}
+			      "Failed to load hsm_secret: %s", hsm_secret_error_str(err));
 	}
-	/* If an encryption key was passed and the `hsm_secret` is stored
-	 * encrypted, recover the seed from the cipher. */
-	else if (st.st_size == ENCRYPTED_HSM_SECRET_LEN) {
-		struct encrypted_hsm_secret encrypted_secret;
 
-		/* hsm_control must have checked it! */
-		assert(encryption_key);
-
-		if (!read_all(fd, encrypted_secret.data, ENCRYPTED_HSM_SECRET_LEN))
-			status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			              "Reading encrypted hsm_secret: %s", strerror(errno));
-		if (!decrypt_hsm_secret(encryption_key, &encrypted_secret,
-					&hsm_secret)) {
-			/* Exit but don't throw a backtrace when the user made a mistake in typing
-			 * its password. Instead exit and `lightningd` will be able to give
-			 * an error message. */
-			exit(1);
-		}
-	}
-	else
-		status_failed(STATUS_FAIL_INTERNAL_ERROR, "Invalid hsm_secret, "
-							  "no plaintext nor encrypted"
-							  " seed.");
-	close(fd);
+	/* Copy the extracted secret to our global hsm_secret */
+	memcpy(&hsm_secret, &hsms->secret, sizeof(hsm_secret));
 }
 
 /*~ We have a pre-init call in developer mode, to set dev flags */
@@ -457,8 +457,8 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 				struct client *c,
 				const u8 *msg_in)
 {
-	struct secret *hsm_encryption_key;
 	struct bip32_key_version bip32_key_version;
+	struct secret *hsm_encryption_key;
 	u32 minversion, maxversion;
 	const u32 our_minversion = 4, our_maxversion = 6;
 
@@ -469,13 +469,14 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 	 * definitions in hsm_client_wire.csv.  The format of those files is
 	 * an extension of the simple comma-separated format output by the
 	 * BOLT tools/extract-formats.py tool. */
+	struct tlv_hsmd_init_tlvs *tlvs;
 	if (!fromwire_hsmd_init(NULL, msg_in, &bip32_key_version, &chainparams,
 				&hsm_encryption_key,
 				&dev_force_privkey,
 				&dev_force_bip32_seed,
 				&dev_force_channel_secrets,
 				&dev_force_channel_secrets_shaseed,
-				&minversion, &maxversion))
+				&minversion, &maxversion, &tlvs))
 		return bad_req(conn, c, msg_in);
 
 	/*~ Usually we don't worry about API breakage between internal daemons,
@@ -487,14 +488,8 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 				   minversion, maxversion,
 				   our_minversion, our_maxversion);
 
-	/*~ The memory is actually copied in towire(), so lock the `hsm_secret`
-	 * encryption key (new) memory again here. */
-	if (hsm_encryption_key && sodium_mlock(hsm_encryption_key,
-	                                       sizeof(hsm_encryption_key)) != 0)
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-		              "Could not lock memory for hsm_secret encryption key.");
 	/*~ Don't swap this. */
-	sodium_mlock(hsm_secret.data, sizeof(hsm_secret.data));
+	sodium_mlock(hsm_secret.secret.data, sizeof(hsm_secret.secret.data));
 
 	if (!developer) {
 		assert(!dev_force_privkey);
@@ -503,19 +498,21 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 		assert(!dev_force_channel_secrets_shaseed);
 	}
 
+	/* Extract passphrase from TLV if present */
+	const char *hsm_passphrase = NULL;
+	if (tlvs && tlvs->hsm_passphrase) {
+		hsm_passphrase = (const char *)tlvs->hsm_passphrase;
+	}
+
 	/* Once we have read the init message we know which params the master
 	 * will use */
 	c->chainparams = chainparams;
-	maybe_create_new_hsm(hsm_encryption_key, true);
-	load_hsm(hsm_encryption_key);
-
-	/*~ We don't need the hsm_secret encryption key anymore. */
-	if (hsm_encryption_key)
-		discard_key(take(hsm_encryption_key));
+	maybe_create_new_hsm(hsm_passphrase);
+	load_hsm(hsm_passphrase);
 
 	/* Define the minimum common max version for the hsmd one */
 	hsmd_mutual_version = maxversion < our_maxversion ? maxversion : our_maxversion;
-	return req_reply(conn, c, hsmd_init(hsm_secret, hsmd_mutual_version,
+	return req_reply(conn, c, hsmd_init(hsm_secret.secret, hsmd_mutual_version,
 					    bip32_key_version));
 }
 

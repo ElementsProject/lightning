@@ -1,17 +1,17 @@
 #include "config.h"
+#include <ccan/crypto/sha256/sha256.h>
+#include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
 #include <common/errcode.h>
-#include <common/utils.h>
 #include <common/hsm_secret.h>
+#include <common/utils.h>
 #include <errno.h>
+#include <sodium.h>
+#include <sys/stat.h>
 #include <termios.h>
 #include <unistd.h>
-#include <ccan/crypto/sha256/sha256.h>  
-#include <ccan/mem/mem.h>               
-#include <sodium.h>                     
-#include <wally_bip39.h>                
-#include <sys/stat.h>                   
+#include <wally_bip39.h>                   
 
 /* Length of the encrypted hsm secret header. */
 #define HS_HEADER_LEN crypto_secretstream_xchacha20poly1305_HEADERBYTES
@@ -70,11 +70,15 @@ bool hsm_secret_needs_passphrase(const u8 *hsm_secret, size_t len)
 	case HSM_SECRET_INVALID:
 		return false;
 	}
-	return false;
+	abort();
 }
 
 enum hsm_secret_type detect_hsm_secret_type(const u8 *hsm_secret, size_t len)
 {
+	/* Check for invalid cases first and return early */
+	if (len < HSM_SECRET_PLAIN_SIZE)
+		return HSM_SECRET_INVALID;
+	
 	/* Legacy 32-byte plain format */
 	if (len == HSM_SECRET_PLAIN_SIZE)
 		return HSM_SECRET_PLAIN;
@@ -84,20 +88,29 @@ enum hsm_secret_type detect_hsm_secret_type(const u8 *hsm_secret, size_t len)
 		return HSM_SECRET_ENCRYPTED;
 	
 	/* Check if it starts with our type bytes (mnemonic formats) */
-	if (len > 32) {
-		if (memeqzero(hsm_secret, 32))
-			return HSM_SECRET_MNEMONIC_NO_PASS;
-		else
-			return HSM_SECRET_MNEMONIC_WITH_PASS;
-	}	
-	return HSM_SECRET_INVALID;
+	if (memeqzero(hsm_secret, 32))
+		return HSM_SECRET_MNEMONIC_NO_PASS;
+	else
+		return HSM_SECRET_MNEMONIC_WITH_PASS;
 }
 
-static void hash_passphrase(const char *passphrase, u8 hash[PASSPHRASE_HASH_LEN])
+/* Helper function to derive seed hash from mnemonic + passphrase */
+bool derive_seed_hash(const char *mnemonic, const char *passphrase, struct sha256 *seed_hash)
 {
-	struct sha256 sha;
-	sha256(&sha, passphrase, strlen(passphrase));
-	memcpy(hash, sha.u.u8, PASSPHRASE_HASH_LEN);
+	if (!passphrase) {
+		/* No passphrase - return zero hash */
+		memset(seed_hash, 0, sizeof(*seed_hash));
+		return true;
+	}
+	
+	u8 bip32_seed[BIP39_SEED_LEN_512];
+	size_t bip32_seed_len;
+	
+	if (bip39_mnemonic_to_seed(mnemonic, passphrase, bip32_seed, sizeof(bip32_seed), &bip32_seed_len) != WALLY_OK)
+		return false;
+	
+	sha256(seed_hash, bip32_seed, sizeof(bip32_seed));
+	return true;
 }
 
 /* Validate the passphrase for a mnemonic secret */
@@ -108,28 +121,33 @@ bool validate_mnemonic_passphrase(const u8 *hsm_secret, size_t len, const char *
 	if (type != HSM_SECRET_MNEMONIC_WITH_PASS)
 		return true; /* No validation needed */
 
-	/* First 32 bytes are the stored passphrase hash */
-	const u8 *stored_hash = hsm_secret;
-	u8 computed_hash[32];
+	/* First 32 bytes are the stored seed hash */
+	const struct sha256 *stored_hash = (const struct sha256 *)hsm_secret;
+	struct sha256 computed_hash;
 	
-	hash_passphrase(passphrase, computed_hash);
-	return memcmp(stored_hash, computed_hash, 32) == 0;
+	/* Extract mnemonic portion (skip first 32 bytes which are seed hash) */
+	const char *mnemonic_start = (const char *)(hsm_secret + sizeof(struct sha256));
+	
+	if (!derive_seed_hash(mnemonic_start, passphrase, &computed_hash))
+		return false;
+	
+	return sha256_eq(stored_hash, &computed_hash);
 }
 
 static bool decrypt_hsm_secret(const struct secret *encryption_key,
-			       const struct encrypted_hsm_secret *cipher,
+			       const u8 *cipher,
 			       struct secret *output)
 {
 	crypto_secretstream_xchacha20poly1305_state crypto_state;
 
 	/* The header part */
-	if (crypto_secretstream_xchacha20poly1305_init_pull(&crypto_state, cipher->data,
+	if (crypto_secretstream_xchacha20poly1305_init_pull(&crypto_state, cipher,
 							    encryption_key->data) != 0)
 		return false;
 	/* The ciphertext part */
 	if (crypto_secretstream_xchacha20poly1305_pull(&crypto_state, output->data,
 						       NULL, 0,
-						       cipher->data + HS_HEADER_LEN,
+						       cipher + HS_HEADER_LEN,
 						       HS_CIPHERTEXT_LEN,
 						       NULL, 0) != 0)
 		return false;
@@ -166,6 +184,7 @@ const char *hsm_secret_error_str(enum hsm_secret_error err)
 	}
 	return "Unknown error";
 }
+
 static struct hsm_secret *extract_plain_secret(const tal_t *ctx, 
 					       const u8 *hsm_secret, 
 					       size_t len, 
@@ -180,6 +199,7 @@ static struct hsm_secret *extract_plain_secret(const tal_t *ctx,
 	*err = HSM_SECRET_OK;
 	return hsms;
 }
+
 static struct hsm_secret *extract_encrypted_secret(const tal_t *ctx,
 						   const u8 *hsm_secret,
 						   size_t len,
@@ -204,7 +224,7 @@ static struct hsm_secret *extract_encrypted_secret(const tal_t *ctx,
 	memset(&hsms->secret, 0, sizeof(hsms->secret));
 	
 	/* Attempt decryption */
-	decrypt_success = decrypt_hsm_secret(encryption_key, (const struct encrypted_hsm_secret *)hsm_secret, &hsms->secret);
+	decrypt_success = decrypt_hsm_secret(encryption_key, hsm_secret, &hsms->secret);
 	
 	/* Clear encryption key immediately after use */
 	discard_key(encryption_key);
@@ -317,15 +337,15 @@ struct hsm_secret *extract_hsm_secret(const tal_t *ctx,
 
 bool encrypt_legacy_hsm_secret(const struct secret *encryption_key,
 			const struct secret *hsm_secret,
-			struct encrypted_hsm_secret *output)
+			u8 *output)
 {
 	crypto_secretstream_xchacha20poly1305_state crypto_state;
 
-	if (crypto_secretstream_xchacha20poly1305_init_push(&crypto_state, output->data,
+	if (crypto_secretstream_xchacha20poly1305_init_push(&crypto_state, output,
 							    encryption_key->data) != 0)
 		return false;
 	if (crypto_secretstream_xchacha20poly1305_push(&crypto_state,
-						       output->data + HS_HEADER_LEN,
+						       output + HS_HEADER_LEN,
 						       NULL, hsm_secret->data,
 						       sizeof(hsm_secret->data),
 						       /* Additional data and tag */

@@ -378,7 +378,13 @@ struct lightningd {
 
 	char *wallet_dsn;
 
+
+	/* Whether hsm_secret requires a passphrase */
+	bool hsm_passphrase_required;
+
+	/* Legacy encrypted hsm_secret support */
 	bool encrypted_hsm;
+	struct secret *keypass;
 	/* What (additional) messages the HSM accepts */
 	u32 *hsm_capabilities;
 
