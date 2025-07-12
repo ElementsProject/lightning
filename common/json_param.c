@@ -986,8 +986,7 @@ struct command_result *param_extra_tlvs(struct command *cmd, const char *name,
 		/* Accept either bare ints as keys (not spec
 		 * compliant, but simpler), or ints in strings, which
 		 * are JSON spec compliant. */
-		if (!(json_str_to_u64(buffer, curr, &f->numtype) ||
-		      json_to_u64(buffer, curr, &f->numtype))) {
+		if (!json_to_u64(buffer, curr, &f->numtype)) {
 			return command_fail(
 			    cmd, JSONRPC2_INVALID_PARAMS,
 			    "\"%s\" is not a valid numeric TLV type.",
