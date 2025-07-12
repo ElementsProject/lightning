@@ -71,6 +71,7 @@ bool json_to_u64(const char *buffer, const jsmntok_t *tok, u64 *num)
 	char *end;
 	unsigned long long l;
 
+	errno = 0;
 	l = strtoull(buffer + tok->start, &end, 0);
 	if (end != buffer + tok->end)
 		return false;
@@ -93,6 +94,7 @@ bool json_to_s64(const char *buffer, const jsmntok_t *tok, s64 *num)
 	char *end;
 	long long l;
 
+	errno = 0;
 	l = strtoll(buffer + tok->start, &end, 0);
 	if (end != buffer + tok->end)
 		return false;
@@ -134,7 +136,7 @@ bool json_to_double(const char *buffer, const jsmntok_t *tok, double *num)
 	if (end != buffer + tok->end)
 		return false;
 
-	/* Check for overflow */
+	/* Check for overflow/underflow */
 	if (errno == ERANGE)
 		return false;
 
