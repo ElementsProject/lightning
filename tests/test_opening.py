@@ -1643,10 +1643,10 @@ def test_zeroconf_open(bitcoind, node_factory):
     # and use their own mindepth=6, while l3 uses mindepth=2 from the
     # plugin
     ret = l2.rpc.fundchannel(l3.info['id'], 'all', mindepth=0)
-    if TEST_NETWORK == 'regtest':
-        channel_type = {'bits': [12, 22, 50], 'names': ['static_remotekey/even', 'anchors/even', 'zeroconf/even']}
-    else:
-        channel_type = {'bits': [12, 50], 'names': ['static_remotekey/even', 'zeroconf/even']}
+    channel_type = {
+        'bits': [12, 22, 50],
+        'names': ['static_remotekey/even', 'anchors/even', 'zeroconf/even']
+    }
     assert ret['channel_type'] == channel_type
     assert only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['channel_type'] == channel_type
 
@@ -1725,7 +1725,7 @@ def test_zeroconf_public(bitcoind, node_factory, chainparams):
     assert('short_channel_id' not in l2chan)
 
     # Channel is "proposed"
-    chan_val = 993888000 if chainparams['elements'] else 970073000
+    chan_val = 966908000 if chainparams['elements'] else 970073000
     l1_mvts = [
         {'type': 'chain_mvt', 'credit_msat': chan_val, 'debit_msat': 0, 'tags': ['channel_proposed', 'opener']},
         {'type': 'channel_mvt', 'credit_msat': 0, 'debit_msat': 20000000, 'tags': ['pushed'], 'fees_msat': '0msat'},
