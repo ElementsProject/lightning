@@ -83,6 +83,7 @@ compile_commands.json
 target
 plugins/cln-grpc
 plugins/clnrest
+plugins/cln-bip353
 
 # Build directories
 bionic/
