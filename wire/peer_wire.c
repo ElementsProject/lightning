@@ -21,6 +21,8 @@ static bool unknown_type(enum peer_wire t)
 	case WIRE_UPDATE_FULFILL_HTLC:
 	case WIRE_UPDATE_FAIL_HTLC:
 	case WIRE_UPDATE_FAIL_MALFORMED_HTLC:
+	case WIRE_PROTOCOL_BATCH_ELEMENT:
+	case WIRE_START_BATCH:
 	case WIRE_COMMITMENT_SIGNED:
 	case WIRE_REVOKE_AND_ACK:
 	case WIRE_UPDATE_FEE:
@@ -89,6 +91,8 @@ bool is_msg_for_gossipd(const u8 *cursor)
 	case WIRE_UPDATE_FULFILL_HTLC:
 	case WIRE_UPDATE_FAIL_HTLC:
 	case WIRE_UPDATE_FAIL_MALFORMED_HTLC:
+	case WIRE_PROTOCOL_BATCH_ELEMENT:
+	case WIRE_START_BATCH:
 	case WIRE_COMMITMENT_SIGNED:
 	case WIRE_REVOKE_AND_ACK:
 	case WIRE_UPDATE_FEE:
@@ -166,6 +170,7 @@ bool extract_channel_id(const u8 *in_pkt, struct channel_id *channel_id)
 	case WIRE_ONION_MESSAGE:
 	case WIRE_PEER_STORAGE:
 	case WIRE_PEER_STORAGE_RETRIEVAL:
+	case WIRE_PROTOCOL_BATCH_ELEMENT:
 		return false;
 
 	/* Special cases: */
@@ -342,6 +347,11 @@ bool extract_channel_id(const u8 *in_pkt, struct channel_id *channel_id)
 	case WIRE_UPDATE_FAIL_MALFORMED_HTLC:
 		/* BOLT #2:
 		 * 1. type: 135 (`update_fail_malformed_htlc`)
+		 * 2. data:
+		 *    * [`channel_id`:`channel_id`]
+		 */
+	case WIRE_START_BATCH:
+		/* 1. type: 127 (`start_batch`)
 		 * 2. data:
 		 *    * [`channel_id`:`channel_id`]
 		 */
