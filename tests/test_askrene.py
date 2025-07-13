@@ -20,6 +20,44 @@ def direction(src, dst):
     return 1
 
 
+def test_fee_overflow(node_factory):
+    """Test for integer overflow in fee calculation with extreme parameters"""
+    input = 1000
+    fee_base = 8
+    fee_prop = 4295000
+
+    # Setup: Create a line graph with 2 nodes
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
+
+    # Create a new layer for fee modifications
+    l1.rpc.askrene_create_layer('fee_update_layer')
+
+    # Get channel ID between l1 and l2 (example)
+    scid = first_scid(l1, l2)
+    scid_dir = f"{scid}/{direction(l1.info['id'], l2.info['id'])}"
+
+    # Update fee parameters for a specific channel direction
+    l1.rpc.askrene_update_channel(
+        layer='fee_update_layer',
+        short_channel_id_dir=scid_dir,
+        htlc_minimum_msat=100,
+        # Any values larger than these get truncated to a set of safe values
+        htlc_maximum_msat='9999999999999999sat',
+        fee_base_msat=9999999,
+        fee_proportional_millionths=999999,
+        cltv_expiry_delta=18
+    )
+
+    # Now call getroutes with the modified fee layer
+    routes = l1.rpc.getroutes(
+        source=l1.info['id'],
+        destination=l2.info['id'],
+        amount_msat=input,
+        layers=['fee_update_layer'],
+        maxfee_msat=0xFFFFFFFFFFFFFFFF,
+        final_cltv=1440
+    )
+
 def test_reserve(node_factory):
     """Test reserving channels"""
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)

@@ -7,6 +7,7 @@
 #include <common/overflows.h>
 #include <common/utils.h>
 #include <inttypes.h>
+#include <stdio.h>
 #include <wire/wire.h>
 
 bool amount_sat_to_msat(struct amount_msat *msat,
@@ -616,6 +617,12 @@ struct amount_msat amount_msat_sub_fee(struct amount_msat in,
 	 * Since we round the fee down, out can be a bit bigger than
 	 * expected, so we iterate upwards.
 	 */
+	FILE *logf = fopen("/tmp/amount_msat_sub_fee.log", "a");
+	if (logf) {
+		fprintf(logf, "CALL: in=%" PRIu64 "msat, fee_base_msat=%u, fee_ppm=%u\n",
+		        in.millisatoshis, fee_base_msat, fee_proportional_millionths);
+		fclose(logf);
+	}
 	if (!amount_msat_sub(&out, in, amount_msat(fee_base_msat)))
 		return AMOUNT_MSAT(0);
 	if (!amount_msat_mul_div(&out, out, 1000000,
