@@ -1871,9 +1871,16 @@
         },
         "HelpHelp": {
             "Help.help[].category": 2,
+            "Help.help[].clnrest": 5,
             "Help.help[].command": 1,
             "Help.help[].description": 3,
             "Help.help[].verbose": 4
+        },
+        "HelpHelpClnrest": {
+            "Help.help[].clnrest.content_type": 3,
+            "Help.help[].clnrest.method": 2,
+            "Help.help[].clnrest.path": 1,
+            "Help.help[].clnrest.rune": 4
         },
         "HelpRequest": {
             "Help.command": 1
@@ -7674,6 +7681,26 @@
         },
         "Help.help[].category": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Help.help[].clnrest": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "Help.help[].clnrest.content_type": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "Help.help[].clnrest.method": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "Help.help[].clnrest.path": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "Help.help[].clnrest.rune": {
+            "added": "v25.09",
             "deprecated": null
         },
         "Help.help[].command": {
