@@ -1794,6 +1794,7 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	struct pubkey pk;
 	struct node_id id;
 	struct changed_htlc *last_commit;
+	struct short_channel_id local_alias;
 	secp256k1_ecdsa_signature *sig = tal(w, secp256k1_ecdsa_signature);
 	u8 *scriptpubkey = tal_arr(ctx, u8, 100);
 	secp256k1_ecdsa_signature *node_sig1 = tal(w, secp256k1_ecdsa_signature);
@@ -1850,6 +1851,8 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	/* Init channel inflights */
 	list_head_init(&c1.inflights);
 	c1.type = type;
+	local_alias = random_scid();
+	c1.alias[LOCAL] = &local_alias;
 
 	db_begin_transaction(w->db);
 	CHECK(!wallet_err);
