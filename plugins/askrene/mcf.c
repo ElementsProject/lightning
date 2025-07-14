@@ -360,9 +360,18 @@ static void linearize_channel(const struct pay_parameters *params,
 	    b = 1 + amount_msat_ratio_floor(maxcap, params->accuracy);
 
 	/* An extra bound on capacity, here we use it to reduce the flow such
-	 * that it does not exceed htlcmax. */
+	 * that it does not exceed htlcmax.
+	 * The cap con capacity is not greater than the amount of payment units
+	 * (msat/accuracy). The way a channel is decomposed into linear cost
+	 * arcs (code below) in ascending cost order ensures that the only the
+	 * necessary capacity to forward the payment is allocated in the lower
+	 * cost arcs. This may lead to some arcs in the decomposition (at the
+	 * high cost end) to have a capacity of 0, and we can prune them while
+	 * keeping the solution optimal. */
 	u64 cap_on_capacity =
-	    amount_msat_ratio_floor(gossmap_chan_htlc_max(c, dir), params->accuracy);
+	    MIN(amount_msat_ratio_floor(gossmap_chan_htlc_max(c, dir),
+					params->accuracy),
+		amount_msat_ratio_ceil(params->amount, params->accuracy));
 
 	set_capacity(&capacity[0], a, &cap_on_capacity);
 	cost[0]=0;
@@ -598,8 +607,9 @@ static void init_linear_network(const tal_t *ctx,
 			// when the `i` hits the `next` node.
 			for(size_t k=0;k<CHANNEL_PARTS;++k)
 			{
-				/* FIXME: Can we prune arcs with 0 capacity?
-				 * if(capacity[k]==0)continue; */
+				/* prune arcs with 0 capacity */
+				if (capacity[k] == 0)
+					continue;
 
 				struct arc arc = arc_from_parts(chan_id, half, k, false);
 
