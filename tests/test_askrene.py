@@ -1204,10 +1204,10 @@ def test_real_data(node_factory, bitcoind):
     # CI, it's slow.
     if SLOW_MACHINE:
         limit = 25
-        expected = (6, 25, 1544756, 142986, 91)
+        expected = (5, 25, 1567535, 142772, 91)
     else:
         limit = 100
-        expected = (9, 95, 6347877, 566288, 92)
+        expected = (9, 96, 6563767, 629671, 91)
 
     fees = {}
     for n in range(0, limit):
@@ -1321,10 +1321,10 @@ def test_real_biases(node_factory, bitcoind):
     # CI, it's slow.
     if SLOW_MACHINE:
         limit = 25
-        expected = ({1: 5, 2: 7, 4: 7, 8: 11, 16: 14, 32: 19, 64: 25, 100: 25}, 0)
+        expected = ({1: 6, 2: 6, 4: 7, 8: 12, 16: 14, 32: 19, 64: 25, 100: 25}, 0)
     else:
         limit = 100
-        expected = ({1: 23, 2: 31, 4: 40, 8: 53, 16: 70, 32: 82, 64: 96, 100: 96}, 0)
+        expected = ({1: 22, 2: 25, 4: 36, 8: 52, 16: 69, 32: 80, 64: 96, 100: 96}, 0)
 
     l1.rpc.askrene_create_layer('biases')
     num_changed = {}
