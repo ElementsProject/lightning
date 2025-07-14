@@ -279,20 +279,30 @@ static void create_hsm(int fd, const char *passphrase)
 	
 	/* Always create a mnemonic-based hsm_secret */
 	u8 entropy[BIP39_ENTROPY_LEN_128];
-	char *mnemonic;
+	char *mnemonic = NULL;
 	struct sha256 seed_hash;
+	
+	status_debug("HSM: Starting create_hsm with passphrase=%s", passphrase ? "provided" : "none");
+	
+	/* Initialize wally tal context for libwally operations */
+	tal_wally_start();
+	status_debug("HSM: Initialized wally tal context");
 	
 	/* Generate random entropy for new mnemonic */
 	randombytes_buf(entropy, sizeof(entropy));
+	status_debug("HSM: Generated random entropy");
 	
 	/* Generate mnemonic from entropy */
 	if (bip39_mnemonic_from_bytes(NULL, entropy, sizeof(entropy), &mnemonic) != WALLY_OK) {
+		tal_wally_end(tmpctx);
 		unlink_noerr("hsm_secret");
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Failed to generate mnemonic from entropy");
 	}
+	status_debug("HSM: Generated mnemonic from entropy");
 	
 	if (!mnemonic) {
+		tal_wally_end(tmpctx);
 		unlink_noerr("hsm_secret");
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Failed to get generated mnemonic");
@@ -300,10 +310,12 @@ static void create_hsm(int fd, const char *passphrase)
 	
 	/* Derive seed hash from mnemonic + passphrase (or zero if no passphrase) */
 	if (!derive_seed_hash(mnemonic, passphrase, &seed_hash)) {
+		tal_wally_end(tmpctx);
 		unlink_noerr("hsm_secret");
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Failed to derive seed hash from mnemonic");
 	}
+	status_debug("HSM: Derived seed hash from mnemonic");
 	
 	/* Create hsm_secret format: seed_hash (32 bytes) + mnemonic */
 	hsm_secret_len = PASSPHRASE_HASH_LEN + strlen(mnemonic);
@@ -313,29 +325,34 @@ static void create_hsm(int fd, const char *passphrase)
 	memcpy(hsm_secret_data, &seed_hash, PASSPHRASE_HASH_LEN);
 	/* Copy mnemonic after seed hash */
 	memcpy(hsm_secret_data + PASSPHRASE_HASH_LEN, mnemonic, strlen(mnemonic));
+	status_debug("HSM: Created hsm_secret data structure");
 	
 	/* Derive the actual secret from mnemonic + passphrase for our global hsm_secret */
 	u8 bip32_seed[BIP39_SEED_LEN_512];
 	size_t bip32_seed_len;
 	
 	if (bip39_mnemonic_to_seed(mnemonic, passphrase, bip32_seed, sizeof(bip32_seed), &bip32_seed_len) != WALLY_OK) {
+		tal_wally_end(tmpctx);
 		unlink_noerr("hsm_secret");
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Failed to derive seed from mnemonic");
 	}
+	status_debug("HSM: Derived BIP32 seed from mnemonic");
 	
 	/* Use first 32 bytes for hsm_secret */
 	memcpy(&hsm_secret.secret, bip32_seed, sizeof(hsm_secret.secret));
 	
-	/* Clean up the mnemonic */
-	wally_free_string(mnemonic);
-	
+	/* Clean up wally allocations */
+	tal_wally_end(tmpctx);
+	status_debug("HSM: Cleaned up wally allocations");
+		
 	/* Write the hsm_secret data to file */
 	if (!write_all(fd, hsm_secret_data, hsm_secret_len)) {
 		unlink_noerr("hsm_secret");
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 		              "writing: %s", strerror(errno));
 	}
+	status_debug("HSM: Successfully wrote hsm_secret to file");
 }
 
 /*~ We store our root secret in a "hsm_secret" file (like all of Core Lightning,
@@ -351,11 +368,15 @@ static void maybe_create_new_hsm(const char *passphrase)
 	int fd = open("hsm_secret", O_CREAT|O_EXCL|O_WRONLY, 0400);
 	if (fd < 0) {
 		/* If this is not the first time we've run, it will exist. */
-		if (errno == EEXIST)
+		if (errno == EEXIST) {
+			status_debug("HSM: hsm_secret file already exists, skipping creation");
 			return;
+		}
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 		              "creating: %s", strerror(errno));
 	}
+
+	status_debug("HSM: Creating new hsm_secret file");
 
 	/*~ Store the seed in clear. New hsm_secret files will use mnemonic format
 	 * with passphrases, not encrypted 32-byte secrets. */
@@ -403,26 +424,44 @@ static void load_hsm(const char *passphrase)
 	struct hsm_secret *hsms;
 	enum hsm_secret_error err;
 
+	status_debug("HSM: Starting load_hsm with passphrase=%s", passphrase ? "provided" : "none");
+
+	/* Initialize wally tal context for libwally operations */
+	tal_wally_start();
+	status_debug("HSM: Initialized wally tal context for load_hsm");
+
 	/* Read the hsm_secret file */
 	hsm_secret_contents = grab_file(tmpctx, "hsm_secret");
-	if (!hsm_secret_contents)
+	if (!hsm_secret_contents) {
+		tal_wally_end(tmpctx);
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Could not read hsm_secret: %s", strerror(errno));
+	}
+	status_debug("HSM: Successfully read hsm_secret file, size=%zu", tal_bytelen(hsm_secret_contents));
 
 	/* Remove the NUL terminator that grab_file adds */
 	tal_resize(&hsm_secret_contents, tal_bytelen(hsm_secret_contents) - 1);
+	status_debug("HSM: Removed NUL terminator, new size=%zu", tal_bytelen(hsm_secret_contents));
 
 	/* Extract the secret using the new hsm_secret module */
+	status_debug("HSM: Calling extract_hsm_secret");
 	hsms = extract_hsm_secret(tmpctx, hsm_secret_contents, 
 				 tal_bytelen(hsm_secret_contents),
 				 passphrase, &err);
 	if (!hsms) {
+		tal_wally_end(tmpctx);
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Failed to load hsm_secret: %s", hsm_secret_error_str(err));
 	}
+	status_debug("HSM: Successfully extracted hsm_secret");
 
 	/* Copy the extracted secret to our global hsm_secret */
 	memcpy(&hsm_secret, &hsms->secret, sizeof(hsm_secret));
+	status_debug("HSM: Copied secret to global hsm_secret");
+	
+	/* Clean up wally allocations */
+	tal_wally_end(tmpctx);
+	status_debug("HSM: Cleaned up wally allocations in load_hsm");
 }
 
 /*~ We have a pre-init call in developer mode, to set dev flags */
@@ -462,6 +501,8 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 	u32 minversion, maxversion;
 	const u32 our_minversion = 4, our_maxversion = 6;
 
+	status_debug("HSM: Starting init_hsm");
+
 	/* This must be lightningd. */
 	assert(is_lightningd(c));
 
@@ -479,6 +520,8 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 				&minversion, &maxversion, &tlvs))
 		return bad_req(conn, c, msg_in);
 
+	status_debug("HSM: Successfully parsed init message");
+
 	/*~ Usually we don't worry about API breakage between internal daemons,
 	 * but there are other implementations of the HSM daemon now, so we
 	 * do at least the simplest, clearest thing. */
@@ -487,6 +530,8 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 				   "Version %u-%u not valid: we need %u-%u",
 				   minversion, maxversion,
 				   our_minversion, our_maxversion);
+
+	status_debug("HSM: Version check passed");
 
 	/*~ Don't swap this. */
 	sodium_mlock(hsm_secret.secret.data, sizeof(hsm_secret.secret.data));
@@ -502,16 +547,23 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 	const char *hsm_passphrase = NULL;
 	if (tlvs && tlvs->hsm_passphrase) {
 		hsm_passphrase = (const char *)tlvs->hsm_passphrase;
+		status_debug("HSM: Passphrase provided in TLV");
+	} else {
+		status_debug("HSM: No passphrase provided in TLV");
 	}
 
 	/* Once we have read the init message we know which params the master
 	 * will use */
 	c->chainparams = chainparams;
+	status_debug("HSM: About to call maybe_create_new_hsm");
 	maybe_create_new_hsm(hsm_passphrase);
+	status_debug("HSM: About to call load_hsm");
 	load_hsm(hsm_passphrase);
+	status_debug("HSM: Successfully loaded hsm_secret");
 
 	/* Define the minimum common max version for the hsmd one */
 	hsmd_mutual_version = maxversion < our_maxversion ? maxversion : our_maxversion;
+	status_debug("HSM: Sending init reply");
 	return req_reply(conn, c, hsmd_init(hsm_secret.secret, hsmd_mutual_version,
 					    bip32_key_version));
 }

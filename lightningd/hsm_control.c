@@ -88,18 +88,15 @@ static const char *read_hsm_passphrase_if_needed(struct lightningd *ld)
 	if (!ld->hsm_passphrase_required)
 		return NULL;
 
-	printf("The hsm_secret uses a mnemonic with a passphrase. In order to "
-	       "derive the seed and start the node you must provide the passphrase.\n");
-	printf("Enter hsm_secret passphrase: ");
-	fflush(stdout);
+	log_info(ld->log, "The hsm_secret uses a mnemonic with a passphrase. In order to "
+		"derive the seed and start the node you must provide the passphrase.");
+	log_info(ld->log, "Enter hsm_secret passphrase: ");
 
 	enum hsm_secret_error err;
 	const char *passphrase = read_stdin_pass(tmpctx, &err);
 	if (err != HSM_SECRET_OK) {
 		fatal("Failed to read passphrase: %s", hsm_secret_error_str(err));
 	}
-
-	printf("\n");
 
 	return passphrase;
 }
