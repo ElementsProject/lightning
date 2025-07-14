@@ -4,3 +4,5 @@ UseTab: Always
 BreakBeforeBraces: Linux
 AllowShortIfStatementsOnASingleLine: false
 IndentCaseLabels: false
+SortIncludes: CaseSensitive
+IncludeBlocks: Preserve
