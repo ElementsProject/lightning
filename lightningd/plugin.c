@@ -3,6 +3,7 @@
 #include <ccan/ccan/tal/grab_file/grab_file.h>
 #include <ccan/crc32c/crc32c.h>
 #include <ccan/io/io.h>
+#include <ccan/json_escape/json_escape.h>
 #include <ccan/mem/mem.h>
 #include <ccan/opt/opt.h>
 #include <ccan/pipecmd/pipecmd.h>
@@ -487,6 +488,7 @@ static const char *plugin_log_handle(struct plugin *plugin,
 {
 	const jsmntok_t *msgtok, *leveltok;
 	enum log_level level;
+	const char *msg;
 	bool call_notifier;
 	msgtok = json_get_member(plugin->buffer, paramstok, "message");
 	leveltok = json_get_member(plugin->buffer, paramstok, "level");
@@ -511,10 +513,15 @@ static const char *plugin_log_handle(struct plugin *plugin,
 			       json_tok_full(plugin->buffer, leveltok));
 	}
 
+	msg = json_escape_unescape_len(tmpctx, plugin->buffer + msgtok->start,
+				       msgtok->end - msgtok->start);
+	if (!msg)
+		return tal_fmt(plugin, "Log notification from plugin has a \"message\" "
+			       "string containing an invalid escape sequence.");
+
 	call_notifier = (level == LOG_BROKEN || level == LOG_UNUSUAL)? true : false;
 	/* FIXME: Let plugin specify node_id? */
-	log_(plugin->log, level, NULL, call_notifier, "%.*s", msgtok->end - msgtok->start,
-	     plugin->buffer + msgtok->start);
+	log_(plugin->log, level, NULL, call_notifier, "%s", msg);
 	return NULL;
 }
 
