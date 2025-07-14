@@ -190,13 +190,11 @@ int main(int argc, char *argv[])
 		char *fail;
 		const char *str;
 		size_t dlen;
-		struct json_escape *esc;
 
 		assert(json_to_bool(json, json_get_member(json, t, "valid"), &valid));
 		strtok = json_get_member(json, t, "string");
-		esc = json_escape_string_(tmpctx, json + strtok->start,
-					  strtok->end - strtok->start);
-		str = json_escape_unescape(tmpctx, esc);
+		str = json_escape_unescape_len(tmpctx, json + strtok->start,
+					       strtok->end - strtok->start);
 		actual = (string_to_data(tmpctx, str, strlen(str),
 					 "lno", &dlen, &fail) != NULL);
 		assert(actual == valid);
