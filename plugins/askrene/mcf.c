@@ -969,10 +969,15 @@ struct flow **minflow(const tal_t *ctx,
 	params->source = source;
 	params->target = target;
 	params->amount = amount;
-	params->accuracy = AMOUNT_MSAT(1000);
-	/* FIXME: params->accuracy = amount_msat_max(amount_msat_div(amount,
-	 * 1000), AMOUNT_MSAT(1));
+	/* -> We reduce the granularity of the flow by limiting the subdivision
+	 * of the payment amount into 1000 units of flow. That reduces the
+	 * computational burden for algorithms that depend on it, eg. "capacity
+	 * scaling" and "successive shortest path".
+	 * -> Using Ceil operation instead of Floor so that
+	 *      accuracy x 1000 >= amount
 	 * */
+	params->accuracy =
+	    amount_msat_max(AMOUNT_MSAT(1), amount_msat_div_ceil(amount, 1000));
 
 	// template the channel partition into linear arcs
 	params->cap_fraction[0]=0;
