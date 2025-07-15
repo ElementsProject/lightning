@@ -671,7 +671,7 @@ def test_xpay_bolt12_no_mpp(node_factory, chainparams, deprecations):
 
     # Amount needs to be enought that it bothers splitting, but not
     # so much that it can't pay without mpp.
-    AMOUNT = 500000000
+    AMOUNT = 800000000
 
     # l2 will advertize mpp, l3 won't.
     l2offer = l2.rpc.offer(AMOUNT, 'test_xpay_bolt12_no_mpp')
@@ -686,10 +686,11 @@ def test_xpay_bolt12_no_mpp(node_factory, chainparams, deprecations):
     assert ret['failed_parts'] == 0
     if deprecations:
         assert ret['successful_parts'] == 2
+        assert ret['amount_sent_msat'] == AMOUNT + AMOUNT // 100000 + 2
     else:
         assert ret['successful_parts'] == 1
+        assert ret['amount_sent_msat'] == AMOUNT + AMOUNT // 100000 + 1
     assert ret['amount_msat'] == AMOUNT
-    assert ret['amount_sent_msat'] == AMOUNT + AMOUNT // 100000 + 1
 
 
 def test_xpay_slow_mode(node_factory, bitcoind):
@@ -706,18 +707,18 @@ def test_xpay_slow_mode(node_factory, bitcoind):
     wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 10)
 
     # First try an MPP which fails
-    inv = l5.rpc.invoice(500000000, 'test_xpay_slow_mode_fail', 'test_xpay_slow_mode_fail', preimage='01' * 32)['bolt11']
+    inv = l5.rpc.invoice(800000000, 'test_xpay_slow_mode_fail', 'test_xpay_slow_mode_fail', preimage='01' * 32)['bolt11']
     l5.rpc.delinvoice('test_xpay_slow_mode_fail', status='unpaid')
 
     with pytest.raises(RpcError, match=r"Destination said it doesn't know invoice: incorrect_or_unknown_payment_details"):
         l1.rpc.xpay(inv)
 
     # Now a successful one
-    inv = l5.rpc.invoice(500000000, 'test_xpay_slow_mode', 'test_xpay_slow_mode', preimage='00' * 32)['bolt11']
+    inv = l5.rpc.invoice(800000000, 'test_xpay_slow_mode', 'test_xpay_slow_mode', preimage='00' * 32)['bolt11']
 
     assert l1.rpc.xpay(inv) == {'payment_preimage': '00' * 32,
-                                'amount_msat': 500000000,
-                                'amount_sent_msat': 500010002,
+                                'amount_msat': 800000000,
+                                'amount_sent_msat': 800016004,
                                 'failed_parts': 0,
                                 'successful_parts': 2}
 
@@ -739,7 +740,7 @@ def test_fail_after_success(node_factory, bitcoind, executor, slow_mode):
     bitcoind.generate_block(5)
     wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 10)
 
-    inv = l5.rpc.invoice(500000000, 'test_xpay_slow_mode', 'test_xpay_slow_mode', preimage='00' * 32)['bolt11']
+    inv = l5.rpc.invoice(800000000, 'test_xpay_slow_mode', 'test_xpay_slow_mode', preimage='00' * 32)['bolt11']
     fut = executor.submit(l1.rpc.xpay, invstring=inv, retry_for=0)
 
     # Part via l3 is fine.  Part via l4 is stuck, so we kill l4 and mine
@@ -750,8 +751,8 @@ def test_fail_after_success(node_factory, bitcoind, executor, slow_mode):
     # Normally, we return as soon as first part succeeds.
     if slow_mode is False:
         assert fut.result(TIMEOUT) == {'payment_preimage': '00' * 32,
-                                       'amount_msat': 500000000,
-                                       'amount_sent_msat': 500010002,
+                                       'amount_msat': 800000000,
+                                       'amount_sent_msat': 800016004,
                                        'failed_parts': 0,
                                        'successful_parts': 2}
 
@@ -763,15 +764,15 @@ def test_fail_after_success(node_factory, bitcoind, executor, slow_mode):
     l1.daemon.wait_for_log(r"UNUSUAL.*Destination accepted partial payment, failed a part \(Error permanent_channel_failure for path ->022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59->0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199->032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e, from 022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59\)")
     # Could be either way around, check both
     line = l1.daemon.is_in_log(r"UNUSUAL.*Destination accepted partial payment, failed a part")
-    assert re.search(r'but accepted only 32000msat of 500000000msat\.  Winning\?!', line) or re.search(r'but accepted only 499968000msat of 500000000msat\.  Winning\?!', line)
+    assert re.search(r'but accepted only .* of 800000000msat\.  Winning\?!', line)
 
     if slow_mode is True:
         # Now it succeeds, but notes that it only sent one part!
         res = fut.result(TIMEOUT)
         # Some variation due to floating point.
-        assert res['amount_sent_msat'] < 500000000
+        assert res['amount_sent_msat'] < 800000000
         assert res == {'payment_preimage': '00' * 32,
-                       'amount_msat': 500000000,
+                       'amount_msat': 800000000,
                        'amount_sent_msat': res['amount_sent_msat'],
                        'failed_parts': 1,
                        'successful_parts': 1}
