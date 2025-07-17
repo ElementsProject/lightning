@@ -31,7 +31,7 @@ static u8 get_u5_bit(const u5 *src, size_t bitoff)
         return ((src[bitoff / 5] >> (4 - (bitoff % 5))) & 1);
 }
 
-void bech32_pull_bits(u8 **data, const u5 *src, size_t nbits)
+bool bech32_pull_bits(u8 **data, const u5 *src, size_t nbits)
 {
         size_t i;
         size_t data_len = tal_count(*data);
@@ -46,6 +46,27 @@ void bech32_pull_bits(u8 **data, const u5 *src, size_t nbits)
                 }
                 data_len++;
         }
+
+	/* BIP-173:
+	 *
+	 * Decoding...
+	 * - Any incomplete group at the end MUST be 4 bits or less, MUST be all zeroes, and is discarded
+	 */
+        size_t remaining_bits = nbits - i;
+
+        if (remaining_bits > 0) {
+                if (remaining_bits > 4) {
+                        return false;
+                }
+
+                for (size_t b = 0; b < remaining_bits; b++) {
+                        if (get_u5_bit(src, i + b) != 0) {
+                                return false;
+                        }
+                }
+        }
+
+        return true;
 }
 
 /* Returns a char, tracks case. */
@@ -95,7 +116,9 @@ bool from_bech32_charset(const tal_t *ctx,
 		goto fail;
 
 	*data = tal_arr(ctx, u8, 0);
-	bech32_pull_bits(data, u5data, tal_bytelen(u5data) * 5);
+	if (!bech32_pull_bits(data, u5data, tal_bytelen(u5data) * 5)) {
+		goto fail;
+	}
 	tal_free(u5data);
 	return true;
 
