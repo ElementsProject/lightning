@@ -570,6 +570,7 @@ static bool complete_table_manip(struct db *db,
 	return true;
 }
 
+/* FIXME: sqlite3 version 3.25.0 (2018-09-15) supports ALTER TABLE RENAME */
 static bool db_sqlite3_rename_column(struct db *db,
 				     const char *tablename,
 				     const char *from, const char *to)
