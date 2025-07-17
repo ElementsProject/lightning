@@ -1631,8 +1631,8 @@ static void migrate_channels_scids_as_integers(struct lightningd *ld,
 	/* FIXME: We cannot use ->delete_columns to remove
 	 * short_channel_id, as other tables reference the channels
 	 * (and sqlite3 has them referencing a now-deleted table!).
-	 * When we can assume sqlite3 2021-04-19 (3.35.5), we can
-	 * simply use DROP COLUMN (yay!) */
+	 * When we can assume sqlite3 version 3.35.5 (2021-04-19),
+	 * we can simply use DROP COLUMN (yay!) */
 
 	/* So null-out the unused column, at least! */
 	stmt = db_prepare_v2(db, SQL("UPDATE channels"
