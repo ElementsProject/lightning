@@ -52,6 +52,7 @@
 #include <common/deprecation.h>
 #include <common/ecdh_hsmd.h>
 #include <common/hsm_encryption.h>
+#include <common/hsm_secret.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <common/timeout.h>
@@ -1313,8 +1314,11 @@ int main(int argc, char *argv[])
 
 	/*~ If hsm_secret is encrypted, we don't need its encryption key
 	 * anymore. Note that sodium_munlock() also zeroes the memory.*/
-	if (ld->config.keypass)
-		discard_key(take(ld->config.keypass));
+	if (ld->config.keypass) {
+		destroy_secret(ld->config.keypass);
+		tal_free(ld->config.keypass);
+		ld->config.keypass = NULL;
+	}
 
 	/*~ Our default color and alias are derived from our node id, so we
 	 * can only set those now (if not set by config options). */

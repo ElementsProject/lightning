@@ -1,4 +1,5 @@
 #include "config.h"
+#include <assert.h>
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
@@ -22,9 +23,26 @@
 /* Total length of an encrypted hsm_secret */
 #define ENCRYPTED_HSM_SECRET_LEN (HS_HEADER_LEN + HS_CIPHERTEXT_LEN)
 
-static void destroy_secret(struct secret *secret)
+void destroy_secret(struct secret *secret)
 {
 	sodium_munlock(secret->data, sizeof(secret->data));
+}
+
+/* Helper function to validate a mnemonic string */
+static bool validate_mnemonic(const char *mnemonic, enum hsm_secret_error *err)
+{
+	struct words *words;
+	
+	if (bip39_get_wordlist("en", &words) != WALLY_OK) {
+		abort();
+	}
+	
+	if (bip39_mnemonic_validate(words, mnemonic) != WALLY_OK) {
+		*err = HSM_SECRET_ERR_INVALID_MNEMONIC;
+		return false;
+	}
+	
+	return true;
 }
 
 struct secret *get_encryption_key(const tal_t *ctx, const char *passphrase)
@@ -113,27 +131,6 @@ bool derive_seed_hash(const char *mnemonic, const char *passphrase, struct sha25
 	return true;
 }
 
-/* Validate the passphrase for a mnemonic secret */
-bool validate_mnemonic_passphrase(const u8 *hsm_secret, size_t len, const char *passphrase)
-{
-	enum hsm_secret_type type = detect_hsm_secret_type(hsm_secret, len);
-	
-	if (type != HSM_SECRET_MNEMONIC_WITH_PASS)
-		return true; /* No validation needed */
-
-	/* First 32 bytes are the stored seed hash */
-	const struct sha256 *stored_hash = (const struct sha256 *)hsm_secret;
-	struct sha256 computed_hash;
-	
-	/* Extract mnemonic portion (skip first 32 bytes which are seed hash) */
-	const char *mnemonic_start = (const char *)(hsm_secret + sizeof(struct sha256));
-	
-	if (!derive_seed_hash(mnemonic_start, passphrase, &computed_hash))
-		return false;
-	
-	return sha256_eq(stored_hash, &computed_hash);
-}
-
 static bool decrypt_hsm_secret(const struct secret *encryption_key,
 			       const u8 *cipher,
 			       struct secret *output)
@@ -171,8 +168,6 @@ const char *hsm_secret_error_str(enum hsm_secret_error err)
 		return "Invalid mnemonic";
 	case HSM_SECRET_ERR_ENCRYPTION_FAILED:
 		return "Encryption failed";
-	case HSM_SECRET_ERR_WORDLIST_FAILED:
-		return "Could not load wordlist";
 	case HSM_SECRET_ERR_SEED_DERIVATION_FAILED:
 		return "Could not derive seed from mnemonic";
 	case HSM_SECRET_ERR_INVALID_FORMAT:
@@ -227,7 +222,7 @@ static struct hsm_secret *extract_encrypted_secret(const tal_t *ctx,
 	decrypt_success = decrypt_hsm_secret(encryption_key, hsm_secret, &hsms->secret);
 	
 	/* Clear encryption key immediately after use */
-	discard_key(encryption_key);
+	destroy_secret(encryption_key);
 	
 	if (!decrypt_success) {
 		/* Clear any partial decryption data */
@@ -247,15 +242,14 @@ static struct hsm_secret *extract_mnemonic_secret(const tal_t *ctx,
 						  const u8 *hsm_secret,
 						  size_t len,
 						  const char *passphrase,
+						  enum hsm_secret_type type,
 						  enum hsm_secret_error *err)
 {
 	struct hsm_secret *hsms = tal(ctx, struct hsm_secret);
-	struct words *words;
 	const u8 *mnemonic_start;
 	size_t mnemonic_len;
-	enum hsm_secret_type type;
 	
-	type = detect_hsm_secret_type(hsm_secret, len);
+	assert(type == HSM_SECRET_MNEMONIC_NO_PASS || type == HSM_SECRET_MNEMONIC_WITH_PASS);
 	hsms->type = type;
 	
 	/* Extract mnemonic portion (skip first 32 bytes which are passphrase hash) */
@@ -269,7 +263,14 @@ static struct hsm_secret *extract_mnemonic_secret(const tal_t *ctx,
 			return tal_free(hsms);
 		}
 		
-		if (!validate_mnemonic_passphrase(hsm_secret, len, passphrase)) {
+		/* Validate passphrase by comparing stored hash with computed hash */
+		struct sha256 stored_hash, computed_hash;
+		memcpy(&stored_hash, hsm_secret, sizeof(stored_hash));
+		if (!derive_seed_hash((const char *)mnemonic_start, passphrase, &computed_hash)) {
+			*err = HSM_SECRET_ERR_SEED_DERIVATION_FAILED;
+			return tal_free(hsms);
+		}
+		if (!sha256_eq(&stored_hash, &computed_hash)) {
 			*err = HSM_SECRET_ERR_WRONG_PASSPHRASE;
 			return tal_free(hsms);
 		}
@@ -283,23 +284,16 @@ static struct hsm_secret *extract_mnemonic_secret(const tal_t *ctx,
 	/* Copy and validate mnemonic */
 	hsms->mnemonic = tal_strndup(hsms, (const char *)mnemonic_start, mnemonic_len);
 	
-	/* Load wordlist and validate mnemonic */
-	if (bip39_get_wordlist("en", &words) != WALLY_OK) {
-		*err = HSM_SECRET_ERR_WORDLIST_FAILED;
-		return tal_free(hsms);
-	}
-	
-	if (bip39_mnemonic_validate(words, hsms->mnemonic) != WALLY_OK) {
-		*err = HSM_SECRET_ERR_INVALID_MNEMONIC;
+	/* Validate mnemonic */
+	if (!validate_mnemonic(hsms->mnemonic, err)) {
 		return tal_free(hsms);
 	}
 	
 	/* Derive the seed from the mnemonic */
 	u8 bip32_seed[BIP39_SEED_LEN_512];
 	size_t bip32_seed_len;
-	const char *seed_passphrase = (type == HSM_SECRET_MNEMONIC_WITH_PASS) ? passphrase : NULL;
 	
-	if (bip39_mnemonic_to_seed(hsms->mnemonic, seed_passphrase, bip32_seed, sizeof(bip32_seed), &bip32_seed_len) != WALLY_OK) {
+	if (bip39_mnemonic_to_seed(hsms->mnemonic, passphrase, bip32_seed, sizeof(bip32_seed), &bip32_seed_len) != WALLY_OK) {
 		*err = HSM_SECRET_ERR_SEED_DERIVATION_FAILED;
 		return tal_free(hsms);
 	}
@@ -326,13 +320,13 @@ struct hsm_secret *extract_hsm_secret(const tal_t *ctx,
 	case HSM_SECRET_ENCRYPTED:
 		return extract_encrypted_secret(ctx, hsm_secret, len, passphrase, err);
 	case HSM_SECRET_MNEMONIC_NO_PASS:
-		return extract_mnemonic_secret(ctx, hsm_secret, len, NULL, err);
 	case HSM_SECRET_MNEMONIC_WITH_PASS:
-		return extract_mnemonic_secret(ctx, hsm_secret, len, passphrase, err);
+		return extract_mnemonic_secret(ctx, hsm_secret, len, passphrase, type, err);
 	case HSM_SECRET_INVALID:
 		*err = HSM_SECRET_ERR_INVALID_FORMAT;
 		return NULL;
 	}
+	abort();
 }
 
 bool encrypt_legacy_hsm_secret(const struct secret *encryption_key,
@@ -355,28 +349,8 @@ bool encrypt_legacy_hsm_secret(const struct secret *encryption_key,
 	return true;
 }
 
-/* Returns -1 on error (and sets errno), 0 if not encrypted, 1 if it is */
-int is_legacy_hsm_secret_encrypted(const char *path)
-{
-	struct stat st;
-
-        if (stat(path, &st) != 0)
-		return -1;
-
-        return st.st_size == ENCRYPTED_HSM_SECRET_LEN;
-}
-
-void discard_key(struct secret *key TAKES)
-{
-	/* sodium_munlock() also zeroes the memory. */
-	sodium_munlock(key->data, sizeof(key->data));
-	if (taken(key))
-		tal_free(key);
-}
-
 static void destroy_passphrase(char *passphrase)
 {
-	sodium_memzero(passphrase, tal_bytelen(passphrase));
 	sodium_munlock(passphrase, tal_bytelen(passphrase));
 }
 
@@ -404,8 +378,8 @@ static void restore_echo(const struct termios *saved_term)
 	tcsetattr(fileno(stdin), TCSANOW, saved_term);
 }
 
-/* Read line from stdin (uses malloc internally) */
-static char *read_line(void)
+/* Read line from stdin (uses tal allocation) */
+static char *read_line(const tal_t *ctx)
 {
 	char *line = NULL;
 	size_t size = 0;
@@ -420,7 +394,10 @@ static char *read_line(void)
 	if (len > 0 && line[len - 1] == '\n')
 		line[len - 1] = '\0';
 
-	return line;
+	/* Convert to tal string */
+	char *result = tal_strndup(ctx, line, len);
+	free(line);
+	return result;
 }
 
 const char *read_stdin_pass(const tal_t *ctx, enum hsm_secret_error *err)
@@ -434,7 +411,7 @@ const char *read_stdin_pass(const tal_t *ctx, enum hsm_secret_error *err)
 		return NULL;
 	}
 
-	char *input = read_line();
+	char *input = read_line(ctx);
 	if (!input) {
 		if (echo_disabled)
 			restore_echo(&saved_term);
@@ -442,24 +419,18 @@ const char *read_stdin_pass(const tal_t *ctx, enum hsm_secret_error *err)
 		return NULL;
 	}
 
-	size_t len = strlen(input);
-	char *passphrase = tal_arr(ctx, char, len + 1);
-	strcpy(passphrase, input);
-	free(input);
-
 	/* Memory locking is mandatory: failure means we're on an insecure system */
-	if (sodium_mlock(passphrase, len + 1) != 0)
+	if (sodium_mlock(input, tal_bytelen(input)) != 0)
 		abort();
 
-	tal_add_destructor(passphrase, destroy_passphrase);
+	tal_add_destructor(input, destroy_passphrase);
 
 	if (echo_disabled)
 		restore_echo(&saved_term);
 
-	return passphrase;
+	return input;
 }
 
-/* Add this function to hsm_secret.c */
 const char *read_stdin_mnemonic(const tal_t *ctx, enum hsm_secret_error *err)
 {
 	*err = HSM_SECRET_OK;
@@ -467,42 +438,26 @@ const char *read_stdin_mnemonic(const tal_t *ctx, enum hsm_secret_error *err)
 	printf("Introduce your BIP39 word list separated by space (at least 12 words):\n");
 	fflush(stdout);
 
-	char *line = NULL;
-	size_t size = 0;
-	if (getline(&line, &size, stdin) < 0) {
-		free(line);
+	char *line = read_line(ctx);
+	if (!line) {
 		*err = HSM_SECRET_ERR_INVALID_FORMAT;
 		return NULL;
 	}
 
-	/* Strip newline */
-	size_t len = strlen(line);
-	if (len > 0 && line[len - 1] == '\n')
-		line[len - 1] = '\0';
-
 	/* Validate mnemonic */
-	struct words *words;
-	if (bip39_get_wordlist("en", &words) != WALLY_OK) {
-		free(line);
-		*err = HSM_SECRET_ERR_WORDLIST_FAILED;
+	if (!validate_mnemonic(line, err)) {
 		return NULL;
 	}
 
-	if (bip39_mnemonic_validate(words, line) != WALLY_OK) {
-		free(line);
-		*err = HSM_SECRET_ERR_INVALID_MNEMONIC;
-		return NULL;
-	}
-
-	/* Convert to tal string */
-	char *mnemonic = tal_strdup(ctx, line);
-	free(line);
-
-	return mnemonic;
+	return line;
 }
 
+int is_legacy_hsm_secret_encrypted(const char *path)
+{
+	struct stat st;
 
+	if (stat(path, &st) != 0)
+		return -1;
 
-
-
-
+	return st.st_size == ENCRYPTED_HSM_SECRET_LEN;
+}

@@ -233,7 +233,7 @@ static int encrypt_hsm(const char *hsm_secret_path)
 		errx(ERROR_LIBSODIUM, "Could not encrypt the hsm_secret seed.");
 
 	/* Securely discard the encryption key */
-	discard_key(encryption_key);
+	destroy_secret(encryption_key);
 
 	/* Create a backup file, "just in case". */
 	rename(hsm_secret_path, backup);
@@ -513,35 +513,30 @@ static int dumponchaindescriptors(const char *hsm_secret_path,
 	return 0;
 }
 
+/* Check HSM secret by comparing with backup mnemonic */
 static int check_hsm(const char *hsm_secret_path)
 {
 	struct secret file_secret, derived_secret;
 	u8 bip32_seed[BIP39_SEED_LEN_512];
 	size_t bip32_seed_len;
-	const char *passphrase, *mnemonic;
+	const char *mnemonic_passphrase, *mnemonic;
 	enum hsm_secret_error err;
 
-	/* Check what type of hsm_secret we're dealing with */
-	u8 *contents = grab_file(tmpctx, hsm_secret_path);
-	if (!contents)
-		errx(EXITCODE_ERROR_HSM_FILE, "Reading hsm_secret");
-	tal_resize(&contents, tal_bytelen(contents) - 1);
-	
-	/* Get the actual seed from the file */
+	/* Load the hsm_secret (handles decryption automatically if needed) */
 	struct hsm_secret *hsms = load_hsm_secret(tmpctx, hsm_secret_path);
 	file_secret = hsms->secret;
 
-	/* Ask user for their BIP39 backup passphrase */
+	/* Ask user for their backup mnemonic passphrase */
 	printf("Warning: remember that different passphrases yield different "
 	       "bitcoin wallets.\n");
 	printf("If left empty, no password is used (echo is disabled).\n");
-	printf("Enter your passphrase: \n");
+	printf("Enter your mnemonic passphrase: \n");
 	fflush(stdout);
-	passphrase = read_stdin_pass(tmpctx, &err);
-	if (!passphrase)
+	mnemonic_passphrase = read_stdin_pass(tmpctx, &err);
+	if (!mnemonic_passphrase)
 		errx(EXITCODE_ERROR_HSM_FILE, "Could not read passphrase: %s", hsm_secret_error_str(err));
-	if (strlen(passphrase) == 0) {
-		passphrase = NULL;
+	if (strlen(mnemonic_passphrase) == 0) {
+		mnemonic_passphrase = NULL;
 	}
 
 	/* Ask user for their backup mnemonic using consistent interface */
@@ -550,19 +545,17 @@ static int check_hsm(const char *hsm_secret_path)
 		errx(EXITCODE_ERROR_HSM_FILE, "Could not read mnemonic: %s", hsm_secret_error_str(err));
 	
 	/* Derive seed from user's backup mnemonic + passphrase */
-	if (bip39_mnemonic_to_seed(mnemonic, passphrase, bip32_seed, sizeof(bip32_seed), &bip32_seed_len) != WALLY_OK)
+	if (bip39_mnemonic_to_seed(mnemonic, mnemonic_passphrase, bip32_seed, sizeof(bip32_seed), &bip32_seed_len) != WALLY_OK)
 		errx(ERROR_LIBWALLY, "Unable to derive BIP32 seed from BIP39 mnemonic");
 
 	/* Copy first 32 bytes to our secret for comparison */
 	memcpy(derived_secret.data, bip32_seed, sizeof(derived_secret.data));
 
-	/* Compare the seeds - this works for all formats */
+	/* Compare the seeds */
 	if (memcmp(derived_secret.data, file_secret.data, sizeof(file_secret.data)) != 0)
 		errx(ERROR_KEYDERIV, "resulting hsm_secret did not match");
 
 	printf("OK\n");
-
-	/* passphrase and mnemonic will be automatically cleaned up by tmpctx */
 	return 0;
 }
 

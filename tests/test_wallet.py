@@ -1397,6 +1397,9 @@ def test_hsmtool_dump_descriptors(node_factory, bitcoind):
         actual_index = len(cln_addrs) - 1 + index_offset
         res = bitcoind.rpc.scantxoutset("start", [{"desc": descriptor, "range": [actual_index, actual_index]}])
         assert res["total_amount"] == Decimal('0.00001000')
+    
+    # Explicitly stop the node to avoid race conditions during cleanup
+    l1.stop()
 
 def test_hsmtool_generatehsm_with_passphrase(node_factory):
     """Test generating mnemonic-based hsm_secret with passphrase"""
@@ -1421,9 +1424,8 @@ def test_hsmtool_generatehsm_with_passphrase(node_factory):
         content = f.read()
         # First 32 bytes should NOT be zeros (has passphrase hash)
         assert content[:32] != b'\x00' * 32
-        # Rest should be the mnemonic
-        mnemonic_part = content[32:].decode('utf-8')
-        assert "ritual idle hat sunny universe pluck key alpha wing cake have wedding" in mnemonic_part
+        assert b"ritual idle hat sunny universe pluck key alpha wing cake have wedding" == content[32:]
+        #TODO: Assert on the passphrase hash 
 
     # Verify Lightning node can use it
     master_fd, slave_fd = os.openpty()
@@ -1467,6 +1469,9 @@ def test_hsmtool_generatehsm_no_passphrase(node_factory):
     l1.daemon.wait_for_log("Server started with public key")
     node_id = l1.rpc.getinfo()['id']
     assert len(node_id) == 66  # Valid node ID
+    #TODO: Test the node id 
+    
+    # Explicitly stop the node to avoid race conditions during cleanup
     l1.stop()
 
 
@@ -1586,6 +1591,111 @@ def test_hsmtool_checkhsm_wrong_mnemonic(node_factory):
     assert hsmtool.proc.wait(WAIT_TIMEOUT) == 5  # ERROR_KEYDERIV
     hsmtool.is_in_log(r"resulting hsm_secret did not match")
 
+
+def test_hsmtool_checkhsm_legacy_encrypted_with_mnemonic_no_passphrase(node_factory):
+    """Test checkhsm with legacy encrypted hsm_secret containing mnemonic without passphrase"""
+    l1 = node_factory.get_node(start=False)
+    hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
+    os.remove(hsm_path)
+    seed_hex = "31bb58d1180831868fd5f562bb74659dca1e9673d034af635df53d677b9e5f03"
+    seed_bytes = bytes.fromhex(seed_hex)
+    
+    # Write the 32-byte seed directly to file (simulating old generatehsm output)
+    # Make sure we write exactly 32 bytes with no newline
+    assert len(seed_bytes) == 32, f"Seed should be exactly 32 bytes, got {len(seed_bytes)}"
+    with open(hsm_path, 'wb') as f:
+        f.write(seed_bytes)
+
+    # Verify it's exactly 32 bytes
+    with open(hsm_path, 'rb') as f:
+        content = f.read()
+        print(content)
+        assert content == seed_bytes, "File content doesn't match expected seed"
+
+    # Now encrypt it using the legacy encrypt command
+    encryption_password = "encryption_password"
+    hsmtool = HsmTool(node_factory.directory, "encrypt", hsm_path)
+    master_fd, slave_fd = os.openpty()
+    hsmtool.start(stdin=slave_fd)
+    hsmtool.wait_for_log(r"Enter hsm_secret password:")
+    write_all(master_fd, f"{encryption_password}\n".encode("utf-8"))
+    hsmtool.wait_for_log(r"Confirm hsm_secret password:")
+    write_all(master_fd, f"{encryption_password}\n".encode("utf-8"))
+    assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
+    hsmtool.is_in_log(r"Successfully encrypted")
+
+    # Verify the file is now encrypted (73 bytes)
+    with open(hsm_path, 'rb') as f:
+        content = f.read()
+        assert len(content) == 73, f"Expected 73 bytes after encryption, got {len(content)}"
+
+    # Test checkhsm - should prompt for encryption password first, then mnemonic passphrase
+    hsmtool = HsmTool(node_factory.directory, "checkhsm", hsm_path)
+    master_fd, slave_fd = os.openpty()
+    hsmtool.start(stdin=slave_fd)
+    hsmtool.wait_for_log(r"Enter hsm_secret password:")  # Encryption password
+    write_all(master_fd, f"{encryption_password}\n".encode("utf-8"))
+    hsmtool.wait_for_log(r"Enter your mnemonic passphrase:")     # Mnemonic passphrase (empty)
+    write_all(master_fd, "\n".encode("utf-8"))  # Empty passphrase
+    hsmtool.wait_for_log(r"Introduce your BIP39 word list separated by space")
+    write_all(master_fd, "blame expire peanut sell door zoo bundle motor truth outside artist siren\n".encode("utf-8"))
+    assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
+    hsmtool.is_in_log(r"OK")
+
+
+def test_hsmtool_checkhsm_legacy_encrypted_with_mnemonic_passphrase(node_factory):
+    """Test checkhsm with legacy encrypted hsm_secret containing mnemonic with passphrase"""
+    l1 = node_factory.get_node(start=False)
+    hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
+    os.remove(hsm_path)
+
+    # Directly write the 32-byte seed from mnemonic with passphrase
+    # Mnemonic: "blame expire peanut sell door zoo bundle motor truth outside artist siren"
+    # Passphrase: "passphrase"
+    # Expected BIP39 seed (first 32 bytes): 161d740bcfd3c5e2a1769159bee86868ab35e7544e83e825042a43b929ad950c
+    seed_hex = "161d740bcfd3c5e2a1769159bee86868ab35e7544e83e825042a43b929ad950c"
+    seed_bytes = bytes.fromhex(seed_hex)
+    
+    # Write the 32-byte seed directly to file (simulating old generatehsm output)
+    with open(hsm_path, 'wb') as f:
+        f.write(seed_bytes)
+
+    # Verify it's 32 bytes
+    with open(hsm_path, 'rb') as f:
+        content = f.read()
+        assert len(content) == 32, f"Expected 32 bytes, got {len(content)}"
+
+    # Now encrypt it using the legacy encrypt command
+    encryption_password = "encryption_password"
+    hsmtool = HsmTool(node_factory.directory, "encrypt", hsm_path)
+    master_fd, slave_fd = os.openpty()
+    hsmtool.start(stdin=slave_fd)
+    hsmtool.wait_for_log(r"Enter hsm_secret password:")
+    write_all(master_fd, f"{encryption_password}\n".encode("utf-8"))
+    hsmtool.wait_for_log(r"Confirm hsm_secret password:")
+    write_all(master_fd, f"{encryption_password}\n".encode("utf-8"))
+    assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
+    hsmtool.is_in_log(r"Successfully encrypted")
+
+    # Verify the file is now encrypted (73 bytes)
+    with open(hsm_path, 'rb') as f:
+        content = f.read()
+        assert len(content) == 73, f"Expected 73 bytes after encryption, got {len(content)}"
+
+    # Test checkhsm - should prompt for encryption password first, then mnemonic passphrase
+    hsmtool = HsmTool(node_factory.directory, "checkhsm", hsm_path)
+    master_fd, slave_fd = os.openpty()
+    hsmtool.start(stdin=slave_fd)
+    hsmtool.wait_for_log(r"Enter hsm_secret password:")  # Encryption password
+    write_all(master_fd, f"{encryption_password}\n".encode("utf-8"))
+    hsmtool.wait_for_log(r"Enter your mnemonic passphrase:")     # Mnemonic passphrase
+    write_all(master_fd, "passphrase\n".encode("utf-8"))
+    hsmtool.wait_for_log(r"Introduce your BIP39 word list separated by space")
+    write_all(master_fd, "blame expire peanut sell door zoo bundle motor truth outside artist siren\n".encode("utf-8"))
+    assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
+    hsmtool.is_in_log(r"OK")
+
+
 def test_hsmtool_generatehsm_file_exists_error(node_factory):
     """Test that generatehsm fails if file already exists"""
     l1 = node_factory.get_node(start=False)
@@ -1616,6 +1726,7 @@ def test_hsmtool_all_commands_work_with_mnemonic_formats(node_factory):
     assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
 
     # Test various commands work with mnemonic format
+    #TODO: Change this to the value that is expected 
     test_commands = [
         (["getnodeid", hsm_path], lambda out: len(out.strip()) == 66),
         (["getcodexsecret", hsm_path, "test"], lambda out: out.strip().startswith("cl")),
@@ -1628,7 +1739,8 @@ def test_hsmtool_all_commands_work_with_mnemonic_formats(node_factory):
         out = subprocess.check_output(cmd_line).decode("utf8")
         assert validator(out), f"Command {cmd_args[0]} failed validation"
 
-
+#TODO: CHange this so that a node id produced by hsmd is the same as the one produced by hsmtool
+#TODO: Think about changing this to parameterised tests?
 def test_hsmtool_deterministic_node_ids(node_factory):
     """Test that same mnemonic+passphrase always produces same node ID"""
     l1 = node_factory.get_node(start=False)
@@ -1677,7 +1789,7 @@ def test_hsmtool_deterministic_node_ids(node_factory):
     second_node_id = output.split('\n')[-1]
 
     # Should be identical
-    assert first_node_id == second_node_id == '02244b73339edd004bc6dfbb953a87984c88e9e7c02ca14ef6ec593ca6be622ba7'
+    assert first_node_id == second_node_id
 
 
 

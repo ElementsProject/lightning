@@ -1,11 +1,11 @@
 #ifndef LIGHTNING_COMMON_HSM_SECRET_H
 #define LIGHTNING_COMMON_HSM_SECRET_H
 #include "config.h"
-#include <sys/types.h>
+#include <bitcoin/privkey.h>
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/tal/tal.h>
-#include <bitcoin/privkey.h>
 #include <sodium.h>
+#include <sys/types.h>
 
 /* Length constants for encrypted HSM secret files */
 #define HS_HEADER_LEN crypto_secretstream_xchacha20poly1305_HEADERBYTES
@@ -30,7 +30,6 @@ enum hsm_secret_error {
 	HSM_SECRET_ERR_WRONG_PASSPHRASE,
 	HSM_SECRET_ERR_INVALID_MNEMONIC,
 	HSM_SECRET_ERR_ENCRYPTION_FAILED,
-	HSM_SECRET_ERR_WORDLIST_FAILED,
 	HSM_SECRET_ERR_SEED_DERIVATION_FAILED,
 	HSM_SECRET_ERR_INVALID_FORMAT,
 	HSM_SECRET_ERR_TERMINAL,
@@ -81,20 +80,6 @@ bool encrypt_legacy_hsm_secret(const struct secret *encryption_key,
 			u8 *output);
 
 /**
- * Securely discard an encryption key from memory.
- * Frees memory if TAKEN.
- */
-void discard_key(struct secret *key TAKES);
-
-/**
- * Returns:
- *   -1: file error (sets errno)
- *    0: file is not encrypted
- *    1: file is encrypted
- */
-int is_legacy_hsm_secret_encrypted(const char *path);
-
-/**
  * Reads a passphrase from stdin, disabling terminal echo.
  * Returns a newly allocated string on success, NULL on error.
  * @ctx - tal context for allocation
@@ -131,16 +116,6 @@ const char *hsm_secret_error_str(enum hsm_secret_error err);
 enum hsm_secret_type detect_hsm_secret_type(const u8 *hsm_secret, size_t len);
 
 /**
- * Validate passphrase for mnemonic-based secrets.
- * @hsm_secret - raw file contents
- * @len - length of file
- * @passphrase - passphrase to validate
- * 
- * Returns true if passphrase is valid or not needed.
- */
-bool validate_mnemonic_passphrase(const u8 *hsm_secret, size_t len, const char *passphrase);
-
-/**
  * Reads a BIP39 mnemonic from stdin with validation.
  * Returns a newly allocated string on success, NULL on error.
  * @ctx - tal context for allocation
@@ -159,5 +134,19 @@ const char *read_stdin_mnemonic(const tal_t *ctx, enum hsm_secret_error *err);
  * Returns true on success, false on failure.
  */
 bool derive_seed_hash(const char *mnemonic, const char *passphrase, struct sha256 *seed_hash);
+
+/**
+ * Check if hsm_secret file is encrypted (legacy format only).
+ * @path - path to the hsm_secret file
+ * 
+ * Returns 1 if encrypted, 0 if not encrypted, -1 on error.
+ */
+int is_legacy_hsm_secret_encrypted(const char *path);
+
+/**
+ * Zero and unlock a secret's memory.
+ * @secret - the secret to destroy
+ */
+void destroy_secret(struct secret *secret);
 
 #endif /* LIGHTNING_COMMON_HSM_SECRET_H */

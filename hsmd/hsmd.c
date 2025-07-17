@@ -276,7 +276,7 @@ static void create_hsm(int fd, const char *passphrase)
 {
 	u8 *hsm_secret_data;
 	size_t hsm_secret_len;
-	
+    int ret;	
 	/* Always create a mnemonic-based hsm_secret */
 	u8 entropy[BIP39_ENTROPY_LEN_128];
 	char *mnemonic = NULL;
@@ -285,16 +285,20 @@ static void create_hsm(int fd, const char *passphrase)
 	status_debug("HSM: Starting create_hsm with passphrase=%s", passphrase ? "provided" : "none");
 	
 	/* Initialize wally tal context for libwally operations */
-	tal_wally_start();
+	
 	status_debug("HSM: Initialized wally tal context");
 	
 	/* Generate random entropy for new mnemonic */
 	randombytes_buf(entropy, sizeof(entropy));
 	status_debug("HSM: Generated random entropy");
 	
+	
 	/* Generate mnemonic from entropy */
-	if (bip39_mnemonic_from_bytes(NULL, entropy, sizeof(entropy), &mnemonic) != WALLY_OK) {
-		tal_wally_end(tmpctx);
+	tal_wally_start();
+	ret = bip39_mnemonic_from_bytes(NULL, entropy, sizeof(entropy), &mnemonic);
+	tal_wally_end(tmpctx);
+
+	if (ret != WALLY_OK) {
 		unlink_noerr("hsm_secret");
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Failed to generate mnemonic from entropy");
@@ -302,15 +306,14 @@ static void create_hsm(int fd, const char *passphrase)
 	status_debug("HSM: Generated mnemonic from entropy");
 	
 	if (!mnemonic) {
-		tal_wally_end(tmpctx);
 		unlink_noerr("hsm_secret");
+		//TODO: Add passphrase error message, add new codes
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Failed to get generated mnemonic");
 	}
 	
 	/* Derive seed hash from mnemonic + passphrase (or zero if no passphrase) */
 	if (!derive_seed_hash(mnemonic, passphrase, &seed_hash)) {
-		tal_wally_end(tmpctx);
 		unlink_noerr("hsm_secret");
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Failed to derive seed hash from mnemonic");
@@ -332,7 +335,6 @@ static void create_hsm(int fd, const char *passphrase)
 	size_t bip32_seed_len;
 	
 	if (bip39_mnemonic_to_seed(mnemonic, passphrase, bip32_seed, sizeof(bip32_seed), &bip32_seed_len) != WALLY_OK) {
-		tal_wally_end(tmpctx);
 		unlink_noerr("hsm_secret");
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Failed to derive seed from mnemonic");
@@ -342,10 +344,6 @@ static void create_hsm(int fd, const char *passphrase)
 	/* Use first 32 bytes for hsm_secret */
 	memcpy(&hsm_secret.secret, bip32_seed, sizeof(hsm_secret.secret));
 	
-	/* Clean up wally allocations */
-	tal_wally_end(tmpctx);
-	status_debug("HSM: Cleaned up wally allocations");
-		
 	/* Write the hsm_secret data to file */
 	if (!write_all(fd, hsm_secret_data, hsm_secret_len)) {
 		unlink_noerr("hsm_secret");
@@ -427,13 +425,12 @@ static void load_hsm(const char *passphrase)
 	status_debug("HSM: Starting load_hsm with passphrase=%s", passphrase ? "provided" : "none");
 
 	/* Initialize wally tal context for libwally operations */
-	tal_wally_start();
+	
 	status_debug("HSM: Initialized wally tal context for load_hsm");
 
 	/* Read the hsm_secret file */
 	hsm_secret_contents = grab_file(tmpctx, "hsm_secret");
 	if (!hsm_secret_contents) {
-		tal_wally_end(tmpctx);
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Could not read hsm_secret: %s", strerror(errno));
 	}
@@ -445,11 +442,12 @@ static void load_hsm(const char *passphrase)
 
 	/* Extract the secret using the new hsm_secret module */
 	status_debug("HSM: Calling extract_hsm_secret");
+	tal_wally_start();
 	hsms = extract_hsm_secret(tmpctx, hsm_secret_contents, 
 				 tal_bytelen(hsm_secret_contents),
 				 passphrase, &err);
+	tal_wally_end(tmpctx);
 	if (!hsms) {
-		tal_wally_end(tmpctx);
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Failed to load hsm_secret: %s", hsm_secret_error_str(err));
 	}
@@ -458,10 +456,6 @@ static void load_hsm(const char *passphrase)
 	/* Copy the extracted secret to our global hsm_secret */
 	memcpy(&hsm_secret, &hsms->secret, sizeof(hsm_secret));
 	status_debug("HSM: Copied secret to global hsm_secret");
-	
-	/* Clean up wally allocations */
-	tal_wally_end(tmpctx);
-	status_debug("HSM: Cleaned up wally allocations in load_hsm");
 }
 
 /*~ We have a pre-init call in developer mode, to set dev flags */
@@ -500,6 +494,7 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 	struct secret *hsm_encryption_key;
 	u32 minversion, maxversion;
 	const u32 our_minversion = 4, our_maxversion = 6;
+	struct tlv_hsmd_init_tlvs *tlvs;
 
 	status_debug("HSM: Starting init_hsm");
 
@@ -510,7 +505,6 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 	 * definitions in hsm_client_wire.csv.  The format of those files is
 	 * an extension of the simple comma-separated format output by the
 	 * BOLT tools/extract-formats.py tool. */
-	struct tlv_hsmd_init_tlvs *tlvs;
 	if (!fromwire_hsmd_init(NULL, msg_in, &bip32_key_version, &chainparams,
 				&hsm_encryption_key,
 				&dev_force_privkey,
@@ -544,11 +538,12 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 	}
 
 	/* Extract passphrase from TLV if present */
-	const char *hsm_passphrase = NULL;
+	const char *hsm_passphrase;
 	if (tlvs && tlvs->hsm_passphrase) {
 		hsm_passphrase = (const char *)tlvs->hsm_passphrase;
 		status_debug("HSM: Passphrase provided in TLV");
 	} else {
+		hsm_passphrase = NULL;
 		status_debug("HSM: No passphrase provided in TLV");
 	}
 
