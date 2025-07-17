@@ -92,22 +92,6 @@ static bool have_same_data_version(sqlite3 *a, sqlite3 *b)
 	return version_a == version_b;
 }
 
-#if !HAVE_SQLITE3_EXPANDED_SQL
-/* Prior to sqlite3 v3.14, we have to use tracing to dump statements */
-struct db_sqlite3_trace {
-	struct db_sqlite3 *wrapper;
-	struct db_stmt *stmt;
-};
-
-static void trace_sqlite3(void *stmtv, const char *stmt)
-{
-	struct db_sqlite3_trace *trace = (struct db_sqlite3_trace *)stmtv;
-	struct db_sqlite3 *wrapper = trace->wrapper;
-	struct db_stmt *s = trace->stmt;
-	db_sqlite3_changes_add(wrapper, s, stmt);
-}
-#endif
-
 static const char *db_sqlite3_fmt_error(struct db_stmt *stmt)
 {
 	return tal_fmt(stmt, "%s: %s: %s", stmt->location, stmt->query->query,
@@ -269,49 +253,27 @@ static bool db_sqlite3_query(struct db_stmt *stmt)
 static bool db_sqlite3_exec(struct db_stmt *stmt)
 {
 	int err;
-	bool success;
+	char *expanded_sql;
 	struct db_sqlite3 *wrapper = (struct db_sqlite3 *) stmt->db->conn;
-
-#if !HAVE_SQLITE3_EXPANDED_SQL
-	/* Register the tracing function if we don't have an explicit way of
-	 * expanding the statement. */
-	struct db_sqlite3_trace trace;
-	trace.wrapper = wrapper;
-	trace.stmt = stmt;
-	sqlite3_trace(conn2sql(stmt->db->conn), trace_sqlite3, &trace);
-#endif
 
 	if (!db_sqlite3_query(stmt)) {
 		/* If the prepare step caused an error we hand it up. */
-		success = false;
-		goto done;
+		return false;
 	}
 
 	err = sqlite3_step(stmt->inner_stmt);
 	if (err != SQLITE_DONE) {
 		tal_free(stmt->error);
 		stmt->error = db_sqlite3_fmt_error(stmt);
-		success = false;
-		goto done;
+		return false;
 	}
 
-#if HAVE_SQLITE3_EXPANDED_SQL
 	/* Manually expand and call the callback */
-	char *expanded_sql;
 	expanded_sql = sqlite3_expanded_sql(stmt->inner_stmt);
 	db_sqlite3_changes_add(wrapper, stmt, expanded_sql);
 	sqlite3_free(expanded_sql);
-#endif
-	success = true;
 
-done:
-#if !HAVE_SQLITE3_EXPANDED_SQL
-	/* Unregister the trace callback to avoid it accessing the potentially
-	 * stale pointer to stmt */
-	sqlite3_trace(conn2sql(stmt->db->conn), NULL, NULL);
-#endif
-
-	return success;
+	return true;
 }
 
 static bool db_sqlite3_step(struct db_stmt *stmt)
