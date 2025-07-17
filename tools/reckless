@@ -1398,13 +1398,13 @@ def install(plugin_name: str) -> Union[str, None]:
     src = None
     if direct_location:
         logging.debug(f"install of {name} requested from {direct_location}")
-        src = InstInfo(name, direct_location, None)
-        if not src.get_inst_details():
-            src = None
+        src = InstInfo(name, direct_location, name)
         # Treating a local git repo as a directory allows testing
         # uncommitted changes.
         if src and src.srctype == Source.LOCAL_REPO:
             src.srctype = Source.DIRECTORY
+        if not src.get_inst_details():
+            src = None
     if not direct_location or not src:
         log.debug(f"Searching for {name}")
         if search(name):
