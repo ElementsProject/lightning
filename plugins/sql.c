@@ -873,8 +873,8 @@ static struct command_result *channels_refresh(struct command *cmd,
 
 			plugin_log(cmd->plugin, LOG_DBG, "Refreshing channel: %s",
 				   fmt_short_channel_id(tmpctx, scid));
-			/* FIXME: sqlite 3.24.0 (2018-06-04) added UPSERT, but
-			 * we don't require it. */
+			/* FIXME: sqlite3 version 3.24.0 (2018-06-04) added
+			 * UPSERT, but we don't require it. */
 			delete_channel_from_db(cmd, scid);
 			req = jsonrpc_request_start(cmd, "listchannels",
 						    listchannels_one_done,
