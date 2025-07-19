@@ -1366,6 +1366,9 @@ static struct wallet *create_test_wallet(struct lightningd *ld, const tal_t *ctx
 	CHECK_MSG(!wallet_err, wallet_err);
 	w->max_channel_dbid = 0;
 
+	/* Create fresh channels map */
+	ld->channels_by_scid = tal(ld, struct channel_scid_map);
+	channel_scid_map_init(ld->channels_by_scid);
 	return w;
 }
 
@@ -1791,6 +1794,7 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	struct pubkey pk;
 	struct node_id id;
 	struct changed_htlc *last_commit;
+	struct short_channel_id local_alias;
 	secp256k1_ecdsa_signature *sig = tal(w, secp256k1_ecdsa_signature);
 	u8 *scriptpubkey = tal_arr(ctx, u8, 100);
 	secp256k1_ecdsa_signature *node_sig1 = tal(w, secp256k1_ecdsa_signature);
@@ -1847,6 +1851,8 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	/* Init channel inflights */
 	list_head_init(&c1.inflights);
 	c1.type = type;
+	local_alias = random_scid();
+	c1.alias[LOCAL] = &local_alias;
 
 	db_begin_transaction(w->db);
 	CHECK(!wallet_err);
@@ -1977,6 +1983,7 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 	struct wally_psbt *funding_psbt;
 	struct channel_info *channel_info = tal(w, struct channel_info);
 	struct basepoints basepoints;
+	struct short_channel_id alias_local = random_scid();
 	secp256k1_ecdsa_signature *lease_commit_sig;
 	u32 feerate, lease_blockheight_start;
 	u64 dbid;
@@ -2026,8 +2033,9 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 			   &outpoint,
 			   funding_sats, AMOUNT_MSAT(0),
 			   our_sats,
-			   0, false,
-			   NULL, /* alias[LOCAL] */
+			   0, NULL,
+			   NULL, /* old scids */
+			   alias_local,
 			   NULL, /* alias[REMOTE] */
 			   &cid,
 			   AMOUNT_MSAT(3333333000),
@@ -2089,6 +2097,9 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 
 	/* do inflights get correctly added to the channel? */
 	wallet_inflight_add(w, inflight);
+
+	/* Hack to remove scids from htable so we don't clash! */
+	chanmap_remove(ld, chan, *chan->alias[LOCAL]);
 
 	/* do inflights get correctly loaded from the database? */
 	CHECK_MSG(c2 = wallet_channel_load(w, chan->dbid),
