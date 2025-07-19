@@ -749,7 +749,7 @@ clean: obsclean
 
 PYLNS=client proto testing
 # See doc/contribute-to-core-lightning/contributor-workflow.md
-update-versions: update-pyln-versions update-wss-proxy-version update-poetry-lock update-dot-version update-doc-examples
+update-versions: update-pyln-versions update-poetry-lock update-dot-version update-doc-examples
 
 update-pyln-versions: $(PYLNS:%=update-pyln-version-%)
 
@@ -762,12 +762,8 @@ pyln-release:  $(PYLNS:%=pyln-release-%)
 pyln-release-%:
 	cd contrib/pyln-$* && $(MAKE) prod-release
 
-update-wss-proxy-version:
-	@if [ -z "$(NEW_VERSION)" ]; then echo "Set NEW_VERSION!" >&2; exit 1; fi
-	cd plugins/wss-proxy && $(MAKE) upgrade-version
-
 update-poetry-lock:
-	poetry update wss-proxy pyln-client pyln-proto pyln-testing update-reckless-version
+	poetry update pyln-client pyln-proto pyln-testing update-reckless-version
 
 update-reckless-version:
 	@if [ -z "$(NEW_VERSION)" ]; then echo "Set NEW_VERSION!" >&2; exit 1; fi
@@ -820,6 +816,7 @@ install-program: installdirs $(BIN_PROGRAMS) $(PKGLIBEXEC_PROGRAMS) $(PLUGINS) $
 	$(INSTALL_PROGRAM) $(BIN_PROGRAMS) $(DESTDIR)$(bindir)
 	$(INSTALL_PROGRAM) $(PKGLIBEXEC_PROGRAMS) $(DESTDIR)$(pkglibexecdir)
 	@if [ -d "$(DESTDIR)$(plugindir)/clnrest" ]; then rm -rf $(DESTDIR)$(plugindir)/clnrest; fi
+	@if [ -d "$(DESTDIR)$(plugindir)/wss-proxy" ]; then rm -rf $(DESTDIR)$(plugindir)/wss-proxy; fi
 	[ -z "$(PLUGINS)" ] || $(INSTALL_PROGRAM) $(PLUGINS) $(DESTDIR)$(plugindir)
 	for PY in $(PY_PLUGINS); do DIR=`dirname $$PY`; DST=$(DESTDIR)$(plugindir)/`basename $$DIR`; if [ -d $$DST ]; then rm -rf $$DST; fi; $(INSTALL_PROGRAM) -d $$DIR; cp -a $$DIR $$DST ; done
 
