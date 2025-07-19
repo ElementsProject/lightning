@@ -2080,6 +2080,7 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 				AMOUNT_SAT(1111),
 				0,
 				false,
+				false,
 				false);
 	inflight->splice_locked_memonly = true;
 	inflight->locked_scid = tal(inflight, struct short_channel_id);
@@ -2109,6 +2110,7 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 				AMOUNT_MSAT(0),
 				AMOUNT_SAT(0),
 				0,
+				false,
 				false,
 				false);
 	inflight->splice_locked_memonly = false;
