@@ -405,6 +405,9 @@ static bool log_status_fail(struct subd *sd, const u8 *msg)
 	case STATUS_FAIL_GOSSIP_IO:
 		name = "STATUS_FAIL_GOSSIP_IO";
 		break;
+	case STATUS_FAIL_PROTO_BATCH:
+		name = "STATUS_FAIL_PROTO_BATCH";
+		break;
 	case STATUS_FAIL_INTERNAL_ERROR:
 		name = "STATUS_FAIL_INTERNAL_ERROR";
 		break;
