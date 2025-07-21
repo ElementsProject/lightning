@@ -41,7 +41,7 @@
       "recurrence_start": {
         "type": "number",
         "description": [
-          "Required if the offer specifies recurrence_base with start_any_period set, otherwise it is not allowed. It indicates what period number to start at."
+          "Indicates what period number to start at (usually 0)."
         ]
       },
       "recurrence_label": {
