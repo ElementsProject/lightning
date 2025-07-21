@@ -440,6 +440,9 @@ static struct io_plan *encrypt_and_send(struct peer *peer,
 
 	set_urgent_flag(peer, is_urgent(type));
 
+	status_peer_debug(&peer->id, "encrypt_and_send -> io_write %s",
+			  peer_wire_name(type));
+
 	/* We free this and the encrypted version in next write_to_peer */
 	peer->sent_to_peer = cryptomsg_encrypt_msg(peer, &peer->cs, msg);
 	return io_write(peer->to_peer,
@@ -562,6 +565,8 @@ static void set_ping_timer(struct peer *peer)
 		peer->ping_timer = NULL;
 		return;
 	}
+	status_peer_debug(&peer->id, "set_ping_timer, peer->ping_timer = %p",
+			  peer->ping_timer);
 	peer->ping_timer = new_reltimer(&peer->daemon->timers, peer,
 					time_from_sec(15 + pseudorand(30)),
 					send_ping, peer);
@@ -569,21 +574,36 @@ static void set_ping_timer(struct peer *peer)
 
 static void send_ping(struct peer *peer)
 {
+	struct timeabs tnow = time_now();
 	/* If it's still sending us traffic, maybe ping reply is backed up?
 	 * That's OK, ping is just to make sure it's still alive, and clearly
 	 * it is. */
 	if (time_before(peer->last_recv_time,
-			timeabs_sub(time_now(), time_from_sec(60)))) {
+			timeabs_sub(tnow, time_from_sec(60)))) {
 		/* Already have a ping in flight? */
 		if (peer->expecting_pong != PONG_UNEXPECTED) {
-			status_peer_debug(&peer->id, "Last ping unreturned: hanging up");
+			status_peer_debug(&peer->id, "Last ping unreturned:"
+					  " hanging up, expecting_pong: %d,"
+					  " last_recv_time: %lu seconds,"
+					  " tnow: %lu seconds,"
+					  " tnow - 60: %lu seconds,"
+					  " tnow - last_recv_time: %lu seconds",
+					  peer->expecting_pong,
+					  (long)peer->last_recv_time.ts.tv_sec,
+					  (long)tnow.ts.tv_sec,
+					  (long)timeabs_sub(tnow, time_from_sec(60)).ts.tv_sec,
+					  (long)tnow.ts.tv_sec - (long)peer->last_recv_time.ts.tv_sec);
 			if (peer->to_peer)
 				io_close(peer->to_peer);
 			return;
 		}
 
+		status_peer_debug(&peer->id, "Sending a ping");
 		inject_peer_msg(peer, take(make_ping(NULL, 1, 0)));
 		peer->expecting_pong = PONG_EXPECTED_PROBING;
+	}
+	else {
+		status_peer_debug(&peer->id, "send_ping (skip) not been 60s yet");
 	}
 
 	set_ping_timer(peer);
@@ -617,19 +637,28 @@ static void handle_ping_in(struct peer *peer, const u8 *msg)
 {
 	u8 *pong;
 
+	status_peer_debug(&peer->id, "Ping recevied!");
+
 	if (!check_ping_make_pong(NULL, msg, &pong)) {
 		send_warning(peer, "Invalid ping %s", tal_hex(msg, msg));
 		return;
 	}
 
-	if (pong)
+	if (pong) {
+		status_peer_debug(&peer->id, "Sending a pong!");
 		inject_peer_msg(peer, take(pong));
+	}
+	else {
+		status_peer_debug(&peer->id, "We're NOT sending a pong.. why?");
+	}
 }
 
 static void handle_ping_reply(struct peer *peer, const u8 *msg)
 {
 	u8 *ignored;
 	size_t i;
+
+	status_peer_debug(&peer->id, "Receiving a pong!");
 
 	/* We print this out because we asked for pong, so can't spam us... */
 	if (!fromwire_pong(msg, msg, &ignored))
@@ -656,6 +685,8 @@ static void handle_pong_in(struct peer *peer, const u8 *msg)
 		handle_ping_reply(peer, msg);
 		/* fall thru */
 	case PONG_EXPECTED_PROBING:
+		// TODO: set peer->last_recv_time to time_now() ?
+		status_peer_debug(&peer->id, "Received and ignored a pong! (probing)");
 		peer->expecting_pong = PONG_UNEXPECTED;
 		return;
 	case PONG_UNEXPECTED:
@@ -1171,6 +1202,8 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
        /* We got something! */
        peer->last_recv_time = time_now();
 
+       status_peer_debug(&peer->id, "Setting last_recv_time to now!");
+
        /* Don't process packets while we're closing */
        if (peer->draining)
 	       return next_read(peer_conn, peer);
@@ -1386,6 +1419,8 @@ void send_manual_ping(struct daemon *daemon, const u8 *msg)
 	u16 len, num_pong_bytes;
 	struct peer *peer;
 
+	status_debug("Sending a ping manually");
+
 	if (!fromwire_connectd_ping(msg, &id, &num_pong_bytes, &len))
 		master_badmsg(WIRE_CONNECTD_PING, msg);
 
@@ -1435,6 +1470,6 @@ void send_manual_ping(struct daemon *daemon, const u8 *msg)
 	peer->expecting_pong = PONG_EXPECTED_COMMAND;
 
 	/* Since we're doing this manually, kill and restart timer. */
-	tal_free(peer->ping_timer);
+	peer->ping_timer = tal_free(peer->ping_timer);
 	set_ping_timer(peer);
 }

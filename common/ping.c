@@ -9,8 +9,12 @@ bool check_ping_make_pong(const tal_t *ctx, const u8 *ping, u8 **pong)
 	u16 num_pong_bytes;
 	u8 *ignored;
 
-	if (!fromwire_ping(ctx, ping, &num_pong_bytes, &ignored))
+	status_debug("Making a pong!");
+
+	if (!fromwire_ping(ctx, ping, &num_pong_bytes, &ignored)) {
+		status_debug("Failed to make pong -- ping was invalid");
 		return false;
+	}
 	tal_free(ignored);
 
 	/* BOLT #1:
@@ -33,8 +37,11 @@ bool check_ping_make_pong(const tal_t *ctx, const u8 *ping, u8 **pong)
 		ignored = tal_arrz(ctx, u8, num_pong_bytes);
 		*pong = towire_pong(ctx, ignored);
 		tal_free(ignored);
-	} else
+	} else {
+		status_debug("Failed to make pong -- num_pong_bytes was"
+			     " too large!");
 		*pong = NULL;
+	}
 
 	return true;
 }
@@ -49,6 +56,8 @@ u8 *make_ping(const tal_t *ctx, u16 num_pong_bytes, u16 padlen)
 	 *    portions of initialized memory.
 	 */
 	u8 *ping, *ignored = tal_arrz(ctx, u8, padlen);
+
+	status_debug("Making a ping!");
 
 	ping = towire_ping(ctx, num_pong_bytes, ignored);
 	tal_free(ignored);
