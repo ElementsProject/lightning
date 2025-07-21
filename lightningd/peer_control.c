@@ -2225,7 +2225,7 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 			/* That's not entirely unexpected in early states */
 			log_debug(channel->log, "Funding tx %s reorganized out!",
 				  fmt_bitcoin_txid(tmpctx, txid));
-			channel->scid = tal_free(channel->scid);
+			channel_set_scid(channel, NULL);
 			return KEEP_WATCHING;
 
 		/* But it's often Bad News in later states */
