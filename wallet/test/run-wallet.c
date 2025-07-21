@@ -1983,6 +1983,7 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 	struct wally_psbt *funding_psbt;
 	struct channel_info *channel_info = tal(w, struct channel_info);
 	struct basepoints basepoints;
+	struct short_channel_id alias_local = random_scid();
 	secp256k1_ecdsa_signature *lease_commit_sig;
 	u32 feerate, lease_blockheight_start;
 	u64 dbid;
@@ -2034,7 +2035,7 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 			   our_sats,
 			   0, NULL,
 			   NULL, /* old scids */
-			   NULL, /* alias[LOCAL] */
+			   alias_local,
 			   NULL, /* alias[REMOTE] */
 			   &cid,
 			   AMOUNT_MSAT(3333333000),
