@@ -153,8 +153,7 @@ bool db_query_prepared_canfail(struct db_stmt *stmt)
 void db_query_prepared(struct db_stmt *stmt)
 {
 	if (!db_query_prepared_canfail(stmt))
-		db_fatal(stmt->db, "query failed: %s: %s",
-			 stmt->location, stmt->query->query);
+		db_fatal(stmt->db, "query failed: %s", stmt->error);
 }
 
 bool db_step(struct db_stmt *stmt)

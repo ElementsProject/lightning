@@ -18,6 +18,7 @@ hidden: false
 | listpeerchannels.max_total_htlc_in_msat | Field           | v25.02           | v26.03         | Use our_max_total_htlc_out_msat                                                                                                              |
 | wait.details                         | Field              | v25.05           | v26.06         | Use subsystem-specific object instead                                                                                                  |
 | channel_state_changed.old_state.unknown | Notification Field | v25.05        | v26.03         | Value "unknown" is deprecated: field will be omitted instead                                                                           |
+| coin_movement.tags                   | Notification Field | v25.09           | v26.09         | Use `primary_tag` (first tag) and `extra_tags` instead                                                                                 |
 
 Inevitably there are features which need to change: either to be generalized, or removed when they can no longer be supported.
 

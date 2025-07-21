@@ -757,7 +757,7 @@ static bool new_missed_channel_account(struct command *cmd,
 			   acct->name);
 
 		chain_ev = tal(cmd, struct chain_event);
-		chain_ev->tag = mvt_tag_str(CHANNEL_OPEN);
+		chain_ev->tag = mvt_tag_str(MVT_CHANNEL_OPEN);
 		chain_ev->debit = AMOUNT_MSAT(0);
 		ok = amount_msat_add(&chain_ev->output_value,
 				     amt, remote_amt);
@@ -777,7 +777,7 @@ static bool new_missed_channel_account(struct command *cmd,
 
 		/* Update the account info too */
 		tags = tal_arr(chain_ev, enum mvt_tag, 1);
-		tags[0] = CHANNEL_OPEN;
+		tags[0] = MVT_CHANNEL_OPEN;
 
 		is_opener = streq(opener, "local");
 
@@ -787,9 +787,9 @@ static bool new_missed_channel_account(struct command *cmd,
 			       &is_leased);
 
 		if (is_leased)
-			tal_arr_expand(&tags, LEASED);
+			tal_arr_expand(&tags, MVT_LEASED);
 		if (is_opener)
-			tal_arr_expand(&tags, OPENER);
+			tal_arr_expand(&tags, MVT_OPENER);
 
 		chain_ev->credit = amt;
 		db_begin_transaction(db);
@@ -816,7 +816,7 @@ static bool new_missed_channel_account(struct command *cmd,
 			chan_tag = tal_fmt(tmpctx, "%s",
 					   mvt_tag_str(
 					    is_leased ?
-					      LEASE_FEE : PUSHED));
+					      MVT_LEASE_FEE : MVT_PUSHED));
 			chan_ev = new_channel_event(tmpctx,
 						    chan_tag,
 						    push_credit,
@@ -1456,7 +1456,7 @@ listpeerchannels_done(struct command *cmd,
 		plugin_err(cmd->plugin, "%s", err);
 
 	if (info->ev->payment_id &&
-	    streq(info->ev->tag, mvt_tag_str(INVOICE))) {
+	    streq(info->ev->tag, mvt_tag_str(MVT_INVOICE))) {
 		return lookup_invoice_desc(cmd, info->ev->credit,
 					   info->ev->payment_id);
 	}
@@ -1573,9 +1573,9 @@ parse_and_log_chain_move(struct command *cmd,
 	e->stealable = false;
 	e->splice_close = false;
 	for (size_t i = 0; i < tal_count(tags); i++) {
-		e->ignored |= tags[i] == IGNORED;
-		e->stealable |= tags[i] == STEALABLE;
-		e->splice_close |= tags[i] == SPLICE;
+		e->ignored |= tags[i] == MVT_IGNORED;
+		e->stealable |= tags[i] == MVT_STEALABLE;
+		e->splice_close |= tags[i] == MVT_SPLICE;
 	}
 
 	db_begin_transaction(db);
@@ -1674,7 +1674,7 @@ parse_and_log_chain_move(struct command *cmd,
 	/* Check for invoice desc data, necessary */
 	if (e->payment_id) {
 		for (size_t i = 0; i < tal_count(tags); i++) {
-			if (tags[i] != INVOICE)
+			if (tags[i] != MVT_INVOICE)
 				continue;
 
 			return lookup_invoice_desc(cmd, e->credit,
@@ -1748,7 +1748,7 @@ parse_and_log_channel_move(struct command *cmd,
 	/* Check for invoice desc data, necessary */
 	if (e->payment_id) {
 		for (size_t i = 0; i < tal_count(tags); i++) {
-			if (tags[i] != INVOICE)
+			if (tags[i] != MVT_INVOICE)
 				continue;
 
 			/* We only do rebalance checks for debits,
@@ -1772,16 +1772,20 @@ static char *parse_tags(const tal_t *ctx,
 			enum mvt_tag **tags)
 {
 	size_t i;
-	const jsmntok_t *tag_tok,
-	      *tags_tok = json_get_member(buf, tok, "tags");
+	const jsmntok_t *extras_tok,
+		*tag_tok = json_get_member(buf, tok, "primary_tag");
 
-	if (tags_tok == NULL || tags_tok->type != JSMN_ARRAY)
-		return "Invalid/missing 'tags' field";
+	if (tag_tok == NULL)
+		return "missing 'primary_tag' field";
+	*tags = tal_arr(ctx, enum mvt_tag, 1);
+	if (!json_to_coin_mvt_tag(buf, tag_tok, &(*tags)[0]))
+			return "Unable to parse 'primary_tag'";
 
-	*tags = tal_arr(ctx, enum mvt_tag, tags_tok->size);
-	json_for_each_arr(i, tag_tok, tags_tok) {
-		if (!json_to_coin_mvt_tag(buf, tag_tok, &(*tags)[i]))
-			return "Unable to parse 'tags'";
+	extras_tok = json_get_member(buf, tok, "extra_tags");
+	tal_resize(tags, 1 + extras_tok->size);
+	json_for_each_arr(i, tag_tok, extras_tok) {
+		if (!json_to_coin_mvt_tag(buf, tag_tok, &(*tags)[i + 1]))
+			return "Unable to parse 'extra_tags'";
 	}
 
 	return NULL;
