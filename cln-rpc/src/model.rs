@@ -5921,6 +5921,8 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct GetemergencyrecoverdataResponse {
+	    pub backed_up_channel_ids: Vec<String>,
+	    pub can_create_penalty: bool,
 	    pub filedata: String,
 	}
 
