@@ -3598,11 +3598,14 @@ static void resume_splice_negotiation(struct peer *peer,
 					 &peer->channel->funding_pubkey[REMOTE],
 					 splice_funding_index);
 
+	status_info("Splicing signing.1");
 	msg = hsm_req(tmpctx, take(msg));
+	status_info("Splicing signing.2");
 	if (!fromwire_hsmd_sign_tx_reply(msg, &splice_sig))
 		status_failed(STATUS_FAIL_HSM_IO,
 			      "Reading sign_splice_tx reply: %s",
 			      tal_hex(tmpctx, msg));
+	status_info("Splicing signing.3");
 
 	/* Set the splice_sig on the splice funding tx psbt */
 	if (send_signature
@@ -3620,36 +3623,52 @@ static void resume_splice_negotiation(struct peer *peer,
 					 &peer->channel->funding_pubkey[LOCAL]),
 			      fmt_bitcoin_signature(tmpctx, &splice_sig),
 			      fmt_wally_psbt(tmpctx, current_psbt));
+	status_info("Splicing signing.4");
 
 	txsig_tlvs = tlv_txsigs_tlvs_new(tmpctx);
 	txsig_tlvs->shared_input_signature = &splice_sig.s;
 
+	status_info("Splicing signing.5");
+
 	/* DTODO: is this finalize call required? */
 	psbt_finalize(current_psbt);
 
+	status_info("Splicing signing.6");
+
 	outws = psbt_to_witnesses(tmpctx, current_psbt,
 				  our_role, splice_funding_index);
+	status_info("Splicing signing.7");
 	sigmsg = towire_tx_signatures(tmpctx, &peer->channel_id,
 				      &inflight->outpoint.txid, outws,
 				      txsig_tlvs);
+	status_info("Splicing signing.8");
 
 	psbt_txid(tmpctx, current_psbt, &final_txid, NULL);
+	status_info("Splicing signing.9");
 
 	if (do_i_sign_first(peer, current_psbt, our_role,
 			    inflight->force_sign_first)
 		&& send_signature) {
+		status_info("Splicing signing.9A");
 		inflight->i_sent_sigs = true;
+		status_info("Splicing signing.9B");
 		msg = towire_channeld_update_inflight(NULL, current_psbt,
 						      NULL, NULL,
 						      inflight->locked_scid,
 						      inflight->i_sent_sigs);
+		status_info("Splicing signing.9C");
 		wire_sync_write(MASTER_FD, take(msg));
 
+		status_info("Splicing signing.9D");
 		msg = towire_channeld_splice_sending_sigs(tmpctx, &final_txid);
+		status_info("Splicing signing.9E");
 		wire_sync_write(MASTER_FD, take(msg));
 
+		status_info("Splicing signing.9F");
 		peer_write(peer->pps, sigmsg);
+		status_info("Splicing signing.9G");
 	}
+	status_info("Splicing signing.10");
 
 	their_pubkey = &peer->channel->funding_pubkey[REMOTE];
 
@@ -3741,6 +3760,7 @@ static void resume_splice_negotiation(struct peer *peer,
 				      fmt_wally_psbt(tmpctx, current_psbt));
 		}
 	}
+	status_info("Splicing signing.11");
 
 	if (have_i_signed_inflight(peer, inflight)
 		&& have_they_signed_inflight(peer, inflight)) {
@@ -3835,6 +3855,7 @@ static void resume_splice_negotiation(struct peer *peer,
 		bitcoin_tx_input_set_witness(final_tx, splice_funding_index,
 					     wit_stack);
 	}
+	status_info("Splicing signing.12");
 
 	if (recv_signature) {
 		/* We let core validate our peer's signatures are correct. */
@@ -3844,6 +3865,7 @@ static void resume_splice_negotiation(struct peer *peer,
 						      send_signature || inflight->i_sent_sigs);
 		wire_sync_write(MASTER_FD, take(msg));
 	}
+	status_info("Splicing signing.13");
 
 	if (!do_i_sign_first(peer, current_psbt, our_role,
 			     inflight->force_sign_first)
@@ -3855,6 +3877,7 @@ static void resume_splice_negotiation(struct peer *peer,
 		peer_write(peer->pps, sigmsg);
 		status_debug("Splice: we signed second");
 	}
+	status_info("Splicing signing.14");
 
 	if (send_signature) {
 		if (!recv_signature)
@@ -3867,6 +3890,7 @@ static void resume_splice_negotiation(struct peer *peer,
 							      new_output_index);
 		wire_sync_write(MASTER_FD, take(msg));
 	}
+	status_info("Splicing signing.15");
 
 	audit_psbt(current_psbt, current_psbt);
 }
