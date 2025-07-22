@@ -800,6 +800,48 @@ static struct command_result *datastore_failed(struct command *cmd,
 	return command_hook_success(cmd);
 }
 
+/* Compares the data between the stored scb and latest recvd scb, stores the most
+ * recent one only. */
+static struct command_result *store_latest_scb(struct command *cmd,
+					       const u8 *latest_stored_scb,
+					       u8 *received_scb)
+{
+	size_t stored_scb_len = tal_bytelen(latest_stored_scb);
+	size_t recvd_scb_len = tal_bytelen(received_scb);
+	const u8 *recvd_scb_const = received_scb;
+
+        if (stored_scb_len == 0)
+		goto store_data;
+
+	// We only need the timestamps, so instead of fully deserializing with `fromwire_static_chan_backup`,
+	// we manually parse just enough fields to reach the timestamp in each SCB blob.
+	assert(fromwire_u16(&latest_stored_scb, &stored_scb_len) == WIRE_STATIC_CHAN_BACKUP);
+	assert(fromwire_u16(&recvd_scb_const, &recvd_scb_len) == WIRE_STATIC_CHAN_BACKUP);
+
+	// Fetching version from the SCB.
+	fromwire_u64(&latest_stored_scb, &stored_scb_len);
+	fromwire_u64(&recvd_scb_const, &recvd_scb_len);
+
+	u32 timestamp = fromwire_u32(&latest_stored_scb, &stored_scb_len);
+	u32 timestamp_new = fromwire_u32(&recvd_scb_const, &recvd_scb_len);
+
+	if (timestamp_new > timestamp)
+		goto store_data;
+
+	plugin_log(cmd->plugin, LOG_DBG, "Ignoring old Peer Storage");
+	return command_hook_success(cmd);
+
+store_data:
+	return jsonrpc_set_datastore_binary(cmd,
+		"chanbackup/latestscb",
+		received_scb,
+		"create-or-replace",
+		datastore_success,
+		datastore_failed,
+	   	"Saving latestscb");
+
+}
+
 static struct command_result *handle_your_peer_storage(struct command *cmd,
 						       const char *buf,
 						       const jsmntok_t *params)
@@ -888,15 +930,10 @@ static struct command_result *handle_your_peer_storage(struct command *cmd,
                         return failed_peer_restore(cmd, &node_id,
 					           "Peer altered our data");
 
-
-		return jsonrpc_set_datastore_binary(cmd,
-					     	    "chanbackup/latestscb",
-					     	    decoded_bkp,
-						    tal_bytelen(decoded_bkp),
-					     	    "create-or-replace",
-					     	    datastore_success,
-					     	    datastore_failed,
-						    "Saving latestscb");
+		return jsonrpc_get_datastore_binary(cmd,
+					     "chanbackup/latestscb",
+					     store_latest_scb,
+					     decoded_bkp);
 	} else {
 		/* Any other message we ignore */
 		return command_hook_success(cmd);
