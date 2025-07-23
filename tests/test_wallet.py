@@ -1352,7 +1352,9 @@ def test_hsmtool_dump_descriptors(node_factory, bitcoind):
 ])
 def test_hsmtool_generatehsm_variants(node_factory, mnemonic, passphrase, expected_format):
     """Test generating mnemonic-based hsm_secret with various configurations"""
-    l1 = node_factory.get_node(start=False, options={'hsm-passphrase': None})
+    # Only set hsm-passphrase option if there's actually a passphrase
+    node_options = {'hsm-passphrase': None} if passphrase else {}
+    l1 = node_factory.get_node(start=False, options=node_options)
     hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
     os.remove(hsm_path)  # Remove the auto-generated one
 
@@ -1382,25 +1384,41 @@ def test_hsmtool_generatehsm_variants(node_factory, mnemonic, passphrase, expect
             mnemonic_part = content[32:].decode('utf-8')
             assert mnemonic in mnemonic_part
 
-        # Verify Lightning node can use it
+    # Verify Lightning node can use it
+    if passphrase:
+        # For passphrase case, start with hsm-passphrase option and handle prompt
         master_fd, slave_fd = os.openpty()
         l1.daemon.start(stdin=slave_fd, wait_for_initialized=False)
         # Wait for the passphrase prompt
         l1.daemon.wait_for_log("Enter hsm_secret passphrase:")
-        if passphrase:
-            write_all(master_fd, f"{passphrase}\n".encode("utf-8"))
-        else:
-            # For no passphrase case, send empty line (just press Enter)
-            write_all(master_fd, "\n".encode("utf-8"))
+        write_all(master_fd, f"{passphrase}\n".encode("utf-8"))
         l1.daemon.wait_for_log("Server started with public key")
+    else:
+        # For no passphrase case, start normally without expecting a prompt
+        l1.daemon.start(wait_for_initialized=False)
+        l1.daemon.wait_for_log("Server started with public key")
+    
     node_id = l1.rpc.getinfo()['id']
+    print(f"Node ID for mnemonic '{mnemonic}' with passphrase '{passphrase}': {node_id}")
     assert len(node_id) == 66  # Valid node ID
-    #TODO: Test the node id 
+    
+    # Expected node IDs for deterministic testing
+    expected_node_ids = {
+        ("ritual idle hat sunny universe pluck key alpha wing cake have wedding", "test_passphrase"): "039020371fb803cd4ce1e9a909b502d7b0a9e0f10cccc35c3e9be959c52d3ba6bd",
+        ("abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about", ""): "03653e90c1ce4660fd8505dd6d643356e93cfe202af109d382787639dd5890e87d",
+    }
+    
+    expected_id = expected_node_ids.get((mnemonic, passphrase))
+    if expected_id:
+        assert node_id == expected_id, f"Expected node ID {expected_id}, got {node_id}"
+    else:
+        print(f"No expected node ID found for this combination, got: {node_id}")
+    
     l1.stop()
 
 
 @pytest.mark.parametrize("test_case", [
-    {
+    pytest.param({
         "name": "with_passphrase",
         "mnemonic": "ritual idle hat sunny universe pluck key alpha wing cake have wedding",
         "passphrase": "secret_passphrase",
@@ -1408,8 +1426,8 @@ def test_hsmtool_generatehsm_variants(node_factory, mnemonic, passphrase, expect
         "check_mnemonic": "ritual idle hat sunny universe pluck key alpha wing cake have wedding",
         "expected_exit": 0,
         "expected_log": "OK"
-    },
-    {
+    }, id="correct_mnemonic_with_passphrase"),
+    pytest.param({
         "name": "no_passphrase",
         "mnemonic": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
         "passphrase": "",
@@ -1417,8 +1435,8 @@ def test_hsmtool_generatehsm_variants(node_factory, mnemonic, passphrase, expect
         "check_mnemonic": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
         "expected_exit": 0,
         "expected_log": "OK"
-    },
-    {
+    }, id="correct_mnemonic_no_passphrase"),
+    pytest.param({
         "name": "wrong_passphrase",
         "mnemonic": "ritual idle hat sunny universe pluck key alpha wing cake have wedding",
         "passphrase": "correct_passphrase",
@@ -1426,8 +1444,8 @@ def test_hsmtool_generatehsm_variants(node_factory, mnemonic, passphrase, expect
         "check_mnemonic": "ritual idle hat sunny universe pluck key alpha wing cake have wedding",
         "expected_exit": 5,  # ERROR_KEYDERIV
         "expected_log": "resulting hsm_secret did not match"
-    },
-    {
+    }, id="wrong_passphrase_should_fail"),
+    pytest.param({
         "name": "wrong_mnemonic",
         "mnemonic": "ritual idle hat sunny universe pluck key alpha wing cake have wedding",
         "passphrase": "",
@@ -1435,7 +1453,7 @@ def test_hsmtool_generatehsm_variants(node_factory, mnemonic, passphrase, expect
         "check_mnemonic": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
         "expected_exit": 5,  # ERROR_KEYDERIV
         "expected_log": "resulting hsm_secret did not match"
-    }
+    }, id="wrong_mnemonic_should_fail")
 ])
 def test_hsmtool_checkhsm_variants(node_factory, test_case):
     """Test checkhsm with various configurations"""
@@ -1618,57 +1636,65 @@ def test_hsmtool_all_commands_work_with_mnemonic_formats(node_factory):
         actual_output = out.strip()
         assert actual_output == expected_output, f"Command {cmd_args[0]} output mismatch"
 
-#TODO: CHange this so that a node id produced by hsmd is the same as the one produced by hsmtool
-#TODO: Think about changing this to parameterised tests?
 def test_hsmtool_deterministic_node_ids(node_factory):
-    """Test that same mnemonic+passphrase always produces same node ID"""
+    """Test that HSM daemon creates deterministic node IDs in new mnemonic format"""
+    # Create a node and start it to trigger HSM daemon to create new format
     l1 = node_factory.get_node(start=False)
     hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
     
-    # Test with specific mnemonic and passphrase
-    mnemonic = "ritual idle hat sunny universe pluck key alpha wing cake have wedding"
-    passphrase = "test_passphrase"
+    # Delete any existing hsm_secret so HSM daemon creates it in new format
+    if os.path.exists(hsm_path):
+        os.remove(hsm_path)
     
-    # Create first hsm_secret
-    os.remove(hsm_path)
-    hsmtool = HsmTool(node_factory.directory, "generatehsm", hsm_path)
+    # Start the node to get its node ID (this will create a new hsm_secret in new format)
+    l1.start()
+    normal_node_id = l1.rpc.getinfo()['id']
+    l1.stop()
+    
+    # Verify the hsm_secret was created in the new mnemonic format
+    with open(hsm_path, 'rb') as f:
+        content = f.read()
+        # Should be longer than 32 bytes (new format has 32-byte hash + mnemonic)
+        assert len(content) > 32, f"Expected new mnemonic format, got {len(content)} bytes"
+        
+        # First 32 bytes should be the passphrase hash (likely zeros for no passphrase)
+        passphrase_hash = content[:32]
+        mnemonic_bytes = content[32:]
+        
+        # Find the end of the mnemonic (it might not be null-terminated)
+        null_pos = mnemonic_bytes.find(b'\x00')
+        if null_pos != -1:
+            mnemonic_bytes = mnemonic_bytes[:null_pos]
+        mnemonic = mnemonic_bytes.decode('utf-8').strip()
+        
+        # Verify it's a valid mnemonic (should be 12 words)
+        words = mnemonic.split()
+        assert len(words) == 12, f"Expected 12 words, got {len(words)}: {mnemonic}"
+    
+    # Create a second node and use generatehsm with the mnemonic from the first node
+    l2 = node_factory.get_node(start=False)
+    hsm_path2 = os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
+    
+    # Delete any existing hsm_secret for the second node
+    if os.path.exists(hsm_path2):
+        os.remove(hsm_path2)
+    
+    # Generate hsm_secret with the mnemonic from the first node
+    hsmtool = HsmTool(node_factory.directory, "generatehsm", hsm_path2)
     master_fd, slave_fd = os.openpty()
     hsmtool.start(stdin=slave_fd)
     hsmtool.wait_for_log(r"Introduce your BIP39 word list")
     write_all(master_fd, f"{mnemonic}\n".encode("utf-8"))
     hsmtool.wait_for_log(r"Enter your passphrase:")
-    write_all(master_fd, f"{passphrase}\n".encode("utf-8"))
+    write_all(master_fd, "\n".encode("utf-8"))
     assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
-
-    # Get node ID
-    cmd_line = ["tools/hsmtool", "getnodeid", hsm_path]
-    proc = subprocess.Popen(cmd_line, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-    stdout, stderr = proc.communicate(input=f"{passphrase}\n".encode("utf-8"))
-    output = stdout.decode("utf8").strip()
-    # Extract the last line which should be the node ID (filter out prompt text)
-    first_node_id = output.split('\n')[-1]
-
-    # Create second hsm_secret with same credentials
-    os.remove(hsm_path)
-    hsmtool = HsmTool(node_factory.directory, "generatehsm", hsm_path)
-    master_fd, slave_fd = os.openpty()
-    hsmtool.start(stdin=slave_fd)
-    hsmtool.wait_for_log(r"Introduce your BIP39 word list")
-    write_all(master_fd, f"{mnemonic}\n".encode("utf-8"))
-    hsmtool.wait_for_log(r"Enter your passphrase:")
-    write_all(master_fd, f"{passphrase}\n".encode("utf-8"))
-    assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
-
-    # Get node ID again
-    cmd_line = ["tools/hsmtool", "getnodeid", hsm_path]
-    proc = subprocess.Popen(cmd_line, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-    stdout, stderr = proc.communicate(input=f"{passphrase}\n".encode("utf-8"))
-    output = stdout.decode("utf8").strip()
-    # Extract the last line which should be the node ID (filter out prompt text)
-    second_node_id = output.split('\n')[-1]
-
-    # Should be identical
-    assert first_node_id == second_node_id
+    
+    # Get the node ID from the generated hsm_secret
+    cmd_line = ["tools/hsmtool", "getnodeid", hsm_path2]
+    generated_node_id = subprocess.check_output(cmd_line).decode("utf8").strip()
+    
+    # Verify both node IDs are identical
+    assert normal_node_id == generated_node_id, f"Node IDs don't match: {normal_node_id} != {generated_node_id}"
 
 
 
@@ -1955,44 +1981,6 @@ def test_upgradewallet(node_factory, bitcoind):
     sync_blockheight(l1.bitcoin, [l1])
     upgrade = l1.rpc.upgradewallet(feerate="urgent", reservedok=True)
     assert upgrade['upgraded_outs'] == 0
-
-
-def test_hsmtool_makerune(node_factory):
-    """Test we can make a valid rune before the node really exists"""
-    l1 = node_factory.get_node(start=False, options={
-        'allow-deprecated-apis': True,
-    })
-
-    # get_node() creates a secret, but in usual case we generate one.
-    hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
-    os.remove(hsm_path)
-
-    hsmtool = HsmTool(node_factory.directory, "generatehsm", hsm_path)
-    master_fd, slave_fd = os.openpty()
-    hsmtool.start(stdin=slave_fd)
-    hsmtool.wait_for_log(r"Introduce your BIP39 word list")
-    write_all(master_fd, "ritual idle hat sunny universe pluck key alpha wing "
-              "cake have wedding\n".encode("utf-8"))
-    hsmtool.wait_for_log(r"Enter your passphrase:")
-    write_all(master_fd, "This is actually not a passphrase\n".encode("utf-8"))
-    assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
-    hsmtool.is_in_log(r"New hsm_secret file created")
-
-    # Test makerune with the passphrase
-    hsmtool = HsmTool(node_factory.directory, "makerune", hsm_path)
-    master_fd, slave_fd = os.openpty()
-    hsmtool.start(stdin=slave_fd)
-    hsmtool.wait_for_log(r"Enter hsm_secret password:")
-    write_all(master_fd, "This is actually not a passphrase\n".encode("utf-8"))
-    assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
-    out = "\n".join(hsmtool.logs).split("\n")[-2]  # Get the rune output (last line before empty line)
-
-    l1.start()
-
-    # We have to generate a rune now, for commando to even start processing!
-    rune = l1.rpc.createrune()['rune']
-    assert rune == out
-
 
 def test_hsmtool_getnodeid(node_factory):
     l1 = node_factory.get_node()

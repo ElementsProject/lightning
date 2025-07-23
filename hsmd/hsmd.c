@@ -272,6 +272,23 @@ static struct io_plan *req_reply(struct io_conn *conn,
 	return io_write_wire(conn, msg_out, client_read_next, c);
 }
 
+/* Send an init reply failure message to lightningd and then call status_failed */
+static void hsmd_send_init_reply_failure(enum hsm_secret_error error_code, enum status_failreason reason, const char *error_msg, ...)
+{
+	u8 *msg;
+	
+	/* Send the init reply failure first */
+	msg = towire_hsmd_init_reply_failure(NULL, error_code, error_msg);
+	if (msg) {
+		/* Send directly to lightningd via REQ_FD */
+		write_all(REQ_FD, msg, tal_bytelen(msg));
+		tal_free(msg);
+	}
+	
+	/* Then call status_failed with the error message */
+	status_failed(reason, "%s", error_msg);
+}
+
 static void create_hsm(int fd, const char *passphrase)
 {
 	u8 *hsm_secret_data;
@@ -300,23 +317,22 @@ static void create_hsm(int fd, const char *passphrase)
 
 	if (ret != WALLY_OK) {
 		unlink_noerr("hsm_secret");
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Failed to generate mnemonic from entropy");
+		hsmd_send_init_reply_failure(HSM_SECRET_ERR_SEED_DERIVATION_FAILED, STATUS_FAIL_INTERNAL_ERROR,
+			                        "Failed to generate mnemonic from entropy");
 	}
 	status_debug("HSM: Generated mnemonic from entropy");
 	
 	if (!mnemonic) {
 		unlink_noerr("hsm_secret");
-		//TODO: Add passphrase error message, add new codes
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Failed to get generated mnemonic");
+		hsmd_send_init_reply_failure(HSM_SECRET_ERR_SEED_DERIVATION_FAILED, STATUS_FAIL_INTERNAL_ERROR,
+			                        "Failed to get generated mnemonic");
 	}
 	
 	/* Derive seed hash from mnemonic + passphrase (or zero if no passphrase) */
 	if (!derive_seed_hash(mnemonic, passphrase, &seed_hash)) {
 		unlink_noerr("hsm_secret");
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Failed to derive seed hash from mnemonic");
+		hsmd_send_init_reply_failure(HSM_SECRET_ERR_SEED_DERIVATION_FAILED, STATUS_FAIL_INTERNAL_ERROR,
+			                        "Failed to derive seed hash from mnemonic");
 	}
 	status_debug("HSM: Derived seed hash from mnemonic");
 	
@@ -334,10 +350,13 @@ static void create_hsm(int fd, const char *passphrase)
 	u8 bip32_seed[BIP39_SEED_LEN_512];
 	size_t bip32_seed_len;
 	
-	if (bip39_mnemonic_to_seed(mnemonic, passphrase, bip32_seed, sizeof(bip32_seed), &bip32_seed_len) != WALLY_OK) {
+	tal_wally_start();
+	ret = bip39_mnemonic_to_seed(mnemonic, passphrase, bip32_seed, sizeof(bip32_seed), &bip32_seed_len);
+	tal_wally_end(tmpctx);
+	if (ret != WALLY_OK) {
 		unlink_noerr("hsm_secret");
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Failed to derive seed from mnemonic");
+		hsmd_send_init_reply_failure(HSM_SECRET_ERR_SEED_DERIVATION_FAILED, STATUS_FAIL_INTERNAL_ERROR,
+			                        "Failed to derive seed from mnemonic");
 	}
 	status_debug("HSM: Derived BIP32 seed from mnemonic");
 	
@@ -425,8 +444,8 @@ static void load_hsm(const char *passphrase)
 	/* Read the hsm_secret file */
 	hsm_secret_contents = grab_file(tmpctx, "hsm_secret");
 	if (!hsm_secret_contents) {
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Could not read hsm_secret: %s", strerror(errno));
+		hsmd_send_init_reply_failure(HSM_SECRET_ERR_INVALID_FORMAT, STATUS_FAIL_INTERNAL_ERROR,
+			                        "Could not read hsm_secret: %s", strerror(errno));
 	}
 
 	/* Remove the NUL terminator that grab_file adds */
@@ -439,8 +458,8 @@ static void load_hsm(const char *passphrase)
 				 passphrase, &err);
 	tal_wally_end(tmpctx);
 	if (!hsms) {
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Failed to load hsm_secret: %s", hsm_secret_error_str(err));
+		hsmd_send_init_reply_failure(err, STATUS_FAIL_INTERNAL_ERROR,
+			                        "Failed to load hsm_secret: %s", hsm_secret_error_str(err));
 	}
 
 	/* Copy the extracted secret to our global hsm_secret */
@@ -764,6 +783,7 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_SIGN_WITHDRAWAL_REPLY:
 	case WIRE_HSMD_SIGN_INVOICE_REPLY:
 	case WIRE_HSMD_INIT_REPLY_V4:
+	case WIRE_HSMD_INIT_REPLY_FAILURE:
 	case WIRE_HSMD_DERIVE_SECRET_REPLY:
 	case WIRE_HSMSTATUS_CLIENT_BAD_REQUEST:
 	case WIRE_HSMD_SIGN_COMMITMENT_TX_REPLY:
