@@ -69,6 +69,7 @@ struct config {
 	/* Minimal amount of effective funding_satoshis for accepting channels */
 	u64 min_capacity_sat;
 
+	/* Encryption key derivation is now handled by hsmd internally */
 
 	/* How long before we give up waiting for INIT msg */
 	u32 connection_timeout_secs;

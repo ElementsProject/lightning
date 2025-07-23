@@ -35,7 +35,7 @@ HSMD_COMMON_OBJS :=				\
 	common/daemon_conn.o			\
 	common/derive_basepoints.o		\
 	common/hash_u5.o			\
-	common/hsm_encryption.o			\
+	common/hsm_secret.o			\
 	common/htlc_wire.o			\
 	common/key_derive.o			\
 	common/lease_rates.o			\

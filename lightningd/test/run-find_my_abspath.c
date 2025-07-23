@@ -60,6 +60,9 @@ bool  deprecated_ok_(bool deprecated_apis UNNEEDED,
 		    void (*complain)(const char *feat UNNEEDED, bool allowing UNNEEDED, void *) UNNEEDED,
 		    void *cbarg UNNEEDED)
 { fprintf(stderr, "deprecated_ok_ called!\n"); abort(); }
+/* Generated stub for discard_key */
+void discard_key(struct secret *key TAKES UNNEEDED)
+{ fprintf(stderr, "discard_key called!\n"); abort(); }
 /* Generated stub for ecdh_hsmd_setup */
 void ecdh_hsmd_setup(int hsm_fd UNNEEDED,
 		     void (*failed)(enum status_failreason UNNEEDED,

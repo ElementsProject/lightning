@@ -435,6 +435,15 @@ bool invoices_resolve(struct invoices *invoices UNNEEDED,
 		      const struct json_escape *label UNNEEDED,
 		      const struct bitcoin_outpoint *outpoint UNNEEDED)
 { fprintf(stderr, "invoices_resolve called!\n"); abort(); }
+/* Generated stub for is_legacy_hsm_secret_encrypted */
+int is_legacy_hsm_secret_encrypted(const char *path UNNEEDED)
+{ fprintf(stderr, "is_legacy_hsm_secret_encrypted called!\n"); abort(); }
+/* Generated stub for hsm_secret_error_str */
+const char *hsm_secret_error_str(enum hsm_secret_error err UNNEEDED)
+{ fprintf(stderr, "hsm_secret_error_str called!\n"); abort(); }
+/* Generated stub for read_stdin_pass */
+const char *read_stdin_pass(const tal_t *ctx UNNEEDED, enum hsm_secret_error *err UNNEEDED)
+{ fprintf(stderr, "read_stdin_pass called!\n"); abort(); }
 /* Generated stub for json_add_address */
 void json_add_address(struct json_stream *response UNNEEDED, const char *fieldname UNNEEDED,
 		      const struct wireaddr *addr UNNEEDED)
@@ -1035,9 +1044,6 @@ void tell_connectd_peer_importance(struct peer *peer UNNEEDED,
 /* Generated stub for tlv_hsmd_dev_preinit_tlvs_new */
 struct tlv_hsmd_dev_preinit_tlvs *tlv_hsmd_dev_preinit_tlvs_new(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "tlv_hsmd_dev_preinit_tlvs_new called!\n"); abort(); }
-/* Generated stub for tlv_hsmd_init_tlvs_new */
-struct tlv_hsmd_init_tlvs *tlv_hsmd_init_tlvs_new(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "tlv_hsmd_init_tlvs_new called!\n"); abort(); }
 /* Generated stub for to_canonical_invstr */
 const char *to_canonical_invstr(const tal_t *ctx UNNEEDED, const char *invstring UNNEEDED)
 { fprintf(stderr, "to_canonical_invstr called!\n"); abort(); }
