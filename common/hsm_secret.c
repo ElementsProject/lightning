@@ -23,7 +23,6 @@
 	(sizeof(struct secret) + crypto_secretstream_xchacha20poly1305_ABYTES)
 /* Total length of an encrypted hsm_secret */
 #define ENCRYPTED_HSM_SECRET_LEN (HS_HEADER_LEN + HS_CIPHERTEXT_LEN)
-#define PASSPHRASE_HASH_LEN 32
 #define HSM_SECRET_PLAIN_SIZE 32
 
 void destroy_secret(struct secret *secret)

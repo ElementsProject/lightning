@@ -12,6 +12,7 @@
 #define HS_CIPHERTEXT_LEN \
 	(sizeof(struct secret) + crypto_secretstream_xchacha20poly1305_ABYTES)
 #define ENCRYPTED_HSM_SECRET_LEN (HS_HEADER_LEN + HS_CIPHERTEXT_LEN)
+#define PASSPHRASE_HASH_LEN 32
 
 enum hsm_secret_type {
 	HSM_SECRET_PLAIN = 0,               /* Legacy 32-byte format */

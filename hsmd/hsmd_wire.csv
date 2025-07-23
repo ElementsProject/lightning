@@ -47,6 +47,11 @@ msgdata,hsmd_init_reply_v4,node_id,node_id,
 msgdata,hsmd_init_reply_v4,bip32,ext_key,
 msgdata,hsmd_init_reply_v4,bolt12,pubkey,
 
+# HSM initialization failure response
+msgtype,hsmd_init_reply_failure,115
+msgdata,hsmd_init_reply_failure,error_code,u32,
+msgdata,hsmd_init_reply_failure,error_message,wirestring,
+
 # Declare a new channel.
 msgtype,hsmd_new_channel,30
 msgdata,hsmd_new_channel,id,node_id,
