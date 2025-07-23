@@ -1492,7 +1492,7 @@ def test_decode(node_factory, bitcoind):
     """Test the decode option to decode the contents of emergency recovery.
     """
     l1 = node_factory.get_node()
-    cmd_line = ["tools/hsmtool", "getemergencyrecover", os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "emergency.recover")]
+    cmd_line = ["tools/hsmtool", "printemergencyrecover", os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "emergency.recover")]
     out = subprocess.check_output(cmd_line).decode('utf-8')
     bech32_out = out.strip('\n')
     assert bech32_out.startswith('clnemerg1')
@@ -1515,7 +1515,7 @@ def test_recover(node_factory, bitcoind):
     os.unlink(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret"))
     l1.daemon.start()
 
-    cmd_line = ["tools/hsmtool", "getcodexsecret", os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")]
+    cmd_line = ["tools/hsmtool", "printcodexsecret", os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")]
     out = subprocess.check_output(cmd_line + ["leet", "0"]).decode('utf-8')
     assert out == "cl10leetsllhdmn9m42vcsamx24zrxgs3qrl7ahwvhw4fnzrhve25gvezzyqqjdsjnzedu43ns\n"
 
@@ -4556,7 +4556,7 @@ def test_recover_command(node_factory, bitcoind):
     def get_hsm_secret(n):
         """Returns codex32 and hex"""
         hsmfile = os.path.join(n.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
-        codex32 = subprocess.check_output(["tools/hsmtool", "getcodexsecret", hsmfile, "leet"]).decode('utf-8').strip()
+        codex32 = subprocess.check_output(["tools/hsmtool", "printcodexsecret", hsmfile, "leet"]).decode('utf-8').strip()
         with open(hsmfile, "rb") as f:
             hexhsm = f.read().hex()
         return codex32, hexhsm
