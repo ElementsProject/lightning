@@ -52,6 +52,7 @@
 #include <common/deprecation.h>
 #include <common/ecdh_hsmd.h>
 #include <common/hsm_encryption.h>
+#include <common/hsm_secret.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <common/timeout.h>
@@ -235,6 +236,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->alias = NULL;
 	ld->rgb = NULL;
 	ld->recover = NULL;
+	ld->hsm_passphrase = NULL;
 	list_head_init(&ld->connects);
 	list_head_init(&ld->waitsendpay_commands);
 	list_head_init(&ld->close_commands);
@@ -317,6 +319,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	/*~ This is used to store the passphrase for hsm_secret if needed.
 	 * It will be set if the `--hsm-passphrase` option is passed at startup.
 	 */
+
 	ld->hsm_passphrase = NULL;
 
 	/* This is used to override subdaemons */
