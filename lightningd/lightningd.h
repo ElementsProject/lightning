@@ -69,8 +69,6 @@ struct config {
 	/* Minimal amount of effective funding_satoshis for accepting channels */
 	u64 min_capacity_sat;
 
-	/* This is the key we use to encrypt `hsm_secret`. */
-	struct secret *keypass;
 
 	/* How long before we give up waiting for INIT msg */
 	u32 connection_timeout_secs;
@@ -378,7 +376,11 @@ struct lightningd {
 
 	char *wallet_dsn;
 
-	bool encrypted_hsm;
+
+	/* HSM passphrase for any format that needs it */
+	char *hsm_passphrase;
+
+
 	/* What (additional) messages the HSM accepts */
 	u32 *hsm_capabilities;
 
