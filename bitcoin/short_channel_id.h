@@ -98,4 +98,6 @@ void towire_short_channel_id(u8 **pptr,
 			     struct short_channel_id short_channel_id);
 struct short_channel_id fromwire_short_channel_id(const u8 **cursor, size_t *max);
 
+/* Set to random bytes */
+struct short_channel_id random_scid(void);
 #endif /* LIGHTNING_BITCOIN_SHORT_CHANNEL_ID_H */
