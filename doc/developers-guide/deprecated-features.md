@@ -20,6 +20,7 @@ hidden: false
 | channel_state_changed.old_state.unknown | Notification Field | v25.05        | v26.03         | Value "unknown" is deprecated: field will be omitted instead                                                                           |
 | channel_state_changed.null_scid         | Notification Field | v25.09        | v26.09         | In channel_state_changed notification, `short_channel_id` will be missing instead of `null`                                            |
 | notification.payload                    | Notification Field | v25.09        | v26.09         | Notifications from plugins used to have fields in `payload` sub-object, now they are not (just like normal notifications)              |
+| pay_notifications.raw_fields            | Field              | v25.09           | v26.09         | `channel_hint_update`, `pay_failure` and `pay_success` notifications now wrap members in an object of the same name                    |
 
 Inevitably there are features which need to change: either to be generalized, or removed when they can no longer be supported.
 
