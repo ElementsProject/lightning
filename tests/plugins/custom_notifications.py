@@ -34,6 +34,16 @@ def on_pay_success(origin, payload, **kwargs):
     )
 
 
+@plugin.subscribe("xpay_attempt_start")
+def on_xpay_attempt_start(origin, payload, **kwargs):
+    plugin.log("Got xpay_attempt_start: {}".format(payload))
+
+
+@plugin.subscribe("xpay_attempt_end")
+def on_xpay_attempt_end(origin, payload, **kwargs):
+    plugin.log("Got xpay_attempt_end: {}".format(payload))
+
+
 @plugin.subscribe("ididntannouncethis")
 def on_faulty_emit(origin, payload, **kwargs):
     """We should never receive this as it gets dropped.
