@@ -12,7 +12,7 @@ from collections import OrderedDict
 from dataclasses import dataclass
 from enum import Enum
 from threading import RLock
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union, TypedDict
 
 from .lightning import LightningRpc, Millisatoshi
 
@@ -38,6 +38,13 @@ class RequestState(Enum):
     FAILED = 'failed'
 
 
+class CLNRestData(TypedDict):
+    path: str
+    method: str
+    content_type: str
+    rune: bool
+
+
 class Method(object):
     """Description of methods that are registered with the plugin.
 
@@ -49,7 +56,8 @@ class Method(object):
     def __init__(self, name: str, func: Callable[..., JSONType],
                  mtype: MethodType = MethodType.RPCMETHOD,
                  deprecated: Union[bool, List[str]] = None,
-                 description: str = None):
+                 description: str = None,
+                 clnrest_data: CLNRestData = None):
         self.name = name
         self.func = func
         self.mtype = mtype
@@ -58,6 +66,7 @@ class Method(object):
         self.description = description
         self.before: List[str] = []
         self.after: List[str] = []
+        self.clnrest = clnrest_data
 
     def get_usage(self):
         # Handles out-of-order use of parameters like:
@@ -357,7 +366,8 @@ class Plugin(object):
     def add_method(self, name: str, func: Callable[..., Any],
                    background: bool = False,
                    deprecated: Optional[Union[bool, List[str]]] = None,
-                   description: str = None) -> None:
+                   description: str = None,
+                   clnrest_data: CLNRestData = None) -> None:
         """Add a plugin method to the dispatch table.
 
         The function will be expected at call time (see `_dispatch`)
@@ -394,7 +404,7 @@ class Plugin(object):
             )
 
         # Register the function with the name
-        method = Method(name, func, MethodType.RPCMETHOD, deprecated, description)
+        method = Method(name, func, MethodType.RPCMETHOD, deprecated, description, clnrest_data)
         method.background = background
         self.methods[name] = method
 
@@ -511,7 +521,8 @@ class Plugin(object):
     def async_method(self, method_name: str, category: Optional[str] = None,
                      desc: Optional[str] = None,
                      long_desc: Optional[str] = None,
-                     deprecated: Optional[Union[bool, List[str]]] = None) -> NoneDecoratorType:
+                     deprecated: Optional[Union[bool, List[str]]] = None,
+                     clnrest_data: CLNRestData = None) -> NoneDecoratorType:
         """Decorator to add an async plugin method to the dispatch table.
 
         Internally uses add_method.
@@ -520,7 +531,7 @@ class Plugin(object):
             for attr, attr_name in [(category, "Category"), (desc, "Description"), (long_desc, "Long description")]:
                 if attr is not None:
                     self.log("{} is deprecated but defined in method {}; it will be ignored by Core Lightning".format(attr_name, method_name), level="warn")
-            self.add_method(method_name, f, background=True, deprecated=deprecated)
+            self.add_method(method_name, f, background=True, deprecated=deprecated, clnrest_data=clnrest_data)
             return f
         return decorator
 
@@ -528,7 +539,8 @@ class Plugin(object):
                desc: Optional[str] = None,
                long_desc: Optional[str] = None,
                deprecated: Union[bool, List[str]] = None,
-               description: str = None) -> JsonDecoratorType:
+               description: str = None,
+               clnrest_data: Optional[CLNRestData] = None) -> JsonDecoratorType:
         """Decorator to add a plugin method to the dispatch table.
 
         Internally uses add_method.
@@ -537,7 +549,7 @@ class Plugin(object):
             for attr, attr_name in [(category, "Category"), (desc, "Description"), (long_desc, "Long description")]:
                 if attr is not None:
                     self.log("{} is deprecated but defined in method {}; it will be ignored by Core Lightning".format(attr_name, method_name), level="warn")
-            self.add_method(method_name, f, background=False, deprecated=deprecated, description=f.__doc__)
+            self.add_method(method_name, f, background=False, deprecated=deprecated, description=f.__doc__, clnrest_data=clnrest_data)
             return f
         return decorator
 
@@ -951,6 +963,9 @@ class Plugin(object):
                 'usage': method.get_usage(),
                 'description': description,
             })
+            if method.clnrest:
+                m = methods[len(methods) - 1]
+                m["clnrest"] = method.clnrest
 
         manifest = {
             'options': list(d.json() for d in self.options.values()),

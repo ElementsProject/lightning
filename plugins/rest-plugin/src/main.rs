@@ -1,19 +1,26 @@
-use std::{net::SocketAddr, str::FromStr, time::Duration};
+use std::{
+    collections::{hash_map::Entry, HashMap},
+    net::SocketAddr,
+    str::FromStr,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
 use axum::{
     http::{HeaderName, HeaderValue},
     middleware,
-    routing::{get, post},
+    routing::get,
     Extension, Router,
 };
 use axum_server::tls_rustls::RustlsConfig;
 use certs::{do_certificates_exist, generate_certificates};
 use cln_plugin::{Builder, Plugin};
 use handlers::{
-    call_rpc_method, handle_notification, header_inspection_middleware, list_methods,
-    socketio_on_connect,
+    get_rpc_method, handle_notification, header_inspection_middleware, list_methods,
+    post_rpc_method, socketio_on_connect,
 };
 use options::*;
+use shared::get_clnrest_manifests;
 use socketioxide::SocketIo;
 use tokio::{
     sync::mpsc::{self, Receiver, Sender},
@@ -38,13 +45,23 @@ mod shared;
 #[derive(Clone, Debug)]
 struct PluginState {
     notification_sender: Sender<serde_json::Value>,
+    rest_paths: Arc<Mutex<HashMap<String, ClnrestMap>>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ClnrestMap {
+    pub content_type: String,
+    pub http_method: String,
+    pub rpc_method: String,
+    pub rune: bool,
 }
 
 #[derive(OpenApi)]
 #[openapi(
         paths(
             handlers::list_methods,
-            handlers::call_rpc_method,
+            handlers::post_rpc_method,
+            handlers::get_rpc_method
         ),
         modifiers(&SecurityAddon),
     )]
@@ -95,8 +112,14 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let (notify_tx, notify_rx) = mpsc::channel(100);
 
+    let rest_paths = match rest_manifests_init(&plugin.configuration().rpc_file).await {
+        Ok(rest) => rest,
+        Err(e) => return plugin.disable(&e.to_string()).await,
+    };
+
     let state = PluginState {
         notification_sender: notify_tx,
+        rest_paths: Arc::new(Mutex::new(rest_paths)),
     };
 
     let plugin = plugin.start(state.clone()).await?;
@@ -150,7 +173,7 @@ async fn run_rest_server(
             "/v1",
             Router::new()
                 .route("/list-methods", get(list_methods))
-                .route("/{rpc_method}", post(call_rpc_method))
+                .route("/{*route}", get(get_rpc_method).post(post_rpc_method))
                 .layer(clnrest_options.cors)
                 .layer(Extension(plugin.clone()))
                 .layer(
@@ -224,4 +247,28 @@ fn log_error(error: String) {
                           "method": "log",
                           "params": {"level":"warn", "message":error}})
     );
+}
+async fn rest_manifests_init(
+    rpc_file: &String,
+) -> Result<HashMap<String, ClnrestMap>, anyhow::Error> {
+    let manifests = get_clnrest_manifests(rpc_file).await?;
+    let mut rest_paths: HashMap<String, ClnrestMap> = HashMap::new();
+    for (rpc_method, clnrest_data) in manifests.into_iter() {
+        if let Entry::Vacant(entry) = rest_paths.entry(clnrest_data.path.clone()) {
+            log::info!(
+                "Registered custom path `{}` for `{}` via `{}`",
+                clnrest_data.path,
+                rpc_method,
+                clnrest_data.method
+            );
+            entry.insert(ClnrestMap {
+                content_type: clnrest_data.content_type,
+                http_method: clnrest_data.method,
+                rpc_method,
+                rune: clnrest_data.rune,
+            });
+        }
+    }
+
+    Ok(rest_paths)
 }
