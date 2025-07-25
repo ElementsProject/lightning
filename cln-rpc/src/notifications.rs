@@ -85,6 +85,8 @@ pub enum PeerConnectAddressType {
     TORV2 = 3,
     #[serde(rename = "torv3")]
     TORV3 = 4,
+    #[serde(rename = "websocket")]
+    WEBSOCKET = 5,
 }
 
 impl TryFrom<i32> for PeerConnectAddressType {
@@ -96,6 +98,7 @@ impl TryFrom<i32> for PeerConnectAddressType {
     2 => Ok(PeerConnectAddressType::IPV6),
     3 => Ok(PeerConnectAddressType::TORV2),
     4 => Ok(PeerConnectAddressType::TORV3),
+    5 => Ok(PeerConnectAddressType::WEBSOCKET),
             o => Err(anyhow::anyhow!("Unknown variant {} for enum PeerConnectAddressType", o)),
         }
     }
@@ -109,6 +112,7 @@ impl ToString for PeerConnectAddressType {
             PeerConnectAddressType::IPV6 => "IPV6",
             PeerConnectAddressType::TORV2 => "TORV2",
             PeerConnectAddressType::TORV3 => "TORV3",
+            PeerConnectAddressType::WEBSOCKET => "WEBSOCKET",
         }.to_string()
     }
 }
