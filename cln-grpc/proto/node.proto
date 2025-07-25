@@ -67,6 +67,7 @@ service Node {
 	rpc EnableOffer(EnableofferRequest) returns (EnableofferResponse) {}
 	rpc Disconnect(DisconnectRequest) returns (DisconnectResponse) {}
 	rpc Feerates(FeeratesRequest) returns (FeeratesResponse) {}
+	rpc FetchBip353(Fetchbip353Request) returns (Fetchbip353Response) {}
 	rpc FetchInvoice(FetchinvoiceRequest) returns (FetchinvoiceResponse) {}
 	rpc FundChannelCancel(FundchannelCancelRequest) returns (FundchannelCancelResponse) {}
 	rpc FundChannelComplete(FundchannelCompleteRequest) returns (FundchannelCompleteResponse) {}
@@ -1924,6 +1925,23 @@ message FeeratesOnchainFeeEstimates {
 	uint64 htlc_timeout_satoshis = 4;
 	uint64 htlc_success_satoshis = 5;
 	optional uint64 unilateral_close_nonanchor_satoshis = 6;
+}
+
+message Fetchbip353Request {
+	string address = 1;
+}
+
+message Fetchbip353Response {
+	string proof = 1;
+	repeated Fetchbip353Instructions instructions = 2;
+}
+
+message Fetchbip353Instructions {
+	optional string description = 1;
+	optional string offer = 2;
+	optional string onchain = 3;
+	optional uint64 offchain_amount_msat = 4;
+	optional uint64 onchain_amount_sat = 5;
 }
 
 message FetchinvoiceRequest {
