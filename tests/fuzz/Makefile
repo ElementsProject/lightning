@@ -73,5 +73,21 @@ FUZZ_COMMON_OBJS := \
 $(FUZZ_TARGETS_OBJS): $(COMMON_HEADERS) $(WIRE_HEADERS) $(COMMON_SRC)
 $(FUZZ_TARGETS_BIN): $(LIBFUZZ_OBJS) $(FUZZ_COMMON_OBJS) $(BITCOIN_OBJS)
 
+tests/fuzz/fuzz-gossipd-connectd: gossipd/gossmap_manage.o		\
+				  gossipd/seeker.o			\
+				  gossipd/gossipd_wiregen.o		\
+				  gossipd/gossip_store_wiregen.o	\
+				  gossipd/gossip_store.o		\
+				  gossipd/queries.o			\
+				  gossipd/sigcheck.o			\
+				  gossipd/txout_failures.o		\
+				  common/gossmap.o			\
+				  common/gossip_store.o			\
+				  common/gossmods_listpeerchannels.o	\
+				  common/timeout.o			\
+				  common/fp16.o				\
+				  common/decode_array.o			\
+				  connectd/connectd_gossipd_wiregen.o
+
 ALL_C_SOURCES += $(FUZZ_TARGETS_SRC) $(LIBFUZZ_SRC)
 ALL_FUZZ_TARGETS += $(FUZZ_TARGETS_BIN)
