@@ -383,15 +383,32 @@ void payment_start(struct payment *p)
      * We share the channel_hints across payments, and across plugins, in order
      * to maximize the context they have when performing payments.
      */
+static void channel_hint_notify_core(struct plugin *plugin,
+				     struct json_stream *js,
+				     const char *fieldname,
+				     const struct channel_hint *hint)
+{
+	/* The timestamp used to decay the observation over time. */
+	channel_hint_to_json(fieldname, hint, js);
+}
+
 static void channel_hint_notify(struct plugin *plugin,
 				const struct channel_hint *hint)
 {
 	struct json_stream *js =
-	    plugin_notification_start(plugin, "channel_hint_update");
+	    plugin_notification_start_obs(plugin, "channel_hint_update");
 
-	/* The timestamp used to decay the observation over time. */
-	channel_hint_to_json("channel_hint", hint, js);
-	plugin_notification_end(plugin, js);
+	/* Fake up the old "payload" style, *and* the old unwrapped style */
+	if (notification_deprecated_out_ok(plugin, "notification", "payload",
+					   "v25.09", "v26.09")) {
+		json_add_string(js, "origin", "pay");
+		json_object_start(js, "payload");
+		channel_hint_notify_core(plugin, js, "channel_hint", hint);
+		json_object_end(js);
+	}
+
+	channel_hint_notify_core(plugin, js, "channel_hint_update", hint);
+	plugin_notification_end_obs(plugin, js);
 }
 
 static void channel_hints_update(struct payment *p,
@@ -2077,12 +2094,11 @@ static void payment_json_add_attempts(struct json_stream *s,
 	json_array_end(s);
 }
 
-static void payment_notify_failure(struct payment *p, const char *error_message)
+static void payment_failure_notify_core(struct payment *p,
+					struct json_stream *n,
+					const char *error_message)
 {
 	struct payment *root = payment_root(p);
-	struct json_stream *n;
-
-	n = plugin_notification_start(p->plugin, "pay_failure");
 	json_add_sha256(n, "payment_hash", p->payment_hash);
 	if (root->invstring != NULL)
 		json_add_string(n, "bolt11", root->invstring);
@@ -2090,8 +2106,26 @@ static void payment_notify_failure(struct payment *p, const char *error_message)
 	json_object_start(n, "error");
 	json_add_string(n, "message", error_message);
 	json_object_end(n); /* .error */
+}
 
-	plugin_notification_end(p->plugin, n);
+static void payment_notify_failure(struct payment *p, const char *error_message)
+{
+	struct json_stream *n;
+
+	n = plugin_notification_start_obs(p->plugin, "pay_failure");
+	/* Fake up the old "payload" style, *and* the old unwrapped style */
+	if (notification_deprecated_out_ok(p->plugin, "notification", "payload",
+					   "v25.09", "v26.09")) {
+		json_add_string(n, "origin", "pay");
+		json_object_start(n, "payload");
+		payment_failure_notify_core(p, n, error_message);
+		json_object_end(n);
+	}
+
+	json_object_start(n, "pay_failure");
+	payment_failure_notify_core(p, n, error_message);
+	json_object_end(n);
+	plugin_notification_end_obs(p->plugin, n);
 }
 
 /* Code shared by selfpay fast-path: populate JSON output for successful
@@ -2126,11 +2160,24 @@ void json_add_payment_success(struct json_stream *js,
 	json_add_preimage(js, "payment_preimage", preimage);
 	json_add_string(js, "status", "complete");
 
-	n = plugin_notification_start(p->plugin, "pay_success");
+	n = plugin_notification_start_obs(p->plugin, "pay_success");
+	/* Fake up the old "payload" style, *and* the old unwrapped style */
+	if (notification_deprecated_out_ok(p->plugin, "notification", "payload",
+					   "v25.09", "v26.09")) {
+		json_add_string(n, "origin", "pay");
+		json_object_start(n, "payload");
+		json_add_sha256(n, "payment_hash", p->payment_hash);
+		if (root->invstring != NULL)
+			json_add_string(n, "bolt11", root->invstring);
+		json_object_end(n);
+	}
+
+	json_object_start(n, "pay_success");
 	json_add_sha256(n, "payment_hash", p->payment_hash);
 	if (root->invstring != NULL)
 		json_add_string(n, "bolt11", root->invstring);
-	plugin_notification_end(p->plugin, n);
+	json_object_end(n);
+	plugin_notification_end_obs(p->plugin, n);
 }
 
 /* This function is called whenever a payment ends up in a final state, or all
