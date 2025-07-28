@@ -118,7 +118,7 @@ pip3 install pytest
 
 If you can't install `lowdown`, a version will be built in-tree.
 
-If you want to build the Rust plugins (currently cln-grpc and clnrest, which changed from Python to Rust as of v25.02):
+If you want to build the Rust plugins (cln-grpc, clnrest, and wss-proxy):
 
 ```shell
 sudo apt-get install -y cargo rustfmt protobuf-compiler
@@ -142,7 +142,7 @@ sudo RUST_PROFILE=release make install
 
 > 📘 
 > 
-> If you want disable Rust because you do not want use it or you do not want `cln-grpc` or `clnrest`, you can use `./configure --disable-rust`.
+> If you want to disable Rust because you don’t need it or its plugins (cln-grpc, clnrest, or wss-proxy), you can use `./configure --disable-rust`.
 
 To build CLN for development:
 
