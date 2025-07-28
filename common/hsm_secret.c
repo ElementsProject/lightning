@@ -311,25 +311,35 @@ static struct hsm_secret *extract_mnemonic_secret(const tal_t *ctx,
 /* If hsm_secret_needs_passphrase, passphrase must not be NULL.
  * Returns NULL on failure. */
 struct hsm_secret *extract_hsm_secret(const tal_t *ctx,
-				      const u8 *hsm_secret, size_t len,
-				      const char *passphrase,
-				      enum hsm_secret_error *err)
+			      const u8 *hsm_secret, size_t len,
+			      const char *passphrase,
+			      enum hsm_secret_error *err)
 {
+	tal_wally_start();
 	enum hsm_secret_type type = detect_hsm_secret_type(hsm_secret, len);
 	
+	/* Ensure we got a valid type from detection */
+	assert(type >= HSM_SECRET_PLAIN && type <= HSM_SECRET_INVALID);
+	
+	struct hsm_secret *result;
 	switch (type) {
 	case HSM_SECRET_PLAIN:
-		return extract_plain_secret(ctx, hsm_secret, len, err);
+		result = extract_plain_secret(ctx, hsm_secret, len, err);
+		break;
 	case HSM_SECRET_ENCRYPTED:
-		return extract_encrypted_secret(ctx, hsm_secret, len, passphrase, err);
+		result = extract_encrypted_secret(ctx, hsm_secret, len, passphrase, err);
+		break;
 	case HSM_SECRET_MNEMONIC_NO_PASS:
 	case HSM_SECRET_MNEMONIC_WITH_PASS:
-		return extract_mnemonic_secret(ctx, hsm_secret, len, passphrase, type, err);
+		result = extract_mnemonic_secret(ctx, hsm_secret, len, passphrase, type, err);
+		break;
 	case HSM_SECRET_INVALID:
 		*err = HSM_SECRET_ERR_INVALID_FORMAT;
-		return NULL;
+		result = NULL;
+		break;
 	}
-	abort();
+	tal_wally_end(ctx);
+	return result;
 }
 
 bool encrypt_legacy_hsm_secret(const struct secret *encryption_key,
