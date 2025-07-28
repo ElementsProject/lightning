@@ -32,7 +32,7 @@ ALL_TARGETS="bin-Fedora bin-Ubuntu docker sign"
 for arg; do
     case "$arg" in
     --force-version=*)
-	    FORCE_VERSION=${arg#*=}
+        FORCE_VERSION=${arg#*=}
         ;;
     --force-unclean)
         FORCE_UNCLEAN=true
@@ -49,10 +49,10 @@ for arg; do
     --help)
         echo "Usage: [--force-version=<ver>] [--force-unclean] [--force-mtime=YYYY-MM-DD] [--verify] [TARGETS]"
         echo Known targets: "$ALL_TARGETS"
-	    echo "Example: tools/build-release.sh"
-	    echo "Example: tools/build-release.sh --force-version=v23.05 --force-unclean --force-mtime=2023-05-01 bin-Fedora bin-Ubuntu sign"
-	    echo "Example: tools/build-release.sh --verify"
-	    echo "Example: tools/build-release.sh --force-version=v23.05 --force-unclean --force-mtime=2023-05-01 --verify"
+        echo "Example: tools/build-release.sh"
+        echo "Example: tools/build-release.sh --force-version=v23.05 --force-unclean --force-mtime=2023-05-01 bin-Fedora bin-Ubuntu sign"
+        echo "Example: tools/build-release.sh --verify"
+        echo "Example: tools/build-release.sh --force-version=v23.05 --force-unclean --force-mtime=2023-05-01 --verify"
         echo "Example: tools/build-release.sh docker"
         echo "Example: tools/build-release.sh --force-version=v23.05 --force-unclean --force-mtime=2023-05-01 docker"
         exit 0
@@ -102,7 +102,7 @@ if [ "$VERIFY_RELEASE" = "true" ]; then
         ALL_TARGETS="bin-Ubuntu"
     else
         echo "Unable to verify. File SHA256SUMS-$VERSION or SHA256SUMS-$VERSION.asc not found in the root."
-		exit 1
+        exit 1
     fi
 fi
 
@@ -193,7 +193,7 @@ if [ -z "${TARGETS##* docker *}" ]; then
     DOCKER_OPTS="--push --platform linux/amd64,linux/arm64,linux/arm/v7"
     DOCKER_OPTS="$DOCKER_OPTS -t $DOCKER_USER/lightningd:$VERSION"
     DOCKER_OPTS="$DOCKER_OPTS -t $DOCKER_USER/lightningd:latest"
-    DOCKER_OPTS="$DOCKER_OPTS --cache-to=type=local,dest=/tmp/docker-cache --cache-from=type=local,src=/tmp/docker-cache"    
+    DOCKER_OPTS="$DOCKER_OPTS --cache-to=type=local,dest=/tmp/docker-cache --cache-from=type=local,src=/tmp/docker-cache"
     echo "Docker Options: $DOCKER_OPTS"
     if sudo docker buildx ls | grep -q 'cln-builder'; then
         sudo docker buildx use cln-builder
@@ -240,7 +240,7 @@ if [ "$VERIFY_RELEASE" = "true" ]; then
         echo "SHA256SUMS are Identical"
     else
         echo "Error: SHA256SUMS do NOT Match"
-	exit 1
+    exit 1
     fi
     # verify release captain signature
     gpg --verify "../SHA256SUMS-$VERSION.asc"

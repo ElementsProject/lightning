@@ -132,32 +132,3 @@ docker exec -it <container-id-from-step2> bash
 docker run -it --rm --platform=linux/amd64 --network=host -v '/root/.lightning:/root/.lightning' -v '/root/.bitcoin:/root/.bitcoin' -e LIGHTNINGD_DATA=/root/.lightning elementsproject/lightningd:latest --network=regtest
 
 ```
-
-## Using CLI for CLN Node Running in the Docker Container
-
-### From Host (Local CLI)
-
-Use your local lightning-cli (if installed), ensuring that `lightning-dir` is configured with the local directory that is mounted to the container's `root/.lightning`.
-
-```shell
-sudo lightning-cli --regtest --lightning-dir=/root/.lightning getinfo
-```
-
-### Inside Docker Container
-1. Get the container ID for the image `elementsproject/lightningd:latest`:
-
-```shell
-docker container ps
-```
-
-2. Run a new command in the running `lightningd` container:
-
-```shell
-docker exec -it <container-id-from-step1> bash
-```
-
-3. Use the container's `lightning-cli`:
-
-```shell
-lightning-cli --regtest getinfo
-```

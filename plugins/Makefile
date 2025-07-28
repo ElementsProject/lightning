@@ -140,17 +140,17 @@ $(shell test -d plugins/wss-proxy && $(RM) -r plugins/wss-proxy || true)
 ifneq ($(RUST),0)
 # Builtin plugins must be in this plugins dir to work when we're executed
 # *without* make install.
-plugins/cln-grpc: target/${RUST_PROFILE}/cln-grpc
+plugins/cln-grpc: $(RUST_TARGET_DIR)/cln-grpc
 	@cp $< $@
-plugins/clnrest: target/${RUST_PROFILE}/clnrest
+plugins/clnrest: $(RUST_TARGET_DIR)/clnrest
 	@cp $< $@
-plugins/cln-lsps-client: target/${RUST_PROFILE}/cln-lsps-client
+plugins/cln-lsps-client: $(RUST_TARGET_DIR)/cln-lsps-client
 	@cp $< $@
-plugins/cln-lsps-service: target/${RUST_PROFILE}/cln-lsps-service
+plugins/cln-lsps-service: $(RUST_TARGET_DIR)/cln-lsps-service
 	@cp $< $@
-plugins/wss-proxy: target/${RUST_PROFILE}/wss-proxy
+plugins/wss-proxy: $(RUST_TARGET_DIR)/wss-proxy
 	@cp $< $@
-plugins/cln-bip353: target/${RUST_PROFILE}/cln-bip353
+plugins/cln-bip353: $(RUST_TARGET_DIR)/cln-bip353
 	@cp $< $@
 
 PLUGINS += plugins/cln-grpc plugins/clnrest plugins/cln-lsps-client plugins/cln-lsps-service plugins/wss-proxy plugins/cln-bip353
@@ -293,14 +293,14 @@ PLUGIN_BASES := $(PLUGINS:plugins/%=%) $(PY_PLUGINS:plugins/%=%)
 plugins/list_of_builtin_plugins_gen.h: plugins/Makefile Makefile config.vars
 	@$(call VERBOSE,GEN $@,echo "static const char *list_of_builtin_plugins[] = { $(PLUGIN_BASES:%=\"%\",) NULL };" > $@)
 
-target/${RUST_PROFILE}/examples/cln-subscribe-wildcard: ${CLN_PLUGIN_SRC} plugins/examples/cln-subscribe-wildcard.rs
+$(RUST_TARGET_DIR)/examples/cln-subscribe-wildcard: ${CLN_PLUGIN_SRC} plugins/examples/cln-subscribe-wildcard.rs
 	cargo build ${CARGO_OPTS} --example cln-subscribe-wildcard
 
 CLN_PLUGIN_EXAMPLES := \
-	target/${RUST_PROFILE}/examples/cln-plugin-startup \
-	target/${RUST_PROFILE}/examples/cln-plugin-reentrant \
-	target/${RUST_PROFILE}/examples/cln-rpc-getinfo \
-	target/${RUST_PROFILE}/examples/cln-subscribe-wildcard
+	$(RUST_TARGET_DIR)/examples/cln-plugin-startup \
+	$(RUST_TARGET_DIR)/examples/cln-plugin-reentrant \
+	$(RUST_TARGET_DIR)/examples/cln-rpc-getinfo \
+	$(RUST_TARGET_DIR)/examples/cln-subscribe-wildcard
 
 CLN_PLUGIN_SRC = $(shell find plugins/src -name "*.rs")
 CLN_GRPC_PLUGIN_SRC = $(shell find plugins/grpc-plugin/src -name "*.rs")
@@ -309,17 +309,17 @@ CLN_LSPS_PLUGIN_SRC = $(shell find plugins/lsps-plugin/src -name "*.rs")
 CLN_WSS_PROXY_PLUGIN_SRC = $(shell find plugins/wss-proxy-plugin/src -name "*.rs")
 CLN_BIP353_PLUGIN_SRC = $(shell find plugins/bip353-plugin/src -name "*.rs")
 
-target/${RUST_PROFILE}/cln-grpc: ${CLN_PLUGIN_SRC} ${CLN_GRPC_PLUGIN_SRC} $(MSGGEN_GENALL) $(MSGGEN_GEN_ALL)
+$(RUST_TARGET_DIR)/cln-grpc: ${CLN_PLUGIN_SRC} ${CLN_GRPC_PLUGIN_SRC} $(MSGGEN_GENALL) $(MSGGEN_GEN_ALL)
 	cargo build ${CARGO_OPTS} --bin cln-grpc
-target/${RUST_PROFILE}/clnrest: ${CLN_REST_PLUGIN_SRC}
+$(RUST_TARGET_DIR)/clnrest: ${CLN_REST_PLUGIN_SRC}
 	cargo build ${CARGO_OPTS} --bin clnrest
-target/${RUST_PROFILE}/cln-lsps-client: ${CLN_LSPS_PLUGIN_SRC}
+$(RUST_TARGET_DIR)/cln-lsps-client: ${CLN_LSPS_PLUGIN_SRC}
 	cargo build ${CARGO_OPTS} --bin cln-lsps-client
-target/${RUST_PROFILE}/cln-lsps-service: ${CLN_LSPS_PLUGIN_SRC}
+$(RUST_TARGET_DIR)/cln-lsps-service: ${CLN_LSPS_PLUGIN_SRC}
 	cargo build ${CARGO_OPTS} --bin cln-lsps-service
-target/${RUST_PROFILE}/wss-proxy: ${CLN_WSS_PROXY_PLUGIN_SRC}
+$(RUST_TARGET_DIR)/wss-proxy: ${CLN_WSS_PROXY_PLUGIN_SRC}
 	cargo build ${CARGO_OPTS} --bin wss-proxy
-target/${RUST_PROFILE}/cln-bip353: ${CLN_BIP353_PLUGIN_SRC}
+$(RUST_TARGET_DIR)/cln-bip353: ${CLN_BIP353_PLUGIN_SRC}
 	cargo build ${CARGO_OPTS} --bin cln-bip353
 
 ifneq ($(RUST),0)
