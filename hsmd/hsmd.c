@@ -507,7 +507,7 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 				const u8 *msg_in)
 {
 	struct secret *hsm_encryption_key;
-	const char *hsm_passphrase;
+	const char *hsm_passphrase = NULL;  /* Initialize to NULL */
 	struct bip32_key_version bip32_key_version;
 	u32 minversion, maxversion;
 	const u32 our_minversion = 4, our_maxversion = 6;
