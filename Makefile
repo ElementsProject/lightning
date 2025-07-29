@@ -684,12 +684,18 @@ $(ALL_TEST_PROGRAMS) $(ALL_FUZZ_TARGETS): %: %.o
 # (as per EXTERNAL_LDLIBS) so we filter them out here.
 $(ALL_PROGRAMS) $(ALL_TEST_PROGRAMS):
 	@$(call VERBOSE, "ld $@", $(LINK.o) $(filter-out %.a,$^) $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) libccan.a $($(@)_LDLIBS) -o $@)
+ifeq ($(OS),Darwin)
+	@$(call VERBOSE, "dsymutil $@", dsymutil $@)
+endif
 
 # We special case the fuzzing target binaries, as they need to link against libfuzzer,
 # which brings its own main().
 FUZZ_LDFLAGS = -fsanitize=fuzzer
 $(ALL_FUZZ_TARGETS):
 	@$(call VERBOSE, "ld $@", $(LINK.o) $(filter-out %.a,$^) $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) libccan.a $(FUZZ_LDFLAGS) -o $@)
+ifeq ($(OS),Darwin)
+	@$(call VERBOSE, "dsymutil $@", dsymutil $@)
+endif
 
 
 # Everything depends on the CCAN headers, and Makefile
