@@ -150,8 +150,10 @@ plugins/cln-lsps-service: target/${RUST_PROFILE}/cln-lsps-service
 	@cp $< $@
 plugins/wss-proxy: target/${RUST_PROFILE}/wss-proxy
 	@cp $< $@
+plugins/cln-bip353: target/${RUST_PROFILE}/cln-bip353
+	@cp $< $@
 
-PLUGINS += plugins/cln-grpc plugins/clnrest plugins/cln-lsps-client plugins/cln-lsps-service plugins/wss-proxy
+PLUGINS += plugins/cln-grpc plugins/clnrest plugins/cln-lsps-client plugins/cln-lsps-service plugins/wss-proxy plugins/cln-bip353
 endif
 
 PLUGIN_COMMON_OBJS :=				\
@@ -305,6 +307,7 @@ CLN_GRPC_PLUGIN_SRC = $(shell find plugins/grpc-plugin/src -name "*.rs")
 CLN_REST_PLUGIN_SRC = $(shell find plugins/rest-plugin/src -name "*.rs")
 CLN_LSPS_PLUGIN_SRC = $(shell find plugins/lsps-plugin/src -name "*.rs")
 CLN_WSS_PROXY_PLUGIN_SRC = $(shell find plugins/wss-proxy-plugin/src -name "*.rs")
+CLN_BIP353_PLUGIN_SRC = $(shell find plugins/bip353-plugin/src -name "*.rs")
 
 target/${RUST_PROFILE}/cln-grpc: ${CLN_PLUGIN_SRC} ${CLN_GRPC_PLUGIN_SRC} $(MSGGEN_GENALL) $(MSGGEN_GEN_ALL)
 	cargo build ${CARGO_OPTS} --bin cln-grpc
@@ -316,11 +319,13 @@ target/${RUST_PROFILE}/cln-lsps-service: ${CLN_LSPS_PLUGIN_SRC}
 	cargo build ${CARGO_OPTS} --bin cln-lsps-service
 target/${RUST_PROFILE}/wss-proxy: ${CLN_WSS_PROXY_PLUGIN_SRC}
 	cargo build ${CARGO_OPTS} --bin wss-proxy
+target/${RUST_PROFILE}/cln-bip353: ${CLN_BIP353_PLUGIN_SRC}
+	cargo build ${CARGO_OPTS} --bin cln-bip353
 
 ifneq ($(RUST),0)
 include plugins/rest-plugin/Makefile
 include plugins/wss-proxy-plugin/Makefile
-DEFAULT_TARGETS += $(CLN_PLUGIN_EXAMPLES) plugins/cln-grpc plugins/clnrest plugins/cln-lsps-client plugins/cln-lsps-service plugins/wss-proxy
+DEFAULT_TARGETS += $(CLN_PLUGIN_EXAMPLES) plugins/cln-grpc plugins/clnrest plugins/cln-lsps-client plugins/cln-lsps-service plugins/wss-proxy plugins/cln-bip353
 endif
 
 clean: plugins-clean

@@ -1844,6 +1844,30 @@ impl From<responses::FeeratesResponse> for pb::FeeratesResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::Fetchbip353Instructions> for pb::Fetchbip353Instructions {
+    fn from(c: responses::Fetchbip353Instructions) -> Self {
+        Self {
+            description: c.description, // Rule #2 for type string?
+            offchain_amount_msat: c.offchain_amount_msat, // Rule #2 for type u64?
+            offer: c.offer, // Rule #2 for type string?
+            onchain: c.onchain, // Rule #2 for type string?
+            onchain_amount_sat: c.onchain_amount_sat, // Rule #2 for type u64?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::Fetchbip353Response> for pb::Fetchbip353Response {
+    fn from(c: responses::Fetchbip353Response) -> Self {
+        Self {
+            // Field: FetchBip353.instructions[]
+            instructions: c.instructions.into_iter().map(|i| i.into()).collect(), // Rule #3 for type Fetchbip353Instructions
+            proof: c.proof, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::FetchinvoiceChanges> for pb::FetchinvoiceChanges {
     fn from(c: responses::FetchinvoiceChanges) -> Self {
         Self {
@@ -5130,6 +5154,15 @@ impl From<requests::FeeratesRequest> for pb::FeeratesRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::Fetchbip353Request> for pb::Fetchbip353Request {
+    fn from(c: requests::Fetchbip353Request) -> Self {
+        Self {
+            address: c.address, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::FetchinvoiceRequest> for pb::FetchinvoiceRequest {
     fn from(c: requests::FetchinvoiceRequest) -> Self {
         Self {
@@ -6817,6 +6850,15 @@ impl From<pb::FeeratesRequest> for requests::FeeratesRequest {
     fn from(c: pb::FeeratesRequest) -> Self {
         Self {
             style: c.style.try_into().unwrap(),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::Fetchbip353Request> for requests::Fetchbip353Request {
+    fn from(c: pb::Fetchbip353Request) -> Self {
+        Self {
+            address: c.address, // Rule #1 for type string
         }
     }
 }
