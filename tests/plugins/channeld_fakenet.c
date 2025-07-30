@@ -871,7 +871,7 @@ static void delayed_forward(struct delayed_forward *dfwd)
 
 static void handle_offer_htlc(struct info *info, const u8 *inmsg)
 {
-	u8 *msg;
+	u8 *msg, *extratlvs;
 	u32 cltv_expiry;
 	struct amount_msat amount;
 	u8 onion_routing_packet[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)];
@@ -887,7 +887,7 @@ static void handle_offer_htlc(struct info *info, const u8 *inmsg)
 	htlc->htlc_id = htlc_id;
 	if (!fromwire_channeld_offer_htlc(tmpctx, inmsg, &amount,
 					 &cltv_expiry, &htlc->payment_hash,
-					 onion_routing_packet, &blinding))
+					 onion_routing_packet, &blinding, &extratlvs))
 		master_badmsg(WIRE_CHANNELD_OFFER_HTLC, inmsg);
 
 	e = channel_add_htlc(info->channel, LOCAL, htlc->htlc_id,

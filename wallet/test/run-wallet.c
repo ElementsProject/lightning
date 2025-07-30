@@ -46,9 +46,6 @@ static void test_error(struct lightningd *ld, bool fatal, const char *fmt, va_li
 void add_node_announcement_sig(u8 *nannounce UNNEEDED,
 			       const secp256k1_ecdsa_signature *sig UNNEEDED)
 { fprintf(stderr, "add_node_announcement_sig called!\n"); abort(); }
-/* Generated stub for bigsize_put */
-size_t bigsize_put(u8 buf[BIGSIZE_MAX_LEN] UNNEEDED, bigsize_t v UNNEEDED)
-{ fprintf(stderr, "bigsize_put called!\n"); abort(); }
 /* Generated stub for bitcoind_getrawblockbyheight_ */
 void bitcoind_getrawblockbyheight_(const tal_t *ctx UNNEEDED,
 				   struct bitcoind *bitcoind UNNEEDED,
@@ -368,12 +365,6 @@ bool fromwire_onchaind_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNE
 /* Generated stub for fromwire_openingd_dev_memleak_reply */
 bool fromwire_openingd_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
 { fprintf(stderr, "fromwire_openingd_dev_memleak_reply called!\n"); abort(); }
-/* Generated stub for fromwire_tlv */
-bool fromwire_tlv(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
-		  const struct tlv_record_type *types UNNEEDED, size_t num_types UNNEEDED,
-		  void *record UNNEEDED, struct tlv_field **fields UNNEEDED,
-		  const u64 *extra_types UNNEEDED, size_t *err_off UNNEEDED, u64 *err_type UNNEEDED)
-{ fprintf(stderr, "fromwire_tlv called!\n"); abort(); }
 /* Generated stub for get_network_blockheight */
 u32 get_network_blockheight(const struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "get_network_blockheight called!\n"); abort(); }
@@ -1079,7 +1070,7 @@ u8 *towire_channeld_got_commitsig_reply(const tal_t *ctx UNNEEDED)
 u8 *towire_channeld_got_revoke_reply(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_channeld_got_revoke_reply called!\n"); abort(); }
 /* Generated stub for towire_channeld_offer_htlc */
-u8 *towire_channeld_offer_htlc(const tal_t *ctx UNNEEDED, struct amount_msat amount_msat UNNEEDED, u32 cltv_expiry UNNEEDED, const struct sha256 *payment_hash UNNEEDED, const u8 onion_routing_packet[1366] UNNEEDED, const struct pubkey *path_key UNNEEDED)
+u8 *towire_channeld_offer_htlc(const tal_t *ctx UNNEEDED, struct amount_msat amount_msat UNNEEDED, u32 cltv_expiry UNNEEDED, const struct sha256 *payment_hash UNNEEDED, const u8 onion_routing_packet[1366] UNNEEDED, const struct pubkey *path_key UNNEEDED, const u8 *extra_tlvs UNNEEDED)
 { fprintf(stderr, "towire_channeld_offer_htlc called!\n"); abort(); }
 /* Generated stub for towire_channeld_sending_commitsig_reply */
 u8 *towire_channeld_sending_commitsig_reply(const tal_t *ctx UNNEEDED)
@@ -1185,11 +1176,6 @@ u8 *towire_temporary_channel_failure(const tal_t *ctx UNNEEDED, const u8 *channe
 /* Generated stub for towire_temporary_node_failure */
 u8 *towire_temporary_node_failure(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_temporary_node_failure called!\n"); abort(); }
-/* Generated stub for towire_tlv */
-void towire_tlv(u8 **pptr UNNEEDED,
-		const struct tlv_record_type *types UNNEEDED, size_t num_types UNNEEDED,
-		const void *record UNNEEDED)
-{ fprintf(stderr, "towire_tlv called!\n"); abort(); }
 /* Generated stub for towire_unknown_next_peer */
 u8 *towire_unknown_next_peer(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_unknown_next_peer called!\n"); abort(); }
