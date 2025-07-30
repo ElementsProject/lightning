@@ -17,6 +17,7 @@ struct added_htlc {
 	u8 onion_routing_packet[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)];
 	bool fail_immediate;
 	struct pubkey *path_key;
+	struct tlv_field *extra_tlvs;
 };
 
 /* This is how lightningd tells us about HTLCs which already exist at startup */
@@ -33,6 +34,7 @@ struct existing_htlc {
 	struct preimage *payment_preimage;
 	/* If failed, this is set */
 	const struct failed_htlc *failed;
+	struct tlv_field *extra_tlvs;
 };
 
 struct fulfilled_htlc {
@@ -69,7 +71,8 @@ struct existing_htlc *new_existing_htlc(const tal_t *ctx,
 					const u8 onion_routing_packet[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)],
 					const struct pubkey *path_key TAKES,
 					const struct preimage *preimage TAKES,
-					const struct failed_htlc *failed TAKES);
+					const struct failed_htlc *failed TAKES,
+					const struct tlv_field *extra_tlvs TAKES);
 
 void towire_added_htlc(u8 **pptr, const struct added_htlc *added);
 void towire_existing_htlc(u8 **pptr, const struct existing_htlc *existing);

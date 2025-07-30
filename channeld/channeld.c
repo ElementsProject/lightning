@@ -1524,6 +1524,7 @@ static void marshall_htlc_info(const tal_t *ctx,
 			       htlc->routing,
 			       sizeof(a.onion_routing_packet));
 			a.path_key = htlc->path_key;
+			a.extra_tlvs = htlc->extra_tlvs;
 			a.fail_immediate = htlc->fail_immediate;
 			tal_arr_expand(added, a);
 		} else if (htlc->state == RCVD_REMOVE_COMMIT) {
