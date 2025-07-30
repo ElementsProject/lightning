@@ -621,9 +621,14 @@ static void handle_peer_add_htlc(struct peer *peer, const u8 *msg)
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Bad peer_add_htlc %s", tal_hex(msg, msg));
 	}
+
 	add_err = channel_add_htlc(peer->channel, REMOTE, id, amount,
 				   cltv_expiry, &payment_hash,
-				   onion_routing_packet, tlvs->blinded_path, &htlc, NULL,
+				   onion_routing_packet,
+				   take(tlvs->blinded_path), &htlc, NULL,
+				   /* NOTE: It might be better to remove the
+				    * blinded_path from the extra_tlvs */
+				   tlvs->fields,
 				   /* We don't immediately fail incoming htlcs,
 				    * instead we wait and fail them after
 				    * they've been committed */
@@ -5201,13 +5206,24 @@ static void resend_commitment(struct peer *peer, struct changed_htlc *last)
 					 last[i].id);
 
 		if (h->state == SENT_ADD_COMMIT) {
-			struct tlv_update_add_htlc_tlvs *tlvs;
-			if (h->path_key) {
+			struct tlv_update_add_htlc_tlvs *tlvs = NULL;
+			if (h->extra_tlvs || h->path_key) {
 				tlvs = tlv_update_add_htlc_tlvs_new(tmpctx);
-				tlvs->blinded_path = tal_dup(tlvs, struct pubkey,
+			}
+			if (h->extra_tlvs) {
+				tlvs->fields = tal_dup_talarr(tmpctx,
+							      struct tlv_field,
+							      h->extra_tlvs);
+			}
+			if (h->path_key) {
+				/* It is fine to just set the binded_path
+				 * independent of what is in tlv->fields as the
+				 * towire logic will serialize unknown fields
+				 * and known types seperately. */
+				tlvs->blinded_path = tal_dup(tlvs,
+							     struct pubkey,
 							     h->path_key);
-			} else
-				tlvs = NULL;
+			}
 			msg = towire_update_add_htlc(NULL, &peer->channel_id,
 						     h->id, h->amount,
 						     &h->rhash,
@@ -6165,7 +6181,7 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 	e = channel_add_htlc(peer->channel, LOCAL, peer->htlc_id,
 			     amount, cltv_expiry, &payment_hash,
 			     onion_routing_packet, take(path_key), NULL,
-			     &htlc_fee, true);
+			     &htlc_fee, NULL, true);
 	status_debug("Adding HTLC %"PRIu64" amount=%s cltv=%u gave %s",
 		     peer->htlc_id,
 		     fmt_amount_msat(tmpctx, amount),

@@ -5,6 +5,7 @@
 #include <common/htlc.h>
 #include <common/pseudorand.h>
 #include <wire/onion_wire.h>
+#include <wire/tlvstream.h>
 
 struct htlc {
 	/* What's the status. */
@@ -28,6 +29,9 @@ struct htlc {
 
 	/* Blinding (optional). */
 	struct pubkey *path_key;
+
+	/* Any extra tlvs attached to this hltc (optional). */
+	struct tlv_field *extra_tlvs;
 
 	/* Should we immediately fail this htlc? */
 	bool fail_immediate;
