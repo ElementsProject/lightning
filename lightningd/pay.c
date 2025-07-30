@@ -783,8 +783,8 @@ static const u8 *send_onion(const tal_t *ctx, struct lightningd *ld,
 	return send_htlc_out(ctx, channel, first_hop->amount,
 			     base_expiry + first_hop->delay,
 			     final_amount, payment_hash,
-			     path_key, partid, groupid, onion, NULL, hout);
-}
+			     path_key, NULL, partid, groupid, onion, NULL, hout);
+	}
 
 static struct command_result *check_invoice_request_usage(struct command *cmd,
 							  const struct sha256 *local_invreq_id)
@@ -2093,7 +2093,7 @@ static struct command_result *json_injectpaymentonion(struct command *cmd,
 	failmsg = send_htlc_out(tmpctx, next, *msat,
 				*cltv, *destination_msat,
 				payment_hash,
-				next_path_key, *partid, *groupid,
+				next_path_key, NULL, *partid, *groupid,
 				serialize_onionpacket(tmpctx, rs->next),
 				NULL, &hout);
 	if (failmsg) {
