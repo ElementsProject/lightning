@@ -58,6 +58,9 @@ struct htlc_in {
 
 	/* The decoded onion payload after hooks processed it. */
 	struct onion_payload *payload;
+
+	/* Incommimg extra update_add_htlc_tlv tlvs */
+	struct tlv_field *extra_tlvs;
 };
 
 struct htlc_out {
@@ -106,6 +109,9 @@ struct htlc_out {
 
 	/* Timer we use in case they don't add an HTLC in a timely manner. */
 	struct oneshot *timeout;
+
+	/* Extra tlvs that are extended to the update_add_htlc_tlvs */
+	struct tlv_field *extra_tlvs;
 };
 
 static inline const struct htlc_key *keyof_htlc_in(const struct htlc_in *in)
@@ -158,6 +164,7 @@ struct htlc_in *new_htlc_in(const tal_t *ctx,
 			    const struct secret *shared_secret TAKES,
 			    const struct pubkey *path_key TAKES,
 			    const u8 *onion_routing_packet,
+			    const struct tlv_field *extra_tlvs TAKES,
 			    bool fail_immediate);
 
 /* You need to set the ID, then connect_htlc_out this! */
@@ -168,6 +175,7 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 			      const struct sha256 *payment_hash,
 			      const u8 *onion_routing_packet,
 			      const struct pubkey *path_key,
+			      const struct tlv_field *extra_tlvs,
 			      bool am_origin,
 			      struct amount_msat final_msat,
 			      u64 partid,
