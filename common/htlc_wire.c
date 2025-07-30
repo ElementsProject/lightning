@@ -4,6 +4,7 @@
 #include <ccan/crypto/shachain/shachain.h>
 #include <common/htlc_wire.h>
 #include <common/onionreply.h>
+#include <wire/tlvstream.h>
 
 static struct failed_htlc *failed_htlc_dup(const tal_t *ctx,
 					   const struct failed_htlc *f TAKES)
@@ -33,7 +34,8 @@ struct existing_htlc *new_existing_htlc(const tal_t *ctx,
 					const u8 onion_routing_packet[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)],
 					const struct pubkey *path_key TAKES,
 					const struct preimage *preimage TAKES,
-					const struct failed_htlc *failed TAKES)
+					const struct failed_htlc *failed TAKES,
+					const struct tlv_field *extra_tlvs TAKES)
 {
 	struct existing_htlc *existing = tal(ctx, struct existing_htlc);
 
@@ -51,6 +53,17 @@ struct existing_htlc *new_existing_htlc(const tal_t *ctx,
 		existing->failed = failed_htlc_dup(existing, failed);
 	else
 		existing->failed = NULL;
+	if (extra_tlvs) {
+		existing->extra_tlvs = tal_dup_talarr(existing, struct tlv_field, extra_tlvs);
+		for (size_t i = 0; i < tal_count(extra_tlvs); i++) {
+			/* We need to attach the value to the correct parent */
+			existing->extra_tlvs[i].value
+				= tal_dup_talarr(existing, u8,
+						 existing->extra_tlvs[i].value);
+		}
+	} else {
+		existing->extra_tlvs = NULL;
+	}
 
 	return existing;
 }
@@ -68,6 +81,16 @@ void towire_added_htlc(u8 **pptr, const struct added_htlc *added)
 	if (added->path_key) {
 		towire_bool(pptr, true);
 		towire_pubkey(pptr, added->path_key);
+	} else
+		towire_bool(pptr, false);
+	if (added->extra_tlvs) {
+		u8 *tmp_pptr = tal_arr(tmpctx, u8, 0);
+		towire_tlvstream_raw(&tmp_pptr, added->extra_tlvs);
+
+		towire_bool(pptr, true);
+		towire_u16(pptr, tal_bytelen(tmp_pptr));
+		towire_u8_array(pptr, tmp_pptr,
+				tal_bytelen(tmp_pptr));
 	} else
 		towire_bool(pptr, false);
 	towire_bool(pptr, added->fail_immediate);
@@ -95,6 +118,16 @@ void towire_existing_htlc(u8 **pptr, const struct existing_htlc *existing)
 	if (existing->path_key) {
 		towire_bool(pptr, true);
 		towire_pubkey(pptr, existing->path_key);
+	} else
+		towire_bool(pptr, false);
+	if (existing->extra_tlvs) {
+		u8 *tmp_pptr = tal_arr(tmpctx, u8, 0);
+		towire_tlvstream_raw(&tmp_pptr, existing->extra_tlvs);
+
+		towire_bool(pptr, true);
+		towire_u16(pptr, tal_bytelen(tmp_pptr));
+		towire_u8_array(pptr, tmp_pptr,
+				tal_bytelen(tmp_pptr));
 	} else
 		towire_bool(pptr, false);
 }
@@ -163,6 +196,20 @@ void fromwire_added_htlc(const u8 **cursor, size_t *max,
 		fromwire_pubkey(cursor, max, added->path_key);
 	} else
 		added->path_key = NULL;
+	if (fromwire_bool(cursor, max)) {
+		size_t tlv_len = fromwire_u16(cursor, max);
+		/* NOTE: We might consider to be more strict and only allow for
+		 * known tlv types from the tlvs_tlv_update_add_htlc_tlvs
+		 * record. */
+		const u64 *allowed = cast_const(u64 *, FROMWIRE_TLV_ANY_TYPE);
+		added->extra_tlvs = tal_arr(added, struct tlv_field, 0);
+		if (!fromwire_tlv(cursor, &tlv_len, NULL, 0, added,
+				  &added->extra_tlvs, allowed, NULL, NULL)) {
+			tal_free(added->extra_tlvs);
+			added->extra_tlvs = NULL;
+		}
+	} else
+		added->extra_tlvs = NULL;
 	added->fail_immediate = fromwire_bool(cursor, max);
 }
 
@@ -192,6 +239,20 @@ struct existing_htlc *fromwire_existing_htlc(const tal_t *ctx,
 		fromwire_pubkey(cursor, max, existing->path_key);
 	} else
 		existing->path_key = NULL;
+	if (fromwire_bool(cursor, max)) {
+		size_t tlv_len = fromwire_u16(cursor, max);
+		/* NOTE: We might consider to be more strict and only allow for
+		 * known tlv types from the tlvs_tlv_update_add_htlc_tlvs
+		 * record. */
+		const u64 *allowed = cast_const(u64 *, FROMWIRE_TLV_ANY_TYPE);
+		existing->extra_tlvs = tal_arr(existing, struct tlv_field, 0);
+		if (!fromwire_tlv(cursor, &tlv_len, NULL, 0, existing,
+				  &existing->extra_tlvs, allowed, NULL, NULL)) {
+			tal_free(existing->extra_tlvs);
+			existing->extra_tlvs = NULL;
+		}
+	} else
+		existing->extra_tlvs = NULL;
 	return existing;
 }
 

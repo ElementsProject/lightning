@@ -1632,7 +1632,8 @@ bool channel_force_htlcs(struct channel *channel,
 			     &htlcs[i]->payment_hash,
 			     htlcs[i]->onion_routing_packet,
 			     htlcs[i]->path_key,
-			     &htlc, false, NULL, NULL, false);
+			     &htlc, false, NULL,
+			     htlcs[i]->extra_tlvs, false);
 		if (e != CHANNEL_ERR_ADD_OK) {
 			status_broken("%s HTLC %"PRIu64" failed error %u",
 				     htlc_state_owner(htlcs[i]->state) == LOCAL
