@@ -30,9 +30,11 @@ WALLET_TEST_COMMON_OBJS :=			\
 	common/utxo.o				\
 	common/wireaddr.o			\
 	common/version.o			\
+	common/bigsize.o			\
 	wallet/db_sqlite3_sqlgen.o		\
 	wire/towire.o				\
-	wire/fromwire.o
+	wire/fromwire.o				\
+	wire/tlvstream.o
 
 $(WALLET_TEST_PROGRAMS): $(BITCOIN_OBJS) $(WALLET_TEST_COMMON_OBJS)
 $(WALLET_TEST_OBJS): $(WALLET_HDRS) $(WALLET_SRC)

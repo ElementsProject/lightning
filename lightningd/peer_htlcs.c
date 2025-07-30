@@ -701,7 +701,7 @@ const u8 *send_htlc_out(const tal_t *ctx,
 			struct htlc_in *in,
 			struct htlc_out **houtp)
 {
-	u8 *msg;
+	u8 *msg, *raw_tlvs = NULL;
 
 	*houtp = NULL;
 
@@ -743,7 +743,8 @@ const u8 *send_htlc_out(const tal_t *ctx,
 	}
 
 	msg = towire_channeld_offer_htlc(out, amount, cltv, payment_hash,
-					onion_routing_packet, path_key);
+					onion_routing_packet, path_key,
+					raw_tlvs);
 	subd_req(out->peer->ld, out->owner, take(msg), -1, 0, rcvd_htlc_reply,
 		 *houtp);
 
@@ -2646,7 +2647,7 @@ const struct existing_htlc **peer_htlcs(const tal_t *ctx,
 					     hin->onion_routing_packet,
 					     hin->path_key,
 					     hin->preimage,
-					     f);
+					     f, NULL);
 		tal_arr_expand(&htlcs, existing);
 	}
 
@@ -2678,7 +2679,7 @@ const struct existing_htlc **peer_htlcs(const tal_t *ctx,
 					     hout->onion_routing_packet,
 					     hout->path_key,
 					     hout->preimage,
-					     f);
+					     f, NULL);
 		tal_arr_expand(&htlcs, existing);
 	}
 
