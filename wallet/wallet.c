@@ -3415,6 +3415,13 @@ static bool wallet_stmt2htlc_in(struct channel *channel,
 	/* FIXME: save path_key in db !*/
 	in->path_key = NULL;
 	in->payload = NULL;
+	/* FIXME: save extra_tlvs in db! But: check the implications that a
+	 * spammy peer - giving us big extra tlvs - would have on our database.
+	 * Right now, not saving the extra tlvs in the db seems OK as it is
+	 * only relevant in the case that I forward but restart in the middle
+	 * of a payment.
+	 */
+	in->extra_tlvs = NULL;
 
 	db_col_sha256(stmt, "payment_hash", &in->payment_hash);
 
@@ -3487,6 +3494,13 @@ static bool wallet_stmt2htlc_out(struct wallet *wallet,
 	db_col_sha256(stmt, "payment_hash", &out->payment_hash);
 	/* FIXME: save path_key in db !*/
 	out->path_key = NULL;
+	/* FIXME: save extra_tlvs in db! But: check the implications that a
+	 * spammy peer - giving us big extra tlvs - would have on our database.
+	 * Right now, not saving the extra tlvs in the db seems OK as it is
+	 * only relevant in the case that I forward but restart in the middle
+	 * of a payment.
+	 */
+	out->extra_tlvs = NULL;
 
 	out->preimage = db_col_optional(out, stmt, "payment_key", preimage);
 
