@@ -588,6 +588,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 				     struct htlc **htlcp,
 				     bool enforce_aggregate_limits,
 				     struct amount_sat *htlc_fee,
+				     struct tlv_field *extra_tlvs,
 				     bool err_immediate_failures)
 {
 	struct htlc *htlc, *old;
@@ -613,6 +614,15 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	htlc->failed = NULL;
 	htlc->r = NULL;
 	htlc->routing = tal_dup_arr(htlc, u8, routing, TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE), 0);
+	if (extra_tlvs && tal_count(extra_tlvs) > 0) {
+		htlc->extra_tlvs = tal_dup_talarr(htlc, struct tlv_field, extra_tlvs);
+		for (size_t i = 0; i < tal_count(extra_tlvs); i++) {
+			/* We need to attach the value to the correct parent */
+			htlc->extra_tlvs[i].value = tal_dup_talarr(htlc, u8, htlc->extra_tlvs[i].value);
+		}
+	} else {
+		htlc->extra_tlvs = NULL;
+	}
 
 	/* FIXME: Change expiry to simple u32 */
 
@@ -905,6 +915,7 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 				      const struct pubkey *path_key TAKES,
 				      struct htlc **htlcp,
 				      struct amount_sat *htlc_fee,
+				      struct tlv_field *extra_tlvs,
 				      bool err_immediate_failures)
 {
 	enum htlc_state state;
@@ -923,7 +934,7 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 
 	return add_htlc(channel, state, id, amount, cltv_expiry,
 			payment_hash, routing, path_key,
-			htlcp, true, htlc_fee, err_immediate_failures);
+			htlcp, true, htlc_fee, extra_tlvs, err_immediate_failures);
 }
 
 struct htlc *channel_get_htlc(struct channel *channel, enum side sender, u64 id)
@@ -1621,7 +1632,7 @@ bool channel_force_htlcs(struct channel *channel,
 			     &htlcs[i]->payment_hash,
 			     htlcs[i]->onion_routing_packet,
 			     htlcs[i]->path_key,
-			     &htlc, false, NULL, false);
+			     &htlc, false, NULL, NULL, false);
 		if (e != CHANNEL_ERR_ADD_OK) {
 			status_broken("%s HTLC %"PRIu64" failed error %u",
 				     htlc_state_owner(htlcs[i]->state) == LOCAL

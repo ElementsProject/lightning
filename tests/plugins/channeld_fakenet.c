@@ -893,7 +893,7 @@ static void handle_offer_htlc(struct info *info, const u8 *inmsg)
 	e = channel_add_htlc(info->channel, LOCAL, htlc->htlc_id,
 			     amount, cltv_expiry, &htlc->payment_hash,
 			     onion_routing_packet, take(blinding), NULL,
-			     &htlc_fee, true);
+			     &htlc_fee, NULL, true);
 	status_debug("Adding HTLC %"PRIu64" amount=%s cltv=%u gave %s",
 		     htlc->htlc_id, fmt_amount_msat(tmpctx, amount),
 		     cltv_expiry,
