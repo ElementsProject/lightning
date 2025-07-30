@@ -413,7 +413,8 @@ The payload of the hook call has the following format:
     "amount_msat": 43,
     "cltv_expiry": 500028,
     "cltv_expiry_relative": 10,
-    "payment_hash": "0000000000000000000000000000000000000000000000000000000000000000"
+    "payment_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "extra_tlvs": "fdffff012afe00010001020539"
   },
   "forward_to": "0000000000000000000000000000000000000000000000000000000000000000"
 }
@@ -439,6 +440,7 @@ For detailed information about each field please refer to [BOLT 04 of the specif
   - `cltv_expiry` determines when the HTLC reverts back to the sender. `cltv_expiry` minus `outgoing_cltv_expiry` should be equal or larger than our `cltv_delta` setting.
   - `cltv_expiry_relative` hints how much time we still have to claim the HTLC. It is the `cltv_expiry` minus the current `blockheight` and is passed along mainly to avoid the plugin having to look up the current blockheight.
   - `payment_hash` is the hash whose `payment_preimage` will unlock the funds and allow us to claim the HTLC.
+  - `extra_tlvs` is an optional TLV-stream attached to the HTLC.
 - `forward_to`: if set, the channel_id we intend to forward this to (will not be present if the short_channel_id was invalid or we were the final destination).
 
 The hook response must have one of the following formats:
@@ -456,6 +458,8 @@ This means that the plugin does not want to do anything special and `lightningd`
 It can also replace the `onion.payload` by specifying a `payload` in the response.  Note that this is always a TLV-style payload, so unlike `onion.payload` there is no length prefix (and it must be at least 4 hex digits long).  This will be re-parsed; it's useful for removing onion fields which a plugin doesn't want lightningd to consider.
 
 It can also specify `forward_to` in the response, replacing the destination.  This usually only makes sense if it wants to choose an alternate channel to the same next peer, but is useful if the `payload` is also replaced.
+
+Also, it can specify `extra_tlvs` in the response. This will replace the TLV-stream `update_add_htlc_tlvs` in the `update_add_htlc` message for forwarded htlcs.
 
 ```json
 {
