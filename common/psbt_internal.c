@@ -153,6 +153,9 @@ psbt_to_witnesses(const tal_t *ctx,
 			wit->witness_data = tal_arr(wit, u8, 0);
 			add_varint(&wit->witness_data, wtx_s->num_items);
 			for (size_t j = 0; j < wtx_s->num_items; j++) {
+				if (!wtx_s->items[j].witness_len)
+					continue;
+				assert(wtx_s->items[j].witness);
 				add_varint(&wit->witness_data, wtx_s->items[j].witness_len);
 				tal_expand(&wit->witness_data, wtx_s->items[j].witness,
 					   wtx_s->items[j].witness_len);
