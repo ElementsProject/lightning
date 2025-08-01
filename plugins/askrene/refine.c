@@ -873,6 +873,58 @@ static struct amount_msat remove_excess(struct flow **flows,
 	return all_deliver;
 }
 
+/* It increases the flows to meet the deliver target. It does not increase any
+ * flow beyond the tolerance fraction. It doesn't increase any flow above its
+ * max_deliverable value.
+ * Returns the total delivery amount. */
+static struct amount_msat increase_flows(struct flow **flows,
+					 size_t **flows_index,
+					 struct amount_msat deliver,
+					 double tolerance,
+					 struct amount_msat *max_deliverable)
+{
+	if (tal_count(flows) == 0)
+		return AMOUNT_MSAT(0);
+
+	struct amount_msat all_deliver, defect;
+	all_deliver = sum_all_deliver(flows, *flows_index);
+
+	/* early exit: target is already met */
+	if (!amount_msat_sub(&defect, deliver, all_deliver) ||
+	    amount_msat_is_zero(defect))
+		return all_deliver;
+
+	asort(*flows_index, tal_count(*flows_index), revcmp_flows, flows);
+
+	all_deliver = AMOUNT_MSAT(0);
+	for (size_t i = 0;
+	     i < tal_count(*flows_index) && !amount_msat_is_zero(defect); i++) {
+		const size_t index = (*flows_index)[i];
+		struct flow *flow = flows[index];
+		struct amount_msat can_add = defect, amt;
+
+		/* no more than tolerance */
+		if (!amount_msat_scale(&amt, flow->delivers, tolerance))
+			continue;
+		else
+			can_add = amount_msat_min(can_add, amt);
+
+		/* no more than max_deliverable */
+		if (!amount_msat_sub(&amt, max_deliverable[index],
+				     flow->delivers))
+			continue;
+		else
+			can_add = amount_msat_min(can_add, amt);
+
+		if (!amount_msat_add(&flow->delivers, flow->delivers,
+				     can_add) ||
+		    !amount_msat_sub(&defect, defect, can_add) ||
+		    !amount_msat_accumulate(&all_deliver, flow->delivers))
+			abort();
+	}
+	return all_deliver;
+}
+
 static void write_selected_flows(const tal_t *ctx, size_t *flows_index,
 				 struct flow ***flows)
 {
@@ -930,6 +982,10 @@ const char *refine_flows(const tal_t *ctx, struct route_query *rq,
 
 	/* remove excess from MCF granularity if any */
 	remove_excess(*flows, &flows_index, deliver);
+
+	/* increase flows if necessary to meet the target */
+	increase_flows(*flows, &flows_index, deliver, /* tolerance = */ 0.02,
+		       max_deliverable);
 
 	/* detect htlc_min violations */
 	for (size_t i = 0; i < tal_count(flows_index);) {
