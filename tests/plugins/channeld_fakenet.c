@@ -1071,6 +1071,7 @@ static struct channel *handle_init(struct info *info, const u8 *init_msg)
 	u64 htlc_id;
 	struct bitcoin_signature their_commit_sig;
 	struct short_channel_id short_channel_ids[NUM_SIDES];
+	struct short_channel_id *short_channel_ids_ptr[NUM_SIDES];
 	bool send_shutdown;
 	bool shutdown_sent[NUM_SIDES];
 	u8 *final_scriptpubkey;
@@ -1084,6 +1085,9 @@ static struct channel *handle_init(struct info *info, const u8 *init_msg)
 	char *err_reason;
 	struct wally_tx_output *direct_outputs[NUM_SIDES];
 	struct htlc_map *htlc_map;
+
+	short_channel_ids_ptr[LOCAL] = &short_channel_ids[LOCAL];
+	short_channel_ids_ptr[REMOTE] = &short_channel_ids[REMOTE];
 
 	if (!fromwire_channeld_init(info, init_msg,
 				    &chainparams,
@@ -1120,7 +1124,7 @@ static struct channel *handle_init(struct info *info, const u8 *init_msg)
 				    &htlcs,
 				    &channel_ready[LOCAL],
 				    &channel_ready[REMOTE],
-				    &short_channel_ids[LOCAL],
+				    &short_channel_ids_ptr[LOCAL],
 				    &reconnected,
 				    &send_shutdown,
 				    &shutdown_sent[REMOTE],
