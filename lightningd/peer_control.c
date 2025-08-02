@@ -1346,6 +1346,24 @@ static void connect_activate_subd(struct lightningd *ld, struct channel *channel
 		return;
 
 	case CHANNELD_AWAITING_LOCKIN:
+		assert(!channel->owner);
+		
+		if (!channel->scid) {
+			log_debug(channel->log, "Reconnecting channel in CHANNELD_AWAITING_LOCKIN without scid");
+		}
+		
+		pfd = sockpair(tmpctx, channel, &other_fd, &error);
+		if (!pfd)
+			goto send_error;
+
+		if (peer_start_channeld(channel,
+					pfd,
+					NULL, true)) {
+			goto tell_connectd;
+		}
+		close(other_fd);
+		return;
+		
 	case CHANNELD_NORMAL:
 	case CHANNELD_AWAITING_SPLICE:
 	case CHANNELD_SHUTTING_DOWN:
@@ -3568,6 +3586,189 @@ static const struct json_command dev_forget_channel_command = {
 	.dev_only = true,
 };
 AUTODATA(json_command, &dev_forget_channel_command);
+
+struct orphaned_channel_info {
+	struct command *cmd;
+	struct json_stream *response;
+	size_t pending_checks;
+	size_t orphaned_count;
+};
+
+struct orphaned_channel_check {
+	struct orphaned_channel_info *info;
+	struct channel *channel;
+};
+
+static void check_funding_tx_callback(struct bitcoind *bitcoind,
+				      const struct bitcoin_tx_output *txout,
+				      void *arg)
+{
+	struct orphaned_channel_check *check = arg;
+	struct orphaned_channel_info *info = check->info;
+	struct channel *channel = check->channel;
+	
+	if (!txout) {
+		struct timeabs now = time_now();
+		struct timeabs state_time = channel->state_changes[tal_count(channel->state_changes)-1]->timestamp;
+		u64 hours_stuck = time_to_sec(time_between(now, state_time)) / 3600;
+		
+		log_unusual(channel->log,
+			    "Orphaned channel detected: funding_txid=%s, outnum=%u, stuck for %"PRIu64" hours",
+			    fmt_bitcoin_txid(tmpctx, &channel->funding.txid),
+			    channel->funding.n,
+			    hours_stuck);
+		
+		json_object_start(info->response, NULL);
+		json_add_node_id(info->response, "peer_id", &channel->peer->id);
+		json_add_channel_id(info->response, "channel_id", &channel->cid);
+		json_add_txid(info->response, "funding_txid", &channel->funding.txid);
+		json_add_u32(info->response, "funding_outnum", channel->funding.n);
+		json_add_string(info->response, "state", channel_state_name(channel));
+		json_add_u32(info->response, "depth", channel->depth);
+		json_add_amount_msat(info->response, "total_msat", channel->our_msat);
+		json_add_u64(info->response, "hours_stuck", hours_stuck);
+		json_object_end(info->response);
+		info->orphaned_count++;
+	}
+	
+	info->pending_checks--;
+	if (info->pending_checks == 0) {
+		json_array_end(info->response);
+		json_add_num(info->response, "orphaned_count", info->orphaned_count);
+		was_pending(command_success(info->cmd, info->response));
+		tal_free(info);
+	}
+	tal_free(check);
+}
+
+static struct command_result *json_listorphanedchannels(struct command *cmd,
+							 const char *buffer,
+							 const jsmntok_t *obj UNNEEDED,
+							 const jsmntok_t *params)
+{
+	struct peer *peer;
+	struct channel *channel;
+	struct orphaned_channel_info *info;
+	struct peer_node_id_map_iter it;
+	u32 *timeout_hours;
+	struct timeabs now = time_now();
+	
+	if (!param_check(cmd, buffer, params,
+			 p_opt_def("timeout_hours", param_u32, &timeout_hours, 48),
+			 NULL))
+		return command_param_failed();
+	
+	info = tal(cmd, struct orphaned_channel_info);
+	info->cmd = cmd;
+	info->response = json_stream_success(cmd);
+	info->pending_checks = 0;
+	info->orphaned_count = 0;
+	
+	json_array_start(info->response, "orphaned_channels");
+	
+	for (peer = peer_node_id_map_first(cmd->ld->peers, &it);
+	     peer;
+	     peer = peer_node_id_map_next(cmd->ld->peers, &it)) {
+		list_for_each(&peer->channels, channel, list) {
+			if (channel->state == CHANNELD_AWAITING_LOCKIN) {
+				struct timeabs state_time = channel->state_changes[tal_count(channel->state_changes)-1]->timestamp;
+				u64 hours_stuck = time_to_sec(time_between(now, state_time)) / 3600;
+				
+				if (hours_stuck >= *timeout_hours) {
+					struct orphaned_channel_check *check;
+					check = tal(info, struct orphaned_channel_check);
+					check->info = info;
+					check->channel = channel;
+					info->pending_checks++;
+					bitcoind_getutxout(check, cmd->ld->topology->bitcoind,
+							   &channel->funding,
+							   check_funding_tx_callback,
+							   check);
+				}
+			}
+		}
+	}
+	
+	if (info->pending_checks == 0) {
+		json_array_end(info->response);
+		json_add_num(info->response, "orphaned_count", 0);
+		return command_success(cmd, info->response);
+	}
+	
+	return command_still_pending(cmd);
+}
+
+static const struct json_command listorphanedchannels_command = {
+	"listorphanedchannels",
+	json_listorphanedchannels,
+	.dev_only = true,
+};
+AUTODATA(json_command, &listorphanedchannels_command);
+
+static struct command_result *json_cleanuporphanedchannels(struct command *cmd,
+							    const char *buffer,
+							    const jsmntok_t *obj UNNEEDED,
+							    const jsmntok_t *params)
+{
+	struct peer *peer;
+	struct channel *channel, *next;
+	struct peer_node_id_map_iter it;
+	struct json_stream *response;
+	u32 *timeout_hours;
+	bool *force;
+	struct timeabs now = time_now();
+	size_t cleaned_count = 0;
+	
+	if (!param_check(cmd, buffer, params,
+			 p_opt_def("timeout_hours", param_u32, &timeout_hours, 48),
+			 p_opt_def("force", param_bool, &force, false),
+			 NULL))
+		return command_param_failed();
+	
+	response = json_stream_success(cmd);
+	json_array_start(response, "cleaned_channels");
+	
+	for (peer = peer_node_id_map_first(cmd->ld->peers, &it);
+	     peer;
+	     peer = peer_node_id_map_next(cmd->ld->peers, &it)) {
+		list_for_each_safe(&peer->channels, channel, next, list) {
+			if (channel->state == CHANNELD_AWAITING_LOCKIN) {
+				struct timeabs state_time = channel->state_changes[tal_count(channel->state_changes)-1]->timestamp;
+				u64 hours_stuck = time_to_sec(time_between(now, state_time)) / 3600;
+				
+				if (hours_stuck >= *timeout_hours) {
+					if (!channel_has_htlc_out(channel) && !channel_has_htlc_in(channel)) {
+						json_object_start(response, NULL);
+						json_add_node_id(response, "peer_id", &channel->peer->id);
+						json_add_channel_id(response, "channel_id", &channel->cid);
+						json_add_txid(response, "funding_txid", &channel->funding.txid);
+						json_add_u64(response, "hours_stuck", hours_stuck);
+						json_object_end(response);
+						
+						channel->error = towire_errorfmt(channel,
+										 &channel->cid,
+										 "Orphaned channel cleanup after %"PRIu64" hours",
+										 hours_stuck);
+						delete_channel(channel, false);
+						cleaned_count++;
+					}
+				}
+			}
+		}
+	}
+	
+	json_array_end(response);
+	json_add_num(response, "cleaned_count", cleaned_count);
+	
+	return command_success(cmd, response);
+}
+
+static const struct json_command cleanuporphanedchannels_command = {
+	"cleanuporphanedchannels",
+	json_cleanuporphanedchannels,
+	.dev_only = true,
+};
+AUTODATA(json_command, &cleanuporphanedchannels_command);
 
 static void channeld_memleak_req_done(struct subd *channeld,
 				      const u8 *msg, const int *fds UNUSED,
