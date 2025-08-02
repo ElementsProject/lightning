@@ -825,6 +825,12 @@ install-program: installdirs $(BIN_PROGRAMS) $(PKGLIBEXEC_PROGRAMS) $(PLUGINS) $
 	@if [ -d "$(DESTDIR)$(plugindir)/wss-proxy" ]; then rm -rf $(DESTDIR)$(plugindir)/wss-proxy; fi
 	[ -z "$(PLUGINS)" ] || $(INSTALL_PROGRAM) $(PLUGINS) $(DESTDIR)$(plugindir)
 	for PY in $(PY_PLUGINS); do DIR=`dirname $$PY`; DST=$(DESTDIR)$(plugindir)/`basename $$DIR`; if [ -d $$DST ]; then rm -rf $$DST; fi; $(INSTALL_PROGRAM) -d $$DIR; cp -a $$DIR $$DST ; done
+ifeq ($(OS),Darwin)
+	# Install dSYM bundles alongside binaries on macOS
+	for BIN in $(BIN_PROGRAMS); do if [ -d $$BIN.dSYM ]; then cp -a $$BIN.dSYM $(DESTDIR)$(bindir)/; fi; done
+	for BIN in $(PKGLIBEXEC_PROGRAMS); do if [ -d $$BIN.dSYM ]; then cp -a $$BIN.dSYM $(DESTDIR)$(pkglibexecdir)/; fi; done
+	for PLUGIN in $(PLUGINS); do if [ -d $$PLUGIN.dSYM ]; then cp -a $$PLUGIN.dSYM $(DESTDIR)$(plugindir)/; fi; done
+endif
 
 MAN1PAGES = $(filter %.1,$(MANPAGES))
 MAN5PAGES = $(filter %.5,$(MANPAGES))
