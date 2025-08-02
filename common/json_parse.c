@@ -233,6 +233,7 @@ static void parse_number(const char **guide, u32 *number)
 	char *endp;
 	long int l;
 
+	errno = 0;
 	l = strtol(*guide, &endp, 10);
 	assert(endp != *guide);
 	assert(errno != ERANGE);
@@ -518,6 +519,7 @@ bool json_to_bitcoin_amount(const char *buffer, const jsmntok_t *tok,
 	char *end;
 	unsigned long btc, sat;
 
+	errno = 0;
 	btc = strtoul(buffer + tok->start, &end, 10);
 	if (btc == ULONG_MAX && errno == ERANGE)
 		return false;
