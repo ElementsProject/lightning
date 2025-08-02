@@ -151,7 +151,7 @@ set_defaults()
             # Detect macOS and use appropriate debug flags for libbacktrace compatibility
     if [ "$(uname -s)" = "Darwin" ]; then
         # Always override to avoid DWARF 5
-        CDEBUGFLAGS="-std=gnu11 -g -gdwarf-4 -fstack-protector-strong"
+        CDEBUGFLAGS="-std=gnu11 -g -gdwarf-4 -fno-standalone-debug -fstack-protector-strong"
 
         # Optional: confirm dsymutil is available
         if ! command -v dsymutil >/dev/null 2>&1; then
