@@ -22,6 +22,12 @@ def channel_opened(plugin, channel_opened, **kwargs):
                        channel_opened["funding_txid"]))
 
 
+@plugin.subscribe("channel_closed")
+def channel_closed(plugin, channel_closed, **kwargs):
+    plugin.log(
+        "A channel was closed to us {}".format(channel_closed))
+
+
 @plugin.subscribe("channel_state_changed")
 def channel_state_changed(plugin, channel_state_changed, **kwargs):
     plugin.log("channel_state_changed {}".format(channel_state_changed))
