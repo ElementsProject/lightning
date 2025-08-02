@@ -1671,7 +1671,7 @@ bool peer_start_channeld(struct channel *channel,
 	u8 *initmsg;
 	int hsmfd;
 	const struct existing_htlc **htlcs;
-	struct short_channel_id scid;
+	struct short_channel_id *scid;
 	u64 num_revocations;
 	struct lightningd *ld = channel->peer->ld;
 	const struct config *cfg = &ld->config;
@@ -1727,10 +1727,10 @@ bool peer_start_channeld(struct channel *channel,
 	htlcs = peer_htlcs(tmpctx, channel);
 
 	if (channel->scid) {
-		scid = *channel->scid;
+		scid = channel->scid;
 		log_debug(channel->log, "Already have funding locked in");
 	} else {
-		memset(&scid, 0, sizeof(scid));
+		scid = NULL;
 	}
 
 	num_revocations = revocations_received(&channel->their_shachain.chain);
