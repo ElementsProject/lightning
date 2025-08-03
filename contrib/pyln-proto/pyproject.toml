@@ -1,26 +1,29 @@
-[tool.poetry]
+[project]
 name = "pyln-proto"
 version = "25.05"
 description = "This package implements some of the Lightning Network protocol in pure python. It is intended for protocol testing and some minor tooling only. It is not deemed secure enough to handle any amount of real funds (you have been warned!)."
-authors = ["Christian Decker <decker.christian@gmail.com>"]
-license = "BSD-MIT"
+authors = [
+    {name = "Christian Decker", email = "decker.christian@gmail.com"}
+]
+license = {text = "BSD-MIT"}
 readme = "README.md"
-
-packages = [
-  { include = "pyln/proto" },
+requires-python = ">=3.8,<4.0"
+dependencies = [
+    "base58>=2.1.1",
+    "bitstring>=4.1.0",
+    "coincurve>=20",
+    "cryptography>=42",
+    "PySocks>=1"
 ]
 
-[tool.poetry.dependencies]
-python = "^3.9"
-base58 = "^2.1.1"
-bitstring = "^4.1.0"
-coincurve = "^20"
-cryptography = "^42"
-PySocks = "^1"
+[dependency-groups]
+dev = [
+  "pytest>=7.0.0"
+]
 
-[tool.poetry.group.dev.dependencies]
-pytest = "^7"
+[tool.hatch.build.targets.wheel]
+packages = ["pyln"]
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling>=1.0.0"]
+build-backend = "hatchling.build"
