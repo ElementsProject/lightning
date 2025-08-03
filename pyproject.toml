@@ -1,38 +1,64 @@
-[tool.poetry]
-package-mode=false
+[project]
 name = "cln-meta-project"
 version = "0.1.0"
 description = "Just a helper to get our python dependencies under control"
-authors = ["Christian Decker <cdecker@blockstream.com>"]
+authors = [{ name = "Christian Decker", email = "cdecker@blockstream.com" }]
+requires-python = ">=3.8.1,<4.0"
+dependencies = [
+  "Mako>=1.1.6",
+  "websocket-client>=1.2.3",
+  "grpcio-tools==1.69.0",
+  "grpcio==1.69.0",
+  # We want a specific version of protobuf to match CI's .github/scripts/setup.sh
+  "protobuf==5.29.4",
+  "cryptography>=42",
+  "pyln-client",
+  "pyln-proto",
+  "pyln-grpc-proto",
+]
 
-[tool.poetry.dependencies]
-# Build dependencies belong here
-python = ">=3.9,<4.0"
-pyln-client = { path = "contrib/pyln-client", develop = true }
-pyln-proto = { path = "contrib/pyln-proto", develop = true }
-pyln-grpc-proto = { path = "contrib/pyln-grpc-proto", develop = true }
-Mako = "^1.1.6"
-websocket-client = "^1.2.3"
-grpcio-tools = "^1"
-grpcio = "^1"
-# We want a specific version of protobuf to match CI's .github/scripts/setup.sh
-protobuf = "5.29.4"
-cryptography = "^42"
+[dependency-groups]
+dev = [
+  # Test dependencies and inherited dependencies belong here
+  "crc32c>=2.2.post0",              # Belongs to lnprototest
+  "pytest>=7.0.0",
+  "pytest-xdist>=2.5.0",
+  "pytest-test-groups>=1.0.3",
+  "pytest-timeout>=2.1.0",
+  "flake8>=6.0",
+  "mypy>=0.931",
+  "pytest-custom-exit-code==0.3.0",
+  "flaky>=3.7.0",
+  "requests>=2.31.0",
+  "flask-socketio>=5",
+]
 
-[tool.poetry.group.dev.dependencies]
-# Test dependencies and inherited dependencies belong here
-crc32c = "^2.2.post0"  # Belongs to lnprototest
-pytest-xdist = "^2.5.0"
-pytest-test-groups = "^1.0.3"
-pytest-timeout = "^2.1.0"
-flake8 = "^6.0"
-mypy = "^0.931"
-pytest-custom-exit-code = "0.3.0"
-pyln-testing = { path = "./contrib/pyln-testing", develop = true, extras = [ "grpc" ] }
-flaky = "^3.7.0"
-requests = "^2.31.0"
-flask-socketio = "^5"
+[project.optional-dependencies]
+grpc = ["pyln-testing"]
 
-[build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = [
+  "contrib/pyln-client",
+  "contrib/pyln-proto",
+  "contrib/pyln-grpc-proto",
+  "plugins/wss-proxy",
+  "contrib/pyln-testing",
+  "contrib/pyln-spec/bolt1",
+  "contrib/pyln-spec/bolt2",
+  "contrib/pyln-spec/bolt4",
+  "contrib/pyln-spec/bolt7",
+]
+
+[tool.uv.sources]
+pyln-client = { workspace = true }
+pyln-proto = { workspace = true }
+pyln-grpc-proto = { workspace = true }
+wss-proxy = { workspace = true }
+pyln-testing = { workspace = true }
+pyln-bolt1 = { workspace = true }
+pyln-bolt2 = { workspace = true }
+pyln-bolt4 = { workspace = true }
+pyln-bolt7 = { workspace = true }

@@ -1,20 +1,25 @@
-[tool.poetry]
+[project]
 name = "pyln-bolt1"
 version = "1.0.2.246"
 description = ""
-authors = ["Rusty Russell <rusty@blockstream.com>"]
-license = "MIT"
+authors = [
+    {name = "Rusty Russell", email = "rusty@blockstream.com"}
+]
+license = {text = "MIT"}
+requires-python = ">=3.8,<4.0"
+dependencies = []
 
-packages = [
-  { include = "pyln/spec/bolt1" },
+[dependency-groups]
+dev = [
+  "pyln-proto>=0.10.2"
 ]
 
-[tool.poetry.dependencies]
-python = "^3.9"
-
-[tool.poetry.group.dev.dependencies]
-pyln-proto = "^0.10.2"
+[tool.hatch.build.targets.wheel]
+packages = ["pyln"]
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling>=1.0.0"]
+build-backend = "hatchling.build"
+
+[tool.uv.sources]
+pyln-proto = { workspace = true }
