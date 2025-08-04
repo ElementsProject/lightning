@@ -4974,7 +4974,6 @@ def test_tracing(node_factory):
                 assert 'parentId' in res[0]
 
 
-@pytest.mark.xfail(strict=True)
 def test_zero_locktime_blocks(node_factory, bitcoind):
     """Ensure our node "works" even if locktime set to 0."""
     l1, l2, l3 = node_factory.line_graph(3, opts=[{}, {'watchtime-blocks': 0}, {}], wait_for_announce=True)
