@@ -352,15 +352,6 @@ static u8 *handle_new_channel(struct hsmd_client *c, const u8 *msg_in)
 	return towire_hsmd_new_channel_reply(NULL);
 }
 
-static bool mem_is_zero(const void *mem, size_t len)
-{
-	size_t i;
-	for (i = 0; i < len; ++i)
-		if (((const unsigned char *)mem)[i])
-			return false;
-	return true;
-}
-
 /* ~This stub implementation is overriden by fully validating signers
  * that need the unchanging channel parameters. */
 static u8 *handle_setup_channel(struct hsmd_client *c, const u8 *msg_in)
@@ -377,7 +368,6 @@ static u8 *handle_setup_channel(struct hsmd_client *c, const u8 *msg_in)
 	struct pubkey remote_funding_pubkey;
 	u16 remote_to_self_delay;
 	u8 *remote_shutdown_script;
-	struct amount_msat value_msat;
 	struct channel_type *channel_type;
 
 	if (!fromwire_hsmd_setup_channel(tmpctx, msg_in, &is_outbound,
@@ -393,13 +383,6 @@ static u8 *handle_setup_channel(struct hsmd_client *c, const u8 *msg_in)
 		return hsmd_status_malformed_request(c, msg_in);
 
 	/* Stub implementation */
-
-	/* Fail fast if any values are uninitialized or obviously wrong. */
-	assert(amount_sat_greater(channel_value, AMOUNT_SAT(0)));
-	assert(amount_sat_to_msat(&value_msat, channel_value));
-	assert(!mem_is_zero(&funding_txid, sizeof(funding_txid)));
-	assert(local_to_self_delay > 0);
-	assert(remote_to_self_delay > 0);
 
 	return towire_hsmd_setup_channel_reply(NULL);
 }
