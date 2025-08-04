@@ -4972,3 +4972,18 @@ def test_tracing(node_factory):
                 assert res[0]['traceId'] == '00112233445566778899aabbccddeeff'
                 # Everyone has a parent!
                 assert 'parentId' in res[0]
+
+
+@pytest.mark.xfail(strict=True)
+def test_zero_locktime_blocks(node_factory, bitcoind):
+    """Ensure our node "works" even if locktime set to 0."""
+    l1, l2, l3 = node_factory.line_graph(3, opts=[{}, {'watchtime-blocks': 0}, {}], wait_for_announce=True)
+
+    # We should be able to use the channel and close it.
+    inv = l3.rpc.invoice(10000, 'test_zero_locktime_blocks', 'test_zero_locktime_blocks')
+    l1.rpc.xpay(inv['bolt11'])
+
+    l1.rpc.close(l2.info['id'])
+    l2.rpc.close(l3.info['id'])
+    bitcoind.generate_block(1, wait_for_mempool=2)
+    sync_blockheight(bitcoind, [l1, l2, l3])
