@@ -481,12 +481,9 @@ dev = [
 name = "coincurve"
 version = "20.0.0"
 source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version < '3.9'",
-]
 dependencies = [
-    { name = "asn1crypto", marker = "python_full_version < '3.9'" },
-    { name = "cffi", marker = "python_full_version < '3.9'" },
+    { name = "asn1crypto" },
+    { name = "cffi" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/d9/4c/9e5e51e6c12cec6444c86697992f9c6ccffa19f84d042ff939c8b89206ff/coincurve-20.0.0.tar.gz", hash = "sha256:872419e404300302e938849b6b92a196fabdad651060b559dc310e52f8392829", size = 122865 }
 wheels = [
@@ -539,67 +536,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/49/ef/7a6b50d8a14bae6974482900b06281fee3f82228401ae01efbf8d87ef4e4/coincurve-20.0.0-cp39-cp39-musllinux_1_1_x86_64.whl", hash = "sha256:7eacc7944ddf9e2b7448ecbe84753841ab9874b8c332a4f5cc3b2f184db9f4a2", size = 1209295 },
     { url = "https://files.pythonhosted.org/packages/26/c5/f010fe5377d775084e91a213f63417df4b77d833ae69bfbcf00aa7ae7020/coincurve-20.0.0-cp39-cp39-win_amd64.whl", hash = "sha256:c293c095dc690178b822cadaaeb81de3cc0d28f8bdf8216ed23551dcce153a26", size = 1198937 },
     { url = "https://files.pythonhosted.org/packages/9e/a8/491506c17c911b69b171aa6340e8b70ec4ee42f6f42f93cd53db33c5d1ac/coincurve-20.0.0-cp39-cp39-win_arm64.whl", hash = "sha256:11a47083a0b7092d3eb50929f74ffd947c4a5e7035796b81310ea85289088c7a", size = 1193323 },
-]
-
-[[package]]
-name = "coincurve"
-version = "21.0.0"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version >= '3.9'",
-]
-sdist = { url = "https://files.pythonhosted.org/packages/6f/a2/f2a38eb05b747ed3e54e1be33be339d4a14c1f5cc6a6e2b342b5e8160d51/coincurve-21.0.0.tar.gz", hash = "sha256:8b37ce4265a82bebf0e796e21a769e56fdbf8420411ccbe3fafee4ed75b6a6e5", size = 128986 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/02/f8/10d98c98c252099f8f2c34074900fc318091e8e3a7dc139c0b596a823992/coincurve-21.0.0-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:986727bba6cf0c5670990358dc6af9a54f8d3e257979b992a9dbd50dd82fa0dc", size = 1390867 },
-    { url = "https://files.pythonhosted.org/packages/f4/49/fe7cbc0683bc2b2cf7327361f6701fc81559acf312d01d4ddeb0b4f3d060/coincurve-21.0.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:c1c584059de61ed16c658e7eae87ee488e81438897dae8fabeec55ef408af474", size = 1384703 },
-    { url = "https://files.pythonhosted.org/packages/ea/15/e31ea49960e064be8029cef9daea9da8885dee400ff67963b33dc9ac85ae/coincurve-21.0.0-cp310-cp310-manylinux_2_12_i686.manylinux2010_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:d4210b35c922b2b36c987a48c0b110ab20e490a2d6a92464ca654cb09e739fcc", size = 1577792 },
-    { url = "https://files.pythonhosted.org/packages/40/32/e21a7766df229ea4a2274c4b10173b538ad4a5c2e82ba092eb1e75c0e760/coincurve-21.0.0-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:cf67332cc647ef52ef371679c76000f096843ae266ae6df5e81906eb6463186b", size = 1582975 },
-    { url = "https://files.pythonhosted.org/packages/43/32/628789b36e5426e7a917a581b5337812e7d4f2ace72bec7e11d095856018/coincurve-21.0.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:997607a952913c6a4bebe86815f458e77a42467b7a75353ccdc16c3336726880", size = 1583727 },
-    { url = "https://files.pythonhosted.org/packages/2f/49/eada90487fd60076bb65cf323a7454a67ad5b1b459a0e7567717e5b9329f/coincurve-21.0.0-cp310-cp310-musllinux_1_2_aarch64.whl", hash = "sha256:cfdd0938f284fb147aa1723a69f8794273ec673b10856b6e6f5f63fcc99d0c2e", size = 1620795 },
-    { url = "https://files.pythonhosted.org/packages/c7/4a/e8f98c8677af1082fa43cbb7289d58e0f7e2167ae0e56f7cad280f60e16c/coincurve-21.0.0-cp310-cp310-musllinux_1_2_i686.whl", hash = "sha256:88c1e3f6df2f2fbe18152c789a18659ee0429dc604fc77530370c9442395f681", size = 1585715 },
-    { url = "https://files.pythonhosted.org/packages/b9/f1/cc0971afb573a69ec6fc2eddbeb6732b5c070cef817f251ea5d70decf8ba/coincurve-21.0.0-cp310-cp310-musllinux_1_2_x86_64.whl", hash = "sha256:530b58ed570895612ef510e28df5e8a33204b03baefb5c986e22811fa09622ef", size = 1618556 },
-    { url = "https://files.pythonhosted.org/packages/08/00/4e3e7e09243fa7b1f362184902c32cf6375557f6a2600ca9eae37c8ccadc/coincurve-21.0.0-cp310-cp310-win_amd64.whl", hash = "sha256:f920af756a98edd738c0cfa431e81e3109aeec6ffd6dffb5ed4f5b5a37aacba8", size = 1328522 },
-    { url = "https://files.pythonhosted.org/packages/b2/c1/69e2c6f575e9503b67d97bb0b1d6962d6a55e25882c46c4972ffb32d7935/coincurve-21.0.0-cp310-cp310-win_arm64.whl", hash = "sha256:070e060d0d57b496e68e48b39d5e3245681376d122827cb8e09f33669ff8cf1b", size = 1325262 },
-    { url = "https://files.pythonhosted.org/packages/19/5a/9aaa096d830b5d1386335759e73038a5352f8cd670efed55d242f92d0bce/coincurve-21.0.0-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:65ec42cab9c60d587fb6275c71f0ebc580625c377a894c4818fb2a2b583a184b", size = 1390936 },
-    { url = "https://files.pythonhosted.org/packages/8a/e4/37dd30ed171432e32c075a03237915c0e69a5a524a807f380d910b276a2a/coincurve-21.0.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:5828cd08eab928db899238874d1aab12fa1236f30fe095a3b7e26a5fc81df0a3", size = 1384762 },
-    { url = "https://files.pythonhosted.org/packages/09/fd/78870f4babed4981feb9b97b3189aec0f01a1a24be8a1ac04807dc68aa0d/coincurve-21.0.0-cp311-cp311-manylinux_2_12_i686.manylinux2010_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:54de1cac75182de9f71ce41415faafcaf788303e21cbd0188064e268d61625e5", size = 1597025 },
-    { url = "https://files.pythonhosted.org/packages/9d/fb/b4850f8afc941655ef4c1204b50f9e21f841c6a64aa83a559277ca305cbd/coincurve-21.0.0-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:07cda058d9394bea30d57a92fdc18ee3ca6b5bc8ef776a479a2ffec917105836", size = 1603987 },
-    { url = "https://files.pythonhosted.org/packages/9d/b7/df41dbcec3f70e383fa024949ce8956ff3b2a1b9eac330fba18c2115eece/coincurve-21.0.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:9070804d7c71badfe4f0bf19b728cfe7c70c12e733938ead6b1db37920b745c0", size = 1604762 },
-    { url = "https://files.pythonhosted.org/packages/70/84/1b2437fc22590073eefb3da0418648b2d5b768951ef851822be8c164b998/coincurve-21.0.0-cp311-cp311-musllinux_1_2_aarch64.whl", hash = "sha256:669ab5db393637824b226de058bb7ea0cb9a0236e1842d7b22f74d4a8a1f1ff1", size = 1637469 },
-    { url = "https://files.pythonhosted.org/packages/9c/4b/893763b3964b3044071a450fdada4c5024dc16f7644258a7bd06cf41e2ba/coincurve-21.0.0-cp311-cp311-musllinux_1_2_i686.whl", hash = "sha256:3bcd538af097b3914ec3cb654262e72e224f95f2e9c1eb7fbd75d843ae4e528e", size = 1601177 },
-    { url = "https://files.pythonhosted.org/packages/77/45/d2f42159cb461f5b070ff848244f1b83f3ea9ec3a3435368f9be33e4e276/coincurve-21.0.0-cp311-cp311-musllinux_1_2_x86_64.whl", hash = "sha256:45b6a5e6b5536e1f46f729829d99ce1f8f847308d339e8880fe7fa1646935c10", size = 1635597 },
-    { url = "https://files.pythonhosted.org/packages/9a/7c/528cff0aa17acd6c64b10c4bd8bb0adb6c96420be4e170916150537f36f6/coincurve-21.0.0-cp311-cp311-win_amd64.whl", hash = "sha256:87597cf30dfc05fa74218810776efacf8816813ab9fa6ea1490f94e9f8b15e77", size = 1328626 },
-    { url = "https://files.pythonhosted.org/packages/cb/91/845b00da05b132e7bb3f3d1c4c301c195b39a9dc8f9962295ff340a27f18/coincurve-21.0.0-cp311-cp311-win_arm64.whl", hash = "sha256:b992d1b1dac85d7f542d9acbcf245667438839484d7f2b032fd032256bcd778e", size = 1325365 },
-    { url = "https://files.pythonhosted.org/packages/f3/61/a2d9e109f99b6f5e65e653ac998b0944c5b82c568ac142fcbb381a4803be/coincurve-21.0.0-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:f60ad56113f08e8c540bb89f4f35f44d434311433195ffff22893ccfa335070c", size = 1391948 },
-    { url = "https://files.pythonhosted.org/packages/24/5a/2da75ee00a722ef1fa068ada3bc34c564595ead86fef573434e2f0cb0a5c/coincurve-21.0.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:1cb1cd19fb0be22e68ecb60ad950b41f18b9b02eebeffaac9391dc31f74f08f2", size = 1384958 },
-    { url = "https://files.pythonhosted.org/packages/dc/50/6bf0bf7e8a9a9dd419ecc1e479dcb9fbfe657029276ad703806a25a2bef2/coincurve-21.0.0-cp312-cp312-manylinux_2_12_i686.manylinux2010_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:05d7e255a697b3475d7ae7640d3bdef3d5bc98ce9ce08dd387f780696606c33b", size = 1606576 },
-    { url = "https://files.pythonhosted.org/packages/bd/ab/9e89908fdd09ad522938085587aaa821b022f4def16c286c5580cfc85811/coincurve-21.0.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:5a366c314df7217e3357bb8c7d2cda540b0bce180705f7a0ce2d1d9e28f62ad4", size = 1613642 },
-    { url = "https://files.pythonhosted.org/packages/b7/75/050b6fd08978de85a7b480f0f220ab6a30967c0910119f3096a8dd40befc/coincurve-21.0.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:1b04778b75339c6e46deb9ae3bcfc2250fbe48d1324153e4310fc4996e135715", size = 1616974 },
-    { url = "https://files.pythonhosted.org/packages/d7/62/2740ba0cafebf45708633635fecadcbe582d7a3ed1ce8b4637921feceaf8/coincurve-21.0.0-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:8efcbdcd50cc219989a2662e6c6552f455efc000a15dd6ab3ebf4f9b187f41a3", size = 1644133 },
-    { url = "https://files.pythonhosted.org/packages/94/14/1f27c3048c4084fa85ef65f42a4ca631f2b184336e6d9446fecec20e0a7f/coincurve-21.0.0-cp312-cp312-musllinux_1_2_i686.whl", hash = "sha256:6df44b4e3b7acdc1453ade52a52e3f8a5b53ecdd5a06bd200f1ec4b4e250f7d9", size = 1619918 },
-    { url = "https://files.pythonhosted.org/packages/ca/22/7ec3ec4c8e7764daa25767d6674cb5741ea2d9b39ff758e9918d22a4b49b/coincurve-21.0.0-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:bcc0831f07cb75b91c35c13b1362e7b9dc76c376b27d01ff577bec52005e22a8", size = 1645797 },
-    { url = "https://files.pythonhosted.org/packages/fb/60/87982b7499943ab12605df7b14f6001fff331aca0881b260682461e2309d/coincurve-21.0.0-cp312-cp312-win_amd64.whl", hash = "sha256:5dd7b66b83b143f3ad3861a68fc0279167a0bae44fe3931547400b7a200e90b1", size = 1329255 },
-    { url = "https://files.pythonhosted.org/packages/62/c0/65b60b371579570931daca8a3f67debfc1482908b8ed03432297274a27da/coincurve-21.0.0-cp312-cp312-win_arm64.whl", hash = "sha256:78dbe439e8cb22389956a4f2f2312813b4bd0531a0b691d4f8e868c7b366555d", size = 1325973 },
-    { url = "https://files.pythonhosted.org/packages/b3/40/cce55adaec37a588eb24b67da8eb68926546458e12ed2c4c2a21deb93d4c/coincurve-21.0.0-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:9df5ceb5de603b9caf270629996710cf5ed1d43346887bc3895a11258644b65b", size = 1391762 },
-    { url = "https://files.pythonhosted.org/packages/ca/7a/628a30281d246ce98aea56592e0c8e79b03a93ee8b85d688db3388130c2d/coincurve-21.0.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:154467858d23c48f9e5ab380433bc2625027b50617400e2984cc16f5799ab601", size = 1384921 },
-    { url = "https://files.pythonhosted.org/packages/61/cc/719c5da31e6ba07e438abcf962f7a365eb69a06a0621ca4f2a484f344e09/coincurve-21.0.0-cp313-cp313-manylinux_2_12_i686.manylinux2010_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:f57f07c44d14d939bed289cdeaba4acb986bba9f729a796b6a341eab1661eedc", size = 1606559 },
-    { url = "https://files.pythonhosted.org/packages/b2/ee/dd14237013d732e7fc3248c0c33a1d36b88b5378dfa3e624a50a23fb6f19/coincurve-21.0.0-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:3fb03e3a388a93d31ed56a442bdec7983ea404490e21e12af76fb1dbf097082a", size = 1613684 },
-    { url = "https://files.pythonhosted.org/packages/f0/05/eaa7f36a03376ced1c19e0cb563341cc83fe48f5734b2effe8f16d0ee0ab/coincurve-21.0.0-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:d09ba4fd9d26b00b06645fcd768c5ad44832a1fa847ebe8fb44970d3204c3cb7", size = 1617001 },
-    { url = "https://files.pythonhosted.org/packages/39/32/fc75f1dd914ac95eb2704425c7ca1a9f509f982e15d05e0ca895b9e6ea9c/coincurve-21.0.0-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:1a1e7ee73bc1b3bcf14c7b0d1f44e6485785d3b53ef7b16173c36d3cefa57f93", size = 1643924 },
-    { url = "https://files.pythonhosted.org/packages/1a/4b/8c6e65b5755e26fc02077803879747615c1c327047328d1784bccb4ff4c3/coincurve-21.0.0-cp313-cp313-musllinux_1_2_i686.whl", hash = "sha256:ad05952b6edc593a874df61f1bc79db99d716ec48ba4302d699e14a419fe6f51", size = 1619964 },
-    { url = "https://files.pythonhosted.org/packages/64/bc/d0a743305ff9fa26e72b4c77b534d5958ec8030b3772555a7172a0c134e5/coincurve-21.0.0-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:4d2bf350ced38b73db9efa1ff8fd16a67a1cb35abb2dda50d89661b531f03fd3", size = 1645526 },
-    { url = "https://files.pythonhosted.org/packages/9d/44/ab082e2dc8c9a45774f1bb9961f58b43c0882b866f5c469ead932d45a35d/coincurve-21.0.0-cp313-cp313-win_amd64.whl", hash = "sha256:54d9500c56d5499375e579c3917472ffcf804c3584dd79052a79974280985c74", size = 1329285 },
-    { url = "https://files.pythonhosted.org/packages/f3/94/407f6fc811310f15b1fc7255f436f6a9040854213beeb10093f56b5b7fd3/coincurve-21.0.0-cp313-cp313-win_arm64.whl", hash = "sha256:773917f075ec4b94a7a742637d303a3a082616a115c36568eb6c873a8d950d18", size = 1326027 },
-    { url = "https://files.pythonhosted.org/packages/59/56/28c446f2242a96b89de4eb383d56693dd4232d45932c9d74cf3b2447977d/coincurve-21.0.0-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:bb82ba677fc7600a3bf200edc98f4f9604c317b18c7b3f0a10784b42686e3a53", size = 1390891 },
-    { url = "https://files.pythonhosted.org/packages/b8/69/990a9578487c45b9ada465ea9318ea4506eb3c51246da70f7c2d9c58b16b/coincurve-21.0.0-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:5001de8324c35eee95f34e011a5c3b4e7d9ae9ca4a862a93b2c89b3f467f511b", size = 1384717 },
-    { url = "https://files.pythonhosted.org/packages/61/8d/b9714e41017d6e733202ca63c30a08e00df8adc861c03f4dd85a0a80274e/coincurve-21.0.0-cp39-cp39-manylinux_2_12_i686.manylinux2010_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:b4d0bb5340bcac695731bef51c3e0126f252453e2d1ae7fa1486d90eff978bf6", size = 1576677 },
-    { url = "https://files.pythonhosted.org/packages/93/43/21cc295079672cc32388f35426536c0912158299ef4bfd2943e337d1407e/coincurve-21.0.0-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:5a9b49789ff86f3cf86cfc8ff8c6c43bac2607720ec638e8ba471fa7e8765bd2", size = 1581985 },
-    { url = "https://files.pythonhosted.org/packages/4c/ad/c2bd86fae9f948c720646e8a24e56753b656fda3d114c5c70674f74c1dfd/coincurve-21.0.0-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:b85b49e192d2ca1a906a7b978bacb55d4dcb297cc2900fbbd9b9180d50878779", size = 1582733 },
-    { url = "https://files.pythonhosted.org/packages/2e/74/d0f884caec917c5a62c772efe698ed6c70d249f0df87f7f55aa56fb5446c/coincurve-21.0.0-cp39-cp39-musllinux_1_2_aarch64.whl", hash = "sha256:ad6445f0bb61b3a4404d87a857ddb2a74a642cd4d00810237641aab4d6b1a42f", size = 1619952 },
-    { url = "https://files.pythonhosted.org/packages/a4/74/a92ef57532f745a2787f0731134b292dd264e95ae8846f4cf7f8749dcb6c/coincurve-21.0.0-cp39-cp39-musllinux_1_2_i686.whl", hash = "sha256:d3f017f1491491f3f2c49e5d2d3a471a872d75117bfcb804d1167061c94bd347", size = 1584841 },
-    { url = "https://files.pythonhosted.org/packages/37/80/6dec029e1f485b2cf1de4b3831a1b5976063698b48b11c2424cf34036a87/coincurve-21.0.0-cp39-cp39-musllinux_1_2_x86_64.whl", hash = "sha256:500e5e38cd4cbc4ea8a5c631ce843b1d52ef19ac41128568214d150f75f1f387", size = 1617623 },
-    { url = "https://files.pythonhosted.org/packages/46/4f/bc90a5c5c7f8c4f44e9813e7ed0c31bcba9a2dcdac84533ecd3c85480efc/coincurve-21.0.0-cp39-cp39-win_amd64.whl", hash = "sha256:ef81ca24511a808ad0ebdb8fdaf9c5c87f12f935b3d117acccc6520ad671bcce", size = 1328518 },
-    { url = "https://files.pythonhosted.org/packages/ea/6f/6377a8d083c5d929e5f1af205dd59586546b99689738602eb2827a60e8bc/coincurve-21.0.0-cp39-cp39-win_arm64.whl", hash = "sha256:6ec8e859464116a3c90168cd2bd7439527d4b4b5e328b42e3c8e0475f9b0bf71", size = 1325261 },
 ]
 
 [[package]]
@@ -1959,8 +1895,7 @@ source = { editable = "contrib/pyln-proto" }
 dependencies = [
     { name = "base58" },
     { name = "bitstring" },
-    { name = "coincurve", version = "20.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "coincurve", version = "21.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
+    { name = "coincurve" },
     { name = "cryptography" },
     { name = "pysocks" },
 ]
@@ -1974,7 +1909,7 @@ dev = [
 requires-dist = [
     { name = "base58", specifier = ">=2.1.1" },
     { name = "bitstring", specifier = ">=4.1.0" },
-    { name = "coincurve", specifier = ">=20" },
+    { name = "coincurve", specifier = "==20.0.0" },
     { name = "cryptography", specifier = ">=42" },
     { name = "pysocks", specifier = ">=1" },
 ]
