@@ -4123,6 +4123,7 @@ message PeerConnectAddress {
 		IPV6 = 2;
 		TORV2 = 3;
 		TORV3 = 4;
+		WEBSOCKET = 5;
 	}
 	PeerConnectAddressType item_type = 1;
 	optional string socket = 2;
@@ -4153,7 +4154,7 @@ message ChannelStateChangedNotification {
 	}
 	bytes peer_id = 1;
 	bytes channel_id = 2;
-	string short_channel_id = 3;
+	optional string short_channel_id = 3;
 	string timestamp = 4;
 	optional ChannelState old_state = 5;
 	ChannelState new_state = 6;

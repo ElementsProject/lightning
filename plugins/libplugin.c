@@ -239,6 +239,19 @@ bool command_deprecated_out_ok(struct command *cmd,
 			     NULL, NULL);
 }
 
+bool notification_deprecated_out_ok(struct plugin *plugin,
+				    const char *method,
+				    const char *fieldname,
+				    const char *depr_start,
+				    const char *depr_end)
+{
+	return deprecated_ok(plugin->deprecated_ok,
+			     tal_fmt(tmpctx, "%s.%s", method, fieldname),
+			     depr_start, depr_end,
+			     plugin->beglist,
+			     NULL, NULL);
+}
+
 static void ld_send(struct plugin *plugin, struct json_stream *stream)
 {
 	struct jstream *jstr = tal(plugin, struct jstream);
@@ -1859,8 +1872,8 @@ void plugin_gossmap_logcb(struct plugin *plugin,
 	va_end(ap);
 }
 
-struct json_stream *plugin_notification_start(struct plugin *plugin,
-					      const char *method)
+struct json_stream *plugin_notification_start_obs(struct plugin *plugin,
+						  const char *method)
 {
 	struct json_stream *js = new_json_stream(plugin, NULL, NULL);
 
@@ -1872,11 +1885,26 @@ struct json_stream *plugin_notification_start(struct plugin *plugin,
 	return js;
 }
 
+void plugin_notification_end_obs(struct plugin *plugin,
+				 struct json_stream *stream)
+{
+	json_object_end(stream);
+	jsonrpc_finish_and_send(plugin, stream);
+}
+
+struct json_stream *plugin_notification_start(struct plugin *plugin,
+					      const char *method)
+{
+	struct json_stream *js = plugin_notification_start_obs(plugin, method);
+	json_object_start(js, method);
+	return js;
+}
+
 void plugin_notification_end(struct plugin *plugin,
 			     struct json_stream *stream)
 {
 	json_object_end(stream);
-	jsonrpc_finish_and_send(plugin, stream);
+	plugin_notification_end_obs(plugin, stream);
 }
 
 struct json_stream *plugin_notify_start(struct command *cmd, const char *method)

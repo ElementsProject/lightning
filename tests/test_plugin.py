@@ -10,7 +10,7 @@ from utils import (
     expected_peer_features, expected_node_features,
     expected_channel_features, account_balance,
     check_coin_moves, first_channel_id, EXPERIMENTAL_DUAL_FUND,
-    mine_funding_to_announce, VALGRIND
+    mine_funding_to_announce, VALGRIND, first_scid
 )
 
 import ast
@@ -4313,3 +4313,50 @@ def test_peer_storage(node_factory, bitcoind):
     # This should never happen
     assert not l1.daemon.is_in_log(r'PeerStorageFailed')
     assert not l2.daemon.is_in_log(r'PeerStorageFailed')
+
+
+@pytest.mark.parametrize("deprecated", [False, True])
+def test_pay_plugin_notifications(node_factory, bitcoind, deprecated):
+    plugin = os.path.join(os.getcwd(), 'tests/plugins/all_notifications.py')
+    opts = {"plugin": plugin}
+    if deprecated:
+        opts['allow-deprecated-apis'] = True
+        
+    l1, l2, l3 = node_factory.line_graph(3, opts=[opts, {}, {}],
+                                         wait_for_announce=True)
+
+    inv1 = l3.rpc.invoice(20000, "first", "desc")
+    l1.rpc.pay(inv1['bolt11'])
+
+    # It gets a channel hint update notification
+    channel_hint_update_core = "{'timestamp': [0-9]*, 'scid': '" + first_scid(l1, l2) + "/1', 'estimated_capacity_msat': 978718000, 'total_capacity_msat': 1000000000, 'enabled': True}"
+    if deprecated:
+        # Includes deprecated and modern.
+        channel_hint_update = "{'origin': 'pay', 'payload': {'channel_hint': " + channel_hint_update_core + "}, 'channel_hint_update': " + channel_hint_update_core + "}"
+    else:
+        channel_hint_update = "{'channel_hint_update': " + channel_hint_update_core + "}"
+
+    l1.daemon.wait_for_log(f"plugin-all_notifications.py: notification channel_hint_update: {channel_hint_update}")
+
+    # It gets a success notification
+    success_core = "{'payment_hash': '" + inv1['payment_hash']+ "', 'bolt11': '" + inv1['bolt11'] + "'}"
+    if deprecated:
+        # Includes deprecated and modern.
+        success = "{'origin': 'pay', 'payload': " + success_core + ", 'pay_success': " + success_core + "}"
+    else:
+        success = "{'pay_success': " + success_core + "}"
+    l1.daemon.wait_for_log(f"plugin-all_notifications.py: notification pay_success: {success}")
+
+    inv2 = l3.rpc.invoice(10000, "second", "desc")
+    l3.rpc.delinvoice('second', 'unpaid')
+    with pytest.raises(RpcError, match="WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS"):
+        l1.rpc.pay(inv2['bolt11'])
+
+    failure_core = "{'payment_hash': '" + inv2['payment_hash'] + "', 'bolt11': '" + inv2['bolt11'] + "', 'error': {'message': 'failed: WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS \\(reply from remote\\)'}}"
+    if deprecated:
+        # Includes deprecated and modern.
+        failure = "{'origin': 'pay', 'payload': " + failure_core + ", 'pay_failure': " + failure_core + "}"
+    else:
+        failure = "{'pay_failure': " + failure_core + "}"
+
+    l1.daemon.wait_for_log(f"plugin-all_notifications.py: notification pay_failure: {failure}")
