@@ -1026,7 +1026,7 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE channels ADD remote_htlc_maximum_msat BIGINT DEFAULT NULL;"), NULL},
     {SQL("ALTER TABLE channels ADD remote_htlc_minimum_msat BIGINT DEFAULT NULL;"), NULL},
     {SQL("ALTER TABLE channels ADD last_stable_connection BIGINT DEFAULT 0;"), NULL},
-    {NULL, migrate_initialize_alias_local},
+    {NULL, NULL}, /* old migrate_initialize_alias_local */
     {SQL("CREATE TABLE addresses ("
 	 "  keyidx BIGINT,"
 	 "  addrtype INTEGER)"), NULL},
@@ -1042,6 +1042,8 @@ static struct migration dbmigrations[] = {
     {NULL, NULL}, /* Old, incorrect channel_htlcs_wait_indexes migration */
     {SQL("ALTER TABLE channel_funding_inflights ADD locked_scid BIGINT DEFAULT 0;"), NULL},
     {NULL, migrate_initialize_channel_htlcs_wait_indexes_and_fixup_forwards},
+    {SQL("ALTER TABLE channels ADD old_scids BLOB DEFAULT NULL;"), NULL},
+    {NULL, migrate_initialize_alias_local},
 };
 
 /**
@@ -2011,21 +2013,18 @@ static void migrate_initialize_alias_local(struct lightningd *ld,
 	u64 *ids = tal_arr(tmpctx, u64, 0);
 
 	stmt = db_prepare_v2(db, SQL("SELECT id FROM channels"
-				     " WHERE scid IS NOT NULL"
-				     " AND alias_local IS NULL;"));
+				     " WHERE alias_local IS NULL;"));
 	db_query_prepared(stmt);
 	while (db_step(stmt))
 		tal_arr_expand(&ids, db_col_u64(stmt, "id"));
 	tal_free(stmt);
 
 	for (size_t i = 0; i < tal_count(ids); i++) {
-		struct short_channel_id alias;
 		stmt = db_prepare_v2(db, SQL("UPDATE channels"
 					     " SET alias_local = ?"
 					     " WHERE id = ?;"));
 		/* We don't even check for clashes! */
-		randombytes_buf(&alias, sizeof(alias));
-		db_bind_short_channel_id(stmt, alias);
+		db_bind_short_channel_id(stmt, random_scid());
 		db_bind_u64(stmt, ids[i]);
 		db_exec_prepared_v2(stmt);
 		tal_free(stmt);
