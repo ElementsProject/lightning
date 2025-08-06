@@ -264,9 +264,6 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->recover_secret = NULL;
 	ld->db_upgrade_ok = NULL;
 
-	/* --experimental-upgrade-protocol */
-	ld->experimental_upgrade_protocol = false;
-
 	/* --invoices-onchain-fallback */
 	ld->unified_invoices = false;
 

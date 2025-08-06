@@ -88,7 +88,7 @@ static void json_add_index(struct command *cmd,
 	va_copy(ap2, *ap);
 	/* "htlcs" never had details field: it came after! */
 	if (subsystem != WAIT_SUBSYSTEM_HTLCS
-	    && command_deprecated_out_ok(cmd, "details", "v25.05", "v26.05")) {
+	    && command_deprecated_out_ok(cmd, "details", "v25.05", "v26.06")) {
 		json_object_start(response, "details");
 		while ((name = va_arg(*ap, const char *)) != NULL) {
 			value = va_arg(*ap, const char *);

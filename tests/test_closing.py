@@ -122,6 +122,12 @@ def test_closing_simple(node_factory, bitcoind, chainparams):
     tags = check_utxos_channel(l1, [channel_id], expected_1)
     check_utxos_channel(l2, [channel_id], expected_2, tags)
 
+    # Forget channel
+    bitcoind.generate_block(50)
+    sync_blockheight(bitcoind, [l1])
+    l1.restart()
+    assert only_one(l1.rpc.listclosedchannels()['closedchannels'])['channel_id'] == channel_id
+
 
 def test_closing_while_disconnected(node_factory, bitcoind, executor):
     l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True})
@@ -3876,7 +3882,7 @@ def test_htlc_no_force_close(node_factory, bitcoind, anchors):
         for opt in opts:
             opt['dev-force-features'] = "-23"
 
-    l1, l2, l3 = node_factory.line_graph(3, opts=opts)
+    l1, l2, l3 = node_factory.line_graph(3, opts=opts, wait_for_announce=True)
 
     MSATS = 12300000
     inv = l3.rpc.invoice(MSATS, 'label', 'description')
@@ -3905,11 +3911,11 @@ def test_htlc_no_force_close(node_factory, bitcoind, anchors):
     # l3 gets upset, drops to chain when there are < 4 blocks remaining.
     # But tx doesn't get mined...
     bitcoind.generate_block(8)
-    l3.daemon.wait_for_log("Peer permanent failure in CHANNELD_NORMAL: Fulfilled HTLC 0 SENT_REMOVE_.* cltv 114 hit deadline")
+    l3.daemon.wait_for_log("Peer permanent failure in CHANNELD_NORMAL: Fulfilled HTLC 0 SENT_REMOVE_.* cltv 119 hit deadline")
 
     # l2 closes drops the commitment tx at block 115 (one block after timeout)
     bitcoind.generate_block(4)
-    l2.daemon.wait_for_log("Peer permanent failure in CHANNELD_NORMAL: Offered HTLC 0 SENT_ADD_ACK_REVOCATION cltv 114 hit deadline")
+    l2.daemon.wait_for_log("Peer permanent failure in CHANNELD_NORMAL: Offered HTLC 0 SENT_ADD_ACK_REVOCATION cltv 119 hit deadline")
     l1.set_feerates((15000, 15000, 15000, 15000))
 
     # Two more blocks, with no htlc tx.
@@ -3920,7 +3926,7 @@ def test_htlc_no_force_close(node_factory, bitcoind, anchors):
     bitcoind.generate_block(1, needfeerate=9999999)
 
     # l2 will have abandoned l2->l3 HTLC to close l1->l2.
-    l2.daemon.wait_for_log(r'Abandoning unresolved onchain HTLC at block 117 \(expired at 114\) to avoid peer closing incoming HTLC at block 120')
+    l2.daemon.wait_for_log(r'Abandoning unresolved onchain HTLC at block 122 \(expired at 119\) to avoid peer closing incoming HTLC at block 125')
 
     # l1 should not have force-closed, htlc should be finished by l2.
     assert not l1.daemon.is_in_log('Peer permanent failure in CHANNELD_NORMAL')
@@ -4050,6 +4056,7 @@ def test_peer_anchor_push(node_factory, bitcoind, executor, chainparams):
         l2.daemon.wait_for_log("sendrawtx exit 0")
         # Check feerate for entire package (commitment tx + anchor) is ~ correct
         details = bitcoind.rpc.getrawmempool(True).values()
+        print(f"mempool = {details}")
         total_weight = sum([d['weight'] for d in details])
         total_fees = sum([float(d['fees']['base']) * 100_000_000 for d in details])
         total_feerate_perkw = total_fees / total_weight * 1000
@@ -4165,7 +4172,10 @@ def test_closing_ignore_fee_limits(node_factory, bitcoind, executor):
 def test_anchorspend_using_to_remote(node_factory, bitcoind, anchors):
     """Make sure we can use `to_remote` output of previous close to spend anchor"""
     # Try with old output from both anchor and non-anchor channel.
-    l4_opts = {}
+
+    # We want l2 to process the WIRE_UPDATE_FULFILL_HTLC, so l4 drops
+    # on WIRE_REVOKE_AND_ACK after that.
+    l4_opts = {'disconnect': ['-WIRE_REVOKE_AND_ACK*2']}
     if anchors is False:
         l4_opts['dev-force-features'] = "-23"
 
@@ -4178,11 +4188,12 @@ def test_anchorspend_using_to_remote(node_factory, bitcoind, anchors):
     # this to use anchor.
     node_factory.join_nodes([l4, l2])
 
-    # l4 unilaterally closes, l2 gets to-remote with its output.
+    # l4 disconnects after receiving fulfill.  It then unilaterally
+    # closes, l2 gets to-remote with its output.
     l4.rpc.pay(l2.rpc.invoice(100000000, 'test', 'test')['bolt11'])
     wait_for(lambda: only_one(l4.rpc.listpeerchannels()['channels'])['htlcs'] != [])
 
-    l4.rpc.disconnect(l2.info['id'], force=True)
+    wait_for(lambda: only_one(l4.rpc.listpeers()['peers'])['connected'] is False)
     close = l4.rpc.close(l2.info['id'], 1)
     bitcoind.generate_block(1, wait_for_mempool=only_one(close['txids']))
     wait_for(lambda: len(l2.rpc.listfunds()['outputs']) == 1)

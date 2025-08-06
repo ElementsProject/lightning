@@ -616,15 +616,6 @@ static char *opt_set_hsm_password(struct lightningd *ld)
 	return NULL;
 }
 
-static char *opt_set_max_htlc_cltv(const char *arg, struct lightningd *ld)
-{
-	if (!opt_deprecated_ok(ld, "max-locktime-blocks", NULL,
-			       "v24.05", "v24.11"))
-		return "--max-locktime-blocks has been deprecated (BOLT #4 says 2016)";
-
-	return opt_set_u32(arg, &ld->config.max_htlc_cltv);
-}
-
 static char *opt_force_privkey(const char *optarg, struct lightningd *ld)
 {
 	tal_free(ld->dev_force_privkey);
@@ -1242,14 +1233,6 @@ static char *opt_set_splicing(struct lightningd *ld)
 	return NULL;
 }
 
-static char *opt_set_onion_messages(struct lightningd *ld)
-{
-	if (!opt_deprecated_ok(ld, "experimental-onion-messages", NULL,
-			       "v24.08", "v25.02"))
-		return "--experimental-onion-message is now enabled by default";
-	return NULL;
-}
-
 static char *opt_set_shutdown_wrong_funding(struct lightningd *ld)
 {
 	feature_set_or(ld->our_features,
@@ -1261,7 +1244,7 @@ static char *opt_set_shutdown_wrong_funding(struct lightningd *ld)
 static char *opt_set_peer_storage(struct lightningd *ld)
 {
 	if (!opt_deprecated_ok(ld, "experimental-peer-storage", NULL,
-			       "v25.05", "v25.11"))
+			       "v25.05", "v25.12"))
 		return "--experimental-peer-storage is now enabled by default";
 	return NULL;
 }
@@ -1271,14 +1254,6 @@ static char *opt_set_quiesce(struct lightningd *ld)
 	if (!opt_deprecated_ok(ld, "experimental-quiesce", NULL,
 			       "v24.11", "v25.05"))
 		return "--experimental-quiesce is now enabled by default";
-	return NULL;
-}
-
-static char *opt_set_anchor_zero_fee_htlc_tx(struct lightningd *ld)
-{
-	if (!opt_deprecated_ok(ld, "experimental-anchors", NULL,
-			       "v24.02", "v25.02"))
-		return "--experimental-anchors is now enabled by default";
 	return NULL;
 }
 
@@ -1461,9 +1436,6 @@ static void register_opts(struct lightningd *ld)
 				 " channels using splicing");
 
 	/* This affects our features, so set early. */
-	opt_register_early_noarg("--experimental-onion-messages",
-				 opt_set_onion_messages, ld,
-				 opt_hidden);
 	opt_register_early_noarg("--experimental-offers",
 				 opt_set_offers, ld,
 				 opt_hidden);
@@ -1477,9 +1449,6 @@ static void register_opts(struct lightningd *ld)
 				 opt_set_quiesce, ld,
 				 "experimental: Advertise ability to quiesce"
 				 " channels.");
-	opt_register_early_noarg("--experimental-anchors",
-				 opt_set_anchor_zero_fee_htlc_tx, ld,
-				 opt_hidden);
 
 	clnopt_noarg("--help|-h", OPT_EXITS,
 		     opt_lightningd_usage, ld, "Print this message.");
@@ -1498,8 +1467,6 @@ static void register_opts(struct lightningd *ld)
 	clnopt_witharg("--watchtime-blocks", OPT_SHOWINT, opt_set_u32, opt_show_u32,
 			 &ld->config.locktime_blocks,
 			 "Blocks before peer can unilaterally spend funds");
-	opt_register_arg("--max-locktime-blocks", opt_set_max_htlc_cltv, NULL,
-			 ld, opt_hidden);
 	clnopt_witharg("--funding-confirms", OPT_SHOWINT, opt_set_u32, opt_show_u32,
 			 &ld->config.funding_confirms,
 			 "Confirmations required for funding transaction");
@@ -1618,9 +1585,6 @@ static void register_opts(struct lightningd *ld)
 		       "--subdaemon=hsmd:remote_signer "
 		       "would use a hypothetical remote signing subdaemon.");
 
-	opt_register_noarg("--experimental-upgrade-protocol",
-			   opt_set_bool, &ld->experimental_upgrade_protocol,
-			   "experimental: allow channel types to be upgraded on reconnect");
 	opt_register_noarg("--invoices-onchain-fallback",
 			   opt_set_bool, &ld->unified_invoices,
 			   "Include an onchain address in invoices and mark them as paid if payment is received on-chain");
@@ -1844,48 +1808,8 @@ void handle_early_opts(struct lightningd *ld, int argc, char *argv[])
 	logging_options_parsed(ld->log_book);
 }
 
-/* Free *str, set *str to copy with `cln` prepended */
-static void prefix_cln(char **str STEALS)
-{
-	char *newstr = tal_fmt(tal_parent(*str), "cln%s", *str);
-	tal_free(*str);
-	*str = newstr;
-}
-
-/* Due to a conflict between the widely-deployed clightning-rest plugin and
- * our own clnrest plugin, and people wanting to run both, in v23.11 we
- * renamed some options.  This breaks perfectly working v23.08 deployments who
- * don't care about clightning-rest, so we work around it here. */
-static void fixup_clnrest_options(struct lightningd *ld)
-{
-	for (size_t i = 0; i < tal_count(ld->configvars); i++) {
-		struct configvar *cv = ld->configvars[i];
-
-		/* These worked for v23.08 */
-		if (!strstarts(cv->configline, "rest-port=")
-		    && !strstarts(cv->configline, "rest-protocol=")
-		    && !strstarts(cv->configline, "rest-host=")
-		    && !strstarts(cv->configline, "rest-certs="))
-			continue;
-		/* Did some (plugin) claim it? */
-		if (opt_find_long(cv->configline, cast_const2(const char **, &cv->optarg)))
-			continue;
-		if (!opt_deprecated_ok(ld,
-				       tal_strndup(tmpctx, cv->configline,
-						   strcspn(cv->configline, "=")),
-				       "clnrest-prefix",
-				       "v23.11", "v24.11"))
-			continue;
-		log_unusual(ld->log, "Option %s deprecated in v23.11, renaming to cln%s",
-			    cv->configline, cv->configline);
-		prefix_cln(&cv->configline);
-	}
-}
-
 void handle_opts(struct lightningd *ld)
 {
-	fixup_clnrest_options(ld);
-
 	/* Now we know all the options, finish parsing and finish
 	 * populating ld->configvars with cmdline. */
 	parse_configvars_final(ld->configvars, true, ld->developer);

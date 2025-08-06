@@ -51,8 +51,6 @@
 #include <wire/peer_wire.h>
 #include <wire/wire_sync.h>
 
-#define EXPERIMENTAL_UPGRADE_ENABLED 0
-
 /* stdin == requests, 3 == peer, 4 = HSM */
 #define MASTER_FD STDIN_FILENO
 #define HSM_FD 4
@@ -191,9 +189,6 @@ struct peer {
 
 	/* We allow a 'tx-sigs' message between reconnect + channel_ready */
 	bool tx_sigs_allowed;
-
-	/* --experimental-upgrade-protocol */
-	bool experimental_upgrade;
 };
 
 static void start_commit_timer(struct peer *peer);
@@ -359,38 +354,6 @@ static bool handle_master_request_later(struct peer *peer, const u8 *msg)
 	}
 	return false;
 }
-
-#if EXPERIMENTAL_UPGRADE_ENABLED
-/* Compare, with false if either is NULL */
-static bool match_type(const u8 *t1, const u8 *t2)
-{
-	/* Missing fields are possible. */
-	if (!t1 || !t2)
-		return false;
-
-	return featurebits_eq(t1, t2);
-}
-
-static void set_channel_type(struct channel *channel, const u8 *type)
-{
-	const struct channel_type *cur = channel->type;
-
-	if (featurebits_eq(cur->features, type))
-		return;
-
-	/* We only allow one upgrade at the moment, so that's it. */
-	assert(!channel_has(channel, OPT_STATIC_REMOTEKEY));
-	assert(feature_offered(type, OPT_STATIC_REMOTEKEY));
-
-	/* Do upgrade, tell master. */
-	tal_free(channel->type);
-	channel->type = channel_type_from(channel, type);
-	status_unusual("Upgraded channel to [%s]",
-		       fmt_featurebits(tmpctx, type));
-	wire_sync_write(MASTER_FD,
-			take(towire_channeld_upgraded(NULL, channel->type)));
-}
-#endif
 
 static void lock_signer_outpoint(const struct bitcoin_outpoint *outpoint)
 {
@@ -5312,27 +5275,6 @@ static bool capture_premature_msg(const u8 ***shit_lnd_says, const u8 *msg)
 	return true;
 }
 
-#if EXPERIMENTAL_UPGRADE_ENABLED
-/* Unwrap a channel_type into a raw byte array for the wire: can be NULL */
-static u8 *to_bytearr(const tal_t *ctx,
-		      const struct channel_type *channel_type TAKES)
-{
-	u8 *ret;
-	bool steal;
-
-	steal = taken(channel_type);
-	if (!channel_type)
-		return NULL;
-
-	if (steal) {
-		ret = tal_steal(ctx, channel_type->features);
-		tal_free(channel_type);
-	} else
-		ret = tal_dup_talarr(ctx, u8, channel_type->features);
-	return ret;
-}
-#endif
-
 static void peer_reconnect(struct peer *peer,
 			   const struct secret *last_remote_per_commit_secret)
 {
@@ -5369,47 +5311,6 @@ static void peer_reconnect(struct peer *peer,
 				 &my_current_per_commitment_point);
 
 	send_tlvs = NULL;
-
-#if EXPERIMENTAL_UPGRADE_ENABLED
-	if (peer->experimental_upgrade) {
-		/* Subtle: we free tmpctx below as we loop, so tal off peer */
-		send_tlvs = tlv_channel_reestablish_tlvs_new(peer);
-
-		/* BOLT-upgrade_protocol #2:
-		 * A node sending `channel_reestablish`, if it supports upgrading channels:
-		 *   - MUST set `next_to_send` the commitment number of the next
-		 *     `commitment_signed` it expects to send.
-		 */
-		send_tlvs->next_to_send = tal_dup(send_tlvs, u64, &peer->next_index[REMOTE]);
-
-		/* BOLT-upgrade_protocol #2:
-		 * - if it initiated the channel:
-		 *   - MUST set `desired_type` to the channel_type it wants for the
-		 *     channel.
-		 */
-		if (peer->channel->opener == LOCAL) {
-			send_tlvs->desired_channel_type =
-				to_bytearr(send_tlvs,
-					   take(channel_desired_type(NULL,
-								     peer->channel)));
-		} else {
-			/* BOLT-upgrade_protocol #2:
-			 * - otherwise:
-			 *  - MUST set `current_type` to the current channel_type of the
-			 *    channel.
-			 *  - MUST set `upgradable` to the channel types it could change
-			 *    to.
-			 *  - MAY not set `upgradable` if it would be empty.
-			 */
-			send_tlvs->current_channel_type
-				= to_bytearr(send_tlvs, peer->channel->type);
-			send_tlvs->upgradable_channel_type
-				= to_bytearr(send_tlvs,
-					     take(channel_upgradable_type(NULL,
-									  peer->channel)));
-		}
-	}
-#endif
 
 	inflight = last_inflight(peer);
 
@@ -5875,86 +5776,6 @@ static void peer_reconnect(struct peer *peer,
 	 */
 	/* (If we had sent `closing_signed`, we'd be in closingd). */
 	maybe_send_shutdown(peer);
-
-#if EXPERIMENTAL_UPGRADE_ENABLED
-	if (recv_tlvs->desired_channel_type)
-		status_debug("They sent desired_channel_type [%s]",
-			     fmt_featurebits(tmpctx,
-					     recv_tlvs->desired_channel_type));
-	if (recv_tlvs->current_channel_type)
-		status_debug("They sent current_channel_type [%s]",
-			     fmt_featurebits(tmpctx,
-					     recv_tlvs->current_channel_type));
-
-	if (recv_tlvs->upgradable_channel_type)
-		status_debug("They offered upgrade to [%s]",
-			     fmt_featurebits(tmpctx,
-					     recv_tlvs->upgradable_channel_type));
-
-	/* BOLT-upgrade_protocol #2:
-	 *
-	 * A node receiving `channel_reestablish`:
-	 *  - if it has to retransmit `commitment_signed` or `revoke_and_ack`:
-	 *    - MUST consider the channel feature change failed.
-	 */
-	if (retransmit_commitment_signed || retransmit_revoke_and_ack) {
-		status_debug("No upgrade: we retransmitted");
-	/* BOLT-upgrade_protocol #2:
-	 *
-	 *  - if `next_to_send` is missing, or not equal to the
-	 *    `next_commitment_number` it sent:
-	 *    - MUST consider the channel feature change failed.
-	 */
-	} else if (!recv_tlvs->next_to_send) {
-		status_debug("No upgrade: no next_to_send received");
-	} else if (*recv_tlvs->next_to_send != peer->next_index[LOCAL]) {
-		status_debug("No upgrade: they're retransmitting");
-	/* BOLT-upgrade_protocol #2:
-	 *
-	 *  - if updates are pending on either sides' commitment transaction:
-	 *    - MUST consider the channel feature change failed.
-	 */
-		/* Note that we can have HTLCs we *want* to add or remove
-		 * but haven't yet: thats OK! */
-	} else if (pending_updates(peer->channel, LOCAL, true)
-		   || pending_updates(peer->channel, REMOTE, true)) {
-		status_debug("No upgrade: pending changes");
-	} else if (send_tlvs && recv_tlvs) {
-		const struct tlv_channel_reestablish_tlvs *initr, *ninitr;
-		const u8 *type;
-
-		if (peer->channel->opener == LOCAL) {
-			initr = send_tlvs;
-			ninitr = recv_tlvs;
-		} else {
-			initr = recv_tlvs;
-			ninitr = send_tlvs;
-		}
-
-		/* BOLT-upgrade_protocol #2:
-		 *
-		 * - if `desired_channel_type` matches `current_channel_type` or any
-		 *   `upgradable_channel_type`:
-		 *   - MUST consider the channel type to be `desired_channel_type`.
-		 * - otherwise:
-		 *   - MUST consider the channel type change failed.
-		 *   - if there is a `current_channel_type` field:
-		 *     - MUST consider the channel type to be `current_channel_type`.
-		 */
-		if (match_type(initr->desired_channel_type,
-			       ninitr->current_channel_type)
-		    || match_type(initr->desired_channel_type,
-				  ninitr->upgradable_channel_type))
-			type = initr->desired_channel_type;
-		else if (ninitr->current_channel_type)
-			type = ninitr->current_channel_type;
-		else
-			type = NULL;
-
-		if (type)
-			set_channel_type(peer->channel, type);
-	}
-#endif
 
 	tal_free(send_tlvs);
 
@@ -6645,7 +6466,6 @@ static void init_channel(struct peer *peer)
 				    &channel_type,
 				    &peer->dev_disable_commit,
 				    &pbases,
-				    &peer->experimental_upgrade,
 				    &peer->splice_state->inflights,
 				    &peer->local_alias)) {
 		master_badmsg(WIRE_CHANNELD_INIT, msg);

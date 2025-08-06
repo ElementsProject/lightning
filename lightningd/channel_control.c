@@ -1887,7 +1887,6 @@ bool peer_start_channeld(struct channel *channel,
 					     ? NULL
 					     : (u32 *)&ld->dev_disable_commit,
 				       pbases,
-				       ld->experimental_upgrade_protocol,
 				       cast_const2(const struct inflight **,
 						   inflights),
 				       *channel->alias[LOCAL]);

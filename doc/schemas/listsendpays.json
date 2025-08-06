@@ -144,7 +144,7 @@
             "amount_msat": {
               "type": "msat",
               "description": [
-                "The amount delivered to destination (if known)."
+                "The amount delivered to destination (if known). This is not known in the case where sendonion(7) was used to manually initiate a payment without the `amount_msat` parameter."
               ]
             },
             "destination": {

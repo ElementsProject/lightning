@@ -571,19 +571,20 @@ def test_waitanyinvoice_reversed(node_factory, executor):
 def test_decode_unknown(node_factory):
     l1 = node_factory.get_node()
 
-    b11 = l1.rpc.decode('lntb30m1pw2f2yspp5s59w4a0kjecw3zyexm7zur8l8n4scw674w8sftjhwec33km882gsdpa2pshjmt9de6zqun9w96k2um5ypmkjargypkh2mr5d9cxzun5ypeh2ursdae8gxqruyqvzddp68gup69uhnzwfj9cejuvf3xshrwde68qcrswf0d46kcarfwpshyaplw3skw0tdw4k8g6tsv9e8gu2etcvsym36pdjpz04wm9nn96f9ntc3t3h5r08pe9d62p3js5wt5rkurqnrl7zkj2fjpvl3rmn7wwazt80letwxlm22hngu8n88g7hsp542qpl')
+    # Made with "devtools/bolt11-cli encode 41bfd2660762506c9933ade59f1debf7e6495b10c14a92dbcd2d623da2507d3d s=0000000000000000000000000000000000000000000000000000000000000000 timestamp=1554294928 p=850aeaf5f69670e8889936fc2e0cff3ceb0c3b5eab8f04ae57767118db673a91 d='Payment request with multipart support' x=28800 118=0d011a07081c011a051c1713020e0912051819121c0c0911061017030e0d191a07001803100e090f0d151a16181d03090e011017041d011f0e1110160e0f0b0d0e151607081a0b100c05190708" amount=3000000000 currency=tb
+    b11 = l1.rpc.decode('lntb30m1pw2f2yssp5qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqpp5s59w4a0kjecw3zyexm7zur8l8n4scw674w8sftjhwec33km882gsdpa2pshjmt9de6zqun9w96k2um5ypmkjargypkh2mr5d9cxzun5ypeh2ursdae8gxqruyqcqpjvzddp68gup69uhnzwfj9cejuvf3xshrwde68qcrswf0d46kcarfwpshyaplw3skw0tdw4k8g6tsv9e8g02pjf6p8tqx0fy6vmxnrvsjmnx7us54ml9uk0927wy4mq5wne8pr6g6mmew03y60lt5mvzyksf7yjwq4qxlun5cca9amgkxggr2xkvcqukuyuf')
     assert b11['type'] == 'bolt11 invoice'
     assert b11['currency'] == 'tb'
     assert b11['created_at'] == 1554294928
     assert b11['payment_hash'] == '850aeaf5f69670e8889936fc2e0cff3ceb0c3b5eab8f04ae57767118db673a91'
     assert b11['description'] == 'Payment request with multipart support'
     assert b11['expiry'] == 28800
-    assert b11['payee'] == '02330d13587b67a85c0a36ea001c4dba14bcd48dda8988f7303275b040bffb6abd'
+    assert b11['payee'] == '0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518'
     assert b11['min_final_cltv_expiry'] == 18
     extra = only_one(b11['extra'])
     assert extra['tag'] == 'v'
     assert extra['data'] == 'dp68gup69uhnzwfj9cejuvf3xshrwde68qcrswf0d46kcarfwpshyaplw3skw0tdw4k8g6tsv9e8g'
-    assert b11['signature'] == '3045022100e2b2bc3204dc7416c8227d5db2ce65d24b35e22b8de8379c392b74a0c650a397022041db8304c7ff0ad25264167e23dcfce7744b3bff95b8dfda9579a38799ce8f5e'
+    assert b11['signature'] == '304402207a8324e827580cf4934cd9a636425b99bdc852bbf97967955e712bb051d3c9c202203d235bde5cf8934ffae9b60896827c49381501bfc9d318e97bb458c840d46b33'
     assert 'fallbacks' not in b11
     assert 'routes' not in b11
 

@@ -17,14 +17,14 @@ A better option is to use the [`summary` plugin](https://github.com/lightningd/p
 
 ### My channel is in state `STATE`, what does that mean ?
 
-See the [listpeers](ref:lightning-listpeers) command.
+See the [listpeers](ref:listpeers) command.
 
 ### My payment is failing / all my payments are failing, why ?
 
 There are many reasons for a payment failure. The most common one is a [failure](https://github.com/lightning/bolts/blob/master/04-onion-routing.md#failure-messages)  
 along the route from you to the payee. The best (and most common) solution to a route failure problem is to open more channels, which should increase the available routes to the recipient and lower the probability of a failure.
 
-**Hint:** use the [`pay`](ref:lightning-pay) command which is will iterate through trying all possible routes,  
+**Hint:** use the [`pay`](ref:pay) command which is will iterate through trying all possible routes,  
 instead of the low-level `sendpay` command which only tries the passed in route.
 
 ### How can I receive payments ?
@@ -162,7 +162,7 @@ There are 3 types of 'rescans' you can make:
 If you lose data (likely corrupted `lightningd.sqlite3`) about a channel **with `option_static_remotekey` enabled**, you can wait for your peer to unilateraly close the channel, then use `tools/hsmtool` with the `guesstoremote` command to attempt to recover your funds from the peer's published unilateral close transaction.
 
 If `option_static_remotekey` was not enabled, you're probably out of luck. The keys for your funds in your peer's unilateral close transaction are derived from information you lost. Fortunately, since version `0.7.3` channels are created with `option_static_remotekey` by default if your peer supports it. Which is to say that channels created after block [598000](https://blockstream.info/block/0000000000000000000dd93b8fb5c622b9c903bf6f921ef48e266f0ead7faedb)  
-(short channel id starting with > 598000) have a high chance of supporting `option_static_remotekey`. You can verify it using the `features` field from the [`listpeers` command](ref:lightning-listpeers)'s result.
+(short channel id starting with > 598000) have a high chance of supporting `option_static_remotekey`. You can verify it using the `features` field from the [`listpeers` command](ref:listpeers)'s result.
 
 Here is an example in Python checking if [one of the `option_static_remotekey` bits](https://github.com/lightning/bolts/blob/master/09-features.md) is set in the negotiated features corresponding to `0x02aaa2`:
 
@@ -179,4 +179,4 @@ If `option_static_remotekey` is enabled you can attempt to recover the funds in 
 
 ### How do I get the `psbt` for RPC calls that need it?
 
-A `psbt` is created and returned by a call to [`utxopsbt` with `reservedok=true`](ref:lightning-utxopsbt).
+A `psbt` is created and returned by a call to [`utxopsbt` with `reservedok=true`](ref:utxopsbt).

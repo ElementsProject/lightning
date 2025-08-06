@@ -4,9 +4,9 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [25.05rc1] - 2025-05-16: "CODENAME"
+## [25.05] - 2025-06-16: "Satoshi's OP_RETURN Opinion"
 
-This release named by @USERNAME.
+This release named by Peter Neuroth (@nepet).
 
 **WARNING**: `--experimental-splicing` is incompatible with previous CLN versions!  You will not
               be able to reestablish channels with older nodes at all, if this is enabled!

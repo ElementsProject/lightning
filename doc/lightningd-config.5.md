@@ -610,7 +610,7 @@ is not specified, a DNS lookup may be done to resolve `HOSTNAME` or `TORIPADDRES
   If `HOSTNAME` was given that resolves to a local interface, the daemon
 will bind to that interface.
 
-* **bind-addr**=*\[IPADDRESS\[:PORT\]\]|SOCKETPATH|HOSTNAME\[:PORT\]*
+* **bind-addr**=*\[ws:\]\[IPADDRESS\[:PORT\]\]|SOCKETPATH|HOSTNAME\[:PORT\]*
 
   Set an IP address or UNIX domain socket to listen to, but do not
 announce. A UNIX domain socket is distinguished from an IP address by
@@ -620,6 +620,11 @@ beginning with a */*.
 IPv6 on all interfaces, '0.0.0.0' means bind to all IPv4
 interfaces, '::' means 'bind to all IPv6 interfaces'.  'PORT' is
 not specified, 9735 is used.
+
+   The `ws:` prefix indicates to expect connections to use the
+RFC-6455 WebSocket protocol instead of raw TCP/IP.  This is more
+usable by web browsers directly, but often requires a reverse proxy
+to speak TLS ("wss").
 
   This option can be used multiple times to add more addresses, and
 its use disables autolisten.  If necessary, and 'always-use-proxy'
@@ -710,11 +715,11 @@ authenticate to the Tor control port.
 
   Root url for Swagger UI. Default is `/`.
 
-* **wss-bind-addr**=*\[IPADDRESS\[:PORT\]\]|SOCKETPATH|HOSTNAME\[:PORT\]* [plugin `wss-proxy.py`]
+* **wss-bind-addr**=*\[IPADDRESS\[:PORT\]\]|SOCKETPATH|HOSTNAME\[:PORT\]* [plugin `wss-proxy`]
 
-  Sets the WSS address.
+  Sets the WSS address. This option can be used multiple times to add more addresses.
 
-* **wss-certs**=*PATH*  [plugin `wss-proxy.py`]
+* **wss-certs**=*PATH*  [plugin `wss-proxy`]
 
   Defines the path for WSS cert & key. Default path is same as RPC file path to utilize gRPC/clnrest's client certificate. If it is missing at the configured location, new identity (`client.pem` and `client-key.pem`) will be generated.
 
@@ -815,13 +820,6 @@ of the prior channel balance and the new one.
 
   Specifying this option advertizes `option_quiesce`.  Not very useful
 by itself, except for testing.
-
-* **experimental-upgrade-protocol**
-
-  Specifying this option means we send (and allow receipt of) a simple
-protocol to update channel types.  At the moment, we only support setting
-`option_static_remotekey` to ancient channels.  The peer must also support
-this option.
 
 
 

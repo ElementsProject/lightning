@@ -28,7 +28,7 @@ Blank lines and lines beginning with `#` are ignored.
 
 `--help` will show you the defaults for many options; they vary with network settings so you can specify `--network` before `--help` to see the defaults for that network.
 
-The [`lightning-listconfigs`](ref:lightning-listconfigs) command will output a valid configuration file using the current settings.
+The [`listconfigs`](ref:listconfigs) command will output a valid configuration file using the current settings.
 
 ## Options
 
@@ -255,11 +255,11 @@ The [`lightning-listconfigs`](ref:lightning-listconfigs) command will output a v
 
 - **fee-base**=_MILLISATOSHI_
 
-  Default: 1000. The base fee to charge for every payment which passes through. Note that millisatoshis are a very, very small unit! Changing this value will only affect new channels and not existing ones. If you want to change fees for existing channels, use the RPC call [`lightning-setchannel`](ref:lightning-setchannel).
+  Default: 1000. The base fee to charge for every payment which passes through. Note that millisatoshis are a very, very small unit! Changing this value will only affect new channels and not existing ones. If you want to change fees for existing channels, use the RPC call [`setchannel`](ref:setchannel).
 
 - **fee-per-satoshi**=_MILLIONTHS_
 
-  Default: 10 (0.001%). This is the proportional fee to charge for every payment which passes through. As percentages are too coarse, it's in millionths, so 10000 is 1%, 1000 is 0.1%. Changing this value will only affect new channels and not existing ones. If you want to change fees for existing channels, use the RPC call [`lightning-setchannel`](ref:lightning-setchannel).
+  Default: 10 (0.001%). This is the proportional fee to charge for every payment which passes through. As percentages are too coarse, it's in millionths, so 10000 is 1%, 1000 is 0.1%. Changing this value will only affect new channels and not existing ones. If you want to change fees for existing channels, use the RPC call [`setchannel`](ref:setchannel).
 
 - **min-capacity-sat**=_SATOSHI_
 
@@ -277,18 +277,18 @@ The [`lightning-listconfigs`](ref:lightning-listconfigs) command will output a v
 - **force-feerates**==_VALUES_
 
   Networks like regtest and testnet have unreliable fee estimates: we usually treat them as the minimum (253 sats/kw) if we can't get them.  
-  This allows override of one or more of our standard feerates (see [`lightning-feerates`](ref:lightning-feerates)).  Up to 5 values, separated by '/' can be provided: if fewer are provided, then the final value is used for the remainder.  The values are in per-kw (roughly 1/4 of bitcoind's per-kb values), and the order is "opening", "mutual_close", "unilateral_close", "delayed_to_us", "htlc_resolution", and "penalty".
+  This allows override of one or more of our standard feerates (see [`feerates`](ref:feerates)).  Up to 5 values, separated by '/' can be provided: if fewer are provided, then the final value is used for the remainder.  The values are in per-kw (roughly 1/4 of bitcoind's per-kb values), and the order is "opening", "mutual_close", "unilateral_close", "delayed_to_us", "htlc_resolution", and "penalty".
 
   You would usually put this option in the per-chain config file, to avoid setting it on Bitcoin mainnet!  e.g. `~rusty/.lightning/regtest/config`.
 
 - **htlc-minimum-msat**=_MILLISATOSHI_
 
   Default: 0. Sets the minimal allowed HTLC value for newly created channels.  
-  If you want to change the `htlc_minimum_msat` for existing channels, use the RPC call [`lightning-setchannel`](ref:lightning-setchannel).
+  If you want to change the `htlc_minimum_msat` for existing channels, use the RPC call [`setchannel`](ref:setchannel).
 
 - **htlc-maximum-msat**=_MILLISATOSHI_
 
-  Default: unset (no limit). Sets the maximum allowed HTLC value for newly created channels. If you want to change the `htlc_maximum_msat` for existing channels, use the RPC call [`lightning-setchannel`](ref:lightning-setchannel).
+  Default: unset (no limit). Sets the maximum allowed HTLC value for newly created channels. If you want to change the `htlc_maximum_msat` for existing channels, use the RPC call [`setchannel`](ref:setchannel).
 
 ### Lightning channel and HTLC options
 
@@ -477,13 +477,13 @@ plugins along with any immediate subdirectories). You can specify additional pat
 
 - **disable-plugin**=_PLUGIN_
 
-  If _PLUGIN_ contains a /, plugins with the same path as _PLUGIN_ will not be loaded at startup. Otherwise, no plugin with that base name will be loaded at startup, whatever directory it is in.  This option is useful for disabling a single plugin inside a directory.  You can still explicitly load plugins which have been disabled, using [lightning-plugin](ref:lightning-plugin) `start`.
+  If _PLUGIN_ contains a /, plugins with the same path as _PLUGIN_ will not be loaded at startup. Otherwise, no plugin with that base name will be loaded at startup, whatever directory it is in.  This option is useful for disabling a single plugin inside a directory.  You can still explicitly load plugins which have been disabled, using [plugin](ref:plugin) `start`.
 
 - **important-plugin**=_PLUGIN_
 
   Specify a plugin to run as part of Core Lightning.  
   This can be specified multiple times to add multiple plugins.  
-  Plugins specified via this option are considered so important, that if the plugin stops for any reason (including via [lightning-plugin](ref:lightning-plugin) `stop`), Core Lightning will also stop running.  
+  Plugins specified via this option are considered so important, that if the plugin stops for any reason (including via [plugin](ref:plugin) `stop`), Core Lightning will also stop running.  
   This way, you can monitor crashes of important plugins by simply monitoring if Core Lightning terminates.  
   Built-in plugins, which are installed with lightningd, are automatically considered important.
 

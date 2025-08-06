@@ -24,11 +24,11 @@ msgtype,pong,19
 msgdata,pong,byteslen,u16,
 msgdata,pong,ignored,byte,byteslen
 msgtype,peer_storage,7
-msgdata,peer_storage,len,u16,
-msgdata,peer_storage,blob,byte,len
+msgdata,peer_storage,length,u16,
+msgdata,peer_storage,blob,byte,length
 msgtype,peer_storage_retrieval,9
-msgdata,peer_storage_retrieval,len,u16,
-msgdata,peer_storage_retrieval,blob,byte,len
+msgdata,peer_storage_retrieval,length,u16,
+msgdata,peer_storage_retrieval,blob,byte,length
 tlvtype,n1,tlv1,1
 tlvdata,n1,tlv1,amount_msat,tu64,
 tlvtype,n1,tlv2,2

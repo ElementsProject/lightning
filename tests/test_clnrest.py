@@ -1,7 +1,6 @@
 from fixtures import *  # noqa: F401,F403
 from pyln.testing.utils import TEST_NETWORK, wait_for
 from pyln.client import Millisatoshi
-import os
 import requests
 from pathlib import Path
 from requests.adapters import HTTPAdapter
@@ -9,6 +8,7 @@ from urllib3.util.retry import Retry
 import socketio
 import time
 import pytest
+import json
 
 
 def http_session_with_retry():
@@ -469,43 +469,6 @@ def test_http_headers(node_factory):
     assert response.headers['Access-Control-Allow-Origin'] == 'http://192.168.1.10:1010'
 
 
-def test_old_params(node_factory):
-    """Test that we handle the v23.08-style parameters"""
-    rest_port = str(node_factory.get_unused_port())
-    rest_host = '127.0.0.1'
-    base_url = f'https://{rest_host}:{rest_port}'
-    l1 = node_factory.get_node(options={'rest-port': rest_port,
-                                        'rest-host': rest_host,
-                                        'allow-deprecated-apis': True,
-                                        'i-promise-to-fix-broken-api-user': ['rest-port.clnrest-prefix', 'rest-host.clnrest-prefix']},
-                               broken_log=r'DEPRECATED API USED rest-*')
-
-    # This might happen really early!
-    l1.daemon.logsearch_start = 0
-    l1.daemon.wait_for_logs([r'UNUSUAL lightningd: Option rest-port=.* deprecated in v23\.11, renaming to clnrest-port',
-                             r'UNUSUAL lightningd: Option rest-host=.* deprecated in v23\.11, renaming to clnrest-host'])
-    l1.daemon.wait_for_log(r'plugin-clnrest: REST server running at ' + base_url)
-
-    # Now try one where a plugin (e.g. clightning-rest) registers the option.
-    plugin = os.path.join(os.path.dirname(__file__), 'plugins/clnrest-use-options.py')
-    l2 = node_factory.get_node(options={'rest-port': rest_port,
-                                        'rest-host': rest_host,
-                                        'plugin': plugin,
-                                        'allow-deprecated-apis': True,
-                                        'i-promise-to-fix-broken-api-user': ['rest-port.clnrest-prefix', 'rest-host.clnrest-prefix']},
-                               broken_log=r'DEPRECATED API USED rest-*')
-
-    l2.daemon.logsearch_start = 0
-    # We still rename this one, since it's for clnrest.
-    assert l2.daemon.is_in_log(r'UNUSUAL lightningd: Option rest-host=.* deprecated in v23\.11, renaming to clnrest-host')
-
-    # This one does not get renamed!
-    assert not l2.daemon.is_in_log(r'UNUSUAL lightningd: Option rest-port=.* deprecated in v23\.11, renaming to clnrest-host')
-    assert [p for p in l2.rpc.plugin('list')['plugins'] if p['name'].endswith('clnrest')] == []
-    assert l2.daemon.is_in_log(r'plugin-clnrest: Killing plugin: disabled itself at init: `clnrest-port` option is not configured')
-    assert l2.daemon.is_in_log(rf'clnrest-use-options.py: rest-port is {rest_port}')
-
-
 def test_websocket_upgrade_header(node_factory):
     """Test that not setting an upgrade header leads to rejection"""
     # start a node with clnrest
@@ -532,3 +495,146 @@ def test_websocket_upgrade_header(node_factory):
     sio.disconnect()
 
     assert len(notifications) == 0
+
+
+def test_accept_header_types(node_factory):
+    l1, base_url, ca_cert = start_node_with_clnrest(node_factory)
+    http_session = http_session_with_retry()
+
+    rune = l1.rpc.createrune(restrictions=[])['rune']
+
+    response = http_session.post(base_url + '/v1/getinfo',
+                                 headers={'Rune': rune},
+                                 verify=ca_cert)
+    response.raise_for_status()
+    assert response.json()['id'] == l1.info['id']
+
+    response = http_session.post(base_url + '/v1/getinfo',
+                                 headers={'Rune': rune, 'Accept': 'application/json'},
+                                 verify=ca_cert)
+    response.raise_for_status()
+    assert response.json()['id'] == l1.info['id']
+
+    response = http_session.post(base_url + '/v1/getinfo',
+                                 headers={'Rune': rune, 'Accept': 'application/yaml'},
+                                 verify=ca_cert)
+    response.raise_for_status()
+    assert f"id: '{l1.info['id']}'" in response.text
+
+    response = http_session.post(base_url + '/v1/getinfo',
+                                 headers={'Rune': rune, 'Accept': 'application/xml'},
+                                 verify=ca_cert)
+    response.raise_for_status()
+    assert f"<id>{l1.info['id']}</id>" in response.text
+
+    response = http_session.post(base_url + '/v1/getinfo',
+                                 headers={'Rune': rune, 'Accept': 'application/x-www-form-urlencoded'},
+                                 verify=ca_cert)
+    response.raise_for_status()
+    assert f"id={l1.info['id']}" in response.text
+
+
+def test_content_type_header_types(node_factory):
+    l1, base_url, ca_cert = start_node_with_clnrest(node_factory)
+    http_session = http_session_with_retry()
+
+    datastore_res = l1.rpc.datastore(key=['project'], string='core lightning', mode='must-create')
+    rune = l1.rpc.createrune(restrictions=[])['rune']
+
+    listdatastore_res = http_session.post(base_url + '/v1/listdatastore',
+                                          headers={'Rune': rune},
+                                          data=json.dumps({'key': ['project']}),
+                                          verify=ca_cert)
+    listdatastore_res.raise_for_status()
+    datastore_key = listdatastore_res.json()["datastore"]
+    assert len(datastore_key) == 1
+    assert datastore_key[0]['key'] == datastore_res['key']
+    assert datastore_key[0]['string'] == datastore_res['string']
+
+    listdatastore_res = http_session.post(base_url + '/v1/listdatastore',
+                                          headers={'Rune': rune, 'Content-Type': 'application/json'},
+                                          data=json.dumps({'key': ['project']}),
+                                          verify=ca_cert)
+    listdatastore_res.raise_for_status()
+    datastore_key = listdatastore_res.json()["datastore"]
+    assert len(datastore_key) == 1
+    assert datastore_key[0]['key'] == datastore_res['key']
+    assert datastore_key[0]['string'] == datastore_res['string']
+
+    listdatastore_res = http_session.post(base_url + '/v1/listdatastore',
+                                          headers={'Rune': rune, 'Content-Type': 'application/yaml'},
+                                          data=f"key: {datastore_res['key']}",
+                                          verify=ca_cert)
+    listdatastore_res.raise_for_status()
+    datastore_key = listdatastore_res.json()["datastore"]
+    assert len(datastore_key) == 1
+    assert datastore_key[0]['key'] == datastore_res['key']
+    assert datastore_key[0]['string'] == datastore_res['string']
+
+    listdatastore_res = http_session.post(base_url + '/v1/listdatastore',
+                                          headers={'Rune': rune, 'Content-Type': 'application/xml'},
+                                          data=f"<listdatastore><key>{datastore_res['key'][0]}</key></listdatastore>",
+                                          verify=ca_cert)
+    listdatastore_res.raise_for_status()
+    datastore_key = listdatastore_res.json()["datastore"]
+    assert len(datastore_key) == 1
+    assert datastore_key[0]['key'] == datastore_res['key']
+    assert datastore_key[0]['string'] == datastore_res['string']
+
+    listdatastore_res = http_session.post(base_url + '/v1/listdatastore',
+                                          headers={'Rune': rune, 'Content-Type': 'application/x-www-form-urlencoded'},
+                                          data={'key': datastore_res['key']},
+                                          verify=ca_cert)
+    listdatastore_res.raise_for_status()
+    datastore_key = listdatastore_res.json()["datastore"]
+    assert len(datastore_key) == 1
+    assert datastore_key[0]['key'] == datastore_res['key']
+    assert datastore_key[0]['string'] == datastore_res['string']
+
+
+def test_matching_accept_and_content_types(node_factory):
+    l1, base_url, ca_cert = start_node_with_clnrest(node_factory)
+    http_session = http_session_with_retry()
+
+    datastore_res = l1.rpc.datastore(key=['project'], string='core lightning', mode='must-create')
+
+    rune = l1.rpc.createrune(restrictions=[])['rune']
+
+    listdatastore_res = http_session.post(base_url + '/v1/listdatastore',
+                                          headers={'Rune': rune},
+                                          data=json.dumps({'key': datastore_res['key']}),
+                                          verify=ca_cert)
+    listdatastore_res.raise_for_status()
+    datastore_key = listdatastore_res.json()["datastore"]
+    assert len(datastore_key) == 1
+    assert datastore_key[0]['key'] == datastore_res['key']
+
+    listdatastore_res = http_session.post(base_url + '/v1/listdatastore',
+                                          headers={'Rune': rune, 'Content-Type': 'application/json', 'Accept': 'application/json'},
+                                          data=json.dumps({'key': datastore_res['key']}),
+                                          verify=ca_cert)
+    listdatastore_res.raise_for_status()
+    datastore_key = listdatastore_res.json()["datastore"]
+    assert len(datastore_key) == 1
+    assert datastore_key[0]['key'] == datastore_res['key']
+
+    listdatastore_res = http_session.post(base_url + '/v1/listdatastore',
+                                          headers={'Rune': rune, 'Content-Type': 'application/yaml', 'Accept': 'application/yaml'},
+                                          data=f"key: {datastore_res['key']}",
+                                          verify=ca_cert)
+    listdatastore_res.raise_for_status()
+    assert f"key:\n  - {datastore_res['key'][0]}" in listdatastore_res.text
+
+    listdatastore_res = http_session.post(base_url + '/v1/listdatastore',
+                                          headers={'Rune': rune, 'Content-Type': 'application/xml', 'Accept': 'application/xml'},
+                                          data=f"<listdatastore><key>{datastore_res['key'][0]}</key></listdatastore>",
+                                          verify=ca_cert)
+    listdatastore_res.raise_for_status()
+    assert f"<key>{datastore_res['key'][0]}</key>" in listdatastore_res.text
+
+    listdatastore_res = http_session.post(base_url + '/v1/listdatastore',
+                                          headers={'Rune': rune, 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/x-www-form-urlencoded'},
+                                          data={'key': datastore_res['key']},
+                                          verify=ca_cert)
+    listdatastore_res.raise_for_status()
+    assert f"datastore[0][key][0]={datastore_res['key'][0]}" in listdatastore_res.text

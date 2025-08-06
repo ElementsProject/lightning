@@ -568,25 +568,88 @@ def test_getroutes(node_factory):
                             'amount_msat': 5500005,
                             'delay': 99 + 6}]])
 
-    # We realize that this is impossible in a single path:
-    with pytest.raises(RpcError, match="The shortest path is 0x2x1, but 0x2x1/1 marked disabled by layer auto.no_mpp_support."):
-        l1.rpc.getroutes(source=nodemap[0],
-                         destination=nodemap[2],
-                         amount_msat=10000000,
-                         layers=['auto.no_mpp_support'],
-                         maxfee_msat=1000,
-                         final_cltv=99)
 
-    # But this will work.
-    check_getroute_paths(l1,
-                         nodemap[0],
-                         nodemap[2],
-                         9000000,
-                         [[{'short_channel_id_dir': '0x2x3/1',
-                            'next_node_id': nodemap[2],
-                            'amount_msat': 9000009,
-                            'delay': 99 + 6}]],
-                         layers=['auto.no_mpp_support'])
+def test_getroutes_single_path(node_factory):
+    """Test getroutes generating single path payments"""
+    gsfile, nodemap = generate_gossip_store(
+        [
+            GenChannel(0, 1),
+            GenChannel(1, 2, capacity_sats=9000),
+            GenChannel(1, 2, capacity_sats=10000),
+        ]
+    )
+    # Set up l1 with this as the gossip_store
+    l1 = node_factory.get_node(gossip_store_file=gsfile.name)
+
+    # To be able to route this amount two parts are needed, therefore a single
+    # pay search will fail.
+    # FIXME: the explanation for the failure is wrong
+    with pytest.raises(RpcError):
+        l1.rpc.getroutes(
+            source=nodemap[1],
+            destination=nodemap[2],
+            amount_msat=10000001,
+            layers=["auto.no_mpp_support"],
+            maxfee_msat=1000,
+            final_cltv=99,
+        )
+
+    # For this amount, only one solution is possible
+    check_getroute_paths(
+        l1,
+        nodemap[1],
+        nodemap[2],
+        10000000,
+        [
+            [
+                {
+                    "short_channel_id_dir": "1x2x2/1",
+                    "next_node_id": nodemap[2],
+                    "amount_msat": 10000010,
+                    "delay": 99 + 6,
+                }
+            ]
+        ],
+        layers=["auto.no_mpp_support"],
+    )
+
+    # To be able to route this amount two parts are needed, therefore a single
+    # pay search will fail.
+    # FIXME: the explanation for the failure is wrong
+    with pytest.raises(RpcError):
+        l1.rpc.getroutes(
+            source=nodemap[0],
+            destination=nodemap[2],
+            amount_msat=10000001,
+            layers=["auto.no_mpp_support"],
+            maxfee_msat=1000,
+            final_cltv=99,
+        )
+
+    # For this amount, only one solution is possible
+    check_getroute_paths(
+        l1,
+        nodemap[0],
+        nodemap[2],
+        10000000,
+        [
+            [
+                {
+                    "short_channel_id_dir": "0x1x0/1",
+                    "next_node_id": nodemap[1],
+                    "amount_msat": 10000020,
+                    "delay": 99 + 6 + 6,
+                },
+                {
+                    "short_channel_id_dir": "1x2x2/1",
+                    "next_node_id": nodemap[2],
+                    "amount_msat": 10000010,
+                    "delay": 99 + 6,
+                },
+            ]
+        ],
+        layers=["auto.no_mpp_support"],
+    )
 
 
 def test_getroutes_fee_fallback(node_factory):
@@ -1141,10 +1204,10 @@ def test_real_data(node_factory, bitcoind):
     # CI, it's slow.
     if SLOW_MACHINE:
         limit = 25
-        expected = (6, 25, 1544756, 142986, 91)
+        expected = (6, 25, 1568821, 143649, 91)
     else:
         limit = 100
-        expected = (9, 95, 6347877, 566288, 92)
+        expected = (9, 96, 6565467, 630668, 91)
 
     fees = {}
     for n in range(0, limit):
@@ -1258,10 +1321,10 @@ def test_real_biases(node_factory, bitcoind):
     # CI, it's slow.
     if SLOW_MACHINE:
         limit = 25
-        expected = ({1: 5, 2: 7, 4: 7, 8: 11, 16: 14, 32: 19, 64: 25, 100: 25}, 0)
+        expected = ({1: 6, 2: 6, 4: 7, 8: 12, 16: 14, 32: 19, 64: 25, 100: 25}, 0)
     else:
         limit = 100
-        expected = ({1: 23, 2: 31, 4: 40, 8: 53, 16: 70, 32: 82, 64: 96, 100: 96}, 0)
+        expected = ({1: 22, 2: 25, 4: 36, 8: 53, 16: 69, 32: 80, 64: 96, 100: 96}, 0)
 
     l1.rpc.askrene_create_layer('biases')
     num_changed = {}

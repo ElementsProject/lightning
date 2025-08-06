@@ -21,6 +21,7 @@ sudo ln -s /snap/bitcoin-core/current/bin/bitcoin{d,-cli} /usr/local/bin/
 Then you can fetch a pre-compiled binary from the [releases](https://github.com/ElementsProject/lightning/releases) page on GitHub. Core Lightning provides binaries for both Ubuntu and Fedora distributions. Normally these binaries are extracted into /usr/local:
 
 ```shell
+sudo rm -R /usr/local/libexec/c-lightning/plugins # If you are upgrading run this first to avoid plugin conflicts
 sudo tar -xvf <release>.tar.xz -C /usr/local --strip-components=2
 ```
 
@@ -117,7 +118,7 @@ pip3 install pytest
 
 If you can't install `lowdown`, a version will be built in-tree.
 
-If you want to build the Rust plugins (currently cln-grpc and clnrest, which changed from Python to Rust as of v25.02):
+If you want to build the Rust plugins (cln-grpc, clnrest, and wss-proxy):
 
 ```shell
 sudo apt-get install -y cargo rustfmt protobuf-compiler
@@ -141,7 +142,7 @@ sudo RUST_PROFILE=release make install
 
 > 📘 
 > 
-> If you want disable Rust because you do not want use it or you do not want `cln-grpc` or `clnrest`, you can use `./configure --disable-rust`.
+> If you want to disable Rust because you don’t need it or its plugins (cln-grpc, clnrest, or wss-proxy), you can use `./configure --disable-rust`.
 
 To build CLN for development:
 
@@ -594,11 +595,3 @@ apk add libgcc libsodium sqlite-libs zlib
 Python plugins will be installed with the `poetry install` step mentioned above fron development setup. 
 
 Other users will need some Python packages if python plugins are used. Unfortunately there are some Python packages which are not packaged in Ubuntu, and so force installation will be needed (Flag `--user` is recommended which will install them in user's own .local directory, so at least the risk of breaking Python globally can be avoided!).
-
-### wss-proxy
-
-Below libraries are required for wss-proxy:
-
-```
-pip3 install --user pyln-client websockets
-```

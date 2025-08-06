@@ -64,8 +64,9 @@ static const char *pull_bits(struct hash_u5 *hu5,
 
 /* Helper for pulling a variable-length big-endian int. */
 static const char *pull_uint(struct hash_u5 *hu5,
-		      const u5 **data, size_t *data_len,
-		      u64 *val, size_t databits)
+			     const u5 **data, size_t *data_len,
+			     u64 *val, size_t databits,
+			     bool must_be_minimal)
 {
 	be64 be_val;
 	const char *err;
@@ -73,6 +74,11 @@ static const char *pull_uint(struct hash_u5 *hu5,
 	/* Too big. */
 	if (databits > sizeof(be_val) * CHAR_BIT)
 		return "integer too large";
+	if (must_be_minimal
+	    && databits >= 5
+	    && *data_len > 1
+	    && (*data)[0] == 0)
+		return "not a minimal value";
 	err = pull_bits(hu5, data, data_len, &be_val, databits, true);
 	if (err)
 		return err;
@@ -173,16 +179,15 @@ static const char *decode_p(struct bolt11 *b11,
 {
 	/* BOLT #11:
 	 *
-	 * A payer... SHOULD use the first `p` field that it did NOT
-	 * skip as the payment hash.
+	 * A payer... SHOULD use the first `p` field as the payment hash.
 	 */
 	assert(!*have_p);
 
 	/* BOLT #11:
 	 *
-	 * A reader... MUST skip over unknown fields, OR an `f` field
-	 * with unknown `version`, OR `p`, `h`, `s` or `n` fields that do
-	 * NOT have `data_length`s of 52, 52, 52 or 53, respectively.
+	 * A reader...
+	 * - MUST fail the payment if any mandatory field (`p`, `h`, `s`, `n`)
+	 *   does not have the correct length (52, 52, 52, 53).
 	 */
 	return pull_expected_length(b11, hu5, data, field_len, 52, 'p',
 				    have_p, &b11->payment_hash);
@@ -234,9 +239,9 @@ static const char *decode_h(struct bolt11 *b11,
 	assert(!*have_h);
 	/* BOLT #11:
 	 *
-	 * A reader... MUST skip over unknown fields, OR an `f` field
-	 * with unknown `version`, OR `p`, `h`, `s` or `n` fields that do
-	 * NOT have `data_length`s of 52, 52, 52 or 53, respectively. */
+	 * A reader...
+	 * - MUST fail the payment if any mandatory field (`p`, `h`, `s`, `n`)
+	 *   does not have the correct length (52, 52, 52, 53). */
 	err = pull_expected_length(b11, hu5, data, field_len, 52, 'h',
 				    have_h, &hash);
 
@@ -262,8 +267,12 @@ static const char *decode_x(struct bolt11 *b11,
 
 	assert(!*have_x);
 
-	/* FIXME: Put upper limit in bolt 11 */
-	err = pull_uint(hu5, data, field_len, &b11->expiry, *field_len * 5);
+	/* BOLT #11:
+	 * - if a `c`, `x`, or `9` field is provided which has a non-minimal `data_length`
+	 *   (i.e. begins with 0 field elements):
+	 *   - SHOULD treat the invoice as invalid.
+	 */
+	err = pull_uint(hu5, data, field_len, &b11->expiry, *field_len * 5, true);
 	if (err)
 		return tal_fmt(b11, "x: %s", err);
 
@@ -287,8 +296,12 @@ static const char *decode_c(struct bolt11 *b11,
 
 	assert(!*have_c);
 
-	/* FIXME: Put upper limit in bolt 11 */
-	err = pull_uint(hu5, data, field_len, &c, *field_len * 5);
+	/* BOLT #11:
+	 * - if a `c`, `x`, or `9` field is provided which has a non-minimal `data_length`
+	 *   (i.e. begins with 0 field elements):
+	 *   - SHOULD treat the invoice as invalid.
+	 */
+	err = pull_uint(hu5, data, field_len, &c, *field_len * 5, true);
 	if (err)
 		return tal_fmt(b11, "c: %s", err);
 	b11->min_final_cltv_expiry = c;
@@ -311,9 +324,9 @@ static const char *decode_n(struct bolt11 *b11,
 	assert(!*have_n);
 	/* BOLT #11:
 	 *
-	 * A reader... MUST skip over unknown fields, OR an `f` field
-	 * with unknown `version`, OR `p`, `h`, `s` or `n` fields that do
-	 * NOT have `data_length`s of 52, 52, 52 or 53, respectively. */
+	 * A reader...
+	 * - MUST fail the payment if any mandatory field (`p`, `h`, `s`, `n`)
+	 *   does not have the correct length (52, 52, 52, 53). */
 	err = pull_expected_length(b11, hu5, data, field_len, 53, 'n', have_n,
 				   &b11->receiver_id.k);
 
@@ -347,9 +360,9 @@ static const char *decode_s(struct bolt11 *b11,
 
 	/* BOLT #11:
 	 *
-	 * A reader... MUST skip over unknown fields, OR an `f` field
-	 * with unknown `version`, OR `p`, `h`, `s` or `n` fields that do
-	 * NOT have `data_length`s of 52, 52, 52 or 53, respectively. */
+	 * A reader...
+	 * - MUST fail the payment if any mandatory field (`p`, `h`, `s`, `n`)
+	 *   does not have the correct length (52, 52, 52, 53). */
 	err = pull_expected_length(b11, hu5, data, field_len, 52, 's',
 				   have_s, &secret);
 	if (*have_s)
@@ -375,7 +388,7 @@ static const char *decode_f(struct bolt11 *b11,
 	size_t orig_len = *field_len;
 	const char *err;
 
-	err = pull_uint(hu5, data, field_len, &version, 5);
+	err = pull_uint(hu5, data, field_len, &version, 5, false);
 	if (err)
 		return tal_fmt(b11, "f: %s", err);
 
@@ -429,6 +442,9 @@ static const char *decode_f(struct bolt11 *b11,
 		fallback = scriptpubkey_witness_raw(b11, version,
 						    f, tal_count(f));
 	} else {
+		/* BOLT #11:
+		 *   - MUST skip over `f` fields that use an unknown `version`.
+		 */
 		/* Restore version for unknown field! */
 		*data = orig_data;
 		*field_len = orig_len;
@@ -550,6 +566,14 @@ static const char *decode_9(struct bolt11 *b11,
 	if (!b11->features)
 		return err;
 
+	/* BOLT #11:
+	 *   - if a `c`, `x`, or `9` field is provided which has a non-minimal `data_length`
+	 *     (i.e. begins with 0 field elements):
+	 *   - SHOULD treat the invoice as invalid.
+	 */
+	if (tal_count(b11->features) > 0 && b11->features[0] == 0)
+		return tal_fmt(b11, "9: non-minimal length (begins with 0)");
+
 	/* pull_bits pads with zero bits: we need to remove them. */
 	shift_bitmap_down(b11->features,
 			  flen * 8 - databits);
@@ -642,8 +666,7 @@ struct decoder {
 static const struct decoder decoders[] = {
 	/* BOLT #11:
 	 *
-	 * A payer... SHOULD use the first `p` field that it did NOT
-	 * skip as the payment hash.
+	 * A payer... SHOULD use the first `p` field as the payment hash.
 	 */
 	{ 'p', false, decode_p },
 	{ 'd', false, decode_d },
@@ -847,7 +870,7 @@ struct bolt11 *bolt11_decode_nosig(const tal_t *ctx, const char *str,
 	 * 1. zero or more tagged parts
 	 * 1. `signature`: Bitcoin-style signature of above (520 bits)
 	 */
-	err = pull_uint(&hu5, &data, &data_len, &b11->timestamp, 35);
+	err = pull_uint(&hu5, &data, &data_len, &b11->timestamp, 35, false);
 	if (err)
 		return decode_fail(b11, fail,
 				   "Can't get 35-bit timestamp: %s", err);
@@ -866,11 +889,11 @@ struct bolt11 *bolt11_decode_nosig(const tal_t *ctx, const char *str,
 		 * 1. `data_length` (10 bits, big-endian)
 		 * 1. `data` (`data_length` x 5 bits)
 		 */
-		err = pull_uint(&hu5, &data, &data_len, &type, 5);
+		err = pull_uint(&hu5, &data, &data_len, &type, 5, false);
 		if (err)
 			return decode_fail(b11, fail,
 					   "Can't get tag: %s", err);
-		err = pull_uint(&hu5, &data, &data_len, &field_len64, 10);
+		err = pull_uint(&hu5, &data, &data_len, &field_len64, 10, false);
 		if (err)
 			return decode_fail(b11, fail,
 					   "Can't get length: %s", err);
@@ -905,6 +928,9 @@ struct bolt11 *bolt11_decode_nosig(const tal_t *ctx, const char *str,
 
 	if (!have_field[bech32_charset_rev['p']])
 		return decode_fail(b11, fail, "No valid 'p' field found");
+
+	if (!have_field[bech32_charset_rev['s']])
+		return decode_fail(b11, fail, "Missing required payment secret (s field)");
 
 	if (have_field[bech32_charset_rev['h']] && description) {
 		struct sha256 sha;
@@ -1053,10 +1079,11 @@ static void push_field(u5 **data, char type, const void *src, size_t nbits)
 /* BOLT #11:
  *
  * - if `x` is included:
- *   - SHOULD use the minimum `data_length` possible.
+ *   - MUST use the minimum `data_length` possible, i.e. no leading 0 field-elements.
  * - SHOULD include one `c` field (`min_final_cltv_expiry_delta`).
- *...
- *   - SHOULD use the minimum `data_length` possible.
+ *    - MUST set `c` to the minimum `cltv_expiry` it will accept for the last
+ *      HTLC in the route.
+ *    - MUST use the minimum `data_length` possible, i.e. no leading 0 field-elements.
  */
 static void push_varlen_field(u5 **data, char type, u64 val)
 {
@@ -1197,7 +1224,8 @@ static void maybe_encode_9(u5 **data, const u8 *features,
 	/* BOLT #11:
 	 *
 	 * - if `9` contains non-zero bits:
-	 *   - SHOULD use the minimum `data_length` possible.
+	 *   - MUST use the minimum `data_length` possible to encode the non-zero bits
+	 *     with no 0 field-elements at the start.
 	 * - otherwise:
 	 *   - MUST omit the `9` field altogether.
 	 */

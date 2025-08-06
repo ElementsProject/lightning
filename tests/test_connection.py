@@ -654,12 +654,13 @@ def test_disconnect_half_signed_v2(node_factory):
 @pytest.mark.openchannel('v2')
 def test_reconnect_signed(node_factory):
     # This will fail *after* both sides consider channel opening.
-    disconnects = ['<WIRE_FUNDING_SIGNED']
     if EXPERIMENTAL_DUAL_FUND:
-        disconnects = ['<WIRE_COMMITMENT_SIGNED']
-
-    l1 = node_factory.get_node(may_reconnect=True, disconnect=disconnects)
-    l2 = node_factory.get_node(may_reconnect=True)
+        # Definitely in DUALOPEND_OPEN_COMMITTED once it's trying to send this.
+        l1 = node_factory.get_node(may_reconnect=True)
+        l2 = node_factory.get_node(may_reconnect=True, disconnect=['-WIRE_TX_SIGNATURES'])
+    else:
+        l1 = node_factory.get_node(may_reconnect=True, disconnect=['<WIRE_FUNDING_SIGNED'])
+        l2 = node_factory.get_node(may_reconnect=True)
 
     l1.fundwallet(2000000)
 
@@ -4589,7 +4590,7 @@ def test_wss_proxy(node_factory):
     wss_proxy_certs = node_factory.directory + '/wss-proxy-certs'
     l1 = node_factory.get_node(options={'addr': ':' + str(port),
                                         'bind-addr': 'ws:127.0.0.1:' + str(ws_port),
-                                        'wss-bind-addr': '127.0.0.1:' + str(wss_port),
+                                        'wss-bind-addr': ['127.0.0.1:' + str(wss_port), '[::1]:' + str(wss_port)],
                                         'wss-certs': wss_proxy_certs,
                                         'dev-allow-localhost': None})
 
@@ -4611,7 +4612,11 @@ def test_wss_proxy(node_factory):
             certfile = f'{wss_proxy_certs}/client.pem'
             keyfile = f'{wss_proxy_certs}/client-key.pem'
             self.ws = websocket.WebSocket(sslopt={"cert_reqs": ssl.CERT_NONE, "ssl_version": ssl.PROTOCOL_TLS_CLIENT, "certfile": certfile, "keyfile": keyfile})
-            self.ws.connect("wss://" + hostname + ":" + str(port))
+            self.ws.settimeout(TIMEOUT)
+            try:
+                self.ws.connect("wss://" + hostname + ":" + str(port))
+            except Exception as e:
+                raise Exception(f"WebSocket connection failed: {e}")
             self.recvbuf = bytes()
 
         def send(self, data):
@@ -4625,10 +4630,11 @@ def test_wss_proxy(node_factory):
             self.recvbuf = self.recvbuf[maxlen:]
             return ret
 
-    # There can be a delay between the printing of "Websocket Secure Server Started"
-    # and actually binding the port.  There's no obvious way to delay that message
-    # it's done.  So we sleep here.
-    time.sleep(10)
+    # This might happen really early!
+    l1.daemon.logsearch_start = 0
+    l1.daemon.wait_for_log(f'Websocket Secure Server Started at 127.0.0.1:{wss_port}')
+    l1.daemon.logsearch_start = 0
+    l1.daemon.wait_for_log(fr'Websocket Secure Server Started at \[::1\]:{wss_port}')
 
     wss = BindWebSecureSocket('localhost', wss_port)
 
@@ -4637,12 +4643,11 @@ def test_wss_proxy(node_factory):
                                      wire.PrivateKey(bytes([1] * 32)),
                                      is_initiator=True)
 
-    # This might happen really early!
-    l1.daemon.logsearch_start = 0
-    l1.daemon.wait_for_log(r'Websocket Secure Server Started')
-
     # Perform handshake.
-    lconn.shake()
+    try:
+        lconn.shake()
+    except Exception as e:
+        raise Exception(f"Handshake failed: {e}")
 
     # Expect to receive init msg.
     msg = lconn.read_message()

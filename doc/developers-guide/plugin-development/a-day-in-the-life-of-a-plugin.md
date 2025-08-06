@@ -28,7 +28,7 @@ lightningd --plugin=/path/to/plugin1 --plugin=path/to/plugin2
 
 Once those two methods were called `lightningd` will start passing through incoming JSON-RPC commands that were registered and the plugin may interact with `lightningd` using the JSON-RPC over Unix-Socket interface.
 
-Above is generally valid for plugins that start when `lightningd` starts. For dynamic plugins that start via the [lightning-plugin](ref:lightning-plugin) JSON-RPC command there is some difference, mainly in options passthrough (see note in [Types of Options](doc:a-day-in-the-life-of-a-plugin#types-of-options)).
+Above is generally valid for plugins that start when `lightningd` starts. For dynamic plugins that start via the [lightning-plugin](ref:plugin) JSON-RPC command there is some difference, mainly in options passthrough (see note in [Types of Options](doc:a-day-in-the-life-of-a-plugin#types-of-options)).
 
 - `shutdown` (optional): if subscribed to "shutdown" notification, a plugin can exit cleanly when `lightningd` is shutting down or when stopped via `plugin stop`.
 
@@ -106,7 +106,7 @@ The `subscriptions` array indicates what [Event Notifications](doc:event-notific
 
 The `nonnumericids` indicates that the plugin can handle string JSON request `id` fields: prior to v22.11 lightningd used numbers for these, and the change to strings broke some plugins.  If present, this must be `true` (since v23.05).  See the [lightningd-rpc](ref:lightningd-rpc) documentation for how to handle JSON `id` fields!
 
-The `dynamic` indicates if the plugin can be managed after `lightningd` has been started using the [lightning-plugin](ref:lightning-plugin) JSON-RPC command. Critical plugins that should not be stopped should set it to false. Plugin `options` can be passed to dynamic plugins as argument to the `plugin` command .
+The `dynamic` indicates if the plugin can be managed after `lightningd` has been started using the [lightning-plugin](ref:plugin) JSON-RPC command. Critical plugins that should not be stopped should set it to false. Plugin `options` can be passed to dynamic plugins as argument to the `plugin` command .
 
 If you can handle the `check` command on your commands, you should set `cancheck` to `true` and expect `lightningd` to pass through any user-requested `check` commands to you directly (without this, `check` currently always passes, which is not very useful!).
   
@@ -251,4 +251,4 @@ The `startup` field allows a plugin to detect if it was started at `lightningd` 
 ### Timeouts
 
 During startup ("startup" is true), the plugin has 60 seconds to return `getmanifest` and another 60 seconds to return `init`, or gets killed.  
-When started dynamically via the [lightning-plugin](ref:lightning-plugin) JSON-RPC command, both `getmanifest` and `init` should be completed within 60 seconds.
+When started dynamically via the [lightning-plugin](ref:plugin) JSON-RPC command, both `getmanifest` and `init` should be completed within 60 seconds.
