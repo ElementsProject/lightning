@@ -2419,6 +2419,48 @@ def test_htlc_accepted_hook_failmsg(node_factory):
             l1.rpc.pay(inv)
 
 
+def test_htlc_accepted_hook_customtlvs(node_factory):
+    """ Passes an custom extra tlv field to the hooks return that should be set
+        as the `update_add_htlc_tlvs` in the `update_add_htlc` message on
+        forwards.
+    """
+    plugin = os.path.join(os.path.dirname(__file__), 'plugins/htlc_accepted-customtlv.py')
+    l1, l2, l3 = node_factory.line_graph(3, opts=[{}, {'plugin': plugin}, {'plugin': plugin}], wait_for_announce=True)
+
+    # Single tlv - Check that we receive the extra tlv at l3 attached by l2.
+    single_tlv = "fe00010001012a"  # represents type: 65537, lenght: 1, value: 42
+    l2.rpc.setcustomtlvs(tlvs=single_tlv)
+    inv = l3.rpc.invoice(1000, 'customtlvs-singletlv', '')['bolt11']
+    l1.rpc.pay(inv)
+    l3.daemon.wait_for_log(f"called htlc accepted hook with extra_tlvs: {single_tlv}")
+
+    # Mutliple tlvs - Check that we recieve multiple extra tlvs at l3 attached by l2.
+    multi_tlv = "fdffff012afe00010001020539"  # represents type: 65535, length: 1, value: 42 and type: 65537, length: 2, value: 1337
+    l2.rpc.setcustomtlvs(tlvs=multi_tlv)
+    inv = l3.rpc.invoice(1000, 'customtlvs-multitlvs', '')['bolt11']
+    l1.rpc.pay(inv)
+    l3.daemon.wait_for_log(f"called htlc accepted hook with extra_tlvs: {multi_tlv}")
+
+
+def test_htlc_accepted_hook_malformedtlvs(node_factory):
+    """ Passes an custom extra tlv field to the hooks return that is malformed
+        and should cause a broken log.
+        l1 -- l2 -- l3
+    """
+    plugin = os.path.join(os.path.dirname(__file__), 'plugins/htlc_accepted-customtlv.py')
+    l1, l2, l3 = node_factory.line_graph(3, opts=[{}, {'plugin': plugin, 'broken_log': "lightningd: ", 'may_fail': True}, {}], wait_for_announce=True)
+
+    mal_tlv = "fe00010001020539fdffff012a"  # is malformed, types are 65537 and 65535 not in asc order.
+    l2.rpc.setcustomtlvs(tlvs=mal_tlv)
+    inv = l3.rpc.invoice(1000, 'customtlvs-maltlvs', '')
+    phash = inv['payment_hash']
+    route = l1.rpc.getroute(l3.info['id'], 1000, 1)['route']
+
+    # Here shouldn't use `pay` command because l2 should fail with a broken log.
+    l1.rpc.sendpay(route, phash, payment_secret=inv['payment_secret'])
+    assert l2.daemon.wait_for_log("BROKEN.*htlc_accepted_hook returned bad extra_tlvs")
+
+
 def test_hook_dep(node_factory):
     dep_a = os.path.join(os.path.dirname(__file__), 'plugins/dep_a.py')
     dep_b = os.path.join(os.path.dirname(__file__), 'plugins/dep_b.py')

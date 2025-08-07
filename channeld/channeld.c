@@ -49,6 +49,7 @@
 #include <stdio.h>
 #include <wally_bip32.h>
 #include <wire/peer_wire.h>
+#include <wire/tlvstream.h>
 #include <wire/wire_sync.h>
 
 /* stdin == requests, 3 == peer, 4 = HSM */
@@ -621,9 +622,14 @@ static void handle_peer_add_htlc(struct peer *peer, const u8 *msg)
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Bad peer_add_htlc %s", tal_hex(msg, msg));
 	}
+
 	add_err = channel_add_htlc(peer->channel, REMOTE, id, amount,
 				   cltv_expiry, &payment_hash,
-				   onion_routing_packet, tlvs->blinded_path, &htlc, NULL,
+				   onion_routing_packet,
+				   take(tlvs->blinded_path), &htlc, NULL,
+				   /* NOTE: It might be better to remove the
+				    * blinded_path from the extra_tlvs */
+				   tlvs->fields,
 				   /* We don't immediately fail incoming htlcs,
 				    * instead we wait and fail them after
 				    * they've been committed */
@@ -1519,6 +1525,7 @@ static void marshall_htlc_info(const tal_t *ctx,
 			       htlc->routing,
 			       sizeof(a.onion_routing_packet));
 			a.path_key = htlc->path_key;
+			a.extra_tlvs = htlc->extra_tlvs;
 			a.fail_immediate = htlc->fail_immediate;
 			tal_arr_expand(added, a);
 		} else if (htlc->state == RCVD_REMOVE_COMMIT) {
@@ -5020,13 +5027,24 @@ static void resend_commitment(struct peer *peer, struct changed_htlc *last)
 					 last[i].id);
 
 		if (h->state == SENT_ADD_COMMIT) {
-			struct tlv_update_add_htlc_tlvs *tlvs;
-			if (h->path_key) {
+			struct tlv_update_add_htlc_tlvs *tlvs = NULL;
+			if (h->extra_tlvs || h->path_key) {
 				tlvs = tlv_update_add_htlc_tlvs_new(tmpctx);
-				tlvs->blinded_path = tal_dup(tlvs, struct pubkey,
+			}
+			if (h->extra_tlvs) {
+				tlvs->fields = tal_dup_talarr(tmpctx,
+							      struct tlv_field,
+							      h->extra_tlvs);
+			}
+			if (h->path_key) {
+				/* It is fine to just set the binded_path
+				 * independent of what is in tlv->fields as the
+				 * towire logic will serialize unknown fields
+				 * and known types seperately. */
+				tlvs->blinded_path = tal_dup(tlvs,
+							     struct pubkey,
 							     h->path_key);
-			} else
-				tlvs = NULL;
+			}
 			msg = towire_update_add_htlc(NULL, &peer->channel_id,
 						     h->id, h->amount,
 						     &h->rhash,
@@ -5964,7 +5982,9 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 	const char *failstr;
 	struct amount_sat htlc_fee;
 	struct pubkey *path_key;
+	struct tlv_field *extra_tlvs;
 	struct tlv_update_add_htlc_tlvs *tlvs;
+	u8 *extra_tlvs_raw;
 
 	if (!peer->channel_ready[LOCAL] || !peer->channel_ready[REMOTE])
 		status_failed(STATUS_FAIL_MASTER_IO,
@@ -5972,19 +5992,39 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 
 	if (!fromwire_channeld_offer_htlc(tmpctx, inmsg, &amount,
 					 &cltv_expiry, &payment_hash,
-					 onion_routing_packet, &path_key))
+					 onion_routing_packet, &path_key, &extra_tlvs_raw))
 		master_badmsg(WIRE_CHANNELD_OFFER_HTLC, inmsg);
 
-	if (path_key) {
+
+	if (extra_tlvs_raw || path_key) {
 		tlvs = tlv_update_add_htlc_tlvs_new(tmpctx);
-		tlvs->blinded_path = tal_dup(tlvs, struct pubkey, path_key);
-	} else
+	} else {
 		tlvs = NULL;
+	}
+
+	if (extra_tlvs_raw) {
+		const u8 *cursor = extra_tlvs_raw;
+		size_t max = tal_bytelen(extra_tlvs_raw);
+		u64 failedtype;
+		const u64 *allowed = cast_const(u64 *, FROMWIRE_TLV_ANY_TYPE);
+		if (!fromwire_tlv(&cursor, &max, NULL, 0,
+				  tlvs, &tlvs->fields,
+				  allowed, NULL, &failedtype)) {
+			status_unusual("Malformed TLV type %"PRIu64": %s",
+				failedtype, tal_hex(tmpctx, extra_tlvs_raw));
+		}
+		extra_tlvs = tlvs->fields;
+	} else {
+		extra_tlvs = NULL;
+	}
+	if (path_key) {
+		tlvs->blinded_path = tal_dup(tlvs, struct pubkey, path_key);
+	}
 
 	e = channel_add_htlc(peer->channel, LOCAL, peer->htlc_id,
 			     amount, cltv_expiry, &payment_hash,
 			     onion_routing_packet, take(path_key), NULL,
-			     &htlc_fee, true);
+			     &htlc_fee, extra_tlvs, true);
 	status_debug("Adding HTLC %"PRIu64" amount=%s cltv=%u gave %s",
 		     peer->htlc_id,
 		     fmt_amount_msat(tmpctx, amount),
