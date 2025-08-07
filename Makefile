@@ -684,12 +684,18 @@ $(ALL_TEST_PROGRAMS) $(ALL_FUZZ_TARGETS): %: %.o
 # (as per EXTERNAL_LDLIBS) so we filter them out here.
 $(ALL_PROGRAMS) $(ALL_TEST_PROGRAMS):
 	@$(call VERBOSE, "ld $@", $(LINK.o) $(filter-out %.a,$^) $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) libccan.a $($(@)_LDLIBS) -o $@)
+ifeq ($(OS),Darwin)
+	@$(call VERBOSE, "dsymutil $@", dsymutil $@)
+endif
 
 # We special case the fuzzing target binaries, as they need to link against libfuzzer,
 # which brings its own main().
 FUZZ_LDFLAGS = -fsanitize=fuzzer
 $(ALL_FUZZ_TARGETS):
 	@$(call VERBOSE, "ld $@", $(LINK.o) $(filter-out %.a,$^) $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) libccan.a $(FUZZ_LDFLAGS) -o $@)
+ifeq ($(OS),Darwin)
+	@$(call VERBOSE, "dsymutil $@", dsymutil $@)
+endif
 
 
 # Everything depends on the CCAN headers, and Makefile
@@ -819,6 +825,12 @@ install-program: installdirs $(BIN_PROGRAMS) $(PKGLIBEXEC_PROGRAMS) $(PLUGINS) $
 	@if [ -d "$(DESTDIR)$(plugindir)/wss-proxy" ]; then rm -rf $(DESTDIR)$(plugindir)/wss-proxy; fi
 	[ -z "$(PLUGINS)" ] || $(INSTALL_PROGRAM) $(PLUGINS) $(DESTDIR)$(plugindir)
 	for PY in $(PY_PLUGINS); do DIR=`dirname $$PY`; DST=$(DESTDIR)$(plugindir)/`basename $$DIR`; if [ -d $$DST ]; then rm -rf $$DST; fi; $(INSTALL_PROGRAM) -d $$DIR; cp -a $$DIR $$DST ; done
+ifeq ($(OS),Darwin)
+	# Install dSYM bundles alongside binaries on macOS
+	for BIN in $(BIN_PROGRAMS); do if [ -d $$BIN.dSYM ]; then cp -a $$BIN.dSYM $(DESTDIR)$(bindir)/; fi; done
+	for BIN in $(PKGLIBEXEC_PROGRAMS); do if [ -d $$BIN.dSYM ]; then cp -a $$BIN.dSYM $(DESTDIR)$(pkglibexecdir)/; fi; done
+	for PLUGIN in $(PLUGINS); do if [ -d $$PLUGIN.dSYM ]; then cp -a $$PLUGIN.dSYM $(DESTDIR)$(plugindir)/; fi; done
+endif
 
 MAN1PAGES = $(filter %.1,$(MANPAGES))
 MAN5PAGES = $(filter %.5,$(MANPAGES))
