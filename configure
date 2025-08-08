@@ -429,20 +429,6 @@ int main(void)
 	return 0;
 }
 /*END*/
-var=HAVE_SQLITE3_EXPANDED_SQL
-desc=sqlite3_expanded_sql
-style=DEFINES_EVERYTHING|EXECUTE|MAY_NOT_COMPILE
-link=$SQLITE3_LDLIBS
-code=
-#include <sqlite3.h>
-#include <stdio.h>
-
-int main(void)
-{
-	printf("%p\n", sqlite3_expanded_sql);
-	return 0;
-}
-/*END*/
 var=HAVE_SQLITE3
 desc=sqlite3
 style=DEFINES_EVERYTHING|EXECUTE|MAY_NOT_COMPILE
