@@ -9,12 +9,6 @@
 
 #define EXTERNAL "external"
 
-static const char *mvt_types[] = { "chain_mvt", "channel_mvt" };
-const char *mvt_type_str(enum mvt_type type)
-{
-	return mvt_types[type];
-}
-
 static const char *mvt_tags[] = {
 	"deposit",
 	"withdrawal",
@@ -43,62 +37,134 @@ static const char *mvt_tags[] = {
 	"splice",
 };
 
+#define PRIMARY_TAG_BITS ((1ULL << MVT_DEPOSIT) |	\
+			  (1ULL << MVT_WITHDRAWAL) |	\
+			  (1ULL << MVT_PENALTY) |	\
+			  (1ULL << MVT_INVOICE) |	\
+			  (1ULL << MVT_ROUTED) |	\
+			  (1ULL << MVT_PUSHED) |	\
+			  (1ULL << MVT_CHANNEL_OPEN) |	\
+			  (1ULL << MVT_CHANNEL_CLOSE) |	\
+			  (1ULL << MVT_CHANNEL_TO_US) |	\
+			  (1ULL << MVT_HTLC_TIMEOUT) |	\
+			  (1ULL << MVT_HTLC_FULFILL) |	\
+			  (1ULL << MVT_HTLC_TX) |	\
+			  (1ULL << MVT_TO_WALLET) |	\
+			  (1ULL << MVT_ANCHOR) |	\
+			  (1ULL << MVT_TO_THEM) |	\
+			  (1ULL << MVT_PENALIZED) |	\
+			  (1ULL << MVT_STOLEN) |	\
+			  (1ULL << MVT_TO_MINER) |	\
+			  (1ULL << MVT_LEASE_FEE) |	\
+			  (1ULL << MVT_CHANNEL_PROPOSED))
+
 const char *mvt_tag_str(enum mvt_tag tag)
 {
 	return mvt_tags[tag];
 }
 
-enum mvt_tag *new_tag_arr(const tal_t *ctx, enum mvt_tag tag)
+static void tag_set(struct mvt_tags *tags, enum mvt_tag tag)
 {
-	enum mvt_tag *tags = tal_arr(ctx, enum mvt_tag, 1);
-	tags[0] = tag;
-	return tags;
+	u64 bitnum = tag;
+	assert(bitnum < NUM_MVT_TAGS);
+	/* Not already set! */
+	assert((tags->bits & (1ULL << bitnum)) == 0);
+	tags->bits |= (1ULL << bitnum);
+}
+
+static bool mvt_tags_valid(struct mvt_tags tags)
+{
+	u64 primaries = (tags.bits & PRIMARY_TAG_BITS);
+	/* Must have exactly one primary. */
+	if (!primaries)
+		return false;
+	if ((primaries & (primaries - 1)) != 0)
+		return false;
+	return tags.bits < (1ULL << NUM_MVT_TAGS);
+}
+
+void set_mvt_account_id(struct mvt_account_id *acct_id,
+			const struct channel *channel,
+			const char *account_name TAKES)
+{
+	if (channel) {
+		assert(!account_name);
+		acct_id->channel = channel;
+		acct_id->alt_account = NULL;
+	} else {
+		acct_id->channel = NULL;
+		acct_id->alt_account = tal_strdup(acct_id, account_name);
+	}
+}
+
+struct mvt_account_id *new_mvt_account_id(const tal_t *ctx,
+					  const struct channel *channel,
+					  const char *account_name TAKES)
+{
+	struct mvt_account_id *acct = tal(ctx, struct mvt_account_id);
+	set_mvt_account_id(acct, channel, account_name);
+	return acct;
 }
 
 struct channel_coin_mvt *new_channel_coin_mvt(const tal_t *ctx,
-					      const struct channel_id *cid,
+					      const struct channel *channel,
 					      const struct sha256 *payment_hash TAKES,
-					      u64 *part_id TAKES,
+					      const u64 *part_id,
+					      const u64 *group_id,
+					      enum coin_mvt_dir direction,
 					      struct amount_msat amount,
-					      const enum mvt_tag *tags TAKES,
-					      bool is_credit,
+					      struct mvt_tags tags,
 					      struct amount_msat fees)
 {
 	struct channel_coin_mvt *mvt = tal(ctx, struct channel_coin_mvt);
 
-	mvt->chan_id = *cid;
+	assert(mvt_tags_valid(tags));
+	set_mvt_account_id(&mvt->account, channel, NULL);
 	mvt->payment_hash = tal_dup_or_null(mvt, struct sha256, payment_hash);
-	mvt->part_id = tal_dup_or_null(mvt, u64, part_id);
-	mvt->tags = tal_dup_talarr(mvt, enum mvt_tag, tags);
-
-	if (is_credit) {
-		mvt->credit = amount;
-		mvt->debit = AMOUNT_MSAT(0);
+	if (!part_id) {
+		assert(!group_id);
+		mvt->part_and_group = NULL;
 	} else {
-		mvt->debit = amount;
-		mvt->credit = AMOUNT_MSAT(0);
+		/* Temporary for non-const */
+		struct channel_coin_mvt_id *pg;
+		mvt->part_and_group = pg = tal(mvt, struct channel_coin_mvt_id);
+		pg->part_id = *part_id;
+		pg->group_id = *group_id;
 	}
 
+	mvt->tags = tags;
 	mvt->fees = fees;
+	switch (direction) {
+	case COIN_CREDIT:
+		mvt->credit = amount;
+		mvt->debit = AMOUNT_MSAT(0);
+		return mvt;
+	case COIN_DEBIT:
+		mvt->debit = amount;
+		mvt->credit = AMOUNT_MSAT(0);
+		return mvt;
+	}
 
-	return mvt;
+	abort();
 }
 
 static struct chain_coin_mvt *new_chain_coin_mvt(const tal_t *ctx,
+						 const struct channel *channel,
 						 const char *account_name TAKES,
 						 const struct bitcoin_txid *tx_txid,
 						 const struct bitcoin_outpoint *outpoint,
 						 const struct sha256 *payment_hash TAKES,
 						 u32 blockheight,
-						 enum mvt_tag *tags,
+						 struct mvt_tags tags,
+						 enum coin_mvt_dir direction,
 						 struct amount_msat amount,
-						 bool is_credit,
 						 struct amount_sat output_val,
 						 u32 out_count)
 {
 	struct chain_coin_mvt *mvt = tal(ctx, struct chain_coin_mvt);
 
-	mvt->account_name = tal_strdup_or_null(mvt, account_name);
+	assert(mvt_tags_valid(tags));
+	set_mvt_account_id(&mvt->account, channel, account_name);
 	mvt->tx_txid = tx_txid;
 	mvt->outpoint = outpoint;
 	mvt->originating_acct = NULL;
@@ -111,40 +177,42 @@ static struct chain_coin_mvt *new_chain_coin_mvt(const tal_t *ctx,
 	mvt->payment_hash = tal_dup_or_null(mvt, struct sha256, payment_hash);
 	mvt->blockheight = blockheight;
 
-	mvt->tags = tal_dup_talarr(mvt, enum mvt_tag, tags);
-
-	if (is_credit) {
-		mvt->credit = amount;
-		mvt->debit = AMOUNT_MSAT(0);
-	} else {
-		mvt->debit = amount;
-		mvt->credit = AMOUNT_MSAT(0);
-	}
-
+	mvt->tags = tags;
 	mvt->output_val = output_val;
 	mvt->output_count = out_count;
 
-	return mvt;
+	switch (direction) {
+	case COIN_CREDIT:
+		mvt->credit = amount;
+		mvt->debit = AMOUNT_MSAT(0);
+		return mvt;
+	case COIN_DEBIT:
+		mvt->debit = amount;
+		mvt->credit = AMOUNT_MSAT(0);
+		return mvt;
+	}
+	abort();
 }
 
 static struct chain_coin_mvt *new_chain_coin_mvt_sat(const tal_t *ctx,
-						     const char *account_name,
+						     const struct channel *channel,
+						     const char *account_name TAKES,
 						     const struct bitcoin_txid *tx_txid,
 						     const struct bitcoin_outpoint *outpoint,
 						     const struct sha256 *payment_hash TAKES,
 						     u32 blockheight,
-						     enum mvt_tag *tags TAKES,
-						     struct amount_sat amt_sat,
-						     bool is_credit)
+						     struct mvt_tags tags,
+						     enum coin_mvt_dir direction,
+						     struct amount_sat amt_sat)
 {
 	struct amount_msat amt_msat;
 	bool ok;
 	ok = amount_sat_to_msat(&amt_msat, amt_sat);
 	assert(ok);
 
-	return new_chain_coin_mvt(ctx, account_name, tx_txid,
+	return new_chain_coin_mvt(ctx, channel, account_name, tx_txid,
 				  outpoint, payment_hash,
-				  blockheight, tags, amt_msat, is_credit,
+				  blockheight, tags, direction, amt_msat,
 				  /* All amounts that are sat are
 				   * on-chain output values */
 				  amt_sat, 0);
@@ -155,30 +223,31 @@ struct chain_coin_mvt *new_onchaind_withdraw(const tal_t *ctx,
 					     const struct bitcoin_txid *spend_txid,
 					     u32 blockheight,
 					     struct amount_sat amount,
-					     enum mvt_tag tag)
+					     struct mvt_tags tags)
 {
-	return new_chain_coin_mvt_sat(ctx, NULL, spend_txid,
+	return new_chain_coin_mvt_sat(ctx, NULL, "", spend_txid,
 				      outpoint, NULL,
 				      blockheight,
-				      take(new_tag_arr(NULL, tag)),
-				      amount, false);
+				      tags,
+				      COIN_DEBIT, amount);
 }
 
 struct chain_coin_mvt *new_onchaind_deposit(const tal_t *ctx,
 					    const struct bitcoin_outpoint *outpoint,
 					    u32 blockheight,
 					    struct amount_sat amount,
-					    enum mvt_tag tag)
+					    struct mvt_tags tags)
 {
-	return new_chain_coin_mvt_sat(ctx, NULL, NULL,
+	return new_chain_coin_mvt_sat(ctx, NULL, "", NULL,
 				      outpoint, NULL,
 				      blockheight,
-				      take(new_tag_arr(NULL, tag)),
-				      amount, true);
+				      tags,
+				      COIN_CREDIT, amount);
 }
 
 struct chain_coin_mvt *new_coin_channel_close(const tal_t *ctx,
-					      const struct channel_id *chan_id,
+					      const struct channel *channel,
+					      const char *alt_account,
 					      const struct bitcoin_txid *txid,
 					      const struct bitcoin_outpoint *out,
 					      u32 blockheight,
@@ -188,25 +257,24 @@ struct chain_coin_mvt *new_coin_channel_close(const tal_t *ctx,
 					      bool is_splice)
 {
 	struct chain_coin_mvt *mvt;
-	enum mvt_tag *tags = new_tag_arr(NULL, CHANNEL_CLOSE);
+	struct mvt_tags tags;
 
 	if (is_splice)
-		tal_arr_expand(&tags, SPLICE);
+		tags = mk_mvt_tags(MVT_CHANNEL_CLOSE, MVT_SPLICE);
+	else
+		tags = mk_mvt_tags(MVT_CHANNEL_CLOSE);
 
-	mvt = new_chain_coin_mvt(ctx, NULL, txid,
-				  out, NULL, blockheight,
-				  take(tags),
-				  amount, false,
-				  output_val,
-				  output_count);
-	if (chan_id)
-		mvt->account_name = fmt_channel_id(mvt, chan_id);
-
+	mvt = new_chain_coin_mvt(ctx, channel, alt_account, txid,
+				 out, NULL, blockheight,
+				 tags,
+				 COIN_DEBIT, amount,
+				 output_val,
+				 output_count);
 	return mvt;
 }
 
 struct chain_coin_mvt *new_coin_channel_open_proposed(const tal_t *ctx,
-						      const struct channel_id *chan_id,
+						      const struct channel *channel,
 						      const struct bitcoin_outpoint *out,
 						      const struct node_id *peer_id,
 						      const struct amount_msat amount,
@@ -215,25 +283,25 @@ struct chain_coin_mvt *new_coin_channel_open_proposed(const tal_t *ctx,
 						      bool is_leased)
 {
 	struct chain_coin_mvt *mvt;
-
-	mvt = new_chain_coin_mvt(ctx, NULL, NULL, out, NULL, 0,
-				 take(new_tag_arr(NULL, CHANNEL_PROPOSED)),
-				 amount, true, output_val, 0);
-	mvt->account_name = fmt_channel_id(mvt, chan_id);
-	mvt->peer_id = tal_dup(mvt, struct node_id, peer_id);
+	struct mvt_tags tags = tag_to_mvt_tags(MVT_CHANNEL_PROPOSED);
 
 	/* If we're the opener, add to the tag list */
 	if (is_opener)
-		tal_arr_expand(&mvt->tags, OPENER);
+		tag_set(&tags, MVT_OPENER);
 
 	if (is_leased)
-		tal_arr_expand(&mvt->tags, LEASED);
+		tag_set(&tags, MVT_LEASED);
+
+	mvt = new_chain_coin_mvt(ctx, channel, NULL, NULL, out, NULL, 0,
+				 tags,
+				 COIN_CREDIT, amount, output_val, 0);
+	mvt->peer_id = tal_dup(mvt, struct node_id, peer_id);
 
 	return mvt;
 }
 
 struct chain_coin_mvt *new_coin_channel_open(const tal_t *ctx,
-					     const struct channel_id *chan_id,
+					     const struct channel *channel,
 					     const struct bitcoin_outpoint *out,
 					     const struct node_id *peer_id,
 					     u32 blockheight,
@@ -243,19 +311,20 @@ struct chain_coin_mvt *new_coin_channel_open(const tal_t *ctx,
 					     bool is_leased)
 {
 	struct chain_coin_mvt *mvt;
-
-	mvt = new_chain_coin_mvt(ctx, NULL, NULL, out, NULL, blockheight,
-				 take(new_tag_arr(NULL, CHANNEL_OPEN)), amount,
-				 true, output_val, 0);
-	mvt->account_name = fmt_channel_id(mvt, chan_id);
-	mvt->peer_id = tal_dup(mvt, struct node_id, peer_id);
+	struct mvt_tags tags = tag_to_mvt_tags(MVT_CHANNEL_OPEN);
 
 	/* If we're the opener, add to the tag list */
 	if (is_opener)
-		tal_arr_expand(&mvt->tags, OPENER);
+		tag_set(&tags, MVT_OPENER);
 
 	if (is_leased)
-		tal_arr_expand(&mvt->tags, LEASED);
+		tag_set(&tags, MVT_LEASED);
+
+	mvt = new_chain_coin_mvt(ctx, channel, NULL, NULL, out, NULL, blockheight,
+				 tags,
+				 COIN_CREDIT, amount,
+				 output_val, 0);
+	mvt->peer_id = tal_dup(mvt, struct node_id, peer_id);
 
 	return mvt;
 }
@@ -266,11 +335,11 @@ struct chain_coin_mvt *new_onchain_htlc_deposit(const tal_t *ctx,
 						struct amount_sat amount,
 						const struct sha256 *payment_hash)
 {
-	return new_chain_coin_mvt_sat(ctx, NULL, NULL,
+	return new_chain_coin_mvt_sat(ctx, NULL, "", NULL,
 				      outpoint, payment_hash,
 				      blockheight,
-				      take(new_tag_arr(NULL, HTLC_FULFILL)),
-				      amount, true);
+				      tag_to_mvt_tags(MVT_HTLC_FULFILL),
+				      COIN_CREDIT, amount);
 }
 
 
@@ -282,24 +351,11 @@ struct chain_coin_mvt *new_onchain_htlc_withdraw(const tal_t *ctx,
 {
 	/* An onchain htlc fulfillment to peer is a *deposit* of
 	 * that output into their (external) account */
-	return new_chain_coin_mvt_sat(ctx, EXTERNAL, NULL,
+	return new_chain_coin_mvt_sat(ctx, NULL, EXTERNAL, NULL,
 				      outpoint, payment_hash,
 				      blockheight,
-				      take(new_tag_arr(NULL, HTLC_FULFILL)),
-				      amount, true);
-}
-
-struct chain_coin_mvt *new_coin_external_spend_tags(const tal_t *ctx,
-						    const struct bitcoin_outpoint *outpoint,
-						    const struct bitcoin_txid *txid,
-						    u32 blockheight,
-						    struct amount_sat amount,
-						    enum mvt_tag *tags TAKES)
-{
-	return new_chain_coin_mvt(ctx, EXTERNAL, txid,
-				  outpoint, NULL, blockheight,
-				  take(tags),
-				  AMOUNT_MSAT(0), true, amount, 0);
+				      tag_to_mvt_tags(MVT_HTLC_FULFILL),
+				      COIN_CREDIT, amount);
 }
 
 struct chain_coin_mvt *new_coin_external_spend(const tal_t *ctx,
@@ -307,64 +363,40 @@ struct chain_coin_mvt *new_coin_external_spend(const tal_t *ctx,
 					       const struct bitcoin_txid *txid,
 					       u32 blockheight,
 					       struct amount_sat amount,
-					       enum mvt_tag tag)
+					       struct mvt_tags tags)
 {
-	return new_coin_external_spend_tags(ctx, outpoint,
-					    txid, blockheight, amount,
-					    new_tag_arr(NULL, tag));
+	return new_chain_coin_mvt(ctx, NULL, EXTERNAL, txid,
+				  outpoint, NULL, blockheight,
+				  tags,
+				  COIN_CREDIT, AMOUNT_MSAT(0), amount, 0);
 }
-
-struct chain_coin_mvt *new_coin_external_deposit_tags(const tal_t *ctx,
-						 const struct bitcoin_outpoint *outpoint,
-						 u32 blockheight,
-						 struct amount_sat amount,
-						 enum mvt_tag *tags TAKES)
-{
-	return new_chain_coin_mvt_sat(ctx, EXTERNAL, NULL, outpoint, NULL,
-				      blockheight, take(tags),
-				      amount, true);
-}
-
 
 struct chain_coin_mvt *new_coin_external_deposit(const tal_t *ctx,
 						 const struct bitcoin_outpoint *outpoint,
 						 u32 blockheight,
 						 struct amount_sat amount,
-						 enum mvt_tag tag)
+						 struct mvt_tags tags)
 {
-	return new_chain_coin_mvt_sat(ctx, EXTERNAL, NULL, outpoint, NULL,
-				      blockheight, take(new_tag_arr(NULL, tag)),
-				      amount, true);
+	return new_chain_coin_mvt_sat(ctx, NULL, EXTERNAL, NULL, outpoint, NULL,
+				      blockheight, tags,
+				      COIN_CREDIT, amount);
 }
 
 bool chain_mvt_is_external(const struct chain_coin_mvt *mvt)
 {
-	return streq(mvt->account_name, EXTERNAL);
+	return mvt->account.alt_account && streq(mvt->account.alt_account, EXTERNAL);
 }
 
 struct chain_coin_mvt *new_coin_wallet_deposit(const tal_t *ctx,
 					       const struct bitcoin_outpoint *outpoint,
 					       u32 blockheight,
 					       struct amount_sat amount,
-					       enum mvt_tag tag)
+					       struct mvt_tags tags)
 {
-	return new_chain_coin_mvt_sat(ctx, WALLET, NULL,
+	return new_chain_coin_mvt_sat(ctx, NULL, WALLET, NULL,
 				      outpoint, NULL,
-				      blockheight, take(new_tag_arr(NULL, tag)),
-				      amount, true);
-}
-
-struct chain_coin_mvt *new_coin_wallet_deposit_tagged(const tal_t *ctx,
-						      const struct bitcoin_outpoint *outpoint,
-						      u32 blockheight,
-						      struct amount_sat amount,
-						      enum mvt_tag *tags TAKES)
-{
-	return new_chain_coin_mvt_sat(ctx, WALLET, NULL,
-				      outpoint, NULL,
-				      blockheight,
-				      take(tags),
-				      amount, true);
+				      blockheight, tags,
+				      COIN_CREDIT, amount);
 }
 
 struct chain_coin_mvt *new_coin_wallet_withdraw(const tal_t *ctx,
@@ -372,106 +404,66 @@ struct chain_coin_mvt *new_coin_wallet_withdraw(const tal_t *ctx,
 						const struct bitcoin_outpoint *outpoint,
 						u32 blockheight,
 						struct amount_sat amount,
-						enum mvt_tag tag)
+						struct mvt_tags tags)
 {
-	return new_chain_coin_mvt_sat(ctx, WALLET, spend_txid,
+	return new_chain_coin_mvt_sat(ctx, NULL, WALLET, spend_txid,
 				      outpoint, NULL,
-				      blockheight, take(new_tag_arr(NULL, tag)),
-				      amount, false);
+				      blockheight, tags,
+				      COIN_DEBIT, amount);
 }
 
 struct channel_coin_mvt *new_coin_channel_push(const tal_t *ctx,
-					       const struct channel_id *cid,
+					       const struct channel *channel,
+					       enum coin_mvt_dir direction,
 					       struct amount_msat amount,
-					       enum mvt_tag tag,
-					       bool is_credit)
+					       struct mvt_tags tags)
 {
-	return new_channel_coin_mvt(ctx, cid, NULL,
-				    NULL, amount,
-				    take(new_tag_arr(NULL, tag)), is_credit,
+	return new_channel_coin_mvt(ctx, channel, NULL,
+				    NULL, NULL, direction, amount,
+				    tags,
 				    AMOUNT_MSAT(0));
 }
 
-struct coin_mvt *finalize_chain_mvt(const tal_t *ctx,
-				    const struct chain_coin_mvt *chain_mvt,
-				    const char *hrp_name TAKES,
-				    u32 timestamp,
-				    struct node_id *node_id)
+const char **mvt_tag_strs(const tal_t *ctx, struct mvt_tags tags)
 {
-	struct coin_mvt *mvt = tal(ctx, struct coin_mvt);
+	const char **strs = tal_arr(ctx, const char *, 1);
 
-	mvt->account_id = tal_strdup(mvt, chain_mvt->account_name);
-	mvt->originating_acct =
-		tal_strdup_or_null(mvt, chain_mvt->originating_acct);
-	mvt->hrp_name = tal_strdup(mvt, hrp_name);
-	mvt->type = CHAIN_MVT;
+	/* There must be exactly one primary */
+	assert(mvt_tags_valid(tags));
 
-	mvt->id.tx_txid = chain_mvt->tx_txid;
-	mvt->id.outpoint = chain_mvt->outpoint;
-	mvt->id.payment_hash = chain_mvt->payment_hash;
-	mvt->tags = tal_steal(mvt, chain_mvt->tags);
-	mvt->credit = chain_mvt->credit;
-	mvt->debit = chain_mvt->debit;
-
-	mvt->output_val = tal(mvt, struct amount_sat);
-	*mvt->output_val = chain_mvt->output_val;
-	mvt->output_count = chain_mvt->output_count;
-	mvt->fees = NULL;
-
-	mvt->timestamp = timestamp;
-	mvt->blockheight = chain_mvt->blockheight;
-	mvt->version = COIN_MVT_VERSION;
-	mvt->node_id = node_id;
-	mvt->peer_id = chain_mvt->peer_id;
-
-	return mvt;
+	/* We put the *primary* tag first */
+	for (size_t i = 0; i < NUM_MVT_TAGS; i++) {
+		u64 bit = (u64)1 << i;
+		if ((bit & tags.bits) == 0)
+			continue;
+		if (bit & PRIMARY_TAG_BITS)
+			strs[0] = mvt_tag_str(i);
+		else
+			tal_arr_expand(&strs, mvt_tag_str(i));
+	}
+	return strs;
 }
 
-struct coin_mvt *finalize_channel_mvt(const tal_t *ctx,
-				      const struct channel_coin_mvt *chan_mvt,
-				      const char *hrp_name TAKES,
-				      u32 timestamp,
-				      const struct node_id *node_id TAKES)
+/* Parse a single mvt tag.  Returns false or populates *tag */
+bool mvt_tag_parse(const char *buf, size_t len, enum mvt_tag *tag)
 {
-	struct coin_mvt *mvt = tal(ctx, struct coin_mvt);
+	for (size_t i = 0; i < NUM_MVT_TAGS; i++) {
+		const char *name = mvt_tag_str(i);
+		if (strlen(name) == len && memcmp(buf, name, len) == 0) {
+			*tag = i;
+			return true;
+		}
+	}
 
-	mvt->account_id = fmt_channel_id(mvt, &chan_mvt->chan_id);
-	/* channel moves don't have external events! */
-	mvt->originating_acct = NULL;
-	mvt->hrp_name = tal_strdup(mvt, hrp_name);
-	mvt->type = CHANNEL_MVT;
-	mvt->id.payment_hash = chan_mvt->payment_hash;
-	mvt->id.part_id = chan_mvt->part_id;
-	mvt->id.tx_txid = NULL;
-	mvt->id.outpoint = NULL;
-	mvt->tags = tal_steal(mvt, chan_mvt->tags);
-	mvt->credit = chan_mvt->credit;
-	mvt->debit = chan_mvt->debit;
-	mvt->output_val = NULL;
-	mvt->output_count = 0;
-	mvt->fees = tal(mvt, struct amount_msat);
-	*mvt->fees = chan_mvt->fees;
-	mvt->timestamp = timestamp;
-	mvt->version = COIN_MVT_VERSION;
-	mvt->node_id = tal_dup(mvt, struct node_id, node_id);
-	mvt->peer_id = NULL;
-
-	return mvt;
+	return false;
 }
 
+/* This is used solely by onchaind.  It always uses alt_account, with "" meaning
+ * the channel itself. */
 void towire_chain_coin_mvt(u8 **pptr, const struct chain_coin_mvt *mvt)
 {
-	if (mvt->account_name) {
-		towire_bool(pptr, true);
-		towire_wirestring(pptr, mvt->account_name);
-	} else
-		towire_bool(pptr, false);
-
-	if (mvt->originating_acct) {
-		towire_bool(pptr, true);
-		towire_wirestring(pptr, mvt->originating_acct);
-	} else
-		towire_bool(pptr, false);
+	towire_wirestring(pptr, mvt->account.alt_account);
+	assert(!mvt->originating_acct);
 
 	towire_bitcoin_outpoint(pptr, mvt->outpoint);
 
@@ -488,10 +480,7 @@ void towire_chain_coin_mvt(u8 **pptr, const struct chain_coin_mvt *mvt)
 		towire_bool(pptr, false);
 	towire_u32(pptr, mvt->blockheight);
 
-	towire_u32(pptr, tal_count(mvt->tags));
-	for (size_t i = 0; i < tal_count(mvt->tags); i++)
-		towire_u8(pptr, mvt->tags[i]);
-
+	towire_u64(pptr, mvt->tags.bits);
 	towire_amount_msat(pptr, mvt->credit);
 	towire_amount_msat(pptr, mvt->debit);
 	towire_amount_sat(pptr, mvt->output_val);
@@ -506,15 +495,8 @@ void towire_chain_coin_mvt(u8 **pptr, const struct chain_coin_mvt *mvt)
 
 void fromwire_chain_coin_mvt(const u8 **cursor, size_t *max, struct chain_coin_mvt *mvt)
 {
-	if (fromwire_bool(cursor, max)) {
-		mvt->account_name = fromwire_wirestring(mvt, cursor, max);
-	} else
-		mvt->account_name = NULL;
-
-	if (fromwire_bool(cursor, max)) {
-		mvt->originating_acct = fromwire_wirestring(mvt, cursor, max);
-	} else
-		mvt->originating_acct = NULL;
+	set_mvt_account_id(&mvt->account, NULL, take(fromwire_wirestring(NULL, cursor, max)));
+	mvt->originating_acct = NULL;
 
 	/* Read into non-const version */
 	struct bitcoin_outpoint *outpoint
@@ -530,17 +512,14 @@ void fromwire_chain_coin_mvt(const u8 **cursor, size_t *max, struct chain_coin_m
 		mvt->tx_txid = NULL;
 
 	if (fromwire_bool(cursor, max)) {
-		mvt->payment_hash = tal(mvt, struct sha256);
-		fromwire_sha256(cursor, max, mvt->payment_hash);
+		struct sha256 *ph;
+		mvt->payment_hash = ph = tal(mvt, struct sha256);
+		fromwire_sha256(cursor, max, ph);
 	} else
 		mvt->payment_hash = NULL;
 	mvt->blockheight = fromwire_u32(cursor, max);
 
-	u32 tags_len = fromwire_u32(cursor, max);
-	mvt->tags = tal_arr(mvt, enum mvt_tag, tags_len);
-	for (size_t i = 0; i < tags_len; i++)
-		mvt->tags[i] = fromwire_u8(cursor, max);
-
+	mvt->tags.bits = fromwire_u64(cursor, max);
 	mvt->credit = fromwire_amount_msat(cursor, max);
 	mvt->debit = fromwire_amount_msat(cursor, max);
 	mvt->output_val = fromwire_amount_sat(cursor, max);
@@ -552,4 +531,17 @@ void fromwire_chain_coin_mvt(const u8 **cursor, size_t *max, struct chain_coin_m
 		mvt->peer_id = tal_dup(mvt, struct node_id, &peer_id);
 	} else
 		mvt->peer_id = NULL;
+}
+
+struct mvt_tags mk_mvt_tags_(enum mvt_tag tag, ...)
+{
+	va_list ap;
+	struct mvt_tags ret = { 0 };
+
+	tag_set(&ret, tag);
+	va_start(ap, tag);
+	while ((tag = va_arg(ap, enum mvt_tag)) != 999)
+		tag_set(&ret, tag);
+	va_end(ap);
+	return ret;
 }

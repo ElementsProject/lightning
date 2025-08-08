@@ -655,32 +655,35 @@ void logv(struct logger *logger UNNEEDED, enum log_level level UNNEEDED, const s
 void memleak_scan_outpointfilter(struct htable *memtable UNNEEDED,
 				 const struct outpointfilter *opf UNNEEDED)
 { fprintf(stderr, "memleak_scan_outpointfilter called!\n"); abort(); }
+/* Generated stub for mk_mvt_tags_ */
+struct mvt_tags mk_mvt_tags_(enum mvt_tag tag UNNEEDED, ...)
+{ fprintf(stderr, "mk_mvt_tags_ called!\n"); abort(); }
 /* Generated stub for new_channel_mvt_invoice_hin */
 struct channel_coin_mvt *new_channel_mvt_invoice_hin(const tal_t *ctx UNNEEDED,
-						     struct htlc_in *hin UNNEEDED,
-						     struct channel *channel UNNEEDED)
+						     const struct htlc_in *hin UNNEEDED,
+						     const struct channel *channel UNNEEDED)
 { fprintf(stderr, "new_channel_mvt_invoice_hin called!\n"); abort(); }
 /* Generated stub for new_channel_mvt_invoice_hout */
 struct channel_coin_mvt *new_channel_mvt_invoice_hout(const tal_t *ctx UNNEEDED,
-						      struct htlc_out *hout UNNEEDED,
-						      struct channel *channel UNNEEDED)
+						      const struct htlc_out *hout UNNEEDED,
+						      const struct channel *channel UNNEEDED)
 { fprintf(stderr, "new_channel_mvt_invoice_hout called!\n"); abort(); }
 /* Generated stub for new_channel_mvt_routed_hin */
 struct channel_coin_mvt *new_channel_mvt_routed_hin(const tal_t *ctx UNNEEDED,
-						    struct htlc_in *hin UNNEEDED,
-						    struct channel *channel UNNEEDED)
+						    const struct htlc_in *hin UNNEEDED,
+						    const struct channel *channel UNNEEDED)
 { fprintf(stderr, "new_channel_mvt_routed_hin called!\n"); abort(); }
 /* Generated stub for new_channel_mvt_routed_hout */
 struct channel_coin_mvt *new_channel_mvt_routed_hout(const tal_t *ctx UNNEEDED,
-						     struct htlc_out *hout UNNEEDED,
-						     struct channel *channel UNNEEDED)
+						     const struct htlc_out *hout UNNEEDED,
+						     const struct channel *channel UNNEEDED)
 { fprintf(stderr, "new_channel_mvt_routed_hout called!\n"); abort(); }
 /* Generated stub for new_coin_wallet_deposit */
 struct chain_coin_mvt *new_coin_wallet_deposit(const tal_t *ctx UNNEEDED,
 					       const struct bitcoin_outpoint *outpoint UNNEEDED,
 					       u32 blockheight UNNEEDED,
 					       struct amount_sat amount UNNEEDED,
-					       enum mvt_tag tag)
+					       struct mvt_tags tags)
 
 { fprintf(stderr, "new_coin_wallet_deposit called!\n"); abort(); }
 /* Generated stub for new_global_subd */
@@ -701,10 +704,12 @@ struct uncommitted_channel *new_uncommitted_channel(struct peer *peer UNNEEDED)
 bool node_announcement_same(const u8 *nann1 UNNEEDED, const u8 *nann2 UNNEEDED)
 { fprintf(stderr, "node_announcement_same called!\n"); abort(); }
 /* Generated stub for notify_chain_mvt */
-void notify_chain_mvt(struct lightningd *ld UNNEEDED, const struct chain_coin_mvt *mvt UNNEEDED)
+void notify_chain_mvt(struct lightningd *ld UNNEEDED,
+		      const struct chain_coin_mvt *chain_mvt UNNEEDED)
 { fprintf(stderr, "notify_chain_mvt called!\n"); abort(); }
 /* Generated stub for notify_channel_mvt */
-void notify_channel_mvt(struct lightningd *ld UNNEEDED, const struct channel_coin_mvt *mvt UNNEEDED)
+void notify_channel_mvt(struct lightningd *ld UNNEEDED,
+			const struct channel_coin_mvt *chan_mvt UNNEEDED)
 { fprintf(stderr, "notify_channel_mvt called!\n"); abort(); }
 /* Generated stub for notify_channel_open_failed */
 void notify_channel_open_failed(struct lightningd *ld UNNEEDED,

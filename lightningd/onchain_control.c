@@ -17,6 +17,7 @@
 #include <lightningd/channel_control.h>
 #include <lightningd/coin_mvts.h>
 #include <lightningd/hsm_control.h>
+#include <lightningd/notification.h>
 #include <lightningd/onchain_control.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/peer_htlcs.h>
@@ -345,13 +346,14 @@ static void handle_onchain_log_coin_move(struct channel *channel, const u8 *msg)
 		return;
 	}
 
-	/* Any 'ignored' payments get registered to the wallet */
-	if (!mvt->account_name)
-		mvt->account_name = fmt_channel_id(mvt,
-						   &channel->cid);
-	else
-		mvt->originating_acct = fmt_channel_id(mvt,
-						       &channel->cid);
+	/* onchaind uses an empty string to mean "this channel" */
+	if (streq(mvt->account.alt_account, "")) {
+		tal_free(mvt->account.alt_account);
+		set_mvt_account_id(&mvt->account, channel, NULL);
+	} else {
+		mvt->originating_acct = new_mvt_account_id(mvt, channel, NULL);
+	}
+
 	notify_chain_mvt(channel->peer->ld, mvt);
 	tal_free(mvt);
 }
@@ -576,9 +578,8 @@ static void onchain_add_utxo(struct channel *channel, const u8 *msg)
 				 csv_lock);
 
 	mvt = new_coin_wallet_deposit(msg, &outpoint, blockheight,
-			              amount, DEPOSIT);
-	mvt->originating_acct = fmt_channel_id(mvt,
-					       &channel->cid);
+			              amount, mk_mvt_tags(MVT_DEPOSIT));
+	mvt->originating_acct = new_mvt_account_id(mvt, channel, NULL);
 
 	notify_chain_mvt(channel->peer->ld, mvt);
 }
