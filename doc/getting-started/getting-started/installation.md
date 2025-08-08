@@ -79,10 +79,10 @@ sudo apt-get install -y \
   jq autoconf automake build-essential git libtool libsqlite3-dev libffi-dev \
   python3 python3-pip net-tools zlib1g-dev libsodium-dev gettext
 pip3 install --upgrade pip
-pip3 install --user poetry
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-(If installing `poetry` with `pip` as above fails, try installing it with the [official poetry installer](https://python-poetry.org/docs/#installing-with-the-official-installer).)
+After installing uv, restart your shell or run `source ~/.bashrc` to ensure `uv` is in your PATH.
 
 
 If you don't have Bitcoin installed locally you'll need to install that as well. It's now available via [snapd](https://snapcraft.io/bitcoin-core).
@@ -113,7 +113,6 @@ For development or running tests, get additional dependencies:
 ```shell
 sudo apt-get install -y valgrind libpq-dev shellcheck cppcheck \
   libsecp256k1-dev lowdown
-pip3 install pytest
 ```
 
 If you can't install `lowdown`, a version will be built in-tree.
@@ -134,9 +133,9 @@ There are two ways to build core lightning, and this depends on how you want use
 To build CLN for production:
 
 ```shell
-poetry install
+uv sync --all-extras --all-groups
 ./configure
-RUST_PROFILE=release poetry run make
+RUST_PROFILE=release uv run make
 sudo RUST_PROFILE=release make install
 ```
 
@@ -147,16 +146,10 @@ sudo RUST_PROFILE=release make install
 To build CLN for development:
 
 ```shell
-poetry shell
-```
-
-This will put you in a new shell to enter the following commands:
-
-```shell
-poetry install
+uv sync --all-extras --all-groups
 ./configure
-make
-make check VALGRIND=0
+uv run make
+uv run make check VALGRIND=0
 ```
 
 Optionally, add `-j$(nproc)` after `make` to speed up compilation. (e.g. `make -j$(nproc)`)
