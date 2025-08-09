@@ -6412,6 +6412,8 @@ static void init_channel(struct peer *peer)
 	struct penalty_base *pbases;
 	struct channel_type *channel_type;
 	bool found_locked_inflight;
+	bool has_funding_short_id;
+	struct short_channel_id *funding_short_id;
 
 	assert(!(fcntl(MASTER_FD, F_GETFL) & O_NONBLOCK));
 
@@ -6449,9 +6451,9 @@ static void init_channel(struct peer *peer)
 				    &peer->revocations_received,
 				    &peer->htlc_id,
 				    &htlcs,
-				    &peer->channel_ready[LOCAL],
+				    &has_funding_short_id,
 				    &peer->channel_ready[REMOTE],
-				    &peer->short_channel_ids[LOCAL],
+				    &funding_short_id,
 				    &reconnected,
 				    &peer->send_shutdown,
 				    &peer->shutdown_sent[REMOTE],
@@ -6469,6 +6471,12 @@ static void init_channel(struct peer *peer)
 				    &peer->splice_state->inflights,
 				    &peer->local_alias)) {
 		master_badmsg(WIRE_CHANNELD_INIT, msg);
+	}
+
+	if (has_funding_short_id && funding_short_id) {
+		peer->short_channel_ids[LOCAL] = *funding_short_id;
+	} else {
+		peer->short_channel_ids[LOCAL] = peer->local_alias;
 	}
 
 	peer->final_index = tal_dup(peer, u32, &final_index);
