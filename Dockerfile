@@ -67,6 +67,7 @@ RUN apt-get update -qq && \
         wget \
         python3 \
         python3-dev \
+        python3-venv \
         autoconf \
         automake \
         libicu-dev \
@@ -120,11 +121,14 @@ ADD ${POSTGRES_URL}/v${POSTGRES_VERSION}/${POSTGRES_TARBALL}.sha256   .
 
 RUN sha256sum -c ${POSTGRES_TARBALL}.sha256
 
-ADD --chmod=750 https://sh.rustup.rs                 /opt/install-rust.sh
-ADD --chmod=750 https://install.python-poetry.org    /opt/install-poetry.py
+WORKDIR /opt
+
+ADD --chmod=750 https://install.python-poetry.org    install-poetry.py
+ADD --chmod=750 https://sh.rustup.rs                 install-rust.sh
 
 WORKDIR /opt/lightningd
 
+#TODO: fix docker caching at this stage.
 COPY . .
 
 RUN git submodule update --init --recursive
@@ -155,6 +159,16 @@ FROM base-builder-${TARGETOS}-${TARGETARCH} AS builder
 ENV RUST_PROFILE=release
 ENV LIGHTNINGD_VERSION=master
 
+WORKDIR /opt
+
+RUN ./install-poetry.py
+RUN ./install-rust.sh -y --target ${target_host_rust} --profile minimal
+
+ARG POETRY_VIRTUALENVS_CREATE=false
+ENV PATH="/root/.cargo/bin:/root/.local/bin:${PATH}"
+
+RUN rustup toolchain install stable --component rustfmt --allow-downgrade
+
 ARG AR=${target_host}-ar
 ARG AS=${target_host}-as
 ARG CC=${target_host}-gcc
@@ -170,35 +184,28 @@ RUN apt-get install -qq -y --no-install-recommends \
         gcc-${target_host_gcc} \
         g++-${target_host_gcc}
 
-WORKDIR /opt
-
-RUN ./install-rust.sh -y --target ${target_host_rust} --default-host ${target_host_rust} --profile minimal
-RUN ./install-poetry.py
-
-ENV PATH="/root/.cargo/bin:/root/.local/bin:${PATH}"
-
-RUN rustup toolchain install stable --component rustfmt --allow-downgrade
+#TODO: speedup, anything below this is super slow.
 
 WORKDIR /opt/zlib
 
 RUN tar xzf ${ZLIB_TARBALL} --strip-components=1
 RUN ./configure --prefix=${QEMU_LD_PREFIX}
 RUN make -j
-RUN make install
+RUN make -j install
 
 WORKDIR /opt/sqlite
 
 RUN tar xzf ${SQLITE_TARBALL} --strip-components=1
 RUN ./configure --host=${target_host} --prefix=${QEMU_LD_PREFIX} --enable-static --disable-readline --disable-threadsafe --disable-load-extension
 RUN make -j
-RUN make install
+RUN make -j install
 
 WORKDIR /opt/postgres
 
 RUN tar xzf ${POSTGRES_TARBALL} --strip-components=1
 RUN ./configure --host=${target_host} --prefix=${QEMU_LD_PREFIX} --without-readline
-RUN make install -C src/include
-RUN make install -C src/interfaces/libpq
+RUN make -j install -C src/include
+RUN make -j install -C src/interfaces/libpq
 
 RUN mkdir -p /tmp/postgres_install/lib && \
     cp -a ${QEMU_LD_PREFIX}/lib/libpq.* /tmp/postgres_install/lib/
@@ -209,8 +216,6 @@ RUN mkdir -p .cargo && tee .cargo/config.toml <<-EOF
   [target.${target_host_rust}]
   linker = "${target_host}-gcc"
 EOF
-
-ARG POETRY_VIRTUALENVS_CREATE=false
 
 RUN poetry lock && \
     poetry install --no-root --no-interaction --no-ansi
