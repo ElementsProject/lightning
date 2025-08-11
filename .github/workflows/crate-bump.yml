@@ -1,0 +1,68 @@
+name: Bump Rust 🦀 crate version
+
+on:
+  workflow_dispatch:
+    inputs:
+      dist-location:
+        description: 'Distribution location'
+        type: choice
+        options:
+          - cln-plugin
+          - cln-rpc
+          - cln-grpc
+        default: 'cln-plugin'
+        required: true
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup protoc
+      uses: arduino/setup-protoc@v3
+
+    - name: Setup rust
+      uses: dtolnay/rust-toolchain@1.77
+
+    - name: Install cargo binstall
+      uses: cargo-bins/cargo-binstall@main
+
+    - name: Install cargo-release and cargo-semver-checks
+      run: |
+        cargo binstall cargo-release --version 0.25.10
+        cargo binstall cargo-semver-checks --version 0.36.0
+
+    - name: Determine version
+      id: determine-version
+      run: |
+        if cargo semver-checks -p ${{ github.event.inputs.dist-location }} --release-type patch; then
+          echo "bump=patch" >> $GITHUB_OUTPUT
+        elif cargo semver-checks -p ${{ github.event.inputs.dist-location }} --release-type minor; then
+          echo "bump=minor" >> $GITHUB_OUTPUT
+        elif cargo semver-checks -p ${{ github.event.inputs.dist-location }} --release-type major; then
+          echo "bump=minor" >> $GITHUB_OUTPUT
+        else
+          echo "bump=unknown" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+
+    - name: Bump version
+      run: |
+        cargo release version -p ${{ github.event.inputs.dist-location }} ${{ steps.determine-version.outputs.bump }} --execute --no-confirm
+
+    - name: Create Pull Request
+      uses: peter-evans/create-pull-request@v7
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: "${{ github.event.inputs.dist-location }}: Bump the ${{ steps.determine-version.outputs.bump }} version"
+        title: "${{ github.event.inputs.dist-location }}: Bump the ${{ steps.determine-version.outputs.bump }} version"
+        body: |
+          Triggered manually with option: ${{ github.event.inputs.dist-location }}
+          Version bump determined by `cargo semver-checks`
+        branch: "${{ github.event.inputs.dist-location }}-version-bump"
+        base: master
+        labels: version-bump, automated
+        delete-branch: true
