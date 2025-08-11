@@ -3586,17 +3586,11 @@ def test_wumbo_channels(node_factory, bitcoind):
 @pytest.mark.openchannel('v2')
 @pytest.mark.parametrize("anchors", [False, True])
 def test_channel_features(node_factory, bitcoind, anchors):
-    if TEST_NETWORK == 'regtest':
-        if anchors is False:
-            opts = {'dev-force-features': "-23"}
-        else:
-            opts = {}
+    if anchors is False:
+        opts = {'dev-force-features': "-23"}
     else:
-        # We have to force this ON for elements!
-        if anchors is False:
-            opts = {}
-        else:
-            opts = {'dev-force-features': "+23"}
+        opts = {}
+
     l1, l2 = node_factory.line_graph(2, fundchannel=False, opts=opts)
 
     bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'], 0.1)

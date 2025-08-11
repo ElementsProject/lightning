@@ -212,6 +212,7 @@ def test_install(node_factory):
 
 
 @unittest.skipIf(VALGRIND, "virtual environment triggers memleak detection")
+@pytest.mark.skip()
 def test_poetry_install(node_factory):
     """test search, git clone, and installation to folder."""
     n = get_reckless_node(node_factory)

@@ -288,6 +288,13 @@ static struct wally_psbt *anchor_psbt(const tal_t *ctx,
 	psbt_append_output(psbt,
 			   scriptpubkey_p2tr(tmpctx, &final_key),
 			   change);
+
+	/* And finally, if we're running on an elements chain we also need to
+	 * add an explicit fee output. */
+	if (is_elements(chainparams)) {
+		psbt_elements_normalize_fees(psbt);
+	}
+
 	return psbt;
 }
 
