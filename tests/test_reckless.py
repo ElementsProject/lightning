@@ -349,3 +349,19 @@ def test_tag_install(node_factory):
             if header == 'requested commit':
                 assert line == 'v1'
             header = line
+
+
+def test_reckless_uv_install(node_factory):
+    node = get_reckless_node(node_factory)
+    node.start()
+    r = reckless([f"--network={NETWORK}", "-v", "install", "testpluguv"],
+                 dir=node.lightning_dir)
+    assert r.returncode == 0
+    installed_path = Path(node.lightning_dir) / 'reckless/testpluguv'
+    assert installed_path.is_dir()
+    assert node.rpc.uvplugintest() == 'I live.'
+    version = node.rpc.getuvpluginversion()
+    assert version == 'v1'
+
+    assert r.search_stdout('using installer pythonuv')
+    r.check_stderr()
