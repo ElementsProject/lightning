@@ -111,6 +111,21 @@ class RecklessResult:
                 matching.append(line)
         return matching
 
+    def check_stderr(self):
+        def output_okay(out):
+            for warning in ['[notice]', 'WARNING:', 'npm WARN',
+                            'npm notice', 'DEPRECATION:', 'Creating virtualenv',
+                            'config file not found:', 'press [Y]']:
+                if out.startswith(warning):
+                    return True
+            return False
+        for e in self.stderr:
+            if len(e) < 1:
+                continue
+            # Don't err on verbosity from pip, npm
+            if not output_okay(e):
+                raise Exception(f'reckless stderr contains `{e}`')
+
 
 def reckless(cmds: list, dir: PosixPath = None,
              autoconfirm=True, timeout: int = 60):
@@ -217,7 +232,7 @@ def test_install(node_factory):
     assert r.search_stdout('dependencies installed successfully')
     assert r.search_stdout('plugin installed:')
     assert r.search_stdout('testplugpass enabled')
-    check_stderr(r.stderr)
+    r.check_stderr()
     plugin_path = Path(n.lightning_dir) / 'reckless/testplugpass'
     print(plugin_path)
     assert os.path.exists(plugin_path)
@@ -232,7 +247,7 @@ def test_poetry_install(node_factory):
     assert r.search_stdout('dependencies installed successfully')
     assert r.search_stdout('plugin installed:')
     assert r.search_stdout('testplugpyproj enabled')
-    check_stderr(r.stderr)
+    r.check_stderr()
     plugin_path = Path(n.lightning_dir) / 'reckless/testplugpyproj'
     print(plugin_path)
     assert os.path.exists(plugin_path)
@@ -278,7 +293,7 @@ def test_disable_enable(node_factory):
     assert r.search_stdout('dependencies installed successfully')
     assert r.search_stdout('plugin installed:')
     assert r.search_stdout('testplugpass enabled')
-    check_stderr(r.stderr)
+    r.check_stderr()
     plugin_path = Path(n.lightning_dir) / 'reckless/testplugpass'
     print(plugin_path)
     assert os.path.exists(plugin_path)
