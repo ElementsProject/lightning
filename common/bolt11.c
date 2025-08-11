@@ -388,6 +388,18 @@ static const char *decode_f(struct bolt11 *b11,
 	size_t orig_len = *field_len;
 	const char *err;
 
+	/* Read version but don't commit to hash yet */
+	err = pull_uint(NULL, &orig_data, &orig_len, &version, 5, false);
+	if (err)
+			return tal_fmt(b11, "f: %s", err);
+
+	bool is_known_version = version == 17 || version == 18 || version < 17;
+
+	if (!is_known_version) {
+		return unknown_field(b11, hu5, data, field_len, 'f');
+	}
+
+	/* For known versions, process with hash */
 	err = pull_uint(hu5, data, field_len, &version, 5, false);
 	if (err)
 		return tal_fmt(b11, "f: %s", err);
@@ -442,13 +454,9 @@ static const char *decode_f(struct bolt11 *b11,
 		fallback = scriptpubkey_witness_raw(b11, version,
 						    f, tal_count(f));
 	} else {
-		/* BOLT #11:
-		 *   - MUST skip over `f` fields that use an unknown `version`.
-		 */
-		/* Restore version for unknown field! */
-		*data = orig_data;
-		*field_len = orig_len;
-		return unknown_field(b11, hu5, data, field_len, 'f');
+		// This should be unreachable because all valid versions (17, 18, or <17)
+		// and invalid versions are caught above.
+		return tal_fmt(b11, "f: unknown version %"PRIu64, version);
 	}
 
 	if (b11->fallbacks == NULL)
