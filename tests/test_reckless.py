@@ -5,6 +5,7 @@ import socket
 from pyln.testing.utils import VALGRIND
 import pytest
 import os
+import re
 import shutil
 import time
 import unittest
@@ -91,25 +92,51 @@ def canned_github_server(directory):
     server.terminate()
 
 
+class RecklessResult:
+    def __init__(self, process, returncode, stdout, stderr):
+        self.process = process
+        self.returncode = returncode
+        self.stdout = stdout
+        self.stderr = stderr
+
+    def __repr__(self):
+        return f'self.returncode, self.stdout, self.stderr'
+
+    def search_stdout(self, regex):
+        """return the matching regex line from reckless output."""
+        ex = re.compile(regex)
+        matching = []
+        for line in self.stdout:
+            if ex.search(line):
+                matching.append(line)
+        return matching
+
+
 def reckless(cmds: list, dir: PosixPath = None,
-             autoconfirm=True, timeout: int = 15):
+             autoconfirm=True, timeout: int = 60):
     '''Call the reckless executable, optionally with a directory.'''
     if dir is not None:
         cmds.insert(0, "-l")
         cmds.insert(1, str(dir))
     cmds.insert(0, "tools/reckless")
+    if autoconfirm:
+        process_input = 'Y\n'
+    else:
+        process_input = None
     r = subprocess.run(cmds, capture_output=True, encoding='utf-8', env=my_env,
-                       input='Y\n')
+                       input=process_input, timeout=timeout)
+    stdout = r.stdout.splitlines()
+    stderr = r.stderr.splitlines()
     print(" ".join(r.args), "\n")
     print("***RECKLESS STDOUT***")
-    for l in r.stdout.splitlines():
+    for l in stdout:
         print(l)
     print('\n')
     print("***RECKLESS STDERR***")
-    for l in r.stderr.splitlines():
+    for l in stderr:
         print(l)
     print('\n')
-    return r
+    return RecklessResult(r, r.returncode, stdout, stderr)
 
 
 def get_reckless_node(node_factory):
@@ -119,28 +146,13 @@ def get_reckless_node(node_factory):
     return node
 
 
-def check_stderr(stderr):
-    def output_okay(out):
-        for warning in ['[notice]', 'WARNING:', 'npm WARN',
-                        'npm notice', 'DEPRECATION:', 'Creating virtualenv',
-                        'config file not found:', 'press [Y]']:
-            if out.startswith(warning):
-                return True
-        return False
-    for e in stderr.splitlines():
-        if len(e) < 1:
-            continue
-        # Don't err on verbosity from pip, npm
-        assert output_okay(e)
-
-
 def test_basic_help():
     '''Validate that argparse provides basic help info.
     This requires no config options passed to reckless.'''
     r = reckless(["-h"])
     assert r.returncode == 0
-    assert "positional arguments:" in r.stdout.splitlines()
-    assert "options:" in r.stdout.splitlines() or "optional arguments:" in r.stdout.splitlines()
+    assert r.search_stdout("positional arguments:")
+    assert r.search_stdout("options:") or r.search_stdout("optional arguments:")
 
 
 def test_contextual_help(node_factory):
@@ -149,7 +161,7 @@ def test_contextual_help(node_factory):
                    'enable', 'disable', 'source']:
         r = reckless([subcmd, "-h"], dir=n.lightning_dir)
         assert r.returncode == 0
-        assert "positional arguments:" in r.stdout.splitlines()
+        assert r.search_stdout("positional arguments:")
 
 
 def test_sources(node_factory):
@@ -194,7 +206,7 @@ def test_search(node_factory):
     n = get_reckless_node(node_factory)
     r = reckless([f"--network={NETWORK}", "search", "testplugpass"], dir=n.lightning_dir)
     assert r.returncode == 0
-    assert 'found testplugpass in source: https://github.com/lightningd/plugins' in r.stdout
+    assert r.search_stdout('found testplugpass in source: https://github.com/lightningd/plugins')
 
 
 def test_install(node_factory):
@@ -202,9 +214,9 @@ def test_install(node_factory):
     n = get_reckless_node(node_factory)
     r = reckless([f"--network={NETWORK}", "-v", "install", "testplugpass"], dir=n.lightning_dir)
     assert r.returncode == 0
-    assert 'dependencies installed successfully' in r.stdout
-    assert 'plugin installed:' in r.stdout
-    assert 'testplugpass enabled' in r.stdout
+    assert r.search_stdout('dependencies installed successfully')
+    assert r.search_stdout('plugin installed:')
+    assert r.search_stdout('testplugpass enabled')
     check_stderr(r.stderr)
     plugin_path = Path(n.lightning_dir) / 'reckless/testplugpass'
     print(plugin_path)
@@ -217,9 +229,9 @@ def test_poetry_install(node_factory):
     n = get_reckless_node(node_factory)
     r = reckless([f"--network={NETWORK}", "-v", "install", "testplugpyproj"], dir=n.lightning_dir)
     assert r.returncode == 0
-    assert 'dependencies installed successfully' in r.stdout
-    assert 'plugin installed:' in r.stdout
-    assert 'testplugpyproj enabled' in r.stdout
+    assert r.search_stdout('dependencies installed successfully')
+    assert r.search_stdout('plugin installed:')
+    assert r.search_stdout('testplugpyproj enabled')
     check_stderr(r.stderr)
     plugin_path = Path(n.lightning_dir) / 'reckless/testplugpyproj'
     print(plugin_path)
@@ -240,7 +252,7 @@ def test_local_dir_install(node_factory):
     assert r.returncode == 0
     r = reckless([f"--network={NETWORK}", "-v", "install", "testplugpass"], dir=n.lightning_dir)
     assert r.returncode == 0
-    assert 'testplugpass enabled' in r.stdout
+    assert r.search_stdout('testplugpass enabled')
     plugin_path = Path(n.lightning_dir) / 'reckless/testplugpass'
     print(plugin_path)
     assert os.path.exists(plugin_path)
@@ -249,9 +261,9 @@ def test_local_dir_install(node_factory):
     r = reckless(['uninstall', 'testplugpass', '-v'], dir=n.lightning_dir)
     assert not os.path.exists(plugin_path)
     r = reckless(['source', 'remove', source_dir], dir=n.lightning_dir)
-    assert 'plugin source removed' in r.stdout
+    assert r.search_stdout('plugin source removed')
     r = reckless(['install', '-v', source_dir], dir=n.lightning_dir)
-    assert 'testplugpass enabled' in r.stdout
+    assert r.search_stdout('testplugpass enabled')
     assert os.path.exists(plugin_path)
 
 
@@ -263,9 +275,9 @@ def test_disable_enable(node_factory):
     r = reckless([f"--network={NETWORK}", "-v", "install", "testPlugPass"],
                  dir=n.lightning_dir)
     assert r.returncode == 0
-    assert 'dependencies installed successfully' in r.stdout
-    assert 'plugin installed:' in r.stdout
-    assert 'testplugpass enabled' in r.stdout
+    assert r.search_stdout('dependencies installed successfully')
+    assert r.search_stdout('plugin installed:')
+    assert r.search_stdout('testplugpass enabled')
     check_stderr(r.stderr)
     plugin_path = Path(n.lightning_dir) / 'reckless/testplugpass'
     print(plugin_path)
@@ -278,7 +290,7 @@ def test_disable_enable(node_factory):
     r = reckless([f"--network={NETWORK}", "-v", "enable", "testplugpass.py"],
                  dir=n.lightning_dir)
     assert r.returncode == 0
-    assert 'testplugpass enabled' in r.stdout
+    assert r.search_stdout('testplugpass enabled')
     test_plugin = {'name': str(plugin_path / 'testplugpass.py'),
                    'active': True, 'dynamic': True}
     time.sleep(1)
