@@ -1017,6 +1017,51 @@ def install_python_uv(cloned_plugin: InstInfo):
     return cloned_plugin
 
 
+def install_python_uv_legacy(cloned_plugin: InstInfo):
+    """Install a python plugin with uv that was created with a requirements.txt.
+    This requires creating a bare virtual environment with uv first."""
+    source = Path(cloned_plugin.source_loc) / 'source' / cloned_plugin.name
+    cloned_plugin.venv = Path('.venv')
+    (Path(cloned_plugin.source_loc) / 'pyproject.toml').\
+        symlink_to(source / 'pyproject.toml')
+    (Path(cloned_plugin.source_loc) / 'requirements.txt').\
+        symlink_to(source / 'requirements.txt')
+
+    venv = run(['uv', '-v', 'venv'], cwd=str(cloned_plugin.source_loc),
+               stdout=PIPE, stderr=PIPE, text=True, check=False)
+    if venv.returncode != 0:
+        for line in venv.stderr.splitlines():
+            log.debug(line)
+        log.error('Failed to create virtual environment')
+        raise InstallationFailure('Failed to create virtual environment!')
+    for line in venv.stdout.splitlines():
+        log.debug(line)
+    for line in venv.stderr.splitlines():
+        log.debug(line)
+    # Running this as a shell allows overriding any active virtual environment
+    # which would make uv skip installing packages already present in the
+    # current env.
+    call = ['. .venv/bin/activate; uv -v pip install -r requirements.txt']
+    uv = run(call, shell=True, cwd=str(cloned_plugin.source_loc),
+             stdout=PIPE, stderr=PIPE, text=True, check=False)
+    if uv.returncode != 0:
+        for line in uv.stderr.splitlines():
+            log.debug(line)
+        log.error('Failed to install virtual environment')
+        raise InstallationFailure('Failed to create virtual environment!')
+    for line in uv.stdout.splitlines():
+        log.debug(line)
+    for line in uv.stderr.splitlines():
+        log.debug(line)
+
+    # Delete entrypoint symlink so that a venv wrapper can take it's place
+    (Path(cloned_plugin.source_loc) / cloned_plugin.entry).unlink()
+
+    create_wrapper(cloned_plugin)
+    log.info('dependencies installed successfully')
+    return cloned_plugin
+
+
 python3venv = Installer('python3venv', exe='python3',
                         manager='pip', entry='{name}.py')
 python3venv.add_entrypoint('{name}')
@@ -1043,6 +1088,10 @@ pythonuv = Installer('pythonuv', exe='python3', manager='uv', entry="{name}.py")
 pythonuv.add_dependency_file('uv.lock')
 pythonuv.dependency_call = install_python_uv
 
+pythonuvlegacy = Installer('pythonuvlegacy', exe='python3', manager='uv', entry='{name}.py')
+pythonuvlegacy.add_dependency_file('requirements.txt')
+pythonuvlegacy.dependency_call = install_python_uv_legacy
+
 # Nodejs plugin installer
 nodejs = Installer('nodejs', exe='node',
                    manager='npm', entry='{name}.js')
@@ -1055,8 +1104,8 @@ rust_cargo = Installer('rust', manager='cargo', entry='Cargo.toml')
 rust_cargo.add_dependency_file('Cargo.toml')
 rust_cargo.dependency_call = cargo_installation
 
-INSTALLERS = [pythonuv, python3venv, poetryvenv, pyprojectViaPip, nodejs,
-              rust_cargo]
+INSTALLERS = [pythonuv, pythonuvlegacy, python3venv, poetryvenv,
+              pyprojectViaPip, nodejs, rust_cargo]
 
 
 def help_alias(targets: list):
