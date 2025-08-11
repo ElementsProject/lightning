@@ -269,7 +269,8 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 			      struct amount_msat final_msat,
 			      u64 partid,
 			      u64 groupid,
-			      struct htlc_in *in)
+			      struct htlc_in *in,
+			      struct timeabs send_timestamp)
 {
 	struct htlc_out *hout = tal(ctx, struct htlc_out);
 
@@ -305,6 +306,7 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 
 	}
 	hout->in = NULL;
+	hout->send_timestamp = send_timestamp;
 	if (in) {
 		htlc_out_connect_htlc_in(hout, in);
 

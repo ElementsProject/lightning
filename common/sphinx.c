@@ -818,6 +818,7 @@ struct onionreply *create_onionreply(const tal_t *ctx,
 	towire(&reply->contents, payload, tal_count(payload));
 	tal_free(payload);
 
+	reply->attr_data = NULL;
 	return reply;
 }
 
@@ -825,7 +826,7 @@ struct onionreply *wrap_onionreply(const tal_t *ctx,
 				   const struct secret *shared_secret,
 				   const struct onionreply *reply)
 {
-	struct secret key;
+	struct secret key, attr_key;
 	struct onionreply *result = tal(ctx, struct onionreply);
 
 	/* BOLT #4:
@@ -839,7 +840,107 @@ struct onionreply *wrap_onionreply(const tal_t *ctx,
 	subkey_from_hmac("ammag", shared_secret, &key);
 	result->contents = tal_dup_talarr(result, u8, reply->contents);
 	xor_cipher_stream(result->contents, &key, tal_bytelen(result->contents));
+
+	if (reply->attr_data) {
+		result->attr_data = tal(ctx, struct attribution_data);
+		subkey_from_hmac("ammagext", shared_secret, &attr_key);
+		result->attr_data->htlc_hold_time = tal_dup_talarr(result, u8, reply->attr_data->htlc_hold_time);
+		xor_cipher_stream_off(&attr_key, 0, result->attr_data->htlc_hold_time, tal_bytelen(result->attr_data->htlc_hold_time));
+		result->attr_data->truncated_hmac = tal_dup_talarr(result, u8, reply->attr_data->truncated_hmac);
+		xor_cipher_stream_off(&attr_key,
+				      tal_bytelen(result->attr_data->htlc_hold_time),
+				      result->attr_data->truncated_hmac,
+				      tal_bytelen(result->attr_data->truncated_hmac));
+	} else {
+		result->attr_data = NULL;
+	}
+
 	return result;
+}
+
+static void write_downstream_hmacs(struct crypto_auth_hmacsha256_state *state, int pos, u8 *truncated_hmac) {
+	int hmac_idx = MAX_HOPS + MAX_HOPS - pos - 1;
+	for (int i = 0; i < pos; i++) {
+		hmac_update(state, truncated_hmac + (hmac_idx * TRUNC_HMAC_LEN), TRUNC_HMAC_LEN);
+		int block_size = MAX_HOPS - i - 1;
+		hmac_idx += block_size;
+	}
+}
+
+static void add_hmacs_to_attribution_data(struct onionreply *failonion, struct secret *shared_secret) {
+	struct secret um_key;
+	subkey_from_hmac("um", shared_secret, &um_key);
+	for (int i = 0; i < MAX_HOPS; i++) {
+		struct crypto_auth_hmacsha256_state state;
+		struct hmac hmac;
+		int pos = MAX_HOPS - i - 1;
+		hmac_start(&state, um_key.data, sizeof(um_key.data));
+		hmac_update(&state, failonion->contents, tal_bytelen(failonion->contents));
+		hmac_update(&state, failonion->attr_data->htlc_hold_time, (pos + 1) * HOLD_TIME_LEN);
+		write_downstream_hmacs(&state, pos, failonion->attr_data->truncated_hmac);
+		hmac_done(&state, &hmac);
+		memcpy(failonion->attr_data->truncated_hmac + (i * TRUNC_HMAC_LEN), hmac.bytes, TRUNC_HMAC_LEN);
+	}
+
+}
+
+void update_attributable_data(struct onionreply *failonion, u32 hold_times, struct secret *shared_secret) {
+	if (!failonion->attr_data) {
+		failonion->attr_data = tal(failonion, struct attribution_data);
+		failonion->attr_data->htlc_hold_time = tal_arrz(failonion, u8, 80);
+		failonion->attr_data->truncated_hmac = tal_arrz(failonion, u8, 840);
+	} else {
+		/* Right shift */
+		memmove(&failonion->attr_data->htlc_hold_time[HOLD_TIME_LEN], failonion->attr_data->htlc_hold_time, HOLD_TIME_LEN * (MAX_HOPS - 1));
+		int src_index = HMAC_COUNT - 2;
+		int dest_index = HMAC_COUNT - 1;
+		int copy_len = 1;
+
+		for (int i = 0; i < MAX_HOPS - 1; i++) {
+			memmove(&failonion->attr_data->truncated_hmac[dest_index * TRUNC_HMAC_LEN],
+				&failonion->attr_data->truncated_hmac[src_index * TRUNC_HMAC_LEN],
+				copy_len * TRUNC_HMAC_LEN);
+			if (i == MAX_HOPS - 2)
+				break;
+
+			copy_len += 1;
+			src_index -= copy_len + 1;
+			dest_index -= copy_len;
+		}
+	}
+	u8 *hold_times_be = tal_arr(failonion, u8, 0);
+	towire_u32(&hold_times_be, hold_times);
+	memcpy(failonion->attr_data->htlc_hold_time, hold_times_be, HOLD_TIME_LEN);
+	add_hmacs_to_attribution_data(failonion, shared_secret);
+}
+
+static u8 *verify_attr_data(struct onionreply *reply,
+		     int pos,
+		     const struct secret *shared_secret)
+{
+	struct secret um_key;
+	struct hmac hmac;
+	struct crypto_auth_hmacsha256_state state;
+	u8 expected_hmac[4], actual_hmac[4];
+
+	subkey_from_hmac("um", shared_secret, &um_key);
+
+	hmac_start(&state, um_key.data, sizeof(um_key.data));
+	hmac_update(&state, reply->contents, tal_bytelen(reply->contents));
+	hmac_update(&state, reply->attr_data->htlc_hold_time, (pos + 1) * HOLD_TIME_LEN);
+	write_downstream_hmacs(&state, pos, reply->attr_data->truncated_hmac);
+	hmac_done(&state, &hmac);
+	memcpy(expected_hmac, hmac.bytes, TRUNC_HMAC_LEN);
+
+	/* Compare with actual index. */
+	int hmac_idx = MAX_HOPS - pos - 1;
+	memcpy(actual_hmac, reply->attr_data->truncated_hmac + hmac_idx * TRUNC_HMAC_LEN, TRUNC_HMAC_LEN);
+
+	if (memcmp(actual_hmac, expected_hmac, 4) != 0) {
+		return NULL;
+	}
+
+	return tal_dup_arr(reply, u8, reply->attr_data->htlc_hold_time, 4, 0);
 }
 
 u8 *unwrap_onionreply(const tal_t *ctx,
@@ -852,9 +953,9 @@ u8 *unwrap_onionreply(const tal_t *ctx,
 	const u8 *cursor;
 	size_t max;
 	u16 msglen;
-
-	r = new_onionreply(tmpctx, reply->contents);
+	r = new_onionreply(tmpctx, reply->contents, reply->attr_data);
 	*origin_index = -1;
+	int attr_hop_count = numhops > 20 ? 20 : numhops;
 
 	for (int i = 0; i < numhops; i++) {
 		struct secret key;
@@ -870,6 +971,36 @@ u8 *unwrap_onionreply(const tal_t *ctx,
 
 		cursor = r->contents;
 		max = tal_count(r->contents);
+
+		/* Check attribution error HMACs, If present. */
+		if (r->attr_data) {
+			if (i < attr_hop_count) {
+				int pos = attr_hop_count - i - 1;
+				u8 *hop_time = verify_attr_data(r, pos, &shared_secrets[i]);
+				if (hop_time) {
+					/* Shift Left */
+					memmove(r->attr_data->htlc_hold_time, &r->attr_data->htlc_hold_time[HOLD_TIME_LEN], HOLD_TIME_LEN * (MAX_HOPS - 1));
+
+					int src_index = MAX_HOPS;
+					int dest_index = 1;
+					int copy_len = MAX_HOPS - 1;
+
+					for (int i = 0; i < MAX_HOPS - 1; i++) {
+						memmove(&r->attr_data->truncated_hmac[dest_index * TRUNC_HMAC_LEN],
+							&r->attr_data->truncated_hmac[src_index * TRUNC_HMAC_LEN],
+							copy_len * TRUNC_HMAC_LEN);
+
+						src_index += copy_len;
+						dest_index += copy_len + 1;
+						copy_len -= 1;
+					}
+					// printf("Hop time at position %d: %s \n", i, tal_hexstr(tmpctx, hop_time, 4));
+				} else {
+					/* FIXME: Add logging */
+					// printf("Invalid HMAC at pos: %d", i);
+				}
+			}
+		}
 
 		fromwire_hmac(&cursor, &max, &hmac);
 		/* Too short. */

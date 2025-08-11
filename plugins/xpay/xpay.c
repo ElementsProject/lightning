@@ -580,7 +580,7 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 	if (!tok)
 		plugin_err(aux_cmd->plugin, "Invalid injectpaymentonion result '%.*s'",
 			   json_tok_full_len(error), json_tok_full(buf, error));
-	reply = new_onionreply(tmpctx, take(json_tok_bin_from_hex(NULL, buf, tok)));
+	reply = new_onionreply(tmpctx, take(json_tok_bin_from_hex(NULL, buf, tok)), NULL);
 
 	replymsg = unwrap_onionreply(tmpctx,
 				     attempt->shared_secrets,
