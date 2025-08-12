@@ -3490,6 +3490,29 @@ static void update_view_from_inflights(struct peer *peer)
 	}
 }
 
+static size_t count_inputs_with_exclusions(struct wally_psbt *psbt,
+					   enum tx_role role_to_ignore,
+					   u32 input_index_to_ignore)
+{
+	size_t result = 0;
+	for (size_t i = 0; i < psbt->num_inputs; i++) {
+		struct wally_psbt_input *in = &psbt->inputs[i];
+		u64 in_serial;
+
+		if (!psbt_get_serial_id(&in->unknowns, &in_serial))
+			status_broken("PSBT input %zu missing serial_id"
+				      " %s", i, fmt_wally_psbt(tmpctx, psbt));
+		if (in_serial % 2 == role_to_ignore)
+			continue;
+
+		if (i == input_index_to_ignore)
+			continue;
+
+		result++;
+	}
+	return result;
+}
+
 /* Called to finish an ongoing splice OR on restart from channel_reestablish. */
 static void resume_splice_negotiation(struct peer *peer,
 				      bool send_commitments,
@@ -3520,7 +3543,6 @@ static void resume_splice_negotiation(struct peer *peer,
 	const u8 *msg_received;
 	struct witness **inws;
 	struct bitcoin_signature *their_sig;
-	size_t remote_inputs_needing_sigs;
 
 	if (peer->splicing) {
 		inws = peer->splicing->inws;
@@ -3767,28 +3789,6 @@ static void resume_splice_negotiation(struct peer *peer,
 					 " received",
 					 tal_count(inws) - current_psbt->num_inputs);
 
-		remote_inputs_needing_sigs = 0;
-		for (size_t i = 0; i < current_psbt->num_inputs; i++) {
-			struct wally_psbt_input *in =
-				&current_psbt->inputs[i];
-			u64 in_serial;
-
-			if (!psbt_get_serial_id(&in->unknowns, &in_serial)) {
-				status_broken("PSBT input %zu missing serial_id"
-					      " %s", i,
-					      fmt_wally_psbt(tmpctx,
-							     current_psbt));
-				return;
-			}
-			if (in_serial % 2 == our_role)
-				continue;
-
-			if (i == splice_funding_index)
-				continue;
-
-			remote_inputs_needing_sigs++;
-		}
-
 		/* We put the PSBT + sigs all together */
 		for (size_t j = 0, i = 0; i < current_psbt->num_inputs; i++) {
 			struct wally_psbt_input *in =
@@ -3817,7 +3817,9 @@ static void resume_splice_negotiation(struct peer *peer,
 						 " remote inputs needing sigs"
 						 " and you sent %zu witness"
 						 " bundles.",
-						 remote_inputs_needing_sigs,
+						 count_inputs_with_exclusions(current_psbt,
+						 			      our_role,
+						 			      splice_funding_index),
 						 tal_count(inws));
 			}
 
