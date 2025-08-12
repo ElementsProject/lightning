@@ -3925,6 +3925,21 @@ def test_sql(node_factory, bitcoind):
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
     wait_for(lambda: l3.rpc.sql("SELECT * FROM nodes WHERE alias = '{}'".format(alias))['rows'] != [])
 
+    # Test json functions
+    l1.fundchannel(l2)
+    bitcoind.generate_block(6)
+    l1.rpc.pay(l2.rpc.invoice(amount_msat=1000000, label='inv1000', description='description 1000 msat')['bolt11'])
+    ret = l1.rpc.sql("SELECT json_object('peer_id', hex(pc.peer_id), 'alias', alias, 'htlcs',"
+                     " (SELECT json_group_array(json_object('id', hex(id), 'amount_msat', amount_msat))"
+                     " FROM peerchannels_htlcs ph WHERE ph.row = pc.rowid)) FROM peerchannels pc JOIN nodes n"
+                     " ON pc.peer_id = n.nodeid ORDER BY n.alias, pc.peer_id;")
+    assert len(ret['rows']) == 2
+    row1 = json.loads(ret['rows'][0][0])
+    row2 = json.loads(ret['rows'][1][0])
+    assert row1['peer_id'] == format(l2.info['id'].upper())
+    assert len(row2['htlcs']) == 1
+    assert row2['htlcs'][0]['amount_msat'] == 1000000
+
 
 def test_sql_deprecated(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, opts=[{'allow-deprecated-apis': True}, {}])
