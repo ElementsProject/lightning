@@ -352,6 +352,10 @@ static int sqlite_authorize(void *dbq_, int code,
 			return SQLITE_OK;
 		if (streq(b, "unixepoch"))
 			return SQLITE_OK;
+		if (streq(b, "json_object"))
+			return SQLITE_OK;
+		if (streq(b, "json_group_array"))
+			return SQLITE_OK;
 	}
 
 	/* See https://www.sqlite.org/c3ref/c_alter_table.html to decode these! */
