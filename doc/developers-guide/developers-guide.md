@@ -28,10 +28,10 @@ Start up the nodeset:
 start_ln 3
 ```
 
-Connect the nodes. The `connect a b` command connects node a to b:
+Connects all nodes with channels, in a row, and funds them:
 
 ```shell
-connect 1 2
+fund_nodes
 ```
 
 When you're finished, stop:
