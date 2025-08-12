@@ -3,15 +3,17 @@ ARG TARGETARCH
 
 ARG BASE_DISTRO="debian:bookworm-slim"
 
-FROM ${BASE_DISTRO} AS base-downloader
+FROM ${BASE_DISTRO} AS base
 
-FROM base-downloader AS base-downloader-linux-amd64
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
+
+FROM base AS base-downloader-linux-amd64
 ARG TARBALL_ARCH_FINAL=x86_64-linux-gnu
 
-FROM base-downloader AS base-downloader-linux-arm64
+FROM base AS base-downloader-linux-arm64
 ARG TARBALL_ARCH_FINAL=aarch64-linux-gnu
 
-FROM base-downloader AS base-downloader-linux-arm
+FROM base AS base-downloader-linux-arm
 ARG TARBALL_ARCH_FINAL=arm-linux-gnueabihf
 
 FROM base-downloader-${TARGETOS}-${TARGETARCH} AS downloader
@@ -56,7 +58,7 @@ RUN gpg --import gpg/* && \
 
 RUN tar xzf ${LITECOIN_TARBALL} --strip-components=1
 
-FROM ${BASE_DISTRO} AS base-builder
+FROM base AS base-builder
 
 RUN apt-get update -qq && \
     apt-get install -qq -y --no-install-recommends \
@@ -165,7 +167,7 @@ ARG PKG_CONFIG_PATH=${QEMU_LD_PREFIX}/lib/pkgconfig
 WORKDIR /opt
 
 RUN ./install-poetry.py
-RUN ./install-rust.sh -y --target ${target_host_rust} --profile minimal --component rustfmt
+RUN ./install-rust.sh -y --target ${target_host_rust} --profile minimal
 
 #TODO: error here when building for `arm`
 ENV PATH="/root/.cargo/bin:/root/.local/bin:${PATH}"
@@ -197,8 +199,8 @@ RUN mkdir -p /tmp/postgres_install/lib && \
 WORKDIR /opt/lightningd
 
 RUN mkdir -p .cargo && tee .cargo/config.toml <<-EOF
-  [target.${target_host_rust}]
-  linker = "${target_host}-gcc"
+	[target.${target_host_rust}]
+	linker = "${target_host}-gcc"
 EOF
 
 ARG POETRY_VIRTUALENVS_CREATE=false
@@ -217,7 +219,7 @@ RUN for f in /tmp/lightning_install/bin/*; do \
   fi; \
 done
 
-FROM ${BASE_DISTRO} AS final
+FROM base AS final
 
 RUN apt-get update -qq && \
     apt-get install -qq -y --no-install-recommends \
