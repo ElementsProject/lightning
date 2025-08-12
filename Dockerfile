@@ -206,7 +206,9 @@ ARG POETRY_VIRTUALENVS_CREATE=false
 RUN poetry lock && \
     poetry install --no-root --no-interaction --no-ansi
 
+#TODO: ensure no makefile compiles using CPU dependent intrinsics (avx/sse/march=native)
 RUN ./configure --prefix=/tmp/lightning_install --enable-static
+#TODO: avoid installing manpages (takes 45 minutes when emulating arm)
 RUN poetry run make -j$(nproc) install
 
 RUN for f in /tmp/lightning_install/bin/*; do \
