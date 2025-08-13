@@ -23,6 +23,6 @@ tokio-rustls = { version = "0.26", default-features = false, features = ["ring",
 
 log-panics = "2"
 
-cln-plugin = { version = "0.4", path = "../../plugins" }
+cln-plugin = { version = "0.5", path = "../../plugins" }
 cln-rpc = { version = "0.5", path = "../../cln-rpc" }
 
