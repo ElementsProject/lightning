@@ -12,7 +12,7 @@ enum {
 	// No feasible flow found, either there is not enough known liquidity (or capacity)
 	// in the channels to complete the payment
 	RENEPAY_ERR_NOFEASIBLEFLOW,
-	// There is at least one feasible flow, but the the cheapest solution that we
+	// There is at least one feasible flow, but the cheapest solution that we
 	// found is too expensive, we return the result anyways.
 	RENEPAY_ERR_NOCHEAPFLOW
 };
