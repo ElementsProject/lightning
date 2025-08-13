@@ -32538,7 +32538,9 @@
         "* time",
         "* timediff",
         "* total",
-        "* unixepoch"
+        "* unixepoch",
+        "* json_object",
+        "* json_group_array"
       ],
       "tables": [
         "Note that the first column of every table is a unique integer called `rowid`: this is used for related tables to refer to specific rows in their parent. sqlite3 usually has this as an implicit column, but we make it explicit as the implicit version is not allowed to be used as a foreign key.",
