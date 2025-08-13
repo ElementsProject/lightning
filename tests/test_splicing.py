@@ -497,3 +497,31 @@ def test_splice_stuck_htlc(node_factory, bitcoind, executor):
     # Check that the splice doesn't generate a unilateral close transaction
     time.sleep(5)
     assert l1.db_query("SELECT count(*) as c FROM channeltxs;")[0]['c'] == 0
+
+
+@pytest.mark.xfail(strict=True)
+def test_route_by_old_scid(node_factory, bitcoind):
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True, opts={'experimental-splicing': None})
+
+    # Get pre-splice route.
+    inv = l3.rpc.invoice(10000000, 'test_route_by_old_scid', 'test_route_by_old_scid')
+    route = l1.rpc.getroute(l3.info['id'], 10000000, 1)['route']
+
+    # Do a splice
+    funds_result = l2.rpc.fundpsbt("109000sat", "slow", 166, excess_as_change=True)
+    chan_id = l2.get_channel_id(l3)
+    result = l2.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
+    result = l2.rpc.splice_update(chan_id, result['psbt'])
+    assert(result['commitments_secured'] is False)
+    result = l2.rpc.splice_update(chan_id, result['psbt'])
+    assert(result['commitments_secured'] is True)
+    result = l2.rpc.signpsbt(result['psbt'])
+    result = l2.rpc.splice_signed(chan_id, result['signed_psbt'])
+
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['state'] == 'CHANNELD_AWAITING_SPLICE')
+    bitcoind.generate_block(6, wait_for_mempool=1)
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['state'] == 'CHANNELD_NORMAL')
+
+    # Now l1 tries to send using old scid: should work
+    l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
+    l1.rpc.waitsendpay(inv['payment_hash'])
