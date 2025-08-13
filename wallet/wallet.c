@@ -1496,15 +1496,15 @@ void wallet_inflight_save(struct wallet *w,
 	 * and the last_tx/last_sig or locked_scid if this is for a splice */
 	stmt = db_prepare_v2(w->db,
 			     SQL("UPDATE channel_funding_inflights SET"
-				 "  funding_psbt=?" // 0
-				 ", funding_tx_remote_sigs_received=?" // 1
-				 ", last_tx=?" // 2
-				 ", last_sig=?" // 3
-				 ", locked_scid=?" // 4
+				 "  funding_psbt=?"
+				 ", funding_tx_remote_sigs_received=?"
+				 ", last_tx=?"
+				 ", last_sig=?"
+				 ", locked_scid=?"
 				 " WHERE"
-				 "  channel_id=?" // 5
-				 " AND funding_tx_id=?" // 6
-				 " AND funding_tx_outnum=?")); // 7
+				 "  channel_id=?"
+				 " AND funding_tx_id=?"
+				 " AND funding_tx_outnum=?"));
 	db_bind_psbt(stmt, inflight->funding_psbt);
 	db_bind_int(stmt, inflight->remote_tx_sigs);
 	if (inflight->last_tx) {
@@ -2524,61 +2524,61 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	wallet_channel_config_save(w, &chan->our_config);
 
 	stmt = db_prepare_v2(w->db, SQL("UPDATE channels SET"
-					"  shachain_remote_id=?," // 0
-					"  scid=?," // 1
-					"  full_channel_id=?," // 2
-					"  state=?," // 3
-					"  funder=?," // 4
-					"  channel_flags=?," // 5
-					"  minimum_depth=?," // 6
-					"  next_index_local=?," // 7
-					"  next_index_remote=?," // 8
-					"  next_htlc_id=?," // 9
-					"  funding_tx_id=?," // 10
-					"  funding_tx_outnum=?," // 11
-					"  funding_satoshi=?," // 12
-					"  our_funding_satoshi=?," // 13
-					"  funding_locked_remote=?," // 14
-					"  push_msatoshi=?," // 15
-					"  msatoshi_local=?," // 16
+					"  shachain_remote_id=?,"
+					"  scid=?,"
+					"  full_channel_id=?,"
+					"  state=?,"
+					"  funder=?,"
+					"  channel_flags=?,"
+					"  minimum_depth=?,"
+					"  next_index_local=?,"
+					"  next_index_remote=?,"
+					"  next_htlc_id=?,"
+					"  funding_tx_id=?,"
+					"  funding_tx_outnum=?,"
+					"  funding_satoshi=?,"
+					"  our_funding_satoshi=?,"
+					"  funding_locked_remote=?,"
+					"  push_msatoshi=?,"
+					"  msatoshi_local=?,"
 					"  shutdown_scriptpubkey_remote=?,"
-					"  shutdown_keyidx_local=?," // 18
-					"  channel_config_local=?," // 19
-					"  last_tx=?, last_sig=?," // 20 + 21
-					"  last_was_revoke=?," // 22
-					"  min_possible_feerate=?," // 23
-					"  max_possible_feerate=?," // 24
-					"  msatoshi_to_us_min=?," // 25
-					"  msatoshi_to_us_max=?," // 26
-					"  feerate_base=?," // 27
-					"  feerate_ppm=?," // 28
-					"  remote_upfront_shutdown_script=?," // 29
-					"  local_static_remotekey_start=?," // 30
-					"  remote_static_remotekey_start=?," // 31
-					"  channel_type=?," // 32
-					"  shutdown_scriptpubkey_local=?," // 33
-					"  closer=?," // 34
-					"  state_change_reason=?," // 35
-					"  shutdown_wrong_txid=?," // 36
-					"  shutdown_wrong_outnum=?," // 37
-					"  lease_expiry=?," // 38
-					"  lease_commit_sig=?," // 39
-					"  lease_chan_max_msat=?," // 40
-					"  lease_chan_max_ppt=?," // 41
-					"  htlc_minimum_msat=?," // 42
-					"  htlc_maximum_msat=?," // 43
-					"  alias_local=?," // 44
-					"  alias_remote=?," // 45
-					"  ignore_fee_limits=?," // 46
-					"  remote_feerate_base=?," // 47
-					"  remote_feerate_ppm=?," // 48
-					"  remote_cltv_expiry_delta=?," // 49
-					"  remote_htlc_minimum_msat=?," // 50
-					"  remote_htlc_maximum_msat=?," // 51
-					"  last_stable_connection=?," // 52
-					"  require_confirm_inputs_remote=?," // 53
-					"  close_attempt_height=?" // 54
-					" WHERE id=?")); // 55
+					"  shutdown_keyidx_local=?,"
+					"  channel_config_local=?,"
+					"  last_tx=?, last_sig=?,"
+					"  last_was_revoke=?,"
+					"  min_possible_feerate=?,"
+					"  max_possible_feerate=?,"
+					"  msatoshi_to_us_min=?,"
+					"  msatoshi_to_us_max=?,"
+					"  feerate_base=?,"
+					"  feerate_ppm=?,"
+					"  remote_upfront_shutdown_script=?,"
+					"  local_static_remotekey_start=?,"
+					"  remote_static_remotekey_start=?,"
+					"  channel_type=?,"
+					"  shutdown_scriptpubkey_local=?,"
+					"  closer=?,"
+					"  state_change_reason=?,"
+					"  shutdown_wrong_txid=?,"
+					"  shutdown_wrong_outnum=?,"
+					"  lease_expiry=?,"
+					"  lease_commit_sig=?,"
+					"  lease_chan_max_msat=?,"
+					"  lease_chan_max_ppt=?,"
+					"  htlc_minimum_msat=?,"
+					"  htlc_maximum_msat=?,"
+					"  alias_local=?,"
+					"  alias_remote=?,"
+					"  ignore_fee_limits=?,"
+					"  remote_feerate_base=?,"
+					"  remote_feerate_ppm=?,"
+					"  remote_cltv_expiry_delta=?,"
+					"  remote_htlc_minimum_msat=?,"
+					"  remote_htlc_maximum_msat=?,"
+					"  last_stable_connection=?,"
+					"  require_confirm_inputs_remote=?,"
+					"  close_attempt_height=?"
+					" WHERE id=?"));
 	db_bind_u64(stmt, chan->their_shachain.id);
 	if (chan->scid)
 		db_bind_short_channel_id(stmt, *chan->scid);
