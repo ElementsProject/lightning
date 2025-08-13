@@ -1262,7 +1262,6 @@ validate_splice_cmd(struct splice_cmd *splice_cmd)
 {
 	struct splice_script_result *action;
 	int paying_fee_count = 0;
-	int channels = 0;
 	for (size_t i = 0; i < tal_count(splice_cmd->actions); i++) {
 		action = splice_cmd->actions[i];
 		/* Taking fee from onchain wallet requires recursive looping
@@ -1298,14 +1297,6 @@ validate_splice_cmd(struct splice_cmd *splice_cmd)
 					    JSONRPC2_INVALID_PARAMS,
 					    "Dynamic bitcoin address amounts"
 					    " not supported for now");
-		if (action->channel_id) {
-			if (channels)
-				return command_fail(splice_cmd->cmd,
-						    JSONRPC2_INVALID_PARAMS,
-						    "Multi-channel splice not"
-						    "supported for now");
-			channels++;
-		}
 		if (action->bitcoin_address)
 			return command_fail(splice_cmd->cmd,
 					    JSONRPC2_INVALID_PARAMS,
