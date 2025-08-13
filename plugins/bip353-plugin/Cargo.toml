@@ -17,7 +17,7 @@ tokio = "1"
 
 log-panics = "2"
 
-cln-plugin = { version = "0.4", path = "../../plugins" }
+cln-plugin = { version = "0.5", path = "../../plugins" }
 
 bitcoin-payment-instructions = { git = "https://github.com/rust-bitcoin/bitcoin-payment-instructions.git", rev = "d071ce27734ca13be2471f81abf8699d902c3a10", features = [
     "http",

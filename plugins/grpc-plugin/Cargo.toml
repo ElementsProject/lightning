@@ -18,7 +18,7 @@ log = "0.4"
 rcgen = { version = "0.13.1", features = ["pem", "x509-parser"] }
 prost = "0.12"
 cln-grpc = { version = "0.5", features = ["server"], path = "../../cln-grpc"}
-cln-plugin = { version = "0.4", path = "../../plugins" }
+cln-plugin = { version = "0.5", path = "../../plugins" }
 cln-rpc = { version = "0.5", path = "../../cln-rpc" }
 serde_json = "1.0.113"
 
