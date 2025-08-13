@@ -149,6 +149,7 @@ struct attempt {
 
 	struct payment *payment;
 	struct amount_msat delivers;
+	struct timemono start_time;
 
 	/* Path we tried, so we can unreserve, and tell askrene the results */
 	const struct hop *hops;
@@ -536,6 +537,73 @@ static struct amount_msat total_delivered(const struct payment *payment)
 	return sum;
 }
 
+/* We can notify others of what the details are, so they can do their own
+ * layer heuristics. */
+static void json_add_attempt_fields(struct json_stream *js,
+				    const struct attempt *attempt)
+{
+	/* These three uniquely identify this attempt */
+	json_add_sha256(js, "payment_hash", &attempt->payment->payment_hash);
+	json_add_u64(js, "groupid", attempt->payment->group_id);
+	json_add_u64(js, "partid", attempt->partid);
+}
+
+static void outgoing_notify_start(const struct attempt *attempt)
+{
+	struct json_stream *js = plugin_notification_start(NULL, "pay_part_start");
+	json_add_attempt_fields(js, attempt);
+	json_add_amount_msat(js, "total_payment_msat", attempt->payment->amount);
+	json_add_amount_msat(js, "attempt_msat", attempt->delivers);
+	json_array_start(js, "hops");
+	for (size_t i = 0; i < tal_count(attempt->hops); i++) {
+		const struct hop *hop = &attempt->hops[i];
+		json_object_start(js, NULL);
+		json_add_pubkey(js, "next_node", &hop->next_node);
+		json_add_short_channel_id(js, "short_channel_id", hop->scidd.scid);
+		json_add_u32(js, "direction", hop->scidd.dir);
+		json_add_amount_msat(js, "channel_in_msat", hop->amount_in);
+		json_add_amount_msat(js, "channel_out_msat", hop->amount_out);
+		json_object_end(js);
+	}
+	json_array_end(js);
+	plugin_notification_end(attempt->payment->plugin, js);
+}
+
+static void outgoing_notify_success(const struct attempt *attempt)
+{
+	struct json_stream *js = plugin_notification_start(NULL, "pay_part_end");
+	json_add_string(js, "status", "success");
+	json_add_timerel(js, "duration", timemono_between(time_mono(), attempt->start_time));
+	json_add_attempt_fields(js, attempt);
+	plugin_notification_end(attempt->payment->plugin, js);
+}
+
+static void outgoing_notify_failure(const struct attempt *attempt,
+				    int failindex, int errcode,
+				    const u8 *replymsg,
+				    const char *errstr)
+{
+	struct json_stream *js = plugin_notification_start(NULL, "pay_part_end");
+	json_add_string(js, "status", "failure");
+	json_add_attempt_fields(js, attempt);
+	if (replymsg)
+		json_add_hex_talarr(js, "failed_msg", replymsg);
+	json_add_timerel(js, "duration", timemono_between(time_mono(), attempt->start_time));
+	if (failindex != -1) {
+		if (failindex != 0)
+			json_add_pubkey(js, "failed_node_id", &attempt->hops[failindex-1].next_node);
+		if (failindex != tal_count(attempt->hops)) {
+			const struct hop *hop = &attempt->hops[failindex];
+			json_add_short_channel_id(js, "failed_short_channel_id", hop->scidd.scid);
+			json_add_u32(js, "failed_direction", hop->scidd.dir);
+		}
+	}
+	if (errcode != -1)
+		json_add_u32(js, "error_code", errcode);
+	json_add_string(js, "error_message", errstr);
+	plugin_notification_end(attempt->payment->plugin, js);
+}
+
 static void update_knowledge_from_error(struct command *aux_cmd,
 					const char *buf,
 					const jsmntok_t *error,
@@ -590,6 +658,7 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 
 	/* Garbled?  Blame random hop. */
 	if (!replymsg) {
+		outgoing_notify_failure(attempt, -1, -1, replymsg, "Garbled error message");
 		index = pseudorand(tal_count(attempt->hops));
 		description = "Garbled error message";
 		add_result_summary(attempt, LOG_UNUSUAL,
@@ -627,6 +696,7 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 	} else
 		errmsg = failcode_name;
 
+	outgoing_notify_failure(attempt, index, failcode, replymsg, errmsg);
 	description = tal_fmt(tmpctx,
 			      "Error %s for path %s, from %s",
 			      errmsg,
@@ -881,6 +951,8 @@ static struct command_result *injectpaymentonion_succeeded(struct command *aux_c
 		plugin_err(aux_cmd->plugin, "Invalid injectpaymentonion result '%.*s'",
 			   json_tok_full_len(result), json_tok_full(buf, result));
 
+	outgoing_notify_success(attempt);
+
 	/* Move from current_attempts to past_attempts */
 	list_del_from(&payment->current_attempts, &attempt->list);
 	list_add(&payment->past_attempts, &attempt->list);
@@ -1007,6 +1079,9 @@ static struct command_result *do_inject(struct command *aux_cmd,
 				"Could not create payment onion: path too long!");
 		return command_still_pending(aux_cmd);
 	}
+
+	outgoing_notify_start(attempt);
+	attempt->start_time = time_mono();
 
 	req = jsonrpc_request_start(aux_cmd,
 				    "injectpaymentonion",
@@ -2118,6 +2193,12 @@ static const struct plugin_hook hooks[] = {
 	},
 };
 
+/* Notifications for each payment part we attempt */
+static const char *outgoing_notifications[] = {
+	"pay_part_start",
+	"pay_part_end",
+};
+
 int main(int argc, char *argv[])
 {
 	struct xpay *xpay;
@@ -2131,7 +2212,7 @@ int main(int argc, char *argv[])
 		    commands, ARRAY_SIZE(commands),
 		    notifications, ARRAY_SIZE(notifications),
 		    hooks, ARRAY_SIZE(hooks),
-	            NULL, 0,
+	            outgoing_notifications, ARRAY_SIZE(outgoing_notifications),
 		    plugin_option_dynamic("xpay-handle-pay", "bool",
 					  "Make xpay take over pay commands it can handle.",
 					  bool_option, bool_jsonfmt, &xpay->take_over_pay),
