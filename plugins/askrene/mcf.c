@@ -1375,7 +1375,26 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 	struct reserve_hop *reservations = new_reservations(working_ctx, rq);
 
 	while (!amount_msat_is_zero(amount_to_deliver)) {
-                new_flows = tal_free(new_flows);
+		size_t num_parts, parts_slots, excess_parts;
+
+                /* FIXME: This algorithm to limit the number of parts is dumb
+                 * for two reasons:
+                 *      1. it does not take into account that several loop
+                 *      iterations here may produce two flows along the same
+                 *      path that after "squash_flows" become a single flow.
+                 *      2. limiting the number of "slots" to 1 makes us fail to
+                 *      see some solutions that use more than one of those
+                 *      existing paths.
+                 *
+                 * A better approach could be to run MCF, remove the excess
+                 * paths and then recompute a MCF on a network where each arc is
+                 * one of the previously remaining paths, ie. redistributing the
+                 * payment amount among the selected paths in a cost-efficient
+                 * way. */
+		new_flows = tal_free(new_flows);
+		num_parts = tal_count(*flows);
+		assert(num_parts < rq->maxparts);
+		parts_slots = rq->maxparts - num_parts;
 
 		/* If the amount_to_deliver is very small we better use a single
 		 * path computation because:
@@ -1385,9 +1404,12 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
                  * refine_with_fees_and_limits we might have a set of flows that
                  * do not deliver the entire payment amount by just a small
                  * amount. */
-		if(amount_msat_less_eq(amount_to_deliver, SINGLE_PATH_THRESHOLD)){
-                        new_flows = single_path_flow(working_ctx, rq, srcnode, dstnode,
-                                amount_to_deliver, mu, delay_feefactor);
+		if (amount_msat_less_eq(amount_to_deliver,
+					SINGLE_PATH_THRESHOLD) ||
+		    parts_slots == 1) {
+			new_flows = single_path_flow(working_ctx, rq, srcnode,
+						     dstnode, amount_to_deliver,
+						     mu, delay_feefactor);
 		} else {
 			new_flows =
 			    solver(working_ctx, rq, srcnode, dstnode,
@@ -1423,6 +1445,27 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 		for (size_t i = 0; i < tal_count(new_flows); i++) {
                         // FIXME: replace all assertions with LOG_BROKEN
 			assert(!amount_msat_is_zero(new_flows[i]->delivers));
+		}
+
+		if (tal_count(new_flows) > parts_slots) {
+			/* Remove the excees of parts and leave one slot for the
+			 * next round of computations. */
+			excess_parts = 1 + tal_count(new_flows) - parts_slots;
+		} else if (tal_count(new_flows) == parts_slots &&
+			   amount_msat_less(all_deliver, amount_to_deliver)) {
+			/* Leave exactly 1 slot for the next round of
+			 * computations. */
+			excess_parts = 1;
+		} else
+			excess_parts = 0;
+		if (excess_parts > 0 &&
+		    !remove_flows(&new_flows, excess_parts)) {
+			error_message = rq_log(ctx, rq, LOG_BROKEN,
+					       "%s: failed to remove %zu"
+					       " flows from a set of %zu",
+					       __func__, excess_parts,
+					       tal_count(new_flows));
+			goto fail;
 		}
 
 		/* Is this set of flows too expensive?
@@ -1567,6 +1610,16 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 		error_message =
 		    rq_log(rq, rq, LOG_BROKEN,
 			   "%s: check_htlc_max_limits failed", __func__);
+		*flows = tal_free(*flows);
+		goto fail;
+	}
+	if (tal_count(*flows) > rq->maxparts) {
+		error_message = rq_log(
+		    rq, rq, LOG_BROKEN,
+		    "%s: the number of flows (%zu) exceeds the limit set "
+		    "on payment parts (%" PRIu32
+		    "), please submit a bug report",
+		    __func__, tal_count(*flows), rq->maxparts);
 		*flows = tal_free(*flows);
 		goto fail;
 	}

@@ -5973,6 +5973,7 @@ impl From<requests::GetroutesRequest> for pb::GetroutesRequest {
             layers: c.layers.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
             maxdelay: c.maxdelay, // Rule #2 for type u32?
             maxfee_msat: Some(c.maxfee_msat.into()), // Rule #2 for type msat
+            maxparts: c.maxparts, // Rule #2 for type u32?
             source: c.source.serialize().to_vec(), // Rule #2 for type pubkey
         }
     }
@@ -7658,6 +7659,7 @@ impl From<pb::GetroutesRequest> for requests::GetroutesRequest {
             layers: c.layers.into_iter().map(|s| s.into()).collect(), // Rule #4
             maxdelay: c.maxdelay, // Rule #1 for type u32?
             maxfee_msat: c.maxfee_msat.unwrap().into(), // Rule #1 for type msat
+            maxparts: c.maxparts, // Rule #1 for type u32?
             source: PublicKey::from_slice(&c.source).unwrap(), // Rule #1 for type pubkey
         }
     }

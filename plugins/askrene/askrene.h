@@ -64,6 +64,9 @@ struct route_query {
 
 	/* channels we disable during computation to meet constraints */
 	bitmap *disabled_chans;
+
+	/* limit the number of paths in the solution */
+	u32 maxparts;
 };
 
 /* Given a gossmap channel, get the current known min/max */

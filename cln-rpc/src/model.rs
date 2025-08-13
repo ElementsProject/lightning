@@ -4455,6 +4455,8 @@ pub mod requests {
 	    pub final_cltv: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub maxdelay: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub maxparts: Option<u32>,
 	    pub amount_msat: Amount,
 	    pub destination: PublicKey,
 	    pub layers: Vec<String>,

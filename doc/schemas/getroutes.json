@@ -73,6 +73,14 @@
           "Maximum number of blocks of delay for the route. Cannot be bigger than 2016."
         ],
         "default": "2016"
+      },
+      "maxparts": {
+        "type": "u32",
+        "added": "v25.09",
+        "description": [
+          "Maximum number of routes in the solution."
+        ],
+        "default": "100"
       }
     }
   },
