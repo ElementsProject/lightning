@@ -144,6 +144,8 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 	case WIRE_HSMD_PREAPPROVE_KEYSEND:
 	case WIRE_HSMD_PREAPPROVE_INVOICE_CHECK:
 	case WIRE_HSMD_PREAPPROVE_KEYSEND_CHECK:
+	case WIRE_HSMD_GET_BIP86_CAPABILITY:
+	case WIRE_HSMD_DERIVE_BIP86_KEY:
 	case WIRE_HSMD_DERIVE_SECRET:
 	case WIRE_HSMD_CHECK_PUBKEY:
 	case WIRE_HSMD_SIGN_ANY_PENALTY_TO_US:
@@ -192,6 +194,8 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 	case WIRE_HSMD_PREAPPROVE_KEYSEND_REPLY:
 	case WIRE_HSMD_PREAPPROVE_INVOICE_CHECK_REPLY:
 	case WIRE_HSMD_PREAPPROVE_KEYSEND_CHECK_REPLY:
+	case WIRE_HSMD_GET_BIP86_CAPABILITY_REPLY:
+	case WIRE_HSMD_DERIVE_BIP86_KEY_REPLY:
 	case WIRE_HSMD_DERIVE_SECRET_REPLY:
 	case WIRE_HSMD_CHECK_PUBKEY_REPLY:
 	case WIRE_HSMD_SIGN_ANCHORSPEND_REPLY:
@@ -2227,6 +2231,14 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 	case WIRE_HSMD_PREAPPROVE_KEYSEND:
 	case WIRE_HSMD_PREAPPROVE_KEYSEND_CHECK:
 		return handle_preapprove_keysend(client, msg);
+	case WIRE_HSMD_GET_BIP86_CAPABILITY:
+	case WIRE_HSMD_DERIVE_BIP86_KEY:
+		/* This should be handled by hsmd.c, not libhsmd */
+		return hsmd_status_bad_request_fmt(
+		    client, msg,
+		    "Message of type %s should be handled externally to "
+		    "libhsmd",
+		    hsmd_wire_name(t));
 	case WIRE_HSMD_SIGN_MESSAGE:
 		return handle_sign_message(client, msg);
 	case WIRE_HSMD_BIP137_SIGN_MESSAGE:
@@ -2322,6 +2334,8 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 	case WIRE_HSMD_PREAPPROVE_KEYSEND_REPLY:
 	case WIRE_HSMD_PREAPPROVE_INVOICE_CHECK_REPLY:
 	case WIRE_HSMD_PREAPPROVE_KEYSEND_CHECK_REPLY:
+	case WIRE_HSMD_GET_BIP86_CAPABILITY_REPLY:
+	case WIRE_HSMD_DERIVE_BIP86_KEY_REPLY:
 	case WIRE_HSMD_CHECK_PUBKEY_REPLY:
 	case WIRE_HSMD_SIGN_ANCHORSPEND_REPLY:
 	case WIRE_HSMD_SIGN_HTLC_TX_MINGLE_REPLY:

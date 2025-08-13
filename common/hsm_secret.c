@@ -298,7 +298,10 @@ static struct hsm_secret *extract_mnemonic_secret(const tal_t *ctx,
 		return tal_free(hsms);
 	}
 	
-	/* We only use the first 32 bytes for the hsm_secret */
+	/* Store the full 64-byte BIP32 seed for BIP86 derivation */
+	hsms->bip32_seed = tal_dup_arr(hsms, u8, bip32_seed, bip32_seed_len, 0);
+	
+	/* We also keep the first 32 bytes for legacy compatibility */
 	memcpy(hsms->secret.data, bip32_seed, sizeof(hsms->secret.data));
 	
 	*err = HSM_SECRET_OK;

@@ -82,6 +82,27 @@ bool hsm_capable(struct lightningd *ld, u32 msgtype)
 	return hsm_is_capable(ld->hsm_capabilities, msgtype);
 }
 
+static void check_bip86_capability(struct lightningd *ld)
+{
+	if (!hsm_capable(ld, WIRE_HSMD_GET_BIP86_CAPABILITY)) {
+		fatal("--use-bip86-derivation requires HSM capable of BIP86 capability check!");
+	}
+	
+	/* Query HSM for BIP86 capability */
+	const u8 *msg = towire_hsmd_get_bip86_capability(tmpctx);
+	msg = hsm_sync_req(tmpctx, ld, take(msg));
+	bool available;
+	if (!fromwire_hsmd_get_bip86_capability_reply(msg, &available)) {
+		fatal("Invalid get_bip86_capability_reply from hsm");
+	}
+	
+	if (!available) {
+		fatal("--use-bip86-derivation requested but HSM does not support BIP86 derivation (requires mnemonic-based HSM secret)");
+	}
+	
+	log_info(ld->log, "BIP86 derivation enabled and supported by HSM");
+}
+
 struct ext_key *hsm_init(struct lightningd *ld)
 {
 	u8 *msg;
@@ -191,6 +212,11 @@ struct ext_key *hsm_init(struct lightningd *ld)
 			    OPT_SPLICE)
 	    && !hsm_capable(ld, WIRE_HSMD_SIGN_SPLICE_TX)) {
 		fatal("--experimental-splicing needs HSM capable of signing splices!");
+	}
+
+	/* Check if BIP86 derivation is requested and supported */
+	if (ld->use_bip86_derivation) {
+		check_bip86_capability(ld);
 	}
 
 	/* This is equivalent to makesecret("bolt12-invoice-base") */

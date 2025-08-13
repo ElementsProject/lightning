@@ -29,6 +29,8 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <wally_bip39.h>
+#include <wally_bip32.h>
+#include <wally_core.h>
 #include <wire/wire_io.h>
 
 /*~ Each subdaemon is started with stdin connected to lightningd (for status
@@ -38,7 +40,7 @@
 #define REQ_FD 3
 
 /* Temporary storage for the secret until we pass it to `hsmd_init` */
-struct hsm_secret hsm_secret;
+struct hsm_secret hsm_secret = { .bip32_seed = NULL, .mnemonic = NULL };
 
 /*~ We keep track of clients, but there's not much to keep. */
 struct client {
@@ -367,8 +369,14 @@ static void create_hsm(int fd, const char *passphrase)
 	}
 	status_debug("HSM: Derived BIP32 seed from mnemonic");
 	
-	/* Use first 32 bytes for hsm_secret */
+	/* Store the full 64-byte BIP32 seed for BIP86 derivation */
+	hsm_secret.bip32_seed = tal_dup_arr(tmpctx, u8, bip32_seed, bip32_seed_len, 0);
+	
+	/* Also store first 32 bytes for legacy compatibility */
 	memcpy(&hsm_secret.secret, bip32_seed, sizeof(hsm_secret.secret));
+	
+	/* Set the type based on whether passphrase was used */
+	hsm_secret.type = passphrase ? HSM_SECRET_MNEMONIC_WITH_PASS : HSM_SECRET_MNEMONIC_NO_PASS;
 	
 	/* Write the hsm_secret data to file */
 	if (!write_all(fd, hsm_secret_data, hsm_secret_len)) {
@@ -471,7 +479,7 @@ static void load_hsm(const char *passphrase)
 	}
 
 	/* Copy the extracted secret to our global hsm_secret */
-	memcpy(&hsm_secret, &hsms->secret, sizeof(hsm_secret));
+	hsm_secret = *hsms;
 }
 
 /*~ We have a pre-init call in developer mode, to set dev flags */
@@ -698,6 +706,90 @@ void hsmd_status_failed(enum status_failreason reason, const char *fmt, ...)
 	status_send_fatal(take(towire_status_fail(NULL, reason, str)));
 }
 
+/* Handle BIP86 capability check request */
+static struct io_plan *handle_get_bip86_capability(struct io_conn *conn,
+						   struct client *c,
+						   const u8 *msg_in)
+{
+	u8 *reply;
+	bool available = false;
+
+	/* Validate the incoming message format */
+	if (!fromwire_hsmd_get_bip86_capability(msg_in))
+		return bad_req(conn, c, msg_in);
+
+	/* Check if we have a mnemonic-based HSM secret */
+	if (hsm_secret.type == HSM_SECRET_MNEMONIC_NO_PASS ||
+	    hsm_secret.type == HSM_SECRET_MNEMONIC_WITH_PASS) {
+		available = true;
+	}
+
+	reply = towire_hsmd_get_bip86_capability_reply(NULL, available);
+	return req_reply(conn, c, take(reply));
+}
+
+/* Handle BIP86 key derivation request */
+static struct io_plan *handle_derive_bip86_key(struct io_conn *conn,
+					       struct client *c,
+					       const u8 *msg_in)
+{
+	u8 *reply;
+	u32 index;
+	bool is_change;
+	struct pubkey pubkey;
+	struct ext_key ext;
+	u32 change_index;
+	u32 path[5];
+
+	/* Validate the incoming message format */
+	if (!fromwire_hsmd_derive_bip86_key(msg_in, &index, &is_change))
+		return bad_req(conn, c, msg_in);
+
+	/* Set up the BIP86 derivation path: m/86'/0'/0'/change/address_index */
+	change_index = is_change ? 1 : 0;
+	path[0] = 86 | 0x80000000;  /* 86' */
+	path[1] = 0x80000000;       /* 0' */
+	path[2] = 0x80000000;       /* 0' */
+	path[3] = change_index;     /* change (0 or 1) */
+	path[4] = index;            /* address_index */
+
+	/* Check if we have a mnemonic-based HSM secret */
+	if (hsm_secret.type != HSM_SECRET_MNEMONIC_NO_PASS &&
+	    hsm_secret.type != HSM_SECRET_MNEMONIC_WITH_PASS) {
+		return bad_req_fmt(conn, c, msg_in,
+				   "BIP86 derivation requires mnemonic-based HSM secret");
+	}
+
+	/* Check if we have the full BIP32 seed available */
+	if (!hsm_secret.bip32_seed) {
+		return bad_req_fmt(conn, c, msg_in,
+				   "BIP86 derivation requires full BIP32 seed (not available in legacy format)");
+	}
+
+	/* First create the master key from the seed */
+	struct ext_key master_key;
+	if (bip32_key_from_seed(hsm_secret.bip32_seed, 64, BIP32_VER_MAIN_PRIVATE, 0, &master_key) != WALLY_OK) {
+		return bad_req_fmt(conn, c, msg_in,
+				   "Failed to create master key from BIP32 seed");
+	}
+
+	/* Then derive the BIP86 key using the path m/86'/0'/0'/change/address_index */
+	if (bip32_key_from_parent_path(&master_key, path, 5, BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
+		return bad_req_fmt(conn, c, msg_in,
+				   "Failed to derive BIP86 key for index %u", index);
+	}
+
+	/* Convert to pubkey */
+	if (!secp256k1_ec_pubkey_parse(secp256k1_ctx, &pubkey.pubkey,
+				       ext.pub_key, sizeof(ext.pub_key))) {
+		return bad_req_fmt(conn, c, msg_in,
+				   "Failed to parse derived BIP86 pubkey for index %u", index);
+	}
+
+	reply = towire_hsmd_derive_bip86_key_reply(NULL, &pubkey);
+	return req_reply(conn, c, take(reply));
+}
+
 /*~ This is the core of the HSM daemon: handling requests. */
 static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 {
@@ -728,6 +820,11 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 		if (developer)
 			return handle_memleak(conn, c, c->msg_in);
 		/* fall thru */
+
+	case WIRE_HSMD_GET_BIP86_CAPABILITY:
+		return handle_get_bip86_capability(conn, c, c->msg_in);
+	case WIRE_HSMD_DERIVE_BIP86_KEY:
+		return handle_derive_bip86_key(conn, c, c->msg_in);
 	case WIRE_HSMD_NEW_CHANNEL:
 	case WIRE_HSMD_SETUP_CHANNEL:
  	case WIRE_HSMD_CHECK_OUTPOINT:
@@ -813,6 +910,8 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_PREAPPROVE_KEYSEND_REPLY:
 	case WIRE_HSMD_PREAPPROVE_INVOICE_CHECK_REPLY:
 	case WIRE_HSMD_PREAPPROVE_KEYSEND_CHECK_REPLY:
+	case WIRE_HSMD_GET_BIP86_CAPABILITY_REPLY:
+	case WIRE_HSMD_DERIVE_BIP86_KEY_REPLY:
 	case WIRE_HSMD_CHECK_PUBKEY_REPLY:
 	case WIRE_HSMD_SIGN_ANCHORSPEND_REPLY:
 	case WIRE_HSMD_SIGN_HTLC_TX_MINGLE_REPLY:

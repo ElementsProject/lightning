@@ -40,8 +40,9 @@ enum hsm_secret_error {
  * Represents the content of the hsm_secret file, either a raw seed or a mnemonic.
  */
 struct hsm_secret {
-	struct secret secret;
-	char *mnemonic; /* NULL if not derived from mnemonic */
+	struct secret secret;      /* 32-byte secret (legacy compatibility) */
+	u8 *bip32_seed;           /* 64-byte BIP32 seed (NULL for legacy) */
+	char *mnemonic;           /* NULL if not derived from mnemonic */
     enum hsm_secret_type type;
 };
 
