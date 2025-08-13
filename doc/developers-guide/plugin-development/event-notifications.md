@@ -567,3 +567,89 @@ Where:
 - `plugin_name`: The short name of the plugin.
 - `plugin_path`: The full file path to the plugin executable.
 - `methods`: An array of RPC method names that the plugin registered.
+
+
+### `pay_part_start` (v25.09 onward) 
+
+Emitted by `xpay` when part of a payment begins.  `payment_hash` and
+`groupid` uniquely identify this xpay invocation, and `partid` then identifies
+this particular attempt to pay part of that.
+
+`total_payment_msat` is the total amount (usually the invoice amount),
+which will be the same across all parts, adn `attempt_msat` is the
+amount being delivered to the destination by this part.
+
+Each element in `hops` shows the amount going into the node (i.e. with
+fees, `channel_in_msat`) and the amount we're telling it to send
+to the other end (`channel_out_msat`).  The `channel_out_msat` will
+be equal to the next `channel_in_msat.  The final
+`channel_out_msat` will be equal to the `attempt_msat`.
+
+The example shows a payment from this node via 103x1x0 (direction 1) to 022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59, then via 103x2x0 (direction 0) to 035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "pay_part_start",
+  "params": {
+    "origin": "cln-xpay",
+    "payload": {
+      "payment_hash": "651b28004d41cf0dc8e39a0b3d905651a7b012d03d81199fde09314700cb5a62",
+      "groupid": 5793910575598463611,
+      "partid": 1,
+      "total_payment_msat": 5000000,
+      "attempt_msat": 5000000,
+      "hops": [
+        {
+          "next_node": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+          "short_channel_id": "103x1x0",
+          "direction": 1,
+          "channel_in_msat": 5000051,
+          "channel_out_msat": 5000051
+        },
+        {
+          "next_node": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+          "short_channel_id": "103x2x0",
+          "direction": 0,
+          "channel_in_msat": 5000051,
+          "channel_out_msat": 5000000
+        }
+      ]
+    }
+  }
+}
+```
+
+### `pay_part_end` (v25.09 onward) 
+
+Emitted by `xpay` when part of a payment ends.  `payment_hash`, `groupid` and `partid`
+will match a previous `pay_part_start`.
+
+`status` will be "success" or "failure".  `duration` will be a number of seconds, with 9 decimal places.  This is the time between `xpay` telling lightningd to send the onion, to when `xpay` processes the response.
+
+If `status` is "failure", there will always be an `error_message`: the other fields below
+will be missing in the unusual case where the error onion is corrupted.
+
+`failed_node_id`: If it's a non-local error, the source of the error.
+`failed_short_channel_id`: if it's not the final node, the channel it's complaining about.
+`failed_direction`: if it's not the final node, the channel direction.
+`failed_msg`: the decrypted onion message, in hex, if it was valid.
+`error_code`: the error code returned (present unless onion was corrupted).
+`error_message`: always present: if `failed_node_id` is present it's just the name of the `error_code`, but otherwise it can be a more informative error from our own node.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "pay_part_end",
+  "params": {
+    "origin": "cln-xpay",
+    "payload": {
+      "status": "success",
+      "duration": 0.220209189,
+      "payment_hash": "651b28004d41cf0dc8e39a0b3d905651a7b012d03d81199fde09314700cb5a62",
+      "groupid": 5793910575598463611,
+      "partid": 1
+    }
+  }
+}
+```
