@@ -33,4 +33,8 @@ void squash_flows(const tal_t *ctx, struct route_query *rq,
 
 double flows_probability(const tal_t *ctx, struct route_query *rq,
 			 struct flow ***flows);
+
+/* Helper function: removes n flows from the set. It will remove those flows
+ * with the lowest amount values. */
+bool remove_flows(struct flow ***flows, u32 n);
 #endif /* LIGHTNING_PLUGINS_ASKRENE_REFINE_H */

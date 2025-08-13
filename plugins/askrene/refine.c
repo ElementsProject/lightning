@@ -632,3 +632,30 @@ double flows_probability(const tal_t *ctx, struct route_query *rq,
 	tal_free(working_ctx);
 	return probability;
 }
+
+/* Compare flows by deliver amount */
+static int reverse_cmp_flows(struct flow *const *fa, struct flow *const *fb,
+			     void *unused UNUSED)
+{
+	if (amount_msat_eq((*fa)->delivers, (*fb)->delivers))
+		return 0;
+	if (amount_msat_greater((*fa)->delivers, (*fb)->delivers))
+		return -1;
+	return 1;
+}
+
+bool remove_flows(struct flow ***flows, u32 n)
+{
+	if (n == 0)
+		goto fail;
+	if (n > tal_count(*flows))
+		goto fail;
+	asort(*flows, tal_count(*flows), reverse_cmp_flows, NULL);
+	for (size_t count = tal_count(*flows); n > 0; n--, count--) {
+		assert(count > 0);
+		tal_arr_remove(flows, count - 1);
+	}
+	return true;
+fail:
+	return false;
+}
