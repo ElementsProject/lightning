@@ -496,6 +496,22 @@ const char **mvt_tag_strs(const tal_t *ctx, const enum mvt_tag *tags)
 		tal_arr_expand(&strs, mvt_tag_str(tags[i]));
 	return strs;
 }
+
+
+/* Parse a single mvt tag.  Returns false or populates *tag */
+bool mvt_tag_parse(const char *buf, size_t len, enum mvt_tag *tag)
+{
+	for (size_t i = 0; i < NUM_MVT_TAGS; i++) {
+		const char *name = mvt_tag_str(i);
+		if (strlen(name) == len && memcmp(buf, name, len) == 0) {
+			*tag = i;
+			return true;
+		}
+	}
+
+	return false;
+}
+
 /* This is used solely by onchaind.  It always uses alt_account, with "" meaning
  * the channel itself. */
 void towire_chain_coin_mvt(u8 **pptr, const struct chain_coin_mvt *mvt)

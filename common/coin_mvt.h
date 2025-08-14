@@ -258,6 +258,9 @@ bool chain_mvt_is_external(const struct chain_coin_mvt *mvt);
 const char *mvt_tag_str(enum mvt_tag tag);
 const char **mvt_tag_strs(const tal_t *ctx, const enum mvt_tag *tags);
 
+/* Parse a single mvt tag.  Returns false or populates *tag */
+bool mvt_tag_parse(const char *buf, size_t len, enum mvt_tag *tag);
+
 void towire_chain_coin_mvt(u8 **pptr, const struct chain_coin_mvt *mvt);
 void fromwire_chain_coin_mvt(const u8 **cursor, size_t *max, struct chain_coin_mvt *mvt);
 
