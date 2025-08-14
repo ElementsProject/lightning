@@ -37,6 +37,13 @@ enum mvt_tag {
 	SPLICE = 23,
 };
 
+struct channel_coin_mvt_id {
+	/* multi-part payments may share a payment hash,
+	 * so we should also record part-id and group-id for them */
+	u64 part_id;
+	u64 group_id;
+};
+
 struct channel_coin_mvt {
 	/* account_id */
 	struct channel_id chan_id;
@@ -44,9 +51,9 @@ struct channel_coin_mvt {
 	/* identifier */
 	struct sha256 *payment_hash;
 
-	/* mutli-part payments may share a payment hash,
-	 * so we should also record a 'part-id' for them */
-	u64 *part_id;
+	/* multi-part payments may share a payment hash,
+	 * so we should also record part-id and group-id for them */
+	struct channel_coin_mvt_id *part_and_group;
 
 	/* label / tag array */
 	enum mvt_tag *tags;
@@ -96,10 +103,12 @@ struct chain_coin_mvt {
 
 enum mvt_tag *new_tag_arr(const tal_t *ctx, enum mvt_tag tag);
 
+/* Either part_id and group_id both NULL, or neither are */
 struct channel_coin_mvt *new_channel_coin_mvt(const tal_t *ctx,
 					      const struct channel_id *cid,
 					      const struct sha256 *payment_hash TAKES,
-					      const u64 *part_id TAKES,
+					      const u64 *part_id,
+					      const u64 *group_id,
 					      struct amount_msat amount,
 					      const enum mvt_tag *tags TAKES,
 					      bool is_credit,

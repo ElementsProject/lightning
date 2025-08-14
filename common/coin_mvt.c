@@ -51,7 +51,8 @@ enum mvt_tag *new_tag_arr(const tal_t *ctx, enum mvt_tag tag)
 struct channel_coin_mvt *new_channel_coin_mvt(const tal_t *ctx,
 					      const struct channel_id *cid,
 					      const struct sha256 *payment_hash TAKES,
-					      const u64 *part_id TAKES,
+					      const u64 *part_id,
+					      const u64 *group_id,
 					      struct amount_msat amount,
 					      const enum mvt_tag *tags TAKES,
 					      bool is_credit,
@@ -61,7 +62,15 @@ struct channel_coin_mvt *new_channel_coin_mvt(const tal_t *ctx,
 
 	mvt->chan_id = *cid;
 	mvt->payment_hash = tal_dup_or_null(mvt, struct sha256, payment_hash);
-	mvt->part_id = tal_dup_or_null(mvt, u64, part_id);
+	if (!part_id) {
+		assert(!group_id);
+		mvt->part_and_group = NULL;
+	} else {
+		mvt->part_and_group = tal(mvt, struct channel_coin_mvt_id);
+		mvt->part_and_group->part_id = *part_id;
+		mvt->part_and_group->group_id = *group_id;
+	}
+
 	mvt->tags = tal_dup_talarr(mvt, enum mvt_tag, tags);
 
 	if (is_credit) {
@@ -380,7 +389,7 @@ struct channel_coin_mvt *new_coin_channel_push(const tal_t *ctx,
 					       bool is_credit)
 {
 	return new_channel_coin_mvt(ctx, cid, NULL,
-				    NULL, amount,
+				    NULL, NULL, amount,
 				    take(new_tag_arr(NULL, tag)), is_credit,
 				    AMOUNT_MSAT(0));
 }
