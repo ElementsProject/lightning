@@ -489,6 +489,13 @@ struct channel_coin_mvt *new_coin_channel_push(const tal_t *ctx,
 				    AMOUNT_MSAT(0));
 }
 
+const char **mvt_tag_strs(const tal_t *ctx, const enum mvt_tag *tags)
+{
+	const char **strs = tal_arr(ctx, const char *, 0);
+	for (size_t i = 0; i < tal_count(tags); i++)
+		tal_arr_expand(&strs, mvt_tag_str(tags[i]));
+	return strs;
+}
 /* This is used solely by onchaind.  It always uses alt_account, with "" meaning
  * the channel itself. */
 void towire_chain_coin_mvt(u8 **pptr, const struct chain_coin_mvt *mvt)
