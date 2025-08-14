@@ -49,9 +49,15 @@ struct channel_coin_mvt_id {
 	u64 group_id;
 };
 
+/* Only one of these is set. */
+struct mvt_account_id {
+	const struct channel *channel;
+	const char *alt_account;
+};
+
 struct channel_coin_mvt {
 	/* account_id */
-	struct channel_id chan_id;
+	struct mvt_account_id account;
 
 	/* identifier */
 	struct sha256 *payment_hash;
@@ -73,7 +79,7 @@ struct channel_coin_mvt {
 
 struct chain_coin_mvt {
 	/* account_id */
-	const char *account_name;
+	struct mvt_account_id account;
 	const struct bitcoin_txid *tx_txid;
 	const struct bitcoin_outpoint *outpoint;
 
@@ -99,7 +105,7 @@ struct chain_coin_mvt {
 
 	/* When we pay to external accounts, it's useful
 	 * to track which internal account it originated from */
-	const char *originating_acct;
+	const struct mvt_account_id *originating_acct;
 
 	/* Number of outputs in spending tx; used by the
 	 * `channel_close` event */
@@ -108,9 +114,19 @@ struct chain_coin_mvt {
 
 enum mvt_tag *new_tag_arr(const tal_t *ctx, enum mvt_tag tag);
 
+/* Useful constructor for mvt_account_id: exactly one of channel/account_name must be NULL */
+void set_mvt_account_id(struct mvt_account_id *acct_id,
+			const struct channel *channel,
+			const char *account_name TAKES);
+
+/* Allocating version */
+struct mvt_account_id *new_mvt_account_id(const tal_t *ctx,
+					  const struct channel *channel,
+					  const char *account_name TAKES);
+
 /* Either part_id and group_id both NULL, or neither are */
 struct channel_coin_mvt *new_channel_coin_mvt(const tal_t *ctx,
-					      const struct channel_id *cid,
+					      const struct channel *channel,
 					      const struct sha256 *payment_hash TAKES,
 					      const u64 *part_id,
 					      const u64 *group_id,
@@ -136,7 +152,8 @@ struct chain_coin_mvt *new_onchaind_deposit(const tal_t *ctx,
 	NON_NULL_ARGS(2);
 
 struct chain_coin_mvt *new_coin_channel_close(const tal_t *ctx,
-					      const struct channel_id *chan_id,
+					      const struct channel *channel,
+					      const char *alt_account,
 					      const struct bitcoin_txid *txid,
 					      const struct bitcoin_outpoint *out,
 					      u32 blockheight,
@@ -144,20 +161,20 @@ struct chain_coin_mvt *new_coin_channel_close(const tal_t *ctx,
 					      const struct amount_sat output_val,
 					      u32 output_count,
 					      bool is_splice)
-	NON_NULL_ARGS(3, 4);
+	NON_NULL_ARGS(4, 5);
 
 struct chain_coin_mvt *new_coin_channel_open_proposed(const tal_t *ctx,
-						      const struct channel_id *chan_id,
+						      const struct channel *channel,
 						      const struct bitcoin_outpoint *out,
 						      const struct node_id *peer_id,
 						      const struct amount_msat amount,
 						      const struct amount_sat output_val,
 						      bool is_opener,
 						      bool is_leased)
-	NON_NULL_ARGS(2, 3);
+	NON_NULL_ARGS(2, 3, 4);
 
 struct chain_coin_mvt *new_coin_channel_open(const tal_t *ctx,
-					     const struct channel_id *chan_id,
+					     const struct channel *channel,
 					     const struct bitcoin_outpoint *out,
 					     const struct node_id *peer_id,
 					     u32 blockheight,
@@ -165,7 +182,7 @@ struct chain_coin_mvt *new_coin_channel_open(const tal_t *ctx,
 					     const struct amount_sat output_val,
 					     bool is_opener,
 					     bool is_leased)
-	NON_NULL_ARGS(2, 3);
+	NON_NULL_ARGS(2, 3, 4);
 
 struct chain_coin_mvt *new_onchain_htlc_deposit(const tal_t *ctx,
 						const struct bitcoin_outpoint *outpoint,
@@ -234,7 +251,7 @@ struct chain_coin_mvt *new_coin_external_deposit(const tal_t *ctx,
 	NON_NULL_ARGS(2);
 
 struct channel_coin_mvt *new_coin_channel_push(const tal_t *ctx,
-					       const struct channel_id *cid,
+					       const struct channel *channel,
 					       enum coin_mvt_dir direction,
 					       struct amount_msat amount,
 					       enum mvt_tag tag)

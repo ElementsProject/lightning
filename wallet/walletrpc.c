@@ -948,7 +948,8 @@ static void maybe_notify_new_external_send(struct lightningd *ld,
 					0, amount,
 					DEPOSIT);
 
-	mvt->originating_acct = WALLET;
+	mvt->originating_acct = new_mvt_account_id(mvt,  NULL, WALLET);
+
 	notify_chain_mvt(ld, mvt);
 	tal_free(mvt);
 }

@@ -951,13 +951,15 @@ static void channel_record_splice(struct channel *channel,
 				  struct amount_msat orig_our_msats,
 				  struct amount_sat orig_funding_sats,
 				  struct bitcoin_outpoint *funding,
-				  u32 blockheight, struct bitcoin_txid *txid, const struct channel_inflight *inflight)
+				  u32 blockheight,
+				  const struct bitcoin_txid *txid,
+				  const struct channel_inflight *inflight)
 {
 	struct chain_coin_mvt *mvt;
 	u32 output_count;
 
 	output_count = inflight->funding_psbt->num_outputs;
-	mvt = new_coin_channel_close(tmpctx, &channel->cid,
+	mvt = new_coin_channel_close(tmpctx, channel, NULL,
 				     txid,
 				     funding,
 				     blockheight,
@@ -993,7 +995,7 @@ void channel_record_open(struct channel *channel, u32 blockheight, bool record_p
 	/* If it's not in a block yet, send a proposal */
 	if (blockheight > 0)
 		mvt = new_coin_channel_open(tmpctx,
-					    &channel->cid,
+					    channel,
 					    &channel->funding,
 					    &channel->peer->id,
 					    blockheight,
@@ -1003,7 +1005,7 @@ void channel_record_open(struct channel *channel, u32 blockheight, bool record_p
 					    is_leased);
 	else
 		mvt = new_coin_channel_open_proposed(tmpctx,
-					    &channel->cid,
+					    channel,
 					    &channel->funding,
 					    &channel->peer->id,
 					    start_balance,
@@ -1016,7 +1018,7 @@ void channel_record_open(struct channel *channel, u32 blockheight, bool record_p
 	/* If we pushed sats, *now* record them */
 	if (is_pushed && record_push)
 		notify_channel_mvt(channel->peer->ld,
-				   new_coin_channel_push(tmpctx, &channel->cid,
+				   new_coin_channel_push(tmpctx, channel,
 							 channel->opener == REMOTE ? COIN_CREDIT : COIN_DEBIT,
 							 channel->push,
 							 is_leased ? LEASE_FEE : PUSHED));
