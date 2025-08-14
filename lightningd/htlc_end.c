@@ -3,6 +3,7 @@
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/tal/str/str.h>
 #include <common/htlc.h>
+#include <common/htlc_wire.h>
 #include <common/pseudorand.h>
 #include <lightningd/htlc_end.h>
 #include <lightningd/log.h>
@@ -148,15 +149,10 @@ struct htlc_in *new_htlc_in(const tal_t *ctx,
 	hin->path_key = tal_dup_or_null(hin, struct pubkey, path_key);
 	memcpy(hin->onion_routing_packet, onion_routing_packet,
 	       sizeof(hin->onion_routing_packet));
-	if (extra_tlvs) {
-		hin->extra_tlvs = tal_dup_talarr(hin, struct tlv_field, extra_tlvs);
-		for (size_t i = 0; i < tal_count(extra_tlvs); i++) {
-			/* We need to attach the value to the correct parent */
-			hin->extra_tlvs[i].value = tal_dup_talarr(hin, u8, hin->extra_tlvs[i].value);
-		}
-	} else {
+	if (extra_tlvs)
+		hin->extra_tlvs = tlv_field_arr_dup(hin, extra_tlvs);
+	else
 		hin->extra_tlvs = NULL;
-	}
 
 	hin->hstate = RCVD_ADD_COMMIT;
 	hin->badonion = 0;
@@ -304,15 +300,10 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 
 	hout->path_key = tal_dup_or_null(hout, struct pubkey, path_key);
 
-	if (extra_tlvs) {
-		hout->extra_tlvs = tal_dup_talarr(hout, struct tlv_field, extra_tlvs);
-		for (size_t i = 0; i < tal_count(extra_tlvs); i++) {
-			/* We need to attach the value to the correct parent */
-			hout->extra_tlvs[i].value = tal_dup_talarr(hout, u8, hout->extra_tlvs[i].value);
-		}
-	} else {
+	if (extra_tlvs)
+		hout->extra_tlvs = tlv_field_arr_dup(hout, extra_tlvs);
+	else
 		hout->extra_tlvs = NULL;
-	}
 
 	hout->am_origin = am_origin;
 	if (am_origin) {

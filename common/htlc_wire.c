@@ -25,6 +25,23 @@ static struct failed_htlc *failed_htlc_dup(const tal_t *ctx,
 	return newf;
 }
 
+/* Helper to duplicate an array of tlv_field (vs an array of tlv_field *) */
+struct tlv_field *tlv_field_arr_dup(const tal_t *ctx,
+				    const struct tlv_field *arr TAKES)
+{
+	struct tlv_field *ret;
+	bool needs_copy = !is_taken(arr);
+
+	ret = tal_dup_talarr(ctx, struct tlv_field, arr);
+	if (needs_copy) {
+		for (size_t i = 0; i < tal_count(ret); i++) {
+			/* We need to attach the value to the correct parent */
+			ret[i].value = tal_dup_talarr(ret, u8, ret[i].value);
+		}
+	}
+	return ret;
+}
+
 struct existing_htlc *new_existing_htlc(const tal_t *ctx,
 					u64 id,
 					enum htlc_state state,
@@ -53,17 +70,10 @@ struct existing_htlc *new_existing_htlc(const tal_t *ctx,
 		existing->failed = failed_htlc_dup(existing, failed);
 	else
 		existing->failed = NULL;
-	if (extra_tlvs) {
-		existing->extra_tlvs = tal_dup_talarr(existing, struct tlv_field, extra_tlvs);
-		for (size_t i = 0; i < tal_count(extra_tlvs); i++) {
-			/* We need to attach the value to the correct parent */
-			existing->extra_tlvs[i].value
-				= tal_dup_talarr(existing, u8,
-						 existing->extra_tlvs[i].value);
-		}
-	} else {
+	if (extra_tlvs)
+		existing->extra_tlvs = tlv_field_arr_dup(existing, extra_tlvs);
+	else
 		existing->extra_tlvs = NULL;
-	}
 
 	return existing;
 }
