@@ -256,6 +256,7 @@ struct channel_coin_mvt *new_coin_channel_push(const tal_t *ctx,
 bool chain_mvt_is_external(const struct chain_coin_mvt *mvt);
 
 const char *mvt_tag_str(enum mvt_tag tag);
+const char **mvt_tag_strs(const tal_t *ctx, const enum mvt_tag *tags);
 
 void towire_chain_coin_mvt(u8 **pptr, const struct chain_coin_mvt *mvt);
 void fromwire_chain_coin_mvt(const u8 **cursor, size_t *max, struct chain_coin_mvt *mvt);
