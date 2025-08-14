@@ -164,6 +164,9 @@ void logv(struct logger *logger UNNEEDED, enum log_level level UNNEEDED, const s
 void memleak_scan_outpointfilter(struct htable *memtable UNNEEDED,
 				 const struct outpointfilter *opf UNNEEDED)
 { fprintf(stderr, "memleak_scan_outpointfilter called!\n"); abort(); }
+/* Generated stub for mk_mvt_tags_ */
+struct mvt_tags mk_mvt_tags_(enum mvt_tag tag UNNEEDED, ...)
+{ fprintf(stderr, "mk_mvt_tags_ called!\n"); abort(); }
 /* Generated stub for new_channel */
 struct channel *new_channel(struct peer *peer UNNEEDED, u64 dbid UNNEEDED,
 			    /* NULL or stolen */
@@ -253,7 +256,7 @@ struct chain_coin_mvt *new_coin_wallet_deposit(const tal_t *ctx UNNEEDED,
 					       const struct bitcoin_outpoint *outpoint UNNEEDED,
 					       u32 blockheight UNNEEDED,
 					       struct amount_sat amount UNNEEDED,
-					       enum mvt_tag tag)
+					       struct mvt_tags tags)
 
 { fprintf(stderr, "new_coin_wallet_deposit called!\n"); abort(); }
 /* Generated stub for new_inflight */
