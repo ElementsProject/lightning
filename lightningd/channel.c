@@ -793,6 +793,12 @@ struct channel *any_channel_by_scid(struct lightningd *ld,
 			if (chan->scid
 			    && short_channel_id_eq(scid, *chan->scid))
 				return chan;
+
+			/* Look through any old pre-splice channel ids */
+			for (size_t i = 0; i < tal_count(chan->old_scids); i++) {
+				if (short_channel_id_eq(scid, chan->old_scids[i]))
+					return chan;
+			}
 		}
 	}
 	return NULL;
