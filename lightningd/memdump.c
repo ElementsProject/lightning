@@ -11,6 +11,7 @@
 #include <gossipd/gossipd_wiregen.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <lightningd/chaintopology.h>
+#include <lightningd/channel.h>
 #include <lightningd/closed_channel.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
@@ -202,6 +203,7 @@ static bool lightningd_check_leaks(struct command *cmd)
 	memleak_scan_htable(memtable, &ld->htlc_sets->raw);
 	memleak_scan_htable(memtable, &ld->peers->raw);
 	memleak_scan_htable(memtable, &ld->peers_by_dbid->raw);
+	memleak_scan_htable(memtable, &ld->channels_by_scid->raw);
 	memleak_scan_htable(memtable, &ld->closed_channels->raw);
 	wallet_memleak_scan(memtable, ld->wallet);
 

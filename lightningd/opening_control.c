@@ -1589,8 +1589,8 @@ static struct channel *stub_chan(struct command *cmd,
 			      true, /* remote_channel_ready */
 			      scid,
 			      NULL,
-			      scid,
-			      scid,
+			      NULL,
+			      NULL,
 			      &cid,
 			      /* The three arguments below are msatoshi_to_us,
 			       * msatoshi_to_us_min, and msatoshi_to_us_max.

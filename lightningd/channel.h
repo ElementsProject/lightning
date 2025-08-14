@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_LIGHTNINGD_CHANNEL_H
 #define LIGHTNING_LIGHTNINGD_CHANNEL_H
 #include "config.h"
+#include <ccan/htable/htable_type.h>
 #include <common/channel_config.h>
 #include <common/channel_id.h>
 #include <common/channel_type.h>
@@ -843,6 +844,35 @@ struct channel *peer_any_channel_bystate(struct peer *peer,
 					 bool *others);
 
 struct channel *channel_by_dbid(struct lightningd *ld, const u64 dbid);
+
+struct scid_to_channel {
+	struct short_channel_id scid;
+	struct channel *channel;
+};
+
+static inline const struct short_channel_id scid_to_channel_key(const struct scid_to_channel *scidchan)
+{
+	return scidchan->scid;
+}
+
+static inline bool scid_to_channel_eq_scid(const struct scid_to_channel *scidchan,
+					   struct short_channel_id scid)
+{
+	return short_channel_id_eq(scidchan->scid, scid);
+}
+
+/* Define channel_scid_map */
+HTABLE_DEFINE_NODUPS_TYPE(struct scid_to_channel,
+			  scid_to_channel_key,
+			  short_channel_id_hash,
+			  scid_to_channel_eq_scid,
+			  channel_scid_map);
+
+/* The only allowed way to set channel->scid */
+void channel_set_scid(struct channel *channel, const struct short_channel_id *new_scid);
+
+/* The only allowed way to set channel->alias[LOCAL] */
+void channel_set_local_alias(struct channel *channel, struct short_channel_id alias_scid);
 
 /* Includes both real scids and aliases.  If !privacy_leak_ok, then private
  * channels' real scids are not included. */
