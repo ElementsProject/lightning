@@ -1765,16 +1765,20 @@ static char *parse_tags(const tal_t *ctx,
 			enum mvt_tag **tags)
 {
 	size_t i;
-	const jsmntok_t *tag_tok,
-	      *tags_tok = json_get_member(buf, tok, "tags");
+	const jsmntok_t *extras_tok,
+		*tag_tok = json_get_member(buf, tok, "primary_tag");
 
-	if (tags_tok == NULL || tags_tok->type != JSMN_ARRAY)
-		return "Invalid/missing 'tags' field";
+	if (tag_tok == NULL)
+		return "missing 'primary_tag' field";
+	*tags = tal_arr(ctx, enum mvt_tag, 1);
+	if (!json_to_coin_mvt_tag(buf, tag_tok, &(*tags)[0]))
+			return "Unable to parse 'primary_tag'";
 
-	*tags = tal_arr(ctx, enum mvt_tag, tags_tok->size);
-	json_for_each_arr(i, tag_tok, tags_tok) {
-		if (!json_to_coin_mvt_tag(buf, tag_tok, &(*tags)[i]))
-			return "Unable to parse 'tags'";
+	extras_tok = json_get_member(buf, tok, "extra_tags");
+	tal_resize(tags, 1 + extras_tok->size);
+	json_for_each_arr(i, tag_tok, extras_tok) {
+		if (!json_to_coin_mvt_tag(buf, tag_tok, &(*tags)[i + 1]))
+			return "Unable to parse 'extra_tags'";
 	}
 
 	return NULL;
