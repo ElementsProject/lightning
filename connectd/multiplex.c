@@ -1073,6 +1073,16 @@ static struct io_plan *write_to_subd(struct io_conn *subd_conn,
 
 		/* Tell them to read again. */
 		io_wake(&subd->peer->peer_in);
+		if (subd->peer->peer_in_lastmsg != -1) {
+			u64 msec = time_to_msec(timemono_between(time_mono(),
+								 subd->peer->peer_in_lasttime));
+			if (msec > 5000)
+				status_peer_broken(&subd->peer->id,
+						   "wake delay for %s: %"PRIu64"msec",
+						   peer_wire_name(subd->peer->peer_in_lastmsg),
+						   msec);
+			subd->peer->peer_in_lastmsg = -1;
+		}
 
 		/* Wait for them to wake us */
 		return msg_queue_wait(subd_conn, subd->outq,
@@ -1243,6 +1253,9 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
        }
 
        /* Wait for them to wake us */
+       peer->peer_in_lastmsg = type;
+       peer->peer_in_lasttime = time_mono();
+
        return io_wait(peer_conn, &peer->peer_in, next_read, peer);
 }
 

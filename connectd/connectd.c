@@ -147,6 +147,7 @@ static struct peer *new_peer(struct daemon *daemon,
 	peer->sent_to_peer = NULL;
 	peer->urgent = false;
 	peer->draining = false;
+	peer->peer_in_lastmsg = -1;
 	peer->peer_outq = msg_queue_new(peer, false);
 	peer->last_recv_time = time_now();
 	peer->is_websocket = is_websocket;
