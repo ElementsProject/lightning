@@ -912,7 +912,7 @@ void rpc_enable_batching(struct plugin *plugin)
 struct command_result *jsonrpc_set_datastore_(struct command *cmd,
 					      const char *path,
 					      const void *value,
-					      bool value_is_string,
+					      int len_or_str,
 					      const char *mode,
 					      struct command_result *(*cb)(struct command *command,
 									   const char *method,
@@ -936,10 +936,10 @@ struct command_result *jsonrpc_set_datastore_(struct command *cmd,
 	req = jsonrpc_request_start(cmd, "datastore", cb, errcb, arg);
 
 	json_add_keypath(req->js->jout, "key", path);
-	if (value_is_string)
+	if (len_or_str == -1)
 		json_add_string(req->js, "string", value);
 	else
-		json_add_hex_talarr(req->js, "hex", value);
+		json_add_hex(req->js, "hex", value, len_or_str);
 	json_add_string(req->js, "mode", mode);
 	return send_outreq(req);
 }

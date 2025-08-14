@@ -272,7 +272,7 @@ struct json_stream *jsonrpc_stream_fail_data(struct command *cmd,
 struct command_result *jsonrpc_set_datastore_(struct command *cmd,
 					      const char *path,
 					      const void *value,
-					      bool value_is_string,
+					      int len_or_str,
 					      const char *mode,
 					      struct command_result *(*cb)(struct command *command,
 									   const char *method,
@@ -288,7 +288,7 @@ struct command_result *jsonrpc_set_datastore_(struct command *cmd,
 	NON_NULL_ARGS(1, 2, 3, 5);
 
 #define jsonrpc_set_datastore_string(cmd, path, str, mode, cb, errcb, arg) \
-	jsonrpc_set_datastore_((cmd), (path), (str), true, (mode),	\
+	jsonrpc_set_datastore_((cmd), (path), (str), -1, (mode),	\
 			       typesafe_cb_preargs(struct command_result *, void *, \
 						   (cb), (arg),		\
 						   struct command *command, \
@@ -303,8 +303,8 @@ struct command_result *jsonrpc_set_datastore_(struct command *cmd,
 						   const jsmntok_t *result), \
 			       (arg))
 
-#define jsonrpc_set_datastore_binary(cmd, path, tal_ptr, mode, cb, errcb, arg) \
-	jsonrpc_set_datastore_((cmd), (path), (tal_ptr), false, (mode), \
+#define jsonrpc_set_datastore_binary(cmd, path, ptr, len, mode, cb, errcb, arg) \
+	jsonrpc_set_datastore_((cmd), (path), (ptr), (len), (mode),	\
 			       typesafe_cb_preargs(struct command_result *, void *, \
 						   (cb), (arg),		\
 						   struct command *command, \
