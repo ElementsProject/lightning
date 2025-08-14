@@ -9,11 +9,6 @@
 #define COIN_MVT_VERSION 2
 #define WALLET "wallet"
 
-enum mvt_type {
-	CHAIN_MVT = 0,
-	CHANNEL_MVT = 1,
-};
-
 #define NUM_MVT_TAGS (SPLICE + 1)
 enum mvt_tag {
 	DEPOSIT = 0,
@@ -97,60 +92,6 @@ struct chain_coin_mvt {
 	/* Number of outputs in spending tx; used by the
 	 * `channel_close` event */
 	u32 output_count;
-};
-
-/* differs depending on type!? */
-struct mvt_id {
-	struct sha256 *payment_hash;
-	u64 *part_id;
-	const struct bitcoin_txid *tx_txid;
-	const struct bitcoin_outpoint *outpoint;
-};
-
-struct coin_mvt {
-	/* name of 'account': wallet, external, <channel_id> */
-	const char *account_id;
-
-	/* Peer that this event occurred with */
-	const struct node_id *peer_id;
-
-	/* if account_id is external, the account this 'impacted' */
-	const char *originating_acct;
-
-	/* Chain name: BIP 173, except signet lightning-style: tbs not tb */
-	const char *hrp_name;
-
-	/* type of movement: channel or chain */
-	enum mvt_type type;
-
-	/* identifier */
-	struct mvt_id id;
-
-	/* label / tag array */
-	enum mvt_tag *tags;
-
-	/* only one or the other */
-	struct amount_msat credit;
-	struct amount_msat debit;
-
-	/* Value of the output. May be different than
-	 * our credit/debit amount, eg channel opens */
-	struct amount_sat *output_val;
-	/* Really only needed for channel closes */
-	size_t output_count;
-
-	/* Amount of fees collected/paid by channel mvt */
-	struct amount_msat *fees;
-
-	u32 timestamp;
-	u32 blockheight;
-
-	/* version is a counter of the format of the data payload that
-	 * makes up a coin movement */
-	u8 version;
-
-	/* node originating this movement */
-	struct node_id *node_id;
 };
 
 enum mvt_tag *new_tag_arr(const tal_t *ctx, enum mvt_tag tag);
@@ -285,24 +226,9 @@ struct channel_coin_mvt *new_coin_channel_push(const tal_t *ctx,
 					       bool is_credit)
 	NON_NULL_ARGS(2);
 
-struct coin_mvt *finalize_chain_mvt(const tal_t *ctx,
-				    const struct chain_coin_mvt *chain_mvt,
-				    const char *hrp_name,
-				    u32 timestamp,
-				    struct node_id *node_id)
-	NON_NULL_ARGS(2, 3);
-
-struct coin_mvt *finalize_channel_mvt(const tal_t *ctx,
-				      const struct channel_coin_mvt *chan_mvt,
-				      const char *hrp_name,
-				      u32 timestamp,
-				      const struct node_id *node_id)
-	NON_NULL_ARGS(2, 3, 5);
-
 /* Is this an xternal account? */
 bool chain_mvt_is_external(const struct chain_coin_mvt *mvt);
 
-const char *mvt_type_str(enum mvt_type type);
 const char *mvt_tag_str(enum mvt_tag tag);
 
 void towire_chain_coin_mvt(u8 **pptr, const struct chain_coin_mvt *mvt);

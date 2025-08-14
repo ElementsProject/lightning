@@ -9,12 +9,6 @@
 
 #define EXTERNAL "external"
 
-static const char *mvt_types[] = { "chain_mvt", "channel_mvt" };
-const char *mvt_type_str(enum mvt_type type)
-{
-	return mvt_types[type];
-}
-
 static const char *mvt_tags[] = {
 	"deposit",
 	"withdrawal",
@@ -389,73 +383,6 @@ struct channel_coin_mvt *new_coin_channel_push(const tal_t *ctx,
 				    NULL, amount,
 				    take(new_tag_arr(NULL, tag)), is_credit,
 				    AMOUNT_MSAT(0));
-}
-
-struct coin_mvt *finalize_chain_mvt(const tal_t *ctx,
-				    const struct chain_coin_mvt *chain_mvt,
-				    const char *hrp_name TAKES,
-				    u32 timestamp,
-				    struct node_id *node_id)
-{
-	struct coin_mvt *mvt = tal(ctx, struct coin_mvt);
-
-	mvt->account_id = tal_strdup(mvt, chain_mvt->account_name);
-	mvt->originating_acct =
-		tal_strdup_or_null(mvt, chain_mvt->originating_acct);
-	mvt->hrp_name = tal_strdup(mvt, hrp_name);
-	mvt->type = CHAIN_MVT;
-
-	mvt->id.tx_txid = chain_mvt->tx_txid;
-	mvt->id.outpoint = chain_mvt->outpoint;
-	mvt->id.payment_hash = chain_mvt->payment_hash;
-	mvt->tags = tal_steal(mvt, chain_mvt->tags);
-	mvt->credit = chain_mvt->credit;
-	mvt->debit = chain_mvt->debit;
-
-	mvt->output_val = tal(mvt, struct amount_sat);
-	*mvt->output_val = chain_mvt->output_val;
-	mvt->output_count = chain_mvt->output_count;
-	mvt->fees = NULL;
-
-	mvt->timestamp = timestamp;
-	mvt->blockheight = chain_mvt->blockheight;
-	mvt->version = COIN_MVT_VERSION;
-	mvt->node_id = node_id;
-	mvt->peer_id = chain_mvt->peer_id;
-
-	return mvt;
-}
-
-struct coin_mvt *finalize_channel_mvt(const tal_t *ctx,
-				      const struct channel_coin_mvt *chan_mvt,
-				      const char *hrp_name TAKES,
-				      u32 timestamp,
-				      const struct node_id *node_id TAKES)
-{
-	struct coin_mvt *mvt = tal(ctx, struct coin_mvt);
-
-	mvt->account_id = fmt_channel_id(mvt, &chan_mvt->chan_id);
-	/* channel moves don't have external events! */
-	mvt->originating_acct = NULL;
-	mvt->hrp_name = tal_strdup(mvt, hrp_name);
-	mvt->type = CHANNEL_MVT;
-	mvt->id.payment_hash = chan_mvt->payment_hash;
-	mvt->id.part_id = chan_mvt->part_id;
-	mvt->id.tx_txid = NULL;
-	mvt->id.outpoint = NULL;
-	mvt->tags = tal_steal(mvt, chan_mvt->tags);
-	mvt->credit = chan_mvt->credit;
-	mvt->debit = chan_mvt->debit;
-	mvt->output_val = NULL;
-	mvt->output_count = 0;
-	mvt->fees = tal(mvt, struct amount_msat);
-	*mvt->fees = chan_mvt->fees;
-	mvt->timestamp = timestamp;
-	mvt->version = COIN_MVT_VERSION;
-	mvt->node_id = tal_dup(mvt, struct node_id, node_id);
-	mvt->peer_id = NULL;
-
-	return mvt;
 }
 
 void towire_chain_coin_mvt(u8 **pptr, const struct chain_coin_mvt *mvt)
