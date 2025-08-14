@@ -56,22 +56,19 @@ struct mvt_account_id {
 };
 
 struct channel_coin_mvt {
-	/* account_id */
+	/* Common fields */
 	struct mvt_account_id account;
-
-	/* identifier */
-	struct sha256 *payment_hash;
-
-	/* multi-part payments may share a payment hash,
-	 * so we should also record part-id and group-id for them */
-	struct channel_coin_mvt_id *part_and_group;
-
-	/* label / tag array */
 	enum mvt_tag *tags;
-
 	/* only one or the other */
 	struct amount_msat credit;
 	struct amount_msat debit;
+
+	/* identifier */
+	const struct sha256 *payment_hash;
+
+	/* multi-part payments may share a payment hash,
+	 * so we should also record part-id and group-id for them */
+	const struct channel_coin_mvt_id *part_and_group;
 
 	/* Fees collected (or paid) on this mvt */
 	struct amount_msat fees;
@@ -80,6 +77,11 @@ struct channel_coin_mvt {
 struct chain_coin_mvt {
 	/* account_id */
 	struct mvt_account_id account;
+	enum mvt_tag *tags;
+	/* only one or the other */
+	struct amount_msat credit;
+	struct amount_msat debit;
+
 	const struct bitcoin_txid *tx_txid;
 	const struct bitcoin_outpoint *outpoint;
 
@@ -88,17 +90,10 @@ struct chain_coin_mvt {
 	const struct node_id *peer_id;
 
 	/* some on-chain movements have a payment hash */
-	struct sha256 *payment_hash;
-
-	/* label / tag array */
-	enum mvt_tag *tags;
+	const struct sha256 *payment_hash;
 
 	/* block this transaction is confirmed in */
 	u32 blockheight;
-
-	/* only one or the other */
-	struct amount_msat credit;
-	struct amount_msat debit;
 
 	/* total value of output (useful for tracking external outs) */
 	struct amount_sat output_val;
