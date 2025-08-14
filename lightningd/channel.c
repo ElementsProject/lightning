@@ -17,7 +17,6 @@
 #include <lightningd/opening_common.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
-#include <sodium/randombytes.h>
 #include <wallet/txfilter.h>
 #include <wire/peer_wire.h>
 
@@ -285,7 +284,7 @@ static void channel_set_random_local_alias(struct channel *channel)
 {
 	assert(channel->alias[LOCAL] == NULL);
 	channel->alias[LOCAL] = tal(channel, struct short_channel_id);
-	randombytes_buf(channel->alias[LOCAL], sizeof(struct short_channel_id));
+	*channel->alias[LOCAL] = random_scid();
 	/* We don't check for uniqueness.  We would crash on a clash, but your machine is
 	 * probably broken beyond repair if it gets two equal 64 bit numbers */
 	chanmap_add(channel->peer->ld, channel, *channel->alias[LOCAL]);

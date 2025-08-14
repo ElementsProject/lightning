@@ -2021,13 +2021,11 @@ static void migrate_initialize_alias_local(struct lightningd *ld,
 	tal_free(stmt);
 
 	for (size_t i = 0; i < tal_count(ids); i++) {
-		struct short_channel_id alias;
 		stmt = db_prepare_v2(db, SQL("UPDATE channels"
 					     " SET alias_local = ?"
 					     " WHERE id = ?;"));
 		/* We don't even check for clashes! */
-		randombytes_buf(&alias, sizeof(alias));
-		db_bind_short_channel_id(stmt, alias);
+		db_bind_short_channel_id(stmt, random_scid());
 		db_bind_u64(stmt, ids[i]);
 		db_exec_prepared_v2(stmt);
 		tal_free(stmt);
