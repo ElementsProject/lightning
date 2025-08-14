@@ -756,7 +756,7 @@ static bool new_missed_channel_account(struct command *cmd,
 			   acct->name);
 
 		chain_ev = tal(cmd, struct chain_event);
-		chain_ev->tag = mvt_tag_str(CHANNEL_OPEN);
+		chain_ev->tag = mvt_tag_str(MVT_CHANNEL_OPEN);
 		chain_ev->debit = AMOUNT_MSAT(0);
 		ok = amount_msat_add(&chain_ev->output_value,
 				     amt, remote_amt);
@@ -775,7 +775,7 @@ static bool new_missed_channel_account(struct command *cmd,
 
 		/* Update the account info too */
 		tags = tal_arr(chain_ev, enum mvt_tag, 1);
-		tags[0] = CHANNEL_OPEN;
+		tags[0] = MVT_CHANNEL_OPEN;
 
 		is_opener = streq(opener, "local");
 
@@ -785,9 +785,9 @@ static bool new_missed_channel_account(struct command *cmd,
 			       &is_leased);
 
 		if (is_leased)
-			tal_arr_expand(&tags, LEASED);
+			tal_arr_expand(&tags, MVT_LEASED);
 		if (is_opener)
-			tal_arr_expand(&tags, OPENER);
+			tal_arr_expand(&tags, MVT_OPENER);
 
 		chain_ev->credit = amt;
 		db_begin_transaction(db);
@@ -814,7 +814,7 @@ static bool new_missed_channel_account(struct command *cmd,
 			chan_tag = tal_fmt(tmpctx, "%s",
 					   mvt_tag_str(
 					    is_leased ?
-					      LEASE_FEE : PUSHED));
+					      MVT_LEASE_FEE : MVT_PUSHED));
 			chan_ev = new_channel_event(tmpctx,
 						    chan_tag,
 						    push_credit,
@@ -1451,7 +1451,7 @@ listpeerchannels_done(struct command *cmd,
 		plugin_err(cmd->plugin, "%s", err);
 
 	if (info->ev->payment_id &&
-	    streq(info->ev->tag, mvt_tag_str(INVOICE))) {
+	    streq(info->ev->tag, mvt_tag_str(MVT_INVOICE))) {
 		return lookup_invoice_desc(cmd, info->ev->credit,
 					   info->ev->payment_id);
 	}
@@ -1567,8 +1567,8 @@ parse_and_log_chain_move(struct command *cmd,
 	e->stealable = false;
 	e->splice_close = false;
 	for (size_t i = 0; i < tal_count(tags); i++) {
-		e->stealable |= tags[i] == STEALABLE;
-		e->splice_close |= tags[i] == SPLICE;
+		e->stealable |= tags[i] == MVT_STEALABLE;
+		e->splice_close |= tags[i] == MVT_SPLICE;
 	}
 
 	db_begin_transaction(db);
@@ -1667,7 +1667,7 @@ parse_and_log_chain_move(struct command *cmd,
 	/* Check for invoice desc data, necessary */
 	if (e->payment_id) {
 		for (size_t i = 0; i < tal_count(tags); i++) {
-			if (tags[i] != INVOICE)
+			if (tags[i] != MVT_INVOICE)
 				continue;
 
 			return lookup_invoice_desc(cmd, e->credit,
@@ -1741,7 +1741,7 @@ parse_and_log_channel_move(struct command *cmd,
 	/* Check for invoice desc data, necessary */
 	if (e->payment_id) {
 		for (size_t i = 0; i < tal_count(tags); i++) {
-			if (tags[i] != INVOICE)
+			if (tags[i] != MVT_INVOICE)
 				continue;
 
 			/* We only do rebalance checks for debits,
