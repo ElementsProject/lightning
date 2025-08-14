@@ -1,6 +1,7 @@
 #include "config.h"
 #include <assert.h>
 #include <bitcoin/tx.h>
+#include <ccan/bitops/bitops.h>
 #include <ccan/ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
 #include <common/coin_mvt.h>
@@ -95,6 +96,14 @@ void set_mvt_account_id(struct mvt_account_id *acct_id,
 		acct_id->channel = NULL;
 		acct_id->alt_account = tal_strdup(acct_id, account_name);
 	}
+}
+
+enum mvt_tag primary_mvt_tag(struct mvt_tags tags)
+{
+	u64 primary = (tags.bits & PRIMARY_TAG_BITS);
+
+	assert(mvt_tags_valid(tags));
+	return bitops_ffs64(primary) - 1;
 }
 
 struct mvt_account_id *new_mvt_account_id(const tal_t *ctx,

@@ -122,6 +122,9 @@ static inline struct mvt_tags tag_to_mvt_tags(enum mvt_tag tag)
 	return tags;
 }
 
+/* Extract the primary tag */
+enum mvt_tag primary_mvt_tag(struct mvt_tags tags);
+
 /* Useful constructor for mvt_account_id: exactly one of channel/account_name must be NULL */
 void set_mvt_account_id(struct mvt_account_id *acct_id,
 			const struct channel *channel,
