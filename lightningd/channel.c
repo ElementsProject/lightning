@@ -816,43 +816,28 @@ struct channel *any_channel_by_scid(struct lightningd *ld,
 				    struct short_channel_id scid,
 				    bool privacy_leak_ok)
 {
-	struct peer *p;
-	struct channel *chan;
-	struct peer_node_id_map_iter it;
+	const struct scid_to_channel *scc = channel_scid_map_get(ld->channels_by_scid, scid);
+	if (!scc)
+		return NULL;
 
-	/* FIXME: Support lookup by scid directly! */
-	for (p = peer_node_id_map_first(ld->peers, &it);
-	     p;
-	     p = peer_node_id_map_next(ld->peers, &it)) {
-		list_for_each(&p->channels, chan, list) {
-			/* BOLT #2:
-			 * - MUST always recognize the `alias` as a
-			 *   `short_channel_id` for incoming HTLCs to this
-			 *   channel.
-			 */
-			if (chan->alias[LOCAL] &&
-			    short_channel_id_eq(scid, *chan->alias[LOCAL]))
-				return chan;
-			/* BOLT #2:
-			 * - if `channel_type` has `option_scid_alias` set:
-			 *   - MUST NOT allow incoming HTLCs to this channel
-			 *     using the real `short_channel_id`
-			 */
-			if (!privacy_leak_ok
-			    && channel_type_has(chan->type, OPT_SCID_ALIAS))
-				continue;
-			if (chan->scid
-			    && short_channel_id_eq(scid, *chan->scid))
-				return chan;
+	/* BOLT #2:
+	 * - MUST always recognize the `alias` as a `short_channel_id` for
+	 *   incoming HTLCs to this channel.
+	 */
+	if (scc->channel->alias[LOCAL]
+	    && short_channel_id_eq(scid, *scc->channel->alias[LOCAL]))
+		return scc->channel;
 
-			/* Look through any old pre-splice channel ids */
-			for (size_t i = 0; i < tal_count(chan->old_scids); i++) {
-				if (short_channel_id_eq(scid, chan->old_scids[i]))
-					return chan;
-			}
-		}
-	}
-	return NULL;
+	/* BOLT #2:
+	 * - if `channel_type` has `option_scid_alias` set:
+	 *   - MUST NOT allow incoming HTLCs to this channel using the real
+	 *     `short_channel_id`
+	 */
+	/* This means any scids other than the alias (handled above) cannot be exposed */
+	if (!privacy_leak_ok && channel_type_has(scc->channel->type, OPT_SCID_ALIAS))
+		return NULL;
+
+	return scc->channel;
 }
 
 struct channel *channel_by_dbid(struct lightningd *ld, const u64 dbid)
