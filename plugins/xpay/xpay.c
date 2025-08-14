@@ -78,6 +78,8 @@ struct payment {
 	struct amount_msat maxfee;
 	/* Maximum delay on the route we're ok with */
 	u32 *maxdelay;
+	/* Maximum number of payment routes that can be pending. */
+	u32 *maxparts;
 	/* Do we have to do it all in a single part? */
 	bool disable_mpp;
 	/* BOLT11 payment secret (NULL for BOLT12, it uses blinded paths) */
@@ -332,6 +334,15 @@ static u32 initial_cltv_delta(const struct attempt *attempt)
 	if (tal_count(attempt->hops) == 0)
 		return attempt->payment->final_cltv;
 	return attempt->hops[0].cltv_value_in;
+}
+
+/* Find the total number of pending attempts */
+static size_t count_current_attempts(const struct payment *payment)
+{
+	const struct attempt *i;
+	size_t result = 0;
+	list_for_each(&payment->current_attempts, i, list) { result++; }
+	return result;
 }
 
 /* We total up all attempts which succeeded in the past (if we're not
@@ -1296,6 +1307,7 @@ static struct command_result *getroutes_for(struct command *aux_cmd,
 	struct out_req *req;
 	const struct pubkey *dst;
 	struct amount_msat maxfee;
+	size_t count_pending;
 
 	/* I would normally assert here, but we have reports of this happening... */
 	if (amount_msat_is_zero(deliver)) {
@@ -1356,6 +1368,9 @@ static struct command_result *getroutes_for(struct command *aux_cmd,
 	json_add_amount_msat(req->js, "maxfee_msat", maxfee);
 	json_add_u32(req->js, "final_cltv", payment->final_cltv);
 	json_add_u32(req->js, "maxdelay", *payment->maxdelay);
+	count_pending = count_current_attempts(payment);
+	assert(*payment->maxparts > count_pending);
+	json_add_u32(req->js, "maxparts", *payment->maxparts - count_pending);
 
 	return send_payment_req(aux_cmd, payment, req);
 }
@@ -1646,8 +1661,12 @@ static struct command_result *json_xpay_core(struct command *cmd,
 			 p_opt_def("retry_for", param_number, &retryfor, 60),
 			 p_opt("partial_msat", param_msat, &partial),
 			 p_opt_def("maxdelay", param_u32, &payment->maxdelay, 2016),
+			 p_opt_dev("dev_maxparts", param_u32, &payment->maxparts, 100),
 			 NULL))
 		return command_param_failed();
+	if (*payment->maxparts == 0)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "maxparts cannot be zero");
 
 	list_head_init(&payment->current_attempts);
 	list_head_init(&payment->past_attempts);
