@@ -21,6 +21,7 @@
 #include <lightningd/opening_common.h>
 #include <lightningd/opening_control.h>
 #include <lightningd/peer_control.h>
+#include <lightningd/ping.h>
 #include <lightningd/plugin_hook.h>
 
 struct connect {
@@ -494,7 +495,6 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 	case WIRE_CONNECTD_INIT_REPLY:
 	case WIRE_CONNECTD_ACTIVATE_REPLY:
 	case WIRE_CONNECTD_DEV_MEMLEAK_REPLY:
-	case WIRE_CONNECTD_PING_REPLY:
 	case WIRE_CONNECTD_START_SHUTDOWN_REPLY:
 	case WIRE_CONNECTD_INJECT_ONIONMSG_REPLY:
 		break;
@@ -525,6 +525,10 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 
 	case WIRE_CONNECTD_ONIONMSG_FORWARD_FAIL:
 		handle_onionmsg_forward_fail(connectd->ld, msg);
+		break;
+
+	case WIRE_CONNECTD_PING_DONE:
+		handle_ping_done(connectd, msg);
 		break;
 	}
 	return 0;

@@ -89,6 +89,7 @@ struct peer {
 
 	/* Are we expecting a pong? */
 	enum pong_expect_type expecting_pong;
+	u64 ping_reqid;
 
 	/* Random ping timer, to detect dead connections. */
 	struct oneshot *ping_timer;

@@ -719,8 +719,8 @@ static void handle_ping_reply(struct peer *peer, const u8 *msg)
 	status_debug("Got pong %zu bytes (%.*s...)",
 		     tal_count(ignored), (int)i, (char *)ignored);
 	daemon_conn_send(peer->daemon->master,
-			 take(towire_connectd_ping_reply(NULL, true,
-							 tal_bytelen(msg))));
+			 take(towire_connectd_ping_done(NULL, peer->ping_reqid, true,
+							tal_bytelen(msg))));
 }
 
 static void handle_pong_in(struct peer *peer, const u8 *msg)
@@ -1470,25 +1470,26 @@ void send_manual_ping(struct daemon *daemon, const u8 *msg)
 {
 	u8 *ping;
 	struct node_id id;
+	u64 reqid;
 	u16 len, num_pong_bytes;
 	struct peer *peer;
 
-	if (!fromwire_connectd_ping(msg, &id, &num_pong_bytes, &len))
+	if (!fromwire_connectd_ping(msg, &reqid, &id, &num_pong_bytes, &len))
 		master_badmsg(WIRE_CONNECTD_PING, msg);
 
 	peer = peer_htable_get(daemon->peers, &id);
 	if (!peer) {
 		daemon_conn_send(daemon->master,
-				 take(towire_connectd_ping_reply(NULL,
-								 false, 0)));
+				 take(towire_connectd_ping_done(NULL, reqid,
+								false, 0)));
 		return;
 	}
 
 	/* We're not supposed to send another ping until previous replied */
 	if (peer->expecting_pong != PONG_UNEXPECTED) {
 		daemon_conn_send(daemon->master,
-				 take(towire_connectd_ping_reply(NULL,
-								 false, 0)));
+				 take(towire_connectd_ping_done(NULL, reqid,
+								false, 0)));
 		return;
 	}
 
@@ -1513,13 +1514,14 @@ void send_manual_ping(struct daemon *daemon, const u8 *msg)
 	 */
 	if (num_pong_bytes >= 65532) {
 		daemon_conn_send(daemon->master,
-				 take(towire_connectd_ping_reply(NULL,
+				 take(towire_connectd_ping_done(NULL, reqid,
 								 true, 0)));
 		return;
 	}
 
 	/* We'll respond to lightningd once the pong comes in */
 	peer->expecting_pong = PONG_EXPECTED_COMMAND;
+	peer->ping_reqid = reqid;
 
 	/* Since we're doing this manually, kill and restart timer. */
 	tal_free(peer->ping_timer);
