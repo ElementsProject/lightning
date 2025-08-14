@@ -36,6 +36,61 @@ static const char *mvt_tags[] = {
 	"splice",
 };
 
+static bool mvt_tag_is_primary(enum mvt_tag tag)
+{
+	switch (tag) {
+	case MVT_DEPOSIT:
+		return true;
+	case MVT_WITHDRAWAL:
+		return true;
+	case MVT_PENALTY:
+		return true;
+	case MVT_INVOICE:
+		return true;
+	case MVT_ROUTED:
+		return true;
+	case MVT_PUSHED:
+		return true;
+	case MVT_CHANNEL_OPEN:
+		return true;
+	case MVT_CHANNEL_CLOSE:
+		return true;
+	case MVT_CHANNEL_TO_US:
+		return true;
+	case MVT_HTLC_TIMEOUT:
+		return true;
+	case MVT_HTLC_FULFILL:
+		return true;
+	case MVT_HTLC_TX:
+		return true;
+	case MVT_TO_WALLET:
+		return true;
+	case MVT_ANCHOR:
+		return true;
+	case MVT_TO_THEM:
+		return true;
+	case MVT_PENALIZED:
+		return true;
+	case MVT_STOLEN:
+		return true;
+	case MVT_TO_MINER:
+		return true;
+	case MVT_OPENER:
+		return false;
+	case MVT_LEASE_FEE:
+		return true;
+	case MVT_LEASED:
+		return false;
+	case MVT_STEALABLE:
+		return false;
+	case MVT_CHANNEL_PROPOSED:
+		return true;
+	case MVT_SPLICE:
+		return false;
+	}
+	abort();
+}
+
 const char *mvt_tag_str(enum mvt_tag tag)
 {
 	return mvt_tags[tag];
@@ -44,8 +99,17 @@ const char *mvt_tag_str(enum mvt_tag tag)
 enum mvt_tag *new_tag_arr(const tal_t *ctx, enum mvt_tag tag)
 {
 	enum mvt_tag *tags = tal_arr(ctx, enum mvt_tag, 1);
+	assert(mvt_tag_is_primary(tag));
 	tags[0] = tag;
 	return tags;
+}
+
+static void check_tags(const enum mvt_tag *tags)
+{
+	assert(tal_count(tags) > 0);
+	assert(mvt_tag_is_primary(tags[0]));
+	for (size_t i = 1; i < tal_count(tags); i++)
+		assert(!mvt_tag_is_primary(tags[i]));
 }
 
 void set_mvt_account_id(struct mvt_account_id *acct_id,
@@ -97,6 +161,7 @@ struct channel_coin_mvt *new_channel_coin_mvt(const tal_t *ctx,
 		pg->group_id = *group_id;
 	}
 
+	check_tags(tags);
 	mvt->tags = tal_dup_talarr(mvt, enum mvt_tag, tags);
 
 	mvt->fees = fees;
@@ -142,6 +207,7 @@ static struct chain_coin_mvt *new_chain_coin_mvt(const tal_t *ctx,
 	mvt->payment_hash = tal_dup_or_null(mvt, struct sha256, payment_hash);
 	mvt->blockheight = blockheight;
 
+	check_tags(tags);
 	mvt->tags = tal_dup_talarr(mvt, enum mvt_tag, tags);
 
 	mvt->output_val = output_val;
