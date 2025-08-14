@@ -574,7 +574,6 @@ static struct command_result *json_list_balances(struct command *cmd,
 		err = account_get_balance(cmd, db,
 					  accts[i]->name,
 					  true,
-					  false, /* don't skip ignored */
 					  &balances,
 					  NULL);
 
@@ -770,7 +769,6 @@ static bool new_missed_channel_account(struct command *cmd,
 		chain_ev->outpoint = opt;
 		chain_ev->spending_txid = NULL;
 		chain_ev->payment_id = NULL;
-		chain_ev->ignored = false;
 		chain_ev->stealable = false;
 		chain_ev->splice_close = false;
 		chain_ev->desc = NULL;
@@ -971,7 +969,7 @@ static struct command_result *listpeerchannels_multi_done(struct command *cmd,
 
 		db_begin_transaction(db);
 		err = account_get_balance(tmpctx, db, info->acct->name,
-					  false, false, &balances, NULL);
+					  false, &balances, NULL);
 		db_commit_transaction(db);
 
 		if (err)
@@ -1108,9 +1106,6 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 		err = account_get_balance(cmd, db, acct_name,
 					  /* Don't error if negative */
 					  false,
-					  /* Ignore non-clightning
-					   * balances items */
-					  true,
 					  &balances,
 					  NULL);
 
@@ -1416,7 +1411,7 @@ listpeerchannels_done(struct command *cmd,
 					info->ev->timestamp)) {
 		db_begin_transaction(db);
 		err = account_get_balance(tmpctx, db, info->acct->name,
-					  false, false, &balances, NULL);
+					  false, &balances, NULL);
 		db_commit_transaction(db);
 
 		if (err)
@@ -1569,11 +1564,9 @@ parse_and_log_chain_move(struct command *cmd,
 	e->tag = mvt_tag_str(tags[0]);
 	e->desc = tal_steal(e, desc);
 
-	e->ignored = false;
 	e->stealable = false;
 	e->splice_close = false;
 	for (size_t i = 0; i < tal_count(tags); i++) {
-		e->ignored |= tags[i] == IGNORED;
 		e->stealable |= tags[i] == STEALABLE;
 		e->splice_close |= tags[i] == SPLICE;
 	}
@@ -1828,7 +1821,6 @@ static struct command_result *json_utxo_deposit(struct command *cmd, const char 
 	}
 
 	ev->tag = "deposit";
-	ev->ignored = false;
 	ev->stealable = false;
 	ev->rebalance = false;
 	ev->splice_close = false;
@@ -1907,7 +1899,6 @@ static struct command_result *json_utxo_spend(struct command *cmd, const char *b
 
 	ev->origin_acct = NULL;
 	ev->tag = "withdrawal";
-	ev->ignored = false;
 	ev->stealable = false;
 	ev->rebalance = false;
 	ev->splice_close = false;

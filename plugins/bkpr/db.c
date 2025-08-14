@@ -102,7 +102,13 @@ static struct migration db_migrations[] = {
 	{SQL("ALTER TABLE channel_events ADD rebalance_id BIGINT DEFAULT NULL;"), NULL},
 	{SQL("ALTER TABLE chain_events ADD spliced INTEGER DEFAULT 0;"), NULL},
 	{NULL, migration_remove_dupe_lease_fees},
-	{NULL, migration_maybe_add_chainevents_spliced}
+	{NULL, migration_maybe_add_chainevents_spliced},
+	/* We used to send anchors to the wallet, but set ignored tag.  Now we send
+	 * them to external. */
+	{SQL("UPDATE chain_events"
+	     " SET account_id = (SELECT id FROM accounts WHERE name = 'external')"
+	     " WHERE account_id = (SELECT id FROM accounts WHERE name = 'wallet')"
+	     " AND ignored = 1"), NULL},
 };
 
 static bool db_migrate(struct plugin *p, struct db *db)
