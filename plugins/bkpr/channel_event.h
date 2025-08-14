@@ -32,9 +32,6 @@ struct channel_event {
 	/* Total 'fees' related to this channel event */
 	struct amount_msat fees;
 
-	/* What token are the credit/debits? */
-	const char *currency;
-
 	/* Payment identifier (typically the preimage hash) */
 	struct sha256 *payment_id;
 
@@ -56,7 +53,6 @@ struct channel_event *new_channel_event(const tal_t *ctx,
 					struct amount_msat credit,
 					struct amount_msat debit,
 					struct amount_msat fees,
-					const char *currency,
 					struct sha256 *payment_id STEALS,
 					u32 part_id,
 					u64 timestamp);

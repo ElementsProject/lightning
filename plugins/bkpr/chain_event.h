@@ -47,9 +47,6 @@ struct chain_event {
 	/* Total 'amount' of output on this chain event */
 	struct amount_msat output_value;
 
-	/* What token are the credit/debits? */
-	const char *currency;
-
 	/* What time did the event happen */
 	u64 timestamp;
 

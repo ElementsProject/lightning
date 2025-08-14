@@ -18,7 +18,6 @@ struct onchain_fee;
 struct fee_sum {
 	u64 acct_db_id;
 	char *acct_name;
-	char *currency;
 	struct bitcoin_txid *txid;
 	struct amount_msat fees_paid;
 };

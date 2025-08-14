@@ -14,7 +14,6 @@ struct income_event {
 	/* Some CSVs require us to put fees on the
 	 * same line as another entry */
 	struct amount_msat fees;
-	char *currency;
 	u64 timestamp;
 
 	struct bitcoin_outpoint *outpoint;

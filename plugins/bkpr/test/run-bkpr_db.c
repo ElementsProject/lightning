@@ -208,7 +208,6 @@ struct channel_event *new_channel_event(const tal_t *ctx UNNEEDED,
 					struct amount_msat credit UNNEEDED,
 					struct amount_msat debit UNNEEDED,
 					struct amount_msat fees UNNEEDED,
-					const char *currency UNNEEDED,
 					struct sha256 *payment_id STEALS UNNEEDED,
 					u32 part_id UNNEEDED,
 					u64 timestamp UNNEEDED)
