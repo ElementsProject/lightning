@@ -2,6 +2,7 @@
 #define LIGHTNING_COMMON_COIN_MVT_H
 #include "config.h"
 
+#include <bitcoin/tx.h>
 #include <common/amount.h>
 #include <common/channel_id.h>
 #include <common/utils.h>
@@ -87,9 +88,9 @@ struct chain_coin_mvt {
 	struct amount_msat credit;
 	struct amount_msat debit;
 	u64 timestamp;
+	struct bitcoin_outpoint outpoint;
 
 	const struct bitcoin_txid *tx_txid;
-	const struct bitcoin_outpoint *outpoint;
 
 	/* The id of the peer we have this channel with.
 	 * Only on our channel_open events */

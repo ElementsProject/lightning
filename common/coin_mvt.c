@@ -1,6 +1,5 @@
 #include "config.h"
 #include <assert.h>
-#include <bitcoin/tx.h>
 #include <ccan/bitops/bitops.h>
 #include <ccan/ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
@@ -180,7 +179,7 @@ static struct chain_coin_mvt *new_chain_coin_mvt(const tal_t *ctx,
 	set_mvt_account_id(&mvt->account, channel, account_name);
 	mvt->timestamp = timestamp;
 	mvt->tx_txid = tx_txid;
-	mvt->outpoint = outpoint;
+	mvt->outpoint = *outpoint;
 	mvt->originating_acct = NULL;
 
 	/* Most chain event's don't have a peer (only channel_opens) */
@@ -484,7 +483,7 @@ void towire_chain_coin_mvt(u8 **pptr, const struct chain_coin_mvt *mvt)
 	towire_wirestring(pptr, mvt->account.alt_account);
 	assert(!mvt->originating_acct);
 
-	towire_bitcoin_outpoint(pptr, mvt->outpoint);
+	towire_bitcoin_outpoint(pptr, &mvt->outpoint);
 
 	if (mvt->tx_txid) {
 		towire_bool(pptr, true);
@@ -518,11 +517,7 @@ void fromwire_chain_coin_mvt(const u8 **cursor, size_t *max, struct chain_coin_m
 	set_mvt_account_id(&mvt->account, NULL, take(fromwire_wirestring(NULL, cursor, max)));
 	mvt->originating_acct = NULL;
 
-	/* Read into non-const version */
-	struct bitcoin_outpoint *outpoint
-		= tal(mvt, struct bitcoin_outpoint);
-	fromwire_bitcoin_outpoint(cursor, max, outpoint);
-	mvt->outpoint = outpoint;
+	fromwire_bitcoin_outpoint(cursor, max, &mvt->outpoint);
 
 	if (fromwire_bool(cursor, max)) {
 		mvt->tx_txid = tal(mvt, struct bitcoin_txid);
