@@ -312,7 +312,7 @@ class InstInfo:
                     return False
                 log.debug(f"falling back to cloning remote repo {self}")
                 # Update to reflect use of a local clone
-                self.source_loc = target.location
+                self.source_loc = str(target.location)
                 self.srctype = target.srctype
                 result = search_dir(self, target, False, 5)
 
@@ -1135,7 +1135,7 @@ def _source_search(name: str, src: str) -> Union[InstInfo, None]:
             if _git_update(source, local_clone_location):
                 log.debug(f"Using local clone of {src}: "
                           f"{local_clone_location}")
-                source.source_loc = local_clone_location
+                source.source_loc = str(local_clone_location)
                 source.srctype = Source.GIT_LOCAL_CLONE
 
     if source.get_inst_details():
@@ -1341,7 +1341,7 @@ def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
     if not cloned_src.entry:
         # The plugin entrypoint may not be discernable prior to cloning.
         # Need to search the newly cloned directory, not the original
-        cloned_src.source_loc = plugin_path
+        cloned_src.source_loc = str(plugin_path)
 
     # Relocate plugin to a staging directory prior to testing
     if not Path(inst_path).exists():
