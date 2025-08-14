@@ -9,17 +9,11 @@ struct bitcoin_txid;
 struct chain_event;
 struct channel_event;
 struct db;
+struct plugin;
 enum mvt_tag;
 struct onchain_fee;
 
 #define SQLITE_MAX_UINT 0x7FFFFFFFFFFFFFFF
-
-struct acct_balance {
-	char *currency;
-	struct amount_msat credit;
-	struct amount_msat debit;
-	struct amount_msat balance;
-};
 
 struct fee_sum {
 	u64 acct_db_id;
@@ -116,15 +110,14 @@ struct chain_event **get_chain_events_by_outpoint(const tal_t *ctx,
 						  const struct bitcoin_outpoint *outpoint,
 						  bool credits_only);
 
-/* Calculate the balances for an account
- *
- * @calc_sum     - compute the total balance. error if negative
- * */
-char *account_get_balance(const tal_t *ctx,
-			  struct db *db,
-			  const char *acct_name,
-			  bool calc_sum,
-			  struct acct_balance ***balances);
+/* Get total credits and debits for this account: returns false if no entries at all
+ * (in which case, credit and debit will both be AMOUNT_MSAT(0)). */
+bool account_get_credit_debit(struct plugin *plugin,
+			      struct db *db,
+			      const char *acct_name,
+			      struct amount_msat *credit,
+			      struct amount_msat *debit);
+
 
 /* Get chain fees for account */
 struct onchain_fee **account_get_chain_fees(const tal_t *ctx, struct db *db,
