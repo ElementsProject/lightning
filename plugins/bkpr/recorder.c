@@ -1549,9 +1549,9 @@ void log_channel_event(struct db *db,
 
 	db_bind_u64(stmt, acct->db_id);
 	db_bind_text(stmt, e->tag);
-	db_bind_amount_msat(stmt, &e->credit);
-	db_bind_amount_msat(stmt, &e->debit);
-	db_bind_amount_msat(stmt, &e->fees);
+	db_bind_amount_msat(stmt, e->credit);
+	db_bind_amount_msat(stmt, e->debit);
+	db_bind_amount_msat(stmt, e->fees);
 	db_bind_text(stmt, e->currency);
 	if (e->payment_id)
 		db_bind_sha256(stmt, e->payment_id);
@@ -1703,8 +1703,8 @@ static void insert_chain_fees_diff(struct db *db,
 
 	db_bind_u64(stmt, acct_id);
 	db_bind_txid(stmt, txid);
-	db_bind_amount_msat(stmt, &credit);
-	db_bind_amount_msat(stmt, &debit);
+	db_bind_amount_msat(stmt, credit);
+	db_bind_amount_msat(stmt, debit);
 	db_bind_text(stmt, currency);
 	db_bind_u64(stmt, timestamp);
 	db_bind_int(stmt, ++update_count);
@@ -1876,7 +1876,7 @@ void maybe_record_rebalance(struct db *db,
 				     " AND e.rebalance_id IS NULL"));
 
 	db_bind_sha256(stmt, out->payment_id);
-	db_bind_amount_msat(stmt, &credit);
+	db_bind_amount_msat(stmt, credit);
 	db_query_prepared(stmt);
 
 	if (!db_step(stmt)) {
@@ -2189,9 +2189,9 @@ bool log_chain_event(struct db *db,
 	else
 		db_bind_null(stmt);
 	db_bind_text(stmt, e->tag);
-	db_bind_amount_msat(stmt, &e->credit);
-	db_bind_amount_msat(stmt, &e->debit);
-	db_bind_amount_msat(stmt, &e->output_value);
+	db_bind_amount_msat(stmt, e->credit);
+	db_bind_amount_msat(stmt, e->debit);
+	db_bind_amount_msat(stmt, e->output_value);
 	db_bind_text(stmt, e->currency);
 	db_bind_u64(stmt, e->timestamp);
 	db_bind_int(stmt, e->blockheight);
