@@ -985,3 +985,76 @@ def test_bookkeeper_bad_migration(node_factory):
 
     # l2 will *not* do this
     assert not l2.daemon.is_in_log("adding spliced column")
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', "Snapshots are bitcoin regtest.")
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "uses snapshots")
+def test_migration(node_factory, bitcoind):
+    generate = False
+
+    if generate:
+        l1, l2 = node_factory.line_graph(2)
+
+        l1.pay(l2, 12345678, label="Rusty's payment")
+
+        wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+        wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+
+        chan = only_one(l1.rpc.listpeerchannels()['channels'])
+        # Label change output and funding output
+        l1.rpc.bkpr_editdescriptionbyoutpoint(f"{chan['funding_txid']}:{chan['funding_outnum']}",
+                                              "Rusty's channel")
+        l1.rpc.bkpr_editdescriptionbyoutpoint(f"{chan['funding_txid']}:{chan['funding_outnum'] ^ 1}",
+                                              "Rusty's change")
+    else:
+        bitcoind.generate_block(1)
+        l1 = node_factory.get_node(dbfile="l1-before-moves-in-db.sqlite3.xz",
+                                   bkpr_dbfile="l1-bkpr-accounts.sqlite3.xz",
+                                   options={'database-upgrade': True})
+        l2 = node_factory.get_node(dbfile="l2-before-moves-in-db.sqlite3.xz",
+                                   bkpr_dbfile="l2-bkpr-accounts.sqlite3.xz",
+                                   options={'database-upgrade': True})
+
+        chan = only_one(l1.rpc.listpeerchannels()['channels'])
+
+    payment = only_one(l1.rpc.listsendpays()['payments'])
+    events = l1.rpc.bkpr_listaccountevents()['events']
+
+    pay_event = only_one([e for e in events if e.get('description') == "Rusty's payment"])
+    del pay_event['timestamp']
+    assert pay_event == {'account': chan['channel_id'],
+                         'credit_msat': 0,
+                         'currency': 'bcrt',
+                         'debit_msat': 12345678,
+                         'description': "Rusty's payment",
+                         'is_rebalance': False,
+                         'part_id': 0,
+                         'payment_id': payment['payment_hash'],
+                         'tag': 'invoice',
+                         'type': 'channel'}
+    open_event = only_one([e for e in events if e.get('description') == "Rusty's channel"])
+    del open_event['timestamp']
+    assert open_event == {'account': chan['channel_id'],
+                          'blockheight': 103,
+                          'credit_msat': 1000000000,
+                          'currency': 'bcrt',
+                          'debit_msat': 0,
+                          'description': "Rusty's channel",
+                          'outpoint': f"{chan['funding_txid']}:{chan['funding_outnum']}",
+                          'tag': 'channel_open',
+                          'type': 'chain'}
+
+    change_event = only_one([e for e in events if e.get('description') == "Rusty's change"])
+    del change_event['timestamp']
+    assert change_event == {'account': 'wallet',
+                            'blockheight': 103,
+                            'credit_msat': 995073000,
+                            'currency': 'bcrt',
+                            'debit_msat': 0,
+                            'description': "Rusty's change",
+                            'outpoint': f"{chan['funding_txid']}:{chan['funding_outnum'] ^ 1}",
+                            'tag': 'deposit',
+                            'type': 'chain'}
+
+    # When generating, we want to stop so you can grab databases.
+    assert generate is False
