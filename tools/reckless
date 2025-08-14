@@ -32,6 +32,19 @@ logging.basicConfig(
 LAST_FOUND = None
 
 
+def chunk_string(string: str, size: int):
+    for i in range(0, len(string), size):
+        yield string[i: i + size]
+
+
+def ratelimit_output(output: str):
+    sys.stdout.reconfigure(encoding='utf-8')
+    for i in chunk_string(output, 1024):
+        sys.stdout.write(i)
+        sys.stdout.flush()
+        time.sleep(0.01)
+
+
 class Logger:
     """Redirect logging output to a json object or stdout as appropriate."""
     def __init__(self, capture: bool = False):
@@ -89,7 +102,8 @@ class Logger:
            isinstance(log.json_output["result"][0], list):
             # unpack sources output
             log.json_output["result"] = log.json_output["result"][0]
-        print(json.dumps(log.json_output, indent=3))
+        output = json.dumps(log.json_output, indent=3) + '\n'
+        ratelimit_output(output)
 
 
 log = Logger()
@@ -1027,7 +1041,7 @@ def install_python_uv_legacy(cloned_plugin: InstInfo):
     (Path(cloned_plugin.source_loc) / 'requirements.txt').\
         symlink_to(source / 'requirements.txt')
 
-    venv = run(['uv', '-v', 'venv'], cwd=str(cloned_plugin.source_loc),
+    venv = run(['uv', 'venv'], cwd=str(cloned_plugin.source_loc),
                stdout=PIPE, stderr=PIPE, text=True, check=False)
     if venv.returncode != 0:
         for line in venv.stderr.splitlines():
@@ -1041,7 +1055,7 @@ def install_python_uv_legacy(cloned_plugin: InstInfo):
     # Running this as a shell allows overriding any active virtual environment
     # which would make uv skip installing packages already present in the
     # current env.
-    call = ['. .venv/bin/activate; uv -v pip install -r requirements.txt']
+    call = ['. .venv/bin/activate; uv pip install -r requirements.txt']
     uv = run(call, shell=True, cwd=str(cloned_plugin.source_loc),
              stdout=PIPE, stderr=PIPE, text=True, check=False)
     if uv.returncode != 0:
