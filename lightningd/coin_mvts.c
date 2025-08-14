@@ -6,29 +6,6 @@
 #include <lightningd/peer_control.h>
 
 
-void notify_channel_mvt(struct lightningd *ld, const struct channel_coin_mvt *mvt)
-{
-	const struct coin_mvt *cm;
-	u32 timestamp;
-
-	timestamp = time_now().ts.tv_sec;
-	cm = finalize_channel_mvt(mvt, mvt, chainparams->lightning_hrp,
-				  timestamp, &ld->our_nodeid);
-
-	notify_coin_mvt(ld, cm);
-}
-
-void notify_chain_mvt(struct lightningd *ld, const struct chain_coin_mvt *mvt)
-{
-	const struct coin_mvt *cm;
-	u32 timestamp;
-
-	timestamp = time_now().ts.tv_sec;
-	cm = finalize_chain_mvt(mvt, mvt, chainparams->lightning_hrp,
-				timestamp, &ld->our_nodeid);
-	notify_coin_mvt(ld, cm);
-}
-
 struct channel_coin_mvt *new_channel_mvt_invoice_hin(const tal_t *ctx,
 						     struct htlc_in *hin,
 						     struct channel *channel)

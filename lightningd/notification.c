@@ -445,90 +445,100 @@ void notify_sendpay_failure(struct lightningd *ld,
 	notify_send(ld, n);
 }
 
-static void json_mvt_id(struct json_stream *stream, enum mvt_type mvt_type,
-			const struct mvt_id *id)
+static void chain_movement_notification_serialize(struct json_stream *stream,
+						  struct lightningd *ld,
+						  const struct chain_coin_mvt *chain_mvt)
 {
-	switch (mvt_type) {
-		case CHAIN_MVT:
-			/* some 'journal entries' don't have a txid */
-			if (id->tx_txid)
-				json_add_string(stream, "txid",
-						fmt_bitcoin_txid(tmpctx,
-								 id->tx_txid));
-			/* some chain ledger entries aren't associated with a utxo
-			 * e.g. journal updates (due to penalty/state loss) and
-			 * chain_fee entries */
-			if (id->outpoint) {
-				json_add_string(stream, "utxo_txid",
-						fmt_bitcoin_txid(tmpctx,
-								 &id->outpoint->txid));
-				json_add_u32(stream, "vout", id->outpoint->n);
-			}
-
-			/* on-chain htlcs include a payment hash */
-			if (id->payment_hash)
-				json_add_sha256(stream, "payment_hash", id->payment_hash);
-			return;
-	case CHANNEL_MVT:
-		/* push funding / leases don't have a payment_hash */
-		if (id->payment_hash)
-			json_add_sha256(stream, "payment_hash", id->payment_hash);
-		if (id->part_id)
-			json_add_u64(stream, "part_id", *id->part_id);
-		return;
-	}
-	abort();
-}
-
-static void coin_movement_notification_serialize(struct json_stream *stream,
-						 const struct coin_mvt *mvt)
-{
-	json_add_num(stream, "version", mvt->version);
-	json_add_node_id(stream, "node_id", mvt->node_id);
-	if (mvt->peer_id)
-		json_add_node_id(stream, "peer_id", mvt->peer_id);
-	json_add_string(stream, "type", mvt_type_str(mvt->type));
-	json_add_string(stream, "account_id", mvt->account_id);
-	if (mvt->originating_acct)
+	json_add_num(stream, "version", COIN_MVT_VERSION);
+	json_add_string(stream, "type", "chain_mvt");
+	json_add_node_id(stream, "node_id", &ld->our_nodeid);
+	if (chain_mvt->peer_id)
+		json_add_node_id(stream, "peer_id", chain_mvt->peer_id);
+	json_add_string(stream, "account_id", chain_mvt->account_name);
+	if (chain_mvt->originating_acct)
 		json_add_string(stream, "originating_account",
-				mvt->originating_acct);
-	json_mvt_id(stream, mvt->type, &mvt->id);
-	json_add_amount_msat(stream, "credit_msat", mvt->credit);
-	json_add_amount_msat(stream, "debit_msat", mvt->debit);
-
-	/* Only chain movements */
-	if (mvt->output_val)
-		json_add_amount_sat_msat(stream,
-					 "output_msat", *mvt->output_val);
-	if (mvt->output_count > 0)
-		json_add_num(stream, "output_count",
-			     mvt->output_count);
-
-	if (mvt->fees) {
-		json_add_amount_msat(stream, "fees_msat", *mvt->fees);
+				chain_mvt->originating_acct);
+	/* some 'journal entries' don't have a txid */
+	if (chain_mvt->tx_txid)
+		json_add_string(stream, "txid",
+				fmt_bitcoin_txid(tmpctx,
+						 chain_mvt->tx_txid));
+	/* some chain ledger entries aren't associated with a utxo
+	 * e.g. journal updates (due to penalty/state loss) and
+	 * chain_fee entries */
+	if (chain_mvt->outpoint) {
+		json_add_string(stream, "utxo_txid",
+				fmt_bitcoin_txid(tmpctx,
+						 &chain_mvt->outpoint->txid));
+		json_add_u32(stream, "vout", chain_mvt->outpoint->n);
 	}
+
+	/* on-chain htlcs include a payment hash */
+	if (chain_mvt->payment_hash)
+		json_add_sha256(stream, "payment_hash", chain_mvt->payment_hash);
+	json_add_amount_msat(stream, "credit_msat", chain_mvt->credit);
+	json_add_amount_msat(stream, "debit_msat", chain_mvt->debit);
+
+	json_add_amount_sat_msat(stream,
+				 "output_msat", chain_mvt->output_val);
+	if (chain_mvt->output_count > 0)
+		json_add_num(stream, "output_count", chain_mvt->output_count);
 
 	json_array_start(stream, "tags");
-	for (size_t i = 0; i < tal_count(mvt->tags); i++)
-		json_add_string(stream, NULL, mvt_tag_str(mvt->tags[i]));
+	for (size_t i = 0; i < tal_count(chain_mvt->tags); i++)
+		json_add_string(stream, NULL, mvt_tag_str(chain_mvt->tags[i]));
 	json_array_end(stream);
 
-	if (mvt->type == CHAIN_MVT)
-		json_add_u32(stream, "blockheight", mvt->blockheight);
+	json_add_u32(stream, "blockheight", chain_mvt->blockheight);
+	json_add_u32(stream, "timestamp", time_now().ts.tv_sec);
+	json_add_string(stream, "coin_type", chainparams->lightning_hrp);
+}
 
-	json_add_u32(stream, "timestamp", mvt->timestamp);
-	json_add_string(stream, "coin_type", mvt->hrp_name);
+static void channel_movement_notification_serialize(struct json_stream *stream,
+						    struct lightningd *ld,
+						    const struct channel_coin_mvt *chan_mvt)
+{
+	json_add_num(stream, "version", COIN_MVT_VERSION);
+	json_add_string(stream, "type", "channel_mvt");
+	json_add_node_id(stream, "node_id", &ld->our_nodeid);
+	json_add_channel_id(stream, "account_id", &chan_mvt->chan_id);
+	/* push funding / leases don't have a payment_hash */
+	if (chan_mvt->payment_hash)
+		json_add_sha256(stream, "payment_hash", chan_mvt->payment_hash);
+	if (chan_mvt->part_id)
+		json_add_u64(stream, "part_id", *chan_mvt->part_id);
+	json_add_amount_msat(stream, "credit_msat", chan_mvt->credit);
+	json_add_amount_msat(stream, "debit_msat", chan_mvt->debit);
+	json_add_amount_msat(stream, "fees_msat", chan_mvt->fees);
+
+	json_array_start(stream, "tags");
+	for (size_t i = 0; i < tal_count(chan_mvt->tags); i++)
+		json_add_string(stream, NULL, mvt_tag_str(chan_mvt->tags[i]));
+	json_array_end(stream);
+
+	json_add_u32(stream, "timestamp", time_now().ts.tv_sec);
+	json_add_string(stream, "coin_type", chainparams->lightning_hrp);
 }
 
 REGISTER_NOTIFICATION(coin_movement);
 
-void notify_coin_mvt(struct lightningd *ld,
-		     const struct coin_mvt *mvt)
+void notify_channel_mvt(struct lightningd *ld,
+			const struct channel_coin_mvt *chan_mvt)
 {
 	struct jsonrpc_notification *n = notify_start(ld, "coin_movement");
 	if (!n)
 		return;
-	coin_movement_notification_serialize(n->stream, mvt);
+	channel_movement_notification_serialize(n->stream, ld, chan_mvt);
+	notify_send(ld, n);
+}
+
+void notify_chain_mvt(struct lightningd *ld,
+		      const struct chain_coin_mvt *chain_mvt)
+{
+	struct jsonrpc_notification *n = notify_start(ld, "coin_movement");
+	if (!n)
+		return;
+	chain_movement_notification_serialize(n->stream, ld, chain_mvt);
 	notify_send(ld, n);
 }
 
