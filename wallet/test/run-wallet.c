@@ -1366,6 +1366,9 @@ static struct wallet *create_test_wallet(struct lightningd *ld, const tal_t *ctx
 	CHECK_MSG(!wallet_err, wallet_err);
 	w->max_channel_dbid = 0;
 
+	/* Create fresh channels map */
+	ld->channels_by_scid = tal(ld, struct channel_scid_map);
+	channel_scid_map_init(ld->channels_by_scid);
 	return w;
 }
 
@@ -2091,6 +2094,9 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 
 	/* do inflights get correctly added to the channel? */
 	wallet_inflight_add(w, inflight);
+
+	/* Hack to remove scids from htable so we don't clash! */
+	chanmap_remove(ld, chan, *chan->alias[LOCAL]);
 
 	/* do inflights get correctly loaded from the database? */
 	CHECK_MSG(c2 = wallet_channel_load(w, chan->dbid),
