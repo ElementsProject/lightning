@@ -358,6 +358,22 @@ static void handle_onchain_log_coin_move(struct channel *channel, const u8 *msg)
 	tal_free(mvt);
 }
 
+static void handle_onchain_log_penalty_adj(struct channel *channel, const u8 *msg)
+{
+	struct amount_msat msat;
+	struct channel_coin_mvt *mvt;
+
+	if (!fromwire_onchaind_notify_penalty_adj(msg, &msat)) {
+		channel_internal_error(channel, "Invalid onchain notify_penalty_adj");
+		return;
+	}
+
+	mvt = new_channel_mvt_penalty_adj(tmpctx, channel, msat, COIN_CREDIT);
+	notify_channel_mvt(channel->peer->ld, mvt);
+	mvt = new_channel_mvt_penalty_adj(tmpctx, channel, msat, COIN_DEBIT);
+	notify_channel_mvt(channel->peer->ld, mvt);
+}
+
 static void replay_watch_tx(struct channel *channel,
 			    u32 blockheight,
 			    const struct bitcoin_tx *tx TAKES)
@@ -1649,6 +1665,10 @@ static unsigned int onchain_msg(struct subd *sd, const u8 *msg, const int *fds U
 
 	case WIRE_ONCHAIND_NOTIFY_COIN_MVT:
 		handle_onchain_log_coin_move(sd->channel, msg);
+		break;
+
+	case WIRE_ONCHAIND_NOTIFY_PENALTY_ADJ:
+		handle_onchain_log_penalty_adj(sd->channel, msg);
 		break;
 
 	case WIRE_ONCHAIND_SPEND_TO_US:
