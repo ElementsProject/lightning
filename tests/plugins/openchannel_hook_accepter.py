@@ -16,7 +16,7 @@ from pyln.client import Plugin, Millisatoshi
 plugin = Plugin()
 
 
-def run_openchannel(funding_sats_str, plugin):
+def run_openchannel(funding_sats_str, ctype, plugin):
     # Convert from string to satoshis
     funding_sats = Millisatoshi(funding_sats_str).to_satoshi()
 
@@ -46,19 +46,19 @@ def run_openchannel(funding_sats_str, plugin):
         return {'result': 'continue', 'close_to': 'bc1qlq8srqnz64wgklmqvurv7qnr4rvtq2u96hhfg2'}
 
     # - otherwise: accept and don't include the close_to
-    plugin.log("accept by design")
+    plugin.log(f"accept by design: channel_type {ctype}")
     return {'result': 'continue'}
 
 
 @plugin.hook('openchannel')
 def on_openchannel(openchannel, plugin, **kwargs):
-    return run_openchannel(openchannel['funding_msat'], plugin)
+    return run_openchannel(openchannel['funding_msat'], openchannel['channel_type'], plugin)
 
 
 @plugin.hook('openchannel2')
 def on_openchannel2(openchannel2, plugin, **kwargs):
     """ Support for v2 channel opens """
-    return run_openchannel(openchannel2['their_funding_msat'], plugin)
+    return run_openchannel(openchannel2['their_funding_msat'], openchannel2['channel_type'], plugin)
 
 
 plugin.run()

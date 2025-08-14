@@ -245,6 +245,7 @@ This hook is called whenever a remote peer tries to fund a channel to us using t
     "to_self_delay": 5,
     "max_accepted_htlcs": 483,
     "channel_flags": 1,
+    "channel_type": {'bits': [12, 22], 'names': ['static_remotekey/even', 'anchors/even']},
     "locktime": 2453,
     "channel_max_msat": 16777215000,
     "requested_lease_msat": 100000000,

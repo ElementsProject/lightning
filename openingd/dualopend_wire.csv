@@ -98,6 +98,7 @@ msgdata,dualopend_got_offer,shutdown_scriptpubkey,u8,shutdown_len
 msgdata,dualopend_got_offer,requested_amt,?amount_sat,
 msgdata,dualopend_got_offer,lease_blockheight_start,u32,
 msgdata,dualopend_got_offer,require_confirmed_inputs,bool,
+msgdata,dualopend_got_offer,ctype,channel_type,
 
 # master->dualopend: reply back with our first funding info/contribs
 msgtype,dualopend_got_offer_reply,7105

@@ -4328,3 +4328,14 @@ def test_peer_storage(node_factory, bitcoind):
     # This should never happen
     assert not l1.daemon.is_in_log(r'PeerStorageFailed')
     assert not l2.daemon.is_in_log(r'PeerStorageFailed')
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+def test_openchannel_hook_channel_type(node_factory, bitcoind):
+    """openchannel hook should get a channel_type field.
+    """
+    opts = {'plugin': os.path.join(os.getcwd(), 'tests/plugins/openchannel_hook_accepter.py')}
+    l1, l2 = node_factory.line_graph(2, opts=opts)
+
+    l2.daemon.wait_for_log(r"plugin-openchannel_hook_accepter.py: accept by design: channel_type {'bits': \[12, 22\], 'names': \['static_remotekey/even', 'anchors/even'\]}")

@@ -2528,7 +2528,8 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 					 state->upfront_shutdown_script[REMOTE],
 					 state->requested_lease,
 					 tx_state->blockheight,
-					 state->require_confirmed_inputs[REMOTE]);
+					 state->require_confirmed_inputs[REMOTE],
+					 state->channel_type);
 
 	wire_sync_write(REQ_FD, take(msg));
 	msg = wire_sync_read(tmpctx, REQ_FD);

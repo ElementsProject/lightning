@@ -1009,7 +1009,8 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				       state->remoteconf.to_self_delay,
 				       state->remoteconf.max_accepted_htlcs,
 				       channel_flags,
-				       state->upfront_shutdown_script[REMOTE]);
+				       state->upfront_shutdown_script[REMOTE],
+				       state->channel_type);
 	wire_sync_write(REQ_FD, take(msg));
 	msg = wire_sync_read(tmpctx, REQ_FD);
 
