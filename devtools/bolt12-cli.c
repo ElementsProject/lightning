@@ -175,7 +175,8 @@ static void print_u64(const char *fieldname, u64 max)
 	printf("%s: %"PRIu64"\n", fieldname, max);
 }
 
-static bool print_recurrance(const struct recurrence *recurrence,
+static bool print_recurrence(const char *fieldname,
+			     const struct recurrence *recurrence,
 			     const struct recurrence_paywindow *paywindow,
 			     const u32 *limit,
 			     const struct recurrence_base *base)
@@ -185,23 +186,22 @@ static bool print_recurrance(const struct recurrence *recurrence,
 
 	/* BOLT-recurrence #12:
 	 * Thus, each offer containing a recurring payment has:
-	 * 1. A `time_unit` defining 0 (seconds), 1 (days), 2 (months),
-	 *    3 (years).
+	 * 1. A `time_unit` defining 0 (seconds), 1 (days), 2 (months).
 	 * 2. A `period`, defining how often (in `time_unit`) it has to be paid.
-	 * 3. An optional `recurrence_limit` of total payments to be paid.
-	 * 4. An optional `recurrence_base`:
+	 * 3. An optional `offer_recurrence_limit` of total payments to be paid.
+	 * 4. An optional `offer_recurrence_base`:
 	 *    * `basetime`, defining when the first period starts
 	 *       in seconds since 1970-01-01 UTC.
-	 *    * `start_any_period` if non-zero, meaning you don't have to start
-	 *       paying at the period indicated by `basetime`, but can use
-	 *       `recurrence_start` to indicate what period you are starting at.
-	 * 5. An optional `recurrence_paywindow`:
+	 *    * The payer uses `invreq_recurrence_start` to indicate what period
+	 *       they are starting at.  If you don't want them to start at arbitrary
+	 *       periods, use `offer_absolute_expiry`.
+	 *    * A `proportional_amount` flag: if set indicating that a payment made
+	 *       during the period itself will be charged proportionally to the
+	 *       remaining time in the period (e.g. 150 seconds into a 1500 second
+	 *       period gives a 10% discount).
+	 * 5. An optional `offer_recurrence_paywindow`:
 	 *    * `seconds_before`, defining how many seconds prior to the start of
 	 *       the period a payment will be accepted.
-	 *    * `proportional_amount`, if set indicating that a payment made
-	 *       during the period itself will be charged proportionally to the
-	 *       remaining time in the period (e.g. 150 seconds into a 1500
-	 *       second period gives a 10% discount).
 	 *    * `seconds_after`, defining how many seconds after the start of the
 	 *       period a payment will be accepted.
 	 *   If this field is missing, payment will be accepted during the prior
@@ -217,29 +217,25 @@ static bool print_recurrance(const struct recurrence *recurrence,
 	case 2:
 		unit = "months";
 		break;
-	case 3:
-		unit = "years";
-		break;
 	default:
-		fprintf(stderr, "recurrence: unknown time_unit %u", recurrence->time_unit);
+		fprintf(stderr, "%s: unknown time_unit %u", fieldname, recurrence->time_unit);
 		unit = "";
 		ok = false;
 	}
-	printf("offer_recurrence: every %u %s", recurrence->period, unit);
+	printf("%s: every %u %s",
+	       fieldname, recurrence->period, unit);
 	if (limit)
 		printf(" limit %u", *limit);
 	if (base) {
 		printf(" start %"PRIu64" (%s)",
 		       base->basetime,
 		       fmt_time(tmpctx, base->basetime));
-		if (base->start_any_period)
-			printf(" (can start any period)");
+		if (base->proportional_amount)
+			printf(" (pay proportional)");
 	}
 	if (paywindow) {
 		printf(" paywindow -%u to +%u",
 		       paywindow->seconds_before, paywindow->seconds_after);
-		if (paywindow->proportional_amount)
-			printf(" (pay proportional)");
 	}
 	printf("\n");
 
@@ -868,8 +864,15 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "Missing offer_issuer_id and offer_paths\n");
 			well_formed = false;
 		}
-		if (offer->offer_recurrence)
-			well_formed &= print_recurrance(offer->offer_recurrence,
+		if (offer->offer_recurrence_compulsory)
+			well_formed &= print_recurrence("offer_recurrence_compulsory",
+							offer->offer_recurrence_compulsory,
+							offer->offer_recurrence_paywindow,
+							offer->offer_recurrence_limit,
+							offer->offer_recurrence_base);
+		if (offer->offer_recurrence_optional)
+			well_formed &= print_recurrence("offer_recurrence_optional",
+							offer->offer_recurrence_optional,
 							offer->offer_recurrence_paywindow,
 							offer->offer_recurrence_limit,
 							offer->offer_recurrence_base);
@@ -917,8 +920,15 @@ int main(int argc, char *argv[])
 			print_u64("offer_quantity_max", *invreq->offer_quantity_max);
 		if (invreq->offer_issuer_id)
 			print_node_id("offer_issuer_id", invreq->offer_issuer_id);
-		if (invreq->offer_recurrence)
-			well_formed &= print_recurrance(invreq->offer_recurrence,
+		if (invreq->offer_recurrence_compulsory)
+			well_formed &= print_recurrence("offer_recurrence_compulsory",
+							invreq->offer_recurrence_compulsory,
+							invreq->offer_recurrence_paywindow,
+							invreq->offer_recurrence_limit,
+							invreq->offer_recurrence_base);
+		if (invreq->offer_recurrence_optional)
+			well_formed &= print_recurrence("offer_recurrence_optional",
+							invreq->offer_recurrence_optional,
 							invreq->offer_recurrence_paywindow,
 							invreq->offer_recurrence_limit,
 							invreq->offer_recurrence_base);
@@ -999,8 +1009,15 @@ int main(int argc, char *argv[])
 			print_u64("offer_quantity_max", *invoice->offer_quantity_max);
 		if (invoice->offer_issuer_id)
 			print_node_id("offer_issuer_id", invoice->offer_issuer_id);
-		if (invoice->offer_recurrence)
-			well_formed &= print_recurrance(invoice->offer_recurrence,
+		if (invoice->offer_recurrence_compulsory)
+			well_formed &= print_recurrence("offer_recurrence_compulsory",
+							invoice->offer_recurrence_compulsory,
+							invoice->offer_recurrence_paywindow,
+							invoice->offer_recurrence_limit,
+							invoice->offer_recurrence_base);
+		if (invoice->offer_recurrence_optional)
+			well_formed &= print_recurrence("offer_recurrence_optional",
+							invoice->offer_recurrence_optional,
 							invoice->offer_recurrence_paywindow,
 							invoice->offer_recurrence_limit,
 							invoice->offer_recurrence_base);
