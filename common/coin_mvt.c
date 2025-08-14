@@ -163,7 +163,7 @@ static struct chain_coin_mvt *new_chain_coin_mvt(const tal_t *ctx,
 						 const struct channel *channel,
 						 const char *account_name TAKES,
 						 u64 timestamp,
-						 const struct bitcoin_txid *tx_txid,
+						 const struct bitcoin_txid *spending_txid,
 						 const struct bitcoin_outpoint *outpoint,
 						 const struct sha256 *payment_hash TAKES,
 						 u32 blockheight,
@@ -178,7 +178,7 @@ static struct chain_coin_mvt *new_chain_coin_mvt(const tal_t *ctx,
 	assert(mvt_tags_valid(tags));
 	set_mvt_account_id(&mvt->account, channel, account_name);
 	mvt->timestamp = timestamp;
-	mvt->tx_txid = tx_txid;
+	mvt->spending_txid = spending_txid;
 	mvt->outpoint = *outpoint;
 	mvt->originating_acct = NULL;
 
@@ -485,9 +485,9 @@ void towire_chain_coin_mvt(u8 **pptr, const struct chain_coin_mvt *mvt)
 
 	towire_bitcoin_outpoint(pptr, &mvt->outpoint);
 
-	if (mvt->tx_txid) {
+	if (mvt->spending_txid) {
 		towire_bool(pptr, true);
-		towire_bitcoin_txid(pptr, cast_const(struct bitcoin_txid *, mvt->tx_txid));
+		towire_bitcoin_txid(pptr, cast_const(struct bitcoin_txid *, mvt->spending_txid));
 
 	} else
 		towire_bool(pptr, false);
@@ -520,11 +520,12 @@ void fromwire_chain_coin_mvt(const u8 **cursor, size_t *max, struct chain_coin_m
 	fromwire_bitcoin_outpoint(cursor, max, &mvt->outpoint);
 
 	if (fromwire_bool(cursor, max)) {
-		mvt->tx_txid = tal(mvt, struct bitcoin_txid);
-		fromwire_bitcoin_txid(cursor, max,
-				      cast_const(struct bitcoin_txid *, mvt->tx_txid));
+		/* We need non-const temporary */
+		struct bitcoin_txid *txid;
+		mvt->spending_txid = txid = tal(mvt, struct bitcoin_txid);
+		fromwire_bitcoin_txid(cursor, max, txid);
 	} else
-		mvt->tx_txid = NULL;
+		mvt->spending_txid = NULL;
 
 	if (fromwire_bool(cursor, max)) {
 		struct sha256 *ph;

@@ -445,109 +445,14 @@ void notify_sendpay_failure(struct lightningd *ld,
 	notify_send(ld, n);
 }
 
-static void json_add_mvt_account_id(struct json_stream *stream,
-				    const char *fieldname,
-				    const struct mvt_account_id *account_id)
-{
-	if (account_id->channel)
-		json_add_channel_id(stream, fieldname, &account_id->channel->cid);
-	else
-		json_add_string(stream, fieldname, account_id->alt_account);
-}
-
-static void add_movement_tags(struct json_stream *stream,
-			      struct lightningd *ld,
-			      const struct mvt_tags tags,
-			      bool extra_tags_field)
-{
-	const char **tagstrs = mvt_tag_strs(tmpctx, tags);
-
-	if (lightningd_deprecated_out_ok(ld, ld->deprecated_ok,
-					 "coin_movement", "tags",
-					 "v25.05", "v26.09")) {
-		json_array_start(stream, "tags");
-		for (size_t i = 0; i < tal_count(tagstrs); i++)
-			json_add_string(stream, NULL, tagstrs[i]);
-		json_array_end(stream);
-	}
-
-	json_add_string(stream, "primary_tag", tagstrs[0]);
-	if (extra_tags_field) {
-		json_array_start(stream, "extra_tags");
-		for (size_t i = 1; i < tal_count(tagstrs); i++)
-			json_add_string(stream, NULL, tagstrs[i]);
-		json_array_end(stream);
-	} else {
-		assert(tal_count(tagstrs) == 1);
-	}
-}
-
-static void chain_movement_notification_serialize(struct json_stream *stream,
-						  struct lightningd *ld,
-						  const struct chain_coin_mvt *chain_mvt)
+static void json_add_standard_notify_mvt_fields(struct json_stream *stream,
+						struct lightningd *ld,
+						const char *type)
 {
 	json_add_num(stream, "version", COIN_MVT_VERSION);
-	json_add_string(stream, "type", "chain_mvt");
-	json_add_node_id(stream, "node_id", &ld->our_nodeid);
-	if (chain_mvt->peer_id)
-		json_add_node_id(stream, "peer_id", chain_mvt->peer_id);
-	json_add_mvt_account_id(stream, "account_id", &chain_mvt->account);
-
-	if (chain_mvt->originating_acct)
-		json_add_mvt_account_id(stream, "originating_account", chain_mvt->originating_acct);
-
-	/* some 'journal entries' don't have a txid */
-	if (chain_mvt->tx_txid)
-		json_add_string(stream, "txid",
-				fmt_bitcoin_txid(tmpctx,
-						 chain_mvt->tx_txid));
-	json_add_string(stream, "utxo_txid",
-			fmt_bitcoin_txid(tmpctx,
-					 &chain_mvt->outpoint.txid));
-	json_add_u32(stream, "vout", chain_mvt->outpoint.n);
-
-	/* on-chain htlcs include a payment hash */
-	if (chain_mvt->payment_hash)
-		json_add_sha256(stream, "payment_hash", chain_mvt->payment_hash);
-	json_add_amount_msat(stream, "credit_msat", chain_mvt->credit);
-	json_add_amount_msat(stream, "debit_msat", chain_mvt->debit);
-
-	json_add_amount_sat_msat(stream,
-				 "output_msat", chain_mvt->output_val);
-	if (chain_mvt->output_count > 0)
-		json_add_num(stream, "output_count", chain_mvt->output_count);
-
-	add_movement_tags(stream, ld, chain_mvt->tags, true);
-
-	json_add_u32(stream, "blockheight", chain_mvt->blockheight);
-	json_add_u64(stream, "timestamp", chain_mvt->timestamp);
-	json_add_string(stream, "coin_type", chainparams->lightning_hrp);
-}
-
-static void channel_movement_notification_serialize(struct json_stream *stream,
-						    struct lightningd *ld,
-						    const struct channel_coin_mvt *chan_mvt,
-						    bool extra_tags_field)
-{
-	json_add_num(stream, "version", COIN_MVT_VERSION);
-	json_add_string(stream, "type", "channel_mvt");
-	json_add_node_id(stream, "node_id", &ld->our_nodeid);
-	json_add_mvt_account_id(stream, "account_id", &chan_mvt->account);
-	/* push funding / leases don't have a payment_hash */
-	if (chan_mvt->payment_hash)
-		json_add_sha256(stream, "payment_hash", chan_mvt->payment_hash);
-	if (chan_mvt->part_and_group) {
-		json_add_u64(stream, "part_id", chan_mvt->part_and_group->part_id);
-		json_add_u64(stream, "group_id", chan_mvt->part_and_group->group_id);
-	}
-	json_add_amount_msat(stream, "credit_msat", chan_mvt->credit);
-	json_add_amount_msat(stream, "debit_msat", chan_mvt->debit);
-	json_add_amount_msat(stream, "fees_msat", chan_mvt->fees);
-
-	add_movement_tags(stream, ld, chan_mvt->tags, extra_tags_field);
-
-	json_add_u64(stream, "timestamp", chan_mvt->timestamp);
-	json_add_string(stream, "coin_type", chainparams->lightning_hrp);
+ 	json_add_string(stream, "coin_type", chainparams->lightning_hrp);
+ 	json_add_node_id(stream, "node_id", &ld->our_nodeid);
+	json_add_string(stream, "type", type);
 }
 
 REGISTER_NOTIFICATION(coin_movement);
@@ -555,21 +460,44 @@ REGISTER_NOTIFICATION(coin_movement);
 void notify_channel_mvt(struct lightningd *ld,
 			const struct channel_coin_mvt *chan_mvt)
 {
+	bool include_tags_arr;
 	struct jsonrpc_notification *n = notify_start(ld, "coin_movement");
 	if (!n)
 		return;
+	include_tags_arr = lightningd_deprecated_out_ok(ld, ld->deprecated_ok,
+							"coin_movement", "tags",
+							"v25.09", "v26.09");
+
+	json_add_standard_notify_mvt_fields(n->stream, ld, "channel_mvt");
 	/* Adding (empty) extra_tags field unifies this with notify_chain_mvt */
-	channel_movement_notification_serialize(n->stream, ld, chan_mvt, true);
+	json_add_channel_mvt_fields(n->stream, include_tags_arr, chan_mvt, true);
 	notify_send(ld, n);
 }
 
 void notify_chain_mvt(struct lightningd *ld,
 		      const struct chain_coin_mvt *chain_mvt)
 {
+	bool include_tags_arr, include_old_utxo_fields, include_old_txid_field;
 	struct jsonrpc_notification *n = notify_start(ld, "coin_movement");
 	if (!n)
 		return;
-	chain_movement_notification_serialize(n->stream, ld, chain_mvt);
+
+	include_tags_arr = lightningd_deprecated_out_ok(ld, ld->deprecated_ok,
+							"coin_movement", "tags",
+							"v25.09", "v26.09");
+	include_old_utxo_fields = lightningd_deprecated_out_ok(ld, ld->deprecated_ok,
+							"coin_movement", "utxo_txid",
+							"v25.09", "v26.09");
+	include_old_txid_field = lightningd_deprecated_out_ok(ld, ld->deprecated_ok,
+							"coin_movement", "txid",
+							"v25.09", "v26.09");
+
+	json_add_standard_notify_mvt_fields(n->stream, ld, "chain_mvt");
+	json_add_chain_mvt_fields(n->stream,
+				  include_tags_arr,
+				  include_old_utxo_fields,
+				  include_old_txid_field,
+				  chain_mvt);
 	notify_send(ld, n);
 }
 

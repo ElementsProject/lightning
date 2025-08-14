@@ -1481,13 +1481,11 @@ parse_and_log_chain_move(struct command *cmd,
 	/* Fields we expect on *every* chain movement */
 	err = json_scan(tmpctx, buf, params,
 			"{coin_movement:"
-			"{utxo_txid:%"
-			",vout:%"
+			"{utxo:%"
 			",output_msat:%"
 			",blockheight:%"
 			"}}",
-			JSON_SCAN(json_to_txid, &e->outpoint.txid),
-			JSON_SCAN(json_to_number, &e->outpoint.n),
+			JSON_SCAN(json_to_outpoint, &e->outpoint),
 			JSON_SCAN(json_to_msat, &e->output_value),
 			JSON_SCAN(json_to_number, &e->blockheight));
 
@@ -1501,7 +1499,7 @@ parse_and_log_chain_move(struct command *cmd,
 	/* Now try to get out the optional parts */
 	err = json_scan(tmpctx, buf, params,
 			"{coin_movement:"
-			"{txid:%"
+			"{spending_txid:%"
 			"}}",
 			JSON_SCAN(json_to_txid, spending_txid));
 
