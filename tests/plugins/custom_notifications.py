@@ -34,6 +34,16 @@ def on_pay_success(origin, payload, **kwargs):
     )
 
 
+@plugin.subscribe("pay_part_start")
+def on_pay_part_start(origin, payload, **kwargs):
+    plugin.log("Got pay_part_start: {}".format(payload))
+
+
+@plugin.subscribe("pay_part_end")
+def on_pay_part_end(origin, payload, **kwargs):
+    plugin.log("Got pay_part_end: {}".format(payload))
+
+
 @plugin.subscribe("ididntannouncethis")
 def on_faulty_emit(origin, payload, **kwargs):
     """We should never receive this as it gets dropped.
