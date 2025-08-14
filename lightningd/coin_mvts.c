@@ -10,7 +10,7 @@ struct channel_coin_mvt *new_channel_mvt_invoice_hin(const tal_t *ctx,
 						     const struct htlc_in *hin,
 						     const struct channel *channel)
 {
-	return new_channel_coin_mvt(ctx, channel,
+	return new_channel_coin_mvt(ctx, channel, time_now().ts.tv_sec,
 				    &hin->payment_hash, NULL, NULL,
 				    COIN_CREDIT, hin->msat,
 				    mk_mvt_tags(MVT_INVOICE),
@@ -30,7 +30,7 @@ struct channel_coin_mvt *new_channel_mvt_routed_hin(const tal_t *ctx,
 			     hin->payload->amt_to_forward))
 		return NULL;
 
-	return new_channel_coin_mvt(ctx, channel,
+	return new_channel_coin_mvt(ctx, channel, time_now().ts.tv_sec,
 				    &hin->payment_hash, NULL, NULL,
 				    COIN_CREDIT, hin->msat,
 				    mk_mvt_tags(MVT_ROUTED),
@@ -41,7 +41,7 @@ struct channel_coin_mvt *new_channel_mvt_invoice_hout(const tal_t *ctx,
 						      const struct htlc_out *hout,
 						      const struct channel *channel)
 {
-	return new_channel_coin_mvt(ctx, channel,
+	return new_channel_coin_mvt(ctx, channel, time_now().ts.tv_sec,
 				    &hout->payment_hash,
 				    &hout->partid,
 				    &hout->groupid,
@@ -54,7 +54,7 @@ struct channel_coin_mvt *new_channel_mvt_routed_hout(const tal_t *ctx,
 						     const struct htlc_out *hout,
 						     const struct channel *channel)
 {
-	return new_channel_coin_mvt(ctx, channel,
+	return new_channel_coin_mvt(ctx, channel, time_now().ts.tv_sec,
 				    &hout->payment_hash, NULL, NULL,
 				    COIN_DEBIT, hout->msat,
 				    mk_mvt_tags(MVT_ROUTED),
