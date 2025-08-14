@@ -2026,7 +2026,8 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 			   &outpoint,
 			   funding_sats, AMOUNT_MSAT(0),
 			   our_sats,
-			   0, false,
+			   0, NULL,
+			   NULL, /* old scids */
 			   NULL, /* alias[LOCAL] */
 			   NULL, /* alias[REMOTE] */
 			   &cid,

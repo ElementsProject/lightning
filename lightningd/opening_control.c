@@ -188,6 +188,7 @@ wallet_commit_channel(struct lightningd *ld,
 			      local_funding,
 			      false, /* !remote_channel_ready */
 			      NULL, /* no scid yet */
+			      NULL, /* no old scids */
 			      NULL, /* assign random local alias */
 			      NULL, /* They haven't told us an alias yet */
 			      cid,
@@ -1587,6 +1588,7 @@ static struct channel *stub_chan(struct command *cmd,
 			      AMOUNT_SAT(0),
 			      true, /* remote_channel_ready */
 			      scid,
+			      NULL,
 			      scid,
 			      scid,
 			      &cid,

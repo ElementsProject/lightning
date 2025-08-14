@@ -254,6 +254,19 @@ struct channel_type *desired_channel_type(const tal_t *ctx,
 	return channel_type_static_remotekey(ctx);
 }
 
+void channel_add_old_scid(struct channel *channel,
+			  struct short_channel_id old_scid)
+{
+	/* If this is not public, we skip */
+	if (!(channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL))
+		return;
+
+	if (!channel->old_scids)
+		channel->old_scids = tal_dup(channel, struct short_channel_id, &old_scid);
+	else
+		tal_arr_expand(&channel->old_scids, old_scid);
+}
+
 struct channel *new_unsaved_channel(struct peer *peer,
 				    u32 feerate_base,
 				    u32 feerate_ppm)
@@ -287,6 +300,7 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	channel->last_htlc_sigs = NULL;
 	channel->remote_channel_ready = false;
 	channel->scid = NULL;
+	channel->old_scids = NULL;
 	channel->next_index[LOCAL] = 1;
 	channel->next_index[REMOTE] = 1;
 	channel->next_htlc_id = 0;
@@ -423,6 +437,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    bool remote_channel_ready,
 			    /* NULL or stolen */
 			    struct short_channel_id *scid,
+			    struct short_channel_id *old_scids TAKES,
 			    struct short_channel_id *alias_local TAKES,
 			    struct short_channel_id *alias_remote STEALS,
 			    struct channel_id *cid,
@@ -550,6 +565,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->our_funds = our_funds;
 	channel->remote_channel_ready = remote_channel_ready;
 	channel->scid = tal_steal(channel, scid);
+	channel->old_scids = tal_dup_talarr(channel, struct short_channel_id, old_scids);
 	channel->alias[LOCAL] = tal_dup_or_null(channel, struct short_channel_id, alias_local);
 	/* We always make sure this is set (historical channels from db might not) */
 	if (!channel->alias[LOCAL]) {
