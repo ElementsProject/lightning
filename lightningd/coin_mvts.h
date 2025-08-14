@@ -21,17 +21,17 @@ struct balance_snapshot {
 };
 
 struct channel_coin_mvt *new_channel_mvt_invoice_hin(const tal_t *ctx,
-						     struct htlc_in *hin,
-						     struct channel *channel);
+						     const struct htlc_in *hin,
+						     const struct channel *channel);
 struct channel_coin_mvt *new_channel_mvt_routed_hin(const tal_t *ctx,
-						    struct htlc_in *hin,
-						    struct channel *channel);
+						    const struct htlc_in *hin,
+						    const struct channel *channel);
 struct channel_coin_mvt *new_channel_mvt_invoice_hout(const tal_t *ctx,
-						      struct htlc_out *hout,
-						      struct channel *channel);
+						      const struct htlc_out *hout,
+						      const struct channel *channel);
 struct channel_coin_mvt *new_channel_mvt_routed_hout(const tal_t *ctx,
-						     struct htlc_out *hout,
-						     struct channel *channel);
+						     const struct htlc_out *hout,
+						     const struct channel *channel);
 
 void send_account_balance_snapshot(struct lightningd *ld);
 #endif /* LIGHTNING_LIGHTNINGD_COIN_MVTS_H */
