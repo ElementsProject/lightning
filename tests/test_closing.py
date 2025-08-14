@@ -631,9 +631,9 @@ def test_penalty_inhtlc(node_factory, bitcoind, executor, chainparams, anchors):
 
     if anchors:
         expected_1['B'].append(('external', ['anchor'], None, None))
+        expected_1['B'].append(('external', ['anchor'], None, None))
         expected_2['B'].append(('external', ['anchor'], None, None))
-        expected_1['B'].append(('wallet', ['anchor', 'ignored'], None, None))
-        expected_2['B'].append(('wallet', ['anchor', 'ignored'], None, None))
+        expected_2['B'].append(('external', ['anchor'], None, None))
 
     # We use a subset of tags in expected_2 that are used in expected_1
     tags = check_utxos_channel(l1, [channel_id], expected_1)
@@ -767,9 +767,9 @@ def test_penalty_outhtlc(node_factory, bitcoind, executor, chainparams, anchors)
 
     if anchors:
         expected_1['B'].append(('external', ['anchor'], None, None))
+        expected_1['B'].append(('external', ['anchor'], None, None))
         expected_2['B'].append(('external', ['anchor'], None, None))
-        expected_1['B'].append(('wallet', ['anchor', 'ignored'], None, None))
-        expected_2['B'].append(('wallet', ['anchor', 'ignored'], None, None))
+        expected_2['B'].append(('external', ['anchor'], None, None))
 
     # We use a subset of tags in expected_2 that are used in expected_1
     tags = check_utxos_channel(l1, [channel_id], expected_1)
@@ -1354,9 +1354,9 @@ def test_penalty_htlc_tx_fulfill(node_factory, bitcoind, chainparams, anchors):
 
     if anchors:
         expected_2['B'].append(('external', ['anchor'], None, None))
+        expected_2['B'].append(('external', ['anchor'], None, None))
         expected_3['B'].append(('external', ['anchor'], None, None))
-        expected_2['B'].append(('wallet', ['anchor', 'ignored'], None, None))
-        expected_3['B'].append(('wallet', ['anchor', 'ignored'], None, None))
+        expected_3['B'].append(('external', ['anchor'], None, None))
         # We RBF spend the HTLC tx, which creates a new deposit
         expected_2['C'].append(('wallet', ['deposit'], None, None))
 
@@ -1578,9 +1578,9 @@ def test_penalty_htlc_tx_timeout(node_factory, bitcoind, chainparams, anchors):
 
     if anchors:
         expected_2['B'].append(('external', ['anchor'], None, None))
+        expected_2['B'].append(('external', ['anchor'], None, None))
         expected_3['B'].append(('external', ['anchor'], None, None))
-        expected_2['B'].append(('wallet', ['anchor', 'ignored'], None, None))
-        expected_3['B'].append(('wallet', ['anchor', 'ignored'], None, None))
+        expected_3['B'].append(('external', ['anchor'], None, None))
 
     # FIXME: Why does this fail?
     if not anchors:
@@ -1720,7 +1720,7 @@ def test_penalty_rbf_normal(node_factory, bitcoind, executor, chainparams, ancho
 
     if anchors:
         expected_2['B'].append(('external', ['anchor'], None, None))
-        expected_2['B'].append(('wallet', ['anchor', 'ignored'], None, None))
+        expected_2['B'].append(('external', ['anchor'], None, None))
 
     check_utxos_channel(l2, [channel_id], expected_2)
 
@@ -2069,9 +2069,9 @@ def test_onchain_timeout(node_factory, bitcoind, executor, chainparams, anchors)
 
     if anchors:
         expected_1['B'].append(('external', ['anchor'], None, None))
+        expected_1['B'].append(('external', ['anchor'], None, None))
         expected_2['B'].append(('external', ['anchor'], None, None))
-        expected_1['B'].append(('wallet', ['anchor', 'ignored'], None, None))
-        expected_2['B'].append(('wallet', ['anchor', 'ignored'], None, None))
+        expected_2['B'].append(('external', ['anchor'], None, None))
 
     # FIXME: Why does this fail?
     if not anchors:
@@ -2203,9 +2203,9 @@ def test_onchain_middleman_simple(node_factory, bitcoind, chainparams, anchors):
 
     if anchors:
         expected_1['B'].append(('external', ['anchor'], None, None))
+        expected_1['B'].append(('external', ['anchor'], None, None))
         expected_2['B'].append(('external', ['anchor'], None, None))
-        expected_1['B'].append(('wallet', ['anchor', 'ignored'], None, None))
-        expected_2['B'].append(('wallet', ['anchor', 'ignored'], None, None))
+        expected_2['B'].append(('external', ['anchor'], None, None))
 
     # FIXME: Why does this fail?
     if not anchors:
@@ -2333,9 +2333,9 @@ def test_onchain_middleman_their_unilateral_in(node_factory, bitcoind, chainpara
 
     if anchors:
         expected_1['B'].append(('external', ['anchor'], None, None))
+        expected_1['B'].append(('external', ['anchor'], None, None))
         expected_2['B'].append(('external', ['anchor'], None, None))
-        expected_1['B'].append(('wallet', ['anchor', 'ignored'], None, None))
-        expected_2['B'].append(('wallet', ['anchor', 'ignored'], None, None))
+        expected_2['B'].append(('external', ['anchor'], None, None))
 
     chan2_id = first_channel_id(l2, l3)
     # FIXME: Why does this fail?
@@ -2424,7 +2424,7 @@ def test_onchain_their_unilateral_out(node_factory, bitcoind, chainparams, ancho
             # Funding tx
             'A': [('wallet', ['deposit'], None, None), ('cid1', ['channel_open', 'opener'], ['channel_close'], 'B')],
             # Commitment tx
-            'B': [('wallet', ['deposit'], None, None), ('cid1', ['htlc_timeout'], ['to_wallet'], 'C'), ('external', ['anchor'], None, None), ('wallet', ['anchor', 'ignored'], None, None)],
+            'B': [('wallet', ['deposit'], None, None), ('cid1', ['htlc_timeout'], ['to_wallet'], 'C'), ('external', ['anchor'], None, None), ('external', ['anchor'], None, None)],
             # HTLC timeout tx
             'C': [('wallet', ['deposit'], None, None)],
         }
@@ -2433,7 +2433,7 @@ def test_onchain_their_unilateral_out(node_factory, bitcoind, chainparams, ancho
             # Funding tx
             'A': [('cid1', ['channel_open'], ['channel_close'], 'B')],
             # Commitment tx
-            'B': [('external', ['to_them'], None, None), ('external', ['htlc_timeout'], None, None), ('external', ['anchor'], None, None), ('wallet', ['anchor', 'ignored'], None, None)],
+            'B': [('external', ['to_them'], None, None), ('external', ['htlc_timeout'], None, None), ('external', ['anchor'], None, None), ('external', ['anchor'], None, None)],
         }
     else:
         expected_1 = {
