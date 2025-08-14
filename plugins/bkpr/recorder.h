@@ -121,13 +121,11 @@ struct chain_event **get_chain_events_by_outpoint(const tal_t *ctx,
 /* Calculate the balances for an account
  *
  * @calc_sum     - compute the total balance. error if negative
- * @skip_ignored - don't include ignored payments in the balance sum
  * */
 char *account_get_balance(const tal_t *ctx,
 			  struct db *db,
 			  const char *acct_name,
 			  bool calc_sum,
-			  bool skip_ignored,
 			  struct acct_balance ***balances,
 			  bool *account_exists);
 

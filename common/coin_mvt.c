@@ -29,7 +29,6 @@ static const char *mvt_tags[] = {
 	"htlc_fulfill",
 	"htlc_tx",
 	"to_wallet",
-	"ignored",
 	"anchor",
 	"to_them",
 	"penalized",
