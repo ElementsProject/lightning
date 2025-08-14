@@ -449,7 +449,7 @@ static struct txo_set *find_txo_set(const tal_t *ctx,
 			if (pr) {
 				/* Disappear "channel_proposed" events */
 				if (streq(pr->txo->tag,
-					  mvt_tag_str(CHANNEL_PROPOSED)))
+					  mvt_tag_str(MVT_CHANNEL_PROPOSED)))
 					pr = tal_free(pr);
 				else
 					tal_arr_expand(&txos->pairs, pr);
@@ -573,7 +573,7 @@ struct account *find_close_account(const tal_t *ctx,
 				     /* ignore splicing 'close' events */
 				     "  AND e.spliced = 0 "));
 
-	db_bind_text(stmt, mvt_tag_str(CHANNEL_CLOSE));
+	db_bind_text(stmt, mvt_tag_str(MVT_CHANNEL_CLOSE));
 	db_bind_txid(stmt, txid);
 	db_query_prepared(stmt);
 
@@ -1430,13 +1430,13 @@ void maybe_update_account(struct db *db,
 
 	for (size_t i = 0; i < tal_count(tags); i++) {
 		switch (tags[i]) {
-			case CHANNEL_PROPOSED:
-			case CHANNEL_OPEN:
+			case MVT_CHANNEL_PROPOSED:
+			case MVT_CHANNEL_OPEN:
 				updated = true;
 				acct->open_event_db_id = tal(acct, u64);
 				*acct->open_event_db_id = e->db_id;
 				break;
-			case CHANNEL_CLOSE:
+			case MVT_CHANNEL_CLOSE:
 				/* Splices dont count as closes */
 				if (e->splice_close)
 					break;
@@ -1444,33 +1444,33 @@ void maybe_update_account(struct db *db,
 				acct->closed_event_db_id = tal(acct, u64);
 				*acct->closed_event_db_id = e->db_id;
 				break;
-			case LEASED:
+			case MVT_LEASED:
 				updated = true;
 				acct->leased = true;
 				break;
-			case OPENER:
+			case MVT_OPENER:
 				updated = true;
 				acct->we_opened = true;
 				break;
-			case DEPOSIT:
-			case WITHDRAWAL:
-			case PENALTY:
-			case INVOICE:
-			case ROUTED:
-			case PUSHED:
-			case CHANNEL_TO_US:
-			case HTLC_TIMEOUT:
-			case HTLC_FULFILL:
-			case HTLC_TX:
-			case TO_WALLET:
-			case ANCHOR:
-			case TO_THEM:
-			case PENALIZED:
-			case STOLEN:
-			case TO_MINER:
-			case LEASE_FEE:
-			case STEALABLE:
-			case SPLICE:
+			case MVT_DEPOSIT:
+			case MVT_WITHDRAWAL:
+			case MVT_PENALTY:
+			case MVT_INVOICE:
+			case MVT_ROUTED:
+			case MVT_PUSHED:
+			case MVT_CHANNEL_TO_US:
+			case MVT_HTLC_TIMEOUT:
+			case MVT_HTLC_FULFILL:
+			case MVT_HTLC_TX:
+			case MVT_TO_WALLET:
+			case MVT_ANCHOR:
+			case MVT_TO_THEM:
+			case MVT_PENALIZED:
+			case MVT_STOLEN:
+			case MVT_TO_MINER:
+			case MVT_LEASE_FEE:
+			case MVT_STEALABLE:
+			case MVT_SPLICE:
 				/* Ignored */
 				break;
 		}

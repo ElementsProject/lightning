@@ -552,7 +552,7 @@ static bool test_onchain_fee_chan_close(const tal_t *ctx, struct plugin *p)
 				    blockheight,
 				    'X', 0, '*');
 	log_chain_event(db, acct, ev);
-	tags[0] = CHANNEL_OPEN;
+	tags[0] = MVT_CHANNEL_OPEN;
 	maybe_update_account(db, acct, ev, tags, 0, NULL);
 
 	ev = make_chain_event(ctx, "channel_close",
@@ -564,7 +564,7 @@ static bool test_onchain_fee_chan_close(const tal_t *ctx, struct plugin *p)
 	log_chain_event(db, acct, ev);
 
 	/* Update the account to have the right info! */
-	tags[0] = CHANNEL_CLOSE;
+	tags[0] = MVT_CHANNEL_CLOSE;
 	maybe_update_account(db, acct, ev, tags, close_output_count, NULL);
 
 	log_chain_event(db, acct,
@@ -1357,8 +1357,8 @@ static bool test_account_crud(const tal_t *ctx, struct plugin *p)
 	tags = tal_arr(ctx, enum mvt_tag, 2);
 
 	/* should not update the account info */
-	tags[0] = PUSHED;
-	tags[1] = PENALTY;
+	tags[0] = MVT_PUSHED;
+	tags[1] = MVT_PENALTY;
 	maybe_update_account(db, acct, ev1, tags, 0, peer_id);
 	acct2 = find_account(ctx, db, "wallet");
 	accountseq(acct, acct2);
@@ -1366,8 +1366,8 @@ static bool test_account_crud(const tal_t *ctx, struct plugin *p)
 	/* channel_open -> open event db updated */
 	CHECK(!acct->leased);
 	CHECK(acct->open_event_db_id == NULL);
-	tags[0] = CHANNEL_OPEN;
-	tags[1] = LEASED;
+	tags[0] = MVT_CHANNEL_OPEN;
+	tags[1] = MVT_LEASED;
 	maybe_update_account(db, acct, ev1, tags, 2, peer_id);
 	acct2 = find_account(ctx, db, "wallet");
 	accountseq(acct, acct2);
@@ -1375,8 +1375,8 @@ static bool test_account_crud(const tal_t *ctx, struct plugin *p)
 	CHECK(acct->open_event_db_id != NULL);
 	CHECK(acct->closed_count == 2);
 
-	tags[0] = CHANNEL_CLOSE;
-	tags[1] = OPENER;
+	tags[0] = MVT_CHANNEL_CLOSE;
+	tags[1] = MVT_OPENER;
 	CHECK(acct->closed_event_db_id == NULL);
 	CHECK(!acct->we_opened);
 	maybe_update_account(db, acct, ev1, tags, 0, NULL);

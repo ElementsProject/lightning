@@ -164,7 +164,7 @@ static struct income_event *maybe_chain_income(const tal_t *ctx,
 					      ev->debit,
 					      ev->credit);
 			/* Also, really a withdrawal.. phh */
-			iev->tag = tal_strdup(iev, mvt_tag_str(WITHDRAWAL));
+			iev->tag = tal_strdup(iev, mvt_tag_str(MVT_WITHDRAWAL));
 			return iev;
 		}
 
@@ -533,7 +533,7 @@ static void cointrack_entry(const tal_t *ctx, FILE *csvf, struct income_event *e
 
 	/* "Fee Amount,Fee Currency," */
 	if (!amount_msat_is_zero(ev->fees)
-	    && streq(ev->tag, mvt_tag_str(INVOICE))) {
+	    && streq(ev->tag, mvt_tag_str(MVT_INVOICE))) {
 		fprintf(csvf, "%s", fmt_amount_msat_btc(ctx, ev->fees, false));
 		fprintf(csvf, ",");
 		fprintf(csvf, "%s", convert_asset_type(ev));
@@ -606,7 +606,7 @@ static void koinly_entry(const tal_t *ctx, FILE *csvf, struct income_event *ev)
 
 	/* "Fee Amount,Fee Currency," */
 	if (!amount_msat_is_zero(ev->fees)
-	    && streq(ev->tag, mvt_tag_str(INVOICE))) {
+	    && streq(ev->tag, mvt_tag_str(MVT_INVOICE))) {
 		fprintf(csvf, "%s", fmt_amount_msat_btc(ctx, ev->fees, false));
 		fprintf(csvf, ",");
 		fprintf(csvf, "%s", convert_asset_type(ev));

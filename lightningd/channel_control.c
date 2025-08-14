@@ -1030,7 +1030,7 @@ void channel_record_open(struct channel *channel, u32 blockheight, bool record_p
 				   new_coin_channel_push(tmpctx, channel,
 							 channel->opener == REMOTE ? COIN_CREDIT : COIN_DEBIT,
 							 channel->push,
-							 is_leased ? LEASE_FEE : PUSHED));
+							 is_leased ? MVT_LEASE_FEE : MVT_PUSHED));
 }
 
 void lockin_has_completed(struct channel *channel, bool record_push)

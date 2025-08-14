@@ -295,7 +295,7 @@ static void record_mutual_close(const struct tx_parts *tx,
 		record_external_output(&out,
 				       amount_sat(tx->outputs[i]->satoshi),
 				       blockheight,
-				       TO_THEM);
+				       MVT_TO_THEM);
 		break;
 	}
 }
@@ -339,7 +339,7 @@ static void record_our_anchor(struct tracked_output *out)
 	* it can be spent by anyone after 16 blocks.  Our
 	* implementation doesn't ever spend it unless it needs to
 	* boost, so it's fair to record it as going "external". */
-	record_external_deposit(out, out->tx_blockheight, ANCHOR);
+	record_external_deposit(out, out->tx_blockheight, MVT_ANCHOR);
 }
 
 static void record_coin_movements(struct tracked_output *out,
@@ -355,10 +355,10 @@ static void record_coin_movements(struct tracked_output *out,
 	 * AND so we can accurately calculate our on-chain fee burden */
 	if (out->tx_type == OUR_HTLC_TIMEOUT_TX
 	    || out->tx_type == OUR_HTLC_SUCCESS_TX)
-		record_channel_deposit(out, out->tx_blockheight, HTLC_TX);
+		record_channel_deposit(out, out->tx_blockheight, MVT_HTLC_TX);
 
 	if (out->resolved->tx_type == OUR_HTLC_TIMEOUT_TO_US)
-		record_channel_deposit(out, out->tx_blockheight, HTLC_TIMEOUT);
+		record_channel_deposit(out, out->tx_blockheight, MVT_HTLC_TIMEOUT);
 
 	/* there is a case where we've fulfilled an htlc onchain,
 	 * in which case we log a deposit to the channel */
@@ -371,20 +371,20 @@ static void record_coin_movements(struct tracked_output *out,
 	if (out->tx_type == OUR_UNILATERAL) {
 		if (out->output_type == DELAYED_OUTPUT_TO_US)
 			record_channel_deposit(out, out->tx_blockheight,
-					       CHANNEL_TO_US);
+					       MVT_CHANNEL_TO_US);
 		else if (out->output_type == OUR_HTLC) {
 			record_channel_deposit(out, out->tx_blockheight,
-					       HTLC_TIMEOUT);
+					       MVT_HTLC_TIMEOUT);
 			record_channel_withdrawal(txid, out, blockheight,
-						  HTLC_TIMEOUT);
+						  MVT_HTLC_TIMEOUT);
 		} else if (out->output_type == THEIR_HTLC)
 			record_channel_withdrawal(txid, out, blockheight,
-						  HTLC_FULFILL);
+						  MVT_HTLC_FULFILL);
 	}
 
 	if (out->tx_type == THEIR_REVOKED_UNILATERAL
 	    || out->resolved->tx_type == OUR_PENALTY_TX)
-		record_channel_deposit(out, out->tx_blockheight, PENALTY);
+		record_channel_deposit(out, out->tx_blockheight, MVT_PENALTY);
 
 	if (out->resolved->tx_type == OUR_DELAYED_RETURN_TO_WALLET
 	    || out->resolved->tx_type == THEIR_HTLC_FULFILL_TO_US
@@ -393,9 +393,9 @@ static void record_coin_movements(struct tracked_output *out,
 	    || out->resolved->tx_type == OUR_PENALTY_TX) {
 		/* penalty rbf cases, the amount might be zero */
 		if (amount_sat_is_zero(out->sat))
-			record_channel_withdrawal(txid, out, blockheight, TO_MINER);
+			record_channel_withdrawal(txid, out, blockheight, MVT_TO_MINER);
 		else
-			record_channel_withdrawal(txid, out, blockheight, TO_WALLET);
+			record_channel_withdrawal(txid, out, blockheight, MVT_TO_WALLET);
 	}
 }
 
@@ -1229,14 +1229,14 @@ static bool output_spent(struct tracked_output ***outs,
 		case DELAYED_OUTPUT_TO_US:
 			unknown_spend(out, tx_parts);
 			record_external_deposit(out, out->tx_blockheight,
-						PENALIZED);
+						MVT_PENALIZED);
 			break;
 
 		case THEIR_HTLC:
 			if (out->tx_type == THEIR_REVOKED_UNILATERAL) {
 				enum mvt_tag *tags;
-				tags = new_tag_arr(NULL, HTLC_TIMEOUT);
-				tal_arr_expand(&tags, STEALABLE);
+				tags = new_tag_arr(NULL, MVT_HTLC_TIMEOUT);
+				tal_arr_expand(&tags, MVT_STEALABLE);
 
 				record_external_deposit_tags(out, out->tx_blockheight,
 							     /* This takes tags */
@@ -1284,8 +1284,8 @@ static bool output_spent(struct tracked_output ***outs,
 
 			if (out->tx_type == THEIR_REVOKED_UNILATERAL) {
 				enum mvt_tag *tags = new_tag_arr(NULL,
-								 HTLC_FULFILL);
-				tal_arr_expand(&tags, STEALABLE);
+								 MVT_HTLC_FULFILL);
+				tal_arr_expand(&tags, MVT_STEALABLE);
 				record_external_spend_tags(&tx_parts->txid,
 							   out,
 							   tx_blockheight,
@@ -1297,7 +1297,7 @@ static bool output_spent(struct tracked_output ***outs,
 			} else {
 				record_external_spend(&tx_parts->txid, out,
 						      tx_blockheight,
-						      HTLC_FULFILL);
+						      MVT_HTLC_FULFILL);
 				/* BOLT #5:
 				 *
 				 * ## HTLC Output Handling: Local Commitment,
@@ -1326,7 +1326,7 @@ static bool output_spent(struct tracked_output ***outs,
 			resolved_by_other(out, &tx_parts->txid,
 					  THEIR_DELAYED_CHEAT);
 
-			record_external_deposit(out, out->tx_blockheight, STOLEN);
+			record_external_deposit(out, out->tx_blockheight, MVT_STOLEN);
 			break;
 		/* Um, we don't track these! */
 		case OUTPUT_TO_THEM:
@@ -1430,7 +1430,7 @@ static void tx_new_depth(struct tracked_output **outs,
 
 			if (outs[i]->proposal->tx_type == THEIR_HTLC_TIMEOUT_TO_THEM)
 				record_external_deposit(outs[i], outs[i]->tx_blockheight,
-							HTLC_TIMEOUT);
+							MVT_HTLC_TIMEOUT);
 		}
 	}
 }
@@ -2310,7 +2310,7 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 						 OUTPUT_TO_THEM,
 						 NULL, NULL, NULL);
 			ignore_output(out);
-			record_external_deposit(out, tx_blockheight, TO_THEM);
+			record_external_deposit(out, tx_blockheight, MVT_TO_THEM);
 			script[REMOTE] = NULL;
 			continue;
 		}
@@ -2339,7 +2339,7 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 						 ANCHOR_TO_THEM,
 						 NULL, NULL, NULL);
 			ignore_output(out);
-			record_external_deposit(out, tx_blockheight, ANCHOR);
+			record_external_deposit(out, tx_blockheight, MVT_ANCHOR);
 			anchor[REMOTE] = NULL;
 			continue;
 		}
@@ -2413,7 +2413,7 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 					ignore_output(out);
 					record_external_deposit(out,
 								tx_blockheight,
-								TO_THEM);
+								MVT_TO_THEM);
 					script[REMOTE] = NULL;
 					found = true;
 					break;
@@ -2428,7 +2428,7 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 
 			record_external_output(&outpoint, amt,
 					       tx_blockheight,
-					       PENALTY);
+					       MVT_PENALTY);
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Could not find resolution for output %zu",
 				      i);
@@ -2823,7 +2823,7 @@ static void handle_their_cheat(const struct tx_parts *tx,
 						 ANCHOR_TO_THEM,
 						 NULL, NULL, NULL);
 			ignore_output(out);
-			record_external_deposit(out, tx_blockheight, ANCHOR);
+			record_external_deposit(out, tx_blockheight, MVT_ANCHOR);
 			anchor[REMOTE] = NULL;
 			continue;
 		}
@@ -2893,7 +2893,7 @@ static void handle_their_cheat(const struct tx_parts *tx,
 			if (!found) {
 				record_external_output(&outpoint, amt,
 						       tx_blockheight,
-						       PENALTY);
+						       MVT_PENALTY);
 				status_broken("Could not find resolution"
 					      " for output %zu: did"
 					      " *we* cheat?", i);
@@ -3120,7 +3120,7 @@ static void handle_their_unilateral(const struct tx_parts *tx,
 						 DELAYED_OUTPUT_TO_THEM,
 						 NULL, NULL, NULL);
 			ignore_output(out);
-			record_external_deposit(out, tx_blockheight, TO_THEM);
+			record_external_deposit(out, tx_blockheight, MVT_TO_THEM);
 			continue;
 		}
 		if (anchor[LOCAL]
@@ -3150,7 +3150,7 @@ static void handle_their_unilateral(const struct tx_parts *tx,
 						 NULL, NULL, NULL);
 			ignore_output(out);
 			anchor[REMOTE] = NULL;
-			record_external_deposit(out, tx_blockheight, ANCHOR);
+			record_external_deposit(out, tx_blockheight, MVT_ANCHOR);
 			continue;
 		}
 
@@ -3215,7 +3215,7 @@ static void handle_their_unilateral(const struct tx_parts *tx,
 					ignore_output(out);
 					record_external_deposit(out,
 								tx_blockheight,
-								TO_THEM);
+								MVT_TO_THEM);
 					found = true;
 					break;
 				}
@@ -3226,7 +3226,7 @@ static void handle_their_unilateral(const struct tx_parts *tx,
 
 			record_external_output(&outpoint, amt,
 					       tx_blockheight,
-					       PENALTY);
+					       MVT_PENALTY);
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Could not find resolution for output %zu",
 				      i);
@@ -3362,7 +3362,7 @@ found:
 
 		record_external_output(&outpoint, amt,
 				       tx_blockheight,
-				       PENALTY);
+				       MVT_PENALTY);
 	}
 
 	if (to_us_output == -1) {

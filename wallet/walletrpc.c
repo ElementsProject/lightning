@@ -946,7 +946,7 @@ static void maybe_notify_new_external_send(struct lightningd *ld,
 
 	mvt = new_coin_external_deposit(NULL, &outpoint,
 					0, amount,
-					DEPOSIT);
+					MVT_DEPOSIT);
 
 	mvt->originating_acct = new_mvt_account_id(mvt,  NULL, WALLET);
 

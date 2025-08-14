@@ -3130,7 +3130,7 @@ type_ok:
 		mvt = new_coin_wallet_deposit(tmpctx, &utxo->outpoint,
 					      *blockheight,
 					      utxo->amount,
-					      DEPOSIT);
+					      MVT_DEPOSIT);
 		notify_chain_mvt(w->ld, mvt);
 	}
 
