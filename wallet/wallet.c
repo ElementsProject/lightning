@@ -1819,7 +1819,8 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 
 	scid = db_col_optional_scid(tmpctx, stmt, "scid");
 	old_scids = db_col_short_channel_id_arr(tmpctx, stmt, "old_scids");
-	alias[LOCAL] = db_col_optional_scid(tmpctx, stmt, "alias_local");
+	alias[LOCAL] = tal(tmpctx, struct short_channel_id);
+	*alias[LOCAL] = db_col_short_channel_id(stmt, "alias_local");
 	alias[REMOTE] = db_col_optional_scid(tmpctx, stmt, "alias_remote");
 
  	ok &= wallet_shachain_load(w, db_col_u64(stmt, "shachain_remote_id"),
@@ -2099,7 +2100,8 @@ static struct closed_channel *wallet_stmt2closed_channel(const tal_t *ctx,
 	cc->peer_id = db_col_optional(cc, stmt, "p.node_id", node_id);
 	db_col_channel_id(stmt, "full_channel_id", &cc->cid);
 	cc->scid = db_col_optional_scid(cc, stmt, "scid");
-	cc->alias[LOCAL] = db_col_optional_scid(cc, stmt, "alias_local");
+	cc->alias[LOCAL] = tal(cc, struct short_channel_id);
+	*cc->alias[LOCAL] = db_col_short_channel_id(stmt, "alias_local");
 	cc->alias[REMOTE] = db_col_optional_scid(cc, stmt, "alias_remote");
 	cc->opener = db_col_int(stmt, "funder");
 	cc->closer = db_col_int(stmt, "closer");
@@ -2654,11 +2656,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	db_bind_amount_msat(stmt, &chan->htlc_minimum_msat);
 	db_bind_amount_msat(stmt, &chan->htlc_maximum_msat);
 
-	if (chan->alias[LOCAL] != NULL)
-		db_bind_short_channel_id(stmt, *chan->alias[LOCAL]);
-	else
-		db_bind_null(stmt);
-
+	db_bind_short_channel_id(stmt, *chan->alias[LOCAL]);
 	if (chan->alias[REMOTE] != NULL)
 		db_bind_short_channel_id(stmt, *chan->alias[REMOTE]);
 	else
