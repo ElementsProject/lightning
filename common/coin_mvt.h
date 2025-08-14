@@ -37,6 +37,11 @@ enum mvt_tag {
 	SPLICE = 23,
 };
 
+enum coin_mvt_dir {
+	COIN_CREDIT = 1,
+	COIN_DEBIT = 2,
+};
+
 struct channel_coin_mvt_id {
 	/* multi-part payments may share a payment hash,
 	 * so we should also record part-id and group-id for them */
@@ -109,9 +114,9 @@ struct channel_coin_mvt *new_channel_coin_mvt(const tal_t *ctx,
 					      const struct sha256 *payment_hash TAKES,
 					      const u64 *part_id,
 					      const u64 *group_id,
+					      enum coin_mvt_dir direction,
 					      struct amount_msat amount,
 					      const enum mvt_tag *tags TAKES,
-					      bool is_credit,
 					      struct amount_msat fees)
 	NON_NULL_ARGS(2);
 
@@ -230,9 +235,9 @@ struct chain_coin_mvt *new_coin_external_deposit(const tal_t *ctx,
 
 struct channel_coin_mvt *new_coin_channel_push(const tal_t *ctx,
 					       const struct channel_id *cid,
+					       enum coin_mvt_dir direction,
 					       struct amount_msat amount,
-					       enum mvt_tag tag,
-					       bool is_credit)
+					       enum mvt_tag tag)
 	NON_NULL_ARGS(2);
 
 /* Is this an xternal account? */
