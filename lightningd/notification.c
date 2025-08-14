@@ -501,15 +501,10 @@ static void chain_movement_notification_serialize(struct json_stream *stream,
 		json_add_string(stream, "txid",
 				fmt_bitcoin_txid(tmpctx,
 						 chain_mvt->tx_txid));
-	/* some chain ledger entries aren't associated with a utxo
-	 * e.g. journal updates (due to penalty/state loss) and
-	 * chain_fee entries */
-	if (chain_mvt->outpoint) {
-		json_add_string(stream, "utxo_txid",
-				fmt_bitcoin_txid(tmpctx,
-						 &chain_mvt->outpoint->txid));
-		json_add_u32(stream, "vout", chain_mvt->outpoint->n);
-	}
+	json_add_string(stream, "utxo_txid",
+			fmt_bitcoin_txid(tmpctx,
+					 &chain_mvt->outpoint.txid));
+	json_add_u32(stream, "vout", chain_mvt->outpoint.n);
 
 	/* on-chain htlcs include a payment hash */
 	if (chain_mvt->payment_hash)
