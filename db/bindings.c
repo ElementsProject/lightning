@@ -227,15 +227,15 @@ void db_bind_psbt(struct db_stmt *stmt, const struct wally_psbt *psbt)
 }
 
 void db_bind_amount_msat(struct db_stmt *stmt,
-			 const struct amount_msat *msat)
+			 struct amount_msat msat)
 {
-	db_bind_u64(stmt, msat->millisatoshis); /* Raw: low level function */
+	db_bind_u64(stmt, msat.millisatoshis); /* Raw: low level function */
 }
 
 void db_bind_amount_sat(struct db_stmt *stmt,
-			 const struct amount_sat *sat)
+			struct amount_sat sat)
 {
-	db_bind_u64(stmt, sat->satoshis); /* Raw: low level function */
+	db_bind_u64(stmt, sat.satoshis); /* Raw: low level function */
 }
 
 void db_bind_json_escape(struct db_stmt *stmt,

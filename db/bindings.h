@@ -46,9 +46,9 @@ void db_bind_timeabs(struct db_stmt *stmt, struct timeabs t);
 void db_bind_tx(struct db_stmt *stmt, const struct wally_tx *tx);
 void db_bind_psbt(struct db_stmt *stmt, const struct wally_psbt *psbt);
 void db_bind_amount_msat(struct db_stmt *stmt,
-			 const struct amount_msat *msat);
+			 struct amount_msat msat);
 void db_bind_amount_sat(struct db_stmt *stmt,
-			const struct amount_sat *sat);
+			struct amount_sat sat);
 void db_bind_json_escape(struct db_stmt *stmt,
 			 const struct json_escape *esc);
 void db_bind_onionreply(struct db_stmt *stmt,
