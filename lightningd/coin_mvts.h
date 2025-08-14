@@ -20,9 +20,6 @@ struct balance_snapshot {
 	struct account_balance **accts;
 };
 
-void notify_channel_mvt(struct lightningd *ld, const struct channel_coin_mvt *mvt);
-void notify_chain_mvt(struct lightningd *ld, const struct chain_coin_mvt *mvt);
-
 struct channel_coin_mvt *new_channel_mvt_invoice_hin(const tal_t *ctx,
 						     struct htlc_in *hin,
 						     struct channel *channel);
