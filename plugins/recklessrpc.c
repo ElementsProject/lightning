@@ -240,8 +240,8 @@ static struct command_result *reckless_call(struct command *cmd,
 	struct reckless *reckless;
 	reckless = tal(NULL, struct reckless);
 	reckless->cmd = cmd;
-	reckless->stdoutbuf = tal_arrz(reckless, char, 1024);
-	reckless->stderrbuf = tal_arrz(reckless, char, 1024);
+	reckless->stdoutbuf = tal_arrz(reckless, char, 4096);
+	reckless->stderrbuf = tal_arrz(reckless, char, 4096);
 	reckless->stdout_read = 0;
 	reckless->stdout_new = 0;
 	reckless->stderr_read = 0;
