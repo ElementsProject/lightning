@@ -1779,7 +1779,7 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 	struct channel_info channel_info;
 	struct fee_states *fee_states;
 	struct height_states *height_states;
-	struct short_channel_id *scid, *alias[NUM_SIDES], *old_scids;
+	struct short_channel_id *scid, alias_local, *alias_remote, *old_scids;
 	struct channel_id cid;
 	struct channel *chan;
 	u64 peer_dbid;
@@ -1819,9 +1819,8 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 
 	scid = db_col_optional_scid(tmpctx, stmt, "scid");
 	old_scids = db_col_short_channel_id_arr(tmpctx, stmt, "old_scids");
-	alias[LOCAL] = tal(tmpctx, struct short_channel_id);
-	*alias[LOCAL] = db_col_short_channel_id(stmt, "alias_local");
-	alias[REMOTE] = db_col_optional_scid(tmpctx, stmt, "alias_remote");
+	alias_local = db_col_short_channel_id(stmt, "alias_local");
+	alias_remote = db_col_optional_scid(tmpctx, stmt, "alias_remote");
 
  	ok &= wallet_shachain_load(w, db_col_u64(stmt, "shachain_remote_id"),
 				   &wshachain);
@@ -1976,7 +1975,7 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 		if (scid)
 			remote_update->scid = *scid;
 		else
-			remote_update->scid = *alias[LOCAL];
+			remote_update->scid = alias_local;
 		remote_update->fee_base = db_col_int(stmt, "remote_feerate_base");
 		remote_update->fee_ppm = db_col_int(stmt, "remote_feerate_ppm");
 		remote_update->cltv_delta = db_col_int(stmt, "remote_cltv_expiry_delta");
@@ -2033,10 +2032,10 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 			   push_msat,
 			   our_funding_sat,
 			   db_col_int(stmt, "funding_locked_remote") != 0,
-			   scid,
+			   take(scid),
 			   old_scids,
-			   alias[LOCAL],
-			   alias[REMOTE],
+			   alias_local,
+			   alias_remote,
 			   &cid,
 			   our_msat,
 			   msat_to_us_min, /* msatoshi_to_us_min */

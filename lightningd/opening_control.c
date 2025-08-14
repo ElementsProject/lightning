@@ -109,6 +109,7 @@ wallet_commit_channel(struct lightningd *ld,
 	struct timeabs timestamp;
 	struct channel_stats zero_channel_stats;
 	enum addrtype addrtype;
+	struct short_channel_id local_alias;
 
 	/* We can't have any payments yet */
 	memset(&zero_channel_stats, 0, sizeof(zero_channel_stats));
@@ -171,6 +172,8 @@ wallet_commit_channel(struct lightningd *ld,
 	else
 		static_remotekey_start = 0x7FFFFFFFFFFFFFFF;
 
+	local_alias = random_scid();
+
 	channel = new_channel(uc->peer, uc->dbid,
 			      NULL, /* No shachain yet */
 			      CHANNELD_AWAITING_LOCKIN,
@@ -189,7 +192,7 @@ wallet_commit_channel(struct lightningd *ld,
 			      false, /* !remote_channel_ready */
 			      NULL, /* no scid yet */
 			      NULL, /* no old scids */
-			      NULL, /* assign random local alias */
+			      local_alias, /* random local alias */
 			      NULL, /* They haven't told us an alias yet */
 			      cid,
 			      /* The three arguments below are msatoshi_to_us,
@@ -1485,7 +1488,7 @@ static struct channel *stub_chan(struct command *cmd,
 	struct peer *peer;
 	struct pubkey localFundingPubkey;
 	struct pubkey pk;
-	struct short_channel_id *scid;
+	struct short_channel_id scid;
 	u32 blockht;
 	u32 feerate;
 	struct channel_stats zero_channel_stats;
@@ -1563,10 +1566,9 @@ static struct channel *stub_chan(struct command *cmd,
 	channel_info->old_remote_per_commit = pk;
 
 	blockht = 100;
-	scid = tal(cmd, struct short_channel_id);
 
 	/*To indicate this is an stub channel we keep it's scid to 1x1x1.*/
-	if (!mk_short_channel_id(scid, 1, 1, 1))
+	if (!mk_short_channel_id(&scid, 1, 1, 1))
                 fatal("Failed to make short channel 1x1x1!");
 
 	memset(&zero_channel_stats, 0, sizeof(zero_channel_stats));
@@ -1587,9 +1589,9 @@ static struct channel *stub_chan(struct command *cmd,
 			      AMOUNT_MSAT(0),
 			      AMOUNT_SAT(0),
 			      true, /* remote_channel_ready */
+			      &scid,
+			      NULL,
 			      scid,
-			      NULL,
-			      NULL,
 			      NULL,
 			      &cid,
 			      /* The three arguments below are msatoshi_to_us,
