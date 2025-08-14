@@ -140,11 +140,12 @@ def check_coin_moves(n, account_id, expected_moves, chainparams):
     # Stash moves for errors, if needed
     _acct_moves = acct_moves
     for mv in acct_moves:
+        mv['tags'] = [mv['primary_tag']] + mv['extra_tags']
         print("{{'type': '{}', 'credit_msat': {}, 'debit_msat': {}, 'tags': '{}' , ['fees_msat'?: '{}']}},"
               .format(mv['type'],
                       Millisatoshi(mv['credit_msat']).millisatoshis,
                       Millisatoshi(mv['debit_msat']).millisatoshis,
-                      sorted(mv['tags']),
+                      mv['tags'],
                       mv['fees_msat'] if 'fees_msat' in mv else ''))
         if mv['version'] != 2:
             raise ValueError(f'version not 2 {mv}')
@@ -261,6 +262,9 @@ def matchup_events(u_set, evs, chans, tag_list):
     if len(u_set) == 0:
         raise ValueError(f"utxo-set is empty. exp {evs}, actual {u_set}")
 
+    def get_tags(utxo):
+        return [utxo['primary_tag']] + utxo['extra_tags']
+
     txid = u_set[0][0]['utxo_txid']
     # Stash the set for logging at end, if error
     _u_set = u_set
@@ -277,7 +281,7 @@ def matchup_events(u_set, evs, chans, tag_list):
             else:
                 acct = ev[0]
 
-            if u[0]['account_id'] != acct or sorted(u[0]['tags']) != sorted(ev[1]):
+            if u[0]['account_id'] != acct or get_tags(u[0]) != ev[1]:
                 continue
 
             if ev[2] is None:
@@ -289,7 +293,7 @@ def matchup_events(u_set, evs, chans, tag_list):
 
             # ugly hack to annotate two possible futures for a utxo
             if type(ev[2]) is tuple:
-                tag = u[1]['tags'] if u[1] else u[1]
+                tag = get_tags(u[1]) if u[1] else u[1]
                 if tag not in [x[0] for x in ev[2]]:
                     raise ValueError(f"Unable to find {tag} in event set {ev}")
                 if not u[1]:
@@ -297,14 +301,14 @@ def matchup_events(u_set, evs, chans, tag_list):
                     u_set.remove(u)
                     break
                 for x in ev[2]:
-                    if x[0] == u[1]['tags'] and 'to_miner' not in u[1]['tags']:
+                    if x[0] == get_tags(u[1]) and 'to_miner' not in get_tags(u[1]):
                         # Save the 'spent to' txid in the tag-list
                         tag_list[x[1]] = u[1]['txid']
             else:
-                if sorted(ev[2]) != sorted(u[1]['tags']):
+                if ev[2] != get_tags(u[1]):
                     raise ValueError(f"tags dont' match. exp {ev}, actual ({u[1]}) full utxo info: {u}")
                 # Save the 'spent to' txid in the tag-list
-                if 'to_miner' not in u[1]['tags']:
+                if 'to_miner' not in get_tags(u[1]):
                     tag_list[ev[3]] = u[1]['txid']
 
             found = True
