@@ -578,7 +578,7 @@ static void onchain_add_utxo(struct channel *channel, const u8 *msg)
 				 csv_lock);
 
 	mvt = new_coin_wallet_deposit(msg, &outpoint, blockheight,
-			              amount, MVT_DEPOSIT);
+			              amount, mk_mvt_tags(MVT_DEPOSIT));
 	mvt->originating_acct = new_mvt_account_id(mvt, channel, NULL);
 
 	notify_chain_mvt(channel->peer->ld, mvt);

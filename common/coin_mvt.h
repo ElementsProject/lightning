@@ -37,6 +37,10 @@ enum mvt_tag {
 #define NUM_MVT_TAGS (MVT_SPLICE + 1)
 };
 
+struct mvt_tags {
+	u64 bits;
+};
+
 enum coin_mvt_dir {
 	COIN_CREDIT = 1,
 	COIN_DEBIT = 2,
@@ -58,7 +62,7 @@ struct mvt_account_id {
 struct channel_coin_mvt {
 	/* Common fields */
 	struct mvt_account_id account;
-	enum mvt_tag *tags;
+	struct mvt_tags tags;
 	/* only one or the other */
 	struct amount_msat credit;
 	struct amount_msat debit;
@@ -77,7 +81,7 @@ struct channel_coin_mvt {
 struct chain_coin_mvt {
 	/* account_id */
 	struct mvt_account_id account;
-	enum mvt_tag *tags;
+	struct mvt_tags tags;
 	/* only one or the other */
 	struct amount_msat credit;
 	struct amount_msat debit;
@@ -107,7 +111,16 @@ struct chain_coin_mvt {
 	u32 output_count;
 };
 
-enum mvt_tag *new_tag_arr(const tal_t *ctx, enum mvt_tag tag);
+/* Convenience macro for creating tag bitmaps */
+#define mk_mvt_tags(...) mk_mvt_tags_(__VA_ARGS__, 999)
+struct mvt_tags mk_mvt_tags_(enum mvt_tag tag, ...);
+
+static inline struct mvt_tags tag_to_mvt_tags(enum mvt_tag tag)
+{
+	struct mvt_tags tags;
+	tags.bits = ((u64)1) << tag;
+	return tags;
+}
 
 /* Useful constructor for mvt_account_id: exactly one of channel/account_name must be NULL */
 void set_mvt_account_id(struct mvt_account_id *acct_id,
@@ -127,7 +140,7 @@ struct channel_coin_mvt *new_channel_coin_mvt(const tal_t *ctx,
 					      const u64 *group_id,
 					      enum coin_mvt_dir direction,
 					      struct amount_msat amount,
-					      const enum mvt_tag *tags TAKES,
+					      struct mvt_tags tags,
 					      struct amount_msat fees)
 	NON_NULL_ARGS(2);
 
@@ -136,14 +149,14 @@ struct chain_coin_mvt *new_onchaind_withdraw(const tal_t *ctx,
 					     const struct bitcoin_txid *spend_txid,
 					     u32 blockheight,
 					     struct amount_sat amount,
-					     enum mvt_tag tag)
+					     struct mvt_tags tags)
 	NON_NULL_ARGS(2, 3);
 
 struct chain_coin_mvt *new_onchaind_deposit(const tal_t *ctx,
 					    const struct bitcoin_outpoint *outpoint,
 					    u32 blockheight,
 					    struct amount_sat amount,
-					    enum mvt_tag tag)
+					    struct mvt_tags tags)
 	NON_NULL_ARGS(2);
 
 struct chain_coin_mvt *new_coin_channel_close(const tal_t *ctx,
@@ -197,30 +210,16 @@ struct chain_coin_mvt *new_coin_wallet_deposit(const tal_t *ctx,
 					       const struct bitcoin_outpoint *outpoint,
 					       u32 blockheight,
 					       struct amount_sat amount,
-					       enum mvt_tag tag)
+					       struct mvt_tags tags)
 	NON_NULL_ARGS(2);
 
-struct chain_coin_mvt *new_coin_wallet_deposit_tagged(const tal_t *ctx,
-						      const struct bitcoin_outpoint *outpoint,
-						      u32 blockheight,
-						      struct amount_sat amount,
-						      enum mvt_tag *tags TAKES)
-	NON_NULL_ARGS(2);
 
 struct chain_coin_mvt *new_coin_wallet_withdraw(const tal_t *ctx,
 						const struct bitcoin_txid *spend_txid,
 						const struct bitcoin_outpoint *outpoint,
 						u32 blockheight,
 						struct amount_sat amount,
-						enum mvt_tag tag)
-	NON_NULL_ARGS(2, 3);
-
-struct chain_coin_mvt *new_coin_external_spend_tags(const tal_t *ctx,
-						    const struct bitcoin_outpoint *outpoint,
-						    const struct bitcoin_txid *txid,
-						    u32 blockheight,
-						    struct amount_sat amount,
-						    enum mvt_tag *tags)
+						struct mvt_tags tags)
 	NON_NULL_ARGS(2, 3);
 
 struct chain_coin_mvt *new_coin_external_spend(const tal_t *ctx,
@@ -228,35 +227,28 @@ struct chain_coin_mvt *new_coin_external_spend(const tal_t *ctx,
 					       const struct bitcoin_txid *txid,
 					       u32 blockheight,
 					       struct amount_sat amount,
-					       enum mvt_tag tag)
+					       struct mvt_tags tags)
 	NON_NULL_ARGS(2, 3);
-
-struct chain_coin_mvt *new_coin_external_deposit_tags(const tal_t *ctx,
-						      const struct bitcoin_outpoint *outpoint,
-						      u32 blockheight,
-						      struct amount_sat amount,
-						      enum mvt_tag *tags)
-	NON_NULL_ARGS(2, 5);
 
 struct chain_coin_mvt *new_coin_external_deposit(const tal_t *ctx,
 						 const struct bitcoin_outpoint *outpoint,
 						 u32 blockheight,
 						 struct amount_sat amount,
-						 enum mvt_tag tag)
+						 struct mvt_tags tags)
 	NON_NULL_ARGS(2);
 
 struct channel_coin_mvt *new_coin_channel_push(const tal_t *ctx,
 					       const struct channel *channel,
 					       enum coin_mvt_dir direction,
 					       struct amount_msat amount,
-					       enum mvt_tag tag)
+					       struct mvt_tags tags)
 	NON_NULL_ARGS(2);
 
 /* Is this an xternal account? */
 bool chain_mvt_is_external(const struct chain_coin_mvt *mvt);
 
 const char *mvt_tag_str(enum mvt_tag tag);
-const char **mvt_tag_strs(const tal_t *ctx, const enum mvt_tag *tags);
+const char **mvt_tag_strs(const tal_t *ctx, struct mvt_tags tags);
 
 /* Parse a single mvt tag.  Returns false or populates *tag */
 bool mvt_tag_parse(const char *buf, size_t len, enum mvt_tag *tag);
