@@ -62,6 +62,10 @@ struct changed_htlc {
 	u64 id;
 };
 
+/* Helper to duplicate an array of tlv_field (vs an array of tlv_field *) */
+struct tlv_field *tlv_field_arr_dup(const tal_t *ctx,
+				    const struct tlv_field *arr TAKES);
+
 struct existing_htlc *new_existing_htlc(const tal_t *ctx,
 					u64 id,
 					enum htlc_state state,
