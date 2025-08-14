@@ -351,6 +351,7 @@ def test_tag_install(node_factory):
             header = line
 
 
+@unittest.skipIf(VALGRIND, "virtual environment triggers memleak detection")
 def test_reckless_uv_install(node_factory):
     node = get_reckless_node(node_factory)
     node.start()
