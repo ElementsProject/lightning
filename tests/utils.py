@@ -88,7 +88,7 @@ def move_matches(exp, mv):
         return False
     if Millisatoshi(mv['debit_msat']) != Millisatoshi(exp['debit_msat']):
         return False
-    if mv['tags'] != exp['tags']:
+    if sorted(mv['tags']) != sorted(exp['tags']):
         return False
     if 'fees_msat' in exp:
         if 'fees_msat' not in mv:
@@ -144,7 +144,7 @@ def check_coin_moves(n, account_id, expected_moves, chainparams):
               .format(mv['type'],
                       Millisatoshi(mv['credit_msat']).millisatoshis,
                       Millisatoshi(mv['debit_msat']).millisatoshis,
-                      mv['tags'],
+                      sorted(mv['tags']),
                       mv['fees_msat'] if 'fees_msat' in mv else ''))
         if mv['version'] != 2:
             raise ValueError(f'version not 2 {mv}')
@@ -277,7 +277,7 @@ def matchup_events(u_set, evs, chans, tag_list):
             else:
                 acct = ev[0]
 
-            if u[0]['account_id'] != acct or u[0]['tags'] != ev[1]:
+            if u[0]['account_id'] != acct or sorted(u[0]['tags']) != sorted(ev[1]):
                 continue
 
             if ev[2] is None:
@@ -301,7 +301,7 @@ def matchup_events(u_set, evs, chans, tag_list):
                         # Save the 'spent to' txid in the tag-list
                         tag_list[x[1]] = u[1]['txid']
             else:
-                if ev[2] != u[1]['tags']:
+                if sorted(ev[2]) != sorted(u[1]['tags']):
                     raise ValueError(f"tags dont' match. exp {ev}, actual ({u[1]}) full utxo info: {u}")
                 # Save the 'spent to' txid in the tag-list
                 if 'to_miner' not in u[1]['tags']:
