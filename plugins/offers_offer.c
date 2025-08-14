@@ -296,6 +296,12 @@ static struct command_result *found_best_peer(struct command *cmd,
 		struct secret blinding_path_secret;
 		struct sha256 offer_id;
 
+		/* offer_issuer_id is not needed when offer_paths are used.
+		 * The following line seems to produce a valid offer with
+		 * offer_issuer_id removed.
+		 */
+		offinfo->offer->offer_issuer_id = NULL;
+
 		/* Note: "id" of offer minus paths */
 		offer_offer_id(offinfo->offer, &offer_id);
 
