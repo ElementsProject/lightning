@@ -136,3 +136,103 @@ void send_account_balance_snapshot(struct lightningd *ld)
 	notify_balance_snapshot(ld, snap);
 	tal_free(snap);
 }
+
+static void add_movement_tags(struct json_stream *stream,
+			      bool include_tags_arr,
+			      const struct mvt_tags tags,
+			      bool extra_tags_field)
+{
+	const char **tagstrs = mvt_tag_strs(tmpctx, tags);
+
+	if (include_tags_arr) {
+		json_array_start(stream, "tags");
+		for (size_t i = 0; i < tal_count(tagstrs); i++)
+			json_add_string(stream, NULL, tagstrs[i]);
+		json_array_end(stream);
+	}
+
+	json_add_string(stream, "primary_tag", tagstrs[0]);
+	if (extra_tags_field) {
+		json_array_start(stream, "extra_tags");
+		for (size_t i = 1; i < tal_count(tagstrs); i++)
+			json_add_string(stream, NULL, tagstrs[i]);
+		json_array_end(stream);
+	} else {
+		assert(tal_count(tagstrs) == 1);
+	}
+}
+
+static void json_add_mvt_account_id(struct json_stream *stream,
+				    const char *fieldname,
+				    const struct mvt_account_id *account_id)
+{
+	if (account_id->channel)
+		json_add_channel_id(stream, fieldname, &account_id->channel->cid);
+	else
+		json_add_string(stream, fieldname, account_id->alt_account);
+}
+
+void json_add_chain_mvt_fields(struct json_stream *stream,
+			       bool include_tags_arr,
+			       bool include_old_utxo_fields,
+			       bool include_old_txid_field,
+			       const struct chain_coin_mvt *chain_mvt)
+{
+	if (chain_mvt->peer_id)
+		json_add_node_id(stream, "peer_id", chain_mvt->peer_id);
+	json_add_mvt_account_id(stream, "account_id", &chain_mvt->account);
+
+	if (chain_mvt->originating_acct)
+		json_add_mvt_account_id(stream, "originating_account", chain_mvt->originating_acct);
+
+	if (chain_mvt->spending_txid) {
+		if (include_old_txid_field)
+			json_add_txid(stream, "txid",
+				      chain_mvt->spending_txid);
+		json_add_txid(stream, "spending_txid", chain_mvt->spending_txid);
+	}
+
+	if (include_old_utxo_fields) {
+		json_add_string(stream, "utxo_txid",
+				fmt_bitcoin_txid(tmpctx,
+						 &chain_mvt->outpoint.txid));
+		json_add_u32(stream, "vout", chain_mvt->outpoint.n);
+	}
+	json_add_outpoint(stream, "utxo", &chain_mvt->outpoint);
+
+	/* on-chain htlcs include a payment hash */
+	if (chain_mvt->payment_hash)
+		json_add_sha256(stream, "payment_hash", chain_mvt->payment_hash);
+	json_add_amount_msat(stream, "credit_msat", chain_mvt->credit);
+	json_add_amount_msat(stream, "debit_msat", chain_mvt->debit);
+
+	json_add_amount_sat_msat(stream,
+				 "output_msat", chain_mvt->output_val);
+	if (chain_mvt->output_count > 0)
+		json_add_num(stream, "output_count", chain_mvt->output_count);
+
+	add_movement_tags(stream, include_tags_arr, chain_mvt->tags, true);
+	json_add_u32(stream, "blockheight", chain_mvt->blockheight);
+	json_add_u64(stream, "timestamp", chain_mvt->timestamp);
+}
+
+void json_add_channel_mvt_fields(struct json_stream *stream,
+				 bool include_tags_arr,
+				 const struct channel_coin_mvt *chan_mvt,
+				 bool extra_tags_field)
+{
+	json_add_mvt_account_id(stream, "account_id", &chan_mvt->account);
+	/* push funding / leases don't have a payment_hash */
+	if (chan_mvt->payment_hash)
+		json_add_sha256(stream, "payment_hash", chan_mvt->payment_hash);
+	if (chan_mvt->part_and_group) {
+		json_add_u64(stream, "part_id", chan_mvt->part_and_group->part_id);
+		json_add_u64(stream, "group_id", chan_mvt->part_and_group->group_id);
+	}
+	json_add_amount_msat(stream, "credit_msat", chan_mvt->credit);
+	json_add_amount_msat(stream, "debit_msat", chan_mvt->debit);
+	json_add_amount_msat(stream, "fees_msat", chan_mvt->fees);
+
+	add_movement_tags(stream, include_tags_arr, chan_mvt->tags, extra_tags_field);
+	json_add_u64(stream, "timestamp", chan_mvt->timestamp);
+}

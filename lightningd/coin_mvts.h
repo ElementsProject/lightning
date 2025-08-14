@@ -34,4 +34,15 @@ struct channel_coin_mvt *new_channel_mvt_routed_hout(const tal_t *ctx,
 						     const struct channel *channel);
 
 void send_account_balance_snapshot(struct lightningd *ld);
+
+/* Shared by listcoinmoves and notifications code */
+void json_add_chain_mvt_fields(struct json_stream *stream,
+			       bool include_tags_arr,
+			       bool include_old_utxo_fields,
+			       bool include_old_txid_field,
+			       const struct chain_coin_mvt *chain_mvt);
+void json_add_channel_mvt_fields(struct json_stream *stream,
+				 bool include_tags_arr,
+				 const struct channel_coin_mvt *chan_mvt,
+				 bool extra_tags_field);
 #endif /* LIGHTNING_LIGHTNINGD_COIN_MVTS_H */

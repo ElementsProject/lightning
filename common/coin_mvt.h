@@ -90,7 +90,7 @@ struct chain_coin_mvt {
 	u64 timestamp;
 	struct bitcoin_outpoint outpoint;
 
-	const struct bitcoin_txid *tx_txid;
+	const struct bitcoin_txid *spending_txid;
 
 	/* The id of the peer we have this channel with.
 	 * Only on our channel_open events */
