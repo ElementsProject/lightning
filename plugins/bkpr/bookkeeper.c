@@ -1,4 +1,5 @@
 #include "config.h"
+#include <bitcoin/chainparams.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
 #include <ccan/json_escape/json_escape.h>
@@ -556,7 +557,6 @@ static struct command_result *json_list_balances(struct command *cmd,
 {
 	struct json_stream *res;
 	struct account **accts;
-	char *err;
 
 	if (!param(cmd, buf, params, NULL))
 		return command_param_failed();
@@ -568,18 +568,19 @@ static struct command_result *json_list_balances(struct command *cmd,
 
 	json_array_start(res, "accounts");
 	for (size_t i = 0; i < tal_count(accts); i++) {
-		struct acct_balance **balances;
+		struct amount_msat credit, debit, balance;
+		bool has_events;
 
-		err = account_get_balance(cmd, db,
-					  accts[i]->name,
-					  true,
-					  &balances);
-
-		if (err)
+		has_events = account_get_credit_debit(cmd->plugin, db,
+						      accts[i]->name,
+						      &credit, &debit);
+		if (!amount_msat_sub(&balance, credit, debit)) {
 			plugin_err(cmd->plugin,
-				   "Get account balance returned err"
-				   " for account %s: %s",
-				   accts[i]->name, err);
+				   "Account balance underflow for account %s (credit %s, debit %s)",
+				   accts[i]->name,
+				   fmt_amount_msat(tmpctx, credit),
+				   fmt_amount_msat(tmpctx, debit));
+		}
 
 		/* Skip the external acct balance, it's effectively
 		 * meaningless */
@@ -602,13 +603,15 @@ static struct command_result *json_list_balances(struct command *cmd,
 					     accts[i]->onchain_resolved_block);
 		}
 
+		/* FIXME: This API is now overkill! */
 		json_array_start(res, "balances");
-		for (size_t j = 0; j < tal_count(balances); j++) {
+		/* We expect no entry if account is not used. */
+		for (size_t j = 0; j < has_events; j++) {
 			json_object_start(res, NULL);
 			json_add_amount_msat(res, "balance_msat",
-					     balances[j]->balance);
+					     balance);
 			json_add_string(res, "coin_type",
-					balances[j]->currency);
+					chainparams->lightning_hrp);
 			json_object_end(res);
 		}
 		json_array_end(res);
@@ -951,8 +954,7 @@ static struct command_result *listpeerchannels_multi_done(struct command *cmd,
 	/* Let's register all these accounts! */
 	for (size_t i = 0; i < tal_count(new_accts); i++) {
 		struct new_account_info *info = new_accts[i];
-		struct acct_balance **balances, *bal;
-		struct amount_msat credit_diff, debit_diff;
+		struct amount_msat credit, debit, credit_diff, debit_diff;
 		char *err;
 
 		if (!new_missed_channel_account(cmd, buf, result,
@@ -966,25 +968,14 @@ static struct command_result *listpeerchannels_multi_done(struct command *cmd,
 		}
 
 		db_begin_transaction(db);
-		err = account_get_balance(tmpctx, db, info->acct->name,
-					  false, &balances);
+		account_get_credit_debit(cmd->plugin, db,
+					 info->acct->name,
+					 &credit, &debit);
 		db_commit_transaction(db);
 
-		if (err)
-			plugin_err(cmd->plugin, "%s", err);
-
-		/* FIXME: multiple currencies */
-		if (tal_count(balances) > 0)
-			bal = balances[0];
-		else {
-			bal = tal(tmpctx, struct acct_balance);
-			bal->credit = AMOUNT_MSAT(0);
-			bal->debit= AMOUNT_MSAT(0);
-		}
-
 		err = msat_find_diff(info->curr_bal,
-				     bal->credit,
-				     bal->debit,
+				     credit,
+				     debit,
 				     &credit_diff, &debit_diff);
 		if (err)
 			plugin_err(cmd->plugin, "%s", err);
@@ -1075,9 +1066,8 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 
 	db_begin_transaction(db);
 	json_for_each_arr(i, acct_tok, accounts_tok) {
-		struct acct_balance **balances, *bal;
 		struct account *acct;
-		struct amount_msat snap_balance, credit_diff, debit_diff;
+		struct amount_msat snap_balance, credit, debit, credit_diff, debit_diff;
 		char *acct_name, *currency;
 		bool existed;
 
@@ -1101,34 +1091,13 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 			   fmt_amount_msat(tmpctx, snap_balance));
 
 		/* Find the account balances */
-		err = account_get_balance(cmd, db, acct_name,
-					  /* Don't error if negative */
-					  false,
-					  &balances);
-
-		if (err)
-			plugin_err(cmd->plugin,
-				   "Get account balance returned err"
-				   " for account %s: %s",
-				   acct_name, err);
-
-		/* multiple currency balances! */
-		bal = NULL;
-		for (size_t j = 0; j < tal_count(balances); j++) {
-			if (streq(balances[j]->currency, currency))
-				bal = balances[j];
-		}
-
-		if (!bal) {
-			bal = tal(balances, struct acct_balance);
-			bal->credit = AMOUNT_MSAT(0);
-			bal->debit = AMOUNT_MSAT(0);
-		}
+		account_get_credit_debit(cmd->plugin, db, acct_name,
+					 &credit, &debit);
 
 		/* Figure out what the net diff is btw reported & actual */
 		err = msat_find_diff(snap_balance,
-				     bal->credit,
-				     bal->debit,
+				     credit,
+				     debit,
 				     &credit_diff, &debit_diff);
 		if (err)
 			plugin_err(cmd->plugin,
@@ -1398,8 +1367,7 @@ listpeerchannels_done(struct command *cmd,
 		      const jsmntok_t *result,
 		      struct event_info *info)
 {
-	struct acct_balance **balances, *bal;
-	struct amount_msat credit_diff, debit_diff;
+	struct amount_msat credit, debit, credit_diff, debit_diff;
 	const char *err;
 
 	if (new_missed_channel_account(cmd, buf, result,
@@ -1407,28 +1375,15 @@ listpeerchannels_done(struct command *cmd,
 					info->ev->currency,
 					info->ev->timestamp)) {
 		db_begin_transaction(db);
-		err = account_get_balance(tmpctx, db, info->acct->name,
-					  false, &balances);
+		account_get_credit_debit(cmd->plugin, db, info->acct->name,
+					 &credit, &debit);
 		db_commit_transaction(db);
-
-		if (err)
-			plugin_err(cmd->plugin, "%s", err);
-
-		/* FIXME: multiple currencies per account? */
-		if (tal_count(balances) > 0)
-			bal = balances[0];
-		else {
-			bal = tal(balances, struct acct_balance);
-			bal->credit = AMOUNT_MSAT(0);
-			bal->debit = AMOUNT_MSAT(0);
-		}
-		assert(tal_count(balances) == 1);
 
 		/* The expected current balance is zero, since
 		 * we just got the channel close event */
 		err = msat_find_diff(AMOUNT_MSAT(0),
-				     bal->credit,
-				     bal->debit,
+				     credit,
+				     debit,
 				     &credit_diff, &debit_diff);
 		if (err)
 			plugin_err(cmd->plugin, "%s", err);

@@ -15,6 +15,7 @@
 #include <plugins/bkpr/channel_event.h>
 #include <plugins/bkpr/onchain_fee.h>
 #include <plugins/bkpr/recorder.h>
+#include <plugins/libplugin.h>
 
 
 static struct chain_event *stmt2chain_event(const tal_t *ctx, struct db_stmt *stmt)
@@ -917,103 +918,72 @@ static struct chain_event *find_chain_event(const tal_t *ctx,
 	return e;
 }
 
-char *account_get_balance(const tal_t *ctx,
-			  struct db *db,
-			  const char *acct_name,
-			  bool calc_sum,
-			  struct acct_balance ***balances)
+bool account_get_credit_debit(struct plugin *plugin,
+			      struct db *db,
+			      const char *acct_name,
+			      struct amount_msat *credit,
+			      struct amount_msat *debit)
 {
 	struct db_stmt *stmt;
+	bool exists;
 
+	/* Get sum from chain_events */
 	stmt = db_prepare_v2(db, SQL("SELECT"
 				     "  CAST(SUM(ce.credit) AS BIGINT) as credit"
 				     ", CAST(SUM(ce.debit) AS BIGINT) as debit"
-				     ", ce.currency"
 				     " FROM chain_events ce"
 				     " LEFT OUTER JOIN accounts a"
 				     " ON a.id = ce.account_id"
-				     " WHERE a.name = ?"
-				     " GROUP BY ce.currency"));
-
+				     " WHERE a.name = ?"));
 	db_bind_text(stmt, acct_name);
 	db_query_prepared(stmt);
-	*balances = tal_arr(ctx, struct acct_balance *, 0);
 
-	while (db_step(stmt)) {
-		struct acct_balance *bal;
-
-		bal = tal(*balances, struct acct_balance);
-
-		bal->currency = db_col_strdup(bal, stmt, "ce.currency");
-		bal->credit = db_col_amount_msat(stmt, "credit");
-		bal->debit = db_col_amount_msat(stmt, "debit");
-		tal_arr_expand(balances, bal);
+	db_step(stmt);
+	if (db_col_is_null(stmt, "credit")) {
+		db_col_ignore(stmt, "debit");
+		*credit = *debit = AMOUNT_MSAT(0);
+		exists = false;
+	} else {
+		*credit = db_col_amount_msat(stmt, "credit");
+		*debit = db_col_amount_msat(stmt, "debit");
+		exists = true;
 	}
 	tal_free(stmt);
 
+	/* Get sum from channel_events */
 	stmt = db_prepare_v2(db, SQL("SELECT"
 				     "  CAST(SUM(ce.credit) AS BIGINT) as credit"
 				     ", CAST(SUM(ce.debit) AS BIGINT) as debit"
-				     ", ce.currency"
 				     " FROM channel_events ce"
 				     " LEFT OUTER JOIN accounts a"
 				     " ON a.id = ce.account_id"
-				     " WHERE a.name = ?"
-				     " GROUP BY ce.currency"));
+				     " WHERE a.name = ?"));
 	db_bind_text(stmt, acct_name);
 	db_query_prepared(stmt);
+	db_step(stmt);
 
-	while (db_step(stmt)) {
-		struct amount_msat amt;
-		struct acct_balance *bal = NULL;
-		char *currency;
-
-		currency = db_col_strdup(ctx, stmt, "ce.currency");
-
-		/* Find the currency entry from above */
-		for (size_t i = 0; i < tal_count(*balances); i++) {
-			if (streq((*balances)[i]->currency, currency)) {
-				bal = (*balances)[i];
-				break;
-			}
+	if (db_col_is_null(stmt, "credit")) {
+		db_col_ignore(stmt, "debit");
+	} else {
+		if (!amount_msat_accumulate(credit,
+					    db_col_amount_msat(stmt, "credit"))) {
+			plugin_err(plugin, "db overflow: chain credit %s, adding channel credit %s",
+				   fmt_amount_msat(tmpctx, *credit),
+				   fmt_amount_msat(tmpctx,
+						   db_col_amount_msat(stmt, "credit")));
 		}
 
-		if (!bal) {
-			bal = tal(*balances, struct acct_balance);
-			bal->credit = AMOUNT_MSAT(0);
-			bal->debit = AMOUNT_MSAT(0);
-			bal->currency = tal_steal(bal, currency);
-			tal_arr_expand(balances, bal);
+		if (!amount_msat_accumulate(debit,
+					    db_col_amount_msat(stmt, "debit"))) {
+			plugin_err(plugin, "db overflow: chain debit %s, adding channel debit %s",
+				   fmt_amount_msat(tmpctx, *debit),
+				   fmt_amount_msat(tmpctx,
+						   db_col_amount_msat(stmt, "debit")));
 		}
-
-		amt = db_col_amount_msat(stmt, "credit");
-		if (!amount_msat_accumulate(&bal->credit, amt)) {
-			tal_free(stmt);
-			return "overflow adding channel_event credits";
-		}
-
-		amt = db_col_amount_msat(stmt, "debit");
-		if (!amount_msat_accumulate(&bal->debit, amt)) {
-			tal_free(stmt);
-			return "overflow adding channel_event debits";
-		}
+		exists = true;
 	}
 	tal_free(stmt);
-
-	if (!calc_sum)
-		return NULL;
-
-	for (size_t i = 0; i < tal_count(*balances); i++) {
-		struct acct_balance *bal = (*balances)[i];
-		if (!amount_msat_sub(&bal->balance, bal->credit, bal->debit))
-			return tal_fmt(ctx,
-				"%s channel balance is negative? %s - %s",
-				bal->currency,
-				fmt_amount_msat(ctx, bal->credit),
-				fmt_amount_msat(ctx, bal->debit));
-	}
-
-	return NULL;
+	return exists;
 }
 
 struct channel_event **list_channel_events_timebox(const tal_t *ctx,

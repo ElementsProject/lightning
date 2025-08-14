@@ -1183,14 +1183,32 @@ static bool test_chain_event_crud(const tal_t *ctx, struct plugin *p)
 	return true;
 }
 
+struct acct_balance {
+	char *currency;
+	struct amount_msat credit;
+	struct amount_msat debit;
+	struct amount_msat balance;
+};
+
+static bool account_get_balance(struct plugin *plugin,
+				struct db *db,
+				const char *acct_name,
+				struct acct_balance *bal)
+{
+	account_get_credit_debit(plugin, db, acct_name,
+				 &bal->credit, &bal->debit);
+
+	return amount_msat_sub(&bal->balance, bal->credit, bal->debit);
+}
+
 static bool test_account_balances(const tal_t *ctx, struct plugin *p)
 {
 	struct db *db = db_setup(ctx, p, tmp_dsn(ctx));
 	struct node_id peer_id;
 	struct account *acct, *acct2;
 	struct chain_event *ev1;
-	struct acct_balance **balances;
-	char *err;
+	struct acct_balance balance;
+	bool ok;
 
 	memset(&peer_id, 3, sizeof(struct node_id));
 
@@ -1199,10 +1217,8 @@ static bool test_account_balances(const tal_t *ctx, struct plugin *p)
 
 	db_begin_transaction(db);
 	/* Check that account does not exist yet */
-	err = account_get_balance(ctx, db, acct->name, true,
-				  &balances);
-
-	CHECK(!err);
+	ok = account_get_balance(NULL, db, acct->name, &balance);
+	CHECK(ok);
 
 	account_add(db, acct);
 	account_add(db, acct2);
@@ -1237,47 +1253,23 @@ static bool test_account_balances(const tal_t *ctx, struct plugin *p)
 					     AMOUNT_MSAT(0),
 					     'D'));
 
-	/* +5000chf */
-	ev1 = make_chain_event(ctx, "two",
-			       AMOUNT_MSAT(5000), AMOUNT_MSAT(0),
-			       AMOUNT_MSAT(5000), 1999,
-			       'A', 3, '*');
-	ev1->currency = "chf";
-	log_chain_event(db, acct, ev1);
-
-	/* Add same chain event to a different account, shouldn't show */
-	log_chain_event(db, acct2, ev1);
-
-	err = account_get_balance(ctx, db, acct->name, true,
-				  &balances);
-	CHECK_MSG(!err, err);
+	ok = account_get_balance(NULL, db, acct->name, &balance);
+	CHECK(ok);
 	db_commit_transaction(db);
 
-	/* Should have 2 balances */
-	CHECK(tal_count(balances) == 2);
-	CHECK(streq(balances[0]->currency, "btc"));
-	CHECK(amount_msat_eq(balances[0]->balance, AMOUNT_MSAT(500 - 440 + 1)));
-	CHECK(streq(balances[1]->currency, "chf"));
-	CHECK(amount_msat_eq(balances[1]->balance, AMOUNT_MSAT(5000)));
+	CHECK(amount_msat_eq(balance.balance, AMOUNT_MSAT(500 - 440 + 1)));
 
 	/* Should error if account balance is negative */
 	db_begin_transaction(db);
-	/* -5001chf */
+	/* -5001btc */
 	ev1 = make_chain_event(ctx, "two",
 			       AMOUNT_MSAT(0), AMOUNT_MSAT(5001),
 			       AMOUNT_MSAT(5001), 2020,
 			       'A', 4, '*');
-	ev1->currency = "chf";
 	log_chain_event(db, acct, ev1);
 
-	err = account_get_balance(ctx, db, acct->name, true,
-				  &balances);
-	CHECK_MSG(err != NULL, "Expected err message");
-	CHECK(streq(err, "chf channel balance is negative? 5000msat - 5001msat"));
-
-	err = account_get_balance(ctx, db, acct->name, false,
-				  &balances);
-	CHECK_MSG(!err, err);
+	ok = account_get_balance(NULL, db, acct->name, &balance);
+	CHECK(!ok);
 	db_commit_transaction(db);
 
 	return true;
