@@ -99,7 +99,7 @@ enum mvt_tag *new_tag_arr(const tal_t *ctx, enum mvt_tag tag);
 struct channel_coin_mvt *new_channel_coin_mvt(const tal_t *ctx,
 					      const struct channel_id *cid,
 					      const struct sha256 *payment_hash TAKES,
-					      u64 *part_id TAKES,
+					      const u64 *part_id TAKES,
 					      struct amount_msat amount,
 					      const enum mvt_tag *tags TAKES,
 					      bool is_credit,
