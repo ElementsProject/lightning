@@ -525,7 +525,7 @@ static void chain_movement_notification_serialize(struct json_stream *stream,
 	add_movement_tags(stream, ld, chain_mvt->tags, true);
 
 	json_add_u32(stream, "blockheight", chain_mvt->blockheight);
-	json_add_u32(stream, "timestamp", time_now().ts.tv_sec);
+	json_add_u64(stream, "timestamp", chain_mvt->timestamp);
 	json_add_string(stream, "coin_type", chainparams->lightning_hrp);
 }
 
@@ -551,7 +551,7 @@ static void channel_movement_notification_serialize(struct json_stream *stream,
 
 	add_movement_tags(stream, ld, chan_mvt->tags, extra_tags_field);
 
-	json_add_u32(stream, "timestamp", time_now().ts.tv_sec);
+	json_add_u64(stream, "timestamp", chan_mvt->timestamp);
 	json_add_string(stream, "coin_type", chainparams->lightning_hrp);
 }
 

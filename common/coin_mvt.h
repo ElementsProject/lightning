@@ -66,6 +66,7 @@ struct channel_coin_mvt {
 	/* only one or the other */
 	struct amount_msat credit;
 	struct amount_msat debit;
+	u64 timestamp;
 
 	/* identifier */
 	const struct sha256 *payment_hash;
@@ -85,6 +86,7 @@ struct chain_coin_mvt {
 	/* only one or the other */
 	struct amount_msat credit;
 	struct amount_msat debit;
+	u64 timestamp;
 
 	const struct bitcoin_txid *tx_txid;
 	const struct bitcoin_outpoint *outpoint;
@@ -138,6 +140,7 @@ struct mvt_account_id *new_mvt_account_id(const tal_t *ctx,
 /* Either part_id and group_id both NULL, or neither are */
 struct channel_coin_mvt *new_channel_coin_mvt(const tal_t *ctx,
 					      const struct channel *channel,
+					      u64 timestamp,
 					      const struct sha256 *payment_hash TAKES,
 					      const u64 *part_id,
 					      const u64 *group_id,
