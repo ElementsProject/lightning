@@ -3,6 +3,7 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>
 #include <ccan/tal/str/str.h>
+#include <common/coin_mvt.h>
 #include <common/json_stream.h>
 #include <common/lease_rates.h>
 #include <db/bindings.h>
@@ -171,7 +172,7 @@ struct channel_apy **compute_channel_apys(const tal_t *ctx, struct db *db,
 		bool ok;
 
 		if (!acct || acct->db_id != ev->acct_db_id) {
-			if (acct && is_channel_account(acct)) {
+			if (acct && is_channel_account(acct->name)) {
 				fillin_apy_acct_details(db, acct,
 							current_blockheight,
 							apy);
@@ -184,7 +185,7 @@ struct channel_apy **compute_channel_apys(const tal_t *ctx, struct db *db,
 		}
 
 		/* No entry for external or wallet accts */
-		if (!is_channel_account(acct))
+		if (!is_channel_account(acct->name))
 			continue;
 
 		/* Accumulate routing stats */
@@ -229,7 +230,7 @@ struct channel_apy **compute_channel_apys(const tal_t *ctx, struct db *db,
 		 * relevant fee data attached to them */
 	}
 
-	if (acct && is_channel_account(acct)) {
+	if (acct && is_channel_account(acct->name)) {
 		fillin_apy_acct_details(db, acct,
 					current_blockheight,
 					apy);

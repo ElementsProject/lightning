@@ -14,7 +14,7 @@ struct account *new_account(const tal_t *ctx,
 
 	a->name = tal_strdup(a, name);
 	a->peer_id = peer_id;
-	a->is_wallet = streq(a->name, WALLET);
+	a->is_wallet = is_wallet_account(a->name);
 	a->we_opened = false;
 	a->leased = false;
 	a->onchain_resolved_block = 0;
@@ -23,15 +23,4 @@ struct account *new_account(const tal_t *ctx,
 	a->closed_count = 0;
 
 	return a;
-}
-
-bool is_channel_account(const struct account *acct)
-{
-	return !streq(acct->name, WALLET)
-	       && !streq(acct->name, "external");
-}
-
-bool is_external_account(const struct account *acct)
-{
-	return streq(acct->name, "external");
 }
