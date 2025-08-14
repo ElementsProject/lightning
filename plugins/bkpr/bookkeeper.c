@@ -573,8 +573,7 @@ static struct command_result *json_list_balances(struct command *cmd,
 		err = account_get_balance(cmd, db,
 					  accts[i]->name,
 					  true,
-					  &balances,
-					  NULL);
+					  &balances);
 
 		if (err)
 			plugin_err(cmd->plugin,
@@ -968,7 +967,7 @@ static struct command_result *listpeerchannels_multi_done(struct command *cmd,
 
 		db_begin_transaction(db);
 		err = account_get_balance(tmpctx, db, info->acct->name,
-					  false, &balances, NULL);
+					  false, &balances);
 		db_commit_transaction(db);
 
 		if (err)
@@ -1105,8 +1104,7 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 		err = account_get_balance(cmd, db, acct_name,
 					  /* Don't error if negative */
 					  false,
-					  &balances,
-					  NULL);
+					  &balances);
 
 		if (err)
 			plugin_err(cmd->plugin,
@@ -1410,7 +1408,7 @@ listpeerchannels_done(struct command *cmd,
 					info->ev->timestamp)) {
 		db_begin_transaction(db);
 		err = account_get_balance(tmpctx, db, info->acct->name,
-					  false, &balances, NULL);
+					  false, &balances);
 		db_commit_transaction(db);
 
 		if (err)
