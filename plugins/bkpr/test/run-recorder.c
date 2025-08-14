@@ -437,8 +437,8 @@ static bool test_onchain_fee_wallet_spend(const tal_t *ctx, struct plugin *p)
 	memset(&node_id, 2, sizeof(struct node_id));
 	memset(&peer_id, 3, sizeof(struct node_id));
 
-	wal_acct = new_account(ctx, tal_fmt(ctx, "wallet"), &peer_id);
-	ext_acct = new_account(ctx, tal_fmt(ctx, "external"), &peer_id);
+	wal_acct = new_account(ctx, tal_fmt(ctx, ACCOUNT_NAME_WALLET), &peer_id);
+	ext_acct = new_account(ctx, tal_fmt(ctx, ACCOUNT_NAME_EXTERNAL), &peer_id);
 	memset(&txid, '1', sizeof(struct bitcoin_txid));
 
 	db_begin_transaction(db);
@@ -518,8 +518,8 @@ static bool test_onchain_fee_chan_close(const tal_t *ctx, struct plugin *p)
 	/* to_us, to_them, 1 htlc, 2 anchors */
 	close_output_count = 5;
 
-	wal_acct = new_account(ctx, tal_fmt(ctx, "wallet"), &peer_id);
-	ext_acct = new_account(ctx, tal_fmt(ctx, "external"), &peer_id);
+	wal_acct = new_account(ctx, tal_fmt(ctx, ACCOUNT_NAME_WALLET), &peer_id);
+	ext_acct = new_account(ctx, tal_fmt(ctx, ACCOUNT_NAME_EXTERNAL), &peer_id);
 	acct = new_account(ctx, tal_fmt(ctx, "chan-1"), &peer_id);
 
 	db_begin_transaction(db);
@@ -779,8 +779,8 @@ static bool test_onchain_fee_chan_open(const tal_t *ctx, struct plugin *p)
 	memset(&node_id, 2, sizeof(struct node_id));
 	memset(&peer_id, 3, sizeof(struct node_id));
 
-	wal_acct = new_account(ctx, tal_fmt(ctx, "wallet"), &peer_id);
-	ext_acct = new_account(ctx, tal_fmt(ctx, "external"), &peer_id);
+	wal_acct = new_account(ctx, tal_fmt(ctx, ACCOUNT_NAME_WALLET), &peer_id);
+	ext_acct = new_account(ctx, tal_fmt(ctx, ACCOUNT_NAME_EXTERNAL), &peer_id);
 	acct = new_account(ctx, tal_fmt(ctx, "chan-1"), &peer_id);
 	acct2 = new_account(ctx, tal_fmt(ctx, "chan-2"), &peer_id);
 
@@ -981,7 +981,7 @@ static bool test_channel_event_crud(const tal_t *ctx, struct plugin *p)
 	memset(&peer_id, 3, sizeof(struct node_id));
 
 	acct = new_account(ctx, tal_fmt(ctx, "example"), &peer_id);
-	acct2 = new_account(ctx, tal_fmt(ctx, "wallet"), &peer_id);
+	acct2 = new_account(ctx, tal_fmt(ctx, ACCOUNT_NAME_WALLET), &peer_id);
 	db_begin_transaction(db);
 	account_add(db, acct);
 	account_add(db, acct2);
@@ -1069,7 +1069,7 @@ static bool test_chain_event_crud(const tal_t *ctx, struct plugin *p)
 	memset(&peer_id, 3, sizeof(struct node_id));
 
 	acct = new_account(ctx, name, &peer_id);
-	acct2 = new_account(ctx, tal_fmt(ctx, "wallet"), &peer_id);
+	acct2 = new_account(ctx, tal_fmt(ctx, ACCOUNT_NAME_WALLET), &peer_id);
 	db_begin_transaction(db);
 	account_add(db, acct);
 	account_add(db, acct2);
@@ -1099,7 +1099,7 @@ static bool test_chain_event_crud(const tal_t *ctx, struct plugin *p)
 	db_commit_transaction(db);
 
 	ev2->tag = tal_fmt(ctx, "deposit");
-	ev2->origin_acct = tal_fmt(ctx, "wallet");
+	ev2->origin_acct = tal_fmt(ctx, ACCOUNT_NAME_WALLET);
 	ev2->credit = AMOUNT_MSAT(200);
 	ev2->debit = AMOUNT_MSAT(202);
 	ev2->output_value = AMOUNT_MSAT(104);
@@ -1198,7 +1198,7 @@ static bool test_account_balances(const tal_t *ctx, struct plugin *p)
 	memset(&peer_id, 3, sizeof(struct node_id));
 
 	acct = new_account(ctx, tal_fmt(ctx, "example"), &peer_id);
-	acct2 = new_account(ctx, tal_fmt(ctx, "wallet"), &peer_id);
+	acct2 = new_account(ctx, tal_fmt(ctx, ACCOUNT_NAME_WALLET), &peer_id);
 
 	db_begin_transaction(db);
 	/* Check that account does not exist yet */
@@ -1313,7 +1313,7 @@ static bool test_account_crud(const tal_t *ctx, struct plugin *p)
 	CHECK(tal_count(acct_list) == 1);
 	accountseq(acct_list[0], acct);
 
-	acct = new_account(ctx, tal_fmt(ctx, "wallet"), NULL);
+	acct = new_account(ctx, tal_fmt(ctx, ACCOUNT_NAME_WALLET), NULL);
 	CHECK(acct->is_wallet);
 
 	db_begin_transaction(db);
@@ -1327,7 +1327,7 @@ static bool test_account_crud(const tal_t *ctx, struct plugin *p)
 
 	/* Can we find an account ok? */
 	db_begin_transaction(db);
-	acct2 = find_account(ctx, db, "wallet");
+	acct2 = find_account(ctx, db, ACCOUNT_NAME_WALLET);
 	db_commit_transaction(db);
 	accountseq(acct, acct2);
 
@@ -1360,7 +1360,7 @@ static bool test_account_crud(const tal_t *ctx, struct plugin *p)
 	tags[0] = MVT_PUSHED;
 	tags[1] = MVT_PENALTY;
 	maybe_update_account(db, acct, ev1, tags, 0, peer_id);
-	acct2 = find_account(ctx, db, "wallet");
+	acct2 = find_account(ctx, db, ACCOUNT_NAME_WALLET);
 	accountseq(acct, acct2);
 
 	/* channel_open -> open event db updated */
@@ -1369,7 +1369,7 @@ static bool test_account_crud(const tal_t *ctx, struct plugin *p)
 	tags[0] = MVT_CHANNEL_OPEN;
 	tags[1] = MVT_LEASED;
 	maybe_update_account(db, acct, ev1, tags, 2, peer_id);
-	acct2 = find_account(ctx, db, "wallet");
+	acct2 = find_account(ctx, db, ACCOUNT_NAME_WALLET);
 	accountseq(acct, acct2);
 	CHECK(acct->leased);
 	CHECK(acct->open_event_db_id != NULL);
@@ -1380,7 +1380,7 @@ static bool test_account_crud(const tal_t *ctx, struct plugin *p)
 	CHECK(acct->closed_event_db_id == NULL);
 	CHECK(!acct->we_opened);
 	maybe_update_account(db, acct, ev1, tags, 0, NULL);
-	acct2 = find_account(ctx, db, "wallet");
+	acct2 = find_account(ctx, db, ACCOUNT_NAME_WALLET);
 	accountseq(acct, acct2);
 	CHECK(acct->closed_event_db_id != NULL);
 	CHECK(acct->we_opened);

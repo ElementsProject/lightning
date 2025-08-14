@@ -8,8 +8,6 @@
 #include <common/node_id.h>
 #include <wire/wire.h>
 
-#define EXTERNAL "external"
-
 static const char *mvt_tags[] = {
 	"deposit",
 	"withdrawal",
@@ -368,7 +366,7 @@ struct chain_coin_mvt *new_onchain_htlc_withdraw(const tal_t *ctx,
 {
 	/* An onchain htlc fulfillment to peer is a *deposit* of
 	 * that output into their (external) account */
-	return new_chain_coin_mvt_sat(ctx, NULL, EXTERNAL, NULL,
+	return new_chain_coin_mvt_sat(ctx, NULL, ACCOUNT_NAME_EXTERNAL, NULL,
 				      outpoint, payment_hash,
 				      blockheight,
 				      tag_to_mvt_tags(MVT_HTLC_FULFILL),
@@ -382,7 +380,7 @@ struct chain_coin_mvt *new_coin_external_spend(const tal_t *ctx,
 					       struct amount_sat amount,
 					       struct mvt_tags tags)
 {
-	return new_chain_coin_mvt(ctx, NULL, EXTERNAL,
+	return new_chain_coin_mvt(ctx, NULL, ACCOUNT_NAME_EXTERNAL,
 				  time_now().ts.tv_sec, txid,
 				  outpoint, NULL, blockheight,
 				  tags,
@@ -395,14 +393,14 @@ struct chain_coin_mvt *new_coin_external_deposit(const tal_t *ctx,
 						 struct amount_sat amount,
 						 struct mvt_tags tags)
 {
-	return new_chain_coin_mvt_sat(ctx, NULL, EXTERNAL, NULL, outpoint, NULL,
+	return new_chain_coin_mvt_sat(ctx, NULL, ACCOUNT_NAME_EXTERNAL, NULL, outpoint, NULL,
 				      blockheight, tags,
 				      COIN_CREDIT, amount);
 }
 
 bool chain_mvt_is_external(const struct chain_coin_mvt *mvt)
 {
-	return mvt->account.alt_account && streq(mvt->account.alt_account, EXTERNAL);
+	return mvt->account.alt_account && is_external_account(mvt->account.alt_account);
 }
 
 struct chain_coin_mvt *new_coin_wallet_deposit(const tal_t *ctx,
@@ -411,7 +409,7 @@ struct chain_coin_mvt *new_coin_wallet_deposit(const tal_t *ctx,
 					       struct amount_sat amount,
 					       struct mvt_tags tags)
 {
-	return new_chain_coin_mvt_sat(ctx, NULL, WALLET, NULL,
+	return new_chain_coin_mvt_sat(ctx, NULL, ACCOUNT_NAME_WALLET, NULL,
 				      outpoint, NULL,
 				      blockheight, tags,
 				      COIN_CREDIT, amount);
@@ -424,7 +422,7 @@ struct chain_coin_mvt *new_coin_wallet_withdraw(const tal_t *ctx,
 						struct amount_sat amount,
 						struct mvt_tags tags)
 {
-	return new_chain_coin_mvt_sat(ctx, NULL, WALLET, spend_txid,
+	return new_chain_coin_mvt_sat(ctx, NULL, ACCOUNT_NAME_WALLET, spend_txid,
 				      outpoint, NULL,
 				      blockheight, tags,
 				      COIN_DEBIT, amount);

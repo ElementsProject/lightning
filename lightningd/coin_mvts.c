@@ -102,7 +102,7 @@ void send_account_balance_snapshot(struct lightningd *ld)
 	snap->accts = tal_arr(snap, struct account_balance *, 1);
 	bal = tal(snap, struct account_balance);
 	bal->balance = AMOUNT_MSAT(0);
-	bal->acct_id = WALLET;
+	bal->acct_id = ACCOUNT_NAME_WALLET;
 	bal->bip173_name = chainparams->lightning_hrp;
 
 	utxos = wallet_get_unspent_utxos(NULL, ld->wallet);

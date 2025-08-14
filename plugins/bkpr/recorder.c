@@ -466,12 +466,6 @@ static struct txo_set *find_txo_set(const tal_t *ctx,
 	return txos;
 }
 
-static bool is_channel_acct(struct chain_event *ev)
-{
-	return !streq(ev->acct_name, WALLET_ACCT)
-		&& !streq(ev->acct_name, EXTERNAL_ACCT);
-}
-
 static bool txid_in_list(struct bitcoin_txid **list,
 			 struct bitcoin_txid *txid)
 {
@@ -527,7 +521,7 @@ bool find_txo_chain(const tal_t *ctx,
 
 			/* Has this been resolved? */
 			if ((pr->txo
-			     && is_channel_acct(pr->txo))
+			     && is_channel_account(pr->txo->acct_name))
 			     && !pr->spend)
 				is_complete = false;
 
@@ -1734,7 +1728,7 @@ char *update_channel_onchain_fees(const tal_t *ctx,
 		    - anchors (already exlc from output)
 		    - to_external (if !htlc_fulfill)
 		*/
-		if (is_channel_acct(ev)
+		if (is_channel_account(ev->acct_name)
 		    && streq("htlc_fulfill", ev->tag))
 			continue;
 
@@ -1745,7 +1739,7 @@ char *update_channel_onchain_fees(const tal_t *ctx,
 		 * the peer's account (external),
 		 * except for fulfilled htlcs (which originated
 		 * in our balance) */
-		if (streq(ev->acct_name, EXTERNAL_ACCT)
+		if (is_external_account(ev->acct_name)
 		    && !streq("htlc_fulfill", ev->tag))
 			continue;
 
@@ -1954,8 +1948,8 @@ char *maybe_update_onchain_fees(const tal_t *ctx, struct db *db,
 
 	/* Find all the deposits/withdrawals for this txid */
 	events = find_chain_events_bytxid(inner_ctx, db, txid);
-	wallet_id = find_acct_id(db, WALLET_ACCT);
-	extern_id = find_acct_id(db, EXTERNAL_ACCT);
+	wallet_id = find_acct_id(db, ACCOUNT_NAME_WALLET);
+	extern_id = find_acct_id(db, ACCOUNT_NAME_EXTERNAL);
 
 	/* If we don't even have two events, skip */
 	if (tal_count(events) < 2)
@@ -2129,7 +2123,7 @@ void maybe_closeout_external_deposits(struct db *db,
 	/* Blockheight for unconfirmeds is zero */
 	db_bind_int(stmt, 0);
 	db_bind_txid(stmt, txid);
-	db_bind_text(stmt, EXTERNAL_ACCT);
+	db_bind_text(stmt, ACCOUNT_NAME_EXTERNAL);
 	db_query_prepared(stmt);
 
 	while (db_step(stmt)) {

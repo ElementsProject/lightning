@@ -239,8 +239,7 @@ static struct command_result *json_inspect(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	if (streq(acct_name, WALLET_ACCT)
-	    || streq(acct_name, EXTERNAL_ACCT))
+	if (!is_channel_account(acct_name))
 		return command_fail(cmd, PLUGIN_ERROR,
 				    "`inspect` not supported for"
 				    " non-channel accounts");
@@ -298,7 +297,7 @@ static struct command_result *json_inspect(struct command *cmd,
 						continue;
 				} else if (pr->txo->acct_db_id != acct->db_id
 					   /* We make an exception for wallet events */
-					   && !streq(pr->txo->acct_name, WALLET_ACCT))
+					   && !is_wallet_account(pr->txo->acct_name))
 					continue;
 			} else if (pr->spend
 				   && pr->spend->acct_db_id != acct->db_id)
@@ -585,7 +584,7 @@ static struct command_result *json_list_balances(struct command *cmd,
 
 		/* Skip the external acct balance, it's effectively
 		 * meaningless */
-		if (streq(accts[i]->name, EXTERNAL_ACCT))
+		if (is_external_account(accts[i]->name))
 			continue;
 
 		/* Add it to the result data */
@@ -1009,9 +1008,9 @@ static char *do_account_close_checks(const tal_t *ctx,
 	db_begin_transaction(db);
 
 	/* If is an external acct event, might be close channel related */
-	if (!is_channel_account(acct) && e->origin_acct) {
+	if (!is_channel_account(acct->name) && e->origin_acct) {
 		closed_acct = find_account(ctx, db, e->origin_acct);
-	} else if (!is_channel_account(acct) && !e->spending_txid)
+	} else if (!is_channel_account(acct->name) && !e->spending_txid)
 		closed_acct = find_close_account(ctx, db, &e->outpoint.txid);
 	else
 		/* Get most up to date account entry */
@@ -1154,7 +1153,7 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 		/* If we're entering a channel account,
 		 * from a balance entry, we need to
 		 * go find the channel open info*/
-		if (!existed && is_channel_account(acct)) {
+		if (!existed && is_channel_account(acct->name)) {
 			struct new_account_info *info;
 			u64 timestamp_now;
 
@@ -1630,8 +1629,8 @@ parse_and_log_chain_move(struct command *cmd,
 	/* If this is a channel account event, it's possible
 	 * that we *never* got the open event. (This happens
 	 * if you add the plugin *after* you've closed the channel) */
-	if ((!acct->open_event_db_id && is_channel_account(acct))
-	    || (orig_acct && is_channel_account(orig_acct)
+	if ((!acct->open_event_db_id && is_channel_account(acct->name))
+	    || (orig_acct && is_channel_account(orig_acct->name)
 		&& !orig_acct->open_event_db_id)) {
 		/* Find the channel open info for this peer */
 		struct out_req *req;
@@ -1645,7 +1644,7 @@ parse_and_log_chain_move(struct command *cmd,
 		info = tal(cmd, struct event_info);
 		info->ev = tal_steal(info, e);
 		info->acct = tal_steal(info,
-				       is_channel_account(acct) ?
+				       is_channel_account(acct->name) ?
 				       acct : orig_acct);
 
 		req = jsonrpc_request_start(cmd,

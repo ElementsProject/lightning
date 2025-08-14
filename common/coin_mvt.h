@@ -8,7 +8,8 @@
 #include <common/utils.h>
 
 #define COIN_MVT_VERSION 2
-#define WALLET "wallet"
+#define ACCOUNT_NAME_WALLET "wallet"
+#define ACCOUNT_NAME_EXTERNAL "external"
 
 enum mvt_tag {
 	MVT_DEPOSIT = 0,
@@ -250,6 +251,28 @@ struct channel_coin_mvt *new_coin_channel_push(const tal_t *ctx,
 					       struct amount_msat amount,
 					       struct mvt_tags tags)
 	NON_NULL_ARGS(2);
+
+/* There are three standard accounts:
+ * "wallet" for our internal wallet,
+ * "external" for other bitcoin sources,
+ * <channelid> for lightning channels.
+ *
+ * Exactly one of these is true:
+ */
+static inline bool is_wallet_account(const char *acctname)
+{
+	return streq(acctname, ACCOUNT_NAME_WALLET);
+}
+
+static inline bool is_external_account(const char *acctname)
+{
+	return streq(acctname, ACCOUNT_NAME_EXTERNAL);
+}
+
+static inline bool is_channel_account(const char *acctname)
+{
+	return !is_wallet_account(acctname) && !is_external_account(acctname);
+}
 
 /* Is this an xternal account? */
 bool chain_mvt_is_external(const struct chain_coin_mvt *mvt);

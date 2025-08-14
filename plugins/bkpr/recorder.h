@@ -12,8 +12,6 @@ struct db;
 enum mvt_tag;
 struct onchain_fee;
 
-#define EXTERNAL_ACCT "external"
-#define WALLET_ACCT WALLET
 #define SQLITE_MAX_UINT 0x7FFFFFFFFFFFFFFF
 
 struct acct_balance {

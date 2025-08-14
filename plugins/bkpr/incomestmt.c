@@ -122,7 +122,7 @@ static struct income_event *maybe_chain_income(const tal_t *ctx,
 					       struct chain_event *ev)
 {
 	if (streq(ev->tag, "htlc_fulfill")) {
-		if (streq(ev->acct_name, EXTERNAL_ACCT))
+		if (is_external_account(ev->acct_name))
 			/* Swap the credit/debit as it went to external */
 			return chain_to_income(ctx, ev,
 					       ev->origin_acct,
@@ -151,7 +151,7 @@ static struct income_event *maybe_chain_income(const tal_t *ctx,
 		struct db_stmt *stmt;
 
 		/* deposit to external is cost to us */
-		if (streq(ev->acct_name, EXTERNAL_ACCT)) {
+		if (is_external_account(ev->acct_name)) {
 			struct income_event *iev;
 
 			/* External deposits w/o a blockheight
@@ -674,7 +674,7 @@ static char *income_event_harmony_type(const struct income_event *ev)
 		return "fee:network";
 
 	if (!amount_msat_is_zero(ev->credit)) {
-		if (streq(WALLET_ACCT, ev->acct_name))
+		if (is_wallet_account(ev->acct_name))
 			return tal_fmt(ev, "transfer:%s", ev->tag);
 
 		return tal_fmt(ev, "income:%s", ev->tag);
@@ -684,7 +684,7 @@ static char *income_event_harmony_type(const struct income_event *ev)
 	if (streq("penalty", ev->tag)) {
 		return "loss:penalty";
 	}
-	if (streq(WALLET_ACCT, ev->acct_name))
+	if (is_wallet_account(ev->acct_name))
 		return tal_fmt(ev, "transfer:%s", ev->tag);
 
 	/* FIXME: add "fee:transfer" to invoice routing fees */
