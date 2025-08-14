@@ -501,10 +501,11 @@ def test_splice_stuck_htlc(node_factory, bitcoind, executor):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 def test_route_by_old_scid(node_factory, bitcoind):
-    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True, opts={'experimental-splicing': None})
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True, opts={'experimental-splicing': None, 'may_reconnect': True})
 
     # Get pre-splice route.
     inv = l3.rpc.invoice(10000000, 'test_route_by_old_scid', 'test_route_by_old_scid')
+    inv2 = l3.rpc.invoice(10000000, 'test_route_by_old_scid2', 'test_route_by_old_scid2')
     route = l1.rpc.getroute(l3.info['id'], 10000000, 1)['route']
 
     # Do a splice
@@ -525,3 +526,28 @@ def test_route_by_old_scid(node_factory, bitcoind):
     # Now l1 tries to send using old scid: should work
     l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
     l1.rpc.waitsendpay(inv['payment_hash'])
+
+    # Let's splice again, so the original scid is two behind the times.
+    l3.fundwallet(200000)
+    funds_result = l3.rpc.fundpsbt("109000sat", "slow", 166, excess_as_change=True)
+    chan_id = l3.get_channel_id(l2)
+    result = l3.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
+    result = l3.rpc.splice_update(chan_id, result['psbt'])
+    assert(result['commitments_secured'] is False)
+    result = l3.rpc.splice_update(chan_id, result['psbt'])
+    assert(result['commitments_secured'] is True)
+    result = l3.rpc.signpsbt(result['psbt'])
+    result = l3.rpc.splice_signed(chan_id, result['signed_psbt'])
+
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['state'] == 'CHANNELD_AWAITING_SPLICE')
+    bitcoind.generate_block(6, wait_for_mempool=1)
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['state'] == 'CHANNELD_NORMAL')
+
+    # Now restart l2, make sure it remembers the original!
+    l2.restart()
+    l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
+    l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
+
+    wait_for(lambda: only_one(l1.rpc.listpeers()['peers'])['connected'] is True)
+    l1.rpc.sendpay(route, inv2['payment_hash'], payment_secret=inv2['payment_secret'])
+    l1.rpc.waitsendpay(inv2['payment_hash'])
