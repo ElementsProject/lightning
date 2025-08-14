@@ -331,15 +331,15 @@ static void record_to_them_htlc_fulfilled(struct tracked_output *out,
 						     &out->payment_hash)));
 }
 
-static void record_anchor(struct tracked_output *out)
+static void record_our_anchor(struct tracked_output *out)
 {
-	enum mvt_tag *tags = new_tag_arr(NULL, ANCHOR);
-	tal_arr_expand(&tags, IGNORED);
-	send_coin_mvt(take(new_coin_wallet_deposit_tagged(NULL,
-					&out->outpoint,
-					out->tx_blockheight,
-					out->sat,
-					tags)));
+	/* We *could* treat this as a deposit to our wallet, but we
+	* never record spending it, and in many cases we don't: we
+	* might not need it, or our peer may use the other anchor, and
+	* it can be spent by anyone after 16 blocks.  Our
+	* implementation doesn't ever spend it unless it needs to
+	* boost, so it's fair to record it as going "external". */
+	record_external_deposit(out, out->tx_blockheight, ANCHOR);
 }
 
 static void record_coin_movements(struct tracked_output *out,
@@ -2325,7 +2325,7 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 						 ANCHOR_TO_US,
 						 NULL, NULL, NULL);
 			ignore_output(out);
-			record_anchor(out);
+			record_our_anchor(out);
 			anchor[LOCAL] = NULL;
 			continue;
 		}
@@ -2809,7 +2809,7 @@ static void handle_their_cheat(const struct tx_parts *tx,
 						 ANCHOR_TO_US,
 						 NULL, NULL, NULL);
 			ignore_output(out);
-			record_anchor(out);
+			record_our_anchor(out);
 			anchor[LOCAL] = NULL;
 			continue;
 		}
@@ -3135,7 +3135,7 @@ static void handle_their_unilateral(const struct tx_parts *tx,
 						 NULL, NULL, NULL);
 
 			ignore_output(out);
-			record_anchor(out);
+			record_our_anchor(out);
 			anchor[LOCAL] = NULL;
 			continue;
 		}
