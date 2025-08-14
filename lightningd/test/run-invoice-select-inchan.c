@@ -135,6 +135,9 @@ void channel_set_last_tx(struct channel *channel UNNEEDED,
 			 struct bitcoin_tx *tx UNNEEDED,
 			 const struct bitcoin_signature *sig UNNEEDED)
 { fprintf(stderr, "channel_set_last_tx called!\n"); abort(); }
+/* Generated stub for channel_set_scid */
+void channel_set_scid(struct channel *channel UNNEEDED, const struct short_channel_id *new_scid UNNEEDED)
+{ fprintf(stderr, "channel_set_scid called!\n"); abort(); }
 /* Generated stub for channel_state_name */
 const char *channel_state_name(const struct channel *channel UNNEEDED)
 { fprintf(stderr, "channel_state_name called!\n"); abort(); }
