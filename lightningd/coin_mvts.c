@@ -61,6 +61,18 @@ struct channel_coin_mvt *new_channel_mvt_routed_hout(const tal_t *ctx,
 				    hout->fees);
 }
 
+struct channel_coin_mvt *new_channel_mvt_penalty_adj(const tal_t *ctx,
+						     const struct channel *channel,
+						     struct amount_msat amount,
+						     enum coin_mvt_dir direction)
+{
+	return new_channel_coin_mvt(ctx, channel, time_now().ts.tv_sec,
+				    NULL, NULL, NULL,
+				    direction, amount,
+				    mk_mvt_tags(MVT_PENALTY_ADJ),
+				    AMOUNT_MSAT(0));
+}
+
 static bool report_chan_balance(const struct channel *chan)
 {
 	switch (chan->state) {

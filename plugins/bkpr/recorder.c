@@ -1407,6 +1407,8 @@ void maybe_update_account(struct db *db,
 			case MVT_LEASE_FEE:
 			case MVT_STEALABLE:
 			case MVT_SPLICE:
+			case MVT_PENALTY_ADJ:
+			case MVT_JOURNAL:
 				/* Ignored */
 				break;
 		}
@@ -1686,36 +1688,7 @@ char *update_channel_onchain_fees(const tal_t *ctx,
 				       ev->tag);
 	}
 
-	/* Was this an 'old state' tx, where we ended up
-	 * with more sats than we had on record? */
-	if (amount_msat_greater(onchain_amt, close_ev->debit)) {
-		struct channel_event *ev;
-		struct amount_msat diff;
-
-		if (!amount_msat_sub(&diff, onchain_amt,
-				     close_ev->debit))
-			return tal_fmt(ctx, "Unable to sub"
-				       "close debit from onchain_amt");
-		/* Add in/out journal entries for it */
-		ev = new_channel_event(ctx,
-				       tal_fmt(tmpctx, "%s",
-					       account_entry_tag_str(PENALTY_ADJ)),
-				       diff,
-				       AMOUNT_MSAT(0),
-				       AMOUNT_MSAT(0),
-				       NULL, 0,
-				       close_ev->timestamp);
-		log_channel_event(db, acct, ev);
-		ev = new_channel_event(ctx,
-				       tal_fmt(tmpctx, "%s",
-					       account_entry_tag_str(PENALTY_ADJ)),
-				       AMOUNT_MSAT(0),
-				       diff,
-				       AMOUNT_MSAT(0),
-				       NULL, 0,
-				       close_ev->timestamp);
-		log_channel_event(db, acct, ev);
-	} else {
+	if (amount_msat_less_eq(onchain_amt, close_ev->debit)) {
 		struct amount_msat fees;
 		if (!amount_msat_sub(&fees, close_ev->debit,
 				     onchain_amt))

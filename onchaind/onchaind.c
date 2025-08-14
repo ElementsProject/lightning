@@ -378,6 +378,15 @@ static void record_coin_movements(struct tracked_output *out,
 		else
 			record_channel_withdrawal(txid, out, blockheight, mk_mvt_tags(MVT_TO_WALLET));
 	}
+
+	/* Tell lightningd to create penalty_adj on channel balance */
+	if (out->resolved->tx_type == OUR_PENALTY_TX) {
+		struct amount_msat msat;
+		if (!amount_sat_to_msat(&msat, out->sat))
+			abort();
+		wire_sync_write(REQ_FD,
+				take(towire_onchaind_notify_penalty_adj(NULL, msat)));
+	}
 }
 
 /* We vary feerate until signature they offered matches. */
@@ -1660,6 +1669,7 @@ static void wait_for_resolved(struct tracked_output **outs)
 		case WIRE_ONCHAIND_ANNOTATE_TXOUT:
 		case WIRE_ONCHAIND_ANNOTATE_TXIN:
 		case WIRE_ONCHAIND_NOTIFY_COIN_MVT:
+		case WIRE_ONCHAIND_NOTIFY_PENALTY_ADJ:
 		case WIRE_ONCHAIND_SPEND_TO_US:
 		case WIRE_ONCHAIND_SPEND_PENALTY:
 		case WIRE_ONCHAIND_SPEND_HTLC_SUCCESS:

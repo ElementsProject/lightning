@@ -36,7 +36,9 @@ enum mvt_tag {
 	MVT_STEALABLE = 21,
 	MVT_CHANNEL_PROPOSED = 22,
 	MVT_SPLICE = 23,
-#define NUM_MVT_TAGS (MVT_SPLICE + 1)
+	MVT_PENALTY_ADJ = 24,
+	MVT_JOURNAL = 25,
+#define NUM_MVT_TAGS (MVT_JOURNAL + 1)
 };
 
 struct mvt_tags {

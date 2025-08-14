@@ -33,6 +33,8 @@ static const char *mvt_tags[] = {
 	"stealable",
 	"channel_proposed",
 	"splice",
+	"penalty_adj",
+	"journal",
 };
 
 #define PRIMARY_TAG_BITS ((1ULL << MVT_DEPOSIT) |	\
@@ -54,6 +56,8 @@ static const char *mvt_tags[] = {
 			  (1ULL << MVT_STOLEN) |	\
 			  (1ULL << MVT_TO_MINER) |	\
 			  (1ULL << MVT_LEASE_FEE) |	\
+			  (1ULL << MVT_PENALTY_ADJ) |	\
+			  (1ULL << MVT_JOURNAL) |	\
 			  (1ULL << MVT_CHANNEL_PROPOSED))
 
 const char *mvt_tag_str(enum mvt_tag tag)

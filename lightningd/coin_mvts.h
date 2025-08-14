@@ -32,6 +32,10 @@ struct channel_coin_mvt *new_channel_mvt_invoice_hout(const tal_t *ctx,
 struct channel_coin_mvt *new_channel_mvt_routed_hout(const tal_t *ctx,
 						     const struct htlc_out *hout,
 						     const struct channel *channel);
+struct channel_coin_mvt *new_channel_mvt_penalty_adj(const tal_t *ctx,
+						     const struct channel *channel,
+						     struct amount_msat amount,
+						     enum coin_mvt_dir direction);
 
 void send_account_balance_snapshot(struct lightningd *ld);
 

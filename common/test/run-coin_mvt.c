@@ -177,6 +177,10 @@ static bool mvt_tag_is_primary(enum mvt_tag tag)
 		return true;
 	case MVT_SPLICE:
 		return false;
+	case MVT_PENALTY_ADJ:
+		return true;
+	case MVT_JOURNAL:
+		return true;
 	}
 	abort();
 }
