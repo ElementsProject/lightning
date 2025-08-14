@@ -44,6 +44,7 @@ msgdata,openingd_got_offer,max_accepted_htlcs,u16,
 msgdata,openingd_got_offer,channel_flags,u8,
 msgdata,openingd_got_offer,shutdown_len,u16,
 msgdata,openingd_got_offer,shutdown_scriptpubkey,u8,shutdown_len
+msgdata,openingd_got_offer,ctype,channel_type,
 
 # master->openingd: optional rejection message
 msgtype,openingd_got_offer_reply,6105

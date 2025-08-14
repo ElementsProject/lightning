@@ -651,6 +651,7 @@ struct openchannel_hook_payload {
 	u8 channel_flags;
 	u8 *shutdown_scriptpubkey;
 	const u8 *our_upfront_shutdown_script;
+	struct channel_type *channel_type;
 	char *errmsg;
 };
 
@@ -679,6 +680,7 @@ static void openchannel_hook_serialize(struct openchannel_hook_payload *payload,
 	if (tal_count(payload->shutdown_scriptpubkey) != 0)
 		json_add_hex_talarr(stream, "shutdown_scriptpubkey",
 				    payload->shutdown_scriptpubkey);
+	json_add_channel_type(stream, "channel_type", payload->channel_type);
 	json_object_end(stream); /* .openchannel */
 }
 
@@ -858,7 +860,8 @@ static void opening_got_offer(struct subd *openingd,
 					&payload->to_self_delay,
 					&payload->max_accepted_htlcs,
 					&payload->channel_flags,
-					&payload->shutdown_scriptpubkey)) {
+					&payload->shutdown_scriptpubkey,
+					&payload->channel_type)) {
 		log_broken(openingd->log, "Malformed opening_got_offer %s",
 			   tal_hex(tmpctx, msg));
 		tal_free(openingd);

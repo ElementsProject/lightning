@@ -274,6 +274,7 @@ struct openchannel2_payload {
 	u32 lease_blockheight_start;
 	u32 node_blockheight;
 	bool req_confirmed_ins_remote;
+	struct channel_type *channel_type;
 
 	struct amount_sat accepter_funding;
 	struct wally_psbt *psbt;
@@ -325,6 +326,7 @@ static void openchannel2_hook_serialize(struct openchannel2_payload *payload,
 	}
 	json_add_bool(stream, "require_confirmed_inputs",
 		      payload->req_confirmed_ins_remote);
+	json_add_channel_type(stream, "channel_type", payload->channel_type);
 	json_object_end(stream);
 }
 
@@ -2098,7 +2100,8 @@ static void accepter_got_offer(struct subd *dualopend,
 					  &payload->shutdown_scriptpubkey,
 					  &payload->requested_lease_amt,
 					  &payload->lease_blockheight_start,
-					  &payload->req_confirmed_ins_remote)) {
+					  &payload->req_confirmed_ins_remote,
+					  &payload->channel_type)) {
 		channel_internal_error(channel, "Bad DUALOPEND_GOT_OFFER: %s",
 				       tal_hex(tmpctx, msg));
 		return;
