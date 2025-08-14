@@ -23,9 +23,6 @@ struct onchain_fee {
 	struct amount_msat credit;
 	struct amount_msat debit;
 
-	/* What token are fees? */
-	char *currency;
-
 	/* Timestamp of the event that created this fee update */
 	u64 timestamp;
 

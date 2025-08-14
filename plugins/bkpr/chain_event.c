@@ -13,7 +13,7 @@ void json_add_chain_event(struct json_stream *out, struct chain_event *ev)
 	json_add_string(out, "tag", ev->tag);
 	json_add_amount_msat(out, "credit_msat", ev->credit);
 	json_add_amount_msat(out, "debit_msat", ev->debit);
-	json_add_string(out, "currency", ev->currency);
+	json_add_string(out, "currency", chainparams->lightning_hrp);
 	json_add_outpoint(out, "outpoint", &ev->outpoint);
 
 	if (ev->spending_txid)

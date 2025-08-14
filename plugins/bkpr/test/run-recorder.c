@@ -212,7 +212,6 @@ struct channel_event *new_channel_event(const tal_t *ctx UNNEEDED,
 					struct amount_msat credit UNNEEDED,
 					struct amount_msat debit UNNEEDED,
 					struct amount_msat fees UNNEEDED,
-					const char *currency UNNEEDED,
 					struct sha256 *payment_id STEALS UNNEEDED,
 					u32 part_id UNNEEDED,
 					u64 timestamp UNNEEDED)
@@ -311,7 +310,6 @@ static bool channel_events_eq(struct channel_event *e1, struct channel_event *e2
 	CHECK((e1->rebalance_id != NULL) == (e2->rebalance_id != NULL));
 	if (e1->rebalance_id)
 		CHECK(*e1->rebalance_id == *e2->rebalance_id);
-	CHECK(streq(e1->currency, e2->currency));
 	CHECK((e1->payment_id != NULL) == (e2->payment_id != NULL));
 	if (e1->payment_id)
 		CHECK(sha256_eq(e1->payment_id, e2->payment_id));
@@ -336,7 +334,6 @@ static bool chain_events_eq(struct chain_event *e1, struct chain_event *e2)
 	CHECK(amount_msat_eq(e1->credit, e2->credit));
 	CHECK(amount_msat_eq(e1->debit, e2->debit));
 	CHECK(amount_msat_eq(e1->output_value, e2->output_value));
-	CHECK(streq(e1->currency, e2->currency));
 	CHECK(e1->timestamp == e2->timestamp);
 	CHECK(e1->blockheight == e2->blockheight);
 	CHECK(e1->stealable == e2->stealable);
@@ -372,7 +369,6 @@ static struct channel_event *make_channel_event(const tal_t *ctx,
 	ev->credit = credit;
 	ev->debit = debit;
 	ev->fees = AMOUNT_MSAT(104);
-	ev->currency = "btc";
 	ev->timestamp = 1919191;
 	ev->part_id = 19;
 	ev->tag = tag;
@@ -402,7 +398,6 @@ static struct chain_event *make_chain_event(const tal_t *ctx,
 	ev->credit = credit;
 	ev->debit = debit;
 	ev->output_value = output_val;
-	ev->currency = "btc";
 	ev->timestamp = 1919191;
 	ev->blockheight = blockheight;
 	ev->stealable = false;
@@ -728,7 +723,6 @@ static bool test_onchain_fee_chan_close(const tal_t *ctx, struct plugin *p)
 	CHECK(tal_count(ofs) == 4);
 	for (size_t i = 0; i < tal_count(ofs); i++) {
 		CHECK(ofs[i]->acct_db_id == acct->db_id);
-		CHECK(streq(ofs[i]->currency, "btc"));
 
 		memset(&txid, '1', sizeof(struct bitcoin_txid));
 		if (bitcoin_txid_eq(&txid, &ofs[i]->txid)) {
@@ -879,7 +873,6 @@ static bool test_onchain_fee_chan_open(const tal_t *ctx, struct plugin *p)
 				     amount_msat(exp_results[i].debit)));
 		CHECK(ofs[i]->update_count == exp_results[i].update_count);
 
-		CHECK(streq(ofs[i]->currency, "btc"));
 		CHECK(bitcoin_txid_eq(&ofs[i]->txid, &txid));
 	}
 
@@ -991,7 +984,6 @@ static bool test_channel_event_crud(const tal_t *ctx, struct plugin *p)
 	ev1->credit = AMOUNT_MSAT(100);
 	ev1->debit = AMOUNT_MSAT(102);
 	ev1->fees = AMOUNT_MSAT(104);
-	ev1->currency = "btc";
 	ev1->timestamp = 11111;
 	ev1->part_id = 19;
 	ev1->desc = tal_strdup(ev1, "hello desc1");
@@ -1007,7 +999,6 @@ static bool test_channel_event_crud(const tal_t *ctx, struct plugin *p)
 	ev2->credit = AMOUNT_MSAT(200);
 	ev2->debit = AMOUNT_MSAT(202);
 	ev2->fees = AMOUNT_MSAT(204);
-	ev2->currency = "brct";
 	ev2->timestamp = 22222;
 	ev2->part_id = 0;
 	ev2->tag = tal_fmt(ev2, "deposit");
@@ -1021,7 +1012,6 @@ static bool test_channel_event_crud(const tal_t *ctx, struct plugin *p)
 	ev3->credit = AMOUNT_MSAT(300);
 	ev3->debit = AMOUNT_MSAT(302);
 	ev3->fees = AMOUNT_MSAT(304);
-	ev3->currency = "brct";
 	ev3->timestamp = 33333;
 	ev3->part_id = 5;
 	ev3->tag = tal_fmt(ev3, "routed");
@@ -1080,7 +1070,6 @@ static bool test_chain_event_crud(const tal_t *ctx, struct plugin *p)
 	ev1->credit = AMOUNT_MSAT(100);
 	ev1->debit = AMOUNT_MSAT(102);
 	ev1->output_value = AMOUNT_MSAT(104);
-	ev1->currency = "btc";
 	ev1->timestamp = 1919191;
 	ev1->blockheight = 1919191;
 	ev1->stealable  = false;
@@ -1101,7 +1090,6 @@ static bool test_chain_event_crud(const tal_t *ctx, struct plugin *p)
 	ev2->credit = AMOUNT_MSAT(200);
 	ev2->debit = AMOUNT_MSAT(202);
 	ev2->output_value = AMOUNT_MSAT(104);
-	ev2->currency = "btc";
 	ev2->timestamp = 1919191;
 	ev2->blockheight = 1919191;
 	ev2->stealable = false;
@@ -1120,7 +1108,6 @@ static bool test_chain_event_crud(const tal_t *ctx, struct plugin *p)
 	ev3->credit = AMOUNT_MSAT(300);
 	ev3->debit = AMOUNT_MSAT(302);
 	ev3->output_value = AMOUNT_MSAT(304);
-	ev3->currency = "btc";
 	ev3->timestamp = 3939393;
 	ev3->blockheight = 3939393;
 	ev3->stealable = false;
@@ -1184,7 +1171,6 @@ static bool test_chain_event_crud(const tal_t *ctx, struct plugin *p)
 }
 
 struct acct_balance {
-	char *currency;
 	struct amount_msat credit;
 	struct amount_msat debit;
 	struct amount_msat balance;
@@ -1326,7 +1312,6 @@ static bool test_account_crud(const tal_t *ctx, struct plugin *p)
 	ev1->credit = AMOUNT_MSAT(100);
 	ev1->debit = AMOUNT_MSAT(102);
 	ev1->output_value = AMOUNT_MSAT(104);
-	ev1->currency = "btc";
 	ev1->timestamp = 1919191;
 	ev1->blockheight = 1919191;
 	ev1->stealable = false;

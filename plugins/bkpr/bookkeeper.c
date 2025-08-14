@@ -316,7 +316,8 @@ static struct command_result *json_inspect(struct command *cmd,
 						     ev->output_value);
 				json_add_amount_msat(res, "credit_msat",
 						     ev->credit);
-				json_add_string(res, "currency", ev->currency);
+				json_add_string(res, "currency",
+						chainparams->lightning_hrp);
 				if (ev->origin_acct)
 					json_add_string(res, "originating_account",
 							ev->origin_acct);
@@ -333,7 +334,7 @@ static struct command_result *json_inspect(struct command *cmd,
 							     "output_value_msat",
 							     ev->output_value);
 					json_add_string(res, "currency",
-							ev->currency);
+							chainparams->lightning_hrp);
 				}
 				json_add_string(res, "spend_tag", ev->tag);
 				json_add_txid(res, "spending_txid",
@@ -628,7 +629,6 @@ struct new_account_info {
 	struct account *acct;
 	struct amount_msat curr_bal;
 	u32 timestamp;
-	char *currency;
 };
 
 static void try_update_open_fees(struct command *cmd,
@@ -709,7 +709,6 @@ static bool new_missed_channel_account(struct command *cmd,
 				       const char *buf,
 				       const jsmntok_t *result,
 				       struct account *acct,
-				       const char *currency,
 				       u64 timestamp)
 {
 	struct chain_event *chain_ev;
@@ -762,7 +761,6 @@ static bool new_missed_channel_account(struct command *cmd,
 		ok = amount_msat_add(&chain_ev->output_value,
 				     amt, remote_amt);
 		assert(ok);
-		chain_ev->currency = tal_strdup(chain_ev, currency);
 		chain_ev->origin_acct = NULL;
 		/* 2s before the channel opened, minimum */
 		chain_ev->timestamp = timestamp - 2;
@@ -821,7 +819,6 @@ static bool new_missed_channel_account(struct command *cmd,
 						    push_credit,
 						    push_debit,
 						    AMOUNT_MSAT(0),
-						    currency,
 						    NULL, 0,
 						    timestamp - 1);
 			log_channel_event(db, acct, chan_ev);
@@ -905,7 +902,6 @@ static char *msat_find_diff(struct amount_msat balance,
 }
 
 static void log_journal_entry(struct account *acct,
-			      const char *currency,
 			      u64 timestamp,
 			      struct amount_msat credit_diff,
 			      struct amount_msat debit_diff)
@@ -923,7 +919,6 @@ static void log_journal_entry(struct account *acct,
 				    credit_diff,
 				    debit_diff,
 				    AMOUNT_MSAT(0),
-				    currency,
 				    NULL, 0,
 				    timestamp);
 	db_begin_transaction(db);
@@ -959,7 +954,6 @@ static struct command_result *listpeerchannels_multi_done(struct command *cmd,
 
 		if (!new_missed_channel_account(cmd, buf, result,
 					        info->acct,
-					        info->currency,
 					        info->timestamp)) {
 			plugin_log(cmd->plugin, LOG_BROKEN,
 				   "Unable to find account %s in listpeerchannels",
@@ -981,7 +975,6 @@ static struct command_result *listpeerchannels_multi_done(struct command *cmd,
 			plugin_err(cmd->plugin, "%s", err);
 
 		log_journal_entry(info->acct,
-				  info->currency,
 				  info->timestamp - 1,
 				  credit_diff, debit_diff);
 	}
@@ -1068,17 +1061,14 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 	json_for_each_arr(i, acct_tok, accounts_tok) {
 		struct account *acct;
 		struct amount_msat snap_balance, credit, debit, credit_diff, debit_diff;
-		char *acct_name, *currency;
+		char *acct_name;
 		bool existed;
 
 		err = json_scan(cmd, buf, acct_tok,
 				"{account_id:%"
-				",balance_msat:%"
-				",coin_type:%}",
+				",balance_msat:%}",
 				JSON_SCAN_TAL(tmpctx, json_strdup, &acct_name),
-				JSON_SCAN(json_to_msat, &snap_balance),
-				JSON_SCAN_TAL(tmpctx, json_strdup,
-					      &currency));
+				JSON_SCAN(json_to_msat, &snap_balance));
 		if (err)
 			plugin_err(cmd->plugin,
 				   "`balance_snapshot` payload did not"
@@ -1129,8 +1119,6 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 			info->acct = tal_steal(info, acct);
 			info->curr_bal = snap_balance;
 			info->timestamp = timestamp_now;
-			info->currency =
-				tal_strdup(info, currency);
 
 			tal_arr_expand(&new_accts, info);
 			continue;
@@ -1155,7 +1143,6 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 					       credit_diff,
 					       debit_diff,
 					       AMOUNT_MSAT(0),
-					       currency,
 					       NULL, 0,
 					       timestamp);
 
@@ -1372,7 +1359,6 @@ listpeerchannels_done(struct command *cmd,
 
 	if (new_missed_channel_account(cmd, buf, result,
 					info->acct,
-					info->ev->currency,
 					info->ev->timestamp)) {
 		db_begin_transaction(db);
 		account_get_credit_debit(cmd->plugin, db, info->acct->name,
@@ -1389,7 +1375,6 @@ listpeerchannels_done(struct command *cmd,
 			plugin_err(cmd->plugin, "%s", err);
 
 		log_journal_entry(info->acct,
-				  info->ev->currency,
 				  info->ev->timestamp - 1,
 				  credit_diff, debit_diff);
 	} else
@@ -1509,7 +1494,6 @@ parse_and_log_chain_move(struct command *cmd,
 
 	e->credit = credit;
 	e->debit = debit;
-	e->currency = tal_steal(e, coin_type);
 	e->timestamp = timestamp;
 	e->tag = mvt_tag_str(tags[0]);
 	e->desc = tal_steal(e, desc);
@@ -1671,7 +1655,6 @@ parse_and_log_channel_move(struct command *cmd,
 
 	e->credit = credit;
 	e->debit = debit;
-	e->currency = tal_steal(e, coin_type);
 	e->timestamp = timestamp;
 	e->tag = mvt_tag_str(tags[0]);
 	e->desc = tal_steal(e, desc);
@@ -1747,7 +1730,6 @@ static struct command_result *json_utxo_deposit(struct command *cmd, const char 
 			",transfer_from:%"
 			",outpoint:%"
 			",amount_msat:%"
-			",coin_type:%"
 			",timestamp:%"
 			",blockheight:%"
 			"}}}",
@@ -1755,7 +1737,6 @@ static struct command_result *json_utxo_deposit(struct command *cmd, const char 
 			JSON_SCAN_TAL(tmpctx, json_strdup, &ev->origin_acct),
 			JSON_SCAN(json_to_outpoint, &ev->outpoint),
 			JSON_SCAN(json_to_msat, &ev->credit),
-			JSON_SCAN_TAL(tmpctx, json_strdup, &ev->currency),
 			JSON_SCAN(json_to_u64, &ev->timestamp),
 			JSON_SCAN(json_to_u32, &ev->blockheight));
 
@@ -1824,7 +1805,6 @@ static struct command_result *json_utxo_spend(struct command *cmd, const char *b
 			",outpoint:%"
 			",spending_txid:%"
 			",amount_msat:%"
-			",coin_type:%"
 			",timestamp:%"
 			",blockheight:%"
 			"}}}",
@@ -1832,7 +1812,6 @@ static struct command_result *json_utxo_spend(struct command *cmd, const char *b
 			JSON_SCAN(json_to_outpoint, &ev->outpoint),
 			JSON_SCAN(json_to_txid, ev->spending_txid),
 			JSON_SCAN(json_to_msat, &ev->debit),
-			JSON_SCAN_TAL(tmpctx, json_strdup, &ev->currency),
 			JSON_SCAN(json_to_u64, &ev->timestamp),
 			JSON_SCAN(json_to_u32, &ev->blockheight));
 

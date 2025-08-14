@@ -184,14 +184,6 @@ struct chain_coin_mvt *new_coin_external_spend(const tal_t *ctx UNNEEDED,
 					       struct mvt_tags tags)
 
 { fprintf(stderr, "new_coin_external_spend called!\n"); abort(); }
-/* Generated stub for new_coin_wallet_deposit */
-struct chain_coin_mvt *new_coin_wallet_deposit(const tal_t *ctx UNNEEDED,
-					       const struct bitcoin_outpoint *outpoint UNNEEDED,
-					       u32 blockheight UNNEEDED,
-					       struct amount_sat amount UNNEEDED,
-					       struct mvt_tags tags)
-
-{ fprintf(stderr, "new_coin_wallet_deposit called!\n"); abort(); }
 /* Generated stub for new_onchain_htlc_deposit */
 struct chain_coin_mvt *new_onchain_htlc_deposit(const tal_t *ctx UNNEEDED,
 						const struct bitcoin_outpoint *outpoint UNNEEDED,

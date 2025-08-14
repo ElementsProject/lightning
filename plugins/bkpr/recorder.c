@@ -36,7 +36,6 @@ static struct chain_event *stmt2chain_event(const tal_t *ctx, struct db_stmt *st
 	e->debit = db_col_amount_msat(stmt, "e.debit");
 	e->output_value = db_col_amount_msat(stmt, "e.output_value");
 
-	e->currency = db_col_strdup(e, stmt, "e.currency");
 	e->timestamp = db_col_u64(stmt, "e.timestamp");
 	e->blockheight = db_col_int(stmt, "e.blockheight");
 
@@ -101,7 +100,6 @@ static struct channel_event *stmt2channel_event(const tal_t *ctx, struct db_stmt
 	e->debit = db_col_amount_msat(stmt, "e.debit");
 	e->fees = db_col_amount_msat(stmt, "e.fees");
 
-	e->currency = db_col_strdup(e, stmt, "e.currency");
 	if (!db_col_is_null(stmt, "e.payment_id")) {
 		e->payment_id = tal(e, struct sha256);
 		db_col_sha256(stmt, "e.payment_id", e->payment_id);
@@ -174,7 +172,6 @@ struct chain_event **list_chain_events_timebox(const tal_t *ctx,
 				     ", e.credit"
 				     ", e.debit"
 				     ", e.output_value"
-				     ", e.currency"
 				     ", e.timestamp"
 				     ", e.blockheight"
 				     ", e.utxo_txid"
@@ -216,7 +213,6 @@ struct chain_event **account_get_chain_events(const tal_t *ctx,
 				     ", e.credit"
 				     ", e.debit"
 				     ", e.output_value"
-				     ", e.currency"
 				     ", e.timestamp"
 				     ", e.blockheight"
 				     ", e.utxo_txid"
@@ -251,7 +247,6 @@ static struct chain_event **find_txos_for_tx(const tal_t *ctx,
 				     ", e.credit"
 				     ", e.debit"
 				     ", e.output_value"
-				     ", e.currency"
 				     ", e.timestamp"
 				     ", e.blockheight"
 				     ", e.utxo_txid"
@@ -283,7 +278,6 @@ struct fee_sum **calculate_onchain_fee_sums(const tal_t *ctx, struct db *db)
 				     "  of.txid"
 				     ", of.account_id"
 				     ", a.name"
-				     ", of.currency"
 				     ", CAST(SUM(of.credit) AS BIGINT) as credit"
 				     ", CAST(SUM(of.debit) AS BIGINT) as debit"
 				     " FROM onchain_fees of"
@@ -292,7 +286,6 @@ struct fee_sum **calculate_onchain_fee_sums(const tal_t *ctx, struct db *db)
 				     " GROUP BY of.txid"
 				     ", of.account_id"
 				     ", a.name"
-				     ", of.currency"
 				     " ORDER BY txid, account_id"));
 
 	db_query_prepared(stmt);
@@ -309,7 +302,6 @@ struct fee_sum **calculate_onchain_fee_sums(const tal_t *ctx, struct db *db)
 		db_col_txid(stmt, "of.txid", sum->txid);
 		sum->acct_db_id = db_col_u64(stmt, "of.account_id");
 		sum->acct_name = db_col_strdup(sum, stmt, "a.name");
-		sum->currency = db_col_strdup(sum, stmt, "of.currency");
 		sum->fees_paid = db_col_amount_msat(stmt, "credit");
 		debit = db_col_amount_msat(stmt, "debit");
 
@@ -706,7 +698,6 @@ struct chain_event *find_chain_event_by_id(const tal_t *ctx,
 				     ", e.credit"
 				     ", e.debit"
 				     ", e.output_value"
-				     ", e.currency"
 				     ", e.timestamp"
 				     ", e.blockheight"
 				     ", e.utxo_txid"
@@ -749,7 +740,6 @@ struct chain_event **get_chain_events_by_outpoint(const tal_t *ctx,
 					     ", e.credit"
 					     ", e.debit"
 					     ", e.output_value"
-					     ", e.currency"
 					     ", e.timestamp"
 					     ", e.blockheight"
 					     ", e.utxo_txid"
@@ -776,7 +766,6 @@ struct chain_event **get_chain_events_by_outpoint(const tal_t *ctx,
 					     ", e.credit"
 					     ", e.debit"
 					     ", e.output_value"
-					     ", e.currency"
 					     ", e.timestamp"
 					     ", e.blockheight"
 					     ", e.utxo_txid"
@@ -812,7 +801,6 @@ struct chain_event **get_chain_events_by_id(const tal_t *ctx,
 				     ", e.credit"
 				     ", e.debit"
 				     ", e.output_value"
-				     ", e.currency"
 				     ", e.timestamp"
 				     ", e.blockheight"
 				     ", e.utxo_txid"
@@ -853,7 +841,6 @@ static struct chain_event *find_chain_event(const tal_t *ctx,
 					     ", e.credit"
 					     ", e.debit"
 					     ", e.output_value"
-					     ", e.currency"
 					     ", e.timestamp"
 					     ", e.blockheight"
 					     ", e.utxo_txid"
@@ -882,7 +869,6 @@ static struct chain_event *find_chain_event(const tal_t *ctx,
 					     ", e.credit"
 					     ", e.debit"
 					     ", e.output_value"
-					     ", e.currency"
 					     ", e.timestamp"
 					     ", e.blockheight"
 					     ", e.utxo_txid"
@@ -1003,7 +989,6 @@ struct channel_event **list_channel_events_timebox(const tal_t *ctx,
 				     ", e.credit"
 				     ", e.debit"
 				     ", e.fees"
-				     ", e.currency"
 				     ", e.payment_id"
 				     ", e.part_id"
 				     ", e.timestamp"
@@ -1050,7 +1035,6 @@ struct channel_event **account_get_channel_events(const tal_t *ctx,
 				     ", e.credit"
 				     ", e.debit"
 				     ", e.fees"
-				     ", e.currency"
 				     ", e.payment_id"
 				     ", e.part_id"
 				     ", e.timestamp"
@@ -1080,7 +1064,6 @@ struct channel_event **get_channel_events_by_id(const tal_t *ctx,
 				     ", e.credit"
 				     ", e.debit"
 				     ", e.fees"
-				     ", e.currency"
 				     ", e.payment_id"
 				     ", e.part_id"
 				     ", e.timestamp"
@@ -1106,7 +1089,6 @@ static struct onchain_fee *stmt2onchain_fee(const tal_t *ctx,
 	db_col_txid(stmt, "of.txid", &of->txid);
 	of->credit = db_col_amount_msat(stmt, "of.credit");
 	of->debit = db_col_amount_msat(stmt, "of.debit");
-	of->currency = db_col_strdup(of, stmt, "of.currency");
 	of->timestamp = db_col_u64(stmt, "of.timestamp");
 	of->update_count = db_col_int(stmt, "of.update_count");
 
@@ -1144,7 +1126,6 @@ struct onchain_fee **account_get_chain_fees(const tal_t *ctx, struct db *db,
 				     ", of.txid"
 				     ", of.credit"
 				     ", of.debit"
-				     ", of.currency"
 				     ", of.timestamp"
 				     ", of.update_count"
 				     " FROM onchain_fees of"
@@ -1171,7 +1152,6 @@ struct onchain_fee **get_chain_fees_by_txid(const tal_t *ctx, struct db *db,
 				     ", of.txid"
 				     ", of.credit"
 				     ", of.debit"
-				     ", of.currency"
 				     ", of.timestamp"
 				     ", of.update_count"
 				     " FROM onchain_fees of"
@@ -1198,7 +1178,6 @@ struct onchain_fee **list_chain_fees_timebox(const tal_t *ctx, struct db *db,
 				     ", of.txid"
 				     ", of.credit"
 				     ", of.debit"
-				     ", of.currency"
 				     ", of.timestamp"
 				     ", of.update_count"
 				     " FROM onchain_fees of"
@@ -1306,7 +1285,6 @@ struct onchain_fee **account_onchain_fees(const tal_t *ctx,
 				     ", of.txid"
 				     ", of.credit"
 				     ", of.debit"
-				     ", of.currency"
 				     ", of.timestamp"
 				     ", of.update_count"
 				     " FROM onchain_fees of"
@@ -1495,7 +1473,6 @@ void log_channel_event(struct db *db,
 				     ", credit"
 				     ", debit"
 				     ", fees"
-				     ", currency"
 				     ", payment_id"
 				     ", part_id"
 				     ", timestamp"
@@ -1503,14 +1480,13 @@ void log_channel_event(struct db *db,
 				     ", rebalance_id"
 				     ")"
 				     " VALUES"
-				     " (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+				     " (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 
 	db_bind_u64(stmt, acct->db_id);
 	db_bind_text(stmt, e->tag);
 	db_bind_amount_msat(stmt, e->credit);
 	db_bind_amount_msat(stmt, e->debit);
 	db_bind_amount_msat(stmt, e->fees);
-	db_bind_text(stmt, e->currency);
 	if (e->payment_id)
 		db_bind_sha256(stmt, e->payment_id);
 	else
@@ -1548,7 +1524,6 @@ struct chain_event **find_chain_events_bytxid(const tal_t *ctx, struct db *db,
 				     ", e.credit"
 				     ", e.debit"
 				     ", e.output_value"
-				     ", e.currency"
 				     ", e.timestamp"
 				     ", e.blockheight"
 				     ", e.utxo_txid"
@@ -1595,7 +1570,6 @@ static void insert_chain_fees_diff(struct db *db,
 				   u64 acct_id,
 				   struct bitcoin_txid *txid,
 				   struct amount_msat amount,
-				   const char *currency,
 				   u64 timestamp)
 {
 	struct db_stmt *stmt;
@@ -1653,17 +1627,15 @@ static void insert_chain_fees_diff(struct db *db,
 				     ", txid"
 				     ", credit"
 				     ", debit"
-				     ", currency"
 				     ", timestamp"
 				     ", update_count"
 				     ") VALUES"
-				     " (?, ?, ?, ?, ?, ?, ?);"));
+				     " (?, ?, ?, ?, ?, ?);"));
 
 	db_bind_u64(stmt, acct_id);
 	db_bind_txid(stmt, txid);
 	db_bind_amount_msat(stmt, credit);
 	db_bind_amount_msat(stmt, debit);
-	db_bind_text(stmt, currency);
 	db_bind_u64(stmt, timestamp);
 	db_bind_int(stmt, ++update_count);
 	db_exec_prepared_v2(take(stmt));
@@ -1731,7 +1703,6 @@ char *update_channel_onchain_fees(const tal_t *ctx,
 				       diff,
 				       AMOUNT_MSAT(0),
 				       AMOUNT_MSAT(0),
-				       close_ev->currency,
 				       NULL, 0,
 				       close_ev->timestamp);
 		log_channel_event(db, acct, ev);
@@ -1741,7 +1712,6 @@ char *update_channel_onchain_fees(const tal_t *ctx,
 				       AMOUNT_MSAT(0),
 				       diff,
 				       AMOUNT_MSAT(0),
-				       close_ev->currency,
 				       NULL, 0,
 				       close_ev->timestamp);
 		log_channel_event(db, acct, ev);
@@ -1755,7 +1725,7 @@ char *update_channel_onchain_fees(const tal_t *ctx,
 
 		insert_chain_fees_diff(db, acct->db_id,
 				       close_ev->spending_txid,
-				       fees, close_ev->currency,
+				       fees,
 				       close_ev->timestamp);
 	}
 
@@ -2037,7 +2007,6 @@ char *maybe_update_onchain_fees(const tal_t *ctx, struct db *db,
 			 * *was* the only game in town */
 			insert_chain_fees_diff(db, last_id, txid,
 					       AMOUNT_MSAT(0),
-					       events[i]->currency,
 					       events[i]->timestamp);
 			continue;
 		}
@@ -2056,9 +2025,7 @@ char *maybe_update_onchain_fees(const tal_t *ctx, struct db *db,
 		} else
 			fees = fee_part_msat;
 
-		/* FIXME: fee_currency property of acct? */
 		insert_chain_fees_diff(db, last_id, txid, fees,
-				       events[i]->currency,
 				       events[i]->timestamp);
 
 	}
@@ -2127,7 +2094,6 @@ bool log_chain_event(struct db *db,
 				     ", credit"
 				     ", debit"
 				     ", output_value"
-				     ", currency"
 				     ", timestamp"
 				     ", blockheight"
 				     ", utxo_txid"
@@ -2139,7 +2105,7 @@ bool log_chain_event(struct db *db,
 				     ", spliced"
 				     ")"
 				     " VALUES "
-				     "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+				     "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 
 	db_bind_u64(stmt, acct->db_id);
 	if (e->origin_acct)
@@ -2150,7 +2116,6 @@ bool log_chain_event(struct db *db,
 	db_bind_amount_msat(stmt, e->credit);
 	db_bind_amount_msat(stmt, e->debit);
 	db_bind_amount_msat(stmt, e->output_value);
-	db_bind_text(stmt, e->currency);
 	db_bind_u64(stmt, e->timestamp);
 	db_bind_int(stmt, e->blockheight);
 	db_bind_txid(stmt, &e->outpoint.txid);

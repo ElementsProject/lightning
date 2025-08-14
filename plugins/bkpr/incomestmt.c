@@ -1,4 +1,5 @@
 #include "config.h"
+#include <bitcoin/chainparams.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/str/str.h>
 #include <common/coin_mvt.h>
@@ -43,7 +44,6 @@ static struct income_event *chain_to_income(const tal_t *ctx,
 	inc->credit = credit;
 	inc->debit = debit;
 	inc->fees = AMOUNT_MSAT(0);
-	inc->currency = tal_strdup(inc, ev->currency);
 	inc->timestamp = ev->timestamp;
 	inc->outpoint = tal_dup(inc, struct bitcoin_outpoint, &ev->outpoint);
 	inc->desc = tal_strdup_or_null(inc, ev->desc);
@@ -65,7 +65,6 @@ static struct income_event *channel_to_income(const tal_t *ctx,
 	inc->credit = credit;
 	inc->debit = debit;
 	inc->fees = ev->fees;
-	inc->currency = tal_strdup(inc, ev->currency);
 	inc->timestamp = ev->timestamp;
 	inc->outpoint = NULL;
 	inc->txid = NULL;
@@ -86,7 +85,6 @@ static struct income_event *onchainfee_to_income(const tal_t *ctx,
 	inc->credit = fee->debit;
 	inc->debit = fee->credit;
 	inc->fees = AMOUNT_MSAT(0);
-	inc->currency = tal_strdup(inc, fee->currency);
 	inc->timestamp = fee->timestamp;
 	inc->txid = tal_dup(inc, struct bitcoin_txid, &fee->txid);
 	inc->outpoint = NULL;
@@ -296,7 +294,6 @@ static struct onchain_fee **find_consolidated_fees(const tal_t *ctx,
 		fee = tal(fee_sums, struct onchain_fee);
 		fee->credit = sums[i]->fees_paid;
 		fee->debit = AMOUNT_MSAT(0);
-		fee->currency = tal_steal(fee, sums[i]->currency);
 		fee->acct_name = tal_steal(fee, sums[i]->acct_name);
 		fee->txid = *sums[i]->txid;
 
@@ -429,7 +426,7 @@ void json_add_income_event(struct json_stream *out, struct income_event *ev)
 	json_add_string(out, "tag", ev->tag);
 	json_add_amount_msat(out, "credit_msat", ev->credit);
 	json_add_amount_msat(out, "debit_msat", ev->debit);
-	json_add_string(out, "currency", ev->currency);
+	json_add_string(out, "currency", chainparams->lightning_hrp);
 	json_add_u64(out, "timestamp", ev->timestamp);
 
 	if (ev->desc)
@@ -452,16 +449,6 @@ const char *csv_filename(const tal_t *ctx, const struct csv_fmt *fmt)
 	return tal_fmt(ctx, "cln_incomestmt_%s_%lu.csv",
 		       fmt->fmt_name,
 		       (unsigned long)time_now().ts.tv_sec);
-}
-
-static char *convert_asset_type(struct income_event *ev)
-{
-	/* We use the bech32 human readable part which is "bc"
-	 * for mainnet -> map to 'BTC' for cointracker */
-	if (streq(ev->currency, "bc"))
-		return "btc";
-
-	return ev->currency;
 }
 
 static void cointrack_header(FILE *csvf)
@@ -494,6 +481,15 @@ static char *income_event_cointrack_type(const struct income_event *ev)
 	return "";
 }
 
+/* We use the bech32 human readable part which is "bc"
+ * for mainnet -> map to 'BTC' for cointracker */
+static const char *asset_type_name(void)
+{
+	if (streq(chainparams->lightning_hrp, "bc"))
+		return "btc";
+	return chainparams->lightning_hrp;
+}
+
 static void cointrack_entry(const tal_t *ctx, FILE *csvf, struct income_event *ev)
 {
 	/* Date mm/dd/yyyy HH:MM:SS UTC */
@@ -515,7 +511,7 @@ static void cointrack_entry(const tal_t *ctx, FILE *csvf, struct income_event *e
 	if (!amount_msat_is_zero(ev->credit)) {
 		fprintf(csvf, "%s", fmt_amount_msat_btc(ctx, ev->credit, false));
 		fprintf(csvf, ",");
-		fprintf(csvf, "%s", convert_asset_type(ev));
+		fprintf(csvf, "%s", asset_type_name());
 	} else
 		fprintf(csvf, ",");
 
@@ -525,7 +521,7 @@ static void cointrack_entry(const tal_t *ctx, FILE *csvf, struct income_event *e
 	if (!amount_msat_is_zero(ev->debit)) {
 		fprintf(csvf, "%s", fmt_amount_msat_btc(ctx, ev->debit, false));
 		fprintf(csvf, ",");
-		fprintf(csvf, "%s", convert_asset_type(ev));
+		fprintf(csvf, "%s", asset_type_name());
 	} else
 		fprintf(csvf, ",");
 
@@ -536,7 +532,7 @@ static void cointrack_entry(const tal_t *ctx, FILE *csvf, struct income_event *e
 	    && streq(ev->tag, mvt_tag_str(MVT_INVOICE))) {
 		fprintf(csvf, "%s", fmt_amount_msat_btc(ctx, ev->fees, false));
 		fprintf(csvf, ",");
-		fprintf(csvf, "%s", convert_asset_type(ev));
+		fprintf(csvf, "%s", asset_type_name());
 	} else
 		fprintf(csvf, ",");
 
@@ -587,7 +583,7 @@ static void koinly_entry(const tal_t *ctx, FILE *csvf, struct income_event *ev)
 	if (!amount_msat_is_zero(ev->debit)) {
 		fprintf(csvf, "%s", fmt_amount_msat_btc(ctx, ev->debit, false));
 		fprintf(csvf, ",");
-		fprintf(csvf, "%s", convert_asset_type(ev));
+		fprintf(csvf, "%s", asset_type_name());
 	} else
 		fprintf(csvf, ",");
 
@@ -597,7 +593,7 @@ static void koinly_entry(const tal_t *ctx, FILE *csvf, struct income_event *ev)
 	if (!amount_msat_is_zero(ev->credit)) {
 		fprintf(csvf, "%s", fmt_amount_msat_btc(ctx, ev->credit, false));
 		fprintf(csvf, ",");
-		fprintf(csvf, "%s", convert_asset_type(ev));
+		fprintf(csvf, "%s", asset_type_name());
 	} else
 		fprintf(csvf, ",");
 
@@ -609,7 +605,7 @@ static void koinly_entry(const tal_t *ctx, FILE *csvf, struct income_event *ev)
 	    && streq(ev->tag, mvt_tag_str(MVT_INVOICE))) {
 		fprintf(csvf, "%s", fmt_amount_msat_btc(ctx, ev->fees, false));
 		fprintf(csvf, ",");
-		fprintf(csvf, "%s", convert_asset_type(ev));
+		fprintf(csvf, "%s", asset_type_name());
 	} else
 		fprintf(csvf, ",");
 
@@ -728,7 +724,7 @@ static void harmony_entry(const tal_t *ctx, FILE *csvf, struct income_event *ev)
 	fprintf(csvf, ",");
 
 	/* ",Asset"  */
-	fprintf(csvf, "%s", convert_asset_type(ev));
+	fprintf(csvf, "%s", asset_type_name());
 	fprintf(csvf, ",");
 
 	/* ",Transaction ID" */
@@ -794,7 +790,7 @@ static void quickbooks_entry(const tal_t *ctx, FILE *csvf, struct income_event *
 
 	/* Description */
 	fprintf(csvf, "%s (%s) %s: %s",
-		ev->tag, ev->acct_name, ev->currency,
+		ev->tag, ev->acct_name, asset_type_name(),
 		ev->desc ? csv_safe_str(ev, ev->desc) : "no desc");
 	fprintf(csvf, ",");
 
