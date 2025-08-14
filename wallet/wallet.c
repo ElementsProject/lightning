@@ -1779,7 +1779,7 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 	struct channel_info channel_info;
 	struct fee_states *fee_states;
 	struct height_states *height_states;
-	struct short_channel_id *scid, *alias[NUM_SIDES];
+	struct short_channel_id *scid, *alias[NUM_SIDES], *old_scids;
 	struct channel_id cid;
 	struct channel *chan;
 	u64 peer_dbid;
@@ -1818,6 +1818,7 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 	}
 
 	scid = db_col_optional_scid(tmpctx, stmt, "scid");
+	old_scids = db_col_short_channel_id_arr(tmpctx, stmt, "old_scids");
 	alias[LOCAL] = db_col_optional_scid(tmpctx, stmt, "alias_local");
 	alias[REMOTE] = db_col_optional_scid(tmpctx, stmt, "alias_remote");
 
@@ -2032,6 +2033,7 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 			   our_funding_sat,
 			   db_col_int(stmt, "funding_locked_remote") != 0,
 			   scid,
+			   old_scids,
 			   alias[LOCAL],
 			   alias[REMOTE],
 			   &cid,
@@ -2246,6 +2248,7 @@ static bool wallet_channels_load_active(struct wallet *w)
 					"  id"
 					", peer_id"
 					", scid"
+					", old_scids"
 					", full_channel_id"
 					", channel_config_local"
 					", channel_config_remote"
@@ -2526,6 +2529,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	stmt = db_prepare_v2(w->db, SQL("UPDATE channels SET"
 					"  shachain_remote_id=?,"
 					"  scid=?,"
+					"  old_scids=?,"
 					"  full_channel_id=?,"
 					"  state=?,"
 					"  funder=?,"
@@ -2585,6 +2589,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	else
 		db_bind_null(stmt);
 
+	db_bind_short_channel_id_arr(stmt, chan->old_scids);
 	db_bind_channel_id(stmt, &chan->cid);
 	db_bind_int(stmt, channel_state_in_db(chan->state));
 	db_bind_int(stmt, chan->opener);
