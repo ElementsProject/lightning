@@ -185,10 +185,14 @@ int main(int argc, char *argv[])
 {
 	common_setup(argv[0]);
 	for (size_t i = 0; i < NUM_MVT_TAGS; i++) {
-		if (mvt_tag_is_primary(i))
+		if (mvt_tag_is_primary(i)) {
+			struct mvt_tags tags;
 			assert((1ULL << i) & PRIMARY_TAG_BITS);
-		else
+			tags.bits = (1ULL << i);
+			assert(primary_mvt_tag(tags) == i);
+		} else {
 			assert(((1ULL << i) & PRIMARY_TAG_BITS) == 0);
+		}
 	}
 	common_shutdown();
 }
