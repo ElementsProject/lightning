@@ -40,11 +40,6 @@ struct rebalance {
 	struct amount_msat fee_msat;
 };
 
-/* Get all onchain fee records for this account */
-struct onchain_fee **account_onchain_fees(const tal_t *ctx,
-					  struct db *db,
-					  struct account *acct);
-
 /* Get all channel events for this account */
 struct channel_event **account_get_channel_events(const tal_t *ctx,
 						  struct db *db,
@@ -114,14 +109,6 @@ bool account_get_credit_debit(struct plugin *plugin,
 			      struct amount_msat *debit);
 
 
-/* Get chain fees for account */
-struct onchain_fee **account_get_chain_fees(const tal_t *ctx, struct db *db,
-					    struct account *acct);
-
-/* Get all chain fees for a transaction id, order by timestamp */
-struct onchain_fee **get_chain_fees_by_txid(const tal_t *ctx, struct db *db,
-					    struct bitcoin_txid *txid);
-
 /* Find a chain event by its database id */
 struct chain_event *find_chain_event_by_id(const tal_t *ctx,
 					   struct db *db,
@@ -137,48 +124,11 @@ bool find_txo_chain(const tal_t *ctx,
 		    const struct account *acct,
 		    struct txo_set ***sets);
 
-/* List all chain fees, for all accounts */
-struct onchain_fee **list_chain_fees(const tal_t *ctx, struct db *db);
-
-/* Get all chain fees, order by timestamp.
- *
- * @ctx - context to allocate from
- * @db  - database to query
- * @start_time - UNIX timestamp to query after (exclusive)
- * @end_time   - UNIX timestamp to query until (inclusive)
- */
-struct onchain_fee **list_chain_fees_timebox(const tal_t *ctx, struct db *db,
-					     u64 start_time, u64 end_time);
-
-/* Returns a list of sums of the fees we've recorded for every txid
- * for the given account */
-struct fee_sum **find_account_onchain_fees(const tal_t *ctx,
-					   struct db *db,
-					   struct account *acct);
-
-/* Final all the onchain fees */
-struct fee_sum **calculate_onchain_fee_sums(const tal_t *ctx, struct db *db);
-
-/* Find the last timestamp for the onchain fees for this txid + account */
-u64 onchain_fee_last_timestamp(struct db *db,
-			       const char *acct_name,
-			       struct bitcoin_txid *txid);
-
 /* Find the account that was closed by this txid.
  * Returns NULL if none  */
 const char *find_close_account_name(const tal_t *ctx,
 				    struct db *db,
 				    const struct bitcoin_txid *txid);
-
-/* Update our onchain fees now? */
-char *maybe_update_onchain_fees(const tal_t *ctx,
-				struct bkpr *bkpr,
-			        struct bitcoin_txid *txid);
-
-/* We calculate onchain fees for channel closes a bit different */
-char *update_channel_onchain_fees(const tal_t *ctx,
-				  struct db *db,
-				  struct account *acct);
 
 /* Have all the outputs for this account's close tx
  * been resolved onchain? If so, return the

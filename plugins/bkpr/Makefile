@@ -46,6 +46,7 @@ BOOKKEEPER_SQL_FILES := 			\
 	plugins/bkpr/db.c			\
 	plugins/bkpr/account.c			\
 	plugins/bkpr/incomestmt.c		\
+	plugins/bkpr/onchain_fee.c		\
 	plugins/bkpr/recorder.c
 
 plugins/bkpr/statements_gettextgen.po: $(BOOKKEEPER_SQL_FILES) $(FORCE)
