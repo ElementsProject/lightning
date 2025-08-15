@@ -69,17 +69,7 @@ static struct migration db_migrations[] = {
 		", PRIMARY KEY (id)"
 		");"),
 	NULL},
-	{SQL("CREATE TABLE onchain_fees ("
-		"account_name TEXT"
-		", txid BLOB"
-		", credit BIGINT"
-		", debit BIGINT"
-		", currency TEXT"
-		", timestamp BIGINT"
-		", update_count INT"
-		", PRIMARY KEY (account_name, txid, update_count)"
-		");"),
-	NULL},
+	{NULL, NULL}, /* onchain_fees table */
 	{SQL("ALTER TABLE chain_events ADD origin TEXT;"), NULL},
 	{NULL, NULL},
 	{SQL("ALTER TABLE chain_events ADD ignored INTEGER;"), NULL},
