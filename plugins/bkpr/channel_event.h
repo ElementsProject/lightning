@@ -45,7 +45,7 @@ struct channel_event *new_channel_event(const tal_t *ctx,
 					struct amount_msat credit,
 					struct amount_msat debit,
 					struct amount_msat fees,
-					struct sha256 *payment_id STEALS,
+					const struct sha256 *payment_id TAKES,
 					u32 part_id,
 					u64 timestamp);
 

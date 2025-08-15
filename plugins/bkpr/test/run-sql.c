@@ -132,7 +132,7 @@ struct channel_event *new_channel_event(const tal_t *ctx UNNEEDED,
 					struct amount_msat credit UNNEEDED,
 					struct amount_msat debit UNNEEDED,
 					struct amount_msat fees UNNEEDED,
-					struct sha256 *payment_id STEALS UNNEEDED,
+					const struct sha256 *payment_id TAKES UNNEEDED,
 					u32 part_id UNNEEDED,
 					u64 timestamp UNNEEDED)
 { fprintf(stderr, "new_channel_event called!\n"); abort(); }
