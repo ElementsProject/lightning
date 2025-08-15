@@ -7009,8 +7009,6 @@ void wallet_save_chain_mvt(struct lightningd *ld,
 
 		/* It's a duplicate.  Don't re-add. */
 		tal_free(stmt);
-		/* FIXME: This is currently required for bookkeeper tests, if bookkeeper is offline */
-		notify_chain_mvt(ld, chain_mvt, id);
 		goto out;
 	}
 	tal_free(stmt);
