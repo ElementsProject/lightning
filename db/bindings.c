@@ -140,6 +140,15 @@ void db_bind_txid(struct db_stmt *stmt, const struct bitcoin_txid *t)
 	db_bind_sha256d(stmt, &t->shad);
 }
 
+void db_bind_outpoint(struct db_stmt *stmt, const struct bitcoin_outpoint *o)
+{
+	u8 *ser = tal_arr(stmt, u8, sizeof(o->txid.shad.sha.u.u8) + sizeof(be32));
+	be32 be_vout = cpu_to_be32(o->n);
+	memcpy(ser, o->txid.shad.sha.u.u8, sizeof(o->txid.shad.sha.u.u8));
+	memcpy(ser + sizeof(o->txid.shad.sha.u.u8), &be_vout, sizeof(be32));
+	db_bind_blob(stmt, ser, tal_bytelen(ser));
+}
+
 void db_bind_channel_id(struct db_stmt *stmt, const struct channel_id *id)
 {
 	db_bind_blob(stmt, id->id, sizeof(id->id));
@@ -616,6 +625,18 @@ struct wireaddr *db_col_wireaddr(const tal_t *ctx,
 void db_col_txid(struct db_stmt *stmt, const char *colname, struct bitcoin_txid *t)
 {
 	db_col_sha256d(stmt, colname, &t->shad);
+}
+
+void db_col_outpoint(struct db_stmt *stmt, const char *colname, struct bitcoin_outpoint *o)
+{
+	be32 be_vout;
+	size_t col = db_query_colnum(stmt, colname);
+	const u8 *raw;
+	assert(db_column_bytes(stmt, col) == sizeof(o->txid.shad.sha.u.u8) + sizeof(be32));
+	raw = db_column_blob(stmt, col);
+	memcpy(o->txid.shad.sha.u.u8, raw, sizeof(o->txid.shad.sha.u.u8));
+	memcpy(&be_vout, raw + sizeof(o->txid.shad.sha.u.u8), sizeof(be_vout));
+	o->n = be32_to_cpu(be_vout);
 }
 
 struct onionreply *db_col_onionreply(const tal_t *ctx,

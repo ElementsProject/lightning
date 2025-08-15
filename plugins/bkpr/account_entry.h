@@ -14,5 +14,5 @@ enum account_entry_tag {
 const char *account_entry_tag_str(enum account_entry_tag tag);
 
 /* True if entry tag found, false otherwise */
-bool account_entry_tag_find(char *str, enum account_entry_tag *tag);
+bool account_entry_tag_find(const char *str, enum account_entry_tag *tag);
 #endif /* LIGHTNING_PLUGINS_BKPR_ACCOUNT_ENTRY_H */

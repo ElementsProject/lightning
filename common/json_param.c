@@ -883,6 +883,19 @@ struct command_result *param_txid(struct command *cmd,
 				     "should be a txid");
 }
 
+struct command_result *param_outpoint(struct command *cmd,
+				      const char *name,
+				      const char *buffer,
+				      const jsmntok_t *tok,
+				      struct bitcoin_outpoint **outp)
+{
+	*outp = tal(cmd, struct bitcoin_outpoint);
+	if (json_to_outpoint(buffer, tok, *outp))
+		return NULL;
+	return command_fail_badparam(cmd, name, buffer, tok,
+				     "should be a txid:outnum");
+}
+
 struct command_result *param_bitcoin_address(struct command *cmd,
 					     const char *name,
 					     const char *buffer,

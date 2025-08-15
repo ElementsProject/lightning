@@ -2849,6 +2849,8 @@ message WaitRequest {
 		FORWARDS = 1;
 		SENDPAYS = 2;
 		HTLCS = 3;
+		CHAINMOVES = 4;
+		CHANNELMOVES = 5;
 	}
 	// Wait.indexname
 	enum WaitIndexname {
@@ -2868,6 +2870,8 @@ message WaitResponse {
 		FORWARDS = 1;
 		SENDPAYS = 2;
 		HTLCS = 3;
+		CHAINMOVES = 4;
+		CHANNELMOVES = 5;
 	}
 	WaitSubsystem subsystem = 1;
 	optional uint64 created = 2;
@@ -2878,6 +2882,8 @@ message WaitResponse {
 	optional WaitInvoices invoices = 7;
 	optional WaitSendpays sendpays = 8;
 	optional WaitHtlcs htlcs = 9;
+	optional WaitChainmoves chainmoves = 10;
+	optional WaitChannelmoves channelmoves = 11;
 }
 
 message WaitForwards {
@@ -2958,6 +2964,18 @@ message WaitHtlcs {
 	optional Amount amount_msat = 5;
 	optional WaitHtlcsDirection direction = 6;
 	optional bytes payment_hash = 7;
+}
+
+message WaitChainmoves {
+	string account = 1;
+	Amount credit_msat = 2;
+	Amount debit_msat = 3;
+}
+
+message WaitChannelmoves {
+	string account = 1;
+	Amount credit_msat = 2;
+	Amount debit_msat = 3;
 }
 
 message WaitDetails {

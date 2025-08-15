@@ -6,6 +6,7 @@
 #include <ccan/short_types/short_types.h>
 
 struct amount_msat;
+struct bkpr;
 struct bitcoin_outpoint;
 struct bitcoin_txid;
 struct json_stream;
@@ -15,14 +16,11 @@ struct chain_event {
 	/* Id of this chain event in the database */
 	u64 db_id;
 
-	/* db_id of account this event belongs to */
-	u64 acct_db_id;
-
 	/* Name of the account this belongs to */
-	char *acct_name;
+	const char *acct_name;
 
 	/* Name of account this originated from */
-	char *origin_acct;
+	const char *origin_acct;
 
 	/* Tag describing the event */
 	const char *tag;
@@ -35,8 +33,8 @@ struct chain_event {
 	 * confirmation? */
 	bool splice_close;
 
-	/* Is this a rebalance event? */
-	bool rebalance;
+	/* Injected? */
+	bool foreign;
 
 	/* Amount we received in this event */
 	struct amount_msat credit;
@@ -61,12 +59,10 @@ struct chain_event {
 
 	/* Sometimes chain events resolve payments */
 	struct sha256 *payment_id;
-
-	/* Desc of event (maybe useful for printing notes) */
-	const char *desc;
 };
 
 void json_add_chain_event(struct json_stream *out,
+			  const struct bkpr *bkpr,
                           struct chain_event *ev);
 
 #endif /* LIGHTNING_PLUGINS_BKPR_CHAIN_EVENT_H */

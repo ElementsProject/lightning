@@ -312,6 +312,20 @@ void channel_add_old_scid(struct channel *channel,
 	chanmap_add(channel->peer->ld, channel, old_scid);
 }
 
+static void remove_from_dbid_map(struct channel *channel)
+{
+	if (!channel_dbid_map_del(channel->peer->ld->channels_by_dbid, channel))
+		abort();
+}
+
+void add_channel_to_dbid_map(struct lightningd *ld,
+			     struct channel *channel)
+{
+	assert(channel->dbid != 0);
+	channel_dbid_map_add(ld->channels_by_dbid, channel);
+	tal_add_destructor(channel, remove_from_dbid_map);
+}
+
 struct channel *new_unsaved_channel(struct peer *peer,
 				    u32 feerate_base,
 				    u32 feerate_ppm)
@@ -698,6 +712,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->rr_number = peer->ld->rr_counter++;
 	tal_add_destructor(channel, destroy_channel);
 
+	add_channel_to_dbid_map(peer->ld, channel);
 	list_head_init(&channel->inflights);
 
 	channel->closer = closer;
@@ -842,20 +857,7 @@ struct channel *any_channel_by_scid(struct lightningd *ld,
 
 struct channel *channel_by_dbid(struct lightningd *ld, const u64 dbid)
 {
-	struct peer *p;
-	struct channel *chan;
-	struct peer_node_id_map_iter it;
-
-	/* FIXME: Support lookup by id directly! */
-	for (p = peer_node_id_map_first(ld->peers, &it);
-	     p;
-	     p = peer_node_id_map_next(ld->peers, &it)) {
-		list_for_each(&p->channels, chan, list) {
-			if (chan->dbid == dbid)
-				return chan;
-		}
-	}
-	return NULL;
+	return channel_dbid_map_get(ld->channels_by_dbid, dbid);
 }
 
 struct channel *channel_by_cid(struct lightningd *ld,

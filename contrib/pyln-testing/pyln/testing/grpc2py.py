@@ -2097,6 +2097,22 @@ def waitblockheight2py(m):
     })
 
 
+def wait_chainmoves2py(m):
+    return remove_default({
+        "account": m.account,  # PrimitiveField in generate_composite
+        "credit_msat": amount2msat(m.credit_msat),  # PrimitiveField in generate_composite
+        "debit_msat": amount2msat(m.debit_msat),  # PrimitiveField in generate_composite
+    })
+
+
+def wait_channelmoves2py(m):
+    return remove_default({
+        "account": m.account,  # PrimitiveField in generate_composite
+        "credit_msat": amount2msat(m.credit_msat),  # PrimitiveField in generate_composite
+        "debit_msat": amount2msat(m.debit_msat),  # PrimitiveField in generate_composite
+    })
+
+
 def wait_details2py(m):
     return remove_default({
         "status": str(m.status),  # EnumField in generate_composite

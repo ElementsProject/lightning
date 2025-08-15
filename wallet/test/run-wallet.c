@@ -97,6 +97,20 @@ void broadcast_tx_(const tal_t *ctx UNNEEDED,
 		   bool (*refresh)(struct channel * UNNEEDED, const struct bitcoin_tx ** UNNEEDED, void *) UNNEEDED,
 		   void *cbarg TAKES UNNEEDED)
 { fprintf(stderr, "broadcast_tx_ called!\n"); abort(); }
+/* Generated stub for chain_mvt_index_created */
+u64 chain_mvt_index_created(struct lightningd *ld UNNEEDED,
+			    struct db *db UNNEEDED,
+			    const struct mvt_account_id *account UNNEEDED,
+			    struct amount_msat credit UNNEEDED,
+			    struct amount_msat debit UNNEEDED)
+{ fprintf(stderr, "chain_mvt_index_created called!\n"); abort(); }
+/* Generated stub for channel_mvt_index_created */
+u64 channel_mvt_index_created(struct lightningd *ld UNNEEDED,
+			      struct db *db UNNEEDED,
+			      const struct mvt_account_id *account UNNEEDED,
+			      struct amount_msat credit UNNEEDED,
+			      struct amount_msat debit UNNEEDED)
+{ fprintf(stderr, "channel_mvt_index_created called!\n"); abort(); }
 /* Generated stub for channel_unsaved_close_conn */
 void channel_unsaved_close_conn(struct channel *channel UNNEEDED, const char *why UNNEEDED)
 { fprintf(stderr, "channel_unsaved_close_conn called!\n"); abort(); }
@@ -652,9 +666,28 @@ void logv(struct logger *logger UNNEEDED, enum log_level level UNNEEDED, const s
 void memleak_scan_outpointfilter(struct htable *memtable UNNEEDED,
 				 const struct outpointfilter *opf UNNEEDED)
 { fprintf(stderr, "memleak_scan_outpointfilter called!\n"); abort(); }
+/* Generated stub for migrate_from_account_db */
+void migrate_from_account_db(struct lightningd *ld UNNEEDED, struct db *db UNNEEDED)
+{ fprintf(stderr, "migrate_from_account_db called!\n"); abort(); }
 /* Generated stub for mk_mvt_tags_ */
 struct mvt_tags mk_mvt_tags_(enum mvt_tag tag UNNEEDED, ...)
 { fprintf(stderr, "mk_mvt_tags_ called!\n"); abort(); }
+/* Generated stub for mvt_tags_valid */
+bool mvt_tags_valid(struct mvt_tags tags UNNEEDED)
+{ fprintf(stderr, "mvt_tags_valid called!\n"); abort(); }
+/* Generated stub for new_channel_coin_mvt_general */
+struct channel_coin_mvt *new_channel_coin_mvt_general(const tal_t *ctx UNNEEDED,
+						      const struct channel *channel UNNEEDED,
+						      const struct channel_id *cid UNNEEDED,
+						      u64 timestamp UNNEEDED,
+						      const struct sha256 *payment_hash TAKES UNNEEDED,
+						      const u64 *part_id UNNEEDED,
+						      const u64 *group_id UNNEEDED,
+						      enum coin_mvt_dir direction UNNEEDED,
+						      struct amount_msat amount UNNEEDED,
+						      struct mvt_tags tags UNNEEDED,
+						      struct amount_msat fees UNNEEDED)
+{ fprintf(stderr, "new_channel_coin_mvt_general called!\n"); abort(); }
 /* Generated stub for new_channel_mvt_invoice_hin */
 struct channel_coin_mvt *new_channel_mvt_invoice_hin(const tal_t *ctx UNNEEDED,
 						     const struct htlc_in *hin UNNEEDED,
@@ -675,6 +708,28 @@ struct channel_coin_mvt *new_channel_mvt_routed_hout(const tal_t *ctx UNNEEDED,
 						     const struct htlc_out *hout UNNEEDED,
 						     const struct channel *channel UNNEEDED)
 { fprintf(stderr, "new_channel_mvt_routed_hout called!\n"); abort(); }
+/* Generated stub for new_coin_channel_open_general */
+struct chain_coin_mvt *new_coin_channel_open_general(const tal_t *ctx UNNEEDED,
+						     const struct channel *channel UNNEEDED,
+						     const struct channel_id *cid UNNEEDED,
+						     u64 timestamp UNNEEDED,
+						     const struct bitcoin_outpoint *out UNNEEDED,
+						     const struct node_id *peer_id UNNEEDED,
+						     u32 blockheight UNNEEDED,
+						     const struct amount_msat amount UNNEEDED,
+						     const struct amount_sat output_val UNNEEDED,
+						     bool is_opener UNNEEDED,
+						     bool is_leased UNNEEDED)
+{ fprintf(stderr, "new_coin_channel_open_general called!\n"); abort(); }
+/* Generated stub for new_coin_channel_push_general */
+struct channel_coin_mvt *new_coin_channel_push_general(const tal_t *ctx UNNEEDED,
+						       const struct channel *channel UNNEEDED,
+						       const struct channel_id *cid UNNEEDED,
+						       u64 timestamp UNNEEDED,
+						       enum coin_mvt_dir direction UNNEEDED,
+						       struct amount_msat amount UNNEEDED,
+						       struct mvt_tags tags UNNEEDED)
+{ fprintf(stderr, "new_coin_channel_push_general called!\n"); abort(); }
 /* Generated stub for new_coin_wallet_deposit */
 struct chain_coin_mvt *new_coin_wallet_deposit(const tal_t *ctx UNNEEDED,
 					       const struct bitcoin_outpoint *outpoint UNNEEDED,
@@ -702,11 +757,13 @@ bool node_announcement_same(const u8 *nann1 UNNEEDED, const u8 *nann2 UNNEEDED)
 { fprintf(stderr, "node_announcement_same called!\n"); abort(); }
 /* Generated stub for notify_chain_mvt */
 void notify_chain_mvt(struct lightningd *ld UNNEEDED,
-		      const struct chain_coin_mvt *chain_mvt UNNEEDED)
+		      const struct chain_coin_mvt *chain_mvt UNNEEDED,
+		      u64 id UNNEEDED)
 { fprintf(stderr, "notify_chain_mvt called!\n"); abort(); }
 /* Generated stub for notify_channel_mvt */
 void notify_channel_mvt(struct lightningd *ld UNNEEDED,
-			const struct channel_coin_mvt *chan_mvt UNNEEDED)
+			const struct channel_coin_mvt *chan_mvt UNNEEDED,
+			u64 id UNNEEDED)
 { fprintf(stderr, "notify_channel_mvt called!\n"); abort(); }
 /* Generated stub for notify_channel_open_failed */
 void notify_channel_open_failed(struct lightningd *ld UNNEEDED,
@@ -958,6 +1015,9 @@ bool plugin_hook_call_(struct lightningd *ld UNNEEDED,
 		       const char *cmd_id TAKES UNNEEDED,
 		       tal_t *cb_arg STEALS UNNEEDED)
 { fprintf(stderr, "plugin_hook_call_ called!\n"); abort(); }
+/* Generated stub for primary_mvt_tag */
+enum mvt_tag primary_mvt_tag(struct mvt_tags tags UNNEEDED)
+{ fprintf(stderr, "primary_mvt_tag called!\n"); abort(); }
 /* Generated stub for process_onionpacket */
 struct route_step *process_onionpacket(
 	const tal_t * ctx UNNEEDED,
@@ -1342,7 +1402,7 @@ static struct wallet *create_test_wallet(struct lightningd *ld, const tal_t *ctx
 	close(fd);
 
 	dsn = tal_fmt(NULL, "sqlite3://%s", filename);
-	w->db = db_open(w, dsn, true, test_error, ld);
+	w->db = db_open(w, dsn, true, true, test_error, ld);
 	w->db->report_changes_fn = NULL;
 	tal_free(dsn);
 	tal_add_destructor2(w, cleanup_test_wallet, filename);

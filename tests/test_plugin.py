@@ -1635,6 +1635,7 @@ def test_libplugin(node_factory):
 
     # Test commands
     assert l1.rpc.call("helloworld") == {"hello": "NOT FOUND"}
+    l1.daemon.wait_for_log(r'listpeers gave 3 tokens: {"peers":\[\]}')
     l1.daemon.wait_for_log("get_ds_bin_done: 00010203")
     l1.daemon.wait_for_log("BROKEN.* Datastore gave nonstring result.*00010203")
     assert l1.rpc.call("helloworld", {"name": "test"}) == {"hello": "test"}
@@ -3756,6 +3757,65 @@ def test_sql(node_factory, bitcoind):
                          'type': 'msat'},
                         {'name': 'scriptPubKey',
                          'type': 'hex'}]},
+        'chainmoves': {
+            'indices': [['account_id']],
+            'columns': [{'name': 'created_index',
+                         'type': 'u64'},
+                        {'name': 'account_id',
+                         'type': 'string'},
+                        {'name': 'credit_msat',
+                         'type': 'msat'},
+                        {'name': 'debit_msat',
+                         'type': 'msat'},
+                        {'name': 'timestamp',
+                         'type': 'u64'},
+                        {'name': 'primary_tag',
+                         'type': 'string'},
+                        {'name': 'peer_id',
+                         'type': 'pubkey'},
+                        {'name': 'originating_account',
+                         'type': 'string'},
+                        {'name': 'spending_txid',
+                         'type': 'txid'},
+                        {'name': 'utxo',
+                         'type': 'outpoint'},
+                        {'name': 'payment_hash',
+                         'type': 'hash'},
+                        {'name': 'output_msat',
+                         'type': 'msat'},
+                        {'name': 'output_count',
+                         'type': 'u32'},
+                        {'name': 'blockheight',
+                         'type': 'u32'}]},
+        'chainmoves_extra_tags': {
+            'columns': [{'name': 'row',
+                         'type': 'u64'},
+                        {'name': 'arrindex',
+                         'type': 'u64'},
+                        {'name': 'extra_tags',
+                         'type': 'string'}]},
+        'channelmoves': {
+            'indices': [['account_id']],
+            'columns': [{'name': 'created_index',
+                         'type': 'u64'},
+                        {'name': 'account_id',
+                         'type': 'string'},
+                        {'name': 'credit_msat',
+                         'type': 'msat'},
+                        {'name': 'debit_msat',
+                         'type': 'msat'},
+                        {'name': 'timestamp',
+                         'type': 'u64'},
+                        {'name': 'primary_tag',
+                         'type': 'string'},
+                        {'name': 'payment_hash',
+                         'type': 'hash'},
+                        {'name': 'part_id',
+                         'type': 'u64'},
+                        {'name': 'group_id',
+                         'type': 'u64'},
+                        {'name': 'fees_msat',
+                         'type': 'msat'}]},
         'bkpr_accountevents': {
             'columns': [{'name': 'account',
                          'type': 'string'},
@@ -3822,18 +3882,23 @@ def test_sql(node_factory, bitcoind):
                   'hex': 'BLOB',
                   'hash': 'BLOB',
                   'txid': 'BLOB',
+                  'outpoint': 'TEXT',
                   'pubkey': 'BLOB',
                   'secret': 'BLOB',
                   'number': 'REAL',
                   'short_channel_id': 'TEXT'}
 
-    # Check schemas match (each one has rowid at start)
-    rowidcol = {'name': 'rowid', 'type': 'u64'}
+    # Check schemas match
     for table, schema in expected_schemas.items():
         res = only_one(l2.rpc.listsqlschemas(table)['schemas'])
         assert res['tablename'] == table
         assert res.get('indices') == schema.get('indices')
-        sqlcolumns = [{'name': c['name'], 'type': sqltypemap[c['type']]} for c in [rowidcol] + schema['columns']]
+        # Those without a created_index get an *explicit* rowid;
+        if any([c['name'] == 'created_index' for c in schema['columns']]):
+            prefix = []
+        else:
+            prefix = [{'name': 'rowid', 'type': 'u64'}]
+        sqlcolumns = [{'name': c['name'], 'type': sqltypemap[c['type']]} for c in prefix + schema['columns']]
         assert res['columns'] == sqlcolumns
 
     # Make sure we didn't miss any
@@ -3871,11 +3936,17 @@ def test_sql(node_factory, bitcoind):
 
     for table, schema in expected_schemas.items():
         ret = l2.rpc.sql("SELECT * FROM {};".format(table))
-        assert len(ret['rows'][0]) == 1 + len(schema['columns'])
+        # If you have created_index, we don't create an explicit rowid.
+        has_rowid = not any([c['name'] == 'created_index' for c in schema['columns']])
 
-        # First column is always rowid!
-        for row in ret['rows']:
-            assert row[0] > 0
+        if has_rowid:
+            assert len(ret['rows'][0]) == 1 + len(schema['columns'])
+
+            # First column is always rowid!
+            for row in ret['rows']:
+                assert row[0] > 0
+        else:
+            assert len(ret['rows'][0]) == len(schema['columns'])
 
         for col in schema['columns']:
             # We will get a complaint for trying to access deprecated cols by name:
@@ -3902,6 +3973,10 @@ def test_sql(node_factory, bitcoind):
                 val += ""
             elif col['type'] == "short_channel_id":
                 assert len(val.split('x')) == 3
+            elif col['type'] == "outpoint":
+                txid, vout = val.split(':')
+                assert len(bytes.fromhex(txid)) == 32
+                int(vout)
             else:
                 assert False
 
@@ -4182,6 +4257,19 @@ def test_sql_crash(node_factory, bitcoind):
 
     assert 'updates' not in only_one(l1.rpc.listpeerchannels()['channels'])
     l1.rpc.sql(f"SELECT * FROM peerchannels;")
+
+
+def test_sql_parallel(node_factory, executor):
+    """Parallel refreshes of tables causes SQL errors:
+    Error executing INSERT INTO chainmoves VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?); on row 0: UNIQUE constraint failed: chainmoves.created_index
+    """
+    l1, l2 = node_factory.line_graph(2)
+
+    futs = []
+    for _ in range(5):
+        futs.append(executor.submit(l1.rpc.sql, "SELECT * FROM chainmoves"))
+    for f in futs:
+        f.result(TIMEOUT)
 
 
 def test_listchannels_broken_message(node_factory):

@@ -245,6 +245,38 @@ struct wallet *wallet_new(struct lightningd *ld, struct timers *timers)
 	return wallet;
 }
 
+/* Get id for move_accounts; create if necessary */
+u64 move_accounts_id(struct db *db, const char *name)
+{
+	struct db_stmt *stmt;
+	u64 ret;
+
+	/* FIXME: Postgres can do this in one step with CONFLICT(name)
+	 * DO NOTHING RETURNING id, and RETURNING is supported in
+	 * SQLite 3.35+ (released 2021), but not with INSERT OR
+	 * IGNORE.  So we do this in two steps (it likely exists) */
+	stmt = db_prepare_v2(
+		db,
+		SQL("SELECT id FROM move_accounts WHERE name = ?"));
+	db_bind_text(stmt, name);
+	db_query_prepared(stmt);
+
+	if (db_step(stmt)) {
+		ret = db_col_u64(stmt, "id");
+		tal_free(stmt);
+		return ret;
+	}
+	tal_free(stmt);
+
+	/* Does not exist, so create */
+	stmt = db_prepare_v2(db,
+			     SQL("INSERT INTO move_accounts (name) VALUES (?)"));
+	db_bind_text(stmt, name);
+	db_exec_prepared_v2(stmt);
+
+	return db_last_insert_id_v2(take(stmt));
+}
+
 /**
  * wallet_add_utxo - Register an UTXO which we (partially) own
  *
@@ -467,19 +499,11 @@ struct utxo **wallet_get_all_utxos(const tal_t *ctx, struct wallet *w)
 	return gather_utxos(ctx, stmt);
 }
 
-/**
- * wallet_get_unspent_utxos - Return reserved and unreserved UTXOs.
- *
- * Returns a `tal_arr` of `utxo` structs. Double indirection in order
- * to be able to steal individual elements onto something else.
- *
- * Use utxo_is_reserved() to test if it's reserved.
- */
-struct utxo **wallet_get_unspent_utxos(const tal_t *ctx, struct wallet *w)
+static struct utxo **db_get_unspent_utxos(const tal_t *ctx, struct db *db)
 {
 	struct db_stmt *stmt;
 
-	stmt = db_prepare_v2(w->db, SQL("SELECT"
+	stmt = db_prepare_v2(db, SQL("SELECT"
 					"  prev_out_tx"
 					", prev_out_index"
 					", value"
@@ -500,6 +524,19 @@ struct utxo **wallet_get_unspent_utxos(const tal_t *ctx, struct wallet *w)
 					"WHERE status != ?"));
 	db_bind_int(stmt, output_status_in_db(OUTPUT_STATE_SPENT));
 	return gather_utxos(ctx, stmt);
+}
+
+/**
+ * wallet_get_unspent_utxos - Return reserved and unreserved UTXOs.
+ *
+ * Returns a `tal_arr` of `utxo` structs. Double indirection in order
+ * to be able to steal individual elements onto something else.
+ *
+ * Use utxo_is_reserved() to test if it's reserved.
+ */
+struct utxo **wallet_get_unspent_utxos(const tal_t *ctx, struct wallet *w)
+{
+	return db_get_unspent_utxos(ctx, w->db);
 }
 
 struct utxo **wallet_get_unconfirmed_closeinfo_utxos(const tal_t *ctx,
@@ -2929,6 +2966,7 @@ void wallet_channel_close(struct wallet *w,
 	 * reestablish messages with enough information for nodes with lost
 	 * dbs to recover. */
 	struct db_stmt *stmt;
+	u64 new_move_id;
 
 	/* Delete entries from `channel_htlcs` */
 	stmt = db_prepare_v2(w->db, SQL("DELETE FROM channel_htlcs "
@@ -2982,6 +3020,37 @@ void wallet_channel_close(struct wallet *w,
 					"SET state=? "
 					"WHERE channels.id=?"));
 	db_bind_u64(stmt, channel_state_in_db(CLOSED));
+	db_bind_u64(stmt, chan->dbid);
+	db_exec_prepared_v2(take(stmt));
+
+	/* Update all accouting records to use channel_id string, instead of
+	 * referring to dbid.  This is robust if we delete in future, and saves
+	 * a lookup in the load path. */
+	new_move_id = move_accounts_id(w->db, fmt_channel_id(tmpctx, &chan->cid));
+	stmt = db_prepare_v2(w->db, SQL("UPDATE chain_moves "
+					"SET account_channel_id=?,"
+					" account_nonchannel_id=? "
+					"WHERE account_channel_id=?"));
+	db_bind_null(stmt);
+	db_bind_u64(stmt, new_move_id);
+	db_bind_u64(stmt, chan->dbid);
+	db_exec_prepared_v2(take(stmt));
+
+	stmt = db_prepare_v2(w->db, SQL("UPDATE channel_moves "
+					"SET account_channel_id=?,"
+					" account_nonchannel_id=? "
+					"WHERE account_channel_id=?"));
+	db_bind_null(stmt);
+	db_bind_u64(stmt, new_move_id);
+	db_bind_u64(stmt, chan->dbid);
+	db_exec_prepared_v2(take(stmt));
+
+	stmt = db_prepare_v2(w->db, SQL("UPDATE chain_moves "
+					"SET originating_channel_id=?,"
+					" originating_nonchannel_id=? "
+					"WHERE originating_channel_id=?"));
+	db_bind_null(stmt);
+	db_bind_u64(stmt, new_move_id);
 	db_bind_u64(stmt, chan->dbid);
 	db_exec_prepared_v2(take(stmt));
 }
@@ -3131,7 +3200,7 @@ type_ok:
 					      *blockheight,
 					      utxo->amount,
 					      mk_mvt_tags(MVT_DEPOSIT));
-		notify_chain_mvt(w->ld, mvt);
+		wallet_save_chain_mvt(w->ld, mvt);
 	}
 
 	if (!wallet_add_utxo(w, utxo, utxo->utxotype == UTXO_P2SH_P2WPKH ? WALLET_OUTPUT_P2SH_WPKH : WALLET_OUTPUT_OUR_CHANGE)) {
@@ -6206,16 +6275,21 @@ void wallet_datastore_update(struct wallet *w, const char **key, const u8 *data)
 	db_exec_prepared_v2(take(stmt));
 }
 
-void wallet_datastore_create(struct wallet *w, const char **key, const u8 *data)
+static void db_datastore_create(struct db *db, const char **key, const u8 *data)
 {
 	struct db_stmt *stmt;
 
-	stmt = db_prepare_v2(w->db,
+	stmt = db_prepare_v2(db,
 			     SQL("INSERT INTO datastore VALUES (?, ?, 0);"));
 
 	db_bind_datastore_key(stmt, key);
 	db_bind_talarr(stmt, data);
 	db_exec_prepared_v2(take(stmt));
+}
+
+void wallet_datastore_create(struct wallet *w, const char **key, const u8 *data)
+{
+	db_datastore_create(w->db, key, data);
 }
 
 static void db_datastore_remove(struct db *db, const char **key)
@@ -6226,6 +6300,40 @@ static void db_datastore_remove(struct db *db, const char **key)
 				     " WHERE key = ?"));
 	db_bind_datastore_key(stmt, key);
 	db_exec_prepared_v2(take(stmt));
+}
+
+void wallet_datastore_save_utxo_description(struct db *db,
+					    const struct bitcoin_outpoint *outpoint,
+					    const char *desc)
+{
+	const char **key;
+
+	key = tal_arr(tmpctx, const char *, 4);
+	key[0] = "bookkeeper";
+	key[1] = "description";
+	key[2] = "utxo";
+	key[3] = fmt_bitcoin_outpoint(key, outpoint);
+
+	/* In case it's a duplicate, remove first */
+	db_datastore_remove(db, key);
+	db_datastore_create(db, key, tal_dup_arr(key, u8, (u8 *)desc, strlen(desc), 0));
+}
+
+void wallet_datastore_save_payment_description(struct db *db,
+					       const struct sha256 *payment_hash,
+					       const char *desc)
+{
+	const char **key;
+
+	key = tal_arr(tmpctx, const char *, 4);
+	key[0] = "bookkeeper";
+	key[1] = "description";
+	key[2] = "payment";
+	key[3] = fmt_sha256(key, payment_hash);
+
+	/* In case it's a duplicate, remove first */
+	db_datastore_remove(db, key);
+	db_datastore_create(db, key, tal_dup_arr(key, u8, (u8 *)desc, strlen(desc), 0));
 }
 
 void wallet_datastore_remove(struct wallet *w, const char **key)
@@ -6805,6 +6913,453 @@ struct issued_address_type *wallet_list_addresses(const tal_t *ctx, struct walle
 	return addresseslist;
 }
 
+void db_bind_credit_debit(struct db_stmt *stmt,
+			  struct amount_msat credit,
+			  struct amount_msat debit)
+{
+	if (amount_msat_is_zero(debit))
+		db_bind_amount_msat(stmt, credit);
+	else {
+		s64 debit_msats = debit.millisatoshis;  /* Raw: negating */
+		assert(amount_msat_is_zero(credit));
+		db_bind_s64(stmt, -debit_msats);
+	}
+}
+
+void db_bind_mvt_account_id(struct db_stmt *stmt,
+			    struct db *db,
+			    const struct mvt_account_id *account)
+{
+	if (account->channel) {
+		db_bind_u64(stmt, account->channel->dbid);
+		db_bind_null(stmt);
+	} else {
+		db_bind_null(stmt);
+		db_bind_u64(stmt, move_accounts_id(db, account->alt_account));
+	}
+}
+
+void db_bind_mvt_tags(struct db_stmt *stmt, struct mvt_tags tags)
+{
+	assert(mvt_tags_valid(tags));
+	db_bind_u64(stmt, tags.bits);
+}
+
+static u64 insert_channel_mvt(struct lightningd *ld,
+			      struct db *db,
+			      const struct channel_coin_mvt *chan_mvt)
+{
+	struct db_stmt *stmt;
+	u64 id;
+
+	stmt = db_prepare_v2(db,
+			     SQL("INSERT INTO channel_moves ("
+				 " id,"
+				 " account_channel_id,"
+				 " account_nonchannel_id,"
+				 " credit_or_debit,"
+				 " tag_bitmap,"
+				 " timestamp,"
+				 " payment_hash,"
+				 " payment_part_id,"
+				 " payment_group_id,"
+				 " fees) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+	id = channel_mvt_index_created(ld, db,
+				       &chan_mvt->account,
+				       chan_mvt->credit, chan_mvt->debit);
+	db_bind_u64(stmt, id);
+	db_bind_mvt_account_id(stmt, db, &chan_mvt->account);
+	db_bind_credit_debit(stmt, chan_mvt->credit, chan_mvt->debit);
+	db_bind_mvt_tags(stmt, chan_mvt->tags);
+	db_bind_u64(stmt, chan_mvt->timestamp);
+	/* push funding / leases don't have a payment_hash */
+	if (chan_mvt->payment_hash)
+		db_bind_sha256(stmt, chan_mvt->payment_hash);
+	else
+		db_bind_null(stmt);
+	if (chan_mvt->part_and_group) {
+		db_bind_u64(stmt, chan_mvt->part_and_group->part_id);
+		db_bind_u64(stmt, chan_mvt->part_and_group->group_id);
+	} else {
+		db_bind_null(stmt);
+		db_bind_null(stmt);
+	}
+	db_bind_amount_msat(stmt, chan_mvt->fees);
+	db_exec_prepared_v2(take(stmt));
+
+	notify_channel_mvt(ld, chan_mvt, id);
+	if (taken(chan_mvt))
+		tal_free(chan_mvt);
+
+	return id;
+}
+
+void wallet_save_channel_mvt(struct lightningd *ld,
+			     const struct channel_coin_mvt *chan_mvt)
+{
+	insert_channel_mvt(ld, ld->wallet->db, chan_mvt);
+}
+
+static u64 insert_chain_mvt(struct lightningd *ld,
+			    struct db *db,
+			    const struct chain_coin_mvt *chain_mvt)
+{
+	struct db_stmt *stmt;
+	u64 id;
+
+	stmt = db_prepare_v2(db,
+			     SQL("INSERT INTO chain_moves ("
+				 " id,"
+				 " account_channel_id,"
+				 " account_nonchannel_id,"
+				 " tag_bitmap,"
+				 " credit_or_debit,"
+				 " timestamp,"
+				 " utxo,"
+				 " spending_txid,"
+				 " peer_id,"
+				 " payment_hash,"
+				 " block_height,"
+				 " output_sat,"
+				 " originating_channel_id,"
+				 " originating_nonchannel_id,"
+				 " output_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"));
+	id = chain_mvt_index_created(ld, db,
+				     &chain_mvt->account,
+				     chain_mvt->credit, chain_mvt->debit);
+	db_bind_u64(stmt, id);
+	db_bind_mvt_account_id(stmt, db, &chain_mvt->account);
+	db_bind_mvt_tags(stmt, chain_mvt->tags);
+	db_bind_credit_debit(stmt, chain_mvt->credit, chain_mvt->debit);
+	db_bind_u64(stmt, chain_mvt->timestamp);
+	db_bind_outpoint(stmt, &chain_mvt->outpoint);
+	if (chain_mvt->spending_txid)
+		db_bind_txid(stmt, chain_mvt->spending_txid);
+	else
+		db_bind_null(stmt);
+	if (chain_mvt->peer_id)
+		db_bind_node_id(stmt, chain_mvt->peer_id);
+	else
+		db_bind_null(stmt);
+	if (chain_mvt->payment_hash)
+		db_bind_sha256(stmt, chain_mvt->payment_hash);
+	else
+		db_bind_null(stmt);
+	db_bind_int(stmt, chain_mvt->blockheight);
+	db_bind_amount_sat(stmt, chain_mvt->output_val);
+	if (chain_mvt->originating_acct) {
+		db_bind_mvt_account_id(stmt, db, chain_mvt->originating_acct);
+	} else {
+		db_bind_null(stmt);
+		db_bind_null(stmt);
+	}
+	if (chain_mvt->output_count > 0)
+		db_bind_int(stmt, chain_mvt->output_count);
+	else
+		db_bind_null(stmt);
+	db_exec_prepared_v2(take(stmt));
+	return id;
+}
+
+void wallet_save_chain_mvt(struct lightningd *ld,
+			   const struct chain_coin_mvt *chain_mvt)
+{
+	struct db_stmt *stmt;
+	u64 id;
+
+	/* On restart, we do chain replay.  For this (and other
+	 * reorgs) we need to de-duplicate here.  The other db tables
+	 * do this by deleting old entries on reorg, but we never
+	 * delete. */
+	if (chain_mvt->account.channel) {
+		stmt = db_prepare_v2(ld->wallet->db,
+				     SQL("SELECT"
+					 "  cm.spending_txid, cm.tag_bitmap, cm.id"
+					 " FROM chain_moves cm"
+					 " WHERE "
+					 "  account_channel_id = ?"
+					 "  AND utxo = ?"));
+		db_bind_u64(stmt, chain_mvt->account.channel->dbid);
+	} else {
+		stmt = db_prepare_v2(ld->wallet->db,
+				     SQL("SELECT"
+					 "  cm.spending_txid, cm.tag_bitmap, cm.id"
+					 " FROM chain_moves cm"
+					 " JOIN move_accounts ma ON cm.account_nonchannel_id = ma.id"
+					 " WHERE"
+					 "  ma.name = ?"
+					 "  AND utxo = ?"));
+		db_bind_text(stmt, chain_mvt->account.alt_account);
+	}
+	db_bind_outpoint(stmt, &chain_mvt->outpoint);
+	db_query_prepared(stmt);
+
+	/* Check that spending_txid and primary_tag match.  We could
+	 * probably just match on spending_txid, but this is robust. */
+	while (db_step(stmt)) {
+		struct mvt_tags tags;
+
+		/* Access this now so it never complains we don't */
+		tags.bits = db_col_u64(stmt, "cm.tag_bitmap");
+		id = db_col_u64(stmt, "cm.id");
+
+		/* spending_txid must match */
+		if (chain_mvt->spending_txid) {
+			struct bitcoin_txid txid;
+			if (db_col_is_null(stmt, "cm.spending_txid"))
+				continue;
+			db_col_txid(stmt, "cm.spending_txid", &txid);
+			/* This would only happen for reorgs */
+			if (!bitcoin_txid_eq(&txid, chain_mvt->spending_txid))
+				continue;
+		} else {
+			if (!db_col_is_null(stmt, "cm.spending_txid"))
+				continue;
+		}
+
+		/* Tags must match */
+		if (primary_mvt_tag(tags) != primary_mvt_tag(chain_mvt->tags))
+			continue;
+
+		/* It's a duplicate.  Don't re-add. */
+		tal_free(stmt);
+		goto out;
+	}
+	tal_free(stmt);
+
+	id = insert_chain_mvt(ld, ld->wallet->db, chain_mvt),
+	notify_chain_mvt(ld, chain_mvt, id);
+out:
+	if (taken(chain_mvt))
+		tal_free(chain_mvt);
+}
+
+static void db_cols_account(struct db_stmt *stmt,
+			    struct lightningd *ld,
+			    const char *channel_colname,
+			    const char *nonnonchannel_colname,
+			    struct mvt_account_id *account)
+{
+	if (db_col_is_null(stmt, channel_colname)) {
+		account->channel = NULL;
+		account->alt_account = db_col_strdup(account, stmt, nonnonchannel_colname);
+	} else {
+		account->alt_account = NULL;
+		db_col_ignore(stmt, nonnonchannel_colname);
+		account->channel = channel_by_dbid(ld, db_col_u64(stmt, channel_colname));
+		assert(account->channel);
+	}
+}
+
+static void db_col_credit_or_debit(struct db_stmt *stmt,
+				   const char *colname,
+				   struct amount_msat *credit,
+				   struct amount_msat *debit)
+{
+	s64 amount = db_col_s64(stmt, colname);
+	if (amount < 0) {
+		*credit = AMOUNT_MSAT(0);
+		*debit = amount_msat(-amount);
+	} else {
+		*credit = amount_msat(amount);
+		*debit = AMOUNT_MSAT(0);
+	}
+}
+
+static struct mvt_tags db_col_mvt_tags(struct db_stmt *stmt,
+				       const char *colname)
+{
+	struct mvt_tags tags;
+	tags.bits = db_col_u64(stmt, colname);
+	assert(mvt_tags_valid(tags));
+	return tags;
+}
+
+struct chain_coin_mvt *wallet_chain_move_extract(const tal_t *ctx,
+						 struct db_stmt *stmt,
+						 struct lightningd *ld,
+						 u64 *id)
+{
+	struct chain_coin_mvt *chain_mvt = tal(ctx, struct chain_coin_mvt);
+
+	*id = db_col_u64(stmt, "chain_moves.id");
+	db_cols_account(stmt, ld,
+			"account_channel_id", "ma1.name",
+			&chain_mvt->account);
+	chain_mvt->tags = db_col_mvt_tags(stmt, "tag_bitmap");
+	db_col_credit_or_debit(stmt, "credit_or_debit",
+			       &chain_mvt->credit,
+			       &chain_mvt->debit);
+	chain_mvt->timestamp = db_col_u64(stmt, "timestamp");
+	db_col_outpoint(stmt, "utxo", &chain_mvt->outpoint);
+
+	if (db_col_is_null(stmt, "spending_txid"))
+		chain_mvt->spending_txid = NULL;
+	else {
+		/* Need non-const for db_col_txid */
+		struct bitcoin_txid *txid;
+		chain_mvt->spending_txid = txid = tal(chain_mvt, struct bitcoin_txid);
+		db_col_txid(stmt, "spending_txid", txid);
+	}
+	if (db_col_is_null(stmt, "peer_id"))
+		chain_mvt->peer_id = NULL;
+	else {
+		/* Need non-const temporary */
+		struct node_id *peer_id;
+		chain_mvt->peer_id = peer_id = tal(chain_mvt, struct node_id);
+		db_col_node_id(stmt, "peer_id", peer_id);
+	}
+	if (db_col_is_null(stmt, "payment_hash"))
+		chain_mvt->payment_hash = NULL;
+	else {
+		/* Need non-const temporary */
+		struct sha256 *ph;
+		chain_mvt->payment_hash = ph = tal(chain_mvt, struct sha256);
+		db_col_sha256(stmt, "payment_hash", ph);
+	}
+	chain_mvt->blockheight = db_col_int(stmt, "block_height");
+	if (db_col_is_null(stmt, "originating_channel_id") && db_col_is_null(stmt, "ma2.name")) {
+		chain_mvt->originating_acct = NULL;
+	} else {
+		/* Need non-const temporary */
+		struct mvt_account_id *acct;
+		chain_mvt->originating_acct = acct = tal(chain_mvt, struct mvt_account_id);
+		db_cols_account(stmt, ld,
+				"originating_channel_id", "ma2.name",
+				acct);
+	}
+	chain_mvt->output_val = db_col_amount_sat(stmt, "output_sat");
+	if (db_col_is_null(stmt, "output_count"))
+		chain_mvt->output_count = 0;
+	else
+		chain_mvt->output_count = db_col_int(stmt, "output_count");
+
+	return chain_mvt;
+}
+
+struct db_stmt *wallet_chain_moves_first(struct wallet *wallet,
+					 u64 liststart,
+					 u32 *listlimit)
+{
+	struct db_stmt *stmt = db_prepare_v2(wallet->db,
+					     SQL("SELECT"
+						 " chain_moves.id"
+						 ", account_channel_id"
+						 ", ma1.name"
+						 ", tag_bitmap"
+						 ", credit_or_debit"
+						 ", timestamp"
+						 ", utxo"
+						 ", spending_txid"
+						 ", peer_id"
+						 ", payment_hash"
+						 ", block_height"
+						 ", output_sat"
+						 ", originating_channel_id"
+						 ", ma2.name"
+						 ", output_count"
+						 " FROM chain_moves"
+						 " LEFT JOIN"
+						 "  move_accounts ma1 ON account_nonchannel_id = ma1.id"
+						 " LEFT JOIN"
+						 "  move_accounts ma2 ON originating_nonchannel_id = ma2.id"
+						 " WHERE chain_moves.id >= ?"
+						 " ORDER BY chain_moves.id"
+						 " LIMIT ?;"));
+	db_bind_u64(stmt, liststart);
+	if (listlimit)
+		db_bind_int(stmt, *listlimit);
+	else
+		db_bind_int(stmt, INT_MAX);
+	db_query_prepared(stmt);
+	return wallet_chain_moves_next(wallet, stmt);
+}
+
+struct db_stmt *wallet_chain_moves_next(struct wallet *wallet, struct db_stmt *stmt)
+{
+	if (!db_step(stmt))
+		return tal_free(stmt);
+
+	return stmt;
+}
+
+struct channel_coin_mvt *wallet_channel_move_extract(const tal_t *ctx,
+						     struct db_stmt *stmt,
+						     struct lightningd *ld,
+						     u64 *id)
+{
+	struct channel_coin_mvt *chan_mvt = tal(ctx, struct channel_coin_mvt);
+
+	*id = db_col_u64(stmt, "channel_moves.id");
+	db_cols_account(stmt, ld,
+			"account_channel_id", "ma.name",
+			&chan_mvt->account);
+	db_col_credit_or_debit(stmt, "credit_or_debit",
+			       &chan_mvt->credit,
+			       &chan_mvt->debit);
+	chan_mvt->tags = db_col_mvt_tags(stmt, "tag_bitmap");
+	chan_mvt->timestamp = db_col_u64(stmt, "timestamp");
+	if (db_col_is_null(stmt, "payment_hash"))
+		chan_mvt->payment_hash = NULL;
+	else {
+		/* Need non-const temporary */
+		struct sha256 *ph;
+		chan_mvt->payment_hash = ph = tal(chan_mvt, struct sha256);
+		db_col_sha256(stmt, "payment_hash", ph);
+	}
+	if (db_col_is_null(stmt, "payment_part_id")) {
+		db_col_ignore(stmt, "payment_group_id");
+		chan_mvt->part_and_group = NULL;
+	} else {
+		/* Non-const temporary */
+		struct channel_coin_mvt_id *pandg;
+		chan_mvt->part_and_group = pandg = tal(chan_mvt, struct channel_coin_mvt_id);
+		pandg->part_id = db_col_u64(stmt, "payment_part_id");
+		pandg->group_id = db_col_u64(stmt, "payment_group_id");
+	}
+	chan_mvt->fees = db_col_amount_msat(stmt, "fees");
+	return chan_mvt;
+}
+
+struct db_stmt *wallet_channel_moves_first(struct wallet *wallet,
+					   u64 liststart,
+					   u32 *listlimit)
+{
+	struct db_stmt *stmt = db_prepare_v2(wallet->db,
+					     SQL("SELECT"
+						 " channel_moves.id"
+						 ", account_channel_id"
+						 ", ma.name"
+						 ", credit_or_debit"
+						 ", tag_bitmap"
+						 ", timestamp"
+						 ", payment_hash"
+						 ", payment_part_id"
+						 ", payment_group_id"
+						 ", fees"
+						 " FROM channel_moves"
+						 " LEFT JOIN"
+						 "  move_accounts ma ON account_nonchannel_id = ma.id"
+						 " WHERE channel_moves.id >= ?"
+						 " ORDER BY channel_moves.id"
+						 " LIMIT ?;"));
+	db_bind_u64(stmt, liststart);
+	if (listlimit)
+		db_bind_int(stmt, *listlimit);
+	else
+		db_bind_int(stmt, INT_MAX);
+	db_query_prepared(stmt);
+	return wallet_channel_moves_next(wallet, stmt);
+}
+
+struct db_stmt *wallet_channel_moves_next(struct wallet *wallet, struct db_stmt *stmt)
+{
+	if (!db_step(stmt))
+		return tal_free(stmt);
+
+	return stmt;
+}
+
 struct missing {
 	size_t num_found;
 	struct missing_addr *addrs;
@@ -6967,3 +7522,135 @@ void wallet_begin_old_close_rescan(struct lightningd *ld)
 	bitcoind_getrawblockbyheight(missing, ld->topology->bitcoind, earliest_block,
 				     mutual_close_p2pkh_catch, missing);
 }
+
+/* An existing node without accounting.  Fill in what we have so far. */
+void migrate_setup_coinmoves(struct lightningd *ld, struct db *db)
+{
+	struct utxo **utxos = db_get_unspent_utxos(tmpctx, db);
+	struct db_stmt *stmt;
+	u64 base_timestamp = time_now().ts.tv_sec - 2;
+
+	for (size_t i = 0; i < tal_count(utxos); i++) {
+		struct chain_coin_mvt *mvt;
+
+		/* Only confirmed ones */
+		if (!utxos[i]->blockheight)
+			continue;
+		mvt = new_coin_wallet_deposit(tmpctx,
+					       &utxos[i]->outpoint,
+					       *utxos[i]->blockheight,
+					       utxos[i]->amount,
+					       mk_mvt_tags(MVT_DEPOSIT));
+		insert_chain_mvt(ld, db, mvt);
+	}
+
+	/* Now channels.  We create the open event, and then pushed/leased,
+	 * the finally fixup with a journal entry. */
+	stmt = db_prepare_v2(db, SQL("SELECT"
+				     "  p.node_id"
+				     ", scid"
+				     ", full_channel_id"
+				     ", funding_tx_id"
+				     ", funding_tx_outnum"
+				     ", funder"
+				     ", push_msatoshi"
+				     ", lease_commit_sig"
+				     ", funding_satoshi"
+				     ", our_funding_satoshi"
+				     ", msatoshi_local"
+				     " FROM channels c"
+				     " JOIN peers p ON c.peer_id = p.id"
+				     " WHERE c.scid IS NOT NULL"
+				     "   AND c.state != ?;"));
+	db_bind_int(stmt, CLOSED);
+	db_query_prepared(stmt);
+
+	while (db_step(stmt)) {
+		struct chain_coin_mvt *mvt;
+		struct bitcoin_outpoint funding;
+		struct channel_id cid;
+		struct node_id peerid;
+		struct amount_sat funding_sat, our_funding_sat;
+		struct amount_msat start_balance, our_msat, push_msat;
+		struct short_channel_id scid;
+		enum side opener;
+		bool is_leased;
+
+		db_col_node_id(stmt, "p.node_id", &peerid);
+		scid = db_col_short_channel_id(stmt, "scid");
+		db_col_txid(stmt, "funding_tx_id", &funding.txid);
+		funding.n = db_col_int(stmt, "funding_tx_outnum");
+		db_col_channel_id(stmt, "full_channel_id", &cid);
+		opener = db_col_int(stmt, "funder");
+		funding_sat = db_col_amount_sat(stmt, "funding_satoshi");
+		our_funding_sat = db_col_amount_sat(stmt, "our_funding_satoshi");
+		push_msat = db_col_amount_msat(stmt, "push_msatoshi");
+		is_leased = !db_col_is_null(stmt, "lease_commit_sig");
+		our_msat = db_col_amount_msat(stmt, "msatoshi_local");
+
+		/* If funds were pushed, add/sub them from the starting balance */
+		if (opener == LOCAL) {
+			if (!amount_sat_sub_msat(&start_balance,
+						 our_funding_sat, push_msat))
+				abort();
+		} else {
+			if (!amount_msat_add_sat(&start_balance,
+						 push_msat, our_funding_sat))
+				abort();
+		}
+		mvt = new_coin_channel_open_general(tmpctx,
+						    NULL,
+						    &cid,
+						    /* We ensure strict ordering of events */
+						    base_timestamp,
+						    &funding,
+						    &peerid,
+						    short_channel_id_blocknum(scid),
+						    start_balance,
+						    funding_sat,
+						    opener == LOCAL,
+						    is_leased);
+		insert_chain_mvt(ld, db, mvt);
+
+		/* If we pushed, mark that transfer in channel. */
+		if (!amount_msat_is_zero(push_msat)) {
+			struct channel_coin_mvt *chan_mvt;
+
+			chan_mvt = new_coin_channel_push_general(tmpctx,
+								 NULL,
+								 &cid,
+								 base_timestamp + 1,
+								 opener == REMOTE ? COIN_CREDIT : COIN_DEBIT,
+								 push_msat,
+								 is_leased
+								 ? mk_mvt_tags(MVT_LEASE_FEE)
+								 : mk_mvt_tags(MVT_PUSHED));
+			insert_channel_mvt(ld, db, chan_mvt);
+		}
+
+		/* If our funds are not exactly what we expect, journal entry to adjust */
+		if (!amount_msat_eq(our_msat, start_balance)) {
+			struct amount_msat diff;
+			enum coin_mvt_dir direction;
+			struct channel_coin_mvt *chan_mvt;
+			if (amount_msat_sub(&diff, our_msat, start_balance))
+				direction = COIN_CREDIT;
+			else {
+				if (!amount_msat_sub(&diff, start_balance, our_msat))
+					abort();
+				direction = COIN_DEBIT;
+			}
+
+			chan_mvt = new_channel_coin_mvt_general(tmpctx, NULL, &cid,
+								base_timestamp + 2,
+								NULL, NULL, NULL,
+								direction,
+								diff,
+								mk_mvt_tags(MVT_JOURNAL),
+								AMOUNT_MSAT(0));
+			insert_channel_mvt(ld, db, chan_mvt);
+		}
+	}
+	tal_free(stmt);
+}
+

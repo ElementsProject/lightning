@@ -218,6 +218,9 @@ struct lightningd {
 	/* Here are all our channels and their aliases */
 	struct channel_scid_map *channels_by_scid;
 
+	/* Open channels by dbid */
+	struct channel_dbid_map *channels_by_dbid;
+
 	/* Outstanding connect commands. */
 	struct list_head connects;
 
@@ -379,6 +382,10 @@ struct lightningd {
 	struct plugins *plugins;
 
 	char *wallet_dsn;
+
+	/* For migration from old accounts.db */
+	char *old_bookkeeper_dir;
+	char *old_bookkeeper_db;
 
 	bool encrypted_hsm;
 	/* What (additional) messages the HSM accepts */
