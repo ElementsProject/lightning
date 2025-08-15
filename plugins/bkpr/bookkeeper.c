@@ -366,6 +366,7 @@ static struct command_result *json_inspect(struct command *cmd,
 }
 
 static void json_add_events(struct json_stream *res,
+			    const struct bkpr *bkpr,
 			    struct channel_event **channel_events,
 			    struct chain_event **chain_events,
 			    struct onchain_fee **onchain_fees)
@@ -406,13 +407,13 @@ static void json_add_events(struct json_stream *res,
 
 		/* chain events first, then channel events, then fees. */
 		if (chain && chain->timestamp == lowest) {
-			json_add_chain_event(res, chain);
+			json_add_chain_event(res, bkpr, chain);
 			i++;
 			continue;
 		}
 
 		if (chan && chan->timestamp == lowest) {
-			json_add_channel_event(res, chan);
+			json_add_channel_event(res, bkpr, chan);
 			j++;
 			continue;
 		}
@@ -483,7 +484,7 @@ static struct command_result *json_list_account_events(struct command *cmd,
 
 	res = jsonrpc_stream_success(cmd);
 	json_array_start(res, "events");
-	json_add_events(res, channel_events, chain_events, onchain_fees);
+	json_add_events(res, bkpr, channel_events, chain_events, onchain_fees);
 	json_array_end(res);
 	return command_finished(cmd, res);
 }
@@ -518,13 +519,13 @@ static struct command_result *json_edit_desc_utxo(struct command *cmd,
 		return command_param_failed();
 
 	db_begin_transaction(bkpr->db);
-	edit_utxo_description(bkpr->db, outpoint, new_desc);
+	add_utxo_description(cmd, bkpr, outpoint, new_desc);
 	chain_events = get_chain_events_by_outpoint(cmd, bkpr->db, outpoint, true);
 	db_commit_transaction(bkpr->db);
 
 	res = jsonrpc_stream_success(cmd);
 	json_array_start(res, "updated");
-	json_add_events(res, NULL, chain_events, NULL);
+	json_add_events(res, bkpr, NULL, chain_events, NULL);
 	json_array_end(res);
 
 	return command_finished(cmd, res);
@@ -548,7 +549,7 @@ static struct command_result *json_edit_desc_payment_id(struct command *cmd,
 		return command_param_failed();
 
 	db_begin_transaction(bkpr->db);
-	add_payment_hash_desc(bkpr->db, identifier, new_desc);
+	add_payment_hash_description(cmd, bkpr, identifier, new_desc);
 
 	chain_events = get_chain_events_by_id(cmd, bkpr->db, identifier);
 	channel_events = get_channel_events_by_id(cmd, bkpr->db, identifier);
@@ -556,7 +557,7 @@ static struct command_result *json_edit_desc_payment_id(struct command *cmd,
 
 	res = jsonrpc_stream_success(cmd);
 	json_array_start(res, "updated");
-	json_add_events(res, channel_events, chain_events, NULL);
+	json_add_events(res, bkpr, channel_events, chain_events, NULL);
 	json_array_end(res);
 
 	return command_finished(cmd, res);
@@ -783,7 +784,6 @@ static bool new_missed_channel_account(struct command *cmd,
 		chain_ev->payment_id = NULL;
 		chain_ev->stealable = false;
 		chain_ev->splice_close = false;
-		chain_ev->desc = NULL;
 
 		/* Update the account info too */
 		tags = tal_arr(chain_ev, enum mvt_tag, 1);
@@ -1290,11 +1290,10 @@ listinvoices_done(struct command *cmd,
 	}
 
 	if (desc) {
-		db_begin_transaction(bkpr->db);
-		add_payment_hash_desc(bkpr->db, payment_hash,
+		add_payment_hash_description(cmd, bkpr, payment_hash,
 				      json_escape_unescape(cmd,
 					      (struct json_escape *)desc));
-		db_commit_transaction(bkpr->db);
+
 	} else
 		plugin_log(cmd->plugin, LOG_DBG,
 			   "listinvoices:"
@@ -1335,9 +1334,7 @@ listsendpays_done(struct command *cmd,
 	}
 
 	if (desc) {
-		db_begin_transaction(bkpr->db);
-		add_payment_hash_desc(bkpr->db, payment_hash, desc);
-		db_commit_transaction(bkpr->db);
+		add_payment_hash_description(cmd, bkpr, payment_hash, desc);
 	} else
 		plugin_log(cmd->plugin, LOG_DBG,
 			   "listpays: bolt11/bolt12 not found:"
@@ -1436,8 +1433,7 @@ parse_and_log_chain_move(struct command *cmd,
 			 const struct amount_msat debit,
 			 const char *coin_type STEALS,
 			 const u64 timestamp,
-			 const enum mvt_tag *tags,
-			 const char *desc)
+			 const enum mvt_tag *tags)
 {
 	struct chain_event *e = tal(cmd, struct chain_event);
 	struct sha256 *payment_hash = tal(cmd, struct sha256);
@@ -1529,7 +1525,6 @@ parse_and_log_chain_move(struct command *cmd,
 	e->debit = debit;
 	e->timestamp = timestamp;
 	e->tag = mvt_tag_str(tags[0]);
-	e->desc = tal_steal(e, desc);
 
 	e->stealable = false;
 	e->splice_close = false;
@@ -1645,8 +1640,7 @@ parse_and_log_channel_move(struct command *cmd,
 			   const struct amount_msat debit,
 			   const char *coin_type STEALS,
 			   const u64 timestamp,
-			   const enum mvt_tag *tags,
-			   const char *desc)
+			   const enum mvt_tag *tags)
 {
 	struct channel_event *e = tal(cmd, struct channel_event);
 	struct account *acct;
@@ -1682,7 +1676,6 @@ parse_and_log_channel_move(struct command *cmd,
 	e->debit = debit;
 	e->timestamp = timestamp;
 	e->tag = mvt_tag_str(tags[0]);
-	e->desc = tal_steal(e, desc);
 	e->rebalance_id = NULL;
 
 	/* Go find the account for this event */
@@ -1784,7 +1777,6 @@ static struct command_result *json_utxo_deposit(struct command *cmd, const char 
 	ev->output_value = ev->credit;
 	ev->spending_txid = NULL;
 	ev->payment_id = NULL;
-	ev->desc = NULL;
 	ev->splice_close = false;
 
 	plugin_log(cmd->plugin, LOG_DBG, "%s (%s|%s) %s -%s %"PRIu64" %d %s",
@@ -1855,7 +1847,6 @@ static struct command_result *json_utxo_spend(struct command *cmd, const char *b
 	ev->credit = AMOUNT_MSAT(0);
 	ev->output_value = ev->debit;
 	ev->payment_id = NULL;
-	ev->desc = NULL;
 
 	plugin_log(cmd->plugin, LOG_DBG, "%s (%s|%s) %s -%s %"PRIu64" %d %s %s",
 		   move_tag, ev->tag, acct_name,
@@ -1954,15 +1945,13 @@ static struct command_result *json_coin_moved(struct command *cmd,
 	if (streq(mvt_type, CHAIN_MOVE))
 		return parse_and_log_chain_move(cmd, buf, params,
 					        acct_name, credit, debit,
-					        coin_type, timestamp, tags,
-						NULL);
+					        coin_type, timestamp, tags);
 
 
 	assert(streq(mvt_type, CHANNEL_MOVE));
 	return parse_and_log_channel_move(cmd, buf, params,
 					  acct_name, credit, debit,
-					  coin_type, timestamp, tags,
-					  NULL);
+					  coin_type, timestamp, tags);
 }
 
 const struct plugin_notification notifs[] = {

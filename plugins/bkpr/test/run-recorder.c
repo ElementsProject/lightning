@@ -181,10 +181,6 @@ static bool channel_events_eq(struct channel_event *e1, struct channel_event *e2
 	CHECK(e1->part_id == e2->part_id);
 	CHECK(e1->timestamp == e2->timestamp);
 
-	CHECK((e1->desc != NULL) == (e2->desc != NULL));
-	if (e1->desc)
-		CHECK(streq(e1->desc, e2->desc));
-
 	return true;
 }
 
@@ -212,10 +208,6 @@ static bool chain_events_eq(struct chain_event *e1, struct chain_event *e2)
 	if (e1->payment_id)
 		CHECK(sha256_eq(e1->payment_id, e2->payment_id));
 
-	CHECK((e1->desc != NULL) == (e2->desc != NULL));
-	if (e1->desc)
-		CHECK(streq(e1->desc, e2->desc));
-
 	CHECK(e1->splice_close == e2->splice_close);
 
 	return true;
@@ -237,7 +229,6 @@ static struct channel_event *make_channel_event(const tal_t *ctx,
 	ev->timestamp = 1919191;
 	ev->part_id = 19;
 	ev->tag = tag;
-	ev->desc = tal_fmt(ev, "description");
 	ev->rebalance_id = NULL;
 	return ev;
 }
@@ -267,7 +258,6 @@ static struct chain_event *make_chain_event(const tal_t *ctx,
 	ev->blockheight = blockheight;
 	ev->stealable = false;
 	ev->splice_close = false;
-	ev->desc = tal_fmt(ev, "hello hello");
 	memset(&ev->outpoint.txid, outpoint_char, sizeof(struct bitcoin_txid));
 	ev->outpoint.n = outnum;
 
@@ -861,12 +851,10 @@ static bool test_channel_event_crud(const tal_t *ctx)
 	ev1->fees = AMOUNT_MSAT(104);
 	ev1->timestamp = 11111;
 	ev1->part_id = 19;
-	ev1->desc = tal_strdup(ev1, "hello desc1");
 	ev1->rebalance_id = NULL;
 
 	/* Passing unknown tags in should be ok */
 	ev1->tag = "hello";
-	ev1->desc = tal_fmt(ev1, "desc");
 
 	ev2 = tal(ctx, struct channel_event);
 	ev2->payment_id = tal(ev2, struct sha256);
@@ -877,7 +865,6 @@ static bool test_channel_event_crud(const tal_t *ctx)
 	ev2->timestamp = 22222;
 	ev2->part_id = 0;
 	ev2->tag = tal_fmt(ev2, "deposit");
-	ev2->desc = NULL;
 	ev2->rebalance_id = tal(ev2, u64);
 	*ev2->rebalance_id = 1;
 
@@ -890,7 +877,6 @@ static bool test_channel_event_crud(const tal_t *ctx)
 	ev3->timestamp = 33333;
 	ev3->part_id = 5;
 	ev3->tag = tal_fmt(ev3, "routed");
-	ev3->desc = NULL;
 	ev3->rebalance_id = NULL;
 
 	db_begin_transaction(db);
@@ -957,7 +943,6 @@ static bool test_chain_event_crud(const tal_t *ctx)
 	ev1->spending_txid = tal(ctx, struct bitcoin_txid);
 	memset(ev1->spending_txid, 'C', sizeof(struct bitcoin_txid));
 	ev1->payment_id = NULL;
-	ev1->desc = tal_fmt(ev1, "description");
 
 	db_begin_transaction(db);
 	log_chain_event(db, acct, ev1);
@@ -976,7 +961,6 @@ static bool test_chain_event_crud(const tal_t *ctx)
 	ev2->outpoint.n = 1;
 	ev2->spending_txid = NULL;
 	ev2->payment_id = tal(ctx, struct sha256);
-	ev2->desc = NULL;
 	memset(ev2->payment_id, 'B', sizeof(struct sha256));
 
 	/* Dummy event, logged to separate account */
@@ -995,7 +979,6 @@ static bool test_chain_event_crud(const tal_t *ctx)
 	ev3->spending_txid = tal(ctx, struct bitcoin_txid);
 	memset(ev3->spending_txid, 'D', sizeof(struct bitcoin_txid));
 	ev3->payment_id = NULL;
-	ev3->desc = NULL;
 
 	db_begin_transaction(db);
 	log_chain_event(db, acct, ev2);
@@ -1197,7 +1180,6 @@ static bool test_account_crud(const tal_t *ctx)
 	ev1->spending_txid = tal(ctx, struct bitcoin_txid);
 	memset(ev1->spending_txid, 'C', sizeof(struct bitcoin_txid));
 	ev1->payment_id = NULL;
-	ev1->desc = tal_fmt(ev1, "oh hello");
 
 	db_begin_transaction(db);
 	log_chain_event(db, acct, ev1);

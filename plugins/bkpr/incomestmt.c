@@ -15,6 +15,7 @@
 #include <plugins/bkpr/bookkeeper.h>
 #include <plugins/bkpr/chain_event.h>
 #include <plugins/bkpr/channel_event.h>
+#include <plugins/bkpr/descriptions.h>
 #include <plugins/bkpr/incomestmt.h>
 #include <plugins/bkpr/onchain_fee.h>
 #include <plugins/bkpr/recorder.h>
@@ -23,6 +24,7 @@
 #define ONCHAIN_FEE "onchain_fee"
 
 static struct income_event *chain_to_income(const tal_t *ctx,
+					    const struct bkpr *bkpr,
 					    struct chain_event *ev,
 					    const char *acct_to_attribute,
 					    struct amount_msat credit,
@@ -37,7 +39,7 @@ static struct income_event *chain_to_income(const tal_t *ctx,
 	inc->fees = AMOUNT_MSAT(0);
 	inc->timestamp = ev->timestamp;
 	inc->outpoint = tal_dup(inc, struct bitcoin_outpoint, &ev->outpoint);
-	inc->desc = tal_strdup_or_null(inc, ev->desc);
+	inc->desc = tal_strdup_or_null(inc, chain_event_description(bkpr, ev));
 	inc->txid = tal_dup_or_null(inc, struct bitcoin_txid, ev->spending_txid);
 	inc->payment_id = tal_dup_or_null(inc, struct sha256, ev->payment_id);
 
@@ -45,6 +47,7 @@ static struct income_event *chain_to_income(const tal_t *ctx,
 }
 
 static struct income_event *channel_to_income(const tal_t *ctx,
+					      const struct bkpr *bkpr,
 					      struct channel_event *ev,
 					      struct amount_msat credit,
 					      struct amount_msat debit)
@@ -59,7 +62,7 @@ static struct income_event *channel_to_income(const tal_t *ctx,
 	inc->timestamp = ev->timestamp;
 	inc->outpoint = NULL;
 	inc->txid = NULL;
-	inc->desc = tal_strdup_or_null(inc, ev->desc);
+	inc->desc = tal_strdup_or_null(inc, channel_event_description(bkpr, ev));
 	inc->payment_id = tal_dup_or_null(inc, struct sha256, ev->payment_id);
 
 	return inc;
@@ -106,19 +109,19 @@ static char *csv_safe_str(const tal_t *ctx, const char *input TAKES)
 }
 
 static struct income_event *maybe_chain_income(const tal_t *ctx,
-					       struct db *db,
+					       const struct bkpr *bkpr,
 					       struct account *acct,
 					       struct chain_event *ev)
 {
 	if (streq(ev->tag, "htlc_fulfill")) {
 		if (is_external_account(ev->acct_name))
 			/* Swap the credit/debit as it went to external */
-			return chain_to_income(ctx, ev,
+			return chain_to_income(ctx, bkpr, ev,
 					       ev->origin_acct,
 					       ev->debit,
 					       ev->credit);
 		/* Normal credit/debit as it originated from external */
-		return chain_to_income(ctx, ev,
+		return chain_to_income(ctx, bkpr, ev,
 				       ev->acct_name,
 				       ev->credit, ev->debit);
 	}
@@ -127,7 +130,7 @@ static struct income_event *maybe_chain_income(const tal_t *ctx,
 	if (streq(ev->tag, "anchor")) {
 		if (acct->we_opened)
 			/* for now, we count all anchors as expenses */
-			return chain_to_income(ctx, ev,
+			return chain_to_income(ctx, bkpr, ev,
 					       ev->acct_name,
 					       ev->debit,
 					       ev->credit);
@@ -148,7 +151,7 @@ static struct income_event *maybe_chain_income(const tal_t *ctx,
 			if (ev->blockheight == 0)
 				return NULL;
 
-			iev = chain_to_income(ctx, ev,
+			iev = chain_to_income(ctx, bkpr, ev,
 					      ev->origin_acct,
 					      ev->debit,
 					      ev->credit);
@@ -164,7 +167,7 @@ static struct income_event *maybe_chain_income(const tal_t *ctx,
 		 * into a tx that included funds from a 3rd party
 		 * coming to us... eg. a splice out from the peer
 		 * to our onchain wallet */
-		stmt = db_prepare_v2(db, SQL("SELECT"
+		stmt = db_prepare_v2(bkpr->db, SQL("SELECT"
 					     "  1"
 					     " FROM chain_events e"
 					     " WHERE "
@@ -176,7 +179,7 @@ static struct income_event *maybe_chain_income(const tal_t *ctx,
 			tal_free(stmt);
 			/* no matching withdrawal from internal,
 			 * so must be new deposit (external) */
-			return chain_to_income(ctx, ev,
+			return chain_to_income(ctx, bkpr, ev,
 					       ev->acct_name,
 					       ev->credit,
 					       ev->debit);
@@ -191,26 +194,29 @@ static struct income_event *maybe_chain_income(const tal_t *ctx,
 }
 
 static struct income_event *paid_invoice_fee(const tal_t *ctx,
+					     const struct bkpr *bkpr,
 					     struct channel_event *ev)
 {
 	struct income_event *iev;
-	iev = channel_to_income(ctx, ev, AMOUNT_MSAT(0), ev->fees);
+	iev = channel_to_income(ctx, bkpr, ev, AMOUNT_MSAT(0), ev->fees);
 	iev->tag = tal_free(ev->tag);
 	iev->tag = (char *)account_entry_tag_str(INVOICEFEE);
 	return iev;
 }
 
 static struct income_event *rebalance_fee(const tal_t *ctx,
+					  const struct bkpr *bkpr,
 					  struct channel_event *ev)
 {
 	struct income_event *iev;
-	iev = channel_to_income(ctx, ev, AMOUNT_MSAT(0), ev->fees);
+	iev = channel_to_income(ctx, bkpr, ev, AMOUNT_MSAT(0), ev->fees);
 	iev->tag = tal_free(ev->tag);
 	iev->tag = (char *)account_entry_tag_str(REBALANCEFEE);
 	return iev;
 }
 
 static struct income_event *maybe_channel_income(const tal_t *ctx,
+						 const struct bkpr *bkpr,
 						 struct channel_event *ev)
 {
 	if (amount_msat_is_zero(ev->credit)
@@ -220,7 +226,7 @@ static struct income_event *maybe_channel_income(const tal_t *ctx,
 	/* We record a +/- penalty adj, but we only count the credit */
 	if (streq(ev->tag, "penalty_adj")) {
 		if (!amount_msat_is_zero(ev->credit))
-			return channel_to_income(ctx, ev,
+			return channel_to_income(ctx, bkpr, ev,
 						 ev->credit,
 						 ev->debit);
 		return NULL;
@@ -237,12 +243,12 @@ static struct income_event *maybe_channel_income(const tal_t *ctx,
 			bool ok;
 			ok = amount_msat_sub(&paid, ev->debit, ev->fees);
 			assert(ok);
-			return channel_to_income(ctx, ev,
+			return channel_to_income(ctx, bkpr, ev,
 						 ev->credit,
 						 paid);
 		}
 
-		return channel_to_income(ctx, ev,
+		return channel_to_income(ctx, bkpr, ev,
 					 ev->credit,
 					 ev->debit);
 	}
@@ -251,7 +257,7 @@ static struct income_event *maybe_channel_income(const tal_t *ctx,
 	 * debiting side -- the side the $$ was made on! */
 	if (streq(ev->tag, "routed")) {
 		if (!amount_msat_is_zero(ev->debit))
-			return channel_to_income(ctx, ev,
+			return channel_to_income(ctx, bkpr, ev,
 						 ev->fees,
 						 AMOUNT_MSAT(0));
 		return NULL;
@@ -259,7 +265,7 @@ static struct income_event *maybe_channel_income(const tal_t *ctx,
 
 	/* For everything else, it's straight forward */
 	/* (lease_fee, pushed, journal_entry) */
-	return channel_to_income(ctx, ev, ev->credit, ev->debit);
+	return channel_to_income(ctx, bkpr, ev, ev->credit, ev->debit);
 }
 
 static struct onchain_fee **find_consolidated_fees(const tal_t *ctx,
@@ -364,7 +370,7 @@ struct income_event **list_income_events(const tal_t *ctx,
 			struct account *acct =
 				find_account(bkpr, chain->acct_name);
 
-			ev = maybe_chain_income(evs, db, acct, chain);
+			ev = maybe_chain_income(evs, bkpr, acct, chain);
 			if (ev)
 				tal_arr_expand(&evs, ev);
 			i++;
@@ -373,7 +379,7 @@ struct income_event **list_income_events(const tal_t *ctx,
 
 		if (chan && chan->timestamp == lowest) {
 			struct income_event *ev;
-			ev = maybe_channel_income(evs, chan);
+			ev = maybe_channel_income(evs, bkpr, chan);
 			if (ev)
 				tal_arr_expand(&evs, ev);
 
@@ -382,9 +388,9 @@ struct income_event **list_income_events(const tal_t *ctx,
 			    && !amount_msat_is_zero(chan->debit)
 			    && !amount_msat_is_zero(chan->fees)) {
 				if (!chan->rebalance_id)
-					ev = paid_invoice_fee(evs, chan);
+					ev = paid_invoice_fee(evs, bkpr, chan);
 				else
-					ev = rebalance_fee(evs, chan);
+					ev = rebalance_fee(evs, bkpr, chan);
 				tal_arr_expand(&evs, ev);
 			}
 

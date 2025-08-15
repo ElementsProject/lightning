@@ -55,12 +55,6 @@ static struct chain_event *stmt2chain_event(const tal_t *ctx, struct db_stmt *st
 		e->spending_txid = NULL;
 
 	e->stealable = db_col_int(stmt, "e.stealable") == 1;
-
-	if (!db_col_is_null(stmt, "e.ev_desc"))
-		e->desc = db_col_strdup(e, stmt, "e.ev_desc");
-	else
-		e->desc = NULL;
-
 	e->splice_close = db_col_int(stmt, "e.spliced") == 1;
 
 	return e;
@@ -106,11 +100,6 @@ static struct channel_event *stmt2channel_event(const tal_t *ctx, struct db_stmt
 		e->payment_id = NULL;
 	e->part_id = db_col_int(stmt, "e.part_id");
 	e->timestamp = db_col_u64(stmt, "e.timestamp");
-
-	if (!db_col_is_null(stmt, "e.ev_desc"))
-		e->desc = db_col_strdup(e, stmt, "e.ev_desc");
-	else
-		e->desc = NULL;
 
 	if (!db_col_is_null(stmt, "e.rebalance_id")) {
 		e->rebalance_id = tal(e, u64);
@@ -177,7 +166,6 @@ struct chain_event **list_chain_events_timebox(const tal_t *ctx,
 				     ", e.spending_txid"
 				     ", e.payment_id"
 				     ", e.stealable"
-				     ", e.ev_desc"
 				     ", e.spliced"
 				     " FROM chain_events e"
 				     " WHERE e.timestamp > ?"
@@ -215,7 +203,6 @@ struct chain_event **account_get_chain_events(const tal_t *ctx,
 				     ", e.spending_txid"
 				     ", e.payment_id"
 				     ", e.stealable"
-				     ", e.ev_desc"
 				     ", e.spliced"
 				     " FROM chain_events e"
 				     " WHERE e.account_name = ?"
@@ -246,7 +233,6 @@ static struct chain_event **find_txos_for_tx(const tal_t *ctx,
 				     ", e.spending_txid"
 				     ", e.payment_id"
 				     ", e.stealable"
-				     ", e.ev_desc"
 				     ", e.spliced"
 				     " FROM chain_events e"
 				     " WHERE e.utxo_txid = ?"
@@ -504,51 +490,6 @@ u64 account_onchain_closeheight(struct db *db, const struct account *acct)
 	return height;
 }
 
-void edit_utxo_description(struct db *db,
-			   struct bitcoin_outpoint *outpoint,
-			   const char *desc)
-{
-	struct db_stmt *stmt;
-
-	/* Ok, now we update the account with this blockheight */
-	stmt = db_prepare_v2(db, SQL("UPDATE chain_events SET"
-				     "  ev_desc = ?"
-				     " WHERE"
-				     " utxo_txid = ?"
-				     " AND outnum = ?"
-				     " AND credit > 0"));
-	db_bind_text(stmt, desc);
-	db_bind_txid(stmt, &outpoint->txid);
-	db_bind_int(stmt, outpoint->n);
-
-	db_exec_prepared_v2(take(stmt));
-}
-
-void add_payment_hash_desc(struct db *db,
-			   struct sha256 *payment_hash,
-			   const char *desc)
-{
-	struct db_stmt *stmt;
-
-	/* Ok, now we update the account with this blockheight */
-	stmt = db_prepare_v2(db, SQL("UPDATE channel_events SET"
-				     "  ev_desc = ?"
-				     " WHERE"
-				     " payment_id = ?"));
-	db_bind_text(stmt, desc);
-	db_bind_sha256(stmt, payment_hash);
-	db_exec_prepared_v2(take(stmt));
-
-	/* Ok, now we update the account with this blockheight */
-	stmt = db_prepare_v2(db, SQL("UPDATE chain_events SET"
-				     "  ev_desc = ?"
-				     " WHERE"
-				     " payment_id = ?"));
-	db_bind_text(stmt, desc);
-	db_bind_sha256(stmt, payment_hash);
-	db_exec_prepared_v2(take(stmt));
-}
-
 struct chain_event *find_chain_event_by_id(const tal_t *ctx,
 					   struct db *db,
 					   u64 event_db_id)
@@ -571,7 +512,6 @@ struct chain_event *find_chain_event_by_id(const tal_t *ctx,
 				     ", e.spending_txid"
 				     ", e.payment_id"
 				     ", e.stealable"
-				     ", e.ev_desc"
 				     ", e.spliced"
 				     " FROM chain_events e"
 				     " WHERE "
@@ -610,7 +550,6 @@ struct chain_event **get_chain_events_by_outpoint(const tal_t *ctx,
 					     ", e.spending_txid"
 					     ", e.payment_id"
 					     ", e.stealable"
-					     ", e.ev_desc"
 					     ", e.spliced"
 					     " FROM chain_events e"
 					     " WHERE "
@@ -633,7 +572,6 @@ struct chain_event **get_chain_events_by_outpoint(const tal_t *ctx,
 					     ", e.spending_txid"
 					     ", e.payment_id"
 					     ", e.stealable"
-					     ", e.ev_desc"
 					     ", e.spliced"
 					     " FROM chain_events e"
 					     " WHERE "
@@ -665,7 +603,6 @@ struct chain_event **get_chain_events_by_id(const tal_t *ctx,
 				     ", e.spending_txid"
 				     ", e.payment_id"
 				     ", e.stealable"
-				     ", e.ev_desc"
 				     ", e.spliced"
 				     " FROM chain_events e"
 				     " WHERE "
@@ -702,7 +639,6 @@ static struct chain_event *find_chain_event(const tal_t *ctx,
 					     ", e.spending_txid"
 					     ", e.payment_id"
 					     ", e.stealable"
-					     ", e.ev_desc"
 					     ", e.spliced"
 					     " FROM chain_events e"
 					     " WHERE "
@@ -727,7 +663,6 @@ static struct chain_event *find_chain_event(const tal_t *ctx,
 					     ", e.spending_txid"
 					     ", e.payment_id"
 					     ", e.stealable"
-					     ", e.ev_desc"
 					     ", e.spliced"
 					     " FROM chain_events e"
 					     " WHERE "
@@ -836,7 +771,6 @@ struct channel_event **list_channel_events_timebox(const tal_t *ctx,
 				     ", e.payment_id"
 				     ", e.part_id"
 				     ", e.timestamp"
-				     ", e.ev_desc"
 				     ", e.rebalance_id"
 				     " FROM channel_events e"
 				     " WHERE e.timestamp > ?"
@@ -879,7 +813,6 @@ struct channel_event **account_get_channel_events(const tal_t *ctx,
 				     ", e.payment_id"
 				     ", e.part_id"
 				     ", e.timestamp"
-				     ", e.ev_desc"
 				     ", e.rebalance_id"
 				     " FROM channel_events e"
 				     " WHERE e.account_name = ?"
@@ -905,7 +838,6 @@ struct channel_event **get_channel_events_by_id(const tal_t *ctx,
 				     ", e.payment_id"
 				     ", e.part_id"
 				     ", e.timestamp"
-				     ", e.ev_desc"
 				     ", e.rebalance_id"
 				     " FROM channel_events e"
 				     " WHERE e.payment_id = ?"
@@ -931,11 +863,10 @@ void log_channel_event(struct db *db,
 				     ", payment_id"
 				     ", part_id"
 				     ", timestamp"
-				     ", ev_desc"
 				     ", rebalance_id"
 				     ")"
 				     " VALUES"
-				     " (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+				     " (?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 
 	db_bind_text(stmt, acct->name);
 	db_bind_text(stmt, e->tag);
@@ -948,10 +879,6 @@ void log_channel_event(struct db *db,
 		db_bind_null(stmt);
 	db_bind_int(stmt, e->part_id);
 	db_bind_u64(stmt, e->timestamp);
-	if (e->desc)
-		db_bind_text(stmt, e->desc);
-	else
-		db_bind_null(stmt);
 
 	if (e->rebalance_id)
 		db_bind_u64(stmt, *e->rebalance_id);
@@ -984,7 +911,6 @@ struct chain_event **find_chain_events_bytxid(const tal_t *ctx, struct db *db,
 				     ", e.spending_txid"
 				     ", e.payment_id"
 				     ", e.stealable"
-				     ", e.ev_desc"
 				     ", e.spliced"
 				     " FROM chain_events e"
 				     " WHERE e.spending_txid = ?"
@@ -1143,11 +1069,10 @@ bool log_chain_event(struct db *db,
 				     ", payment_id"
 				     ", spending_txid"
 				     ", stealable"
-				     ", ev_desc"
 				     ", spliced"
 				     ")"
 				     " VALUES "
-				     "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+				     "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 
 	db_bind_text(stmt, acct->name);
 	if (e->origin_acct)
@@ -1174,10 +1099,6 @@ bool log_chain_event(struct db *db,
 		db_bind_null(stmt);
 
 	db_bind_int(stmt, e->stealable ? 1 : 0);
-	if (e->desc)
-		db_bind_text(stmt, e->desc);
-	else
-		db_bind_null(stmt);
 	db_bind_int(stmt, e->splice_close ? 1 : 0);
 	db_exec_prepared_v2(stmt);
 	e->db_id = db_last_insert_id_v2(stmt);

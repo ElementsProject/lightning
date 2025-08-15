@@ -137,20 +137,6 @@ const char *find_close_account_name(const tal_t *ctx,
  * The point of this is to allow us to prune data, eventually */
 u64 account_onchain_closeheight(struct db *db, const struct account *acct);
 
-/* We fetch invoice desc data after the fact and then update it
- * Updates both the chain_event and channel_event tables for all
- * matching payment_hashes
- * */
-void add_payment_hash_desc(struct db *db,
-			   struct sha256 *payment_hash,
-			   const char *desc);
-
-/* Set the description for all events on this outpoint to
- * the provided one */
-void edit_utxo_description(struct db *db,
-			   struct bitcoin_outpoint *outpoint,
-			   const char *desc);
-
 /* When we make external deposits from the wallet, we don't
  * count them until any output that was spent *into* them is
  * confirmed onchain.

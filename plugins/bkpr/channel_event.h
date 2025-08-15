@@ -6,6 +6,7 @@
 #include <common/utils.h>
 
 struct amount_msat;
+struct bkpr;
 struct json_stream;
 struct sha256;
 
@@ -38,9 +39,6 @@ struct channel_event {
 	/* What time did the event happen */
 	u64 timestamp;
 
-	/* Description, usually from invoice */
-	const char *desc;
-
 	/* ID of paired event, iff is a rebalance */
 	u64 *rebalance_id;
 };
@@ -55,6 +53,7 @@ struct channel_event *new_channel_event(const tal_t *ctx,
 					u64 timestamp);
 
 void json_add_channel_event(struct json_stream *out,
+			    const struct bkpr *bkpr,
 			    struct channel_event *ev);
 
 #endif /* LIGHTNING_PLUGINS_BKPR_CHANNEL_EVENT_H */
