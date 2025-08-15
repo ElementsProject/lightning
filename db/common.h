@@ -183,7 +183,7 @@ struct db_config {
 	u64 (*last_insert_id_fn)(struct db_stmt *stmt);
 	size_t (*count_changes_fn)(struct db_stmt *stmt);
 
-	bool (*setup_fn)(struct db *db);
+	bool (*setup_fn)(struct db *db, bool create);
 	void (*teardown_fn)(struct db *db);
 
 	bool (*vacuum_fn)(struct db *db);

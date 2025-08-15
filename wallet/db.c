@@ -1171,7 +1171,7 @@ static void db_error(struct lightningd *ld, bool fatal, const char *fmt, va_list
 struct db *db_setup(const tal_t *ctx, struct lightningd *ld,
 		    const struct ext_key *bip32_base)
 {
-	struct db *db = db_open(ctx, ld->wallet_dsn, ld->developer,
+	struct db *db = db_open(ctx, ld->wallet_dsn, ld->developer, true,
 				db_error, ld);
 	bool migrated;
 
