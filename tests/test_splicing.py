@@ -506,7 +506,7 @@ def test_route_by_old_scid(node_factory, bitcoind):
     # Get pre-splice route.
     inv = l3.rpc.invoice(10000000, 'test_route_by_old_scid', 'test_route_by_old_scid')
     inv2 = l3.rpc.invoice(10000000, 'test_route_by_old_scid2', 'test_route_by_old_scid2')
-    route = l1.rpc.getroute(l3.info['id'], 10000000, 1)['route']
+    route = l1.rpc.getroute(l3.info['id'], 10000000, 1, cltv=16)['route']
 
     # Do a splice
     funds_result = l2.rpc.fundpsbt("109000sat", "slow", 166, excess_as_change=True)
