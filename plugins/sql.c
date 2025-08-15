@@ -27,11 +27,10 @@ static const char schemas[] =
 
 /* TODO:
  * 2. Refresh time in API.
- * 6. test on mainnet.
- * 7. Some cool query for documentation.
  * 8. time_msec fields.
- * 10. Pagination API
- */
+ * 10. General pagination API (not just chainmoves and channelmoves)
+ * 11. Normalize account_id fields into another table, as they are highly duplicate, and use views to maintain the current API.
+*/
 enum fieldtype {
 	/* Hex variants */
 	FIELD_HEX,
@@ -96,6 +95,8 @@ struct db_query {
 	struct table_desc **tables;
 	const char *authfail;
 	bool has_wildcard;
+	/* Update *last_created_index */
+	u64 *last_created_index;
 };
 
 struct table_desc {
@@ -116,6 +117,8 @@ struct table_desc {
 	struct command_result *(*refresh)(struct command *cmd,
 					  const struct table_desc *td,
 					  struct db_query *dbq);
+	/* some refresh functions maintain changed and created indexes */
+	u64 last_created_index;
 };
 static STRMAP(struct table_desc *) tablemap;
 static size_t max_dbmem = 500000000;
@@ -487,14 +490,16 @@ static struct command_result *process_json_list(struct command *cmd,
 						const char *buf,
 						const jsmntok_t *arr,
 						const u64 *rowid,
-						const struct table_desc *td);
+						const struct table_desc *td,
+						u64 *last_created_index);
 
 /* Process all subobject columns */
 static struct command_result *process_json_subobjs(struct command *cmd,
 						   const char *buf,
 						   const jsmntok_t *t,
 						   const struct table_desc *td,
-						   u64 this_rowid)
+						   u64 this_rowid,
+						   u64 *last_created_index)
 {
 	for (size_t i = 0; i < tal_count(td->columns); i++) {
 		const struct column *col = td->columns[i];
@@ -511,10 +516,10 @@ static struct command_result *process_json_subobjs(struct command *cmd,
 		/* If it's an array, use process_json_list */
 		if (!col->sub->is_subobject) {
 			ret = process_json_list(cmd, buf, coltok, &this_rowid,
-						col->sub);
+						col->sub, last_created_index);
 		} else {
 			ret = process_json_subobjs(cmd, buf, coltok, col->sub,
-						   this_rowid);
+						   this_rowid, last_created_index);
 		}
 		if (ret)
 			return ret;
@@ -531,7 +536,8 @@ static struct command_result *process_json_obj(struct command *cmd,
 					       u64 this_rowid,
 					       const u64 *parent_rowid,
 					       size_t *sqloff,
-					       sqlite3_stmt *stmt)
+					       sqlite3_stmt *stmt,
+					       u64 *last_created_index)
 {
 	int err;
 
@@ -558,7 +564,7 @@ static struct command_result *process_json_obj(struct command *cmd,
 			else
 				coltok = json_get_member(buf, t, col->jsonname);
 			ret = process_json_obj(cmd, buf, coltok, col->sub, row, this_rowid,
-					       NULL, sqloff, stmt);
+					       NULL, sqloff, stmt, last_created_index);
 			if (ret)
 				return ret;
 			continue;
@@ -603,6 +609,11 @@ static struct command_result *process_json_obj(struct command *cmd,
 							    json_tok_full(buf, coltok));
 				}
 				sqlite3_bind_int64(stmt, (*sqloff)++, val64);
+				/* created_index -> last_created_index */
+				if (streq(col->dbname, "created_index")
+				    && val64 > *last_created_index) {
+					*last_created_index = val64;
+				}
 				break;
 			case FIELD_BOOL:
 				if (!json_to_bool(buf, coltok, &valbool)) {
@@ -674,7 +685,7 @@ static struct command_result *process_json_obj(struct command *cmd,
 				    sqlite3_errmsg(db));
 	}
 
-	return process_json_subobjs(cmd, buf, t, td, this_rowid);
+	return process_json_subobjs(cmd, buf, t, td, this_rowid, last_created_index);
 }
 
 /* A list, such as in the top-level reply, or for a sub-table */
@@ -682,7 +693,8 @@ static struct command_result *process_json_list(struct command *cmd,
 						const char *buf,
 						const jsmntok_t *arr,
 						const u64 *parent_rowid,
-						const struct table_desc *td)
+						const struct table_desc *td,
+						u64 *last_created_index)
 {
 	size_t i;
 	const jsmntok_t *t;
@@ -704,7 +716,7 @@ static struct command_result *process_json_list(struct command *cmd,
 
 		/* First entry is always the rowid */
 		sqlite3_bind_int64(stmt, off++, this_rowid);
-		ret = process_json_obj(cmd, buf, t, td, i, this_rowid, parent_rowid, &off, stmt);
+		ret = process_json_obj(cmd, buf, t, td, i, this_rowid, parent_rowid, &off, stmt, last_created_index);
 		if (ret)
 			break;
 		sqlite3_reset(stmt);
@@ -717,11 +729,12 @@ static struct command_result *process_json_list(struct command *cmd,
 static struct command_result *process_json_result(struct command *cmd,
 						  const char *buf,
 						  const jsmntok_t *result,
-						  const struct table_desc *td)
+						  const struct table_desc *td,
+						  u64 *last_created_index)
 {
 	return process_json_list(cmd, buf,
 				 json_get_member(buf, result, td->arrname),
-				 NULL, td);
+				 NULL, td, last_created_index);
 }
 
 static struct command_result *default_list_done(struct command *cmd,
@@ -743,7 +756,7 @@ static struct command_result *default_list_done(struct command *cmd,
 				    td->name, errmsg);
 	}
 
-	ret = process_json_result(cmd, buf, result, td);
+	ret = process_json_result(cmd, buf, result, td, dbq->last_created_index);
 	if (ret)
 		return ret;
 
@@ -825,7 +838,7 @@ static struct command_result *listchannels_one_done(struct command *cmd,
 	const struct table_desc *td = dbq->tables[0];
 	struct command_result *ret;
 
-	ret = process_json_result(cmd, buf, result, td);
+	ret = process_json_result(cmd, buf, result, td, dbq->last_created_index);
 	if (ret)
 		return ret;
 
@@ -925,7 +938,7 @@ static struct command_result *listnodes_one_done(struct command *cmd,
 	const struct table_desc *td = dbq->tables[0];
 	struct command_result *ret;
 
-	ret = process_json_result(cmd, buf, result, td);
+	ret = process_json_result(cmd, buf, result, td, dbq->last_created_index);
 	if (ret)
 		return ret;
 
@@ -1050,7 +1063,10 @@ static struct command_result *refresh_tables(struct command *cmd,
 	if (tal_count(dbq->tables) == 0)
 		return refresh_complete(cmd, dbq);
 
+	/* td is const, but last_created_index needs updating, so we hand
+	 * pointer in dbq. */
 	td = dbq->tables[0];
+	dbq->last_created_index = &dbq->tables[0]->last_created_index;
 	return td->refresh(cmd, dbq->tables[0], dbq);
 }
 
@@ -1340,6 +1356,74 @@ static const char *db_table_name(const tal_t *ctx, const char *cmdname)
 	return ret;
 }
 
+static struct command_result *limited_list_done(struct command *cmd,
+						const char *method,
+						const char *buf,
+						const jsmntok_t *result,
+						struct db_query *dbq)
+{
+	struct table_desc *td = dbq->tables[0];
+	struct command_result *ret;
+
+	ret = process_json_result(cmd, buf, result, td, dbq->last_created_index);
+	if (ret)
+		return ret;
+
+	return one_refresh_done(cmd, dbq);
+}
+
+/* The simplest case: append-only lists */
+static struct command_result *refresh_by_created_index(struct command *cmd,
+						       const struct table_desc *td,
+						       struct db_query *dbq)
+{
+	struct out_req *req;
+	req = jsonrpc_request_start(cmd, td->cmdname,
+				    limited_list_done, forward_error,
+				    dbq);
+	json_add_string(req->js, "index", "created");
+	json_add_u64(req->js, "start", *dbq->last_created_index + 1);
+	return send_outreq(req);
+}
+
+struct refresh_funcs {
+	const char *cmdname;
+	struct command_result *(*refresh)(struct command *cmd,
+					  const struct table_desc *td,
+					  struct db_query *dbq);
+};
+
+static const struct refresh_funcs refresh_funcs[] = {
+	/* These are special, using gossmap */
+	{ "listchannels", channels_refresh },
+	{ "listnodes", nodes_refresh },
+	/* FIXME: These support wait and full pagination */
+	{ "listhtlcs", default_refresh },
+	{ "listforwards", default_refresh },
+	{ "listinvoices", default_refresh },
+	{ "listsendpays", default_refresh },
+	/* These are never changed or deleted */
+	{ "listchainmoves", refresh_by_created_index },
+	{ "listchannelmoves", refresh_by_created_index },
+	/* No pagination support */
+	{ "listoffers", default_refresh },
+	{ "listpeers", default_refresh },
+	{ "listpeerchannels", default_refresh },
+	{ "listclosedchannels", default_refresh },
+	{ "listtransactions", default_refresh },
+	{ "bkpr-listaccountevents", default_refresh },
+	{ "bkpr-listincome", default_refresh }
+};
+
+static const struct refresh_funcs *find_command_refresh(const char *cmdname)
+{
+	for (size_t i = 0; i < ARRAY_SIZE(refresh_funcs); i++) {
+		if (streq(refresh_funcs[i].cmdname, cmdname))
+			return &refresh_funcs[i];
+	}
+	abort();
+}
+
 static struct table_desc *new_table_desc(const tal_t *ctx,
 					 struct table_desc *parent,
 					 const jsmntok_t *cmd,
@@ -1348,6 +1432,7 @@ static struct table_desc *new_table_desc(const tal_t *ctx,
 {
 	struct table_desc *td;
 	const char *name;
+	const struct refresh_funcs *refresh_func;
 
 	td = tal(ctx, struct table_desc);
 	td->cmdname = json_strdup(td, schemas, cmd);
@@ -1360,12 +1445,13 @@ static struct table_desc *new_table_desc(const tal_t *ctx,
 	td->is_subobject = is_subobject;
 	td->arrname = json_strdup(td, schemas, arrname);
 	td->columns = tal_arr(td, struct column *, 0);
-	if (streq(td->name, "channels"))
-		td->refresh = channels_refresh;
-	else if (streq(td->name, "nodes"))
-		td->refresh = nodes_refresh;
-	else
-		td->refresh = default_refresh;
+	td->last_created_index = 0;
+
+	/* Only top-levels have refresh functions */
+	if (!parent) {
+		refresh_func = find_command_refresh(td->cmdname);
+		td->refresh = refresh_func->refresh;
+	}
 
 	/* sub-objects are a JSON thing, not a real table! */
 	if (!td->is_subobject)
