@@ -11,6 +11,7 @@ BOOKKEEPER_PLUGIN_SRC := 			\
 	plugins/bkpr/descriptions.c		\
 	plugins/bkpr/incomestmt.c		\
 	plugins/bkpr/onchain_fee.c		\
+	plugins/bkpr/rebalances.c		\
 	plugins/bkpr/recorder.c
 
 BOOKKEEPER_DB_QUERIES := 			\
@@ -29,6 +30,7 @@ BOOKKEEPER_HEADER := 				\
 	plugins/bkpr/descriptions.h		\
 	plugins/bkpr/incomestmt.h		\
 	plugins/bkpr/onchain_fee.h		\
+	plugins/bkpr/rebalances.h		\
 	plugins/bkpr/recorder.h
 
 BOOKKEEPER_OBJS := $(BOOKKEEPER_SRC:.c=.o)
