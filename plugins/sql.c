@@ -99,6 +99,13 @@ struct db_query {
 	u64 *last_created_index;
 };
 
+/* Waiting for another command to refresh table */
+struct refresh_waiter {
+	struct list_node list;
+	struct command *cmd;
+	struct db_query *dbq;
+};
+
 struct table_desc {
 	/* e.g. listpeers.  For sub-tables, the raw name without
 	 * parent prepended */
@@ -121,6 +128,10 @@ struct table_desc {
 					  struct db_query *dbq);
 	/* some refresh functions maintain changed and created indexes */
 	u64 last_created_index;
+	/* Are we refreshing now? */
+	bool refreshing;
+	/* Any other commands waiting for the refresh completion */
+	struct list_head refresh_waiters;
 };
 static STRMAP(struct table_desc *) tablemap;
 static size_t max_dbmem = 500000000;
@@ -482,6 +493,29 @@ static struct command_result *refresh_tables(struct command *cmd,
 static struct command_result *one_refresh_done(struct command *cmd,
 					       struct db_query *dbq)
 {
+	struct table_desc *td = dbq->tables[0];
+	struct list_head waiters;
+	struct refresh_waiter *rw;
+
+	/* We are no longer refreshing */
+	assert(td->refreshing);
+	td->refreshing = false;
+
+	/* Transfer refresh waiters onto local list */
+	list_head_init(&waiters);
+	list_append_list(&waiters, &td->refresh_waiters);
+
+	while ((rw = list_pop(&waiters, struct refresh_waiter, list)) != NULL) {
+		struct command *rwcmd = rw->cmd;
+		struct db_query *rwdbq = rw->dbq;
+		tal_free(rw);
+
+		/* Remove that one, and refresh the rest */
+		assert(rwdbq->tables[0] == td);
+		tal_arr_remove(&rwdbq->tables, 0);
+		refresh_tables(rwcmd, rwdbq);
+	}
+
 	/* Remove that, iterate */
 	tal_arr_remove(&dbq->tables, 0);
 	return refresh_tables(cmd, dbq);
@@ -1069,9 +1103,9 @@ static struct command_result *nodes_refresh(struct command *cmd,
 }
 
 static struct command_result *refresh_tables(struct command *cmd,
-					    struct db_query *dbq)
+					     struct db_query *dbq)
 {
-	const struct table_desc *td;
+	struct table_desc *td;
 
 	if (tal_count(dbq->tables) == 0)
 		return refresh_complete(cmd, dbq);
@@ -1079,7 +1113,18 @@ static struct command_result *refresh_tables(struct command *cmd,
 	/* td is const, but last_created_index needs updating, so we hand
 	 * pointer in dbq. */
 	td = dbq->tables[0];
+
+	/* If it's currently being refreshed, wait */
+	if (td->refreshing) {
+		struct refresh_waiter *rw = tal(cmd, struct refresh_waiter);
+		rw->cmd = cmd;
+		rw->dbq = dbq;
+		list_add(&td->refresh_waiters, &rw->list);
+		return command_still_pending(cmd);
+	}
+
 	dbq->last_created_index = &dbq->tables[0]->last_created_index;
+	td->refreshing = true;
 	return td->refresh(cmd, dbq->tables[0], dbq);
 }
 
@@ -1477,6 +1522,8 @@ static struct table_desc *new_table_desc(const tal_t *ctx,
 	td->columns = tal_arr(td, struct column *, 0);
 	td->last_created_index = 0;
 	td->has_created_index = false;
+	td->refreshing = false;
+	list_head_init(&td->refresh_waiters);
 
 	/* Only top-levels have refresh functions */
 	if (!parent) {
