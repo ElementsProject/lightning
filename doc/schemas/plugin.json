@@ -303,6 +303,11 @@
             "dynamic": false
           },
           {
+            "name": "/root/lightning/plugins/cln-bip353",
+            "active": true,
+            "dynamic": true
+          },
+          {
             "name": "/root/lightning/plugins/bookkeeper",
             "active": true,
             "dynamic": false
@@ -439,6 +444,11 @@
             "name": "/root/lightning/plugins/cln-lsps-client",
             "active": true,
             "dynamic": false
+          },
+          {
+            "name": "/root/lightning/plugins/cln-bip353",
+            "active": true,
+            "dynamic": true
           },
           {
             "name": "/root/lightning/plugins/bookkeeper",

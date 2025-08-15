@@ -282,6 +282,7 @@ NEW_VALUES_LIST = {
     'psbt_26': 'cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt' + ('022200' * 40),
     'signed_psbt_1': 'cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt' + ('718000' * 120),
     'htlc_max_msat': 18446744073709552000,
+    'proof_1': '0473656e64' + ('proof00001' * 10),
 }
 
 # Used for collecting values from responses and replace them with NEW_VALUES_LIST before updating examples in schema files
@@ -642,6 +643,7 @@ def generate_transactions_examples(l1, l2, l3, l4, l5, c25, bitcoind):
             'cltv_expiry': blockheight + 18 + 6,
             'partid': 1,
             'groupid': 0})
+        bip353_result = update_example(node=l1, method='fetchbip353', params={'address': 'send.some@satsto.me'}, description=['Example of fetching BIP-353 payment details.'])
         REPLACE_RESPONSE_VALUES.extend([
             {'data_keys': ['destination'], 'original_value': address_l41['bech32'], 'new_value': NEW_VALUES_LIST['destination_6']},
             {'data_keys': ['tx'], 'original_value': close_res1['tx'], 'new_value': NEW_VALUES_LIST['close1_tx']},
@@ -735,6 +737,7 @@ def generate_transactions_examples(l1, l2, l3, l4, l5, c25, bitcoind):
             {'data_keys': ['completed_at'], 'original_value': waitsendpay_res1['completed_at'], 'new_value': NEW_VALUES_LIST['time_at_900']},
             {'data_keys': ['payment_preimage'], 'original_value': xpay_res1['payment_preimage'], 'new_value': NEW_VALUES_LIST['payment_preimage_xp_1']},
             {'data_keys': ['payment_preimage'], 'original_value': xpay_res2['payment_preimage'], 'new_value': NEW_VALUES_LIST['payment_preimage_xp_2']},
+            {'data_keys': ['proof'], 'original_value': bip353_result['proof'], 'new_value': NEW_VALUES_LIST['proof_1']},
         ])
         logger.info('Simple Transactions Done!')
         return c23_2, c23res2, c34_2, inv_l11, inv_l21, inv_l22, inv_l31, inv_l32, inv_l34
@@ -1360,6 +1363,7 @@ def generate_splice_examples(node_factory, bitcoind):
             {'data_keys': ['psbt'], 'original_value': signpsbt_res1['signed_psbt'], 'new_value': NEW_VALUES_LIST['signed_psbt_1']},
             {'data_keys': ['psbt'], 'original_value': spupdate1_res1['psbt'], 'new_value': NEW_VALUES_LIST['psbt_1']},
             {'data_keys': ['any', 'psbt'], 'original_value': spupdate1_res2['psbt'], 'new_value': NEW_VALUES_LIST['psbt_2']},
+            {'data_keys': ['psbt'], 'original_value': spupdate2_res2['psbt'], 'new_value': NEW_VALUES_LIST['psbt_2']},
         ])
         logger.info('Splice Done!')
     except Exception as e:
