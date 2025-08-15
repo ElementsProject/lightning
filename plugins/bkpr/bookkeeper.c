@@ -266,7 +266,7 @@ static struct command_result *json_inspect(struct command *cmd,
 				    acct_name);
 
 	db_begin_transaction(bkpr->db);
-	find_txo_chain(cmd, bkpr->db, acct, &txos);
+	find_txo_chain(cmd, bkpr, acct, &txos);
 	fee_sums = find_account_onchain_fees(cmd, bkpr, acct);
 	db_commit_transaction(bkpr->db);
 
@@ -464,7 +464,7 @@ static struct command_result *json_list_account_events(struct command *cmd,
 	db_begin_transaction(bkpr->db);
 	if (acct) {
 		channel_events = account_get_channel_events(cmd, bkpr->db, acct);
-		chain_events = account_get_chain_events(cmd, bkpr->db, acct);
+		chain_events = account_get_chain_events(cmd, bkpr, acct);
 		onchain_fees = account_get_chain_fees(tmpctx, bkpr, acct->name);
 	} else if (payment_id != NULL) {
 		channel_events = get_channel_events_by_id(cmd, bkpr->db, payment_id);
@@ -474,11 +474,11 @@ static struct command_result *json_list_account_events(struct command *cmd,
 		/* Transaction ids are stored as big-endian in the database */
 		reverse_bytes(tx_id->shad.sha.u.u8, sizeof(tx_id->shad.sha.u.u8));
 
-		chain_events = find_chain_events_bytxid(cmd, bkpr->db, tx_id);
+		chain_events = find_chain_events_bytxid(cmd, bkpr, tx_id);
 		onchain_fees = get_chain_fees_by_txid(cmd, bkpr, tx_id);
 	} else {
 		channel_events = list_channel_events(cmd, bkpr->db);
-		chain_events = list_chain_events(cmd, bkpr->db);
+		chain_events = list_chain_events(cmd, bkpr);
 		onchain_fees = list_chain_fees(cmd, bkpr);
 	}
 	db_commit_transaction(bkpr->db);
@@ -521,7 +521,7 @@ static struct command_result *json_edit_desc_utxo(struct command *cmd,
 
 	db_begin_transaction(bkpr->db);
 	add_utxo_description(cmd, bkpr, outpoint, new_desc);
-	chain_events = get_chain_events_by_outpoint(cmd, bkpr->db, outpoint, true);
+	chain_events = get_chain_events_by_outpoint(cmd, bkpr, outpoint, true);
 	db_commit_transaction(bkpr->db);
 
 	res = jsonrpc_stream_success(cmd);
@@ -552,7 +552,7 @@ static struct command_result *json_edit_desc_payment_id(struct command *cmd,
 	db_begin_transaction(bkpr->db);
 	add_payment_hash_description(cmd, bkpr, identifier, new_desc);
 
-	chain_events = get_chain_events_by_id(cmd, bkpr->db, identifier);
+	chain_events = get_chain_events_by_id(cmd, bkpr, identifier);
 	channel_events = get_channel_events_by_id(cmd, bkpr->db, identifier);
 	db_commit_transaction(bkpr->db);
 
@@ -652,7 +652,7 @@ static void try_update_open_fees(struct command *cmd,
 	struct bkpr *bkpr = bkpr_of(cmd->plugin);
 
 	assert(acct->closed_event_db_id);
-	ev = find_chain_event_by_id(cmd, bkpr->db, *acct->closed_event_db_id);
+	ev = find_chain_event_by_id(cmd, bkpr, *acct->closed_event_db_id);
 	assert(ev);
 
 	err = maybe_update_onchain_fees(cmd, cmd, bkpr, ev->spending_txid);
@@ -804,7 +804,7 @@ static bool new_missed_channel_account(struct command *cmd,
 
 		chain_ev->credit = amt;
 		db_begin_transaction(bkpr->db);
-		if (!log_chain_event(bkpr->db, acct, chain_ev))
+		if (!log_chain_event(bkpr, acct, chain_ev))
 			goto done;
 
 		maybe_update_account(cmd, acct, chain_ev,
@@ -1027,7 +1027,7 @@ static char *do_account_close_checks(struct command *cmd,
 
 
 	if (closed_acct && closed_acct->closed_event_db_id) {
-		u64 closeheight = account_onchain_closeheight(bkpr->db, closed_acct);
+		u64 closeheight = account_onchain_closeheight(bkpr, closed_acct);
 		if (closeheight != 0) {
 			char *err;
 			account_update_closeheight(cmd, closed_acct, closeheight);
@@ -1546,7 +1546,7 @@ parse_and_log_chain_move(struct command *cmd,
 		orig_acct = NULL;
 
 
-	if (!log_chain_event(bkpr->db, acct, e)) {
+	if (!log_chain_event(bkpr, acct, e)) {
 		db_commit_transaction(bkpr->db);
 		/* This is not a new event, do nothing */
 		return notification_handled(cmd);
@@ -1578,7 +1578,7 @@ parse_and_log_chain_move(struct command *cmd,
 		/* Go see if there's any deposits to an external
 		 * that are now confirmed */
 		/* FIXME: might need updating when we can splice? */
-		maybe_closeout_external_deposits(bkpr->db, e->spending_txid,
+		maybe_closeout_external_deposits(bkpr, e->spending_txid,
 						 e->blockheight);
 		db_commit_transaction(bkpr->db);
 	}
@@ -1785,7 +1785,7 @@ static struct command_result *json_utxo_deposit(struct command *cmd, const char 
 		   ev->timestamp, ev->blockheight,
 		   fmt_bitcoin_outpoint(tmpctx, &ev->outpoint));
 
-	if (!log_chain_event(bkpr->db, acct, ev)) {
+	if (!log_chain_event(bkpr, acct, ev)) {
 		db_commit_transaction(bkpr->db);
 		/* This is not a new event, do nothing */
 		return notification_handled(cmd);
@@ -1854,7 +1854,7 @@ static struct command_result *json_utxo_spend(struct command *cmd, const char *b
 		   fmt_bitcoin_outpoint(tmpctx, &ev->outpoint),
 		   fmt_bitcoin_txid(tmpctx, ev->spending_txid));
 
-	if (!log_chain_event(bkpr->db, acct, ev)) {
+	if (!log_chain_event(bkpr, acct, ev)) {
 		db_commit_transaction(bkpr->db);
 		/* This is not a new event, do nothing */
 		return notification_handled(cmd);
@@ -1879,7 +1879,7 @@ static struct command_result *json_utxo_spend(struct command *cmd, const char *b
 	/* Go see if there's any deposits to an external
 	 * that are now confirmed */
 	/* FIXME: might need updating when we can splice? */
-	maybe_closeout_external_deposits(bkpr->db, ev->spending_txid,
+	maybe_closeout_external_deposits(bkpr, ev->spending_txid,
 					 ev->blockheight);
 	db_commit_transaction(bkpr->db);
 

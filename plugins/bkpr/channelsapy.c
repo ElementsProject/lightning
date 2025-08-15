@@ -96,7 +96,7 @@ static struct account *search_account(struct account **accts, const char *acctna
 	return NULL;
 }
 
-static void fillin_apy_acct_details(struct db *db,
+static void fillin_apy_acct_details(const struct bkpr *bkpr,
 				    const struct account *acct,
 				    u32 current_blockheight,
 				    struct channel_apy *apy)
@@ -107,7 +107,7 @@ static void fillin_apy_acct_details(struct db *db,
 	apy->acct_name = tal_strdup(apy, acct->name);
 
 	assert(acct->open_event_db_id);
-	ev = find_chain_event_by_id(tmpctx, db, *acct->open_event_db_id);
+	ev = find_chain_event_by_id(tmpctx, bkpr, *acct->open_event_db_id);
 	assert(ev);
 
 	apy->start_blockheight = ev->blockheight;
@@ -116,7 +116,7 @@ static void fillin_apy_acct_details(struct db *db,
 
 	/* if this account is closed, add closing blockheight */
 	if (acct->closed_event_db_id) {
-		ev = find_chain_event_by_id(acct, db,
+		ev = find_chain_event_by_id(acct, bkpr,
 					    *acct->closed_event_db_id);
 		assert(ev);
 		apy->end_blockheight = ev->blockheight;
@@ -167,7 +167,7 @@ struct channel_apy **compute_channel_apys(const tal_t *ctx,
 
 		if (!acct || !streq(acct->name, ev->acct_name)) {
 			if (acct && is_channel_account(acct->name)) {
-				fillin_apy_acct_details(bkpr->db, acct,
+				fillin_apy_acct_details(bkpr, acct,
 							current_blockheight,
 							apy);
 				/* Save current apy, make new */
@@ -225,7 +225,7 @@ struct channel_apy **compute_channel_apys(const tal_t *ctx,
 	}
 
 	if (acct && is_channel_account(acct->name)) {
-		fillin_apy_acct_details(bkpr->db, acct,
+		fillin_apy_acct_details(bkpr, acct,
 					current_blockheight,
 					apy);
 		/* Save current apy, make new */
