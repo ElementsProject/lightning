@@ -510,44 +510,6 @@ struct channel_event **get_channel_events_by_id(const tal_t *ctx,
 				       bkpr->channelmoves_index);
 }
 
-void log_channel_event(struct db *db,
-		       const struct account *acct,
-		       struct channel_event *e)
-{
-	struct db_stmt *stmt;
-
-	stmt = db_prepare_v2(db, SQL("INSERT INTO channel_events"
-				     " ("
-				     "  account_name"
-				     ", tag"
-				     ", credit"
-				     ", debit"
-				     ", fees"
-				     ", payment_id"
-				     ", part_id"
-				     ", timestamp"
-				     ")"
-				     " VALUES"
-				     " (?, ?, ?, ?, ?, ?, ?, ?);"));
-
-	db_bind_text(stmt, acct->name);
-	db_bind_text(stmt, e->tag);
-	db_bind_amount_msat(stmt, e->credit);
-	db_bind_amount_msat(stmt, e->debit);
-	db_bind_amount_msat(stmt, e->fees);
-	if (e->payment_id)
-		db_bind_sha256(stmt, e->payment_id);
-	else
-		db_bind_null(stmt);
-	db_bind_int(stmt, e->part_id);
-	db_bind_u64(stmt, e->timestamp);
-
-	db_exec_prepared_v2(stmt);
-	e->db_id = db_last_insert_id_v2(stmt);
-	e->acct_name = tal_strdup(e, acct->name);
-	tal_free(stmt);
-}
-
 struct chain_event **find_chain_events_bytxid(const tal_t *ctx,
 					      const struct bkpr *bkpr,
 					      struct command *cmd,
@@ -644,61 +606,3 @@ void maybe_closeout_external_deposits(struct command *cmd,
 	}
 }
 
-bool log_chain_event(struct bkpr *bkpr,
-		     const struct account *acct,
-		     struct chain_event *e)
-{
-	struct db_stmt *stmt;
-
-	stmt = db_prepare_v2(bkpr->db, SQL("INSERT INTO chain_events"
-				     " ("
-				     "  account_name"
-				     ", origin"
-				     ", tag"
-				     ", credit"
-				     ", debit"
-				     ", output_value"
-				     ", timestamp"
-				     ", blockheight"
-				     ", utxo_txid"
-				     ", outnum"
-				     ", payment_id"
-				     ", spending_txid"
-				     ", stealable"
-				     ", spliced"
-				     ")"
-				     " VALUES "
-				     "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
-
-	db_bind_text(stmt, acct->name);
-	if (e->origin_acct)
-		db_bind_text(stmt, e->origin_acct);
-	else
-		db_bind_null(stmt);
-	db_bind_text(stmt, e->tag);
-	db_bind_amount_msat(stmt, e->credit);
-	db_bind_amount_msat(stmt, e->debit);
-	db_bind_amount_msat(stmt, e->output_value);
-	db_bind_u64(stmt, e->timestamp);
-	db_bind_int(stmt, e->blockheight);
-	db_bind_txid(stmt, &e->outpoint.txid);
-	db_bind_int(stmt, e->outpoint.n);
-
-	if (e->payment_id)
-		db_bind_sha256(stmt, e->payment_id);
-	else
-		db_bind_null(stmt);
-
-	if (e->spending_txid)
-		db_bind_txid(stmt, e->spending_txid);
-	else
-		db_bind_null(stmt);
-
-	db_bind_int(stmt, e->stealable ? 1 : 0);
-	db_bind_int(stmt, e->splice_close ? 1 : 0);
-	db_exec_prepared_v2(stmt);
-	e->db_id = db_last_insert_id_v2(stmt);
-	e->acct_name = tal_strdup(e, acct->name);
-	tal_free(stmt);
-	return true;
-}

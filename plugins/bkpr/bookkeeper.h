@@ -7,8 +7,7 @@
 struct command;
 
 struct bkpr {
-	/* The database that we store all the accounting data in */
-	struct db *db;
+	/* The datastore-backed lookup tables for our annotations */
 	struct accounts *accounts;
 	struct onchain_fees *onchain_fees;
 	struct descriptions *descriptions;
