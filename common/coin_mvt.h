@@ -258,6 +258,24 @@ struct channel_coin_mvt *new_coin_channel_push(const tal_t *ctx,
 					       struct mvt_tags tags)
 	NON_NULL_ARGS(2);
 
+/* FIXME: Does not set originating_acct, caller must do that! */
+struct chain_coin_mvt *new_foreign_deposit(const tal_t *ctx,
+					   const struct bitcoin_outpoint *outpoint,
+					   u32 blockheight,
+					   struct amount_sat amount,
+					   const char *account,
+					   u64 timestamp)
+	NON_NULL_ARGS(2, 5);
+
+struct chain_coin_mvt *new_foreign_withdrawal(const tal_t *ctx,
+					      const struct bitcoin_outpoint *outpoint,
+					      const struct bitcoin_txid *spend_txid,
+					      struct amount_sat amount,
+					      u32 blockheight,
+					      const char *account,
+					      u64 timestamp)
+	NON_NULL_ARGS(2, 3, 6);
+
 /* There are three standard accounts:
  * "wallet" for our internal wallet,
  * "external" for other bitcoin sources,

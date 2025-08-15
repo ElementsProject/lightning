@@ -491,19 +491,6 @@ static struct command_result *json_list_account_events(struct command *cmd,
 	return command_finished(cmd, res);
 }
 
-static struct command_result *param_outpoint(struct command *cmd,
-					     const char *name,
-					     const char *buffer,
-					     const jsmntok_t *tok,
-					     struct bitcoin_outpoint **outp)
-{
-	*outp = tal(cmd, struct bitcoin_outpoint);
-	if (json_to_outpoint(buffer, tok, *outp))
-		return NULL;
-	return command_fail_badparam(cmd, name, buffer, tok,
-				     "should be a txid:outnum");
-}
-
 static struct command_result *json_edit_desc_utxo(struct command *cmd,
 						  const char *buf,
 						  const jsmntok_t *params)
