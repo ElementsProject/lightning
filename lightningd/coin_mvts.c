@@ -190,9 +190,16 @@ void json_add_chain_mvt_fields(struct json_stream *stream,
 			       bool include_old_txid_field,
 			       const struct chain_coin_mvt *chain_mvt)
 {
+	/* Fields in common with channel moves go first */
+	json_add_mvt_account_id(stream, "account_id", &chain_mvt->account);
+	json_add_amount_msat(stream, "credit_msat", chain_mvt->credit);
+	json_add_amount_msat(stream, "debit_msat", chain_mvt->debit);
+	json_add_u64(stream, "timestamp", chain_mvt->timestamp);
+	add_movement_tags(stream, include_tags_arr, chain_mvt->tags, true);
+
+	json_add_outpoint(stream, "utxo", &chain_mvt->outpoint);
 	if (chain_mvt->peer_id)
 		json_add_node_id(stream, "peer_id", chain_mvt->peer_id);
-	json_add_mvt_account_id(stream, "account_id", &chain_mvt->account);
 
 	if (chain_mvt->originating_acct)
 		json_add_mvt_account_id(stream, "originating_account", chain_mvt->originating_acct);
@@ -210,22 +217,16 @@ void json_add_chain_mvt_fields(struct json_stream *stream,
 						 &chain_mvt->outpoint.txid));
 		json_add_u32(stream, "vout", chain_mvt->outpoint.n);
 	}
-	json_add_outpoint(stream, "utxo", &chain_mvt->outpoint);
 
 	/* on-chain htlcs include a payment hash */
 	if (chain_mvt->payment_hash)
 		json_add_sha256(stream, "payment_hash", chain_mvt->payment_hash);
-	json_add_amount_msat(stream, "credit_msat", chain_mvt->credit);
-	json_add_amount_msat(stream, "debit_msat", chain_mvt->debit);
-
 	json_add_amount_sat_msat(stream,
 				 "output_msat", chain_mvt->output_val);
 	if (chain_mvt->output_count > 0)
 		json_add_num(stream, "output_count", chain_mvt->output_count);
 
-	add_movement_tags(stream, include_tags_arr, chain_mvt->tags, true);
 	json_add_u32(stream, "blockheight", chain_mvt->blockheight);
-	json_add_u64(stream, "timestamp", chain_mvt->timestamp);
 }
 
 void json_add_channel_mvt_fields(struct json_stream *stream,
@@ -233,7 +234,13 @@ void json_add_channel_mvt_fields(struct json_stream *stream,
 				 const struct channel_coin_mvt *chan_mvt,
 				 bool extra_tags_field)
 {
+	/* Fields in common with chain moves go first */
 	json_add_mvt_account_id(stream, "account_id", &chan_mvt->account);
+	json_add_amount_msat(stream, "credit_msat", chan_mvt->credit);
+	json_add_amount_msat(stream, "debit_msat", chan_mvt->debit);
+	json_add_u64(stream, "timestamp", chan_mvt->timestamp);
+	add_movement_tags(stream, include_tags_arr, chan_mvt->tags, extra_tags_field);
+
 	/* push funding / leases don't have a payment_hash */
 	if (chan_mvt->payment_hash)
 		json_add_sha256(stream, "payment_hash", chan_mvt->payment_hash);
@@ -241,10 +248,5 @@ void json_add_channel_mvt_fields(struct json_stream *stream,
 		json_add_u64(stream, "part_id", chan_mvt->part_and_group->part_id);
 		json_add_u64(stream, "group_id", chan_mvt->part_and_group->group_id);
 	}
-	json_add_amount_msat(stream, "credit_msat", chan_mvt->credit);
-	json_add_amount_msat(stream, "debit_msat", chan_mvt->debit);
 	json_add_amount_msat(stream, "fees_msat", chan_mvt->fees);
-
-	add_movement_tags(stream, include_tags_arr, chan_mvt->tags, extra_tags_field);
-	json_add_u64(stream, "timestamp", chan_mvt->timestamp);
 }
