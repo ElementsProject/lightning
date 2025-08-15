@@ -31,6 +31,7 @@
 
 #include "plugins/bkpr/db.c"
 #include "plugins/bkpr/account.c"
+#include "plugins/bkpr/blockheights.c"
 #include "plugins/bkpr/recorder.c"
 #include "plugins/bkpr/onchain_fee.c"
 #include "plugins/bkpr/rebalances.c"
@@ -68,6 +69,10 @@ struct command_result *ignore_datastore_reply(struct command *cmd UNNEEDED,
 					      const jsmntok_t *result UNNEEDED,
 					      void *arg UNNEEDED)
 { fprintf(stderr, "ignore_datastore_reply called!\n"); abort(); }
+/* Generated stub for json_to_txid */
+bool json_to_txid(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+		  struct bitcoin_txid *txid UNNEEDED)
+{ fprintf(stderr, "json_to_txid called!\n"); abort(); }
 /* Generated stub for json_tok_bin_from_hex */
 u8 *json_tok_bin_from_hex(const tal_t *ctx UNNEEDED, const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED)
 { fprintf(stderr, "json_tok_bin_from_hex called!\n"); abort(); }

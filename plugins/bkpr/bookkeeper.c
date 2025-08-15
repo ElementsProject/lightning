@@ -16,6 +16,7 @@
 #include <errno.h>
 #include <plugins/bkpr/account.h>
 #include <plugins/bkpr/account_entry.h>
+#include <plugins/bkpr/blockheights.h>
 #include <plugins/bkpr/bookkeeper.h>
 #include <plugins/bkpr/chain_event.h>
 #include <plugins/bkpr/channel_event.h>
@@ -1578,7 +1579,7 @@ parse_and_log_chain_move(struct command *cmd,
 		/* Go see if there's any deposits to an external
 		 * that are now confirmed */
 		/* FIXME: might need updating when we can splice? */
-		maybe_closeout_external_deposits(bkpr, e->spending_txid,
+		maybe_closeout_external_deposits(cmd, bkpr, e->spending_txid,
 						 e->blockheight);
 		db_commit_transaction(bkpr->db);
 	}
@@ -1879,7 +1880,7 @@ static struct command_result *json_utxo_spend(struct command *cmd, const char *b
 	/* Go see if there's any deposits to an external
 	 * that are now confirmed */
 	/* FIXME: might need updating when we can splice? */
-	maybe_closeout_external_deposits(bkpr, ev->spending_txid,
+	maybe_closeout_external_deposits(cmd, bkpr, ev->spending_txid,
 					 ev->blockheight);
 	db_commit_transaction(bkpr->db);
 
@@ -2037,6 +2038,7 @@ static const char *init(struct command *init_cmd, const char *b, const jsmntok_t
 	bkpr->onchain_fees = init_onchain_fees(bkpr, init_cmd);
 	bkpr->descriptions = init_descriptions(bkpr, init_cmd);
 	bkpr->rebalances = init_rebalances(bkpr, init_cmd);
+	bkpr->blockheights = init_blockheights(bkpr, init_cmd);
 
 	return NULL;
 }

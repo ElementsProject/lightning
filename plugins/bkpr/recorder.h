@@ -133,9 +133,10 @@ u64 account_onchain_closeheight(const struct bkpr *bkpr, const struct account *a
  * count them until any output that was spent *into* them is
  * confirmed onchain.
  *
- * This method updates the blockheight on these events to the
+ * This method updates bkpr->blockheights to show the
  * height an input was spent into */
-void maybe_closeout_external_deposits(struct bkpr *bkpr,
+void maybe_closeout_external_deposits(struct command *cmd,
+				      struct bkpr *bkpr,
 				      const struct bitcoin_txid *txid,
 				      u32 blockheight);
 

@@ -13,6 +13,7 @@ struct bkpr {
 	struct onchain_fees *onchain_fees;
 	struct descriptions *descriptions;
 	struct rebalances *rebalances;
+	struct blockheights *blockheights;
 
 	char *db_dsn;
 	char *datadir;
