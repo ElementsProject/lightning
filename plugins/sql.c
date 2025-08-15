@@ -51,6 +51,7 @@ enum fieldtype {
 	FIELD_NUMBER,
 	FIELD_STRING,
 	FIELD_SCID,
+	FIELD_OUTPOINT,
 };
 
 struct fieldtypemap {
@@ -74,6 +75,7 @@ static const struct fieldtypemap fieldtypemap[] = {
 	{ "number", "REAL" }, /* FIELD_NUMBER */
 	{ "string", "TEXT" }, /* FIELD_STRING */
 	{ "short_channel_id", "TEXT" }, /* FIELD_SCID */
+	{ "outpoint", "TEXT" }, /* FIELD_OUTPOINT */
 };
 
 struct column {
@@ -170,6 +172,14 @@ static const struct index indices[] = {
 	{
 		"transactions",
 		{ "hash", NULL },
+	},
+	{
+		"chainmoves",
+		{ "account_id", NULL },
+	},
+	{
+		"channelmoves",
+		{ "account_id", NULL },
 	},
 };
 
@@ -626,6 +636,7 @@ static struct command_result *process_json_obj(struct command *cmd,
 				break;
 			case FIELD_SCID:
 			case FIELD_STRING:
+			case FIELD_OUTPOINT:
 				sqlite3_bind_text(stmt, (*sqloff)++, buf + coltok->start,
 						  coltok->end - coltok->start,
 						  SQLITE_STATIC);
