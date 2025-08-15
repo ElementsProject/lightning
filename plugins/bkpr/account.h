@@ -3,8 +3,11 @@
 
 #include "config.h"
 #include <ccan/short_types/short_types.h>
+#include <common/coin_mvt.h>
 
 struct node_id;
+struct db;
+struct chain_event;
 
 struct account {
 
@@ -43,5 +46,30 @@ struct account {
 struct account *new_account(const tal_t *ctx,
 			    const char *name STEALS,
 			    struct node_id *peer_id);
+
+
+/* Get all accounts */
+struct account **list_accounts(const tal_t *ctx, struct db *db);
+
+/* Add the given account to the database */
+void account_add(struct db *db, struct account *acct);
+/* Given an account name, find that account record */
+struct account *find_account(const tal_t *ctx,
+			     struct db *db,
+			     const char *name);
+
+/* Some events update account information */
+void maybe_update_account(struct db *db,
+			  struct account *acct,
+			  struct chain_event *e,
+			  const enum mvt_tag *tags,
+			  u32 closed_count,
+			  struct node_id *peer_id);
+
+/* Update the account with the highest blockheight that has a
+ * resolving tx in it.
+ *
+ * The point of this is to allow us to prune data, eventually */
+void account_update_closeheight(struct db *db, struct account *acct, u64 close_height);
 
 #endif /* LIGHTNING_PLUGINS_BKPR_ACCOUNT_H */

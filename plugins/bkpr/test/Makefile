@@ -27,9 +27,7 @@ BOOKKEEPER_TEST_COMMON_OBJS :=			\
 	db/db_sqlite3.o				\
 	db/exec.o				\
 	db/utils.o				\
-	plugins/bkpr/account.o			\
-	plugins/bkpr/db_sqlite3_sqlgen.o	\
-	plugins/bkpr/recorder.o
+	plugins/bkpr/db_sqlite3_sqlgen.o
 
 $(BOOKKEEPER_TEST_PROGRAMS): $(BITCOIN_OBJS) $(BOOKKEEPER_TEST_COMMON_OBJS)
 $(BOOKKEEPER_TEST_OBJS): $(BOOKKEEPER_HEADER) $(BOOKKEEPER_SRC) $(BOOKKEEPER_TEST_COMMON_OBJS)
