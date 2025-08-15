@@ -41,4 +41,8 @@ struct json_escape *json_escape_string_(const tal_t *ctx,
 /* Be very careful here!  Can fail!  Doesn't handle \u: use UTF-8 please. */
 const char *json_escape_unescape(const tal_t *ctx,
 				 const struct json_escape *esc);
+
+/* Be very careful here!  Can fail!  Doesn't handle \u: use UTF-8 please. */
+const char *json_escape_unescape_len(const tal_t *ctx,
+				     const char *esc TAKES, size_t len);
 #endif /* CCAN_JSON_ESCAPE_H */

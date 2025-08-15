@@ -1,6 +1,7 @@
 /* MIT (BSD) license - see LICENSE file for details */
 #include <ccan/json_escape/json_escape.h>
 #include <stdio.h>
+#include <ccan/tal/str/str.h>
 
 struct json_escape *json_escape_string_(const tal_t *ctx,
 					const void *bytes, size_t len)
@@ -137,19 +138,24 @@ struct json_escape *json_escape_len(const tal_t *ctx, const char *str TAKES,
 }
 
 /* By policy, we don't handle \u.  Use UTF-8. */
-const char *json_escape_unescape(const tal_t *ctx, const struct json_escape *esc)
+static const char *unescape(const tal_t *ctx, const char *esc TAKES, size_t len)
 {
-	char *unesc = tal_arr(ctx, char, strlen(esc->s) + 1);
+	/* Fast path: can steal, and nothing to unescape. */
+	if (is_taken(esc) && !memchr(esc, '\\', len))
+		return tal_strndup(ctx, esc, len);
+
+	char *unesc = tal_arr(ctx, char, len + 1);
 	size_t i, n;
 
-	for (i = n = 0; esc->s[i]; i++, n++) {
-		if (esc->s[i] != '\\') {
-			unesc[n] = esc->s[i];
+	for (i = n = 0; i < len; i++, n++) {
+		if (esc[i] != '\\') {
+			unesc[n] = esc[i];
 			continue;
 		}
 
-		i++;
-		switch (esc->s[i]) {
+		if (++i == len)
+			goto error;
+		switch (esc[i]) {
 		case 'n':
 			unesc[n] = '\n';
 			break;
@@ -168,13 +174,31 @@ const char *json_escape_unescape(const tal_t *ctx, const struct json_escape *esc
 		case '/':
 		case '\\':
 		case '"':
-			unesc[n] = esc->s[i];
+			unesc[n] = esc[i];
 			break;
 		default:
+		error:
+			if (taken(esc))
+				tal_free(esc);
 			return tal_free(unesc);
 		}
 	}
 
 	unesc[n] = '\0';
+	if (!tal_resize(&unesc, n + 1))
+		goto error;
+	if (taken(esc))
+		tal_free(esc);
 	return unesc;
+}
+
+const char *json_escape_unescape(const tal_t *ctx, const struct json_escape *esc)
+{
+	return unescape(ctx, esc->s, strlen(esc->s));
+}
+
+const char *json_escape_unescape_len(const tal_t *ctx,
+				     const char *esc TAKES, size_t len)
+{
+	return unescape(ctx, esc, len);
 }
