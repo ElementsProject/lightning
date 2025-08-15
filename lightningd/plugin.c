@@ -516,10 +516,9 @@ static const char *plugin_log_handle(struct plugin *plugin,
 
 	/* Only bother unescaping and splitting if it has \ */
 	if (memchr(plugin->buffer + msgtok->start, '\\', msgtok->end - msgtok->start)) {
-		const char *log_escaped = plugin->buffer + msgtok->start;
-		const size_t log_escaped_len = msgtok->end - msgtok->start;
-		struct json_escape *esc = json_escape_string_(tmpctx, log_escaped, log_escaped_len);
-		const char *log_msg = json_escape_unescape(tmpctx, esc);
+		const char *log_msg = json_escape_unescape_len(tmpctx,
+							       plugin->buffer + msgtok->start,
+							       msgtok->end - msgtok->start);
 		char **lines;
 
 		/* Weird \ escapes aren't handled by json_escape_unescape.  This is for you, clboss! */
