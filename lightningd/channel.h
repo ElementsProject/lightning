@@ -784,6 +784,27 @@ static inline bool channel_state_open_uncommitted(enum channel_state state)
 	abort();
 }
 
+static inline size_t channel_dbid_hash(u64 dbid)
+{
+	return siphash24(siphash_seed(), &dbid, sizeof(dbid));
+}
+
+static u64 channel_dbid(const struct channel *channel)
+{
+	assert(channel->dbid);
+	return channel->dbid;
+}
+
+static bool channel_dbid_eq(const struct channel *channel, u64 dbid)
+{
+	return channel->dbid == dbid;
+}
+/* Defines struct channel_dbid_map */
+HTABLE_DEFINE_NODUPS_TYPE(struct channel,
+			  channel_dbid, channel_dbid_hash, channel_dbid_eq,
+			  channel_dbid_map);
+
+void add_channel_to_dbid_map(struct lightningd *ld, struct channel *channel);
 
 void channel_set_owner(struct channel *channel, struct subd *owner);
 
