@@ -19,10 +19,10 @@ struct chain_event {
 	u64 acct_db_id;
 
 	/* Name of the account this belongs to */
-	char *acct_name;
+	const char *acct_name;
 
 	/* Name of account this originated from */
-	char *origin_acct;
+	const char *origin_acct;
 
 	/* Tag describing the event */
 	const char *tag;
