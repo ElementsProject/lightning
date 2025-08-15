@@ -24,6 +24,7 @@
 #include <plugins/bkpr/descriptions.h>
 #include <plugins/bkpr/incomestmt.h>
 #include <plugins/bkpr/onchain_fee.h>
+#include <plugins/bkpr/rebalances.h>
 #include <plugins/bkpr/recorder.h>
 #include <plugins/libplugin.h>
 #include <sys/stat.h>
@@ -1676,7 +1677,6 @@ parse_and_log_channel_move(struct command *cmd,
 	e->debit = debit;
 	e->timestamp = timestamp;
 	e->tag = mvt_tag_str(tags[0]);
-	e->rebalance_id = NULL;
 
 	/* Go find the account for this event */
 	db_begin_transaction(bkpr->db);
@@ -1698,7 +1698,7 @@ parse_and_log_channel_move(struct command *cmd,
 			/* We only do rebalance checks for debits,
 			 * the credit event always arrives first */
 			if (!amount_msat_is_zero(e->debit))
-				maybe_record_rebalance(bkpr->db, e);
+				maybe_record_rebalance(cmd, bkpr, e);
 
 			db_commit_transaction(bkpr->db);
 			return lookup_invoice_desc(cmd, e->credit,
@@ -1771,7 +1771,6 @@ static struct command_result *json_utxo_deposit(struct command *cmd, const char 
 
 	ev->tag = "deposit";
 	ev->stealable = false;
-	ev->rebalance = false;
 	ev->splice_close = false;
 	ev->debit = AMOUNT_MSAT(0);
 	ev->output_value = ev->credit;
@@ -1842,7 +1841,6 @@ static struct command_result *json_utxo_spend(struct command *cmd, const char *b
 	ev->origin_acct = NULL;
 	ev->tag = "withdrawal";
 	ev->stealable = false;
-	ev->rebalance = false;
 	ev->splice_close = false;
 	ev->credit = AMOUNT_MSAT(0);
 	ev->output_value = ev->debit;
@@ -2038,6 +2036,7 @@ static const char *init(struct command *init_cmd, const char *b, const jsmntok_t
 	bkpr->accounts = init_accounts(bkpr, init_cmd);
 	bkpr->onchain_fees = init_onchain_fees(bkpr, init_cmd);
 	bkpr->descriptions = init_descriptions(bkpr, init_cmd);
+	bkpr->rebalances = init_rebalances(bkpr, init_cmd);
 
 	return NULL;
 }

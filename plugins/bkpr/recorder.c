@@ -15,6 +15,7 @@
 #include <plugins/bkpr/chain_event.h>
 #include <plugins/bkpr/channel_event.h>
 #include <plugins/bkpr/onchain_fee.h>
+#include <plugins/bkpr/rebalances.h>
 #include <plugins/bkpr/recorder.h>
 #include <plugins/libplugin.h>
 
@@ -101,12 +102,6 @@ static struct channel_event *stmt2channel_event(const tal_t *ctx, struct db_stmt
 	e->part_id = db_col_int(stmt, "e.part_id");
 	e->timestamp = db_col_u64(stmt, "e.timestamp");
 
-	if (!db_col_is_null(stmt, "e.rebalance_id")) {
-		e->rebalance_id = tal(e, u64);
-		*e->rebalance_id = db_col_u64(stmt, "e.rebalance_id");
-	} else
-		e->rebalance_id = NULL;
-
 	return e;
 }
 
@@ -128,20 +123,6 @@ static struct channel_event **find_channel_events(const tal_t *ctx,
 		tal_free(stmt);
 
 	return results;
-}
-
-static struct rebalance *stmt2rebalance(const tal_t *ctx, struct db_stmt *stmt)
-{
-	struct rebalance *r = tal(ctx, struct rebalance);
-
-	r->in_ev_id = db_col_u64(stmt, "in_e.id");
-	r->out_ev_id = db_col_u64(stmt, "out_e.id");
-	r->in_acct_name = db_col_strdup(r, stmt, "in_e.account_name");
-	r->out_acct_name = db_col_strdup(r, stmt, "out_e.account_name");
-	r->rebal_msat = db_col_amount_msat(stmt, "in_e.credit");
-	r->fee_msat = db_col_amount_msat(stmt, "out_e.fees");
-
-	return r;
 }
 
 struct chain_event **list_chain_events_timebox(const tal_t *ctx,
@@ -771,7 +752,6 @@ struct channel_event **list_channel_events_timebox(const tal_t *ctx,
 				     ", e.payment_id"
 				     ", e.part_id"
 				     ", e.timestamp"
-				     ", e.rebalance_id"
 				     " FROM channel_events e"
 				     " WHERE e.timestamp > ?"
 				     "  AND e.timestamp <= ?"
@@ -813,7 +793,6 @@ struct channel_event **account_get_channel_events(const tal_t *ctx,
 				     ", e.payment_id"
 				     ", e.part_id"
 				     ", e.timestamp"
-				     ", e.rebalance_id"
 				     " FROM channel_events e"
 				     " WHERE e.account_name = ?"
 				     " ORDER BY e.timestamp, e.id"));
@@ -838,7 +817,6 @@ struct channel_event **get_channel_events_by_id(const tal_t *ctx,
 				     ", e.payment_id"
 				     ", e.part_id"
 				     ", e.timestamp"
-				     ", e.rebalance_id"
 				     " FROM channel_events e"
 				     " WHERE e.payment_id = ?"
 				     " ORDER BY e.timestamp, e.id"));
@@ -863,10 +841,9 @@ void log_channel_event(struct db *db,
 				     ", payment_id"
 				     ", part_id"
 				     ", timestamp"
-				     ", rebalance_id"
 				     ")"
 				     " VALUES"
-				     " (?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+				     " (?, ?, ?, ?, ?, ?, ?, ?);"));
 
 	db_bind_text(stmt, acct->name);
 	db_bind_text(stmt, e->tag);
@@ -879,11 +856,6 @@ void log_channel_event(struct db *db,
 		db_bind_null(stmt);
 	db_bind_int(stmt, e->part_id);
 	db_bind_u64(stmt, e->timestamp);
-
-	if (e->rebalance_id)
-		db_bind_u64(stmt, *e->rebalance_id);
-	else
-		db_bind_null(stmt);
 
 	db_exec_prepared_v2(stmt);
 	e->db_id = db_last_insert_id_v2(stmt);
@@ -922,8 +894,9 @@ struct chain_event **find_chain_events_bytxid(const tal_t *ctx, struct db *db,
 	return find_chain_events(ctx, take(stmt));
 }
 
-void maybe_record_rebalance(struct db *db,
-			    struct channel_event *out)
+void maybe_record_rebalance(struct command *cmd,
+			    struct bkpr *bkpr,
+			    const struct channel_event *out)
 {
 	/* If there's a matching credit event, this is
 	 * a rebalance. Mark everything with the payment_id
@@ -938,71 +911,25 @@ void maybe_record_rebalance(struct db *db,
 	ok = amount_msat_sub(&credit, out->debit, out->fees);
 	assert(ok);
 
-	stmt = db_prepare_v2(db, SQL("SELECT "
+	stmt = db_prepare_v2(bkpr->db, SQL("SELECT "
 				     "  e.id"
 				     " FROM channel_events e"
 				     " WHERE e.payment_id = ?"
-				     " AND e.credit = ?"
-				     " AND e.rebalance_id IS NULL"));
+				     " AND e.credit = ?"));
 
 	db_bind_sha256(stmt, out->payment_id);
 	db_bind_amount_msat(stmt, credit);
 	db_query_prepared(stmt);
 
-	if (!db_step(stmt)) {
-		/* No matching invoice found */
-		tal_free(stmt);
-		return;
-	}
-
-	/* We just take the first one */
-	out->rebalance_id = tal(out, u64);
-	*out->rebalance_id = db_col_u64(stmt, "e.id");
-	tal_free(stmt);
-
-	/* Set rebalance flag on both records */
-	stmt = db_prepare_v2(db, SQL("UPDATE channel_events SET"
-				     "  rebalance_id = ?"
-				     " WHERE"
-				     " id = ?"));
-	db_bind_u64(stmt, *out->rebalance_id);
-	db_bind_u64(stmt, out->db_id);
-	db_exec_prepared_v2(take(stmt));
-
-	stmt = db_prepare_v2(db, SQL("UPDATE channel_events SET"
-				     "  rebalance_id = ?"
-				     " WHERE"
-				     " id = ?"));
-	db_bind_u64(stmt, out->db_id);
-	db_bind_u64(stmt, *out->rebalance_id);
-	db_exec_prepared_v2(take(stmt));
-}
-
-struct rebalance **list_rebalances(const tal_t *ctx, struct db *db)
-{
-	struct rebalance **result;
-	struct db_stmt *stmt;
-
-	stmt = db_prepare_v2(db, SQL("SELECT "
-				     "  in_e.id"
-				     ", out_e.id"
-				     ", in_e.account_name"
-				     ", out_e.account_name"
-				     ", in_e.credit"
-				     ", out_e.fees"
-				     " FROM channel_events in_e"
-				     " LEFT OUTER JOIN channel_events out_e"
-				     " ON in_e.rebalance_id = out_e.id"
-				     " WHERE in_e.rebalance_id IS NOT NULL"
-				     "  AND in_e.credit > 0"));
-	db_query_prepared(stmt);
-	result = tal_arr(ctx, struct rebalance *, 0);
 	while (db_step(stmt)) {
-		struct rebalance *r = stmt2rebalance(result, stmt);
-		tal_arr_expand(&result, r);
+		u64 id = db_col_u64(stmt, "e.id");
+		/* Already has one? */
+		if (find_rebalance(bkpr, id))
+			continue;
+		add_rebalance_pair(cmd, bkpr, out->db_id, id);
+		break;
 	}
 	tal_free(stmt);
-	return result;
 }
 
 void maybe_closeout_external_deposits(struct db *db,
