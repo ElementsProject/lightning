@@ -1083,3 +1083,64 @@ def test_migration(node_factory, bitcoind):
                           'payment_id': '7ccef7e9fabbf4a841af44b1fc7319bc70ce98697b77ce6dacffa84bebcd4350',
                           'tag': 'invoice',
                           'type': 'channel'}]
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', "Snapshots are bitcoin regtest.")
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "uses snapshots")
+def test_migration_no_bkpr(node_factory, bitcoind):
+    """These nodes need to invent coinmoves to make the balances work"""
+    bitcoind.generate_block(1)
+    l1 = node_factory.get_node(dbfile="l1-before-moves-in-db.sqlite3.xz",
+                               options={'database-upgrade': True})
+    l2 = node_factory.get_node(dbfile="l2-before-moves-in-db.sqlite3.xz",
+                               options={'database-upgrade': True})
+
+    chan = only_one(l1.rpc.listpeerchannels()['channels'])
+
+    l1_events = l1.rpc.bkpr_listaccountevents()['events']
+    for e in l1_events:
+        del e['timestamp']
+
+    l2_events = l2.rpc.bkpr_listaccountevents()['events']
+    for e in l2_events:
+        del e['timestamp']
+
+    assert l1_events == [{'account': chan['channel_id'],
+                          'blockheight': 103,
+                          'credit_msat': 1000000000,
+                          'currency': 'bcrt',
+                          'debit_msat': 0,
+                          'outpoint': f"{chan['funding_txid']}:{chan['funding_outnum']}",
+                          'tag': 'channel_open',
+                          'type': 'chain'},
+                         {'account': 'wallet',
+                          'blockheight': 103,
+                          'credit_msat': 995073000,
+                          'currency': 'bcrt',
+                          'debit_msat': 0,
+                          'outpoint': f"{chan['funding_txid']}:{chan['funding_outnum'] ^ 1}",
+                          'tag': 'deposit',
+                          'type': 'chain'},
+                         {'account': chan['channel_id'],
+                          'credit_msat': 0,
+                          'currency': 'bcrt',
+                          'debit_msat': 12345678,
+                          'is_rebalance': False,
+                          'tag': 'journal',
+                          'type': 'channel'}]
+
+    assert l2_events == [{'account': chan['channel_id'],
+                          'blockheight': 103,
+                          'credit_msat': 0,
+                          'currency': 'bcrt',
+                          'debit_msat': 0,
+                          'outpoint': f"{chan['funding_txid']}:{chan['funding_outnum']}",
+                          'tag': 'channel_open',
+                          'type': 'chain'},
+                         {'account': chan['channel_id'],
+                          'credit_msat': 12345678,
+                          'currency': 'bcrt',
+                          'debit_msat': 0,
+                          'is_rebalance': False,
+                          'tag': 'journal',
+                          'type': 'channel'}]
