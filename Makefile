@@ -756,12 +756,13 @@ clean: obsclean
 
 # See doc/contribute-to-core-lightning/contributor-workflow.md
 PYLNS=client proto testing
+update-versions: update-pyln-versions update-reckless-version update-dot-version update-doc-examples
 update-pyln-versions: $(PYLNS:%=update-pyln-version-%)
 
 update-pyln-version-%:
 	@if [ -z "$(NEW_VERSION)" ]; then echo "Set NEW_VERSION!" >&2; exit 1; fi
 	@echo "Updating contrib/pyln-$* to $(NEW_VERSION)"
-	@sed -i '' 's/^version = .*/version = "$(NEW_VERSION)"/' contrib/pyln-$*/pyproject.toml
+	@sed -i.bak 's/^version = .*/version = "$(NEW_VERSION)"/' contrib/pyln-$*/pyproject.toml && rm contrib/pyln-$*/pyproject.toml.bak
 
 pyln-release:  $(PYLNS:%=pyln-release-%)
 
@@ -792,7 +793,8 @@ update-lock:
 
 update-reckless-version:
 	@if [ -z "$(NEW_VERSION)" ]; then echo "Set NEW_VERSION!" >&2; exit 1; fi
-	@sed -i '' "s/__VERSION__ = '\([.-z]*\)'/__VERSION__ = '$(NEW_VERSION)'/" tools/reckless
+	@echo "Updating tools/reckless to $(NEW_VERSION)"
+	@sed -i.bak "s/__VERSION__ = '.*'/__VERSION__ = '$(NEW_VERSION)'/" tools/reckless && rm tools/reckless.bak
 
 update-dot-version:
 	@if [ -z "$(NEW_VERSION)" ]; then echo "Set NEW_VERSION!" >&2; exit 1; fi

@@ -1953,10 +1953,6 @@
             "set": false,
             "source": "default"
           },
-          "experimental-upgrade-protocol": {
-            "set": false,
-            "source": "default"
-          },
           "exposesecret-passphrase": {
             "value_str": "...",
             "source": "default",
