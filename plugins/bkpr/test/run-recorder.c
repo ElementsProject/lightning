@@ -510,7 +510,7 @@ static bool test_onchain_fee_chan_close(const tal_t *ctx)
 	/* Expect: 1 onchain fee records, all for chan-1 */
 	db_begin_transaction(db);
 	ofs = list_chain_fees(ctx, db);
-	ofs1 = account_onchain_fees(ctx, db, acct);
+	ofs1 = account_get_chain_fees(ctx, db, acct);
 	db_commit_transaction(db);
 
 	CHECK(tal_count(ofs) == tal_count(ofs1));
@@ -568,7 +568,7 @@ static bool test_onchain_fee_chan_close(const tal_t *ctx)
 	/* Expect: onchain fee records for tx except channel close */
 	db_begin_transaction(db);
 	ofs = list_chain_fees(ctx, db);
-	ofs1 = account_onchain_fees(ctx, db, acct);
+	ofs1 = account_get_chain_fees(ctx, db, acct);
 	db_commit_transaction(db);
 
 	CHECK(tal_count(ofs) == tal_count(ofs1));
@@ -581,7 +581,7 @@ static bool test_onchain_fee_chan_close(const tal_t *ctx)
 	CHECK(acct->onchain_resolved_block == blockheight + 2);
 	err = update_channel_onchain_fees(ctx, db, acct);
 	CHECK_MSG(!err, err);
-	ofs = account_onchain_fees(ctx, db, acct);
+	ofs = account_get_chain_fees(ctx, db, acct);
 	db_commit_transaction(db);
 
 	/* Expect: fees as follows

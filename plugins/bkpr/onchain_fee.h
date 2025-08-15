@@ -33,11 +33,6 @@ struct onchain_fee {
 void json_add_onchain_fee(struct json_stream *out,
 			  struct onchain_fee *fee);
 
-/* Get all onchain fee records for this account */
-struct onchain_fee **account_onchain_fees(const tal_t *ctx,
-					  struct db *db,
-					  struct account *acct);
-
 /* List all chain fees, for all accounts */
 struct onchain_fee **list_chain_fees(const tal_t *ctx, struct db *db);
 

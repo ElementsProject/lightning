@@ -141,26 +141,6 @@ struct onchain_fee **list_chain_fees(const tal_t *ctx, struct db *db)
 	return list_chain_fees_timebox(ctx, db, 0, SQLITE_MAX_UINT);
 }
 
-struct onchain_fee **account_onchain_fees(const tal_t *ctx,
-					  struct db *db,
-					  struct account *acct)
-{
-	struct db_stmt *stmt;
-
-	stmt = db_prepare_v2(db, SQL("SELECT"
-				     "  of.account_name"
-				     ", of.txid"
-				     ", of.credit"
-				     ", of.debit"
-				     ", of.timestamp"
-				     ", of.update_count"
-				     " FROM onchain_fees of"
-				     " WHERE of.account_name = ?;"));
-
-	db_bind_text(stmt, acct->name);
-	return find_onchain_fees(ctx, take(stmt));
-}
-
 static void insert_chain_fees_diff(struct db *db,
 				   const char *acct_name,
 				   struct bitcoin_txid *txid,
