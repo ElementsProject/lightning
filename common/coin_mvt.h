@@ -11,6 +11,7 @@
 #define ACCOUNT_NAME_WALLET "wallet"
 #define ACCOUNT_NAME_EXTERNAL "external"
 
+/* /!\ You cannot change this order, it's committed to the db! /!\ */
 enum mvt_tag {
 	MVT_DEPOSIT = 0,
 	MVT_WITHDRAWAL = 1,
@@ -130,6 +131,9 @@ static inline struct mvt_tags tag_to_mvt_tags(enum mvt_tag tag)
 
 /* Extract the primary tag */
 enum mvt_tag primary_mvt_tag(struct mvt_tags tags);
+
+/* Useful for assertions */
+bool mvt_tags_valid(struct mvt_tags tags);
 
 /* Useful constructor for mvt_account_id: exactly one of channel/account_name must be NULL */
 void set_mvt_account_id(struct mvt_account_id *acct_id,

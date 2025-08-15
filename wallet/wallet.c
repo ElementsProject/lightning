@@ -6895,6 +6895,12 @@ static void db_bind_mvt_account_id(struct db_stmt *stmt,
 	}
 }
 
+static void db_bind_mvt_tags(struct db_stmt *stmt, struct mvt_tags tags)
+{
+	assert(mvt_tags_valid(tags));
+	db_bind_u64(stmt, tags.bits);
+}
+
 void wallet_save_channel_mvt(struct lightningd *ld,
 			     const struct channel_coin_mvt *chan_mvt)
 {
@@ -6913,7 +6919,7 @@ void wallet_save_channel_mvt(struct lightningd *ld,
 				 " fees) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 	db_bind_mvt_account_id(stmt, ld, &chan_mvt->account);
 	db_bind_credit_debit(stmt, chan_mvt->credit, chan_mvt->debit);
-	db_bind_u64(stmt, chan_mvt->tags.bits);
+	db_bind_mvt_tags(stmt, chan_mvt->tags);
 	db_bind_u64(stmt, chan_mvt->timestamp);
 	/* push funding / leases don't have a payment_hash */
 	if (chan_mvt->payment_hash)
@@ -7018,7 +7024,7 @@ void wallet_save_chain_mvt(struct lightningd *ld,
 				 " originating_nonchannel_id,"
 				 " output_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"));
 	db_bind_mvt_account_id(stmt, ld, &chain_mvt->account);
-	db_bind_u64(stmt, chain_mvt->tags.bits);
+	db_bind_mvt_tags(stmt, chain_mvt->tags);
 	db_bind_credit_debit(stmt, chain_mvt->credit, chain_mvt->debit);
 	db_bind_u64(stmt, chain_mvt->timestamp);
 	db_bind_outpoint(stmt, &chain_mvt->outpoint);
