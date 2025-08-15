@@ -1089,6 +1089,8 @@ static struct migration dbmigrations[] = {
 	 "  fees BIGINT NOT NULL,"
 	 "  PRIMARY KEY (id)"
 	 ")"), NULL},
+    /* We do a lookup before each append, to avoid duplicates */
+    {SQL("CREATE INDEX chain_moves_utxo_idx ON chain_moves (utxo)"), NULL},
 };
 
 /**
