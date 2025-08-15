@@ -39,7 +39,8 @@ enum mvt_tag {
 	MVT_SPLICE = 23,
 	MVT_PENALTY_ADJ = 24,
 	MVT_JOURNAL = 25,
-#define NUM_MVT_TAGS (MVT_JOURNAL + 1)
+	MVT_FOREIGN = 26,
+#define NUM_MVT_TAGS (MVT_FOREIGN + 1)
 };
 
 struct mvt_tags {
