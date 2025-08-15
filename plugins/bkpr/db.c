@@ -52,7 +52,7 @@ static struct migration db_migrations[] = {
 	NULL},
 	{SQL("CREATE TABLE chain_events ("
 		"  id BIGSERIAL"
-		", account_id BIGINT REFERENCES accounts(id)"
+		", account_name TEXT"
 		", tag TEXT"
 		", credit BIGINT"
 		", debit BIGINT"
@@ -69,7 +69,7 @@ static struct migration db_migrations[] = {
 	NULL},
 	{SQL("CREATE TABLE channel_events ("
 		"  id BIGSERIAL"
-		", account_id BIGINT REFERENCES accounts(id)"
+		", account_name TEXT"
 		", tag TEXT"
 		", credit BIGINT"
 		", debit BIGINT"
@@ -82,14 +82,14 @@ static struct migration db_migrations[] = {
 		");"),
 	NULL},
 	{SQL("CREATE TABLE onchain_fees ("
-		"account_id BIGINT REFERENCES accounts(id)"
+		"account_name TEXT"
 		", txid BLOB"
 		", credit BIGINT"
 		", debit BIGINT"
 		", currency TEXT"
 		", timestamp BIGINT"
 		", update_count INT"
-		", PRIMARY KEY (account_id, txid, update_count)"
+		", PRIMARY KEY (account_name, txid, update_count)"
 		");"),
 	NULL},
 	{SQL("ALTER TABLE chain_events ADD origin TEXT;"), NULL},
@@ -105,8 +105,8 @@ static struct migration db_migrations[] = {
 	/* We used to send anchors to the wallet, but set ignored tag.  Now we send
 	 * them to external. */
 	{SQL("UPDATE chain_events"
-	     " SET account_id = (SELECT id FROM accounts WHERE name = 'external')"
-	     " WHERE account_id = (SELECT id FROM accounts WHERE name = 'wallet')"
+	     " SET account_name = 'external'"
+	     " WHERE account_name = 'wallet'"
 	     " AND ignored = 1"), NULL},
 };
 

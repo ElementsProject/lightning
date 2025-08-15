@@ -9,10 +9,6 @@ struct node_id;
 struct chain_event;
 
 struct account {
-
-	/* Id of this account in the database */
-	u64 db_id;
-
 	/* Unique name of account, typically channel id */
 	const char *name;
 

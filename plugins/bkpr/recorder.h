@@ -16,7 +16,6 @@ struct onchain_fee;
 #define SQLITE_MAX_UINT 0x7FFFFFFFFFFFFFFF
 
 struct fee_sum {
-	u64 acct_db_id;
 	const char *acct_name;
 	struct bitcoin_txid *txid;
 	struct amount_msat fees_paid;
@@ -162,7 +161,7 @@ struct fee_sum **calculate_onchain_fee_sums(const tal_t *ctx, struct db *db);
 
 /* Find the last timestamp for the onchain fees for this txid + account */
 u64 onchain_fee_last_timestamp(struct db *db,
-			       u64 acct_db_id,
+			       const char *acct_name,
 			       struct bitcoin_txid *txid);
 
 /* Find the account that was closed by this txid.

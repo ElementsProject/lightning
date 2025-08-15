@@ -23,8 +23,7 @@ static struct chain_event *stmt2chain_event(const tal_t *ctx, struct db_stmt *st
 {
 	struct chain_event *e = tal(ctx, struct chain_event);
 	e->db_id = db_col_u64(stmt, "e.id");
-	e->acct_db_id = db_col_u64(stmt, "e.account_id");
-	e->acct_name = db_col_strdup(e, stmt, "a.name");
+	e->acct_name = db_col_strdup(e, stmt, "e.account_name");
 
 	if (!db_col_is_null(stmt, "e.origin"))
 		e->origin_acct = db_col_strdup(e, stmt, "e.origin");
@@ -92,8 +91,7 @@ static struct channel_event *stmt2channel_event(const tal_t *ctx, struct db_stmt
 	struct channel_event *e = tal(ctx, struct channel_event);
 
 	e->db_id = db_col_u64(stmt, "e.id");
-	e->acct_db_id = db_col_u64(stmt, "e.account_id");
-	e->acct_name = db_col_strdup(e, stmt, "a.name");
+	e->acct_name = db_col_strdup(e, stmt, "e.account_name");
 
 	e->tag = db_col_strdup(e, stmt, "e.tag");
 
@@ -149,8 +147,8 @@ static struct rebalance *stmt2rebalance(const tal_t *ctx, struct db_stmt *stmt)
 
 	r->in_ev_id = db_col_u64(stmt, "in_e.id");
 	r->out_ev_id = db_col_u64(stmt, "out_e.id");
-	r->in_acct_name = db_col_strdup(r, stmt, "in_acct.name");
-	r->out_acct_name = db_col_strdup(r, stmt, "out_acct.name");
+	r->in_acct_name = db_col_strdup(r, stmt, "in_e.account_name");
+	r->out_acct_name = db_col_strdup(r, stmt, "out_e.account_name");
 	r->rebal_msat = db_col_amount_msat(stmt, "in_e.credit");
 	r->fee_msat = db_col_amount_msat(stmt, "out_e.fees");
 
@@ -166,8 +164,7 @@ struct chain_event **list_chain_events_timebox(const tal_t *ctx,
 
 	stmt = db_prepare_v2(db, SQL("SELECT"
 				     "  e.id"
-				     ", e.account_id"
-				     ", a.name"
+				     ", e.account_name"
 				     ", e.origin"
 				     ", e.tag"
 				     ", e.credit"
@@ -183,8 +180,6 @@ struct chain_event **list_chain_events_timebox(const tal_t *ctx,
 				     ", e.ev_desc"
 				     ", e.spliced"
 				     " FROM chain_events e"
-				     " LEFT OUTER JOIN accounts a"
-				     " ON e.account_id = a.id"
 				     " WHERE e.timestamp > ?"
 				     "  AND e.timestamp <= ?"
 				     " ORDER BY e.timestamp, e.id;"));
@@ -207,8 +202,7 @@ struct chain_event **account_get_chain_events(const tal_t *ctx,
 
 	stmt = db_prepare_v2(db, SQL("SELECT"
 				     "  e.id"
-				     ", e.account_id"
-				     ", a.name"
+				     ", e.account_name"
 				     ", e.origin"
 				     ", e.tag"
 				     ", e.credit"
@@ -224,12 +218,10 @@ struct chain_event **account_get_chain_events(const tal_t *ctx,
 				     ", e.ev_desc"
 				     ", e.spliced"
 				     " FROM chain_events e"
-				     " LEFT OUTER JOIN accounts a"
-				     " ON e.account_id = a.id"
-				     " WHERE e.account_id = ?"
+				     " WHERE e.account_name = ?"
 				     " ORDER BY e.timestamp, e.id"));
 
-	db_bind_int(stmt, acct->db_id);
+	db_bind_text(stmt, acct->name);
 	return find_chain_events(ctx, take(stmt));
 }
 
@@ -241,8 +233,7 @@ static struct chain_event **find_txos_for_tx(const tal_t *ctx,
 
 	stmt = db_prepare_v2(db, SQL("SELECT"
 				     "  e.id"
-				     ", e.account_id"
-				     ", a.name"
+				     ", e.account_name"
 				     ", e.origin"
 				     ", e.tag"
 				     ", e.credit"
@@ -258,8 +249,6 @@ static struct chain_event **find_txos_for_tx(const tal_t *ctx,
 				     ", e.ev_desc"
 				     ", e.spliced"
 				     " FROM chain_events e"
-				     " LEFT OUTER JOIN accounts a"
-				     " ON e.account_id = a.id"
 				     " WHERE e.utxo_txid = ?"
 				     " ORDER BY "
 				     "  e.utxo_txid"
@@ -277,17 +266,13 @@ struct fee_sum **calculate_onchain_fee_sums(const tal_t *ctx, struct db *db)
 	struct fee_sum **sums;
 	stmt = db_prepare_v2(db, SQL("SELECT"
 				     "  of.txid"
-				     ", of.account_id"
-				     ", a.name"
+				     ", of.account_name"
 				     ", CAST(SUM(of.credit) AS BIGINT) as credit"
 				     ", CAST(SUM(of.debit) AS BIGINT) as debit"
 				     " FROM onchain_fees of"
-				     " LEFT OUTER JOIN accounts a"
-				     " ON of.account_id = a.id"
 				     " GROUP BY of.txid"
-				     ", of.account_id"
-				     ", a.name"
-				     " ORDER BY txid, account_id"));
+				     ", of.account_name"
+				     " ORDER BY txid, account_name"));
 
 	db_query_prepared(stmt);
 
@@ -301,8 +286,7 @@ struct fee_sum **calculate_onchain_fee_sums(const tal_t *ctx, struct db *db)
 		sum->txid = tal(sum, struct bitcoin_txid);
 
 		db_col_txid(stmt, "of.txid", sum->txid);
-		sum->acct_db_id = db_col_u64(stmt, "of.account_id");
-		sum->acct_name = db_col_strdup(sum, stmt, "a.name");
+		sum->acct_name = db_col_strdup(sum, stmt, "of.account_name");
 		sum->fees_paid = db_col_amount_msat(stmt, "credit");
 		debit = db_col_amount_msat(stmt, "debit");
 
@@ -317,7 +301,7 @@ struct fee_sum **calculate_onchain_fee_sums(const tal_t *ctx, struct db *db)
 }
 
 u64 onchain_fee_last_timestamp(struct db *db,
-			       u64 acct_db_id,
+			       const char *acct_name,
 			       struct bitcoin_txid *txid)
 {
 	struct db_stmt *stmt;
@@ -326,12 +310,12 @@ u64 onchain_fee_last_timestamp(struct db *db,
 	stmt = db_prepare_v2(db, SQL("SELECT"
 				     "  timestamp"
 				     " FROM onchain_fees"
-				     " WHERE account_id = ?"
+				     " WHERE account_name = ?"
 				     " AND txid = ?"
 				     " ORDER BY timestamp DESC"));
 
 
-	db_bind_u64(stmt, acct_db_id);
+	db_bind_text(stmt, acct_name);
 	db_bind_txid(stmt, txid);
 	db_query_prepared(stmt);
 
@@ -355,11 +339,11 @@ struct fee_sum **find_account_onchain_fees(const tal_t *ctx,
 				     ", CAST(SUM(credit) AS BIGINT) as credit"
 				     ", CAST(SUM(debit) AS BIGINT) as debit"
 				     " FROM onchain_fees"
-				     " WHERE account_id = ?"
+				     " WHERE account_name = ?"
 				     " GROUP BY txid"
 				     " ORDER BY txid"));
 
-	db_bind_u64(stmt, acct->db_id);
+	db_bind_text(stmt, acct->name);
 	db_query_prepared(stmt);
 
 	sums = tal_arr(ctx, struct fee_sum *, 0);
@@ -369,7 +353,7 @@ struct fee_sum **find_account_onchain_fees(const tal_t *ctx,
 		bool ok;
 
 		sum = tal(sums, struct fee_sum);
-		sum->acct_db_id = acct->db_id;
+		sum->acct_name = acct->name;
 		sum->txid = tal(sum, struct bitcoin_txid);
 		db_col_txid(stmt, "txid", sum->txid);
 
@@ -395,7 +379,7 @@ static struct txo_pair *new_txo_pair(const tal_t *ctx)
 static struct txo_set *find_txo_set(const tal_t *ctx,
 				    struct db *db,
 				    struct bitcoin_txid *txid,
-				    u64 *acct_db_id,
+				    const char *acct_name,
 				    bool *is_complete)
 {
 	struct txo_pair *pr;
@@ -418,7 +402,7 @@ static struct txo_set *find_txo_set(const tal_t *ctx,
 	for (size_t i = 0; i < tal_count(evs); i++) {
 		struct chain_event *ev = evs[i];
 
-		if (acct_db_id && ev->acct_db_id != *acct_db_id)
+		if (acct_name && !streq(ev->acct_name, acct_name))
 			continue;
 
 		if (ev->spending_txid) {
@@ -479,7 +463,7 @@ bool find_txo_chain(const tal_t *ctx,
 	struct bitcoin_txid **txids;
 	struct chain_event *open_ev;
 	bool is_complete = true;
-	u64 *start_acct_id = tal(NULL, u64);
+	const char *start_acct_name;
 
 	assert(acct->open_event_db_id);
 	open_ev = find_chain_event_by_id(ctx, db,
@@ -493,21 +477,20 @@ bool find_txo_chain(const tal_t *ctx,
 	/* We only want to filter by the account for the very
 	 * first utxo that we get the tree for, so we
 	 * start w/ this acct id... */
-	*start_acct_id = open_ev->acct_db_id;
+	start_acct_name = open_ev->acct_name;
 
 	for (size_t i = 0; i < tal_count(txids); i++) {
 		struct txo_set *set;
 		bool set_complete;
 
 		set = find_txo_set(ctx, db, txids[i],
-				   start_acct_id,
+				   start_acct_name,
 				   &set_complete);
 
 		/* After first use, we free the acct dbid ptr,
 		 * which will pass in NULL and not filter by
 		 * account for any subsequent txo_set hunt */
-		if (start_acct_id)
-			start_acct_id = tal_free(start_acct_id);
+		start_acct_name = NULL;
 
 		is_complete &= set_complete;
 		for (size_t j = 0; j < tal_count(set->pairs); j++) {
@@ -527,7 +510,7 @@ bool find_txo_chain(const tal_t *ctx,
 			    && !streq(pr->spend->tag, "to_miner")
 			    && !txid_in_list(txids, pr->spend->spending_txid)
 			    /* We dont trace utxos for non related accts */
-			    && (pr->spend->acct_db_id == acct->db_id
+			    && (streq(pr->spend->acct_name, acct->name)
 				/* Unless it's stealable, in which case
 				 * we track the resolution of the htlc tx */
 				|| pr->spend->stealable))
@@ -550,10 +533,8 @@ const char *find_close_account_name(const tal_t *ctx,
 	char *acct_name;
 
 	stmt = db_prepare_v2(db, SQL("SELECT"
-				     "  a.name"
+				     "  e.account_name"
 				     " FROM chain_events e"
-				     " LEFT OUTER JOIN accounts a"
-				     " ON e.account_id = a.id"
 				     " WHERE "
 				     "  e.tag = ?"
 				     "  AND e.spending_txid = ?"
@@ -565,7 +546,7 @@ const char *find_close_account_name(const tal_t *ctx,
 	db_query_prepared(stmt);
 
 	if (db_step(stmt)) {
-		acct_name = db_col_strdup(ctx, stmt, "a.name");
+		acct_name = db_col_strdup(ctx, stmt, "e.account_name");
 	} else
 		acct_name = NULL;
 
@@ -611,12 +592,12 @@ u64 account_onchain_closeheight(struct db *db, const struct account *acct)
 		stmt = db_prepare_v2(db, SQL("SELECT"
 				     " blockheight"
 				     " FROM chain_events"
-				     " WHERE account_id = ?"
+				     " WHERE account_name = ?"
 				     "  AND spending_txid IS NOT NULL"
 				     " ORDER BY blockheight DESC"
 				     " LIMIT 1"));
 
-		db_bind_u64(stmt, acct->db_id);
+		db_bind_text(stmt, acct->name);
 		db_query_prepared(stmt);
 		ok = db_step(stmt);
 		assert(ok);
@@ -685,8 +666,7 @@ struct chain_event *find_chain_event_by_id(const tal_t *ctx,
 
 	stmt = db_prepare_v2(db, SQL("SELECT"
 				     "  e.id"
-				     ", e.account_id"
-				     ", a.name"
+				     ", e.account_name"
 				     ", e.origin"
 				     ", e.tag"
 				     ", e.credit"
@@ -702,8 +682,6 @@ struct chain_event *find_chain_event_by_id(const tal_t *ctx,
 				     ", e.ev_desc"
 				     ", e.spliced"
 				     " FROM chain_events e"
-				     " LEFT OUTER JOIN accounts a"
-				     " ON e.account_id = a.id"
 				     " WHERE "
 				     " e.id = ?"));
 
@@ -727,8 +705,7 @@ struct chain_event **get_chain_events_by_outpoint(const tal_t *ctx,
 	if (credits_only)
 		stmt = db_prepare_v2(db, SQL("SELECT"
 					     "  e.id"
-					     ", e.account_id"
-					     ", a.name"
+					     ", e.account_name"
 					     ", e.origin"
 					     ", e.tag"
 					     ", e.credit"
@@ -744,8 +721,6 @@ struct chain_event **get_chain_events_by_outpoint(const tal_t *ctx,
 					     ", e.ev_desc"
 					     ", e.spliced"
 					     " FROM chain_events e"
-					     " LEFT OUTER JOIN accounts a"
-					     " ON e.account_id = a.id"
 					     " WHERE "
 					     " e.utxo_txid = ?"
 					     " AND e.outnum = ?"
@@ -753,8 +728,7 @@ struct chain_event **get_chain_events_by_outpoint(const tal_t *ctx,
 	else
 		stmt = db_prepare_v2(db, SQL("SELECT"
 					     "  e.id"
-					     ", e.account_id"
-					     ", a.name"
+					     ", e.account_name"
 					     ", e.origin"
 					     ", e.tag"
 					     ", e.credit"
@@ -770,8 +744,6 @@ struct chain_event **get_chain_events_by_outpoint(const tal_t *ctx,
 					     ", e.ev_desc"
 					     ", e.spliced"
 					     " FROM chain_events e"
-					     " LEFT OUTER JOIN accounts a"
-					     " ON e.account_id = a.id"
 					     " WHERE "
 					     " e.utxo_txid = ?"
 					     " AND e.outnum = ?"));
@@ -788,8 +760,7 @@ struct chain_event **get_chain_events_by_id(const tal_t *ctx,
 	struct db_stmt *stmt;
 	stmt = db_prepare_v2(db, SQL("SELECT"
 				     "  e.id"
-				     ", e.account_id"
-				     ", a.name"
+				     ", e.account_name"
 				     ", e.origin"
 				     ", e.tag"
 				     ", e.credit"
@@ -805,8 +776,6 @@ struct chain_event **get_chain_events_by_id(const tal_t *ctx,
 				     ", e.ev_desc"
 				     ", e.spliced"
 				     " FROM chain_events e"
-				     " LEFT OUTER JOIN accounts a"
-				     " ON e.account_id = a.id"
 				     " WHERE "
 				     " e.payment_id = ?"));
 
@@ -828,8 +797,7 @@ static struct chain_event *find_chain_event(const tal_t *ctx,
 	if (spending_txid) {
 		stmt = db_prepare_v2(db, SQL("SELECT"
 					     "  e.id"
-					     ", e.account_id"
-					     ", a.name"
+					     ", e.account_name"
 					     ", e.origin"
 					     ", e.tag"
 					     ", e.credit"
@@ -845,19 +813,16 @@ static struct chain_event *find_chain_event(const tal_t *ctx,
 					     ", e.ev_desc"
 					     ", e.spliced"
 					     " FROM chain_events e"
-					     " LEFT OUTER JOIN accounts a"
-					     " ON e.account_id = a.id"
 					     " WHERE "
 					     " e.spending_txid = ?"
-					     " AND e.account_id = ?"
+					     " AND e.account_name = ?"
 					     " AND e.utxo_txid = ?"
 					     " AND e.outnum = ?"));
 		db_bind_txid(stmt, spending_txid);
 	} else {
 		stmt = db_prepare_v2(db, SQL("SELECT"
 					     "  e.id"
-					     ", e.account_id"
-					     ", a.name"
+					     ", e.account_name"
 					     ", e.origin"
 					     ", e.tag"
 					     ", e.credit"
@@ -873,18 +838,16 @@ static struct chain_event *find_chain_event(const tal_t *ctx,
 					     ", e.ev_desc"
 					     ", e.spliced"
 					     " FROM chain_events e"
-					     " LEFT OUTER JOIN accounts a"
-					     " ON e.account_id = a.id"
 					     " WHERE "
 					     " e.tag = ?"
-					     " AND e.account_id = ?"
+					     " AND e.account_name = ?"
 					     " AND e.utxo_txid = ?"
 					     " AND e.outnum = ?"
 					     " AND e.spending_txid IS NULL"));
 		db_bind_text(stmt, tag);
 	}
 
-	db_bind_u64(stmt, acct->db_id);
+	db_bind_text(stmt, acct->name);
 	db_bind_txid(stmt, &outpoint->txid);
 	db_bind_int(stmt, outpoint->n);
 
@@ -912,9 +875,7 @@ bool account_get_credit_debit(struct plugin *plugin,
 				     "  CAST(SUM(ce.credit) AS BIGINT) as credit"
 				     ", CAST(SUM(ce.debit) AS BIGINT) as debit"
 				     " FROM chain_events ce"
-				     " LEFT OUTER JOIN accounts a"
-				     " ON a.id = ce.account_id"
-				     " WHERE a.name = ?"));
+				     " WHERE ce.account_name = ?"));
 	db_bind_text(stmt, acct_name);
 	db_query_prepared(stmt);
 
@@ -935,9 +896,7 @@ bool account_get_credit_debit(struct plugin *plugin,
 				     "  CAST(SUM(ce.credit) AS BIGINT) as credit"
 				     ", CAST(SUM(ce.debit) AS BIGINT) as debit"
 				     " FROM channel_events ce"
-				     " LEFT OUTER JOIN accounts a"
-				     " ON a.id = ce.account_id"
-				     " WHERE a.name = ?"));
+				     " WHERE ce.account_name = ?"));
 	db_bind_text(stmt, acct_name);
 	db_query_prepared(stmt);
 	db_step(stmt);
@@ -977,8 +936,7 @@ struct channel_event **list_channel_events_timebox(const tal_t *ctx,
 
 	stmt = db_prepare_v2(db, SQL("SELECT"
 				     "  e.id"
-				     ", e.account_id"
-				     ", a.name"
+				     ", e.account_name"
 				     ", e.tag"
 				     ", e.credit"
 				     ", e.debit"
@@ -989,8 +947,6 @@ struct channel_event **list_channel_events_timebox(const tal_t *ctx,
 				     ", e.ev_desc"
 				     ", e.rebalance_id"
 				     " FROM channel_events e"
-				     " LEFT OUTER JOIN accounts a"
-				     " ON a.id = e.account_id"
 				     " WHERE e.timestamp > ?"
 				     "  AND e.timestamp <= ?"
 				     " ORDER BY e.timestamp, e.id;"));
@@ -1023,8 +979,7 @@ struct channel_event **account_get_channel_events(const tal_t *ctx,
 
 	stmt = db_prepare_v2(db, SQL("SELECT"
 				     "  e.id"
-				     ", a.name"
-				     ", e.account_id"
+				     ", e.account_name"
 				     ", e.tag"
 				     ", e.credit"
 				     ", e.debit"
@@ -1035,12 +990,10 @@ struct channel_event **account_get_channel_events(const tal_t *ctx,
 				     ", e.ev_desc"
 				     ", e.rebalance_id"
 				     " FROM channel_events e"
-				     " LEFT OUTER JOIN accounts a"
-				     " ON a.id = e.account_id"
-				     " WHERE e.account_id = ?"
+				     " WHERE e.account_name = ?"
 				     " ORDER BY e.timestamp, e.id"));
 
-	db_bind_u64(stmt, acct->db_id);
+	db_bind_text(stmt, acct->name);
 	return find_channel_events(ctx, take(stmt));
 }
 
@@ -1052,8 +1005,7 @@ struct channel_event **get_channel_events_by_id(const tal_t *ctx,
 
 	stmt = db_prepare_v2(db, SQL("SELECT"
 				     "  e.id"
-				     ", a.name"
-				     ", e.account_id"
+				     ", e.account_name"
 				     ", e.tag"
 				     ", e.credit"
 				     ", e.debit"
@@ -1064,8 +1016,6 @@ struct channel_event **get_channel_events_by_id(const tal_t *ctx,
 				     ", e.ev_desc"
 				     ", e.rebalance_id"
 				     " FROM channel_events e"
-				     " LEFT OUTER JOIN accounts a"
-				     " ON a.id = e.account_id"
 				     " WHERE e.payment_id = ?"
 				     " ORDER BY e.timestamp, e.id"));
 
@@ -1078,8 +1028,7 @@ static struct onchain_fee *stmt2onchain_fee(const tal_t *ctx,
 {
 	struct onchain_fee *of = tal(ctx, struct onchain_fee);
 
-	of->acct_db_id = db_col_u64(stmt, "of.account_id");
-	of->acct_name = db_col_strdup(of, stmt, "a.name");
+	of->acct_name = db_col_strdup(of, stmt, "of.account_name");
 	db_col_txid(stmt, "of.txid", &of->txid);
 	of->credit = db_col_amount_msat(stmt, "of.credit");
 	of->debit = db_col_amount_msat(stmt, "of.debit");
@@ -1115,23 +1064,20 @@ struct onchain_fee **account_get_chain_fees(const tal_t *ctx, struct db *db,
 	struct db_stmt *stmt;
 
 	stmt = db_prepare_v2(db, SQL("SELECT"
-				     "  of.account_id"
-				     ", a.name"
+				     "  of.account_name"
 				     ", of.txid"
 				     ", of.credit"
 				     ", of.debit"
 				     ", of.timestamp"
 				     ", of.update_count"
 				     " FROM onchain_fees of"
-				     " LEFT OUTER JOIN accounts a"
-				     " ON a.id = of.account_id"
-				     " WHERE of.account_id = ?"
+				     " WHERE of.account_name = ?"
 				     " ORDER BY "
 				     "  of.timestamp"
 				     ", of.txid"
 				     ", of.update_count"));
 
-	db_bind_u64(stmt, acct->db_id);
+	db_bind_text(stmt, acct->name);
 	return find_onchain_fees(ctx, take(stmt));
 }
 
@@ -1141,16 +1087,13 @@ struct onchain_fee **get_chain_fees_by_txid(const tal_t *ctx, struct db *db,
 	struct db_stmt *stmt;
 
 	stmt = db_prepare_v2(db, SQL("SELECT"
-				     "  of.account_id"
-				     ", a.name"
+				     "  of.account_name"
 				     ", of.txid"
 				     ", of.credit"
 				     ", of.debit"
 				     ", of.timestamp"
 				     ", of.update_count"
 				     " FROM onchain_fees of"
-				     " LEFT OUTER JOIN accounts a"
-				     " ON a.id = of.account_id"
 				     " WHERE of.txid = ?"
 				     " ORDER BY "
 				     "  of.timestamp"
@@ -1167,21 +1110,18 @@ struct onchain_fee **list_chain_fees_timebox(const tal_t *ctx, struct db *db,
 	struct db_stmt *stmt;
 
 	stmt = db_prepare_v2(db, SQL("SELECT"
-				     "  of.account_id"
-				     ", a.name"
+				     "  of.account_name"
 				     ", of.txid"
 				     ", of.credit"
 				     ", of.debit"
 				     ", of.timestamp"
 				     ", of.update_count"
 				     " FROM onchain_fees of"
-				     " LEFT OUTER JOIN accounts a"
-				     " ON a.id = of.account_id"
 				     " WHERE timestamp > ?"
 				     "  AND timestamp <= ?"
 				     " ORDER BY "
 				     "  of.timestamp"
-				     ", of.account_id"
+				     ", of.account_name"
 				     ", of.txid"
 				     ", of.update_count"));
 
@@ -1202,19 +1142,16 @@ struct onchain_fee **account_onchain_fees(const tal_t *ctx,
 	struct db_stmt *stmt;
 
 	stmt = db_prepare_v2(db, SQL("SELECT"
-				     "  of.account_id"
-				     ", a.name"
+				     "  of.account_name"
 				     ", of.txid"
 				     ", of.credit"
 				     ", of.debit"
 				     ", of.timestamp"
 				     ", of.update_count"
 				     " FROM onchain_fees of"
-				     " LEFT OUTER JOIN accounts a"
-				     " ON a.id = of.account_id"
-				     " WHERE of.account_id = ?;"));
+				     " WHERE of.account_name = ?;"));
 
-	db_bind_u64(stmt, acct->db_id);
+	db_bind_text(stmt, acct->name);
 	return find_onchain_fees(ctx, take(stmt));
 }
 
@@ -1226,7 +1163,7 @@ void log_channel_event(struct db *db,
 
 	stmt = db_prepare_v2(db, SQL("INSERT INTO channel_events"
 				     " ("
-				     "  account_id"
+				     "  account_name"
 				     ", tag"
 				     ", credit"
 				     ", debit"
@@ -1240,7 +1177,7 @@ void log_channel_event(struct db *db,
 				     " VALUES"
 				     " (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 
-	db_bind_u64(stmt, acct->db_id);
+	db_bind_text(stmt, acct->name);
 	db_bind_text(stmt, e->tag);
 	db_bind_amount_msat(stmt, e->credit);
 	db_bind_amount_msat(stmt, e->debit);
@@ -1263,7 +1200,6 @@ void log_channel_event(struct db *db,
 
 	db_exec_prepared_v2(stmt);
 	e->db_id = db_last_insert_id_v2(stmt);
-	e->acct_db_id = acct->db_id;
 	e->acct_name = tal_strdup(e, acct->name);
 	tal_free(stmt);
 }
@@ -1275,8 +1211,7 @@ struct chain_event **find_chain_events_bytxid(const tal_t *ctx, struct db *db,
 
 	stmt = db_prepare_v2(db, SQL("SELECT "
 				     "  e.id"
-				     ", e.account_id"
-				     ", a.name"
+				     ", e.account_name"
 				     ", e.origin"
 				     ", e.tag"
 				     ", e.credit"
@@ -1292,40 +1227,17 @@ struct chain_event **find_chain_events_bytxid(const tal_t *ctx, struct db *db,
 				     ", e.ev_desc"
 				     ", e.spliced"
 				     " FROM chain_events e"
-				     " LEFT OUTER JOIN accounts a"
-				     " ON a.id = e.account_id"
 				     " WHERE e.spending_txid = ?"
 				     " OR (e.utxo_txid = ? AND e.spending_txid IS NULL)"
-				     " ORDER BY e.account_id"));
+				     " ORDER BY e.account_name"));
 
 	db_bind_txid(stmt, txid);
 	db_bind_txid(stmt, txid);
 	return find_chain_events(ctx, take(stmt));
 }
 
-static u64 find_acct_id(struct db *db, const char *name)
-{
-	u64 acct_id;
-	struct db_stmt *stmt;
-
-	stmt = db_prepare_v2(db, SQL("SELECT"
-				     "  id"
-				     " FROM accounts"
-				     " WHERE name = ?"));
-
-	db_bind_text(stmt, name);
-	db_query_prepared(stmt);
-	if (db_step(stmt))
-		acct_id = db_col_u64(stmt, "id");
-	else
-		acct_id = 0;
-
-	tal_free(stmt);
-	return acct_id;
-}
-
 static void insert_chain_fees_diff(struct db *db,
-				   u64 acct_id,
+				   const char *acct_name,
 				   struct bitcoin_txid *txid,
 				   struct amount_msat amount,
 				   u64 timestamp)
@@ -1342,11 +1254,11 @@ static void insert_chain_fees_diff(struct db *db,
 				     ", debit"
 				     " FROM onchain_fees"
 				     " WHERE txid = ?"
-				     " AND account_id = ?"
+				     " AND account_name = ?"
 				     " ORDER BY update_count"));
 
 	db_bind_txid(stmt, txid);
-	db_bind_u64(stmt, acct_id);
+	db_bind_text(stmt, acct_name);
 	db_query_prepared(stmt);
 
 	/* If there's no current record, add it */
@@ -1381,7 +1293,7 @@ static void insert_chain_fees_diff(struct db *db,
 
 	stmt = db_prepare_v2(db, SQL("INSERT INTO onchain_fees"
 				     " ("
-				     "  account_id"
+				     "  account_name"
 				     ", txid"
 				     ", credit"
 				     ", debit"
@@ -1390,7 +1302,7 @@ static void insert_chain_fees_diff(struct db *db,
 				     ") VALUES"
 				     " (?, ?, ?, ?, ?, ?);"));
 
-	db_bind_u64(stmt, acct_id);
+	db_bind_text(stmt, acct_name);
 	db_bind_txid(stmt, txid);
 	db_bind_amount_msat(stmt, credit);
 	db_bind_amount_msat(stmt, debit);
@@ -1452,7 +1364,7 @@ char *update_channel_onchain_fees(const tal_t *ctx,
 				       "onchain sum from %s",
 				       close_ev->tag);
 
-		insert_chain_fees_diff(db, acct->db_id,
+		insert_chain_fees_diff(db, acct->name,
 				       close_ev->spending_txid,
 				       fees,
 				       close_ev->timestamp);
@@ -1574,17 +1486,13 @@ struct rebalance **list_rebalances(const tal_t *ctx, struct db *db)
 	stmt = db_prepare_v2(db, SQL("SELECT "
 				     "  in_e.id"
 				     ", out_e.id"
-				     ", in_acct.name"
-				     ", out_acct.name"
+				     ", in_e.account_name"
+				     ", out_e.account_name"
 				     ", in_e.credit"
 				     ", out_e.fees"
 				     " FROM channel_events in_e"
 				     " LEFT OUTER JOIN channel_events out_e"
 				     " ON in_e.rebalance_id = out_e.id"
-				     " LEFT OUTER JOIN accounts out_acct"
-				     " ON out_acct.id = out_e.account_id"
-				     " LEFT OUTER JOIN accounts in_acct"
-				     " ON in_acct.id = in_e.account_id"
 				     " WHERE in_e.rebalance_id IS NOT NULL"
 				     "  AND in_e.credit > 0"));
 	db_query_prepared(stmt);
@@ -1602,7 +1510,7 @@ char *maybe_update_onchain_fees(const tal_t *ctx,
 			        struct bitcoin_txid *txid)
 {
 	size_t no_accts = 0, plus_ones;
-	u64 last_id = 0, wallet_id, extern_id;
+	const char *last_acctname = NULL;
 	bool contains_wallet = false, skip_wallet = false;
 	struct chain_event **events;
 	struct amount_msat deposit_msat = AMOUNT_MSAT(0),
@@ -1613,8 +1521,6 @@ char *maybe_update_onchain_fees(const tal_t *ctx,
 
 	/* Find all the deposits/withdrawals for this txid */
 	events = find_chain_events_bytxid(inner_ctx, bkpr->db, txid);
-	wallet_id = find_acct_id(bkpr->db, ACCOUNT_NAME_WALLET);
-	extern_id = find_acct_id(bkpr->db, ACCOUNT_NAME_EXTERNAL);
 
 	/* If we don't even have two events, skip */
 	if (tal_count(events) < 2)
@@ -1665,13 +1571,13 @@ char *maybe_update_onchain_fees(const tal_t *ctx,
 		 * and requires knowing if the wallet/external accts
 		 * were involved (everything else is channel accts)
 		 * */
-		if (last_id != events[i]->acct_db_id) {
-			last_id = events[i]->acct_db_id;
+		if (!last_acctname || !streq(last_acctname, events[i]->acct_name)) {
+			last_acctname = events[i]->acct_name;
 			/* Don't count external accts */
-			if (last_id != extern_id)
+			if (!is_external_account(last_acctname))
 				no_accts++;
 
-			contains_wallet |= (last_id == wallet_id);
+			contains_wallet |= is_wallet_account(last_acctname);
 		}
 	}
 
@@ -1715,28 +1621,28 @@ char *maybe_update_onchain_fees(const tal_t *ctx,
 	plus_ones = fees_msat.millisatoshis % no_accts; /* Raw: mod calc */
 
 	/* Now we log (or update the existing record) for each acct */
-	last_id = 0;
+	last_acctname = NULL;
 	for (size_t i = 0; i < tal_count(events); i++) {
 		struct amount_msat fees;
 
-		if (last_id == events[i]->acct_db_id)
+		if (last_acctname && streq(last_acctname, events[i]->acct_name))
 			continue;
 
-		last_id = events[i]->acct_db_id;
+		last_acctname = events[i]->acct_name;
 
 		/* We *never* assign fees to external accounts;
 		 * if external funds were contributed to a tx
 		 * we wouldn't record it -- fees are solely ours */
-		if (last_id == extern_id)
+		if (is_external_account(last_acctname))
 			continue;
 
 		/* We only attribute fees to the wallet
 		 * if the wallet is the only game in town */
-		if (skip_wallet && last_id == wallet_id) {
+		if (skip_wallet && is_wallet_account(last_acctname)) {
 			/* But we might need to clean up any fees assigned
 			 * to the wallet from a previous round, where it
 			 * *was* the only game in town */
-			insert_chain_fees_diff(bkpr->db, last_id, txid,
+			insert_chain_fees_diff(bkpr->db, last_acctname, txid,
 					       AMOUNT_MSAT(0),
 					       events[i]->timestamp);
 			continue;
@@ -1756,7 +1662,7 @@ char *maybe_update_onchain_fees(const tal_t *ctx,
 		} else
 			fees = fee_part_msat;
 
-		insert_chain_fees_diff(bkpr->db, last_id, txid, fees,
+		insert_chain_fees_diff(bkpr->db, last_acctname, txid, fees,
 				       events[i]->timestamp);
 
 	}
@@ -1776,11 +1682,9 @@ void maybe_closeout_external_deposits(struct db *db,
 	stmt = db_prepare_v2(db, SQL("SELECT "
 				     "  e.id"
 				     " FROM chain_events e"
-				     " LEFT OUTER JOIN accounts a"
-				     " ON e.account_id = a.id"
 				     " WHERE e.blockheight = ?"
 				     " AND e.utxo_txid = ?"
-				     " AND a.name = ?"));
+				     " AND e.account_name = ?"));
 
 	/* Blockheight for unconfirmeds is zero */
 	db_bind_int(stmt, 0);
@@ -1819,7 +1723,7 @@ bool log_chain_event(struct db *db,
 
 	stmt = db_prepare_v2(db, SQL("INSERT INTO chain_events"
 				     " ("
-				     "  account_id"
+				     "  account_name"
 				     ", origin"
 				     ", tag"
 				     ", credit"
@@ -1838,7 +1742,7 @@ bool log_chain_event(struct db *db,
 				     " VALUES "
 				     "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 
-	db_bind_u64(stmt, acct->db_id);
+	db_bind_text(stmt, acct->name);
 	if (e->origin_acct)
 		db_bind_text(stmt, e->origin_acct);
 	else
@@ -1870,7 +1774,6 @@ bool log_chain_event(struct db *db,
 	db_bind_int(stmt, e->splice_close ? 1 : 0);
 	db_exec_prepared_v2(stmt);
 	e->db_id = db_last_insert_id_v2(stmt);
-	e->acct_db_id = acct->db_id;
 	e->acct_name = tal_strdup(e, acct->name);
 	tal_free(stmt);
 	return true;
