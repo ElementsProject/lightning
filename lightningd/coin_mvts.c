@@ -1,5 +1,6 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
+#include <ccan/tal/str/str.h>
 #include <common/json_command.h>
 #include <lightningd/channel.h>
 #include <lightningd/coin_mvts.h>
@@ -189,9 +190,11 @@ void json_add_chain_mvt_fields(struct json_stream *stream,
 			       bool include_tags_arr,
 			       bool include_old_utxo_fields,
 			       bool include_old_txid_field,
-			       const struct chain_coin_mvt *chain_mvt)
+			       const struct chain_coin_mvt *chain_mvt,
+			       u64 id)
 {
 	/* Fields in common with channel moves go first */
+	json_add_u64(stream, "created_index", id);
 	json_add_mvt_account_id(stream, "account_id", &chain_mvt->account);
 	json_add_amount_msat(stream, "credit_msat", chain_mvt->credit);
 	json_add_amount_msat(stream, "debit_msat", chain_mvt->debit);
@@ -233,9 +236,11 @@ void json_add_chain_mvt_fields(struct json_stream *stream,
 void json_add_channel_mvt_fields(struct json_stream *stream,
 				 bool include_tags_arr,
 				 const struct channel_coin_mvt *chan_mvt,
+				 u64 id,
 				 bool extra_tags_field)
 {
 	/* Fields in common with chain moves go first */
+	json_add_u64(stream, "created_index", id);
 	json_add_mvt_account_id(stream, "account_id", &chan_mvt->account);
 	json_add_amount_msat(stream, "credit_msat", chan_mvt->credit);
 	json_add_amount_msat(stream, "debit_msat", chan_mvt->debit);
@@ -250,6 +255,40 @@ void json_add_channel_mvt_fields(struct json_stream *stream,
 		json_add_u64(stream, "group_id", chan_mvt->part_and_group->group_id);
 	}
 	json_add_amount_msat(stream, "fees_msat", chan_mvt->fees);
+}
+
+static u64 coinmvt_index_inc(struct lightningd *ld,
+			     enum wait_subsystem subsys,
+			     const struct mvt_account_id *account,
+			     struct amount_msat credit,
+			     struct amount_msat debit,
+			     enum wait_index idx)
+{
+	return wait_index_increment(ld, subsys, idx,
+				    "account", account->channel ? fmt_channel_id(tmpctx, &account->channel->cid) : account->alt_account,
+				    "=credit_msat", tal_fmt(tmpctx, "%"PRIu64, credit.millisatoshis), /* Raw: JSON output */
+				    "=debit_msat", tal_fmt(tmpctx, "%"PRIu64, debit.millisatoshis), /* Raw: JSON output */
+				    NULL);
+}
+
+u64 chain_mvt_index_created(struct lightningd *ld,
+			    const struct mvt_account_id *account,
+			    struct amount_msat credit,
+			    struct amount_msat debit)
+{
+	return coinmvt_index_inc(ld, WAIT_SUBSYSTEM_CHAINMOVES,
+				 account, credit, debit,
+				 WAIT_INDEX_CREATED);
+}
+
+u64 channel_mvt_index_created(struct lightningd *ld,
+			      const struct mvt_account_id *account,
+			      struct amount_msat credit,
+			      struct amount_msat debit)
+{
+	return coinmvt_index_inc(ld, WAIT_SUBSYSTEM_CHANNELMOVES,
+				 account, credit, debit,
+				 WAIT_INDEX_CREATED);
 }
 
 static struct command_result *json_listchainmoves(struct command *cmd,
@@ -291,7 +330,7 @@ static struct command_result *json_listchainmoves(struct command *cmd,
 		u64 id;
 		chain_mvt = wallet_chain_move_extract(cmd, stmt, cmd->ld, &id);
 		json_object_start(response, NULL);
-		json_add_chain_mvt_fields(response, false, false, false, chain_mvt);
+		json_add_chain_mvt_fields(response, false, false, false, chain_mvt, id);
 		json_object_end(response);
 	}
 	json_array_end(response);
@@ -345,7 +384,7 @@ static struct command_result *json_listchannelmoves(struct command *cmd,
 		chan_mvt = wallet_channel_move_extract(cmd, stmt, cmd->ld, &id);
 		json_object_start(response, NULL);
 		/* No deprecated tags[], no extra_tags field */
-		json_add_channel_mvt_fields(response, false, chan_mvt, false);
+		json_add_channel_mvt_fields(response, false, chan_mvt, id, false);
 		json_object_end(response);
 	}
 	json_array_end(response);

@@ -44,9 +44,22 @@ void json_add_chain_mvt_fields(struct json_stream *stream,
 			       bool include_tags_arr,
 			       bool include_old_utxo_fields,
 			       bool include_old_txid_field,
-			       const struct chain_coin_mvt *chain_mvt);
+			       const struct chain_coin_mvt *chain_mvt,
+			       u64 id);
 void json_add_channel_mvt_fields(struct json_stream *stream,
 				 bool include_tags_arr,
 				 const struct channel_coin_mvt *chan_mvt,
+				 u64 id,
 				 bool extra_tags_field);
+
+/* For db code to get incremental ids */
+u64 chain_mvt_index_created(struct lightningd *ld,
+			    const struct mvt_account_id *account,
+			    struct amount_msat credit,
+			    struct amount_msat debit);
+
+u64 channel_mvt_index_created(struct lightningd *ld,
+			      const struct mvt_account_id *account,
+			      struct amount_msat credit,
+			      struct amount_msat debit);
 #endif /* LIGHTNING_LIGHTNINGD_COIN_MVTS_H */

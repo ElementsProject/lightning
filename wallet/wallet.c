@@ -6905,9 +6905,11 @@ void wallet_save_channel_mvt(struct lightningd *ld,
 			     const struct channel_coin_mvt *chan_mvt)
 {
 	struct db_stmt *stmt;
+	u64 id;
 
 	stmt = db_prepare_v2(ld->wallet->db,
 			     SQL("INSERT INTO channel_moves ("
+				 " id,"
 				 " account_channel_id,"
 				 " account_nonchannel_id,"
 				 " credit_or_debit,"
@@ -6916,7 +6918,11 @@ void wallet_save_channel_mvt(struct lightningd *ld,
 				 " payment_hash,"
 				 " payment_part_id,"
 				 " payment_group_id,"
-				 " fees) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+				 " fees) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+	id = channel_mvt_index_created(ld,
+				       &chan_mvt->account,
+				       chan_mvt->credit, chan_mvt->debit);
+	db_bind_u64(stmt, id);
 	db_bind_mvt_account_id(stmt, ld, &chan_mvt->account);
 	db_bind_credit_debit(stmt, chan_mvt->credit, chan_mvt->debit);
 	db_bind_mvt_tags(stmt, chan_mvt->tags);
@@ -6936,7 +6942,7 @@ void wallet_save_channel_mvt(struct lightningd *ld,
 	db_bind_amount_msat(stmt, chan_mvt->fees);
 	db_exec_prepared_v2(take(stmt));
 
-	notify_channel_mvt(ld, chan_mvt);
+	notify_channel_mvt(ld, chan_mvt, id);
 	if (taken(chan_mvt))
 		tal_free(chan_mvt);
 }
@@ -6945,6 +6951,7 @@ void wallet_save_chain_mvt(struct lightningd *ld,
 			   const struct chain_coin_mvt *chain_mvt)
 {
 	struct db_stmt *stmt;
+	u64 id;
 
 	/* On restart, we do chain replay.  For this (and other
 	 * reorgs) we need to de-duplicate here.  The other db tables
@@ -6953,7 +6960,7 @@ void wallet_save_chain_mvt(struct lightningd *ld,
 	if (chain_mvt->account.channel) {
 		stmt = db_prepare_v2(ld->wallet->db,
 				     SQL("SELECT"
-					 "  cm.spending_txid, cm.tag_bitmap"
+					 "  cm.spending_txid, cm.tag_bitmap, cm.id"
 					 " FROM chain_moves cm"
 					 " WHERE "
 					 "  account_channel_id = ?"
@@ -6962,7 +6969,7 @@ void wallet_save_chain_mvt(struct lightningd *ld,
 	} else {
 		stmt = db_prepare_v2(ld->wallet->db,
 				     SQL("SELECT"
-					 "  cm.spending_txid, cm.tag_bitmap"
+					 "  cm.spending_txid, cm.tag_bitmap, cm.id"
 					 " FROM chain_moves cm"
 					 " JOIN move_accounts ma ON cm.account_nonchannel_id = ma.id"
 					 " WHERE"
@@ -6980,6 +6987,7 @@ void wallet_save_chain_mvt(struct lightningd *ld,
 
 		/* Access this now so it never complains we don't */
 		tags.bits = db_col_u64(stmt, "cm.tag_bitmap");
+		id = db_col_u64(stmt, "cm.id");
 
 		/* spending_txid must match */
 		if (chain_mvt->spending_txid) {
@@ -7002,13 +7010,14 @@ void wallet_save_chain_mvt(struct lightningd *ld,
 		/* It's a duplicate.  Don't re-add. */
 		tal_free(stmt);
 		/* FIXME: This is currently required for bookkeeper tests, if bookkeeper is offline */
-		notify_chain_mvt(ld, chain_mvt);
+		notify_chain_mvt(ld, chain_mvt, id);
 		goto out;
 	}
 	tal_free(stmt);
 
 	stmt = db_prepare_v2(ld->wallet->db,
 			     SQL("INSERT INTO chain_moves ("
+				 " id,"
 				 " account_channel_id,"
 				 " account_nonchannel_id,"
 				 " tag_bitmap,"
@@ -7022,7 +7031,11 @@ void wallet_save_chain_mvt(struct lightningd *ld,
 				 " output_sat,"
 				 " originating_channel_id,"
 				 " originating_nonchannel_id,"
-				 " output_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"));
+				 " output_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"));
+	id = chain_mvt_index_created(ld,
+				     &chain_mvt->account,
+				     chain_mvt->credit, chain_mvt->debit);
+	db_bind_u64(stmt, id);
 	db_bind_mvt_account_id(stmt, ld, &chain_mvt->account);
 	db_bind_mvt_tags(stmt, chain_mvt->tags);
 	db_bind_credit_debit(stmt, chain_mvt->credit, chain_mvt->debit);
@@ -7054,7 +7067,7 @@ void wallet_save_chain_mvt(struct lightningd *ld,
 		db_bind_null(stmt);
 	db_exec_prepared_v2(take(stmt));
 
-	notify_chain_mvt(ld, chain_mvt);
+	notify_chain_mvt(ld, chain_mvt, id);
 out:
 	if (taken(chain_mvt))
 		tal_free(chain_mvt);

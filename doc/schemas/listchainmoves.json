@@ -55,6 +55,7 @@
           "type": "object",
           "additionalProperties": false,
           "required": [
+            "created_index",
             "account_id",
             "primary_tag",
             "extra_tags",
@@ -66,6 +67,12 @@
             "blockheight"
           ],
           "properties": {
+            "created_index": {
+              "type": "u64",
+              "description": [
+                "1-based index indicating order this move was created in."
+              ]
+            },
             "account_id": {
               "type": "string",
               "description": [

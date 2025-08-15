@@ -2687,6 +2687,28 @@ impl From<responses::WaitblockheightResponse> for pb::WaitblockheightResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::WaitChainmoves> for pb::WaitChainmoves {
+    fn from(c: responses::WaitChainmoves) -> Self {
+        Self {
+            account: c.account, // Rule #2 for type string
+            credit_msat: Some(c.credit_msat.into()), // Rule #2 for type msat
+            debit_msat: Some(c.debit_msat.into()), // Rule #2 for type msat
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::WaitChannelmoves> for pb::WaitChannelmoves {
+    fn from(c: responses::WaitChannelmoves) -> Self {
+        Self {
+            account: c.account, // Rule #2 for type string
+            credit_msat: Some(c.credit_msat.into()), // Rule #2 for type msat
+            debit_msat: Some(c.debit_msat.into()), // Rule #2 for type msat
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::WaitDetails> for pb::WaitDetails {
     fn from(c: responses::WaitDetails) -> Self {
         Self {
@@ -2763,6 +2785,8 @@ impl From<responses::WaitSendpays> for pb::WaitSendpays {
 impl From<responses::WaitResponse> for pb::WaitResponse {
     fn from(c: responses::WaitResponse) -> Self {
         Self {
+            chainmoves: c.chainmoves.map(|v| v.into()),
+            channelmoves: c.channelmoves.map(|v| v.into()),
             created: c.created, // Rule #2 for type u64?
             deleted: c.deleted, // Rule #2 for type u64?
             details: c.details.map(|v| v.into()),
