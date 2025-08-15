@@ -136,6 +136,7 @@ static struct bkpr *bkpr_setup(const tal_t *ctx)
 
 	bkpr->db = db_setup(bkpr, NULL, tmp_dsn(ctx));
 	bkpr->accounts = init_accounts(ctx, NULL);
+	bkpr->onchain_fees = init_onchain_fees(bkpr, bkpr->db, NULL);
 	return bkpr;
 }
 
@@ -342,10 +343,7 @@ static bool test_onchain_fee_wallet_spend(const tal_t *ctx)
 	maybe_update_onchain_fees(ctx, bkpr, &txid);
 	db_commit_transaction(db);
 
-	db_begin_transaction(db);
-	ofs = list_chain_fees(ctx, db);
-	db_commit_transaction(db);
-
+	ofs = list_chain_fees(ctx, bkpr);
 	CHECK(tal_count(ofs) == 2);
 
 	/* we expect 800, then -700 */
@@ -459,7 +457,7 @@ static bool test_onchain_fee_chan_close(const tal_t *ctx)
 	maybe_update_onchain_fees(ctx, bkpr, &txid);
 
 	/* Should be no fees yet */
-	ofs = list_chain_fees(ctx, db);
+	ofs = list_chain_fees(ctx, bkpr);
 	CHECK(tal_count(ofs) == 0);
 
 	log_chain_event(db, acct,
@@ -508,10 +506,8 @@ static bool test_onchain_fee_chan_close(const tal_t *ctx)
 	db_commit_transaction(db);
 
 	/* Expect: 1 onchain fee records, all for chan-1 */
-	db_begin_transaction(db);
-	ofs = list_chain_fees(ctx, db);
-	ofs1 = account_get_chain_fees(ctx, db, acct);
-	db_commit_transaction(db);
+	ofs = list_chain_fees(ctx, bkpr);
+	ofs1 = account_get_chain_fees(tmpctx, bkpr, acct->name);
 
 	CHECK(tal_count(ofs) == tal_count(ofs1));
 	CHECK(tal_count(ofs) == 1);
@@ -566,10 +562,8 @@ static bool test_onchain_fee_chan_close(const tal_t *ctx)
 	db_commit_transaction(db);
 
 	/* Expect: onchain fee records for tx except channel close */
-	db_begin_transaction(db);
-	ofs = list_chain_fees(ctx, db);
-	ofs1 = account_get_chain_fees(ctx, db, acct);
-	db_commit_transaction(db);
+	ofs = list_chain_fees(ctx, bkpr);
+	ofs1 = account_get_chain_fees(tmpctx, bkpr, acct->name);
 
 	CHECK(tal_count(ofs) == tal_count(ofs1));
 	CHECK(tal_count(ofs) == 3);
@@ -579,10 +573,10 @@ static bool test_onchain_fee_chan_close(const tal_t *ctx)
 	db_begin_transaction(db);
 	account_update_closeheight(NULL, acct, account_onchain_closeheight(db, acct));
 	CHECK(acct->onchain_resolved_block == blockheight + 2);
-	err = update_channel_onchain_fees(ctx, db, acct);
+	err = update_channel_onchain_fees(ctx, bkpr, acct);
 	CHECK_MSG(!err, err);
-	ofs = account_get_chain_fees(ctx, db, acct);
 	db_commit_transaction(db);
+	ofs = account_get_chain_fees(tmpctx, bkpr, acct->name);
 
 	/* Expect: fees as follows
 	 *
@@ -719,9 +713,7 @@ static bool test_onchain_fee_chan_open(const tal_t *ctx)
 
 	/* Expect: 5 onchain fee records, totaling to 151/150msat ea,
 	 * none for wallet */
-	db_begin_transaction(db);
-	ofs = list_chain_fees(ctx, db);
-	db_commit_transaction(db);
+	ofs = list_chain_fees(ctx, bkpr);
 
 	CHECK(tal_count(ofs) == 5);
 
