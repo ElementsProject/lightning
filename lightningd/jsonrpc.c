@@ -1393,20 +1393,14 @@ static void setup_command_usage(struct lightningd *ld,
 bool jsonrpc_command_add(struct jsonrpc *rpc, struct json_command *command,
 			 const char *usage TAKES)
 {
-	struct json_escape *esc;
 	const char *unescaped;
 
 	if (!command_add(rpc, command))
 		return false;
 
-	esc = json_escape_string_(tmpctx, usage, strlen(usage));
-	unescaped = json_escape_unescape(command, esc);
+	unescaped = json_escape_unescape_len(command, usage, strlen(usage));
 	if (!unescaped)
-		unescaped = tal_strdup(command, usage);
-	else {
-		if (taken(usage))
-			tal_free(usage);
-	}
+		return false;
 
 	strmap_add(&rpc->usagemap, command->name, unescaped);
 	tal_add_destructor2(command, destroy_json_command, rpc);

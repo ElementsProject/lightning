@@ -444,11 +444,9 @@ struct command_result *param_escaped_string(struct command *cmd,
 					    const char **str)
 {
 	if (tok->type == JSMN_STRING) {
-		struct json_escape *esc;
 		/* jsmn always gives us ~ well-formed strings. */
-		esc = json_escape_string_(cmd, buffer + tok->start,
-					  tok->end - tok->start);
-		*str = json_escape_unescape(cmd, esc);
+		*str = json_escape_unescape_len(cmd, buffer + tok->start,
+						tok->end - tok->start);
 		if (*str)
 			return NULL;
 	}
