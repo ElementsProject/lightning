@@ -484,10 +484,8 @@ static struct rune_altern *rune_altern_from_json(const tal_t *ctx,
 	/* We still need to unescape here, for \\ -> \.  JSON doesn't
 	 * allow unnecessary \ */
 	const char *unescape;
-	struct json_escape *e = json_escape_string_(tmpctx,
-						    buffer + tok->start,
-						    tok->end - tok->start);
-	unescape = json_escape_unescape(tmpctx, e);
+	unescape = json_escape_unescape_len(tmpctx, buffer + tok->start,
+					    tok->end - tok->start);
 	if (!unescape)
 		return NULL;
 
