@@ -4,7 +4,6 @@
 #include <ccan/json_out/json_out.h>
 #include <ccan/str/str.h>
 #include <ccan/tal/str/str.h>
-#include <common/coin_mvt.h>
 #include <common/memleak.h>
 #include <common/node_id.h>
 #include <plugins/bkpr/account.h>

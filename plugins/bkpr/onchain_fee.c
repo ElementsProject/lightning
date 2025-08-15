@@ -9,6 +9,7 @@
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <common/pseudorand.h>
+#include <inttypes.h>
 #include <plugins/bkpr/account.h>
 #include <plugins/bkpr/account_entry.h>
 #include <plugins/bkpr/chain_event.h>
@@ -16,7 +17,6 @@
 #include <plugins/bkpr/onchain_fee.h>
 #include <plugins/bkpr/recorder.h>
 #include <plugins/libplugin.h>
-#include <inttypes.h>
 #include <wire/wire.h>
 
 /* We keep a hash of onchain_fee arrays.  Each array is sorted. */

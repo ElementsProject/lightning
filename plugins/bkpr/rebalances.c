@@ -8,8 +8,8 @@
 #include <common/memleak.h>
 #include <common/node_id.h>
 #include <common/utils.h>
-#include <plugins/bkpr/rebalances.h>
 #include <plugins/bkpr/bookkeeper.h>
+#include <plugins/bkpr/rebalances.h>
 #include <plugins/libplugin.h>
 #include <wire/wire.h>
 

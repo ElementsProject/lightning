@@ -7,11 +7,10 @@
 #include <ccan/tal/str/str.h>
 #include <common/memleak.h>
 #include <common/utils.h>
+#include <inttypes.h>
 #include <plugins/bkpr/blockheights.h>
 #include <plugins/bkpr/bookkeeper.h>
 #include <plugins/libplugin.h>
-
-#include <inttypes.h>
 
 struct blockheight_entry {
 	struct bitcoin_txid txid;

@@ -4,8 +4,8 @@
 #include <ccan/htable/htable_type.h>
 #include <ccan/json_out/json_out.h>
 #include <ccan/str/hex/hex.h>
-#include <ccan/tal/tal.h>
 #include <ccan/tal/str/str.h>
+#include <ccan/tal/tal.h>
 #include <common/memleak.h>
 #include <common/utils.h>
 #include <plugins/bkpr/bookkeeper.h>

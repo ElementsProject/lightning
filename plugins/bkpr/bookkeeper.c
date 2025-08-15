@@ -1090,6 +1090,7 @@ parse_and_log_chain_move(struct command *cmd,
 	enum mvt_tag tag, *tags;
 
 	/* Fields we expect on *every* chain movement */
+	closed_count = 0;
 	err = json_scan(tmpctx, buf, chainmove,
 			"{account_id:%"
 			",created_index:%"

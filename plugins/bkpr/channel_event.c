@@ -24,7 +24,7 @@ struct channel_event *new_channel_event(const tal_t *ctx,
 	ev->credit = credit;
 	ev->debit = debit;
 	ev->fees = fees;
-	ev->payment_id = tal_dup(ev, struct sha256, payment_id);
+	ev->payment_id = tal_dup_or_null(ev, struct sha256, payment_id);
 	ev->part_id = part_id;
 	ev->timestamp = timestamp;
 

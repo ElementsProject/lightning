@@ -1,3 +1,5 @@
+#include "config.h"
+
 #include <common/json_stream.h>
 #include <plugins/bkpr/blockheights.h>
 #include <plugins/bkpr/chain_event.h>

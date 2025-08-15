@@ -9,6 +9,7 @@
 #include <db/utils.h>
 #include <lightningd/coin_mvts.h>
 #include <lightningd/lightningd.h>
+#include <unistd.h>
 #include <wallet/account_migration.h>
 #include <wallet/wallet.h>
 

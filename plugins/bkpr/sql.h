@@ -67,4 +67,4 @@ PRINTF_FMT(4, 5) chain_events_from_sql(const tal_t *ctx,
 /* Return with escaped quotes, if any */
 const char *sql_string(const tal_t *ctx, const char *str);
 
-#endif /* LIGHTNING_PLUGINS_BKPR_BOOKKEEPER_H */
+#endif /* LIGHTNING_PLUGINS_BKPR_SQL_H */
