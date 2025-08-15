@@ -36,6 +36,9 @@ void bitcoind_getrawblockbyheight_(const tal_t *ctx UNNEEDED,
 					      void *arg) UNNEEDED,
 				   void *arg UNNEEDED)
 { fprintf(stderr, "bitcoind_getrawblockbyheight_ called!\n"); abort(); }
+/* Generated stub for channel_by_dbid */
+struct channel *channel_by_dbid(struct lightningd *ld UNNEEDED, const u64 dbid UNNEEDED)
+{ fprintf(stderr, "channel_by_dbid called!\n"); abort(); }
 /* Generated stub for channel_gossip_get_remote_update */
 const struct peer_update *channel_gossip_get_remote_update(const struct channel *channel UNNEEDED)
 { fprintf(stderr, "channel_gossip_get_remote_update called!\n"); abort(); }

@@ -1880,6 +1880,29 @@ void wallet_save_channel_mvt(struct lightningd *ld,
 void wallet_save_chain_mvt(struct lightningd *ld,
 			   const struct chain_coin_mvt *chain_mvt);
 
+/* coin movement table iterators */
+struct db_stmt *wallet_chain_moves_first(struct wallet *wallet,
+					 u64 liststart,
+					 u32 *listlimit);
+struct db_stmt *wallet_chain_moves_next(struct wallet *wallet,
+					struct db_stmt *stmt);
+
+struct chain_coin_mvt *wallet_chain_move_extract(const tal_t *ctx,
+						 struct db_stmt *stmt,
+						 struct lightningd *ld,
+						 u64 *id);
+
+struct db_stmt *wallet_channel_moves_first(struct wallet *wallet,
+					   u64 liststart,
+					   u32 *listlimit);
+struct db_stmt *wallet_channel_moves_next(struct wallet *wallet,
+					  struct db_stmt *stmt);
+
+struct channel_coin_mvt *wallet_channel_move_extract(const tal_t *ctx,
+						     struct db_stmt *stmt,
+						     struct lightningd *ld,
+						     u64 *id);
+
 /**
  * wallet_memleak_scan - Check for memleaks in wallet.
  */
