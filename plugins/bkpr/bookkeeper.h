@@ -4,11 +4,14 @@
 #include "config.h"
 #include <common/json_parse.h>
 
+struct command;
+
 struct bkpr {
 	/* The database that we store all the accounting data in */
 	struct db *db;
 	struct accounts *accounts;
 	struct onchain_fees *onchain_fees;
+	struct descriptions *descriptions;
 
 	char *db_dsn;
 	char *datadir;
