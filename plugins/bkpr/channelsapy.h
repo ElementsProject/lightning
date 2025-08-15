@@ -33,7 +33,8 @@ struct channel_apy *new_channel_apy(const tal_t *ctx);
 WARN_UNUSED_RESULT bool channel_apy_sum(struct channel_apy *sum_apy,
 					const struct channel_apy *entry);
 
-struct channel_apy **compute_channel_apys(const tal_t *ctx, struct db *db,
+struct channel_apy **compute_channel_apys(const tal_t *ctx,
+					  struct bkpr *bkpr,
 					  u64 start_time,
 					  u64 end_time,
 					  u32 current_blockheight);

@@ -12,6 +12,7 @@
 #include <inttypes.h>
 #include <plugins/bkpr/account.h>
 #include <plugins/bkpr/account_entry.h>
+#include <plugins/bkpr/bookkeeper.h>
 #include <plugins/bkpr/chain_event.h>
 #include <plugins/bkpr/channel_event.h>
 #include <plugins/bkpr/incomestmt.h>
@@ -20,16 +21,6 @@
 #include <time.h>
 
 #define ONCHAIN_FEE "onchain_fee"
-
-static struct account *get_account(struct account **accts,
-				   u64 acct_db_id)
-{
-	for (size_t i = 0; i < tal_count(accts); i++) {
-		if (accts[i]->db_id == acct_db_id)
-			return accts[i];
-	}
-	return NULL;
-}
 
 static struct income_event *chain_to_income(const tal_t *ctx,
 					    struct chain_event *ev,
@@ -309,7 +300,7 @@ static struct onchain_fee **find_consolidated_fees(const tal_t *ctx,
 }
 
 struct income_event **list_income_events(const tal_t *ctx,
-					 struct db *db,
+					 const struct bkpr *bkpr,
 					 u64 start_time,
 					 u64 end_time,
 					 bool consolidate_fees)
@@ -317,14 +308,13 @@ struct income_event **list_income_events(const tal_t *ctx,
 	struct channel_event **channel_events;
 	struct chain_event **chain_events;
 	struct onchain_fee **onchain_fees;
-	struct account **accts;
+	struct db *db = bkpr->db;
 
 	struct income_event **evs;
 
 	channel_events = list_channel_events_timebox(ctx, db,
 						     start_time, end_time);
 	chain_events = list_chain_events_timebox(ctx, db, start_time, end_time);
-	accts = list_accounts(ctx, db);
 
 	if (consolidate_fees) {
 		onchain_fees = find_consolidated_fees(ctx, db,
@@ -374,7 +364,7 @@ struct income_event **list_income_events(const tal_t *ctx,
 		if (chain && chain->timestamp == lowest) {
 			struct income_event *ev;
 			struct account *acct =
-				get_account(accts, chain->acct_db_id);
+				find_account(bkpr, chain->acct_name);
 
 			ev = maybe_chain_income(evs, db, acct, chain);
 			if (ev)
@@ -412,10 +402,11 @@ struct income_event **list_income_events(const tal_t *ctx,
 	return evs;
 }
 
-struct income_event **list_income_events_all(const tal_t *ctx, struct db *db,
+struct income_event **list_income_events_all(const tal_t *ctx,
+					     const struct bkpr *bkpr,
 					     bool consolidate_fees)
 {
-	return list_income_events(ctx, db, 0, SQLITE_MAX_UINT,
+	return list_income_events(ctx, bkpr, 0, SQLITE_MAX_UINT,
 				  consolidate_fees);
 }
 

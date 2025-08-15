@@ -11,6 +11,7 @@
 #include <inttypes.h>
 #include <plugins/bkpr/account.h>
 #include <plugins/bkpr/account_entry.h>
+#include <plugins/bkpr/bookkeeper.h>
 #include <plugins/bkpr/chain_event.h>
 #include <plugins/bkpr/channel_event.h>
 #include <plugins/bkpr/onchain_fee.h>
@@ -1460,7 +1461,8 @@ char *update_channel_onchain_fees(const tal_t *ctx,
 	return NULL;
 }
 
-static char *is_closed_channel_txid(const tal_t *ctx, struct db *db,
+static char *is_closed_channel_txid(const tal_t *ctx,
+				    struct bkpr *bkpr,
 				    struct chain_event *ev,
 				    struct bitcoin_txid *txid,
 				    bool *is_channel_close_tx)
@@ -1470,7 +1472,7 @@ static char *is_closed_channel_txid(const tal_t *ctx, struct db *db,
 	u8 *inner_ctx = tal(NULL, u8);
 
 	/* Figure out if this is a channel close tx */
-	acct = find_account(inner_ctx, db, ev->acct_name);
+	acct = find_account(bkpr, ev->acct_name);
 	assert(acct);
 
 	/* There's a separate process for figuring out
@@ -1483,7 +1485,7 @@ static char *is_closed_channel_txid(const tal_t *ctx, struct db *db,
 
 	/* is the closed utxo the same as the one
 	 * we're trying to find fees for now */
-	closed = find_chain_event_by_id(inner_ctx, db,
+	closed = find_chain_event_by_id(inner_ctx, bkpr->db,
 			*acct->closed_event_db_id);
 	if (!closed) {
 		*is_channel_close_tx = false;
@@ -1595,7 +1597,8 @@ struct rebalance **list_rebalances(const tal_t *ctx, struct db *db)
 	return result;
 }
 
-char *maybe_update_onchain_fees(const tal_t *ctx, struct db *db,
+char *maybe_update_onchain_fees(const tal_t *ctx,
+				struct bkpr *bkpr,
 			        struct bitcoin_txid *txid)
 {
 	size_t no_accts = 0, plus_ones;
@@ -1609,9 +1612,9 @@ char *maybe_update_onchain_fees(const tal_t *ctx, struct db *db,
 	u8 *inner_ctx = tal(NULL, u8);
 
 	/* Find all the deposits/withdrawals for this txid */
-	events = find_chain_events_bytxid(inner_ctx, db, txid);
-	wallet_id = find_acct_id(db, ACCOUNT_NAME_WALLET);
-	extern_id = find_acct_id(db, ACCOUNT_NAME_EXTERNAL);
+	events = find_chain_events_bytxid(inner_ctx, bkpr->db, txid);
+	wallet_id = find_acct_id(bkpr->db, ACCOUNT_NAME_WALLET);
+	extern_id = find_acct_id(bkpr->db, ACCOUNT_NAME_EXTERNAL);
 
 	/* If we don't even have two events, skip */
 	if (tal_count(events) < 2)
@@ -1619,7 +1622,7 @@ char *maybe_update_onchain_fees(const tal_t *ctx, struct db *db,
 
 	for (size_t i = 0; i < tal_count(events); i++) {
 		bool is_channel_close_tx;
-		err = is_closed_channel_txid(ctx, db,
+		err = is_closed_channel_txid(ctx, bkpr,
 					     events[i], txid,
 					     &is_channel_close_tx);
 
@@ -1733,7 +1736,7 @@ char *maybe_update_onchain_fees(const tal_t *ctx, struct db *db,
 			/* But we might need to clean up any fees assigned
 			 * to the wallet from a previous round, where it
 			 * *was* the only game in town */
-			insert_chain_fees_diff(db, last_id, txid,
+			insert_chain_fees_diff(bkpr->db, last_id, txid,
 					       AMOUNT_MSAT(0),
 					       events[i]->timestamp);
 			continue;
@@ -1753,7 +1756,7 @@ char *maybe_update_onchain_fees(const tal_t *ctx, struct db *db,
 		} else
 			fees = fee_part_msat;
 
-		insert_chain_fees_diff(db, last_id, txid, fees,
+		insert_chain_fees_diff(bkpr->db, last_id, txid, fees,
 				       events[i]->timestamp);
 
 	}
