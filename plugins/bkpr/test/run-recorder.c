@@ -210,6 +210,9 @@ bool param_check(struct command *cmd UNNEEDED,
 		 const char *buffer UNNEEDED,
 		 const jsmntok_t tokens[] UNNEEDED, ...)
 { fprintf(stderr, "param_check called!\n"); abort(); }
+/* Generated stub for send_backtrace */
+void send_backtrace(const char *why UNNEEDED)
+{ fprintf(stderr, "send_backtrace called!\n"); abort(); }
 /* Generated stub for toks_alloc */
 jsmntok_t *toks_alloc(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "toks_alloc called!\n"); abort(); }
