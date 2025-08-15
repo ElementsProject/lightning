@@ -99,12 +99,14 @@ void broadcast_tx_(const tal_t *ctx UNNEEDED,
 { fprintf(stderr, "broadcast_tx_ called!\n"); abort(); }
 /* Generated stub for chain_mvt_index_created */
 u64 chain_mvt_index_created(struct lightningd *ld UNNEEDED,
+			    struct db *db UNNEEDED,
 			    const struct mvt_account_id *account UNNEEDED,
 			    struct amount_msat credit UNNEEDED,
 			    struct amount_msat debit UNNEEDED)
 { fprintf(stderr, "chain_mvt_index_created called!\n"); abort(); }
 /* Generated stub for channel_mvt_index_created */
 u64 channel_mvt_index_created(struct lightningd *ld UNNEEDED,
+			      struct db *db UNNEEDED,
 			      const struct mvt_account_id *account UNNEEDED,
 			      struct amount_msat credit UNNEEDED,
 			      struct amount_msat debit UNNEEDED)
@@ -664,6 +666,9 @@ void logv(struct logger *logger UNNEEDED, enum log_level level UNNEEDED, const s
 void memleak_scan_outpointfilter(struct htable *memtable UNNEEDED,
 				 const struct outpointfilter *opf UNNEEDED)
 { fprintf(stderr, "memleak_scan_outpointfilter called!\n"); abort(); }
+/* Generated stub for migrate_from_account_db */
+void migrate_from_account_db(struct lightningd *ld UNNEEDED, struct db *db UNNEEDED)
+{ fprintf(stderr, "migrate_from_account_db called!\n"); abort(); }
 /* Generated stub for mk_mvt_tags_ */
 struct mvt_tags mk_mvt_tags_(enum mvt_tag tag UNNEEDED, ...)
 { fprintf(stderr, "mk_mvt_tags_ called!\n"); abort(); }

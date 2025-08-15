@@ -246,7 +246,7 @@ struct wallet *wallet_new(struct lightningd *ld, struct timers *timers)
 }
 
 /* Get id for move_accounts; create if necessary */
-static u64 move_accounts_id(struct wallet *wallet, const char *name)
+u64 move_accounts_id(struct db *db, const char *name)
 {
 	struct db_stmt *stmt;
 	u64 ret;
@@ -256,7 +256,7 @@ static u64 move_accounts_id(struct wallet *wallet, const char *name)
 	 * SQLite 3.35+ (released 2021), but not with INSERT OR
 	 * IGNORE.  So we do this in two steps (it likely exists) */
 	stmt = db_prepare_v2(
-		wallet->db,
+		db,
 		SQL("SELECT id FROM move_accounts WHERE name = ?"));
 	db_bind_text(stmt, name);
 	db_query_prepared(stmt);
@@ -269,7 +269,7 @@ static u64 move_accounts_id(struct wallet *wallet, const char *name)
 	tal_free(stmt);
 
 	/* Does not exist, so create */
-	stmt = db_prepare_v2(wallet->db,
+	stmt = db_prepare_v2(db,
 			     SQL("INSERT INTO move_accounts (name) VALUES (?)"));
 	db_bind_text(stmt, name);
 	db_exec_prepared_v2(stmt);
@@ -3021,7 +3021,7 @@ void wallet_channel_close(struct wallet *w,
 	/* Update all accouting records to use channel_id string, instead of
 	 * referring to dbid.  This is robust if we delete in future, and saves
 	 * a lookup in the load path. */
-	new_move_id = move_accounts_id(w, fmt_channel_id(tmpctx, &chan->cid));
+	new_move_id = move_accounts_id(w->db, fmt_channel_id(tmpctx, &chan->cid));
 	stmt = db_prepare_v2(w->db, SQL("UPDATE chain_moves "
 					"SET account_channel_id=?,"
 					" account_nonchannel_id=? "
@@ -6270,16 +6270,21 @@ void wallet_datastore_update(struct wallet *w, const char **key, const u8 *data)
 	db_exec_prepared_v2(take(stmt));
 }
 
-void wallet_datastore_create(struct wallet *w, const char **key, const u8 *data)
+static void db_datastore_create(struct db *db, const char **key, const u8 *data)
 {
 	struct db_stmt *stmt;
 
-	stmt = db_prepare_v2(w->db,
+	stmt = db_prepare_v2(db,
 			     SQL("INSERT INTO datastore VALUES (?, ?, 0);"));
 
 	db_bind_datastore_key(stmt, key);
 	db_bind_talarr(stmt, data);
 	db_exec_prepared_v2(take(stmt));
+}
+
+void wallet_datastore_create(struct wallet *w, const char **key, const u8 *data)
+{
+	db_datastore_create(w->db, key, data);
 }
 
 static void db_datastore_remove(struct db *db, const char **key)
@@ -6290,6 +6295,40 @@ static void db_datastore_remove(struct db *db, const char **key)
 				     " WHERE key = ?"));
 	db_bind_datastore_key(stmt, key);
 	db_exec_prepared_v2(take(stmt));
+}
+
+void wallet_datastore_save_utxo_description(struct db *db,
+					    const struct bitcoin_outpoint *outpoint,
+					    const char *desc)
+{
+	const char **key;
+
+	key = tal_arr(tmpctx, const char *, 4);
+	key[0] = "bookkeeper";
+	key[1] = "description";
+	key[2] = "utxo";
+	key[3] = fmt_bitcoin_outpoint(key, outpoint);
+
+	/* In case it's a duplicate, remove first */
+	db_datastore_remove(db, key);
+	db_datastore_create(db, key, tal_dup_arr(key, u8, (u8 *)desc, strlen(desc), 0));
+}
+
+void wallet_datastore_save_payment_description(struct db *db,
+					       const struct sha256 *payment_hash,
+					       const char *desc)
+{
+	const char **key;
+
+	key = tal_arr(tmpctx, const char *, 4);
+	key[0] = "bookkeeper";
+	key[1] = "description";
+	key[2] = "payment";
+	key[3] = fmt_sha256(key, payment_hash);
+
+	/* In case it's a duplicate, remove first */
+	db_datastore_remove(db, key);
+	db_datastore_create(db, key, tal_dup_arr(key, u8, (u8 *)desc, strlen(desc), 0));
 }
 
 void wallet_datastore_remove(struct wallet *w, const char **key)
@@ -6869,9 +6908,9 @@ struct issued_address_type *wallet_list_addresses(const tal_t *ctx, struct walle
 	return addresseslist;
 }
 
-static void db_bind_credit_debit(struct db_stmt *stmt,
-				 struct amount_msat credit,
-				 struct amount_msat debit)
+void db_bind_credit_debit(struct db_stmt *stmt,
+			  struct amount_msat credit,
+			  struct amount_msat debit)
 {
 	if (amount_msat_is_zero(debit))
 		db_bind_amount_msat(stmt, credit);
@@ -6882,20 +6921,20 @@ static void db_bind_credit_debit(struct db_stmt *stmt,
 	}
 }
 
-static void db_bind_mvt_account_id(struct db_stmt *stmt,
-				   struct lightningd *ld,
-				   const struct mvt_account_id *account)
+void db_bind_mvt_account_id(struct db_stmt *stmt,
+			    struct db *db,
+			    const struct mvt_account_id *account)
 {
 	if (account->channel) {
 		db_bind_u64(stmt, account->channel->dbid);
 		db_bind_null(stmt);
 	} else {
 		db_bind_null(stmt);
-		db_bind_u64(stmt, move_accounts_id(ld->wallet, account->alt_account));
+		db_bind_u64(stmt, move_accounts_id(db, account->alt_account));
 	}
 }
 
-static void db_bind_mvt_tags(struct db_stmt *stmt, struct mvt_tags tags)
+void db_bind_mvt_tags(struct db_stmt *stmt, struct mvt_tags tags)
 {
 	assert(mvt_tags_valid(tags));
 	db_bind_u64(stmt, tags.bits);
@@ -6919,11 +6958,11 @@ void wallet_save_channel_mvt(struct lightningd *ld,
 				 " payment_part_id,"
 				 " payment_group_id,"
 				 " fees) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
-	id = channel_mvt_index_created(ld,
+	id = channel_mvt_index_created(ld, ld->wallet->db,
 				       &chan_mvt->account,
 				       chan_mvt->credit, chan_mvt->debit);
 	db_bind_u64(stmt, id);
-	db_bind_mvt_account_id(stmt, ld, &chan_mvt->account);
+	db_bind_mvt_account_id(stmt, ld->wallet->db, &chan_mvt->account);
 	db_bind_credit_debit(stmt, chan_mvt->credit, chan_mvt->debit);
 	db_bind_mvt_tags(stmt, chan_mvt->tags);
 	db_bind_u64(stmt, chan_mvt->timestamp);
@@ -7030,11 +7069,11 @@ void wallet_save_chain_mvt(struct lightningd *ld,
 				 " originating_channel_id,"
 				 " originating_nonchannel_id,"
 				 " output_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"));
-	id = chain_mvt_index_created(ld,
+	id = chain_mvt_index_created(ld, ld->wallet->db,
 				     &chain_mvt->account,
 				     chain_mvt->credit, chain_mvt->debit);
 	db_bind_u64(stmt, id);
-	db_bind_mvt_account_id(stmt, ld, &chain_mvt->account);
+	db_bind_mvt_account_id(stmt, ld->wallet->db, &chain_mvt->account);
 	db_bind_mvt_tags(stmt, chain_mvt->tags);
 	db_bind_credit_debit(stmt, chain_mvt->credit, chain_mvt->debit);
 	db_bind_u64(stmt, chain_mvt->timestamp);
@@ -7054,7 +7093,7 @@ void wallet_save_chain_mvt(struct lightningd *ld,
 	db_bind_int(stmt, chain_mvt->blockheight);
 	db_bind_amount_sat(stmt, chain_mvt->output_val);
 	if (chain_mvt->originating_acct) {
-		db_bind_mvt_account_id(stmt, ld, chain_mvt->originating_acct);
+		db_bind_mvt_account_id(stmt, ld->wallet->db, chain_mvt->originating_acct);
 	} else {
 		db_bind_null(stmt);
 		db_bind_null(stmt);
@@ -7459,3 +7498,10 @@ void wallet_begin_old_close_rescan(struct lightningd *ld)
 	bitcoind_getrawblockbyheight(missing, ld->topology->bitcoind, earliest_block,
 				     mutual_close_p2pkh_catch, missing);
 }
+
+/* An existing node without accounting.  Fill in what we have so far. */
+void migrate_setup_coinmoves(struct lightningd *ld, struct db *db)
+{
+	/* FIXME: implement! */
+}
+

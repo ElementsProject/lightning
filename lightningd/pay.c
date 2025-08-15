@@ -2118,7 +2118,8 @@ static u64 sendpay_index_inc(struct lightningd *ld,
 			     enum payment_status status,
 			     enum wait_index idx)
 {
-	return wait_index_increment(ld, WAIT_SUBSYSTEM_SENDPAY, idx,
+	return wait_index_increment(ld, ld->wallet->db,
+				    WAIT_SUBSYSTEM_SENDPAY, idx,
 				    "status", payment_status_to_string(status),
 				    "=partid", tal_fmt(tmpctx, "%"PRIu64, partid),
 				    "=groupid", tal_fmt(tmpctx, "%"PRIu64, groupid),

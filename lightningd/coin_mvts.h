@@ -4,6 +4,9 @@
 
 #include <common/coin_mvt.h>
 
+struct htlc_in;
+struct htlc_out;
+struct json_stream;
 struct lightningd;
 
 struct account_balance {
@@ -54,11 +57,13 @@ void json_add_channel_mvt_fields(struct json_stream *stream,
 
 /* For db code to get incremental ids */
 u64 chain_mvt_index_created(struct lightningd *ld,
+			    struct db *db,
 			    const struct mvt_account_id *account,
 			    struct amount_msat credit,
 			    struct amount_msat debit);
 
 u64 channel_mvt_index_created(struct lightningd *ld,
+			      struct db *db,
 			      const struct mvt_account_id *account,
 			      struct amount_msat credit,
 			      struct amount_msat debit);
