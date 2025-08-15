@@ -3195,7 +3195,7 @@ type_ok:
 					      *blockheight,
 					      utxo->amount,
 					      mk_mvt_tags(MVT_DEPOSIT));
-		notify_chain_mvt(w->ld, mvt);
+		wallet_save_chain_mvt(w->ld, mvt);
 	}
 
 	if (!wallet_add_utxo(w, utxo, utxo->utxotype == UTXO_P2SH_P2WPKH ? WALLET_OUTPUT_P2SH_WPKH : WALLET_OUTPUT_OUR_CHANGE)) {
@@ -6930,6 +6930,7 @@ void wallet_save_channel_mvt(struct lightningd *ld,
 	db_bind_amount_msat(stmt, chan_mvt->fees);
 	db_exec_prepared_v2(take(stmt));
 
+	notify_channel_mvt(ld, chan_mvt);
 	if (taken(chan_mvt))
 		tal_free(chan_mvt);
 }
@@ -6994,6 +6995,8 @@ void wallet_save_chain_mvt(struct lightningd *ld,
 
 		/* It's a duplicate.  Don't re-add. */
 		tal_free(stmt);
+		/* FIXME: This is currently required for bookkeeper tests, if bookkeeper is offline */
+		notify_chain_mvt(ld, chain_mvt);
 		goto out;
 	}
 	tal_free(stmt);
@@ -7045,6 +7048,7 @@ void wallet_save_chain_mvt(struct lightningd *ld,
 		db_bind_null(stmt);
 	db_exec_prepared_v2(take(stmt));
 
+	notify_chain_mvt(ld, chain_mvt);
 out:
 	if (taken(chain_mvt))
 		tal_free(chain_mvt);
