@@ -113,6 +113,8 @@ struct table_desc {
 	struct table_desc *parent;
 	/* Is this a sub object (otherwise, subarray if parent is true) */
 	bool is_subobject;
+	/* Do we use created_index as primary key?  Otherwise we create rowid. */
+	bool has_created_index;
 	/* function to refresh it. */
 	struct command_result *(*refresh)(struct command *cmd,
 					  const struct table_desc *td,
@@ -712,10 +714,21 @@ static struct command_result *process_json_list(struct command *cmd,
 	json_for_each_arr(i, t, arr) {
 		/* sqlite3 columns are 1-based! */
 		size_t off = 1;
-		u64 this_rowid = next_rowid++;
+		u64 this_rowid;
 
-		/* First entry is always the rowid */
-		sqlite3_bind_int64(stmt, off++, this_rowid);
+		if (!td->has_created_index) {
+			this_rowid = next_rowid++;
+			/* First entry is always the rowid */
+			sqlite3_bind_int64(stmt, off++, this_rowid);
+		} else {
+			if (!json_to_u64(buf,
+					 json_get_member(buf, t, "created_index"),
+					 &this_rowid))
+				return command_fail(cmd, LIGHTNINGD, "No created_index in %s? '%.*s'",
+						    td->cmdname,
+						    json_tok_full_len(t),
+						    json_tok_full(buf, t));
+		}
 		ret = process_json_obj(cmd, buf, t, td, i, this_rowid, parent_rowid, &off, stmt, last_created_index);
 		if (ret)
 			break;
@@ -1169,7 +1182,8 @@ static void json_add_schema(struct json_stream *js,
 	/* This needs to be an array, not a dictionary, since dicts
 	 * are often treated as unordered, and order is critical! */
 	json_array_start(js, "columns");
-	json_add_column(js, "rowid", "INTEGER");
+	if (!td->has_created_index)
+		json_add_column(js, "rowid", "INTEGER");
 	if (td->parent) {
 		json_add_column(js, "row", "INTEGER");
 		json_add_column(js, "arrindex", "INTEGER");
@@ -1253,6 +1267,17 @@ static void add_sub_object(char **update_stmt, char **create_stmt,
 	}
 }
 
+/* We use created_index as INTEGER PRIMARY KEY, if it exists.
+ * Otherwise, we make an explicit rowid (implicit rowids cannot be
+ * used as a foreign key). */
+static const char *primary_key_name(const struct table_desc *td)
+{
+	if (td->has_created_index)
+		return "created_index";
+
+	return "rowid";
+}
+
 /* Creates sql statements, initializes table */
 static void finish_td(struct plugin *plugin, struct table_desc *td)
 {
@@ -1266,11 +1291,13 @@ static void finish_td(struct plugin *plugin, struct table_desc *td)
 		/* But it might have sub-sub objects! */
 		goto do_subtables;
 
-	/* We make an explicit rowid in each table, for subtables to access.  This is
-	 * becuase the implicit rowid can't be used as a foreign key! */
-	create_stmt = tal_fmt(tmpctx, "CREATE TABLE %s (rowid INTEGER PRIMARY KEY, ",
-			      td->name);
-	td->update_stmt = tal_fmt(td, "INSERT INTO %s VALUES (?, ", td->name);
+	create_stmt = tal_fmt(tmpctx, "CREATE TABLE %s (", td->name);
+	td->update_stmt = tal_fmt(td, "INSERT INTO %s VALUES (", td->name);
+	/* If no created_index, create explicit rowid */
+	if (!td->has_created_index) {
+		tal_append_fmt(&create_stmt, "rowid INTEGER PRIMARY KEY, ");
+		tal_append_fmt(&td->update_stmt, "?, ");
+	}
 
 	/* If we're a child array, we reference the parent column */
 	if (td->parent) {
@@ -1279,9 +1306,9 @@ static void finish_td(struct plugin *plugin, struct table_desc *td)
 		while (parent->is_subobject)
 			parent = parent->parent;
 		tal_append_fmt(&create_stmt,
-			       "row INTEGER REFERENCES %s(rowid) ON DELETE CASCADE,"
+			       "row INTEGER REFERENCES %s(%s) ON DELETE CASCADE,"
 			       " arrindex INTEGER",
-			       parent->name);
+			       parent->name, primary_key_name(parent));
 		tal_append_fmt(&td->update_stmt, "?,?");
 		sep = ",";
 	}
@@ -1299,6 +1326,9 @@ static void finish_td(struct plugin *plugin, struct table_desc *td)
 			       sep,
 			       col->dbname,
 			       fieldtypemap[col->ftype].sqltype);
+		/* created_index serves as primary key if it exists */
+		if (streq(col->dbname, "created_index"))
+			tal_append_fmt(&create_stmt, " INTEGER PRIMARY KEY");
 		sep = ",";
 	}
 	tal_append_fmt(&create_stmt, ");");
@@ -1446,6 +1476,7 @@ static struct table_desc *new_table_desc(const tal_t *ctx,
 	td->arrname = json_strdup(td, schemas, arrname);
 	td->columns = tal_arr(td, struct column *, 0);
 	td->last_created_index = 0;
+	td->has_created_index = false;
 
 	/* Only top-levels have refresh functions */
 	if (!parent) {
@@ -1618,6 +1649,7 @@ static void init_tablemap(struct plugin *plugin)
 
 		td = new_table_desc(ctx, NULL, t, cmd, false);
 		add_table_object(td, items);
+		td->has_created_index = find_column(td, "created_index");
 
 		if (plugin)
 			finish_td(plugin, td);
@@ -1716,9 +1748,10 @@ static void print_columns(const struct table_desc *td, const char *indent,
 				subindent = tal_fmt(tmpctx, "%s  ", indent);
 				printf("%s- related table `%s`%s\n",
 				       indent, subtd->name, objsrc);
-				printf("%s- `row` (reference to `%s.rowid`, sqltype `INTEGER`)\n"
+				printf("%s- `row` (reference to `%s.%s`, sqltype `INTEGER`)\n"
 				       "%s- `arrindex` (index within array, sqltype `INTEGER`)\n",
-				       subindent, td->name, subindent);
+				       subindent, td->name, primary_key_name(td),
+				       subindent);
 				print_columns(subtd, subindent, "");
 			} else {
 				const char *subobjsrc;
@@ -1740,10 +1773,12 @@ static void print_columns(const struct table_desc *td, const char *indent,
 					 td->columns[i]->jsonname);
 		} else
 			origin = "";
-		printf("%s- `%s` (type `%s`, sqltype `%s`%s%s)\n",
+		printf("%s- `%s` (type `%s`, sqltype `%s%s`%s%s)\n",
 		       indent, td->columns[i]->dbname,
 		       fieldtypemap[td->columns[i]->ftype].name,
 		       fieldtypemap[td->columns[i]->ftype].sqltype,
+		       streq(td->columns[i]->dbname, "created_index")
+		       ? " PRIMARY KEY" : "",
 		       origin, objsrc);
 	}
 }
