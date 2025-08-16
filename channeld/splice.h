@@ -17,8 +17,6 @@ struct splice_state {
 	struct short_channel_id last_short_channel_id;
 	/* Tally of which sides are locked, or not */
 	bool locked_ready[NUM_SIDES];
-	/* Set to true when commitment cycle completes successfully */
-	bool await_commitment_succcess;
 	/* The txid of which splice inflight was confirmed */
 	struct bitcoin_txid locked_txid;
 	/* The txid our peer locked their splice on */
