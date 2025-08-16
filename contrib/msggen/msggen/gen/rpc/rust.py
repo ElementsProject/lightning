@@ -71,22 +71,22 @@ def normalize_varname(field):
     return field
 
 
-def gen_field(field, meta):
+def gen_field(field, meta, override=None):
     if field.omit():
         return ("", "")
     if isinstance(field, CompositeField):
-        return gen_composite(field, meta)
+        return gen_composite(field, meta, override)
     elif isinstance(field, EnumField):
-        return gen_enum(field, meta)
+        return gen_enum(field, meta, override)
     elif isinstance(field, ArrayField):
-        return gen_array(field, meta)
+        return gen_array(field, meta, override)
     elif isinstance(field, PrimitiveField):
         return gen_primitive(field)
     else:
         raise TypeError(f"Unmanaged type {field}")
 
 
-def gen_enum(e, meta):
+def gen_enum(e, meta, override):
     defi, decl = "", ""
 
     if e.omit():
@@ -95,14 +95,21 @@ def gen_enum(e, meta):
     if e.description != "":
         decl += f"/// {e.description}\n"
 
+    if override is None:
+        message_name = e.typename.name
+        override = lambda x: x
+        typename = override(str(e.typename))
+    else:
+        typename = override(str(e.typename))
+        message_name = typename
+
     if e.deprecated:
         decl += "#[deprecated]\n"
-    decl += f"#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]\n#[allow(non_camel_case_types)]\npub enum {e.typename} {{\n"
+    decl += f"#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]\n#[allow(non_camel_case_types)]\npub enum {typename} {{\n"
 
     m = meta["grpc-field-map"]
     m2 = meta["grpc-enum-map"]
 
-    message_name = e.typename.name
     assert not (message_name in m and message_name in m2)
     if message_name in m:
         m = m[message_name]
@@ -130,9 +137,9 @@ def gen_enum(e, meta):
     # representation
     decl += dedent(
         f"""\
-    impl TryFrom<i32> for {e.typename} {{
+    impl TryFrom<i32> for {typename} {{
         type Error = anyhow::Error;
-        fn try_from(c: i32) -> Result<{e.typename}, anyhow::Error> {{
+        fn try_from(c: i32) -> Result<{typename}, anyhow::Error> {{
             match c {{
     """
     )
@@ -141,16 +148,16 @@ def gen_enum(e, meta):
         for v in sorted_variants:
             norm = v.normalized()
             # decl += f"    #[serde(rename = \"{v}\")]\n"
-            decl += f"    {m[str(v)]} => Ok({e.typename}::{norm}),\n"
+            decl += f"    {m[str(v)]} => Ok({typename}::{norm}),\n"
     else:
         for i, v in enumerate(e.variants):
             norm = v.normalized()
             # decl += f"    #[serde(rename = \"{v}\")]\n"
-            decl += f"    {i} => Ok({e.typename}::{norm}),\n"
+            decl += f"    {i} => Ok({typename}::{norm}),\n"
 
     decl += dedent(
         f"""\
-                o => Err(anyhow::anyhow!("Unknown variant {{}} for enum {e.typename}", o)),
+                o => Err(anyhow::anyhow!("Unknown variant {{}} for enum {typename}", o)),
             }}
         }}
     }}
@@ -162,14 +169,14 @@ def gen_enum(e, meta):
     # appear in the schemas.
     decl += dedent(
         f"""\
-    impl ToString for {e.typename} {{
+    impl ToString for {typename} {{
         fn to_string(&self) -> String {{
             match self {{
     """
     )
     for v in e.variants:
         norm = v.normalized()
-        decl += f'            {e.typename}::{norm} => "{norm}",\n'
+        decl += f'            {typename}::{norm} => "{norm}",\n'
     decl += dedent(
         f"""\
             }}.to_string()
@@ -178,8 +185,6 @@ def gen_enum(e, meta):
 
     """
     )
-
-    typename = e.typename
 
     if e.override() is not None:
         decl = ""  # No declaration if we have an override
@@ -220,10 +225,10 @@ def rename_if_necessary(original, name):
         return f""
 
 
-def gen_array(a, meta):
+def gen_array(a, meta, override=None):
     name = a.name.normalized().replace("[]", "")
     logger.debug(f"Generating array field {a.name} -> {name} ({a.path})")
-    _, decl = gen_field(a.itemtype, meta)
+    _, decl = gen_field(a.itemtype, meta, override)
 
     if a.override():
         decl = ""  # No declaration if we have an override
@@ -254,11 +259,11 @@ def gen_array(a, meta):
     return (defi, decl)
 
 
-def gen_composite(c, meta) -> Tuple[str, str]:
+def gen_composite(c, meta, override=None) -> Tuple[str, str]:
     logger.debug(f"Generating composite field {c.name} ({c.path})")
     fields = []
     for f in c.fields:
-        fields.append(gen_field(f, meta))
+        fields.append(gen_field(f, meta, override))
     fields = sorted(fields)
 
     r = "".join([f[1] for f in fields])
