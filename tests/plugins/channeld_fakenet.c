@@ -959,10 +959,10 @@ failed:
 
 static void handle_feerates(struct info *info, const u8 *inmsg)
 {
-	u32 feerate, min, max, penalty;
+	u32 feerate, min, max, penalty, opening;
 
 	if (!fromwire_channeld_feerates(inmsg, &feerate,
-					&min, &max, &penalty))
+					&min, &max, &penalty, &opening))
 		master_badmsg(WIRE_CHANNELD_FEERATES, inmsg);
 
 	/* BOLT #2:
@@ -1054,7 +1054,7 @@ static struct channel *handle_init(struct info *info, const u8 *init_msg)
 	struct secret last_remote_per_commit_secret;
 	struct penalty_base *pbases;
 	struct channel_type *channel_type;
-	u32 feerate_min, feerate_max, feerate_penalty;
+	u32 feerate_min, feerate_max, feerate_penalty, feerate_opening;
 	struct pubkey remote_per_commit;
 	struct pubkey old_remote_per_commit;
 	u32 commit_msec;
@@ -1097,6 +1097,7 @@ static struct channel *handle_init(struct info *info, const u8 *init_msg)
 				    &feerate_min,
 				    &feerate_max,
 				    &feerate_penalty,
+				    &feerate_opening,
 				    &their_commit_sig,
 				    &funding_pubkey[REMOTE],
 				    &points[REMOTE],
