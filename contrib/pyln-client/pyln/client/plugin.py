@@ -103,12 +103,13 @@ class Request(dict):
     """A request object that wraps params and allows async return
     """
     def __init__(self, plugin: 'Plugin', req_id: Optional[str], method: str,
-                 params: Any, background: bool = False):
+                 params: Any, background: bool = False, origin: Optional[str] = None):
         self.method = method
         self.params = params
         self.background = background
         self.plugin = plugin
         self.state = RequestState.PENDING
+        self.origin = origin
         self.id = req_id
         self.termination_tb: Optional[str] = None
 
@@ -735,6 +736,23 @@ class Plugin(object):
         else:
             raise ValueError(f"No subscription for {request.method} found.")
 
+        # Old style:
+        # params: {payload: {...}, origin: "pluginname"}
+        # New style:
+        # origin: "pluginname", params: {method: {...}}
+
+        # Old style?
+        if 'payload' in request.params and request.method not in request.params:
+            request.params[request.method] = request.params['payload']
+        # New style?
+        elif 'payload' not in request.params and request.method in request.params and self.deprecated_apis:
+            # Create payload for older plugins, on modern systems.
+            request.params['payload'] = request.params[request.method]
+
+        # Always hoist origin into params:
+        if request.origin and 'origin' not in request.params:
+            request.params['origin'] = request.origin
+
         try:
             self._exec_func(func, request)
         except Exception:
@@ -783,6 +801,7 @@ class Plugin(object):
             req_id=jsrequest.get('id', None),
             method=str(jsrequest['method']),
             params=jsrequest['params'],
+            origin=jsrequest.get('origin'),
             background=False,
         )
         return request

@@ -14,14 +14,14 @@ def on_custom_notification(origin, payload, **kwargs):
 def emit(plugin):
     """Emit a simple string notification to topic "custom"
     """
-    plugin.notify("custom", "Hello world")
+    plugin.notify("custom", {'message': "Hello world"})
 
 
 @plugin.method("faulty-emit")
 def faulty_emit(plugin):
     """Emit a simple string notification to topic "custom"
     """
-    plugin.notify("ididntannouncethis", "Hello world")
+    plugin.notify("ididntannouncethis", {'message': "Hello world"})
 
 
 @plugin.subscribe("pay_success")
