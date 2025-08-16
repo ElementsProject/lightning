@@ -281,6 +281,13 @@ void memleak_add_helper_(const tal_t *p UNNEEDED, void (*cb)(struct htable *memt
 /* Generated stub for memleak_scan_htable */
 void memleak_scan_htable(struct htable *memtable UNNEEDED, const struct htable *ht UNNEEDED)
 { fprintf(stderr, "memleak_scan_htable called!\n"); abort(); }
+/* Generated stub for notification_deprecated_out_ok */
+bool notification_deprecated_out_ok(struct plugin *plugin UNNEEDED,
+				    const char *method UNNEEDED,
+				    const char *fieldname UNNEEDED,
+				    const char *depr_start UNNEEDED,
+				    const char *depr_end UNNEEDED)
+{ fprintf(stderr, "notification_deprecated_out_ok called!\n"); abort(); }
 /* Generated stub for notleak_ */
 void *notleak_(void *ptr UNNEEDED, bool plus_children UNNEEDED)
 { fprintf(stderr, "notleak_ called!\n"); abort(); }
@@ -296,14 +303,14 @@ void plugin_gossmap_logcb(struct plugin *plugin UNNEEDED,
 /* Generated stub for plugin_log */
 void plugin_log(struct plugin *p UNNEEDED, enum log_level l UNNEEDED, const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "plugin_log called!\n"); abort(); }
-/* Generated stub for plugin_notification_end */
-void plugin_notification_end(struct plugin *plugin UNNEEDED,
-			     struct json_stream *stream STEALS UNNEEDED)
-{ fprintf(stderr, "plugin_notification_end called!\n"); abort(); }
-/* Generated stub for plugin_notification_start */
-struct json_stream *plugin_notification_start(const tal_t *ctx UNNEEDED,
-					      const char *method UNNEEDED)
-{ fprintf(stderr, "plugin_notification_start called!\n"); abort(); }
+/* Generated stub for plugin_notification_end_obs */
+void plugin_notification_end_obs(struct plugin *plugin UNNEEDED,
+				 struct json_stream *stream TAKES UNNEEDED)
+{ fprintf(stderr, "plugin_notification_end_obs called!\n"); abort(); }
+/* Generated stub for plugin_notification_start_obs */
+struct json_stream *plugin_notification_start_obs(const tal_t *ctx UNNEEDED,
+						  const char *method UNNEEDED)
+{ fprintf(stderr, "plugin_notification_start_obs called!\n"); abort(); }
 /* Generated stub for plugin_notify_message */
 void plugin_notify_message(struct command *cmd UNNEEDED,
 			   enum log_level level UNNEEDED,

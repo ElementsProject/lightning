@@ -25,11 +25,11 @@ def faulty_emit(plugin):
 
 
 @plugin.subscribe("pay_success")
-def on_pay_success(origin, payment_hash, **kwargs):
+def on_pay_success(origin, pay_success, **kwargs):
     plugin.log(
         "Got a pay_success notification from plugin {} for payment_hash {}".format(
             origin,
-            payment_hash
+            pay_success['payment_hash']
         )
     )
 
