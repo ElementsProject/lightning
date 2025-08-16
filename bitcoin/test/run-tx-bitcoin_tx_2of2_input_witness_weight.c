@@ -35,8 +35,7 @@ int main(int argc, const char *argv[])
 
 	wit = bitcoin_witness_2of2(tmpctx, &sig, &sig, &pub, &pub);
 
-	/* 1 byte for num witnesses, one per witness element */
-	weight = 1;
+	weight = 0;
 
 	/* Two signatures, slightly overestimated to be 73 bytes each,
 	 * while the actual witness will often be smaller.*/
