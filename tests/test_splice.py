@@ -207,7 +207,7 @@ def test_script_two_chan_splice_in(node_factory, bitcoind):
     chan_id2 = l2.get_channel_id(l3)
 
     # l2 will splice funds into the channels with l1 and l3 at the same time
-    result = l2.rpc.splice(f"wallet -> 200999; 100000 -> {chan_id1}; 100000 -> {chan_id2}; * -> wallet", force_feerate=True, debug_log=True)
+    result = l2.rpc.splice(f"wallet -> 200999; 100000 -> {chan_id1}; 100000 -> {chan_id2}")
 
     l3.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
     l2.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
