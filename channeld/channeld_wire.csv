@@ -31,6 +31,7 @@ msgdata,channeld_init,fee_states,fee_states,
 msgdata,channeld_init,feerate_min,u32,
 msgdata,channeld_init,feerate_max,u32,
 msgdata,channeld_init,feerate_penalty,u32,
+msgdata,channeld_init,feerate_opening,u32,
 msgdata,channeld_init,first_commit_sig,bitcoin_signature,
 msgdata,channeld_init,remote_fundingkey,pubkey,
 msgdata,channeld_init,remote_basepoints,basepoints,
@@ -329,6 +330,7 @@ msgdata,channeld_feerates,feerate,u32,
 msgdata,channeld_feerates,min_feerate,u32,
 msgdata,channeld_feerates,max_feerate,u32,
 msgdata,channeld_feerates,penalty_feerate,u32,
+msgdata,channeld_feerates,opening_feerate,u32,
 
 # master -> channeld: do you have a memleak?
 msgtype,channeld_dev_memleak,1033

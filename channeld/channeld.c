@@ -82,6 +82,9 @@ struct peer {
 	/* Feerate to be used when creating penalty transactions. */
 	u32 feerate_penalty;
 
+	/* Feerate to be used when opening (or splicing) a channel. */
+	u32 feerate_opening;
+
 	/* Local next per-commit point. */
 	struct pubkey next_local_per_commit;
 
@@ -6305,7 +6308,8 @@ static void handle_feerates(struct peer *peer, const u8 *inmsg)
 	if (!fromwire_channeld_feerates(inmsg, &feerate,
 				       &peer->feerate_min,
 				       &peer->feerate_max,
-				       &peer->feerate_penalty))
+				       &peer->feerate_penalty,
+				       &peer->feerate_opening))
 		master_badmsg(WIRE_CHANNELD_FEERATES, inmsg);
 
 	/* BOLT #2:
@@ -6676,6 +6680,7 @@ static void init_channel(struct peer *peer)
 				    &peer->feerate_min,
 				    &peer->feerate_max,
 				    &peer->feerate_penalty,
+				    &peer->feerate_opening,
 				    &peer->their_commit_sig,
 				    &funding_pubkey[REMOTE],
 				    &points[REMOTE],
