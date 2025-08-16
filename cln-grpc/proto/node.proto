@@ -4142,6 +4142,7 @@ message PeerConnectAddress {
 		IPV6 = 2;
 		TORV2 = 3;
 		TORV3 = 4;
+		WEBSOCKET = 5;
 	}
 	PeerConnectAddressType item_type = 1;
 	optional string socket = 2;
