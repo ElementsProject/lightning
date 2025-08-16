@@ -154,6 +154,48 @@ function filter_messages()
 		document.getElementById('filter_error').innerText = error.message;
 	}
 }
+function detect_ci_logs(logs)
+{
+	nodes = new Set()
+	Array.from(logs.matchAll(/[0-9\-T:.Z]+ (lightningd-[0-9]+) /g)).forEach(match => {
+		nodes.add(match[1]);
+	});
+	var keys = [...nodes];
+	var node = keys.at(0);
+
+	if (nodes.size > 1) {
+		str = "Continous Integration log with multiple nodes detected.\n\nWhich would you like rendered?\n\nNodes detected:\n" + keys.join("\n");
+		node = prompt(str, keys[0]).trim();
+	}
+
+	return node ? new RegExp(`[0-9\-T:.Z]+ ${node} `, "g") : null;
+}
+function detect_pytest_logs(logs)
+{
+	nodes = new Set()
+	Array.from(logs.matchAll(/(lightningd-[0-9]+) /g)).forEach(match => {
+		nodes.add(match[1]);
+	});
+	var keys = [...nodes];
+	var node = keys.at(0);
+
+	if (nodes.size > 1) {
+		str = "Python Test log with multiple nodes detected.\n\nWhich would you like rendered?\n\nNodes detected:\n" + keys.join("\n");
+		node = prompt(str, keys[0]).trim();
+	}
+
+	return node ? new RegExp(`^${node} `, "g") : null;
+}
+function detect_log_prefix(logs)
+{
+	var ci = detect_ci_logs(logs)
+	if (ci)
+		return ci;
+	var pytest = detect_pytest_logs(logs)
+	if (pytest)
+		return pytest;
+	return null;
+}
 function do_render(logs, area)
 {
 	var d = document;
@@ -168,10 +210,20 @@ function do_render(logs, area)
 	while(sheet.cssRules.length)
 		sheet.deleteRule(0);
 
+	prefix = detect_log_prefix(logs);
+
 	for(line of logs.split("\n")) {
 		line = line.trim()
 		if(!line.length)
 			continue;
+
+		/* Detect and eat node prefix. If no prefix match, ignore line */
+		if (prefix) {
+			prefix_match = line.match(prefix);
+			if(!prefix_match)
+				continue;
+			line = line.slice(prefix_match[0].length);
+		}
 
 		info = parseLogLine(line);
 
