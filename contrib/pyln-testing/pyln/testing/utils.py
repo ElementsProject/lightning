@@ -789,11 +789,13 @@ class LightningNode(object):
                  jsonschemas={},
                  valgrind_plugins=True,
                  executable=None,
+                 bad_notifications=False,
                  **kwargs):
         self.bitcoin = bitcoind
         self.executor = executor
         self.may_fail = may_fail
         self.may_reconnect = may_reconnect
+        self.bad_notifications = bad_notifications
         self.broken_log = broken_log
         self.allow_bad_gossip = allow_bad_gossip
         self.allow_warning = allow_warning
@@ -852,6 +854,10 @@ class LightningNode(object):
         # Avoid test flakes cause by this option unless explicitly set.
         if self.cln_version >= "v24.11":
             self.daemon.opts.update({"autoconnect-seeker-peers": 0})
+
+        jsondir = Path(lightning_dir) / "plugin-io"
+        jsondir.mkdir()
+        self.daemon.opts['dev-save-plugin-io'] = jsondir
 
         if options is not None:
             self.daemon.opts.update(options)
@@ -1601,6 +1607,7 @@ class NodeFactory(object):
             'broken_log',
             'allow_warning',
             'may_reconnect',
+            'bad_notifications',
             'random_hsm',
             'feerates',
             'wait_for_bitcoind_sync',
