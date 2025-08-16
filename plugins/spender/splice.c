@@ -75,9 +75,11 @@ static struct command_result *unreserve_get_result(struct command *cmd,
 				      &splice_cmd->final_txid);
 		}
 
-		json_array_start(response, "log");
-		debug_log_to_json(response, splice_cmd->debug_log);
-		json_array_end(response);
+		if (splice_cmd->debug_log) {
+			json_array_start(response, "log");
+			debug_log_to_json(response, splice_cmd->debug_log);
+			json_array_end(response);
+		}
 
 		tal_free(abort_pkg);
 		return command_finished(cmd, response);
