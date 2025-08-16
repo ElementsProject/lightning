@@ -232,6 +232,9 @@ const char *fmt_amount_msat_btc(const tal_t *ctx,
 /* => 1234msat */
 char *fmt_amount_msat(const tal_t *ctx, struct amount_msat msat);
 
+/* => 1234.12sat */
+char *fmt_amount_m_as_sat(const tal_t *ctx, struct amount_msat msat);
+
 /* => 1.23456789btc (8 decimals!) */
 const char *fmt_amount_sat_btc(const tal_t *ctx,
 			       struct amount_sat sat,
