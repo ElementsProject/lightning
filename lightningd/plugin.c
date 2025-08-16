@@ -4,9 +4,11 @@
 #include <ccan/crc32c/crc32c.h>
 #include <ccan/io/io.h>
 #include <ccan/json_escape/json_escape.h>
+#include <ccan/json_out/json_out.h>
 #include <ccan/mem/mem.h>
 #include <ccan/opt/opt.h>
 #include <ccan/pipecmd/pipecmd.h>
+#include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/utf8/utf8.h>
@@ -23,6 +25,7 @@
 #include <db/exec.h>
 #include <dirent.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <lightningd/io_loop_with_timers.h>
 #include <lightningd/notification.h>
 #include <lightningd/plugin.h>
@@ -76,6 +79,7 @@ struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
 	p->plugin_idx = 0;
 	p->dev_builtin_plugins_unimportant = false;
 	p->want_db_transaction = true;
+	p->dev_save_io = NULL;
 	p->subscriptions = tal(p, struct plugin_subscription_htable);
 	plugin_subscription_htable_init(p->subscriptions);
 
@@ -2534,6 +2538,10 @@ void plugins_notify(struct plugins *plugins,
 	if (!plugins)
 		return;
 
+	dev_save_plugin_io_out(plugins,
+			       "notification_out",
+			       n->method, n->stream);
+
 	for (struct plugin_subscription *sub
 		     = plugin_subscription_htable_getfirst(plugins->subscriptions,
 							   n->method, &it);
@@ -2672,4 +2680,50 @@ void shutdown_plugins(struct lightningd *ld)
 			tal_free(p);
 		}
 	}
+}
+
+static void dev_save_plugin_io(struct plugins *plugins,
+ 			       const char *type,
+			       const char *name,
+			       const char *buf, size_t len)
+{
+	static size_t counter;
+	const char *file;
+	int fd;
+
+	if (!plugins->dev_save_io)
+		return;
+
+	file = path_join(tmpctx, plugins->dev_save_io,
+			 take(tal_fmt(NULL, "%s-%s-%u-%zu",
+				      type, name,
+				      (unsigned int)getpid(),
+				      counter++)));
+	fd = open(file, O_CREAT|O_EXCL|O_WRONLY, 0600);
+	if (fd < 0 || !write_all(fd, buf, len))
+		fatal("Writing --dev-save-plugin-io %s: %s",
+		      file, strerror(errno));
+	close(fd);
+}
+
+void dev_save_plugin_io_in(struct plugins *plugins,
+			   const char *type,
+			   const char *name,
+			   const char *buffer,
+			   const jsmntok_t *tok)
+{
+	dev_save_plugin_io(plugins, type, name,
+			   buffer + tok->start, tok->end - tok->start);
+}
+
+void dev_save_plugin_io_out(struct plugins *plugins,
+			    const char *type,
+			    const char *name,
+			    const struct json_stream *stream)
+{
+	size_t len;
+	const char *buf;
+
+	buf = json_out_contents(stream->jout, &len);
+	dev_save_plugin_io(plugins, type, name, buf, len);
 }
