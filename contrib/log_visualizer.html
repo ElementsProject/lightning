@@ -154,6 +154,52 @@ function filter_messages()
 		document.getElementById('filter_error').innerText = error.message;
 	}
 }
+function tab_option(type_str, regex_prefix, regex_postfix, nodes, logs)
+{
+	str =  type_str + " log with multiple nodes detected.\n\n";
+	str += "Would you like to open them all with new tabs?\n\n";
+	str += "Nodes detected:\n" + nodes.join("\n");
+
+	function make_regex(key) {
+		return new RegExp(regex_prefix + key + regex_postfix, "g");
+	}
+
+	if(!confirm(str))
+		return null;
+
+	function load_next_tab() {
+		if (!nodes.length)
+			return;
+		window.addEventListener('message', on_recv_msg);
+		w = window.open(window.location.href, '_blank');
+		w.blur();
+		window.focus();
+	}
+	function on_recv_msg(msg) {
+		if(msg.data == "v0.1-ready") {
+			msg.source.postMessage({"version": "v0.1-data", "logs": logs, "prefix": make_regex(nodes.shift())}, "*");
+			window.removeEventListener('message', on_recv_msg);
+			load_next_tab();
+		}
+	}
+	var result = make_regex(nodes.shift());
+	load_next_tab();
+	return result;
+}
+function single_option(type_str, regex_prefix, regex_postfix, nodes)
+{
+	str =  type_str + " log with multiple nodes detected.\n\n";
+	str += "Which would you like rendered?\n\n";
+	str += "Nodes detected:\n" + nodes.join("\n");
+
+	function make_regex(key) {
+		return new RegExp(regex_prefix + key + regex_postfix, "g");
+	}
+
+	var result = prompt(str, nodes[0]);
+
+	return result ? make_regex(result.trim()) : null;
+}
 function detect_ci_logs(logs)
 {
 	nodes = new Set()
@@ -161,14 +207,12 @@ function detect_ci_logs(logs)
 		nodes.add(match[1]);
 	});
 	var keys = [...nodes];
-	var node = keys.at(0);
 
-	if (nodes.size > 1) {
-		str = "Continous Integration log with multiple nodes detected.\n\nWhich would you like rendered?\n\nNodes detected:\n" + keys.join("\n");
-		node = prompt(str, keys[0]).trim();
-	}
+	if (keys.length > 1)
+		return tab_option("Continous Integration", "[0-9\-T:.Z]+ ", " ", keys, logs)
+			|| single_option("Continous Integration", "[0-9\-T:.Z]+ ", " ", keys);
 
-	return node ? new RegExp(`[0-9\-T:.Z]+ ${node} `, "g") : null;
+	return keys.at(0);
 }
 function detect_pytest_logs(logs)
 {
@@ -177,14 +221,29 @@ function detect_pytest_logs(logs)
 		nodes.add(match[1]);
 	});
 	var keys = [...nodes];
-	var node = keys.at(0);
 
-	if (nodes.size > 1) {
-		str = "Python Test log with multiple nodes detected.\n\nWhich would you like rendered?\n\nNodes detected:\n" + keys.join("\n");
-		node = prompt(str, keys[0]).trim();
+	if (keys.length > 1)
+		return tab_option("Python Test", "", " ", keys, logs)
+			|| single_option("Python Test", "", " ", keys);
+
+	return keys.at(0);
+}
+window.onload = function() {
+	if (window.opener) {
+		function receive_data_message(msg) {
+			if (!msg.data || msg.data.version != "v0.1-data") {
+				console.log("Unrecognized data message");
+				console.log(msg);
+			}
+			else {
+				do_render(msg.data.logs, document.getElementById('area'), msg.data.prefix);
+				window.removeEventListener('message', receive_data_message);
+			}
+		}
+		window.addEventListener('message', receive_data_message);
+		console.log(window.opener);
+		window.opener.postMessage("v0.1-ready", "*");
 	}
-
-	return node ? new RegExp(`^${node} `, "g") : null;
 }
 function detect_log_prefix(logs)
 {
@@ -196,7 +255,7 @@ function detect_log_prefix(logs)
 		return pytest;
 	return null;
 }
-function do_render(logs, area)
+function do_render(logs, area, prefix)
 {
 	var d = document;
 	var sheet = d.getElementById('logStyleSheet').sheet;
@@ -210,7 +269,8 @@ function do_render(logs, area)
 	while(sheet.cssRules.length)
 		sheet.deleteRule(0);
 
-	prefix = detect_log_prefix(logs);
+	if(!prefix)
+		prefix = detect_log_prefix(logs);
 
 	for(line of logs.split("\n")) {
 		line = line.trim()
