@@ -182,7 +182,11 @@ static struct command_result *splice_error_pkg(struct command *cmd,
 					       const jsmntok_t *error,
 					       struct splice_index_pkg *pkg)
 {
-	return splice_error(cmd, methodname, buf, error, pkg->splice_cmd);
+	struct command_result *res = splice_error(cmd, methodname, buf, error, pkg->splice_cmd);
+
+	tal_free(pkg);
+
+	return res;
 }
 
 static struct command_result *calc_in_ppm_and_fee(struct command *cmd,
@@ -749,6 +753,8 @@ static struct command_result *splice_signed_error_pkg(struct command *cmd,
 	abort_pkg->str = tal_strndup(abort_pkg, buf + error->start,
 				     error->end - error->start);
 	abort_pkg->code = -1;
+
+	tal_free(pkg);
 
 	return make_error(cmd, abort_pkg, "splice_signed_error");
 }
