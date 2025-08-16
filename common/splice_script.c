@@ -1110,12 +1110,6 @@ static struct splice_script_error *type_data(const tal_t *ctx,
 				input[i]->type = TOK_NODEID;
 				input[i]->node_id = tal(input[i],
 						    struct node_id);
-				if (!node_id_from_hexstr(input[i]->str,
-							 strlen(input[i]->str),
-							 input[i]->node_id))
-					return new_error(ctx, INVALID_NODEID,
-							 input[i],
-							 "type_data");
 				/* Rare corner case where channel begins with
 				 * prefix of 02 or 03 */
 				if (autocomplete_chan_id(input[i], channels,
@@ -1133,6 +1127,12 @@ static struct splice_script_error *type_data(const tal_t *ctx,
 								 "type_data");
 					input[i]->type = TOK_CHANID;
 					input[i]->node_id = tal_free(input[i]->node_id);
+				} else if (!node_id_from_hexstr(input[i]->str,
+							 strlen(input[i]->str),
+							 input[i]->node_id)) {
+					return new_error(ctx, INVALID_NODEID,
+							 input[i],
+							 "type_data");
 				}
 			} else if (is_bitcoin_address(input[i]->str)) {
 				input[i]->type = TOK_BTCADDR;
