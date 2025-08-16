@@ -10,7 +10,7 @@ from utils import (
     expected_peer_features, expected_node_features,
     expected_channel_features, account_balance,
     check_coin_moves, first_channel_id, EXPERIMENTAL_DUAL_FUND,
-    mine_funding_to_announce, VALGRIND
+    mine_funding_to_announce, VALGRIND, first_scid
 )
 
 import ast
@@ -861,12 +861,12 @@ def test_channel_state_changed_bilateral(node_factory, bitcoind):
         event2 = wait_for_event(l2)
         assert(event1['peer_id'] == l2_id)  # we only test these IDs the first time
         assert(event1['channel_id'] == cid)
-        assert(event1['short_channel_id'] is None)  # None until locked in
+        assert('short_channel_id' not in event1)  # Not present until locked in
         assert(event1['cause'] == "user")
 
         assert(event2['peer_id'] == l1_id)  # we only test these IDs the first time
         assert(event2['channel_id'] == cid)
-        assert(event2['short_channel_id'] is None)  # None until locked in
+        assert('short_channel_id' not in event2)  # Not present until locked in
         assert(event2['cause'] == "remote")
 
         for ev in [event1, event2]:
@@ -989,7 +989,7 @@ def test_channel_state_changed_unilateral(node_factory, bitcoind):
     event2 = wait_for_event(l2)
     assert(event2['peer_id'] == l1_id)
     assert(event2['channel_id'] == cid)
-    assert(event2['short_channel_id'] is None)
+    assert('short_channel_id' not in event2)
     assert(event2['cause'] == "remote")
 
     if l2.config('experimental-dual-fund'):
@@ -2641,7 +2641,7 @@ def test_custom_notification_topics(node_factory):
     )
     l1, l2 = node_factory.line_graph(2, opts=[{'plugin': plugin}, {}])
     l1.rpc.emit()
-    l1.daemon.wait_for_log(r'Got a custom notification Hello world')
+    l1.daemon.wait_for_log("Got a custom notification Hello world from plugin custom_notifications.py")
 
     inv = l2.rpc.invoice(42, "lbl", "desc")['bolt11']
     l1.rpc.pay(inv)
@@ -4372,6 +4372,80 @@ def test_peer_storage(node_factory, bitcoind):
     # This should never happen
     assert not l1.daemon.is_in_log(r'PeerStorageFailed')
     assert not l2.daemon.is_in_log(r'PeerStorageFailed')
+
+
+@pytest.mark.parametrize("deprecated", [False, True])
+def test_pay_plugin_notifications(node_factory, bitcoind, deprecated):
+    plugin = os.path.join(os.getcwd(), 'tests/plugins/all_notifications.py')
+    opts = {"plugin": plugin}
+    if deprecated:
+        opts['allow-deprecated-apis'] = True
+
+    l1, l2, l3 = node_factory.line_graph(3, opts=[opts, {}, {}],
+                                         wait_for_announce=True)
+
+    def zero_timestamps(obj):
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                if k == "timestamp":
+                    obj[k] = 0
+                else:
+                    zero_timestamps(v)
+        elif isinstance(obj, list):
+            for item in obj:
+                zero_timestamps(item)
+        # other types are ignored
+        return obj
+
+    inv1 = l3.rpc.invoice(20000, "first", "desc")
+    l1.rpc.pay(inv1['bolt11'])
+
+    # It gets a channel hint update notification
+    line = l1.daemon.wait_for_log(f"plugin-all_notifications.py: notification channel_hint_update: ")
+    dict_str = line.split("notification channel_hint_update: ", 1)[1]
+    data = zero_timestamps(ast.literal_eval(dict_str))
+
+    channel_hint_update_core = {'scid': first_scid(l1, l2) + '/1',
+                                'estimated_capacity_msat': 978718000,
+                                'total_capacity_msat': 1000000000,
+                                'timestamp': 0,
+                                'enabled': True}
+    channel_hint_update = {'origin': 'pay',
+                           'channel_hint_update': channel_hint_update_core}
+    if deprecated:
+        # pyln-client's plugin.py duplicated payload into same name as update.
+        channel_hint_update['payload'] = {'channel_hint': channel_hint_update_core}
+
+    assert data == channel_hint_update
+
+    # It gets a success notification
+    line = l1.daemon.wait_for_log(f"plugin-all_notifications.py: notification pay_success: ")
+    dict_str = line.split("notification pay_success: ", 1)[1]
+    data = ast.literal_eval(dict_str)
+    success_core = {'payment_hash': inv1['payment_hash'],
+                    'bolt11': inv1['bolt11']}
+    success = {'origin': 'pay',
+               'pay_success': success_core}
+    if deprecated:
+        # pyln-client's plugin.py duplicated payload into same name as update.
+        success['payload'] = success_core
+    assert data == success
+
+    inv2 = l3.rpc.invoice(10000, "second", "desc")
+    l3.rpc.delinvoice('second', 'unpaid')
+    with pytest.raises(RpcError, match="WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS"):
+        l1.rpc.pay(inv2['bolt11'])
+
+    line = l1.daemon.wait_for_log(f"plugin-all_notifications.py: notification pay_failure: ")
+    dict_str = line.split("notification pay_failure: ", 1)[1]
+    data = ast.literal_eval(dict_str)
+    failure_core = {'payment_hash': inv2['payment_hash'], 'bolt11': inv2['bolt11'], 'error': {'message': 'failed: WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS (reply from remote)'}}
+    failure = {'origin': 'pay',
+               'pay_failure': failure_core}
+    if deprecated:
+        # pyln-client's plugin.py duplicated payload into same name as update.
+        failure['payload'] = failure_core
+    assert data == failure
 
 
 @pytest.mark.openchannel('v1')

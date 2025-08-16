@@ -381,6 +381,13 @@ bool command_deprecated_in_named_ok(struct command *cmd,
 				    const char *depr_start,
 				    const char *depr_end);
 
+/* Should we include this field in the notification? */
+bool notification_deprecated_out_ok(struct plugin *plugin,
+				    const char *method,
+				    const char *fieldname,
+				    const char *depr_start,
+				    const char *depr_end);
+
 /* Call this on fatal error. */
 void NORETURN PRINTF_FMT(2,3) plugin_err(struct plugin *p, const char *fmt, ...);
 
@@ -538,6 +545,12 @@ struct json_stream *plugin_notification_start(const tal_t *ctx,
 					      const char *method);
 void plugin_notification_end(struct plugin *plugin,
 			     struct json_stream *stream STEALS);
+
+/* Obsolete versions: do not use for new code! */
+struct json_stream *plugin_notification_start_obs(const tal_t *ctx,
+						  const char *method);
+void plugin_notification_end_obs(struct plugin *plugin,
+				 struct json_stream *stream TAKES);
 
 /* Convenience wrapper for notify "message" */
 void plugin_notify_message(struct command *cmd,

@@ -169,6 +169,9 @@ static void plugin_hook_callback(const char *buffer, const jsmntok_t *toks,
 			      ph_req->hook->name, toks->end - toks->start,
 			      buffer + toks->start);
 
+		dev_save_plugin_io_in(h->plugin->plugins, "hook_in",
+				      ph_req->hook->name,
+				      buffer, toks);
 		if (!ph_req->hook->deserialize_cb(ph_req->cb_arg,
 						  buffer, resulttok)) {
 			tal_free(ph_req->cb_arg);
@@ -209,6 +212,11 @@ static void plugin_hook_call_next(struct plugin_hook_request *ph_req)
 
 	hook->serialize_payload(ph_req->cb_arg, req->stream, plugin);
 	jsonrpc_request_end(req);
+
+	dev_save_plugin_io_out(plugin->plugins,
+			       "hook_out", hook->name,
+			       req->stream);
+
 	plugin_request_send(plugin, req);
 }
 

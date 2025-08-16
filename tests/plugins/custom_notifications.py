@@ -6,42 +6,42 @@ plugin = Plugin()
 
 
 @plugin.subscribe("custom")
-def on_custom_notification(origin, payload, **kwargs):
-    plugin.log("Got a custom notification {} from plugin {}".format(payload, origin))
+def on_custom_notification(origin, message, **kwargs):
+    plugin.log("Got a custom notification {} from plugin {}".format(message, origin))
 
 
 @plugin.method("emit")
 def emit(plugin):
     """Emit a simple string notification to topic "custom"
     """
-    plugin.notify("custom", "Hello world")
+    plugin.notify("custom", {'message': "Hello world"})
 
 
 @plugin.method("faulty-emit")
 def faulty_emit(plugin):
     """Emit a simple string notification to topic "custom"
     """
-    plugin.notify("ididntannouncethis", "Hello world")
+    plugin.notify("ididntannouncethis", {'message': "Hello world"})
 
 
 @plugin.subscribe("pay_success")
-def on_pay_success(origin, payload, **kwargs):
+def on_pay_success(origin, pay_success, **kwargs):
     plugin.log(
         "Got a pay_success notification from plugin {} for payment_hash {}".format(
             origin,
-            payload['payment_hash']
+            pay_success['payment_hash']
         )
     )
 
 
 @plugin.subscribe("pay_part_start")
-def on_pay_part_start(origin, payload, **kwargs):
-    plugin.log("Got pay_part_start: {}".format(payload))
+def on_pay_part_start(origin, **kwargs):
+    plugin.log("Got pay_part_start: {}".format(kwargs))
 
 
 @plugin.subscribe("pay_part_end")
-def on_pay_part_end(origin, payload, **kwargs):
-    plugin.log("Got pay_part_end: {}".format(payload))
+def on_pay_part_end(origin, **kwargs):
+    plugin.log("Got pay_part_end: {}".format(kwargs))
 
 
 @plugin.subscribe("ididntannouncethis")
