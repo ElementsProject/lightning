@@ -184,11 +184,17 @@ struct channel_hint *channel_hint_from_json(const tal_t *ctx,
 					    const jsmntok_t *toks)
 {
 	const char *ret;
-	const jsmntok_t *payload = json_get_member(buffer, toks, "payload"),
-			*jhint =
-			    json_get_member(buffer, payload, "channel_hint");
+	const jsmntok_t *payload , *jhint;
 	struct channel_hint *hint = tal(ctx, struct channel_hint);
 
+	/* Deprecated API uses "payload" */
+	payload = json_get_member(buffer, toks, "payload");
+	/* Modern API includes fields directly */
+	if (!payload) {
+		jhint = json_get_member(buffer, toks, "channel_hint");
+	} else {
+		jhint = json_get_member(buffer, payload, "channel_hint");
+	}
 	ret = json_scan(ctx, buffer, jhint,
 			"{timestamp:%,scid:%,estimated_capacity_msat:%,total_capacity_msat:%,enabled:%}",
 			JSON_SCAN(json_to_u32, &hint->timestamp),

@@ -624,10 +624,10 @@ static const char *plugin_notification_handle(struct plugin *plugin,
 			    "forwarding to subscribers.",
 			    methname);
 	} else if (notifications_have_topic(plugin->plugins, methname)) {
-		n = jsonrpc_notification_start(NULL, methname);
+		n = jsonrpc_notification_start_noparams(NULL, methname);
 		json_add_string(n->stream, "origin", plugin->shortname);
-		json_add_tok(n->stream, "payload", paramstok, plugin->buffer);
-		jsonrpc_notification_end(n);
+		json_add_tok(n->stream, "params", paramstok, plugin->buffer);
+		jsonrpc_notification_end_noparams(n);
 
 		plugins_notify(plugin->plugins, take(n));
 	}
