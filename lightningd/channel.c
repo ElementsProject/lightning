@@ -112,6 +112,16 @@ void delete_channel(struct channel *channel STEALS, bool completely_eliminate)
 			fatal("HSM gave bad hsm_forget_channel_reply %s", tal_hex(msg, msg));
 	}
 
+	notify_channel_state_changed(channel->peer->ld,
+				     &channel->peer->id,
+				     &channel->cid,
+				     channel->scid,
+				     time_now(),
+				     channel->state,
+				     CLOSED,
+				     channel->state_change_cause,
+				     NULL);
+
 	tal_free(channel);
 
 	maybe_delete_peer(peer);
