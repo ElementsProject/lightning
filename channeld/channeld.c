@@ -425,8 +425,6 @@ static void check_mutual_splice_locked(struct peer *peer)
 				fmt_bitcoin_txid(tmpctx,
 						 &peer->splice_state->locked_txid));
 
-	peer->splice_state->await_commitment_succcess = true;
-
 	/* This splice_locked event is used, so reset the flags to false */
 	peer->splice_state->locked_ready[LOCAL] = false;
 	peer->splice_state->locked_ready[REMOTE] = false;
@@ -1666,8 +1664,6 @@ static void send_revocation(struct peer *peer,
 	master_wait_sync_reply(tmpctx, peer, take(msg_for_master),
 			       WIRE_CHANNELD_GOT_COMMITSIG_REPLY);
 
-	peer->splice_state->await_commitment_succcess = false;
-
 	/* Now that the master has persisted the new commitment advance the HSMD
 	 * and fetch the revocation secret for the old one. */
 	msg = make_revocation_msg(peer, peer->next_index[LOCAL]-2,
@@ -1986,30 +1982,44 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Bad commit_sig %s", tal_hex(msg, msg));
 
-	/* BOLT-0d8b701614b09c6ee4172b04da2203e73deec7e2 #2:
-	 * Once a node has received and sent `splice_locked`:
-	 *   - Until sending OR receiving of `revoke_and_ack`
-	 * ...
-	 *     - MUST ignore `commitment_signed` messages where `splice_channel_id`
-	 *       does not match the `channel_id` of the confirmed splice. */
-	if (peer->splice_state->await_commitment_succcess
-	    && !tal_count(peer->splice_state->inflights) && cs_tlv && cs_tlv->splice_info) {
-	    	if (!bitcoin_txid_eq(&peer->channel->funding.txid,
-	    			     cs_tlv->splice_info)) {
-			status_info("Ignoring stale commit_sig for channel_id"
-				    " %s, as %s is locked in now.",
-				    fmt_bitcoin_txid(tmpctx,
-				    		     cs_tlv->splice_info),
-				    fmt_bitcoin_txid(tmpctx,
-				    		     &peer->channel->funding.txid));
-			return NULL;
-		}
+	/* BOLT-f9fd539db6cc6f3e532fdc8cc1ebe8eb1a8fd717
+	 *  - If the sending node sent `start_batch` and we are processing a batch of
+	 *    `commitment_signed` messages:
+	 */
+	if (msg_batch && tal_count(msg_batch) > 1) {
+
+		/* BOLT-f9fd539db6cc6f3e532fdc8cc1ebe8eb1a8fd717
+		 *    - If `funding_txid` is missing in one of the `commitment_signed` messages:
+		 *      - MUST send an `error` and fail the channel.
+		 */
+		if (!cs_tlv->splice_info)
+			peer_failed_err(peer->pps, &peer->channel_id,
+					"Must send funding_txid when sending"
+					" a commitment batch.");
+
+		/* BOLT-f9fd539db6cc6f3e532fdc8cc1ebe8eb1a8fd717
+		 *    - Otherwise (no pending splice transactions):
+		 *...
+		 *      - If `commitment_signed` is missing for the current funding transaction:
+		 *        - MUST send an `error` and fail the channel.
+		 */
+		if (!tal_count(peer->splice_state->inflights)
+			&& !bitcoin_txid_eq(cs_tlv->splice_info,
+					    &peer->channel->funding.txid))
+			peer_failed_err(peer->pps, &peer->channel_id,
+					"Commitment batch is is missing our"
+					" current funding transaction %s",
+					fmt_bitcoin_txid(tmpctx, &peer->channel->funding.txid));
 	}
 
-	/* In a race we can get here with a commitsig with too many splices
-	 * attached. In that case we ignore the main commit msg for the old
-	 * funding tx, and for the splice candidates that didnt win. But we must
-	 * listen to the one that is for the winning splice candidate */
+	/* BOLT-f9fd539db6cc6f3e532fdc8cc1ebe8eb1a8fd717
+	 *    - If `funding_txid` is missing in one of the `commitment_signed` messages:
+	 *      - MUST send an `error` and fail the channel.
+	 */
+	if (commit_index && !cs_tlv->splice_info)
+		peer_failed_err(peer->pps, &peer->channel_id,
+				"Must send funding_txid when sending"
+				" a commitment batch");
 
 	if (!changed_htlcs) {
 		changed_htlcs = tal_arr(msg, const struct htlc *, 0);
@@ -2104,7 +2114,6 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 				 "Bad commit_sig signature %"PRIu64" %s for tx"
 				 " %s wscript %s key %s feerate %u. Outpoint"
 				 " %s, funding_sats: %s, splice_info: %s,"
-				 " race_await_commit: %s,"
 				 " inflight splice count: %zu",
 				 local_index,
 				 fmt_bitcoin_signature(msg, &commit_sig),
@@ -2118,8 +2127,6 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 				 	? fmt_bitcoin_txid(tmpctx,
 							   cs_tlv->splice_info)
 				 	: "N/A",
-				 peer->splice_state->await_commitment_succcess ? "yes"
-				 					: "no",
 				 tal_count(peer->splice_state->inflights));
 	}
 
@@ -2220,9 +2227,14 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 				tal_count(peer->splice_state->inflights));
 
 	commitsigs = tal_arr(NULL, const struct commitsig*, 0);
-	/* We expect multiple consequtive commit_sig messages if we have
-	 * inflight splices. Since consequtive is requred, we recurse for
-	 * each expected message, blocking until all are received. */
+	/* BOLT-f9fd539db6cc6f3e532fdc8cc1ebe8eb1a8fd717
+	 *    - If there are pending splice transactions:
+	 *      - MUST validate each `commitment_signed` based on `funding_txid`.
+	 *      - If `commitment_signed` is missing for a funding transaction:
+	 *        - MUST send an `error` and fail the channel.
+	 *      - Otherwise:
+	 *        - MUST respond with a `revoke_and_ack` message.
+	 */
 	for (i = 0; i < tal_count(peer->splice_state->inflights); i++) {
 		s64 funding_diff = sats_diff(peer->splice_state->inflights[i]->amnt,
 					     peer->channel->funding_sats);
@@ -2313,7 +2325,6 @@ static int commit_cmp(const void *a, const void *n, void *peer)
 
 static struct commitsig_info *handle_peer_commit_sig_batch(struct peer *peer,
 							   const u8 *msg,
-							   u32 commit_index,
 							   struct pubkey remote_funding,
 							   const struct htlc **changed_htlcs,
 							   s64 splice_amnt,
@@ -2342,6 +2353,16 @@ static struct commitsig_info *handle_peer_commit_sig_batch(struct peer *peer,
 					&cs_tlv))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Bad commit_sig %s", tal_hex(msg, msg));
+
+	/* BOLT-f9fd539db6cc6f3e532fdc8cc1ebe8eb1a8fd717
+	 *  - If there are pending splice transactions and the sending node did not
+	 *    send `start_batch` followed by a batch of `commitment_signed` messages:
+	 *    - MUST send an `error` and fail the channel.
+	 */
+	if (batch_size < 2 && last_inflight(peer))
+		peer_failed_err(peer->pps, &peer->channel_id, "Must send a"
+				" commitment batch (ie. start_batch) when I"
+				" have pending splices inflight.");
 
 	msg_batch = tal_arr(tmpctx, const u8*, batch_size);
 	msg_batch[0] = msg;
@@ -2379,9 +2400,16 @@ static struct commitsig_info *handle_peer_commit_sig_batch(struct peer *peer,
 		msg_batch[i] = sub_msg;
 	}
 
+	/* BOLT-f9fd539db6cc6f3e532fdc8cc1ebe8eb1a8fd717
+	 *    - Otherwise (no pending splice transactions):
+	 *      - MUST ignore `commitment_signed` where `funding_txid` does not match
+	 *        the current funding transaction.
+	 */
+	/* Sort puts all unrecognized `commitment_signed` messages onto the back
+	 * of `msg_batch`, where they will be ignored */
 	asort(msg_batch, tal_count(msg_batch), commit_cmp, peer);
 
-	return handle_peer_commit_sig(peer, msg_batch[0], commit_index,
+	return handle_peer_commit_sig(peer, msg_batch[0], 0,
 				      remote_funding, changed_htlcs,
 				      splice_amnt, remote_splice_amnt,
 				      local_index, local_per_commit,
@@ -2407,7 +2435,7 @@ static void handle_peer_start_batch(struct peer *peer, const u8 *msg)
 		return;
 	}
 
-	handle_peer_commit_sig_batch(peer, peer_read(tmpctx, peer->pps), 0,
+	handle_peer_commit_sig_batch(peer, peer_read(tmpctx, peer->pps),
 				     peer->channel->funding_pubkey[REMOTE],
 				     NULL, 0, 0,
 				     peer->next_index[LOCAL],
@@ -2555,8 +2583,6 @@ static void handle_peer_revoke_and_ack(struct peer *peer, const u8 *msg)
 		     side_to_str(peer->channel->opener),
 		     fmt_pubkey(tmpctx, &peer->remote_per_commit),
 		     fmt_pubkey(tmpctx, &peer->old_remote_per_commit));
-
-	peer->splice_state->await_commitment_succcess = false;
 
 	/* STFU can't be activated during pending updates.
 	 * With updates finish let's handle a potentially queued stfu request.
@@ -4074,8 +4100,6 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 		peer->splicing->remote_funding_pubkey = last_inflight(peer)->remote_funding;
 	}
 
-	peer->splice_state->await_commitment_succcess = false;
-
 	if (!is_stfu_active(peer))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Must be in STFU mode before intiating splice");
@@ -4761,7 +4785,6 @@ static void handle_splice_stfu_success(struct peer *peer)
 					 init_rbf_tlvs);
 	}
 
-	peer->splice_state->await_commitment_succcess = false;
 	peer_write(peer->pps, take(msg));
 }
 
@@ -4979,7 +5002,7 @@ static void peer_in(struct peer *peer, const u8 *msg)
 		handle_peer_start_batch(peer, msg);
 		return;
 	case WIRE_COMMITMENT_SIGNED:
-		handle_peer_commit_sig_batch(peer, msg, 0,
+		handle_peer_commit_sig_batch(peer, msg,
 					     peer->channel->funding_pubkey[REMOTE],
 					     NULL, 0, 0,
 					     peer->next_index[LOCAL],
