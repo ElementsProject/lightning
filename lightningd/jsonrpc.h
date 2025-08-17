@@ -227,9 +227,21 @@ bool jsonrpc_command_add(struct jsonrpc *rpc, struct json_command *command,
 struct jsonrpc_notification *jsonrpc_notification_start(const tal_t *ctx, const char *topic);
 
 /**
+ * Begin a JSON-RPC notification with the specified topic.
+ *
+ * Does *not* start a "params" object.
+ */
+struct jsonrpc_notification *jsonrpc_notification_start_noparams(const tal_t *ctx, const char *topic);
+
+/**
  * Counterpart to jsonrpc_notification_start.
  */
 void jsonrpc_notification_end(struct jsonrpc_notification *n);
+
+/**
+ * Counterpart to jsonrpc_notification_start_noparams.
+ */
+void jsonrpc_notification_end_noparams(struct jsonrpc_notification *n);
 
 /**
  * start a JSONRPC request; id_prefix is non-NULL if this was triggered by

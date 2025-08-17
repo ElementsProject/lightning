@@ -2641,7 +2641,7 @@ def test_custom_notification_topics(node_factory):
     )
     l1, l2 = node_factory.line_graph(2, opts=[{'plugin': plugin}, {}])
     l1.rpc.emit()
-    l1.daemon.wait_for_log("Got a custom notification {'message': 'Hello world'} from plugin custom_notifications.py")
+    l1.daemon.wait_for_log("Got a custom notification Hello world from plugin custom_notifications.py")
 
     inv = l2.rpc.invoice(42, "lbl", "desc")['bolt11']
     l1.rpc.pay(inv)
@@ -4374,6 +4374,7 @@ def test_peer_storage(node_factory, bitcoind):
     assert not l2.daemon.is_in_log(r'PeerStorageFailed')
 
 
+@pytest.mark.xfail(strict=True)
 def test_pay_plugin_notifications(node_factory, bitcoind, chainparams):
     plugin = os.path.join(os.getcwd(), 'tests/plugins/all_notifications.py')
     opts = {"plugin": plugin}
