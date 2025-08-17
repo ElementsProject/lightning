@@ -2641,7 +2641,7 @@ def test_custom_notification_topics(node_factory):
     )
     l1, l2 = node_factory.line_graph(2, opts=[{'plugin': plugin}, {}])
     l1.rpc.emit()
-    l1.daemon.wait_for_log(r'Got a custom notification Hello world')
+    l1.daemon.wait_for_log("Got a custom notification {'message': 'Hello world'} from plugin custom_notifications.py")
 
     inv = l2.rpc.invoice(42, "lbl", "desc")['bolt11']
     l1.rpc.pay(inv)
@@ -4409,7 +4409,8 @@ def test_pay_plugin_notifications(node_factory, bitcoind, chainparams):
                                 'timestamp': 0,
                                 'enabled': True}
     channel_hint_update = {'origin': 'pay',
-                           'payload': {'channel_hint': channel_hint_update_core}}
+                           'payload': {'channel_hint': channel_hint_update_core},
+                           'channel_hint_update': {'channel_hint': channel_hint_update_core}}
     assert data == channel_hint_update
 
     # It gets a success notification
@@ -4420,7 +4421,8 @@ def test_pay_plugin_notifications(node_factory, bitcoind, chainparams):
                     'bolt11': inv1['bolt11']}
     # Includes deprecated and modern.  pyln-client plugin.py copies fields as necessary.
     success = {'origin': 'pay',
-               'payload': success_core}
+               'payload': success_core,
+               'pay_success': success_core}
     assert data == success
 
     inv2 = l3.rpc.invoice(10000, "second", "desc")
@@ -4434,7 +4436,8 @@ def test_pay_plugin_notifications(node_factory, bitcoind, chainparams):
     failure_core = {'payment_hash': inv2['payment_hash'], 'bolt11': inv2['bolt11'], 'error': {'message': 'failed: WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS (reply from remote)'}}
     # Includes deprecated and modern.
     failure = {'origin': 'pay',
-               'payload': failure_core}
+               'payload': failure_core,
+               'pay_failure': failure_core}
     assert data == failure
 
 
