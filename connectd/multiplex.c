@@ -742,7 +742,13 @@ static void handle_pong_in(struct peer *peer, const u8 *msg)
 /* Forward to gossipd */
 static void handle_gossip_in(struct peer *peer, const u8 *msg)
 {
-	u8 *gmsg = towire_gossipd_recv_gossip(NULL, &peer->id, msg);
+	u8 *gmsg;
+
+	/* We warn at 250000, drop at 500000 */
+	if (daemon_conn_queue_length(peer->daemon->gossipd) > 500000)
+		return;
+
+	gmsg = towire_gossipd_recv_gossip(NULL, &peer->id, msg);
 
 	/* gossipd doesn't log IO, so we log it here. */
 	status_peer_io(LOG_IO_IN, &peer->id, msg);
