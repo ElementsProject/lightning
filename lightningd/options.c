@@ -931,6 +931,10 @@ static void dev_register_opts(struct lightningd *ld)
 		       opt_set_bool,
 		       &ld->dev_hsmd_warn_on_overgrind,
 		       "Warn if we create signatures that are not exactly 71 bytes.");
+	clnopt_witharg("--dev-save-plugin-io", OPT_DEV,
+		       opt_set_charp, opt_show_charp,
+		       &ld->plugins->dev_save_io,
+		       "Directory to place all plugin notifications/hooks JSON into.");
 	/* This is handled directly in daemon_developer_mode(), so we ignore it here */
 	clnopt_noarg("--dev-debug-self", OPT_DEV,
 		     opt_ignore,
