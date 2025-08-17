@@ -503,7 +503,7 @@ char *fmt_splice_script_compiler_error(const tal_t *ctx,
 
 static bool is_whitespace(char c)
 {
-	return isspace(c);
+	return cisspace(c);
 }
 
 static struct splice_script_error *clean_whitespace(const tal_t *ctx,

@@ -418,7 +418,7 @@ static const char *find_column_name(const tal_t *ctx,
 {
 	size_t start = 0;
 
-	while (isspace(sqlpart[start]))
+	while (cisspace(sqlpart[start]))
 		start++;
 	*after = strspn(sqlpart + start, "abcdefghijklmnopqrstuvwxyz_0123456789") + start;
 	if (*after == start || !cisspace(sqlpart[*after]))
