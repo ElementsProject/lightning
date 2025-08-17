@@ -21,6 +21,7 @@ hidden: false
 | coin_movement.tags                   | Notification Field | v25.09           | v26.09         | Use `primary_tag` (first tag) and `extra_tags` instead                                                                                 |
 | coin_movement.utxo_txid              | Notification Field | v25.09           | v26.09         | Use `utxo` instead of `utxo_txid` & `vout`                                                                                             |
 | coin_movement.txid                   | Notification Field | v25.09           | v26.09         | Use `spending_txid` instead                                                                                                            |
+| channel_state_changed.null_scid         | Notification Field | v25.09        | v26.09         | In channel_state_changed notification, `short_channel_id` will be missing instead of `null`                                            |
 
 Inevitably there are features which need to change: either to be generalized, or removed when they can no longer be supported.
 

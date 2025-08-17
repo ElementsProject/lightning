@@ -4172,7 +4172,7 @@ message ChannelStateChangedNotification {
 	}
 	bytes peer_id = 1;
 	bytes channel_id = 2;
-	string short_channel_id = 3;
+	optional string short_channel_id = 3;
 	string timestamp = 4;
 	optional ChannelState old_state = 5;
 	ChannelState new_state = 6;
