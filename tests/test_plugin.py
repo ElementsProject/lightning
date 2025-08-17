@@ -833,13 +833,13 @@ def test_channel_state_changed_bilateral(node_factory, bitcoind):
         for ev in [event1a, event1b]:
             assert(ev['peer_id'] == l2_id)  # we only test these IDs the first time
             assert(ev['channel_id'] == cid)
-            assert(ev['short_channel_id'] is None)  # None until locked in
+            assert('short_channel_id' not in ev)  # Missing until locked in
             assert(ev['cause'] == "remote")
 
         for ev in [event2a, event2b]:
             assert(ev['peer_id'] == l1_id)  # we only test these IDs the first time
             assert(ev['channel_id'] == cid)
-            assert(ev['short_channel_id'] is None)  # None until locked in
+            assert('short_channel_id' not in ev)  # Missing until locked in
             assert(ev['cause'] == "remote")
 
         for ev in [event1a, event2a]:
@@ -861,12 +861,12 @@ def test_channel_state_changed_bilateral(node_factory, bitcoind):
         event2 = wait_for_event(l2)
         assert(event1['peer_id'] == l2_id)  # we only test these IDs the first time
         assert(event1['channel_id'] == cid)
-        assert(event1['short_channel_id'] is None)  # None until locked in
+        assert('short_channel_id' not in event1)  # Not present until locked in
         assert(event1['cause'] == "user")
 
         assert(event2['peer_id'] == l1_id)  # we only test these IDs the first time
         assert(event2['channel_id'] == cid)
-        assert(event2['short_channel_id'] is None)  # None until locked in
+        assert('short_channel_id' not in event2)  # Not present until locked in
         assert(event2['cause'] == "remote")
 
         for ev in [event1, event2]:
@@ -989,7 +989,7 @@ def test_channel_state_changed_unilateral(node_factory, bitcoind):
     event2 = wait_for_event(l2)
     assert(event2['peer_id'] == l1_id)
     assert(event2['channel_id'] == cid)
-    assert(event2['short_channel_id'] is None)
+    assert('short_channel_id' not in event2)
     assert(event2['cause'] == "remote")
 
     if l2.config('experimental-dual-fund'):
