@@ -1,3 +1,4 @@
+import copy
 import inspect
 import io
 import json
@@ -770,6 +771,12 @@ class Plugin(object):
             self.stdout.flush()
 
     def notify(self, method: str, params: JSONType) -> None:
+        # Adapt old-style: wrap in method.
+        if method not in params:
+            new_params = copy.copy(params)
+            new_params[method] = params
+            params = new_params
+
         payload = {
             'jsonrpc': '2.0',
             'method': method,
