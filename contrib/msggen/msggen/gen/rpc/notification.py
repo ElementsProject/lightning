@@ -5,6 +5,7 @@ from typing import Any, Dict, Optional, TextIO
 from msggen.model import Service
 from msggen.gen.generator import IGenerator
 from msggen.gen.rpc.rust import gen_composite
+from msggen.gen.grpc.util import notification_typename_overrides
 
 
 class NotificationGenerator(IGenerator):
@@ -43,7 +44,7 @@ class NotificationGenerator(IGenerator):
         self.write("\n\n")
 
         for notification in service.notifications:
-            _, resp_decl = gen_composite(notification.response, self.meta)
+            _, resp_decl = gen_composite(notification.response, self.meta, notification_typename_overrides)
             self.write(resp_decl)
 
         self.write("pub mod requests{\n")
