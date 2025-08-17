@@ -439,7 +439,8 @@
             "ipv6": 2,
             "local socket": 0,
             "torv2": 3,
-            "torv3": 4
+            "torv3": 4,
+            "websocket": 5
         },
         "PeerConnectDirection": {
             "in": 0,
