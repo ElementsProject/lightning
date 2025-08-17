@@ -30,7 +30,7 @@ bool json_to_millionths(const char *buffer, const jsmntok_t *tok,
 
 	*millionths = 0;
 	for (int i = tok->start; i < tok->end; i++) {
-		if (isdigit(buffer[i])) {
+		if (cisdigit(buffer[i])) {
 			has_digits = true;
 			/* Ignore too much precision */
 			if (decimal_places >= 0 && ++decimal_places > 6)
