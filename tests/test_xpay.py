@@ -863,31 +863,33 @@ def test_attempt_notifications(node_factory):
     line = l1.daemon.wait_for_log("plugin-custom_notifications.py: Got pay_part_start: ")
     dict_str = line.split("Got pay_part_start: ", 1)[1]
     data = zero_fields(ast.literal_eval(dict_str), ['groupid'])
-    expected = {'payment_hash': inv1['payment_hash'],
-                'groupid': 0,
-                'partid': 1,
-                'total_payment_msat': 5000000,
-                'attempt_msat': 5000000,
-                'hops': [{'next_node': l2.info['id'],
-                          'short_channel_id': scid12,
-                          'direction': scid12_dir,
-                          'channel_in_msat': 5000051,
-                          'channel_out_msat': 5000051},
-                         {'next_node': l3.info['id'],
-                          'short_channel_id': scid23,
-                          'direction': scid23_dir,
-                          'channel_in_msat': 5000051,
-                          'channel_out_msat': 5000000}]}
+    expected = {'pay_part_start':
+                {'payment_hash': inv1['payment_hash'],
+                 'groupid': 0,
+                 'partid': 1,
+                 'total_payment_msat': 5000000,
+                 'attempt_msat': 5000000,
+                 'hops': [{'next_node': l2.info['id'],
+                           'short_channel_id': scid12,
+                           'direction': scid12_dir,
+                           'channel_in_msat': 5000051,
+                           'channel_out_msat': 5000051},
+                          {'next_node': l3.info['id'],
+                           'short_channel_id': scid23,
+                           'direction': scid23_dir,
+                           'channel_in_msat': 5000051,
+                           'channel_out_msat': 5000000}]}}
     assert data == expected
 
     line = l1.daemon.wait_for_log("plugin-custom_notifications.py: Got pay_part_end: ")
     dict_str = line.split("Got pay_part_end: ", 1)[1]
     data = zero_fields(ast.literal_eval(dict_str), ('duration', 'groupid'))
-    expected = {'payment_hash': inv1['payment_hash'],
-                'status': 'success',
-                'duration': 0,
-                'groupid': 0,
-                'partid': 1}
+    expected = {'pay_part_end':
+                {'payment_hash': inv1['payment_hash'],
+                 'status': 'success',
+                 'duration': 0,
+                 'groupid': 0,
+                 'partid': 1}}
     assert data == expected
 
     inv2 = l3.rpc.invoice(10000000, 'test_attempt_notifications2', 'test_attempt_notifications2')
@@ -900,35 +902,37 @@ def test_attempt_notifications(node_factory):
     line = l1.daemon.wait_for_log("plugin-custom_notifications.py: Got pay_part_start: ")
     dict_str = line.split("Got pay_part_start: ", 1)[1]
     data = zero_fields(ast.literal_eval(dict_str), ['groupid'])
-    expected = {'payment_hash': inv2['payment_hash'],
-                'groupid': 0,
-                'partid': 1,
-                'total_payment_msat': 10000000,
-                'attempt_msat': 10000000,
-                'hops': [{'next_node': l2.info['id'],
-                          'short_channel_id': scid12,
-                          'direction': scid12_dir,
-                          'channel_in_msat': 10000101,
-                          'channel_out_msat': 10000101},
-                         {'next_node': l3.info['id'],
-                          'short_channel_id': scid23,
-                          'direction': scid23_dir,
-                          'channel_in_msat': 10000101,
-                          'channel_out_msat': 10000000}]}
+    expected = {'pay_part_start':
+                {'payment_hash': inv2['payment_hash'],
+                 'groupid': 0,
+                 'partid': 1,
+                 'total_payment_msat': 10000000,
+                 'attempt_msat': 10000000,
+                 'hops': [{'next_node': l2.info['id'],
+                           'short_channel_id': scid12,
+                           'direction': scid12_dir,
+                           'channel_in_msat': 10000101,
+                           'channel_out_msat': 10000101},
+                          {'next_node': l3.info['id'],
+                           'short_channel_id': scid23,
+                           'direction': scid23_dir,
+                           'channel_in_msat': 10000101,
+                           'channel_out_msat': 10000000}]}}
     assert data == expected
 
     line = l1.daemon.wait_for_log("plugin-custom_notifications.py: Got pay_part_end: ")
     dict_str = line.split("Got pay_part_end: ", 1)[1]
     data = zero_fields(ast.literal_eval(dict_str), ('duration', 'groupid'))
-    expected = {'payment_hash': inv2['payment_hash'],
-                'status': 'failure',
-                'duration': 0,
-                'groupid': 0,
-                'partid': 1,
-                'failed_msg': '400f00000000009896800000006c',
-                'failed_node_id': l3.info['id'],
-                'error_code': 16399,
-                'error_message': 'incorrect_or_unknown_payment_details'}
+    expected = {'pay_part_end':
+                {'payment_hash': inv2['payment_hash'],
+                 'status': 'failure',
+                 'duration': 0,
+                 'groupid': 0,
+                 'partid': 1,
+                 'failed_msg': '400f00000000009896800000006c',
+                 'failed_node_id': l3.info['id'],
+                 'error_code': 16399,
+                 'error_message': 'incorrect_or_unknown_payment_details'}}
     assert data == expected
 
     # Intermediary node failure
@@ -939,36 +943,38 @@ def test_attempt_notifications(node_factory):
     line = l1.daemon.wait_for_log("plugin-custom_notifications.py: Got pay_part_start: ")
     dict_str = line.split("Got pay_part_start: ", 1)[1]
     data = zero_fields(ast.literal_eval(dict_str), ['groupid'])
-    expected = {'payment_hash': inv2['payment_hash'],
-                'groupid': 0,
-                'partid': 1,
-                'total_payment_msat': 10000000,
-                'attempt_msat': 10000000,
-                'hops': [{'next_node': l2.info['id'],
-                          'short_channel_id': scid12,
-                          'direction': scid12_dir,
-                          'channel_in_msat': 10000101,
-                          'channel_out_msat': 10000101},
-                         {'next_node': l3.info['id'],
-                          'short_channel_id': scid23,
-                          'direction': scid23_dir,
-                          'channel_in_msat': 10000101,
-                          'channel_out_msat': 10000000}]}
+    expected = {'pay_part_start':
+                {'payment_hash': inv2['payment_hash'],
+                 'groupid': 0,
+                 'partid': 1,
+                 'total_payment_msat': 10000000,
+                 'attempt_msat': 10000000,
+                 'hops': [{'next_node': l2.info['id'],
+                           'short_channel_id': scid12,
+                           'direction': scid12_dir,
+                           'channel_in_msat': 10000101,
+                           'channel_out_msat': 10000101},
+                          {'next_node': l3.info['id'],
+                           'short_channel_id': scid23,
+                           'direction': scid23_dir,
+                           'channel_in_msat': 10000101,
+                           'channel_out_msat': 10000000}]}}
     assert data == expected
 
     line = l1.daemon.wait_for_log("plugin-custom_notifications.py: Got pay_part_end: ")
     dict_str = line.split("Got pay_part_end: ", 1)[1]
     data = zero_fields(ast.literal_eval(dict_str), ('duration', 'groupid', 'failed_msg'))
-    expected = {'payment_hash': inv2['payment_hash'],
-                'status': 'failure',
-                'duration': 0,
-                'groupid': 0,
-                'partid': 1,
-                # This includes the channel update: just zero it out
-                'failed_msg': 0,
-                'failed_direction': 0,
-                'failed_node_id': l2.info['id'],
-                'failed_short_channel_id': scid23,
-                'error_code': 4103,
-                'error_message': 'temporary_channel_failure'}
+    expected = {'pay_part_end':
+                {'payment_hash': inv2['payment_hash'],
+                 'status': 'failure',
+                 'duration': 0,
+                 'groupid': 0,
+                 'partid': 1,
+                 # This includes the channel update: just zero it out
+                 'failed_msg': 0,
+                 'failed_direction': 0,
+                 'failed_node_id': l2.info['id'],
+                 'failed_short_channel_id': scid23,
+                 'error_code': 4103,
+                 'error_message': 'temporary_channel_failure'}}
     assert data == expected
