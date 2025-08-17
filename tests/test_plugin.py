@@ -4374,10 +4374,12 @@ def test_peer_storage(node_factory, bitcoind):
     assert not l2.daemon.is_in_log(r'PeerStorageFailed')
 
 
-@pytest.mark.xfail(strict=True)
-def test_pay_plugin_notifications(node_factory, bitcoind, chainparams):
+@pytest.mark.parametrize("deprecated", [False, True])
+def test_pay_plugin_notifications(node_factory, bitcoind, chainparams, deprecated):
     plugin = os.path.join(os.getcwd(), 'tests/plugins/all_notifications.py')
     opts = {"plugin": plugin}
+    if deprecated:
+        opts['allow-deprecated-apis'] = True
 
     l1, l2, l3 = node_factory.line_graph(3, opts=[opts, {}, {}],
                                          wait_for_announce=True)
@@ -4403,15 +4405,17 @@ def test_pay_plugin_notifications(node_factory, bitcoind, chainparams):
     dict_str = line.split("notification channel_hint_update: ", 1)[1]
     data = zero_timestamps(ast.literal_eval(dict_str))
 
-    # pyln-client's plugin.py duplicated payload into same name as update.
     channel_hint_update_core = {'scid': first_scid(l1, l2) + '/1',
                                 'estimated_capacity_msat': 964719000 if chainparams['elements'] else 978718000,
                                 'total_capacity_msat': 1000000000,
                                 'timestamp': 0,
                                 'enabled': True}
     channel_hint_update = {'origin': 'pay',
-                           'payload': {'channel_hint': channel_hint_update_core},
-                           'channel_hint_update': {'channel_hint': channel_hint_update_core}}
+                           'channel_hint_update': channel_hint_update_core}
+    if deprecated:
+        # pyln-client's plugin.py duplicated payload into same name as update.
+        channel_hint_update['payload'] = {'channel_hint': channel_hint_update_core}
+
     assert data == channel_hint_update
 
     # It gets a success notification
@@ -4420,10 +4424,11 @@ def test_pay_plugin_notifications(node_factory, bitcoind, chainparams):
     data = ast.literal_eval(dict_str)
     success_core = {'payment_hash': inv1['payment_hash'],
                     'bolt11': inv1['bolt11']}
-    # Includes deprecated and modern.  pyln-client plugin.py copies fields as necessary.
     success = {'origin': 'pay',
-               'payload': success_core,
                'pay_success': success_core}
+    if deprecated:
+        # pyln-client's plugin.py duplicated payload into same name as update.
+        success['payload'] = success_core
     assert data == success
 
     inv2 = l3.rpc.invoice(10000, "second", "desc")
@@ -4435,10 +4440,11 @@ def test_pay_plugin_notifications(node_factory, bitcoind, chainparams):
     dict_str = line.split("notification pay_failure: ", 1)[1]
     data = ast.literal_eval(dict_str)
     failure_core = {'payment_hash': inv2['payment_hash'], 'bolt11': inv2['bolt11'], 'error': {'message': 'failed: WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS (reply from remote)'}}
-    # Includes deprecated and modern.
     failure = {'origin': 'pay',
-               'payload': failure_core,
                'pay_failure': failure_core}
+    if deprecated:
+        # pyln-client's plugin.py duplicated payload into same name as update.
+        failure['payload'] = failure_core
     assert data == failure
 
 
