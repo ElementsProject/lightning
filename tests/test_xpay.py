@@ -7,6 +7,7 @@ from utils import (
     sync_blockheight,
 )
 
+import ast
 import os
 import pytest
 import re
@@ -835,6 +836,19 @@ lightning-cli pay lni1qqgv5nalmz08ukj4av074kyk6pepq93pqvvhnlnvurnfanndnxjtcjnmxr
 
 
 def test_attempt_notifications(node_factory):
+    def zero_fields(obj, fieldnames):
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                if k in fieldnames:
+                    obj[k] = 0
+                else:
+                    zero_fields(v, fieldnames)
+        elif isinstance(obj, list):
+            for item in obj:
+                zero_fields(item, fieldnames)
+        # other types are ignored
+        return obj
+
     plugin_path = os.path.join(os.getcwd(), 'tests/plugins/custom_notifications.py')
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
                                          opts=[{"plugin": plugin_path}, {}, {}])
@@ -847,13 +861,34 @@ def test_attempt_notifications(node_factory):
     l1.rpc.xpay(inv1['bolt11'])
 
     line = l1.daemon.wait_for_log("plugin-custom_notifications.py: Got pay_part_start: ")
-    regex = r".*Got pay_part_start: \{'payment_hash': '" + inv1['payment_hash'] + r"', 'groupid': [0-9]*, 'partid': 1, 'total_payment_msat': 5000000, 'attempt_msat': 5000000, 'hops': \[\{'next_node': '" + l2.info['id'] + r"', 'short_channel_id': '" + scid12 + r"', 'direction': " + str(scid12_dir) + r", 'channel_in_msat': 5000051, 'channel_out_msat': 5000051\}, \{'next_node': '" + l3.info['id'] + r"', 'short_channel_id': '" + scid23 + r"', 'direction': " + str(scid23_dir) + r", 'channel_in_msat': 5000051, 'channel_out_msat': 5000000\}\]\}"
-    assert re.match(regex, line)
+    dict_str = line.split("Got pay_part_start: ", 1)[1]
+    data = zero_fields(ast.literal_eval(dict_str), ['groupid'])
+    expected = {'payment_hash': inv1['payment_hash'],
+                'groupid': 0,
+                'partid': 1,
+                'total_payment_msat': 5000000,
+                'attempt_msat': 5000000,
+                'hops': [{'next_node': l2.info['id'],
+                          'short_channel_id': scid12,
+                          'direction': scid12_dir,
+                          'channel_in_msat': 5000051,
+                          'channel_out_msat': 5000051},
+                         {'next_node': l3.info['id'],
+                          'short_channel_id': scid23,
+                          'direction': scid23_dir,
+                          'channel_in_msat': 5000051,
+                          'channel_out_msat': 5000000}]}
+    assert data == expected
 
-    # Note, duration always has 9 decimals, EXCEPT that the python code interprets it, so if the last digit is a 0 it will only print 8.
     line = l1.daemon.wait_for_log("plugin-custom_notifications.py: Got pay_part_end: ")
-    regex = r".*Got pay_part_end: \{'status': 'success', 'duration': [0-9]*\.[0-9]*, 'payment_hash': '" + inv1['payment_hash'] + r"', 'groupid': [0-9]*, 'partid': 1\}"
-    assert re.match(regex, line)
+    dict_str = line.split("Got pay_part_end: ", 1)[1]
+    data = zero_fields(ast.literal_eval(dict_str), ('duration', 'groupid'))
+    expected = {'payment_hash': inv1['payment_hash'],
+                'status': 'success',
+                'duration': 0,
+                'groupid': 0,
+                'partid': 1}
+    assert data == expected
 
     inv2 = l3.rpc.invoice(10000000, 'test_attempt_notifications2', 'test_attempt_notifications2')
     l3.rpc.delinvoice('test_attempt_notifications2', "unpaid")
@@ -863,12 +898,38 @@ def test_attempt_notifications(node_factory):
         l1.rpc.xpay(inv2['bolt11'])
 
     line = l1.daemon.wait_for_log("plugin-custom_notifications.py: Got pay_part_start: ")
-    regex = r".*Got pay_part_start: \{'payment_hash': '" + inv2['payment_hash'] + r"', 'groupid': [0-9]*, 'partid': 1, 'total_payment_msat': 10000000, 'attempt_msat': 10000000, 'hops': \[\{'next_node': '" + l2.info['id'] + r"', 'short_channel_id': '" + scid12 + r"', 'direction': " + str(scid12_dir) + r", 'channel_in_msat': 10000101, 'channel_out_msat': 10000101\}, \{'next_node': '" + l3.info['id'] + r"', 'short_channel_id': '" + scid23 + r"', 'direction': " + str(scid23_dir) + r", 'channel_in_msat': 10000101, 'channel_out_msat': 10000000\}\]\}"
-    assert re.match(regex, line)
+    dict_str = line.split("Got pay_part_start: ", 1)[1]
+    data = zero_fields(ast.literal_eval(dict_str), ['groupid'])
+    expected = {'payment_hash': inv2['payment_hash'],
+                'groupid': 0,
+                'partid': 1,
+                'total_payment_msat': 10000000,
+                'attempt_msat': 10000000,
+                'hops': [{'next_node': l2.info['id'],
+                          'short_channel_id': scid12,
+                          'direction': scid12_dir,
+                          'channel_in_msat': 10000101,
+                          'channel_out_msat': 10000101},
+                         {'next_node': l3.info['id'],
+                          'short_channel_id': scid23,
+                          'direction': scid23_dir,
+                          'channel_in_msat': 10000101,
+                          'channel_out_msat': 10000000}]}
+    assert data == expected
 
     line = l1.daemon.wait_for_log("plugin-custom_notifications.py: Got pay_part_end: ")
-    regex = r".*Got pay_part_end: \{'status': 'failure', 'payment_hash': '" + inv2['payment_hash'] + r"', 'groupid': [0-9]*, 'partid': 1, 'failed_msg': '400f00000000009896800000006c', 'duration': [0-9]*\.[0-9]*, 'failed_node_id': '" + l3.info['id'] + r"', 'error_code': 16399, 'error_message': 'incorrect_or_unknown_payment_details'\}"
-    assert re.match(regex, line)
+    dict_str = line.split("Got pay_part_end: ", 1)[1]
+    data = zero_fields(ast.literal_eval(dict_str), ('duration', 'groupid'))
+    expected = {'payment_hash': inv2['payment_hash'],
+                'status': 'failure',
+                'duration': 0,
+                'groupid': 0,
+                'partid': 1,
+                'failed_msg': '400f00000000009896800000006c',
+                'failed_node_id': l3.info['id'],
+                'error_code': 16399,
+                'error_message': 'incorrect_or_unknown_payment_details'}
+    assert data == expected
 
     # Intermediary node failure
     l3.stop()
@@ -876,9 +937,38 @@ def test_attempt_notifications(node_factory):
         l1.rpc.xpay(inv2['bolt11'])
 
     line = l1.daemon.wait_for_log("plugin-custom_notifications.py: Got pay_part_start: ")
-    regex = r".*Got pay_part_start: \{'payment_hash': '" + inv2['payment_hash'] + r"', 'groupid': [0-9]*, 'partid': 1, 'total_payment_msat': 10000000, 'attempt_msat': 10000000, 'hops': \[\{'next_node': '" + l2.info['id'] + r"', 'short_channel_id': '" + scid12 + r"', 'direction': " + str(scid12_dir) + r", 'channel_in_msat': 10000101, 'channel_out_msat': 10000101\}, \{'next_node': '" + l3.info['id'] + r"', 'short_channel_id': '" + scid23 + r"', 'direction': " + str(scid23_dir) + r", 'channel_in_msat': 10000101, 'channel_out_msat': 10000000\}\]\}"
-    assert re.match(regex, line)
+    dict_str = line.split("Got pay_part_start: ", 1)[1]
+    data = zero_fields(ast.literal_eval(dict_str), ['groupid'])
+    expected = {'payment_hash': inv2['payment_hash'],
+                'groupid': 0,
+                'partid': 1,
+                'total_payment_msat': 10000000,
+                'attempt_msat': 10000000,
+                'hops': [{'next_node': l2.info['id'],
+                          'short_channel_id': scid12,
+                          'direction': scid12_dir,
+                          'channel_in_msat': 10000101,
+                          'channel_out_msat': 10000101},
+                         {'next_node': l3.info['id'],
+                          'short_channel_id': scid23,
+                          'direction': scid23_dir,
+                          'channel_in_msat': 10000101,
+                          'channel_out_msat': 10000000}]}
+    assert data == expected
 
     line = l1.daemon.wait_for_log("plugin-custom_notifications.py: Got pay_part_end: ")
-    regex = r".*Got pay_part_end: \{'status': 'failure', 'payment_hash': '" + inv2['payment_hash'] + r"', 'groupid': [0-9]*, 'partid': 1, 'failed_msg': '1007[a-f0-9]*', 'duration': [0-9]*\.[0-9]*, 'failed_node_id': '" + l2.info['id'] + r"', 'failed_short_channel_id': '" + scid23 + r"', 'failed_direction': " + str(scid23_dir) + r", 'error_code': 4103, 'error_message': 'temporary_channel_failure'\}"
-    assert re.match(regex, line)
+    dict_str = line.split("Got pay_part_end: ", 1)[1]
+    data = zero_fields(ast.literal_eval(dict_str), ('duration', 'groupid', 'failed_msg'))
+    expected = {'payment_hash': inv2['payment_hash'],
+                'status': 'failure',
+                'duration': 0,
+                'groupid': 0,
+                'partid': 1,
+                # This includes the channel update: just zero it out
+                'failed_msg': 0,
+                'failed_direction': 0,
+                'failed_node_id': l2.info['id'],
+                'failed_short_channel_id': scid23,
+                'error_code': 4103,
+                'error_message': 'temporary_channel_failure'}
+    assert data == expected
