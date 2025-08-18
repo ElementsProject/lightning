@@ -996,3 +996,17 @@ def test_xpay_offer(node_factory):
 
     l1.rpc.xpay(offer2)
     l1.rpc.xpay(offer2, 5000)
+
+
+def test_xpay_bip353(node_factory):
+    fakebip353_plugin = Path(__file__).parent / "plugins" / "fakebip353.py"
+
+    l1 = node_factory.get_node()
+    offer = l1.rpc.offer('any')['bolt12']
+
+    l2 = node_factory.get_node(options={'disable-plugin': 'cln-bip353',
+                                        'plugin': fakebip353_plugin,
+                                        'bip353offer': offer})
+
+    node_factory.join_nodes([l2, l1])
+    l2.rpc.xpay('fake@fake.com', 100)
