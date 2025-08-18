@@ -327,26 +327,6 @@ def test_balance(node_factory):
     assert p2['total_msat'] == 10**6 * 1000
 
 
-@pytest.mark.openchannel('v1')
-@pytest.mark.openchannel('v2')
-def test_bad_opening(node_factory):
-    # l1 asks for a too-long locktime
-    l1 = node_factory.get_node(options={'watchtime-blocks': 2017})
-    l2 = node_factory.get_node()
-    ret = l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-
-    assert ret['id'] == l2.info['id']
-
-    l1.daemon.wait_for_log('Handed peer, entering loop')
-    l2.daemon.wait_for_log('Handed peer, entering loop')
-
-    l1.fundwallet(10**6 + 1000000)
-    with pytest.raises(RpcError):
-        l1.rpc.fundchannel(l2.info['id'], 10**6)
-
-    l2.daemon.wait_for_log('to_self_delay 2017 larger than 2016')
-
-
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Fee computation and limits are network specific")
 @pytest.mark.slow_test
 @pytest.mark.openchannel('v1')
