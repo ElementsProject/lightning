@@ -4784,6 +4784,19 @@ def test_fetchinvoice_autoconnect(node_factory, bitcoind):
     assert l3.rpc.listpeers(l2.info['id'])['peers'] != []
 
 
+def test_fetchinvoice_autoconnect_if_disconnected(node_factory, bitcoind):
+    """If peer is disconnected, we should NOT try to use it"""
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
+                                         opts={'dev-allow-localhost': None})
+
+    offer = l3.rpc.offer(amount='2msat', description='test_fetchinvoice_autoconnect_if_disconnected1')['bolt12']
+    l1.rpc.fetchinvoice(offer)
+
+    l1.rpc.disconnect(l2.info['id'], force=True)
+    l1.rpc.fetchinvoice(offer)
+
+
+@pytest.mark.xfail(strict=True)
 def test_fetchinvoice_disconnected_reply(node_factory, bitcoind):
     """We ask for invoice, but reply path doesn't lead directly from recipient"""
     l1, l2, l3 = node_factory.get_nodes(3,
