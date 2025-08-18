@@ -35529,7 +35529,7 @@
           "invstring": {
             "type": "string",
             "description": [
-              "bolt11 or bolt12 invoice"
+              "bolt11 or bolt12 invoice, or a bolt12 (non-recursive) offer.  If it's an offer, the invoice is fetch using `fetchinvoice` automatically."
             ]
           },
           "amount_msat": {
