@@ -316,6 +316,20 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags,
 		state->feerate_per_kw = nonanchor_feerate;
 	}
 
+	/* If they use the same settings as us, would we fail?  If so, do that now. */
+	if (!check_config_bounds(tmpctx, state->funding_sats,
+				 state->feerate_per_kw,
+				 state->max_to_self_delay,
+				 state->min_effective_htlc_capacity,
+				 &state->localconf,
+				 &state->localconf,
+				 channel_type_has(state->channel_type, OPT_ANCHORS_ZERO_FEE_HTLC_TX),
+				 &err_reason)) {
+		negotiation_aborted(state,
+				    tal_fmt(tmpctx, "Not opening because if they used the same setting as us %s",
+					    err_reason));
+	}
+
 	open_tlvs = tlv_open_channel_tlvs_new(tmpctx);
 	open_tlvs->upfront_shutdown_script
 		= state->upfront_shutdown_script[LOCAL];

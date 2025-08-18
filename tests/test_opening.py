@@ -2799,7 +2799,7 @@ def test_zeroconf_forget(node_factory, bitcoind, dopay: bool):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd gives different numbers')
-@pytest.mark.xfail(strict=True)
+@pytest.mark.openchannel('v1')
 def test_opening_below_min_capacity_sat(bitcoind, node_factory):
     """OK, here's what happens:
 
