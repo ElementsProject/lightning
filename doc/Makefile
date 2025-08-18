@@ -57,6 +57,7 @@ MARKDOWNPAGES := doc/addgossip.7 \
 	doc/enableoffer.7	\
 	doc/exposesecret.7 \
 	doc/feerates.7 \
+	doc/fetchbip353.7 \
 	doc/fetchinvoice.7 \
 	doc/fundchannel_cancel.7 \
 	doc/fundchannel_complete.7 \

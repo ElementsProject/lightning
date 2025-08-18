@@ -65,6 +65,7 @@ Core Lightning Documentation
    enableoffer <enableoffer.7.md>
    exposesecret <exposesecret.7.md>
    feerates <feerates.7.md>
+   fetchbip353 <fetchbip353.7.md>
    fetchinvoice <fetchinvoice.7.md>
    fundchannel <fundchannel.7.md>
    fundchannel_cancel <fundchannel_cancel.7.md>
