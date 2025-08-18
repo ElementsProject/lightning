@@ -4796,7 +4796,6 @@ def test_fetchinvoice_autoconnect_if_disconnected(node_factory, bitcoind):
     l1.rpc.fetchinvoice(offer)
 
 
-@pytest.mark.xfail(strict=True)
 def test_fetchinvoice_disconnected_reply(node_factory, bitcoind):
     """We ask for invoice, but reply path doesn't lead directly from recipient"""
     l1, l2, l3 = node_factory.get_nodes(3,
