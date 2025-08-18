@@ -17,7 +17,7 @@
       "invstring": {
         "type": "string",
         "description": [
-          "bolt11 or bolt12 invoice, or a bolt12 (non-recursive) offer.  If it's an offer, the invoice is fetch using `fetchinvoice` automatically."
+          "bolt11 or bolt12 invoice, a bolt12 (non-recursive) offer or a BIP353 name.  If it's a bip353 name, an offer is fetched with `fetchbip353` if available.  If it's an offer, the invoice is fetched using `fetchinvoice` automatically."
         ]
       },
       "amount_msat": {

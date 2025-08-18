@@ -1652,11 +1652,49 @@ preapproveinvoice_succeed(struct command *cmd,
 	return populate_private_layer(cmd, payment);
 }
 
+static struct command_result *check_offer_payable(struct command *cmd,
+						  const char *offerstr,
+						  const struct amount_msat *msat)
+{
+	char *err;
+	struct tlv_offer *b12offer = offer_decode(tmpctx,
+						  offerstr,
+						  strlen(offerstr),
+						  plugin_feature_set(cmd->plugin),
+						  chainparams, &err);
+	if (!b12offer)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Invalid bolt12 offer: %s", err);
+	/* We will only one-shot if we know amount!  (FIXME: Convert!) */
+	if (b12offer->offer_currency)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Cannot pay offer in different currency %s",
+				    b12offer->offer_currency);
+	if (b12offer->offer_amount) {
+		if (msat && !amount_msat_eq(amount_msat(*b12offer->offer_amount), *msat)) {
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Offer amount is %s, you tried to pay %s",
+					    fmt_amount_msat(tmpctx, amount_msat(*b12offer->offer_amount)),
+					    fmt_amount_msat(tmpctx, *msat));
+		}
+	} else {
+		if (!msat)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Must specify amount for this offer");
+	}
+	if (b12offer->offer_recurrence)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Cannot xpay recurring offers");
+
+	return NULL;
+}
+
 struct xpay_params {
-	struct amount_msat *maxfee, *partial;
+	struct amount_msat *msat, *maxfee, *partial;
 	const char **layers;
 	unsigned int retryfor;
 	u32 maxdelay, dev_maxparts;
+	const char *bip353;
 };
 
 static struct command_result *
@@ -1675,6 +1713,56 @@ invoice_fetched(struct command *cmd,
 			 params->dev_maxparts, false);
 }
 
+static struct command_result *
+do_fetchinvoice(struct command *cmd, const char *offerstr, struct xpay_params *xparams)
+{
+	struct out_req *req;
+
+	req = jsonrpc_request_start(cmd, "fetchinvoice",
+				    invoice_fetched,
+				    forward_error,
+				    xparams);
+	json_add_string(req->js, "offer", offerstr);
+	if (xparams->msat)
+		json_add_amount_msat(req->js, "amount_msat", *xparams->msat);
+	if (xparams->bip353)
+		json_add_string(req->js, "bip353", xparams->bip353);
+	return send_outreq(req);
+}
+
+static struct command_result *
+bip353_fetched(struct command *cmd,
+		const char *method,
+		const char *buf,
+		const jsmntok_t *result,
+		struct xpay_params *xparams)
+{
+	const jsmntok_t *instructions, *t, *offertok;
+	const char *offerstr;
+	struct command_result *ret;
+	size_t i;
+
+	instructions = json_get_member(buf, result, "instructions");
+	json_for_each_arr(i, t, instructions) {
+		offertok = json_get_member(buf, t, "offer");
+		if (offertok)
+			break;
+	}
+
+	if (!offertok)
+		return command_fail(cmd, PAY_UNSPECIFIED_ERROR,
+				    "BIP353 response did not contain an offer (%.*s)",
+				    json_tok_full_len(result),
+				    json_tok_full(buf, result));
+	offerstr = json_strdup(tmpctx, buf, offertok);
+
+	ret = check_offer_payable(cmd, offerstr, xparams->msat);
+	if (ret)
+		return ret;
+
+	return do_fetchinvoice(cmd, offerstr, xparams);
+}
+
 static struct command_result *json_xpay_params(struct command *cmd,
 					       const char *buffer,
 					       const jsmntok_t *params,
@@ -1686,7 +1774,7 @@ static struct command_result *json_xpay_params(struct command *cmd,
 	u32 *maxdelay, *maxparts;
 	unsigned int *retryfor;
 	struct out_req *req;
-	char *err;
+	struct xpay_params *xparams;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("invstring", param_invstring, &invstring),
@@ -1706,53 +1794,44 @@ static struct command_result *json_xpay_params(struct command *cmd,
 
 	/* Is this a one-shot vibe payment?  Kids these days! */
 	if (!as_pay && bolt12_has_offer_prefix(invstring)) {
-		struct xpay_params *xparams;
-		struct tlv_offer *b12offer = offer_decode(tmpctx,
-							  invstring,
-							  strlen(invstring),
-							  plugin_feature_set(cmd->plugin),
-							  chainparams, &err);
-		if (!b12offer)
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "Invalid bolt12 offer: %s", err);
-		/* We will only one-shot if we know amount!  (FIXME: Convert!) */
-		if (b12offer->offer_currency)
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "Cannot pay offer in different currency %s",
-					    b12offer->offer_currency);
-		if (b12offer->offer_amount) {
-			if (msat && !amount_msat_eq(amount_msat(*b12offer->offer_amount), *msat)) {
-				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-						    "Offer amount is %s, you tried to pay %s",
-						    fmt_amount_msat(tmpctx, amount_msat(*b12offer->offer_amount)),
-						    fmt_amount_msat(tmpctx, *msat));
-			}
-		} else {
-			if (!msat)
-				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-						    "Must specify amount for this offer");
-		}
-		if (b12offer->offer_recurrence)
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "Cannot xpay recurring offers");
+		struct command_result *ret;
+
+		ret = check_offer_payable(cmd, invstring, msat);
+		if (ret)
+			return ret;
 
 		if (command_check_only(cmd))
 			return command_check_done(cmd);
 
 		xparams = tal(cmd, struct xpay_params);
+		xparams->msat = msat;
 		xparams->maxfee = maxfee;
 		xparams->partial = partial;
 		xparams->layers = layers;
 		xparams->retryfor = *retryfor;
 		xparams->maxdelay = *maxdelay;
 		xparams->dev_maxparts = *maxparts;
+		xparams->bip353 = NULL;
 
-		req = jsonrpc_request_start(cmd, "fetchinvoice",
-					    invoice_fetched,
+		return do_fetchinvoice(cmd, invstring, xparams);
+	}
+
+	/* BIP353? */
+	if (!as_pay && strchr(invstring, '@')) {
+		xparams = tal(cmd, struct xpay_params);
+		xparams->msat = msat;
+		xparams->maxfee = maxfee;
+		xparams->partial = partial;
+		xparams->layers = layers;
+		xparams->retryfor = *retryfor;
+		xparams->maxdelay = *maxdelay;
+		xparams->dev_maxparts = *maxparts;
+		xparams->bip353 = invstring;
+
+		req = jsonrpc_request_start(cmd, "fetchbip353",
+					    bip353_fetched,
 					    forward_error, xparams);
-		json_add_string(req->js, "offer", invstring);
-		if (msat)
-			json_add_amount_msat(req->js, "amount_msat", *msat);
+		json_add_string(req->js, "address", invstring);
 		return send_outreq(req);
 	}
 
