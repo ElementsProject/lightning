@@ -344,16 +344,13 @@ export CPATH=/opt/homebrew/include
 export LIBRARY_PATH=/opt/homebrew/lib
 ```
 
-If you need Python 3.x for mako (or get a mako build error):
+Install uv for Python dependency management:
 
 ```shell
-brew install pyenv
-echo -e 'if command -v pyenv 1>/dev/null 2>&1; then\n  eval "$(pyenv init -)"\nfi' >> ~/.bash_profile
-source ~/.bash_profile
-pyenv install 3.9
-pip install --upgrade pip
-pip install poetry==2.0.1
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
+
+After installing uv, restart your shell or run `source ~/.zshrc` to ensure `uv` is in your PATH.
 
 If you don't have bitcoind installed locally you'll need to install that as well:
 
@@ -382,9 +379,9 @@ git checkout v24.05
 Build lightning:
 
 ```shell
-poetry install
+uv sync --all-extras --all-groups
 ./configure
-poetry run make
+uv run make
 ```
 
 Running lightning:
