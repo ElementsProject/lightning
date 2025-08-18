@@ -978,3 +978,21 @@ def test_attempt_notifications(node_factory):
                  'error_code': 4103,
                  'error_message': 'temporary_channel_failure'}}
     assert data == expected
+
+
+def test_xpay_offer(node_factory):
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+
+    offer1 = l3.rpc.offer('any')['bolt12']
+    offer2 = l3.rpc.offer('5sat', "5sat donation")['bolt12']
+
+    with pytest.raises(RpcError, match=r"Must specify amount for this offer"):
+        l1.rpc.xpay(offer1)
+
+    l1.rpc.xpay(offer1, 100)
+
+    with pytest.raises(RpcError, match=r"Offer amount is 5000msat, you tried to pay 1000msat"):
+        l1.rpc.xpay(offer2, 1000)
+
+    l1.rpc.xpay(offer2)
+    l1.rpc.xpay(offer2, 5000)
