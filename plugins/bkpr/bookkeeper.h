@@ -2,6 +2,7 @@
 #define LIGHTNING_PLUGINS_BKPR_BOOKKEEPER_H
 
 #include "config.h"
+#include <common/json_parse.h>
 
 struct bkpr {
 	/* The database that we store all the accounting data in */
@@ -11,5 +12,12 @@ struct bkpr {
 	char *db_dsn;
 	char *datadir;
 };
+
+/* Helper to ignore returns from datastore */
+struct command_result *ignore_datastore_reply(struct command *cmd,
+					      const char *method,
+					      const char *buf,
+					      const jsmntok_t *result,
+					      void *arg);
 
 #endif /* LIGHTNING_PLUGINS_BKPR_BOOKKEEPER_H */

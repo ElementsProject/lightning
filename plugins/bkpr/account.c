@@ -1,18 +1,17 @@
 #include "config.h"
 
 #include <ccan/htable/htable_type.h>
+#include <ccan/json_out/json_out.h>
 #include <ccan/str/str.h>
 #include <ccan/tal/str/str.h>
 #include <common/memleak.h>
 #include <common/node_id.h>
-#include <db/bindings.h>
-#include <db/common.h>
-#include <db/exec.h>
-#include <db/utils.h>
 #include <plugins/bkpr/account.h>
 #include <plugins/bkpr/bookkeeper.h>
 #include <plugins/bkpr/chain_event.h>
 #include <plugins/bkpr/recorder.h>
+#include <plugins/libplugin.h>
+#include <wire/wire.h>
 
 static size_t hash_str(const char *str)
 {
@@ -66,42 +65,64 @@ static struct account *new_account(struct accounts *accounts,
 	return a;
 }
 
-static struct account *stmt2account(struct accounts *accounts,
-				    struct db_stmt *stmt)
+static void towire_account(u8 **pptr, const struct account *account)
 {
-	struct account *a;
-
-	a = new_account(accounts, take(db_col_strdup(NULL, stmt, "name")));
-
-	if (!db_col_is_null(stmt, "peer_id")) {
-		a->peer_id = tal(a, struct node_id);
-		db_col_node_id(stmt, "peer_id", a->peer_id);
+	towire_wirestring(pptr, account->name);
+	if (account->peer_id) {
+		towire_bool(pptr, true);
+		towire_node_id(pptr, account->peer_id);
 	} else
-		a->peer_id = NULL;
-	a->is_wallet = db_col_int(stmt, "is_wallet") != 0;
-	a->we_opened = db_col_int(stmt, "we_opened") != 0;
-	a->leased = db_col_int(stmt, "leased") != 0;
-
-	if (!db_col_is_null(stmt, "onchain_resolved_block")) {
-		a->onchain_resolved_block = db_col_int(stmt, "onchain_resolved_block");
+		towire_bool(pptr, false);
+	towire_bool(pptr, account->we_opened);
+	towire_bool(pptr, account->leased);
+	towire_u64(pptr, account->onchain_resolved_block);
+	if (account->open_event_db_id) {
+		towire_bool(pptr, true);
+		towire_u64(pptr, *account->open_event_db_id);
 	} else
-		a->onchain_resolved_block = 0;
-
-	if (!db_col_is_null(stmt, "opened_event_id")) {
-		a->open_event_db_id = tal(a, u64);
-		*a->open_event_db_id = db_col_u64(stmt, "opened_event_id");
+		towire_bool(pptr, false);
+	if (account->closed_event_db_id) {
+		towire_bool(pptr, true);
+		towire_u64(pptr, *account->closed_event_db_id);
 	} else
-		a->open_event_db_id = NULL;
+		towire_bool(pptr, false);
+	towire_u32(pptr, account->closed_count);
+}
 
-	if (!db_col_is_null(stmt, "closed_event_id")) {
-		a->closed_event_db_id = tal(a, u64);
-		*a->closed_event_db_id = db_col_u64(stmt, "closed_event_id");
+static struct account *fromwire_account(struct accounts *accounts,
+					const u8 **pptr, size_t *max)
+{
+	const char *name;
+	struct account *account;
+
+	name = fromwire_wirestring(NULL, pptr, max);
+	if (!name)
+		return NULL;
+
+	account = new_account(accounts, take(name));
+	if (fromwire_bool(pptr, max)) {
+		account->peer_id = tal(account, struct node_id);
+		fromwire_node_id(pptr, max, account->peer_id);
 	} else
-		a->closed_event_db_id = NULL;
+		account->peer_id = NULL;
+	account->we_opened = fromwire_bool(pptr, max);
+	account->leased = fromwire_bool(pptr, max);
+	account->onchain_resolved_block = fromwire_u64(pptr, max);
+	if (fromwire_bool(pptr, max)) {
+		account->open_event_db_id = tal(account, u64);
+		*account->open_event_db_id = fromwire_u64(pptr, max);
+	} else
+		account->open_event_db_id = NULL;
+	if (fromwire_bool(pptr, max)) {
+		account->closed_event_db_id = tal(account, u64);
+		*account->closed_event_db_id = fromwire_u64(pptr, max);
+	} else
+		account->closed_event_db_id = NULL;
+	account->closed_count = fromwire_u32(pptr, max);
 
-	a->closed_count = db_col_int(stmt, "closed_count");
-
-	return a;
+	if (!pptr)
+		return tal_free(account);
+	return account;
 }
 
 struct account **list_accounts(const tal_t *ctx, const struct bkpr *bkpr)
@@ -123,41 +144,30 @@ struct account **list_accounts(const tal_t *ctx, const struct bkpr *bkpr)
 	return results;
 }
 
-static void account_db_add(struct db *db, struct account *acct)
+static const char *ds_path(const tal_t *ctx, const char *acctname)
 {
-	struct db_stmt *stmt;
-
-	stmt = db_prepare_v2(db, SQL("INSERT INTO accounts"
-				     " ("
-				     "  name"
-				     ", peer_id"
-				     ", is_wallet"
-				     ", we_opened"
-				     ", leased"
-				     ")"
-				     " VALUES"
-				     " (?, ?, ?, ?, ?);"));
-
-	db_bind_text(stmt, acct->name);
-	if (acct->peer_id)
-		db_bind_node_id(stmt, acct->peer_id);
-	else
-		db_bind_null(stmt);
-	db_bind_int(stmt, acct->is_wallet ? 1 : 0);
-	db_bind_int(stmt, acct->we_opened ? 1 : 0);
-	db_bind_int(stmt, acct->leased ? 1 : 0);
-
-	db_exec_prepared_v2(take(stmt));
+	return tal_fmt(ctx, "bookkeeper/account/%s", acctname);
 }
 
-void maybe_update_account(struct bkpr *bkpr,
+static void account_datastore_set(struct command *cmd,
+				  const struct account *acct,
+				  const char *mode)
+{
+	const char *path = ds_path(tmpctx, acct->name);
+	u8 *data = tal_arr(tmpctx, u8, 0);
+
+	towire_account(&data, acct);
+	jsonrpc_set_datastore_binary(cmd, path, data, tal_bytelen(data), mode,
+				     ignore_datastore_reply, NULL, NULL);
+}
+
+void maybe_update_account(struct command *cmd,
 			  struct account *acct,
 			  struct chain_event *e,
 			  const enum mvt_tag *tags,
 			  u32 closed_count,
 			  struct node_id *peer_id)
 {
-	struct db_stmt *stmt;
 	bool updated = false;
 
 	for (size_t i = 0; i < tal_count(tags); i++) {
@@ -227,57 +237,18 @@ void maybe_update_account(struct bkpr *bkpr,
 		return;
 
 	/* Otherwise, we update the account ! */
-	stmt = db_prepare_v2(bkpr->db,
-			     SQL("UPDATE accounts SET"
-				 "  opened_event_id = ?"
-				 ", closed_event_id = ?"
-				 ", we_opened = ?"
-				 ", leased = ?"
-				 ", closed_count = ?"
-				 ", peer_id = ?"
-				 " WHERE"
-				 " name = ?"));
-
-	if (acct->open_event_db_id)
-		db_bind_u64(stmt, *acct->open_event_db_id);
-	else
-		db_bind_null(stmt);
-
-	if (acct->closed_event_db_id)
-		db_bind_u64(stmt, *acct->closed_event_db_id);
-	else
-		db_bind_null(stmt);
-
-	db_bind_int(stmt, acct->we_opened ? 1 : 0);
-	db_bind_int(stmt, acct->leased ? 1 : 0);
-	db_bind_int(stmt, acct->closed_count);
-	if (acct->peer_id)
-		db_bind_node_id(stmt, acct->peer_id);
-	else
-		db_bind_null(stmt);
-
-	db_bind_text(stmt, acct->name);
-
-	db_exec_prepared_v2(take(stmt));
+	account_datastore_set(cmd, acct, "must-replace");
 }
 
-void account_update_closeheight(struct bkpr *bkpr,
+void account_update_closeheight(struct command *cmd,
 				struct account *acct,
 				u64 close_height)
 {
-	struct db_stmt *stmt;
-
 	assert(close_height);
 	acct->onchain_resolved_block = close_height;
 
 	/* Ok, now we update the account with this blockheight */
-	stmt = db_prepare_v2(bkpr->db, SQL("UPDATE accounts SET"
-					   "  onchain_resolved_block = ?"
-					   " WHERE"
-					   " name = ?"));
-	db_bind_int(stmt, acct->onchain_resolved_block);
-	db_bind_text(stmt, acct->name);
-	db_exec_prepared_v2(take(stmt));
+	account_datastore_set(cmd, acct, "must-replace");
 }
 
 struct account *find_account(const struct bkpr *bkpr,
@@ -286,7 +257,8 @@ struct account *find_account(const struct bkpr *bkpr,
 	return account_htable_get(bkpr->accounts->htable, name);
 }
 
-struct account *find_or_create_account(struct bkpr *bkpr,
+struct account *find_or_create_account(struct command *cmd,
+				       struct bkpr *bkpr,
 				       const char *name)
 {
 	struct account *a = find_account(bkpr, name);
@@ -295,7 +267,7 @@ struct account *find_or_create_account(struct bkpr *bkpr,
 		return a;
 
 	a = new_account(bkpr->accounts, name);
-	account_db_add(bkpr->db, a);
+	account_datastore_set(cmd, a, "must-create");
 	return a;
 }
 
@@ -305,35 +277,51 @@ static void memleak_scan_accounts_htable(struct htable *memtable,
 	memleak_scan_htable(memtable, &ht->raw);
 }
 
-struct accounts *init_accounts(const tal_t *ctx, struct db *db)
+struct accounts *init_accounts(const tal_t *ctx, struct command *init_cmd)
 {
+	struct json_out *params = json_out_new(tmpctx);
+	const jsmntok_t *result;
+	const char *buf;
+	const jsmntok_t *datastore, *t;
+	size_t i;
 	struct accounts *accounts = tal(ctx, struct accounts);
-	struct db_stmt *stmt;
 
 	accounts->htable = tal(accounts, struct account_htable);
 	account_htable_init(accounts->htable);
 	memleak_add_helper(accounts->htable, memleak_scan_accounts_htable);
 
-	db_begin_transaction(db);
-	stmt = db_prepare_v2(db,
-			     SQL("SELECT"
-				 " name"
-				 ", peer_id"
-				 ", opened_event_id"
-				 ", closed_event_id"
-				 ", onchain_resolved_block"
-				 ", is_wallet"
-				 ", we_opened"
-				 ", leased"
-				 ", closed_count"
-				 " FROM accounts"));
-	db_query_prepared(stmt);
+	json_out_start(params, NULL, '{');
+	json_out_start(params, "key", '[');
+	json_out_addstr(params, NULL, "bookkeeper");
+	json_out_addstr(params, NULL, "account");
+	json_out_end(params, ']');
+	json_out_end(params, '}');
+	result = jsonrpc_request_sync(tmpctx, init_cmd,
+				      "listdatastore",
+				      params, &buf);
 
-	while (db_step(stmt))
-		stmt2account(accounts, stmt);
+	datastore = json_get_member(buf, result, "datastore");
+	json_for_each_arr(i, t, datastore) {
+		size_t datalen;
+		const jsmntok_t *key, *datatok;
+		const u8 *data;
 
-	tal_free(stmt);
-	db_commit_transaction(db);
+		/* Key is an array, first two elements are bookkeeper, account */
+		key = json_get_member(buf, t, "key") + 3;
+		datatok = json_get_member(buf, t, "hex");
+		/* In case someone creates a subdir? */
+		if (!datatok)
+			continue;
 
+		data = json_tok_bin_from_hex(tmpctx, buf, datatok);
+		datalen = tal_bytelen(data);
+
+		if (fromwire_account(accounts, &data, &datalen) == NULL) {
+			plugin_err(init_cmd->plugin,
+				   "Invalid account %.*s in datastore",
+				   json_tok_full_len(key),
+				   json_tok_full(buf, key));
+		}
+	}
 	return accounts;
 }

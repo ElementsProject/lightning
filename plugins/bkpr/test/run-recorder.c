@@ -2,15 +2,19 @@
 #include "common/json_filter.c"
 #include "test_utils.h"
 
-#include "plugins/libplugin.c"
-
 #include <bitcoin/tx.h>
 #include <ccan/tal/str/str.h>
 #include <common/coin_mvt.h>
+#include <common/daemon.h>
+#include <common/deprecation.h>
 #include <common/fee_states.h>
 #include <common/htlc.h>
+#include <common/json_param.h>
+#include <common/json_parse_simple.h>
 #include <common/json_stream.h>
+#include <common/plugin.h>
 #include <common/setup.h>
+#include <common/trace.h>
 #include <common/utils.h>
 #include <db/common.h>
 #include <plugins/bkpr/account.h>
@@ -20,6 +24,7 @@
 #include <plugins/bkpr/channel_event.h>
 #include <plugins/bkpr/onchain_fee.h>
 #include <plugins/bkpr/recorder.h>
+#include <plugins/libplugin.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <wire/wire.h>
@@ -36,222 +41,78 @@ struct command_result *command_fail_badparam(struct command *cmd UNNEEDED,
 					     const jsmntok_t *tok UNNEEDED,
 					     const char *msg UNNEEDED)
 { fprintf(stderr, "command_fail_badparam called!\n"); abort(); }
-/* Generated stub for daemon_developer_mode */
-bool daemon_developer_mode(char *argv[])
-{ fprintf(stderr, "daemon_developer_mode called!\n"); abort(); }
-/* Generated stub for daemon_setup */
-void daemon_setup(const char *argv0 UNNEEDED,
-		  void (*backtrace_print)(const char *fmt UNNEEDED, ...) UNNEEDED,
-		  void (*backtrace_exit)(void))
-{ fprintf(stderr, "daemon_setup called!\n"); abort(); }
-/* Generated stub for deprecated_ok_ */
-bool  deprecated_ok_(bool deprecated_apis UNNEEDED,
-		    const char *feature UNNEEDED,
-		    const char *start UNNEEDED,
-		    const char *end UNNEEDED,
-		    const char **begs UNNEEDED,
-		    void (*complain)(const char *feat UNNEEDED, bool allowing UNNEEDED, void *) UNNEEDED,
-		    void *cbarg UNNEEDED)
-{ fprintf(stderr, "deprecated_ok_ called!\n"); abort(); }
+/* Generated stub for command_filter_ptr */
+struct json_filter **command_filter_ptr(struct command *cmd UNNEEDED)
+{ fprintf(stderr, "command_filter_ptr called!\n"); abort(); }
 /* Generated stub for first_fee_state */
 enum htlc_state first_fee_state(enum side opener UNNEEDED)
 { fprintf(stderr, "first_fee_state called!\n"); abort(); }
 /* Generated stub for fmt_wireaddr_without_port */
 char *fmt_wireaddr_without_port(const tal_t *ctx UNNEEDED, const struct wireaddr *a UNNEEDED)
 { fprintf(stderr, "fmt_wireaddr_without_port called!\n"); abort(); }
-/* Generated stub for fromwire */
-const u8 *fromwire(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, void *copy UNNEEDED, size_t n UNNEEDED)
-{ fprintf(stderr, "fromwire called!\n"); abort(); }
-/* Generated stub for fromwire_bool */
-bool fromwire_bool(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
-{ fprintf(stderr, "fromwire_bool called!\n"); abort(); }
-/* Generated stub for fromwire_fail */
-void *fromwire_fail(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
-{ fprintf(stderr, "fromwire_fail called!\n"); abort(); }
-/* Generated stub for fromwire_secp256k1_ecdsa_signature */
-void fromwire_secp256k1_ecdsa_signature(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
-					secp256k1_ecdsa_signature *signature UNNEEDED)
-{ fprintf(stderr, "fromwire_secp256k1_ecdsa_signature called!\n"); abort(); }
-/* Generated stub for fromwire_sha256 */
-void fromwire_sha256(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct sha256 *sha256 UNNEEDED)
-{ fprintf(stderr, "fromwire_sha256 called!\n"); abort(); }
-/* Generated stub for fromwire_tal_arrn */
-u8 *fromwire_tal_arrn(const tal_t *ctx UNNEEDED,
-		       const u8 **cursor UNNEEDED, size_t *max UNNEEDED, size_t num UNNEEDED)
-{ fprintf(stderr, "fromwire_tal_arrn called!\n"); abort(); }
-/* Generated stub for fromwire_u16 */
-u16 fromwire_u16(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
-{ fprintf(stderr, "fromwire_u16 called!\n"); abort(); }
-/* Generated stub for fromwire_u32 */
-u32 fromwire_u32(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
-{ fprintf(stderr, "fromwire_u32 called!\n"); abort(); }
-/* Generated stub for fromwire_u64 */
-u64 fromwire_u64(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
-{ fprintf(stderr, "fromwire_u64 called!\n"); abort(); }
-/* Generated stub for fromwire_u8 */
-u8 fromwire_u8(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
-{ fprintf(stderr, "fromwire_u8 called!\n"); abort(); }
-/* Generated stub for fromwire_u8_array */
-void fromwire_u8_array(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, u8 *arr UNNEEDED, size_t num UNNEEDED)
-{ fprintf(stderr, "fromwire_u8_array called!\n"); abort(); }
 /* Generated stub for fromwire_wireaddr */
 bool fromwire_wireaddr(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct wireaddr *addr UNNEEDED)
 { fprintf(stderr, "fromwire_wireaddr called!\n"); abort(); }
-/* Generated stub for fromwire_wirestring */
-char *fromwire_wirestring(const tal_t *ctx UNNEEDED, const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
-{ fprintf(stderr, "fromwire_wirestring called!\n"); abort(); }
 /* Generated stub for htlc_state_flags */
 int htlc_state_flags(enum htlc_state state UNNEEDED)
 { fprintf(stderr, "htlc_state_flags called!\n"); abort(); }
 /* Generated stub for htlc_state_name */
 const char *htlc_state_name(enum htlc_state s UNNEEDED)
 { fprintf(stderr, "htlc_state_name called!\n"); abort(); }
-/* Generated stub for is_asterix_notification */
-bool is_asterix_notification(const char *notification_name UNNEEDED,
-			     const char *subscriptions UNNEEDED)
-{ fprintf(stderr, "is_asterix_notification called!\n"); abort(); }
-/* Generated stub for json_get_id */
-const char *json_get_id(const tal_t *ctx UNNEEDED,
-			const char *buffer UNNEEDED, const jsmntok_t *obj UNNEEDED)
-{ fprintf(stderr, "json_get_id called!\n"); abort(); }
-/* Generated stub for json_get_membern */
-const jsmntok_t *json_get_membern(const char *buffer UNNEEDED,
-				  const jsmntok_t tok[] UNNEEDED,
-				  const char *label UNNEEDED, size_t len UNNEEDED)
-{ fprintf(stderr, "json_get_membern called!\n"); abort(); }
-/* Generated stub for json_next */
-const jsmntok_t *json_next(const jsmntok_t *tok UNNEEDED)
-{ fprintf(stderr, "json_next called!\n"); abort(); }
-/* Generated stub for json_parse_input */
-bool json_parse_input(jsmn_parser *parser UNNEEDED,
-		      jsmntok_t **toks UNNEEDED,
-		      const char *input UNNEEDED, int len UNNEEDED,
-		      bool *complete UNNEEDED)
-{ fprintf(stderr, "json_parse_input called!\n"); abort(); }
-/* Generated stub for json_parse_simple */
-jsmntok_t *json_parse_simple(const tal_t *ctx UNNEEDED, const char *input UNNEEDED, int len UNNEEDED)
-{ fprintf(stderr, "json_parse_simple called!\n"); abort(); }
-/* Generated stub for json_scan */
-const char *json_scan(const tal_t *ctx UNNEEDED,
-		      const char *buffer UNNEEDED,
-		      const jsmntok_t *tok UNNEEDED,
-		      const char *guide UNNEEDED,
-		      ...)
-{ fprintf(stderr, "json_scan called!\n"); abort(); }
-/* Generated stub for json_scanv */
-const char *json_scanv(const tal_t *ctx UNNEEDED,
-		       const char *buffer UNNEEDED,
-		       const jsmntok_t *tok UNNEEDED,
-		       const char *guide UNNEEDED,
-		       va_list ap UNNEEDED)
-{ fprintf(stderr, "json_scanv called!\n"); abort(); }
-/* Generated stub for json_strdup */
-char *json_strdup(const tal_t *ctx UNNEEDED, const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED)
-{ fprintf(stderr, "json_strdup called!\n"); abort(); }
-/* Generated stub for json_to_bool */
-bool json_to_bool(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, bool *b UNNEEDED)
-{ fprintf(stderr, "json_to_bool called!\n"); abort(); }
-/* Generated stub for json_to_int */
-bool json_to_int(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, int *num UNNEEDED)
-{ fprintf(stderr, "json_to_int called!\n"); abort(); }
-/* Generated stub for json_to_msat */
-bool json_to_msat(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-		  struct amount_msat *msat UNNEEDED)
-{ fprintf(stderr, "json_to_msat called!\n"); abort(); }
-/* Generated stub for json_to_node_id */
-bool json_to_node_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-			       struct node_id *id UNNEEDED)
-{ fprintf(stderr, "json_to_node_id called!\n"); abort(); }
-/* Generated stub for json_to_number */
-bool json_to_number(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-		    unsigned int *num UNNEEDED)
-{ fprintf(stderr, "json_to_number called!\n"); abort(); }
-/* Generated stub for json_to_secret */
-bool json_to_secret(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, struct secret *dest UNNEEDED)
-{ fprintf(stderr, "json_to_secret called!\n"); abort(); }
-/* Generated stub for json_to_short_channel_id */
-bool json_to_short_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-			      struct short_channel_id *scid UNNEEDED)
-{ fprintf(stderr, "json_to_short_channel_id called!\n"); abort(); }
-/* Generated stub for json_to_txid */
-bool json_to_txid(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-		  struct bitcoin_txid *txid UNNEEDED)
-{ fprintf(stderr, "json_to_txid called!\n"); abort(); }
-/* Generated stub for json_to_u16 */
-bool json_to_u16(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-                 uint16_t *num UNNEEDED)
-{ fprintf(stderr, "json_to_u16 called!\n"); abort(); }
+/* Generated stub for ignore_datastore_reply */
+struct command_result *ignore_datastore_reply(struct command *cmd UNNEEDED,
+					      const char *method UNNEEDED,
+					      const char *buf UNNEEDED,
+					      const jsmntok_t *result UNNEEDED,
+					      void *arg UNNEEDED)
+{ fprintf(stderr, "ignore_datastore_reply called!\n"); abort(); }
 /* Generated stub for json_tok_bin_from_hex */
 u8 *json_tok_bin_from_hex(const tal_t *ctx UNNEEDED, const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED)
 { fprintf(stderr, "json_tok_bin_from_hex called!\n"); abort(); }
-/* Generated stub for json_tok_copy */
-jsmntok_t *json_tok_copy(const tal_t *ctx UNNEEDED, const jsmntok_t *tok UNNEEDED)
-{ fprintf(stderr, "json_tok_copy called!\n"); abort(); }
-/* Generated stub for json_tok_full */
-const char *json_tok_full(const char *buffer UNNEEDED, const jsmntok_t *t UNNEEDED)
-{ fprintf(stderr, "json_tok_full called!\n"); abort(); }
-/* Generated stub for json_tok_full_len */
-int json_tok_full_len(const jsmntok_t *t UNNEEDED)
-{ fprintf(stderr, "json_tok_full_len called!\n"); abort(); }
-/* Generated stub for json_tok_remove */
-void json_tok_remove(jsmntok_t **tokens UNNEEDED,
-		     jsmntok_t *obj_or_array UNNEEDED, const jsmntok_t *tok UNNEEDED, size_t num UNNEEDED)
-{ fprintf(stderr, "json_tok_remove called!\n"); abort(); }
-/* Generated stub for json_tok_strneq */
-bool json_tok_strneq(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-		     const char *str UNNEEDED, size_t len UNNEEDED)
-{ fprintf(stderr, "json_tok_strneq called!\n"); abort(); }
+/* Generated stub for jsonrpc_request_sync */
+const jsmntok_t *jsonrpc_request_sync(const tal_t *ctx UNNEEDED,
+				      struct command *init_cmd UNNEEDED,
+				      const char *method UNNEEDED,
+				      const struct json_out *params TAKES UNNEEDED,
+				      const char **resp UNNEEDED)
+{ fprintf(stderr, "jsonrpc_request_sync called!\n"); abort(); }
+/* Generated stub for jsonrpc_set_datastore_ */
+struct command_result *jsonrpc_set_datastore_(struct command *cmd UNNEEDED,
+					      const char *path UNNEEDED,
+					      const void *value UNNEEDED,
+					      int len_or_str UNNEEDED,
+					      const char *mode UNNEEDED,
+					      struct command_result *(*cb)(struct command *command UNNEEDED,
+									   const char *method UNNEEDED,
+									   const char *buf UNNEEDED,
+									   const jsmntok_t *result UNNEEDED,
+									   void *arg) UNNEEDED,
+					      struct command_result *(*errcb)(struct command *command UNNEEDED,
+									      const char *method UNNEEDED,
+									      const char *buf UNNEEDED,
+									      const jsmntok_t *result UNNEEDED,
+									      void *arg) UNNEEDED,
+					      void *arg)
+
+{ fprintf(stderr, "jsonrpc_set_datastore_ called!\n"); abort(); }
 /* Generated stub for last_fee_state */
 enum htlc_state last_fee_state(enum side opener UNNEEDED)
 { fprintf(stderr, "last_fee_state called!\n"); abort(); }
-/* Generated stub for log_level_name */
-const char *log_level_name(enum log_level level UNNEEDED)
-{ fprintf(stderr, "log_level_name called!\n"); abort(); }
-/* Generated stub for param_check */
-bool param_check(struct command *cmd UNNEEDED,
-		 const char *buffer UNNEEDED,
-		 const jsmntok_t tokens[] UNNEEDED, ...)
-{ fprintf(stderr, "param_check called!\n"); abort(); }
+/* Generated stub for plugin_developer_mode */
+bool plugin_developer_mode(const struct plugin *plugin UNNEEDED)
+{ fprintf(stderr, "plugin_developer_mode called!\n"); abort(); }
+/* Generated stub for plugin_err */
+void   plugin_err(struct plugin *p UNNEEDED, const char *fmt UNNEEDED, ...)
+{ fprintf(stderr, "plugin_err called!\n"); abort(); }
+/* Generated stub for plugin_log */
+void plugin_log(struct plugin *p UNNEEDED, enum log_level l UNNEEDED, const char *fmt UNNEEDED, ...)
+{ fprintf(stderr, "plugin_log called!\n"); abort(); }
+/* Generated stub for plugin_logv */
+void plugin_logv(struct plugin *p UNNEEDED, enum log_level l UNNEEDED, const char *fmt UNNEEDED, va_list ap UNNEEDED)
+{ fprintf(stderr, "plugin_logv called!\n"); abort(); }
 /* Generated stub for send_backtrace */
 void send_backtrace(const char *why UNNEEDED)
 { fprintf(stderr, "send_backtrace called!\n"); abort(); }
-/* Generated stub for toks_alloc */
-jsmntok_t *toks_alloc(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "toks_alloc called!\n"); abort(); }
-/* Generated stub for toks_reset */
-void toks_reset(jsmntok_t *toks UNNEEDED)
-{ fprintf(stderr, "toks_reset called!\n"); abort(); }
-/* Generated stub for towire */
-void towire(u8 **pptr UNNEEDED, const void *data UNNEEDED, size_t len UNNEEDED)
-{ fprintf(stderr, "towire called!\n"); abort(); }
-/* Generated stub for towire_bool */
-void towire_bool(u8 **pptr UNNEEDED, bool v UNNEEDED)
-{ fprintf(stderr, "towire_bool called!\n"); abort(); }
-/* Generated stub for towire_secp256k1_ecdsa_signature */
-void towire_secp256k1_ecdsa_signature(u8 **pptr UNNEEDED,
-			      const secp256k1_ecdsa_signature *signature UNNEEDED)
-{ fprintf(stderr, "towire_secp256k1_ecdsa_signature called!\n"); abort(); }
-/* Generated stub for towire_sha256 */
-void towire_sha256(u8 **pptr UNNEEDED, const struct sha256 *sha256 UNNEEDED)
-{ fprintf(stderr, "towire_sha256 called!\n"); abort(); }
-/* Generated stub for towire_u16 */
-void towire_u16(u8 **pptr UNNEEDED, u16 v UNNEEDED)
-{ fprintf(stderr, "towire_u16 called!\n"); abort(); }
-/* Generated stub for towire_u32 */
-void towire_u32(u8 **pptr UNNEEDED, u32 v UNNEEDED)
-{ fprintf(stderr, "towire_u32 called!\n"); abort(); }
-/* Generated stub for towire_u64 */
-void towire_u64(u8 **pptr UNNEEDED, u64 v UNNEEDED)
-{ fprintf(stderr, "towire_u64 called!\n"); abort(); }
-/* Generated stub for towire_u8 */
-void towire_u8(u8 **pptr UNNEEDED, u8 v UNNEEDED)
-{ fprintf(stderr, "towire_u8 called!\n"); abort(); }
-/* Generated stub for towire_u8_array */
-void towire_u8_array(u8 **pptr UNNEEDED, const u8 *arr UNNEEDED, size_t num UNNEEDED)
-{ fprintf(stderr, "towire_u8_array called!\n"); abort(); }
-/* Generated stub for towire_wirestring */
-void towire_wirestring(u8 **pptr UNNEEDED, const char *str UNNEEDED)
-{ fprintf(stderr, "towire_wirestring called!\n"); abort(); }
 /* AUTOGENERATED MOCKS END */
 
 static char *tmp_dsn(const tal_t *ctx)
@@ -268,12 +129,12 @@ static char *tmp_dsn(const tal_t *ctx)
 	return dsn;
 }
 
-static struct bkpr *bkpr_setup(const tal_t *ctx, struct plugin *p)
+static struct bkpr *bkpr_setup(const tal_t *ctx)
 {
 	struct bkpr *bkpr = tal(ctx, struct bkpr);
 
-	bkpr->db = db_setup(bkpr, p, tmp_dsn(ctx));
-	bkpr->accounts = init_accounts(ctx, bkpr->db);
+	bkpr->db = db_setup(bkpr, NULL, tmp_dsn(ctx));
+	bkpr->accounts = init_accounts(ctx, NULL);
 	return bkpr;
 }
 
@@ -420,9 +281,9 @@ static struct chain_event *make_chain_event(const tal_t *ctx,
 	return ev;
 }
 
-static bool test_onchain_fee_wallet_spend(const tal_t *ctx, struct plugin *p)
+static bool test_onchain_fee_wallet_spend(const tal_t *ctx)
 {
-	struct bkpr *bkpr = bkpr_setup(ctx, p);
+	struct bkpr *bkpr = bkpr_setup(ctx);
 	struct db *db = bkpr->db;
 	struct node_id node_id, peer_id;
 	struct account *wal_acct, *ext_acct;
@@ -440,8 +301,8 @@ static bool test_onchain_fee_wallet_spend(const tal_t *ctx, struct plugin *p)
 	memset(&txid, '1', sizeof(struct bitcoin_txid));
 
 	db_begin_transaction(db);
-	account_db_add(db, wal_acct);
-	account_db_add(db, ext_acct);
+	account_datastore_set(NULL, wal_acct, "must-create");
+	account_datastore_set(NULL, ext_acct, "must-create");
 	db_commit_transaction(db);
 
 
@@ -498,9 +359,9 @@ static bool test_onchain_fee_wallet_spend(const tal_t *ctx, struct plugin *p)
 	return true;
 }
 
-static bool test_onchain_fee_chan_close(const tal_t *ctx, struct plugin *p)
+static bool test_onchain_fee_chan_close(const tal_t *ctx)
 {
-	struct bkpr *bkpr = bkpr_setup(ctx, p);
+	struct bkpr *bkpr = bkpr_setup(ctx);
 	struct db *db = bkpr->db;
 	struct node_id node_id, peer_id;
 	struct account *acct, *wal_acct, *ext_acct;
@@ -525,9 +386,9 @@ static bool test_onchain_fee_chan_close(const tal_t *ctx, struct plugin *p)
 	acct->peer_id = &peer_id;
 
 	db_begin_transaction(db);
-	account_db_add(db, wal_acct);
-	account_db_add(db, ext_acct);
-	account_db_add(db, acct);
+	account_datastore_set(NULL, wal_acct, "must-create");
+	account_datastore_set(NULL, ext_acct, "must-create");
+	account_datastore_set(NULL, acct, "must-create");
 	db_commit_transaction(db);
 
 	/* Close a channel */
@@ -555,7 +416,7 @@ static bool test_onchain_fee_chan_close(const tal_t *ctx, struct plugin *p)
 				    'X', 0, '*');
 	log_chain_event(db, acct, ev);
 	tags[0] = MVT_CHANNEL_OPEN;
-	maybe_update_account(bkpr, acct, ev, tags, 0, NULL);
+	maybe_update_account(NULL, acct, ev, tags, 0, NULL);
 
 	ev = make_chain_event(ctx, "channel_close",
 				    AMOUNT_MSAT(0),
@@ -567,7 +428,7 @@ static bool test_onchain_fee_chan_close(const tal_t *ctx, struct plugin *p)
 
 	/* Update the account to have the right info! */
 	tags[0] = MVT_CHANNEL_CLOSE;
-	maybe_update_account(bkpr, acct, ev, tags, close_output_count, NULL);
+	maybe_update_account(NULL, acct, ev, tags, close_output_count, NULL);
 
 	log_chain_event(db, acct,
 		make_chain_event(ctx, "delayed_to_us",
@@ -715,7 +576,7 @@ static bool test_onchain_fee_chan_close(const tal_t *ctx, struct plugin *p)
 	/* Now we update the channel's onchain fees */
 	CHECK(acct->onchain_resolved_block == 0);
 	db_begin_transaction(db);
-	account_update_closeheight(bkpr, acct, account_onchain_closeheight(db, acct));
+	account_update_closeheight(NULL, acct, account_onchain_closeheight(db, acct));
 	CHECK(acct->onchain_resolved_block == blockheight + 2);
 	err = update_channel_onchain_fees(ctx, db, acct);
 	CHECK_MSG(!err, err);
@@ -768,9 +629,9 @@ static bool test_onchain_fee_chan_close(const tal_t *ctx, struct plugin *p)
 	return true;
 }
 
-static bool test_onchain_fee_chan_open(const tal_t *ctx, struct plugin *p)
+static bool test_onchain_fee_chan_open(const tal_t *ctx)
 {
-	struct bkpr *bkpr = bkpr_setup(ctx, p);
+	struct bkpr *bkpr = bkpr_setup(ctx);
 	struct db *db = bkpr->db;
 	struct node_id node_id, peer_id;
 	struct account *acct, *acct2, *wal_acct, *ext_acct;
@@ -791,10 +652,10 @@ static bool test_onchain_fee_chan_open(const tal_t *ctx, struct plugin *p)
 	acct2->peer_id = &peer_id;
 
 	db_begin_transaction(db);
-	account_db_add(db, wal_acct);
-	account_db_add(db, ext_acct);
-	account_db_add(db, acct);
-	account_db_add(db, acct2);
+	account_datastore_set(NULL, wal_acct, "must-create");
+	account_datastore_set(NULL, ext_acct, "must-create");
+	account_datastore_set(NULL, acct, "must-create");
+	account_datastore_set(NULL, acct2, "must-create");
 	db_commit_transaction(db);
 
 	/* Assumption that we rely on later */
@@ -893,9 +754,9 @@ static bool test_onchain_fee_chan_open(const tal_t *ctx, struct plugin *p)
 	return true;
 }
 
-static bool test_channel_rebalances(const tal_t *ctx, struct plugin *p)
+static bool test_channel_rebalances(const tal_t *ctx)
 {
-	struct bkpr *bkpr = bkpr_setup(ctx, p);
+	struct bkpr *bkpr = bkpr_setup(ctx);
 	struct db *db = bkpr->db;
 	struct channel_event *ev1, *ev2, *ev3, **chan_evs;
 	struct rebalance **rebals;
@@ -912,9 +773,9 @@ static bool test_channel_rebalances(const tal_t *ctx, struct plugin *p)
 
 	db_begin_transaction(db);
 
-	account_db_add(db, acct1);
-	account_db_add(db, acct2);
-	account_db_add(db, acct3);
+	account_datastore_set(NULL, acct1, "must-create");
+	account_datastore_set(NULL, acct2, "must-create");
+	account_datastore_set(NULL, acct3, "must-create");
 
 	/* Simulate a rebalance of 100msats, w/ a 12msat fee */
 	ev1 = make_channel_event(ctx, "invoice",
@@ -980,9 +841,9 @@ static bool test_channel_rebalances(const tal_t *ctx, struct plugin *p)
 	return true;
 }
 
-static bool test_channel_event_crud(const tal_t *ctx, struct plugin *p)
+static bool test_channel_event_crud(const tal_t *ctx)
 {
-	struct bkpr *bkpr = bkpr_setup(ctx, p);
+	struct bkpr *bkpr = bkpr_setup(ctx);
 	struct db *db = bkpr->db;
 	struct node_id peer_id;
 	struct account *acct, *acct2;
@@ -995,8 +856,8 @@ static bool test_channel_event_crud(const tal_t *ctx, struct plugin *p)
 	acct2 = new_account(bkpr->accounts, tal_fmt(ctx, ACCOUNT_NAME_WALLET));
 	acct2->peer_id = &peer_id;
 	db_begin_transaction(db);
-	account_db_add(db, acct);
-	account_db_add(db, acct2);
+	account_datastore_set(NULL, acct, "must-create");
+	account_datastore_set(NULL, acct2, "must-create");
 	db_commit_transaction(db);
 
 	ev1 = tal(ctx, struct channel_event);
@@ -1066,9 +927,9 @@ static bool test_channel_event_crud(const tal_t *ctx, struct plugin *p)
 	return true;
 }
 
-static bool test_chain_event_crud(const tal_t *ctx, struct plugin *p)
+static bool test_chain_event_crud(const tal_t *ctx)
 {
-	struct bkpr *bkpr = bkpr_setup(ctx, p);
+	struct bkpr *bkpr = bkpr_setup(ctx);
 	struct db *db = bkpr->db;
 	struct node_id peer_id;
 	struct account *acct, *acct2;
@@ -1083,8 +944,8 @@ static bool test_chain_event_crud(const tal_t *ctx, struct plugin *p)
 	acct2 = new_account(bkpr->accounts, tal_fmt(ctx, ACCOUNT_NAME_WALLET));
 	acct2->peer_id = &peer_id;
 	db_begin_transaction(db);
-	account_db_add(db, acct);
-	account_db_add(db, acct2);
+	account_datastore_set(NULL, acct, "must-create");
+	account_datastore_set(NULL, acct2, "must-create");
 	db_commit_transaction(db);
 
 	/* This event spends the second inserted event */
@@ -1211,9 +1072,9 @@ static bool account_get_balance(struct plugin *plugin,
 	return amount_msat_sub(&bal->balance, bal->credit, bal->debit);
 }
 
-static bool test_account_balances(const tal_t *ctx, struct plugin *p)
+static bool test_account_balances(const tal_t *ctx)
 {
-	struct bkpr *bkpr = bkpr_setup(ctx, p);
+	struct bkpr *bkpr = bkpr_setup(ctx);
 	struct db *db = bkpr->db;
 	struct node_id peer_id;
 	struct account *acct, *acct2;
@@ -1233,8 +1094,8 @@ static bool test_account_balances(const tal_t *ctx, struct plugin *p)
 	ok = account_get_balance(NULL, db, acct->name, &balance);
 	CHECK(ok);
 
-	account_db_add(db, acct);
-	account_db_add(db, acct2);
+	account_datastore_set(NULL, acct, "must-create");
+	account_datastore_set(NULL, acct2, "must-create");
 
 	/* +1000btc */
 	log_chain_event(db, acct,
@@ -1288,9 +1149,9 @@ static bool test_account_balances(const tal_t *ctx, struct plugin *p)
 	return true;
 }
 
-static bool test_account_crud(const tal_t *ctx, struct plugin *p)
+static bool test_account_crud(const tal_t *ctx)
 {
-	struct bkpr *bkpr = bkpr_setup(ctx, p);
+	struct bkpr *bkpr = bkpr_setup(ctx);
 	struct db *db = bkpr->db;
 	struct node_id *peer_id;
 	struct account *acct, *acct2, **acct_list;
@@ -1305,7 +1166,7 @@ static bool test_account_crud(const tal_t *ctx, struct plugin *p)
 	CHECK(!acct->is_wallet);
 
 	db_begin_transaction(db);
-	account_db_add(db, acct);
+	account_datastore_set(NULL, acct, "must-create");
 	db_commit_transaction(db);
 
 	acct_list = list_accounts(ctx, bkpr);
@@ -1316,7 +1177,7 @@ static bool test_account_crud(const tal_t *ctx, struct plugin *p)
 	CHECK(acct->is_wallet);
 
 	db_begin_transaction(db);
-	account_db_add(db, acct);
+	account_datastore_set(NULL, acct, "must-create");
 	db_commit_transaction(db);
 
 	acct_list = list_accounts(ctx, bkpr);
@@ -1353,7 +1214,7 @@ static bool test_account_crud(const tal_t *ctx, struct plugin *p)
 	/* should not update the account info */
 	tags[0] = MVT_PUSHED;
 	tags[1] = MVT_PENALTY;
-	maybe_update_account(bkpr, acct, ev1, tags, 0, peer_id);
+	maybe_update_account(NULL, acct, ev1, tags, 0, peer_id);
 	acct2 = find_account(bkpr, ACCOUNT_NAME_WALLET);
 	accountseq(acct, acct2);
 
@@ -1362,7 +1223,7 @@ static bool test_account_crud(const tal_t *ctx, struct plugin *p)
 	CHECK(acct->open_event_db_id == NULL);
 	tags[0] = MVT_CHANNEL_OPEN;
 	tags[1] = MVT_LEASED;
-	maybe_update_account(bkpr, acct, ev1, tags, 2, peer_id);
+	maybe_update_account(NULL, acct, ev1, tags, 2, peer_id);
 	acct2 = find_account(bkpr, ACCOUNT_NAME_WALLET);
 	accountseq(acct, acct2);
 	CHECK(acct->leased);
@@ -1373,7 +1234,7 @@ static bool test_account_crud(const tal_t *ctx, struct plugin *p)
 	tags[1] = MVT_OPENER;
 	CHECK(acct->closed_event_db_id == NULL);
 	CHECK(!acct->we_opened);
-	maybe_update_account(bkpr, acct, ev1, tags, 0, NULL);
+	maybe_update_account(NULL, acct, ev1, tags, 0, NULL);
 	acct2 = find_account(bkpr, ACCOUNT_NAME_WALLET);
 	accountseq(acct, acct2);
 	CHECK(acct->closed_event_db_id != NULL);
@@ -1387,25 +1248,20 @@ static bool test_account_crud(const tal_t *ctx, struct plugin *p)
 int main(int argc, char *argv[])
 {
 	bool ok = true;
-	/* Dummy for migration hooks */
-	struct plugin *plugin = tal(NULL, struct plugin);
-	list_head_init(&plugin->js_list);
-	plugin->developer = true;
 
 	common_setup(argv[0]);
 
 	if (HAVE_SQLITE3) {
-		ok &= test_account_crud(tmpctx, plugin);
-		ok &= test_channel_event_crud(tmpctx, plugin);
-		ok &= test_chain_event_crud(tmpctx, plugin);
-		ok &= test_account_balances(tmpctx, plugin);
-		ok &= test_onchain_fee_chan_close(tmpctx, plugin);
-		ok &= test_onchain_fee_chan_open(tmpctx, plugin);
-		ok &= test_channel_rebalances(tmpctx, plugin);
-		ok &= test_onchain_fee_wallet_spend(tmpctx, plugin);
+		ok &= test_account_crud(tmpctx);
+		ok &= test_channel_event_crud(tmpctx);
+		ok &= test_chain_event_crud(tmpctx);
+		ok &= test_account_balances(tmpctx);
+		ok &= test_onchain_fee_chan_close(tmpctx);
+		ok &= test_onchain_fee_chan_open(tmpctx);
+		ok &= test_channel_rebalances(tmpctx);
+		ok &= test_onchain_fee_wallet_spend(tmpctx);
 	}
 
-	tal_free(plugin);
 	common_shutdown();
 	trace_cleanup();
 	return !ok;

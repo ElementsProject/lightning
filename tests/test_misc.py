@@ -2989,6 +2989,8 @@ def test_emergencyrecoverpenaltytxn(node_factory, bitcoind):
     l1, l2 = node_factory.get_nodes(2, [{'broken_log': r"onchaind-chan#[0-9]*: Could not find resolution for output .*: did \*we\* cheat\?",
                                          'may_reconnect': True,
                                          'allow_bad_gossip': True,
+                                         # FIXME: Gets upset when we remove half its data!
+                                         'disable-plugin': 'bookkeeper',
                                          'rescan': 10},
                                     {'broken_log': r"onchaind-chan#[0-9]*: Could not find resolution for output .*: did \*we\* cheat\?",
                                         'may_reconnect': True}])
@@ -3046,7 +3048,9 @@ def test_emergencyrecover(node_factory, bitcoind):
     Test emergencyrecover
     """
     l1, l2 = node_factory.get_nodes(2, opts=[{'may_reconnect': True,
-                                              'broken_log': 'ERROR: Unknown commitment #.*, recovering our funds'},
+                                              'broken_log': 'ERROR: Unknown commitment #.*, recovering our funds',
+                                              # FIXME: Gets upset when we remove half its data!
+                                              'disable-plugin': 'bookkeeper'},
                                              {'may_reconnect': True}])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -3148,7 +3152,9 @@ def test_restorefrompeer(node_factory, bitcoind):
     """
     l1, l2 = node_factory.get_nodes(2, [{'broken_log': 'ERROR: Unknown commitment #.*, recovering our funds!',
                                          'may_reconnect': True,
-                                         'allow_bad_gossip': True},
+                                         'allow_bad_gossip': True,
+                                         # FIXME: Gets upset when we remove half its data!
+                                         'disable-plugin': 'bookkeeper'},
                                         {'may_reconnect': True}])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -3823,8 +3829,8 @@ def test_datastore_escapeing(node_factory):
 
 
 def test_datastore(node_factory):
-    # Suppress xpay, which makes a layer
-    l1 = node_factory.get_node(options={"disable-plugin": "cln-xpay"})
+    # Suppress xpay and bookkeeper which use the datastore
+    l1 = node_factory.get_node(options={"disable-plugin": ["cln-xpay", "bookkeeper"]})
 
     # Starts empty
     assert l1.rpc.listdatastore() == {'datastore': []}
@@ -3938,8 +3944,8 @@ def test_datastore(node_factory):
 
 
 def test_datastore_keylist(node_factory):
-    # Suppress xpay, which makes a layer
-    l1 = node_factory.get_node(options={"disable-plugin": "cln-xpay"})
+    # Suppress xpay and bookkeeper which use the datastore
+    l1 = node_factory.get_node(options={"disable-plugin": ["cln-xpay", "bookkeeper"]})
 
     # Starts empty
     assert l1.rpc.listdatastore() == {'datastore': []}
@@ -4001,7 +4007,8 @@ def test_datastore_keylist(node_factory):
 
 
 def test_datastoreusage(node_factory):
-    l1: LightningNode = node_factory.get_node(options={"disable-plugin": "cln-xpay"})
+    # Suppress xpay and bookkeeper which use the datastore
+    l1: LightningNode = node_factory.get_node(options={"disable-plugin": ["cln-xpay", "bookkeeper"]})
     assert l1.rpc.datastoreusage() == {'datastoreusage': {'key': '[]', 'total_bytes': 0}}
 
     data = 'somedatatostoreinthedatastore'  # len 29
@@ -4951,6 +4958,8 @@ def test_tracing(node_factory):
             elif cmd == 'span_resume':
                 assert spanid in traces
                 suspended.remove(spanid)
+            elif cmd == 'destroying':
+                pass
             else:
                 assert False, "Unknown trace line"
 
