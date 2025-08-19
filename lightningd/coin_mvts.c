@@ -396,3 +396,99 @@ static const struct json_command listchannelmoves_command = {
 	json_listchannelmoves,
 };
 AUTODATA(json_command, &listchannelmoves_command);
+
+static struct command_result *param_msat_as_sat(struct command *cmd,
+						const char *name,
+						const char *buffer,
+						const jsmntok_t *tok,
+						struct amount_sat **sat)
+{
+	struct amount_msat msat;
+
+	*sat = tal(cmd, struct amount_sat);
+	if (parse_amount_msat(&msat, buffer + tok->start, tok->end - tok->start)
+	    && amount_msat_to_sat(*sat, msat))
+		return NULL;
+
+	return command_fail_badparam(cmd, name, buffer, tok,
+				     "should be a millisatoshi amount");
+}
+
+/* Internal interfaces for bookkeeper.c.
+ * FIXME: handle utxo_deposit / utxo_spend notifications directly! */
+static struct command_result *json_injectutxodeposit(struct command *cmd,
+						     const char *buffer,
+						     const jsmntok_t *obj UNNEEDED,
+						     const jsmntok_t *params)
+{
+	struct chain_coin_mvt *ev;
+	const char *account, *origin_acct;
+	struct bitcoin_outpoint *outpoint;
+	struct amount_sat *amount;
+	u64 *timestamp;
+	u32 *blockheight;
+
+	if (!param(cmd, buffer, params,
+		   p_req("account", param_string, &account),
+		   p_req("outpoint", param_outpoint, &outpoint),
+		   p_req("amount_msat", param_msat_as_sat, &amount),
+		   p_req("timestamp", param_u64, &timestamp),
+		   p_req("blockheight", param_u32, &blockheight),
+		   p_opt("transfer_from", param_string, &origin_acct),
+		   NULL))
+		return command_param_failed();
+
+	ev = new_foreign_deposit(cmd, outpoint, *blockheight, *amount,
+				 account, *timestamp);
+	if (origin_acct) {
+		/* Need temporary because originating_acct is const */
+		struct mvt_account_id *acct;
+		ev->originating_acct = acct = tal(ev, struct mvt_account_id);
+		acct->channel = NULL;
+		acct->alt_account = tal_strdup(acct, origin_acct);
+	}
+	wallet_save_chain_mvt(cmd->ld, ev);
+
+	return command_success(cmd, json_stream_success(cmd));
+}
+static const struct json_command injectutxodeposit_command = {
+	"injectutxodeposit",
+	json_injectutxodeposit,
+};
+AUTODATA(json_command, &injectutxodeposit_command);
+
+static struct command_result *json_injectutxospend(struct command *cmd,
+						   const char *buffer,
+						   const jsmntok_t *obj UNNEEDED,
+						   const jsmntok_t *params)
+{
+	struct chain_coin_mvt *ev;
+	const char *account;
+	struct bitcoin_txid *spending_txid;
+	struct bitcoin_outpoint *outpoint;
+	struct amount_sat *amount;
+	u64 *timestamp;
+	u32 *blockheight;
+
+	if (!param(cmd, buffer, params,
+		   p_req("account", param_string, &account),
+		   p_req("outpoint", param_outpoint, &outpoint),
+		   p_req("spending_txid", param_txid, &spending_txid),
+		   p_req("amount_msat", param_msat_as_sat, &amount),
+		   p_req("timestamp", param_u64, &timestamp),
+		   p_req("blockheight", param_u32, &blockheight),
+		   NULL))
+		return command_param_failed();
+
+	ev = new_foreign_withdrawal(cmd, outpoint, spending_txid,
+				    *amount, *blockheight, account, *timestamp);
+	wallet_save_chain_mvt(cmd->ld, ev);
+
+	return command_success(cmd, json_stream_success(cmd));
+}
+static const struct json_command injectutxospend_command = {
+	"injectutxospend",
+	json_injectutxospend,
+};
+AUTODATA(json_command, &injectutxospend_command);
+

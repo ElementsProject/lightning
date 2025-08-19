@@ -529,6 +529,39 @@ struct channel_coin_mvt *new_coin_channel_push(const tal_t *ctx,
 				    AMOUNT_MSAT(0));
 }
 
+struct chain_coin_mvt *new_foreign_deposit(const tal_t *ctx,
+					   const struct bitcoin_outpoint *outpoint,
+					   u32 blockheight,
+					   struct amount_sat amount,
+					   const char *account,
+					   u64 timestamp)
+{
+	struct chain_coin_mvt *e;
+
+	e = new_chain_coin_mvt_sat(ctx, NULL, account, NULL, outpoint, NULL,
+				   blockheight, mk_mvt_tags(MVT_DEPOSIT), COIN_CREDIT,
+				   amount);
+	e->timestamp = timestamp;
+	return e;
+}
+
+struct chain_coin_mvt *new_foreign_withdrawal(const tal_t *ctx,
+					      const struct bitcoin_outpoint *outpoint,
+					      const struct bitcoin_txid *spend_txid,
+					      struct amount_sat amount,
+					      u32 blockheight,
+					      const char *account,
+					      u64 timestamp)
+{
+	struct chain_coin_mvt *e;
+
+	e = new_chain_coin_mvt_sat(ctx, NULL, account, spend_txid, outpoint, NULL,
+				   blockheight, mk_mvt_tags(MVT_WITHDRAWAL), COIN_DEBIT,
+				   amount);
+	e->timestamp = timestamp;
+	return e;
+}
+
 const char **mvt_tag_strs(const tal_t *ctx, struct mvt_tags tags)
 {
 	const char **strs = tal_arr(ctx, const char *, 1);
