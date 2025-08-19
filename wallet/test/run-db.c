@@ -59,10 +59,6 @@ struct onionreply *create_onionreply(const tal_t *ctx UNNEEDED,
 				     const struct secret *shared_secret UNNEEDED,
 				     const u8 *failure_msg UNNEEDED)
 { fprintf(stderr, "create_onionreply called!\n"); abort(); }
-/* Generated stub for derive_channel_id */
-void derive_channel_id(struct channel_id *channel_id UNNEEDED,
-		       const struct bitcoin_outpoint *outpoint UNNEEDED)
-{ fprintf(stderr, "derive_channel_id called!\n"); abort(); }
 /* Generated stub for fatal */
 void   fatal(const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "fatal called!\n"); abort(); }
@@ -72,9 +68,6 @@ void  fatal_vfmt(const char *fmt UNNEEDED, va_list ap UNNEEDED)
 /* Generated stub for find_peer_by_dbid */
 struct peer *find_peer_by_dbid(struct lightningd *ld UNNEEDED, u64 dbid UNNEEDED)
 { fprintf(stderr, "find_peer_by_dbid called!\n"); abort(); }
-/* Generated stub for fmt_channel_id */
-char *fmt_channel_id(const tal_t *ctx UNNEEDED, const struct channel_id *channel_id UNNEEDED)
-{ fprintf(stderr, "fmt_channel_id called!\n"); abort(); }
 /* Generated stub for forward_index_created */
 u64 forward_index_created(struct lightningd *ld UNNEEDED,
 			  enum forward_status status UNNEEDED,

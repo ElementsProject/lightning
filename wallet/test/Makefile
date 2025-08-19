@@ -10,6 +10,7 @@ WALLET_TEST_COMMON_OBJS :=			\
 	common/autodata.o			\
 	common/base32.o				\
 	common/blockheight_states.o		\
+	common/channel_id.o			\
 	common/channel_type.o			\
 	common/derive_basepoints.o		\
 	common/features.o			\
