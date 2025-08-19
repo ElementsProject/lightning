@@ -4258,6 +4258,20 @@ def test_sql_crash(node_factory, bitcoind):
     l1.rpc.sql(f"SELECT * FROM peerchannels;")
 
 
+@pytest.mark.xfail(strict=True)
+def test_sql_parallel(node_factory, executor):
+    """Parallel refreshes of tables causes SQL errors:
+    Error executing INSERT INTO chainmoves VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?); on row 0: UNIQUE constraint failed: chainmoves.created_index
+    """
+    l1, l2 = node_factory.line_graph(2)
+
+    futs = []
+    for _ in range(5):
+        futs.append(executor.submit(l1.rpc.sql, "SELECT * FROM chainmoves"))
+    for f in futs:
+        f.result(TIMEOUT)
+
+
 def test_listchannels_broken_message(node_factory):
     """This gave a bogus BROKEN message with deprecated-apis enabled"""
     l1 = node_factory.get_node(options={'allow-deprecated-apis': True})
