@@ -20,6 +20,7 @@ BOOKKEEPER_SRC := $(BOOKKEEPER_PLUGIN_SRC) $(BOOKKEEPER_DB_QUERIES)
 BOOKKEEPER_HEADER := 				\
 	plugins/bkpr/account.h			\
 	plugins/bkpr/account_entry.h		\
+	plugins/bkpr/bookkeeper.h		\
 	plugins/bkpr/chain_event.h		\
 	plugins/bkpr/channel_event.h		\
 	plugins/bkpr/channelsapy.h		\
