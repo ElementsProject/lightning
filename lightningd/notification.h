@@ -84,10 +84,12 @@ void notify_sendpay_failure(struct lightningd *ld,
 			    const char *errmsg);
 
 void notify_channel_mvt(struct lightningd *ld,
-			const struct channel_coin_mvt *chan_mvt);
+			const struct channel_coin_mvt *chan_mvt,
+			u64 id);
 
 void notify_chain_mvt(struct lightningd *ld,
-		      const struct chain_coin_mvt *chain_mvt);
+		      const struct chain_coin_mvt *chain_mvt,
+		      u64 id);
 
 void notify_balance_snapshot(struct lightningd *ld,
 			     const struct balance_snapshot *snap);

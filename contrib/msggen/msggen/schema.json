@@ -16607,6 +16607,7 @@
               "type": "object",
               "additionalProperties": false,
               "required": [
+                "created_index",
                 "account_id",
                 "primary_tag",
                 "extra_tags",
@@ -16618,6 +16619,12 @@
                 "blockheight"
               ],
               "properties": {
+                "created_index": {
+                  "type": "u64",
+                  "description": [
+                    "1-based index indicating order this move was created in."
+                  ]
+                },
                 "account_id": {
                   "type": "string",
                   "description": [
@@ -16800,6 +16807,7 @@
               "type": "object",
               "additionalProperties": false,
               "required": [
+                "created_index",
                 "account_id",
                 "primary_tag",
                 "credit_msat",
@@ -16808,6 +16816,12 @@
                 "fees_msat"
               ],
               "properties": {
+                "created_index": {
+                  "type": "u64",
+                  "description": [
+                    "1-based index indicating order this move was created in."
+                  ]
+                },
                 "account_id": {
                   "type": "string",
                   "description": [
@@ -34176,13 +34190,17 @@
               "  `invoices`: corresponding to `listinvoices` (added in *v23.08*).",
               "  `sendpays`: corresponding to `listsendpays` (added in *v23.11*).",
               "  `forwards`: corresponding to `listforwards` (added in *v23.11*).",
-              "  `htlcs`: corresponding to `listhtlcs` (added in *v25.05*)."
+              "  `htlcs`: corresponding to `listhtlcs` (added in *v25.05*).",
+              "  `chainmoves`: corresponding to `listchainmoves` (added in *v25.09*).",
+              "  `channelmoves`: corresponding to `listchannelmoves` (added in *v25.09*)."
             ],
             "enum": [
               "invoices",
               "forwards",
               "sendpays",
-              "htlcs"
+              "htlcs",
+              "chainmoves",
+              "channelmoves"
             ]
           },
           "indexname": {
@@ -34219,7 +34237,9 @@
               "invoices",
               "forwards",
               "sendpays",
-              "htlcs"
+              "htlcs",
+              "chainmoves",
+              "channelmoves"
             ]
           },
           "created": {
@@ -34244,6 +34264,8 @@
           "invoices": {},
           "sendpays": {},
           "htlcs": {},
+          "chainmoves": {},
+          "channelmoves": {},
           "details": {}
         },
         "allOf": [
@@ -34681,6 +34703,118 @@
                 }
               }
             }
+          },
+          {
+            "if": {
+              "additionalProperties": true,
+              "properties": {
+                "subsystem": {
+                  "type": "string",
+                  "enum": [
+                    "chainmoves"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "additionalProperties": false,
+              "properties": {
+                "subsystem": {},
+                "created": {},
+                "updated": {},
+                "deleted": {},
+                "channelmoves": {},
+                "chainmoves": {
+                  "added": "v25.09",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "account",
+                    "credit_msat",
+                    "debit_msat"
+                  ],
+                  "properties": {
+                    "account": {
+                      "added": "v25.09",
+                      "type": "string",
+                      "description": [
+                        "The account (e.g. channel id) associated with this movement."
+                      ]
+                    },
+                    "credit_msat": {
+                      "added": "v25.09",
+                      "type": "msat",
+                      "description": [
+                        "The amount incoming"
+                      ]
+                    },
+                    "debit_msat": {
+                      "added": "v25.09",
+                      "type": "msat",
+                      "description": [
+                        "The amount outgoing"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "additionalProperties": true,
+              "properties": {
+                "subsystem": {
+                  "type": "string",
+                  "enum": [
+                    "channelmoves"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "additionalProperties": false,
+              "properties": {
+                "subsystem": {},
+                "created": {},
+                "updated": {},
+                "deleted": {},
+                "chainmoves": {},
+                "channelmoves": {
+                  "added": "v25.09",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "account",
+                    "credit_msat",
+                    "debit_msat"
+                  ],
+                  "properties": {
+                    "account": {
+                      "added": "v25.09",
+                      "type": "string",
+                      "description": [
+                        "The account (e.g. channel id) associated with this movement."
+                      ]
+                    },
+                    "credit_msat": {
+                      "added": "v25.09",
+                      "type": "msat",
+                      "description": [
+                        "The amount incoming"
+                      ]
+                    },
+                    "debit_msat": {
+                      "added": "v25.09",
+                      "type": "msat",
+                      "description": [
+                        "The amount outgoing"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
           }
         ]
       },
@@ -34718,7 +34852,9 @@
         "lightning-listinvoices(7)",
         "lightning-listforwards(7)",
         "lightning-listsendpays(7)",
-        "lightning-listhtlcs(7)"
+        "lightning-listhtlcs(7)",
+        "lightning-listchainmoves(7)",
+        "lightning-listchannelmoves(7)"
       ],
       "resources": [
         "Main web site: <https://github.com/ElementsProject/lightning>"

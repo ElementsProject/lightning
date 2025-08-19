@@ -24,6 +24,8 @@ static const char *subsystem_names[] = {
 	"sendpays",
 	"invoices",
 	"htlcs",
+	"chainmoves",
+	"channelmoves",
 };
 
 static const char *index_names[] = {
@@ -51,6 +53,8 @@ const char *wait_subsystem_name(enum wait_subsystem subsystem)
 	case WAIT_SUBSYSTEM_SENDPAY:
 	case WAIT_SUBSYSTEM_INVOICE:
 	case WAIT_SUBSYSTEM_HTLCS:
+	case WAIT_SUBSYSTEM_CHAINMOVES:
+	case WAIT_SUBSYSTEM_CHANNELMOVES:
 		return subsystem_names[subsystem];
 	}
 	abort();

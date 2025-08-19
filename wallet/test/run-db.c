@@ -36,6 +36,12 @@ void bitcoind_getrawblockbyheight_(const tal_t *ctx UNNEEDED,
 					      void *arg) UNNEEDED,
 				   void *arg UNNEEDED)
 { fprintf(stderr, "bitcoind_getrawblockbyheight_ called!\n"); abort(); }
+/* Generated stub for chain_mvt_index_created */
+u64 chain_mvt_index_created(struct lightningd *ld UNNEEDED,
+			    const struct mvt_account_id *account UNNEEDED,
+			    struct amount_msat credit UNNEEDED,
+			    struct amount_msat debit UNNEEDED)
+{ fprintf(stderr, "chain_mvt_index_created called!\n"); abort(); }
 /* Generated stub for channel_by_dbid */
 struct channel *channel_by_dbid(struct lightningd *ld UNNEEDED, const u64 dbid UNNEEDED)
 { fprintf(stderr, "channel_by_dbid called!\n"); abort(); }
@@ -45,6 +51,12 @@ const struct peer_update *channel_gossip_get_remote_update(const struct channel 
 /* Generated stub for channel_gossip_update */
 void channel_gossip_update(struct channel *channel UNNEEDED)
 { fprintf(stderr, "channel_gossip_update called!\n"); abort(); }
+/* Generated stub for channel_mvt_index_created */
+u64 channel_mvt_index_created(struct lightningd *ld UNNEEDED,
+			      const struct mvt_account_id *account UNNEEDED,
+			      struct amount_msat credit UNNEEDED,
+			      struct amount_msat debit UNNEEDED)
+{ fprintf(stderr, "channel_mvt_index_created called!\n"); abort(); }
 /* Generated stub for channel_scid_or_local_alias */
 struct short_channel_id channel_scid_or_local_alias(const struct channel *chan UNNEEDED)
 { fprintf(stderr, "channel_scid_or_local_alias called!\n"); abort(); }
@@ -293,11 +305,13 @@ struct peer *new_peer(struct lightningd *ld UNNEEDED, u64 dbid UNNEEDED,
 { fprintf(stderr, "new_peer called!\n"); abort(); }
 /* Generated stub for notify_chain_mvt */
 void notify_chain_mvt(struct lightningd *ld UNNEEDED,
-		      const struct chain_coin_mvt *chain_mvt UNNEEDED)
+		      const struct chain_coin_mvt *chain_mvt UNNEEDED,
+		      u64 id UNNEEDED)
 { fprintf(stderr, "notify_chain_mvt called!\n"); abort(); }
 /* Generated stub for notify_channel_mvt */
 void notify_channel_mvt(struct lightningd *ld UNNEEDED,
-			const struct channel_coin_mvt *chan_mvt UNNEEDED)
+			const struct channel_coin_mvt *chan_mvt UNNEEDED,
+			u64 id UNNEEDED)
 { fprintf(stderr, "notify_channel_mvt called!\n"); abort(); }
 /* Generated stub for notify_forward_event */
 void notify_forward_event(struct lightningd *ld UNNEEDED,
