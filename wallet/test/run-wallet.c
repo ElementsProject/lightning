@@ -1358,6 +1358,8 @@ static struct wallet *create_test_wallet(struct lightningd *ld, const tal_t *ctx
 	/* Create fresh channels map */
 	ld->channels_by_scid = tal(ld, struct channel_scid_map);
 	channel_scid_map_init(ld->channels_by_scid);
+	ld->channels_by_dbid = tal(ld, struct channel_dbid_map);
+	channel_dbid_map_init(ld->channels_by_dbid);
 	return w;
 }
 
@@ -2088,8 +2090,10 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 	/* do inflights get correctly added to the channel? */
 	wallet_inflight_add(w, inflight);
 
-	/* Hack to remove scids from htable so we don't clash! */
+	/* Hack to remove scid & dbid from htables so we don't clash! */
 	chanmap_remove(ld, chan, *chan->alias[LOCAL]);
+	remove_from_dbid_map(chan);
+	tal_del_destructor(chan, remove_from_dbid_map);
 
 	/* do inflights get correctly loaded from the database? */
 	CHECK_MSG(c2 = wallet_channel_load(w, chan->dbid),
@@ -2385,6 +2389,8 @@ int main(int argc, const char *argv[])
 	list_head_init(&ld->wait_commands);
 	ld->closed_channels = tal(ld, struct closed_channel_map);
 	closed_channel_map_init(ld->closed_channels);
+	ld->channels_by_dbid = tal(ld, struct channel_dbid_map);
+	channel_dbid_map_init(ld->channels_by_dbid);
 
 	/* We do a runtime test here, so we still check compile! */
 	if (HAVE_SQLITE3) {

@@ -218,6 +218,9 @@ struct lightningd {
 	/* Here are all our channels and their aliases */
 	struct channel_scid_map *channels_by_scid;
 
+	/* Open channels by dbid */
+	struct channel_dbid_map *channels_by_dbid;
+
 	/* Outstanding connect commands. */
 	struct list_head connects;
 

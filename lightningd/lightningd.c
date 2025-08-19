@@ -213,6 +213,10 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->channels_by_scid = tal(ld, struct channel_scid_map);
 	channel_scid_map_init(ld->channels_by_scid);
 
+	/*~ Coin movements in db are indexed by the channel dbid. */
+	ld->channels_by_dbid = tal(ld, struct channel_dbid_map);
+	channel_dbid_map_init(ld->channels_by_dbid);
+
 	/*~ For multi-part payments, we need to keep some incoming payments
 	 * in limbo until we get all the parts, or we time them out. */
 	ld->htlc_sets = tal(ld, struct htlc_set_map);
