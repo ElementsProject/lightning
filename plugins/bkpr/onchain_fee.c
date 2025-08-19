@@ -1,7 +1,13 @@
 #include "config.h"
 #include <bitcoin/chainparams.h>
+#include <ccan/asort/asort.h>
+#include <ccan/crypto/siphash24/siphash24.h>
+#include <ccan/htable/htable_type.h>
+#include <ccan/intmap/intmap.h>
 #include <ccan/tal/str/str.h>
 #include <common/json_stream.h>
+#include <common/memleak.h>
+#include <common/pseudorand.h>
 #include <db/bindings.h>
 #include <db/common.h>
 #include <db/exec.h>
@@ -14,8 +20,128 @@
 #include <plugins/bkpr/onchain_fee.h>
 #include <plugins/bkpr/recorder.h>
 
+/* We keep a hash of onchain_fee arrays.  Each array is sorted. */
+
+/* Sort these as ORDER BY timestamp, account_name, txid, update_count */
+static int compare_onchain_fee(struct onchain_fee *const *a,
+			       struct onchain_fee *const *b,
+			       void *arg)
+{
+	const struct onchain_fee *ofa = *a, *ofb = *b;
+	int cmp;
+
+	if (ofa->timestamp < ofb->timestamp)
+		return -1;
+	if (ofa->timestamp > ofb->timestamp)
+		return 1;
+	cmp = strcmp(ofa->acct_name, ofb->acct_name);
+	if (cmp)
+		return cmp;
+	cmp = memcmp(&ofa->txid, &ofb->txid, sizeof(ofb->txid));
+	if (cmp)
+		return cmp;
+	if (ofa->update_count < ofb->update_count)
+		return -1;
+	if (ofa->update_count > ofb->update_count)
+		return 1;
+	return 0;
+}
+
+static void order_fees(struct onchain_fee **ofs)
+{
+	asort(ofs, tal_count(ofs), compare_onchain_fee, NULL);
+}
+
+/* Convenience struct: array is always in compare_onchain_fee order! */
+struct ordered_ofees {
+	struct onchain_fee **ofs;
+};
+
+static size_t hash_acctname(const char *str)
+{
+	return siphash24(siphash_seed(), str, strlen(str));
+}
+
+static const char *onchain_fees_keyof(const struct ordered_ofees *ofees)
+{
+	return ofees->ofs[0]->acct_name;
+}
+
+static bool onchain_account_eq(const struct ordered_ofees *ofees,
+			       const char *acct_name)
+{
+	return streq(ofees->ofs[0]->acct_name, acct_name);
+}
+
+HTABLE_DEFINE_NODUPS_TYPE(struct ordered_ofees,
+			  onchain_fees_keyof,
+			  hash_acctname,
+			  onchain_account_eq,
+			  ofees_hash);
+
+struct onchain_fees {
+	/* Hash table by account. */
+	struct ofees_hash *by_account;
+};
+
+static void destroy_onchain_fee(struct onchain_fee *of,
+				struct ofees_hash *ofees_hash)
+{
+	struct ordered_ofees *ofees = ofees_hash_get(ofees_hash,
+						     of->acct_name);
+	/* Only one in array?  Must be this. */
+	if (tal_count(ofees->ofs) == 1) {
+		ofees_hash_del(ofees_hash, ofees);
+		assert(ofees->ofs[0] == of);
+		tal_free(ofees);
+		return;
+	}
+	for (size_t i = 0; i < tal_count(ofees->ofs); i++) {
+		if (ofees->ofs[i] == of) {
+			tal_arr_remove(&ofees->ofs, i);
+			return;
+		}
+	}
+	abort();
+}
+
+static struct onchain_fee *new_onchain_fee(struct onchain_fees *onchain_fees,
+					   const char *acct_name TAKES,
+					   const struct bitcoin_txid *txid,
+					   struct amount_msat credit,
+					   struct amount_msat debit,
+					   u64 timestamp,
+					   u32 update_count)
+{
+	struct onchain_fee *of = tal(NULL, struct onchain_fee);
+	struct ordered_ofees *ofees;
+
+	of->acct_name = tal_strdup(of, acct_name);
+	of->txid = *txid;
+	of->credit = credit;
+	of->debit = debit;
+	of->timestamp = timestamp;
+	of->update_count = update_count;
+
+	/* Add to sorted array in hash table */
+	ofees = ofees_hash_get(onchain_fees->by_account, of->acct_name);
+	if (ofees) {
+		tal_arr_expand(&ofees->ofs, of);
+		order_fees(ofees->ofs);
+	} else {
+		ofees = tal(onchain_fees->by_account, struct ordered_ofees);
+		ofees->ofs = tal_arr(ofees, struct onchain_fee *, 1);
+		ofees->ofs[0] = of;
+		ofees_hash_add(onchain_fees->by_account, ofees);
+	}
+	tal_steal(ofees->ofs, of);
+
+	tal_add_destructor2(of, destroy_onchain_fee, onchain_fees->by_account);
+	return of;
+}
+
 void json_add_onchain_fee(struct json_stream *out,
-			  struct onchain_fee *fee)
+			  const struct onchain_fee *fee)
 {
 	json_object_start(out, NULL);
 	json_add_string(out, "account", fee->acct_name);
@@ -29,161 +155,118 @@ void json_add_onchain_fee(struct json_stream *out,
 	json_object_end(out);
 }
 
-static struct onchain_fee *stmt2onchain_fee(const tal_t *ctx,
+static struct onchain_fee *stmt2onchain_fee(struct onchain_fees *onchain_fees,
 					    struct db_stmt *stmt)
 {
-	struct onchain_fee *of = tal(ctx, struct onchain_fee);
+	const char *acct_name;
+	struct bitcoin_txid txid;
+	struct amount_msat credit, debit;
+	u64 timestamp;
+	u32 update_count;
 
-	of->acct_name = db_col_strdup(of, stmt, "of.account_name");
-	db_col_txid(stmt, "of.txid", &of->txid);
-	of->credit = db_col_amount_msat(stmt, "of.credit");
-	of->debit = db_col_amount_msat(stmt, "of.debit");
-	of->timestamp = db_col_u64(stmt, "of.timestamp");
-	of->update_count = db_col_int(stmt, "of.update_count");
+	acct_name = db_col_strdup(NULL, stmt, "of.account_name");
+	db_col_txid(stmt, "of.txid", &txid);
+	credit = db_col_amount_msat(stmt, "of.credit");
+	debit = db_col_amount_msat(stmt, "of.debit");
+	timestamp = db_col_u64(stmt, "of.timestamp");
+	update_count = db_col_int(stmt, "of.update_count");
 
-	return of;
+	return new_onchain_fee(onchain_fees,
+			       take(acct_name),
+			       &txid,
+			       credit, debit,
+			       timestamp,
+			       update_count);
 }
 
-static struct onchain_fee **find_onchain_fees(const tal_t *ctx,
-					      struct db_stmt *stmt TAKES)
+/* Get all onchain_fee for this account */
+struct onchain_fee **account_get_chain_fees(const tal_t *ctx,
+					    const struct bkpr *bkpr,
+					    const char *acct_name)
 {
-	struct onchain_fee **results;
+	struct ordered_ofees *ofees;
 
-	db_query_prepared(stmt);
-	if (stmt->error)
-		db_fatal(stmt->db, "find_onchain_fees err: %s", stmt->error);
-	results = tal_arr(ctx, struct onchain_fee *, 0);
-	while (db_step(stmt)) {
-		struct onchain_fee *of = stmt2onchain_fee(results, stmt);
-		tal_arr_expand(&results, of);
+	ofees = ofees_hash_get(bkpr->onchain_fees->by_account, acct_name);
+	if (ofees)
+		return tal_dup_talarr(ctx, struct onchain_fee *, ofees->ofs);
+	return NULL;
+}
+
+/* FIXME: Slow */
+struct onchain_fee **get_chain_fees_by_txid(const tal_t *ctx,
+					    const struct bkpr *bkpr,
+					    const struct bitcoin_txid *txid)
+{
+	struct onchain_fee **ret = tal_arr(ctx, struct onchain_fee *, 0);
+	struct ofees_hash_iter it;
+	struct ordered_ofees *ofees;
+
+	for (ofees = ofees_hash_first(bkpr->onchain_fees->by_account, &it);
+	     ofees;
+	     ofees = ofees_hash_next(bkpr->onchain_fees->by_account, &it)) {
+		for (size_t i = 0; i < tal_count(ofees->ofs); i++) {
+			if (bitcoin_txid_eq(&ofees->ofs[i]->txid, txid))
+				tal_arr_expand(&ret, ofees->ofs[i]);
+		}
 	}
-
-	if (taken(stmt))
-		tal_free(stmt);
-
-	return results;
+	order_fees(ret);
+	return ret;
 }
 
-struct onchain_fee **account_get_chain_fees(const tal_t *ctx, struct db *db,
-					    struct account *acct)
-{
-	struct db_stmt *stmt;
-
-	stmt = db_prepare_v2(db, SQL("SELECT"
-				     "  of.account_name"
-				     ", of.txid"
-				     ", of.credit"
-				     ", of.debit"
-				     ", of.timestamp"
-				     ", of.update_count"
-				     " FROM onchain_fees of"
-				     " WHERE of.account_name = ?"
-				     " ORDER BY "
-				     "  of.timestamp"
-				     ", of.txid"
-				     ", of.update_count"));
-
-	db_bind_text(stmt, acct->name);
-	return find_onchain_fees(ctx, take(stmt));
-}
-
-struct onchain_fee **get_chain_fees_by_txid(const tal_t *ctx, struct db *db,
-					    struct bitcoin_txid *txid)
-{
-	struct db_stmt *stmt;
-
-	stmt = db_prepare_v2(db, SQL("SELECT"
-				     "  of.account_name"
-				     ", of.txid"
-				     ", of.credit"
-				     ", of.debit"
-				     ", of.timestamp"
-				     ", of.update_count"
-				     " FROM onchain_fees of"
-				     " WHERE of.txid = ?"
-				     " ORDER BY "
-				     "  of.timestamp"
-				     ", of.txid"
-				     ", of.update_count"));
-
-	db_bind_txid(stmt, txid);
-	return find_onchain_fees(ctx, take(stmt));
-}
-
-struct onchain_fee **list_chain_fees_timebox(const tal_t *ctx, struct db *db,
+/* FIXME: slow */
+struct onchain_fee **list_chain_fees_timebox(const tal_t *ctx,
+					     const struct bkpr *bkpr,
 					     u64 start_time, u64 end_time)
 {
-	struct db_stmt *stmt;
+	struct onchain_fee **ret = tal_arr(ctx, struct onchain_fee *, 0);
+	struct ofees_hash_iter it;
+	struct ordered_ofees *ofees;
 
-	stmt = db_prepare_v2(db, SQL("SELECT"
-				     "  of.account_name"
-				     ", of.txid"
-				     ", of.credit"
-				     ", of.debit"
-				     ", of.timestamp"
-				     ", of.update_count"
-				     " FROM onchain_fees of"
-				     " WHERE timestamp > ?"
-				     "  AND timestamp <= ?"
-				     " ORDER BY "
-				     "  of.timestamp"
-				     ", of.account_name"
-				     ", of.txid"
-				     ", of.update_count"));
-
-	db_bind_u64(stmt, start_time);
-	db_bind_u64(stmt, end_time);
-	return find_onchain_fees(ctx, take(stmt));
+	for (ofees = ofees_hash_first(bkpr->onchain_fees->by_account, &it);
+	     ofees;
+	     ofees = ofees_hash_next(bkpr->onchain_fees->by_account, &it)) {
+		for (size_t i = 0; i < tal_count(ofees->ofs); i++) {
+			if (ofees->ofs[i]->timestamp <= start_time)
+				continue;
+			if (ofees->ofs[i]->timestamp > end_time)
+				continue;
+			tal_arr_expand(&ret, ofees->ofs[i]);
+		}
+	}
+	order_fees(ret);
+	return ret;
 }
 
-struct onchain_fee **list_chain_fees(const tal_t *ctx, struct db *db)
+struct onchain_fee **list_chain_fees(const tal_t *ctx, const struct bkpr *bkpr)
 {
-	return list_chain_fees_timebox(ctx, db, 0, SQLITE_MAX_UINT);
+	return list_chain_fees_timebox(ctx, bkpr, 0, SQLITE_MAX_UINT);
 }
 
-static void insert_chain_fees_diff(struct db *db,
+static void insert_chain_fees_diff(struct bkpr *bkpr,
 				   const char *acct_name,
 				   struct bitcoin_txid *txid,
 				   struct amount_msat amount,
 				   u64 timestamp)
 {
-	struct db_stmt *stmt;
-	u32 update_count;
+	struct onchain_fee **ofs;
+	u32 max_update_count = 0;
 	struct amount_msat current_amt, credit, debit;
+	struct db_stmt *stmt;
 
-	/* First, look to see if there's an already existing
-	 * record to update */
-	stmt = db_prepare_v2(db, SQL("SELECT"
-				     "  update_count"
-				     ", credit"
-				     ", debit"
-				     " FROM onchain_fees"
-				     " WHERE txid = ?"
-				     " AND account_name = ?"
-				     " ORDER BY update_count"));
-
-	db_bind_txid(stmt, txid);
-	db_bind_text(stmt, acct_name);
-	db_query_prepared(stmt);
-
-	/* If there's no current record, add it */
 	current_amt = AMOUNT_MSAT(0);
-	update_count = 0;
-	while (db_step(stmt)) {
-		update_count = db_col_int(stmt, "update_count");
-		credit = db_col_amount_msat(stmt, "credit");
-		debit = db_col_amount_msat(stmt, "debit");
+	ofs = account_get_chain_fees(tmpctx, bkpr, acct_name);
 
-		/* These should apply perfectly, as we sorted them by
-		 * insert order */
-		if (!amount_msat_accumulate(&current_amt, credit))
-			db_fatal(db, "Overflow when adding onchain fees");
+	for (size_t i = 0; i < tal_count(ofs); i++) {
+		if (!bitcoin_txid_eq(&ofs[i]->txid, txid))
+			continue;
+		if (!amount_msat_accumulate(&current_amt, ofs[i]->credit))
+			db_fatal(bkpr->db, "Overflow when adding onchain fees");
 
-		if (!amount_msat_sub(&current_amt, current_amt, debit))
-			db_fatal(db, "Underflow when subtracting onchain fees");
-
+		if (!amount_msat_sub(&current_amt, current_amt, ofs[i]->debit))
+			db_fatal(bkpr->db, "Underflow when subtracting onchain fees");
+		if (ofs[i]->update_count > max_update_count)
+			max_update_count = ofs[i]->update_count;
 	}
-	tal_free(stmt);
 
 	/* If they're already equal, no need to update */
 	if (amount_msat_eq(current_amt, amount))
@@ -192,11 +275,11 @@ static void insert_chain_fees_diff(struct db *db,
 	if (!amount_msat_sub(&credit, amount, current_amt)) {
 		credit = AMOUNT_MSAT(0);
 		if (!amount_msat_sub(&debit, current_amt, amount))
-			db_fatal(db, "shouldn't happen, unable to subtract");
+			db_fatal(bkpr->db, "shouldn't happen, unable to subtract");
 	} else
 		debit = AMOUNT_MSAT(0);
 
-	stmt = db_prepare_v2(db, SQL("INSERT INTO onchain_fees"
+	stmt = db_prepare_v2(bkpr->db, SQL("INSERT INTO onchain_fees"
 				     " ("
 				     "  account_name"
 				     ", txid"
@@ -206,67 +289,107 @@ static void insert_chain_fees_diff(struct db *db,
 				     ", update_count"
 				     ") VALUES"
 				     " (?, ?, ?, ?, ?, ?);"));
-
 	db_bind_text(stmt, acct_name);
 	db_bind_txid(stmt, txid);
 	db_bind_amount_msat(stmt, credit);
 	db_bind_amount_msat(stmt, debit);
 	db_bind_u64(stmt, timestamp);
-	db_bind_int(stmt, ++update_count);
+	db_bind_int(stmt, max_update_count+1);
 	db_exec_prepared_v2(take(stmt));
+
+	new_onchain_fee(bkpr->onchain_fees,
+			acct_name, txid, credit, debit, timestamp,
+			max_update_count+1);
 }
 
-struct fee_sum **calculate_onchain_fee_sums(const tal_t *ctx, struct db *db)
+/* Sort these as ORDER BY txid, account_name */
+static int compare_onchain_fee_txid_account(struct onchain_fee *const *a,
+					    struct onchain_fee *const *b,
+					    void *arg)
 {
-	struct db_stmt *stmt;
-	struct fee_sum **sums;
-	stmt = db_prepare_v2(db, SQL("SELECT"
-				     "  of.txid"
-				     ", of.account_name"
-				     ", CAST(SUM(of.credit) AS BIGINT) as credit"
-				     ", CAST(SUM(of.debit) AS BIGINT) as debit"
-				     " FROM onchain_fees of"
-				     " GROUP BY of.txid"
-				     ", of.account_name"
-				     " ORDER BY txid, account_name"));
+	const struct onchain_fee *ofa = *a, *ofb = *b;
+	int cmp;
 
-	db_query_prepared(stmt);
+	cmp = memcmp(&ofa->txid, &ofb->txid, sizeof(ofb->txid));
+	if (cmp)
+		return cmp;
+	return strcmp(ofa->acct_name, ofb->acct_name);
+}
+
+static void finalize_sum(struct fee_sum ***sums,
+			 struct fee_sum *sum,
+			 struct amount_msat credit,
+			 struct amount_msat debit)
+{
+	bool ok;
+	ok = amount_msat_sub(&sum->fees_paid, credit, debit);
+	assert(ok);
+	tal_arr_expand(sums, sum);
+}
+
+/* Add up each account/txid group into a fee_sum */
+static struct fee_sum **fee_sums_by_txid_and_account(const tal_t *ctx,
+						     struct onchain_fee **ofs)
+{
+	struct fee_sum **sums, *sum;
+	struct amount_msat credit, debit;
+	bool ok;
+
+	/* We want this ordered by txid, accountname */
+	if (ofs) /* Keep pendantic sanity checker happy! */
+		asort(ofs, tal_count(ofs), compare_onchain_fee_txid_account, NULL);
 
 	sums = tal_arr(ctx, struct fee_sum *, 0);
-	while (db_step(stmt)) {
-		struct fee_sum *sum;
-		struct amount_msat debit;
-		bool ok;
+	sum = NULL;
 
-		sum = tal(sums, struct fee_sum);
-		sum->txid = tal(sum, struct bitcoin_txid);
-
-		db_col_txid(stmt, "of.txid", sum->txid);
-		sum->acct_name = db_col_strdup(sum, stmt, "of.account_name");
-		sum->fees_paid = db_col_amount_msat(stmt, "credit");
-		debit = db_col_amount_msat(stmt, "debit");
-
-		ok = amount_msat_sub(&sum->fees_paid, sum->fees_paid,
-				     debit);
+	/* Now for each txid, account_name pair, create a sum */
+	for (size_t i = 0; i < tal_count(ofs); i++) {
+		/* If this is a new group, end the previous. */
+		if (sum
+		    && (!bitcoin_txid_eq(&ofs[i]->txid, sum->txid)
+			|| !streq(ofs[i]->acct_name, sum->acct_name))) {
+			finalize_sum(&sums, sum, credit, debit);
+			sum = NULL;
+		}
+		if (!sum) {
+			sum = tal(sums, struct fee_sum);
+			sum->acct_name = tal_strdup(sum, ofs[i]->acct_name);
+			sum->txid = tal_dup(sum, struct bitcoin_txid,
+					    &ofs[i]->txid);
+			credit = debit = AMOUNT_MSAT(0);
+		}
+		ok = amount_msat_accumulate(&credit, ofs[i]->credit);
 		assert(ok);
-		tal_arr_expand(&sums, sum);
+		ok = amount_msat_accumulate(&debit, ofs[i]->debit);
 	}
 
-	tal_free(stmt);
+	/* Final, if any */
+	if (sum)
+		finalize_sum(&sums, sum, credit, debit);
+
 	return sums;
 }
 
+struct fee_sum **calculate_onchain_fee_sums(const tal_t *ctx,
+					    const struct bkpr *bkpr)
+{
+	struct onchain_fee **ofs;
+
+	ofs = list_chain_fees(tmpctx, bkpr);
+	return fee_sums_by_txid_and_account(ctx, ofs);
+}
+
 char *update_channel_onchain_fees(const tal_t *ctx,
-				  struct db *db,
+				  struct bkpr *bkpr,
 				  struct account *acct)
 {
 	struct chain_event *close_ev, **events;
 	struct amount_msat onchain_amt;
 
 	assert(acct->onchain_resolved_block);
-	close_ev = find_chain_event_by_id(ctx, db,
+	close_ev = find_chain_event_by_id(ctx, bkpr->db,
 					  *acct->closed_event_db_id);
-	events = find_chain_events_bytxid(ctx, db,
+	events = find_chain_events_bytxid(ctx, bkpr->db,
 					  close_ev->spending_txid);
 
 	/* Starting balance is close-ev's debit amount */
@@ -309,7 +432,7 @@ char *update_channel_onchain_fees(const tal_t *ctx,
 				       "onchain sum from %s",
 				       close_ev->tag);
 
-		insert_chain_fees_diff(db, acct->name,
+		insert_chain_fees_diff(bkpr, acct->name,
 				       close_ev->spending_txid,
 				       fees,
 				       close_ev->timestamp);
@@ -504,7 +627,7 @@ char *maybe_update_onchain_fees(const tal_t *ctx,
 			/* But we might need to clean up any fees assigned
 			 * to the wallet from a previous round, where it
 			 * *was* the only game in town */
-			insert_chain_fees_diff(bkpr->db, last_acctname, txid,
+			insert_chain_fees_diff(bkpr, last_acctname, txid,
 					       AMOUNT_MSAT(0),
 					       events[i]->timestamp);
 			continue;
@@ -524,7 +647,7 @@ char *maybe_update_onchain_fees(const tal_t *ctx,
 		} else
 			fees = fee_part_msat;
 
-		insert_chain_fees_diff(bkpr->db, last_acctname, txid, fees,
+		insert_chain_fees_diff(bkpr, last_acctname, txid, fees,
 				       events[i]->timestamp);
 
 	}
@@ -535,69 +658,82 @@ finished:
 }
 
 struct fee_sum **find_account_onchain_fees(const tal_t *ctx,
-					   struct db *db,
-					   struct account *acct)
+					   const struct bkpr *bkpr,
+					   const struct account *acct)
 {
-	struct db_stmt *stmt;
-	struct fee_sum **sums;
-	stmt = db_prepare_v2(db, SQL("SELECT"
-				     "  txid"
-				     ", CAST(SUM(credit) AS BIGINT) as credit"
-				     ", CAST(SUM(debit) AS BIGINT) as debit"
-				     " FROM onchain_fees"
-				     " WHERE account_name = ?"
-				     " GROUP BY txid"
-				     " ORDER BY txid"));
+	struct onchain_fee **ofs;
 
-	db_bind_text(stmt, acct->name);
-	db_query_prepared(stmt);
-
-	sums = tal_arr(ctx, struct fee_sum *, 0);
-	while (db_step(stmt)) {
-		struct fee_sum *sum;
-		struct amount_msat amt;
-		bool ok;
-
-		sum = tal(sums, struct fee_sum);
-		sum->acct_name = acct->name;
-		sum->txid = tal(sum, struct bitcoin_txid);
-		db_col_txid(stmt, "txid", sum->txid);
-
-		sum->fees_paid = db_col_amount_msat(stmt, "credit");
-		amt = db_col_amount_msat(stmt, "debit");
-		ok = amount_msat_sub(&sum->fees_paid, sum->fees_paid, amt);
-		assert(ok);
-		tal_arr_expand(&sums, sum);
-	}
-
-	tal_free(stmt);
-	return sums;
+	ofs = account_get_chain_fees(tmpctx, bkpr, acct->name);
+	return fee_sums_by_txid_and_account(ctx, ofs);
 }
 
-u64 onchain_fee_last_timestamp(struct db *db,
+/* FIXME: Put this value into fee_sums! */
+u64 onchain_fee_last_timestamp(const struct bkpr *bkpr,
 			       const char *acct_name,
-			       struct bitcoin_txid *txid)
+			       const struct bitcoin_txid *txid)
 {
-	struct db_stmt *stmt;
-	u64 timestamp;
+	struct onchain_fee **ofs;
+	u64 timestamp = 0;
 
-	stmt = db_prepare_v2(db, SQL("SELECT"
-				     "  timestamp"
-				     " FROM onchain_fees"
-				     " WHERE account_name = ?"
-				     " AND txid = ?"
-				     " ORDER BY timestamp DESC"));
-
-
-	db_bind_text(stmt, acct_name);
-	db_bind_txid(stmt, txid);
-	db_query_prepared(stmt);
-
-	if (db_step(stmt))
-		timestamp = db_col_u64(stmt, "timestamp");
-	else
-		timestamp = 0;
-
-	tal_free(stmt);
+	ofs = account_get_chain_fees(tmpctx, bkpr, acct_name);
+	for (size_t i = 0; i < tal_count(ofs); i++) {
+		if (!bitcoin_txid_eq(&ofs[i]->txid, txid))
+			continue;
+		if (ofs[i]->timestamp > timestamp)
+			timestamp = ofs[i]->timestamp;
+	}
 	return timestamp;
+}
+
+/* If we're freeing the entire hash table, remove destructors from
+ * individual entries! */
+static void ofees_hash_destroy(struct ofees_hash *ofees_hash)
+{
+	struct ofees_hash_iter it;
+	struct ordered_ofees *ofees;
+
+	for (ofees = ofees_hash_first(ofees_hash, &it);
+	     ofees;
+	     ofees = ofees_hash_next(ofees_hash, &it)) {
+		for (size_t i = 0; i < tal_count(ofees->ofs); i++) {
+			tal_del_destructor2(ofees->ofs[i],
+					    destroy_onchain_fee, ofees_hash);
+		}
+	}
+}
+
+static void memleak_scan_ofees_hash(struct htable *memtable,
+				    struct ofees_hash *ht)
+{
+	memleak_scan_htable(memtable, &ht->raw);
+}
+
+struct onchain_fees *init_onchain_fees(const tal_t *ctx,
+				       struct db *db,
+				       struct command *init_cmd)
+{
+	struct onchain_fees *onchain_fees = tal(ctx, struct onchain_fees);
+	struct db_stmt *stmt;
+
+	onchain_fees->by_account = tal(onchain_fees, struct ofees_hash);
+	ofees_hash_init(onchain_fees->by_account);
+	tal_add_destructor(onchain_fees->by_account, ofees_hash_destroy);
+	memleak_add_helper(onchain_fees->by_account, memleak_scan_ofees_hash);
+
+	db_begin_transaction(db);
+	stmt = db_prepare_v2(db, SQL("SELECT"
+				     "  of.account_name"
+				     ", of.txid"
+				     ", of.credit"
+				     ", of.debit"
+				     ", of.timestamp"
+				     ", of.update_count"
+				     " FROM onchain_fees of"));
+	db_query_prepared(stmt);
+	while (db_step(stmt))
+		stmt2onchain_fee(onchain_fees, stmt);
+	tal_free(stmt);
+	db_commit_transaction(db);
+
+	return onchain_fees;
 }

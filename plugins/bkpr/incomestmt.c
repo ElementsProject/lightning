@@ -263,7 +263,7 @@ static struct income_event *maybe_channel_income(const tal_t *ctx,
 }
 
 static struct onchain_fee **find_consolidated_fees(const tal_t *ctx,
-						   struct db *db,
+						   const struct bkpr *bkpr,
 						   u64 start_time,
 						   u64 end_time)
 {
@@ -271,7 +271,7 @@ static struct onchain_fee **find_consolidated_fees(const tal_t *ctx,
 	struct onchain_fee **fee_sums
 		= tal_arr(ctx, struct onchain_fee *, 0);
 
-	sums = calculate_onchain_fee_sums(ctx, db);
+	sums = calculate_onchain_fee_sums(ctx, bkpr);
 
 	for (size_t i = 0; i < tal_count(sums); i++) {
 		/* Find the last matching feerate's data */
@@ -287,7 +287,7 @@ static struct onchain_fee **find_consolidated_fees(const tal_t *ctx,
 		fee->txid = *sums[i]->txid;
 
 		fee->timestamp =
-			onchain_fee_last_timestamp(db, sums[i]->acct_name,
+			onchain_fee_last_timestamp(bkpr, sums[i]->acct_name,
 						   sums[i]->txid);
 
 		tal_arr_expand(&fee_sums, fee);
@@ -315,11 +315,11 @@ struct income_event **list_income_events(const tal_t *ctx,
 	chain_events = list_chain_events_timebox(ctx, db, start_time, end_time);
 
 	if (consolidate_fees) {
-		onchain_fees = find_consolidated_fees(ctx, db,
+		onchain_fees = find_consolidated_fees(ctx, bkpr,
 						      start_time,
 						      end_time);
 	} else
-		onchain_fees = list_chain_fees_timebox(ctx, db,
+		onchain_fees = list_chain_fees_timebox(ctx, bkpr,
 						       start_time, end_time);
 
 	evs = tal_arr(ctx, struct income_event *, 0);
