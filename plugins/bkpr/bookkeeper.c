@@ -22,7 +22,6 @@
 #include <plugins/bkpr/chain_event.h>
 #include <plugins/bkpr/channel_event.h>
 #include <plugins/bkpr/channelsapy.h>
-#include <plugins/bkpr/db.h>
 #include <plugins/bkpr/descriptions.h>
 #include <plugins/bkpr/incomestmt.h>
 #include <plugins/bkpr/onchain_fee.h>
@@ -218,12 +217,10 @@ getblockheight_done(struct command *cmd,
 			   result->end - result->start, buf);
 
 	/* Get the income events */
-	db_begin_transaction(bkpr->db);
 	apys = compute_channel_apys(cmd, bkpr, cmd,
 				    *req->start_time,
 				    *req->end_time,
 				    blockheight);
-	db_commit_transaction(bkpr->db);
 
 	/* Setup the net_apys entry */
 	net_apys = new_channel_apy(cmd);
@@ -313,10 +310,8 @@ static struct command_result *do_dump_income(struct command *cmd,
 	char *err;
 
 	/* Ok, go find me some income events! */
-	db_begin_transaction(bkpr->db);
 	evs = list_income_events(cmd, bkpr, cmd, *info->start_time, *info->end_time,
 				 *info->consolidate_fees);
-	db_commit_transaction(bkpr->db);
 
 	if (!info->filename)
 		info->filename = csv_filename(info, info->csv_fmt);
@@ -365,10 +360,8 @@ static struct command_result *do_list_income(struct command *cmd,
 	struct bkpr *bkpr = bkpr_of(cmd->plugin);
 
 	/* Ok, go find me some income events! */
-	db_begin_transaction(bkpr->db);
 	evs = list_income_events(cmd, bkpr, cmd, *info->start_time, *info->end_time,
 				 *info->consolidate_fees);
-	db_commit_transaction(bkpr->db);
 
 	res = jsonrpc_stream_success(cmd);
 
@@ -417,10 +410,8 @@ static struct command_result *do_inspect(struct command *cmd,
 				    "Account %s not found",
 				    acct_name);
 
-	db_begin_transaction(bkpr->db);
 	find_txo_chain(cmd, bkpr, cmd, acct, &txos);
 	fee_sums = find_account_onchain_fees(cmd, bkpr, acct);
-	db_commit_transaction(bkpr->db);
 
 	res = jsonrpc_stream_success(cmd);
 	json_array_start(res, "txs");
@@ -623,7 +614,6 @@ static struct command_result *do_account_events(struct command *cmd,
 	} else
 		acct = NULL;
 
-	db_begin_transaction(bkpr->db);
 	if (acct) {
 		channel_events = account_get_channel_events(cmd, bkpr, cmd, acct);
 		chain_events = account_get_chain_events(cmd, bkpr, cmd, acct);
@@ -643,7 +633,6 @@ static struct command_result *do_account_events(struct command *cmd,
 		chain_events = list_chain_events(cmd, bkpr, cmd);
 		onchain_fees = list_chain_fees(cmd, bkpr);
 	}
-	db_commit_transaction(bkpr->db);
 
 	res = jsonrpc_stream_success(cmd);
 	json_array_start(res, "events");
@@ -680,10 +669,8 @@ static struct command_result *do_edit_desc(struct command *cmd,
 	struct chain_event **chain_events;
 	struct bkpr *bkpr = bkpr_of(cmd->plugin);
 
-	db_begin_transaction(bkpr->db);
 	add_utxo_description(cmd, bkpr, info->outpoint, info->new_desc);
 	chain_events = get_chain_events_by_outpoint(cmd, bkpr, cmd, info->outpoint);
-	db_commit_transaction(bkpr->db);
 
 	res = jsonrpc_stream_success(cmd);
 	json_array_start(res, "updated");
@@ -721,12 +708,10 @@ static struct command_result *do_edit_desc_payment(struct command *cmd,
 	struct chain_event **chain_events;
 	struct bkpr *bkpr = bkpr_of(cmd->plugin);
 
-	db_begin_transaction(bkpr->db);
 	add_payment_hash_description(cmd, bkpr, info->identifier, info->new_desc);
 
 	chain_events = get_chain_events_by_id(cmd, bkpr, cmd, info->identifier);
 	channel_events = get_channel_events_by_id(cmd, bkpr, cmd, info->identifier);
-	db_commit_transaction(bkpr->db);
 
 	res = jsonrpc_stream_success(cmd);
 	json_array_start(res, "updated");
@@ -760,7 +745,6 @@ static struct command_result *do_list_balances(struct command *cmd,
 
 	res = jsonrpc_stream_success(cmd);
 	/* List of accts */
-	db_begin_transaction(bkpr->db);
 	accts = list_accounts(cmd, bkpr);
 
 	json_array_start(res, "accounts");
@@ -816,7 +800,6 @@ static struct command_result *do_list_balances(struct command *cmd,
 		json_object_end(res);
 	}
 	json_array_end(res);
-	db_commit_transaction(bkpr->db);
 
 	return command_finished(cmd, res);
 }
@@ -858,8 +841,6 @@ static char *do_account_close_checks(struct command *cmd,
 {
 	struct account *closed_acct;
 
-	db_begin_transaction(bkpr->db);
-
 	/* If is an external acct event, might be close channel related */
 	if (!is_channel_account(acct->name) && e->origin_acct) {
 		closed_acct = find_account(bkpr, e->origin_acct);
@@ -884,13 +865,10 @@ static char *do_account_close_checks(struct command *cmd,
 			account_update_closeheight(cmd, closed_acct, closeheight);
 			err = update_channel_onchain_fees(cmd, cmd, bkpr, closed_acct);
 			if (err) {
-				db_commit_transaction(bkpr->db);
 				return err;
 			}
 		}
 	}
-
-	db_commit_transaction(bkpr->db);
 
 	return NULL;
 }
@@ -1218,7 +1196,6 @@ parse_and_log_chain_move(struct command *cmd,
 		   fmt_amount_msat(tmpctx, e->debit),
 		   CHAIN_MOVE, e->timestamp);
 
-	db_begin_transaction(bkpr->db);
 	/* FIXME: lookup the peer id for this channel! */
 	acct = find_or_create_account(cmd, bkpr, acct_name);
 
@@ -1228,13 +1205,6 @@ parse_and_log_chain_move(struct command *cmd,
 	/* Make this visible for queries (we expect increasing!) */
 	assert(e->db_id > bkpr->chainmoves_index);
 	bkpr->chainmoves_index = e->db_id;
-
-	if (!log_chain_event(bkpr, acct, e)) {
-		plugin_log(cmd->plugin, LOG_BROKEN, "Duplicated event!");
-		db_commit_transaction(bkpr->db);
-		/* This is not a new event, do nothing */
-		return;
-	}
 
 	/* This event *might* have implications for account;
 	 * update as necessary */
@@ -1247,8 +1217,6 @@ parse_and_log_chain_move(struct command *cmd,
 					e->spending_txid :
 					&e->outpoint.txid);
 
-	db_commit_transaction(bkpr->db);
-
 	if (err)
 		plugin_err(cmd->plugin,
 			   "Unable to update onchain fees %s",
@@ -1258,13 +1226,11 @@ parse_and_log_chain_move(struct command *cmd,
 	 * that it we've got an external deposit that's now
 	 * confirmed */
 	if (e->spending_txid) {
-		db_begin_transaction(bkpr->db);
 		/* Go see if there's any deposits to an external
 		 * that are now confirmed */
 		/* FIXME: might need updating when we can splice? */
 		maybe_closeout_external_deposits(cmd, bkpr, e->spending_txid,
 						 e->blockheight);
-		db_commit_transaction(bkpr->db);
 	}
 
 	/* Maybe mark acct as onchain resolved */
@@ -1343,7 +1309,6 @@ parse_and_log_channel_move(struct command *cmd,
 		   CHANNEL_MOVE, e->timestamp);
 
 	/* Go find the account for this event */
-	db_begin_transaction(bkpr->db);
 	acct = find_account(bkpr, acct_name);
 	if (!acct)
 		plugin_err(cmd->plugin,
@@ -1355,8 +1320,6 @@ parse_and_log_channel_move(struct command *cmd,
 	assert(e->db_id > bkpr->channelmoves_index);
 	bkpr->channelmoves_index = e->db_id;
 
-	log_channel_event(bkpr->db, acct, e);
-
 	/* Check for invoice desc data, necessary */
 	if (e->payment_id && tag == MVT_INVOICE) {
 		/* We only do rebalance checks for debits,
@@ -1364,12 +1327,9 @@ parse_and_log_channel_move(struct command *cmd,
 		if (!amount_msat_is_zero(e->debit))
 			maybe_record_rebalance(cmd, bkpr, e);
 
-		db_commit_transaction(bkpr->db);
 		lookup_invoice_desc(cmd, e->credit, e->payment_id, rinfo);
 		return;
 	}
-
-	db_commit_transaction(bkpr->db);
 }
 
 static bool json_to_tok(const char *buffer, const jsmntok_t *tok, const jsmntok_t **ret)
@@ -1574,7 +1534,6 @@ static const char *init(struct command *init_cmd, const char *b, const jsmntok_t
 		bkpr->db_dsn = tal_fmt(bkpr, "sqlite3://accounts.sqlite3");
 
 	plugin_log(p, LOG_DBG, "Setting up database at %s", bkpr->db_dsn);
-	bkpr->db = db_setup(bkpr, p, bkpr->db_dsn);
 	bkpr->accounts = init_accounts(bkpr, init_cmd);
 	bkpr->onchain_fees = init_onchain_fees(bkpr, init_cmd);
 	bkpr->descriptions = init_descriptions(bkpr, init_cmd);

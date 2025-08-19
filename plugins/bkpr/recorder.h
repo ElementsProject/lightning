@@ -8,7 +8,6 @@ struct account;
 struct bitcoin_txid;
 struct chain_event;
 struct channel_event;
-struct db;
 struct plugin;
 enum mvt_tag;
 struct onchain_fee;
@@ -51,7 +50,6 @@ struct channel_event **list_channel_events(const tal_t *ctx,
 /* Get all channel events, order by timestamp.
  *
  * @ctx - context to allocate from
- * @db  - database to query
  * @start_time - UNIX timestamp to query after (exclusive)
  * @end_time   - UNIX timestamp to query until (inclusive)
  */
@@ -159,17 +157,4 @@ void maybe_closeout_external_deposits(struct command *cmd,
 void maybe_record_rebalance(struct command *cmd,
 			    struct bkpr *bkpr,
 			    const struct channel_event *out);
-
-/* Log a channel event */
-void log_channel_event(struct db *db,
-		       const struct account *acct,
-		       struct channel_event *e);
-
-/* Log a chain event.
- * Returns true if inserted, false if already exists;
- * ctx is for allocating objects onto chain_event `e` */
-bool log_chain_event(struct bkpr *bkpr,
-                     const struct account *acct,
-                     struct chain_event *e);
-
 #endif /* LIGHTNING_PLUGINS_BKPR_RECORDER_H */

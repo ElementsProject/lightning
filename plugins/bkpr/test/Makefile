@@ -29,8 +29,7 @@ BOOKKEEPER_TEST_COMMON_OBJS :=			\
 	db/exec.o				\
 	db/utils.o				\
 	wire/towire.o				\
-	wire/fromwire.o				\
-	plugins/bkpr/db_sqlite3_sqlgen.o
+	wire/fromwire.o
 
 $(BOOKKEEPER_TEST_PROGRAMS): $(BITCOIN_OBJS) $(BOOKKEEPER_TEST_COMMON_OBJS)
 $(BOOKKEEPER_TEST_OBJS): $(BOOKKEEPER_HEADER) $(BOOKKEEPER_SRC) $(BOOKKEEPER_TEST_COMMON_OBJS)
