@@ -37,19 +37,7 @@ static struct migration db_migrations[] = {
 		", 0"
 		");"),
 	NULL},
-	{SQL("CREATE TABLE accounts ("
-		"  id BIGSERIAL"
-		", name TEXT"
-		", peer_id BLOB"
-		", opened_event_id BIGINT"
-		", closed_event_id BIGINT"
-		", onchain_resolved_block INTEGER"
-		", is_wallet INTEGER"
-		", we_opened INTEGER"
-		", leased INTEGER"
-		", PRIMARY KEY (id)"
-		");"),
-	NULL},
+	{NULL, NULL},
 	{SQL("CREATE TABLE chain_events ("
 		"  id BIGSERIAL"
 		", account_name TEXT"
@@ -93,7 +81,7 @@ static struct migration db_migrations[] = {
 		");"),
 	NULL},
 	{SQL("ALTER TABLE chain_events ADD origin TEXT;"), NULL},
-	{SQL("ALTER TABLE accounts ADD closed_count INTEGER DEFAULT 0;"), NULL},
+	{NULL, NULL},
 	{SQL("ALTER TABLE chain_events ADD ignored INTEGER;"), NULL},
 	{SQL("ALTER TABLE chain_events ADD stealable INTEGER;"), NULL},
 	{SQL("ALTER TABLE chain_events ADD ev_desc TEXT DEFAULT NULL;"), NULL},
