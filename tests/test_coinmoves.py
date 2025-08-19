@@ -1,7 +1,7 @@
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from utils import (
-    sync_blockheight, wait_for, only_one
+    sync_blockheight, wait_for, only_one, TIMEOUT
 )
 
 import unittest
@@ -12,8 +12,12 @@ from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND
 
 
 def check_moves(moves, expected):
+    # Can't predict timestamp
     for m in moves:
         del m['timestamp']
+    # But we can absolutely predict created_index.
+    for i, m in enumerate(expected, start=1):
+        m['created_index'] = i
     assert moves == expected
 
 
@@ -1851,3 +1855,38 @@ def test_coinmoves_unilateral_htlc_penalty(node_factory, bitcoind):
     #   MVT_SPLICE,
     #   MVT_LEASED,
     #   MVT_STEALABLE,
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+def test_wait(node_factory, bitcoind, executor):
+    l1, l2 = node_factory.get_nodes(2)
+
+    fut = executor.submit(l1.rpc.wait, subsystem='chainmoves', indexname='created', nextvalue=1)
+
+    addr = l1.rpc.newaddr()['bech32']
+    bitcoind.rpc.sendtoaddress(addr, 200000000 / 10**8)
+    bitcoind.generate_block(1, wait_for_mempool=1)
+
+    out = fut.result(TIMEOUT)
+    assert out == {'subsystem': 'chainmoves',
+                   'created': 1,
+                   'chainmoves': {'account': 'wallet',
+                                  'credit_msat': 200000000000,
+                                  'debit_msat': 0}}
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    fund = l1.rpc.fundchannel(l2.info['id'], 10000000)
+    bitcoind.generate_block(1, wait_for_mempool=fund['txid'])
+    wait_for(lambda: all([c['state'] == 'CHANNELD_NORMAL' for c in l1.rpc.listpeerchannels(l2.info['id'])['channels']]))
+
+    fut = executor.submit(l1.rpc.wait, subsystem='channelmoves', indexname='created', nextvalue=1)
+    inv = l2.rpc.invoice('any', 'test_wait', 'test_wait')
+    l1.rpc.xpay(inv['bolt11'], '1000000sat')
+
+    out = fut.result(TIMEOUT)
+    assert out == {'subsystem': 'channelmoves',
+                   'created': 1,
+                   'channelmoves': {'account': fund['channel_id'],
+                                    'debit_msat': 1000000000,
+                                    'credit_msat': 0}}

@@ -97,6 +97,18 @@ void broadcast_tx_(const tal_t *ctx UNNEEDED,
 		   bool (*refresh)(struct channel * UNNEEDED, const struct bitcoin_tx ** UNNEEDED, void *) UNNEEDED,
 		   void *cbarg TAKES UNNEEDED)
 { fprintf(stderr, "broadcast_tx_ called!\n"); abort(); }
+/* Generated stub for chain_mvt_index_created */
+u64 chain_mvt_index_created(struct lightningd *ld UNNEEDED,
+			    const struct mvt_account_id *account UNNEEDED,
+			    struct amount_msat credit UNNEEDED,
+			    struct amount_msat debit UNNEEDED)
+{ fprintf(stderr, "chain_mvt_index_created called!\n"); abort(); }
+/* Generated stub for channel_mvt_index_created */
+u64 channel_mvt_index_created(struct lightningd *ld UNNEEDED,
+			      const struct mvt_account_id *account UNNEEDED,
+			      struct amount_msat credit UNNEEDED,
+			      struct amount_msat debit UNNEEDED)
+{ fprintf(stderr, "channel_mvt_index_created called!\n"); abort(); }
 /* Generated stub for channel_unsaved_close_conn */
 void channel_unsaved_close_conn(struct channel *channel UNNEEDED, const char *why UNNEEDED)
 { fprintf(stderr, "channel_unsaved_close_conn called!\n"); abort(); }
@@ -694,11 +706,13 @@ bool node_announcement_same(const u8 *nann1 UNNEEDED, const u8 *nann2 UNNEEDED)
 { fprintf(stderr, "node_announcement_same called!\n"); abort(); }
 /* Generated stub for notify_chain_mvt */
 void notify_chain_mvt(struct lightningd *ld UNNEEDED,
-		      const struct chain_coin_mvt *chain_mvt UNNEEDED)
+		      const struct chain_coin_mvt *chain_mvt UNNEEDED,
+		      u64 id UNNEEDED)
 { fprintf(stderr, "notify_chain_mvt called!\n"); abort(); }
 /* Generated stub for notify_channel_mvt */
 void notify_channel_mvt(struct lightningd *ld UNNEEDED,
-			const struct channel_coin_mvt *chan_mvt UNNEEDED)
+			const struct channel_coin_mvt *chan_mvt UNNEEDED,
+			u64 id UNNEEDED)
 { fprintf(stderr, "notify_channel_mvt called!\n"); abort(); }
 /* Generated stub for notify_channel_open_failed */
 void notify_channel_open_failed(struct lightningd *ld UNNEEDED,
