@@ -397,9 +397,9 @@ char *update_channel_onchain_fees(const tal_t *ctx,
 	struct amount_msat onchain_amt;
 
 	assert(acct->onchain_resolved_block);
-	close_ev = find_chain_event_by_id(ctx, bkpr->db,
+	close_ev = find_chain_event_by_id(ctx, bkpr,
 					  *acct->closed_event_db_id);
-	events = find_chain_events_bytxid(ctx, bkpr->db,
+	events = find_chain_events_bytxid(ctx, bkpr,
 					  close_ev->spending_txid);
 
 	/* Starting balance is close-ev's debit amount */
@@ -475,7 +475,7 @@ static char *is_closed_channel_txid(const tal_t *ctx,
 
 	/* is the closed utxo the same as the one
 	 * we're trying to find fees for now */
-	closed = find_chain_event_by_id(inner_ctx, bkpr->db,
+	closed = find_chain_event_by_id(inner_ctx, bkpr,
 			*acct->closed_event_db_id);
 	if (!closed) {
 		*is_channel_close_tx = false;
@@ -516,7 +516,7 @@ char *maybe_update_onchain_fees(const tal_t *ctx,
 	u8 *inner_ctx = tal(NULL, u8);
 
 	/* Find all the deposits/withdrawals for this txid */
-	events = find_chain_events_bytxid(inner_ctx, bkpr->db, txid);
+	events = find_chain_events_bytxid(inner_ctx, bkpr, txid);
 
 	/* If we don't even have two events, skip */
 	if (tal_count(events) < 2)

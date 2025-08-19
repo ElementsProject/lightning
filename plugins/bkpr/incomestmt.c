@@ -313,13 +313,11 @@ struct income_event **list_income_events(const tal_t *ctx,
 	struct channel_event **channel_events;
 	struct chain_event **chain_events;
 	struct onchain_fee **onchain_fees;
-	struct db *db = bkpr->db;
-
 	struct income_event **evs;
 
-	channel_events = list_channel_events_timebox(ctx, db,
+	channel_events = list_channel_events_timebox(ctx, bkpr->db,
 						     start_time, end_time);
-	chain_events = list_chain_events_timebox(ctx, db, start_time, end_time);
+	chain_events = list_chain_events_timebox(ctx, bkpr, start_time, end_time);
 
 	if (consolidate_fees) {
 		onchain_fees = find_consolidated_fees(ctx, bkpr,
