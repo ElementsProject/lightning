@@ -1007,17 +1007,25 @@ static char *do_account_close_checks(const tal_t *ctx,
 	/* If is an external acct event, might be close channel related */
 	if (!is_channel_account(acct->name) && e->origin_acct) {
 		closed_acct = find_account(ctx, db, e->origin_acct);
-	} else if (!is_channel_account(acct->name) && !e->spending_txid)
-		closed_acct = find_close_account(ctx, db, &e->outpoint.txid);
-	else
+	} else if (!is_channel_account(acct->name) && !e->spending_txid) {
+		const char *acctname;
+
+		acctname = find_close_account_name(tmpctx, db, &e->outpoint.txid);
+		if (acctname) {
+			closed_acct = find_account(ctx, db, acctname);
+		} else {
+			closed_acct = NULL;
+		}
+	} else
 		/* Get most up to date account entry */
 		closed_acct = find_account(ctx, db, acct->name);
 
 
 	if (closed_acct && closed_acct->closed_event_db_id) {
-		maybe_mark_account_onchain(db, closed_acct);
-		if (closed_acct->onchain_resolved_block > 0) {
+		u64 closeheight = account_onchain_closeheight(db, closed_acct);
+		if (closeheight != 0) {
 			char *err;
+			account_update_closeheight(db, closed_acct, closeheight);
 			err = update_channel_onchain_fees(ctx, db, closed_acct);
 			if (err) {
 				db_commit_transaction(db);
