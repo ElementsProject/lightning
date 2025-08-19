@@ -33020,7 +33020,7 @@
         "* json_group_array"
       ],
       "tables": [
-        "Note that the first column of every table is a unique integer called `rowid`: this is used for related tables to refer to specific rows in their parent. sqlite3 usually has this as an implicit column, but we make it explicit as the implicit version is not allowed to be used as a foreign key.",
+        "Note that tables which have a `created_index` field use that as the primary key (and `rowid` is an alias to this), otherwise an explicit `rowid` integer primary key is generated, whose value changes on each refresh.  This field is used for related tables to refer to specific rows in their parent. (sqlite3 usually has this as an implicit column, but we make it explicit as the implicit version is not allowed to be used as a foreign key).",
         ""
       ],
       "errors": [

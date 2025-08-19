@@ -3887,13 +3887,17 @@ def test_sql(node_factory, bitcoind):
                   'number': 'REAL',
                   'short_channel_id': 'TEXT'}
 
-    # Check schemas match (each one has rowid at start)
-    rowidcol = {'name': 'rowid', 'type': 'u64'}
+    # Check schemas match
     for table, schema in expected_schemas.items():
         res = only_one(l2.rpc.listsqlschemas(table)['schemas'])
         assert res['tablename'] == table
         assert res.get('indices') == schema.get('indices')
-        sqlcolumns = [{'name': c['name'], 'type': sqltypemap[c['type']]} for c in [rowidcol] + schema['columns']]
+        # Those without a created_index get an *explicit* rowid;
+        if any([c['name'] == 'created_index' for c in schema['columns']]):
+            prefix = []
+        else:
+            prefix = [{'name': 'rowid', 'type': 'u64'}]
+        sqlcolumns = [{'name': c['name'], 'type': sqltypemap[c['type']]} for c in prefix + schema['columns']]
         assert res['columns'] == sqlcolumns
 
     # Make sure we didn't miss any
@@ -3931,11 +3935,17 @@ def test_sql(node_factory, bitcoind):
 
     for table, schema in expected_schemas.items():
         ret = l2.rpc.sql("SELECT * FROM {};".format(table))
-        assert len(ret['rows'][0]) == 1 + len(schema['columns'])
+        # If you have created_index, we don't create an explicit rowid.
+        has_rowid = not any([c['name'] == 'created_index' for c in schema['columns']])
 
-        # First column is always rowid!
-        for row in ret['rows']:
-            assert row[0] > 0
+        if has_rowid:
+            assert len(ret['rows'][0]) == 1 + len(schema['columns'])
+
+            # First column is always rowid!
+            for row in ret['rows']:
+                assert row[0] > 0
+        else:
+            assert len(ret['rows'][0]) == len(schema['columns'])
 
         for col in schema['columns']:
             # We will get a complaint for trying to access deprecated cols by name:
