@@ -1635,6 +1635,7 @@ def test_libplugin(node_factory):
 
     # Test commands
     assert l1.rpc.call("helloworld") == {"hello": "NOT FOUND"}
+    l1.daemon.wait_for_log(r'listpeers gave 3 tokens: {"peers":\[\]}')
     l1.daemon.wait_for_log("get_ds_bin_done: 00010203")
     l1.daemon.wait_for_log("BROKEN.* Datastore gave nonstring result.*00010203")
     assert l1.rpc.call("helloworld", {"name": "test"}) == {"hello": "test"}
