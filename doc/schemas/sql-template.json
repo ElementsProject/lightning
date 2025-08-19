@@ -123,8 +123,17 @@
   ],
   "see_also": [
     "lightning-listtransactions(7)",
+    "lightning-listhtlcs(7)",
+    "lightning-listinvoices(7)",
+    "lightning-listoffers(7)",
     "lightning-listchannels(7)",
     "lightning-listpeers(7)",
+    "lightning-listpeerchannels(7)",
+    "lightning-listsendpays(7)",
+    "lightning-listchainmoves(7)",
+    "lightning-listchannelmoves(7)",
+    "lightning-bkpr-listaccountevents(7)",
+    "lightning-bkpr-listincome(7)",
     "lightning-listnodes(7)",
     "lightning-listforwards(7)"
   ],
