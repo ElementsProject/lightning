@@ -1235,9 +1235,9 @@ def test_forward(node_factory, bitcoind):
     route = copy.deepcopy(baseroute)
     l1.rpc.sendpay(route, rhash, payment_secret=inv['payment_secret'])
     l1.rpc.waitsendpay(rhash)
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
 
     # Check that invoice payment and fee are tracked appropriately
-    l1.daemon.wait_for_log('coin_move .* [(]invoice[)]')
     l1.rpc.bkpr_dumpincomecsv('koinly', 'koinly.csv')
 
     koinly_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'koinly.csv')

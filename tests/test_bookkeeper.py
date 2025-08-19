@@ -9,6 +9,7 @@ from utils import (
 from pathlib import Path
 import os
 import pytest
+import time
 import unittest
 
 
@@ -203,73 +204,6 @@ def test_bookkeeping_external_withdraws(node_factory, bitcoind):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "External wallet support doesn't work with elements yet.")
-@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Depends on sqlite3 database location")
-def test_bookkeeping_external_withdraw_missing(node_factory, bitcoind):
-    """ Withdrawals to an external address turn up as
-    extremely large onchain_fees when they happen before
-    our accounting plugin is attached"""
-    l1 = node_factory.get_node()
-
-    basedir = l1.daemon.opts.get("lightning-dir")
-    addr = l1.rpc.newaddr()['bech32']
-
-    amount = 1111111
-    amount_msat = Millisatoshi(amount * 1000)
-    bitcoind.rpc.sendtoaddress(addr, amount / 10**8)
-    bitcoind.rpc.sendtoaddress(addr, amount / 10**8)
-
-    bitcoind.generate_block(1)
-    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 2)
-
-    waddr = l1.bitcoin.rpc.getnewaddress()
-
-    # Ok, now we send some funds to an external address
-    l1.rpc.withdraw(waddr, amount // 2)
-
-    # Only two income events: deposits
-    assert len(l1.rpc.bkpr_listincome()['income_events']) == 2
-    # 4 account events:  2 wallet deposits, 1 external deposit
-    assert len(l1.rpc.bkpr_listaccountevents()['events']) == 3
-
-    # Stop node and remove the accounts data
-    l1.stop()
-    os.remove(os.path.join(basedir, TEST_NETWORK, 'accounts.sqlite3'))
-    l1.start()
-
-    # Number of income events should be unchanged
-    assert len(l1.rpc.bkpr_listincome()['income_events']) == 2
-    # we're now missing the external deposit
-    events = l1.rpc.bkpr_listaccountevents()['events']
-    assert len(events) == 2
-    assert len([e for e in events if e['account'] == 'external']) == 0
-    assert len(find_tags(events, 'journal_entry')) == 0
-
-    # the wallet balance should be unchanged
-    btc_balance = only_one(only_one(l1.rpc.bkpr_listbalances()['accounts'])['balances'])
-    assert btc_balance['balance_msat'] == amount_msat * 2
-
-    # ok now we mine a block
-    bitcoind.generate_block(1)
-    sync_blockheight(bitcoind, [l1])
-
-    # expect the withdrawal to appear in the incomes
-    # and there should be an onchain fee
-    incomes = l1.rpc.bkpr_listincome()['income_events']
-    # 2 wallet deposits, 1 onchain_fee
-    assert len(incomes) == 3
-    assert len(find_tags(incomes, 'withdrawal')) == 0
-
-    fee_events = find_tags(incomes, 'onchain_fee')
-    assert len(fee_events) == 1
-    fees = fee_events[0]['debit_msat']
-    assert fees > Millisatoshi(amount // 2 * 1000)
-
-    # wallet balance is decremented now
-    bal = only_one(only_one(l1.rpc.bkpr_listbalances()['accounts'])['balances'])
-    assert bal['balance_msat'] == amount_msat * 2 - fees
-
-
-@unittest.skipIf(TEST_NETWORK != 'regtest', "External wallet support doesn't work with elements yet.")
 def test_bookkeeping_rbf_withdraw(node_factory, bitcoind):
     """ If a withdraw to an external gets RBF'd,
         it should *not* show up in our income ever.
@@ -395,21 +329,17 @@ def test_bookkeeping_missed_chans_leases(node_factory, bitcoind):
     l1.start()
     l2.start()
 
-    # Wait for the balance snapshot to fire/finish
-    l1.daemon.wait_for_log('Snapshot balances updated')
-    l2.daemon.wait_for_log('Snapshot balances updated')
-
-    # l1 events
+    # l1 events: nothing missed!
     exp_events = [{'tag': 'channel_open', 'credit_msat': open_amt * 1000 + lease_fee, 'debit_msat': 0},
-                  {'tag': 'onchain_fee', 'credit_msat': 1314000, 'debit_msat': 0},
                   {'tag': 'lease_fee', 'credit_msat': 0, 'debit_msat': lease_fee},
-                  {'tag': 'journal_entry', 'credit_msat': 0, 'debit_msat': invoice_msat}]
+                  {'tag': 'onchain_fee', 'credit_msat': 1314000, 'debit_msat': 0},
+                  {'tag': 'invoice', 'credit_msat': 0, 'debit_msat': invoice_msat}]
     check_events(l1, channel_id, exp_events)
 
     exp_events = [{'tag': 'channel_open', 'credit_msat': open_amt * 1000, 'debit_msat': 0},
-                  {'tag': 'onchain_fee', 'credit_msat': 894000, 'debit_msat': 0},
                   {'tag': 'lease_fee', 'credit_msat': lease_fee, 'debit_msat': 0},
-                  {'tag': 'journal_entry', 'credit_msat': invoice_msat, 'debit_msat': 0}]
+                  {'tag': 'onchain_fee', 'credit_msat': 894000, 'debit_msat': 0},
+                  {'tag': 'invoice', 'credit_msat': invoice_msat, 'debit_msat': 0}]
     check_events(l2, channel_id, exp_events)
 
 
@@ -441,9 +371,14 @@ def test_bookkeeping_missed_chans_pushed(node_factory, bitcoind):
     l1.wait_local_channel_active(scid)
     channel_id = first_channel_id(l1, l2)
 
+    # Sigh.  bookkeeper sorts events by timestamp.  If the invoice event happens
+    # too close, it can change the order, so sleep here.
+    time.sleep(1)
+
     # Send l2 funds via the channel
     l1.pay(l2, invoice_msat)
-    l1.daemon.wait_for_log(r'coin movement:.*\'invoice\'')
+    # Make sure they're completely settled, so accounting correct.
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
 
     # Now turn the bookkeeper on and restart
     l1.stop()
@@ -453,21 +388,17 @@ def test_bookkeeping_missed_chans_pushed(node_factory, bitcoind):
     l1.start()
     l2.start()
 
-    # Wait for the balance snapshot to fire/finish
-    l1.daemon.wait_for_log('Snapshot balances updated')
-    l2.daemon.wait_for_log('Snapshot balances updated')
-
     # l1 events
     exp_events = [{'tag': 'channel_open', 'credit_msat': open_amt * 1000, 'debit_msat': 0},
-                  {'tag': 'onchain_fee', 'credit_msat': 4927000, 'debit_msat': 0},
                   {'tag': 'pushed', 'credit_msat': 0, 'debit_msat': push_amt},
-                  {'tag': 'journal_entry', 'credit_msat': 0, 'debit_msat': invoice_msat}]
+                  {'tag': 'onchain_fee', 'credit_msat': 4927000, 'debit_msat': 0},
+                  {'tag': 'invoice', 'credit_msat': 0, 'debit_msat': invoice_msat}]
     check_events(l1, channel_id, exp_events)
 
     # l2 events
     exp_events = [{'tag': 'channel_open', 'credit_msat': 0, 'debit_msat': 0},
                   {'tag': 'pushed', 'credit_msat': push_amt, 'debit_msat': 0},
-                  {'tag': 'journal_entry', 'credit_msat': invoice_msat, 'debit_msat': 0}]
+                  {'tag': 'invoice', 'credit_msat': invoice_msat, 'debit_msat': 0}]
     check_events(l2, channel_id, exp_events)
 
 
@@ -637,10 +568,6 @@ def test_bookkeeping_missed_chans_pay_after(node_factory, bitcoind):
     l1.start()
     l2.start()
 
-    # Wait for the balance snapshot to fire/finish
-    l1.daemon.wait_for_log('Snapshot balances updated')
-    l2.daemon.wait_for_log('Snapshot balances updated')
-
     # Should have channel in both, with balances
     for n in [l1, l2]:
         accts = [ba['account'] for ba in n.rpc.bkpr_listbalances()['accounts']]
@@ -700,19 +627,11 @@ def test_bookkeeping_onchaind_txs(node_factory, bitcoind):
     l1.daemon.opts['rescan'] = 102
     l1.start()
 
-    # Wait for the balance snapshot to fire/finish
-    l1.daemon.wait_for_log('Snapshot balances updated')
-
-    # We should have the deposit
+    # We should have everything.
     events = l1.rpc.bkpr_listaccountevents()['events']
-    assert len(events) == 2
-    assert events[0]['account'] == 'wallet'
-    assert events[0]['tag'] == 'deposit'
-    assert events[1]['account'] == 'wallet'
-    assert events[1]['tag'] == 'journal_entry'
+    assert len(events) == 12
 
-    wallet_bal = only_one(l1.rpc.bkpr_listbalances()['accounts'])
-    assert wallet_bal['account'] == 'wallet'
+    wallet_bal = only_one([a for a in l1.rpc.bkpr_listbalances()['accounts'] if a['account'] == 'wallet'])
     funds = l1.rpc.listfunds()
     assert len(funds['channels']) == 0
     outs = sum([out['amount_msat'] for out in funds['outputs']])
@@ -729,11 +648,15 @@ def test_bookkeeping_descriptions(node_factory, bitcoind, chainparams):
     # Send l2 funds via the channel
     bolt11_desc = 'test "bolt11" description, 🥰🪢'
     l1.pay(l2, 11000000, label=bolt11_desc)
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+
+    # Need to call bookkeeper to trigger analysis!
+    l1_inc_ev = l1.rpc.bkpr_listincome()['income_events']
     l1.daemon.wait_for_log('coin_move .* [(]invoice[)] 0msat -11000000msat')
+    l2.rpc.bkpr_listincome()
     l2.daemon.wait_for_log('coin_move .* [(]invoice[)] 11000000msat')
 
     # Test paying an bolt11 invoice (rcvr)
-    l1_inc_ev = l1.rpc.bkpr_listincome()['income_events']
     inv = only_one([ev for ev in l1_inc_ev if ev['tag'] == 'invoice'])
     assert inv['description'] == bolt11_desc
 
@@ -747,11 +670,14 @@ def test_bookkeeping_descriptions(node_factory, bitcoind, chainparams):
     offer = l1.rpc.call('offer', [100, bolt12_desc])
     invoice = l2.rpc.call('fetchinvoice', {'offer': offer['bolt12']})
     paid = l2.rpc.pay(invoice['invoice'])
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+    l1_inc_ev = l1.rpc.bkpr_listincome()['income_events']
     l1.daemon.wait_for_log('coin_move .* [(]invoice[)] 100msat')
+    l2.rpc.bkpr_listincome()
     l2.daemon.wait_for_log('coin_move .* [(]invoice[)] 0msat -100msat')
 
     # Test paying an offer (bolt12) (rcvr)
-    l1_inc_ev = l1.rpc.bkpr_listincome()['income_events']
     inv = only_one([ev for ev in l1_inc_ev if 'payment_id' in ev and ev['payment_id'] == paid['payment_hash']])
     assert inv['description'] == bolt12_desc
 

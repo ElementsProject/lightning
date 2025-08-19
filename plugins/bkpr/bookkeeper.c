@@ -3,6 +3,7 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
 #include <ccan/json_escape/json_escape.h>
+#include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
 #include <ccan/time/time.h>
@@ -45,6 +46,8 @@ struct refresh_info {
 	void *arg;
 };
 
+/* Rules: call use_rinfo when handing to a callback.
+ * Have the callback return rinfo_one_done(). */
 static struct refresh_info *use_rinfo(struct refresh_info *rinfo)
 {
 	rinfo->calls_remaining++;
@@ -70,6 +73,27 @@ struct command_result *ignore_datastore_reply(struct command *cmd,
 	return command_still_pending(cmd);
 }
 
+/* FIXME: reorder to avoid fwd decls. */
+static void
+parse_and_log_chain_move(struct command *cmd,
+			 const char *buf,
+			 const jsmntok_t *chainmove,
+			 struct refresh_info *rinfo);
+static void
+parse_and_log_channel_move(struct command *cmd,
+			   const char *buf,
+			   const jsmntok_t *channelmove,
+			   struct refresh_info *rinfo);
+
+static struct command_result *datastore_done(struct command *cmd,
+					     const char *method,
+					     const char *buf,
+					     const jsmntok_t *result,
+					     struct refresh_info *rinfo)
+{
+	return rinfo_one_done(cmd, rinfo);
+}
+
 static struct fee_sum *find_sum_for_txid(struct fee_sum **sums,
 					 struct bitcoin_txid *txid)
 {
@@ -86,8 +110,20 @@ static struct command_result *listchannelmoves_done(struct command *cmd,
 						    const jsmntok_t *result,
 						    struct refresh_info *rinfo)
 {
-	/* FIXME: process results */
+	const jsmntok_t *moves, *t;
+	size_t i;
+	struct bkpr *bkpr = bkpr_of(cmd->plugin);
+	be64 be_index;
 
+	moves = json_get_member(buf, result, "channelmoves");
+	json_for_each_arr(i, t, moves)
+		parse_and_log_channel_move(cmd, buf, t, rinfo);
+
+	be_index = cpu_to_be64(bkpr->channelmoves_index);
+	jsonrpc_set_datastore_binary(cmd, "bookkeeper/channelmoves_index",
+				     &be_index, sizeof(be_index),
+				     "create-or-replace",
+				     datastore_done, NULL, use_rinfo(rinfo));
 	return rinfo_one_done(cmd, rinfo);
 }
 
@@ -98,13 +134,29 @@ static struct command_result *listchainmoves_done(struct command *cmd,
 						  struct refresh_info *rinfo)
 {
 	struct out_req *req;
-	/* FIXME: process results */
+	const jsmntok_t *moves, *t;
+	size_t i;
+	struct bkpr *bkpr = bkpr_of(cmd->plugin);
+	be64 be_index;
+
+	moves = json_get_member(buf, result, "chainmoves");
+	json_for_each_arr(i, t, moves)
+		parse_and_log_chain_move(cmd, buf, t, rinfo);
+
+	be_index = cpu_to_be64(bkpr->chainmoves_index);
+	jsonrpc_set_datastore_binary(cmd, "bookkeeper/chainmoves_index",
+				     &be_index, sizeof(be_index),
+				     "create-or-replace",
+				     datastore_done, NULL, use_rinfo(rinfo));
 
 	req = jsonrpc_request_start(cmd, "listchannelmoves",
 				    listchannelmoves_done,
 				    plugin_broken_cb,
-				    rinfo);
-	return send_outreq(req);
+				    use_rinfo(rinfo));
+	json_add_string(req->js, "index", "created");
+	json_add_u64(req->js, "start", bkpr->channelmoves_index + 1);
+	send_outreq(req);
+	return rinfo_one_done(cmd, rinfo);
 }
 
 static struct command_result *refresh_moves_(struct command *cmd,
@@ -115,6 +167,7 @@ static struct command_result *refresh_moves_(struct command *cmd,
 {
 	struct refresh_info *rinfo = tal(cmd, struct refresh_info);
 	struct out_req *req;
+	struct bkpr *bkpr = bkpr_of(cmd->plugin);
 
 	rinfo->cb = cb;
 	rinfo->arg = arg;
@@ -123,6 +176,8 @@ static struct command_result *refresh_moves_(struct command *cmd,
 				    listchainmoves_done,
 				    plugin_broken_cb,
 				    use_rinfo(rinfo));
+	json_add_string(req->js, "index", "created");
+	json_add_u64(req->js, "start", bkpr->chainmoves_index + 1);
 	return send_outreq(req);
 }
 
@@ -1093,51 +1148,6 @@ static struct command_result *log_error(struct command *cmd,
 	return notification_handled(cmd);
 }
 
-static struct command_result *listpeerchannels_multi_done(struct command *cmd,
-		     const char *method,
-		     const char *buf,
-		     const jsmntok_t *result,
-		     struct new_account_info **new_accts)
-{
-	struct bkpr *bkpr = bkpr_of(cmd->plugin);
-
-	/* Let's register all these accounts! */
-	for (size_t i = 0; i < tal_count(new_accts); i++) {
-		struct new_account_info *info = new_accts[i];
-		struct amount_msat credit, debit, credit_diff, debit_diff;
-		char *err;
-
-		if (!new_missed_channel_account(cmd, buf, result,
-					        info->acct,
-					        info->timestamp)) {
-			plugin_log(cmd->plugin, LOG_BROKEN,
-				   "Unable to find account %s in listpeerchannels",
-				   info->acct->name);
-			continue;
-		}
-
-		db_begin_transaction(bkpr->db);
-		account_get_credit_debit(cmd->plugin, bkpr->db,
-					 info->acct->name,
-					 &credit, &debit);
-		db_commit_transaction(bkpr->db);
-
-		err = msat_find_diff(info->curr_bal,
-				     credit,
-				     debit,
-				     &credit_diff, &debit_diff);
-		if (err)
-			plugin_err(cmd->plugin, "%s", err);
-
-		log_journal_entry(bkpr->db,
-				  info->acct,
-				  info->timestamp - 1,
-				  credit_diff, debit_diff);
-	}
-	plugin_log(cmd->plugin, LOG_DBG, "Snapshot balances updated");
-	return notification_handled(cmd);
-}
-
 static char *do_account_close_checks(struct command *cmd,
 				     struct bkpr *bkpr,
 				     struct chain_event *e,
@@ -1180,156 +1190,6 @@ static char *do_account_close_checks(struct command *cmd,
 	db_commit_transaction(bkpr->db);
 
 	return NULL;
-}
-
-static struct command_result *json_balance_snapshot(struct command *cmd,
-						    const char *buf,
-						    const jsmntok_t *params)
-{
-	const char *err;
-	size_t i;
-	u32 blockheight;
-	u64 timestamp;
-	struct new_account_info **new_accts;
-	const jsmntok_t *accounts_tok, *acct_tok,
-	      *snap_tok = json_get_member(buf, params, "balance_snapshot");
-	struct bkpr *bkpr = bkpr_of(cmd->plugin);
-
-	if (snap_tok == NULL || snap_tok->type != JSMN_OBJECT)
-		plugin_err(cmd->plugin,
-			   "`balance_snapshot` payload did not scan %s: %.*s",
-			   "no 'balance_snapshot'", json_tok_full_len(params),
-			   json_tok_full(buf, params));
-
-	err = json_scan(cmd, buf, snap_tok,
-			"{blockheight:%"
-			",timestamp:%}",
-			JSON_SCAN(json_to_number, &blockheight),
-			JSON_SCAN(json_to_u64, &timestamp));
-
-	if (err)
-		plugin_err(cmd->plugin,
-			   "`balance_snapshot` payload did not scan %s: %.*s",
-			   err, json_tok_full_len(params),
-			   json_tok_full(buf, params));
-
-	accounts_tok = json_get_member(buf, snap_tok, "accounts");
-	if (accounts_tok == NULL || accounts_tok->type != JSMN_ARRAY)
-		plugin_err(cmd->plugin,
-			   "`balance_snapshot` payload did not scan %s: %.*s",
-			   "no 'balance_snapshot.accounts'",
-			   json_tok_full_len(params),
-			   json_tok_full(buf, params));
-
-	new_accts = tal_arr(cmd, struct new_account_info *, 0);
-
-	db_begin_transaction(bkpr->db);
-	json_for_each_arr(i, acct_tok, accounts_tok) {
-		struct account *acct;
-		struct amount_msat snap_balance, credit, debit, credit_diff, debit_diff;
-		char *acct_name;
-		bool existed;
-
-		err = json_scan(cmd, buf, acct_tok,
-				"{account_id:%"
-				",balance_msat:%}",
-				JSON_SCAN_TAL(tmpctx, json_strdup, &acct_name),
-				JSON_SCAN(json_to_msat, &snap_balance));
-		if (err)
-			plugin_err(cmd->plugin,
-				   "`balance_snapshot` payload did not"
-				   " scan %s: %.*s",
-				   err, json_tok_full_len(params),
-				   json_tok_full(buf, params));
-
-		plugin_log(cmd->plugin, LOG_DBG, "account %s has balance %s",
-			   acct_name,
-			   fmt_amount_msat(tmpctx, snap_balance));
-
-		/* Find the account balances */
-		account_get_credit_debit(cmd->plugin, bkpr->db, acct_name,
-					 &credit, &debit);
-
-		/* Figure out what the net diff is btw reported & actual */
-		err = msat_find_diff(snap_balance,
-				     credit,
-				     debit,
-				     &credit_diff, &debit_diff);
-		if (err)
-			plugin_err(cmd->plugin,
-				   "Unable to find_diff for amounts: %s",
-				   err);
-
-		acct = find_account(bkpr, acct_name);
-		if (!acct) {
-			plugin_log(cmd->plugin, LOG_INFORM,
-				   "account %s not found, adding",
-				   acct_name);
-
-			/* FIXME: lookup peer id for channel? */
-			acct = find_or_create_account(cmd, bkpr, acct_name);
-			existed = false;
-		} else
-			existed = true;
-
-		/* If we're entering a channel account,
-		 * from a balance entry, we need to
-		 * go find the channel open info*/
-		if (!existed && is_channel_account(acct->name)) {
-			struct new_account_info *info;
-			u64 timestamp_now;
-
-			timestamp_now = time_now().ts.tv_sec;
-			info = tal(new_accts, struct new_account_info);
-			info->acct = acct;
-			info->curr_bal = snap_balance;
-			info->timestamp = timestamp_now;
-
-			tal_arr_expand(&new_accts, info);
-			continue;
-		}
-
-		if (!amount_msat_is_zero(credit_diff) || !amount_msat_is_zero(debit_diff)) {
-			struct channel_event *ev;
-
-			plugin_log(cmd->plugin, LOG_UNUSUAL,
-				   "Snapshot balance does not equal ondisk"
-				   " reported %s, off by (+%s/-%s) (account %s)"
-				   " Logging journal entry.",
-				   fmt_amount_msat(tmpctx, snap_balance),
-				   fmt_amount_msat(tmpctx, debit_diff),
-				   fmt_amount_msat(tmpctx, credit_diff),
-				   acct_name);
-
-
-			ev = new_channel_event(cmd,
-					       tal_fmt(tmpctx, "%s",
-						       account_entry_tag_str(JOURNAL_ENTRY)),
-					       credit_diff,
-					       debit_diff,
-					       AMOUNT_MSAT(0),
-					       NULL, 0,
-					       timestamp);
-
-			log_channel_event(bkpr->db, acct, ev);
-		}
-	}
-	db_commit_transaction(bkpr->db);
-
-	if (tal_count(new_accts) > 0) {
-		struct out_req *req;
-
-		req = jsonrpc_request_start(cmd,
-					    "listpeerchannels",
-					    listpeerchannels_multi_done,
-					    log_error,
-					    new_accts);
-		/* FIXME(vicenzopalazzo) require the channel by channel_id to avoid parsing not useful json  */
-		return send_outreq(req);
-	}
-
-	plugin_log(cmd->plugin, LOG_DBG, "Snapshot balances updated");
-	return notification_handled(cmd);
 }
 
 /* Returns true if "fatal" error, otherwise just a normal error */
@@ -1394,12 +1254,17 @@ static char *fetch_out_desc_invstr(const tal_t *ctx, const char *buf,
 	return desc;
 }
 
+struct payment_hash_info {
+	struct refresh_info *rinfo;
+	struct sha256 payment_hash;
+};
+
 static struct command_result *
 listinvoices_done(struct command *cmd,
 		  const char *method,
 		  const char *buf,
 		  const jsmntok_t *result,
-		  struct sha256 *payment_hash)
+		  struct payment_hash_info *phinfo)
 {
 	size_t i;
 	const jsmntok_t *inv_arr_tok, *inv_tok;
@@ -1429,7 +1294,7 @@ listinvoices_done(struct command *cmd,
 	}
 
 	if (desc) {
-		add_payment_hash_description(cmd, bkpr, payment_hash,
+		add_payment_hash_description(cmd, bkpr, &phinfo->payment_hash,
 				      json_escape_unescape(cmd,
 					      (struct json_escape *)desc));
 
@@ -1440,7 +1305,7 @@ listinvoices_done(struct command *cmd,
 			   " not found (%.*s)",
 			   result->end - result->start, buf);
 
-	return notification_handled(cmd);
+	return rinfo_one_done(cmd, phinfo->rinfo);
 }
 
 static struct command_result *
@@ -1448,7 +1313,7 @@ listsendpays_done(struct command *cmd,
 		  const char *method,
 		  const char *buf,
 		  const jsmntok_t *result,
-		  struct sha256 *payment_hash)
+		  struct payment_hash_info *phinfo)
 {
 	size_t i;
 	const jsmntok_t *pays_arr_tok, *pays_tok;
@@ -1473,42 +1338,47 @@ listsendpays_done(struct command *cmd,
 	}
 
 	if (desc) {
-		add_payment_hash_description(cmd, bkpr, payment_hash, desc);
+		add_payment_hash_description(cmd, bkpr, &phinfo->payment_hash, desc);
 	} else
 		plugin_log(cmd->plugin, LOG_DBG,
 			   "listpays: bolt11/bolt12 not found:"
 			   "(%.*s)",
 			   result->end - result->start, buf);
 
-	return notification_handled(cmd);
+	return rinfo_one_done(cmd, phinfo->rinfo);
 }
 
 static struct command_result *lookup_invoice_desc(struct command *cmd,
 						  struct amount_msat credit,
-						  struct sha256 *payment_hash STEALS)
+						  const struct sha256 *payment_hash,
+						  struct refresh_info *rinfo)
 {
 	struct out_req *req;
+	struct payment_hash_info *phinfo;
 
-	/* Otherwise will go away when event is cleaned up */
-	tal_steal(cmd, payment_hash);
+	phinfo = tal(cmd, struct payment_hash_info);
+	phinfo->payment_hash = *payment_hash;
+	phinfo->rinfo = use_rinfo(rinfo);
+
 	if (!amount_msat_is_zero(credit))
 		req = jsonrpc_request_start(cmd,
 					    "listinvoices",
 					    listinvoices_done,
 					    log_error,
-					    payment_hash);
+					    phinfo);
 	else
 		req = jsonrpc_request_start(cmd,
 					    "listsendpays",
 					    listsendpays_done,
 					    log_error,
-					    payment_hash);
+					    phinfo);
 
 	json_add_sha256(req->js, "payment_hash", payment_hash);
 	return send_outreq(req);
 }
 
 struct event_info {
+	struct refresh_info *rinfo;
 	struct chain_event *ev;
 	struct account *acct;
 };
@@ -1557,22 +1427,33 @@ listpeerchannels_done(struct command *cmd,
 
 	if (info->ev->payment_id &&
 	    streq(info->ev->tag, mvt_tag_str(MVT_INVOICE))) {
-		return lookup_invoice_desc(cmd, info->ev->credit,
-					   info->ev->payment_id);
+		lookup_invoice_desc(cmd, info->ev->credit,
+				    info->ev->payment_id,
+				    info->rinfo);
 	}
 
-	return notification_handled(cmd);
+	return rinfo_one_done(cmd, info->rinfo);
 }
-static struct command_result *
+
+static enum mvt_tag *json_to_tags(const tal_t *ctx, const char *buffer, const jsmntok_t *tok)
+{
+	size_t i;
+	const jsmntok_t *t;
+	enum mvt_tag *tags = tal_arr(ctx, enum mvt_tag, tok->size);
+
+	json_for_each_arr(i, t, tok) {
+		if (!json_to_coin_mvt_tag(buffer, t, &tags[i]))
+			return tal_free(tags);
+	}
+
+	return tags;
+}
+
+static void
 parse_and_log_chain_move(struct command *cmd,
 			 const char *buf,
-			 const jsmntok_t *params,
-			 const char *acct_name STEALS,
-			 const struct amount_msat credit,
-			 const struct amount_msat debit,
-			 const char *coin_type STEALS,
-			 const u64 timestamp,
-			 const enum mvt_tag *tags)
+			 const jsmntok_t *chainmove,
+			 struct refresh_info *rinfo)
 {
 	struct chain_event *e = tal(cmd, struct chain_event);
 	struct sha256 *payment_hash = tal(cmd, struct sha256);
@@ -1580,32 +1461,48 @@ parse_and_log_chain_move(struct command *cmd,
 	struct node_id *peer_id;
 	struct account *acct, *orig_acct;
 	u32 closed_count;
+	char *acct_name;
 	const char *err;
 	struct bkpr *bkpr = bkpr_of(cmd->plugin);
+	enum mvt_tag tag, *tags;
 
 	/* Fields we expect on *every* chain movement */
-	err = json_scan(tmpctx, buf, params,
-			"{coin_movement:"
-			"{utxo:%"
+	closed_count = 0;
+	err = json_scan(tmpctx, buf, chainmove,
+			"{account_id:%"
+			",created_index:%"
+			",credit_msat:%"
+			",debit_msat:%"
+			",timestamp:%"
+			",utxo:%"
 			",output_msat:%"
 			",blockheight:%"
-			"}}",
+			",primary_tag:%"
+			",extra_tags:%"
+			",output_count?:%"
+			"}",
+			JSON_SCAN_TAL(tmpctx, json_strdup, &acct_name),
+			JSON_SCAN(json_to_u64, &e->db_id),
+			JSON_SCAN(json_to_msat, &e->credit),
+			JSON_SCAN(json_to_msat, &e->debit),
+			JSON_SCAN(json_to_u64, &e->timestamp),
 			JSON_SCAN(json_to_outpoint, &e->outpoint),
 			JSON_SCAN(json_to_msat, &e->output_value),
-			JSON_SCAN(json_to_number, &e->blockheight));
-
+			JSON_SCAN(json_to_number, &e->blockheight),
+			JSON_SCAN(json_to_coin_mvt_tag, &tag),
+			JSON_SCAN_TAL(tmpctx, json_to_tags, &tags),
+			JSON_SCAN(json_to_number, &closed_count));
 	if (err)
 		plugin_err(cmd->plugin,
-			   "`coin_movement` parameters did"
+			   "chainmove did"
 			   " not scan %s: %.*s",
-			   err, json_tok_full_len(params),
-			   json_tok_full(buf, params));
+			   err, json_tok_full_len(chainmove),
+			   json_tok_full(buf, chainmove));
 
 	/* Now try to get out the optional parts */
-	err = json_scan(tmpctx, buf, params,
-			"{coin_movement:"
+	err = json_scan(tmpctx, buf, chainmove,
 			"{spending_txid:%"
-			"}}",
+			"}",
 			JSON_SCAN(json_to_txid, spending_txid));
 
 	if (err) {
@@ -1616,7 +1513,7 @@ parse_and_log_chain_move(struct command *cmd,
 	e->spending_txid = tal_steal(e, spending_txid);
 
 	/* Now try to get out the optional parts */
-	err = json_scan(tmpctx, buf, params,
+	err = json_scan(tmpctx, buf, chainmove,
 			"{coin_movement:"
 			"{payment_hash:%"
 			"}}",
@@ -1627,9 +1524,8 @@ parse_and_log_chain_move(struct command *cmd,
 		err = tal_free(err);
 	}
 
-	err = json_scan(tmpctx, buf, params,
-			"{coin_movement:"
-			"{originating_account:%}}",
+	err = json_scan(tmpctx, buf, chainmove,
+			"{originating_account:%}",
 			JSON_SCAN_TAL(e, json_strdup, &e->origin_acct));
 
 	if (err) {
@@ -1638,33 +1534,17 @@ parse_and_log_chain_move(struct command *cmd,
 	}
 
 	peer_id = tal(cmd, struct node_id);
-	err = json_scan(tmpctx, buf, params,
-			"{coin_movement:"
-			"{peer_id:%}}",
+	err = json_scan(tmpctx, buf, chainmove,
+			"{peer_id:%}",
 			JSON_SCAN(json_to_node_id, peer_id));
 
 	if (err) {
 		peer_id = tal_free(peer_id);
 		err = tal_free(err);
 	}
-
-	err = json_scan(tmpctx, buf, params,
-			"{coin_movement:"
-			"{output_count:%}}",
-			JSON_SCAN(json_to_number, &closed_count));
-
-	if (err) {
-		closed_count = 0;
-		err = tal_free(err);
-	}
-
 	e->payment_id = tal_steal(e, payment_hash);
 
-	e->credit = credit;
-	e->debit = debit;
-	e->timestamp = timestamp;
-	e->tag = mvt_tag_str(tags[0]);
-
+	e->tag = mvt_tag_str(tag);
 	e->stealable = false;
 	e->splice_close = false;
 	e->foreign = false;
@@ -1673,6 +1553,8 @@ parse_and_log_chain_move(struct command *cmd,
 		e->splice_close |= tags[i] == MVT_SPLICE;
 		e->foreign |= tags[i] == MVT_FOREIGN;
 	}
+	/* FIXME: tags below is expected to contain primary tag too */
+	tal_arr_insert(&tags, 0, tag);
 
 	/* For tests, we log these harder! */
 	if (e->foreign)
@@ -1684,6 +1566,12 @@ parse_and_log_chain_move(struct command *cmd,
 			   e->timestamp, e->blockheight,
 			   fmt_bitcoin_outpoint(tmpctx, &e->outpoint),
 			   e->spending_txid ? fmt_bitcoin_txid(tmpctx, e->spending_txid) : "");
+
+	plugin_log(cmd->plugin, LOG_DBG, "coin_move 2 (%s) %s -%s %s %"PRIu64,
+		   e->tag,
+		   fmt_amount_msat(tmpctx, e->credit),
+		   fmt_amount_msat(tmpctx, e->debit),
+		   CHAIN_MOVE, e->timestamp);
 
 	db_begin_transaction(bkpr->db);
 	/* FIXME: lookup the peer id for this channel! */
@@ -1697,10 +1585,15 @@ parse_and_log_chain_move(struct command *cmd,
 		orig_acct = NULL;
 
 
+	/* Make this visible for queries (we expect increasing!) */
+	assert(e->db_id > bkpr->chainmoves_index);
+	bkpr->chainmoves_index = e->db_id;
+
 	if (!log_chain_event(bkpr, acct, e)) {
+		plugin_log(cmd->plugin, LOG_BROKEN, "Duplicated event!");
 		db_commit_transaction(bkpr->db);
 		/* This is not a new event, do nothing */
-		return notification_handled(cmd);
+		return;
 	}
 
 	/* This event *might* have implications for account;
@@ -1751,10 +1644,12 @@ parse_and_log_chain_move(struct command *cmd,
 			   acct->name);
 
 		info = tal(cmd, struct event_info);
+		info->rinfo = use_rinfo(rinfo);
 		info->ev = tal_steal(info, e);
 		info->acct = tal_steal(info,
 				       is_channel_account(acct->name) ?
 				       acct : orig_acct);
+		info->rinfo = use_rinfo(rinfo);
 
 		req = jsonrpc_request_start(cmd,
 					    "listpeerchannels",
@@ -1762,7 +1657,8 @@ parse_and_log_chain_move(struct command *cmd,
 					    log_error,
 					    info);
 		/* FIXME: use the peer_id to reduce work here */
-		return send_outreq(req);
+		send_outreq(req);
+		return;
 	}
 
 	/* Maybe mark acct as onchain resolved */
@@ -1776,59 +1672,69 @@ parse_and_log_chain_move(struct command *cmd,
 			if (tags[i] != MVT_INVOICE)
 				continue;
 
-			return lookup_invoice_desc(cmd, e->credit,
-						   e->payment_id);
+			lookup_invoice_desc(cmd, e->credit,
+					    e->payment_id, rinfo);
+			break;
 		}
 	}
-
-	return notification_handled(cmd);;
 }
 
-static struct command_result *
+static void
 parse_and_log_channel_move(struct command *cmd,
 			   const char *buf,
-			   const jsmntok_t *params,
-			   const char *acct_name STEALS,
-			   const struct amount_msat credit,
-			   const struct amount_msat debit,
-			   const char *coin_type STEALS,
-			   const u64 timestamp,
-			   const enum mvt_tag *tags)
+			   const jsmntok_t *channelmove,
+			   struct refresh_info *rinfo)
 {
 	struct channel_event *e = tal(cmd, struct channel_event);
 	struct account *acct;
 	const char *err;
+	char *acct_name;
+	enum mvt_tag tag;
 	struct bkpr *bkpr = bkpr_of(cmd->plugin);
 
+	/* Fields we expect on *every* channel movement */
+	e->part_id = 0;
+	e->fees = AMOUNT_MSAT(0);
+	err = json_scan(tmpctx, buf, channelmove,
+			"{account_id:%"
+			",created_index:%"
+			",credit_msat:%"
+			",debit_msat:%"
+			",timestamp:%"
+			",primary_tag:%"
+			",part_id?:%"
+			",fees_msat?:%}",
+			JSON_SCAN_TAL(tmpctx, json_strdup, &acct_name),
+			JSON_SCAN(json_to_u64, &e->db_id),
+			JSON_SCAN(json_to_msat, &e->credit),
+			JSON_SCAN(json_to_msat, &e->debit),
+			JSON_SCAN(json_to_u64, &e->timestamp),
+			JSON_SCAN(json_to_coin_mvt_tag, &tag),
+			JSON_SCAN(json_to_number, &e->part_id),
+			JSON_SCAN(json_to_msat, &e->fees));
+	if (err)
+		plugin_err(cmd->plugin,
+			   "channelmove did"
+			   " not scan %s: %.*s",
+			   err, json_tok_full_len(channelmove),
+			   json_tok_full(buf, channelmove));
+
+	e->tag = mvt_tag_str(tag);
+
 	e->payment_id = tal(e, struct sha256);
-	err = json_scan(tmpctx, buf, params,
-			"{coin_movement:{payment_hash:%}}",
+	err = json_scan(tmpctx, buf, channelmove,
+			"{payment_hash:%}",
 			JSON_SCAN(json_to_sha256, e->payment_id));
 	if (err) {
 		e->payment_id = tal_free(e->payment_id);
 		err = tal_free(err);
 	}
 
-	err = json_scan(tmpctx, buf, params,
-			"{coin_movement:{part_id:%}}",
-			JSON_SCAN(json_to_number, &e->part_id));
-	if (err) {
-		e->part_id = 0;
-		err = tal_free(err);
-	}
-
-	err = json_scan(tmpctx, buf, params,
-			"{coin_movement:{fees_msat:%}}",
-			JSON_SCAN(json_to_msat, &e->fees));
-	if (err) {
-		e->fees = AMOUNT_MSAT(0);
-		err = tal_free(err);
-	}
-
-	e->credit = credit;
-	e->debit = debit;
-	e->timestamp = timestamp;
-	e->tag = mvt_tag_str(tags[0]);
+	plugin_log(cmd->plugin, LOG_DBG, "coin_move 2 (%s) %s -%s %s %"PRIu64,
+		   e->tag,
+		   fmt_amount_msat(tmpctx, e->credit),
+		   fmt_amount_msat(tmpctx, e->debit),
+		   CHANNEL_MOVE, e->timestamp);
 
 	/* Go find the account for this event */
 	db_begin_transaction(bkpr->db);
@@ -1839,52 +1745,25 @@ parse_and_log_channel_move(struct command *cmd,
 			   " but no account exists %s",
 			   acct_name);
 
+	/* Make this visible for queries (we expect increasing!) */
+	assert(e->db_id > bkpr->channelmoves_index);
+	bkpr->channelmoves_index = e->db_id;
+
 	log_channel_event(bkpr->db, acct, e);
 
 	/* Check for invoice desc data, necessary */
-	if (e->payment_id) {
-		for (size_t i = 0; i < tal_count(tags); i++) {
-			if (tags[i] != MVT_INVOICE)
-				continue;
+	if (e->payment_id && tag == MVT_INVOICE) {
+		/* We only do rebalance checks for debits,
+		 * the credit event always arrives first */
+		if (!amount_msat_is_zero(e->debit))
+			maybe_record_rebalance(cmd, bkpr, e);
 
-			/* We only do rebalance checks for debits,
-			 * the credit event always arrives first */
-			if (!amount_msat_is_zero(e->debit))
-				maybe_record_rebalance(cmd, bkpr, e);
-
-			db_commit_transaction(bkpr->db);
-			return lookup_invoice_desc(cmd, e->credit,
-						   e->payment_id);
-		}
+		db_commit_transaction(bkpr->db);
+		lookup_invoice_desc(cmd, e->credit, e->payment_id, rinfo);
+		return;
 	}
 
 	db_commit_transaction(bkpr->db);
-	return notification_handled(cmd);
-}
-
-static char *parse_tags(const tal_t *ctx,
-			const char *buf,
-			const jsmntok_t *tok,
-			enum mvt_tag **tags)
-{
-	size_t i;
-	const jsmntok_t *extras_tok,
-		*tag_tok = json_get_member(buf, tok, "primary_tag");
-
-	if (tag_tok == NULL)
-		return "missing 'primary_tag' field";
-	*tags = tal_arr(ctx, enum mvt_tag, 1);
-	if (!json_to_coin_mvt_tag(buf, tag_tok, &(*tags)[0]))
-			return "Unable to parse 'primary_tag'";
-
-	extras_tok = json_get_member(buf, tok, "extra_tags");
-	tal_resize(tags, 1 + extras_tok->size);
-	json_for_each_arr(i, tag_tok, extras_tok) {
-		if (!json_to_coin_mvt_tag(buf, tag_tok, &(*tags)[i + 1]))
-			return "Unable to parse 'extra_tags'";
-	}
-
-	return NULL;
 }
 
 static bool json_to_tok(const char *buffer, const jsmntok_t *tok, const jsmntok_t **ret)
@@ -1893,13 +1772,20 @@ static bool json_to_tok(const char *buffer, const jsmntok_t *tok, const jsmntok_
 	return true;
 }
 
+static struct command_result *inject_refresh_done(struct command *notif_cmd,
+						  void *unused)
+{
+	return notification_handled(notif_cmd);
+}
+
 static struct command_result *inject_done(struct command *notif_cmd,
 					  const char *methodname,
 					  const char *buf,
 					  const jsmntok_t *result,
 					  void *unused)
 {
-	return notification_handled(notif_cmd);
+	/* We could do this lazily, but tests assume it happens now */
+	return refresh_moves(notif_cmd, inject_refresh_done, NULL);
 }
 
 /* FIXME: Deprecate */
@@ -2002,80 +1888,7 @@ static struct command_result *json_utxo_spend(struct command *cmd, const char *b
 	return send_outreq(req);
 }
 
-static struct command_result *json_coin_moved(struct command *cmd,
-					      const char *buf,
-					      const jsmntok_t *params)
-{
-	const char *err, *mvt_type, *acct_name, *coin_type;
-	u32 version;
-	u64 timestamp;
-	struct amount_msat credit, debit;
-	enum mvt_tag *tags;
-
-	err = json_scan(tmpctx, buf, params,
-			"{coin_movement:"
-			"{version:%"
-			",type:%"
-			",account_id:%"
-			",credit_msat:%"
-			",debit_msat:%"
-			",coin_type:%"
-			",timestamp:%"
-			"}}",
-			JSON_SCAN(json_to_number, &version),
-			JSON_SCAN_TAL(tmpctx, json_strdup, &mvt_type),
-			JSON_SCAN_TAL(tmpctx, json_strdup, &acct_name),
-			JSON_SCAN(json_to_msat, &credit),
-			JSON_SCAN(json_to_msat, &debit),
-			JSON_SCAN_TAL(tmpctx, json_strdup, &coin_type),
-			JSON_SCAN(json_to_u64, &timestamp));
-
-	if (err)
-		plugin_err(cmd->plugin,
-			   "`coin_movement` parameters did not scan %s: %.*s",
-			   err, json_tok_full_len(params),
-			   json_tok_full(buf, params));
-
-	err = parse_tags(tmpctx, buf,
-			 json_get_member(buf, params, "coin_movement"),
-			 &tags);
-	if (err)
-		plugin_err(cmd->plugin,
-			   "`coin_movement` parameters did not scan %s: %.*s",
-			   err, json_tok_full_len(params),
-			   json_tok_full(buf, params));
-
-	/* We expect version 2 of coin movements */
-	assert(version == 2);
-
-	plugin_log(cmd->plugin, LOG_DBG, "coin_move %d (%s) %s -%s %s %"PRIu64,
-		   version,
-		   mvt_tag_str(tags[0]),
-		   fmt_amount_msat(tmpctx, credit),
-		   fmt_amount_msat(tmpctx, debit),
-		   mvt_type, timestamp);
-
-	if (streq(mvt_type, CHAIN_MOVE))
-		return parse_and_log_chain_move(cmd, buf, params,
-					        acct_name, credit, debit,
-					        coin_type, timestamp, tags);
-
-
-	assert(streq(mvt_type, CHANNEL_MOVE));
-	return parse_and_log_channel_move(cmd, buf, params,
-					  acct_name, credit, debit,
-					  coin_type, timestamp, tags);
-}
-
 const struct plugin_notification notifs[] = {
-	{
-		"coin_movement",
-		json_coin_moved,
-	},
-	{
-		"balance_snapshot",
-		json_balance_snapshot,
-	},
 	{
 		"utxo_deposit",
 		json_utxo_deposit,
@@ -2121,10 +1934,18 @@ static const struct plugin_command commands[] = {
 	},
 };
 
+static bool json_hex_to_be64(const char *buffer, const jsmntok_t *tok,
+			     be64 *val)
+{
+	return hex_decode(buffer + tok->start, tok->end - tok->start,
+			  val, sizeof(*val));
+}
+
 static const char *init(struct command *init_cmd, const char *b, const jsmntok_t *t)
 {
 	struct plugin *p = init_cmd->plugin;
 	struct bkpr *bkpr = bkpr_of(p);
+	be64 index;
 
 	/* Options processing makes NULL the owner of options.  Steal them */
 	tal_steal(bkpr, bkpr->datadir);
@@ -2153,6 +1974,21 @@ static const char *init(struct command *init_cmd, const char *b, const jsmntok_t
 	bkpr->descriptions = init_descriptions(bkpr, init_cmd);
 	bkpr->rebalances = init_rebalances(bkpr, init_cmd);
 	bkpr->blockheights = init_blockheights(bkpr, init_cmd);
+
+	/* Callers always expect the wallet account to exist. */
+	find_or_create_account(init_cmd, bkpr, ACCOUNT_NAME_WALLET);
+
+	/* Not existing is OK! */
+	if (rpc_scan_datastore_hex(tmpctx, init_cmd, "bookkeeper/channelmoves_index",
+				   JSON_SCAN(json_hex_to_be64, &index)) == NULL) {
+		bkpr->channelmoves_index = be64_to_cpu(index);
+	} else
+		bkpr->channelmoves_index = 0;
+	if (rpc_scan_datastore_hex(tmpctx, init_cmd, "bookkeeper/chainmoves_index",
+				   JSON_SCAN(json_hex_to_be64, &index)) == NULL) {
+		bkpr->chainmoves_index = be64_to_cpu(index);
+	} else
+		bkpr->chainmoves_index = 0;
 
 	return NULL;
 }
