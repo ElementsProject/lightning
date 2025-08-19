@@ -35,6 +35,7 @@ static const char *mvt_tags[] = {
 	"splice",
 	"penalty_adj",
 	"journal",
+	"foreign",
 };
 
 #define PRIMARY_TAG_BITS ((1ULL << MVT_DEPOSIT) |	\
@@ -141,12 +142,16 @@ static enum mvt_tag mvt_tag_in_db(enum mvt_tag mvt_tag)
 	case MVT_JOURNAL:
 		BUILD_ASSERT(MVT_JOURNAL == 25);
 		return mvt_tag;
+	case MVT_FOREIGN:
+		BUILD_ASSERT(MVT_FOREIGN == 26);
+		return mvt_tag;
 	}
 	abort();
 }
 
 const char *mvt_tag_str(enum mvt_tag tag)
 {
+	assert((unsigned)tag < NUM_MVT_TAGS);
 	return mvt_tags[tag];
 }
 
@@ -539,7 +544,9 @@ struct chain_coin_mvt *new_foreign_deposit(const tal_t *ctx,
 	struct chain_coin_mvt *e;
 
 	e = new_chain_coin_mvt_sat(ctx, NULL, account, NULL, outpoint, NULL,
-				   blockheight, mk_mvt_tags(MVT_DEPOSIT), COIN_CREDIT,
+				   blockheight,
+				   mk_mvt_tags(MVT_DEPOSIT, MVT_FOREIGN),
+				   COIN_CREDIT,
 				   amount);
 	e->timestamp = timestamp;
 	return e;
@@ -556,7 +563,9 @@ struct chain_coin_mvt *new_foreign_withdrawal(const tal_t *ctx,
 	struct chain_coin_mvt *e;
 
 	e = new_chain_coin_mvt_sat(ctx, NULL, account, spend_txid, outpoint, NULL,
-				   blockheight, mk_mvt_tags(MVT_WITHDRAWAL), COIN_DEBIT,
+				   blockheight,
+				   mk_mvt_tags(MVT_WITHDRAWAL, MVT_FOREIGN),
+				   COIN_DEBIT,
 				   amount);
 	e->timestamp = timestamp;
 	return e;

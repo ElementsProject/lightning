@@ -16677,11 +16677,11 @@
                   "items": {
                     "type": "string",
                     "enum": [
-                      "ignored",
                       "opener",
                       "leased",
                       "stealable",
-                      "splice"
+                      "splice",
+                      "foreign"
                     ]
                   },
                   "description": [

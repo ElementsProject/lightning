@@ -217,6 +217,7 @@ void maybe_update_account(struct command *cmd,
 			case MVT_SPLICE:
 			case MVT_PENALTY_ADJ:
 			case MVT_JOURNAL:
+			case MVT_FOREIGN:
 				/* Ignored */
 				break;
 		}
