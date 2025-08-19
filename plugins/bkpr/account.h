@@ -42,21 +42,18 @@ struct account {
 	u32 closed_count;
 };
 
-/* Get a new account */
-struct account *new_account(const tal_t *ctx,
-			    const char *name STEALS,
-			    struct node_id *peer_id);
-
-
 /* Get all accounts */
 struct account **list_accounts(const tal_t *ctx, struct db *db);
 
-/* Add the given account to the database */
-void account_add(struct db *db, struct account *acct);
 /* Given an account name, find that account record */
 struct account *find_account(const tal_t *ctx,
 			     struct db *db,
 			     const char *name);
+
+/* Given an account name, find that account record: create otherwise. */
+struct account *find_or_create_account(const tal_t *ctx,
+				       struct db *db,
+				       const char *name);
 
 /* Some events update account information */
 void maybe_update_account(struct db *db,
