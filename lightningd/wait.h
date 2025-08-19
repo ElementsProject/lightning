@@ -37,6 +37,7 @@ const char *wait_subsystem_name(enum wait_subsystem subsystem);
 /**
  * wait_index_increment - increment an index, tell waiters.
  * @ld: the lightningd
+ * @db: the database (usually ld->wallet->db, except really early)
  * @subsystem: subsystem for index
  * @index: which index
  * ...: name/value pairs, followed by NULL.
@@ -48,6 +49,7 @@ const char *wait_subsystem_name(enum wait_subsystem subsystem);
  * Returns the updated index value (always > 0).
  */
 u64 LAST_ARG_NULL wait_index_increment(struct lightningd *ld,
+				       struct db *db,
 				       enum wait_subsystem subsystem,
 				       enum wait_index index,
 				       ...);

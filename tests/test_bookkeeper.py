@@ -916,8 +916,6 @@ def test_bookkeeper_custom_notifs(node_factory, chainparams):
     assert acct_fee == Millisatoshi(fee)
 
 
-# FIXME: Restore once bookkeeper migrating to core.
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Snapshots are bitcoin regtest.")
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "uses snapshots")
 def test_migration(node_factory, bitcoind):
@@ -1045,6 +1043,13 @@ def test_migration(node_factory, bitcoind):
                           'payment_id': '7ccef7e9fabbf4a841af44b1fc7319bc70ce98697b77ce6dacffa84bebcd4350',
                           'tag': 'invoice',
                           'type': 'channel'},
+                         {'account': 'be7f3755c04abec58212fe9287898c76364d1a0d12a1828bf9fc3ac4a8b25a67',
+                          'credit_msat': 4927000,
+                          'currency': 'bcrt',
+                          'debit_msat': 0,
+                          'tag': 'onchain_fee',
+                          'txid': '675ab2a8c43afcf98b82a1120d1a4d36768c898792fe1282c5be4ac055377fbe',
+                          'type': 'onchain_fee'},
                          {'account': 'wallet',
                           'credit_msat': 1004927000,
                           'currency': 'bcrt',
@@ -1056,13 +1061,6 @@ def test_migration(node_factory, bitcoind):
                           'credit_msat': 0,
                           'currency': 'bcrt',
                           'debit_msat': 1004927000,
-                          'tag': 'onchain_fee',
-                          'txid': '675ab2a8c43afcf98b82a1120d1a4d36768c898792fe1282c5be4ac055377fbe',
-                          'type': 'onchain_fee'},
-                         {'account': 'be7f3755c04abec58212fe9287898c76364d1a0d12a1828bf9fc3ac4a8b25a67',
-                          'credit_msat': 4927000,
-                          'currency': 'bcrt',
-                          'debit_msat': 0,
                           'tag': 'onchain_fee',
                           'txid': '675ab2a8c43afcf98b82a1120d1a4d36768c898792fe1282c5be4ac055377fbe',
                           'type': 'onchain_fee'}]

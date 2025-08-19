@@ -383,6 +383,10 @@ struct lightningd {
 
 	char *wallet_dsn;
 
+	/* For migration from old accounts.db */
+	char *old_bookkeeper_dir;
+	char *old_bookkeeper_db;
+
 	bool encrypted_hsm;
 	/* What (additional) messages the HSM accepts */
 	u32 *hsm_capabilities;

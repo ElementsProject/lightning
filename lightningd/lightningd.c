@@ -271,6 +271,8 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->try_reexec = false;
 	ld->recover_secret = NULL;
 	ld->db_upgrade_ok = NULL;
+	ld->old_bookkeeper_dir = NULL;
+	ld->old_bookkeeper_db = NULL;
 
 	/* --invoices-onchain-fallback */
 	ld->unified_invoices = false;

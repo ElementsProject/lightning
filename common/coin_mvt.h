@@ -130,6 +130,9 @@ static inline struct mvt_tags tag_to_mvt_tags(enum mvt_tag tag)
 	return tags;
 }
 
+/* Add a tag */
+void mvt_tag_set(struct mvt_tags *tags, enum mvt_tag tag);
+
 /* Extract the primary tag */
 enum mvt_tag primary_mvt_tag(struct mvt_tags tags);
 

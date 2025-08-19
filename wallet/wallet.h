@@ -1903,6 +1903,23 @@ struct channel_coin_mvt *wallet_channel_move_extract(const tal_t *ctx,
 						     struct lightningd *ld,
 						     u64 *id);
 
+/* For bookkeeper migration */
+void db_bind_mvt_tags(struct db_stmt *stmt, struct mvt_tags tags);
+void db_bind_mvt_account_id(struct db_stmt *stmt,
+			    struct db *db,
+			    const struct mvt_account_id *account);
+void db_bind_credit_debit(struct db_stmt *stmt,
+			  struct amount_msat credit,
+			  struct amount_msat debit);
+u64 move_accounts_id(struct db *db, const char *name);
+void wallet_datastore_save_utxo_description(struct db *db,
+					    const struct bitcoin_outpoint *outpoint,
+					    const char *desc);
+void wallet_datastore_save_payment_description(struct db *db,
+					       const struct sha256 *payment_hash,
+					       const char *desc);
+void migrate_setup_coinmoves(struct lightningd *ld, struct db *db);
+
 /**
  * wallet_memleak_scan - Check for memleaks in wallet.
  */
