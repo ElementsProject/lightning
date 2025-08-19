@@ -11,7 +11,6 @@
 #include <common/coin_mvt.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
-#include <common/memleak.h>
 #include <common/node_id.h>
 #include <db/exec.h>
 #include <errno.h>
@@ -31,11 +30,18 @@
 #define CHAIN_MOVE "chain_mvt"
 #define CHANNEL_MOVE "channel_mvt"
 
-/* The database that we store all the accounting data in */
-static struct db *db ;
+struct bkpr {
+	/* The database that we store all the accounting data in */
+	struct db *db;
 
-static char *db_dsn;
-static char *datadir;
+	char *db_dsn;
+	char *datadir;
+};
+
+static struct bkpr *bkpr_of(struct plugin *plugin)
+{
+	return plugin_get_data(plugin, struct bkpr);
+}
 
 static struct fee_sum *find_sum_for_txid(struct fee_sum **sums,
 					 struct bitcoin_txid *txid)
@@ -63,6 +69,7 @@ getblockheight_done(struct command *cmd,
 	u32 blockheight;
 	struct json_stream *res;
 	struct channel_apy **apys, *net_apys;
+	struct bkpr *bkpr = bkpr_of(cmd->plugin);
 
 	blockheight_tok = json_get_member(buf, result, "blockheight");
 	if (!blockheight_tok)
@@ -76,12 +83,12 @@ getblockheight_done(struct command *cmd,
 			   result->end - result->start, buf);
 
 	/* Get the income events */
-	db_begin_transaction(db);
-	apys = compute_channel_apys(cmd, db,
+	db_begin_transaction(bkpr->db);
+	apys = compute_channel_apys(cmd, bkpr->db,
 				    *req->start_time,
 				    *req->end_time,
 				    blockheight);
-	db_commit_transaction(db);
+	db_commit_transaction(bkpr->db);
 
 	/* Setup the net_apys entry */
 	net_apys = new_channel_apy(cmd);
@@ -159,6 +166,7 @@ static struct command_result *json_dump_income(struct command *cmd,
 	bool *consolidate_fees;
 	char *err;
 	u64 *start_time, *end_time;
+	struct bkpr *bkpr = bkpr_of(cmd->plugin);
 
 	if (!param(cmd, buf, params,
 		   p_req("csv_format", param_csv_format, &csv_fmt),
@@ -171,10 +179,10 @@ static struct command_result *json_dump_income(struct command *cmd,
 		return command_param_failed();
 
 	/* Ok, go find me some income events! */
-	db_begin_transaction(db);
-	evs = list_income_events(cmd, db, *start_time, *end_time,
+	db_begin_transaction(bkpr->db);
+	evs = list_income_events(cmd, bkpr->db, *start_time, *end_time,
 				 *consolidate_fees);
-	db_commit_transaction(db);
+	db_commit_transaction(bkpr->db);
 
 	if (!filename)
 		filename = csv_filename(cmd, csv_fmt);
@@ -199,6 +207,7 @@ static struct command_result *json_list_income(struct command *cmd,
 	struct income_event **evs;
 	bool *consolidate_fees;
 	u64 *start_time, *end_time;
+	struct bkpr *bkpr = bkpr_of(cmd->plugin);
 
 	if (!param(cmd, buf, params,
 		   p_opt_def("consolidate_fees", param_bool,
@@ -209,10 +218,10 @@ static struct command_result *json_list_income(struct command *cmd,
 		return command_param_failed();
 
 	/* Ok, go find me some income events! */
-	db_begin_transaction(db);
-	evs = list_income_events(cmd, db, *start_time, *end_time,
+	db_begin_transaction(bkpr->db);
+	evs = list_income_events(cmd, bkpr->db, *start_time, *end_time,
 				 *consolidate_fees);
-	db_commit_transaction(db);
+	db_commit_transaction(bkpr->db);
 
 	res = jsonrpc_stream_success(cmd);
 
@@ -233,6 +242,7 @@ static struct command_result *json_inspect(struct command *cmd,
 	const char *acct_name;
 	struct fee_sum **fee_sums;
 	struct txo_set **txos;
+	struct bkpr *bkpr = bkpr_of(cmd->plugin);
 
 	/* Only available for channel accounts? */
 	if (!param(cmd, buf, params,
@@ -245,19 +255,19 @@ static struct command_result *json_inspect(struct command *cmd,
 				    "`inspect` not supported for"
 				    " non-channel accounts");
 
-	db_begin_transaction(db);
-	acct = find_account(cmd, db, acct_name);
-	db_commit_transaction(db);
+	db_begin_transaction(bkpr->db);
+	acct = find_account(cmd, bkpr->db, acct_name);
+	db_commit_transaction(bkpr->db);
 
 	if (!acct)
 		return command_fail(cmd, PLUGIN_ERROR,
 				    "Account %s not found",
 				    acct_name);
 
-	db_begin_transaction(db);
-	find_txo_chain(cmd, db, acct, &txos);
-	fee_sums = find_account_onchain_fees(cmd, db, acct);
-	db_commit_transaction(db);
+	db_begin_transaction(bkpr->db);
+	find_txo_chain(cmd, bkpr->db, acct, &txos);
+	fee_sums = find_account_onchain_fees(cmd, bkpr->db, acct);
+	db_commit_transaction(bkpr->db);
 
 	res = jsonrpc_stream_success(cmd);
 	json_array_start(res, "txs");
@@ -426,6 +436,7 @@ static struct command_result *json_list_account_events(struct command *cmd,
 	struct channel_event **channel_events;
 	struct chain_event **chain_events;
 	struct onchain_fee **onchain_fees;
+	struct bkpr *bkpr = bkpr_of(cmd->plugin);
 
 	if (!param(cmd, buf, params,
 		   p_opt("account", param_string, &acct_name),
@@ -440,9 +451,9 @@ static struct command_result *json_list_account_events(struct command *cmd,
 	}
 
 	if (acct_name) {
-		db_begin_transaction(db);
-		acct = find_account(cmd, db, acct_name);
-		db_commit_transaction(db);
+		db_begin_transaction(bkpr->db);
+		acct = find_account(cmd, bkpr->db, acct_name);
+		db_commit_transaction(bkpr->db);
 
 		if (!acct)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
@@ -451,27 +462,27 @@ static struct command_result *json_list_account_events(struct command *cmd,
 	} else
 		acct = NULL;
 
-	db_begin_transaction(db);
+	db_begin_transaction(bkpr->db);
 	if (acct) {
-		channel_events = account_get_channel_events(cmd, db, acct);
-		chain_events = account_get_chain_events(cmd, db, acct);
-		onchain_fees = account_get_chain_fees(cmd, db, acct);
+		channel_events = account_get_channel_events(cmd, bkpr->db, acct);
+		chain_events = account_get_chain_events(cmd, bkpr->db, acct);
+		onchain_fees = account_get_chain_fees(cmd, bkpr->db, acct);
 	} else if (payment_id != NULL) {
-		channel_events = get_channel_events_by_id(cmd, db, payment_id);
+		channel_events = get_channel_events_by_id(cmd, bkpr->db, payment_id);
 
 		tx_id = tal(cmd, struct bitcoin_txid);
 		tx_id->shad.sha = *payment_id;
 		/* Transaction ids are stored as big-endian in the database */
 		reverse_bytes(tx_id->shad.sha.u.u8, sizeof(tx_id->shad.sha.u.u8));
 
-		chain_events = find_chain_events_bytxid(cmd, db, tx_id);
-		onchain_fees = get_chain_fees_by_txid(cmd, db, tx_id);
+		chain_events = find_chain_events_bytxid(cmd, bkpr->db, tx_id);
+		onchain_fees = get_chain_fees_by_txid(cmd, bkpr->db, tx_id);
 	} else {
-		channel_events = list_channel_events(cmd, db);
-		chain_events = list_chain_events(cmd, db);
-		onchain_fees = list_chain_fees(cmd, db);
+		channel_events = list_channel_events(cmd, bkpr->db);
+		chain_events = list_chain_events(cmd, bkpr->db);
+		onchain_fees = list_chain_fees(cmd, bkpr->db);
 	}
-	db_commit_transaction(db);
+	db_commit_transaction(bkpr->db);
 
 	res = jsonrpc_stream_success(cmd);
 	json_array_start(res, "events");
@@ -501,6 +512,7 @@ static struct command_result *json_edit_desc_utxo(struct command *cmd,
 	struct bitcoin_outpoint *outpoint;
 	const char *new_desc;
 	struct chain_event **chain_events;
+	struct bkpr *bkpr = bkpr_of(cmd->plugin);
 
 	if (!param(cmd, buf, params,
 		   p_req("outpoint", param_outpoint, &outpoint),
@@ -508,10 +520,10 @@ static struct command_result *json_edit_desc_utxo(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	db_begin_transaction(db);
-	edit_utxo_description(db, outpoint, new_desc);
-	chain_events = get_chain_events_by_outpoint(cmd, db, outpoint, true);
-	db_commit_transaction(db);
+	db_begin_transaction(bkpr->db);
+	edit_utxo_description(bkpr->db, outpoint, new_desc);
+	chain_events = get_chain_events_by_outpoint(cmd, bkpr->db, outpoint, true);
+	db_commit_transaction(bkpr->db);
 
 	res = jsonrpc_stream_success(cmd);
 	json_array_start(res, "updated");
@@ -530,6 +542,7 @@ static struct command_result *json_edit_desc_payment_id(struct command *cmd,
 	const char *new_desc;
 	struct channel_event **channel_events;
 	struct chain_event **chain_events;
+	struct bkpr *bkpr = bkpr_of(cmd->plugin);
 
 	if (!param(cmd, buf, params,
 		   p_req("payment_id", param_sha256, &identifier),
@@ -537,12 +550,12 @@ static struct command_result *json_edit_desc_payment_id(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	db_begin_transaction(db);
-	add_payment_hash_desc(db, identifier, new_desc);
+	db_begin_transaction(bkpr->db);
+	add_payment_hash_desc(bkpr->db, identifier, new_desc);
 
-	chain_events = get_chain_events_by_id(cmd, db, identifier);
-	channel_events = get_channel_events_by_id(cmd, db, identifier);
-	db_commit_transaction(db);
+	chain_events = get_chain_events_by_id(cmd, bkpr->db, identifier);
+	channel_events = get_channel_events_by_id(cmd, bkpr->db, identifier);
+	db_commit_transaction(bkpr->db);
 
 	res = jsonrpc_stream_success(cmd);
 	json_array_start(res, "updated");
@@ -558,21 +571,22 @@ static struct command_result *json_list_balances(struct command *cmd,
 {
 	struct json_stream *res;
 	struct account **accts;
+	struct bkpr *bkpr = bkpr_of(cmd->plugin);
 
 	if (!param(cmd, buf, params, NULL))
 		return command_param_failed();
 
 	res = jsonrpc_stream_success(cmd);
 	/* List of accts */
-	db_begin_transaction(db);
-	accts = list_accounts(cmd, db);
+	db_begin_transaction(bkpr->db);
+	accts = list_accounts(cmd, bkpr->db);
 
 	json_array_start(res, "accounts");
 	for (size_t i = 0; i < tal_count(accts); i++) {
 		struct amount_msat credit, debit, balance;
 		bool has_events;
 
-		has_events = account_get_credit_debit(cmd->plugin, db,
+		has_events = account_get_credit_debit(cmd->plugin, bkpr->db,
 						      accts[i]->name,
 						      &credit, &debit);
 		if (!amount_msat_sub(&balance, credit, debit)) {
@@ -620,7 +634,7 @@ static struct command_result *json_list_balances(struct command *cmd,
 		json_object_end(res);
 	}
 	json_array_end(res);
-	db_commit_transaction(db);
+	db_commit_transaction(bkpr->db);
 
 	return command_finished(cmd, res);
 }
@@ -636,12 +650,13 @@ static void try_update_open_fees(struct command *cmd,
 {
 	struct chain_event *ev;
 	char *err;
+	struct bkpr *bkpr = bkpr_of(cmd->plugin);
 
 	assert(acct->closed_event_db_id);
-	ev = find_chain_event_by_id(cmd, db, *acct->closed_event_db_id);
+	ev = find_chain_event_by_id(cmd, bkpr->db, *acct->closed_event_db_id);
 	assert(ev);
 
-	err = maybe_update_onchain_fees(cmd, db, ev->spending_txid);
+	err = maybe_update_onchain_fees(cmd, bkpr->db, ev->spending_txid);
 	if (err)
 		plugin_err(cmd->plugin,
 			   "failure updating chain fees:"
@@ -715,6 +730,7 @@ static bool new_missed_channel_account(struct command *cmd,
 	const char *err;
 	size_t i;
 	const jsmntok_t *curr_chan, *chan_arr_tok;
+	struct bkpr *bkpr = bkpr_of(cmd->plugin);
 
 	chan_arr_tok = json_get_member(buf, result, "channels");
 	assert(chan_arr_tok && chan_arr_tok->type == JSMN_ARRAY);
@@ -789,13 +805,13 @@ static bool new_missed_channel_account(struct command *cmd,
 			tal_arr_expand(&tags, MVT_OPENER);
 
 		chain_ev->credit = amt;
-		db_begin_transaction(db);
-		if (!log_chain_event(db, acct, chain_ev))
+		db_begin_transaction(bkpr->db);
+		if (!log_chain_event(bkpr->db, acct, chain_ev))
 			goto done;
 
-		maybe_update_account(db, acct, chain_ev,
+		maybe_update_account(bkpr->db, acct, chain_ev,
 				     tags, 0, &peer_id);
-		maybe_update_onchain_fees(cmd, db, &opt.txid);
+		maybe_update_onchain_fees(cmd, bkpr->db, &opt.txid);
 
 		/* We won't count the close's fees if we're
 		 * *not* the opener, which we didn't know
@@ -821,11 +837,11 @@ static bool new_missed_channel_account(struct command *cmd,
 						    AMOUNT_MSAT(0),
 						    NULL, 0,
 						    timestamp - 1);
-			log_channel_event(db, acct, chan_ev);
+			log_channel_event(bkpr->db, acct, chan_ev);
 	        }
 
 done:
-			db_commit_transaction(db);
+			db_commit_transaction(bkpr->db);
 			return true;
 	}
 
@@ -901,7 +917,8 @@ static char *msat_find_diff(struct amount_msat balance,
 	return NULL;
 }
 
-static void log_journal_entry(struct account *acct,
+static void log_journal_entry(struct db *db,
+			      struct account *acct,
 			      u64 timestamp,
 			      struct amount_msat credit_diff,
 			      struct amount_msat debit_diff)
@@ -946,6 +963,8 @@ static struct command_result *listpeerchannels_multi_done(struct command *cmd,
 		     const jsmntok_t *result,
 		     struct new_account_info **new_accts)
 {
+	struct bkpr *bkpr = bkpr_of(cmd->plugin);
+
 	/* Let's register all these accounts! */
 	for (size_t i = 0; i < tal_count(new_accts); i++) {
 		struct new_account_info *info = new_accts[i];
@@ -961,11 +980,11 @@ static struct command_result *listpeerchannels_multi_done(struct command *cmd,
 			continue;
 		}
 
-		db_begin_transaction(db);
-		account_get_credit_debit(cmd->plugin, db,
+		db_begin_transaction(bkpr->db);
+		account_get_credit_debit(cmd->plugin, bkpr->db,
 					 info->acct->name,
 					 &credit, &debit);
-		db_commit_transaction(db);
+		db_commit_transaction(bkpr->db);
 
 		err = msat_find_diff(info->curr_bal,
 				     credit,
@@ -974,7 +993,8 @@ static struct command_result *listpeerchannels_multi_done(struct command *cmd,
 		if (err)
 			plugin_err(cmd->plugin, "%s", err);
 
-		log_journal_entry(info->acct,
+		log_journal_entry(bkpr->db,
+				  info->acct,
 				  info->timestamp - 1,
 				  credit_diff, debit_diff);
 	}
@@ -983,6 +1003,7 @@ static struct command_result *listpeerchannels_multi_done(struct command *cmd,
 }
 
 static char *do_account_close_checks(const tal_t *ctx,
+				     struct db *db,
 				     struct chain_event *e,
 				     struct account *acct)
 {
@@ -1028,6 +1049,7 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 	struct new_account_info **new_accts;
 	const jsmntok_t *accounts_tok, *acct_tok,
 	      *snap_tok = json_get_member(buf, params, "balance_snapshot");
+	struct bkpr *bkpr = bkpr_of(cmd->plugin);
 
 	if (snap_tok == NULL || snap_tok->type != JSMN_OBJECT)
 		plugin_err(cmd->plugin,
@@ -1057,7 +1079,7 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 
 	new_accts = tal_arr(cmd, struct new_account_info *, 0);
 
-	db_begin_transaction(db);
+	db_begin_transaction(bkpr->db);
 	json_for_each_arr(i, acct_tok, accounts_tok) {
 		struct account *acct;
 		struct amount_msat snap_balance, credit, debit, credit_diff, debit_diff;
@@ -1081,7 +1103,7 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 			   fmt_amount_msat(tmpctx, snap_balance));
 
 		/* Find the account balances */
-		account_get_credit_debit(cmd->plugin, db, acct_name,
+		account_get_credit_debit(cmd->plugin, bkpr->db, acct_name,
 					 &credit, &debit);
 
 		/* Figure out what the net diff is btw reported & actual */
@@ -1094,7 +1116,7 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 				   "Unable to find_diff for amounts: %s",
 				   err);
 
-		acct = find_account(cmd, db, acct_name);
+		acct = find_account(cmd, bkpr->db, acct_name);
 		if (!acct) {
 			plugin_log(cmd->plugin, LOG_INFORM,
 				   "account %s not found, adding",
@@ -1102,7 +1124,7 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 
 			/* FIXME: lookup peer id for channel? */
 			acct = new_account(cmd, acct_name, NULL);
-			account_add(db, acct);
+			account_add(bkpr->db, acct);
 			existed = false;
 		} else
 			existed = true;
@@ -1146,10 +1168,10 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 					       NULL, 0,
 					       timestamp);
 
-			log_channel_event(db, acct, ev);
+			log_channel_event(bkpr->db, acct, ev);
 		}
 	}
-	db_commit_transaction(db);
+	db_commit_transaction(bkpr->db);
 
 	if (tal_count(new_accts) > 0) {
 		struct out_req *req;
@@ -1239,6 +1261,8 @@ listinvoices_done(struct command *cmd,
 	size_t i;
 	const jsmntok_t *inv_arr_tok, *inv_tok;
 	const char *desc;
+	struct bkpr *bkpr = bkpr_of(cmd->plugin);
+
 	inv_arr_tok = json_get_member(buf, result, "invoices");
 	assert(inv_arr_tok->type == JSMN_ARRAY);
 
@@ -1262,11 +1286,11 @@ listinvoices_done(struct command *cmd,
 	}
 
 	if (desc) {
-		db_begin_transaction(db);
-		add_payment_hash_desc(db, payment_hash,
+		db_begin_transaction(bkpr->db);
+		add_payment_hash_desc(bkpr->db, payment_hash,
 				      json_escape_unescape(cmd,
 					      (struct json_escape *)desc));
-		db_commit_transaction(db);
+		db_commit_transaction(bkpr->db);
 	} else
 		plugin_log(cmd->plugin, LOG_DBG,
 			   "listinvoices:"
@@ -1287,6 +1311,8 @@ listsendpays_done(struct command *cmd,
 	size_t i;
 	const jsmntok_t *pays_arr_tok, *pays_tok;
 	const char *desc;
+	struct bkpr *bkpr = bkpr_of(cmd->plugin);
+
 	pays_arr_tok = json_get_member(buf, result, "payments");
 	assert(pays_arr_tok->type == JSMN_ARRAY);
 
@@ -1305,9 +1331,9 @@ listsendpays_done(struct command *cmd,
 	}
 
 	if (desc) {
-		db_begin_transaction(db);
-		add_payment_hash_desc(db, payment_hash, desc);
-		db_commit_transaction(db);
+		db_begin_transaction(bkpr->db);
+		add_payment_hash_desc(bkpr->db, payment_hash, desc);
+		db_commit_transaction(bkpr->db);
 	} else
 		plugin_log(cmd->plugin, LOG_DBG,
 			   "listpays: bolt11/bolt12 not found:"
@@ -1356,14 +1382,15 @@ listpeerchannels_done(struct command *cmd,
 {
 	struct amount_msat credit, debit, credit_diff, debit_diff;
 	const char *err;
+	struct bkpr *bkpr = bkpr_of(cmd->plugin);
 
 	if (new_missed_channel_account(cmd, buf, result,
 					info->acct,
 					info->ev->timestamp)) {
-		db_begin_transaction(db);
-		account_get_credit_debit(cmd->plugin, db, info->acct->name,
+		db_begin_transaction(bkpr->db);
+		account_get_credit_debit(cmd->plugin, bkpr->db, info->acct->name,
 					 &credit, &debit);
-		db_commit_transaction(db);
+		db_commit_transaction(bkpr->db);
 
 		/* The expected current balance is zero, since
 		 * we just got the channel close event */
@@ -1374,7 +1401,8 @@ listpeerchannels_done(struct command *cmd,
 		if (err)
 			plugin_err(cmd->plugin, "%s", err);
 
-		log_journal_entry(info->acct,
+		log_journal_entry(bkpr->db,
+				  info->acct,
 				  info->ev->timestamp - 1,
 				  credit_diff, debit_diff);
 	} else
@@ -1383,7 +1411,7 @@ listpeerchannels_done(struct command *cmd,
 			   info->acct->name);
 
 	/* Maybe mark acct as onchain resolved */
-	err = do_account_close_checks(cmd, info->ev, info->acct);
+	err = do_account_close_checks(cmd, bkpr->db, info->ev, info->acct);
 	if (err)
 		plugin_err(cmd->plugin, "%s", err);
 
@@ -1414,6 +1442,7 @@ parse_and_log_chain_move(struct command *cmd,
 	struct account *acct, *orig_acct;
 	u32 closed_count;
 	const char *err;
+	struct bkpr *bkpr = bkpr_of(cmd->plugin);
 
 	/* Fields we expect on *every* chain movement */
 	err = json_scan(tmpctx, buf, params,
@@ -1505,45 +1534,45 @@ parse_and_log_chain_move(struct command *cmd,
 		e->splice_close |= tags[i] == MVT_SPLICE;
 	}
 
-	db_begin_transaction(db);
-	acct = find_account(tmpctx, db, acct_name);
+	db_begin_transaction(bkpr->db);
+	acct = find_account(tmpctx, bkpr->db, acct_name);
 
 	if (!acct) {
 		/* FIXME: lookup the peer id for this channel! */
 		acct = new_account(tmpctx, acct_name, NULL);
-		account_add(db, acct);
+		account_add(bkpr->db, acct);
 	}
 
 	if (e->origin_acct) {
-		orig_acct = find_account(tmpctx, db, e->origin_acct);
+		orig_acct = find_account(tmpctx, bkpr->db, e->origin_acct);
 		/* Go fetch the originating account
 		 * (we might not have it) */
 		if (!orig_acct) {
 			orig_acct = new_account(tmpctx, e->origin_acct, NULL);
-			account_add(db, orig_acct);
+			account_add(bkpr->db, orig_acct);
 		}
 	} else
 		orig_acct = NULL;
 
 
-	if (!log_chain_event(db, acct, e)) {
-		db_commit_transaction(db);
+	if (!log_chain_event(bkpr->db, acct, e)) {
+		db_commit_transaction(bkpr->db);
 		/* This is not a new event, do nothing */
 		return notification_handled(cmd);
 	}
 
 	/* This event *might* have implications for account;
 	 * update as necessary */
-	maybe_update_account(db, acct, e, tags, closed_count,
+	maybe_update_account(bkpr->db, acct, e, tags, closed_count,
 			     peer_id);
 
 	/* Can we calculate any onchain fees now? */
-	err = maybe_update_onchain_fees(cmd, db,
+	err = maybe_update_onchain_fees(cmd, bkpr->db,
 					e->spending_txid ?
 					e->spending_txid :
 					&e->outpoint.txid);
 
-	db_commit_transaction(db);
+	db_commit_transaction(bkpr->db);
 
 	if (err)
 		plugin_err(cmd->plugin,
@@ -1554,13 +1583,13 @@ parse_and_log_chain_move(struct command *cmd,
 	 * that it we've got an external deposit that's now
 	 * confirmed */
 	if (e->spending_txid) {
-		db_begin_transaction(db);
+		db_begin_transaction(bkpr->db);
 		/* Go see if there's any deposits to an external
 		 * that are now confirmed */
 		/* FIXME: might need updating when we can splice? */
-		maybe_closeout_external_deposits(db, e->spending_txid,
+		maybe_closeout_external_deposits(bkpr->db, e->spending_txid,
 						 e->blockheight);
-		db_commit_transaction(db);
+		db_commit_transaction(bkpr->db);
 	}
 
 	/* If this is a channel account event, it's possible
@@ -1594,7 +1623,7 @@ parse_and_log_chain_move(struct command *cmd,
 	}
 
 	/* Maybe mark acct as onchain resolved */
-	err = do_account_close_checks(cmd, e, acct);
+	err = do_account_close_checks(cmd, bkpr->db, e, acct);
 	if (err)
 		plugin_err(cmd->plugin, "%s", err);
 
@@ -1627,6 +1656,7 @@ parse_and_log_channel_move(struct command *cmd,
 	struct channel_event *e = tal(cmd, struct channel_event);
 	struct account *acct;
 	const char *err;
+	struct bkpr *bkpr = bkpr_of(cmd->plugin);
 
 	e->payment_id = tal(e, struct sha256);
 	err = json_scan(tmpctx, buf, params,
@@ -1661,15 +1691,15 @@ parse_and_log_channel_move(struct command *cmd,
 	e->rebalance_id = NULL;
 
 	/* Go find the account for this event */
-	db_begin_transaction(db);
-	acct = find_account(tmpctx, db, acct_name);
+	db_begin_transaction(bkpr->db);
+	acct = find_account(tmpctx, bkpr->db, acct_name);
 	if (!acct)
 		plugin_err(cmd->plugin,
 			   "Received channel event,"
 			   " but no account exists %s",
 			   acct_name);
 
-	log_channel_event(db, acct, e);
+	log_channel_event(bkpr->db, acct, e);
 
 	/* Check for invoice desc data, necessary */
 	if (e->payment_id) {
@@ -1680,15 +1710,15 @@ parse_and_log_channel_move(struct command *cmd,
 			/* We only do rebalance checks for debits,
 			 * the credit event always arrives first */
 			if (!amount_msat_is_zero(e->debit))
-				maybe_record_rebalance(db, e);
+				maybe_record_rebalance(bkpr->db, e);
 
-			db_commit_transaction(db);
+			db_commit_transaction(bkpr->db);
 			return lookup_invoice_desc(cmd, e->credit,
 						   e->payment_id);
 		}
 	}
 
-	db_commit_transaction(db);
+	db_commit_transaction(bkpr->db);
 	return notification_handled(cmd);
 }
 
@@ -1723,6 +1753,7 @@ static struct command_result *json_utxo_deposit(struct command *cmd, const char 
 	struct chain_event *ev = tal(cmd, struct chain_event);
 	struct account *acct;
 	const char *err;
+	struct bkpr *bkpr = bkpr_of(cmd->plugin);
 
 	err = json_scan(tmpctx, buf, params,
 			"{utxo_deposit:{"
@@ -1747,12 +1778,12 @@ static struct command_result *json_utxo_deposit(struct command *cmd, const char 
 			   json_tok_full(buf, params));
 
 	/* Log the thing */
-	db_begin_transaction(db);
-	acct = find_account(tmpctx, db, ev->acct_name);
+	db_begin_transaction(bkpr->db);
+	acct = find_account(tmpctx, bkpr->db, ev->acct_name);
 
 	if (!acct) {
 		acct = new_account(tmpctx, ev->acct_name, NULL);
-		account_add(db, acct);
+		account_add(bkpr->db, acct);
 	}
 
 	ev->tag = "deposit";
@@ -1773,15 +1804,15 @@ static struct command_result *json_utxo_deposit(struct command *cmd, const char 
 		   ev->timestamp, ev->blockheight,
 		   fmt_bitcoin_outpoint(tmpctx, &ev->outpoint));
 
-	if (!log_chain_event(db, acct, ev)) {
-		db_commit_transaction(db);
+	if (!log_chain_event(bkpr->db, acct, ev)) {
+		db_commit_transaction(bkpr->db);
 		/* This is not a new event, do nothing */
 		return notification_handled(cmd);
 	}
 
 	/* Can we calculate any onchain fees now? */
-	err = maybe_update_onchain_fees(cmd, db, &ev->outpoint.txid);
-	db_commit_transaction(db);
+	err = maybe_update_onchain_fees(cmd, bkpr->db, &ev->outpoint.txid);
+	db_commit_transaction(bkpr->db);
 	if (err)
 		plugin_err(cmd->plugin,
 			   "Unable to update onchain fees %s",
@@ -1797,6 +1828,7 @@ static struct command_result *json_utxo_spend(struct command *cmd, const char *b
 	struct account *acct;
 	struct chain_event *ev = tal(cmd, struct chain_event);
 	const char *err, *acct_name;
+	struct bkpr *bkpr = bkpr_of(cmd->plugin);
 
 	ev->spending_txid = tal(ev, struct bitcoin_txid);
 	err = json_scan(tmpctx, buf, params,
@@ -1822,12 +1854,12 @@ static struct command_result *json_utxo_spend(struct command *cmd, const char *b
 			   json_tok_full(buf, params));
 
 	/* Log the thing */
-	db_begin_transaction(db);
-	acct = find_account(tmpctx, db, acct_name);
+	db_begin_transaction(bkpr->db);
+	acct = find_account(tmpctx, bkpr->db, acct_name);
 
 	if (!acct) {
 		acct = new_account(tmpctx, acct_name, NULL);
-		account_add(db, acct);
+		account_add(bkpr->db, acct);
 	}
 
 	ev->origin_acct = NULL;
@@ -1848,23 +1880,23 @@ static struct command_result *json_utxo_spend(struct command *cmd, const char *b
 		   fmt_bitcoin_outpoint(tmpctx, &ev->outpoint),
 		   fmt_bitcoin_txid(tmpctx, ev->spending_txid));
 
-	if (!log_chain_event(db, acct, ev)) {
-		db_commit_transaction(db);
+	if (!log_chain_event(bkpr->db, acct, ev)) {
+		db_commit_transaction(bkpr->db);
 		/* This is not a new event, do nothing */
 		return notification_handled(cmd);
 	}
 
-	err = maybe_update_onchain_fees(cmd, db, ev->spending_txid);
+	err = maybe_update_onchain_fees(cmd, bkpr->db, ev->spending_txid);
 	if (err) {
-		db_commit_transaction(db);
+		db_commit_transaction(bkpr->db);
 		plugin_err(cmd->plugin,
 			   "Unable to update onchain fees %s",
 			   err);
 	}
 
-	err = maybe_update_onchain_fees(cmd, db, &ev->outpoint.txid);
+	err = maybe_update_onchain_fees(cmd, bkpr->db, &ev->outpoint.txid);
 	if (err) {
-		db_commit_transaction(db);
+		db_commit_transaction(bkpr->db);
 		plugin_err(cmd->plugin,
 			   "Unable to update onchain fees %s",
 			   err);
@@ -1873,9 +1905,9 @@ static struct command_result *json_utxo_spend(struct command *cmd, const char *b
 	/* Go see if there's any deposits to an external
 	 * that are now confirmed */
 	/* FIXME: might need updating when we can splice? */
-	maybe_closeout_external_deposits(db, ev->spending_txid,
+	maybe_closeout_external_deposits(bkpr->db, ev->spending_txid,
 					 ev->blockheight);
-	db_commit_transaction(db);
+	db_commit_transaction(bkpr->db);
 
 	/* FIXME: do account close checks, when allow onchain close to externals? */
 	return notification_handled(cmd);;
@@ -2005,39 +2037,45 @@ static const struct plugin_command commands[] = {
 static const char *init(struct command *init_cmd, const char *b, const jsmntok_t *t)
 {
 	struct plugin *p = init_cmd->plugin;
+	struct bkpr *bkpr = bkpr_of(p);
+
+	/* Options processing makes NULL the owner of options.  Steal them */
+	tal_steal(bkpr, bkpr->datadir);
+	tal_steal(bkpr, bkpr->db_dsn);
 
 	/* Switch to bookkeeper-dir, if specified */
-	if (datadir && chdir(datadir) != 0) {
-		if (mkdir(datadir, 0700) != 0 && errno != EEXIST)
+	if (bkpr->datadir && chdir(bkpr->datadir) != 0) {
+		if (mkdir(bkpr->datadir, 0700) != 0 && errno != EEXIST)
 			plugin_err(p,
 				   "Unable to create 'bookkeeper-dir'=%s",
-				   datadir);
-		if (chdir(datadir) != 0)
+				   bkpr->datadir);
+		if (chdir(bkpr->datadir) != 0)
 			plugin_err(p,
 				   "Unable to switch to 'bookkeeper-dir'=%s",
-				   datadir);
+				   bkpr->datadir);
 	}
 
 	/* No user suppled db_dsn, set one up here */
-	if (!db_dsn)
-		db_dsn = tal_fmt(NULL, "sqlite3://accounts.sqlite3");
+	if (!bkpr->db_dsn)
+		bkpr->db_dsn = tal_fmt(bkpr, "sqlite3://accounts.sqlite3");
 
-	plugin_log(p, LOG_DBG, "Setting up database at %s", db_dsn);
-	db = notleak(db_setup(p, p, db_dsn));
-	db_dsn = tal_free(db_dsn);
+	plugin_log(p, LOG_DBG, "Setting up database at %s", bkpr->db_dsn);
+	bkpr->db = db_setup(bkpr, p, bkpr->db_dsn);
 
 	return NULL;
 }
 
 int main(int argc, char *argv[])
 {
+	struct bkpr *bkpr;
 	setup_locale();
 
 	/* No datadir is default */
-	datadir = NULL;
-	db_dsn = NULL;
+	bkpr = tal(NULL, struct bkpr);
+	bkpr->datadir = NULL;
+	bkpr->db_dsn = NULL;
 
-	plugin_main(argv, init, NULL, PLUGIN_STATIC, true, NULL,
+	plugin_main(argv, init, take(bkpr), PLUGIN_STATIC, true, NULL,
 		    commands, ARRAY_SIZE(commands),
 		    notifs, ARRAY_SIZE(notifs),
 		    NULL, 0,
@@ -2045,11 +2083,11 @@ int main(int argc, char *argv[])
 		    plugin_option("bookkeeper-dir",
 				  "string",
 				  "Location for bookkeeper records.",
-				  charp_option, NULL, &datadir),
+				  charp_option, NULL, &bkpr->datadir),
 		    plugin_option("bookkeeper-db",
 				  "string",
 				  "Location of the bookkeeper database",
-				  charp_option, NULL, &db_dsn),
+				  charp_option, NULL, &bkpr->db_dsn),
 		    NULL);
 
 	return 0;
