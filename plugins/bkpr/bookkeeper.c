@@ -39,6 +39,28 @@ static struct bkpr *bkpr_of(struct plugin *plugin)
 	return plugin_get_data(plugin, struct bkpr);
 }
 
+struct refresh_info {
+	size_t calls_remaining;
+	struct command_result *(*cb)(struct command *, void *);
+	void *arg;
+};
+
+static struct refresh_info *use_rinfo(struct refresh_info *rinfo)
+{
+	rinfo->calls_remaining++;
+	return rinfo;
+}
+
+static struct command_result *rinfo_one_done(struct command *cmd,
+					     struct refresh_info *rinfo)
+{
+	assert(rinfo->calls_remaining > 0);
+	if (--rinfo->calls_remaining == 0)
+		return rinfo->cb(cmd, rinfo->arg);
+	else
+		return command_still_pending(cmd);
+}
+
 struct command_result *ignore_datastore_reply(struct command *cmd,
 					      const char *method,
 					      const char *buf,
@@ -57,6 +79,59 @@ static struct fee_sum *find_sum_for_txid(struct fee_sum **sums,
 	}
 	return NULL;
 }
+
+static struct command_result *listchannelmoves_done(struct command *cmd,
+						    const char *method,
+						    const char *buf,
+						    const jsmntok_t *result,
+						    struct refresh_info *rinfo)
+{
+	/* FIXME: process results */
+
+	return rinfo_one_done(cmd, rinfo);
+}
+
+static struct command_result *listchainmoves_done(struct command *cmd,
+						  const char *method,
+						  const char *buf,
+						  const jsmntok_t *result,
+						  struct refresh_info *rinfo)
+{
+	struct out_req *req;
+	/* FIXME: process results */
+
+	req = jsonrpc_request_start(cmd, "listchannelmoves",
+				    listchannelmoves_done,
+				    plugin_broken_cb,
+				    rinfo);
+	return send_outreq(req);
+}
+
+static struct command_result *refresh_moves_(struct command *cmd,
+					     struct command_result *(*cb)(
+						     struct command *,
+						     void *),
+					     void *arg)
+{
+	struct refresh_info *rinfo = tal(cmd, struct refresh_info);
+	struct out_req *req;
+
+	rinfo->cb = cb;
+	rinfo->arg = arg;
+	rinfo->calls_remaining = 0;
+	req = jsonrpc_request_start(cmd, "listchainmoves",
+				    listchainmoves_done,
+				    plugin_broken_cb,
+				    use_rinfo(rinfo));
+	return send_outreq(req);
+}
+
+#define refresh_moves(cmd, cb, arg)					\
+	refresh_moves_((cmd),						\
+		       typesafe_cb_preargs(struct command_result *, void *, \
+					   (cb), (arg),			\
+					   struct command *),		\
+		       arg)
 
 struct apy_req {
 	u64 *start_time;
@@ -123,11 +198,23 @@ getblockheight_done(struct command *cmd,
 	return command_finished(cmd, res);
 }
 
+static struct command_result *
+do_channel_apy(struct command *cmd, struct apy_req *apyreq)
+{
+	struct out_req *req;
+
+	/* First get the current blockheight */
+	req = jsonrpc_request_start(cmd, "getinfo",
+				    &getblockheight_done,
+				    forward_error,
+				    apyreq);
+	return send_outreq(req);
+}
+
 static struct command_result *json_channel_apy(struct command *cmd,
 					       const char *buf,
 					       const jsmntok_t *params)
 {
-	struct out_req *req;
 	struct apy_req *apyreq = tal(cmd, struct apy_req);
 
 	if (!param(cmd, buf, params,
@@ -137,12 +224,7 @@ static struct command_result *json_channel_apy(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	/* First get the current blockheight */
-	req = jsonrpc_request_start(cmd, "getinfo",
-				    &getblockheight_done,
-				    forward_error,
-				    apyreq);
-	return send_outreq(req);
+	return refresh_moves(cmd, do_channel_apy, apyreq);
 }
 
 static struct command_result *param_csv_format(struct command *cmd, const char *name,
@@ -160,72 +242,77 @@ static struct command_result *param_csv_format(struct command *cmd, const char *
 					     csv_list_fmts(cmd)));
 }
 
-static struct command_result *json_dump_income(struct command *cmd,
-					       const char *buf,
-					       const jsmntok_t *params)
-{
-	struct json_stream *res;
-	struct income_event **evs;
+struct dump_income_info {
 	struct csv_fmt *csv_fmt;
 	const char *filename;
 	bool *consolidate_fees;
-	char *err;
 	u64 *start_time, *end_time;
-	struct bkpr *bkpr = bkpr_of(cmd->plugin);
+};
 
-	if (!param(cmd, buf, params,
-		   p_req("csv_format", param_csv_format, &csv_fmt),
-		   p_opt("csv_file", param_string, &filename),
-		   p_opt_def("consolidate_fees", param_bool,
-			     &consolidate_fees, true),
-		   p_opt_def("start_time", param_u64, &start_time, 0),
-		   p_opt_def("end_time", param_u64, &end_time, SQLITE_MAX_UINT),
-		   NULL))
-		return command_param_failed();
+static struct command_result *do_dump_income(struct command *cmd,
+					     struct dump_income_info *info)
+{
+	struct bkpr *bkpr = bkpr_of(cmd->plugin);
+	struct json_stream *res;
+	struct income_event **evs;
+	char *err;
 
 	/* Ok, go find me some income events! */
 	db_begin_transaction(bkpr->db);
-	evs = list_income_events(cmd, bkpr, *start_time, *end_time,
-				 *consolidate_fees);
+	evs = list_income_events(cmd, bkpr, *info->start_time, *info->end_time,
+				 *info->consolidate_fees);
 	db_commit_transaction(bkpr->db);
 
-	if (!filename)
-		filename = csv_filename(cmd, csv_fmt);
+	if (!info->filename)
+		info->filename = csv_filename(info, info->csv_fmt);
 
-	err = csv_print_income_events(cmd, csv_fmt, filename, evs);
+	err = csv_print_income_events(cmd, info->csv_fmt, info->filename, evs);
 	if (err)
 		return command_fail(cmd, PLUGIN_ERROR,
 				    "Unable to create csv file: %s",
 				    err);
 
 	res = jsonrpc_stream_success(cmd);
-	json_add_string(res, "csv_file", filename);
-	json_add_string(res, "csv_format", csv_fmt->fmt_name);
+	json_add_string(res, "csv_file", info->filename);
+	json_add_string(res, "csv_format", info->csv_fmt->fmt_name);
 	return command_finished(cmd, res);
 }
 
-static struct command_result *json_list_income(struct command *cmd,
+static struct command_result *json_dump_income(struct command *cmd,
 					       const char *buf,
 					       const jsmntok_t *params)
 {
-	struct json_stream *res;
-	struct income_event **evs;
-	bool *consolidate_fees;
-	u64 *start_time, *end_time;
-	struct bkpr *bkpr = bkpr_of(cmd->plugin);
+	struct dump_income_info *info = tal(cmd, struct dump_income_info);
 
 	if (!param(cmd, buf, params,
+		   p_req("csv_format", param_csv_format, &info->csv_fmt),
+		   p_opt("csv_file", param_string, &info->filename),
 		   p_opt_def("consolidate_fees", param_bool,
-			     &consolidate_fees, true),
-		   p_opt_def("start_time", param_u64, &start_time, 0),
-		   p_opt_def("end_time", param_u64, &end_time, SQLITE_MAX_UINT),
+			     &info->consolidate_fees, true),
+		   p_opt_def("start_time", param_u64, &info->start_time, 0),
+		   p_opt_def("end_time", param_u64, &info->end_time, SQLITE_MAX_UINT),
 		   NULL))
 		return command_param_failed();
 
+	return refresh_moves(cmd, do_dump_income, info);
+}
+
+struct list_income_info {
+	bool *consolidate_fees;
+	u64 *start_time, *end_time;
+};
+
+static struct command_result *do_list_income(struct command *cmd,
+					     struct list_income_info *info)
+{
+	struct json_stream *res;
+	struct income_event **evs;
+	struct bkpr *bkpr = bkpr_of(cmd->plugin);
+
 	/* Ok, go find me some income events! */
 	db_begin_transaction(bkpr->db);
-	evs = list_income_events(cmd, bkpr, *start_time, *end_time,
-				 *consolidate_fees);
+	evs = list_income_events(cmd, bkpr, *info->start_time, *info->end_time,
+				 *info->consolidate_fees);
 	db_commit_transaction(bkpr->db);
 
 	res = jsonrpc_stream_success(cmd);
@@ -238,22 +325,31 @@ static struct command_result *json_list_income(struct command *cmd,
 	return command_finished(cmd, res);
 }
 
-static struct command_result *json_inspect(struct command *cmd,
-					   const char *buf,
-					   const jsmntok_t *params)
+static struct command_result *json_list_income(struct command *cmd,
+					       const char *buf,
+					       const jsmntok_t *params)
+{
+	struct list_income_info *info = tal(cmd, struct list_income_info);
+
+	if (!param(cmd, buf, params,
+		   p_opt_def("consolidate_fees", param_bool,
+			     &info->consolidate_fees, true),
+		   p_opt_def("start_time", param_u64, &info->start_time, 0),
+		   p_opt_def("end_time", param_u64, &info->end_time, SQLITE_MAX_UINT),
+		   NULL))
+		return command_param_failed();
+
+	return refresh_moves(cmd, do_list_income, info);
+}
+
+static struct command_result *do_inspect(struct command *cmd,
+					 char *acct_name)
 {
 	struct json_stream *res;
 	struct account *acct;
-	const char *acct_name;
 	struct fee_sum **fee_sums;
 	struct txo_set **txos;
 	struct bkpr *bkpr = bkpr_of(cmd->plugin);
-
-	/* Only available for channel accounts? */
-	if (!param(cmd, buf, params,
-		   p_req("account", param_string, &acct_name),
-		   NULL))
-		return command_param_failed();
 
 	if (!is_channel_account(acct_name))
 		return command_fail(cmd, PLUGIN_ERROR,
@@ -367,6 +463,21 @@ static struct command_result *json_inspect(struct command *cmd,
 	return command_finished(cmd, res);
 }
 
+static struct command_result *json_inspect(struct command *cmd,
+					   const char *buf,
+					   const jsmntok_t *params)
+{
+	char *acct_name;
+
+	/* Only available for channel accounts? */
+	if (!param(cmd, buf, params,
+		   p_req("account", param_string, cast_const2(const char **, &acct_name)),
+		   NULL))
+		return command_param_failed();
+
+	return refresh_moves(cmd, do_inspect, acct_name);
+}
+
 static void json_add_events(struct json_stream *res,
 			    const struct bkpr *bkpr,
 			    struct channel_event **channel_events,
@@ -426,39 +537,34 @@ static void json_add_events(struct json_stream *res,
 	}
 }
 
-/* Find all the events for this account, ordered by timestamp */
-static struct command_result *json_list_account_events(struct command *cmd,
-						       const char *buf,
-						       const jsmntok_t *params)
+struct account_events_info {
+	const char *acct_name;
+	struct sha256 *payment_id;
+};
+
+static struct command_result *do_account_events(struct command *cmd,
+						struct account_events_info *info)
 {
 	struct json_stream *res;
 	struct account *acct;
-	struct sha256 *payment_id;
 	struct bitcoin_txid *tx_id;
-	const char *acct_name;
 	struct channel_event **channel_events;
 	struct chain_event **chain_events;
 	struct onchain_fee **onchain_fees;
 	struct bkpr *bkpr = bkpr_of(cmd->plugin);
 
-	if (!param(cmd, buf, params,
-		   p_opt("account", param_string, &acct_name),
-		   p_opt("payment_id", param_sha256, &payment_id),
-		   NULL))
-		return command_param_failed();
-
-	if (acct_name && payment_id != NULL) {
+	if (info->acct_name && info->payment_id != NULL) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Can only specify one of "
 				    "{account} or {payment_id}");
 	}
 
-	if (acct_name) {
-		acct = find_account(bkpr, acct_name);
+	if (info->acct_name) {
+		acct = find_account(bkpr, info->acct_name);
 		if (!acct)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Account '%s' not found",
-					    acct_name);
+					    info->acct_name);
 	} else
 		acct = NULL;
 
@@ -467,11 +573,11 @@ static struct command_result *json_list_account_events(struct command *cmd,
 		channel_events = account_get_channel_events(cmd, bkpr->db, acct);
 		chain_events = account_get_chain_events(cmd, bkpr, acct);
 		onchain_fees = account_get_chain_fees(tmpctx, bkpr, acct->name);
-	} else if (payment_id != NULL) {
-		channel_events = get_channel_events_by_id(cmd, bkpr->db, payment_id);
+	} else if (info->payment_id != NULL) {
+		channel_events = get_channel_events_by_id(cmd, bkpr->db, info->payment_id);
 
 		tx_id = tal(cmd, struct bitcoin_txid);
-		tx_id->shad.sha = *payment_id;
+		tx_id->shad.sha = *info->payment_id;
 		/* Transaction ids are stored as big-endian in the database */
 		reverse_bytes(tx_id->shad.sha.u.u8, sizeof(tx_id->shad.sha.u.u8));
 
@@ -491,25 +597,37 @@ static struct command_result *json_list_account_events(struct command *cmd,
 	return command_finished(cmd, res);
 }
 
-static struct command_result *json_edit_desc_utxo(struct command *cmd,
-						  const char *buf,
-						  const jsmntok_t *params)
+/* Find all the events for this account, ordered by timestamp */
+static struct command_result *json_list_account_events(struct command *cmd,
+						       const char *buf,
+						       const jsmntok_t *params)
 {
-	struct json_stream *res;
-	struct bitcoin_outpoint *outpoint;
-	const char *new_desc;
-	struct chain_event **chain_events;
-	struct bkpr *bkpr = bkpr_of(cmd->plugin);
+	struct account_events_info *info = tal(cmd, struct account_events_info);
 
 	if (!param(cmd, buf, params,
-		   p_req("outpoint", param_outpoint, &outpoint),
-		   p_req("description", param_string, &new_desc),
+		   p_opt("account", param_string, &info->acct_name),
+		   p_opt("payment_id", param_sha256, &info->payment_id),
 		   NULL))
 		return command_param_failed();
 
+	return refresh_moves(cmd, do_account_events, info);
+}
+
+struct edit_desc_info {
+	struct bitcoin_outpoint *outpoint;
+	const char *new_desc;
+};
+
+static struct command_result *do_edit_desc(struct command *cmd,
+					   struct edit_desc_info *info)
+{
+	struct json_stream *res;
+	struct chain_event **chain_events;
+	struct bkpr *bkpr = bkpr_of(cmd->plugin);
+
 	db_begin_transaction(bkpr->db);
-	add_utxo_description(cmd, bkpr, outpoint, new_desc);
-	chain_events = get_chain_events_by_outpoint(cmd, bkpr, outpoint, true);
+	add_utxo_description(cmd, bkpr, info->outpoint, info->new_desc);
+	chain_events = get_chain_events_by_outpoint(cmd, bkpr, info->outpoint, true);
 	db_commit_transaction(bkpr->db);
 
 	res = jsonrpc_stream_success(cmd);
@@ -520,28 +638,39 @@ static struct command_result *json_edit_desc_utxo(struct command *cmd,
 	return command_finished(cmd, res);
 }
 
-static struct command_result *json_edit_desc_payment_id(struct command *cmd,
-							const char *buf,
-							const jsmntok_t *params)
+static struct command_result *json_edit_desc_utxo(struct command *cmd,
+						  const char *buf,
+						  const jsmntok_t *params)
 {
-	struct json_stream *res;
+	struct edit_desc_info *info = tal(cmd, struct edit_desc_info);
+
+	if (!param(cmd, buf, params,
+		   p_req("outpoint", param_outpoint, &info->outpoint),
+		   p_req("description", param_string, &info->new_desc),
+		   NULL))
+		return command_param_failed();
+
+	return refresh_moves(cmd, do_edit_desc, info);
+}
+
+struct edit_desc_payment_info {
 	struct sha256 *identifier;
 	const char *new_desc;
+};
+
+static struct command_result *do_edit_desc_payment(struct command *cmd,
+						   struct edit_desc_payment_info *info)
+{
+	struct json_stream *res;
 	struct channel_event **channel_events;
 	struct chain_event **chain_events;
 	struct bkpr *bkpr = bkpr_of(cmd->plugin);
 
-	if (!param(cmd, buf, params,
-		   p_req("payment_id", param_sha256, &identifier),
-		   p_req("description", param_string, &new_desc),
-		   NULL))
-		return command_param_failed();
-
 	db_begin_transaction(bkpr->db);
-	add_payment_hash_description(cmd, bkpr, identifier, new_desc);
+	add_payment_hash_description(cmd, bkpr, info->identifier, info->new_desc);
 
-	chain_events = get_chain_events_by_id(cmd, bkpr, identifier);
-	channel_events = get_channel_events_by_id(cmd, bkpr->db, identifier);
+	chain_events = get_chain_events_by_id(cmd, bkpr, info->identifier);
+	channel_events = get_channel_events_by_id(cmd, bkpr->db, info->identifier);
 	db_commit_transaction(bkpr->db);
 
 	res = jsonrpc_stream_success(cmd);
@@ -552,16 +681,27 @@ static struct command_result *json_edit_desc_payment_id(struct command *cmd,
 	return command_finished(cmd, res);
 }
 
-static struct command_result *json_list_balances(struct command *cmd,
-						 const char *buf,
-						 const jsmntok_t *params)
+static struct command_result *json_edit_desc_payment_id(struct command *cmd,
+							const char *buf,
+							const jsmntok_t *params)
+{
+	struct edit_desc_payment_info *info = tal(cmd, struct edit_desc_payment_info);
+
+	if (!param(cmd, buf, params,
+		   p_req("payment_id", param_sha256, &info->identifier),
+		   p_req("description", param_string, &info->new_desc),
+		   NULL))
+		return command_param_failed();
+
+	return refresh_moves(cmd, do_edit_desc_payment, info);
+}
+
+static struct command_result *do_list_balances(struct command *cmd,
+					       void *unused)
 {
 	struct json_stream *res;
 	struct account **accts;
 	struct bkpr *bkpr = bkpr_of(cmd->plugin);
-
-	if (!param(cmd, buf, params, NULL))
-		return command_param_failed();
 
 	res = jsonrpc_stream_success(cmd);
 	/* List of accts */
@@ -624,6 +764,16 @@ static struct command_result *json_list_balances(struct command *cmd,
 	db_commit_transaction(bkpr->db);
 
 	return command_finished(cmd, res);
+}
+
+static struct command_result *json_list_balances(struct command *cmd,
+						 const char *buf,
+						 const jsmntok_t *params)
+{
+	if (!param(cmd, buf, params, NULL))
+		return command_param_failed();
+
+	return refresh_moves(cmd, do_list_balances, NULL);
 }
 
 struct new_account_info {
