@@ -22,6 +22,12 @@ def find_first_tag(evs, tag):
     return ev[0]
 
 
+def check_events(node, channel_id, exp_events):
+    chan_events = [ev for ev in node.rpc.bkpr_listaccountevents()['events'] if ev['account'] == channel_id]
+    stripped = [{k: d[k] for k in ('tag', 'credit_msat', 'debit_msat') if k in d} for d in chan_events]
+    assert stripped == exp_events
+
+
 @unittest.skipIf(TEST_NETWORK != 'regtest', "fixme: broadcast fails, dusty")
 def test_bookkeeping_closing_trimmed_htlcs(node_factory, bitcoind, executor):
     l1, l2 = node_factory.line_graph(2)
@@ -393,26 +399,18 @@ def test_bookkeeping_missed_chans_leases(node_factory, bitcoind):
     l1.daemon.wait_for_log('Snapshot balances updated')
     l2.daemon.wait_for_log('Snapshot balances updated')
 
-    def _check_events(node, channel_id, exp_events):
-        chan_events = [ev for ev in node.rpc.bkpr_listaccountevents()['events'] if ev['account'] == channel_id]
-        assert len(chan_events) == len(exp_events)
-        for ev, exp in zip(chan_events, exp_events):
-            assert ev['tag'] == exp[0]
-            assert ev['credit_msat'] == Millisatoshi(exp[1])
-            assert ev['debit_msat'] == Millisatoshi(exp[2])
-
     # l1 events
-    exp_events = [('channel_open', open_amt * 1000 + lease_fee, 0),
-                  ('onchain_fee', 1314000, 0),
-                  ('lease_fee', 0, lease_fee),
-                  ('journal_entry', 0, invoice_msat)]
-    _check_events(l1, channel_id, exp_events)
+    exp_events = [{'tag': 'channel_open', 'credit_msat': open_amt * 1000 + lease_fee, 'debit_msat': 0},
+                  {'tag': 'onchain_fee', 'credit_msat': 1314000, 'debit_msat': 0},
+                  {'tag': 'lease_fee', 'credit_msat': 0, 'debit_msat': lease_fee},
+                  {'tag': 'journal_entry', 'credit_msat': 0, 'debit_msat': invoice_msat}]
+    check_events(l1, channel_id, exp_events)
 
-    exp_events = [('channel_open', open_amt * 1000, 0),
-                  ('onchain_fee', 894000, 0),
-                  ('lease_fee', lease_fee, 0),
-                  ('journal_entry', invoice_msat, 0)]
-    _check_events(l2, channel_id, exp_events)
+    exp_events = [{'tag': 'channel_open', 'credit_msat': open_amt * 1000, 'debit_msat': 0},
+                  {'tag': 'onchain_fee', 'credit_msat': 894000, 'debit_msat': 0},
+                  {'tag': 'lease_fee', 'credit_msat': lease_fee, 'debit_msat': 0},
+                  {'tag': 'journal_entry', 'credit_msat': invoice_msat, 'debit_msat': 0}]
+    check_events(l2, channel_id, exp_events)
 
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "turns off bookkeeper at start")
@@ -459,26 +457,18 @@ def test_bookkeeping_missed_chans_pushed(node_factory, bitcoind):
     l1.daemon.wait_for_log('Snapshot balances updated')
     l2.daemon.wait_for_log('Snapshot balances updated')
 
-    def _check_events(node, channel_id, exp_events):
-        chan_events = [ev for ev in node.rpc.bkpr_listaccountevents()['events'] if ev['account'] == channel_id]
-        assert len(chan_events) == len(exp_events)
-        for ev, exp in zip(chan_events, exp_events):
-            assert ev['tag'] == exp[0]
-            assert ev['credit_msat'] == Millisatoshi(exp[1])
-            assert ev['debit_msat'] == Millisatoshi(exp[2])
-
     # l1 events
-    exp_events = [('channel_open', open_amt * 1000, 0),
-                  ('onchain_fee', 4927000, 0),
-                  ('pushed', 0, push_amt),
-                  ('journal_entry', 0, invoice_msat)]
-    _check_events(l1, channel_id, exp_events)
+    exp_events = [{'tag': 'channel_open', 'credit_msat': open_amt * 1000, 'debit_msat': 0},
+                  {'tag': 'onchain_fee', 'credit_msat': 4927000, 'debit_msat': 0},
+                  {'tag': 'pushed', 'credit_msat': 0, 'debit_msat': push_amt},
+                  {'tag': 'journal_entry', 'credit_msat': 0, 'debit_msat': invoice_msat}]
+    check_events(l1, channel_id, exp_events)
 
     # l2 events
-    exp_events = [('channel_open', 0, 0),
-                  ('pushed', push_amt, 0),
-                  ('journal_entry', invoice_msat, 0)]
-    _check_events(l2, channel_id, exp_events)
+    exp_events = [{'tag': 'channel_open', 'credit_msat': 0, 'debit_msat': 0},
+                  {'tag': 'pushed', 'credit_msat': push_amt, 'debit_msat': 0},
+                  {'tag': 'journal_entry', 'credit_msat': invoice_msat, 'debit_msat': 0}]
+    check_events(l2, channel_id, exp_events)
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "network fees hardcoded")
@@ -662,24 +652,16 @@ def test_bookkeeping_missed_chans_pay_after(node_factory, bitcoind):
     l1.pay(l2, invoice_msat)
     l1.daemon.wait_for_log(r'coin movement:.*\'invoice\'')
 
-    def _check_events(node, channel_id, exp_events):
-        chan_events = [ev for ev in node.rpc.bkpr_listaccountevents()['events'] if ev['account'] == channel_id]
-        assert len(chan_events) == len(exp_events)
-        for ev, exp in zip(chan_events, exp_events):
-            assert ev['tag'] == exp[0]
-            assert ev['credit_msat'] == Millisatoshi(exp[1])
-            assert ev['debit_msat'] == Millisatoshi(exp[2])
-
     # l1 events
-    exp_events = [('channel_open', open_amt * 1000, 0),
-                  ('onchain_fee', 4927000, 0),
-                  ('invoice', 0, invoice_msat)]
-    _check_events(l1, channel_id, exp_events)
+    exp_events = [{'tag': 'channel_open', 'credit_msat': open_amt * 1000, 'debit_msat': 0},
+                  {'tag': 'onchain_fee', 'credit_msat': 4927000, 'debit_msat': 0},
+                  {'tag': 'invoice', 'credit_msat': 0, 'debit_msat': invoice_msat}]
+    check_events(l1, channel_id, exp_events)
 
     # l2 events
-    exp_events = [('channel_open', 0, 0),
-                  ('invoice', invoice_msat, 0)]
-    _check_events(l2, channel_id, exp_events)
+    exp_events = [{'tag': 'channel_open', 'credit_msat': 0, 'debit_msat': 0},
+                  {'tag': 'invoice', 'credit_msat': invoice_msat, 'debit_msat': 0}]
+    check_events(l2, channel_id, exp_events)
 
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "turns off bookkeeper at start")
