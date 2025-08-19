@@ -3756,6 +3756,65 @@ def test_sql(node_factory, bitcoind):
                          'type': 'msat'},
                         {'name': 'scriptPubKey',
                          'type': 'hex'}]},
+        'chainmoves': {
+            'indices': [['account_id']],
+            'columns': [{'name': 'created_index',
+                         'type': 'u64'},
+                        {'name': 'account_id',
+                         'type': 'string'},
+                        {'name': 'credit_msat',
+                         'type': 'msat'},
+                        {'name': 'debit_msat',
+                         'type': 'msat'},
+                        {'name': 'timestamp',
+                         'type': 'u64'},
+                        {'name': 'primary_tag',
+                         'type': 'string'},
+                        {'name': 'peer_id',
+                         'type': 'pubkey'},
+                        {'name': 'originating_account',
+                         'type': 'string'},
+                        {'name': 'spending_txid',
+                         'type': 'txid'},
+                        {'name': 'utxo',
+                         'type': 'outpoint'},
+                        {'name': 'payment_hash',
+                         'type': 'hash'},
+                        {'name': 'output_msat',
+                         'type': 'msat'},
+                        {'name': 'output_count',
+                         'type': 'u32'},
+                        {'name': 'blockheight',
+                         'type': 'u32'}]},
+        'chainmoves_extra_tags': {
+            'columns': [{'name': 'row',
+                         'type': 'u64'},
+                        {'name': 'arrindex',
+                         'type': 'u64'},
+                        {'name': 'extra_tags',
+                         'type': 'string'}]},
+        'channelmoves': {
+            'indices': [['account_id']],
+            'columns': [{'name': 'created_index',
+                         'type': 'u64'},
+                        {'name': 'account_id',
+                         'type': 'string'},
+                        {'name': 'credit_msat',
+                         'type': 'msat'},
+                        {'name': 'debit_msat',
+                         'type': 'msat'},
+                        {'name': 'timestamp',
+                         'type': 'u64'},
+                        {'name': 'primary_tag',
+                         'type': 'string'},
+                        {'name': 'payment_hash',
+                         'type': 'hash'},
+                        {'name': 'part_id',
+                         'type': 'u64'},
+                        {'name': 'group_id',
+                         'type': 'u64'},
+                        {'name': 'fees_msat',
+                         'type': 'msat'}]},
         'bkpr_accountevents': {
             'columns': [{'name': 'account',
                          'type': 'string'},
@@ -3822,6 +3881,7 @@ def test_sql(node_factory, bitcoind):
                   'hex': 'BLOB',
                   'hash': 'BLOB',
                   'txid': 'BLOB',
+                  'outpoint': 'TEXT',
                   'pubkey': 'BLOB',
                   'secret': 'BLOB',
                   'number': 'REAL',
@@ -3902,6 +3962,10 @@ def test_sql(node_factory, bitcoind):
                 val += ""
             elif col['type'] == "short_channel_id":
                 assert len(val.split('x')) == 3
+            elif col['type'] == "outpoint":
+                txid, vout = val.split(':')
+                assert len(bytes.fromhex(txid)) == 32
+                int(vout)
             else:
                 assert False
 

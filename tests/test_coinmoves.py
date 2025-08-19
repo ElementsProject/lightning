@@ -11,6 +11,20 @@ import time
 from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND
 
 
+# While we're doing this, check sql plugin's representation too.
+def check_sql(node, kind, expected):
+    columns = only_one(node.rpc.listsqlschemas(kind)['schemas'])['columns']
+    ret = node.rpc.sql(f"SELECT * FROM {kind}")
+    assert len(ret['rows']) == len(expected)
+    for row, e in zip(ret['rows'], expected):
+        assert len(row) == len(columns)
+        for val, col in zip(row, columns):
+            if col['name'] in e:
+                assert val == e[col['name']], f"{col['name']} is {val} not {e[col['name']]}: ({row} vs {columns})"
+            elif col['name'] not in ('rowid', 'timestamp'):
+                assert val is None, f"{col['name']} is not None ({row} vs {columns})"
+
+
 def check_moves(moves, expected):
     # Can't predict timestamp
     for m in moves:
@@ -23,10 +37,17 @@ def check_moves(moves, expected):
 
 def check_channel_moves(node, expected):
     check_moves(node.rpc.listchannelmoves()['channelmoves'], expected)
+    check_sql(node, "channelmoves", expected)
 
 
 def check_chain_moves(node, expected):
     check_moves(node.rpc.listchainmoves()['chainmoves'], expected)
+    check_sql(node, "chainmoves", expected)
+    # Check extra_tags.
+    for e in expected:
+        rows = node.rpc.sql(f"SELECT cet.extra_tags FROM chainmoves_extra_tags cet LEFT JOIN chainmoves cm ON cet.row = cm.rowid WHERE cm.created_index={e['created_index']} ORDER BY cm.created_index, cet.arrindex;")['rows']
+        extra_tags = [only_one(row) for row in rows]
+        assert extra_tags == e['extra_tags']
 
 
 def account_balances(accounts):
