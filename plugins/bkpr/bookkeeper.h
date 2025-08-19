@@ -6,6 +6,7 @@
 struct bkpr {
 	/* The database that we store all the accounting data in */
 	struct db *db;
+	struct accounts *accounts;
 
 	char *db_dsn;
 	char *datadir;

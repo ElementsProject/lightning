@@ -173,7 +173,7 @@ const char *find_close_account_name(const tal_t *ctx,
 
 /* Update our onchain fees now? */
 char *maybe_update_onchain_fees(const tal_t *ctx,
-			        struct db *db,
+				struct bkpr *bkpr,
 			        struct bitcoin_txid *txid);
 
 /* We calculate onchain fees for channel closes a bit different */

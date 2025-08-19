@@ -1441,9 +1441,8 @@ def test_forward_pad_fees_and_cltv(node_factory, bitcoind):
     # the balance on l3 should equal the invoice
     accts = l3.rpc.bkpr_listbalances()['accounts']
     assert len(accts) == 2
-    wallet = accts[0]
-    chan_acct = accts[1]
-    assert wallet['account'] == 'wallet'
+    wallet = only_one([a for a in accts if a['account'] == 'wallet'])
+    chan_acct = only_one([a for a in accts if a['account'] != 'wallet'])
     # We no longer make a zero balance entry for the wallet at start
     assert wallet['balances'] == []
     assert incomes[0]['tag'] == 'invoice'

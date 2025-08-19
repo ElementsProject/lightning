@@ -12,6 +12,7 @@
 #include <db/utils.h>
 #include <plugins/bkpr/account.h>
 #include <plugins/bkpr/account_entry.h>
+#include <plugins/bkpr/bookkeeper.h>
 #include <plugins/bkpr/chain_event.h>
 #include <plugins/bkpr/channel_event.h>
 #include <plugins/bkpr/channelsapy.h>
@@ -114,7 +115,7 @@ static void fillin_apy_acct_details(struct db *db,
 	apy->acct_name = tal_strdup(apy, acct->name);
 
 	assert(acct->open_event_db_id);
-	ev = find_chain_event_by_id(acct, db, *acct->open_event_db_id);
+	ev = find_chain_event_by_id(tmpctx, db, *acct->open_event_db_id);
 	assert(ev);
 
 	apy->start_blockheight = ev->blockheight;
@@ -146,7 +147,8 @@ static void fillin_apy_acct_details(struct db *db,
 	assert(ok);
 }
 
-struct channel_apy **compute_channel_apys(const tal_t *ctx, struct db *db,
+struct channel_apy **compute_channel_apys(const tal_t *ctx,
+					  struct bkpr *bkpr,
 					  u64 start_time,
 					  u64 end_time,
 					  u32 current_blockheight)
@@ -155,8 +157,8 @@ struct channel_apy **compute_channel_apys(const tal_t *ctx, struct db *db,
 	struct channel_apy *apy, **apys;
 	struct account *acct, **accts;
 
-	evs = list_channel_events_timebox(ctx, db, start_time, end_time);
-	accts = list_accounts(ctx, db);
+	evs = list_channel_events_timebox(ctx, bkpr->db, start_time, end_time);
+	accts = list_accounts(ctx, bkpr);
 
 	apys = tal_arr(ctx, struct channel_apy *, 0);
 
@@ -173,7 +175,7 @@ struct channel_apy **compute_channel_apys(const tal_t *ctx, struct db *db,
 
 		if (!acct || acct->db_id != ev->acct_db_id) {
 			if (acct && is_channel_account(acct->name)) {
-				fillin_apy_acct_details(db, acct,
+				fillin_apy_acct_details(bkpr->db, acct,
 							current_blockheight,
 							apy);
 				/* Save current apy, make new */
@@ -231,7 +233,7 @@ struct channel_apy **compute_channel_apys(const tal_t *ctx, struct db *db,
 	}
 
 	if (acct && is_channel_account(acct->name)) {
-		fillin_apy_acct_details(db, acct,
+		fillin_apy_acct_details(bkpr->db, acct,
 					current_blockheight,
 					apy);
 		/* Save current apy, make new */

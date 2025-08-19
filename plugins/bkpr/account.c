@@ -1,19 +1,55 @@
 #include "config.h"
 
+#include <ccan/htable/htable_type.h>
 #include <ccan/str/str.h>
 #include <ccan/tal/str/str.h>
+#include <common/memleak.h>
 #include <common/node_id.h>
 #include <db/bindings.h>
 #include <db/common.h>
 #include <db/exec.h>
 #include <db/utils.h>
 #include <plugins/bkpr/account.h>
+#include <plugins/bkpr/bookkeeper.h>
 #include <plugins/bkpr/chain_event.h>
 #include <plugins/bkpr/recorder.h>
 
-static struct account *new_account(const tal_t *ctx, const char *name)
+static size_t hash_str(const char *str)
 {
-	struct account *a = tal(ctx, struct account);
+	return siphash24(siphash_seed(), str, strlen(str));
+}
+
+static const char *account_key(const struct account *account)
+{
+	return account->name;
+}
+
+static bool account_eq_name(const struct account *account,
+			    const char *name)
+{
+	return streq(account->name, name);
+}
+
+HTABLE_DEFINE_NODUPS_TYPE(struct account,
+			  account_key,
+			  hash_str,
+			  account_eq_name,
+			  account_htable);
+
+/* We keep accounts in memory, and for the moment, still in the db */
+struct accounts {
+	struct account_htable *htable;
+};
+
+static void destroy_account(struct account *a, struct accounts *accounts)
+{
+	account_htable_del(accounts->htable, a);
+}
+
+static struct account *new_account(struct accounts *accounts,
+				   const char *name TAKES)
+{
+	struct account *a = tal(accounts, struct account);
 
 	a->name = tal_strdup(a, name);
 	a->peer_id = NULL;
@@ -25,15 +61,18 @@ static struct account *new_account(const tal_t *ctx, const char *name)
 	a->closed_event_db_id = NULL;
 	a->closed_count = 0;
 
+	account_htable_add(accounts->htable, a);
+	tal_add_destructor2(a, destroy_account, accounts);
 	return a;
 }
 
-static struct account *stmt2account(const tal_t *ctx, struct db_stmt *stmt)
+static struct account *stmt2account(struct accounts *accounts,
+				    struct db_stmt *stmt)
 {
-	struct account *a = tal(ctx, struct account);
+	struct account *a;
 
+	a = new_account(accounts, take(db_col_strdup(NULL, stmt, "name")));
 	a->db_id = db_col_u64(stmt, "id");
-	a->name = db_col_strdup(a, stmt, "name");
 
 	if (!db_col_is_null(stmt, "peer_id")) {
 		a->peer_id = tal(a, struct node_id);
@@ -66,31 +105,21 @@ static struct account *stmt2account(const tal_t *ctx, struct db_stmt *stmt)
 	return a;
 }
 
-struct account **list_accounts(const tal_t *ctx, struct db *db)
+struct account **list_accounts(const tal_t *ctx, const struct bkpr *bkpr)
 {
-	struct db_stmt *stmt;
 	struct account **results;
+	struct account_htable_iter it;
+	struct account *a;
+	size_t i;
 
-	stmt = db_prepare_v2(db, SQL("SELECT"
-				     "  id"
-				     ", name"
-				     ", peer_id"
-				     ", opened_event_id"
-				     ", closed_event_id"
-				     ", onchain_resolved_block"
-				     ", is_wallet"
-				     ", we_opened"
-				     ", leased"
-				     ", closed_count"
-				     " FROM accounts;"));
-	db_query_prepared(stmt);
-
-	results = tal_arr(ctx, struct account *, 0);
-	while (db_step(stmt)) {
-		struct account *a = stmt2account(results, stmt);
-		tal_arr_expand(&results, a);
+	results = tal_arr(ctx,
+			  struct account *,
+			  account_htable_count(bkpr->accounts->htable));
+	for (i = 0, a = account_htable_first(bkpr->accounts->htable, &it);
+	     a;
+	     i++, a = account_htable_next(bkpr->accounts->htable, &it)) {
+		results[i] = a;
 	}
-	tal_free(stmt);
 
 	return results;
 }
@@ -124,7 +153,7 @@ static void account_db_add(struct db *db, struct account *acct)
 	tal_free(stmt);
 }
 
-void maybe_update_account(struct db *db,
+void maybe_update_account(struct bkpr *bkpr,
 			  struct account *acct,
 			  struct chain_event *e,
 			  const enum mvt_tag *tags,
@@ -138,9 +167,11 @@ void maybe_update_account(struct db *db,
 		switch (tags[i]) {
 			case MVT_CHANNEL_PROPOSED:
 			case MVT_CHANNEL_OPEN:
-				updated = true;
-				acct->open_event_db_id = tal(acct, u64);
-				*acct->open_event_db_id = e->db_id;
+				if (!acct->open_event_db_id) {
+					updated = true;
+					acct->open_event_db_id = tal(acct, u64);
+					*acct->open_event_db_id = e->db_id;
+				}
 				break;
 			case MVT_CHANNEL_CLOSE:
 				/* Splices dont count as closes */
@@ -184,7 +215,7 @@ void maybe_update_account(struct db *db,
 		}
 	}
 
-	if (peer_id) {
+	if (peer_id && !acct->peer_id) {
 		updated = true;
 		acct->peer_id = tal_dup(acct, struct node_id, peer_id);
 	}
@@ -199,15 +230,16 @@ void maybe_update_account(struct db *db,
 		return;
 
 	/* Otherwise, we update the account ! */
-	stmt = db_prepare_v2(db, SQL("UPDATE accounts SET"
-				     "  opened_event_id = ?"
-				     ", closed_event_id = ?"
-				     ", we_opened = ?"
-				     ", leased = ?"
-				     ", closed_count = ?"
-				     ", peer_id = ?"
-				     " WHERE"
-				     " name = ?"));
+	stmt = db_prepare_v2(bkpr->db,
+			     SQL("UPDATE accounts SET"
+				 "  opened_event_id = ?"
+				 ", closed_event_id = ?"
+				 ", we_opened = ?"
+				 ", leased = ?"
+				 ", closed_count = ?"
+				 ", peer_id = ?"
+				 " WHERE"
+				 " name = ?"));
 
 	if (acct->open_event_db_id)
 		db_bind_u64(stmt, *acct->open_event_db_id);
@@ -232,7 +264,7 @@ void maybe_update_account(struct db *db,
 	db_exec_prepared_v2(take(stmt));
 }
 
-void account_update_closeheight(struct db *db,
+void account_update_closeheight(struct bkpr *bkpr,
 				struct account *acct,
 				u64 close_height)
 {
@@ -242,59 +274,70 @@ void account_update_closeheight(struct db *db,
 	acct->onchain_resolved_block = close_height;
 
 	/* Ok, now we update the account with this blockheight */
-	stmt = db_prepare_v2(db, SQL("UPDATE accounts SET"
-				     "  onchain_resolved_block = ?"
-				     " WHERE"
-				     " id = ?"));
+	stmt = db_prepare_v2(bkpr->db, SQL("UPDATE accounts SET"
+					   "  onchain_resolved_block = ?"
+					   " WHERE"
+					   " id = ?"));
 	db_bind_int(stmt, acct->onchain_resolved_block);
 	db_bind_u64(stmt, acct->db_id);
 	db_exec_prepared_v2(take(stmt));
 }
 
-struct account *find_account(const tal_t *ctx,
-			     struct db *db,
+struct account *find_account(const struct bkpr *bkpr,
 			     const char *name)
 {
-	struct db_stmt *stmt;
-	struct account *a;
-
-	stmt = db_prepare_v2(db, SQL("SELECT"
-				     "  id"
-				     ", name"
-				     ", peer_id"
-				     ", opened_event_id"
-				     ", closed_event_id"
-				     ", onchain_resolved_block"
-				     ", is_wallet"
-				     ", we_opened"
-				     ", leased"
-				     ", closed_count"
-				     " FROM accounts"
-				     " WHERE name = ?"));
-
-	db_bind_text(stmt, name);
-	db_query_prepared(stmt);
-
-	if (db_step(stmt))
-		a = stmt2account(ctx, stmt);
-	else
-		a = NULL;
-
-	tal_free(stmt);
-
-	return a;
+	return account_htable_get(bkpr->accounts->htable, name);
 }
 
-struct account *find_or_create_account(const tal_t *ctx,
-				       struct db *db,
+struct account *find_or_create_account(struct bkpr *bkpr,
 				       const char *name)
 {
-	struct account *a = find_account(ctx, db, name);
+	struct account *a = find_account(bkpr, name);
 
 	if (a)
 		return a;
 
-	a = new_account(ctx, name);
-	account_db_add(db, a);
+	a = new_account(bkpr->accounts, name);
+	account_db_add(bkpr->db, a);
 	return a;
+}
+
+static void memleak_scan_accounts_htable(struct htable *memtable,
+					 struct account_htable *ht)
+{
+	memleak_scan_htable(memtable, &ht->raw);
+}
+
+struct accounts *init_accounts(const tal_t *ctx, struct db *db)
+{
+	struct accounts *accounts = tal(ctx, struct accounts);
+	struct db_stmt *stmt;
+
+	accounts->htable = tal(accounts, struct account_htable);
+	account_htable_init(accounts->htable);
+	memleak_add_helper(accounts->htable, memleak_scan_accounts_htable);
+
+	db_begin_transaction(db);
+	stmt = db_prepare_v2(db,
+			     SQL("SELECT"
+				 "  id"
+				 ", name"
+				 ", peer_id"
+				 ", opened_event_id"
+				 ", closed_event_id"
+				 ", onchain_resolved_block"
+				 ", is_wallet"
+				 ", we_opened"
+				 ", leased"
+				 ", closed_count"
+				 " FROM accounts"));
+	db_query_prepared(stmt);
+
+	while (db_step(stmt))
+		stmt2account(accounts, stmt);
+
+	tal_free(stmt);
+	db_commit_transaction(db);
+
+	return accounts;
 }

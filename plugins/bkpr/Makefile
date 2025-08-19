@@ -43,8 +43,8 @@ plugins/bookkeeper: common/bolt12.o common/bolt12_merkle.o common/channel_type.o
 # The following files contain SQL-annotated statements that we need to extact
 BOOKKEEPER_SQL_FILES := 			\
 	$(DB_SQL_FILES)				\
-	plugins/bkpr/account.c			\
 	plugins/bkpr/db.c			\
+	plugins/bkpr/account.c			\
 	plugins/bkpr/incomestmt.c		\
 	plugins/bkpr/recorder.c
 
