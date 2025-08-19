@@ -1617,8 +1617,231 @@ def test_coinmoves_unilateral_htlc_fulfilled_oneside(node_factory, bitcoind):
     # We send no in-channel HTLCs
     check_balances(l1, l2, fundchannel['channel_id'], 0)
 
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', "Amounts are for regtest.")
+def test_coinmoves_unilateral_htlc_penalty(node_factory, bitcoind):
+    """l2 drops to old commitment to chain with HTLC."""
+    if EXPERIMENTAL_DUAL_FUND:
+        disc = ['-WIRE_COMMITMENT_SIGNED*5']
+    else:
+        disc = ['-WIRE_COMMITMENT_SIGNED*4']
+    l1, l2 = node_factory.get_nodes(2, opts=[{'may_reconnect': True,
+                                              'dev-no-reconnect': None},
+                                             {'disconnect': disc,
+                                              'may_reconnect': True,
+                                              'dev-no-reconnect': None}])
+
+    expected_channel1, expected_channel2, expected_chain1, expected_chain2, fundchannel = setup_channel(bitcoind, l1, l2)
+
+    inv = l2.rpc.invoice('any', 'test_coinmoves_unilateral_htlc_fulfilled_oneside', 'test_coinmoves_unilateral_htlc_fulfilled_oneside')
+    routestep = {
+        # We will spend anchor to make this confirm.
+        'amount_msat': 100000000,
+        'id': l2.info['id'],
+        'delay': 10,
+        'channel': l1.get_channel_scid(l2),
+    }
+    l1.rpc.sendpay([routestep], inv['payment_hash'], payment_secret=inv['payment_secret'], bolt11=inv['bolt11'])
+    wait_for(lambda: only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected'] is False)
+
+    check_channel_moves(l1, expected_channel1)
+    check_channel_moves(l2, expected_channel2)
+    check_chain_moves(l1, expected_chain1)
+    check_chain_moves(l2, expected_chain2)
+    cheattx = l1.rpc.dev_sign_last_tx(l2.info['id'])['tx']
+    cheattxid = bitcoind.rpc.decoderawtransaction(cheattx)['txid']
+
+    # Reconnect, HTLC will settle.
+    l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+
+    expected_channel1 += [{'account_id': fundchannel['channel_id'],
+                           'credit_msat': 0,
+                           'debit_msat': 100000000,
+                           'fees_msat': 0,
+                           'group_id': 1,
+                           'part_id': 0,
+                           'payment_hash': inv['payment_hash'],
+                           'primary_tag': 'invoice'}]
+    expected_channel2 += [{'account_id': fundchannel['channel_id'],
+                           'credit_msat': 100000000,
+                           'debit_msat': 0,
+                           'fees_msat': 0,
+                           'payment_hash': inv['payment_hash'],
+                           'primary_tag': 'invoice'}]
+    check_channel_moves(l1, expected_channel1)
+    check_channel_moves(l2, expected_channel2)
+    check_chain_moves(l1, expected_chain1)
+    check_chain_moves(l2, expected_chain2)
+
+    # Don't interfere, l1, we're going to *cheat*
+    l1.stop()
+    bitcoind.rpc.sendrawtransaction(cheattx)
+    bitcoind.generate_block(1)
+
+    # We spend all outputs at once.
+    l2.daemon.wait_for_log("6 outputs unresolved: waiting confirmation")
+
+    # Which outputs are anchors, and which are to us and which to them?
+    # Use onchaind's logs, eg:
+    # Tracking output 0e1cfbc2be0aada02222a163a1a413fd0b06bae8017c3626cbf8816499dadc09:0: OUR_UNILATERAL/ANCHOR_TO_THEM
+    line = l2.daemon.is_in_log('Tracking output.*/ANCHOR_TO_THEM')
+    anch_to_l2 = int(re.search(r'output [0-9a-f]{64}:([0-9]):', line).group(1))
+    line = l2.daemon.is_in_log('Tracking output.*/ANCHOR_TO_US')
+    anch_to_l1 = int(re.search(r'output [0-9a-f]{64}:([0-9]):', line).group(1))
+    line = l2.daemon.is_in_log('Tracking output.*/OUTPUT_TO_US')
+    to_l2 = int(re.search(r'output [0-9a-f]{64}:([0-9]):', line).group(1))
+    line = l2.daemon.is_in_log('Tracking output.*/DELAYED_CHEAT_OUTPUT_TO_THEM')
+    to_l1 = int(re.search(r'output [0-9a-f]{64}:([0-9]):', line).group(1))
+    line = l2.daemon.is_in_log('Tracking output.*/THEIR_HTLC')
+    htlc = int(re.search(r'output [0-9a-f]{64}:([0-9]):', line).group(1))
+
+    expected_chain2 += [{'account_id': fundchannel['channel_id'],
+                         'blockheight': 104,
+                         'credit_msat': 0,
+                         'debit_msat': 50100000000,
+                         'extra_tags': [],
+                         'output_count': 5,
+                         'output_msat': 99970073000,
+                         'primary_tag': 'channel_close',
+                         'spending_txid': cheattxid,
+                         'utxo': f"{fundchannel['txid']}:{fundchannel['outnum']}"},
+                        {'account_id': 'external',
+                         'blockheight': 104,
+                         'credit_msat': 330000,
+                         'debit_msat': 0,
+                         'extra_tags': [],
+                         'originating_account': fundchannel['channel_id'],
+                         'output_msat': 330000,
+                         'primary_tag': 'anchor',
+                         'utxo': f"{cheattxid}:{anch_to_l1}"},
+                        {'account_id': 'external',
+                         'blockheight': 104,
+                         'credit_msat': 330000,
+                         'debit_msat': 0,
+                         'extra_tags': [],
+                         'originating_account': fundchannel['channel_id'],
+                         'output_msat': 330000,
+                         'primary_tag': 'anchor',
+                         'utxo': f"{cheattxid}:{anch_to_l2}"},
+                        {'account_id': 'wallet',
+                         'blockheight': 104,
+                         'credit_msat': 50000000000,
+                         'debit_msat': 0,
+                         'extra_tags': [],
+                         'originating_account': fundchannel['channel_id'],
+                         'output_msat': 50000000000,
+                         'primary_tag': 'deposit',
+                         'utxo': f"{cheattxid}:{to_l2}"}]
+    check_channel_moves(l2, expected_channel2)
+    check_chain_moves(l2, expected_chain2)
+
+    # Generates all the penalties
+    bitcoind.generate_block(1, wait_for_mempool=2)
+    line = l2.daemon.wait_for_log('Resolved THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM by our proposal OUR_PENALTY_TX')
+    to_l1_penalty = re.search(r'by our proposal OUR_PENALTY_TX \(([0-9a-f]{64})\)', line).group(1)
+    line = l2.daemon.wait_for_log('Resolved THEIR_REVOKED_UNILATERAL/THEIR_HTLC by our proposal OUR_PENALTY_TX')
+    htlc_penalty = re.search(r'by our proposal OUR_PENALTY_TX \(([0-9a-f]{64})\)', line).group(1)
+
+    expected_chain2 += [{'account_id': 'wallet',
+                         'blockheight': 105,
+                         'credit_msat': 49858187000,
+                         'debit_msat': 0,
+                         'extra_tags': [],
+                         'output_msat': 49858187000,
+                         'primary_tag': 'deposit',
+                         'utxo': f"{to_l1_penalty}:0"},
+                        {'account_id': 'wallet',
+                         'blockheight': 105,
+                         'credit_msat': 92908000,
+                         'debit_msat': 0,
+                         'extra_tags': [],
+                         'output_msat': 92908000,
+                         'primary_tag': 'deposit',
+                         'utxo': f"{htlc_penalty}:0"},
+                        {'account_id': fundchannel['channel_id'],
+                         'blockheight': 104,
+                         'credit_msat': 49864547000,
+                         'debit_msat': 0,
+                         'extra_tags': [],
+                         'output_msat': 49864547000,
+                         'primary_tag': 'penalty',
+                         'utxo': f"{cheattxid}:{to_l1}"},
+                        {'account_id': fundchannel['channel_id'],
+                         'blockheight': 105,
+                         'credit_msat': 0,
+                         'debit_msat': 49864547000,
+                         'extra_tags': [],
+                         'output_msat': 49864547000,
+                         'primary_tag': 'to_wallet',
+                         'spending_txid': to_l1_penalty,
+                         'utxo': f"{cheattxid}:{to_l1}"},
+                        {'account_id': fundchannel['channel_id'],
+                         'blockheight': 104,
+                         'credit_msat': 100000000,
+                         'debit_msat': 0,
+                         'extra_tags': [],
+                         'output_msat': 100000000,
+                         'primary_tag': 'penalty',
+                         'utxo': f"{cheattxid}:{htlc}"},
+                        {'account_id': fundchannel['channel_id'],
+                         'blockheight': 105,
+                         'credit_msat': 0,
+                         'debit_msat': 100000000,
+                         'extra_tags': [],
+                         'output_msat': 100000000,
+                         'primary_tag': 'to_wallet',
+                         'spending_txid': htlc_penalty,
+                         'utxo': f"{cheattxid}:{htlc}"}]
+    expected_channel2 += [{'account_id': fundchannel['channel_id'],
+                           'credit_msat': 49864547000,
+                           'debit_msat': 0,
+                           'fees_msat': 0,
+                           'primary_tag': 'penalty_adj'},
+                          {'account_id': fundchannel['channel_id'],
+                           'credit_msat': 0,
+                           'debit_msat': 49864547000,
+                           'fees_msat': 0,
+                           'primary_tag': 'penalty_adj'},
+                          {'account_id': fundchannel['channel_id'],
+                           'credit_msat': 100000000,
+                           'debit_msat': 0,
+                           'fees_msat': 0,
+                           'primary_tag': 'penalty_adj'},
+                          {'account_id': fundchannel['channel_id'],
+                           'credit_msat': 0,
+                           'debit_msat': 100000000,
+                           'fees_msat': 0,
+                           'primary_tag': 'penalty_adj'}]
+    check_channel_moves(l2, expected_channel2)
+    check_chain_moves(l2, expected_chain2)
+
+    l2.daemon.wait_for_log('All outputs resolved: waiting 100 more blocks before forgetting channel')
+
+    # Make sure it's stable!
+    bitcoind.generate_block(100)
+    sync_blockheight(bitcoind, [l2])
+    time.sleep(5)
+    check_channel_moves(l2, expected_channel2)
+    check_chain_moves(l2, expected_chain2)
+    l2.daemon.wait_for_log('onchaind complete, forgetting peer')
+
+    channel2 = account_balances(l2.rpc.listchannelmoves()['channelmoves'])
+    chain2 = account_balances(l2.rpc.listchainmoves()['chainmoves'])
+
+    # Channel balances should reflect sats transferred
+    # FIXME: Should probably include penalty.
+    assert sum(channel2[fundchannel['channel_id']]) == 50000000000 + 100000000
+
+    # Wallet balances should reflect reality
+    l2_wallet = sum([o['amount_msat'] for o in l2.rpc.listfunds()['outputs']])
+    if sum(chain2['wallet']) != l2_wallet:
+        print(f"sum({chain2['wallet']}) != {l2_wallet}")
+        assert False
+
     # FIXME:
-    #   MVT_PENALTY,
     #   MVT_PENALIZED,
     #   MVT_STOLEN,
     #   MVT_TO_MINER,
