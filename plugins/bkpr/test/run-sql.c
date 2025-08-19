@@ -69,60 +69,6 @@ bool json_filter_ok(const struct json_filter *filter UNNEEDED, const char *membe
 /* Generated stub for json_filter_up */
 bool json_filter_up(struct json_filter **filter UNNEEDED)
 { fprintf(stderr, "json_filter_up called!\n"); abort(); }
-/* Generated stub for json_scan */
-const char *json_scan(const tal_t *ctx UNNEEDED,
-		      const char *buffer UNNEEDED,
-		      const jsmntok_t *tok UNNEEDED,
-		      const char *guide UNNEEDED,
-		      ...)
-{ fprintf(stderr, "json_scan called!\n"); abort(); }
-/* Generated stub for json_scanv */
-const char *json_scanv(const tal_t *ctx UNNEEDED,
-		       const char *buffer UNNEEDED,
-		       const jsmntok_t *tok UNNEEDED,
-		       const char *guide UNNEEDED,
-		       va_list ap UNNEEDED)
-{ fprintf(stderr, "json_scanv called!\n"); abort(); }
-/* Generated stub for json_to_int */
-bool json_to_int(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, int *num UNNEEDED)
-{ fprintf(stderr, "json_to_int called!\n"); abort(); }
-/* Generated stub for json_to_msat */
-bool json_to_msat(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-		  struct amount_msat *msat UNNEEDED)
-{ fprintf(stderr, "json_to_msat called!\n"); abort(); }
-/* Generated stub for json_to_node_id */
-bool json_to_node_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-			       struct node_id *id UNNEEDED)
-{ fprintf(stderr, "json_to_node_id called!\n"); abort(); }
-/* Generated stub for json_to_number */
-bool json_to_number(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-		    unsigned int *num UNNEEDED)
-{ fprintf(stderr, "json_to_number called!\n"); abort(); }
-/* Generated stub for json_to_outpoint */
-bool json_to_outpoint(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-		      struct bitcoin_outpoint *op UNNEEDED)
-{ fprintf(stderr, "json_to_outpoint called!\n"); abort(); }
-/* Generated stub for json_to_secret */
-bool json_to_secret(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, struct secret *dest UNNEEDED)
-{ fprintf(stderr, "json_to_secret called!\n"); abort(); }
-/* Generated stub for json_to_sha256 */
-bool json_to_sha256(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, struct sha256 *dest UNNEEDED)
-{ fprintf(stderr, "json_to_sha256 called!\n"); abort(); }
-/* Generated stub for json_to_short_channel_id */
-bool json_to_short_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-			      struct short_channel_id *scid UNNEEDED)
-{ fprintf(stderr, "json_to_short_channel_id called!\n"); abort(); }
-/* Generated stub for json_to_txid */
-bool json_to_txid(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-		  struct bitcoin_txid *txid UNNEEDED)
-{ fprintf(stderr, "json_to_txid called!\n"); abort(); }
-/* Generated stub for json_to_u16 */
-bool json_to_u16(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-                 uint16_t *num UNNEEDED)
-{ fprintf(stderr, "json_to_u16 called!\n"); abort(); }
-/* Generated stub for json_tok_bin_from_hex */
-u8 *json_tok_bin_from_hex(const tal_t *ctx UNNEEDED, const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED)
-{ fprintf(stderr, "json_tok_bin_from_hex called!\n"); abort(); }
 /* Generated stub for last_fee_state */
 enum htlc_state last_fee_state(enum side opener UNNEEDED)
 { fprintf(stderr, "last_fee_state called!\n"); abort(); }

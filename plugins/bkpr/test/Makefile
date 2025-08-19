@@ -13,6 +13,7 @@ BOOKKEEPER_TEST_COMMON_OBJS :=			\
 	common/channel_type.o			\
 	common/coin_mvt.o			\
 	common/features.o			\
+	common/json_parse.o			\
 	common/json_stream.o			\
 	common/json_parse_simple.o		\
 	common/key_derive.o			\
