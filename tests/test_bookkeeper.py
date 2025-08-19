@@ -909,9 +909,9 @@ def test_bookkeeper_custom_notifs(node_factory, chainparams):
     acct = "nifty's secret stash"
 
     l1.rpc.senddeposit(acct, False, outpoint_in, amount)
+    l1.daemon.wait_for_log(r"Foreign chain event: deposit \(nifty's secret stash\) 180000000msat -0msat 1679955976 111 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:0")
     l1.rpc.sendspend(acct, outpoint_in, spend_txid, amount)
-    l1.daemon.wait_for_log(r"utxo_deposit \(deposit|nifty's secret stash\) .* -0msat 1679955976 111 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:0")
-    l1.daemon.wait_for_log(r"utxo_spend \(withdrawal|nifty's secret stash\) 0msat -12345678000msat 1679955976 111 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:0 bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+    l1.daemon.wait_for_log(r"Foreign chain event: withdrawal \(nifty's secret stash\) 0msat -180000000msat 1679955976 111 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:0 bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
 
     # balance should be zero
     bals = l1.rpc.bkpr_listbalances()['accounts']
@@ -921,7 +921,7 @@ def test_bookkeeper_custom_notifs(node_factory, chainparams):
             assert only_one(bal['balances'])['balance_msat'] == Millisatoshi(0)
 
     l1.rpc.senddeposit(acct, False, change_deposit, amount - withdraw_amt - fee)
-    l1.daemon.wait_for_log(r"utxo_deposit \(deposit|nifty's secret stash\) .* -0msat 1679955976 111 bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:0")
+    l1.daemon.wait_for_log(r"Foreign chain event: deposit \(nifty's secret stash\) .* -0msat 1679955976 111 bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:0")
 
     # balance should be equal to amount
     events = l1.rpc.bkpr_listaccountevents(acct)['events']
@@ -933,7 +933,7 @@ def test_bookkeeper_custom_notifs(node_factory, chainparams):
     assert onchain_fee_one == fee + withdraw_amt
 
     l1.rpc.senddeposit(acct, True, external_deposit, withdraw_amt)
-    l1.daemon.wait_for_log(r"utxo_deposit \(deposit|external\) .* -0msat 1679955976 111 bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:1")
+    l1.daemon.wait_for_log(r"Foreign chain event: deposit \(external\) .* -0msat 1679955976 111 bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:1")
     events = l1.rpc.bkpr_listaccountevents(acct)['events']
     onchain_fees = [x for x in events if x['type'] == 'onchain_fee']
     assert len(onchain_fees) == 2

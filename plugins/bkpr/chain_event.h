@@ -33,6 +33,9 @@ struct chain_event {
 	 * confirmation? */
 	bool splice_close;
 
+	/* Injected? */
+	bool foreign;
+
 	/* Amount we received in this event */
 	struct amount_msat credit;
 
