@@ -265,7 +265,7 @@ static struct command_result *json_inspect(struct command *cmd,
 
 	db_begin_transaction(bkpr->db);
 	find_txo_chain(cmd, bkpr->db, acct, &txos);
-	fee_sums = find_account_onchain_fees(cmd, bkpr->db, acct);
+	fee_sums = find_account_onchain_fees(cmd, bkpr, acct);
 	db_commit_transaction(bkpr->db);
 
 	res = jsonrpc_stream_success(cmd);
@@ -462,7 +462,7 @@ static struct command_result *json_list_account_events(struct command *cmd,
 	if (acct) {
 		channel_events = account_get_channel_events(cmd, bkpr->db, acct);
 		chain_events = account_get_chain_events(cmd, bkpr->db, acct);
-		onchain_fees = account_get_chain_fees(cmd, bkpr->db, acct);
+		onchain_fees = account_get_chain_fees(tmpctx, bkpr, acct->name);
 	} else if (payment_id != NULL) {
 		channel_events = get_channel_events_by_id(cmd, bkpr->db, payment_id);
 
@@ -472,11 +472,11 @@ static struct command_result *json_list_account_events(struct command *cmd,
 		reverse_bytes(tx_id->shad.sha.u.u8, sizeof(tx_id->shad.sha.u.u8));
 
 		chain_events = find_chain_events_bytxid(cmd, bkpr->db, tx_id);
-		onchain_fees = get_chain_fees_by_txid(cmd, bkpr->db, tx_id);
+		onchain_fees = get_chain_fees_by_txid(cmd, bkpr, tx_id);
 	} else {
 		channel_events = list_channel_events(cmd, bkpr->db);
 		chain_events = list_chain_events(cmd, bkpr->db);
-		onchain_fees = list_chain_fees(cmd, bkpr->db);
+		onchain_fees = list_chain_fees(cmd, bkpr);
 	}
 	db_commit_transaction(bkpr->db);
 
@@ -1029,7 +1029,7 @@ static char *do_account_close_checks(struct command *cmd,
 		if (closeheight != 0) {
 			char *err;
 			account_update_closeheight(cmd, closed_acct, closeheight);
-			err = update_channel_onchain_fees(cmd, bkpr->db, closed_acct);
+			err = update_channel_onchain_fees(cmd, bkpr, closed_acct);
 			if (err) {
 				db_commit_transaction(bkpr->db);
 				return err;
@@ -2046,6 +2046,7 @@ static const char *init(struct command *init_cmd, const char *b, const jsmntok_t
 	plugin_log(p, LOG_DBG, "Setting up database at %s", bkpr->db_dsn);
 	bkpr->db = db_setup(bkpr, p, bkpr->db_dsn);
 	bkpr->accounts = init_accounts(bkpr, init_cmd);
+	bkpr->onchain_fees = init_onchain_fees(bkpr, bkpr->db, init_cmd);
 
 	return NULL;
 }
