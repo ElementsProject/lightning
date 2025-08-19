@@ -15,6 +15,9 @@ struct bkpr {
 	struct rebalances *rebalances;
 	struct blockheights *blockheights;
 
+	/* Where we're up to in listchainmoves, listchannelmoves */
+	u64 chainmoves_index, channelmoves_index;
+
 	char *db_dsn;
 	char *datadir;
 };
