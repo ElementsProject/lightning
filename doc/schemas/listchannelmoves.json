@@ -1,0 +1,142 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "rpc": "listchannelmoves",
+  "title": "Command to get the audit list of all channel coin movements.",
+  "added": "v25.09",
+  "description": [
+    "The **listchannelmoves** command returns the confirmed balance changes within lightning channels over time."
+  ],
+  "categories": [
+    "readonly"
+  ],
+  "request": {
+    "required": [],
+    "additionalProperties": false,
+    "properties": {
+      "index": {
+        "type": "string",
+        "enum": [
+          "created"
+        ],
+        "description": [
+          "How to interpret `start` and `limit`"
+        ]
+      },
+      "start": {
+        "type": "u64",
+        "description": [
+          "If `index` is specified, `start` may be specified to start from that value, which is generally returned from lightning-wait(7)."
+        ]
+      },
+      "limit": {
+        "type": "u32",
+        "description": [
+          "If `index` is specified, `limit` can be used to specify the maximum number of entries to return."
+        ]
+      }
+    },
+    "dependentUpon": {
+      "index": [
+        "start",
+        "limit"
+      ]
+    }
+  },
+  "response": {
+    "required": [
+      "channelmoves"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "channelmoves": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "account_id",
+            "primary_tag",
+            "credit_msat",
+            "debit_msat",
+            "timestamp",
+            "fees_msat"
+          ],
+          "properties": {
+            "account_id": {
+              "type": "string",
+              "description": [
+                "The channel_id corresponding to the channel involved."
+              ]
+            },
+            "credit_msat": {
+              "type": "msat",
+              "description": [
+                "Amount credited (one of this or debit_msat is zero)"
+              ]
+            },
+            "debit_msat": {
+              "type": "msat",
+              "description": [
+                "Amount debited (one of this or credit_msat is zero)"
+              ]
+            },
+            "timestamp": {
+              "type": "u64",
+              "description": [
+                "Time of this event in seconds since January 1 1970 UTC"
+              ]
+            },
+            "primary_tag": {
+              "type": "string",
+              "enum": [
+                "invoice",
+                "routed",
+                "pushed",
+                "lease_fee",
+                "channel_proposed",
+                "penalty_adj",
+                "journal"
+              ],
+              "description": [
+                "A set of one or more tags defining the nature of the change"
+              ]
+            },
+            "payment_hash": {
+              "type": "hash",
+              "description": [
+                "The hash associated with this payment (not present for leases or push funding)"
+              ]
+            },
+            "part_id": {
+              "type": "u64",
+              "description": [
+                "The part_id for the payment (the `payment_hash`, `group_id`, `part_id` tuple will be unique)"
+              ]
+            },
+            "group_id": {
+              "type": "u64",
+              "description": [
+                "The group_id for the payment (the `payment_hash`, `group_id`, `part_id` tuple will be unique)"
+              ]
+            },
+            "fees_msat": {
+              "type": "msat",
+              "description": [
+                "The fees paid for this payment"
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "errors": [
+    "On failure, one of the following error codes may be returned:",
+    "",
+    "- -32602: Error in given parameters."
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}

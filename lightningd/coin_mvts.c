@@ -1,5 +1,6 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
+#include <common/json_command.h>
 #include <lightningd/channel.h>
 #include <lightningd/coin_mvts.h>
 #include <lightningd/notification.h>
@@ -250,3 +251,109 @@ void json_add_channel_mvt_fields(struct json_stream *stream,
 	}
 	json_add_amount_msat(stream, "fees_msat", chan_mvt->fees);
 }
+
+static struct command_result *json_listchainmoves(struct command *cmd,
+						  const char *buffer,
+						  const jsmntok_t *obj UNNEEDED,
+						  const jsmntok_t *params)
+{
+	struct json_stream *response;
+	struct db_stmt *stmt;
+	enum wait_index *listindex;
+	u64 *liststart;
+	u32 *listlimit;
+
+	if (!param(cmd, buffer, params,
+		   p_opt("index", param_index, &listindex),
+		   p_opt_def("start", param_u64, &liststart, 0),
+		   p_opt("limit", param_u32, &listlimit),
+		   NULL))
+		return command_param_failed();
+
+	if (*liststart != 0 && !listindex) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Can only specify {start} with {index}");
+	}
+	if (listlimit && !listindex) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Can only specify {limit} with {index}");
+	}
+	if (listindex && *listindex != WAIT_INDEX_CREATED) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "index must be 'created', since chainmoves are never updated");
+	}
+	response = json_stream_success(cmd);
+	json_array_start(response, "chainmoves");
+	for (stmt = wallet_chain_moves_first(cmd->ld->wallet, *liststart, listlimit);
+	     stmt;
+	     stmt = wallet_chain_moves_next(cmd->ld->wallet, stmt)) {
+		struct chain_coin_mvt *chain_mvt;
+		u64 id;
+		chain_mvt = wallet_chain_move_extract(cmd, stmt, cmd->ld, &id);
+		json_object_start(response, NULL);
+		json_add_chain_mvt_fields(response, false, false, false, chain_mvt);
+		json_object_end(response);
+	}
+	json_array_end(response);
+
+	return command_success(cmd, response);
+}
+static const struct json_command listchainmoves_command = {
+	"listchainmoves",
+	json_listchainmoves,
+};
+AUTODATA(json_command, &listchainmoves_command);
+
+static struct command_result *json_listchannelmoves(struct command *cmd,
+						    const char *buffer,
+						    const jsmntok_t *obj UNNEEDED,
+						    const jsmntok_t *params)
+{
+	struct json_stream *response;
+	struct db_stmt *stmt;
+	enum wait_index *listindex;
+	u64 *liststart;
+	u32 *listlimit;
+
+	if (!param(cmd, buffer, params,
+		   p_opt("index", param_index, &listindex),
+		   p_opt_def("start", param_u64, &liststart, 0),
+		   p_opt("limit", param_u32, &listlimit),
+		   NULL))
+		return command_param_failed();
+
+	if (*liststart != 0 && !listindex) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Can only specify {start} with {index}");
+	}
+	if (listlimit && !listindex) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Can only specify {limit} with {index}");
+	}
+	if (listindex && *listindex != WAIT_INDEX_CREATED) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "index must be 'created', since channelmoves are never updated");
+	}
+
+	response = json_stream_success(cmd);
+	json_array_start(response, "channelmoves");
+	for (stmt = wallet_channel_moves_first(cmd->ld->wallet, *liststart, listlimit);
+	     stmt;
+	     stmt = wallet_channel_moves_next(cmd->ld->wallet, stmt)) {
+		struct channel_coin_mvt *chan_mvt;
+		u64 id;
+		chan_mvt = wallet_channel_move_extract(cmd, stmt, cmd->ld, &id);
+		json_object_start(response, NULL);
+		/* No deprecated tags[], no extra_tags field */
+		json_add_channel_mvt_fields(response, false, chan_mvt, false);
+		json_object_end(response);
+	}
+	json_array_end(response);
+
+	return command_success(cmd, response);
+}
+static const struct json_command listchannelmoves_command = {
+	"listchannelmoves",
+	json_listchannelmoves,
+};
+AUTODATA(json_command, &listchannelmoves_command);

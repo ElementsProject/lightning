@@ -77,6 +77,8 @@ MARKDOWNPAGES := doc/addgossip.7 \
 	doc/invoicerequest.7 \
 	doc/keysend.7 \
 	doc/listaddresses.7 \
+	doc/listchainmoves.7 \
+	doc/listchannelmoves.7 \
 	doc/listchannels.7 \
 	doc/listclosedchannels.7 \
 	doc/listconfigs.7 \
