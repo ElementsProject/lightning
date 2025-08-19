@@ -819,6 +819,11 @@ def test_bookkeeping_descriptions(node_factory, bitcoind, chainparams):
         assert only_one([ev for ev in evs if 'description' in ev and ev['description'] == edited_desc_payid])
         assert only_one([ev for ev in evs if 'description' in ev and ev['description'] == edited_desc_outpoint])
 
+    # Test persistence!
+    l1.restart()
+    assert l1.rpc.bkpr_listaccountevents()['events'] == acct_evs
+    assert l1.rpc.bkpr_listincome()['income_events'] == income_evs
+
 
 def test_empty_node(node_factory, bitcoind):
     """
