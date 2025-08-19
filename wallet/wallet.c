@@ -2961,6 +2961,7 @@ void wallet_channel_close(struct wallet *w,
 	 * reestablish messages with enough information for nodes with lost
 	 * dbs to recover. */
 	struct db_stmt *stmt;
+	u64 new_move_id;
 
 	/* Delete entries from `channel_htlcs` */
 	stmt = db_prepare_v2(w->db, SQL("DELETE FROM channel_htlcs "
@@ -3014,6 +3015,37 @@ void wallet_channel_close(struct wallet *w,
 					"SET state=? "
 					"WHERE channels.id=?"));
 	db_bind_u64(stmt, channel_state_in_db(CLOSED));
+	db_bind_u64(stmt, chan->dbid);
+	db_exec_prepared_v2(take(stmt));
+
+	/* Update all accouting records to use channel_id string, instead of
+	 * referring to dbid.  This is robust if we delete in future, and saves
+	 * a lookup in the load path. */
+	new_move_id = move_accounts_id(w, fmt_channel_id(tmpctx, &chan->cid));
+	stmt = db_prepare_v2(w->db, SQL("UPDATE chain_moves "
+					"SET account_channel_id=?,"
+					" account_nonchannel_id=? "
+					"WHERE account_channel_id=?"));
+	db_bind_null(stmt);
+	db_bind_u64(stmt, new_move_id);
+	db_bind_u64(stmt, chan->dbid);
+	db_exec_prepared_v2(take(stmt));
+
+	stmt = db_prepare_v2(w->db, SQL("UPDATE channel_moves "
+					"SET account_channel_id=?,"
+					" account_nonchannel_id=? "
+					"WHERE account_channel_id=?"));
+	db_bind_null(stmt);
+	db_bind_u64(stmt, new_move_id);
+	db_bind_u64(stmt, chan->dbid);
+	db_exec_prepared_v2(take(stmt));
+
+	stmt = db_prepare_v2(w->db, SQL("UPDATE chain_moves "
+					"SET originating_channel_id=?,"
+					" originating_nonchannel_id=? "
+					"WHERE originating_channel_id=?"));
+	db_bind_null(stmt);
+	db_bind_u64(stmt, new_move_id);
 	db_bind_u64(stmt, chan->dbid);
 	db_exec_prepared_v2(take(stmt));
 }

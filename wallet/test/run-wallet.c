@@ -233,10 +233,6 @@ bool depthcb_update_scid(struct channel *channel UNNEEDED,
 			 const struct bitcoin_txid *txid UNNEEDED,
 			 const struct bitcoin_outpoint *outpoint UNNEEDED)
 { fprintf(stderr, "depthcb_update_scid called!\n"); abort(); }
-/* Generated stub for derive_channel_id */
-void derive_channel_id(struct channel_id *channel_id UNNEEDED,
-		       const struct bitcoin_outpoint *outpoint UNNEEDED)
-{ fprintf(stderr, "derive_channel_id called!\n"); abort(); }
 /* Generated stub for dev_disconnect_permanent */
 bool dev_disconnect_permanent(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "dev_disconnect_permanent called!\n"); abort(); }
@@ -254,9 +250,6 @@ void   fatal(const char *fmt UNNEEDED, ...)
 /* Generated stub for fatal_vfmt */
 void  fatal_vfmt(const char *fmt UNNEEDED, va_list ap UNNEEDED)
 { fprintf(stderr, "fatal_vfmt called!\n"); abort(); }
-/* Generated stub for fmt_channel_id */
-char *fmt_channel_id(const tal_t *ctx UNNEEDED, const struct channel_id *channel_id UNNEEDED)
-{ fprintf(stderr, "fmt_channel_id called!\n"); abort(); }
 /* Generated stub for force_peer_disconnect */
 void force_peer_disconnect(struct lightningd *ld UNNEEDED,
 			   const struct peer *peer UNNEEDED,
@@ -286,10 +279,6 @@ u64 forward_index_update_status(struct lightningd *ld UNNEEDED,
 				struct amount_msat in_amount UNNEEDED,
 				const struct short_channel_id *out_channel UNNEEDED)
 { fprintf(stderr, "forward_index_update_status called!\n"); abort(); }
-/* Generated stub for fromwire_channel_id */
-bool fromwire_channel_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
-			 struct channel_id *channel_id UNNEEDED)
-{ fprintf(stderr, "fromwire_channel_id called!\n"); abort(); }
 /* Generated stub for fromwire_channel_type */
 struct channel_type *fromwire_channel_type(const tal_t *ctx UNNEEDED, const u8 **cursor UNNEEDED, size_t *plen UNNEEDED)
 { fprintf(stderr, "fromwire_channel_type called!\n"); abort(); }
@@ -1056,9 +1045,6 @@ void topology_add_sync_waiter_(const tal_t *ctx UNNEEDED,
 /* Generated stub for towire_announcement_signatures */
 u8 *towire_announcement_signatures(const tal_t *ctx UNNEEDED, const struct channel_id *channel_id UNNEEDED, struct short_channel_id short_channel_id UNNEEDED, const secp256k1_ecdsa_signature *node_signature UNNEEDED, const secp256k1_ecdsa_signature *bitcoin_signature UNNEEDED)
 { fprintf(stderr, "towire_announcement_signatures called!\n"); abort(); }
-/* Generated stub for towire_channel_id */
-void towire_channel_id(u8 **pptr UNNEEDED, const struct channel_id *channel_id UNNEEDED)
-{ fprintf(stderr, "towire_channel_id called!\n"); abort(); }
 /* Generated stub for towire_channel_reestablish */
 u8 *towire_channel_reestablish(const tal_t *ctx UNNEEDED, const struct channel_id *channel_id UNNEEDED, u64 next_commitment_number UNNEEDED, u64 next_revocation_number UNNEEDED, const struct secret *your_last_per_commitment_secret UNNEEDED, const struct pubkey *my_current_per_commitment_point UNNEEDED, const struct tlv_channel_reestablish_tlvs *channel_reestablish UNNEEDED)
 { fprintf(stderr, "towire_channel_reestablish called!\n"); abort(); }
