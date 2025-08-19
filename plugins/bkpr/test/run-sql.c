@@ -35,6 +35,9 @@ u32 find_blockheight(const struct bkpr *bkpr UNNEEDED, const struct bitcoin_txid
 /* Generated stub for first_fee_state */
 enum htlc_state first_fee_state(enum side opener UNNEEDED)
 { fprintf(stderr, "first_fee_state called!\n"); abort(); }
+/* Generated stub for fmt_channel_id */
+char *fmt_channel_id(const tal_t *ctx UNNEEDED, const struct channel_id *channel_id UNNEEDED)
+{ fprintf(stderr, "fmt_channel_id called!\n"); abort(); }
 /* Generated stub for fmt_wireaddr_without_port */
 char *fmt_wireaddr_without_port(const tal_t *ctx UNNEEDED, const struct wireaddr *a UNNEEDED)
 { fprintf(stderr, "fmt_wireaddr_without_port called!\n"); abort(); }
