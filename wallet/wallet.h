@@ -1873,7 +1873,7 @@ struct issued_address_type *wallet_list_addresses(const tal_t *ctx, struct walle
  */
 void wallet_begin_old_close_rescan(struct lightningd *ld);
 
-/* Coin movement storage */
+/* Coin movement storage: also calls notifications */
 void wallet_save_channel_mvt(struct lightningd *ld,
 			     const struct channel_coin_mvt *chan_mvt);
 

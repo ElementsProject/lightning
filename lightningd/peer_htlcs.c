@@ -1967,7 +1967,7 @@ static void remove_htlc_in(struct channel *channel, struct htlc_in *hin)
 				   "Unable to calculate fees collected."
 				   " Not logging an inbound HTLC");
 		else
-			notify_channel_mvt(channel->peer->ld, mvt);
+			wallet_save_channel_mvt(channel->peer->ld, mvt);
 	}
 
 	tal_free(hin);
@@ -2018,7 +2018,7 @@ static void remove_htlc_out(struct channel *channel, struct htlc_out *hout)
 				   "Unable to calculate fees."
 				   " Not logging an outbound HTLC");
 		else
-			notify_channel_mvt(channel->peer->ld, mvt);
+			wallet_save_channel_mvt(channel->peer->ld, mvt);
 	}
 
 	tal_free(hout);

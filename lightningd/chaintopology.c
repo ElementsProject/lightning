@@ -26,6 +26,7 @@
 #include <lightningd/notification.h>
 #include <math.h>
 #include <wallet/txfilter.h>
+#include <wallet/wallet.h>
 
 /* Mutual recursion via timer. */
 static void try_extend_tip(struct chain_topology *topo);
@@ -880,7 +881,7 @@ static void record_wallet_spend(struct lightningd *ld,
 		return;
 	}
 
-	notify_chain_mvt(ld, new_coin_wallet_withdraw(tmpctx, txid, outpoint,
+	wallet_save_chain_mvt(ld, new_coin_wallet_withdraw(tmpctx, txid, outpoint,
 						      tx_blockheight,
 						      utxo->amount, mk_mvt_tags(MVT_WITHDRAWAL)));
 }
