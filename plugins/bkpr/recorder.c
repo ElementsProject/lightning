@@ -11,6 +11,7 @@
 #include <inttypes.h>
 #include <plugins/bkpr/account.h>
 #include <plugins/bkpr/account_entry.h>
+#include <plugins/bkpr/blockheights.h>
 #include <plugins/bkpr/bookkeeper.h>
 #include <plugins/bkpr/chain_event.h>
 #include <plugins/bkpr/channel_event.h>
@@ -44,6 +45,9 @@ static struct chain_event *stmt2chain_event(const tal_t *ctx,
 
 	db_col_txid(stmt, "e.utxo_txid", &e->outpoint.txid);
 	e->outpoint.n = db_col_int(stmt, "e.outnum");
+
+	if (e->blockheight == 0)
+		e->blockheight = find_blockheight(bkpr, &e->outpoint.txid);
 
 	if (!db_col_is_null(stmt, "e.payment_id")) {
 		e->payment_id = tal(e, struct sha256);
@@ -936,7 +940,8 @@ void maybe_record_rebalance(struct command *cmd,
 	tal_free(stmt);
 }
 
-void maybe_closeout_external_deposits(struct bkpr *bkpr,
+void maybe_closeout_external_deposits(struct command *cmd,
+				      struct bkpr *bkpr,
 			              const struct bitcoin_txid *txid,
 				      u32 blockheight)
 {
@@ -944,7 +949,7 @@ void maybe_closeout_external_deposits(struct bkpr *bkpr,
 
 	assert(txid);
 	stmt = db_prepare_v2(bkpr->db, SQL("SELECT "
-				     "  e.id"
+				     "  1"
 				     " FROM chain_events e"
 				     " WHERE e.blockheight = ?"
 				     " AND e.utxo_txid = ?"
@@ -956,18 +961,9 @@ void maybe_closeout_external_deposits(struct bkpr *bkpr,
 	db_bind_text(stmt, ACCOUNT_NAME_EXTERNAL);
 	db_query_prepared(stmt);
 
-	while (db_step(stmt)) {
-		struct db_stmt *update_stmt;
-		u64 id;
-
-		id = db_col_u64(stmt, "e.id");
-		update_stmt = db_prepare_v2(bkpr->db, SQL("UPDATE chain_events SET"
-						    " blockheight = ?"
-						    " WHERE id = ?"));
-
-		db_bind_int(update_stmt, blockheight);
-		db_bind_u64(update_stmt, id);
-		db_exec_prepared_v2(take(update_stmt));
+	if (db_step(stmt)) {
+		db_col_ignore(stmt, "1");
+		add_blockheight(cmd, bkpr, txid, blockheight);
 	}
 
 	tal_free(stmt);
