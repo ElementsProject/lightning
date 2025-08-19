@@ -7060,6 +7060,232 @@ out:
 		tal_free(chain_mvt);
 }
 
+static void db_cols_account(struct db_stmt *stmt,
+			    struct lightningd *ld,
+			    const char *channel_colname,
+			    const char *nonnonchannel_colname,
+			    struct mvt_account_id *account)
+{
+	if (db_col_is_null(stmt, channel_colname)) {
+		account->channel = NULL;
+		account->alt_account = db_col_strdup(account, stmt, nonnonchannel_colname);
+	} else {
+		account->alt_account = NULL;
+		db_col_ignore(stmt, nonnonchannel_colname);
+		account->channel = channel_by_dbid(ld, db_col_u64(stmt, channel_colname));
+		assert(account->channel);
+	}
+}
+
+static void db_col_credit_or_debit(struct db_stmt *stmt,
+				   const char *colname,
+				   struct amount_msat *credit,
+				   struct amount_msat *debit)
+{
+	s64 amount = db_col_s64(stmt, colname);
+	if (amount < 0) {
+		*credit = AMOUNT_MSAT(0);
+		*debit = amount_msat(-amount);
+	} else {
+		*credit = amount_msat(amount);
+		*debit = AMOUNT_MSAT(0);
+	}
+}
+
+static struct mvt_tags db_col_mvt_tags(struct db_stmt *stmt,
+				       const char *colname)
+{
+	struct mvt_tags tags;
+	tags.bits = db_col_u64(stmt, colname);
+	assert(mvt_tags_valid(tags));
+	return tags;
+}
+
+struct chain_coin_mvt *wallet_chain_move_extract(const tal_t *ctx,
+						 struct db_stmt *stmt,
+						 struct lightningd *ld,
+						 u64 *id)
+{
+	struct chain_coin_mvt *chain_mvt = tal(ctx, struct chain_coin_mvt);
+
+	*id = db_col_u64(stmt, "chain_moves.id");
+	db_cols_account(stmt, ld,
+			"account_channel_id", "ma1.name",
+			&chain_mvt->account);
+	chain_mvt->tags = db_col_mvt_tags(stmt, "tag_bitmap");
+	db_col_credit_or_debit(stmt, "credit_or_debit",
+			       &chain_mvt->credit,
+			       &chain_mvt->debit);
+	chain_mvt->timestamp = db_col_u64(stmt, "timestamp");
+	db_col_outpoint(stmt, "utxo", &chain_mvt->outpoint);
+
+	if (db_col_is_null(stmt, "spending_txid"))
+		chain_mvt->spending_txid = NULL;
+	else {
+		/* Need non-const for db_col_txid */
+		struct bitcoin_txid *txid;
+		chain_mvt->spending_txid = txid = tal(chain_mvt, struct bitcoin_txid);
+		db_col_txid(stmt, "spending_txid", txid);
+	}
+	if (db_col_is_null(stmt, "peer_id"))
+		chain_mvt->peer_id = NULL;
+	else {
+		/* Need non-const temporary */
+		struct node_id *peer_id;
+		chain_mvt->peer_id = peer_id = tal(chain_mvt, struct node_id);
+		db_col_node_id(stmt, "peer_id", peer_id);
+	}
+	if (db_col_is_null(stmt, "payment_hash"))
+		chain_mvt->payment_hash = NULL;
+	else {
+		/* Need non-const temporary */
+		struct sha256 *ph;
+		chain_mvt->payment_hash = ph = tal(chain_mvt, struct sha256);
+		db_col_sha256(stmt, "payment_hash", ph);
+	}
+	chain_mvt->blockheight = db_col_int(stmt, "block_height");
+	if (db_col_is_null(stmt, "originating_channel_id") && db_col_is_null(stmt, "ma2.name")) {
+		chain_mvt->originating_acct = NULL;
+	} else {
+		/* Need non-const temporary */
+		struct mvt_account_id *acct;
+		chain_mvt->originating_acct = acct = tal(chain_mvt, struct mvt_account_id);
+		db_cols_account(stmt, ld,
+				"originating_channel_id", "ma2.name",
+				acct);
+	}
+	chain_mvt->output_val = db_col_amount_sat(stmt, "output_sat");
+	if (db_col_is_null(stmt, "output_count"))
+		chain_mvt->output_count = 0;
+	else
+		chain_mvt->output_count = db_col_int(stmt, "output_count");
+
+	return chain_mvt;
+}
+
+struct db_stmt *wallet_chain_moves_first(struct wallet *wallet,
+					 u64 liststart,
+					 u32 *listlimit)
+{
+	struct db_stmt *stmt = db_prepare_v2(wallet->db,
+					     SQL("SELECT"
+						 " chain_moves.id"
+						 ", account_channel_id"
+						 ", ma1.name"
+						 ", tag_bitmap"
+						 ", credit_or_debit"
+						 ", timestamp"
+						 ", utxo"
+						 ", spending_txid"
+						 ", peer_id"
+						 ", payment_hash"
+						 ", block_height"
+						 ", output_sat"
+						 ", originating_channel_id"
+						 ", ma2.name"
+						 ", output_count"
+						 " FROM chain_moves"
+						 " LEFT JOIN"
+						 "  move_accounts ma1 ON account_nonchannel_id = ma1.id"
+						 " LEFT JOIN"
+						 "  move_accounts ma2 ON originating_nonchannel_id = ma2.id"
+						 " WHERE chain_moves.id >= ?"
+						 " ORDER BY chain_moves.id"
+						 " LIMIT ?;"));
+	db_bind_u64(stmt, liststart);
+	if (listlimit)
+		db_bind_int(stmt, *listlimit);
+	else
+		db_bind_int(stmt, INT_MAX);
+	db_query_prepared(stmt);
+	return wallet_chain_moves_next(wallet, stmt);
+}
+
+struct db_stmt *wallet_chain_moves_next(struct wallet *wallet, struct db_stmt *stmt)
+{
+	if (!db_step(stmt))
+		return tal_free(stmt);
+
+	return stmt;
+}
+
+struct channel_coin_mvt *wallet_channel_move_extract(const tal_t *ctx,
+						     struct db_stmt *stmt,
+						     struct lightningd *ld,
+						     u64 *id)
+{
+	struct channel_coin_mvt *chan_mvt = tal(ctx, struct channel_coin_mvt);
+
+	*id = db_col_u64(stmt, "channel_moves.id");
+	db_cols_account(stmt, ld,
+			"account_channel_id", "ma.name",
+			&chan_mvt->account);
+	db_col_credit_or_debit(stmt, "credit_or_debit",
+			       &chan_mvt->credit,
+			       &chan_mvt->debit);
+	chan_mvt->tags = db_col_mvt_tags(stmt, "tag_bitmap");
+	chan_mvt->timestamp = db_col_u64(stmt, "timestamp");
+	if (db_col_is_null(stmt, "payment_hash"))
+		chan_mvt->payment_hash = NULL;
+	else {
+		/* Need non-const temporary */
+		struct sha256 *ph;
+		chan_mvt->payment_hash = ph = tal(chan_mvt, struct sha256);
+		db_col_sha256(stmt, "payment_hash", ph);
+	}
+	if (db_col_is_null(stmt, "payment_part_id")) {
+		db_col_ignore(stmt, "payment_group_id");
+		chan_mvt->part_and_group = NULL;
+	} else {
+		/* Non-const temporary */
+		struct channel_coin_mvt_id *pandg;
+		chan_mvt->part_and_group = pandg = tal(chan_mvt, struct channel_coin_mvt_id);
+		pandg->part_id = db_col_u64(stmt, "payment_part_id");
+		pandg->group_id = db_col_u64(stmt, "payment_group_id");
+	}
+	chan_mvt->fees = db_col_amount_msat(stmt, "fees");
+	return chan_mvt;
+}
+
+struct db_stmt *wallet_channel_moves_first(struct wallet *wallet,
+					   u64 liststart,
+					   u32 *listlimit)
+{
+	struct db_stmt *stmt = db_prepare_v2(wallet->db,
+					     SQL("SELECT"
+						 " channel_moves.id"
+						 ", account_channel_id"
+						 ", ma.name"
+						 ", credit_or_debit"
+						 ", tag_bitmap"
+						 ", timestamp"
+						 ", payment_hash"
+						 ", payment_part_id"
+						 ", payment_group_id"
+						 ", fees"
+						 " FROM channel_moves"
+						 " LEFT JOIN"
+						 "  move_accounts ma ON account_nonchannel_id = ma.id"
+						 " WHERE channel_moves.id >= ?"
+						 " ORDER BY channel_moves.id"
+						 " LIMIT ?;"));
+	db_bind_u64(stmt, liststart);
+	if (listlimit)
+		db_bind_int(stmt, *listlimit);
+	else
+		db_bind_int(stmt, INT_MAX);
+	db_query_prepared(stmt);
+	return wallet_channel_moves_next(wallet, stmt);
+}
+
+struct db_stmt *wallet_channel_moves_next(struct wallet *wallet, struct db_stmt *stmt)
+{
+	if (!db_step(stmt))
+		return tal_free(stmt);
+
+	return stmt;
+}
+
 struct missing {
 	size_t num_found;
 	struct missing_addr *addrs;
