@@ -11,14 +11,12 @@
 #include <plugins/bkpr/chain_event.h>
 #include <plugins/bkpr/recorder.h>
 
-struct account *new_account(const tal_t *ctx,
-			    const char *name,
-			    struct node_id *peer_id)
+static struct account *new_account(const tal_t *ctx, const char *name)
 {
 	struct account *a = tal(ctx, struct account);
 
 	a->name = tal_strdup(a, name);
-	a->peer_id = peer_id;
+	a->peer_id = NULL;
 	a->is_wallet = is_wallet_account(a->name);
 	a->we_opened = false;
 	a->leased = false;
@@ -97,7 +95,7 @@ struct account **list_accounts(const tal_t *ctx, struct db *db)
 	return results;
 }
 
-void account_add(struct db *db, struct account *acct)
+static void account_db_add(struct db *db, struct account *acct)
 {
 	struct db_stmt *stmt;
 
@@ -287,3 +285,16 @@ struct account *find_account(const tal_t *ctx,
 	return a;
 }
 
+struct account *find_or_create_account(const tal_t *ctx,
+				       struct db *db,
+				       const char *name)
+{
+	struct account *a = find_account(ctx, db, name);
+
+	if (a)
+		return a;
+
+	a = new_account(ctx, name);
+	account_db_add(db, a);
+	return a;
+}

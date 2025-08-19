@@ -1124,8 +1124,7 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 				   acct_name);
 
 			/* FIXME: lookup peer id for channel? */
-			acct = new_account(cmd, acct_name, NULL);
-			account_add(bkpr->db, acct);
+			acct = find_or_create_account(cmd, bkpr->db, acct_name);
 			existed = false;
 		} else
 			existed = true;
@@ -1536,22 +1535,13 @@ parse_and_log_chain_move(struct command *cmd,
 	}
 
 	db_begin_transaction(bkpr->db);
-	acct = find_account(tmpctx, bkpr->db, acct_name);
-
-	if (!acct) {
-		/* FIXME: lookup the peer id for this channel! */
-		acct = new_account(tmpctx, acct_name, NULL);
-		account_add(bkpr->db, acct);
-	}
+	/* FIXME: lookup the peer id for this channel! */
+	acct = find_or_create_account(tmpctx, bkpr->db, acct_name);
 
 	if (e->origin_acct) {
-		orig_acct = find_account(tmpctx, bkpr->db, e->origin_acct);
 		/* Go fetch the originating account
 		 * (we might not have it) */
-		if (!orig_acct) {
-			orig_acct = new_account(tmpctx, e->origin_acct, NULL);
-			account_add(bkpr->db, orig_acct);
-		}
+		orig_acct = find_or_create_account(tmpctx, bkpr->db, e->origin_acct);
 	} else
 		orig_acct = NULL;
 
@@ -1780,12 +1770,7 @@ static struct command_result *json_utxo_deposit(struct command *cmd, const char 
 
 	/* Log the thing */
 	db_begin_transaction(bkpr->db);
-	acct = find_account(tmpctx, bkpr->db, ev->acct_name);
-
-	if (!acct) {
-		acct = new_account(tmpctx, ev->acct_name, NULL);
-		account_add(bkpr->db, acct);
-	}
+	acct = find_or_create_account(tmpctx, bkpr->db, ev->acct_name);
 
 	ev->tag = "deposit";
 	ev->stealable = false;
@@ -1856,12 +1841,7 @@ static struct command_result *json_utxo_spend(struct command *cmd, const char *b
 
 	/* Log the thing */
 	db_begin_transaction(bkpr->db);
-	acct = find_account(tmpctx, bkpr->db, acct_name);
-
-	if (!acct) {
-		acct = new_account(tmpctx, acct_name, NULL);
-		account_add(bkpr->db, acct);
-	}
+	acct = find_or_create_account(tmpctx, bkpr->db, acct_name);
 
 	ev->origin_acct = NULL;
 	ev->tag = "withdrawal";
