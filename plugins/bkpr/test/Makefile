@@ -14,6 +14,7 @@ BOOKKEEPER_TEST_COMMON_OBJS :=			\
 	common/coin_mvt.o			\
 	common/features.o			\
 	common/json_stream.o			\
+	common/json_parse_simple.o		\
 	common/key_derive.o			\
 	common/memleak.o			\
 	common/node_id.o			\
@@ -27,6 +28,8 @@ BOOKKEEPER_TEST_COMMON_OBJS :=			\
 	db/db_sqlite3.o				\
 	db/exec.o				\
 	db/utils.o				\
+	wire/towire.o				\
+	wire/fromwire.o				\
 	plugins/bkpr/db_sqlite3_sqlgen.o
 
 $(BOOKKEEPER_TEST_PROGRAMS): $(BITCOIN_OBJS) $(BOOKKEEPER_TEST_COMMON_OBJS)

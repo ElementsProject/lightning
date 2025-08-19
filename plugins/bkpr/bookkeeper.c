@@ -36,6 +36,15 @@ static struct bkpr *bkpr_of(struct plugin *plugin)
 	return plugin_get_data(plugin, struct bkpr);
 }
 
+struct command_result *ignore_datastore_reply(struct command *cmd,
+					      const char *method,
+					      const char *buf,
+					      const jsmntok_t *result,
+					      void *arg)
+{
+	return command_still_pending(cmd);
+}
+
 static struct fee_sum *find_sum_for_txid(struct fee_sum **sums,
 					 struct bitcoin_txid *txid)
 {
@@ -796,7 +805,7 @@ static bool new_missed_channel_account(struct command *cmd,
 		if (!log_chain_event(bkpr->db, acct, chain_ev))
 			goto done;
 
-		maybe_update_account(bkpr, acct, chain_ev,
+		maybe_update_account(cmd, acct, chain_ev,
 				     tags, 0, &peer_id);
 		maybe_update_onchain_fees(cmd, bkpr, &opt.txid);
 
@@ -989,7 +998,7 @@ static struct command_result *listpeerchannels_multi_done(struct command *cmd,
 	return notification_handled(cmd);
 }
 
-static char *do_account_close_checks(const tal_t *ctx,
+static char *do_account_close_checks(struct command *cmd,
 				     struct bkpr *bkpr,
 				     struct chain_event *e,
 				     struct account *acct)
@@ -1019,8 +1028,8 @@ static char *do_account_close_checks(const tal_t *ctx,
 		u64 closeheight = account_onchain_closeheight(bkpr->db, closed_acct);
 		if (closeheight != 0) {
 			char *err;
-			account_update_closeheight(bkpr, closed_acct, closeheight);
-			err = update_channel_onchain_fees(ctx, bkpr->db, closed_acct);
+			account_update_closeheight(cmd, closed_acct, closeheight);
+			err = update_channel_onchain_fees(cmd, bkpr->db, closed_acct);
 			if (err) {
 				db_commit_transaction(bkpr->db);
 				return err;
@@ -1118,7 +1127,7 @@ static struct command_result *json_balance_snapshot(struct command *cmd,
 				   acct_name);
 
 			/* FIXME: lookup peer id for channel? */
-			acct = find_or_create_account(bkpr, acct_name);
+			acct = find_or_create_account(cmd, bkpr, acct_name);
 			existed = false;
 		} else
 			existed = true;
@@ -1530,12 +1539,12 @@ parse_and_log_chain_move(struct command *cmd,
 
 	db_begin_transaction(bkpr->db);
 	/* FIXME: lookup the peer id for this channel! */
-	acct = find_or_create_account(bkpr, acct_name);
+	acct = find_or_create_account(cmd, bkpr, acct_name);
 
 	if (e->origin_acct) {
 		/* Go fetch the originating account
 		 * (we might not have it) */
-		orig_acct = find_or_create_account(bkpr, e->origin_acct);
+		orig_acct = find_or_create_account(cmd, bkpr, e->origin_acct);
 	} else
 		orig_acct = NULL;
 
@@ -1548,7 +1557,7 @@ parse_and_log_chain_move(struct command *cmd,
 
 	/* This event *might* have implications for account;
 	 * update as necessary */
-	maybe_update_account(bkpr, acct, e, tags, closed_count,
+	maybe_update_account(cmd, acct, e, tags, closed_count,
 			     peer_id);
 
 	/* Can we calculate any onchain fees now? */
@@ -1764,7 +1773,7 @@ static struct command_result *json_utxo_deposit(struct command *cmd, const char 
 
 	/* Log the thing */
 	db_begin_transaction(bkpr->db);
-	acct = find_or_create_account(bkpr, ev->acct_name);
+	acct = find_or_create_account(cmd, bkpr, ev->acct_name);
 
 	ev->tag = "deposit";
 	ev->stealable = false;
@@ -1835,7 +1844,7 @@ static struct command_result *json_utxo_spend(struct command *cmd, const char *b
 
 	/* Log the thing */
 	db_begin_transaction(bkpr->db);
-	acct = find_or_create_account(bkpr, acct_name);
+	acct = find_or_create_account(cmd, bkpr, acct_name);
 
 	ev->origin_acct = NULL;
 	ev->tag = "withdrawal";
@@ -2036,7 +2045,7 @@ static const char *init(struct command *init_cmd, const char *b, const jsmntok_t
 
 	plugin_log(p, LOG_DBG, "Setting up database at %s", bkpr->db_dsn);
 	bkpr->db = db_setup(bkpr, p, bkpr->db_dsn);
-	bkpr->accounts = init_accounts(bkpr, bkpr->db);
+	bkpr->accounts = init_accounts(bkpr, init_cmd);
 
 	return NULL;
 }
