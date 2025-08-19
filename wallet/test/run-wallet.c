@@ -644,6 +644,9 @@ void memleak_scan_outpointfilter(struct htable *memtable UNNEEDED,
 /* Generated stub for mk_mvt_tags_ */
 struct mvt_tags mk_mvt_tags_(enum mvt_tag tag UNNEEDED, ...)
 { fprintf(stderr, "mk_mvt_tags_ called!\n"); abort(); }
+/* Generated stub for mvt_tags_valid */
+bool mvt_tags_valid(struct mvt_tags tags UNNEEDED)
+{ fprintf(stderr, "mvt_tags_valid called!\n"); abort(); }
 /* Generated stub for new_channel_mvt_invoice_hin */
 struct channel_coin_mvt *new_channel_mvt_invoice_hin(const tal_t *ctx UNNEEDED,
 						     const struct htlc_in *hin UNNEEDED,
