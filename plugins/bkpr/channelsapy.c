@@ -25,22 +25,14 @@ static int cmp_channel_event_acct(struct channel_event *const *ev1,
 				  struct channel_event *const *ev2,
 				  void *unused UNUSED)
 {
-	if ((*ev1)->acct_db_id < (*ev2)->acct_db_id)
-		return -1;
-	else if ((*ev1)->acct_db_id > (*ev2)->acct_db_id)
-		return 1;
-	return 0;
+	return strcmp((*ev1)->acct_name, (*ev2)->acct_name);
 }
 
 static int cmp_acct(struct account *const *a1,
 		    struct account *const *a2,
 		    void *unused UNUSED)
 {
-	if ((*a1)->db_id < (*a2)->db_id)
-		return -1;
-	else if ((*a1)->db_id > (*a2)->db_id)
-		return 1;
-	return 0;
+	return strcmp((*a1)->name, (*a2)->name);
 }
 
 struct channel_apy *new_channel_apy(const tal_t *ctx)
@@ -94,10 +86,10 @@ bool channel_apy_sum(struct channel_apy *sum_apy,
 	return ok;
 }
 
-static struct account *search_account(struct account **accts, u64 acct_id)
+static struct account *search_account(struct account **accts, const char *acctname)
 {
 	for (size_t i = 0; i < tal_count(accts); i++) {
-		if (accts[i]->db_id == acct_id)
+		if (streq(accts[i]->name, acctname))
 			return accts[i];
 	}
 
@@ -173,7 +165,7 @@ struct channel_apy **compute_channel_apys(const tal_t *ctx,
 		struct channel_event *ev = evs[i];
 		bool ok;
 
-		if (!acct || acct->db_id != ev->acct_db_id) {
+		if (!acct || !streq(acct->name, ev->acct_name)) {
 			if (acct && is_channel_account(acct->name)) {
 				fillin_apy_acct_details(bkpr->db, acct,
 							current_blockheight,
@@ -182,7 +174,7 @@ struct channel_apy **compute_channel_apys(const tal_t *ctx,
 				tal_arr_expand(&apys, apy);
 				apy = new_channel_apy(apys);
 			}
-			acct = search_account(accts, ev->acct_db_id);
+			acct = search_account(accts, ev->acct_name);
 			assert(acct);
 		}
 

@@ -279,7 +279,6 @@ static struct bkpr *bkpr_setup(const tal_t *ctx, struct plugin *p)
 
 static bool accountseq(struct account *a1, struct account *a2)
 {
-	CHECK(a1->db_id == a2->db_id);
 	CHECK(streq(a1->name, a2->name));
 	CHECK((a1->peer_id != NULL) == (a2->peer_id != NULL));
 	if (a1->peer_id)
@@ -305,7 +304,7 @@ static bool accountseq(struct account *a1, struct account *a2)
 static bool channel_events_eq(struct channel_event *e1, struct channel_event *e2)
 {
 	CHECK(e1->db_id == e2->db_id);
-	CHECK(e1->acct_db_id == e2->acct_db_id);
+	CHECK(streq(e1->acct_name, e2->acct_name));
 	CHECK(streq(e1->tag, e2->tag));
 	CHECK(amount_msat_eq(e1->credit, e2->credit));
 	CHECK(amount_msat_eq(e1->debit, e2->debit));
@@ -329,7 +328,7 @@ static bool channel_events_eq(struct channel_event *e1, struct channel_event *e2
 static bool chain_events_eq(struct chain_event *e1, struct chain_event *e2)
 {
 	CHECK(e1->db_id == e2->db_id);
-	CHECK(e1->acct_db_id == e2->acct_db_id);
+	CHECK(streq(e1->acct_name, e2->acct_name));
 	CHECK((e1->origin_acct != NULL) == (e2->origin_acct != NULL));
 	if (e1->origin_acct)
 		CHECK(streq(e1->origin_acct, e2->origin_acct));
@@ -732,7 +731,7 @@ static bool test_onchain_fee_chan_close(const tal_t *ctx, struct plugin *p)
 	 */
 	CHECK(tal_count(ofs) == 4);
 	for (size_t i = 0; i < tal_count(ofs); i++) {
-		CHECK(ofs[i]->acct_db_id == acct->db_id);
+		CHECK(streq(ofs[i]->acct_name, acct->name));
 
 		memset(&txid, '1', sizeof(struct bitcoin_txid));
 		if (bitcoin_txid_eq(&txid, &ofs[i]->txid)) {
@@ -799,7 +798,7 @@ static bool test_onchain_fee_chan_open(const tal_t *ctx, struct plugin *p)
 	db_commit_transaction(db);
 
 	/* Assumption that we rely on later */
-	CHECK(acct->db_id < acct2->db_id);
+	CHECK(strcmp(acct->name, acct2->name) < 0);
 
 	/* Open two channels from wallet */
 	/* tag     utxo_id vout    txid    debits  credits acct_id
