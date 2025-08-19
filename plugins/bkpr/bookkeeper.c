@@ -21,6 +21,7 @@
 #include <plugins/bkpr/channel_event.h>
 #include <plugins/bkpr/channelsapy.h>
 #include <plugins/bkpr/db.h>
+#include <plugins/bkpr/descriptions.h>
 #include <plugins/bkpr/incomestmt.h>
 #include <plugins/bkpr/onchain_fee.h>
 #include <plugins/bkpr/recorder.h>
@@ -2047,6 +2048,7 @@ static const char *init(struct command *init_cmd, const char *b, const jsmntok_t
 	bkpr->db = db_setup(bkpr, p, bkpr->db_dsn);
 	bkpr->accounts = init_accounts(bkpr, init_cmd);
 	bkpr->onchain_fees = init_onchain_fees(bkpr, init_cmd);
+	bkpr->descriptions = init_descriptions(bkpr, init_cmd);
 
 	return NULL;
 }
