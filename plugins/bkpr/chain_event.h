@@ -33,9 +33,6 @@ struct chain_event {
 	 * confirmation? */
 	bool splice_close;
 
-	/* Is this a rebalance event? */
-	bool rebalance;
-
 	/* Amount we received in this event */
 	struct amount_msat credit;
 

@@ -7,6 +7,7 @@
 #include <common/json_stream.h>
 #include <plugins/bkpr/channel_event.h>
 #include <plugins/bkpr/descriptions.h>
+#include <plugins/bkpr/rebalances.h>
 
 struct channel_event *new_channel_event(const tal_t *ctx,
 					const char *tag,
@@ -26,7 +27,6 @@ struct channel_event *new_channel_event(const tal_t *ctx,
 	ev->payment_id = tal_steal(ev, payment_id);
 	ev->part_id = part_id;
 	ev->timestamp = timestamp;
-	ev->rebalance_id = NULL;
 
 	return ev;
 }
@@ -52,6 +52,7 @@ void json_add_channel_event(struct json_stream *out,
 			json_add_string(out, "description", desc);
 	}
 	json_add_u64(out, "timestamp", ev->timestamp);
-	json_add_bool(out, "is_rebalance", ev->rebalance_id != NULL);
+	json_add_bool(out, "is_rebalance",
+		      find_rebalance(bkpr, ev->db_id) != NULL);
 	json_object_end(out);
 }
