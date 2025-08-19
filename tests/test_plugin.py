@@ -4258,7 +4258,6 @@ def test_sql_crash(node_factory, bitcoind):
     l1.rpc.sql(f"SELECT * FROM peerchannels;")
 
 
-@pytest.mark.xfail(strict=True)
 def test_sql_parallel(node_factory, executor):
     """Parallel refreshes of tables causes SQL errors:
     Error executing INSERT INTO chainmoves VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?); on row 0: UNIQUE constraint failed: chainmoves.created_index
