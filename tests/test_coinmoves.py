@@ -125,6 +125,9 @@ def test_coinmoves(node_factory, bitcoind):
     check_chain_moves(l1, expected_chain1)
     check_chain_moves(l2, expected_chain2)
 
+    # Since sql uses pagination, rowids no longer change on each access!
+    first_rowid = only_one(only_one(l1.rpc.sql("SELECT rowid FROM chainmoves;")['rows']))
+
     # MVT_WITHDRAWAL
     addr = l3.rpc.newaddr()['bech32']
     withdraw = l1.rpc.withdraw(addr, 100000000)
@@ -362,6 +365,9 @@ def test_coinmoves(node_factory, bitcoind):
     check_channel_moves(l2, expected_channel2)
     check_chain_moves(l1, expected_chain1)
     check_chain_moves(l2, expected_chain2)
+
+    final_first_rowid = only_one(only_one(l1.rpc.sql("SELECT rowid FROM chainmoves ORDER BY rowid LIMIT 1;")['rows']))
+    assert final_first_rowid == first_rowid
 
 
 def setup_channel(bitcoind, l1, l2):
