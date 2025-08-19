@@ -891,7 +891,7 @@ def test_rebalance_tracking(node_factory, bitcoind):
     assert outbound_ev['payment_id'] == pay_hash
 
 
-def test_bookkeeper_custom_notifs(node_factory):
+def test_bookkeeper_custom_notifs(node_factory, chainparams):
     # FIXME: what happens if we send internal funds to 'external' wallet?
     plugin = os.path.join(
         os.path.dirname(__file__), "plugins", "bookkeeper_custom_coins.py"
@@ -939,6 +939,50 @@ def test_bookkeeper_custom_notifs(node_factory):
     assert len(onchain_fees) == 2
     assert onchain_fees[0]['credit_msat'] == onchain_fee_one
     assert onchain_fees[1]['debit_msat'] == withdraw_amt
+    assert events == [{'account': "nifty's secret stash",
+                       'blockheight': 111,
+                       'credit_msat': 180000000,
+                       'currency': chainparams['bip173_prefix'],
+                       'debit_msat': 0,
+                       'outpoint': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:0',
+                       'tag': 'deposit',
+                       'timestamp': 1679955976,
+                       'type': 'chain'},
+                      {'account': "nifty's secret stash",
+                       'blockheight': 111,
+                       'credit_msat': 0,
+                       'currency': chainparams['bip173_prefix'],
+                       'debit_msat': 180000000,
+                       'outpoint': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:0',
+                       'tag': 'withdrawal',
+                       'timestamp': 1679955976,
+                       'txid': 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+                       'type': 'chain'},
+                      {'account': "nifty's secret stash",
+                       'blockheight': 111,
+                       'credit_msat': 124443000,
+                       'currency': chainparams['bip173_prefix'],
+                       'debit_msat': 0,
+                       'outpoint': 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:0',
+                       'tag': 'deposit',
+                       'timestamp': 1679955976,
+                       'type': 'chain'},
+                      {'account': "nifty's secret stash",
+                       'credit_msat': 55557000,
+                       'currency': chainparams['bip173_prefix'],
+                       'debit_msat': 0,
+                       'tag': 'onchain_fee',
+                       'timestamp': 1679955976,
+                       'txid': 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+                       'type': 'onchain_fee'},
+                      {'account': "nifty's secret stash",
+                       'credit_msat': 0,
+                       'currency': chainparams['bip173_prefix'],
+                       'debit_msat': 55555000,
+                       'tag': 'onchain_fee',
+                       'timestamp': 1679955976,
+                       'txid': 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+                       'type': 'onchain_fee'}]
 
     # This should not blow up
     incomes = l1.rpc.bkpr_listincome()['income_events']

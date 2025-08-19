@@ -1723,6 +1723,12 @@ static char *parse_tags(const tal_t *ctx,
 	return NULL;
 }
 
+static bool json_to_tok(const char *buffer, const jsmntok_t *tok, const jsmntok_t **ret)
+{
+	*ret = tok;
+	return true;
+}
+
 static struct command_result *json_utxo_deposit(struct command *cmd, const char *buf, const jsmntok_t *params)
 {
 	const char *move_tag ="utxo_deposit";
@@ -1730,18 +1736,20 @@ static struct command_result *json_utxo_deposit(struct command *cmd, const char 
 	struct account *acct;
 	const char *err;
 	struct bkpr *bkpr = bkpr_of(cmd->plugin);
+	const jsmntok_t *transfer_from;
 
+	transfer_from = NULL;
 	err = json_scan(tmpctx, buf, params,
 			"{utxo_deposit:{"
 			"account:%"
-			",transfer_from:%"
+			",transfer_from?:%"
 			",outpoint:%"
 			",amount_msat:%"
 			",timestamp:%"
 			",blockheight:%"
 			"}}",
-			JSON_SCAN_TAL(tmpctx, json_strdup, &ev->acct_name),
-			JSON_SCAN_TAL(tmpctx, json_strdup, &ev->origin_acct),
+			JSON_SCAN_TAL(ev, json_strdup, &ev->acct_name),
+			JSON_SCAN(json_to_tok, &transfer_from),
 			JSON_SCAN(json_to_outpoint, &ev->outpoint),
 			JSON_SCAN(json_to_msat, &ev->credit),
 			JSON_SCAN(json_to_u64, &ev->timestamp),
@@ -1752,6 +1760,11 @@ static struct command_result *json_utxo_deposit(struct command *cmd, const char 
 			   "`%s` parameters did not scan %s: %.*s",
 			   move_tag, err, json_tok_full_len(params),
 			   json_tok_full(buf, params));
+
+	if (!transfer_from || json_tok_is_null(buf, transfer_from))
+		ev->origin_acct = NULL;
+	else
+		ev->origin_acct = json_strdup(ev, buf, transfer_from);
 
 	/* Log the thing */
 	db_begin_transaction(bkpr->db);
