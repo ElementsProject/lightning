@@ -1446,6 +1446,7 @@ wallet_commit_channel(struct lightningd *ld,
 	channel_info->old_remote_per_commit = channel_info->remote_per_commit;
 
 	/* Promote the unsaved_dbid to the dbid */
+	assert(channel->dbid == 0);
 	assert(channel->unsaved_dbid != 0);
 	channel->dbid = channel->unsaved_dbid;
 	channel->unsaved_dbid = 0;
@@ -1523,6 +1524,9 @@ wallet_commit_channel(struct lightningd *ld,
 
 	/* Now we finally put it in the database. */
 	wallet_channel_insert(ld->wallet, channel);
+
+	/* So we can find it by the newly-assigned dbid */
+	add_channel_to_dbid_map(ld, channel);
 
 	/* Open attempt to channel's inflights */
 	inflight = new_inflight(channel,
