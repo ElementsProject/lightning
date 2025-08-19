@@ -976,7 +976,7 @@ static void channel_record_splice(struct channel *channel,
 				     orig_funding_sats,
 				     output_count,
 				     /* is_splice = */true);
-	notify_chain_mvt(channel->peer->ld, mvt);
+	wallet_save_chain_mvt(channel->peer->ld, mvt);
 }
 
 void channel_record_open(struct channel *channel, u32 blockheight, bool record_push)
@@ -1022,11 +1022,11 @@ void channel_record_open(struct channel *channel, u32 blockheight, bool record_p
 					    channel->opener == LOCAL,
 					    is_leased);
 
-	notify_chain_mvt(channel->peer->ld, mvt);
+	wallet_save_chain_mvt(channel->peer->ld, mvt);
 
 	/* If we pushed sats, *now* record them */
 	if (is_pushed && record_push)
-		notify_channel_mvt(channel->peer->ld,
+		wallet_save_channel_mvt(channel->peer->ld,
 				   new_coin_channel_push(tmpctx, channel,
 							 channel->opener == REMOTE ? COIN_CREDIT : COIN_DEBIT,
 							 channel->push,

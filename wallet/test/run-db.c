@@ -289,6 +289,10 @@ struct peer *new_peer(struct lightningd *ld UNNEEDED, u64 dbid UNNEEDED,
 void notify_chain_mvt(struct lightningd *ld UNNEEDED,
 		      const struct chain_coin_mvt *chain_mvt UNNEEDED)
 { fprintf(stderr, "notify_chain_mvt called!\n"); abort(); }
+/* Generated stub for notify_channel_mvt */
+void notify_channel_mvt(struct lightningd *ld UNNEEDED,
+			const struct channel_coin_mvt *chan_mvt UNNEEDED)
+{ fprintf(stderr, "notify_channel_mvt called!\n"); abort(); }
 /* Generated stub for notify_forward_event */
 void notify_forward_event(struct lightningd *ld UNNEEDED,
 			  const struct htlc_in *in UNNEEDED,
