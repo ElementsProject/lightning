@@ -99,12 +99,14 @@ void broadcast_tx_(const tal_t *ctx UNNEEDED,
 { fprintf(stderr, "broadcast_tx_ called!\n"); abort(); }
 /* Generated stub for chain_mvt_index_created */
 u64 chain_mvt_index_created(struct lightningd *ld UNNEEDED,
+			    struct db *db UNNEEDED,
 			    const struct mvt_account_id *account UNNEEDED,
 			    struct amount_msat credit UNNEEDED,
 			    struct amount_msat debit UNNEEDED)
 { fprintf(stderr, "chain_mvt_index_created called!\n"); abort(); }
 /* Generated stub for channel_mvt_index_created */
 u64 channel_mvt_index_created(struct lightningd *ld UNNEEDED,
+			      struct db *db UNNEEDED,
 			      const struct mvt_account_id *account UNNEEDED,
 			      struct amount_msat credit UNNEEDED,
 			      struct amount_msat debit UNNEEDED)
@@ -1314,6 +1316,10 @@ void txfilter_add_scriptpubkey(struct txfilter *filter UNNEEDED, const u8 *scrip
 u32 get_block_height(const struct chain_topology *topo UNNEEDED)
 {
 	return 0;
+}
+
+void migrate_from_account_db(struct lightningd *ld UNNEEDED, struct db *db UNNEEDED)
+{
 }
 
 /**

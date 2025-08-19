@@ -1603,6 +1603,16 @@ static void register_opts(struct lightningd *ld)
 		       "Re-enable a long-deprecated API (which will be removed entirely next version!)");
 	opt_register_logging(ld);
 
+	/* Old bookkeeper migration flags. */
+	opt_register_early_arg("--bookkeeper-dir",
+			       opt_set_talstr, NULL,
+			       &ld->old_bookkeeper_dir,
+			       opt_hidden);
+	opt_register_early_arg("--bookkeeper-db",
+			       opt_set_talstr, NULL,
+			       &ld->old_bookkeeper_db,
+			       opt_hidden);
+
 	dev_register_opts(ld);
 }
 

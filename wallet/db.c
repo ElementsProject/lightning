@@ -18,6 +18,7 @@
 #include <lightningd/plugin_hook.h>
 #include <sodium/randombytes.h>
 #include <stddef.h>
+#include <wallet/account_migration.h>
 #include <wallet/db.h>
 #include <wallet/psbt_fixup.h>
 #include <wire/peer_wire.h>
@@ -1091,6 +1092,7 @@ static struct migration dbmigrations[] = {
 	 ")"), NULL},
     /* We do a lookup before each append, to avoid duplicates */
     {SQL("CREATE INDEX chain_moves_utxo_idx ON chain_moves (utxo)"), NULL},
+    {NULL, migrate_from_account_db},
 };
 
 /**

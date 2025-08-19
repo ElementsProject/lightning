@@ -258,13 +258,14 @@ void json_add_channel_mvt_fields(struct json_stream *stream,
 }
 
 static u64 coinmvt_index_inc(struct lightningd *ld,
+			     struct db *db,
 			     enum wait_subsystem subsys,
 			     const struct mvt_account_id *account,
 			     struct amount_msat credit,
 			     struct amount_msat debit,
 			     enum wait_index idx)
 {
-	return wait_index_increment(ld, subsys, idx,
+	return wait_index_increment(ld, db, subsys, idx,
 				    "account", account->channel ? fmt_channel_id(tmpctx, &account->channel->cid) : account->alt_account,
 				    "=credit_msat", tal_fmt(tmpctx, "%"PRIu64, credit.millisatoshis), /* Raw: JSON output */
 				    "=debit_msat", tal_fmt(tmpctx, "%"PRIu64, debit.millisatoshis), /* Raw: JSON output */
@@ -272,21 +273,23 @@ static u64 coinmvt_index_inc(struct lightningd *ld,
 }
 
 u64 chain_mvt_index_created(struct lightningd *ld,
+			    struct db *db,
 			    const struct mvt_account_id *account,
 			    struct amount_msat credit,
 			    struct amount_msat debit)
 {
-	return coinmvt_index_inc(ld, WAIT_SUBSYSTEM_CHAINMOVES,
+	return coinmvt_index_inc(ld, db, WAIT_SUBSYSTEM_CHAINMOVES,
 				 account, credit, debit,
 				 WAIT_INDEX_CREATED);
 }
 
 u64 channel_mvt_index_created(struct lightningd *ld,
+			      struct db *db,
 			      const struct mvt_account_id *account,
 			      struct amount_msat credit,
 			      struct amount_msat debit)
 {
-	return coinmvt_index_inc(ld, WAIT_SUBSYSTEM_CHANNELMOVES,
+	return coinmvt_index_inc(ld, db, WAIT_SUBSYSTEM_CHANNELMOVES,
 				 account, credit, debit,
 				 WAIT_INDEX_CREATED);
 }

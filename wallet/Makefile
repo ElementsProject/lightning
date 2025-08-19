@@ -1,6 +1,7 @@
 #! /usr/bin/make
 
 WALLET_LIB_SRC :=		\
+	wallet/account_migration.c \
 	wallet/db.c		\
 	wallet/invoices.c	\
 	wallet/psbt_fixup.c	\
@@ -30,6 +31,7 @@ ALL_C_HEADERS += $(WALLET_HDRS)
 # The following files contain SQL-annotated statements that we need to extact
 WALLET_SQL_FILES := 			\
 	$(DB_SQL_FILES)			\
+	wallet/account_migration.c	\
 	wallet/db.c 			\
 	wallet/invoices.c		\
 	wallet/wallet.c 		\

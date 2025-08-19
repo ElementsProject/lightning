@@ -1513,27 +1513,6 @@ static const char *init(struct command *init_cmd, const char *b, const jsmntok_t
 	struct bkpr *bkpr = bkpr_of(p);
 	be64 index;
 
-	/* Options processing makes NULL the owner of options.  Steal them */
-	tal_steal(bkpr, bkpr->datadir);
-	tal_steal(bkpr, bkpr->db_dsn);
-
-	/* Switch to bookkeeper-dir, if specified */
-	if (bkpr->datadir && chdir(bkpr->datadir) != 0) {
-		if (mkdir(bkpr->datadir, 0700) != 0 && errno != EEXIST)
-			plugin_err(p,
-				   "Unable to create 'bookkeeper-dir'=%s",
-				   bkpr->datadir);
-		if (chdir(bkpr->datadir) != 0)
-			plugin_err(p,
-				   "Unable to switch to 'bookkeeper-dir'=%s",
-				   bkpr->datadir);
-	}
-
-	/* No user suppled db_dsn, set one up here */
-	if (!bkpr->db_dsn)
-		bkpr->db_dsn = tal_fmt(bkpr, "sqlite3://accounts.sqlite3");
-
-	plugin_log(p, LOG_DBG, "Setting up database at %s", bkpr->db_dsn);
 	bkpr->accounts = init_accounts(bkpr, init_cmd);
 	bkpr->onchain_fees = init_onchain_fees(bkpr, init_cmd);
 	bkpr->descriptions = init_descriptions(bkpr, init_cmd);
@@ -1565,22 +1544,11 @@ int main(int argc, char *argv[])
 
 	/* No datadir is default */
 	bkpr = tal(NULL, struct bkpr);
-	bkpr->datadir = NULL;
-	bkpr->db_dsn = NULL;
-
 	plugin_main(argv, init, take(bkpr), PLUGIN_STATIC, true, NULL,
 		    commands, ARRAY_SIZE(commands),
 		    notifs, ARRAY_SIZE(notifs),
 		    NULL, 0,
 		    NULL, 0,
-		    plugin_option("bookkeeper-dir",
-				  "string",
-				  "Location for bookkeeper records.",
-				  charp_option, NULL, &bkpr->datadir),
-		    plugin_option("bookkeeper-db",
-				  "string",
-				  "Location of the bookkeeper database",
-				  charp_option, NULL, &bkpr->db_dsn),
 		    NULL);
 
 	return 0;

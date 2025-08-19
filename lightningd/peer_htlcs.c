@@ -3043,7 +3043,8 @@ static u64 htlcs_index_inc(struct lightningd *ld,
 			   enum htlc_state hstate,
 			   enum wait_index idx)
 {
-	return wait_index_increment(ld, WAIT_SUBSYSTEM_HTLCS, idx,
+	return wait_index_increment(ld, ld->wallet->db,
+				    WAIT_SUBSYSTEM_HTLCS, idx,
 				    "state", htlc_state_name(hstate),
 				    "short_channel_id", fmt_short_channel_id(tmpctx, channel_scid_or_local_alias(channel)),
 				    "direction", owner == LOCAL ? "out": "in",

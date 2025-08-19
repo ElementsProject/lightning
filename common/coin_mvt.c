@@ -155,7 +155,7 @@ const char *mvt_tag_str(enum mvt_tag tag)
 	return mvt_tags[tag];
 }
 
-static void tag_set(struct mvt_tags *tags, enum mvt_tag tag)
+void mvt_tag_set(struct mvt_tags *tags, enum mvt_tag tag)
 {
 	u64 bitnum = mvt_tag_in_db(tag);
 	assert(bitnum < NUM_MVT_TAGS);
@@ -394,10 +394,10 @@ struct chain_coin_mvt *new_coin_channel_open_proposed(const tal_t *ctx,
 
 	/* If we're the opener, add to the tag list */
 	if (is_opener)
-		tag_set(&tags, MVT_OPENER);
+		mvt_tag_set(&tags, MVT_OPENER);
 
 	if (is_leased)
-		tag_set(&tags, MVT_LEASED);
+		mvt_tag_set(&tags, MVT_LEASED);
 
 	mvt = new_chain_coin_mvt(ctx, channel, NULL, time_now().ts.tv_sec,
 				 NULL, out, NULL, 0,
@@ -423,10 +423,10 @@ struct chain_coin_mvt *new_coin_channel_open(const tal_t *ctx,
 
 	/* If we're the opener, add to the tag list */
 	if (is_opener)
-		tag_set(&tags, MVT_OPENER);
+		mvt_tag_set(&tags, MVT_OPENER);
 
 	if (is_leased)
-		tag_set(&tags, MVT_LEASED);
+		mvt_tag_set(&tags, MVT_LEASED);
 
 	mvt = new_chain_coin_mvt(ctx, channel, NULL, time_now().ts.tv_sec,
 				 NULL, out, NULL, blockheight,
@@ -684,10 +684,10 @@ struct mvt_tags mk_mvt_tags_(enum mvt_tag tag, ...)
 	va_list ap;
 	struct mvt_tags ret = { 0 };
 
-	tag_set(&ret, tag);
+	mvt_tag_set(&ret, tag);
 	va_start(ap, tag);
 	while ((tag = va_arg(ap, enum mvt_tag)) != 999)
-		tag_set(&ret, mvt_tag_in_db(tag));
+		mvt_tag_set(&ret, mvt_tag_in_db(tag));
 	va_end(ap);
 	return ret;
 }
