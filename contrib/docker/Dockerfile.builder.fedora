@@ -22,8 +22,11 @@ RUN dnf update -y && \
 		git \
 		jq \
 		xz \
-		zlib-devel && \
+		zlib-devel \
+		cargo && \
 	dnf clean all
+
+RUN python3 -m pip install uv
 
 RUN wget https://bitcoincore.org/bin/bitcoin-core-$BITCOIN_VERSION/bitcoin-$BITCOIN_VERSION-x86_64-linux-gnu.tar.gz -O bitcoin.tar.gz && \
     tar -xvzf bitcoin.tar.gz && \
