@@ -167,8 +167,6 @@ static struct income_event *maybe_chain_income(const tal_t *ctx,
 		stmt = db_prepare_v2(db, SQL("SELECT"
 					     "  1"
 					     " FROM chain_events e"
-					     " LEFT OUTER JOIN accounts a"
-					     " ON e.account_id = a.id"
 					     " WHERE "
 					     "  e.spending_txid = ?"));
 
@@ -289,7 +287,7 @@ static struct onchain_fee **find_consolidated_fees(const tal_t *ctx,
 		fee->txid = *sums[i]->txid;
 
 		fee->timestamp =
-			onchain_fee_last_timestamp(db, sums[i]->acct_db_id,
+			onchain_fee_last_timestamp(db, sums[i]->acct_name,
 						   sums[i]->txid);
 
 		tal_arr_expand(&fee_sums, fee);

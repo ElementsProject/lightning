@@ -296,12 +296,12 @@ static struct command_result *json_inspect(struct command *cmd,
 				if (pr->txo->origin_acct) {
 					if (!streq(pr->txo->origin_acct, acct->name))
 						continue;
-				} else if (pr->txo->acct_db_id != acct->db_id
+				} else if (!streq(pr->txo->acct_name, acct->name)
 					   /* We make an exception for wallet events */
 					   && !is_wallet_account(pr->txo->acct_name))
 					continue;
 			} else if (pr->spend
-				   && pr->spend->acct_db_id != acct->db_id)
+				   && !streq(pr->spend->acct_name, acct->name))
 				continue;
 
 			json_object_start(res, NULL);

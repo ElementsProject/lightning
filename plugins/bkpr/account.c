@@ -72,7 +72,6 @@ static struct account *stmt2account(struct accounts *accounts,
 	struct account *a;
 
 	a = new_account(accounts, take(db_col_strdup(NULL, stmt, "name")));
-	a->db_id = db_col_u64(stmt, "id");
 
 	if (!db_col_is_null(stmt, "peer_id")) {
 		a->peer_id = tal(a, struct node_id);
@@ -148,9 +147,7 @@ static void account_db_add(struct db *db, struct account *acct)
 	db_bind_int(stmt, acct->we_opened ? 1 : 0);
 	db_bind_int(stmt, acct->leased ? 1 : 0);
 
-	db_exec_prepared_v2(stmt);
-	acct->db_id = db_last_insert_id_v2(stmt);
-	tal_free(stmt);
+	db_exec_prepared_v2(take(stmt));
 }
 
 void maybe_update_account(struct bkpr *bkpr,
@@ -277,9 +274,9 @@ void account_update_closeheight(struct bkpr *bkpr,
 	stmt = db_prepare_v2(bkpr->db, SQL("UPDATE accounts SET"
 					   "  onchain_resolved_block = ?"
 					   " WHERE"
-					   " id = ?"));
+					   " name = ?"));
 	db_bind_int(stmt, acct->onchain_resolved_block);
-	db_bind_u64(stmt, acct->db_id);
+	db_bind_text(stmt, acct->name);
 	db_exec_prepared_v2(take(stmt));
 }
 
@@ -320,8 +317,7 @@ struct accounts *init_accounts(const tal_t *ctx, struct db *db)
 	db_begin_transaction(db);
 	stmt = db_prepare_v2(db,
 			     SQL("SELECT"
-				 "  id"
-				 ", name"
+				 " name"
 				 ", peer_id"
 				 ", opened_event_id"
 				 ", closed_event_id"

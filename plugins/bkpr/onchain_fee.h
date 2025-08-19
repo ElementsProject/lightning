@@ -9,10 +9,6 @@ struct amount_msat;
 struct bitcoin_txid;
 
 struct onchain_fee {
-
-	/* db_id of account this event belongs to */
-	u64 acct_db_id;
-
 	/* Name of the account this belongs to */
 	const char *acct_name;
 
