@@ -958,6 +958,9 @@ bool plugin_hook_call_(struct lightningd *ld UNNEEDED,
 		       const char *cmd_id TAKES UNNEEDED,
 		       tal_t *cb_arg STEALS UNNEEDED)
 { fprintf(stderr, "plugin_hook_call_ called!\n"); abort(); }
+/* Generated stub for primary_mvt_tag */
+enum mvt_tag primary_mvt_tag(struct mvt_tags tags UNNEEDED)
+{ fprintf(stderr, "primary_mvt_tag called!\n"); abort(); }
 /* Generated stub for process_onionpacket */
 struct route_step *process_onionpacket(
 	const tal_t * ctx UNNEEDED,

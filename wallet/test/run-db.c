@@ -331,6 +331,9 @@ void outpointfilter_remove(struct outpointfilter *of UNNEEDED,
 /* Generated stub for peer_set_dbid */
 void peer_set_dbid(struct peer *peer UNNEEDED, u64 dbid UNNEEDED)
 { fprintf(stderr, "peer_set_dbid called!\n"); abort(); }
+/* Generated stub for primary_mvt_tag */
+enum mvt_tag primary_mvt_tag(struct mvt_tags tags UNNEEDED)
+{ fprintf(stderr, "primary_mvt_tag called!\n"); abort(); }
 /* Generated stub for psbt_fixup */
 const u8 *psbt_fixup(const tal_t *ctx UNNEEDED, const u8 *psbtblob UNNEEDED)
 { fprintf(stderr, "psbt_fixup called!\n"); abort(); }
