@@ -90,6 +90,8 @@ Core Lightning Documentation
    lightningd-config <lightningd-config.5.md>
    lightningd-rpc <lightningd-rpc.7.md>
    listaddresses <listaddresses.7.md>
+   listchainmoves <listchainmoves.7.md>
+   listchannelmoves <listchannelmoves.7.md>
    listchannels <listchannels.7.md>
    listclosedchannels <listclosedchannels.7.md>
    listconfigs <listconfigs.7.md>

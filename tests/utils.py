@@ -140,6 +140,7 @@ def check_coin_moves(n, account_id, expected_moves, chainparams):
     # Stash moves for errors, if needed
     _acct_moves = acct_moves
     for mv in acct_moves:
+        # Generate tags as single array, which is how bookkeeper presents it
         mv['tags'] = [mv['primary_tag']] + mv['extra_tags']
         print("{{'type': '{}', 'credit_msat': {}, 'debit_msat': {}, 'tags': '{}' , ['fees_msat'?: '{}']}},"
               .format(mv['type'],

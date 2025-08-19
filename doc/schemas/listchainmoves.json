@@ -1,0 +1,193 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "rpc": "listchainmoves",
+  "title": "Command to get the audit list of all onchain coin movements.",
+  "added": "v25.09",
+  "description": [
+    "The **listchainmoves** command returns the confirmed balance changes onchain over time."
+  ],
+  "categories": [
+    "readonly"
+  ],
+  "request": {
+    "required": [],
+    "additionalProperties": false,
+    "properties": {
+      "index": {
+        "type": "string",
+        "enum": [
+          "created"
+        ],
+        "description": [
+          "How to interpret `start` and `limit`"
+        ]
+      },
+      "start": {
+        "type": "u64",
+        "description": [
+          "If `index` is specified, `start` may be specified to start from that value, which is generally returned from lightning-wait(7)."
+        ]
+      },
+      "limit": {
+        "type": "u32",
+        "description": [
+          "If `index` is specified, `limit` can be used to specify the maximum number of entries to return."
+        ]
+      }
+    },
+    "dependentUpon": {
+      "index": [
+        "start",
+        "limit"
+      ]
+    }
+  },
+  "response": {
+    "required": [
+      "chainmoves"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "chainmoves": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "account_id",
+            "primary_tag",
+            "extra_tags",
+            "credit_msat",
+            "debit_msat",
+            "timestamp",
+            "utxo",
+            "output_msat",
+            "blockheight"
+          ],
+          "properties": {
+            "account_id": {
+              "type": "string",
+              "description": [
+                "This is either the channel_id corresponding to the channel involved, or a string such as `wallet` for the internal wallet, or `external` for some other external source."
+              ]
+            },
+            "credit_msat": {
+              "type": "msat",
+              "description": [
+                "Amount credited (one of this or debit_msat is zero)"
+              ]
+            },
+            "debit_msat": {
+              "type": "msat",
+              "description": [
+                "Amount debited (one of this or credit_msat is zero)"
+              ]
+            },
+            "timestamp": {
+              "type": "u64",
+              "description": [
+                "Time of this event in seconds since January 1 1970 UTC"
+              ]
+            },
+            "primary_tag": {
+              "type": "string",
+              "enum": [
+                "deposit",
+                "withdrawal",
+                "penalty",
+                "channel_open",
+                "channel_close",
+                "delayed_to_us",
+                "htlc_tx",
+                "htlc_timeout",
+                "htlc_fulfill",
+                "to_wallet",
+                "anchor",
+                "to_them",
+                "penalized",
+                "stolen",
+                "to_miner"
+              ],
+              "description": [
+                "A set of one or more tags defining the nature of the change"
+              ]
+            },
+            "extra_tags": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "ignored",
+                  "opener",
+                  "leased",
+                  "stealable",
+                  "splice"
+                ]
+              },
+              "description": [
+                "A set of additional tags expanding on the details"
+              ]
+            },
+            "peer_id": {
+              "type": "pubkey",
+              "description": [
+                "The lightning peer associated with this onchain event"
+              ]
+            },
+            "originating_account": {
+              "type": "string",
+              "description": [
+                "This is either a channel_id corresponding to the source channel involved, or a string such as `wallet` for the internal wallet."
+              ]
+            },
+            "spending_txid": {
+              "type": "txid",
+              "description": [
+                "The transaction ID which did the spending."
+              ]
+            },
+            "utxo": {
+              "type": "outpoint",
+              "description": [
+                "The txid and outpoint number spent for this balance change."
+              ]
+            },
+            "payment_hash": {
+              "type": "hash",
+              "description": [
+                "The payment hash associated with this balance change."
+              ]
+            },
+            "output_msat": {
+              "type": "msat",
+              "description": [
+                "The output amount (always a whole number of sats).  Note that in some cases (e.g. channel opens), not all these belong to us."
+              ]
+            },
+            "output_count": {
+              "type": "u32",
+              "description": [
+                "The number of outputs in the `txid` (so you can tell once you've seen events for all of them)."
+              ]
+            },
+            "blockheight": {
+              "type": "u32",
+              "description": [
+                "The block number where `txid` appeared (alternately, where `utxo` was spent)."
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "errors": [
+    "On failure, one of the following error codes may be returned:",
+    "",
+    "- -32602: Error in given parameters."
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}
