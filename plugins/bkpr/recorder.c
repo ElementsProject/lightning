@@ -18,220 +18,62 @@
 #include <plugins/bkpr/onchain_fee.h>
 #include <plugins/bkpr/rebalances.h>
 #include <plugins/bkpr/recorder.h>
+#include <plugins/bkpr/sql.h>
 #include <plugins/libplugin.h>
-
-
-static struct chain_event *stmt2chain_event(const tal_t *ctx,
-					    const struct bkpr *bkpr,
-					    struct db_stmt *stmt)
-{
-	struct chain_event *e = tal(ctx, struct chain_event);
-	e->db_id = db_col_u64(stmt, "e.id");
-	e->acct_name = db_col_strdup(e, stmt, "e.account_name");
-
-	if (!db_col_is_null(stmt, "e.origin"))
-		e->origin_acct = db_col_strdup(e, stmt, "e.origin");
-	else
-		e->origin_acct = NULL;
-
-	e->tag = db_col_strdup(e, stmt, "e.tag");
-
-	e->credit = db_col_amount_msat(stmt, "e.credit");
-	e->debit = db_col_amount_msat(stmt, "e.debit");
-	e->output_value = db_col_amount_msat(stmt, "e.output_value");
-
-	e->timestamp = db_col_u64(stmt, "e.timestamp");
-	e->blockheight = db_col_int(stmt, "e.blockheight");
-
-	db_col_txid(stmt, "e.utxo_txid", &e->outpoint.txid);
-	e->outpoint.n = db_col_int(stmt, "e.outnum");
-
-	if (e->blockheight == 0)
-		e->blockheight = find_blockheight(bkpr, &e->outpoint.txid);
-
-	if (!db_col_is_null(stmt, "e.payment_id")) {
-		e->payment_id = tal(e, struct sha256);
-		db_col_sha256(stmt, "e.payment_id", e->payment_id);
-	} else
-		e->payment_id = NULL;
-
-	if (!db_col_is_null(stmt, "e.spending_txid")) {
-		e->spending_txid = tal(e, struct bitcoin_txid);
-		db_col_txid(stmt, "e.spending_txid", e->spending_txid);
-	} else
-		e->spending_txid = NULL;
-
-	e->stealable = db_col_int(stmt, "e.stealable") == 1;
-	e->splice_close = db_col_int(stmt, "e.spliced") == 1;
-
-	return e;
-}
-
-static struct chain_event **find_chain_events(const tal_t *ctx,
-					      const struct bkpr *bkpr,
-					      struct db_stmt *stmt TAKES)
-{
-	struct chain_event **results;
-
-	db_query_prepared(stmt);
-	if (stmt->error)
-		db_fatal(stmt->db, "find_chain_events err: %s", stmt->error);
-	results = tal_arr(ctx, struct chain_event *, 0);
-	while (db_step(stmt)) {
-		struct chain_event *e = stmt2chain_event(results, bkpr, stmt);
-		tal_arr_expand(&results, e);
-	}
-
-	if (taken(stmt))
-		tal_free(stmt);
-
-	return results;
-}
-
-static struct channel_event *stmt2channel_event(const tal_t *ctx, struct db_stmt *stmt)
-{
-	struct channel_event *e = tal(ctx, struct channel_event);
-
-	e->db_id = db_col_u64(stmt, "e.id");
-	e->acct_name = db_col_strdup(e, stmt, "e.account_name");
-
-	e->tag = db_col_strdup(e, stmt, "e.tag");
-
-	e->credit = db_col_amount_msat(stmt, "e.credit");
-	e->debit = db_col_amount_msat(stmt, "e.debit");
-	e->fees = db_col_amount_msat(stmt, "e.fees");
-
-	if (!db_col_is_null(stmt, "e.payment_id")) {
-		e->payment_id = tal(e, struct sha256);
-		db_col_sha256(stmt, "e.payment_id", e->payment_id);
-	} else
-		e->payment_id = NULL;
-	e->part_id = db_col_int(stmt, "e.part_id");
-	e->timestamp = db_col_u64(stmt, "e.timestamp");
-
-	return e;
-}
-
-static struct channel_event **find_channel_events(const tal_t *ctx,
-						  struct db_stmt *stmt TAKES)
-{
-	struct channel_event **results;
-
-	db_query_prepared(stmt);
-	if (stmt->error)
-		db_fatal(stmt->db, "find_channel_events err: %s", stmt->error);
-	results = tal_arr(ctx, struct channel_event *, 0);
-	while (db_step(stmt)) {
-		struct channel_event *e = stmt2channel_event(results, stmt);
-		tal_arr_expand(&results, e);
-	}
-
-	if (taken(stmt))
-		tal_free(stmt);
-
-	return results;
-}
 
 struct chain_event **list_chain_events_timebox(const tal_t *ctx,
 					       const struct bkpr *bkpr,
+					       struct command *cmd,
 					       u64 start_time,
 					       u64 end_time)
 {
-	struct db_stmt *stmt;
-
-	stmt = db_prepare_v2(bkpr->db, SQL("SELECT"
-				     "  e.id"
-				     ", e.account_name"
-				     ", e.origin"
-				     ", e.tag"
-				     ", e.credit"
-				     ", e.debit"
-				     ", e.output_value"
-				     ", e.timestamp"
-				     ", e.blockheight"
-				     ", e.utxo_txid"
-				     ", e.outnum"
-				     ", e.spending_txid"
-				     ", e.payment_id"
-				     ", e.stealable"
-				     ", e.spliced"
-				     " FROM chain_events e"
-				     " WHERE e.timestamp > ?"
-				     "  AND e.timestamp <= ?"
-				     " ORDER BY e.timestamp, e.id;"));
-
-	db_bind_u64(stmt, start_time);
-	db_bind_u64(stmt, end_time);
-	return find_chain_events(ctx, bkpr, take(stmt));
+	return chain_events_from_sql(ctx, bkpr, cmd,
+				     SELECT_CHAIN_EVENTS
+				     " WHERE timestamp > %"PRIu64
+				     "  AND timestamp <= %"PRIu64
+				     "  AND created_index <= %"PRIu64
+				     " ORDER BY timestamp, created_index;",
+				     start_time, end_time,
+				     bkpr->chainmoves_index);
 }
 
-struct chain_event **list_chain_events(const tal_t *ctx, const struct bkpr *bkpr)
+struct chain_event **list_chain_events(const tal_t *ctx,
+				       const struct bkpr *bkpr,
+				       struct command *cmd)
 {
-	return list_chain_events_timebox(ctx, bkpr, 0, SQLITE_MAX_UINT);
+	return list_chain_events_timebox(ctx, bkpr, cmd, 0, SQLITE_MAX_UINT);
 }
 
 struct chain_event **account_get_chain_events(const tal_t *ctx,
 					      const struct bkpr *bkpr,
+					      struct command *cmd,
 					      struct account *acct)
 {
-	struct db_stmt *stmt;
-
-	stmt = db_prepare_v2(bkpr->db, SQL("SELECT"
-				     "  e.id"
-				     ", e.account_name"
-				     ", e.origin"
-				     ", e.tag"
-				     ", e.credit"
-				     ", e.debit"
-				     ", e.output_value"
-				     ", e.timestamp"
-				     ", e.blockheight"
-				     ", e.utxo_txid"
-				     ", e.outnum"
-				     ", e.spending_txid"
-				     ", e.payment_id"
-				     ", e.stealable"
-				     ", e.spliced"
-				     " FROM chain_events e"
-				     " WHERE e.account_name = ?"
-				     " ORDER BY e.timestamp, e.id"));
-
-	db_bind_text(stmt, acct->name);
-	return find_chain_events(ctx, bkpr, take(stmt));
+	return chain_events_from_sql(ctx, bkpr, cmd,
+				     SELECT_CHAIN_EVENTS
+				     " WHERE account_id = '%s'"
+				     "  AND created_index <= %"PRIu64
+				     " ORDER BY timestamp, created_index;",
+				     sql_string(tmpctx, acct->name),
+				     bkpr->chainmoves_index);
 }
 
 static struct chain_event **find_txos_for_tx(const tal_t *ctx,
 					     const struct bkpr *bkpr,
-					     struct bitcoin_txid *txid)
+					     struct command *cmd,
+					     const struct bitcoin_txid *txid)
 {
-	struct db_stmt *stmt;
-
-	stmt = db_prepare_v2(bkpr->db, SQL("SELECT"
-				     "  e.id"
-				     ", e.account_name"
-				     ", e.origin"
-				     ", e.tag"
-				     ", e.credit"
-				     ", e.debit"
-				     ", e.output_value"
-				     ", e.timestamp"
-				     ", e.blockheight"
-				     ", e.utxo_txid"
-				     ", e.outnum"
-				     ", e.spending_txid"
-				     ", e.payment_id"
-				     ", e.stealable"
-				     ", e.spliced"
-				     " FROM chain_events e"
-				     " WHERE e.utxo_txid = ?"
+	return chain_events_from_sql(ctx, bkpr, cmd,
+				     SELECT_CHAIN_EVENTS
+				     /* utxo is txid:outnum */
+				     " WHERE utxo LIKE '%s:%%'"
+				     "  AND created_index <= %"PRIu64
 				     " ORDER BY "
-				     "  e.utxo_txid"
-				     ", e.outnum"
-				     ", e.spending_txid NULLS FIRST"
-				     ", e.blockheight"));
-
-	db_bind_txid(stmt, txid);
-	return find_chain_events(ctx, bkpr, take(stmt));
+				     "  utxo"
+				     ", spending_txid NULLS FIRST"
+				     ", blockheight",
+				     fmt_bitcoin_txid(tmpctx, txid),
+				     bkpr->chainmoves_index);
 }
 
 static struct txo_pair *new_txo_pair(const tal_t *ctx)
@@ -244,7 +86,8 @@ static struct txo_pair *new_txo_pair(const tal_t *ctx)
 
 static struct txo_set *find_txo_set(const tal_t *ctx,
 				    const struct bkpr *bkpr,
-				    struct bitcoin_txid *txid,
+				    struct command *cmd,
+				    const struct bitcoin_txid *txid,
 				    const char *acct_name,
 				    bool *is_complete)
 {
@@ -255,7 +98,7 @@ static struct txo_set *find_txo_set(const tal_t *ctx,
 	/* In some special cases (the opening tx), we only
 	 * want the outputs that pertain to a given account,
 	 * most other times we want all utxos, regardless of account */
-	evs = find_txos_for_tx(ctx, bkpr, txid);
+	evs = find_txos_for_tx(ctx, bkpr, cmd, txid);
 	txos->pairs = tal_arr(txos, struct txo_pair *, 0);
 	txos->txid = tal_dup(txos, struct bitcoin_txid, txid);
 
@@ -323,6 +166,7 @@ static bool txid_in_list(struct bitcoin_txid **list,
 
 bool find_txo_chain(const tal_t *ctx,
 		    const struct bkpr *bkpr,
+		    struct command *cmd,
 		    const struct account *acct,
 		    struct txo_set ***sets)
 {
@@ -332,7 +176,7 @@ bool find_txo_chain(const tal_t *ctx,
 	const char *start_acct_name;
 
 	assert(acct->open_event_db_id);
-	open_ev = find_chain_event_by_id(ctx, bkpr,
+	open_ev = find_chain_event_by_id(ctx, bkpr, cmd,
 					 *acct->open_event_db_id);
 
 	if (sets)
@@ -349,7 +193,7 @@ bool find_txo_chain(const tal_t *ctx,
 		struct txo_set *set;
 		bool set_complete;
 
-		set = find_txo_set(ctx, bkpr, txids[i],
+		set = find_txo_set(ctx, bkpr, cmd, txids[i],
 				   start_acct_name,
 				   &set_complete);
 
@@ -392,55 +236,69 @@ bool find_txo_chain(const tal_t *ctx,
 }
 
 const char *find_close_account_name(const tal_t *ctx,
-				    struct db *db,
+				    const struct bkpr *bkpr,
+				    struct command *cmd,
 				    const struct bitcoin_txid *txid)
 {
-	struct db_stmt *stmt;
-	char *acct_name;
+	const char *buf;
+	const jsmntok_t *result, *rows, *row;
+	size_t i;
+	const char *acct_name = NULL;
 
-	stmt = db_prepare_v2(db, SQL("SELECT"
-				     "  e.account_name"
-				     " FROM chain_events e"
-				     " WHERE "
-				     "  e.tag = ?"
-				     "  AND e.spending_txid = ?"
-				     /* ignore splicing 'close' events */
-				     "  AND e.spliced = 0 "));
+	/* We look for a CHANNEL_CLOSE spend, but ignore “spliced” close events. */
+	result = sql_req(ctx, cmd, &buf,
+			 "SELECT account_id"
+			 " FROM chainmoves cm"
+			 " WHERE cm.primary_tag = '%s'"
+			 "   AND cm.spending_txid = X'%s'"
+			 "   AND NOT EXISTS ("
+			 "         SELECT 1 FROM chainmoves_extra_tags et"
+			 "         WHERE et.row = cm.created_index"
+			 "           AND et.extra_tags = 'spliced'"
+			 "       )"
+			 "   AND"
+			 "    cm.created_index <= %"PRIu64
+			 " LIMIT 1",
+			 sql_string(tmpctx, mvt_tag_str(MVT_CHANNEL_CLOSE)),
+			 fmt_bitcoin_txid(tmpctx, txid),
+			 bkpr->chainmoves_index);
 
-	db_bind_text(stmt, mvt_tag_str(MVT_CHANNEL_CLOSE));
-	db_bind_txid(stmt, txid);
-	db_query_prepared(stmt);
+	rows = json_get_member(buf, result, "rows");
+	json_for_each_arr(i, row, rows) {
+		/* Single column => row->size == 1; first value token is row+1 */
+		const jsmntok_t *val = row + 1;
+		acct_name = json_strdup(ctx, buf, val);
+		break; /* only need the first row */
+	}
 
-	if (db_step(stmt)) {
-		acct_name = db_col_strdup(ctx, stmt, "e.account_name");
-	} else
-		acct_name = NULL;
-
-	tal_free(stmt);
-	return acct_name;
+	return acct_name; /* NULL if none found */
 }
 
-u64 account_onchain_closeheight(const struct bkpr *bkpr, const struct account *acct)
+u64 account_onchain_closeheight(const struct bkpr *bkpr,
+				struct command *cmd,
+				const struct account *acct)
 {
 	const u8 *ctx = tal(NULL, u8);
 	struct txo_set **sets;
 	struct chain_event *close_ev;
-	struct db_stmt *stmt;
 	u64 height;
 
 	assert(acct->closed_count > 0);
 
-	close_ev = find_chain_event_by_id(ctx, bkpr,
+	close_ev = find_chain_event_by_id(ctx, bkpr, cmd,
 					 *acct->closed_event_db_id);
 
-	if (find_txo_chain(ctx, bkpr, acct, &sets)) {
+	if (find_txo_chain(ctx, bkpr, cmd, acct, &sets)) {
 		/* Ok now we find the max block height of the
 		 * spending chain_events for this channel */
 		bool ok;
+		const char *buf;
+		const jsmntok_t *result, *rows, *row;
+		size_t i;
 
 		/* Have we accounted for all the outputs */
 		ok = false;
-		for (size_t i = 0; i < tal_count(sets); i++) {
+		for (i = 0; i < tal_count(sets); i++) {
 			if (bitcoin_txid_eq(sets[i]->txid,
 					    close_ev->spending_txid)) {
 
@@ -455,21 +313,28 @@ u64 account_onchain_closeheight(const struct bkpr *bkpr, const struct account *a
 			return 0;
 		}
 
-		stmt = db_prepare_v2(bkpr->db, SQL("SELECT"
-				     " blockheight"
-				     " FROM chain_events"
-				     " WHERE account_name = ?"
-				     "  AND spending_txid IS NOT NULL"
-				     " ORDER BY blockheight DESC"
-				     " LIMIT 1"));
+		result = sql_req(tmpctx, cmd, &buf,
+				 "SELECT blockheight"
+				 " FROM chainmoves"
+				 " WHERE account_id = '%s'"
+				 "   AND spending_txid IS NOT NULL"
+				 "   AND created_index <= %"PRIu64
+				 " ORDER BY blockheight DESC"
+				 " LIMIT 1",
+				 sql_string(tmpctx, acct->name),
+				 bkpr->chainmoves_index);
 
-		db_bind_text(stmt, acct->name);
-		db_query_prepared(stmt);
-		ok = db_step(stmt);
-		assert(ok);
+		rows = json_get_member(buf, result, "rows");
+		assert(rows && rows->type == JSMN_ARRAY);
 
-		height = db_col_int(stmt, "blockheight");
-		tal_free(stmt);
+		height = 0;
+		json_for_each_arr(i, row, rows) {
+			const jsmntok_t *val = row + 1;
+			assert(row->size == 1);
+			ok = json_to_u64(buf, val, &height);
+			assert(ok);
+			break;
+		}
 	} else {
 		height = 0;
 	}
@@ -480,356 +345,169 @@ u64 account_onchain_closeheight(const struct bkpr *bkpr, const struct account *a
 
 struct chain_event *find_chain_event_by_id(const tal_t *ctx,
 					   const struct bkpr *bkpr,
-					   u64 event_db_id)
+					   struct command *cmd,
+					   u64 created_index)
 {
-	struct db_stmt *stmt;
-	struct chain_event *e;
+	struct chain_event **evs =
+		chain_events_from_sql(tmpctx, bkpr, cmd,
+				      SELECT_CHAIN_EVENTS
+				      " WHERE created_index = %"PRIu64
+				      " LIMIT 1;",
+				      created_index);
 
-	stmt = db_prepare_v2(bkpr->db, SQL("SELECT"
-				     "  e.id"
-				     ", e.account_name"
-				     ", e.origin"
-				     ", e.tag"
-				     ", e.credit"
-				     ", e.debit"
-				     ", e.output_value"
-				     ", e.timestamp"
-				     ", e.blockheight"
-				     ", e.utxo_txid"
-				     ", e.outnum"
-				     ", e.spending_txid"
-				     ", e.payment_id"
-				     ", e.stealable"
-				     ", e.spliced"
-				     " FROM chain_events e"
-				     " WHERE "
-				     " e.id = ?"));
+	if (tal_count(evs) == 0)
+		return NULL;
 
-	db_bind_u64(stmt, event_db_id);
-	db_query_prepared(stmt);
-	if (db_step(stmt))
-		e = stmt2chain_event(ctx, bkpr, stmt);
-	else
-		e = NULL;
-
-	tal_free(stmt);
-	return e;
+	return tal_steal(ctx, evs[0]);
 }
 
 struct chain_event **get_chain_events_by_outpoint(const tal_t *ctx,
 						  const struct bkpr *bkpr,
-						  const struct bitcoin_outpoint *outpoint,
-						  bool credits_only)
+						  struct command *cmd,
+						  const struct bitcoin_outpoint *outpoint)
 {
-	struct db_stmt *stmt;
-	if (credits_only)
-		stmt = db_prepare_v2(bkpr->db, SQL("SELECT"
-					     "  e.id"
-					     ", e.account_name"
-					     ", e.origin"
-					     ", e.tag"
-					     ", e.credit"
-					     ", e.debit"
-					     ", e.output_value"
-					     ", e.timestamp"
-					     ", e.blockheight"
-					     ", e.utxo_txid"
-					     ", e.outnum"
-					     ", e.spending_txid"
-					     ", e.payment_id"
-					     ", e.stealable"
-					     ", e.spliced"
-					     " FROM chain_events e"
-					     " WHERE "
-					     " e.utxo_txid = ?"
-					     " AND e.outnum = ?"
-					     " AND credit > 0"));
-	else
-		stmt = db_prepare_v2(bkpr->db, SQL("SELECT"
-					     "  e.id"
-					     ", e.account_name"
-					     ", e.origin"
-					     ", e.tag"
-					     ", e.credit"
-					     ", e.debit"
-					     ", e.output_value"
-					     ", e.timestamp"
-					     ", e.blockheight"
-					     ", e.utxo_txid"
-					     ", e.outnum"
-					     ", e.spending_txid"
-					     ", e.payment_id"
-					     ", e.stealable"
-					     ", e.spliced"
-					     " FROM chain_events e"
-					     " WHERE "
-					     " e.utxo_txid = ?"
-					     " AND e.outnum = ?"));
-
-	db_bind_txid(stmt, &outpoint->txid);
-	db_bind_int(stmt, outpoint->n);
-	return find_chain_events(ctx, bkpr, take(stmt));
+	return chain_events_from_sql(ctx, bkpr, cmd,
+				     SELECT_CHAIN_EVENTS
+				     " WHERE utxo = '%s'"
+				     "   AND credit_msat > 0"
+				     "  AND created_index <= %"PRIu64
+				     " ORDER BY timestamp, created_index",
+				     fmt_bitcoin_outpoint(tmpctx, outpoint),
+				     bkpr->chainmoves_index);
 }
 
 struct chain_event **get_chain_events_by_id(const tal_t *ctx,
 					    const struct bkpr *bkpr,
+					    struct command *cmd,
 					    const struct sha256 *id)
 {
-	struct db_stmt *stmt;
-	stmt = db_prepare_v2(bkpr->db, SQL("SELECT"
-				     "  e.id"
-				     ", e.account_name"
-				     ", e.origin"
-				     ", e.tag"
-				     ", e.credit"
-				     ", e.debit"
-				     ", e.output_value"
-				     ", e.timestamp"
-				     ", e.blockheight"
-				     ", e.utxo_txid"
-				     ", e.outnum"
-				     ", e.spending_txid"
-				     ", e.payment_id"
-				     ", e.stealable"
-				     ", e.spliced"
-				     " FROM chain_events e"
-				     " WHERE "
-				     " e.payment_id = ?"));
-
-	db_bind_sha256(stmt, id);
-	return find_chain_events(ctx, bkpr, take(stmt));
+	return chain_events_from_sql(ctx, bkpr, cmd,
+				     SELECT_CHAIN_EVENTS
+				     " WHERE payment_hash = X'%s'"
+				     "   AND created_index <= %"PRIu64
+				     " ORDER BY timestamp, created_index",
+				     fmt_sha256(tmpctx, id),
+				     bkpr->chainmoves_index);
 }
 
-static struct chain_event *find_chain_event(const tal_t *ctx,
-					    struct bkpr *bkpr,
-					    const struct account *acct,
-					    const struct bitcoin_outpoint *outpoint,
-					    const struct bitcoin_txid *spending_txid,
-					    const char *tag)
-
-{
-	struct db_stmt *stmt;
-	struct chain_event *e;
-
-	if (spending_txid) {
-		stmt = db_prepare_v2(bkpr->db, SQL("SELECT"
-					     "  e.id"
-					     ", e.account_name"
-					     ", e.origin"
-					     ", e.tag"
-					     ", e.credit"
-					     ", e.debit"
-					     ", e.output_value"
-					     ", e.timestamp"
-					     ", e.blockheight"
-					     ", e.utxo_txid"
-					     ", e.outnum"
-					     ", e.spending_txid"
-					     ", e.payment_id"
-					     ", e.stealable"
-					     ", e.spliced"
-					     " FROM chain_events e"
-					     " WHERE "
-					     " e.spending_txid = ?"
-					     " AND e.account_name = ?"
-					     " AND e.utxo_txid = ?"
-					     " AND e.outnum = ?"));
-		db_bind_txid(stmt, spending_txid);
-	} else {
-		stmt = db_prepare_v2(bkpr->db, SQL("SELECT"
-					     "  e.id"
-					     ", e.account_name"
-					     ", e.origin"
-					     ", e.tag"
-					     ", e.credit"
-					     ", e.debit"
-					     ", e.output_value"
-					     ", e.timestamp"
-					     ", e.blockheight"
-					     ", e.utxo_txid"
-					     ", e.outnum"
-					     ", e.spending_txid"
-					     ", e.payment_id"
-					     ", e.stealable"
-					     ", e.spliced"
-					     " FROM chain_events e"
-					     " WHERE "
-					     " e.tag = ?"
-					     " AND e.account_name = ?"
-					     " AND e.utxo_txid = ?"
-					     " AND e.outnum = ?"
-					     " AND e.spending_txid IS NULL"));
-		db_bind_text(stmt, tag);
-	}
-
-	db_bind_text(stmt, acct->name);
-	db_bind_txid(stmt, &outpoint->txid);
-	db_bind_int(stmt, outpoint->n);
-
-	db_query_prepared(stmt);
-	if (db_step(stmt))
-		e = stmt2chain_event(ctx, bkpr, stmt);
-	else
-		e = NULL;
-
-	tal_free(stmt);
-	return e;
-}
-
-bool account_get_credit_debit(struct plugin *plugin,
-			      struct db *db,
+bool account_get_credit_debit(const struct bkpr *bkpr,
+			      struct command *cmd,
 			      const char *acct_name,
 			      struct amount_msat *credit,
 			      struct amount_msat *debit)
 {
-	struct db_stmt *stmt;
+	const jsmntok_t *result, *rows, *row;
+	const char *buf;
 	bool exists;
 
 	/* Get sum from chain_events */
-	stmt = db_prepare_v2(db, SQL("SELECT"
-				     "  CAST(SUM(ce.credit) AS BIGINT) as credit"
-				     ", CAST(SUM(ce.debit) AS BIGINT) as debit"
-				     " FROM chain_events ce"
-				     " WHERE ce.account_name = ?"));
-	db_bind_text(stmt, acct_name);
-	db_query_prepared(stmt);
-
-	db_step(stmt);
-	if (db_col_is_null(stmt, "credit")) {
-		db_col_ignore(stmt, "debit");
+	result = sql_req(tmpctx, cmd, &buf,
+			 "SELECT"
+			 "  CAST(SUM(credit_msat) AS BIGINT)"
+			 ", CAST(SUM(debit_msat) AS BIGINT)"
+			 " FROM chainmoves"
+			 " WHERE account_id = '%s'"
+			 " AND created_index <= %"PRIu64,
+			 sql_string(tmpctx, acct_name),
+			 bkpr->chainmoves_index);
+	rows = json_get_member(buf, result, "rows");
+	assert(rows && rows->type == JSMN_ARRAY && rows->size == 1);
+	row = rows + 1;
+	assert(row->size == 2);
+	if (json_tok_is_null(buf, row + 1)) {
 		*credit = *debit = AMOUNT_MSAT(0);
 		exists = false;
 	} else {
-		*credit = db_col_amount_msat(stmt, "credit");
-		*debit = db_col_amount_msat(stmt, "debit");
+		json_to_msat(buf, row + 1, credit);
+		json_to_msat(buf, row + 2, debit);
 		exists = true;
 	}
-	tal_free(stmt);
 
 	/* Get sum from channel_events */
-	stmt = db_prepare_v2(db, SQL("SELECT"
-				     "  CAST(SUM(ce.credit) AS BIGINT) as credit"
-				     ", CAST(SUM(ce.debit) AS BIGINT) as debit"
-				     " FROM channel_events ce"
-				     " WHERE ce.account_name = ?"));
-	db_bind_text(stmt, acct_name);
-	db_query_prepared(stmt);
-	db_step(stmt);
+	result = sql_req(tmpctx, cmd, &buf,
+			 "SELECT"
+			 "  CAST(SUM(credit_msat) AS BIGINT)"
+			 ", CAST(SUM(debit_msat) AS BIGINT)"
+			 " FROM channelmoves"
+			 " WHERE account_id = '%s'"
+			 " AND created_index <= %"PRIu64,
+			 sql_string(tmpctx, acct_name),
+			 bkpr->channelmoves_index);
+	rows = json_get_member(buf, result, "rows");
+	assert(rows && rows->type == JSMN_ARRAY && rows->size == 1);
+	row = rows + 1;
+	assert(row->size == 2);
+	if (!json_tok_is_null(buf, row + 1)) {
+		struct amount_msat channel_credit, channel_debit;
+		json_to_msat(buf, row + 1, &channel_credit);
+		json_to_msat(buf, row + 2, &channel_debit);
 
-	if (db_col_is_null(stmt, "credit")) {
-		db_col_ignore(stmt, "debit");
-	} else {
-		if (!amount_msat_accumulate(credit,
-					    db_col_amount_msat(stmt, "credit"))) {
-			plugin_err(plugin, "db overflow: chain credit %s, adding channel credit %s",
+		if (!amount_msat_accumulate(credit, channel_credit)) {
+			plugin_err(cmd->plugin, "db overflow: chain credit %s, adding channel credit %s",
 				   fmt_amount_msat(tmpctx, *credit),
-				   fmt_amount_msat(tmpctx,
-						   db_col_amount_msat(stmt, "credit")));
+				   fmt_amount_msat(tmpctx, channel_credit));
 		}
 
-		if (!amount_msat_accumulate(debit,
-					    db_col_amount_msat(stmt, "debit"))) {
-			plugin_err(plugin, "db overflow: chain debit %s, adding channel debit %s",
+		if (!amount_msat_accumulate(debit, channel_debit)) {
+			plugin_err(cmd->plugin, "db overflow: chain debit %s, adding channel debit %s",
 				   fmt_amount_msat(tmpctx, *debit),
-				   fmt_amount_msat(tmpctx,
-						   db_col_amount_msat(stmt, "debit")));
+				   fmt_amount_msat(tmpctx, channel_debit));
 		}
 		exists = true;
 	}
-	tal_free(stmt);
 	return exists;
 }
 
 struct channel_event **list_channel_events_timebox(const tal_t *ctx,
-						   struct db *db,
+						   const struct bkpr *bkpr,
+						   struct command *cmd,
 						   u64 start_time,
 						   u64 end_time)
-
 {
-	struct db_stmt *stmt;
-	struct channel_event **results;
-
-	stmt = db_prepare_v2(db, SQL("SELECT"
-				     "  e.id"
-				     ", e.account_name"
-				     ", e.tag"
-				     ", e.credit"
-				     ", e.debit"
-				     ", e.fees"
-				     ", e.payment_id"
-				     ", e.part_id"
-				     ", e.timestamp"
-				     " FROM channel_events e"
-				     " WHERE e.timestamp > ?"
-				     "  AND e.timestamp <= ?"
-				     " ORDER BY e.timestamp, e.id;"));
-
-	db_bind_u64(stmt, start_time);
-	db_bind_u64(stmt, end_time);
-	db_query_prepared(stmt);
-
-	results = tal_arr(ctx, struct channel_event *, 0);
-	while (db_step(stmt)) {
-		struct channel_event *e = stmt2channel_event(results, stmt);
-		tal_arr_expand(&results, e);
-	}
-	tal_free(stmt);
-
-	return results;
+	return channel_events_from_sql(ctx, cmd,
+				       SELECT_CHANNEL_EVENTS
+				       " WHERE timestamp > %"PRIu64
+				       "   AND timestamp <= %"PRIu64
+				       "   AND created_index <= %"PRIu64
+				       " ORDER BY timestamp, created_index;",
+				       start_time, end_time,
+				       bkpr->channelmoves_index);
 }
 
-struct channel_event **list_channel_events(const tal_t *ctx, struct db *db)
+struct channel_event **list_channel_events(const tal_t *ctx,
+					   const struct bkpr *bkpr,
+					   struct command *cmd)
 {
-	return list_channel_events_timebox(ctx, db, 0, SQLITE_MAX_UINT);
+	return list_channel_events_timebox(ctx, bkpr, cmd, 0, SQLITE_MAX_UINT);
 }
 
 
 struct channel_event **account_get_channel_events(const tal_t *ctx,
-						  struct db *db,
+						  const struct bkpr *bkpr,
+						  struct command *cmd,
 						  struct account *acct)
 {
-	struct db_stmt *stmt;
-
-	stmt = db_prepare_v2(db, SQL("SELECT"
-				     "  e.id"
-				     ", e.account_name"
-				     ", e.tag"
-				     ", e.credit"
-				     ", e.debit"
-				     ", e.fees"
-				     ", e.payment_id"
-				     ", e.part_id"
-				     ", e.timestamp"
-				     " FROM channel_events e"
-				     " WHERE e.account_name = ?"
-				     " ORDER BY e.timestamp, e.id"));
-
-	db_bind_text(stmt, acct->name);
-	return find_channel_events(ctx, take(stmt));
+	return channel_events_from_sql(ctx, cmd,
+				       SELECT_CHANNEL_EVENTS
+				       " WHERE account_id = '%s'"
+				       "  AND created_index <= %"PRIu64
+				       " ORDER BY timestamp, created_index",
+				       sql_string(tmpctx, acct->name),
+				       bkpr->channelmoves_index);
 }
 
 struct channel_event **get_channel_events_by_id(const tal_t *ctx,
-						struct db *db,
-						struct sha256 *id)
+						const struct bkpr *bkpr,
+						struct command *cmd,
+						const struct sha256 *id)
 {
-	struct db_stmt *stmt;
-
-	stmt = db_prepare_v2(db, SQL("SELECT"
-				     "  e.id"
-				     ", e.account_name"
-				     ", e.tag"
-				     ", e.credit"
-				     ", e.debit"
-				     ", e.fees"
-				     ", e.payment_id"
-				     ", e.part_id"
-				     ", e.timestamp"
-				     " FROM channel_events e"
-				     " WHERE e.payment_id = ?"
-				     " ORDER BY e.timestamp, e.id"));
-
-	db_bind_sha256(stmt, id);
-	return find_channel_events(ctx, take(stmt));
+	return channel_events_from_sql(ctx, cmd,
+				       SELECT_CHANNEL_EVENTS
+				       " WHERE payment_hash = X'%s'"
+				       "  AND created_index <= %"PRIu64
+				       " ORDER BY timestamp, created_index",
+				       fmt_sha256(tmpctx, id),
+				       bkpr->channelmoves_index);
 }
 
 void log_channel_event(struct db *db,
@@ -872,34 +550,18 @@ void log_channel_event(struct db *db,
 
 struct chain_event **find_chain_events_bytxid(const tal_t *ctx,
 					      const struct bkpr *bkpr,
+					      struct command *cmd,
 					      const struct bitcoin_txid *txid)
 {
-	struct db_stmt *stmt;
-
-	stmt = db_prepare_v2(bkpr->db, SQL("SELECT "
-				     "  e.id"
-				     ", e.account_name"
-				     ", e.origin"
-				     ", e.tag"
-				     ", e.credit"
-				     ", e.debit"
-				     ", e.output_value"
-				     ", e.timestamp"
-				     ", e.blockheight"
-				     ", e.utxo_txid"
-				     ", e.outnum"
-				     ", e.spending_txid"
-				     ", e.payment_id"
-				     ", e.stealable"
-				     ", e.spliced"
-				     " FROM chain_events e"
-				     " WHERE e.spending_txid = ?"
-				     " OR (e.utxo_txid = ? AND e.spending_txid IS NULL)"
-				     " ORDER BY e.account_name"));
-
-	db_bind_txid(stmt, txid);
-	db_bind_txid(stmt, txid);
-	return find_chain_events(ctx, bkpr, take(stmt));
+	return chain_events_from_sql(ctx, bkpr, cmd,
+				     SELECT_CHAIN_EVENTS
+				     " WHERE created_index <= %"PRIu64
+				     " AND (spending_txid = X'%s'"
+				     "    OR (utxo LIKE '%s%%' AND spending_txid IS NULL))"
+				     " ORDER BY account_id, created_index",
+				     bkpr->chainmoves_index,
+				     fmt_bitcoin_txid(tmpctx, txid),   /* spending_txid match */
+				     fmt_bitcoin_txid(tmpctx, txid));  /* utxo prefix (txid:*) */
 }
 
 void maybe_record_rebalance(struct command *cmd,
@@ -911,7 +573,9 @@ void maybe_record_rebalance(struct command *cmd,
 	 * and amt as such. If you repeat a payment_id
 	 * with the same amt, they'll be marked as rebalances
 	 * also */
-	struct db_stmt *stmt;
+	const char *buf;
+	const jsmntok_t *res, *rows, *row, *val;
+	size_t i;
 	struct amount_msat credit;
 	bool ok;
 
@@ -919,54 +583,65 @@ void maybe_record_rebalance(struct command *cmd,
 	ok = amount_msat_sub(&credit, out->debit, out->fees);
 	assert(ok);
 
-	stmt = db_prepare_v2(bkpr->db, SQL("SELECT "
-				     "  e.id"
-				     " FROM channel_events e"
-				     " WHERE e.payment_id = ?"
-				     " AND e.credit = ?"));
+	/* Look for a matching credit-side event for the same payment */
+	res = sql_req(tmpctx, cmd, &buf,
+		      "SELECT created_index"
+		      " FROM channelmoves"
+		      " WHERE payment_hash = X'%s'"
+		      "   AND credit_msat = %"PRIu64
+		      "   AND created_index <= %"PRIu64,
+		      fmt_sha256(tmpctx, out->payment_id),
+		      credit.millisatoshis /* Raw: sql query */,
+		      bkpr->channelmoves_index);
 
-	db_bind_sha256(stmt, out->payment_id);
-	db_bind_amount_msat(stmt, credit);
-	db_query_prepared(stmt);
+	rows = json_get_member(buf, res, "rows");
+	json_for_each_arr(i, row, rows) {
+		u64 id;
+		val = row + 1;              /* single column */
+		ok = json_to_u64(buf, val, &id);
+		assert(ok);
 
-	while (db_step(stmt)) {
-		u64 id = db_col_u64(stmt, "e.id");
 		/* Already has one? */
 		if (find_rebalance(bkpr, id))
 			continue;
+
 		add_rebalance_pair(cmd, bkpr, out->db_id, id);
 		break;
 	}
-	tal_free(stmt);
 }
 
 void maybe_closeout_external_deposits(struct command *cmd,
 				      struct bkpr *bkpr,
-			              const struct bitcoin_txid *txid,
+				      const struct bitcoin_txid *txid,
 				      u32 blockheight)
 {
-	struct db_stmt *stmt;
+	const char *buf;
+	const jsmntok_t *res, *rows, *row;
+	size_t i;
 
-	assert(txid);
-	stmt = db_prepare_v2(bkpr->db, SQL("SELECT "
-				     "  1"
-				     " FROM chain_events e"
-				     " WHERE e.blockheight = ?"
-				     " AND e.utxo_txid = ?"
-				     " AND e.account_name = ?"));
+	/* Find any unconfirmed external deposits for this txid. */
+	res = sql_req(tmpctx, cmd, &buf,
+		      "SELECT utxo"
+		      " FROM chainmoves"
+		      " WHERE blockheight = 0"
+		      "   AND utxo LIKE '%s:%%'"
+		      "   AND account_id = '%s'"
+		      "   AND created_index <= %"PRIu64,
+		      /* utxo is '<txid>:<vout>' so we prefix-match on txid: */
+		      fmt_bitcoin_txid(tmpctx, txid),
+		      sql_string(tmpctx, ACCOUNT_NAME_EXTERNAL),
+		      bkpr->chainmoves_index);
 
-	/* Blockheight for unconfirmeds is zero */
-	db_bind_int(stmt, 0);
-	db_bind_txid(stmt, txid);
-	db_bind_text(stmt, ACCOUNT_NAME_EXTERNAL);
-	db_query_prepared(stmt);
+	rows = json_get_member(buf, res, "rows");
+	json_for_each_arr(i, row, rows) {
+		const jsmntok_t *val = row + 1; /* single column */
+		struct bitcoin_outpoint outp;
+		bool ok;
 
-	if (db_step(stmt)) {
-		db_col_ignore(stmt, "1");
-		add_blockheight(cmd, bkpr, txid, blockheight);
+		ok = json_to_outpoint(buf, val, &outp);
+		assert(ok);
+		add_blockheight(cmd, bkpr, &outp.txid, blockheight);
 	}
-
-	tal_free(stmt);
 }
 
 bool log_chain_event(struct bkpr *bkpr,
@@ -974,12 +649,6 @@ bool log_chain_event(struct bkpr *bkpr,
 		     struct chain_event *e)
 {
 	struct db_stmt *stmt;
-
-	/* We're responsible for de-duping chain events! */
-	if (find_chain_event(tmpctx, bkpr, acct,
-			     &e->outpoint, e->spending_txid,
-			     e->tag))
-		return false;
 
 	stmt = db_prepare_v2(bkpr->db, SQL("INSERT INTO chain_events"
 				     " ("

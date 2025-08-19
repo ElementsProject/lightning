@@ -31,12 +31,14 @@ struct csv_fmt {
 /* List all the events that are income related (gain/loss) */
 struct income_event **list_income_events_all(const tal_t *ctx,
 					     const struct bkpr *bkpr,
+					     struct command *cmd,
 					     bool consolidate_fees);
 
 /* List all the events that are income related (gain/loss),
  * by a start and end date */
 struct income_event **list_income_events(const tal_t *ctx,
 					 const struct bkpr *bkpr,
+					 struct command *cmd,
 					 u64 start_time,
 					 u64 end_time,
 					 bool consolidate_fees);
