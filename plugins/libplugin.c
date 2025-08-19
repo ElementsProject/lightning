@@ -553,6 +553,8 @@ struct json_out *json_out_obj(const tal_t *ctx,
 	json_out_start(jout, NULL, '{');
 	if (str)
 		json_out_addstr(jout, fieldname, str);
+	if (taken(str))
+		tal_free(str);
 	json_out_end(jout, '}');
 	json_out_finished(jout);
 

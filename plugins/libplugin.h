@@ -369,7 +369,7 @@ struct command_result *command_still_pending(struct command *cmd)
  * object is empty. */
 struct json_out *json_out_obj(const tal_t *ctx,
 			      const char *fieldname,
-			      const char *str);
+			      const char *str TAKES);
 
 /* Return this iff the param() call failed in your handler. */
 struct command_result *command_param_failed(void);
