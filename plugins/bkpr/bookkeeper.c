@@ -16,6 +16,7 @@
 #include <errno.h>
 #include <plugins/bkpr/account.h>
 #include <plugins/bkpr/account_entry.h>
+#include <plugins/bkpr/bookkeeper.h>
 #include <plugins/bkpr/chain_event.h>
 #include <plugins/bkpr/channel_event.h>
 #include <plugins/bkpr/channelsapy.h>
@@ -29,14 +30,6 @@
 
 #define CHAIN_MOVE "chain_mvt"
 #define CHANNEL_MOVE "channel_mvt"
-
-struct bkpr {
-	/* The database that we store all the accounting data in */
-	struct db *db;
-
-	char *db_dsn;
-	char *datadir;
-};
 
 static struct bkpr *bkpr_of(struct plugin *plugin)
 {
