@@ -1045,6 +1045,50 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE channel_funding_inflights ADD i_sent_sigs INTEGER DEFAULT 0"), NULL},
     {SQL("ALTER TABLE channels ADD old_scids BLOB DEFAULT NULL;"), NULL},
     {NULL, migrate_initialize_alias_local},
+    /* Avoids duplication in chain_moves and coin_moves tables */
+    {SQL("CREATE TABLE move_accounts ("
+	 "  id BIGSERIAL,"
+	 "  name TEXT,"
+	 "  PRIMARY KEY (id),"
+	 "  UNIQUE (name)"
+	 ")"), NULL},
+    {SQL("CREATE TABLE chain_moves ("
+	 "  id BIGSERIAL,"
+	 /* One of these is null */
+	 "  account_channel_id BIGINT references channels(id),"
+	 "  account_nonchannel_id BIGINT references move_accounts(id),"
+	 "  tag_bitmap BIGINT NOT NULL,"
+	 "  credit_or_debit BIGINT NOT NULL,"
+	 "  timestamp BIGINT NOT NULL,"
+	 "  utxo BLOB NOT NULL,"
+	 "  spending_txid BLOB,"
+	 /* This does NOT reference peers(node_id), since we can have
+	  * MVT_CHANNEL_PROPOSED events on zeroconf channels where we end up
+	  * forgetting the channel, thus the peer */
+	 "  peer_id BLOB,"
+	 "  payment_hash BLOB,"
+	 "  block_height INTEGER NOT NULL,"
+	 "  output_sat BIGINT NOT NULL,"
+	 /* One of these is null */
+	 "  originating_channel_id BIGINT references channels(id),"
+	 "  originating_nonchannel_id BIGINT references move_accounts(id),"
+	 "  output_count INTEGER,"
+	 "  PRIMARY KEY (id)"
+	 ")"), NULL},
+    {SQL("CREATE TABLE channel_moves ("
+	 "  id BIGSERIAL,"
+	 /* One of these is null */
+	 "  account_channel_id BIGINT references channels(id),"
+	 "  account_nonchannel_id BIGINT references move_accounts(id),"
+	 "  tag_bitmap BIGINT NOT NULL,"
+	 "  credit_or_debit BIGINT NOT NULL,"
+	 "  timestamp BIGINT NOT NULL,"
+	 "  payment_hash BLOB,"
+	 "  payment_part_id BIGINT,"
+	 "  payment_group_id BIGINT,"
+	 "  fees BIGINT NOT NULL,"
+	 "  PRIMARY KEY (id)"
+	 ")"), NULL},
 };
 
 /**
