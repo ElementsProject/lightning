@@ -14,7 +14,7 @@ struct channel_event *new_channel_event(const tal_t *ctx,
 					struct amount_msat credit,
 					struct amount_msat debit,
 					struct amount_msat fees,
-					struct sha256 *payment_id STEALS,
+					const struct sha256 *payment_id TAKES,
 					u32 part_id,
 					u64 timestamp)
 {
@@ -24,7 +24,7 @@ struct channel_event *new_channel_event(const tal_t *ctx,
 	ev->credit = credit;
 	ev->debit = debit;
 	ev->fees = fees;
-	ev->payment_id = tal_steal(ev, payment_id);
+	ev->payment_id = tal_dup_or_null(ev, struct sha256, payment_id);
 	ev->part_id = part_id;
 	ev->timestamp = timestamp;
 
