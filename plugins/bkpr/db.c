@@ -1,5 +1,7 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
+#include <ccan/tal/str/str.h>
+#include <common/daemon.h>
 #include <db/bindings.h>
 #include <db/common.h>
 #include <db/exec.h>
@@ -148,8 +150,11 @@ static bool db_migrate(struct plugin *p, struct db *db)
 
 static void db_error(struct plugin *plugin, bool fatal, const char *fmt, va_list ap)
 {
-	if (fatal)
-		plugin_errv(plugin, fmt, ap);
+	if (fatal) {
+		const char *msg = tal_vfmt(tmpctx, fmt, ap);
+		send_backtrace(msg);
+		plugin_err(plugin, "%s", msg);
+	}
 	else
 		plugin_logv(plugin, LOG_BROKEN, fmt, ap);
 }
