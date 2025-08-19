@@ -97,6 +97,7 @@ static struct account *search_account(struct account **accts, const char *acctna
 }
 
 static void fillin_apy_acct_details(const struct bkpr *bkpr,
+				    struct command *cmd,
 				    const struct account *acct,
 				    u32 current_blockheight,
 				    struct channel_apy *apy)
@@ -107,7 +108,7 @@ static void fillin_apy_acct_details(const struct bkpr *bkpr,
 	apy->acct_name = tal_strdup(apy, acct->name);
 
 	assert(acct->open_event_db_id);
-	ev = find_chain_event_by_id(tmpctx, bkpr, *acct->open_event_db_id);
+	ev = find_chain_event_by_id(tmpctx, bkpr, cmd, *acct->open_event_db_id);
 	assert(ev);
 
 	apy->start_blockheight = ev->blockheight;
@@ -116,7 +117,7 @@ static void fillin_apy_acct_details(const struct bkpr *bkpr,
 
 	/* if this account is closed, add closing blockheight */
 	if (acct->closed_event_db_id) {
-		ev = find_chain_event_by_id(acct, bkpr,
+		ev = find_chain_event_by_id(acct, bkpr, cmd,
 					    *acct->closed_event_db_id);
 		assert(ev);
 		apy->end_blockheight = ev->blockheight;
@@ -140,7 +141,8 @@ static void fillin_apy_acct_details(const struct bkpr *bkpr,
 }
 
 struct channel_apy **compute_channel_apys(const tal_t *ctx,
-					  struct bkpr *bkpr,
+					  const struct bkpr *bkpr,
+					  struct command *cmd,
 					  u64 start_time,
 					  u64 end_time,
 					  u32 current_blockheight)
@@ -149,7 +151,7 @@ struct channel_apy **compute_channel_apys(const tal_t *ctx,
 	struct channel_apy *apy, **apys;
 	struct account *acct, **accts;
 
-	evs = list_channel_events_timebox(ctx, bkpr->db, start_time, end_time);
+	evs = list_channel_events_timebox(ctx, bkpr, cmd, start_time, end_time);
 	accts = list_accounts(ctx, bkpr);
 
 	apys = tal_arr(ctx, struct channel_apy *, 0);
@@ -167,7 +169,7 @@ struct channel_apy **compute_channel_apys(const tal_t *ctx,
 
 		if (!acct || !streq(acct->name, ev->acct_name)) {
 			if (acct && is_channel_account(acct->name)) {
-				fillin_apy_acct_details(bkpr, acct,
+				fillin_apy_acct_details(bkpr, cmd, acct,
 							current_blockheight,
 							apy);
 				/* Save current apy, make new */
@@ -225,7 +227,7 @@ struct channel_apy **compute_channel_apys(const tal_t *ctx,
 	}
 
 	if (acct && is_channel_account(acct->name)) {
-		fillin_apy_acct_details(bkpr, acct,
+		fillin_apy_acct_details(bkpr, cmd, acct,
 					current_blockheight,
 					apy);
 		/* Save current apy, make new */

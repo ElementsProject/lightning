@@ -219,7 +219,7 @@ getblockheight_done(struct command *cmd,
 
 	/* Get the income events */
 	db_begin_transaction(bkpr->db);
-	apys = compute_channel_apys(cmd, bkpr,
+	apys = compute_channel_apys(cmd, bkpr, cmd,
 				    *req->start_time,
 				    *req->end_time,
 				    blockheight);
@@ -314,7 +314,7 @@ static struct command_result *do_dump_income(struct command *cmd,
 
 	/* Ok, go find me some income events! */
 	db_begin_transaction(bkpr->db);
-	evs = list_income_events(cmd, bkpr, *info->start_time, *info->end_time,
+	evs = list_income_events(cmd, bkpr, cmd, *info->start_time, *info->end_time,
 				 *info->consolidate_fees);
 	db_commit_transaction(bkpr->db);
 
@@ -366,7 +366,7 @@ static struct command_result *do_list_income(struct command *cmd,
 
 	/* Ok, go find me some income events! */
 	db_begin_transaction(bkpr->db);
-	evs = list_income_events(cmd, bkpr, *info->start_time, *info->end_time,
+	evs = list_income_events(cmd, bkpr, cmd, *info->start_time, *info->end_time,
 				 *info->consolidate_fees);
 	db_commit_transaction(bkpr->db);
 
@@ -418,7 +418,7 @@ static struct command_result *do_inspect(struct command *cmd,
 				    acct_name);
 
 	db_begin_transaction(bkpr->db);
-	find_txo_chain(cmd, bkpr, acct, &txos);
+	find_txo_chain(cmd, bkpr, cmd, acct, &txos);
 	fee_sums = find_account_onchain_fees(cmd, bkpr, acct);
 	db_commit_transaction(bkpr->db);
 
@@ -625,22 +625,22 @@ static struct command_result *do_account_events(struct command *cmd,
 
 	db_begin_transaction(bkpr->db);
 	if (acct) {
-		channel_events = account_get_channel_events(cmd, bkpr->db, acct);
-		chain_events = account_get_chain_events(cmd, bkpr, acct);
+		channel_events = account_get_channel_events(cmd, bkpr, cmd, acct);
+		chain_events = account_get_chain_events(cmd, bkpr, cmd, acct);
 		onchain_fees = account_get_chain_fees(tmpctx, bkpr, acct->name);
 	} else if (info->payment_id != NULL) {
-		channel_events = get_channel_events_by_id(cmd, bkpr->db, info->payment_id);
+		channel_events = get_channel_events_by_id(cmd, bkpr, cmd, info->payment_id);
 
 		tx_id = tal(cmd, struct bitcoin_txid);
 		tx_id->shad.sha = *info->payment_id;
 		/* Transaction ids are stored as big-endian in the database */
 		reverse_bytes(tx_id->shad.sha.u.u8, sizeof(tx_id->shad.sha.u.u8));
 
-		chain_events = find_chain_events_bytxid(cmd, bkpr, tx_id);
+		chain_events = find_chain_events_bytxid(cmd, bkpr, cmd, tx_id);
 		onchain_fees = get_chain_fees_by_txid(cmd, bkpr, tx_id);
 	} else {
-		channel_events = list_channel_events(cmd, bkpr->db);
-		chain_events = list_chain_events(cmd, bkpr);
+		channel_events = list_channel_events(cmd, bkpr, cmd);
+		chain_events = list_chain_events(cmd, bkpr, cmd);
 		onchain_fees = list_chain_fees(cmd, bkpr);
 	}
 	db_commit_transaction(bkpr->db);
@@ -682,7 +682,7 @@ static struct command_result *do_edit_desc(struct command *cmd,
 
 	db_begin_transaction(bkpr->db);
 	add_utxo_description(cmd, bkpr, info->outpoint, info->new_desc);
-	chain_events = get_chain_events_by_outpoint(cmd, bkpr, info->outpoint, true);
+	chain_events = get_chain_events_by_outpoint(cmd, bkpr, cmd, info->outpoint);
 	db_commit_transaction(bkpr->db);
 
 	res = jsonrpc_stream_success(cmd);
@@ -724,8 +724,8 @@ static struct command_result *do_edit_desc_payment(struct command *cmd,
 	db_begin_transaction(bkpr->db);
 	add_payment_hash_description(cmd, bkpr, info->identifier, info->new_desc);
 
-	chain_events = get_chain_events_by_id(cmd, bkpr, info->identifier);
-	channel_events = get_channel_events_by_id(cmd, bkpr->db, info->identifier);
+	chain_events = get_chain_events_by_id(cmd, bkpr, cmd, info->identifier);
+	channel_events = get_channel_events_by_id(cmd, bkpr, cmd, info->identifier);
 	db_commit_transaction(bkpr->db);
 
 	res = jsonrpc_stream_success(cmd);
@@ -768,7 +768,7 @@ static struct command_result *do_list_balances(struct command *cmd,
 		struct amount_msat credit, debit, balance;
 		bool has_events;
 
-		has_events = account_get_credit_debit(cmd->plugin, bkpr->db,
+		has_events = account_get_credit_debit(bkpr, cmd,
 						      accts[i]->name,
 						      &credit, &debit);
 		if (!amount_msat_sub(&balance, credit, debit)) {
@@ -845,7 +845,7 @@ static void try_update_open_fees(struct command *cmd,
 	struct bkpr *bkpr = bkpr_of(cmd->plugin);
 
 	assert(acct->closed_event_db_id);
-	ev = find_chain_event_by_id(cmd, bkpr, *acct->closed_event_db_id);
+	ev = find_chain_event_by_id(cmd, bkpr, cmd, *acct->closed_event_db_id);
 	assert(ev);
 
 	err = maybe_update_onchain_fees(cmd, cmd, bkpr, ev->spending_txid);
@@ -1163,7 +1163,7 @@ static char *do_account_close_checks(struct command *cmd,
 	} else if (!is_channel_account(acct->name) && !e->spending_txid) {
 		const char *acctname;
 
-		acctname = find_close_account_name(tmpctx, bkpr->db, &e->outpoint.txid);
+		acctname = find_close_account_name(tmpctx, bkpr, cmd, &e->outpoint.txid);
 		if (acctname) {
 			closed_acct = find_account(bkpr, acctname);
 		} else {
@@ -1175,7 +1175,7 @@ static char *do_account_close_checks(struct command *cmd,
 
 
 	if (closed_acct && closed_acct->closed_event_db_id) {
-		u64 closeheight = account_onchain_closeheight(bkpr, closed_acct);
+		u64 closeheight = account_onchain_closeheight(bkpr, cmd, closed_acct);
 		if (closeheight != 0) {
 			char *err;
 			account_update_closeheight(cmd, closed_acct, closeheight);
@@ -1398,7 +1398,7 @@ listpeerchannels_done(struct command *cmd,
 					info->acct,
 					info->ev->timestamp)) {
 		db_begin_transaction(bkpr->db);
-		account_get_credit_debit(cmd->plugin, bkpr->db, info->acct->name,
+		account_get_credit_debit(bkpr, cmd, info->acct->name,
 					 &credit, &debit);
 		db_commit_transaction(bkpr->db);
 

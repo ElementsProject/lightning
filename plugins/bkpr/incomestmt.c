@@ -1,14 +1,12 @@
 #include "config.h"
+#include <assert.h>
 #include <bitcoin/chainparams.h>
 #include <ccan/array_size/array_size.h>
+#include <ccan/json_escape/json_escape.h>
 #include <ccan/tal/str/str.h>
 #include <common/coin_mvt.h>
 #include <common/json_parse_simple.h>
 #include <common/json_stream.h>
-#include <db/bindings.h>
-#include <db/common.h>
-#include <db/exec.h>
-#include <db/utils.h>
 #include <inttypes.h>
 #include <plugins/bkpr/account.h>
 #include <plugins/bkpr/account_entry.h>
@@ -20,6 +18,7 @@
 #include <plugins/bkpr/onchain_fee.h>
 #include <plugins/bkpr/rebalances.h>
 #include <plugins/bkpr/recorder.h>
+#include <plugins/bkpr/sql.h>
 #include <time.h>
 
 #define ONCHAIN_FEE "onchain_fee"
@@ -111,6 +110,7 @@ static char *csv_safe_str(const tal_t *ctx, const char *input TAKES)
 
 static struct income_event *maybe_chain_income(const tal_t *ctx,
 					       const struct bkpr *bkpr,
+					       struct command *cmd,
 					       struct account *acct,
 					       struct chain_event *ev)
 {
@@ -141,7 +141,8 @@ static struct income_event *maybe_chain_income(const tal_t *ctx,
 
 	/* income */
 	if (streq(ev->tag, "deposit")) {
-		struct db_stmt *stmt;
+		const jsmntok_t *toks;
+		const char *buf;
 
 		/* deposit to external is cost to us */
 		if (is_external_account(ev->acct_name)) {
@@ -168,16 +169,16 @@ static struct income_event *maybe_chain_income(const tal_t *ctx,
 		 * into a tx that included funds from a 3rd party
 		 * coming to us... eg. a splice out from the peer
 		 * to our onchain wallet */
-		stmt = db_prepare_v2(bkpr->db, SQL("SELECT"
-					     "  1"
-					     " FROM chain_events e"
-					     " WHERE "
-					     "  e.spending_txid = ?"));
-
-		db_bind_txid(stmt, &ev->outpoint.txid);
-		db_query_prepared(stmt);
-		if (!db_step(stmt)) {
-			tal_free(stmt);
+		toks = sql_req(tmpctx, cmd, &buf,
+			       "SELECT"
+			       "  1"
+			       " FROM chainmoves"
+			       " WHERE "
+			       "  spending_txid = X'%s'"
+			       "  AND created_index <= %"PRIu64,
+			       fmt_bitcoin_txid(tmpctx, &ev->outpoint.txid),
+			       bkpr->chainmoves_index);
+		if (json_get_member(buf, toks, "rows")->size == 0) {
 			/* no matching withdrawal from internal,
 			 * so must be new deposit (external) */
 			return chain_to_income(ctx, bkpr, ev,
@@ -185,9 +186,6 @@ static struct income_event *maybe_chain_income(const tal_t *ctx,
 					       ev->credit,
 					       ev->debit);
 		}
-
-		db_col_ignore(stmt, "1");
-		tal_free(stmt);
 		return NULL;
 	}
 
@@ -306,6 +304,7 @@ static struct onchain_fee **find_consolidated_fees(const tal_t *ctx,
 
 struct income_event **list_income_events(const tal_t *ctx,
 					 const struct bkpr *bkpr,
+					 struct command *cmd,
 					 u64 start_time,
 					 u64 end_time,
 					 bool consolidate_fees)
@@ -315,9 +314,9 @@ struct income_event **list_income_events(const tal_t *ctx,
 	struct onchain_fee **onchain_fees;
 	struct income_event **evs;
 
-	channel_events = list_channel_events_timebox(ctx, bkpr->db,
+	channel_events = list_channel_events_timebox(ctx, bkpr, cmd,
 						     start_time, end_time);
-	chain_events = list_chain_events_timebox(ctx, bkpr, start_time, end_time);
+	chain_events = list_chain_events_timebox(ctx, bkpr, cmd, start_time, end_time);
 
 	if (consolidate_fees) {
 		onchain_fees = find_consolidated_fees(ctx, bkpr,
@@ -369,7 +368,7 @@ struct income_event **list_income_events(const tal_t *ctx,
 			struct account *acct =
 				find_account(bkpr, chain->acct_name);
 
-			ev = maybe_chain_income(evs, bkpr, acct, chain);
+			ev = maybe_chain_income(evs, bkpr, cmd, acct, chain);
 			if (ev)
 				tal_arr_expand(&evs, ev);
 			i++;
@@ -407,9 +406,10 @@ struct income_event **list_income_events(const tal_t *ctx,
 
 struct income_event **list_income_events_all(const tal_t *ctx,
 					     const struct bkpr *bkpr,
+					     struct command *cmd,
 					     bool consolidate_fees)
 {
-	return list_income_events(ctx, bkpr, 0, SQLITE_MAX_UINT,
+	return list_income_events(ctx, bkpr, cmd, 0, SQLITE_MAX_UINT,
 				  consolidate_fees);
 }
 

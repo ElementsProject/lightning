@@ -33,16 +33,20 @@ struct txo_set {
 
 /* Get all channel events for this account */
 struct channel_event **account_get_channel_events(const tal_t *ctx,
-						  struct db *db,
+						  const struct bkpr *bkpr,
+						  struct command *cmd,
 						  struct account *acct);
 
 /* Get all channel events for a payment id, order by timestamp */
 struct channel_event **get_channel_events_by_id(const tal_t *ctx,
-						struct db *db,
-						struct sha256 *id);
+						const struct bkpr *bkpr,
+						struct command *cmd,
+						const struct sha256 *id);
 
 /* Get all channel events, ordered by timestamp */
-struct channel_event **list_channel_events(const tal_t *ctx, struct db *db);
+struct channel_event **list_channel_events(const tal_t *ctx,
+					   const struct bkpr *bkpr,
+					   struct command *cmd);
 
 /* Get all channel events, order by timestamp.
  *
@@ -52,50 +56,56 @@ struct channel_event **list_channel_events(const tal_t *ctx, struct db *db);
  * @end_time   - UNIX timestamp to query until (inclusive)
  */
 struct channel_event **list_channel_events_timebox(const tal_t *ctx,
-						   struct db *db,
+						   const struct bkpr *bkpr,
+						   struct command *cmd,
 						   u64 start_time,
 						   u64 end_time);
 
 /* Get all chain events for this account */
 struct chain_event **account_get_chain_events(const tal_t *ctx,
 					      const struct bkpr *bkpr,
+					      struct command *cmd,
 					      struct account *acct);
 
 /* Get all chain events for a transaction id, order by timestamp */
 struct chain_event **find_chain_events_bytxid(const tal_t *ctx,
 					      const struct bkpr *bkpr,
+					      struct command *cmd,
 					      const struct bitcoin_txid *txid);
 
 /* Get all chain events, order by timestamp.  */
-struct chain_event **list_chain_events(const tal_t *ctx, const struct bkpr *bkpr);
+struct chain_event **list_chain_events(const tal_t *ctx,
+				       const struct bkpr *bkpr,
+				       struct command *cmd);
 
 /* Get all chain events, order by timestamp.
  *
  * @ctx - context to allocate from
- * @db  - database to query
  * @start_time - UNIX timestamp to query after (exclusive)
  * @end_time   - UNIX timestamp to query until (inclusive)
  */
 struct chain_event **list_chain_events_timebox(const tal_t *ctx,
 					       const struct bkpr *bkpr,
+					       struct command *cmd,
 					       u64 start_time,
 					       u64 end_time);
 
 /* Get all chain events for a payment hash */
 struct chain_event **get_chain_events_by_id(const tal_t *ctx,
-					   const struct bkpr *bkpr,
-					   const struct sha256 *id);
+					    const struct bkpr *bkpr,
+					    struct command *cmd,
+					    const struct sha256 *id);
 
 /* Get all chain events for a utxo */
 struct chain_event **get_chain_events_by_outpoint(const tal_t *ctx,
 						  const struct bkpr *bkpr,
-						  const struct bitcoin_outpoint *outpoint,
-						  bool credits_only);
+						  struct command *cmd,
+						  const struct bitcoin_outpoint *outpoint);
 
 /* Get total credits and debits for this account: returns false if no entries at all
  * (in which case, credit and debit will both be AMOUNT_MSAT(0)). */
-bool account_get_credit_debit(struct plugin *plugin,
-			      struct db *db,
+bool account_get_credit_debit(const struct bkpr *bkpr,
+			      struct command *cmd,
 			      const char *acct_name,
 			      struct amount_msat *credit,
 			      struct amount_msat *debit);
@@ -104,6 +114,7 @@ bool account_get_credit_debit(struct plugin *plugin,
 /* Find a chain event by its database id */
 struct chain_event *find_chain_event_by_id(const tal_t *ctx,
 					   const struct bkpr *bkpr,
+					   struct command *cmd,
 					   u64 event_db_id);
 
 /* Find the utxos for this account.
@@ -113,13 +124,15 @@ struct chain_event *find_chain_event_by_id(const tal_t *ctx,
  */
 bool find_txo_chain(const tal_t *ctx,
 		    const struct bkpr *bkpr,
+		    struct command *cmd,
 		    const struct account *acct,
 		    struct txo_set ***sets);
 
 /* Find the account that was closed by this txid.
  * Returns NULL if none  */
 const char *find_close_account_name(const tal_t *ctx,
-				    struct db *db,
+				    const struct bkpr *bkpr,
+				    struct command *cmd,
 				    const struct bitcoin_txid *txid);
 
 /* Have all the outputs for this account's close tx
@@ -127,7 +140,9 @@ const char *find_close_account_name(const tal_t *ctx,
  * highest blockheight that has a resolving tx in it.
  *
  * The point of this is to allow us to prune data, eventually */
-u64 account_onchain_closeheight(const struct bkpr *bkpr, const struct account *acct);
+u64 account_onchain_closeheight(const struct bkpr *bkpr,
+				struct command *cmd,
+				const struct account *acct);
 
 /* When we make external deposits from the wallet, we don't
  * count them until any output that was spent *into* them is
