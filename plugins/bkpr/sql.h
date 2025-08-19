@@ -43,10 +43,9 @@ struct command_result;
 	"          AND et.extra_tags = 'splice') AS spliced"		\
 	" FROM chainmoves cm "
 
-const jsmntok_t *
-PRINTF_FMT(4, 5) sql_req(const tal_t *ctx,
-			 struct command *cmd, const char **buf,
-			 const char *fmt, ...);
+const jsmntok_t *PRINTF_FMT(4, 5) sql_req(const tal_t *ctx,
+					  struct command *cmd, const char **buf,
+					  const char *fmt, ...);
 
 const jsmntok_t *sql_reqv(const tal_t *ctx,
 			  struct command *cmd, const char **buf,
