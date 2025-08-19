@@ -29,5 +29,6 @@ const u8 *hsm_sync_req(const tal_t *ctx,
 
 /* Get (and check!) a bip32 derived pubkey */
 void bip32_pubkey(struct lightningd *ld, struct pubkey *pubkey, u32 index);
+void bip86_pubkey(struct lightningd *ld, struct pubkey *pubkey, u32 index);
 
 #endif /* LIGHTNING_LIGHTNINGD_HSM_CONTROL_H */

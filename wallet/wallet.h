@@ -282,6 +282,7 @@ enum addrtype {
 	ADDR_P2SH_SEGWIT = 1,
 	ADDR_BECH32 = 2,
 	ADDR_P2TR = 4,
+	ADDR_P2TR_MNEMONIC = 8,
 	ADDR_ALL = (ADDR_BECH32 + ADDR_P2TR)
 };
 
@@ -293,6 +294,9 @@ static inline enum addrtype wallet_addrtype_in_db(enum addrtype t)
 		return t;
 	case ADDR_P2TR:
 		BUILD_ASSERT(ADDR_P2TR == 4);
+		return t;
+	case ADDR_P2TR_MNEMONIC:
+		BUILD_ASSERT(ADDR_P2TR_MNEMONIC == 8);
 		return t;
 	case ADDR_ALL:
 		BUILD_ASSERT(ADDR_ALL == 6);
@@ -612,6 +616,7 @@ bool wallet_can_spend(struct wallet *w,
  * Returns -1 on error (key exhaustion).
  */
 s64 wallet_get_newindex(struct lightningd *ld, enum addrtype addrtype);
+s64 wallet_get_new_bip86_index(struct lightningd *ld);
 
 /**
  * wallet_get_addrtype - get the address types for this key.

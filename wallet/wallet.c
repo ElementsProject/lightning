@@ -28,6 +28,8 @@
 #include <wallet/txfilter.h>
 #include <wallet/wallet.h>
 #include <wally_bip32.h>
+#include <lightningd/hsm_control.h>
+#include <hsmd/hsmd_wiregen.h>
 
 #define SQLITE_MAX_UINT 0x7FFFFFFFFFFFFFFF
 #define DIRECTION_INCOMING 0
@@ -116,6 +118,47 @@ static void our_addresses_add(struct wallet_address_htable *our_addresses,
 	wallet_address_htable_add(our_addresses, waddr);
 }
 
+/* Add BIP86 address for a given index */
+static bool our_addresses_add_bip86_for_index(struct wallet *w, u32 i)
+{
+	struct pubkey pubkey;
+	const u8 *scriptpubkey;
+
+	/* Use local BIP86 derivation if we have the base key */
+	if (w->ld->bip86_base) {
+		bip86_pubkey(w->ld, &pubkey, i);
+		
+		/* Create P2TR scriptpubkey from the BIP86 public key */
+		scriptpubkey = scriptpubkey_p2tr(tmpctx, &pubkey);
+		our_addresses_add(w->our_addresses,
+				  i,
+				  take(scriptpubkey),
+				  tal_bytelen(scriptpubkey),
+				  ADDR_P2TR_MNEMONIC);
+		return true;
+	}
+
+	/* Fallback to HSM calls if no base key available */
+	const u8 *msg;
+
+	/* Request BIP86 key derivation from HSM */
+	msg = towire_hsmd_derive_bip86_key(NULL, i, false);
+	msg = hsm_sync_req(tmpctx, w->ld, take(msg));
+	
+	if (!fromwire_hsmd_derive_bip86_key_reply(msg, &pubkey)) {
+		return false;
+	}
+
+	/* Create P2TR scriptpubkey from the BIP86 public key */
+	scriptpubkey = scriptpubkey_p2tr(tmpctx, &pubkey);
+	our_addresses_add(w->our_addresses,
+			  i,
+			  take(scriptpubkey),
+			  tal_bytelen(scriptpubkey),
+			  ADDR_P2TR_MNEMONIC);
+	return true;
+}
+
 static void our_addresses_add_for_index(struct wallet *w, u32 i)
 {
 	struct ext_key ext;
@@ -173,6 +216,13 @@ static void our_addresses_add_for_index(struct wallet *w, u32 i)
 				  take(scriptpubkey),
 				  tal_bytelen(scriptpubkey),
 				  ADDR_P2TR);
+		return;
+	case ADDR_P2TR_MNEMONIC:
+		/* BIP86 addresses require HSM derivation */
+		if (our_addresses_add_bip86_for_index(w, i)) {
+			return;
+		}
+		/* If BIP86 derivation fails, skip this address */
 		return;
 	}
 	abort();
@@ -950,13 +1000,17 @@ bool wallet_add_onchaind_utxo(struct wallet *w,
 bool wallet_can_spend(struct wallet *w, const u8 *script, size_t script_len,
 		      u32 *index, enum addrtype *addrtype)
 {
-	u64 bip32_max_index;
+	u64 bip32_max_index, bip86_max_index;
 	const struct wallet_address *waddr;
 	struct script_with_len scriptwl = {script, script_len};
 
 	/* Update hash table if we need to */
 	bip32_max_index = db_get_intvar(w->db, "bip32_max_index", 0);
-	while (w->our_addresses_maxindex < bip32_max_index + w->keyscan_gap)
+	bip86_max_index = db_get_intvar(w->db, "bip86_max_index", 0);
+	
+	/* Scan both BIP32 and BIP86 addresses */
+			u64 max_index = (bip32_max_index > bip86_max_index) ? bip32_max_index : bip86_max_index;
+		while (w->our_addresses_maxindex < max_index + w->keyscan_gap)
 		our_addresses_add_for_index(w, ++w->our_addresses_maxindex);
 
 	waddr = wallet_address_htable_get(w->our_addresses, &scriptwl);
@@ -965,8 +1019,13 @@ bool wallet_can_spend(struct wallet *w, const u8 *script, size_t script_len,
 
 	/* If we found a used key in the keyscan_gap we should
 	 * remember that. */
-	if (waddr->index > bip32_max_index)
-		db_set_intvar(w->db, "bip32_max_index", waddr->index);
+	if (waddr->addrtype == ADDR_P2TR_MNEMONIC) {
+		if (waddr->index > bip86_max_index)
+			db_set_intvar(w->db, "bip86_max_index", waddr->index);
+	} else {
+		if (waddr->index > bip32_max_index)
+			db_set_intvar(w->db, "bip32_max_index", waddr->index);
+	}
 
 	*index = waddr->index;
 	if (addrtype)
@@ -991,6 +1050,27 @@ s64 wallet_get_newindex(struct lightningd *ld, enum addrtype addrtype)
 	db_bind_u64(stmt, newidx);
 	db_bind_int(stmt, wallet_addrtype_in_db(addrtype));
 	db_exec_prepared_v2(take(stmt));
+
+	return newidx;
+}
+
+s64 wallet_get_new_bip86_index(struct lightningd *ld)
+{
+	struct db_stmt *db_stmt;
+	u64 newidx = db_get_intvar(ld->wallet->db, "bip86_max_index", 0) + 1;
+
+	if (newidx == BIP32_INITIAL_HARDENED_CHILD)
+		return -1;
+
+	db_set_intvar(ld->wallet->db, "bip86_max_index", newidx);
+	db_stmt = db_prepare_v2(ld->wallet->db,
+			     SQL("INSERT INTO addresses ("
+				 "  keyidx"
+				 ", addrtype"
+				 ") VALUES (?, ?);"));
+	db_bind_u64(db_stmt, newidx);
+	db_bind_int(db_stmt, wallet_addrtype_in_db(ADDR_P2TR_MNEMONIC));
+	db_exec_prepared_v2(take(db_stmt));
 
 	return newidx;
 }
@@ -3090,6 +3170,7 @@ static void got_utxo(struct wallet *w,
 		utxo->utxotype = UTXO_P2WPKH;
 		goto type_ok;
 	case ADDR_P2TR:
+	case ADDR_P2TR_MNEMONIC:
 		utxo->utxotype = UTXO_P2TR;
 		goto type_ok;
 	case ADDR_ALL:

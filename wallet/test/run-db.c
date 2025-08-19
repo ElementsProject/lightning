@@ -25,6 +25,9 @@ static void db_log_(struct logger *log UNUSED, enum log_level level UNUSED, cons
 /* Generated stub for bip32_pubkey */
 void bip32_pubkey(struct lightningd *ld UNNEEDED, struct pubkey *pubkey UNNEEDED, u32 index UNNEEDED)
 { fprintf(stderr, "bip32_pubkey called!\n"); abort(); }
+/* Generated stub for bip86_pubkey */
+void bip86_pubkey(struct lightningd *ld UNNEEDED, struct pubkey *pubkey UNNEEDED, u32 index UNNEEDED)
+{ fprintf(stderr, "bip86_pubkey called!\n"); abort(); }
 /* Generated stub for bitcoind_getrawblockbyheight_ */
 void bitcoind_getrawblockbyheight_(const tal_t *ctx UNNEEDED,
 				   struct bitcoind *bitcoind UNNEEDED,
@@ -365,6 +368,15 @@ u8 *towire_hsmd_get_channel_basepoints(const tal_t *ctx UNNEEDED, const struct n
 /* Generated stub for towire_hsmd_get_output_scriptpubkey */
 u8 *towire_hsmd_get_output_scriptpubkey(const tal_t *ctx UNNEEDED, u64 channel_id UNNEEDED, const struct node_id *peer_id UNNEEDED, const struct pubkey *commitment_point UNNEEDED)
 { fprintf(stderr, "towire_hsmd_get_output_scriptpubkey called!\n"); abort(); }
+/* Generated stub for towire_hsmd_derive_bip86_key */
+u8 *towire_hsmd_derive_bip86_key(const tal_t *ctx UNNEEDED, u32 index UNNEEDED, bool is_change UNNEEDED)
+{ fprintf(stderr, "towire_hsmd_derive_bip86_key called!\n"); abort(); }
+/* Generated stub for fromwire_hsmd_derive_bip86_key_reply */
+bool fromwire_hsmd_derive_bip86_key_reply(const void *p UNNEEDED, struct pubkey *pubkey UNNEEDED)
+{ fprintf(stderr, "fromwire_hsmd_derive_bip86_key_reply called!\n"); abort(); }
+/* Generated stub for hsm_sync_req */
+const u8 *hsm_sync_req(const tal_t *ctx UNNEEDED, struct lightningd *ld UNNEEDED, const u8 *msg UNNEEDED)
+{ fprintf(stderr, "hsm_sync_req called!\n"); abort(); }
 /* Generated stub for towire_temporary_node_failure */
 u8 *towire_temporary_node_failure(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_temporary_node_failure called!\n"); abort(); }

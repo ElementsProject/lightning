@@ -706,26 +706,34 @@ void hsmd_status_failed(enum status_failreason reason, const char *fmt, ...)
 	status_send_fatal(take(towire_status_fail(NULL, reason, str)));
 }
 
-/* Handle BIP86 capability check request */
-static struct io_plan *handle_get_bip86_capability(struct io_conn *conn,
-						   struct client *c,
-						   const u8 *msg_in)
+
+/* Helper function to derive the BIP86 base key (m/86'/0'/0') */
+static void derive_bip86_base_key(struct ext_key *bip86_base)
 {
-	u8 *reply;
-	bool available = false;
-
-	/* Validate the incoming message format */
-	if (!fromwire_hsmd_get_bip86_capability(msg_in))
-		return bad_req(conn, c, msg_in);
-
-	/* Check if we have a mnemonic-based HSM secret */
-	if (hsm_secret.type == HSM_SECRET_MNEMONIC_NO_PASS ||
-	    hsm_secret.type == HSM_SECRET_MNEMONIC_WITH_PASS) {
-		available = true;
+	/* Check if we have the full BIP32 seed available */
+	if (!hsm_secret.bip32_seed) {
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "BIP86 derivation requires full BIP32 seed (not available in legacy format)");
 	}
 
-	reply = towire_hsmd_get_bip86_capability_reply(NULL, available);
-	return req_reply(conn, c, take(reply));
+	/* First create the master key from the seed */
+	struct ext_key master_key;
+	if (bip32_key_from_seed(hsm_secret.bip32_seed, 64, BIP32_VER_MAIN_PRIVATE, 0, &master_key) != WALLY_OK) {
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Failed to create master key from BIP32 seed");
+	}
+
+	/* Set up the BIP86 base path: m/86'/0'/0' */
+	u32 base_path[3];
+	base_path[0] = 86 | 0x80000000;  /* 86' */
+	base_path[1] = 0x80000000;       /* 0' */
+	base_path[2] = 0x80000000;       /* 0' */
+
+	/* Derive the BIP86 base key */
+	if (bip32_key_from_parent_path(&master_key, base_path, 3, BIP32_FLAG_KEY_PRIVATE, bip86_base) != WALLY_OK) {
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Failed to derive BIP86 base key");
+	}
 }
 
 /* Handle BIP86 key derivation request */
@@ -734,24 +742,11 @@ static struct io_plan *handle_derive_bip86_key(struct io_conn *conn,
 					       const u8 *msg_in)
 {
 	u8 *reply;
-	u32 index;
-	bool is_change;
 	struct pubkey pubkey;
-	struct ext_key ext;
-	u32 change_index;
-	u32 path[5];
 
 	/* Validate the incoming message format */
-	if (!fromwire_hsmd_derive_bip86_key(msg_in, &index, &is_change))
+	if (!fromwire_hsmd_derive_bip86_key(msg_in, NULL, NULL))
 		return bad_req(conn, c, msg_in);
-
-	/* Set up the BIP86 derivation path: m/86'/0'/0'/change/address_index */
-	change_index = is_change ? 1 : 0;
-	path[0] = 86 | 0x80000000;  /* 86' */
-	path[1] = 0x80000000;       /* 0' */
-	path[2] = 0x80000000;       /* 0' */
-	path[3] = change_index;     /* change (0 or 1) */
-	path[4] = index;            /* address_index */
 
 	/* Check if we have a mnemonic-based HSM secret */
 	if (hsm_secret.type != HSM_SECRET_MNEMONIC_NO_PASS &&
@@ -760,33 +755,89 @@ static struct io_plan *handle_derive_bip86_key(struct io_conn *conn,
 				   "BIP86 derivation requires mnemonic-based HSM secret");
 	}
 
-	/* Check if we have the full BIP32 seed available */
-	if (!hsm_secret.bip32_seed) {
-		return bad_req_fmt(conn, c, msg_in,
-				   "BIP86 derivation requires full BIP32 seed (not available in legacy format)");
-	}
+	/* Derive the BIP86 base key using the helper function */
+	struct ext_key bip86_base;
+	derive_bip86_base_key(&bip86_base);
 
-	/* First create the master key from the seed */
-	struct ext_key master_key;
-	if (bip32_key_from_seed(hsm_secret.bip32_seed, 64, BIP32_VER_MAIN_PRIVATE, 0, &master_key) != WALLY_OK) {
-		return bad_req_fmt(conn, c, msg_in,
-				   "Failed to create master key from BIP32 seed");
-	}
-
-	/* Then derive the BIP86 key using the path m/86'/0'/0'/change/address_index */
-	if (bip32_key_from_parent_path(&master_key, path, 5, BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
-		return bad_req_fmt(conn, c, msg_in,
-				   "Failed to derive BIP86 key for index %u", index);
-	}
-
-	/* Convert to pubkey */
+	/* Return the BIP86 base key as a pubkey */
 	if (!secp256k1_ec_pubkey_parse(secp256k1_ctx, &pubkey.pubkey,
-				       ext.pub_key, sizeof(ext.pub_key))) {
+				       bip86_base.pub_key, sizeof(bip86_base.pub_key))) {
 		return bad_req_fmt(conn, c, msg_in,
-				   "Failed to parse derived BIP86 pubkey for index %u", index);
+				   "Failed to parse BIP86 base pubkey");
 	}
 
 	reply = towire_hsmd_derive_bip86_key_reply(NULL, &pubkey);
+	return req_reply(conn, c, take(reply));
+}
+
+/*~ Get the BIP86 keys for this given index: if privkey is NULL, we
+ * don't fill it in. This derives the full path: m/86'/0'/0'/0/index */
+static void bip86_key(struct privkey *privkey, struct pubkey *pubkey,
+		      u32 index)
+{
+	struct privkey unused_priv;
+
+	if (privkey == NULL)
+		privkey = &unused_priv;
+
+	if (index >= BIP32_INITIAL_HARDENED_CHILD)
+		status_failed(STATUS_FAIL_MASTER_IO, "Index %u too great", index);
+
+	/* Derive the BIP86 base key using the helper function */
+	struct ext_key bip86_base;
+	derive_bip86_base_key(&bip86_base);
+
+	/* Now derive the specific index: m/86'/0'/0'/0/index */
+	u32 final_path[2];
+	final_path[0] = 0;  /* change (0 for receive) */
+	final_path[1] = index;  /* address_index */
+
+	struct ext_key final_key;
+	if (bip32_key_from_parent_path(&bip86_base, final_path, 2, BIP32_FLAG_KEY_PRIVATE, &final_key) != WALLY_OK) {
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "BIP86 derivation of index %u failed", index);
+	}
+
+	/* Convert to our format */
+	memcpy(privkey->secret.data, final_key.priv_key+1, 32);
+	if (!secp256k1_ec_pubkey_create(secp256k1_ctx, &pubkey->pubkey,
+					privkey->secret.data))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "BIP86 pubkey %u create failed", index);
+}
+
+/* Handle BIP86 pubkey check request */
+static struct io_plan *handle_check_bip86_pubkey(struct io_conn *conn,
+						 struct client *c,
+						 const u8 *msg_in)
+{
+	u32 index;
+	struct pubkey their_pubkey, our_pubkey;
+	struct privkey our_privkey;
+	u8 *reply;
+
+	if (!fromwire_hsmd_check_bip86_pubkey(msg_in, &index, &their_pubkey))
+		return bad_req(conn, c, msg_in);
+
+	/* Check if we have a mnemonic-based HSM secret */
+	if (hsm_secret.type != HSM_SECRET_MNEMONIC_NO_PASS &&
+	    hsm_secret.type != HSM_SECRET_MNEMONIC_WITH_PASS) {
+		return bad_req_fmt(conn, c, msg_in,
+				   "BIP86 derivation requires mnemonic-based HSM secret");
+	}
+
+	/* We abort if lightningd asks for a stupid index. */
+	bip86_key(&our_privkey, &our_pubkey, index);
+	if (!pubkey_eq(&our_pubkey, &their_pubkey)) {
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "BIP86 derivation index %u differed:"
+			      " they got %s, we got %s",
+			      index,
+			      fmt_pubkey(tmpctx, &their_pubkey),
+			      fmt_pubkey(tmpctx, &our_pubkey));
+	}
+
+	reply = towire_hsmd_check_bip86_pubkey_reply(NULL, true);
 	return req_reply(conn, c, take(reply));
 }
 
@@ -821,10 +872,10 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 			return handle_memleak(conn, c, c->msg_in);
 		/* fall thru */
 
-	case WIRE_HSMD_GET_BIP86_CAPABILITY:
-		return handle_get_bip86_capability(conn, c, c->msg_in);
 	case WIRE_HSMD_DERIVE_BIP86_KEY:
 		return handle_derive_bip86_key(conn, c, c->msg_in);
+	case WIRE_HSMD_CHECK_BIP86_PUBKEY:
+		return handle_check_bip86_pubkey(conn, c, c->msg_in);
 	case WIRE_HSMD_NEW_CHANNEL:
 	case WIRE_HSMD_SETUP_CHANNEL:
  	case WIRE_HSMD_CHECK_OUTPOINT:
@@ -910,9 +961,9 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_PREAPPROVE_KEYSEND_REPLY:
 	case WIRE_HSMD_PREAPPROVE_INVOICE_CHECK_REPLY:
 	case WIRE_HSMD_PREAPPROVE_KEYSEND_CHECK_REPLY:
-	case WIRE_HSMD_GET_BIP86_CAPABILITY_REPLY:
 	case WIRE_HSMD_DERIVE_BIP86_KEY_REPLY:
 	case WIRE_HSMD_CHECK_PUBKEY_REPLY:
+	case WIRE_HSMD_CHECK_BIP86_PUBKEY_REPLY:
 	case WIRE_HSMD_SIGN_ANCHORSPEND_REPLY:
 	case WIRE_HSMD_SIGN_HTLC_TX_MINGLE_REPLY:
 	case WIRE_HSMD_SIGN_ANY_CANNOUNCEMENT_REPLY:

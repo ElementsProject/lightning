@@ -144,10 +144,10 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 	case WIRE_HSMD_PREAPPROVE_KEYSEND:
 	case WIRE_HSMD_PREAPPROVE_INVOICE_CHECK:
 	case WIRE_HSMD_PREAPPROVE_KEYSEND_CHECK:
-	case WIRE_HSMD_GET_BIP86_CAPABILITY:
 	case WIRE_HSMD_DERIVE_BIP86_KEY:
 	case WIRE_HSMD_DERIVE_SECRET:
 	case WIRE_HSMD_CHECK_PUBKEY:
+	case WIRE_HSMD_CHECK_BIP86_PUBKEY:
 	case WIRE_HSMD_SIGN_ANY_PENALTY_TO_US:
 	case WIRE_HSMD_SIGN_ANY_DELAYED_PAYMENT_TO_US:
 	case WIRE_HSMD_SIGN_ANY_REMOTE_HTLC_TO_US:
@@ -194,10 +194,10 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 	case WIRE_HSMD_PREAPPROVE_KEYSEND_REPLY:
 	case WIRE_HSMD_PREAPPROVE_INVOICE_CHECK_REPLY:
 	case WIRE_HSMD_PREAPPROVE_KEYSEND_CHECK_REPLY:
-	case WIRE_HSMD_GET_BIP86_CAPABILITY_REPLY:
 	case WIRE_HSMD_DERIVE_BIP86_KEY_REPLY:
 	case WIRE_HSMD_DERIVE_SECRET_REPLY:
 	case WIRE_HSMD_CHECK_PUBKEY_REPLY:
+	case WIRE_HSMD_CHECK_BIP86_PUBKEY_REPLY:
 	case WIRE_HSMD_SIGN_ANCHORSPEND_REPLY:
 	case WIRE_HSMD_SIGN_HTLC_TX_MINGLE_REPLY:
 	case WIRE_HSMD_SIGN_ANY_CANNOUNCEMENT_REPLY:
@@ -532,6 +532,8 @@ static void bitcoin_key(struct privkey *privkey, struct pubkey *pubkey,
 		hsmd_status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				   "BIP32 pubkey %u create failed", index);
 }
+
+
 
 /* This gets the bitcoin private key needed to spend from our wallet */
 static void hsm_key_for_utxo(struct privkey *privkey, struct pubkey *pubkey,
@@ -2231,8 +2233,8 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 	case WIRE_HSMD_PREAPPROVE_KEYSEND:
 	case WIRE_HSMD_PREAPPROVE_KEYSEND_CHECK:
 		return handle_preapprove_keysend(client, msg);
-	case WIRE_HSMD_GET_BIP86_CAPABILITY:
 	case WIRE_HSMD_DERIVE_BIP86_KEY:
+	case WIRE_HSMD_CHECK_BIP86_PUBKEY:
 		/* This should be handled by hsmd.c, not libhsmd */
 		return hsmd_status_bad_request_fmt(
 		    client, msg,
@@ -2334,9 +2336,9 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 	case WIRE_HSMD_PREAPPROVE_KEYSEND_REPLY:
 	case WIRE_HSMD_PREAPPROVE_INVOICE_CHECK_REPLY:
 	case WIRE_HSMD_PREAPPROVE_KEYSEND_CHECK_REPLY:
-	case WIRE_HSMD_GET_BIP86_CAPABILITY_REPLY:
 	case WIRE_HSMD_DERIVE_BIP86_KEY_REPLY:
 	case WIRE_HSMD_CHECK_PUBKEY_REPLY:
+	case WIRE_HSMD_CHECK_BIP86_PUBKEY_REPLY:
 	case WIRE_HSMD_SIGN_ANCHORSPEND_REPLY:
 	case WIRE_HSMD_SIGN_HTLC_TX_MINGLE_REPLY:
 	case WIRE_HSMD_SIGN_ANY_CANNOUNCEMENT_REPLY:
@@ -2355,6 +2357,7 @@ u8 *hsmd_init(struct secret hsm_secret, const u64 hsmd_version,
 	struct node_id node_id;
 	static const u32 capabilities[] = {
 		WIRE_HSMD_CHECK_PUBKEY,
+		WIRE_HSMD_CHECK_BIP86_PUBKEY,
 		WIRE_HSMD_SIGN_ANY_DELAYED_PAYMENT_TO_US,
 		WIRE_HSMD_SIGN_ANCHORSPEND,
 		WIRE_HSMD_SIGN_HTLC_TX_MINGLE,
