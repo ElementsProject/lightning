@@ -280,6 +280,39 @@ struct chain_coin_mvt *new_foreign_withdrawal(const tal_t *ctx,
 					      u64 timestamp)
 	NON_NULL_ARGS(2, 3, 6);
 
+/* Generic versions (prefer the above ones: these are for migrations) */
+struct channel_coin_mvt *new_channel_coin_mvt_general(const tal_t *ctx,
+						      const struct channel *channel,
+						      const struct channel_id *cid,
+						      u64 timestamp,
+						      const struct sha256 *payment_hash TAKES,
+						      const u64 *part_id,
+						      const u64 *group_id,
+						      enum coin_mvt_dir direction,
+						      struct amount_msat amount,
+						      struct mvt_tags tags,
+						      struct amount_msat fees);
+
+struct chain_coin_mvt *new_coin_channel_open_general(const tal_t *ctx,
+						     const struct channel *channel,
+						     const struct channel_id *cid,
+						     u64 timestamp,
+						     const struct bitcoin_outpoint *out,
+						     const struct node_id *peer_id,
+						     u32 blockheight,
+						     const struct amount_msat amount,
+						     const struct amount_sat output_val,
+						     bool is_opener,
+						     bool is_leased);
+
+struct channel_coin_mvt *new_coin_channel_push_general(const tal_t *ctx,
+						       const struct channel *channel,
+						       const struct channel_id *cid,
+						       u64 timestamp,
+						       enum coin_mvt_dir direction,
+						       struct amount_msat amount,
+						       struct mvt_tags tags);
+
 /* There are three standard accounts:
  * "wallet" for our internal wallet,
  * "external" for other bitcoin sources,

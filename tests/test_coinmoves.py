@@ -4,6 +4,7 @@ from utils import (
     sync_blockheight, wait_for, only_one, TIMEOUT
 )
 
+import os
 import unittest
 import pytest
 import re
@@ -1917,3 +1918,147 @@ def test_wait(node_factory, bitcoind, executor):
                    'channelmoves': {'account': fund['channel_id'],
                                     'debit_msat': 1000000000,
                                     'credit_msat': 0}}
+
+
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "uses snapshots")
+@unittest.skipIf(TEST_NETWORK != 'regtest', "Snapshots are bitcoin regtest.")
+def test_migration(node_factory, bitcoind):
+    """These nodes import coinmoves from the old bookkeeper account.db"""
+    bitcoind.generate_block(1)
+    l1 = node_factory.get_node(dbfile="l1-before-moves-in-db.sqlite3.xz",
+                               bkpr_dbfile="l1-bkpr-accounts.sqlite3.xz",
+                               options={'database-upgrade': True})
+    l2 = node_factory.get_node(dbfile="l2-before-moves-in-db.sqlite3.xz",
+                               bkpr_dbfile="l2-bkpr-accounts.sqlite3.xz",
+                               options={'database-upgrade': True})
+    chan = only_one(l1.rpc.listpeerchannels()['channels'])
+    payment = only_one(l1.rpc.listsendpays()['payments'])
+
+    expected_channel1 = [{'account_id': chan['channel_id'],
+                          'created_index': 1,
+                          'credit_msat': 0,
+                          'debit_msat': 12345678,
+                          'fees_msat': 0,
+                          'payment_hash': payment['payment_hash'],
+                          'primary_tag': 'invoice'}]
+    expected_channel2 = [{'account_id': chan['channel_id'],
+                          'created_index': 1,
+                          'credit_msat': 12345678,
+                          'debit_msat': 0,
+                          'fees_msat': 0,
+                          'payment_hash': payment['payment_hash'],
+                          'primary_tag': 'invoice'}]
+    expected_chain1 = [{'account_id': 'wallet',
+                        'blockheight': 102,
+                        'created_index': 1,
+                        'credit_msat': 2000000000,
+                        'debit_msat': 0,
+                        'extra_tags': [],
+                        'output_msat': 2000000000,
+                        'primary_tag': 'deposit',
+                        'utxo': '63c59b312976320528552c258ae51563498dfd042b95bb0c842696614d59bb89:1'},
+                       {'account_id': 'wallet',
+                        'blockheight': 103,
+                        'created_index': 2,
+                        'credit_msat': 0,
+                        'debit_msat': 2000000000,
+                        'extra_tags': [],
+                        'output_msat': 2000000000,
+                        'primary_tag': 'withdrawal',
+                        'spending_txid': chan['funding_txid'],
+                        'utxo': '63c59b312976320528552c258ae51563498dfd042b95bb0c842696614d59bb89:1'},
+                       {'account_id': 'wallet',
+                        'blockheight': 103,
+                        'created_index': 3,
+                        'credit_msat': 995073000,
+                        'debit_msat': 0,
+                        'extra_tags': [],
+                        'output_msat': 995073000,
+                        'primary_tag': 'deposit',
+                        'utxo': f"{chan['funding_txid']}:{chan['funding_outnum'] ^ 1}"},
+                       {'account_id': chan['channel_id'],
+                        'blockheight': 103,
+                        'created_index': 4,
+                        'credit_msat': 1000000000,
+                        'debit_msat': 0,
+                        'extra_tags': ['opener'],
+                        'output_msat': 1000000000,
+                        'peer_id': l2.info['id'],
+                        'primary_tag': 'channel_open',
+                        'utxo': f"{chan['funding_txid']}:{chan['funding_outnum']}"}]
+    expected_chain2 = [{'account_id': chan['channel_id'],
+                        'blockheight': 103,
+                        'created_index': 1,
+                        'credit_msat': 0,
+                        'debit_msat': 0,
+                        'extra_tags': [],
+                        'output_msat': 1000000000,
+                        'peer_id': l1.info['id'],
+                        'primary_tag': 'channel_open',
+                        'utxo': f"{chan['funding_txid']}:{chan['funding_outnum']}"}]
+    check_channel_moves(l1, expected_channel1)
+    check_channel_moves(l2, expected_channel2)
+    check_chain_moves(l1, expected_chain1)
+    check_chain_moves(l2, expected_chain2)
+
+
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "uses snapshots")
+@unittest.skipIf(TEST_NETWORK != 'regtest', "Snapshots are for regtest.")
+def test_migration_no_bkpr(node_factory, bitcoind):
+    """These nodes need to invent coinmoves to make the balances work"""
+    bitcoind.generate_block(1)
+    l1 = node_factory.get_node(dbfile="l1-before-moves-in-db.sqlite3.xz",
+                               options={'database-upgrade': True})
+    l2 = node_factory.get_node(dbfile="l2-before-moves-in-db.sqlite3.xz",
+                               options={'database-upgrade': True})
+
+    chan = only_one(l1.rpc.listpeerchannels()['channels'])
+
+    expected_channel1 = [{'account_id': chan['channel_id'],
+                          'created_index': 1,
+                          'credit_msat': 0,
+                          'debit_msat': 12345678,
+                          'fees_msat': 0,
+                          'primary_tag': 'journal',
+                          }]
+    expected_channel2 = [{'account_id': chan['channel_id'],
+                          'created_index': 1,
+                          'credit_msat': 12345678,
+                          'debit_msat': 0,
+                          'fees_msat': 0,
+                          'primary_tag': 'journal',
+                          }]
+    expected_chain1 = [{'account_id': 'wallet',
+                        'blockheight': 103,
+                        'created_index': 1,
+                        'credit_msat': 995073000,
+                        'debit_msat': 0,
+                        'extra_tags': [],
+                        'output_msat': 995073000,
+                        'primary_tag': 'deposit',
+                        'utxo': f"{chan['funding_txid']}:{chan['funding_outnum'] ^ 1}"},
+                       {'account_id': chan['channel_id'],
+                        'blockheight': 103,
+                        'created_index': 2,
+                        'credit_msat': 1000000000,
+                        'debit_msat': 0,
+                        'extra_tags': ['opener'],
+                        'output_msat': 1000000000,
+                        'peer_id': l2.info['id'],
+                        'primary_tag': 'channel_open',
+                        'utxo': f"{chan['funding_txid']}:{chan['funding_outnum']}"}]
+    expected_chain2 = [{'account_id': chan['channel_id'],
+                        'blockheight': 103,
+                        'created_index': 1,
+                        'credit_msat': 0,
+                        'debit_msat': 0,
+                        'extra_tags': [],
+                        'output_msat': 1000000000,
+                        'peer_id': l1.info['id'],
+                        'primary_tag': 'channel_open',
+                        'utxo': f"{chan['funding_txid']}:{chan['funding_outnum']}"}]
+
+    check_channel_moves(l1, expected_channel1)
+    check_channel_moves(l2, expected_channel2)
+    check_chain_moves(l1, expected_chain1)
+    check_chain_moves(l2, expected_chain2)

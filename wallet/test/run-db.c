@@ -256,6 +256,19 @@ struct channel *new_channel(struct peer *peer UNNEEDED, u64 dbid UNNEEDED,
 			    const struct channel_stats *stats UNNEEDED,
 			    struct channel_state_change **state_changes STEALS UNNEEDED)
 { fprintf(stderr, "new_channel called!\n"); abort(); }
+/* Generated stub for new_channel_coin_mvt_general */
+struct channel_coin_mvt *new_channel_coin_mvt_general(const tal_t *ctx UNNEEDED,
+						      const struct channel *channel UNNEEDED,
+						      const struct channel_id *cid UNNEEDED,
+						      u64 timestamp UNNEEDED,
+						      const struct sha256 *payment_hash TAKES UNNEEDED,
+						      const u64 *part_id UNNEEDED,
+						      const u64 *group_id UNNEEDED,
+						      enum coin_mvt_dir direction UNNEEDED,
+						      struct amount_msat amount UNNEEDED,
+						      struct mvt_tags tags UNNEEDED,
+						      struct amount_msat fees UNNEEDED)
+{ fprintf(stderr, "new_channel_coin_mvt_general called!\n"); abort(); }
 /* Generated stub for new_channel_state_change */
 struct channel_state_change *new_channel_state_change(const tal_t *ctx UNNEEDED,
 						      struct timeabs timestamp UNNEEDED,
@@ -264,6 +277,28 @@ struct channel_state_change *new_channel_state_change(const tal_t *ctx UNNEEDED,
 						      enum state_change cause UNNEEDED,
 						      const char *message TAKES UNNEEDED)
 { fprintf(stderr, "new_channel_state_change called!\n"); abort(); }
+/* Generated stub for new_coin_channel_open_general */
+struct chain_coin_mvt *new_coin_channel_open_general(const tal_t *ctx UNNEEDED,
+						     const struct channel *channel UNNEEDED,
+						     const struct channel_id *cid UNNEEDED,
+						     u64 timestamp UNNEEDED,
+						     const struct bitcoin_outpoint *out UNNEEDED,
+						     const struct node_id *peer_id UNNEEDED,
+						     u32 blockheight UNNEEDED,
+						     const struct amount_msat amount UNNEEDED,
+						     const struct amount_sat output_val UNNEEDED,
+						     bool is_opener UNNEEDED,
+						     bool is_leased UNNEEDED)
+{ fprintf(stderr, "new_coin_channel_open_general called!\n"); abort(); }
+/* Generated stub for new_coin_channel_push_general */
+struct channel_coin_mvt *new_coin_channel_push_general(const tal_t *ctx UNNEEDED,
+						       const struct channel *channel UNNEEDED,
+						       const struct channel_id *cid UNNEEDED,
+						       u64 timestamp UNNEEDED,
+						       enum coin_mvt_dir direction UNNEEDED,
+						       struct amount_msat amount UNNEEDED,
+						       struct mvt_tags tags UNNEEDED)
+{ fprintf(stderr, "new_coin_channel_push_general called!\n"); abort(); }
 /* Generated stub for new_coin_wallet_deposit */
 struct chain_coin_mvt *new_coin_wallet_deposit(const tal_t *ctx UNNEEDED,
 					       const struct bitcoin_outpoint *outpoint UNNEEDED,
