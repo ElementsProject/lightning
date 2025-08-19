@@ -17,7 +17,7 @@ struct onchain_fee;
 
 struct fee_sum {
 	u64 acct_db_id;
-	char *acct_name;
+	const char *acct_name;
 	struct bitcoin_txid *txid;
 	struct amount_msat fees_paid;
 };
@@ -35,8 +35,8 @@ struct txo_set {
 struct rebalance {
 	u64 in_ev_id;
 	u64 out_ev_id;
-	char *in_acct_name;
-	char *out_acct_name;
+	const char *in_acct_name;
+	const char *out_acct_name;
 	struct amount_msat rebal_msat;
 	struct amount_msat fee_msat;
 };

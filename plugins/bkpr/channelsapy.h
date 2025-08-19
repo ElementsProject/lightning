@@ -5,7 +5,7 @@
 #include <ccan/tal/tal.h>
 
 struct channel_apy {
-	char *acct_name;
+	const char *acct_name;
 
 	struct amount_msat routed_in;
 	struct amount_msat routed_out;
