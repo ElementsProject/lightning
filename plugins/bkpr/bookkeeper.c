@@ -1517,10 +1517,23 @@ parse_and_log_chain_move(struct command *cmd,
 
 	e->stealable = false;
 	e->splice_close = false;
+	e->foreign = false;
 	for (size_t i = 0; i < tal_count(tags); i++) {
 		e->stealable |= tags[i] == MVT_STEALABLE;
 		e->splice_close |= tags[i] == MVT_SPLICE;
+		e->foreign |= tags[i] == MVT_FOREIGN;
 	}
+
+	/* For tests, we log these harder! */
+	if (e->foreign)
+		plugin_log(cmd->plugin, LOG_DBG,
+			   "Foreign chain event: %s (%s) %s -%s %"PRIu64" %d %s %s",
+			   e->tag, acct_name,
+			   fmt_amount_msat(tmpctx, e->credit),
+			   fmt_amount_msat(tmpctx, e->debit),
+			   e->timestamp, e->blockheight,
+			   fmt_bitcoin_outpoint(tmpctx, &e->outpoint),
+			   e->spending_txid ? fmt_bitcoin_txid(tmpctx, e->spending_txid) : "");
 
 	db_begin_transaction(bkpr->db);
 	/* FIXME: lookup the peer id for this channel! */
@@ -1574,9 +1587,10 @@ parse_and_log_chain_move(struct command *cmd,
 	/* If this is a channel account event, it's possible
 	 * that we *never* got the open event. (This happens
 	 * if you add the plugin *after* you've closed the channel) */
-	if ((!acct->open_event_db_id && is_channel_account(acct->name))
-	    || (orig_acct && is_channel_account(orig_acct->name)
-		&& !orig_acct->open_event_db_id)) {
+	if (!e->foreign
+	    && ((!acct->open_event_db_id && is_channel_account(acct->name))
+		|| (orig_acct && is_channel_account(orig_acct->name)
+		    && !orig_acct->open_event_db_id))) {
 		/* Find the channel open info for this peer */
 		struct out_req *req;
 		struct event_info *info;
@@ -1729,14 +1743,26 @@ static bool json_to_tok(const char *buffer, const jsmntok_t *tok, const jsmntok_
 	return true;
 }
 
+static struct command_result *inject_done(struct command *notif_cmd,
+					  const char *methodname,
+					  const char *buf,
+					  const jsmntok_t *result,
+					  void *unused)
+{
+	return notification_handled(notif_cmd);
+}
+
+/* FIXME: Deprecate */
 static struct command_result *json_utxo_deposit(struct command *cmd, const char *buf, const jsmntok_t *params)
 {
-	const char *move_tag ="utxo_deposit";
-	struct chain_event *ev = tal(cmd, struct chain_event);
-	struct account *acct;
-	const char *err;
-	struct bkpr *bkpr = bkpr_of(cmd->plugin);
+	const char *acct_name, *origin_acct;
+	struct amount_msat amount;
+	struct bitcoin_outpoint outpoint;
+	u64 timestamp;
+	u32 blockheight;
 	const jsmntok_t *transfer_from;
+	const char *err;
+	struct out_req *req;
 
 	transfer_from = NULL;
 	err = json_scan(tmpctx, buf, params,
@@ -1748,71 +1774,49 @@ static struct command_result *json_utxo_deposit(struct command *cmd, const char 
 			",timestamp:%"
 			",blockheight:%"
 			"}}",
-			JSON_SCAN_TAL(ev, json_strdup, &ev->acct_name),
+			JSON_SCAN_TAL(tmpctx, json_strdup, &acct_name),
 			JSON_SCAN(json_to_tok, &transfer_from),
-			JSON_SCAN(json_to_outpoint, &ev->outpoint),
-			JSON_SCAN(json_to_msat, &ev->credit),
-			JSON_SCAN(json_to_u64, &ev->timestamp),
-			JSON_SCAN(json_to_u32, &ev->blockheight));
+			JSON_SCAN(json_to_outpoint, &outpoint),
+			JSON_SCAN(json_to_msat, &amount),
+			JSON_SCAN(json_to_u64, &timestamp),
+			JSON_SCAN(json_to_u32, &blockheight));
 
 	if (err)
 		plugin_err(cmd->plugin,
-			   "`%s` parameters did not scan %s: %.*s",
-			   move_tag, err, json_tok_full_len(params),
+			   "`utxo_deposit` parameters did not scan %s: %.*s",
+			   err, json_tok_full_len(params),
 			   json_tok_full(buf, params));
 
 	if (!transfer_from || json_tok_is_null(buf, transfer_from))
-		ev->origin_acct = NULL;
+		origin_acct = NULL;
 	else
-		ev->origin_acct = json_strdup(ev, buf, transfer_from);
+		origin_acct = json_strdup(tmpctx, buf, transfer_from);
 
-	/* Log the thing */
-	db_begin_transaction(bkpr->db);
-	acct = find_or_create_account(cmd, bkpr, ev->acct_name);
-
-	ev->tag = "deposit";
-	ev->stealable = false;
-	ev->splice_close = false;
-	ev->debit = AMOUNT_MSAT(0);
-	ev->output_value = ev->credit;
-	ev->spending_txid = NULL;
-	ev->payment_id = NULL;
-	ev->splice_close = false;
-
-	plugin_log(cmd->plugin, LOG_DBG, "%s (%s|%s) %s -%s %"PRIu64" %d %s",
-		   move_tag, ev->tag, ev->acct_name,
-		   fmt_amount_msat(tmpctx, ev->credit),
-		   fmt_amount_msat(tmpctx, ev->debit),
-		   ev->timestamp, ev->blockheight,
-		   fmt_bitcoin_outpoint(tmpctx, &ev->outpoint));
-
-	if (!log_chain_event(bkpr, acct, ev)) {
-		db_commit_transaction(bkpr->db);
-		/* This is not a new event, do nothing */
-		return notification_handled(cmd);
-	}
-
-	/* Can we calculate any onchain fees now? */
-	err = maybe_update_onchain_fees(cmd, cmd, bkpr, &ev->outpoint.txid);
-	db_commit_transaction(bkpr->db);
-	if (err)
-		plugin_err(cmd->plugin,
-			   "Unable to update onchain fees %s",
-			   err);
-
-	/* FIXME: do account close checks, when allow onchain close to externals? */
-	return notification_handled(cmd);;
+	req = jsonrpc_request_start(cmd, "injectutxodeposit",
+				    inject_done,
+				    plugin_broken_cb,
+				    NULL);
+	json_add_string(req->js, "account", acct_name);
+	if (origin_acct)
+		json_add_string(req->js, "transfer_from", origin_acct);
+	json_add_outpoint(req->js, "outpoint", &outpoint);
+	json_add_amount_msat(req->js, "amount_msat", amount);
+	json_add_u64(req->js, "timestamp", timestamp);
+	json_add_u32(req->js, "blockheight", blockheight);
+	return send_outreq(req);
 }
 
 static struct command_result *json_utxo_spend(struct command *cmd, const char *buf, const jsmntok_t *params)
 {
-	const char *move_tag ="utxo_spend";
-	struct account *acct;
-	struct chain_event *ev = tal(cmd, struct chain_event);
-	const char *err, *acct_name;
-	struct bkpr *bkpr = bkpr_of(cmd->plugin);
+	const char *acct_name;
+	struct amount_msat amount;
+	struct bitcoin_txid spending_txid;
+	struct bitcoin_outpoint outpoint;
+	u64 timestamp;
+	u32 blockheight;
+	const char *err;
+	struct out_req *req;
 
-	ev->spending_txid = tal(ev, struct bitcoin_txid);
 	err = json_scan(tmpctx, buf, params,
 			"{utxo_spend:{"
 			"account:%"
@@ -1823,69 +1827,29 @@ static struct command_result *json_utxo_spend(struct command *cmd, const char *b
 			",blockheight:%"
 			"}}",
 			JSON_SCAN_TAL(tmpctx, json_strdup, &acct_name),
-			JSON_SCAN(json_to_outpoint, &ev->outpoint),
-			JSON_SCAN(json_to_txid, ev->spending_txid),
-			JSON_SCAN(json_to_msat, &ev->debit),
-			JSON_SCAN(json_to_u64, &ev->timestamp),
-			JSON_SCAN(json_to_u32, &ev->blockheight));
+			JSON_SCAN(json_to_outpoint, &outpoint),
+			JSON_SCAN(json_to_txid, &spending_txid),
+			JSON_SCAN(json_to_msat, &amount),
+			JSON_SCAN(json_to_u64, &timestamp),
+			JSON_SCAN(json_to_u32, &blockheight));
 
 	if (err)
 		plugin_err(cmd->plugin,
-			   "`%s` parameters did not scan %s: %.*s",
-			   move_tag, err, json_tok_full_len(params),
+			   "`utxo_spend` parameters did not scan %s: %.*s",
+			   err, json_tok_full_len(params),
 			   json_tok_full(buf, params));
 
-	/* Log the thing */
-	db_begin_transaction(bkpr->db);
-	acct = find_or_create_account(cmd, bkpr, acct_name);
-
-	ev->origin_acct = NULL;
-	ev->tag = "withdrawal";
-	ev->stealable = false;
-	ev->splice_close = false;
-	ev->credit = AMOUNT_MSAT(0);
-	ev->output_value = ev->debit;
-	ev->payment_id = NULL;
-
-	plugin_log(cmd->plugin, LOG_DBG, "%s (%s|%s) %s -%s %"PRIu64" %d %s %s",
-		   move_tag, ev->tag, acct_name,
-		   fmt_amount_msat(tmpctx, ev->credit),
-		   fmt_amount_msat(tmpctx, ev->debit),
-		   ev->timestamp, ev->blockheight,
-		   fmt_bitcoin_outpoint(tmpctx, &ev->outpoint),
-		   fmt_bitcoin_txid(tmpctx, ev->spending_txid));
-
-	if (!log_chain_event(bkpr, acct, ev)) {
-		db_commit_transaction(bkpr->db);
-		/* This is not a new event, do nothing */
-		return notification_handled(cmd);
-	}
-
-	err = maybe_update_onchain_fees(cmd, cmd, bkpr, ev->spending_txid);
-	if (err) {
-		db_commit_transaction(bkpr->db);
-		plugin_err(cmd->plugin,
-			   "Unable to update onchain fees %s",
-			   err);
-	}
-
-	err = maybe_update_onchain_fees(cmd, cmd, bkpr, &ev->outpoint.txid);
-	if (err) {
-		db_commit_transaction(bkpr->db);
-		plugin_err(cmd->plugin,
-			   "Unable to update onchain fees %s",
-			   err);
-	}
-
-	/* Go see if there's any deposits to an external
-	 * that are now confirmed */
-	/* FIXME: might need updating when we can splice? */
-	maybe_closeout_external_deposits(cmd, bkpr, ev->spending_txid,
-					 ev->blockheight);
-	db_commit_transaction(bkpr->db);
-
-	/* FIXME: do account close checks, when allow onchain close to externals? */
-	return notification_handled(cmd);;
+	req = jsonrpc_request_start(cmd, "injectutxospend",
+				    inject_done,
+				    plugin_broken_cb,
+				    NULL);
+	json_add_string(req->js, "account", acct_name);
+	json_add_outpoint(req->js, "outpoint", &outpoint);
+	json_add_txid(req->js, "spending_txid", &spending_txid);
+	json_add_amount_msat(req->js, "amount_msat", amount);
+	json_add_u64(req->js, "timestamp", timestamp);
+	json_add_u32(req->js, "blockheight", blockheight);
+	return send_outreq(req);
 }
 
 static struct command_result *json_coin_moved(struct command *cmd,
