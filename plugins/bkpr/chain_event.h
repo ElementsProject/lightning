@@ -6,6 +6,7 @@
 #include <ccan/short_types/short_types.h>
 
 struct amount_msat;
+struct bkpr;
 struct bitcoin_outpoint;
 struct bitcoin_txid;
 struct json_stream;
@@ -58,12 +59,10 @@ struct chain_event {
 
 	/* Sometimes chain events resolve payments */
 	struct sha256 *payment_id;
-
-	/* Desc of event (maybe useful for printing notes) */
-	const char *desc;
 };
 
 void json_add_chain_event(struct json_stream *out,
+			  const struct bkpr *bkpr,
                           struct chain_event *ev);
 
 #endif /* LIGHTNING_PLUGINS_BKPR_CHAIN_EVENT_H */

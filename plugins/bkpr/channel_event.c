@@ -6,6 +6,7 @@
 #include <common/amount.h>
 #include <common/json_stream.h>
 #include <plugins/bkpr/channel_event.h>
+#include <plugins/bkpr/descriptions.h>
 
 struct channel_event *new_channel_event(const tal_t *ctx,
 					const char *tag,
@@ -25,13 +26,13 @@ struct channel_event *new_channel_event(const tal_t *ctx,
 	ev->payment_id = tal_steal(ev, payment_id);
 	ev->part_id = part_id;
 	ev->timestamp = timestamp;
-	ev->desc = NULL;
 	ev->rebalance_id = NULL;
 
 	return ev;
 }
 
 void json_add_channel_event(struct json_stream *out,
+			    const struct bkpr *bkpr,
 			    struct channel_event *ev)
 {
 	json_object_start(out, NULL);
@@ -44,12 +45,13 @@ void json_add_channel_event(struct json_stream *out,
 		json_add_amount_msat(out, "fees_msat", ev->fees);
 	json_add_string(out, "currency", chainparams->lightning_hrp);
 	if (ev->payment_id) {
+		const char *desc = channel_event_description(bkpr, ev);
 		json_add_sha256(out, "payment_id", ev->payment_id);
 		json_add_u32(out, "part_id", ev->part_id);
+		if (desc)
+			json_add_string(out, "description", desc);
 	}
 	json_add_u64(out, "timestamp", ev->timestamp);
-	if (ev->desc)
-		json_add_string(out, "description", ev->desc);
 	json_add_bool(out, "is_rebalance", ev->rebalance_id != NULL);
 	json_object_end(out);
 }
