@@ -18,7 +18,7 @@ struct channel_event {
 	u64 acct_db_id;
 
 	/* Name of the account this belongs to */
-	char *acct_name;
+	const char *acct_name;
 
 	/* Tag describing the event */
 	const char *tag;

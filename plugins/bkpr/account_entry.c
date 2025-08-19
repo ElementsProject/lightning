@@ -16,7 +16,7 @@ const char *account_entry_tag_str(enum account_entry_tag tag)
 	return tags[tag];
 }
 
-bool account_entry_tag_find(char *str, enum account_entry_tag *tag)
+bool account_entry_tag_find(const char *str, enum account_entry_tag *tag)
 {
 	for (size_t i = 0; i < NUM_ACCOUNT_ENTRY_TAGS; i++) {
 		if (streq(str, tags[i])) {

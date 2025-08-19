@@ -6,9 +6,9 @@
 #include <stdio.h>
 
 struct income_event {
-	char *acct_name;
-	char *tag;
-	char *desc;
+	const char *acct_name;
+	const char *tag;
+	const char *desc;
 	struct amount_msat credit;
 	struct amount_msat debit;
 	/* Some CSVs require us to put fees on the
@@ -23,7 +23,7 @@ struct income_event {
 
 /* Each csv format has a header and a 'row print' function */
 struct csv_fmt {
-	char *fmt_name;
+	const char *fmt_name;
 	void (*emit_header)(FILE *);
 	void (*emit_entry)(const tal_t *, FILE *, struct income_event *);
 };

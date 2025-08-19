@@ -33,7 +33,7 @@ static struct account *get_account(struct account **accts,
 
 static struct income_event *chain_to_income(const tal_t *ctx,
 					    struct chain_event *ev,
-					    char *acct_to_attribute,
+					    const char *acct_to_attribute,
 					    struct amount_msat credit,
 					    struct amount_msat debit)
 {
@@ -98,7 +98,7 @@ static struct income_event *onchainfee_to_income(const tal_t *ctx,
  * by wrapping the desc in double-quotes ("). But what if
  * there's already double-quotes? Well we swap these to
  * single-quotes (') and then use the json_escape function */
-static char *csv_safe_str(const tal_t *ctx, char *input TAKES)
+static char *csv_safe_str(const tal_t *ctx, const char *input TAKES)
 {
 	struct json_escape *esc;
 	char *dupe;
