@@ -18,6 +18,7 @@
 #include <plugins/bkpr/descriptions.h>
 #include <plugins/bkpr/incomestmt.h>
 #include <plugins/bkpr/onchain_fee.h>
+#include <plugins/bkpr/rebalances.h>
 #include <plugins/bkpr/recorder.h>
 #include <time.h>
 
@@ -234,7 +235,7 @@ static struct income_event *maybe_channel_income(const tal_t *ctx,
 
 	if (streq(ev->tag, "invoice")) {
 		/* Skip events for rebalances */
-		if (ev->rebalance_id)
+		if (find_rebalance(bkpr, ev->db_id))
 			return NULL;
 
 		/* If it's a payment, we note fees separately */
@@ -387,7 +388,7 @@ struct income_event **list_income_events(const tal_t *ctx,
 			if (streq(chan->tag, "invoice")
 			    && !amount_msat_is_zero(chan->debit)
 			    && !amount_msat_is_zero(chan->fees)) {
-				if (!chan->rebalance_id)
+				if (!find_rebalance(bkpr, chan->db_id))
 					ev = paid_invoice_fee(evs, bkpr, chan);
 				else
 					ev = rebalance_fee(evs, bkpr, chan);

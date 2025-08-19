@@ -31,15 +31,6 @@ struct txo_set {
 	struct txo_pair **pairs;
 };
 
-struct rebalance {
-	u64 in_ev_id;
-	u64 out_ev_id;
-	const char *in_acct_name;
-	const char *out_acct_name;
-	struct amount_msat rebal_msat;
-	struct amount_msat fee_msat;
-};
-
 /* Get all channel events for this account */
 struct channel_event **account_get_channel_events(const tal_t *ctx,
 						  struct db *db,
@@ -147,13 +138,10 @@ void maybe_closeout_external_deposits(struct db *db,
 				      const struct bitcoin_txid *txid,
 				      u32 blockheight);
 
-/* Keep track of rebalancing payments (payments paid to/from ourselves.
- * Returns true if was rebalance */
-void maybe_record_rebalance(struct db *db,
-			    struct channel_event *out);
-
-/* List all rebalances */
-struct rebalance **list_rebalances(const tal_t *ctx, struct db *db);
+/* Keep track of rebalancing payments (payments paid to/from ourselves. */
+void maybe_record_rebalance(struct command *cmd,
+			    struct bkpr *bkpr,
+			    const struct channel_event *out);
 
 /* Log a channel event */
 void log_channel_event(struct db *db,
