@@ -136,7 +136,7 @@ static struct bkpr *bkpr_setup(const tal_t *ctx)
 
 	bkpr->db = db_setup(bkpr, NULL, tmp_dsn(ctx));
 	bkpr->accounts = init_accounts(ctx, NULL);
-	bkpr->onchain_fees = init_onchain_fees(bkpr, bkpr->db, NULL);
+	bkpr->onchain_fees = init_onchain_fees(bkpr, NULL);
 	return bkpr;
 }
 
@@ -322,7 +322,7 @@ static bool test_onchain_fee_wallet_spend(const tal_t *ctx)
 				 AMOUNT_MSAT(1000),
 				 blockheight,
 				 'X', 0, '1'));
-	maybe_update_onchain_fees(ctx, bkpr, &txid);
+	maybe_update_onchain_fees(ctx, NULL, bkpr, &txid);
 
 	log_chain_event(db, wal_acct,
 		make_chain_event(ctx, "deposit",
@@ -331,7 +331,7 @@ static bool test_onchain_fee_wallet_spend(const tal_t *ctx)
 				 AMOUNT_MSAT(200),
 				 blockheight,
 				 '1', 1, '*'));
-	maybe_update_onchain_fees(ctx, bkpr, &txid);
+	maybe_update_onchain_fees(ctx, NULL, bkpr, &txid);
 
 	log_chain_event(db, ext_acct,
 		make_chain_event(ctx, "deposit",
@@ -340,7 +340,7 @@ static bool test_onchain_fee_wallet_spend(const tal_t *ctx)
 				 AMOUNT_MSAT(700),
 				 blockheight,
 				 '1', 0, '*'));
-	maybe_update_onchain_fees(ctx, bkpr, &txid);
+	maybe_update_onchain_fees(ctx, NULL, bkpr, &txid);
 	db_commit_transaction(db);
 
 	ofs = list_chain_fees(ctx, bkpr);
@@ -437,7 +437,7 @@ static bool test_onchain_fee_chan_close(const tal_t *ctx)
 				 blockheight,
 				 '1', 1, '*'));
 	memset(&txid, '1', sizeof(struct bitcoin_txid));
-	maybe_update_onchain_fees(ctx, bkpr, &txid);
+	maybe_update_onchain_fees(ctx, NULL, bkpr, &txid);
 
 	log_chain_event(db, wal_acct,
 		make_chain_event(ctx, "anchor",
@@ -454,7 +454,7 @@ static bool test_onchain_fee_chan_close(const tal_t *ctx)
 				 blockheight,
 				 '1', 4, '*'));
 	memset(&txid, '1', sizeof(struct bitcoin_txid));
-	maybe_update_onchain_fees(ctx, bkpr, &txid);
+	maybe_update_onchain_fees(ctx, NULL, bkpr, &txid);
 
 	/* Should be no fees yet */
 	ofs = list_chain_fees(ctx, bkpr);
@@ -477,7 +477,7 @@ static bool test_onchain_fee_chan_close(const tal_t *ctx)
 				 '1', 3, '*'));
 
 	memset(&txid, '1', sizeof(struct bitcoin_txid));
-	maybe_update_onchain_fees(ctx, bkpr, &txid);
+	maybe_update_onchain_fees(ctx, NULL, bkpr, &txid);
 	db_commit_transaction(db);
 
 	/* txid 2222 */
@@ -498,7 +498,7 @@ static bool test_onchain_fee_chan_close(const tal_t *ctx)
 				 blockheight + 1,
 				 '2', 0, '*'));
 	memset(&txid, '2', sizeof(struct bitcoin_txid));
-	maybe_update_onchain_fees(ctx, bkpr, &txid);
+	maybe_update_onchain_fees(ctx, NULL, bkpr, &txid);
 	CHECK(acct->onchain_resolved_block == 0);
 
 	assert(account_onchain_closeheight(db, acct) == 0);
@@ -523,7 +523,7 @@ static bool test_onchain_fee_chan_close(const tal_t *ctx)
 				 '4', 0, '*'));
 
 	memset(&txid, '4', sizeof(struct bitcoin_txid));
-	maybe_update_onchain_fees(ctx, bkpr, &txid);
+	maybe_update_onchain_fees(ctx, NULL, bkpr, &txid);
 
 	/* txid 3333 */
 	log_chain_event(db, acct,
@@ -546,7 +546,7 @@ static bool test_onchain_fee_chan_close(const tal_t *ctx)
 				 '3', 0, '*'));
 
 	memset(&txid, '3', sizeof(struct bitcoin_txid));
-	maybe_update_onchain_fees(ctx, bkpr, &txid);
+	maybe_update_onchain_fees(ctx, NULL, bkpr, &txid);
 
 	log_chain_event(db, acct,
 		make_chain_event(ctx, "to_wallet",
@@ -557,7 +557,7 @@ static bool test_onchain_fee_chan_close(const tal_t *ctx)
 				 '3', 0, '4'));
 
 	memset(&txid, '4', sizeof(struct bitcoin_txid));
-	maybe_update_onchain_fees(ctx, bkpr, &txid);
+	maybe_update_onchain_fees(ctx, NULL, bkpr, &txid);
 
 	db_commit_transaction(db);
 
@@ -573,7 +573,7 @@ static bool test_onchain_fee_chan_close(const tal_t *ctx)
 	db_begin_transaction(db);
 	account_update_closeheight(NULL, acct, account_onchain_closeheight(db, acct));
 	CHECK(acct->onchain_resolved_block == blockheight + 2);
-	err = update_channel_onchain_fees(ctx, bkpr, acct);
+	err = update_channel_onchain_fees(ctx, NULL, bkpr, acct);
 	CHECK_MSG(!err, err);
 	db_commit_transaction(db);
 	ofs = account_get_chain_fees(tmpctx, bkpr, acct->name);
@@ -688,7 +688,7 @@ static bool test_onchain_fee_chan_open(const tal_t *ctx)
 				 AMOUNT_MSAT(500),
 				 blockheight,
 				 'A', 0, '*'));
-	maybe_update_onchain_fees(ctx, bkpr, &txid);
+	maybe_update_onchain_fees(ctx, NULL, bkpr, &txid);
 
 	log_chain_event(db, acct2,
 		make_chain_event(ctx, "deposit",
@@ -697,7 +697,7 @@ static bool test_onchain_fee_chan_open(const tal_t *ctx)
 				 AMOUNT_MSAT(1000),
 				 blockheight,
 				 'A', 1, '*'));
-	maybe_update_onchain_fees(ctx, bkpr, &txid);
+	maybe_update_onchain_fees(ctx, NULL, bkpr, &txid);
 
 	log_chain_event(db, wal_acct,
 		make_chain_event(ctx, "deposit",
@@ -706,9 +706,9 @@ static bool test_onchain_fee_chan_open(const tal_t *ctx)
 				 AMOUNT_MSAT(2200),
 				 blockheight,
 				 'A', 2, '*'));
-	maybe_update_onchain_fees(ctx, bkpr, &txid);
+	maybe_update_onchain_fees(ctx, NULL, bkpr, &txid);
 
-	maybe_update_onchain_fees(ctx, bkpr, &txid);
+	maybe_update_onchain_fees(ctx, NULL, bkpr, &txid);
 	db_commit_transaction(db);
 
 	/* Expect: 5 onchain fee records, totaling to 151/150msat ea,

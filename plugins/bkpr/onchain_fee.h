@@ -74,17 +74,18 @@ u64 onchain_fee_last_timestamp(const struct bkpr *bkpr,
 
 /* Update our onchain fees now? */
 char *maybe_update_onchain_fees(const tal_t *ctx,
+				struct command *cmd,
 				struct bkpr *bkpr,
 			        struct bitcoin_txid *txid);
 
 /* We calculate onchain fees for channel closes a bit different */
 char *update_channel_onchain_fees(const tal_t *ctx,
+				  struct command *cmd,
 				  struct bkpr *bkpr,
 				  struct account *acct);
 
 /* Set up the onchain_fees struct */
 struct onchain_fees *init_onchain_fees(const tal_t *ctx,
-				       struct db *db,
 				       struct command *init_cmd);
 
 #endif /* LIGHTNING_PLUGINS_BKPR_ONCHAIN_FEE_H */
