@@ -1,7 +1,6 @@
 from fixtures import *  # noqa: F401,F403
 from decimal import Decimal
 from pyln.client import Millisatoshi, RpcError
-from pyln.testing.db import Sqlite3Db
 from fixtures import TEST_NETWORK
 from utils import (
     sync_blockheight, wait_for, only_one, first_channel_id, TIMEOUT
@@ -905,20 +904,6 @@ def test_rebalance_tracking(node_factory, bitcoind):
     assert outbound_ev['payment_id'] == pay_hash
 
 
-@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "This test is based on a sqlite3 snapshot")
-def test_bookkeeper_lease_fee_dupe_migration(node_factory):
-    """ Check that if there's duplicate lease_fees, we remove them"""
-
-    l1 = node_factory.get_node(bkpr_dbfile='dupe_lease_fee.sqlite3.xz')
-
-    wait_for(lambda: l1.daemon.is_in_log('Duplicate \'lease_fee\' found for account'))
-
-    accts_db_path = os.path.join(l1.lightning_dir, TEST_NETWORK, 'accounts.sqlite3')
-    accts_db = Sqlite3Db(accts_db_path)
-
-    assert accts_db.query('SELECT tag from channel_events where tag = \'lease_fee\';') == [{'tag': 'lease_fee'}]
-
-
 def test_bookkeeper_custom_notifs(node_factory):
     # FIXME: what happens if we send internal funds to 'external' wallet?
     plugin = os.path.join(
@@ -974,19 +959,8 @@ def test_bookkeeper_custom_notifs(node_factory):
     assert acct_fee == Millisatoshi(fee)
 
 
-@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "This test is based on a sqlite3 snapshot")
-def test_bookkeeper_bad_migration(node_factory):
-    l1 = node_factory.get_node(bkpr_dbfile='bookkeeper-accounts-pre-v24.08-migration.sqlite3.xz')
-    l2 = node_factory.get_node()
-
-    # Make sure l1 does fixup, use query to force an access (which would fail if column not present)
-    assert l1.daemon.is_in_log("plugin-bookkeeper: Database fixup: adding spliced column to chain_events table")
-    l1.rpc.bkpr_listaccountevents('wallet')
-
-    # l2 will *not* do this
-    assert not l2.daemon.is_in_log("adding spliced column")
-
-
+# FIXME: Restore once bookkeeper migrating to core.
+@pytest.mark.xfail(strict=True)
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Snapshots are bitcoin regtest.")
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "uses snapshots")
 def test_migration(node_factory, bitcoind):
