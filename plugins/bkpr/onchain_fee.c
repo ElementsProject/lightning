@@ -4,14 +4,11 @@
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/htable/htable_type.h>
 #include <ccan/intmap/intmap.h>
+#include <ccan/json_out/json_out.h>
 #include <ccan/tal/str/str.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <common/pseudorand.h>
-#include <db/bindings.h>
-#include <db/common.h>
-#include <db/exec.h>
-#include <db/utils.h>
 #include <inttypes.h>
 #include <plugins/bkpr/account.h>
 #include <plugins/bkpr/account_entry.h>
@@ -19,6 +16,8 @@
 #include <plugins/bkpr/channel_event.h>
 #include <plugins/bkpr/onchain_fee.h>
 #include <plugins/bkpr/recorder.h>
+#include <plugins/libplugin.h>
+#include <wire/wire.h>
 
 /* We keep a hash of onchain_fee arrays.  Each array is sorted. */
 
@@ -140,6 +139,57 @@ static struct onchain_fee *new_onchain_fee(struct onchain_fees *onchain_fees,
 	return of;
 }
 
+static void towire_onchain_fee(u8 **pptr, const struct onchain_fee *of)
+{
+	towire_wirestring(pptr, of->acct_name);
+	towire_bitcoin_txid(pptr, &of->txid);
+	towire_amount_msat(pptr, of->credit);
+	towire_amount_msat(pptr, of->debit);
+	towire_u64(pptr, of->timestamp);
+	towire_u32(pptr, of->update_count);
+}
+
+static struct onchain_fee *fromwire_onchain_fee(struct onchain_fees *onchain_fees,
+						const u8 **pptr, size_t *max)
+{
+	const char *acctname;
+	struct bitcoin_txid txid;
+	struct amount_msat credit;
+	struct amount_msat debit;
+	u64 timestamp;
+	u32 update_count;
+
+	acctname = fromwire_wirestring(tmpctx, pptr, max);
+	fromwire_bitcoin_txid(pptr, max, &txid);
+	credit = fromwire_amount_msat(pptr, max);
+	debit = fromwire_amount_msat(pptr, max);
+	timestamp = fromwire_u64(pptr, max);
+	update_count = fromwire_u32(pptr, max);
+	if (pptr == NULL)
+		return NULL;
+
+	return new_onchain_fee(onchain_fees,
+			       take(acctname), &txid, credit, debit, timestamp,
+			       update_count);
+}
+
+static const char *ds_ofee_path(const tal_t *ctx, const char *acctname)
+{
+	return tal_fmt(ctx, "bookkeeper/onchain_fee/%s", acctname);
+}
+
+static void onchain_fee_datastore_add(struct command *cmd,
+				      const struct onchain_fee *of)
+{
+	const char *path = ds_ofee_path(tmpctx, of->acct_name);
+	u8 *data = tal_arr(tmpctx, u8, 0);
+
+	towire_onchain_fee(&data, of);
+	jsonrpc_set_datastore_binary(cmd, path, data, tal_bytelen(data),
+				     "create-or-append",
+				     ignore_datastore_reply, NULL, NULL);
+}
+
 void json_add_onchain_fee(struct json_stream *out,
 			  const struct onchain_fee *fee)
 {
@@ -153,30 +203,6 @@ void json_add_onchain_fee(struct json_stream *out,
 	json_add_u64(out, "timestamp", fee->timestamp);
 	json_add_txid(out, "txid", &fee->txid);
 	json_object_end(out);
-}
-
-static struct onchain_fee *stmt2onchain_fee(struct onchain_fees *onchain_fees,
-					    struct db_stmt *stmt)
-{
-	const char *acct_name;
-	struct bitcoin_txid txid;
-	struct amount_msat credit, debit;
-	u64 timestamp;
-	u32 update_count;
-
-	acct_name = db_col_strdup(NULL, stmt, "of.account_name");
-	db_col_txid(stmt, "of.txid", &txid);
-	credit = db_col_amount_msat(stmt, "of.credit");
-	debit = db_col_amount_msat(stmt, "of.debit");
-	timestamp = db_col_u64(stmt, "of.timestamp");
-	update_count = db_col_int(stmt, "of.update_count");
-
-	return new_onchain_fee(onchain_fees,
-			       take(acct_name),
-			       &txid,
-			       credit, debit,
-			       timestamp,
-			       update_count);
 }
 
 /* Get all onchain_fee for this account */
@@ -242,16 +268,16 @@ struct onchain_fee **list_chain_fees(const tal_t *ctx, const struct bkpr *bkpr)
 	return list_chain_fees_timebox(ctx, bkpr, 0, SQLITE_MAX_UINT);
 }
 
-static void insert_chain_fees_diff(struct bkpr *bkpr,
+static void insert_chain_fees_diff(struct command *cmd,
+				   struct bkpr *bkpr,
 				   const char *acct_name,
 				   struct bitcoin_txid *txid,
 				   struct amount_msat amount,
 				   u64 timestamp)
 {
-	struct onchain_fee **ofs;
+	struct onchain_fee *of, **ofs;
 	u32 max_update_count = 0;
 	struct amount_msat current_amt, credit, debit;
-	struct db_stmt *stmt;
 
 	current_amt = AMOUNT_MSAT(0);
 	ofs = account_get_chain_fees(tmpctx, bkpr, acct_name);
@@ -260,10 +286,10 @@ static void insert_chain_fees_diff(struct bkpr *bkpr,
 		if (!bitcoin_txid_eq(&ofs[i]->txid, txid))
 			continue;
 		if (!amount_msat_accumulate(&current_amt, ofs[i]->credit))
-			db_fatal(bkpr->db, "Overflow when adding onchain fees");
+			plugin_err(cmd->plugin, "Overflow when adding onchain fees");
 
 		if (!amount_msat_sub(&current_amt, current_amt, ofs[i]->debit))
-			db_fatal(bkpr->db, "Underflow when subtracting onchain fees");
+			plugin_err(cmd->plugin, "Underflow when subtracting onchain fees");
 		if (ofs[i]->update_count > max_update_count)
 			max_update_count = ofs[i]->update_count;
 	}
@@ -275,31 +301,14 @@ static void insert_chain_fees_diff(struct bkpr *bkpr,
 	if (!amount_msat_sub(&credit, amount, current_amt)) {
 		credit = AMOUNT_MSAT(0);
 		if (!amount_msat_sub(&debit, current_amt, amount))
-			db_fatal(bkpr->db, "shouldn't happen, unable to subtract");
+			plugin_err(cmd->plugin, "shouldn't happen, unable to subtract");
 	} else
 		debit = AMOUNT_MSAT(0);
 
-	stmt = db_prepare_v2(bkpr->db, SQL("INSERT INTO onchain_fees"
-				     " ("
-				     "  account_name"
-				     ", txid"
-				     ", credit"
-				     ", debit"
-				     ", timestamp"
-				     ", update_count"
-				     ") VALUES"
-				     " (?, ?, ?, ?, ?, ?);"));
-	db_bind_text(stmt, acct_name);
-	db_bind_txid(stmt, txid);
-	db_bind_amount_msat(stmt, credit);
-	db_bind_amount_msat(stmt, debit);
-	db_bind_u64(stmt, timestamp);
-	db_bind_int(stmt, max_update_count+1);
-	db_exec_prepared_v2(take(stmt));
-
-	new_onchain_fee(bkpr->onchain_fees,
-			acct_name, txid, credit, debit, timestamp,
-			max_update_count+1);
+	of = new_onchain_fee(bkpr->onchain_fees,
+			     acct_name, txid, credit, debit, timestamp,
+			     max_update_count+1);
+	onchain_fee_datastore_add(cmd, of);
 }
 
 /* Sort these as ORDER BY txid, account_name */
@@ -380,6 +389,7 @@ struct fee_sum **calculate_onchain_fee_sums(const tal_t *ctx,
 }
 
 char *update_channel_onchain_fees(const tal_t *ctx,
+				  struct command *cmd,
 				  struct bkpr *bkpr,
 				  struct account *acct)
 {
@@ -432,7 +442,7 @@ char *update_channel_onchain_fees(const tal_t *ctx,
 				       "onchain sum from %s",
 				       close_ev->tag);
 
-		insert_chain_fees_diff(bkpr, acct->name,
+		insert_chain_fees_diff(cmd, bkpr, acct->name,
 				       close_ev->spending_txid,
 				       fees,
 				       close_ev->timestamp);
@@ -491,6 +501,7 @@ static char *is_closed_channel_txid(const tal_t *ctx,
 }
 
 char *maybe_update_onchain_fees(const tal_t *ctx,
+				struct command *cmd,
 				struct bkpr *bkpr,
 			        struct bitcoin_txid *txid)
 {
@@ -627,7 +638,7 @@ char *maybe_update_onchain_fees(const tal_t *ctx,
 			/* But we might need to clean up any fees assigned
 			 * to the wallet from a previous round, where it
 			 * *was* the only game in town */
-			insert_chain_fees_diff(bkpr, last_acctname, txid,
+			insert_chain_fees_diff(cmd, bkpr, last_acctname, txid,
 					       AMOUNT_MSAT(0),
 					       events[i]->timestamp);
 			continue;
@@ -647,7 +658,7 @@ char *maybe_update_onchain_fees(const tal_t *ctx,
 		} else
 			fees = fee_part_msat;
 
-		insert_chain_fees_diff(bkpr, last_acctname, txid, fees,
+		insert_chain_fees_diff(cmd, bkpr, last_acctname, txid, fees,
 				       events[i]->timestamp);
 
 	}
@@ -709,31 +720,53 @@ static void memleak_scan_ofees_hash(struct htable *memtable,
 }
 
 struct onchain_fees *init_onchain_fees(const tal_t *ctx,
-				       struct db *db,
 				       struct command *init_cmd)
 {
 	struct onchain_fees *onchain_fees = tal(ctx, struct onchain_fees);
-	struct db_stmt *stmt;
+	struct json_out *params = json_out_new(tmpctx);
+	const jsmntok_t *result;
+	const char *buf;
+	const jsmntok_t *datastore, *t;
+	size_t i;
 
 	onchain_fees->by_account = tal(onchain_fees, struct ofees_hash);
 	ofees_hash_init(onchain_fees->by_account);
 	tal_add_destructor(onchain_fees->by_account, ofees_hash_destroy);
 	memleak_add_helper(onchain_fees->by_account, memleak_scan_ofees_hash);
 
-	db_begin_transaction(db);
-	stmt = db_prepare_v2(db, SQL("SELECT"
-				     "  of.account_name"
-				     ", of.txid"
-				     ", of.credit"
-				     ", of.debit"
-				     ", of.timestamp"
-				     ", of.update_count"
-				     " FROM onchain_fees of"));
-	db_query_prepared(stmt);
-	while (db_step(stmt))
-		stmt2onchain_fee(onchain_fees, stmt);
-	tal_free(stmt);
-	db_commit_transaction(db);
+	json_out_start(params, NULL, '{');
+	json_out_start(params, "key", '[');
+	json_out_addstr(params, NULL, "bookkeeper");
+	json_out_addstr(params, NULL, "onchain_fee");
+	json_out_end(params, ']');
+	json_out_end(params, '}');
+	result = jsonrpc_request_sync(tmpctx, init_cmd,
+				      "listdatastore",
+				      params, &buf);
 
+	datastore = json_get_member(buf, result, "datastore");
+	json_for_each_arr(i, t, datastore) {
+		size_t datalen;
+		const jsmntok_t *key, *datatok;
+		const u8 *data;
+
+		/* Key is an array, first two elements are bookkeeper, onchain_fee */
+		key = json_get_member(buf, t, "key") + 3;
+		datatok = json_get_member(buf, t, "hex");
+		/* In case someone creates a subdir? */
+		if (!datatok)
+			continue;
+
+		data = json_tok_bin_from_hex(tmpctx, buf, datatok);
+		datalen = tal_bytelen(data);
+
+		while (datalen != 0) {
+			if (!fromwire_onchain_fee(onchain_fees, &data, &datalen))
+				plugin_err(init_cmd->plugin,
+					   "Invalid onchain_fee for %.*s in datastore",
+					   json_tok_full_len(key),
+					   json_tok_full(buf, key));
+		}
+	}
 	return onchain_fees;
 }

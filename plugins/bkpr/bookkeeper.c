@@ -652,7 +652,7 @@ static void try_update_open_fees(struct command *cmd,
 	ev = find_chain_event_by_id(cmd, bkpr->db, *acct->closed_event_db_id);
 	assert(ev);
 
-	err = maybe_update_onchain_fees(cmd, bkpr, ev->spending_txid);
+	err = maybe_update_onchain_fees(cmd, cmd, bkpr, ev->spending_txid);
 	if (err)
 		plugin_err(cmd->plugin,
 			   "failure updating chain fees:"
@@ -807,7 +807,7 @@ static bool new_missed_channel_account(struct command *cmd,
 
 		maybe_update_account(cmd, acct, chain_ev,
 				     tags, 0, &peer_id);
-		maybe_update_onchain_fees(cmd, bkpr, &opt.txid);
+		maybe_update_onchain_fees(cmd, cmd, bkpr, &opt.txid);
 
 		/* We won't count the close's fees if we're
 		 * *not* the opener, which we didn't know
@@ -1029,7 +1029,7 @@ static char *do_account_close_checks(struct command *cmd,
 		if (closeheight != 0) {
 			char *err;
 			account_update_closeheight(cmd, closed_acct, closeheight);
-			err = update_channel_onchain_fees(cmd, bkpr, closed_acct);
+			err = update_channel_onchain_fees(cmd, cmd, bkpr, closed_acct);
 			if (err) {
 				db_commit_transaction(bkpr->db);
 				return err;
@@ -1561,7 +1561,7 @@ parse_and_log_chain_move(struct command *cmd,
 			     peer_id);
 
 	/* Can we calculate any onchain fees now? */
-	err = maybe_update_onchain_fees(cmd, bkpr,
+	err = maybe_update_onchain_fees(cmd, cmd, bkpr,
 					e->spending_txid ?
 					e->spending_txid :
 					&e->outpoint.txid);
@@ -1800,7 +1800,7 @@ static struct command_result *json_utxo_deposit(struct command *cmd, const char 
 	}
 
 	/* Can we calculate any onchain fees now? */
-	err = maybe_update_onchain_fees(cmd, bkpr, &ev->outpoint.txid);
+	err = maybe_update_onchain_fees(cmd, cmd, bkpr, &ev->outpoint.txid);
 	db_commit_transaction(bkpr->db);
 	if (err)
 		plugin_err(cmd->plugin,
@@ -1870,7 +1870,7 @@ static struct command_result *json_utxo_spend(struct command *cmd, const char *b
 		return notification_handled(cmd);
 	}
 
-	err = maybe_update_onchain_fees(cmd, bkpr, ev->spending_txid);
+	err = maybe_update_onchain_fees(cmd, cmd, bkpr, ev->spending_txid);
 	if (err) {
 		db_commit_transaction(bkpr->db);
 		plugin_err(cmd->plugin,
@@ -1878,7 +1878,7 @@ static struct command_result *json_utxo_spend(struct command *cmd, const char *b
 			   err);
 	}
 
-	err = maybe_update_onchain_fees(cmd, bkpr, &ev->outpoint.txid);
+	err = maybe_update_onchain_fees(cmd, cmd, bkpr, &ev->outpoint.txid);
 	if (err) {
 		db_commit_transaction(bkpr->db);
 		plugin_err(cmd->plugin,
@@ -2046,7 +2046,7 @@ static const char *init(struct command *init_cmd, const char *b, const jsmntok_t
 	plugin_log(p, LOG_DBG, "Setting up database at %s", bkpr->db_dsn);
 	bkpr->db = db_setup(bkpr, p, bkpr->db_dsn);
 	bkpr->accounts = init_accounts(bkpr, init_cmd);
-	bkpr->onchain_fees = init_onchain_fees(bkpr, bkpr->db, init_cmd);
+	bkpr->onchain_fees = init_onchain_fees(bkpr, init_cmd);
 
 	return NULL;
 }
