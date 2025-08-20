@@ -385,7 +385,7 @@ void migrate_from_account_db(struct lightningd *ld, struct db *db)
 		goto out;
 	}
 	/* Last migration was 24.08.  Migrate there first if this happens. */
-	if (version != 17)
+	if (version != 17 && version != 18)
 		fatal("Cannot migrate account database version %i", version);
 	chain_events = list_chain_events(tmpctx, account_db);
 	channel_events = list_channel_events(tmpctx, account_db);
