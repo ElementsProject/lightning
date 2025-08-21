@@ -6,6 +6,11 @@ on:
       - "master"
   pull_request:
 
+# Run CI when PR is edited and description contains Changelog
+if: |
+  github.event.action != 'edited' || 
+  contains(github.event.pull_request.body, 'Changelog')
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
