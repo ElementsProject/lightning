@@ -34,7 +34,7 @@ static const char *mvt_tags[] = {
 	"channel_proposed",
 	"splice",
 	"penalty_adj",
-	"journal",
+	"journal_entry",
 	"foreign",
 };
 

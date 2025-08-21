@@ -103,7 +103,7 @@
                 "lease_fee",
                 "channel_proposed",
                 "penalty_adj",
-                "journal"
+                "journal_entry"
               ],
               "description": [
                 "A set of one or more tags defining the nature of the change"
