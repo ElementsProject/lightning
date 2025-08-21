@@ -5,12 +5,7 @@ on:
     branches:
       - "master"
   pull_request:
-
-# Run CI when PR is edited and description contains Changelog
-if: |
-  github.event.action != 'edited' || 
-  contains(github.event.pull_request.body, 'Changelog')
-
+    types: [opened, synchronize, edited]
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -27,6 +22,9 @@ jobs:
     name: Pre-build checks
     runs-on: ubuntu-22.04
     timeout-minutes: 30
+    if: |
+      github.event.action != 'edited' || 
+      contains(tolower(github.event.pull_request.body), 'changelog')
     env:
       BOLTDIR: bolts
     strategy:
