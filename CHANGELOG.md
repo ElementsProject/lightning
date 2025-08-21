@@ -3,7 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
-## [25.09rc1] - 2025-08-18: "Hot Wallet Guardian"
+## [25.09rc2] - 2025-08-18: "Hot Wallet Guardian"
 
 This release named by @king-11.
 
@@ -35,6 +35,7 @@ Note: release schedule moved one month: this is v25.09, and all deprecations inc
 
 ### Changed
 
+ - Build: we now use `uv` to build instead of poetry: see doc/getting-started/getting-started/installation.md ([#8249])
  - Protocol: We now insist that peers support `option_channel_type` (in CLN since 0.12.0 in late 2022, similar for other implementations). ([#8389])
  - Protocol: payment secret ('s' field) is now mandatory in BOLT11 payment requests for improved security. ([#8377])
  - wss-proxy.py was replaced by a rust version with support for multiple `wss-bind-addr`. If you install CLN from pre-compiled binaries you must remove the old wss-proxy directory first before installing CLN, usually ([#8080])
@@ -112,7 +113,8 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#8387]: https://github.com/ElementsProject/lightning/pull/8387
 [#7344]: https://github.com/ElementsProject/lightning/pull/7344
 [#8410]: https://github.com/ElementsProject/lightning/pull/8410
-[25.09rc1]: https://github.com/ElementsProject/lightning/releases/tag/v25.09rc1
+[#8249]: https://github.com/ElementsProject/lightning/pull/8249
+[25.09rc2]: https://github.com/ElementsProject/lightning/releases/tag/v25.09rc2
 
 
 
