@@ -668,7 +668,7 @@ static bool json_add_blinded_paths(struct command *cmd,
 static const char *recurrence_time_unit_name(u8 time_unit)
 {
 	/* BOLT-recurrence #12:
-	 * `time_unit` defining 0 (seconds), 1 (days), 2 (months), 3 (years).
+	 * `time_unit` defining 0 (seconds), 1 (days), or 2 (months).
 	 */
 	switch (time_unit) {
 	case 0:
@@ -677,8 +677,6 @@ static const char *recurrence_time_unit_name(u8 time_unit)
 		return "days";
 	case 2:
 		return "months";
-	case 3:
-		return "years";
 	}
 	return NULL;
 }
@@ -1355,8 +1353,8 @@ static void json_add_rune(struct command *cmd, struct json_stream *js, const str
 								else {
 									/* months */
 									diff /= 30;
-									tal_append_fmt(&v, "%"PRIu64" years %"PRIu64" months",
-										       diff / 12, diff % 12);
+									tal_append_fmt(&v, "%"PRIu64" months",
+										       diff);
 								}
 							}
 						}

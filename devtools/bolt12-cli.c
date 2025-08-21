@@ -185,8 +185,7 @@ static bool print_recurrance(const struct recurrence *recurrence,
 
 	/* BOLT-recurrence #12:
 	 * Thus, each offer containing a recurring payment has:
-	 * 1. A `time_unit` defining 0 (seconds), 1 (days), 2 (months),
-	 *    3 (years).
+	 * 1. A `time_unit` defining 0 (seconds), 1 (days), or 2 (months).
 	 * 2. A `period`, defining how often (in `time_unit`) it has to be paid.
 	 * 3. An optional `recurrence_limit` of total payments to be paid.
 	 * 4. An optional `recurrence_base`:
@@ -216,9 +215,6 @@ static bool print_recurrance(const struct recurrence *recurrence,
 		break;
 	case 2:
 		unit = "months";
-		break;
-	case 3:
-		unit = "years";
 		break;
 	default:
 		fprintf(stderr, "recurrence: unknown time_unit %u", recurrence->time_unit);
