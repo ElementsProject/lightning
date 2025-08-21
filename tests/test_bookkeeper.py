@@ -1126,7 +1126,7 @@ def test_migration_no_bkpr(node_factory, bitcoind):
                           'currency': 'bcrt',
                           'debit_msat': 12345678,
                           'is_rebalance': False,
-                          'tag': 'journal',
+                          'tag': 'journal_entry',
                           'type': 'channel'}]
 
     assert l2_events == [{'account': chan['channel_id'],
@@ -1142,5 +1142,5 @@ def test_migration_no_bkpr(node_factory, bitcoind):
                           'currency': 'bcrt',
                           'debit_msat': 0,
                           'is_rebalance': False,
-                          'tag': 'journal',
+                          'tag': 'journal_entry',
                           'type': 'channel'}]

@@ -2021,14 +2021,14 @@ def test_migration_no_bkpr(node_factory, bitcoind):
                           'credit_msat': 0,
                           'debit_msat': 12345678,
                           'fees_msat': 0,
-                          'primary_tag': 'journal',
+                          'primary_tag': 'journal_entry',
                           }]
     expected_channel2 = [{'account_id': chan['channel_id'],
                           'created_index': 1,
                           'credit_msat': 12345678,
                           'debit_msat': 0,
                           'fees_msat': 0,
-                          'primary_tag': 'journal',
+                          'primary_tag': 'journal_entry',
                           }]
     expected_chain1 = [{'account_id': 'wallet',
                         'blockheight': 103,
