@@ -254,9 +254,12 @@ class UnixSocket(object):
                 # Open an fd to our home directory, that we can then find
                 # through `/proc/self/fd` and access the contents.
                 dirfd = os.open(dirname, os.O_DIRECTORY | os.O_RDONLY)
-                short_path = "/proc/self/fd/%d/%s" % (dirfd, basename)
-                self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-                self.sock.connect(short_path)
+                try:
+                    short_path = "/proc/self/fd/%d/%s" % (dirfd, basename)
+                    self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                    self.sock.connect(short_path)
+                finally:
+                    os.close(dirfd)
             elif (e.args[0] == "AF_UNIX path too long" and os.uname()[0] == "Darwin"):
                 temp_dir = tempfile.mkdtemp()
                 temp_link = os.path.join(temp_dir, "socket_link")
