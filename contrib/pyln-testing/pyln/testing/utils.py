@@ -60,7 +60,8 @@ def env(name, default=None):
     """
     fname = 'config.vars'
     if os.path.exists(fname):
-        lines = open(fname, 'r').readlines()
+        with open(fname, 'r') as f:
+            lines = f.readlines()
         config = dict([(line.rstrip().split('=', 1)) for line in lines])
     else:
         config = {}
