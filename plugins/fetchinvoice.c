@@ -576,6 +576,7 @@ static struct command_result *establish_path_fail(struct command *cmd,
 static struct command_result *try_establish(struct command *cmd,
 					    struct establishing_paths *epaths)
 {
+	const struct offers_data *od = get_offers_data(cmd->plugin);
 	struct pubkey target;
 
 	if (epaths->sent->direct_dest) {
@@ -596,8 +597,8 @@ static struct command_result *try_establish(struct command *cmd,
 			epaths->sent->issuer_key = &bpath->path[tal_count(bpath->path)-1]->blinded_node_id;
 	}
 
-	return establish_onion_path(cmd, get_gossmap(cmd->plugin), &id, &target,
-				    disable_connect,
+	return establish_onion_path(cmd, get_gossmap(cmd->plugin), &od->id, &target,
+				    od->disable_connect,
 				    establish_path_done,
 				    establish_path_fail,
 				    epaths);
@@ -799,15 +800,16 @@ static struct command_result *param_dev_reply_path(struct command *cmd, const ch
 	return NULL;
 }
 
-static bool payer_key(const u8 *public_tweak, size_t public_tweak_len,
+static bool payer_key(const struct offers_data *od,
+		      const u8 *public_tweak, size_t public_tweak_len,
 		      struct pubkey *key)
 {
 	struct sha256 tweakhash;
 
-	bolt12_alias_tweak(&nodealias_base, public_tweak, public_tweak_len,
+	bolt12_alias_tweak(&od->nodealias_base, public_tweak, public_tweak_len,
 			   &tweakhash);
 
-	*key = id;
+	*key = od->id;
 	return secp256k1_ec_pubkey_tweak_add(secp256k1_ctx,
 					     &key->pubkey,
 					     tweakhash.u.u8) == 1;
@@ -818,6 +820,7 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 					 const char *buffer,
 					 const jsmntok_t *params)
 {
+	const struct offers_data *od = get_offers_data(cmd->plugin);
 	struct amount_msat *msat;
 	const char *rec_label, *payer_note;
 	u8 *payer_metadata;
@@ -988,7 +991,7 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 		       rec_label,
 		       strlen(rec_label));
 
-		bolt12_alias_tweak(&nodealias_base,
+		bolt12_alias_tweak(&od->nodealias_base,
 				   tweak_input,
 				   tal_bytelen(tweak_input),
 				   &tweak);
@@ -1054,7 +1057,7 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 
 	/* We derive transient payer_id from invreq_metadata */
 	invreq->invreq_payer_id = tal(invreq, struct pubkey);
-	if (!payer_key(invreq->invreq_metadata,
+	if (!payer_key(od, invreq->invreq_metadata,
 		       tal_bytelen(invreq->invreq_metadata),
 		       invreq->invreq_payer_id)) {
 		/* Doesn't happen! */
@@ -1345,6 +1348,7 @@ struct command_result *json_sendinvoice(struct command *cmd,
 					const char *buffer,
 					const jsmntok_t *params)
 {
+	const struct offers_data *od = get_offers_data(cmd->plugin);
 	struct amount_msat *msat;
 	u32 *timeout;
 	struct sent *sent = tal(cmd, struct sent);
@@ -1417,7 +1421,7 @@ struct command_result *json_sendinvoice(struct command *cmd,
 	 *   - MUST set `invoice_node_id` to the final `blinded_node_id` on the path it received the invoice request
 	 */
 	sent->inv->invoice_node_id = tal(sent->inv, struct pubkey);
-	sent->inv->invoice_node_id->pubkey = id.pubkey;
+	sent->inv->invoice_node_id->pubkey = od->id.pubkey;
 
 	/* BOLT #12:
 	 * - if the expiry for accepting payment is not 7200 seconds

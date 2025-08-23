@@ -278,10 +278,56 @@ static struct command_result *create_offer(struct command *cmd,
 	return send_outreq(req);
 }
 
+/* Create num_node_ids paths from these node_ids to us (one hop each) */
+static struct blinded_path **offer_onehop_paths(const tal_t *ctx,
+						const struct offers_data *od,
+						const struct tlv_offer *offer,
+						const struct pubkey *neighbors,
+						size_t num_neigbors)
+{
+	struct pubkey *ids = tal_arr(tmpctx, struct pubkey, 2);
+	struct secret blinding_path_secret;
+	struct sha256 offer_id;
+	struct blinded_path **offer_paths;
+
+	/* Note: "id" of offer minus paths */
+	assert(!offer->offer_paths);
+	offer_offer_id(offer, &offer_id);
+
+	offer_paths = tal_arr(ctx, struct blinded_path *, num_neigbors);
+	for (size_t i = 0; i < num_neigbors; i++) {
+		ids[0] = neighbors[i];
+		ids[1] = od->id;
+
+		/* So we recognize this */
+		/* We can check this when they try to take up offer. */
+		bolt12_path_secret(&od->offerblinding_base, &offer_id,
+				   &blinding_path_secret);
+
+		offer_paths[i]
+			= incoming_message_blinded_path(offer_paths,
+							ids,
+							NULL,
+							&blinding_path_secret);
+	}
+	return offer_paths;
+}
+
+/* Common case of making a single path */
+static struct blinded_path **offer_onehop_path(const tal_t *ctx,
+					       const struct offers_data *od,
+					       const struct tlv_offer *offer,
+					       const struct pubkey *neighbor)
+{
+	return offer_onehop_paths(ctx, od, offer, neighbor, 1);
+}
+
 static struct command_result *found_best_peer(struct command *cmd,
 					      const struct chaninfo *best,
 					      struct offer_info *offinfo)
 {
+	const struct offers_data *od = get_offers_data(cmd->plugin);
+
 	/* BOLT #12:
 	 *   - if it is connected only by private channels:
 	 *     - MUST include `offer_paths` containing one or more paths to the node from
@@ -292,29 +338,9 @@ static struct command_result *found_best_peer(struct command *cmd,
 		plugin_log(cmd->plugin, LOG_UNUSUAL,
 			   "No incoming channel to public peer, so no blinded path");
 	} else {
-		struct pubkey *ids;
-		struct secret blinding_path_secret;
-		struct sha256 offer_id;
-
-		/* Note: "id" of offer minus paths */
-		offer_offer_id(offinfo->offer, &offer_id);
-
-		/* Make a small 1-hop path to us */
-		ids = tal_arr(tmpctx, struct pubkey, 2);
-		ids[0] = best->id;
-		ids[1] = id;
-
-		/* So we recognize this */
-		/* We can check this when they try to take up offer. */
-		bolt12_path_secret(&offerblinding_base, &offer_id,
-				   &blinding_path_secret);
-
-		offinfo->offer->offer_paths = tal_arr(offinfo->offer, struct blinded_path *, 1);
-		offinfo->offer->offer_paths[0]
-			= incoming_message_blinded_path(offinfo->offer->offer_paths,
-							ids,
-							NULL,
-							&blinding_path_secret);
+		offinfo->offer->offer_paths
+			= offer_onehop_path(offinfo->offer, od,
+					    offinfo->offer, &best->id);
 	}
 
 	return create_offer(cmd, offinfo);
@@ -323,16 +349,32 @@ static struct command_result *found_best_peer(struct command *cmd,
 static struct command_result *maybe_add_path(struct command *cmd,
 					     struct offer_info *offinfo)
 {
-	/* BOLT #12:
-	 *   - if it is connected only by private channels:
-	 *     - MUST include `offer_paths` containing one or more paths to the node from
-	 *       publicly reachable nodes.
-	 */
+	const struct offers_data *od = get_offers_data(cmd->plugin);
+
+	/* Populate paths assuming not already set by dev_paths */
 	if (!offinfo->offer->offer_paths) {
-		if (we_want_blinded_path(cmd->plugin, false))
-			return find_best_peer(cmd, OPT_ONION_MESSAGES,
-					      found_best_peer, offinfo);
+		/* BOLT #12:
+		 *   - if it is connected only by private channels:
+		 *     - MUST include `offer_paths` containing one or more paths to the node from
+		 *       publicly reachable nodes.
+		 */
+		if (we_want_blinded_path(cmd->plugin, false)) {
+			/* We use *all* fronting nodes (not just "best" one)
+			 * for offers */
+			if (od->fronting_nodes) {
+				offinfo->offer->offer_paths
+					= offer_onehop_paths(offinfo->offer, od,
+							     offinfo->offer,
+							     od->fronting_nodes,
+							     tal_count(od->fronting_nodes));
+			} else {
+				return find_best_peer(cmd, OPT_ONION_MESSAGES,
+						      NULL,
+						      found_best_peer, offinfo);
+			}
+		}
 	}
+
 	return create_offer(cmd, offinfo);
 }
 
@@ -379,6 +421,7 @@ static struct command_result *param_paths(struct command *cmd, const char *name,
 {
 	size_t i;
 	const jsmntok_t *t;
+	const struct offers_data *od = get_offers_data(cmd->plugin);
 
 	if (tok->type != JSMN_ARRAY)
 		return command_fail_badparam(cmd, name, buffer, tok, "Must be array");
@@ -421,7 +464,7 @@ static struct command_result *param_paths(struct command *cmd, const char *name,
 								     "invalid pubkey");
 				}
 			}
-			if (j == t->size - 1 && !pubkey_eq(&pk, &id))
+			if (j == t->size - 1 && !pubkey_eq(&pk, &od->id))
 				return command_fail_badparam(cmd, name, buffer, p,
 							     "final pubkey must be this node");
 			(*paths)[i]->path[j] = pk;
@@ -434,6 +477,7 @@ struct command_result *json_offer(struct command *cmd,
 				  const char *buffer,
 				  const jsmntok_t *params)
 {
+	const struct offers_data *od = get_offers_data(cmd->plugin);
 	const char *desc, *issuer;
 	struct tlv_offer *offer;
 	struct offer_info *offinfo = tal(cmd, struct offer_info);
@@ -531,7 +575,7 @@ struct command_result *json_offer(struct command *cmd,
 	 *   - MUST set `offer_issuer_id` to the node's public key to request the
 	 *     invoice from.
 	 */
-	offer->offer_issuer_id = tal_dup(offer, struct pubkey, &id);
+	offer->offer_issuer_id = tal_dup(offer, struct pubkey, &od->id);
 
 	/* Now rest of offer will not change: we use pathless offer to create secret. */
 	if (paths) {
@@ -541,7 +585,7 @@ struct command_result *json_offer(struct command *cmd,
 		offer_offer_id(offer, &offer_id);
 
 		/* We can check this when they try to take up offer. */
-		bolt12_path_secret(&offerblinding_base, &offer_id,
+		bolt12_path_secret(&od->offerblinding_base, &offer_id,
 				   &blinding_path_secret);
 
 		offer->offer_paths = tal_arr(offer, struct blinded_path *, tal_count(paths));
@@ -603,7 +647,15 @@ static struct command_result *found_best_peer_invrequest(struct command *cmd,
 							 const struct chaninfo *best,
 							 struct invrequest_data *irdata)
 {
+	const struct offers_data *od = get_offers_data(cmd->plugin);
+
 	if (!best) {
+		/* Don't allow bare invoices if they explicitly told us to front */
+		if (od->fronting_nodes) {
+			return command_fail(cmd, LIGHTNINGD,
+					    "Could not find neighbour fronting node");
+		}
+
 		/* FIXME: Make this a warning in the result! */
 		plugin_log(cmd->plugin, LOG_UNUSUAL,
 			   "No incoming channel to public peer, so no blinded path for invoice request");
@@ -627,11 +679,11 @@ static struct command_result *found_best_peer_invrequest(struct command *cmd,
 		/* Make a small 1-hop path to us */
 		ids = tal_arr(tmpctx, struct pubkey, 2);
 		ids[0] = best->id;
-		ids[1] = id;
+		ids[1] = od->id;
 
 		/* So we recognize this */
 		/* We can check this when they try to take up invoice_request. */
-		bolt12_path_secret(&offerblinding_base, &invreq_id,
+		bolt12_path_secret(&od->offerblinding_base, &invreq_id,
 				   &blinding_path_secret);
 
 		plugin_log(cmd->plugin, LOG_DBG,
@@ -654,6 +706,7 @@ struct command_result *json_invoicerequest(struct command *cmd,
 					   const char *buffer,
 					   const jsmntok_t *params)
 {
+	const struct offers_data *od = get_offers_data(cmd->plugin);
 	const char *desc, *issuer, *label;
 	struct tlv_invoice_request *invreq;
 	struct amount_msat *msat;
@@ -719,21 +772,19 @@ struct command_result *json_invoicerequest(struct command *cmd,
 	 *   - MUST set `invreq_payer_id` (as it would set `offer_issuer_id` for an offer).
 	 */
 	/* FIXME: Allow invoicerequests using aliases! */
-	invreq->invreq_payer_id = tal_dup(invreq, struct pubkey, &id);
+	invreq->invreq_payer_id = tal_dup(invreq, struct pubkey, &od->id);
 
 	/* BOLT #12:
 	 * - if it supports bolt12 invoice request features:
 	 *   - MUST set `invreq_features`.`features` to the bitmap of features.
 	 */
 
-	/* FIXME: We only set blinded path if private/noaddr, we should allow
-	 * setting otherwise! */
 	if (we_want_blinded_path(cmd->plugin, false)) {
 		struct invrequest_data *idata = tal(cmd, struct invrequest_data);
 		idata->invreq = invreq;
 		idata->single_use = *single_use;
 		idata->label = label;
-		return find_best_peer(cmd, OPT_ONION_MESSAGES,
+		return find_best_peer(cmd, OPT_ONION_MESSAGES, od->fronting_nodes,
 				      found_best_peer_invrequest, idata);
 	}
 
