@@ -320,8 +320,19 @@ struct find_best_peer_data {
 				     const struct chaninfo *,
 				     void *);
 	int needed_feature;
+	const struct pubkey *fronting_only;
 	void *arg;
 };
+
+static bool is_in_pubkeys(const struct pubkey *pubkeys,
+			  const struct pubkey *k)
+{
+	for (size_t i = 0; i < tal_count(pubkeys); i++) {
+		if (pubkey_eq(&pubkeys[i], k))
+			return true;
+	}
+	return false;
+}
 
 static struct command_result *listincoming_done(struct command *cmd,
 						const char *method,
@@ -367,6 +378,18 @@ static struct command_result *listincoming_done(struct command *cmd,
 		}
 		ci.feebase = feebase.millisatoshis; /* Raw: feebase */
 
+		if (data->fronting_only) {
+			if (!is_in_pubkeys(data->fronting_only, &ci.id))
+				continue;
+
+			/* If disconnected, don't eliminate, simply
+			 * consider it last. */
+			if (!enabled) {
+				ci.capacity = AMOUNT_MSAT(0);
+				enabled = true;
+			}
+		}
+
 		/* Don't pick a peer which is disconnected */
 		if (!enabled)
 			continue;
@@ -392,6 +415,7 @@ static struct command_result *listincoming_done(struct command *cmd,
 
 struct command_result *find_best_peer_(struct command *cmd,
 				       int needed_feature,
+				       const struct pubkey *fronting_only,
 				       struct command_result *(*cb)(struct command *,
 								    const struct chaninfo *,
 								    void *),
@@ -402,6 +426,7 @@ struct command_result *find_best_peer_(struct command *cmd,
 	data->cb = cb;
 	data->arg = arg;
 	data->needed_feature = needed_feature;
+	data->fronting_only = fronting_only;
 	req = jsonrpc_request_start(cmd, "listincoming",
 				    listincoming_done, forward_error, data);
 	return send_outreq(req);
