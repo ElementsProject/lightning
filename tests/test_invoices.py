@@ -962,3 +962,13 @@ def test_payment_fronting(node_factory):
 
     l1.rpc.xpay(l3inv)
     l1.rpc.xpay(l4inv)
+
+    # Now test offers.
+    l3offer = l3.rpc.offer(1000, 'l3offer', 'l3offer')['bolt12']
+    assert only_one(l3.rpc.decode(l3offer)['offer_paths'])['first_node_id'] == l1.info['id']
+
+    l4offer = l4.rpc.offer(1000, 'l4offer', 'l4offer')['bolt12']
+    assert [r['first_node_id'] for r in l4.rpc.decode(l4offer)['offer_paths']] == [l1.info['id'], l2.info['id']]
+
+    l3invb12 = l1.rpc.fetchinvoice(l3offer)['invoice']
+    l4invb12 = l1.rpc.fetchinvoice(l4offer)['invoice']
