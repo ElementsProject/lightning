@@ -261,6 +261,12 @@ static struct command_result *found_best_peer(struct command *cmd,
 	 *   for each `blinded_path` in `paths`, in order.
 	 */
 	if (!best) {
+		/* Don't allow bare invoices if they explicitly told us to front */
+		if (od->fronting_nodes) {
+			return fail_invreq(cmd, ir,
+					   "Could not find path from payment-fronting-node");
+		}
+
 		/* Note: since we don't make one, createinvoice adds a dummy. */
 		plugin_log(cmd->plugin, LOG_UNUSUAL,
 			   "No incoming channel for %s, so no blinded path",
@@ -358,10 +364,12 @@ static struct command_result *found_best_peer(struct command *cmd,
 static struct command_result *add_blindedpaths(struct command *cmd,
 					       struct invreq *ir)
 {
+	const struct offers_data *od = get_offers_data(cmd->plugin);
+
 	if (!we_want_blinded_path(cmd->plugin, true))
 		return create_invoicereq(cmd, ir);
 
-	return find_best_peer(cmd, OPT_ROUTE_BLINDING, NULL,
+	return find_best_peer(cmd, OPT_ROUTE_BLINDING, od->fronting_nodes,
 			      found_best_peer, ir);
 }
 

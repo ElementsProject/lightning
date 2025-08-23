@@ -972,3 +972,10 @@ def test_payment_fronting(node_factory):
 
     l3invb12 = l1.rpc.fetchinvoice(l3offer)['invoice']
     l4invb12 = l1.rpc.fetchinvoice(l4offer)['invoice']
+
+    assert only_one(l3.rpc.decode(l3invb12)['invoice_paths'])['first_node_id'] == l1.info['id']
+    # Given multiple, it will pick one.
+    assert only_one(l3.rpc.decode(l3invb12)['invoice_paths'])['first_node_id'] in (l1.info['id'], l2.info['id'])
+
+    l1.rpc.xpay(l3invb12)
+    l1.rpc.xpay(l4invb12)    
