@@ -822,7 +822,12 @@ def test_address(node_factory):
 
     # Now test UNIX domain binding
     l1.stop()
-    l1.daemon.opts['bind-addr'] = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "sock")
+    bind_addr = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "sock")
+    if len(bind_addr) >= 108 and os.uname()[0] == "Linux":
+        bind_addr = os.path.join('/proc/self/cwd',
+                                 os.path.relpath(node_factory.directory, os.path.dirname(bind_addr)),
+                                 os.path.relpath(bind_addr, node_factory.directory))
+    l1.daemon.opts['bind-addr'] = bind_addr
     l1.start()
 
     # Test dev-allow-localhost
@@ -878,12 +883,21 @@ def test_listconfigs_plugins(node_factory, bitcoind, chainparams):
     assert [p['active'] for p in plugins if p['name'].endswith('offers')] == [True]
 
 
+def connect_unix(socket_path: str):
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    try:
+        sock.connect(socket_path)
+    except OSError as err:
+        if err.args[0] == 'AF_UNIX path too long' and os.uname()[0] == 'Linux':
+            sock.connect(os.path.join('/proc/self/cwd', os.path.relpath(socket_path)))
+    return sock
+
+
 def test_multirpc(node_factory):
     """Test that we can do multiple RPC without waiting for response"""
     l1 = node_factory.get_node()
 
-    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    sock.connect(l1.rpc.socket_path)
+    sock = connect_unix(l1.rpc.socket_path)
 
     commands = [
         b'{"id":1,"jsonrpc":"2.0","method":"listpeers","params":[]}',
@@ -909,8 +923,7 @@ def test_multiplexed_rpc(node_factory):
     """Test that we can do multiple RPCs which exit in different orders"""
     l1 = node_factory.get_node()
 
-    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    sock.connect(l1.rpc.socket_path)
+    sock = connect_unix(l1.rpc.socket_path)
 
     # Neighbouring ones may be in or out of order.
     commands = [
@@ -940,8 +953,7 @@ def test_malformed_rpc(node_factory):
     """Test that we get a correct response to malformed RPC commands"""
     l1 = node_factory.get_node()
 
-    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    sock.connect(l1.rpc.socket_path)
+    sock = connect_unix(l1.rpc.socket_path)
 
     # No ID
     sock.sendall(b'{"jsonrpc":"2.0","method":"getinfo","params":[]}')
@@ -2032,8 +2044,7 @@ def test_check_command(node_factory):
                      host='x', port="abcd")
 
     # FIXME: python wrapper doesn't let us test array params.
-    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    sock.connect(l1.rpc.socket_path)
+    sock = connect_unix(l1.rpc.socket_path)
 
     sock.sendall(b'{"id":1, "jsonrpc":"2.0","method":"check","params":["help"]}')
     obj, _ = l1.rpc._readobj(sock, b'')

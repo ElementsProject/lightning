@@ -27,6 +27,8 @@ def test_rpc_client(node_factory):
     l1 = node_factory.get_node()
     bin_path = Path.cwd() / "target" / RUST_PROFILE / "examples" / "cln-rpc-getinfo"
     rpc_path = Path(l1.daemon.lightning_dir) / TEST_NETWORK / "lightning-rpc"
+    if len(str(rpc_path)) >= 108 and os.uname()[0] == 'Linux':
+        rpc_path = Path('/proc/self/cwd') / os.path.relpath(rpc_path)
     out = subprocess.check_output([bin_path, rpc_path], stderr=subprocess.STDOUT)
     assert(b'0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518' in out)
 
