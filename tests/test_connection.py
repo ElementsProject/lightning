@@ -12,7 +12,7 @@ from utils import (
     mine_funding_to_announce, first_scid,
     CHANNEL_SIZE
 )
-from pyln.testing.utils import SLOW_MACHINE, VALGRIND, EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT
+from pyln.testing.utils import SLOW_MACHINE, VALGRIND, EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT, RUST
 
 import os
 import pytest
@@ -4563,6 +4563,7 @@ def test_last_stable_connection(node_factory):
     assert only_one(l2.rpc.listpeerchannels()['channels'])['last_stable_connection'] >= recon_time + STABLE_TIME
 
 
+@unittest.skipUnless(RUST, 'RUST is not enabled')
 def test_wss_proxy(node_factory):
     wss_port = node_factory.get_unused_port()
     ws_port = node_factory.get_unused_port()

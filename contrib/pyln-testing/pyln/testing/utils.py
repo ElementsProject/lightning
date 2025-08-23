@@ -82,6 +82,7 @@ TIMEOUT = int(env("TIMEOUT", 180 if SLOW_MACHINE else 60))
 EXPERIMENTAL_DUAL_FUND = env("EXPERIMENTAL_DUAL_FUND", "0") == "1"
 EXPERIMENTAL_SPLICING = env("EXPERIMENTAL_SPLICING", "0") == "1"
 GENERATE_EXAMPLES = env("GENERATE_EXAMPLES", "0") == "1"
+RUST = env("RUST", "0") == "1"
 
 
 def wait_for(success, timeout=TIMEOUT):

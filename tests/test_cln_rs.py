@@ -1,7 +1,7 @@
 from fixtures import *  # noqa: F401,F403
 from pathlib import Path
 from pyln import grpc as clnpb
-from pyln.testing.utils import env, TEST_NETWORK, wait_for, sync_blockheight, TIMEOUT, RpcError
+from pyln.testing.utils import RUST, TEST_NETWORK, wait_for, sync_blockheight, TIMEOUT, RpcError
 from utils import first_scid
 import grpc
 import pytest
@@ -11,7 +11,7 @@ import re
 
 # Skip the entire module if we don't have Rust.
 pytestmark = pytest.mark.skipif(
-    env('RUST') != '1',
+    not RUST,
     reason='RUST is not enabled skipping rust-dependent tests'
 )
 

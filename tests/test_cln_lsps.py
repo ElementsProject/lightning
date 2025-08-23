@@ -1,5 +1,8 @@
 from fixtures import *  # noqa: F401,F403
+from pyln.testing.utils import RUST
+
 import os
+import unittest
 
 RUST_PROFILE = os.environ.get("RUST_PROFILE", "debug")
 
@@ -15,6 +18,7 @@ def test_lsps_service_disabled(node_factory):
     l1.daemon.is_in_log("`lsps-service` not enabled")
 
 
+@unittest.skipUnless(RUST, 'RUST is not enabled')
 def test_lsps0_listprotocols(node_factory):
     l1, l2 = node_factory.get_nodes(2, opts=[
         {}, {"dev-lsps-service": True}
