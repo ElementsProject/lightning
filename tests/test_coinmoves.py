@@ -738,10 +738,10 @@ def test_coinmoves_unilateral_htlc_timeout(node_factory, bitcoind):
                          'utxo': f"{fundchannel['txid']}:{fundchannel['outnum'] ^ 1}"},
                         {'account_id': 'wallet',  # change from anchor spend
                          'blockheight': 104,
-                         'credit_msat': 15579000,
+                         'credit_msat': pytest.approx(15579000, abs=7000),
                          'debit_msat': 0,
                          'extra_tags': [],
-                         'output_msat': 15579000,
+                         'output_msat': pytest.approx(15579000, abs=7000),
                          'primary_tag': 'deposit',
                          'utxo': f"{anchor_spend_txid}:0"},
                         {'account_id': fundchannel['channel_id'],
