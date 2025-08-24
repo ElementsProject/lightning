@@ -12,6 +12,8 @@ pub fn generate_certificates(certs_path: &PathBuf, rest_host: &str) -> Result<()
         "localhost".to_string(),
     ])?;
     ca_params.is_ca = rcgen::IsCa::Ca(rcgen::BasicConstraints::Unconstrained);
+    ca_params.key_usages.push(rcgen::KeyUsagePurpose::KeyCertSign);
+    ca_params.use_authority_key_identifier_extension = true;
     let ca_key = KeyPair::generate()?;
     let ca_cert = ca_params.self_signed(&ca_key)?;
 
@@ -30,6 +32,10 @@ pub fn generate_certificates(certs_path: &PathBuf, rest_host: &str) -> Result<()
         "localhost".to_string(),
     ])?;
     server_params.is_ca = rcgen::IsCa::NoCa;
+    server_params.key_usages.push(rcgen::KeyUsagePurpose::DigitalSignature);
+    server_params.key_usages.push(rcgen::KeyUsagePurpose::KeyEncipherment);
+    server_params.key_usages.push(rcgen::KeyUsagePurpose::KeyAgreement);
+    server_params.use_authority_key_identifier_extension = true;
     server_params.distinguished_name = DistinguishedName::new();
     server_params
         .distinguished_name

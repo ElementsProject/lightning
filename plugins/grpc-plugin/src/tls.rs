@@ -96,14 +96,19 @@ fn generate_or_load_identity(
         // Configure the certificate we want.
         let subject_alt_names = vec!["cln".to_string(), "localhost".to_string()];
         let mut params = rcgen::CertificateParams::new(subject_alt_names)?;
-        params.is_ca = if parent.is_none() {
-            rcgen::IsCa::Ca(rcgen::BasicConstraints::Unconstrained)
+        if parent.is_none() {
+            params.is_ca = rcgen::IsCa::Ca(rcgen::BasicConstraints::Unconstrained);
+            params.key_usages.push(rcgen::KeyUsagePurpose::KeyCertSign);
         } else {
-            rcgen::IsCa::NoCa
-        };
+            params.is_ca = rcgen::IsCa::NoCa;
+            params.key_usages.push(rcgen::KeyUsagePurpose::DigitalSignature);
+            params.key_usages.push(rcgen::KeyUsagePurpose::KeyEncipherment);
+            params.key_usages.push(rcgen::KeyUsagePurpose::KeyAgreement);
+        }
         params
             .distinguished_name
             .push(rcgen::DnType::CommonName, name);
+        params.use_authority_key_identifier_extension = true;
 
         let cert = match parent {
             None => params.self_signed(&keypair),
