@@ -129,9 +129,9 @@ def test_grpc_connect(node_factory):
     key_path = p / "client-key.pem"
     ca_cert_path = p / "ca.pem"
     creds = grpc.ssl_channel_credentials(
-        root_certificates=ca_cert_path.open('rb').read(),
-        private_key=key_path.open('rb').read(),
-        certificate_chain=cert_path.open('rb').read()
+        root_certificates=ca_cert_path.read_bytes(),
+        private_key=key_path.read_bytes(),
+        certificate_chain=cert_path.read_bytes()
     )
 
     wait_for_grpc_start(l1)
@@ -196,15 +196,15 @@ def test_grpc_generate_certificate(node_factory):
     assert [f.exists() for f in files] == [True] * len(files)
 
     # The files exist, restarting should not change them
-    contents = [f.open().read() for f in files]
+    contents = [f.read_bytes() for f in files]
     l1.restart()
-    assert contents == [f.open().read() for f in files]
+    assert contents == [f.read_bytes() for f in files]
 
     # Now we delete the last file, we should regenerate it as well as its key
     files[-1].unlink()
     l1.restart()
-    assert contents[-2] != files[-2].open().read()
-    assert contents[-1] != files[-1].open().read()
+    assert contents[-2] != files[-2].read_bytes()
+    assert contents[-1] != files[-1].read_bytes()
 
     keys = [f for f in files if f.name.endswith('-key.pem')]
     modes = [f.stat().st_mode for f in keys]
@@ -241,7 +241,7 @@ def test_grpc_wrong_auth(node_factory):
 
     def connect(node):
         p = Path(node.daemon.lightning_dir) / TEST_NETWORK
-        cert, key, ca = [f.open('rb').read() for f in [
+        cert, key, ca = [f.read_bytes() for f in [
             p / 'client.pem',
             p / 'client-key.pem',
             p / "ca.pem"]]

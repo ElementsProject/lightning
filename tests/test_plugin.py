@@ -1244,7 +1244,8 @@ def test_htlc_accepted_hook_forward_restart(node_factory, executor):
     # additional checks
     logline = l2.daemon.wait_for_log(r'Onion written to')
     fname = re.search(r'Onion written to (.*\.json)', logline).group(1)
-    onion = json.load(open(fname))
+    with open(fname) as f:
+        onion = json.load(f)
     assert onion['type'] == 'tlv'
     assert re.match(r'^11020203e80401..0608................$', onion['payload'])
     assert len(onion['shared_secret']) == 64
@@ -2072,15 +2073,16 @@ def test_watchtower(node_factory, bitcoind, directory, chainparams):
 
     cheat_tx = bitcoind.rpc.decoderawtransaction(tx)
     lastcommitnum = 0
-    for l in open(wt_file, 'r'):
-        txid, penalty, channel_id_hook, commitnum = l.strip().split(', ')
-        assert lastcommitnum == int(commitnum)
-        assert channel_id_hook == channel_id
-        lastcommitnum += 1
-        if txid == cheat_tx['txid']:
-            # This one should succeed, since it is a response to the cheat_tx
-            bitcoind.rpc.sendrawtransaction(penalty)
-            break
+    with open(wt_file, 'r') as f:
+        for l in f:
+            txid, penalty, channel_id_hook, commitnum = l.strip().split(', ')
+            assert lastcommitnum == int(commitnum)
+            assert channel_id_hook == channel_id
+            lastcommitnum += 1
+            if txid == cheat_tx['txid']:
+                # This one should succeed, since it is a response to the cheat_tx
+                bitcoind.rpc.sendrawtransaction(penalty)
+                break
 
     # Need this to check that l2 gets the funds
     penalty_meta = bitcoind.rpc.decoderawtransaction(penalty)
@@ -2686,9 +2688,8 @@ plugin.run()
     # write hello world plugin to lndir/plugins
     os.makedirs(os.path.join(lndir, 'plugins'), exist_ok=True)
     path = os.path.join(lndir, 'plugins', 'test_restart_on_update.py')
-    file = open(path, 'w+')
-    file.write(content % "1")
-    file.close()
+    with open(path, 'w+') as file:
+        file.write(content % "1")
     os.chmod(path, os.stat(path).st_mode | stat.S_IEXEC)
 
     # now fire up the node and wait for the plugin to print hello
@@ -2701,9 +2702,8 @@ plugin.run()
     assert not n.daemon.is_in_log(r"Plugin changed, needs restart.")
 
     # modify the file
-    file = open(path, 'w+')
-    file.write(content % "2")
-    file.close()
+    with open(path, 'w+') as file:
+        file.write(content % "2")
     os.chmod(path, os.stat(path).st_mode | stat.S_IEXEC)
 
     # rescan and check
