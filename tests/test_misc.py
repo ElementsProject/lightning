@@ -3,6 +3,7 @@ from bitcoin.rpc import RawProxy
 from decimal import Decimal
 from fixtures import *  # noqa: F401,F403
 from fixtures import LightningNode, TEST_NETWORK
+from pathlib import Path
 from pyln.client import RpcError, Millisatoshi
 from threading import Event
 from pyln.testing.utils import (
@@ -1899,11 +1900,13 @@ def test_logging(node_factory):
     wait_for(lambda: os.path.exists(logpath_moved))
     wait_for(lambda: os.path.exists(logpath))
 
-    log1 = open(logpath_moved).readlines()
+    with open(logpath_moved) as f:
+        log1 = f.readlines()
     assert log1[-1].endswith("Ending log due to SIGHUP\n")
 
     def check_new_log():
-        log2 = open(logpath).readlines()
+        with open(logpath) as f:
+            log2 = f.readlines()
         return len(log2) > 0 and log2[0].endswith("Started log due to SIGHUP\n")
     wait_for(check_new_log)
 
@@ -3106,7 +3109,7 @@ def test_recover_plugin(node_factory, bitcoind):
 
     # Save copy of the db.
     dbpath = os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, "lightningd.sqlite3")
-    orig_db = open(dbpath, "rb").read()
+    orig_db = Path(dbpath).read_bytes()
 
     l2.start()
 
@@ -3121,7 +3124,7 @@ def test_recover_plugin(node_factory, bitcoind):
     l2.stop()
 
     # Overwrite with OLD db.
-    open(dbpath, "wb").write(orig_db)
+    Path(dbpath).write_bytes(orig_db)
 
     l2.start()
 
@@ -4917,45 +4920,46 @@ def test_tracing(node_factory):
     traces = set()
     suspended = set()
     for fname in glob.glob(f"{trace_fnamebase}.*"):
-        for linenum, l in enumerate(open(fname, "rt").readlines(), 1):
-            # In case an assertion fails
-            print(f"Parsing {fname}:{linenum}")
-            parts = l.split(maxsplit=2)
-            cmd = parts[0]
-            spanid = parts[1]
-            if cmd == 'span_emit':
-                assert spanid in traces
-                assert spanid not in suspended
-                # Should be valid JSON
-                res = json.loads(parts[2])
+        with open(fname, "rt") as f:
+            for linenum, l in enumerate(f.readlines(), 1):
+                # In case an assertion fails
+                print(f"Parsing {fname}:{linenum}")
+                parts = l.split(maxsplit=2)
+                cmd = parts[0]
+                spanid = parts[1]
+                if cmd == 'span_emit':
+                    assert spanid in traces
+                    assert spanid not in suspended
+                    # Should be valid JSON
+                    res = json.loads(parts[2])
 
-                # This is an array for some reason
-                assert len(res) == 1
-                res = res[0]
-                assert res['id'] == spanid
-                assert res['localEndpoint'] == {"serviceName": "lightningd"}
-                expected_keys = ['id', 'name', 'timestamp', 'duration', 'tags', 'traceId', 'localEndpoint']
-                if 'parentId' in res:
-                    assert res['parentId'] in traces
-                    expected_keys.append('parentId')
-                assert set(res.keys()) == set(expected_keys)
-                traces.remove(spanid)
-            elif cmd == 'span_end':
-                assert spanid in traces
-            elif cmd == 'span_start':
-                assert spanid not in traces
-                traces.add(spanid)
-            elif cmd == 'span_suspend':
-                assert spanid in traces
-                assert spanid not in suspended
-                suspended.add(spanid)
-            elif cmd == 'span_resume':
-                assert spanid in traces
-                suspended.remove(spanid)
-            elif cmd == 'destroying':
-                pass
-            else:
-                assert False, "Unknown trace line"
+                    # This is an array for some reason
+                    assert len(res) == 1
+                    res = res[0]
+                    assert res['id'] == spanid
+                    assert res['localEndpoint'] == {"serviceName": "lightningd"}
+                    expected_keys = ['id', 'name', 'timestamp', 'duration', 'tags', 'traceId', 'localEndpoint']
+                    if 'parentId' in res:
+                        assert res['parentId'] in traces
+                        expected_keys.append('parentId')
+                    assert set(res.keys()) == set(expected_keys)
+                    traces.remove(spanid)
+                elif cmd == 'span_end':
+                    assert spanid in traces
+                elif cmd == 'span_start':
+                    assert spanid not in traces
+                    traces.add(spanid)
+                elif cmd == 'span_suspend':
+                    assert spanid in traces
+                    assert spanid not in suspended
+                    suspended.add(spanid)
+                elif cmd == 'span_resume':
+                    assert spanid in traces
+                    suspended.remove(spanid)
+                elif cmd == 'destroying':
+                    pass
+                else:
+                    assert False, "Unknown trace line"
 
         assert suspended == set()
         assert traces == set()
@@ -4969,20 +4973,21 @@ def test_tracing(node_factory):
 
     # The parent should set all the trace ids and span ids
     for fname in glob.glob(f"{trace_fnamebase}.*"):
-        for linenum, l in enumerate(open(fname, "rt").readlines(), 1):
-            # In case an assertion fails
-            print(f"Parsing {fname}:{linenum}")
-            parts = l.split(maxsplit=2)
-            cmd = parts[0]
-            spanid = parts[1]
-            # This span doesn't actually appear anywhere
-            assert spanid != '0123456789abcdef'
-            if cmd == 'span_emit':
-                # Should be valid JSON
-                res = json.loads(parts[2])
-                assert res[0]['traceId'] == '00112233445566778899aabbccddeeff'
-                # Everyone has a parent!
-                assert 'parentId' in res[0]
+        with open(fname, "rt") as f:
+            for linenum, l in enumerate(f.readlines(), 1):
+                # In case an assertion fails
+                print(f"Parsing {fname}:{linenum}")
+                parts = l.split(maxsplit=2)
+                cmd = parts[0]
+                spanid = parts[1]
+                # This span doesn't actually appear anywhere
+                assert spanid != '0123456789abcdef'
+                if cmd == 'span_emit':
+                    # Should be valid JSON
+                    res = json.loads(parts[2])
+                    assert res[0]['traceId'] == '00112233445566778899aabbccddeeff'
+                    # Everyone has a parent!
+                    assert 'parentId' in res[0]
 
 
 def test_zero_locktime_blocks(node_factory, bitcoind):
