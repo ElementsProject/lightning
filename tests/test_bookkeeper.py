@@ -690,7 +690,7 @@ def test_bookkeeping_descriptions(node_factory, bitcoind, chainparams):
     l1.rpc.bkpr_dumpincomecsv('koinly', 'koinly.csv')
     l2.rpc.bkpr_dumpincomecsv('koinly', 'koinly.csv')
     koinly_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'koinly.csv')
-    l1_koinly_csv = open(koinly_path, 'rb').read()
+    l1_koinly_csv = Path(koinly_path).read_bytes()
     bolt11_exp = bytes('invoice,"test \'bolt11\' description, 🥰🪢",', 'utf-8')
     bolt12_exp = bytes('invoice,"test \'bolt12\' description, 🥰🪢",', 'utf-8')
 
@@ -698,7 +698,7 @@ def test_bookkeeping_descriptions(node_factory, bitcoind, chainparams):
     assert l1_koinly_csv.find(bolt12_exp) >= 0
 
     koinly_path = os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, 'koinly.csv')
-    l2_koinly_csv = open(koinly_path, 'rb').read()
+    l2_koinly_csv = Path(koinly_path).read_bytes()
     assert l2_koinly_csv.find(bolt11_exp) >= 0
     assert l2_koinly_csv.find(bolt12_exp) >= 0
 

@@ -940,7 +940,7 @@ class LightningNode(object):
 
         import grpc
         p = Path(self.daemon.lightning_dir) / TEST_NETWORK
-        cert, key, ca = [f.open('rb').read() for f in [
+        cert, key, ca = [f.read_bytes() for f in [
             p / 'client.pem',
             p / 'client-key.pem',
             p / "ca.pem"]]
@@ -1691,16 +1691,16 @@ class NodeFactory(object):
         self.nodes.append(node)
         self.reserved_ports.append(port)
         if dbfile:
-            out = open(os.path.join(node.daemon.lightning_dir, TEST_NETWORK,
-                                    'lightningd.sqlite3'), 'xb')
-            with lzma.open(os.path.join('tests/data', dbfile), 'rb') as f:
-                out.write(f.read())
+            with open(os.path.join(node.daemon.lightning_dir, TEST_NETWORK,
+                                   'lightningd.sqlite3'), 'xb') as out:
+                with lzma.open(os.path.join('tests/data', dbfile), 'rb') as f:
+                    out.write(f.read())
 
         if bkpr_dbfile:
-            out = open(os.path.join(node.daemon.lightning_dir, TEST_NETWORK,
-                                    'accounts.sqlite3'), 'xb')
-            with lzma.open(os.path.join('tests/data', bkpr_dbfile), 'rb') as f:
-                out.write(f.read())
+            with open(os.path.join(node.daemon.lightning_dir, TEST_NETWORK,
+                                   'accounts.sqlite3'), 'xb') as out:
+                with lzma.open(os.path.join('tests/data', bkpr_dbfile), 'rb') as f:
+                    out.write(f.read())
 
         if gossip_store_file:
             shutil.copy(gossip_store_file, os.path.join(node.daemon.lightning_dir, TEST_NETWORK,

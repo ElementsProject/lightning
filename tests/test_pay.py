@@ -1241,7 +1241,7 @@ def test_forward(node_factory, bitcoind):
     l1.rpc.bkpr_dumpincomecsv('koinly', 'koinly.csv')
 
     koinly_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'koinly.csv')
-    koinly_csv = open(koinly_path, 'rb').read()
+    koinly_csv = Path(koinly_path).read_bytes()
     expected_line = r'0.00100000000,.*,,,0.00000001001,.*,invoice'
     assert only_one(re.findall(expected_line, str(koinly_csv)))
 

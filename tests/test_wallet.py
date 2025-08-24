@@ -2,6 +2,7 @@ from bitcoin.rpc import JSONRPCError
 from decimal import Decimal
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
+from pathlib import Path
 from pyln.client import RpcError, Millisatoshi
 from utils import (
     only_one, wait_for, sync_blockheight,
@@ -1527,7 +1528,7 @@ def test_hsmtool_generatehsm(node_factory):
                              "generatehsm", hsm_path,
                              "en",
                              "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"])
-    assert open(hsm_path, "rb").read().hex() == "5eb00bbddcf069084889a8ab9155568165f5c453ccb85e70811aaed6f6da5fc1"
+    assert Path(hsm_path).read_bytes().hex() == "5eb00bbddcf069084889a8ab9155568165f5c453ccb85e70811aaed6f6da5fc1"
 
     # Including passphrase
     os.remove(hsm_path)
