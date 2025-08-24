@@ -125,6 +125,7 @@ void offer_period_paywindow(const struct recurrence *recurrence,
 /**
  * Preliminary prefix check to see if the string might be a bolt12 string.
  */
+bool bolt12_has_offer_prefix(const char *str);
 bool bolt12_has_prefix(const char *str);
 
 /**

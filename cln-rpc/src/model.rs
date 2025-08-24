@@ -78,6 +78,7 @@ pub enum Request {
 	EnableOffer(requests::EnableofferRequest),
 	Disconnect(requests::DisconnectRequest),
 	Feerates(requests::FeeratesRequest),
+	FetchBip353(requests::Fetchbip353Request),
 	FetchInvoice(requests::FetchinvoiceRequest),
 	#[serde(rename = "fundchannel_cancel")]
 	FundChannelCancel(requests::FundchannelCancelRequest),
@@ -254,6 +255,7 @@ pub enum Response {
 	EnableOffer(responses::EnableofferResponse),
 	Disconnect(responses::DisconnectResponse),
 	Feerates(responses::FeeratesResponse),
+	FetchBip353(responses::Fetchbip353Response),
 	FetchInvoice(responses::FetchinvoiceResponse),
 	#[serde(rename = "fundchannel_cancel")]
 	FundChannelCancel(responses::FundchannelCancelResponse),
@@ -2321,6 +2323,28 @@ pub mod requests {
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct Fetchbip353Request {
+	    pub address: String,
+	}
+
+	impl From<Fetchbip353Request> for Request {
+	    fn from(r: Fetchbip353Request) -> Self {
+	        Request::FetchBip353(r)
+	    }
+	}
+
+	impl IntoRequest for Fetchbip353Request {
+	    type Response = super::responses::Fetchbip353Response;
+	}
+
+	impl TypedRequest for Fetchbip353Request {
+	    type Response = super::responses::Fetchbip353Response;
+
+	    fn method(&self) -> &str {
+	        "fetchbip353"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct FetchinvoiceRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub amount_msat: Option<Amount>,
@@ -3778,7 +3802,7 @@ pub mod requests {
 	    }
 	}
 
-	/// ['The subsystem to get the next index value from.', '  `invoices`: corresponding to `listinvoices` (added in *v23.08*).', '  `sendpays`: corresponding to `listsendpays` (added in *v23.11*).', '  `forwards`: corresponding to `listforwards` (added in *v23.11*).', '  `htlcs`: corresponding to `listhtlcs` (added in *v25.05*).']
+	/// ['The subsystem to get the next index value from.', '  `invoices`: corresponding to `listinvoices` (added in *v23.08*).', '  `sendpays`: corresponding to `listsendpays` (added in *v23.11*).', '  `forwards`: corresponding to `listforwards` (added in *v23.11*).', '  `htlcs`: corresponding to `listhtlcs` (added in *v25.05*).', '  `chainmoves`: corresponding to `listchainmoves` (added in *v25.09*).', '  `channelmoves`: corresponding to `listchannelmoves` (added in *v25.09*).']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	#[allow(non_camel_case_types)]
 	pub enum WaitSubsystem {
@@ -3790,6 +3814,10 @@ pub mod requests {
 	    SENDPAYS = 2,
 	    #[serde(rename = "htlcs")]
 	    HTLCS = 3,
+	    #[serde(rename = "chainmoves")]
+	    CHAINMOVES = 4,
+	    #[serde(rename = "channelmoves")]
+	    CHANNELMOVES = 5,
 	}
 
 	impl TryFrom<i32> for WaitSubsystem {
@@ -3800,6 +3828,8 @@ pub mod requests {
 	    1 => Ok(WaitSubsystem::FORWARDS),
 	    2 => Ok(WaitSubsystem::SENDPAYS),
 	    3 => Ok(WaitSubsystem::HTLCS),
+	    4 => Ok(WaitSubsystem::CHAINMOVES),
+	    5 => Ok(WaitSubsystem::CHANNELMOVES),
 	            o => Err(anyhow::anyhow!("Unknown variant {} for enum WaitSubsystem", o)),
 	        }
 	    }
@@ -3812,6 +3842,8 @@ pub mod requests {
 	            WaitSubsystem::FORWARDS => "FORWARDS",
 	            WaitSubsystem::SENDPAYS => "SENDPAYS",
 	            WaitSubsystem::HTLCS => "HTLCS",
+	            WaitSubsystem::CHAINMOVES => "CHAINMOVES",
+	            WaitSubsystem::CHANNELMOVES => "CHANNELMOVES",
 	        }.to_string()
 	    }
 	}
@@ -4431,6 +4463,8 @@ pub mod requests {
 	    pub final_cltv: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub maxdelay: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub maxparts: Option<u32>,
 	    pub amount_msat: Amount,
 	    pub destination: PublicKey,
 	    pub layers: Vec<String>,
@@ -8092,6 +8126,37 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct Fetchbip353Instructions {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub description: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub offchain_amount_msat: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub offer: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub onchain: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub onchain_amount_sat: Option<u64>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct Fetchbip353Response {
+	    pub instructions: Vec<Fetchbip353Instructions>,
+	    pub proof: String,
+	}
+
+	impl TryFrom<Response> for Fetchbip353Response {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::FetchBip353(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct FetchinvoiceNextPeriod {
 	    pub counter: u64,
 	    pub endtime: u64,
@@ -9654,6 +9719,20 @@ pub mod responses {
 	    pub status: Option<WaitDetailsStatus>,
 	}
 
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct WaitChainmoves {
+	    pub account: String,
+	    pub credit_msat: Amount,
+	    pub debit_msat: Amount,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct WaitChannelmoves {
+	    pub account: String,
+	    pub credit_msat: Amount,
+	    pub debit_msat: Amount,
+	}
+
 	/// ['Still ongoing, completed, failed locally, or failed after forwarding.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	#[allow(non_camel_case_types)]
@@ -9961,6 +10040,10 @@ pub mod responses {
 	    SENDPAYS = 2,
 	    #[serde(rename = "htlcs")]
 	    HTLCS = 3,
+	    #[serde(rename = "chainmoves")]
+	    CHAINMOVES = 4,
+	    #[serde(rename = "channelmoves")]
+	    CHANNELMOVES = 5,
 	}
 
 	impl TryFrom<i32> for WaitSubsystem {
@@ -9971,6 +10054,8 @@ pub mod responses {
 	    1 => Ok(WaitSubsystem::FORWARDS),
 	    2 => Ok(WaitSubsystem::SENDPAYS),
 	    3 => Ok(WaitSubsystem::HTLCS),
+	    4 => Ok(WaitSubsystem::CHAINMOVES),
+	    5 => Ok(WaitSubsystem::CHANNELMOVES),
 	            o => Err(anyhow::anyhow!("Unknown variant {} for enum WaitSubsystem", o)),
 	        }
 	    }
@@ -9983,6 +10068,8 @@ pub mod responses {
 	            WaitSubsystem::FORWARDS => "FORWARDS",
 	            WaitSubsystem::SENDPAYS => "SENDPAYS",
 	            WaitSubsystem::HTLCS => "HTLCS",
+	            WaitSubsystem::CHAINMOVES => "CHAINMOVES",
+	            WaitSubsystem::CHANNELMOVES => "CHANNELMOVES",
 	        }.to_string()
 	    }
 	}
@@ -9992,6 +10079,10 @@ pub mod responses {
 	    #[deprecated]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub details: Option<WaitDetails>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub chainmoves: Option<WaitChainmoves>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub channelmoves: Option<WaitChannelmoves>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub created: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]

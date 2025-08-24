@@ -153,8 +153,7 @@ bool db_query_prepared_canfail(struct db_stmt *stmt)
 void db_query_prepared(struct db_stmt *stmt)
 {
 	if (!db_query_prepared_canfail(stmt))
-		db_fatal(stmt->db, "query failed: %s: %s",
-			 stmt->location, stmt->query->query);
+		db_fatal(stmt->db, "query failed: %s", stmt->error);
 }
 
 bool db_step(struct db_stmt *stmt)
@@ -334,6 +333,7 @@ void db_warn(const struct db *db, const char *fmt, ...)
 
 struct db *db_open_(const tal_t *ctx, const char *filename,
 		    bool developer,
+		    bool create,
 		    void (*errorfn)(void *arg, bool fatal, const char *fmt, va_list ap),
 		    void *arg)
 {
@@ -357,7 +357,6 @@ struct db *db_open_(const tal_t *ctx, const char *filename,
 	if (!db->queries)
 		db_fatal(db, "Unable to find DB queries for %s", db->config->name);
 
-	tal_add_destructor(db, destroy_db);
 	db->in_transaction = NULL;
 	db->changes = NULL;
 
@@ -366,10 +365,15 @@ struct db *db_open_(const tal_t *ctx, const char *filename,
 
 	trace_span_start("db_setup", db);
 	db_prepare_for_changes(db);
-	if (db->config->setup_fn && !db->config->setup_fn(db))
-		db_fatal(db, "Error calling DB setup: %s", db->error);
+	if (!db->config->setup_fn(db, create)) {
+		if (create)
+			db_fatal(db, "Error calling DB setup: %s", db->error);
+		trace_span_end(db);
+		return tal_free(db);
+	}
 	db_report_changes(db, NULL, 0);
 	trace_span_end(db);
 
+	tal_add_destructor(db, destroy_db);
 	return db;
 }

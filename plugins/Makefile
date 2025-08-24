@@ -123,11 +123,6 @@ C_PLUGINS :=					\
 	plugins/spenderp			\
 	plugins/cln-askrene
 
-ifneq ($(NO_PYTHON), 1)
-PY_PLUGINS :=					\
-	plugins/wss-proxy/wss-proxy
-endif
-
 ifeq ($(HAVE_SQLITE3),1)
 C_PLUGINS += plugins/sql
 PLUGIN_ALL_SRC += $(PLUGIN_SQL_SRC)
@@ -139,6 +134,8 @@ PLUGINS := $(C_PLUGINS)
 
 # Remove clnrest directory if exists which is the old python plugin code
 $(shell test -d plugins/clnrest && $(RM) -r plugins/clnrest || true)
+# Remove wss-proxy directory if exists which is the old python plugin code
+$(shell test -d plugins/wss-proxy && $(RM) -r plugins/wss-proxy || true)
 
 ifneq ($(RUST),0)
 # Builtin plugins must be in this plugins dir to work when we're executed
@@ -151,8 +148,12 @@ plugins/cln-lsps-client: target/${RUST_PROFILE}/cln-lsps-client
 	@cp $< $@
 plugins/cln-lsps-service: target/${RUST_PROFILE}/cln-lsps-service
 	@cp $< $@
+plugins/wss-proxy: target/${RUST_PROFILE}/wss-proxy
+	@cp $< $@
+plugins/cln-bip353: target/${RUST_PROFILE}/cln-bip353
+	@cp $< $@
 
-PLUGINS += plugins/cln-grpc plugins/clnrest plugins/cln-lsps-client plugins/cln-lsps-service
+PLUGINS += plugins/cln-grpc plugins/clnrest plugins/cln-lsps-client plugins/cln-lsps-service plugins/wss-proxy plugins/cln-bip353
 endif
 
 PLUGIN_COMMON_OBJS :=				\
@@ -255,7 +256,7 @@ plugins/recover:  common/gossmap.o common/sciddir_or_pubkey.o common/fp16.o $(PL
 plugins/recklessrpc: $(PLUGIN_RECKLESSRPC_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS)
 
 # This covers all the low-level list RPCs which return simple arrays
-SQL_LISTRPCS := listchannels listforwards listhtlcs listinvoices listnodes listoffers listpeers listpeerchannels listclosedchannels listtransactions listsendpays bkpr-listaccountevents bkpr-listincome
+SQL_LISTRPCS := listchannels listforwards listhtlcs listinvoices listnodes listoffers listpeers listpeerchannels listclosedchannels listtransactions listsendpays listchainmoves listchannelmoves bkpr-listaccountevents bkpr-listincome
 SQL_LISTRPCS_SCHEMAS := $(foreach l,$(SQL_LISTRPCS),doc/schemas/$l.json)
 SQL_SCHEMA_PARTS := $(foreach l,$(SQL_LISTRPCS), plugins/sql-schema_$l_gen.h)
 
@@ -305,6 +306,8 @@ CLN_PLUGIN_SRC = $(shell find plugins/src -name "*.rs")
 CLN_GRPC_PLUGIN_SRC = $(shell find plugins/grpc-plugin/src -name "*.rs")
 CLN_REST_PLUGIN_SRC = $(shell find plugins/rest-plugin/src -name "*.rs")
 CLN_LSPS_PLUGIN_SRC = $(shell find plugins/lsps-plugin/src -name "*.rs")
+CLN_WSS_PROXY_PLUGIN_SRC = $(shell find plugins/wss-proxy-plugin/src -name "*.rs")
+CLN_BIP353_PLUGIN_SRC = $(shell find plugins/bip353-plugin/src -name "*.rs")
 
 target/${RUST_PROFILE}/cln-grpc: ${CLN_PLUGIN_SRC} ${CLN_GRPC_PLUGIN_SRC} $(MSGGEN_GENALL) $(MSGGEN_GEN_ALL)
 	cargo build ${CARGO_OPTS} --bin cln-grpc
@@ -314,10 +317,15 @@ target/${RUST_PROFILE}/cln-lsps-client: ${CLN_LSPS_PLUGIN_SRC}
 	cargo build ${CARGO_OPTS} --bin cln-lsps-client
 target/${RUST_PROFILE}/cln-lsps-service: ${CLN_LSPS_PLUGIN_SRC}
 	cargo build ${CARGO_OPTS} --bin cln-lsps-service
+target/${RUST_PROFILE}/wss-proxy: ${CLN_WSS_PROXY_PLUGIN_SRC}
+	cargo build ${CARGO_OPTS} --bin wss-proxy
+target/${RUST_PROFILE}/cln-bip353: ${CLN_BIP353_PLUGIN_SRC}
+	cargo build ${CARGO_OPTS} --bin cln-bip353
 
 ifneq ($(RUST),0)
 include plugins/rest-plugin/Makefile
-DEFAULT_TARGETS += $(CLN_PLUGIN_EXAMPLES) plugins/cln-grpc plugins/clnrest plugins/cln-lsps-client plugins/cln-lsps-service
+include plugins/wss-proxy-plugin/Makefile
+DEFAULT_TARGETS += $(CLN_PLUGIN_EXAMPLES) plugins/cln-grpc plugins/clnrest plugins/cln-lsps-client plugins/cln-lsps-service plugins/wss-proxy plugins/cln-bip353
 endif
 
 clean: plugins-clean

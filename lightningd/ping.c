@@ -2,37 +2,65 @@
 #include <common/json_command.h>
 #include <common/json_param.h>
 #include <connectd/connectd_wiregen.h>
+#include <inttypes.h>
 #include <lightningd/channel.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/peer_control.h>
+#include <lightningd/ping.h>
 #include <lightningd/subd.h>
 
-static void ping_reply(struct subd *connectd,
-		       const u8 *msg, const int *fds,
-		       struct command *cmd)
+struct ping_command {
+	struct list_node list;
+	u64 reqid;
+	struct command *cmd;
+};
+
+static void destroy_ping_command(struct ping_command *ping_command,
+				 struct lightningd *ld)
+{
+	list_del_from(&ld->ping_commands, &ping_command->list);
+}
+
+static struct ping_command *find_ping_command(struct lightningd *ld,
+					      u64 reqid)
+{
+	struct ping_command *i;
+	list_for_each(&ld->ping_commands, i, list) {
+		if (i->reqid == reqid)
+			return i;
+	}
+	return NULL;
+}
+
+void handle_ping_done(struct subd *connectd, const u8 *msg)
 {
 	u16 totlen;
 	bool sent;
+	u64 reqid;
+	struct ping_command *ping_command;
 
-	log_debug(connectd->log, "Got ping reply!");
-
-	if (!fromwire_connectd_ping_reply(msg, &sent, &totlen)) {
+	if (!fromwire_connectd_ping_done(msg, &reqid, &sent, &totlen)) {
 		log_broken(connectd->log, "Malformed ping reply %s",
 			   tal_hex(tmpctx, msg));
-		was_pending(command_fail(cmd, LIGHTNINGD,
-					 "Bad reply message"));
 		return;
 	}
 
+	ping_command = find_ping_command(connectd->ld, reqid);
+	if (!ping_command) {
+		log_broken(connectd->log, "ping reply for unknown reqid %"PRIu64, reqid);
+		return;
+	}
+
+	log_debug(connectd->log, "Got ping reply!");
 	if (!sent)
-		was_pending(command_fail(cmd, LIGHTNINGD,
+		was_pending(command_fail(ping_command->cmd, LIGHTNINGD,
 					 "Ping already pending"));
 	else {
-		struct json_stream *response = json_stream_success(cmd);
+		struct json_stream *response = json_stream_success(ping_command->cmd);
 
 		json_add_num(response, "totlen", totlen);
-		was_pending(command_success(cmd, response));
+		was_pending(command_success(ping_command->cmd, response));
 	}
 }
 
@@ -44,6 +72,8 @@ static struct command_result *json_ping(struct command *cmd,
 	unsigned int *len, *pongbytes;
 	struct node_id *id;
 	u8 *msg;
+	static u64 reqid;
+	struct ping_command *ping_command;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("id", param_node_id, &id),
@@ -83,8 +113,14 @@ static struct command_result *json_ping(struct command *cmd,
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
 
-	msg = towire_connectd_ping(NULL, id, *pongbytes, *len);
-	subd_req(cmd, cmd->ld->connectd, take(msg), -1, 0, ping_reply, cmd);
+	ping_command = tal(cmd, struct ping_command);
+	ping_command->cmd = cmd;
+	ping_command->reqid = ++reqid;
+	list_add_tail(&cmd->ld->ping_commands, &ping_command->list);
+	tal_add_destructor2(ping_command, destroy_ping_command, cmd->ld);
+
+	msg = towire_connectd_ping(NULL, ping_command->reqid, id, *pongbytes, *len);
+	subd_send_msg(cmd->ld->connectd, take(msg));
 
 	return command_still_pending(cmd);
 }

@@ -11,8 +11,8 @@ if [ "$1" = "--inside-docker" ]; then
     git config --global --add safe.directory /src/.git
     git clone /src /build
     cd /build || exit
-    poetry export --without-hashes > /tmp/requirements.txt
-    python3 -m pip install -r /tmp/requirements.txt
+    uv export --format requirements.txt > /tmp/requirements.txt
+    uv pip install -r /tmp/requirements.txt
     ./configure
     make VERSION="$VER"
     make install DESTDIR=/"$VER-$PLTFM-$PLTFMVER-$ARCH" RUST_PROFILE=release

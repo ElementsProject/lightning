@@ -145,7 +145,7 @@ static void do_decode(int argc, char **argv, const u8 *assocdata)
 	size_t hexlen = strlen(hextemp);
 
 	// trim trailing whitespace
-	while (isspace(hextemp[hexlen-1]))
+	while (cisspace(hextemp[hexlen-1]))
 		hexlen--;
 
 	serialized = tal_hexdata(hextemp, hextemp, hexlen);

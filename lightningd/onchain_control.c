@@ -23,6 +23,7 @@
 #include <lightningd/subd.h>
 #include <onchaind/onchaind_wiregen.h>
 #include <wallet/txfilter.h>
+#include <wallet/wallet.h>
 #include <wally_bip32.h>
 #include <wally_psbt.h>
 #include <wire/wire_sync.h>
@@ -345,15 +346,31 @@ static void handle_onchain_log_coin_move(struct channel *channel, const u8 *msg)
 		return;
 	}
 
-	/* Any 'ignored' payments get registered to the wallet */
-	if (!mvt->account_name)
-		mvt->account_name = fmt_channel_id(mvt,
-						   &channel->cid);
-	else
-		mvt->originating_acct = fmt_channel_id(mvt,
-						       &channel->cid);
-	notify_chain_mvt(channel->peer->ld, mvt);
-	tal_free(mvt);
+	/* onchaind uses an empty string to mean "this channel" */
+	if (streq(mvt->account.alt_account, "")) {
+		tal_free(mvt->account.alt_account);
+		set_mvt_account_id(&mvt->account, channel, NULL);
+	} else {
+		mvt->originating_acct = new_mvt_account_id(mvt, channel, NULL);
+	}
+
+	wallet_save_chain_mvt(channel->peer->ld, take(mvt));
+}
+
+static void handle_onchain_log_penalty_adj(struct channel *channel, const u8 *msg)
+{
+	struct amount_msat msat;
+	struct channel_coin_mvt *mvt;
+
+	if (!fromwire_onchaind_notify_penalty_adj(msg, &msat)) {
+		channel_internal_error(channel, "Invalid onchain notify_penalty_adj");
+		return;
+	}
+
+	mvt = new_channel_mvt_penalty_adj(tmpctx, channel, msat, COIN_CREDIT);
+	wallet_save_channel_mvt(channel->peer->ld, mvt);
+	mvt = new_channel_mvt_penalty_adj(tmpctx, channel, msat, COIN_DEBIT);
+	wallet_save_channel_mvt(channel->peer->ld, mvt);
 }
 
 static void replay_watch_tx(struct channel *channel,
@@ -576,11 +593,10 @@ static void onchain_add_utxo(struct channel *channel, const u8 *msg)
 				 csv_lock);
 
 	mvt = new_coin_wallet_deposit(msg, &outpoint, blockheight,
-			              amount, DEPOSIT);
-	mvt->originating_acct = fmt_channel_id(mvt,
-					       &channel->cid);
+			              amount, mk_mvt_tags(MVT_DEPOSIT));
+	mvt->originating_acct = new_mvt_account_id(mvt, channel, NULL);
 
-	notify_chain_mvt(channel->peer->ld, mvt);
+	wallet_save_chain_mvt(channel->peer->ld, mvt);
 }
 
 static void onchain_annotate_txout(struct channel *channel, const u8 *msg)
@@ -1648,6 +1664,10 @@ static unsigned int onchain_msg(struct subd *sd, const u8 *msg, const int *fds U
 
 	case WIRE_ONCHAIND_NOTIFY_COIN_MVT:
 		handle_onchain_log_coin_move(sd->channel, msg);
+		break;
+
+	case WIRE_ONCHAIND_NOTIFY_PENALTY_ADJ:
+		handle_onchain_log_penalty_adj(sd->channel, msg);
 		break;
 
 	case WIRE_ONCHAIND_SPEND_TO_US:

@@ -529,19 +529,6 @@ void peer_start_closingd(struct channel *channel, struct peer_fd *peer_fd)
 	subd_send_msg(channel->owner, take(initmsg));
 }
 
-static struct command_result *param_outpoint(struct command *cmd,
-					     const char *name,
-					     const char *buffer,
-					     const jsmntok_t *tok,
-					     struct bitcoin_outpoint **outp)
-{
-	*outp = tal(cmd, struct bitcoin_outpoint);
-	if (json_to_outpoint(buffer, tok, *outp))
-		return NULL;
-	return command_fail_badparam(cmd, name, buffer, tok,
-				     "should be a txid:outnum");
-}
-
 static struct command_result *param_feerate_range(struct command *cmd,
 						  const char *name,
 						  const char *buffer,

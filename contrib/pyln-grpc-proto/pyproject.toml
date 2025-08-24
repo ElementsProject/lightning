@@ -1,31 +1,19 @@
-
-[tool.poetry]
+[project]
 name = "pyln-grpc-proto"
 version = "0.1.2"
 description = "The compiled GRPC proto for CLN"
-authors = ["Christian Decker <decker@blockstream.com>"]
-license = "MIT"
+authors = [{ name = "Christian Decker", email = "decker@blockstream.com" }]
+license = { text = "MIT" }
 readme = "README.md"
+requires-python = ">=3.8,<4.0"
+dependencies = ["grpcio==1.69.0", "protobuf==5.29.4"]
 
-packages = [
-    { include = "pyln/grpc/*.py" },
-]
+[dependency-groups]
+dev = ["grpcio==1.69.0", "twine>=4.0.2", "mypy-protobuf<3.5.0", "grpcio-tools==1.69.0"]
 
-include = [
-    { path = "pyln/grpc", format = ["wheel", "sdist"] }
-]
-
-[tool.poetry.dependencies]
-python = "^3.9"
-grpcio = "*"
-protobuf = "5.29.4"
-
-[tool.poetry.group.dev.dependencies]
-grpcio = "*"
-twine = "^4.0.2"
-mypy-protobuf = "^3.5.0"
-grpcio-tools = "^1.59.2"
+[tool.hatch.build.targets.wheel]
+packages = ["pyln"]
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling>=1.0.0"]
+build-backend = "hatchling.build"

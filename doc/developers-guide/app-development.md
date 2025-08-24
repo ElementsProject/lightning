@@ -32,7 +32,7 @@ commando+<protocol>://<cln-host>:<ws-port>?pubkey=<pubkey>&rune=<rune>&invoiceRu
 - pubkey: Node's public key (hex encoded)
 - rune: Authentication rune for general commands
 - invoiceRune: Specific rune for invoice creation (optional)
-- certs: Base64-encoded concatenation of client key, client cert, and CA cert
+- certs: A Base64-encoded sequence created by concatenating the client key, client certificate, and CA certificate, in that order.
 
 #### Example:
 
@@ -50,7 +50,7 @@ clnrest+<protocol>://<rest-host>:<rest-port>?rune=<rune>&certs=<combined-base64-
 - rest-host: Hostname or IP address of the REST interface
 - rest-port: REST API port (typically 3010)
 - rune: Authentication rune for REST API access
-- certs: Base64-encoded concatenation of client key, client cert, and CA cert
+- certs: A Base64-encoded sequence created by concatenating the client key, client certificate, and CA certificate, in that order.
 
 #### Example:
 
@@ -69,7 +69,7 @@ clngrpc://<grpc-host>:<grpc-port>?pubkey=<pubkey>&protoPath=<path-to-proto>&cert
 - grpc-port: gRPC port (typically 9736)
 - pubkey: Node's public key (hex encoded)
 - protoPath: Path to protocol buffer definition file (typically https://github.com/ElementsProject/lightning/tree/master/cln-grpc/proto)
-- certs: Base64-encoded concatenation of client key, client cert, and CA cert
+- certs: A Base64-encoded sequence created by concatenating the client key, client certificate, and CA certificate, in that order.
 
 #### Example:
 

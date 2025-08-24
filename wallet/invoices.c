@@ -308,7 +308,7 @@ bool invoices_create(struct invoices *invoices,
 	db_bind_preimage(stmt, r);
 	db_bind_int(stmt, UNPAID);
 	if (msat)
-		db_bind_amount_msat(stmt, msat);
+		db_bind_amount_msat(stmt, *msat);
 	else
 		db_bind_null(stmt);
 	db_bind_json_escape(stmt, label);
@@ -623,7 +623,7 @@ bool invoices_resolve(struct invoices *invoices,
 					       " WHERE id=?;"));
 	db_bind_int(stmt, PAID);
 	db_bind_u64(stmt, pay_index);
-	db_bind_amount_msat(stmt, &received);
+	db_bind_amount_msat(stmt, received);
 	db_bind_u64(stmt, paid_timestamp);
 	if (outpoint) {
 		db_bind_txid(stmt, &outpoint->txid);
@@ -777,13 +777,14 @@ static u64 invoice_index_inc(struct lightningd *ld,
 		invstrname = "bolt11";
 
 
-	return wait_index_increment(ld, WAIT_SUBSYSTEM_INVOICE, idx,
-				 "status", state ? invoice_status_str(*state) : NULL,
-				 /* We don't want to add more JSON escapes here! */
-				 "=label", label ? tal_fmt(tmpctx, "\"%s\"", label->s) : NULL,
-				 invstrname, invstring,
-				 "description", description,
-				 NULL);
+	return wait_index_increment(ld, ld->wallet->db,
+				    WAIT_SUBSYSTEM_INVOICE, idx,
+				    "status", state ? invoice_status_str(*state) : NULL,
+				    /* We don't want to add more JSON escapes here! */
+				    "=label", label ? tal_fmt(tmpctx, "\"%s\"", label->s) : NULL,
+				    invstrname, invstring,
+				    "description", description,
+				    NULL);
 }
 
 void invoice_index_deleted(struct lightningd *ld,

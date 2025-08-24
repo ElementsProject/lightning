@@ -1,0 +1,114 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "added": "v25.09",
+  "rpc": "fetchbip353",
+  "title": "Fetch BIP-353 payment instructions",
+  "description": [
+    "Fetches BIP-353 payment instructions and the DNSSEC proof."
+  ],
+  "request": {
+    "additionalProperties": false,
+    "properties": {
+      "address": {
+        "type": "string",
+        "description": [
+          "The BIP-353 address to fetch payment instructions for."
+        ]
+      }
+    },
+    "required": [
+      "address"
+    ]
+  },
+  "response": {
+    "additionalProperties": false,
+    "properties": {
+      "proof": {
+        "type": "string",
+        "description": [
+          "The hex-encoded DNSSEC proof for the BIP-353 address."
+        ]
+      },
+      "instructions": {
+        "type": "array",
+        "description": [
+          "A list of processed payment instruction objects. Each object either contains information about an onchain or an offchain payment. Both can have an optional amount for fixed amount payments aswell as an optional description provided by the recipient."
+        ],
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "description": {
+              "type": "string",
+              "description": [
+                "Optional description of the payment instruction."
+              ]
+            },
+            "offer": {
+              "type": "string",
+              "description": [
+                "An offer string for a bolt12 payment."
+              ]
+            },
+            "onchain": {
+              "type": "string",
+              "description": [
+                "A bitcoin onchain address."
+              ]
+            },
+            "offchain_amount_msat": {
+              "type": "u64",
+              "description": [
+                "Optional lightning payment amount in millisatoshis, present only if offer is specified."
+              ]
+            },
+            "onchain_amount_sat": {
+              "type": "u64",
+              "description": [
+                "Optional onchain payment amount in satoshis, present only if onchain is specified."
+              ]
+            }
+          }
+        }
+      }
+    },
+    "required": [
+      "proof",
+      "instructions"
+    ]
+  },
+  "errors": [
+    "On failure, the following error code may be returned:",
+    "",
+    "- -32700: Description of the error."
+  ],
+  "author": [
+    "daywalker90 is mainly responsible."
+  ],
+  "examples": [
+    {
+      "description": [
+        "Example of fetching BIP-353 payment details."
+      ],
+      "request": {
+        "id": "example:fetchbip353#1",
+        "method": "fetchbip353",
+        "params": {
+          "address": "send.some@satsto.me"
+        }
+      },
+      "response": {
+        "instructions": [
+          {
+            "onchain": "bc1qztwy6xen3zdtt7z0vrgapmjtfz8acjkfp5fp7l"
+          },
+          {
+            "offer": "lno1zr5qyugqgskrk70kqmuq7v3dnr2fnmhukps9n8hut48vkqpqnskt2svsqwjakp7k6pyhtkuxw7y2kqmsxlwruhzqv0zsnhh9q3t9xhx39suc6qsr07ekm5esdyum0w66mnx8vdquwvp7dp5jp7j3v5cp6aj0w329fnkqqv60q96sz5nkrc5r95qffx002q53tqdk8x9m2tmt85jtpmcycvfnrpx3lr45h2g7na3sec7xguctfzzcm8jjqtj5ya27te60j03vpt0vq9tm2n9yxl2hngfnmygesa25s4u4zlxewqpvp94xt7rur4rhxunwkthk9vly3lm5hh0pqv4aymcqejlgssnlpzwlggykkajp7yjs5jvr2agkyypcdlj280cy46jpynsezrcj2kwa2lyr8xvd6lfkph4xrxtk2xc3lpq"
+          }
+        ],
+        "proof": "0473656e64proof00001proof00001proof00001proof00001proof00001proof00001proof00001proof00001proof00001proof00001"
+      }
+    }
+  ]
+}

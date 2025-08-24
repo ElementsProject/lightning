@@ -50,6 +50,79 @@ def test_splice(node_factory, bitcoind):
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_two_chan_splice_in(node_factory, bitcoind):
+    l1, l2, l3 = node_factory.line_graph(3, fundamount=1000000, wait_for_announce=True, opts={'experimental-splicing': None})
+
+    # l2 will splice funds into the channels with l1 and l3 at the same time
+
+    chan_id1 = l2.get_channel_id(l1)
+    chan_id2 = l2.get_channel_id(l3)
+
+    # add extra sats to pay fee
+    funds_result = l2.rpc.fundpsbt("209000sat", "slow", 166, excess_as_change=True)
+
+    # Intiate splices to both channels
+    result = l2.rpc.splice_init(chan_id1, 100000, funds_result['psbt'])
+    result = l2.rpc.splice_init(chan_id2, 100000, result['psbt'])  # start with psbt from first channel
+
+    done1 = False
+    done2 = False
+    sigs1 = False
+    sigs2 = False
+
+    while not done1 or not done2:
+        if not done1:
+            result = l2.rpc.splice_update(chan_id1, result['psbt'])
+            done1 = result['commitments_secured']
+            sigs1 = result['signatures_secured']
+            print("chan 1 " + result['psbt'])
+        if not done2:
+            result = l2.rpc.splice_update(chan_id2, result['psbt'])
+            done2 = result['commitments_secured']
+            sigs2 = result['signatures_secured']
+            print("chan 2 " + result['psbt'])
+
+    # Due to splice signing order, we may or may not have signatures
+    # from all peers, but we must have them from one.
+    print("Sigs1 " + str(sigs1) + ", Sigs2 " + str(sigs2))
+    assert(sigs1 or sigs2)
+
+    # Sign the inputs provided by `fundpsbt`
+    result = l2.rpc.signpsbt(result['psbt'])
+    result['psbt'] = result['signed_psbt']
+
+    if sigs2:
+        # If chan2 gave us sigs, start with chan1
+        result = l2.rpc.splice_signed(chan_id1, result['psbt'])
+        result = l2.rpc.splice_signed(chan_id2, result['psbt'])
+    else:
+        # If chan1 gave us sigs, start with chan2
+        result = l2.rpc.splice_signed(chan_id2, result['psbt'])
+        result = l2.rpc.splice_signed(chan_id1, result['psbt'])
+
+    l3.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+    l2.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+    l1.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+
+    wait_for(lambda: len(list(bitcoind.rpc.getrawmempool(True).keys())) == 1)
+    assert result['txid'] in list(bitcoind.rpc.getrawmempool(True).keys())
+
+    bitcoind.generate_block(6, wait_for_mempool=1)
+
+    l3.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+    l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+    l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+
+    inv = l2.rpc.invoice(10**2, '1', 'no_1')
+    l1.rpc.pay(inv['bolt11'])
+
+    inv = l3.rpc.invoice(10**2, '2', 'no_2')
+    l2.rpc.pay(inv['bolt11'])
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 def test_splice_rbf(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, fundamount=1000000, wait_for_announce=True, opts={'experimental-splicing': None})
 
@@ -424,3 +497,57 @@ def test_splice_stuck_htlc(node_factory, bitcoind, executor):
     # Check that the splice doesn't generate a unilateral close transaction
     time.sleep(5)
     assert l1.db_query("SELECT count(*) as c FROM channeltxs;")[0]['c'] == 0
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_route_by_old_scid(node_factory, bitcoind):
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True, opts={'experimental-splicing': None, 'may_reconnect': True})
+
+    # Get pre-splice route.
+    inv = l3.rpc.invoice(10000000, 'test_route_by_old_scid', 'test_route_by_old_scid')
+    inv2 = l3.rpc.invoice(10000000, 'test_route_by_old_scid2', 'test_route_by_old_scid2')
+    route = l1.rpc.getroute(l3.info['id'], 10000000, 1, cltv=16)['route']
+
+    # Do a splice
+    funds_result = l2.rpc.fundpsbt("109000sat", "slow", 166, excess_as_change=True)
+    chan_id = l2.get_channel_id(l3)
+    result = l2.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
+    result = l2.rpc.splice_update(chan_id, result['psbt'])
+    assert(result['commitments_secured'] is False)
+    result = l2.rpc.splice_update(chan_id, result['psbt'])
+    assert(result['commitments_secured'] is True)
+    result = l2.rpc.signpsbt(result['psbt'])
+    result = l2.rpc.splice_signed(chan_id, result['signed_psbt'])
+
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['state'] == 'CHANNELD_AWAITING_SPLICE')
+    bitcoind.generate_block(6, wait_for_mempool=1)
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['state'] == 'CHANNELD_NORMAL')
+
+    # Now l1 tries to send using old scid: should work
+    l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
+    l1.rpc.waitsendpay(inv['payment_hash'])
+
+    # Let's splice again, so the original scid is two behind the times.
+    l3.fundwallet(200000)
+    funds_result = l3.rpc.fundpsbt("109000sat", "slow", 166, excess_as_change=True)
+    chan_id = l3.get_channel_id(l2)
+    result = l3.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
+    result = l3.rpc.splice_update(chan_id, result['psbt'])
+    assert(result['commitments_secured'] is False)
+    result = l3.rpc.splice_update(chan_id, result['psbt'])
+    assert(result['commitments_secured'] is True)
+    result = l3.rpc.signpsbt(result['psbt'])
+    result = l3.rpc.splice_signed(chan_id, result['signed_psbt'])
+
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['state'] == 'CHANNELD_AWAITING_SPLICE')
+    bitcoind.generate_block(6, wait_for_mempool=1)
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['state'] == 'CHANNELD_NORMAL')
+
+    # Now restart l2, make sure it remembers the original!
+    l2.restart()
+    l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
+    l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
+
+    wait_for(lambda: only_one(l1.rpc.listpeers()['peers'])['connected'] is True)
+    l1.rpc.sendpay(route, inv2['payment_hash'], payment_secret=inv2['payment_secret'])
+    l1.rpc.waitsendpay(inv2['payment_hash'])

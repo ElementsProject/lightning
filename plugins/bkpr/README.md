@@ -43,7 +43,7 @@ As a plugin writer, if you want to emit onchain events that the bookkeeper shoul
 
 ## Withdrawing money (sending to a external account)
 
-Sending money to an external account is a bit unintuitive in in the UTXO model that we're using to track coin moves; technically a send to an external account is a "deposit" to 3rd party's UTXO.
+Sending money to an external account is a bit unintuitive in the UTXO model that we're using to track coin moves; technically a send to an external account is a "deposit" to 3rd party's UTXO.
 
 To account for these, `bookkeeper` expects to receive a `utxo_deposit` event for the creation of an output to a 3rd party. It's assumed that you'll issue these at transaction creation time, and that they won't be final until we receive notice of spend of the inputs in the tx that created them.
 

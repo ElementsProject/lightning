@@ -5517,7 +5517,7 @@
                 "netaddr": [
                   "127.0.0.1:19736"
                 ],
-                "features": "08a8882a8a59a1"
+                "features": "0898882a8a59a1"
               }
             ]
           }
@@ -5750,7 +5750,7 @@
           },
           "response": {
             "id": "nodeid020202020202020202020202020202020202020202020202020202020202",
-            "features": "08a8882a8a59a1",
+            "features": "0898882a8a59a1",
             "direction": "out",
             "address": {
               "type": "ipv4",
@@ -5771,7 +5771,7 @@
           },
           "response": {
             "id": "nodeid030303030303030303030303030303030303030303030303030303030303",
-            "features": "08a8882a8a59a1",
+            "features": "0898882a8a59a1",
             "direction": "out",
             "address": {
               "type": "ipv4",
@@ -12254,6 +12254,120 @@
         }
       ]
     },
+    "fetchbip353.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "type": "object",
+      "added": "v25.09",
+      "rpc": "fetchbip353",
+      "title": "Fetch BIP-353 payment instructions",
+      "description": [
+        "Fetches BIP-353 payment instructions and the DNSSEC proof."
+      ],
+      "request": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "type": "string",
+            "description": [
+              "The BIP-353 address to fetch payment instructions for."
+            ]
+          }
+        },
+        "required": [
+          "address"
+        ]
+      },
+      "response": {
+        "additionalProperties": false,
+        "properties": {
+          "proof": {
+            "type": "string",
+            "description": [
+              "The hex-encoded DNSSEC proof for the BIP-353 address."
+            ]
+          },
+          "instructions": {
+            "type": "array",
+            "description": [
+              "A list of processed payment instruction objects. Each object either contains information about an onchain or an offchain payment. Both can have an optional amount for fixed amount payments aswell as an optional description provided by the recipient."
+            ],
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "description": {
+                  "type": "string",
+                  "description": [
+                    "Optional description of the payment instruction."
+                  ]
+                },
+                "offer": {
+                  "type": "string",
+                  "description": [
+                    "An offer string for a bolt12 payment."
+                  ]
+                },
+                "onchain": {
+                  "type": "string",
+                  "description": [
+                    "A bitcoin onchain address."
+                  ]
+                },
+                "offchain_amount_msat": {
+                  "type": "u64",
+                  "description": [
+                    "Optional lightning payment amount in millisatoshis, present only if offer is specified."
+                  ]
+                },
+                "onchain_amount_sat": {
+                  "type": "u64",
+                  "description": [
+                    "Optional onchain payment amount in satoshis, present only if onchain is specified."
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "proof",
+          "instructions"
+        ]
+      },
+      "errors": [
+        "On failure, the following error code may be returned:",
+        "",
+        "- -32700: Description of the error."
+      ],
+      "author": [
+        "daywalker90 is mainly responsible."
+      ],
+      "examples": [
+        {
+          "description": [
+            "Example of fetching BIP-353 payment details."
+          ],
+          "request": {
+            "id": "example:fetchbip353#1",
+            "method": "fetchbip353",
+            "params": {
+              "address": "send.some@satsto.me"
+            }
+          },
+          "response": {
+            "instructions": [
+              {
+                "onchain": "bc1qztwy6xen3zdtt7z0vrgapmjtfz8acjkfp5fp7l"
+              },
+              {
+                "offer": "lno1zr5qyugqgskrk70kqmuq7v3dnr2fnmhukps9n8hut48vkqpqnskt2svsqwjakp7k6pyhtkuxw7y2kqmsxlwruhzqv0zsnhh9q3t9xhx39suc6qsr07ekm5esdyum0w66mnx8vdquwvp7dp5jp7j3v5cp6aj0w329fnkqqv60q96sz5nkrc5r95qffx002q53tqdk8x9m2tmt85jtpmcycvfnrpx3lr45h2g7na3sec7xguctfzzcm8jjqtj5ya27te60j03vpt0vq9tm2n9yxl2hngfnmygesa25s4u4zlxewqpvp94xt7rur4rhxunwkthk9vly3lm5hh0pqv4aymcqejlgssnlpzwlggykkajp7yjs5jvr2agkyypcdlj280cy46jpynsezrcj2kwa2lyr8xvd6lfkph4xrxtk2xc3lpq"
+              }
+            ],
+            "proof": "0473656e64proof00001proof00001proof00001proof00001proof00001proof00001proof00001proof00001proof00001proof00001"
+          }
+        }
+      ]
+    },
     "fetchinvoice.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
@@ -14310,8 +14424,8 @@
             "fees_collected_msat": 0,
             "lightning-dir": "/tmp/.lightning/regtest",
             "our_features": {
-              "init": "08a8882a8a59a1",
-              "node": "88a8882a8a59a1",
+              "init": "0898882a8a59a1",
+              "node": "8898882a8a59a1",
               "channel": "",
               "invoice": "02000002024100"
             }
@@ -15045,7 +15159,7 @@
         "",
         "Layers are generally maintained by plugins, either to contain persistent information about capacities which have been discovered, or to contain transient information for this particular payment (such as blinded paths or routehints).",
         "",
-        "There are three automatic layers: *auto.localchans* contains information on local channels from this node (including non-public ones), and their exact current spendable capacities. *auto.sourcefree* overrides all channels (including those from previous layers) leading out of the *source* to be zero fee and zero delay.  These are both useful in the case where the source is the current node.  And *auto.no_mpp_support* forces getroutes to return a single flow, though only basic checks are done that the result is useful."
+        "There are three automatic layers: *auto.localchans* contains information on local channels from this node (including non-public ones), and their exact current spendable capacities. *auto.sourcefree* overrides all channels (including those from previous layers) leading out of the *source* to be zero fee and zero delay.  These are both useful in the case where the source is the current node.  And *auto.no_mpp_support* forces getroutes to return a single path solution which is useful for payments for which MPP is not supported."
       ],
       "categories": [
         "readonly"
@@ -15107,6 +15221,14 @@
               "Maximum number of blocks of delay for the route. Cannot be bigger than 2016."
             ],
             "default": "2016"
+          },
+          "maxparts": {
+            "type": "u32",
+            "added": "v25.09",
+            "description": [
+              "Maximum number of routes in the solution."
+            ],
+            "default": "100"
           }
         }
       },
@@ -16426,6 +16548,355 @@
             ]
           }
         }
+      ]
+    },
+    "listchainmoves.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "type": "object",
+      "rpc": "listchainmoves",
+      "title": "Command to get the audit list of all onchain coin movements.",
+      "added": "v25.09",
+      "description": [
+        "The **listchainmoves** command returns the confirmed balance changes onchain over time."
+      ],
+      "categories": [
+        "readonly"
+      ],
+      "request": {
+        "required": [],
+        "additionalProperties": false,
+        "properties": {
+          "index": {
+            "type": "string",
+            "enum": [
+              "created"
+            ],
+            "description": [
+              "How to interpret `start` and `limit`"
+            ]
+          },
+          "start": {
+            "type": "u64",
+            "description": [
+              "If `index` is specified, `start` may be specified to start from that value, which is generally returned from lightning-wait(7)."
+            ]
+          },
+          "limit": {
+            "type": "u32",
+            "description": [
+              "If `index` is specified, `limit` can be used to specify the maximum number of entries to return."
+            ]
+          }
+        },
+        "dependentUpon": {
+          "index": [
+            "start",
+            "limit"
+          ]
+        }
+      },
+      "response": {
+        "required": [
+          "chainmoves"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "chainmoves": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "created_index",
+                "account_id",
+                "primary_tag",
+                "extra_tags",
+                "credit_msat",
+                "debit_msat",
+                "timestamp",
+                "utxo",
+                "output_msat",
+                "blockheight"
+              ],
+              "properties": {
+                "created_index": {
+                  "type": "u64",
+                  "description": [
+                    "1-based index indicating order this move was created in."
+                  ]
+                },
+                "account_id": {
+                  "type": "string",
+                  "description": [
+                    "This is either the channel_id corresponding to the channel involved, or a string such as `wallet` for the internal wallet, or `external` for some other external source."
+                  ]
+                },
+                "credit_msat": {
+                  "type": "msat",
+                  "description": [
+                    "Amount credited (one of this or debit_msat is zero)"
+                  ]
+                },
+                "debit_msat": {
+                  "type": "msat",
+                  "description": [
+                    "Amount debited (one of this or credit_msat is zero)"
+                  ]
+                },
+                "timestamp": {
+                  "type": "u64",
+                  "description": [
+                    "Time of this event in seconds since January 1 1970 UTC"
+                  ]
+                },
+                "primary_tag": {
+                  "type": "string",
+                  "enum": [
+                    "deposit",
+                    "withdrawal",
+                    "penalty",
+                    "channel_open",
+                    "channel_close",
+                    "delayed_to_us",
+                    "htlc_tx",
+                    "htlc_timeout",
+                    "htlc_fulfill",
+                    "to_wallet",
+                    "anchor",
+                    "to_them",
+                    "penalized",
+                    "stolen",
+                    "to_miner"
+                  ],
+                  "description": [
+                    "A set of one or more tags defining the nature of the change"
+                  ]
+                },
+                "extra_tags": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "opener",
+                      "leased",
+                      "stealable",
+                      "splice",
+                      "foreign"
+                    ]
+                  },
+                  "description": [
+                    "A set of additional tags expanding on the details"
+                  ]
+                },
+                "peer_id": {
+                  "type": "pubkey",
+                  "description": [
+                    "The lightning peer associated with this onchain event"
+                  ]
+                },
+                "originating_account": {
+                  "type": "string",
+                  "description": [
+                    "This is either a channel_id corresponding to the source channel involved, or a string such as `wallet` for the internal wallet."
+                  ]
+                },
+                "spending_txid": {
+                  "type": "txid",
+                  "description": [
+                    "The transaction ID which did the spending."
+                  ]
+                },
+                "utxo": {
+                  "type": "outpoint",
+                  "description": [
+                    "The txid and outpoint number spent for this balance change."
+                  ]
+                },
+                "payment_hash": {
+                  "type": "hash",
+                  "description": [
+                    "The payment hash associated with this balance change."
+                  ]
+                },
+                "output_msat": {
+                  "type": "msat",
+                  "description": [
+                    "The output amount (always a whole number of sats).  Note that in some cases (e.g. channel opens), not all these belong to us."
+                  ]
+                },
+                "output_count": {
+                  "type": "u32",
+                  "description": [
+                    "The number of outputs in the `txid` (so you can tell once you've seen events for all of them)."
+                  ]
+                },
+                "blockheight": {
+                  "type": "u32",
+                  "description": [
+                    "The block number where `txid` appeared (alternately, where `utxo` was spent)."
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "errors": [
+        "On failure, one of the following error codes may be returned:",
+        "",
+        "- -32602: Error in given parameters."
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ]
+    },
+    "listchannelmoves.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "type": "object",
+      "rpc": "listchannelmoves",
+      "title": "Command to get the audit list of all channel coin movements.",
+      "added": "v25.09",
+      "description": [
+        "The **listchannelmoves** command returns the confirmed balance changes within lightning channels over time."
+      ],
+      "categories": [
+        "readonly"
+      ],
+      "request": {
+        "required": [],
+        "additionalProperties": false,
+        "properties": {
+          "index": {
+            "type": "string",
+            "enum": [
+              "created"
+            ],
+            "description": [
+              "How to interpret `start` and `limit`"
+            ]
+          },
+          "start": {
+            "type": "u64",
+            "description": [
+              "If `index` is specified, `start` may be specified to start from that value, which is generally returned from lightning-wait(7)."
+            ]
+          },
+          "limit": {
+            "type": "u32",
+            "description": [
+              "If `index` is specified, `limit` can be used to specify the maximum number of entries to return."
+            ]
+          }
+        },
+        "dependentUpon": {
+          "index": [
+            "start",
+            "limit"
+          ]
+        }
+      },
+      "response": {
+        "required": [
+          "channelmoves"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "channelmoves": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "created_index",
+                "account_id",
+                "primary_tag",
+                "credit_msat",
+                "debit_msat",
+                "timestamp",
+                "fees_msat"
+              ],
+              "properties": {
+                "created_index": {
+                  "type": "u64",
+                  "description": [
+                    "1-based index indicating order this move was created in."
+                  ]
+                },
+                "account_id": {
+                  "type": "string",
+                  "description": [
+                    "The channel_id corresponding to the channel involved."
+                  ]
+                },
+                "credit_msat": {
+                  "type": "msat",
+                  "description": [
+                    "Amount credited (one of this or debit_msat is zero)"
+                  ]
+                },
+                "debit_msat": {
+                  "type": "msat",
+                  "description": [
+                    "Amount debited (one of this or credit_msat is zero)"
+                  ]
+                },
+                "timestamp": {
+                  "type": "u64",
+                  "description": [
+                    "Time of this event in seconds since January 1 1970 UTC"
+                  ]
+                },
+                "primary_tag": {
+                  "type": "string",
+                  "enum": [
+                    "invoice",
+                    "routed",
+                    "pushed",
+                    "lease_fee",
+                    "channel_proposed",
+                    "penalty_adj",
+                    "journal_entry"
+                  ],
+                  "description": [
+                    "A set of one or more tags defining the nature of the change"
+                  ]
+                },
+                "payment_hash": {
+                  "type": "hash",
+                  "description": [
+                    "The hash associated with this payment (not present for leases or push funding)"
+                  ]
+                },
+                "part_id": {
+                  "type": "u64",
+                  "description": [
+                    "The part_id for the payment (the `payment_hash`, `group_id`, `part_id` tuple will be unique)"
+                  ]
+                },
+                "group_id": {
+                  "type": "u64",
+                  "description": [
+                    "The group_id for the payment (the `payment_hash`, `group_id`, `part_id` tuple will be unique)"
+                  ]
+                },
+                "fees_msat": {
+                  "type": "msat",
+                  "description": [
+                    "The fees paid for this payment"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "errors": [
+        "On failure, one of the following error codes may be returned:",
+        "",
+        "- -32602: Error in given parameters."
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "listchannels.json": {
@@ -19099,10 +19570,6 @@
                 "set": false,
                 "source": "default"
               },
-              "experimental-upgrade-protocol": {
-                "set": false,
-                "source": "default"
-              },
               "exposesecret-passphrase": {
                 "value_str": "...",
                 "source": "default",
@@ -21541,7 +22008,7 @@
                 "alias": "HOPPINGFIRE",
                 "color": "035d2b",
                 "last_timestamp": 1738000000,
-                "features": "88a8882a8a59a1",
+                "features": "8898882a8a59a1",
                 "addresses": []
               }
             ]
@@ -21560,7 +22027,7 @@
                 "alias": "SILENTARTIST",
                 "color": "022d22",
                 "last_timestamp": 1738000000,
-                "features": "88a8882a8a59a1",
+                "features": "8898882a8a59a1",
                 "addresses": []
               },
               {
@@ -21568,7 +22035,7 @@
                 "alias": "JUNIORBEAM",
                 "color": "0266e4",
                 "last_timestamp": 1738010000,
-                "features": "88a8882a8a59a1",
+                "features": "8898882a8a59a1",
                 "addresses": []
               },
               {
@@ -21576,7 +22043,7 @@
                 "alias": "HOPPINGFIRE",
                 "color": "035d2b",
                 "last_timestamp": 1738020000,
-                "features": "88a8882a8a59a1",
+                "features": "8898882a8a59a1",
                 "addresses": []
               },
               {
@@ -21584,7 +22051,7 @@
                 "alias": "JUNIORFELONY",
                 "color": "0382ce",
                 "last_timestamp": 1738030000,
-                "features": "88a8882a8a59a1",
+                "features": "8898882a8a59a1",
                 "addresses": []
               }
             ]
@@ -24261,7 +24728,7 @@
                 "netaddr": [
                   "127.0.0.1:19736"
                 ],
-                "features": "08a8882a8a59a1"
+                "features": "0898882a8a59a1"
               }
             ]
           }
@@ -24281,7 +24748,7 @@
                 "netaddr": [
                   "127.0.0.1:19734"
                 ],
-                "features": "08a8882a8a59a1"
+                "features": "0898882a8a59a1"
               },
               {
                 "id": "nodeid030303030303030303030303030303030303030303030303030303030303",
@@ -24290,13 +24757,13 @@
                 "netaddr": [
                   "127.0.0.1:19736"
                 ],
-                "features": "08a8882a8a59a1"
+                "features": "0898882a8a59a1"
               },
               {
                 "id": "nodeid040404040404040404040404040404040404040404040404040404040404",
                 "connected": false,
                 "num_channels": 1,
-                "features": "08a8882a8a59a1"
+                "features": "0898882a8a59a1"
               }
             ]
           }
@@ -28178,6 +28645,11 @@
                 "dynamic": false
               },
               {
+                "name": "/root/lightning/plugins/cln-bip353",
+                "active": true,
+                "dynamic": true
+              },
+              {
                 "name": "/root/lightning/plugins/bookkeeper",
                 "active": true,
                 "dynamic": false
@@ -28314,6 +28786,11 @@
                 "name": "/root/lightning/plugins/cln-lsps-client",
                 "active": true,
                 "dynamic": false
+              },
+              {
+                "name": "/root/lightning/plugins/cln-bip353",
+                "active": true,
+                "dynamic": true
               },
               {
                 "name": "/root/lightning/plugins/bookkeeper",
@@ -32538,10 +33015,12 @@
         "* time",
         "* timediff",
         "* total",
-        "* unixepoch"
+        "* unixepoch",
+        "* json_object",
+        "* json_group_array"
       ],
       "tables": [
-        "Note that the first column of every table is a unique integer called `rowid`: this is used for related tables to refer to specific rows in their parent. sqlite3 usually has this as an implicit column, but we make it explicit as the implicit version is not allowed to be used as a foreign key.",
+        "Note that tables which have a `created_index` field use that as the primary key (and `rowid` is an alias to this), otherwise an explicit `rowid` integer primary key is generated, whose value changes on each refresh.  This field is used for related tables to refer to specific rows in their parent. (sqlite3 usually has this as an implicit column, but we make it explicit as the implicit version is not allowed to be used as a foreign key).",
         ""
       ],
       "errors": [
@@ -32552,8 +33031,17 @@
       ],
       "see_also": [
         "lightning-listtransactions(7)",
+        "lightning-listhtlcs(7)",
+        "lightning-listinvoices(7)",
+        "lightning-listoffers(7)",
         "lightning-listchannels(7)",
         "lightning-listpeers(7)",
+        "lightning-listpeerchannels(7)",
+        "lightning-listsendpays(7)",
+        "lightning-listchainmoves(7)",
+        "lightning-listchannelmoves(7)",
+        "lightning-bkpr-listaccountevents(7)",
+        "lightning-bkpr-listincome(7)",
         "lightning-listnodes(7)",
         "lightning-listforwards(7)"
       ],
@@ -33711,13 +34199,17 @@
               "  `invoices`: corresponding to `listinvoices` (added in *v23.08*).",
               "  `sendpays`: corresponding to `listsendpays` (added in *v23.11*).",
               "  `forwards`: corresponding to `listforwards` (added in *v23.11*).",
-              "  `htlcs`: corresponding to `listhtlcs` (added in *v25.05*)."
+              "  `htlcs`: corresponding to `listhtlcs` (added in *v25.05*).",
+              "  `chainmoves`: corresponding to `listchainmoves` (added in *v25.09*).",
+              "  `channelmoves`: corresponding to `listchannelmoves` (added in *v25.09*)."
             ],
             "enum": [
               "invoices",
               "forwards",
               "sendpays",
-              "htlcs"
+              "htlcs",
+              "chainmoves",
+              "channelmoves"
             ]
           },
           "indexname": {
@@ -33754,7 +34246,9 @@
               "invoices",
               "forwards",
               "sendpays",
-              "htlcs"
+              "htlcs",
+              "chainmoves",
+              "channelmoves"
             ]
           },
           "created": {
@@ -33779,6 +34273,8 @@
           "invoices": {},
           "sendpays": {},
           "htlcs": {},
+          "chainmoves": {},
+          "channelmoves": {},
           "details": {}
         },
         "allOf": [
@@ -34216,6 +34712,118 @@
                 }
               }
             }
+          },
+          {
+            "if": {
+              "additionalProperties": true,
+              "properties": {
+                "subsystem": {
+                  "type": "string",
+                  "enum": [
+                    "chainmoves"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "additionalProperties": false,
+              "properties": {
+                "subsystem": {},
+                "created": {},
+                "updated": {},
+                "deleted": {},
+                "channelmoves": {},
+                "chainmoves": {
+                  "added": "v25.09",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "account",
+                    "credit_msat",
+                    "debit_msat"
+                  ],
+                  "properties": {
+                    "account": {
+                      "added": "v25.09",
+                      "type": "string",
+                      "description": [
+                        "The account (e.g. channel id) associated with this movement."
+                      ]
+                    },
+                    "credit_msat": {
+                      "added": "v25.09",
+                      "type": "msat",
+                      "description": [
+                        "The amount incoming"
+                      ]
+                    },
+                    "debit_msat": {
+                      "added": "v25.09",
+                      "type": "msat",
+                      "description": [
+                        "The amount outgoing"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "additionalProperties": true,
+              "properties": {
+                "subsystem": {
+                  "type": "string",
+                  "enum": [
+                    "channelmoves"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "additionalProperties": false,
+              "properties": {
+                "subsystem": {},
+                "created": {},
+                "updated": {},
+                "deleted": {},
+                "chainmoves": {},
+                "channelmoves": {
+                  "added": "v25.09",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "account",
+                    "credit_msat",
+                    "debit_msat"
+                  ],
+                  "properties": {
+                    "account": {
+                      "added": "v25.09",
+                      "type": "string",
+                      "description": [
+                        "The account (e.g. channel id) associated with this movement."
+                      ]
+                    },
+                    "credit_msat": {
+                      "added": "v25.09",
+                      "type": "msat",
+                      "description": [
+                        "The amount incoming"
+                      ]
+                    },
+                    "debit_msat": {
+                      "added": "v25.09",
+                      "type": "msat",
+                      "description": [
+                        "The amount outgoing"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
           }
         ]
       },
@@ -34253,7 +34861,9 @@
         "lightning-listinvoices(7)",
         "lightning-listforwards(7)",
         "lightning-listsendpays(7)",
-        "lightning-listhtlcs(7)"
+        "lightning-listhtlcs(7)",
+        "lightning-listchainmoves(7)",
+        "lightning-listchannelmoves(7)"
       ],
       "resources": [
         "Main web site: <https://github.com/ElementsProject/lightning>"
@@ -35399,7 +36009,7 @@
           "invstring": {
             "type": "string",
             "description": [
-              "bolt11 or bolt12 invoice"
+              "bolt11 or bolt12 invoice, a bolt12 (non-recursive) offer or a BIP353 name.  If it's a bip353 name, an offer is fetched with `fetchbip353` if available.  If it's an offer, the invoice is fetched using `fetchinvoice` automatically."
             ]
           },
           "amount_msat": {
@@ -35673,7 +36283,6 @@
         "required": [
           "peer_id",
           "channel_id",
-          "short_channel_id",
           "timestamp",
           "new_state",
           "cause",
@@ -35727,7 +36336,7 @@
               "DUALOPEND_OPEN_COMMIT_READY"
             ],
             "description": [
-              "The channel state, in particular \"CHANNELD_NORMAL\" means the channel can be used normally.",
+              "The channel state, in particular \"CHANNELD_NORMAL\" and \"CHANNELD_AWAITING_SPLICE\" mean the channel can be used normally.",
               "The deprecated value 'unknown' is also present for new channels: after v26.03 this field will be omitted instead."
             ],
             "added": "pre-v0.10.1"
@@ -35751,7 +36360,7 @@
               "DUALOPEND_OPEN_COMMIT_READY"
             ],
             "description": [
-              "The channel state, in particular \"CHANNELD_NORMAL\" means the channel can be used normally"
+              "The channel state, in particular \"CHANNELD_NORMAL\" and \"CHANNELD_AWAITING_SPLICE\" mean the channel can be used normally"
             ],
             "added": "pre-v0.10.1"
           },
@@ -35835,7 +36444,8 @@
                   "ipv4",
                   "ipv6",
                   "torv2",
-                  "torv3"
+                  "torv3",
+                  "websocket"
                 ],
                 "description": [
                   "Type of connection (*torv2*/*torv3* only if **direction** is *out*)"

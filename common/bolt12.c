@@ -594,7 +594,7 @@ static bool bolt12_has_request_prefix(const char *str)
 	return strstarts(str, "lnr1") || strstarts(str, "LNR1");
 }
 
-static bool bolt12_has_offer_prefix(const char *str)
+bool bolt12_has_offer_prefix(const char *str)
 {
 	return strstarts(str, "lno1") || strstarts(str, "LNO1");
 }

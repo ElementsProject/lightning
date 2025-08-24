@@ -4,6 +4,7 @@
 #include <ccan/crypto/shachain/shachain.h>
 #include <common/htlc_wire.h>
 #include <common/onionreply.h>
+#include <wire/tlvstream.h>
 
 static struct failed_htlc *failed_htlc_dup(const tal_t *ctx,
 					   const struct failed_htlc *f TAKES)
@@ -24,6 +25,23 @@ static struct failed_htlc *failed_htlc_dup(const tal_t *ctx,
 	return newf;
 }
 
+/* Helper to duplicate an array of tlv_field (vs an array of tlv_field *) */
+struct tlv_field *tlv_field_arr_dup(const tal_t *ctx,
+				    const struct tlv_field *arr TAKES)
+{
+	struct tlv_field *ret;
+	bool needs_copy = !is_taken(arr);
+
+	ret = tal_dup_talarr(ctx, struct tlv_field, arr);
+	if (needs_copy) {
+		for (size_t i = 0; i < tal_count(ret); i++) {
+			/* We need to attach the value to the correct parent */
+			ret[i].value = tal_dup_talarr(ret, u8, ret[i].value);
+		}
+	}
+	return ret;
+}
+
 struct existing_htlc *new_existing_htlc(const tal_t *ctx,
 					u64 id,
 					enum htlc_state state,
@@ -33,7 +51,8 @@ struct existing_htlc *new_existing_htlc(const tal_t *ctx,
 					const u8 onion_routing_packet[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)],
 					const struct pubkey *path_key TAKES,
 					const struct preimage *preimage TAKES,
-					const struct failed_htlc *failed TAKES)
+					const struct failed_htlc *failed TAKES,
+					const struct tlv_field *extra_tlvs TAKES)
 {
 	struct existing_htlc *existing = tal(ctx, struct existing_htlc);
 
@@ -51,8 +70,24 @@ struct existing_htlc *new_existing_htlc(const tal_t *ctx,
 		existing->failed = failed_htlc_dup(existing, failed);
 	else
 		existing->failed = NULL;
+	if (extra_tlvs)
+		existing->extra_tlvs = tlv_field_arr_dup(existing, extra_tlvs);
+	else
+		existing->extra_tlvs = NULL;
 
 	return existing;
+}
+
+static void towire_len_and_tlvstream(u8 **pptr, struct tlv_field *extra_tlvs)
+{
+	/* Making a copy is a bit awful, but it's the easiest way to
+	 * get the length */
+	u8 *tmp_pptr = tal_arr(tmpctx, u8, 0);
+	towire_tlvstream_raw(&tmp_pptr, extra_tlvs);
+
+	assert(tal_bytelen(tmp_pptr) == (u16)tal_bytelen(tmp_pptr));
+	towire_u16(pptr, tal_bytelen(tmp_pptr));
+	towire_u8_array(pptr, tmp_pptr, tal_bytelen(tmp_pptr));
 }
 
 /* FIXME: We could adapt tools/generate-wire.py to generate structures
@@ -68,6 +103,11 @@ void towire_added_htlc(u8 **pptr, const struct added_htlc *added)
 	if (added->path_key) {
 		towire_bool(pptr, true);
 		towire_pubkey(pptr, added->path_key);
+	} else
+		towire_bool(pptr, false);
+	if (added->extra_tlvs) {
+		towire_bool(pptr, true);
+		towire_len_and_tlvstream(pptr, added->extra_tlvs);
 	} else
 		towire_bool(pptr, false);
 	towire_bool(pptr, added->fail_immediate);
@@ -95,6 +135,11 @@ void towire_existing_htlc(u8 **pptr, const struct existing_htlc *existing)
 	if (existing->path_key) {
 		towire_bool(pptr, true);
 		towire_pubkey(pptr, existing->path_key);
+	} else
+		towire_bool(pptr, false);
+	if (existing->extra_tlvs) {
+		towire_bool(pptr, true);
+		towire_len_and_tlvstream(pptr, existing->extra_tlvs);
 	} else
 		towire_bool(pptr, false);
 }
@@ -149,6 +194,28 @@ void towire_shachain(u8 **pptr, const struct shachain *shachain)
 	}
 }
 
+static struct tlv_field *fromwire_len_and_tlvstream(const tal_t *ctx,
+						    const u8 **cursor, size_t *max)
+{
+	struct tlv_field *tlvs = tal_arr(ctx, struct tlv_field, 0);
+	size_t len = fromwire_u16(cursor, max);
+
+	/* Subtle: we are not using fromwire_tal_arrn here, which
+	 * would do this. */
+	if (len > *max) {
+		fromwire_fail(cursor, max);
+		return NULL;
+	}
+
+	/* NOTE: We might consider to be more strict and only allow for
+	 * known tlv types from the tlvs_tlv_update_add_htlc_tlvs
+	 * record. */
+	if (!fromwire_tlv(cursor, &len, NULL, 0, cast_const(void *, ctx),
+			  &tlvs, FROMWIRE_TLV_ANY_TYPE, NULL, NULL))
+		return tal_free(tlvs);
+	return tlvs;
+}
+
 void fromwire_added_htlc(const u8 **cursor, size_t *max,
 			 struct added_htlc *added)
 {
@@ -163,6 +230,10 @@ void fromwire_added_htlc(const u8 **cursor, size_t *max,
 		fromwire_pubkey(cursor, max, added->path_key);
 	} else
 		added->path_key = NULL;
+	if (fromwire_bool(cursor, max)) {
+		added->extra_tlvs = fromwire_len_and_tlvstream(added, cursor, max);
+	} else
+		added->extra_tlvs = NULL;
 	added->fail_immediate = fromwire_bool(cursor, max);
 }
 
@@ -192,6 +263,10 @@ struct existing_htlc *fromwire_existing_htlc(const tal_t *ctx,
 		fromwire_pubkey(cursor, max, existing->path_key);
 	} else
 		existing->path_key = NULL;
+	if (fromwire_bool(cursor, max)) {
+		existing->extra_tlvs = fromwire_len_and_tlvstream(existing, cursor, max);
+	} else
+		existing->extra_tlvs = NULL;
 	return existing;
 }
 

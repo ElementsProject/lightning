@@ -82,9 +82,9 @@ bool fromwire_tlv(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 		  void *record UNNEEDED, struct tlv_field **fields UNNEEDED,
 		  const u64 *extra_types UNNEEDED, size_t *err_off UNNEEDED, u64 *err_type UNNEEDED)
 { fprintf(stderr, "fromwire_tlv called!\n"); abort(); }
-/* Generated stub for mvt_tag_str */
-const char *mvt_tag_str(enum mvt_tag tag UNNEEDED)
-{ fprintf(stderr, "mvt_tag_str called!\n"); abort(); }
+/* Generated stub for mvt_tag_parse */
+bool mvt_tag_parse(const char *buf UNNEEDED, size_t len UNNEEDED, enum mvt_tag *tag UNNEEDED)
+{ fprintf(stderr, "mvt_tag_parse called!\n"); abort(); }
 /* Generated stub for new_onionreply */
 struct onionreply *new_onionreply(const tal_t *ctx UNNEEDED, const u8 *contents TAKES UNNEEDED)
 { fprintf(stderr, "new_onionreply called!\n"); abort(); }

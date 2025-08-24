@@ -274,6 +274,7 @@ struct openchannel2_payload {
 	u32 lease_blockheight_start;
 	u32 node_blockheight;
 	bool req_confirmed_ins_remote;
+	struct channel_type *channel_type;
 
 	struct amount_sat accepter_funding;
 	struct wally_psbt *psbt;
@@ -325,6 +326,7 @@ static void openchannel2_hook_serialize(struct openchannel2_payload *payload,
 	}
 	json_add_bool(stream, "require_confirmed_inputs",
 		      payload->req_confirmed_ins_remote);
+	json_add_channel_type(stream, "channel_type", payload->channel_type);
 	json_object_end(stream);
 }
 
@@ -1038,7 +1040,7 @@ static enum watch_result opening_depth_cb(struct lightningd *ld,
 	if (!inflight->channel->scid) {
 		wallet_annotate_txout(ld->wallet, &inflight->funding->outpoint,
 				      TX_CHANNEL_FUNDING, inflight->channel->dbid);
-		inflight->channel->scid = tal_dup(inflight->channel, struct short_channel_id, &scid);
+		channel_set_scid(inflight->channel, &scid);
 		wallet_channel_save(ld->wallet, inflight->channel);
 	} else if (!short_channel_id_eq(*inflight->channel->scid, scid)) {
 		/* We freaked out if required when original was
@@ -1046,7 +1048,7 @@ static enum watch_result opening_depth_cb(struct lightningd *ld,
 		log_info(inflight->channel->log, "Short channel id changed from %s->%s",
 			 fmt_short_channel_id(tmpctx, *inflight->channel->scid),
 			 fmt_short_channel_id(tmpctx, scid));
-		*inflight->channel->scid = scid;
+		channel_set_scid(inflight->channel, &scid);
 		wallet_channel_save(ld->wallet, inflight->channel);
 	}
 
@@ -1300,6 +1302,7 @@ wallet_update_channel(struct lightningd *ld,
 				lease_amt,
 				0,
 				false,
+				false,
 				false);
 	wallet_inflight_add(ld->wallet, inflight);
 
@@ -1443,6 +1446,7 @@ wallet_commit_channel(struct lightningd *ld,
 	channel_info->old_remote_per_commit = channel_info->remote_per_commit;
 
 	/* Promote the unsaved_dbid to the dbid */
+	assert(channel->dbid == 0);
 	assert(channel->unsaved_dbid != 0);
 	channel->dbid = channel->unsaved_dbid;
 	channel->unsaved_dbid = 0;
@@ -1521,6 +1525,9 @@ wallet_commit_channel(struct lightningd *ld,
 	/* Now we finally put it in the database. */
 	wallet_channel_insert(ld->wallet, channel);
 
+	/* So we can find it by the newly-assigned dbid */
+	add_channel_to_dbid_map(ld, channel);
+
 	/* Open attempt to channel's inflights */
 	inflight = new_inflight(channel,
 				NULL,
@@ -1537,6 +1544,7 @@ wallet_commit_channel(struct lightningd *ld,
 				channel->push,
 				lease_amt,
 				0,
+				false,
 				false,
 				false);
 	wallet_inflight_add(ld->wallet, inflight);
@@ -2096,7 +2104,8 @@ static void accepter_got_offer(struct subd *dualopend,
 					  &payload->shutdown_scriptpubkey,
 					  &payload->requested_lease_amt,
 					  &payload->lease_blockheight_start,
-					  &payload->req_confirmed_ins_remote)) {
+					  &payload->req_confirmed_ins_remote,
+					  &payload->channel_type)) {
 		channel_internal_error(channel, "Bad DUALOPEND_GOT_OFFER: %s",
 				       tal_hex(tmpctx, msg));
 		return;
@@ -3249,8 +3258,11 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 				    "by peer");
 	}
 
-	if (info->ctype &&
-	    !cmd->ld->dev_any_channel_type &&
+	if (!info->ctype)
+		info->ctype = desired_channel_type(info, cmd->ld->our_features,
+						   peer->their_features);
+
+	if (!cmd->ld->dev_any_channel_type &&
 	    !channel_type_accept(tmpctx,
 				 info->ctype->features,
 				 cmd->ld->our_features)) {
@@ -3882,7 +3894,9 @@ static struct command_result *json_queryrates(struct command *cmd,
 						NULL : request_amt,
 					   get_block_height(cmd->ld->topology),
 					   true,
-					   NULL, NULL);
+					   desired_channel_type(tmpctx, cmd->ld->our_features,
+								peer->their_features),
+					   NULL);
 
 	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
 		return command_fail(cmd, FUND_MAX_EXCEEDED,

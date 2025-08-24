@@ -439,7 +439,8 @@
             "ipv6": 2,
             "local socket": 0,
             "torv2": 3,
-            "torv3": 4
+            "torv3": 4,
+            "websocket": 5
         },
         "PeerConnectDirection": {
             "in": 0,
@@ -547,6 +548,8 @@
             "pending": 0
         },
         "WaitSubsystem": {
+            "chainmoves": 4,
+            "channelmoves": 5,
             "forwards": 1,
             "htlcs": 3,
             "invoices": 0,
@@ -1598,6 +1601,20 @@
             "Feerates.perkw": 3,
             "Feerates.warning_missing_feerates": 1
         },
+        "Fetchbip353Instructions": {
+            "FetchBip353.instructions[].description": 1,
+            "FetchBip353.instructions[].offchain_amount_msat": 4,
+            "FetchBip353.instructions[].offer": 2,
+            "FetchBip353.instructions[].onchain": 3,
+            "FetchBip353.instructions[].onchain_amount_sat": 5
+        },
+        "Fetchbip353Request": {
+            "FetchBip353.address": 1
+        },
+        "Fetchbip353Response": {
+            "FetchBip353.instructions[]": 2,
+            "FetchBip353.proof": 1
+        },
         "FetchinvoiceChanges": {
             "FetchInvoice.changes.amount_msat": 5,
             "FetchInvoice.changes.description": 2,
@@ -1849,6 +1866,7 @@
             "GetRoutes.layers[]": 4,
             "GetRoutes.maxdelay": 8,
             "GetRoutes.maxfee_msat": 5,
+            "GetRoutes.maxparts": 9,
             "GetRoutes.source": 1
         },
         "GetroutesResponse": {
@@ -3699,6 +3717,16 @@
             "UtxoPsbt.psbt": 1,
             "UtxoPsbt.reservations[]": 6
         },
+        "WaitChainmoves": {
+            "Wait.chainmoves.account": 1,
+            "Wait.chainmoves.credit_msat": 2,
+            "Wait.chainmoves.debit_msat": 3
+        },
+        "WaitChannelmoves": {
+            "Wait.channelmoves.account": 1,
+            "Wait.channelmoves.credit_msat": 2,
+            "Wait.channelmoves.debit_msat": 3
+        },
         "WaitDetails": {
             "Wait.details.bolt11": 4,
             "Wait.details.bolt12": 5,
@@ -3742,6 +3770,8 @@
             "Wait.subsystem": 1
         },
         "WaitResponse": {
+            "Wait.chainmoves": 10,
+            "Wait.channelmoves": 11,
             "Wait.created": 2,
             "Wait.deleted": 4,
             "Wait.details": 5,
@@ -6892,6 +6922,42 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "FetchBip353": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "FetchBip353.address": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "FetchBip353.instructions[]": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "FetchBip353.instructions[].description": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "FetchBip353.instructions[].offchain_amount_msat": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "FetchBip353.instructions[].offer": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "FetchBip353.instructions[].onchain": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "FetchBip353.instructions[].onchain_amount_sat": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "FetchBip353.proof": {
+            "added": "v25.09",
+            "deprecated": null
+        },
         "FetchInvoice": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -7482,6 +7548,10 @@
         },
         "GetRoutes.maxfee_msat": {
             "added": "v24.08",
+            "deprecated": null
+        },
+        "GetRoutes.maxparts": {
+            "added": "v25.09",
             "deprecated": null
         },
         "GetRoutes.probability_ppm": {
@@ -12834,6 +12904,38 @@
         },
         "Wait": {
             "added": "v23.08",
+            "deprecated": null
+        },
+        "Wait.chainmoves": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "Wait.chainmoves.account": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "Wait.chainmoves.credit_msat": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "Wait.chainmoves.debit_msat": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "Wait.channelmoves": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "Wait.channelmoves.account": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "Wait.channelmoves.credit_msat": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "Wait.channelmoves.debit_msat": {
+            "added": "v25.09",
             "deprecated": null
         },
         "Wait.created": {

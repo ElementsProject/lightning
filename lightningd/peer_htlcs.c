@@ -3,6 +3,7 @@
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <channeld/channeld_wiregen.h>
+#include <common/bigsize.h>
 #include <common/blinding.h>
 #include <common/configdir.h>
 #include <common/ecdh.h>
@@ -17,12 +18,17 @@
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/coin_mvts.h>
+#include <lightningd/notification.h>
 #include <lightningd/pay.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/peer_htlcs.h>
 #include <lightningd/plugin_hook.h>
 #include <lightningd/subd.h>
 #include <onchaind/onchaind_wiregen.h>
+#include <stdio.h>
+#include <wire/onion_wiregen.h>
+#include <wire/peer_wiregen.h>
+#include <wire/tlvstream.h>
 
 #ifndef SUPERVERBOSE
 #define SUPERVERBOSE(...)
@@ -695,13 +701,14 @@ const u8 *send_htlc_out(const tal_t *ctx,
 			struct amount_msat final_msat,
 			const struct sha256 *payment_hash,
 			const struct pubkey *path_key,
+			const struct tlv_field *extra_tlvs,
 			u64 partid,
 			u64 groupid,
 			const u8 *onion_routing_packet,
 			struct htlc_in *in,
 			struct htlc_out **houtp)
 {
-	u8 *msg;
+	u8 *msg, *raw_tlvs = NULL;
 
 	*houtp = NULL;
 
@@ -729,7 +736,8 @@ const u8 *send_htlc_out(const tal_t *ctx,
 	/* Make peer's daemon own it, catch if it dies. */
 	*houtp = new_htlc_out(out->owner, out, amount, cltv,
 			      payment_hash, onion_routing_packet,
-			      path_key, in == NULL,
+			      path_key, extra_tlvs,
+			      in == NULL,
 			      final_msat,
 			      partid, groupid, in);
 	tal_add_destructor(*houtp, destroy_hout_subd_died);
@@ -742,8 +750,16 @@ const u8 *send_htlc_out(const tal_t *ctx,
 						 *houtp);
 	}
 
+	if (extra_tlvs) {
+		raw_tlvs = tal_arr(tmpctx, u8, 0);
+		towire_tlvstream_raw(&raw_tlvs,
+				     tal_dup_talarr(tmpctx, struct tlv_field,
+						    extra_tlvs));
+	}
+
 	msg = towire_channeld_offer_htlc(out, amount, cltv, payment_hash,
-					onion_routing_packet, path_key);
+					onion_routing_packet, path_key,
+					raw_tlvs);
 	subd_req(out->peer->ld, out->owner, take(msg), -1, 0, rcvd_htlc_reply,
 		 *houtp);
 
@@ -796,7 +812,8 @@ static void forward_htlc(struct htlc_in *hin,
 			 const struct short_channel_id *forward_scid,
 			 const struct channel_id *forward_to,
 			 const u8 next_onion[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)],
-			 const struct pubkey *next_path_key)
+			 const struct pubkey *next_path_key,
+			 const struct tlv_field *extra_tlvs)
 {
 	const u8 *failmsg;
 	struct lightningd *ld = hin->key.channel->peer->ld;
@@ -911,7 +928,7 @@ static void forward_htlc(struct htlc_in *hin,
 	failmsg = send_htlc_out(tmpctx, next, amt_to_forward,
 				outgoing_cltv_value, AMOUNT_MSAT(0),
 				&hin->payment_hash,
-				next_path_key, 0 /* partid */, 0 /* groupid */,
+				next_path_key, extra_tlvs, 0 /* partid */, 0 /* groupid */,
 				next_onion, hin, &hout);
 	if (!failmsg)
 		return;
@@ -941,6 +958,7 @@ struct htlc_accepted_hook_payload {
 	u64 failtlvtype;
 	size_t failtlvpos;
 	const char *failexplanation;
+	u8 *extra_tlvs_raw;
 };
 
 static void
@@ -997,8 +1015,8 @@ static bool htlc_accepted_hook_deserialize(struct htlc_accepted_hook_payload *re
 	struct htlc_in *hin = request->hin;
 	struct lightningd *ld = request->ld;
 	struct preimage payment_preimage;
-	const jsmntok_t *resulttok, *paykeytok, *payloadtok, *fwdtok;
-	u8 *failonion;
+	const jsmntok_t *resulttok, *paykeytok, *payloadtok, *fwdtok, *extra_tlvs_tok;
+	u8 *failonion, *raw_tlvs;
 
 	if (!toks || !buffer)
 		return true;
@@ -1010,6 +1028,49 @@ static bool htlc_accepted_hook_deserialize(struct htlc_accepted_hook_payload *re
 	if (!resulttok) {
 		fatal("Plugin return value does not contain 'result' key %s",
 		      json_strdup(tmpctx, buffer, toks));
+	}
+
+	extra_tlvs_tok = json_get_member(buffer, toks, "extra_tlvs");
+	if (extra_tlvs_tok) {
+		size_t max;
+		struct tlv_update_add_htlc_tlvs *check_extra_tlvs;
+
+		raw_tlvs = json_tok_bin_from_hex(tmpctx, buffer,
+						 extra_tlvs_tok);
+		if (!raw_tlvs)
+			fatal("Bad custom tlvs for htlc_accepted"
+			      " hook: %.*s",
+			      extra_tlvs_tok->end - extra_tlvs_tok->start,
+			      buffer + extra_tlvs_tok->start);
+
+		max = tal_bytelen(raw_tlvs);
+
+         	/* We check if the custom tlvs are still valid BOLT#1 tlvs.
+          	 * As these are appended to forwarded htlcs we check for valid
+            	 * update_add_htlc_tlvs (restricts to known even types).
+              	 * NOTE: We may be less strict and allow unknown evens .*/
+                const u8 *cursor = raw_tlvs;
+		check_extra_tlvs = fromwire_tlv_update_add_htlc_tlvs(tmpctx,
+								     &cursor,
+								     &max);
+		if (!check_extra_tlvs) {
+			fatal("htlc_accepted_hook returned bad extra_tlvs %s",
+				tal_hex(tmpctx, raw_tlvs));
+		}
+
+		/* If we got a blinded path key we replace the next path key
+		 * with it. */
+		if (check_extra_tlvs->blinded_path) {
+			tal_free(request->next_path_key);
+			request->next_path_key
+				= tal_steal(request,
+					    check_extra_tlvs->blinded_path);
+		}
+
+		/* We made it and got a valid extra_tlvs: Replace the current
+		 * extra_tlvs with it. */
+		tal_free(request->extra_tlvs_raw);
+		request->extra_tlvs_raw = tal_steal(request, raw_tlvs);
 	}
 
 	payloadtok = json_get_member(buffer, toks, "payload");
@@ -1169,6 +1230,9 @@ static void htlc_accepted_hook_serialize(struct htlc_accepted_hook_payload *p,
 	json_add_u32(s, "cltv_expiry", expiry);
 	json_add_s32(s, "cltv_expiry_relative", expiry - blockheight);
 	json_add_sha256(s, "payment_hash", &hin->payment_hash);
+	if (p->extra_tlvs_raw) {
+		json_add_hex_talarr(s, "extra_tlvs", p->extra_tlvs_raw);
+	}
 	json_object_end(s);
 }
 
@@ -1199,13 +1263,25 @@ htlc_accepted_hook_final(struct htlc_accepted_hook_payload *request STEALS)
 						NULL, request->failtlvtype,
 						request->failtlvpos)));
 	} else if (rs->nextcase == ONION_FORWARD) {
+		struct tlv_field *extra_tlvs;
+
+		if (request->extra_tlvs_raw) {
+			const u8 *cursor = request->extra_tlvs_raw;
+			size_t max = tal_bytelen(cursor);
+			extra_tlvs = tal_arr(request, struct tlv_field, 0);
+			fromwire_tlv(&cursor, &max, NULL, 0, request,
+				     &extra_tlvs, NULL, NULL, NULL);
+		} else {
+			extra_tlvs = NULL;
+		}
+
 		forward_htlc(hin, hin->cltv_expiry,
 			     request->payload->amt_to_forward,
 			     request->payload->outgoing_cltv,
 			     request->payload->forward_channel,
 			     request->fwd_channel_id,
 			     serialize_onionpacket(tmpctx, rs->next),
-			     request->next_path_key);
+			     request->next_path_key, extra_tlvs);
 	} else
 		handle_localpay(hin,
 				request->payload->amt_to_forward,
@@ -1482,6 +1558,14 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 	 * we're in hook */
 	hook_payload->fwd_channel_id
 		= calc_forwarding_channel(ld, hook_payload);
+
+	if(hin->extra_tlvs) {
+		hook_payload->extra_tlvs_raw = tal_arr(hook_payload, u8, 0);
+		towire_tlvstream_raw(&hook_payload->extra_tlvs_raw,
+				     hin->extra_tlvs);
+	} else {
+		hook_payload->extra_tlvs_raw = NULL;
+	}
 
 	plugin_hook_call_htlc_accepted(ld, NULL, hook_payload);
 
@@ -1883,7 +1967,7 @@ static void remove_htlc_in(struct channel *channel, struct htlc_in *hin)
 				   "Unable to calculate fees collected."
 				   " Not logging an inbound HTLC");
 		else
-			notify_channel_mvt(channel->peer->ld, mvt);
+			wallet_save_channel_mvt(channel->peer->ld, mvt);
 	}
 
 	tal_free(hin);
@@ -1934,7 +2018,7 @@ static void remove_htlc_out(struct channel *channel, struct htlc_out *hout)
 				   "Unable to calculate fees."
 				   " Not logging an outbound HTLC");
 		else
-			notify_channel_mvt(channel->peer->ld, mvt);
+			wallet_save_channel_mvt(channel->peer->ld, mvt);
 	}
 
 	tal_free(hout);
@@ -2209,6 +2293,7 @@ static bool channel_added_their_htlc(struct channel *channel,
 			  op ? &shared_secret : NULL,
 			  added->path_key,
 			  added->onion_routing_packet,
+			  added->extra_tlvs,
 			  added->fail_immediate);
 
 	/* Save an incoming htlc to the wallet */
@@ -2640,13 +2725,15 @@ const struct existing_htlc **peer_htlcs(const tal_t *ctx,
 		else
 			f = NULL;
 
+
 		existing = new_existing_htlc(htlcs, hin->key.id, hin->hstate,
 					     hin->msat, &hin->payment_hash,
 					     hin->cltv_expiry,
 					     hin->onion_routing_packet,
 					     hin->path_key,
 					     hin->preimage,
-					     f);
+					     f,
+					     hin->extra_tlvs);
 		tal_arr_expand(&htlcs, existing);
 	}
 
@@ -2678,7 +2765,8 @@ const struct existing_htlc **peer_htlcs(const tal_t *ctx,
 					     hout->onion_routing_packet,
 					     hout->path_key,
 					     hout->preimage,
-					     f);
+					     f,
+					     hout->extra_tlvs);
 		tal_arr_expand(&htlcs, existing);
 	}
 
@@ -2955,7 +3043,8 @@ static u64 htlcs_index_inc(struct lightningd *ld,
 			   enum htlc_state hstate,
 			   enum wait_index idx)
 {
-	return wait_index_increment(ld, WAIT_SUBSYSTEM_HTLCS, idx,
+	return wait_index_increment(ld, ld->wallet->db,
+				    WAIT_SUBSYSTEM_HTLCS, idx,
 				    "state", htlc_state_name(hstate),
 				    "short_channel_id", fmt_short_channel_id(tmpctx, channel_scid_or_local_alias(channel)),
 				    "direction", owner == LOCAL ? "out": "in",

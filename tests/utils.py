@@ -41,7 +41,7 @@ def hex_bits(features):
 
 def expected_peer_features(extra=[]):
     """Return the expected peer features hexstring for this configuration"""
-    features = [0, 5, 7, 8, 11, 12, 14, 17, 19, 25, 27, 35, 39, 43, 45, 47, 51]
+    features = [0, 5, 7, 8, 11, 12, 14, 17, 19, 25, 27, 35, 39, 43, 44, 47, 51]
     if EXPERIMENTAL_DUAL_FUND:
         # option_dual_fund
         features += [29]
@@ -57,7 +57,7 @@ def expected_peer_features(extra=[]):
 # features for the 'node' and the 'peer' feature sets
 def expected_node_features(extra=[]):
     """Return the expected node features hexstring for this configuration"""
-    features = [0, 5, 7, 8, 11, 12, 14, 17, 19, 25, 27, 35, 39, 43, 45, 47, 51, 55]
+    features = [0, 5, 7, 8, 11, 12, 14, 17, 19, 25, 27, 35, 39, 43, 44, 47, 51, 55]
     if EXPERIMENTAL_DUAL_FUND:
         # option_dual_fund
         features += [29]
@@ -88,7 +88,7 @@ def move_matches(exp, mv):
         return False
     if Millisatoshi(mv['debit_msat']) != Millisatoshi(exp['debit_msat']):
         return False
-    if mv['tags'] != exp['tags']:
+    if sorted(mv['tags']) != sorted(exp['tags']):
         return False
     if 'fees_msat' in exp:
         if 'fees_msat' not in mv:
@@ -140,6 +140,8 @@ def check_coin_moves(n, account_id, expected_moves, chainparams):
     # Stash moves for errors, if needed
     _acct_moves = acct_moves
     for mv in acct_moves:
+        # Generate tags as single array, which is how bookkeeper presents it
+        mv['tags'] = [mv['primary_tag']] + mv['extra_tags']
         print("{{'type': '{}', 'credit_msat': {}, 'debit_msat': {}, 'tags': '{}' , ['fees_msat'?: '{}']}},"
               .format(mv['type'],
                       Millisatoshi(mv['credit_msat']).millisatoshis,
@@ -196,13 +198,14 @@ def account_balance(n, account_id):
 def extract_utxos(moves):
     utxos = {}
     for m in moves:
-        if 'utxo_txid' not in m:
+        if 'utxo' not in m:
             continue
+        m['utxo_txid'], m['vout'] = m['utxo'].split(':')
         txid = m['utxo_txid']
         if txid not in utxos:
-            utxos[txid] = []
+            utxos[m['utxo_txid']] = []
 
-        if 'txid' not in m:
+        if 'spending_txid' not in m:
             utxos[txid].append([m, None])
         else:
             evs = utxos[txid]
@@ -221,7 +224,7 @@ def print_utxos(utxos):
         print(k)
         for u in us:
             if u[1]:
-                print('\t', u[0]['account_id'], u[0]['tags'], u[1]['tags'], u[1]['txid'])
+                print('\t', u[0]['account_id'], u[0]['tags'], u[1]['tags'], u[1]['spending_txid'])
             else:
                 print('\t', u[0]['account_id'], u[0]['tags'], None, None)
 
@@ -241,11 +244,11 @@ def utxos_for_channel(utxoset, channel_id):
                 _add_relevant(txid, utxo)
                 relevant_txids.append(txid)
                 if utxo[1]:
-                    relevant_txids.append(utxo[1]['txid'])
+                    relevant_txids.append(utxo[1]['spending_txid'])
             elif txid in relevant_txids:
                 _add_relevant(txid, utxo)
                 if utxo[1]:
-                    relevant_txids.append(utxo[1]['txid'])
+                    relevant_txids.append(utxo[1]['spending_txid'])
 
     # if they're not well ordered, we'll leave some txids out
     for txid in relevant_txids:
@@ -260,6 +263,9 @@ def matchup_events(u_set, evs, chans, tag_list):
         raise ValueError(f"utxo-set does not match expected (diff lens). exp {evs}, actual {u_set}")
     if len(u_set) == 0:
         raise ValueError(f"utxo-set is empty. exp {evs}, actual {u_set}")
+
+    def get_tags(utxo):
+        return [utxo['primary_tag']] + utxo['extra_tags']
 
     txid = u_set[0][0]['utxo_txid']
     # Stash the set for logging at end, if error
@@ -277,7 +283,7 @@ def matchup_events(u_set, evs, chans, tag_list):
             else:
                 acct = ev[0]
 
-            if u[0]['account_id'] != acct or u[0]['tags'] != ev[1]:
+            if u[0]['account_id'] != acct or get_tags(u[0]) != ev[1]:
                 continue
 
             if ev[2] is None:
@@ -289,7 +295,7 @@ def matchup_events(u_set, evs, chans, tag_list):
 
             # ugly hack to annotate two possible futures for a utxo
             if type(ev[2]) is tuple:
-                tag = u[1]['tags'] if u[1] else u[1]
+                tag = get_tags(u[1]) if u[1] else u[1]
                 if tag not in [x[0] for x in ev[2]]:
                     raise ValueError(f"Unable to find {tag} in event set {ev}")
                 if not u[1]:
@@ -297,15 +303,15 @@ def matchup_events(u_set, evs, chans, tag_list):
                     u_set.remove(u)
                     break
                 for x in ev[2]:
-                    if x[0] == u[1]['tags'] and 'to_miner' not in u[1]['tags']:
+                    if x[0] == get_tags(u[1]) and 'to_miner' not in get_tags(u[1]):
                         # Save the 'spent to' txid in the tag-list
-                        tag_list[x[1]] = u[1]['txid']
+                        tag_list[x[1]] = u[1]['spending_txid']
             else:
-                if ev[2] != u[1]['tags']:
+                if ev[2] != get_tags(u[1]):
                     raise ValueError(f"tags dont' match. exp {ev}, actual ({u[1]}) full utxo info: {u}")
                 # Save the 'spent to' txid in the tag-list
-                if 'to_miner' not in u[1]['tags']:
-                    tag_list[ev[3]] = u[1]['txid']
+                if 'to_miner' not in get_tags(u[1]):
+                    tag_list[ev[3]] = u[1]['spending_txid']
 
             found = True
             u_set.remove(u)
@@ -325,11 +331,11 @@ def dedupe_moves(moves):
     deduped_moves = []
     for move in moves:
         # Dupes only pertain to onchain moves?
-        if 'utxo_txid' not in move:
+        if 'utxo' not in move:
             deduped_moves.append(move)
             continue
 
-        outpoint = '{}:{};{}'.format(move['utxo_txid'], move['vout'], move['txid'] if 'txid' in move else 'xx')
+        outpoint = '{};{}'.format(move['utxo'], move['spending_txid'] if 'spending_txid' in move else 'xx')
         if outpoint not in move_set:
             deduped_moves.append(move)
             move_set[outpoint] = move

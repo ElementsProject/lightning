@@ -1844,6 +1844,30 @@ impl From<responses::FeeratesResponse> for pb::FeeratesResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::Fetchbip353Instructions> for pb::Fetchbip353Instructions {
+    fn from(c: responses::Fetchbip353Instructions) -> Self {
+        Self {
+            description: c.description, // Rule #2 for type string?
+            offchain_amount_msat: c.offchain_amount_msat, // Rule #2 for type u64?
+            offer: c.offer, // Rule #2 for type string?
+            onchain: c.onchain, // Rule #2 for type string?
+            onchain_amount_sat: c.onchain_amount_sat, // Rule #2 for type u64?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::Fetchbip353Response> for pb::Fetchbip353Response {
+    fn from(c: responses::Fetchbip353Response) -> Self {
+        Self {
+            // Field: FetchBip353.instructions[]
+            instructions: c.instructions.into_iter().map(|i| i.into()).collect(), // Rule #3 for type Fetchbip353Instructions
+            proof: c.proof, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::FetchinvoiceChanges> for pb::FetchinvoiceChanges {
     fn from(c: responses::FetchinvoiceChanges) -> Self {
         Self {
@@ -2663,6 +2687,28 @@ impl From<responses::WaitblockheightResponse> for pb::WaitblockheightResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::WaitChainmoves> for pb::WaitChainmoves {
+    fn from(c: responses::WaitChainmoves) -> Self {
+        Self {
+            account: c.account, // Rule #2 for type string
+            credit_msat: Some(c.credit_msat.into()), // Rule #2 for type msat
+            debit_msat: Some(c.debit_msat.into()), // Rule #2 for type msat
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::WaitChannelmoves> for pb::WaitChannelmoves {
+    fn from(c: responses::WaitChannelmoves) -> Self {
+        Self {
+            account: c.account, // Rule #2 for type string
+            credit_msat: Some(c.credit_msat.into()), // Rule #2 for type msat
+            debit_msat: Some(c.debit_msat.into()), // Rule #2 for type msat
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::WaitDetails> for pb::WaitDetails {
     fn from(c: responses::WaitDetails) -> Self {
         Self {
@@ -2739,6 +2785,8 @@ impl From<responses::WaitSendpays> for pb::WaitSendpays {
 impl From<responses::WaitResponse> for pb::WaitResponse {
     fn from(c: responses::WaitResponse) -> Self {
         Self {
+            chainmoves: c.chainmoves.map(|v| v.into()),
+            channelmoves: c.channelmoves.map(|v| v.into()),
             created: c.created, // Rule #2 for type u64?
             deleted: c.deleted, // Rule #2 for type u64?
             details: c.details.map(|v| v.into()),
@@ -4405,7 +4453,7 @@ impl From<notifications::ChannelStateChangedNotification> for pb::ChannelStateCh
             new_state: c.new_state as i32,
             old_state: c.old_state.map(|v| v as i32),
             peer_id: c.peer_id.serialize().to_vec(), // Rule #2 for type pubkey
-            short_channel_id: c.short_channel_id.to_string(), // Rule #2 for type short_channel_id
+            short_channel_id: c.short_channel_id.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
             timestamp: c.timestamp, // Rule #2 for type string
         }
     }
@@ -5125,6 +5173,15 @@ impl From<requests::FeeratesRequest> for pb::FeeratesRequest {
     fn from(c: requests::FeeratesRequest) -> Self {
         Self {
             style: c.style as i32,
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::Fetchbip353Request> for pb::Fetchbip353Request {
+    fn from(c: requests::Fetchbip353Request) -> Self {
+        Self {
+            address: c.address, // Rule #2 for type string
         }
     }
 }
@@ -5940,6 +5997,7 @@ impl From<requests::GetroutesRequest> for pb::GetroutesRequest {
             layers: c.layers.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
             maxdelay: c.maxdelay, // Rule #2 for type u32?
             maxfee_msat: Some(c.maxfee_msat.into()), // Rule #2 for type msat
+            maxparts: c.maxparts, // Rule #2 for type u32?
             source: c.source.serialize().to_vec(), // Rule #2 for type pubkey
         }
     }
@@ -6822,6 +6880,15 @@ impl From<pb::FeeratesRequest> for requests::FeeratesRequest {
 }
 
 #[allow(unused_variables)]
+impl From<pb::Fetchbip353Request> for requests::Fetchbip353Request {
+    fn from(c: pb::Fetchbip353Request) -> Self {
+        Self {
+            address: c.address, // Rule #1 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<pb::FetchinvoiceRequest> for requests::FetchinvoiceRequest {
     fn from(c: pb::FetchinvoiceRequest) -> Self {
         Self {
@@ -7616,6 +7683,7 @@ impl From<pb::GetroutesRequest> for requests::GetroutesRequest {
             layers: c.layers.into_iter().map(|s| s.into()).collect(), // Rule #4
             maxdelay: c.maxdelay, // Rule #1 for type u32?
             maxfee_msat: c.maxfee_msat.unwrap().into(), // Rule #1 for type msat
+            maxparts: c.maxparts, // Rule #1 for type u32?
             source: PublicKey::from_slice(&c.source).unwrap(), // Rule #1 for type pubkey
         }
     }

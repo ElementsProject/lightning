@@ -13,6 +13,10 @@ bytes = "1"
 log = { version = "0.4", features = ['std'] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+serde_yml = "0.0.12"
+quick-xml = { version = "0.37", features = ["serialize"] }
+roxmltree_to_serde = "0.6"
+serde_qs = "0.15"
 tokio-util = { version = "0.7", features = ["codec"] }
 tokio = { version="1", features = ['io-std', 'rt-multi-thread', 'sync', 'macros', 'io-util'] }
 axum = "0.8"
@@ -27,7 +31,7 @@ utoipa = { version = "5", features = ['axum_extras'] }
 log-panics = "2"
 socketioxide = "0.15"
 
-cln-plugin = { version = "0.4", path = "../../plugins" }
-cln-rpc = { version = "0.4", path = "../../cln-rpc" }
+cln-plugin = { version = "0.5", path = "../../plugins" }
+cln-rpc = { version = "0.5", path = "../../cln-rpc" }
 utoipa-swagger-ui = { version = "9.0.0", features = ["vendored", "axum"] }
 

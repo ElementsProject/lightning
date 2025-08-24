@@ -225,55 +225,36 @@ static void send_coin_mvt(struct chain_coin_mvt *mvt TAKES)
 static void record_channel_withdrawal(const struct bitcoin_txid *tx_txid,
 				      struct tracked_output *out,
 				      u32 blockheight,
-				      enum mvt_tag tag)
+				      struct mvt_tags tags)
 {
 	send_coin_mvt(take(new_onchaind_withdraw(NULL, &out->outpoint, tx_txid,
-						 blockheight, out->sat, tag)));
+						 blockheight, out->sat, tags)));
 }
 
 static void record_external_spend(const struct bitcoin_txid *txid,
 				  struct tracked_output *out,
 				  u32 blockheight,
-				  enum mvt_tag tag)
+				  struct mvt_tags tags)
 {
 	send_coin_mvt(take(new_coin_external_spend(NULL, &out->outpoint,
 						   txid, blockheight,
-						   out->sat, tag)));
-}
-
-static void record_external_spend_tags(const struct bitcoin_txid *txid,
-				       struct tracked_output *out,
-				       u32 blockheight,
-				       enum mvt_tag *tags TAKES)
-{
-	send_coin_mvt(take(new_coin_external_spend_tags(NULL, &out->outpoint,
-							txid, blockheight,
-							out->sat, tags)));
+						   out->sat, tags)));
 }
 
 static void record_external_output(const struct bitcoin_outpoint *out,
 				   struct amount_sat amount,
 				   u32 blockheight,
-				   enum mvt_tag tag)
+				   struct mvt_tags tags)
 {
 	send_coin_mvt(take(new_coin_external_deposit(NULL, out, blockheight,
-						     amount, tag)));
+						     amount, tags)));
 }
 
 static void record_external_deposit(const struct tracked_output *out,
 				    u32 blockheight,
-				    enum mvt_tag tag)
+				    struct mvt_tags tags)
 {
-	record_external_output(&out->outpoint, out->sat, blockheight, tag);
-}
-
-static void record_external_deposit_tags(const struct tracked_output *out,
-					 u32 blockheight,
-					 enum mvt_tag *tags TAKES)
-{
-	send_coin_mvt(take(new_coin_external_deposit_tags(NULL, &out->outpoint,
-							  blockheight, out->sat,
-							  tags)));
+	record_external_output(&out->outpoint, out->sat, blockheight, tags);
 }
 
 static void record_mutual_close(const struct tx_parts *tx,
@@ -295,19 +276,19 @@ static void record_mutual_close(const struct tx_parts *tx,
 		record_external_output(&out,
 				       amount_sat(tx->outputs[i]->satoshi),
 				       blockheight,
-				       TO_THEM);
+				       mk_mvt_tags(MVT_TO_THEM));
 		break;
 	}
 }
 
 
 static void record_channel_deposit(struct tracked_output *out,
-				   u32 blockheight, enum mvt_tag tag)
+				   u32 blockheight, struct mvt_tags tags)
 {
 	send_coin_mvt(take(new_onchaind_deposit(NULL,
 						&out->outpoint,
 						blockheight, out->sat,
-						tag)));
+						tags)));
 }
 
 static void record_to_us_htlc_fulfilled(struct tracked_output *out,
@@ -331,15 +312,15 @@ static void record_to_them_htlc_fulfilled(struct tracked_output *out,
 						     &out->payment_hash)));
 }
 
-static void record_anchor(struct tracked_output *out)
+static void record_our_anchor(struct tracked_output *out)
 {
-	enum mvt_tag *tags = new_tag_arr(NULL, ANCHOR);
-	tal_arr_expand(&tags, IGNORED);
-	send_coin_mvt(take(new_coin_wallet_deposit_tagged(NULL,
-					&out->outpoint,
-					out->tx_blockheight,
-					out->sat,
-					tags)));
+	/* We *could* treat this as a deposit to our wallet, but we
+	* never record spending it, and in many cases we don't: we
+	* might not need it, or our peer may use the other anchor, and
+	* it can be spent by anyone after 16 blocks.  Our
+	* implementation doesn't ever spend it unless it needs to
+	* boost, so it's fair to record it as going "external". */
+	record_external_deposit(out, out->tx_blockheight, mk_mvt_tags(MVT_ANCHOR));
 }
 
 static void record_coin_movements(struct tracked_output *out,
@@ -355,10 +336,10 @@ static void record_coin_movements(struct tracked_output *out,
 	 * AND so we can accurately calculate our on-chain fee burden */
 	if (out->tx_type == OUR_HTLC_TIMEOUT_TX
 	    || out->tx_type == OUR_HTLC_SUCCESS_TX)
-		record_channel_deposit(out, out->tx_blockheight, HTLC_TX);
+		record_channel_deposit(out, out->tx_blockheight, mk_mvt_tags(MVT_HTLC_TX));
 
 	if (out->resolved->tx_type == OUR_HTLC_TIMEOUT_TO_US)
-		record_channel_deposit(out, out->tx_blockheight, HTLC_TIMEOUT);
+		record_channel_deposit(out, out->tx_blockheight, mk_mvt_tags(MVT_HTLC_TIMEOUT));
 
 	/* there is a case where we've fulfilled an htlc onchain,
 	 * in which case we log a deposit to the channel */
@@ -371,20 +352,20 @@ static void record_coin_movements(struct tracked_output *out,
 	if (out->tx_type == OUR_UNILATERAL) {
 		if (out->output_type == DELAYED_OUTPUT_TO_US)
 			record_channel_deposit(out, out->tx_blockheight,
-					       CHANNEL_TO_US);
+					       mk_mvt_tags(MVT_CHANNEL_TO_US));
 		else if (out->output_type == OUR_HTLC) {
 			record_channel_deposit(out, out->tx_blockheight,
-					       HTLC_TIMEOUT);
+					       mk_mvt_tags(MVT_HTLC_TIMEOUT));
 			record_channel_withdrawal(txid, out, blockheight,
-						  HTLC_TIMEOUT);
+						  mk_mvt_tags(MVT_HTLC_TIMEOUT));
 		} else if (out->output_type == THEIR_HTLC)
 			record_channel_withdrawal(txid, out, blockheight,
-						  HTLC_FULFILL);
+						  mk_mvt_tags(MVT_HTLC_FULFILL));
 	}
 
 	if (out->tx_type == THEIR_REVOKED_UNILATERAL
 	    || out->resolved->tx_type == OUR_PENALTY_TX)
-		record_channel_deposit(out, out->tx_blockheight, PENALTY);
+		record_channel_deposit(out, out->tx_blockheight, mk_mvt_tags(MVT_PENALTY));
 
 	if (out->resolved->tx_type == OUR_DELAYED_RETURN_TO_WALLET
 	    || out->resolved->tx_type == THEIR_HTLC_FULFILL_TO_US
@@ -393,9 +374,18 @@ static void record_coin_movements(struct tracked_output *out,
 	    || out->resolved->tx_type == OUR_PENALTY_TX) {
 		/* penalty rbf cases, the amount might be zero */
 		if (amount_sat_is_zero(out->sat))
-			record_channel_withdrawal(txid, out, blockheight, TO_MINER);
+			record_channel_withdrawal(txid, out, blockheight, mk_mvt_tags(MVT_TO_MINER));
 		else
-			record_channel_withdrawal(txid, out, blockheight, TO_WALLET);
+			record_channel_withdrawal(txid, out, blockheight, mk_mvt_tags(MVT_TO_WALLET));
+	}
+
+	/* Tell lightningd to create penalty_adj on channel balance */
+	if (out->resolved->tx_type == OUR_PENALTY_TX) {
+		struct amount_msat msat;
+		if (!amount_sat_to_msat(&msat, out->sat))
+			abort();
+		wire_sync_write(REQ_FD,
+				take(towire_onchaind_notify_penalty_adj(NULL, msat)));
 	}
 }
 
@@ -1229,24 +1219,19 @@ static bool output_spent(struct tracked_output ***outs,
 		case DELAYED_OUTPUT_TO_US:
 			unknown_spend(out, tx_parts);
 			record_external_deposit(out, out->tx_blockheight,
-						PENALIZED);
+						mk_mvt_tags(MVT_PENALIZED));
 			break;
 
 		case THEIR_HTLC:
 			if (out->tx_type == THEIR_REVOKED_UNILATERAL) {
-				enum mvt_tag *tags;
-				tags = new_tag_arr(NULL, HTLC_TIMEOUT);
-				tal_arr_expand(&tags, STEALABLE);
+				struct mvt_tags tags = mk_mvt_tags(MVT_HTLC_TIMEOUT, MVT_STEALABLE);
 
-				record_external_deposit_tags(out, out->tx_blockheight,
-							     /* This takes tags */
-							     tal_dup_talarr(NULL,
-									    enum mvt_tag,
-									    tags));
-				record_external_spend_tags(&tx_parts->txid,
-							   out,
-							   tx_blockheight,
-							   tags);
+				record_external_deposit(out, out->tx_blockheight,
+							tags);
+				record_external_spend(&tx_parts->txid,
+						      out,
+						      tx_blockheight,
+						      tags);
 
 				/* we've actually got a 'new' output here */
 				steal_htlc_tx(out, outs, tx_parts,
@@ -1283,13 +1268,10 @@ static bool output_spent(struct tracked_output ***outs,
 			record_to_them_htlc_fulfilled(out, out->tx_blockheight);
 
 			if (out->tx_type == THEIR_REVOKED_UNILATERAL) {
-				enum mvt_tag *tags = new_tag_arr(NULL,
-								 HTLC_FULFILL);
-				tal_arr_expand(&tags, STEALABLE);
-				record_external_spend_tags(&tx_parts->txid,
-							   out,
-							   tx_blockheight,
-							   tags);
+				record_external_spend(&tx_parts->txid,
+						      out,
+						      tx_blockheight,
+						      mk_mvt_tags(MVT_HTLC_FULFILL, MVT_STEALABLE));
 				steal_htlc_tx(out, outs, tx_parts,
 					      tx_blockheight,
 					      OUR_HTLC_FULFILL_TO_THEM,
@@ -1297,7 +1279,7 @@ static bool output_spent(struct tracked_output ***outs,
 			} else {
 				record_external_spend(&tx_parts->txid, out,
 						      tx_blockheight,
-						      HTLC_FULFILL);
+						      mk_mvt_tags(MVT_HTLC_FULFILL));
 				/* BOLT #5:
 				 *
 				 * ## HTLC Output Handling: Local Commitment,
@@ -1326,7 +1308,7 @@ static bool output_spent(struct tracked_output ***outs,
 			resolved_by_other(out, &tx_parts->txid,
 					  THEIR_DELAYED_CHEAT);
 
-			record_external_deposit(out, out->tx_blockheight, STOLEN);
+			record_external_deposit(out, out->tx_blockheight, mk_mvt_tags(MVT_STOLEN));
 			break;
 		/* Um, we don't track these! */
 		case OUTPUT_TO_THEM:
@@ -1430,7 +1412,7 @@ static void tx_new_depth(struct tracked_output **outs,
 
 			if (outs[i]->proposal->tx_type == THEIR_HTLC_TIMEOUT_TO_THEM)
 				record_external_deposit(outs[i], outs[i]->tx_blockheight,
-							HTLC_TIMEOUT);
+							mk_mvt_tags(MVT_HTLC_TIMEOUT));
 		}
 	}
 }
@@ -1687,6 +1669,7 @@ static void wait_for_resolved(struct tracked_output **outs)
 		case WIRE_ONCHAIND_ANNOTATE_TXOUT:
 		case WIRE_ONCHAIND_ANNOTATE_TXIN:
 		case WIRE_ONCHAIND_NOTIFY_COIN_MVT:
+		case WIRE_ONCHAIND_NOTIFY_PENALTY_ADJ:
 		case WIRE_ONCHAIND_SPEND_TO_US:
 		case WIRE_ONCHAIND_SPEND_PENALTY:
 		case WIRE_ONCHAIND_SPEND_HTLC_SUCCESS:
@@ -2310,7 +2293,7 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 						 OUTPUT_TO_THEM,
 						 NULL, NULL, NULL);
 			ignore_output(out);
-			record_external_deposit(out, tx_blockheight, TO_THEM);
+			record_external_deposit(out, tx_blockheight, mk_mvt_tags(MVT_TO_THEM));
 			script[REMOTE] = NULL;
 			continue;
 		}
@@ -2325,7 +2308,7 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 						 ANCHOR_TO_US,
 						 NULL, NULL, NULL);
 			ignore_output(out);
-			record_anchor(out);
+			record_our_anchor(out);
 			anchor[LOCAL] = NULL;
 			continue;
 		}
@@ -2339,7 +2322,7 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 						 ANCHOR_TO_THEM,
 						 NULL, NULL, NULL);
 			ignore_output(out);
-			record_external_deposit(out, tx_blockheight, ANCHOR);
+			record_external_deposit(out, tx_blockheight, mk_mvt_tags(MVT_ANCHOR));
 			anchor[REMOTE] = NULL;
 			continue;
 		}
@@ -2413,7 +2396,7 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 					ignore_output(out);
 					record_external_deposit(out,
 								tx_blockheight,
-								TO_THEM);
+								mk_mvt_tags(MVT_TO_THEM));
 					script[REMOTE] = NULL;
 					found = true;
 					break;
@@ -2428,7 +2411,7 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 
 			record_external_output(&outpoint, amt,
 					       tx_blockheight,
-					       PENALTY);
+					       mk_mvt_tags(MVT_PENALTY));
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Could not find resolution for output %zu",
 				      i);
@@ -2809,7 +2792,7 @@ static void handle_their_cheat(const struct tx_parts *tx,
 						 ANCHOR_TO_US,
 						 NULL, NULL, NULL);
 			ignore_output(out);
-			record_anchor(out);
+			record_our_anchor(out);
 			anchor[LOCAL] = NULL;
 			continue;
 		}
@@ -2823,7 +2806,7 @@ static void handle_their_cheat(const struct tx_parts *tx,
 						 ANCHOR_TO_THEM,
 						 NULL, NULL, NULL);
 			ignore_output(out);
-			record_external_deposit(out, tx_blockheight, ANCHOR);
+			record_external_deposit(out, tx_blockheight, mk_mvt_tags(MVT_ANCHOR));
 			anchor[REMOTE] = NULL;
 			continue;
 		}
@@ -2893,7 +2876,7 @@ static void handle_their_cheat(const struct tx_parts *tx,
 			if (!found) {
 				record_external_output(&outpoint, amt,
 						       tx_blockheight,
-						       PENALTY);
+						       mk_mvt_tags(MVT_PENALTY));
 				status_broken("Could not find resolution"
 					      " for output %zu: did"
 					      " *we* cheat?", i);
@@ -3120,7 +3103,7 @@ static void handle_their_unilateral(const struct tx_parts *tx,
 						 DELAYED_OUTPUT_TO_THEM,
 						 NULL, NULL, NULL);
 			ignore_output(out);
-			record_external_deposit(out, tx_blockheight, TO_THEM);
+			record_external_deposit(out, tx_blockheight, mk_mvt_tags(MVT_TO_THEM));
 			continue;
 		}
 		if (anchor[LOCAL]
@@ -3135,7 +3118,7 @@ static void handle_their_unilateral(const struct tx_parts *tx,
 						 NULL, NULL, NULL);
 
 			ignore_output(out);
-			record_anchor(out);
+			record_our_anchor(out);
 			anchor[LOCAL] = NULL;
 			continue;
 		}
@@ -3150,7 +3133,7 @@ static void handle_their_unilateral(const struct tx_parts *tx,
 						 NULL, NULL, NULL);
 			ignore_output(out);
 			anchor[REMOTE] = NULL;
-			record_external_deposit(out, tx_blockheight, ANCHOR);
+			record_external_deposit(out, tx_blockheight, mk_mvt_tags(MVT_ANCHOR));
 			continue;
 		}
 
@@ -3215,7 +3198,7 @@ static void handle_their_unilateral(const struct tx_parts *tx,
 					ignore_output(out);
 					record_external_deposit(out,
 								tx_blockheight,
-								TO_THEM);
+								mk_mvt_tags(MVT_TO_THEM));
 					found = true;
 					break;
 				}
@@ -3226,7 +3209,7 @@ static void handle_their_unilateral(const struct tx_parts *tx,
 
 			record_external_output(&outpoint, amt,
 					       tx_blockheight,
-					       PENALTY);
+					       mk_mvt_tags(MVT_PENALTY));
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Could not find resolution for output %zu",
 				      i);
@@ -3362,7 +3345,7 @@ found:
 
 		record_external_output(&outpoint, amt,
 				       tx_blockheight,
-				       PENALTY);
+				       mk_mvt_tags(MVT_PENALTY));
 	}
 
 	if (to_us_output == -1) {
@@ -3465,7 +3448,7 @@ int main(int argc, char *argv[])
 			   FUNDING_OUTPUT, NULL, NULL, NULL);
 
 	/* Record funding output spent */
-	send_coin_mvt(take(new_coin_channel_close(NULL, NULL, &tx->txid,
+	send_coin_mvt(take(new_coin_channel_close(NULL, NULL, "", &tx->txid,
 						  &funding, tx_blockheight,
 						  our_msat,
 						  funding_sats,

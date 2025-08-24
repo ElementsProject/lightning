@@ -322,6 +322,12 @@ struct command_result *param_txid(struct command *cmd,
 				  const jsmntok_t *tok,
 				  struct bitcoin_txid **txid);
 
+struct command_result *param_outpoint(struct command *cmd,
+				      const char *name,
+				      const char *buffer,
+				      const jsmntok_t *tok,
+				      struct bitcoin_outpoint **outp);
+
 enum address_parse_result {
 	/* Not recognized as an onchain address */
 	ADDRESS_PARSE_UNRECOGNIZED,

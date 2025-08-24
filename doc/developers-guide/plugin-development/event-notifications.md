@@ -333,12 +333,14 @@ A notification for topic `coin_movement` is sent to record the movement of coins
 		"vout":1, // (`chain_mvt` only)
 		"payment_hash": "xxx", // (either type, optional on both)
 		"part_id": 0, // (`channel_mvt` only, optional)
+		"group_id": 0, // (`channel_mvt` only, optional)
 		"credit_msat":2000000000,
 		"debit_msat":0,
 		"output_msat": 2000000000, // ('chain_mvt' only)
 		"output_count": 2, // ('chain_mvt' only, typically only channel closes)
 		"fees_msat": 382, // ('channel_mvt' only)
-		"tags": ["deposit"],
+		"primary_tag": "deposit",
+		"extra_tags": [],
 		"blockheight":102, // 'chain_mvt' only
 		"timestamp":1585948198,
 		"coin_type":"bc"
@@ -364,7 +366,7 @@ _Only_ tagged on external events (deposits/withdrawals to an external party).
 
 `payment_hash` is the hash of the preimage used to move this payment. Only present for HTLC mediated moves (both `chain_mvt` and `channel_mvt`) A `chain_mvt` will have a `payment_hash` iff it's recording an htlc that was fulfilled onchain.
 
-`part_id` is an identifier for parts of a multi-part payment. useful for aggregating payments for an invoice or to indicate why a payment hash appears multiple times. `channel_mvt` only
+`part_id` and `group_id` are identifiers for parts of a multi-part payment. useful for aggregating payments for an invoice or to indicate why a payment hash appears multiple times. `channel_mvt` only
 
 `credit` and `debit` are millisatoshi denominated amounts of the fund movement. A  
 'credit' is funds deposited into an account; a `debit` is funds withdrawn.
@@ -375,7 +377,7 @@ _Only_ tagged on external events (deposits/withdrawals to an external party).
 
 `fees` is an HTLC annotation for the amount of fees either paid or earned. For "invoice" tagged events, the fees are the total fees paid to send that payment. The end amount can be found by subtracting the total fees from the `debited` amount. For "routed" tagged events, both the debit/credit contain fees. Technically routed debits are the 'fee generating' event, however we include them on routed credits as well.
 
-`tag` is a movement descriptor. Current tags are as follows:
+`primary_tag` is a movement descriptor. Current primary tags are as follows:
 
 - `deposit`: funds deposited
 - `withdrawal`: funds withdrawn
@@ -390,15 +392,21 @@ _Only_ tagged on external events (deposits/withdrawals to an external party).
 - `htlc_fulfill`: on-chian htlc fulfill output
 - `htlc_tx`: on-chain htlc tx has happened
 - `to_wallet`: output being spent into our wallet
-- `ignored`: output is being ignored
 - `anchor`: an anchor output
 - `to_them`: output intended to peer's wallet
 - `penalized`: output we've 'lost' due to a penalty (failed cheat attempt)
 - `stolen`: output we've 'lost' due to peer's cheat
 - `to_miner`: output we've burned to miner (OP_RETURN)
-- `opener`: tags channel_open, we are the channel opener
 - `lease_fee`: amount paid as lease fee
-- `leased`: tags channel_open, channel contains leased funds
+- `channel_proposed`: a zero-conf channel
+
+`extra_tags` is zero or more additional tags.  Current extra tags are as follows:
+
+- `ignored`: output is being ignored
+- `opener`: tags `channel_open` or `channel_proposed`, we are the channel opener
+- `stealable`: funds can be taken by the other party
+- `leased`: tags `channel_open` or `channel_proposed`, channel contains leased funds
+- `splice`: a channel close due to splice operation.
 
 `blockheight` is the block the txid is included in. `channel_mvt`s will be null, so will the blockheight for withdrawals to external parties (we issue these events when we send the tx containing them, before they're included in the chain).
 
@@ -567,3 +575,89 @@ Where:
 - `plugin_name`: The short name of the plugin.
 - `plugin_path`: The full file path to the plugin executable.
 - `methods`: An array of RPC method names that the plugin registered.
+
+
+### `pay_part_start` (v25.09 onward) 
+
+Emitted by `xpay` when part of a payment begins.  `payment_hash` and
+`groupid` uniquely identify this xpay invocation, and `partid` then identifies
+this particular attempt to pay part of that.
+
+`total_payment_msat` is the total amount (usually the invoice amount),
+which will be the same across all parts, adn `attempt_msat` is the
+amount being delivered to the destination by this part.
+
+Each element in `hops` shows the amount going into the node (i.e. with
+fees, `channel_in_msat`) and the amount we're telling it to send
+to the other end (`channel_out_msat`).  The `channel_out_msat` will
+be equal to the next `channel_in_msat.  The final
+`channel_out_msat` will be equal to the `attempt_msat`.
+
+The example shows a payment from this node via 103x1x0 (direction 1) to 022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59, then via 103x2x0 (direction 0) to 035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "pay_part_start",
+  "params": {
+    "origin": "cln-xpay",
+    "payload": {
+      "payment_hash": "651b28004d41cf0dc8e39a0b3d905651a7b012d03d81199fde09314700cb5a62",
+      "groupid": 5793910575598463611,
+      "partid": 1,
+      "total_payment_msat": 5000000,
+      "attempt_msat": 5000000,
+      "hops": [
+        {
+          "next_node": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+          "short_channel_id": "103x1x0",
+          "direction": 1,
+          "channel_in_msat": 5000051,
+          "channel_out_msat": 5000051
+        },
+        {
+          "next_node": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+          "short_channel_id": "103x2x0",
+          "direction": 0,
+          "channel_in_msat": 5000051,
+          "channel_out_msat": 5000000
+        }
+      ]
+    }
+  }
+}
+```
+
+### `pay_part_end` (v25.09 onward) 
+
+Emitted by `xpay` when part of a payment ends.  `payment_hash`, `groupid` and `partid`
+will match a previous `pay_part_start`.
+
+`status` will be "success" or "failure".  `duration` will be a number of seconds, with 9 decimal places.  This is the time between `xpay` telling lightningd to send the onion, to when `xpay` processes the response.
+
+If `status` is "failure", there will always be an `error_message`: the other fields below
+will be missing in the unusual case where the error onion is corrupted.
+
+`failed_node_id`: If it's a non-local error, the source of the error.
+`failed_short_channel_id`: if it's not the final node, the channel it's complaining about.
+`failed_direction`: if it's not the final node, the channel direction.
+`failed_msg`: the decrypted onion message, in hex, if it was valid.
+`error_code`: the error code returned (present unless onion was corrupted).
+`error_message`: always present: if `failed_node_id` is present it's just the name of the `error_code`, but otherwise it can be a more informative error from our own node.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "pay_part_end",
+  "params": {
+    "origin": "cln-xpay",
+    "payload": {
+      "status": "success",
+      "duration": 0.220209189,
+      "payment_hash": "651b28004d41cf0dc8e39a0b3d905651a7b012d03d81199fde09314700cb5a62",
+      "groupid": 5793910575598463611,
+      "partid": 1
+    }
+  }
+}
+```

@@ -931,6 +931,10 @@ static void dev_register_opts(struct lightningd *ld)
 		       opt_set_bool,
 		       &ld->dev_hsmd_warn_on_overgrind,
 		       "Warn if we create signatures that are not exactly 71 bytes.");
+	clnopt_witharg("--dev-save-plugin-io", OPT_DEV,
+		       opt_set_charp, opt_show_charp,
+		       &ld->plugins->dev_save_io,
+		       "Directory to place all plugin notifications/hooks JSON into.");
 	/* This is handled directly in daemon_developer_mode(), so we ignore it here */
 	clnopt_noarg("--dev-debug-self", OPT_DEV,
 		     opt_ignore,
@@ -1598,6 +1602,16 @@ static void register_opts(struct lightningd *ld)
 		       ld,
 		       "Re-enable a long-deprecated API (which will be removed entirely next version!)");
 	opt_register_logging(ld);
+
+	/* Old bookkeeper migration flags. */
+	opt_register_early_arg("--bookkeeper-dir",
+			       opt_set_talstr, NULL,
+			       &ld->old_bookkeeper_dir,
+			       opt_hidden);
+	opt_register_early_arg("--bookkeeper-db",
+			       opt_set_talstr, NULL,
+			       &ld->old_bookkeeper_db,
+			       opt_hidden);
 
 	dev_register_opts(ld);
 }

@@ -45,6 +45,8 @@ static struct command_result *json_helloworld(struct command *cmd,
 					      const jsmntok_t *params)
 {
 	const char *name;
+	const char *response_buf;
+	const jsmntok_t *response;
 
 	if (!param(cmd, buf, params,
 		   p_opt("name", param_string, &name),
@@ -52,6 +54,12 @@ static struct command_result *json_helloworld(struct command *cmd,
 		return command_param_failed();
 
 	plugin_notify_message(cmd, LOG_INFORM, "Notification from %s", "json_helloworld");
+
+	response = jsonrpc_request_sync(cmd, cmd, "listpeers", NULL, &response_buf);
+	plugin_log(cmd->plugin, LOG_INFORM, "listpeers gave %zu tokens: %.*s",
+		   tal_count(response),
+		   json_tok_full_len(response),
+		   json_tok_full(response_buf, response));
 
 	if (!name)
 		return jsonrpc_get_datastore_binary(cmd,

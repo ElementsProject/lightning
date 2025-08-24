@@ -83,15 +83,16 @@ struct db_stmt *db_prepare_v2_(const char *location, struct db *db,
 			       const char *query_id);
 
 /**
- * db_open - Open or create a database
+ * db_open - Open or create (if create set) a database
  */
-#define db_open(ctx, filename, developer, errfn, arg)		\
-	db_open_((ctx), (filename), (developer),			\
+#define db_open(ctx, filename, developer, create, errfn, arg)		\
+	db_open_((ctx), (filename), (developer), (create),		\
 		 typesafe_cb_postargs(void, void *, (errfn), (arg),	\
 				      bool, const char *, va_list),		\
 		 (arg))
 
 struct db *db_open_(const tal_t *ctx, const char *filename, bool developer,
+		    bool create,
 		    void (*errorfn)(void *arg, bool fatal, const char *fmt, va_list ap),
 		    void *arg);
 

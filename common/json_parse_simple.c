@@ -33,11 +33,6 @@ bool json_tok_strneq(const char *buffer, const jsmntok_t *tok,
 	return memeq(buffer + tok->start, tok->end - tok->start, str, len);
 }
 
-bool json_tok_streq(const char *buffer, const jsmntok_t *tok, const char *str)
-{
-	return json_tok_strneq(buffer, tok, str, strlen(str));
-}
-
 bool json_tok_startswith(const char *buffer, const jsmntok_t *tok,
 			 const char *prefix)
 {
@@ -71,6 +66,7 @@ bool json_to_u64(const char *buffer, const jsmntok_t *tok, u64 *num)
 	char *end;
 	unsigned long long l;
 
+	errno = 0;
 	l = strtoull(buffer + tok->start, &end, 0);
 	if (end != buffer + tok->end)
 		return false;
@@ -93,6 +89,7 @@ bool json_to_s64(const char *buffer, const jsmntok_t *tok, s64 *num)
 	char *end;
 	long long l;
 
+	errno = 0;
 	l = strtoll(buffer + tok->start, &end, 0);
 	if (end != buffer + tok->end)
 		return false;
@@ -134,7 +131,7 @@ bool json_to_double(const char *buffer, const jsmntok_t *tok, double *num)
 	if (end != buffer + tok->end)
 		return false;
 
-	/* Check for overflow */
+	/* Check for overflow/underflow */
 	if (errno == ERANGE)
 		return false;
 
@@ -215,12 +212,6 @@ const jsmntok_t *json_get_membern(const char *buffer,
 			return t + 1;
 
 	return NULL;
-}
-
-const jsmntok_t *json_get_member(const char *buffer, const jsmntok_t tok[],
-				 const char *label)
-{
-	return json_get_membern(buffer, tok, label, strlen(label));
 }
 
 const jsmntok_t *json_get_arr(const jsmntok_t tok[], size_t index)

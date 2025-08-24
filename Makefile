@@ -477,11 +477,11 @@ check: check-units installcheck pytest
 
 pytest: $(ALL_PROGRAMS) $(DEFAULT_TARGETS) $(ALL_TEST_PROGRAMS) $(ALL_TEST_GEN)
 ifeq ($(PYTEST),)
-	@echo "py.test is required to run the integration tests, please install using 'pip3 install -r requirements.txt', and rerun 'configure'."
+	@echo "pytest is required to run the integration tests, please install using 'uv sync --all-extras --all-groups', and rerun 'configure'."
 	exit 1
 else
 # Explicitly hand VALGRIND so you can override on make cmd line.
-	PYTHONPATH=$(MY_CHECK_PYTHONPATH) TEST_DEBUG=1 VALGRIND=$(VALGRIND) $(PYTEST) $(PYTEST_TESTS) $(PYTEST_OPTS)
+	PYTHONPATH=$(MY_CHECK_PYTHONPATH) TEST_DEBUG=1 VALGRIND=$(VALGRIND) uv run $(PYTEST) $(PYTEST_TESTS) $(PYTEST_OPTS)
 endif
 
 check-fuzz: $(ALL_FUZZ_TARGETS)
@@ -542,7 +542,7 @@ PYSRC=$(shell git ls-files "*.py" | grep -v /text.py)
 # allows it to find that
 PYLN_PATH=$(shell pwd)/lightningd:$(PATH)
 check-pyln-%: $(BIN_PROGRAMS) $(PKGLIBEXEC_PROGRAMS) $(PLUGINS)
-	@(cd contrib/$(shell echo $@ | cut -b 7-) && PATH=$(PYLN_PATH) PYTHONPATH=$(MY_CHECK_PYTHONPATH) $(MAKE) check)
+	@(cd contrib/$(shell echo $@ | cut -b 7-) && PATH=$(PYLN_PATH) PYTHONPATH=$(MY_CHECK_PYTHONPATH) uv run $(MAKE) check)
 
 check-python: check-python-flake8 check-pytest-pyln-proto check-pyln-client check-pyln-testing
 
@@ -551,10 +551,10 @@ check-python-flake8:
 	@# E731 do not assign a lambda expression, use a def
 	@# W503: line break before binary operator
 	@# E741: ambiguous variable name
-	@flake8 --ignore=E501,E731,E741,W503,F541,E275 --exclude $(shell echo ${PYTHON_GENERATED} | sed 's/ \+/,/g') ${PYSRC}
+	@uv run flake8 --ignore=E501,E731,E741,W503,F541,E275 --exclude $(shell echo ${PYTHON_GENERATED} | sed 's/ \+/,/g') ${PYSRC}
 
 check-pytest-pyln-proto:
-	PATH=$(PYLN_PATH) PYTHONPATH=$(MY_CHECK_PYTHONPATH) $(PYTEST) contrib/pyln-proto/tests/
+	PATH=$(PYLN_PATH) PYTHONPATH=$(MY_CHECK_PYTHONPATH) uv run $(PYTEST) contrib/pyln-proto/tests/
 
 check-includes: check-src-includes check-hdr-includes
 	@tools/check-includes.sh
@@ -684,12 +684,18 @@ $(ALL_TEST_PROGRAMS) $(ALL_FUZZ_TARGETS): %: %.o
 # (as per EXTERNAL_LDLIBS) so we filter them out here.
 $(ALL_PROGRAMS) $(ALL_TEST_PROGRAMS):
 	@$(call VERBOSE, "ld $@", $(LINK.o) $(filter-out %.a,$^) $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) libccan.a $($(@)_LDLIBS) -o $@)
+ifeq ($(OS),Darwin)
+	@$(call VERBOSE, "dsymutil $@", dsymutil $@)
+endif
 
 # We special case the fuzzing target binaries, as they need to link against libfuzzer,
 # which brings its own main().
 FUZZ_LDFLAGS = -fsanitize=fuzzer
 $(ALL_FUZZ_TARGETS):
 	@$(call VERBOSE, "ld $@", $(LINK.o) $(filter-out %.a,$^) $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) libccan.a $(FUZZ_LDFLAGS) -o $@)
+ifeq ($(OS),Darwin)
+	@$(call VERBOSE, "dsymutil $@", dsymutil $@)
+endif
 
 
 # Everything depends on the CCAN headers, and Makefile
@@ -745,33 +751,50 @@ clean: obsclean
 	find . -name '*gcno' -delete
 	find . -name '*.nccout' -delete
 	if [ "${RUST}" -eq "1" ]; then cargo clean; fi
+	rm -rf .venv
 
 
-PYLNS=client proto testing
 # See doc/contribute-to-core-lightning/contributor-workflow.md
-update-versions: update-pyln-versions update-wss-proxy-version update-poetry-lock update-dot-version update-doc-examples
-
+PYLNS=client proto testing
+update-versions: update-pyln-versions update-reckless-version update-dot-version update-doc-examples
 update-pyln-versions: $(PYLNS:%=update-pyln-version-%)
 
 update-pyln-version-%:
 	@if [ -z "$(NEW_VERSION)" ]; then echo "Set NEW_VERSION!" >&2; exit 1; fi
-	cd contrib/pyln-$* && $(MAKE) upgrade-version
+	@echo "Updating contrib/pyln-$* to $(NEW_VERSION)"
+	@sed -i.bak 's/^version = .*/version = "$(NEW_VERSION)"/' contrib/pyln-$*/pyproject.toml && rm contrib/pyln-$*/pyproject.toml.bak
 
 pyln-release:  $(PYLNS:%=pyln-release-%)
 
 pyln-release-%:
 	cd contrib/pyln-$* && $(MAKE) prod-release
 
-update-wss-proxy-version:
-	@if [ -z "$(NEW_VERSION)" ]; then echo "Set NEW_VERSION!" >&2; exit 1; fi
-	cd plugins/wss-proxy && $(MAKE) upgrade-version
+pyln-build: $(PYLNS:%=pyln-build-%)
 
-update-poetry-lock:
-	poetry update wss-proxy pyln-client pyln-proto pyln-testing update-reckless-version
+pyln-build-%:
+	uv build contrib/pyln-$*/
+
+BOLT_SPECS := bolt1 bolt2 bolt4 bolt7
+pyln-build-bolts: $(BOLT_SPECS:%=pyln-build-%)
+	@echo "building bolt specs complete"
+
+$(BOLT_SPECS:%=pyln-build-%) pyln-build-grpc-proto pyln-build-wss-proxy:
+	@case $@ in \
+		pyln-build-grpc-proto) uv build contrib/pyln-grpc-proto/ ;; \
+		pyln-build-bolt*) uv build contrib/pyln-spec/$(patsubst pyln-build-%,%,$@)/ ;; \
+		pyln-build-wss-proxy) uv build plugins/wss-proxy/ ;; \
+	esac
+
+pyln-build-all: pyln-build pyln-build-bolts pyln-build-grpc-proto pyln-build-wss-proxy
+	@echo "building python packages complete"
+
+update-lock:
+	uv sync --all-extras --all-groups
 
 update-reckless-version:
 	@if [ -z "$(NEW_VERSION)" ]; then echo "Set NEW_VERSION!" >&2; exit 1; fi
-	@sed -i "s/__VERSION__ = '\([.-z]*\)'/__VERSION__ = '$(NEW_VERSION)'/" tools/reckless
+	@echo "Updating tools/reckless to $(NEW_VERSION)"
+	@sed -i.bak "s/__VERSION__ = '.*'/__VERSION__ = '$(NEW_VERSION)'/" tools/reckless && rm tools/reckless.bak
 
 update-dot-version:
 	@if [ -z "$(NEW_VERSION)" ]; then echo "Set NEW_VERSION!" >&2; exit 1; fi
@@ -820,8 +843,15 @@ install-program: installdirs $(BIN_PROGRAMS) $(PKGLIBEXEC_PROGRAMS) $(PLUGINS) $
 	$(INSTALL_PROGRAM) $(BIN_PROGRAMS) $(DESTDIR)$(bindir)
 	$(INSTALL_PROGRAM) $(PKGLIBEXEC_PROGRAMS) $(DESTDIR)$(pkglibexecdir)
 	@if [ -d "$(DESTDIR)$(plugindir)/clnrest" ]; then rm -rf $(DESTDIR)$(plugindir)/clnrest; fi
+	@if [ -d "$(DESTDIR)$(plugindir)/wss-proxy" ]; then rm -rf $(DESTDIR)$(plugindir)/wss-proxy; fi
 	[ -z "$(PLUGINS)" ] || $(INSTALL_PROGRAM) $(PLUGINS) $(DESTDIR)$(plugindir)
 	for PY in $(PY_PLUGINS); do DIR=`dirname $$PY`; DST=$(DESTDIR)$(plugindir)/`basename $$DIR`; if [ -d $$DST ]; then rm -rf $$DST; fi; $(INSTALL_PROGRAM) -d $$DIR; cp -a $$DIR $$DST ; done
+ifeq ($(OS),Darwin)
+	# Install dSYM bundles alongside binaries on macOS
+	for BIN in $(BIN_PROGRAMS); do if [ -d $$BIN.dSYM ]; then cp -a $$BIN.dSYM $(DESTDIR)$(bindir)/; fi; done
+	for BIN in $(PKGLIBEXEC_PROGRAMS); do if [ -d $$BIN.dSYM ]; then cp -a $$BIN.dSYM $(DESTDIR)$(pkglibexecdir)/; fi; done
+	for PLUGIN in $(PLUGINS); do if [ -d $$PLUGIN.dSYM ]; then cp -a $$PLUGIN.dSYM $(DESTDIR)$(plugindir)/; fi; done
+endif
 
 MAN1PAGES = $(filter %.1,$(MANPAGES))
 MAN5PAGES = $(filter %.5,$(MANPAGES))

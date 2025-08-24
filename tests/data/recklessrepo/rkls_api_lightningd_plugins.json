@@ -9,6 +9,15 @@
     "type": "dir"
   },
   {
+    "name": "testpluguv",
+    "path": "testpluguv",
+    "url": "https://api.github.com/repos/lightningd/plugins/contents/webhook?ref=master",
+    "html_url": "https://github.com/lightningd/plugins/tree/master/testpluguv",
+    "git_url": "https://api.github.com/repos/lightningd/plugins/git/trees/testpluguv",
+    "download_url": null,
+    "type": "dir"
+  },
+  {
     "name": "testplugfail",
     "path": "testplugfail",
     "url": "https://api.github.com/repos/lightningd/plugins/contents/testplugfail?ref=master",

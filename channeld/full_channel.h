@@ -68,7 +68,6 @@ struct channel *new_full_channel(const tal_t *ctx,
  * @remote_splice_amnt: how much is being spliced in (or out, if -ve) of remote side.
  * @other_anchor_outnum: which output (-1 if none) is the !!side anchor
  * @funding_pubkeys: The funding pubkeys (specify NULL to use channel's value).
- *
  * Returns the unsigned commitment transaction for the committed state
  * for @side, followed by the htlc transactions in output order and
  * fills in @htlc_map, or NULL on key derivation failure.
@@ -115,6 +114,7 @@ u32 actual_feerate(const struct channel *channel,
  * @routing: routing information (copied)
  * @blinding: optional blinding information for this HTLC.
  * @htlcp: optional pointer for resulting htlc: filled in if and only if CHANNEL_ERR_NONE.
+ * @extra_tlvs: optinal tlvs attached to this HTLC.
  * @err_immediate_failures: in some cases (dusty htlcs) we want to immediately
  *                          fail the htlc; for peer incoming don't want to
  *                          error, but rather mark it as failed and fail after
@@ -134,6 +134,7 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 				      const struct pubkey *blinding TAKES,
 				      struct htlc **htlcp,
 				      struct amount_sat *htlc_fee,
+				      struct tlv_field *extra_tlvs,
 				      bool err_immediate_failures);
 
 /**

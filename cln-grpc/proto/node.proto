@@ -67,6 +67,7 @@ service Node {
 	rpc EnableOffer(EnableofferRequest) returns (EnableofferResponse) {}
 	rpc Disconnect(DisconnectRequest) returns (DisconnectResponse) {}
 	rpc Feerates(FeeratesRequest) returns (FeeratesResponse) {}
+	rpc FetchBip353(Fetchbip353Request) returns (Fetchbip353Response) {}
 	rpc FetchInvoice(FetchinvoiceRequest) returns (FetchinvoiceResponse) {}
 	rpc FundChannelCancel(FundchannelCancelRequest) returns (FundchannelCancelResponse) {}
 	rpc FundChannelComplete(FundchannelCompleteRequest) returns (FundchannelCompleteResponse) {}
@@ -1926,6 +1927,23 @@ message FeeratesOnchainFeeEstimates {
 	optional uint64 unilateral_close_nonanchor_satoshis = 6;
 }
 
+message Fetchbip353Request {
+	string address = 1;
+}
+
+message Fetchbip353Response {
+	string proof = 1;
+	repeated Fetchbip353Instructions instructions = 2;
+}
+
+message Fetchbip353Instructions {
+	optional string description = 1;
+	optional string offer = 2;
+	optional string onchain = 3;
+	optional uint64 offchain_amount_msat = 4;
+	optional uint64 onchain_amount_sat = 5;
+}
+
 message FetchinvoiceRequest {
 	string offer = 1;
 	optional Amount amount_msat = 2;
@@ -2831,6 +2849,8 @@ message WaitRequest {
 		FORWARDS = 1;
 		SENDPAYS = 2;
 		HTLCS = 3;
+		CHAINMOVES = 4;
+		CHANNELMOVES = 5;
 	}
 	// Wait.indexname
 	enum WaitIndexname {
@@ -2850,6 +2870,8 @@ message WaitResponse {
 		FORWARDS = 1;
 		SENDPAYS = 2;
 		HTLCS = 3;
+		CHAINMOVES = 4;
+		CHANNELMOVES = 5;
 	}
 	WaitSubsystem subsystem = 1;
 	optional uint64 created = 2;
@@ -2860,6 +2882,8 @@ message WaitResponse {
 	optional WaitInvoices invoices = 7;
 	optional WaitSendpays sendpays = 8;
 	optional WaitHtlcs htlcs = 9;
+	optional WaitChainmoves chainmoves = 10;
+	optional WaitChannelmoves channelmoves = 11;
 }
 
 message WaitForwards {
@@ -2940,6 +2964,18 @@ message WaitHtlcs {
 	optional Amount amount_msat = 5;
 	optional WaitHtlcsDirection direction = 6;
 	optional bytes payment_hash = 7;
+}
+
+message WaitChainmoves {
+	string account = 1;
+	Amount credit_msat = 2;
+	Amount debit_msat = 3;
+}
+
+message WaitChannelmoves {
+	string account = 1;
+	Amount credit_msat = 2;
+	Amount debit_msat = 3;
 }
 
 message WaitDetails {
@@ -3906,6 +3942,7 @@ message GetroutesRequest {
 	Amount maxfee_msat = 5;
 	optional uint32 final_cltv = 7;
 	optional uint32 maxdelay = 8;
+	optional uint32 maxparts = 9;
 }
 
 message GetroutesResponse {
@@ -4123,6 +4160,7 @@ message PeerConnectAddress {
 		IPV6 = 2;
 		TORV2 = 3;
 		TORV3 = 4;
+		WEBSOCKET = 5;
 	}
 	PeerConnectAddressType item_type = 1;
 	optional string socket = 2;
@@ -4153,7 +4191,7 @@ message ChannelStateChangedNotification {
 	}
 	bytes peer_id = 1;
 	bytes channel_id = 2;
-	string short_channel_id = 3;
+	optional string short_channel_id = 3;
 	string timestamp = 4;
 	optional ChannelState old_state = 5;
 	ChannelState new_state = 6;

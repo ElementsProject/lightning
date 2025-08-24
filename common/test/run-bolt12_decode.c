@@ -102,9 +102,9 @@ void fromwire_u8_array(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, u8 *arr
 /* Generated stub for merkle_tlv */
 void merkle_tlv(const struct tlv_field *fields UNNEEDED, struct sha256 *merkle UNNEEDED)
 { fprintf(stderr, "merkle_tlv called!\n"); abort(); }
-/* Generated stub for mvt_tag_str */
-const char *mvt_tag_str(enum mvt_tag tag UNNEEDED)
-{ fprintf(stderr, "mvt_tag_str called!\n"); abort(); }
+/* Generated stub for mvt_tag_parse */
+bool mvt_tag_parse(const char *buf UNNEEDED, size_t len UNNEEDED, enum mvt_tag *tag UNNEEDED)
+{ fprintf(stderr, "mvt_tag_parse called!\n"); abort(); }
 /* Generated stub for node_id_from_hexstr */
 bool node_id_from_hexstr(const char *str UNNEEDED, size_t slen UNNEEDED, struct node_id *id UNNEEDED)
 { fprintf(stderr, "node_id_from_hexstr called!\n"); abort(); }
@@ -190,13 +190,11 @@ int main(int argc, char *argv[])
 		char *fail;
 		const char *str;
 		size_t dlen;
-		struct json_escape *esc;
 
 		assert(json_to_bool(json, json_get_member(json, t, "valid"), &valid));
 		strtok = json_get_member(json, t, "string");
-		esc = json_escape_string_(tmpctx, json + strtok->start,
-					  strtok->end - strtok->start);
-		str = json_escape_unescape(tmpctx, esc);
+		str = json_escape_unescape_len(tmpctx, json + strtok->start,
+					       strtok->end - strtok->start);
 		actual = (string_to_data(tmpctx, str, strlen(str),
 					 "lno", &dlen, &fail) != NULL);
 		assert(actual == valid);

@@ -1580,8 +1580,8 @@ def test_zeroconf_mindepth(bitcoind, node_factory):
         {},
         {
             'plugin': str(plugin_path),
-            'zeroconf-allow': '0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518',
-            'zeroconf-mindepth': '2',
+            'zeroconf_allow': '0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518',
+            'zeroconf_mindepth': '2',
         },
     ])
 
@@ -1627,7 +1627,7 @@ def test_zeroconf_open(bitcoind, node_factory):
         {},
         {
             'plugin': str(plugin_path),
-            'zeroconf-allow': '022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59'
+            'zeroconf_allow': '022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59'
         },
     ])
 
@@ -1702,7 +1702,7 @@ def test_zeroconf_public(bitcoind, node_factory, chainparams):
         {'plugin': str(coin_mvt_plugin)},
         {
             'plugin': str(plugin_path),
-            'zeroconf-allow': '0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518'
+            'zeroconf_allow': '0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518'
         },
         {}
     ])
@@ -1804,7 +1804,7 @@ def test_zeroconf_forward(node_factory, bitcoind):
         {},
         {
             'plugin': str(plugin_path),
-            'zeroconf-allow': '022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59'
+            'zeroconf_allow': '022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59'
         }
     ]
     l1, l2, l3 = node_factory.get_nodes(3, opts=opts)
@@ -1834,6 +1834,26 @@ def test_zeroconf_forward(node_factory, bitcoind):
 
     inv = l1.rpc.invoice(42, 'back1', 'desc')['bolt11']
     l3.rpc.pay(inv)
+
+
+def test_zeroconf_refusal(bitcoind, node_factory, chainparams):
+    """If we're not going to give you zeroconf, we should tell you!"""
+    l1, l2 = node_factory.get_nodes(2)
+    l1.fundwallet(10**6)
+    l1.connect(l2)
+
+    # option_static_remotekey, option_zeroconf
+    ctype = [12, 50]
+    # No anchors for elements
+    if not chainparams['elements']:
+        ctype += [22]
+    with pytest.raises(RpcError, match="You required zeroconf, but you're not on our allowlist"):
+        l1.rpc.fundchannel(l2.info['id'], 'all', channel_type=ctype)
+
+    # OK, let's add ourselves to allow list.
+    plugin_path = str(Path(__file__).parent / "plugins" / "zeroconf-selective.py")
+    l2.rpc.plugin_start(plugin_path, zeroconf_allow=l1.info['id'])
+    l1.rpc.fundchannel(l2.info['id'], 'all', channel_type=ctype)
 
 
 @pytest.mark.openchannel('v1')
@@ -1979,7 +1999,8 @@ def test_scid_alias_private(node_factory, bitcoind):
                                                                      {'log-level': 'io'}])
 
     l2.fundwallet(5000000)
-    l2.rpc.fundchannel(l3.info['id'], 'all', announce=False)
+    fc = l2.rpc.fundchannel(l3.info['id'], 'all', announce=False)
+    assert 'scid_alias/even' in fc['channel_type']['names']
 
     bitcoind.generate_block(1, wait_for_mempool=1)
     wait_for(lambda: only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['state'] == 'CHANNELD_NORMAL')
@@ -2054,7 +2075,7 @@ def test_zeroconf_multichan_forward(node_factory):
         {},
         {
             'plugin': str(plugin_path),
-            'zeroconf-allow': node_id,
+            'zeroconf_allow': node_id,
         }
     ], fundamount=10**6, wait_for_announce=True)
 
@@ -2574,7 +2595,7 @@ def test_opening_explicit_channel_type(node_factory, bitcoind):
     l1, l2, l3, l4 = node_factory.get_nodes(4,
                                             opts=[{'experimental-dual-fund': None},
                                                   {'plugin': str(plugin_path),
-                                                   'zeroconf-allow': '0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518'},
+                                                   'zeroconf_allow': '0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518'},
                                                   {'experimental-dual-fund': None},
                                                   {}])
 
@@ -2593,8 +2614,9 @@ def test_opening_explicit_channel_type(node_factory, bitcoind):
                       [STATIC_REMOTEKEY, ANCHORS_ZERO_FEE_HTLC_TX]):
             ret = l1.rpc.fundchannel_start(l2.info['id'], FUNDAMOUNT,
                                            channel_type=ctype + zeroconf)
-            assert ret['channel_type']['bits'] == ctype + zeroconf
-            assert only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['bits'] == ctype + zeroconf
+            # We get zeroconf even without asking for it.
+            assert ret['channel_type']['bits'] == ctype + [ZEROCONF]
+            assert only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['bits'] == ctype + [ZEROCONF]
             # Note: l2 doesn't show it in listpeerchannels yet...
             l1.rpc.fundchannel_cancel(l2.info['id'])
 
@@ -2643,8 +2665,8 @@ def test_opening_explicit_channel_type(node_factory, bitcoind):
     l1.connect(l2)
 
     ret = l1.rpc.fundchannel_start(l2.info['id'], FUNDAMOUNT, channel_type=[STATIC_REMOTEKEY, ANCHORS_OLD])
-    assert ret['channel_type']['bits'] == [STATIC_REMOTEKEY, ANCHORS_OLD]
-    assert only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['bits'] == [STATIC_REMOTEKEY, ANCHORS_OLD]
+    assert ret['channel_type']['bits'] == [STATIC_REMOTEKEY, ANCHORS_OLD, ZEROCONF]
+    assert only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['bits'] == [STATIC_REMOTEKEY, ANCHORS_OLD, ZEROCONF]
     # Note: l3 doesn't show it in listpeerchannels yet...
     l1.rpc.fundchannel_cancel(l2.info['id'])
 
@@ -2652,8 +2674,8 @@ def test_opening_explicit_channel_type(node_factory, bitcoind):
 
     # Works with fundchannel / multifundchannel
     ret = l1.rpc.fundchannel(l2.info['id'], FUNDAMOUNT // 3, channel_type=[STATIC_REMOTEKEY])
-    assert ret['channel_type']['bits'] == [STATIC_REMOTEKEY]
-    assert only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['bits'] == [STATIC_REMOTEKEY]
+    assert ret['channel_type']['bits'] == [STATIC_REMOTEKEY, ZEROCONF]
+    assert only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['bits'] == [STATIC_REMOTEKEY, ZEROCONF]
     assert only_one(l2.rpc.listpeerchannels()['channels'])['channel_type']['bits'] == [STATIC_REMOTEKEY]
     # FIXME: Check type is actually correct!
 
@@ -2707,8 +2729,8 @@ def test_zeroconf_forget(node_factory, bitcoind, dopay: bool):
             {},
             {
                 "plugin": str(plugin_path),
-                "zeroconf-allow": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
-                "zeroconf-mindepth": "0",
+                "zeroconf_allow": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+                "zeroconf_mindepth": "0",
                 "dev-max-funding-unconfirmed-blocks": blocks,
             },
             {},
@@ -2774,3 +2796,32 @@ def test_zeroconf_forget(node_factory, bitcoind, dopay: bool):
         # It will forget the older one.
         l2.daemon.wait_for_log(r"UNUSUAL {}-chan#1: Forgetting channel: It has been {} blocks without the funding transaction ".format(l1.info['id'], blocks + 1))
         assert [c['peer_id'] for c in l2.rpc.listpeerchannels()["channels"]] == [l3.info['id']]
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd gives different numbers')
+@pytest.mark.openchannel('v1')
+def test_opening_below_min_capacity_sat(bitcoind, node_factory):
+    """OK, here's what happens:
+
+    The user configures min-capacity-sat=2,000,000.
+    They try to open a channel with 591,000 sat
+    We let them (for some reason), which kinda makes sense: it's their own rules
+    We then get upset when you accept!
+
+    The "capacity" here is the effective capacity of the channel, which is capped at funding - (reserves and 2 anchors), and at max_htlc_value_in_flight.
+    """
+    l1, l2 = node_factory.line_graph(2, fundchannel=False, opts=[{'min-capacity-sat': 2_000_000}, {}])
+
+    l1.fundwallet(3_000_000)
+
+    with pytest.raises(RpcError, match=r'which is below 2000000sat'):
+        l1.rpc.fundchannel(l2.info['id'], "591000sat")
+
+    l1.connect(l2)
+
+    # Even with the exact amount, the *capacity* is different.
+    with pytest.raises(RpcError, match=r'channel capacity is 1955125sat, which is below 2000000sat'):
+        l1.rpc.fundchannel(l2.info['id'], "2000000sat")
+
+    # But we shouldn't have bothered l2
+    assert not l2.daemon.is_in_log('peer_in WIRE_ERROR')

@@ -47,8 +47,7 @@ void json_add_uncommitted_channel(struct command *cmd,
 	json_object_start(response, NULL);
 	json_add_node_id(response, "peer_id", &peer->id);
 	json_add_bool(response, "peer_connected", peer->connected == PEER_CONNECTED);
-	if (uc->fc->channel_type)
-			json_add_channel_type(response, "channel_type", uc->fc->channel_type);
+	json_add_channel_type(response, "channel_type", uc->fc->channel_type);
 	json_add_string(response, "state", "OPENINGD");
 	json_add_string(response, "owner", "lightning_openingd");
 	json_add_string(response, "opener", "local");
@@ -110,6 +109,7 @@ wallet_commit_channel(struct lightningd *ld,
 	struct timeabs timestamp;
 	struct channel_stats zero_channel_stats;
 	enum addrtype addrtype;
+	struct short_channel_id local_alias;
 
 	/* We can't have any payments yet */
 	memset(&zero_channel_stats, 0, sizeof(zero_channel_stats));
@@ -172,6 +172,8 @@ wallet_commit_channel(struct lightningd *ld,
 	else
 		static_remotekey_start = 0x7FFFFFFFFFFFFFFF;
 
+	local_alias = random_scid();
+
 	channel = new_channel(uc->peer, uc->dbid,
 			      NULL, /* No shachain yet */
 			      CHANNELD_AWAITING_LOCKIN,
@@ -189,7 +191,8 @@ wallet_commit_channel(struct lightningd *ld,
 			      local_funding,
 			      false, /* !remote_channel_ready */
 			      NULL, /* no scid yet */
-			      NULL, /* assign random local alias */
+			      NULL, /* no old scids */
+			      local_alias, /* random local alias */
 			      NULL, /* They haven't told us an alias yet */
 			      cid,
 			      /* The three arguments below are msatoshi_to_us,
@@ -331,6 +334,10 @@ static void opening_funder_start_replied(struct subd *openingd, const u8 *resp,
 					 struct funding_channel *fc)
 {
 	bool supports_shutdown_script;
+
+	/* It will tell us the resulting channel type (which can vary
+	 * by ZEROCONF and SCID_ALIAS), so free old one */
+	tal_free(fc->channel_type);
 
 	if (!fromwire_openingd_funder_start_reply(fc, resp,
 						  &fc->funding_scriptpubkey,
@@ -644,6 +651,7 @@ struct openchannel_hook_payload {
 	u8 channel_flags;
 	u8 *shutdown_scriptpubkey;
 	const u8 *our_upfront_shutdown_script;
+	struct channel_type *channel_type;
 	char *errmsg;
 };
 
@@ -672,6 +680,7 @@ static void openchannel_hook_serialize(struct openchannel_hook_payload *payload,
 	if (tal_count(payload->shutdown_scriptpubkey) != 0)
 		json_add_hex_talarr(stream, "shutdown_scriptpubkey",
 				    payload->shutdown_scriptpubkey);
+	json_add_channel_type(stream, "channel_type", payload->channel_type);
 	json_object_end(stream); /* .openchannel */
 }
 
@@ -851,7 +860,8 @@ static void opening_got_offer(struct subd *openingd,
 					&payload->to_self_delay,
 					&payload->max_accepted_htlcs,
 					&payload->channel_flags,
-					&payload->shutdown_scriptpubkey)) {
+					&payload->shutdown_scriptpubkey,
+					&payload->channel_type)) {
 		log_broken(openingd->log, "Malformed opening_got_offer %s",
 			   tal_hex(tmpctx, msg));
 		tal_free(openingd);
@@ -1297,7 +1307,7 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 			}
 		}
 	} else {
-		fc->channel_type = NULL;
+		fc->channel_type = NULL; /* set later */
 	}
 
 	if (!mindepth)
@@ -1389,6 +1399,11 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
 
+	/* Now we know the peer, we can derive the channel type to ask for */
+	if (!fc->channel_type)
+		fc->channel_type = desired_channel_type(fc, cmd->ld->our_features,
+							peer->their_features);
+
 	fc->push = push_msat ? *push_msat : AMOUNT_MSAT(0);
 	fc->channel_flags = OUR_CHANNEL_FLAGS;
 	if (!*announce_channel) {
@@ -1426,7 +1441,7 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 			&tmp_channel_id,
 			fc->channel_flags,
 			reserve,
-			ctype);
+			fc->channel_type);
 
 	if (!topology_synced(cmd->ld->topology)) {
 		struct fundchannel_start_info *info
@@ -1476,7 +1491,7 @@ static struct channel *stub_chan(struct command *cmd,
 	struct peer *peer;
 	struct pubkey localFundingPubkey;
 	struct pubkey pk;
-	struct short_channel_id *scid;
+	struct short_channel_id scid;
 	u32 blockht;
 	u32 feerate;
 	struct channel_stats zero_channel_stats;
@@ -1554,10 +1569,9 @@ static struct channel *stub_chan(struct command *cmd,
 	channel_info->old_remote_per_commit = pk;
 
 	blockht = 100;
-	scid = tal(cmd, struct short_channel_id);
 
 	/*To indicate this is an stub channel we keep it's scid to 1x1x1.*/
-	if (!mk_short_channel_id(scid, 1, 1, 1))
+	if (!mk_short_channel_id(&scid, 1, 1, 1))
                 fatal("Failed to make short channel 1x1x1!");
 
 	memset(&zero_channel_stats, 0, sizeof(zero_channel_stats));
@@ -1578,9 +1592,10 @@ static struct channel *stub_chan(struct command *cmd,
 			      AMOUNT_MSAT(0),
 			      AMOUNT_SAT(0),
 			      true, /* remote_channel_ready */
+			      &scid,
+			      NULL,
 			      scid,
-			      scid,
-			      scid,
+			      NULL,
 			      &cid,
 			      /* The three arguments below are msatoshi_to_us,
 			       * msatoshi_to_us_min, and msatoshi_to_us_max.

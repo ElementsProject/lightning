@@ -416,8 +416,8 @@
         "fees_collected_msat": 0,
         "lightning-dir": "/tmp/.lightning/regtest",
         "our_features": {
-          "init": "08a8882a8a59a1",
-          "node": "88a8882a8a59a1",
+          "init": "0898882a8a59a1",
+          "node": "8898882a8a59a1",
           "channel": "",
           "invoice": "02000002024100"
         }

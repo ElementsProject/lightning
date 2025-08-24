@@ -3,9 +3,11 @@
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/tal/str/str.h>
 #include <common/htlc.h>
+#include <common/htlc_wire.h>
 #include <common/pseudorand.h>
 #include <lightningd/htlc_end.h>
 #include <lightningd/log.h>
+#include <wire/tlvstream.h>
 
 size_t hash_htlc_key(const struct htlc_key *k)
 {
@@ -130,6 +132,7 @@ struct htlc_in *new_htlc_in(const tal_t *ctx,
 			    const struct secret *shared_secret TAKES,
 			    const struct pubkey *path_key TAKES,
 			    const u8 *onion_routing_packet,
+			    const struct tlv_field *extra_tlvs,
 			    bool fail_immediate)
 {
 	struct htlc_in *hin = tal(ctx, struct htlc_in);
@@ -146,6 +149,10 @@ struct htlc_in *new_htlc_in(const tal_t *ctx,
 	hin->path_key = tal_dup_or_null(hin, struct pubkey, path_key);
 	memcpy(hin->onion_routing_packet, onion_routing_packet,
 	       sizeof(hin->onion_routing_packet));
+	if (extra_tlvs)
+		hin->extra_tlvs = tlv_field_arr_dup(hin, extra_tlvs);
+	else
+		hin->extra_tlvs = NULL;
 
 	hin->hstate = RCVD_ADD_COMMIT;
 	hin->badonion = 0;
@@ -265,6 +272,7 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 			      const struct sha256 *payment_hash,
 			      const u8 *onion_routing_packet,
 			      const struct pubkey *path_key,
+			      const struct tlv_field* extra_tlvs,
 			      bool am_origin,
 			      struct amount_msat final_msat,
 			      u64 partid,
@@ -291,6 +299,12 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 	hout->timeout = NULL;
 
 	hout->path_key = tal_dup_or_null(hout, struct pubkey, path_key);
+
+	if (extra_tlvs)
+		hout->extra_tlvs = tlv_field_arr_dup(hout, extra_tlvs);
+	else
+		hout->extra_tlvs = NULL;
+
 	hout->am_origin = am_origin;
 	if (am_origin) {
 		hout->partid = partid;

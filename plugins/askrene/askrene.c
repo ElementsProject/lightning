@@ -332,7 +332,11 @@ const char *fmt_flow_full(const tal_t *ctx,
 }
 
 enum algorithm {
+	/* Min. Cost Flow by successive shortests paths. */
 	ALGO_DEFAULT,
+	/* Algorithm that finds the optimal routing solution constrained to a
+	 * single path. */
+	ALGO_SINGLE_PATH,
 };
 
 static struct command_result *
@@ -343,6 +347,8 @@ param_algorithm(struct command *cmd, const char *name, const char *buffer,
 	*algo = tal(cmd, enum algorithm);
 	if (streq(algo_str, "default"))
 		**algo = ALGO_DEFAULT;
+	else if (streq(algo_str, "single-path"))
+		**algo = ALGO_SINGLE_PATH;
 	else
 		return command_fail_badparam(cmd, name, buffer, tok,
 					     "unknown algorithm");
@@ -360,6 +366,7 @@ struct getroutes_info {
 	struct additional_cost_htable *additional_costs;
 	/* Non-NULL if we are told to use "auto.localchans" */
 	struct layer *local_layer;
+	u32 maxparts;
 };
 
 static void apply_layers(struct askrene *askrene, struct route_query *rq,
@@ -517,7 +524,7 @@ void get_constraints(const struct route_query *rq,
 
 static struct command_result *do_getroutes(struct command *cmd,
 					   struct gossmap_localmods *localmods,
-					   const struct getroutes_info *info)
+					   struct getroutes_info *info)
 {
 	struct askrene *askrene = get_askrene(cmd->plugin);
 	struct route_query *rq = tal(cmd, struct route_query);
@@ -545,6 +552,7 @@ static struct command_result *do_getroutes(struct command *cmd,
 	rq->capacities = tal_dup_talarr(rq, fp16_t, askrene->capacities);
 	/* FIXME: we still need to do something useful with these */
 	rq->additional_costs = info->additional_costs;
+	rq->maxparts = info->maxparts;
 
 	/* apply selected layers to the localmods */
 	apply_layers(askrene, rq, &info->source, info->amount, localmods,
@@ -557,6 +565,13 @@ static struct command_result *do_getroutes(struct command *cmd,
 
 	/* we temporarily apply localmods */
 	gossmap_apply_localmods(askrene->gossmap, localmods);
+
+	/* I want to be able to disable channels while working on this query.
+	 * Layers are for user interaction and cannot be used for this purpose.
+	 */
+	rq->disabled_chans =
+	    tal_arrz(rq, bitmap,
+		     2 * BITMAP_NWORDS(gossmap_max_chan_idx(askrene->gossmap)));
 
 	/* localmods can add channels, so we need to allocate biases array
 	 * *afterwards* */
@@ -586,15 +601,28 @@ static struct command_result *do_getroutes(struct command *cmd,
 		goto fail;
 	}
 
+	/* auto.no_mpp_support layer overrides any choice of algorithm. */
+	if (have_layer(info->layers, "auto.no_mpp_support") &&
+	    info->dev_algo != ALGO_SINGLE_PATH) {
+		info->dev_algo = ALGO_SINGLE_PATH;
+		rq_log(tmpctx, rq, LOG_DBG,
+		       "Layer no_mpp_support is active we switch to a "
+		       "single path algorithm.");
+	}
+
 	/* Compute the routes. At this point we might select between multiple
 	 * algorithms. Right now there is only one algorithm available. */
 	struct timemono time_start = time_mono();
-	assert(info->dev_algo == ALGO_DEFAULT);
-	err = default_routes(rq, rq, srcnode, dstnode, info->amount,
-			     /* only one path? = */
-			     have_layer(info->layers, "auto.no_mpp_support"),
-			     info->maxfee, info->finalcltv, info->maxdelay,
-			     &flows, &probability);
+	if (info->dev_algo == ALGO_SINGLE_PATH) {
+		err = single_path_routes(rq, rq, srcnode, dstnode, info->amount,
+					 info->maxfee, info->finalcltv,
+					 info->maxdelay, &flows, &probability);
+	} else {
+		assert(info->dev_algo == ALGO_DEFAULT);
+		err = default_routes(rq, rq, srcnode, dstnode, info->amount,
+				     info->maxfee, info->finalcltv,
+				     info->maxdelay, &flows, &probability);
+	}
 	struct timerel time_delta = timemono_between(time_mono(), time_start);
 
 	/* log the time of computation */
@@ -738,12 +766,14 @@ static struct command_result *json_getroutes(struct command *cmd,
 	 */
 	/* FIXME: Typo in spec for CLTV in descripton! But it breaks our spelling check, so we omit it above */
 	const u32 maxdelay_allowed = 2016;
+	const u32 default_maxparts = 100;
 	struct getroutes_info *info = tal(cmd, struct getroutes_info);
 	/* param functions require pointers */
 	struct node_id *source, *dest;
 	struct amount_msat *amount, *maxfee;
 	u32 *finalcltv, *maxdelay;
 	enum algorithm *dev_algo;
+	u32 *maxparts;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("source", param_node_id, &source),
@@ -754,6 +784,8 @@ static struct command_result *json_getroutes(struct command *cmd,
 			 p_req("final_cltv", param_u32, &finalcltv),
 			 p_opt_def("maxdelay", param_u32, &maxdelay,
 				   maxdelay_allowed),
+			 p_opt_def("maxparts", param_u32, &maxparts,
+				   default_maxparts),
 			 p_opt_dev("dev_algorithm", param_algorithm,
 				   &dev_algo, ALGO_DEFAULT),
 			 NULL))
@@ -785,6 +817,7 @@ static struct command_result *json_getroutes(struct command *cmd,
 	info->dev_algo = *dev_algo;
 	info->additional_costs = tal(info, struct additional_cost_htable);
 	additional_cost_htable_init(info->additional_costs);
+	info->maxparts = *maxparts;
 
 	if (have_layer(info->layers, "auto.localchans")) {
 		struct out_req *req;

@@ -327,26 +327,6 @@ def test_balance(node_factory):
     assert p2['total_msat'] == 10**6 * 1000
 
 
-@pytest.mark.openchannel('v1')
-@pytest.mark.openchannel('v2')
-def test_bad_opening(node_factory):
-    # l1 asks for a too-long locktime
-    l1 = node_factory.get_node(options={'watchtime-blocks': 2017})
-    l2 = node_factory.get_node()
-    ret = l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-
-    assert ret['id'] == l2.info['id']
-
-    l1.daemon.wait_for_log('Handed peer, entering loop')
-    l2.daemon.wait_for_log('Handed peer, entering loop')
-
-    l1.fundwallet(10**6 + 1000000)
-    with pytest.raises(RpcError):
-        l1.rpc.fundchannel(l2.info['id'], 10**6)
-
-    l2.daemon.wait_for_log('to_self_delay 2017 larger than 2016')
-
-
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Fee computation and limits are network specific")
 @pytest.mark.slow_test
 @pytest.mark.openchannel('v1')
@@ -4590,7 +4570,7 @@ def test_wss_proxy(node_factory):
     wss_proxy_certs = node_factory.directory + '/wss-proxy-certs'
     l1 = node_factory.get_node(options={'addr': ':' + str(port),
                                         'bind-addr': 'ws:127.0.0.1:' + str(ws_port),
-                                        'wss-bind-addr': '127.0.0.1:' + str(wss_port),
+                                        'wss-bind-addr': ['127.0.0.1:' + str(wss_port), '[::1]:' + str(wss_port)],
                                         'wss-certs': wss_proxy_certs,
                                         'dev-allow-localhost': None})
 
@@ -4612,7 +4592,11 @@ def test_wss_proxy(node_factory):
             certfile = f'{wss_proxy_certs}/client.pem'
             keyfile = f'{wss_proxy_certs}/client-key.pem'
             self.ws = websocket.WebSocket(sslopt={"cert_reqs": ssl.CERT_NONE, "ssl_version": ssl.PROTOCOL_TLS_CLIENT, "certfile": certfile, "keyfile": keyfile})
-            self.ws.connect("wss://" + hostname + ":" + str(port))
+            self.ws.settimeout(TIMEOUT)
+            try:
+                self.ws.connect("wss://" + hostname + ":" + str(port))
+            except Exception as e:
+                raise Exception(f"WebSocket connection failed: {e}")
             self.recvbuf = bytes()
 
         def send(self, data):
@@ -4626,10 +4610,11 @@ def test_wss_proxy(node_factory):
             self.recvbuf = self.recvbuf[maxlen:]
             return ret
 
-    # There can be a delay between the printing of "Websocket Secure Server Started"
-    # and actually binding the port.  There's no obvious way to delay that message
-    # it's done.  So we sleep here.
-    time.sleep(10)
+    # This might happen really early!
+    l1.daemon.logsearch_start = 0
+    l1.daemon.wait_for_log(f'Websocket Secure Server Started at 127.0.0.1:{wss_port}')
+    l1.daemon.logsearch_start = 0
+    l1.daemon.wait_for_log(fr'Websocket Secure Server Started at \[::1\]:{wss_port}')
 
     wss = BindWebSecureSocket('localhost', wss_port)
 
@@ -4638,12 +4623,11 @@ def test_wss_proxy(node_factory):
                                      wire.PrivateKey(bytes([1] * 32)),
                                      is_initiator=True)
 
-    # This might happen really early!
-    l1.daemon.logsearch_start = 0
-    l1.daemon.wait_for_log(r'Websocket Secure Server Started')
-
     # Perform handshake.
-    lconn.shake()
+    try:
+        lconn.shake()
+    except Exception as e:
+        raise Exception(f"Handshake failed: {e}")
 
     # Expect to receive init msg.
     msg = lconn.read_message()

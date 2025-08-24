@@ -89,12 +89,17 @@ struct peer {
 
 	/* Are we expecting a pong? */
 	enum pong_expect_type expecting_pong;
+	u64 ping_reqid;
 
 	/* Random ping timer, to detect dead connections. */
 	struct oneshot *ping_timer;
 
 	/* Last time we received traffic */
 	struct timeabs last_recv_time;
+
+	/* How long have we been ignoring peer input? */
+	struct timemono peer_in_lasttime;
+	int peer_in_lastmsg;
 
 	/* Ratelimits for onion messages.  One token per msec. */
 	size_t onionmsg_incoming_tokens;

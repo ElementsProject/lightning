@@ -44,29 +44,29 @@ pub struct ChannelOpenedNotification {
 /// ['Direction of the connection']
 #[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[allow(non_camel_case_types)]
-pub enum ConnectDirection {
+pub enum PeerConnectDirection {
     #[serde(rename = "in")]
     IN = 0,
     #[serde(rename = "out")]
     OUT = 1,
 }
 
-impl TryFrom<i32> for ConnectDirection {
+impl TryFrom<i32> for PeerConnectDirection {
     type Error = anyhow::Error;
-    fn try_from(c: i32) -> Result<ConnectDirection, anyhow::Error> {
+    fn try_from(c: i32) -> Result<PeerConnectDirection, anyhow::Error> {
         match c {
-    0 => Ok(ConnectDirection::IN),
-    1 => Ok(ConnectDirection::OUT),
-            o => Err(anyhow::anyhow!("Unknown variant {} for enum ConnectDirection", o)),
+    0 => Ok(PeerConnectDirection::IN),
+    1 => Ok(PeerConnectDirection::OUT),
+            o => Err(anyhow::anyhow!("Unknown variant {} for enum PeerConnectDirection", o)),
         }
     }
 }
 
-impl ToString for ConnectDirection {
+impl ToString for PeerConnectDirection {
     fn to_string(&self) -> String {
         match self {
-            ConnectDirection::IN => "IN",
-            ConnectDirection::OUT => "OUT",
+            PeerConnectDirection::IN => "IN",
+            PeerConnectDirection::OUT => "OUT",
         }.to_string()
     }
 }
@@ -74,7 +74,7 @@ impl ToString for ConnectDirection {
 /// ['Type of connection (*torv2*/*torv3* only if **direction** is *out*)']
 #[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[allow(non_camel_case_types)]
-pub enum ConnectAddressType {
+pub enum PeerConnectAddressType {
     #[serde(rename = "local socket")]
     LOCAL_SOCKET = 0,
     #[serde(rename = "ipv4")]
@@ -85,30 +85,34 @@ pub enum ConnectAddressType {
     TORV2 = 3,
     #[serde(rename = "torv3")]
     TORV3 = 4,
+    #[serde(rename = "websocket")]
+    WEBSOCKET = 5,
 }
 
-impl TryFrom<i32> for ConnectAddressType {
+impl TryFrom<i32> for PeerConnectAddressType {
     type Error = anyhow::Error;
-    fn try_from(c: i32) -> Result<ConnectAddressType, anyhow::Error> {
+    fn try_from(c: i32) -> Result<PeerConnectAddressType, anyhow::Error> {
         match c {
-    0 => Ok(ConnectAddressType::LOCAL_SOCKET),
-    1 => Ok(ConnectAddressType::IPV4),
-    2 => Ok(ConnectAddressType::IPV6),
-    3 => Ok(ConnectAddressType::TORV2),
-    4 => Ok(ConnectAddressType::TORV3),
-            o => Err(anyhow::anyhow!("Unknown variant {} for enum ConnectAddressType", o)),
+    0 => Ok(PeerConnectAddressType::LOCAL_SOCKET),
+    1 => Ok(PeerConnectAddressType::IPV4),
+    2 => Ok(PeerConnectAddressType::IPV6),
+    3 => Ok(PeerConnectAddressType::TORV2),
+    4 => Ok(PeerConnectAddressType::TORV3),
+    5 => Ok(PeerConnectAddressType::WEBSOCKET),
+            o => Err(anyhow::anyhow!("Unknown variant {} for enum PeerConnectAddressType", o)),
         }
     }
 }
 
-impl ToString for ConnectAddressType {
+impl ToString for PeerConnectAddressType {
     fn to_string(&self) -> String {
         match self {
-            ConnectAddressType::LOCAL_SOCKET => "LOCAL_SOCKET",
-            ConnectAddressType::IPV4 => "IPV4",
-            ConnectAddressType::IPV6 => "IPV6",
-            ConnectAddressType::TORV2 => "TORV2",
-            ConnectAddressType::TORV3 => "TORV3",
+            PeerConnectAddressType::LOCAL_SOCKET => "LOCAL_SOCKET",
+            PeerConnectAddressType::IPV4 => "IPV4",
+            PeerConnectAddressType::IPV6 => "IPV6",
+            PeerConnectAddressType::TORV2 => "TORV2",
+            PeerConnectAddressType::TORV3 => "TORV3",
+            PeerConnectAddressType::WEBSOCKET => "WEBSOCKET",
         }.to_string()
     }
 }
@@ -123,13 +127,13 @@ pub struct ConnectAddress {
     pub socket: Option<String>,
     // Path `connect.address.type`
     #[serde(rename = "type")]
-    pub item_type: ConnectAddressType,
+    pub item_type: PeerConnectAddressType,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ConnectNotification {
     // Path `connect.direction`
-    pub direction: ConnectDirection,
+    pub direction: PeerConnectDirection,
     pub address: ConnectAddress,
     pub id: PublicKey,
 }
@@ -190,6 +194,8 @@ impl ToString for ChannelStateChangedCause {
 pub struct ChannelStateChangedNotification {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub old_state: Option<ChannelState>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub short_channel_id: Option<ShortChannelId>,
     // Path `channel_state_changed.cause`
     pub cause: ChannelStateChangedCause,
     // Path `channel_state_changed.new_state`
@@ -197,7 +203,6 @@ pub struct ChannelStateChangedNotification {
     pub channel_id: Sha256,
     pub message: String,
     pub peer_id: PublicKey,
-    pub short_channel_id: ShortChannelId,
     pub timestamp: String,
 }
 

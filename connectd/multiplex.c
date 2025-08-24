@@ -382,6 +382,8 @@ static bool is_urgent(enum peer_wire type)
 	/* These are time-sensitive, and so send without delay. */
 	case WIRE_PING:
 	case WIRE_PONG:
+	case WIRE_PROTOCOL_BATCH_ELEMENT:
+	case WIRE_START_BATCH:
 	case WIRE_COMMITMENT_SIGNED:
 	case WIRE_REVOKE_AND_ACK:
 		return true;
@@ -395,6 +397,69 @@ static bool is_urgent(enum peer_wire type)
 static struct io_plan *io_sock_shutdown_cb(struct io_conn *conn, struct peer *unused)
 {
 	return io_sock_shutdown(conn);
+}
+
+/* Process and eat protocol_batch_element messages, encrypt each element message
+ * and return the encrypted messages as one long byte array. */
+static u8 *process_batch_elements(struct peer *peer, const u8 *msg TAKES)
+{
+	u8 *ret = tal_arr(peer, u8, 0);
+	size_t ret_size = 0;
+	const u8 *cursor = msg;
+	size_t plen = tal_count(msg);
+
+	status_debug("Processing batch elements of %zu bytes. %s", plen,
+		     tal_hex(tmpctx, msg));
+
+	do {
+		u8 *element_bytes;
+		u16 element_size;
+		struct channel_id channel_id;
+		u8 *enc_msg;
+
+		if (fromwire_u16(&cursor, &plen) != WIRE_PROTOCOL_BATCH_ELEMENT) {
+			status_broken("process_batch_elements on msg that is"
+				      " not WIRE_PROTOCOL_BATCH_ELEMENT. %s",
+				      tal_hexstr(tmpctx, cursor, plen));
+			return tal_free(ret);
+		}
+
+		fromwire_channel_id(&cursor, &plen, &channel_id);
+
+	 	element_size = fromwire_u16(&cursor, &plen);
+	 	if (!element_size) {
+			status_broken("process_batch_elements cannot have zero"
+				      " length elements. %s",
+				      tal_hexstr(tmpctx, cursor, plen));
+			return tal_free(ret);
+	 	}
+
+		element_bytes = fromwire_tal_arrn(NULL, &cursor, &plen,
+						  element_size);
+		if (!element_bytes) {
+			status_broken("process_batch_elements fromwire_tal_arrn"
+				      " %s",
+				      tal_hexstr(tmpctx, cursor, plen));
+			return tal_free(ret);
+		}
+
+		status_debug("Processing batch extracted item %s. %s",
+			     peer_wire_name(fromwire_peektype(element_bytes)),
+			     tal_hex(tmpctx, element_bytes));
+
+		enc_msg = cryptomsg_encrypt_msg(tmpctx, &peer->cs,
+						take(element_bytes));
+
+		tal_resize(&ret, ret_size + tal_bytelen(enc_msg));
+		memcpy(&ret[ret_size], enc_msg, tal_bytelen(enc_msg));
+		ret_size += tal_bytelen(enc_msg);
+
+	} while(plen);
+
+	if (taken(msg))
+		tal_free(msg);
+
+	return ret;
 }
 
 static struct io_plan *encrypt_and_send(struct peer *peer,
@@ -440,8 +505,17 @@ static struct io_plan *encrypt_and_send(struct peer *peer,
 
 	set_urgent_flag(peer, is_urgent(type));
 
+	/* Special message type directing us to process batch items. */
+	if (type == WIRE_PROTOCOL_BATCH_ELEMENT) {
+		peer->sent_to_peer = process_batch_elements(peer, msg);
+		if (!peer->sent_to_peer)
+			return io_close(peer->to_peer);
+	}
+	else {
+		peer->sent_to_peer = cryptomsg_encrypt_msg(peer, &peer->cs, msg);
+	}
 	/* We free this and the encrypted version in next write_to_peer */
-	peer->sent_to_peer = cryptomsg_encrypt_msg(peer, &peer->cs, msg);
+
 	return io_write(peer->to_peer,
 			peer->sent_to_peer,
 			tal_bytelen(peer->sent_to_peer),
@@ -645,8 +719,8 @@ static void handle_ping_reply(struct peer *peer, const u8 *msg)
 	status_debug("Got pong %zu bytes (%.*s...)",
 		     tal_count(ignored), (int)i, (char *)ignored);
 	daemon_conn_send(peer->daemon->master,
-			 take(towire_connectd_ping_reply(NULL, true,
-							 tal_bytelen(msg))));
+			 take(towire_connectd_ping_done(NULL, peer->ping_reqid, true,
+							tal_bytelen(msg))));
 }
 
 static void handle_pong_in(struct peer *peer, const u8 *msg)
@@ -668,7 +742,13 @@ static void handle_pong_in(struct peer *peer, const u8 *msg)
 /* Forward to gossipd */
 static void handle_gossip_in(struct peer *peer, const u8 *msg)
 {
-	u8 *gmsg = towire_gossipd_recv_gossip(NULL, &peer->id, msg);
+	u8 *gmsg;
+
+	/* We warn at 250000, drop at 500000 */
+	if (daemon_conn_queue_length(peer->daemon->gossipd) > 500000)
+		return;
+
+	gmsg = towire_gossipd_recv_gossip(NULL, &peer->id, msg);
 
 	/* gossipd doesn't log IO, so we log it here. */
 	status_peer_io(LOG_IO_IN, &peer->id, msg);
@@ -1073,6 +1153,16 @@ static struct io_plan *write_to_subd(struct io_conn *subd_conn,
 
 		/* Tell them to read again. */
 		io_wake(&subd->peer->peer_in);
+		if (subd->peer->peer_in_lastmsg != -1) {
+			u64 msec = time_to_msec(timemono_between(time_mono(),
+								 subd->peer->peer_in_lasttime));
+			if (msec > 5000)
+				status_peer_broken(&subd->peer->id,
+						   "wake delay for %s: %"PRIu64"msec",
+						   peer_wire_name(subd->peer->peer_in_lastmsg),
+						   msec);
+			subd->peer->peer_in_lastmsg = -1;
+		}
 
 		/* Wait for them to wake us */
 		return msg_queue_wait(subd_conn, subd->outq,
@@ -1243,6 +1333,9 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
        }
 
        /* Wait for them to wake us */
+       peer->peer_in_lastmsg = type;
+       peer->peer_in_lasttime = time_mono();
+
        return io_wait(peer_conn, &peer->peer_in, next_read, peer);
 }
 
@@ -1383,25 +1476,26 @@ void send_manual_ping(struct daemon *daemon, const u8 *msg)
 {
 	u8 *ping;
 	struct node_id id;
+	u64 reqid;
 	u16 len, num_pong_bytes;
 	struct peer *peer;
 
-	if (!fromwire_connectd_ping(msg, &id, &num_pong_bytes, &len))
+	if (!fromwire_connectd_ping(msg, &reqid, &id, &num_pong_bytes, &len))
 		master_badmsg(WIRE_CONNECTD_PING, msg);
 
 	peer = peer_htable_get(daemon->peers, &id);
 	if (!peer) {
 		daemon_conn_send(daemon->master,
-				 take(towire_connectd_ping_reply(NULL,
-								 false, 0)));
+				 take(towire_connectd_ping_done(NULL, reqid,
+								false, 0)));
 		return;
 	}
 
 	/* We're not supposed to send another ping until previous replied */
 	if (peer->expecting_pong != PONG_UNEXPECTED) {
 		daemon_conn_send(daemon->master,
-				 take(towire_connectd_ping_reply(NULL,
-								 false, 0)));
+				 take(towire_connectd_ping_done(NULL, reqid,
+								false, 0)));
 		return;
 	}
 
@@ -1426,13 +1520,14 @@ void send_manual_ping(struct daemon *daemon, const u8 *msg)
 	 */
 	if (num_pong_bytes >= 65532) {
 		daemon_conn_send(daemon->master,
-				 take(towire_connectd_ping_reply(NULL,
+				 take(towire_connectd_ping_done(NULL, reqid,
 								 true, 0)));
 		return;
 	}
 
 	/* We'll respond to lightningd once the pong comes in */
 	peer->expecting_pong = PONG_EXPECTED_COMMAND;
+	peer->ping_reqid = reqid;
 
 	/* Since we're doing this manually, kill and restart timer. */
 	tal_free(peer->ping_timer);

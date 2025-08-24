@@ -148,7 +148,18 @@ set_defaults()
     # which matters since you might explicitly set of these blank.
     PREFIX=${PREFIX:-/usr/local}
     CC=${CC:-cc}
-    CDEBUGFLAGS=${CDEBUGFLAGS--std=gnu11 -g -fstack-protector-strong}
+            # Detect macOS and use appropriate debug flags for libbacktrace compatibility
+    if [ "$(uname -s)" = "Darwin" ]; then
+        # Always override to avoid DWARF 5
+        CDEBUGFLAGS="-std=gnu11 -g -gdwarf-4 -fno-standalone-debug -fstack-protector-strong"
+
+        # Optional: confirm dsymutil is available
+        if ! command -v dsymutil >/dev/null 2>&1; then
+            echo "Warning: dsymutil not found. Install Xcode Command Line Tools for better debug support."
+        fi
+    else
+        CDEBUGFLAGS=${CDEBUGFLAGS--std=gnu11 -g -fstack-protector-strong}
+    fi
     DEBUGBUILD=${DEBUGBUILD:-0}
     COMPAT=${COMPAT:-1}
     STATIC=${STATIC:-0}
@@ -194,6 +205,9 @@ usage()
     usage_with_default "CWARNFLAGS" "$DEFAULT_CWARNFLAGS"
     usage_with_default "COPTFLAGS" "$DEFAULT_COPTFLAGS"
     usage_with_default "CDEBUGFLAGS" "$CDEBUGFLAGS"
+    if [ "$(uname -s)" = "Darwin" ]; then
+        echo "    Note: On macOS, -g is used instead of -g3 for libbacktrace compatibility"
+    fi
     usage_with_default "CONFIGURATOR_CC" "${CONFIGURATOR_CC:-$CC}"
     echo "    To override compile line for configurator itself"
     usage_with_default "PYTEST" "$PYTEST"
@@ -412,20 +426,6 @@ int main(void)
 	                                                key);
 	printf("%p\n", crypto_aead_chacha20poly1305_ietf_encrypt);
 	printf("%d\n", crypto_aead_chacha20poly1305_ietf_NPUBBYTES);
-	return 0;
-}
-/*END*/
-var=HAVE_SQLITE3_EXPANDED_SQL
-desc=sqlite3_expanded_sql
-style=DEFINES_EVERYTHING|EXECUTE|MAY_NOT_COMPILE
-link=$SQLITE3_LDLIBS
-code=
-#include <sqlite3.h>
-#include <stdio.h>
-
-int main(void)
-{
-	printf("%p\n", sqlite3_expanded_sql);
 	return 0;
 }
 /*END*/

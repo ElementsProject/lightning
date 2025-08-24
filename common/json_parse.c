@@ -30,7 +30,7 @@ bool json_to_millionths(const char *buffer, const jsmntok_t *tok,
 
 	*millionths = 0;
 	for (int i = tok->start; i < tok->end; i++) {
-		if (isdigit(buffer[i])) {
+		if (cisdigit(buffer[i])) {
 			has_digits = true;
 			/* Ignore too much precision */
 			if (decimal_places >= 0 && ++decimal_places > 6)
@@ -233,6 +233,7 @@ static void parse_number(const char **guide, u32 *number)
 	char *endp;
 	long int l;
 
+	errno = 0;
 	l = strtol(*guide, &endp, 10);
 	assert(endp != *guide);
 	assert(errno != ERANGE);
@@ -518,6 +519,7 @@ bool json_to_bitcoin_amount(const char *buffer, const jsmntok_t *tok,
 	char *end;
 	unsigned long btc, sat;
 
+	errno = 0;
 	btc = strtoul(buffer + tok->start, &end, 10);
 	if (btc == ULONG_MAX && errno == ERANGE)
 		return false;
@@ -630,16 +632,7 @@ bool json_to_channel_id(const char *buffer, const jsmntok_t *tok,
 bool json_to_coin_mvt_tag(const char *buffer, const jsmntok_t *tok,
 			  enum mvt_tag *tag)
 {
-	enum mvt_tag i_tag;
-	for (size_t i = 0; i < NUM_MVT_TAGS; i++) {
-		i_tag = (enum mvt_tag) i;
-		if (json_tok_streq(buffer, tok, mvt_tag_str(i_tag))) {
-			*tag = i_tag;
-			return true;
-		}
-	}
-
-	return false;
+	return mvt_tag_parse(buffer + tok->start, tok->end - tok->start, tag);
 }
 
 bool split_tok(const char *buffer, const jsmntok_t *tok,

@@ -30,6 +30,7 @@ void db_bind_sha256d(struct db_stmt *stmt, const struct sha256_double *s);
 void db_bind_secret(struct db_stmt *stmt, const struct secret *s);
 void db_bind_secret_arr(struct db_stmt *stmt, const struct secret *s);
 void db_bind_txid(struct db_stmt *stmt, const struct bitcoin_txid *t);
+void db_bind_outpoint(struct db_stmt *stmt, const struct bitcoin_outpoint *o);
 void db_bind_channel_id(struct db_stmt *stmt, const struct channel_id *id);
 void db_bind_channel_type(struct db_stmt *stmt, const struct channel_type *type);
 void db_bind_node_id(struct db_stmt *stmt, const struct node_id *ni);
@@ -46,9 +47,9 @@ void db_bind_timeabs(struct db_stmt *stmt, struct timeabs t);
 void db_bind_tx(struct db_stmt *stmt, const struct wally_tx *tx);
 void db_bind_psbt(struct db_stmt *stmt, const struct wally_psbt *psbt);
 void db_bind_amount_msat(struct db_stmt *stmt,
-			 const struct amount_msat *msat);
+			 struct amount_msat msat);
 void db_bind_amount_sat(struct db_stmt *stmt,
-			const struct amount_sat *sat);
+			struct amount_sat sat);
 void db_bind_json_escape(struct db_stmt *stmt,
 			 const struct json_escape *esc);
 void db_bind_onionreply(struct db_stmt *stmt,
@@ -100,6 +101,7 @@ struct timeabs db_col_timeabs(struct db_stmt *stmt, const char *colname);
 struct bitcoin_tx *db_col_tx(const tal_t *ctx, struct db_stmt *stmt, const char *colname);
 struct wally_psbt *db_col_psbt(const tal_t *ctx, struct db_stmt *stmt, const char *colname);
 struct bitcoin_tx *db_col_psbt_to_tx(const tal_t *ctx, struct db_stmt *stmt, const char *colname);
+void db_col_outpoint(struct db_stmt *stmt, const char *colname, struct bitcoin_outpoint *o);
 
 struct onionreply *db_col_onionreply(const tal_t *ctx,
 					struct db_stmt *stmt, const char *colname);

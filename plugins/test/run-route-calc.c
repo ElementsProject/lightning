@@ -160,10 +160,11 @@ void json_array_end(struct json_stream *js UNNEEDED)
 /* Generated stub for json_array_start */
 void json_array_start(struct json_stream *js UNNEEDED, const char *fieldname UNNEEDED)
 { fprintf(stderr, "json_array_start called!\n"); abort(); }
-/* Generated stub for json_get_member */
-const jsmntok_t *json_get_member(const char *buffer UNNEEDED, const jsmntok_t tok[] UNNEEDED,
-				 const char *label UNNEEDED)
-{ fprintf(stderr, "json_get_member called!\n"); abort(); }
+/* Generated stub for json_get_membern */
+const jsmntok_t *json_get_membern(const char *buffer UNNEEDED,
+				  const jsmntok_t tok[] UNNEEDED,
+				  const char *label UNNEEDED, size_t len UNNEEDED)
+{ fprintf(stderr, "json_get_membern called!\n"); abort(); }
 /* Generated stub for json_next */
 const jsmntok_t *json_next(const jsmntok_t *tok UNNEEDED)
 { fprintf(stderr, "json_next called!\n"); abort(); }
@@ -245,9 +246,10 @@ const char *json_tok_full(const char *buffer UNNEEDED, const jsmntok_t *t UNNEED
 /* Generated stub for json_tok_full_len */
 int json_tok_full_len(const jsmntok_t *t UNNEEDED)
 { fprintf(stderr, "json_tok_full_len called!\n"); abort(); }
-/* Generated stub for json_tok_streq */
-bool json_tok_streq(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, const char *str UNNEEDED)
-{ fprintf(stderr, "json_tok_streq called!\n"); abort(); }
+/* Generated stub for json_tok_strneq */
+bool json_tok_strneq(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+		     const char *str UNNEEDED, size_t len UNNEEDED)
+{ fprintf(stderr, "json_tok_strneq called!\n"); abort(); }
 /* Generated stub for jsonrpc_request_start_ */
 struct out_req *jsonrpc_request_start_(struct command *cmd UNNEEDED,
 				       const char *method UNNEEDED,
@@ -282,6 +284,13 @@ void memleak_add_helper_(const tal_t *p UNNEEDED, void (*cb)(struct htable *memt
 /* Generated stub for memleak_scan_htable */
 void memleak_scan_htable(struct htable *memtable UNNEEDED, const struct htable *ht UNNEEDED)
 { fprintf(stderr, "memleak_scan_htable called!\n"); abort(); }
+/* Generated stub for notification_deprecated_out_ok */
+bool notification_deprecated_out_ok(struct plugin *plugin UNNEEDED,
+				    const char *method UNNEEDED,
+				    const char *fieldname UNNEEDED,
+				    const char *depr_start UNNEEDED,
+				    const char *depr_end UNNEEDED)
+{ fprintf(stderr, "notification_deprecated_out_ok called!\n"); abort(); }
 /* Generated stub for notleak_ */
 void *notleak_(void *ptr UNNEEDED, bool plus_children UNNEEDED)
 { fprintf(stderr, "notleak_ called!\n"); abort(); }
@@ -297,14 +306,14 @@ void plugin_gossmap_logcb(struct plugin *plugin UNNEEDED,
 /* Generated stub for plugin_log */
 void plugin_log(struct plugin *p UNNEEDED, enum log_level l UNNEEDED, const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "plugin_log called!\n"); abort(); }
-/* Generated stub for plugin_notification_end */
-void plugin_notification_end(struct plugin *plugin UNNEEDED,
-			     struct json_stream *stream TAKES UNNEEDED)
-{ fprintf(stderr, "plugin_notification_end called!\n"); abort(); }
-/* Generated stub for plugin_notification_start */
-struct json_stream *plugin_notification_start(struct plugin *plugins UNNEEDED,
-					      const char *method UNNEEDED)
-{ fprintf(stderr, "plugin_notification_start called!\n"); abort(); }
+/* Generated stub for plugin_notification_end_obs */
+void plugin_notification_end_obs(struct plugin *plugin UNNEEDED,
+				 struct json_stream *stream TAKES UNNEEDED)
+{ fprintf(stderr, "plugin_notification_end_obs called!\n"); abort(); }
+/* Generated stub for plugin_notification_start_obs */
+struct json_stream *plugin_notification_start_obs(const tal_t *ctx UNNEEDED,
+						  const char *method UNNEEDED)
+{ fprintf(stderr, "plugin_notification_start_obs called!\n"); abort(); }
 /* Generated stub for plugin_notify_message */
 void plugin_notify_message(struct command *cmd UNNEEDED,
 			   enum log_level level UNNEEDED,

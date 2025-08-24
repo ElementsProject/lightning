@@ -1235,9 +1235,9 @@ def test_forward(node_factory, bitcoind):
     route = copy.deepcopy(baseroute)
     l1.rpc.sendpay(route, rhash, payment_secret=inv['payment_secret'])
     l1.rpc.waitsendpay(rhash)
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
 
     # Check that invoice payment and fee are tracked appropriately
-    l1.daemon.wait_for_log('coin_move .* [(]invoice[)]')
     l1.rpc.bkpr_dumpincomecsv('koinly', 'koinly.csv')
 
     koinly_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'koinly.csv')
@@ -1441,9 +1441,8 @@ def test_forward_pad_fees_and_cltv(node_factory, bitcoind):
     # the balance on l3 should equal the invoice
     accts = l3.rpc.bkpr_listbalances()['accounts']
     assert len(accts) == 2
-    wallet = accts[0]
-    chan_acct = accts[1]
-    assert wallet['account'] == 'wallet'
+    wallet = only_one([a for a in accts if a['account'] == 'wallet'])
+    chan_acct = only_one([a for a in accts if a['account'] != 'wallet'])
     # We no longer make a zero balance entry for the wallet at start
     assert wallet['balances'] == []
     assert incomes[0]['tag'] == 'invoice'
@@ -4784,6 +4783,18 @@ def test_fetchinvoice_autoconnect(node_factory, bitcoind):
     assert l3.rpc.listpeers(l2.info['id'])['peers'] != []
 
 
+def test_fetchinvoice_autoconnect_if_disconnected(node_factory, bitcoind):
+    """If peer is disconnected, we should NOT try to use it"""
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
+                                         opts={'dev-allow-localhost': None})
+
+    offer = l3.rpc.offer(amount='2msat', description='test_fetchinvoice_autoconnect_if_disconnected1')['bolt12']
+    l1.rpc.fetchinvoice(offer)
+
+    l1.rpc.disconnect(l2.info['id'], force=True)
+    l1.rpc.fetchinvoice(offer)
+
+
 def test_fetchinvoice_disconnected_reply(node_factory, bitcoind):
     """We ask for invoice, but reply path doesn't lead directly from recipient"""
     l1, l2, l3 = node_factory.get_nodes(3,
@@ -5343,7 +5354,7 @@ def test_pay_multichannel_use_zeroconf(bitcoind, node_factory):
                                      fundamount=200_000,
                                      opts=[{},
                                            {'plugin': zeroconf_plugin,
-                                            'zeroconf-allow': 'any'}])
+                                            'zeroconf_allow': 'any'}])
 
     # 1. Open a zeoconf channel l1 -> l2
     zeroconf_sats = 1_000_000

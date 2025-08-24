@@ -7,6 +7,7 @@ from utils import (
     sync_blockheight,
 )
 
+import ast
 import os
 import pytest
 import re
@@ -604,7 +605,7 @@ def test_xpay_zeroconf(node_factory):
     l1, l2 = node_factory.get_nodes(2,
                                     opts=[{},
                                           {'plugin': zeroconf_plugin,
-                                           'zeroconf-allow': 'any'}])
+                                           'zeroconf_allow': 'any'}])
 
     l1.fundwallet(FUNDAMOUNT * 2)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -671,7 +672,7 @@ def test_xpay_bolt12_no_mpp(node_factory, chainparams, deprecations):
 
     # Amount needs to be enought that it bothers splitting, but not
     # so much that it can't pay without mpp.
-    AMOUNT = 500000000
+    AMOUNT = 800000000
 
     # l2 will advertize mpp, l3 won't.
     l2offer = l2.rpc.offer(AMOUNT, 'test_xpay_bolt12_no_mpp')
@@ -686,10 +687,11 @@ def test_xpay_bolt12_no_mpp(node_factory, chainparams, deprecations):
     assert ret['failed_parts'] == 0
     if deprecations:
         assert ret['successful_parts'] == 2
+        assert ret['amount_sent_msat'] == AMOUNT + AMOUNT // 100000 + 2
     else:
         assert ret['successful_parts'] == 1
+        assert ret['amount_sent_msat'] == AMOUNT + AMOUNT // 100000 + 1
     assert ret['amount_msat'] == AMOUNT
-    assert ret['amount_sent_msat'] == AMOUNT + AMOUNT // 100000 + 1
 
 
 def test_xpay_slow_mode(node_factory, bitcoind):
@@ -706,18 +708,18 @@ def test_xpay_slow_mode(node_factory, bitcoind):
     wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 10)
 
     # First try an MPP which fails
-    inv = l5.rpc.invoice(500000000, 'test_xpay_slow_mode_fail', 'test_xpay_slow_mode_fail', preimage='01' * 32)['bolt11']
+    inv = l5.rpc.invoice(800000000, 'test_xpay_slow_mode_fail', 'test_xpay_slow_mode_fail', preimage='01' * 32)['bolt11']
     l5.rpc.delinvoice('test_xpay_slow_mode_fail', status='unpaid')
 
     with pytest.raises(RpcError, match=r"Destination said it doesn't know invoice: incorrect_or_unknown_payment_details"):
         l1.rpc.xpay(inv)
 
     # Now a successful one
-    inv = l5.rpc.invoice(500000000, 'test_xpay_slow_mode', 'test_xpay_slow_mode', preimage='00' * 32)['bolt11']
+    inv = l5.rpc.invoice(800000000, 'test_xpay_slow_mode', 'test_xpay_slow_mode', preimage='00' * 32)['bolt11']
 
     assert l1.rpc.xpay(inv) == {'payment_preimage': '00' * 32,
-                                'amount_msat': 500000000,
-                                'amount_sent_msat': 500010002,
+                                'amount_msat': 800000000,
+                                'amount_sent_msat': 800016004,
                                 'failed_parts': 0,
                                 'successful_parts': 2}
 
@@ -739,7 +741,7 @@ def test_fail_after_success(node_factory, bitcoind, executor, slow_mode):
     bitcoind.generate_block(5)
     wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 10)
 
-    inv = l5.rpc.invoice(500000000, 'test_xpay_slow_mode', 'test_xpay_slow_mode', preimage='00' * 32)['bolt11']
+    inv = l5.rpc.invoice(800000000, 'test_xpay_slow_mode', 'test_xpay_slow_mode', preimage='00' * 32)['bolt11']
     fut = executor.submit(l1.rpc.xpay, invstring=inv, retry_for=0)
 
     # Part via l3 is fine.  Part via l4 is stuck, so we kill l4 and mine
@@ -750,8 +752,8 @@ def test_fail_after_success(node_factory, bitcoind, executor, slow_mode):
     # Normally, we return as soon as first part succeeds.
     if slow_mode is False:
         assert fut.result(TIMEOUT) == {'payment_preimage': '00' * 32,
-                                       'amount_msat': 500000000,
-                                       'amount_sent_msat': 500010002,
+                                       'amount_msat': 800000000,
+                                       'amount_sent_msat': 800016004,
                                        'failed_parts': 0,
                                        'successful_parts': 2}
 
@@ -763,15 +765,15 @@ def test_fail_after_success(node_factory, bitcoind, executor, slow_mode):
     l1.daemon.wait_for_log(r"UNUSUAL.*Destination accepted partial payment, failed a part \(Error permanent_channel_failure for path ->022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59->0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199->032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e, from 022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59\)")
     # Could be either way around, check both
     line = l1.daemon.is_in_log(r"UNUSUAL.*Destination accepted partial payment, failed a part")
-    assert re.search(r'but accepted only 32000msat of 500000000msat\.  Winning\?!', line) or re.search(r'but accepted only 499968000msat of 500000000msat\.  Winning\?!', line)
+    assert re.search(r'but accepted only .* of 800000000msat\.  Winning\?!', line)
 
     if slow_mode is True:
         # Now it succeeds, but notes that it only sent one part!
         res = fut.result(TIMEOUT)
         # Some variation due to floating point.
-        assert res['amount_sent_msat'] < 500000000
+        assert res['amount_sent_msat'] < 800000000
         assert res == {'payment_preimage': '00' * 32,
-                       'amount_msat': 500000000,
+                       'amount_msat': 800000000,
                        'amount_sent_msat': res['amount_sent_msat'],
                        'failed_parts': 1,
                        'successful_parts': 1}
@@ -831,3 +833,180 @@ lightning-cli pay lni1qqgv5nalmz08ukj4av074kyk6pepq93pqvvhnlnvurnfanndnxjtcjnmxr
     # This doesn't!
     l1.rpc.xpay(inv)
     l1.daemon.wait_for_log(f'Adding HTLC 1 amount=15002msat cltv={110 + 1 + 100 + 200 + 400}')
+
+
+def test_attempt_notifications(node_factory):
+    def zero_fields(obj, fieldnames):
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                if k in fieldnames:
+                    obj[k] = 0
+                else:
+                    zero_fields(v, fieldnames)
+        elif isinstance(obj, list):
+            for item in obj:
+                zero_fields(item, fieldnames)
+        # other types are ignored
+        return obj
+
+    plugin_path = os.path.join(os.getcwd(), 'tests/plugins/custom_notifications.py')
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
+                                         opts=[{"plugin": plugin_path}, {}, {}])
+
+    scid12 = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['short_channel_id']
+    scid12_dir = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['direction']
+    scid23 = only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['short_channel_id']
+    scid23_dir = only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['direction']
+    inv1 = l3.rpc.invoice(5000000, 'test_attempt_notifications1', 'test_attempt_notifications1')
+    l1.rpc.xpay(inv1['bolt11'])
+
+    line = l1.daemon.wait_for_log("plugin-custom_notifications.py: Got pay_part_start: ")
+    dict_str = line.split("Got pay_part_start: ", 1)[1]
+    data = zero_fields(ast.literal_eval(dict_str), ['groupid'])
+    expected = {'pay_part_start':
+                {'payment_hash': inv1['payment_hash'],
+                 'groupid': 0,
+                 'partid': 1,
+                 'total_payment_msat': 5000000,
+                 'attempt_msat': 5000000,
+                 'hops': [{'next_node': l2.info['id'],
+                           'short_channel_id': scid12,
+                           'direction': scid12_dir,
+                           'channel_in_msat': 5000051,
+                           'channel_out_msat': 5000051},
+                          {'next_node': l3.info['id'],
+                           'short_channel_id': scid23,
+                           'direction': scid23_dir,
+                           'channel_in_msat': 5000051,
+                           'channel_out_msat': 5000000}]}}
+    assert data == expected
+
+    line = l1.daemon.wait_for_log("plugin-custom_notifications.py: Got pay_part_end: ")
+    dict_str = line.split("Got pay_part_end: ", 1)[1]
+    data = zero_fields(ast.literal_eval(dict_str), ('duration', 'groupid'))
+    expected = {'pay_part_end':
+                {'payment_hash': inv1['payment_hash'],
+                 'status': 'success',
+                 'duration': 0,
+                 'groupid': 0,
+                 'partid': 1}}
+    assert data == expected
+
+    inv2 = l3.rpc.invoice(10000000, 'test_attempt_notifications2', 'test_attempt_notifications2')
+    l3.rpc.delinvoice('test_attempt_notifications2', "unpaid")
+
+    # Final node failure
+    with pytest.raises(RpcError, match=r"Destination said it doesn't know invoice: incorrect_or_unknown_payment_details"):
+        l1.rpc.xpay(inv2['bolt11'])
+
+    line = l1.daemon.wait_for_log("plugin-custom_notifications.py: Got pay_part_start: ")
+    dict_str = line.split("Got pay_part_start: ", 1)[1]
+    data = zero_fields(ast.literal_eval(dict_str), ['groupid'])
+    expected = {'pay_part_start':
+                {'payment_hash': inv2['payment_hash'],
+                 'groupid': 0,
+                 'partid': 1,
+                 'total_payment_msat': 10000000,
+                 'attempt_msat': 10000000,
+                 'hops': [{'next_node': l2.info['id'],
+                           'short_channel_id': scid12,
+                           'direction': scid12_dir,
+                           'channel_in_msat': 10000101,
+                           'channel_out_msat': 10000101},
+                          {'next_node': l3.info['id'],
+                           'short_channel_id': scid23,
+                           'direction': scid23_dir,
+                           'channel_in_msat': 10000101,
+                           'channel_out_msat': 10000000}]}}
+    assert data == expected
+
+    line = l1.daemon.wait_for_log("plugin-custom_notifications.py: Got pay_part_end: ")
+    dict_str = line.split("Got pay_part_end: ", 1)[1]
+    data = zero_fields(ast.literal_eval(dict_str), ('duration', 'groupid'))
+    expected = {'pay_part_end':
+                {'payment_hash': inv2['payment_hash'],
+                 'status': 'failure',
+                 'duration': 0,
+                 'groupid': 0,
+                 'partid': 1,
+                 'failed_msg': '400f00000000009896800000006c',
+                 'failed_node_id': l3.info['id'],
+                 'error_code': 16399,
+                 'error_message': 'incorrect_or_unknown_payment_details'}}
+    assert data == expected
+
+    # Intermediary node failure
+    l3.stop()
+    with pytest.raises(RpcError, match=r"Failed after 1 attempts"):
+        l1.rpc.xpay(inv2['bolt11'])
+
+    line = l1.daemon.wait_for_log("plugin-custom_notifications.py: Got pay_part_start: ")
+    dict_str = line.split("Got pay_part_start: ", 1)[1]
+    data = zero_fields(ast.literal_eval(dict_str), ['groupid'])
+    expected = {'pay_part_start':
+                {'payment_hash': inv2['payment_hash'],
+                 'groupid': 0,
+                 'partid': 1,
+                 'total_payment_msat': 10000000,
+                 'attempt_msat': 10000000,
+                 'hops': [{'next_node': l2.info['id'],
+                           'short_channel_id': scid12,
+                           'direction': scid12_dir,
+                           'channel_in_msat': 10000101,
+                           'channel_out_msat': 10000101},
+                          {'next_node': l3.info['id'],
+                           'short_channel_id': scid23,
+                           'direction': scid23_dir,
+                           'channel_in_msat': 10000101,
+                           'channel_out_msat': 10000000}]}}
+    assert data == expected
+
+    line = l1.daemon.wait_for_log("plugin-custom_notifications.py: Got pay_part_end: ")
+    dict_str = line.split("Got pay_part_end: ", 1)[1]
+    data = zero_fields(ast.literal_eval(dict_str), ('duration', 'groupid', 'failed_msg'))
+    expected = {'pay_part_end':
+                {'payment_hash': inv2['payment_hash'],
+                 'status': 'failure',
+                 'duration': 0,
+                 'groupid': 0,
+                 'partid': 1,
+                 # This includes the channel update: just zero it out
+                 'failed_msg': 0,
+                 'failed_direction': 0,
+                 'failed_node_id': l2.info['id'],
+                 'failed_short_channel_id': scid23,
+                 'error_code': 4103,
+                 'error_message': 'temporary_channel_failure'}}
+    assert data == expected
+
+
+def test_xpay_offer(node_factory):
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+
+    offer1 = l3.rpc.offer('any')['bolt12']
+    offer2 = l3.rpc.offer('5sat', "5sat donation")['bolt12']
+
+    with pytest.raises(RpcError, match=r"Must specify amount for this offer"):
+        l1.rpc.xpay(offer1)
+
+    l1.rpc.xpay(offer1, 100)
+
+    with pytest.raises(RpcError, match=r"Offer amount is 5000msat, you tried to pay 1000msat"):
+        l1.rpc.xpay(offer2, 1000)
+
+    l1.rpc.xpay(offer2)
+    l1.rpc.xpay(offer2, 5000)
+
+
+def test_xpay_bip353(node_factory):
+    fakebip353_plugin = Path(__file__).parent / "plugins" / "fakebip353.py"
+
+    l1 = node_factory.get_node()
+    offer = l1.rpc.offer('any')['bolt12']
+
+    l2 = node_factory.get_node(options={'disable-plugin': 'cln-bip353',
+                                        'plugin': fakebip353_plugin,
+                                        'bip353offer': offer})
+
+    node_factory.join_nodes([l2, l1])
+    l2.rpc.xpay('fake@fake.com', 100)

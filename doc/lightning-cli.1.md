@@ -92,7 +92,7 @@ be changed using `-F`, `-R`, `-J`, `-H` etc.
 in a `commando` command to be sent to the connected peer with id
 `peerid`, using rune `rune`.  This also means that any `--filter` is
 handed via commando to the remote peer to reduce its output (which it
-will do it it is v23.02 or newer), rather than trying to do so
+will do if it is v23.02 or newer), rather than trying to do so
 locally.  Note that currently `-N` is not supported by commando.
 
 COMMANDS

@@ -50,7 +50,7 @@ enum channel_state {
 	DUALOPEND_OPEN_COMMIT_READY,
 
 };
-#define CHANNEL_STATE_MAX CHANNELD_AWAITING_SPLICE
+#define CHANNEL_STATE_MAX DUALOPEND_OPEN_COMMIT_READY
 
 /* These are in the database, so don't renumber them! */
 enum state_change {

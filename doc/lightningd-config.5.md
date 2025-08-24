@@ -293,18 +293,6 @@ authenticate with username `user` and password `pass`, and then use the
 database `db_name`. The database must exist, but the schema will be managed
 automatically by `lightningd`.
 
-* **bookkeeper-dir**=*DIR* [plugin `bookkeeper`]
-
-  Directory to keep the accounts.sqlite3 database file in.
-Defaults to lightning-dir.
-
-* **bookkeeper-db**=*DSN* [plugin `bookkeeper`]
-
-  Identify the location of the bookkeeper data. This is a fully qualified data source
-name, including a scheme such as `sqlite3` or `postgres` followed by the
-connection parameters.
-Defaults to `sqlite3://accounts.sqlite3` in the `bookkeeper-dir`.
-
 * **encrypted-hsm**
 
  If set, you will be prompted to enter a password used to encrypt the `hsm_secret`.
@@ -610,7 +598,7 @@ is not specified, a DNS lookup may be done to resolve `HOSTNAME` or `TORIPADDRES
   If `HOSTNAME` was given that resolves to a local interface, the daemon
 will bind to that interface.
 
-* **bind-addr**=*\[IPADDRESS\[:PORT\]\]|SOCKETPATH|HOSTNAME\[:PORT\]*
+* **bind-addr**=*\[ws:\]\[IPADDRESS\[:PORT\]\]|SOCKETPATH|HOSTNAME\[:PORT\]*
 
   Set an IP address or UNIX domain socket to listen to, but do not
 announce. A UNIX domain socket is distinguished from an IP address by
@@ -620,6 +608,11 @@ beginning with a */*.
 IPv6 on all interfaces, '0.0.0.0' means bind to all IPv4
 interfaces, '::' means 'bind to all IPv6 interfaces'.  'PORT' is
 not specified, 9735 is used.
+
+   The `ws:` prefix indicates to expect connections to use the
+RFC-6455 WebSocket protocol instead of raw TCP/IP.  This is more
+usable by web browsers directly, but often requires a reverse proxy
+to speak TLS ("wss").
 
   This option can be used multiple times to add more addresses, and
 its use disables autolisten.  If necessary, and 'always-use-proxy'
@@ -710,11 +703,11 @@ authenticate to the Tor control port.
 
   Root url for Swagger UI. Default is `/`.
 
-* **wss-bind-addr**=*\[IPADDRESS\[:PORT\]\]|SOCKETPATH|HOSTNAME\[:PORT\]* [plugin `wss-proxy.py`]
+* **wss-bind-addr**=*\[IPADDRESS\[:PORT\]\]|SOCKETPATH|HOSTNAME\[:PORT\]* [plugin `wss-proxy`]
 
-  Sets the WSS address.
+  Sets the WSS address. This option can be used multiple times to add more addresses.
 
-* **wss-certs**=*PATH*  [plugin `wss-proxy.py`]
+* **wss-certs**=*PATH*  [plugin `wss-proxy`]
 
   Defines the path for WSS cert & key. Default path is same as RPC file path to utilize gRPC/clnrest's client certificate. If it is missing at the configured location, new identity (`client.pem` and `client-key.pem`) will be generated.
 

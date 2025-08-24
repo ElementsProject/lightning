@@ -44,6 +44,7 @@ msgdata,openingd_got_offer,max_accepted_htlcs,u16,
 msgdata,openingd_got_offer,channel_flags,u8,
 msgdata,openingd_got_offer,shutdown_len,u16,
 msgdata,openingd_got_offer,shutdown_scriptpubkey,u8,shutdown_len
+msgdata,openingd_got_offer,ctype,channel_type,
 
 # master->openingd: optional rejection message
 msgtype,openingd_got_offer_reply,6105
@@ -88,7 +89,7 @@ msgdata,openingd_funder_start,anchor_feerate_per_kw,u32,
 msgdata,openingd_funder_start,temporary_channel_id,channel_id,
 msgdata,openingd_funder_start,channel_flags,u8,
 msgdata,openingd_funder_start,reserve,?amount_sat,
-msgdata,openingd_funder_start,channel_type,?channel_type,
+msgdata,openingd_funder_start,channel_type,channel_type,
 
 # openingd->master: send back output script for 2-of-2 funding output
 msgtype,openingd_funder_start_reply,6102

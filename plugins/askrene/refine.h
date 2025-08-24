@@ -7,20 +7,34 @@ struct route_query;
 struct amount_msat;
 struct flow;
 
-/* We got an answer from min-cost-flow, but we now need to:
- * 1. Add fixup exact delivery amounts since MCF deals in larger granularity than msat.
- * 2. Add fees which accumulate through the route.
- * 3. Check for htlc_minimum_msat violations (we simply remove those flows).
- * 4. Trim any flows which (after fees) now violate maximum htlc_minimum_msat/capacity bounds.
- *
- * We try to reassign missing sats to the remaining flows, which is usually easy.
- *
- * Returns NULL on success, or an error message for the caller.
+struct reserve_hop *new_reservations(const tal_t *ctx,
+				     const struct route_query *rq);
+
+void create_flow_reservations(const struct route_query *rq,
+			      struct reserve_hop **reservations,
+			      const struct flow *flow);
+
+/* create flow reservations, but first verify that the flow indeeds fits in the
+ * liquidity constraints. Takes into account reservations that include per HTLC
+ * extra amounts to pay for onchain fees. */
+bool create_flow_reservations_verify(const struct route_query *rq,
+				     struct reserve_hop **reservations,
+				     const struct flow *flow);
+
+/* Modify flows to meet HTLC min/max requirements.
+ * It takes into account the exact value of the fees expected at each hop. */
+const char *refine_flows(const tal_t *ctx, struct route_query *rq,
+			 struct amount_msat deliver, struct flow ***flows);
+
+/* Duplicated flows are merged into one. This saves in base fee and HTLC fees.
  */
-const char *
-refine_with_fees_and_limits(const tal_t *ctx,
-			    struct route_query *rq,
-			    struct amount_msat deliver,
-			    struct flow ***flows,
-			    double *flowset_probability);
+void squash_flows(const tal_t *ctx, struct route_query *rq,
+		  struct flow ***flows);
+
+double flows_probability(const tal_t *ctx, struct route_query *rq,
+			 struct flow ***flows);
+
+/* Helper function: removes n flows from the set. It will remove those flows
+ * with the lowest amount values. */
+bool remove_flows(struct flow ***flows, u32 n);
 #endif /* LIGHTNING_PLUGINS_ASKRENE_REFINE_H */

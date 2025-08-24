@@ -21,6 +21,7 @@ sudo ln -s /snap/bitcoin-core/current/bin/bitcoin{d,-cli} /usr/local/bin/
 Then you can fetch a pre-compiled binary from the [releases](https://github.com/ElementsProject/lightning/releases) page on GitHub. Core Lightning provides binaries for both Ubuntu and Fedora distributions. Normally these binaries are extracted into /usr/local:
 
 ```shell
+sudo rm -R /usr/local/libexec/c-lightning/plugins # If you are upgrading run this first to avoid plugin conflicts
 sudo tar -xvf <release>.tar.xz -C /usr/local --strip-components=2
 ```
 
@@ -78,10 +79,10 @@ sudo apt-get install -y \
   jq autoconf automake build-essential git libtool libsqlite3-dev libffi-dev \
   python3 python3-pip net-tools zlib1g-dev libsodium-dev gettext
 pip3 install --upgrade pip
-pip3 install --user poetry
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-(If installing `poetry` with `pip` as above fails, try installing it with the [official poetry installer](https://python-poetry.org/docs/#installing-with-the-official-installer).)
+After installing uv, restart your shell or run `source ~/.bashrc` to ensure `uv` is in your PATH.
 
 
 If you don't have Bitcoin installed locally you'll need to install that as well. It's now available via [snapd](https://snapcraft.io/bitcoin-core).
@@ -112,12 +113,11 @@ For development or running tests, get additional dependencies:
 ```shell
 sudo apt-get install -y valgrind libpq-dev shellcheck cppcheck \
   libsecp256k1-dev lowdown
-pip3 install pytest
 ```
 
 If you can't install `lowdown`, a version will be built in-tree.
 
-If you want to build the Rust plugins (currently cln-grpc and clnrest, which changed from Python to Rust as of v25.02):
+If you want to build the Rust plugins (cln-grpc, clnrest, cln-bip353 and wss-proxy):
 
 ```shell
 sudo apt-get install -y cargo rustfmt protobuf-compiler
@@ -133,29 +133,23 @@ There are two ways to build core lightning, and this depends on how you want use
 To build CLN for production:
 
 ```shell
-poetry install
+uv sync --all-extras --all-groups
 ./configure
-RUST_PROFILE=release poetry run make
+RUST_PROFILE=release uv run make
 sudo RUST_PROFILE=release make install
 ```
 
 > 📘 
 > 
-> If you want disable Rust because you do not want use it or you do not want `cln-grpc` or `clnrest`, you can use `./configure --disable-rust`.
+> If you want to disable Rust because you don’t need it or its plugins (cln-grpc, clnrest, cln-bip353 or wss-proxy), you can use `./configure --disable-rust`.
 
 To build CLN for development:
 
 ```shell
-poetry shell
-```
-
-This will put you in a new shell to enter the following commands:
-
-```shell
-poetry install
+uv sync --all-extras --all-groups
 ./configure
-make
-make check VALGRIND=0
+uv run make
+uv run make check VALGRIND=0
 ```
 
 Optionally, add `-j$(nproc)` after `make` to speed up compilation. (e.g. `make -j$(nproc)`)
@@ -350,16 +344,13 @@ export CPATH=/opt/homebrew/include
 export LIBRARY_PATH=/opt/homebrew/lib
 ```
 
-If you need Python 3.x for mako (or get a mako build error):
+Install uv for Python dependency management:
 
 ```shell
-brew install pyenv
-echo -e 'if command -v pyenv 1>/dev/null 2>&1; then\n  eval "$(pyenv init -)"\nfi' >> ~/.bash_profile
-source ~/.bash_profile
-pyenv install 3.9
-pip install --upgrade pip
-pip install poetry==2.0.1
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
+
+After installing uv, restart your shell or run `source ~/.zshrc` to ensure `uv` is in your PATH.
 
 If you don't have bitcoind installed locally you'll need to install that as well:
 
@@ -388,9 +379,9 @@ git checkout v24.05
 Build lightning:
 
 ```shell
-poetry install
+uv sync --all-extras --all-groups
 ./configure
-poetry run make
+uv run make
 ```
 
 Running lightning:
@@ -594,11 +585,3 @@ apk add libgcc libsodium sqlite-libs zlib
 Python plugins will be installed with the `poetry install` step mentioned above fron development setup. 
 
 Other users will need some Python packages if python plugins are used. Unfortunately there are some Python packages which are not packaged in Ubuntu, and so force installation will be needed (Flag `--user` is recommended which will install them in user's own .local directory, so at least the risk of breaking Python globally can be avoided!).
-
-### wss-proxy
-
-Below libraries are required for wss-proxy:
-
-```
-pip3 install --user pyln-client websockets
-```

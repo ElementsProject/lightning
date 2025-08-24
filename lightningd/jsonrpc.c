@@ -1393,20 +1393,14 @@ static void setup_command_usage(struct lightningd *ld,
 bool jsonrpc_command_add(struct jsonrpc *rpc, struct json_command *command,
 			 const char *usage TAKES)
 {
-	struct json_escape *esc;
 	const char *unescaped;
 
 	if (!command_add(rpc, command))
 		return false;
 
-	esc = json_escape_string_(tmpctx, usage, strlen(usage));
-	unescaped = json_escape_unescape(command, esc);
+	unescaped = json_escape_unescape_len(command, usage, strlen(usage));
 	if (!unescaped)
-		unescaped = tal_strdup(command, usage);
-	else {
-		if (taken(usage))
-			tal_free(usage);
-	}
+		return false;
 
 	strmap_add(&rpc->usagemap, command->name, unescaped);
 	tal_add_destructor2(command, destroy_json_command, rpc);
@@ -1562,7 +1556,7 @@ static struct command_result *param_command(struct command *cmd,
 			    tok->end - tok->start, buffer + tok->start);
 }
 
-struct jsonrpc_notification *jsonrpc_notification_start(const tal_t *ctx, const char *method)
+struct jsonrpc_notification *jsonrpc_notification_start_noparams(const tal_t *ctx, const char *method)
 {
 	struct jsonrpc_notification *n = tal(ctx, struct jsonrpc_notification);
 	n->method = tal_strdup(n, method);
@@ -1570,6 +1564,13 @@ struct jsonrpc_notification *jsonrpc_notification_start(const tal_t *ctx, const 
 	json_object_start(n->stream, NULL);
 	json_add_string(n->stream, "jsonrpc", "2.0");
 	json_add_string(n->stream, "method", method);
+
+	return n;
+}
+
+struct jsonrpc_notification *jsonrpc_notification_start(const tal_t *ctx, const char *method)
+{
+	struct jsonrpc_notification *n = jsonrpc_notification_start_noparams(ctx, method);
 	json_object_start(n->stream, "params");
 
 	return n;
@@ -1578,6 +1579,11 @@ struct jsonrpc_notification *jsonrpc_notification_start(const tal_t *ctx, const 
 void jsonrpc_notification_end(struct jsonrpc_notification *n)
 {
 	json_object_end(n->stream); /* closes '.params' */
+	jsonrpc_notification_end_noparams(n);
+}
+
+void jsonrpc_notification_end_noparams(struct jsonrpc_notification *n)
+{
 	json_object_end(n->stream); /* closes '.' */
 
 	/* We guarantee to have \n\n at end of each response. */

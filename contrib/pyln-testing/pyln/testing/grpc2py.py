@@ -1492,6 +1492,23 @@ def feerates2py(m):
     })
 
 
+def fetchbip353_instructions2py(m):
+    return remove_default({
+        "description": m.description,  # PrimitiveField in generate_composite
+        "offchain_amount_msat": m.offchain_amount_msat,  # PrimitiveField in generate_composite
+        "offer": m.offer,  # PrimitiveField in generate_composite
+        "onchain": m.onchain,  # PrimitiveField in generate_composite
+        "onchain_amount_sat": m.onchain_amount_sat,  # PrimitiveField in generate_composite
+    })
+
+
+def fetchbip3532py(m):
+    return remove_default({
+        "instructions": [fetchbip353_instructions2py(i) for i in m.instructions],  # ArrayField[composite] in generate_composite
+        "proof": m.proof,  # PrimitiveField in generate_composite
+    })
+
+
 def fetchinvoice_changes2py(m):
     return remove_default({
         "amount_msat": amount2msat(m.amount_msat),  # PrimitiveField in generate_composite
@@ -2077,6 +2094,22 @@ def upgradewallet2py(m):
 def waitblockheight2py(m):
     return remove_default({
         "blockheight": m.blockheight,  # PrimitiveField in generate_composite
+    })
+
+
+def wait_chainmoves2py(m):
+    return remove_default({
+        "account": m.account,  # PrimitiveField in generate_composite
+        "credit_msat": amount2msat(m.credit_msat),  # PrimitiveField in generate_composite
+        "debit_msat": amount2msat(m.debit_msat),  # PrimitiveField in generate_composite
+    })
+
+
+def wait_channelmoves2py(m):
+    return remove_default({
+        "account": m.account,  # PrimitiveField in generate_composite
+        "credit_msat": amount2msat(m.credit_msat),  # PrimitiveField in generate_composite
+        "debit_msat": amount2msat(m.debit_msat),  # PrimitiveField in generate_composite
     })
 
 

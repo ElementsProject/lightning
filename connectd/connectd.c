@@ -147,6 +147,7 @@ static struct peer *new_peer(struct daemon *daemon,
 	peer->sent_to_peer = NULL;
 	peer->urgent = false;
 	peer->draining = false;
+	peer->peer_in_lastmsg = -1;
 	peer->peer_outq = msg_queue_new(peer, false);
 	peer->last_recv_time = time_now();
 	peer->is_websocket = is_websocket;
@@ -2367,7 +2368,7 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_CONNECTD_PEER_SPOKE:
 	case WIRE_CONNECTD_CONNECT_FAILED:
 	case WIRE_CONNECTD_DEV_MEMLEAK_REPLY:
-	case WIRE_CONNECTD_PING_REPLY:
+	case WIRE_CONNECTD_PING_DONE:
 	case WIRE_CONNECTD_GOT_ONIONMSG_TO_US:
 	case WIRE_CONNECTD_CUSTOMMSG_IN:
 	case WIRE_CONNECTD_PEER_DISCONNECT_DONE:

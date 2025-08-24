@@ -17,10 +17,10 @@
 #include <hsmd/hsmd_wiregen.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
-#include <lightningd/coin_mvts.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
+#include <lightningd/notification.h>
 #include <lightningd/peer_control.h>
 #include <wallet/txfilter.h>
 #include <wallet/walletrpc.h>
@@ -946,11 +946,11 @@ static void maybe_notify_new_external_send(struct lightningd *ld,
 
 	mvt = new_coin_external_deposit(NULL, &outpoint,
 					0, amount,
-					DEPOSIT);
+					mk_mvt_tags(MVT_DEPOSIT));
 
-	mvt->originating_acct = WALLET;
-	notify_chain_mvt(ld, mvt);
-	tal_free(mvt);
+	mvt->originating_acct = new_mvt_account_id(mvt,  NULL, ACCOUNT_NAME_WALLET);
+
+	wallet_save_chain_mvt(ld, take(mvt));
 }
 
 

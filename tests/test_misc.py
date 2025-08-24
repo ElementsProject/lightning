@@ -1390,7 +1390,7 @@ def test_funding_reorg_private(node_factory, bitcoind):
             'dev-fast-reconnect': None,
             # if it's not zeroconf, we'll terminate on reorg.
             'plugin': os.path.join(os.getcwd(), 'tests/plugins/zeroconf-selective.py'),
-            'zeroconf-allow': 'any'}
+            'zeroconf_allow': 'any'}
     l1, l2 = node_factory.line_graph(2, fundchannel=False, opts=opts)
     l1.fundwallet(10000000)
     sync_blockheight(bitcoind, [l1])                # height 102
@@ -1433,7 +1433,7 @@ def test_funding_reorg_remote_lags(node_factory, bitcoind):
             'allow_warning': True, 'dev-fast-reconnect': None,
             # if it's not zeroconf, l2 will terminate on reorg.
             'plugin': os.path.join(os.getcwd(), 'tests/plugins/zeroconf-selective.py'),
-            'zeroconf-allow': 'any'}
+            'zeroconf_allow': 'any'}
     l1, l2 = node_factory.line_graph(2, fundchannel=False, opts=opts)
     l1.fundwallet(10000000)
     sync_blockheight(bitcoind, [l1])                # height 102
@@ -2405,7 +2405,7 @@ def test_list_features_only(node_factory):
                 'option_quiesce/odd',
                 'option_onion_messages/odd',
                 'option_provide_storage/odd',
-                'option_channel_type/odd',
+                'option_channel_type/even',
                 'option_scid_alias/odd',
                 'option_zeroconf/odd']
     expected += ['supports_open_accept_channel_type']
@@ -2722,6 +2722,9 @@ def test_new_node_is_mainnet(node_factory):
     assert not os.path.isfile(os.path.join(basedir, "hsm_secret"))
     assert not os.path.isfile(os.path.join(netdir, "lightningd-bitcoin.pid"))
     assert os.path.isfile(os.path.join(basedir, "lightningd-bitcoin.pid"))
+
+    # Teardown expects this to exist...
+    os.mkdir(basedir + "/plugin-io")
 
 
 def test_unicode_rpc(node_factory, executor, bitcoind):
@@ -3659,7 +3662,8 @@ def test_version_reexec(node_factory, bitcoind):
     # We use a file to tell our openingd wrapper where the real one is
     with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "openingd-real"), 'w') as f:
         f.write(os.path.abspath('lightningd/lightning_openingd'))
-
+    # Internal restart doesn't work well with --dev-save-plugin-io
+    del l1.daemon.opts['dev-save-plugin-io']
     l1.start()
     # This is a "version" message
     verfile = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "openingd-version")
@@ -3819,8 +3823,8 @@ def test_datastore_escapeing(node_factory):
 
 
 def test_datastore(node_factory):
-    # Suppress xpay, which makes a layer
-    l1 = node_factory.get_node(options={"disable-plugin": "cln-xpay"})
+    # Suppress xpay and bookkeeper which use the datastore
+    l1 = node_factory.get_node(options={"disable-plugin": ["cln-xpay", "bookkeeper"]})
 
     # Starts empty
     assert l1.rpc.listdatastore() == {'datastore': []}
@@ -3934,8 +3938,8 @@ def test_datastore(node_factory):
 
 
 def test_datastore_keylist(node_factory):
-    # Suppress xpay, which makes a layer
-    l1 = node_factory.get_node(options={"disable-plugin": "cln-xpay"})
+    # Suppress xpay and bookkeeper which use the datastore
+    l1 = node_factory.get_node(options={"disable-plugin": ["cln-xpay", "bookkeeper"]})
 
     # Starts empty
     assert l1.rpc.listdatastore() == {'datastore': []}
@@ -3997,7 +4001,8 @@ def test_datastore_keylist(node_factory):
 
 
 def test_datastoreusage(node_factory):
-    l1: LightningNode = node_factory.get_node(options={"disable-plugin": "cln-xpay"})
+    # Suppress xpay and bookkeeper which use the datastore
+    l1: LightningNode = node_factory.get_node(options={"disable-plugin": ["cln-xpay", "bookkeeper"]})
     assert l1.rpc.datastoreusage() == {'datastoreusage': {'key': '[]', 'total_bytes': 0}}
 
     data = 'somedatatostoreinthedatastore'  # len 29
@@ -4534,7 +4539,11 @@ def test_setconfig_changed(node_factory, bitcoind):
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "deletes database, which is assumed sqlite3")
 def test_recover_command(node_factory, bitcoind):
-    l1, l2 = node_factory.get_nodes(2)
+    l1 = node_factory.get_node(start=False)
+    # Internal restart doesn't work well with --dev-save-plugin-io
+    del l1.daemon.opts['dev-save-plugin-io']
+    l1.start()
+    l2 = node_factory.get_node()
 
     l1oldid = l1.info['id']
 
@@ -4943,6 +4952,8 @@ def test_tracing(node_factory):
             elif cmd == 'span_resume':
                 assert spanid in traces
                 suspended.remove(spanid)
+            elif cmd == 'destroying':
+                pass
             else:
                 assert False, "Unknown trace line"
 
@@ -4972,3 +4983,17 @@ def test_tracing(node_factory):
                 assert res[0]['traceId'] == '00112233445566778899aabbccddeeff'
                 # Everyone has a parent!
                 assert 'parentId' in res[0]
+
+
+def test_zero_locktime_blocks(node_factory, bitcoind):
+    """Ensure our node "works" even if locktime set to 0."""
+    l1, l2, l3 = node_factory.line_graph(3, opts=[{}, {'watchtime-blocks': 0}, {}], wait_for_announce=True)
+
+    # We should be able to use the channel and close it.
+    inv = l3.rpc.invoice(10000, 'test_zero_locktime_blocks', 'test_zero_locktime_blocks')
+    l1.rpc.xpay(inv['bolt11'])
+
+    l1.rpc.close(l2.info['id'])
+    l2.rpc.close(l3.info['id'])
+    bitcoind.generate_block(1, wait_for_mempool=2)
+    sync_blockheight(bitcoind, [l1, l2, l3])
