@@ -1,14 +1,11 @@
 #include "config.h"
 
-#include <bitcoin/chainparams.h>
+#include <bitcoin/privkey.h>
 #include <common/bech32.h>
 #include <common/bolt11.h>
-#include <common/features.h>
 #include <common/setup.h>
 #include <common/utils.h>
-#include <stddef.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <tests/fuzz/libfuzz.h>
@@ -40,6 +37,35 @@ static size_t initial_input(uint8_t *fuzz_data, size_t size, size_t max_size)
 
 	clean_tmpctx();
 	return size;
+}
+
+static bool test_sign(const u5 *u5bytes,
+		      const u8 *hrpu8,
+		      secp256k1_ecdsa_recoverable_signature *rsig,
+		      void *unused UNUSED)
+{
+	struct hash_u5 hu5;
+	char *hrp;
+	struct sha256 sha;
+	struct privkey privkey;
+
+	memset(&privkey, 'a', sizeof(privkey));
+
+	hrp = tal_dup_arr(NULL, char, (char *)hrpu8, tal_count(hrpu8), 1);
+	hrp[tal_count(hrpu8)] = '\0';
+
+	hash_u5_init(&hu5, hrp);
+	hash_u5(&hu5, u5bytes, tal_count(u5bytes));
+	hash_u5_done(&hu5, &sha);
+	tal_free(hrp);
+
+        if (!secp256k1_ecdsa_sign_recoverable(secp256k1_ctx, rsig,
+                                              (const u8 *)&sha,
+                                              privkey.secret.data,
+                                              NULL, NULL))
+		abort();
+
+	return true;
 }
 
 // We use a custom mutator to produce an input corpus that consists entirely of
@@ -187,9 +213,13 @@ size_t LLVMFuzzerCustomCrossOver(const u8 *in1, size_t in1_size, const u8 *in2,
 void run(const uint8_t *data, size_t size)
 {
 	char *invoice_str = to_string(tmpctx, data, size);
-	char *fail;
+	char *fail = NULL;
 
-	bolt11_decode(tmpctx, invoice_str, NULL, NULL, NULL, &fail);
+	struct bolt11 *b11 = bolt11_decode(tmpctx, invoice_str, NULL, NULL, NULL, &fail);
+	if (b11)
+		bolt11_encode(tmpctx, b11, false, test_sign, NULL);
+	else
+		assert(fail);
 
 	clean_tmpctx();
 }
