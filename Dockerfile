@@ -160,6 +160,7 @@ ENV PATH="/root/.cargo/bin:/root/.local/bin:${PATH}"
 
 WORKDIR /opt/lightningd
 
+#TODO: find a way to avoid copying the .git/ directory (it always invalidates the cache)
 COPY .git/ .git/
 RUN git submodule update --init --recursive --jobs $(nproc) --depth 1
 
