@@ -948,15 +948,13 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 					    "Cannot set payer_metadata for recurring offers");
 
 		/* BOLT-recurrence #12:
-		 *    - if the offer contained `recurrence_base` with
-		 *      `start_any_period` non-zero:
-		 *      - MUST include `recurrence_start`
+		 * - if `offer_recurrence_base` is present:
+		 *   - MUST include `invreq_recurrence_start`
 		 *...
 		 *    - otherwise:
-		 *      - MUST NOT include `recurrence_start`
+		 *      - MUST NOT include `invreq_recurrence_start`
 		 */
-		if (invreq->offer_recurrence_base
-		    && invreq->offer_recurrence_base->start_any_period) {
+		if (invreq->offer_recurrence_base) {
 			if (!invreq->invreq_recurrence_start)
 				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 						    "needs recurrence_start");
