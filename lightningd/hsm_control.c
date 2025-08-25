@@ -195,22 +195,12 @@ struct ext_key *hsm_init(struct lightningd *ld)
 
 	/* Check if BIP86 derivation is requested and supported */
 	if (ld->use_bip86_derivation) {
-		/* Get BIP86 base key for local derivation */
+		/* Get BIP86 base key from HSM */
 		ld->bip86_base = tal(ld, struct ext_key);
 		msg = towire_hsmd_derive_bip86_key(NULL, 0, false);
 		const u8 *reply = hsm_sync_req(tmpctx, ld, take(msg));
-		struct pubkey bip86_base_pubkey;
-		if (!fromwire_hsmd_derive_bip86_key_reply(reply, &bip86_base_pubkey)) {
+		if (!fromwire_hsmd_derive_bip86_key_reply(reply, ld->bip86_base)) {
 			errx(EXITCODE_HSM_GENERIC_ERROR, "Failed to get BIP86 base key from HSM");
-		}
-		
-		/* Convert pubkey back to ext_key for local derivation */
-		size_t pub_key_len = sizeof(ld->bip86_base->pub_key);
-		if (!(secp256k1_ec_pubkey_serialize(secp256k1_ctx, ld->bip86_base->pub_key,
-						   &pub_key_len,
-						   &bip86_base_pubkey.pubkey,
-						   SECP256K1_EC_COMPRESSED) == 1)) {
-			errx(EXITCODE_HSM_GENERIC_ERROR, "Failed to serialize BIP86 base key");
 		}
 	} else {
 		ld->bip86_base = NULL;
@@ -296,7 +286,9 @@ static void derive_pubkey_from_base(struct lightningd *ld, struct pubkey *pubkey
 		fatal("Can't parse derived %s key %u", key_type, index);
 
 	/* Verify the derived key with HSM if supported */
-	hsm_verify_pubkey(ld, index, pubkey, key_type, wire_check_pubkey_func, wire_check_pubkey_reply_func, error_msg);
+	if (wire_check_pubkey_func && wire_check_pubkey_reply_func && error_msg) {
+		hsm_verify_pubkey(ld, index, pubkey, key_type, wire_check_pubkey_func, wire_check_pubkey_reply_func, error_msg);
+	}
 }
 
 /* Get (and check!) a bip32 derived pubkey */
@@ -319,16 +311,10 @@ void bip86_pubkey(struct lightningd *ld, struct pubkey *pubkey, u32 index)
 	u32 path[2];
 	path[0] = 0; /* change (0 for receive) */
 	path[1] = index; /* address_index */
-	
-	/* Check capability and pass appropriate function pointers */
-	if (hsm_capable(ld, WIRE_HSMD_CHECK_BIP86_PUBKEY)) {
-		derive_pubkey_from_base(ld, pubkey, index, ld->bip86_base, "BIP86", true, path, 2,
-					towire_hsmd_check_bip86_pubkey,
-					fromwire_hsmd_check_bip86_pubkey_reply,
-					"Invalid check_bip86_pubkey_reply from hsm");
-	} else {
-		fatal("HSM does not support BIP86 public key verification");
-	}
+
+	/* Use the common derivation function with BIP86 path */
+	derive_pubkey_from_base(ld, pubkey, index, ld->bip86_base, "BIP86", true, path, 2,
+				NULL, NULL, NULL);
 }
 
 const u8 *hsm_sync_req(const tal_t *ctx, struct lightningd *ld, const u8 *msg)

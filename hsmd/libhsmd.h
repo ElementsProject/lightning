@@ -47,7 +47,7 @@ struct hsmd_client {
  * Returns the `hsmd_init_reply` with the information required by
  * `lightningd`.
  */
-u8 *hsmd_init(struct secret hsm_secret, const u64 hsmd_version,
+u8 *hsmd_init(const u8 *secret_data, size_t secret_len, const u64 hsmd_version,
 	      struct bip32_key_version bip32_key_version);
 
 struct hsmd_client *hsmd_client_new_main(const tal_t *ctx, u64 capabilities,
@@ -102,4 +102,12 @@ extern bool dev_fail_preapprove;
 extern bool dev_no_preapprove_check;
 /* If they specify --dev-warn-on-overgrind it ends up in here. */
 extern bool dev_warn_on_overgrind;
+
+/* Forward declaration for secretstuff access */
+u8 *get_secretstuff_bip32_seed(void);
+
+/* BIP86 key derivation functions */
+void derive_bip86_base_key(struct ext_key *bip86_base);
+void bip86_key(struct privkey *privkey, struct pubkey *pubkey, u32 index);
+
 #endif /* LIGHTNING_HSMD_LIBHSMD_H */

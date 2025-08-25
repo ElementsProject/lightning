@@ -124,31 +124,9 @@ static bool our_addresses_add_bip86_for_index(struct wallet *w, u32 i)
 	struct pubkey pubkey;
 	const u8 *scriptpubkey;
 
-	/* Use local BIP86 derivation if we have the base key */
-	if (w->ld->bip86_base) {
-		bip86_pubkey(w->ld, &pubkey, i);
-		
-		/* Create P2TR scriptpubkey from the BIP86 public key */
-		scriptpubkey = scriptpubkey_p2tr(tmpctx, &pubkey);
-		our_addresses_add(w->our_addresses,
-				  i,
-				  take(scriptpubkey),
-				  tal_bytelen(scriptpubkey),
-				  ADDR_P2TR_MNEMONIC);
-		return true;
-	}
-
-	/* Fallback to HSM calls if no base key available */
-	const u8 *msg;
-
-	/* Request BIP86 key derivation from HSM */
-	msg = towire_hsmd_derive_bip86_key(NULL, i, false);
-	msg = hsm_sync_req(tmpctx, w->ld, take(msg));
+	/* Use BIP86 derivation from the base key */
+	bip86_pubkey(w->ld, &pubkey, i);
 	
-	if (!fromwire_hsmd_derive_bip86_key_reply(msg, &pubkey)) {
-		return false;
-	}
-
 	/* Create P2TR scriptpubkey from the BIP86 public key */
 	scriptpubkey = scriptpubkey_p2tr(tmpctx, &pubkey);
 	our_addresses_add(w->our_addresses,
@@ -3170,8 +3148,10 @@ static void got_utxo(struct wallet *w,
 		utxo->utxotype = UTXO_P2WPKH;
 		goto type_ok;
 	case ADDR_P2TR:
-	case ADDR_P2TR_MNEMONIC:
 		utxo->utxotype = UTXO_P2TR;
+		goto type_ok;
+	case ADDR_P2TR_MNEMONIC:
+		utxo->utxotype = UTXO_P2TR_BIP86;
 		goto type_ok;
 	case ADDR_ALL:
 		break;

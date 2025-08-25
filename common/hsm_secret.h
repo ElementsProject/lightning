@@ -14,6 +14,7 @@
 #define ENCRYPTED_HSM_SECRET_LEN (HS_HEADER_LEN + HS_CIPHERTEXT_LEN)
 #define PASSPHRASE_HASH_LEN 32
 #define HSM_SECRET_PLAIN_SIZE 32
+#define HSM_SECRET_MNEMONIC_SIZE 64
 
 enum hsm_secret_type {
 	HSM_SECRET_PLAIN = 0,           /* Legacy 32-byte format */
@@ -40,8 +41,8 @@ enum hsm_secret_error {
  * Represents the content of the hsm_secret file, either a raw seed or a mnemonic.
  */
 struct hsm_secret {
-	struct secret secret;      /* 32-byte secret (legacy compatibility) */
-	u8 *bip32_seed;           /* 64-byte BIP32 seed (NULL for legacy) */
+	u8 *secret_data;          /* Variable length: 32 bytes (legacy) or 64 bytes (mnemonic) */
+	size_t secret_len;        /* Length of secret_data: 32 or 64 bytes */
 	char *mnemonic;           /* NULL if not derived from mnemonic */
     enum hsm_secret_type type;
 };

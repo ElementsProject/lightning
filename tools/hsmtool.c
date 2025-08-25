@@ -156,7 +156,7 @@ static int decrypt_hsm(const char *hsm_secret_path)
 	if (fd < 0)
 		errx(EXITCODE_ERROR_HSM_FILE, "Could not open new hsm_secret");
 
-	if (!write_all(fd, &hsms->secret, sizeof(hsms->secret))) {
+	if (!write_all(fd, hsms->secret_data, hsms->secret_len)) {
 		unlink_noerr(hsm_secret_path);
 		close(fd);
 		rename("hsm_secret.backup", hsm_secret_path);
@@ -229,7 +229,9 @@ static int encrypt_hsm(const char *hsm_secret_path)
 	if (!encryption_key)
 		errx(ERROR_LIBSODIUM, "Could not derive encryption key");
 
-	if (!encrypt_legacy_hsm_secret(encryption_key, &hsms->secret, encrypted_hsm_secret))
+	struct secret legacy_secret;
+	memcpy(legacy_secret.data, hsms->secret_data, 32);
+	if (!encrypt_legacy_hsm_secret(encryption_key, &legacy_secret, encrypted_hsm_secret))
 		errx(ERROR_LIBSODIUM, "Could not encrypt the hsm_secret seed.");
 
 	/* Securely discard the encryption key */
@@ -291,7 +293,8 @@ static int make_codexsecret(const char *hsm_secret_path, const char *id)
 	char *bip93;
 	const char *err;
 	struct hsm_secret *hsms = load_hsm_secret(tmpctx, hsm_secret_path);
-	hsm_secret = hsms->secret;
+	/* Extract first 32 bytes for legacy compatibility */
+	memcpy(hsm_secret.data, hsms->secret_data, 32);
 
 	err = codex32_secret_encode(tmpctx, "cl", id, 0, hsm_secret.data, 32, &bip93);
 	if (err)
@@ -330,7 +333,8 @@ static int dump_commitments_infos(struct node_id *node_id, u64 channel_id,
 	struct secret hsm_secret, channel_seed, per_commitment_secret;
 	struct pubkey per_commitment_point;
 	struct hsm_secret *hsms = load_hsm_secret(tmpctx, hsm_secret_path);
-	hsm_secret = hsms->secret;
+	/* Extract first 32 bytes for legacy compatibility */
+	memcpy(hsm_secret.data, hsms->secret_data, 32);
 	get_channel_seed(&channel_seed, node_id, channel_id, &hsm_secret);
 
 	derive_shaseed(&channel_seed, &shaseed);
@@ -368,7 +372,7 @@ static int guess_to_remote(const char *address, struct node_id *node_id,
 		errx(ERROR_USAGE, "Wrong bech32 address");
 
 	struct hsm_secret *hsms = load_hsm_secret(tmpctx, hsm_secret_path);
-	hsm_secret = hsms->secret;
+	memcpy(hsm_secret.data, hsms->secret_data, 32);
 
 	for (u64 dbid = 1; dbid < tries ; dbid++) {
 		get_channel_seed(&channel_seed, node_id, dbid, &hsm_secret);
@@ -464,7 +468,8 @@ static int dumponchaindescriptors(const char *hsm_secret_path,
 	char *enc_xkey, *descriptor;
 	struct descriptor_checksum checksum;
 	struct hsm_secret *hsms = load_hsm_secret(tmpctx, hsm_secret_path);
-	hsm_secret = hsms->secret;
+	/* Extract first 32 bytes for legacy compatibility */
+	memcpy(hsm_secret.data, hsms->secret_data, 32);
 	
 	/* The root seed is derived from hsm_secret using hkdf.. */
 	do {
@@ -524,7 +529,8 @@ static int check_hsm(const char *hsm_secret_path)
 
 	/* Load the hsm_secret (handles decryption automatically if needed) */
 	struct hsm_secret *hsms = load_hsm_secret(tmpctx, hsm_secret_path);
-	file_secret = hsms->secret;
+	/* Extract first 32 bytes for legacy compatibility */
+	memcpy(file_secret.data, hsms->secret_data, 32);
 
 	/* Ask user for their backup mnemonic passphrase */
 	printf("Warning: remember that different passphrases yield different "
@@ -564,7 +570,8 @@ static int make_rune(const char *hsm_secret_path)
 	struct secret hsm_secret, derived_secret, rune_secret;
 	struct rune *master_rune, *rune;
 	struct hsm_secret *hsms = load_hsm_secret(tmpctx, hsm_secret_path);
-	hsm_secret = hsms->secret;
+	/* Extract first 32 bytes for legacy compatibility */
+	memcpy(hsm_secret.data, hsms->secret_data, 32);
 
 	/* HSM derives a root secret for `makesecret` */
 	hkdf_sha256(&derived_secret, sizeof(struct secret), NULL, 0,
@@ -592,7 +599,8 @@ static int get_node_id(const char *hsm_secret_path)
 	struct privkey node_privkey;
 	struct pubkey node_id;
 	struct hsm_secret *hsms = load_hsm_secret(tmpctx, hsm_secret_path);
-	hsm_secret = hsms->secret;
+	/* Extract first 32 bytes for legacy compatibility */
+	memcpy(hsm_secret.data, hsms->secret_data, 32);
 
 	/*~ So, there is apparently a 1 in 2^127 chance that a random value is
 	 * not a valid private key, so this never actually loops. */

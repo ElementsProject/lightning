@@ -372,7 +372,7 @@ u8 *towire_hsmd_get_output_scriptpubkey(const tal_t *ctx UNNEEDED, u64 channel_i
 u8 *towire_hsmd_derive_bip86_key(const tal_t *ctx UNNEEDED, u32 index UNNEEDED, bool is_change UNNEEDED)
 { fprintf(stderr, "towire_hsmd_derive_bip86_key called!\n"); abort(); }
 /* Generated stub for fromwire_hsmd_derive_bip86_key_reply */
-bool fromwire_hsmd_derive_bip86_key_reply(const void *p UNNEEDED, struct pubkey *pubkey UNNEEDED)
+bool fromwire_hsmd_derive_bip86_key_reply(const void *p UNNEEDED, struct ext_key *bip86_base UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_derive_bip86_key_reply called!\n"); abort(); }
 /* Generated stub for hsm_sync_req */
 const u8 *hsm_sync_req(const tal_t *ctx UNNEEDED, struct lightningd *ld UNNEEDED, const u8 *msg UNNEEDED)

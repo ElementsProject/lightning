@@ -201,7 +201,7 @@ msgtype,hsmd_derive_bip86_key,54
 msgdata,hsmd_derive_bip86_key,index,u32,
 msgdata,hsmd_derive_bip86_key,is_change,bool,
 msgtype,hsmd_derive_bip86_key_reply,154
-msgdata,hsmd_derive_bip86_key_reply,pubkey,pubkey,
+msgdata,hsmd_derive_bip86_key_reply,bip86_base,ext_key,
 
 # Give me ECDH(node-id-secret,point)
 msgtype,hsmd_ecdh_req,1

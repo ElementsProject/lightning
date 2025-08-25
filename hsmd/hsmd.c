@@ -18,6 +18,7 @@
 #include <common/hsm_secret.h>
 #include <common/memleak.h>
 #include <common/status.h>
+#include <hsmd/libhsmd.h>
 #include <common/status_wiregen.h>
 #include <common/subdaemon.h>
 #include <errno.h>
@@ -40,7 +41,7 @@
 #define REQ_FD 3
 
 /* Temporary storage for the secret until we pass it to `hsmd_init` */
-struct hsm_secret hsm_secret = { .bip32_seed = NULL, .mnemonic = NULL };
+struct hsm_secret hsm_secret = { .secret_data = NULL, .secret_len = 0, .mnemonic = NULL, .type = HSM_SECRET_INVALID };
 
 /*~ We keep track of clients, but there's not much to keep. */
 struct client {
@@ -369,11 +370,9 @@ static void create_hsm(int fd, const char *passphrase)
 	}
 	status_debug("HSM: Derived BIP32 seed from mnemonic");
 	
-	/* Store the full 64-byte BIP32 seed for BIP86 derivation */
-	hsm_secret.bip32_seed = tal_dup_arr(tmpctx, u8, bip32_seed, bip32_seed_len, 0);
-	
-	/* Also store first 32 bytes for legacy compatibility */
-	memcpy(&hsm_secret.secret, bip32_seed, sizeof(hsm_secret.secret));
+	/* Store the full BIP32 seed */
+	hsm_secret.secret_data = tal_dup_arr(tmpctx, u8, bip32_seed, bip32_seed_len, 0);
+	hsm_secret.secret_len = bip32_seed_len;
 	
 	/* Set the type based on whether passphrase was used */
 	hsm_secret.type = passphrase ? HSM_SECRET_MNEMONIC_WITH_PASS : HSM_SECRET_MNEMONIC_NO_PASS;
@@ -478,8 +477,19 @@ static void load_hsm(const char *passphrase)
 			                        "Failed to load hsm_secret: %s", hsm_secret_error_str(err));
 	}
 
-	/* Copy the extracted secret to our global hsm_secret */
-	hsm_secret = *hsms;
+	/* Deep copy the extracted secret to our global hsm_secret */
+	hsm_secret = *hsms;  /* Copy the basic fields */
+	
+	/* Deep copy the secret data if it exists */
+	if (hsms->secret_data) {
+		hsm_secret.secret_data = tal_dup_arr(NULL, u8, hsms->secret_data, hsms->secret_len, 0);
+		hsm_secret.secret_len = hsms->secret_len;
+	}
+	
+	/* Deep copy the mnemonic if it exists */
+	if (hsms->mnemonic) {
+		hsm_secret.mnemonic = tal_strdup(NULL, hsms->mnemonic);
+	}
 }
 
 /*~ We have a pre-init call in developer mode, to set dev flags */
@@ -558,7 +568,9 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 		hsm_passphrase = (const char *)tlvs->hsm_passphrase;
 
 	/*~ Don't swap this. */
-	sodium_mlock(hsm_secret.secret.data, sizeof(hsm_secret.secret.data));
+	if (hsm_secret.secret_data && hsm_secret.secret_len > 0) {
+		sodium_mlock(hsm_secret.secret_data, hsm_secret.secret_len);
+	}
 
 	if (!developer) {
 		assert(!dev_force_privkey);
@@ -578,7 +590,7 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 
 	/* This was tallocated off NULL, and memleak complains if we don't free it */
 	tal_free(tlvs);
-	return req_reply(conn, c, hsmd_init(hsm_secret.secret, hsmd_mutual_version,
+	return req_reply(conn, c, hsmd_init(hsm_secret.secret_data, hsm_secret.secret_len, hsmd_mutual_version,
 					    bip32_key_version));
 }
 
@@ -662,6 +674,11 @@ static struct io_plan *handle_memleak(struct io_conn *conn,
 
 	memleak_ptr(memtable, dev_force_privkey);
 	memleak_ptr(memtable, dev_force_bip32_seed);
+	
+	/* Question for Rusty/ Reviewer: Is this a suss pattern? */ 
+	memleak_ptr(memtable, hsm_secret.secret_data);
+	memleak_ptr(memtable, hsm_secret.mnemonic);
+	memleak_ptr(memtable, get_secretstuff_bip32_seed());
 
 	found_leak = dump_memleak(memtable, memleak_status_broken, NULL);
 	reply = towire_hsmd_dev_memleak_reply(NULL, found_leak);
@@ -706,46 +723,17 @@ void hsmd_status_failed(enum status_failreason reason, const char *fmt, ...)
 	status_send_fatal(take(towire_status_fail(NULL, reason, str)));
 }
 
-
-/* Helper function to derive the BIP86 base key (m/86'/0'/0') */
-static void derive_bip86_base_key(struct ext_key *bip86_base)
-{
-	/* Check if we have the full BIP32 seed available */
-	if (!hsm_secret.bip32_seed) {
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "BIP86 derivation requires full BIP32 seed (not available in legacy format)");
-	}
-
-	/* First create the master key from the seed */
-	struct ext_key master_key;
-	if (bip32_key_from_seed(hsm_secret.bip32_seed, 64, BIP32_VER_MAIN_PRIVATE, 0, &master_key) != WALLY_OK) {
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Failed to create master key from BIP32 seed");
-	}
-
-	/* Set up the BIP86 base path: m/86'/0'/0' */
-	u32 base_path[3];
-	base_path[0] = 86 | 0x80000000;  /* 86' */
-	base_path[1] = 0x80000000;       /* 0' */
-	base_path[2] = 0x80000000;       /* 0' */
-
-	/* Derive the BIP86 base key */
-	if (bip32_key_from_parent_path(&master_key, base_path, 3, BIP32_FLAG_KEY_PRIVATE, bip86_base) != WALLY_OK) {
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Failed to derive BIP86 base key");
-	}
-}
-
 /* Handle BIP86 key derivation request */
 static struct io_plan *handle_derive_bip86_key(struct io_conn *conn,
 					       struct client *c,
 					       const u8 *msg_in)
 {
 	u8 *reply;
-	struct pubkey pubkey;
+	u32 index;
+	bool is_change;
 
-	/* Validate the incoming message format */
-	if (!fromwire_hsmd_derive_bip86_key(msg_in, NULL, NULL))
+	/* Extract parameters from the wire message */
+	if (!fromwire_hsmd_derive_bip86_key(msg_in, &index, &is_change))
 		return bad_req(conn, c, msg_in);
 
 	/* Check if we have a mnemonic-based HSM secret */
@@ -755,55 +743,13 @@ static struct io_plan *handle_derive_bip86_key(struct io_conn *conn,
 				   "BIP86 derivation requires mnemonic-based HSM secret");
 	}
 
-	/* Derive the BIP86 base key using the helper function */
+	/* Derive only the BIP86 base key (m/86'/0'/0') */
 	struct ext_key bip86_base;
 	derive_bip86_base_key(&bip86_base);
 
-	/* Return the BIP86 base key as a pubkey */
-	if (!secp256k1_ec_pubkey_parse(secp256k1_ctx, &pubkey.pubkey,
-				       bip86_base.pub_key, sizeof(bip86_base.pub_key))) {
-		return bad_req_fmt(conn, c, msg_in,
-				   "Failed to parse BIP86 base pubkey");
-	}
-
-	reply = towire_hsmd_derive_bip86_key_reply(NULL, &pubkey);
+	/* Return the full BIP86 base extended key */
+	reply = towire_hsmd_derive_bip86_key_reply(NULL, &bip86_base);
 	return req_reply(conn, c, take(reply));
-}
-
-/*~ Get the BIP86 keys for this given index: if privkey is NULL, we
- * don't fill it in. This derives the full path: m/86'/0'/0'/0/index */
-static void bip86_key(struct privkey *privkey, struct pubkey *pubkey,
-		      u32 index)
-{
-	struct privkey unused_priv;
-
-	if (privkey == NULL)
-		privkey = &unused_priv;
-
-	if (index >= BIP32_INITIAL_HARDENED_CHILD)
-		status_failed(STATUS_FAIL_MASTER_IO, "Index %u too great", index);
-
-	/* Derive the BIP86 base key using the helper function */
-	struct ext_key bip86_base;
-	derive_bip86_base_key(&bip86_base);
-
-	/* Now derive the specific index: m/86'/0'/0'/0/index */
-	u32 final_path[2];
-	final_path[0] = 0;  /* change (0 for receive) */
-	final_path[1] = index;  /* address_index */
-
-	struct ext_key final_key;
-	if (bip32_key_from_parent_path(&bip86_base, final_path, 2, BIP32_FLAG_KEY_PRIVATE, &final_key) != WALLY_OK) {
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "BIP86 derivation of index %u failed", index);
-	}
-
-	/* Convert to our format */
-	memcpy(privkey->secret.data, final_key.priv_key+1, 32);
-	if (!secp256k1_ec_pubkey_create(secp256k1_ctx, &pubkey->pubkey,
-					privkey->secret.data))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "BIP86 pubkey %u create failed", index);
 }
 
 /* Handle BIP86 pubkey check request */

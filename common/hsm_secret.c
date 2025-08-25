@@ -189,7 +189,8 @@ static struct hsm_secret *extract_plain_secret(const tal_t *ctx,
 	
 	hsms->type = HSM_SECRET_PLAIN;
 	hsms->mnemonic = NULL;
-	memcpy(&hsms->secret, hsm_secret, sizeof(hsms->secret));
+	hsms->secret_len = HSM_SECRET_PLAIN_SIZE;
+	hsms->secret_data = tal_dup_arr(hsms, u8, hsm_secret, HSM_SECRET_PLAIN_SIZE, 0);
 	
 	*err = HSM_SECRET_OK;
 	return hsms;
@@ -215,21 +216,27 @@ static struct hsm_secret *extract_encrypted_secret(const tal_t *ctx,
 		return tal_free(hsms);
 	}
 	
-	/* Clear secret data first in case of partial decryption */
-	memset(&hsms->secret, 0, sizeof(hsms->secret));
+	/* Prepare for legacy encrypted secret (decrypted to 32 bytes) */
+	hsms->secret_len = HSM_SECRET_PLAIN_SIZE;
+	hsms->secret_data = tal_arr(hsms, u8, HSM_SECRET_PLAIN_SIZE);
+	memset(hsms->secret_data, 0, HSM_SECRET_PLAIN_SIZE);
 	
 	/* Attempt decryption */
-	decrypt_success = decrypt_hsm_secret(encryption_key, hsm_secret, &hsms->secret);
+	struct secret temp_secret;
+	decrypt_success = decrypt_hsm_secret(encryption_key, hsm_secret, &temp_secret);
 	
 	/* Clear encryption key immediately after use */
 	destroy_secret(encryption_key);
 	
 	if (!decrypt_success) {
 		/* Clear any partial decryption data */
-		memset(&hsms->secret, 0, sizeof(hsms->secret));
+		memset(hsms->secret_data, 0, HSM_SECRET_PLAIN_SIZE);
 		*err = HSM_SECRET_ERR_WRONG_PASSPHRASE;
 		return tal_free(hsms);
 	}
+	
+	/* Copy decrypted secret */
+	memcpy(hsms->secret_data, temp_secret.data, HSM_SECRET_PLAIN_SIZE);
 	
 	hsms->type = HSM_SECRET_ENCRYPTED;
 	hsms->mnemonic = NULL;
@@ -298,11 +305,9 @@ static struct hsm_secret *extract_mnemonic_secret(const tal_t *ctx,
 		return tal_free(hsms);
 	}
 	
-	/* Store the full 64-byte BIP32 seed for BIP86 derivation */
-	hsms->bip32_seed = tal_dup_arr(hsms, u8, bip32_seed, bip32_seed_len, 0);
-	
-	/* We also keep the first 32 bytes for legacy compatibility */
-	memcpy(hsms->secret.data, bip32_seed, sizeof(hsms->secret.data));
+	/* Store the full BIP32 seed for mnemonic-based secrets */
+	hsms->secret_len = HSM_SECRET_MNEMONIC_SIZE;  /* Should be 64 bytes */
+	hsms->secret_data = tal_dup_arr(hsms, u8, bip32_seed, HSM_SECRET_MNEMONIC_SIZE, 0);
 	
 	*err = HSM_SECRET_OK;
 	return hsms;

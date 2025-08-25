@@ -128,18 +128,8 @@ bool WARN_UNUSED_RESULT newaddr_inner(struct command *cmd, struct pubkey *pubkey
 		keyidx = wallet_get_new_bip86_index(cmd->ld);
 		if (keyidx < 0) return false;
 		
-		/* Use local BIP86 derivation if we have the base key */
-		if (cmd->ld->bip86_base) {
-			bip86_pubkey(cmd->ld, pubkey, keyidx);
-		} else {
-			/* Fallback to HSM call if no base key available */
-			const u8 *msg = towire_hsmd_derive_bip86_key(NULL, keyidx, false);
-			msg = hsm_sync_req(tmpctx, cmd->ld, take(msg));
-			
-			if (!fromwire_hsmd_derive_bip86_key_reply(msg, pubkey)) {
-				return false;
-			}
-		}
+		/* Use HSM for BIP86 derivation */
+		bip86_pubkey(cmd->ld, pubkey, keyidx);
 		
 		u8 *script = scriptpubkey_p2tr(tmpctx, pubkey);
 		txfilter_add_scriptpubkey(cmd->ld->owned_txfilter, script);
@@ -264,7 +254,15 @@ static struct command_result *json_listaddresses(struct command *cmd,
 		if (listaddrtypes[i].keyidx == BIP32_INITIAL_HARDENED_CHILD){
 			break;
 		}
-		bip32_pubkey(cmd->ld, &pubkey, listaddrtypes[i].keyidx);
+		/* Use appropriate derivation based on address type */
+		if (listaddrtypes[i].addrtype == ADDR_P2TR_MNEMONIC) {
+			/* For BIP86 addresses, use BIP86 derivation */
+			bip86_pubkey(cmd->ld, &pubkey, listaddrtypes[i].keyidx);
+		} else {
+			/* For regular addresses, use standard BIP32 derivation */
+			bip32_pubkey(cmd->ld, &pubkey, listaddrtypes[i].keyidx);
+		}
+		
 		char *out_p2wpkh = "";
 		char *out_p2tr = "";
 		if (listaddrtypes[i].addrtype == ADDR_BECH32 || listaddrtypes[i].addrtype == ADDR_ALL) {
@@ -277,7 +275,7 @@ static struct command_result *json_listaddresses(struct command *cmd,
 				abort();
 			}
 		}
-		if (listaddrtypes[i].addrtype == ADDR_P2TR || listaddrtypes[i].addrtype == ADDR_ALL) {
+		if (listaddrtypes[i].addrtype == ADDR_P2TR || listaddrtypes[i].addrtype == ADDR_ALL || listaddrtypes[i].addrtype == ADDR_P2TR_MNEMONIC) {
 			out_p2tr = encode_pubkey_to_addr(cmd,
 								&pubkey,
 								ADDR_P2TR,
