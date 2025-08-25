@@ -1239,7 +1239,6 @@ def decode_offer_recurrence2py(m):
         "basetime": m.basetime,  # PrimitiveField in generate_composite
         "limit": m.limit,  # PrimitiveField in generate_composite
         "period": m.period,  # PrimitiveField in generate_composite
-        "start_any_period": m.start_any_period,  # PrimitiveField in generate_composite
         "time_unit": m.time_unit,  # PrimitiveField in generate_composite
         "time_unit_name": m.time_unit_name,  # PrimitiveField in generate_composite
     })
