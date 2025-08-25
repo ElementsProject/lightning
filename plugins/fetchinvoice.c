@@ -497,6 +497,8 @@ struct establishing_paths {
 	int which_blinded_path;
 	struct sent *sent;
 	struct tlv_onionmsg_tlv *final_tlv;
+	/* Do we want a reply? */
+	bool want_reply;
 	struct command_result *(*done)(struct command *cmd,
 				       const char *method UNUSED,
 				       const char *buf UNUSED,
@@ -526,12 +528,14 @@ static struct command_result *establish_path_done(struct command *cmd,
 	assert(tal_count(path) > 0);
 
 	/* Add reply path to final_tlv (it already contains invoice_request/invoice) */
-	final_tlv->reply_path = make_reply_path(final_tlv, cmd->plugin, sent, path, sent->reply_secret);
+	if (epaths->want_reply) {
+		final_tlv->reply_path = make_reply_path(final_tlv, cmd->plugin, sent, path, sent->reply_secret);
 
-	/* Replace first hop with scidd if they said to */
-	if (sent->dev_path_use_scidd)
-		sciddir_or_pubkey_from_scidd(&final_tlv->reply_path->first_node_id,
-					     sent->dev_path_use_scidd);
+		/* Replace first hop with scidd if they said to */
+		if (sent->dev_path_use_scidd)
+			sciddir_or_pubkey_from_scidd(&final_tlv->reply_path->first_node_id,
+						     sent->dev_path_use_scidd);
+	}
 
 	/* Put in list so we recognize reply onion message.  Note: because
 	 * onion message notification comes from a different fd than the one
@@ -608,6 +612,7 @@ static struct command_result *try_establish(struct command *cmd,
 
 static struct command_result *send_message(struct command *cmd,
 					   struct sent *sent,
+					   bool want_reply,
 					   struct tlv_onionmsg_tlv *final_tlv STEALS,
 					   struct command_result *(*done)
 					   (struct command *cmd,
@@ -622,6 +627,7 @@ static struct command_result *send_message(struct command *cmd,
 	epaths->sent = sent;
 	epaths->final_tlv = tal_steal(epaths, final_tlv);
 	epaths->done = done;
+	epaths->want_reply = want_reply;
 
 	return try_establish(cmd, epaths);
 }
@@ -762,7 +768,7 @@ static struct command_result *invreq_done(struct command *cmd,
 	payload->invoice_request = tal_arr(payload, u8, 0);
 	towire_tlv_invoice_request(&payload->invoice_request, sent->invreq);
 
-	return send_message(cmd, sent, payload, sendonionmsg_done);
+	return send_message(cmd, sent, true, payload, sendonionmsg_done);
 }
 
 static struct command_result *param_dev_scidd(struct command *cmd, const char *name,
@@ -1222,7 +1228,7 @@ static struct command_result *createinvoice_done(struct command *cmd,
 	payload->invoice = tal_arr(payload, u8, 0);
 	towire_tlv_invoice(&payload->invoice, sent->inv);
 
-	return send_message(cmd, sent, payload, prepare_inv_timeout);
+	return send_message(cmd, sent, true, payload, prepare_inv_timeout);
 }
 
 static struct command_result *sign_invoice(struct command *cmd,
@@ -1515,5 +1521,5 @@ struct command_result *json_dev_rawrequest(struct command *cmd,
 	payload->invoice_request = tal_arr(payload, u8, 0);
 	towire_tlv_invoice_request(&payload->invoice_request, sent->invreq);
 
-	return send_message(cmd, sent, payload, sendonionmsg_done);
+	return send_message(cmd, sent, true, payload, sendonionmsg_done);
 }
