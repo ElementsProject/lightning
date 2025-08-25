@@ -3,6 +3,7 @@
 #include "config.h"
 #include <bitcoin/privkey.h>
 #include <ccan/crypto/sha256/sha256.h>
+#include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 #include <sodium.h>
 #include <sys/types.h>
@@ -14,6 +15,7 @@
 #define ENCRYPTED_HSM_SECRET_LEN (HS_HEADER_LEN + HS_CIPHERTEXT_LEN)
 #define PASSPHRASE_HASH_LEN 32
 #define HSM_SECRET_PLAIN_SIZE 32
+#define HSM_SECRET_MNEMONIC_SIZE 64
 
 enum hsm_secret_type {
 	HSM_SECRET_PLAIN = 0,           /* Legacy 32-byte format */
@@ -40,10 +42,28 @@ enum hsm_secret_error {
  * Represents the content of the hsm_secret file, either a raw seed or a mnemonic.
  */
 struct hsm_secret {
-	struct secret secret;
-	char *mnemonic; /* NULL if not derived from mnemonic */
-    enum hsm_secret_type type;
+	u8 *secret_data;          /* Variable length: 32 bytes (legacy) or 64 bytes (mnemonic) */
+	size_t secret_len;        /* Length of secret_data: 32 or 64 bytes */
+	struct secret secret;     /* Legacy 32-byte field for compatibility */
+	char *mnemonic;           /* NULL if not derived from mnemonic */
+	enum hsm_secret_type type;
 };
+
+/**
+ * Get the secret bytes from an hsm_secret.
+ * Returns secret_data if available, otherwise falls back to legacy secret.data.
+ */
+static inline const u8 *hsm_secret_bytes(const struct hsm_secret *hsm) {
+	return hsm->secret_data;
+}
+
+/**
+ * Get the secret size from an hsm_secret.
+ * Returns secret_len if secret_data is available, otherwise 32 bytes for legacy.
+ */
+static inline size_t hsm_secret_size(const struct hsm_secret *hsm) {
+	return hsm->secret_len;
+}
 
 /**
  * Checks whether the hsm_secret data requires a passphrase to decrypt.
