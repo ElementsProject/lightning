@@ -723,8 +723,8 @@ static struct command_result *invreq_done(struct command *cmd,
 
 		/* BOLT-recurrence #12:
 		 * - if `offer_recurrence_limit` is present:
-		 *   - MUST NOT send an `invoice_request` for a period greater than
-		 *     `max_period`
+		 *   - MUST NOT send an `invoice_request` for a period index greater than
+		 *     `max_period_index`
 		 */
 		if (sent->invreq->offer_recurrence_limit
 		    && period_idx > *sent->invreq->offer_recurrence_limit)
