@@ -50,19 +50,13 @@ struct hsm_secret {
  * Get the secret bytes from an hsm_secret.
  * Returns secret_data if available, otherwise falls back to legacy secret.data.
  */
-static inline const u8 *hsm_secret_bytes(const struct hsm_secret *hsm) {
-	return hsm->secret_data;
-}
+const u8 *hsm_secret_bytes(const struct hsm_secret *hsm);
 
 /**
  * Get the secret size from an hsm_secret.
  * Returns tal_bytelen of secret_data if available, otherwise 32 bytes for legacy.
  */
-static inline size_t hsm_secret_size(const struct hsm_secret *hsm) {
-	if (hsm->secret_data)
-		return tal_bytelen(hsm->secret_data);
-	return sizeof(hsm->secret);
-}
+size_t hsm_secret_size(const struct hsm_secret *hsm);
 
 /**
  * Checks whether the hsm_secret data requires a passphrase to decrypt.

@@ -521,3 +521,15 @@ u8 *grab_file_contents(const tal_t *ctx, const char *filename, size_t *len)
 	
 	return contents;
 }
+
+const u8 *hsm_secret_bytes(const struct hsm_secret *hsm) {
+	if (hsm->secret_data)
+		return hsm->secret_data;
+	return hsm->secret.data;
+}
+
+size_t hsm_secret_size(const struct hsm_secret *hsm) {
+	if (hsm->secret_data)
+		return tal_bytelen(hsm->secret_data);
+	return sizeof(hsm->secret);
+}
