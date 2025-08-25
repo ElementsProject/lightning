@@ -345,6 +345,14 @@ endif
 	fi
 
 RUST_PROFILE ?= debug
+
+# Cargo places cross compiled packages in a different directory, using the target triple
+ifeq ($(TARGET),)
+RUST_TARGET_DIR = target/$(RUST_PROFILE)
+else
+RUST_TARGET_DIR = target/$(TARGET)/$(RUST_PROFILE)
+endif
+
 ifneq ($(RUST_PROFILE),debug)
 CARGO_OPTS := --profile=$(RUST_PROFILE) --quiet
 else
