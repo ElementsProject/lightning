@@ -846,6 +846,41 @@ static u8 *recurrence_invreq_metadata(const tal_t *ctx,
 	return (u8 *)tal_dup(invreq, struct sha256, &tweak);
 }
 
+static struct command_result *param_bip353(struct command *cmd, const char *name,
+					   const char *buffer, const jsmntok_t *tok,
+					   struct bip_353_name **bip353)
+{
+	char *str, *at;
+
+	/* BOLT #12:
+	 *  - if it received the offer from which it constructed this
+	 *    `invoice_request` using BIP 353 resolution:
+	 *     - MUST include `invreq_bip_353_name` with,
+	 *       - `name` set to the post-₿, pre-@ part of the BIP 353 HRN,
+	 *       - `domain` set to the post-@ part of the BIP 353 HRN.
+	 */
+	str = json_strdup(tmpctx, buffer, tok);
+	if (!utf8_check(str, strlen(str)))
+		return command_fail_badparam(cmd, name, buffer, tok, "invalid UTF-8");
+
+	at = strchr(str, '@');
+	if (!at)
+		return command_fail_badparam(cmd, name, buffer, tok, "missing @");
+
+	/* Strip ₿ if present (0xE2 0x82 0xBF) */
+	if (strstarts(str, "₿"))
+		str += strlen("₿");
+
+	*bip353 = tal(cmd, struct bip_353_name);
+	/* Not nul-terminated! */
+	(*bip353)->name
+		= tal_dup_arr(*bip353, u8, (const u8 *)str, at - str, 0);
+	(*bip353)->domain
+		= tal_dup_arr(*bip353, u8,  (const u8 *)at + 1, strlen(at + 1), 0);
+
+	return NULL;
+}
+
 /* Fetches an invoice for this offer, and makes sure it corresponds. */
 struct command_result *json_fetchinvoice(struct command *cmd,
 					 const char *buffer,
@@ -857,7 +892,7 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 	struct out_req *req;
 	struct tlv_invoice_request *invreq;
 	struct sent *sent = tal(cmd, struct sent);
-	const char *bip353;
+	struct bip_353_name *bip353;
 	u32 *timeout;
 	u64 *quantity;
 	u32 *recurrence_counter, *recurrence_start;
@@ -872,7 +907,7 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 			 p_opt_def("timeout", param_number, &timeout, 60),
 			 p_opt("payer_note", param_string, &payer_note),
 			 p_opt("payer_metadata", param_bin_from_hex, &payer_metadata),
-			 p_opt("bip353", param_string, &bip353),
+			 p_opt("bip353", param_bip353, &bip353),
 			 p_opt("dev_path_use_scidd", param_dev_scidd, &sent->dev_path_use_scidd),
 			 p_opt("dev_reply_path", param_dev_reply_path, &sent->dev_reply_path),
 		   NULL))
@@ -911,6 +946,7 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 	invreq->invreq_recurrence_counter = tal_steal(invreq, recurrence_counter);
 	invreq->invreq_recurrence_start = tal_steal(invreq, recurrence_start);
 	invreq->invreq_quantity = tal_steal(invreq, quantity);
+	invreq->invreq_bip_353_name = tal_steal(invreq, bip353);
 
 	/* BOLT-recurrence #12:
 	 * - if `offer_amount` is not present:
@@ -1037,37 +1073,6 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 			randombytes_buf(invreq->invreq_metadata,
 					tal_bytelen(invreq->invreq_metadata));
 		}
-	}
-
-	/* BOLT #12:
-	 *  - if it received the offer from which it constructed this
-	 *    `invoice_request` using BIP 353 resolution:
-	 *     - MUST include `invreq_bip_353_name` with,
-	 *       - `name` set to the post-₿, pre-@ part of the BIP 353 HRN,
-	 *       - `domain` set to the post-@ part of the BIP 353 HRN.
-	 */
-	if (bip353) {
-		char *at;
-		if (!utf8_check(bip353, strlen(bip353)))
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "invalid UTF-8 for bip353");
-		at = strchr(bip353, '@');
-		if (!at)
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "missing @ for bip353");
-
-		/* Strip ₿ if present (0xE2 0x82 0xBF) */
-		if (strstarts(bip353, "₿"))
-			bip353 += strlen("₿");
-		invreq->invreq_bip_353_name
-			= tal(invreq, struct bip_353_name);
-		/* Not nul-terminated! */
-		invreq->invreq_bip_353_name->name
-			= tal_dup_arr(invreq->invreq_bip_353_name, u8,
-				      (const u8 *)bip353, at - bip353, 0);
-		invreq->invreq_bip_353_name->domain
-			= tal_dup_arr(invreq->invreq_bip_353_name, u8,
-				      (const u8 *)at + 1, strlen(at + 1), 0);
 	}
 
 	/* We derive transient payer_id from invreq_metadata */
