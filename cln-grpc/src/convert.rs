@@ -5431,6 +5431,8 @@ impl From<requests::OfferRequest> for pb::OfferRequest {
             description: c.description, // Rule #2 for type string?
             issuer: c.issuer, // Rule #2 for type string?
             label: c.label, // Rule #2 for type string?
+            optional_recurrence: c.optional_recurrence, // Rule #2 for type boolean?
+            proportional_amount: c.proportional_amount, // Rule #2 for type boolean?
             quantity_max: c.quantity_max, // Rule #2 for type u64?
             recurrence: c.recurrence, // Rule #2 for type string?
             recurrence_base: c.recurrence_base, // Rule #2 for type string?
@@ -7124,6 +7126,8 @@ impl From<pb::OfferRequest> for requests::OfferRequest {
             description: c.description, // Rule #1 for type string?
             issuer: c.issuer, // Rule #1 for type string?
             label: c.label, // Rule #1 for type string?
+            optional_recurrence: c.optional_recurrence, // Rule #1 for type boolean?
+            proportional_amount: c.proportional_amount, // Rule #1 for type boolean?
             quantity_max: c.quantity_max, // Rule #1 for type u64?
             recurrence: c.recurrence, // Rule #1 for type string?
             recurrence_base: c.recurrence_base, // Rule #1 for type string?
