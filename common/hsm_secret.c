@@ -13,7 +13,7 @@
 #include <sys/stat.h>
 #include <termios.h>
 #include <unistd.h>
-#include <wally_bip39.h>                   
+#include <wally_bip39.h>
 
 /* HSM secret size constants */
 #define HSM_SECRET_PLAIN_SIZE 32
@@ -38,16 +38,16 @@ void destroy_secret(struct secret *secret)
 static bool validate_mnemonic(const char *mnemonic, enum hsm_secret_error *err)
 {
 	struct words *words;
-	
+
 	if (bip39_get_wordlist("en", &words) != WALLY_OK) {
 		abort();
 	}
-	
+
 	if (bip39_mnemonic_validate(words, mnemonic) != WALLY_OK) {
 		*err = HSM_SECRET_ERR_INVALID_MNEMONIC;
 		return false;
 	}
-	
+
 	return true;
 }
 
@@ -82,7 +82,7 @@ struct secret *get_encryption_key(const tal_t *ctx, const char *passphrase)
 }
 
 bool hsm_secret_needs_passphrase(const u8 *hsm_secret, size_t len)
-{	
+{
 	switch (detect_hsm_secret_type(hsm_secret, len)) {
 	case HSM_SECRET_ENCRYPTED:
 	case HSM_SECRET_MNEMONIC_WITH_PASS:
@@ -100,11 +100,11 @@ enum hsm_secret_type detect_hsm_secret_type(const u8 *hsm_secret, size_t len)
 	/* Check for invalid cases first and return early */
 	if (len < HSM_SECRET_PLAIN_SIZE)
 		return HSM_SECRET_INVALID;
-	
+
 	/* Legacy 32-byte plain format */
 	if (len == HSM_SECRET_PLAIN_SIZE)
 		return HSM_SECRET_PLAIN;
-	
+
 	/* Legacy 73-byte encrypted format */
 	if (len == ENCRYPTED_HSM_SECRET_LEN)
 		return HSM_SECRET_ENCRYPTED;
@@ -124,13 +124,13 @@ bool derive_seed_hash(const char *mnemonic, const char *passphrase, struct sha25
 		memset(seed_hash, 0, sizeof(*seed_hash));
 		return true;
 	}
-	
+
 	u8 bip32_seed[BIP39_SEED_LEN_512];
 	size_t bip32_seed_len;
-	
+
 	if (bip39_mnemonic_to_seed(mnemonic, passphrase, bip32_seed, sizeof(bip32_seed), &bip32_seed_len) != WALLY_OK)
 		return false;
-	
+
 	sha256(seed_hash, bip32_seed, sizeof(bip32_seed));
 	return true;
 }
@@ -184,23 +184,20 @@ const char *hsm_secret_error_str(enum hsm_secret_error err)
 	return "Unknown error";
 }
 
-static struct hsm_secret *extract_plain_secret(const tal_t *ctx, 
-					       const u8 *hsm_secret, 
-					       size_t len, 
+static struct hsm_secret *extract_plain_secret(const tal_t *ctx,
+					       const u8 *hsm_secret,
+					       size_t len,
 					       enum hsm_secret_error *err)
 {
 	struct hsm_secret *hsms = tal(ctx, struct hsm_secret);
-	
-	BUILD_ASSERT(len == sizeof(hsms->secret));
+
+	assert(len == HSM_SECRET_PLAIN_SIZE);
 	hsms->type = HSM_SECRET_PLAIN;
 	hsms->mnemonic = NULL;
-	
+
 	/* Allocate and populate secret_data (new field) */
 	hsms->secret_data = tal_dup_arr(hsms, u8, hsm_secret, HSM_SECRET_PLAIN_SIZE, 0);
-	
-	/* Also populate legacy secret field for compatibility */
-	memcpy(&hsms->secret, hsm_secret, sizeof(hsms->secret));
-	
+
 	*err = HSM_SECRET_OK;
 	return hsms;
 }
@@ -214,7 +211,7 @@ static struct hsm_secret *extract_encrypted_secret(const tal_t *ctx,
 	struct hsm_secret *hsms = tal(ctx, struct hsm_secret);
 	struct secret *encryption_key;
 	bool decrypt_success;
-	
+
 	if (!passphrase) {
 		*err = HSM_SECRET_ERR_PASSPHRASE_REQUIRED;
 		return tal_free(hsms);
@@ -224,29 +221,25 @@ static struct hsm_secret *extract_encrypted_secret(const tal_t *ctx,
 		*err = HSM_SECRET_ERR_WRONG_PASSPHRASE;
 		return tal_free(hsms);
 	}
-	
-	/* Clear secret data first in case of partial decryption */
-	memset(&hsms->secret, 0, sizeof(hsms->secret));
-	
+
 	/* Attempt decryption */
-	decrypt_success = decrypt_hsm_secret(encryption_key, hsm_secret, &hsms->secret);
-	
+	struct secret temp_secret;
+	decrypt_success = decrypt_hsm_secret(encryption_key, hsm_secret, &temp_secret);
+
 	/* Clear encryption key immediately after use */
 	destroy_secret(encryption_key);
-	
+
 	if (!decrypt_success) {
-		/* Clear any partial decryption data */
-		memset(&hsms->secret, 0, sizeof(hsms->secret));
 		*err = HSM_SECRET_ERR_WRONG_PASSPHRASE;
 		return tal_free(hsms);
 	}
-	
-	/* Allocate and populate secret_data (new field) */
-	hsms->secret_data = tal_dup_arr(hsms, u8, hsms->secret.data, HSM_SECRET_PLAIN_SIZE, 0);
-	
+
+	/* Duplicate decrypted secret data */
+	hsms->secret_data = tal_dup_arr(hsms, u8, temp_secret.data, HSM_SECRET_PLAIN_SIZE, 0);
+
 	hsms->type = HSM_SECRET_ENCRYPTED;
 	hsms->mnemonic = NULL;
-	
+
 	*err = HSM_SECRET_OK;
 	return hsms;
 }
@@ -261,23 +254,23 @@ static struct hsm_secret *extract_mnemonic_secret(const tal_t *ctx,
 	struct hsm_secret *hsms = tal(ctx, struct hsm_secret);
 	const u8 *mnemonic_start;
 	size_t mnemonic_len;
-	
+
 	assert(type == HSM_SECRET_MNEMONIC_NO_PASS || type == HSM_SECRET_MNEMONIC_WITH_PASS);
 	hsms->type = type;
-	
+
 	/* Extract mnemonic portion (skip first 32 bytes which are passphrase hash) */
 	mnemonic_start = hsm_secret + PASSPHRASE_HASH_LEN;
 
 	assert(len > PASSPHRASE_HASH_LEN);
 	mnemonic_len = len - PASSPHRASE_HASH_LEN;
-	
+
 	/* Validate passphrase if required */
 	if (type == HSM_SECRET_MNEMONIC_WITH_PASS) {
 		if (!passphrase) {
 			*err = HSM_SECRET_ERR_PASSPHRASE_REQUIRED;
 			return tal_free(hsms);
 		}
-		
+
 		/* Validate passphrase by comparing stored hash with computed hash */
 		struct sha256 stored_hash, computed_hash;
 		memcpy(&stored_hash, hsm_secret, sizeof(stored_hash));
@@ -295,30 +288,27 @@ static struct hsm_secret *extract_mnemonic_secret(const tal_t *ctx,
 			return tal_free(hsms);
 		}
 	}
-	
+
 	/* Copy and validate mnemonic */
 	hsms->mnemonic = tal_strndup(hsms, (const char *)mnemonic_start, mnemonic_len);
-	
+
 	/* Validate mnemonic */
 	if (!validate_mnemonic(hsms->mnemonic, err)) {
 		return tal_free(hsms);
 	}
-	
+
 	/* Derive the seed from the mnemonic */
 	u8 bip32_seed[BIP39_SEED_LEN_512];
 	size_t bip32_seed_len;
-	
+
 	if (bip39_mnemonic_to_seed(hsms->mnemonic, passphrase, bip32_seed, sizeof(bip32_seed), &bip32_seed_len) != WALLY_OK) {
 		*err = HSM_SECRET_ERR_SEED_DERIVATION_FAILED;
 		return tal_free(hsms);
 	}
-	
+
 	/* Allocate and populate secret_data with full 64-byte seed */
 	hsms->secret_data = tal_dup_arr(hsms, u8, bip32_seed, HSM_SECRET_MNEMONIC_SIZE, 0);
-	
-	/* Also populate legacy secret field with first 32 bytes for compatibility */
-	memcpy(hsms->secret.data, bip32_seed, sizeof(hsms->secret.data));
-	
+
 	*err = HSM_SECRET_OK;
 	return hsms;
 }
@@ -332,10 +322,10 @@ struct hsm_secret *extract_hsm_secret(const tal_t *ctx,
 {
 	tal_wally_start();
 	enum hsm_secret_type type = detect_hsm_secret_type(hsm_secret, len);
-	
+
 	/* Ensure we got a valid type from detection */
 	assert(type >= HSM_SECRET_PLAIN && type <= HSM_SECRET_INVALID);
-	
+
 	struct hsm_secret *result;
 	switch (type) {
 	case HSM_SECRET_PLAIN:
@@ -513,25 +503,13 @@ u8 *grab_file_contents(const tal_t *ctx, const char *filename, size_t *len)
 			*len = 0;
 		return NULL;
 	}
-	
+
 	/* grab_file adds a NUL terminator, so we resize to remove it */
 	size_t contents_len = tal_bytelen(contents) - 1;
 	if (len)
 		*len = contents_len;
-	
+
 	return contents;
-}
-
-const u8 *hsm_secret_bytes(const struct hsm_secret *hsm) {
-	if (hsm->secret_data)
-		return hsm->secret_data;
-	return hsm->secret.data;
-}
-
-size_t hsm_secret_size(const struct hsm_secret *hsm) {
-	if (hsm->secret_data)
-		return tal_bytelen(hsm->secret_data);
-	return sizeof(hsm->secret);
 }
 
 bool is_mnemonic_secret(size_t secret_len) {
