@@ -295,13 +295,9 @@ static struct command_result *onion_message_recv(struct command *cmd,
 	invreqtok = json_get_member(buf, om, "invoice_request");
 	if (invreqtok) {
 		const u8 *invreqbin = json_tok_bin_from_hex(tmpctx, buf, invreqtok);
-		if (reply_path)
-			return handle_invoice_request(cmd,
-						      invreqbin,
-						      reply_path, secret);
-		else
-			plugin_log(cmd->plugin, LOG_DBG,
-				   "invoice_request without reply_path");
+		return handle_invoice_request(cmd,
+					      invreqbin,
+					      reply_path, secret);
 	}
 
 	invtok = json_get_member(buf, om, "invoice");
