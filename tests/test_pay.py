@@ -4391,8 +4391,7 @@ def test_offer(node_factory, bitcoind):
               ['10weeks', 'days', 70],
               ['1month', 'months', 1],
               ['10months', 'months', 10],
-              ['1year', 'years', 1],
-              ['10years', 'years', 10]]:
+              ['120months', 'months', 120]]:
         ret = l1.rpc.call('offer', {
             'amount': '100000sat',
             'description': 'quantity_max test',
@@ -4402,7 +4401,7 @@ def test_offer(node_factory, bitcoind):
         offer = only_one(l1.rpc.call('listoffers', [ret['offer_id']])['offers'])
         output = subprocess.check_output([bolt12tool, 'decode',
                                           offer['bolt12']]).decode('UTF-8')
-        assert 'recurrence: every {} {}\n'.format(r[2], r[1]) in output
+        assert 'recurrence_compulsory: every {} {}\n'.format(r[2], r[1]) in output
 
     # Test limit
     ret = l1.rpc.call('offer', {'amount': '100000sat',
@@ -4412,28 +4411,10 @@ def test_offer(node_factory, bitcoind):
     offer = only_one(l1.rpc.call('listoffers', [ret['offer_id']])['offers'])
     output = subprocess.check_output([bolt12tool, 'decode',
                                       offer['bolt12']]).decode('UTF-8')
-    assert 'recurrence: every 600 seconds limit 5\n' in output
+    assert 'recurrence_compulsory: every 600 seconds limit 5\n' in output
 
     # Test base
     # (1456740000 == 10:00:00 (am) UTC on 29 February, 2016)
-
-    # Cannot use recurrence_start_any_period without recurrence_base
-    with pytest.raises(RpcError, match='Cannot set to false without specifying recurrence_base'):
-        l1.rpc.call('offer', {'amount': '100000sat',
-                              'description': 'quantity_max test',
-                              'recurrence': '10minutes',
-                              'recurrence_start_any_period': False})
-
-    ret = l1.rpc.call('offer', {'amount': '100000sat',
-                                'description': 'quantity_max test',
-                                'recurrence': '10minutes',
-                                'recurrence_base': 1456740000,
-                                'recurrence_start_any_period': False})
-    offer = only_one(l1.rpc.call('listoffers', [ret['offer_id']])['offers'])
-    output = subprocess.check_output([bolt12tool, 'decode',
-                                      offer['bolt12']]).decode('UTF-8')
-    assert 'recurrence: every 600 seconds start 1456740000' in output
-    assert '(can start any period)' not in output
 
     ret = l1.rpc.call('offer', {'amount': '100000sat',
                                 'description': 'quantity_max test',
@@ -4442,8 +4423,7 @@ def test_offer(node_factory, bitcoind):
     offer = only_one(l1.rpc.call('listoffers', [ret['offer_id']])['offers'])
     output = subprocess.check_output([bolt12tool, 'decode',
                                       offer['bolt12']]).decode('UTF-8')
-    assert 'recurrence: every 600 seconds start 1456740000' in output
-    assert '(can start any period)' in output
+    assert 'recurrence_compulsory: every 600 seconds start 1456740000' in output
 
     # Test paywindow
     ret = l1.rpc.call('offer', {'amount': '100000sat',
@@ -4453,24 +4433,28 @@ def test_offer(node_factory, bitcoind):
     offer = only_one(l1.rpc.call('listoffers', [ret['offer_id']])['offers'])
     output = subprocess.check_output([bolt12tool, 'decode',
                                       offer['bolt12']]).decode('UTF-8')
-    assert 'recurrence: every 600 seconds paywindow -10 to +20\n' in output
+    assert 'recurrence_compulsory: every 600 seconds paywindow -10 to +20\n' in output
 
     ret = l1.rpc.call('offer', {'amount': '100000sat',
                                 'description': 'quantity_max test',
                                 'recurrence': '10minutes',
-                                'recurrence_paywindow': '-10+600%'})
+                                'recurrence_base': 1456740000,
+                                'proportional_amount': True})
     offer = only_one(l1.rpc.call('listoffers', [ret['offer_id']])['offers'])
     output = subprocess.check_output([bolt12tool, 'decode',
                                       offer['bolt12']]).decode('UTF-8')
-    assert 'recurrence: every 600 seconds paywindow -10 to +600 (pay proportional)\n' in output
+    assert '(pay proportional)\n' in output
 
-    # This is deprecated:
-    l1.rpc.jsonschemas = {}
-    with pytest.raises(RpcError, match='invalid token'):
-        l1.rpc.call('offer', {'amount': '100000sat',
-                              'description': 'test deprecated recurrence_base',
-                              'recurrence': '10minutes',
-                              'recurrence_base': '@1456740000'})
+    # Optional variant
+    ret = l1.rpc.call('offer', {'amount': '100000sat',
+                                'description': 'quantity_max test',
+                                'recurrence': '10minutes',
+                                'recurrence_limit': 5,
+                                'optional_recurrence': True})
+    offer = only_one(l1.rpc.call('listoffers', [ret['offer_id']])['offers'])
+    output = subprocess.check_output([bolt12tool, 'decode',
+                                      offer['bolt12']]).decode('UTF-8')
+    assert 'recurrence_optional: every 600 seconds limit 5\n' in output
 
 
 def test_offer_deprecated_api(node_factory, bitcoind):
@@ -4739,6 +4723,26 @@ def test_fetchinvoice_recurrence(node_factory, bitcoind):
         l1.rpc.call('fetchinvoice', {'offer': offer,
                                      'recurrence_counter': 1,
                                      'recurrence_label': 'test paywindow'})
+
+
+def test_recurrence_expired_offer(node_factory, bitcoind):
+    """We *can* use an expired offer for successive recurrences"""
+    l1, l2 = node_factory.line_graph(2)
+
+    offer = l2.rpc.offer(amount='1msat',
+                         description='paywindow test',
+                         recurrence='20seconds',
+                         absolute_expiry=int(time.time()) + 15)
+    ret = l1.rpc.fetchinvoice(offer=offer['bolt12'],
+                              recurrence_counter=0,
+                              recurrence_label='test_recurrence_expired_offer')
+    l1.rpc.pay(ret['invoice'], label='test_recurrence_expired_offer')
+
+    time.sleep(16)
+    ret = l1.rpc.fetchinvoice(offer=offer['bolt12'],
+                              recurrence_counter=1,
+                              recurrence_label='test_recurrence_expired_offer')
+    l1.rpc.pay(ret['invoice'], label='test_recurrence_expired_offer')
 
 
 def test_fetchinvoice_autoconnect(node_factory, bitcoind):
@@ -7014,3 +7018,41 @@ def test_sendonion_sendpay(node_factory, bitcoind):
     invoice = only_one(l3.rpc.listinvoices("inv")["invoices"])
     # the receive amount should be exact
     assert invoice["amount_received_msat"] == Millisatoshi(total_amount)
+
+
+def test_cancel_recurrence(node_factory):
+    """Test handling of invoice cancellation"""
+    l1, l2 = node_factory.line_graph(2)
+
+    # Recurring offer.
+    offer = l2.rpc.offer(amount='1msat',
+                         description='test_cancel_recurrence',
+                         recurrence='1minutes')
+
+    # We cannot cancel if we never got the first one.
+    with pytest.raises(RpcError, match="recurrence_counter: Must be non-zero"):
+        l1.rpc.cancelrecurringinvoice(offer['bolt12'], 0, 'test_cancel_recurrence')
+
+    with pytest.raises(RpcError, match="No previous payment attempted for this label and offer"):
+        l1.rpc.cancelrecurringinvoice(offer['bolt12'], 1, 'test_cancel_recurrence')
+
+    # Fetch and pay first one
+    ret = l1.rpc.fetchinvoice(offer=offer['bolt12'],
+                              recurrence_counter=0,
+                              recurrence_label='test_cancel_recurrence')
+    l1.rpc.pay(ret['invoice'], label='test_cancel_recurrence')
+
+    # Cancel counter must be correct!
+    with pytest.raises(RpcError, match=r"previous invoice has not been paid \(last was 0\)"):
+        l1.rpc.cancelrecurringinvoice(offer['bolt12'], 2, 'test_cancel_recurrence')
+
+    # Cancel second one.
+    l1.rpc.cancelrecurringinvoice(offer=offer['bolt12'],
+                                  recurrence_counter=1,
+                                  recurrence_label='test_cancel_recurrence')
+
+    # Now we cannot fetch second one!
+    with pytest.raises(RpcError, match=r"invoice expired \(cancelled\?\)"):
+        l1.rpc.fetchinvoice(offer=offer['bolt12'],
+                            recurrence_counter=1,
+                            recurrence_label='test_cancel_recurrence')
