@@ -89,6 +89,9 @@ void hsmd_status_failed(enum status_failreason code,
 bool hsmd_check_client_capabilities(struct hsmd_client *client,
 				    enum hsmd_wire t);
 
+/* Forward declaration for secretstuff access */
+u8 *get_secretstuff_bip32_seed(void);
+
 /* BIP86 key derivation functions */
 void derive_bip86_base_key(struct ext_key *bip86_base);
 void bip86_key(struct privkey *privkey, struct pubkey *pubkey, u32 index);

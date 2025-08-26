@@ -1,4 +1,5 @@
 #include "config.h"
+#include <bitcoin/privkey.h>
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
@@ -9,12 +10,15 @@
 #include <common/hash_u5.h>
 #include <common/key_derive.h>
 #include <common/lease_rates.h>
+#include <common/status.h>
+#include <common/utils.h>
 #include <hsmd/libhsmd.h>
 #include <hsmd/permissions.h>
 #include <inttypes.h>
 #include <secp256k1_ecdh.h>
 #include <secp256k1_schnorrsig.h>
 #include <sodium/utils.h>
+#include <stddef.h>
 #include <wally_bip32.h>
 #include <wally_bip39.h>
 #include <wally_psbt.h>
@@ -31,13 +35,8 @@ struct secret *dev_force_bip32_seed;
  * tree, bolt12 payer_id keys and derived_secret are derived from that, and
  * cached here. */
 struct {
-	/* keep for legacy callers that read 32B directly today */
-	struct secret hsm_secret;
-
-	/* new: full root bytes we received (32 or 64) */
-	u8   *bip32_seed;
-	size_t bip32_seed_len;
-
+	u8 *bip32_seed;           /* Variable length: 32 bytes (legacy) or 64 bytes (mnemonic) */
+	size_t bip32_seed_len;    /* Length of bip32_seed */
 	struct ext_key bip32;
 	struct secret bolt12;
 	struct secret derived_secret;
@@ -48,6 +47,12 @@ bool initialized = false;
 
 /* BIP32 key version for network compatibility */
 static struct bip32_key_version network_bip32_key_version;
+
+/* Accessor function for secretstuff.bip32_seed */
+u8 *get_secretstuff_bip32_seed(void)
+{
+	return secretstuff.bip32_seed;
+}
 
 /* Do we fail all preapprove requests? */
 bool dev_fail_preapprove = false;
@@ -137,9 +142,6 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 	case WIRE_HSMD_LOCK_OUTPOINT:
 		return (client->capabilities & HSM_PERM_LOCK_OUTPOINT) != 0;
 
-	case WIRE_HSMD_DERIVE_BIP86_KEY:
-	case WIRE_HSMD_CHECK_BIP86_PUBKEY:
-		return (client->capabilities & HSM_PERM_DERIVE_BIP86_KEY) != 0;
 	case WIRE_HSMD_INIT:
 	case WIRE_HSMD_DEV_PREINIT:
 	case WIRE_HSMD_NEW_CHANNEL:
@@ -159,8 +161,10 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 	case WIRE_HSMD_PREAPPROVE_KEYSEND:
 	case WIRE_HSMD_PREAPPROVE_INVOICE_CHECK:
 	case WIRE_HSMD_PREAPPROVE_KEYSEND_CHECK:
+	case WIRE_HSMD_DERIVE_BIP86_KEY:
 	case WIRE_HSMD_DERIVE_SECRET:
 	case WIRE_HSMD_CHECK_PUBKEY:
+	case WIRE_HSMD_CHECK_BIP86_PUBKEY:
 	case WIRE_HSMD_SIGN_ANY_PENALTY_TO_US:
 	case WIRE_HSMD_SIGN_ANY_DELAYED_PAYMENT_TO_US:
 	case WIRE_HSMD_SIGN_ANY_REMOTE_HTLC_TO_US:
@@ -207,9 +211,9 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 	case WIRE_HSMD_PREAPPROVE_KEYSEND_REPLY:
 	case WIRE_HSMD_PREAPPROVE_INVOICE_CHECK_REPLY:
 	case WIRE_HSMD_PREAPPROVE_KEYSEND_CHECK_REPLY:
+	case WIRE_HSMD_DERIVE_BIP86_KEY_REPLY:
 	case WIRE_HSMD_DERIVE_SECRET_REPLY:
 	case WIRE_HSMD_CHECK_PUBKEY_REPLY:
-	case WIRE_HSMD_DERIVE_BIP86_KEY_REPLY:
 	case WIRE_HSMD_CHECK_BIP86_PUBKEY_REPLY:
 	case WIRE_HSMD_SIGN_ANCHORSPEND_REPLY:
 	case WIRE_HSMD_SIGN_HTLC_TX_MINGLE_REPLY:
@@ -267,8 +271,8 @@ static void node_key(struct privkey *node_privkey, struct pubkey *node_id)
 		 * leaks somehow, the other keys are not compromised. */
 		hkdf_sha256(node_privkey, sizeof(*node_privkey),
 			    &salt, sizeof(salt),
-			    &secretstuff.hsm_secret,
-			    sizeof(secretstuff.hsm_secret),
+			    secretstuff.bip32_seed,
+			    32,  /* Use first 32 bytes for node key derivation */
 			    "nodeid", 6);
 		salt++;
 	} while (!secp256k1_ec_pubkey_create(secp256k1_ctx, &node_id->pubkey,
@@ -301,7 +305,7 @@ static void node_schnorrkey(secp256k1_keypair *node_keypair)
 static void hsm_channel_secret_base(struct secret *channel_seed_base)
 {
 	hkdf_sha256(channel_seed_base, sizeof(struct secret), NULL, 0,
-		    &secretstuff.hsm_secret, sizeof(secretstuff.hsm_secret),
+		    secretstuff.bip32_seed, 32,  /* Use first 32 bytes */
 		    /*~ Initially, we didn't support multiple channels per
 		     * peer at all: a channel had to be completely forgotten
 		     * before another could exist.  That was slightly relaxed,
@@ -2268,6 +2272,14 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 	case WIRE_HSMD_PREAPPROVE_KEYSEND:
 	case WIRE_HSMD_PREAPPROVE_KEYSEND_CHECK:
 		return handle_preapprove_keysend(client, msg);
+	case WIRE_HSMD_DERIVE_BIP86_KEY:
+	case WIRE_HSMD_CHECK_BIP86_PUBKEY:
+		/* This should be handled by hsmd.c, not libhsmd */
+		return hsmd_status_bad_request_fmt(
+		    client, msg,
+		    "Message of type %s should be handled externally to "
+		    "libhsmd",
+		    hsmd_wire_name(t));
 	case WIRE_HSMD_SIGN_MESSAGE:
 		return handle_sign_message(client, msg);
 	case WIRE_HSMD_BIP137_SIGN_MESSAGE:
@@ -2314,14 +2326,6 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 		return handle_derive_secret(client, msg);
 	case WIRE_HSMD_CHECK_PUBKEY:
 		return handle_check_pubkey(client, msg);
-	case WIRE_HSMD_DERIVE_BIP86_KEY:
-	case WIRE_HSMD_CHECK_BIP86_PUBKEY:
-		/* This should be handled by hsmd.c, not libhsmd */
-		return hsmd_status_bad_request_fmt(
-		    client, msg,
-		    "Message of type %s should be handled externally to "
-		    "libhsmd",
-		    hsmd_wire_name(fromwire_peektype(msg)));
 	case WIRE_HSMD_SIGN_ANY_DELAYED_PAYMENT_TO_US:
 		return handle_sign_any_delayed_payment_to_us(client, msg);
 	case WIRE_HSMD_SIGN_ANY_REMOTE_HTLC_TO_US:
@@ -2382,71 +2386,6 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 	return hsmd_status_bad_request(client, msg, "Unknown request");
 }
 
-/* BIP86 key derivation functions moved from hsmd.c */
-void derive_bip86_base_key(struct ext_key *bip86_base)
-{
-	/* Check if we have the full BIP32 seed available */
-	if (secretstuff.bip32_seed_len < BIP39_SEED_LEN_512) {
-		hsmd_status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "BIP86 derivation requires full 64-byte BIP32 seed (not available in legacy format)");
-	}
-
-	/* First create the master key from the seed */
-	struct ext_key master_key;
-
-	if (bip32_key_from_seed(secretstuff.bip32_seed, secretstuff.bip32_seed_len, network_bip32_key_version.bip32_privkey_version, 0, &master_key) != WALLY_OK) {
-		hsmd_status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Failed to create master key from BIP32 seed");
-	}
-
-	/* Set up the BIP86 base path: m/86'/0'/0' */
-	u32 base_path[3];
-	base_path[0] = 86 | 0x80000000;  /* 86' */
-	base_path[1] = 0x80000000;       /* 0' */
-	base_path[2] = 0x80000000;       /* 0' */
-
-	/* Derive the BIP86 base key */
-	if (bip32_key_from_parent_path(&master_key, base_path, 3, BIP32_FLAG_KEY_PRIVATE, bip86_base) != WALLY_OK) {
-		hsmd_status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Failed to derive BIP86 base key");
-	}
-}
-
-/*~ Get the BIP86 keys for this given index: if privkey is NULL, we
- * don't fill it in. This derives the full path: m/86'/0'/0'/0/index */
-void bip86_key(struct privkey *privkey, struct pubkey *pubkey, u32 index)
-{
-	struct privkey unused_priv;
-
-	if (privkey == NULL)
-		privkey = &unused_priv;
-
-	if (index >= BIP32_INITIAL_HARDENED_CHILD)
-		hsmd_status_failed(STATUS_FAIL_MASTER_IO, "Index %u too great", index);
-
-	/* Derive the BIP86 base key using the helper function */
-	struct ext_key bip86_base;
-	derive_bip86_base_key(&bip86_base);
-
-	/* Now derive the specific index: m/86'/0'/0'/0/index */
-	u32 final_path[2];
-	final_path[0] = 0;  /* change (0 for receive) */
-	final_path[1] = index;  /* address_index */
-
-	struct ext_key final_key;
-	if (bip32_key_from_parent_path(&bip86_base, final_path, 2, BIP32_FLAG_KEY_PRIVATE, &final_key) != WALLY_OK) {
-		hsmd_status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "BIP86 derivation of index %u failed", index);
-	}
-
-	/* Convert to our format */
-	memcpy(privkey->secret.data, final_key.priv_key+1, 32);
-	if (!secp256k1_ec_pubkey_create(secp256k1_ctx, &pubkey->pubkey,
-					privkey->secret.data))
-		hsmd_status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "BIP86 pubkey %u create failed", index);
-}
-
 u8 *hsmd_init(const u8 *secret_data, size_t secret_len, const u64 hsmd_version,
 	      struct bip32_key_version bip32_key_version)
 {
@@ -2473,14 +2412,11 @@ u8 *hsmd_init(const u8 *secret_data, size_t secret_len, const u64 hsmd_version,
 	/*~ Store the BIP32 key version for network compatibility */
 	network_bip32_key_version = bip32_key_version;
 
-	/* new: keep the full 32/64B root */
+	/*~ Store the secret (32 or 64 bytes) - use NULL context for persistence */
 	secretstuff.bip32_seed_len = secret_len;
 	secretstuff.bip32_seed = tal_dup_arr(NULL, u8, secret_data, secret_len, 0);
 	sodium_mlock(secretstuff.bip32_seed, secret_len);
-
-	/* legacy mirror: first 32 bytes for existing code paths */
-	memcpy(secretstuff.hsm_secret.data, secret_data, 32);
-
+	
 	assert(bip32_key_version.bip32_pubkey_version == BIP32_VER_MAIN_PUBLIC
 			|| bip32_key_version.bip32_pubkey_version == BIP32_VER_TEST_PUBLIC);
 
@@ -2494,8 +2430,8 @@ u8 *hsmd_init(const u8 *secret_data, size_t secret_len, const u64 hsmd_version,
 	do {
 		hkdf_sha256(bip32_seed, sizeof(bip32_seed),
 			    &salt, sizeof(salt),
-			    &secretstuff.hsm_secret,
-			    sizeof(secretstuff.hsm_secret),
+			    secretstuff.bip32_seed,
+			    32,  /* Always use 32 bytes for BIP32 derivation */
 			    "bip32 seed", strlen("bip32 seed"));
 		salt++;
 	} while (bip32_key_from_seed(bip32_seed, sizeof(bip32_seed),
@@ -2593,7 +2529,7 @@ u8 *hsmd_init(const u8 *secret_data, size_t secret_len, const u64 hsmd_version,
 	/* We derive the derived_secret key for generating pseudorandom keys
 	 * by taking input string from the makesecret RPC */
 	hkdf_sha256(&secretstuff.derived_secret, sizeof(struct secret), NULL, 0,
-		    &secretstuff.hsm_secret, sizeof(secretstuff.hsm_secret),
+		    secretstuff.bip32_seed, sizeof(struct secret),  /* Use first 32 bytes for backward compatibility */
 		    "derived secrets", strlen("derived secrets"));
 
 	/* Capabilities arg needs to be a tal array */
@@ -2614,4 +2550,69 @@ u8 *hsmd_init(const u8 *secret_data, size_t secret_len, const u64 hsmd_version,
 			    NULL, hsmd_version, caps,
 			    &node_id, &secretstuff.bip32,
 			    &bolt12));
+}
+
+/* BIP86 key derivation functions moved from hsmd.c */
+void derive_bip86_base_key(struct ext_key *bip86_base)
+{
+	/* Check if we have the full BIP32 seed available */
+	if (secretstuff.bip32_seed_len < BIP39_SEED_LEN_512) {
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "BIP86 derivation requires full 64-byte BIP32 seed (not available in legacy format)");
+	}
+
+	/* First create the master key from the seed */
+	struct ext_key master_key;
+	
+	if (bip32_key_from_seed(secretstuff.bip32_seed, secretstuff.bip32_seed_len, network_bip32_key_version.bip32_privkey_version, 0, &master_key) != WALLY_OK) {
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Failed to create master key from BIP32 seed");
+	}
+
+	/* Set up the BIP86 base path: m/86'/0'/0' */
+	u32 base_path[3];
+	base_path[0] = 86 | 0x80000000;  /* 86' */
+	base_path[1] = 0x80000000;       /* 0' */
+	base_path[2] = 0x80000000;       /* 0' */
+
+	/* Derive the BIP86 base key */
+	if (bip32_key_from_parent_path(&master_key, base_path, 3, BIP32_FLAG_KEY_PRIVATE, bip86_base) != WALLY_OK) {
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Failed to derive BIP86 base key");
+	}
+}
+
+/*~ Get the BIP86 keys for this given index: if privkey is NULL, we
+ * don't fill it in. This derives the full path: m/86'/0'/0'/0/index */
+void bip86_key(struct privkey *privkey, struct pubkey *pubkey, u32 index)
+{
+	struct privkey unused_priv;
+
+	if (privkey == NULL)
+		privkey = &unused_priv;
+
+	if (index >= BIP32_INITIAL_HARDENED_CHILD)
+		status_failed(STATUS_FAIL_MASTER_IO, "Index %u too great", index);
+
+	/* Derive the BIP86 base key using the helper function */
+	struct ext_key bip86_base;
+	derive_bip86_base_key(&bip86_base);
+
+	/* Now derive the specific index: m/86'/0'/0'/0/index */
+	u32 final_path[2];
+	final_path[0] = 0;  /* change (0 for receive) */
+	final_path[1] = index;  /* address_index */
+
+	struct ext_key final_key;
+	if (bip32_key_from_parent_path(&bip86_base, final_path, 2, BIP32_FLAG_KEY_PRIVATE, &final_key) != WALLY_OK) {
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "BIP86 derivation of index %u failed", index);
+	}
+
+	/* Convert to our format */
+	memcpy(privkey->secret.data, final_key.priv_key+1, 32);
+	if (!secp256k1_ec_pubkey_create(secp256k1_ctx, &pubkey->pubkey,
+					privkey->secret.data))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "BIP86 pubkey %u create failed", index);
 }

@@ -18,6 +18,7 @@
 #include <common/hsm_secret.h>
 #include <common/memleak.h>
 #include <common/status.h>
+#include <hsmd/libhsmd.h>
 #include <common/status_wiregen.h>
 #include <common/subdaemon.h>
 #include <errno.h>
@@ -30,6 +31,7 @@
 #include <sys/stat.h>
 #include <wally_bip39.h>
 #include <wally_bip32.h>
+#include <wally_core.h>
 #include <wire/wire_io.h>
 
 /*~ Each subdaemon is started with stdin connected to lightningd (for status
@@ -39,7 +41,7 @@
 #define REQ_FD 3
 
 /* Temporary storage for the secret until we pass it to `hsmd_init` */
-struct hsm_secret hsm_secret;
+struct hsm_secret hsm_secret = { .secret_data = NULL, .secret_len = 0, .mnemonic = NULL, .type = HSM_SECRET_INVALID };
 
 /*~ We keep track of clients, but there's not much to keep. */
 struct client {
@@ -368,8 +370,12 @@ static void create_hsm(int fd, const char *passphrase)
 	}
 	status_debug("HSM: Derived BIP32 seed from mnemonic");
 	
-	/* Use first 32 bytes for hsm_secret */
-	memcpy(&hsm_secret.secret, bip32_seed, sizeof(hsm_secret.secret));
+	/* Store the full BIP32 seed */
+	hsm_secret.secret_data = tal_dup_arr(tmpctx, u8, bip32_seed, bip32_seed_len, 0);
+	hsm_secret.secret_len = bip32_seed_len;
+	
+	/* Set the type based on whether passphrase was used */
+	hsm_secret.type = passphrase ? HSM_SECRET_MNEMONIC_WITH_PASS : HSM_SECRET_MNEMONIC_NO_PASS;
 	
 	/* Write the hsm_secret data to file */
 	if (!write_all(fd, hsm_secret_data, hsm_secret_len)) {
@@ -471,8 +477,19 @@ static void load_hsm(const char *passphrase)
 			                        "Failed to load hsm_secret: %s", hsm_secret_error_str(err));
 	}
 
-	/* Copy the extracted secret to our global hsm_secret */
-	memcpy(&hsm_secret, &hsms->secret, sizeof(hsm_secret));
+	/* Deep copy the extracted secret to our global hsm_secret */
+	hsm_secret = *hsms;  /* Copy the basic fields */
+	
+	/* Deep copy the secret data if it exists */
+	if (hsms->secret_data) {
+		hsm_secret.secret_data = tal_dup_arr(NULL, u8, hsms->secret_data, hsms->secret_len, 0);
+		hsm_secret.secret_len = hsms->secret_len;
+	}
+	
+	/* Deep copy the mnemonic if it exists */
+	if (hsms->mnemonic) {
+		hsm_secret.mnemonic = tal_strdup(NULL, hsms->mnemonic);
+	}
 }
 
 /*~ We have a pre-init call in developer mode, to set dev flags */
@@ -551,7 +568,9 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 		hsm_passphrase = (const char *)tlvs->hsm_passphrase;
 
 	/*~ Don't swap this. */
-	sodium_mlock(hsm_secret.secret.data, sizeof(hsm_secret.secret.data));
+	if (hsm_secret.secret_data && hsm_secret.secret_len > 0) {
+		sodium_mlock(hsm_secret.secret_data, hsm_secret.secret_len);
+	}
 
 	if (!developer) {
 		assert(!dev_force_privkey);
@@ -571,9 +590,7 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 
 	/* This was tallocated off NULL, and memleak complains if we don't free it */
 	tal_free(tlvs);
-	return req_reply(conn, c, hsmd_init(hsm_secret_bytes(&hsm_secret),
-					    hsm_secret_size(&hsm_secret),
-					    hsmd_mutual_version,
+	return req_reply(conn, c, hsmd_init(hsm_secret.secret_data, hsm_secret.secret_len, hsmd_mutual_version,
 					    bip32_key_version));
 }
 
@@ -657,6 +674,11 @@ static struct io_plan *handle_memleak(struct io_conn *conn,
 
 	memleak_ptr(memtable, dev_force_privkey);
 	memleak_ptr(memtable, dev_force_bip32_seed);
+	
+	/* Question for Rusty/ Reviewer: Is this a suss pattern? */ 
+	memleak_ptr(memtable, hsm_secret.secret_data);
+	memleak_ptr(memtable, hsm_secret.mnemonic);
+	memleak_ptr(memtable, get_secretstuff_bip32_seed());
 
 	found_leak = dump_memleak(memtable, memleak_status_broken, NULL);
 	reply = towire_hsmd_dev_memleak_reply(NULL, found_leak);
@@ -715,7 +737,8 @@ static struct io_plan *handle_derive_bip86_key(struct io_conn *conn,
 		return bad_req(conn, c, msg_in);
 
 	/* Check if we have a mnemonic-based HSM secret */
-	if (hsm_secret_size(&hsm_secret) != 64) {
+	if (hsm_secret.type != HSM_SECRET_MNEMONIC_NO_PASS &&
+	    hsm_secret.type != HSM_SECRET_MNEMONIC_WITH_PASS) {
 		return bad_req_fmt(conn, c, msg_in,
 				   "BIP86 derivation requires mnemonic-based HSM secret");
 	}
@@ -743,7 +766,8 @@ static struct io_plan *handle_check_bip86_pubkey(struct io_conn *conn,
 		return bad_req(conn, c, msg_in);
 
 	/* Check if we have a mnemonic-based HSM secret */
-	if (hsm_secret_size(&hsm_secret) != 64) {
+	if (hsm_secret.type != HSM_SECRET_MNEMONIC_NO_PASS &&
+	    hsm_secret.type != HSM_SECRET_MNEMONIC_WITH_PASS) {
 		return bad_req_fmt(conn, c, msg_in,
 				   "BIP86 derivation requires mnemonic-based HSM secret");
 	}
@@ -793,6 +817,7 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 		if (developer)
 			return handle_memleak(conn, c, c->msg_in);
 		/* fall thru */
+
 	case WIRE_HSMD_DERIVE_BIP86_KEY:
 		return handle_derive_bip86_key(conn, c, c->msg_in);
 	case WIRE_HSMD_CHECK_BIP86_PUBKEY:
@@ -882,8 +907,8 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_PREAPPROVE_KEYSEND_REPLY:
 	case WIRE_HSMD_PREAPPROVE_INVOICE_CHECK_REPLY:
 	case WIRE_HSMD_PREAPPROVE_KEYSEND_CHECK_REPLY:
-	case WIRE_HSMD_CHECK_PUBKEY_REPLY:
 	case WIRE_HSMD_DERIVE_BIP86_KEY_REPLY:
+	case WIRE_HSMD_CHECK_PUBKEY_REPLY:
 	case WIRE_HSMD_CHECK_BIP86_PUBKEY_REPLY:
 	case WIRE_HSMD_SIGN_ANCHORSPEND_REPLY:
 	case WIRE_HSMD_SIGN_HTLC_TX_MINGLE_REPLY:

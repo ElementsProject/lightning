@@ -44,26 +44,11 @@ enum hsm_secret_error {
 struct hsm_secret {
 	u8 *secret_data;          /* Variable length: 32 bytes (legacy) or 64 bytes (mnemonic) */
 	size_t secret_len;        /* Length of secret_data: 32 or 64 bytes */
-	struct secret secret;     /* Legacy 32-byte field for compatibility */
 	char *mnemonic;           /* NULL if not derived from mnemonic */
-	enum hsm_secret_type type;
+    enum hsm_secret_type type;
 };
 
-/**
- * Get the secret bytes from an hsm_secret.
- * Returns secret_data if available, otherwise falls back to legacy secret.data.
- */
-static inline const u8 *hsm_secret_bytes(const struct hsm_secret *hsm) {
-	return hsm->secret_data;
-}
 
-/**
- * Get the secret size from an hsm_secret.
- * Returns secret_len if secret_data is available, otherwise 32 bytes for legacy.
- */
-static inline size_t hsm_secret_size(const struct hsm_secret *hsm) {
-	return hsm->secret_len;
-}
 
 /**
  * Checks whether the hsm_secret data requires a passphrase to decrypt.
