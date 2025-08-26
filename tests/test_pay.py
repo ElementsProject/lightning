@@ -4725,6 +4725,26 @@ def test_fetchinvoice_recurrence(node_factory, bitcoind):
                                      'recurrence_label': 'test paywindow'})
 
 
+def test_recurrence_expired_offer(node_factory, bitcoind):
+    """We *can* use an expired offer for successive recurrences"""
+    l1, l2 = node_factory.line_graph(2)
+
+    offer = l2.rpc.offer(amount='1msat',
+                         description='paywindow test',
+                         recurrence='20seconds',
+                         absolute_expiry=int(time.time()) + 15)
+    ret = l1.rpc.fetchinvoice(offer=offer['bolt12'],
+                              recurrence_counter=0,
+                              recurrence_label='test_recurrence_expired_offer')
+    l1.rpc.pay(ret['invoice'], label='test_recurrence_expired_offer')
+
+    time.sleep(16)
+    ret = l1.rpc.fetchinvoice(offer=offer['bolt12'],
+                              recurrence_counter=1,
+                              recurrence_label='test_recurrence_expired_offer')
+    l1.rpc.pay(ret['invoice'], label='test_recurrence_expired_offer')
+
+
 def test_fetchinvoice_autoconnect(node_factory, bitcoind):
     """We should autoconnect if we need to, to route."""
 
