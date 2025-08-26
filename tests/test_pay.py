@@ -7016,7 +7016,6 @@ def test_sendonion_sendpay(node_factory, bitcoind):
     assert invoice["amount_received_msat"] == Millisatoshi(total_amount)
 
 
-@pytest.mark.xfail(strict=True)
 def test_htlc_tlv_crash(node_factory):
     """Marshalling code treated an array of htlc_added as if they were tal objects, but only the head is a tal object so if we have more than one, BOOM!"""
     plugin = os.path.join(os.path.dirname(__file__), 'plugins/htlc_accepted-customtlv.py')
