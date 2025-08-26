@@ -292,15 +292,28 @@ static struct command_result *found_best_peer(struct command *cmd,
 		 *   after `invoice_created_at`:
 		 *     - MUST set `invoice_relative_expiry`
 		 */
-		/* Give them 6 blocks, plus one per 10 minutes until expiry. */
 		if (ir->inv->invoice_relative_expiry)
-			base = blockheight + 6 + *ir->inv->invoice_relative_expiry / 600;
+			base = blockheight + *ir->inv->invoice_relative_expiry / 600;
 		else
-			base = blockheight + 6 + 7200 / 600;
+			base = blockheight + 7200 / 600;
 
+		/* BOLT #4:
+		 * - MUST set `encrypted_data_tlv.payment_constraints`
+		 *   for each non-final node and MAY set it for the
+		 *   final node:
+		 *   - `max_cltv_expiry` to the largest block height at which
+		 *     the route is allowed to be used, starting from the final
+		 *     node's chosen `max_cltv_expiry` height at which the route
+		 *     should expire, adding the final node's
+		 *     `min_final_cltv_expiry_delta` and then adding
+		 *     `encrypted_data_tlv.payment_relay.cltv_expiry_delta` at
+		 *     each hop.
+		 */
+		/* BUT: we also recommend padding CLTV when paying, to obscure paths: if this is too tight
+		 * payments fail in practice!  We add 1008 (half the max possible) */
 		etlvs[0]->payment_constraints = tal(etlvs[0],
 						    struct tlv_encrypted_data_tlv_payment_constraints);
-		etlvs[0]->payment_constraints->max_cltv_expiry = base + best->cltv + cltv_final;
+		etlvs[0]->payment_constraints->max_cltv_expiry = 1008 + base + best->cltv + cltv_final;
 		etlvs[0]->payment_constraints->htlc_minimum_msat = best->htlc_min.millisatoshis; /* Raw: tlv */
 
 		/* So we recognize this payment */
