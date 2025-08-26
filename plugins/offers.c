@@ -1577,6 +1577,10 @@ static const struct plugin_command commands[] = {
 	    json_sendinvoice,
     },
     {
+	    "cancelrecurringinvoice",
+	    json_cancelrecurringinvoice,
+    },
+    {
 	    "dev-rawrequest",
 	    json_dev_rawrequest,
 	    .dev_only = true,
