@@ -236,6 +236,8 @@ struct lightningd {
 
 	/* Derive all our keys from here (see bip32_pubkey) */
 	struct ext_key *bip32_base;
+	/* Derive all our BIP86 keys from here */
+	struct ext_key *bip86_base;
 	struct wallet *wallet;
 
 	/* Outstanding waitsendpay commands. */
@@ -386,6 +388,9 @@ struct lightningd {
 
 	/* HSM passphrase for any format that needs it */
 	char *hsm_passphrase;
+
+	/* Enable BIP86 derivation for mnemonic-based HSM secrets */
+	bool use_bip86_derivation;
 
 	/* What (additional) messages the HSM accepts */
 	u32 *hsm_capabilities;
