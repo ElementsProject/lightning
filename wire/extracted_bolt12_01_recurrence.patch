@@ -13,7 +13,7 @@
 +tlvtype,offer,offer_recurrence_paywindow,1000000027
 +tlvdata,offer,offer_recurrence_paywindow,recurrence_paywindow,recurrence_paywindow,
 +tlvtype,offer,offer_recurrence_limit,1000000029
-+tlvdata,offer,offer_recurrence_limit,max_period,tu32,
++tlvdata,offer,offer_recurrence_limit,max_period_index,tu32,
 +subtype,recurrence
 +subtypedata,recurrence,time_unit,byte,
 +subtypedata,recurrence,period,tu32,
@@ -39,7 +39,7 @@
 +tlvtype,invoice_request,offer_recurrence_paywindow,1000000027
 +tlvdata,invoice_request,offer_recurrence_paywindow,recurrence_paywindow,recurrence_paywindow,
 +tlvtype,invoice_request,offer_recurrence_limit,1000000029
-+tlvdata,invoice_request,offer_recurrence_limit,max_period,tu32,
++tlvdata,invoice_request,offer_recurrence_limit,max_period_index,tu32,
  tlvtype,invoice_request,invreq_chain,80
  tlvdata,invoice_request,invreq_chain,chain,chain_hash,
  tlvtype,invoice_request,invreq_amount,82
@@ -80,7 +80,7 @@
 +tlvtype,invoice,offer_recurrence_paywindow,1000000027
 +tlvdata,invoice,offer_recurrence_paywindow,recurrence_paywindow,recurrence_paywindow,
 +tlvtype,invoice,offer_recurrence_limit,1000000029
-+tlvdata,invoice,offer_recurrence_limit,max_period,tu32,
++tlvdata,invoice,offer_recurrence_limit,max_period_index,tu32,
  tlvtype,invoice,invreq_chain,80
  tlvdata,invoice,invreq_chain,chain,chain_hash,
  tlvtype,invoice,invreq_amount,82
