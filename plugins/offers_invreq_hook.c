@@ -931,11 +931,15 @@ static struct command_result *listoffers_done(struct command *cmd,
 	assert(ir->inv->invreq_payer_id);
 
 	/* BOLT #12:
-	 *   - if `offer_issuer_id` is present:
+	 *   - if `offer_issuer_id` is present or if `offer_paths` is not present:
 	 *     - MUST set `invoice_node_id` to the `offer_issuer_id`
+	 *   - else:
+	 *     - MUST set `invoice_node_id` to the final `blinded_node_id`
 	 */
-	/* FIXME: We always provide an offer_issuer_id! */
-	ir->inv->invoice_node_id = ir->inv->offer_issuer_id;
+	if(!ir->inv->offer_issuer_id && ir->invreq->offer_paths) {
+		ir->inv->invoice_node_id = &(*ir->invreq->offer_paths)->path[tal_count((*ir->invreq->offer_paths)->path)-1]->blinded_node_id;
+
+	} else ir->inv->invoice_node_id = ir->inv->offer_issuer_id;
 
 	/* BOLT #12:
 	 * - MUST set `invoice_created_at` to the number of seconds since
