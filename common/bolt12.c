@@ -807,3 +807,24 @@ bool bolt12_bip353_valid_string(const u8 *str, size_t len)
 	}
 	return true;
 }
+
+const struct recurrence *offer_recurrence(const struct tlv_offer *offer)
+{
+	if (offer->offer_recurrence_compulsory)
+		return offer->offer_recurrence_compulsory;
+	return offer->offer_recurrence_optional;
+}
+
+const struct recurrence *invreq_recurrence(const struct tlv_invoice_request *invreq)
+{
+	if (invreq->offer_recurrence_compulsory)
+		return invreq->offer_recurrence_compulsory;
+	return invreq->offer_recurrence_optional;
+}
+
+const struct recurrence *invoice_recurrence(const struct tlv_invoice *inv)
+{
+	if (inv->offer_recurrence_compulsory)
+		return inv->offer_recurrence_compulsory;
+	return inv->offer_recurrence_optional;
+}

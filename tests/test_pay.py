@@ -4401,7 +4401,7 @@ def test_offer(node_factory, bitcoind):
         offer = only_one(l1.rpc.call('listoffers', [ret['offer_id']])['offers'])
         output = subprocess.check_output([bolt12tool, 'decode',
                                           offer['bolt12']]).decode('UTF-8')
-        assert 'recurrence: every {} {}\n'.format(r[2], r[1]) in output
+        assert 'recurrence_compulsory: every {} {}\n'.format(r[2], r[1]) in output
 
     # Test limit
     ret = l1.rpc.call('offer', {'amount': '100000sat',
@@ -4411,7 +4411,7 @@ def test_offer(node_factory, bitcoind):
     offer = only_one(l1.rpc.call('listoffers', [ret['offer_id']])['offers'])
     output = subprocess.check_output([bolt12tool, 'decode',
                                       offer['bolt12']]).decode('UTF-8')
-    assert 'recurrence: every 600 seconds limit 5\n' in output
+    assert 'recurrence_compulsory: every 600 seconds limit 5\n' in output
 
     # Test base
     # (1456740000 == 10:00:00 (am) UTC on 29 February, 2016)
@@ -4423,7 +4423,7 @@ def test_offer(node_factory, bitcoind):
     offer = only_one(l1.rpc.call('listoffers', [ret['offer_id']])['offers'])
     output = subprocess.check_output([bolt12tool, 'decode',
                                       offer['bolt12']]).decode('UTF-8')
-    assert 'recurrence: every 600 seconds start 1456740000' in output
+    assert 'recurrence_compulsory: every 600 seconds start 1456740000' in output
 
     # Test paywindow
     ret = l1.rpc.call('offer', {'amount': '100000sat',
@@ -4433,24 +4433,28 @@ def test_offer(node_factory, bitcoind):
     offer = only_one(l1.rpc.call('listoffers', [ret['offer_id']])['offers'])
     output = subprocess.check_output([bolt12tool, 'decode',
                                       offer['bolt12']]).decode('UTF-8')
-    assert 'recurrence: every 600 seconds paywindow -10 to +20\n' in output
+    assert 'recurrence_compulsory: every 600 seconds paywindow -10 to +20\n' in output
 
     ret = l1.rpc.call('offer', {'amount': '100000sat',
                                 'description': 'quantity_max test',
                                 'recurrence': '10minutes',
-                                'recurrence_paywindow': '-10+600%'})
+                                'recurrence_base': 1456740000,
+                                'proportional_amount': True})
     offer = only_one(l1.rpc.call('listoffers', [ret['offer_id']])['offers'])
     output = subprocess.check_output([bolt12tool, 'decode',
                                       offer['bolt12']]).decode('UTF-8')
-    assert 'recurrence: every 600 seconds paywindow -10 to +600 (pay proportional)\n' in output
+    assert '(pay proportional)\n' in output
 
-    # This is deprecated:
-    l1.rpc.jsonschemas = {}
-    with pytest.raises(RpcError, match='invalid token'):
-        l1.rpc.call('offer', {'amount': '100000sat',
-                              'description': 'test deprecated recurrence_base',
-                              'recurrence': '10minutes',
-                              'recurrence_base': '@1456740000'})
+    # Optional variant
+    ret = l1.rpc.call('offer', {'amount': '100000sat',
+                                'description': 'quantity_max test',
+                                'recurrence': '10minutes',
+                                'recurrence_limit': 5,
+                                'optional_recurrence': True})
+    offer = only_one(l1.rpc.call('listoffers', [ret['offer_id']])['offers'])
+    output = subprocess.check_output([bolt12tool, 'decode',
+                                      offer['bolt12']]).decode('UTF-8')
+    assert 'recurrence_optional: every 600 seconds limit 5\n' in output
 
 
 def test_offer_deprecated_api(node_factory, bitcoind):
