@@ -318,8 +318,14 @@ def test_bookkeeping_missed_chans_leases(node_factory, bitcoind):
     l1.wait_local_channel_active(scid)
     channel_id = first_channel_id(l1, l2)
 
+    # Sigh.  bookkeeper sorts events by timestamp.  If the invoice event happens
+    # too close, it can change the order, so sleep here.
+    time.sleep(2)
+
+    # Send l2 funds via the channel
     l1.pay(l2, invoice_msat)
-    l1.daemon.wait_for_log(r'coin movement:.*\'invoice\'')
+    # Make sure they're completely settled, so accounting correct.
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
 
     # Now turn the bookkeeper on and restart
     l1.stop()
