@@ -329,6 +329,9 @@ bool fromwire_gossipd_addgossip_reply(const tal_t *ctx UNNEEDED, const void *p U
 /* Generated stub for fromwire_hsmd_check_pubkey_reply */
 bool fromwire_hsmd_check_pubkey_reply(const void *p UNNEEDED, bool *ok UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_check_pubkey_reply called!\n"); abort(); }
+/* Generated stub for fromwire_hsmd_check_bip86_pubkey_reply */
+bool fromwire_hsmd_check_bip86_pubkey_reply(const void *p UNNEEDED, bool *ok UNNEEDED)
+{ fprintf(stderr, "fromwire_hsmd_check_bip86_pubkey_reply called!\n"); abort(); }
 /* Generated stub for fromwire_hsmd_client_hsmfd_reply */
 bool fromwire_hsmd_client_hsmfd_reply(const void *p UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_client_hsmfd_reply called!\n"); abort(); }
@@ -1134,6 +1137,9 @@ u8 *towire_gossipd_addgossip(const tal_t *ctx UNNEEDED, const u8 *msg UNNEEDED, 
 /* Generated stub for towire_hsmd_check_pubkey */
 u8 *towire_hsmd_check_pubkey(const tal_t *ctx UNNEEDED, u32 index UNNEEDED, const struct pubkey *pubkey UNNEEDED)
 { fprintf(stderr, "towire_hsmd_check_pubkey called!\n"); abort(); }
+/* Generated stub for towire_hsmd_check_bip86_pubkey */
+u8 *towire_hsmd_check_bip86_pubkey(const tal_t *ctx UNNEEDED, u32 index UNNEEDED, const struct pubkey *pubkey UNNEEDED)
+{ fprintf(stderr, "towire_hsmd_check_bip86_pubkey called!\n"); abort(); }
 /* Generated stub for towire_hsmd_client_hsmfd */
 u8 *towire_hsmd_client_hsmfd(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, u64 dbid UNNEEDED, u64 permissions UNNEEDED)
 { fprintf(stderr, "towire_hsmd_client_hsmfd called!\n"); abort(); }
@@ -1271,6 +1277,7 @@ u8 *towire_hsmd_get_channel_basepoints(const tal_t *ctx UNNEEDED, const struct n
 {
 	return NULL;
 }
+
 u8 *towire_hsmd_derive_bip86_key(const tal_t *ctx UNNEEDED, u32 index UNNEEDED, bool is_change UNNEEDED)
 {
 	return NULL;
