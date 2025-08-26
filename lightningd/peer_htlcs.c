@@ -2309,7 +2309,7 @@ static bool channel_added_their_htlc(struct channel *channel,
 /* The peer doesn't tell us this separately, but logically it's a separate
  * step to receiving commitsig */
 static bool peer_sending_revocation(struct channel *channel,
-				    struct added_htlc *added,
+				    struct added_htlc **added,
 				    struct fulfilled_htlc *fulfilled,
 				    struct failed_htlc **failed,
 				    struct changed_htlc *changed)
@@ -2317,7 +2317,7 @@ static bool peer_sending_revocation(struct channel *channel,
 	size_t i;
 
 	for (i = 0; i < tal_count(added); i++) {
-		if (!update_in_htlc(channel, added[i].id, SENT_ADD_REVOCATION))
+		if (!update_in_htlc(channel, added[i]->id, SENT_ADD_REVOCATION))
 			return false;
 	}
 	for (i = 0; i < tal_count(fulfilled); i++) {
@@ -2364,7 +2364,7 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 	struct fee_states *fee_states;
 	struct height_states *blockheight_states;
 	struct bitcoin_signature commit_sig, *htlc_sigs;
-	struct added_htlc *added;
+	struct added_htlc **added;
 	struct fulfilled_htlc *fulfilled;
 	struct failed_htlc **failed;
 	struct changed_htlc *changed;
@@ -2439,7 +2439,7 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 
 	/* New HTLCs */
 	for (i = 0; i < tal_count(added); i++) {
-		if (!channel_added_their_htlc(channel, &added[i]))
+		if (!channel_added_their_htlc(channel, added[i]))
 			return;
 	}
 

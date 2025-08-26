@@ -1571,28 +1571,30 @@ static void marshall_htlc_info(const tal_t *ctx,
 			       struct changed_htlc **changed,
 			       struct fulfilled_htlc **fulfilled,
 			       const struct failed_htlc ***failed,
-			       struct added_htlc **added)
+			       const struct added_htlc ***added)
 {
 	*changed = tal_arr(ctx, struct changed_htlc, 0);
-	*added = tal_arr(ctx, struct added_htlc, 0);
+	*added = tal_arr(ctx, const struct added_htlc *, 0);
 	*failed = tal_arr(ctx, const struct failed_htlc *, 0);
 	*fulfilled = tal_arr(ctx, struct fulfilled_htlc, 0);
 
 	for (size_t i = 0; i < tal_count(changed_htlcs); i++) {
 		const struct htlc *htlc = changed_htlcs[i];
 		if (htlc->state == RCVD_ADD_COMMIT) {
-			struct added_htlc a;
+			struct added_htlc *a = tal(*added, struct added_htlc);
 
-			a.id = htlc->id;
-			a.amount = htlc->amount;
-			a.payment_hash = htlc->rhash;
-			a.cltv_expiry = abs_locktime_to_blocks(&htlc->expiry);
-			memcpy(a.onion_routing_packet,
+			a->id = htlc->id;
+			a->amount = htlc->amount;
+			a->payment_hash = htlc->rhash;
+			a->cltv_expiry = abs_locktime_to_blocks(&htlc->expiry);
+			memcpy(a->onion_routing_packet,
 			       htlc->routing,
-			       sizeof(a.onion_routing_packet));
-			a.path_key = htlc->path_key;
-			a.extra_tlvs = htlc->extra_tlvs;
-			a.fail_immediate = htlc->fail_immediate;
+			       sizeof(a->onion_routing_packet));
+			/* Note: we assume htlc's lifetime is greater than ours,
+			 * so we just share pointers and don't bother copying */
+			a->path_key = htlc->path_key;
+			a->extra_tlvs = htlc->extra_tlvs;
+			a->fail_immediate = htlc->fail_immediate;
 			tal_arr_expand(added, a);
 		} else if (htlc->state == RCVD_REMOVE_COMMIT) {
 			if (htlc->r) {
@@ -1629,7 +1631,7 @@ static void send_revocation(struct peer *peer,
 	struct changed_htlc *changed;
 	struct fulfilled_htlc *fulfilled;
 	const struct failed_htlc **failed;
-	struct added_htlc *added;
+	const struct added_htlc **added;
 	const u8 *msg;
 	const u8 *msg_for_master;
 

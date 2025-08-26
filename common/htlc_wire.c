@@ -216,9 +216,10 @@ static struct tlv_field *fromwire_len_and_tlvstream(const tal_t *ctx,
 	return tlvs;
 }
 
-void fromwire_added_htlc(const u8 **cursor, size_t *max,
-			 struct added_htlc *added)
+struct added_htlc *fromwire_added_htlc(const tal_t *ctx, const u8 **cursor,
+				       size_t *max)
 {
+	struct added_htlc *added = tal(ctx, struct added_htlc);
 	added->id = fromwire_u64(cursor, max);
 	added->amount = fromwire_amount_msat(cursor, max);
 	fromwire_sha256(cursor, max, &added->payment_hash);
@@ -235,6 +236,7 @@ void fromwire_added_htlc(const u8 **cursor, size_t *max,
 	} else
 		added->extra_tlvs = NULL;
 	added->fail_immediate = fromwire_bool(cursor, max);
+	return added;
 }
 
 struct existing_htlc *fromwire_existing_htlc(const tal_t *ctx,
