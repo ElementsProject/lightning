@@ -87,6 +87,8 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 
 
 
+[#8495]: https://github.com/ElementsProject/lightning/pull/8495
+[#8500]: https://github.com/ElementsProject/lightning/pull/8500
 [#8376]: https://github.com/ElementsProject/lightning/pull/8376
 [#8436]: https://github.com/ElementsProject/lightning/pull/8436
 [#8389]: https://github.com/ElementsProject/lightning/pull/8389
