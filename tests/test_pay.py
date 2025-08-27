@@ -7014,3 +7014,37 @@ def test_sendonion_sendpay(node_factory, bitcoind):
     invoice = only_one(l3.rpc.listinvoices("inv")["invoices"])
     # the receive amount should be exact
     assert invoice["amount_received_msat"] == Millisatoshi(total_amount)
+
+
+@pytest.mark.xfail(strict=True)
+def test_htlc_tlv_crash(node_factory):
+    """Marshalling code treated an array of htlc_added as if they were tal objects, but only the head is a tal object so if we have more than one, BOOM!"""
+    plugin = os.path.join(os.path.dirname(__file__), 'plugins/htlc_accepted-customtlv.py')
+    # To crash, we need TWO added htlcs at once.  Try to force batching!
+    l1, l2, l3 = node_factory.line_graph(3, opts=[{},
+                                                  {'commit-time': 10000, 'plugin': plugin},
+                                                  {'plugin': plugin}],
+                                         wait_for_announce=True)
+
+    single_tlv = "fe00010001012a"  # represents type: 65537, lenght: 1, value: 42
+    l2.rpc.setcustomtlvs(tlvs=single_tlv)
+
+    route = [{'amount_msat': 101,
+              'id': l2.info['id'],
+              'delay': 16,
+              'channel': first_scid(l1, l2),
+              },
+             {'amount_msat': 100,
+              'id': l3.info['id'],
+              'delay': 10,
+              'channel': first_scid(l2, l3)
+              }]
+
+    # Amount must be nonzero!
+    inv1 = l3.rpc.invoice(100, "inv1", "inv1")
+    inv2 = l3.rpc.invoice(100, "inv2", "inv2")
+    l1.rpc.sendpay(route, inv1['payment_hash'], payment_secret=inv1['payment_secret'])
+    l1.rpc.sendpay(route, inv2['payment_hash'], payment_secret=inv2['payment_secret'])
+
+    l1.rpc.waitsendpay(inv1['payment_hash'], TIMEOUT)
+    l1.rpc.waitsendpay(inv2['payment_hash'], TIMEOUT)
