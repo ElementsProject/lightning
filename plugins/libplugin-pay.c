@@ -449,7 +449,7 @@ static void channel_hints_update(struct payment *p,
 			   "estimated capacity %s",
 			   fmt_short_channel_id_dir(tmpctx, &hint->scid),
 			   hint->enabled ? "true" : "false",
-			   fmt_amount_msat(tmpctx, hint->estimated_capacity));
+			   hint->enabled ? fmt_amount_msat(tmpctx, hint->estimated_capacity) : "UNKNOWN");
 		channel_hint_notify(p->plugin, hint);
 	}
 }
