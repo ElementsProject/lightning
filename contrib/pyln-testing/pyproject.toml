@@ -1,6 +1,6 @@
 [project]
 name = "pyln-testing"
-version = "25.09rc3"
+version = "25.09rc4"
 description = "Test your Core Lightning integration, plugins or whatever you want"
 authors = [{ name = "Christian Decker", email = "decker.christian@gmail.com" }]
 license = { text = "BSD-MIT" }

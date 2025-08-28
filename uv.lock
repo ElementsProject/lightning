@@ -1830,7 +1830,7 @@ dev = [{ name = "pyln-proto", editable = "contrib/pyln-proto" }]
 
 [[package]]
 name = "pyln-client"
-version = "25.9rc3"
+version = "25.9rc4"
 source = { editable = "contrib/pyln-client" }
 dependencies = [
     { name = "pyln-bolt7" },
@@ -1890,7 +1890,7 @@ dev = [
 
 [[package]]
 name = "pyln-proto"
-version = "25.9rc3"
+version = "25.9rc4"
 source = { editable = "contrib/pyln-proto" }
 dependencies = [
     { name = "base58" },
@@ -1919,7 +1919,7 @@ dev = [{ name = "pytest", specifier = ">=7.0.0" }]
 
 [[package]]
 name = "pyln-testing"
-version = "25.9rc3"
+version = "25.9rc4"
 source = { editable = "contrib/pyln-testing" }
 dependencies = [
     { name = "cheroot" },
