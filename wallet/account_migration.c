@@ -124,7 +124,11 @@ static struct chain_event *stmt2chain_event(const tal_t *ctx, struct db_stmt *st
 	} else
 		e->spending_txid = NULL;
 
-	e->ignored = db_col_int(stmt, "e.ignored") == 1;
+	/* If they ran master before this, ignored might be null! */
+	if (db_col_is_null(stmt, "e.ignored"))
+		e->ignored = false;
+	else
+		e->ignored = db_col_int(stmt, "e.ignored") == 1;
 	e->stealable = db_col_int(stmt, "e.stealable") == 1;
 
 	if (!db_col_is_null(stmt, "e.ev_desc"))
