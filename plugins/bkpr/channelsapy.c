@@ -117,7 +117,7 @@ static void fillin_apy_acct_details(const struct bkpr *bkpr,
 
 	/* if this account is closed, add closing blockheight */
 	if (acct->closed_event_db_id) {
-		ev = find_chain_event_by_id(acct, bkpr, cmd,
+		ev = find_chain_event_by_id(tmpctx, bkpr, cmd,
 					    *acct->closed_event_db_id);
 		assert(ev);
 		apy->end_blockheight = ev->blockheight;
