@@ -48,6 +48,7 @@ Note: release schedule moved one month: this is v25.09, and all deprecations inc
  - libplugin: you can now call the synchronous API functions at any time (not just in the init callback). ([#8410])
  - Plugins: "utxo_deposit" notification is allowed to have missing `transfer_from`, and null is not considered an account name. ([#8410])
  - Plugins: `sql` tables `forwards`, `htlcs`, `invoices`, `sendpays` all use `created_index` as their primary key (and `rowid` is now an alias to this). ([#8410])
+ - Rust: custom notifications fields no longer wrapped in `payload` object, and `origin` is now outside the `params` object ([#8376])
 
 
 ### Deprecated
