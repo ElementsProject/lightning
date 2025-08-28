@@ -756,7 +756,7 @@ clean: obsclean
 
 # See doc/contribute-to-core-lightning/contributor-workflow.md
 PYLNS=client proto testing
-update-versions: update-pyln-versions update-reckless-version update-dot-version update-doc-examples
+update-versions: update-pyln-versions update-reckless-version update-dot-version # FIXME: update-doc-examples
 	@uv lock
 
 update-pyln-versions: $(PYLNS:%=update-pyln-version-%)
