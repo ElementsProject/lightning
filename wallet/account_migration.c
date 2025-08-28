@@ -105,7 +105,7 @@ static struct chain_event *stmt2chain_event(const tal_t *ctx, struct db_stmt *st
 	e->debit = db_col_amount_msat(stmt, "e.debit");
 	e->output_value = db_col_amount_msat(stmt, "e.output_value");
 
-	e->currency = db_col_strdup(e, stmt, "e.currency");
+	e->currency = db_col_strdup_optional(e, stmt, "e.currency");
 	e->timestamp = db_col_u64(stmt, "e.timestamp");
 	e->blockheight = db_col_int(stmt, "e.blockheight");
 
@@ -270,7 +270,7 @@ static struct channel_event *stmt2channel_event(const tal_t *ctx, struct db_stmt
 	e->debit = db_col_amount_msat(stmt, "e.debit");
 	e->fees = db_col_amount_msat(stmt, "e.fees");
 
-	e->currency = db_col_strdup(e, stmt, "e.currency");
+	e->currency = db_col_strdup_optional(e, stmt, "e.currency");
 	if (!db_col_is_null(stmt, "e.payment_id")) {
 		e->payment_id = tal(e, struct sha256);
 		db_col_sha256(stmt, "e.payment_id", e->payment_id);
@@ -404,6 +404,16 @@ void migrate_from_account_db(struct lightningd *ld, struct db *db)
 		struct amount_sat output_sat;
 		u64 id;
 
+		/* We removed currency support, because the only way you could
+		 * use it was to inject your own events, and nobody did that
+		 * and it would be a nightmare to support */
+		if (ev->currency
+		    && !streq(ev->currency, chainparams->lightning_hrp)) {
+			log_broken(ld->log, "IGNORING foreign currency chain event (%s, currency %s)",
+				   ev->tag, ev->currency);
+			continue;
+		}
+
 		stmt = db_prepare_v2(db,
 			     SQL("INSERT INTO chain_moves ("
 				 " id,"
@@ -482,6 +492,16 @@ void migrate_from_account_db(struct lightningd *ld, struct db *db)
 		struct mvt_account_id *account = tal(ev, struct mvt_account_id);
 		enum mvt_tag tag;
 		u64 id;
+
+		/* We removed currency support, because the only way you could
+		 * use it was to inject your own events, and nobody did that
+		 * and it would be a nightmare to support */
+		if (ev->currency
+		    && !streq(ev->currency, chainparams->lightning_hrp)) {
+			log_broken(ld->log, "IGNORING foreign currency channel event (%s, currency %s)",
+				   ev->tag, ev->currency);
+			continue;
+		}
 
 		stmt = db_prepare_v2(db,
 			     SQL("INSERT INTO channel_moves ("
