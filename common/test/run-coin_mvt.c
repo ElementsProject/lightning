@@ -186,6 +186,8 @@ static bool mvt_tag_is_primary(enum mvt_tag tag)
 		return true;
 	case MVT_FOREIGN:
 		return false;
+	case MVT_IGNORED:
+		return true;
 	}
 	abort();
 }

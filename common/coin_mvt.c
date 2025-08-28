@@ -36,6 +36,7 @@ static const char *mvt_tags[] = {
 	"penalty_adj",
 	"journal_entry",
 	"foreign",
+	"ignored",
 };
 
 #define PRIMARY_TAG_BITS ((1ULL << MVT_DEPOSIT) |	\
@@ -59,7 +60,8 @@ static const char *mvt_tags[] = {
 			  (1ULL << MVT_LEASE_FEE) |	\
 			  (1ULL << MVT_PENALTY_ADJ) |	\
 			  (1ULL << MVT_JOURNAL) |	\
-			  (1ULL << MVT_CHANNEL_PROPOSED))
+			  (1ULL << MVT_CHANNEL_PROPOSED) | \
+			  (1ULL << MVT_IGNORED))
 
 static enum mvt_tag mvt_tag_in_db(enum mvt_tag mvt_tag)
 {
@@ -144,6 +146,9 @@ static enum mvt_tag mvt_tag_in_db(enum mvt_tag mvt_tag)
 		return mvt_tag;
 	case MVT_FOREIGN:
 		BUILD_ASSERT(MVT_FOREIGN == 26);
+		return mvt_tag;
+	case MVT_IGNORED:
+		BUILD_ASSERT(MVT_IGNORED == 27);
 		return mvt_tag;
 	}
 	abort();

@@ -16666,6 +16666,7 @@
                     "to_them",
                     "penalized",
                     "stolen",
+                    "ignored",
                     "to_miner"
                   ],
                   "description": [
