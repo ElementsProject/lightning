@@ -435,7 +435,8 @@ void migrate_from_account_db(struct lightningd *ld, struct db *db)
 		id = chain_mvt_index_created(ld, db, account, ev->credit, ev->debit);
 		db_bind_u64(stmt, id);
 		if (!mvt_tag_parse(ev->tag, strlen(ev->tag), &tag))
-			abort();
+			db_fatal(db, "Unknown tag '%s' in chain_moves migration!",
+				 ev->tag);
 		tags = tag_to_mvt_tags(tag);
 		if (tag == MVT_CHANNEL_OPEN && ev->we_opened)
 			mvt_tag_set(&tags, MVT_OPENER);
@@ -521,7 +522,8 @@ void migrate_from_account_db(struct lightningd *ld, struct db *db)
 		db_bind_mvt_account_id(stmt, db, account);
 		db_bind_credit_debit(stmt, ev->credit, ev->debit);
 		if (!mvt_tag_parse(ev->tag, strlen(ev->tag), &tag))
-			abort();
+			db_fatal(db, "Unknown tag '%s' in channel_moves migration!",
+				 ev->tag);
 		db_bind_mvt_tags(stmt, tag_to_mvt_tags(tag));
 		db_bind_u64(stmt, ev->timestamp);
 		if (ev->payment_id)
