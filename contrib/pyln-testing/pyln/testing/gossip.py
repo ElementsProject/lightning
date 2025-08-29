@@ -16,7 +16,13 @@ class GossipStore(object):
         self.path = path
         self.log = logging.getLogger("GossipStore")
 
+    def __del__(self):
+        if self.fd is not None:
+            self.fd.close()
+
     def open(self):
+        if self.fd is not None:
+            self.fd.close()
         self.fd = self.path.open(mode="rb")
         self.version = ord(self.fd.read(1))
         if self.version < 3:

@@ -58,7 +58,8 @@ class CompatLevel(object):
     """
     def __init__(self):
         makefile = os.path.join(os.path.dirname(__file__), "..", "Makefile")
-        lines = [l for l in open(makefile, 'r') if l.startswith('COMPAT_CFLAGS')]
+        with open(makefile, 'r') as f:
+            lines = [l for l in f if l.startswith('COMPAT_CFLAGS')]
         assert(len(lines) == 1)
         line = lines[0]
         flags = re.findall(r'COMPAT_V([0-9]+)=1', line)

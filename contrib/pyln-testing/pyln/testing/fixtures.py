@@ -512,6 +512,9 @@ def node_factory(request, directory, test_name, bitcoind, executor, db_provider,
     if not ok:
         map_node_error(nf.nodes, prinErrlog, "some node failed unexpected, non-empty errlog file")
 
+    for n in nf.nodes:
+        n.daemon.cleanup_files()
+
 
 def getErrlog(node):
     for error_file in os.listdir(node.daemon.lightning_dir):
