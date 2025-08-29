@@ -1830,6 +1830,9 @@ static struct command_result *json_xpay_params(struct command *cmd,
 		xparams->dev_maxparts = *maxparts;
 		xparams->bip353 = invstring;
 
+		if (command_check_only(cmd))
+			return command_check_done(cmd);
+
 		req = jsonrpc_request_start(cmd, "fetchbip353",
 					    bip353_fetched,
 					    forward_error, xparams);
