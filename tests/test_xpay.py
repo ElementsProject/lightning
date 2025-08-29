@@ -1018,3 +1018,10 @@ def test_xpay_bip353(node_factory):
 
     node_factory.join_nodes([l2, l1])
     l2.rpc.xpay('fake@fake.com', 100)
+
+    # BOLT #12:
+    # - if it received the offer from which it constructed this `invoice_request` using BIP 353 resolution:
+    # - MUST include `invreq_bip_353_name` with,
+    #   - `name` set to the post-₿, pre-@ part of the BIP 353 HRN,
+    #   - `domain` set to the post-@ part of the BIP 353 HRN.
+    assert l1.rpc.decode(only_one(l1.rpc.listinvoices()['invoices'])['bolt12'])['invreq_bip_353_name'] == {'name': 'fake', 'domain': 'fake.com'}
