@@ -6114,6 +6114,7 @@ impl From<requests::XpayRequest> for pb::XpayRequest {
             maxdelay: c.maxdelay, // Rule #2 for type u32?
             maxfee: c.maxfee.map(|f| f.into()), // Rule #2 for type msat?
             partial_msat: c.partial_msat.map(|f| f.into()), // Rule #2 for type msat?
+            payer_note: c.payer_note, // Rule #2 for type string?
             retry_for: c.retry_for, // Rule #2 for type u32?
         }
     }
@@ -7799,6 +7800,7 @@ impl From<pb::XpayRequest> for requests::XpayRequest {
             maxdelay: c.maxdelay, // Rule #1 for type u32?
             maxfee: c.maxfee.map(|a| a.into()), // Rule #1 for type msat?
             partial_msat: c.partial_msat.map(|a| a.into()), // Rule #1 for type msat?
+            payer_note: c.payer_note, // Rule #1 for type string?
             retry_for: c.retry_for, // Rule #1 for type u32?
         }
     }

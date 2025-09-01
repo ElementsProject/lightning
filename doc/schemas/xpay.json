@@ -65,6 +65,13 @@
           "A payment may be delayed for up to `maxdelay` blocks by another node; clients should be prepared for this worst case."
         ],
         "default": "2016"
+      },
+      "payer_note": {
+        "type": "string",
+        "added": "v25.12",
+        "description": [
+          "To ask the issuer to include in the fetched invoice (only if invstring is a BIP353 address or offer)"
+        ]
       }
     }
   },
