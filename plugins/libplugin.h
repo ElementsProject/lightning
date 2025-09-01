@@ -50,6 +50,12 @@ struct out_req {
 					const char *buf,
 					const jsmntok_t *error,
 					void *arg);
+	/* The callback when we a notification about this command. */
+	void (*notified)(struct command *command,
+			 const char *method,
+			 const char *buf,
+			 const jsmntok_t *params,
+			 void *arg);
 	void *arg;
 };
 
@@ -135,6 +141,13 @@ struct command_result *plugin_broken_cb(struct command *cmd,
 					const jsmntok_t *result,
 					void *arg);
 
+/* Helper to forward notifications */
+void forward_notified(struct command *cmd,
+		      const char *method,
+		      const char *buf,
+		      const jsmntok_t *params,
+		      void *arg);
+
 /* Helper to create a JSONRPC2 request stream. Send it with `send_outreq`. */
 struct out_req *jsonrpc_request_start_(struct command *cmd,
 				       const char *method,
@@ -150,6 +163,11 @@ struct out_req *jsonrpc_request_start_(struct command *cmd,
 								       const char *buf,
 								       const jsmntok_t *result,
 								       void *arg),
+				       void (*notified)(struct command *command,
+							const char *method,
+							const char *buf,
+							const jsmntok_t *params,
+							void *arg),
 				       void *arg)
 	NON_NULL_ARGS(1, 2, 5);
 
@@ -167,6 +185,7 @@ struct out_req *jsonrpc_request_start_(struct command *cmd,
 					 const char *mthod,		\
 					 const char *buf,		\
 					 const jsmntok_t *result),	\
+		     NULL,						\
 		     (arg))
 
 #define jsonrpc_request_with_filter_start(cmd, method, filter, cb, errcb, arg) \
@@ -183,6 +202,7 @@ struct out_req *jsonrpc_request_start_(struct command *cmd,
 					 const char *mthod,			\
 					 const char *buf,		\
 					 const jsmntok_t *result),	\
+		     NULL,						\
 		     (arg))
 
 /* This variant has callbacks received whole obj, not "result" or
@@ -196,7 +216,31 @@ struct out_req *jsonrpc_request_start_(struct command *cmd,
 						   const char *buf,	\
 						   const jsmntok_t *result), \
 			       NULL,					\
+			       NULL,						\
 			       (arg))
+
+/* This one handles notifications as well */
+#define jsonrpc_request_notified_start(cmd, method, cb, errcb, notcb, arg) \
+	jsonrpc_request_start_((cmd), (method), NULL, NULL,		\
+		     typesafe_cb_preargs(struct command_result *, void *, \
+					 (cb), (arg),			\
+					 struct command *command,	\
+					 const char *mthod,		\
+					 const char *buf,		\
+					 const jsmntok_t *result),	\
+		     typesafe_cb_preargs(struct command_result *, void *, \
+					 (errcb), (arg),		\
+					 struct command *command,	\
+					 const char *mthod,		\
+					 const char *buf,		\
+					 const jsmntok_t *result),	\
+		     typesafe_cb_preargs(void, void *, \
+					 (notcb), (arg),		\
+					 struct command *command,	\
+					 const char *mthod,		\
+					 const char *buf,		\
+					 const jsmntok_t *parms),	\
+		     (arg))
 
 /* Batch of requests: cb and errcb are optional, finalcb is called when all complete. */
 struct request_batch *request_batch_new_(const tal_t *ctx,

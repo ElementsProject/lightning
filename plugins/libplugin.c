@@ -392,6 +392,27 @@ static void destroy_out_req(struct out_req *out_req, struct plugin *plugin)
 	strmap_del(&plugin->out_reqs, out_req->id, NULL);
 }
 
+void forward_notified(struct command *cmd,
+		      const char *method,
+		      const char *buf,
+		      const jsmntok_t *params,
+		      void *arg)
+{
+	const jsmntok_t *msgtok;
+	struct json_stream *js;
+
+	/* FIXME: There are also progress indicators, how to forward them? */
+	msgtok = json_get_member(buf, params, "message");
+	if (!msgtok)
+		return;
+
+	js = plugin_notify_start(cmd, "message");
+	json_add_tok(js, "level", json_get_member(buf, params, "level"), buf);
+	json_add_str_fmt(js, "message", "%s: %s",
+			 method, json_strdup(tmpctx, buf, msgtok));
+	plugin_notify_end(cmd, js);
+}
+
 /* FIXME: Move lightningd/jsonrpc to common/ ? */
 
 struct out_req *
@@ -409,6 +430,11 @@ jsonrpc_request_start_(struct command *cmd,
 						       const char *buf,
 						       const jsmntok_t *result,
 						       void *arg),
+		       void (*notified)(struct command *command,
+					const char *method,
+					const char *buf,
+					const jsmntok_t *params,
+					void *arg),
 		       void *arg)
 {
 	struct out_req *out;
@@ -420,6 +446,7 @@ jsonrpc_request_start_(struct command *cmd,
 	out->cmd = cmd;
 	out->cb = cb;
 	out->errcb = errcb;
+	out->notified = notified;
 	out->arg = arg;
 	strmap_add(&cmd->plugin->out_reqs, out->id, out);
 	tal_add_destructor2(out, destroy_out_req, cmd->plugin);
@@ -1085,9 +1112,19 @@ static void handle_rpc_reply(struct plugin *plugin, const char *buf, const jsmnt
 	bool cmd_freed;
 
 	idtok = json_get_member(buf, toks, "id");
-	if (!idtok)
-		/* FIXME: Don't simply ignore notifications! */
+	if (!idtok) {
+		const jsmntok_t *paramstok;
+		/* It's a notification about a command! */
+		paramstok = json_get_member(buf, toks, "params");
+		idtok = json_get_member(buf, paramstok, "id");
+		out = strmap_getn(&plugin->out_reqs,
+				  json_tok_full(buf, idtok),
+				  json_tok_full_len(idtok));
+		if (!out || !out->notified)
+			return;
+		out->notified(out->cmd, out->method, buf, paramstok, out->arg);
 		return;
+	}
 
 	out = strmap_getn(&plugin->out_reqs,
 			  json_tok_full(buf, idtok),
@@ -1654,6 +1691,13 @@ static struct command_result *handle_init(struct command *cmd,
 		struct command *aux_cmd = aux_command(cmd);
 
 		io_new_conn(p, p->rpc_conn->fd, rpc_conn_init, p);
+
+		/* Enable notifications on all commands */
+		req = jsonrpc_request_start(aux_cmd, "notifications",
+					    ignore_and_complete, plugin_broken_cb, NULL);
+		json_add_bool(req->js, "enable", true);
+		send_outreq(req);
+
 		/* In case they intercept rpc_command, we can't do this sync. */
 		req = jsonrpc_request_start(aux_cmd, "listconfigs",
 					    get_beglist, plugin_broken_cb, NULL);
