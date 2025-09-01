@@ -1720,6 +1720,8 @@ do_fetchinvoice(struct command *cmd, const char *offerstr, struct xpay_params *x
 {
 	struct out_req *req;
 
+	plugin_notify_message(cmd, LOG_INFORM, "Fetching invoice for offer");
+	plugin_notify_message(cmd, LOG_DBG, "offer is %s", offerstr);
 	req = jsonrpc_request_start(cmd, "fetchinvoice",
 				    invoice_fetched,
 				    forward_error,
@@ -1833,6 +1835,7 @@ static struct command_result *json_xpay_params(struct command *cmd,
 		if (command_check_only(cmd))
 			return command_check_done(cmd);
 
+		plugin_notify_message(cmd, LOG_INFORM, "DNS lookup for %s", invstring);
 		req = jsonrpc_request_start(cmd, "fetchbip353",
 					    bip353_fetched,
 					    forward_error, xparams);

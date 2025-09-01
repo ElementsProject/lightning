@@ -1025,3 +1025,8 @@ def test_xpay_bip353(node_factory):
     #   - `name` set to the post-₿, pre-@ part of the BIP 353 HRN,
     #   - `domain` set to the post-@ part of the BIP 353 HRN.
     assert l1.rpc.decode(only_one(l1.rpc.listinvoices()['invoices'])['bolt12'])['invreq_bip_353_name'] == {'name': 'fake', 'domain': 'fake.com'}
+
+    # We provide notifications of progress!
+    l2.daemon.wait_for_log('plugin-cln-xpay: notify msg info: DNS lookup for fake@fake.com')
+    l2.daemon.wait_for_log('plugin-cln-xpay: notify msg info: Fetching invoice for offer')
+    l2.daemon.wait_for_log(f'plugin-cln-xpay: notify msg debug: offer is {offer}')
