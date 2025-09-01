@@ -1536,3 +1536,20 @@ def test_simple_dummy_channel(node_factory):
         final_cltv=5,
         layers=["mylayer"],
     )
+
+
+def test_askrene_notifications(node_factory):
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+
+    out = subprocess.check_output(['cli/lightning-cli',
+                                   '--network={}'.format(TEST_NETWORK),
+                                   '--lightning-dir={}'
+                                   .format(l1.daemon.lightning_dir),
+                                   'getroutes',
+                                   l1.info['id'],
+                                   l3.info['id'],
+                                   "10000msat",
+                                   "[]",
+                                   "1000msat",
+                                   "11"]).decode('utf-8').splitlines()
+    assert out == []

@@ -1350,10 +1350,11 @@ static struct command_result *getroutes_for(struct command *aux_cmd,
 		maxfee = AMOUNT_MSAT(0);
 	}
 
-	req = jsonrpc_request_start(aux_cmd, "getroutes",
-				    getroutes_done,
-				    getroutes_done_err,
-				    payment);
+	req = jsonrpc_request_notified_start(aux_cmd, "getroutes",
+					     getroutes_done,
+					     getroutes_done_err,
+					     forward_notified,
+					     payment);
 
 	json_add_pubkey(req->js, "source", &xpay->local_id);
 	json_add_pubkey(req->js, "destination", dst);
