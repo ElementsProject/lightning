@@ -201,6 +201,12 @@ def test_xpay_simple(node_factory):
     with pytest.raises(RpcError, match="Already paid"):
         l1.rpc.xpay(b11_paid)
 
+    # Cannot specify payer_note with normal invoice
+    with pytest.raises(RpcError, match=r"payer_note only valid when paying an offer or BIP353 address"):
+        l1.rpc.xpay(invstring=b11, payer_note='x')
+    with pytest.raises(RpcError, match=r"payer_note only valid when paying an offer or BIP353 address"):
+        l1.rpc.xpay(invstring=b12, payer_note='x')
+
 
 def test_xpay_selfpay(node_factory):
     l1 = node_factory.get_node()
@@ -1005,6 +1011,10 @@ def test_xpay_offer(node_factory):
     l1.rpc.xpay(offer2)
     l1.rpc.xpay(offer2, 5000)
 
+    # Now with a payer_note:
+    l1.rpc.xpay(invstring=offer2, payer_note="Eat at Joes!")
+    assert l1.rpc.decode(l2.rpc.listinvoices()['invoices'][3]['bolt12'])['invreq_payer_note'] == "Eat at Joes!"
+
 
 def test_xpay_bip353(node_factory):
     fakebip353_plugin = Path(__file__).parent / "plugins" / "fakebip353.py"
@@ -1030,3 +1040,7 @@ def test_xpay_bip353(node_factory):
     l2.daemon.wait_for_log('plugin-cln-xpay: notify msg info: DNS lookup for fake@fake.com')
     l2.daemon.wait_for_log('plugin-cln-xpay: notify msg info: Fetching invoice for offer')
     l2.daemon.wait_for_log(f'plugin-cln-xpay: notify msg debug: offer is {offer}')
+
+    # Now with a payer_note:
+    l2.rpc.xpay(invstring='fake@fake.com', amount_msat=123, payer_note="Eat at Joes!")
+    assert l1.rpc.decode(l1.rpc.listinvoices()['invoices'][1]['bolt12'])['invreq_payer_note'] == "Eat at Joes!"

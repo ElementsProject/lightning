@@ -1697,6 +1697,7 @@ struct xpay_params {
 	unsigned int retryfor;
 	u32 maxdelay, dev_maxparts;
 	const char *bip353;
+	const char *payer_note;
 };
 
 static struct command_result *
@@ -1731,6 +1732,8 @@ do_fetchinvoice(struct command *cmd, const char *offerstr, struct xpay_params *x
 		json_add_amount_msat(req->js, "amount_msat", *xparams->msat);
 	if (xparams->bip353)
 		json_add_string(req->js, "bip353", xparams->bip353);
+	if (xparams->payer_note)
+		json_add_string(req->js, "payer_note", xparams->payer_note);
 	return send_outreq(req);
 }
 
@@ -1779,6 +1782,7 @@ static struct command_result *json_xpay_params(struct command *cmd,
 	unsigned int *retryfor;
 	struct out_req *req;
 	struct xpay_params *xparams;
+	const char *payer_note;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("invstring", param_invstring, &invstring),
@@ -1788,6 +1792,7 @@ static struct command_result *json_xpay_params(struct command *cmd,
 			 p_opt_def("retry_for", param_number, &retryfor, 60),
 			 p_opt("partial_msat", param_msat, &partial),
 			 p_opt_def("maxdelay", param_u32, &maxdelay, 2016),
+			 p_opt("payer_note", param_string, &payer_note),
 			 p_opt_dev("dev_maxparts", param_u32, &maxparts, 100),
 			 NULL))
 		return command_param_failed();
@@ -1814,6 +1819,7 @@ static struct command_result *json_xpay_params(struct command *cmd,
 		xparams->layers = layers;
 		xparams->retryfor = *retryfor;
 		xparams->maxdelay = *maxdelay;
+		xparams->payer_note = tal_steal(xparams, payer_note);
 		xparams->dev_maxparts = *maxparts;
 		xparams->bip353 = NULL;
 
@@ -1829,6 +1835,7 @@ static struct command_result *json_xpay_params(struct command *cmd,
 		xparams->layers = layers;
 		xparams->retryfor = *retryfor;
 		xparams->maxdelay = *maxdelay;
+		xparams->payer_note = tal_steal(xparams, payer_note);
 		xparams->dev_maxparts = *maxparts;
 		xparams->bip353 = invstring;
 
@@ -1842,6 +1849,10 @@ static struct command_result *json_xpay_params(struct command *cmd,
 		json_add_string(req->js, "address", invstring);
 		return send_outreq(req);
 	}
+
+	if (payer_note)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "payer_note only valid when paying an offer or BIP353 address");
 
 	return xpay_core(cmd, invstring,
 			 msat, maxfee, layers, *retryfor, partial, *maxdelay, *maxparts,
