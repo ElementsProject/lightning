@@ -89,14 +89,9 @@ RUN apt-get update -qq && \
         tclsh
 
 ENV PATH="/root/.local/bin:$PATH" \
-    PYTHON_VERSION=3 \
-    POETRY_VERSION=2.0.1
-RUN curl -sSL https://install.python-poetry.org | python3 - && \
-    poetry self add poetry-plugin-export
-RUN mkdir -p /root/.venvs && \
-    python3 -m venv /root/.venvs/cln && \
-    . /root/.venvs/cln/bin/activate && \
-    pip3 install --upgrade pip setuptools wheel
+    PYTHON_VERSION=3
+RUN wget -qO- https://astral.sh/uv/install.sh | sh && \
+    && uv sync --all-extras --all-groups
 
 RUN wget -q https://zlib.net/fossils/zlib-1.2.13.tar.gz -O zlib.tar.gz && \
     wget -q https://www.sqlite.org/2019/sqlite-src-3290000.zip -O sqlite.zip && \
@@ -108,13 +103,6 @@ RUN git clone --recursive /tmp/lightning . && \
     git checkout $(git --work-tree=/tmp/lightning --git-dir=/tmp/lightning/.git rev-parse HEAD)
 
 # Do not build python plugins here, python doesn't support cross compilation.
-RUN poetry lock && \
-    poetry export -o requirements.txt --without-hashes
-RUN mkdir -p /root/.venvs && \
-    python3 -m venv /root/.venvs/cln && \
-    . /root/.venvs/cln/bin/activate && \
-    pip3 install -r requirements.txt && \
-    pip3 cache purge
 WORKDIR /
 
 FROM base-builder AS base-builder-linux-amd64
@@ -228,45 +216,13 @@ RUN ( ! [ -n "${target_host}" ] ) || \
 RUN ( ! [ "${target_host}" = "arm-linux-gnueabihf" ] ) || \
     (sed -i '/documentation = "https:\/\/docs.rs\/cln-grpc"/a include = ["**\/*.*"]' cln-grpc/Cargo.toml)
 
-# Ensure that the desired grpcio-tools & protobuf versions are installed
-# https://github.com/ElementsProject/lightning/pull/7376#issuecomment-2161102381
-RUN poetry lock && poetry install && \
-    poetry self add poetry-plugin-export
-
 # Ensure that git differences are removed before making bineries, to avoid `-modded` suffix
-# poetry.lock changed due to pyln-client, pyln-proto and pyln-testing version updates
 RUN git reset --hard HEAD
 
-RUN ./configure --prefix=/tmp/lightning_install --enable-static && poetry run make install
+RUN ./configure --prefix=/tmp/lightning_install --enable-static && uv run make install
 
 WORKDIR /opt/lightningd
 RUN echo 'RUSTUP_INSTALL_OPTS="${RUSTUP_INSTALL_OPTS}"' > /tmp/rustup_install_opts.txt
-
-# We need to build python plugins on the target's arch because python doesn't support cross build
-FROM ${BASE_DISTRO} AS builder-python
-RUN apt-get update -qq && \
-    apt-get install -qq -y --no-install-recommends \
-        git \
-        curl \
-        libtool \
-        pkg-config \
-        autoconf \
-        automake \
-        build-essential \
-        libffi-dev \
-        libssl-dev \
-        python3 \
-        python3-dev \
-        python3-pip \
-        python3-venv && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
-ENV PYTHON_VERSION=3
-RUN mkdir -p /root/.venvs && \
-    python3 -m venv /root/.venvs/cln && \
-    . /root/.venvs/cln/bin/activate && \
-    pip3 install --upgrade pip setuptools wheel
 
 # Copy rustup_install_opts.txt file from builder
 COPY --from=builder /tmp/rustup_install_opts.txt /tmp/rustup_install_opts.txt
@@ -286,7 +242,6 @@ RUN apt-get update && \
       inotify-tools \
       jq \
       python3 \
-      python3-pip && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
