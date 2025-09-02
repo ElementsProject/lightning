@@ -11,6 +11,7 @@ if [ "$1" = "--inside-docker" ]; then
     git config --global --add safe.directory /src/.git
     git clone /src /build
     cd /build || exit
+    uv venv
     uv export --format requirements.txt > /tmp/requirements.txt
     uv pip install -r /tmp/requirements.txt
     ./configure
