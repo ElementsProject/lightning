@@ -106,8 +106,7 @@ static void maybe_free_peer(struct peer *peer)
  * not reading, we have to give up. */
 static void close_peer_io_timeout(struct peer *peer)
 {
-	/* BROKEN means we'll trigger CI if we see it, though it's possible */
-	status_peer_broken(&peer->id, "Peer did not close, forcing close");
+	status_peer_unusual(&peer->id, CI_UNEXPECTED "Peer did not close, forcing close");
 	io_close(peer->to_peer);
 }
 
