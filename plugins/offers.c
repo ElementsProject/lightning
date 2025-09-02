@@ -608,8 +608,6 @@ static bool json_add_blinded_paths(struct command *cmd,
 				     paths[i]->first_node_id.scidd.dir);
 		}
 
-		if (command_deprecated_out_ok(cmd, "blinding", "v24.11", "v25.05"))
-			json_add_pubkey(js, "blinding", &paths[i]->first_path_key);
 		json_add_pubkey(js, "first_path_key", &paths[i]->first_path_key);
 
 		/* Don't crash if we're short a payinfo! */
