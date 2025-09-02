@@ -227,14 +227,21 @@ def test_xpay_fake_channeld(node_factory, bitcoind, chainparams, slow_mode):
 
     # l2 will warn l1 about its invalid gossip: ignore.
     # We throttle l1's gossip to avoid massive log spam.
+    # Suppress debug and below because logs are huge
     l1, l2 = node_factory.line_graph(2,
                                      # This is in sats, so 1000x amount we send.
                                      fundamount=AMOUNT,
                                      opts=[{'gossip_store_file': outfile.name,
                                             'subdaemon': 'channeld:../tests/plugins/channeld_fakenet',
                                             'allow_warning': True,
-                                            'dev-throttle-gossip': None},
-                                           {'allow_bad_gossip': True}])
+                                            'dev-throttle-gossip': None,
+                                            'log-level': 'info',
+                                            # xpay gets upset if it's aging when we remove cln-askrene!
+                                            'dev-xpay-no-age': None,
+                                            },
+                                           {'allow_bad_gossip': True,
+                                            'log-level': 'info',
+                                            }])
 
     # l1 needs to know l2's shaseed for the channel so it can make revocations
     hsmfile = os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
