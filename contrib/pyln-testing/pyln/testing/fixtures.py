@@ -612,7 +612,7 @@ def checkBadGossip(node):
 
 def checkBroken(node):
     node.daemon.logs_catchup()
-    broken_lines = [l for l in node.daemon.logs if '**BROKEN**' in l]
+    broken_lines = [l for l in node.daemon.logs if '**BROKEN**' in l or "That's weird: " in l]
     if node.broken_log:
         ex = re.compile(node.broken_log)
         broken_lines = [l for l in broken_lines if not ex.search(l)]
