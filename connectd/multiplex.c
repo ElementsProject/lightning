@@ -1093,6 +1093,7 @@ static struct io_plan *write_to_peer(struct io_conn *peer_conn,
 		if (!msg) {
 			/* Tell them to read again, */
 			io_wake(&peer->subds);
+			io_wake(&peer->peer_in);
 
 			/* Wait for them to wake us */
 			return msg_queue_wait(peer_conn, peer->peer_outq,
@@ -1266,8 +1267,11 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
 	       return next_read(peer_conn, peer);
 
        /* If we swallow this, just try again. */
-       if (handle_message_locally(peer, decrypted))
-	       return next_read(peer_conn, peer);
+       if (handle_message_locally(peer, decrypted)) {
+	       /* Make sure to update peer->peer_in_lastmsg so we blame correct msg! */
+	       io_wake(peer->peer_outq);
+	       goto out;
+       }
 
        /* After this we should be able to match to subd by channel_id */
        if (!extract_channel_id(decrypted, &channel_id)) {
@@ -1334,6 +1338,7 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
 
        /* Wait for them to wake us */
        peer->peer_in_lastmsg = type;
+out:
        peer->peer_in_lasttime = time_mono();
 
        return io_wait(peer_conn, &peer->peer_in, next_read, peer);

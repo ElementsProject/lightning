@@ -75,7 +75,7 @@ jobs:
       run: |
         echo "Pyln VERSION: $VERSION"
         uv build --package ${{ matrix.PACKAGE }}
-        uv publish --package ${{ matrix.PACKAGE }} --publish-url https://test.pypi.org/legacy/ --skip-existing
+        uv publish --publish-url https://test.pypi.org/legacy/ --check-url https://test.pypi.org/simple/
 
     - name: Publish distribution 📦 to PyPI
       if: github.repository == 'ElementsProject/lightning' && steps.set-values.outputs.DISTLOCATION == 'prod'
@@ -87,7 +87,7 @@ jobs:
         cd ${{ env.WORKDIR }}
         export VERSION=$(git describe --tags --abbrev=0)
         echo "Pyln VERSION: $VERSION"
-        make upgrade-version NEW_VERSION=$VERSION
+        make update-pyln-versions NEW_VERSION=$VERSION
         cd /github/workspace
         uv build --package ${{ matrix.PACKAGE }}
-        uv publish --package ${{ matrix.PACKAGE }}
+        uv publish

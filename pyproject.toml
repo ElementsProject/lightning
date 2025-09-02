@@ -36,6 +36,9 @@ dev = [
 [project.optional-dependencies]
 grpc = ["pyln-testing"]
 
+[tool.poetry]
+package-mode = false
+
 [tool.uv]
 package = false
 

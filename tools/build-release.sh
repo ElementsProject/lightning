@@ -11,11 +11,12 @@ if [ "$1" = "--inside-docker" ]; then
     git config --global --add safe.directory /src/.git
     git clone /src /build
     cd /build || exit
+    uv venv
     uv export --format requirements.txt > /tmp/requirements.txt
     uv pip install -r /tmp/requirements.txt
     ./configure
-    make VERSION="$VER"
-    make install DESTDIR=/"$VER-$PLTFM-$PLTFMVER-$ARCH" RUST_PROFILE=release
+    uv run make VERSION="$VER"
+    uv run make install DESTDIR=/"$VER-$PLTFM-$PLTFMVER-$ARCH" RUST_PROFILE=release
     cd /"$VER-$PLTFM-$PLTFMVER-$ARCH" && tar cvfz /release/clightning-"$VER-$PLTFM-$PLTFMVER-$ARCH".tar.gz -- *
     echo "Inside docker: build finished"
     exit 0

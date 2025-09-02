@@ -3,7 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
-## [25.09rc4] - 2025-08-28: "Hot Wallet Guardian"
+## [25.09] - 2025-09-01: "Hot Wallet Guardian"
 
 This release named by @king-11.
 
@@ -119,7 +119,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#7344]: https://github.com/ElementsProject/lightning/pull/7344
 [#8410]: https://github.com/ElementsProject/lightning/pull/8410
 [#8249]: https://github.com/ElementsProject/lightning/pull/8249
-[25.09rc4]: https://github.com/ElementsProject/lightning/releases/tag/v25.09rc4
+[25.09]: https://github.com/ElementsProject/lightning/releases/tag/v25.09
 
 
 
