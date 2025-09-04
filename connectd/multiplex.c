@@ -1082,8 +1082,10 @@ static struct io_plan *write_to_peer(struct io_conn *peer_conn,
 	/* Still nothing to send? */
 	if (!msg) {
 		/* Draining?  We're done when subds are done. */
-		if (peer->draining && tal_count(peer->subds) == 0)
+		if (peer->draining && tal_count(peer->subds) == 0) {
+			io_wake(&peer->peer_in);
 			return io_sock_shutdown(peer_conn);
+		}
 
 		/* If they want us to send gossip, do so now. */
 		if (!peer->draining)
