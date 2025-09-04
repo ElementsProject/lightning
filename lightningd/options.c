@@ -1253,23 +1253,6 @@ static char *opt_set_peer_storage(struct lightningd *ld)
 	return NULL;
 }
 
-static char *opt_set_quiesce(struct lightningd *ld)
-{
-	if (!opt_deprecated_ok(ld, "experimental-quiesce", NULL,
-			       "v24.11", "v25.05"))
-		return "--experimental-quiesce is now enabled by default";
-	return NULL;
-}
-
-static char *opt_set_offers(struct lightningd *ld)
-{
-	if (!opt_deprecated_ok(ld, "experimental-offers", NULL,
-			       "v24.11", "v25.05"))
-		return "--experimental-offers has been deprecated (now the default)";
-
-	return NULL;
-}
-
 static char *opt_set_db_upgrade(const char *arg, struct lightningd *ld)
 {
 	ld->db_upgrade_ok = tal(ld, bool);
@@ -1440,19 +1423,12 @@ static void register_opts(struct lightningd *ld)
 				 " channels using splicing");
 
 	/* This affects our features, so set early. */
-	opt_register_early_noarg("--experimental-offers",
-				 opt_set_offers, ld,
-				 opt_hidden);
 	opt_register_early_noarg("--experimental-shutdown-wrong-funding",
 				 opt_set_shutdown_wrong_funding, ld,
 				 "EXPERIMENTAL: allow shutdown with alternate txids");
 	opt_register_early_noarg("--experimental-peer-storage",
 				 opt_set_peer_storage, ld,
 				 opt_hidden);
-	opt_register_early_noarg("--experimental-quiesce",
-				 opt_set_quiesce, ld,
-				 "experimental: Advertise ability to quiesce"
-				 " channels.");
 
 	clnopt_noarg("--help|-h", OPT_EXITS,
 		     opt_lightningd_usage, ld, "Print this message.");
