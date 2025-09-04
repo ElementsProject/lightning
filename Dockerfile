@@ -90,8 +90,6 @@ RUN apt-get update -qq && \
 
 ENV PATH="/root/.local/bin:$PATH" \
     PYTHON_VERSION=3
-RUN wget -qO- https://astral.sh/uv/install.sh | sh && \
-    && uv sync --all-extras --all-groups
 
 RUN wget -q https://zlib.net/fossils/zlib-1.2.13.tar.gz -O zlib.tar.gz && \
     wget -q https://www.sqlite.org/2019/sqlite-src-3290000.zip -O sqlite.zip && \
@@ -102,7 +100,9 @@ COPY . /tmp/lightning
 RUN git clone --recursive /tmp/lightning . && \
     git checkout $(git --work-tree=/tmp/lightning --git-dir=/tmp/lightning/.git rev-parse HEAD)
 
-# Do not build python plugins here, python doesn't support cross compilation.
+RUN wget -qO- https://astral.sh/uv/install.sh | sh && \
+    uv sync --all-extras --all-groups
+
 WORKDIR /
 
 FROM base-builder AS base-builder-linux-amd64
@@ -202,6 +202,10 @@ RUN mkdir /var/libpq && cp -a "$(${PG_CONFIG} --libdir)"/libpq.* /var/libpq
 
 ENV RUST_PROFILE=release \
     PATH="/root/.cargo/bin:/root/.local/bin:$PATH"
+ENV UV_CACHE_DIR=/tmp/uv-cache
+ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
+ENV CARGO_NET_GIT_FETCH_WITH_CLI_ALWAYS=true
+
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y ${RUSTUP_INSTALL_OPTS}
 RUN rustup toolchain install stable --component rustfmt --allow-downgrade
 
@@ -218,14 +222,11 @@ RUN ( ! [ "${target_host}" = "arm-linux-gnueabihf" ] ) || \
 
 # Ensure that git differences are removed before making bineries, to avoid `-modded` suffix
 RUN git reset --hard HEAD
-
 RUN ./configure --prefix=/tmp/lightning_install --enable-static && uv run make install
 
 WORKDIR /opt/lightningd
 RUN echo 'RUSTUP_INSTALL_OPTS="${RUSTUP_INSTALL_OPTS}"' > /tmp/rustup_install_opts.txt
 
-# Copy rustup_install_opts.txt file from builder
-COPY --from=builder /tmp/rustup_install_opts.txt /tmp/rustup_install_opts.txt
 # Setup ENV $RUSTUP_INSTALL_OPTS for this stage
 RUN export $(cat /tmp/rustup_install_opts.txt)
 ENV PATH="/root/.cargo/bin:/root/.venvs/cln/bin:$PATH"
@@ -241,7 +242,7 @@ RUN apt-get update && \
       socat \
       inotify-tools \
       jq \
-      python3 \
+      python3 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -262,7 +263,6 @@ RUN --mount=type=bind,from=builder,source=/var/libpq,target=/var/libpq,rw \
     ldconfig
 
 COPY --from=builder /tmp/lightning_install/ /usr/local/
-COPY --from=builder-python /root/.venvs/cln/lib/python3.11/site-packages /usr/local/lib/python3.11/dist-packages/
 COPY --from=downloader /opt/bitcoin/bin /usr/bin
 COPY --from=downloader /opt/litecoin/bin /usr/bin
 COPY tools/docker-entrypoint.sh entrypoint.sh
