@@ -97,11 +97,10 @@ Here's a checklist for the release process.
 
 ## Post-release
 
-1. Wait for a week to see if we need any point releases!
-2. Create a PR to update Makefile's CLN_NEXT_VERSION and important dates for the next release on `.github/PULL_REQUEST_TEMPLATE.md`.
-3. Look through PRs which were delayed for release and merge them.
-4. Close out the Milestone for the now-shipped release.
-5. Update this file with any missing or changed instructions.
+1. Create a PR to update Makefile's CLN_NEXT_VERSION and important dates for the next release on `.github/PULL_REQUEST_TEMPLATE.md`.
+2. Look through PRs which were delayed for release and merge them.
+3. Close out the Milestone for the now-shipped release.
+4. Update this file with any missing or changed instructions.
 
 ## Performing the Point (hotfix) Release
 
