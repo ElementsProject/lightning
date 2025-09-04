@@ -26,6 +26,7 @@ fi
 FORCE_UNCLEAN=false
 VERIFY_RELEASE=false
 WITHOUT_ZIP=false
+SUDO=
 
 ALL_TARGETS="bin-Fedora bin-Ubuntu docker sign"
 # ALL_TARGETS="bin-Fedora bin-Ubuntu tarball deb docker sign"
@@ -46,6 +47,9 @@ for arg; do
         ;;
     --without-zip)
         WITHOUT_ZIP=true
+        ;;
+    --sudo)
+        SUDO=sudo
         ;;
     --help)
         echo "Usage: [--force-version=<ver>] [--force-unclean] [--force-mtime=YYYY-MM-DD] [--verify] [TARGETS]"
@@ -201,13 +205,13 @@ if [ -z "${TARGETS##* docker *}" ]; then
     DOCKER_OPTS="$DOCKER_OPTS -t $DOCKER_USER/lightningd:latest"
     DOCKER_OPTS="$DOCKER_OPTS --cache-to=type=local,dest=/tmp/docker-cache --cache-from=type=local,src=/tmp/docker-cache"    
     echo "Docker Options: $DOCKER_OPTS"
-    if sudo docker buildx ls | grep -q 'cln-builder'; then
-        sudo docker buildx use cln-builder
+    if $SUDO docker buildx ls | grep -q 'cln-builder'; then
+        $SUDO docker buildx use cln-builder
     else
-        sudo docker buildx create --name=cln-builder --use
+        $SUDO docker buildx create --name=cln-builder --use
     fi
     # shellcheck disable=SC2086
-    sudo docker buildx build $DOCKER_OPTS .
+    $SUDO docker buildx build $DOCKER_OPTS .
     echo "Pushed multi-platform images tagged as $VERSION and latest"
 fi
 

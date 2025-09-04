@@ -64,13 +64,13 @@ Here's a checklist for the release process.
    - `git pull`
    - `git tag -a -s v${VERSION} -m v${VERSION}`
    - `git push --tags`
-5. Run `tools/build-release.sh` to:
+5. Run `tools/build-release.sh` (with `--sudo` if you need root to run Docker) to:
    - Create reproducible zipfile
    - Build non-reproducible Fedora image
-   - Build reproducible Ubuntu-v18.04, Ubuntu-v20.04, Ubuntu-v22.04 images. Follow [link](https://docs.corelightning.org/docs/repro#building-using-the-builder-image) for manually Building Ubuntu Images.
+   - Build reproducible Ubuntu-v20.04, Ubuntu-v22.04 and Ubuntu-v24.04 images. Follow [link](https://docs.corelightning.org/docs/repro#building-using-the-builder-image) for manually Building Ubuntu Images.
    - Build Docker images for amd64 and arm64v8. Follow [link](https://docs.corelightning.org/docs/docker-images) for more details on Docker publishing.
    - Create and sign checksums. Follow [link](https://docs.corelightning.org/docs/repro#co-signing-the-release-manifest) for manually signing the release.
-6. The tarballs may be owned by root, so revert ownership if necessary:
+6. If you used `--sudo`, the tarballs may be owned by root, so revert ownership if necessary:
    `sudo chown ${USER}:${USER} *${VERSION}*`
 7. Upload the resulting files to github and save as a draft.
    (<https://github.com/ElementsProject/lightning/releases/>)
