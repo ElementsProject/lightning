@@ -804,12 +804,6 @@ The operations will be bundled into a single transaction. The channel will remai
 active while awaiting splice confirmation, however you can only spend the smaller
 of the prior channel balance and the new one.
 
-* **experimental-quiesce**
-
-  Specifying this option advertizes `option_quiesce`.  Not very useful
-by itself, except for testing.
-
-
 
 BUGS
 ----
