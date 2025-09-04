@@ -8,6 +8,7 @@ if [ "$1" = "--inside-docker" ]; then
     PLTFM="$3"
     PLTFMVER="$4"
     ARCH="$5"
+    MAKEPAR="$6"
     git config --global --add safe.directory /src/.git
     git clone /src /build
     cd /build || exit
@@ -15,8 +16,8 @@ if [ "$1" = "--inside-docker" ]; then
     uv export --format requirements.txt > /tmp/requirements.txt
     uv pip install -r /tmp/requirements.txt
     ./configure
-    uv run make VERSION="$VER"
-    uv run make install DESTDIR=/"$VER-$PLTFM-$PLTFMVER-$ARCH" RUST_PROFILE=release
+    uv run make -j"$MAKEPAR" VERSION="$VER"
+    uv run make -j"$MAKEPAR" install DESTDIR=/"$VER-$PLTFM-$PLTFMVER-$ARCH" RUST_PROFILE=release
     cd /"$VER-$PLTFM-$PLTFMVER-$ARCH" && tar cvfz /release/clightning-"$VER-$PLTFM-$PLTFMVER-$ARCH".tar.gz -- *
     echo "Inside docker: build finished"
     exit 0
@@ -97,6 +98,9 @@ if [ -z "$MTIME" ]; then
     exit 1
 fi
 
+MAKEPAR=${MAKEPAR:-$(nproc)}
+echo "Parallel: $MAKEPAR"
+
 if [ "$VERIFY_RELEASE" = "true" ]; then
     if [ -f "SHA256SUMS-$VERSION.asc" ] && [ -f "SHA256SUMS-$VERSION" ]; then
         ALL_TARGETS="bin-Ubuntu"
@@ -165,7 +169,7 @@ for target in $TARGETS; do
         DOCKERFILE=contrib/docker/Dockerfile.builder.fedora
         FEDORA_VERSION=$(grep -oP '^FROM fedora:\K[0-9]+' "$DOCKERFILE")
         docker build -f $DOCKERFILE -t $TAG --load .
-        docker run --rm=true -v "$(pwd)":/src:ro -v "$RELEASEDIR":/release $TAG /src/tools/build-release.sh --inside-docker "$VERSION" "$platform" "$FEDORA_VERSION" "$ARCH"
+        docker run --rm=true -v "$(pwd)":/src:ro -v "$RELEASEDIR":/release $TAG /src/tools/build-release.sh --inside-docker "$VERSION" "$platform" "$FEDORA_VERSION" "$ARCH" "$MAKEPAR"
         docker run --rm=true -w /build $TAG rm -rf /"$VERSION-$platform-$FEDORA_VERSION-$ARCH" /build
         echo "Fedora Image Built"
         ;;
