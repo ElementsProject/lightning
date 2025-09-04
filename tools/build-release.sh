@@ -172,13 +172,13 @@ for target in $TARGETS; do
     Ubuntu*)
         distributions=${platform#Ubuntu-}
         [ "$distributions" = "Ubuntu" ] && distributions="focal jammy noble"
-		for d in $distributions; do
+        for d in $distributions; do
             # Capitalize the first letter of distro
             D=$(echo "$d" | awk '{print toupper(substr($0,1,1))substr($0,2)}')
-			echo "Building Ubuntu $D Image"
-			docker run --rm -v "$(pwd)":/repo -e FORCE_MTIME="$MTIME" -e FORCE_VERSION="$VERSION" cl-repro-"$d"
+            echo "Building Ubuntu $D Image"
+            docker run --rm -v "$(pwd)":/repo -e FORCE_MTIME="$MTIME" -e FORCE_VERSION="$VERSION" -e MAKEPAR="$MAKEPAR" cl-repro-"$d"
             echo "Ubuntu $D Image Built"
-		done
+        done
         ;;
     *)
         echo "No Dockerfile for $platform" >&2
