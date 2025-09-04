@@ -9,19 +9,19 @@ export LANG LC_ALL
 for arg; do
     case "$arg" in
     --force-version=*)
-	    FORCE_VERSION=${arg#*=}
+	FORCE_VERSION=${arg#*=}
         ;;
-	--force-mtime=*)
-	    FORCE_MTIME=${arg#*=}
-	    ;;
-	--help)
-	    echo "Usage: [--force-version=<ver>] [--force-mtime=YYYY-MM-DD]"
-	    exit 0
-	    ;;
-	*)
-	    echo "Unknown arg $arg" >&2
-	    exit 1
-	    ;;
+    --force-mtime=*)
+	FORCE_MTIME=${arg#*=}
+	;;
+    --help)
+	echo "Usage: [--force-version=<ver>] [--force-mtime=YYYY-MM-DD]"
+	exit 0
+	;;
+    *)
+	echo "Unknown arg $arg" >&2
+	exit 1
+	;;
     esac
     shift
 done
