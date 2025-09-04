@@ -49,7 +49,7 @@ Here's a checklist for the release process.
 2. Update the package versions: `make update-versions NEW_VERSION=<VERSION>rcN`
 3. Add a PR with the rcN.
 4. Tag it `git pull && git tag -s v<VERSION>rcN && git push --tags`
-5. Draft a new `v<VERSION>rcN` pre-release on Github, upload reproducible builds, SHA256SUMS and SHA256SUMS.asc.
+5. Draft a new `v<VERSION>rcN` pre-release on Github, upload reproducible builds, `SHA256SUMS-v<VERSION>` and `SHA256SUMS-v<VERSION>.asc`.
 5. Announce tagged rc release on core-lightning's release-chat channel on Discord & [BuildOnL2](https://community.corelightning.org/c/general-questions/).
 6. Upgrade your personal nodes to the rcN.
 7. Confirm that Github actions for PyPI and Docker publishing are working as expected.
@@ -74,14 +74,13 @@ Here's a checklist for the release process.
    `sudo chown ${USER}:${USER} *${VERSION}*`
 7. Upload the resulting files to github and save as a draft.
    (<https://github.com/ElementsProject/lightning/releases/>)
-8. Send `SHA256SUMS` & `SHA256SUMS.asc` files to the rest of the team to check and sign the release.
+8. Send `SHA256SUMS-v<VERSION>` & `SHA256SUMS-v<VERSION>.asc` files to the rest of the team to check and sign the release.
 9. Team members can verify the release with the help of `build-release.sh`:
-   1. Rename release captain's `SHA256SUMS` to `SHA256SUMS-v${VERSION}` and `SHA256SUMS.asc` to `SHA256SUMS-v${VERSION}.asc`.
-   2. Copy them in the root folder (`lightning`).
+   1. Copy the release captain's `SHA256SUMS-v<VERSION>` and `SHA256SUMS-v<VERSION>.asc` into the root folder (`lightning`).
    3. Run `tools/build-release.sh --verify`. It will create reproducible images, verify checksums and sign.
-   4. Send your signatures from `release/SHA256SUMS.new` to release captain.
+   4. Send your signatures from `release/SHA256SUMS-v<VERSION>.asc` to release captain.
    5. Or follow [link](https://docs.corelightning.org/docs/repro#verifying-a-reproducible-build) for manual verification instructions.
-10. Append signatures shared by the team into the `SHA256SUMS.asc` file, verify with `gpg --verify SHA256SUMS.asc` and include the file in the draft release.
+10. Append signatures shared by the team into the `SHA256SUMS-v<VERSION>.asc` file, verify with `gpg --verify SHA256SUMS-v<VERSION>.asc` and include the file in the draft release.
 11. The GitHub action `Publish Python 🐍 distributions 📦 to PyPI and TestPyPI` should upload the pyln modules to pypi.org. However, this can also be done manually by running `make pyln-release`. This process requires keys for each of the `pyln-client`, `pyln-proto`, and `pyln-testing` modules to be accessible to uv. You can set the key as an environment variable and build and publish each pyln release independently:
     - `export UV_PUBLISH_TOKEN=<pyln-client token>`
     - `make pyln-release-client`
@@ -91,7 +90,7 @@ Here's a checklist for the release process.
 
 ## Performing the Release
 
-1. Edit the GitHub draft and include the `SHA256SUMS.asc` file.
+1. Edit the GitHub draft and include the `SHA256SUMS-v<VERSION>.asc` file.
 2. Publish the release as not a draft.
 3. Announce the final release on core-lightning's release-chat channel on Discord & [BuildOnL2](https://community.corelightning.org/c/general-questions/).
 4. Send a mail to c-lightning and lightning-dev mailing lists, using the same wording as the Release Notes in GitHub.
@@ -118,9 +117,9 @@ Here's a checklist for the release process.
 9. Create a new release draft for `v<VERSION>.<POINT_VERSION>` on GitHub, ensuring to check the `Set as a pre-release` option.
 10. Execute the script contrib/cl-repro.sh for the [Builder image setup](https://docs.corelightning.org/docs/repro#builder-image-setup). This will generate the builder images `cl-repro-<codename>` needed for the next step.
 11. Run the following script to prepare the required builds `tools/build-release.sh bin-Fedora bin-Ubuntu sign`.
-12. Upload the reproducible builds along with `SHA256SUMS` and `SHA256SUMS.asc` files from the release folder to the newly drafted release.
-13. Share the `SHA256SUMS` and `SHA256SUMS.asc` files with the team for verification and signing.
-14. Append the signatures received from the team to the `SHA256SUMS.asc` file. Verify the file using `gpg --verify SHA256SUMS.asc`. Then re-upload the file.
+12. Upload the reproducible builds along with `SHA256SUMS-v<VERSION>` and `SHA256SUMS-v<VERSION>.asc` files from the release folder to the newly drafted release.
+13. Share the `SHA256SUMS-v<VERSION>` and `SHA256SUMS-v<VERSION>.asc` files with the team for verification and signing.
+14. Append the signatures received from the team to the `SHA256SUMS-v<VERSION>.asc` file. Verify the file using `gpg --verify SHA256SUMS-v<VERSION>.asc`. Then re-upload the file.
 15. Finalize and publish the release (change it from draft to public).
 16. Ensure that the GitHub Actions for `Publish Python 🐍 distributions 📦 to PyPI and TestPyPI` and `Build and push multi-platform docker images` are functioning correctly. Check that the `PyPI` modules published on `https://pypi.org/project/pyln-*` and that the Docker image has been uploaded to Docker Hub.
 17. Announce the hotfix release in the core-lightning release-chat channel on Discord and on [BuildOnL2](https://community.corelightning.org/c/general-questions/).
