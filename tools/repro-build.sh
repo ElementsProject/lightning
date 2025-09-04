@@ -56,6 +56,7 @@ fi
 ARCH=$(dpkg --print-architecture)
 PLATFORM="$OS"-"$VER"
 VERSION=${FORCE_VERSION:-$(git describe --tags --always --dirty=-modded --abbrev=7 2>/dev/null || pwd | sed -n 's,.*/clightning-\(v[0-9.rc\-]*\)$,\1,p')}
+MAKEPAR=${MAKEPAR:-1}
 
 # eg. ## [0.6.3] - 2019-01-09: "The Smallblock Conspiracy"
 # Skip 'v' here in $VERSION
@@ -160,8 +161,8 @@ $INST $(cut -c66- < /tmp/SHASUMS)
 # Once everyone has gcc8, we can use CC="gcc -ffile-prefix-map=$(pwd)=/home/clightning"
 ./configure --prefix=/usr CC="gcc -fdebug-prefix-map=$(pwd)=/home/clightning"
 # libwally wants "python".  Seems to work to force it here.
-make PYTHON_VERSION=3 VERSION="$VERSION"
-make install DESTDIR=inst/
+make -j"$MAKEPAR" PYTHON_VERSION=3 VERSION="$VERSION"
+make -j"$MAKEPAR" install DESTDIR=inst/
 
 cd inst && tar --sort=name \
       --mtime="$MTIME 00:00Z" \
