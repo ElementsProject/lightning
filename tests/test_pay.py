@@ -5441,7 +5441,7 @@ def test_invoice_pay_desc_with_quotes(node_factory):
     invoice = l2.rpc.invoice(label="test12345", amount_msat=1000,
                              description=description, deschashonly=True)["bolt11"]
 
-    l1.rpc.decodepay(invoice, description)
+    l1.rpc.decode(invoice)
 
     # pay an invoice
     l1.rpc.pay(invoice, description=description)
@@ -6048,7 +6048,8 @@ def test_fetch_no_description_with_amount(node_factory):
 
 def test_decodepay(node_factory, chainparams):
     """Test we don't break (deprecated) decodepay command"""
-    l1 = node_factory.get_node(options={'allow-deprecated-apis': True})
+    l1 = node_factory.get_node(options={'allow-deprecated-apis': True},
+                               broken_log="DEPRECATED API USED decodepay")
 
     addr1 = l1.rpc.newaddr('bech32')['bech32']
     addr2 = '2MxqzNANJNAdMjHQq8ZLkwzooxAFiRzXvEz' if not chainparams['elements'] else 'XGx1E2JSTLZLmqYMAo3CGpsco85aS7so33'

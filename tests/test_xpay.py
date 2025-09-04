@@ -665,6 +665,7 @@ def test_xpay_bolt12_no_mpp(node_factory, chainparams, deprecations):
     if deprecations is True:
         for o in opts:
             o['allow-deprecated-apis'] = True
+            o['broken_log'] = 'DEPRECATED API USED: xpay.ignore_bolt12_mpp'
 
     l1, l2, l3, l4 = node_factory.get_nodes(4, opts=opts)
     node_factory.join_nodes([l1, l2, l3], wait_for_announce=True)
