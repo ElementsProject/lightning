@@ -857,7 +857,8 @@ class LightningNode(object):
 
         jsondir = Path(lightning_dir) / "plugin-io"
         jsondir.mkdir()
-        self.daemon.opts['dev-save-plugin-io'] = jsondir
+        if self.cln_version >= "v25.09":
+            self.daemon.opts['dev-save-plugin-io'] = jsondir
 
         if options is not None:
             self.daemon.opts.update(options)
