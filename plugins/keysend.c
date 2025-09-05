@@ -4,6 +4,7 @@
 #include <ccan/asort/asort.h>
 #include <ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
+#include <common/bolt11.h>
 #include <common/gossmap.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
@@ -563,7 +564,7 @@ static struct command_result *htlc_accepted_call(struct command *cmd,
 					   (const char *)desc_field->value);
 		json_add_string(req->js, "description", desc);
 		/* Don't exceed max possible desc length! */
-		if (strlen(desc) > 1023)
+		if (strlen(desc) >= BOLT11_FIELD_BYTE_LIMIT)
 			json_add_bool(req->js, "deschashonly", true);
 	} else {
 		json_add_string(req->js, "description", "keysend");
