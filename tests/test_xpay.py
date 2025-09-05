@@ -1013,7 +1013,6 @@ def test_xpay_bip353(node_factory):
     l2.rpc.xpay('fake@fake.com', 100)
 
 
-@pytest.mark.xfail(strict=True)
 def test_xpay_limited_max_accepted_htlcs(node_factory):
     """xpay should try to reduce flows to 6 if there is an unannounced channel, and only try more if that fails"""
     CHANNEL_SIZE_SATS = 10**6
