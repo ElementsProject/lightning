@@ -127,6 +127,8 @@ if [ "$WITHOUT_ZIP" = "false" ]; then
     # submodcheck needs to know if we have lowdown
     touch config.vars
     ./configure --reconfigure
+    # If you don't have lowdown, your zip file will include it: we assume everyone has it now!
+    grep -q "HAVE_LOWDOWN=1" config.vars || (echo "Please install lowdown" >&2; exit 1)
     # If it's a completely clean directory, we need submodules!
     make submodcheck
 
