@@ -7,7 +7,7 @@ authors = [
 ]
 license = {text = "BSD-MIT"}
 readme = "README.md"
-requires-python = ">=3.8,<4.0"
+requires-python = ">=3.9,<4.0"
 dependencies = [
     "base58>=2.1.1",
     "bitstring>=4.1.0",
