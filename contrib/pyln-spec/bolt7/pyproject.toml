@@ -4,7 +4,7 @@ version = "1.0.4.246"
 description = "BOLT7"
 authors = [{ name = "Rusty Russell" }]
 license = { text = "BSD-MIT" }
-requires-python = ">=3.8,<4.0"
+requires-python = ">=3.9,<4.0"
 dependencies = []
 
 [dependency-groups]
