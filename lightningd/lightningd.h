@@ -389,9 +389,6 @@ struct lightningd {
 	/* HSM passphrase for any format that needs it */
 	char *hsm_passphrase;
 
-	/* Enable BIP86 derivation for mnemonic-based HSM secrets */
-	bool use_bip86_derivation;
-
 	/* What (additional) messages the HSM accepts */
 	u32 *hsm_capabilities;
 
