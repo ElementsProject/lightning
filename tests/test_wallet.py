@@ -1698,7 +1698,7 @@ def test_hsmtool_deterministic_node_ids(node_factory):
 
 def setup_bip86_node(node_factory, mnemonic="abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"):
     """Helper function to set up a node with BIP86 support using a mnemonic-based HSM secret"""
-    l1 = node_factory.get_node(start=False, options={'use-bip86-derivation': None})
+    l1 = node_factory.get_node(start=False)
     
     # Set up node with a mnemonic HSM secret
     hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
@@ -2263,43 +2263,49 @@ def test_p2tr_deposit_withdrawal(node_factory, bitcoind):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Elements-based schnorr is not yet supported")
 def test_p2tr_deposit_withdrawal_with_bip86(node_factory, bitcoind):
-    """Test P2TR deposit and withdrawal with BIP86 addresses included"""
+    """Test P2TR deposit and withdrawal with BIP86 derivation (default for mnemonic nodes)"""
 
-    # Don't get any funds from previous runs.
-    l1 = node_factory.get_node(random_hsm=True)
+    # Set up a node with BIP86 support (mnemonic-based HSM secret)
+    l1 = setup_bip86_node(node_factory)
 
-    # Can fetch p2tr addresses through 'all' or specifically, including BIP86
-    deposit_addrs = [l1.rpc.newaddr('all')] * 3
-    withdrawal_addr = l1.rpc.newaddr('p2tr')
-
-    # Add some funds to withdraw (including BIP86 addresses)
-    for addr_type in ['p2tr', 'bech32', 'p2tr-mnemonic']:
-        for i in range(3):
-            if addr_type in deposit_addrs[i]:
-                l1.bitcoin.rpc.sendtoaddress(deposit_addrs[i][addr_type], 1)
-
+    # Generate a BIP86 P2TR address for deposit
+    deposit_addr = l1.rpc.newaddr('bip86')
+    
+    # Send some funds to the BIP86 P2TR address
+    l1.bitcoin.rpc.sendtoaddress(deposit_addr['p2tr'], 1)
     bitcoind.generate_block(1)
 
-    # Wait for funds to be visible (should be more than 6 now due to BIP86)
-    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) >= 6)
+    # Wait for the deposit to be visible
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
     
-    # Check that we have funds
+    # Check that we have the deposit
     funds = l1.rpc.listfunds()
-    assert len(funds['outputs']) >= 6, f"Expected at least 6 outputs, got {len(funds['outputs'])}"
+    assert len(funds['outputs']) == 1
+    assert funds['outputs'][0]['amount_msat'] == 100000000000  # 1 BTC in msat
     
-    l1.rpc.withdraw(withdrawal_addr['p2tr'], 100000000 * 5)
+    # Generate another BIP86 P2TR address for withdrawal
+    withdrawal_addr = l1.rpc.newaddr('bip86')
+    
+    # Withdraw to the new BIP86 P2TR address
+    l1.rpc.withdraw(withdrawal_addr['p2tr'], 50000000)  # 0.5 BTC
     wait_for(lambda: len(bitcoind.rpc.getrawmempool()) == 1)
+    
+    # Check the withdrawal transaction
     raw_tx = bitcoind.rpc.getrawtransaction(bitcoind.rpc.getrawmempool()[0], 1)
-    assert len(raw_tx['vin']) >= 6  # Should be at least 6 inputs (including BIP86)
-    assert len(raw_tx['vout']) == 2
-    # Change goes to p2tr
+    assert len(raw_tx['vin']) == 1  # Should use our 1 BTC input
+    assert len(raw_tx['vout']) == 2  # Withdrawal output + change
+    
+    # Both outputs should be P2TR (BIP86)
     for output in raw_tx['vout']:
         assert output["scriptPubKey"]["type"] == "witness_v1_taproot"
+    
     bitcoind.generate_block(1)
-    wait_for(lambda: len(l1.rpc.listtransactions()['transactions']) >= 7)
-
-    # Only self-send + change is left
-    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 2)
+    
+    # After withdrawal, we should have change left (new output from the withdrawal transaction)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
+    funds = l1.rpc.listfunds()
+    # Should have exactly 0.5 BTC (the withdrawal amount went to our own BIP86 address)
+    assert funds['outputs'][0]['amount_msat'] == 50000000000  # 0.5 BTC in msat
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Address is network specific")
