@@ -1727,7 +1727,7 @@ def test_bip86_newaddr_rpc(node_factory, chainparams):
     l1 = setup_bip86_node(node_factory)
     
         # Test BIP86 address generation
-    bip86_addr = l1.rpc.newaddr(addresstype="bip86")
+    bip86_addr = l1.rpc.newaddr(addresstype="p2tr")
     assert 'p2tr' in bip86_addr
     assert 'bech32' not in bip86_addr
 
@@ -1744,7 +1744,7 @@ def test_bip86_newaddr_rpc(node_factory, chainparams):
     
     # Test that our BIP86 implementation follows the correct derivation path m/86'/0'/0'/0/index
     # Generate the same address again and verify it's identical
-    bip86_addr2 = l1.rpc.newaddr(addresstype="bip86")
+    bip86_addr2 = l1.rpc.newaddr(addresstype="p2tr")
     p2tr_addr2 = bip86_addr2['p2tr']
     
     # The second address should be different (next index)
@@ -1789,7 +1789,7 @@ def test_bip86_listaddresses(node_factory, chainparams):
     
     # Generate the first 10 BIP86 addresses and verify they match expected values
     for i in range(10):
-        addr_result = l1.rpc.newaddr('bip86')
+        addr_result = l1.rpc.newaddr('p2tr')
         assert addr_result['p2tr'] == expected_addrs[i]
     
     # Use listaddresses with start and limit parameters to verify the addresses were generated
@@ -1816,11 +1816,11 @@ def test_bip86_deterministic_addresses(node_factory):
     l2 = setup_bip86_node(node_factory, mnemonic)
     
     # Generate addresses with the same index
-    addr1_0 = l1.rpc.newaddr('bip86')['p2tr']
-    addr2_0 = l2.rpc.newaddr('bip86')['p2tr']
+    addr1_0 = l1.rpc.newaddr('p2tr')['p2tr']
+    addr2_0 = l2.rpc.newaddr('p2tr')['p2tr']
     
-    addr1_1 = l1.rpc.newaddr('bip86')['p2tr']
-    addr2_1 = l2.rpc.newaddr('bip86')['p2tr']
+    addr1_1 = l1.rpc.newaddr('p2tr')['p2tr']
+    addr2_1 = l2.rpc.newaddr('p2tr')['p2tr']
     
     # Addresses should be identical for the same index
     assert addr1_0 == addr2_0, f"Addresses for index 0 don't match: {addr1_0} != {addr2_0}"
@@ -1836,7 +1836,7 @@ def test_bip86_vs_regular_p2tr(node_factory):
     l1 = setup_bip86_node(node_factory)
     
     # Generate addresses of both types
-    bip86_addr = l1.rpc.newaddr('bip86')['p2tr']
+    bip86_addr = l1.rpc.newaddr('p2tr')['p2tr']
     p2tr_addr = l1.rpc.newaddr('p2tr')['p2tr']
     
     # They should be different
@@ -1853,7 +1853,7 @@ def test_bip86_full_bitcoin_integration(node_factory, bitcoind):
     l1 = setup_bip86_node(node_factory)
     
     # Generate a BIP86 address
-    bip86_addr = l1.rpc.newaddr('bip86')['p2tr']
+    bip86_addr = l1.rpc.newaddr('p2tr')['p2tr']
     
     # Send funds to the BIP86 address
     amount = 1000000  # 0.01 BTC
@@ -1895,7 +1895,7 @@ def test_bip86_mnemonic_recovery(node_factory, bitcoind):
     
     # Create first node and fund it
     l1 = setup_bip86_node(node_factory, mnemonic)
-    bip86_addr = l1.rpc.newaddr('bip86')['p2tr']
+    bip86_addr = l1.rpc.newaddr('p2tr')['p2tr']
     
     # Send funds
     amount = 1000000  # 0.01 BTC
@@ -1924,8 +1924,8 @@ def test_bip86_address_type_validation(node_factory):
     """Test address type validation for BIP86 addresses"""
     l1 = setup_bip86_node(node_factory)
     
-    # Test that 'bip86' is a valid address type
-    bip86_addr = l1.rpc.newaddr('bip86')['p2tr']
+    # Test that 'p2tr' is a valid address type for BIP86
+    bip86_addr = l1.rpc.newaddr('p2tr')['p2tr']
     
     # Test that we can list addresses
     addrs = l1.rpc.listaddresses()
@@ -1945,7 +1945,7 @@ def test_bip86_index_boundaries(node_factory):
     # This tests the internal index management
     addresses = []
     for i in range(5):
-        addr = l1.rpc.newaddr('bip86')['p2tr']
+        addr = l1.rpc.newaddr('p2tr')['p2tr']
         addresses.append(addr)
         # Each address should be unique
         assert addr not in addresses[:-1], f"Duplicate address generated: {addr}"
@@ -1955,7 +1955,7 @@ def test_bip86_index_boundaries(node_factory):
     
     addresses2 = []
     for i in range(5):
-        addr = l2.rpc.newaddr('bip86')['p2tr']
+        addr = l2.rpc.newaddr('p2tr')['p2tr']
         addresses2.append(addr)
     
     # Should generate the same addresses in the same order
@@ -1964,7 +1964,7 @@ def test_bip86_index_boundaries(node_factory):
     # Test generating a large number of addresses to check for any overflow issues
     # Generate 100 more addresses to test higher indices
     for i in range(100):
-        addr = l1.rpc.newaddr('bip86')['p2tr']
+        addr = l1.rpc.newaddr('p2tr')['p2tr']
         assert addr.startswith('bcrt1p'), f"Invalid BIP86 address format: {addr}"
         assert len(addr) > 50, f"BIP86 address too short: {addr}"
 
@@ -1975,7 +1975,7 @@ def test_bip86_psbt_integration(node_factory, bitcoind, chainparams):
     l1 = setup_bip86_node(node_factory)
     
     # Fund BIP86 address
-    bip86_addr = l1.rpc.newaddr('bip86')['p2tr']
+    bip86_addr = l1.rpc.newaddr('p2tr')['p2tr']
     amount_sats = 1000000  # 0.01 BTC
     
     # Send funds to the BIP86 address
@@ -2269,7 +2269,7 @@ def test_p2tr_deposit_withdrawal_with_bip86(node_factory, bitcoind):
     l1 = setup_bip86_node(node_factory)
 
     # Generate a BIP86 P2TR address for deposit
-    deposit_addr = l1.rpc.newaddr('bip86')
+    deposit_addr = l1.rpc.newaddr('p2tr')
     
     # Send some funds to the BIP86 P2TR address
     l1.bitcoin.rpc.sendtoaddress(deposit_addr['p2tr'], 1)
@@ -2284,7 +2284,7 @@ def test_p2tr_deposit_withdrawal_with_bip86(node_factory, bitcoind):
     assert funds['outputs'][0]['amount_msat'] == 100000000000  # 1 BTC in msat
     
     # Generate another BIP86 P2TR address for withdrawal
-    withdrawal_addr = l1.rpc.newaddr('bip86')
+    withdrawal_addr = l1.rpc.newaddr('p2tr')
     
     # Withdraw to the new BIP86 P2TR address
     l1.rpc.withdraw(withdrawal_addr['p2tr'], 50000000)  # 0.5 BTC

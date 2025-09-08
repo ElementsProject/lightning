@@ -309,15 +309,12 @@ static void create_hsm(int fd, const char *passphrase)
 	char *mnemonic = NULL;
 	struct sha256 seed_hash;
 	
-	status_debug("HSM: Starting create_hsm with passphrase=%s", passphrase ? "provided" : "none");
 	
 	/* Initialize wally tal context for libwally operations */
 	
-	status_debug("HSM: Initialized wally tal context");
 	
 	/* Generate random entropy for new mnemonic */
 	randombytes_buf(entropy, sizeof(entropy));
-	status_debug("HSM: Generated random entropy");
 	
 	
 	/* Generate mnemonic from entropy */
@@ -330,7 +327,6 @@ static void create_hsm(int fd, const char *passphrase)
 		hsmd_send_init_reply_failure(HSM_SECRET_ERR_SEED_DERIVATION_FAILED, STATUS_FAIL_INTERNAL_ERROR,
 			                        "Failed to generate mnemonic from entropy");
 	}
-	status_debug("HSM: Generated mnemonic from entropy");
 	
 	if (!mnemonic) {
 		unlink_noerr("hsm_secret");
@@ -344,7 +340,6 @@ static void create_hsm(int fd, const char *passphrase)
 		hsmd_send_init_reply_failure(HSM_SECRET_ERR_SEED_DERIVATION_FAILED, STATUS_FAIL_INTERNAL_ERROR,
 			                        "Failed to derive seed hash from mnemonic");
 	}
-	status_debug("HSM: Derived seed hash from mnemonic");
 	
 	/* Create hsm_secret format: seed_hash (32 bytes) + mnemonic */
 	hsm_secret_len = PASSPHRASE_HASH_LEN + strlen(mnemonic);
@@ -354,7 +349,6 @@ static void create_hsm(int fd, const char *passphrase)
 	memcpy(hsm_secret_data, &seed_hash, PASSPHRASE_HASH_LEN);
 	/* Copy mnemonic after seed hash */
 	memcpy(hsm_secret_data + PASSPHRASE_HASH_LEN, mnemonic, strlen(mnemonic));
-	status_debug("HSM: Created hsm_secret data structure");
 	
 	/* Derive the actual secret from mnemonic + passphrase for our global hsm_secret */
 	u8 bip32_seed[BIP39_SEED_LEN_512];
@@ -368,7 +362,6 @@ static void create_hsm(int fd, const char *passphrase)
 		hsmd_send_init_reply_failure(HSM_SECRET_ERR_SEED_DERIVATION_FAILED, STATUS_FAIL_INTERNAL_ERROR,
 			                        "Failed to derive seed from mnemonic");
 	}
-	status_debug("HSM: Derived BIP32 seed from mnemonic");
 	
 	/* Store the full BIP32 seed */
 	hsm_secret.secret_data = tal_dup_arr(tmpctx, u8, bip32_seed, bip32_seed_len, 0);
@@ -383,7 +376,6 @@ static void create_hsm(int fd, const char *passphrase)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 		              "writing: %s", strerror(errno));
 	}
-	status_debug("HSM: Successfully wrote hsm_secret to file");
 }
 
 /*~ We store our root secret in a "hsm_secret" file (like all of Core Lightning,
@@ -400,14 +392,12 @@ static void maybe_create_new_hsm(const char *passphrase)
 	if (fd < 0) {
 		/* If this is not the first time we've run, it will exist. */
 		if (errno == EEXIST) {
-			status_debug("HSM: hsm_secret file already exists, skipping creation");
 			return;
 		}
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 		              "creating: %s", strerror(errno));
 	}
 
-	status_debug("HSM: Creating new hsm_secret file");
 
 	/*~ Store the seed in clear. New hsm_secret files will use mnemonic format
 	 * with passphrases, not encrypted 32-byte secrets. */
@@ -472,7 +462,6 @@ static void load_hsm(const char *passphrase)
 				 passphrase, &err);
 	tal_wally_end(tmpctx);
 	if (!hsms) {
-		status_debug("HSM: Failed to load hsm_secret: %s", hsm_secret_error_str(err));
 		hsmd_send_init_reply_failure(err, STATUS_FAIL_INTERNAL_ERROR,
 			                        "Failed to load hsm_secret: %s", hsm_secret_error_str(err));
 	}
@@ -490,6 +479,7 @@ static void load_hsm(const char *passphrase)
 	if (hsms->mnemonic) {
 		hsm_secret.mnemonic = tal_strdup(NULL, hsms->mnemonic);
 	}
+	
 }
 
 /*~ We have a pre-init call in developer mode, to set dev flags */
@@ -512,8 +502,6 @@ static struct io_plan *preinit_hsm(struct io_conn *conn,
 	if (tlv->warn_on_overgrind)
 		dev_warn_on_overgrind = *tlv->warn_on_overgrind;
 
-	status_debug("preinit: dev_fail_preapprove = %u, dev_no_preapprove_check = %u, dev_warn_on_overgrind = %u",
-		     dev_fail_preapprove, dev_no_preapprove_check, dev_warn_on_overgrind);
 	/* We don't send a reply, just read next */
 	return client_read_next(conn, c);
 }
@@ -591,7 +579,7 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 	/* This was tallocated off NULL, and memleak complains if we don't free it */
 	tal_free(tlvs);
 	return req_reply(conn, c, hsmd_init(hsm_secret.secret_data, hsm_secret.secret_len, hsmd_mutual_version,
-					    bip32_key_version));
+					    bip32_key_version, hsm_secret.type));
 }
 
 /*~ Since we process requests then service them in strict order, and because
@@ -645,7 +633,6 @@ static struct io_plan *pass_client_hsmfd(struct io_conn *conn,
 		status_failed(STATUS_FAIL_INTERNAL_ERROR, "creating fds: %s",
 			      strerror(errno));
 
-	status_debug("new_client: %"PRIu64, dbid);
 	new_client(c, c->chainparams, &id, dbid, capabilities, fds[0]);
 
 	/*~ We stash this in a global, because we need to get both the fd and

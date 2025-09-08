@@ -151,11 +151,12 @@ struct ext_key *hsm_init(struct lightningd *ld)
 	}
 
 	/* Check for successful init reply */
+	struct tlv_hsmd_init_reply_v4_tlvs *tlvs;
 	if (fromwire_hsmd_init_reply_v4(ld, msg,
 					&hsm_version,
 					&ld->hsm_capabilities,
 					&ld->our_nodeid, bip32_base,
-					&unused)) {
+					&unused, &tlvs)) {
 		/* nothing to do. */
 	} else {
 		/* Unknown message type */
@@ -193,20 +194,43 @@ struct ext_key *hsm_init(struct lightningd *ld)
 		fatal("--experimental-splicing needs HSM capable of signing splices!");
 	}
 
-	/* Try to get BIP86 base key from HSM (works only for mnemonic secrets) */
-	ld->bip86_base = tal(ld, struct ext_key);
-	msg = towire_hsmd_derive_bip86_key(NULL, 0, false);
-	const u8 *reply = hsm_sync_req(tmpctx, ld, take(msg));
-	if (fromwire_hsmd_derive_bip86_key_reply(reply, ld->bip86_base)) {
-		/* BIP86 derivation succeeded - we have a mnemonic-based secret */
-		log_info(ld->log, "Using BIP86 for new addresses, BIP32 for channels (mnemonic HSM secret)");
-		/* Keep bip32_base for channel operations, database, etc. */
+	/* Check if we have a mnemonic-based HSM secret from TLV */
+	bool is_mnemonic_secret = false;
+	if (tlvs && tlvs->hsm_secret_type) {
+		u8 secret_type = *tlvs->hsm_secret_type;
+		log_info(ld->log, "DEBUG: HSM secret type from TLV: %u", secret_type);
+		is_mnemonic_secret = (secret_type == 2 || secret_type == 3); /* HSM_SECRET_MNEMONIC_NO_PASS or HSM_SECRET_MNEMONIC_WITH_PASS */
 	} else {
-		/* BIP86 derivation failed - we have a legacy secret */
-		log_info(ld->log, "Using BIP32 derivation for all operations (legacy HSM secret)");
-		ld->bip86_base = tal_free(ld->bip86_base);
-		/* bip32_base was already set by the HSM init reply */
+		log_info(ld->log, "DEBUG: No HSM secret type TLV found, assuming legacy secret");
 	}
+
+	if (is_mnemonic_secret) {
+		/* Try to get BIP86 base key from HSM (works only for mnemonic secrets) */
+		ld->bip86_base = tal(ld, struct ext_key);
+		msg = towire_hsmd_derive_bip86_key(NULL, 0, false);
+		const u8 *reply = hsm_sync_req(tmpctx, ld, take(msg));
+		log_info(ld->log, "DEBUG: Attempting BIP86 derivation from HSM (mnemonic secret)");
+		if (fromwire_hsmd_derive_bip86_key_reply(reply, ld->bip86_base)) {
+			/* BIP86 derivation succeeded */
+			log_info(ld->log, "DEBUG: BIP86 derivation succeeded, bip86_base is set");
+			log_info(ld->log, "Using BIP86 for new addresses, BIP32 for channels (mnemonic HSM secret)");
+			/* Keep bip32_base for channel operations, database, etc. */
+		} else {
+			/* BIP86 derivation failed unexpectedly */
+			log_info(ld->log, "DEBUG: BIP86 derivation failed unexpectedly for mnemonic secret");
+			ld->bip86_base = tal_free(ld->bip86_base);
+		}
+	} else {
+		/* Legacy HSM secret - don't attempt BIP86 derivation */
+		log_info(ld->log, "DEBUG: Legacy HSM secret detected, skipping BIP86 derivation");
+		log_info(ld->log, "Using BIP32 derivation for all operations (legacy HSM secret)");
+		ld->bip86_base = NULL;
+	}
+	log_info(ld->log, "DEBUG: Final bip86_base state: %s", ld->bip86_base ? "NOT NULL" : "NULL");
+
+	/* Free the TLV structure to prevent memory leak */
+	if (tlvs)
+		tal_free(tlvs);
 
 	/* This is equivalent to makesecret("bolt12-invoice-base") */
 	msg = towire_hsmd_derive_secret(NULL, tal_dup_arr(tmpctx, u8,

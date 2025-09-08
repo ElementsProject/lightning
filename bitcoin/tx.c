@@ -940,7 +940,6 @@ size_t bitcoin_tx_input_witness_weight(enum utxotype utxotype)
 		/* In practice, these predate anchors, so: */
 		return 1 + 1 + bitcoin_tx_input_sig_weight();
 	case UTXO_P2TR:
-	case UTXO_P2TR_BIP86:
 		return 1 + 64;
 	}
 	abort();
