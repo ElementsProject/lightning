@@ -31,29 +31,31 @@ Here's a checklist for the release process.
 
 1. Merge the above PR.
 2. Tag it `git pull && git tag -s v<VERSION>rc1`. Note that you should get a prompt to give this tag a 'message'. Make sure you fill this in.
-3. Confirm that the tag will show up for builds with `git describe`.  We don't push it to GitHub yet, just in case the following steps fail, and more fixes are required!
-4. Run the script `contrib/cl-repro.sh` for [Builder image setup](https://docs.corelightning.org/docs/repro#builder-image-setup). This will create the required builder images `cl-repro-<codename>` for the next step.
-5. Sign the release locally by running `tools/build-release.sh sign` which will sign the release contents and create SHA256SUMS and SHA256SUMS.asc in the release folder.
-6. Push the tag to remote `git push --tags` (pushing the tag will kickoff the "Release 🚀" CI action which builds the release targets and a draft release).
-7. Compare your release/`c-lightning-<release tag>`.zip on GitHub.
-8. Check the generated draft `v<VERSION>rc1` release on Github and check `Set as a pre-release` option.  Add the SHA256SUMS.asc from your local release folder to newly drafted release, replacing it.
-9. Announce rc1 release on core-lightning's release-chat channel on Discord & Telegram.
-10. Use `devtools/credit --verbose v<PREVIOUS-VERSION>` to get commits, days and contributors data for release note.
-11. Prepare release notes draft including information from above step, and share with the team for editing.
-12. Upgrade your personal nodes to the rc1, to help testing.
-13. Github action `Publish Python 🐍 distributions 📦 to PyPI and TestPyPI` uploads the pyln modules on test PyPI server. Make sure that the action has been triggered with RC tag and that the modules have been published on `https://test.pypi.org/project/pyln-*/#history`.
-14. Docker image publishing is handled by the GitHub action `Build and push multi-platform docker images`. Ensure that this action is triggered and that the RC image has been successfully uploaded to Docker Hub after the action completes. Alternatively, you can publish Docker images by running the `tools/build-release.sh docker` script. The GitHub action takes approximately 3-4 hours, while the script takes about 6-7 hours. It is highly recommended to test your Docker setup if you haven't done so before. Prior to building docker images by `tools/build-release.sh` script, ensure that `multiarch/qemu-user-static` setup is working on your system as described [here](https://docs.corelightning.org/docs/docker-images#setting-up-multiarchqemu-user-static).
+3. Confirm that the tag will show up for builds with `git describe`. We don't push it to GitHub yet, just in case the following steps fail, and more fixes are required!
+4. Run `contrib/cl-repro.sh` to generate the required `cl-repro-<codename>` builder images for the reproducible build environment.
+5. Execute `tools/build-release.sh bin-Ubuntu sign` to locally reproduce the release, generating a matching `SHA256SUMS-v<VERSION>` file and signing it with your GPG key.
+6. Push the tag to trigger the "Release 🚀" CI action, which drafts a new `v<VERSION>rc1` pre-release on GitHub and uploads reproducible builds alongside the `SHA256SUMS-v<VERSION>` file and its signature from the `cln@blockstream.com` key.
+7. Verify your local `SHA256SUMS-v<VERSION>` file matches the one in the draft release, then append your local signatures to the release's `SHA256SUMS-v<VERSION>.asc` file to attest to the build's integrity.
+8. Announce rc1 release on core-lightning's release-chat channel on Discord & Telegram.
+9. Use `devtools/credit --verbose v<PREVIOUS-VERSION>` to get commits, days and contributors data for release note.
+10. Prepare release notes draft including information from above step, and share with the team for editing.
+11. Upgrade your personal nodes to the rc1, to help testing.
+12. Github action `Publish Python 🐍 distributions 📦 to PyPI and TestPyPI` uploads the pyln modules on test PyPI server. Make sure that the action has been triggered with RC tag and that the modules have been published on `https://test.pypi.org/project/pyln-*/#history`.
+13. Docker image publishing is handled by the GitHub action `Build and push multi-platform docker images`. Ensure that this action is triggered and that the RC image has been successfully uploaded to Docker Hub after the action completes. Alternatively, you can publish Docker images by running the `tools/build-release.sh docker` script. The GitHub action takes approximately 3-4 hours, while the script takes about 6-7 hours. It is highly recommended to test your Docker setup if you haven't done so before. Prior to building docker images by `tools/build-release.sh` script, ensure that `multiarch/qemu-user-static` setup is working on your system as described [here](https://docs.corelightning.org/docs/docker-images#setting-up-multiarchqemu-user-static).
 
 ## Releasing -rc2, ..., -rcN
 
 1. Update CHANGELOG.md by changing rc(N-1) to rcN. Update the changelog list with information from newly merged PRs also.
 2. Update the package versions: `uv run make update-versions NEW_VERSION=v<VERSION>rcN`
 3. Add a PR with the rcN.
-4. Tag it `git pull && git tag -s v<VERSION>rcN && git push --tags`
-5. Draft a new `v<VERSION>rcN` pre-release on Github, upload reproducible builds, `SHA256SUMS-v<VERSION>` and `SHA256SUMS-v<VERSION>.asc`.
-5. Announce tagged rc release on core-lightning's release-chat channel on Discord & Telegram.
-6. Upgrade your personal nodes to the rcN.
-7. Confirm that Github actions for PyPI and Docker publishing are working as expected.
+4. Tag it `git pull && git tag -s v<VERSION>rcN && git push --tags`.
+5. Pushing the tag automatically starts the "Release 🚀" CI job, creating a draft pre-release and uploading reproducible builds with their `SHA256SUMS` files signed by the project key.
+6. Set up the reproducible build environment by running the script `contrib/cl-repro.sh` to generate the necessary builder images.
+7. Use the command `tools/build-release.sh bin-Ubuntu sign` to locally rebuild the release and generate a personal signature file for the checksums.
+8. After confirming the local and pre-release `SHA256SUMS-v<VERSION>` files match, append your signatures to the pre-release's `SHA256SUMS-v<VERSION>.asc` file to formally attest to the build's validity.
+9. Announce tagged rc release on core-lightning's release-chat channel on Discord & Telegram.
+10. Upgrade your personal nodes to the rcN.
+11. Confirm that Github actions for PyPI and Docker publishing are working as expected.
 
 ## Tagging the Release
 
@@ -64,28 +66,29 @@ Here's a checklist for the release process.
    - `git pull`
    - `VERSION=23.05; git tag -a -s v$VERSION -m v$VERSION`
    - `git push --tags`
-5. Run `tools/build-release.sh` (with `--sudo` if you need root to run Docker) to:
+5. Pushing the tag will trigger the CI pipeline, which will draft the pre-release and upload the build artifacts with project-signed checksums.
+6. Prepare the build environments by executing the `contrib/cl-repro.sh` script.
+7. Run `tools/build-release.sh bin-Ubuntu sign` (with `--sudo` if you need root to run Docker) to:
    - Create reproducible zipfile
    - Build non-reproducible Fedora image
    - Build reproducible Ubuntu-v20.04, Ubuntu-v22.04 and Ubuntu-v24.04 images. Follow [link](https://docs.corelightning.org/docs/repro#building-using-the-builder-image) for manually Building Ubuntu Images.
    - Build Docker images for amd64 and arm64v8. Follow [link](https://docs.corelightning.org/docs/docker-images) for more details on Docker publishing.
    - Create and sign checksums. Follow [link](https://docs.corelightning.org/docs/repro#co-signing-the-release-manifest) for manually signing the release.
-6. If you used `--sudo`, the tarballs may be owned by root, so revert ownership if necessary:
+8. If you used `--sudo`, the tarballs may be owned by root, so revert ownership if necessary:
    `sudo chown ${USER}:${USER} *${VERSION}*`
-7. Upload the resulting files to github and save as a draft.
-   (<https://github.com/ElementsProject/lightning/releases/>)
-8. Send `SHA256SUMS-v<VERSION>` & `SHA256SUMS-v<VERSION>.asc` files to the rest of the team to check and sign the release.
-9. Team members can verify the release with the help of `build-release.sh`:
-   1. Copy the release captain's `SHA256SUMS-v<VERSION>` and `SHA256SUMS-v<VERSION>.asc` into the root folder (`lightning`).
-   3. Run `tools/build-release.sh --verify`. It will create reproducible images, verify checksums and sign.
-   4. Send your signatures from `release/SHA256SUMS-v<VERSION>.asc` to release captain.
-   5. Or follow [link](https://docs.corelightning.org/docs/repro#verifying-a-reproducible-build) for manual verification instructions.
-10. Append signatures shared by the team into the `SHA256SUMS-v<VERSION>.asc` file, verify with `gpg --verify SHA256SUMS-v<VERSION>.asc` and include the file in the draft release.
-11. The GitHub action `Publish Python 🐍 distributions 📦 to PyPI and TestPyPI` should upload the pyln modules to pypi.org. However, this can also be done manually by running `uv run make pyln-release`. This process requires keys for each of the `pyln-client`, `pyln-proto`, and `pyln-testing` modules to be accessible to uv. You can set the key as an environment variable and build and publish each pyln release independently:
+9. Verify the checksums match the pre-release `SHA256SUMS-v<VERSION>`, then append your signatures to the official signature `SHA256SUMS-v<VERSION>.asc` file to confirm the build's integrity.
+10. Send `SHA256SUMS-v<VERSION>` & `SHA256SUMS-v<VERSION>.asc` files to the rest of the team to check and sign the release.
+11. Team members can verify the release with the help of `build-release.sh`:
+   - Copy the release captain's `SHA256SUMS-v<VERSION>` and `SHA256SUMS-v<VERSION>.asc` into the root folder (`lightning`).
+   - Run `tools/build-release.sh --verify`. It will create reproducible images, verify checksums and sign.
+   - Send your signatures from `release/SHA256SUMS-v<VERSION>.asc` to release captain.
+   - Or follow [link](https://docs.corelightning.org/docs/repro#verifying-a-reproducible-build) for manual verification instructions.
+12. Append signatures shared by the team into the `SHA256SUMS-v<VERSION>.asc` file, verify with `gpg --verify SHA256SUMS-v<VERSION>.asc` and include the file in the draft release.
+13. The GitHub action `Publish Python 🐍 distributions 📦 to PyPI and TestPyPI` should upload the pyln modules to pypi.org. However, this can also be done manually by running `uv run make pyln-release`. This process requires keys for each of the `pyln-client`, `pyln-proto`, and `pyln-testing` modules to be accessible to uv. You can set the key as an environment variable and build and publish each pyln release independently:
     - `export UV_PUBLISH_TOKEN=<pyln-client token>`
     - `uv run make pyln-release-client`
     - ... repeat for each pyln package with the appropriate token.
-12. Publish multi-arch Docker images (`elementsproject/lightningd:v${VERSION}` and `elementsproject/lightningd:latest`) to Docker Hub either using the GitHub action `Build and push multi-platform docker images` or by running the `tools/build-release.sh docker` script. Prior to building docker images by `tools/build-release.sh` script, ensure that `multiarch/qemu-user-static` setup is working on your system as described [here](https://docs.corelightning.org/docs/docker-images#setting-up-multiarchqemu-user-static).
+14. Publish multi-arch Docker images (`elementsproject/lightningd:v${VERSION}` and `elementsproject/lightningd:latest`) to Docker Hub either using the GitHub action `Build and push multi-platform docker images` or by running the `tools/build-release.sh docker` script. Prior to building docker images by `tools/build-release.sh` script, ensure that `multiarch/qemu-user-static` setup is working on your system as described [here](https://docs.corelightning.org/docs/docker-images#setting-up-multiarchqemu-user-static).
 
 
 ## Performing the Release
@@ -112,13 +115,12 @@ Here's a checklist for the release process.
 5. Create a new commit that includes the updates from `update-versions` and `CHANGELOG.md`.
 6. Tag the release with `git pull && git tag -s v<VERSION>.<POINT_VERSION>`. You will be prompted to enter a tag message, ensure this is filled out.
 7. Confirm that the tag is properly set up for builds by running `git describe`.
-8. Push the tag to the remote repository `git push --tags`.
-9. Create a new release draft for `v<VERSION>.<POINT_VERSION>` on GitHub, ensuring to check the `Set as a pre-release` option.
-10. Execute the script contrib/cl-repro.sh for the [Builder image setup](https://docs.corelightning.org/docs/repro#builder-image-setup). This will generate the builder images `cl-repro-<codename>` needed for the next step.
-11. Run the following script to prepare the required builds `tools/build-release.sh bin-Fedora bin-Ubuntu sign`.
-12. Upload the reproducible builds along with `SHA256SUMS-v<VERSION>` and `SHA256SUMS-v<VERSION>.asc` files from the release folder to the newly drafted release.
-13. Share the `SHA256SUMS-v<VERSION>` and `SHA256SUMS-v<VERSION>.asc` files with the team for verification and signing.
-14. Append the signatures received from the team to the `SHA256SUMS-v<VERSION>.asc` file. Verify the file using `gpg --verify SHA256SUMS-v<VERSION>.asc`. Then re-upload the file.
-15. Finalize and publish the release (change it from draft to public).
-16. Ensure that the GitHub Actions for `Publish Python 🐍 distributions 📦 to PyPI and TestPyPI` and `Build and push multi-platform docker images` are functioning correctly. Check that the `PyPI` modules published on `https://pypi.org/project/pyln-*` and that the Docker image has been uploaded to Docker Hub.
-17. Announce the hotfix release in the core-lightning release-chat channel on Discord and on Telegram.
+8. Trigger the pre-release by pushing the version tag with `git push --tags`; the CI will handle drafting the release and uploading the initial signed checksums.
+9. Generate the required builder images by running `contrib/cl-repro.sh`.
+10. Sign the release locally by running `tools/build-release.sh bin-Ubuntu sign` which will sign the release contents and create `SHA256SUMS-v<VERSION>` and `SHA256SUMS-v<VERSION>.asc` in the release folder.
+11. Validate that your local checksums `SHA256SUMS-v<VERSION>` match the Draft release's, then add your signatures to the draft release's signature `SHA256SUMS-v<VERSION>.asc` file.
+12. Share the `SHA256SUMS-v<VERSION>` and `SHA256SUMS-v<VERSION>.asc` files with the team for verification and signing.
+13. Append the signatures received from the team to the `SHA256SUMS-v<VERSION>.asc` file. Verify the file using `gpg --verify SHA256SUMS-v<VERSION>.asc`. Then re-upload the file.
+14. Finalize and publish the release (change it from draft to public).
+15. Ensure that the GitHub Actions for `Publish Python 🐍 distributions 📦 to PyPI and TestPyPI` and `Build and push multi-platform docker images` are functioning correctly. Check that the `PyPI` modules published on `https://pypi.org/project/pyln-*` and that the Docker image has been uploaded to Docker Hub.
+16. Announce the hotfix release in the core-lightning release-chat channel on Discord and on Telegram.
