@@ -24,7 +24,7 @@ Here's a checklist for the release process.
 2. Use `devtools/changelog.py` to collect the changelog entries from pull request commit messages and merge them into the manually maintained `CHANGELOG.md`.  This does API queries to GitHub, which are severely
    ratelimited unless you use an API token: set the `GH_TOKEN` environment variable to a Personal Access Token from <https://github.com/settings/tokens>
 3. Create a new CHANGELOG.md heading to `v<VERSION>rc1`, and create a link at the bottom. Note that you should exactly copy the date and name format from a previous release, as the `build-release.sh` script relies on this.
-4. Update the package versions: `make update-versions NEW_VERSION=v<VERSION>rc1`
+4. Update the package versions: `uv run make update-versions NEW_VERSION=v<VERSION>rc1`
 5. Create a PR with the above.
 
 ## Releasing -rc1
@@ -47,7 +47,7 @@ Here's a checklist for the release process.
 ## Releasing -rc2, ..., -rcN
 
 1. Update CHANGELOG.md by changing rc(N-1) to rcN. Update the changelog list with information from newly merged PRs also.
-2. Update the package versions: `make update-versions NEW_VERSION=v<VERSION>rcN`
+2. Update the package versions: `uv run make update-versions NEW_VERSION=v<VERSION>rcN`
 3. Add a PR with the rcN.
 4. Tag it `git pull && git tag -s v<VERSION>rcN && git push --tags`
 5. Draft a new `v<VERSION>rcN` pre-release on Github, upload reproducible builds, `SHA256SUMS-v<VERSION>` and `SHA256SUMS-v<VERSION>.asc`.
@@ -58,7 +58,7 @@ Here's a checklist for the release process.
 ## Tagging the Release
 
 1. Update the CHANGELOG.md; remove -rcN in both places, update the date and add title and namer.
-2. Update the contrib/pyln package versions: `make update-versions NEW_VERSION=v<VERSION>`
+2. Update the contrib/pyln package versions: `uv run make update-versions NEW_VERSION=v<VERSION>`
 3. Add a PR with that release.
 4. Merge the PR, then:
    - `git pull`
@@ -81,9 +81,9 @@ Here's a checklist for the release process.
    4. Send your signatures from `release/SHA256SUMS-v<VERSION>.asc` to release captain.
    5. Or follow [link](https://docs.corelightning.org/docs/repro#verifying-a-reproducible-build) for manual verification instructions.
 10. Append signatures shared by the team into the `SHA256SUMS-v<VERSION>.asc` file, verify with `gpg --verify SHA256SUMS-v<VERSION>.asc` and include the file in the draft release.
-11. The GitHub action `Publish Python 🐍 distributions 📦 to PyPI and TestPyPI` should upload the pyln modules to pypi.org. However, this can also be done manually by running `make pyln-release`. This process requires keys for each of the `pyln-client`, `pyln-proto`, and `pyln-testing` modules to be accessible to uv. You can set the key as an environment variable and build and publish each pyln release independently:
+11. The GitHub action `Publish Python 🐍 distributions 📦 to PyPI and TestPyPI` should upload the pyln modules to pypi.org. However, this can also be done manually by running `uv run make pyln-release`. This process requires keys for each of the `pyln-client`, `pyln-proto`, and `pyln-testing` modules to be accessible to uv. You can set the key as an environment variable and build and publish each pyln release independently:
     - `export UV_PUBLISH_TOKEN=<pyln-client token>`
-    - `make pyln-release-client`
+    - `uv run make pyln-release-client`
     - ... repeat for each pyln package with the appropriate token.
 12. Publish multi-arch Docker images (`elementsproject/lightningd:v${VERSION}` and `elementsproject/lightningd:latest`) to Docker Hub either using the GitHub action `Build and push multi-platform docker images` or by running the `tools/build-release.sh docker` script. Prior to building docker images by `tools/build-release.sh` script, ensure that `multiarch/qemu-user-static` setup is working on your system as described [here](https://docs.corelightning.org/docs/docker-images#setting-up-multiarchqemu-user-static).
 
@@ -108,7 +108,7 @@ Here's a checklist for the release process.
 1. Create a new branch named `release-<VERSION>.<POINT_VERSION>`, where each new branch is based on the commit from the previous release tag. For example, `release-<VERSION>.1` is based on `release-<VERSION>`, `release-<VERSION>.2` is based on `release-<VERSION>.1`, and so on.
 2. Cherry-pick all necessary commits for the hotfix into the new branch.
 3. Add entries for changes and fixed issues in `CHANGELOG.md` under a new heading for `v<VERSION>.<POINT_VERSION>`.
-4. Update the python package versions by running `make update-versions NEW_VERSION=<VERSION>.<POINT_VERSION>`
+4. Update the python package versions by running `uv run make update-versions NEW_VERSION=<VERSION>.<POINT_VERSION>`
 5. Create a new commit that includes the updates from `update-versions` and `CHANGELOG.md`.
 6. Tag the release with `git pull && git tag -s v<VERSION>.<POINT_VERSION>`. You will be prompted to enter a tag message, ensure this is filled out.
 7. Confirm that the tag is properly set up for builds by running `git describe`.
