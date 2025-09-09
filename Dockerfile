@@ -45,15 +45,6 @@ RUN mkdir /opt/bitcoin && cd /opt/bitcoin \
     && tar -xzvf $BITCOIN_TARBALL $BD/ --strip-components=1 \
     && rm $BITCOIN_TARBALL
 
-ENV LITECOIN_VERSION 0.16.3
-ENV LITECOIN_URL https://download.litecoin.org/litecoin-${LITECOIN_VERSION}/linux/litecoin-${LITECOIN_VERSION}-${TARBALL_ARCH_FINAL}.tar.gz
-
-# install litecoin binaries
-RUN mkdir /opt/litecoin && cd /opt/litecoin \
-    && wget -qO litecoin.tar.gz "$LITECOIN_URL" \
-    && tar -xzvf litecoin.tar.gz litecoin-$LITECOIN_VERSION/bin/litecoin-cli --strip-components=1 --exclude=*-qt \
-    && rm litecoin.tar.gz
-
 FROM --platform=${DEFAULT_TARGETPLATFORM} ${BASE_DISTRO} AS base-builder
 RUN apt-get update -qq && \
     apt-get install -qq -y --no-install-recommends \
@@ -264,7 +255,6 @@ RUN --mount=type=bind,from=builder,source=/var/libpq,target=/var/libpq,rw \
 
 COPY --from=builder /tmp/lightning_install/ /usr/local/
 COPY --from=downloader /opt/bitcoin/bin /usr/bin
-COPY --from=downloader /opt/litecoin/bin /usr/bin
 COPY tools/docker-entrypoint.sh entrypoint.sh
 
 EXPOSE 9735 9835
