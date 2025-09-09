@@ -22,7 +22,6 @@ Core Lightning (previously c-lightning) is a lightweight, highly customizable an
 [![Continuous Integration][actions-badge]][actions]
 [![Pull Requests Welcome][prs-badge]][prs]
 [![Documentation Status][docs-badge]][docs]
-[![BoL2][bol2-badge]][bol2]
 [![Telegram][telegram-badge]][telegram]
 [![Discord][discord-badge]][discord]
 [![Irc][IRC-badge]][IRC]
@@ -33,7 +32,7 @@ We recommend getting started by experimenting on `testnet` (`testnet4` or `regte
 ## Reach Out to Us
 
 Any help testing the implementation, reporting bugs, or helping with outstanding issues is very welcome.
-Don't hesitate to reach out to us on [Build-on-L2][bol2], or on the implementation-specific [mailing list][ml1], or on [CLN Discord][discord], or on [CLN Telegram][telegram], or on IRC at [dev][irc1]/[gen][irc2] channel.
+Don't hesitate to reach out to us on the implementation-specific [mailing list][ml1], or on [CLN Discord][discord], or on [CLN Telegram][telegram], or on IRC at [dev][irc1]/[gen][irc2] channel.
 
 ## Getting Started
 
@@ -211,8 +210,6 @@ Developers wishing to contribute should start with the developer guide [here](do
 [std]: https://github.com/lightning/bolts
 [prs-badge]: https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat
 [prs]: http://makeapullrequest.com
-[bol2-badge]: https://badgen.net/badge/BoL2/chat/blue
-[bol2]: https://community.corelightning.org
 [ml1]: https://lists.ozlabs.org/listinfo/c-lightning
 [discord-badge]: https://badgen.net/badge/Discord/chat/blue
 [discord]: https://discord.gg/mE9s4rc5un

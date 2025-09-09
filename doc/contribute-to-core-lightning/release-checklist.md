@@ -37,7 +37,7 @@ Here's a checklist for the release process.
 6. Push the tag to remote `git push --tags` (pushing the tag will kickoff the "Release 🚀" CI action which builds the release targets and a draft release).
 7. Compare your release/`c-lightning-<release tag>`.zip on GitHub.
 8. Check the generated draft `v<VERSION>rc1` release on Github and check `Set as a pre-release` option.  Add the SHA256SUMS.asc from your local release folder to newly drafted release, replacing it.
-9. Announce rc1 release on core-lightning's release-chat channel on Discord & [BuildOnL2](https://community.corelightning.org/c/general-questions/).
+9. Announce rc1 release on core-lightning's release-chat channel on Discord & Telegram.
 10. Use `devtools/credit --verbose v<PREVIOUS-VERSION>` to get commits, days and contributors data for release note.
 11. Prepare release notes draft including information from above step, and share with the team for editing.
 12. Upgrade your personal nodes to the rc1, to help testing.
@@ -51,7 +51,7 @@ Here's a checklist for the release process.
 3. Add a PR with the rcN.
 4. Tag it `git pull && git tag -s v<VERSION>rcN && git push --tags`
 5. Draft a new `v<VERSION>rcN` pre-release on Github, upload reproducible builds, `SHA256SUMS-v<VERSION>` and `SHA256SUMS-v<VERSION>.asc`.
-5. Announce tagged rc release on core-lightning's release-chat channel on Discord & [BuildOnL2](https://community.corelightning.org/c/general-questions/).
+5. Announce tagged rc release on core-lightning's release-chat channel on Discord & Telegram.
 6. Upgrade your personal nodes to the rcN.
 7. Confirm that Github actions for PyPI and Docker publishing are working as expected.
 
@@ -92,7 +92,7 @@ Here's a checklist for the release process.
 
 1. Edit the GitHub draft and include the `SHA256SUMS-v<VERSION>.asc` file.
 2. Publish the release as not a draft.
-3. Announce the final release on core-lightning's release-chat channel on Discord & [BuildOnL2](https://community.corelightning.org/c/general-questions/).
+3. Announce the final release on core-lightning's release-chat channel on Discord & Telegram.
 4. Send a mail to c-lightning and lightning-dev mailing lists, using the same wording as the Release Notes in GitHub.
 5. Write release blog, post it on [Blockstream](https://blog.blockstream.com/) and announce the release on Twitter.
 
@@ -121,4 +121,4 @@ Here's a checklist for the release process.
 14. Append the signatures received from the team to the `SHA256SUMS-v<VERSION>.asc` file. Verify the file using `gpg --verify SHA256SUMS-v<VERSION>.asc`. Then re-upload the file.
 15. Finalize and publish the release (change it from draft to public).
 16. Ensure that the GitHub Actions for `Publish Python 🐍 distributions 📦 to PyPI and TestPyPI` and `Build and push multi-platform docker images` are functioning correctly. Check that the `PyPI` modules published on `https://pypi.org/project/pyln-*` and that the Docker image has been uploaded to Docker Hub.
-17. Announce the hotfix release in the core-lightning release-chat channel on Discord and on [BuildOnL2](https://community.corelightning.org/c/general-questions/).
+17. Announce the hotfix release in the core-lightning release-chat channel on Discord and on Telegram.
