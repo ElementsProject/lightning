@@ -5,7 +5,7 @@ description = "The compiled GRPC proto for CLN"
 authors = [{ name = "Christian Decker", email = "decker@blockstream.com" }]
 license = { text = "MIT" }
 readme = "README.md"
-requires-python = ">=3.8,<4.0"
+requires-python = ">=3.9,<4.0"
 dependencies = ["grpcio==1.69.0", "protobuf==5.29.4"]
 
 [dependency-groups]

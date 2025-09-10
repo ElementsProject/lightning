@@ -5,7 +5,7 @@ description = "Test your Core Lightning integration, plugins or whatever you wan
 authors = [{ name = "Christian Decker", email = "decker.christian@gmail.com" }]
 license = { text = "BSD-MIT" }
 readme = "README.md"
-requires-python = ">=3.8,<4.0"
+requires-python = ">=3.9,<4.0"
 dependencies = [
   "pytest>=7.0.0",
   "ephemeral-port-reserve>=1.1.4",
