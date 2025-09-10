@@ -4753,6 +4753,8 @@ pub mod requests {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub partial_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub payer_note: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub retry_for: Option<u32>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub layers: Option<Vec<String>>,
