@@ -67,6 +67,13 @@ jobs:
     - name: Install uv
       uses: astral-sh/setup-uv@v5
 
+    - name: Update pyln versions
+      id: update-versions
+      run: |
+        export VERSION=$(git describe --tags --abbrev=0)
+        echo "Pyln VERSION: $VERSION"
+        make update-pyln-versions NEW_VERSION=$VERSION
+
     - name: Publish distribution 📦 to Test PyPI
       if: github.repository == 'ElementsProject/lightning' && steps.set-values.outputs.DISTLOCATION == 'test'
       env:
@@ -84,10 +91,6 @@ jobs:
         WORKDIR: ${{ matrix.WORKDIR }}
       run: |
         echo "UV VERSION PUBLISH: $(uv --version)"
-        cd ${{ env.WORKDIR }}
-        export VERSION=$(git describe --tags --abbrev=0)
         echo "Pyln VERSION: $VERSION"
-        make update-pyln-versions NEW_VERSION=$VERSION
-        cd /github/workspace
         uv build --package ${{ matrix.PACKAGE }}
         uv publish
