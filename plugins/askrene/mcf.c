@@ -19,6 +19,8 @@
 #include <plugins/libplugin.h>
 #include <stdint.h>
 
+
+// FIXME: review this description still holds.
 /* # Optimal payments
  *
  * In this module we reduce the routing optimization problem to a linear
@@ -47,10 +49,12 @@
  *
  * 	fee_msat = base_msat + floor(millionths*x_msat / 10^6)
  *
- * We approximate this fee into a linear function by computing a slope `c_fee` such
- * that:
+ * We approximate this fee into a linear function plus a constant term:
  *
- * 	fee_microsat = c_fee * x_sat
+ * 	cost(x) = (k*base_msat) + (k*A_msat*millionths/10^6) * x
+ *
+ * where A_msat is the accuracy of the flows, the smallest unit of flow, so that
+ * x_msat = x*A_msat, and k is an arbitrary constant.
  *
  * Function `linear_fee_cost` computes `c_fee` based on the base and
  * proportional fees of a channel.
@@ -159,12 +163,17 @@
  *
  * */
 
-#define PARTS_BITS 2
+/* Bits required to store all channel parts. */
+#define PARTS_BITS 3
+/* How many parts have a proportional cost. */
+#define N_LINEAR_PARTS 5
+/* The number of the channel part that holds the base fee. */
+#define CHANNEL_BASE_PART 7
 #define CHANNEL_PARTS (1 << PARTS_BITS)
 
 // These are the probability intervals we use to decompose a channel into linear
 // cost function arcs.
-static const double CHANNEL_PIVOTS[]={0,0.5,0.8,0.95};
+static const double CHANNEL_PIVOTS[]={0,0.5,0.8,0.95,0.99};
 
 static const s64 INFINITE = INT64_MAX;
 static const s64 MU_MAX = 100;
@@ -237,7 +246,7 @@ static const struct amount_msat SINGLE_PATH_THRESHOLD = AMOUNT_MSAT(1000000);
  * we can't us a union, since bit order is implementation-defined and
  * we want chanidx on the highest bits:
  *
- * [ 0       1 2     3            4 5 6 ... 31 ]
+ * [ 0       1 2 3   4            5 6 ... 31 ]
  *   dual    part    chandir      chanidx
  */
 #define ARC_DUAL_BITOFF (0)
@@ -280,6 +289,13 @@ static inline struct arc arc_from_parts(u32 chanidx, int chandir, u32 part, bool
 	return arc;
 }
 
+/* A fake node ID that we use to separate channel base costs from proportional
+ * costs. */
+static u32 auxiliary_node(u32 chanidx, int chandir, u32 auxiliary_node_offset)
+{
+	return auxiliary_node_offset + ((chanidx + 1) | chandir);
+}
+
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
@@ -295,11 +311,18 @@ struct pay_parameters {
 	struct amount_msat accuracy;
 
 	// channel linearization parameters
-	double cap_fraction[CHANNEL_PARTS],
-	       cost_fraction[CHANNEL_PARTS];
+	double cap_fraction[N_LINEAR_PARTS],
+	       cost_fraction[N_LINEAR_PARTS];
 
 	double delay_feefactor;
 	double base_fee_penalty;
+
+	/* FIXME: set this */
+	u32 auxiliary_node_offset;
+
+	/* FIXME: our estimate of the constant probability of failure of any
+	 * randomly chosen channel. */
+	double constant_fail_probability;
 };
 
 /* Helper function.
@@ -553,11 +576,14 @@ static void init_linear_network(const tal_t *ctx,
 				s64 **arc_fee_cost, s64 **arc_capacity)
 {
 	const struct gossmap *gossmap = params->rq->gossmap;
-	const size_t max_num_chans = gossmap_max_chan_idx(gossmap);
-	const size_t max_num_arcs = max_num_chans * ARCS_PER_CHANNEL;
+	/* topology of the network */
+        const size_t max_num_chans = gossmap_max_chan_idx(gossmap);
 	const size_t max_num_nodes = gossmap_max_node_idx(gossmap);
+        /* topology of the MCF problem */
+	const size_t max_num_arcs = max_num_chans * ARCS_PER_CHANNEL;
+	const size_t max_num_edges = max_num_nodes + max_num_chans * 2;
 
-	*graph = graph_new(ctx, max_num_nodes, max_num_arcs, ARC_DUAL_BITOFF);
+	*graph = graph_new(ctx, max_num_edges, max_num_arcs, ARC_DUAL_BITOFF);
 	*arc_prob_cost = tal_arr(ctx, double, max_num_arcs);
 	for (size_t i = 0; i < max_num_arcs; ++i)
 		(*arc_prob_cost)[i] = DBL_MAX;
