@@ -1,6 +1,7 @@
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from decimal import Decimal
+from pathlib import Path
 from pyln.client import RpcError, Millisatoshi
 import pyln.proto.wire as wire
 from utils import (
@@ -3019,7 +3020,7 @@ def test_dataloss_protection(node_factory, bitcoind):
 
     # Save copy of the db.
     dbpath = os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, "lightningd.sqlite3")
-    orig_db = open(dbpath, "rb").read()
+    orig_db = Path(dbpath).read_bytes()
     l2.start()
 
     # l1 should have sent WIRE_CHANNEL_REESTABLISH with extra fields.
@@ -3063,7 +3064,7 @@ def test_dataloss_protection(node_factory, bitcoind):
     # Now, move l2 back in time.
     l2.stop()
     # Overwrite with OLD db.
-    open(dbpath, "wb").write(orig_db)
+    Path(dbpath).write_bytes(orig_db)
     l2.start()
 
     # l2 should freak out!
@@ -3118,7 +3119,7 @@ def test_dataloss_protection_no_broadcast(node_factory, bitcoind):
 
     # Save copy of the db.
     dbpath = os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, "lightningd.sqlite3")
-    orig_db = open(dbpath, "rb").read()
+    orig_db = Path(dbpath).read_bytes()
     l2.start()
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -3133,9 +3134,9 @@ def test_dataloss_protection_no_broadcast(node_factory, bitcoind):
     # Now, move l2 back in time.
     l2.stop()
     # Save new db
-    new_db = open(dbpath, "rb").read()
+    new_db = Path(dbpath).read_bytes()
     # Overwrite with OLD db.
-    open(dbpath, "wb").write(orig_db)
+    Path(dbpath).write_bytes(orig_db)
     l2.start()
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -3149,7 +3150,7 @@ def test_dataloss_protection_no_broadcast(node_factory, bitcoind):
 
     # fix up l2.
     l2.stop()
-    open(dbpath, "wb").write(new_db)
+    Path(dbpath).write_bytes(new_db)
     l2.start()
 
     # All is forgiven
