@@ -1,5 +1,5 @@
 from fixtures import *  # noqa: F401,F403
-from pyln.testing.utils import TEST_NETWORK, wait_for
+from pyln.testing.utils import RUST, TEST_NETWORK, wait_for
 from pyln.client import Millisatoshi
 import requests
 from pathlib import Path
@@ -9,6 +9,12 @@ import socketio
 import time
 import pytest
 import json
+
+# Skip the entire module if we don't have Rust.
+pytestmark = pytest.mark.skipif(
+    not RUST,
+    reason='RUST is not enabled; skipping Rust-dependent tests'
+)
 
 
 def http_session_with_retry():
