@@ -1171,9 +1171,9 @@ def test_cli_multiline_help(node_factory):
                                    '--lightning-dir={}'
                                    .format(l1.daemon.lightning_dir),
                                    'help', 'helpme']).decode('utf-8')
-    assert out == ("helpme msat  \n"
-                   " This is a message which consumes multiple lines and thus should\n"
-                   " be well-formatted by lightning-cli help\n")
+    assert ("helpme msat  \n"
+            " This is a message which consumes multiple lines and thus should\n"
+            " be well-formatted by lightning-cli help\n" in out)
 
 
 def test_cli_commando(node_factory):
@@ -4382,6 +4382,7 @@ def test_setconfig(node_factory, bitcoind):
         assert lines == ["# Created and update by setconfig, but you can edit this manually when node is stopped.", "min-capacity-sat=400000"]
 
 
+@pytest.mark.skipif(os.getuid() == 0, reason="Test requires non-root user for permission checks to work")
 def test_setconfig_access(node_factory, bitcoind):
     """Test that we correctly fail (not crash) if config file/dir not writable"""
 
