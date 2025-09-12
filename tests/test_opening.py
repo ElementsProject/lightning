@@ -2849,7 +2849,6 @@ def test_opening_crash(bitcoind, node_factory):
     bitcoind.generate_block(1, wait_for_mempool=txid)
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 def test_sendpsbt_crash(bitcoind, node_factory):
@@ -2867,3 +2866,5 @@ def test_sendpsbt_crash(bitcoind, node_factory):
     del l1.daemon.opts['plugin']
     l1.start()
     bitcoind.generate_block(1, wait_for_mempool=1)
+
+    assert l1.daemon.is_in_log('Signed and sent psbt for waiting channel')
