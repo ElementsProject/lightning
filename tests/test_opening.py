@@ -2825,3 +2825,113 @@ def test_opening_below_min_capacity_sat(bitcoind, node_factory):
 
     # But we shouldn't have bothered l2
     assert not l2.daemon.is_in_log('peer_in WIRE_ERROR')
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+def test_opening_crash(bitcoind, node_factory):
+    """Stop transmission of initial funding tx, check it eventually opens"""
+    l1, l2 = node_factory.get_nodes(2)
+
+    def censoring_sendrawtx(r):
+        return {'id': r['id'], 'result': {}}
+
+    l1.daemon.rpcproxy.mock_rpc('sendrawtransaction', censoring_sendrawtx)
+    l2.daemon.rpcproxy.mock_rpc('sendrawtransaction', censoring_sendrawtx)
+    l1.fundwallet(3_000_000)
+    l1.connect(l2)
+    txid = l1.rpc.fundchannel(l2.info['id'], "2000000sat")['txid']
+
+    l1.stop()
+    l1.daemon.rpcproxy.mock_rpc('sendrawtransaction', None)
+    l1.start()
+
+    bitcoind.generate_block(1, wait_for_mempool=txid)
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+def test_sendpsbt_crash(bitcoind, node_factory):
+    """Stop sendpsbt, check it eventually opens"""
+    plugin_path = Path(__file__).parent / "plugins" / "stop_sendpsbt.py"
+    l1, l2 = node_factory.get_nodes(2, opts=[{"plugin": plugin_path, 'may_fail': True}, {}])
+
+    l1.fundwallet(3_000_000)
+    l1.connect(l2)
+
+    # signpsbt kills l1.
+    with pytest.raises(RpcError, match=r'Connection to RPC server lost.'):
+        l1.rpc.fundchannel(l2.info['id'], "2000000sat")
+
+    del l1.daemon.opts['plugin']
+    l1.start()
+    bitcoind.generate_block(1, wait_for_mempool=1)
+
+    assert l1.daemon.is_in_log('Signed and sent psbt for waiting channel')
+
+
+@pytest.mark.parametrize("stay_withheld", [True, False])
+@pytest.mark.parametrize("mutual_close", [True, False])
+def test_zeroconf_withhold(node_factory, bitcoind, stay_withheld, mutual_close):
+    plugin_path = Path(__file__).parent / "plugins" / "zeroconf-selective.py"
+
+    l1, l2 = node_factory.get_nodes(2, opts=[{'may_reconnect': True}, 
+                                             {
+                                                 'plugin': str(plugin_path),
+                                                 'zeroconf_allow': '0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518',
+                                                 'may_reconnect': True
+                                             }])
+    # Try to open a mindepth=0 channel
+    l1.fundwallet(10**7)
+
+    l1.connect(l2)
+    amount = 1000000
+    funding_addr = l1.rpc.fundchannel_start(l2.info['id'], f"{amount}sat", mindepth=0)['funding_address']
+
+    # Create the funding transaction
+    psbt = l1.rpc.fundpsbt(amount, "1000perkw", 1000, excess_as_change=True)['psbt']
+    psbt = l1.rpc.addpsbtoutput(1000000, psbt, destination=funding_addr)['psbt']
+
+    # Be sure fundchannel_complete is successful
+    assert l1.rpc.fundchannel_complete(l2.info['id'], psbt, withhold=True)['commitments_secured']
+
+    # It's withheld.
+    assert only_one(l1.rpc.listpeerchannels()['channels'])['funding']['withheld'] is True
+
+    # We can use the channel.
+    l1.rpc.xpay(l2.rpc.invoice(100, "test_zeroconf_withhold", "test_zeroconf_withhold")['bolt11'])
+
+    # But mempool is empty!  No funding tx!
+    assert bitcoind.rpc.getrawmempool() == []
+
+    # Restarting doesn't make it transmit!
+    l1.restart()
+    assert bitcoind.rpc.getrawmempool() == []
+
+    if mutual_close:
+        l1.connect(l2)
+
+    if not stay_withheld:
+        # sendpsbt marks it as no longer withheld.
+        l1.rpc.sendpsbt(l1.rpc.signpsbt(psbt)['signed_psbt'])
+        assert only_one(l1.rpc.listpeerchannels()['channels'])['funding']['withheld'] is False
+        assert l1.daemon.is_in_log(r'Funding PSBT sent, and stored for rexmit \(was withheld\)')
+        wait_for(lambda: len(bitcoind.rpc.getrawmempool()) == 1)
+
+    ret = l1.rpc.close(l2.info['id'], unilateraltimeout=10)
+    if stay_withheld:
+        assert ret['txs'] == []
+        assert ret['txids'] == []
+        assert bitcoind.rpc.getrawmempool() == []
+    else:
+        assert len(ret['txs']) == 1
+        assert len(ret['txids']) == 1
+        wait_for(lambda: len(bitcoind.rpc.getrawmempool()) == 2)
+
+    # If withheld, it's moved to closed immediately.
+    if stay_withheld:
+        assert l1.rpc.listpeerchannels()['channels'] == []
+        assert only_one(l1.rpc.listclosedchannels()['closedchannels'])['funding_withheld'] is True
+    else:
+        wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['state'] == 'CLOSINGD_COMPLETE')
+

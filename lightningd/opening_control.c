@@ -98,7 +98,9 @@ wallet_commit_channel(struct lightningd *ld,
 		      u32 feerate,
 		      const u8 *our_upfront_shutdown_script,
 		      const u8 *remote_upfront_shutdown_script,
-		      const struct channel_type *type)
+		      const struct channel_type *type,
+		      const struct wally_psbt *funding_psbt,
+		      bool withheld)
 {
 	struct channel *channel;
 	struct amount_msat our_msat;
@@ -237,7 +239,9 @@ wallet_commit_channel(struct lightningd *ld,
 			      NULL,
 			      0,
 			      &zero_channel_stats,
-			      tal_arr(NULL, struct channel_state_change *, 0));
+			      tal_arr(NULL, struct channel_state_change *, 0),
+			      funding_psbt,
+			      withheld);
 
 	/* Now we finally put it in the database. */
 	wallet_channel_insert(ld->wallet, channel);
@@ -445,7 +449,9 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 					feerate,
 					fc->our_upfront_shutdown_script,
 					remote_upfront_shutdown_script,
-					type);
+					type,
+					fc->funding_psbt,
+					fc->withheld);
 	if (!channel) {
 		was_pending(command_fail(fc->cmd, LIGHTNINGD,
 					 "Key generation failure"));
@@ -548,7 +554,9 @@ static void opening_fundee_finished(struct subd *openingd,
 					feerate,
 					local_upfront_shutdown_script,
 					remote_upfront_shutdown_script,
-					type);
+					type,
+					NULL,
+					false);
 	if (!channel) {
 		uncommitted_channel_disconnect(uc, LOG_BROKEN,
 					       "Commit channel failed");
@@ -1017,10 +1025,12 @@ static struct command_result *json_fundchannel_complete(struct command *cmd,
 	struct wally_psbt *funding_psbt;
 	u32 *funding_txout_num = NULL;
 	struct funding_channel *fc;
+	bool *withhold;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("id", param_node_id, &id),
 			 p_req("psbt", param_psbt, &funding_psbt),
+			 p_opt_def("withhold", param_bool, &withhold, false),
 			 NULL))
 		return command_param_failed();
 
@@ -1091,6 +1101,9 @@ static struct command_result *json_fundchannel_complete(struct command *cmd,
 
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
+
+	fc->funding_psbt = tal_steal(fc, funding_psbt);
+	fc->withheld = *withhold;
 
 	/* Set the cmd to this new cmd */
 	peer->uncommitted_channel->fc->cmd = cmd;
@@ -1639,7 +1652,9 @@ static struct channel *stub_chan(struct command *cmd,
 			      NULL,
 			      0,
 			      &zero_channel_stats,
-			      tal_arr(NULL, struct channel_state_change *, 0));
+			      tal_arr(NULL, struct channel_state_change *, 0),
+			      NULL,
+			      false);
 
 	/* We don't want to gossip about this, ever. */
 	channel->channel_gossip = tal_free(channel->channel_gossip);
