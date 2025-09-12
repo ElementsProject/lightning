@@ -354,7 +354,7 @@ RUST_TARGET_DIR = target/$(TARGET)/$(RUST_PROFILE)
 endif
 
 ifneq ($(RUST_PROFILE),debug)
-CARGO_OPTS := --profile=$(RUST_PROFILE) --quiet
+CARGO_OPTS := --profile=$(RUST_PROFILE) --locked --quiet
 else
 CARGO_OPTS := --quiet
 endif
