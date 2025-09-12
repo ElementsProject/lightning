@@ -228,6 +228,9 @@ bool pubkey_from_node_id(struct pubkey *key UNNEEDED, const struct node_id *id U
 /* Generated stub for resend_closing_transactions */
 void resend_closing_transactions(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "resend_closing_transactions called!\n"); abort(); }
+/* Generated stub for resend_opening_transactions */
+void resend_opening_transactions(struct lightningd *ld UNNEEDED)
+{ fprintf(stderr, "resend_opening_transactions called!\n"); abort(); }
 /* Generated stub for runes_early_init */
 struct runes *runes_early_init(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "runes_early_init called!\n"); abort(); }
