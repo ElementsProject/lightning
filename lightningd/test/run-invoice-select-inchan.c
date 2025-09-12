@@ -315,6 +315,9 @@ void force_peer_disconnect(struct lightningd *ld UNNEEDED,
 			   const struct peer *peer UNNEEDED,
 			   const char *why UNNEEDED)
 { fprintf(stderr, "force_peer_disconnect called!\n"); abort(); }
+/* Generated stub for free_htlcs */
+void free_htlcs(struct lightningd *ld UNNEEDED, const struct channel *channel UNNEEDED)
+{ fprintf(stderr, "free_htlcs called!\n"); abort(); }
 /* Generated stub for fromwire_bigsize */
 bigsize_t fromwire_bigsize(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_bigsize called!\n"); abort(); }
