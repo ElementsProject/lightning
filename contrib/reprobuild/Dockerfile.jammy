@@ -2,6 +2,7 @@ FROM jammy
 
 ENV TZ=UTC
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+ENV SOURCE_DATE_EPOCH=1672531200
 ENV RUST_PROFILE=release
 ENV PATH=/root/.pyenv/shims:/root/.pyenv/bin:/root/.cargo/bin:/root/.local/bin:$PATH
 ENV PROTOC_VERSION=29.4
