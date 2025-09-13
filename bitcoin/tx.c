@@ -950,8 +950,7 @@ size_t bitcoin_tx_2of2_input_witness_weight(void)
         /* BOLT #03:
          * Signatures are 73 bytes long (the maximum length).
          */
-	return 1 + /* Prefix: 4 elements to push on stack */
-		(1 + 0) + /* [0]: witness-marker-and-flag */
+	return  (1 + 0) + /* [0]: witness-marker-and-flag */
 		(1 + 73) + /* [1] Party A signature and length prefix */
 		(1 + 73) + /* [2] Party B signature and length prefix */
 		(1 + 1 + /* [3] length prefix and numpushes (2) */
