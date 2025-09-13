@@ -30,6 +30,7 @@ FUZZ_COMMON_OBJS := \
 	common/close_tx.o				\
 	common/configdir.o				\
 	common/configvar.o				\
+	common/codex32.o				\
 	common/channel_id.o				\
 	common/channel_type.o				\
 	common/cryptomsg.o				\
