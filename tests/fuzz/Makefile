@@ -9,6 +9,18 @@ tests/fuzz/fuzz-hmac-sha256: LDLIBS += -lcrypto
 tests/fuzz/fuzz-wire-*.o: tests/fuzz/wire.h
 tests/fuzz/fuzz-bolt12-*.o: tests/fuzz/bolt12.h
 
+tests/fuzz/fuzz-open_channel:	common/shutdown_scriptpubkey.o		\
+				common/peer_io.o			\
+				common/peer_billboard.o			\
+				common/peer_status_wiregen.o		\
+				common/penalty_base.o			\
+				common/per_peer_state.o			\
+				common/read_peer_msg.o			\
+				common/wire_error.o			\
+				hsmd/hsmd_wiregen.o			\
+				openingd/common.o			\
+				openingd/openingd_wiregen.o
+
 FUZZ_TARGETS_SRC := $(wildcard tests/fuzz/fuzz-*.c)
 FUZZ_TARGETS_OBJS := $(FUZZ_TARGETS_SRC:.c=.o)
 FUZZ_TARGETS_BIN := $(FUZZ_TARGETS_SRC:.c=)
