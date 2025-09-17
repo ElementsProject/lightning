@@ -31,7 +31,8 @@ struct flow **minflow(const tal_t *ctx,
 		      const struct gossmap_node *target,
 		      struct amount_msat amount,
 		      u32 mu,
-		      double delay_feefactor);
+		      double delay_feefactor,
+		      double base_prob);
 
 /**
  * API for min cost single path.
@@ -53,7 +54,8 @@ struct flow **single_path_flow(const tal_t *ctx, const struct route_query *rq,
 			       const struct gossmap_node *source,
 			       const struct gossmap_node *target,
 			       struct amount_msat amount, u32 mu,
-			       double delay_feefactor);
+			       double delay_feefactor,
+			       double base_prob);
 
 /* To sanity check: this is the approximation mcf uses for the cost
  * of each channel. */
