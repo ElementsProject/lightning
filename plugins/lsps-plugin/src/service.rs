@@ -16,14 +16,9 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::Arc;
 
-/// An option to enable this service. It defaults to `false` as we don't want a
-/// node to be an LSP per default.
-/// If a user want's to run an LSP service on their node this has to explicitly
-/// set to true. We keep this as a dev option for now until it actually does
-/// something.
-const OPTION_ENABLED: options::DefaultBooleanConfigOption = ConfigOption::new_bool_with_default(
-    "dev-lsps-service",
-    false,
+/// An option to enable this service.
+const OPTION_ENABLED: options::FlagConfigOption = ConfigOption::new_flag(
+    "dev-lsps-service-enabled",
     "Enables an LSPS service on the node.",
 );
 
@@ -34,14 +29,6 @@ struct State {
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
-    let lsps_service = JsonRpcServer::builder()
-        .with_handler(
-            Lsps0listProtocolsRequest::METHOD.to_string(),
-            Arc::new(Lsps0ListProtocolsHandler),
-        )
-        .build();
-    let state = State { lsps_service };
-
     if let Some(plugin) = cln_plugin::Builder::new(tokio::io::stdin(), tokio::io::stdout())
         .option(OPTION_ENABLED)
         .hook("custommsg", on_custommsg)
@@ -54,6 +41,13 @@ async fn main() -> Result<(), anyhow::Error> {
                 .await;
         }
 
+        let lsps_builder = JsonRpcServer::builder().with_handler(
+            Lsps0listProtocolsRequest::METHOD.to_string(),
+            Arc::new(Lsps0ListProtocolsHandler {}),
+        );
+        let lsps_service = lsps_builder.build();
+
+        let state = State { lsps_service };
         let plugin = plugin.start(state).await?;
         plugin.join().await
     } else {

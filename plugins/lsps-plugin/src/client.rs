@@ -4,9 +4,16 @@ use cln_lsps::lsps0::{
     self,
     transport::{Bolt8Transport, CustomMessageHookManager, WithCustomMessageHookManager},
 };
+use cln_plugin::options;
 use log::debug;
 use serde::Deserialize;
 use std::path::Path;
+
+/// An option to enable this service.
+const OPTION_ENABLED: options::FlagConfigOption = options::ConfigOption::new_flag(
+    "dev-lsps-client-enabled",
+    "Enables an LSPS client on the node.",
+);
 
 #[derive(Clone)]
 struct State {
@@ -26,14 +33,22 @@ async fn main() -> Result<(), anyhow::Error> {
 
     if let Some(plugin) = cln_plugin::Builder::new(tokio::io::stdin(), tokio::io::stdout())
         .hook("custommsg", CustomMessageHookManager::on_custommsg::<State>)
+        .option(OPTION_ENABLED)
         .rpcmethod(
             "lsps-listprotocols",
             "list protocols supported by lsp",
             on_lsps_listprotocols,
         )
-        .start(state)
+        .configure()
         .await?
     {
+        if !plugin.option(&OPTION_ENABLED)? {
+            return plugin
+                .disable(&format!("`{}` not enabled", OPTION_ENABLED.name))
+                .await;
+        }
+
+        let plugin = plugin.start(state).await?;
         plugin.join().await
     } else {
         Ok(())
