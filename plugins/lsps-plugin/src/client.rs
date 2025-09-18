@@ -1,8 +1,10 @@
+use anyhow::Context;
 use cln_lsps::jsonrpc::client::JsonRpcClient;
 use cln_lsps::lsps0::{
     self,
     transport::{Bolt8Transport, CustomMessageHookManager, WithCustomMessageHookManager},
 };
+use log::debug;
 use serde::Deserialize;
 use std::path::Path;
 
@@ -38,6 +40,7 @@ async fn main() -> Result<(), anyhow::Error> {
     }
 }
 
+/// RPC Method handler for `lsps-listprotocols`.
 async fn on_lsps_listprotocols(
     p: cln_plugin::Plugin<State>,
     v: serde_json::Value,
@@ -49,16 +52,26 @@ async fn on_lsps_listprotocols(
     let dir = p.configuration().lightning_dir;
     let rpc_path = Path::new(&dir).join(&p.configuration().rpc_file);
 
-    let req: Request = serde_json::from_value(v).unwrap();
+    let req: Request = serde_json::from_value(v).context("Failed to parse request JSON")?;
 
-    let client = JsonRpcClient::new(Bolt8Transport::new(
+    // Create the transport first and handle potential errors
+    let transport = Bolt8Transport::new(
         &req.peer,
         rpc_path,
         p.state().hook_manager.clone(),
-        None,
-    )?);
+        None, // Use default timeout
+    )
+    .context("Failed to create Bolt8Transport")?;
+
+    // Now create the client using the transport
+    let client = JsonRpcClient::new(transport);
+
+    let request = lsps0::model::Lsps0listProtocolsRequest {};
     let res: lsps0::model::Lsps0listProtocolsResponse = client
-        .call_typed(lsps0::model::Lsps0listProtocolsRequest {})
-        .await?;
+        .call_typed(request)
+        .await
+        .context("lsps0.list_protocols call failed")?;
+
+    debug!("Received lsps0.list_protocols response: {:?}", res);
     Ok(serde_json::to_value(res)?)
 }
