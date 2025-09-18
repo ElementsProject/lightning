@@ -1827,6 +1827,9 @@ bool peer_start_channeld(struct channel *channel,
 		if (inflight->splice_locked_memonly)
 			continue;
 
+		if (!inflight->funding->splice_remote_funding)
+			continue;
+
 		infcopy = tal(inflights, struct inflight);
 
 		infcopy->remote_funding = *inflight->funding->splice_remote_funding;
