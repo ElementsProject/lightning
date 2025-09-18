@@ -6,6 +6,7 @@ use cln_lsps::jsonrpc::{JsonRpcResponse, RequestObject, RpcError, TransportError
 use cln_lsps::lsps0;
 use cln_lsps::lsps0::model::{Lsps0listProtocolsRequest, Lsps0listProtocolsResponse};
 use cln_lsps::lsps0::transport::{self, CustomMsg};
+use cln_lsps::util::wrap_payload_with_peer_id;
 use cln_plugin::options::ConfigOption;
 use cln_plugin::{options, Plugin};
 use cln_rpc::notifications::CustomMsgNotification;
@@ -84,8 +85,12 @@ async fn on_custommsg(
         rpc_path: rpc_path.try_into()?,
     };
 
+    // The payload inside CustomMsg is the actual JSON-RPC
+    // request/notification, we wrap it to attach the peer_id as well.
+    let payload = wrap_payload_with_peer_id(&req.payload, msg.peer_id);
+
     let service = p.state().lsps_service.clone();
-    match service.handle_message(&req.payload, &mut writer).await {
+    match service.handle_message(&payload, &mut writer).await {
         Ok(_) => continue_response,
         Err(e) => {
             debug!("failed to handle lsps message: {}", e);
