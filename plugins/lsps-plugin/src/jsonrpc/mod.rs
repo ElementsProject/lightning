@@ -56,7 +56,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// request format.
 pub trait JsonRpcRequest: Serialize {
     const METHOD: &'static str;
-    fn into_request(self, id: impl Into<Option<String>>) -> RequestObject<Self>
+    fn into_request(self, id: Option<String>) -> RequestObject<Self>
     where
         Self: Sized,
     {
@@ -64,7 +64,7 @@ pub trait JsonRpcRequest: Serialize {
             jsonrpc: "2.0".into(),
             method: Self::METHOD.into(),
             params: Some(self),
-            id: id.into(),
+            id,
         }
     }
 }
