@@ -21,7 +21,7 @@ def test_lsps_service_disabled(node_factory):
 @unittest.skipUnless(RUST, 'RUST is not enabled')
 def test_lsps0_listprotocols(node_factory):
     l1, l2 = node_factory.get_nodes(2, opts=[
-        {}, {"dev-lsps-service": True}
+        {"dev-lsps-client-enabled": None}, {"dev-lsps-service-enabled": None}
     ])
 
     # We don't need a channel to query for lsps services
