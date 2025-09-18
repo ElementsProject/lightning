@@ -13029,6 +13029,13 @@
             "description": [
               "Transaction to use for funding (does not need to be signed but must be otherwise complete)."
             ]
+          },
+          "withhold": {
+            "type": "boolean",
+            "added": "v25.12",
+            "description": [
+              "Mark this channel 'withheld' so we know we haven't broadcast the funding transaction.  If the channel is closed before we call `sendpsbt` on this psbt, it will simply be closed immediately."
+            ]
           }
         }
       },
@@ -17285,6 +17292,8 @@
                 "total_htlcs_sent",
                 "funding_txid",
                 "funding_outnum",
+                "funding_psbt",
+                "funding_withheld",
                 "leased",
                 "final_to_us_msat",
                 "min_to_us_msat",
@@ -17428,6 +17437,20 @@
                   "type": "u32",
                   "description": [
                     "The 0-based output number of the funding transaction which opens the channel."
+                  ]
+                },
+                "funding_psbt": {
+                  "type": "string",
+                  "added": "v25.12",
+                  "description": [
+                    "The PSBT (may be non-final or unsigned) we should use to open the channel, if any"
+                  ]
+                },
+                "funding_withheld": {
+                  "type": "boolean",
+                  "added": "v25.12",
+                  "description": [
+                    "True if we have not broadcast the funding transaction (see fundchannel_complete)."
                   ]
                 },
                 "leased": {
@@ -22987,6 +23010,7 @@
                   "type": "object",
                   "additionalProperties": false,
                   "required": [
+                    "psbt",
                     "local_funds_msat",
                     "remote_funds_msat"
                   ],
@@ -23019,6 +23043,20 @@
                       "type": "msat",
                       "description": [
                         "Amount we were paid by peer at open."
+                      ]
+                    },
+                    "psbt": {
+                      "type": "string",
+                      "added": "v25.12",
+                      "description": [
+                        "The PSBT (may be non-final or unsigned) we should use to open the channel, if any.  This is initially from `fundchannel_complete`, but will be updated with if `sendpsbt` is called with an updated PSBT."
+                      ]
+                    },
+                    "withheld": {
+                      "type": "boolean",
+                      "added": "v25.12",
+                      "description": [
+                        "True if `fundchannel_complete` told us it will not broadcast the funding transaction (so we know not to bother with any other onchain transactions in the case of this channel).  This is set to false if `sendpsbt` is send on the above PSBT."
                       ]
                     }
                   }
@@ -30987,7 +31025,7 @@
       "rpc": "sendpsbt",
       "title": "Command to finalize, extract and send a partially signed bitcoin transaction (PSBT).",
       "description": [
-        "The **sendpsbt** is a low-level RPC command which sends a fully-signed PSBT."
+        "The **sendpsbt** is a low-level RPC command which sends a fully-signed PSBT.  If the PSBT is the same one promised by a channel (via fundchannel_complete) it will also be associated with that channel and re-transmitted if necessary on restart."
       ],
       "request": {
         "required": [

@@ -371,6 +371,17 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 	struct channel_inflight *inflight;
 	const char *cmd_id;
 
+	/* If we withheld the funding tx, we simply close */
+	if (channel->withheld) {
+		log_info(channel->log,
+			 "Withheld channel: not sending a close transaction");
+		resolve_close_command(ld, channel, cooperative,
+				      tal_arr(tmpctx, const struct bitcoin_tx *, 0));
+		free_htlcs(ld, channel);
+		delete_channel(channel, false);
+		return;
+	}
+
 	/* If we're not already (e.g. close before channel fully open),
 	 * make sure we're watching for the funding spend */
 	if (!channel->funding_spend_watch) {
@@ -497,6 +508,47 @@ void resend_closing_transactions(struct lightningd *ld)
 				continue;
 			}
 			abort();
+		}
+	}
+}
+
+static void resend_funding_done(struct bitcoind *bitcoind,
+				bool success,
+				const char *msg,
+				struct channel *channel)
+{
+	if (success)
+		log_info(channel->log, "Successfully rexmitted funding tx");
+	else
+		log_unusual(channel->log, "Failed to re-transmit funding tx: %s", msg);
+}
+
+void resend_opening_transactions(struct lightningd *ld)
+{
+	struct peer *peer;
+	struct channel *channel;
+	struct peer_node_id_map_iter it;
+
+	for (peer = peer_node_id_map_first(ld->peers, &it);
+	     peer;
+	     peer = peer_node_id_map_next(ld->peers, &it)) {
+		list_for_each(&peer->channels, channel, list) {
+			struct wally_tx *wtx;
+			if (channel_state_uncommitted(channel->state))
+				continue;
+			if (!channel->funding_psbt || channel->withheld)
+				continue;
+			if (channel->depth != 0)
+				continue;
+			wtx = psbt_final_tx(tmpctx, channel->funding_psbt);
+			if (!wtx)
+				continue;
+			bitcoind_sendrawtx(channel,
+					   ld->topology->bitcoind,
+					   NULL,
+					   tal_hex(tmpctx,
+						   linearize_wtx(tmpctx, wtx)),
+					   false, resend_funding_done, channel);
 		}
 	}
 }
@@ -1137,6 +1189,9 @@ static void NON_NULL_ARGS(1, 2, 4, 5) json_add_channel(struct command *cmd,
 				     channel->push);
 	}
 
+	if (channel->funding_psbt)
+		json_add_psbt(response, "psbt", channel->funding_psbt);
+	json_add_bool(response, "withheld", channel->withheld);
 	json_object_end(response);
 
 	if (!amount_sat_to_msat(&funding_msat, channel->funding_sats)) {
