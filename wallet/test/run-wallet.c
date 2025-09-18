@@ -264,6 +264,16 @@ void   fatal(const char *fmt UNNEEDED, ...)
 /* Generated stub for fatal_vfmt */
 void  fatal_vfmt(const char *fmt UNNEEDED, va_list ap UNNEEDED)
 { fprintf(stderr, "fatal_vfmt called!\n"); abort(); }
+/* Generated stub for find_txwatch_ */
+struct txwatch *find_txwatch_(struct chain_topology *topo UNNEEDED,
+			      const struct bitcoin_txid *txid UNNEEDED,
+			      enum watch_result (*cb)(struct lightningd *ld UNNEEDED,
+						      const struct bitcoin_txid * UNNEEDED,
+						      const struct bitcoin_tx * UNNEEDED,
+						      unsigned int depth UNNEEDED,
+						      void *arg) UNNEEDED,
+			    void *arg UNNEEDED)
+{ fprintf(stderr, "find_txwatch_ called!\n"); abort(); }
 /* Generated stub for force_peer_disconnect */
 void force_peer_disconnect(struct lightningd *ld UNNEEDED,
 			   const struct peer *peer UNNEEDED,
