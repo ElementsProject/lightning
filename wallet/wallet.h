@@ -1938,6 +1938,9 @@ void wallet_save_network_event(struct lightningd *ld,
 			       const char *reason,
 			       u64 duration_nsec);
 
+/* Delete one entry.  Returns false if it doesn't exist. */
+bool wallet_network_event_delete(struct wallet *w, u64 created_index);
+
 /**
  * wallet_begin_old_close_rescan: rescan for missing mutual close p2wpkh outputs.
  *

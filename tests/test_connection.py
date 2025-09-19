@@ -4997,3 +4997,32 @@ def test_networkevents(node_factory, executor):
     assert nevents == [{'created_index': 7,
                         'peer_id': l2.info['id'],
                         'type': 'connect'}]
+
+    fut = executor.submit(l1.rpc.wait, 'networkevents', 'deleted', 1)
+    time.sleep(1)
+    l1.rpc.delnetworkevent(7)
+    assert l1.rpc.listnetworkevents(start=7) == {'networkevents': []}
+
+    res = fut.result(TIMEOUT)
+    assert res == {'subsystem': 'networkevents',
+                   'deleted': 1,
+                   'networkevents': {'created_index': 7}}
+
+    with pytest.raises(RpcError, match="Could not find that networkevent") as err:
+        l1.rpc.delnetworkevent(7)
+    DELNETWORKEVENT_NOT_FOUND = 1402
+    assert err.value.error['code'] == DELNETWORKEVENT_NOT_FOUND
+
+    l1.rpc.delnetworkevent(3)
+    with l1.rpc.reply_filter({'networkevents': [{"created_index": True, "type": True}]}):
+        assert l1.rpc.listnetworkevents() == {'networkevents':
+                                              [{'created_index': 1,
+                                                'type': 'connect'},
+                                               {'created_index': 2,
+                                                'type': 'ping'},
+                                               {'created_index': 4,
+                                                'type': 'connect_fail'},
+                                               {'created_index': 5,
+                                                'type': 'connect_fail'},
+                                               {'created_index': 6,
+                                                'type': 'connect_fail'}]}
