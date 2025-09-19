@@ -58,9 +58,6 @@ struct tal_backtrace {
 void *notleak_(void *ptr, bool plus_children)
 {
 	const char *name;
-	/* If we're not tracking, don't do anything. */
-	if (!memleak_track)
-		return cast_const(void *, ptr);
 
 	/* We use special tal names to mark notleak */
 	name = tal_name(ptr);
@@ -69,12 +66,14 @@ void *notleak_(void *ptr, bool plus_children)
 
 	/* Don't mark more than once! */
 	if (!strstr(name, "**NOTLEAK")) {
+		/* Don't use tmpctx: it might not be set up yet! */
 		if (plus_children)
-			name = tal_fmt(tmpctx, "%s **NOTLEAK_IGNORE_CHILDREN**",
+			name = tal_fmt(NULL, "%s **NOTLEAK_IGNORE_CHILDREN**",
 				       name);
 		else
-			name = tal_fmt(tmpctx, "%s **NOTLEAK**", name);
+			name = tal_fmt(NULL, "%s **NOTLEAK**", name);
 		tal_set_name(ptr, name);
+		tal_free(name);
 	}
 
 	return cast_const(void *, ptr);
@@ -331,8 +330,7 @@ static void call_memleak_helpers(struct htable *memtable, const tal_t *p)
 			if (strends(name, "struct memleak_helper")) {
 				const struct memleak_helper *mh = i;
 				mh->cb(memtable, p);
-			} else if (strends(name, " **NOTLEAK**")
-				   || strends(name, "_notleak")) {
+			} else if (strends(name, " **NOTLEAK**")) {
 				memleak_ptr(memtable, i);
 				memleak_scan_obj(memtable, i);
 			} else if (strends(name,
