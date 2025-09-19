@@ -141,14 +141,14 @@ def setup_test_nodes(node_factory, bitcoind):
         bitcoind.generate_block(1)
         l1.daemon.wait_for_log('Owning output .* txid {} CONFIRMED'.format(txid))
         # Doing it with 'reserved ok' should have 1. We use a big feerate so we can get over the RBF hump
-        upgrade_res2 = update_example(node=l1, method='upgradewallet', params={'feerate': 'urgent', 'reservedok': True})
+        update_example(node=l1, method='upgradewallet', params={'feerate': 'urgent', 'reservedok': True})
 
         # Fund node wallets for further transactions
         fund_nodes = [l1, l2, l3, l4, l5]
         for node in fund_nodes:
             node.fundwallet(FUND_WALLET_AMOUNT_SAT)
         # Connect nodes and fund channels
-        getinfo_res2 = update_example(node=l2, method='getinfo', params={})
+        update_example(node=l2, method='getinfo', params={})
         update_example(node=l1, method='connect', params={'id': l2.info['id'], 'host': 'localhost', 'port': l2.daemon.port})
         update_example(node=l2, method='connect', params={'id': l3.info['id'], 'host': 'localhost', 'port': l3.daemon.port})
         l3.rpc.connect(l4.info['id'], 'localhost', l4.port)
@@ -181,10 +181,10 @@ def generate_transactions_examples(l1, l2, l3, l4, l5, c25, bitcoind):
         route_l1_l3 = update_example(node=l1, method='getroute', params={'id': l3.info['id'], 'amount_msat': 10**4, 'riskfactor': 1})['route']
         inv_l32 = update_example(node=l3, method='invoice', params={'amount_msat': '50000msat', 'label': 'lbl_l32', 'description': 'l32 description'})
         update_example(node=l2, method='getroute', params={'id': l4.info['id'], 'amount_msat': 500000, 'riskfactor': 10, 'cltv': 9})['route']
-        sendpay_res1 = update_example(node=l1, method='sendpay', params={'route': route_l1_l3, 'payment_hash': inv_l31['payment_hash'], 'payment_secret': inv_l31['payment_secret']})
-        waitsendpay_res1 = update_example(node=l1, method='waitsendpay', params={'payment_hash': inv_l31['payment_hash']})
-        keysend_res1 = update_example(node=l1, method='keysend', params={'destination': l3.info['id'], 'amount_msat': 10000})
-        keysend_res2 = update_example(node=l1, method='keysend', params={'destination': l4.info['id'], 'amount_msat': 10000000, 'extratlvs': {'133773310': '68656c6c6f776f726c64', '133773312': '66696c7465726d65'}})
+        update_example(node=l1, method='sendpay', params={'route': route_l1_l3, 'payment_hash': inv_l31['payment_hash'], 'payment_secret': inv_l31['payment_secret']})
+        update_example(node=l1, method='waitsendpay', params={'payment_hash': inv_l31['payment_hash']})
+        update_example(node=l1, method='keysend', params={'destination': l3.info['id'], 'amount_msat': 10000})
+        update_example(node=l1, method='keysend', params={'destination': l4.info['id'], 'amount_msat': 10000000, 'extratlvs': {'133773310': '68656c6c6f776f726c64', '133773312': '66696c7465726d65'}})
         scid = only_one([channel for channel in l2.rpc.listpeerchannels()['channels'] if channel['peer_id'] == l3.info['id']])['alias']['remote']
         routehints = [[{
             'scid': scid,
@@ -193,20 +193,20 @@ def generate_transactions_examples(l1, l2, l3, l4, l5, c25, bitcoind):
             'feeprop': 10,
             'expirydelta': 9,
         }]]
-        keysend_res3 = update_example(node=l1, method='keysend', params={'destination': l3.info['id'], 'amount_msat': 10000, 'routehints': routehints})
+        update_example(node=l1, method='keysend', params={'destination': l3.info['id'], 'amount_msat': 10000, 'routehints': routehints})
         inv_l11 = l1.rpc.invoice('10000msat', 'lbl_l11', 'l11 description')
         inv_l21 = l2.rpc.invoice('any', 'lbl_l21', 'l21 description')
         inv_l22 = l2.rpc.invoice('200000msat', 'lbl_l22', 'l22 description')
         inv_l33 = l3.rpc.invoice('100000msat', 'lbl_l33', 'l33 description')
         inv_l34 = l3.rpc.invoice(4000, 'failed', 'failed description')
-        pay_res1 = update_example(node=l1, method='pay', params=[inv_l32['bolt11']])
-        pay_res2 = update_example(node=l2, method='pay', params={'bolt11': inv_l33['bolt11']})
+        update_example(node=l1, method='pay', params=[inv_l32['bolt11']])
+        update_example(node=l2, method='pay', params={'bolt11': inv_l33['bolt11']})
 
         inv_l41 = l4.rpc.invoice('10000msat', 'test_xpay_simple', 'test_xpay_simple bolt11')
-        xpay_res1 = update_example(node=l1, method='xpay', params=[inv_l41['bolt11']])
+        update_example(node=l1, method='xpay', params=[inv_l41['bolt11']])
         offer_l11 = l1.rpc.offer('any')
         inv_l14 = l1.rpc.fetchinvoice(offer_l11['bolt12'], '1000msat')
-        xpay_res2 = update_example(node=l1, method='xpay', params={'invstring': inv_l14['invoice']})
+        update_example(node=l1, method='xpay', params={'invstring': inv_l14['invoice']})
 
         update_example(node=l1, method='injectonionmessage', params={'message': '0002cb7cd2001e3c670d64135542dcefdf4a3f590eb142cee9277b317848471906caeabe4afeae7f4e31f6ca9c119b643d5369c5e55f892f205469a185f750697124a2bb7ccea1245ec12d76340bcf7371ba6d1c9ddfe09b4153fce524417c14a594fdbb5e7c698a5daffe77db946727a38711be2ecdebdd347d2a9f990810f2795b3c39b871d7c72a11534bd388ca2517630263d96d8cc72d146bae800638066175c85a8e8665160ea332ed7d27efc31c960604d61c3f83801c25cbb69ae3962c2ef13b1fa9adc8dcbe3dc8d9a5e27ff5669e076b02cafef8f2c88fc548e03642180d57606386ad6ce27640339747d40f26eb5b9e93881fc8c16d5896122032b64bb5f1e4be6f41f5fa4dbd7851989aeccd80b2d5f6f25427f171964146185a8eaa57891d91e49a4d378743231e19edd5994c3118c9a415958a5d9524a6ecc78c0205f5c0059a7fbcf1abad706a189b712476d112521c9a4650d0ff09890536acae755a2b07d00811044df28b288d3dc2d5ae3f8bf3cf7a2950e2167105dfad0fb8398ef08f36abcdb1bfd6aca3241c33810f0750f35bdfb7c60b1759275b7704ab1bc8f3ea375b3588eab10e4f948f12fe0a3c77b67bebeedbcced1de0f0715f9959e5497cda5f8f6ab76c15b3dcc99956465de1bf2855338930650f8e8e8c391d9bb8950125dd60d8289dade0556d9dc443761983e26adcc223412b756e2fd9ad64022859b6cab20e8ffc3cf39ae6045b2c3338b1145ee3719a098e58c425db764d7f9a5034dbb730c20202f79bc3c53fab78ecd530aa0e8f7698c9ea53cb96dc9c639282c362d31177c5b81979f46f2db6090b8e171db47287523f28c462e35ef489b51426387f2709c342083968153b5f8a51cd5716b38106bb0f21c5ccfc28dd7c74b71c8367ae8ca348f66a7996bbc535076a1f65d9109658ec042257ca7523488fb1807dc8bec42739ccae066739cf58083b4e2c65e52e1747a6ec2aa26338bb6f2c3195a2b160e26dec70a2cfde269fa7c10c45d346a8bcc313bb618324edadc0291d15f4dc00ca3a7ad7131045fdf6978ba52178f4699525efcb8d96561630e2f28eaa97c66c38c66301b6c6f0124b550db620b09f35b9d45d1441cab7d93be5e3c39b9becfab7f8d05dd3a7a6e27a1d3f23f1dd01e967f5206600619f75439181848f7f4148216c11314b4eaf64c28c268ad4b33ea821d57728e9a9e9e1b6c4bcf35d14958295fc5f92bd6846f33c46f5fa20f569b25bc916b94e554f27a37448f873497e13baef8c740a7587828cc4136dd21b8584e6983e376e91663f8f91559637738b400fb49940fc2df299dfd448604b63c2f5d1f1ec023636f3baf2be5730364afd38191726a7c0d9477b1f231da4d707aabc6ad8036488181dbdb16b48500f2333036629004504d3524f87ece6afb04c4ba03ea6fce069e98b1ab7bf51f237d7c0f40756744dd703c6023b6461b90730f701404e8dddfaff40a9a60e670be7729556241fc9cc8727a586e38b71616bff8772c873b37d920d51a6ad31219a24b12f268545e2cfeb9e662236ab639fd4ecf865612678471ff7b320c934a13ca1f2587fc6a90f839c3c81c0ff84b51330820431418918e8501844893b53c1e0de46d51a64cb769974a996c58ff06683ebdc46fd4bb8e857cecebab785a351c64fd486fb648d25936cb09327b70d22c243035d4343fa3d2d148e2df5cd928010e34ae42b0333e698142050d9405b39f3aa69cecf8a388afbc7f199077b911cb829480f0952966956fe57d815f0d2467f7b28af11f8820645b601c0e1ad72a4684ebc60287d23ec3502f4c65ca44f5a4a0d79e3a5718cd23e7538cb35c57673fb9a1173e5526e767768117c7fefc2e3718f44f790b27e61995fecc6aef05107e75355be301ebe1500c147bb655a159f',
                                                                      'path_key': '03ccf3faa19e8d124f27d495e3359f4002a6622b9a02df9a51b609826d354cda52'})
@@ -223,13 +223,13 @@ def generate_transactions_examples(l1, l2, l3, l4, l5, c25, bitcoind):
             i += 1
         sendonion_hops.append({'pubkey': route[-1]['id'], 'payload': serialize_payload_final_tlv(amt, 18, amt, blockheight, inv['payment_secret']).hex()})
         onion_res1 = update_example(node=l1, method='createonion', params={'hops': sendonion_hops, 'assocdata': inv['payment_hash']})
-        onion_res2 = update_example(node=l1, method='createonion', params={'hops': sendonion_hops, 'assocdata': inv['payment_hash'], 'session_key': '41' * 32})
-        sendonion_res1 = update_example(node=l1, method='sendonion', params={'onion': onion_res1['onion'], 'first_hop': first_hop, 'payment_hash': inv['payment_hash']})
+        update_example(node=l1, method='createonion', params={'hops': sendonion_hops, 'assocdata': inv['payment_hash'], 'session_key': '41' * 32})
+        update_example(node=l1, method='sendonion', params={'onion': onion_res1['onion'], 'first_hop': first_hop, 'payment_hash': inv['payment_hash']})
 
         # Close channels examples
-        close_res1 = update_example(node=l2, method='close', params={'id': l3.info['id'], 'unilateraltimeout': 1})
+        update_example(node=l2, method='close', params={'id': l3.info['id'], 'unilateraltimeout': 1})
         address_l41 = l4.rpc.newaddr()
-        close_res2 = update_example(node=l3, method='close', params={'id': l4.info['id'], 'destination': address_l41['bech32']})
+        update_example(node=l3, method='close', params={'id': l4.info['id'], 'destination': address_l41['bech32']})
         bitcoind.generate_block(1)
         sync_blockheight(bitcoind, [l1, l2, l3, l4])
 
@@ -251,16 +251,16 @@ def generate_transactions_examples(l1, l2, l3, l4, l5, c25, bitcoind):
         inv_l24 = l2.rpc.invoice(123000, 'label inv_l24', 'description inv_l24', 3600)
         inv_l25 = l2.rpc.invoice(124000, 'label inv_l25', 'description inv_l25', 3600)
         inv_l26 = l2.rpc.invoice(125000, 'label inv_l26', 'description inv_l26', 3600)
-        signinv_res1 = update_example(node=l2, method='signinvoice', params={'invstring': inv_l12['bolt11']})
-        signinv_res2 = update_example(node=l3, method='signinvoice', params=[inv_l26['bolt11']])
+        update_example(node=l2, method='signinvoice', params={'invstring': inv_l12['bolt11']})
+        update_example(node=l3, method='signinvoice', params=[inv_l26['bolt11']])
         update_example(node=l1, method='preapprovekeysend', params={'destination': l2.info['id'], 'payment_hash': '00' * 32, 'amount_msat': 1000})
         update_example(node=l5, method='preapprovekeysend', params=[l5.info['id'], '01' * 32, 2000])
         update_example(node=l1, method='preapproveinvoice', params={'bolt11': inv_l24['bolt11']})
         update_example(node=l1, method='preapproveinvoice', params=[inv_l25['bolt11']])
         inv_req = update_example(node=l2, method='invoicerequest', params={'amount': 1000000, 'description': 'Simple test'})
-        sendinvoice_res1 = update_example(node=l1, method='sendinvoice', params={'invreq': inv_req['bolt12'], 'label': 'test sendinvoice'})
+        update_example(node=l1, method='sendinvoice', params={'invreq': inv_req['bolt12'], 'label': 'test sendinvoice'})
         inv_l13 = l1.rpc.invoice(amount_msat=100000, label='lbl_l13', description='l13 description', preimage='01' * 32)
-        createinv_res1 = update_example(node=l2, method='createinvoice', params={'invstring': inv_l13['bolt11'], 'label': 'lbl_l13', 'preimage': '01' * 32})
+        update_example(node=l2, method='createinvoice', params={'invstring': inv_l13['bolt11'], 'label': 'lbl_l13', 'preimage': '01' * 32})
         inv_l27 = l2.rpc.invoice(amt, 'test_injectpaymentonion1', 'test injectpaymentonion1 description')
         injectpaymentonion_hops = [
             {'pubkey': l1.info['id'],
@@ -268,14 +268,14 @@ def generate_transactions_examples(l1, l2, l3, l4, l5, c25, bitcoind):
             {'pubkey': l2.info['id'],
              'payload': serialize_payload_final_tlv(1000, 18, 1000, blockheight, inv_l27['payment_secret']).hex()}]
         onion_res3 = l1.rpc.createonion(hops=injectpaymentonion_hops, assocdata=inv_l27['payment_hash'])
-        injectpaymentonion_res1 = update_example(node=l1, method='injectpaymentonion', params={
+        update_example(node=l1, method='injectpaymentonion', params={
             'onion': onion_res3['onion'],
             'payment_hash': inv_l27['payment_hash'],
             'amount_msat': 1000,
             'cltv_expiry': blockheight + 18 + 6,
             'partid': 1,
             'groupid': 0})
-        bip353_result = update_example(node=l1, method='fetchbip353', params={'address': 'send.some@satsto.me'}, description=['Example of fetching BIP-353 payment details.'])
+        update_example(node=l1, method='fetchbip353', params={'address': 'send.some@satsto.me'}, description=['Example of fetching BIP-353 payment details.'])
         logger.info('Simple Transactions Done!')
         return c23_2, c23res2, c34_2, inv_l11, inv_l21, inv_l22, inv_l31, inv_l32, inv_l34
     except Exception as e:
@@ -317,14 +317,14 @@ def generate_runes_examples(l1, l2, l3):
                                     '- method/pay|pnameamount\\_msat<100000001',
                                     '- method/xpay|per=1day',
                                     '- method/xpay|pnameamount\\_msat<100000001'])
-        commando_res1 = update_example(node=l1, method='commando', params={'peer_id': l2.info['id'], 'rune': rune_l21['rune'], 'method': 'newaddr', 'params': {'addresstype': 'p2tr'}})
+        update_example(node=l1, method='commando', params={'peer_id': l2.info['id'], 'rune': rune_l21['rune'], 'method': 'newaddr', 'params': {'addresstype': 'p2tr'}})
         update_example(node=l1, method='commando', params={'peer_id': l2.info['id'], 'rune': rune_l23['rune'], 'method': 'listpeers', 'params': [l3.info['id']]})
         inv_l23 = l2.rpc.invoice('any', 'lbl_l23', 'l23 description')
-        commando_res3 = update_example(node=l1, method='commando', params={'peer_id': l2.info['id'], 'rune': rune_l24['rune'], 'method': 'pay', 'params': {'bolt11': inv_l23['bolt11'], 'amount_msat': 9900}})
+        update_example(node=l1, method='commando', params={'peer_id': l2.info['id'], 'rune': rune_l24['rune'], 'method': 'pay', 'params': {'bolt11': inv_l23['bolt11'], 'amount_msat': 9900}})
         update_example(node=l2, method='checkrune', params={'nodeid': l2.info['id'], 'rune': rune_l22['rune'], 'method': 'listpeers', 'params': {}})
         update_example(node=l2, method='checkrune', params={'nodeid': l2.info['id'], 'rune': rune_l24['rune'], 'method': 'pay', 'params': {'amount_msat': 9999}})
-        showrunes_res1 = update_example(node=l2, method='showrunes', params={'rune': rune_l21['rune']})
-        showrunes_res2 = update_example(node=l2, method='showrunes', params={})
+        update_example(node=l2, method='showrunes', params={'rune': rune_l21['rune']})
+        update_example(node=l2, method='showrunes', params={})
         update_example(node=l2, method='blacklistrune', params={'start': 1})
         update_example(node=l2, method='blacklistrune', params={'start': 0, 'end': 2})
         update_example(node=l2, method='blacklistrune', params={'start': 3, 'end': 4})
@@ -364,7 +364,7 @@ def generate_bookkeeper_examples(l2, l3, c23_2_chan_id):
         logger.info('Bookkeeper Start...')
         update_example(node=l2, method='funderupdate', params={})
         update_example(node=l2, method='funderupdate', params={'policy': 'fixed', 'policy_mod': '50000sat', 'min_their_funding_msat': 1000, 'per_channel_min_msat': '1000sat', 'per_channel_max_msat': '500000sat', 'fund_probability': 100, 'fuzz_percent': 0, 'leases_only': False})
-        bkprinspect_res1 = update_example(node=l2, method='bkpr-inspect', params={'account': c23_2_chan_id})
+        update_example(node=l2, method='bkpr-inspect', params={'account': c23_2_chan_id})
         update_example(node=l2, method='bkpr-dumpincomecsv', params=['koinly', 'koinly.csv'])
         bkpr_channelsapy_res1 = l2.rpc.bkpr_channelsapy()
         fields = [
@@ -392,11 +392,11 @@ def generate_bookkeeper_examples(l2, l3, c23_2_chan_id):
         update_example(node=l3, method='bkpr-editdescriptionbypaymentid', params={'payment_id': invoice['payment_id'], 'description': 'edited invoice description from description send some sats l2 to l3'})
         # Try to edit a payment_id that does not exist
         update_example(node=l3, method='bkpr-editdescriptionbypaymentid', params={'payment_id': 'c000' + ('01' * 30), 'description': 'edited invoice description for non existing payment id'})
-        editdescriptionbyoutpoint_res1 = update_example(node=l3, method='bkpr-editdescriptionbyoutpoint', params={'outpoint': utxo_event['outpoint'], 'description': 'edited utxo description'})
+        update_example(node=l3, method='bkpr-editdescriptionbyoutpoint', params={'outpoint': utxo_event['outpoint'], 'description': 'edited utxo description'})
         # Try to edit an outpoint that does not exist
         update_example(node=l3, method='bkpr-editdescriptionbyoutpoint', params={'outpoint': 'abcd' + ('02' * 30) + ':1', 'description': 'edited utxo description for non existing outpoint'})
 
-        bkprlistbal_res1 = update_example(node=l3, method='bkpr-listbalances', params={})
+        update_example(node=l3, method='bkpr-listbalances', params={})
 
         bkprlistaccountevents_res1 = l3.rpc.bkpr_listaccountevents(c23_2_chan_id)
         bkprlistaccountevents_res1['events'] = [next((event for event in bkprlistaccountevents_res1['events'] if event['tag'] == 'channel_open'), None)]
@@ -435,18 +435,18 @@ def generate_offers_renepay_examples(l1, l2, inv_l21, inv_l34):
         offer_l21 = update_example(node=l2, method='offer', params={'amount': '10000msat', 'description': 'Fish sale!'})
         offer_l22 = update_example(node=l2, method='offer', params={'amount': '1000sat', 'description': 'Coffee', 'quantity_max': 10})
         offer_l23 = l2.rpc.offer('2000sat', 'Offer to Disable')
-        fetchinv_res1 = update_example(node=l1, method='fetchinvoice', params={'offer': offer_l21['bolt12'], 'payer_note': 'Thanks for the fish!'})
-        fetchinv_res2 = update_example(node=l1, method='fetchinvoice', params={'offer': offer_l22['bolt12'], 'amount_msat': 2000000, 'quantity': 2})
+        update_example(node=l1, method='fetchinvoice', params={'offer': offer_l21['bolt12'], 'payer_note': 'Thanks for the fish!'})
+        update_example(node=l1, method='fetchinvoice', params={'offer': offer_l22['bolt12'], 'amount_msat': 2000000, 'quantity': 2})
         update_example(node=l2, method='disableoffer', params={'offer_id': offer_l23['offer_id']})
         update_example(node=l2, method='enableoffer', params={'offer_id': offer_l23['offer_id']})
 
         # Invoice Requests
         inv_req_l1_l22 = update_example(node=l2, method='invoicerequest', params={'amount': '10000sat', 'description': 'Requesting for invoice', 'issuer': 'clightning store'})
-        disableinv_res1 = update_example(node=l2, method='disableinvoicerequest', params={'invreq_id': inv_req_l1_l22['invreq_id']})
+        update_example(node=l2, method='disableinvoicerequest', params={'invreq_id': inv_req_l1_l22['invreq_id']})
 
         # Renepay
-        renepay_res1 = update_example(node=l1, method='renepay', params={'invstring': inv_l21['bolt11'], 'amount_msat': 400000})
-        renepay_res2 = update_example(node=l2, method='renepay', params={'invstring': inv_l34['bolt11']})
+        update_example(node=l1, method='renepay', params={'invstring': inv_l21['bolt11'], 'amount_msat': 400000})
+        update_example(node=l2, method='renepay', params={'invstring': inv_l34['bolt11']})
         update_example(node=l1, method='renepaystatus', params={'invstring': inv_l21['bolt11']})
         logger.info('Offers and Renepay Done!')
         return offer_l23, inv_req_l1_l22
@@ -474,7 +474,7 @@ def generate_askrene_examples(l1, l2, l3, c12, c23_2):
         update_example(node=l2, method='askrene-update-channel', params=['test_layers', '0x0x1/0'])
         update_example(node=l2, method='askrene-create-channel', params={'layer': 'test_layers', 'source': l3.info['id'], 'destination': l1.info['id'], 'short_channel_id': '0x0x1', 'capacity_msat': '1000000sat'})
         update_example(node=l2, method='askrene-update-channel', params={'layer': 'test_layers', 'short_channel_id_dir': '0x0x1/0', 'htlc_minimum_msat': 100, 'htlc_maximum_msat': 900000000, 'fee_base_msat': 1, 'fee_proportional_millionths': 2, 'cltv_expiry_delta': 18})
-        askrene_inform_channel_res1 = update_example(node=l2, method='askrene-inform-channel', params={'layer': 'test_layers', 'short_channel_id_dir': '0x0x1/1', 'amount_msat': 100000, 'inform': 'unconstrained'})
+        update_example(node=l2, method='askrene-inform-channel', params={'layer': 'test_layers', 'short_channel_id_dir': '0x0x1/1', 'amount_msat': 100000, 'inform': 'unconstrained'})
         update_example(node=l2, method='askrene-bias-channel', params={'layer': 'test_layers', 'short_channel_id_dir': scid12dir, 'bias': 1})
         update_example(node=l2, method='askrene-bias-channel', params=['test_layers', scid12dir, -5, 'bigger bias'])
         askrene_listlayers_res1 = update_example(node=l2, method='askrene-listlayers', params=['test_layers'])
@@ -605,8 +605,8 @@ def generate_utils_examples(l1, l2, l3, l4, l5, l6, c23_2, c34_2, inv_l11, inv_l
         utxos = [f"{funds_l2['outputs'][2]['txid']}:{funds_l2['outputs'][2]['output']}"]
         withdraw_l22 = update_example(node=l2, method='withdraw', params={'destination': address_l22['p2tr'], 'satoshi': 'all', 'feerate': '20000perkb', 'minconf': 0, 'utxos': utxos})
         bitcoind.generate_block(4, wait_for_mempool=[withdraw_l22['txid']])
-        multiwithdraw_res1 = update_example(node=l2, method='multiwithdraw', params={'outputs': [{l1.rpc.newaddr()['bech32']: '2222000msat'}, {l1.rpc.newaddr()['bech32']: '3333000msat'}]})
-        multiwithdraw_res2 = update_example(node=l2, method='multiwithdraw', params={'outputs': [{l1.rpc.newaddr('p2tr')['p2tr']: 1000}, {l1.rpc.newaddr()['bech32']: 1000}, {l2.rpc.newaddr()['bech32']: 1000}, {l3.rpc.newaddr()['bech32']: 1000}, {l3.rpc.newaddr()['bech32']: 1000}, {l4.rpc.newaddr('p2tr')['p2tr']: 1000}, {l1.rpc.newaddr()['bech32']: 1000}]})
+        update_example(node=l2, method='multiwithdraw', params={'outputs': [{l1.rpc.newaddr()['bech32']: '2222000msat'}, {l1.rpc.newaddr()['bech32']: '3333000msat'}]})
+        update_example(node=l2, method='multiwithdraw', params={'outputs': [{l1.rpc.newaddr('p2tr')['p2tr']: 1000}, {l1.rpc.newaddr()['bech32']: 1000}, {l2.rpc.newaddr()['bech32']: 1000}, {l3.rpc.newaddr()['bech32']: 1000}, {l3.rpc.newaddr()['bech32']: 1000}, {l4.rpc.newaddr('p2tr')['p2tr']: 1000}, {l1.rpc.newaddr()['bech32']: 1000}]})
         l2.rpc.connect(l4.info['id'], 'localhost', l4.port)
         l2.rpc.connect(l5.info['id'], 'localhost', l5.port)
         update_example(node=l2, method='disconnect', params={'id': l4.info['id'], 'force': False})
@@ -623,9 +623,9 @@ def generate_utils_examples(l1, l2, l3, l4, l5, l6, c23_2, c34_2, inv_l11, inv_l
         update_example(node=l2, method='checkmessage', params={'message': 'this is a test!', 'zbase': 'd6tqaeuonjhi98mmont9m4wag7gg4krg1f4txonug3h31e9h6p6k6nbwjondnj46dkyausobstnk7fhyy998bhgc1yr98dfmhb4k54d7'})
         addr = l2.rpc.newaddr('bech32')['bech32']
         update_example(node=l2, method='signmessagewithkey', params={'message': 'a test message', 'address': addr})
-        decodepay_res1 = update_example(node=l2, method='decodepay', params={'bolt11': inv_l11['bolt11']})
+        update_example(node=l2, method='decodepay', params={'bolt11': inv_l11['bolt11']})
         update_example(node=l2, method='decode', params=[rune_l21['rune']])
-        decode_res2 = update_example(node=l2, method='decode', params=[inv_l22['bolt11']])
+        update_example(node=l2, method='decode', params=[inv_l22['bolt11']])
 
         # PSBT
         amount1 = 1000000
@@ -635,7 +635,7 @@ def generate_utils_examples(l1, l2, l3, l4, l5, l6, c23_2, c34_2, inv_l11, inv_l
         psbtoutput_res2 = l1.rpc.addpsbtoutput(amount2, psbtoutput_res1['psbt'])
         update_example(node=l1, method='addpsbtoutput', params=[amount2, psbtoutput_res2['psbt']], response=psbtoutput_res2)
         dest = l1.rpc.newaddr('p2tr')['p2tr']
-        psbtoutput_res3 = update_example(node=l1, method='addpsbtoutput', params={'satoshi': amount2, 'initialpsbt': psbtoutput_res2['psbt'], 'destination': dest})
+        update_example(node=l1, method='addpsbtoutput', params={'satoshi': amount2, 'initialpsbt': psbtoutput_res2['psbt'], 'destination': dest})
         l1.rpc.addpsbtoutput(amount2, psbtoutput_res2['psbt'], None, dest)
         update_example(node=l1, method='setpsbtversion', params=[psbtoutput_res2['psbt'], 2])
 
@@ -651,7 +651,7 @@ def generate_utils_examples(l1, l2, l3, l4, l5, l6, c23_2, c34_2, inv_l11, inv_l
         fullpsbt = bitcoind.rpc.joinpsbts([funding['psbt'], output_psbt])
         l1.rpc.reserveinputs(fullpsbt)
         signed_psbt = l1.rpc.signpsbt(fullpsbt)['signed_psbt']
-        sendpsbt_res1 = update_example(node=l1, method='sendpsbt', params={'psbt': signed_psbt})
+        update_example(node=l1, method='sendpsbt', params={'psbt': signed_psbt})
 
         # SQL
         update_example(node=l1, method='sql', params={'query': 'SELECT id FROM peers'}, description=['A simple peers selection query:'])
@@ -663,7 +663,7 @@ def generate_utils_examples(l1, l2, l3, l4, l5, l6, c23_2, c34_2, inv_l11, inv_l
         update_example(node=l1, method='sql', params=['SELECT peer_id, to_us_msat, total_msat, peerchannels_status.status FROM peerchannels INNER JOIN peerchannels_status ON peerchannels_status.row = peerchannels.rowid'], description=['Related tables are usually referenced by JOIN:'])
         update_example(node=l2, method='sql', params=['SELECT COUNT(*) FROM forwards'], description=["Simple function usage, in this case COUNT. Strings inside arrays need \", and ' to protect them from the shell:"])
         update_example(node=l1, method='sql', params=['SELECT * from peerchannels_features'])
-        example_log = getlog_res1['log']
+        getlog_res1['log']
         logger.info('General Utils Done!')
         return address_l22
     except Exception as e:
@@ -702,7 +702,7 @@ def generate_splice_examples(node_factory, bitcoind):
         spupdate2_res1 = update_example(node=l7, method='splice_update', params={'channel_id': chan_id_78, 'psbt': spupdate1_res1['psbt']})
         assert(spupdate2_res1['commitments_secured'] is True)
         signpsbt_res1 = l7.rpc.signpsbt(spupdate2_res1['psbt'])
-        spsigned_res1 = update_example(node=l7, method='splice_signed', params={'channel_id': chan_id_78, 'psbt': signpsbt_res1['signed_psbt']})
+        update_example(node=l7, method='splice_signed', params={'channel_id': chan_id_78, 'psbt': signpsbt_res1['signed_psbt']})
 
         bitcoind.generate_block(1)
         sync_blockheight(bitcoind, [l7])
@@ -718,7 +718,7 @@ def generate_splice_examples(node_factory, bitcoind):
         assert(spupdate1_res2['commitments_secured'] is False)
         spupdate2_res2 = update_example(node=l7, method='splice_update', params=[chan_id_78, spupdate1_res2['psbt']])
         assert(spupdate2_res2['commitments_secured'] is True)
-        spsigned_res2 = update_example(node=l7, method='splice_signed', params={'channel_id': chan_id_78, 'psbt': spupdate2_res2['psbt']})
+        update_example(node=l7, method='splice_signed', params={'channel_id': chan_id_78, 'psbt': spupdate2_res2['psbt']})
         update_example(node=l7, method='stop', params={})
 
         logger.info('Splice Done!')
@@ -754,16 +754,16 @@ def generate_channels_examples(node_factory, bitcoind, l1, l3, l4, l5):
 
         fund_start_res1 = update_example(node=l9, method='fundchannel_start', params=[l10.info['id'], amount])
         outputs_1 = [{fund_start_res1['funding_address']: amount}]
-        example_outputs_1 = [{'bcrt1p00' + ('02' * 28): amount}]
+        [{'bcrt1p00' + ('02' * 28): amount}]
         tx_prep_1 = update_example(node=l9, method='txprepare', params=[outputs_1])
         update_example(node=l9, method='fundchannel_cancel', params=[l10.info['id']])
-        txdiscard_res1 = update_example(node=l9, method='txdiscard', params=[tx_prep_1['txid']])
+        update_example(node=l9, method='txdiscard', params=[tx_prep_1['txid']])
         fund_start_res2 = update_example(node=l9, method='fundchannel_start', params={'id': l10.info['id'], 'amount': amount})
         outputs_2 = [{fund_start_res2['funding_address']: amount}]
-        example_outputs_2 = [{'bcrt1p00' + ('03' * 28): amount}]
+        [{'bcrt1p00' + ('03' * 28): amount}]
         tx_prep_2 = update_example(node=l9, method='txprepare', params={'outputs': outputs_2})
-        fcc_res1 = update_example(node=l9, method='fundchannel_complete', params=[l10.info['id'], tx_prep_2['psbt']])
-        txsend_res1 = update_example(node=l9, method='txsend', params=[tx_prep_2['txid']])
+        update_example(node=l9, method='fundchannel_complete', params=[l10.info['id'], tx_prep_2['psbt']])
+        update_example(node=l9, method='txsend', params=[tx_prep_2['txid']])
         l9.rpc.close(l10.info['id'])
 
         bitcoind.generate_block(1)
@@ -773,11 +773,11 @@ def generate_channels_examples(node_factory, bitcoind, l1, l3, l4, l5):
         fund_start_res3 = l9.rpc.fundchannel_start(l10.info['id'], amount)
         tx_prep_3 = l9.rpc.txprepare([{fund_start_res3['funding_address']: amount}])
         update_example(node=l9, method='fundchannel_cancel', params={'id': l10.info['id']})
-        txdiscard_res2 = update_example(node=l9, method='txdiscard', params={'txid': tx_prep_3['txid']})
+        update_example(node=l9, method='txdiscard', params={'txid': tx_prep_3['txid']})
         funding_addr = l9.rpc.fundchannel_start(l10.info['id'], amount)['funding_address']
         tx_prep_4 = l9.rpc.txprepare([{funding_addr: amount}])
-        fcc_res2 = update_example(node=l9, method='fundchannel_complete', params={'id': l10.info['id'], 'psbt': tx_prep_4['psbt']})
-        txsend_res2 = update_example(node=l9, method='txsend', params={'txid': tx_prep_4['txid']})
+        update_example(node=l9, method='fundchannel_complete', params={'id': l10.info['id'], 'psbt': tx_prep_4['psbt']})
+        update_example(node=l9, method='txsend', params={'txid': tx_prep_4['txid']})
         l9.rpc.close(l10.info['id'])
 
         # Basic setup for l11->l12 for openchannel examples
@@ -813,13 +813,13 @@ def generate_channels_examples(node_factory, bitcoind, l1, l3, l4, l5):
         # Initiate an RBF
         startweight = 42 + 172
         initpsbt_1 = update_example(node=l11, method='utxopsbt', params=[FUND_CHANNEL_AMOUNT_SAT, next_feerate, startweight, prev_utxos, None, True, None, None, True])
-        openchannelbump_res1 = update_example(node=l11, method='openchannel_bump', params=[chan_id, FUND_CHANNEL_AMOUNT_SAT, initpsbt_1['psbt'], next_feerate])
+        update_example(node=l11, method='openchannel_bump', params=[chan_id, FUND_CHANNEL_AMOUNT_SAT, initpsbt_1['psbt'], next_feerate])
 
         update_example(node=l11, method='openchannel_abort', params={'channel_id': chan_id})
         openchannelbump_res2 = update_example(node=l11, method='openchannel_bump', params={'channel_id': chan_id, 'amount': FUND_CHANNEL_AMOUNT_SAT, 'initialpsbt': initpsbt_1['psbt'], 'funding_feerate': next_feerate})
         openchannelupdate_res1 = update_example(node=l11, method='openchannel_update', params={'channel_id': chan_id, 'psbt': openchannelbump_res2['psbt']})
         signed_psbt_1 = update_example(node=l11, method='signpsbt', params={'psbt': openchannelupdate_res1['psbt']})
-        openchannelsigned_res1 = update_example(node=l11, method='openchannel_signed', params={'channel_id': chan_id, 'signed_psbt': signed_psbt_1['signed_psbt']})
+        update_example(node=l11, method='openchannel_signed', params={'channel_id': chan_id, 'signed_psbt': signed_psbt_1['signed_psbt']})
 
         # 5x the feerate to beat the min-relay fee
         chan = only_one(l11.rpc.listpeerchannels(l12.info['id'])['channels'])
@@ -832,7 +832,7 @@ def generate_channels_examples(node_factory, bitcoind, l1, l3, l4, l5):
         openchannelbump_res3 = update_example(node=l11, method='openchannel_bump', params=[chan_id, FUND_CHANNEL_AMOUNT_SAT * 2, initpsbt_2['psbt'], next_feerate])
         openchannelupdate_res2 = update_example(node=l11, method='openchannel_update', params=[chan_id, openchannelbump_res3['psbt']])
         signed_psbt_2 = update_example(node=l11, method='signpsbt', params=[openchannelupdate_res2['psbt']])
-        openchannelsigned_res2 = update_example(node=l11, method='openchannel_signed', params=[chan_id, signed_psbt_2['signed_psbt']])
+        update_example(node=l11, method='openchannel_signed', params=[chan_id, signed_psbt_2['signed_psbt']])
 
         bitcoind.generate_block(1)
         sync_blockheight(bitcoind, [l11])
@@ -894,20 +894,6 @@ def generate_channels_examples(node_factory, bitcoind, l1, l3, l4, l5):
                 'amount': 'all'
             }
         ]
-        example_destinations_1 = [
-            {
-                'id': 'nodeid' + ('03' * 30) + '@127.0.0.1:19736',
-                'amount': '20000sat'
-            },
-            {
-                'id': 'nodeid' + ('04' * 30) + '@127.0.0.1:19737',
-                'amount': '0.0003btc'
-            },
-            {
-                'id': 'nodeid' + ('05' * 30) + '@127.0.0.1:19738',
-                'amount': 'all'
-            }
-        ]
         multifund_res1 = update_example(node=l1, method='multifundchannel', params={
             'destinations': destinations_1,
             'feerate': '10000perkw',
@@ -935,20 +921,6 @@ def generate_channels_examples(node_factory, bitcoind, l1, l3, l4, l5):
                 'amount': 50000
             }
         ]
-        example_destinations_2 = [
-            {
-                'id': f'fakenodeid' + ('03' * 28) + '@127.0.0.1:19736',
-                'amount': 50000
-            },
-            {
-                'id': 'nodeid' + ('04' * 30) + '@127.0.0.1:19737',
-                'amount': 50000
-            },
-            {
-                'id': 'nodeid' + ('01' * 30) + '@127.0.0.1:19734',
-                'amount': 50000
-            }
-        ]
         multifund_res2 = update_example(node=l1, method='multifundchannel', params={'destinations': destinations_2, 'minchannels': 1})
         # Close newly funded channels to bring the setup back to initial state
         for channel in multifund_res2['channel_ids']:
@@ -969,7 +941,7 @@ def generate_autoclean_delete_examples(l1, l2, l3, l4, l5, c12, c23):
     try:
         logger.info('Auto-clean and Delete Start...')
         l2.rpc.close(l5.info['id'])
-        dfc_res1 = update_example(node=l2, method='dev-forget-channel', params={'id': l5.info['id']}, description=[f'Forget a channel by peer pubkey when only one channel exists with the peer:'])
+        update_example(node=l2, method='dev-forget-channel', params={'id': l5.info['id']}, description=[f'Forget a channel by peer pubkey when only one channel exists with the peer:'])
 
         # Create invoices for delpay and delinvoice examples
         inv_l35 = l3.rpc.invoice('50000sat', 'lbl_l35', 'l35 description')
@@ -994,7 +966,7 @@ def generate_autoclean_delete_examples(l1, l2, l3, l4, l5, c12, c23):
         # Delinvoice
         l1.rpc.pay(inv_l35['bolt11'])
         l1.rpc.pay(inv_l37['bolt11'])
-        delinv_res1 = update_example(node=l3, method='delinvoice', params={'label': 'lbl_l36', 'status': 'unpaid'})
+        update_example(node=l3, method='delinvoice', params={'label': 'lbl_l36', 'status': 'unpaid'})
 
         # invoice already deleted, pay will fail; used for delpay failed example
         with pytest.raises(RpcError):
@@ -1002,10 +974,10 @@ def generate_autoclean_delete_examples(l1, l2, l3, l4, l5, c12, c23):
 
         listsendpays_l1 = l1.rpc.listsendpays()['payments']
         sendpay_g1_p1 = next((x for x in listsendpays_l1 if 'groupid' in x and x['groupid'] == 1 and 'partid' in x and x['partid'] == 2), None)
-        delpay_res1 = update_example(node=l1, method='delpay', params={'payment_hash': listsendpays_l1[0]['payment_hash'], 'status': 'complete'})
-        delpay_res2 = update_example(node=l1, method='delpay', params=[listsendpays_l1[-1]['payment_hash'], listsendpays_l1[-1]['status']])
-        delpay_res3 = update_example(node=l1, method='delpay', params={'payment_hash': sendpay_g1_p1['payment_hash'], 'status': sendpay_g1_p1['status'], 'groupid': 1, 'partid': 2})
-        delinv_res2 = update_example(node=l3, method='delinvoice', params={'label': 'lbl_l37', 'status': 'paid', 'desconly': True})
+        update_example(node=l1, method='delpay', params={'payment_hash': listsendpays_l1[0]['payment_hash'], 'status': 'complete'})
+        update_example(node=l1, method='delpay', params=[listsendpays_l1[-1]['payment_hash'], listsendpays_l1[-1]['status']])
+        update_example(node=l1, method='delpay', params={'payment_hash': sendpay_g1_p1['payment_hash'], 'status': sendpay_g1_p1['status'], 'groupid': 1, 'partid': 2})
+        update_example(node=l3, method='delinvoice', params={'label': 'lbl_l37', 'status': 'paid', 'desconly': True})
 
         # Delforward
         failed_forwards = l2.rpc.listforwards('failed')['forwards']
@@ -1014,7 +986,7 @@ def generate_autoclean_delete_examples(l1, l2, l3, l4, l5, c12, c23):
             update_example(node=l2, method='delforward', params={'in_channel': c12, 'in_htlc_id': local_failed_forwards[0]['in_htlc_id'], 'status': 'local_failed'})
         if len(failed_forwards) > 0 and 'in_htlc_id' in failed_forwards[0]:
             update_example(node=l2, method='delforward', params={'in_channel': c12, 'in_htlc_id': failed_forwards[0]['in_htlc_id'], 'status': 'failed'})
-        dfc_res2 = update_example(node=l2, method='dev-forget-channel', params={'id': l3.info['id'], 'short_channel_id': c23, 'force': True}, description=[f'Forget a channel by short channel id when peer has multiple channels:'])
+        update_example(node=l2, method='dev-forget-channel', params={'id': l3.info['id'], 'short_channel_id': c23, 'force': True}, description=[f'Forget a channel by short channel id when peer has multiple channels:'])
 
         # Autoclean
         update_example(node=l2, method='autoclean-once', params=['failedpays', 1])
@@ -1090,7 +1062,6 @@ def generate_list_examples(l1, l2, l3, c12, c23_2, inv_l31, inv_l32, offer_l23, 
     try:
         logger.info('Lists Start...')
         # Transactions Lists
-        FUNDS_LEN = 3
         listfunds_res1 = l1.rpc.listfunds()
         update_example(node=l1, method='listfunds', params={}, response=listfunds_res1)
 
