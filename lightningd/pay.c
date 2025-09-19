@@ -2021,7 +2021,7 @@ static struct command_result *json_injectpaymentonion(struct command *cmd,
 	if (amount_msat_greater(*msat, next->htlc_maximum_msat)
 	    || amount_msat_less(*msat, next->htlc_minimum_msat)) {
 		/* Are we in old-range grace-period? */
-		if (!time_before(time_now(), next->old_feerate_timeout)
+		if (!timemono_before(time_mono(), next->old_feerate_timeout)
 		    || amount_msat_less(*msat, next->old_htlc_minimum_msat)
 		    || amount_msat_greater(*msat, next->old_htlc_maximum_msat)) {
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,

@@ -206,7 +206,7 @@ struct payment {
 	u32 start_block;
 
 	struct timeabs start_time, end_time;
-	struct timeabs deadline;
+	struct timemono deadline;
 
 	/* Constraints the state machine and modifiers needs to maintain. */
 	struct payment_constraints constraints;

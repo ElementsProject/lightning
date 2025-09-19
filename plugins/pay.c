@@ -1480,7 +1480,7 @@ static struct command_result *json_pay(struct command *cmd,
 	p->why = "Initial attempt";
 	p->constraints.cltv_budget = *maxdelay;
 	tal_free(maxdelay);
-	p->deadline = timeabs_add(time_now(), time_from_sec(*retryfor));
+	p->deadline = timemono_add(time_mono(), time_from_sec(*retryfor));
 	tal_free(retryfor);
 	p->getroute->riskfactorppm = *riskfactor_millionths;
 	tal_free(riskfactor_millionths);
