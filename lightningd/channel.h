@@ -343,10 +343,6 @@ struct channel {
 	/* Lease commited max part per thousandth channel fee (ppm * 1000) */
 	u16 lease_chan_max_ppt;
 
-	/* `Channel-shell` of this channel
-	 * (Minimum information required to backup this channel). */
-	struct modern_scb_chan *scb;
-
 	/* Do we allow the peer to set any fee it wants? */
 	bool ignore_fee_limits;
 
