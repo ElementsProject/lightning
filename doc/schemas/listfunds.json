@@ -360,67 +360,118 @@
       "response": {
         "outputs": [
           {
-            "txid": "txid000010000100001000010000100001000010000100001000010000100001",
-            "output": 2,
-            "amount_msat": 26000000,
-            "scriptpubkey": "scriptpubkey01010101010101010101010101010101010101010101010101010101",
-            "address": "bcrt1p0004040404040404040404040404040404040404040404040404040404",
+            "txid": "59d7273c7dde3b2786f7325da08a303779ee718443aaa25d03db19c9e909591b",
+            "output": 6,
+            "amount_msat": 1000000,
+            "scriptpubkey": "00146a1845bb0ea1f8efa63f00f325641db7350dcd5b",
+            "address": "bcrt1qdgvytwcw58uwlf3lqrej2eqaku6smn2mdvkycp",
+            "status": "confirmed",
+            "blockheight": 141,
+            "reserved": false
+          },
+          {
+            "txid": "1c863d8172c0a588a7d34426b7249d4a939f04d4ca4bad6c28d5913ed2dff12a",
+            "output": 0,
+            "amount_msat": 949204000,
+            "scriptpubkey": "5120ec722e1af72c414e9967d22b9809e96127fea27702c78dd7821b1c5aa9f08f59",
+            "address": "bcrt1pa3ezuxhh93q5axt86g4esz0fvynlagnhqtrcm4uzrvw9420s3avsck2pku",
             "status": "confirmed",
             "blockheight": 160,
             "reserved": false
           },
           {
-            "txid": "txid000020000200002000020000200002000020000200002000020000200002",
-            "output": 3,
-            "amount_msat": 27000000,
-            "scriptpubkey": "scriptpubkey02020202020202020202020202020202020202020202020202020202",
-            "address": "bcrt1p0004040404040404040404040404040404040404040404040404040404",
-            "status": "confirmed",
-            "blockheight": 160,
+            "txid": "8ef1ed98891f7cf81b74c330a68de9fcff802870f91cf04a69c5db02118bc78e",
+            "output": 0,
+            "amount_msat": 497105000,
+            "scriptpubkey": "51205c063fe945e1a1e3a81072584a44d0c838919293953405f8e7ef9552788f94be",
+            "address": "bcrt1ptsrrl629uxs782qswfvy53xsequfry5nj56qt788a724y7y0jjlqxzv28f",
+            "status": "unconfirmed",
             "reserved": false
           },
           {
-            "txid": "txid000030000300003000030000300003000030000300003000030000300003",
-            "output": 4,
-            "amount_msat": 28000000,
-            "scriptpubkey": "scriptpubkey03030303030303030303030303030303030303030303030303030303",
-            "address": "bcrt1p0004040404040404040404040404040404040404040404040404040404",
+            "txid": "19fec0dedc91354817beacd4155a6303a5ceaad0be36219b3d6e77836c8092a0",
+            "output": 0,
+            "amount_msat": 497105000,
+            "scriptpubkey": "5120370bae2303e8b17792a34ee04ada86a6b2b84fd76a01143babd899c7ed9e8372",
+            "address": "bcrt1pxu96ugcrazch0y4rfmsy4k5x56etsn7hdgq3gwatmzvu0mv7sdeql5x9qe",
             "status": "confirmed",
-            "blockheight": 160,
+            "blockheight": 159,
+            "reserved": false
+          },
+          {
+            "txid": "4fc8702cec5b92e269cd5bf25f90559ee09f96b481e18cf7e2f5aca43394e7b7",
+            "output": 1,
+            "amount_msat": 2000000000,
+            "scriptpubkey": "00149edfbe21c9e3afb797debd0aeb518a9d97793ea8",
+            "address": "bcrt1qnm0mugwfuwhm0977h59wk5v2nkthj04gcw9vvh",
+            "status": "confirmed",
+            "blockheight": 159,
+            "reserved": false
+          },
+          {
+            "txid": "d84db03fd012a98de6776fb10ee1c1de23282c33518aa32fdd5a15600f535ace",
+            "output": 0,
+            "amount_msat": 2000000000,
+            "scriptpubkey": "001461ed06c0632af284ec9e192e97758fc04692c829",
+            "address": "bcrt1qv8ksdsrr9tegfmy7ryhfwav0cprf9jpfqdfr4m",
+            "status": "confirmed",
+            "blockheight": 111,
+            "reserved": false
+          },
+          {
+            "txid": "40b4acd3759ac69b5160488d73a5890a46bf4f013381e52e9171ee038b3c96d6",
+            "output": 0,
+            "amount_msat": 486914000,
+            "scriptpubkey": "512085d72025e78fd08bb61119f0987ab0041f50561ada6e130c645343db8c44c2af",
+            "address": "bcrt1pshtjqf083lgghds3r8cfs74sqs04q4s6mfhpxrry2dpahrzyc2hslyvm7n",
+            "status": "confirmed",
+            "blockheight": 122,
+            "reserved": false
+          },
+          {
+            "txid": "6430642958a9aaa5c380bb9ea5048ae920557df4e8c8f959ee745f87f03662ed",
+            "output": 0,
+            "amount_msat": 198992853000,
+            "scriptpubkey": "512052021c61da23b2eda3d5000c6d812d0c9b088c237ed2a510abd94d8c3f7c421d",
+            "address": "bcrt1p2gppccw6ywewmg74qqxxmqfdpjds3rpr0mf22y9tm9xcc0muggwsea9nkf",
+            "status": "confirmed",
+            "blockheight": 137,
             "reserved": false
           }
         ],
         "channels": [
           {
-            "peer_id": "nodeid020202020202020202020202020202020202020202020202020202020202",
+            "peer_id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
             "connected": true,
             "state": "CHANNELD_NORMAL",
-            "channel_id": "channelid0120000120000120000120000120000120000120000120000120000",
-            "short_channel_id": "109x1x1",
-            "our_amount_msat": 36000000,
-            "amount_msat": 11000000,
-            "funding_txid": "txid010010100101001010010100101001010010100101001010010100101001",
+            "channel_id": "ecabe6d86abdd57565b3fb7e7c5d724e60ca1a07633951769b5dbfa48dc884b3",
+            "short_channel_id": "124x1x1",
+            "our_amount_msat": 899996000,
+            "amount_msat": 1000000000,
+            "funding_txid": "148a366c9a72e40af01daca6acc24e0a5648d0efb7e01f4708f23412d9deba69",
             "funding_output": 1
           },
           {
-            "peer_id": "nodeid050505050505050505050505050505050505050505050505050505050505",
-            "connected": false,
-            "state": "ONCHAIN",
-            "channel_id": "channelid1300013000130001300013000130001300013000130001300013000",
-            "our_amount_msat": 37000000,
-            "amount_msat": 12000000,
-            "funding_txid": "txid010020100201002010020100201002010020100201002010020100201002",
-            "funding_output": 2
+            "peer_id": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+            "connected": true,
+            "state": "CHANNELD_NORMAL",
+            "channel_id": "252d1b0a1e57895e84137f28cf19ab2c35847e284c112fefdecc7afeaa5c1de7",
+            "short_channel_id": "110x1x0",
+            "our_amount_msat": 609507210,
+            "amount_msat": 1000000000,
+            "funding_txid": "63f74346eda6b8620ec24f86e2f8982ef3dade95f8efd00b372a75b2893b6f0d",
+            "funding_output": 0
           },
           {
-            "peer_id": "nodeid030303030303030303030303030303030303030303030303030303030303",
+            "peer_id": "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199",
             "connected": false,
-            "state": "ONCHAIN",
-            "channel_id": "channelid1100011000110001100011000110001100011000110001100011000",
-            "our_amount_msat": 38000000,
-            "amount_msat": 13000000,
-            "funding_txid": "txid010030100301003010030100301003010030100301003010030100301003",
-            "funding_output": 3
+            "state": "CLOSINGD_COMPLETE",
+            "channel_id": "f4e1de801de57374d5737da622611e3a1ad9f16d5df9c30fceecc11ce732eeeb",
+            "short_channel_id": "160x1x1",
+            "our_amount_msat": 500000000,
+            "amount_msat": 1000000000,
+            "funding_txid": "1c863d8172c0a588a7d34426b7249d4a939f04d4ca4bad6c28d5913ed2dff12a",
+            "funding_output": 1
           }
         ]
       }

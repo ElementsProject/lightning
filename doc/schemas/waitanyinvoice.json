@@ -235,16 +235,16 @@
       },
       "response": {
         "label": "lbl balance l1 to l2",
-        "bolt11": "lnbcrt222n1pnt3005720bolt114000101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101",
-        "payment_hash": "paymenthashdelpay10101010101010101010101010101010101010101010101",
+        "bolt11": "lnbcrt5m1pne035qsp5y09we8jhy4ug66c945kzkqyqzrhhqsap22q07wnawlgntwa5ca2spp5xsktk894vn50xt4kfl5vy49t7hk976u85rudu7gfetuwvk8nh54qdpcv3jhxcmjd9c8g6t0dcs8xetwvss8xmmdv5s8xct5wvsxcvfqw3hjqmpjxqyjw5qcqp9rzjqdwjkyvjm7apxnssu4qgwhfkd67ghs6n6k48v6uqczgt88p6tky96qqqwqqqqqgqqqqqqqqpqqqqqzsqqc9qxpqysgqvsru69ylhpkda6980sl996q2fmld2zszepv79zf747la6zzt8mf8p0qw80w6j8d5evc72fls4d99sza23nnm6pahjqrs8kv3apdttjcq2mm2xw",
+        "payment_hash": "342cbb1cb564e8f32eb64fe8c254abf5ec5f6b87a0f8de7909caf8e658f3bd2a",
         "amount_msat": 500000000,
         "status": "paid",
         "pay_index": 1,
         "amount_received_msat": 500000000,
-        "paid_at": 1738500000,
-        "payment_preimage": "paymentpreimgdp1010101010101010101010101010101010101010101010101",
+        "paid_at": 1738000000,
+        "payment_preimage": "08377744ca985c1808377744ca985c1808377744ca985c1808377744ca985c18",
         "description": "description send some sats l1 to l2",
-        "expires_at": 1739000000,
+        "expires_at": 1738604800,
         "created_index": 1,
         "updated_index": 1
       }
@@ -260,16 +260,16 @@
       },
       "response": {
         "label": "test_injectpaymentonion1",
-        "bolt11": "lnbcrt100n1pnt2bolt11invl020700000000bolt11invl020700000000bolt11invl020700000000bolt11invl020700000000bolt11invl020700000000bolt11invl020700000000bolt11invl020700000000bolt11invl020700000000bolt11invl020700000000bolt11invl020700000000",
-        "payment_hash": "paymenthashinvl0270027002700270027002700270027002700270027002700",
+        "bolt11": "lnbcrt10n1pne035qsp5qwyv8rs63ramlntxnjyqfyl3usj9fcvw2wcekvssera3c674p2aspp5layccvcq3q020g7qgxf7g0cjx3zvv3rxyqypprpry2w6x5gmahgsdp6w3jhxapqd9hx5etrw3cxz7tdv4h8gmmwd9hkuvfqv3jhxcmjd9c8g6t0dcxqyjw5qcqp99qxpqysgqanlwwp0fnysrz8wgx44kdupzfv4l9x0l8daxa9zyqcwwx4de5rv4s3udrmgc6w03dtn0h3kcvwhv602fpryz06wrnk9k5d5z6qtx4mqqyhqgf2",
+        "payment_hash": "ff498c3300881ea7a3c04193e43f123444c644662008108c23229da3511bedd1",
         "amount_msat": 1000,
         "status": "paid",
         "pay_index": 2,
         "amount_received_msat": 1000,
-        "paid_at": 1738500000,
-        "payment_preimage": "paymentpreimgio1030303030303030303030303030303030303030303030303",
+        "paid_at": 1738000000,
+        "payment_preimage": "08377744ca985c1e08377744ca985c1e08377744ca985c1e08377744ca985c1e",
         "description": "test injectpaymentonion1 description",
-        "expires_at": 1739000000,
+        "expires_at": 1738604800,
         "created_index": 8,
         "updated_index": 2
       }

@@ -49,7 +49,7 @@
         "id": "example:preapproveinvoice#1",
         "method": "preapproveinvoice",
         "params": {
-          "bolt11": "lnbcrt100n1pnt2bolt11invl020400000000bolt11invl020400000000bolt11invl020400000000bolt11invl020400000000bolt11invl020400000000bolt11invl020400000000bolt11invl020400000000bolt11invl020400000000bolt11invl020400000000bolt11invl020400000000"
+          "bolt11": "lnbcrt1230n1pne035qsp5s2tkvc25q0p9qu5ghf6pal04thl4kl9q9jggx0fetq5tx7szc0gspp5mmpxzxv7tkpxjhvwyztwky6qlsw3umd87h7x7dvn0hck5t0lc84sdqlv3jhxcmjd9c8g6t0dcsxjmnktakrydqcqp99qxpqysgqa9q3g64xjfq3wqpyxn378zzs3grvlvhmpvtcedvzf0rq0ycu4xgr0ly93ut0wjdyfgfaldteev97qqt6q539qy7ktng4ylfj85kzmkqp5lsp6u"
         }
       },
       "response": {}
@@ -59,7 +59,7 @@
         "id": "example:preapproveinvoice#2",
         "method": "preapproveinvoice",
         "params": [
-          "lnbcrt100n1pnt2bolt11invl020500000000bolt11invl020500000000bolt11invl020500000000bolt11invl020500000000bolt11invl020500000000bolt11invl020500000000bolt11invl020500000000bolt11invl020500000000bolt11invl020500000000bolt11invl020500000000"
+          "lnbcrt1240n1pne035qsp590nuq4ek3zp48qm5rve22ye75jc6y564fh8qjrlr0j8at7egmtuqpp5ms3uy3duktelvxj02h6nrdzhge83uu5xumyrmxwu4akpezzv80hsdqlv3jhxcmjd9c8g6t0dcsxjmnktakrydgcqp99qxpqysgqad46gpve6njtqr9zsvrz8a56ndz953s88kedwuzge3d4tgv8gfk8u8al36nwmnchrkr7wwy7vc04fdvnewhusxcp457jucl5a5lt4dsqzr7sj8"
         ]
       },
       "response": {}

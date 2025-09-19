@@ -155,7 +155,7 @@
       "response": {
         "rows": [
           [
-            "nodeid020202020202020202020202020202020202020202020202020202020202"
+            "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59"
           ]
         ]
       }
@@ -189,19 +189,19 @@
         "id": "example:sql#3",
         "method": "sql",
         "params": [
-          "SELECT nodeid FROM nodes WHERE nodeid != x'nodeid030303030303030303030303030303030303030303030303030303030303'"
+          "SELECT nodeid FROM nodes WHERE nodeid != x'035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d'"
         ]
       },
       "response": {
         "rows": [
           [
-            "nodeid020202020202020202020202020202020202020202020202020202020202"
+            "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59"
           ],
           [
-            "nodeid010101010101010101010101010101010101010101010101010101010101"
+            "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518"
           ],
           [
-            "nodeid040404040404040404040404040404040404040404040404040404040404"
+            "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199"
           ]
         ]
       }
@@ -214,16 +214,16 @@
         "id": "example:sql#4",
         "method": "sql",
         "params": [
-          "SELECT nodeid FROM nodes WHERE nodeid IN (x'nodeid010101010101010101010101010101010101010101010101010101010101', x'nodeid030303030303030303030303030303030303030303030303030303030303')"
+          "SELECT nodeid FROM nodes WHERE nodeid IN (x'0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518', x'035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d')"
         ]
       },
       "response": {
         "rows": [
           [
-            "nodeid010101010101010101010101010101010101010101010101010101010101"
+            "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518"
           ],
           [
-            "nodeid030303030303030303030303030303030303030303030303030303030303"
+            "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d"
           ]
         ]
       }
@@ -242,7 +242,7 @@
       "response": {
         "rows": [
           [
-            "nodeid020202020202020202020202020202020202020202020202020202020202",
+            "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
             490493792,
             1000000000,
             "CHANNELD_NORMAL:Channel ready for use."
@@ -280,21 +280,15 @@
       "response": {
         "rows": [
           [
-            28,
-            23,
+            22,
+            17,
             0,
             "option_static_remotekey"
           ],
           [
-            29,
             23,
+            17,
             1,
-            "option_anchors_zero_fee_htlc_tx"
-          ],
-          [
-            30,
-            23,
-            2,
             "option_anchors"
           ]
         ]

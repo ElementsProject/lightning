@@ -238,22 +238,22 @@
         "id": "example:waitsendpay#1",
         "method": "waitsendpay",
         "params": {
-          "payment_hash": "paymenthashinvl0310031003100310031003100310031003100310031003100"
+          "payment_hash": "9562ee18e942b0eb2e36050c108efcb34cb07e5cdbe28d08d26bb71af1556c2f"
         }
       },
       "response": {
         "created_index": 2,
         "id": 2,
-        "payment_hash": "paymenthashinvl0310031003100310031003100310031003100310031003100",
+        "payment_hash": "9562ee18e942b0eb2e36050c108efcb34cb07e5cdbe28d08d26bb71af1556c2f",
         "groupid": 1,
         "updated_index": 2,
-        "destination": "nodeid030303030303030303030303030303030303030303030303030303030303",
+        "destination": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
         "amount_msat": 10000,
         "amount_sent_msat": 10001,
         "created_at": 1738000000,
-        "completed_at": 1739000000,
+        "completed_at": 1738000000,
         "status": "complete",
-        "payment_preimage": "paymentpreimagew010101010101010101010101010101010101010101010101"
+        "payment_preimage": "83ffe698292fbb5f83ffe698292fbb5f83ffe698292fbb5f83ffe698292fbb5f"
       }
     }
   ]

@@ -273,32 +273,32 @@
         "id": "example:decodepay#1",
         "method": "decodepay",
         "params": {
-          "bolt11": "lnbcrt100n1pnt2bolt11invl010100000000bolt11invl010100000000bolt11invl010100000000bolt11invl010100000000bolt11invl010100000000bolt11invl010100000000bolt11invl010100000000bolt11invl010100000000bolt11invl010100000000bolt11invl010100000000"
+          "bolt11": "lnbcrt100n1pne035qsp57ygq6nedvja7wf8r0qlv8zfhyuk3knlhx4pcenp56z86nxcjgr8qpp5l5drs7dcy2vsh8a0u056vc0cqm0n6xkqxwk7mp6h4ptfmdt0lwsqdqcdscnzgryv4ekxunfwp6xjmmwxqyjw5qcqp9rzjqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4jqqqdcqqqqgqqqqqqqqpqqqqqzsqqc9qxpqysgql3cft8k3t9ztqvu27r0ek2j2a8hsas62rlsuyztyn3sayxtqppmxre3vsy780lrw0uylnyks7wwn54vnj3gqmyt5nywkc4w5paepzygqym8dle"
         }
       },
       "response": {
         "currency": "bcrt",
         "created_at": 1738000000,
         "expiry": 604800,
-        "payee": "nodeid010101010101010101010101010101010101010101010101010101010101",
+        "payee": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
         "amount_msat": 10000,
         "description": "l11 description",
         "min_final_cltv_expiry": 5,
-        "payment_secret": "paymentsecretinvl00110001100011000110001100011000110001100011000",
+        "payment_secret": "f1100d4f2d64bbe724e3783ec38937272d1b4ff735438ccc34d08fa99b1240ce",
         "features": "02024100",
         "routes": [
           [
             {
-              "pubkey": "nodeid020202020202020202020202020202020202020202020202020202020202",
-              "short_channel_id": "109x1x1",
+              "pubkey": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+              "short_channel_id": "110x1x0",
               "fee_base_msat": 1,
               "fee_proportional_millionths": 10,
               "cltv_expiry_delta": 6
             }
           ]
         ],
-        "payment_hash": "paymenthashinvl0110011001100110011001100110011001100110011001100",
-        "signature": "dcdepay30c4bb50bed209d020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202"
+        "payment_hash": "fd1a3879b822990b9fafe3e9a661f806df3d1ac033aded8757a8569db56ffba0",
+        "signature": "3045022100fc70959ed15944b0338af0df9b2a4ae9ef0ec34a1fe1c209649c61d219600876022061e62c813c77fc6e7f09f992d0f39d3a559394500d9174991d6c55d40f721111"
       }
     }
   ]

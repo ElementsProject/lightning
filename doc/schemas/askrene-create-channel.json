@@ -76,8 +76,8 @@
         "method": "askrene-create-channel",
         "params": {
           "layer": "test_layers",
-          "source": "nodeid030303030303030303030303030303030303030303030303030303030303",
-          "destination": "nodeid010101010101010101010101010101010101010101010101010101010101",
+          "source": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+          "destination": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
           "short_channel_id": "0x0x1",
           "capacity_msat": "1000000sat"
         }

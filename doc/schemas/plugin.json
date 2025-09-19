@@ -196,124 +196,124 @@
         "method": "plugin",
         "params": {
           "subcommand": "start",
-          "plugin": "/root/lightning/tests/plugins/allow_even_msgs.py"
+          "plugin": "/home/rusty/devel/cvs/lightning/tests/plugins/allow_even_msgs.py"
         }
       },
       "response": {
         "command": "start",
         "plugins": [
           {
-            "name": "/root/lightning/plugins/autoclean",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/autoclean",
             "active": true,
             "dynamic": false
           },
           {
-            "name": "/root/lightning/plugins/chanbackup",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/chanbackup",
             "active": true,
             "dynamic": false
           },
           {
-            "name": "/root/lightning/plugins/bcli",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/bcli",
             "active": true,
             "dynamic": false
           },
           {
-            "name": "/root/lightning/plugins/commando",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/commando",
             "active": true,
             "dynamic": false
           },
           {
-            "name": "/root/lightning/plugins/funder",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/funder",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/topology",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/topology",
             "active": true,
             "dynamic": false
           },
           {
-            "name": "/root/lightning/plugins/exposesecret",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/exposesecret",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/keysend",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/keysend",
             "active": true,
             "dynamic": false
           },
           {
-            "name": "/root/lightning/plugins/offers",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/offers",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/pay",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/pay",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/recklessrpc",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/recklessrpc",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/recover",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/recover",
             "active": true,
             "dynamic": false
           },
           {
-            "name": "/root/lightning/plugins/txprepare",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/txprepare",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/cln-renepay",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/cln-renepay",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/cln-xpay",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/cln-xpay",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/spenderp",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/spenderp",
             "active": true,
             "dynamic": false
           },
           {
-            "name": "/root/lightning/plugins/cln-askrene",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/cln-askrene",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/sql",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/sql",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/cln-grpc",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/cln-grpc",
             "active": true,
             "dynamic": false
           },
           {
-            "name": "/root/lightning/plugins/cln-lsps-client",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/cln-lsps-client",
             "active": true,
             "dynamic": false
           },
           {
-            "name": "/root/lightning/plugins/cln-bip353",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/cln-bip353",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/bookkeeper",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/bookkeeper",
             "active": true,
             "dynamic": false
           },
           {
-            "name": "/root/lightning/tests/plugins/allow_even_msgs.py",
+            "name": "/home/rusty/devel/cvs/lightning/tests/plugins/allow_even_msgs.py",
             "active": true,
             "dynamic": true
           }
@@ -326,7 +326,7 @@
         "method": "plugin",
         "params": {
           "subcommand": "stop",
-          "plugin": "/root/lightning/tests/plugins/allow_even_msgs.py"
+          "plugin": "/home/rusty/devel/cvs/lightning/tests/plugins/allow_even_msgs.py"
         }
       },
       "response": {
@@ -346,112 +346,112 @@
         "command": "list",
         "plugins": [
           {
-            "name": "/root/lightning/plugins/autoclean",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/autoclean",
             "active": true,
             "dynamic": false
           },
           {
-            "name": "/root/lightning/plugins/chanbackup",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/chanbackup",
             "active": true,
             "dynamic": false
           },
           {
-            "name": "/root/lightning/plugins/bcli",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/bcli",
             "active": true,
             "dynamic": false
           },
           {
-            "name": "/root/lightning/plugins/commando",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/commando",
             "active": true,
             "dynamic": false
           },
           {
-            "name": "/root/lightning/plugins/funder",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/funder",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/topology",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/topology",
             "active": true,
             "dynamic": false
           },
           {
-            "name": "/root/lightning/plugins/exposesecret",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/exposesecret",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/keysend",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/keysend",
             "active": true,
             "dynamic": false
           },
           {
-            "name": "/root/lightning/plugins/offers",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/offers",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/pay",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/pay",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/recklessrpc",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/recklessrpc",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/recover",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/recover",
             "active": true,
             "dynamic": false
           },
           {
-            "name": "/root/lightning/plugins/txprepare",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/txprepare",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/cln-renepay",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/cln-renepay",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/cln-xpay",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/cln-xpay",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/spenderp",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/spenderp",
             "active": true,
             "dynamic": false
           },
           {
-            "name": "/root/lightning/plugins/cln-askrene",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/cln-askrene",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/sql",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/sql",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/cln-grpc",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/cln-grpc",
             "active": true,
             "dynamic": false
           },
           {
-            "name": "/root/lightning/plugins/cln-lsps-client",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/cln-lsps-client",
             "active": true,
             "dynamic": false
           },
           {
-            "name": "/root/lightning/plugins/cln-bip353",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/cln-bip353",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/bookkeeper",
+            "name": "/home/rusty/devel/cvs/lightning/plugins/bookkeeper",
             "active": true,
             "dynamic": false
           }

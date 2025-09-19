@@ -212,7 +212,7 @@
           "15000perkw",
           214,
           [
-            "utxo010101010101010101010101010101010101010101010101010101010101:1"
+            "9d9d89725697f42f6fc8baa1d1a25662f9e2f3f524c832e943ea8b19317873f1:0"
           ],
           null,
           true,
@@ -222,18 +222,18 @@
         ]
       },
       "response": {
-        "psbt": "cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt510000510000510000510000510000510000510000510000510000510000510000510000510000510000510000510000510000510000510000510000510000510000510000510000510000510000510000510000510000510000510000510000510000510000510000510000510000510000510000510000",
+        "psbt": "cHNidP8BAF4CAAAAAfFzeDEZi+pD6TLIJPXz4vliVqLRobrIby/0l1ZyiZ2dAAAAAAD9////AUFZ3AsAAAAAIlEgO+E35aPNS3YQRaiMByjTJDUYNvBO1Z39o3m42EZGUreaAAAAAAEAcQIAAAAB+wnUg4jUSt7ZSoGLTSFJkEiVi4BORL5XG9PScQI1uHoBAAAAAP3///8CAMLrCwAAAAAWABQDz+yHFeH0BKNuwBHkI4+GMp+QnAYT9NIAAAAAFgAUIowMzAOV9xHOQM4YHS2bZ5k6oe2HAAAAAQEfAMLrCwAAAAAWABQDz+yHFeH0BKNuwBHkI4+GMp+QnAAA",
         "feerate_per_kw": 15000,
         "estimated_final_weight": 657,
         "excess_msat": 0,
         "change_outnum": 0,
         "reservations": [
           {
-            "txid": "utxo010101010101010101010101010101010101010101010101010101010101",
-            "vout": 1,
+            "txid": "9d9d89725697f42f6fc8baa1d1a25662f9e2f3f524c832e943ea8b19317873f1",
+            "vout": 0,
             "was_reserved": true,
             "reserved": true,
-            "reserved_to_block": 2240
+            "reserved_to_block": 2242
           }
         ]
       }
@@ -247,25 +247,25 @@
           "feerate": "18750perkw",
           "startweight": 214,
           "utxos": [
-            "utxo010101010101010101010101010101010101010101010101010101010101:1"
+            "9d9d89725697f42f6fc8baa1d1a25662f9e2f3f524c832e943ea8b19317873f1:0"
           ],
           "reservedok": true,
           "excess_as_change": true
         }
       },
       "response": {
-        "psbt": "cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt520000520000520000520000520000520000520000520000520000520000520000520000520000520000520000520000520000520000520000520000520000520000520000520000520000520000520000520000520000520000520000520000520000520000520000520000520000520000520000520000",
+        "psbt": "cHNidP8BAF4CAAAAAfFzeDEZi+pD6TLIJPXz4vliVqLRobrIby/0l1ZyiZ2dAAAAAAD9////AWINzQsAAAAAIlEgyRg+3pEh88b9FJiCLEenYCcyJ2ackJUIhDusW72BP2iaAAAAAAEAcQIAAAAB+wnUg4jUSt7ZSoGLTSFJkEiVi4BORL5XG9PScQI1uHoBAAAAAP3///8CAMLrCwAAAAAWABQDz+yHFeH0BKNuwBHkI4+GMp+QnAYT9NIAAAAAFgAUIowMzAOV9xHOQM4YHS2bZ5k6oe2HAAAAAQEfAMLrCwAAAAAWABQDz+yHFeH0BKNuwBHkI4+GMp+QnAAA",
         "feerate_per_kw": 18750,
         "estimated_final_weight": 657,
         "excess_msat": 0,
         "change_outnum": 0,
         "reservations": [
           {
-            "txid": "utxo010101010101010101010101010101010101010101010101010101010101",
-            "vout": 1,
+            "txid": "9d9d89725697f42f6fc8baa1d1a25662f9e2f3f524c832e943ea8b19317873f1",
+            "vout": 0,
             "was_reserved": true,
             "reserved": true,
-            "reserved_to_block": 2312
+            "reserved_to_block": 2314
           }
         ]
       }

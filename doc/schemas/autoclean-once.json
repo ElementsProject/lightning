@@ -228,8 +228,8 @@
       "response": {
         "autoclean": {
           "succeededpays": {
-            "cleaned": 7,
-            "uncleaned": 0
+            "cleaned": 0,
+            "uncleaned": 7
           }
         }
       }

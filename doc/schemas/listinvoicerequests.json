@@ -105,16 +105,16 @@
         "id": "example:listinvoicerequests#1",
         "method": "listinvoicerequests",
         "params": [
-          "invreqid03030303030303030303030303030303030303030303030303030303"
+          "c5b8ebc06bdc246d7b852ce5637be459d3c053a5b3f8f68854f97af7371c9a50"
         ]
       },
       "response": {
         "invoicerequests": [
           {
-            "invreq_id": "invreqid02020202020202020202020202020202020202020202020202020202",
+            "invreq_id": "c5b8ebc06bdc246d7b852ce5637be459d3c053a5b3f8f68854f97af7371c9a50",
             "active": false,
             "single_use": true,
-            "bolt12": "lno1qgsq000bolt240002400024000240002400024000240002400024000240002400024000240002400024000240002400024000240002400024000240002400024000",
+            "bolt12": "lnr1qqg99gqg2990zl3j22sqs52279lryzsk2fjhzat9wd6xjmn8ypnx7u3qd9h8vmmfvdj3yyrrd35kw6r5de5kueeqwd6x7un92qsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzr6jqwvfdqzcyypz6g3kyz34nfrl7lm6c3rushzxey3a55ecjgs6qp2vz8q78j336k0sgr76j2yl0lrljzljjdz8ztcpryunwgfk4hzz3sle3mhaw8v2gc4dn9map7v6dlpya98jy2mcrwe27qcsywlfqp6dhh30l54sj0e8tqsk",
             "used": false
           }
         ]
@@ -129,18 +129,18 @@
       "response": {
         "invoicerequests": [
           {
-            "invreq_id": "invreqid02020202020202020202020202020202020202020202020202020202",
+            "invreq_id": "22c3d45d0a9640a827ed1fefb9a07c947e38fa4c086f1f16d94882848e264868",
             "active": false,
             "single_use": true,
-            "bolt12": "lno1qgsq000bolt240002400024000240002400024000240002400024000240002400024000240002400024000240002400024000240002400024000240002400024000",
-            "used": false
+            "bolt12": "lnr1qqg99gqg2990zl3322sqs52279lrzzst2d5k6urvv5s8getnw3gzqp3zderpzxstt8927ynqg044h0egcd8n5h3n9g0u0v4h8ncc3yg02gps7sjqtqssytfzxcs2xkdy0lml0tzy0jzugmyj8kjn8zfzrgq9fsgurc72x82e7pqfylfzzhcux84v2552lt7p2ekunuamtsdgyk34a86m4zklkdjjdzt757t4sp0m8cp9tdj6hfe67mcuwl3q7zr4sr4z4gn2fvksykkn5g",
+            "used": true
           },
           {
-            "invreq_id": "invreqid01010101010101010101010101010101010101010101010101010101",
+            "invreq_id": "c5b8ebc06bdc246d7b852ce5637be459d3c053a5b3f8f68854f97af7371c9a50",
             "active": false,
             "single_use": true,
-            "bolt12": "lno1qgsq000bolt210002100021000210002100021000210002100021000210002100021000210002100021000210002100021000210002100021000210002100021000",
-            "used": true
+            "bolt12": "lnr1qqg99gqg2990zl3j22sqs52279lryzsk2fjhzat9wd6xjmn8ypnx7u3qd9h8vmmfvdj3yyrrd35kw6r5de5kueeqwd6x7un92qsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzr6jqwvfdqzcyypz6g3kyz34nfrl7lm6c3rushzxey3a55ecjgs6qp2vz8q78j336k0sgr76j2yl0lrljzljjdz8ztcpryunwgfk4hzz3sle3mhaw8v2gc4dn9map7v6dlpya98jy2mcrwe27qcsywlfqp6dhh30l54sj0e8tqsk",
+            "used": false
           }
         ]
       }

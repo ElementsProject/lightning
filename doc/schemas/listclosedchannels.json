@@ -298,48 +298,12 @@
       "response": {
         "closedchannels": [
           {
-            "peer_id": "nodeid030303030303030303030303030303030303030303030303030303030303",
-            "channel_id": "channelid0230000230000230000230000230000230000230000230000230000",
-            "short_channel_id": "111x1x1",
+            "peer_id": "032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e",
+            "channel_id": "f8fc83a432cbfb2fffe222cc06727fdd977b5dd10ebd6707158e799e6f522d9f",
+            "short_channel_id": "116x1x1",
             "alias": {
-              "local": "121x131x141",
-              "remote": "151x161x171"
-            },
-            "opener": "local",
-            "closer": "local",
-            "private": false,
-            "channel_type": {
-              "bits": [
-                12,
-                22
-              ],
-              "names": [
-                "static_remotekey/even",
-                "anchors/even"
-              ]
-            },
-            "total_local_commitments": 16,
-            "total_remote_commitments": 16,
-            "total_htlcs_sent": 8,
-            "funding_txid": "fundingtxid00202020202020202020202020202020202020202020202020202",
-            "funding_outnum": 1,
-            "leased": false,
-            "total_msat": 1000000000,
-            "final_to_us_msat": 489809898,
-            "min_to_us_msat": 489809898,
-            "max_to_us_msat": 1000000000,
-            "last_commitment_txid": "txidcloselastcommitment00000100001000010000100001000010000100001",
-            "last_commitment_fee_msat": 2895000,
-            "close_cause": "user",
-            "last_stable_connection": 1738500000
-          },
-          {
-            "peer_id": "nodeid050505050505050505050505050505050505050505050505050505050505",
-            "channel_id": "channelid0250000250000250000250000250000250000250000250000250000",
-            "short_channel_id": "115x1x1",
-            "alias": {
-              "local": "122x132x142",
-              "remote": "152x162x172"
+              "local": "6443160x13255799x14088",
+              "remote": "12585125x15062924x5208"
             },
             "opener": "local",
             "closer": "local",
@@ -357,17 +321,52 @@
             "total_local_commitments": 2,
             "total_remote_commitments": 2,
             "total_htlcs_sent": 1,
-            "funding_txid": "fundingtxid00101010101010101010101010101010101010101010101010101",
+            "funding_txid": "92dc0d9921d6c5beda83bddd3d1575fb673493f354c0a8cd91c6b139620c3155",
             "funding_outnum": 1,
             "leased": false,
             "total_msat": 1000000000,
             "final_to_us_msat": 500000000,
             "min_to_us_msat": 500000000,
             "max_to_us_msat": 1000000000,
-            "last_commitment_txid": "txidcloselastcommitment00000200002000020000200002000020000200002",
+            "last_commitment_txid": "19fec0dedc91354817beacd4155a6303a5ceaad0be36219b3d6e77836c8092a0",
+            "last_commitment_fee_msat": 2895000,
+            "close_cause": "user"
+          },
+          {
+            "peer_id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+            "channel_id": "a397dd9b3e44afcb67f3f3ce1d649b74a8ade63e35505985e4cc1828634f69a2",
+            "short_channel_id": "112x1x0",
+            "alias": {
+              "local": "6377624x13255799x14088",
+              "remote": "9351983x2726118x65411"
+            },
+            "opener": "local",
+            "closer": "local",
+            "private": false,
+            "channel_type": {
+              "bits": [
+                12,
+                22
+              ],
+              "names": [
+                "static_remotekey/even",
+                "anchors/even"
+              ]
+            },
+            "total_local_commitments": 16,
+            "total_remote_commitments": 16,
+            "total_htlcs_sent": 8,
+            "funding_txid": "7cce7550c4b37924bb74fd4baf8f1946a4b14c050c42f2479b04fede08652aa9",
+            "funding_outnum": 0,
+            "leased": false,
+            "total_msat": 1000000000,
+            "final_to_us_msat": 489809898,
+            "min_to_us_msat": 489809898,
+            "max_to_us_msat": 1000000000,
+            "last_commitment_txid": "40b4acd3759ac69b5160488d73a5890a46bf4f013381e52e9171ee038b3c96d6",
             "last_commitment_fee_msat": 2896000,
             "close_cause": "user",
-            "last_stable_connection": 1738500000
+            "last_stable_connection": 1738000000
           }
         ]
       }

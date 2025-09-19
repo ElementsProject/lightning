@@ -195,8 +195,8 @@
         "id": "example:getroutes#1",
         "method": "getroutes",
         "params": {
-          "source": "nodeid010101010101010101010101010101010101010101010101010101010101",
-          "destination": "nodeid030303030303030303030303030303030303030303030303030303030303",
+          "source": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+          "destination": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
           "amount_msat": 1250000,
           "layers": [],
           "maxfee_msat": 125000,
@@ -212,14 +212,14 @@
             "final_cltv": 0,
             "path": [
               {
-                "short_channel_id_dir": "109x1x1/1",
-                "next_node_id": "nodeid020202020202020202020202020202020202020202020202020202020202",
+                "short_channel_id_dir": "110x1x0/1",
+                "next_node_id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
                 "amount_msat": 1250026,
                 "delay": 12
               },
               {
-                "short_channel_id_dir": "123x1x1/0",
-                "next_node_id": "nodeid030303030303030303030303030303030303030303030303030303030303",
+                "short_channel_id_dir": "124x1x1/0",
+                "next_node_id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
                 "amount_msat": 1250013,
                 "delay": 6
               }

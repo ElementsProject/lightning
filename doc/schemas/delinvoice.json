@@ -303,12 +303,12 @@
       },
       "response": {
         "label": "lbl_l36",
-        "bolt11": "lnbcrt222n1pnt3005720bolt113000101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101",
-        "payment_hash": "paymenthashdelinv10101010101010101010101010101010101010101010101",
+        "bolt11": "lnbcrt500u1pne035qsp5m5fegjlm0t8c5hfk8mkr73sz64956chjunxgjar5can3jgdc0ptqpp59p68dl5sc9sdpxle29tyd8wrelyzudnvgemvndm57fs9r02xt2tqdqcdsenvgryv4ekxunfwp6xjmmwxqyjw5qcqp9rzjqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4jqqq0sqqqqgqqyqqqqqpqqqqqzsqqc9qxpqysgqx5puexlrq20ducnx5wky8y0vkmu798rxa4cg704ty55hwks60yjnyfc94kdwtanrk45sydh3zp992mpg0xfuk65kl8knaqkjfpv8hvcpfa27ne",
+        "payment_hash": "287476fe90c160d09bf95156469dc3cfc82e366c4676c9b774f26051bd465a96",
         "amount_msat": 50000000,
         "status": "unpaid",
         "description": "l36 description",
-        "expires_at": 1739000000,
+        "expires_at": 1738604800,
         "created_index": 9
       }
     },
@@ -324,15 +324,15 @@
       },
       "response": {
         "label": "lbl_l37",
-        "bolt11": "lnbcrt222n1pnt3005720bolt113000101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101",
-        "payment_hash": "paymenthashdelinv20202020202020202020202020202020202020202020202",
+        "bolt11": "lnbcrt500u1pne035qsp50zcqdgkx0dwzlksvkntzmmuednc9mxdnnzrghatwffw5fycnkpcqpp58x5gmhrfe9e60ygy82rh5s27m2zq3zyynfwhzawfvessg5fljg6sdqcdsenwgryv4ekxunfwp6xjmmwxqyjw5qcqp9rzjqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4jqqq0sqqqqgqqyqqqqqpqqqqqzsqqc9qxpqysgqxdq9h7j2xkfjvm8ansypq8w2xvawhdu5wwzpkg9ar2al66d6uae8lxzx6maekk0pgae6fzeauglsxvqplc3lw30fzv430a7nmccv0lcq0du8d6",
+        "payment_hash": "39a88ddc69c973a791043a877a415eda840888849a5d7175c9666104513f9235",
         "amount_msat": 50000000,
         "status": "paid",
         "pay_index": 9,
         "amount_received_msat": 50000000,
-        "paid_at": 1738500000,
-        "payment_preimage": "paymentpreimagedelinv01010101010101010101010101010101010101010101",
-        "expires_at": 1739000000,
+        "paid_at": 1738000000,
+        "payment_preimage": "83ffe698292fbb6583ffe698292fbb6583ffe698292fbb6583ffe698292fbb65",
+        "expires_at": 1738604800,
         "created_index": 10,
         "updated_index": 9
       }

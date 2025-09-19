@@ -470,7 +470,7 @@
           },
           "succeededpays": {
             "enabled": false,
-            "cleaned": 7
+            "cleaned": 0
           },
           "failedpays": {
             "enabled": false,
