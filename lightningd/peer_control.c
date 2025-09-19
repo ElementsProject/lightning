@@ -2088,11 +2088,13 @@ static void destroy_disconnect_command(struct disconnect_command *dc)
 void peer_disconnect_done(struct lightningd *ld, const u8 *msg)
 {
 	struct node_id id;
-	u64 connectd_counter;
+	u64 connectd_counter, duration_nsec;
 	struct disconnect_command *i, *next;
 	struct peer *p;
 
-	if (!fromwire_connectd_peer_disconnect_done(msg, &id, &connectd_counter))
+	if (!fromwire_connectd_peer_disconnect_done(msg, &id,
+						    &connectd_counter,
+						    &duration_nsec))
 		fatal("Connectd gave bad PEER_DISCONNECT_DONE message %s",
 		      tal_hex(msg, msg));
 

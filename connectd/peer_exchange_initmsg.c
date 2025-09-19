@@ -34,6 +34,9 @@ struct early_peer {
 
 	/* Timeout in case it takes too long */
 	struct oneshot *timeout;
+
+	/* We record time when we first accepted socket */
+	struct timemono starttime;
 };
 
 static bool contains_common_chain(struct bitcoin_blkid *chains)
@@ -152,6 +155,7 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 			      &peer->cs,
 			      take(features),
 			      peer->is_websocket,
+			      peer->starttime,
 			      peer->incoming);
 }
 
@@ -206,6 +210,7 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 				      const struct wireaddr_internal *addr,
 				      struct oneshot *timeout,
 				      enum is_websocket is_websocket,
+				      struct timemono starttime,
 				      bool incoming)
 {
 	/* If conn is closed, forget peer */
@@ -220,6 +225,7 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 	peer->incoming = incoming;
 	peer->is_websocket = is_websocket;
 	peer->timeout = timeout;
+	peer->starttime = starttime;
 
 	/* BOLT #1:
 	 *

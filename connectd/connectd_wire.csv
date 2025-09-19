@@ -92,6 +92,7 @@ msgdata,connectd_peer_connected,connect_nsec,u64,
 msgtype,connectd_peer_disconnect_done,2006
 msgdata,connectd_peer_disconnect_done,id,node_id,
 msgdata,connectd_peer_disconnect_done,counter,u64,
+msgdata,connectd_peer_disconnect_done,connect_time_nsec,u64,
 
 # Master -> connectd: make peer active immediately (we want to talk) (+ fd to subd).
 msgtype,connectd_peer_connect_subd,2004

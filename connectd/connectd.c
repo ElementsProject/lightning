@@ -119,7 +119,8 @@ void destroy_peer(struct peer *peer)
 	daemon_conn_send(peer->daemon->master,
 			 take(towire_connectd_peer_disconnect_done(NULL,
 								   &peer->id,
-								   peer->counter)));
+								   peer->counter,
+								   time_to_nsec(timemono_since(peer->connect_starttime)))));
 	/* This makes multiplex.c routines not feed us more, but
 	 * *also* means that if we're freed directly, the ->to_peer
 	 * destructor won't call drain_peer(). */
@@ -134,6 +135,7 @@ static struct peer *new_peer(struct daemon *daemon,
 			     const struct crypto_state *cs,
 			     const u8 *their_features,
 			     enum is_websocket is_websocket,
+			     struct timemono connect_starttime,
 			     struct io_conn *conn STEALS,
 			     int *fd_for_subd)
 {
@@ -141,6 +143,7 @@ static struct peer *new_peer(struct daemon *daemon,
 
 	peer->daemon = daemon;
 	peer->id = *id;
+	peer->connect_starttime = connect_starttime;
 	peer->counter = daemon->connection_counter++;
 	peer->cs = *cs;
 	peer->subds = tal_arr(peer, struct subd *, 0);
@@ -288,6 +291,7 @@ struct io_plan *peer_connected(struct io_conn *conn,
 			       struct crypto_state *cs,
 			       const u8 *their_features TAKES,
 			       enum is_websocket is_websocket,
+			       struct timemono starttime,
 			       bool incoming)
 {
 	u8 *msg;
@@ -367,7 +371,7 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	}
 
 	/* This contains the per-peer state info; gossipd fills in pps->gs */
-	peer = new_peer(daemon, id, cs, their_features, is_websocket, conn,
+	peer = new_peer(daemon, id, cs, their_features, is_websocket, starttime, conn,
 			&subd_fd);
 	/* Only takes over conn if it succeeds. */
 	if (!peer)
@@ -417,13 +421,15 @@ static struct io_plan *handshake_in_success(struct io_conn *conn,
 					    struct crypto_state *cs,
 					    struct oneshot *timeout,
 					    enum is_websocket is_websocket,
+					    struct timemono starttime,
 					    struct daemon *daemon)
 {
 	struct node_id id;
 	node_id_from_pubkey(&id, id_key);
 	status_peer_debug(&id, "Connect IN");
 	return peer_exchange_initmsg(conn, daemon, daemon->our_features,
-				     cs, &id, addr, timeout, is_websocket, true);
+				     cs, &id, addr, timeout, is_websocket,
+				     starttime, true);
 }
 
 /*~ If the timer goes off, we simply free everything, which hangs up. */
@@ -709,6 +715,7 @@ static struct io_plan *handshake_out_success(struct io_conn *conn,
 					     struct crypto_state *cs,
 					     struct oneshot *timeout,
 					     enum is_websocket is_websocket,
+					     struct timemono starttime,
 					     struct connecting *connect)
 {
 	struct node_id id;
@@ -718,7 +725,8 @@ static struct io_plan *handshake_out_success(struct io_conn *conn,
 	status_peer_debug(&id, "Connect OUT");
 	return peer_exchange_initmsg(conn, connect->daemon,
 				     connect->daemon->our_features,
-				     cs, &id, addr, timeout, is_websocket, false);
+				     cs, &id, addr, timeout, is_websocket,
+				     starttime, false);
 }
 
 struct io_plan *connection_out(struct io_conn *conn, struct connecting *connect)
