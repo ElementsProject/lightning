@@ -244,7 +244,9 @@ static struct command_result *json_connect(struct command *cmd,
 		peer_channels_cleanup(peer);
 
 	subd_send_msg(cmd->ld->connectd,
-		      take(towire_connectd_connect_to_peer(NULL, &id_addr.id, addr, true)));
+		      take(towire_connectd_connect_to_peer(NULL, &id_addr.id,
+							   addr, true,
+							   tal_fmt(tmpctx, "connect command %s", cmd->id))));
 
 	/* Leave this here for peer_connected, connect_failed or peer_disconnect_done. */
 	new_connect(cmd->ld, &id_addr.id, cmd);
@@ -261,6 +263,8 @@ AUTODATA(json_command, &connect_command);
 static void connect_failed(struct lightningd *ld,
 			   const struct node_id *id,
 			   const struct wireaddr_internal *addrhint,
+			   const char *connect_reason,
+			   u64 connect_nsec,
 			   enum jsonrpc_errcode errcode,
 			   const char *errmsg)
 {
@@ -277,7 +281,9 @@ void connect_failed_disconnect(struct lightningd *ld,
 			       const struct node_id *id,
 			       const struct wireaddr_internal *addrhint)
 {
-	connect_failed(ld, id, addrhint, CONNECT_DISCONNECTED_DURING,
+	connect_failed(ld, id, addrhint,
+		       "", 0,
+		       CONNECT_DISCONNECTED_DURING,
 		       "disconnected during connection");
 }
 
@@ -286,12 +292,17 @@ static void handle_connect_failed(struct lightningd *ld, const u8 *msg)
 	struct node_id id;
 	enum jsonrpc_errcode errcode;
 	char *errmsg;
+	char *connect_reason;
+	u64 nsec;
 
-	if (!fromwire_connectd_connect_failed(tmpctx, msg, &id, &errcode, &errmsg))
+	if (!fromwire_connectd_connect_failed(tmpctx, msg, &id,
+					      &connect_reason,
+					      &nsec,
+					      &errcode, &errmsg))
 		fatal("Connect gave bad CONNECTD_CONNECT_FAILED message %s",
 		      tal_hex(msg, msg));
 
-	connect_failed(ld, &id, NULL, errcode, errmsg);
+	connect_failed(ld, &id, NULL, connect_reason, nsec, errcode, errmsg);
 }
 
 const char *connect_any_cmd_id(const tal_t *ctx,
@@ -431,6 +442,7 @@ void connectd_start_shutdown(struct subd *connectd)
 
 void connectd_connect_to_peer(struct lightningd *ld,
 			      const struct peer *peer,
+			      const char *reason,
 			      bool is_important)
 {
 	/* Give connectd an address if we know it. */
@@ -444,7 +456,8 @@ void connectd_connect_to_peer(struct lightningd *ld,
 	subd_send_msg(peer->ld->connectd,
 		      take(towire_connectd_connect_to_peer(NULL, &peer->id,
 							   waddr,
-							   !is_important)));
+							   !is_important,
+							   reason)));
 }
 
 void tell_connectd_peer_importance(struct peer *peer,
@@ -462,7 +475,9 @@ void tell_connectd_peer_importance(struct peer *peer,
 	} else if (!was_important && is_important) {
 		/* Tell connectd it's now important (unless we're told not to reconnect) */
 		if (peer->ld->reconnect)
-			connectd_connect_to_peer(peer->ld, peer, true);
+			connectd_connect_to_peer(peer->ld, peer,
+						 "peer established channel",
+						 true);
 	}
 }
 

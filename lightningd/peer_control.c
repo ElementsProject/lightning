@@ -1732,6 +1732,8 @@ void peer_connected(struct lightningd *ld, const u8 *msg)
 	struct peer_connected_hook_payload *hook_payload;
 	u64 connectd_counter;
 	const char *cmd_id;
+	char *connect_reason;
+	u64 connect_nsec;
 	struct wireaddr *last_known_addr;
 
 	hook_payload = tal(NULL, struct peer_connected_hook_payload);
@@ -1742,7 +1744,9 @@ void peer_connected(struct lightningd *ld, const u8 *msg)
 					      &hook_payload->addr,
 					      &hook_payload->remote_addr,
 					      &hook_payload->incoming,
-					      &their_features))
+					      &their_features,
+					      &connect_reason,
+					      &connect_nsec))
 		fatal("Connectd gave bad CONNECT_PEER_CONNECTED message %s",
 		      tal_hex(msg, msg));
 
@@ -2661,7 +2665,9 @@ static void setup_peer(struct peer *peer)
 	/* Make sure connectd knows to try reconnecting (unless
 	 * --dev-no-reconnect). */
 	if (connect && ld->reconnect)
-		connectd_connect_to_peer(ld, peer, important);
+		connectd_connect_to_peer(ld, peer,
+					 "started with channel",
+					 important);
 }
 
 void setup_peers(struct lightningd *ld)
