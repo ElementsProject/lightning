@@ -62,7 +62,7 @@ async fn on_lsps_listprotocols(
 ) -> Result<serde_json::Value, anyhow::Error> {
     #[derive(Deserialize)]
     struct Request {
-        peer: String,
+        lsp_id: String,
     }
     let dir = p.configuration().lightning_dir;
     let rpc_path = Path::new(&dir).join(&p.configuration().rpc_file);
@@ -71,7 +71,7 @@ async fn on_lsps_listprotocols(
 
     // Create the transport first and handle potential errors
     let transport = Bolt8Transport::new(
-        &req.peer,
+        &req.lsp_id,
         rpc_path,
         p.state().hook_manager.clone(),
         None, // Use default timeout
