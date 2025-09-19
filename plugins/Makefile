@@ -181,6 +181,7 @@ PLUGIN_COMMON_OBJS :=				\
 	common/bigsize.o			\
 	common/bolt11.o				\
 	common/channel_id.o			\
+	common/clock_time.o			\
 	common/daemon.o				\
 	common/deprecation.o			\
 	common/features.o			\

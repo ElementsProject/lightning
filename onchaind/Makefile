@@ -36,6 +36,7 @@ ONCHAIND_COMMON_OBJS :=				\
 	common/base32.o				\
 	common/bigsize.o			\
 	common/bip32.o				\
+	common/clock_time.o			\
 	common/coin_mvt.o			\
 	common/channel_id.o			\
 	common/daemon.o				\

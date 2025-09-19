@@ -21,6 +21,7 @@ COMMON_SRC_NOGEN :=				\
 	common/channel_config.c			\
 	common/channel_id.c			\
 	common/channel_type.c			\
+	common/clock_time.c			\
 	common/close_tx.c			\
 	common/codex32.c			\
 	common/coin_mvt.c			\

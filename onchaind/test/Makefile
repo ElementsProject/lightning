@@ -25,6 +25,7 @@ $(ONCHAIND_TEST_PROGRAMS): $(ONCHAIND_TEST_COMMON_OBJS) $(BITCOIN_OBJS)
 onchaind/test/run-onchainstress:		\
 	common/htlc_tx.o			\
 	common/derive_basepoints.o		\
+	common/clock_time.o			\
 	common/daemon.o				\
 	common/htlc_wire.o			\
 	common/initial_commit_tx.o		\

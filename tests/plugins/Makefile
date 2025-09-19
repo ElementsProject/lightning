@@ -44,6 +44,7 @@ tests/plugins/channeld_fakenet:			\
 	common/channel_config.o			\
 	common/channel_id.o			\
 	common/channel_type.o			\
+	common/clock_time.o			\
 	common/daemon.o				\
 	common/daemon_conn.o			\
 	common/derive_basepoints.o		\
