@@ -1,9 +1,10 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
-use cln_lsps::jsonrpc::server::{JsonRpcResponseWriter, RequestHandler};
+use cln_lsps::jsonrpc::server::JsonRpcResponseWriter;
+use cln_lsps::jsonrpc::TransportError;
 use cln_lsps::jsonrpc::{server::JsonRpcServer, JsonRpcRequest};
-use cln_lsps::jsonrpc::{JsonRpcResponse, RequestObject, RpcError, TransportError};
-use cln_lsps::lsps0::model::{Lsps0listProtocolsRequest, Lsps0listProtocolsResponse};
+use cln_lsps::lsps0::handler::Lsps0ListProtocolsHandler;
+use cln_lsps::lsps0::model::Lsps0listProtocolsRequest;
 use cln_lsps::lsps0::transport::{self, CustomMsg};
 use cln_lsps::util::wrap_payload_with_peer_id;
 use cln_lsps::{lsps0, util, LSP_FEATURE_BIT};
@@ -51,7 +52,9 @@ async fn main() -> Result<(), anyhow::Error> {
 
         let lsps_builder = JsonRpcServer::builder().with_handler(
             Lsps0listProtocolsRequest::METHOD.to_string(),
-            Arc::new(Lsps0ListProtocolsHandler {}),
+            Arc::new(Lsps0ListProtocolsHandler {
+                lsps2_enabled: false,
+            }),
         );
         let lsps_service = lsps_builder.build();
 
@@ -113,21 +116,5 @@ impl JsonRpcResponseWriter for LspsResponseWriter {
             cln_lsps::jsonrpc::Error::Transport(TransportError::Other(e.to_string()))
         })?;
         transport::send_custommsg(&mut client, payload.to_vec(), self.peer_id).await
-    }
-}
-
-pub struct Lsps0ListProtocolsHandler;
-
-#[async_trait]
-impl RequestHandler for Lsps0ListProtocolsHandler {
-    async fn handle(&self, payload: &[u8]) -> core::result::Result<Vec<u8>, RpcError> {
-        let req: RequestObject<Lsps0listProtocolsRequest> =
-            serde_json::from_slice(payload).unwrap();
-        if let Some(id) = req.id {
-            let res = Lsps0listProtocolsResponse { protocols: vec![] }.into_response(id);
-            let res_vec = serde_json::to_vec(&res).unwrap();
-            return Ok(res_vec);
-        }
-        Ok(vec![])
     }
 }
