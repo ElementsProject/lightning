@@ -416,7 +416,6 @@ def generate_bookkeeper_examples(l2, l3, c23_2_chan_id):
         update_example(node=l3, method='bkpr-listbalances', params={})
 
         bkprlistaccountevents_res1 = l3.rpc.bkpr_listaccountevents(c23_2_chan_id)
-        bkprlistaccountevents_res1['events'] = [next((event for event in bkprlistaccountevents_res1['events'] if event['tag'] == 'channel_open'), None)]
         update_example(node=l3, method='bkpr-listaccountevents', params=[c23_2_chan_id], response=bkprlistaccountevents_res1)
         bkprlistaccountevents_res2 = l3.rpc.bkpr_listaccountevents()
         update_example(node=l3, method='bkpr-listaccountevents', params={}, response=bkprlistaccountevents_res2)
@@ -1084,8 +1083,8 @@ def generate_list_examples(bitcoind, l1, l2, l3, c12, c23_2, inv_l31, inv_l32, o
         # Make sure all nodes are caught up.
         sync_blockheight(bitcoind, [l1, l2, l3])
         # Transactions Lists
-        listfunds_res1 = l1.rpc.listfunds()
-        update_example(node=l1, method='listfunds', params={}, response=listfunds_res1)
+        listfunds_res1 = l2.rpc.listfunds()
+        update_example(node=l2, method='listfunds', params={}, response=listfunds_res1)
 
         listforwards_res1 = l2.rpc.listforwards(in_channel=c12, out_channel=c23_2, status='settled')
         update_example(node=l2, method='listforwards', params={'in_channel': c12, 'out_channel': c23_2, 'status': 'settled'}, response=listforwards_res1)
@@ -1112,8 +1111,8 @@ def generate_list_examples(bitcoind, l1, l2, l3, c12, c23_2, inv_l31, inv_l32, o
         listpays_res2 = l2.rpc.listpays()
         update_example(node=l2, method='listpays', params={}, response=listpays_res2)
 
-        listtransactions_res1 = l1.rpc.listtransactions()
-        update_example(node=l1, method='listtransactions', params={}, response=listtransactions_res1)
+        listtransactions_res3 = l3.rpc.listtransactions()
+        update_example(node=l3, method='listtransactions', params={}, response=listtransactions_res3)
         listclosedchannels_res1 = l2.rpc.listclosedchannels()
         update_example(node=l2, method='listclosedchannels', params={}, response=listclosedchannels_res1)
 
@@ -1126,15 +1125,15 @@ def generate_list_examples(bitcoind, l1, l2, l3, c12, c23_2, inv_l31, inv_l32, o
         update_example(node=l2, method='listsqlschemas', params={'table': 'offers'})
         update_example(node=l2, method='listsqlschemas', params=['closedchannels'])
 
-        listpeerchannels_res1 = l1.rpc.listpeerchannels(l2.info['id'])
-        update_example(node=l1, method='listpeerchannels', params={'id': l2.info['id']}, response=listpeerchannels_res1)
-        listpeerchannels_res2 = l1.rpc.listpeerchannels()
-        update_example(node=l1, method='listpeerchannels', params={}, response=listpeerchannels_res2)
+        listpeerchannels_res1 = l2.rpc.listpeerchannels(l1.info['id'])
+        update_example(node=l2, method='listpeerchannels', params={'id': l1.info['id']}, response=listpeerchannels_res1)
+        listpeerchannels_res2 = l2.rpc.listpeerchannels()
+        update_example(node=l2, method='listpeerchannels', params={}, response=listpeerchannels_res2)
 
         listchannels_res1 = l1.rpc.listchannels(c12)
         update_example(node=l1, method='listchannels', params={'short_channel_id': c12}, response=listchannels_res1)
-        listchannels_res2 = l1.rpc.listchannels()
-        update_example(node=l1, method='listchannels', params={}, response=listchannels_res2)
+        listchannels_res2 = l2.rpc.listchannels()
+        update_example(node=l2, method='listchannels', params={}, response=listchannels_res2)
 
         listnodes_res1 = l2.rpc.listnodes(l3.info['id'])
         update_example(node=l2, method='listnodes', params={'id': l3.info['id']}, response=listnodes_res1)
