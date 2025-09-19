@@ -1750,6 +1750,11 @@ void peer_connected(struct lightningd *ld, const u8 *msg)
 		fatal("Connectd gave bad CONNECT_PEER_CONNECTED message %s",
 		      tal_hex(msg, msg));
 
+	wallet_save_network_event(ld, &id,
+				  NETWORK_EVENT_CONNECT,
+				  hook_payload->incoming ? NULL : connect_reason,
+				  connect_nsec);
+
 	/* If we connected, and it's a normal address */
 	if (!hook_payload->incoming
 	    && hook_payload->addr.itype == ADDR_INTERNAL_WIREADDR
@@ -2097,6 +2102,10 @@ void peer_disconnect_done(struct lightningd *ld, const u8 *msg)
 						    &duration_nsec))
 		fatal("Connectd gave bad PEER_DISCONNECT_DONE message %s",
 		      tal_hex(msg, msg));
+
+	wallet_save_network_event(ld, &id,
+				  NETWORK_EVENT_DISCONNECT,
+				  NULL, duration_nsec);
 
 	/* If we still have peer, it's disconnected now */
 	/* FIXME: We should keep peers until it tells us they're disconnected,
