@@ -84,6 +84,7 @@ CHANNELD_COMMON_OBJS :=				\
 	common/psbt_open.o			\
 	common/psbt_internal.o			\
 	common/pseudorand.o			\
+	common/randbytes.o			\
 	common/read_peer_msg.o			\
 	common/setup.o				\
 	common/status.o				\

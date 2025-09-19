@@ -15,6 +15,7 @@ CLI_TEST_COMMON_OBJS :=				\
 	common/htlc_state.o			\
 	common/json_parse_simple.o		\
 	common/pseudorand.o			\
+	common/randbytes.o			\
 	common/memleak.o			\
 	common/msg_queue.o			\
 	common/setup.o				\

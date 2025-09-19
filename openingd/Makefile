@@ -70,6 +70,7 @@ OPENINGD_COMMON_OBJS :=				\
 	common/psbt_internal.o			\
 	common/psbt_open.o			\
 	common/pseudorand.o			\
+	common/randbytes.o			\
 	common/read_peer_msg.o			\
 	common/setup.o				\
 	common/shutdown_scriptpubkey.o		\

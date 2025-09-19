@@ -74,6 +74,7 @@ tests/plugins/channeld_fakenet:			\
 	common/per_peer_state.o			\
 	common/permute_tx.o			\
 	common/pseudorand.o			\
+	common/randbytes.o			\
 	common/setup.o				\
 	common/sphinx.o				\
 	common/status.o				\

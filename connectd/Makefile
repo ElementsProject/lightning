@@ -72,6 +72,7 @@ CONNECTD_COMMON_OBJS :=				\
 	common/per_peer_state.o			\
 	common/psbt_open.o			\
 	common/pseudorand.o			\
+	common/randbytes.o			\
 	common/sciddir_or_pubkey.o		\
 	common/setup.o				\
 	common/sphinx.o				\

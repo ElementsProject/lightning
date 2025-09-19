@@ -47,6 +47,7 @@ CLOSINGD_COMMON_OBJS :=				\
 	common/psbt_keypath.o			\
 	common/psbt_open.o			\
 	common/pseudorand.o			\
+	common/randbytes.o			\
 	common/status_wiregen.o			\
 	common/read_peer_msg.o			\
 	common/setup.o				\

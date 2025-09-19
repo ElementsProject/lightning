@@ -1,6 +1,7 @@
 #include "config.h"
 #include <assert.h>
 #include <common/amount.h>
+#include <common/memleak.h>
 #include <common/node_id.h>
 #include <common/setup.h>
 #include <common/status.c>
@@ -100,6 +101,15 @@ void fromwire_u8_array(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, u8 *arr
 /* Generated stub for is_msg_for_gossipd */
 bool is_msg_for_gossipd(const u8 *cursor UNNEEDED)
 { fprintf(stderr, "is_msg_for_gossipd called!\n"); abort(); }
+/* Generated stub for memleak_add_helper_ */
+void memleak_add_helper_(const tal_t *p UNNEEDED, void (*cb)(struct htable *memtable UNNEEDED,
+						    const tal_t *)){ }
+/* Generated stub for memleak_scan_htable */
+void memleak_scan_htable(struct htable *memtable UNNEEDED, const struct htable *ht UNNEEDED)
+{ fprintf(stderr, "memleak_scan_htable called!\n"); abort(); }
+/* Generated stub for notleak_ */
+void *notleak_(void *ptr UNNEEDED, bool plus_children UNNEEDED)
+{ fprintf(stderr, "notleak_ called!\n"); abort(); }
 /* Generated stub for peer_wire_name */
 const char *peer_wire_name(int e UNNEEDED)
 { fprintf(stderr, "peer_wire_name called!\n"); abort(); }

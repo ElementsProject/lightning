@@ -15,6 +15,7 @@ ONCHAIND_TEST_COMMON_OBJS :=			\
 	common/features.o			\
 	common/psbt_keypath.o			\
 	common/pseudorand.o			\
+	common/randbytes.o			\
 	common/setup.o				\
 	common/utils.o
 

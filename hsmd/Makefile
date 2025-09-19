@@ -46,6 +46,7 @@ HSMD_COMMON_OBJS :=				\
 	common/permute_tx.o			\
 	common/psbt_open.o			\
 	common/pseudorand.o			\
+	common/randbytes.o			\
 	common/setup.o				\
 	common/status.o				\
 	common/status_wire.o			\

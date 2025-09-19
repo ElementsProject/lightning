@@ -139,6 +139,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/psbt_open.o			\
 	common/pseudorand.o			\
 	common/plugin.o				\
+	common/randbytes.o			\
 	common/random_select.o			\
 	common/setup.o				\
 	common/shutdown_scriptpubkey.o		\

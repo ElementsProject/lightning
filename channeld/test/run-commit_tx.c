@@ -15,6 +15,7 @@ static bool print_superverbose;
 #include <common/channel_id.h>
 #include <common/daemon.h>
 #include <common/key_derive.h>
+#include <common/memleak.h>
 #include <common/setup.h>
 #include <common/status.h>
 
@@ -32,6 +33,15 @@ bool fromwire_channel_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 /* Generated stub for fromwire_node_id */
 void fromwire_node_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct node_id *id UNNEEDED)
 { fprintf(stderr, "fromwire_node_id called!\n"); abort(); }
+/* Generated stub for memleak_add_helper_ */
+void memleak_add_helper_(const tal_t *p UNNEEDED, void (*cb)(struct htable *memtable UNNEEDED,
+						    const tal_t *)){ }
+/* Generated stub for memleak_scan_htable */
+void memleak_scan_htable(struct htable *memtable UNNEEDED, const struct htable *ht UNNEEDED)
+{ fprintf(stderr, "memleak_scan_htable called!\n"); abort(); }
+/* Generated stub for notleak_ */
+void *notleak_(void *ptr UNNEEDED, bool plus_children UNNEEDED)
+{ fprintf(stderr, "notleak_ called!\n"); abort(); }
 /* Generated stub for pubkey_from_node_id */
 bool pubkey_from_node_id(struct pubkey *key UNNEEDED, const struct node_id *id UNNEEDED)
 { fprintf(stderr, "pubkey_from_node_id called!\n"); abort(); }

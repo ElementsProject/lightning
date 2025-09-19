@@ -19,6 +19,7 @@ GOSSIPD_TEST_COMMON_OBJS :=			\
 	common/node_id.o			\
 	common/lease_rates.o			\
 	common/pseudorand.o			\
+	common/randbytes.o			\
 	common/setup.o				\
 	common/utils.o				\
 	common/wireaddr.o			\
