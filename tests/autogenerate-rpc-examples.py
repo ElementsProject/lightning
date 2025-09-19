@@ -161,6 +161,7 @@ def setup_test_nodes(node_factory, bitcoind, regenerate_blockchain):
         for node in fund_nodes:
             node.fundwallet(FUND_WALLET_AMOUNT_SAT)
         # Connect nodes and fund channels
+        sync_blockheight(bitcoind, [l1, l2, l3, l4, l5, l6])
         update_example(node=l2, method='getinfo', params={})
         update_example(node=l1, method='connect', params={'id': l2.info['id'], 'host': 'localhost', 'port': l2.daemon.port})
         update_example(node=l2, method='connect', params={'id': l3.info['id'], 'host': 'localhost', 'port': l3.daemon.port})
@@ -247,7 +248,7 @@ def generate_transactions_examples(l1, l2, l3, l4, l5, c25, bitcoind):
         update_example(node=l2, method='close', params={'id': l3.info['id'], 'unilateraltimeout': 1})
         address_l41 = l4.rpc.newaddr()
         update_example(node=l3, method='close', params={'id': l4.info['id'], 'destination': address_l41['bech32']})
-        bitcoind.generate_block(1)
+        bitcoind.generate_block(1, wait_for_mempool=2)
         sync_blockheight(bitcoind, [l1, l2, l3, l4])
 
         # Channel 2 to 3 is closed, l1->l3 payment will fail where `failed` forward will be saved on l2
@@ -262,6 +263,12 @@ def generate_transactions_examples(l1, l2, l3, l4, l5, c25, bitcoind):
         l2.wait_channel_active(c23_2)
         update_example(node=l2, method='setchannel', params={'id': c23_2, 'ignorefeelimits': True})
         update_example(node=l2, method='setchannel', params={'id': c25, 'feebase': 4000, 'feeppm': 300, 'enforcedelay': 0})
+
+        # Those involved in the channel close will instaclose, so listchannels will differ.
+        # Make sure everyone sees those new channels though.
+        for n in [l1, l2, l3, l4]:
+            wait_for(lambda: len(n.rpc.listchannels(c23_2)['channels']) == 2)
+            wait_for(lambda: len(n.rpc.listchannels(c34_2)['channels']) == 2)
 
         # Some more invoices for signing and preapproving
         inv_l12 = l1.rpc.invoice(1000, 'label inv_l12', 'description inv_l12')
@@ -621,6 +628,7 @@ def generate_utils_examples(l1, l2, l3, l4, l5, l6, c23_2, c34_2, inv_l11, inv_l
         utxos = [f"{funds_l2['outputs'][2]['txid']}:{funds_l2['outputs'][2]['output']}"]
         withdraw_l22 = update_example(node=l2, method='withdraw', params={'destination': address_l22['p2tr'], 'satoshi': 'all', 'feerate': '20000perkb', 'minconf': 0, 'utxos': utxos})
         bitcoind.generate_block(4, wait_for_mempool=[withdraw_l22['txid']])
+        sync_blockheight(bitcoind, [l2])
         update_example(node=l2, method='multiwithdraw', params={'outputs': [{l1.rpc.newaddr()['bech32']: '2222000msat'}, {l1.rpc.newaddr()['bech32']: '3333000msat'}]})
         update_example(node=l2, method='multiwithdraw', params={'outputs': [{l1.rpc.newaddr('p2tr')['p2tr']: 1000}, {l1.rpc.newaddr()['bech32']: 1000}, {l2.rpc.newaddr()['bech32']: 1000}, {l3.rpc.newaddr()['bech32']: 1000}, {l3.rpc.newaddr()['bech32']: 1000}, {l4.rpc.newaddr('p2tr')['p2tr']: 1000}, {l1.rpc.newaddr()['bech32']: 1000}]})
         l2.rpc.connect(l4.info['id'], 'localhost', l4.port)
@@ -668,6 +676,9 @@ def generate_utils_examples(l1, l2, l3, l4, l5, l6, c23_2, c34_2, inv_l11, inv_l
         l1.rpc.reserveinputs(fullpsbt)
         signed_psbt = l1.rpc.signpsbt(fullpsbt)['signed_psbt']
         update_example(node=l1, method='sendpsbt', params={'psbt': signed_psbt})
+        # Includes two multiwithdraw calls above
+        bitcoind.generate_block(1, wait_for_mempool=3)
+        sync_blockheight(bitcoind, [l1, l2, l3, l4])
 
         # SQL
         update_example(node=l1, method='sql', params={'query': 'SELECT id FROM peers'}, description=['A simple peers selection query:'])
@@ -721,7 +732,7 @@ def generate_splice_examples(node_factory, bitcoind, regenerate_blockchain):
         signpsbt_res1 = l7.rpc.signpsbt(spupdate2_res1['psbt'])
         update_example(node=l7, method='splice_signed', params={'channel_id': chan_id_78, 'psbt': signpsbt_res1['signed_psbt']})
 
-        bitcoind.generate_block(1)
+        bitcoind.generate_block(1, wait_for_mempool=1)
         sync_blockheight(bitcoind, [l7])
         l7.daemon.wait_for_log(' to CHANNELD_NORMAL')
         time.sleep(1)
@@ -736,6 +747,8 @@ def generate_splice_examples(node_factory, bitcoind, regenerate_blockchain):
         spupdate2_res2 = update_example(node=l7, method='splice_update', params=[chan_id_78, spupdate1_res2['psbt']])
         assert(spupdate2_res2['commitments_secured'] is True)
         update_example(node=l7, method='splice_signed', params={'channel_id': chan_id_78, 'psbt': spupdate2_res2['psbt']})
+        bitcoind.generate_block(1, wait_for_mempool=1)
+        sync_blockheight(bitcoind, [l7, l8])
         update_example(node=l7, method='stop', params={})
 
         logger.info('Splice Done!')
@@ -766,7 +779,6 @@ def generate_channels_examples(node_factory, bitcoind, l1, l3, l4, l5, regenerat
 
         amount = 2 ** 24
         l9.fundwallet(amount + 10000000)
-        bitcoind.generate_block(1)
         wait_for(lambda: len(l9.rpc.listfunds()["outputs"]) != 0)
         l9.rpc.connect(l10.info['id'], 'localhost', l10.port)
 
@@ -784,8 +796,8 @@ def generate_channels_examples(node_factory, bitcoind, l1, l3, l4, l5, regenerat
         update_example(node=l9, method='txsend', params=[tx_prep_2['txid']])
         l9.rpc.close(l10.info['id'])
 
-        bitcoind.generate_block(1)
-        sync_blockheight(bitcoind, [l9])
+        bitcoind.generate_block(1, wait_for_mempool=1)
+        sync_blockheight(bitcoind, [l9, l10])
 
         amount = 1000000
         fund_start_res3 = l9.rpc.fundchannel_start(l10.info['id'], amount)
@@ -851,10 +863,11 @@ def generate_channels_examples(node_factory, bitcoind, l1, l3, l4, l5, regenerat
         openchannelbump_res3 = update_example(node=l11, method='openchannel_bump', params=[chan_id, FUND_CHANNEL_AMOUNT_SAT * 2, initpsbt_2['psbt'], next_feerate])
         openchannelupdate_res2 = update_example(node=l11, method='openchannel_update', params=[chan_id, openchannelbump_res3['psbt']])
         signed_psbt_2 = update_example(node=l11, method='signpsbt', params=[openchannelupdate_res2['psbt']])
-        update_example(node=l11, method='openchannel_signed', params=[chan_id, signed_psbt_2['signed_psbt']])
+        psbt2_txid = update_example(node=l11, method='openchannel_signed', params=[chan_id, signed_psbt_2['signed_psbt']])['txid']
 
-        bitcoind.generate_block(1)
-        sync_blockheight(bitcoind, [l11])
+        bitcoind.generate_block(1, wait_for_mempool=psbt2_txid)
+        sync_blockheight(bitcoind, [l11, l12])
+        # FIXME: l11 doesn't remove initial transaction when it RBFs
         l11.daemon.wait_for_log(' to CHANNELD_NORMAL')
 
         # Fundpsbt, channelopen init, abort, unreserve
@@ -869,8 +882,6 @@ def generate_channels_examples(node_factory, bitcoind, l1, l3, l4, l5, regenerat
         update_example(node=l11, method='unreserveinputs', params=[psbt_init_res2['psbt']])
 
         # Reserveinputs
-        bitcoind.generate_block(1)
-        sync_blockheight(bitcoind, [l11])
         outputs = l11.rpc.listfunds()['outputs']
         psbt_1 = bitcoind.rpc.createpsbt([{'txid': outputs[0]['txid'], 'vout': outputs[0]['output']}], [])
         update_example(node=l11, method='reserveinputs', params={'psbt': psbt_1})
@@ -893,6 +904,7 @@ def generate_channels_examples(node_factory, bitcoind, l1, l3, l4, l5, regenerat
         l4.rpc.close(c41res['channel_id'])
         l3.rpc.disconnect(l5.info['id'], True)
         l4.rpc.disconnect(l1.info['id'], True)
+        wait_for(lambda: len(bitcoind.rpc.getrawmempool()) == 4)
 
         # Multifundchannel 2
         l1.fundwallet(10**8)
@@ -924,6 +936,7 @@ def generate_channels_examples(node_factory, bitcoind, l1, l3, l4, l5, regenerat
         ])
         for channel in multifund_res1['channel_ids']:
             l1.rpc.close(channel['channel_id'])
+        wait_for(lambda: len(bitcoind.rpc.getrawmempool()) == 4)
         l1.fundwallet(10**8)
 
         destinations_2 = [
@@ -947,7 +960,7 @@ def generate_channels_examples(node_factory, bitcoind, l1, l3, l4, l5, regenerat
         l1.rpc.disconnect(l3.info['id'], True)
         l1.rpc.disconnect(l4.info['id'], True)
         l1.rpc.disconnect(l5.info['id'], True)
-        bitcoind.generate_block(1)
+        bitcoind.generate_block(1, wait_for_mempool=2)
         sync_blockheight(bitcoind, [l1, l3, l4, l5])
         logger.info('Channels Done!')
     except Exception as e:
