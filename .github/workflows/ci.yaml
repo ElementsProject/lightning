@@ -481,8 +481,7 @@ jobs:
           uv run eatmydata pytest tests/ -vvv -n 2 ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}
 
   update-docs-examples:
-    name: Update examples in doc schemas (disabled temporarily!)
-    if: false
+    name: Update examples in doc schemas
     runs-on: ubuntu-22.04
     timeout-minutes: 30
     strategy:
@@ -608,6 +607,7 @@ jobs:
       - check-units
       - integration-valgrind
       - integration-sanitizers
+      - update-docs-examples
       - min-btc-support
     if: ${{ always() }}
     steps:
