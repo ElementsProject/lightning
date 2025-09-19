@@ -20,6 +20,3 @@ packages = ["pyln"]
 [build-system]
 requires = ["hatchling>=1.0.0"]
 build-backend = "hatchling.build"
-
-[tool.uv.sources]
-pyln-proto = { workspace = true }
