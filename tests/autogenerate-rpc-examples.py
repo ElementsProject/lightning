@@ -12,7 +12,6 @@ from pyln.testing.utils import GENERATE_EXAMPLES
 from utils import only_one, mine_funding_to_announce, sync_blockheight, wait_for, first_scid, serialize_payload_tlv, serialize_payload_final_tlv
 import sys
 import os
-import re
 import time
 import pytest
 import unittest
@@ -32,269 +31,7 @@ REGENERATING_RPCS = []
 ALL_RPC_EXAMPLES = {}
 EXAMPLES_JSON = {}
 LOG_FILE = './tests/autogenerate-examples-status.log'
-TEMP_EXAMPLES_FILE = './tests/autogenerate-examples.json'
 IGNORE_RPCS_LIST = ['dev-splice', 'reckless', 'sql-template']
-
-# Constants for replacing values in examples
-NEW_VALUES_LIST = {
-    'root_dir': '/root/lightning',
-    'tmp_dir': '/tmp/.lightning',
-    'str_1': '1',
-    'num_1': 1,
-    'balance_msat_1': 202050000000,
-    'fees_paid_msat_1': 5020000,
-    'bytes_used': 1630000,
-    'bytes_max': 10485760,
-    'assocdata_1': 'assocdata0' + ('01' * 27),
-    'hsm_secret_cdx_1': 'cl10leetsd35kw6r5de5kueedxyesqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqluplcg0lxenqd',
-    'error_message_1': 'All addresses failed: 127.0.0.1:19736: Cryptographic handshake: peer closed connection (wrong key?). ',
-    'configs_3_addr2': "127.0.0.1:19735",
-    'bitcoin-rpcport': 18332,
-    'grpc-port': 9736,
-    'blockheight_110': 110,
-    'blockheight_130': 130,
-    'blockheight_160': 160,
-    'script_pubkey_1': 'scriptpubkey' + ('01' * 28),
-    'script_pubkey_2': 'scriptpubkey' + ('02' * 28),
-    'onion_1': 'onion' + ('10' * 1363),
-    'onion_2': 'onion' + ('20' * 1363),
-    'onion_3': 'onion' + ('30' * 1363),
-    'shared_secrets_1': ['sharedsecret' + ('10' * 26), 'sharedsecret' + ('11' * 26), 'sharedsecret' + ('12' * 26)],
-    'shared_secrets_2': ['sharedsecret' + ('20' * 26), 'sharedsecret' + ('21' * 26), 'sharedsecret' + ('22' * 26)],
-    'invreq_id_1': 'invreqid' + ('01' * 28),
-    'invreq_id_2': 'invreqid' + ('02' * 28),
-    'invreq_id_l1_l22': 'invreqid' + ('03' * 28),
-    'invoice_1': 'lni1qqg0qe' + ('01' * 415),
-    'invoice_2': 'lni1qqg0qe' + ('02' * 415),
-    'invoice_3': 'lni1qqg0qe' + ('03' * 415),
-    'funding_txid_1': 'fundingtxid001' + ('01' * 25),
-    'funding_txid_2': 'fundingtxid002' + ('02' * 25),
-    'signature_1': 'dcde30c4bb50bed221009d' + ('01' * 60),
-    'signature_2': 'dcdepay30c4bb50bed209d' + ('02' * 60),
-    'destination_1': 'bcrt1p52' + ('01' * 28),
-    'destination_2': 'bcrt1qcqqv' + ('01' * 17),
-    'destination_3': 'bcrt1phtprcvhz' + ('02' * 25),
-    'destination_4': 'bcrt1p00' + ('02' * 28),
-    'destination_5': 'bcrt1p00' + ('03' * 28),
-    'destination_6': 'bcrt1p00' + ('04' * 28),
-    'destination_7': 'bcrt1p338x' + ('07' * 28),
-    'funding_serial_1': 17725655605188010000,
-    'funding_serial_2': 17725655605188020000,
-    'funding_serial_3': 17725655605188030000,
-    'funding_serial_4': 17725655605188040000,
-    'funding_serial_5': 17725655605188050000,
-    'l1_id': 'nodeid' + ('01' * 30),
-    'l2_id': 'nodeid' + ('02' * 30),
-    'l3_id': 'nodeid' + ('03' * 30),
-    'l4_id': 'nodeid' + ('04' * 30),
-    'l5_id': 'nodeid' + ('05' * 30),
-    'l10_id': 'nodeid' + ('10' * 30),
-    'l12_id': 'nodeid' + ('12' * 30),
-    'l1_alias': 'JUNIORBEAM',
-    'l2_alias': 'SILENTARTIST',
-    'l3_alias': 'HOPPINGFIRE',
-    'l4_alias': 'JUNIORFELONY',
-    'l2_port': 19735,
-    'l3_port': 19736,
-    'l1_addr': '127.0.0.1:19734',
-    'l2_addr': '127.0.0.1:19735',
-    'l3_addr': '127.0.0.1:19736',
-    'l4_addr': '127.0.0.1:19737',
-    'l5_addr': '127.0.0.1:19738',
-    'l6_addr': '127.0.0.1:19739',
-    'c12': '109x1x1',
-    'c23': '111x1x1',
-    'c23_2': '123x1x1',
-    'c25': '115x1x1',
-    'c34': '125x1x1',
-    'c34_2': '130x1x1',
-    'c35_tx': '020000000000305fundchanneltx' + ('35000' * 99),
-    'c41_tx': '020000000000401fundchanneltx' + ('41000' * 99),
-    'upgrade_tx': '02000000000101upgd' + ('20000' * 34),
-    'close1_tx': '02000000000101cls0' + ('01' * 200),
-    'close2_tx': '02000000000101cls1' + ('02' * 200),
-    'send_tx_1': '02000000000101sendpt' + ('64000' * 100),
-    'send_tx_2': '02000000000102sendpt' + ('65000' * 100),
-    'tx_55': '02000000000155multiw' + ('55000' * 100),
-    'tx_56': '02000000000155multiw' + ('56000' * 100),
-    'tx_61': '02000000000155multiw' + ('61000' * 100),
-    'tx_91': '020000000001wthdrw' + ('91000' * 100),
-    'tx_92': '020000000002wthdrw' + ('92000' * 100),
-    'unsigned_tx_1': '0200000000' + ('0002' * 66),
-    'unsigned_tx_3': '0200000000' + ('0006' * 66),
-    'unsigned_tx_4': '0200000000' + ('0008' * 66),
-    'multi_tx_1': '02000000000101multif' + ('50000' * 100),
-    'multi_tx_2': '02000000000102multif' + ('60000' * 100),
-    'ocs_tx_1': '02000000000101sgpsbt' + ('11000' * 100),
-    'ocs_tx_2': '02000000000101sgpsbt' + ('12000' * 100),
-    'txsend_tx_1': '02000000000101txsend' + ('00011' * 100),
-    'txsend_tx_2': '02000000000101txsend' + ('00022' * 100),
-    'c12_txid': 'channeltxid' + ('120000' * 9),
-    'c23_txid': 'channeltxid' + ('230000' * 9),
-    'c23_2_txid': 'channeltxid' + ('230200' * 9),
-    'c34_txid': 'channeltxid' + ('340000' * 9),
-    'c34_2_txid': 'channeltxid' + ('340200' * 9),
-    'c35_txid': 'channeltxid' + ('350000' * 9),
-    'c41_txid': 'channeltxid' + ('410000' * 9),
-    'c1112_txid': 'channeltxid' + ('111200' * 9),
-    'upgrade_txid': 'txidupgrade' + ('200000' * 9),
-    'close1_txid': 'txid' + ('01' * 30),
-    'close2_txid': 'txid' + ('02' * 30),
-    'send_txid_1': 'txid' + ('64000' * 11),
-    'send_txid_2': 'txid' + ('65000' * 11),
-    'txid_55': 'txid' + ('55000' * 11),
-    'txid_56': 'txid' + ('56000' * 11),
-    'txid_61': 'txid' + ('61000' * 11),
-    'withdraw_txid_l21': 'txidwithdraw21' + ('91000' * 10),
-    'withdraw_txid_l22': 'txidwithdraw22' + ('92000' * 10),
-    'txprep_txid_1': 'txidtxprep0001' + ('00001' * 10),
-    'txprep_txid_2': 'txidtxprep0002' + ('00002' * 10),
-    'txprep_txid_3': 'txidtxprep0003' + ('00003' * 10),
-    'txprep_txid_4': 'txidtxprep0004' + ('00004' * 10),
-    'multi_txid_1': 'channeltxid010' + ('50000' * 10),
-    'multi_txid_2': 'channeltxid020' + ('60000' * 10),
-    'utxo_1': 'utxo' + ('01' * 30),
-    'ocs_txid_1': 'txidocsigned10' + ('11000' * 10),
-    'ocs_txid_2': 'txidocsigned10' + ('12000' * 10),
-    'c12_channel_id': 'channelid0' + ('120000' * 9),
-    'c23_channel_id': 'channelid0' + ('230000' * 9),
-    'c23_2_channel_id': 'channelid0' + ('230200' * 9),
-    'c25_channel_id': 'channelid0' + ('250000' * 9),
-    'c34_channel_id': 'channelid0' + ('340000' * 9),
-    'c34_2_channel_id': 'channelid0' + ('340200' * 9),
-    'c35_channel_id': 'channelid0' + ('350000' * 9),
-    'c41_channel_id': 'channelid0' + ('410000' * 9),
-    'c78_channel_id': 'channelid0' + ('780000' * 9),
-    'c1112_channel_id': 'channelid0' + ('111200' * 9),
-    'c910_channel_id_1': 'channelid' + ('09101' * 11),
-    'c910_channel_id_2': 'channelid' + ('09102' * 11),
-    'mf_channel_id_1': 'channelid' + ('11000' * 11),
-    'mf_channel_id_2': 'channelid' + ('12000' * 11),
-    'mf_channel_id_3': 'channelid' + ('13000' * 11),
-    'mf_channel_id_4': 'channelid' + ('15200' * 11),
-    'mf_channel_id_5': 'channelid' + ('12400' * 11),
-    'time_at_800': 1738000000,
-    'time_at_850': 1738500000,
-    'time_at_900': 1739000000,
-    'bolt11_l11': 'lnbcrt100n1pnt2' + ('bolt11invl010100000000' * 10),
-    'bolt11_l12': 'lnbcrt100n1pnt2' + ('bolt11invl010200000000' * 10),
-    'bolt11_l13': 'lnbcrt100n1pnt2' + ('bolt11invl010300000000' * 10),
-    'bolt11_l14': 'lnbcrt100n1pnt2' + ('bolt11invl010400000000' * 10),
-    'bolt11_l21': 'lnbcrt100n1pnt2' + ('bolt11invl020100000000' * 10),
-    'bolt11_l22': 'lnbcrt100n1pnt2' + ('bolt11invl020200000000' * 10),
-    'bolt11_l23': 'lnbcrt100n1pnt2' + ('bolt11invl020300000000' * 10),
-    'bolt11_l24': 'lnbcrt100n1pnt2' + ('bolt11invl020400000000' * 10),
-    'bolt11_l25': 'lnbcrt100n1pnt2' + ('bolt11invl020500000000' * 10),
-    'bolt11_l26': 'lnbcrt100n1pnt2' + ('bolt11invl020600000000' * 10),
-    'bolt11_l27': 'lnbcrt100n1pnt2' + ('bolt11invl020700000000' * 10),
-    'bolt11_l31': 'lnbcrt100n1pnt2' + ('bolt11invl030100000000' * 10),
-    'bolt11_l33': 'lnbcrt100n1pnt2' + ('bolt11invl030300000000' * 10),
-    'bolt11_l34': 'lnbcrt100n1pnt2' + ('bolt11invl030400000000' * 10),
-    'bolt11_l41': 'lnbcrt100n1pnt2' + ('bolt11invl040100000000' * 10),
-    'bolt11_l66': 'lnbcrt100n1pnt2' + ('bolt11invl060600000000' * 10),
-    'bolt11_l67': 'lnbcrt100n1pnt2' + ('bolt11invl060700000000' * 10),
-    'bolt11_wt_1': 'lnbcrt222n1pnt3005720bolt11wtinv' + ('01' * 160),
-    'bolt11_wt_2': 'lnbcrt222n1pnt3005720bolt11wtinv' + ('02' * 160),
-    'bolt11_di_1': 'lnbcrt222n1pnt3005720bolt11300' + ('01' * 170),
-    'bolt11_di_2': 'lnbcrt222n1pnt3005720bolt11300' + ('01' * 170),
-    'bolt11_dp_1': 'lnbcrt222n1pnt3005720bolt11400' + ('01' * 170),
-    'bolt12_l21': 'lno1qgsq000bolt' + ('21000' * 24),
-    'bolt12_l22': 'lno1qgsq000bolt' + ('22000' * 24),
-    'bolt12_l23': 'lno1qgsq000bolt' + ('23000' * 24),
-    'bolt12_l24': 'lno1qgsq000bolt' + ('24000' * 24),
-    'bolt12_si_1': 'lno1qgsq000bolt' + ('si100' * 24),
-    'offerid_l21': 'offeridl' + ('2100000' * 8),
-    'offerid_l22': 'offeridl' + ('2200000' * 8),
-    'offerid_l23': 'offeridl' + ('2300000' * 8),
-    'payment_hash_l11': 'paymenthashinvl0' + ('1100' * 12),
-    'payment_hash_l21': 'paymenthashinvl0' + ('2100' * 12),
-    'payment_hash_l22': 'paymenthashinvl0' + ('2200' * 12),
-    'payment_hash_l27': 'paymenthashinvl0' + ('2700' * 12),
-    'payment_hash_l31': 'paymenthashinvl0' + ('3100' * 12),
-    'payment_hash_l24': 'paymenthashinvl0' + ('2400' * 12),
-    'payment_hash_l25': 'paymenthashinvl0' + ('2500' * 12),
-    'payment_hash_l26': 'paymenthashinvl0' + ('2600' * 12),
-    'payment_hash_l33': 'paymenthashinvl0' + ('3300' * 12),
-    'payment_hash_l34': 'paymenthashinvl0' + ('3400' * 12),
-    'payment_hash_key_1': 'paymenthashkey01' + ('k101' * 12),
-    'payment_hash_key_2': 'paymenthashkey02' + ('k201' * 12),
-    'payment_hash_key_3': 'paymenthashkey03' + ('k301' * 12),
-    'payment_hash_cmd_pay_1': 'paymenthashcmdpy' + ('cp10' * 12),
-    'payment_hash_si_1': 'paymenthashsdinv' + ('si10' * 12),
-    'payment_hash_wspc_1': 'paymenthashwtspct2' + ('01' * 23),
-    'payment_hash_winv_1': 'paymenthashwaitinv' + ('01' * 23),
-    'payment_hash_winv_2': 'paymenthashwaitinv' + ('02' * 23),
-    'payment_hash_di_1': 'paymenthashdelinv1' + ('01' * 23),
-    'payment_hash_di_2': 'paymenthashdelinv2' + ('02' * 23),
-    'payment_hash_dp_1': 'paymenthashdelpay1' + ('01' * 23),
-    'payment_hash_dp_2': 'paymenthashdelpay2' + ('02' * 23),
-    'payment_hash_dp_3': 'paymenthashdelpay3' + ('03' * 23),
-    'payment_preimage_1': 'paymentpreimage1' + ('01' * 24),
-    'payment_preimage_2': 'paymentpreimage2' + ('02' * 24),
-    'payment_preimage_3': 'paymentpreimage3' + ('03' * 24),
-    'payment_preimage_ep_1': 'paymentpreimagep' + ('01' * 24),
-    'payment_preimage_ep_2': 'paymentpreimagep' + ('02' * 24),
-    'payments_preimage_i_1': 'paymentpreimagei' + ('01' * 24),
-    'payments_preimage_w_1': 'paymentpreimagew' + ('01' * 24),
-    'payment_preimage_cmd_1': 'paymentpreimagec' + ('01' * 24),
-    'payment_preimage_r_1': 'paymentpreimager' + ('01' * 24),
-    'payment_preimage_r_2': 'paymentpreimager' + ('02' * 24),
-    'payment_preimage_wi_1': 'paymentpreimagewaitinv0' + ('01' * 21),
-    'payment_preimage_wi_2': 'paymentpreimagewaitinv0' + ('02' * 21),
-    'payment_preimage_di_1': 'paymentpreimagedelinv01' + ('01' * 21),
-    'payment_preimage_dp_1': 'paymentpreimgdp1' + ('01' * 24),
-    'payment_preimage_xp_1': 'paymentpreimgxp1' + ('01' * 24),
-    'payment_preimage_xp_2': 'paymentpreimgxp2' + ('02' * 24),
-    'payment_preimage_io_1': 'paymentpreimgio1' + ('03' * 24),
-    'payment_secret_l11': 'paymentsecretinvl00' + ('11000' * 9),
-    'payment_secret_l22': 'paymentsecretinvl00' + ('22000' * 9),
-    'payment_secret_l31': 'paymentsecretinvl00' + ('31000' * 9),
-    'init_psbt_1': 'cHNidP8BAgpsbt10' + ('01' * 52),
-    'init_psbt_2': 'cHNidP8BAgpsbt20' + ('02' * 84),
-    'init_psbt_3': 'cHNidP8BAgpsbt30' + ('03' * 92),
-    'upgrade_psbt_1': 'cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt' + ('110000' * 100),
-    'psbt_1': 'cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt' + ('711000' * 120),
-    'psbt_2': 'cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt' + ('712000' * 120),
-    'psbt_3': 'cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt' + ('713000' * 120),
-    'psbt_4': 'cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt' + ('714000' * 120),
-    'psbt_5_1': 'cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt' + ('715100' * 120),
-    'psbt_5_2': 'cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt' + ('715200' * 120),
-    'psbt_6_1': 'cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt' + ('716100' * 120),
-    'psbt_6_2': 'cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt' + ('716200' * 120),
-    'psbt_7': 'cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt' + ('911000' * 40),
-    'psbt_8': 'cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt' + ('922000' * 40),
-    'psbt_9': 'cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt' + ('101000' * 40),
-    'psbt_10': 'cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt' + ('201000' * 40),
-    'psbt_12': 'cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt' + ('401000' * 40),
-    'psbt_13': 'cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt' + ('310000' * 40),
-    'psbt_14': 'cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt' + ('410000' * 40),
-    'psbt_15': 'cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt' + ('510000' * 40),
-    'psbt_16': 'cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt' + ('520000' * 40),
-    'psbt_17': 'cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt' + ('610000' * 40),
-    'psbt_18': 'cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt' + ('710000' * 40),
-    'psbt_19': 'cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt' + ('810000' * 40),
-    'psbt_20': 'cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt' + ('910000' * 40),
-    'psbt_21': 'cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt' + ('101000' * 40),
-    'psbt_22': 'cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt' + ('111000' * 40),
-    'psbt_23': 'cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt' + ('121000' * 40),
-    'psbt_24': 'cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt' + ('011100' * 40),
-    'psbt_25': 'cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt' + ('011200' * 40),
-    'psbt_26': 'cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt' + ('022200' * 40),
-    'signed_psbt_1': 'cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt' + ('718000' * 120),
-    'htlc_max_msat': 18446744073709552000,
-    'proof_1': '0473656e64' + ('proof00001' * 10),
-}
-
-# Used for collecting values from responses and replace them with NEW_VALUES_LIST before updating examples in schema files
-REPLACE_RESPONSE_VALUES = [
-    {'data_keys': ['any'], 'original_value': re.compile(re.escape(CWD)), 'new_value': NEW_VALUES_LIST['root_dir']},
-    {'data_keys': ['any'], 'original_value': re.compile(r'/tmp/ltests-[^/]+/test_generate_examples_[^/]+/lightning-[^/]+'), 'new_value': NEW_VALUES_LIST['tmp_dir']},
-    {'data_keys': ['outnum', 'funding_outnum', 'vout'], 'original_value': '0', 'new_value': NEW_VALUES_LIST['str_1']},
-    {'data_keys': ['outnum', 'funding_outnum', 'vout'], 'original_value': 0, 'new_value': NEW_VALUES_LIST['num_1']},
-    {'data_keys': ['outnum', 'funding_outnum', 'vout'], 'original_value': 2, 'new_value': NEW_VALUES_LIST['num_1']},
-    {'data_keys': ['outnum', 'funding_outnum', 'vout'], 'original_value': 3, 'new_value': NEW_VALUES_LIST['num_1']},
-    {'data_keys': ['type'], 'original_value': 'unilateral', 'new_value': 'mutual'},
-]
 
 if os.path.exists(LOG_FILE):
     open(LOG_FILE, 'w').close()
@@ -305,63 +42,9 @@ class MissingExampleError(Exception):
     pass
 
 
-def update_list_responses(data, list_key=None, slice_upto=5, update_func=None, sort=False, sort_key=None):
-    """Update responses received from various list rpcs to limit the number of items in the list, sort the list and update the values in the list"""
-    if list_key is not None:
-        if isinstance(data[list_key], list):
-            data[list_key] = data[list_key][0:slice_upto]
-
-        if sort:
-            data[list_key] = sorted(data[list_key], key=lambda x: x[sort_key]) if sort_key is not None else {k: data[list_key][k] for k in sorted(data[list_key])}
-
-        if update_func is not None and isinstance(data[list_key], list):
-            for i, item in enumerate(data[list_key]):
-                update_func(item, i)
-    return data
-
-
-def replace_values_in_json(data, data_key):
-    """Replace values in JSON data with new values before saving them in the schema files"""
-    if isinstance(data, dict):
-        return {key: replace_values_in_json(value, key) for key, value in data.items()}
-    elif isinstance(data, list):
-        for replace_value in REPLACE_RESPONSE_VALUES:
-            if any(item == 'any' or item == data_key for item in replace_value['data_keys']) and data == replace_value['original_value']:
-                data = replace_value['new_value']
-                return data
-        return [replace_values_in_json(item, 'listitem') for item in data]
-    elif isinstance(data, str):
-        for replace_value in REPLACE_RESPONSE_VALUES:
-            if any(item == data_key for item in replace_value['data_keys']) and data == replace_value['original_value']:
-                data = replace_value['new_value']
-                break
-            elif any(item == 'any' for item in replace_value['data_keys']) and isinstance(replace_value['original_value'], str) and data == replace_value['original_value']:
-                data = data.replace(replace_value['original_value'], replace_value['new_value'])
-                break
-            elif replace_value['data_keys'] == ['any'] and isinstance(replace_value['original_value'], re.Pattern):
-                if re.match(replace_value['original_value'], data):
-                    data = replace_value['original_value'].sub(replace_value['new_value'], data)
-                    break
-        return data
-    elif isinstance(data, (int, float)):
-        for replace_value in REPLACE_RESPONSE_VALUES:
-            if any(item == 'any' or item == data_key for item in replace_value['data_keys']) and data == replace_value['original_value']:
-                data = replace_value['new_value']
-                break
-        return data
-    else:
-        return data
-
-
 def update_examples_in_schema_files():
     """Update examples in JSON schema files"""
     try:
-        # For testing
-        if os.path.exists(TEMP_EXAMPLES_FILE):
-            open(TEMP_EXAMPLES_FILE, 'w').close()
-        with open(TEMP_EXAMPLES_FILE, 'w+', encoding='utf-8') as file:
-            json.dump({'new_values_list': NEW_VALUES_LIST, 'replace_response_values': REPLACE_RESPONSE_VALUES[4:], 'examples_json': EXAMPLES_JSON}, file, indent=2, ensure_ascii=False)
-
         updated_examples = {}
         for method, method_examples in EXAMPLES_JSON.items():
             try:
@@ -369,7 +52,7 @@ def update_examples_in_schema_files():
                 logger.info(f'Updating examples for {method} in file {file_path}')
                 with open(file_path, 'r+', encoding='utf-8') as file:
                     data = json.load(file)
-                    updated_examples[method] = replace_values_in_json(method_examples, 'examples')['examples']
+                    updated_examples[method] = method_examples['examples']
                     data['examples'] = updated_examples[method]
                     file.seek(0)
                     json.dump(data, file, indent=2, ensure_ascii=False)
@@ -384,12 +67,6 @@ def update_examples_in_schema_files():
     except Exception as e:
         logger.error(f'Error updating examples in schema files: {e}')
         raise
-
-    # For testing
-    if os.path.exists(TEMP_EXAMPLES_FILE):
-        open(TEMP_EXAMPLES_FILE, 'w').close()
-    with open(TEMP_EXAMPLES_FILE, 'w+', encoding='utf-8') as file:
-        json.dump({'new_values_list': NEW_VALUES_LIST, 'replace_response_values': REPLACE_RESPONSE_VALUES[4:], 'examples_json': EXAMPLES_JSON, 'updated_examples_json': updated_examples}, file, indent=2, ensure_ascii=False)
 
     logger.info(f'Updated All Examples in Schema Files!')
     return None
@@ -489,42 +166,6 @@ def setup_test_nodes(node_factory, bitcoind):
         l2.rpc.pay(l3.rpc.invoice('500000sat', 'lbl balance l2 to l3', 'description send some sats l2 to l3')['bolt11'])
         l2.rpc.pay(l5.rpc.invoice('500000sat', 'lbl balance l2 to l5', 'description send some sats l2 to l5')['bolt11'])
         l3.rpc.pay(l4.rpc.invoice('500000sat', 'lbl balance l3 to l4', 'description send some sats l3 to l4')['bolt11'])
-        REPLACE_RESPONSE_VALUES.extend([
-            {'data_keys': ['any', 'id', 'pubkey', 'destination'], 'original_value': l1.info['id'], 'new_value': NEW_VALUES_LIST['l1_id']},
-            {'data_keys': ['any', 'id', 'pubkey', 'destination'], 'original_value': l2.info['id'], 'new_value': NEW_VALUES_LIST['l2_id']},
-            {'data_keys': ['any', 'id', 'pubkey', 'destination'], 'original_value': l3.info['id'], 'new_value': NEW_VALUES_LIST['l3_id']},
-            {'data_keys': ['any', 'id', 'pubkey', 'destination'], 'original_value': l4.info['id'], 'new_value': NEW_VALUES_LIST['l4_id']},
-            {'data_keys': ['any', 'id', 'pubkey', 'destination'], 'original_value': l5.info['id'], 'new_value': NEW_VALUES_LIST['l5_id']},
-            {'data_keys': ['alias'], 'original_value': l1.info['alias'], 'new_value': NEW_VALUES_LIST['l1_alias']},
-            {'data_keys': ['netaddr'], 'original_value': [f'127.0.0.1:{l1.info["binding"][0]["port"]}'], 'new_value': [NEW_VALUES_LIST['l1_addr']]},
-            {'data_keys': ['alias'], 'original_value': l2.info['alias'], 'new_value': NEW_VALUES_LIST['l2_alias']},
-            {'data_keys': ['port'], 'original_value': l2.info['binding'][0]['port'], 'new_value': NEW_VALUES_LIST['l2_port']},
-            {'data_keys': ['netaddr'], 'original_value': [f'127.0.0.1:{l2.info["binding"][0]["port"]}'], 'new_value': [NEW_VALUES_LIST['l2_addr']]},
-            {'data_keys': ['version'], 'original_value': getinfo_res2['version'], 'new_value': CLN_VERSION},
-            {'data_keys': ['blockheight'], 'original_value': getinfo_res2['blockheight'], 'new_value': NEW_VALUES_LIST['blockheight_110']},
-            {'data_keys': ['alias'], 'original_value': l3.info['alias'], 'new_value': NEW_VALUES_LIST['l3_alias']},
-            {'data_keys': ['port'], 'original_value': l3.info['binding'][0]['port'], 'new_value': NEW_VALUES_LIST['l3_port']},
-            {'data_keys': ['addr'], 'original_value': f'127.0.0.1:{l3.info["binding"][0]["port"]}', 'new_value': NEW_VALUES_LIST['l3_addr']},
-            {'data_keys': ['netaddr'], 'original_value': [f'127.0.0.1:{l3.info["binding"][0]["port"]}'], 'new_value': [NEW_VALUES_LIST['l3_addr']]},
-            {'data_keys': ['alias'], 'original_value': l4.info['alias'], 'new_value': NEW_VALUES_LIST['l4_alias']},
-            {'data_keys': ['netaddr'], 'original_value': [f'127.0.0.1:{l4.info["binding"][0]["port"]}'], 'new_value': [NEW_VALUES_LIST['l4_addr']]},
-            {'data_keys': ['any', 'scid', 'channel', 'short_channel_id', 'in_channel'], 'original_value': c12, 'new_value': NEW_VALUES_LIST['c12']},
-            {'data_keys': ['netaddr'], 'original_value': [f'127.0.0.1:{l5.info["binding"][0]["port"]}'], 'new_value': [NEW_VALUES_LIST['l5_addr']]},
-            {'data_keys': ['netaddr'], 'original_value': [f'127.0.0.1:{l6.info["binding"][0]["port"]}'], 'new_value': [NEW_VALUES_LIST['l6_addr']]},
-            {'data_keys': ['txid', 'funding_txid'], 'original_value': c12res['txid'], 'new_value': NEW_VALUES_LIST['c12_txid']},
-            {'data_keys': ['channel_id', 'account'], 'original_value': c12res['channel_id'], 'new_value': NEW_VALUES_LIST['c12_channel_id']},
-            {'data_keys': ['scid', 'channel', 'short_channel_id', 'id', 'out_channel'], 'original_value': c23, 'new_value': NEW_VALUES_LIST['c23']},
-            {'data_keys': ['txid'], 'original_value': c23res['txid'], 'new_value': NEW_VALUES_LIST['c23_txid']},
-            {'data_keys': ['channel_id', 'account', 'origin', 'originating_account'], 'original_value': c23res['channel_id'], 'new_value': NEW_VALUES_LIST['c23_channel_id']},
-            {'data_keys': ['scid', 'channel', 'short_channel_id'], 'original_value': c34, 'new_value': NEW_VALUES_LIST['c34']},
-            {'data_keys': ['txid'], 'original_value': c34res['txid'], 'new_value': NEW_VALUES_LIST['c34_txid']},
-            {'data_keys': ['channel_id', 'account', 'origin'], 'original_value': c34res['channel_id'], 'new_value': NEW_VALUES_LIST['c34_channel_id']},
-            {'data_keys': ['scid', 'channel', 'short_channel_id', 'id'], 'original_value': c25, 'new_value': NEW_VALUES_LIST['c25']},
-            {'data_keys': ['channel_id', 'account'], 'original_value': c25res['channel_id'], 'new_value': NEW_VALUES_LIST['c25_channel_id']},
-            {'data_keys': ['tx'], 'original_value': upgrade_res2['tx'], 'new_value': NEW_VALUES_LIST['upgrade_tx']},
-            {'data_keys': ['txid'], 'original_value': upgrade_res2['txid'], 'new_value': NEW_VALUES_LIST['upgrade_txid']},
-            {'data_keys': ['initialpsbt', 'psbt', 'signed_psbt'], 'original_value': upgrade_res2['psbt'], 'new_value': NEW_VALUES_LIST['upgrade_psbt_1']},
-        ])
         return l1, l2, l3, l4, l5, l6, c12, c23, c25
     except Exception as e:
         logger.error(f'Error in setting up nodes: {e}')
@@ -548,13 +189,6 @@ def generate_transactions_examples(l1, l2, l3, l4, l5, c25, bitcoind):
         routehints = [[{
             'scid': scid,
             'id': l2.info['id'],
-            'feebase': '1msat',
-            'feeprop': 10,
-            'expirydelta': 9,
-        }]]
-        example_routehints = [[{
-            'scid': NEW_VALUES_LIST['c23'],
-            'id': NEW_VALUES_LIST['l2_id'],
             'feebase': '1msat',
             'feeprop': 10,
             'expirydelta': 9,
@@ -583,14 +217,11 @@ def generate_transactions_examples(l1, l2, l3, l4, l5, c25, bitcoind):
         inv = l4.rpc.invoice(amt, "lbl l4", "desc l4")
         first_hop = route[0]
         sendonion_hops = []
-        example_hops = []
         i = 1
         for h, n in zip(route[:-1], route[1:]):
             sendonion_hops.append({'pubkey': h['id'], 'payload': serialize_payload_tlv(amt, 18 + 6, n['channel'], blockheight).hex()})
-            example_hops.append({'pubkey': NEW_VALUES_LIST['l2_id'] if i == 1 else NEW_VALUES_LIST['l3_id'], 'payload': 'payload0' + ((str(i) + '0') * 13)})
             i += 1
         sendonion_hops.append({'pubkey': route[-1]['id'], 'payload': serialize_payload_final_tlv(amt, 18, amt, blockheight, inv['payment_secret']).hex()})
-        example_hops.append({'pubkey': NEW_VALUES_LIST['l4_id'], 'payload': 'payload0' + ((str(i) + '0') * 13)})
         onion_res1 = update_example(node=l1, method='createonion', params={'hops': sendonion_hops, 'assocdata': inv['payment_hash']})
         onion_res2 = update_example(node=l1, method='createonion', params={'hops': sendonion_hops, 'assocdata': inv['payment_hash'], 'session_key': '41' * 32})
         sendonion_res1 = update_example(node=l1, method='sendonion', params={'onion': onion_res1['onion'], 'first_hop': first_hop, 'payment_hash': inv['payment_hash']})
@@ -645,101 +276,6 @@ def generate_transactions_examples(l1, l2, l3, l4, l5, c25, bitcoind):
             'partid': 1,
             'groupid': 0})
         bip353_result = update_example(node=l1, method='fetchbip353', params={'address': 'send.some@satsto.me'}, description=['Example of fetching BIP-353 payment details.'])
-        REPLACE_RESPONSE_VALUES.extend([
-            {'data_keys': ['destination'], 'original_value': address_l41['bech32'], 'new_value': NEW_VALUES_LIST['destination_6']},
-            {'data_keys': ['tx'], 'original_value': close_res1['tx'], 'new_value': NEW_VALUES_LIST['close1_tx']},
-            {'data_keys': ['txs'], 'original_value': close_res1['txs'], 'new_value': [NEW_VALUES_LIST['close1_tx']]},
-            {'data_keys': ['txid', 'spending_txid'], 'original_value': close_res1['txid'], 'new_value': NEW_VALUES_LIST['close1_txid']},
-            {'data_keys': ['txids'], 'original_value': close_res1['txids'], 'new_value': [NEW_VALUES_LIST['close1_txid']]},
-            {'data_keys': ['tx'], 'original_value': close_res2['tx'], 'new_value': NEW_VALUES_LIST['close2_tx']},
-            {'data_keys': ['txs'], 'original_value': close_res2['txs'], 'new_value': [NEW_VALUES_LIST['close2_tx']]},
-            {'data_keys': ['txid'], 'original_value': close_res2['txid'], 'new_value': NEW_VALUES_LIST['close2_txid']},
-            {'data_keys': ['txids'], 'original_value': close_res2['txids'], 'new_value': [NEW_VALUES_LIST['close2_txid']]},
-            {'data_keys': ['any', 'bolt11'], 'original_value': createinv_res1['bolt11'], 'new_value': NEW_VALUES_LIST['bolt11_l21']},
-            {'data_keys': ['payment_hash'], 'original_value': createinv_res1['payment_hash'], 'new_value': NEW_VALUES_LIST['payment_hash_l21']},
-            {'data_keys': ['expires_at'], 'original_value': createinv_res1['expires_at'], 'new_value': NEW_VALUES_LIST['time_at_900']},
-            {'data_keys': ['payment_hash'], 'original_value': inv_l31['payment_hash'], 'new_value': NEW_VALUES_LIST['payment_hash_l31']},
-            {'data_keys': ['any', 'bolt11'], 'original_value': inv_l31['bolt11'], 'new_value': NEW_VALUES_LIST['bolt11_l31']},
-            {'data_keys': ['payment_secret'], 'original_value': inv_l31['payment_secret'], 'new_value': NEW_VALUES_LIST['payment_secret_l31']},
-            {'data_keys': ['expires_at'], 'original_value': inv_l31['expires_at'], 'new_value': NEW_VALUES_LIST['time_at_900']},
-            {'data_keys': ['payment_hash'], 'original_value': inv_l32['payment_hash'], 'new_value': 'paymenthashinvl0' + ('3200' * 12)},
-            {'data_keys': ['any', 'bolt11'], 'original_value': inv_l32['bolt11'], 'new_value': 'lnbcrt100n1pnt2' + ('bolt11invl032000000000' * 10)},
-            {'data_keys': ['payment_secret'], 'original_value': inv_l32['payment_secret'], 'new_value': 'paymentsecretinvl000' + ('3200' * 11)},
-            {'data_keys': ['expires_at'], 'original_value': inv_l32['expires_at'], 'new_value': NEW_VALUES_LIST['time_at_900']},
-            {'data_keys': ['payment_hash'], 'original_value': inv_l11['payment_hash'], 'new_value': NEW_VALUES_LIST['payment_hash_l11']},
-            {'data_keys': ['any', 'bolt11'], 'original_value': inv_l11['bolt11'], 'new_value': NEW_VALUES_LIST['bolt11_l11']},
-            {'data_keys': ['payment_secret'], 'original_value': inv_l11['payment_secret'], 'new_value': NEW_VALUES_LIST['payment_secret_l11']},
-            {'data_keys': ['expires_at'], 'original_value': inv_l11['expires_at'], 'new_value': NEW_VALUES_LIST['time_at_900']},
-            {'data_keys': ['payment_hash'], 'original_value': inv_l21['payment_hash'], 'new_value': NEW_VALUES_LIST['payment_hash_l21']},
-            {'data_keys': ['any', 'bolt11'], 'original_value': inv_l21['bolt11'], 'new_value': NEW_VALUES_LIST['bolt11_l21']},
-            {'data_keys': ['payment_hash'], 'original_value': inv_l22['payment_hash'], 'new_value': NEW_VALUES_LIST['payment_hash_l22']},
-            {'data_keys': ['any', 'bolt11'], 'original_value': inv_l22['bolt11'], 'new_value': NEW_VALUES_LIST['bolt11_l22']},
-            {'data_keys': ['payment_secret'], 'original_value': inv_l22['payment_secret'], 'new_value': NEW_VALUES_LIST['payment_secret_l22']},
-            {'data_keys': ['payment_hash'], 'original_value': inv_l33['payment_hash'], 'new_value': NEW_VALUES_LIST['payment_hash_l33']},
-            {'data_keys': ['any', 'bolt11'], 'original_value': inv_l33['bolt11'], 'new_value': NEW_VALUES_LIST['bolt11_l33']},
-            {'data_keys': ['payment_hash'], 'original_value': inv_l34['payment_hash'], 'new_value': NEW_VALUES_LIST['payment_hash_l34']},
-            {'data_keys': ['any', 'bolt11'], 'original_value': inv_l34['bolt11'], 'new_value': NEW_VALUES_LIST['bolt11_l34']},
-            {'data_keys': ['any', 'bolt11'], 'original_value': inv_l41['bolt11'], 'new_value': NEW_VALUES_LIST['bolt11_l41']},
-            {'data_keys': ['invstring'], 'original_value': inv_l14['invoice'], 'new_value': NEW_VALUES_LIST['invoice_3']},
-            {'data_keys': ['hops'], 'original_value': sendonion_hops, 'new_value': example_hops},
-            {'data_keys': ['any', 'assocdata'], 'original_value': inv['payment_hash'], 'new_value': NEW_VALUES_LIST['assocdata_1']},
-            {'data_keys': ['onion'], 'original_value': onion_res1['onion'], 'new_value': NEW_VALUES_LIST['onion_1']},
-            {'data_keys': ['shared_secrets'], 'original_value': onion_res1['shared_secrets'], 'new_value': NEW_VALUES_LIST['shared_secrets_1']},
-            {'data_keys': ['any', 'onion'], 'original_value': onion_res2['onion'], 'new_value': NEW_VALUES_LIST['onion_2']},
-            {'data_keys': ['shared_secrets'], 'original_value': onion_res2['shared_secrets'], 'new_value': NEW_VALUES_LIST['shared_secrets_2']},
-            {'data_keys': ['onion'], 'original_value': onion_res3['onion'], 'new_value': NEW_VALUES_LIST['onion_3']},
-            {'data_keys': ['any', 'bolt11'], 'original_value': inv_l27['bolt11'], 'new_value': NEW_VALUES_LIST['bolt11_l27']},
-            {'data_keys': ['payment_hash'], 'original_value': inv_l27['payment_hash'], 'new_value': NEW_VALUES_LIST['payment_hash_l27']},
-            {'data_keys': ['payment_preimage'], 'original_value': injectpaymentonion_res1['payment_preimage'], 'new_value': NEW_VALUES_LIST['payment_preimage_io_1']},
-            {'data_keys': ['created_at'], 'original_value': injectpaymentonion_res1['created_at'], 'new_value': NEW_VALUES_LIST['time_at_800']},
-            {'data_keys': ['completed_at'], 'original_value': injectpaymentonion_res1['completed_at'], 'new_value': NEW_VALUES_LIST['time_at_900']},
-            {'data_keys': ['id', 'scid', 'channel', 'short_channel_id', 'out_channel'], 'original_value': c23_2, 'new_value': NEW_VALUES_LIST['c23_2']},
-            {'data_keys': ['txid'], 'original_value': c23res2['txid'], 'new_value': NEW_VALUES_LIST['c23_2_txid']},
-            {'data_keys': ['any', 'channel_id', 'account'], 'original_value': c23res2['channel_id'], 'new_value': NEW_VALUES_LIST['c23_2_channel_id']},
-            {'data_keys': ['scid', 'channel', 'short_channel_id'], 'original_value': c34_2, 'new_value': NEW_VALUES_LIST['c34_2']},
-            {'data_keys': ['txid'], 'original_value': c34res2['txid'], 'new_value': NEW_VALUES_LIST['c34_2_txid']},
-            {'data_keys': ['channel_id', 'account'], 'original_value': c34res2['channel_id'], 'new_value': NEW_VALUES_LIST['c34_2_channel_id']},
-            {'data_keys': ['any', 'bolt11'], 'original_value': inv_l12['bolt11'], 'new_value': NEW_VALUES_LIST['bolt11_l12']},
-            {'data_keys': ['payment_hash'], 'original_value': inv_l24['payment_hash'], 'new_value': NEW_VALUES_LIST['payment_hash_l24']},
-            {'data_keys': ['any', 'bolt11'], 'original_value': inv_l24['bolt11'], 'new_value': NEW_VALUES_LIST['bolt11_l24']},
-            {'data_keys': ['expires_at'], 'original_value': inv_l24['expires_at'], 'new_value': NEW_VALUES_LIST['time_at_900']},
-            {'data_keys': ['payment_hash'], 'original_value': inv_l25['payment_hash'], 'new_value': NEW_VALUES_LIST['payment_hash_l25']},
-            {'data_keys': ['any', 'bolt11'], 'original_value': inv_l25['bolt11'], 'new_value': NEW_VALUES_LIST['bolt11_l25']},
-            {'data_keys': ['payment_hash'], 'original_value': inv_l26['payment_hash'], 'new_value': NEW_VALUES_LIST['payment_hash_l26']},
-            {'data_keys': ['any', 'bolt11'], 'original_value': inv_l26['bolt11'], 'new_value': NEW_VALUES_LIST['bolt11_l26']},
-            {'data_keys': ['any', 'invstring', 'bolt11'], 'original_value': inv_l13['bolt11'], 'new_value': NEW_VALUES_LIST['bolt11_l13']},
-            {'data_keys': ['invreq_id'], 'original_value': inv_req['invreq_id'], 'new_value': NEW_VALUES_LIST['invreq_id_1']},
-            {'data_keys': ['any', 'bolt12', 'invreq'], 'original_value': inv_req['bolt12'], 'new_value': NEW_VALUES_LIST['bolt12_l21']},
-            {'data_keys': ['payment_hash'], 'original_value': keysend_res1['payment_hash'], 'new_value': NEW_VALUES_LIST['payment_hash_key_1']},
-            {'data_keys': ['created_at'], 'original_value': keysend_res1['created_at'], 'new_value': NEW_VALUES_LIST['time_at_800']},
-            {'data_keys': ['payment_preimage'], 'original_value': keysend_res1['payment_preimage'], 'new_value': NEW_VALUES_LIST['payment_preimage_1']},
-            {'data_keys': ['payment_hash'], 'original_value': keysend_res2['payment_hash'], 'new_value': NEW_VALUES_LIST['payment_hash_key_2']},
-            {'data_keys': ['created_at'], 'original_value': keysend_res2['created_at'], 'new_value': NEW_VALUES_LIST['time_at_800']},
-            {'data_keys': ['payment_preimage'], 'original_value': keysend_res2['payment_preimage'], 'new_value': NEW_VALUES_LIST['payment_preimage_2']},
-            {'data_keys': ['payment_hash'], 'original_value': keysend_res3['payment_hash'], 'new_value': NEW_VALUES_LIST['payment_hash_key_3']},
-            {'data_keys': ['created_at'], 'original_value': keysend_res3['created_at'], 'new_value': NEW_VALUES_LIST['time_at_800']},
-            {'data_keys': ['payment_preimage'], 'original_value': keysend_res3['payment_preimage'], 'new_value': NEW_VALUES_LIST['payment_preimage_3']},
-            {'data_keys': ['routehints'], 'original_value': routehints, 'new_value': example_routehints},
-            {'data_keys': ['created_at'], 'original_value': pay_res1['created_at'], 'new_value': NEW_VALUES_LIST['time_at_800']},
-            {'data_keys': ['payment_preimage'], 'original_value': pay_res1['payment_preimage'], 'new_value': NEW_VALUES_LIST['payment_preimage_ep_1']},
-            {'data_keys': ['created_at'], 'original_value': pay_res2['created_at'], 'new_value': NEW_VALUES_LIST['time_at_800']},
-            {'data_keys': ['payment_preimage'], 'original_value': pay_res2['payment_preimage'], 'new_value': NEW_VALUES_LIST['payment_preimage_ep_2']},
-            {'data_keys': ['any', 'bolt12', 'invreq'], 'original_value': sendinvoice_res1['bolt12'], 'new_value': NEW_VALUES_LIST['bolt12_si_1']},
-            {'data_keys': ['payment_hash'], 'original_value': sendinvoice_res1['payment_hash'], 'new_value': NEW_VALUES_LIST['payment_hash_si_1']},
-            {'data_keys': ['payment_preimage'], 'original_value': sendinvoice_res1['payment_preimage'], 'new_value': NEW_VALUES_LIST['payments_preimage_i_1']},
-            {'data_keys': ['paid_at'], 'original_value': sendinvoice_res1['paid_at'], 'new_value': NEW_VALUES_LIST['time_at_850']},
-            {'data_keys': ['expires_at'], 'original_value': sendinvoice_res1['expires_at'], 'new_value': NEW_VALUES_LIST['time_at_900']},
-            {'data_keys': ['created_at'], 'original_value': sendonion_res1['created_at'], 'new_value': NEW_VALUES_LIST['time_at_800']},
-            {'data_keys': ['created_at'], 'original_value': sendpay_res1['created_at'], 'new_value': NEW_VALUES_LIST['time_at_800']},
-            {'data_keys': ['any', 'bolt11'], 'original_value': signinv_res1['bolt11'], 'new_value': NEW_VALUES_LIST['bolt11_l66']},
-            {'data_keys': ['any', 'bolt11'], 'original_value': signinv_res2['bolt11'], 'new_value': NEW_VALUES_LIST['bolt11_l67']},
-            {'data_keys': ['payment_preimage'], 'original_value': waitsendpay_res1['payment_preimage'], 'new_value': NEW_VALUES_LIST['payments_preimage_w_1']},
-            {'data_keys': ['created_at'], 'original_value': waitsendpay_res1['created_at'], 'new_value': NEW_VALUES_LIST['time_at_800']},
-            {'data_keys': ['completed_at'], 'original_value': waitsendpay_res1['completed_at'], 'new_value': NEW_VALUES_LIST['time_at_900']},
-            {'data_keys': ['payment_preimage'], 'original_value': xpay_res1['payment_preimage'], 'new_value': NEW_VALUES_LIST['payment_preimage_xp_1']},
-            {'data_keys': ['payment_preimage'], 'original_value': xpay_res2['payment_preimage'], 'new_value': NEW_VALUES_LIST['payment_preimage_xp_2']},
-            {'data_keys': ['proof'], 'original_value': bip353_result['proof'], 'new_value': NEW_VALUES_LIST['proof_1']},
-        ])
         logger.info('Simple Transactions Done!')
         return c23_2, c23res2, c34_2, inv_l11, inv_l21, inv_l22, inv_l31, inv_l32, inv_l34
     except Exception as e:
@@ -795,16 +331,6 @@ def generate_runes_examples(l1, l2, l3):
         update_example(node=l2, method='blacklistrune', params={'start': 3, 'relist': True},
                        description=['This undoes the blacklisting of rune 3 only'])
 
-        REPLACE_RESPONSE_VALUES.extend([
-            {'data_keys': ['last_used'], 'original_value': showrunes_res1['runes'][0]['last_used'], 'new_value': NEW_VALUES_LIST['time_at_800']},
-            {'data_keys': ['last_used'], 'original_value': showrunes_res2['runes'][1]['last_used'], 'new_value': NEW_VALUES_LIST['time_at_800']},
-            {'data_keys': ['last_used'], 'original_value': showrunes_res2['runes'][2]['last_used'], 'new_value': NEW_VALUES_LIST['time_at_800']},
-            {'data_keys': ['any', 'bolt11'], 'original_value': inv_l23['bolt11'], 'new_value': NEW_VALUES_LIST['bolt11_l23']},
-            {'data_keys': ['p2tr'], 'original_value': commando_res1['p2tr'], 'new_value': NEW_VALUES_LIST['destination_7']},
-            {'data_keys': ['created_at'], 'original_value': commando_res3['created_at'], 'new_value': NEW_VALUES_LIST['time_at_800']},
-            {'data_keys': ['payment_hash'], 'original_value': commando_res3['payment_hash'], 'new_value': NEW_VALUES_LIST['payment_hash_cmd_pay_1']},
-            {'data_keys': ['payment_preimage'], 'original_value': commando_res3['payment_preimage'], 'new_value': NEW_VALUES_LIST['payment_preimage_cmd_1']},
-        ])
         logger.info('Runes Done!')
         return rune_l21
     except Exception as e:
@@ -874,99 +400,13 @@ def generate_bookkeeper_examples(l2, l3, c23_2_chan_id):
 
         bkprlistaccountevents_res1 = l3.rpc.bkpr_listaccountevents(c23_2_chan_id)
         bkprlistaccountevents_res1['events'] = [next((event for event in bkprlistaccountevents_res1['events'] if event['tag'] == 'channel_open'), None)]
-        bkprlistaccountevents_res1 = update_list_responses(bkprlistaccountevents_res1, list_key='events')
         update_example(node=l3, method='bkpr-listaccountevents', params=[c23_2_chan_id], response=bkprlistaccountevents_res1)
         bkprlistaccountevents_res2 = l3.rpc.bkpr_listaccountevents()
-        external_event = None
-        wallet_event = None
-        channel_event = None
-        for bkprevent in bkprlistaccountevents_res2['events']:
-            event_seleted = None
-            if wallet_event is None and bkprevent['account'] == 'wallet':
-                bkprevent['blockheight'] = 141
-                wallet_event = bkprevent
-                event_seleted = '01'
-            elif external_event is None and bkprevent['account'] == 'external' and bkprevent['origin'] == next((value['original_value'] for value in REPLACE_RESPONSE_VALUES if value['new_value'] == NEW_VALUES_LIST['c34_channel_id']), None):
-                bkprevent['blockheight'] = 142
-                external_event = bkprevent
-                event_seleted = '02'
-            elif channel_event is None and bkprevent['account'] not in ['external', 'wallet']:
-                bkprevent['blockheight'] = 143
-                channel_event = bkprevent
-                event_seleted = '03'
-            if event_seleted is not None:
-                bkpr_new_values = [
-                    {'data_keys': ['timestamp'], 'original_value': bkprevent['timestamp'], 'new_value': NEW_VALUES_LIST['time_at_850'] + (int(event_seleted) * 10000)},
-                ]
-                if 'debit_msat' in bkprevent and bkprevent['debit_msat'] > 0:
-                    bkpr_new_values.extend([
-                        {'data_keys': ['debit_msat'], 'original_value': bkprevent['debit_msat'], 'new_value': 200000000000},
-                    ])
-                if 'txid' in bkprevent:
-                    bkpr_new_values.extend([
-                        {'data_keys': ['txid'], 'original_value': bkprevent['txid'], 'new_value': 'txidbk' + (event_seleted * 29)},
-                    ])
-                if 'outpoint' in bkprevent:
-                    bkpr_new_values.extend([
-                        {'data_keys': ['outpoint'], 'original_value': bkprevent['outpoint'], 'new_value': 'txidbk' + (event_seleted * 29) + ':1'},
-                    ])
-                if 'payment_id' in bkprevent:
-                    bkpr_new_values.extend([
-                        {'data_keys': ['payment_id'], 'original_value': bkprevent['payment_id'], 'new_value': 'paymentidbk0' + (event_seleted * 26)},
-                    ])
-                REPLACE_RESPONSE_VALUES.extend(bkpr_new_values)
-            if wallet_event and external_event and channel_event:
-                break
-        bkprlistaccountevents_res2['events'] = [event for event in [external_event, wallet_event, channel_event] if event is not None]
         update_example(node=l3, method='bkpr-listaccountevents', params={}, response=bkprlistaccountevents_res2)
         bkprlistincome_res1 = l3.rpc.bkpr_listincome(consolidate_fees=False)
-        bkprlistincome_res1 = update_list_responses(bkprlistincome_res1, list_key='income_events', slice_upto=4, update_func=lambda x, i: x.update({
-            **({'timestamp': NEW_VALUES_LIST['time_at_850'] + (i * 10000)} if 'timestamp' in x else {}),
-            **({'payment_id': 'paymentid000' + (f"{i:02}" * 26)} if 'payment_id' in x else {}),
-            **({'outpoint': 'txidbk' + (f"{i:02}" * 29) + ':1'} if 'outpoint' in x else {})}), sort=True, sort_key='tag')
         update_example(node=l3, method='bkpr-listincome', params={'consolidate_fees': False}, response=bkprlistincome_res1)
         bkprlistincome_res2 = l3.rpc.bkpr_listincome()
-        deposit_income = None
-        invoice_income = None
-        fee_income = None
-        for bkprincome in bkprlistincome_res2['income_events']:
-            income_seleted = None
-            if deposit_income is None and bkprincome['tag'] == 'deposit':
-                deposit_income = bkprincome
-                income_seleted = 1
-            elif invoice_income is None and bkprincome['tag'] == 'invoice':
-                invoice_income = bkprincome
-                income_seleted = 2
-            elif fee_income is None and bkprincome['tag'] == 'onchain_fee' and bkprincome['txid'] == next((value['original_value'] for value in REPLACE_RESPONSE_VALUES if value['new_value'] == NEW_VALUES_LIST['c34_2_txid']), None):
-                fee_income = bkprincome
-                income_seleted = 3
-            if income_seleted is not None:
-                REPLACE_RESPONSE_VALUES.extend([
-                    {'data_keys': ['timestamp'], 'original_value': bkprincome['timestamp'], 'new_value': NEW_VALUES_LIST['time_at_850'] + (income_seleted * 10000)},
-                ])
-                if 'debit_msat' in bkprincome and bkprincome['debit_msat'] > 0:
-                    REPLACE_RESPONSE_VALUES.extend([
-                        {'data_keys': ['debit_msat'], 'original_value': bkprincome['debit_msat'], 'new_value': 6960000},
-                    ])
-                if 'payment_id' in bkprincome:
-                    REPLACE_RESPONSE_VALUES.extend([
-                        {'data_keys': ['payment_id'], 'original_value': bkprincome['payment_id'], 'new_value': 'paymentid000' + (f"{income_seleted:02}" * 26)},
-                    ])
-                if 'outpoint' in bkprincome:
-                    REPLACE_RESPONSE_VALUES.extend([
-                        {'data_keys': ['outpoint'], 'original_value': bkprincome['outpoint'], 'new_value': 'txidbk' + (f"{income_seleted:02}" * 29) + ':1'},
-                    ])
-            if deposit_income and invoice_income and fee_income:
-                break
-        bkprlistincome_res2['income_events'] = [income for income in [deposit_income, invoice_income, fee_income] if income is not None]
         update_example(node=l3, method='bkpr-listincome', params={}, response=bkprlistincome_res2)
-        REPLACE_RESPONSE_VALUES.extend([
-            {'data_keys': ['balance_msat'], 'original_value': bkprlistbal_res1['accounts'][0]['balances'][0]['balance_msat'], 'new_value': NEW_VALUES_LIST['balance_msat_1']},
-            {'data_keys': ['fees_paid_msat'], 'original_value': bkprinspect_res1['txs'][0]['fees_paid_msat'], 'new_value': NEW_VALUES_LIST['fees_paid_msat_1']},
-            {'data_keys': ['timestamp'], 'original_value': bkprlistaccountevents_res1['events'][0]['timestamp'], 'new_value': NEW_VALUES_LIST['time_at_850']},
-            {'data_keys': ['outpoint'], 'original_value': bkprlistaccountevents_res1['events'][0]['outpoint'], 'new_value': 'txidbk' + ('01' * 29) + ':1'},
-            {'data_keys': ['blockheight'], 'original_value': editdescriptionbyoutpoint_res1['updated'][0]['blockheight'], 'new_value': NEW_VALUES_LIST['blockheight_110']},
-        ])
         logger.info('Bookkeeper Done!')
     except Exception as e:
         logger.error(f'Error in generating bookkeeper examples: {e}')
@@ -1008,22 +448,6 @@ def generate_offers_renepay_examples(l1, l2, inv_l21, inv_l34):
         renepay_res1 = update_example(node=l1, method='renepay', params={'invstring': inv_l21['bolt11'], 'amount_msat': 400000})
         renepay_res2 = update_example(node=l2, method='renepay', params={'invstring': inv_l34['bolt11']})
         update_example(node=l1, method='renepaystatus', params={'invstring': inv_l21['bolt11']})
-        REPLACE_RESPONSE_VALUES.extend([
-            {'data_keys': ['offer_id'], 'original_value': offer_l21['offer_id'], 'new_value': NEW_VALUES_LIST['offerid_l21']},
-            {'data_keys': ['any', 'bolt12', 'invreq'], 'original_value': offer_l21['bolt12'], 'new_value': NEW_VALUES_LIST['bolt12_l21']},
-            {'data_keys': ['offer_id'], 'original_value': offer_l22['offer_id'], 'new_value': NEW_VALUES_LIST['offerid_l22']},
-            {'data_keys': ['any', 'bolt12', 'invreq'], 'original_value': offer_l22['bolt12'], 'new_value': NEW_VALUES_LIST['bolt12_l22']},
-            {'data_keys': ['any', 'offer_id'], 'original_value': offer_l23['offer_id'], 'new_value': NEW_VALUES_LIST['offerid_l23']},
-            {'data_keys': ['any', 'bolt12', 'invreq'], 'original_value': offer_l23['bolt12'], 'new_value': NEW_VALUES_LIST['bolt12_l23']},
-            {'data_keys': ['invreq_id'], 'original_value': inv_req_l1_l22['invreq_id'], 'new_value': NEW_VALUES_LIST['invreq_id_2']},
-            {'data_keys': ['any', 'bolt12', 'invreq'], 'original_value': disableinv_res1['bolt12'], 'new_value': NEW_VALUES_LIST['bolt12_l24']},
-            {'data_keys': ['invoice'], 'original_value': fetchinv_res1['invoice'], 'new_value': NEW_VALUES_LIST['invoice_1']},
-            {'data_keys': ['invoice'], 'original_value': fetchinv_res2['invoice'], 'new_value': NEW_VALUES_LIST['invoice_2']},
-            {'data_keys': ['created_at'], 'original_value': renepay_res1['created_at'], 'new_value': NEW_VALUES_LIST['time_at_800']},
-            {'data_keys': ['payment_preimage'], 'original_value': renepay_res1['payment_preimage'], 'new_value': NEW_VALUES_LIST['payment_preimage_r_1']},
-            {'data_keys': ['created_at'], 'original_value': renepay_res2['created_at'], 'new_value': NEW_VALUES_LIST['time_at_800']},
-            {'data_keys': ['payment_preimage'], 'original_value': renepay_res2['payment_preimage'], 'new_value': NEW_VALUES_LIST['payment_preimage_r_2']},
-        ])
         logger.info('Offers and Renepay Done!')
         return offer_l23, inv_req_l1_l22
     except Exception as e:
@@ -1063,16 +487,9 @@ def generate_askrene_examples(l1, l2, l3, c12, c23_2):
         update_example(node=l1, method='askrene-reserve', params={'path': [{'short_channel_id_dir': scid12dir, 'amount_msat': 1250_000_000_000}, {'short_channel_id_dir': scid23dir, 'amount_msat': 1250_000_000_000}]})
         time.sleep(2)
         askrene_listreservations_res1 = l1.rpc.askrene_listreservations()
-        askrene_listreservations_res1 = update_list_responses(askrene_listreservations_res1, list_key='reservations', slice_upto=5, update_func=lambda x, i: REPLACE_RESPONSE_VALUES.extend([{'data_keys': ['command_id'], 'original_value': x['command_id'], 'new_value': f'\"-c:askrene-reserve#6{(i + 1) * 2}/cln:askrene-reserve#12{(i + 1) * 2}\"'}]), sort=True, sort_key='amount_msat')
         update_example(node=l1, method='askrene-listreservations', params={}, response=askrene_listreservations_res1)
         update_example(node=l1, method='askrene-unreserve', params={'path': [{'short_channel_id_dir': scid12dir, 'amount_msat': 1250_000}, {'short_channel_id_dir': scid23dir, 'amount_msat': 1250_001}]})
         update_example(node=l1, method='askrene-unreserve', params={'path': [{'short_channel_id_dir': scid12dir, 'amount_msat': 1250_000_000_000}, {'short_channel_id_dir': scid23dir, 'amount_msat': 1250_000_000_000}]})
-        REPLACE_RESPONSE_VALUES.extend([
-            {'data_keys': ['any', 'short_channel_id_dir'], 'original_value': scid12dir, 'new_value': f"{NEW_VALUES_LIST['c12']}/{direction12}"},
-            {'data_keys': ['short_channel_id_dir'], 'original_value': scid23dir, 'new_value': f"{NEW_VALUES_LIST['c23_2']}/{direction23}"},
-            {'data_keys': ['cutoff'], 'original_value': ts1 + 1, 'new_value': NEW_VALUES_LIST['time_at_800']},
-            {'data_keys': ['timestamp'], 'original_value': askrene_inform_channel_res1['constraints'][0]['timestamp'], 'new_value': NEW_VALUES_LIST['time_at_800']},
-        ])
         logger.info('Askrene Done!')
     except Exception as e:
         logger.error(f'Error in generating askrene examples: {e}')
@@ -1142,23 +559,6 @@ def generate_wait_examples(l1, l2, bitcoind, executor):
         sync_blockheight(bitcoind, [l2])
         wbhres = wbh.result(5)
         update_example(node=l2, method='waitblockheight', params={'blockheight': curr_blockheight + 1, 'timeout': 600}, response=wbhres, description=[f'This will return after the next block is mined because requested waitblockheight is one block higher than the current blockheight.'])
-        REPLACE_RESPONSE_VALUES.extend([
-            {'data_keys': ['payment_hash'], 'original_value': wspc_res['details']['payment_hash'], 'new_value': NEW_VALUES_LIST['payment_hash_wspc_1']},
-            {'data_keys': ['paid_at'], 'original_value': waires['paid_at'], 'new_value': NEW_VALUES_LIST['time_at_850']},
-            {'data_keys': ['expires_at'], 'original_value': waires['expires_at'], 'new_value': NEW_VALUES_LIST['time_at_900']},
-            {'data_keys': ['paid_at'], 'original_value': wai_pay_index_res['paid_at'], 'new_value': NEW_VALUES_LIST['time_at_850']},
-            {'data_keys': ['expires_at'], 'original_value': wai_pay_index_res['expires_at'], 'new_value': NEW_VALUES_LIST['time_at_900']},
-            {'data_keys': ['bolt11'], 'original_value': wi2res['bolt11'], 'new_value': NEW_VALUES_LIST['bolt11_wt_1']},
-            {'data_keys': ['payment_hash'], 'original_value': wi2res['payment_hash'], 'new_value': NEW_VALUES_LIST['payment_hash_winv_1']},
-            {'data_keys': ['payment_preimage'], 'original_value': wi2res['payment_preimage'], 'new_value': NEW_VALUES_LIST['payment_preimage_wi_1']},
-            {'data_keys': ['paid_at'], 'original_value': wi2res['paid_at'], 'new_value': NEW_VALUES_LIST['time_at_850']},
-            {'data_keys': ['expires_at'], 'original_value': wi2res['expires_at'], 'new_value': NEW_VALUES_LIST['time_at_900']},
-            {'data_keys': ['bolt11'], 'original_value': wi3res['bolt11'], 'new_value': NEW_VALUES_LIST['bolt11_wt_2']},
-            {'data_keys': ['payment_hash'], 'original_value': wi3res['payment_hash'], 'new_value': NEW_VALUES_LIST['payment_hash_winv_2']},
-            {'data_keys': ['payment_preimage'], 'original_value': wi3res['payment_preimage'], 'new_value': NEW_VALUES_LIST['payment_preimage_wi_2']},
-            {'data_keys': ['paid_at'], 'original_value': wi3res['paid_at'], 'new_value': NEW_VALUES_LIST['time_at_850']},
-            {'data_keys': ['expires_at'], 'original_value': wi3res['expires_at'], 'new_value': NEW_VALUES_LIST['time_at_900']},
-        ])
         logger.info('Wait Done!')
     except Exception as e:
         logger.error(f'Error in generating wait examples: {e}')
@@ -1203,7 +603,6 @@ def generate_utils_examples(l1, l2, l3, l4, l5, l6, c23_2, c34_2, inv_l11, inv_l
 
         funds_l2 = l2.rpc.listfunds()
         utxos = [f"{funds_l2['outputs'][2]['txid']}:{funds_l2['outputs'][2]['output']}"]
-        example_utxos = ['utxo' + ('02' * 30) + ':1']
         withdraw_l22 = update_example(node=l2, method='withdraw', params={'destination': address_l22['p2tr'], 'satoshi': 'all', 'feerate': '20000perkb', 'minconf': 0, 'utxos': utxos})
         bitcoind.generate_block(4, wait_for_mempool=[withdraw_l22['txid']])
         multiwithdraw_res1 = update_example(node=l2, method='multiwithdraw', params={'outputs': [{l1.rpc.newaddr()['bech32']: '2222000msat'}, {l1.rpc.newaddr()['bech32']: '3333000msat'}]})
@@ -1258,53 +657,13 @@ def generate_utils_examples(l1, l2, l3, l4, l5, l6, c23_2, c34_2, inv_l11, inv_l
         update_example(node=l1, method='sql', params={'query': 'SELECT id FROM peers'}, description=['A simple peers selection query:'])
         update_example(node=l1, method='sql', params=[f"SELECT label, description, status FROM invoices WHERE label='label inv_l12'"], description=["A statement containing `=` needs `-o` in shell:"])
         sql_res3 = l1.rpc.sql(f"SELECT nodeid FROM nodes WHERE nodeid != x'{l3.info['id']}'")
-        update_example(node=l1, method='sql', params=[f"SELECT nodeid FROM nodes WHERE nodeid != x'{NEW_VALUES_LIST['l3_id']}'"], description=['If you want to get specific nodeid values from the nodes table:'], response=sql_res3)
+        update_example(node=l1, method='sql', params=[f"SELECT nodeid FROM nodes WHERE nodeid != x'{l3.info['id']}'"], description=['If you want to get specific nodeid values from the nodes table:'], response=sql_res3)
         sql_res4 = l1.rpc.sql(f"SELECT nodeid FROM nodes WHERE nodeid IN (x'{l1.info['id']}', x'{l3.info['id']}')")
-        update_example(node=l1, method='sql', params=[f"SELECT nodeid FROM nodes WHERE nodeid IN (x'{NEW_VALUES_LIST['l1_id']}', x'{NEW_VALUES_LIST['l3_id']}')"], description=["If you want to compare a BLOB column, `x'hex'` or `X'hex'` are needed:"], response=sql_res4)
+        update_example(node=l1, method='sql', params=[f"SELECT nodeid FROM nodes WHERE nodeid IN (x'{l1.info['id']}', x'{l3.info['id']}')"], description=["If you want to compare a BLOB column, `x'hex'` or `X'hex'` are needed:"], response=sql_res4)
         update_example(node=l1, method='sql', params=['SELECT peer_id, to_us_msat, total_msat, peerchannels_status.status FROM peerchannels INNER JOIN peerchannels_status ON peerchannels_status.row = peerchannels.rowid'], description=['Related tables are usually referenced by JOIN:'])
         update_example(node=l2, method='sql', params=['SELECT COUNT(*) FROM forwards'], description=["Simple function usage, in this case COUNT. Strings inside arrays need \", and ' to protect them from the shell:"])
         update_example(node=l1, method='sql', params=['SELECT * from peerchannels_features'])
         example_log = getlog_res1['log']
-        for i, log_entry in enumerate(example_log):
-            if 'num_skipped' in log_entry:
-                log_entry['num_skipped'] = 144 + i
-            if 'time' in log_entry:
-                log_entry['time'] = f"{70.8 + i}00000000"
-            if 'node_id' in log_entry:
-                log_entry['node_id'] = 'nodeid' + ('01' * 30)
-            if log_entry.get('log', '').startswith('No peer channel with'):
-                log_entry['log'] = 'No peer channel with scid=228x1x1'
-        REPLACE_RESPONSE_VALUES.extend([
-            {'data_keys': ['any', 'psbt', 'initialpsbt'], 'original_value': psbtoutput_res1['psbt'], 'new_value': NEW_VALUES_LIST['init_psbt_1']},
-            {'data_keys': ['any', 'psbt', 'initialpsbt'], 'original_value': psbtoutput_res2['psbt'], 'new_value': NEW_VALUES_LIST['init_psbt_2']},
-            {'data_keys': ['any', 'psbt', 'initialpsbt'], 'original_value': psbtoutput_res3['psbt'], 'new_value': NEW_VALUES_LIST['init_psbt_3']},
-            {'data_keys': ['destination'], 'original_value': dest, 'new_value': NEW_VALUES_LIST['destination_1']},
-            {'data_keys': ['created_at'], 'original_value': decode_res2['created_at'], 'new_value': NEW_VALUES_LIST['time_at_800']},
-            {'data_keys': ['signature'], 'original_value': decode_res2['signature'], 'new_value': NEW_VALUES_LIST['signature_1']},
-            {'data_keys': ['short_channel_id'], 'original_value': decode_res2['routes'][0][0]['short_channel_id'], 'new_value': NEW_VALUES_LIST['c23']},
-            {'data_keys': ['created_at'], 'original_value': decodepay_res1['created_at'], 'new_value': NEW_VALUES_LIST['time_at_800']},
-            {'data_keys': ['signature'], 'original_value': decodepay_res1['signature'], 'new_value': NEW_VALUES_LIST['signature_2']},
-            {'data_keys': ['tx'], 'original_value': multiwithdraw_res1['tx'], 'new_value': NEW_VALUES_LIST['tx_55']},
-            {'data_keys': ['txid'], 'original_value': multiwithdraw_res1['txid'], 'new_value': NEW_VALUES_LIST['txid_55']},
-            {'data_keys': ['tx'], 'original_value': multiwithdraw_res2['tx'], 'new_value': NEW_VALUES_LIST['tx_56']},
-            {'data_keys': ['txid'], 'original_value': multiwithdraw_res2['txid'], 'new_value': NEW_VALUES_LIST['txid_56']},
-            {'data_keys': ['psbt'], 'original_value': signed_psbt, 'new_value': NEW_VALUES_LIST['psbt_1']},
-            {'data_keys': ['tx', 'hash'], 'original_value': sendpsbt_res1['tx'], 'new_value': NEW_VALUES_LIST['tx_61']},
-            {'data_keys': ['txid'], 'original_value': sendpsbt_res1['txid'], 'new_value': NEW_VALUES_LIST['txid_61']},
-            {'data_keys': ['destination'], 'original_value': address_l21['bech32'], 'new_value': NEW_VALUES_LIST['destination_2']},
-            {'data_keys': ['destination'], 'original_value': address_l22['p2tr'], 'new_value': NEW_VALUES_LIST['destination_3']},
-            {'data_keys': ['utxos'], 'original_value': utxos, 'new_value': example_utxos},
-            {'data_keys': ['tx'], 'original_value': withdraw_l21['tx'], 'new_value': NEW_VALUES_LIST['tx_91']},
-            {'data_keys': ['txid'], 'original_value': withdraw_l21['txid'], 'new_value': NEW_VALUES_LIST['withdraw_txid_l21']},
-            {'data_keys': ['psbt'], 'original_value': withdraw_l21['psbt'], 'new_value': NEW_VALUES_LIST['psbt_7']},
-            {'data_keys': ['tx'], 'original_value': withdraw_l22['tx'], 'new_value': NEW_VALUES_LIST['tx_92']},
-            {'data_keys': ['txid'], 'original_value': withdraw_l22['txid'], 'new_value': NEW_VALUES_LIST['withdraw_txid_l22']},
-            {'data_keys': ['psbt'], 'original_value': withdraw_l22['psbt'], 'new_value': NEW_VALUES_LIST['psbt_8']},
-            {'data_keys': ['created_at'], 'original_value': getlog_res1['created_at'], 'new_value': NEW_VALUES_LIST['time_at_800']},
-            {'data_keys': ['bytes_used'], 'original_value': getlog_res1['bytes_used'], 'new_value': NEW_VALUES_LIST['bytes_used']},
-            {'data_keys': ['bytes_max'], 'original_value': getlog_res1['bytes_max'], 'new_value': NEW_VALUES_LIST['bytes_max']},
-            {'data_keys': ['log'], 'original_value': getlog_res1['log'], 'new_value': example_log},
-        ])
         logger.info('General Utils Done!')
         return address_l22
     except Exception as e:
@@ -1362,24 +721,6 @@ def generate_splice_examples(node_factory, bitcoind):
         spsigned_res2 = update_example(node=l7, method='splice_signed', params={'channel_id': chan_id_78, 'psbt': spupdate2_res2['psbt']})
         update_example(node=l7, method='stop', params={})
 
-        REPLACE_RESPONSE_VALUES.extend([
-            {'data_keys': ['any', 'channel_id', 'account'], 'original_value': chan_id_78, 'new_value': NEW_VALUES_LIST['c78_channel_id']},
-            {'data_keys': ['any', 'psbt'], 'original_value': spinit_res1['psbt'], 'new_value': NEW_VALUES_LIST['psbt_1']},
-            {'data_keys': ['any', 'psbt'], 'original_value': spinit_res2['psbt'], 'new_value': NEW_VALUES_LIST['psbt_2']},
-            {'data_keys': ['any', 'initialpsbt', 'psbt'], 'original_value': funds_result_1['psbt'], 'new_value': NEW_VALUES_LIST['psbt_3']},
-            {'data_keys': ['any', 'initialpsbt', 'psbt'], 'original_value': funds_result_2['psbt'], 'new_value': NEW_VALUES_LIST['psbt_4']},
-            {'data_keys': ['psbt'], 'original_value': spupdate2_res1['psbt'], 'new_value': NEW_VALUES_LIST['psbt_5_2']},
-            {'data_keys': ['tx'], 'original_value': spsigned_res1['tx'], 'new_value': NEW_VALUES_LIST['send_tx_1']},
-            {'data_keys': ['txid'], 'original_value': spsigned_res1['txid'], 'new_value': NEW_VALUES_LIST['send_txid_1']},
-            {'data_keys': ['psbt'], 'original_value': spsigned_res1['psbt'], 'new_value': NEW_VALUES_LIST['psbt_1']},
-            {'data_keys': ['tx'], 'original_value': spsigned_res2['tx'], 'new_value': NEW_VALUES_LIST['send_tx_2']},
-            {'data_keys': ['txid'], 'original_value': spsigned_res2['txid'], 'new_value': NEW_VALUES_LIST['send_txid_2']},
-            {'data_keys': ['psbt'], 'original_value': spsigned_res2['psbt'], 'new_value': NEW_VALUES_LIST['psbt_2']},
-            {'data_keys': ['psbt'], 'original_value': signpsbt_res1['signed_psbt'], 'new_value': NEW_VALUES_LIST['signed_psbt_1']},
-            {'data_keys': ['psbt'], 'original_value': spupdate1_res1['psbt'], 'new_value': NEW_VALUES_LIST['psbt_1']},
-            {'data_keys': ['any', 'psbt'], 'original_value': spupdate1_res2['psbt'], 'new_value': NEW_VALUES_LIST['psbt_2']},
-            {'data_keys': ['psbt'], 'original_value': spupdate2_res2['psbt'], 'new_value': NEW_VALUES_LIST['psbt_2']},
-        ])
         logger.info('Splice Done!')
     except Exception as e:
         logger.error(f'Error in generating splicing examples: {e}')
@@ -1463,9 +804,8 @@ def generate_channels_examples(node_factory, bitcoind, l1, l3, l4, l5):
         vins = bitcoind.rpc.decoderawtransaction(c1112res['tx'])['vin']
         assert(only_one(vins))
         prev_utxos = ["{}:{}".format(vins[0]['txid'], vins[0]['vout'])]
-        example_utxos = ['utxo' + ('01' * 30) + ':1']
 
-        l11.daemon.wait_for_log(' to DUALOPEND_AWAITING_LOCKIN')
+        l1.daemon.wait_for_log(' to DUALOPEND_AWAITING_LOCKIN')
         chan = only_one(l11.rpc.listpeerchannels(l12.info['id'])['channels'])
         rate = int(chan['feerate']['perkw'])
         next_feerate = '{}perkw'.format(rate * 4)
@@ -1613,77 +953,6 @@ def generate_channels_examples(node_factory, bitcoind, l1, l3, l4, l5):
         # Close newly funded channels to bring the setup back to initial state
         for channel in multifund_res2['channel_ids']:
             l1.rpc.close(channel['channel_id'])
-        REPLACE_RESPONSE_VALUES.extend([
-            {'data_keys': ['any', 'id', 'pubkey', 'destination'], 'original_value': l10.info['id'], 'new_value': NEW_VALUES_LIST['l10_id']},
-            {'data_keys': ['any', 'id', 'pubkey', 'destination'], 'original_value': l12.info['id'], 'new_value': NEW_VALUES_LIST['l12_id']},
-            {'data_keys': ['any', 'txid'], 'original_value': tx_prep_1['txid'], 'new_value': NEW_VALUES_LIST['txprep_txid_1']},
-            {'data_keys': ['initialpsbt', 'psbt', 'signed_psbt'], 'original_value': tx_prep_1['psbt'], 'new_value': NEW_VALUES_LIST['psbt_9']},
-            {'data_keys': ['unsigned_tx'], 'original_value': tx_prep_2['unsigned_tx'], 'new_value': NEW_VALUES_LIST['unsigned_tx_1']},
-            {'data_keys': ['any', 'initialpsbt', 'psbt', 'signed_psbt'], 'original_value': tx_prep_2['psbt'], 'new_value': NEW_VALUES_LIST['psbt_10']},
-            {'data_keys': ['any', 'txid'], 'original_value': tx_prep_2['txid'], 'new_value': NEW_VALUES_LIST['txprep_txid_2']},
-            {'data_keys': ['any', 'txid'], 'original_value': tx_prep_3['txid'], 'new_value': NEW_VALUES_LIST['txprep_txid_3']},
-            {'data_keys': ['txid'], 'original_value': tx_prep_4['txid'], 'new_value': NEW_VALUES_LIST['txprep_txid_4']},
-            {'data_keys': ['initialpsbt', 'psbt', 'signed_psbt'], 'original_value': tx_prep_4['psbt'], 'new_value': NEW_VALUES_LIST['psbt_12']},
-            {'data_keys': ['channel_id', 'account'], 'original_value': fcc_res1['channel_id'], 'new_value': NEW_VALUES_LIST['c910_channel_id_1']},
-            {'data_keys': ['channel_id', 'account'], 'original_value': fcc_res2['channel_id'], 'new_value': NEW_VALUES_LIST['c910_channel_id_2']},
-            {'data_keys': ['txid'], 'original_value': c1112res['txid'], 'new_value': NEW_VALUES_LIST['c1112_txid']},
-            {'data_keys': ['channel_id', 'account'], 'original_value': c1112res['channel_id'], 'new_value': NEW_VALUES_LIST['c1112_channel_id']},
-            {'data_keys': ['tx'], 'original_value': c35res['tx'], 'new_value': NEW_VALUES_LIST['c35_tx']},
-            {'data_keys': ['txid'], 'original_value': c35res['txid'], 'new_value': NEW_VALUES_LIST['c35_txid']},
-            {'data_keys': ['channel_id', 'account'], 'original_value': c35res['channel_id'], 'new_value': NEW_VALUES_LIST['c35_channel_id']},
-            {'data_keys': ['tx'], 'original_value': c41res['tx'], 'new_value': NEW_VALUES_LIST['c41_tx']},
-            {'data_keys': ['txid', 'funding_txid'], 'original_value': c41res['txid'], 'new_value': NEW_VALUES_LIST['c41_txid']},
-            {'data_keys': ['channel_id', 'account'], 'original_value': c41res['channel_id'], 'new_value': NEW_VALUES_LIST['c41_channel_id']},
-            {'data_keys': ['destinations'], 'original_value': destinations_1, 'new_value': example_destinations_1},
-            {'data_keys': ['channel_id', 'account'], 'original_value': multifund_res1['channel_ids'][0]['channel_id'], 'new_value': NEW_VALUES_LIST['mf_channel_id_1']},
-            {'data_keys': ['channel_id', 'account'], 'original_value': multifund_res1['channel_ids'][1]['channel_id'], 'new_value': NEW_VALUES_LIST['mf_channel_id_2']},
-            {'data_keys': ['channel_id', 'account'], 'original_value': multifund_res1['channel_ids'][2]['channel_id'], 'new_value': NEW_VALUES_LIST['mf_channel_id_3']},
-            {'data_keys': ['tx'], 'original_value': multifund_res1['tx'], 'new_value': NEW_VALUES_LIST['multi_tx_1']},
-            {'data_keys': ['txid', 'funding_txid'], 'original_value': multifund_res1['txid'], 'new_value': NEW_VALUES_LIST['multi_txid_1']},
-            {'data_keys': ['destinations'], 'original_value': destinations_2, 'new_value': example_destinations_2},
-            {'data_keys': ['channel_id', 'account'], 'original_value': multifund_res2['channel_ids'][0]['channel_id'], 'new_value': NEW_VALUES_LIST['mf_channel_id_4']},
-            {'data_keys': ['tx'], 'original_value': multifund_res2['tx'], 'new_value': NEW_VALUES_LIST['multi_tx_2']},
-            {'data_keys': ['txid'], 'original_value': multifund_res2['txid'], 'new_value': NEW_VALUES_LIST['multi_txid_2']},
-            {'data_keys': ['message'], 'original_value': multifund_res2['failed'][0]['error']['message'], 'new_value': NEW_VALUES_LIST['error_message_1']},
-            {'data_keys': ['utxos'], 'original_value': [utxo], 'new_value': [NEW_VALUES_LIST['c35_txid'] + ':1']},
-            {'data_keys': ['any', 'funding_address'], 'original_value': fund_start_res1['funding_address'], 'new_value': NEW_VALUES_LIST['destination_4']},
-            {'data_keys': ['any', 'outputs'], 'original_value': outputs_1, 'new_value': example_outputs_1},
-            {'data_keys': ['scriptpubkey'], 'original_value': fund_start_res1['scriptpubkey'], 'new_value': NEW_VALUES_LIST['script_pubkey_1']},
-            {'data_keys': ['any', 'funding_address'], 'original_value': fund_start_res2['funding_address'], 'new_value': NEW_VALUES_LIST['destination_5']},
-            {'data_keys': ['any', 'outputs'], 'original_value': outputs_2, 'new_value': example_outputs_2},
-            {'data_keys': ['scriptpubkey'], 'original_value': fund_start_res2['scriptpubkey'], 'new_value': NEW_VALUES_LIST['script_pubkey_2']},
-            {'data_keys': ['initialpsbt', 'psbt'], 'original_value': psbt_init_res1['psbt'], 'new_value': NEW_VALUES_LIST['psbt_13']},
-            {'data_keys': ['any', 'initialpsbt', 'psbt'], 'original_value': psbt_init_res2['psbt'], 'new_value': NEW_VALUES_LIST['psbt_14']},
-            {'data_keys': ['any', 'txid'], 'original_value': initpsbt_1['reservations'][0]['txid'], 'new_value': NEW_VALUES_LIST['utxo_1']},
-            {'data_keys': ['any', 'initialpsbt', 'psbt'], 'original_value': initpsbt_1['psbt'], 'new_value': NEW_VALUES_LIST['psbt_15']},
-            {'data_keys': ['any', 'initialpsbt', 'psbt'], 'original_value': initpsbt_2['psbt'], 'new_value': NEW_VALUES_LIST['psbt_16']},
-            {'data_keys': ['any', 'txid'], 'original_value': initpsbt_2['reservations'][0]['txid'], 'new_value': NEW_VALUES_LIST['utxo_1']},
-            {'data_keys': ['initialpsbt', 'psbt', 'signed_psbt'], 'original_value': openchannelinit_res1['psbt'], 'new_value': NEW_VALUES_LIST['psbt_17']},
-            {'data_keys': ['funding_serial'], 'original_value': openchannelinit_res1['funding_serial'], 'new_value': NEW_VALUES_LIST['funding_serial_1']},
-            {'data_keys': ['initialpsbt', 'psbt', 'signed_psbt'], 'original_value': openchannelinit_res2['psbt'], 'new_value': NEW_VALUES_LIST['psbt_18']},
-            {'data_keys': ['funding_serial'], 'original_value': openchannelinit_res2['funding_serial'], 'new_value': NEW_VALUES_LIST['funding_serial_2']},
-            {'data_keys': ['initialpsbt', 'psbt', 'signed_psbt'], 'original_value': openchannelbump_res1['psbt'], 'new_value': NEW_VALUES_LIST['psbt_19']},
-            {'data_keys': ['initialpsbt', 'psbt', 'signed_psbt'], 'original_value': openchannelbump_res2['psbt'], 'new_value': NEW_VALUES_LIST['psbt_20']},
-            {'data_keys': ['any', 'initialpsbt', 'psbt', 'signed_psbt'], 'original_value': openchannelbump_res3['psbt'], 'new_value': NEW_VALUES_LIST['psbt_21']},
-            {'data_keys': ['funding_serial'], 'original_value': openchannelbump_res1['funding_serial'], 'new_value': NEW_VALUES_LIST['funding_serial_3']},
-            {'data_keys': ['funding_serial'], 'original_value': openchannelbump_res2['funding_serial'], 'new_value': NEW_VALUES_LIST['funding_serial_4']},
-            {'data_keys': ['funding_serial'], 'original_value': openchannelbump_res3['funding_serial'], 'new_value': NEW_VALUES_LIST['funding_serial_5']},
-            {'data_keys': ['signed_psbt'], 'original_value': signed_psbt_1['signed_psbt'], 'new_value': NEW_VALUES_LIST['psbt_22']},
-            {'data_keys': ['tx'], 'original_value': openchannelsigned_res1['tx'], 'new_value': NEW_VALUES_LIST['ocs_tx_1']},
-            {'data_keys': ['txid'], 'original_value': openchannelsigned_res1['txid'], 'new_value': NEW_VALUES_LIST['ocs_txid_1']},
-            {'data_keys': ['any', 'signed_psbt'], 'original_value': signed_psbt_2['signed_psbt'], 'new_value': NEW_VALUES_LIST['psbt_23']},
-            {'data_keys': ['tx'], 'original_value': openchannelsigned_res2['tx'], 'new_value': NEW_VALUES_LIST['ocs_tx_2']},
-            {'data_keys': ['txid'], 'original_value': openchannelsigned_res2['txid'], 'new_value': NEW_VALUES_LIST['ocs_txid_2']},
-            {'data_keys': ['psbt'], 'original_value': psbt_1, 'new_value': NEW_VALUES_LIST['psbt_24']},
-            {'data_keys': ['psbt'], 'original_value': psbt_2, 'new_value': NEW_VALUES_LIST['psbt_25']},
-            {'data_keys': ['any'], 'original_value': prev_utxos, 'new_value': example_utxos},
-            {'data_keys': ['unsigned_tx'], 'original_value': txdiscard_res1['unsigned_tx'], 'new_value': NEW_VALUES_LIST['unsigned_tx_3']},
-            {'data_keys': ['unsigned_tx'], 'original_value': txdiscard_res2['unsigned_tx'], 'new_value': NEW_VALUES_LIST['unsigned_tx_4']},
-            {'data_keys': ['tx'], 'original_value': txsend_res1['tx'], 'new_value': NEW_VALUES_LIST['txsend_tx_1']},
-            {'data_keys': ['psbt'], 'original_value': txsend_res1['psbt'], 'new_value': NEW_VALUES_LIST['psbt_24']},
-            {'data_keys': ['tx'], 'original_value': txsend_res2['tx'], 'new_value': NEW_VALUES_LIST['txsend_tx_2']},
-            {'data_keys': ['psbt'], 'original_value': txsend_res2['psbt'], 'new_value': NEW_VALUES_LIST['psbt_26']},
-        ])
         l1.rpc.disconnect(l3.info['id'], True)
         l1.rpc.disconnect(l4.info['id'], True)
         l1.rpc.disconnect(l5.info['id'], True)
@@ -1752,29 +1021,6 @@ def generate_autoclean_delete_examples(l1, l2, l3, l4, l5, c12, c23):
         update_example(node=l2, method='autoclean-once', params=['succeededpays', 1])
         update_example(node=l2, method='autoclean-status', params={'subsystem': 'expiredinvoices'})
         update_example(node=l2, method='autoclean-status', params={})
-        REPLACE_RESPONSE_VALUES.extend([
-            {'data_keys': ['any', 'bolt11'], 'original_value': delinv_res1['bolt11'], 'new_value': NEW_VALUES_LIST['bolt11_di_1']},
-            {'data_keys': ['payment_hash'], 'original_value': delinv_res1['payment_hash'], 'new_value': NEW_VALUES_LIST['payment_hash_di_1']},
-            {'data_keys': ['expires_at'], 'original_value': delinv_res1['expires_at'], 'new_value': NEW_VALUES_LIST['time_at_900']},
-            {'data_keys': ['any', 'bolt11'], 'original_value': delinv_res2['bolt11'], 'new_value': NEW_VALUES_LIST['bolt11_di_2']},
-            {'data_keys': ['payment_hash'], 'original_value': delinv_res2['payment_hash'], 'new_value': NEW_VALUES_LIST['payment_hash_di_2']},
-            {'data_keys': ['paid_at'], 'original_value': delinv_res2['paid_at'], 'new_value': NEW_VALUES_LIST['time_at_850']},
-            {'data_keys': ['expires_at'], 'original_value': delinv_res2['expires_at'], 'new_value': NEW_VALUES_LIST['time_at_900']},
-            {'data_keys': ['payment_preimage'], 'original_value': delinv_res2['payment_preimage'], 'new_value': NEW_VALUES_LIST['payment_preimage_di_1']},
-            {'data_keys': ['payment_hash'], 'original_value': delpay_res1['payments'][0]['payment_hash'], 'new_value': NEW_VALUES_LIST['payment_hash_dp_1']},
-            {'data_keys': ['payment_preimage'], 'original_value': delpay_res1['payments'][0]['payment_preimage'], 'new_value': NEW_VALUES_LIST['payment_preimage_dp_1']},
-            {'data_keys': ['any', 'bolt11'], 'original_value': delpay_res1['payments'][0]['bolt11'], 'new_value': NEW_VALUES_LIST['bolt11_dp_1']},
-            {'data_keys': ['created_at'], 'original_value': delpay_res1['payments'][0]['created_at'], 'new_value': NEW_VALUES_LIST['time_at_800']},
-            {'data_keys': ['completed_at'], 'original_value': delpay_res1['payments'][0]['completed_at'], 'new_value': NEW_VALUES_LIST['time_at_850']},
-            {'data_keys': ['any', 'payment_hash'], 'original_value': delpay_res2['payments'][0]['payment_hash'], 'new_value': NEW_VALUES_LIST['payment_hash_dp_2']},
-            {'data_keys': ['created_at'], 'original_value': delpay_res2['payments'][0]['created_at'], 'new_value': NEW_VALUES_LIST['time_at_800']},
-            {'data_keys': ['completed_at'], 'original_value': delpay_res2['payments'][0]['completed_at'], 'new_value': NEW_VALUES_LIST['time_at_850']},
-            {'data_keys': ['payment_hash'], 'original_value': delpay_res3['payments'][0]['payment_hash'], 'new_value': NEW_VALUES_LIST['payment_hash_dp_3']},
-            {'data_keys': ['created_at'], 'original_value': delpay_res3['payments'][0]['created_at'], 'new_value': NEW_VALUES_LIST['time_at_800']},
-            {'data_keys': ['completed_at'], 'original_value': delpay_res3['payments'][0]['completed_at'], 'new_value': NEW_VALUES_LIST['time_at_850']},
-            {'data_keys': ['funding_txid'], 'original_value': dfc_res1['funding_txid'], 'new_value': NEW_VALUES_LIST['funding_txid_1']},
-            {'data_keys': ['funding_txid'], 'original_value': dfc_res2['funding_txid'], 'new_value': NEW_VALUES_LIST['funding_txid_2']},
-        ])
         logger.info('Auto-clean and Delete Done!')
     except Exception as e:
         logger.error(f'Error in generating autoclean and delete examples: {e}')
@@ -1807,14 +1053,6 @@ def generate_backup_recovery_examples(node_factory, l4, l5, l6):
         recoverchannel_res1 = l4.rpc.recoverchannel(backup_l4['scb'])
         recoverchannel_res1['stubs'].sort()
         update_example(node=l4, method='recoverchannel', params={'scb': backup_l4['scb']}, response=recoverchannel_res1)
-        example_scb = [
-            '0000000000000001' + NEW_VALUES_LIST['c34_channel_id'] + NEW_VALUES_LIST['l3_id'] + '00017f000001' + ('0340' * 23) + '0003401000',
-            '0000000000000002' + NEW_VALUES_LIST['c34_2_channel_id'] + NEW_VALUES_LIST['l3_id'] + '00017f000001' + ('0342' * 23) + '0003401000',
-            '0000000000000003' + NEW_VALUES_LIST['c41_channel_id'] + NEW_VALUES_LIST['l1_id'] + '00017f000001' + ('0410' * 23) + '0003401000',
-            '0000000000000004' + NEW_VALUES_LIST['c12_channel_id'] + NEW_VALUES_LIST['l1_id'] + '00017f000001' + ('0120' * 23) + '0003401000',
-            '0000000000000005' + NEW_VALUES_LIST['mf_channel_id_4'] + NEW_VALUES_LIST['l1_id'] + '00017f000001' + ('0152' * 23) + '0003401000',
-            '0000000000000006' + NEW_VALUES_LIST['mf_channel_id_5'] + NEW_VALUES_LIST['l2_id'] + '00017f000001' + ('0124' * 23) + '0003401000',
-        ]
         # Emergency recover
         l5.stop()
         os.unlink(os.path.join(l5.daemon.lightning_dir, TEST_NETWORK, 'lightningd.sqlite3'))
@@ -1841,11 +1079,6 @@ def generate_backup_recovery_examples(node_factory, l4, l5, l6):
         l13codex32, _ = get_hsm_secret(l13)
         update_example(node=l6, method='recover', params={'hsmsecret': l6hex})
         update_example(node=l13, method='recover', params={'hsmsecret': l13codex32})
-        REPLACE_RESPONSE_VALUES.extend([
-            {'data_keys': ['hsmsecret'], 'original_value': l13codex32, 'new_value': NEW_VALUES_LIST['hsm_secret_cdx_1']},
-            {'data_keys': ['scb'], 'original_value': backup_l4['scb'], 'new_value': example_scb},
-            {'data_keys': ['channel_id', 'account'], 'original_value': backup_l4['scb'][5][16:(16 + 64)], 'new_value': NEW_VALUES_LIST['mf_channel_id_5']},
-        ])
         logger.info('Backup and Recovery Done!')
     except Exception as e:
         logger.error(f'Error in generating backup and recovery examples: {e}')
@@ -1859,187 +1092,80 @@ def generate_list_examples(l1, l2, l3, c12, c23_2, inv_l31, inv_l32, offer_l23, 
         # Transactions Lists
         FUNDS_LEN = 3
         listfunds_res1 = l1.rpc.listfunds()
-        listfunds_res1 = update_list_responses(listfunds_res1, list_key='outputs', slice_upto=FUNDS_LEN)
-        listfunds_res1['channels'] = [channel for channel in listfunds_res1['channels'] if channel['peer_id'] != '0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199']
-        listfunds_res1['channels'] = sorted(listfunds_res1['channels'], key=lambda x: x['peer_id'])
-        for i in range(1, FUNDS_LEN + 1):
-            lfoutput = listfunds_res1['outputs'][i - 1]
-            lfchannel = listfunds_res1['channels'][i - 1]
-            lfoutput['output'] = i + 1
-            lfoutput['txid'] = 'txid' + (('0000' + str(i)) * 12)
-            lfoutput['scriptpubkey'] = 'scriptpubkey' + (f"{i:02}" * 28)
-            lfoutput['address'] = 'bcrt1p00' + ('04' * 28)
-            lfoutput['blockheight'] = NEW_VALUES_LIST['blockheight_160']
-            lfoutput['amount_msat'] = 25000000 + (i * 1000000)
-            lfchannel['funding_output'] = i
-            lfchannel['funding_txid'] = 'txid' + (('0100' + str(i)) * 12)
-            lfchannel['amount_msat'] = 10000000 + (i * 1000000)
-            lfchannel['our_amount_msat'] = 35000000 + (i * 1000000)
         update_example(node=l1, method='listfunds', params={}, response=listfunds_res1)
 
         listforwards_res1 = l2.rpc.listforwards(in_channel=c12, out_channel=c23_2, status='settled')
-        listforwards_res1 = update_list_responses(listforwards_res1, list_key='forwards', slice_upto=5, update_func=lambda x, i: x.update({'received_time': NEW_VALUES_LIST['time_at_800'] + (i * 10000), 'resolved_time': NEW_VALUES_LIST['time_at_850'] + (i * 10000)}))
         update_example(node=l2, method='listforwards', params={'in_channel': c12, 'out_channel': c23_2, 'status': 'settled'}, response=listforwards_res1)
         listforwards_res2 = l2.rpc.listforwards()
-        listforwards_res2 = update_list_responses(listforwards_res2, list_key='forwards', slice_upto=5, update_func=lambda x, i: x.update({'received_time': NEW_VALUES_LIST['time_at_800'] + (i * 10000), 'resolved_time': NEW_VALUES_LIST['time_at_850'] + (i * 10000)}))
         update_example(node=l2, method='listforwards', params={}, response=listforwards_res2)
 
         listinvoices_res1 = l2.rpc.listinvoices(label='lbl_l21')
-        listinvoices_res1 = update_list_responses(listinvoices_res1, list_key='invoices', slice_upto=5, update_func=lambda x, i: x.update({'paid_at': NEW_VALUES_LIST['time_at_850'] + (i * 10000), 'expires_at': NEW_VALUES_LIST['time_at_900'] + (i * 10000)}))
         update_example(node=l2, method='listinvoices', params={'label': 'lbl_l21'}, response=listinvoices_res1)
         listinvoices_res2 = l2.rpc.listinvoices()
-        listinvoices_res2 = update_list_responses(listinvoices_res2, list_key='invoices', slice_upto=5, update_func=lambda x, i: x.update({'paid_at': NEW_VALUES_LIST['time_at_850'] + (i * 10000), 'expires_at': NEW_VALUES_LIST['time_at_900'] + (i * 10000)}))
         update_example(node=l2, method='listinvoices', params={}, response=listinvoices_res2)
 
         listhtlcs_res1 = l1.rpc.listhtlcs(c12)
-        listhtlcs_res1 = update_list_responses(listhtlcs_res1, list_key='htlcs')
         update_example(node=l1, method='listhtlcs', params=[c12], response=listhtlcs_res1)
         listhtlcs_res2 = l1.rpc.listhtlcs(index='created', start=4, limit=1)
-        listhtlcs_res2 = update_list_responses(listhtlcs_res2, list_key='htlcs')
         update_example(node=l1, method='listhtlcs', params={'index': 'created', 'start': 4, 'limit': 1}, response=listhtlcs_res2)
 
         listsendpays_res1 = l1.rpc.listsendpays(bolt11=inv_l31['bolt11'])
-        listsendpays_res1 = update_list_responses(listsendpays_res1, list_key='payments', slice_upto=5, update_func=lambda x, i: x.update({'created_at': NEW_VALUES_LIST['time_at_800'] + (i * 10000), 'completed_at': NEW_VALUES_LIST['time_at_900'] + (i * 10000)}))
         update_example(node=l1, method='listsendpays', params={'bolt11': inv_l31['bolt11']}, response=listsendpays_res1)
         listsendpays_res2 = l1.rpc.listsendpays()
-        listsendpays_res2 = update_list_responses(listsendpays_res2, list_key='payments', slice_upto=5, update_func=lambda x, i: x.update({'created_at': NEW_VALUES_LIST['time_at_800'] + (i * 10000), 'completed_at': NEW_VALUES_LIST['time_at_900'] + (i * 10000)}))
         update_example(node=l1, method='listsendpays', params={}, response=listsendpays_res2)
 
         listpays_res1 = l2.rpc.listpays(bolt11=inv_l32['bolt11'])
-        listpays_res1 = update_list_responses(listpays_res1, list_key='pays')
         update_example(node=l2, method='listpays', params={'bolt11': inv_l32['bolt11']}, response=listpays_res1)
         listpays_res2 = l2.rpc.listpays()
-        listpays_res2 = update_list_responses(listpays_res2, list_key='pays')
         update_example(node=l2, method='listpays', params={}, response=listpays_res2)
 
         listtransactions_res1 = l1.rpc.listtransactions()
-        listtransactions_res1 = update_list_responses(listtransactions_res1, list_key='transactions', slice_upto=2)
-        for i, transaction in enumerate(listtransactions_res1['transactions'], start=1):
-            transaction['hash'] = 'txid' + (('7000' + str(i)) * 11)
-            transaction['rawtx'] = '02000000000101lstx' + (('7000' + str(i)) * 34)
-            transaction['locktime'] = 549000000 + (i * 100)
-            transaction['inputs'] = transaction['inputs'][0:1]
-            transaction['inputs'][0]['txid'] = 'txid' + (('6001' + str(i)) * 12)
-            transaction['inputs'][0]['index'] = 1
-            transaction['inputs'][0]['sequence'] = 2158510000 + (i * 1000)
-            for k, output in enumerate(transaction['outputs'], start=1):
-                output['scriptPubKey'] = 'scriptpubkey' + ((f"{i:02}" + f"{k:02}") * 14)
-                output['index'] = k
-                output['amount_msat'] = 201998900000 + (i * 1000) + (k * 100)
         update_example(node=l1, method='listtransactions', params={}, response=listtransactions_res1)
         listclosedchannels_res1 = l2.rpc.listclosedchannels()
-        listclosedchannels_res1 = update_list_responses(listclosedchannels_res1, list_key='closedchannels', slice_upto=2, update_func=None, sort=True, sort_key='channel_id')
-        for i, closedchannel in enumerate(listclosedchannels_res1['closedchannels'], start=1):
-            closedchannel['last_commitment_fee_msat'] = 2894000 + (i * 1000)
-            closedchannel['last_commitment_txid'] = 'txidcloselastcommitment0' + (('0000' + str(i)) * 8)
-            closedchannel['last_stable_connection'] = NEW_VALUES_LIST['time_at_850']
-            closedchannel['alias'] = {'local': '12' + str(i) + 'x13' + str(i) + 'x14' + str(i), 'remote': '15' + str(i) + 'x16' + str(i) + 'x17' + str(i)}
         update_example(node=l2, method='listclosedchannels', params={}, response=listclosedchannels_res1)
 
         update_example(node=l2, method='listconfigs', params={'config': 'network'})
         update_example(node=l2, method='listconfigs', params={'config': 'experimental-dual-fund'})
         l2.rpc.jsonschemas = {}
         listconfigs_res3 = l2.rpc.listconfigs()
-        listconfigs_res3['configs']['htlc-maximum-msat']['value_msat'] = NEW_VALUES_LIST['htlc_max_msat']
-        listconfigs_res3 = update_list_responses(listconfigs_res3, list_key='configs', slice_upto=len(listconfigs_res3['configs']), update_func=None, sort=True)
         update_example(node=l2, method='listconfigs', params={}, response=listconfigs_res3)
 
         update_example(node=l2, method='listsqlschemas', params={'table': 'offers'})
         update_example(node=l2, method='listsqlschemas', params=['closedchannels'])
 
         listpeerchannels_res1 = l1.rpc.listpeerchannels(l2.info['id'])
-        listpeerchannels_res1 = update_list_responses(listpeerchannels_res1, list_key='channels', slice_upto=3)
-        for i, channel in enumerate(listpeerchannels_res1['channels'], start=1):
-            channel['last_stable_connection'] = NEW_VALUES_LIST['time_at_850'] + (i * 10000)
-            channel['scratch_txid'] = 'scratchid1' + (('0' + str(i)) * 27)
-            channel['alias']['local'] = '3000000' + str(i) + 'x6000000' + str(i) + 'x6000' + str(i)
-            channel['alias']['remote'] = '1000000' + str(i) + 'x2000000' + str(i) + 'x3000' + str(i)
-            channel['max_total_htlc_in_msat'] = NEW_VALUES_LIST['htlc_max_msat']
-            channel['their_max_htlc_value_in_flight_msat'] = NEW_VALUES_LIST['htlc_max_msat']
-            channel['our_max_htlc_value_in_flight_msat'] = NEW_VALUES_LIST['htlc_max_msat']
-            for j, state in enumerate(channel['state_changes'], start=1):
-                state['timestamp'] = '2024-10-10T00:0' + str(j) + ':00.000Z'
         update_example(node=l1, method='listpeerchannels', params={'id': l2.info['id']}, response=listpeerchannels_res1)
         listpeerchannels_res2 = l1.rpc.listpeerchannels()
-        listpeerchannels_2 = None
-        listpeerchannels_3 = None
-        i = 0
-        for channel in listpeerchannels_res2['channels']:
-            if channel['peer_id'] == l2.info['id'] or channel['peer_id'] == l3.info['id']:
-                i = 2 if channel['peer_id'] == l2.info['id'] else 3
-                scrt_id = 'scratchid2' + (('0' + str(i)) * 27)
-                channel['last_stable_connection'] = NEW_VALUES_LIST['time_at_850'] + (i * 10000)
-                channel['scratch_txid'] = scrt_id
-                channel['alias']['local'] = '3000000' + str(i) + 'x6000000' + str(i) + 'x6000' + str(i)
-                channel['alias']['remote'] = '1000000' + str(i) + 'x2000000' + str(i) + 'x3000' + str(i)
-                channel['close_to_addr'] = 'bcrt1pcl' + (('000' + str(i)) * 14)
-                channel['close_to'] = 'db2dec31' + (('0' + str(i)) * 30)
-                channel['status'][0] = re.sub(r'(tx:)[a-f0-9]+', r'\1' + scrt_id, channel['status'][0])
-                channel['max_total_htlc_in_msat'] = NEW_VALUES_LIST['htlc_max_msat']
-                channel['their_max_htlc_value_in_flight_msat'] = NEW_VALUES_LIST['htlc_max_msat']
-                channel['our_max_htlc_value_in_flight_msat'] = NEW_VALUES_LIST['htlc_max_msat']
-                if 'inflight' in channel and len(channel['inflight']) > 0:
-                    channel['inflight'][0]['scratch_txid'] = scrt_id
-                for j, state in enumerate(channel['state_changes'], start=1):
-                    state['timestamp'] = '2024-10-10T00:0' + str(j) + ':00.000Z'
-                if channel['peer_id'] == l2.info['id']:
-                    listpeerchannels_2 = channel
-                else:
-                    listpeerchannels_3 = channel
-        listpeerchannels_res2['channels'] = [channel for channel in [listpeerchannels_2, listpeerchannels_3] if channel is not None]
         update_example(node=l1, method='listpeerchannels', params={}, response=listpeerchannels_res2)
 
         listchannels_res1 = l1.rpc.listchannels(c12)
-        listchannels_res1 = update_list_responses(listchannels_res1, list_key='channels', slice_upto=5, update_func=lambda x, i: x.update({'last_update': NEW_VALUES_LIST['time_at_850'] + (i * 10000), 'channel_flags': i, 'active': i % 2 == 0}))
         update_example(node=l1, method='listchannels', params={'short_channel_id': c12}, response=listchannels_res1)
         listchannels_res2 = l1.rpc.listchannels()
-        listchannels_res2 = update_list_responses(listchannels_res2, list_key='channels', slice_upto=5, update_func=lambda x, i: x.update({'last_update': NEW_VALUES_LIST['time_at_850'] + (i * 10000), 'channel_flags': i, 'active': i % 2 == 0}))
         update_example(node=l1, method='listchannels', params={}, response=listchannels_res2)
 
         listnodes_res1 = l2.rpc.listnodes(l3.info['id'])
-        listnodes_res1 = update_list_responses(listnodes_res1, list_key='nodes', slice_upto=5, update_func=lambda x, i: x.update({'last_timestamp': NEW_VALUES_LIST['time_at_800'] + (i * 10000)}))
         update_example(node=l2, method='listnodes', params={'id': l3.info['id']}, response=listnodes_res1)
         listnodes_res2 = l2.rpc.listnodes()
-        listnodes_res2 = update_list_responses(listnodes_res2, list_key='nodes', slice_upto=5, update_func=lambda x, i: x.update({'last_timestamp': NEW_VALUES_LIST['time_at_800'] + (i * 10000)}))
         update_example(node=l2, method='listnodes', params={}, response=listnodes_res2)
 
         listpeers_res1 = l2.rpc.listpeers(l3.info['id'])
-        listpeers_res1 = update_list_responses(listpeers_res1, list_key='peers', slice_upto=5, update_func=None, sort=True, sort_key='id')
         update_example(node=l2, method='listpeers', params={'id': l3.info['id']}, response=listpeers_res1)
         listpeers_res2 = l2.rpc.listpeers()
-        listpeers_res2 = update_list_responses(listpeers_res2, list_key='peers', slice_upto=5, update_func=None, sort=True, sort_key='id')
         update_example(node=l2, method='listpeers', params={}, response=listpeers_res2)
 
         update_example(node=l2, method='listdatastore', params={'key': ['employee']})
         update_example(node=l2, method='listdatastore', params={'key': 'somekey'})
 
         listoffers_res1 = l2.rpc.listoffers(active_only=True)
-        for i, offer in enumerate(listoffers_res1['offers'], start=1):
-            ofr_id = 'offerid_l2' + str(i)
-            bolt12_id = 'bolt12_l2' + str(i)
-            offer['offer_id'] = NEW_VALUES_LIST[ofr_id]
-            offer['bolt12'] = NEW_VALUES_LIST[bolt12_id]
-        listoffers_res1 = update_list_responses(listoffers_res1, list_key='offers', slice_upto=5, update_func=None, sort=True, sort_key='offer_id')
         update_example(node=l2, method='listoffers', params={'active_only': True}, response=listoffers_res1)
         listoffers_res2 = l2.rpc.listoffers(offer_id=offer_l23['offer_id'])
-        listoffers_res2 = update_list_responses(listoffers_res2, list_key='offers')
         update_example(node=l2, method='listoffers', params=[offer_l23['offer_id']], response=listoffers_res2)
 
         update_example(node=l2, method='listinvoicerequests', params=[inv_req_l1_l22['invreq_id']])
         listinvoicerequests_res2 = l2.rpc.listinvoicerequests()
-        listinvoicerequests_res2 = update_list_responses(listinvoicerequests_res2, list_key='invoicerequests', slice_upto=len(listinvoicerequests_res2['invoicerequests']), update_func=None, sort=True, sort_key='used')
         update_example(node=l2, method='listinvoicerequests', params={}, response=listinvoicerequests_res2)
         update_example(node=l2, method='listaddresses', params=[address_l22['p2tr']])
         update_example(node=l2, method='listaddresses', params={'start': 6, 'limit': 2})
-        REPLACE_RESPONSE_VALUES.extend([
-            {'data_keys': ['any', 'invreq_id'], 'original_value': inv_req_l1_l22['invreq_id'], 'new_value': NEW_VALUES_LIST['invreq_id_l1_l22']},
-            {'data_keys': ['netaddr'], 'original_value': listpeers_res2['peers'][0]['netaddr'], 'new_value': [NEW_VALUES_LIST['l1_addr']]},
-            {'data_keys': ['any'], 'original_value': listconfigs_res3['configs']['addr']['values_str'][0], 'new_value': NEW_VALUES_LIST['configs_3_addr2']},
-            {'data_keys': ['value_int'], 'original_value': listconfigs_res3['configs']['bitcoin-rpcport']['value_int'], 'new_value': NEW_VALUES_LIST['bitcoin-rpcport']},
-            {'data_keys': ['value_int'], 'original_value': listconfigs_res3['configs']['grpc-port']['value_int'], 'new_value': NEW_VALUES_LIST['grpc-port']},
-            {'data_keys': ['value_str'], 'original_value': listconfigs_res3['configs']['alias']['value_str'], 'new_value': NEW_VALUES_LIST['l2_alias']},
-            {'data_keys': ['channel_flags'], 'original_value': listchannels_res2['channels'][-1]['channel_flags'], 'new_value': 2},
-        ])
         logger.info('Lists Done!')
     except Exception as e:
         logger.error(f'Error in generating lists examples: {e}')
