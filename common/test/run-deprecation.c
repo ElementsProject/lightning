@@ -6,6 +6,7 @@ static const char *test_next_version;
 
 #include "../deprecation.c"
 #include <common/amount.h>
+#include <common/randbytes.h>
 #include <common/setup.h>
 #include <stdio.h>
 #include <wire/wire.h>

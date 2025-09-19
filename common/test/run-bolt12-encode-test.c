@@ -12,6 +12,7 @@
 #include <common/bolt12.c>
 #include <common/bolt12_merkle.h>
 #include <common/features.c>
+#include <common/randbytes.h>
 #include <common/sciddir_or_pubkey.c>
 #include <common/setup.h>
 #include <inttypes.h>

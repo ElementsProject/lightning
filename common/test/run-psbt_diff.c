@@ -1,4 +1,5 @@
 #include "config.h"
+#include <common/randbytes.h>
 #include <common/setup.h>
 #include <stdio.h>
 #include "../amount.c"

@@ -5,11 +5,13 @@ COMMON_TEST_PROGRAMS := $(COMMON_TEST_OBJS:.o=)
 
 COMMON_TEST_COMMON_OBJS :=				\
 	common/autodata.o				\
+	common/memleak.o				\
+	common/randbytes.o				\
 	common/setup.o					\
 	common/utils.o
 
 $(COMMON_TEST_PROGRAMS): $(COMMON_TEST_COMMON_OBJS) $(BITCOIN_OBJS)
-$(COMMON_TEST_OBJS): $(COMMON_HEADERS) $(WIRE_HEADERS) $(COMMON_SRC)
+$(COMMON_TEST_OBJS): $(COMMON_HEADERS) $(WIRE_HEADERS) $(COMMON_SRC) common/test/Makefile
 
 ALL_C_SOURCES += $(COMMON_TEST_SRC)
 ALL_TEST_PROGRAMS += $(COMMON_TEST_PROGRAMS)
@@ -119,7 +121,6 @@ common/test/run-splice_script:				\
 
 common/test/run-trace:					\
 	common/amount.o                                 \
-	common/memleak.o				\
 	common/pseudorand.o				\
 	common/randbytes.o				\
 	common/trace.o					\

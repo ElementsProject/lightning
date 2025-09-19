@@ -87,15 +87,6 @@ bool fromwire_tlv(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 		  void *record UNNEEDED, struct tlv_field **fields UNNEEDED,
 		  const u64 *extra_types UNNEEDED, size_t *err_off UNNEEDED, u64 *err_type UNNEEDED)
 { fprintf(stderr, "fromwire_tlv called!\n"); abort(); }
-/* Generated stub for memleak_add_helper_ */
-void memleak_add_helper_(const tal_t *p UNNEEDED, void (*cb)(struct htable *memtable UNNEEDED,
-						    const tal_t *)){ }
-/* Generated stub for memleak_scan_htable */
-void memleak_scan_htable(struct htable *memtable UNNEEDED, const struct htable *ht UNNEEDED)
-{ fprintf(stderr, "memleak_scan_htable called!\n"); abort(); }
-/* Generated stub for notleak_ */
-void *notleak_(void *ptr UNNEEDED, bool plus_children UNNEEDED)
-{ fprintf(stderr, "notleak_ called!\n"); abort(); }
 /* Generated stub for to_canonical_invstr */
 const char *to_canonical_invstr(const tal_t *ctx UNNEEDED, const char *invstring UNNEEDED)
 { fprintf(stderr, "to_canonical_invstr called!\n"); abort(); }

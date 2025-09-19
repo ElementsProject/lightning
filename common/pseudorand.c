@@ -6,7 +6,7 @@
 #include <ccan/likely/likely.h>
 #include <ccan/tal/tal.h>
 #include <common/pseudorand.h>
-#include <sodium/randombytes.h>
+#include <common/randbytes.h>
 #include <string.h>
 
 static struct isaac64_ctx isaac64;
@@ -19,7 +19,7 @@ static void init_if_needed(void)
 		unsigned char seedbuf[16];
 		struct sha256 sha;
 
-		randombytes_buf(seedbuf, sizeof(seedbuf));
+		randbytes(seedbuf, sizeof(seedbuf));
 		memcpy(&siphashseed, seedbuf, sizeof(siphashseed));
 
 		/* In case isaac is reversible, don't leak seed. */

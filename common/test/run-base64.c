@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <ccan/base64/base64.h>
 #include <common/amount.h>
+#include <common/randbytes.h>
 #include <common/setup.h>
 #include <common/utils.h>
 #include <sodium/utils.h>

@@ -5,6 +5,7 @@
 #include <ccan/str/hex/hex.h>
 #include <ccan/structeq/structeq.h>
 #include <common/amount.h>
+#include <common/randbytes.h>
 #include <common/setup.h>
 #include <common/utils.h>
 #include <stdio.h>

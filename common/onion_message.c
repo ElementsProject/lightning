@@ -5,6 +5,7 @@
 #include <ccan/cast/cast.h>
 #include <common/blindedpath.h>
 #include <common/onion_message.h>
+#include <common/randbytes.h>
 #include <common/sphinx.h>
 #include <sodium.h>
 #include <wire/onion_wire.h>
@@ -68,7 +69,7 @@ struct blinded_path *blinded_path_from_encdata_tlvs(const tal_t *ctx,
 	assert(nhops > 0);
 	assert(tal_count(ids) > 0);
 
-	randombytes_buf(&first_blinding, sizeof(first_blinding));
+	randbytes(&first_blinding, sizeof(first_blinding));
 	if (!pubkey_from_privkey(&first_blinding, &path->first_path_key))
 		abort();
 	sciddir_or_pubkey_from_pubkey(&path->first_node_id, &ids[0]);

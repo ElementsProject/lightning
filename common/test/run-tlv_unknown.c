@@ -5,6 +5,7 @@
 #include "../../wire/towire.c"
 #include "../bigsize.c"
 #include "../bolt12.c"
+#include <common/randbytes.h>
 #include <common/setup.h>
 #include <stdio.h>
 

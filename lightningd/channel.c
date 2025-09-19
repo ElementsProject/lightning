@@ -4,6 +4,7 @@
 #include <common/closing_fee.h>
 #include <common/fee_states.h>
 #include <common/json_command.h>
+#include <common/randbytes.h>
 #include <common/wire_error.h>
 #include <errno.h>
 #include <hsmd/hsmd_wiregen.h>

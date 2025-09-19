@@ -1,6 +1,7 @@
 #include "config.h"
 #include <bitcoin/chainparams.h>
 #include <common/amount.h>
+#include <common/randbytes.h>
 #include <common/setup.h>
 #include <stdio.h>
 

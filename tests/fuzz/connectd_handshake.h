@@ -1,6 +1,6 @@
 /* This header contains globals and helper functions used by all the
  * fuzz-connectd-handshake-act* fuzz targets. It also takes care of intercepting
- * io_read(), io_write(), and randombytes_buf(), so that the actual fuzz targets
+ * io_read(), io_write(), and randbytes(), so that the actual fuzz targets
  * only need to implement the test_read() and test_write() interceptors and the
  * run() function.
  */
@@ -21,7 +21,7 @@
 #include <sodium/randombytes.h>
 
 static void seeded_randombytes_buf(u8 *secret, size_t len);
-#define randombytes_buf(secret, len) seeded_randombytes_buf((secret), (len))
+#define randbytes(secret, len) seeded_randombytes_buf((secret), (len))
 
 struct handshake;
 

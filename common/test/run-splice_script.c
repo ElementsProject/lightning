@@ -6,6 +6,7 @@
 #include "../json_stream.c"
 #include "../json_parse_simple.c"
 #include <bitcoin/chainparams.h>
+#include <common/randbytes.h>
 #include <common/setup.h>
 #include <common/splice_script.h>
 #include <assert.h>

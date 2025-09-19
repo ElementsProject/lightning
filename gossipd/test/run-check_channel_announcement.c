@@ -61,15 +61,6 @@ bool blinding_next_path_privkey(const struct privkey *e UNNEEDED,
 void fromwire_sciddir_or_pubkey(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 				struct sciddir_or_pubkey *sciddpk UNNEEDED)
 { fprintf(stderr, "fromwire_sciddir_or_pubkey called!\n"); abort(); }
-/* Generated stub for memleak_add_helper_ */
-void memleak_add_helper_(const tal_t *p UNNEEDED, void (*cb)(struct htable *memtable UNNEEDED,
-						    const tal_t *)){ }
-/* Generated stub for memleak_scan_htable */
-void memleak_scan_htable(struct htable *memtable UNNEEDED, const struct htable *ht UNNEEDED)
-{ fprintf(stderr, "memleak_scan_htable called!\n"); abort(); }
-/* Generated stub for notleak_ */
-void *notleak_(void *ptr UNNEEDED, bool plus_children UNNEEDED)
-{ fprintf(stderr, "notleak_ called!\n"); abort(); }
 /* Generated stub for towire_sciddir_or_pubkey */
 void towire_sciddir_or_pubkey(u8 **pptr UNNEEDED,
 			      const struct sciddir_or_pubkey *sciddpk UNNEEDED)

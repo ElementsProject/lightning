@@ -1,7 +1,7 @@
 #include "config.h"
 #include <bitcoin/short_channel_id.h>
 #include <ccan/tal/str/str.h>
-#include <sodium/randombytes.h>
+#include <common/randbytes.h>
 #include <stdio.h>
 #include <wire/wire.h>
 
@@ -104,6 +104,6 @@ struct short_channel_id fromwire_short_channel_id(const u8 **cursor, size_t *max
 struct short_channel_id random_scid(void)
 {
 	struct short_channel_id scid;
-	randombytes_buf(&scid, sizeof(scid));
+	randbytes(&scid, sizeof(scid));
 	return scid;
 }

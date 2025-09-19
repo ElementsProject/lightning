@@ -8,9 +8,9 @@
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
+#include <common/randbytes.h>
 #include <errno.h>
 #include <plugins/libplugin-pay.h>
-#include <sodium.h>
 
 #define PREIMAGE_TLV_TYPE 5482373484
 #define KEYSEND_FEATUREBIT 55
@@ -49,7 +49,7 @@ static struct keysend_data *keysend_init(struct payment *p)
 		 * and populate the preimage field in the keysend_data and the
 		 * payment_hash in the payment. */
 		d = tal(p, struct keysend_data);
-		randombytes_buf(&d->preimage, sizeof(d->preimage));
+		randbytes(&d->preimage, sizeof(d->preimage));
 		ccan_sha256(&payment_hash, &d->preimage, sizeof(d->preimage));
 		p->payment_hash = tal_dup(p, struct sha256, &payment_hash);
 		d->extra_tlvs = NULL;
