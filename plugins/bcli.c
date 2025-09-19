@@ -66,6 +66,9 @@ struct bitcoind {
 
 	/* Override in case we're developer mode for testing*/
 	bool dev_no_fake_fees;
+
+	/* Override initialblockdownload (using canned blocks sets this) */
+	bool dev_ignore_ibd;
 };
 
 static struct bitcoind *bitcoind;
@@ -457,6 +460,9 @@ static struct command_result *process_getblockchaininfo(struct bitcoin_cli *bcli
 			JSON_SCAN(json_to_bool, &ibd));
 	if (err)
 		return command_err_bcli_badjson(bcli, err);
+
+	if (bitcoind->dev_ignore_ibd)
+		ibd = false;
 
 	response = jsonrpc_stream_success(bcli->cmd);
 	json_add_string(response, "chain", chain);
@@ -1157,6 +1163,7 @@ static struct bitcoind *new_bitcoind(const tal_t *ctx)
 	   although normal rpcclienttimeout default value is 900. */
 	bitcoind->rpcclienttimeout = 60;
 	bitcoind->dev_no_fake_fees = false;
+	bitcoind->dev_ignore_ibd = false;
 
 	return bitcoind;
 }
@@ -1208,5 +1215,9 @@ int main(int argc, char *argv[])
 				      "bool",
 				      "Suppress fee faking for regtest",
 				      bool_option, NULL, &bitcoind->dev_no_fake_fees),
+		    plugin_option_dev("dev-ignore-ibd",
+				      "bool",
+				      "Never tell lightningd we're doing initial block download",
+				      bool_option, NULL, &bitcoind->dev_ignore_ibd),
 		    NULL);
 }
