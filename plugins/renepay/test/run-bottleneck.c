@@ -14,6 +14,7 @@
 #include <bitcoin/chainparams.h>
 #include <bitcoin/preimage.h>
 #include <ccan/str/hex/hex.h>
+#include <common/clock_time.h>
 #include <common/randbytes.h>
 #include <common/setup.h>
 #include <common/utils.h>
@@ -225,7 +226,7 @@ int main(int argc, char *argv[])
 	pinfo.maxdelay = 100;
 	pinfo.final_cltv = 5;
 
-	pinfo.start_time = time_now();
+	pinfo.start_time = clock_time();
 	pinfo.stop_time = timeabs_add(pinfo.start_time, time_from_sec(10000));
 
 	pinfo.base_fee_penalty = 1e-5;

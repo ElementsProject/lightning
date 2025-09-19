@@ -8,6 +8,7 @@
 #include <common/blindedpath.h>
 #include <common/bolt12_id.h>
 #include <common/bolt12_merkle.h>
+#include <common/clock_time.h>
 #include <common/gossmap.h>
 #include <common/iso4217.h>
 #include <common/json_stream.h>
@@ -858,7 +859,7 @@ static struct command_result *listoffers_done(struct command *cmd,
 	}
 
 	if (ir->invreq->offer_absolute_expiry
-	    && time_now().ts.tv_sec >= *ir->invreq->offer_absolute_expiry) {
+	    && clock_time().ts.tv_sec >= *ir->invreq->offer_absolute_expiry) {
 		/* FIXME: do deloffer to disable it */
 		return fail_invreq(cmd, ir, "Offer expired");
 	}
@@ -956,7 +957,7 @@ static struct command_result *listoffers_done(struct command *cmd,
 	 *   Midnight 1 January 1970, UTC when the invoice was created.
 	 */
 	ir->inv->invoice_created_at = tal(ir->inv, u64);
-	*ir->inv->invoice_created_at = time_now().ts.tv_sec;
+	*ir->inv->invoice_created_at = clock_time().ts.tv_sec;
 
 	/* BOLT #12:
 	 * - MUST set `invoice_payment_hash` to the SHA256 hash of the

@@ -12,6 +12,7 @@ WALLET_TEST_COMMON_OBJS :=			\
 	common/blockheight_states.o		\
 	common/channel_id.o			\
 	common/channel_type.o			\
+	common/clock_time.o			\
 	common/derive_basepoints.o		\
 	common/features.o			\
 	common/htlc_state.o			\

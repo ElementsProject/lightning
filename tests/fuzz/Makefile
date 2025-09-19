@@ -32,6 +32,7 @@ FUZZ_COMMON_OBJS := \
 	common/configvar.o				\
 	common/channel_id.o				\
 	common/channel_type.o				\
+	common/clock_time.o				\
 	common/cryptomsg.o				\
 	common/daemon.o					\
 	common/daemon_conn.o				\

@@ -1,5 +1,6 @@
 #include "config.h"
 #include <ccan/tal/str/str.h>
+#include <common/clock_time.h>
 #include <common/timeout.h>
 #include <db/bindings.h>
 #include <db/common.h>
@@ -179,7 +180,7 @@ static u64 *expired_ids(const tal_t *ctx,
 static void trigger_expiration(struct invoices *invoices)
 {
 	u64 *inv_dbids;
-	u64 now = time_now().ts.tv_sec;
+	u64 now = clock_time().ts.tv_sec;
 	struct db_stmt *stmt;
 
 	/* Free current expiration timer */
@@ -214,7 +215,7 @@ static void install_expiration_timer(struct invoices *invoices)
 	struct db_stmt *stmt;
 	struct timerel rel;
 	struct timeabs expiry;
-	struct timeabs now = time_now();
+	struct timeabs now = clock_time();
 
 	assert(!invoices->expiration_timer);
 
@@ -275,7 +276,7 @@ bool invoices_create(struct invoices *invoices,
 {
 	struct db_stmt *stmt;
 	u64 expiry_time;
-	u64 now = time_now().ts.tv_sec;
+	u64 now = clock_time().ts.tv_sec;
 
 	if (invoices_find_by_label(invoices, inv_dbid, label)) {
 		if (taken(msat))
@@ -609,7 +610,7 @@ bool invoices_resolve(struct invoices *invoices,
 
 	/* Assign a pay-index. */
 	pay_index = get_next_pay_index(invoices->wallet->db);
-	paid_timestamp = time_now().ts.tv_sec;
+	paid_timestamp = clock_time().ts.tv_sec;
 
 	/* Update database. */
 	stmt = db_prepare_v2(invoices->wallet->db, SQL("UPDATE invoices"

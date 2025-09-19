@@ -9,6 +9,7 @@
 #include <ccan/time/time.h>
 #include <common/bolt11.h>
 #include <common/bolt12.h>
+#include <common/clock_time.h>
 #include <common/coin_mvt.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>

@@ -4,6 +4,7 @@
 #include <ccan/str/hex/hex.h>
 #include <common/blinding.h>
 #include <common/channel_type.h>
+#include <common/clock_time.h>
 #include <common/ecdh.h>
 #include <common/json_parse.h>
 #include <common/json_stream.h>
@@ -32,6 +33,12 @@ bool blinding_next_path_privkey(const struct privkey *e UNNEEDED,
 				const struct sha256 *h UNNEEDED,
 				struct privkey *next UNNEEDED)
 { fprintf(stderr, "blinding_next_path_privkey called!\n"); abort(); }
+/* Generated stub for clock_time_overridden */
+bool clock_time_overridden(void)
+{ fprintf(stderr, "clock_time_overridden called!\n"); abort(); }
+/* Generated stub for clock_time_progresses_ */
+struct timeabs clock_time_progresses_(u64 *progress UNNEEDED)
+{ fprintf(stderr, "clock_time_progresses_ called!\n"); abort(); }
 /* Generated stub for decode_channel_update_timestamps */
 struct channel_update_timestamps *decode_channel_update_timestamps(const tal_t *ctx UNNEEDED,
 				 const struct tlv_reply_channel_range_tlvs_timestamps_tlv *timestamps_tlv UNNEEDED)

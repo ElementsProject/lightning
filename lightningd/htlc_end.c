@@ -2,6 +2,7 @@
 #include <ccan/cast/cast.h>
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/tal/str/str.h>
+#include <common/clock_time.h>
 #include <common/htlc.h>
 #include <common/htlc_wire.h>
 #include <common/pseudorand.h>
@@ -161,7 +162,7 @@ struct htlc_in *new_htlc_in(const tal_t *ctx,
 	hin->we_filled = NULL;
 	hin->payload = NULL;
 
-	hin->received_time = time_now();
+	hin->received_time = clock_time();
 
 	return htlc_in_check(hin, "new_htlc_in");
 }

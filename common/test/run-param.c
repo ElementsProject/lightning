@@ -7,6 +7,7 @@
 #include <assert.h>
 #include <ccan/array_size/array_size.h>
 #include <common/channel_type.h>
+#include <common/clock_time.h>
 #include <common/memleak.h>
 #include <common/setup.h>
 #include <stdio.h>

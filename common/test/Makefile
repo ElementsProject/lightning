@@ -7,6 +7,7 @@ COMMON_TEST_COMMON_OBJS :=				\
 	common/autodata.o				\
 	common/memleak.o				\
 	common/randbytes.o				\
+	common/clock_time.o				\
 	common/setup.o					\
 	common/utils.o
 

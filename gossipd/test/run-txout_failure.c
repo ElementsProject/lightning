@@ -3,6 +3,7 @@
 #include "../common/timeout.c"
 #include <common/blinding.h>
 #include <common/channel_type.h>
+#include <common/clock_time.h>
 #include <common/daemon_conn.h>
 #include <common/ecdh.h>
 #include <common/json_stream.h>
@@ -30,6 +31,12 @@ bool blinding_next_path_privkey(const struct privkey *e UNNEEDED,
 				const struct sha256 *h UNNEEDED,
 				struct privkey *next UNNEEDED)
 { fprintf(stderr, "blinding_next_path_privkey called!\n"); abort(); }
+/* Generated stub for clock_time_overridden */
+bool clock_time_overridden(void)
+{ fprintf(stderr, "clock_time_overridden called!\n"); abort(); }
+/* Generated stub for clock_time_progresses_ */
+struct timeabs clock_time_progresses_(u64 *progress UNNEEDED)
+{ fprintf(stderr, "clock_time_progresses_ called!\n"); abort(); }
 /* Generated stub for fromwire_sciddir_or_pubkey */
 void fromwire_sciddir_or_pubkey(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 				struct sciddir_or_pubkey *sciddpk UNNEEDED)

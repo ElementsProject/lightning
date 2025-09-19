@@ -3,7 +3,7 @@
 #include <ccan/bitops/bitops.h>
 #include <ccan/ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
-#include <ccan/time/time.h>
+#include <common/clock_time.h>
 #include <common/coin_mvt.h>
 #include <common/node_id.h>
 #include <wire/wire.h>
@@ -152,6 +152,12 @@ static enum mvt_tag mvt_tag_in_db(enum mvt_tag mvt_tag)
 		return mvt_tag;
 	}
 	abort();
+}
+
+/* This puts the coin movements in order */
+u64 coinmvt_current_time(void)
+{
+	return clock_time_progresses().ts.tv_sec;
 }
 
 const char *mvt_tag_str(enum mvt_tag tag)
@@ -337,7 +343,7 @@ static struct chain_coin_mvt *new_chain_coin_mvt_sat(const tal_t *ctx,
 	assert(ok);
 
 	return new_chain_coin_mvt(ctx, channel, account_name,
-				  time_now().ts.tv_sec, tx_txid,
+				  coinmvt_current_time(), tx_txid,
 				  outpoint, payment_hash,
 				  blockheight, tags, direction, amt_msat,
 				  /* All amounts that are sat are
@@ -392,7 +398,7 @@ struct chain_coin_mvt *new_coin_channel_close(const tal_t *ctx,
 		tags = mk_mvt_tags(MVT_CHANNEL_CLOSE);
 
 	mvt = new_chain_coin_mvt(ctx, channel, alt_account,
-				 time_now().ts.tv_sec, txid,
+				 coinmvt_current_time(), txid,
 				 out, NULL, blockheight,
 				 tags,
 				 COIN_DEBIT, amount,
@@ -420,7 +426,7 @@ struct chain_coin_mvt *new_coin_channel_open_proposed(const tal_t *ctx,
 	if (is_leased)
 		mvt_tag_set(&tags, MVT_LEASED);
 
-	mvt = new_chain_coin_mvt(ctx, channel, NULL, time_now().ts.tv_sec,
+	mvt = new_chain_coin_mvt(ctx, channel, NULL, coinmvt_current_time(),
 				 NULL, out, NULL, 0,
 				 tags,
 				 COIN_CREDIT, amount, output_val, 0);
@@ -473,7 +479,7 @@ struct chain_coin_mvt *new_coin_channel_open(const tal_t *ctx,
 					     bool is_leased)
 {
 	return new_coin_channel_open_general(ctx, channel, NULL,
-					     time_now().ts.tv_sec,
+					     coinmvt_current_time(),
 					     out, peer_id, blockheight,
 					     amount, output_val, is_opener, is_leased);
 }
@@ -515,7 +521,7 @@ struct chain_coin_mvt *new_coin_external_spend(const tal_t *ctx,
 					       struct mvt_tags tags)
 {
 	return new_chain_coin_mvt(ctx, NULL, ACCOUNT_NAME_EXTERNAL,
-				  time_now().ts.tv_sec, txid,
+				  coinmvt_current_time(), txid,
 				  outpoint, NULL, blockheight,
 				  tags,
 				  COIN_CREDIT, AMOUNT_MSAT(0), amount, 0);
@@ -583,7 +589,7 @@ struct channel_coin_mvt *new_coin_channel_push(const tal_t *ctx,
 					       struct mvt_tags tags)
 {
 	return new_coin_channel_push_general(ctx, channel, NULL,
-					     time_now().ts.tv_sec,
+					     coinmvt_current_time(),
 					     direction, amount, tags);
 }
 
@@ -730,6 +736,10 @@ void fromwire_chain_coin_mvt(const u8 **cursor, size_t *max, struct chain_coin_m
 	} else
 		mvt->peer_id = NULL;
 	mvt->timestamp = fromwire_u64(cursor, max);
+
+	/* Align onchaind's timestamps with ours if we're deterministic */
+	if (clock_time_overridden())
+		mvt->timestamp = coinmvt_current_time();
 }
 
 struct mvt_tags mk_mvt_tags_(enum mvt_tag tag, ...)
