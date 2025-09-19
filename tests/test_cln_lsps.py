@@ -29,3 +29,18 @@ def test_lsps0_listprotocols(node_factory):
 
     res = l1.rpc.lsps_listprotocols(lsp_id=l2.info['id'])
     assert res
+
+def test_lsps2_enabled(node_factory):
+    l1, l2 = node_factory.get_nodes(2, opts=[
+        {"dev-lsps-client-enabled": None},
+        {
+            "dev-lsps-service-enabled": None,
+            "dev-lsps2-service-enabled": None,
+            "dev-lsps2-promise-secret": "0" * 64
+        }
+    ])
+
+    node_factory.join_nodes([l1, l2], fundchannel=False)
+
+    res = l1.rpc.lsps_listprotocols(lsp_id=l2.info['id'])
+    assert res['protocols'] == [2]
