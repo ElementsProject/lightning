@@ -3,10 +3,10 @@ use async_trait::async_trait;
 use cln_lsps::jsonrpc::server::{JsonRpcResponseWriter, RequestHandler};
 use cln_lsps::jsonrpc::{server::JsonRpcServer, JsonRpcRequest};
 use cln_lsps::jsonrpc::{JsonRpcResponse, RequestObject, RpcError, TransportError};
-use cln_lsps::lsps0;
 use cln_lsps::lsps0::model::{Lsps0listProtocolsRequest, Lsps0listProtocolsResponse};
 use cln_lsps::lsps0::transport::{self, CustomMsg};
 use cln_lsps::util::wrap_payload_with_peer_id;
+use cln_lsps::{lsps0, util, LSP_FEATURE_BIT};
 use cln_plugin::options::ConfigOption;
 use cln_plugin::{options, Plugin};
 use cln_rpc::notifications::CustomMsgNotification;
@@ -31,6 +31,14 @@ struct State {
 async fn main() -> Result<(), anyhow::Error> {
     if let Some(plugin) = cln_plugin::Builder::new(tokio::io::stdin(), tokio::io::stdout())
         .option(OPTION_ENABLED)
+        .featurebits(
+            cln_plugin::FeatureBitsKind::Node,
+            util::feature_bit_to_hex(LSP_FEATURE_BIT),
+        )
+        .featurebits(
+            cln_plugin::FeatureBitsKind::Init,
+            util::feature_bit_to_hex(LSP_FEATURE_BIT),
+        )
         .hook("custommsg", on_custommsg)
         .configure()
         .await?
