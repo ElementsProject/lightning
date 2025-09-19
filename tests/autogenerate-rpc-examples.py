@@ -10,6 +10,7 @@ from fixtures import TEST_NETWORK
 from pyln.client import RpcError, Millisatoshi  # type: ignore
 from pyln.testing.utils import GENERATE_EXAMPLES
 from utils import only_one, mine_funding_to_announce, sync_blockheight, wait_for, first_scid, serialize_payload_tlv, serialize_payload_final_tlv
+import socket
 import sys
 import os
 import time
@@ -32,6 +33,7 @@ ALL_RPC_EXAMPLES = {}
 EXAMPLES_JSON = {}
 LOG_FILE = './tests/autogenerate-examples-status.log'
 IGNORE_RPCS_LIST = ['dev-splice', 'reckless', 'sql-template']
+BASE_PORTNUM = 30000
 
 if os.path.exists(LOG_FILE):
     open(LOG_FILE, 'w').close()
@@ -40,6 +42,16 @@ logger = logging.getLogger(__name__)
 
 class MissingExampleError(Exception):
     pass
+
+
+def check_ports(portrange):
+    for port in portrange:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            try:
+                s.bind(("127.0.0.1", port))
+            except OSError:
+                logger.error(f'Port {port} in use!')
+                raise
 
 
 def update_examples_in_schema_files():
@@ -129,6 +141,7 @@ def setup_test_nodes(node_factory, bitcoind, regenerate_blockchain):
                 'broken_log': '.*',
                 'dev-bitcoind-poll': 3,    # Default 1; increased to avoid rpc failures
                 'no_entropy': True,
+                'base_port': BASE_PORTNUM,
             }.copy()
             for i in range(6)
         ]
@@ -688,6 +701,7 @@ def generate_splice_examples(node_factory, bitcoind, regenerate_blockchain):
                 'broken_log': '.*',
                 'dev-bitcoind-poll': 3,
                 'no_entropy': True,
+                'base_port': BASE_PORTNUM,
             }.copy()
             for i in range(2)
         ]
@@ -745,6 +759,7 @@ def generate_channels_examples(node_factory, bitcoind, l1, l3, l4, l5, regenerat
                 'broken_log': '.*',
                 'dev-bitcoind-poll': 3,
                 'no_entropy': True,
+                'base_port': BASE_PORTNUM,
             }.copy()
             for i in range(2)
         ]
@@ -796,6 +811,7 @@ def generate_channels_examples(node_factory, bitcoind, l1, l3, l4, l5, regenerat
                 'broken_log': '.*',
                 'dev-bitcoind-poll': 3,
                 'no_entropy': True,
+                'base_port': BASE_PORTNUM,
             }.copy()
             for i in range(2)
         ]
@@ -1009,7 +1025,7 @@ def generate_backup_recovery_examples(node_factory, l4, l5, l6, regenerate_block
         logger.info('Backup and Recovery Start...')
 
         # New node l13 used for recover and exposesecret examples
-        l13 = node_factory.get_node(options={'exposesecret-passphrase': "test_exposesecret"}, no_entropy=True)
+        l13 = node_factory.get_node(options={'exposesecret-passphrase': "test_exposesecret"}, no_entropy=True, base_portnum=BASE_PORTNUM)
         update_example(node=l13, method='exposesecret', params={'passphrase': 'test_exposesecret'})
         update_example(node=l13, method='exposesecret', params=['test_exposesecret', 'cln2'])
 
@@ -1169,6 +1185,13 @@ def test_generate_examples(node_factory, bitcoind, executor):
     # Change this to True to regenerate bitcoin block & wallet.
     regenerate_blockchain = (os.environ.get("REGENERATE_BLOCKCHAIN") == "1")
     wallet_exists = os.access("tests/data/autogenerate-bitcoind-wallet.dat", os.F_OK)
+
+    # Make sure we can get the ports we expect.
+    check_ports(range(BASE_PORTNUM + 1, BASE_PORTNUM + 40))
+
+    # Make sure bitcoind doesn't steal our ports!
+    bitcoind.set_port(BASE_PORTNUM)
+
     try:
         global ALL_RPC_EXAMPLES, REGENERATING_RPCS
 
