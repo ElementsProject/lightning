@@ -1,13 +1,19 @@
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use cln_lsps::jsonrpc::client::JsonRpcClient;
 use cln_lsps::lsps0::{
     self,
     transport::{Bolt8Transport, CustomMessageHookManager, WithCustomMessageHookManager},
 };
+use cln_lsps::util;
+use cln_lsps::LSP_FEATURE_BIT;
 use cln_plugin::options;
+use cln_rpc::model::requests::ListpeersRequest;
+use cln_rpc::primitives::PublicKey;
+use cln_rpc::ClnRpc;
 use log::debug;
 use serde::Deserialize;
 use std::path::Path;
+use std::str::FromStr as _;
 
 /// An option to enable this service.
 const OPTION_ENABLED: options::FlagConfigOption = options::ConfigOption::new_flag(
@@ -66,8 +72,13 @@ async fn on_lsps_listprotocols(
     }
     let dir = p.configuration().lightning_dir;
     let rpc_path = Path::new(&dir).join(&p.configuration().rpc_file);
+    let mut cln_client = cln_rpc::ClnRpc::new(rpc_path.clone()).await?;
 
     let req: Request = serde_json::from_value(v).context("Failed to parse request JSON")?;
+
+    // Fail early: Check that we are connected to the peer and that it has the
+    // LSP feature bit set.
+    ensure_lsp_connected(&mut cln_client, &req.lsp_id).await?;
 
     // Create the transport first and handle potential errors
     let transport = Bolt8Transport::new(
@@ -89,4 +100,44 @@ async fn on_lsps_listprotocols(
 
     debug!("Received lsps0.list_protocols response: {:?}", res);
     Ok(serde_json::to_value(res)?)
+}
+
+/// Checks that the node is connected to the peer and that it has the LSP
+/// feature bit set.
+async fn ensure_lsp_connected(cln_client: &mut ClnRpc, lsp_id: &str) -> Result<(), anyhow::Error> {
+    let res = cln_client
+        .call_typed(&ListpeersRequest {
+            id: Some(PublicKey::from_str(lsp_id)?),
+            level: None,
+        })
+        .await?;
+
+    // unwrap in next line is safe as we checked that an item exists before.
+    if res.peers.is_empty() || !res.peers.first().unwrap().connected {
+        debug!("Node isn't connected to lsp {lsp_id}");
+        return Err(anyhow!("not connected to lsp"));
+    }
+
+    res.peers
+        .first()
+        .filter(|peer| {
+            // Check that feature bit is set
+            peer.features.as_deref().map_or(false, |f_str| {
+                if let Some(feature_bits) = hex::decode(f_str).ok() {
+                    let mut fb = feature_bits.clone();
+                    fb.reverse();
+                    util::is_feature_bit_set(&fb, LSP_FEATURE_BIT)
+                } else {
+                    false
+                }
+            })
+        })
+        .ok_or_else(|| {
+            anyhow!(
+                "peer is not an lsp, feature bit {} is missing",
+                LSP_FEATURE_BIT,
+            )
+        })?;
+
+    Ok(())
 }
