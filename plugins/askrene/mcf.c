@@ -171,6 +171,7 @@ static const s64 MU_MAX = 100;
 
 /* every payment under 1000sat will be routed through a single path */
 static const struct amount_msat SINGLE_PATH_THRESHOLD = AMOUNT_MSAT(1000000);
+static const double DEFAULT_BASE_PROBABILITY = 0.98;
 
 /* Let's try this encoding of arcs:
  * Each channel `c` has two possible directions identified by a bit
@@ -300,6 +301,13 @@ struct pay_parameters {
 
 	double delay_feefactor;
 	double base_fee_penalty;
+        /* base_prob is understood as global probability for channel
+         * availability, ie. a channel chosen at random will be able to forward
+         * 1msat with a probability given by this value. We don't know the
+         * actual value for this quantity but we can still use it to penalize
+         * the use of many channels per payment, ie. reducing this number we
+         * tend to obtaine less routes and/or shorter paths. */
+        double base_prob;
 };
 
 /* Helper function.
@@ -359,6 +367,7 @@ static void linearize_channel(const struct pay_parameters *params,
 			      const struct gossmap_chan *c, const int dir,
 			      s64 *capacity, double *cost)
 {
+	const double base_prob_cost = -log(params->base_prob);
 	struct amount_msat mincap, maxcap;
 
 	/* This takes into account any payments in progress. */
@@ -386,14 +395,28 @@ static void linearize_channel(const struct pay_parameters *params,
 		amount_msat_ratio_ceil(params->amount, params->accuracy));
 
 	set_capacity(&capacity[0], a, &cap_on_capacity);
-	cost[0]=0;
+	cost[0] = 1000 * base_prob_cost;
 	for(size_t i=1;i<CHANNEL_PARTS;++i)
 	{
 		set_capacity(&capacity[i], params->cap_fraction[i]*(b-a), &cap_on_capacity);
 
-		cost[i] = params->cost_fraction[i] * 1000
-			  * amount_msat_ratio(params->amount, params->accuracy)
-			  / (b - a);
+		/* It is conceptually wrong to add a base cost to every arc,
+		 * that would mean we might pay several times for the same base
+		 * cost. The linearization of the base cost is another corner
+		 * that needs improvement.
+		 * For a cost function of the form
+		 *      C(x) = x*k1 + k0
+		 * we produce a linear variation of the form
+		 *      C_lin(x) = x*(k1 + k0/T)
+		 * where T is the entire payment amount.
+                 * Since we also scale up the probability cost function by
+                 * 1000*T the resulting linear approximation becomes:
+                 *      C_lin(x) = x*1000*(k1*T + k0)
+                 **/
+		cost[i] = 1000 * (params->cost_fraction[i] / (b - a) *
+				      amount_msat_ratio(params->amount,
+							params->accuracy) +
+				  base_prob_cost);
 	}
 }
 
@@ -970,7 +993,8 @@ struct flow **minflow(const tal_t *ctx,
 		      const struct gossmap_node *target,
 		      struct amount_msat amount,
 		      u32 mu,
-		      double delay_feefactor)
+		      double delay_feefactor,
+		      double base_prob)
 {
 	struct flow **flow_paths;
 	/* We allocate everything off this, and free it at the end,
@@ -991,6 +1015,7 @@ struct flow **minflow(const tal_t *ctx,
 	 * */
 	params->accuracy =
 	    amount_msat_max(AMOUNT_MSAT(1), amount_msat_div_ceil(amount, 1000));
+        params->base_prob = base_prob;
 
 	// template the channel partition into linear arcs
 	params->cap_fraction[0]=0;
@@ -1149,7 +1174,8 @@ static void init_linear_network_single_path(
 			(*arc_capacity)[arc.idx] = 1;
 			(*arc_prob_cost)[arc.idx] =
 			    (-1.0) * log(pickhardt_richter_probability(
-					 mincap, maxcap, params->amount));
+					     mincap, maxcap, params->amount) *
+					 params->base_prob);
 
 			struct amount_msat fee;
 			if (!amount_msat_fee(&fee, params->amount,
@@ -1171,7 +1197,8 @@ struct flow **single_path_flow(const tal_t *ctx, const struct route_query *rq,
 			       const struct gossmap_node *source,
 			       const struct gossmap_node *target,
 			       struct amount_msat amount, u32 mu,
-			       double delay_feefactor)
+			       double delay_feefactor,
+			       double base_prob)
 {
 	struct flow **flow_paths;
 	/* We allocate everything off this, and free it at the end,
@@ -1188,6 +1215,7 @@ struct flow **single_path_flow(const tal_t *ctx, const struct route_query *rq,
 	params->accuracy = amount;
 	params->delay_feefactor = delay_feefactor;
 	params->base_fee_penalty = base_fee_penalty_estimate(amount);
+        params->base_prob = base_prob;
 
 	struct graph *graph;
 	double *arc_prob_cost;
@@ -1352,7 +1380,7 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 	      struct flow **(*solver)(const tal_t *, const struct route_query *,
 				      const struct gossmap_node *,
 				      const struct gossmap_node *,
-				      struct amount_msat, u32, double))
+				      struct amount_msat, u32, double, double))
 {
 	const tal_t *working_ctx = tal(ctx, tal_t);
 	const char *error_message;
@@ -1373,6 +1401,7 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 
 	/* Re-use the reservation system to make flows aware of each other. */
 	struct reserve_hop *reservations = new_reservations(working_ctx, rq);
+        double base_prob = DEFAULT_BASE_PROBABILITY;
 
 	while (!amount_msat_is_zero(amount_to_deliver)) {
 		size_t num_parts, parts_slots, excess_parts;
@@ -1409,11 +1438,13 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 		    parts_slots == 1) {
 			new_flows = single_path_flow(working_ctx, rq, srcnode,
 						     dstnode, amount_to_deliver,
-						     mu, delay_feefactor);
+						     mu, delay_feefactor,
+                                                     base_prob);
 		} else {
 			new_flows =
 			    solver(working_ctx, rq, srcnode, dstnode,
-				   amount_to_deliver, mu, delay_feefactor);
+				   amount_to_deliver, mu, delay_feefactor,
+                                   base_prob);
 		}
 
 		if (!new_flows) {
@@ -1448,9 +1479,10 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 		}
 
 		if (tal_count(new_flows) > parts_slots) {
-			/* Remove the excees of parts and leave one slot for the
-			 * next round of computations. */
-			excess_parts = 1 + tal_count(new_flows) - parts_slots;
+			/* try again but with a bigger activation cost per
+			 * channel */
+			base_prob *= DEFAULT_BASE_PROBABILITY;
+			continue;
 		} else if (tal_count(new_flows) == parts_slots &&
 			   amount_msat_less(all_deliver, amount_to_deliver)) {
 			/* Leave exactly 1 slot for the next round of
