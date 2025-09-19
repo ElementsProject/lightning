@@ -9,6 +9,8 @@ from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from pyln.client import RpcError, Millisatoshi  # type: ignore
 from pyln.testing.utils import GENERATE_EXAMPLES
+from typing import Any, Mapping, Dict, List
+from dataclasses import dataclass
 from utils import only_one, mine_funding_to_announce, sync_blockheight, wait_for, first_scid, serialize_payload_tlv, serialize_payload_final_tlv
 import socket
 import sys
@@ -54,8 +56,167 @@ def check_ports(portrange):
                 raise
 
 
+@dataclass(frozen=True)
+class Rewriter:
+    section: str                     # e.g. "connect"
+    example_id: str                  # e.g. "example:connect#1"
+    responses: List[Mapping[str, Any]]
+
+
+def _merge_list(dst: List[Any], patch: List[Any]) -> None:
+    """Element-wise list merge.  Lengths must be the same"""
+    assert len(patch) == len(dst)
+    for i, pv in enumerate(patch):
+        dv = dst[i]
+        if isinstance(pv, Mapping) and isinstance(dv, dict):
+            _deep_update(dv, pv)
+        else:
+            dst[i] = pv
+
+
+def _deep_update(dst: Dict[str, Any], patch: Mapping[str, Any]) -> None:
+    """Deep merge into dst, modifying it in place."""
+    for k, v in patch.items():
+        if isinstance(v, Mapping) and isinstance(dst.get(k), dict):
+            _deep_update(dst[k], v)
+        elif isinstance(v, list) and isinstance(dst.get(k), list):
+            _merge_list(dst[k], v)
+        else:
+            dst[k] = v
+
+
+def rewrite_example(all_examples: Dict[str, Any], rw: Rewriter) -> None:
+    """Modify the examples dict in place for the specified example."""
+    section = all_examples.get(rw.section)
+    if not section or "examples" not in section:
+        raise KeyError(f"Section {rw.section!r} not found")
+
+    for ex in section["examples"]:
+        req = ex.get("request", {})
+        resp = ex.get("response", {})
+
+        if req.get("id") == rw.example_id:
+            for resp_patch in rw.responses:
+                _deep_update(resp, resp_patch)
+            return
+
+    raise ValueError(f"Example with id {rw.example_id!r} not found in section {rw.section!r}")
+
+
+def fixup_listconfigs(configvars: Dict[str, Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    # Boutique: getinfo plugin paths will contain build directory: change them to /usr/local/libexec/plugins/
+    for cv in configvars.values():
+        if 'plugin' in cv:
+            cv['plugin'] = "/usr/local/libexec/plugins/" + cv['plugin'].split('/')[-1]
+    # And they are in plugin-response order, so sort:
+    return dict(sorted(configvars.items(),
+                       key=lambda kv: (1, kv[1]["plugin"], kv[0]) if "plugin" in kv[1] else (0, "", "")))
+
+
+def rewrite_examples(examples: Dict[str, Any]):
+    """Despite being deterministic, some thing still need fixing up"""
+
+    canned_scbs = ["0000000000000006f4e1de801de57374d5737da622611e3a1ad9f16d5df9c30fceecc11ce732eeeb022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59017f000001a95cbe3270e5e0998af5eb0a67f7bf6e8d5b3d3d43059b3e4cfbd1e4fca6152c51320000000100000000000f42400003401000000000eb015c0000fffffffffffe000000020000ffffffffffff3283fc1863a9702a8e188ed55475324e55485a8758d2068cfea35851418c55740000fffffffffffed00ec892b1739b55ddc0cca2988d8731eb33f2295c1fcc13fdbdfff9d3f85d6d038402a6939f0f9d5c7a41464169eb692b4d2d73266b3c46345cd036ca577a15bdeeaa027662682a646ce7671c3a091bf639176e87d3379022126b209ebadadae19ffc0e02c59668c64362eaeabf44ee4f10b98fc92412cbea74b6f3a917423dfdf3ca282602773e6c29472ab708e5b127e8ae1ce2d8b7f56b457299f93bb72bb73fdbcf91770501010702a5f8",
+                   "000000000000000121bd30cac60f477f2c4267220b1702a6ec5780db34f9934fa94b8c0508bf3357035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d017f000001dcf8fdd5381f36008c3eac24cdde5ec0fea8f39240575ef0cb4406cb51ad419dd7810000000000000000000f424000034010000000011301840000fffffffffffa000000030000fffffffffffb8ff7d0df4eee78e558b4e07f82049aaa933f4f4932e13e1e7fee5cb103f7a0b50000fffffffffffa79176754ea338ffa080591b946a6ac1c47ff579ae7e45857bf01261ebe1c46ba0000fffffffffffcbdb924885293efdaa1ba8f556161f4fe525c19483def49b9af85c1623bc6d27b038402add69f29ad433cb7d4c9470f2d49d80245fd9e76a992197528a131e37711efac02c57de22185162001ffaf2e61b053b1d0e280d73ecec1b04916df2c65642d94a102cd4e1a07ee85714b6eada09d9cf81aeb15bfc72ddd003235530c58bbd0c0144902b10f36d2ebab3ce560abf15ceb1bef619491e0597a794fdafcfdf8708eec9e2d0501010702a5f8",
+                   "00000000000000027512083907c74ed3a045e9bf772b3d72948eb93daf84a1cee57108800451aaf2035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d017f000001dcf80239a9c9f2a91e69ba01800baf71f55efe457677b2e5cbd640b888dc1c9375b40000000000000000000f42400003401000000000c301340000ffffffffffff000000010000ffffffffffff0e07b6188dd51f15bb5cb9027950bf487a612dca57e2928de3f28f6ee796978b03840330b7ddf07e5bc779ea468875371ea25b560491c5feaeeb5e229ded3820d1d69103620748b3796c4988dd0fc63b92ae011dc989f15c433a55ed38e24318a43b4c93021bfe48bb1aded55878b00a3f00c5c1bffa1010510d8ba1c6372012ac9c3205d20201604aa7056ab8926038a846014bdbe4874ceef7ce45141b8009b0e2f49e7ec70501010702a5f8",
+                   "0000000000000003222d999f537e32e9458c5db17a63e012dcced61340de06fda5bc30566270b0aa0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518017f0000017531932479f6d82ee59c7aa67b99568de0a31c202f6a3ff18a6bdd1ec22683cf026500000000000000000bebb3cb00034010000000009b010c0001000000000000000000000384021f90b5f38e0c0ea50bccfcf70a32cd4395c8c544e70636b7cc41831fe33fb4ce03bcfb0d457dfa07f508f434e6a2f040dd3dd233e7002dbe1c1b5d86ed5d3efd76030a4ce755504748f47401fc016578a52e104cbbd28251f10b11e4b3e55d0fe1d303986bdd0842662b8d0d18147630a720e952a2cda624c63ef4903357d27e54f7920501000702a5f8",
+                   "0000000000000004a4a379248e49d207cc984646e632e1a31105a85708b9d6d961a5018fdd489f5a0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518017f000001970c7f07a15ce1fe1519d46536c4036f1c13527fa8bf52f6a5299b860f982ba2ed7e00000001000000000000753000034010000000009b010c000100000000000000000000038402c8aabcf1224df10e9d803dc3918797892fe0abec56d3e06f121bcebbe9ab0a2c03bd181375d57b8b1d15def9c5f9007b3c3ff98a140c0a44c9dc5f54ac7ea4baf30310952e08f9960711d8142dfa171c0fc2348762acea003f3897397f6ace8454130382da2a229450c4a8e8cea70bbd147eaaf981184bff8c1d70b70c30a494d848420501010702a5f8",
+                   "000000000000000509eb55872cd9039ecd08281af756e23b15aad4129fd6a9bcd71b472114ebf43a0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518017f000001970c64ed91a21c10208d715b59801b12b4a6eff9ea9e4e7d45971c298b62d90ece8e00000000000000000000c35000034010000000009b010c000100000000000000000000038402e885f38e784050b386fb32d20935acc61059d8b02b6bec0ac2bfc8b2c5cf7f3103ae69dbfc6511ba0781c13113e16e1557a875b910cb1cb1fe1ef95a7edb36135a03758d5faa8515942873911e21869b1b90a4be72af14b394bc064da6ba518b087003750b588cd1fb8d60276c12c1c3eef7e302e3772414234404289db8c10f5731320501010702a5f8"]
+
+    rewrites = [
+        # The command_id is highly caller dependent, so clean it up.
+        Rewriter("askrene-listreservations",
+                 "example:askrene-listreservations#1",
+                 [{"reservations": [{'command_id': 'examples.py:askrene-reserve#1/cln:askrene-reserve#2'},
+                                    {'command_id': 'examples.py:askrene-reserve#2/cln:askrene-reserve#3'},
+                                    {'command_id': 'examples.py:askrene-reserve#3/cln:askrene-reserve#4'},
+                                    {'command_id': 'examples.py:askrene-reserve#4/cln:askrene-reserve#5'}]}]),
+        # The proof changes each time
+        Rewriter("fetchbip353",
+                 "example:fetchbip353#1",
+                 [{"proof": "0473656e6404736f6d650475736572105f626974636f696e2d7061796d656e740673617473746f026d65000005000100000e10002c046d6174740475736572105f626974636f696e2d7061796d656e740b6d617474636f72616c6c6f03636f6d000473656e6404736f6d650475736572105f626974636f696e2d7061796d656e740673617473746f026d6500002e000100000e10005d00050d0600000e1068cbae9b68b92483d1730673617473746f026d6500791e02a2bcc49002f748cf633b058fabf9975dce37ae6383429819624a898a0e6c7f4931fd84ca7ba8120c00f220a9a71a799c8e91acd635a34281dc4bc33e0f046d6174740475736572105f626974636f696e2d7061796d656e740b6d617474636f72616c6c6f03636f6d000010000100000e1001ecff626974636f696e3a626331717a7477793678656e337a647474377a3076726761706d6a74667a3861636a6b6670356670376c3f6c6e6f3d6c6e6f317a7235717975677167736b726b37306b716d7571377633646e7232666e6d68756b7073396e386875743438766b7170716e736b743273767371776a616b70376b36707968746b7578773779326b716d73786c777275687a7176307a736e686839713374397868783339737563367173723037656b6d3565736479756d307736366d6e783876647175777670376470356a70376a337635637036616a3077333239666e6b7171763630713936737a356e6b726335723935716666783030327135337471646beb3878396d32746d7438356a74706d63796376666e727078336c723435683267376e6133736563377867756374667a7a636d386a6a71746a3579613237746536306a303376707430767139746d326e3979786c32686e67666e6d79676573613235733475347a6c78657771707670393478743772757234726878756e776b74686b39766c79336c6d356868307071763461796d6371656a6c6773736e6c707a776c6767796b6b616a7037796a73356a76723261676b79797063646c6a323830637934366a70796e73657a72636a326b7761326c797238787664366c666b706834787278746b327863336c7071046d6174740475736572105f626974636f696e2d7061796d656e740b6d617474636f72616c6c6f03636f6d00002e000100000e10006300100d0500000e1068ccc7d068ba3db826480b6d617474636f72616c6c6f03636f6d00f68a7e7a8f8643e433f854a733dd74db2a4ae01812ffaaed6d1243d7a665d518cf5b37c101d147329e5ba45d95fd1e8ca71e77894305e1081e7b0f442d20fdc90673617473746f026d6500002b000100000e1000245b360d022333b5ea25720720a8c54553c0641e8ccb8a917af20c694f10bf7ce3851e3f6e0673617473746f026d6500002b000100000e100024c4010d02a229c6d54c38b7bb723b48a6aceab1e7fdb6ae2a22b9b57c5ca6b942ed8ea2fe0673617473746f026d6500002e000100000e100096002b080200000e1068d1697c68b5abece2ad026d65006ed35281fc11d421c48a99a7c8b822442269ba75aa723517f93bd346c11ae9c23377a4d0ca9845a09fbed97fb3684219a197fb9bc9cbd7085fb7404c40a5d8bf6deacb0f6ab7036bf5ea979b0fd000a2da96da313b5d63bbe33efe58550af3ccccd1a107b87a6ee3e61abc92e6b87a300bcafd8f12e6c6197f3d4b82116749b0026d6500002b00010000bfd80024b12808027708c8a6d5d72b63214bbff50cb54553f7e07a1fa5e9074bd8d63c43102d8559026d6500002e00010000bfd80113002b08010001518068d0594068bf27b0b5690028415c2b258249314cf220c0631e898b98c786853de415c336421fbd0e2a4a50d64aeff8a369d0c0eb79b311b4c2732c1b902987986fe1ee230142fe2deccdc09647551f094e69a6ea8a813b0688b7cbbc846ecea7683c02ac45d0ff3cc2b6fda10233afdf963fa61c58a835684c7d708fab49efc38866675dec7787dbd8066492e2d77d70e6cd50893533ab80f2a2817a6476ad054ffad9c5dfdd68ecfece3c73eecc1fa0c2ac4c130014af201f11feef6788c8e91286a4279e06b491c55824a0718a2bf1775485c4f86ee834655e32be4a2f1b500d240008da68632c1134c21463151f5c5323944e2349536db8d822636eed2ec8fedb8c0f6692fcf066b59c000030000100005da101080101030803010001acffb409bcc939f831f7a1e5ec88f7a59255ec53040be432027390a4ce896d6f9086f3c5e177fbfe118163aaec7af1462c47945944c4e2c026be5e98bbcded25978272e1e3e079c5094d573f0e83c92f02b32d3513b1550b826929c80dd0f92cac966d17769fd5867b647c3f38029abdc48152eb8f207159ecc5d232c7c1537c79f4b7ac28ff11682f21681bf6d6aba555032bf6f9f036beb2aaa5b3778d6eebfba6bf9ea191be4ab0caea759e2f773a1f9029c73ecb8d5735b9321db085f1b8e2d8038fe2941992548cee0d67dd4547e11dd63af9c9fc1c5466fb684cf009d7197c2cf79e792ab501e6a8a1ca519af2cb9b5f6367e94c0d47502451357be1b5000030000100005da101080101030803010001af7a8deba49d995a792aefc80263e991efdbc86138a931deb2c65d5682eab5d3b03738e3dfdc89d96da64c86c0224d9ce02514d285da3068b19054e5e787b2969058e98e12566c8c808c40c0b769e1db1a24a1bd9b31e303184a31fc7bb56b85bbba8abc02cd5040a444a36d47695969849e16ad856bb58e8fac8855224400319bdab224d83fc0e66aab32ff74bfeaf0f91c454e6850a1295207bbd4cdde8f6ffb08faa9755c2e3284efa01f99393e18786cb132f1e66ebc6517318e1ce8a3b7337ebb54d035ab57d9706ecd9350d4afacd825e43c8668eece89819caf6817af62dc4fbd82f0e33f6647b2b6bda175f14607f59f4635451e6b27df282ef73d87000030000100005da101080100030803010001b11b182a464c3adc6535aa59613bda7a61cac86945c20b773095941194f4b9f516e8bd924b1e50e3fe83918b51e54529d4e5a1e45303df8462241d5e05979979ae5bf9c6c598c08a496e17f3bd3732d5aebe62667b61db1bbe178f27ac99408165a230d6aee78348e6c67789541f845b2ada96667f8dd16ae44f9e260c4a138b3bb1015965ebe609434a06464bd7d29bac47c3017e83c0f89bca1a9e3bdd0813715f3484292df589bc632e27d37efc02837cb85d770d5bd53a36edc99a8294771aa93cf22406f5506c8cf850ed85c1a475dee5c2d3700b3f5631d903524b849995c20cb407ed411f70b428ae3d642716fe239335aa961a752e67fb6dca0bf729000030000100005da101080100030803010001b6aec4b48567e2925a2d9c4fa4c96e6dddf86215a9bd8dd579c38ccb1199ed1be89946a7f72fc2633909a2792d0eed1b5afb2ee4c78d865a76d6cd9369d999c96af6be0a2274b8f2e9e0a0065bd20257570f08bc14c16f5616426881a83dbce6926e391c138a2ec317efa7349264de2e791c9b7d4a6048ee6eedf27bf1ece398ff0d229f18377cb1f6b98d1228ef217b8146c0c73851b89a6fc37c621ca187e16428a743ffea0072e185ef93e39525cee3ad01e0c94d2e511c8c313322c29ab91631e1856049a36898684c3056e5997473816fb547acb0be6e660bdfa89a5cb28b3669d8625f3f018c7b3b8a4860e774ee8261811ce7f96c461bc162c1a374f300002e000100005da10113003008000002a30068cdee8068b23f004f66001c5875f402770a5fe9251e7be7783b6d0545cb59ecad7d25cb5ce75ad583c47f809ecbe168ebfc57dee0e0eca8f6b92f32fb8cf3808c95640ae8e7fcd11b57d948b3b2749ae53b799fdd665d2b37a179401afda48534952859f22884a9cb9526e147fb867b7cd1463004a0385e9ad278aa41a9b63405d636733dc822f6a8b17d9eafc00e08717d558c6d3a3315c6c2ff3479b537290fe5ce9f1b280894951c5ec31305ebfa60260354cfc340ffe8d9b809a440ea9cdd8e4e14cbefec6c7f3967ab7776f7b1bc13589596b1f6d60176d3223126bac85abb2b55cb30a5d0615d6147a5dafb841a5b7ea1c1580b1a6b3dcf7607d12e19d2971aaf8747fdab1c42bb026d65000030000100000db900880100030803010001b36eee22bd8e610570cd88bfc3fedafa006a58b9714432aa3a6f9dd39a905c4e86aa1cdf5827119c81e1245d94ee4838ae22f05cc922ca30122aefa4da19d90a965b4317071b9331187f5cf4eb570dbd8e01987c2593a85b92e0440c635d15da13405f6ca7d78289ef0d6fe4716b8b62abd18dc07b0a9edd54182353ef836539026d65000030000100000db901080101030803010001c103be3a2aa47686ab01ba1b23799ff108d0c0530dfe35cebdd320b7abc851d1abf191378d155127e17fb029628385482b34ac3b042093d6097574b36ee277e31d20003272871bc76d1762dab33397eaae97d853932da5a96886a1b7c61bc52fcd1f1f23c7026a48fa1b190cb8b97d42b45b49948c45187efec3c7867812627a0220e5497c36ee4e92452fb5c1bda2dceaebf71c0e3909a61a5d6498dfc41c71cd0412dbbf442e43c378c9fb4043a1523cfd7ce320ce29fce606db73a8c78150b9808db8bb71898858d7a48ead8870f364b6e271ac642fe3160de3bc44b5a89ccf9e21e2ae5a877253db495f611a8a16a657f7ad9aeb906d5bc9c86f2883b5ed026d65000030000100000db900880100030803010001bfe96cdfe309deee4c579edbbfb50264719c35e25f64a525f81fe2479be4a907bfa9ce8b048ec167217690a145208507367cfec4ab4f9726cf55ecb79bf287836df0e0e946463a56e01b1a7d2e98681274f42ceb5817b1e253920b50f2e63f4be1a7c41f948a4a7235259a58eb0a9e4ccca370e2b3d363e4c289b897ffa329ab026d6500002e000100000db901160030080100000e1068d1697c68b5abecb128026d65005c91285cf473abf2c412efd0459436d9a291d1462928b3fcb8b30ea6d0d817e03dc8fe06994cfffad8ce447e08d85689e8c0966eac684716d98b4d116c08004b38bdbbec00b943f0afcf1c2b98fa4c8c36ded6823d99b61d96251b337037708ab2786ae66c48f08a70cc4d00b4dfbe44ac192c6c716470de238476913ae9574693514cf6ef3cd90b072127d42a2bf12ab871332a548a73bfd9d72479b90af179692389722fab448b23cd03ca8503a5e70857e644f8a29a4a15918a5a8cd317526b1d0ec0065b15da6a3021e6543f623887e5f099df3ddf8dd75bcaa355ed03d3e3de982359a6a93eca7def06797b12e63a0ffa6dc17e620dd13b6a0d2ac25df00673617473746f026d65000030000100000c8d00440100030dedcbe3954643072571e6c4c163cfe9ef330f5e430a3e6ca5eb76a9c97d1e3fcb9cba6a6a9ea371474b27c3d8ebb3a9ad9f1006be07d5155d669fdc7cc0db4d6a0673617473746f026d65000030000100000c8d00440101030d79bca014d652db03985a4edc2ada39c35f7daf8b86656ba6cd2df96f1da8c05f81d584aad62ee3c42ac7cbd29c5d35b9fa0b3d568a556ae9794d8cb02bae1bcb0673617473746f026d6500002e000100000c8d005d00300d0200093a8068cd0e3168ba8419c4010673617473746f026d65007a17319b99137fb51bb57a513cd9fd257130de52cc9279697e727e1e95a0301653a1ea782e2d8a43d9c69528491a2e088a184128409ed0e3078597fd3732d5a30b6d617474636f72616c6c6f03636f6d00002b0001000026610024e2f50d02f0e161567d468087ff27b051abc94476178a7cb635da1aa705e05c77ca81de520b6d617474636f72616c6c6f03636f6d00002e0001000026610057002b0d020001518068c67a0468bd2f1c504103636f6d0021c40cf90af28c2fb2fd35ce8632ed73edcf43bee374fb2b54944a9e8e845d08da67afb417d3014894ac2a92cf6a73be53d7df516a298d63447af8588ccee3e703636f6d00002b00010000506600244d060d028acbb0cd28f41250a80a491389424d341522d946b0da0c0291f2d3d771d7805a03636f6d00002e0001000050660113002b08010001518068cf865068be54c0b56900a9e8604de5bb97b53b31029218bd6dce5e68cdc0bd577fd3a3def5107e17b108679df22104a4f842ecfee4ab6ee14fbd7169b9e4fc9545dd00b21b920f41f40e8b5ece643975dd26f930acdc77e9495acd4507a7b22c02c4f048dadb3d2db607d46720ede2024be8a450ab98e2cae38a594603c73bce8617b9c0ca4f303de8d09606389530fb45ec20e9e6df775a72f1b76e47ba3c3780e1a5d7a27e77645f298efe1c397f31cc9f86151216627bc7bfbf265ac5a563805db62c5df2ede65ccf1c5c3f25054d73b5b9095238d38a39e30d9c2b0ae17d8d93ed6764d452d4a3141c0355d89f261d46e1f3a37857345e5220fadbeb10c9ed234cd03adfe55a04fc03636f6d00003000010000382100440100030df17b60fb56d522f8634153e785c0a978532ea76de39d34bb356d3d042e07f29f7b992176cc83acef7b78ea750425203b18f2b8228b3cdd2bc7eb13c3e3035a7e03636f6d00003000010000382100440101030db71f0465101ddbe2bf0c9455d12fa16c1cda44f4bf1ba2553418ad1f3aa9b06973f21b84eb532cf4035ee8d4832ca26d89306a7d32560c0cb0129d450ac1083503636f6d00002e000100003821005700300d010001518068c6cafb68b3034f4d0603636f6d0096cb2d4c67b93febc13dff1cdea2ab3d7669bc767127cb975f1d2ff4a94b9c15ca83d6ae9c93bde066d08095c2d0bffde30b4aea0a94ad9902693de313cb2b390b6d617474636f72616c6c6f03636f6d00003000010000546000440100030d27ac3c16d55694869003db8f7ee177d74690a6ca1e0d719e78fe9a6a2029bb2183205b6723ca5f4d63b6bb07c5d5a35fef5907eaa22accb0435d0151e13a01cf0b6d617474636f72616c6c6f03636f6d00003000010000546000440100030d8b1cf07c86f18c19c8c3146db093893648dcc1ab5fb79e99ccbab4aa06f98d52ac27b92e215d9da98d7535f3c2ce038fbb9d41b9c63d3845d444feffc1f71ed70b6d617474636f72616c6c6f03636f6d00003000010000546000440101030dec7c1fa1752495c42d2224eace96ed74144e9cb811608dd91594974bdc723fdc5b38a37c3340f1deca68a7ec82248822954b2994de5ac99ff6e9db95fd42c94b0b6d617474636f72616c6c6f03636f6d00002e000100005460006300300d0200093a8068cd0b5a68ba8142e2f50b6d617474636f72616c6c6f03636f6d004299251a06613ed7b0d6d65c41c2df2694730e81bc9f6d7266304cbfb6721ac4cc91ba71eb1eded7d351e996c0ffaaac566829474b5bd0d9e0a0c057928d47ef"}]),
+        # Getinfo is version dependent and path dependent
+        Rewriter("getinfo",
+                 "example:getinfo#1",
+                 [{"alias": "SILENTARTIST-" + os.getenv('CLN_NEXT_VERSION')},
+                  {"version": os.getenv('CLN_NEXT_VERSION')},
+                  {"lightning-dir": "/home/rusty/.lightning/regtest"}]),
+        # Logs are high-variance
+        Rewriter("getlog",
+                 "example:getlog#1",
+                 [{"bytes_used": 3271748},
+                  {"log": [{"num_skipped": 177}, {}, {"num_skipped": 4562}, {"num_skipped": 4554}, {}]}]),
+        # listconfigs exposes lightning-dir paths, aliases
+        Rewriter("listconfigs",
+                 "example:listconfigs#3",
+                 [{"configs": {"lightning-dir": {"value_str": "/home/rusty/.lightning/regtest"}}},
+                  {"configs": {"alias": {"value_str": "SILENTARTIST-" + os.getenv('CLN_NEXT_VERSION')}}},
+                  {"configs": {"autoclean-expiredinvoices-age": {"source": "/home/rusty/.lightning/regtest/config.setconfig:2"}}},
+                  {"configs": {"pid-file": {"value_str": "/home/rusty/.lightning/lightningd-regtest.pid"}}},
+                  {"configs": {"min-capacity-sat": {"source": "/home/rusty/.lightning/regtest/config.setconfig:3"}}},
+                  {"configs": {"log-file": {"values_str": ["-", "/home/rusty/.lightning/log"]}}},
+                  {"configs": {"dev-save-plugin-io": {"value_str": "/tmp/plugin-io"}}},
+                  {"configs": {"bitcoin-datadir": {"value_str": "/var/lib/bitcoind"}}},
+                  {"configs": {"bitcoin-rpcport": {"value_int": 8332}}}]),
+        # setconfig also exposes paths
+        Rewriter("setconfig",
+                 "example:setconfig#1",
+                 [{"config": {"source": "/home/rusty/.lightning/regtest/config.setconfig:2"}},
+                  {"config": {"plugin": "/usr/local/libexec/plugins/autoclean"}}]),
+        Rewriter("setconfig",
+                 "example:setconfig#2",
+                 [{"config": {"source": "/home/rusty/.lightning/regtest/config.setconfig:3"}}]),
+        # listnodes' aliases are version dependent
+        Rewriter("listnodes",
+                 "example:listnodes#1",
+                 [{"nodes": [{"alias": "HOPPINGFIRE-" + os.getenv('CLN_NEXT_VERSION')}]}]),
+        Rewriter("listnodes",
+                 "example:listnodes#2",
+                 [{"nodes": [{"alias": "SILENTARTIST-" + os.getenv('CLN_NEXT_VERSION')},
+                             {"alias": "JUNIORBEAM-" + os.getenv('CLN_NEXT_VERSION')},
+                             {"alias": "HOPPINGFIRE-" + os.getenv('CLN_NEXT_VERSION')},
+                             {"alias": "JUNIORFELONY-" + os.getenv('CLN_NEXT_VERSION')}]}]),
+        # Ephemeral ports used when they connect to us
+        Rewriter("listpeers",
+                 "example:listpeers#2",
+                 [{"peers": [{},
+                             {"netaddr": ["127.0.0.1:54321"]},
+                             {}]}]),
+        # FIXME: SCB backup shouldn't save port for incoming connections
+        Rewriter("staticbackup",
+                 "example:staticbackup#1",
+                 [{"scb": canned_scbs}]),
+        # FIXME: Why do these vary?
+        Rewriter("listhtlcs",
+                 "example:listhtlcs#1",
+                 [{"htlcs": [{}] * 10 + [{"updated_index": 96}] + [{}] * 8 + [{"updated_index": 170}] + [{}] * 3}]),
+        # FIXME: These due to l1's different channel ordering maybe?
+        Rewriter("listpeerchannels",
+                 "example:listpeerchannels#1",
+                 [{"channels": [{"scratch_txid": "f8042b0e29badb6450d57a8065a9c05d1a86cb8cd43d775d23bd3c8e3d180bd7"}]}]),
+        Rewriter("listpeerchannels",
+                 "example:listpeerchannels#2",
+                 [{"channels": [{"scratch_txid": "f8042b0e29badb6450d57a8065a9c05d1a86cb8cd43d775d23bd3c8e3d180bd7"}, {}, {}]}]),
+    ]
+
+    # Canonicalize recover_channel request:
+    examples['listconfigs']['examples'][0]['request']['params']['scb'] = canned_scbs
+
+    # Canonicalize plugin paths, order of plugin options
+    lc_response = examples['listconfigs']['examples'][2]['response']
+    lc_response['configs'] = fixup_listconfigs(lc_response['configs'])
+
+    # Sort by scid as an arbitrary field.
+    lpc_response = examples['listpeerchannels']['examples'][1]['response']
+    lpc_response['channels'].sort(key=lambda c: c['short_channel_id'])
+
+    for rw in rewrites:
+        rewrite_example(examples, rw)
+
+
 def update_examples_in_schema_files():
     """Update examples in JSON schema files"""
+    rewrite_examples(EXAMPLES_JSON)
     try:
         updated_examples = {}
         for method, method_examples in EXAMPLES_JSON.items():
