@@ -202,7 +202,6 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPD_GET_TXOUT_REPLY:
 	case WIRE_GOSSIPD_OUTPOINTS_SPENT:
 	case WIRE_GOSSIPD_DEV_MEMLEAK:
-	case WIRE_GOSSIPD_DEV_SET_TIME:
 	case WIRE_GOSSIPD_NEW_BLOCKHEIGHT:
 	case WIRE_GOSSIPD_ADDGOSSIP:
 	/* This is a reply, so never gets through to here. */
@@ -329,7 +328,6 @@ void gossip_init(struct lightningd *ld, int connectd_fd)
 	    chainparams,
 	    ld->our_features,
 	    &ld->our_nodeid,
-	    ld->dev_gossip_time ? &ld->dev_gossip_time: NULL,
 	    ld->dev_fast_gossip,
 	    ld->dev_fast_gossip_prune,
 	    ld->autoconnect_seeker_peers);
@@ -498,29 +496,3 @@ static const struct json_command dev_set_max_scids_encode_size = {
 	.dev_only = true,
 };
 AUTODATA(json_command, &dev_set_max_scids_encode_size);
-
-static struct command_result *json_dev_gossip_set_time(struct command *cmd,
-						       const char *buffer,
-						       const jsmntok_t *obj UNNEEDED,
-						       const jsmntok_t *params)
-{
-	u8 *msg;
-	u32 *time;
-
-	if (!param(cmd, buffer, params,
-		   p_req("time", param_number, &time),
-		   NULL))
-		return command_param_failed();
-
-	msg = towire_gossipd_dev_set_time(NULL, *time);
-	subd_send_msg(cmd->ld->gossip, take(msg));
-
-	return command_success(cmd, json_stream_success(cmd));
-}
-
-static const struct json_command dev_gossip_set_time = {
-	"dev-gossip-set-time",
-	json_dev_gossip_set_time,
-	.dev_only = true,
-};
-AUTODATA(json_command, &dev_gossip_set_time);

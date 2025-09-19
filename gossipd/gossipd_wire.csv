@@ -9,7 +9,6 @@ msgtype,gossipd_init,3000
 msgdata,gossipd_init,chainparams,chainparams,
 msgdata,gossipd_init,our_features,feature_set,
 msgdata,gossipd_init,id,node_id,
-msgdata,gossipd_init,dev_gossip_time,?u32,
 msgdata,gossipd_init,dev_fast_gossip,bool,
 msgdata,gossipd_init,dev_fast_gossip_prune,bool,
 msgdata,gossipd_init,autoconnect_seeker_peers,u32,
@@ -26,10 +25,6 @@ msgdata,gossipd_init_nannounce,len,u16,
 msgdata,gossipd_init_nannounce,nannounce,u8,len
 
 msgtype,gossipd_init_reply,3100
-
-# In developer mode, we can mess with time.
-msgtype,gossipd_dev_set_time,3001
-msgdata,gossipd_dev_set_time,dev_gossip_time,u32,
 
 # Gossipd->master get this tx output please.
 msgtype,gossipd_get_txout,3018
