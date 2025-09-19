@@ -334,9 +334,9 @@ dependencies = [
 
 [[package]]
 name = "bitcoin"
-version = "0.32.6"
+version = "0.32.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad8929a18b8e33ea6b3c09297b687baaa71fb1b97353243a3f1029fad5c59c5b"
+checksum = "0fda569d741b895131a88ee5589a467e73e9c4718e958ac9308e4f7dc44b6945"
 dependencies = [
  "base58ck",
  "bech32 0.11.0",
@@ -376,7 +376,7 @@ version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f00d509810205bfef492f1d6cefe1e2ac35b5e66675d51642315ddc5cee0e78"
 dependencies = [
- "bitcoin 0.32.6",
+ "bitcoin 0.32.7",
  "dnssec-prover",
  "getrandom 0.3.3",
  "lightning",
@@ -482,6 +482,7 @@ dependencies = [
  "iana-time-zone",
  "js-sys",
  "num-traits",
+ "serde",
  "wasm-bindgen",
  "windows-link",
 ]
@@ -491,7 +492,7 @@ name = "cln-bip353"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "bitcoin 0.32.6",
+ "bitcoin 0.32.7",
  "bitcoin-payment-instructions",
  "bytes",
  "cln-plugin",
@@ -546,6 +547,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "bitcoin 0.31.2",
  "chrono",
  "cln-plugin",
  "cln-rpc",
@@ -1513,7 +1515,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e540fcb289a76826c9c0b078d3dd1f05691972c5a53fb4d3120540862040a147"
 dependencies = [
  "bech32 0.11.0",
- "bitcoin 0.32.6",
+ "bitcoin 0.32.7",
  "dnssec-prover",
  "hashbrown 0.13.2",
  "libm",
@@ -1529,7 +1531,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "11209f386879b97198b2bfc9e9c1e5d42870825c6bd4376f17f95357244d6600"
 dependencies = [
  "bech32 0.11.0",
- "bitcoin 0.32.6",
+ "bitcoin 0.32.7",
  "lightning-types",
 ]
 
@@ -1539,7 +1541,7 @@ version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2cd84d4e71472035903e43caded8ecc123066ce466329ccd5ae537a8d5488c7"
 dependencies = [
- "bitcoin 0.32.6",
+ "bitcoin 0.32.7",
 ]
 
 [[package]]
