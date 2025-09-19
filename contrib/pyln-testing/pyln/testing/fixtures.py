@@ -125,36 +125,40 @@ def node_cls():
 
 
 @pytest.fixture
-def bitcoind(directory, teardown_checks):
+def bitcoind(request, directory, teardown_checks):
     chaind = network_daemons[env('TEST_NETWORK', 'regtest')]
     bitcoind = chaind(bitcoin_dir=directory)
 
-    try:
-        bitcoind.start()
-    except Exception:
-        bitcoind.stop()
-        raise
+    # @pytest.mark.parametrize('bitcoind', [False], indirect=True) if you don't
+    # want bitcoind started!
+    if getattr(request, 'param', True):
+        try:
+            bitcoind.start()
+        except Exception:
+            bitcoind.stop()
+            raise
 
-    info = bitcoind.rpc.getnetworkinfo()
+        info = bitcoind.rpc.getnetworkinfo()
 
-    # FIXME: include liquid-regtest in this check after elementsd has been
-    # updated
-    if info['version'] < 200100 and env('TEST_NETWORK') != 'liquid-regtest':
-        bitcoind.rpc.stop()
-        raise ValueError("bitcoind is too old. At least version 20100 (v0.20.1)"
-                         " is needed, current version is {}".format(info['version']))
-    elif info['version'] < 160000:
-        bitcoind.rpc.stop()
-        raise ValueError("elementsd is too old. At least version 160000 (v0.16.0)"
-                         " is needed, current version is {}".format(info['version']))
+        # FIXME: include liquid-regtest in this check after elementsd has been
+        # updated
+        if info['version'] < 200100 and env('TEST_NETWORK') != 'liquid-regtest':
+            bitcoind.rpc.stop()
+            raise ValueError("bitcoind is too old. At least version 20100 (v0.20.1)"
+                             " is needed, current version is {}".format(info['version']))
+        elif info['version'] < 160000:
+            bitcoind.rpc.stop()
+            raise ValueError("elementsd is too old. At least version 160000 (v0.16.0)"
+                             " is needed, current version is {}".format(info['version']))
 
-    info = bitcoind.rpc.getblockchaininfo()
-    # Make sure we have some spendable funds
-    if info['blocks'] < 101:
-        bitcoind.generate_block(101 - info['blocks'])
-    elif bitcoind.rpc.getwalletinfo()['balance'] < 1:
-        logging.debug("Insufficient balance, generating 1 block")
-        bitcoind.generate_block(1)
+        info = bitcoind.rpc.getblockchaininfo()
+
+        # Make sure we have some spendable funds
+        if info['blocks'] < 101:
+            bitcoind.generate_block(101 - info['blocks'])
+        elif bitcoind.rpc.getwalletinfo()['balance'] < 1:
+            logging.debug("Insufficient balance, generating 1 block")
+            bitcoind.generate_block(1)
 
     yield bitcoind
 
