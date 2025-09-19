@@ -13,8 +13,9 @@ enum wait_subsystem {
 	WAIT_SUBSYSTEM_HTLCS,
 	WAIT_SUBSYSTEM_CHAINMOVES,
 	WAIT_SUBSYSTEM_CHANNELMOVES,
+	WAIT_SUBSYSTEM_NETWORKEVENTS,
 };
-#define NUM_WAIT_SUBSYSTEM (WAIT_SUBSYSTEM_CHANNELMOVES+1)
+#define NUM_WAIT_SUBSYSTEM (WAIT_SUBSYSTEM_NETWORKEVENTS+1)
 
 enum wait_index {
 	WAIT_INDEX_CREATED,
@@ -45,6 +46,7 @@ const char *wait_subsystem_name(enum wait_subsystem subsystem);
  * Increase index, write to db, wake any waiters, give them any name/value pairs.
  * If the value is NULL, omit that name.
  * If the name starts with '=', the value is a JSON literal (and skip over the =)
+ * If the value is "", use the resulting index value.
  *
  * Returns the updated index value (always > 0).
  */

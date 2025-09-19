@@ -1851,7 +1851,8 @@
               "succeededpays",
               "failedpays",
               "paidinvoices",
-              "expiredinvoices"
+              "expiredinvoices",
+              "networkevents"
             ],
             "description": [
               "What subsystem to clean. Currently supported subsystems are:",
@@ -1860,7 +1861,8 @@
               "    * `failedpays`: payment attempts which did not succeed (`failed` in listpays `status`).",
               "    * `succeededpays`: payment attempts which succeeded (`complete` in listpays `status`).",
               "    * `expiredinvoices`: invoices which were not paid (and cannot be) (`expired` in listinvoices `status`).",
-              "    * `paidinvoices`: invoices which were paid (`paid` in listinvoices `status)."
+              "    * `paidinvoices`: invoices which were paid (`paid` in listinvoices `status).",
+              "    * `networkevents`: all events in listnetworkevents (added *v25.12*)"
             ]
           },
           "age": {
@@ -2012,6 +2014,31 @@
                     ]
                   }
                 }
+              },
+              "networkevents": {
+                "type": "object",
+                "additionalProperties": false,
+                "added": "v25.12",
+                "required": [
+                  "cleaned",
+                  "uncleaned"
+                ],
+                "properties": {
+                  "cleaned": {
+                    "added": "v25.12",
+                    "type": "u64",
+                    "description": [
+                      "Total number of deletions done this run."
+                    ]
+                  },
+                  "uncleaned": {
+                    "added": "v25.12",
+                    "type": "u64",
+                    "description": [
+                      "The total number of entries *not* deleted this run."
+                    ]
+                  }
+                }
               }
             }
           }
@@ -2086,7 +2113,8 @@
               "succeededpays",
               "failedpays",
               "paidinvoices",
-              "expiredinvoices"
+              "expiredinvoices",
+              "networkevents"
             ],
             "description": [
               "What subsystem to ask about. Currently supported subsystems are:",
@@ -2095,7 +2123,8 @@
               "    * `failedpays`: payment attempts which did not succeed (`failed` in listpays `status`).",
               "    * `succeededpays`: payment attempts which succeeded (`complete` in listpays `status`).",
               "    * `expiredinvoices`: invoices which were not paid (and cannot be) (`expired` in listinvoices `status`).",
-              "    * `paidinvoices`: invoices which were paid (`paid` in listinvoices `status)."
+              "    * `paidinvoices`: invoices which were paid (`paid` in listinvoices `status).",
+              "    * `networkevents`: all events in listnetworkevents (added *v25.12*)"
             ]
           }
         }
@@ -2466,6 +2495,72 @@
                       "type": "u64",
                       "description": [
                         "Age (in seconds) to expired listinvoices."
+                      ]
+                    }
+                  }
+                },
+                "else": {
+                  "additionalProperties": false,
+                  "required": [
+                    "enabled",
+                    "cleaned"
+                  ],
+                  "properties": {
+                    "enabled": {},
+                    "cleaned": {}
+                  }
+                }
+              },
+              "networkevents": {
+                "type": "object",
+                "added": "v25.12",
+                "additionalProperties": true,
+                "required": [
+                  "enabled",
+                  "cleaned"
+                ],
+                "properties": {
+                  "enabled": {
+                    "type": "boolean",
+                    "added": "v25.12",
+                    "description": [
+                      "Whether autocleaning is enabled for networkevents."
+                    ]
+                  },
+                  "cleaned": {
+                    "type": "u64",
+                    "added": "v25.12",
+                    "description": [
+                      "Total number of deletions done (ever)."
+                    ]
+                  }
+                },
+                "if": {
+                  "additionalProperties": true,
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  }
+                },
+                "then": {
+                  "additionalProperties": false,
+                  "required": [
+                    "enabled",
+                    "age",
+                    "cleaned"
+                  ],
+                  "properties": {
+                    "enabled": {},
+                    "cleaned": {},
+                    "age": {
+                      "added": "v25.12",
+                      "type": "u64",
+                      "description": [
+                        "Age (in seconds) to clean networkevents."
                       ]
                     }
                   }
@@ -10279,6 +10374,50 @@
             "updated_index": 9
           }
         }
+      ]
+    },
+    "delnetworkevent.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "type": "object",
+      "rpc": "delnetworkevent",
+      "title": "Command for removing a listnetworkevents entry",
+      "description": [
+        "The **delnetworkevent** RPC command removes a single event from **listnetworkevents**, using the uniquely-identifying *created_index*.",
+        "",
+        "This command is mainly used by the *autoclean* plugin (see lightningd-config(7)), as these database entries are only kept for your own analysis, removing them has no effect on the running of your node."
+      ],
+      "request": {
+        "required": [
+          "created_index"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "created_index": {
+            "type": "u64",
+            "description": [
+              "The unique created_index of the entry.."
+            ]
+          }
+        }
+      },
+      "response": {
+        "required": [],
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "errors": [
+        "The following errors may be reported:",
+        "",
+        "- 1402: The listnetworkevents specified does not exist."
+      ],
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-autoclean(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "delpay.json": {
@@ -21725,6 +21864,123 @@
             ]
           }
         }
+      ]
+    },
+    "listnetworkevents.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "type": "object",
+      "rpc": "listnetworkevents",
+      "title": "Command for querying network events",
+      "added": "v25.12",
+      "description": [
+        "The **listnetworkevents** RPC command retrieves the log of connections, disconnections and pings on the network.  This can be analyzed to evaluate node reliability and latency.",
+        "Note: the `autoclean` plugin deletes network events older than 30 days; you can adjust `autoclean-networkevents-age` to change this"
+      ],
+      "categories": [
+        "readonly"
+      ],
+      "request": {
+        "required": [],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": [
+              "A node id: if set, only network events for this peer are returned"
+            ]
+          },
+          "index": {
+            "type": "string",
+            "enum": [
+              "created"
+            ],
+            "description": [
+              "This controls the ordering of results."
+            ],
+            "default": "`created`"
+          },
+          "start": {
+            "type": "u64",
+            "description": [
+              "If `index` is specified, `start` may be specified to start from that value, which is generally returned from lightning-wait(7)."
+            ]
+          },
+          "limit": {
+            "type": "u32",
+            "description": [
+              "If `index` is specified, `limit` can be used to specify the maximum number of entries to return."
+            ]
+          }
+        }
+      },
+      "response": {
+        "required": [
+          "networkevents"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "networkevents": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "created_index",
+                "timestamp",
+                "peer_id",
+                "type"
+              ],
+              "properties": {
+                "created_index": {
+                  "type": "u64",
+                  "description": [
+                    "1-based index indicating order this network event was created in."
+                  ]
+                },
+                "timestamp": {
+                  "type": "u64",
+                  "description": [
+                    "Time this event was recorded, in seconds since January 1 1970 UTC"
+                  ]
+                },
+                "peer_id": {
+                  "type": "pubkey",
+                  "description": [
+                    "The node the network connection was talking to."
+                  ]
+                },
+                "type": {
+                  "type": "string",
+                  "description": [
+                    "The type of event (currently `ping`, `connect`, `connect_fail` or `disconnect`)"
+                  ]
+                },
+                "reason": {
+                  "type": "string",
+                  "description": [
+                    "The cause of the event (if known)"
+                  ]
+                },
+                "duration_nsec": {
+                  "type": "u64",
+                  "description": [
+                    "The time taken (for ping, the latency, for connect / connect_fail, the time taken to get a result, for disconnect, the time we were connected)"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-autoclean(7)",
+        "lightning-listpeers(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
       ]
     },
     "listnodes.json": {
@@ -34202,7 +34458,8 @@
               "  `forwards`: corresponding to `listforwards` (added in *v23.11*).",
               "  `htlcs`: corresponding to `listhtlcs` (added in *v25.05*).",
               "  `chainmoves`: corresponding to `listchainmoves` (added in *v25.09*).",
-              "  `channelmoves`: corresponding to `listchannelmoves` (added in *v25.09*)."
+              "  `channelmoves`: corresponding to `listchannelmoves` (added in *v25.09*).",
+              "  `networkevents`: corresponding to `listnetworkevents` (added in *v25.12*)."
             ],
             "enum": [
               "invoices",
@@ -34210,7 +34467,8 @@
               "sendpays",
               "htlcs",
               "chainmoves",
-              "channelmoves"
+              "channelmoves",
+              "networkevents"
             ]
           },
           "indexname": {
@@ -34249,7 +34507,8 @@
               "sendpays",
               "htlcs",
               "chainmoves",
-              "channelmoves"
+              "channelmoves",
+              "networkevents"
             ]
           },
           "created": {
@@ -34276,6 +34535,7 @@
           "htlcs": {},
           "chainmoves": {},
           "channelmoves": {},
+          "networkevents": {},
           "details": {}
         },
         "allOf": [
@@ -35790,6 +36050,62 @@
                   "description": [
                     "The proof of payment: SHA256 of this **payment_hash**."
                   ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "additionalProperties": true,
+              "properties": {
+                "subsystem": {
+                  "type": "string",
+                  "enum": [
+                    "networkevents"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "additionalProperties": false,
+              "properties": {
+                "subsystem": {},
+                "created": {},
+                "updated": {},
+                "deleted": {},
+                "networkevents": {
+                  "added": "v25.12",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "created_index": {
+                      "added": "v25.12",
+                      "type": "u64",
+                      "description": [
+                        "The created_index of the record added/deleted"
+                      ]
+                    },
+                    "type": {
+                      "added": "v25.12",
+                      "type": "string",
+                      "enum": [
+                        "connect",
+                        "connect_fail",
+                        "ping",
+                        "disconnect"
+                      ],
+                      "description": [
+                        "The kind of network event"
+                      ]
+                    },
+                    "peer_id": {
+                      "added": "v25.12",
+                      "type": "pubkey",
+                      "description": [
+                        "The peer this network event was with"
+                      ]
+                    }
+                  }
                 }
               }
             }

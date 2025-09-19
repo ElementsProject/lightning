@@ -18,6 +18,7 @@ void connectd_start_shutdown(struct subd *connectd);
 /* Tell connectd to connect to peer: give it what we know. */
 void connectd_connect_to_peer(struct lightningd *ld,
 			      const struct peer *peer,
+			      const char *reason,
 			      bool is_important);
 
 /* Kill subds, tell connectd to disconnect once they're drained. */

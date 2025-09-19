@@ -19,6 +19,7 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 				      const struct wireaddr_internal *addr,
 				      struct oneshot *timeout,
 				      enum is_websocket is_websocket,
+				      struct timemono starttime,
 				      bool incoming);
 
 #endif /* LIGHTNING_CONNECTD_PEER_EXCHANGE_INITMSG_H */
