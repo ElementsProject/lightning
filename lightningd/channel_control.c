@@ -1134,13 +1134,16 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 	wallet_htlcsigs_confirm_inflight(channel->peer->ld->wallet, channel,
 					 &inflight->funding->outpoint);
 
-	update_channel_from_inflight(channel->peer->ld, channel, inflight, true);
+	/* Stop watching previous funding tx (could be, for announcement) */
+	channel_unwatch_funding(channel->peer->ld, channel);
 
 	/* Stash prev funding data so we can log it after scid is updated
 	 * (to get the blockheight) */
 	prev_our_msats = channel->our_msat;
 	prev_funding_sats = channel->funding_sats;
 	prev_funding_out = channel->funding;
+
+	update_channel_from_inflight(channel->peer->ld, channel, inflight, true);
 
 	channel->our_msat.millisatoshis += splice_amnt * 1000; /* Raw: splicing */
 	channel->msat_to_us_min.millisatoshis += splice_amnt * 1000; /* Raw: splicing */
@@ -1822,6 +1825,9 @@ bool peer_start_channeld(struct channel *channel,
 		struct inflight *infcopy;
 
 		if (inflight->splice_locked_memonly)
+			continue;
+
+		if (!inflight->funding->splice_remote_funding)
 			continue;
 
 		infcopy = tal(inflights, struct inflight);

@@ -181,8 +181,7 @@ static void our_addresses_add_for_index(struct wallet *w, u32 i)
 static void our_addresses_init(struct wallet *w)
 {
 	w->our_addresses_maxindex = 0;
-	w->our_addresses = tal(w, struct wallet_address_htable);
-	wallet_address_htable_init(w->our_addresses);
+	w->our_addresses = new_htable(w, wallet_address_htable);
 
 	our_addresses_add_for_index(w, w->our_addresses_maxindex);
 }
@@ -5165,9 +5164,16 @@ struct bitcoin_txid *wallet_transactions_by_height(const tal_t *ctx,
 	struct db_stmt *stmt;
 	struct bitcoin_txid *txids = tal_arr(ctx, struct bitcoin_txid, 0);
 	int count = 0;
-	stmt = db_prepare_v2(
-	    w->db, SQL("SELECT id FROM transactions WHERE blockheight=?"));
-	db_bind_int(stmt, blockheight);
+
+	/* Note: blockheight=NULL is not the same as is NULL! */
+	if (blockheight == 0) {
+		stmt = db_prepare_v2(
+			w->db, SQL("SELECT id FROM transactions WHERE blockheight IS NULL"));
+	} else {
+		stmt = db_prepare_v2(
+			w->db, SQL("SELECT id FROM transactions WHERE blockheight=?"));
+		db_bind_int(stmt, blockheight);
+	}
 	db_query_prepared(stmt);
 
 	while (db_step(stmt)) {
@@ -6882,13 +6888,6 @@ struct local_anchor_info *wallet_get_local_anchors(const tal_t *ctx,
 	tal_free(stmt);
 
 	return anchors;
-}
-
-void wallet_memleak_scan(struct htable *memtable, const struct wallet *w)
-{
-	memleak_scan_outpointfilter(memtable, w->utxoset_outpoints);
-	memleak_scan_outpointfilter(memtable, w->owned_outpoints);
-	memleak_scan_htable(memtable, &w->our_addresses->raw);
 }
 
 struct issued_address_type *wallet_list_addresses(const tal_t *ctx, struct wallet *wallet,

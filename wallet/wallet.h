@@ -1920,8 +1920,4 @@ void wallet_datastore_save_payment_description(struct db *db,
 					       const char *desc);
 void migrate_setup_coinmoves(struct lightningd *ld, struct db *db);
 
-/**
- * wallet_memleak_scan - Check for memleaks in wallet.
- */
-void wallet_memleak_scan(struct htable *memtable, const struct wallet *w);
 #endif /* LIGHTNING_WALLET_WALLET_H */

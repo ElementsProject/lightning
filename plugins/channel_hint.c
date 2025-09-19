@@ -23,12 +23,6 @@ bool channel_hint_eq(const struct channel_hint *a,
 		a->scid.dir == b->dir;
 }
 
-static void memleak_help_channel_hint_map(struct htable *memtable,
-					 struct channel_hint_map *channel_hints)
-{
-	memleak_scan_htable(memtable, &channel_hints->raw);
-}
-
 void channel_hint_to_json(const char *name, const struct channel_hint *hint,
 			  struct json_stream *dest)
 {
@@ -211,9 +205,7 @@ struct channel_hint *channel_hint_from_json(const tal_t *ctx,
 struct channel_hint_set *channel_hint_set_new(const tal_t *ctx)
 {
 	struct channel_hint_set *set = tal(ctx, struct channel_hint_set);
-	set->hints = tal(set, struct channel_hint_map);
-	channel_hint_map_init(set->hints);
-	memleak_add_helper(set->hints, memleak_help_channel_hint_map);
+	set->hints = new_htable(set, channel_hint_map);
 	return set;
 }
 
