@@ -356,6 +356,37 @@ static void watch_for_utxo_reconfirmation(struct chain_topology *topo,
 	}
 }
 
+static enum watch_result tx_confirmed(struct lightningd *ld,
+				      const struct bitcoin_txid *txid,
+				      const struct bitcoin_tx *tx,
+				      unsigned int depth,
+				      void *unused)
+{
+	/* We don't actually need to do anything here: the fact that we were
+	 * watching the tx made chaintopology.c update the transaction depth */
+	if (depth != 0)
+		return DELETE_WATCH;
+	return KEEP_WATCHING;
+}
+
+void watch_unconfirmed_txid(struct lightningd *ld,
+			    struct chain_topology *topo,
+			    const struct bitcoin_txid *txid)
+{
+	watch_txid(ld->wallet, topo, txid, tx_confirmed, NULL);
+}
+
+static void watch_for_unconfirmed_txs(struct lightningd *ld,
+				      struct chain_topology *topo)
+{
+	struct bitcoin_txid *txids;
+
+	txids = wallet_transactions_by_height(tmpctx, ld->wallet, 0);
+	log_debug(ld->log, "Got %zu unconfirmed transactions", tal_count(txids));
+	for (size_t i = 0; i < tal_count(txids); i++)
+		watch_unconfirmed_txid(ld, topo, &txids[i]);
+}
+
 /* Mutual recursion via timer. */
 static void next_updatefee_timer(struct chain_topology *topo);
 
@@ -1028,6 +1059,7 @@ static void remove_tip(struct chain_topology *topo)
 
 	/* This may have unconfirmed txs: reconfirm as we add blocks. */
 	watch_for_utxo_reconfirmation(topo, topo->ld->wallet);
+
 	block_map_del(topo->block_map, b);
 
 	/* These no longer exist, so gossipd drops any reference to them just
@@ -1478,6 +1510,11 @@ void setup_topology(struct chain_topology *topo)
 
 	/* May have unconfirmed txs: reconfirm as we add blocks. */
 	watch_for_utxo_reconfirmation(topo, topo->ld->wallet);
+
+	/* We usually watch txs because we have outputs coming to us, or they're
+	 * related to a channel.  But not if they're created by sendpsbt without any
+	 * outputs to us. */
+	watch_for_unconfirmed_txs(topo->ld, topo);
 	db_commit_transaction(topo->ld->wallet->db);
 
 	tal_free(local_ctx);
