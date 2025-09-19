@@ -7,7 +7,7 @@ use cln_lsps::lsps0::handler::Lsps0ListProtocolsHandler;
 use cln_lsps::lsps0::model::Lsps0listProtocolsRequest;
 use cln_lsps::lsps0::transport::{self, CustomMsg};
 use cln_lsps::util::wrap_payload_with_peer_id;
-use cln_lsps::{lsps0, util, LSP_FEATURE_BIT};
+use cln_lsps::{lsps0, lsps2, util, LSP_FEATURE_BIT};
 use cln_plugin::options::ConfigOption;
 use cln_plugin::{options, Plugin};
 use cln_rpc::notifications::CustomMsgNotification;
@@ -32,6 +32,8 @@ struct State {
 async fn main() -> Result<(), anyhow::Error> {
     if let Some(plugin) = cln_plugin::Builder::new(tokio::io::stdin(), tokio::io::stdout())
         .option(OPTION_ENABLED)
+        .option(lsps2::OPTION_ENABLED)
+        .option(lsps2::OPTION_PROMISE_SECRET)
         .featurebits(
             cln_plugin::FeatureBitsKind::Node,
             util::feature_bit_to_hex(LSP_FEATURE_BIT),
@@ -50,12 +52,45 @@ async fn main() -> Result<(), anyhow::Error> {
                 .await;
         }
 
+        if plugin.option(&lsps2::OPTION_ENABLED)? {
+            log::debug!("lsps2 enabled");
+            let secret_hex = plugin.option(&lsps2::OPTION_PROMISE_SECRET)?;
+            if let Some(secret_hex) = secret_hex {
+                let secret_hex = secret_hex.trim().to_lowercase();
+
+                let decoded_bytes = match hex::decode(&secret_hex) {
+                    Ok(bytes) => bytes,
+                    Err(_) => {
+                        return plugin
+                            .disable(&format!(
+                                "Invalid hex string for promise secret: {}",
+                                secret_hex
+                            ))
+                            .await;
+                    }
+                };
+
+                let _: [u8; 32] = match decoded_bytes.try_into() {
+                    Ok(array) => array,
+                    Err(vec) => {
+                        return plugin
+                            .disable(&format!(
+                                "Promise secret must be exactly 32 bytes, got {}",
+                                vec.len()
+                            ))
+                            .await;
+                    }
+                };
+            }
+        }
+
         let lsps_builder = JsonRpcServer::builder().with_handler(
             Lsps0listProtocolsRequest::METHOD.to_string(),
             Arc::new(Lsps0ListProtocolsHandler {
-                lsps2_enabled: false,
+                lsps2_enabled: plugin.option(&lsps2::OPTION_ENABLED)?,
             }),
         );
+
         let lsps_service = lsps_builder.build();
 
         let state = State { lsps_service };
