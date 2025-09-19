@@ -201,6 +201,12 @@ def test_xpay_simple(node_factory):
     with pytest.raises(RpcError, match="Already paid"):
         l1.rpc.xpay(b11_paid)
 
+    # Cannot specify payer_note with normal invoice
+    with pytest.raises(RpcError, match=r"payer_note only valid when paying an offer or BIP353 address"):
+        l1.rpc.xpay(invstring=b11, payer_note='x')
+    with pytest.raises(RpcError, match=r"payer_note only valid when paying an offer or BIP353 address"):
+        l1.rpc.xpay(invstring=b12, payer_note='x')
+
 
 def test_xpay_selfpay(node_factory):
     l1 = node_factory.get_node()
@@ -998,6 +1004,10 @@ def test_xpay_offer(node_factory):
     l1.rpc.xpay(offer2)
     l1.rpc.xpay(offer2, 5000)
 
+    # Now with a payer_note:
+    l1.rpc.xpay(invstring=offer2, payer_note="Eat at Joes!")
+    assert l1.rpc.decode(l2.rpc.listinvoices()['invoices'][3]['bolt12'])['invreq_payer_note'] == "Eat at Joes!"
+
 
 def test_xpay_bip353(node_factory):
     fakebip353_plugin = Path(__file__).parent / "plugins" / "fakebip353.py"
@@ -1011,3 +1021,57 @@ def test_xpay_bip353(node_factory):
 
     node_factory.join_nodes([l2, l1])
     l2.rpc.xpay('fake@fake.com', 100)
+
+    # BOLT #12:
+    # - if it received the offer from which it constructed this `invoice_request` using BIP 353 resolution:
+    # - MUST include `invreq_bip_353_name` with,
+    #   - `name` set to the post-₿, pre-@ part of the BIP 353 HRN,
+    #   - `domain` set to the post-@ part of the BIP 353 HRN.
+    assert l1.rpc.decode(only_one(l1.rpc.listinvoices()['invoices'])['bolt12'])['invreq_bip_353_name'] == {'name': 'fake', 'domain': 'fake.com'}
+
+    # We provide notifications of progress!
+    l2.daemon.wait_for_log('plugin-cln-xpay: notify msg info: DNS lookup for fake@fake.com')
+    l2.daemon.wait_for_log('plugin-cln-xpay: notify msg info: Fetching invoice for offer')
+    l2.daemon.wait_for_log(f'plugin-cln-xpay: notify msg debug: offer is {offer}')
+
+    # Now with a payer_note:
+    l2.rpc.xpay(invstring='fake@fake.com', amount_msat=123, payer_note="Eat at Joes!")
+    assert l1.rpc.decode(l1.rpc.listinvoices()['invoices'][1]['bolt12'])['invreq_payer_note'] == "Eat at Joes!"
+
+
+def test_xpay_forward_askrene_notifications(node_factory):
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+
+    scid12 = first_scid(l1, l2)
+    scid23 = first_scid(l3, l2)
+    offer = l3.rpc.offer("1000sat", 'test_xpay_forward_askrene_notifications')['bolt12']
+    out = subprocess.check_output(['cli/lightning-cli',
+                                   '--network={}'.format(TEST_NETWORK),
+                                   '--lightning-dir={}'
+                                   .format(l1.daemon.lightning_dir),
+                                   'xpay',
+                                   offer]).decode('utf-8').splitlines()
+    preimage = only_one(l3.rpc.listinvoices()['invoices'])['payment_preimage']
+    assert out == ['# Fetching invoice for offer',
+                   f'# getroutes: Flow 0/1: 1000011msat/11 {scid12}/1 -> 1000011msat/11 {scid23}/0 -> 1000000msat/5 0x0x0/1 -> 1000000msat/0',
+                   f'# ->{l2.info["id"]}->{l3.info["id"]}->020000000000000000000000000000000000000000000000000000000000000001: Success: preimage={preimage}',
+                   '{',
+                   f'   "payment_preimage": "{preimage}",',
+                   '   "amount_msat": 1000000,',
+                   '   "amount_sent_msat": 1000011,',
+                   '   "failed_parts": 0,',
+                   '   "successful_parts": 1',
+                   '}']
+
+    out2 = subprocess.check_output(['cli/lightning-cli',
+                                    '--network={}'.format(TEST_NETWORK),
+                                    # Now with debugging level notifications
+                                    '--notifications=debug',
+                                    '--lightning-dir={}'
+                                    .format(l1.daemon.lightning_dir),
+                                    'xpay',
+                                    offer]).decode('utf-8').splitlines()
+    assert out2[:3] == ['# Fetching invoice for offer',
+                        f'# offer is {offer}',
+                        f'# Invoice gave route {l3.info["id"]}->020000000000000000000000000000000000000000000000000000000000000001 (0x0x0/1)']
+    assert len(out2) > len(out)

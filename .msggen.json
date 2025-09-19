@@ -3887,6 +3887,7 @@
             "Xpay.maxdelay": 7,
             "Xpay.maxfee": 3,
             "Xpay.partial_msat": 6,
+            "Xpay.payer_note": 8,
             "Xpay.retry_for": 5
         },
         "XpayResponse": {
@@ -13420,6 +13421,10 @@
         },
         "Xpay.partial_msat": {
             "added": "v24.11",
+            "deprecated": null
+        },
+        "Xpay.payer_note": {
+            "added": "v25.12",
             "deprecated": null
         },
         "Xpay.payment_preimage": {
