@@ -13,3 +13,6 @@ pub const OPTION_PROMISE_SECRET: options::StringConfigOption =
         "dev-lsps2-promise-secret",
         "A 64-character hex string that is the secret for promises",
     );
+
+pub const DS_MAIN_KEY: &'static str = "lsps";
+pub const DS_SUB_KEY: &'static str = "lsps2";
