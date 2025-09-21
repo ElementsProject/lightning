@@ -6,6 +6,7 @@ use cln_lsps::jsonrpc::{server::JsonRpcServer, JsonRpcRequest};
 use cln_lsps::lsps0::handler::Lsps0ListProtocolsHandler;
 use cln_lsps::lsps0::model::Lsps0listProtocolsRequest;
 use cln_lsps::lsps0::transport::{self, CustomMsg};
+use cln_lsps::lsps2::model::Lsps2GetInfoRequest;
 use cln_lsps::util::wrap_payload_with_peer_id;
 use cln_lsps::{lsps0, lsps2, util, LSP_FEATURE_BIT};
 use cln_plugin::options::ConfigOption;
@@ -46,11 +47,21 @@ async fn main() -> Result<(), anyhow::Error> {
         .configure()
         .await?
     {
+        let rpc_path =
+            Path::new(&plugin.configuration().lightning_dir).join(&plugin.configuration().rpc_file);
+
         if !plugin.option(&OPTION_ENABLED)? {
             return plugin
                 .disable(&format!("`{}` not enabled", OPTION_ENABLED.name))
                 .await;
         }
+
+        let mut lsps_builder = JsonRpcServer::builder().with_handler(
+            Lsps0listProtocolsRequest::METHOD.to_string(),
+            Arc::new(Lsps0ListProtocolsHandler {
+                lsps2_enabled: plugin.option(&lsps2::OPTION_ENABLED)?,
+            }),
+        );
 
         if plugin.option(&lsps2::OPTION_ENABLED)? {
             log::debug!("lsps2 enabled");
@@ -70,7 +81,7 @@ async fn main() -> Result<(), anyhow::Error> {
                     }
                 };
 
-                let _: [u8; 32] = match decoded_bytes.try_into() {
+                let secret: [u8; 32] = match decoded_bytes.try_into() {
                     Ok(array) => array,
                     Err(vec) => {
                         return plugin
@@ -81,15 +92,15 @@ async fn main() -> Result<(), anyhow::Error> {
                             .await;
                     }
                 };
+
+                let cln_api_rpc = lsps2::handler::ClnApiRpc::new(rpc_path);
+                let getinfo_handler = lsps2::handler::Lsps2GetInfoHandler::new(cln_api_rpc, secret);
+                lsps_builder = lsps_builder.with_handler(
+                    Lsps2GetInfoRequest::METHOD.to_string(),
+                    Arc::new(getinfo_handler),
+                );
             }
         }
-
-        let lsps_builder = JsonRpcServer::builder().with_handler(
-            Lsps0listProtocolsRequest::METHOD.to_string(),
-            Arc::new(Lsps0ListProtocolsHandler {
-                lsps2_enabled: plugin.option(&lsps2::OPTION_ENABLED)?,
-            }),
-        );
 
         let lsps_service = lsps_builder.build();
 
