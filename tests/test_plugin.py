@@ -4045,19 +4045,29 @@ def test_sql(node_factory, bitcoind):
     wait_for(lambda: l3.rpc.sql("SELECT * FROM nodes WHERE alias = '{}'".format(alias))['rows'] != [])
 
     # Test json functions
-    l1.fundchannel(l2)
-    bitcoind.generate_block(6)
-    l1.rpc.pay(l2.rpc.invoice(amount_msat=1000000, label='inv1000', description='description 1000 msat')['bolt11'])
-    ret = l1.rpc.sql("SELECT json_object('peer_id', hex(pc.peer_id), 'alias', alias, 'htlcs',"
+    scidl1l3, _ = l1.fundchannel(l3)
+    l1.rpc.pay(l3.rpc.invoice(amount_msat=1000000, label='inv1000', description='description 1000 msat')['bolt11'])
+
+    # Two channels, l1->l3 *may* have an HTLC in flight.
+    ret = l1.rpc.sql("SELECT json_object('peer_id', hex(pc.peer_id), 'alias', alias, 'scid', short_channel_id, 'htlcs',"
                      " (SELECT json_group_array(json_object('id', hex(id), 'amount_msat', amount_msat))"
                      " FROM peerchannels_htlcs ph WHERE ph.row = pc.rowid)) FROM peerchannels pc JOIN nodes n"
                      " ON pc.peer_id = n.nodeid ORDER BY n.alias, pc.peer_id;")
     assert len(ret['rows']) == 2
-    row1 = json.loads(ret['rows'][0][0])
-    row2 = json.loads(ret['rows'][1][0])
-    assert row1['peer_id'] == format(l2.info['id'].upper())
-    assert len(row2['htlcs']) == 1
-    assert row2['htlcs'][0]['amount_msat'] == 1000000
+    row1 = json.loads(only_one(ret['rows'][0]))
+    row2 = json.loads(only_one(ret['rows'][1]))
+    assert row1 in ({"peer_id": format(l3.info['id'].upper()),
+                     "alias": l3.rpc.getinfo()['alias'],
+                     "scid": scidl1l3,
+                     "htlcs": []},
+                    {"peer_id": format(l3.info['id'].upper()),
+                     "alias": l3.rpc.getinfo()['alias'],
+                     "scid": scidl1l3,
+                     "htlcs": [{"id": "30", "amount_msat": 1000000}]})
+    assert row2 == {"peer_id": format(l2.info['id'].upper()),
+                    "alias": l2.rpc.getinfo()['alias'],
+                    "scid": scid,
+                    "htlcs": []}
 
 
 def test_sql_deprecated(node_factory, bitcoind):

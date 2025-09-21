@@ -106,8 +106,7 @@ static void maybe_free_peer(struct peer *peer)
  * not reading, we have to give up. */
 static void close_peer_io_timeout(struct peer *peer)
 {
-	/* BROKEN means we'll trigger CI if we see it, though it's possible */
-	status_peer_broken(&peer->id, "Peer did not close, forcing close");
+	status_peer_unusual(&peer->id, CI_UNEXPECTED "Peer did not close, forcing close");
 	io_close(peer->to_peer);
 }
 
@@ -1083,8 +1082,10 @@ static struct io_plan *write_to_peer(struct io_conn *peer_conn,
 	/* Still nothing to send? */
 	if (!msg) {
 		/* Draining?  We're done when subds are done. */
-		if (peer->draining && tal_count(peer->subds) == 0)
+		if (peer->draining && tal_count(peer->subds) == 0) {
+			io_wake(&peer->peer_in);
 			return io_sock_shutdown(peer_conn);
+		}
 
 		/* If they want us to send gossip, do so now. */
 		if (!peer->draining)
