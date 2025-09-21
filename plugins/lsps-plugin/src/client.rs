@@ -4,6 +4,7 @@ use cln_lsps::lsps0::{
     self,
     transport::{Bolt8Transport, CustomMessageHookManager, WithCustomMessageHookManager},
 };
+use cln_lsps::lsps2::model::{Lsps2GetInfoRequest, Lsps2GetInfoResponse};
 use cln_lsps::util;
 use cln_lsps::LSP_FEATURE_BIT;
 use cln_plugin::options;
@@ -11,7 +12,7 @@ use cln_rpc::model::requests::ListpeersRequest;
 use cln_rpc::primitives::PublicKey;
 use cln_rpc::ClnRpc;
 use log::debug;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::str::FromStr as _;
 
@@ -45,6 +46,11 @@ async fn main() -> Result<(), anyhow::Error> {
             "list protocols supported by lsp",
             on_lsps_listprotocols,
         )
+        .rpcmethod(
+            "lsps-lsps2-getinfo",
+            "Low-level command to request the opening fee menu of an LSP",
+            on_lsps_lsps2_getinfo,
+        )
         .configure()
         .await?
     {
@@ -61,7 +67,47 @@ async fn main() -> Result<(), anyhow::Error> {
     }
 }
 
-/// RPC Method handler for `lsps-listprotocols`.
+/// Rpc Method handler for `lsps-lsps2-getinfo`.
+async fn on_lsps_lsps2_getinfo(
+    p: cln_plugin::Plugin<State>,
+    v: serde_json::Value,
+) -> Result<serde_json::Value, anyhow::Error> {
+    let req: ClnRpcLsps2GetinfoRequest =
+        serde_json::from_value(v).context("Failed to parse request JSON")?;
+    debug!(
+        "Requesting opening fee menu from lsp {} with token {:?}",
+        req.lsp_id, req.token
+    );
+
+    let dir = p.configuration().lightning_dir;
+    let rpc_path = Path::new(&dir).join(&p.configuration().rpc_file);
+    let mut cln_client = cln_rpc::ClnRpc::new(rpc_path.clone()).await?;
+
+    // Fail early: Check that we are connected to the peer and that it has the
+    // LSP feature bit set.
+    ensure_lsp_connected(&mut cln_client, &req.lsp_id).await?;
+
+    // Create Transport and Client
+    let transport = Bolt8Transport::new(
+        &req.lsp_id,
+        rpc_path.clone(), // Clone path for potential reuse
+        p.state().hook_manager.clone(),
+        None, // Use default timeout
+    )
+    .context("Failed to create Bolt8Transport")?;
+    let client = JsonRpcClient::new(transport);
+
+    // 1. Call lsps2.get_info.
+    let info_req = Lsps2GetInfoRequest { token: req.token };
+    let info_res: Lsps2GetInfoResponse = client
+        .call_typed(info_req)
+        .await
+        .context("lsps2.get_info call failed")?;
+    debug!("received lsps2.get_info response: {:?}", info_res);
+
+    Ok(serde_json::to_value(info_res)?)
+}
+
 async fn on_lsps_listprotocols(
     p: cln_plugin::Plugin<State>,
     v: serde_json::Value,
@@ -140,4 +186,10 @@ async fn ensure_lsp_connected(cln_client: &mut ClnRpc, lsp_id: &str) -> Result<(
         })?;
 
     Ok(())
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ClnRpcLsps2GetinfoRequest {
+    lsp_id: String,
+    token: Option<String>,
 }
