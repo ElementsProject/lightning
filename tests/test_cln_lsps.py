@@ -60,3 +60,27 @@ def test_lsps2_getinfo(node_factory):
 
     res = l1.rpc.lsps_lsps2_getinfo(lsp_id=l2.info['id'])
     assert res["opening_fee_params_menu"]
+
+
+def test_lsps2_buy(node_factory):
+    # We need a policy service to fetch from.
+    plugin = os.path.join(os.path.dirname(__file__), 'plugins/lsps2_policy.py')
+
+    l1, l2 = node_factory.get_nodes(2, opts=[
+        {"dev-lsps-client-enabled": None},
+        {
+            "dev-lsps-service-enabled": None,
+            "dev-lsps2-service-enabled": None,
+            "dev-lsps2-promise-secret": "0" * 64,
+            "plugin": plugin
+            }
+        ])
+
+    # We don't need a channel to query for lsps services
+    node_factory.join_nodes([l1, l2], fundchannel=False)
+
+    res = l1.rpc.lsps_lsps2_getinfo(lsp_id=l2.info['id'])
+    params = res["opening_fee_params_menu"][0]
+
+    res = l1.rpc.lsps_lsps2_buy(lsp_id=l2.info['id'], payment_size_msat=None, opening_fee_params=params)
+    assert res

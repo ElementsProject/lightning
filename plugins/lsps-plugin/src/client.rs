@@ -1,17 +1,21 @@
 use anyhow::{anyhow, Context};
 use cln_lsps::jsonrpc::client::JsonRpcClient;
+use cln_lsps::lsps0::primitives::Msat;
 use cln_lsps::lsps0::{
     self,
     transport::{Bolt8Transport, CustomMessageHookManager, WithCustomMessageHookManager},
 };
-use cln_lsps::lsps2::model::{Lsps2GetInfoRequest, Lsps2GetInfoResponse};
+use cln_lsps::lsps2::model::{
+    compute_opening_fee, Lsps2BuyRequest, Lsps2BuyResponse, Lsps2GetInfoRequest,
+    Lsps2GetInfoResponse, OpeningFeeParams,
+};
 use cln_lsps::util;
 use cln_lsps::LSP_FEATURE_BIT;
 use cln_plugin::options;
 use cln_rpc::model::requests::ListpeersRequest;
-use cln_rpc::primitives::PublicKey;
+use cln_rpc::primitives::{AmountOrAny, PublicKey};
 use cln_rpc::ClnRpc;
-use log::debug;
+use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::str::FromStr as _;
@@ -50,6 +54,11 @@ async fn main() -> Result<(), anyhow::Error> {
             "lsps-lsps2-getinfo",
             "Low-level command to request the opening fee menu of an LSP",
             on_lsps_lsps2_getinfo,
+        )
+        .rpcmethod(
+            "lsps-lsps2-buy",
+            "Low-level command to return the lsps2.buy result from an ",
+            on_lsps_lsps2_buy,
         )
         .configure()
         .await?
@@ -106,6 +115,103 @@ async fn on_lsps_lsps2_getinfo(
     debug!("received lsps2.get_info response: {:?}", info_res);
 
     Ok(serde_json::to_value(info_res)?)
+}
+
+/// Rpc Method handler for `lsps-lsps2-buy`.
+async fn on_lsps_lsps2_buy(
+    p: cln_plugin::Plugin<State>,
+    v: serde_json::Value,
+) -> Result<serde_json::Value, anyhow::Error> {
+    let req: ClnRpcLsps2BuyRequest =
+        serde_json::from_value(v).context("Failed to parse request JSON")?;
+    debug!(
+        "Asking for a channel from lsp {} with opening fee params {:?} and payment size {:?}",
+        req.lsp_id, req.opening_fee_params, req.payment_size_msat
+    );
+
+    let dir = p.configuration().lightning_dir;
+    let rpc_path = Path::new(&dir).join(&p.configuration().rpc_file);
+    let mut cln_client = cln_rpc::ClnRpc::new(rpc_path.clone()).await?;
+
+    // Fail early: Check that we are connected to the peer and that it has the
+    // LSP feature bit set.
+    ensure_lsp_connected(&mut cln_client, &req.lsp_id).await?;
+
+    // Create Transport and Client
+    let transport = Bolt8Transport::new(
+        &req.lsp_id,
+        rpc_path.clone(), // Clone path for potential reuse
+        p.state().hook_manager.clone(),
+        None, // Use default timeout
+    )
+    .context("Failed to create Bolt8Transport")?;
+    let client = JsonRpcClient::new(transport);
+
+    // Convert from AmountOrAny to Msat.
+    let payment_size_msat = if let Some(payment_size) = req.payment_size_msat {
+        match payment_size {
+            AmountOrAny::Amount(amount) => Some(Msat::from_msat(amount.msat())),
+            AmountOrAny::Any => None,
+        }
+    } else {
+        None
+    };
+
+    let selected_params = req.opening_fee_params;
+
+    if let Some(payment_size) = payment_size_msat {
+        if payment_size < selected_params.min_payment_size_msat {
+            return Err(anyhow!(
+                "Requested payment size {}msat is below minimum {}msat required by LSP",
+                payment_size,
+                selected_params.min_payment_size_msat
+            ));
+        }
+        if payment_size > selected_params.max_payment_size_msat {
+            return Err(anyhow!(
+                "Requested payment size {}msat is above maximum {}msat allowed by LSP",
+                payment_size,
+                selected_params.max_payment_size_msat
+            ));
+        }
+
+        let opening_fee = compute_opening_fee(
+            payment_size.msat(),
+            selected_params.min_fee_msat.msat(),
+            selected_params.proportional.ppm() as u64,
+        )
+        .ok_or_else(|| {
+            warn!(
+                "Opening fee calculation overflowed for payment size {}",
+                payment_size
+            );
+            anyhow!("failed to calculate opening fee")
+        })?;
+
+        info!(
+            "Calculated opening fee: {}msat for payment size {}msat",
+            opening_fee, payment_size
+        );
+    } else {
+        info!("No payment size specified, requesting JIT channel for a variable-amount invoice.");
+        // Check if the selected params allow for variable amount (implicitly they do if max > min)
+        if selected_params.min_payment_size_msat >= selected_params.max_payment_size_msat {
+            // This shouldn't happen if LSP follows spec, but good to check.
+            warn!("Selected fee params seem unsuitable for variable amount: min >= max");
+        }
+    }
+
+    debug!("Calling lsps2.buy for peer {}", req.lsp_id);
+    let buy_req = Lsps2BuyRequest {
+        opening_fee_params: selected_params, // Pass the chosen params back
+        payment_size_msat,
+    };
+    let buy_res: Lsps2BuyResponse = client
+        .call_typed(buy_req)
+        .await
+        .context("lsps2.buy call failed")?;
+
+    Ok(serde_json::to_value(buy_res)?)
 }
 
 async fn on_lsps_listprotocols(
@@ -186,6 +292,14 @@ async fn ensure_lsp_connected(cln_client: &mut ClnRpc, lsp_id: &str) -> Result<(
         })?;
 
     Ok(())
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ClnRpcLsps2BuyRequest {
+    lsp_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    payment_size_msat: Option<AmountOrAny>,
+    opening_fee_params: OpeningFeeParams,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
