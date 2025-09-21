@@ -355,7 +355,7 @@ def start_channels(connections):
             )
 
 
-def test_hardmpp(node_factory):
+def test_hardmpp(node_factory, directory):
     """
     Topology:
     1----2----4
@@ -379,7 +379,7 @@ def test_hardmpp(node_factory):
         ]
     )
 
-    with open("/tmp/l1-chans.txt", "w") as f:
+    with open(os.path.join(directory, "l1-chans.txt"), "w") as f:
         print(json.dumps(l1.rpc.listchannels()), file=f)
 
     inv = l4.rpc.invoice("any", "any", "description")
@@ -387,9 +387,9 @@ def test_hardmpp(node_factory):
     l2.wait_for_htlcs()
     assert l4.rpc.listinvoices()["invoices"][0]["amount_received_msat"] == 2000000000
 
-    with open("/tmp/l2-peerchan.txt", "w") as f:
+    with open(os.path.join(directory, "l2-peerchan.txt"), "w") as f:
         print(json.dumps(l2.rpc.listpeerchannels()), file=f)
-    with open("/tmp/l3-peerchan.txt", "w") as f:
+    with open(os.path.join(directory, "l3-peerchan.txt"), "w") as f:
         print(json.dumps(l3.rpc.listpeerchannels()), file=f)
 
     inv2 = l6.rpc.invoice("1800000sat", "inv2", "description")
