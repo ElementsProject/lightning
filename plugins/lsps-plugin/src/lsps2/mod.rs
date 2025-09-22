@@ -1,5 +1,6 @@
 use cln_plugin::options;
 
+pub mod cln;
 pub mod handler;
 pub mod model;
 
