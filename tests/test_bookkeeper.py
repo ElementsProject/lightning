@@ -760,6 +760,7 @@ def test_empty_node(node_factory, bitcoind):
         l1.rpc.bkpr_inspect('wallet')
 
 
+@pytest.mark.xfail(strict=True)
 def test_rebalance_tracking(node_factory, bitcoind):
     """
     We identify rebalances (invoices paid and received by our node),
@@ -813,6 +814,18 @@ def test_rebalance_tracking(node_factory, bitcoind):
     assert result['status'] == 'complete'
 
     wait_for(lambda: 'invoice' not in [ev['tag'] for ev in l1.rpc.bkpr_listincome()['income_events']])
+    inc_evs = l1.rpc.bkpr_listincome()['income_events']
+    outbound_chan_id = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['channel_id']
+
+    outbound_ev = only_one([ev for ev in inc_evs if ev['tag'] == 'rebalance_fee'])
+    assert outbound_ev['account'] == outbound_chan_id
+    assert outbound_ev['debit_msat'] == Millisatoshi(1001)
+    assert outbound_ev['credit_msat'] == Millisatoshi(0)
+    assert outbound_ev['payment_id'] == pay_hash
+
+    # Will reload on restart!
+    l1.restart()
+
     inc_evs = l1.rpc.bkpr_listincome()['income_events']
     outbound_chan_id = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['channel_id']
 
