@@ -760,7 +760,6 @@ def test_empty_node(node_factory, bitcoind):
         l1.rpc.bkpr_inspect('wallet')
 
 
-@pytest.mark.xfail(strict=True)
 def test_rebalance_tracking(node_factory, bitcoind):
     """
     We identify rebalances (invoices paid and received by our node),
