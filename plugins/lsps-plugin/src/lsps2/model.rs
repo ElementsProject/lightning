@@ -7,6 +7,11 @@ use chrono::Utc;
 use log::debug;
 use serde::{Deserialize, Serialize};
 
+pub mod failure_codes {
+    pub const TEMPORARY_CHANNEL_FAILURE: &'static str = "1007";
+    pub const UNKNOWN_NEXT_PEER: &'static str = "4010";
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Error {
     InvalidOpeningFeeParams,
@@ -254,6 +259,18 @@ impl From<Lsps2GetInfoRequest> for Lsps2PolicyGetInfoRequest {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Lsps2PolicyGetInfoResponse {
     pub policy_opening_fee_params_menu: Vec<PolicyOpeningFeeParams>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Lsps2PolicyGetChannelCapacityRequest {
+    pub opening_fee_params: OpeningFeeParams,
+    pub init_payment_size: Msat,
+    pub scid: ShortChannelId,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Lsps2PolicyGetChannelCapacityResponse {
+    pub channel_capacity_msat: Option<u64>,
 }
 
 /// An internal representation of a policy of parameters for calculating the
