@@ -29,7 +29,7 @@ struct test_case {
 static struct amount_sat fromwire_amount_sat_bounded(const u8 **cursor, size_t *max)
 {
 	struct amount_sat amt = fromwire_amount_sat(cursor, max);
-	amt.satoshis %= (MAX_SATS + 1);
+	amt.satoshis %= (MAX_SATS + 1); /* Raw: fuzzing */
 	return amt;
 }
 
@@ -129,7 +129,7 @@ void run(const u8 *data, size_t size)
 		}
 		if (amount_sat_greater(total, tcase->max_channel_size)) {
 			fprintf(stderr, "Total channel capacity %"PRIu64" exceeds size %"PRIu64"\n",
-				total.satoshis, tcase->max_channel_size.satoshis);
+				total.satoshis, tcase->max_channel_size.satoshis); /* Raw: fuzzing */
 			abort();
 		}
 
@@ -137,12 +137,12 @@ void run(const u8 *data, size_t size)
 		if (amount_sat_less(our_funds, tcase->policy.per_channel_min) &&
 		   !amount_sat_is_zero(our_funds)) {
 			fprintf(stderr, "our_funds %"PRIu64" < per_channel_min %"PRIu64"\n",
-				our_funds.satoshis, tcase->policy.per_channel_min.satoshis);
+				our_funds.satoshis, tcase->policy.per_channel_min.satoshis); /* Raw: fuzzing */
 			abort();
 		}
 		if (amount_sat_greater(our_funds, tcase->policy.per_channel_max)) {
 			fprintf(stderr, "our_funds %"PRIu64" > per_max_channel_size %"PRIu64"\n",
-				our_funds.satoshis, tcase->policy.per_channel_max.satoshis);
+				our_funds.satoshis, tcase->policy.per_channel_max.satoshis); /* Raw: fuzzing */
 			abort();
 		}
 	}
@@ -152,14 +152,14 @@ void run(const u8 *data, size_t size)
 	if (amount_sat_sub(&available_minus_reserve, tcase->available_funds, tcase->policy.reserve_tank)) {
 		if (amount_sat_greater(our_funds, available_minus_reserve)) {
 			fprintf(stderr, "our_funds %"PRIu64" > available %"PRIu64" - reserve %"PRIu64"\n",
-				our_funds.satoshis, tcase->available_funds.satoshis,
-				tcase->policy.reserve_tank.satoshis);
+				our_funds.satoshis, tcase->available_funds.satoshis, /* Raw: fuzzing */
+				tcase->policy.reserve_tank.satoshis); /* Raw: fuzzing */
 			abort();
 		}
 	} else if (!amount_sat_eq(our_funds, AMOUNT_SAT(0))) {
 		fprintf(stderr, "Reserve %"PRIu64" >= available %"PRIu64" but our_funds %"PRIu64" != 0\n",
-			tcase->policy.reserve_tank.satoshis, tcase->available_funds.satoshis,
-			our_funds.satoshis);
+			tcase->policy.reserve_tank.satoshis, tcase->available_funds.satoshis, /* Raw: fuzzing */
+			our_funds.satoshis); /* Raw: fuzzing */
 		abort();
 	}
 
