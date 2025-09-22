@@ -41,5 +41,16 @@ def lsps2_getpolicy(request):
     ]
 }
 
+@plugin.method("dev-lsps2-getchannelcapacity")
+def lsps2_getchannelcapacity(request, init_payment_size, scid, opening_fee_params):
+    """ Returns an opening fee menu for the LSPS2 plugin.
+    """
+    now = datetime.now(timezone.utc)
+
+    # Is ISO 8601 format "YYYY-MM-DDThh:mm:ss.uuuZ"
+    valid_until = (now + timedelta(hours=1)).isoformat().replace('+00:00', 'Z')
+
+    return { "channel_capacity_msat": 100000000 }
+
 
 plugin.run()
