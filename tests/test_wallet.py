@@ -31,7 +31,7 @@ def test_withdraw(node_factory, bitcoind):
     # Don't get any funds from previous runs.
     l1 = node_factory.get_node(random_hsm=True, options={'log-level': 'io'})
     l2 = node_factory.get_node(random_hsm=True)
-    addr = l1.rpc.newaddr()['bech32']
+    addr = l1.rpc.newaddr()['p2tr']
 
     # Add some funds to withdraw later
     for i in range(10):
@@ -81,8 +81,8 @@ def test_withdraw(node_factory, bitcoind):
     assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=2')[0]['c'] == 2
 
     # Now send some money to l2.
-    # lightningd uses P2SH-P2WPKH
-    waddr = l2.rpc.newaddr('bech32')['bech32']
+    # BIP86 wallets use P2TR addresses
+    waddr = l2.rpc.newaddr()['p2tr']
     l1.rpc.withdraw(waddr, 2 * amount)
 
     # Now make sure an additional two of them were marked as reserved
@@ -132,6 +132,10 @@ def test_withdraw(node_factory, bitcoind):
     # Now make sure additional two of them were marked as spent
     assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=2')[0]['c'] == 8
 
+    # Should have 6 outputs: 2 original unspent + 4 change outputs from withdrawals
+    available_outputs = l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=0')[0]['c']
+    assert available_outputs == 6
+
     # failure testing for invalid SegWit addresses, from BIP173
     # HRP character out of range
     with pytest.raises(RpcError):
@@ -158,11 +162,11 @@ def test_withdraw(node_factory, bitcoind):
     with pytest.raises(RpcError):
         l1.rpc.withdraw('tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3pjxtptv', 2 * amount)
 
-    # Should have 6 outputs available.
+    # Should have 6 outputs available: 2 original unspent + 4 change outputs from withdrawals
     assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=0')[0]['c'] == 6
 
     # Test withdrawal to self.
-    l1.rpc.withdraw(l1.rpc.newaddr('bech32')['bech32'], 'all', minconf=0)
+    l1.rpc.withdraw(l1.rpc.newaddr()['p2tr'], 'all', minconf=0)
     bitcoind.generate_block(1)
     assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=0')[0]['c'] == 1
 
@@ -194,14 +198,14 @@ def test_withdraw(node_factory, bitcoind):
         assert utxo in vins
 
     # Try passing unconfirmed utxos
-    unconfirmed_utxos = [l1.rpc.withdraw(l1.rpc.newaddr()["bech32"], 10**5)
+    unconfirmed_utxos = [l1.rpc.withdraw(l1.rpc.newaddr()["p2tr"], 10**5)
                          for _ in range(5)]
     uutxos = [u["txid"] + ":0" for u in unconfirmed_utxos]
     l1.rpc.withdraw(waddr, "all", minconf=0, utxos=uutxos)
 
     # Try passing minimum feerates (for relay)
-    l1.rpc.withdraw(l1.rpc.newaddr()["bech32"], 10**5, feerate="253perkw")
-    l1.rpc.withdraw(l1.rpc.newaddr()["bech32"], 10**5, feerate="1000perkb")
+    l1.rpc.withdraw(l1.rpc.newaddr()["p2tr"], 10**5, feerate="253perkw")
+    l1.rpc.withdraw(l1.rpc.newaddr()["p2tr"], 10**5, feerate="1000perkb")
 
 
 def test_minconf_withdraw(node_factory, bitcoind):
@@ -216,7 +220,7 @@ def test_minconf_withdraw(node_factory, bitcoind):
     amount = 1000000
     # Don't get any funds from previous runs.
     l1 = node_factory.get_node(random_hsm=True)
-    addr = l1.rpc.newaddr()['bech32']
+    addr = l1.rpc.newaddr()['p2tr']
 
     # Add some funds to withdraw later
     for i in range(10):
@@ -239,7 +243,7 @@ def test_addfunds_from_block(node_factory, bitcoind):
     coin_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
     l1 = node_factory.get_node(random_hsm=True, options={'plugin': coin_plugin})
 
-    addr = l1.rpc.newaddr()['bech32']
+    addr = l1.rpc.newaddr()['p2tr']
     bitcoind.rpc.sendtoaddress(addr, 0.1)
     bitcoind.generate_block(1)
 
@@ -276,7 +280,7 @@ def test_txprepare_multi(node_factory, bitcoind):
     amount = 10000000
     l1 = node_factory.get_node(random_hsm=True)
 
-    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'], amount / 10**8)
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['p2tr'], amount / 10**8)
     bitcoind.generate_block(1)
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
 
@@ -1204,7 +1208,7 @@ def test_txsend(node_factory, bitcoind, chainparams):
 
     # Add some funds to withdraw later
     for i in range(10):
-        bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'],
+        bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['p2tr'],
                                    amount / 10**8)
     bitcoind.generate_block(1)
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 10)
