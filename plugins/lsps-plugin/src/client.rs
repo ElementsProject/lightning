@@ -1,9 +1,14 @@
 use anyhow::{anyhow, Context};
+use chrono::{Duration, Utc};
 use cln_lsps::jsonrpc::client::JsonRpcClient;
 use cln_lsps::lsps0::primitives::Msat;
 use cln_lsps::lsps0::{
     self,
     transport::{Bolt8Transport, CustomMessageHookManager, WithCustomMessageHookManager},
+};
+use cln_lsps::lsps2::cln::tlv::encode_tu64;
+use cln_lsps::lsps2::cln::{
+    HtlcAcceptedRequest, HtlcAcceptedResponse, TLV_FORWARD_AMT, TLV_PAYMENT_SECRET,
 };
 use cln_lsps::lsps2::model::{
     compute_opening_fee, Lsps2BuyRequest, Lsps2BuyResponse, Lsps2GetInfoRequest,
@@ -12,8 +17,9 @@ use cln_lsps::lsps2::model::{
 use cln_lsps::util;
 use cln_lsps::LSP_FEATURE_BIT;
 use cln_plugin::options;
-use cln_rpc::model::requests::ListpeersRequest;
-use cln_rpc::primitives::{AmountOrAny, PublicKey};
+use cln_rpc::model::requests::{DatastoreMode, DatastoreRequest, ListpeersRequest};
+use cln_rpc::model::responses::InvoiceResponse;
+use cln_rpc::primitives::{AmountOrAny, PublicKey, ShortChannelId};
 use cln_rpc::ClnRpc;
 use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
@@ -60,6 +66,18 @@ async fn main() -> Result<(), anyhow::Error> {
             "Low-level command to return the lsps2.buy result from an ",
             on_lsps_lsps2_buy,
         )
+        .rpcmethod(
+            "lsps-lsps2-approve",
+            "Low-level command to approve a jit channel opening for the given scid",
+            on_lsps_lsps2_approve,
+        )
+        .rpcmethod(
+            "lsps-jitchannel",
+            "Requests a new jit channel from LSP and returns the matching invoice",
+            on_lsps_jitchannel,
+        )
+        .hook("htlc_accepted", on_htlc_accepted)
+        .hook("openchannel", on_openchannel)
         .configure()
         .await?
     {
@@ -214,6 +232,283 @@ async fn on_lsps_lsps2_buy(
     Ok(serde_json::to_value(buy_res)?)
 }
 
+async fn on_lsps_lsps2_approve(
+    p: cln_plugin::Plugin<State>,
+    v: serde_json::Value,
+) -> Result<serde_json::Value, anyhow::Error> {
+    let req: ClnRpcLsps2Approve = serde_json::from_value(v)?;
+    let ds_rec = DatastoreRecord {
+        lsp_id: req.lsp_id,
+        jit_channel_scid: req.jit_channel_scid,
+        client_trusts_lsp: req.client_trusts_lsp.unwrap_or_default(),
+    };
+    let ds_rec_json = serde_json::to_string(&ds_rec)?;
+
+    let dir = p.configuration().lightning_dir;
+    let rpc_path = Path::new(&dir).join(&p.configuration().rpc_file);
+    let mut cln_client = cln_rpc::ClnRpc::new(rpc_path.clone()).await?;
+
+    let ds_req = DatastoreRequest {
+        generation: None,
+        hex: None,
+        mode: Some(DatastoreMode::CREATE_OR_REPLACE),
+        string: Some(ds_rec_json),
+        key: vec![
+            "lsps".to_string(),
+            "client".to_string(),
+            req.jit_channel_scid.to_string(),
+        ],
+    };
+    let _ds_res = cln_client.call_typed(&ds_req).await?;
+    Ok(serde_json::Value::default())
+}
+
+/// RPC Method handler for `lsps-jitchannel`.
+/// Calls lsps2.get_info, selects parameters, calculates fee, calls lsps2.buy,
+/// creates invoice.
+async fn on_lsps_jitchannel(
+    p: cln_plugin::Plugin<State>,
+    v: serde_json::Value,
+) -> Result<serde_json::Value, anyhow::Error> {
+    #[derive(Deserialize)]
+    struct Request {
+        lsp_id: String,
+        // Optional: for fixed-amount invoices
+        payment_size_msat: Option<AmountOrAny>,
+        // Optional: for discounts/API keys
+        token: Option<String>,
+    }
+
+    let req: Request = serde_json::from_value(v).context("Failed to parse request JSON")?;
+    debug!(
+        "Handling lsps-buy-jit-channel request for peer {} with payment_size {:?} and token {:?}",
+        req.lsp_id, req.payment_size_msat, req.token
+    );
+
+    let dir = p.configuration().lightning_dir;
+    let rpc_path = Path::new(&dir).join(&p.configuration().rpc_file);
+    let mut cln_client = cln_rpc::ClnRpc::new(rpc_path.clone()).await?;
+
+    // 1. Get LSP's opening fee menu.
+    let info_res: Lsps2GetInfoResponse = cln_client
+        .call_raw(
+            "lsps-lsps2-getinfo",
+            &ClnRpcLsps2GetinfoRequest {
+                lsp_id: req.lsp_id.clone(),
+                token: req.token,
+            },
+        )
+        .await?;
+
+    // 2. Select Fee Parameters.
+    // Simple strategy for now: choose the first valid option as LSPS2 requires
+    // this to be the cheapest. Could be more sophisticated (e.g., user choice).
+    let selected_params = info_res
+        .opening_fee_params_menu
+        .iter()
+        .find(|params| {
+            // Basic validation on client side: check expiry and promise length
+            let fut_now = Utc::now() + Duration::minutes(1); // Add some extra time for network delay
+            let expiry_valid = params.valid_until > fut_now;
+            if !expiry_valid {
+                warn!("Ignoring expired fee params from LSP {:?}", params);
+            }
+            expiry_valid
+        })
+        .cloned() // Clone the selected params
+        .ok_or_else(|| {
+            anyhow!(
+                "No valid/unexpired fee parameters offered by LSP {}",
+                req.lsp_id
+            )
+        })?;
+
+    info!("Selected fee parameters: {:?}", selected_params);
+
+    // 3. Request channel from LSP.
+    let buy_res: Lsps2BuyResponse = cln_client
+        .call_raw(
+            "lsps-lsps2-buy",
+            &ClnRpcLsps2BuyRequest {
+                lsp_id: req.lsp_id.clone(),
+                payment_size_msat: req.payment_size_msat,
+                opening_fee_params: selected_params.clone(),
+            },
+        )
+        .await?;
+
+    debug!("Received lsps2.buy response: {:?}", buy_res);
+
+    // We define the invoice expiry here to avoid cloning `selected_params`
+    // as they are about to be moved to the `Lsps2BuyRequest`.
+    let expiry = (selected_params.valid_until - Utc::now()).num_seconds();
+    if expiry <= 10 {
+        return Err(anyhow!(
+            "Invoice lifetime is too short, options are valid until: {}",
+            selected_params.valid_until,
+        ));
+    }
+
+    // 4. Create and invoice with a route hint pointing to the LSP, using
+    // the scid we got from the LSP.
+    let hint = RoutehintHopDev {
+        id: req.lsp_id.clone(),
+        short_channel_id: buy_res.jit_channel_scid.to_string(),
+        fee_base_msat: Some(0),
+        fee_proportional_millionths: 0,
+        cltv_expiry_delta: u16::try_from(buy_res.lsp_cltv_expiry_delta)?,
+    };
+
+    let amount_msat = if let Some(payment_size) = req.payment_size_msat {
+        payment_size
+    } else {
+        AmountOrAny::Any
+    };
+
+    let inv: cln_rpc::model::responses::InvoiceResponse = cln_client
+        .call_raw(
+            "invoice",
+            &InvoiceRequest {
+                amount_msat,
+                dev_routes: Some(vec![vec![hint]]),
+                description: String::from("TODO"), // TODO: Pass down description from rpc call
+                label: gen_label(None),            // TODO: Pass down label from rpc call
+                expiry: Some(expiry as u64),
+                cltv: Some(u32::try_from(6 + 2)?), // TODO: FETCH REAL VALUE!
+                deschashonly: None,
+                preimage: None,
+                exposeprivatechannels: None,
+                fallbacks: None,
+            },
+        )
+        .await?;
+
+    // 5. Approve jit_channel_scid for a jit channel opening.
+    let appr_req = ClnRpcLsps2Approve {
+        lsp_id: req.lsp_id,
+        jit_channel_scid: buy_res.jit_channel_scid,
+        client_trusts_lsp: Some(buy_res.client_trusts_lsp),
+    };
+    let _: serde_json::Value = cln_client.call_raw("lsps-lsps2-approve", &appr_req).await?;
+
+    // 6. Return invoice.
+    let out = InvoiceResponse {
+        bolt11: inv.bolt11,
+        created_index: inv.created_index,
+        warning_capacity: inv.warning_capacity,
+        warning_deadends: inv.warning_deadends,
+        warning_mpp: inv.warning_mpp,
+        warning_offline: inv.warning_offline,
+        warning_private_unused: inv.warning_private_unused,
+        expires_at: inv.expires_at,
+        payment_hash: inv.payment_hash,
+        payment_secret: inv.payment_secret,
+    };
+    Ok(serde_json::to_value(out)?)
+}
+
+async fn on_htlc_accepted(
+    _p: cln_plugin::Plugin<State>,
+    v: serde_json::Value,
+) -> Result<serde_json::Value, anyhow::Error> {
+    let req: HtlcAcceptedRequest = serde_json::from_value(v)?;
+
+    let htlc_amt = req.htlc.amount_msat;
+    let onion_amt = match req.onion.forward_msat {
+        Some(a) => a,
+        None => {
+            debug!("onion is missing forward_msat");
+            let value = serde_json::to_value(HtlcAcceptedResponse::continue_(None, None, None))?;
+            return Ok(value);
+        }
+    };
+
+    let is_lsp_payment = req
+        .htlc
+        .extra_tlvs
+        .as_ref()
+        .map_or(false, |tlv| tlv.contains(65537));
+
+    if !is_lsp_payment || htlc_amt.msat() >= onion_amt.msat() {
+        // Not an Lsp payment.
+        let value = serde_json::to_value(HtlcAcceptedResponse::continue_(None, None, None))?;
+        return Ok(value);
+    }
+    debug!("incoming jit-channel htlc");
+
+    // Safe unwrap(): we already checked that `extra_tlvs` exists.
+    let extra_tlvs = req.htlc.extra_tlvs.unwrap();
+    let deducted_amt = match extra_tlvs.get_tu64(65537)? {
+        Some(amt) => amt,
+        None => {
+            warn!("htlc is missing the extra_fee amount");
+            let value = serde_json::to_value(HtlcAcceptedResponse::continue_(None, None, None))?;
+            return Ok(value);
+        }
+    };
+    debug!("lsp htlc is deducted by an extra_fee={}", deducted_amt);
+
+    // Fixme: Check that it is not a forward (has payment_secret) before rpc_calls.
+
+    // Fixme: Check that we did not already pay for this channel.
+    // - via datastore or invoice label.
+
+    // Fixme: Check the if MPP or No-MPP, assuming No-MPP for now.
+    // - check that extra_fee + htlc is the total_amount_msat of the onion.
+
+    let mut payload = req.onion.payload.clone();
+    payload.set_tu64(TLV_FORWARD_AMT, htlc_amt.msat());
+    let payment_secret = match payload.get(TLV_PAYMENT_SECRET) {
+        Some(s) => s,
+        None => {
+            debug!("can't decode tlv payment_secret {:?}", payload);
+            let value = serde_json::to_value(HtlcAcceptedResponse::continue_(None, None, None))?;
+            return Ok(value);
+        }
+    };
+
+    let total_amt = htlc_amt.msat();
+    let mut ps = Vec::new();
+    ps.extend_from_slice(&payment_secret[0..32]);
+    ps.extend(encode_tu64(total_amt));
+    payload.insert(TLV_PAYMENT_SECRET, ps);
+    let payload_bytes = match payload.to_bytes() {
+        Ok(b) => b,
+        Err(e) => {
+            warn!("can't encode payload to bytes {}", e);
+            let value = serde_json::to_value(HtlcAcceptedResponse::continue_(None, None, None))?;
+            return Ok(value);
+        }
+    };
+
+    info!(
+        "Amended onion payload with forward_amt={} and total_msat={}",
+        htlc_amt.msat(),
+        total_amt
+    );
+    let value = serde_json::to_value(HtlcAcceptedResponse::continue_(
+        Some(payload_bytes),
+        None,
+        None,
+    ))?;
+    Ok(value)
+}
+
+async fn on_openchannel(
+    _p: cln_plugin::Plugin<State>,
+    _v: serde_json::Value,
+) -> Result<serde_json::Value, anyhow::Error> {
+    // Fixme: Register a list of trusted LSPs and check if LSP is allowlisted.
+    // And if we expect a channel to be opened.
+    // - either datastore or invoice label possible.
+    info!("Allowing zero-conf channel from LSP");
+    Ok(serde_json::json!({
+        "result": "continue",
+        "reserve": "0msat",
+        "mindepth": 0,
+    }))
+}
+
 async fn on_lsps_listprotocols(
     p: cln_plugin::Plugin<State>,
     v: serde_json::Value,
@@ -294,6 +589,52 @@ async fn ensure_lsp_connected(cln_client: &mut ClnRpc, lsp_id: &str) -> Result<(
     Ok(())
 }
 
+/// Generates a unique label from an optional `String`. The given label is
+/// appended by a timestamp (now).
+fn gen_label(label: Option<&str>) -> String {
+    let now = Utc::now();
+    let millis = now.timestamp_millis();
+    let l = label.unwrap_or_else(|| "lsps2.buy");
+    format!("{}_{}", l, millis)
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+struct LspsBuyJitChannelResponse {
+    bolt11: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct InvoiceRequest {
+    pub amount_msat: cln_rpc::primitives::AmountOrAny,
+    pub description: String,
+    pub label: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expiry: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fallbacks: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub preimage: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cltv: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub deschashonly: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exposeprivatechannels: Option<Vec<String>>,
+    #[serde(rename = "dev-routes", skip_serializing_if = "Option::is_none")]
+    pub dev_routes: Option<Vec<Vec<RoutehintHopDev>>>,
+}
+
+// This variant is used by dev-routes, using slightly different key names.
+// TODO Remove once we have consolidated the routehint format.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RoutehintHopDev {
+    pub id: String,
+    pub short_channel_id: String,
+    pub fee_base_msat: Option<u64>,
+    pub fee_proportional_millionths: u32,
+    pub cltv_expiry_delta: u16,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct ClnRpcLsps2BuyRequest {
     lsp_id: String,
@@ -306,4 +647,19 @@ struct ClnRpcLsps2BuyRequest {
 struct ClnRpcLsps2GetinfoRequest {
     lsp_id: String,
     token: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ClnRpcLsps2Approve {
+    lsp_id: String,
+    jit_channel_scid: ShortChannelId,
+    #[serde(default)]
+    client_trusts_lsp: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct DatastoreRecord {
+    lsp_id: String,
+    jit_channel_scid: ShortChannelId,
+    client_trusts_lsp: bool,
 }
