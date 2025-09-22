@@ -1,6 +1,6 @@
 from fixtures import *  # noqa: F401,F403
 from pyln.testing.utils import RUST
-
+from utils import only_one
 import os
 import unittest
 
@@ -88,3 +88,76 @@ def test_lsps2_buy(node_factory):
 
     res = l1.rpc.lsps_lsps2_buy(lsp_id=l2.info['id'], payment_size_msat=None, opening_fee_params=params)
     assert res
+
+
+def test_lsps2_buyjitchannel_no_mpp_var_invoice(node_factory, bitcoind):
+    """ Tests the creation of a "Just-In-Time-Channel" (jit-channel).
+
+    At the beginning we have the following situation where l2 acts as the LSP
+         (LSP)
+    l1    l2----l3
+
+    l1 now wants to get a channel from l2 via the lsps2 jit-channel protocol:
+    - l1 requests a new jit channel form l2
+    - l1 creates an invoice based on the opening fee parameters it got from l2
+    - l3 pays the invoice
+    - l2 opens a channel to l1 and forwards the payment (deducted by a fee)
+
+    eventualy this will result in the following situation
+         (LSP)
+    l1----l2----l3
+    """
+    # We need a policy service to fetch from.
+    plugin = os.path.join(os.path.dirname(__file__), 'plugins/lsps2_policy.py')
+
+    l1, l2, l3= node_factory.get_nodes(3, opts=[
+        {"dev-lsps-client-enabled": None},
+        {
+            "dev-lsps-service-enabled": None,
+            "dev-lsps2-service-enabled": None,
+            "dev-lsps2-promise-secret": "00" * 32,
+            "plugin": plugin,
+            "fee-base": 0, # We are going to deduct our fee anyways,
+            "fee-per-satoshi": 0, # We are going to deduct our fee anyways,
+        },
+        {},
+    ])
+
+    # Give the LSP some funds to open jit-channels
+    addr = l2.rpc.newaddr()['bech32']
+    bitcoind.rpc.sendtoaddress(addr, 1)
+    bitcoind.generate_block(1)
+
+    node_factory.join_nodes([l3, l2], fundchannel=True, wait_for_announce=True)
+    node_factory.join_nodes([l1, l2], fundchannel=False)
+
+    chanid = only_one(l3.rpc.listpeerchannels(l2.info['id'])['channels'])['short_channel_id']
+
+    inv = l1.rpc.lsps_jitchannel(lsp_id=l2.info['id'])
+    assert inv
+
+    dec = l3.rpc.decode(inv['bolt11'])
+    assert dec
+
+    routehint = only_one(only_one(dec['routes']))
+
+    amt = 10000000
+    fee = amt * 10 // 1000000 + 1
+
+    route = [{'amount_msat': amt,
+              'id': l2.info['id'],
+              'delay': 14,
+              'channel': chanid},
+             {'amount_msat': amt,
+              'id': l1.info['id'],
+              'delay': 8,
+              'channel': routehint['short_channel_id']}]
+
+    l3.rpc.sendpay(route, dec['payment_hash'], payment_secret=inv['payment_secret'], bolt11=inv['bolt11'], partid=0)
+
+    res = l3.rpc.waitsendpay(dec['payment_hash'])
+    assert res['payment_preimage']
+
+    # l1 should have gotten a jit-channel.
+    chs = l1.rpc.listpeerchannels()['channels']
+    assert len(chs) == 1
