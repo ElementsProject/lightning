@@ -6,6 +6,8 @@ use cln_lsps::jsonrpc::{server::JsonRpcServer, JsonRpcRequest};
 use cln_lsps::lsps0::handler::Lsps0ListProtocolsHandler;
 use cln_lsps::lsps0::model::Lsps0listProtocolsRequest;
 use cln_lsps::lsps0::transport::{self, CustomMsg};
+use cln_lsps::lsps2::cln::{HtlcAcceptedRequest, HtlcAcceptedResponse};
+use cln_lsps::lsps2::handler::{ClnApiRpc, HtlcAcceptedHookHandler};
 use cln_lsps::lsps2::model::{Lsps2BuyRequest, Lsps2GetInfoRequest};
 use cln_lsps::util::wrap_payload_with_peer_id;
 use cln_lsps::{lsps0, lsps2, util, LSP_FEATURE_BIT};
@@ -27,6 +29,7 @@ const OPTION_ENABLED: options::FlagConfigOption = ConfigOption::new_flag(
 #[derive(Clone)]
 struct State {
     lsps_service: JsonRpcServer,
+    lsps2_enabled: bool,
 }
 
 #[tokio::main]
@@ -44,6 +47,7 @@ async fn main() -> Result<(), anyhow::Error> {
             util::feature_bit_to_hex(LSP_FEATURE_BIT),
         )
         .hook("custommsg", on_custommsg)
+        .hook("htlc_accepted", on_htlc_accepted)
         .configure()
         .await?
     {
@@ -63,7 +67,7 @@ async fn main() -> Result<(), anyhow::Error> {
             }),
         );
 
-        if plugin.option(&lsps2::OPTION_ENABLED)? {
+        let lsps2_enabled = if plugin.option(&lsps2::OPTION_ENABLED)? {
             log::debug!("lsps2 enabled");
             let secret_hex = plugin.option(&lsps2::OPTION_PROMISE_SECRET)?;
             if let Some(secret_hex) = secret_hex {
@@ -104,16 +108,43 @@ async fn main() -> Result<(), anyhow::Error> {
                     )
                     .with_handler(Lsps2BuyRequest::METHOD.to_string(), Arc::new(buy_handler));
             }
-        }
+            true
+        } else {
+            false
+        };
 
         let lsps_service = lsps_builder.build();
 
-        let state = State { lsps_service };
+        let state = State {
+            lsps_service,
+            lsps2_enabled,
+        };
         let plugin = plugin.start(state).await?;
         plugin.join().await
     } else {
         Ok(())
     }
+}
+
+async fn on_htlc_accepted(
+    p: Plugin<State>,
+    v: serde_json::Value,
+) -> Result<serde_json::Value, anyhow::Error> {
+    if !p.state().lsps2_enabled {
+        // just continue.
+        // Fixme: Add forward and extra tlvs from incoming.
+        let res = serde_json::to_value(&HtlcAcceptedResponse::continue_(None, None, None))?;
+        return Ok(res);
+    }
+
+    let req: HtlcAcceptedRequest = serde_json::from_value(v)?;
+    let rpc_path = Path::new(&p.configuration().lightning_dir).join(&p.configuration().rpc_file);
+    let api = ClnApiRpc::new(rpc_path);
+    // Fixme: Use real htlc_minimum_amount.
+    let handler = HtlcAcceptedHookHandler::new(api, 1000);
+    let res = handler.handle(req).await?;
+    let res_val = serde_json::to_value(&res)?;
+    Ok(res_val)
 }
 
 async fn on_custommsg(
