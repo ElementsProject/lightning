@@ -135,7 +135,7 @@ struct rebalances *init_rebalances(const tal_t *ctx,
 			goto weird;
 
 		/* key = ["bookkeeper", "rebalances", "<lesser>-<greater>"] */
-		if (!split_tok(buf, keytok + 2, '-', &lessertok, &greatertok))
+		if (!split_tok(buf, keytok + 3, '-', &lessertok, &greatertok))
 			goto weird;
 
 		if (!json_to_u64(buf, &lessertok, &lesser)
