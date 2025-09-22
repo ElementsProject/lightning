@@ -726,6 +726,14 @@ void wallet_state_change_add(struct wallet *w,
 void wallet_delete_peer_if_unused(struct wallet *w, u64 peer_dbid);
 
 /**
+ * wallet_delete_old_htlcs -- delete htlcs associated with CLOSED channels.
+ *
+ * We do this at startup, instead of when we finally CLOSED a channel, to
+ * avoid a significant pause.
+ */
+void wallet_delete_old_htlcs(struct wallet *w);
+
+/**
  * wallet_init_channels -- Loads active channels into peers
  *    and inits the dbid counter for next channel.
  *
