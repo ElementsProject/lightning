@@ -31,7 +31,7 @@ def test_withdraw(node_factory, bitcoind):
     # Don't get any funds from previous runs.
     l1 = node_factory.get_node(random_hsm=True, options={'log-level': 'io'})
     l2 = node_factory.get_node(random_hsm=True)
-    addr = l1.rpc.newaddr()['p2tr']
+    addr = l1.rpc.newaddr('p2tr')['p2tr']
 
     # Add some funds to withdraw later
     for i in range(10):
@@ -82,7 +82,7 @@ def test_withdraw(node_factory, bitcoind):
 
     # Now send some money to l2.
     # BIP86 wallets use P2TR addresses
-    waddr = l2.rpc.newaddr()['p2tr']
+    waddr = l2.rpc.newaddr('p2tr')['p2tr']
     l1.rpc.withdraw(waddr, 2 * amount)
 
     # Now make sure an additional two of them were marked as reserved
@@ -166,7 +166,7 @@ def test_withdraw(node_factory, bitcoind):
     assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=0')[0]['c'] == 6
 
     # Test withdrawal to self.
-    l1.rpc.withdraw(l1.rpc.newaddr()['p2tr'], 'all', minconf=0)
+    l1.rpc.withdraw(l1.rpc.newaddr('p2tr')['p2tr'], 'all', minconf=0)
     bitcoind.generate_block(1)
     assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=0')[0]['c'] == 1
 
@@ -198,14 +198,14 @@ def test_withdraw(node_factory, bitcoind):
         assert utxo in vins
 
     # Try passing unconfirmed utxos
-    unconfirmed_utxos = [l1.rpc.withdraw(l1.rpc.newaddr()["p2tr"], 10**5)
+    unconfirmed_utxos = [l1.rpc.withdraw(l1.rpc.newaddr("p2tr")["p2tr"], 10**5)
                          for _ in range(5)]
     uutxos = [u["txid"] + ":0" for u in unconfirmed_utxos]
     l1.rpc.withdraw(waddr, "all", minconf=0, utxos=uutxos)
 
     # Try passing minimum feerates (for relay)
-    l1.rpc.withdraw(l1.rpc.newaddr()["p2tr"], 10**5, feerate="253perkw")
-    l1.rpc.withdraw(l1.rpc.newaddr()["p2tr"], 10**5, feerate="1000perkb")
+    l1.rpc.withdraw(l1.rpc.newaddr("p2tr")["p2tr"], 10**5, feerate="253perkw")
+    l1.rpc.withdraw(l1.rpc.newaddr("p2tr")["p2tr"], 10**5, feerate="1000perkb")
 
 
 def test_minconf_withdraw(node_factory, bitcoind):
@@ -220,7 +220,7 @@ def test_minconf_withdraw(node_factory, bitcoind):
     amount = 1000000
     # Don't get any funds from previous runs.
     l1 = node_factory.get_node(random_hsm=True)
-    addr = l1.rpc.newaddr()['p2tr']
+    addr = l1.rpc.newaddr('p2tr')['p2tr']
 
     # Add some funds to withdraw later
     for i in range(10):
@@ -243,7 +243,7 @@ def test_addfunds_from_block(node_factory, bitcoind):
     coin_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
     l1 = node_factory.get_node(random_hsm=True, options={'plugin': coin_plugin})
 
-    addr = l1.rpc.newaddr()['p2tr']
+    addr = l1.rpc.newaddr('p2tr')['p2tr']
     bitcoind.rpc.sendtoaddress(addr, 0.1)
     bitcoind.generate_block(1)
 
@@ -280,7 +280,7 @@ def test_txprepare_multi(node_factory, bitcoind):
     amount = 10000000
     l1 = node_factory.get_node(random_hsm=True)
 
-    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['p2tr'], amount / 10**8)
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr('p2tr')['p2tr'], amount / 10**8)
     bitcoind.generate_block(1)
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
 
@@ -1208,7 +1208,7 @@ def test_txsend(node_factory, bitcoind, chainparams):
 
     # Add some funds to withdraw later
     for i in range(10):
-        bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['p2tr'],
+        bitcoind.rpc.sendtoaddress(l1.rpc.newaddr('p2tr')['p2tr'],
                                    amount / 10**8)
     bitcoind.generate_block(1)
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 10)

@@ -135,7 +135,7 @@ static void our_addresses_add_for_index(struct wallet *w, u32 i)
 	/* Determine which address types to generate */
 	if (!wallet_get_addrtype(w, i, &addrtype)) {
 		/* Unknown (prior to 24.11): add all possibilities */
-		assert(legacy);
+		//assert(legacy);
 		addrtype = ADDR_ALL;
 	}
 

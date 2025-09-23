@@ -329,9 +329,6 @@ bool fromwire_gossipd_addgossip_reply(const tal_t *ctx UNNEEDED, const void *p U
 /* Generated stub for fromwire_hsmd_check_pubkey_reply */
 bool fromwire_hsmd_check_pubkey_reply(const void *p UNNEEDED, bool *ok UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_check_pubkey_reply called!\n"); abort(); }
-/* Generated stub for fromwire_hsmd_check_bip86_pubkey_reply */
-bool fromwire_hsmd_check_bip86_pubkey_reply(const void *p UNNEEDED, bool *ok UNNEEDED)
-{ fprintf(stderr, "fromwire_hsmd_check_bip86_pubkey_reply called!\n"); abort(); }
 /* Generated stub for fromwire_hsmd_client_hsmfd_reply */
 bool fromwire_hsmd_client_hsmfd_reply(const void *p UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_client_hsmfd_reply called!\n"); abort(); }
@@ -347,12 +344,12 @@ bool fromwire_hsmd_forget_channel_reply(const void *p UNNEEDED)
 /* Generated stub for fromwire_hsmd_get_output_scriptpubkey_reply */
 bool fromwire_hsmd_get_output_scriptpubkey_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **script UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_get_output_scriptpubkey_reply called!\n"); abort(); }
-/* Generated stub for fromwire_hsmd_init_reply_v4 */
-bool fromwire_hsmd_init_reply_v4(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u32 *hsm_version UNNEEDED, u32 **hsm_capabilities UNNEEDED, struct node_id *node_id UNNEEDED, struct ext_key *bip32 UNNEEDED, struct pubkey *bolt12 UNNEEDED, struct tlv_hsmd_init_reply_v4_tlvs **tlvs UNNEEDED)
-{ fprintf(stderr, "fromwire_hsmd_init_reply_v4 called!\n"); abort(); }
 /* Generated stub for fromwire_hsmd_init_reply_failure */
 bool fromwire_hsmd_init_reply_failure(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u32 *error_code UNNEEDED, wirestring **error_message UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_init_reply_failure called!\n"); abort(); }
+/* Generated stub for fromwire_hsmd_init_reply_v4 */
+bool fromwire_hsmd_init_reply_v4(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u32 *hsm_version UNNEEDED, u32 **hsm_capabilities UNNEEDED, struct node_id *node_id UNNEEDED, struct ext_key *bip32 UNNEEDED, struct pubkey *bolt12 UNNEEDED, struct tlv_hsmd_init_reply_v4_tlvs **tlvs UNNEEDED)
+{ fprintf(stderr, "fromwire_hsmd_init_reply_v4 called!\n"); abort(); }
 /* Generated stub for fromwire_hsmd_new_channel_reply */
 bool fromwire_hsmd_new_channel_reply(const void *p UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_new_channel_reply called!\n"); abort(); }
@@ -441,15 +438,6 @@ bool invoices_resolve(struct invoices *invoices UNNEEDED,
 		      const struct json_escape *label UNNEEDED,
 		      const struct bitcoin_outpoint *outpoint UNNEEDED)
 { fprintf(stderr, "invoices_resolve called!\n"); abort(); }
-/* Generated stub for is_legacy_hsm_secret_encrypted */
-int is_legacy_hsm_secret_encrypted(const char *path UNNEEDED)
-{ fprintf(stderr, "is_legacy_hsm_secret_encrypted called!\n"); abort(); }
-/* Generated stub for hsm_secret_error_str */
-const char *hsm_secret_error_str(enum hsm_secret_error err UNNEEDED)
-{ fprintf(stderr, "hsm_secret_error_str called!\n"); abort(); }
-/* Generated stub for read_stdin_pass */
-const char *read_stdin_pass(const tal_t *ctx UNNEEDED, enum hsm_secret_error *err UNNEEDED)
-{ fprintf(stderr, "read_stdin_pass called!\n"); abort(); }
 /* Generated stub for json_add_address */
 void json_add_address(struct json_stream *response UNNEEDED, const char *fieldname UNNEEDED,
 		      const struct wireaddr *addr UNNEEDED)
@@ -1137,9 +1125,6 @@ u8 *towire_gossipd_addgossip(const tal_t *ctx UNNEEDED, const u8 *msg UNNEEDED, 
 /* Generated stub for towire_hsmd_check_pubkey */
 u8 *towire_hsmd_check_pubkey(const tal_t *ctx UNNEEDED, u32 index UNNEEDED, const struct pubkey *pubkey UNNEEDED)
 { fprintf(stderr, "towire_hsmd_check_pubkey called!\n"); abort(); }
-/* Generated stub for towire_hsmd_check_bip86_pubkey */
-u8 *towire_hsmd_check_bip86_pubkey(const tal_t *ctx UNNEEDED, u32 index UNNEEDED, const struct pubkey *pubkey UNNEEDED)
-{ fprintf(stderr, "towire_hsmd_check_bip86_pubkey called!\n"); abort(); }
 /* Generated stub for towire_hsmd_client_hsmfd */
 u8 *towire_hsmd_client_hsmfd(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, u64 dbid UNNEEDED, u64 permissions UNNEEDED)
 { fprintf(stderr, "towire_hsmd_client_hsmfd called!\n"); abort(); }
