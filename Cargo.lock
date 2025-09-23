@@ -512,7 +512,7 @@ dependencies = [
  "cln-rpc",
  "log",
  "prost",
- "rcgen",
+ "rcgen 0.13.2",
  "serde_json",
  "tokio",
  "tonic",
@@ -586,7 +586,7 @@ dependencies = [
  "log",
  "log-panics",
  "quick-xml",
- "rcgen",
+ "rcgen 0.13.2",
  "roxmltree_to_serde",
  "serde",
  "serde_json",
@@ -1963,6 +1963,19 @@ dependencies = [
  "rustls-pki-types",
  "time",
  "x509-parser",
+ "yasna",
+]
+
+[[package]]
+name = "rcgen"
+version = "0.14.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4c83367ba62b3f1dbd0f086ede4e5ebfb4713fb234dbbc5807772a31245ff46d"
+dependencies = [
+ "pem",
+ "ring",
+ "rustls-pki-types",
+ "time",
  "yasna",
 ]
 
@@ -3590,7 +3603,7 @@ checksum = "1e9df38ee2d2c3c5948ea468a8406ff0db0b29ae1ffde1bcf20ef305bcc95c51"
 
 [[package]]
 name = "wss-proxy"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "cln-plugin",
@@ -3598,7 +3611,7 @@ dependencies = [
  "futures-util",
  "log",
  "log-panics",
- "rcgen",
+ "rcgen 0.14.4",
  "rustls 0.23.29",
  "serde",
  "serde_json",
