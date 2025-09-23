@@ -967,12 +967,12 @@ def test_channel_state_changed_bilateral(node_factory, bitcoind):
     assert(event1['old_state'] == "ONCHAIN")
     assert(event1['new_state'] == "CLOSED")
     assert(event1['cause'] == "onchain")
-    assert(event1['message'] == None)
+    assert('message' not in event1)
     event2 = wait_for_event(l2)
     assert(event2['old_state'] == "ONCHAIN")
     assert(event2['new_state'] == "CLOSED")
     assert(event2['cause'] == "onchain")
-    assert(event2['message'] == None)
+    assert('message' not in event2)
     
 
 @pytest.mark.openchannel('v1')
@@ -1102,13 +1102,13 @@ def test_channel_state_changed_unilateral(node_factory, bitcoind):
     assert(event1['old_state'] == "ONCHAIN")
     assert(event1['new_state'] == "CLOSED")
     assert(event1['cause'] == "onchain")
-    assert(event1['message'] == None)
+    assert('message' not in event1)
 
     event2 = wait_for_event(l2)
     assert(event2['old_state'] == "ONCHAIN")
     assert(event2['new_state'] == "CLOSED")
     assert(event2['cause'] == "onchain")
-    assert(event2['message'] == None)
+    assert('message' not in event2)
 
 
 @pytest.mark.openchannel('v1')
