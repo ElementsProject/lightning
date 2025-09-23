@@ -125,3 +125,84 @@ fn generate_or_load_identity(
     let certificate = std::fs::read(cert_path)?;
     Ok(Identity { certificate, key })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use anyhow::Result;
+    use tempfile::TempDir;
+
+    fn create_test_dir() -> TempDir {
+        TempDir::new().expect("Failed to create temp directory")
+    }
+
+    #[test]
+    fn test_generate_identity() -> Result<()> {
+        let temp_dir = create_test_dir();
+
+        let identity =
+            generate_or_load_identity("Test Certificate", temp_dir.path(), "test", None)?;
+
+        // Should have key and certificate data
+        assert!(!identity.key.is_empty());
+        assert!(!identity.certificate.is_empty());
+
+        // Should be valid PEM format
+        let key_str = String::from_utf8_lossy(&identity.key);
+        let cert_str = String::from_utf8_lossy(&identity.certificate);
+
+        assert!(key_str.contains("-----BEGIN PRIVATE KEY-----"));
+        assert!(cert_str.contains("-----BEGIN CERTIFICATE-----"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_load_existing_identity() -> Result<()> {
+        let temp_dir = create_test_dir();
+
+        // Generate first time
+        let identity1 =
+            generate_or_load_identity("Test Certificate", temp_dir.path(), "test", None)?;
+
+        let identity2 =
+            generate_or_load_identity("Test Certificate", temp_dir.path(), "test", None)?;
+
+        // If identity was loaded - should be equal.
+        assert_eq!(identity1.key, identity2.key);
+        assert_eq!(identity1.certificate, identity2.certificate);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_ca_and_signed_certificate() -> Result<()> {
+        let temp_dir = create_test_dir();
+
+        let ca = generate_or_load_identity("Test CA", temp_dir.path(), "ca", None)?;
+        let server = generate_or_load_identity("Server", temp_dir.path(), "server", Some(&ca))?;
+
+        assert_ne!(ca.certificate, server.certificate);
+        assert_ne!(ca.key, server.key);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_file_permissions() -> Result<()> {
+        use std::os::unix::fs::PermissionsExt;
+
+        let temp_dir = create_test_dir();
+
+        generate_or_load_identity("Test", temp_dir.path(), "test", None)?;
+
+        let key_path = temp_dir.path().join("test-key.pem");
+        let metadata = std::fs::metadata(&key_path)?;
+        let permissions = metadata.permissions();
+
+        // Key file should be readable only by owner
+        assert_eq!(permissions.mode() & 0o777, 0o600);
+
+        Ok(())
+    }
+}
