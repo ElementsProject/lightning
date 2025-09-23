@@ -573,7 +573,7 @@ dependencies = [
 
 [[package]]
 name = "clnrest"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "axum 0.8.4",
@@ -586,7 +586,7 @@ dependencies = [
  "log",
  "log-panics",
  "quick-xml",
- "rcgen 0.13.2",
+ "rcgen 0.14.4",
  "roxmltree_to_serde",
  "serde",
  "serde_json",

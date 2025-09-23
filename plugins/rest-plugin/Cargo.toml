@@ -1,6 +1,6 @@
 [package]
 name = "clnrest"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 license = "MIT"
 description = "Transforms RPC calls into REST APIs"
@@ -22,7 +22,7 @@ tokio = { version="1", features = ['io-std', 'rt-multi-thread', 'sync', 'macros'
 axum = "0.8"
 axum-server = { version = "0.6", features = ["tls-rustls"] }
 futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
-rcgen = "0.13"
+rcgen = "0.14"
 hyper = "1"
 tower= "0.5"
 tower-http = { version = "0.6", features = ["cors", "set-header"] }
@@ -34,4 +34,3 @@ socketioxide = "0.15"
 cln-plugin = { version = "0.5", path = "../../plugins" }
 cln-rpc = { version = "0.5", path = "../../cln-rpc" }
 utoipa-swagger-ui = { version = "9.0.0", features = ["vendored", "axum"] }
-
