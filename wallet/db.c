@@ -1093,6 +1093,7 @@ static struct migration dbmigrations[] = {
     /* We do a lookup before each append, to avoid duplicates */
     {SQL("CREATE INDEX chain_moves_utxo_idx ON chain_moves (utxo)"), NULL},
     {NULL, migrate_from_account_db},
+    {SQL("ALTER TABLE channels ADD withheld INTEGER DEFAULT 0;"), NULL},
 };
 
 /**

@@ -119,6 +119,9 @@ void peer_set_dbid(struct peer *peer, u64 dbid);
 /* At startup, re-send any transactions we want bitcoind to have */
 void resend_closing_transactions(struct lightningd *ld);
 
+/* At startup, re-send any funding transactions we want bitcoind to have */
+void resend_opening_transactions(struct lightningd *ld);
+
 /* Initiate the close of a channel, maybe broadcast.  If we've seen a
  * unilateral close, pass it here (means we don't need to broadcast
  * our own, or any anchors). */
