@@ -11,7 +11,7 @@
 
 /* Current versions we support */
 #define GSTORE_MAJOR 0
-#define GSTORE_MINOR 14
+#define GSTORE_MINOR 15
 
 int main(int argc, char *argv[])
 {

@@ -23,7 +23,7 @@
 
 #define GOSSIP_STORE_TEMP_FILENAME "gossip_store.tmp"
 /* We write it as major version 0, minor version 14 */
-#define GOSSIP_STORE_VER ((0 << 5) | 14)
+#define GOSSIP_STORE_VER ((0 << 5) | 15)
 
 struct gossip_store {
 	/* Back pointer. */
@@ -66,6 +66,7 @@ static bool append_msg(int fd, const u8 *msg, u32 timestamp, u64 *len)
 	struct gossip_hdr hdr;
 	u32 msglen;
 	struct iovec iov[2];
+	const u8 complete_byte = (GOSSIP_STORE_COMPLETED_BIT >> 8);
 
 	/* Don't ever overwrite the version header! */
 	assert(*len);
@@ -88,6 +89,11 @@ static bool append_msg(int fd, const u8 *msg, u32 timestamp, u64 *len)
 	iov[1].iov_len = msglen;
 	if (gossip_pwritev(fd, iov, ARRAY_SIZE(iov), *len) != sizeof(hdr) + msglen)
 		return false;
+
+	/* Update the hdr with the complete bit as a single-byte write */
+	if (pwrite(fd, &complete_byte, 1, *len) != 1)
+		return false;
+
 	*len += sizeof(hdr) + msglen;
 	return true;
 }
@@ -98,10 +104,11 @@ static bool append_msg(int fd, const u8 *msg, u32 timestamp, u64 *len)
  * v12 added the zombie flag for expired channel updates
  * v13 removed private gossip entries
  * v14 removed zombie and spam flags
+ * v15 added the complete flag
  */
 static bool can_upgrade(u8 oldversion)
 {
-	return oldversion >= 9 && oldversion <= 13;
+	return oldversion >= 9 && oldversion <= 14;
 }
 
 /* On upgrade, do best effort on private channels: hand them to
@@ -155,7 +162,7 @@ static void give_lightningd_canned_private_update(struct daemon *daemon,
 
 static bool upgrade_field(u8 oldversion,
 			  struct daemon *daemon,
-			  u16 hdr_flags,
+			  be16 *hdr_flags,
 			  u8 **msg)
 {
 	int type = fromwire_peektype(*msg);
@@ -179,9 +186,13 @@ static bool upgrade_field(u8 oldversion,
 	}
 	if (oldversion <= 13) {
 		/* Discard any zombies */
-		if (hdr_flags & GOSSIP_STORE_ZOMBIE_BIT_V13) {
+		if (be16_to_cpu(*hdr_flags) & GOSSIP_STORE_ZOMBIE_BIT_V13) {
 			*msg = tal_free(*msg);
 		}
+	}
+	if (oldversion <= 14) {
+		/* Add completed field */
+		*hdr_flags |= CPU_TO_BE16(GOSSIP_STORE_COMPLETED_BIT);
 	}
 
 	return true;
@@ -285,7 +296,7 @@ static int gossip_store_compact(struct daemon *daemon,
 
 		if (oldversion != version) {
 			if (!upgrade_field(oldversion, daemon,
-					   be16_to_cpu(hdr.flags), &msg)) {
+					   &hdr.flags, &msg)) {
 				tal_free(msg);
 				bad = "upgrade of store failed";
 				goto badmsg;
