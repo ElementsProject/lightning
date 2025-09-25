@@ -30,11 +30,6 @@ struct gossip_rcvd_filter;
 #define GOSSIP_STORE_DELETED_BIT 0x8000U
 
 /**
- * Bit of flags we use to mark an important record.
- */
-#define GOSSIP_STORE_PUSH_BIT 0x4000U
-
-/**
  * Bit of flags used to mark a channel announcement closed (not deleted for 12 blocks)
  */
 #define GOSSIP_STORE_DYING_BIT 0x0800U
