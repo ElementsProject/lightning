@@ -3,6 +3,7 @@
 #include "config.h"
 #include <bitcoin/privkey.h>
 #include <ccan/crypto/sha256/sha256.h>
+#include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 #include <sodium.h>
 #include <sys/types.h>
@@ -40,9 +41,28 @@ enum hsm_secret_error {
  */
 struct hsm_secret {
 	enum hsm_secret_type type;
-	struct secret secret;
-	const char *mnemonic; /* NULL if not derived from mnemonic */
+	u8 *secret_data;          /* Variable length: 32 bytes (legacy) or 64 bytes (mnemonic) */
+	struct secret secret;     /* Legacy 32-byte field for compatibility */
+	const char *mnemonic;           /* NULL if not derived from mnemonic */
 };
+
+/**
+ * Get the secret bytes from an hsm_secret.
+ * Returns secret_data if available, otherwise falls back to legacy secret.data.
+ */
+static inline const u8 *hsm_secret_bytes(const struct hsm_secret *hsm) {
+	return hsm->secret_data;
+}
+
+/**
+ * Get the secret size from an hsm_secret.
+ * Returns tal_bytelen of secret_data if available, otherwise 32 bytes for legacy.
+ */
+static inline size_t hsm_secret_size(const struct hsm_secret *hsm) {
+	if (hsm->secret_data)
+		return tal_bytelen(hsm->secret_data);
+	return sizeof(hsm->secret);
+}
 
 /**
  * Checks whether the hsm_secret data requires a passphrase to decrypt.
@@ -142,7 +162,7 @@ void destroy_secret(struct secret *secret);
 /**
  * Convert hsm_secret_type enum to human-readable string.
  * @type - the hsm_secret_type to convert
- * 
+ *
  * Returns a string describing the type.
  */
 const char *format_type_name(enum hsm_secret_type type);
@@ -152,7 +172,7 @@ const char *format_type_name(enum hsm_secret_type type);
  * @ctx - tal context for allocation
  * @filename - path to the file to read
  * @len - output parameter for the file length (excluding NUL terminator)
- * 
+ *
  * Returns file contents with NUL terminator removed, or NULL on error.
  * Unlike grab_file, the returned data does not include the NUL terminator.
  */
@@ -162,7 +182,7 @@ u8 *grab_file_contents(const tal_t *ctx, const char *filename, size_t *len);
  * Derive encryption key from passphrase using Argon2.
  * @ctx - tal context for allocation
  * @passphrase - the passphrase to derive from
- * 
+ *
  * Returns derived encryption key, or NULL on error.
  * The returned key is memory-locked and has a destructor to clear it.
  */
