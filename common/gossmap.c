@@ -1212,19 +1212,18 @@ bool gossmap_refresh(struct gossmap *map)
 	/* You must remove local modifications before this. */
 	assert(!map->local_announces);
 
-	/* If file has gotten larger, try rereading */
+	/* If file has gotten larger, remap */
 	len = lseek(map->fd, 0, SEEK_END);
-	if (len == map->map_size)
-		return false;
+	if (len != map->map_size) {
+		if (map->mmap)
+			munmap(map->mmap, map->map_size);
+		map->map_size = len;
 
-	if (map->mmap)
-		munmap(map->mmap, map->map_size);
-	map->map_size = len;
-
-	if (map->mmap) {
-		map->mmap = mmap(NULL, map->map_size, PROT_READ, MAP_SHARED, map->fd, 0);
-		if (map->mmap == MAP_FAILED)
-			map->mmap = NULL;
+		if (map->mmap) {
+			map->mmap = mmap(NULL, map->map_size, PROT_READ, MAP_SHARED, map->fd, 0);
+			if (map->mmap == MAP_FAILED)
+				map->mmap = NULL;
+		}
 	}
 
 	map_catchup(map, false, &changed);
