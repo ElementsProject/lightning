@@ -1868,17 +1868,3 @@ void gossmap_disable_mmap(struct gossmap *map)
 		munmap(map->mmap, map->map_size);
 	map->mmap = NULL;
 }
-
-const u8 *gossmap_fetch_tail(const tal_t *ctx, const struct gossmap *map)
-{
-	size_t len;
-	u8 *p;
-
-	/* Shouldn't happen... */
-	if (map->map_end > map->map_size)
-		return NULL;
-	len = map->map_size - map->map_end;
-	p = tal_arr(ctx, u8, len);
-	map_copy(map, map->map_size, p, len);
-	return p;
-}
