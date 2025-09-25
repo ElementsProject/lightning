@@ -161,3 +161,59 @@ def test_lsps2_buyjitchannel_no_mpp_var_invoice(node_factory, bitcoind):
     # l1 should have gotten a jit-channel.
     chs = l1.rpc.listpeerchannels()['channels']
     assert len(chs) == 1
+
+
+def test_lsps2_non_approved_zero_conf(node_factory, bitcoind):
+    """ Checks that we don't allow zerof_conf channels from an LSP if we did
+        not approve it first.
+    """
+    # We need a policy service to fetch from.
+    plugin = os.path.join(os.path.dirname(__file__), 'plugins/lsps2_policy.py')
+
+    l1, l2, l3= node_factory.get_nodes(3, opts=[
+        {"dev-lsps-client-enabled": None},
+        {
+            "dev-lsps-service-enabled": None,
+            "dev-lsps2-service-enabled": None,
+            "dev-lsps2-promise-secret": "00" * 32,
+            "plugin": plugin,
+            "fee-base": 0, # We are going to deduct our fee anyways,
+            "fee-per-satoshi": 0, # We are going to deduct our fee anyways,
+        },
+        {"disable-mpp": None},
+    ])
+
+    # Give the LSP some funds to open jit-channels
+    addr = l2.rpc.newaddr()['bech32']
+    bitcoind.rpc.sendtoaddress(addr, 1)
+    bitcoind.generate_block(1)
+
+    node_factory.join_nodes([l3, l2], fundchannel=True, wait_for_announce=True)
+    node_factory.join_nodes([l1, l2], fundchannel=False)
+
+    chanid = only_one(l3.rpc.listpeerchannels(l2.info['id'])['channels'])['short_channel_id']
+
+    fee_opt = l1.rpc.lsps_lsps2_getinfo(lsp_id=l2.info['id'])['opening_fee_params_menu'][0]
+    buy_res = l1.rpc.lsps_lsps2_buy(lsp_id=l2.info['id'], opening_fee_params=fee_opt)
+
+    hint = [[{
+        "id": l2.info['id'],
+        "short_channel_id": buy_res['jit_channel_scid'],
+        "fee_base_msat": 0,
+        "fee_proportional_millionths": 0,
+        "cltv_expiry_delta": buy_res['lsp_cltv_expiry_delta'],
+    }]]
+
+    bolt11 = l1.dev_invoice(
+        amount_msat="any",
+        description="lsp-invoice-1",
+        label="lsp-invoice-1",
+        dev_routes=hint,
+    )['bolt11']
+
+    with pytest.raises(ValueError):
+        l3.rpc.pay(bolt11, amount_msat=10000000)
+
+    # l1 shouldn't have a new channel.
+    chs = l1.rpc.listpeerchannels()['channels']
+    assert len(chs) == 0
