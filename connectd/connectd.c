@@ -78,7 +78,8 @@ static void try_connect_one_addr(struct connecting *connect);
  * timer to call a higher function again, so has to be pre-declared. */
 static void try_connect_peer(struct daemon *daemon,
 			     const struct node_id *id,
-			     struct wireaddr_internal *addrs TAKES);
+			     struct wireaddr_internal *addrs TAKES,
+			     const char *reason);
 
 /* We track peers which are important, and try to reconnect (with backoff) */
 static void schedule_reconnect_if_important(struct daemon *daemon,
@@ -118,7 +119,8 @@ void destroy_peer(struct peer *peer)
 	daemon_conn_send(peer->daemon->master,
 			 take(towire_connectd_peer_disconnect_done(NULL,
 								   &peer->id,
-								   peer->counter)));
+								   peer->counter,
+								   time_to_nsec(timemono_since(peer->connect_starttime)))));
 	/* This makes multiplex.c routines not feed us more, but
 	 * *also* means that if we're freed directly, the ->to_peer
 	 * destructor won't call drain_peer(). */
@@ -133,6 +135,7 @@ static struct peer *new_peer(struct daemon *daemon,
 			     const struct crypto_state *cs,
 			     const u8 *their_features,
 			     enum is_websocket is_websocket,
+			     struct timemono connect_starttime,
 			     struct io_conn *conn STEALS,
 			     int *fd_for_subd)
 {
@@ -140,6 +143,7 @@ static struct peer *new_peer(struct daemon *daemon,
 
 	peer->daemon = daemon;
 	peer->id = *id;
+	peer->connect_starttime = connect_starttime;
 	peer->counter = daemon->connection_counter++;
 	peer->cs = *cs;
 	peer->subds = tal_arr(peer, struct subd *, 0);
@@ -287,6 +291,7 @@ struct io_plan *peer_connected(struct io_conn *conn,
 			       struct crypto_state *cs,
 			       const u8 *their_features TAKES,
 			       enum is_websocket is_websocket,
+			       struct timemono starttime,
 			       bool incoming)
 {
 	u8 *msg;
@@ -296,6 +301,8 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	int subd_fd;
 	bool option_gossip_queries;
 	struct connecting *connect;
+	const char *connect_reason;
+	u64 connect_time_nsec;
 
 	/* We remove any previous connection immediately, on the assumption it's dead */
 	peer = peer_htable_get(daemon->peers, id);
@@ -355,11 +362,16 @@ struct io_plan *peer_connected(struct io_conn *conn,
 		 * in progress right now) */
 		if (connect->conn)
 			io_set_finish(connect->conn, NULL, NULL);
+		connect_reason = tal_steal(tmpctx, connect->reason);
+		connect_time_nsec = time_to_nsec(timemono_since(connect->start));
 		tal_free(connect);
+	} else {
+		connect_reason = "";
+		connect_time_nsec = 0;
 	}
 
 	/* This contains the per-peer state info; gossipd fills in pps->gs */
-	peer = new_peer(daemon, id, cs, their_features, is_websocket, conn,
+	peer = new_peer(daemon, id, cs, their_features, is_websocket, starttime, conn,
 			&subd_fd);
 	/* Only takes over conn if it succeeds. */
 	if (!peer)
@@ -378,7 +390,9 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	/* Create message to tell master peer has connected. */
 	msg = towire_connectd_peer_connected(NULL, id, peer->counter,
 					     addr, remote_addr,
-					     incoming, their_features);
+					     incoming, their_features,
+					     connect_reason,
+					     connect_time_nsec);
 
 	/*~ daemon_conn is a message queue for inter-daemon communication: we
 	 * queue up the `connect_peer_connected` message to tell lightningd
@@ -407,13 +421,15 @@ static struct io_plan *handshake_in_success(struct io_conn *conn,
 					    struct crypto_state *cs,
 					    struct oneshot *timeout,
 					    enum is_websocket is_websocket,
+					    struct timemono starttime,
 					    struct daemon *daemon)
 {
 	struct node_id id;
 	node_id_from_pubkey(&id, id_key);
 	status_peer_debug(&id, "Connect IN");
 	return peer_exchange_initmsg(conn, daemon, daemon->our_features,
-				     cs, &id, addr, timeout, is_websocket, true);
+				     cs, &id, addr, timeout, is_websocket,
+				     starttime, true);
 }
 
 /*~ If the timer goes off, we simply free everything, which hangs up. */
@@ -699,6 +715,7 @@ static struct io_plan *handshake_out_success(struct io_conn *conn,
 					     struct crypto_state *cs,
 					     struct oneshot *timeout,
 					     enum is_websocket is_websocket,
+					     struct timemono starttime,
 					     struct connecting *connect)
 {
 	struct node_id id;
@@ -708,7 +725,8 @@ static struct io_plan *handshake_out_success(struct io_conn *conn,
 	status_peer_debug(&id, "Connect OUT");
 	return peer_exchange_initmsg(conn, connect->daemon,
 				     connect->daemon->our_features,
-				     cs, &id, addr, timeout, is_websocket, false);
+				     cs, &id, addr, timeout, is_websocket,
+				     starttime, false);
 }
 
 struct io_plan *connection_out(struct io_conn *conn, struct connecting *connect)
@@ -744,9 +762,11 @@ struct io_plan *connection_out(struct io_conn *conn, struct connecting *connect)
  */
 static void connect_failed(struct daemon *daemon,
 			   const struct node_id *id,
+			   const char *connect_reason,
+			   struct timemono start,
 			   enum jsonrpc_errcode errcode,
 			   const char *errfmt, ...)
-	PRINTF_FMT(4,5);
+	PRINTF_FMT(6, 7);
 
 static void reconnect(struct important_id *imp)
 {
@@ -758,7 +778,8 @@ static void reconnect(struct important_id *imp)
 	append_gossmap_addresses(&addrs, imp->daemon, &imp->id);
 
 	imp->reconnect_timer = NULL;
-	try_connect_peer(imp->daemon, &imp->id, take(addrs));
+	try_connect_peer(imp->daemon, &imp->id, take(addrs),
+			 "reconnect by timer");
 }
 
 static void schedule_reconnect_if_important(struct daemon *daemon,
@@ -808,6 +829,7 @@ void release_one_waiting_connection(struct daemon *daemon, const char *why)
 		if (c->waiting) {
 			status_peer_debug(&c->id, "Unblocking for %s", why);
 			c->waiting = false;
+			c->start = time_mono();
 			try_connect_one_addr(c);
 			break;
 		}
@@ -816,6 +838,8 @@ void release_one_waiting_connection(struct daemon *daemon, const char *why)
 
 static void connect_failed(struct daemon *daemon,
 			   const struct node_id *id,
+			   const char *connect_reason,
+			   struct timemono start,
 			   enum jsonrpc_errcode errcode,
 			   const char *errfmt, ...)
 {
@@ -831,7 +855,10 @@ static void connect_failed(struct daemon *daemon,
 
 	/* lightningd may have a connect command waiting to know what
 	 * happened. */
-	msg = towire_connectd_connect_failed(NULL, id, errcode, errmsg);
+	msg = towire_connectd_connect_failed(NULL, id,
+					     connect_reason,
+					     time_to_nsec(timemono_since(start)),
+					     errcode, errmsg);
 	daemon_conn_send(daemon->master, take(msg));
 
 	/* If we're supposed to schedule a reconnect, do so */
@@ -983,11 +1010,12 @@ static void try_connect_one_addr(struct connecting *connect)
 		struct node_id id = connect->id;
 		const char *errors = tal_steal(tmpctx, connect->errors);
 
-		tal_free(connect);
 		connect_failed(daemon, &id,
+			       connect->reason, connect->start,
 			       CONNECT_ALL_ADDRESSES_FAILED,
 			       "All addresses failed: %s",
 			       errors);
+		tal_free(connect);
 		return;
 	}
 
@@ -1767,7 +1795,8 @@ static bool addr_in(const struct wireaddr_internal *needle,
 /*~ Try to connect to a single peer, given some addresses (in order) */
 static void try_connect_peer(struct daemon *daemon,
 			     const struct node_id *id,
-			     struct wireaddr_internal *addrs TAKES)
+			     struct wireaddr_internal *addrs TAKES,
+			     const char *reason TAKES)
 {
 	bool use_proxy = daemon->always_use_proxy;
 	struct connecting *connect;
@@ -1776,6 +1805,8 @@ static void try_connect_peer(struct daemon *daemon,
 	/* In case we return without using it, make sure it's freed. */
 	if (taken(addrs))
 		tal_steal(tmpctx, addrs);
+	if (taken(reason))
+		tal_steal(tmpctx, reason);
 
 	/* Already existing?  Must have crossed over, it'll know soon. */
 	peer = peer_htable_get(daemon->peers, id);
@@ -1814,7 +1845,7 @@ static void try_connect_peer(struct daemon *daemon,
 	/* Still no address?  Fail immediately.  Important ones get
 	 * retried; an address may get gossiped. */
 	if (tal_count(addrs) == 0) {
-		connect_failed(daemon, id,
+		connect_failed(daemon, id, reason, time_mono(),
 			       CONNECT_NO_KNOWN_ADDRESS,
 			       "Unable to connect, no address known for peer");
 		return;
@@ -1823,6 +1854,7 @@ static void try_connect_peer(struct daemon *daemon,
 	/* Start connecting to it: since this is the only place we allocate
 	 * a 'struct connecting' we don't write a separate new_connecting(). */
 	connect = tal(daemon, struct connecting);
+	connect->reason = tal_strdup(connect, reason);
 	connect->daemon = daemon;
 	connect->id = *id;
 	connect->addrs = tal_dup_talarr(connect, struct wireaddr_internal, addrs);
@@ -1842,8 +1874,10 @@ static void try_connect_peer(struct daemon *daemon,
 			    > daemon->max_connect_in_flight);
 	if (connect->waiting)
 		status_peer_debug(id, "Too many connections, waiting...");
-	else
+	else {
+		connect->start = time_mono();
 		try_connect_one_addr(connect);
+	}
 }
 
 static void destroy_important_id(struct important_id *imp)
@@ -1858,10 +1892,11 @@ static void connect_to_peer(struct daemon *daemon, const u8 *msg)
 	struct wireaddr_internal *addrs;
 	bool transient;
 	struct important_id *imp;
+	char *reason;
 
 	if (!fromwire_connectd_connect_to_peer(tmpctx, msg,
 					       &id, &addrs,
-					       &transient))
+					       &transient, &reason))
 		master_badmsg(WIRE_CONNECTD_CONNECT_TO_PEER, msg);
 
 	/* fromwire doesn't allocate empty arrays! */
@@ -1900,7 +1935,7 @@ static void connect_to_peer(struct daemon *daemon, const u8 *msg)
 	/* Do gossmap lookup to find any addresses from there, and append. */
 	append_gossmap_addresses(&addrs, daemon, &id);
 
-	try_connect_peer(daemon, &id, addrs);
+	try_connect_peer(daemon, &id, addrs, take(reason));
 }
 
 /* lightningd tells us a peer should be disconnected. */
@@ -2375,6 +2410,7 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_CONNECTD_START_SHUTDOWN_REPLY:
 	case WIRE_CONNECTD_INJECT_ONIONMSG_REPLY:
 	case WIRE_CONNECTD_ONIONMSG_FORWARD_FAIL:
+	case WIRE_CONNECTD_PING_LATENCY:
 		break;
 	}
 

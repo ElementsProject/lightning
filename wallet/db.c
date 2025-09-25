@@ -1093,6 +1093,15 @@ static struct migration dbmigrations[] = {
     /* We do a lookup before each append, to avoid duplicates */
     {SQL("CREATE INDEX chain_moves_utxo_idx ON chain_moves (utxo)"), NULL},
     {NULL, migrate_from_account_db},
+    {SQL("CREATE TABLE network_events ("
+	 "  id BIGSERIAL,"
+	 "  peer_id BLOB NOT NULL,"
+	 "  type INTEGER NOT NULL,"
+	 "  timestamp BIGINT,"
+	 "  reason TEXT,"
+	 "  duration_nsec BIGINT,"
+	 " PRIMARY KEY (id)"
+	 ")"), NULL},
 };
 
 /**
