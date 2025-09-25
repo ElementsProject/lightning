@@ -49,11 +49,14 @@ void gossip_store_corrupt(void);
  * @gs: gossip store
  * @gossip_msg: the gossip message to insert.
  * @timestamp: the timestamp for filtering of this messsage.
+ * @msgs: the option pointer to a u8 *array to append the written msgs to.
+ *
+ * Returns the offset (after the gossip_hdr).
  */
 u64 gossip_store_add(struct gossip_store *gs,
 		     const u8 *gossip_msg,
-		     u32 timestamp);
-
+		     u32 timestamp,
+		     const u8 ***msgs);
 
 /**
  * Delete the record at this offset (offset is that of
@@ -105,6 +108,11 @@ u32 gossip_store_get_timestamp(struct gossip_store *gs, u64 offset);
  * Offset is *after* the header.
  */
 void gossip_store_set_timestamp(struct gossip_store *gs, u64 offset, u32 timestamp);
+
+/**
+ * We've seen (ZFS on Linux) writes not show up in the gossip store.
+ * This lets us rewrite the last bytes. */
+void gossip_store_rewrite_end(struct gossip_store *gs, const u8 **msgs);
 
 /**
  * For debugging.

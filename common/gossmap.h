@@ -70,6 +70,10 @@ struct gossmap *gossmap_load_(const tal_t *ctx,
 					    ...),
 			      void *cb_arg);
 
+/* Disable mmap.  Noop if already disabled. */
+void gossmap_disable_mmap(struct gossmap *map);
+bool gossmap_has_mmap(const struct gossmap *map);
+
 /* Call this before using to ensure it's up-to-date.  Returns true if something
  * was updated. Note: this can scramble node and chan indexes! */
 bool gossmap_refresh(struct gossmap *map);
@@ -304,7 +308,4 @@ u64 gossmap_lengths(const struct gossmap *map, u64 *total);
 
 /* Debugging: connectd wants to enumerate fds */
 int gossmap_fd(const struct gossmap *map);
-
-/* Fetch unprocessed part of gossmap */
-const u8 *gossmap_fetch_tail(const tal_t *ctx, const struct gossmap *map);
 #endif /* LIGHTNING_COMMON_GOSSMAP_H */
