@@ -507,8 +507,7 @@ impl<A: ClnApi> HtlcAcceptedHookHandler<A> {
             push_msat: None,
             request_amt: None,
             reserve: None,
-            channel_type: None, // Fimxe: Core-Lightning is complaining that it doesn't support these channel_types
-            // channel_type: Some(vec![46, 50]), // Sets `option_zeroconf` and `option_scid_alias`
+            channel_type: Some(vec![12, 22, 50]),
             utxos: None,
             amount: AmountOrAll::Amount(Amount::from_msat(cap)),
             id: ds_rec.peer_id,
