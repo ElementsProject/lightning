@@ -41,6 +41,12 @@ To install for a specific version, for example, 24.05:
 docker pull elementsproject/lightningd:v24.05
 ```
 
+To run the Docker container:
+
+```shell
+docker run --rm --init -v /path/on/host/lightning-data:/root/.lightning -p 9735:9735 -p 9835:9835 lightningd
+```
+
 See all of the docker images for Core Lightning on [Docker Hub](https://hub.docker.com/r/elementsproject/lightningd/tags).
 
 # Third-party apps
