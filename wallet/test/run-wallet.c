@@ -314,9 +314,12 @@ bool fromwire_channeld_sending_commitsig(const tal_t *ctx UNNEEDED, const void *
 /* Generated stub for fromwire_connectd_peer_connected */
 bool fromwire_connectd_peer_connected(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id *id UNNEEDED, u64 *counter UNNEEDED, struct wireaddr_internal *addr UNNEEDED, struct wireaddr **remote_addr UNNEEDED, bool *incoming UNNEEDED, u8 **features UNNEEDED)
 { fprintf(stderr, "fromwire_connectd_peer_connected called!\n"); abort(); }
-/* Generated stub for fromwire_connectd_peer_disconnect_done */
-bool fromwire_connectd_peer_disconnect_done(const void *p UNNEEDED, struct node_id *id UNNEEDED, u64 *counter UNNEEDED)
-{ fprintf(stderr, "fromwire_connectd_peer_disconnect_done called!\n"); abort(); }
+/* Generated stub for fromwire_connectd_peer_disconnected */
+bool fromwire_connectd_peer_disconnected(const void *p UNNEEDED, struct node_id *id UNNEEDED, u64 *counter UNNEEDED)
+{ fprintf(stderr, "fromwire_connectd_peer_disconnected called!\n"); abort(); }
+/* Generated stub for fromwire_connectd_peer_reconnected */
+bool fromwire_connectd_peer_reconnected(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id *id UNNEEDED, u64 *prev_counter UNNEEDED, u64 *counter UNNEEDED, struct wireaddr_internal *addr UNNEEDED, struct wireaddr **remote_addr UNNEEDED, bool *incoming UNNEEDED, u8 **features UNNEEDED)
+{ fprintf(stderr, "fromwire_connectd_peer_reconnected called!\n"); abort(); }
 /* Generated stub for fromwire_connectd_peer_spoke */
 bool fromwire_connectd_peer_spoke(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id *id UNNEEDED, u64 *counter UNNEEDED, u16 *msgtype UNNEEDED, struct channel_id *channel_id UNNEEDED, wirestring **error UNNEEDED)
 { fprintf(stderr, "fromwire_connectd_peer_spoke called!\n"); abort(); }
@@ -773,7 +776,7 @@ void notify_connect(struct lightningd *ld UNNEEDED,
 		    const struct wireaddr_internal *addr UNNEEDED)
 { fprintf(stderr, "notify_connect called!\n"); abort(); }
 /* Generated stub for notify_disconnect */
-void notify_disconnect(struct lightningd *ld UNNEEDED, struct node_id *nodeid UNNEEDED)
+void notify_disconnect(struct lightningd *ld UNNEEDED, const struct node_id *nodeid UNNEEDED)
 { fprintf(stderr, "notify_disconnect called!\n"); abort(); }
 /* Generated stub for notify_forward_event */
 void notify_forward_event(struct lightningd *ld UNNEEDED,

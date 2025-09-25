@@ -74,6 +74,12 @@
 #include <wire/onion_wire.h>
 #include <wire/wire_sync.h>
 
+/* FIXME: Reorder! */
+static void peer_disconnected(struct lightningd *ld,
+			      const struct node_id *id,
+			      u64 connectd_counter,
+			      bool fail_connect_attempts);
+
 /* Common pattern: create a sockpair for this channel, return one as a peer_fd */
 struct peer_fd *sockpair(const tal_t *ctx, struct channel *channel,
 			 int *otherfd, const u8 **warning)
@@ -1722,9 +1728,9 @@ REGISTER_PLUGIN_HOOK(peer_connected,
 		     peer_connected_serialize,
 		     struct peer_connected_hook_payload *);
 
-/* Connectd tells us a peer has connected: it never hands us duplicates, since
+/* Connectd tells us a peer has connected/reconnected: it never hands us duplicates, since
  * it holds them until we say peer_disconnected. */
-void peer_connected(struct lightningd *ld, const u8 *msg)
+void handle_peer_connected(struct lightningd *ld, const u8 *msg)
 {
 	struct node_id id;
 	u8 *their_features;
@@ -1738,13 +1744,27 @@ void peer_connected(struct lightningd *ld, const u8 *msg)
 	hook_payload->ld = ld;
 	hook_payload->error = NULL;
 	if (!fromwire_connectd_peer_connected(hook_payload, msg,
-					      &id, &connectd_counter,
-					      &hook_payload->addr,
-					      &hook_payload->remote_addr,
-					      &hook_payload->incoming,
-					      &their_features))
-		fatal("Connectd gave bad CONNECT_PEER_CONNECTED message %s",
-		      tal_hex(msg, msg));
+					     &id, &connectd_counter,
+					     &hook_payload->addr,
+					     &hook_payload->remote_addr,
+					     &hook_payload->incoming,
+					     &their_features)) {
+		u64 prev_connectd_counter;
+		if (!fromwire_connectd_peer_reconnected(hook_payload, msg,
+							&id, &prev_connectd_counter,
+							&connectd_counter,
+							&hook_payload->addr,
+							&hook_payload->remote_addr,
+							&hook_payload->incoming,
+							&their_features)) {
+			fatal("Connectd gave bad CONNECT_PEER_(RE)CONNECTED message %s",
+			      tal_hex(msg, msg));
+		}
+		/* Reconnect?  Mark the disconnect *first*, but don't
+		 * fail any connect attempts: this is a race. */
+		log_peer_debug(ld->log, &id, "peer reconnected");
+		peer_disconnected(ld, &id, prev_connectd_counter, false);
+	}
 
 	/* If we connected, and it's a normal address */
 	if (!hook_payload->incoming
@@ -1881,7 +1901,7 @@ static void send_reestablish(struct peer *peer,
  * a subd.  Normally this is a race, but it happens for real when opening
  * a new channel, or referring to a channel we no longer want to talk to
  * it about. */
-void peer_spoke(struct lightningd *ld, const u8 *msg)
+void handle_peer_spoke(struct lightningd *ld, const u8 *msg)
 {
 	struct node_id id;
 	u16 msgtype;
@@ -2081,41 +2101,40 @@ static void destroy_disconnect_command(struct disconnect_command *dc)
 	list_del(&dc->list);
 }
 
-void peer_disconnect_done(struct lightningd *ld, const u8 *msg)
+/* This is also called when we reconnect, but we don't fail connect attempts */
+static void peer_disconnected(struct lightningd *ld,
+			      const struct node_id *id,
+			      u64 connectd_counter,
+			      bool fail_connect_attempts)
 {
-	struct node_id id;
-	u64 connectd_counter;
 	struct disconnect_command *i, *next;
 	struct peer *p;
 
-	if (!fromwire_connectd_peer_disconnect_done(msg, &id, &connectd_counter))
-		fatal("Connectd gave bad PEER_DISCONNECT_DONE message %s",
-		      tal_hex(msg, msg));
-
 	/* If we still have peer, it's disconnected now */
-	/* FIXME: We should keep peers until it tells us they're disconnected,
-	 * and not free when no more channels. */
-	p = peer_by_id(ld, &id);
+	p = peer_by_id(ld, id);
 	if (p) {
 		struct channel *channel;
 		assert(p->connectd_counter == connectd_counter);
-		log_peer_debug(ld->log, &id, "peer_disconnect_done");
+		log_peer_debug(ld->log, id, "peer_disconnected");
 		p->connected = PEER_DISCONNECTED;
 
+		/* Note: we don't force subds to stop.  They should exit soon,
+		 * but if we get a (re)connection we'll force them to stop */
 		list_for_each(&p->channels, channel, list)
 			channel_gossip_channel_disconnect(channel);
 	}
 
 	/* If you were trying to connect, it failed. */
-	connect_failed_disconnect(ld, &id,
-				  p && !p->connected_incoming ? &p->addr : NULL);
+	if (fail_connect_attempts)
+		connect_failed_disconnect(ld, id,
+					  p && !p->connected_incoming ? &p->addr : NULL);
 
 	/* Fire off plugin notifications */
-	notify_disconnect(ld, &id);
+	notify_disconnect(ld, id);
 
 	/* Wake any disconnect commands (removes self from list) */
 	list_for_each_safe(&ld->disconnect_commands, i, next, list) {
-		if (!node_id_eq(&i->id, &id))
+		if (!node_id_eq(&i->id, id))
 			continue;
 
 		was_pending(command_success(i->cmd,
@@ -2125,6 +2144,18 @@ void peer_disconnect_done(struct lightningd *ld, const u8 *msg)
 	/* If connection was only thing keeping it, this will delete it. */
 	if (p)
 		maybe_delete_peer(p);
+}
+
+void handle_peer_disconnected(struct lightningd *ld, const u8 *msg)
+{
+	struct node_id id;
+	u64 connectd_counter;
+
+	if (!fromwire_connectd_peer_disconnected(msg, &id, &connectd_counter))
+		fatal("Connectd gave bad PEER_DISCONNECTED message %s",
+		      tal_hex(msg, msg));
+
+	peer_disconnected(ld, &id, connectd_counter, true);
 }
 
 void update_channel_from_inflight(struct lightningd *ld,
