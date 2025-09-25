@@ -17,7 +17,9 @@ use cln_lsps::lsps2::model::{
 use cln_lsps::util;
 use cln_lsps::LSP_FEATURE_BIT;
 use cln_plugin::options;
-use cln_rpc::model::requests::{DatastoreMode, DatastoreRequest, ListpeersRequest};
+use cln_rpc::model::requests::{
+    DatastoreMode, DatastoreRequest, DeldatastoreRequest, ListdatastoreRequest, ListpeersRequest,
+};
 use cln_rpc::model::responses::InvoiceResponse;
 use cln_rpc::primitives::{AmountOrAny, PublicKey, ShortChannelId};
 use cln_rpc::ClnRpc;
@@ -238,7 +240,6 @@ async fn on_lsps_lsps2_approve(
 ) -> Result<serde_json::Value, anyhow::Error> {
     let req: ClnRpcLsps2Approve = serde_json::from_value(v)?;
     let ds_rec = DatastoreRecord {
-        lsp_id: req.lsp_id,
         jit_channel_scid: req.jit_channel_scid,
         client_trusts_lsp: req.client_trusts_lsp.unwrap_or_default(),
     };
@@ -253,11 +254,7 @@ async fn on_lsps_lsps2_approve(
         hex: None,
         mode: Some(DatastoreMode::CREATE_OR_REPLACE),
         string: Some(ds_rec_json),
-        key: vec![
-            "lsps".to_string(),
-            "client".to_string(),
-            req.jit_channel_scid.to_string(),
-        ],
+        key: vec!["lsps".to_string(), "client".to_string(), req.lsp_id],
     };
     let _ds_res = cln_client.call_typed(&ds_req).await?;
     Ok(serde_json::Value::default())
@@ -494,19 +491,52 @@ async fn on_htlc_accepted(
     Ok(value)
 }
 
+/// Allows `zero_conf` channels to the client if the LSP is on the allowlist.
 async fn on_openchannel(
-    _p: cln_plugin::Plugin<State>,
-    _v: serde_json::Value,
+    p: cln_plugin::Plugin<State>,
+    v: serde_json::Value,
 ) -> Result<serde_json::Value, anyhow::Error> {
-    // Fixme: Register a list of trusted LSPs and check if LSP is allowlisted.
-    // And if we expect a channel to be opened.
-    // - either datastore or invoice label possible.
-    info!("Allowing zero-conf channel from LSP");
-    Ok(serde_json::json!({
-        "result": "continue",
-        "reserve": "0msat",
-        "mindepth": 0,
-    }))
+    #[derive(Deserialize)]
+    struct Request {
+        id: String,
+    }
+
+    let req: Request = serde_json::from_value(v.get("openchannel").unwrap().clone())
+        .context("Failed to parse request JSON")?;
+    let dir = p.configuration().lightning_dir;
+    let rpc_path = Path::new(&dir).join(&p.configuration().rpc_file);
+    let mut cln_client = cln_rpc::ClnRpc::new(rpc_path.clone()).await?;
+
+    let ds_req = ListdatastoreRequest {
+        key: Some(vec![
+            "lsps".to_string(),
+            "client".to_string(),
+            req.id.clone(),
+        ]),
+    };
+    let ds_res = cln_client.call_typed(&ds_req).await?;
+    if let Some(_rec) = ds_res.datastore.iter().next() {
+        info!("Allowing zero-conf channel from LSP {}", &req.id);
+        let ds_req = DeldatastoreRequest {
+            generation: None,
+            key: vec!["lsps".to_string(), "client".to_string(), req.id.clone()],
+        };
+        if let Some(err) = cln_client.call_typed(&ds_req).await.err() {
+            // We can do nothing but report that there was an issue deleting the
+            // datastore record.
+            warn!("Failed to delete LSP record from datastore: {}", err);
+        }
+        // Fixme: Check that we actually use client-trusts-LSP mode - can be
+        // found in the ds record.
+        return Ok(serde_json::json!({
+            "result": "continue",
+            "reserve": "0msat",
+            "mindepth": 0,
+        }));
+    } else {
+        // Not a requested JIT-channel opening, continue.
+        Ok(serde_json::json!({"result": "continue"}))
+    }
 }
 
 async fn on_lsps_listprotocols(
@@ -659,7 +689,6 @@ struct ClnRpcLsps2Approve {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct DatastoreRecord {
-    lsp_id: String,
     jit_channel_scid: ShortChannelId,
     client_trusts_lsp: bool,
 }
