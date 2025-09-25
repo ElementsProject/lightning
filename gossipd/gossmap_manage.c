@@ -1411,6 +1411,7 @@ static const u8 *fetch_tail_fd(const tal_t *ctx,
 struct gossmap *gossmap_manage_get_gossmap(struct gossmap_manage *gm)
 {
 	u64 map_used, map_size, written_len;
+	bool has_mmap = gossmap_has_mmap(gm->raw_gossmap);
 
 	gossmap_refresh(gm->raw_gossmap);
 
@@ -1419,10 +1420,12 @@ struct gossmap *gossmap_manage_get_gossmap(struct gossmap_manage *gm)
 	written_len = gossip_store_len_written(gm->gs);
 
 	if (map_size != written_len) {
-		status_broken("gossmap size %"PRIu64" != written size %"PRIu64,
-			      map_size, written_len);
-		/* Push harder! */
-		gossip_store_fsync(gm->gs);
+		status_broken("gossmap size %"PRIu64" != written size %"PRIu64
+			      ": %s mmap!",
+			      map_size, written_len,
+			      has_mmap
+			      ? "disabling": "ALREADY DISABLED");
+		gossmap_disable_mmap(gm->raw_gossmap);
 		gossmap_refresh(gm->raw_gossmap);
 
 		/* Sanity check that we see everything we wrote. */
@@ -1439,11 +1442,21 @@ struct gossmap *gossmap_manage_get_gossmap(struct gossmap_manage *gm)
 		remainder_fd = fetch_tail_fd(tmpctx,
 					     gossmap_fd(gm->raw_gossmap),
 					     map_used, map_size);
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Gossmap failed to process entire gossip_store: "
+		status_broken("Gossmap failed to process entire gossip_store, %s mmap: "
 			      "at %"PRIu64" of %"PRIu64" remaining_fd=%s",
+			      has_mmap
+			      ? "disabling": "ALREADY DISABLED",
 			      map_used, map_size,
 			      tal_hex(tmpctx, remainder_fd));
+		gossmap_disable_mmap(gm->raw_gossmap);
+		gossmap_refresh(gm->raw_gossmap);
+
+		map_used = gossmap_lengths(gm->raw_gossmap, &map_size);
+		if (map_size != map_used) {
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "Gossmap map_used %"PRIu64" of %"PRIu64" with %"PRIu64" written",
+				      map_used, map_size, written_len);
+		}
 	}
 
 	return gm->raw_gossmap;
