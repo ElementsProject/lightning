@@ -60,14 +60,14 @@ struct peer {
 	/* Counters and keys for symmetric crypto */
 	struct crypto_state cs;
 
-	/* Connection to the peer */
+	/* Connection to the peer (NULL if it's disconnected and we're flushing) */
 	struct io_conn *to_peer;
-
-	/* Counter to distinguish this connection from the next re-connection */
-	u64 counter;
 
 	/* Is this draining?  If so, just keep writing until queue empty */
 	bool draining;
+
+	/* Counter to distinguish this connection from the next re-connection */
+	u64 counter;
 
 	/* Connections to the subdaemons */
 	struct subd **subds;
@@ -376,8 +376,13 @@ struct io_plan *peer_connected(struct io_conn *conn,
 			       enum is_websocket is_websocket,
 			       bool incoming);
 
-/* Removes peer from hash table, tells gossipd and lightningd. */
-void destroy_peer(struct peer *peer);
+/* Tell gossipd and lightningd that this peer is gone. */
+void send_disconnected(struct daemon *daemon,
+		       const struct node_id *id,
+		       u64 connectd_counter);
+
+/* Free peer immediately (don't wait for draining). */
+void destroy_peer_immediately(struct peer *peer);
 
 /* Remove a random connection, when under stress. */
 void close_random_connection(struct daemon *daemon);
