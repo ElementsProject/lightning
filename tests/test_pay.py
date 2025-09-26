@@ -7048,3 +7048,109 @@ def test_htlc_tlv_crash(node_factory):
 
     l1.rpc.waitsendpay(inv1['payment_hash'], TIMEOUT)
     l1.rpc.waitsendpay(inv2['payment_hash'], TIMEOUT)
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+def test_bolt11_annotation_persistence(node_factory):
+    """Test that HTLCs maintain proper linkage to payment records with BOLT11."""
+    l1, l2 = node_factory.line_graph(2)
+
+    inv = l2.rpc.invoice(100000, 'test_annotation', 'Test Description')['bolt11']
+    l1.dev_pay(inv, dev_use_shadow=False)
+
+    payments = l1.rpc.listpays()['pays']
+    payment = [p for p in payments if p['bolt11'] == inv][0]
+    payment_hash = payment['payment_hash']
+
+    # Verify HTLCs have payment_id references
+    htlcs = l1.db_query(f"""
+        SELECT payment_id, partid, groupid
+        FROM channel_htlcs
+        WHERE payment_hash = x'{payment_hash}'
+    """)
+    assert len(htlcs) > 0
+
+    # Get payment records for verification
+    payment_records = l1.db_query(f"""
+        SELECT id, partid, groupid
+        FROM payments
+        WHERE payment_hash = x'{payment_hash}'
+    """)
+    assert len(payment_records) > 0
+
+    # Verify each HTLC links to correct payment record
+    for htlc in htlcs:
+        assert htlc['payment_id'] is not None
+
+        # Find matching payment record
+        matching_payments = [p for p in payment_records
+                           if p['id'] == htlc['payment_id']
+                           and p['partid'] == htlc['partid']
+                           and p['groupid'] == htlc['groupid']]
+        assert len(matching_payments) == 1
+
+    # Verify payment_id index exists for performance
+    indexes = l1.db_query("""
+        SELECT name FROM sqlite_master
+        WHERE type = 'index' AND name = 'channel_htlcs_payment_id_idx'
+    """)
+    assert len(indexes) == 1
+
+    l1.restart()
+
+    # After restart, verify BOLT11 annotation persistence
+    payments_after = l1.rpc.listpays()['pays']
+    payment_after = [p for p in payments_after if p['bolt11'] == inv]
+    assert len(payment_after) == 1
+
+    # Verify payment data integrity
+    assert payment_after[0]['payment_hash'] == payment_hash
+    assert payment_after[0]['status'] == 'complete'
+
+    # Verify HTLCs still have payment_id linkage after restart
+    htlcs_after = l1.db_query(f"""
+        SELECT payment_id, partid, groupid
+        FROM channel_htlcs
+        WHERE payment_hash = x'{payment_hash}'
+    """)
+    assert len(htlcs_after) == len(htlcs)
+
+    for htlc in htlcs_after:
+        assert htlc['payment_id'] is not None
+
+        # Re-verify linkage integrity after restart
+        payment_check = l1.db_query(f"""
+            SELECT COUNT(*) as count
+            FROM payments
+            WHERE id = {htlc['payment_id']}
+            AND partid = {htlc['partid']}
+            AND groupid = {htlc['groupid']}
+        """)
+        assert payment_check[0]['count'] == 1
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+def test_bolt11_payment_id_migration(node_factory):
+    """Test that the migration properly adds payment_id column to channel_htlcs."""
+    l1, l2 = node_factory.line_graph(2)
+
+    # Create some payments to test migration worked
+    inv1 = l2.rpc.invoice(100000, 'pre_migration_1', 'Test Description')['bolt11']
+    inv2 = l2.rpc.invoice(200000, 'pre_migration_2', 'Test Description 2')['bolt11']
+
+    l1.dev_pay(inv1, dev_use_shadow=False)
+    l1.dev_pay(inv2, dev_use_shadow=False)
+
+    # Verify payment_id column exists in schema
+    schema = l1.db_query("SELECT sql FROM sqlite_master WHERE name = 'channel_htlcs'")
+    assert any('payment_id' in row['sql'] for row in schema)
+
+    # Verify index exists
+    indexes = l1.db_query("SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'channel_htlcs_payment_id_idx'")
+    assert len(indexes) == 1
+
+    # Verify HTLCs have proper linkage
+    htlcs = l1.db_query("SELECT payment_id FROM channel_htlcs WHERE payment_id IS NOT NULL")
+    assert len(htlcs) >= 2
