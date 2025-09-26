@@ -35,6 +35,8 @@ static void migrate_our_funding(struct lightningd *ld, struct db *db);
 
 static void migrate_last_tx_to_psbt(struct lightningd *ld, struct db *db);
 
+static void migrate_add_payment_id_to_htlcs(struct lightningd *ld, struct db *db);
+
 static void
 migrate_inflight_last_tx_to_psbt(struct lightningd *ld, struct db *db);
 
@@ -1092,6 +1094,8 @@ static struct migration dbmigrations[] = {
 	 ")"), NULL},
     /* We do a lookup before each append, to avoid duplicates */
     {SQL("CREATE INDEX chain_moves_utxo_idx ON chain_moves (utxo)"), NULL},
+    /* Add payment_id column to channel_htlcs */
+    {NULL, migrate_add_payment_id_to_htlcs},
     {NULL, migrate_from_account_db},
 };
 
@@ -2078,6 +2082,31 @@ static void migrate_initialize_alias_local(struct lightningd *ld,
 		db_exec_prepared_v2(stmt);
 		tal_free(stmt);
 	}
+}
+
+/* Add payment_id column to channel_htlcs */
+static void migrate_add_payment_id_to_htlcs(struct lightningd *ld, struct db *db)
+{
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(db, SQL("ALTER TABLE channel_htlcs ADD COLUMN payment_id BIGINT"));
+	db_exec_prepared_v2(stmt);
+	tal_free(stmt);
+
+	stmt = db_prepare_v2(db, SQL("UPDATE channel_htlcs "
+				     "SET payment_id = ("
+				     "    SELECT p.id FROM payments p "
+				     "    WHERE p.payment_hash = channel_htlcs.payment_hash "
+				     "    AND p.partid = channel_htlcs.partid "
+				     "    AND p.groupid = channel_htlcs.groupid "
+				     "    LIMIT 1"
+				     ")"));
+	db_exec_prepared_v2(stmt);
+	tal_free(stmt);
+
+	stmt = db_prepare_v2(db, SQL("CREATE INDEX channel_htlcs_payment_id_idx ON channel_htlcs (payment_id)"));
+	db_exec_prepared_v2(stmt);
+	tal_free(stmt);
 }
 
 /* Insert address type as `ADDR_ALL` for issued addresses */
