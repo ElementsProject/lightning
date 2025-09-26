@@ -3316,10 +3316,28 @@ void wallet_htlc_save_out(struct wallet *wallet,
 			  struct htlc_out *out)
 {
 	struct db_stmt *stmt;
+	u64 payment_id = 0;
 
 	/* We absolutely need the incoming HTLC to be persisted before
 	 * we can persist it's dependent */
 	assert(out->in == NULL || out->in->dbid != 0);
+
+	/* Get payment_id if this is an outgoing payment */
+	if (out->am_origin) {
+		struct db_stmt *payment_stmt = db_prepare_v2(wallet->db,
+			SQL("SELECT id FROM payments "
+			    "WHERE payment_hash = ? AND partid = ? AND groupid = ? "
+			    "LIMIT 1"));
+		db_bind_sha256(payment_stmt, &out->payment_hash);
+		db_bind_u64(payment_stmt, out->partid);
+		db_bind_u64(payment_stmt, out->groupid);
+		db_query_prepared(payment_stmt);
+
+		if (db_step(payment_stmt)) {
+			payment_id = db_col_u64(payment_stmt, "id");
+		}
+		tal_free(payment_stmt);
+	}
 
 	stmt = db_prepare_v2(
 	    wallet->db,
@@ -3339,8 +3357,9 @@ void wallet_htlc_save_out(struct wallet *wallet,
 		" partid,"
 		" groupid,"
 		" fees_msat,"
-		" min_commit_num"
-		") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?);"));
+		" min_commit_num,"
+		" payment_id"
+		") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?);"));
 
 	out->dbid = htlcs_index_created(wallet->ld,
 					out->key.id,
@@ -3383,6 +3402,11 @@ void wallet_htlc_save_out(struct wallet *wallet,
 	db_bind_amount_msat(stmt, out->fees);
 	db_bind_u64(stmt, min_u64(chan->next_index[LOCAL]-1,
 					     chan->next_index[REMOTE]-1));
+
+	if (payment_id > 0)
+		db_bind_u64(stmt, payment_id);
+	else
+		db_bind_null(stmt);
 
 	db_exec_prepared_v2(take(stmt));
 }

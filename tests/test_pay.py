@@ -7048,3 +7048,27 @@ def test_htlc_tlv_crash(node_factory):
 
     l1.rpc.waitsendpay(inv1['payment_hash'], TIMEOUT)
     l1.rpc.waitsendpay(inv2['payment_hash'], TIMEOUT)
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+def test_bolt11_annotation_after_restart(node_factory):
+    """Test bolt11 field persists in listpays after restart. Fixes #6978"""
+    l1, l2 = node_factory.line_graph(2)
+
+    inv = l2.rpc.invoice(100000, 'test_bolt11_persist', 'Test BOLT11 persistence')['bolt11']
+    l1.rpc.pay(inv)
+
+    pays_before = l1.rpc.listpays()['pays']
+    payment_before = [p for p in pays_before if 'bolt11' in p and p['bolt11'] == inv][0]
+    assert payment_before['status'] == 'complete'
+    assert payment_before['bolt11'] == inv
+    payment_hash = payment_before['payment_hash']
+
+    l1.restart()
+
+    pays_after = l1.rpc.listpays()['pays']
+    payment_after = [p for p in pays_after if 'bolt11' in p and p['bolt11'] == inv][0]
+    assert payment_after['payment_hash'] == payment_hash
+    assert payment_after['status'] == 'complete'
+    assert payment_after['bolt11'] == inv
