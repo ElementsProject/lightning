@@ -779,12 +779,9 @@ static bool load_gossip_store(struct gossmap *map, bool must_be_clean)
 	map->local_announces = NULL;
 	map->local_updates = NULL;
 
-	/* gossipd uses pwritev(), which is not consistent with mmap on OpenBSD! */
-#ifndef __OpenBSD__
 	/* If this fails, we fall back to read */
 	map->mmap = mmap(NULL, map->map_size, PROT_READ, MAP_SHARED, map->fd, 0);
 	if (map->mmap == MAP_FAILED)
-#endif /* __OpenBSD__ */
 		map->mmap = NULL;
 
 	/* We only support major version 0 */
@@ -1219,12 +1216,12 @@ bool gossmap_refresh(struct gossmap *map)
 	if (map->mmap)
 		munmap(map->mmap, map->map_size);
 	map->map_size = len;
-	/* gossipd uses pwritev(), which is not consistent with mmap on OpenBSD! */
-#ifndef __OpenBSD__
-	map->mmap = mmap(NULL, map->map_size, PROT_READ, MAP_SHARED, map->fd, 0);
-	if (map->mmap == MAP_FAILED)
-#endif /* __OpenBSD__ */
-		map->mmap = NULL;
+
+	if (map->mmap) {
+		map->mmap = mmap(NULL, map->map_size, PROT_READ, MAP_SHARED, map->fd, 0);
+		if (map->mmap == MAP_FAILED)
+			map->mmap = NULL;
+	}
 
 	map_catchup(map, false, &changed);
 	return changed;
@@ -1855,6 +1852,18 @@ void gossmap_iter_end(const struct gossmap *map, struct gossmap_iter *iter)
 int gossmap_fd(const struct gossmap *map)
 {
 	return map->fd;
+}
+
+bool gossmap_has_mmap(const struct gossmap *map)
+{
+	return map->mmap != NULL;
+}
+
+void gossmap_disable_mmap(struct gossmap *map)
+{
+	if (map->mmap)
+		munmap(map->mmap, map->map_size);
+	map->mmap = NULL;
 }
 
 const u8 *gossmap_fetch_tail(const tal_t *ctx, const struct gossmap *map)
