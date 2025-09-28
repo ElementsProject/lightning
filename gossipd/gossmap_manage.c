@@ -1434,20 +1434,15 @@ struct gossmap *gossmap_manage_get_gossmap(struct gossmap_manage *gm)
 				      " used=%"PRIu64" seen=%"PRIu64" written=%"PRIu64,
 				      map_used, map_size, written_len);
 	} else if (map_size != map_used) {
-		const u8 *remainder_fd, *remainder_mmap;
+		const u8 *remainder_fd;
 
-		/* Sigh.  Did gossmap see something different (via mmap)
-		 * from what we see via read?  It's possible it's caught up
-		 * now, but just in case, log BOTH */
-		remainder_mmap = gossmap_fetch_tail(tmpctx, gm->raw_gossmap);
 		remainder_fd = fetch_tail_fd(tmpctx,
 					     gossmap_fd(gm->raw_gossmap),
 					     map_used, map_size);
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Gossmap failed to process entire gossip_store: "
-			      "at %"PRIu64" of %"PRIu64" remaining_mmap=%s remaining_fd=%s",
+			      "at %"PRIu64" of %"PRIu64" remaining_fd=%s",
 			      map_used, map_size,
-			      tal_hex(tmpctx, remainder_mmap),
 			      tal_hex(tmpctx, remainder_fd));
 	}
 
