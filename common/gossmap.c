@@ -706,8 +706,10 @@ static bool map_catchup(struct gossmap *map, bool must_be_clean, bool *changed)
 			map->logcb(map->cbarg,
 				   LOG_BROKEN,
 				   "Truncated gossmap record @%"PRIu64
-				   "/%"PRIu64" (len %zu): waiting",
-				   map->map_end, map->map_size, msglen);
+				   "/%"PRIu64" (len %zu): waiting%s",
+				   map->map_end, map->map_size, msglen,
+				   gossmap_has_mmap(map) ? " and disabling mmap" : "");
+			gossmap_disable_mmap(map);
 			if (must_be_clean)
 				return false;
  			break;
@@ -725,10 +727,12 @@ static bool map_catchup(struct gossmap *map, bool must_be_clean, bool *changed)
 			map->logcb(map->cbarg,
 				   LOG_BROKEN,
 				   "Bad checksum on gossmap record @%"PRIu64
-				   "/%"PRIu64" should be %u (%s): waiting",
+				   "/%"PRIu64" should be %u (%s): waiting%s",
 				   map->map_end, map->map_size,
 				   be32_to_cpu(ghdr.crc),
-				   tal_hexstr(tmpctx, msgbuf, msglen));
+				   tal_hexstr(tmpctx, msgbuf, msglen),
+				   gossmap_has_mmap(map) ? " and disabling mmap" : "");
+			gossmap_disable_mmap(map);
 			if (must_be_clean)
 				return false;
 			break;
