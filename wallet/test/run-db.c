@@ -434,6 +434,13 @@ u8 *towire_temporary_node_failure(const tal_t *ctx UNNEEDED)
 /* Generated stub for txfilter_add_scriptpubkey */
 void txfilter_add_scriptpubkey(struct txfilter *filter UNNEEDED, const u8 *script TAKES UNNEEDED)
 { fprintf(stderr, "txfilter_add_scriptpubkey called!\n"); abort(); }
+/* Generated stub for wait_index_increment */
+u64  wait_index_increment(struct lightningd *ld UNNEEDED,
+				       struct db *db UNNEEDED,
+				       enum wait_subsystem subsystem UNNEEDED,
+				       enum wait_index index UNNEEDED,
+				       ...)
+{ fprintf(stderr, "wait_index_increment called!\n"); abort(); }
 /* Generated stub for wait_index_name */
 const char *wait_index_name(enum wait_index index UNNEEDED)
 { fprintf(stderr, "wait_index_name called!\n"); abort(); }

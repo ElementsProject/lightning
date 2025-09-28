@@ -219,6 +219,13 @@ def autoclean_once_autoclean_failedpays2py(m):
     })
 
 
+def autoclean_once_autoclean_networkevents2py(m):
+    return remove_default({
+        "cleaned": m.cleaned,  # PrimitiveField in generate_composite
+        "uncleaned": m.uncleaned,  # PrimitiveField in generate_composite
+    })
+
+
 def autoclean_once_autoclean_paidinvoices2py(m):
     return remove_default({
         "cleaned": m.cleaned,  # PrimitiveField in generate_composite
@@ -267,6 +274,14 @@ def autoclean_status_autoclean_failedforwards2py(m):
 
 
 def autoclean_status_autoclean_failedpays2py(m):
+    return remove_default({
+        "age": m.age,  # PrimitiveField in generate_composite
+        "cleaned": m.cleaned,  # PrimitiveField in generate_composite
+        "enabled": m.enabled,  # PrimitiveField in generate_composite
+    })
+
+
+def autoclean_status_autoclean_networkevents2py(m):
     return remove_default({
         "age": m.age,  # PrimitiveField in generate_composite
         "cleaned": m.cleaned,  # PrimitiveField in generate_composite
@@ -2159,6 +2174,14 @@ def wait_invoices2py(m):
         "bolt12": m.bolt12,  # PrimitiveField in generate_composite
         "description": m.description,  # PrimitiveField in generate_composite
         "label": m.label,  # PrimitiveField in generate_composite
+    })
+
+
+def wait_networkevents2py(m):
+    return remove_default({
+        "type": str(m.item_type),  # EnumField in generate_composite
+        "created_index": m.created_index,  # PrimitiveField in generate_composite
+        "peer_id": hexlify(m.peer_id),  # PrimitiveField in generate_composite
     })
 
 

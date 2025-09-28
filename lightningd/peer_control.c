@@ -1732,6 +1732,8 @@ void peer_connected(struct lightningd *ld, const u8 *msg)
 	struct peer_connected_hook_payload *hook_payload;
 	u64 connectd_counter;
 	const char *cmd_id;
+	char *connect_reason;
+	u64 connect_nsec;
 	struct wireaddr *last_known_addr;
 
 	hook_payload = tal(NULL, struct peer_connected_hook_payload);
@@ -1742,9 +1744,16 @@ void peer_connected(struct lightningd *ld, const u8 *msg)
 					      &hook_payload->addr,
 					      &hook_payload->remote_addr,
 					      &hook_payload->incoming,
-					      &their_features))
+					      &their_features,
+					      &connect_reason,
+					      &connect_nsec))
 		fatal("Connectd gave bad CONNECT_PEER_CONNECTED message %s",
 		      tal_hex(msg, msg));
+
+	wallet_save_network_event(ld, &id,
+				  NETWORK_EVENT_CONNECT,
+				  hook_payload->incoming ? NULL : connect_reason,
+				  connect_nsec);
 
 	/* If we connected, and it's a normal address */
 	if (!hook_payload->incoming
@@ -2084,13 +2093,19 @@ static void destroy_disconnect_command(struct disconnect_command *dc)
 void peer_disconnect_done(struct lightningd *ld, const u8 *msg)
 {
 	struct node_id id;
-	u64 connectd_counter;
+	u64 connectd_counter, duration_nsec;
 	struct disconnect_command *i, *next;
 	struct peer *p;
 
-	if (!fromwire_connectd_peer_disconnect_done(msg, &id, &connectd_counter))
+	if (!fromwire_connectd_peer_disconnect_done(msg, &id,
+						    &connectd_counter,
+						    &duration_nsec))
 		fatal("Connectd gave bad PEER_DISCONNECT_DONE message %s",
 		      tal_hex(msg, msg));
+
+	wallet_save_network_event(ld, &id,
+				  NETWORK_EVENT_DISCONNECT,
+				  NULL, duration_nsec);
 
 	/* If we still have peer, it's disconnected now */
 	/* FIXME: We should keep peers until it tells us they're disconnected,
@@ -2661,7 +2676,9 @@ static void setup_peer(struct peer *peer)
 	/* Make sure connectd knows to try reconnecting (unless
 	 * --dev-no-reconnect). */
 	if (connect && ld->reconnect)
-		connectd_connect_to_peer(ld, peer, important);
+		connectd_connect_to_peer(ld, peer,
+					 "started with channel",
+					 important);
 }
 
 void setup_peers(struct lightningd *ld)
