@@ -70,6 +70,10 @@ struct gossmap *gossmap_load_(const tal_t *ctx,
 					    ...),
 			      void *cb_arg);
 
+/* Disable mmap.  Noop if already disabled. */
+void gossmap_disable_mmap(struct gossmap *map);
+bool gossmap_has_mmap(const struct gossmap *map);
+
 /* Call this before using to ensure it's up-to-date.  Returns true if something
  * was updated. Note: this can scramble node and chan indexes! */
 bool gossmap_refresh(struct gossmap *map);
