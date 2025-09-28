@@ -15,7 +15,7 @@ struct gossip_rcvd_filter;
 /* First byte of file is the version.
  *
  * Top three bits mean incompatible change.
- * As of this writing, major == 0, minor == 13.
+ * As of this writing, major == 0, minor == 15.
  */
 #define GOSSIP_STORE_MAJOR_VERSION_MASK 0xE0
 #define GOSSIP_STORE_MINOR_VERSION_MASK 0x1F
@@ -28,6 +28,11 @@ struct gossip_rcvd_filter;
  * Bit of flags we use to mark a deleted record.
  */
 #define GOSSIP_STORE_DELETED_BIT 0x8000U
+
+/**
+ * Bit of flags indicating record has been written.
+ */
+#define GOSSIP_STORE_COMPLETED_BIT 0x2000U
 
 /**
  * Bit of flags used to mark a channel announcement closed (not deleted for 12 blocks)
