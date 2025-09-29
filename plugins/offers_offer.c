@@ -416,33 +416,33 @@ struct command_result *json_offer(struct command *cmd,
 
 	offinfo->offer = offer = tlv_offer_new(offinfo);
 
-	if (!param(cmd, buffer, params,
-		   p_req("amount", param_amount, offer),
-		   p_opt("description", param_escaped_string, &desc),
-		   p_opt("issuer", param_escaped_string, &issuer),
-		   p_opt("label", param_escaped_string, &offinfo->label),
-		   p_opt("quantity_max", param_u64, &offer->offer_quantity_max),
-		   p_opt("absolute_expiry", param_u64, &offer->offer_absolute_expiry),
-		   p_opt("recurrence", param_recurrence, &offer->offer_recurrence_compulsory),
-		   p_opt("recurrence_base",
-			 param_recurrence_base,
-			 &offer->offer_recurrence_base),
-		   p_opt("recurrence_paywindow",
-			 param_recurrence_paywindow,
-			 &offer->offer_recurrence_paywindow),
-		   p_opt("recurrence_limit",
-			 param_number,
-			 &offer->offer_recurrence_limit),
-		   p_opt_def("single_use", param_bool,
-			     &offinfo->single_use, false),
-		   p_opt_def("proportional_amount",
-			     param_bool,
-			     &proportional, false),
-		   p_opt_def("optional_recurrence",
-			     param_bool,
-			     &optional_recurrence, false),
-		   p_opt("dev_paths", param_paths, &paths),
-		   NULL))
+	if (!param_check(cmd, buffer, params,
+			 p_req("amount", param_amount, offer),
+			 p_opt("description", param_escaped_string, &desc),
+			 p_opt("issuer", param_escaped_string, &issuer),
+			 p_opt("label", param_escaped_string, &offinfo->label),
+			 p_opt("quantity_max", param_u64, &offer->offer_quantity_max),
+			 p_opt("absolute_expiry", param_u64, &offer->offer_absolute_expiry),
+			 p_opt("recurrence", param_recurrence, &offer->offer_recurrence_compulsory),
+			 p_opt("recurrence_base",
+			       param_recurrence_base,
+			       &offer->offer_recurrence_base),
+			 p_opt("recurrence_paywindow",
+			       param_recurrence_paywindow,
+			       &offer->offer_recurrence_paywindow),
+			 p_opt("recurrence_limit",
+			       param_number,
+			       &offer->offer_recurrence_limit),
+			 p_opt_def("single_use", param_bool,
+				   &offinfo->single_use, false),
+			 p_opt_def("proportional_amount",
+				   param_bool,
+				   &proportional, false),
+			 p_opt_def("optional_recurrence",
+				   param_bool,
+				   &optional_recurrence, false),
+			 p_opt("dev_paths", param_paths, &paths),
+			 NULL))
 		return command_param_failed();
 
 	/* Doesn't make sense to have max quantity 1. */
@@ -510,6 +510,9 @@ struct command_result *json_offer(struct command *cmd,
 		offer->offer_recurrence_optional = offer->offer_recurrence_compulsory;
 		offer->offer_recurrence_compulsory = NULL;
 	}
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
 
 	/* BOLT #12:
 	 * - if it sets `offer_issuer`:
