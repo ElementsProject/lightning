@@ -863,9 +863,16 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 	 *   - if the current time is after `offer_absolute_expiry`:
 	 *     - MUST NOT respond to the offer.
 	 */
+	/* BOLT-recurrence #12:
+	 *   - if the current time is after `offer_absolute_expiry`:
+	 *      - MUST NOT make an initial response to the offer
+	 *        (i.e. continuing an existing offer with recurrence is ok)
+	 */
 	if (sent->offer->offer_absolute_expiry
-	    && time_now().ts.tv_sec > *sent->offer->offer_absolute_expiry)
+	    && time_now().ts.tv_sec > *sent->offer->offer_absolute_expiry
+	    && (!recurrence_counter || *recurrence_counter == 0)) {
 		return command_fail(cmd, OFFER_EXPIRED, "Offer expired");
+	}
 
 	/* BOLT #12:
 	 * The writer:
