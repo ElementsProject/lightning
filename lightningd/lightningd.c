@@ -51,7 +51,6 @@
 #include <common/daemon.h>
 #include <common/deprecation.h>
 #include <common/ecdh_hsmd.h>
-#include <common/hsm_encryption.h>
 #include <common/hsm_secret.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>

@@ -2,7 +2,6 @@
 #include <ccan/array_size/array_size.h>
 #include <common/features.h>
 #include <common/gossmap.h>
-#include <common/hsm_encryption.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
