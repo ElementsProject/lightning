@@ -86,7 +86,7 @@ def test_lsps2_buy(node_factory):
     res = l1.rpc.lsps_lsps2_getinfo(lsp_id=l2.info['id'])
     params = res["opening_fee_params_menu"][0]
 
-    res = l1.rpc.lsps_lsps2_buy(lsp_id=l2.info['id'], payment_size_msat=None, opening_fee_params=params)
+    res = l1.rpc.lsps_lsps2_buy(lsp_id=l2.info['id'], opening_fee_params=params)
     assert res
 
 
@@ -133,7 +133,12 @@ def test_lsps2_buyjitchannel_no_mpp_var_invoice(node_factory, bitcoind):
 
     chanid = only_one(l3.rpc.listpeerchannels(l2.info['id'])['channels'])['short_channel_id']
 
-    inv = l1.rpc.lsps_jitchannel(lsp_id=l2.info['id'])
+    inv = l1.rpc.lsps_jitchannel(
+        lsp_id=l2.info['id'],
+        amount_msat="any",
+        description="lsp-jit-channel-0",
+        label="lsp-jit-channel-0"
+    )
     assert inv
 
     dec = l3.rpc.decode(inv['bolt11'])
