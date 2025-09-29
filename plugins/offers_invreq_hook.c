@@ -70,6 +70,9 @@ fail_invreq_level(struct command *cmd,
 	err->error = tal_dup_arr(err, char, msg, strlen(msg), 0);
 	/* FIXME: Add suggested_value / erroneous_field! */
 
+	if (!invreq->reply_path)
+		return command_hook_success(cmd);
+
 	payload = tlv_onionmsg_tlv_new(tmpctx);
 	payload->invoice_error = tal_arr(payload, u8, 0);
 	towire_tlv_invoice_error(&payload->invoice_error, err);
@@ -194,6 +197,13 @@ static struct command_result *createinvoice_done(struct command *cmd,
 					json_tok_full(buf, t));
 	}
 
+	/* BOLT-recurrence #12:
+	 * - if `invreq_recurrence_cancel` is present:
+	 *    - MUST NOT send an invoice in reply.
+	 */
+	if (!ir->reply_path)
+		return command_hook_success(cmd);
+
 	payload = tlv_onionmsg_tlv_new(tmpctx);
 	payload->invoice = tal_steal(payload, rawinv);
 	return send_onion_reply(cmd, ir->reply_path, payload);
@@ -206,13 +216,19 @@ static struct command_result *createinvoice_error(struct command *cmd,
 						  struct invreq *ir)
 {
 	u32 code;
+	const char *status;
 
 	/* If it already exists, we can reuse its bolt12 directly. */
 	if (json_scan(tmpctx, buf, err,
-		      "{code:%}", JSON_SCAN(json_to_u32, &code)) == NULL
+		      "{code:%,data:{status:%}}",
+		      JSON_SCAN(json_to_u32, &code),
+		      JSON_SCAN_TAL(tmpctx, json_strdup, &status)) == NULL
 	    && code == INVOICE_LABEL_ALREADY_EXISTS) {
-		return createinvoice_done(cmd, method, buf,
-					  json_get_member(buf, err, "data"), ir);
+		if (streq(status, "unpaid"))
+			return createinvoice_done(cmd, method, buf,
+						  json_get_member(buf, err, "data"), ir);
+		if (streq(status, "expired"))
+			return fail_invreq(cmd, ir, "invoice expired (cancelled?)");
 	}
 	return error(cmd, method, buf, err, ir);
 }
@@ -372,6 +388,18 @@ static struct command_result *add_blindedpaths(struct command *cmd,
 			      found_best_peer, ir);
 }
 
+static struct command_result *cancel_invoice(struct command *cmd,
+					     struct invreq *ir)
+{
+	/* We create an invoice, so we can mark the cancellation, but with
+	 * expiry 0.  And we don't send it to them! */
+	*ir->inv->invoice_relative_expiry = 0;
+
+	/* In case they set a reply path! */
+	ir->reply_path = tal_free(ir->reply_path);
+	return create_invoicereq(cmd, ir);
+}
+
 static struct command_result *check_period(struct command *cmd,
 					   struct invreq *ir,
 					   u64 basetime)
@@ -482,6 +510,10 @@ static struct command_result *check_period(struct command *cmd,
 				*ir->inv->invoice_amount = 1;
 		}
 	}
+
+	/* If this is actually a cancel, we create an expired invoice */
+	if (ir->invreq->invreq_recurrence_cancel)
+		return cancel_invoice(cmd, ir);
 
 	return add_blindedpaths(cmd, ir);
 }
@@ -626,19 +658,23 @@ static struct command_result *invreq_base_amount_simple(struct command *cmd,
 
 		*amt = amount_msat(raw_amount);
 	} else {
-		/* BOLT #12:
+		/* BOLT-recurrence #12:
 		 *
 		 * The reader:
 		 *...
 		 *    - otherwise (no `offer_amount`):
-		 *      - MUST reject the invoice request if it does not contain
-		 *       `invreq_amount`.
+		 *      - MUST reject the invoice request if `invreq_recurrence_cancel`
+		 *        is not present and it does not contain `invreq_amount`.
 		 */
-		err = invreq_must_have(cmd, ir, invreq_amount);
-		if (err)
-			return err;
-
-		*amt = amount_msat(*ir->invreq->invreq_amount);
+		if (!ir->invreq->invreq_recurrence_cancel) {
+			err = invreq_must_have(cmd, ir, invreq_amount);
+			if (err)
+				return err;
+		}
+		if (ir->invreq->invreq_amount)
+			*amt = amount_msat(*ir->invreq->invreq_amount);
+		else
+			*amt = AMOUNT_MSAT(0);
 	}
 	return NULL;
 }
@@ -776,6 +812,7 @@ static struct command_result *listoffers_done(struct command *cmd,
 	bool active;
 	struct command_result *err;
 	struct amount_msat amt;
+	struct tlv_invoice_request_invreq_recurrence_cancel *cancel;
 
 	/* BOLT #12:
 	 *
@@ -861,9 +898,10 @@ static struct command_result *listoffers_done(struct command *cmd,
 		return fail_invreq(cmd, ir, "Offer expired");
 	}
 
-	/* BOLT #12:
+	/* BOLT-recurrence #12:
 	 * - if `offer_quantity_max` is present:
-	 *   - MUST reject the invoice request if there is no `invreq_quantity` field.
+	 *   - MUST reject the invoice request if `invreq_recurrence_cancel`
+	 *     is not present and there is no `invreq_quantity` field.
 	 *   - if `offer_quantity_max` is non-zero:
 	 *     - MUST reject the invoice request if `invreq_quantity` is zero, OR greater than
 	 *       `offer_quantity_max`.
@@ -871,15 +909,18 @@ static struct command_result *listoffers_done(struct command *cmd,
 	 *   - MUST reject the invoice request if there is an `invreq_quantity` field.
 	 */
 	if (ir->invreq->offer_quantity_max) {
-		err = invreq_must_have(cmd, ir, invreq_quantity);
-		if (err)
-			return err;
+		if (!ir->invreq->invreq_recurrence_cancel) {
+			err = invreq_must_have(cmd, ir, invreq_quantity);
+			if (err)
+				return err;
+		}
 
-		if (*ir->invreq->invreq_quantity == 0)
+		if (ir->invreq->invreq_quantity && *ir->invreq->invreq_quantity == 0)
 			return fail_invreq(cmd, ir,
 					   "quantity zero invalid");
 
-		if (*ir->invreq->offer_quantity_max &&
+		if (ir->invreq->invreq_quantity &&
+		    *ir->invreq->offer_quantity_max &&
 		    *ir->invreq->invreq_quantity > *ir->invreq->offer_quantity_max) {
 			return fail_invreq(cmd, ir,
 					   "quantity %"PRIu64" > %"PRIu64,
@@ -923,11 +964,16 @@ static struct command_result *listoffers_done(struct command *cmd,
 		 *     field.
 		 *   - MUST reject the invoice request if there is a `invreq_recurrence_start`
 		 *     field.
+		 *   - MUST reject the invoice request if there is a `invreq_recurrence_cancel`
+		 *     field.
 		 */
 		err = invreq_must_not_have(cmd, ir, invreq_recurrence_counter);
 		if (err)
 			return err;
 		err = invreq_must_not_have(cmd, ir, invreq_recurrence_start);
+		if (err)
+			return err;
+		err = invreq_must_not_have(cmd, ir, invreq_recurrence_cancel);
 		if (err)
 			return err;
 	}
@@ -939,8 +985,12 @@ static struct command_result *listoffers_done(struct command *cmd,
 	 *    - MUST copy all non-signature fields from the invoice request (including
 	 *      unknown fields).
 	 */
+	/* But "invreq_recurrence_cancel" doesn't exist in invoices, so temporarily remove */
+	cancel = ir->invreq->invreq_recurrence_cancel;
+	ir->invreq->invreq_recurrence_cancel = NULL;
 	ir->inv = invoice_for_invreq(cmd, ir->invreq);
 	assert(ir->inv->invreq_payer_id);
+	ir->invreq->invreq_recurrence_cancel = cancel;
 
 	/* BOLT #12:
 	 *   - if `offer_issuer_id` is present:
