@@ -28,14 +28,13 @@ static bool recurrence_paywindow_eq(const struct recurrence_paywindow *a,
 				    const struct recurrence_paywindow *b)
 {
 	return a->seconds_before == b->seconds_before &&
-		a->proportional_amount == b->proportional_amount &&
 		a->seconds_after == b->seconds_after;
 }
 
 static bool recurrence_base_eq(const struct recurrence_base *a,
-				const struct recurrence_base *b)
+			       const struct recurrence_base *b)
 {
-	return a->start_any_period == b->start_any_period &&
+	return a->proportional_amount == b->proportional_amount &&
 		a->basetime == b->basetime;
 }
 
@@ -71,8 +70,8 @@ static bool blinded_path_eq(const struct blinded_path *a, const struct blinded_p
 	return true;
 }
 
-static bool invreq_bip_353_name_eq(const struct tlv_invoice_request_invreq_bip_353_name *a,
-				   const struct tlv_invoice_request_invreq_bip_353_name *b)
+static bool invreq_bip_353_name_eq(const struct bip_353_name *a,
+				   const struct bip_353_name *b)
 {
 	if (a == b)
 		return true;
@@ -160,7 +159,8 @@ do {										\
 	MEM_EQ(offer_issuer);
 	VAL_EQ(offer_quantity_max);
 	PTR_EQ(offer_issuer_id, pubkey_eq);
-	PTR_EQ(offer_recurrence, recurrence_eq);
+	PTR_EQ(offer_recurrence_optional, recurrence_eq);
+	PTR_EQ(offer_recurrence_compulsory, recurrence_eq);
 	PTR_EQ(offer_recurrence_paywindow, recurrence_paywindow_eq);
 	VAL_EQ(offer_recurrence_limit);
 	PTR_EQ(offer_recurrence_base, recurrence_base_eq);

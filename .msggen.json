@@ -3146,6 +3146,8 @@
             "Offer.description": 2,
             "Offer.issuer": 3,
             "Offer.label": 4,
+            "Offer.optional_recurrence": 14,
+            "Offer.proportional_amount": 13,
             "Offer.quantity_max": 5,
             "Offer.recurrence": 7,
             "Offer.recurrence_base": 8,
@@ -11336,6 +11338,14 @@
         },
         "Offer.offer_id": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Offer.optional_recurrence": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "Offer.proportional_amount": {
+            "added": "v25.09",
             "deprecated": null
         },
         "Offer.quantity_max": {
