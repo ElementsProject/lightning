@@ -4828,6 +4828,87 @@
         }
       ]
     },
+    "cancelrecurringinvoice.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "type": "object",
+      "added": "v25.09",
+      "rpc": "cancelrecurringinvoice",
+      "title": "Command for sending a cancel message for a recurring offer",
+      "description": [
+        "NOTE: Recurring offers are experimental, and may be changed in backwards-incompable ways.",
+        "",
+        "The **cancelrecurringinvoice** RPC command sends a cancellation message in place of an invoice_request.  The BOLT 12 specification suggests sending this as a courtesy in place of the next invoice_request (as would be sent by fetchinvoice)."
+      ],
+      "request": {
+        "required": [
+          "offer",
+          "recurrence_counter",
+          "recurrence_label"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "offer": {
+            "type": "string",
+            "description": [
+              "Offer string (must be recurring) which we have been paying."
+            ]
+          },
+          "recurrence_counter": {
+            "type": "u64",
+            "description": [
+              "One later than the last-specified recurrence_counter for the last invoice."
+            ]
+          },
+          "recurrence_label": {
+            "type": "string",
+            "description": [
+              "This must be the same as prior fetchinvoice calls for the same recurrence, as it is used to link them together."
+            ]
+          },
+          "recurrence_start": {
+            "type": "number",
+            "description": [
+              "Indicates what period number to start at (usually 0).  This will be the same as previous fetchinvoice calls."
+            ]
+          },
+          "payer_note": {
+            "type": "string",
+            "description": [
+              "To tell the issuer the reason for the cancellation."
+            ]
+          },
+          "bip353": {
+            "type": "string",
+            "description": [
+              "BIP353 string (optionally with \u20bf) indicating where we fetched the offer from"
+            ]
+          }
+        }
+      },
+      "response": {
+        "required": [
+          "bolt12"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "bolt12": {
+            "type": "string",
+            "description": [
+              "The invoice_request we sent to the issuer."
+            ]
+          }
+        }
+      },
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-fetchinvoice(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ]
+    },
     "check.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
