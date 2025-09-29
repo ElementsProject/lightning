@@ -9,6 +9,10 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 					 const char *buffer,
 					 const jsmntok_t *params);
 
+struct command_result *json_cancelrecurringinvoice(struct command *cmd,
+						   const char *buffer,
+						   const jsmntok_t *params);
+
 struct command_result *json_sendinvoice(struct command *cmd,
 					const char *buffer,
 					const jsmntok_t *params);
