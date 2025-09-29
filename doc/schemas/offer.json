@@ -60,7 +60,7 @@
       "recurrence": {
         "type": "string",
         "description": [
-          "An invoice is expected at regular intervals. The argument is a positive number followed by one of `seconds`, `minutes`, `hours`, `days`, `weeks`, `months` or `years` (variants without the trailing `s` are also permitted). This is encoded in the offer. The semantics of recurrence is fairly predictable, but fully documented in BOLT 12. e.g. `4weeks`."
+          "An invoice is expected at regular intervals. The argument is a positive number followed by one of `seconds`, `minutes`, `hours`, `days`, `weeks`, or `months` (variants without the trailing `s` are also permitted). This is encoded in the offer. The semantics of recurrence is fairly predictable, but fully documented in BOLT 12. e.g. `4weeks`."
         ]
       },
       "recurrence_base": {
