@@ -7021,6 +7021,44 @@ def test_sendonion_sendpay(node_factory, bitcoind):
     assert invoice["amount_received_msat"] == Millisatoshi(total_amount)
 
 
+def test_cancel_recurrence(node_factory):
+    """Test handling of invoice cancellation"""
+    l1, l2 = node_factory.line_graph(2)
+
+    # Recurring offer.
+    offer = l2.rpc.offer(amount='1msat',
+                         description='test_cancel_recurrence',
+                         recurrence='1minutes')
+
+    # We cannot cancel if we never got the first one.
+    with pytest.raises(RpcError, match="recurrence_counter: Must be non-zero"):
+        l1.rpc.cancelrecurringinvoice(offer['bolt12'], 0, 'test_cancel_recurrence')
+
+    with pytest.raises(RpcError, match="No previous payment attempted for this label and offer"):
+        l1.rpc.cancelrecurringinvoice(offer['bolt12'], 1, 'test_cancel_recurrence')
+
+    # Fetch and pay first one
+    ret = l1.rpc.fetchinvoice(offer=offer['bolt12'],
+                              recurrence_counter=0,
+                              recurrence_label='test_cancel_recurrence')
+    l1.rpc.pay(ret['invoice'], label='test_cancel_recurrence')
+
+    # Cancel counter must be correct!
+    with pytest.raises(RpcError, match=r"previous invoice has not been paid \(last was 0\)"):
+        l1.rpc.cancelrecurringinvoice(offer['bolt12'], 2, 'test_cancel_recurrence')
+
+    # Cancel second one.
+    l1.rpc.cancelrecurringinvoice(offer=offer['bolt12'],
+                                  recurrence_counter=1,
+                                  recurrence_label='test_cancel_recurrence')
+
+    # Now we cannot fetch second one!
+    with pytest.raises(RpcError, match=r"invoice expired \(cancelled\?\)"):
+        l1.rpc.fetchinvoice(offer=offer['bolt12'],
+                            recurrence_counter=1,
+                            recurrence_label='test_cancel_recurrence')
+
+
 def test_htlc_tlv_crash(node_factory):
     """Marshalling code treated an array of htlc_added as if they were tal objects, but only the head is a tal object so if we have more than one, BOOM!"""
     plugin = os.path.join(os.path.dirname(__file__), 'plugins/htlc_accepted-customtlv.py')
