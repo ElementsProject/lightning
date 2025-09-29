@@ -5,11 +5,11 @@ description = "Client library and plugin library for Core Lightning"
 authors = [{ name = "Christian Decker", email = "decker.christian@gmail.com" }]
 license = { text = "BSD-MIT" }
 readme = "README.md"
-requires-python = ">=3.8,<4.0"
+requires-python = ">=3.9,<4.0"
 dependencies = ["pyln-proto>=23", "pyln-bolt7>=1.0"]
 
 [dependency-groups]
-dev = ["pytest>=7.0.0", "pyln-bolt7", "pyln-proto"]
+dev = ["pytest>=8.0.0", "pyln-bolt7", "pyln-proto"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["pyln"]
