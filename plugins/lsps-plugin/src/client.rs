@@ -167,19 +167,8 @@ async fn on_lsps_lsps2_buy(
     .context("Failed to create Bolt8Transport")?;
     let client = JsonRpcClient::new(transport);
 
-    // Convert from AmountOrAny to Msat.
-    let payment_size_msat = if let Some(payment_size) = req.payment_size_msat {
-        match payment_size {
-            AmountOrAny::Amount(amount) => Some(Msat::from_msat(amount.msat())),
-            AmountOrAny::Any => None,
-        }
-    } else {
-        None
-    };
-
     let selected_params = req.opening_fee_params;
-
-    if let Some(payment_size) = payment_size_msat {
+    if let Some(payment_size) = req.payment_size_msat {
         if payment_size < selected_params.min_payment_size_msat {
             return Err(anyhow!(
                 "Requested payment size {}msat is below minimum {}msat required by LSP",
@@ -224,7 +213,7 @@ async fn on_lsps_lsps2_buy(
     debug!("Calling lsps2.buy for peer {}", req.lsp_id);
     let buy_req = Lsps2BuyRequest {
         opening_fee_params: selected_params, // Pass the chosen params back
-        payment_size_msat,
+        payment_size_msat: req.payment_size_msat,
     };
     let buy_res: Lsps2BuyResponse = client
         .call_typed(buy_req)
@@ -270,16 +259,18 @@ async fn on_lsps_jitchannel(
     #[derive(Deserialize)]
     struct Request {
         lsp_id: String,
-        // Optional: for fixed-amount invoices
-        payment_size_msat: Option<AmountOrAny>,
         // Optional: for discounts/API keys
         token: Option<String>,
+        // Pass-through of cln invoice rpc params
+        pub amount_msat: cln_rpc::primitives::AmountOrAny,
+        pub description: String,
+        pub label: String,
     }
 
     let req: Request = serde_json::from_value(v).context("Failed to parse request JSON")?;
     debug!(
         "Handling lsps-buy-jit-channel request for peer {} with payment_size {:?} and token {:?}",
-        req.lsp_id, req.payment_size_msat, req.token
+        req.lsp_id, req.amount_msat, req.token
     );
 
     let dir = p.configuration().lightning_dir;
@@ -322,13 +313,18 @@ async fn on_lsps_jitchannel(
 
     info!("Selected fee parameters: {:?}", selected_params);
 
+    let payment_size_msat = match req.amount_msat {
+        AmountOrAny::Amount(amount) => Some(Msat::from_msat(amount.msat())),
+        AmountOrAny::Any => None,
+    };
+
     // 3. Request channel from LSP.
     let buy_res: Lsps2BuyResponse = cln_client
         .call_raw(
             "lsps-lsps2-buy",
             &ClnRpcLsps2BuyRequest {
                 lsp_id: req.lsp_id.clone(),
-                payment_size_msat: req.payment_size_msat,
+                payment_size_msat,
                 opening_fee_params: selected_params.clone(),
             },
         )
@@ -356,20 +352,14 @@ async fn on_lsps_jitchannel(
         cltv_expiry_delta: u16::try_from(buy_res.lsp_cltv_expiry_delta)?,
     };
 
-    let amount_msat = if let Some(payment_size) = req.payment_size_msat {
-        payment_size
-    } else {
-        AmountOrAny::Any
-    };
-
     let inv: cln_rpc::model::responses::InvoiceResponse = cln_client
         .call_raw(
             "invoice",
             &InvoiceRequest {
-                amount_msat,
+                amount_msat: req.amount_msat,
                 dev_routes: Some(vec![vec![hint]]),
-                description: String::from("TODO"), // TODO: Pass down description from rpc call
-                label: gen_label(None),            // TODO: Pass down label from rpc call
+                description: req.description,
+                label: req.label,
                 expiry: Some(expiry as u64),
                 cltv: Some(u32::try_from(6 + 2)?), // TODO: FETCH REAL VALUE!
                 deschashonly: None,
@@ -619,15 +609,6 @@ async fn ensure_lsp_connected(cln_client: &mut ClnRpc, lsp_id: &str) -> Result<(
     Ok(())
 }
 
-/// Generates a unique label from an optional `String`. The given label is
-/// appended by a timestamp (now).
-fn gen_label(label: Option<&str>) -> String {
-    let now = Utc::now();
-    let millis = now.timestamp_millis();
-    let l = label.unwrap_or_else(|| "lsps2.buy");
-    format!("{}_{}", l, millis)
-}
-
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 struct LspsBuyJitChannelResponse {
     bolt11: String,
@@ -668,8 +649,7 @@ pub struct RoutehintHopDev {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct ClnRpcLsps2BuyRequest {
     lsp_id: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    payment_size_msat: Option<AmountOrAny>,
+    payment_size_msat: Option<Msat>,
     opening_fee_params: OpeningFeeParams,
 }
 
