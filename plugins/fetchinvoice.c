@@ -291,12 +291,14 @@ static struct command_result *handle_invreq_response(struct command *cmd,
 	} else
 		expected_amount = NULL;
 
+	recurrence = invoice_recurrence(inv);
+
 	/* BOLT-recurrence #12:
-	 * - if the offer contained `recurrence`:
-	 *   - MUST reject the invoice if `recurrence_basetime` is not set.
+	 * - if `offer_recurrence_optional` or `offer_recurrence_compulsory` are present:
+	 *    - MUST reject the invoice if `invoice_recurrence_basetime` is not present.
 	 */
-	if (inv->invreq_recurrence_counter && !inv->invoice_recurrence_basetime) {
-		badfield = "recurrence_basetime";
+	if (recurrence && !inv->invoice_recurrence_basetime) {
+		badfield = "invoice_recurrence_basetime";
 		goto badinv;
 	}
 
@@ -316,7 +318,6 @@ static struct command_result *handle_invreq_response(struct command *cmd,
 	json_object_end(out);
 
 	/* We tell them about next period at this point, if any. */
-	recurrence = invoice_recurrence(inv);
 	if (recurrence) {
 		u64 next_counter, next_period_idx;
 		u64 paywindow_start, paywindow_end;
@@ -704,9 +705,9 @@ static struct command_result *invreq_done(struct command *cmd,
 			period_idx += *sent->invreq->invreq_recurrence_start;
 
 		/* BOLT-recurrence #12:
-		 * - if the offer contained `recurrence_limit`:
-		 *   - MUST NOT send an `invoice_request` for a period greater
-		 *     than `max_period`
+		 * - if `offer_recurrence_limit` is present:
+		 *   - MUST NOT send an `invoice_request` for a period greater than
+		 *     `max_period`
 		 */
 		if (sent->invreq->offer_recurrence_limit
 		    && period_idx > *sent->invreq->offer_recurrence_limit)
@@ -926,7 +927,7 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 	}
 
 	/* BOLT-recurrence #12:
-	 * - if the offer contained `recurrence`:
+	 * - if `offer_recurrence_optional` or `offer_recurrence_compulsory` are present:
 	 */
 	if (invreq_recurrence(invreq)) {
 		struct sha256 offer_id, tweak;
@@ -935,12 +936,12 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 		/* BOLT-recurrence #12:
 		 *    - for the initial request:
 		 *...
-		 *      - MUST set `recurrence_counter` `counter` to 0.
+		 *      - MUST set `invreq_recurrence_counter` `counter` to 0.
 		 */
 		/* BOLT-recurrence #12:
 		 *    - for any successive requests:
 		 *...
-		 *      - MUST set `recurrence_counter` `counter` to one greater
+		 *      - MUST set `invreq_recurrence_counter` `counter` to one greater
 		 *        than the highest-paid invoice.
 		 */
 		if (!invreq->invreq_recurrence_counter)
@@ -998,15 +999,19 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 	} else {
 		/* BOLT-recurrence #12:
 		 * - otherwise:
-		 *   - MUST NOT set `recurrence_counter`.
-		 *   - MUST NOT set `recurrence_start`
+		 *   - MUST NOT set `invreq_recurrence_counter`.
+		 *   - MUST NOT set `invreq_recurrence_start`
+		 *   - MUST NOT set `invreq_recurrence_cancel`
 		 */
 		if (invreq->invreq_recurrence_counter)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "unnecessary recurrence_counter");
+					    "unnecessary invreq_recurrence_counter");
 		if (invreq->invreq_recurrence_start)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "unnecessary recurrence_start");
+					    "unnecessary invreq_recurrence_start");
+		if (invreq->invreq_recurrence_cancel)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "unnecessary invreq_recurrence_cancel");
 
 		/* if the payer force to use the payer_metadata */
 		if (payer_metadata) {
