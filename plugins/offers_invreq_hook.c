@@ -848,9 +848,16 @@ static struct command_result *listoffers_done(struct command *cmd,
 					json_tok_full(buf, offertok));
 	}
 
+	/* BOLT-recurrence #12:
+	 * - if `offer_absolute_expiry` is present, and
+	 *   `invreq_recurrence_counter` is either not present or equal to 0:
+	 *    - MUST reject the invoice request if the current time is after
+	 *      `offer_absolute_expiry`.
+	 */
 	if (ir->invreq->offer_absolute_expiry
+	    && (!ir->invreq->invreq_recurrence_counter
+		|| *ir->invreq->invreq_recurrence_counter == 0)
 	    && time_now().ts.tv_sec >= *ir->invreq->offer_absolute_expiry) {
-		/* FIXME: do deloffer to disable it */
 		return fail_invreq(cmd, ir, "Offer expired");
 	}
 
