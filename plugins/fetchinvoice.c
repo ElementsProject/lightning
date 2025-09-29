@@ -818,6 +818,34 @@ static bool payer_key(const u8 *public_tweak, size_t public_tweak_len,
 					     tweakhash.u.u8) == 1;
 }
 
+/* BOLT #12:
+ * - MUST set `invreq_metadata` to an unpredictable series of bytes.
+ */
+/* Derive metadata (and thus temp key) from offer data and label
+ * as payer_id must be same for all recurring payments. */
+static u8 *recurrence_invreq_metadata(const tal_t *ctx,
+				      const struct tlv_invoice_request *invreq,
+				      const char *rec_label)
+{
+	struct sha256 offer_id, tweak;
+	u8 *tweak_input;
+
+	/* Use "offer_id || label" as tweak input */
+	invreq_offer_id(invreq, &offer_id);
+	tweak_input = tal_arr(tmpctx, u8,
+			      sizeof(offer_id) + strlen(rec_label));
+	memcpy(tweak_input, &offer_id, sizeof(offer_id));
+	memcpy(tweak_input + sizeof(offer_id),
+	       rec_label,
+	       strlen(rec_label));
+
+	bolt12_alias_tweak(&nodealias_base,
+			   tweak_input,
+			   tal_bytelen(tweak_input),
+			   &tweak);
+	return (u8 *)tal_dup(invreq, struct sha256, &tweak);
+}
+
 /* Fetches an invoice for this offer, and makes sure it corresponds. */
 struct command_result *json_fetchinvoice(struct command *cmd,
 					 const char *buffer,
@@ -937,9 +965,6 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 	 * - if `offer_recurrence_optional` or `offer_recurrence_compulsory` are present:
 	 */
 	if (invreq_recurrence(invreq)) {
-		struct sha256 offer_id, tweak;
-		u8 *tweak_input;
-
 		/* BOLT-recurrence #12:
 		 *    - for the initial request:
 		 *...
@@ -981,28 +1006,8 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "needs recurrence_label");
 
-		/* BOLT #12:
-		 * - MUST set `invreq_metadata` to an unpredictable series of
-		 *   bytes.
-		 */
-		/* Derive metadata (and thus temp key) from offer data and label
-		 * as payer_id must be same for all recurring payments. */
-
-		/* Use "offer_id || label" as tweak input */
-		invreq_offer_id(invreq, &offer_id);
-		tweak_input = tal_arr(tmpctx, u8,
-				      sizeof(offer_id) + strlen(rec_label));
-		memcpy(tweak_input, &offer_id, sizeof(offer_id));
-		memcpy(tweak_input + sizeof(offer_id),
-		       rec_label,
-		       strlen(rec_label));
-
-		bolt12_alias_tweak(&nodealias_base,
-				   tweak_input,
-				   tal_bytelen(tweak_input),
-				   &tweak);
 		invreq->invreq_metadata
-			= (u8 *)tal_dup(invreq, struct sha256, &tweak);
+			= recurrence_invreq_metadata(invreq, invreq, rec_label);
 	} else {
 		/* BOLT-recurrence #12:
 		 * - otherwise:
