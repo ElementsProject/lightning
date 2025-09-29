@@ -394,16 +394,14 @@ static struct command_result *check_period(struct command *cmd,
 	period_idx = *ir->invreq->invreq_recurrence_counter;
 
 	/* BOLT-recurrence #12:
-	 * - if the offer had `recurrence_base` and `start_any_period`
-	 *   was 1:
-	 *   - MUST fail the request if there is no `recurrence_start`
+	 * - if `offer_recurrence_base` is present:
+	 *   - MUST fail the request if there is no `invreq_recurrence_start`
 	 *     field.
 	 *   - MUST consider the period index for this request to be the
-	 *     `recurrence_start` field plus the `recurrence_counter`
+	 *     `invreq_recurrence_start` field plus the `invreq_recurrence_counter`
 	 *     `counter` field.
 	 */
-	if (ir->invreq->offer_recurrence_base
-	    && ir->invreq->offer_recurrence_base->start_any_period) {
+	if (ir->invreq->offer_recurrence_base) {
 		err = invreq_must_have(cmd, ir, invreq_recurrence_start);
 		if (err)
 			return err;

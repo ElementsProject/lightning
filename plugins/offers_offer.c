@@ -165,6 +165,7 @@ static struct command_result *param_recurrence_base(struct command *cmd,
 						    struct recurrence_base **base)
 {
 	*base = tal(cmd, struct recurrence_base);
+	/* FIXME: Removed from spec */
 	(*base)->start_any_period = true;
 
 	if (!json_to_u64(buffer, tok, &(*base)->basetime))
@@ -173,23 +174,6 @@ static struct command_result *param_recurrence_base(struct command *cmd,
 	return NULL;
 }
 
-static struct command_result *param_recurrence_start_any_period(struct command *cmd,
-								const char *name,
-								const char *buffer,
-								const jsmntok_t *tok,
-								struct recurrence_base **base)
-{
-	bool *val;
-	struct command_result *res = param_bool(cmd, name, buffer, tok, &val);
-	if (res)
-		return res;
-
-	if (*val == false && !*base)
-		return command_fail_badparam(cmd, name, buffer, tok,
-					     "Cannot set to false without specifying recurrence_base!");
-	(*base)->start_any_period = false;
-	return NULL;
-}
 
 /* -time+time[%] */
 static struct command_result *param_recurrence_paywindow(struct command *cmd,
@@ -458,9 +442,6 @@ struct command_result *json_offer(struct command *cmd,
 			 &offer->offer_recurrence_limit),
 		   p_opt_def("single_use", param_bool,
 			     &offinfo->single_use, false),
-		   p_opt("recurrence_start_any_period",
-			 param_recurrence_start_any_period,
-			 &offer->offer_recurrence_base),
 		   p_opt("dev_paths", param_paths, &paths),
 		   NULL))
 		return command_param_failed();

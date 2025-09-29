@@ -7242,12 +7242,6 @@
                         "Period starts at this UNIX timestamp."
                       ]
                     },
-                    "start_any_period": {
-                      "type": "u64",
-                      "description": [
-                        "You can start at any period (only if `basetime` present)."
-                      ]
-                    },
                     "limit": {
                       "type": "u32",
                       "description": [
@@ -7664,12 +7658,6 @@
                       "type": "u64",
                       "description": [
                         "Period starts at this UNIX timestamp."
-                      ]
-                    },
-                    "start_any_period": {
-                      "type": "u64",
-                      "description": [
-                        "You can start at any period (only if `basetime` present)."
                       ]
                     },
                     "limit": {
@@ -8302,12 +8290,6 @@
                       "type": "u64",
                       "description": [
                         "Period starts at this UNIX timestamp."
-                      ]
-                    },
-                    "start_any_period": {
-                      "type": "u64",
-                      "description": [
-                        "You can start at any period (only if `basetime` present)."
                       ]
                     },
                     "limit": {
@@ -12411,7 +12393,7 @@
           "recurrence_start": {
             "type": "number",
             "description": [
-              "Required if the offer specifies recurrence_base with start_any_period set, otherwise it is not allowed. It indicates what period number to start at."
+              "Indicates what period number to start at (usually 0)."
             ]
           },
           "recurrence_label": {
@@ -26718,14 +26700,6 @@
               "Indicates that the offer is only valid once; we may issue multiple invoices, but as soon as one is paid all other invoices will be expired (i.e. only one person can pay this offer)."
             ],
             "default": "False"
-          },
-          "recurrence_start_any_period": {
-            "added": "v24.02",
-            "type": "boolean",
-            "description": [
-              "This means that the invoice may start by paying during any period; otherwise it must start by paying at the first period.  Setting this to false only makes sense if *recurrence_base* was provided. This is encoded in the offer."
-            ],
-            "default": "True"
           },
           "dev_paths": {
             "hidden": true
