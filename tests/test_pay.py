@@ -4391,8 +4391,7 @@ def test_offer(node_factory, bitcoind):
               ['10weeks', 'days', 70],
               ['1month', 'months', 1],
               ['10months', 'months', 10],
-              ['1year', 'years', 1],
-              ['10years', 'years', 10]]:
+              ['120months', 'months', 120]]:
         ret = l1.rpc.call('offer', {
             'amount': '100000sat',
             'description': 'quantity_max test',
