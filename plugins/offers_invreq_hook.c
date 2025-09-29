@@ -403,24 +403,19 @@ static struct command_result *check_period(struct command *cmd,
 	 */
 	if (ir->invreq->offer_recurrence_base) {
 		err = invreq_must_have(cmd, ir, invreq_recurrence_start);
-		if (err)
+		if (err) {
+			plugin_log(cmd->plugin, LOG_BROKEN, "MISSING invreq_recurrence_start!");
 			return err;
+		}
 		period_idx += *ir->invreq->invreq_recurrence_start;
-
-		/* BOLT-recurrence #12:
-		 * - MUST set (or not set) `recurrence_start` exactly as the
-		 *   invreq did.
-		 */
-		ir->inv->invreq_recurrence_start
-			= tal_dup(ir->inv, u32, ir->invreq->invreq_recurrence_start);
 	} else {
 		/* BOLT-recurrence #12:
 		 *
 		 * - otherwise:
-		 *   - MUST fail the request if there is a `recurrence_start`
+		 *   - MUST reject the invoice request if there is a `invreq_recurrence_start`
 		 *     field.
 		 *   - MUST consider the period index for this request to be the
-		 *     `recurrence_counter` `counter` field.
+		 *     `invreq_recurrence_counter` `counter` field.
 		 */
 		err = invreq_must_not_have(cmd, ir, invreq_recurrence_start);
 		if (err)
@@ -439,7 +434,7 @@ static struct command_result *check_period(struct command *cmd,
 				   period_idx);
 	}
 
-	offer_period_paywindow(ir->invreq->offer_recurrence,
+	offer_period_paywindow(invreq_recurrence(ir->invreq),
 			       ir->invreq->offer_recurrence_paywindow,
 			       ir->invreq->offer_recurrence_base,
 			       basetime, period_idx,
@@ -463,21 +458,18 @@ static struct command_result *check_period(struct command *cmd,
 
 	/* BOLT-recurrence #12:
 	 *
-	 * - if `recurrence_counter` is non-zero:
-	 *...
-	 *   - if the offer had a `recurrence_paywindow`:
-	 *...
-	 *     - if `proportional_amount` is 1:
-	 *       - MUST adjust the *base invoice amount* proportional to time
-	 *         remaining in the period.
+	 * - if `offer_recurrence_base` is present and `proportional_amount` is 1:
+	 *    - MUST scale the *expected amount* proportional to time remaining
+	 *      in the period being paid for.
+	 *    - MUST NOT increase the *expected amount* (i.e. only scale if we're
+	 *      in the period already).
 	 */
-	if (*ir->invreq->invreq_recurrence_counter != 0
-	    && ir->invreq->offer_recurrence_paywindow
-	    && ir->invreq->offer_recurrence_paywindow->proportional_amount == 1) {
+	if (ir->invreq->offer_recurrence_base
+	    && ir->invreq->offer_recurrence_base->proportional_amount == 1) {
 		u64 start = offer_period_start(basetime, period_idx,
-					       ir->invreq->offer_recurrence);
+					       invreq_recurrence(ir->invreq));
 		u64 end = offer_period_start(basetime, period_idx + 1,
-					     ir->invreq->offer_recurrence);
+					     invreq_recurrence(ir->invreq));
 
 		if (*ir->inv->invoice_created_at > start) {
 			*ir->inv->invoice_amount
@@ -905,10 +897,10 @@ static struct command_result *listoffers_done(struct command *cmd,
 		return fail_invreq(cmd, ir, "bad signature");
 	}
 
-	if (ir->invreq->offer_recurrence) {
+	if (invreq_recurrence(ir->invreq)) {
 		/* BOLT-recurrence #12:
 		 *
-		 * - if the offer had a `recurrence`:
+		 * - if `offer_recurrence_optional` or `offer_recurrence_compulsory` are present:
 		 *   - MUST reject the invoice request if there is no `recurrence_counter`
 		 *     field.
 		 */

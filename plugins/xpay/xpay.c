@@ -1684,7 +1684,7 @@ static struct command_result *check_offer_payable(struct command *cmd,
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Must specify amount for this offer");
 	}
-	if (b12offer->offer_recurrence)
+	if (offer_recurrence(b12offer))
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Cannot xpay recurring offers");
 

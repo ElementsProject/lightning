@@ -165,9 +165,7 @@ static struct command_result *param_recurrence_base(struct command *cmd,
 						    struct recurrence_base **base)
 {
 	*base = tal(cmd, struct recurrence_base);
-	/* FIXME: Removed from spec */
-	(*base)->start_any_period = true;
-
+	(*base)->proportional_amount = false;
 	if (!json_to_u64(buffer, tok, &(*base)->basetime))
 		return command_fail_badparam(cmd, name, buffer, tok,
 					     "not a valid basetime");
@@ -175,7 +173,7 @@ static struct command_result *param_recurrence_base(struct command *cmd,
 }
 
 
-/* -time+time[%] */
+/* -time+time */
 static struct command_result *param_recurrence_paywindow(struct command *cmd,
 							 const char *name,
 							 const char *buffer,
@@ -187,19 +185,13 @@ static struct command_result *param_recurrence_paywindow(struct command *cmd,
 
 	*paywindow = tal(cmd, struct recurrence_paywindow);
 	t = *tok;
-	if (json_tok_endswith(buffer, &t, "%")) {
-		(*paywindow)->proportional_amount = true;
-		t.end--;
-	} else
-		(*paywindow)->proportional_amount = false;
-
 	if (!json_tok_startswith(buffer, &t, "-"))
 		return command_fail_badparam(cmd, name, buffer, tok,
-					     "expected -time+time[%]");
+					     "expected -time+time");
 	t.start++;
 	if (!split_tok(buffer, &t, '+', &before, &after))
 		return command_fail_badparam(cmd, name, buffer, tok,
-					     "expected -time+time[%]");
+					     "expected -time+time");
 
 	if (!json_to_u32(buffer, &before, &(*paywindow)->seconds_before))
 		return command_fail_badparam(cmd, name, buffer, &before,
@@ -420,6 +412,7 @@ struct command_result *json_offer(struct command *cmd,
 	struct tlv_offer *offer;
 	struct offer_info *offinfo = tal(cmd, struct offer_info);
 	struct path **paths;
+	bool *proportional, *optional_recurrence;
 
 	offinfo->offer = offer = tlv_offer_new(offinfo);
 
@@ -430,7 +423,7 @@ struct command_result *json_offer(struct command *cmd,
 		   p_opt("label", param_escaped_string, &offinfo->label),
 		   p_opt("quantity_max", param_u64, &offer->offer_quantity_max),
 		   p_opt("absolute_expiry", param_u64, &offer->offer_absolute_expiry),
-		   p_opt("recurrence", param_recurrence, &offer->offer_recurrence),
+		   p_opt("recurrence", param_recurrence, &offer->offer_recurrence_compulsory),
 		   p_opt("recurrence_base",
 			 param_recurrence_base,
 			 &offer->offer_recurrence_base),
@@ -442,6 +435,12 @@ struct command_result *json_offer(struct command *cmd,
 			 &offer->offer_recurrence_limit),
 		   p_opt_def("single_use", param_bool,
 			     &offinfo->single_use, false),
+		   p_opt_def("proportional_amount",
+			     param_bool,
+			     &proportional, false),
+		   p_opt_def("optional_recurrence",
+			     param_bool,
+			     &optional_recurrence, false),
 		   p_opt("dev_paths", param_paths, &paths),
 		   NULL))
 		return command_param_failed();
@@ -463,7 +462,7 @@ struct command_result *json_offer(struct command *cmd,
 		offer->offer_chains[0] = chainparams->genesis_blockhash;
 	}
 
-	if (!offer->offer_recurrence) {
+	if (!offer_recurrence(offer)) {
 		if (offer->offer_recurrence_limit)
 			return command_fail_badparam(cmd, "recurrence_limit",
 						     buffer, params,
@@ -490,6 +489,27 @@ struct command_result *json_offer(struct command *cmd,
 	if (!offer->offer_description && offer->offer_amount)
 		return command_fail_badparam(cmd, "description", buffer, params,
 					     "description is required for the user to know what it was they paid for");
+
+	if (*proportional) {
+		if (!offer->offer_recurrence_base) {
+			return command_fail_badparam(cmd, "proportional_amount", buffer, params,
+						     "proportional_amount needs recurrence_base");
+		}
+		offer->offer_recurrence_base->proportional_amount = true;
+	}
+
+	if (*optional_recurrence) {
+		/* Makes no sense to do optional if you have a recurrence_base (which
+		 * will be rejected by non-recurrent-understanding nodes anyway) */
+		if (offer->offer_recurrence_base) {
+			return command_fail_badparam(cmd, "optional_recurrence",
+						     buffer, params,
+						     "incompatible with recurrence_base");
+		}
+		/* Move compulsory to optional */
+		offer->offer_recurrence_optional = offer->offer_recurrence_compulsory;
+		offer->offer_recurrence_compulsory = NULL;
+	}
 
 	/* BOLT #12:
 	 * - if it sets `offer_issuer`:

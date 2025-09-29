@@ -3101,6 +3101,10 @@ pub mod requests {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub label: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub optional_recurrence: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub proportional_amount: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub quantity_max: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub recurrence: Option<String>,

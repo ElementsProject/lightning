@@ -26684,7 +26684,7 @@
           "recurrence_paywindow": {
             "type": "string",
             "description": [
-              "Argument of form `-time+time[%]`. The first time is the number of seconds before the start of a period in which an invoice and payment is valid, the second time is the number of seconds after the start of the period. For example *-604800+86400* means you can fetch an pay the invoice 4 weeks before the given period starts, and up to 1 day afterwards. The optional *%* indicates that the amount of the invoice will be scaled by the time remaining in the period. This is encoded in the offer."
+              "Argument of form `-time+time`. The first time is the number of seconds before the start of a period in which an invoice and payment is valid, the second time is the number of seconds after the start of the period. For example *-604800+86400* means you can fetch an pay the invoice 4 weeks before the given period starts, and up to 1 day afterwards. The optional *%* indicates that the amount of the invoice will be scaled by the time remaining in the period. This is encoded in the offer."
             ],
             "default": "that payment is allowed during the current and previous periods"
           },
@@ -26700,6 +26700,20 @@
               "Indicates that the offer is only valid once; we may issue multiple invoices, but as soon as one is paid all other invoices will be expired (i.e. only one person can pay this offer)."
             ],
             "default": "False"
+          },
+          "proportional_amount": {
+            "added": "v25.09",
+            "type": "boolean",
+            "description": [
+              "Payment will be charged for the initial period proportional to the amount remaining (only makes sense if recurrence_base is specified)"
+            ]
+          },
+          "optional_recurrence": {
+            "added": "v25.09",
+            "type": "boolean",
+            "description": [
+              "Make recurrence optional, for backwards compatibility (older payers will only pay once)."
+            ]
           },
           "dev_paths": {
             "hidden": true
