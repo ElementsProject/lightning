@@ -407,7 +407,7 @@ u64 offer_period_start(u64 basetime, size_t n,
 		       const struct recurrence *recur)
 {
 	/* BOLT-recurrence #12:
-	 * 1. A `time_unit` defining 0 (seconds), 1 (days), or 2 (months).
+	 * 1. A `time_unit` defining 0 (seconds), 1 (days), 2 (months).
 	 */
 	switch (recur->time_unit) {
 	case 0:
@@ -429,17 +429,17 @@ void offer_period_paywindow(const struct recurrence *recurrence,
 			    u64 *start, u64 *end)
 {
 	/* BOLT-recurrence #12:
-	 * - if the offer contains `recurrence_paywindow`:
+	 * - if `offer_recurrence_paywindow` is present:
 	 */
 	if (recurrence_paywindow) {
 		u64 pstart = offer_period_start(basetime, period_idx,
 						recurrence);
 		/* BOLT-recurrence #12:
-		 * - if the offer has a `recurrence_basetime` or the
+		 * - if `recurrence_basetime` is present or
 		 *    `recurrence_counter` is non-zero:
-		 *   - SHOULD NOT send an `invreq` for a period prior to
+		 *   - SHOULD NOT send an `invoice_request` for a period prior to
 		 *     `seconds_before` seconds before that period start.
-		 *   - SHOULD NOT send an `invreq` for a period later
+		 *   - SHOULD NOT send an `invoice_request` for a period later
 		 *     than `seconds_after` seconds past that period start.
 		 */
 		*start = pstart - recurrence_paywindow->seconds_before;
@@ -454,9 +454,9 @@ void offer_period_paywindow(const struct recurrence *recurrence,
 	} else {
 		/* BOLT-recurrence #12:
 		 * - otherwise:
-		 *   - SHOULD NOT send an `invreq` with
-		 *     `recurrence_counter` is non-zero for a period whose
-		 *     immediate predecessor has not yet begun.
+		 *   - SHOULD NOT send an `invoice_request` with
+		 *     non-zero `recurrence_counter` for a period
+		 *     whose immediate predecessor has not yet begun.
 		 */
 		if (period_idx == 0)
 			*start = 0;
@@ -465,7 +465,7 @@ void offer_period_paywindow(const struct recurrence *recurrence,
 						    recurrence);
 
 		/* BOLT-recurrence #12:
-		 *     - SHOULD NOT send an `invreq` for a period which
+		 *     - SHOULD NOT send an `invoice_request` for a period which
 		 *       has already passed.
 		 */
 		*end = offer_period_start(basetime, period_idx+1,

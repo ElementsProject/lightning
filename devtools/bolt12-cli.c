@@ -186,19 +186,22 @@ static bool print_recurrence(const char *fieldname,
 
 	/* BOLT-recurrence #12:
 	 * Thus, each offer containing a recurring payment has:
-	 * 1. A `time_unit` defining 0 (seconds), 1 (days), or 2 (months).
+	 * 1. A `time_unit` defining 0 (seconds), 1 (days), 2 (months).
 	 * 2. A `period`, defining how often (in `time_unit`) it has to be paid.
-	 * 3. An optional `recurrence_limit` of total payments to be paid.
-	 * 4. An optional `recurrence_base`:
+	 * 3. An optional `offer_recurrence_limit` of total payments to be paid.
+	 * 4. An optional `offer_recurrence_base`:
 	 *    * `basetime`, defining when the first period starts
 	 *       in seconds since 1970-01-01 UTC.
-	 * 5. An optional `recurrence_paywindow`:
+	 *    * The payer uses `invreq_recurrence_start` to indicate what period
+	 *       they are starting at.  If you don't want them to start at arbitrary
+	 *       periods, use `offer_absolute_expiry`.
+	 *    * A `proportional_amount` flag: if set indicating that a payment made
+	 *       during the period itself will be charged proportionally to the
+	 *       remaining time in the period (e.g. 150 seconds into a 1500 second
+	 *       period gives a 10% discount).
+	 * 5. An optional `offer_recurrence_paywindow`:
 	 *    * `seconds_before`, defining how many seconds prior to the start of
 	 *       the period a payment will be accepted.
-	 *    * `proportional_amount`, if set indicating that a payment made
-	 *       during the period itself will be charged proportionally to the
-	 *       remaining time in the period (e.g. 150 seconds into a 1500
-	 *       second period gives a 10% discount).
 	 *    * `seconds_after`, defining how many seconds after the start of the
 	 *       period a payment will be accepted.
 	 *   If this field is missing, payment will be accepted during the prior

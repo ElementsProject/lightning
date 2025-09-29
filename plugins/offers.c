@@ -668,7 +668,7 @@ static bool json_add_blinded_paths(struct command *cmd,
 static const char *recurrence_time_unit_name(u8 time_unit)
 {
 	/* BOLT-recurrence #12:
-	 * `time_unit` defining 0 (seconds), 1 (days), or 2 (months).
+	 * `time_unit` defining 0 (seconds), 1 (days), 2 (months).
 	 */
 	switch (time_unit) {
 	case 0:
@@ -1242,9 +1242,8 @@ static void json_add_b12_invoice(struct command *cmd,
 	}
 
 	/* BOLT-recurrence #12:
-	 * - if the offer contained `recurrence`:
-	 *   - MUST reject the invoice if `recurrence_basetime` is not
-	 *     set.
+	 * - if `offer_recurrence_optional` or `offer_recurrence_compulsory` are present:
+	 *   - MUST reject the invoice if `invoice_recurrence_basetime` is not present.
 	 */
 	if (invoice_recurrence(invoice)) {
 		if (invoice->invoice_recurrence_basetime)

@@ -122,12 +122,12 @@ test_field(struct command *cmd,
 }
 
 /* BOLT-recurrence #12:
- * - if the invoice corresponds to an offer with `recurrence`:
- * ...
- *   - if it sets `relative_expiry`:
- *     - MUST NOT set `relative_expiry` `seconds_from_creation` more than the
- *       number of seconds after `created_at` that payment for this period will
- *       be accepted.
+ * - if `offer_recurrence_optional` or `offer_recurrence_compulsory` are present:
+ *...
+ *   - if it sets `invoice_relative_expiry`:
+ *     - MUST NOT set `invoice_relative_expiry`.`seconds_from_creation` more than the
+ *       number of seconds after `invoice_created_at` that payment for this period
+ *       will be accepted.
  */
 static void set_recurring_inv_expiry(struct tlv_invoice *inv, u64 last_pay)
 {
@@ -385,9 +385,11 @@ static struct command_result *check_period(struct command *cmd,
 		basetime = ir->invreq->offer_recurrence_base->basetime;
 
 	/* BOLT-recurrence #12:
-	 * - if the invoice corresponds to an offer with `recurrence`:
-	 *   - MUST set `recurrence_basetime` to the start of period #0 as
-	 *     calculated by [Period Calculation](#offer-period-calculation).
+	 * - if `offer_recurrence_optional` or `offer_recurrence_compulsory`
+	 *   are present:
+	 *    - MUST set `invoice_recurrence_basetime`.`basetime` to the
+	 *      start of period #0 as calculated by
+	 *      [Period Calculation](#offer-period-calculation).
 	 */
 	ir->inv->invoice_recurrence_basetime = tal_dup(ir->inv, u64, &basetime);
 
@@ -395,7 +397,7 @@ static struct command_result *check_period(struct command *cmd,
 
 	/* BOLT-recurrence #12:
 	 * - if `offer_recurrence_base` is present:
-	 *   - MUST fail the request if there is no `invreq_recurrence_start`
+	 *   - MUST reject the invoice request if there is no `invreq_recurrence_start`
 	 *     field.
 	 *   - MUST consider the period index for this request to be the
 	 *     `invreq_recurrence_start` field plus the `invreq_recurrence_counter`
@@ -423,8 +425,8 @@ static struct command_result *check_period(struct command *cmd,
 	}
 
 	/* BOLT-recurrence #12:
-	 * - if the offer has a `recurrence_limit`:
-	 *   - MUST fail the request if the period index is greater than
+	 * - if `offer_recurrence_limit` is present:
+	 *   - MUST reject the invoice request if the period index is greater than
 	 *     `max_period`.
 	 */
 	if (ir->invreq->offer_recurrence_limit
@@ -901,7 +903,7 @@ static struct command_result *listoffers_done(struct command *cmd,
 		/* BOLT-recurrence #12:
 		 *
 		 * - if `offer_recurrence_optional` or `offer_recurrence_compulsory` are present:
-		 *   - MUST reject the invoice request if there is no `recurrence_counter`
+		 *   - MUST reject the invoice request if there is no `invreq_recurrence_counter`
 		 *     field.
 		 */
 		err = invreq_must_have(cmd, ir, invreq_recurrence_counter);
@@ -909,10 +911,10 @@ static struct command_result *listoffers_done(struct command *cmd,
 			return err;
 	} else {
 		/* BOLT-recurrence #12:
-		 * - otherwise (the offer had no `recurrence`):
-		 *   - MUST reject the invoice request if there is a `recurrence_counter`
+		 * - otherwise (no recurrence):
+		 *   - MUST reject the invoice request if there is a `invreq_recurrence_counter`
 		 *     field.
-		 *   - MUST reject the invoice request if there is a `recurrence_start`
+		 *   - MUST reject the invoice request if there is a `invreq_recurrence_start`
 		 *     field.
 		 */
 		err = invreq_must_not_have(cmd, ir, invreq_recurrence_counter);
