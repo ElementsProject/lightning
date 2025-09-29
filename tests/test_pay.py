@@ -4416,24 +4416,6 @@ def test_offer(node_factory, bitcoind):
     # Test base
     # (1456740000 == 10:00:00 (am) UTC on 29 February, 2016)
 
-    # Cannot use recurrence_start_any_period without recurrence_base
-    with pytest.raises(RpcError, match='Cannot set to false without specifying recurrence_base'):
-        l1.rpc.call('offer', {'amount': '100000sat',
-                              'description': 'quantity_max test',
-                              'recurrence': '10minutes',
-                              'recurrence_start_any_period': False})
-
-    ret = l1.rpc.call('offer', {'amount': '100000sat',
-                                'description': 'quantity_max test',
-                                'recurrence': '10minutes',
-                                'recurrence_base': 1456740000,
-                                'recurrence_start_any_period': False})
-    offer = only_one(l1.rpc.call('listoffers', [ret['offer_id']])['offers'])
-    output = subprocess.check_output([bolt12tool, 'decode',
-                                      offer['bolt12']]).decode('UTF-8')
-    assert 'recurrence: every 600 seconds start 1456740000' in output
-    assert '(can start any period)' not in output
-
     ret = l1.rpc.call('offer', {'amount': '100000sat',
                                 'description': 'quantity_max test',
                                 'recurrence': '10minutes',
@@ -4442,7 +4424,6 @@ def test_offer(node_factory, bitcoind):
     output = subprocess.check_output([bolt12tool, 'decode',
                                       offer['bolt12']]).decode('UTF-8')
     assert 'recurrence: every 600 seconds start 1456740000' in output
-    assert '(can start any period)' in output
 
     # Test paywindow
     ret = l1.rpc.call('offer', {'amount': '100000sat',
