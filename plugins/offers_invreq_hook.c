@@ -455,7 +455,7 @@ static struct command_result *check_period(struct command *cmd,
 	/* BOLT-recurrence #12:
 	 * - if `offer_recurrence_limit` is present:
 	 *   - MUST reject the invoice request if the period index is greater than
-	 *     `max_period`.
+	 *     `max_period_index`.
 	 */
 	if (ir->invreq->offer_recurrence_limit
 	    && period_idx > *ir->invreq->offer_recurrence_limit) {
