@@ -445,11 +445,6 @@ struct command_result *json_offer(struct command *cmd,
 			 NULL))
 		return command_param_failed();
 
-	/* Doesn't make sense to have max quantity 1. */
-	if (offer->offer_quantity_max && *offer->offer_quantity_max == 1)
-		return command_fail_badparam(cmd, "quantity_max",
-					     buffer, params,
-					     "must be 0 or > 1");
 	/* BOLT #12:
 	 *
 	 * - if the chain for the invoice is not solely bitcoin:
