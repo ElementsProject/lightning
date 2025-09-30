@@ -3696,6 +3696,28 @@ static void handle_commit_received(struct subd *dualopend,
 	abort();
 }
 
+static void handle_dualopend_got_announcement(struct subd *dualopend, const u8 *msg)
+{
+	struct channel *channel = dualopend->channel;
+	secp256k1_ecdsa_signature remote_ann_node_sig;
+	secp256k1_ecdsa_signature remote_ann_bitcoin_sig;
+	struct short_channel_id scid;
+
+	if (!fromwire_dualopend_got_announcement(msg,
+						 &scid,
+						 &remote_ann_node_sig,
+						 &remote_ann_bitcoin_sig)) {
+		channel_internal_error(channel,
+				       "bad dualopend_got_announcement %s",
+				       tal_hex(tmpctx, msg));
+		return;
+	}
+
+	channel_gossip_got_announcement_sigs(channel, scid,
+					     &remote_ann_node_sig,
+					     &remote_ann_bitcoin_sig);
+}
+
 static unsigned int dual_opend_msg(struct subd *dualopend,
 				   const u8 *msg, const int *fds)
 {
@@ -3757,6 +3779,9 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 			return 0;
 		case WIRE_DUALOPEND_UPDATE_REQUIRE_CONFIRMED:
 			handle_update_require_confirmed(dualopend, msg);
+			return 0;
+		case WIRE_DUALOPEND_GOT_ANNOUNCEMENT:
+			handle_dualopend_got_announcement(dualopend, msg);
 			return 0;
 		/* Messages we send */
 		case WIRE_DUALOPEND_INIT:
