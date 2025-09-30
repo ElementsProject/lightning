@@ -4169,10 +4169,31 @@ static u8 *handle_master_in(struct state *state)
 	case WIRE_DUALOPEND_VALIDATE_LEASE:
 	case WIRE_DUALOPEND_VALIDATE_INPUTS:
 	case WIRE_DUALOPEND_UPDATE_REQUIRE_CONFIRMED:
+	case WIRE_DUALOPEND_GOT_ANNOUNCEMENT:
 		break;
 	}
 	status_failed(STATUS_FAIL_MASTER_IO,
 		      "Unknown msg %s", tal_hex(tmpctx, msg));
+}
+
+static void handle_announcement_signatures(struct state *state, const u8 *msg)
+{
+	struct channel_id chanid;
+	struct short_channel_id remote_scid;
+	secp256k1_ecdsa_signature remote_node_sig, remote_bitcoin_sig;
+
+	if (!fromwire_announcement_signatures(msg,
+					      &chanid,
+					      &remote_scid,
+					      &remote_node_sig,
+					      &remote_bitcoin_sig))
+		open_err_fatal(state, "Bad announcement_signatures %s", tal_hex(msg, msg));
+
+	wire_sync_write(REQ_FD,
+			take(towire_dualopend_got_announcement(NULL,
+							       remote_scid,
+							       &remote_node_sig,
+							       &remote_bitcoin_sig)));
 }
 
 /*~ Standard "peer sent a message, handle it" demuxer.  Though it really only
@@ -4221,6 +4242,9 @@ static u8 *handle_peer_in(struct state *state)
 	case WIRE_TX_ABORT:
 		handle_tx_abort(state, msg);
 		return NULL;
+	case WIRE_ANNOUNCEMENT_SIGNATURES:
+		handle_announcement_signatures(state, msg);
+		return NULL;
 		/* Otherwise we fall through */
 	case WIRE_INIT:
 	case WIRE_ERROR:
@@ -4239,7 +4263,6 @@ static u8 *handle_peer_in(struct state *state)
 	case WIRE_UPDATE_FEE:
 	case WIRE_UPDATE_BLOCKHEIGHT:
 	case WIRE_CHANNEL_REESTABLISH:
-	case WIRE_ANNOUNCEMENT_SIGNATURES:
 	case WIRE_GOSSIP_TIMESTAMP_FILTER:
 	case WIRE_ONION_MESSAGE:
 	case WIRE_ACCEPT_CHANNEL2:
