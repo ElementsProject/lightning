@@ -464,15 +464,11 @@ def test_grpc_custommsg_notification(node_factory):
 def test_bip353(node_factory):
     l1 = node_factory.get_node()
 
-    bip353_result = l1.rpc.call("fetchbip353", "send.some@satsto.me")
+    bip353_result = l1.rpc.call("fetchbip353", "rusty@rustcorp.com.au")
 
     assert "proof" in bip353_result
-    assert len(bip353_result["instructions"]) == 2
-    for instruction in bip353_result["instructions"]:
-        if "offer" in instruction:
-            assert instruction["offer"] == "lno1zr5qyugqgskrk70kqmuq7v3dnr2fnmhukps9n8hut48vkqpqnskt2svsqwjakp7k6pyhtkuxw7y2kqmsxlwruhzqv0zsnhh9q3t9xhx39suc6qsr07ekm5esdyum0w66mnx8vdquwvp7dp5jp7j3v5cp6aj0w329fnkqqv60q96sz5nkrc5r95qffx002q53tqdk8x9m2tmt85jtpmcycvfnrpx3lr45h2g7na3sec7xguctfzzcm8jjqtj5ya27te60j03vpt0vq9tm2n9yxl2hngfnmygesa25s4u4zlxewqpvp94xt7rur4rhxunwkthk9vly3lm5hh0pqv4aymcqejlgssnlpzwlggykkajp7yjs5jvr2agkyypcdlj280cy46jpynsezrcj2kwa2lyr8xvd6lfkph4xrxtk2xc3lpq"
-        if "onchain" in instruction:
-            assert instruction["onchain"] == "bc1qztwy6xen3zdtt7z0vrgapmjtfz8acjkfp5fp7l"
+    assert bip353_result["instructions"] == [{'description': 'Rusty via BIP353',
+                                              'offer': 'lno1pgg9yatnw3ujqanfvysyyj2sxv6nx93pqf9e58aguqr0rcun0ajlvmzq3ek63cw2w282gv3z5uupmuwvgjtq2'}]
 
     with pytest.raises(RpcError, match=r"failed to fetch payment instructions"):
         l1.rpc.call("fetchbip353", "invalid@address")
