@@ -288,3 +288,8 @@ msgdata,dualopend_validate_lease,their_pubkey,pubkey,
 
 msgtype,dualopend_validate_lease_reply,7127
 msgdata,dualopend_validate_lease_reply,err_msg,?wirestring,
+
+msgtype,dualopend_got_announcement,7031
+msgdata,dualopend_got_announcement,scid,short_channel_id,
+msgdata,dualopend_got_announcement,remote_ann_node_sig,secp256k1_ecdsa_signature,
+msgdata,dualopend_got_announcement,remote_ann_bitcoin_sig,secp256k1_ecdsa_signature,
