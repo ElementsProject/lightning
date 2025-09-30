@@ -126,7 +126,7 @@ static struct peer *new_peer(struct daemon *daemon,
 	peer->peer_in = NULL;
 	peer->sent_to_peer = NULL;
 	peer->urgent = false;
-	peer->draining = false;
+	peer->draining_state = NOT_DRAINING;
 	peer->peer_in_lastmsg = -1;
 	peer->peer_outq = msg_queue_new(peer, false);
 	peer->last_recv_time = time_now();

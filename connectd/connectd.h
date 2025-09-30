@@ -46,6 +46,15 @@ enum pong_expect_type {
 	PONG_EXPECTED_PROBING = 2,
 };
 
+enum draining_state {
+	/* Normal state */
+	NOT_DRAINING,
+	/* First, reading remaining messages from subds */
+	READING_FROM_SUBDS,
+	/* Finally, writing any queued messages to peer */
+	WRITING_TO_PEER,
+};
+
 /*~ We keep a hash table (ccan/htable) of peers, which tells us what peers are
  * already connected (by peer->id). */
 struct peer {
@@ -63,8 +72,8 @@ struct peer {
 	/* Connection to the peer (NULL if it's disconnected and we're flushing) */
 	struct io_conn *to_peer;
 
-	/* Is this draining?  If so, just keep writing until queue empty */
-	bool draining;
+	/* Non-zero if shutting down. */
+	enum draining_state draining_state;
 
 	/* Counter to distinguish this connection from the next re-connection */
 	u64 counter;

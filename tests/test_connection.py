@@ -1397,7 +1397,8 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
 
 @pytest.mark.openchannel('v2')
 def test_funding_v2_corners(node_factory, bitcoind):
-    l1 = node_factory.get_node(may_reconnect=True)
+    # dualopend doesn't listen :(
+    l1 = node_factory.get_node(may_reconnect=True, broken_log='Subd did not close, forcing close')
     l2 = node_factory.get_node(may_reconnect=True)
 
     # We have wumbo, it's OK
