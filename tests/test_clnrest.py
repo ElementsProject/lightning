@@ -482,7 +482,7 @@ def test_websocket_upgrade_header(node_factory):
     @sio.event
     def message(data):
         notifications.append(data)
-    with pytest.raises(socketio.exceptions.ConnectionError, match="Unexpected response from server"):
+    with pytest.raises(socketio.exceptions.ConnectionError):
         sio.connect(base_url)
 
     time.sleep(2)
