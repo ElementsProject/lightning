@@ -931,7 +931,7 @@ def test_rbf_reconnect_tx_construct(node_factory, bitcoind, chainparams):
     l1.daemon.wait_for_logs([r'Got dualopend reestablish',
                              r'No commitment, not sending our sigs',
                              r'dev_disconnect: -WIRE_COMMITMENT_SIGNED',
-                             'peer_disconnect_done'])
+                             'peer_disconnected'])
     assert not l1.rpc.getpeer(l2.info['id'])['connected']
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 

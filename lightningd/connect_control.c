@@ -246,7 +246,7 @@ static struct command_result *json_connect(struct command *cmd,
 	subd_send_msg(cmd->ld->connectd,
 		      take(towire_connectd_connect_to_peer(NULL, &id_addr.id, addr, true)));
 
-	/* Leave this here for peer_connected, connect_failed or peer_disconnect_done. */
+	/* Leave this here for peer_connected, connect_failed or peer_disconnected. */
 	new_connect(cmd->ld, &id_addr.id, cmd);
 	return command_still_pending(cmd);
 }
@@ -500,15 +500,16 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 		break;
 
 	case WIRE_CONNECTD_PEER_CONNECTED:
-		peer_connected(connectd->ld, msg);
+	case WIRE_CONNECTD_PEER_RECONNECTED:
+		handle_peer_connected(connectd->ld, msg);
 		break;
 
 	case WIRE_CONNECTD_PEER_SPOKE:
-		peer_spoke(connectd->ld, msg);
+		handle_peer_spoke(connectd->ld, msg);
 		break;
 
-	case WIRE_CONNECTD_PEER_DISCONNECT_DONE:
-		peer_disconnect_done(connectd->ld, msg);
+	case WIRE_CONNECTD_PEER_DISCONNECTED:
+		handle_peer_disconnected(connectd->ld, msg);
 		break;
 
 	case WIRE_CONNECTD_CONNECT_FAILED:
