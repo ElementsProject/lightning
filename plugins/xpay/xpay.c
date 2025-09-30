@@ -38,6 +38,8 @@ struct xpay {
 	bool take_over_pay;
 	/* Are we to wait for all parts to complete before returning? */
 	bool slow_mode;
+	/* Suppress calls to askrene-age */
+	bool dev_no_age;
 };
 
 static struct xpay *xpay_of(struct plugin *plugin)
@@ -2098,6 +2100,10 @@ static struct command_result *age_layer(struct command *timer_cmd, void *unused)
 
 static void start_aging_timer(struct plugin *plugin)
 {
+	struct xpay *xpay = xpay_of(plugin);
+
+	if (xpay->dev_no_age)
+		return;
 	notleak(global_timer(plugin, time_from_sec(60), age_layer, NULL));
 }
 
@@ -2422,6 +2428,7 @@ int main(int argc, char *argv[])
 	xpay = tal(NULL, struct xpay);
 	xpay->take_over_pay = false;
 	xpay->slow_mode = false;
+	xpay->dev_no_age = false;
 	plugin_main(argv, init, take(xpay),
 		    PLUGIN_RESTARTABLE, true, NULL,
 		    commands, ARRAY_SIZE(commands),
@@ -2434,5 +2441,8 @@ int main(int argc, char *argv[])
 		    plugin_option_dynamic("xpay-slow-mode", "bool",
 					  "Wait until all parts have completed before returning success or failure",
 					  bool_option, bool_jsonfmt, &xpay->slow_mode),
+		    plugin_option_dev("dev-xpay-no-age", "flag",
+				      "Don't call askrene-age",
+				      flag_option, flag_jsonfmt, &xpay->dev_no_age),
 		    NULL);
 }
