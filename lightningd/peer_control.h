@@ -87,9 +87,9 @@ struct peer *peer_from_json(struct lightningd *ld,
 			    const jsmntok_t *peeridtok);
 
 /* connectd tells us what peer is doing */
-void peer_connected(struct lightningd *ld, const u8 *msg);
-void peer_disconnect_done(struct lightningd *ld, const u8 *msg);
-void peer_spoke(struct lightningd *ld, const u8 *msg);
+void handle_peer_connected(struct lightningd *ld, const u8 *msg);
+void handle_peer_disconnected(struct lightningd *ld, const u8 *msg);
+void handle_peer_spoke(struct lightningd *ld, const u8 *msg);
 
 /* Could be configurable. */
 #define OUR_CHANNEL_FLAGS CHANNEL_FLAGS_ANNOUNCE_CHANNEL
