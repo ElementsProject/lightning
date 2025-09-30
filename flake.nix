@@ -2,7 +2,7 @@
   description = "Core Lightning (CLN): A specification compliant Lightning Network implementation in C";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
 
     flake-parts.url = "github:hercules-ci/flake-parts";
 
@@ -14,6 +14,8 @@
       url = "github:rustsec/advisory-db";
       flake = false;
     };
+
+    self.submodules = true;
   };
 
   outputs =
@@ -29,6 +31,7 @@
         inputs.treefmt-nix.flakeModule
         ./nix/pkgs/flake-module.nix
         ./nix/checks/flake-module.nix
+        ./nix/apps.nix
         ./nix/shells.nix
         ./nix/treefmt.nix
       ];
@@ -44,20 +47,6 @@
           _module.args.pkgs = import inputs.nixpkgs {
             inherit system;
             overlays = [ (final: prev: { craneLib = (inputs.crane.mkLib pkgs); }) ];
-          };
-          apps = {
-            lightningd = {
-              program = "${self'.packages.cln}/bin/lightningd";
-            };
-            lightning-cli = {
-              program = "${self'.packages.cln}/bin/lightning-cli";
-            };
-            lightning-hsmtool = {
-              program = "${self'.packages.cln}/bin/lightning-hsmtool";
-            };
-            reckless = {
-              program = "${self'.packages.cln}/bin/reckless";
-            };
           };
         };
     };
