@@ -694,10 +694,15 @@ static bool map_catchup(struct gossmap *map, bool must_be_clean, bool *changed)
 		reclen = msglen + sizeof(ghdr);
 
 		flags = be16_to_cpu(ghdr.flags);
+
+		/* Not finished, this can happen. */
+		if (!(flags & GOSSIP_STORE_COMPLETED_BIT))
+			break;
+
 		if (flags & GOSSIP_STORE_DELETED_BIT)
 			continue;
 
-		/* Partial write, this can happen. */
+		/* Partial write, should not happen with completed records. */
 		if (map->map_end + reclen > map->map_size)
 			break;
 
