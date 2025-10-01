@@ -26,6 +26,16 @@ void bitcoind_getutxout_(const tal_t *ctx UNNEEDED,
 				    void *) UNNEEDED,
 			 void *arg UNNEEDED)
 { fprintf(stderr, "bitcoind_getutxout_ called!\n"); abort(); }
+/* Generated stub for bitcoind_sendrawtx_ */
+void bitcoind_sendrawtx_(const tal_t *ctx UNNEEDED,
+			 struct bitcoind *bitcoind UNNEEDED,
+			 const char *id_prefix TAKES UNNEEDED,
+			 const char *hextx UNNEEDED,
+			 bool allowhighfees UNNEEDED,
+			 void (*cb)(struct bitcoind * UNNEEDED,
+				    bool success UNNEEDED, const char *msg UNNEEDED, void *) UNNEEDED,
+			 void *arg UNNEEDED)
+{ fprintf(stderr, "bitcoind_sendrawtx_ called!\n"); abort(); }
 /* Generated stub for bolt11_decode */
 struct bolt11 *bolt11_decode(const tal_t *ctx UNNEEDED, const char *str UNNEEDED,
 			     const struct feature_set *our_features UNNEEDED,
@@ -305,6 +315,9 @@ void force_peer_disconnect(struct lightningd *ld UNNEEDED,
 			   const struct peer *peer UNNEEDED,
 			   const char *why UNNEEDED)
 { fprintf(stderr, "force_peer_disconnect called!\n"); abort(); }
+/* Generated stub for free_htlcs */
+void free_htlcs(struct lightningd *ld UNNEEDED, const struct channel *channel UNNEEDED)
+{ fprintf(stderr, "free_htlcs called!\n"); abort(); }
 /* Generated stub for fromwire_bigsize */
 bigsize_t fromwire_bigsize(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_bigsize called!\n"); abort(); }
@@ -576,6 +589,11 @@ void json_add_num(struct json_stream *result UNNEEDED, const char *fieldname UNN
 void json_add_preimage(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		     const struct preimage *preimage UNNEEDED)
 { fprintf(stderr, "json_add_preimage called!\n"); abort(); }
+/* Generated stub for json_add_psbt */
+void json_add_psbt(struct json_stream *stream UNNEEDED,
+		   const char *fieldname UNNEEDED,
+		   const struct wally_psbt *psbt UNNEEDED)
+{ fprintf(stderr, "json_add_psbt called!\n"); abort(); }
 /* Generated stub for json_add_s64 */
 void json_add_s64(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		  int64_t value UNNEEDED)

@@ -11,7 +11,7 @@
 static
 const char *spender_init(struct command *init_cmd, const char *b, const jsmntok_t *t)
 {
-	openchannel_init(init_cmd->plugin, b, t);
+	openchannel_init(init_cmd, b, t);
 	/* whatever_init(p, b, t); */
 	return NULL;
 }

@@ -66,6 +66,16 @@ void bitcoind_getutxout_(const tal_t *ctx UNNEEDED,
 				    void *) UNNEEDED,
 			 void *arg UNNEEDED)
 { fprintf(stderr, "bitcoind_getutxout_ called!\n"); abort(); }
+/* Generated stub for bitcoind_sendrawtx_ */
+void bitcoind_sendrawtx_(const tal_t *ctx UNNEEDED,
+			 struct bitcoind *bitcoind UNNEEDED,
+			 const char *id_prefix TAKES UNNEEDED,
+			 const char *hextx UNNEEDED,
+			 bool allowhighfees UNNEEDED,
+			 void (*cb)(struct bitcoind * UNNEEDED,
+				    bool success UNNEEDED, const char *msg UNNEEDED, void *) UNNEEDED,
+			 void *arg UNNEEDED)
+{ fprintf(stderr, "bitcoind_sendrawtx_ called!\n"); abort(); }
 /* Generated stub for blinding_hash_e_and_ss */
 void blinding_hash_e_and_ss(const struct pubkey *e UNNEEDED,
 			    const struct secret *ss UNNEEDED,
@@ -508,6 +518,11 @@ void json_add_num(struct json_stream *result UNNEEDED, const char *fieldname UNN
 void json_add_preimage(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		     const struct preimage *preimage UNNEEDED)
 { fprintf(stderr, "json_add_preimage called!\n"); abort(); }
+/* Generated stub for json_add_psbt */
+void json_add_psbt(struct json_stream *stream UNNEEDED,
+		   const char *fieldname UNNEEDED,
+		   const struct wally_psbt *psbt UNNEEDED)
+{ fprintf(stderr, "json_add_psbt called!\n"); abort(); }
 /* Generated stub for json_add_pubkey */
 void json_add_pubkey(struct json_stream *response UNNEEDED,
 		     const char *fieldname UNNEEDED,
@@ -2117,7 +2132,9 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 			   NULL,
 			   0,
 			   stats,
-			   tal_arr(NULL, struct channel_state_change *, 0));
+			   tal_arr(NULL, struct channel_state_change *, 0),
+			   NULL,
+			   false);
 	db_begin_transaction(w->db);
 	CHECK(!wallet_err);
 	wallet_channel_insert(w, chan);
