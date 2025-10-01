@@ -1919,7 +1919,6 @@ void db_bind_mvt_account_id(struct db_stmt *stmt,
 void db_bind_credit_debit(struct db_stmt *stmt,
 			  struct amount_msat credit,
 			  struct amount_msat debit);
-u64 move_accounts_id(struct db *db, const char *name);
 void wallet_datastore_save_utxo_description(struct db *db,
 					    const struct bitcoin_outpoint *outpoint,
 					    const char *desc);
