@@ -1134,8 +1134,8 @@ static struct command_result *json_invoice(struct command *cmd,
 
 	if (strlen(desc_val) > BOLT11_FIELD_BYTE_LIMIT && !*hashonly) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "Descriptions greater than %d bytes "
-				    "not yet supported "
+				    "Description greater than %d bytes "
+				    "invalid "
 				    "(description length %zu)",
 				    BOLT11_FIELD_BYTE_LIMIT,
 				    strlen(desc_val));
