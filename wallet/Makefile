@@ -38,6 +38,7 @@ WALLET_SQL_FILES := 			\
 	wallet/test/run-db.c		\
 	wallet/test/run-wallet.c	\
 	wallet/test/run-chain_moves_duplicate-detect.c	\
+	wallet/test/run-migrate_remove_chain_moves_duplicates.c \
 
 wallet/statements_gettextgen.po: $(WALLET_SQL_FILES) $(FORCE)
 	@if $(call SHA256STAMP_CHANGED); then \
