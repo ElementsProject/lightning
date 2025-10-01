@@ -1926,6 +1926,7 @@ void wallet_datastore_save_payment_description(struct db *db,
 					       const struct sha256 *payment_hash,
 					       const char *desc);
 void migrate_setup_coinmoves(struct lightningd *ld, struct db *db);
+void migrate_remove_chain_moves_duplicates(struct lightningd *ld, struct db *db);
 
 /**
  * wallet_memleak_scan - Check for memleaks in wallet.

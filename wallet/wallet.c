@@ -7723,3 +7723,84 @@ void migrate_setup_coinmoves(struct lightningd *ld, struct db *db)
 	tal_free(stmt);
 }
 
+/* When we imported from accounts.db, we always used a reference into
+ * the move_accounts table (via account_nonchannel_id).  But (on
+ * replay) if a channel was live, we used the reference into the
+ * channels table (via account_channel_id) and our duplicate detection
+ * didn't trigger.  Now we need to get rid of such duplicates.
+ *
+ * Note that if the channel is now CLOSED, the references to account_channel_id
+ * will have been converted to references using account_nonchannel_id. */
+void migrate_remove_chain_moves_duplicates(struct lightningd *ld, struct db *db)
+{
+	/* This is O(n^2) but there just aren't that many! */
+	u64 *to_delete = tal_arr(tmpctx, u64, 0);
+	struct db_stmt *stmt;
+
+	/* Gather */
+	stmt = db_prepare_v2(db, SQL("SELECT"
+				     " chain_moves.id,"
+				     " utxo,"
+				     " spending_txid,"
+				     " tag_bitmap,"
+				     " account_channel_id,"
+				     " channels.full_channel_id,"
+				     " move_accounts.name"
+				     " FROM chain_moves "
+				     " LEFT JOIN move_accounts "
+				     "  ON move_accounts.id = chain_moves.account_nonchannel_id "
+				     " LEFT JOIN channels "
+				     "  ON channels.id = chain_moves.account_channel_id "
+				     " ORDER BY move_accounts.id;"));
+	db_query_prepared(stmt);
+	while (db_step(stmt)) {
+		struct bitcoin_outpoint outpoint;
+		u64 id, channel_dbid;
+		struct bitcoin_txid *spending_txid;
+		struct mvt_tags tags;
+		const char *nonchannel_acctname;
+
+		id = db_col_u64(stmt, "chain_moves.id");
+		db_col_outpoint(stmt, "utxo", &outpoint);
+		if (db_col_is_null(stmt, "spending_txid"))
+			spending_txid = NULL;
+		else {
+			spending_txid = tal(tmpctx, struct bitcoin_txid);
+			db_col_txid(stmt, "spending_txid", spending_txid);
+		}
+		tags = db_col_mvt_tags(stmt, "tag_bitmap");
+		if (db_col_is_null(stmt, "account_channel_id")) {
+			channel_dbid = 0;
+			nonchannel_acctname = db_col_strdup(tmpctx, stmt, "move_accounts.name");
+			db_col_ignore(stmt, "channels.full_channel_id");
+ 		} else {
+			struct channel_id cid;
+			channel_dbid = db_col_u64(stmt, "account_channel_id");
+			db_col_channel_id(stmt, "channels.full_channel_id", &cid);
+			nonchannel_acctname = fmt_channel_id(tmpctx, &cid);
+		}
+
+		if (find_duplicate_chain_move(db, nonchannel_acctname,
+					      channel_dbid,
+					      &outpoint,
+					      spending_txid,
+					      tags,
+					      id)) {
+			log_unusual(ld->log,
+				    "Deleting redundant chain_moves %"PRIu64" for account %s",
+				    id, nonchannel_acctname);
+			tal_arr_expand(&to_delete, id);
+		}
+	}
+	tal_free(stmt);
+
+	/* Do the delete.  We do it separately to avoid any db issues
+	 * while iterating */
+	for (size_t i = 0; i < tal_count(to_delete); i++) {
+		stmt = db_prepare_v2(db,
+				     SQL("DELETE FROM chain_moves "
+					 "WHERE id = ?;"));
+		db_bind_u64(stmt, to_delete[i]);
+		db_exec_prepared_v2(take(stmt));
+	}
+}
