@@ -6561,7 +6561,8 @@ struct wallet_htlc_iter *wallet_htlcs_first(const tal_t *ctx,
 					    ", h.updated_index"
 					    " FROM channel_htlcs h"
 					    " JOIN channels ON channels.id = h.channel_id"
-					    " WHERE h.updated_index >= ?"
+					    " WHERE channels.state != ?"
+					    "   AND h.updated_index >= ?"
 					    " ORDER BY h.updated_index ASC"
 					    " LIMIT ?;"));
 		} else {
@@ -6578,10 +6579,12 @@ struct wallet_htlc_iter *wallet_htlcs_first(const tal_t *ctx,
 					    ", h.updated_index"
 					    " FROM channel_htlcs h"
 					    " JOIN channels ON channels.id = h.channel_id"
-					    " WHERE h.id >= ?"
+					    " WHERE channels.state != ?"
+					    "   AND h.id >= ?"
 					    " ORDER BY h.id ASC"
 					    " LIMIT ?;"));
 		}
+		db_bind_int(i->stmt, channel_state_in_db(CLOSED));
 	}
 	db_bind_u64(i->stmt, liststart);
 	if (listlimit)
