@@ -1,15 +1,12 @@
 #include "config.h"
 #include <assert.h>
-#include <ccan/crypto/sha256/sha256.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/str/str.h>
-#include <ccan/tal/tal.h>
 #include <common/errcode.h>
 #include <common/hsm_secret.h>
 #include <common/utils.h>
 #include <errno.h>
-#include <sodium.h>
 #include <sys/stat.h>
 #include <termios.h>
 #include <unistd.h>

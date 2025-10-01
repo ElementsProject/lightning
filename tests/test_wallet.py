@@ -2,7 +2,6 @@ from bitcoin.rpc import JSONRPCError
 from decimal import Decimal
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
-from pathlib import Path
 from pyln.client import RpcError, Millisatoshi
 from utils import (
     only_one, wait_for, sync_blockheight,
@@ -14,7 +13,6 @@ import os
 import pytest
 import subprocess
 import sys
-import time
 import unittest
 
 
@@ -1246,6 +1244,7 @@ def write_all(fd, bytestr):
     while off < len(bytestr):
         off += os.write(fd, bytestr[off:])
 
+
 class HsmTool(TailableProc):
     """Helper for testing the hsmtool as a subprocess"""
     def __init__(self, directory, *args):
@@ -1261,18 +1260,18 @@ def test_hsmtool_secret_decryption(node_factory):
     l1 = node_factory.get_node(start=False)  # Don't start the node
     password = "test_password\n"
     hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
-    
+
     # Write a known 32-byte key to hsm_secret
     known_secret = b'\x01' * 32  # 32 bytes of 0x01
     with open(hsm_path, 'wb') as f:
         f.write(known_secret)
-    
+
     # Read the hsm_secret to verify it's what we expect
     with open(hsm_path, 'rb') as f:
         content = f.read()
         assert content == known_secret, f"Expected {known_secret}, got {content}"
         assert len(content) == 32, f"Expected 32 bytes, got {len(content)}"
-    
+
     # Encrypt it using hsmtool
     master_fd, slave_fd = os.openpty()
     hsmtool = HsmTool(node_factory.directory, "encrypt", hsm_path)
@@ -1283,13 +1282,13 @@ def test_hsmtool_secret_decryption(node_factory):
     write_all(master_fd, password.encode("utf-8"))
     assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
     hsmtool.is_in_log(r"Successfully encrypted")
-    
+
     # Read the hsm_secret again - it should now be encrypted (73 bytes)
     with open(hsm_path, 'rb') as f:
         encrypted_content = f.read()
         assert len(encrypted_content) == 73, f"Expected 73 bytes after encryption, got {len(encrypted_content)}"
         assert encrypted_content != known_secret, "File should be encrypted and different from original"
-    
+
     # Decrypt it using hsmtool
     master_fd, slave_fd = os.openpty()
     hsmtool = HsmTool(node_factory.directory, "decrypt", hsm_path)
@@ -1298,7 +1297,7 @@ def test_hsmtool_secret_decryption(node_factory):
     write_all(master_fd, password.encode("utf-8"))
     assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
     hsmtool.is_in_log(r"Successfully decrypted")
-    
+
     # Read the hsm_secret again - it should now be back to the original 32 bytes
     with open(hsm_path, 'rb') as f:
         decrypted_content = f.read()
@@ -1343,9 +1342,10 @@ def test_hsmtool_dump_descriptors(node_factory, bitcoind):
         actual_index = len(cln_addrs) - 1 + index_offset
         res = bitcoind.rpc.scantxoutset("start", [{"desc": descriptor, "range": [actual_index, actual_index]}])
         assert res["total_amount"] == Decimal('0.00001000')
-    
+
     # Explicitly stop the node to avoid race conditions during cleanup
     l1.stop()
+
 
 @pytest.mark.parametrize("mnemonic,passphrase,expected_format", [
     ("ritual idle hat sunny universe pluck key alpha wing cake have wedding", "test_passphrase", "mnemonic with passphrase"),
@@ -1398,23 +1398,23 @@ def test_hsmtool_generatehsm_variants(node_factory, mnemonic, passphrase, expect
         # For no passphrase case, start normally without expecting a prompt
         l1.daemon.start(wait_for_initialized=False)
         l1.daemon.wait_for_log("Server started with public key")
-    
+
     node_id = l1.rpc.getinfo()['id']
     print(f"Node ID for mnemonic '{mnemonic}' with passphrase '{passphrase}': {node_id}")
     assert len(node_id) == 66  # Valid node ID
-    
+
     # Expected node IDs for deterministic testing
     expected_node_ids = {
         ("ritual idle hat sunny universe pluck key alpha wing cake have wedding", "test_passphrase"): "039020371fb803cd4ce1e9a909b502d7b0a9e0f10cccc35c3e9be959c52d3ba6bd",
         ("abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about", ""): "03653e90c1ce4660fd8505dd6d643356e93cfe202af109d382787639dd5890e87d",
     }
-    
+
     expected_id = expected_node_ids.get((mnemonic, passphrase))
     if expected_id:
         assert node_id == expected_id, f"Expected node ID {expected_id}, got {node_id}"
     else:
         print(f"No expected node ID found for this combination, got: {node_id}")
-    
+
     l1.stop()
 
 
@@ -1476,12 +1476,12 @@ def test_hsmtool_checkhsm_variants(node_factory, test_case):
     hsmtool = HsmTool(node_factory.directory, "checkhsm", hsm_path)
     master_fd, slave_fd = os.openpty()
     hsmtool.start(stdin=slave_fd)
-    
+
     # If the original had a passphrase, we need to unlock the file first
     if test_case['passphrase']:
         hsmtool.wait_for_log(r"Enter hsm_secret password:")  # Decrypt file
         write_all(master_fd, f"{test_case['passphrase']}\n".encode("utf-8"))
-    
+
     hsmtool.wait_for_log(r"Enter your mnemonic passphrase:")     # Backup verification
     write_all(master_fd, f"{test_case['check_passphrase']}\n".encode("utf-8"))
     hsmtool.wait_for_log(r"Introduce your BIP39 word list separated by space")
@@ -1497,7 +1497,7 @@ def test_hsmtool_checkhsm_legacy_encrypted_with_mnemonic_no_passphrase(node_fact
     os.remove(hsm_path)
     seed_hex = "31bb58d1180831868fd5f562bb74659dca1e9673d034af635df53d677b9e5f03"
     seed_bytes = bytes.fromhex(seed_hex)
-    
+
     # Write the 32-byte seed directly to file (simulating old generatehsm output)
     # Make sure we write exactly 32 bytes with no newline
     assert len(seed_bytes) == 32, f"Seed should be exactly 32 bytes, got {len(seed_bytes)}"
@@ -1553,7 +1553,7 @@ def test_hsmtool_checkhsm_legacy_encrypted_with_mnemonic_passphrase(node_factory
     # Expected BIP39 seed (first 32 bytes): 161d740bcfd3c5e2a1769159bee86868ab35e7544e83e825042a43b929ad950c
     seed_hex = "161d740bcfd3c5e2a1769159bee86868ab35e7544e83e825042a43b929ad950c"
     seed_bytes = bytes.fromhex(seed_hex)
-    
+
     # Write the 32-byte seed directly to file (simulating old generatehsm output)
     with open(hsm_path, 'wb') as f:
         f.write(seed_bytes)
@@ -1598,7 +1598,7 @@ def test_hsmtool_generatehsm_file_exists_error(node_factory):
     """Test that generatehsm fails if file already exists"""
     l1 = node_factory.get_node(start=False)
     hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
-    
+
     # File already exists from node creation
     hsmtool = HsmTool(node_factory.directory, "generatehsm", hsm_path)
     master_fd, slave_fd = os.openpty()
@@ -1630,53 +1630,54 @@ def test_hsmtool_all_commands_work_with_mnemonic_formats(node_factory):
         (["makerune", hsm_path], "6VkrWMI2hm2a2UTkg-EyUrrBJN0RcuPB80I1pCVkTD89MA=="),
         (["dumponchaindescriptors", hsm_path], "wpkh(xpub661MyMwAqRbcG9kjo3mdWQuSDbtdJzsd3K2mvifyeUMF3GhLcBAfELqjuxCvxUkYqQVe6rJ9SzmpipoUedb5MD79MJaLL8RME2A3J3Fw6Zd/0/0/*)#2jtshmk0\nsh(wpkh(xpub661MyMwAqRbcG9kjo3mdWQuSDbtdJzsd3K2mvifyeUMF3GhLcBAfELqjuxCvxUkYqQVe6rJ9SzmpipoUedb5MD79MJaLL8RME2A3J3Fw6Zd/0/0/*))#u6am4was\ntr(xpub661MyMwAqRbcG9kjo3mdWQuSDbtdJzsd3K2mvifyeUMF3GhLcBAfELqjuxCvxUkYqQVe6rJ9SzmpipoUedb5MD79MJaLL8RME2A3J3Fw6Zd/0/0/*)#v9hf4756"),
     ]
-    
+
     for cmd_args, expected_output in test_commands:
         cmd_line = ["tools/hsmtool"] + cmd_args
         out = subprocess.check_output(cmd_line).decode("utf8")
         actual_output = out.strip()
         assert actual_output == expected_output, f"Command {cmd_args[0]} output mismatch"
 
+
 def test_hsmtool_deterministic_node_ids(node_factory):
     """Test that HSM daemon creates deterministic node IDs in new mnemonic format"""
     # Create a node and start it to trigger HSM daemon to create new format
     l1 = node_factory.get_node(start=False)
     hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
-    
+
     # Delete any existing hsm_secret so HSM daemon creates it in new format
     if os.path.exists(hsm_path):
         os.remove(hsm_path)
-    
+
     # Start the node to get its node ID (this will create a new hsm_secret in new format)
     l1.start()
     normal_node_id = l1.rpc.getinfo()['id']
     l1.stop()
-    
+
     # Verify the hsm_secret was created in the new mnemonic format
     with open(hsm_path, 'rb') as f:
         content = f.read()
         # Should be longer than 32 bytes (new format has 32-byte hash + mnemonic)
         assert len(content) > 32, f"Expected new mnemonic format, got {len(content)} bytes"
-        
+
         # First 32 bytes should be the passphrase hash (likely zeros for no passphrase)
-        passphrase_hash = content[:32]
+        # passphrase_hash = content[:32]  # Not used in this test
         mnemonic_bytes = content[32:]
-        
+
         # Decode the mnemonic bytes
         mnemonic = mnemonic_bytes.decode('utf-8').strip()
-        
+
         # Verify it's a valid mnemonic (should be 12 words)
         words = mnemonic.split()
         assert len(words) == 12, f"Expected 12 words, got {len(words)}: {mnemonic}"
-    
+
     # Create a second node and use generatehsm with the mnemonic from the first node
     l2 = node_factory.get_node(start=False)
     hsm_path2 = os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
-    
+
     # Delete any existing hsm_secret for the second node
     if os.path.exists(hsm_path2):
         os.remove(hsm_path2)
-    
+
     # Generate hsm_secret with the mnemonic from the first node
     hsmtool = HsmTool(node_factory.directory, "generatehsm", hsm_path2)
     master_fd, slave_fd = os.openpty()
@@ -1686,23 +1687,24 @@ def test_hsmtool_deterministic_node_ids(node_factory):
     hsmtool.wait_for_log(r"Enter your passphrase:")
     write_all(master_fd, "\n".encode("utf-8"))
     assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
-    
+
     # Get the node ID from the generated hsm_secret
     cmd_line = ["tools/hsmtool", "printnodeid", hsm_path2]
     generated_node_id = subprocess.check_output(cmd_line).decode("utf8").strip()
-    
+
     # Verify both node IDs are identical
     assert normal_node_id == generated_node_id, f"Node IDs don't match: {normal_node_id} != {generated_node_id}"
+
 
 def setup_bip86_node(node_factory, mnemonic="abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"):
     """Helper function to set up a node with BIP86 support using a mnemonic-based HSM secret"""
     l1 = node_factory.get_node(start=False)
-    
+
     # Set up node with a mnemonic HSM secret
     hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
     if os.path.exists(hsm_path):
         os.remove(hsm_path)
-    
+
     # Generate hsm_secret with the specified mnemonic
     hsmtool = HsmTool(node_factory.directory, "generatehsm", hsm_path)
     master_fd, slave_fd = os.openpty()
@@ -1714,7 +1716,7 @@ def setup_bip86_node(node_factory, mnemonic="abandon abandon abandon abandon aba
     assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
     os.close(master_fd)
     os.close(slave_fd)
-    
+
     l1.start()
     return l1
 
@@ -1723,8 +1725,8 @@ def setup_bip86_node(node_factory, mnemonic="abandon abandon abandon abandon aba
 def test_bip86_newaddr_rpc(node_factory, chainparams):
     """Test that BIP86 addresses can be generated via newaddr RPC"""
     l1 = setup_bip86_node(node_factory)
-    
-        # Test BIP86 address generation
+
+    # Test BIP86 address generation
     bip86_addr = l1.rpc.newaddr(addresstype="p2tr")
     assert 'p2tr' in bip86_addr
     assert 'bech32' not in bip86_addr
@@ -1735,19 +1737,19 @@ def test_bip86_newaddr_rpc(node_factory, chainparams):
 
     # In regtest, should start with bcrt1p (or appropriate prefix)
     assert p2tr_addr.startswith('bcrt1p')
-    
+
     # Test that we're using the correct 64-byte seed from the mnemonic
     # Expected seed for "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
-    expected_seed_hex = "5eb00bbddcf069084889a8ab9155568165f5c453ccb85e70811aaed6f6da5fc19a5ac40b389cd370d086206dec8aa6c43daea6690f20ad3d8d48b2d2ce9e38e4"
-    
+    # expected_seed_hex = "5eb00bbddcf069084889a8ab9155568165f5c453ccb85e70811aaed6f6da5fc19a5ac40b389cd370d086206dec8aa6c43daea6690f20ad3d8d48b2d2ce9e38e4"  # Not used in this test
+
     # Test that our BIP86 implementation follows the correct derivation path m/86'/0'/0'/0/index
     # Generate the same address again and verify it's identical
     bip86_addr2 = l1.rpc.newaddr(addresstype="p2tr")
     p2tr_addr2 = bip86_addr2['p2tr']
-    
+
     # The second address should be different (next index)
     assert p2tr_addr != p2tr_addr2, "Consecutive BIP86 addresses should be different"
-    
+
     # Test against known test vectors for the exact derivation path
     # The mainnet test vectors are:
     # m/86'/0'/0'/0/0: bc1p5cyxnuxmeuwuvkwfem96lqzszd02n6xdcjrs20cac6yqjjwudpxqkedrcr
@@ -1762,12 +1764,13 @@ def test_bip86_newaddr_rpc(node_factory, chainparams):
     # Assert on the exact test vectors since we have the correct seed
     assert p2tr_addr == expected_regtest_addr_1, f"First address should match test vector for index 1. Expected: {expected_regtest_addr_1}, Got: {p2tr_addr}"
     assert p2tr_addr2 == expected_regtest_addr_2, f"Second address should match test vector for index 2. Expected: {expected_regtest_addr_2}, Got: {p2tr_addr2}"
-    
+
+
 @unittest.skipIf(TEST_NETWORK != 'regtest', "BIP86 tests are regtest-specific")
 def test_bip86_listaddresses(node_factory, chainparams):
     """Test that listaddresses includes BIP86 addresses and verifies first 10 addresses"""
     l1 = setup_bip86_node(node_factory)
-    
+
     # Expected addresses for the first 10 indices (m/86'/0'/0'/0/1 through m/86'/0'/0'/0/10)
     # These are derived from the test mnemonic "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
     # Note: newaddr starts from index 1, not 0
@@ -1784,16 +1787,16 @@ def test_bip86_listaddresses(node_factory, chainparams):
         "bcrt1p7pkeudt8wq7fc6nzj6yxkqmnrjg25fu4s9l777ca3w3qrxanjehq4tphz0",  # index 9
         "bcrt1pzhnqyfvxe08zl0d9e592t62pwvp3l2xwhau5a8dsfjcker6xmjuqppvxka",  # index 10
     ]
-    
+
     # Generate the first 10 BIP86 addresses and verify they match expected values
     for i in range(10):
         addr_result = l1.rpc.newaddr('p2tr')
         assert addr_result['p2tr'] == expected_addrs[i]
-    
+
     # Use listaddresses with start and limit parameters to verify the addresses were generated
     addrs = l1.rpc.listaddresses(start=1, limit=10)
     assert len(addrs['addresses']) == 10, f"Expected 10 addresses, got {len(addrs['addresses'])}"
-    
+
     # Verify that listaddresses returns the correct addresses and key indices
     for i, addr_info in enumerate(addrs['addresses']):
         assert addr_info['keyidx'] == i + 1, f"Expected keyidx {i+1}, got {addr_info['keyidx']}"
@@ -1809,21 +1812,21 @@ def test_bip86_deterministic_addresses(node_factory):
     """Test that BIP86 addresses are deterministic and unique"""
     # Create two nodes with the same mnemonic
     mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
-    
+
     l1 = setup_bip86_node(node_factory, mnemonic)
     l2 = setup_bip86_node(node_factory, mnemonic)
-    
+
     # Generate addresses with the same index
     addr1_0 = l1.rpc.newaddr('p2tr')['p2tr']
     addr2_0 = l2.rpc.newaddr('p2tr')['p2tr']
 
     addr1_1 = l1.rpc.newaddr('p2tr')['p2tr']
     addr2_1 = l2.rpc.newaddr('p2tr')['p2tr']
-    
+
     # Addresses should be identical for the same index
     assert addr1_0 == addr2_0, f"Addresses for index 0 don't match: {addr1_0} != {addr2_0}"
     assert addr1_1 == addr2_1, f"Addresses for index 1 don't match: {addr1_1} != {addr2_1}"
-    
+
     # Addresses should be different for different indices
     assert addr1_0 != addr1_1, f"Addresses for different indices should be different"
 
@@ -1832,14 +1835,14 @@ def test_bip86_deterministic_addresses(node_factory):
 def test_bip86_vs_regular_p2tr(node_factory):
     """Test that BIP86 addresses are different from regular P2TR addresses"""
     l1 = setup_bip86_node(node_factory)
-    
+
     # Generate addresses of both types
     bip86_addr = l1.rpc.newaddr('p2tr')['p2tr']
     p2tr_addr = l1.rpc.newaddr('p2tr')['p2tr']
-    
+
     # They should be different
     assert bip86_addr != p2tr_addr, "BIP86 and regular P2TR addresses should be different"
-    
+
     # Both should be valid Taproot addresses (start with bcrt1p for regtest)
     assert bip86_addr.startswith('bcrt1p')
     assert p2tr_addr.startswith('bcrt1p')
@@ -1849,38 +1852,38 @@ def test_bip86_vs_regular_p2tr(node_factory):
 def test_bip86_full_bitcoin_integration(node_factory, bitcoind):
     """Test full Bitcoin integration: generate addresses, receive funds, list outputs"""
     l1 = setup_bip86_node(node_factory)
-    
+
     # Generate a BIP86 address
     bip86_addr = l1.rpc.newaddr('p2tr')['p2tr']
-    
+
     # Send funds to the BIP86 address
     amount = 1000000  # 0.01 BTC
-    txid = bitcoind.rpc.sendtoaddress(bip86_addr, amount / 10**8)
-    
+    bitcoind.rpc.sendtoaddress(bip86_addr, amount / 10**8)
+
     # Mine a block to confirm the transaction
     bitcoind.generate_block(1)
-    
+
     # Wait for the node to see the transaction
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
-    
+
     # Check that the funds are visible
     funds = l1.rpc.listfunds()
     bip86_outputs = [out for out in funds['outputs'] if out['address'] == bip86_addr]
-    
+
     assert len(bip86_outputs) == 1, f"Expected 1 output, got {len(bip86_outputs)}"
     assert bip86_outputs[0]['amount_msat'] == amount * 1000, f"Amount mismatch: {bip86_outputs[0]['amount_msat']} != {amount * 1000}"
     assert bip86_outputs[0]['status'] == 'confirmed'
-    
+
     # Test withdrawal from BIP86 address
     # Use bitcoind to generate withdrawal address since this node only supports BIP86
     withdraw_addr = bitcoind.rpc.getnewaddress()
     withdraw_amount = 500000  # 0.005 BTC
-    
+
     l1.rpc.withdraw(withdraw_addr, withdraw_amount)
-    
+
     # Mine another block
     bitcoind.generate_block(1)
-    
+
     # Check that the withdrawal worked
     wait_for(lambda: len([out for out in l1.rpc.listfunds()['outputs'] if out['address'] == bip86_addr and out['status'] == 'confirmed']) == 0)
 
@@ -1890,29 +1893,29 @@ def test_bip86_mnemonic_recovery(node_factory, bitcoind):
     """Test that funds can be recovered using the same mnemonic in a new wallet"""
     # Use a known mnemonic for predictable recovery
     mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
-    
+
     # Create first node and fund it
     l1 = setup_bip86_node(node_factory, mnemonic)
     bip86_addr = l1.rpc.newaddr('p2tr')['p2tr']
-    
+
     # Send funds
     amount = 1000000  # 0.01 BTC
-    txid = bitcoind.rpc.sendtoaddress(bip86_addr, amount / 10**8)
+    bitcoind.rpc.sendtoaddress(bip86_addr, amount / 10**8)
     bitcoind.generate_block(1)
-    
+
     # Wait for funds to be visible
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
-    
+
     # Create a second node with the same mnemonic
     l2 = setup_bip86_node(node_factory, mnemonic)
-    
+
     # Wait for it to sync and see the funds
     wait_for(lambda: len(l2.rpc.listfunds()['outputs']) > 0)
-    
+
     # Check that the second node can see the same funds
     funds2 = l2.rpc.listfunds()
     bip86_outputs2 = [out for out in funds2['outputs'] if out['address'] == bip86_addr]
-    
+
     assert len(bip86_outputs2) == 1, f"Expected 1 output in recovered wallet, got {len(bip86_outputs2)}"
     assert bip86_outputs2[0]['amount_msat'] == amount * 1000, f"Amount mismatch in recovered wallet: {bip86_outputs2[0]['amount_msat']} != {amount * 1000}"
 
@@ -1921,24 +1924,27 @@ def test_bip86_mnemonic_recovery(node_factory, bitcoind):
 def test_bip86_address_type_validation(node_factory):
     """Test address type validation for BIP86 addresses"""
     l1 = setup_bip86_node(node_factory)
-    
+
     # Test that 'p2tr' automatically uses BIP86 for mnemonic wallets
     bip86_addr = l1.rpc.newaddr('p2tr')['p2tr']
-    
+    # Verify the address format
+    assert bip86_addr.startswith('bcrt1p'), f"Expected BIP86 address to start with bcrt1p, got: {bip86_addr}"
+
     # Test that we can list addresses
     addrs = l1.rpc.listaddresses()
     assert len(addrs['addresses']) >= 1, "No addresses found in listaddresses"
-    
+
     # Verify the address structure
     for addr in addrs['addresses']:
         assert 'keyidx' in addr
         assert isinstance(addr['keyidx'], int)
 
+
 @unittest.skipIf(TEST_NETWORK != 'regtest', "BIP86 tests are regtest-specific")
 def test_bip86_index_boundaries(node_factory):
     """Test BIP86 behavior at index boundaries"""
     l1 = setup_bip86_node(node_factory)
-    
+
     # Test that we can generate multiple addresses in sequence
     # This tests the internal index management
     addresses = []
@@ -1947,18 +1953,18 @@ def test_bip86_index_boundaries(node_factory):
         addresses.append(addr)
         # Each address should be unique
         assert addr not in addresses[:-1], f"Duplicate address generated: {addr}"
-    
+
     # Test that addresses are deterministic - same node should generate same sequence
     l2 = setup_bip86_node(node_factory)  # Same mnemonic
-    
+
     addresses2 = []
     for i in range(5):
         addr = l2.rpc.newaddr('p2tr')['p2tr']
         addresses2.append(addr)
-    
+
     # Should generate the same addresses in the same order
     assert addresses == addresses2, "BIP86 addresses not deterministic across nodes with same mnemonic"
-    
+
     # Test generating a large number of addresses to check for any overflow issues
     # Generate 100 more addresses to test higher indices
     for i in range(100):
@@ -1971,57 +1977,56 @@ def test_bip86_index_boundaries(node_factory):
 def test_bip86_psbt_integration(node_factory, bitcoind, chainparams):
     """Test BIP86 addresses in PSBT workflows"""
     l1 = setup_bip86_node(node_factory)
-    
+
     # Fund BIP86 address
     bip86_addr = l1.rpc.newaddr('p2tr')['p2tr']
     amount_sats = 1000000  # 0.01 BTC
-    
+
     # Send funds to the BIP86 address
-    txid = bitcoind.rpc.sendtoaddress(bip86_addr, amount_sats / 10**8)
+    bitcoind.rpc.sendtoaddress(bip86_addr, amount_sats / 10**8)
     bitcoind.generate_block(1)
-    
+
     # Wait for the node to see the transaction
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
-    
+
     # Verify the funds are visible and confirmed
     funds = l1.rpc.listfunds()
     bip86_outputs = [out for out in funds['outputs'] if out['address'] == bip86_addr]
     assert len(bip86_outputs) == 1, f"Expected 1 BIP86 output, got {len(bip86_outputs)}"
     assert bip86_outputs[0]['amount_msat'] == amount_sats * 1000
     assert bip86_outputs[0]['status'] == 'confirmed'
-    
+
     # Create PSBT with BIP86 input
     dest_addr = bitcoind.rpc.getnewaddress()
     send_amount = 500000  # 0.005 BTC
-    
+
     # Use txprepare to create a PSBT
     psbt_result = l1.rpc.txprepare([{dest_addr: send_amount}])
     psbt_str = psbt_result['psbt']
-    
+
     # Verify PSBT was created successfully
     assert psbt_str is not None and len(psbt_str) > 0, "PSBT creation failed"
-    
+
     # Sign the PSBT
     signed_result = l1.rpc.signpsbt(psbt_str)
     assert 'signed_psbt' in signed_result, "PSBT signing failed - no signed_psbt returned"
     assert len(signed_result['signed_psbt']) > 0, "PSBT signing failed - empty signed_psbt"
-    
+
     # Send the signed PSBT
     send_result = l1.rpc.sendpsbt(signed_result['signed_psbt'])
     sent_txid = send_result['txid']
-    
+
     # Mine the transaction
     bitcoind.generate_block(1)
-    
+
     # Wait for the transaction to be confirmed (blockheight > 0)
-    wait_for(lambda: len([tx for tx in l1.rpc.listtransactions()['transactions'] 
+    wait_for(lambda: len([tx for tx in l1.rpc.listtransactions()['transactions']
                          if tx['hash'] == sent_txid and tx['blockheight'] > 0]) > 0)
-    
+
     # Verify the transaction exists in the blockchain and is confirmed
     transactions = l1.rpc.listtransactions()['transactions']
     sent_tx = [tx for tx in transactions if tx['hash'] == sent_txid][0]
     assert sent_tx['blockheight'] > 0, "Transaction should be confirmed in a block"
-    
 
 
 # this test does a 'listtransactions' on a yet unconfirmed channel
@@ -2274,55 +2279,55 @@ def test_p2tr_deposit_withdrawal_with_bip86(node_factory, bitcoind):
 
     # Generate a BIP86 P2TR address for deposit
     deposit_addr = l1.rpc.newaddr('p2tr')
-    
+
     # Send some funds to the P2TR address (uses BIP86 for mnemonic wallets)
     l1.bitcoin.rpc.sendtoaddress(deposit_addr['p2tr'], 1)
     bitcoind.generate_block(1)
 
     # Wait for the deposit to be visible
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
-    
+
     # Check that we have the deposit
     funds = l1.rpc.listfunds()
     assert len(funds['outputs']) == 1
     assert funds['outputs'][0]['amount_msat'] == 100000000000  # 1 BTC in msat
-    
+
     # Generate another P2TR address for withdrawal (uses BIP86 for mnemonic wallets)
     withdrawal_addr = l1.rpc.newaddr('p2tr')
-    
+
     # Withdraw to the new P2TR address
     l1.rpc.withdraw(withdrawal_addr['p2tr'], 50000000)  # 0.5 BTC
     wait_for(lambda: len(bitcoind.rpc.getrawmempool()) == 1)
-    
+
     # Check the withdrawal transaction
     raw_tx = bitcoind.rpc.getrawtransaction(bitcoind.rpc.getrawmempool()[0], 1)
     assert len(raw_tx['vin']) == 1  # Should use our 1 BTC input
     assert len(raw_tx['vout']) == 2  # Withdrawal output + change
-    
+
     # Both outputs should be P2TR (BIP86)
     for output in raw_tx['vout']:
         assert output["scriptPubKey"]["type"] == "witness_v1_taproot"
-    
+
     bitcoind.generate_block(1)
-    
+
     # After withdrawal, we should have 2 outputs: the withdrawal destination + change
     # Both belong to the same node since we withdrew to our own BIP86 address
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 2)
     funds = l1.rpc.listfunds()
-    
+
     # Check that we have exactly the addresses we expect
     fund_addresses = [output['address'] for output in funds['outputs']]
     assert withdrawal_addr['p2tr'] in fund_addresses, f"Withdrawal address {withdrawal_addr['p2tr']} not found in {fund_addresses}"
-    
+
     # Find the withdrawal and change outputs
     withdrawal_output = next(output for output in funds['outputs'] if output['address'] == withdrawal_addr['p2tr'])
     change_output = next(output for output in funds['outputs'] if output['address'] != withdrawal_addr['p2tr'])
-    
+
     # Verify amounts
     assert withdrawal_output['amount_msat'] == 50000000000  # Exactly 0.5 BTC
     assert change_output['amount_msat'] < 50000000000  # Less than 0.5 BTC due to fees
     assert change_output['amount_msat'] > 49000000000   # But more than 0.49 BTC
-    
+
     # Verify total is close to original 1 BTC minus fees
     total_amount = sum(output['amount_msat'] for output in funds['outputs'])
     assert total_amount < 100000000000  # Less than 1 BTC due to fees
@@ -2377,6 +2382,7 @@ def test_upgradewallet(node_factory, bitcoind):
     sync_blockheight(l1.bitcoin, [l1])
     upgrade = l1.rpc.upgradewallet(feerate="urgent", reservedok=True)
     assert upgrade['upgraded_outs'] == 0
+
 
 def test_hsmtool_printnodeid(node_factory):
     l1 = node_factory.get_node()

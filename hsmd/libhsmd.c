@@ -11,9 +11,9 @@
 #include <common/hsm_secret.h>
 #include <common/key_derive.h>
 #include <common/lease_rates.h>
+#include <common/memleak.h>
 #include <common/status.h>
 #include <common/utils.h>
-#include <common/memleak.h>
 #include <hsmd/libhsmd.h>
 #include <hsmd/permissions.h>
 #include <inttypes.h>
@@ -548,7 +548,7 @@ static void hsm_key_for_utxo(struct privkey *privkey, struct pubkey *pubkey,
 
 		/* For P2TR scripts, we need to determine if it's BIP86 or regular P2TR
 		 * But BIP86 derivation requires mnemonic-based secrets */
-		if (is_p2tr(utxo->scriptPubkey, script_len, NULL) && 
+		if (is_p2tr(utxo->scriptPubkey, script_len, NULL) &&
 		    use_bip86_derivation(tal_bytelen(secretstuff.bip32_seed))) {
 			/* Try BIP86 derivation first and see if it matches */
 			struct pubkey test_pubkey;
@@ -2595,7 +2595,7 @@ u8 *hsmd_init(const u8 *secret_data, size_t secret_len, const u64 hsmd_version,
 	*tlvs->hsm_secret_type = hsm_secret_type;
 
 	return take(towire_hsmd_init_reply_v4(
-		    NULL, hsmd_version, caps,
-		    &node_id, &secretstuff.bip32,
-		    &bolt12, tlvs));
+ 		   NULL, hsmd_version, caps,
+		   &node_id, &secretstuff.bip32,
+		   &bolt12, tlvs));
 }

@@ -16,8 +16,8 @@
 #include <common/derive_basepoints.h>
 #include <common/descriptor_checksum.h>
 #include <common/errcode.h>
-#include <common/key_derive.h>
 #include <common/hsm_secret.h>
+#include <common/key_derive.h>
 #include <common/node_id.h>
 #include <common/utils.h>
 #include <common/utxo.h>
@@ -42,9 +42,9 @@ static void show_usage(const char *progname)
 	printf("methods:\n");
 	printf("	- decrypt <path/to/hsm_secret> [LEGACY - binary format only]\n");
 	printf("	- encrypt <path/to/hsm_secret> [LEGACY - binary format only]\n");
-	printf("	- dumpcommitments <node id> <channel dbid> <depth> " 
+	printf("	- dumpcommitments <node id> <channel dbid> <depth> "
 		"<path/to/hsm_secret>\n");
-	printf("	- guesstoremote <P2WPKH address> <node id> <tries> " 
+	printf("	- guesstoremote <P2WPKH address> <node id> <tries> "
 		"<path/to/hsm_secret>\n");
 	printf("	- generatehsm <path/to/new/hsm_secret>\n");
 	printf("	- derivetoremote <node id> <channel dbid> [<cmt pt>] "
@@ -472,7 +472,7 @@ static void dumponchaindescriptors(const char *hsm_secret_path,
 	struct hsm_secret *hsms = load_hsm_secret(tmpctx, hsm_secret_path);
 	/* Extract first 32 bytes for legacy compatibility */
 	memcpy(hsm_secret.data, hsms->secret_data, 32);
-	
+
 	/* The root seed is derived from hsm_secret using hkdf.. */
 	do {
 		hkdf_sha256(bip32_seed, sizeof(bip32_seed),

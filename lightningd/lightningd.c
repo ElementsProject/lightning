@@ -20,6 +20,7 @@
  * and keeps things consistent.  It also make sure you include "config.h"
  * before anything else. */
 #include "config.h"
+#include <bitcoin/script.h>
 
 /*~ This is Ian Lance Taylor's libbacktrace.  It turns out that it's
  * horrifically difficult to obtain a decent backtrace in C; the standard
@@ -58,8 +59,6 @@
 #include <common/trace.h>
 #include <common/version.h>
 #include <db/exec.h>
-
-#include <bitcoin/script.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <header_versions_gen.h>

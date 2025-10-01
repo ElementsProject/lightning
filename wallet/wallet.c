@@ -14,11 +14,13 @@
 #include <db/common.h>
 #include <db/exec.h>
 #include <db/utils.h>
+#include <hsmd/hsmd_wiregen.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/channel_gossip.h>
 #include <lightningd/closed_channel.h>
 #include <lightningd/coin_mvts.h>
+#include <lightningd/hsm_control.h>
 #include <lightningd/notification.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/peer_htlcs.h>
@@ -28,8 +30,6 @@
 #include <wallet/txfilter.h>
 #include <wallet/wallet.h>
 #include <wally_bip32.h>
-#include <lightningd/hsm_control.h>
-#include <hsmd/hsmd_wiregen.h>
 
 #define SQLITE_MAX_UINT 0x7FFFFFFFFFFFFFFF
 #define DIRECTION_INCOMING 0
@@ -151,7 +151,7 @@ static void our_addresses_add_for_index(struct wallet *w, u32 i)
 		/* Add P2SH-wrapped version for legacy compatibility */
 		if (addrtype == ADDR_ALL && legacy) {
 			const u8 *addr = scriptpubkey_p2sh(NULL, scriptpubkey);
-			our_addresses_add(w->our_addresses, i, take(addr), 
+			our_addresses_add(w->our_addresses, i, take(addr),
 					  tal_bytelen(addr), ADDR_P2SH_SEGWIT);
 		}
 
@@ -173,7 +173,7 @@ static void our_addresses_init(struct wallet *w)
 	w->our_addresses = tal(w, struct wallet_address_htable);
 	wallet_address_htable_init(w->our_addresses);
 
-	/* Prefill the address table up to keyscan_gap so rescans immediately 
+	/* Prefill the address table up to keyscan_gap so rescans immediately
 	 * include scripts without needing prior address allocations. */
 	for (u32 i = 0; i <= w->keyscan_gap; i++) {
 		our_addresses_add_for_index(w, i);

@@ -2,8 +2,6 @@
 #include <bitcoin/privkey.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
-#include <common/setup.h>
-#include <common/utils.h>
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/str/str.h>
@@ -13,6 +11,7 @@
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/setup.h>
+#include <common/utils.h>
 #include <errno.h>
 #include <plugins/libplugin.h>
 
@@ -78,12 +77,12 @@ static struct command_result *json_exposesecret(struct command *cmd,
 	/* grab_file adds a \0 byte at the end for convenience */
 	if (tal_bytelen(contents) > 0)
 		tal_resize(&contents, tal_bytelen(contents) - 1);
-	
+
 	/* Check if the HSM secret needs a passphrase */
 	if (hsm_secret_needs_passphrase(contents, tal_bytelen(contents))) {
 		return command_fail(cmd, LIGHTNINGD, "Secret with passphrase is not supported");
 	}
-	
+
 	/* Extract the HSM secret without passphrase */
 	hsms = extract_hsm_secret(tmpctx, contents, tal_bytelen(contents), NULL, &err);
 

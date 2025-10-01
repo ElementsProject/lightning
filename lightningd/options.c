@@ -604,7 +604,7 @@ static char *read_hsm_passphrase(struct lightningd *ld)
  * The algorithm used to derive the key is Argon2(id), to which libsodium
  * defaults. However argon2id-specific constants are used in case someone runs it
  * with a libsodium version which default constants differs (typically <1.0.9).
- * 
+ *
  * DEPRECATED: Use --hsm-passphrase instead.
  */
 static char *opt_set_hsm_password(struct lightningd *ld)
@@ -612,7 +612,7 @@ static char *opt_set_hsm_password(struct lightningd *ld)
 	int is_encrypted;
 
 	/* Show deprecation warning */
-	if (!opt_deprecated_ok(ld, "--encrypted-hsm", 
+	if (!opt_deprecated_ok(ld, "--encrypted-hsm",
 			      "Use --hsm-passphrase=<passphrase> instead",
 			      "v25.12", "v26.12"))
 		return "--encrypted-hsm is deprecated, use --hsm-passphrase=<passphrase> instead";

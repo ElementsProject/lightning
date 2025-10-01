@@ -4352,18 +4352,20 @@ def test_exposesecret(node_factory):
     l1.daemon.opts["alias"] = 'J1U1IOBiobN'
     l1.start()
 
-    assert l1.rpc.exposesecret(passphrase='test_exposesecret') == {'codex32': 'cl10junxsd35kw6r5de5kueedxyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq6mdtn5lql6p8m',
-                                                                  'identifier': 'junx'}
+    assert l1.rpc.exposesecret(passphrase='test_exposesecret') == {
+        'codex32': 'cl10junxsd35kw6r5de5kueedxyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq6mdtn5lql6p8m',
+        'identifier': 'junx'
+    }
 
 
 @unittest.skipIf(VALGRIND, "It does not play well with prompt and key derivation.")
 def test_exposesecret_with_hsm_passphrase(node_factory):
     """Test that exposesecret plugin correctly handles hsm-passphrase option"""
-    # Create a node with exposesecret-passphrase option 
+    # Create a node with exposesecret-passphrase option
     l1 = node_factory.get_node(options={
         'exposesecret-passphrase': "test_exposesecret",
     }, start=False)
-    
+
     hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
     if os.path.exists(hsm_path):
         os.remove(hsm_path)
@@ -4385,14 +4387,14 @@ def test_exposesecret_with_hsm_passphrase(node_factory):
     hsmtool.is_in_log(f"Format: {expected_format}")
     os.close(master_fd)
     os.close(slave_fd)
-    
+
     # Add --hsm-passphrase option to trigger interactive prompting
     l1.daemon.opts["hsm-passphrase"] = None
-    
+
     # Create a pty to handle the interactive passphrase prompt
     master_fd2, slave_fd2 = os.openpty()
     l1.daemon.start(stdin=slave_fd2, wait_for_initialized=False)
-    
+
     # Wait for the passphrase prompt and provide it
     l1.daemon.wait_for_log("Enter hsm_secret passphrase:")
     print(f"DEBUG: About to send passphrase: '{hsm_passphrase}'")
@@ -4400,13 +4402,13 @@ def test_exposesecret_with_hsm_passphrase(node_factory):
     print(f"DEBUG: Passphrase bytes: {passphrase_bytes}")
     write_all(master_fd2, passphrase_bytes)
     print("DEBUG: Passphrase sent!")
-    
+
     # Wait for the node to be ready
     l1.daemon.wait_for_log("Server started with public key")
-    
+
     os.close(master_fd2)
     os.close(slave_fd2)
-    
+
     # Test that exposesecret fails with mnemonic+passphrase format since it needs a passphrase
     with pytest.raises(RpcError, match="Secret with passphrase is not supported"):
         l1.rpc.exposesecret(passphrase="test_exposesecret")
@@ -4433,10 +4435,10 @@ def test_exposesecret_with_mnemonic_no_passphrase(node_factory):
     hsmtool.wait_for_log(r"Enter your passphrase:")
     write_all(master_fd, "\n".encode("utf-8"))
     assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
-    
+
     # Start the daemon normally (no hsm-passphrase option needed for mnemonic without passphrase)
     l1.start()
-    
+
     # Test that exposesecret works correctly with mnemonic-based hsm_secret without passphrase
     result = l1.rpc.exposesecret(passphrase="test_exposesecret")
     assert result == {
@@ -4444,7 +4446,6 @@ def test_exposesecret_with_mnemonic_no_passphrase(node_factory):
         'identifier': 'peev',
         'mnemonic': 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'
     }
-
 
 
 def test_peer_storage(node_factory, bitcoind):

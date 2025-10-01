@@ -141,7 +141,7 @@ struct ext_key *hsm_init(struct lightningd *ld)
 
 	bip32_base = tal(ld, struct ext_key);
 	msg = wire_sync_read(tmpctx, ld->hsm_fd);
-	
+
 	/* Check for init reply failure first */
 	u32 error_code;
 	char *error_message;
@@ -213,8 +213,7 @@ struct ext_key *hsm_init(struct lightningd *ld)
 		} else {
 			/* BIP86 derivation failed unexpectedly */
 			ld->bip86_base = tal_free(ld->bip86_base);
-		}
-	} else {
+		}} else {
 		/* Legacy HSM secret - don't attempt BIP86 derivation */
 		log_info(ld->log, "Using BIP32 derivation for all operations (legacy HSM secret)");
 		ld->bip86_base = NULL;

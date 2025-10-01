@@ -37,7 +37,7 @@ enum hsm_secret_error {
 };
 
 /**
- * Represents the content of the hsm_secret file, either a raw seed or a mnemonic.
+ *Represents the content of the hsm_secret file, either a raw seed or a mnemonic.
  */
 struct hsm_secret {
 	enum hsm_secret_type type;
@@ -47,34 +47,34 @@ struct hsm_secret {
 
 
 /**
- * Check if this HSM secret is mnemonic-based (64-byte seed).
- * Returns true for mnemonic-derived secrets, false for legacy 32-byte secrets.
+ *Check if this HSM secret is mnemonic-based (64-byte seed).
+ *Returns true for mnemonic-derived secrets, false for legacy 32-byte secrets.
  */
 bool is_mnemonic_secret(size_t secret_len);
 
 /**
- * Check if we should use BIP86 derivation for this HSM secret.
- * BIP86 was introduced alongside mnemonic support, so they're available together.
- * Returns true if mnemonic-based secret is available, false otherwise.
+ *Check if we should use BIP86 derivation for this HSM secret.
+ *BIP86 was introduced alongside mnemonic support, so they're available together.
+ *Returns true if mnemonic-based secret is available, false otherwise.
  */
 bool use_bip86_derivation(size_t secret_len);
 
 /**
- * Checks whether the hsm_secret data requires a passphrase to decrypt.
- * Handles legacy, encrypted, and mnemonic-based formats.
+ *Checks whether the hsm_secret data requires a passphrase to decrypt.
+ *Handles legacy, encrypted, and mnemonic-based formats.
  */
 bool hsm_secret_needs_passphrase(const u8 *hsm_secret, size_t len);
 
 /**
- * Parse and decrypt an hsm_secret file.
+ *Parse and decrypt an hsm_secret file.
  *
- * @ctx - a tal context
- * @hsm_secret - raw file contents
- * @len - length of file
- * @passphrase - passphrase, or NULL if not needed
- * @err - optional pointer to set error code on failure
- * 
- * Returns parsed `struct hsm_secret` or NULL on error.
+ *@ctx - a tal context
+ *@hsm_secret - raw file contents
+ *@len - length of file
+ *@passphrase - passphrase, or NULL if not needed
+ *@err - optional pointer to set error code on failure
+ *
+ *Returns parsed `struct hsm_secret` or NULL on error.
  */
 struct hsm_secret *extract_hsm_secret(const tal_t *ctx,
 				      const u8 *hsm_secret, size_t len,
@@ -82,104 +82,104 @@ struct hsm_secret *extract_hsm_secret(const tal_t *ctx,
 				      enum hsm_secret_error *err);
 
 /**
- * Encrypt a given hsm_secret using a provided encryption key.
- * @encryption_key - derived from passphrase (via Argon2)
- * @hsm_secret - plaintext secret to encrypt
- * @output - output buffer for encrypted data (must be ENCRYPTED_HSM_SECRET_LEN bytes)
+ *Encrypt a given hsm_secret using a provided encryption key.
+ *@encryption_key - derived from passphrase (via Argon2)
+ *@hsm_secret - plaintext secret to encrypt
+ *@output - output buffer for encrypted data (must be ENCRYPTED_HSM_SECRET_LEN bytes)
  *
- * Returns true on success.
+ *Returns true on success.
  */
 bool encrypt_legacy_hsm_secret(const struct secret *encryption_key,
 			const struct secret *hsm_secret,
 			u8 *output);
 
 /**
- * Reads a passphrase from stdin, disabling terminal echo.
- * Returns a newly allocated string on success, NULL on error.
- * @ctx - tal context for allocation
- * @err - on failure, this will be set to the error code
- * 
- * Returns allocated passphrase or NULL on error.
+ *Reads a passphrase from stdin, disabling terminal echo.
+ *Returns a newly allocated string on success, NULL on error.
+ *@ctx - tal context for allocation
+ *@err - on failure, this will be set to the error code
+ *
+ *Returns allocated passphrase or NULL on error.
  */
 const char *read_stdin_pass(const tal_t *ctx, enum hsm_secret_error *err);
 
 /**
- * Convert error code to human-readable string.
- * @err - the error code to convert
- * 
- * Returns a string describing the error.
+ *Convert error code to human-readable string.
+ *@err - the error code to convert
+ *
+ *Returns a string describing the error.
  */
 const char *hsm_secret_error_str(enum hsm_secret_error err);
 
 /**
- * Detect the type of hsm_secret based on its content and length.
- * @hsm_secret - raw file contents
- * @len - length of file
- * 
- * Returns the detected type.
+ *Detect the type of hsm_secret based on its content and length.
+ *@hsm_secret - raw file contents
+ *@len - length of file
+ *
+ *Returns the detected type.
  */
 enum hsm_secret_type detect_hsm_secret_type(const u8 *hsm_secret, size_t len);
 
 /**
- * Reads a BIP39 mnemonic from stdin with validation.
- * Returns a newly allocated string on success, NULL on error.
- * @ctx - tal context for allocation
- * @err - optional pointer to set error code on failure
- * 
- * Returns tal-allocated mnemonic string or NULL on error.
+ *Reads a BIP39 mnemonic from stdin with validation.
+ *Returns a newly allocated string on success, NULL on error.
+ *@ctx - tal context for allocation
+ *@err - optional pointer to set error code on failure
+ *
+ *Returns tal-allocated mnemonic string or NULL on error.
  */
 const char *read_stdin_mnemonic(const tal_t *ctx, enum hsm_secret_error *err);
 
 /**
- * Derive seed hash from mnemonic + passphrase.
- * @mnemonic - the BIP39 mnemonic
- * @passphrase - the passphrase (can be NULL)
- * @seed_hash - output parameter for the derived seed hash
- * 
- * Returns true on success, false on failure.
+ *Derive seed hash from mnemonic + passphrase.
+ *@mnemonic - the BIP39 mnemonic
+ *@passphrase - the passphrase (can be NULL)
+ *@seed_hash - output parameter for the derived seed hash
+ *
+ *Returns true on success, false on failure.
  */
 bool derive_seed_hash(const char *mnemonic, const char *passphrase, struct sha256 *seed_hash);
 
 /**
- * Check if hsm_secret file is encrypted (legacy format only).
- * @path - path to the hsm_secret file
- * 
- * Returns 1 if encrypted, 0 if not encrypted, -1 on error.
+ *Check if hsm_secret file is encrypted (legacy format only).
+ *@path - path to the hsm_secret file
+ *
+ *Returns 1 if encrypted, 0 if not encrypted, -1 on error.
  */
 int is_legacy_hsm_secret_encrypted(const char *path);
 
 /**
- * Zero and unlock a secret's memory.
- * @secret - the secret to destroy
+ *Zero and unlock a secret's memory.
+ *@secret - the secret to destroy
  */
 void destroy_secret(struct secret *secret);
 
 /**
- * Convert hsm_secret_type enum to human-readable string.
- * @type - the hsm_secret_type to convert
+ *Convert hsm_secret_type enum to human-readable string.
+ *@type - the hsm_secret_type to convert
  *
- * Returns a string describing the type.
+ *Returns a string describing the type.
  */
 const char *format_type_name(enum hsm_secret_type type);
 
 /**
- * Wrapper around grab_file that removes the NUL terminator.
- * @ctx - tal context for allocation
- * @filename - path to the file to read
- * @len - output parameter for the file length (excluding NUL terminator)
+ *Wrapper around grab_file that removes the NUL terminator.
+ *@ctx - tal context for allocation
+ *@filename - path to the file to read
+ *@len - output parameter for the file length (excluding NUL terminator)
  *
- * Returns file contents with NUL terminator removed, or NULL on error.
- * Unlike grab_file, the returned data does not include the NUL terminator.
+ *Returns file contents with NUL terminator removed, or NULL on error.
+ *Unlike grab_file, the returned data does not include the NUL terminator.
  */
 u8 *grab_file_contents(const tal_t *ctx, const char *filename, size_t *len);
 
 /**
- * Derive encryption key from passphrase using Argon2.
- * @ctx - tal context for allocation
- * @passphrase - the passphrase to derive from
+ *Derive encryption key from passphrase using Argon2.
+ *@ctx - tal context for allocation
+ *@passphrase - the passphrase to derive from
  *
- * Returns derived encryption key, or NULL on error.
- * The returned key is memory-locked and has a destructor to clear it.
+ *Returns derived encryption key, or NULL on error.
+ *The returned key is memory-locked and has a destructor to clear it.
  */
 struct secret *get_encryption_key(const tal_t *ctx, const char *passphrase);
 
