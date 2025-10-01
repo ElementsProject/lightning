@@ -9,7 +9,7 @@
 #include <secp256k1_recovery.h>
 
 /* We only have 10 bits for the field length, meaning < 640 bytes */
-#define BOLT11_FIELD_BYTE_LIMIT ((1 << 10) * 5 / 8)
+#define BOLT11_FIELD_BYTE_LIMIT (((1 << 10) * 5 / 8) - 1)
 
 /* BOLT #11:
  * * `c` (24): `data_length` variable.
