@@ -488,29 +488,6 @@ code=
 #error "Not modern GCC"
 #endif
 /*END*/
-var=HAVE_PWRITEV
-desc=pwritev() defined
-style=DEFINES_EVERYTHING|EXECUTE|MAY_NOT_COMPILE
-code=
-#include <sys/uio.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-
-int main(void)
-{
-	struct iovec iov[2];
-	int fd = open("/dev/null", O_WRONLY);
-
-	iov[0].iov_base = "hello";
-	iov[0].iov_len = 5;
-	iov[1].iov_base = " world";
-	iov[1].iov_len = 6;
-	if (pwritev(fd, iov, 2, 0) == 11)
-		return 0;
-	return 1;
-}
-/*END*/
 EOF
 
 if check_command 'python3-mako' python3 -c 'import mako'; then
