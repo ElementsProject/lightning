@@ -3461,6 +3461,9 @@ def test_listforwards_and_listhtlcs(node_factory, bitcoind):
     l2.rpc.delforward(in_channel=c12, in_htlc_id=2, status='local_failed')
     assert l2.rpc.listforwards() == {'forwards': []}
 
+    l2.restart()
+    assert l2.rpc.wait('htlcs', 'deleted', 0)['deleted'] == 5
+
 
 def test_listforwards_wait(node_factory, executor):
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
