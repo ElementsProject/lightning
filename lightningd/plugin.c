@@ -1819,6 +1819,11 @@ static const char *plugin_parse_getmanifest_response(const char *buffer,
 			return tal_fmt(plugin,
 				    "Custom featurebits already present");
 		}
+
+		/* Store fset to allow to remove feature bits when init returns disabled */
+		plugin->fset = tal_dup_or_null(plugin, struct feature_set, fset);
+	} else {
+		plugin->fset = NULL;
 	}
 
 	custommsgtok = json_get_member(buffer, resulttok, "custommessages");
@@ -2148,6 +2153,10 @@ static void plugin_config_cb(const char *buffer,
 		      JSON_SCAN_TAL(tmpctx, json_strdup, &disable)) == NULL) {
 		/* Don't get upset if this was a built-in! */
 		plugin->important = false;
+		if (plugin->fset)
+			/* We don't have those features anymore! */
+			feature_set_sub(plugin->plugins->ld->our_features,
+					plugin->fset);
 		plugin_kill(plugin, LOG_DBG,
 			    "disabled itself at init: %s",
 			    disable);

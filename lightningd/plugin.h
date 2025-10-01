@@ -120,6 +120,9 @@ struct plugin {
 
 	/* Can this handle check commands? */
 	bool can_check;
+
+	/* custom feature-bits */
+	struct feature_set *fset;
 };
 
 /**
