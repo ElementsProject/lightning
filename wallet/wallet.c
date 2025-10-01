@@ -2957,6 +2957,21 @@ void wallet_channel_insert(struct wallet *w, struct channel *chan)
 	wallet_channel_save(w, chan);
 }
 
+void wallet_delete_old_htlcs(struct wallet *w)
+{
+	struct db_stmt *stmt;
+
+	/* Delete htlcs for closed channels */
+	stmt = db_prepare_v2(w->db, SQL("DELETE FROM channel_htlcs"
+					" WHERE id IN ("
+					"  SELECT ch.id"
+					"  FROM channel_htlcs AS ch"
+					"  JOIN channels AS c ON c.id = ch.channel_id"
+					"  WHERE c.state = ?);"));
+	db_bind_int(stmt, channel_state_in_db(CLOSED));
+	db_exec_prepared_v2(take(stmt));
+}
+
 void wallet_channel_close(struct wallet *w,
 			  const struct channel *chan)
 {
@@ -2967,15 +2982,21 @@ void wallet_channel_close(struct wallet *w,
 	 * dbs to recover. */
 	struct db_stmt *stmt;
 	u64 new_move_id;
+	u64 htlcs;
 
-	/* Delete entries from `channel_htlcs` */
-	stmt = db_prepare_v2(w->db, SQL("DELETE FROM channel_htlcs "
+	/* The channel_htlcs table is quite large, and deleting it can take a
+	 * while.  So we do that on next restart by calling
+	 * wallet_delete_old_htlcs.  But update delete count in case anyone
+	 * is watching. */
+	stmt = db_prepare_v2(w->db, SQL("SELECT COUNT(*) FROM channel_htlcs "
 					"WHERE channel_id=?"));
 	db_bind_u64(stmt, chan->dbid);
-	db_exec_prepared_v2(stmt);
-	/* FIXME: We don't actually tell them what was deleted! */
-	if (db_count_changes(stmt) != 0)
-		htlcs_index_deleted(w->ld, chan, db_count_changes(stmt));
+	db_query_prepared(stmt);
+	db_step(stmt);
+
+	htlcs = db_col_u64(stmt, "COUNT(*)");
+	if (htlcs != 0)
+		htlcs_index_deleted(w->ld, chan, htlcs);
 	tal_free(stmt);
 
 	/* Delete entries from `htlc_sigs` */
