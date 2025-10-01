@@ -937,3 +937,27 @@ def test_invoice_botched_migration(node_factory, chainparams):
     assert ([(i['created_index'], i['label']) for i in l1.rpc.listinvoices()["invoices"]]
             == [(1, "made_after_bad_migration"), (2, "label1")])
     assert l1.rpc.invoice(100, "test", "test")["created_index"] == 3
+
+
+def test_invoice_maxdesc(node_factory, chainparams):
+    l1, l2 = node_factory.line_graph(2)
+
+    # BOLT #11:
+    #
+    # Note that the maximum length of a Tagged Field's `data` is constricted
+    # by the maximum value of `data_length`. This is 1023 x 5 bits, or 639
+    # bytes.
+    maxdesc = "x" * 639
+
+    # This should fail!
+    with pytest.raises(RpcError, match=r'Description greater than 639 bytes invalid \(description length 641\)'):
+        l1.rpc.invoice(123000, 'test_invoice_maxdesc', maxdesc + 'xx')
+
+    # This should also fail, but used to produce
+    # lnbcrt1230n1p5dm097sp545trjl795r3mm86mk4ln5jpjvnh04x8aryl3qadjt99vspu646zspp52hf43ln8vg0564ljwccs8d84xc70ls8n7wdmp75ygp7ll8rprqzsdqq0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rcxqyjw5qcqp99qxpqysgqr6l8swzm6jc42ehy4v7s83jrggtwa9ua39cvy46c46tmqwn97mn43ycww7e9cf4w5ws8lxnef2k3m5nfa5c34nz54jaxhzc5e72q0ccq26n9fx
+    with pytest.raises(RpcError, match=r'Description greater than 639 bytes invalid \(description length 640\)'):
+        l1.rpc.invoice(123000, 'test_invoice_maxdesc2', maxdesc + 'x')
+
+    # This should succeed.
+    inv = l1.rpc.invoice(123000, 'test_invoice_maxdesc3', maxdesc)
+    assert l1.rpc.decode(inv['bolt11'])['description'] == maxdesc
