@@ -67,19 +67,21 @@ int main(int argc, char *argv[])
 		u16 flags = be16_to_cpu(hdr.flags);
 		u16 msglen = be16_to_cpu(hdr.len);
 		u8 *msg, *inner;
-		bool deleted, dying;
+		bool deleted, dying, complete;
 		u32 blockheight;
 
 		deleted = (flags & GOSSIP_STORE_DELETED_BIT);
 		dying = (flags & GOSSIP_STORE_DYING_BIT);
+		complete = (flags & GOSSIP_STORE_COMPLETED_BIT);
 
 		msg = tal_arr(NULL, u8, msglen);
 		if (read(fd, msg, msglen) != msglen)
 			errx(1, "%zu: Truncated file?", off);
 
-		printf("%zu: %s%s%s", off,
+		printf("%zu: %s%s%s%s", off,
 		       deleted ? "DELETED " : "",
 		       dying ? "DYING " : "",
+		       complete ? "" : "**INCOMPLETE** ",
 		       be32_to_cpu(hdr.crc) != crc32c(be32_to_cpu(hdr.timestamp), msg, msglen) ? "**BAD CHECKSUM** " : "");
 
 		if (print_timestamp)

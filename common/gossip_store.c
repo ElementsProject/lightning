@@ -30,6 +30,8 @@ bool gossip_store_readhdr(int gossip_store_fd, size_t off,
 	r = pread(gossip_store_fd, &buf, HDR_AND_TYPE_SIZE, off);
 	if (r != HDR_AND_TYPE_SIZE)
 		return false;
+	if (!(buf.hdr.flags & CPU_TO_BE16(GOSSIP_STORE_COMPLETED_BIT)))
+		return false;
 	*len = be16_to_cpu(buf.hdr.len);
 	if (flags)
 		*flags = be16_to_cpu(buf.hdr.flags);

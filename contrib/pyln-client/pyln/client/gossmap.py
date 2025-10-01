@@ -392,8 +392,7 @@ class Gossmap(object):
     def __init__(self, store_filename: str = "gossip_store"):
         self.store_filename = store_filename
         self.store_file = open(store_filename, "rb")
-        self.store_buf = bytes()
-        self.bytes_read = 0
+        self.bytes_read = 1
         self.nodes: Dict[GossmapNodeId, GossmapNode] = {}
         self.channels: Dict[ShortChannelId, GossmapChannel] = {}
         self._last_scid: Optional[str] = None
@@ -592,24 +591,24 @@ class Gossmap(object):
         if scid in self.channels:
             self._del_channel(scid)
 
-    def _pull_bytes(self, length: int) -> bool:
-        """Pull bytes from file into our internal buffer"""
-        if len(self.store_buf) < length:
-            self.store_buf += self.store_file.read(length - len(self.store_buf))
-        self.bytes_read += len(self.store_buf)
-        return len(self.store_buf) >= length
-
     def _read_record(self) -> Optional[bytes]:
-        """If a whole record is not in the file, returns None.
-        If deleted, returns empty."""
-        off = self.bytes_read + 1
-        if not self._pull_bytes(12):
+        """If a whole record is not in the file, returns None, None."""
+        prev_off = self.bytes_read
+        hdr = self.store_file.read(12)
+        if len(hdr) != 12:
+            self.store_file.seek(prev_off)
             return None, None
-        hdr = GossipStoreMsgHeader(self.store_buf[:12], off)
-        if not self._pull_bytes(12 + hdr.length):
-            return None, hdr
-        rec = self.store_buf[12:]
-        self.store_buf = bytes()
+        hdr = GossipStoreMsgHeader(hdr, prev_off)
+        rec = self.store_file.read(hdr.length)
+        if len(rec) != hdr.length:
+            self.store_file.seek(prev_off)
+            return None, None
+        if (hdr.flags & GOSSIP_STORE_LEN_COMPLETE_BIT) == 0:
+            self.store_file.seek(prev_off)
+            return None, None
+
+        # Ok, we're digesting this one, so increment bytes_read.
+        self.bytes_read += 12 + hdr.length
         return rec, hdr
 
     def refresh(self):
