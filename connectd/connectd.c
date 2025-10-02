@@ -130,7 +130,7 @@ static struct peer *new_peer(struct daemon *daemon,
 	peer->draining_state = NOT_DRAINING;
 	peer->peer_in_lastmsg = -1;
 	peer->peer_outq = msg_queue_new(peer, false);
-	peer->last_recv_time = time_now();
+	peer->last_recv_time = time_mono();
 	peer->is_websocket = is_websocket;
 	peer->dev_writes_enabled = NULL;
 	peer->dev_read_enabled = true;

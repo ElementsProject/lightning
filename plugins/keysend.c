@@ -241,7 +241,7 @@ static struct command_result *json_keysend(struct command *cmd, const char *buf,
 	p->invstring_used = true;
 	p->why = "Initial attempt";
 	p->constraints.cltv_budget = *maxdelay;
-	p->deadline = timeabs_add(time_now(), time_from_sec(*retryfor));
+	p->deadline = timemono_add(time_mono(), time_from_sec(*retryfor));
 	p->getroute->riskfactorppm = 10000000;
 
 	if (node_id_eq(&my_id, p->route_destination)) {

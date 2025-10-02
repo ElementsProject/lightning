@@ -76,7 +76,7 @@ struct bitcoin_cli {
 	int *exitstatus;
 	pid_t pid;
 	const char **args;
-	struct timeabs start;
+	struct timemono start;
 	enum bitcoind_prio prio;
 	char *output;
 	size_t output_bytes;
@@ -247,7 +247,7 @@ static void bcli_finished(struct io_conn *conn UNUSED, struct bitcoin_cli *bcli)
 	int ret, status;
 	struct command_result *res;
 	enum bitcoind_prio prio = bcli->prio;
-	u64 msec = time_to_msec(time_between(time_now(), bcli->start));
+	u64 msec = time_to_msec(timemono_between(time_mono(), bcli->start));
 
 	/* If it took over 10 seconds, that's rather strange. */
 	if (msec > 10000)
@@ -318,7 +318,7 @@ static void next_bcli(enum bitcoind_prio prio)
 
 	close(in);
 
-	bcli->start = time_now();
+	bcli->start = time_mono();
 
 	bitcoind->num_requests[prio]++;
 
