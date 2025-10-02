@@ -128,12 +128,6 @@ void outpointfilter_remove(struct outpointfilter *of,
 struct outpointfilter *outpointfilter_new(tal_t *ctx)
 {
 	struct outpointfilter *opf = tal(ctx, struct outpointfilter);
-	opf->set = tal(opf, struct outpointset);
-	outpointset_init(opf->set);
+	opf->set = new_htable(opf, outpointset);
 	return opf;
-}
-
-void memleak_scan_outpointfilter(struct htable *memtable, const struct outpointfilter *opf)
-{
-	memleak_scan_htable(memtable, &opf->set->raw);
 }
