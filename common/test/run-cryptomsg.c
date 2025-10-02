@@ -1,5 +1,6 @@
 #include "config.h"
 #include <ccan/str/hex/hex.h>
+#include <common/randbytes.h>
 #include <common/setup.h>
 #include <common/status.h>
 #include <common/utils.h>

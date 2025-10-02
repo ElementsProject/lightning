@@ -1,6 +1,7 @@
 #include "config.h"
 #include "../coin_mvt.c"
 #include <ccan/tal/str/str.h>
+#include <common/randbytes.h>
 #include <common/setup.h>
 #include <stdio.h>
 
