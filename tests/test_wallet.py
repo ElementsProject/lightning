@@ -1887,7 +1887,6 @@ def test_onchain_missing_no_p2tr_migrate(node_factory, bitcoind):
     l2.daemon.wait_for_log('Rescan finished! 1 outputs recovered')
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.parametrize("restart", [False, True])
 def test_sendpsbt_confirm(node_factory, bitcoind, restart):
     """We should see our sendpsbt in wallet, and that it gets confirmed"""

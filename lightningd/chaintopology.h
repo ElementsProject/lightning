@@ -12,6 +12,7 @@ struct command;
 struct lightningd;
 struct peer;
 struct txwatch;
+struct wallet;
 
 /* We keep the last three in case there are outliers (for min/max) */
 #define FEE_HISTORY_NUM 3
@@ -280,4 +281,11 @@ void topology_add_sync_waiter_(const tal_t *ctx,
 
 /* In channel_control.c */
 void notify_feerate_change(struct lightningd *ld);
+
+/* We want to update db when this txid is confirmed.  We always do this
+ * if it's related to a channel or incoming funds, but sendpsbt without
+ * change would be otherwise untracked. */
+void watch_unconfirmed_txid(struct lightningd *ld,
+			    struct chain_topology *topo,
+			    const struct bitcoin_txid *txid);
 #endif /* LIGHTNING_LIGHTNINGD_CHAINTOPOLOGY_H */
