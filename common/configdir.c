@@ -10,6 +10,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/configdir.h>
 #include <common/configvar.h>
+#include <common/memleak.h>
 #include <common/utils.h>
 #include <common/version.h>
 
@@ -36,8 +37,7 @@ static char *opt_set_abspath(const char *arg, char **p)
 /* Tal wrappers for opt. */
 static void *opt_allocfn(size_t size)
 {
-	return tal_arr_label(NULL, char, size,
-			     TAL_LABEL(opt_allocfn_notleak, ""));
+	return notleak(tal_arr(NULL, char, size));
 }
 
 static void *tal_reallocfn(void *ptr, size_t size)
