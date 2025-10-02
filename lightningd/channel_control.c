@@ -4,6 +4,7 @@
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <channeld/channeld_wiregen.h>
+#include <common/daemon.h>
 #include <common/json_command.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
@@ -1826,6 +1827,11 @@ bool peer_start_channeld(struct channel *channel,
 
 		if (inflight->splice_locked_memonly)
 			continue;
+
+		if (!inflight->funding->splice_remote_funding) {
+			send_backtrace("Inflight has no splice_remote_funding?!");
+			continue;
+		}
 
 		infcopy = tal(inflights, struct inflight);
 
