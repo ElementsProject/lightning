@@ -2382,6 +2382,14 @@ void channel_watch_wrong_funding(struct lightningd *ld, struct channel *channel)
 	}
 }
 
+/* We need to do this before we change channel funding (for splice), otherwise
+ * funding_depth_cb will fail the assertion that it's the current funding tx */
+void channel_unwatch_funding(struct lightningd *ld, struct channel *channel)
+{
+	tal_free(find_txwatch(ld->topology,
+			      &channel->funding.txid, funding_depth_cb, channel));
+}
+
 void channel_watch_funding(struct lightningd *ld, struct channel *channel)
 {
 	log_debug(channel->log, "Watching for funding txid: %s",
