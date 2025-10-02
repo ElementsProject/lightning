@@ -36,6 +36,7 @@ common/test/run-json:					\
 	common/lease_rates.o				\
 	common/node_id.o				\
 	common/pseudorand.o				\
+	common/randbytes.o			\
 	common/wireaddr.o				\
 	wire/fromwire.o					\
 	wire/onion_wiregen.o				\
@@ -49,6 +50,7 @@ common/test/run-route common/test/run-route-specific common/test/run-route-inflo
 	common/gossmap.o				\
 	common/node_id.o				\
 	common/pseudorand.o				\
+	common/randbytes.o				\
 	common/route.o					\
         common/gossip_store_wiregen.o			\
 	wire/fromwire.o					\
@@ -158,6 +160,7 @@ common/test/run-mkdatastorekey:				\
 	common/pseudorand.o
 
 common/test/run-htable:					\
+	common/randbytes.o				\
 	common/pseudorand.o
 
 common/test/run-shutdown_scriptpubkey: wire/towire.o wire/fromwire.o
