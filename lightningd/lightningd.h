@@ -306,9 +306,6 @@ struct lightningd {
 	/* Allow and accept localhost node_announcement addresses */
 	bool dev_allow_localhost;
 
-	/* Timestamp to use for gossipd, iff non-zero */
-	u32 dev_gossip_time;
-
 	/* Speedup gossip propagation, for testing. */
 	bool dev_fast_gossip;
 	bool dev_fast_gossip_prune;
