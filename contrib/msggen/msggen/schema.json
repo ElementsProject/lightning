@@ -36355,8 +36355,7 @@
           "channel_id",
           "timestamp",
           "new_state",
-          "cause",
-          "message"
+          "cause"
         ],
         "properties": {
           "peer_id": {
