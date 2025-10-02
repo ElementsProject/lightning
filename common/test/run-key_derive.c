@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <ccan/str/hex/hex.h>
 #include <common/amount.h>
+#include <common/randbytes.h>
 #include <common/setup.h>
 #include <stdio.h>
 #include <wire/wire.h>

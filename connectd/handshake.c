@@ -7,6 +7,7 @@
 #include <ccan/mem/mem.h>
 #include <common/crypto_state.h>
 #include <common/ecdh.h>
+#include <common/randbytes.h>
 #include <common/status.h>
 #include <common/utils.h>
 #include <common/wireaddr.h>
@@ -14,7 +15,6 @@
 #include <errno.h>
 #include <secp256k1_ecdh.h>
 #include <sodium/crypto_aead_chacha20poly1305.h>
-#include <sodium/randombytes.h>
 
 #ifndef SUPERVERBOSE
 #define SUPERVERBOSE(...)
@@ -194,7 +194,7 @@ static struct keypair generate_key(void)
 	struct keypair k;
 
 	do {
-		randombytes_buf(k.priv.secret.data, sizeof(k.priv.secret.data));
+		randbytes(k.priv.secret.data, sizeof(k.priv.secret.data));
 	} while (!secp256k1_ec_pubkey_create(secp256k1_ctx,
 					     &k.pub.pubkey, k.priv.secret.data));
 	return k;

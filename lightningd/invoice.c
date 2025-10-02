@@ -14,6 +14,7 @@
 #include <common/json_command.h>
 #include <common/json_param.h>
 #include <common/overflows.h>
+#include <common/randbytes.h>
 #include <common/random_select.h>
 #include <common/timeout.h>
 #include <db/exec.h>
@@ -26,7 +27,6 @@
 #include <lightningd/peer_htlcs.h>
 #include <lightningd/plugin_hook.h>
 #include <lightningd/routehint.h>
-#include <sodium/randombytes.h>
 #include <stdio.h>
 #include <wallet/invoices.h>
 #include <wallet/walletrpc.h>
@@ -1183,8 +1183,8 @@ static struct command_result *json_invoice(struct command *cmd,
 		info->payment_preimage = *preimage;
 	else
 		/* Generate random secret preimage. */
-		randombytes_buf(&info->payment_preimage,
-				sizeof(info->payment_preimage));
+		randbytes(&info->payment_preimage,
+			    sizeof(info->payment_preimage));
 	/* Generate preimage hash. */
 	sha256(&rhash, &info->payment_preimage, sizeof(info->payment_preimage));
 	/* Generate payment secret. */
@@ -1623,7 +1623,7 @@ static void add_stub_blindedpath(const tal_t *ctx,
 
 	path = tal(NULL, struct blinded_path);
 	sciddir_or_pubkey_from_pubkey(&path->first_node_id, &ld->our_pubkey);
-	randombytes_buf(&path_key, sizeof(path_key));
+	randbytes(&path_key, sizeof(path_key));
 	if (!pubkey_from_privkey(&path_key, &path->first_path_key))
 		abort();
 	path->path = tal_arr(path, struct blinded_path_hop *, 1);

@@ -14,6 +14,7 @@
 #include <common/memleak.h>
 #include <common/onion_message.h>
 #include <common/overflows.h>
+#include <common/randbytes.h>
 #include <errno.h>
 #include <plugins/offers.h>
 #include <plugins/offers_invreq_hook.h>
@@ -1010,7 +1011,7 @@ static struct command_result *listoffers_done(struct command *cmd,
 	 * - MUST set `invoice_payment_hash` to the SHA256 hash of the
 	 *   `payment_preimage` that will be given in return for payment.
 	 */
-	randombytes_buf(&ir->preimage, sizeof(ir->preimage));
+	randbytes(&ir->preimage, sizeof(ir->preimage));
 	ir->inv->invoice_payment_hash = tal(ir->inv, struct sha256);
 	sha256(ir->inv->invoice_payment_hash,
 	       &ir->preimage, sizeof(ir->preimage));

@@ -4,6 +4,7 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/err/err.h>
 #include <common/amount.h>
+#include <common/randbytes.h>
 #include <common/setup.h>
 #include <common/utils.h>
 #include <stdio.h>

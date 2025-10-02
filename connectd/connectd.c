@@ -26,6 +26,7 @@
 #include <common/gossmap.h>
 #include <common/jsonrpc_errors.h>
 #include <common/memleak.h>
+#include <common/randbytes.h>
 #include <common/status.h>
 #include <common/subdaemon.h>
 #include <common/timeout.h>
@@ -1517,7 +1518,7 @@ setup_listeners(const tal_t *ctx,
 				if (sodium_mlock(&random, sizeof(random)) != 0)
 						status_failed(STATUS_FAIL_INTERNAL_ERROR,
 									"Could not lock the random prf key memory.");
-				randombytes_buf((void * const)&random, 32);
+				randbytes((void * const)&random, 32);
 				/* generate static tor node address, take first 32 bytes from secret of node_id plus 32 random bytes from sodiom */
 				struct sha256 sha;
 				struct secret ss;
@@ -1542,7 +1543,7 @@ setup_listeners(const tal_t *ctx,
 					    localaddr,
 					    0);
 		/* get rid of blob data on our side of tor and add jitter */
-		randombytes_buf((void * const)proposed_wireaddr[i].u.torservice.blob, TOR_V3_BLOBLEN);
+		randbytes((void * const)proposed_wireaddr[i].u.torservice.blob, TOR_V3_BLOBLEN);
 
 		if (!(proposed_listen_announce[i] & ADDR_ANNOUNCE)) {
 				continue;

@@ -105,12 +105,6 @@ struct gossmap_node *gossmap_nth_node(const struct gossmap *map UNNEEDED,
 /* Generated stub for gossmap_random_node */
 struct gossmap_node *gossmap_random_node(const struct gossmap *map UNNEEDED)
 { fprintf(stderr, "gossmap_random_node called!\n"); abort(); }
-/* Generated stub for memleak_add_helper_ */
-void memleak_add_helper_(const tal_t *p UNNEEDED, void (*cb)(struct htable *memtable UNNEEDED,
-						    const tal_t *)){ }
-/* Generated stub for memleak_scan_htable */
-void memleak_scan_htable(struct htable *memtable UNNEEDED, const struct htable *ht UNNEEDED)
-{ fprintf(stderr, "memleak_scan_htable called!\n"); abort(); }
 /* Generated stub for memleak_scan_intmap_ */
 void memleak_scan_intmap_(struct htable *memtable UNNEEDED, const struct intmap *m UNNEEDED)
 { fprintf(stderr, "memleak_scan_intmap_ called!\n"); abort(); }
@@ -125,9 +119,6 @@ struct peer *next_random_peer(struct daemon *daemon UNNEEDED,
 			      const struct peer *first UNNEEDED,
 			      struct peer_node_id_map_iter *it UNNEEDED)
 { fprintf(stderr, "next_random_peer called!\n"); abort(); }
-/* Generated stub for notleak_ */
-void *notleak_(void *ptr UNNEEDED, bool plus_children UNNEEDED)
-{ fprintf(stderr, "notleak_ called!\n"); abort(); }
 /* Generated stub for query_channel_range */
 bool query_channel_range(struct daemon *daemon UNNEEDED,
 			 struct peer *peer UNNEEDED,

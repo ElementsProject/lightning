@@ -6,6 +6,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/bolt11.h>
 #include <common/key_derive.h>
+#include <common/randbytes.h>
 #include <common/version.h>
 #include <db/bindings.h>
 #include <db/common.h>
@@ -16,7 +17,6 @@
 #include <lightningd/channel.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/plugin_hook.h>
-#include <sodium/randombytes.h>
 #include <stddef.h>
 #include <wallet/account_migration.h>
 #include <wallet/db.h>
