@@ -23,6 +23,8 @@ struct offers_data {
 	struct secret offerblinding_base;
 	/* Base for node aliases for invoice requests */
 	struct secret nodealias_base;
+	/* Any --payment-fronting-node specified */
+	struct pubkey *fronting_nodes;
 	/* --dev-invoice-bpath-scid */
 	bool dev_invoice_bpath_scid;
 	/* --dev-invoice-internal-scid */
