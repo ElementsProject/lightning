@@ -144,6 +144,10 @@ const char *channel_state_name(const struct channel *channel UNNEEDED)
 /* Generated stub for channel_state_str */
 const char *channel_state_str(enum channel_state state UNNEEDED)
 { fprintf(stderr, "channel_state_str called!\n"); abort(); }
+/* Generated stub for channel_type_dup */
+struct channel_type *channel_type_dup(const tal_t *ctx UNNEEDED,
+				      const struct channel_type *t UNNEEDED)
+{ fprintf(stderr, "channel_type_dup called!\n"); abort(); }
 /* Generated stub for channel_type_has */
 bool channel_type_has(const struct channel_type *type UNNEEDED, int feature UNNEEDED)
 { fprintf(stderr, "channel_type_has called!\n"); abort(); }
@@ -979,6 +983,9 @@ void subd_send_fd(struct subd *sd UNNEEDED, int fd UNNEEDED)
 /* Generated stub for subd_send_msg */
 void subd_send_msg(struct subd *sd UNNEEDED, const u8 *msg_out UNNEEDED)
 { fprintf(stderr, "subd_send_msg called!\n"); abort(); }
+/* Generated stub for tlv_scb_tlvs_new */
+struct tlv_scb_tlvs *tlv_scb_tlvs_new(const tal_t *ctx UNNEEDED)
+{ fprintf(stderr, "tlv_scb_tlvs_new called!\n"); abort(); }
 /* Generated stub for towire_bigsize */
 void towire_bigsize(u8 **pptr UNNEEDED, const bigsize_t val UNNEEDED)
 { fprintf(stderr, "towire_bigsize called!\n"); abort(); }

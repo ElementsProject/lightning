@@ -2488,15 +2488,35 @@ static void json_add_scb(struct command *cmd,
 			 struct json_stream *response,
 			 struct channel *c)
 {
-	u8 *scb = tal_arr(cmd, u8, 0);
+	u8 *scb_wire = tal_arr(cmd, u8, 0);
+	struct modern_scb_chan *scb;
 
-	/* Update shachain & basepoints in SCB. */
-	c->scb->tlvs->shachain = &c->their_shachain.chain;
-	c->scb->tlvs->basepoints = &c->channel_info.theirbase;
-	towire_modern_scb_chan(&scb, c->scb);
+	/* Don't do scb for unix domain sockets. */
+	if (c->peer->addr.itype != ADDR_INTERNAL_WIREADDR)
+		return;
 
-	json_add_hex_talarr(response, fieldname,
-			    scb);
+	scb = tal(tmpctx, struct modern_scb_chan);
+	scb->id = c->dbid;
+	/* More useful to have last_known_addr, if avail */
+	if (c->peer->last_known_addr)
+		scb->addr = *c->peer->last_known_addr;
+	else
+		scb->addr = c->peer->addr.u.wireaddr.wireaddr;
+	scb->node_id = c->peer->id;
+	scb->funding = c->funding;
+	scb->cid = c->cid;
+	scb->funding_sats = c->funding_sats;
+	scb->type = channel_type_dup(scb, c->type);
+
+	scb->tlvs = tlv_scb_tlvs_new(scb);
+	scb->tlvs->shachain = &c->their_shachain.chain;
+	scb->tlvs->basepoints = &c->channel_info.theirbase;
+	scb->tlvs->opener = &c->opener;
+	scb->tlvs->remote_to_self_delay = &c->channel_info.their_config.to_self_delay;
+
+	towire_modern_scb_chan(&scb_wire, scb);
+
+	json_add_hex_talarr(response, fieldname, scb_wire);
 }
 
 /* This will return a SCB for all the channels currently loaded
@@ -2521,9 +2541,6 @@ static struct command_result *json_staticbackup(struct command *cmd,
 	     peer = peer_node_id_map_next(cmd->ld->peers, &it)) {
 		struct channel *channel;
 		list_for_each(&peer->channels, channel, list){
-			/* cppcheck-suppress uninitvar - false positive on channel */
-			if (!channel->scb)
-				continue;
 			json_add_scb(cmd, NULL, response, channel);
 		}
 	}
