@@ -479,7 +479,6 @@ static void dev_gossip_memleak(struct daemon *daemon, const u8 *msg)
 	memleak_ptr(memtable, msg);
 	/* Now delete daemon and those which it has pointers to. */
 	memleak_scan_obj(memtable, daemon);
-	memleak_scan_htable(memtable, &daemon->peers->raw);
 	dev_seeker_memleak(memtable, daemon->seeker);
 	gossmap_manage_memleak(memtable, daemon->gm);
 
@@ -632,8 +631,7 @@ int main(int argc, char *argv[])
 	daemon = tal(NULL, struct daemon);
 	daemon->developer = developer;
 	daemon->dev_gossip_time = NULL;
-	daemon->peers = tal(daemon, struct peer_node_id_map);
-	peer_node_id_map_init(daemon->peers);
+	daemon->peers = new_htable(daemon, peer_node_id_map);
 	daemon->deferred_txouts = tal_arr(daemon, struct short_channel_id, 0);
 	daemon->current_blockheight = 0; /* i.e. unknown */
 

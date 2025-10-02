@@ -1290,13 +1290,6 @@ static const struct plugin_command commands[] = {
 	},
 };
 
-static void askrene_markmem(struct plugin *plugin, struct htable *memtable)
-{
-	struct askrene *askrene = get_askrene(plugin);
-	layer_memleak_mark(askrene, memtable);
-	reserve_memleak_mark(askrene, memtable);
-}
-
 static const char *init(struct command *init_cmd,
 			const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
@@ -1316,7 +1309,6 @@ static const char *init(struct command *init_cmd,
 		 "{id:%}", JSON_SCAN(json_to_node_id, &askrene->my_id));
 
 	plugin_set_data(plugin, askrene);
-	plugin_set_memleak_handler(plugin, askrene_markmem);
 
 	load_layers(askrene, init_cmd);
 

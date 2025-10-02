@@ -162,14 +162,10 @@ struct layer *new_temp_layer(const tal_t *ctx, struct askrene *askrene, const ch
 	l->askrene = askrene;
 	l->name = tal_strdup(l, name);
 	l->persistent = false;
-	l->local_channels = tal(l, struct local_channel_hash);
-	local_channel_hash_init(l->local_channels);
-	l->local_updates = tal(l, struct local_update_hash);
-	local_update_hash_init(l->local_updates);
-	l->constraints = tal(l, struct constraint_hash);
-	constraint_hash_init(l->constraints);
-	l->biases = tal(l, struct bias_hash);
-	bias_hash_init(l->biases);
+	l->local_channels = new_htable(l, local_channel_hash);
+	l->local_updates = new_htable(l, local_update_hash);
+	l->constraints = new_htable(l, constraint_hash);
+	l->biases = new_htable(l, bias_hash);
 	l->disabled_nodes = tal_arr(l, struct node_id, 0);
 
 	return l;
@@ -1161,15 +1157,4 @@ bool layer_disables_node(const struct layer *layer,
 			return true;
 	}
 	return false;
-}
-
-void layer_memleak_mark(struct askrene *askrene, struct htable *memtable)
-{
-	struct layer *l;
-	list_for_each(&askrene->layers, l, list) {
-		memleak_scan_htable(memtable, &l->constraints->raw);
-		memleak_scan_htable(memtable, &l->local_channels->raw);
-		memleak_scan_htable(memtable, &l->local_updates->raw);
-		memleak_scan_htable(memtable, &l->biases->raw);
-	}
 }
