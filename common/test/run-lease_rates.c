@@ -1,6 +1,7 @@
 #include "config.h"
 #include "../amount.c"
 #include "../lease_rates.c"
+#include <common/randbytes.h>
 #include <common/setup.h>
 #include <stdio.h>
 

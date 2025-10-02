@@ -4,6 +4,7 @@
 #include <common/amount.h>
 #include <common/json_parse.c>
 #include <common/json_parse_simple.c>
+#include <common/randbytes.h>
 #include <common/setup.h>
 
 static const char *reason;
