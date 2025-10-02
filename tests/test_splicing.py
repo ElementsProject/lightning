@@ -556,3 +556,30 @@ def test_route_by_old_scid(node_factory, bitcoind):
     wait_for(lambda: only_one(l1.rpc.listpeers()['peers'])['connected'] is True)
     l1.rpc.sendpay(route, inv2['payment_hash'], payment_secret=inv2['payment_secret'])
     l1.rpc.waitsendpay(inv2['payment_hash'])
+
+
+@pytest.mark.xfail(strict=True)
+def test_splice_unannounced(node_factory, bitcoind):
+    l1, l2 = node_factory.line_graph(2, fundamount=1000000, wait_for_announce=False, opts={'experimental-splicing': None})
+
+    chan_id = l1.get_channel_id(l2)
+
+    # add extra sats to pay fee
+    funds_result = l1.rpc.fundpsbt("109000sat", "slow", 166, excess_as_change=True)
+    result = l1.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert(result['commitments_secured'] is False)
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert(result['commitments_secured'] is True)
+    result = l1.rpc.signpsbt(result['psbt'])
+    result = l1.rpc.splice_signed(chan_id, result['signed_psbt'])
+
+    l2.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+    l1.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+
+    bitcoind.generate_block(1, wait_for_mempool=1)
+
+    l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+    l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+    bitcoind.generate_block(1)
+    sync_blockheight(bitcoind, [l1, l2])
