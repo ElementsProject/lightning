@@ -41,6 +41,7 @@ FUZZ_COMMON_OBJS := \
 	common/features.o				\
 	common/fee_states.o				\
 	common/hash_u5.o				\
+	common/hsm_encryption.o				\
 	common/htlc_state.o				\
 	common/initial_channel.o			\
 	common/initial_commit_tx.o			\
