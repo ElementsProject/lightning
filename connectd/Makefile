@@ -48,6 +48,7 @@ CONNECTD_COMMON_OBJS :=				\
 	common/blinding.o			\
 	common/blindedpath.o			\
 	common/channel_id.o			\
+	common/clock_time.o			\
 	common/cryptomsg.o			\
 	common/daemon.o				\
 	common/daemon_conn.o			\
