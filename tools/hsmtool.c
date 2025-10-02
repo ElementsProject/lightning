@@ -19,6 +19,7 @@
 #include <common/hsm_encryption.h>
 #include <common/key_derive.h>
 #include <common/node_id.h>
+#include <common/randbytes.h>
 #include <common/utils.h>
 #include <common/utxo.h>
 #include <errno.h>
@@ -34,6 +35,11 @@
 #define ERROR_KEYDERIV 5
 #define ERROR_LANG_NOT_SUPPORTED 6
 #define ERROR_TERM 7
+
+void randbytes_(void *bytes, size_t num_bytes, u64 *offset)
+{
+	abort();
+}
 
 static void show_usage(const char *progname)
 {

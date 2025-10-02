@@ -89,9 +89,15 @@ struct bitcoin_tx *htlc_success_tx(const tal_t *ctx UNNEEDED,
 /* Generated stub for master_badmsg */
 void master_badmsg(u32 type_expected UNNEEDED, const u8 *msg)
 { fprintf(stderr, "master_badmsg called!\n"); abort(); }
+/* Generated stub for memleak_add_helper_ */
+void memleak_add_helper_(const tal_t *p UNNEEDED, void (*cb)(struct htable *memtable UNNEEDED,
+						    const tal_t *)){ }
 /* Generated stub for memleak_ptr */
 bool memleak_ptr(struct htable *memtable UNNEEDED, const void *p UNNEEDED)
 { fprintf(stderr, "memleak_ptr called!\n"); abort(); }
+/* Generated stub for memleak_scan_htable */
+void memleak_scan_htable(struct htable *memtable UNNEEDED, const struct htable *ht UNNEEDED)
+{ fprintf(stderr, "memleak_scan_htable called!\n"); abort(); }
 /* Generated stub for memleak_scan_obj */
 void memleak_scan_obj(struct htable *memtable UNNEEDED, const void *obj UNNEEDED)
 { fprintf(stderr, "memleak_scan_obj called!\n"); abort(); }

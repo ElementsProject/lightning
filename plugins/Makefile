@@ -197,6 +197,7 @@ PLUGIN_COMMON_OBJS :=				\
 	common/plugin.o				\
 	common/psbt_open.o			\
 	common/pseudorand.o			\
+	common/randbytes.o			\
 	common/random_select.o			\
 	common/splice_script.o			\
 	common/setup.o				\

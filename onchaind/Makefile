@@ -56,6 +56,7 @@ ONCHAIND_COMMON_OBJS :=				\
 	common/psbt_keypath.o			\
 	common/psbt_open.o			\
 	common/pseudorand.o			\
+	common/randbytes.o			\
 	common/setup.o				\
 	common/status.o				\
 	common/status_wire.o			\

@@ -7,6 +7,7 @@
 #include <common/ecdh.h>
 #include <common/json_parse.h>
 #include <common/json_stream.h>
+#include <common/memleak.h>
 #include <common/onionreply.h>
 #include <common/setup.h>
 #include <stdio.h>
@@ -42,6 +43,15 @@ struct short_channel_id *decode_short_ids(const tal_t *ctx UNNEEDED, const u8 *e
 void fromwire_sciddir_or_pubkey(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 				struct sciddir_or_pubkey *sciddpk UNNEEDED)
 { fprintf(stderr, "fromwire_sciddir_or_pubkey called!\n"); abort(); }
+/* Generated stub for memleak_add_helper_ */
+void memleak_add_helper_(const tal_t *p UNNEEDED, void (*cb)(struct htable *memtable UNNEEDED,
+						    const tal_t *)){ }
+/* Generated stub for memleak_scan_htable */
+void memleak_scan_htable(struct htable *memtable UNNEEDED, const struct htable *ht UNNEEDED)
+{ fprintf(stderr, "memleak_scan_htable called!\n"); abort(); }
+/* Generated stub for notleak_ */
+void *notleak_(void *ptr UNNEEDED, bool plus_children UNNEEDED)
+{ fprintf(stderr, "notleak_ called!\n"); abort(); }
 /* Generated stub for peer_supplied_query_response */
 void peer_supplied_query_response(struct daemon *daemon UNNEEDED,
 				  const struct node_id *source_peer UNNEEDED,

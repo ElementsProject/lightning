@@ -24,6 +24,7 @@ WALLET_TEST_COMMON_OBJS :=			\
 	common/key_derive.o			\
 	common/psbt_keypath.o			\
 	common/pseudorand.o			\
+	common/randbytes.o			\
 	common/setup.o				\
 	common/timeout.o			\
 	common/trace.o				\

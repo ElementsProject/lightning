@@ -8,6 +8,7 @@ CONNECTD_TEST_COMMON_OBJS :=			\
 	common/autodata.o			\
 	common/features.o			\
 	common/pseudorand.o			\
+	common/randbytes.o			\
 	common/setup.o				\
 	common/utils.o
 

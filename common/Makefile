@@ -85,6 +85,7 @@ COMMON_SRC_NOGEN :=				\
 	common/psbt_keypath.c			\
 	common/psbt_open.c			\
 	common/pseudorand.c			\
+	common/randbytes.c			\
 	common/random_select.c			\
 	common/read_peer_msg.c			\
 	common/route.c				\

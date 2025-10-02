@@ -20,6 +20,7 @@ BOOKKEEPER_TEST_COMMON_OBJS :=			\
 	common/memleak.o			\
 	common/node_id.o			\
 	common/pseudorand.o			\
+	common/randbytes.o			\
 	common/setup.o				\
 	common/trace.o				\
 	common/timeout.o			\

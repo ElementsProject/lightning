@@ -25,6 +25,9 @@ void memleak_add_helper_(const tal_t *p UNNEEDED, void (*cb)(struct htable *memt
 /* Generated stub for memleak_scan_htable */
 void memleak_scan_htable(struct htable *memtable UNNEEDED, const struct htable *ht UNNEEDED)
 { fprintf(stderr, "memleak_scan_htable called!\n"); abort(); }
+/* Generated stub for notleak_ */
+void *notleak_(void *ptr UNNEEDED, bool plus_children UNNEEDED)
+{ fprintf(stderr, "notleak_ called!\n"); abort(); }
 /* Generated stub for pubkey_from_node_id */
 bool pubkey_from_node_id(struct pubkey *key UNNEEDED, const struct node_id *id UNNEEDED)
 { fprintf(stderr, "pubkey_from_node_id called!\n"); abort(); }
