@@ -356,7 +356,7 @@ int main(int argc, char *argv[])
 	struct amount_sat fee;
 	struct pubkey htlc_key;
 	struct keyset *keys;
-	struct timeabs start, end;
+	struct timemono start, end;
 	int iterations = 1000;
 	u8 *spk = tal_arr(tmpctx, u8, 1);
 	spk[0] = 0x00;
@@ -388,15 +388,15 @@ int main(int argc, char *argv[])
 	max_possible_feerate = 250000;
 	min_possible_feerate = max_possible_feerate + 1 - iterations;
 
-	start = time_now();
+	start = time_mono();
 	if (!grind_htlc_tx_fee(&fee, tx, &sig, wscript, 663))
 		abort();
-	end = time_now();
+	end = time_mono();
 	assert(amount_sat_eq(fee, AMOUNT_SAT(165750)));
 	printf("%u iterations in %"PRIu64" msec = %"PRIu64" nsec each\n",
 	       iterations,
-	       time_to_msec(time_between(end, start)),
-	       time_to_nsec(time_divide(time_between(end, start), iterations)));
+	       time_to_msec(timemono_between(end, start)),
+	       time_to_nsec(time_divide(timemono_between(end, start), iterations)));
 
 	common_shutdown();
 	return 0;
