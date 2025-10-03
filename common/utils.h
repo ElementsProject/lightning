@@ -54,6 +54,15 @@ char *tal_hex(const tal_t *ctx, const tal_t *data);
 /* Allocate and fill a buffer with the data of this hex string. */
 u8 *tal_hexdata(const tal_t *ctx, const void *str, size_t len);
 
+/**
+ *Lock tal-allocated memory with sodium_mlock and set up automatic unlock destructor.
+ *This is a generic function to replace the pattern of sodium_mlock + tal_add_destructor.
+ *@ptr - the tal-allocated memory to lock
+ *
+ *Aborts on failure (memory locking is mandatory for security).
+ */
+void mlock_tal_memory(const tal_t *ptr);
+
 /* Note: p is never a complex expression, otherwise this multi-evaluates! */
 #define tal_arr_expand(p, s)						\
 	do {								\

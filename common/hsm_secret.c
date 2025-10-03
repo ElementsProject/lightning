@@ -364,11 +364,6 @@ bool encrypt_legacy_hsm_secret(const struct secret *encryption_key,
 	return true;
 }
 
-static void destroy_passphrase(char *passphrase)
-{
-	sodium_munlock(passphrase, tal_bytelen(passphrase));
-}
-
 /* Disable terminal echo if needed */
 static bool disable_echo(struct termios *saved_term)
 {
@@ -431,12 +426,8 @@ const char *read_stdin_pass(const tal_t *ctx, enum hsm_secret_error *err)
 		*err = HSM_SECRET_ERR_INVALID_FORMAT;
 		return NULL;
 	}
-
-	/* Memory locking is mandatory: failure means we're on an insecure system */
-	if (sodium_mlock(input, tal_bytelen(input)) != 0)
-		abort();
-
-	tal_add_destructor(input, destroy_passphrase);
+	
+	mlock_tal_memory(input);
 
 	if (echo_disabled)
 		restore_echo(&saved_term);
