@@ -401,8 +401,8 @@ static char *read_line(const tal_t *ctx)
 
 	/* Strip newline */
 	size_t len = strlen(line);
-	if (len > 0 && line[len - 1] == '\n')
-		line[len - 1] = '\0';
+	if (strends(line, "\n"))
+		len--;
 
 	/* Convert to tal string */
 	char *result = tal_strndup(ctx, line, len);
@@ -426,7 +426,7 @@ const char *read_stdin_pass(const tal_t *ctx, enum hsm_secret_error *err)
 		*err = HSM_SECRET_ERR_INVALID_FORMAT;
 		return NULL;
 	}
-	
+
 	mlock_tal_memory(input);
 
 	if (echo_disabled)
