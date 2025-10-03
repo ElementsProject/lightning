@@ -7,8 +7,11 @@
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>
 #include <common/codex32.h>
+#include <common/hsm_secret.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
+#include <common/setup.h>
+#include <common/utils.h>
 #include <errno.h>
 #include <plugins/libplugin.h>
 
@@ -46,8 +49,9 @@ static struct command_result *json_exposesecret(struct command *cmd,
 	const struct exposesecret *exposesecret = exposesecret_data(cmd->plugin);
 	struct json_stream *js;
 	u8 *contents;
-	const char *id, *passphrase, *err;
-	struct secret hsm_secret;
+	const char *id, *passphrase;
+	enum hsm_secret_error err;
+	struct hsm_secret *hsms;
 	struct privkey node_privkey;
 	struct pubkey node_id;
 	char *bip93;
@@ -71,17 +75,25 @@ static struct command_result *json_exposesecret(struct command *cmd,
 		return command_fail(cmd, LIGHTNINGD, "Could not open hsm_secret: %s", strerror(errno));
 
 	/* grab_file adds a \0 byte at the end for convenience */
-	if (tal_bytelen(contents) == sizeof(hsm_secret) + 1) {
-		memcpy(&hsm_secret, contents, sizeof(hsm_secret));
-	} else {
-		return command_fail(cmd, LIGHTNINGD, "Not a valid hsm_secret file?  Bad length (maybe encrypted?)");
+	if (tal_bytelen(contents) > 0)
+		tal_resize(&contents, tal_bytelen(contents) - 1);
+
+	/* Check if the HSM secret needs a passphrase */
+	if (hsm_secret_needs_passphrase(contents, tal_bytelen(contents))) {
+		return command_fail(cmd, LIGHTNINGD, "Secret with passphrase is not supported");
 	}
+
+	/* Extract the HSM secret without passphrase */
+	hsms = extract_hsm_secret(tmpctx, contents, tal_bytelen(contents), NULL, &err);
+
+	if (!hsms)
+		return command_fail(cmd, LIGHTNINGD, "Could not parse hsm_secret: %s", hsm_secret_error_str(err));
 
 	/* Before we expose it, check it's correct! */
 	hkdf_sha256(&node_privkey, sizeof(node_privkey),
 		    &salt, sizeof(salt),
-		    &hsm_secret,
-		    sizeof(hsm_secret),
+		    hsms->secret_data,
+		    32,
 		    "nodeid", 6);
 
 	/* Should not happen! */
@@ -115,9 +127,9 @@ static struct command_result *json_exposesecret(struct command *cmd,
 	}
 
 	/* This also cannot fail! */
-	err = codex32_secret_encode(tmpctx, "cl", id, 0, hsm_secret.data, 32, &bip93);
-	if (err)
-		return command_fail(cmd, LIGHTNINGD, "Unexpected failure encoding hsm_secret: %s", err);
+	const char *encode_err = codex32_secret_encode(tmpctx, "cl", id, 0, hsms->secret_data, 32, &bip93);
+	if (encode_err)
+		return command_fail(cmd, LIGHTNINGD, "Unexpected failure encoding hsm_secret: %s", encode_err);
 
 	/* If we're just checking, stop */
 	if (command_check_only(cmd))
@@ -126,6 +138,8 @@ static struct command_result *json_exposesecret(struct command *cmd,
 	js = jsonrpc_stream_success(cmd);
 	json_add_string(js, "identifier", id);
 	json_add_string(js, "codex32", bip93);
+	if (hsms->mnemonic)
+		json_add_string(js, "mnemonic", hsms->mnemonic);
 	return command_finished(cmd, js);
 }
 

@@ -120,21 +120,31 @@ bool WARN_UNUSED_RESULT newaddr_inner(struct command *cmd, struct pubkey *pubkey
 	s64 keyidx;
 	u8 *b32script;
 	u8 *p2tr_script;
+	bool use_bip86_base = (cmd->ld->bip86_base != NULL);
 
+	/* Get new index - wallet_get_newindex now handles both BIP32 and BIP86 */
 	keyidx = wallet_get_newindex(cmd->ld, addrtype);
-	if (keyidx < 0) {
-		// return command_fail(cmd, LIGHTNINGD, "Keys exhausted ");
-		return false;
+	if (keyidx < 0) return false;
+
+	/* Choose derivation method based on wallet type */
+	if (use_bip86_base) {
+		/* Wallet has mnemonic - use BIP86 derivation */
+		bip86_pubkey(cmd->ld, pubkey, keyidx);
+	} else {
+		/* Legacy wallet - use BIP32 derivation */
+		bip32_pubkey(cmd->ld, pubkey, keyidx);
 	}
 
-	bip32_pubkey(cmd->ld, pubkey, keyidx);
-
+	/* Generate scripts from pubkey (same logic for both wallet types) */
 	b32script = scriptpubkey_p2wpkh(tmpctx, pubkey);
 	p2tr_script = scriptpubkey_p2tr(tmpctx, pubkey);
+
+	/* Add scripts to filter based on requested address type */
 	if (addrtype & ADDR_BECH32)
 		txfilter_add_scriptpubkey(cmd->ld->owned_txfilter, b32script);
 	if (addrtype & ADDR_P2TR)
 		txfilter_add_scriptpubkey(cmd->ld->owned_txfilter, p2tr_script);
+
 	return true;
 }
 
@@ -158,6 +168,9 @@ static struct command_result *json_newaddr(struct command *cmd,
 		return command_fail(cmd, LIGHTNINGD, "Keys exhausted ");
 	};
 
+	response = json_stream_success(cmd);
+
+	/* Generate addresses based on requested type */
 	bech32 = encode_pubkey_to_addr(cmd, &pubkey, ADDR_BECH32, NULL);
 	p2tr = encode_pubkey_to_addr(cmd, &pubkey, ADDR_P2TR, NULL);
 	if (!bech32 || !p2tr) {
@@ -165,7 +178,6 @@ static struct command_result *json_newaddr(struct command *cmd,
 				    "p2wpkh address encoding failure.");
 	}
 
-	response = json_stream_success(cmd);
 	if (*addrtype & ADDR_BECH32)
 		json_add_string(response, "bech32", bech32);
 	if (*addrtype & ADDR_P2TR)
@@ -182,7 +194,8 @@ AUTODATA(json_command, &newaddr_command);
 static void json_add_address_details(struct json_stream *response,
 				 const u64 keyidx,
 				 const char *out_p2wpkh,
-				 const char *out_p2tr)
+				 const char *out_p2tr,
+				 enum addrtype addrtype)
 {
 	json_object_start(response, NULL);
 	json_add_u64(response, "keyidx", keyidx);
@@ -227,7 +240,14 @@ static struct command_result *json_listaddresses(struct command *cmd,
 		if (listaddrtypes[i].keyidx == BIP32_INITIAL_HARDENED_CHILD){
 			break;
 		}
-		bip32_pubkey(cmd->ld, &pubkey, listaddrtypes[i].keyidx);
+		/* Use appropriate derivation based on wallet type */
+		if (cmd->ld->bip86_base) {
+			/* Mnemonic wallet - use BIP86 derivation */
+			bip86_pubkey(cmd->ld, &pubkey, listaddrtypes[i].keyidx);
+		} else {
+			/* Legacy wallet - use BIP32 derivation */
+			bip32_pubkey(cmd->ld, &pubkey, listaddrtypes[i].keyidx);
+		}
 		char *out_p2wpkh = "";
 		char *out_p2tr = "";
 		if (listaddrtypes[i].addrtype == ADDR_BECH32 || listaddrtypes[i].addrtype == ADDR_ALL) {
@@ -250,7 +270,7 @@ static struct command_result *json_listaddresses(struct command *cmd,
 			}
 		}
 		if (!addr || streq(addr, out_p2wpkh) || streq(addr, out_p2tr)) {
-			json_add_address_details(response, listaddrtypes[i].keyidx, out_p2wpkh, out_p2tr);
+			json_add_address_details(response, listaddrtypes[i].keyidx, out_p2wpkh, out_p2tr, listaddrtypes[i].addrtype);
 			if (addr) {
 				break;
 			}

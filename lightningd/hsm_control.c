@@ -1,11 +1,12 @@
 #include "config.h"
 #include <ccan/err/err.h>
 #include <ccan/fdpass/fdpass.h>
+#include <ccan/tal/str/str.h>
 #include <common/bolt12_id.h>
 #include <common/ecdh.h>
 #include <common/errcode.h>
 #include <common/hsm_capable.h>
-#include <common/hsm_encryption.h>
+#include <common/hsm_secret.h>
 #include <common/hsm_version.h>
 #include <common/json_command.h>
 #include <common/json_param.h>
@@ -100,15 +101,6 @@ struct ext_key *hsm_init(struct lightningd *ld)
 	if (!ld->hsm)
 		err(EXITCODE_HSM_GENERIC_ERROR, "Could not subd hsm");
 
-	/* If hsm_secret is encrypted and the --encrypted-hsm startup option is
-	 * not passed, don't let hsmd use the first 32 bytes of the cypher as the
-	 * actual secret. */
-	if (!ld->config.keypass) {
-		if (is_hsm_secret_encrypted("hsm_secret") == 1)
-			errx(EXITCODE_HSM_ERROR_IS_ENCRYPT, "hsm_secret is encrypted, you need to pass the "
-			     "--encrypted-hsm startup option.");
-	}
-
 	ld->hsm_fd = fds[0];
 
 	if (ld->developer) {
@@ -127,30 +119,48 @@ struct ext_key *hsm_init(struct lightningd *ld)
 		    err(EXITCODE_HSM_GENERIC_ERROR, "Writing preinit msg to hsm");
 	}
 
+	/* Create TLV for passphrase if needed */
+	struct tlv_hsmd_init_tlvs *tlv = NULL;
+	if (ld->hsm_passphrase) {
+		tlv = tlv_hsmd_init_tlvs_new(tmpctx);
+		tlv->hsm_passphrase = tal_strdup(tlv, ld->hsm_passphrase);
+	}
+
 	if (!wire_sync_write(ld->hsm_fd, towire_hsmd_init(tmpctx,
 							  &chainparams->bip32_key_version,
 							  chainparams,
-							  ld->config.keypass,
+							  NULL,
 							  ld->dev_force_privkey,
 							  ld->dev_force_bip32_seed,
 							  ld->dev_force_channel_secrets,
 							  ld->dev_force_channel_secrets_shaseed,
 							  HSM_MIN_VERSION,
-							  HSM_MAX_VERSION)))
+							  HSM_MAX_VERSION,
+							  tlv)))
 		err(EXITCODE_HSM_GENERIC_ERROR, "Writing init msg to hsm");
 
 	bip32_base = tal(ld, struct ext_key);
 	msg = wire_sync_read(tmpctx, ld->hsm_fd);
+
+	/* Check for init reply failure first */
+	u32 error_code;
+	char *error_message;
+	if (fromwire_hsmd_init_reply_failure(tmpctx, msg, &error_code, &error_message)) {
+		/* HSM initialization failed - exit with the specific error code */
+		errx(error_code, "HSM initialization failed: %s", error_message);
+	}
+
+	/* Check for successful init reply */
+	struct tlv_hsmd_init_reply_v4_tlvs *tlvs;
 	if (fromwire_hsmd_init_reply_v4(ld, msg,
 					&hsm_version,
 					&ld->hsm_capabilities,
 					&ld->our_nodeid, bip32_base,
-					&unused)) {
+					&unused, &tlvs)) {
 		/* nothing to do. */
 	} else {
-		if (ld->config.keypass)
-			errx(EXITCODE_HSM_BAD_PASSWORD, "Wrong password for encrypted hsm_secret.");
-		errx(EXITCODE_HSM_GENERIC_ERROR, "HSM did not give init reply");
+		/* Unknown message type */
+		errx(EXITCODE_HSM_GENERIC_ERROR, "HSM sent unknown message type");
 	}
 
 	if (!pubkey_from_node_id(&ld->our_pubkey, &ld->our_nodeid))
@@ -184,6 +194,35 @@ struct ext_key *hsm_init(struct lightningd *ld)
 		fatal("--experimental-splicing needs HSM capable of signing splices!");
 	}
 
+	/* Check if we have a mnemonic-based HSM secret from TLV */
+	bool is_mnemonic_secret = false;
+	if (tlvs && tlvs->hsm_secret_type) {
+		u8 secret_type = *tlvs->hsm_secret_type;
+		is_mnemonic_secret = (secret_type == 2 || secret_type == 3); /* HSM_SECRET_MNEMONIC_NO_PASS or HSM_SECRET_MNEMONIC_WITH_PASS */
+	}
+
+	if (is_mnemonic_secret) {
+		/* Try to get BIP86 base key from HSM (works only for mnemonic secrets) */
+		ld->bip86_base = tal(ld, struct ext_key);
+		msg = towire_hsmd_derive_bip86_key(NULL, 0, false);
+		const u8 *reply = hsm_sync_req(tmpctx, ld, take(msg));
+		if (fromwire_hsmd_derive_bip86_key_reply(reply, ld->bip86_base)) {
+			/* BIP86 derivation succeeded */
+			log_info(ld->log, "Using BIP86 for new addresses, BIP32 for channels (mnemonic HSM secret)");
+			/* Keep bip32_base for channel operations, database, etc. */
+		} else {
+			/* BIP86 derivation failed unexpectedly */
+			ld->bip86_base = tal_free(ld->bip86_base);
+		}} else {
+		/* Legacy HSM secret - don't attempt BIP86 derivation */
+		log_info(ld->log, "Using BIP32 derivation for all operations (legacy HSM secret)");
+		ld->bip86_base = NULL;
+	}
+
+	/* Free the TLV structure to prevent memory leak */
+	if (tlvs)
+		tal_free(tlvs);
+
 	/* This is equivalent to makesecret("bolt12-invoice-base") */
 	msg = towire_hsmd_derive_secret(NULL, tal_dup_arr(tmpctx, u8,
 							  (const u8 *)BOLT12_ID_BASE_STRING,
@@ -212,13 +251,18 @@ struct ext_key *hsm_init(struct lightningd *ld)
 /*~ There was a nasty LND bug report where the user issued an address which it
  * couldn't spend, presumably due to a bitflip.  We check every address using our
  * hsm, to be sure it's valid.  Expensive, but not as expensive as losing BTC! */
+/* Verify a derived public key with the HSM */
+
+/*~ There was a nasty LND bug report where the user issued an address which it
+ * couldn't spend, presumably due to a bitflip.  We check every address using our
+ * hsm, to be sure it's valid.  Expensive, but not as expensive as losing BTC! */
 void bip32_pubkey(struct lightningd *ld, struct pubkey *pubkey, u32 index)
 {
 	const uint32_t flags = BIP32_FLAG_KEY_PUBLIC | BIP32_FLAG_SKIP_HASH;
 	struct ext_key ext;
 
 	if (index >= BIP32_INITIAL_HARDENED_CHILD)
-		fatal("Can't derive keu %u (too large!)", index);
+		fatal("Can't derive key %u (too large!)", index);
 
 	if (bip32_key_from_parent(ld->bip32_base, index, flags, &ext) != WALLY_OK)
 		fatal("Can't derive key %u", index);
@@ -234,8 +278,46 @@ void bip32_pubkey(struct lightningd *ld, struct pubkey *pubkey, u32 index)
 		msg = hsm_sync_req(tmpctx, ld, take(msg));
 		if (!fromwire_hsmd_check_pubkey_reply(msg, &ok))
 			fatal("Invalid check_pubkey_reply from hsm");
+
 		if (!ok)
 			fatal("HSM said key derivation of %u != %s",
+			      index, fmt_pubkey(tmpctx, pubkey));
+	}
+}
+
+/* Derive BIP86 public key from the base key */
+void bip86_pubkey(struct lightningd *ld, struct pubkey *pubkey, u32 index)
+{
+	const uint32_t flags = BIP32_FLAG_KEY_PUBLIC | BIP32_FLAG_SKIP_HASH;
+	struct ext_key ext;
+	u32 path[2];
+
+	if (index >= BIP32_INITIAL_HARDENED_CHILD)
+		fatal("Can't derive key %u (too large!)", index);
+
+	/* BIP86 path: m/86'/0'/0'/0/index */
+	path[0] = 0; /* change (0 for receive) */
+	path[1] = index; /* address_index */
+
+	assert(ld->bip86_base != NULL);
+
+	if (bip32_key_from_parent_path(ld->bip86_base, path, 2, flags, &ext) != WALLY_OK)
+		fatal("Can't derive key %u", index);
+
+	if (!secp256k1_ec_pubkey_parse(secp256k1_ctx, &pubkey->pubkey,
+				       ext.pub_key, sizeof(ext.pub_key)))
+		fatal("Can't parse derived key %u", index);
+
+	/* Don't assume hsmd supports it! */
+	if (hsm_capable(ld, WIRE_HSMD_CHECK_BIP86_PUBKEY)) {
+		bool ok;
+		const u8 *msg = towire_hsmd_check_bip86_pubkey(NULL, index, pubkey);
+		msg = hsm_sync_req(tmpctx, ld, take(msg));
+		if (!fromwire_hsmd_check_bip86_pubkey_reply(msg, &ok))
+			fatal("Invalid check_bip86_pubkey_reply from hsm");
+
+		if (!ok)
+			fatal("HSM said BIP86 key derivation of %u != %s",
 			      index, fmt_pubkey(tmpctx, pubkey));
 	}
 }

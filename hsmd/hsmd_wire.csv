@@ -29,6 +29,9 @@ msgdata,hsmd_init,dev_force_channel_secrets,?secrets,
 msgdata,hsmd_init,dev_force_channel_secrets_shaseed,?sha256,
 msgdata,hsmd_init,hsm_wire_min_version,u32,
 msgdata,hsmd_init,hsm_wire_max_version,u32,
+msgdata,hsmd_init,tlvs,hsmd_init_tlvs,
+tlvtype,hsmd_init_tlvs,hsm_passphrase,1
+tlvdata,hsmd_init_tlvs,hsm_passphrase,passphrase,wirestring,
 
 #include <common/bip32.h>
 # Sorry: I should have put version in v2 :(
@@ -43,6 +46,15 @@ msgdata,hsmd_init_reply_v4,hsm_capabilities,u32,num_hsm_capabilities
 msgdata,hsmd_init_reply_v4,node_id,node_id,
 msgdata,hsmd_init_reply_v4,bip32,ext_key,
 msgdata,hsmd_init_reply_v4,bolt12,pubkey,
+msgdata,hsmd_init_reply_v4,tlvs,hsmd_init_reply_v4_tlvs,
+# TLV to indicate HSM secret type
+tlvtype,hsmd_init_reply_v4_tlvs,hsm_secret_type,1
+tlvdata,hsmd_init_reply_v4_tlvs,hsm_secret_type,hsm_type,u8,
+
+# HSM initialization failure response
+msgtype,hsmd_init_reply_failure,115
+msgdata,hsmd_init_reply_failure,error_code,u32,
+msgdata,hsmd_init_reply_failure,error_message,wirestring,
 
 # Declare a new channel.
 msgtype,hsmd_new_channel,30
@@ -187,6 +199,14 @@ msgdata,hsmd_preapprove_keysend_check,check_only,bool,
 # Result is true if approved, declined if false 
 msgtype,hsmd_preapprove_keysend_check_reply,152
 msgdata,hsmd_preapprove_keysend_check_reply,approved,bool,
+
+# Derive BIP86 key using path m/86'/0'/0'/change/address_index
+msgtype,hsmd_derive_bip86_key,54
+msgdata,hsmd_derive_bip86_key,index,u32,
+msgdata,hsmd_derive_bip86_key,is_change,bool,
+
+msgtype,hsmd_derive_bip86_key_reply,154
+msgdata,hsmd_derive_bip86_key_reply,bip86_base,ext_key,
 
 # Give me ECDH(node-id-secret,point)
 msgtype,hsmd_ecdh_req,1
@@ -437,6 +457,14 @@ msgdata,hsmd_check_pubkey,pubkey,pubkey,
 # Reply
 msgtype,hsmd_check_pubkey_reply,128
 msgdata,hsmd_check_pubkey_reply,ok,bool,
+
+# Sanity check this BIP86 pubkey derivation is correct (unhardened only)
+msgtype,hsmd_check_bip86_pubkey,56
+msgdata,hsmd_check_bip86_pubkey,index,u32,
+msgdata,hsmd_check_bip86_pubkey,pubkey,pubkey,
+
+msgtype,hsmd_check_bip86_pubkey_reply,156
+msgdata,hsmd_check_bip86_pubkey_reply,ok,bool,
 
 msgtype,hsmd_sign_anchorspend,147
 msgdata,hsmd_sign_anchorspend,peerid,node_id,

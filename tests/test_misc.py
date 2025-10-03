@@ -561,12 +561,12 @@ def test_htlc_in_timeout(node_factory, bitcoind, executor):
 
 
 @unittest.skipIf(TEST_NETWORK == 'liquid-regtest', 'must be on bitcoin network')
-def test_bech32_funding(node_factory, chainparams):
+def test_p2tr_funding(node_factory, chainparams):
     # Don't get any funds from previous runs.
     l1, l2 = node_factory.line_graph(2, opts={'random_hsm': True}, fundchannel=False)
 
-    # fund a bech32 address and then open a channel with it
-    res = l1.openchannel(l2, 25000, 'bech32')
+    # fund a p2tr address and then open a channel with it
+    res = l1.openchannel(l2, 25000, 'p2tr')
     address = res['address']
     assert address.startswith(chainparams['bip173_prefix'])
 
@@ -576,11 +576,11 @@ def test_bech32_funding(node_factory, chainparams):
     wallettx = l1.bitcoin.rpc.getrawtransaction(wallettxid, True)
     fundingtx = l1.bitcoin.rpc.decoderawtransaction(res['fundingtx'])
 
-    def is_p2wpkh(output):
-        return output['type'] == 'witness_v0_keyhash' and \
+    def is_p2tr(output):
+        return output['type'] == 'witness_v1_taproot' and \
             address == scriptpubkey_addr(output)
 
-    assert any(is_p2wpkh(output['scriptPubKey']) for output in wallettx['vout'])
+    assert any(is_p2tr(output['scriptPubKey']) for output in wallettx['vout'])
     assert only_one(fundingtx['vin'])['txid'] == res['wallettxid']
 
 
@@ -601,7 +601,7 @@ def test_withdraw_misc(node_factory, bitcoind, chainparams):
                                options={'plugin': coin_mvt_plugin},
                                feerates=(7500, 7500, 7500, 7500))
     l2 = node_factory.get_node(random_hsm=True)
-    addr = l1.rpc.newaddr()['bech32']
+    addr = l1.rpc.newaddr('p2tr')['p2tr']
 
     # Add some funds to withdraw later
     for i in range(10):
@@ -643,7 +643,7 @@ def test_withdraw_misc(node_factory, bitcoind, chainparams):
     dont_spend_outputs(l1, out['txid'])
 
     # Now send some money to l2.
-    waddr = l2.rpc.newaddr('bech32')['bech32']
+    waddr = l2.rpc.newaddr('p2tr')['p2tr']
     out = l1.rpc.withdraw(waddr, amount)
     bitcoind.generate_block(1)
 
@@ -731,7 +731,7 @@ def test_withdraw_misc(node_factory, bitcoind, chainparams):
     l1.rpc.unreserveinputs(bitcoind.rpc.createpsbt(inputs, []))
 
     # Test withdrawal to self.
-    l1.rpc.withdraw(l1.rpc.newaddr('bech32')['bech32'], 'all', minconf=0)
+    l1.rpc.withdraw(l1.rpc.newaddr('p2tr')['p2tr'], 'all', minconf=0)
     bitcoind.generate_block(1)
     assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=0')[0]['c'] == 1
 
@@ -746,12 +746,13 @@ def test_withdraw_misc(node_factory, bitcoind, chainparams):
     sync_blockheight(bitcoind, [l1])
     assert account_balance(l1, 'wallet') == 0
 
+    # randomHsm now uses p2tr addresses and have a different transaction weight than non-p2tr addresses
     external_moves = [
         {'type': 'chain_mvt', 'credit_msat': 2000000000, 'debit_msat': 0, 'tags': ['deposit']},
         {'type': 'chain_mvt', 'credit_msat': 2000000000, 'debit_msat': 0, 'tags': ['deposit']},
         {'type': 'chain_mvt', 'credit_msat': 2000000000, 'debit_msat': 0, 'tags': ['deposit']},
         {'type': 'chain_mvt', 'credit_msat': 2000000000, 'debit_msat': 0, 'tags': ['deposit']},
-        {'type': 'chain_mvt', 'credit_msat': 11957393000, 'debit_msat': 0, 'tags': ['deposit']},
+        {'type': 'chain_mvt', 'credit_msat': 11960055000, 'debit_msat': 0, 'tags': ['deposit']},
     ]
 
     check_coin_moves(l1, 'external', external_moves, chainparams)
@@ -1338,7 +1339,7 @@ def test_blockchaintrack(node_factory, bitcoind):
     """Check that we track the blockchain correctly across reorgs
     """
     l1 = node_factory.get_node(random_hsm=True)
-    addr = l1.rpc.newaddr(addresstype='all')['bech32']
+    addr = l1.rpc.newaddr(addresstype='all')['p2tr']
 
     ######################################################################
     # First failure scenario: rollback on startup doesn't work,
@@ -1492,7 +1493,7 @@ def test_decode(node_factory, bitcoind):
     """Test the decode option to decode the contents of emergency recovery.
     """
     l1 = node_factory.get_node()
-    cmd_line = ["tools/hsmtool", "getemergencyrecover", os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "emergency.recover")]
+    cmd_line = ["tools/hsmtool", "printemergencyrecover", os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "emergency.recover")]
     out = subprocess.check_output(cmd_line).decode('utf-8')
     bech32_out = out.strip('\n')
     assert bech32_out.startswith('clnemerg1')
@@ -1515,7 +1516,7 @@ def test_recover(node_factory, bitcoind):
     os.unlink(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret"))
     l1.daemon.start()
 
-    cmd_line = ["tools/hsmtool", "getcodexsecret", os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")]
+    cmd_line = ["tools/hsmtool", "printcodexsecret", os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")]
     out = subprocess.check_output(cmd_line + ["leet", "0"]).decode('utf-8')
     assert out == "cl10leetsllhdmn9m42vcsamx24zrxgs3qrl7ahwvhw4fnzrhve25gvezzyqqjdsjnzedu43ns\n"
 
@@ -4556,7 +4557,7 @@ def test_recover_command(node_factory, bitcoind):
     def get_hsm_secret(n):
         """Returns codex32 and hex"""
         hsmfile = os.path.join(n.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
-        codex32 = subprocess.check_output(["tools/hsmtool", "getcodexsecret", hsmfile, "leet"]).decode('utf-8').strip()
+        codex32 = subprocess.check_output(["tools/hsmtool", "printcodexsecret", hsmfile, "leet"]).decode('utf-8').strip()
         with open(hsmfile, "rb") as f:
             hexhsm = f.read().hex()
         return codex32, hexhsm

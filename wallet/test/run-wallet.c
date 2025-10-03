@@ -329,6 +329,9 @@ bool fromwire_dualopend_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNN
 /* Generated stub for fromwire_gossipd_addgossip_reply */
 bool fromwire_gossipd_addgossip_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, wirestring **err UNNEEDED)
 { fprintf(stderr, "fromwire_gossipd_addgossip_reply called!\n"); abort(); }
+/* Generated stub for fromwire_hsmd_check_bip86_pubkey_reply */
+bool fromwire_hsmd_check_bip86_pubkey_reply(const void *p UNNEEDED, bool *ok UNNEEDED)
+{ fprintf(stderr, "fromwire_hsmd_check_bip86_pubkey_reply called!\n"); abort(); }
 /* Generated stub for fromwire_hsmd_check_pubkey_reply */
 bool fromwire_hsmd_check_pubkey_reply(const void *p UNNEEDED, bool *ok UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_check_pubkey_reply called!\n"); abort(); }
@@ -347,8 +350,11 @@ bool fromwire_hsmd_forget_channel_reply(const void *p UNNEEDED)
 /* Generated stub for fromwire_hsmd_get_output_scriptpubkey_reply */
 bool fromwire_hsmd_get_output_scriptpubkey_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **script UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_get_output_scriptpubkey_reply called!\n"); abort(); }
+/* Generated stub for fromwire_hsmd_init_reply_failure */
+bool fromwire_hsmd_init_reply_failure(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u32 *error_code UNNEEDED, wirestring **error_message UNNEEDED)
+{ fprintf(stderr, "fromwire_hsmd_init_reply_failure called!\n"); abort(); }
 /* Generated stub for fromwire_hsmd_init_reply_v4 */
-bool fromwire_hsmd_init_reply_v4(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u32 *hsm_version UNNEEDED, u32 **hsm_capabilities UNNEEDED, struct node_id *node_id UNNEEDED, struct ext_key *bip32 UNNEEDED, struct pubkey *bolt12 UNNEEDED)
+bool fromwire_hsmd_init_reply_v4(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u32 *hsm_version UNNEEDED, u32 **hsm_capabilities UNNEEDED, struct node_id *node_id UNNEEDED, struct ext_key *bip32 UNNEEDED, struct pubkey *bolt12 UNNEEDED, struct tlv_hsmd_init_reply_v4_tlvs **tlvs UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_init_reply_v4 called!\n"); abort(); }
 /* Generated stub for fromwire_hsmd_new_channel_reply */
 bool fromwire_hsmd_new_channel_reply(const void *p UNNEEDED)
@@ -436,9 +442,6 @@ bool invoices_resolve(struct invoices *invoices UNNEEDED,
 		      const struct json_escape *label UNNEEDED,
 		      const struct bitcoin_outpoint *outpoint UNNEEDED)
 { fprintf(stderr, "invoices_resolve called!\n"); abort(); }
-/* Generated stub for is_hsm_secret_encrypted */
-int is_hsm_secret_encrypted(const char *path UNNEEDED)
-{ fprintf(stderr, "is_hsm_secret_encrypted called!\n"); abort(); }
 /* Generated stub for json_add_address */
 void json_add_address(struct json_stream *response UNNEEDED, const char *fieldname UNNEEDED,
 		      const struct wireaddr *addr UNNEEDED)
@@ -1089,6 +1092,9 @@ void tell_connectd_peer_importance(struct peer *peer UNNEEDED,
 /* Generated stub for tlv_hsmd_dev_preinit_tlvs_new */
 struct tlv_hsmd_dev_preinit_tlvs *tlv_hsmd_dev_preinit_tlvs_new(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "tlv_hsmd_dev_preinit_tlvs_new called!\n"); abort(); }
+/* Generated stub for tlv_hsmd_init_tlvs_new */
+struct tlv_hsmd_init_tlvs *tlv_hsmd_init_tlvs_new(const tal_t *ctx UNNEEDED)
+{ fprintf(stderr, "tlv_hsmd_init_tlvs_new called!\n"); abort(); }
 /* Generated stub for to_canonical_invstr */
 const char *to_canonical_invstr(const tal_t *ctx UNNEEDED, const char *invstring UNNEEDED)
 { fprintf(stderr, "to_canonical_invstr called!\n"); abort(); }
@@ -1167,6 +1173,9 @@ u8 *towire_final_incorrect_htlc_amount(const tal_t *ctx UNNEEDED, struct amount_
 /* Generated stub for towire_gossipd_addgossip */
 u8 *towire_gossipd_addgossip(const tal_t *ctx UNNEEDED, const u8 *msg UNNEEDED, struct amount_sat *known_channel UNNEEDED)
 { fprintf(stderr, "towire_gossipd_addgossip called!\n"); abort(); }
+/* Generated stub for towire_hsmd_check_bip86_pubkey */
+u8 *towire_hsmd_check_bip86_pubkey(const tal_t *ctx UNNEEDED, u32 index UNNEEDED, const struct pubkey *pubkey UNNEEDED)
+{ fprintf(stderr, "towire_hsmd_check_bip86_pubkey called!\n"); abort(); }
 /* Generated stub for towire_hsmd_check_pubkey */
 u8 *towire_hsmd_check_pubkey(const tal_t *ctx UNNEEDED, u32 index UNNEEDED, const struct pubkey *pubkey UNNEEDED)
 { fprintf(stderr, "towire_hsmd_check_pubkey called!\n"); abort(); }
@@ -1189,7 +1198,7 @@ u8 *towire_hsmd_forget_channel(const tal_t *ctx UNNEEDED, const struct node_id *
 u8 *towire_hsmd_get_output_scriptpubkey(const tal_t *ctx UNNEEDED, u64 channel_id UNNEEDED, const struct node_id *peer_id UNNEEDED, const struct pubkey *commitment_point UNNEEDED)
 { fprintf(stderr, "towire_hsmd_get_output_scriptpubkey called!\n"); abort(); }
 /* Generated stub for towire_hsmd_init */
-u8 *towire_hsmd_init(const tal_t *ctx UNNEEDED, const struct bip32_key_version *bip32_key_version UNNEEDED, const struct chainparams *chainparams UNNEEDED, const struct secret *hsm_encryption_key UNNEEDED, const struct privkey *dev_force_privkey UNNEEDED, const struct secret *dev_force_bip32_seed UNNEEDED, const struct secrets *dev_force_channel_secrets UNNEEDED, const struct sha256 *dev_force_channel_secrets_shaseed UNNEEDED, u32 hsm_wire_min_version UNNEEDED, u32 hsm_wire_max_version UNNEEDED)
+u8 *towire_hsmd_init(const tal_t *ctx UNNEEDED, const struct bip32_key_version *bip32_key_version UNNEEDED, const struct chainparams *chainparams UNNEEDED, const struct secret *hsm_encryption_key UNNEEDED, const struct privkey *dev_force_privkey UNNEEDED, const struct secret *dev_force_bip32_seed UNNEEDED, const struct secrets *dev_force_channel_secrets UNNEEDED, const struct sha256 *dev_force_channel_secrets_shaseed UNNEEDED, u32 hsm_wire_min_version UNNEEDED, u32 hsm_wire_max_version UNNEEDED, const struct tlv_hsmd_init_tlvs *tlvs UNNEEDED)
 { fprintf(stderr, "towire_hsmd_init called!\n"); abort(); }
 /* Generated stub for towire_hsmd_new_channel */
 u8 *towire_hsmd_new_channel(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, u64 dbid UNNEEDED)
@@ -1301,6 +1310,15 @@ struct onionreply *wrap_onionreply(const tal_t *ctx UNNEEDED,
 u8 *towire_hsmd_get_channel_basepoints(const tal_t *ctx UNNEEDED, const struct node_id *peerid UNNEEDED, u64 dbid UNNEEDED)
 {
 	return NULL;
+}
+
+u8 *towire_hsmd_derive_bip86_key(const tal_t *ctx UNNEEDED, u32 index UNNEEDED, bool is_change UNNEEDED)
+{
+	return NULL;
+}
+bool fromwire_hsmd_derive_bip86_key_reply(const void *p UNNEEDED, struct ext_key *bip86_base UNNEEDED)
+{
+	return true;
 }
 bool wire_sync_write(int fd UNNEEDED, const void *msg TAKES UNNEEDED)
 {

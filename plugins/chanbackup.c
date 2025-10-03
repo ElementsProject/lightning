@@ -9,7 +9,6 @@
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
 #include <common/features.h>
-#include <common/hsm_encryption.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
