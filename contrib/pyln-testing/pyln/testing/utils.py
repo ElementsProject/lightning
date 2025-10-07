@@ -935,6 +935,7 @@ class LightningNode(object):
                  executable=None,
                  bad_notifications=False,
                  old_hsmsecret=None,
+                 no_entropy=False,
                  **kwargs):
         self.bitcoin = bitcoind
         self.executor = executor
@@ -946,6 +947,7 @@ class LightningNode(object):
         self.allow_warning = allow_warning
         self.db = db
         self.lightning_dir = Path(lightning_dir)
+        self.no_entropy = no_entropy
 
         # Assume successful exit
         self.rc = 0
@@ -1000,6 +1002,8 @@ class LightningNode(object):
         # Avoid test flakes cause by this option unless explicitly set.
         if self.cln_version >= "v24.11":
             self.daemon.opts.update({"autoconnect-seeker-peers": 0})
+        if no_entropy:
+            self.daemon.env["CLN_DEV_ENTROPY_SEED"] = str(node_id)
 
         jsondir = Path(lightning_dir) / "plugin-io"
         jsondir.mkdir()
@@ -1780,6 +1784,7 @@ class NodeFactory(object):
             'start',
             'gossip_store_file',
             'old_hsmsecret',
+            'no_entropy',
         ]
         node_opts = {k: v for k, v in opts.items() if k in node_opt_keys}
         cli_opts = {k: v for k, v in opts.items() if k not in node_opt_keys}
