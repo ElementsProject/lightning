@@ -215,7 +215,7 @@
       "response": {
         "channels_apy": [
           {
-            "account": "channelid0120000120000120000120000120000120000120000120000120000",
+            "account": "252d1b0a1e57895e84137f28cf19ab2c35847e284c112fefdecc7afeaa5c1de7",
             "routed_out_msat": 1000000,
             "routed_in_msat": 510091208,
             "lease_fee_paid_msat": 0,
@@ -235,7 +235,7 @@
             "apy_total": "0.0160%"
           },
           {
-            "account": "channelid0230000230000230000230000230000230000230000230000230000",
+            "account": "a397dd9b3e44afcb67f3f3ce1d649b74a8ade63e35505985e4cc1828634f69a2",
             "routed_out_msat": 510190102,
             "routed_in_msat": 0,
             "lease_fee_paid_msat": 0,
@@ -256,7 +256,7 @@
             "apy_total_initial": "0.0161%"
           },
           {
-            "account": "channelid0250000250000250000250000250000250000250000250000250000",
+            "account": "f8fc83a432cbfb2fffe222cc06727fdd977b5dd10ebd6707158e799e6f522d9f",
             "routed_out_msat": 500000000,
             "routed_in_msat": 0,
             "lease_fee_paid_msat": 0,

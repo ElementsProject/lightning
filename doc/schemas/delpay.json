@@ -213,7 +213,7 @@
         "id": "example:delpay#1",
         "method": "delpay",
         "params": {
-          "payment_hash": "paymenthashdelpay10101010101010101010101010101010101010101010101",
+          "payment_hash": "342cbb1cb564e8f32eb64fe8c254abf5ec5f6b87a0f8de7909caf8e658f3bd2a",
           "status": "complete"
         }
       },
@@ -222,17 +222,17 @@
           {
             "created_index": 1,
             "id": 1,
-            "payment_hash": "paymenthashdelpay10101010101010101010101010101010101010101010101",
+            "payment_hash": "342cbb1cb564e8f32eb64fe8c254abf5ec5f6b87a0f8de7909caf8e658f3bd2a",
             "groupid": 1,
             "updated_index": 1,
-            "destination": "nodeid020202020202020202020202020202020202020202020202020202020202",
+            "destination": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
             "amount_msat": 500000000,
             "amount_sent_msat": 500000000,
             "created_at": 1738000000,
-            "completed_at": 1738500000,
+            "completed_at": 1738000000,
             "status": "complete",
-            "payment_preimage": "paymentpreimgdp1010101010101010101010101010101010101010101010101",
-            "bolt11": "lnbcrt222n1pnt3005720bolt114000101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101"
+            "payment_preimage": "08377744ca985c1808377744ca985c1808377744ca985c1808377744ca985c18",
+            "bolt11": "lnbcrt5m1pne035qsp5y09we8jhy4ug66c945kzkqyqzrhhqsap22q07wnawlgntwa5ca2spp5xsktk894vn50xt4kfl5vy49t7hk976u85rudu7gfetuwvk8nh54qdpcv3jhxcmjd9c8g6t0dcs8xetwvss8xmmdv5s8xct5wvsxcvfqw3hjqmpjxqyjw5qcqp9rzjqdwjkyvjm7apxnssu4qgwhfkd67ghs6n6k48v6uqczgt88p6tky96qqqwqqqqqgqqqqqqqqpqqqqqzsqqc9qxpqysgqvsru69ylhpkda6980sl996q2fmld2zszepv79zf747la6zzt8mf8p0qw80w6j8d5evc72fls4d99sza23nnm6pahjqrs8kv3apdttjcq2mm2xw"
           }
         ]
       }
@@ -242,7 +242,7 @@
         "id": "example:delpay#2",
         "method": "delpay",
         "params": [
-          "paymenthashdelpay20202020202020202020202020202020202020202020202",
+          "287476fe90c160d09bf95156469dc3cfc82e366c4676c9b774f26051bd465a96",
           "failed"
         ]
       },
@@ -251,16 +251,16 @@
           {
             "created_index": 23,
             "id": 23,
-            "payment_hash": "paymenthashdelinv10101010101010101010101010101010101010101010101",
+            "payment_hash": "287476fe90c160d09bf95156469dc3cfc82e366c4676c9b774f26051bd465a96",
             "groupid": 1,
             "updated_index": 22,
-            "destination": "nodeid030303030303030303030303030303030303030303030303030303030303",
+            "destination": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
             "amount_msat": 50000000,
             "amount_sent_msat": 50000501,
             "created_at": 1738000000,
-            "completed_at": 1738500000,
+            "completed_at": 1738000000,
             "status": "failed",
-            "bolt11": "lnbcrt222n1pnt3005720bolt113000101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101"
+            "bolt11": "lnbcrt500u1pne035qsp5m5fegjlm0t8c5hfk8mkr73sz64956chjunxgjar5can3jgdc0ptqpp59p68dl5sc9sdpxle29tyd8wrelyzudnvgemvndm57fs9r02xt2tqdqcdsenvgryv4ekxunfwp6xjmmwxqyjw5qcqp9rzjqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4jqqq0sqqqqgqqyqqqqqpqqqqqzsqqc9qxpqysgqx5puexlrq20ducnx5wky8y0vkmu798rxa4cg704ty55hwks60yjnyfc94kdwtanrk45sydh3zp992mpg0xfuk65kl8knaqkjfpv8hvcpfa27ne"
           }
         ]
       }
@@ -270,7 +270,7 @@
         "id": "example:delpay#3",
         "method": "delpay",
         "params": {
-          "payment_hash": "paymenthashdelpay30303030303030303030303030303030303030303030303",
+          "payment_hash": "2b924194d169a96d9cc35b66ae912507e18ace9ef679fcb5324636ff73be410a",
           "status": "failed",
           "groupid": 1,
           "partid": 2
@@ -281,15 +281,15 @@
           {
             "created_index": 20,
             "id": 20,
-            "payment_hash": "paymenthashdelpay30303030303030303030303030303030303030303030303",
+            "payment_hash": "2b924194d169a96d9cc35b66ae912507e18ace9ef679fcb5324636ff73be410a",
             "groupid": 1,
             "updated_index": 19,
             "partid": 2,
-            "destination": "nodeid040404040404040404040404040404040404040404040404040404040404",
+            "destination": "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199",
             "amount_msat": 1000000,
             "amount_sent_msat": 1000000,
             "created_at": 1738000000,
-            "completed_at": 1738500000,
+            "completed_at": 1738000000,
             "status": "failed"
           }
         ]

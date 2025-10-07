@@ -330,17 +330,17 @@
         "id": "example:listpeers#1",
         "method": "listpeers",
         "params": {
-          "id": "nodeid030303030303030303030303030303030303030303030303030303030303"
+          "id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d"
         }
       },
       "response": {
         "peers": [
           {
-            "id": "nodeid030303030303030303030303030303030303030303030303030303030303",
+            "id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
             "connected": true,
             "num_channels": 1,
             "netaddr": [
-              "127.0.0.1:19736"
+              "127.0.0.1:30005"
             ],
             "features": "0898882a8a59a1"
           }
@@ -356,25 +356,25 @@
       "response": {
         "peers": [
           {
-            "id": "nodeid010101010101010101010101010101010101010101010101010101010101",
+            "id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
             "connected": true,
             "num_channels": 1,
             "netaddr": [
-              "127.0.0.1:19734"
+              "127.0.0.1:30005"
             ],
             "features": "0898882a8a59a1"
           },
           {
-            "id": "nodeid030303030303030303030303030303030303030303030303030303030303",
+            "id": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
             "connected": true,
             "num_channels": 1,
             "netaddr": [
-              "127.0.0.1:19736"
+              "127.0.0.1:54321"
             ],
             "features": "0898882a8a59a1"
           },
           {
-            "id": "nodeid040404040404040404040404040404040404040404040404040404040404",
+            "id": "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199",
             "connected": false,
             "num_channels": 1,
             "features": "0898882a8a59a1"

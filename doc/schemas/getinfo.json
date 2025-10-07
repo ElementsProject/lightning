@@ -395,8 +395,8 @@
         "params": {}
       },
       "response": {
-        "id": "nodeid020202020202020202020202020202020202020202020202020202020202",
-        "alias": "SILENTARTIST",
+        "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+        "alias": "SILENTARTIST-v25.12",
         "color": "022d22",
         "num_peers": 0,
         "num_pending_channels": 0,
@@ -407,14 +407,14 @@
           {
             "type": "ipv4",
             "address": "127.0.0.1",
-            "port": 19735
+            "port": 30003
           }
         ],
-        "version": "v25.05",
-        "blockheight": 110,
+        "version": "v25.12",
+        "blockheight": 108,
         "network": "regtest",
         "fees_collected_msat": 0,
-        "lightning-dir": "/tmp/.lightning/regtest",
+        "lightning-dir": "/home/rusty/.lightning/regtest",
         "our_features": {
           "init": "0898882a8a59a1",
           "node": "8898882a8a59a1",

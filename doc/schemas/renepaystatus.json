@@ -142,21 +142,21 @@
         "id": "example:renepaystatus#1",
         "method": "renepaystatus",
         "params": {
-          "invstring": "lnbcrt100n1pnt2bolt11invl020100000000bolt11invl020100000000bolt11invl020100000000bolt11invl020100000000bolt11invl020100000000bolt11invl020100000000bolt11invl020100000000bolt11invl020100000000bolt11invl020100000000bolt11invl020100000000"
+          "invstring": "lnbcrt1pne035qsp5j7czxfpnquxg9vcw9crqh87raxz0glv8n6gx88jwdsp28pmfk68qpp5uz6ktrhcug72ke2xaf0h099gcasysw4lxcfmxn6qrh6p9z2y47hqdqcdserzgryv4ekxunfwp6xjmmwxqyjw5qcqp9rzjqdwjkyvjm7apxnssu4qgwhfkd67ghs6n6k48v6uqczgt88p6tky96qqqwqqqqqgqqqqqqqqpqqqqqzsqqc9qxpqysgqn7ge40jwkslz0j0vhfzy743lathy2sqy2dfyyahalxszs979d9s5v89ten2zcrna3xlxhkerk7p9k7a6u5fdddx5dzzas4ye2yp6desq3zwkg2"
         }
       },
       "response": {
         "paystatus": [
           {
-            "bolt11": "lnbcrt100n1pnt2bolt11invl020100000000bolt11invl020100000000bolt11invl020100000000bolt11invl020100000000bolt11invl020100000000bolt11invl020100000000bolt11invl020100000000bolt11invl020100000000bolt11invl020100000000bolt11invl020100000000",
+            "bolt11": "lnbcrt1pne035qsp5j7czxfpnquxg9vcw9crqh87raxz0glv8n6gx88jwdsp28pmfk68qpp5uz6ktrhcug72ke2xaf0h099gcasysw4lxcfmxn6qrh6p9z2y47hqdqcdserzgryv4ekxunfwp6xjmmwxqyjw5qcqp9rzjqdwjkyvjm7apxnssu4qgwhfkd67ghs6n6k48v6uqczgt88p6tky96qqqwqqqqqgqqqqqqqqpqqqqqzsqqc9qxpqysgqn7ge40jwkslz0j0vhfzy743lathy2sqy2dfyyahalxszs979d9s5v89ten2zcrna3xlxhkerk7p9k7a6u5fdddx5dzzas4ye2yp6desq3zwkg2",
             "amount_msat": 400000,
-            "payment_hash": "paymenthashinvl0210021002100210021002100210021002100210021002100",
-            "destination": "nodeid020202020202020202020202020202020202020202020202020202020202",
-            "created_at": 1738000000,
+            "payment_hash": "e0b5658ef8e23cab6546ea5f7794a8c760483abf3613b34f401df4128944afae",
+            "destination": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+            "created_at": 1738000000.0,
             "groupid": 1,
             "parts": 2,
             "status": "complete",
-            "payment_preimage": "paymentpreimager010101010101010101010101010101010101010101010101",
+            "payment_preimage": "08377744ca985c1908377744ca985c1908377744ca985c1908377744ca985c19",
             "amount_sent_msat": 400000
           }
         ]

@@ -90,7 +90,7 @@
         "id": "example:commando#1",
         "method": "commando",
         "params": {
-          "peer_id": "nodeid020202020202020202020202020202020202020202020202020202020202",
+          "peer_id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
           "rune": "zFMd1fjhrAYxUeFA54TjloZqOt8JrA_i_nYwIgXkag49MA==",
           "method": "newaddr",
           "params": {
@@ -99,7 +99,7 @@
         }
       },
       "response": {
-        "p2tr": "bcrt1p338x07070707070707070707070707070707070707070707070707070707"
+        "p2tr": "bcrt1pccrx7fmmdg6ssww0su65umpyzrt0w8fs39hc0tu04zm88etleqsq8t2an5"
       }
     },
     {
@@ -107,22 +107,22 @@
         "id": "example:commando#2",
         "method": "commando",
         "params": {
-          "peer_id": "nodeid020202020202020202020202020202020202020202020202020202020202",
+          "peer_id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
           "rune": "RXgu0DD_i0wSPEZkIDyZIWL0bSAGdhvJ_GHOQdTg04A9MSZpZF4wMjY2ZTQ1OThkMWQzYzQxNWY1NyZtZXRob2Q9bGlzdHBlZXJz",
           "method": "listpeers",
           "params": [
-            "nodeid030303030303030303030303030303030303030303030303030303030303"
+            "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d"
           ]
         }
       },
       "response": {
         "peers": [
           {
-            "id": "nodeid030303030303030303030303030303030303030303030303030303030303",
+            "id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
             "connected": true,
             "num_channels": 2,
             "netaddr": [
-              "127.0.0.1:19736"
+              "127.0.0.1:30005"
             ],
             "features": "0898882a8a59a1"
           }
@@ -134,23 +134,23 @@
         "id": "example:commando#3",
         "method": "commando",
         "params": {
-          "peer_id": "nodeid020202020202020202020202020202020202020202020202020202020202",
+          "peer_id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
           "rune": "QUJEYMLGgiaJvMDv_MhR2hiMKIBTbq-PrL-KxcIlirQ9MiZtZXRob2Q9cGF5JnBuYW1lYW1vdW50bXNhdDwxMDAwMA==",
           "method": "pay",
           "params": {
-            "bolt11": "lnbcrt100n1pnt2bolt11invl020300000000bolt11invl020300000000bolt11invl020300000000bolt11invl020300000000bolt11invl020300000000bolt11invl020300000000bolt11invl020300000000bolt11invl020300000000bolt11invl020300000000bolt11invl020300000000",
+            "bolt11": "lnbcrt1pne035qsp5hu0s83c7qg77lgtagcr58sf07fvrqf27j67s2ptguw9wk8ruexfqpp50ge88lv20ge4a9ny7xc7rg8p6vqvnuuzwllkk2zng6txu7sfz3cqdqcdserxgryv4ekxunfwp6xjmmwxqyjw5qcqp99qxpqysgqrwjd83fygx3zcnupx0ftnpewajss6n4vpsugju00w8hu5lu0neujqhgw8jygwmawz8jq8pp2xu6r78f3m9yld6ky7539x5g5ahvtmqqqmgfjaa",
             "amount_msat": 9900
           }
         }
       },
       "response": {
-        "destination": "nodeid020202020202020202020202020202020202020202020202020202020202",
-        "payment_hash": "paymenthashcmdpycp10cp10cp10cp10cp10cp10cp10cp10cp10cp10cp10cp10",
-        "created_at": 1738000000,
+        "destination": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+        "payment_hash": "7a3273fd8a7a335e9664f1b1e1a0e1d300c9f38277ff6b285346966e7a091470",
+        "created_at": 1738000000.0,
         "parts": 1,
         "amount_msat": 9900,
         "amount_sent_msat": 9900,
-        "payment_preimage": "paymentpreimagec010101010101010101010101010101010101010101010101",
+        "payment_preimage": "08377744ca985c1f08377744ca985c1f08377744ca985c1f08377744ca985c1f",
         "status": "complete"
       }
     }
