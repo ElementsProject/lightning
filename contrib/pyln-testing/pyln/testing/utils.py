@@ -483,11 +483,10 @@ class BitcoinD(TailableProc):
     def __init__(self, bitcoin_dir="/tmp/bitcoind-test", rpcport=None):
         TailableProc.__init__(self, bitcoin_dir, verbose=False)
 
-        if rpcport is None:
-            rpcport = reserve_unused_port()
-
         self.bitcoin_dir = bitcoin_dir
         self.rpcport = rpcport
+        self.reserved_rpcport = None
+        self.port_setup = False
         self.prefix = 'bitcoind'
         self.canned_blocks = None
 
@@ -511,15 +510,14 @@ class BitcoinD(TailableProc):
             '-debug=validation',
             '-rpcthreads=20',
         ]
-        # For up to and including 0.16.1, this needs to be in main section.
-        BITCOIND_CONFIG['rpcport'] = rpcport
-        # For after 0.16.1 (eg. 3f398d7a17f136cd4a67998406ca41a124ae2966), this
-        # needs its own [regtest] section.
-        BITCOIND_REGTEST = {'rpcport': rpcport}
         self.conf_file = os.path.join(bitcoin_dir, 'bitcoin.conf')
+
+    def set_port(self, rpcport):
+        assert self.port_setup is False
+
+        BITCOIND_REGTEST = {'rpcport': rpcport}
         write_config(self.conf_file, BITCOIND_CONFIG, BITCOIND_REGTEST)
-        self.rpc = SimpleBitcoinProxy(btc_conf_file=self.conf_file)
-        self.proxies = []
+        self.port_setup = True
 
     def kill(self):
         try:
@@ -532,6 +530,15 @@ class BitcoinD(TailableProc):
         drop_unused_port(self.rpcport)
 
     def start(self, wallet_file=None):
+        if not self.port_setup:
+            if self.rpcport is None:
+                self.reserved_rpcport = reserve_unused_port()
+                self.rpcport = self.reserved_rpcport
+            self.set_port(self.rpcport)
+
+        self.rpc = SimpleBitcoinProxy(btc_conf_file=self.conf_file)
+        self.proxies = []
+
         TailableProc.start(self)
         self.wait_for_log("Done loading", timeout=TIMEOUT)
 
@@ -690,11 +697,6 @@ class BitcoinD(TailableProc):
 
 class ElementsD(BitcoinD):
     def __init__(self, bitcoin_dir="/tmp/bitcoind-test", rpcport=None):
-        config = BITCOIND_CONFIG.copy()
-        if 'regtest' in config:
-            del config['regtest']
-
-        config['chain'] = 'liquid-regtest'
         BitcoinD.__init__(self, bitcoin_dir, rpcport)
 
         self.cmd_line = [
@@ -709,13 +711,20 @@ class ElementsD(BitcoinD):
             '-con_blocksubsidy=5000000000',
             '-acceptnonstdtxn=1',  # FIXME Issues such as dust limit interacting with anchors
         ]
-        conf_file = os.path.join(bitcoin_dir, 'elements.conf')
-        config['rpcport'] = self.rpcport
-        BITCOIND_REGTEST = {'rpcport': self.rpcport}
-        write_config(conf_file, config, BITCOIND_REGTEST, section_name='liquid-regtest')
-        self.conf_file = conf_file
-        self.rpc = SimpleBitcoinProxy(btc_conf_file=self.conf_file)
+        self.conf_file = os.path.join(bitcoin_dir, 'elements.conf')
         self.prefix = 'elementsd'
+
+    def set_port(self, rpcport):
+        assert self.port_setup is False
+
+        config = BITCOIND_CONFIG.copy()
+        if 'regtest' in config:
+            del config['regtest']
+        config['chain'] = 'liquid-regtest'
+        config['rpcport'] = rpcport
+        BITCOIND_REGTEST = {'rpcport': rpcport}
+        write_config(self.conf_file, config, BITCOIND_REGTEST, section_name='liquid-regtest')
+        self.port_setup = True
 
     def getnewaddress(self):
         """Need to get an address and then make it unconfidential
@@ -1785,6 +1794,7 @@ class NodeFactory(object):
             'gossip_store_file',
             'old_hsmsecret',
             'no_entropy',
+            'base_port',
         ]
         node_opts = {k: v for k, v in opts.items() if k in node_opt_keys}
         cli_opts = {k: v for k, v in opts.items() if k not in node_opt_keys}
@@ -1832,10 +1842,14 @@ class NodeFactory(object):
                  bkpr_dbfile=None, feerates=(15000, 11000, 7500, 3750),
                  start=True, wait_for_bitcoind_sync=True, may_fail=False,
                  expect_fail=False, cleandir=True, gossip_store_file=None, unused_grpc_port=True,
-                 inline_plugin=None, **kwargs):
+                 inline_plugin=None, base_port=None, **kwargs):
         node_id = self.get_node_id() if not node_id else node_id
-        port = reserve_unused_port()
-        grpc_port = self.get_unused_port() if unused_grpc_port else None
+        if base_port:
+            port = base_port + node_id * 2 - 1
+            grpc_port = base_port + node_id * 2
+        else:
+            port = reserve_unused_port()
+            grpc_port = self.get_unused_port() if unused_grpc_port else None
 
         lightning_dir = os.path.join(
             self.directory, "lightning-{}/".format(node_id))
@@ -1859,7 +1873,8 @@ class NodeFactory(object):
             node.set_feerates(feerates, False)
 
         self.nodes.append(node)
-        self.reserved_ports.append(port)
+        if not base_port:
+            self.reserved_ports.append(port)
         if dbfile:
             with open(os.path.join(node.daemon.lightning_dir, TEST_NETWORK,
                                    'lightningd.sqlite3'), 'xb') as out:
