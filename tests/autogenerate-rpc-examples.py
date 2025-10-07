@@ -97,7 +97,7 @@ def update_example(node, method, params, response=None, description=None):
     return response
 
 
-def setup_test_nodes(node_factory, bitcoind):
+def setup_test_nodes(node_factory, bitcoind, regenerate_blockchain):
     """Sets up six test nodes for various transaction scenarios:
         l1, l2, l3 for transactions and forwards
         l4 for complex transactions (sendpayment, keysend, renepay)
@@ -137,8 +137,7 @@ def setup_test_nodes(node_factory, bitcoind):
         # Write the data/p2sh_wallet_hsm_secret to the hsm_path, so node can spend funds at p2sh_wrapped_addr
         p2sh_wrapped_addr = '2N2V4ee2vMkiXe5FSkRqFjQhiS9hKqNytv3'
         update_example(node=l1, method='upgradewallet', params={})
-        txid = bitcoind.rpc.sendtoaddress(p2sh_wrapped_addr, 20000000 / 10 ** 8)
-        bitcoind.generate_block(1)
+        txid = bitcoind.send_and_mine_block(p2sh_wrapped_addr, 20000000)
         l1.daemon.wait_for_log('Owning output .* txid {} CONFIRMED'.format(txid))
         # Doing it with 'reserved ok' should have 1. We use a big feerate so we can get over the RBF hump
         update_example(node=l1, method='upgradewallet', params={'feerate': 'urgent', 'reservedok': True})
@@ -671,7 +670,7 @@ def generate_utils_examples(l1, l2, l3, l4, l5, l6, c23_2, c34_2, inv_l11, inv_l
         raise
 
 
-def generate_splice_examples(node_factory, bitcoind):
+def generate_splice_examples(node_factory, bitcoind, regenerate_blockchain):
     """Generates splice related examples"""
     try:
         logger.info('Splice Start...')
@@ -727,7 +726,7 @@ def generate_splice_examples(node_factory, bitcoind):
         raise
 
 
-def generate_channels_examples(node_factory, bitcoind, l1, l3, l4, l5):
+def generate_channels_examples(node_factory, bitcoind, l1, l3, l4, l5, regenerate_blockchain):
     """Generates fundchannel and openchannel related examples"""
     try:
         logger.info('Channels Start...')
@@ -999,7 +998,7 @@ def generate_autoclean_delete_examples(l1, l2, l3, l4, l5, c12, c23):
         raise
 
 
-def generate_backup_recovery_examples(node_factory, l4, l5, l6):
+def generate_backup_recovery_examples(node_factory, l4, l5, l6, regenerate_blockchain):
     """Node backup and recovery examples"""
     try:
         logger.info('Backup and Recovery Start...')
@@ -1156,10 +1155,38 @@ def setup_logging():
 
 
 @unittest.skipIf(not GENERATE_EXAMPLES, 'Generates examples for doc/schema/lightning-*.json files.')
+@pytest.mark.parametrize('bitcoind', [False], indirect=True)
 def test_generate_examples(node_factory, bitcoind, executor):
     """Re-generates examples for doc/schema/lightning-*.json files"""
+
+    # Change this to True to regenerate bitcoin block & wallet.
+    regenerate_blockchain = (os.environ.get("REGENERATE_BLOCKCHAIN") == "1")
+    wallet_exists = os.access("tests/data/autogenerate-bitcoind-wallet.dat", os.F_OK)
     try:
         global ALL_RPC_EXAMPLES, REGENERATING_RPCS
+
+        if regenerate_blockchain:
+            if wallet_exists:
+                bitcoind.start(wallet_file="tests/data/autogenerate-bitcoind-wallet.dat")
+            else:
+                bitcoind.start()
+        else:
+            # This was created by bitcoind.rpc.backupwallet.  Probably unnecessary,
+            # but reduces gratuitous differences if we have to regenerate the blockchain.
+            bitcoind.start(wallet_file="tests/data/autogenerate-bitcoind-wallet.dat")
+            with open("tests/data/autogenerate-bitcoin-blocks.json", "r") as f:
+                canned_blocks = json.load(f)
+            bitcoind.set_canned_blocks(canned_blocks)
+
+        info = bitcoind.rpc.getblockchaininfo()
+        assert info['blocks'] == 0
+        print(bitcoind.rpc.listwallets())
+        # 102 is a funny story.  When we *submitblock* the first 101 blocks,
+        # our wallet balance is 0.  When we *generate* the frist 101 blocks,
+        # our wallet balance is 50.
+        if info['blocks'] < 102:
+            bitcoind.generate_block(102 - info['blocks'])
+        assert bitcoind.rpc.getbalance() > 0
 
         def list_all_examples():
             """list all methods used in 'update_example' calls to ensure that all methods are covered"""
@@ -1210,7 +1237,7 @@ def test_generate_examples(node_factory, bitcoind, executor):
         # We make sure everyone is on predicable time
         os.environ['CLN_DEV_SET_TIME'] = '1738000000'
 
-        l1, l2, l3, l4, l5, l6, c12, c23, c25 = setup_test_nodes(node_factory, bitcoind)
+        l1, l2, l3, l4, l5, l6, c12, c23, c25 = setup_test_nodes(node_factory, bitcoind, regenerate_blockchain)
         c23_2, c23res2, c34_2, inv_l11, inv_l21, inv_l22, inv_l31, inv_l32, inv_l34 = generate_transactions_examples(l1, l2, l3, l4, l5, c25, bitcoind)
         rune_l21 = generate_runes_examples(l1, l2, l3)
         generate_datastore_examples(l2)
@@ -1220,13 +1247,23 @@ def test_generate_examples(node_factory, bitcoind, executor):
         generate_askrene_examples(l1, l2, l3, c12, c23_2)
         generate_wait_examples(l1, l2, bitcoind, executor)
         address_l22 = generate_utils_examples(l1, l2, l3, l4, l5, l6, c23_2, c34_2, inv_l11, inv_l22, rune_l21, bitcoind)
-        generate_splice_examples(node_factory, bitcoind)
-        generate_channels_examples(node_factory, bitcoind, l1, l3, l4, l5)
+        generate_splice_examples(node_factory, bitcoind, regenerate_blockchain)
+        generate_channels_examples(node_factory, bitcoind, l1, l3, l4, l5, regenerate_blockchain)
         generate_autoclean_delete_examples(l1, l2, l3, l4, l5, c12, c23)
-        generate_backup_recovery_examples(node_factory, l4, l5, l6)
+        generate_backup_recovery_examples(node_factory, l4, l5, l6, regenerate_blockchain)
         generate_list_examples(l1, l2, l3, c12, c23_2, inv_l31, inv_l32, offer_l23, inv_req_l1_l22, address_l22)
         update_examples_in_schema_files()
         logger.info('All Done!!!')
     except Exception as e:
         logger.error(e, exc_info=True)
         sys.exit(1)
+
+    if regenerate_blockchain:
+        with open("tests/data/autogenerate-bitcoin-blocks.json", "w") as blockfile:
+            print(json.dump(bitcoind.save_blocks(), blockfile))
+        logger.info('tests/data/autogenerate-bitcoin-blocks.json updated')
+
+        # Very first run, we can dump wallet too.
+        if not wallet_exists:
+            bitcoind.rpc.backupwallet("tests/data/autogenerate-bitcoind-wallet.dat")
+            logger.info('tests/data/autogenerate-bitcoind-wallet.dat regenerated')
