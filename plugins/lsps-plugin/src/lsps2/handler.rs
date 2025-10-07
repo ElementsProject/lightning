@@ -95,10 +95,10 @@ impl ClnApi for ClnApiRpc {
         params: &Lsps2PolicyGetInfoRequest,
     ) -> AnyResult<Lsps2PolicyGetInfoResponse> {
         let mut rpc = self.create_rpc().await?;
-        rpc.call_raw("dev-lsps2-getpolicy", params)
+        rpc.call_raw("lsps2-policy-getpolicy", params)
             .await
             .map_err(anyhow::Error::new)
-            .with_context(|| "calling dev-lsps2-getpolicy")
+            .with_context(|| "calling lsps2-policy-getpolicy")
     }
 
     async fn lsps2_getchannelcapacity(
@@ -106,10 +106,10 @@ impl ClnApi for ClnApiRpc {
         params: &Lsps2PolicyGetChannelCapacityRequest,
     ) -> AnyResult<Lsps2PolicyGetChannelCapacityResponse> {
         let mut rpc = self.create_rpc().await?;
-        rpc.call_raw("dev-lsps2-getchannelcapacity", params)
+        rpc.call_raw("lsps2-policy-getchannelcapacity", params)
             .await
             .map_err(anyhow::Error::new)
-            .with_context(|| "calling dev-lsps2-getchannelcapacity")
+            .with_context(|| "calling lsps2-policy-getchannelcapacity")
     }
 
     async fn cln_getinfo(&self, params: &GetinfoRequest) -> AnyResult<GetinfoResponse> {
@@ -185,7 +185,7 @@ impl<A: ClnApi> Lsps2GetInfoHandler<A> {
     }
 }
 
-/// The RequestHandler calls the internal rpc command `dev-lsps2-getinfo`. It
+/// The RequestHandler calls the internal rpc command `lsps2-policy-getinfo`. It
 /// expects a plugin has registered this command and manages policies for the
 /// LSPS2 service.
 #[async_trait]

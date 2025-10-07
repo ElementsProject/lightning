@@ -5,13 +5,13 @@ pub mod handler;
 pub mod model;
 
 pub const OPTION_ENABLED: options::FlagConfigOption = options::ConfigOption::new_flag(
-    "dev-lsps2-service-enabled",
+    "experimental-lsps2-service",
     "Enables lsps2 for the LSP service",
 );
 
 pub const OPTION_PROMISE_SECRET: options::StringConfigOption =
     options::ConfigOption::new_str_no_default(
-        "dev-lsps2-promise-secret",
+        "experimental-lsps2-promise-secret",
         "A 64-character hex string that is the secret for promises",
     );
 
