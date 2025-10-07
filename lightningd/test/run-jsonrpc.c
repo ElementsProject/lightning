@@ -51,6 +51,13 @@ char *hsm_secret_arg(const tal_t *ctx UNNEEDED,
 		     const char *arg UNNEEDED,
 		     const u8 **hsm_secret UNNEEDED)
 { fprintf(stderr, "hsm_secret_arg called!\n"); abort(); }
+/* Generated stub for json_dup_contents */
+void json_dup_contents(const tal_t *ctx UNNEEDED,
+		       const char *buffer UNNEEDED,
+		       const jsmntok_t *tok UNNEEDED,
+		       const char **new_buffer UNNEEDED,
+		       const jsmntok_t **new_toks UNNEEDED)
+{ fprintf(stderr, "json_dup_contents called!\n"); abort(); }
 /* Generated stub for json_to_jsonrpc_errcode */
 bool json_to_jsonrpc_errcode(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 			     enum jsonrpc_errcode *errcode UNNEEDED)
