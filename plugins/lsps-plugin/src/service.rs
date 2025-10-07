@@ -1,4 +1,4 @@
-use anyhow::anyhow;
+use anyhow::{anyhow, bail};
 use async_trait::async_trait;
 use cln_lsps::jsonrpc::server::JsonRpcResponseWriter;
 use cln_lsps::jsonrpc::TransportError;
@@ -11,20 +11,13 @@ use cln_lsps::lsps2::handler::{ClnApiRpc, HtlcAcceptedHookHandler};
 use cln_lsps::lsps2::model::{Lsps2BuyRequest, Lsps2GetInfoRequest};
 use cln_lsps::util::wrap_payload_with_peer_id;
 use cln_lsps::{lsps0, lsps2, util, LSP_FEATURE_BIT};
-use cln_plugin::options::ConfigOption;
-use cln_plugin::{options, Plugin};
+use cln_plugin::Plugin;
 use cln_rpc::notifications::CustomMsgNotification;
 use cln_rpc::primitives::PublicKey;
 use log::debug;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::Arc;
-
-/// An option to enable this service.
-const OPTION_ENABLED: options::FlagConfigOption = ConfigOption::new_flag(
-    "dev-lsps-service-enabled",
-    "Enables an LSPS service on the node.",
-);
 
 #[derive(Clone)]
 struct State {
@@ -35,7 +28,6 @@ struct State {
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
     if let Some(plugin) = cln_plugin::Builder::new(tokio::io::stdin(), tokio::io::stdout())
-        .option(OPTION_ENABLED)
         .option(lsps2::OPTION_ENABLED)
         .option(lsps2::OPTION_PROMISE_SECRET)
         .featurebits(
@@ -54,23 +46,9 @@ async fn main() -> Result<(), anyhow::Error> {
         let rpc_path =
             Path::new(&plugin.configuration().lightning_dir).join(&plugin.configuration().rpc_file);
 
-        if !plugin.option(&OPTION_ENABLED)? {
-            return plugin
-                .disable(&format!("`{}` not enabled", OPTION_ENABLED.name))
-                .await;
-        }
-
-        let mut lsps_builder = JsonRpcServer::builder().with_handler(
-            Lsps0listProtocolsRequest::METHOD.to_string(),
-            Arc::new(Lsps0ListProtocolsHandler {
-                lsps2_enabled: plugin.option(&lsps2::OPTION_ENABLED)?,
-            }),
-        );
-
-        let lsps2_enabled = if plugin.option(&lsps2::OPTION_ENABLED)? {
-            log::debug!("lsps2 enabled");
-            let secret_hex = plugin.option(&lsps2::OPTION_PROMISE_SECRET)?;
-            if let Some(secret_hex) = secret_hex {
+        if plugin.option(&lsps2::OPTION_ENABLED)? {
+            log::debug!("lsps2-service enabled");
+            if let Some(secret_hex) = plugin.option(&lsps2::OPTION_PROMISE_SECRET)? {
                 let secret_hex = secret_hex.trim().to_lowercase();
 
                 let decoded_bytes = match hex::decode(&secret_hex) {
@@ -97,6 +75,13 @@ async fn main() -> Result<(), anyhow::Error> {
                     }
                 };
 
+                let mut lsps_builder = JsonRpcServer::builder().with_handler(
+                    Lsps0listProtocolsRequest::METHOD.to_string(),
+                    Arc::new(Lsps0ListProtocolsHandler {
+                        lsps2_enabled: plugin.option(&lsps2::OPTION_ENABLED)?,
+                    }),
+                );
+
                 let cln_api_rpc = lsps2::handler::ClnApiRpc::new(rpc_path);
                 let getinfo_handler =
                     lsps2::handler::Lsps2GetInfoHandler::new(cln_api_rpc.clone(), secret);
@@ -107,20 +92,23 @@ async fn main() -> Result<(), anyhow::Error> {
                         Arc::new(getinfo_handler),
                     )
                     .with_handler(Lsps2BuyRequest::METHOD.to_string(), Arc::new(buy_handler));
+
+                let lsps_service = lsps_builder.build();
+
+                let state = State {
+                    lsps_service,
+                    lsps2_enabled: true,
+                };
+                let plugin = plugin.start(state).await?;
+                plugin.join().await
+            } else {
+                bail!("lsps2 enabled but no promise-secret set.");
             }
-            true
         } else {
-            false
-        };
-
-        let lsps_service = lsps_builder.build();
-
-        let state = State {
-            lsps_service,
-            lsps2_enabled,
-        };
-        let plugin = plugin.start(state).await?;
-        plugin.join().await
+            return plugin
+                .disable(&format!("`{}` not enabled", &lsps2::OPTION_ENABLED.name))
+                .await;
+        }
     } else {
         Ok(())
     }
