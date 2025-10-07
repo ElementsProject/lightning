@@ -10,8 +10,8 @@ from datetime import datetime, timedelta, timezone
 plugin = Plugin()
 
 
-@plugin.method("dev-lsps2-getpolicy")
-def lsps2_getpolicy(request):
+@plugin.method("lsps2-policy-getpolicy")
+def lsps2_policy_getpolicy(request):
     """Returns an opening fee menu for the LSPS2 plugin."""
     now = datetime.now(timezone.utc)
 
@@ -42,8 +42,8 @@ def lsps2_getpolicy(request):
     }
 
 
-@plugin.method("dev-lsps2-getchannelcapacity")
-def lsps2_getchannelcapacity(request, init_payment_size, scid, opening_fee_params):
+@plugin.method("lsps2-policy-getchannelcapacity")
+def lsps2_policy_getchannelcapacity(request, init_payment_size, scid, opening_fee_params):
     """Returns an opening fee menu for the LSPS2 plugin."""
     return {"channel_capacity_msat": 100000000}
 

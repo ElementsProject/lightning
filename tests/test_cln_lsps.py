@@ -22,7 +22,14 @@ def test_lsps_service_disabled(node_factory):
 @unittest.skipUnless(RUST, 'RUST is not enabled')
 def test_lsps0_listprotocols(node_factory):
     l1, l2 = node_factory.get_nodes(
-        2, opts=[{"dev-lsps-client-enabled": None}, {"dev-lsps-service-enabled": None}]
+        2,
+        opts=[
+            {"experimental-lsps-client": None},
+            {
+                "experimental-lsps2-service": None,
+                "experimental-lsps2-promise-secret": "0" * 64,
+            },
+        ],
     )
 
     # We don't need a channel to query for lsps services
@@ -36,11 +43,10 @@ def test_lsps2_enabled(node_factory):
     l1, l2 = node_factory.get_nodes(
         2,
         opts=[
-            {"dev-lsps-client-enabled": None},
+            {"experimental-lsps-client": None},
             {
-                "dev-lsps-service-enabled": None,
-                "dev-lsps2-service-enabled": None,
-                "dev-lsps2-promise-secret": "0" * 64,
+                "experimental-lsps2-service": None,
+                "experimental-lsps2-promise-secret": "0" * 64,
             },
         ],
     )
@@ -57,14 +63,13 @@ def test_lsps2_getinfo(node_factory):
     l1, l2 = node_factory.get_nodes(
         2,
         opts=[
-            {"dev-lsps-client-enabled": None},
+            {"experimental-lsps-client": None},
             {
-                "dev-lsps-service-enabled": None,
-                "dev-lsps2-service-enabled": None,
-                "dev-lsps2-promise-secret": "0" * 64,
+                "experimental-lsps2-service": None,
+                "experimental-lsps2-promise-secret": "0" * 64,
                 "plugin": plugin,
             },
-        ],
+        ]
     )
 
     node_factory.join_nodes([l1, l2], fundchannel=False)
@@ -80,14 +85,13 @@ def test_lsps2_buy(node_factory):
     l1, l2 = node_factory.get_nodes(
         2,
         opts=[
-            {"dev-lsps-client-enabled": None},
+            {"experimental-lsps-client": None},
             {
-                "dev-lsps-service-enabled": None,
-                "dev-lsps2-service-enabled": None,
-                "dev-lsps2-promise-secret": "0" * 64,
+                "experimental-lsps2-service": None,
+                "experimental-lsps2-promise-secret": "0" * 64,
                 "plugin": plugin,
             },
-        ],
+        ]
     )
 
     # We don't need a channel to query for lsps services
@@ -123,11 +127,10 @@ def test_lsps2_buyjitchannel_no_mpp_var_invoice(node_factory, bitcoind):
     l1, l2, l3 = node_factory.get_nodes(
         3,
         opts=[
-            {"dev-lsps-client-enabled": None},
+            {"experimental-lsps-client": None},
             {
-                "dev-lsps-service-enabled": None,
-                "dev-lsps2-service-enabled": None,
-                "dev-lsps2-promise-secret": "00" * 32,
+                "experimental-lsps2-service": None,
+                "experimental-lsps2-promise-secret": "0" * 64,
                 "plugin": plugin,
                 "fee-base": 0,  # We are going to deduct our fee anyways,
                 "fee-per-satoshi": 0,  # We are going to deduct our fee anyways,
@@ -148,7 +151,7 @@ def test_lsps2_buyjitchannel_no_mpp_var_invoice(node_factory, bitcoind):
         "short_channel_id"
     ]
 
-    inv = l1.rpc.lsps_jitchannel(
+    inv = l1.rpc.lsps_lsps2_invoice(
         lsp_id=l2.info["id"],
         amount_msat="any",
         description="lsp-jit-channel-0",
@@ -199,11 +202,10 @@ def test_lsps2_non_approved_zero_conf(node_factory, bitcoind):
     l1, l2, l3 = node_factory.get_nodes(
         3,
         opts=[
-            {"dev-lsps-client-enabled": None},
+            {"experimental-lsps-client": None},
             {
-                "dev-lsps-service-enabled": None,
-                "dev-lsps2-service-enabled": None,
-                "dev-lsps2-promise-secret": "00" * 32,
+                "experimental-lsps2-service": None,
+                "experimental-lsps2-promise-secret": "0" * 64,
                 "plugin": plugin,
                 "fee-base": 0,  # We are going to deduct our fee anyways,
                 "fee-per-satoshi": 0,  # We are going to deduct our fee anyways,

@@ -30,7 +30,7 @@ use std::str::FromStr as _;
 
 /// An option to enable this service.
 const OPTION_ENABLED: options::FlagConfigOption = options::ConfigOption::new_flag(
-    "dev-lsps-client-enabled",
+    "experimental-lsps-client",
     "Enables an LSPS client on the node.",
 );
 
@@ -74,7 +74,7 @@ async fn main() -> Result<(), anyhow::Error> {
             on_lsps_lsps2_approve,
         )
         .rpcmethod(
-            "lsps-jitchannel",
+            "lsps-lsps2-invoice",
             "Requests a new jit channel from LSP and returns the matching invoice",
             on_lsps_jitchannel,
         )
