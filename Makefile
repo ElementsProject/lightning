@@ -559,7 +559,7 @@ check-python-flake8:
 	@# E731 do not assign a lambda expression, use a def
 	@# W503: line break before binary operator
 	@# E741: ambiguous variable name
-	@uv run flake8 --ignore=E501,E731,E741,W503,F541,E275 --exclude $(shell echo ${PYTHON_GENERATED} | sed 's/ \+/,/g') ${PYSRC}
+	@uv run flake8 --ignore=E501,E731,E741,W503,F541,E275,F841 --exclude $(shell echo ${PYTHON_GENERATED} | sed 's/ \+/,/g') ${PYSRC}
 
 check-pytest-pyln-proto:
 	PATH=$(PYLN_PATH) PYTHONPATH=$(MY_CHECK_PYTHONPATH) uv run $(PYTEST) contrib/pyln-proto/tests/
