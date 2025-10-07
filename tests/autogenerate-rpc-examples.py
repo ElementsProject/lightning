@@ -451,6 +451,7 @@ def setup_test_nodes(node_factory, bitcoind):
                 'log-level': 'debug',
                 'broken_log': '.*',
                 'dev-bitcoind-poll': 3,    # Default 1; increased to avoid rpc failures
+                'no_entropy': True,
             }.copy()
             for i in range(6)
         ]
@@ -1323,6 +1324,7 @@ def generate_splice_examples(node_factory, bitcoind):
                 'allow_bad_gossip': True,
                 'broken_log': '.*',
                 'dev-bitcoind-poll': 3,
+                'no_entropy': True,
             }.copy()
             for i in range(2)
         ]
@@ -1397,6 +1399,7 @@ def generate_channels_examples(node_factory, bitcoind, l1, l3, l4, l5):
                 'allow_bad_gossip': True,
                 'broken_log': '.*',
                 'dev-bitcoind-poll': 3,
+                'no_entropy': True,
             }.copy()
             for i in range(2)
         ]
@@ -1447,6 +1450,7 @@ def generate_channels_examples(node_factory, bitcoind, l1, l3, l4, l5):
                 'allow_bad_gossip': True,
                 'broken_log': '.*',
                 'dev-bitcoind-poll': 3,
+                'no_entropy': True,
             }.copy()
             for i in range(2)
         ]
@@ -1783,7 +1787,7 @@ def generate_backup_recovery_examples(node_factory, l4, l5, l6):
         logger.info('Backup and Recovery Start...')
 
         # New node l13 used for recover and exposesecret examples
-        l13 = node_factory.get_node(options={'exposesecret-passphrase': "test_exposesecret"})
+        l13 = node_factory.get_node(options={'exposesecret-passphrase': "test_exposesecret"}, no_entropy=True)
         update_example(node=l13, method='exposesecret', params={'passphrase': 'test_exposesecret'})
         update_example(node=l13, method='exposesecret', params=['test_exposesecret', 'cln2'])
 
@@ -2105,6 +2109,10 @@ def test_generate_examples(node_factory, bitcoind, executor):
         logger.warning(f'This test ignores {len(IGNORE_RPCS_LIST)} rpc methods: {IGNORE_RPCS_LIST}')
         REGENERATING_RPCS = [rpc.strip() for rpc in os.getenv("REGENERATE").split(', ')] if os.getenv("REGENERATE") else ALL_RPC_EXAMPLES
         list_missing_examples()
+
+        # We make sure everyone is on predicable time
+        os.environ['CLN_DEV_SET_TIME'] = '1738000000'
+
         l1, l2, l3, l4, l5, l6, c12, c23, c25 = setup_test_nodes(node_factory, bitcoind)
         c23_2, c23res2, c34_2, inv_l11, inv_l21, inv_l22, inv_l31, inv_l32, inv_l34 = generate_transactions_examples(l1, l2, l3, l4, l5, c25, bitcoind)
         rune_l21 = generate_runes_examples(l1, l2, l3)
