@@ -591,9 +591,7 @@ async fn ensure_lsp_connected(cln_client: &mut ClnRpc, lsp_id: &str) -> Result<(
             // Check that feature bit is set
             peer.features.as_deref().map_or(false, |f_str| {
                 if let Some(feature_bits) = hex::decode(f_str).ok() {
-                    let mut fb = feature_bits.clone();
-                    fb.reverse();
-                    util::is_feature_bit_set(&fb, LSP_FEATURE_BIT)
+                    util::is_feature_bit_set_reversed(&feature_bits, LSP_FEATURE_BIT)
                 } else {
                     false
                 }
