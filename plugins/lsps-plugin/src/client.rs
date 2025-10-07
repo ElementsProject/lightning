@@ -30,7 +30,7 @@ use std::str::FromStr as _;
 
 /// An option to enable this service.
 const OPTION_ENABLED: options::FlagConfigOption = options::ConfigOption::new_flag(
-    "dev-lsps-client-enabled",
+    "experimental-lsps-client",
     "Enables an LSPS client on the node.",
 );
 
