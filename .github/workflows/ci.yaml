@@ -794,8 +794,7 @@ jobs:
           if-no-files-found: ignore
 
   update-docs-examples:
-    name: Update examples in doc schemas (disabled temporarily!)
-    if: false
+    name: Update examples in doc schemas
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
@@ -952,6 +951,7 @@ jobs:
       - check-units
       - integration-valgrind
       - integration-sanitizers
+      - update-docs-examples
       - min-btc-support
       - check-downgrade
       - check-compiled-source
