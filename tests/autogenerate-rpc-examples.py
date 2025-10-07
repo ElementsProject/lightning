@@ -138,6 +138,7 @@ def setup_test_nodes(node_factory, bitcoind, regenerate_blockchain):
         p2sh_wrapped_addr = '2N2V4ee2vMkiXe5FSkRqFjQhiS9hKqNytv3'
         update_example(node=l1, method='upgradewallet', params={})
         txid = bitcoind.send_and_mine_block(p2sh_wrapped_addr, 20000000)
+        sync_blockheight(bitcoind, [l1, l2, l3, l4, l5, l6])
         l1.daemon.wait_for_log('Owning output .* txid {} CONFIRMED'.format(txid))
         # Doing it with 'reserved ok' should have 1. We use a big feerate so we can get over the RBF hump
         update_example(node=l1, method='upgradewallet', params={'feerate': 'urgent', 'reservedok': True})
@@ -153,10 +154,14 @@ def setup_test_nodes(node_factory, bitcoind, regenerate_blockchain):
         l3.rpc.connect(l4.info['id'], 'localhost', l4.port)
         l2.rpc.connect(l5.info['id'], 'localhost', l5.port)
         c12, c12res = l1.fundchannel(l2, FUND_CHANNEL_AMOUNT_SAT)
+        sync_blockheight(bitcoind, [l1, l2, l3, l4, l5, l6])
         c23, c23res = l2.fundchannel(l3, FUND_CHANNEL_AMOUNT_SAT)
+        sync_blockheight(bitcoind, [l1, l2, l3, l4, l5, l6])
         c34, c34res = l3.fundchannel(l4, FUND_CHANNEL_AMOUNT_SAT)
+        sync_blockheight(bitcoind, [l1, l2, l3, l4, l5, l6])
         c25, c25res = l2.fundchannel(l5, announce_channel=False)
         mine_funding_to_announce(bitcoind, [l1, l2, l3, l4])
+        sync_blockheight(bitcoind, [l1, l2, l3, l4, l5, l6])
         l1.wait_channel_active(c12)
         l1.wait_channel_active(c23)
         l1.wait_channel_active(c34)
@@ -1056,10 +1061,12 @@ def generate_backup_recovery_examples(node_factory, l4, l5, l6, regenerate_block
         raise
 
 
-def generate_list_examples(l1, l2, l3, c12, c23_2, inv_l31, inv_l32, offer_l23, inv_req_l1_l22, address_l22):
+def generate_list_examples(bitcoind, l1, l2, l3, c12, c23_2, inv_l31, inv_l32, offer_l23, inv_req_l1_l22, address_l22):
     """Generates lists rpc examples"""
     try:
         logger.info('Lists Start...')
+        # Make sure all nodes are caught up.
+        sync_blockheight(bitcoind, [l1, l2, l3])
         # Transactions Lists
         listfunds_res1 = l1.rpc.listfunds()
         update_example(node=l1, method='listfunds', params={}, response=listfunds_res1)
@@ -1251,7 +1258,7 @@ def test_generate_examples(node_factory, bitcoind, executor):
         generate_channels_examples(node_factory, bitcoind, l1, l3, l4, l5, regenerate_blockchain)
         generate_autoclean_delete_examples(l1, l2, l3, l4, l5, c12, c23)
         generate_backup_recovery_examples(node_factory, l4, l5, l6, regenerate_blockchain)
-        generate_list_examples(l1, l2, l3, c12, c23_2, inv_l31, inv_l32, offer_l23, inv_req_l1_l22, address_l22)
+        generate_list_examples(bitcoind, l1, l2, l3, c12, c23_2, inv_l31, inv_l32, offer_l23, inv_req_l1_l22, address_l22)
         update_examples_in_schema_files()
         logger.info('All Done!!!')
     except Exception as e:
