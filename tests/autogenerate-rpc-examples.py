@@ -864,7 +864,7 @@ def generate_channels_examples(node_factory, bitcoind, l1, l3, l4, l5):
         l3.rpc.connect(l5.info['id'], 'localhost', l5.port)
         l4.rpc.connect(l1.info['id'], 'localhost', l1.port)
         c35res = update_example(node=l3, method='fundchannel', params={'id': l5.info['id'], 'amount': FUND_CHANNEL_AMOUNT_SAT, 'announce': True})
-        outputs = l4.rpc.listfunds()['outputs']
+        outputs = sorted(l4.rpc.listfunds()['outputs'], key=lambda o: o["amount_msat"], reverse=True)
         utxo = f"{outputs[0]['txid']}:{outputs[0]['output']}"
         c41res = update_example(node=l4, method='fundchannel',
                                 params={'id': l1.info['id'], 'amount': 'all', 'feerate': 'normal', 'push_msat': 100000, 'utxos': [utxo]},
