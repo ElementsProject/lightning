@@ -5,6 +5,32 @@ use core::fmt;
 use serde_json::Value;
 use std::str::FromStr;
 
+/// Checks whether a feature bit is set in a bitmap interpreted as
+/// **big-endian across bytes**, while keeping **LSB-first within each byte**.
+///
+/// This function creates a reversed copy of `bitmap` (so the least-significant
+/// byte becomes last), then calls the simple LSB-first `is_feature_bit_set` on it.
+/// No mutation of the caller’s slice occurs.
+///
+/// In other words:
+/// - byte order: **reversed** (big-endian across the slice)
+/// - bit order within a byte: **LSB-first** (unchanged)
+///
+/// If you need *full* MSB-first (also within a byte), don’t use this helper—
+/// rewrite the mask as `1u8 << (7 - bit_index)` instead.
+///
+/// # Arguments
+/// * `bitmap` – byte slice containing the bitfield (original order, not modified)
+/// * `feature_bit` – zero-based bit index across the entire bitmap
+///
+/// # Returns
+/// `true` if the bit is set; `false` if the bit is unset or out of bounds
+pub fn is_feature_bit_set_reversed(bitmap: &[u8], feature_bit: usize) -> bool {
+    let mut reversed = bitmap.to_vec();
+    reversed.reverse();
+    is_feature_bit_set(&reversed, feature_bit)
+}
+
 /// Checks if the feature bit is set in the provided bitmap.
 /// Returns true if the `feature_bit` is set in the `bitmap`. Returns false if
 /// the `feature_bit` is unset or our ouf bounds.
