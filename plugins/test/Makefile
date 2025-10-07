@@ -10,6 +10,7 @@ ALL_TEST_PROGRAMS += $(PLUGIN_TEST_PROGRAMS)
 PLUGIN_TEST_COMMON_OBJS :=			\
 	common/amount.o				\
 	common/autodata.o			\
+	common/clock_time.o			\
 	common/pseudorand.o			\
 	common/randbytes.o			\
 	common/setup.o				\

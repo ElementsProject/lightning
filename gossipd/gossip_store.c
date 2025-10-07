@@ -4,6 +4,7 @@
 #include <ccan/noerr/noerr.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/str/str.h>
+#include <common/clock_time.h>
 #include <common/gossip_store.h>
 #include <common/status.h>
 #include <errno.h>
@@ -344,7 +345,7 @@ static int gossip_store_compact(struct daemon *daemon,
 
 	/* If we have any contents, and the file is less than 1 hour
 	 * old, say "seems good" */
-	if (st.st_mtime > time_now().ts.tv_sec - 3600 && *total_len > 1) {
+	if (st.st_mtime > clock_time().ts.tv_sec - 3600 && *total_len > 1) {
 		*populated = true;
 	}
 

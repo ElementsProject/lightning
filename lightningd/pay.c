@@ -4,6 +4,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/blinding.h>
 #include <common/bolt12_merkle.h>
+#include <common/clock_time.h>
 #include <common/configdir.h>
 #include <common/json_command.h>
 #include <common/json_param.h>
@@ -1150,7 +1151,7 @@ send_payment_core(struct lightningd *ld,
 
 	payment = wallet_add_payment(cmd,
 				     ld->wallet,
-				     time_now().ts.tv_sec,
+				     clock_time().ts.tv_sec,
 				     NULL,
 				     rhash,
 				     partid,
@@ -1464,7 +1465,7 @@ static struct command_result *self_payment(struct lightningd *ld,
 
 	payment = wallet_add_payment(tmpctx,
 				     ld->wallet,
-				     time_now().ts.tv_sec,
+				     clock_time().ts.tv_sec,
 				     NULL,
 				     rhash,
 				     partid,
@@ -1794,7 +1795,7 @@ static void register_payment_and_waiter(struct command *cmd,
 {
 	wallet_add_payment(cmd,
 			   cmd->ld->wallet,
-			   time_now().ts.tv_sec,
+			   clock_time().ts.tv_sec,
 			   NULL,
 			   payment_hash,
 			   partid,

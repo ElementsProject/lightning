@@ -15,6 +15,7 @@ LIGHTNINGD_TEST_COMMON_OBJS :=			\
 	common/autodata.o			\
 	common/base32.o				\
 	common/bech32.o				\
+	common/clock_time.o			\
 	common/daemon_conn.o			\
 	common/htlc_state.o			\
 	common/htlc_wire.o			\

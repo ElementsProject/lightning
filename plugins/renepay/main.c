@@ -5,6 +5,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/bolt11.h>
 #include <common/bolt12_merkle.h>
+#include <common/clock_time.h>
 #include <common/gossmap.h>
 #include <common/gossmods_listpeerchannels.h>
 #include <common/json_param.h>
@@ -311,7 +312,7 @@ static struct command_result *json_renepay(struct command *cmd, const char *buf,
 
 	/* === Is it expired? === */
 
-	const u64 now_sec = time_now().ts.tv_sec;
+	const u64 now_sec = clock_time().ts.tv_sec;
 	if (now_sec > invexpiry)
 		return command_fail(cmd, PAY_INVOICE_EXPIRED,
 				    "Invoice expired");

@@ -10,6 +10,7 @@
 #include <common/bolt11_json.h>
 #include <common/bolt12_id.h>
 #include <common/bolt12_merkle.h>
+#include <common/clock_time.h>
 #include <common/configdir.h>
 #include <common/json_command.h>
 #include <common/json_param.h>
@@ -1192,7 +1193,7 @@ static struct command_result *json_invoice(struct command *cmd,
 
 	info->b11 = new_bolt11(info, msatoshi_val);
 	info->b11->chain = chainparams;
-	info->b11->timestamp = time_now().ts.tv_sec;
+	info->b11->timestamp = clock_time().ts.tv_sec;
 	info->b11->payment_hash = rhash;
 	info->b11->receiver_id = cmd->ld->our_nodeid;
 	info->b11->min_final_cltv_expiry = *cltv;

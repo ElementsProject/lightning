@@ -348,4 +348,7 @@ bool mvt_tag_parse(const char *buf, size_t len, enum mvt_tag *tag);
 void towire_chain_coin_mvt(u8 **pptr, const struct chain_coin_mvt *mvt);
 void fromwire_chain_coin_mvt(const u8 **cursor, size_t *max, struct chain_coin_mvt *mvt);
 
+/* Time helper for deterministic timestamps: always moves forwards */
+u64 coinmvt_current_time(void);
+
 #endif /* LIGHTNING_COMMON_COIN_MVT_H */

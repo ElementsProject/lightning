@@ -4,6 +4,7 @@
 #include <ccan/asort/asort.h>
 #include <ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
+#include <common/clock_time.h>
 #include <common/gossmap.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
@@ -448,7 +449,8 @@ static struct command_result *htlc_accepted_call(struct command *cmd,
 	bigsize_t s;
 	struct keysend_in *ki;
 	struct out_req *req;
-	struct timeabs now = time_now();
+	/* Even with CLN_DEV_SET_TIME, we need this to change */
+	struct timeabs now = clock_time_progresses();
 	const char *err;
 	u64 *allowed;
 	size_t err_off;

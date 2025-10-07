@@ -6,6 +6,7 @@
 #include <ccan/tal/str/str.h>
 #include <channeld/channeld_wiregen.h>
 #include <common/blockheight_states.h>
+#include <common/clock_time.h>
 #include <common/fee_states.h>
 #include <common/memleak.h>
 #include <common/onionreply.h>
@@ -4185,7 +4186,7 @@ void wallet_payment_set_status(struct wallet *wallet,
 	u32 completed_at = 0;
 
 	if (newstatus != PAYMENT_PENDING)
-		completed_at = time_now().ts.tv_sec;
+		completed_at = clock_time().ts.tv_sec;
 
 	stmt = db_prepare_v2(wallet->db,
 			     SQL("UPDATE payments SET status=?, completed_at=?, updated_index=? "
@@ -5340,7 +5341,7 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 
 	if (state == FORWARD_SETTLED || state == FORWARD_FAILED) {
 		resolved_time = tal(tmpctx, struct timeabs);
-		*resolved_time = time_now();
+		*resolved_time = clock_time();
 	} else {
 		resolved_time = NULL;
 	}

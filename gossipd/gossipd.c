@@ -13,6 +13,7 @@
 #include "config.h"
 #include <ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
+#include <common/clock_time.h>
 #include <common/daemon_conn.h>
 #include <common/ecdh_hsmd.h>
 #include <common/lease_rates.h>
@@ -378,7 +379,7 @@ static void master_or_connectd_gone(struct daemon_conn *dc UNUSED)
  * our canned tests, and usually old gossip is better than no gossip */
 bool timestamp_reasonable(const struct daemon *daemon, u32 timestamp)
 {
-	u64 now = time_now().ts.tv_sec;
+	u64 now = clock_time().ts.tv_sec;
 
 	/* More than one day ahead? */
 	if (timestamp > now + 24*60*60)
@@ -603,7 +604,7 @@ int main(int argc, char *argv[])
 	/* Note the use of time_mono() here.  That's a monotonic clock, which
 	 * is really useful: it can only be used to measure relative events
 	 * (there's no correspondence to time-since-Ken-grew-a-beard or
-	 * anything), but unlike time_now(), this will never jump backwards by
+	 * anything), but unlike time_now, this will never jump backwards by
 	 * half a second and leave me wondering how my tests failed CI! */
 	timers_init(&daemon->timers, time_mono());
 

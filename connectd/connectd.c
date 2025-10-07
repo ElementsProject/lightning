@@ -19,6 +19,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>
 #include <common/bech32_util.h>
+#include <common/clock_time.h>
 #include <common/daemon_conn.h>
 #include <common/dev_disconnect.h>
 #include <common/ecdh_hsmd.h>
@@ -2209,7 +2210,7 @@ static void dev_report_fds(struct daemon *daemon, const u8 *msg)
 void update_recent_timestamp(struct daemon *daemon, struct gossmap *gossmap)
 {
 	/* 2 hours allows for some clock drift, not too much gossip */
-	u32 recent = time_now().ts.tv_sec - 7200;
+	u32 recent = clock_time().ts.tv_sec - 7200;
 
 	/* Only update every minute */
 	if (daemon->gossip_recent_time + 60 > recent)

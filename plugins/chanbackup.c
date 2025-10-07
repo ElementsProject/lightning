@@ -8,6 +8,7 @@
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
+#include <common/clock_time.h>
 #include <common/features.h>
 #include <common/hsm_encryption.h>
 #include <common/json_param.h>
@@ -140,7 +141,7 @@ static void write_scb(struct plugin *p,
 		      struct modern_scb_chan **scb_chan_arr)
 {
 	const struct chanbackup *cb = chanbackup(p);
-	u32 timestamp = time_now().ts.tv_sec;
+	u32 timestamp = clock_time().ts.tv_sec;
 
 	u8 *decrypted_scb = towire_static_chan_backup_with_tlvs(tmpctx,
 						      		VERSION,
