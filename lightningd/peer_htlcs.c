@@ -3059,7 +3059,8 @@ void htlcs_index_deleted(struct lightningd *ld,
 			 const struct channel *channel,
 			 u64 num_deleted)
 {
-	wait_index_increase(ld, WAIT_SUBSYSTEM_HTLCS, WAIT_INDEX_DELETED,
+	wait_index_increase(ld, ld->wallet->db,
+			    WAIT_SUBSYSTEM_HTLCS, WAIT_INDEX_DELETED,
 			    num_deleted,
 			    "short_channel_id", fmt_short_channel_id(tmpctx, channel_scid_or_local_alias(channel)),
 			    NULL);
