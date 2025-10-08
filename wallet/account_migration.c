@@ -87,6 +87,17 @@ struct chain_event {
 	bool we_opened;
 };
 
+/* Every 10 seconds, give progress indication */
+static bool give_progress(struct timemono *prev)
+{
+	struct timemono now = time_mono();
+	if (time_to_sec(timemono_between(now, *prev)) >= 10) {
+		*prev = now;
+		return true;
+	}
+	return false;
+}
+
 static struct chain_event *stmt2chain_event(const tal_t *ctx, struct db_stmt *stmt)
 {
 	struct chain_event *e = tal(ctx, struct chain_event);
@@ -354,6 +365,7 @@ void migrate_from_account_db(struct lightningd *ld, struct db *db)
 	size_t descriptions_migrated = 0;
 	struct db_stmt *stmt;
 	int version;
+	struct timemono prev;
 
 	/* Initialize wait indices: we're going to use it to generate ids. */
 	load_indexes(db, ld->indexes);
@@ -379,6 +391,7 @@ void migrate_from_account_db(struct lightningd *ld, struct db *db)
 	}
 
 	/* Load events */
+	prev = time_mono();
 	db_begin_transaction(account_db);
 	version = db_get_version(account_db);
 	/* -1 means empty database (Postgres usually). */
@@ -396,6 +409,8 @@ void migrate_from_account_db(struct lightningd *ld, struct db *db)
 	db_commit_transaction(account_db);
 	tal_free(account_db);
 
+	log_debug(ld->log, "Transferring %zu chain_events",
+		  tal_count(chain_events));
 	for (size_t i = 0; i < tal_count(chain_events); i++) {
 		const struct chain_event *ev = chain_events[i];
 		struct mvt_account_id *account = tal(ev, struct mvt_account_id);
@@ -486,8 +501,12 @@ void migrate_from_account_db(struct lightningd *ld, struct db *db)
 			wallet_datastore_save_utxo_description(db, &ev->outpoint, ev->desc);
 			descriptions_migrated++;
 		}
+		if (give_progress(&prev))
+			log_info(ld->log, "Inserted %zu/%zu chain_events", i, tal_count(chain_events));
 	}
 
+	log_debug(ld->log, "Transferring %zu channel_events",
+		  tal_count(channel_events));
 	for (size_t i = 0; i < tal_count(channel_events); i++) {
 		const struct channel_event *ev = channel_events[i];
 		struct mvt_account_id *account = tal(ev, struct mvt_account_id);
@@ -546,6 +565,8 @@ void migrate_from_account_db(struct lightningd *ld, struct db *db)
 			wallet_datastore_save_payment_description(db, ev->payment_id, ev->desc);
 			descriptions_migrated++;
 		}
+		if (give_progress(&prev))
+			log_info(ld->log, "Inserted %zu/%zu channel_events", i, tal_count(channel_events));
 	}
 
 	log_info(ld->log, "bookkeeper migration complete: migrated %zu chainmoves, %zu channelmoves, %zu descriptions",
