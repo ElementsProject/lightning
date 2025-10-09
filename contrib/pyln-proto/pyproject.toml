@@ -7,11 +7,11 @@ authors = [
 ]
 license = {text = "BSD-MIT"}
 readme = "README.md"
-requires-python = ">=3.9,<4.0"
+requires-python = ">=3.9.2,<4.0"
 dependencies = [
     "base58>=2.1.1",
     "bitstring>=4.3.0",
-    "coincurve==21.0.0",
+    "coincurve==20.0.0",
     "cryptography>=46",
     "PySocks>=1"
 ]
