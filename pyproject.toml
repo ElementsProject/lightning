@@ -3,7 +3,7 @@ name = "cln-meta-project"
 version = "0.1.0"
 description = "Just a helper to get our python dependencies under control"
 authors = [{ name = "Christian Decker", email = "cdecker@blockstream.com" }]
-requires-python = ">=3.9,<4.0"
+requires-python = ">=3.9.2,<4.0"
 dependencies = [
   "Mako>=1.1.6",
   "websocket-client>=1.2.3",
