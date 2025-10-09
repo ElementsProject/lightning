@@ -1748,6 +1748,28 @@ def test_plugin_feature_announce(node_factory):
     assert node['features'] == expected_node_features(extra=[203])
 
 
+def test_plugin_feature_remove(node_factory, monkeypatch):
+    """Check that features registered by plugins get removed if a plugin
+    disables itself.
+
+    We set the following feature bits we don't want to include if the plugin is
+    disabled during init.
+     - 1 << 201 for `init` messages
+     - 1 << 203 for `node_announcement`
+     - 1 << 205 for bolt11 invoices
+    """
+
+    monkeypatch.setenv("PLUGIN_DISABLE", "1")
+    plugin = os.path.join(os.path.dirname(__file__), 'plugins/feature-test.py')
+    l1 = node_factory.get_node(options={'plugin': plugin})
+
+    # Check that we don't include the features set in getmanifest.
+    our_feats = l1.rpc.getinfo()["our_features"]
+    assert((int(our_feats["init"], 16) & (1 << 201)) == 0)
+    assert((int(our_feats["node"], 16) & (1 << 203)) == 0)
+    assert((int(our_feats["invoice"], 16) & (1 << 205)) == 0)
+
+
 def test_hook_chaining(node_factory):
     """Check that hooks are called in order and the chain exits correctly
 
