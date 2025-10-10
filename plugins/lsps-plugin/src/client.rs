@@ -520,7 +520,6 @@ async fn on_openchannel(
         // found in the ds record.
         return Ok(serde_json::json!({
             "result": "continue",
-            "reserve": "0msat",
             "mindepth": 0,
         }));
     } else {
