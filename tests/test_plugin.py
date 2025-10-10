@@ -1748,7 +1748,7 @@ def test_plugin_feature_announce(node_factory):
     assert node['features'] == expected_node_features(extra=[203])
 
 
-def test_plugin_feature_remove(node_factory, monkeypatch):
+def test_plugin_feature_remove(node_factory):
     """Check that features registered by plugins get removed if a plugin
     disables itself.
 
@@ -1759,9 +1759,8 @@ def test_plugin_feature_remove(node_factory, monkeypatch):
      - 1 << 205 for bolt11 invoices
     """
 
-    monkeypatch.setenv("PLUGIN_DISABLE", "1")
     plugin = os.path.join(os.path.dirname(__file__), 'plugins/feature-test.py')
-    l1 = node_factory.get_node(options={'plugin': plugin})
+    l1 = node_factory.get_node(options={'plugin': plugin, 'disable-on-init': True})
 
     # Check that we don't include the features set in getmanifest.
     our_feats = l1.rpc.getinfo()["our_features"]
