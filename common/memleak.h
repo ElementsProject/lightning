@@ -109,6 +109,18 @@ void memleak_scan_region(struct htable *memtable, const void *p, size_t len);
 /* Objects inside this htable (which is opaque to memleak) are not leaks. */
 void memleak_scan_htable(struct htable *memtable, const struct htable *ht);
 
+/* Allocate a htable, set up memleak scan automatically (assumes &p->raw == p) */
+#define new_htable(ctx, type)				\
+	({							  \
+		const struct htable *raw;			  \
+		struct type *p = tal(ctx, struct type);		  \
+		type##_init(p);					  \
+		raw = &p->raw;					  \
+		assert((void *)raw == (void *)p);		  \
+		memleak_add_helper(raw, memleak_scan_htable);	  \
+		p;						  \
+	})
+
 /* Objects inside this uintmap (which is opaque to memleak) are not leaks. */
 #define memleak_scan_uintmap(memtable, umap)		\
 	memleak_scan_intmap_(memtable, uintmap_unwrap_(umap))

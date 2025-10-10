@@ -187,17 +187,6 @@ u8 *scriptpubkey_p2pkh(const tal_t *ctx, const struct bitcoin_address *addr)
 	return script;
 }
 
-u8 *scriptpubkey_opreturn_padded(const tal_t *ctx)
-{
-	u8 *script = tal_arr(ctx, u8, 0);
-	u8 random[20];
-	randombytes_buf(random, sizeof(random));
-
-	add_op(&script, OP_RETURN);
-	script_push_bytes(&script, random, sizeof(random));
-	return script;
-}
-
 /* Create an input script which spends p2pkh */
 u8 *bitcoin_redeem_p2pkh(const tal_t *ctx, const struct pubkey *pubkey,
 			 const struct bitcoin_signature *sig)

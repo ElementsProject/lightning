@@ -1887,6 +1887,34 @@ def test_onchain_missing_no_p2tr_migrate(node_factory, bitcoind):
     l2.daemon.wait_for_log('Rescan finished! 1 outputs recovered')
 
 
+@pytest.mark.parametrize("restart", [False, True])
+def test_sendpsbt_confirm(node_factory, bitcoind, restart):
+    """We should see our sendpsbt in wallet, and that it gets confirmed"""
+    l1, l2 = node_factory.get_nodes(2)
+    l1.fundwallet(100000)
+
+    psbt = l1.rpc.fundpsbt(satoshi=10000,
+                           feerate=7500,
+                           startweight=42)['psbt']
+    psbt = l2.rpc.addpsbtoutput(10000, psbt)['psbt']
+    psbt = l1.rpc.signpsbt(psbt)['signed_psbt']
+    sent = l1.rpc.sendpsbt(psbt)
+
+    # Unconfirmed
+    lt = only_one([t for t in l1.rpc.listtransactions()['transactions'] if t['rawtx'] == sent['tx']])
+    assert lt['blockheight'] == 0
+
+    if restart:
+        l1.restart()
+
+    bitcoind.generate_block(1, wait_for_mempool=sent['txid'])
+    sync_blockheight(bitcoind, [l1])
+
+    # Should be confirmed now!
+    lt = only_one([t for t in l1.rpc.listtransactions()['transactions'] if t['rawtx'] == sent['tx']])
+    assert lt['blockheight'] == bitcoind.rpc.getblockcount()
+
+
 def test_old_htlcs_cleanup(node_factory, bitcoind):
     """We lazily delete htlcs from channel_htlcs table"""
     l1, l2 = node_factory.line_graph(2)

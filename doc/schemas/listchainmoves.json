@@ -197,5 +197,358 @@
   ],
   "resources": [
     "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
+    {
+      "request": {
+        "id": "example:listchainmoves#1",
+        "method": "listchainmoves",
+        "params": {}
+      },
+      "response": {
+        "chainmoves": [
+          {
+            "created_index": 1,
+            "account_id": "wallet",
+            "credit_msat": 200000000000,
+            "debit_msat": 0,
+            "timestamp": 1758192762,
+            "primary_tag": "deposit",
+            "extra_tags": [],
+            "utxo": "994185cba7723715c0aa1d1859ce2781116776cea917035c90f8f04c9f4e095e:1",
+            "output_msat": 200000000000,
+            "blockheight": 104
+          },
+          {
+            "created_index": 2,
+            "account_id": "252d1b0a1e57895e84137f28cf19ab2c35847e284c112fefdecc7afeaa5c1de7",
+            "credit_msat": 0,
+            "debit_msat": 0,
+            "timestamp": 1758192777,
+            "primary_tag": "channel_open",
+            "extra_tags": [],
+            "utxo": "542906c8a9d90596592459a9484f4286a3200f6540599c83b43af2ac4166c6ca:1",
+            "peer_id": "nodeid010101010101010101010101010101010101010101010101010101010101",
+            "output_msat": 1000000000,
+            "blockheight": 109
+          },
+          {
+            "created_index": 3,
+            "account_id": "wallet",
+            "credit_msat": 2000000000,
+            "debit_msat": 0,
+            "timestamp": 1758192780,
+            "primary_tag": "deposit",
+            "extra_tags": [],
+            "utxo": "19e9e42f2f2097ea1dc18d7eb670bc53c90cbe31bb1daba8e94abf3c6b60d2dc:1",
+            "output_msat": 2000000000,
+            "blockheight": 110
+          },
+          {
+            "created_index": 4,
+            "account_id": "wallet",
+            "credit_msat": 0,
+            "debit_msat": 200000000000,
+            "timestamp": 1738530000,
+            "primary_tag": "withdrawal",
+            "extra_tags": [],
+            "utxo": "994185cba7723715c0aa1d1859ce2781116776cea917035c90f8f04c9f4e095e:1",
+            "spending_txid": "94418b652c9a0d79129552d317dcc37cb55afda1387257a22c7f16aa3981b7bc",
+            "output_msat": 200000000000,
+            "blockheight": 111
+          },
+          {
+            "created_index": 5,
+            "account_id": "wallet",
+            "credit_msat": 198995073000,
+            "debit_msat": 0,
+            "timestamp": 1738530000,
+            "primary_tag": "deposit",
+            "extra_tags": [],
+            "utxo": "94418b652c9a0d79129552d317dcc37cb55afda1387257a22c7f16aa3981b7bc:1",
+            "output_msat": 198995073000,
+            "blockheight": 111
+          },
+          {
+            "created_index": 6,
+            "account_id": "a397dd9b3e44afcb67f3f3ce1d649b74a8ade63e35505985e4cc1828634f69a2",
+            "credit_msat": 1000000000,
+            "debit_msat": 0,
+            "timestamp": 1738530000,
+            "primary_tag": "channel_open",
+            "extra_tags": [
+              "opener"
+            ],
+            "utxo": "94418b652c9a0d79129552d317dcc37cb55afda1387257a22c7f16aa3981b7bc:0",
+            "peer_id": "nodeid030303030303030303030303030303030303030303030303030303030303",
+            "output_msat": 1000000000,
+            "blockheight": 111
+          },
+          {
+            "created_index": 7,
+            "account_id": "wallet",
+            "credit_msat": 2000000000,
+            "debit_msat": 0,
+            "timestamp": 1758192792,
+            "primary_tag": "deposit",
+            "extra_tags": [],
+            "utxo": "b6d0090efbeb347fa59f90b321d6906cdf86779c15477582979fa427249f71f5:1",
+            "output_msat": 2000000000,
+            "blockheight": 114
+          },
+          {
+            "created_index": 8,
+            "account_id": "wallet",
+            "credit_msat": 0,
+            "debit_msat": 198995073000,
+            "timestamp": 1758192795,
+            "primary_tag": "withdrawal",
+            "extra_tags": [],
+            "utxo": "94418b652c9a0d79129552d317dcc37cb55afda1387257a22c7f16aa3981b7bc:1",
+            "spending_txid": "32de3d1592062670eb8630875a28705cc1988b7f83f8c712bf9d39be2152efec",
+            "output_msat": 198995073000,
+            "blockheight": 115
+          },
+          {
+            "created_index": 9,
+            "account_id": "wallet",
+            "credit_msat": 197990453000,
+            "debit_msat": 0,
+            "timestamp": 1758192795,
+            "primary_tag": "deposit",
+            "extra_tags": [],
+            "utxo": "32de3d1592062670eb8630875a28705cc1988b7f83f8c712bf9d39be2152efec:0",
+            "output_msat": 197990453000,
+            "blockheight": 115
+          },
+          {
+            "created_index": 10,
+            "account_id": "f8fc83a432cbfb2fffe222cc06727fdd977b5dd10ebd6707158e799e6f522d9f",
+            "credit_msat": 1000000000,
+            "debit_msat": 0,
+            "timestamp": 1758192795,
+            "primary_tag": "channel_open",
+            "extra_tags": [
+              "opener"
+            ],
+            "utxo": "32de3d1592062670eb8630875a28705cc1988b7f83f8c712bf9d39be2152efec:1",
+            "peer_id": "nodeid050505050505050505050505050505050505050505050505050505050505",
+            "output_msat": 1000000000,
+            "blockheight": 115
+          },
+          {
+            "created_index": 11,
+            "account_id": "wallet",
+            "credit_msat": 486914000,
+            "debit_msat": 0,
+            "timestamp": 1738520000,
+            "primary_tag": "deposit",
+            "extra_tags": [],
+            "utxo": "874b26d4c523a902fdc44b88ec000eb5c3fe8754c9d44190a140561e24e77781:0",
+            "output_msat": 486914000,
+            "blockheight": 121
+          },
+          {
+            "created_index": 12,
+            "account_id": "a397dd9b3e44afcb67f3f3ce1d649b74a8ade63e35505985e4cc1828634f69a2",
+            "credit_msat": 0,
+            "debit_msat": 489809898,
+            "timestamp": 1738520000,
+            "primary_tag": "channel_close",
+            "extra_tags": [],
+            "utxo": "94418b652c9a0d79129552d317dcc37cb55afda1387257a22c7f16aa3981b7bc:0",
+            "spending_txid": "txid010101010101010101010101010101010101010101010101010101010101",
+            "output_msat": 1000000000,
+            "output_count": 2,
+            "blockheight": 121
+          },
+          {
+            "created_index": 13,
+            "account_id": "external",
+            "credit_msat": 510190000,
+            "debit_msat": 0,
+            "timestamp": 1738520000,
+            "primary_tag": "to_them",
+            "extra_tags": [],
+            "utxo": "874b26d4c523a902fdc44b88ec000eb5c3fe8754c9d44190a140561e24e77781:1",
+            "originating_account": "channelid0230000230000230000230000230000230000230000230000230000",
+            "output_msat": 510190000,
+            "blockheight": 121
+          },
+          {
+            "created_index": 14,
+            "account_id": "wallet",
+            "credit_msat": 2000000000,
+            "debit_msat": 0,
+            "timestamp": 1758192808,
+            "primary_tag": "deposit",
+            "extra_tags": [],
+            "utxo": "c9c9bec064382b6a6fb2a30d8923949b3c9f732465542b96e9ad1b5eebda4c7d:0",
+            "output_msat": 2000000000,
+            "blockheight": 122
+          },
+          {
+            "created_index": 15,
+            "account_id": "wallet",
+            "credit_msat": 0,
+            "debit_msat": 197990453000,
+            "timestamp": 1738500000,
+            "primary_tag": "withdrawal",
+            "extra_tags": [],
+            "utxo": "32de3d1592062670eb8630875a28705cc1988b7f83f8c712bf9d39be2152efec:0",
+            "spending_txid": "0137213d852e76d48f0270a78218d2f562ac0a8974f814cab66376537cfd1682",
+            "output_msat": 197990453000,
+            "blockheight": 123
+          },
+          {
+            "created_index": 16,
+            "account_id": "wallet",
+            "credit_msat": 196985833000,
+            "debit_msat": 0,
+            "timestamp": 1738500000,
+            "primary_tag": "deposit",
+            "extra_tags": [],
+            "utxo": "0137213d852e76d48f0270a78218d2f562ac0a8974f814cab66376537cfd1682:1",
+            "output_msat": 196985833000,
+            "blockheight": 123
+          },
+          {
+            "created_index": 17,
+            "account_id": "channelid0230200230200230200230200230200230200230200230200230200",
+            "credit_msat": 1000000000,
+            "debit_msat": 0,
+            "timestamp": 1738500000,
+            "primary_tag": "channel_open",
+            "extra_tags": [
+              "opener"
+            ],
+            "utxo": "0137213d852e76d48f0270a78218d2f562ac0a8974f814cab66376537cfd1682:0",
+            "peer_id": "nodeid030303030303030303030303030303030303030303030303030303030303",
+            "output_msat": 1000000000,
+            "blockheight": 123
+          }
+        ]
+      }
+    },
+    {
+      "request": {
+        "id": "example:listchainmoves#2",
+        "method": "listchainmoves",
+        "params": {
+          "index": "created",
+          "start": 10
+        }
+      },
+      "response": {
+        "chainmoves": [
+          {
+            "created_index": 10,
+            "account_id": "f8fc83a432cbfb2fffe222cc06727fdd977b5dd10ebd6707158e799e6f522d9f",
+            "credit_msat": 1000000000,
+            "debit_msat": 0,
+            "timestamp": 1758192795,
+            "primary_tag": "channel_open",
+            "extra_tags": [
+              "opener"
+            ],
+            "utxo": "32de3d1592062670eb8630875a28705cc1988b7f83f8c712bf9d39be2152efec:1",
+            "peer_id": "nodeid050505050505050505050505050505050505050505050505050505050505",
+            "output_msat": 1000000000,
+            "blockheight": 115
+          },
+          {
+            "created_index": 11,
+            "account_id": "wallet",
+            "credit_msat": 486914000,
+            "debit_msat": 0,
+            "timestamp": 1738520000,
+            "primary_tag": "deposit",
+            "extra_tags": [],
+            "utxo": "874b26d4c523a902fdc44b88ec000eb5c3fe8754c9d44190a140561e24e77781:0",
+            "output_msat": 486914000,
+            "blockheight": 121
+          },
+          {
+            "created_index": 12,
+            "account_id": "a397dd9b3e44afcb67f3f3ce1d649b74a8ade63e35505985e4cc1828634f69a2",
+            "credit_msat": 0,
+            "debit_msat": 489809898,
+            "timestamp": 1738520000,
+            "primary_tag": "channel_close",
+            "extra_tags": [],
+            "utxo": "94418b652c9a0d79129552d317dcc37cb55afda1387257a22c7f16aa3981b7bc:0",
+            "spending_txid": "txid010101010101010101010101010101010101010101010101010101010101",
+            "output_msat": 1000000000,
+            "output_count": 2,
+            "blockheight": 121
+          },
+          {
+            "created_index": 13,
+            "account_id": "external",
+            "credit_msat": 510190000,
+            "debit_msat": 0,
+            "timestamp": 1738520000,
+            "primary_tag": "to_them",
+            "extra_tags": [],
+            "utxo": "874b26d4c523a902fdc44b88ec000eb5c3fe8754c9d44190a140561e24e77781:1",
+            "originating_account": "channelid0230000230000230000230000230000230000230000230000230000",
+            "output_msat": 510190000,
+            "blockheight": 121
+          },
+          {
+            "created_index": 14,
+            "account_id": "wallet",
+            "credit_msat": 2000000000,
+            "debit_msat": 0,
+            "timestamp": 1758192808,
+            "primary_tag": "deposit",
+            "extra_tags": [],
+            "utxo": "c9c9bec064382b6a6fb2a30d8923949b3c9f732465542b96e9ad1b5eebda4c7d:0",
+            "output_msat": 2000000000,
+            "blockheight": 122
+          },
+          {
+            "created_index": 15,
+            "account_id": "wallet",
+            "credit_msat": 0,
+            "debit_msat": 197990453000,
+            "timestamp": 1738500000,
+            "primary_tag": "withdrawal",
+            "extra_tags": [],
+            "utxo": "32de3d1592062670eb8630875a28705cc1988b7f83f8c712bf9d39be2152efec:0",
+            "spending_txid": "0137213d852e76d48f0270a78218d2f562ac0a8974f814cab66376537cfd1682",
+            "output_msat": 197990453000,
+            "blockheight": 123
+          },
+          {
+            "created_index": 16,
+            "account_id": "wallet",
+            "credit_msat": 196985833000,
+            "debit_msat": 0,
+            "timestamp": 1738500000,
+            "primary_tag": "deposit",
+            "extra_tags": [],
+            "utxo": "0137213d852e76d48f0270a78218d2f562ac0a8974f814cab66376537cfd1682:1",
+            "output_msat": 196985833000,
+            "blockheight": 123
+          },
+          {
+            "created_index": 17,
+            "account_id": "channelid0230200230200230200230200230200230200230200230200230200",
+            "credit_msat": 1000000000,
+            "debit_msat": 0,
+            "timestamp": 1738500000,
+            "primary_tag": "channel_open",
+            "extra_tags": [
+              "opener"
+            ],
+            "utxo": "0137213d852e76d48f0270a78218d2f562ac0a8974f814cab66376537cfd1682:0",
+            "peer_id": "nodeid030303030303030303030303030303030303030303030303030303030303",
+            "output_msat": 1000000000,
+            "blockheight": 123
+          }
+        ]
+      }
+    }
   ]
 }

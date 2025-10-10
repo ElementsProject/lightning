@@ -49,13 +49,6 @@ static bool replay_tx_eq_txid(const struct replay_tx *rtx,
 HTABLE_DEFINE_NODUPS_TYPE(struct replay_tx, replay_tx_keyof, txid_hash, replay_tx_eq_txid,
 			  replay_tx_hash);
 
-/* Helper for memleak detection */
-static void memleak_replay_tx_hash(struct htable *memtable,
-				   struct replay_tx_hash *replay_tx_hash)
-{
-	memleak_scan_htable(memtable, &replay_tx_hash->raw);
-}
-
 /* We dump all the known preimages when onchaind starts up. */
 static void onchaind_tell_fulfill(struct channel *channel)
 {
@@ -1904,11 +1897,8 @@ void onchaind_replay_channels(struct lightningd *ld)
 				 channel_state_name(channel), blockheight);
 
 			/* We're in replay mode */
-			channel->onchaind_replay_watches = tal(channel, struct replay_tx_hash);
+			channel->onchaind_replay_watches = new_htable(channel, replay_tx_hash);
 			channel->onchaind_replay_height = blockheight;
-			replay_tx_hash_init(channel->onchaind_replay_watches);
-			memleak_add_helper(channel->onchaind_replay_watches,
-					   memleak_replay_tx_hash);
 
 			onchaind_funding_spent(channel, tx, blockheight);
 			onchaind_replay(channel);
