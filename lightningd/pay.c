@@ -1698,7 +1698,7 @@ injectonion_fail(struct command *cmd,
 		const u8 *err;
 
 		/* Local error with no context, use default error */
-		if (fail->msg)
+		if (fail && fail->msg)
 			err = fail->msg;
 		else
 			err = towire_temporary_channel_failure(tmpctx, NULL);
