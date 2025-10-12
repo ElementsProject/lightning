@@ -1018,3 +1018,27 @@ def test_xpay_bip353(node_factory):
 
     node_factory.join_nodes([l2, l1])
     l2.rpc.xpay('fake@fake.com', 100)
+
+
+def test_xpay_limited_max_accepted_htlcs(node_factory):
+    """xpay should try to reduce flows to 6 if there is an unannounced channel, and only try more if that fails"""
+    CHANNEL_SIZE_SATS = 10**6
+    CHANNEL_SIZE_MSATS = CHANNEL_SIZE_SATS * 1000
+    l1, l2 = node_factory.line_graph(2,
+                                     fundamount=CHANNEL_SIZE_SATS * 20,
+                                     opts=[{}, {'max-concurrent-htlcs': 6}],
+                                     announce_channels=False)
+
+    # We want 10 paths between l3 and l1.
+    l3 = node_factory.get_node()
+    nodes = node_factory.get_nodes(10)
+    for n in nodes:
+        node_factory.join_nodes([l3, n, l1], fundamount=CHANNEL_SIZE_SATS)
+
+    # This *could* fit in 6 channels...
+    l3.rpc.xpay(l2.rpc.invoice(f"{CHANNEL_SIZE_SATS * 5}sat",
+                               'test_xpay_limited_max_accepted_htlcs',
+                               'test_xpay_limited_max_accepted_htlcs')['bolt11'])
+
+    # Check that it *did* give a 7 flow answer!
+    l3.daemon.wait_for_log('Final answer has 7 flows')
