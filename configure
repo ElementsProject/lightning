@@ -134,10 +134,10 @@ default_valgrind_setting()
 
 default_rust_setting()
 {
-    if cargo --version > /dev/null 2>&1 && rustfmt --version >/dev/null 2>&1; then
-	echo 1
+    if cargo --version > /dev/null 2>&1; then
+	    echo 1
     else
-	echo 0
+	    echo 0
     fi
 }
 
