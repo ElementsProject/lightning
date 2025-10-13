@@ -82,6 +82,24 @@ default_python()
     done
 }
 
+# We want GNU sed, which, among other things, recognizes '\t'.
+# We don't want to get confused with some random program called gsed,
+# so we actually test.
+default_sed()
+{
+    SED_BINS="gsed sed"
+    for s in $SED_BINS; do
+        if [ "$(which $s)" != "" ] ; then
+            if [ "$(printf x | $s 's/x/\t/')" = "	" ]; then
+		echo "$s"
+                return
+            fi
+        fi
+    done
+    echo "No valid sed found?" >&2
+    exit 1
+}
+
 # Takes PYTHON var
 default_pytest()
 {
@@ -184,6 +202,7 @@ set_defaults()
     fi
     echo CSANFLAGS = $CSANFLAGS
     PYTHON=${PYTHON-$(default_python)}
+    SED=${SED-$(default_sed)}
     PYTEST=${PYTEST-$(default_pytest $PYTHON)}
     COPTFLAGS=${COPTFLAGS-$(default_coptflags "$DEBUGBUILD")}
     CONFIGURATOR_CC=${CONFIGURATOR_CC-$CC}
@@ -212,6 +231,7 @@ usage()
     echo "    To override compile line for configurator itself"
     usage_with_default "PYTEST" "$PYTEST"
     usage_with_default "VALGRIND" "$VALGRIND"
+    usage_with_default "SED" "$SED"
 
     echo "Options include:"
     usage_with_default "--prefix=" "$PREFIX"
@@ -554,6 +574,7 @@ add_var SHA256SUM "$SHA256SUM"
 add_var FUZZING "$FUZZING"
 add_var RUST "$RUST"
 add_var PYTHON "$PYTHON"
+add_var SED "$SED"
 
 # Hack to avoid sha256 name clash with libwally: will be fixed when that
 # becomes a standalone shared lib.
