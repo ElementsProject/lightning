@@ -5,7 +5,6 @@
 
 #include <bitcoin/tx.h>
 #include <ccan/intmap/intmap.h>
-#include <ccan/membuf/membuf.h>
 #include <ccan/strmap/strmap.h>
 #include <ccan/time/time.h>
 #include <ccan/timer/timer.h>

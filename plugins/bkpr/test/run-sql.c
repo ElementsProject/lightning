@@ -88,6 +88,9 @@ struct io_plan *jsonrpc_io_read_(struct io_conn *conn UNNEEDED,
 							 void *) UNNEEDED,
 				 void *arg UNNEEDED)
 { fprintf(stderr, "jsonrpc_io_read_ called!\n"); abort(); }
+/* Generated stub for jsonrpc_sync_read */
+bool jsonrpc_sync_read(struct jsonrpc_io *json_in UNNEEDED, int infd UNNEEDED)
+{ fprintf(stderr, "jsonrpc_sync_read called!\n"); abort(); }
 /* Generated stub for last_fee_state */
 enum htlc_state last_fee_state(enum side opener UNNEEDED)
 { fprintf(stderr, "last_fee_state called!\n"); abort(); }
