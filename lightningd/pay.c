@@ -588,13 +588,6 @@ void payment_failed(struct lightningd *ld,
 			  onion_wire_name(fail->failcode));
 		failstr = localfail;
 		pay_errcode = PAY_TRY_OTHER_ROUTE;
-	} else if (payment->path_secrets == NULL) {
-		/* This was a payment initiated with `sendonion`/`injectonionmessage`, we therefore
-		 * don't have the path secrets and cannot decode the error
-		 * onion. We hand it to the user. */
-		pay_errcode = PAY_UNPARSEABLE_ONION;
-		fail = NULL;
-		failstr = NULL;
 	} else if (failmsg) {
 		/* This can happen when a direct peer told channeld it's a
 		 * malformed onion using update_fail_malformed_htlc. */
@@ -602,6 +595,14 @@ void payment_failed(struct lightningd *ld,
 		origin_index = 0;
 		pay_errcode = PAY_TRY_OTHER_ROUTE;
 		goto use_failmsg;
+	} else if (payment->path_secrets == NULL) {
+		/* This was a payment initiated with `sendonion`/`injectonionmessage`, we therefore
+		 * don't have the path secrets and cannot decode the error
+		 * onion. We hand it to the user. */
+		assert(failonion != NULL);
+		pay_errcode = PAY_UNPARSEABLE_ONION;
+		fail = NULL;
+		failstr = NULL;
 	} else {
 		/* Must be normal remote fail with an onion-wrapped error. */
 		failstr = "reply from remote";
