@@ -80,7 +80,7 @@ static bool can_open_proc_pid_fd(void)
 	char dnam[PROC_PID_FD_LEN];
 	DIR *dir;
 
-	sprintf(dnam, "/proc/%ld/fd", (long) getpid());
+	snprintf(dnam, sizeof(dnam), "/proc/%ld/fd", (long) getpid());
 	dir = opendir(dnam);
 	if (!dir)
 		return false;
@@ -159,7 +159,7 @@ void closefrom(int fromfd)
 
 	maxfd = sysconf(_SC_OPEN_MAX);
 
-	sprintf(dnam, "/proc/%ld/fd", (long) getpid());
+	snprintf(dnam, sizeof(dnam), "/proc/%ld/fd", (long) getpid());
 	dir = try_opendir(dnam, &fromfd, maxfd);
 	if (!dir)
 		dir = try_opendir("/dev/fd", &fromfd, maxfd);

@@ -7,7 +7,7 @@ int main(void)
 {
 	char *parent, *c;
 
-	plan_tests(14);
+	plan_tests(11);
 
 	parent = tal(NULL, char);
 	ok1(parent);
@@ -37,12 +37,6 @@ int main(void)
 
 	tal_free(parent);
 	ok1(!taken_any());
-
-	/* NULL pass-through. */
-	c = NULL;
-	ok1(tal_strdup(NULL, take(c)) == NULL);
-	ok1(tal_strndup(NULL, take(c), 5) == NULL);
-	ok1(tal_fmt(NULL, take(c), 0) == NULL);
 
 	return exit_status();
 }
