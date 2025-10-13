@@ -2119,7 +2119,6 @@ def test_bad_onion(node_factory, bitcoind):
     assert err.value.error['data']['erring_channel'] == route[1]['channel']
 
 
-@pytest.mark.xfail(strict=True)
 def test_bad_onion_immediate_peer(node_factory, bitcoind):
     """Test that we handle the malformed msg when we're the origin"""
     l1, l2 = node_factory.line_graph(2, opts=[{}, {'dev-fail-process-onionpacket': None}])
