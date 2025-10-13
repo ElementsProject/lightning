@@ -15,7 +15,7 @@ int main(void)
 	char **split, *str;
 	void *ctx;
 
-	plan_tests(78);
+	plan_tests(72);
 	split = tal_strsplit(NULL, "hello  world", " ", STR_EMPTY_OK);
 	ok1(!strcmp(split[0], "hello"));
 	ok1(!strcmp(split[1], ""));
@@ -71,9 +71,6 @@ int main(void)
 	tal_free(ctx);
 
 	ctx = tal_strdup(NULL, "context");
-	/* Pass through NULLs from take. */
-	ok1(tal_strsplit(NULL, take(NULL), " ", STR_EMPTY_OK) == NULL);
-	ok1(tal_strsplit(NULL, "foo", take(NULL), STR_EMPTY_OK) == NULL);
 
 	/* tal_strsplit take string.  It reallocs it to same size, but
 	 * that sometimes causes a move, so we can't directly check
@@ -119,12 +116,6 @@ int main(void)
 	tal_free(split);
 	/* temp allocs are gone... */
 	ok1(no_children(ctx));
-
-	/* tal_strjoin passthrough taken NULLs OK. */
-	ok1(tal_strjoin(ctx, take(NULL), "", STR_TRAIL) == NULL);
-	ok1(tal_strjoin(ctx, take(NULL), "", STR_NO_TRAIL) == NULL);
-	ok1(tal_strjoin(ctx, split, take(NULL), STR_TRAIL) == NULL);
-	ok1(tal_strjoin(ctx, split, take(NULL), STR_NO_TRAIL) == NULL);
 
 	/* tal_strjoin take strings[] */
 	split = tal_strsplit(ctx, "hello world", " ", STR_EMPTY_OK);

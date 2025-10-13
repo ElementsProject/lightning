@@ -308,7 +308,8 @@ static const char *rune_alt_single(const tal_t *ctx,
 	/* Caller can't set both! */
 	if (fieldval_int) {
 		assert(!fieldval_str);
-		sprintf(strfield, "%"PRIi64, *fieldval_int);
+		snprintf(strfield, sizeof(strfield) - 1, "%"PRIi64, *fieldval_int);
+		strfield[sizeof(strfield) - 1] = '\0';
 		fieldval_str = strfield;
 		fieldval_strlen = strlen(strfield);
 	}
