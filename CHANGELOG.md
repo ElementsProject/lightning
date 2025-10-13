@@ -3,6 +3,42 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+
+## [25.09.1] - 2025-10-10: "Hot Wallet Guardian II"
+
+Several important fixes, please upgrade!
+
+### Added
+
+ - added verification of GPG keys for the bitcoin and litecoin tarballs. ([#8429])
+
+### Changed
+
+ - lightningd: we defer deletion of old htlcs on channel close, to avoid pausing for a long time (we clean them on startup) ([#8563])
+ - gossipd: add gossip_store recovery for filesystems which do not synchronize read and write (e.g. ZFS on Linux), by disabling mmap reads and rewriting the last records. ([#8566])
+ - Dockerfile: improve build time and reduce image size ([#8429])
+
+### Fixed
+
+ - JSON-RPC: `listchainmoves` could contain bogus duplicate entries after 25.09 bookkeeper migration. ([#8574])
+ - bookkeeper: failed reload of rebalances on restart. ([#8562])
+ - fixed compilation on all target architectures; each had their own bugs (poetry, missing packages...). ([#8429])
+ - fixed cargo cross compilation. it was mistakenly using QEMU before. ([#8429])
+ - fixed CPU compatibility bug described in issue 8456 ([#8429])
+ - lightningd: potential crash when we receive a malformed onion complain from our first peer when using sendonion / injectpaymentonion. ([#8597])
+ - db: migration from v25.09 on a reasonable size account database could take almost infinite time. ([#8587])
+ - pyln-testing: restore compatibility with pre-25.09 CLN versions. ([#8539])
+
+[#8563]: https://github.com/ElementsProject/lightning/pull/8563
+[#8562]: https://github.com/ElementsProject/lightning/pull/8562
+[#8574]: https://github.com/ElementsProject/lightning/pull/8574
+[#8429]: https://github.com/ElementsProject/lightning/pull/8429
+[#8566]: https://github.com/ElementsProject/lightning/pull/8566
+[#8587]: https://github.com/ElementsProject/lightning/pull/8587
+[#8597]: https://github.com/ElementsProject/lightning/pull/8597
+[#8539]: https://github.com/ElementsProject/lightning/pull/8539
+[25.09.1]: https://github.com/ElementsProject/lightning/releases/tag/v25.09.1
+
 ## [25.09] - 2025-09-01: "Hot Wallet Guardian"
 
 This release named by @king-11.
