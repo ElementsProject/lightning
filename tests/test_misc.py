@@ -8,10 +8,11 @@ from pyln.client import RpcError, Millisatoshi
 from threading import Event
 from pyln.testing.utils import (
     TIMEOUT, VALGRIND, sync_blockheight, only_one,
-    wait_for, TailableProc, env, mine_funding_to_announce
+    wait_for, TailableProc, env, mine_funding_to_announce,
 )
 from utils import (
-    account_balance, scriptpubkey_addr, check_coin_moves, first_scid
+    account_balance, scriptpubkey_addr, check_coin_moves, first_scid,
+    serialize_payload_tlv, serialize_payload_final_tlv,
 )
 
 import copy
@@ -2118,9 +2119,10 @@ def test_bad_onion(node_factory, bitcoind):
     assert err.value.error['data']['erring_channel'] == route[1]['channel']
 
 
+@pytest.mark.xfail(strict=True)
 def test_bad_onion_immediate_peer(node_factory, bitcoind):
     """Test that we handle the malformed msg when we're the origin"""
-    l1, l2 = node_factory.line_graph(2, opts={'dev-fail-process-onionpacket': None})
+    l1, l2 = node_factory.line_graph(2, opts=[{}, {'dev-fail-process-onionpacket': None}])
 
     inv = l2.rpc.invoice(123000, 'test_bad_onion_immediate_peer', 'description')
     route = l1.rpc.getroute(l2.info['id'], 123000, 1)['route']
@@ -2136,6 +2138,26 @@ def test_bad_onion_immediate_peer(node_factory, bitcoind):
     # FIXME: WIRE_INVALID_ONION_HMAC = BADONION|PERM|5
     WIRE_INVALID_ONION_HMAC = 0x8000 | 0x4000 | 5
     assert err.value.error['data']['failcode'] == WIRE_INVALID_ONION_HMAC
+
+    # Same, but using injectpaymentonion with corrupt onion.
+    blockheight = l1.rpc.getinfo()['blockheight']
+    hops = [{'pubkey': l1.info['id'],
+             'payload': serialize_payload_tlv(123000, 18 + 6, first_scid(l1, l2), blockheight).hex()},
+            {'pubkey': l2.info['id'],
+             'payload': serialize_payload_final_tlv(123000, 18, 123000, blockheight, inv['payment_secret']).hex()}]
+    onion = l1.rpc.createonion(hops=hops, assocdata=inv['payment_hash'])
+
+    with pytest.raises(RpcError) as err:
+        l1.rpc.injectpaymentonion(onion=onion['onion'],
+                                  payment_hash=inv['payment_hash'],
+                                  amount_msat=123000,
+                                  cltv_expiry=blockheight + 18 + 6,
+                                  partid=1,
+                                  groupid=0)
+    # FIXME: PAY_INJECTPAYMENTONION_FAILED = 218
+    PAY_INJECTPAYMENTONION_FAILED = 218
+    assert err.value.error['code'] == PAY_INJECTPAYMENTONION_FAILED
+    assert 'onionreply' in err.value.error['data']
 
 
 def test_newaddr(node_factory, chainparams):
