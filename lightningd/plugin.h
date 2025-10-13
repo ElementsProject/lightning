@@ -76,10 +76,7 @@ struct plugin {
 	bool dynamic;
 
 	/* Stuff we read */
-	char *buffer;
-	size_t used, len_read;
-	jsmn_parser parser;
-	jsmntok_t *toks;
+	struct jsonrpc_io *json_in;
 
 	/* Our json_streams. Since multiple streams could start
 	 * returning data at once, we always service these in order,
