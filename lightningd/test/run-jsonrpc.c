@@ -51,6 +51,13 @@ char *hsm_secret_arg(const tal_t *ctx UNNEEDED,
 		     const char *arg UNNEEDED,
 		     const u8 **hsm_secret UNNEEDED)
 { fprintf(stderr, "hsm_secret_arg called!\n"); abort(); }
+/* Generated stub for json_dup_contents */
+void json_dup_contents(const tal_t *ctx UNNEEDED,
+		       const char *buffer UNNEEDED,
+		       const jsmntok_t *tok UNNEEDED,
+		       const char **new_buffer UNNEEDED,
+		       const jsmntok_t **new_toks UNNEEDED)
+{ fprintf(stderr, "json_dup_contents called!\n"); abort(); }
 /* Generated stub for json_to_jsonrpc_errcode */
 bool json_to_jsonrpc_errcode(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 			     enum jsonrpc_errcode *errcode UNNEEDED)
@@ -59,6 +66,29 @@ bool json_to_jsonrpc_errcode(const char *buffer UNNEEDED, const jsmntok_t *tok U
 bool json_to_number(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 		    unsigned int *num UNNEEDED)
 { fprintf(stderr, "json_to_number called!\n"); abort(); }
+/* Generated stub for jsonrpc_io_new */
+struct jsonrpc_io *jsonrpc_io_new(const tal_t *ctx UNNEEDED)
+{ fprintf(stderr, "jsonrpc_io_new called!\n"); abort(); }
+/* Generated stub for jsonrpc_io_parse */
+const char *jsonrpc_io_parse(const tal_t *ctx UNNEEDED,
+			     struct jsonrpc_io *json_in UNNEEDED,
+			     const jsmntok_t **toks UNNEEDED,
+			     const char **buf UNNEEDED)
+{ fprintf(stderr, "jsonrpc_io_parse called!\n"); abort(); }
+/* Generated stub for jsonrpc_io_parse_done */
+void jsonrpc_io_parse_done(struct jsonrpc_io *json_in UNNEEDED)
+{ fprintf(stderr, "jsonrpc_io_parse_done called!\n"); abort(); }
+/* Generated stub for jsonrpc_io_read_ */
+struct io_plan *jsonrpc_io_read_(struct io_conn *conn UNNEEDED,
+				 struct jsonrpc_io *json_in UNNEEDED,
+				 struct io_plan *(*next)(struct io_conn * UNNEEDED,
+							 void *) UNNEEDED,
+				 void *arg UNNEEDED)
+{ fprintf(stderr, "jsonrpc_io_read_ called!\n"); abort(); }
+/* Generated stub for jsonrpc_newly_read */
+const char *jsonrpc_newly_read(struct jsonrpc_io *json_in UNNEEDED,
+			       size_t *len UNNEEDED)
+{ fprintf(stderr, "jsonrpc_newly_read called!\n"); abort(); }
 /* Generated stub for lightningd_deprecated_in_ok */
 bool lightningd_deprecated_in_ok(struct lightningd *ld UNNEEDED,
 				 struct logger *log UNNEEDED,

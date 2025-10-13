@@ -17,6 +17,7 @@
 #include <common/deprecation.h>
 #include <common/features.h>
 #include <common/json_command.h>
+#include <common/jsonrpc_io.h>
 #include <common/memleak.h>
 #include <common/plugin.h>
 #include <common/timeout.h>
@@ -226,36 +227,36 @@ static bool request_add(const char *reqid, struct jsonrpc_request *req,
 }
 
 /* FIXME: reorder */
-static const char *plugin_read_json_one(struct plugin *plugin,
-					bool want_transaction,
-					bool *complete,
-					bool *destroyed);
+static void plugin_response_handle(struct plugin *plugin,
+				   const char *buffer,
+				   const jsmntok_t *toks,
+				   const jsmntok_t *idtok);
 
 /* We act as if the plugin itself said "I'm dead!" */
 static void plugin_terminated_fail_req(struct plugin *plugin,
 				       struct jsonrpc_request *req)
 {
-	bool complete, destroyed;
-	const char *err;
+	jsmntok_t *toks = toks_alloc(plugin);
+	const jsmntok_t *idtok;
+	const char *buf;
+	jsmn_parser parser;
+	bool complete;
 
-	jsmn_init(&plugin->parser);
-	toks_reset(plugin->toks);
-	tal_free(plugin->buffer);
-	plugin->buffer = tal_fmt(plugin,
-				 "{\"jsonrpc\": \"2.0\","
-				 "\"id\": %s,"
-				 "\"error\":"
-				 " {\"code\":%i, \"message\":\"%s\"}"
-				 "}\n\n",
-				 req->id,
-				 PLUGIN_TERMINATED,
-				 "Plugin terminated before replying to RPC call.");
-	plugin->used = strlen(plugin->buffer);
-
-	/* We're already in a transaction, don't do it again! */
-	err = plugin_read_json_one(plugin, false, &complete, &destroyed);
-	assert(!err);
+	buf = tal_fmt(plugin,
+		      "{\"jsonrpc\": \"2.0\","
+		      "\"id\": %s,"
+		      "\"error\":"
+		      " {\"code\":%i, \"message\":\"%s\"}"
+		      "}\n\n",
+		      req->id,
+		      PLUGIN_TERMINATED,
+		      "Plugin terminated before replying to RPC call.");
+	jsmn_init(&parser);
+	if (!json_parse_input(&parser, &toks, buf, strlen(buf), &complete))
+		abort();
 	assert(complete);
+	idtok = json_get_member(buf, toks, "id");
+	plugin_response_handle(plugin, buf, toks, idtok);
 }
 
 static void destroy_plugin(struct plugin *p)
@@ -376,7 +377,6 @@ struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES,
 
 	p->plugin_state = UNCONFIGURED;
 	p->js_arr = tal_arr(p, struct json_stream *, 0);
-	p->used = 0;
 	p->notification_topics = tal_arr(p, const char *, 0);
 	p->subscriptions = NULL;
 	p->dynamic = false;
@@ -485,16 +485,18 @@ static void plugin_send(struct plugin *plugin, struct json_stream *stream)
 
 /* Returns the error string, or NULL */
 static const char *plugin_log_handle(struct plugin *plugin,
+				     const char *buffer,
 				     const jsmntok_t *paramstok)
 	WARN_UNUSED_RESULT;
 static const char *plugin_log_handle(struct plugin *plugin,
+				     const char *buffer,
 				     const jsmntok_t *paramstok)
 {
 	const jsmntok_t *msgtok, *leveltok;
 	enum log_level level;
 	bool call_notifier;
-	msgtok = json_get_member(plugin->buffer, paramstok, "message");
-	leveltok = json_get_member(plugin->buffer, paramstok, "level");
+	msgtok = json_get_member(buffer, paramstok, "message");
+	leveltok = json_get_member(buffer, paramstok, "level");
 
 	if (!msgtok || msgtok->type != JSMN_STRING) {
 		return tal_fmt(plugin, "Log notification from plugin doesn't have "
@@ -503,7 +505,7 @@ static const char *plugin_log_handle(struct plugin *plugin,
 
 	if (!leveltok)
 		level = LOG_INFORM;
-	else if (!log_level_parse(plugin->buffer + leveltok->start,
+	else if (!log_level_parse(buffer + leveltok->start,
 				  leveltok->end - leveltok->start,
 				  &level)
 		 /* FIXME: Allow io logging? */
@@ -513,15 +515,15 @@ static const char *plugin_log_handle(struct plugin *plugin,
 			       "Unknown log-level %.*s, valid values are "
 			       "\"trace\", \"debug\", \"info\", \"warn\", or \"error\".",
 			       json_tok_full_len(leveltok),
-			       json_tok_full(plugin->buffer, leveltok));
+			       json_tok_full(buffer, leveltok));
 	}
 
 	call_notifier = (level == LOG_BROKEN || level == LOG_UNUSUAL)? true : false;
 
 	/* Only bother unescaping and splitting if it has \ */
-	if (memchr(plugin->buffer + msgtok->start, '\\', msgtok->end - msgtok->start)) {
+	if (memchr(buffer + msgtok->start, '\\', msgtok->end - msgtok->start)) {
 		const char *log_msg = json_escape_unescape_len(tmpctx,
-							       plugin->buffer + msgtok->start,
+							       buffer + msgtok->start,
 							       msgtok->end - msgtok->start);
 		char **lines;
 
@@ -539,13 +541,14 @@ static const char *plugin_log_handle(struct plugin *plugin,
 	print_raw:
 		log_(plugin->log, level, NULL, call_notifier, "%.*s",
 		     msgtok->end - msgtok->start,
-		     plugin->buffer + msgtok->start);
+		     buffer + msgtok->start);
 	}
 
 	return NULL;
 }
 
 static const char *plugin_notify_handle(struct plugin *plugin,
+					const char *buffer,
 					const jsmntok_t *methodtok,
 					const jsmntok_t *paramstok)
 {
@@ -553,7 +556,7 @@ static const char *plugin_notify_handle(struct plugin *plugin,
 	struct jsonrpc_request *request;
 
 	/* id inside params tells us which id to redirect to. */
-	idtok = json_get_member(plugin->buffer, paramstok, "id");
+	idtok = json_get_member(buffer, paramstok, "id");
 	if (!idtok) {
 		return tal_fmt(plugin,
 			       "JSON-RPC notify \"id\"-field is not present");
@@ -561,7 +564,7 @@ static const char *plugin_notify_handle(struct plugin *plugin,
 
 	/* Include any "" in id */
 	request = strmap_getn(&plugin->pending_requests,
-			      json_tok_full(plugin->buffer, idtok),
+			      json_tok_full(buffer, idtok),
 			      json_tok_full_len(idtok));
 	if (!request) {
 		return NULL;
@@ -569,7 +572,7 @@ static const char *plugin_notify_handle(struct plugin *plugin,
 
 	/* Ignore if they don't have a callback */
 	if (request->notify_cb)
-		request->notify_cb(plugin->buffer, methodtok, paramstok, idtok,
+		request->notify_cb(buffer, methodtok, paramstok, idtok,
 				   request->response_cb_arg);
 	return NULL;
 }
@@ -588,38 +591,40 @@ static bool plugin_notification_allowed(const struct plugin *plugin, const char 
 
 /* Returns the error string, or NULL */
 static const char *plugin_notification_handle(struct plugin *plugin,
+					      const char *buffer,
 					      const jsmntok_t *toks)
 	WARN_UNUSED_RESULT;
 
 static const char *plugin_notification_handle(struct plugin *plugin,
+					      const char *buffer,
 					      const jsmntok_t *toks)
 {
 	const jsmntok_t *methtok, *paramstok;
 	const char *methname;
 	struct jsonrpc_notification *n;
-	methtok = json_get_member(plugin->buffer, toks, "method");
-	paramstok = json_get_member(plugin->buffer, toks, "params");
+	methtok = json_get_member(buffer, toks, "method");
+	paramstok = json_get_member(buffer, toks, "params");
 
 	if (!methtok || !paramstok) {
 		return tal_fmt(plugin,
 			       "Malformed JSON-RPC notification missing "
 			       "\"method\" or \"params\": %.*s",
 			       toks->end - toks->start,
-			       plugin->buffer + toks->start);
+			       buffer + toks->start);
 	}
 
 	/* Dispatch incoming notifications. This is currently limited
 	 * to just a few method types, should this ever become
 	 * unwieldy we can switch to the AUTODATA construction to
 	 * register notification handlers in a variety of places. */
-	if (json_tok_streq(plugin->buffer, methtok, "log")) {
-		return plugin_log_handle(plugin, paramstok);
-	} else if (json_tok_streq(plugin->buffer, methtok, "message")
-		   || json_tok_streq(plugin->buffer, methtok, "progress")) {
-		return plugin_notify_handle(plugin, methtok, paramstok);
+	if (json_tok_streq(buffer, methtok, "log")) {
+		return plugin_log_handle(plugin, buffer, paramstok);
+	} else if (json_tok_streq(buffer, methtok, "message")
+		   || json_tok_streq(buffer, methtok, "progress")) {
+		return plugin_notify_handle(plugin, buffer, methtok, paramstok);
 	}
 
-	methname = json_strdup(tmpctx, plugin->buffer, methtok);
+	methname = json_strdup(tmpctx, buffer, methtok);
 
 	if (!plugin_notification_allowed(plugin, methname)) {
 		log_unusual(plugin->log,
@@ -630,7 +635,7 @@ static const char *plugin_notification_handle(struct plugin *plugin,
 	} else if (notifications_have_topic(plugin->plugins, methname)) {
 		n = jsonrpc_notification_start_noparams(NULL, methname);
 		json_add_string(n->stream, "origin", plugin->shortname);
-		json_add_tok(n->stream, "params", paramstok, plugin->buffer);
+		json_add_tok(n->stream, "params", paramstok, buffer);
 		jsonrpc_notification_end_noparams(n);
 
 		plugins_notify(plugin->plugins, take(n));
@@ -675,6 +680,7 @@ static void destroy_request(struct jsonrpc_request *req,
 }
 
 static void plugin_response_handle(struct plugin *plugin,
+				   const char *buffer,
 				   const jsmntok_t *toks,
 				   const jsmntok_t *idtok)
 {
@@ -682,7 +688,7 @@ static void plugin_response_handle(struct plugin *plugin,
 	const tal_t *ctx;
 
 	request = strmap_getn(&plugin->pending_requests,
-			      json_tok_full(plugin->buffer, idtok),
+			      json_tok_full(buffer, idtok),
 			      json_tok_full_len(idtok));
 	/* Can happen if request was freed before plugin responded */
 	if (!request) {
@@ -696,190 +702,116 @@ static void plugin_response_handle(struct plugin *plugin,
 	/* Don't keep track of this request; we will terminate it */
 	tal_del_destructor2(request, destroy_request, plugin);
 	destroy_request(request, plugin);
-	request->response_cb(plugin->buffer, toks, idtok, request->response_cb_arg);
+	request->response_cb(buffer, toks, idtok, request->response_cb_arg);
 	tal_free(ctx);
 }
 
-/**
- * Try to parse a complete message from the plugin's buffer.
- *
- * Returns NULL if there was no error.
- * If it can parse a JSON message, sets *@complete, and returns any error
- * from the callback.
- *
- * If @destroyed was set, it means the plugin called plugin stop on itself.
- */
-static const char *plugin_read_json_one(struct plugin *plugin,
-					bool want_transaction,
-					bool *complete,
-					bool *destroyed)
-{
-	const jsmntok_t *jrtok, *idtok;
-	struct plugin_destroyed *pd;
-	const char *err;
-	struct wallet *wallet = plugin->plugins->ld->wallet;
-
-	*destroyed = false;
-	/* Note that in the case of 'plugin stop' this can free request (since
-	 * plugin is parent), so detect that case */
-
-	if (!json_parse_input(&plugin->parser, &plugin->toks,
-			      plugin->buffer, plugin->used,
-			      complete)) {
-		return tal_fmt(plugin,
-			       "Failed to parse JSON response '%.*s'",
-			       (int)plugin->used, plugin->buffer);
-	}
-
-	if (!*complete) {
-		/* We need more. */
-		return NULL;
-	}
-
-	/* Empty buffer? (eg. just whitespace). */
-	if (tal_count(plugin->toks) == 1) {
-		plugin->used = 0;
-		jsmn_init(&plugin->parser);
-		toks_reset(plugin->toks);
-		/* We need more. */
-		*complete = false;
-		return NULL;
-	}
-
-	if (plugin->toks->type != JSMN_OBJECT)
-		return tal_fmt(
-		    plugin,
-		    "JSON-RPC message is not a valid JSON object type");
-
-	jrtok = json_get_member(plugin->buffer, plugin->toks, "jsonrpc");
-	idtok = json_get_member(plugin->buffer, plugin->toks, "id");
-
-	if (!jrtok) {
-		return tal_fmt(
-		    plugin,
-		    "JSON-RPC message does not contain \"jsonrpc\" field");
-	}
-
-	/* We can be called extremely early, or as db hook, or for
-	 * fake "terminated" request. */
-	if (want_transaction)
-		db_begin_transaction(wallet->db);
-
-	pd = plugin_detect_destruction(plugin);
-	if (!idtok) {
-		/* A Notification is a Request object without an "id"
-		 * member. A Request object that is a Notification
-		 * signifies the Client's lack of interest in the
-		 * corresponding Response object, and as such no
-		 * Response object needs to be returned to the
-		 * client. The Server MUST NOT reply to a
-		 * Notification, including those that are within a
-		 * batch request.
-		 *
-		 * https://www.jsonrpc.org/specification#notification
-		 */
-		err = plugin_notification_handle(plugin, plugin->toks);
-
-	} else {
-		/* When a rpc call is made, the Server MUST reply with
-		 * a Response, except for in the case of
-		 * Notifications. The Response is expressed as a
-		 * single JSON Object, with the following members:
-		 *
-		 * - jsonrpc: A String specifying the version of the
-		 *   JSON-RPC protocol. MUST be exactly "2.0".
-		 *
-		 * - result: This member is REQUIRED on success. This
-		 *   member MUST NOT exist if there was an error
-		 *   invoking the method. The value of this member is
-		 *   determined by the method invoked on the Server.
-		 *
-		 * - error: This member is REQUIRED on error. This
-		 *   member MUST NOT exist if there was no error
-		 *   triggered during invocation.
-		 *
-		 * - id: This member is REQUIRED. It MUST be the same
-		 *   as the value of the id member in the Request
-		 *   Object. If there was an error in detecting the id
-		 *   in the Request object (e.g. Parse error/Invalid
-		 *   Request), it MUST be Null. Either the result
-		 *   member or error member MUST be included, but both
-		 *   members MUST NOT be included.
-		 *
-		 * https://www.jsonrpc.org/specification#response_object
-		 */
-		plugin_response_handle(plugin, plugin->toks, idtok);
-		err = NULL;
-	}
-	if (want_transaction)
-		db_commit_transaction(wallet->db);
-
-	/* Corner case: rpc_command hook can destroy plugin for 'plugin
-	 * stop'! */
-	if (was_plugin_destroyed(pd)) {
-		*destroyed = true;
-	} else {
-		/* Move this object out of the buffer */
-		memmove(plugin->buffer, plugin->buffer + plugin->toks[0].end,
-			tal_count(plugin->buffer) - plugin->toks[0].end);
-		plugin->used -= plugin->toks[0].end;
-		jsmn_init(&plugin->parser);
-		toks_reset(plugin->toks);
-	}
-	return err;
-}
-
+/* Try to parse complete messages from the plugin's buffer. */
 static struct io_plan *plugin_read_json(struct io_conn *conn,
 					struct plugin *plugin)
 {
-	bool success;
-	bool have_full;
+	struct wallet *wallet = plugin->plugins->ld->wallet;
+	const char *new_bytes, *buffer;
+	const jsmntok_t *toks;
+	size_t new_bytes_len;
 	/* wallet is NULL in really early code */
 	bool want_transaction = (plugin->plugins->want_db_transaction
-				 && plugin->plugins->ld->wallet != NULL);
+				 && wallet != NULL);
 
-	log_io(plugin->log, LOG_IO_IN, NULL, "",
-	       plugin->buffer + plugin->used, plugin->len_read);
+	new_bytes = jsonrpc_newly_read(plugin->json_in, &new_bytes_len);
+	if (new_bytes_len) {
+		log_io(plugin->log, LOG_IO_IN, NULL, "",
+		       new_bytes, new_bytes_len);
+	}
 
-	/* Our JSON parser is pretty good at incremental parsing, but
-	 * `getrawblock` gives a giant 2MB token, which forces it to re-parse
-	 * every time until we have all of it. However, we can't complete a
-	 * JSON object without a '}', so we do a cheaper check here.
-	 */
-	have_full = memchr(plugin->buffer + plugin->used, '}',
-			   plugin->len_read);
+	/* Parse until we get incomplete JSON */
+	for (;;) {
+		const char *error;
+		const jsmntok_t *idtok;
+		struct plugin_destroyed *pd;
 
-	plugin->used += plugin->len_read;
-	if (plugin->used == tal_count(plugin->buffer))
-		tal_resize(&plugin->buffer, plugin->used * 2);
+		error = jsonrpc_io_parse(tmpctx, plugin->json_in,
+					 &toks, &buffer);
+		if (error) {
+			plugin_kill(plugin, LOG_UNUSUAL, "%s", error);
+			/* plugin_kill frees plugin */
+			return io_close(NULL);
+		}
+		/* Incomplete? */
+		if (!toks)
+			break;
 
-	/* Read and process all messages from the connection */
-	if (have_full) {
-		do {
-			bool destroyed;
-			const char *err;
+		idtok = json_get_member(buffer, toks, "id");
 
-			err = plugin_read_json_one(plugin, want_transaction,
-						   &success, &destroyed);
+		/* We can be called extremely early, or as db hook, or for
+		 * fake "terminated" request. */
+		if (want_transaction)
+			db_begin_transaction(wallet->db);
 
-			/* If it's destroyed, conn is already freed! */
-			if (destroyed)
-				return io_close(NULL);
+		pd = plugin_detect_destruction(plugin);
+		if (!idtok) {
+			/* A Notification is a Request object without an "id"
+			 * member. A Request object that is a Notification
+			 * signifies the Client's lack of interest in the
+			 * corresponding Response object, and as such no
+			 * Response object needs to be returned to the
+			 * client. The Server MUST NOT reply to a
+			 * Notification, including those that are within a
+			 * batch request.
+			 *
+			 * https://www.jsonrpc.org/specification#notification
+			 */
+			error = plugin_notification_handle(plugin, buffer, toks);
+		} else {
+			/* When a rpc call is made, the Server MUST reply with
+			 * a Response, except for in the case of
+			 * Notifications. The Response is expressed as a
+			 * single JSON Object, with the following members:
+			 *
+			 * - jsonrpc: A String specifying the version of the
+			 *   JSON-RPC protocol. MUST be exactly "2.0".
+			 *
+			 * - result: This member is REQUIRED on success. This
+			 *   member MUST NOT exist if there was an error
+			 *   invoking the method. The value of this member is
+			 *   determined by the method invoked on the Server.
+			 *
+			 * - error: This member is REQUIRED on error. This
+			 *   member MUST NOT exist if there was no error
+			 *   triggered during invocation.
+			 *
+			 * - id: This member is REQUIRED. It MUST be the same
+			 *   as the value of the id member in the Request
+			 *   Object. If there was an error in detecting the id
+			 *   in the Request object (e.g. Parse error/Invalid
+			 *   Request), it MUST be Null. Either the result
+			 *   member or error member MUST be included, but both
+			 *   members MUST NOT be included.
+			 *
+			 * https://www.jsonrpc.org/specification#response_object
+			 */
+			plugin_response_handle(plugin, buffer, toks, idtok);
+			error = NULL;
+		}
+		if (want_transaction)
+			db_commit_transaction(wallet->db);
 
-			if (err) {
-				plugin_kill(plugin, LOG_UNUSUAL,
-					    "%s", err);
-				/* plugin_kill frees plugin */
-				return io_close(NULL);
-			}
-		} while (success);
+		/* If it's destroyed, conn is already freed! */
+		if (was_plugin_destroyed(pd))
+			return io_close(NULL);
+
+		if (error) {
+			plugin_kill(plugin, LOG_UNUSUAL, "%s", error);
+			/* plugin_kill frees plugin */
+			return io_close(NULL);
+		}
+
+		jsonrpc_io_parse_done(plugin->json_in);
 	}
 
 	/* Now read more from the connection */
-	return io_read_partial(plugin->stdout_conn,
-			       plugin->buffer + plugin->used,
-			       tal_count(plugin->buffer) - plugin->used,
-			       &plugin->len_read, plugin_read_json, plugin);
+	return jsonrpc_io_read(plugin->stdout_conn, plugin->json_in,
+			       plugin_read_json, plugin);
 }
 
 /* Mutual recursion */
@@ -934,6 +866,7 @@ static void plugin_conn_finish(struct io_conn *conn, struct plugin *plugin)
 struct io_plan *plugin_stdin_conn_init(struct io_conn *conn,
                                        struct plugin *plugin)
 {
+	plugin->stdin_conn = conn;
 	/* We write to their stdin */
 	/* We don't have anything queued yet, wait for notification */
 	return io_wait(conn, plugin, plugin_write_json, plugin);
@@ -943,10 +876,9 @@ struct io_plan *plugin_stdout_conn_init(struct io_conn *conn,
                                         struct plugin *plugin)
 {
 	/* We read from their stdout */
+	plugin->stdout_conn = conn;
 	io_set_finish(conn, plugin_conn_finish, plugin);
-	return io_read_partial(conn, plugin->buffer,
-			       tal_bytelen(plugin->buffer), &plugin->len_read,
-			       plugin_read_json, plugin);
+	return plugin_read_json(conn, plugin);
 }
 
 static char *plugin_opt_check(struct plugin_opt *popt)
@@ -1527,7 +1459,7 @@ static const char *plugin_subscriptions_add(struct plugin *plugin,
 		 * manifest, without checking that they exist, since
 		 * later plugins may also emit notifications of custom
 		 * types that we don't know about yet. */
-		sub.topic = json_strdup(plugin, plugin->buffer, s);
+		sub.topic = json_strdup(plugin, buffer, s);
 		sub.owner = plugin;
 		tal_arr_expand(&plugin->subscriptions, sub);
 	}
@@ -1568,7 +1500,7 @@ static const char *plugin_hooks_add(struct plugin *plugin, const char *buffer,
 			aftertok = json_get_member(buffer, t, "after");
 		} else {
 			/* FIXME: deprecate in 3 releases after v0.9.2! */
-			name = json_strdup(tmpctx, plugin->buffer, t);
+			name = json_strdup(tmpctx, buffer, t);
 			beforetok = aftertok = NULL;
 		}
 
@@ -2042,8 +1974,8 @@ static void plugin_set_timeout(struct plugin *p)
 				       time_from_sec(PLUGIN_STARTUP_TIMEOUT),
 				       plugin_manifest_timeout, p);
 	}
-}
 
+}
 const char *plugin_send_getmanifest(struct plugin *p, const char *cmd_id)
 {
 	char **cmd;
@@ -2062,14 +1994,12 @@ const char *plugin_send_getmanifest(struct plugin *p, const char *cmd_id)
 		return tal_fmt(p, "opening pipe: %s", strerror(errno));
 
 	log_debug(p->plugins->log, "started(%u) %s", p->pid, p->cmd);
-	p->buffer = tal_arr(p, char, 64);
-	jsmn_init(&p->parser);
-	p->toks = toks_alloc(p);
+	p->json_in = jsonrpc_io_new(p);
 
 	/* Create two connections, one read-only on top of p->stdout, and one
 	 * write-only on p->stdin */
-	p->stdout_conn = io_new_conn(p, stdoutfd, plugin_stdout_conn_init, p);
-	p->stdin_conn = io_new_conn(p, stdinfd, plugin_stdin_conn_init, p);
+	io_new_conn(p, stdoutfd, plugin_stdout_conn_init, p);
+	io_new_conn(p, stdinfd, plugin_stdin_conn_init, p);
 	req = jsonrpc_request_start(p, "getmanifest", cmd_id,
 				    p->log, NULL, plugin_manifest_cb, p);
 	json_add_bool(req->stream, "allow-deprecated-apis",

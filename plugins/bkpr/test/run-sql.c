@@ -69,6 +69,28 @@ bool json_filter_ok(const struct json_filter *filter UNNEEDED, const char *membe
 /* Generated stub for json_filter_up */
 bool json_filter_up(struct json_filter **filter UNNEEDED)
 { fprintf(stderr, "json_filter_up called!\n"); abort(); }
+/* Generated stub for jsonrpc_io_new */
+struct jsonrpc_io *jsonrpc_io_new(const tal_t *ctx UNNEEDED)
+{ fprintf(stderr, "jsonrpc_io_new called!\n"); abort(); }
+/* Generated stub for jsonrpc_io_parse */
+const char *jsonrpc_io_parse(const tal_t *ctx UNNEEDED,
+			     struct jsonrpc_io *json_in UNNEEDED,
+			     const jsmntok_t **toks UNNEEDED,
+			     const char **buf UNNEEDED)
+{ fprintf(stderr, "jsonrpc_io_parse called!\n"); abort(); }
+/* Generated stub for jsonrpc_io_parse_done */
+void jsonrpc_io_parse_done(struct jsonrpc_io *json_in UNNEEDED)
+{ fprintf(stderr, "jsonrpc_io_parse_done called!\n"); abort(); }
+/* Generated stub for jsonrpc_io_read_ */
+struct io_plan *jsonrpc_io_read_(struct io_conn *conn UNNEEDED,
+				 struct jsonrpc_io *json_in UNNEEDED,
+				 struct io_plan *(*next)(struct io_conn * UNNEEDED,
+							 void *) UNNEEDED,
+				 void *arg UNNEEDED)
+{ fprintf(stderr, "jsonrpc_io_read_ called!\n"); abort(); }
+/* Generated stub for jsonrpc_sync_read */
+bool jsonrpc_sync_read(struct jsonrpc_io *json_in UNNEEDED, int infd UNNEEDED)
+{ fprintf(stderr, "jsonrpc_sync_read called!\n"); abort(); }
 /* Generated stub for last_fee_state */
 enum htlc_state last_fee_state(enum side opener UNNEEDED)
 { fprintf(stderr, "last_fee_state called!\n"); abort(); }

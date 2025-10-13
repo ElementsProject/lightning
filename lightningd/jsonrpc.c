@@ -28,6 +28,7 @@
 #include <common/json_command.h>
 #include <common/json_filter.h>
 #include <common/json_param.h>
+#include <common/jsonrpc_io.h>
 #include <common/memleak.h>
 #include <common/timeout.h>
 #include <common/trace.h>
@@ -85,18 +86,8 @@ struct json_connection {
 	/* Logging for this json connection. */
 	struct logger *log;
 
-	/* The buffer (required to interpret tokens). */
-	char *buffer;
-
-	/* Internal state: */
-	/* How much is already filled. */
-	size_t used;
-	/* How much has just been filled. */
-	size_t len_read;
-
-	/* JSON parsing state. */
-	jsmn_parser input_parser;
-	jsmntok_t *input_toks;
+	/* The buffer and state reading in the JSON commands */
+	struct jsonrpc_io *json_in;
 
 	/* Local deprecated support? */
 	bool deprecated_ok;
@@ -998,8 +989,8 @@ rpc_command_hook_callback(struct rpc_command_hook_payload *p,
 	if (tok) {
 		/* We need to make copies here, as buffer and tokens
 		 * can be reused. */
-		p->custom_replace = json_tok_copy(p, tok);
-		p->custom_buffer = tal_dup_talarr(p, char, buffer);
+		json_dup_contents(p, buffer, tok,
+				  &p->custom_buffer, &p->custom_replace);
 		return true;
 	}
 
@@ -1048,7 +1039,9 @@ REGISTER_PLUGIN_HOOK(rpc_command,
 /* We return struct command_result so command_fail return value has a natural
  * sink; we don't actually use the result. */
 static struct command_result *
-parse_request(struct json_connection *jcon, const jsmntok_t tok[])
+parse_request(struct json_connection *jcon,
+	      const char *buffer,
+	      const jsmntok_t tok[])
 {
 	const jsmntok_t *method, *id, *params, *filter, *jsonrpc;
 	struct command *c;
@@ -1061,10 +1054,10 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 		return NULL;
 	}
 
-	method = json_get_member(jcon->buffer, tok, "method");
-	params = json_get_member(jcon->buffer, tok, "params");
-	filter = json_get_member(jcon->buffer, tok, "filter");
-	id = json_get_member(jcon->buffer, tok, "id");
+	method = json_get_member(buffer, tok, "method");
+	params = json_get_member(buffer, tok, "params");
+	filter = json_get_member(buffer, tok, "filter");
+	id = json_get_member(buffer, tok, "id");
 
 	if (!id) {
 		json_command_malformed(jcon, "null", "No id");
@@ -1077,8 +1070,8 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 		return NULL;
 	}
 
-	jsonrpc = json_get_member(jcon->buffer, tok, "jsonrpc");
-	if (!jsonrpc || jsonrpc->type != JSMN_STRING || !json_tok_streq(jcon->buffer, jsonrpc, "2.0")) {
+	jsonrpc = json_get_member(buffer, tok, "jsonrpc");
+	if (!jsonrpc || jsonrpc->type != JSMN_STRING || !json_tok_streq(buffer, jsonrpc, "2.0")) {
 		json_command_malformed(jcon, "null", "jsonrpc: \"2.0\" must be specified in the request");
 		return NULL;
 	}
@@ -1094,7 +1087,7 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 	c->id_is_string = (id->type == JSMN_STRING);
 	/* Include "" around string */
 	c->id = tal_strndup(c,
-			    json_tok_full(jcon->buffer, id),
+			    json_tok_full(buffer, id),
 			    json_tok_full_len(id));
 	c->mode = CMD_NORMAL;
 	c->filter = NULL;
@@ -1113,7 +1106,7 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 
 	if (filter) {
 		struct command_result *ret;
-		ret = parse_filter(c, "filter", jcon->buffer, filter);
+		ret = parse_filter(c, "filter", buffer, filter);
 		if (ret)
 			return ret;
 	}
@@ -1122,11 +1115,11 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 	 * actually just logging the id */
 	log_io(jcon->log, LOG_IO_IN, NULL, c->id, NULL, 0);
 
-	c->json_cmd = find_cmd(jcon->ld->jsonrpc, jcon->buffer, method);
+	c->json_cmd = find_cmd(jcon->ld->jsonrpc, buffer, method);
 	if (!c->json_cmd) {
 		return command_fail(
 		    c, JSONRPC2_METHOD_NOT_FOUND, "Unknown command '%.*s'",
-		    method->end - method->start, jcon->buffer + method->start);
+		    method->end - method->start, buffer + method->start);
 	}
 	if (!command_deprecated_in_ok(c, NULL,
 				      c->json_cmd->depr_start,
@@ -1134,20 +1127,21 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 		return command_fail(c, JSONRPC2_METHOD_NOT_FOUND,
 				    "Command %.*s is deprecated",
 				    json_tok_full_len(method),
-				    json_tok_full(jcon->buffer, method));
+				    json_tok_full(buffer, method));
 	}
 	if (c->json_cmd->dev_only && !jcon->ld->developer) {
 		return command_fail(c, JSONRPC2_METHOD_NOT_FOUND,
 				    "Command %.*s is developer-only",
 				    json_tok_full_len(method),
-				    json_tok_full(jcon->buffer, method));
+				    json_tok_full(buffer, method));
 	}
 
 	rpc_hook = tal(c, struct rpc_command_hook_payload);
 	rpc_hook->cmd = c;
 	/* Duplicate since we might outlive the connection */
-	rpc_hook->buffer = tal_dup_talarr(rpc_hook, char, jcon->buffer);
-	rpc_hook->request = tal_dup_talarr(rpc_hook, jsmntok_t, tok);
+	json_dup_contents(rpc_hook, buffer, tok,
+			  &rpc_hook->buffer,
+			  &rpc_hook->request);
 
 	/* NULL the custom_ values for the hooks */
 	rpc_hook->custom_result = NULL;
@@ -1214,93 +1208,61 @@ static struct io_plan *stream_out_complete(struct io_conn *conn,
 static struct io_plan *read_json(struct io_conn *conn,
 				 struct json_connection *jcon)
 {
-	bool complete;
 	bool in_transaction = false;
 	struct timemono start_time = time_mono();
+	size_t len_read;
+	const jsmntok_t *toks;
+	const char *buffer, *error;
 
-	if (jcon->len_read)
-		log_io(jcon->log, LOG_IO_IN, NULL, "",
-		       jcon->buffer + jcon->used, jcon->len_read);
-
-	/* Resize larger if we're full. */
-	jcon->used += jcon->len_read;
-	if (jcon->used == tal_count(jcon->buffer))
-		tal_resize(&jcon->buffer, jcon->used * 2);
+	buffer = jsonrpc_newly_read(jcon->json_in, &len_read);
+	if (len_read)
+		log_io(jcon->log, LOG_IO_IN, NULL, "", buffer, len_read);
 
 	/* We wait for pending output to be consumed, to avoid DoS */
 	if (tal_count(jcon->js_arr) != 0) {
-		jcon->len_read = 0;
 		return io_wait(conn, conn, read_json, jcon);
 	}
 
 again:
-	if (!json_parse_input(&jcon->input_parser, &jcon->input_toks,
-			      jcon->buffer, jcon->used,
-			      &complete)) {
-		json_command_malformed(
-		    jcon, "null",
-		    tal_fmt(tmpctx, "Invalid token in json input: '%s'",
-			    tal_hexstr(tmpctx, jcon->buffer, jcon->used)));
+	error = jsonrpc_io_parse(tmpctx, jcon->json_in, &toks, &buffer);
+	if (error) {
+		json_command_malformed(jcon, "null", error);
 		if (in_transaction)
 			db_commit_transaction(jcon->ld->wallet->db);
 		return io_halfclose(conn);
 	}
 
-	if (!complete)
+	if (!toks)
 		goto read_more;
-
-	/* Empty buffer? (eg. just whitespace). */
-	if (tal_count(jcon->input_toks) == 1) {
-		jcon->used = 0;
-
-		/* Reset parser. */
-		jsmn_init(&jcon->input_parser);
-		toks_reset(jcon->input_toks);
-		goto read_more;
-	}
 
 	if (!in_transaction) {
 		db_begin_transaction(jcon->ld->wallet->db);
 		in_transaction = true;
 	}
-	parse_request(jcon, jcon->input_toks);
+	parse_request(jcon, buffer, toks);
+	jsonrpc_io_parse_done(jcon->json_in);
 
-	/* Remove first {}. */
-	memmove(jcon->buffer, jcon->buffer + jcon->input_toks[0].end,
-		tal_count(jcon->buffer) - jcon->input_toks[0].end);
-	jcon->used -= jcon->input_toks[0].end;
-
-	/* Reset parser. */
-	jsmn_init(&jcon->input_parser);
-	toks_reset(jcon->input_toks);
-
-	/* Do we have more already read? */
-	if (jcon->used) {
-		if (!jcon->db_batching) {
+	if (!jcon->db_batching) {
+		db_commit_transaction(jcon->ld->wallet->db);
+		in_transaction = false;
+	} else {
+		/* FIXME: io_always() should interleave with
+		 * real IO, and then we should rotate order we
+		 * service fds in, to avoid starvation. */
+		if (time_greater(timemono_between(time_mono(),
+						  start_time),
+				 time_from_msec(250))) {
 			db_commit_transaction(jcon->ld->wallet->db);
-			in_transaction = false;
-		} else {
-			/* FIXME: io_always() should interleave with
-			 * real IO, and then we should rotate order we
-			 * service fds in, to avoid starvation. */
-			if (time_greater(timemono_between(time_mono(),
-							  start_time),
-					 time_from_msec(250))) {
-				db_commit_transaction(jcon->ld->wallet->db);
-				/* Call us back, as if we read nothing new */
-				jcon->len_read = 0;
-				return io_always(conn, read_json, jcon);
-			}
+			/* Call us back, as if we read nothing new */
+			return io_always(conn, read_json, jcon);
 		}
-		goto again;
 	}
+	goto again;
 
 read_more:
 	if (in_transaction)
 		db_commit_transaction(jcon->ld->wallet->db);
-	return io_read_partial(conn, jcon->buffer + jcon->used,
-			       tal_count(jcon->buffer) - jcon->used,
-			       &jcon->len_read, read_json, jcon);
+	return jsonrpc_io_read(conn, jcon->json_in, read_json, jcon);
 }
 
 static struct io_plan *jcon_connected(struct io_conn *conn,
@@ -1312,12 +1274,8 @@ static struct io_plan *jcon_connected(struct io_conn *conn,
 	jcon = notleak(tal(conn, struct json_connection));
 	jcon->conn = conn;
 	jcon->ld = ld;
-	jcon->used = 0;
-	jcon->buffer = tal_arr(jcon, char, 64);
 	jcon->js_arr = tal_arr(jcon, struct json_stream *, 0);
-	jcon->len_read = 0;
-	jsmn_init(&jcon->input_parser);
-	jcon->input_toks = toks_alloc(jcon);
+	jcon->json_in = jsonrpc_io_new(jcon);
 	jcon->notifications_enabled = false;
 	jcon->db_batching = false;
 	jcon->deprecated_ok = ld->deprecated_ok;
