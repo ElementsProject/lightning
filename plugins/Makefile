@@ -191,6 +191,7 @@ PLUGIN_COMMON_OBJS :=				\
 	common/json_parse_simple.o		\
 	common/json_filter.o			\
 	common/json_stream.o			\
+	common/jsonrpc_io.o 			\
 	common/lease_rates.o			\
 	common/memleak.o			\
 	common/node_id.o			\
