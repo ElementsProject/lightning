@@ -12,4 +12,12 @@ plugin = Plugin(
 )
 
 
+@plugin.init()
+def init(configuration, options, plugin):
+    if options.get('disable-on-init'):
+        return {'disable': 'init saying disable'}
+    return {}
+
+
+plugin.add_option('disable-on-init', False, 'disable plugin on init', opt_type='bool')
 plugin.run()

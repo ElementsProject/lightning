@@ -1821,7 +1821,7 @@ static const char *plugin_parse_getmanifest_response(const char *buffer,
 		}
 
 		/* Store fset to allow to remove feature bits when init returns disabled */
-		plugin->fset = tal_dup_or_null(plugin, struct feature_set, fset);
+		plugin->fset = feature_set_dup(plugin, fset);
 	} else {
 		plugin->fset = NULL;
 	}
