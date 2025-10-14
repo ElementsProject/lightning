@@ -10,7 +10,7 @@ get_cmd_opts()
 {
     # Trim out -- after first one: ensure width sufficient to give desc
     # on same line, and ignore single-letter prefix e.g. -X|--ex
-    COLUMNS=1000 $1 --help | sed -n 's/^\(-.|\)\?\(--[^	]*\)\(  \|	\).*/\2/p' | while IFS=$'\n' read -r opt; do
+    COLUMNS=1000 $1 --help | $SED -n 's/^\(-.|\)\?\(--[^	]*\)\(  \|	\).*/\2/p' | while IFS=$'\n' read -r opt; do
 	case "$opt" in
 	    # We don't document dev options.
 	    --dev-*)
@@ -46,7 +46,7 @@ if [ -z "$CMD_OPTNAMES" ]; then
 fi
 
 # Now, gather (long) opt names from man page, make sure they match.
-MAN_OPTNAMES=$(grep -vi 'deprecated in' "$2" | sed -E -n 's,^\* \*\*(--)?([^*/]*)\*\*(/\*\*-.\*\*)?(=?).*,\2\4,p'| sort)
+MAN_OPTNAMES=$(grep -vi 'deprecated in' "$2" | $SED -E -n 's,^\* \*\*(--)?([^*/]*)\*\*(/\*\*-.\*\*)?(=?).*,\2\4,p'| sort)
 
 if [ "$CMD_OPTNAMES" != "$MAN_OPTNAMES" ]; then
     echo "diff of command names vs manpage names":
