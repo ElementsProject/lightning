@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [25.09.1] - 2025-10-10: "Hot Wallet Guardian II"
+## [25.09.1] - 2025-10-14: "Hot Wallet Guardian II"
 
 Several important fixes, please upgrade!
 
@@ -28,7 +28,10 @@ Several important fixes, please upgrade!
  - lightningd: potential crash when we receive a malformed onion complain from our first peer when using sendonion / injectpaymentonion. ([#8597])
  - db: migration from v25.09 on a reasonable size account database could take almost infinite time. ([#8587])
  - pyln-testing: restore compatibility with pre-25.09 CLN versions. ([#8539])
+ - build: we now build on MacOS without errors on the latest Command Line Tools (macOS 15 SDK). ([#8599])
+ - build: fix build with -O2 on 32 bit arm (armhf). ([#8599])
 
+[#8599]: https://github.com/ElementsProject/lightning/pull/8599
 [#8563]: https://github.com/ElementsProject/lightning/pull/8563
 [#8562]: https://github.com/ElementsProject/lightning/pull/8562
 [#8574]: https://github.com/ElementsProject/lightning/pull/8574
