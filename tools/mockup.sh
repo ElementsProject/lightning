@@ -73,5 +73,5 @@ for SYMBOL; do
 
     echo "/* Generated stub for $SYMBOL */"
 
-    tail -n "+${LINE}" < "$FILE" | head -n "$NUM" | sed 's/^extern *//' | sed 's/PRINTF_FMT([^)]*)//' | sed 's/NON_NULL_ARGS([^)]*)//' | sed 's/NO_NULL_ARGS//g' | sed 's/NORETURN//g' | sed 's/RETURNS_NONNULL//g' | sed 's/LAST_ARG_NULL//g' | sed 's/WARN_UNUSED_RESULT//g' | sed 's/,/ UNNEEDED,/g' | sed 's/\([a-z0-9A-Z*_]* [a-z0-9A-Z*_]*\));/\1 UNNEEDED);/' | sed "s/;\$/$STUB/" | sed 's/[[:space:]]*$//'
+    tail -n "+${LINE}" < "$FILE" | head -n "$NUM" | $SED 's/^extern *//' | $SED 's/PRINTF_FMT([^)]*)//' | $SED 's/NON_NULL_ARGS([^)]*)//' | $SED 's/NO_NULL_ARGS//g' | $SED 's/NORETURN//g' | $SED 's/RETURNS_NONNULL//g' | $SED 's/LAST_ARG_NULL//g' | $SED 's/WARN_UNUSED_RESULT//g' | $SED 's/,/ UNNEEDED,/g' | $SED 's/\([a-z0-9A-Z*_]* [a-z0-9A-Z*_]*\));/\1 UNNEEDED);/' | $SED "s/;\$/$STUB/" | $SED 's/[[:space:]]*$//'
 done

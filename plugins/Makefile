@@ -277,9 +277,9 @@ plugins/sql-schema_gen.h: $(SQL_SCHEMA_PARTS)
 		SEP=""; \
 		echo "\"{"; \
 		for l in $(SQL_LISTRPCS); do \
-			echo "$$SEP\"$$l\":{\"properties\":$$(cat plugins/sql-schema_$${l}_gen.h)}" | sed s/\"/\\\"/g; \
+			echo "$$SEP\"$$l\":{\"properties\":$$(cat plugins/sql-schema_$${l}_gen.h)}" | $(SED) s/\"/\\\"/g; \
 			SEP=","; \
-		done | sed "s/\\\"/\\\\\"/g"; \
+		done | $(SED) "s/\\\"/\\\\\"/g"; \
 		echo "}\"") | tr -d " \n" > $@ \
 	)
 

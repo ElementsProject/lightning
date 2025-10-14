@@ -29,14 +29,14 @@ TITLELINE="$(head -n1 "$SOURCE")"
 # Replace lightning-cli with $ lightning-cli but do not replace it if it is preceded with (
 # because it is used in the examples to run it in the shell, eg. $(lightning-cli listpeerchannels)
 # shellcheck disable=SC2016 # These are not variables, shellcheck!
-SOURCE=$(tail -n +3 "$SOURCE" | sed -E '
+SOURCE=$(tail -n +3 "$SOURCE" | $SED -E '
     :a;N;$!ba;
     s#(\(lightning-cli)#\x1#ig;
     s#lightning-cli#$ lightning-cli#g;
     s#\x1#(lightning-cli#g;
 ' |
 # Lowdown requires a blank line before every preformatted text block
-sed '
+$SED '
 	/^$/{:0;N;/\n$/b0};s/^[[:blank:]]*```/\n\0/;
 	/\n[[:blank:]]*```/{:1;n;/^[[:blank:]]*```/!b1}
 ')
