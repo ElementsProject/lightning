@@ -680,34 +680,6 @@ void hsmd_status_failed(enum status_failreason reason, const char *fmt, ...)
 	status_send_fatal(take(towire_status_fail(NULL, reason, str)));
 }
 
-/* Handle BIP86 key derivation request */
-static struct io_plan *handle_derive_bip86_key(struct io_conn *conn,
-					       struct client *c,
-					       const u8 *msg_in)
-{
-	u8 *reply;
-	u32 index;
-	bool is_change;
-
-	/* Extract parameters from the wire message */
-	if (!fromwire_hsmd_derive_bip86_key(msg_in, &index, &is_change))
-		return bad_req(conn, c, msg_in);
-
-	/* Check if we have a mnemonic-based HSM secret */
-	if (!use_bip86_derivation(tal_bytelen(hsm_secret->secret_data))) {
-		return bad_req_fmt(conn, c, msg_in,
-				   "BIP86 derivation requires mnemonic-based HSM secret");
-	}
-
-	/* Derive only the BIP86 base key (m/86'/0'/0') */
-	struct ext_key bip86_base;
-	derive_bip86_base_key(&bip86_base);
-
-	/* Return the full BIP86 base extended key */
-	reply = towire_hsmd_derive_bip86_key_reply(NULL, &bip86_base);
-	return req_reply(conn, c, take(reply));
-}
-
 /* Handle BIP86 pubkey check request */
 static struct io_plan *handle_check_bip86_pubkey(struct io_conn *conn,
 						 struct client *c,
@@ -768,8 +740,6 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_CLIENT_HSMFD:
 		return pass_client_hsmfd(conn, c, c->msg_in);
 
-	case WIRE_HSMD_DERIVE_BIP86_KEY:
-		return handle_derive_bip86_key(conn, c, c->msg_in);
 	case WIRE_HSMD_CHECK_BIP86_PUBKEY:
 		return handle_check_bip86_pubkey(conn, c, c->msg_in);
 
@@ -864,7 +834,6 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_PREAPPROVE_INVOICE_CHECK_REPLY:
 	case WIRE_HSMD_PREAPPROVE_KEYSEND_CHECK_REPLY:
 	case WIRE_HSMD_CHECK_PUBKEY_REPLY:
-	case WIRE_HSMD_DERIVE_BIP86_KEY_REPLY:
 	case WIRE_HSMD_CHECK_BIP86_PUBKEY_REPLY:
 	case WIRE_HSMD_SIGN_ANCHORSPEND_REPLY:
 	case WIRE_HSMD_SIGN_HTLC_TX_MINGLE_REPLY:
