@@ -23,6 +23,8 @@
 #include <plugins/libplugin.h>
 #include <stdarg.h>
 
+#define XPAY_GLOBAL_LAYER "xpay"
+
 /* For the whole plugin */
 struct xpay {
 	struct pubkey local_id;
@@ -484,7 +486,7 @@ static const char *layer_of(const struct payment *payment,
 	struct gossmap *gossmap = get_gossmap(xpay_of(payment->plugin));
 
 	if (gossmap_find_chan(gossmap, &scidd->scid))
-		return "xpay";
+		return XPAY_GLOBAL_LAYER;
 	return payment->private_layer;
 }
 
@@ -1370,7 +1372,7 @@ static struct command_result *getroutes_for(struct command *aux_cmd,
 	/* We don't pay fees for ourselves */
 	json_add_string(req->js, NULL, "auto.sourcefree");
 	/* Add xpay global channel */
-	json_add_string(req->js, NULL, "xpay");
+	json_add_string(req->js, NULL, XPAY_GLOBAL_LAYER);
 	/* Add private layer */
 	json_add_string(req->js, NULL, payment->private_layer);
 	/* Add user-specified layers */
@@ -2093,7 +2095,7 @@ static struct command_result *age_layer(struct command *timer_cmd, void *unused)
 				    age_done,
 				    plugin_broken_cb,
 				    NULL);
-	json_add_string(req->js, "layer", "xpay");
+	json_add_string(req->js, "layer", XPAY_GLOBAL_LAYER);
 	json_add_u64(req->js, "cutoff", time_now().ts.tv_sec - 3600);
 	return send_outreq(req);
 }
@@ -2153,7 +2155,7 @@ static const char *init(struct command *init_cmd,
 				    xpay_layer_created,
 				    plugin_broken_cb,
 				    "askrene-create-layer");
-	json_add_string(req->js, "layer", "xpay");
+	json_add_string(req->js, "layer", XPAY_GLOBAL_LAYER);
 	json_add_bool(req->js, "persistent", true);
 	send_outreq(req);
 
