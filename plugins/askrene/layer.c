@@ -21,6 +21,7 @@ enum dstore_layer_type {
 	DSTORE_CHANNEL_CONSTRAINT = 3,
 	DSTORE_CHANNEL_BIAS = 4,
 	DSTORE_DISABLED_NODE = 5,
+	DSTORE_CHANNEL_BIAS_V2 = 6,
 };
 
 /* A channels which doesn't (necessarily) exist in the gossmap. */
@@ -58,6 +59,7 @@ struct bias {
 	struct short_channel_id_dir scidd;
 	const char *description;
 	s8 bias;
+	u64 timestamp;
 };
 
 static const struct short_channel_id_dir *
@@ -285,7 +287,8 @@ static const struct bias *set_bias(struct layer *layer,
 				   const struct short_channel_id_dir *scidd,
 				   const char *description TAKES,
 				   s8 bias_factor,
-				   bool relative)
+				   bool relative,
+				   u64 timestamp)
 {
 	struct bias *bias;
 
@@ -303,6 +306,7 @@ static const struct bias *set_bias(struct layer *layer,
 	bias_new = MAX(-100, bias_new);
 	bias->bias = bias_new;
 	bias->description = tal_strdup_or_null(bias, description);
+	bias->timestamp = timestamp;
 
 	/* Don't bother keeping around zero biases */
 	if (bias->bias == 0) {
@@ -559,10 +563,14 @@ static void load_channel_constraint(struct plugin *plugin,
 
 static void towire_save_channel_bias(u8 **data, const struct bias *bias)
 {
-	towire_u16(data, DSTORE_CHANNEL_BIAS);
+	towire_u16(data, DSTORE_CHANNEL_BIAS_V2);
 	towire_short_channel_id_dir(data, &bias->scidd);
 	towire_s8(data, bias->bias);
-	towire_wirestring(data, bias->description);
+        // has description?
+	towire_bool_val(data, bias->description != NULL);
+	if (bias->description)
+		towire_wirestring(data, bias->description);
+	towire_u64(data, bias->timestamp);
 }
 
 static void save_channel_bias(struct layer *layer, const struct bias *bias)
@@ -585,13 +593,39 @@ static void load_channel_bias(struct plugin *plugin,
 	struct short_channel_id_dir scidd;
 	char *description;
 	s8 bias_factor;
+        /* If we read an old version without timestamp, just put the current
+         * time. */
+        u64 timestamp = time_now().ts.tv_sec;
 
 	fromwire_short_channel_id_dir(cursor, len, &scidd);
 	bias_factor = fromwire_s8(cursor, len);
 	description = fromwire_wirestring(tmpctx, cursor, len);
 
 	if (*cursor)
-		set_bias(layer, &scidd, take(description), bias_factor, false);
+		set_bias(layer, &scidd, take(description), bias_factor, false,
+			 timestamp);
+}
+
+static void load_channel_bias_v2(struct plugin *plugin,
+                                 struct layer *layer,
+                                 const u8 **cursor,
+                                 size_t *len)
+{
+	struct short_channel_id_dir scidd;
+	char *description = NULL;
+	s8 bias_factor;
+	u64 timestamp;
+
+	fromwire_short_channel_id_dir(cursor, len, &scidd);
+	bias_factor = fromwire_s8(cursor, len);
+	if (fromwire_bool(cursor, len)) {
+		description = fromwire_wirestring(tmpctx, cursor, len);
+	}
+	timestamp = fromwire_u64(cursor, len);
+
+	if (*cursor)
+		set_bias(layer, &scidd, take(description), bias_factor, false,
+			 timestamp);
 }
 
 static void towire_save_disabled_node(u8 **data, const struct node_id *node)
@@ -708,6 +742,9 @@ static void populate_layer(struct askrene *askrene,
 		case DSTORE_CHANNEL_BIAS:
 			load_channel_bias(askrene->plugin, layer, &data, &len);
 			continue;
+		case DSTORE_CHANNEL_BIAS_V2:
+			load_channel_bias_v2(askrene->plugin, layer, &data, &len);
+			continue;
 		case DSTORE_DISABLED_NODE:
 			load_disabled_node(askrene->plugin, layer, &data, &len);
 			continue;
@@ -822,11 +859,13 @@ const struct bias *layer_set_bias(struct layer *layer,
 				  const struct short_channel_id_dir *scidd,
 				  const char *description TAKES,
 				  s8 bias_factor,
-				  bool relative)
+				  bool relative,
+				  u64 timestamp)
 {
 	const struct bias *bias;
 
-	bias = set_bias(layer, scidd, description, bias_factor, relative);
+	bias = set_bias(layer, scidd, description, bias_factor, relative,
+			timestamp);
 	save_channel_bias(layer, bias);
 	return bias;
 }
@@ -917,6 +956,8 @@ size_t layer_trim_constraints(struct layer *layer, u64 cutoff)
 	size_t num_removed = 0;
 	struct constraint_hash_iter conit;
 	struct constraint *con;
+	struct bias_hash_iter biasit;
+	struct bias *bias;
 
 	for (con = constraint_hash_first(layer->constraints, &conit);
 	     con;
@@ -924,6 +965,15 @@ size_t layer_trim_constraints(struct layer *layer, u64 cutoff)
 		if (con->timestamp < cutoff) {
 			constraint_hash_delval(layer->constraints, &conit);
 			tal_free(con);
+			num_removed++;
+		}
+	}
+
+	for (bias = bias_hash_first(layer->biases, &biasit); bias;
+	     bias = bias_hash_next(layer->biases, &biasit)) {
+		if (bias->timestamp < cutoff) {
+			bias_hash_delval(layer->biases, &biasit);
+			tal_free(bias);
 			num_removed++;
 		}
 	}
@@ -1061,6 +1111,7 @@ void json_add_bias(struct json_stream *js,
 	if (b->description)
 		json_add_string(js, "description", b->description);
 	json_add_s64(js, "bias", b->bias);
+	json_add_u64(js, "timestamp", b->timestamp);
 	json_object_end(js);
 }
 

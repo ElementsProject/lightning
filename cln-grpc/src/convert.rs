@@ -4026,6 +4026,7 @@ impl From<responses::AskrenelistlayersLayersBiases> for pb::AskrenelistlayersLay
             bias: c.bias, // Rule #2 for type integer
             description: c.description, // Rule #2 for type string?
             short_channel_id_dir: c.short_channel_id_dir.to_string(), // Rule #2 for type short_channel_id_dir
+            timestamp: c.timestamp, // Rule #2 for type u64?
         }
     }
 }
@@ -4108,6 +4109,7 @@ impl From<responses::AskrenecreatelayerLayersBiases> for pb::AskrenecreatelayerL
             bias: c.bias, // Rule #2 for type integer
             description: c.description, // Rule #2 for type string?
             short_channel_id_dir: c.short_channel_id_dir.to_string(), // Rule #2 for type short_channel_id_dir
+            timestamp: c.timestamp, // Rule #2 for type u64?
         }
     }
 }
@@ -4298,6 +4300,7 @@ impl From<responses::AskrenebiaschannelBiases> for pb::AskrenebiaschannelBiases 
             description: c.description, // Rule #2 for type string?
             layer: c.layer, // Rule #2 for type string
             short_channel_id_dir: c.short_channel_id_dir.to_string(), // Rule #2 for type short_channel_id_dir
+            timestamp: c.timestamp, // Rule #2 for type u64?
         }
     }
 }
