@@ -46,6 +46,13 @@
         "description": [
           "The bias will be added to the previous value."
         ]
+      },
+      "expires": {
+        "type": "integer",
+        "added": "v25.12",
+        "description": [
+          "This added bias will be valid for this amount of seconds. If not specified, it will always be valid."
+        ]
       }
     }
   },
@@ -62,7 +69,8 @@
           "required": [
             "layer",
             "short_channel_id_dir",
-            "bias"
+            "bias",
+            "timestamp"
           ],
           "additionalProperties": false,
           "properties": {
@@ -88,6 +96,20 @@
               "type": "string",
               "description": [
                 "The bias (-100 to +100)"
+              ]
+            },
+            "timestamp": {
+              "type": "u64",
+              "added": "v25.12",
+              "description": [
+                "The UNIX timestamp when this bias was created."
+              ]
+            },
+            "expires": {
+              "type": "u64",
+              "added": "v25.12",
+              "description": [
+                "The UNIX timestamp when this bias expires."
               ]
             }
           }
