@@ -9,6 +9,21 @@ tests/fuzz/fuzz-hmac-sha256: LDLIBS += -lcrypto
 tests/fuzz/fuzz-wire-*.o: tests/fuzz/wire.h
 tests/fuzz/fuzz-bolt12-*.o: tests/fuzz/bolt12.h
 
+tests/fuzz/fuzz-gossipd-connectd: gossipd/gossipd_wiregen.o		\
+				  gossipd/gossip_store_wiregen.o	\
+				  gossipd/gossip_store.o		\
+				  gossipd/queries.o			\
+				  gossipd/sigcheck.o			\
+				  gossipd/txout_failures.o		\
+				  common/wire_error.o			\
+				  common/gossmap.o			\
+				  common/gossip_store.o			\
+				  common/gossmods_listpeerchannels.o	\
+				  common/timeout.o			\
+				  common/fp16.o				\
+				  common/decode_array.o			\
+				  connectd/connectd_gossipd_wiregen.o
+
 FUZZ_TARGETS_SRC := $(wildcard tests/fuzz/fuzz-*.c)
 FUZZ_TARGETS_OBJS := $(FUZZ_TARGETS_SRC:.c=.o)
 FUZZ_TARGETS_BIN := $(FUZZ_TARGETS_SRC:.c=)
