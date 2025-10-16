@@ -47,7 +47,7 @@ struct hsmd_client {
  * `lightningd`.
  */
 u8 *hsmd_init(const u8 *secret_data, size_t secret_len, const u64 hsmd_version,
-	      struct bip32_key_version bip32_key_version);
+	      struct bip32_key_version bip32_key_version, u8 hsm_secret_type);
 
 struct hsmd_client *hsmd_client_new_main(const tal_t *ctx, u64 capabilities,
 					 void *extra);

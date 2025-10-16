@@ -554,7 +554,7 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 	return req_reply(conn, c, hsmd_init(hsm_secret->secret_data,
 					    tal_bytelen(hsm_secret->secret_data),
 					    hsmd_mutual_version,
-					    bip32_key_version));
+					    bip32_key_version, hsm_secret->type));
 }
 
 /*~ Since we process requests then service them in strict order, and because

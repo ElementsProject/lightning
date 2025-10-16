@@ -146,11 +146,12 @@ struct ext_key *hsm_init(struct lightningd *ld)
 	}
 
 	/* Check for successful init reply */
+	struct tlv_hsmd_init_reply_v4_tlvs *tlvs;
 	if (fromwire_hsmd_init_reply_v4(ld, msg,
 					&hsm_version,
 					&ld->hsm_capabilities,
 					&ld->our_nodeid, bip32_base,
-					&unused)) {
+					&unused, &tlvs)) {
 		/* nothing to do. */
 	} else {
 		/* Unknown message type */

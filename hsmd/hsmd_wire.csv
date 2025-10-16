@@ -46,6 +46,10 @@ msgdata,hsmd_init_reply_v4,hsm_capabilities,u32,num_hsm_capabilities
 msgdata,hsmd_init_reply_v4,node_id,node_id,
 msgdata,hsmd_init_reply_v4,bip32,ext_key,
 msgdata,hsmd_init_reply_v4,bolt12,pubkey,
+msgdata,hsmd_init_reply_v4,tlvs,hsmd_init_reply_v4_tlvs,
+# TLV to indicate HSM secret type
+tlvtype,hsmd_init_reply_v4_tlvs,hsm_secret_type,1
+tlvdata,hsmd_init_reply_v4_tlvs,hsm_secret_type,hsm_type,u8,
 
 # HSM initialization failure response
 msgtype,hsmd_init_reply_failure,115
