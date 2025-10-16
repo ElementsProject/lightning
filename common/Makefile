@@ -144,6 +144,10 @@ $(COMMON_OBJS): $(CCAN_HEADERS) $(BITCOIN_HEADERS) $(EXTERNAL_HEADERS) $(COMMON_
 # Only common/version.c can include this header.
 common/version.o: version_gen.h
 
+# We make a static library, this way linker can discard unused parts.
+libcommon.a: $(COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS)
+	@$(call VERBOSE, "ar $@", $(AR) r $@ $?)
+
 ALL_C_HEADERS += $(COMMON_HEADERS)
 ALL_C_SOURCES += $(COMMON_SRC)
 
@@ -158,6 +162,7 @@ check-whitespace: $(COMMON_SRC_NOGEN:%=check-whitespace/%) $(COMMON_HEADERS:%=ch
 clean: common-clean
 
 common-clean:
+	$(RM) libcommon.a
 	$(RM) common/gen*
 
 include common/test/Makefile

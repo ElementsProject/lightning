@@ -31,6 +31,6 @@ $(PLUGIN_ASKRENE_OBJS): $(PLUGIN_ASKRENE_HEADER)
 PLUGIN_ALL_SRC += $(PLUGIN_ASKRENE_SRC)
 PLUGIN_ALL_HEADER += $(PLUGIN_ASKRENE_HEADER)
 
-plugins/cln-askrene: $(PLUGIN_ASKRENE_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS) bitcoin/chainparams.o common/gossmap.o common/sciddir_or_pubkey.o common/gossmods_listpeerchannels.o common/fp16.o common/dijkstra.o common/bolt12.o common/bolt12_merkle.o wire/bolt12_wiregen.o wire/onion_wiregen.o common/route.o
+plugins/cln-askrene: $(PLUGIN_ASKRENE_OBJS) $(PLUGIN_LIB_OBJS) $(JSMN_OBJS) $(CCAN_OBJS) libcommon.a
 
 include plugins/askrene/test/Makefile

@@ -7,23 +7,8 @@ CLI_TEST_PROGRAMS := $(CLI_TEST_OBJS:.o=)
 ALL_C_SOURCES += $(CLI_TEST_SRC)
 ALL_TEST_PROGRAMS += $(CLI_TEST_PROGRAMS)
 
-CLI_TEST_COMMON_OBJS :=				\
-	common/autodata.o			\
-	common/configdir.o			\
-	common/configvar.o			\
-	common/daemon_conn.o			\
-	common/htlc_state.o			\
-	common/json_parse_simple.o		\
-	common/pseudorand.o			\
-	common/memleak.o			\
-	common/msg_queue.o			\
-	common/setup.o				\
-	common/utils.o				\
-	common/version.o			\
-	common/permute_tx.o
+$(CLI_TEST_PROGRAMS): libcommon.a
 
-$(CLI_TEST_PROGRAMS): libccan.a $(BITCOIN_OBJS) $(WIRE_OBJS) $(CLI_TEST_COMMON_OBJS)
-
-$(CLI_TEST_OBJS): $(LIGHTNING_CLI_HEADERS) $(LIGHTNING_CLI_SRC)
+$(CLI_TEST_OBJS): $(LIGHTNING_CLI_HEADERS) $(LIGHTNING_CLI_SRC) cli/test/Makefile
 
 check-units: $(CLI_TEST_PROGRAMS:%=unittest/%)

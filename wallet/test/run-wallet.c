@@ -66,23 +66,6 @@ void bitcoind_getutxout_(const tal_t *ctx UNNEEDED,
 				    void *) UNNEEDED,
 			 void *arg UNNEEDED)
 { fprintf(stderr, "bitcoind_getutxout_ called!\n"); abort(); }
-/* Generated stub for blinding_hash_e_and_ss */
-void blinding_hash_e_and_ss(const struct pubkey *e UNNEEDED,
-			    const struct secret *ss UNNEEDED,
-			    struct sha256 *sha UNNEEDED)
-{ fprintf(stderr, "blinding_hash_e_and_ss called!\n"); abort(); }
-/* Generated stub for blinding_next_path_key */
-bool blinding_next_path_key(const struct pubkey *pk UNNEEDED,
-			    const struct sha256 *h UNNEEDED,
-			    struct pubkey *next UNNEEDED)
-{ fprintf(stderr, "blinding_next_path_key called!\n"); abort(); }
-/* Generated stub for bolt11_decode */
-struct bolt11 *bolt11_decode(const tal_t *ctx UNNEEDED, const char *str UNNEEDED,
-			     const struct feature_set *our_features UNNEEDED,
-			     const char *description UNNEEDED,
-			     const struct chainparams *must_be_chain UNNEEDED,
-			     char **fail UNNEEDED)
-{ fprintf(stderr, "bolt11_decode called!\n"); abort(); }
 /* Generated stub for broadcast_tx_ */
 void broadcast_tx_(const tal_t *ctx UNNEEDED,
 		   struct chain_topology *topo UNNEEDED,
@@ -152,36 +135,49 @@ struct command_result *command_check_done(struct command *cmd)
 /* Generated stub for command_check_only */
 bool command_check_only(const struct command *cmd UNNEEDED)
 { fprintf(stderr, "command_check_only called!\n"); abort(); }
+/* Generated stub for command_deprecated_in_ok */
+bool command_deprecated_in_ok(struct command *cmd UNNEEDED,
+			      const char *param UNNEEDED,
+			      const char *depr_start UNNEEDED,
+			      const char *depr_end UNNEEDED)
+{ fprintf(stderr, "command_deprecated_in_ok called!\n"); abort(); }
 /* Generated stub for command_deprecated_out_ok */
 bool command_deprecated_out_ok(struct command *cmd UNNEEDED,
 			       const char *fieldname UNNEEDED,
 			       const char *depr_start UNNEEDED,
 			       const char *depr_end UNNEEDED)
 { fprintf(stderr, "command_deprecated_out_ok called!\n"); abort(); }
+/* Generated stub for command_dev_apis */
+bool command_dev_apis(const struct command *cmd UNNEEDED)
+{ fprintf(stderr, "command_dev_apis called!\n"); abort(); }
 /* Generated stub for command_fail */
 struct command_result *command_fail(struct command *cmd UNNEEDED, enum jsonrpc_errcode code UNNEEDED,
 				    const char *fmt UNNEEDED, ...)
 
 { fprintf(stderr, "command_fail called!\n"); abort(); }
-/* Generated stub for command_fail_badparam */
-struct command_result *command_fail_badparam(struct command *cmd UNNEEDED,
-					     const char *paramname UNNEEDED,
-					     const char *buffer UNNEEDED,
-					     const jsmntok_t *tok UNNEEDED,
-					     const char *msg UNNEEDED)
-{ fprintf(stderr, "command_fail_badparam called!\n"); abort(); }
 /* Generated stub for command_failed */
 struct command_result *command_failed(struct command *cmd UNNEEDED,
 				      struct json_stream *result)
 
 { fprintf(stderr, "command_failed called!\n"); abort(); }
+/* Generated stub for command_filter_ptr */
+struct json_filter **command_filter_ptr(struct command *cmd UNNEEDED)
+{ fprintf(stderr, "command_filter_ptr called!\n"); abort(); }
 /* Generated stub for command_its_complicated */
 struct command_result *command_its_complicated(const char *why UNNEEDED)
 { fprintf(stderr, "command_its_complicated called!\n"); abort(); }
+/* Generated stub for command_log */
+void command_log(struct command *cmd UNNEEDED, enum log_level level UNNEEDED,
+		 const char *fmt UNNEEDED, ...)
+
+{ fprintf(stderr, "command_log called!\n"); abort(); }
 /* Generated stub for command_param_failed */
 struct command_result *command_param_failed(void)
 
 { fprintf(stderr, "command_param_failed called!\n"); abort(); }
+/* Generated stub for command_set_usage */
+void command_set_usage(struct command *cmd UNNEEDED, const char *usage UNNEEDED)
+{ fprintf(stderr, "command_set_usage called!\n"); abort(); }
 /* Generated stub for command_still_pending */
 struct command_result *command_still_pending(struct command *cmd)
 
@@ -191,6 +187,9 @@ struct command_result *command_success(struct command *cmd UNNEEDED,
 				       struct json_stream *response)
 
 { fprintf(stderr, "command_success called!\n"); abort(); }
+/* Generated stub for command_usage_only */
+bool command_usage_only(const struct command *cmd UNNEEDED)
+{ fprintf(stderr, "command_usage_only called!\n"); abort(); }
 /* Generated stub for commit_tx_boost */
 void commit_tx_boost(struct channel *channel UNNEEDED,
 		     struct anchor_details *adet UNNEEDED,
@@ -229,19 +228,6 @@ u8 *create_channel_announcement(const tal_t *ctx UNNEEDED,
 				const secp256k1_ecdsa_signature *remote_node_signature UNNEEDED,
 				const secp256k1_ecdsa_signature *remote_bitcoin_signature UNNEEDED)
 { fprintf(stderr, "create_channel_announcement called!\n"); abort(); }
-/* Generated stub for create_onionpacket */
-struct onionpacket *create_onionpacket(
-	const tal_t * ctx UNNEEDED,
-	struct sphinx_path *sp UNNEEDED,
-	size_t fixed_size UNNEEDED,
-	struct secret **path_secrets
-	)
-{ fprintf(stderr, "create_onionpacket called!\n"); abort(); }
-/* Generated stub for create_onionreply */
-struct onionreply *create_onionreply(const tal_t *ctx UNNEEDED,
-				     const struct secret *shared_secret UNNEEDED,
-				     const u8 *failure_msg UNNEEDED)
-{ fprintf(stderr, "create_onionreply called!\n"); abort(); }
 /* Generated stub for depthcb_update_scid */
 bool depthcb_update_scid(struct channel *channel UNNEEDED,
 			 const struct bitcoin_txid *txid UNNEEDED,
@@ -250,14 +236,6 @@ bool depthcb_update_scid(struct channel *channel UNNEEDED,
 /* Generated stub for dev_disconnect_permanent */
 bool dev_disconnect_permanent(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "dev_disconnect_permanent called!\n"); abort(); }
-/* Generated stub for ecdh */
-void ecdh(const struct pubkey *point UNNEEDED, struct secret *ss UNNEEDED)
-{ fprintf(stderr, "ecdh called!\n"); abort(); }
-/* Generated stub for encode_scriptpubkey_to_addr */
-char *encode_scriptpubkey_to_addr(const tal_t *ctx UNNEEDED,
-				  const struct chainparams *chainparams UNNEEDED,
-				  const u8 *scriptpubkey UNNEEDED)
-{ fprintf(stderr, "encode_scriptpubkey_to_addr called!\n"); abort(); }
 /* Generated stub for fatal */
 void   fatal(const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "fatal called!\n"); abort(); }
@@ -293,9 +271,6 @@ u64 forward_index_update_status(struct lightningd *ld UNNEEDED,
 				struct amount_msat in_amount UNNEEDED,
 				const struct short_channel_id *out_channel UNNEEDED)
 { fprintf(stderr, "forward_index_update_status called!\n"); abort(); }
-/* Generated stub for fromwire_channel_type */
-struct channel_type *fromwire_channel_type(const tal_t *ctx UNNEEDED, const u8 **cursor UNNEEDED, size_t *plen UNNEEDED)
-{ fprintf(stderr, "fromwire_channel_type called!\n"); abort(); }
 /* Generated stub for fromwire_channeld_dev_memleak_reply */
 bool fromwire_channeld_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
 { fprintf(stderr, "fromwire_channeld_dev_memleak_reply called!\n"); abort(); }
@@ -341,6 +316,9 @@ bool fromwire_hsmd_cupdate_sig_reply(const tal_t *ctx UNNEEDED, const void *p UN
 /* Generated stub for fromwire_hsmd_derive_secret_reply */
 bool fromwire_hsmd_derive_secret_reply(const void *p UNNEEDED, struct secret *secret UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_derive_secret_reply called!\n"); abort(); }
+/* Generated stub for fromwire_hsmd_ecdh_resp */
+bool fromwire_hsmd_ecdh_resp(const void *p UNNEEDED, struct secret *ss UNNEEDED)
+{ fprintf(stderr, "fromwire_hsmd_ecdh_resp called!\n"); abort(); }
 /* Generated stub for fromwire_hsmd_forget_channel_reply */
 bool fromwire_hsmd_forget_channel_reply(const void *p UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_forget_channel_reply called!\n"); abort(); }
@@ -371,10 +349,6 @@ bool fromwire_onchaind_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNE
 /* Generated stub for fromwire_openingd_dev_memleak_reply */
 bool fromwire_openingd_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
 { fprintf(stderr, "fromwire_openingd_dev_memleak_reply called!\n"); abort(); }
-/* Generated stub for fromwire_tlv_update_add_htlc_tlvs */
-struct tlv_update_add_htlc_tlvs *fromwire_tlv_update_add_htlc_tlvs(const tal_t *ctx UNNEEDED,
-						  const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
-{ fprintf(stderr, "fromwire_tlv_update_add_htlc_tlvs called!\n"); abort(); }
 /* Generated stub for get_network_blockheight */
 u32 get_network_blockheight(const struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "get_network_blockheight called!\n"); abort(); }
@@ -384,15 +358,6 @@ size_t hash_cid(const struct channel_id *cid UNNEEDED)
 /* Generated stub for hsmd_wire_name */
 const char *hsmd_wire_name(int e UNNEEDED)
 { fprintf(stderr, "hsmd_wire_name called!\n"); abort(); }
-/* Generated stub for htlc_is_trimmed */
-bool htlc_is_trimmed(enum side htlc_owner UNNEEDED,
-		     struct amount_msat htlc_amount UNNEEDED,
-		     u32 feerate_per_kw UNNEEDED,
-		     struct amount_sat dust_limit UNNEEDED,
-		     enum side side UNNEEDED,
-		     bool option_anchor_outputs UNNEEDED,
-		     bool option_anchors_zero_fee_htlc_tx UNNEEDED)
-{ fprintf(stderr, "htlc_is_trimmed called!\n"); abort(); }
 /* Generated stub for htlc_set_add_ */
 void htlc_set_add_(struct lightningd *ld UNNEEDED,
 		   struct logger *log UNNEEDED,
@@ -412,13 +377,6 @@ const struct invoice_details *invoice_check_payment(const tal_t *ctx UNNEEDED,
 						    const struct secret *payment_secret UNNEEDED,
 						    const char **err UNNEEDED)
 { fprintf(stderr, "invoice_check_payment called!\n"); abort(); }
-/* Generated stub for invoice_decode */
-struct tlv_invoice *invoice_decode(const tal_t *ctx UNNEEDED,
-				   const char *b12 UNNEEDED, size_t b12len UNNEEDED,
-				   const struct feature_set *our_features UNNEEDED,
-				   const struct chainparams *must_be_chain UNNEEDED,
-				   char **fail UNNEEDED)
-{ fprintf(stderr, "invoice_decode called!\n"); abort(); }
 /* Generated stub for invoices_find_by_rhash */
 bool invoices_find_by_rhash(struct invoices *invoices UNNEEDED,
 			    u64 *inv_dbid UNNEEDED,
@@ -436,132 +394,12 @@ bool invoices_resolve(struct invoices *invoices UNNEEDED,
 		      const struct json_escape *label UNNEEDED,
 		      const struct bitcoin_outpoint *outpoint UNNEEDED)
 { fprintf(stderr, "invoices_resolve called!\n"); abort(); }
-/* Generated stub for is_hsm_secret_encrypted */
-int is_hsm_secret_encrypted(const char *path UNNEEDED)
-{ fprintf(stderr, "is_hsm_secret_encrypted called!\n"); abort(); }
-/* Generated stub for json_add_address */
-void json_add_address(struct json_stream *response UNNEEDED, const char *fieldname UNNEEDED,
-		      const struct wireaddr *addr UNNEEDED)
-{ fprintf(stderr, "json_add_address called!\n"); abort(); }
-/* Generated stub for json_add_address_internal */
-void json_add_address_internal(struct json_stream *response UNNEEDED,
-			       const char *fieldname UNNEEDED,
-			       const struct wireaddr_internal *addr UNNEEDED)
-{ fprintf(stderr, "json_add_address_internal called!\n"); abort(); }
-/* Generated stub for json_add_amount_msat */
-void json_add_amount_msat(struct json_stream *result UNNEEDED,
-			  const char *msatfieldname UNNEEDED,
-			  struct amount_msat msat)
-
-{ fprintf(stderr, "json_add_amount_msat called!\n"); abort(); }
-/* Generated stub for json_add_amount_sat_msat */
-void json_add_amount_sat_msat(struct json_stream *result UNNEEDED,
-			      const char *msatfieldname UNNEEDED,
-			      struct amount_sat sat)
-
-{ fprintf(stderr, "json_add_amount_sat_msat called!\n"); abort(); }
-/* Generated stub for json_add_bool */
-void json_add_bool(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
-		   bool value UNNEEDED)
-{ fprintf(stderr, "json_add_bool called!\n"); abort(); }
-/* Generated stub for json_add_channel_id */
-void json_add_channel_id(struct json_stream *response UNNEEDED,
-			 const char *fieldname UNNEEDED,
-			 const struct channel_id *cid UNNEEDED)
-{ fprintf(stderr, "json_add_channel_id called!\n"); abort(); }
-/* Generated stub for json_add_channel_type */
-void json_add_channel_type(struct json_stream *response UNNEEDED,
-			   const char *fieldname UNNEEDED,
-			   const struct channel_type *channel_type UNNEEDED)
-{ fprintf(stderr, "json_add_channel_type called!\n"); abort(); }
-/* Generated stub for json_add_hex */
-void json_add_hex(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
-		  const void *data UNNEEDED, size_t len UNNEEDED)
-{ fprintf(stderr, "json_add_hex called!\n"); abort(); }
-/* Generated stub for json_add_hex_talarr */
-void json_add_hex_talarr(struct json_stream *result UNNEEDED,
-			 const char *fieldname UNNEEDED,
-			 const tal_t *data UNNEEDED)
-{ fprintf(stderr, "json_add_hex_talarr called!\n"); abort(); }
-/* Generated stub for json_add_jsonstr */
-void json_add_jsonstr(struct json_stream *js UNNEEDED,
-		      const char *fieldname UNNEEDED,
-		      const char *jsonstr UNNEEDED,
-		      size_t jsonstrlen UNNEEDED)
-{ fprintf(stderr, "json_add_jsonstr called!\n"); abort(); }
 /* Generated stub for json_add_log */
 void json_add_log(struct json_stream *result UNNEEDED,
 		  const struct log_book *log_book UNNEEDED,
 		  const struct node_id *node_id UNNEEDED,
 		  enum log_level minlevel UNNEEDED)
 { fprintf(stderr, "json_add_log called!\n"); abort(); }
-/* Generated stub for json_add_node_id */
-void json_add_node_id(struct json_stream *response UNNEEDED,
-				const char *fieldname UNNEEDED,
-				const struct node_id *id UNNEEDED)
-{ fprintf(stderr, "json_add_node_id called!\n"); abort(); }
-/* Generated stub for json_add_num */
-void json_add_num(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
-		  unsigned int value UNNEEDED)
-{ fprintf(stderr, "json_add_num called!\n"); abort(); }
-/* Generated stub for json_add_preimage */
-void json_add_preimage(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
-		     const struct preimage *preimage UNNEEDED)
-{ fprintf(stderr, "json_add_preimage called!\n"); abort(); }
-/* Generated stub for json_add_pubkey */
-void json_add_pubkey(struct json_stream *response UNNEEDED,
-		     const char *fieldname UNNEEDED,
-		     const struct pubkey *key UNNEEDED)
-{ fprintf(stderr, "json_add_pubkey called!\n"); abort(); }
-/* Generated stub for json_add_s32 */
-void json_add_s32(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
-		  int32_t value UNNEEDED)
-{ fprintf(stderr, "json_add_s32 called!\n"); abort(); }
-/* Generated stub for json_add_s64 */
-void json_add_s64(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
-		  int64_t value UNNEEDED)
-{ fprintf(stderr, "json_add_s64 called!\n"); abort(); }
-/* Generated stub for json_add_secret */
-void json_add_secret(struct json_stream *response UNNEEDED,
-		     const char *fieldname UNNEEDED,
-		     const struct secret *secret UNNEEDED)
-{ fprintf(stderr, "json_add_secret called!\n"); abort(); }
-/* Generated stub for json_add_sha256 */
-void json_add_sha256(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
-		     const struct sha256 *hash UNNEEDED)
-{ fprintf(stderr, "json_add_sha256 called!\n"); abort(); }
-/* Generated stub for json_add_short_channel_id */
-void json_add_short_channel_id(struct json_stream *response UNNEEDED,
-			       const char *fieldname UNNEEDED,
-			       struct short_channel_id id UNNEEDED)
-{ fprintf(stderr, "json_add_short_channel_id called!\n"); abort(); }
-/* Generated stub for json_add_string */
-void json_add_string(struct json_stream *js UNNEEDED,
-		     const char *fieldname UNNEEDED,
-		     const char *str TAKES UNNEEDED)
-{ fprintf(stderr, "json_add_string called!\n"); abort(); }
-/* Generated stub for json_add_timeiso */
-void json_add_timeiso(struct json_stream *result UNNEEDED,
-		      const char *fieldname UNNEEDED,
-		      struct timeabs time UNNEEDED)
-{ fprintf(stderr, "json_add_timeiso called!\n"); abort(); }
-/* Generated stub for json_add_tx */
-void json_add_tx(struct json_stream *result UNNEEDED,
-		 const char *fieldname UNNEEDED,
-		 const struct bitcoin_tx *tx UNNEEDED)
-{ fprintf(stderr, "json_add_tx called!\n"); abort(); }
-/* Generated stub for json_add_txid */
-void json_add_txid(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
-		   const struct bitcoin_txid *txid UNNEEDED)
-{ fprintf(stderr, "json_add_txid called!\n"); abort(); }
-/* Generated stub for json_add_u32 */
-void json_add_u32(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
-		  uint32_t value UNNEEDED)
-{ fprintf(stderr, "json_add_u32 called!\n"); abort(); }
-/* Generated stub for json_add_u64 */
-void json_add_u64(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
-		  uint64_t value UNNEEDED)
-{ fprintf(stderr, "json_add_u64 called!\n"); abort(); }
 /* Generated stub for json_add_uncommitted_channel */
 void  json_add_uncommitted_channel(struct command *cmd UNNEEDED,
 						      struct json_stream *response UNNEEDED,
@@ -574,29 +412,6 @@ void  json_add_unsaved_channel(struct command *cmd UNNEEDED,
 					   const struct channel *channel UNNEEDED,
 					   const struct peer *peer UNNEEDED)
 { fprintf(stderr, "json_add_unsaved_channel called!\n"); abort(); }
-/* Generated stub for json_array_end */
-void json_array_end(struct json_stream *js UNNEEDED)
-{ fprintf(stderr, "json_array_end called!\n"); abort(); }
-/* Generated stub for json_array_start */
-void json_array_start(struct json_stream *js UNNEEDED, const char *fieldname UNNEEDED)
-{ fprintf(stderr, "json_array_start called!\n"); abort(); }
-/* Generated stub for json_get_membern */
-const jsmntok_t *json_get_membern(const char *buffer UNNEEDED,
-				  const jsmntok_t tok[] UNNEEDED,
-				  const char *label UNNEEDED, size_t len UNNEEDED)
-{ fprintf(stderr, "json_get_membern called!\n"); abort(); }
-/* Generated stub for json_next */
-const jsmntok_t *json_next(const jsmntok_t *tok UNNEEDED)
-{ fprintf(stderr, "json_next called!\n"); abort(); }
-/* Generated stub for json_object_end */
-void json_object_end(struct json_stream *js UNNEEDED)
-{ fprintf(stderr, "json_object_end called!\n"); abort(); }
-/* Generated stub for json_object_start */
-void json_object_start(struct json_stream *ks UNNEEDED, const char *fieldname UNNEEDED)
-{ fprintf(stderr, "json_object_start called!\n"); abort(); }
-/* Generated stub for json_strdup */
-char *json_strdup(const tal_t *ctx UNNEEDED, const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED)
-{ fprintf(stderr, "json_strdup called!\n"); abort(); }
 /* Generated stub for json_stream_fail */
 struct json_stream *json_stream_fail(struct command *cmd UNNEEDED,
 				     enum jsonrpc_errcode code UNNEEDED,
@@ -605,43 +420,6 @@ struct json_stream *json_stream_fail(struct command *cmd UNNEEDED,
 /* Generated stub for json_stream_success */
 struct json_stream *json_stream_success(struct command *cmd UNNEEDED)
 { fprintf(stderr, "json_stream_success called!\n"); abort(); }
-/* Generated stub for json_to_channel_id */
-bool json_to_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-			struct channel_id *cid UNNEEDED)
-{ fprintf(stderr, "json_to_channel_id called!\n"); abort(); }
-/* Generated stub for json_to_msat */
-bool json_to_msat(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-		  struct amount_msat *msat UNNEEDED)
-{ fprintf(stderr, "json_to_msat called!\n"); abort(); }
-/* Generated stub for json_to_node_id */
-bool json_to_node_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-			       struct node_id *id UNNEEDED)
-{ fprintf(stderr, "json_to_node_id called!\n"); abort(); }
-/* Generated stub for json_to_number */
-bool json_to_number(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-		    unsigned int *num UNNEEDED)
-{ fprintf(stderr, "json_to_number called!\n"); abort(); }
-/* Generated stub for json_to_preimage */
-bool json_to_preimage(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, struct preimage *preimage UNNEEDED)
-{ fprintf(stderr, "json_to_preimage called!\n"); abort(); }
-/* Generated stub for json_to_short_channel_id */
-bool json_to_short_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-			      struct short_channel_id *scid UNNEEDED)
-{ fprintf(stderr, "json_to_short_channel_id called!\n"); abort(); }
-/* Generated stub for json_tok_bin_from_hex */
-u8 *json_tok_bin_from_hex(const tal_t *ctx UNNEEDED, const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED)
-{ fprintf(stderr, "json_tok_bin_from_hex called!\n"); abort(); }
-/* Generated stub for json_tok_channel_id */
-bool json_tok_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-			 struct channel_id *cid UNNEEDED)
-{ fprintf(stderr, "json_tok_channel_id called!\n"); abort(); }
-/* Generated stub for json_tok_full */
-const char *json_tok_full(const char *buffer UNNEEDED, const jsmntok_t *t UNNEEDED)
-{ fprintf(stderr, "json_tok_full called!\n"); abort(); }
-/* Generated stub for json_tok_strneq */
-bool json_tok_strneq(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-		     const char *str UNNEEDED, size_t len UNNEEDED)
-{ fprintf(stderr, "json_tok_strneq called!\n"); abort(); }
 /* Generated stub for kill_uncommitted_channel */
 void kill_uncommitted_channel(struct uncommitted_channel *uc UNNEEDED,
 			      const char *why UNNEEDED)
@@ -658,25 +436,6 @@ void logv(struct logger *logger UNNEEDED, enum log_level level UNNEEDED, const s
 void memleak_scan_outpointfilter(struct htable *memtable UNNEEDED,
 				 const struct outpointfilter *opf UNNEEDED)
 { fprintf(stderr, "memleak_scan_outpointfilter called!\n"); abort(); }
-/* Generated stub for mk_mvt_tags_ */
-struct mvt_tags mk_mvt_tags_(enum mvt_tag tag UNNEEDED, ...)
-{ fprintf(stderr, "mk_mvt_tags_ called!\n"); abort(); }
-/* Generated stub for mvt_tags_valid */
-bool mvt_tags_valid(struct mvt_tags tags UNNEEDED)
-{ fprintf(stderr, "mvt_tags_valid called!\n"); abort(); }
-/* Generated stub for new_channel_coin_mvt_general */
-struct channel_coin_mvt *new_channel_coin_mvt_general(const tal_t *ctx UNNEEDED,
-						      const struct channel *channel UNNEEDED,
-						      const struct channel_id *cid UNNEEDED,
-						      u64 timestamp UNNEEDED,
-						      const struct sha256 *payment_hash TAKES UNNEEDED,
-						      const u64 *part_id UNNEEDED,
-						      const u64 *group_id UNNEEDED,
-						      enum coin_mvt_dir direction UNNEEDED,
-						      struct amount_msat amount UNNEEDED,
-						      struct mvt_tags tags UNNEEDED,
-						      struct amount_msat fees UNNEEDED)
-{ fprintf(stderr, "new_channel_coin_mvt_general called!\n"); abort(); }
 /* Generated stub for new_channel_mvt_invoice_hin */
 struct channel_coin_mvt *new_channel_mvt_invoice_hin(const tal_t *ctx UNNEEDED,
 						     const struct htlc_in *hin UNNEEDED,
@@ -697,36 +456,6 @@ struct channel_coin_mvt *new_channel_mvt_routed_hout(const tal_t *ctx UNNEEDED,
 						     const struct htlc_out *hout UNNEEDED,
 						     const struct channel *channel UNNEEDED)
 { fprintf(stderr, "new_channel_mvt_routed_hout called!\n"); abort(); }
-/* Generated stub for new_coin_channel_open_general */
-struct chain_coin_mvt *new_coin_channel_open_general(const tal_t *ctx UNNEEDED,
-						     const struct channel *channel UNNEEDED,
-						     const struct channel_id *cid UNNEEDED,
-						     u64 timestamp UNNEEDED,
-						     const struct bitcoin_outpoint *out UNNEEDED,
-						     const struct node_id *peer_id UNNEEDED,
-						     u32 blockheight UNNEEDED,
-						     const struct amount_msat amount UNNEEDED,
-						     const struct amount_sat output_val UNNEEDED,
-						     bool is_opener UNNEEDED,
-						     bool is_leased UNNEEDED)
-{ fprintf(stderr, "new_coin_channel_open_general called!\n"); abort(); }
-/* Generated stub for new_coin_channel_push_general */
-struct channel_coin_mvt *new_coin_channel_push_general(const tal_t *ctx UNNEEDED,
-						       const struct channel *channel UNNEEDED,
-						       const struct channel_id *cid UNNEEDED,
-						       u64 timestamp UNNEEDED,
-						       enum coin_mvt_dir direction UNNEEDED,
-						       struct amount_msat amount UNNEEDED,
-						       struct mvt_tags tags UNNEEDED)
-{ fprintf(stderr, "new_coin_channel_push_general called!\n"); abort(); }
-/* Generated stub for new_coin_wallet_deposit */
-struct chain_coin_mvt *new_coin_wallet_deposit(const tal_t *ctx UNNEEDED,
-					       const struct bitcoin_outpoint *outpoint UNNEEDED,
-					       u32 blockheight UNNEEDED,
-					       struct amount_sat amount UNNEEDED,
-					       struct mvt_tags tags)
-
-{ fprintf(stderr, "new_coin_wallet_deposit called!\n"); abort(); }
 /* Generated stub for new_global_subd */
 struct subd *new_global_subd(struct lightningd *ld UNNEEDED,
 			     const char *name UNNEEDED,
@@ -816,34 +545,6 @@ enum watch_result onchaind_funding_spent(struct channel *channel UNNEEDED,
 					 const struct bitcoin_tx *tx UNNEEDED,
 					 u32 blockheight UNNEEDED)
 { fprintf(stderr, "onchaind_funding_spent called!\n"); abort(); }
-/* Generated stub for onion_decode */
-struct onion_payload *onion_decode(const tal_t *ctx UNNEEDED,
-				   const struct route_step *rs UNNEEDED,
-				   const struct pubkey *path_key UNNEEDED,
-				   const u64 *accepted_extra_tlvs UNNEEDED,
-				   struct amount_msat amount_in UNNEEDED,
-				   u32 cltv_expiry UNNEEDED,
-				   u64 *failtlvtype UNNEEDED,
-				   size_t *failtlvpos UNNEEDED,
-				   const char **explanation UNNEEDED)
-{ fprintf(stderr, "onion_decode called!\n"); abort(); }
-/* Generated stub for onion_final_hop */
-u8 *onion_final_hop(const tal_t *ctx UNNEEDED,
-		    struct amount_msat forward UNNEEDED,
-		    u32 outgoing_cltv UNNEEDED,
-		    struct amount_msat total_msat UNNEEDED,
-		    const struct secret *payment_secret UNNEEDED,
-		    const u8 *payment_metadata UNNEEDED)
-{ fprintf(stderr, "onion_final_hop called!\n"); abort(); }
-/* Generated stub for onion_nonfinal_hop */
-u8 *onion_nonfinal_hop(const tal_t *ctx UNNEEDED,
-		       const struct short_channel_id *scid UNNEEDED,
-		       struct amount_msat forward UNNEEDED,
-		       u32 outgoing_cltv UNNEEDED)
-{ fprintf(stderr, "onion_nonfinal_hop called!\n"); abort(); }
-/* Generated stub for onion_wire_name */
-const char *onion_wire_name(int e UNNEEDED)
-{ fprintf(stderr, "onion_wire_name called!\n"); abort(); }
 /* Generated stub for outpointfilter_add */
 void outpointfilter_add(struct outpointfilter *of UNNEEDED,
 			const struct bitcoin_outpoint *outpoint UNNEEDED)
@@ -859,49 +560,6 @@ struct outpointfilter *outpointfilter_new(tal_t *ctx UNNEEDED)
 void outpointfilter_remove(struct outpointfilter *of UNNEEDED,
 			   const struct bitcoin_outpoint *outpoint UNNEEDED)
 { fprintf(stderr, "outpointfilter_remove called!\n"); abort(); }
-/* Generated stub for param */
-bool param(struct command *cmd UNNEEDED, const char *buffer UNNEEDED,
-	   const jsmntok_t params[] UNNEEDED, ...)
-{ fprintf(stderr, "param called!\n"); abort(); }
-/* Generated stub for param_bin_from_hex */
-struct command_result *param_bin_from_hex(struct command *cmd UNNEEDED, const char *name UNNEEDED,
-					  const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-					  u8 **bin UNNEEDED)
-{ fprintf(stderr, "param_bin_from_hex called!\n"); abort(); }
-/* Generated stub for param_bool */
-struct command_result *param_bool(struct command *cmd UNNEEDED, const char *name UNNEEDED,
-				  const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-				  bool **b UNNEEDED)
-{ fprintf(stderr, "param_bool called!\n"); abort(); }
-/* Generated stub for param_channel_id */
-struct command_result *param_channel_id(struct command *cmd UNNEEDED,
-					const char *name UNNEEDED,
-					const char *buffer UNNEEDED,
-					const jsmntok_t *tok UNNEEDED,
-					struct channel_id **cid UNNEEDED)
-{ fprintf(stderr, "param_channel_id called!\n"); abort(); }
-/* Generated stub for param_check */
-bool param_check(struct command *cmd UNNEEDED,
-		 const char *buffer UNNEEDED,
-		 const jsmntok_t tokens[] UNNEEDED, ...)
-{ fprintf(stderr, "param_check called!\n"); abort(); }
-/* Generated stub for param_escaped_string */
-struct command_result *param_escaped_string(struct command *cmd UNNEEDED,
-					    const char *name UNNEEDED,
-					    const char *buffer UNNEEDED,
-					    const jsmntok_t *tok UNNEEDED,
-					    const char **str UNNEEDED)
-{ fprintf(stderr, "param_escaped_string called!\n"); abort(); }
-/* Generated stub for param_hops_array */
-struct command_result *param_hops_array(struct command *cmd UNNEEDED, const char *name UNNEEDED,
-					const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-					struct sphinx_hop **hops UNNEEDED)
-{ fprintf(stderr, "param_hops_array called!\n"); abort(); }
-/* Generated stub for param_invstring */
-struct command_result *param_invstring(struct command *cmd UNNEEDED, const char *name UNNEEDED,
-				    const char * buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-				    const char **str UNNEEDED)
-{ fprintf(stderr, "param_invstring called!\n"); abort(); }
 /* Generated stub for param_loglevel */
 struct command_result *param_loglevel(struct command *cmd UNNEEDED,
 				      const char *name UNNEEDED,
@@ -909,72 +567,6 @@ struct command_result *param_loglevel(struct command *cmd UNNEEDED,
 				      const jsmntok_t *tok UNNEEDED,
 				      enum log_level **level UNNEEDED)
 { fprintf(stderr, "param_loglevel called!\n"); abort(); }
-/* Generated stub for param_msat */
-struct command_result *param_msat(struct command *cmd UNNEEDED, const char *name UNNEEDED,
-				  const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-				  struct amount_msat **msat UNNEEDED)
-{ fprintf(stderr, "param_msat called!\n"); abort(); }
-/* Generated stub for param_node_id */
-struct command_result *param_node_id(struct command *cmd UNNEEDED,
-				     const char *name UNNEEDED,
-				     const char *buffer UNNEEDED,
-				     const jsmntok_t *tok UNNEEDED,
-				     struct node_id **id UNNEEDED)
-{ fprintf(stderr, "param_node_id called!\n"); abort(); }
-/* Generated stub for param_number */
-struct command_result *param_number(struct command *cmd UNNEEDED, const char *name UNNEEDED,
-				    const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-				    unsigned int **num UNNEEDED)
-{ fprintf(stderr, "param_number called!\n"); abort(); }
-/* Generated stub for param_pubkey */
-struct command_result *param_pubkey(struct command *cmd UNNEEDED, const char *name UNNEEDED,
-				    const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-				    struct pubkey **pubkey UNNEEDED)
-{ fprintf(stderr, "param_pubkey called!\n"); abort(); }
-/* Generated stub for param_secret */
-struct command_result *param_secret(struct command *cmd UNNEEDED, const char *name UNNEEDED,
-				    const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-				    struct secret **secret UNNEEDED)
-{ fprintf(stderr, "param_secret called!\n"); abort(); }
-/* Generated stub for param_secrets_array */
-struct command_result *param_secrets_array(struct command *cmd UNNEEDED,
-					   const char *name UNNEEDED, const char *buffer UNNEEDED,
-					   const jsmntok_t *tok UNNEEDED,
-					   struct secret **secrets UNNEEDED)
-{ fprintf(stderr, "param_secrets_array called!\n"); abort(); }
-/* Generated stub for param_sha256 */
-struct command_result *param_sha256(struct command *cmd UNNEEDED, const char *name UNNEEDED,
-				    const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-				    struct sha256 **hash UNNEEDED)
-{ fprintf(stderr, "param_sha256 called!\n"); abort(); }
-/* Generated stub for param_short_channel_id */
-struct command_result *param_short_channel_id(struct command *cmd UNNEEDED,
-					      const char *name UNNEEDED,
-					      const char *buffer UNNEEDED,
-					      const jsmntok_t *tok UNNEEDED,
-					      struct short_channel_id **scid UNNEEDED)
-{ fprintf(stderr, "param_short_channel_id called!\n"); abort(); }
-/* Generated stub for param_string */
-struct command_result *param_string(struct command *cmd UNNEEDED, const char *name UNNEEDED,
-				    const char * buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-				    const char **str UNNEEDED)
-{ fprintf(stderr, "param_string called!\n"); abort(); }
-/* Generated stub for param_u32 */
-struct command_result *param_u32(struct command *cmd UNNEEDED, const char *name UNNEEDED,
-				 const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-				 uint32_t **num UNNEEDED)
-{ fprintf(stderr, "param_u32 called!\n"); abort(); }
-/* Generated stub for param_u64 */
-struct command_result *param_u64(struct command *cmd UNNEEDED, const char *name UNNEEDED,
-				 const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-				 uint64_t **num UNNEEDED)
-{ fprintf(stderr, "param_u64 called!\n"); abort(); }
-/* Generated stub for parse_onionpacket */
-struct onionpacket *parse_onionpacket(const tal_t *ctx UNNEEDED,
-				      const u8 *src UNNEEDED,
-				      const size_t srclen UNNEEDED,
-				      enum onion_wire *failcode UNNEEDED)
-{ fprintf(stderr, "parse_onionpacket called!\n"); abort(); }
 /* Generated stub for peer_restart_dualopend */
 bool peer_restart_dualopend(struct peer *peer UNNEEDED,
 			    struct peer_fd *peer_fd UNNEEDED,
@@ -995,26 +587,12 @@ bool peer_start_dualopend(struct peer *peer UNNEEDED, struct peer_fd *peer_fd UN
 bool peer_start_openingd(struct peer *peer UNNEEDED,
 			 struct peer_fd *peer_fd UNNEEDED)
 { fprintf(stderr, "peer_start_openingd called!\n"); abort(); }
-/* Generated stub for peer_wire_name */
-const char *peer_wire_name(int e UNNEEDED)
-{ fprintf(stderr, "peer_wire_name called!\n"); abort(); }
 /* Generated stub for plugin_hook_call_ */
 bool plugin_hook_call_(struct lightningd *ld UNNEEDED,
 		       const struct plugin_hook *hook UNNEEDED,
 		       const char *cmd_id TAKES UNNEEDED,
 		       tal_t *cb_arg STEALS UNNEEDED)
 { fprintf(stderr, "plugin_hook_call_ called!\n"); abort(); }
-/* Generated stub for primary_mvt_tag */
-enum mvt_tag primary_mvt_tag(struct mvt_tags tags UNNEEDED)
-{ fprintf(stderr, "primary_mvt_tag called!\n"); abort(); }
-/* Generated stub for process_onionpacket */
-struct route_step *process_onionpacket(
-	const tal_t * ctx UNNEEDED,
-	const struct onionpacket *packet UNNEEDED,
-	const struct secret *shared_secret UNNEEDED,
-	const u8 *assocdata UNNEEDED,
-	const size_t assocdatalen UNNEEDED)
-{ fprintf(stderr, "process_onionpacket called!\n"); abort(); }
 /* Generated stub for psbt_fixup */
 const u8 *psbt_fixup(const tal_t *ctx UNNEEDED, const u8 *psbtblob UNNEEDED)
 { fprintf(stderr, "psbt_fixup called!\n"); abort(); }
@@ -1028,34 +606,6 @@ void resolve_close_command(struct lightningd *ld UNNEEDED, struct channel *chann
 /* Generated stub for rune_unique_id */
 u64 rune_unique_id(const struct rune *rune UNNEEDED)
 { fprintf(stderr, "rune_unique_id called!\n"); abort(); }
-/* Generated stub for serialize_onionpacket */
-u8 *serialize_onionpacket(
-	const tal_t *ctx UNNEEDED,
-	const struct onionpacket *packet UNNEEDED)
-{ fprintf(stderr, "serialize_onionpacket called!\n"); abort(); }
-/* Generated stub for sphinx_add_hop_has_length */
-bool sphinx_add_hop_has_length(struct sphinx_path *path UNNEEDED, const struct pubkey *pubkey UNNEEDED,
-			       const u8 *payload TAKES UNNEEDED)
-{ fprintf(stderr, "sphinx_add_hop_has_length called!\n"); abort(); }
-/* Generated stub for sphinx_add_v0_hop */
-void sphinx_add_v0_hop(struct sphinx_path *path UNNEEDED, const struct pubkey *pubkey UNNEEDED,
-		       const struct short_channel_id *scid UNNEEDED,
-		       struct amount_msat forward UNNEEDED, u32 outgoing_cltv UNNEEDED)
-{ fprintf(stderr, "sphinx_add_v0_hop called!\n"); abort(); }
-/* Generated stub for sphinx_path_new */
-struct sphinx_path *sphinx_path_new(const tal_t *ctx UNNEEDED,
-				    const u8 *associated_data UNNEEDED,
-				    size_t associated_data_len UNNEEDED)
-{ fprintf(stderr, "sphinx_path_new called!\n"); abort(); }
-/* Generated stub for sphinx_path_new_with_key */
-struct sphinx_path *sphinx_path_new_with_key(const tal_t *ctx UNNEEDED,
-					     const u8 *associated_data UNNEEDED,
-					     size_t associated_data_len UNNEEDED,
-					     const struct secret *session_key UNNEEDED)
-{ fprintf(stderr, "sphinx_path_new_with_key called!\n"); abort(); }
-/* Generated stub for sphinx_path_payloads_size */
-size_t sphinx_path_payloads_size(const struct sphinx_path *path UNNEEDED)
-{ fprintf(stderr, "sphinx_path_payloads_size called!\n"); abort(); }
 /* Generated stub for start_leak_request */
 void start_leak_request(const struct subd_req *req UNNEEDED,
 			struct leak_detect *leak_detect UNNEEDED)
@@ -1077,11 +627,6 @@ void subd_send_fd(struct subd *sd UNNEEDED, int fd UNNEEDED)
 /* Generated stub for subd_send_msg */
 void subd_send_msg(struct subd *sd UNNEEDED, const u8 *msg_out UNNEEDED)
 { fprintf(stderr, "subd_send_msg called!\n"); abort(); }
-/* Generated stub for subkey_from_hmac */
-void subkey_from_hmac(const char *prefix UNNEEDED,
-		      const struct secret *base UNNEEDED,
-		      struct secret *key UNNEEDED)
-{ fprintf(stderr, "subkey_from_hmac called!\n"); abort(); }
 /* Generated stub for tell_connectd_peer_importance */
 void tell_connectd_peer_importance(struct peer *peer UNNEEDED,
 				   bool was_important UNNEEDED)
@@ -1089,9 +634,6 @@ void tell_connectd_peer_importance(struct peer *peer UNNEEDED,
 /* Generated stub for tlv_hsmd_dev_preinit_tlvs_new */
 struct tlv_hsmd_dev_preinit_tlvs *tlv_hsmd_dev_preinit_tlvs_new(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "tlv_hsmd_dev_preinit_tlvs_new called!\n"); abort(); }
-/* Generated stub for to_canonical_invstr */
-const char *to_canonical_invstr(const tal_t *ctx UNNEEDED, const char *invstring UNNEEDED)
-{ fprintf(stderr, "to_canonical_invstr called!\n"); abort(); }
 /* Generated stub for topology_add_sync_waiter_ */
 void topology_add_sync_waiter_(const tal_t *ctx UNNEEDED,
 			       struct chain_topology *topo UNNEEDED,
@@ -1099,15 +641,6 @@ void topology_add_sync_waiter_(const tal_t *ctx UNNEEDED,
 					  void *) UNNEEDED,
 			       void *arg UNNEEDED)
 { fprintf(stderr, "topology_add_sync_waiter_ called!\n"); abort(); }
-/* Generated stub for towire_announcement_signatures */
-u8 *towire_announcement_signatures(const tal_t *ctx UNNEEDED, const struct channel_id *channel_id UNNEEDED, struct short_channel_id short_channel_id UNNEEDED, const secp256k1_ecdsa_signature *node_signature UNNEEDED, const secp256k1_ecdsa_signature *bitcoin_signature UNNEEDED)
-{ fprintf(stderr, "towire_announcement_signatures called!\n"); abort(); }
-/* Generated stub for towire_channel_reestablish */
-u8 *towire_channel_reestablish(const tal_t *ctx UNNEEDED, const struct channel_id *channel_id UNNEEDED, u64 next_commitment_number UNNEEDED, u64 next_revocation_number UNNEEDED, const struct secret *your_last_per_commitment_secret UNNEEDED, const struct pubkey *my_current_per_commitment_point UNNEEDED, const struct tlv_channel_reestablish_tlvs *channel_reestablish UNNEEDED)
-{ fprintf(stderr, "towire_channel_reestablish called!\n"); abort(); }
-/* Generated stub for towire_channel_type */
-void towire_channel_type(u8 **p UNNEEDED, const struct channel_type *channel_type UNNEEDED)
-{ fprintf(stderr, "towire_channel_type called!\n"); abort(); }
 /* Generated stub for towire_channeld_dev_memleak */
 u8 *towire_channeld_dev_memleak(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_channeld_dev_memleak called!\n"); abort(); }
@@ -1144,26 +677,6 @@ u8 *towire_connectd_peer_send_msg(const tal_t *ctx UNNEEDED, const struct node_i
 /* Generated stub for towire_dualopend_dev_memleak */
 u8 *towire_dualopend_dev_memleak(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_dualopend_dev_memleak called!\n"); abort(); }
-/* Generated stub for towire_errorfmt */
-u8 *towire_errorfmt(const tal_t *ctx UNNEEDED,
-		    const struct channel_id *channel UNNEEDED,
-		    const char *fmt UNNEEDED, ...)
-{ fprintf(stderr, "towire_errorfmt called!\n"); abort(); }
-/* Generated stub for towire_expiry_too_far */
-u8 *towire_expiry_too_far(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "towire_expiry_too_far called!\n"); abort(); }
-/* Generated stub for towire_expiry_too_soon */
-u8 *towire_expiry_too_soon(const tal_t *ctx UNNEEDED, const u8 *channel_update UNNEEDED)
-{ fprintf(stderr, "towire_expiry_too_soon called!\n"); abort(); }
-/* Generated stub for towire_fee_insufficient */
-u8 *towire_fee_insufficient(const tal_t *ctx UNNEEDED, struct amount_msat htlc_msat UNNEEDED, const u8 *channel_update UNNEEDED)
-{ fprintf(stderr, "towire_fee_insufficient called!\n"); abort(); }
-/* Generated stub for towire_final_incorrect_cltv_expiry */
-u8 *towire_final_incorrect_cltv_expiry(const tal_t *ctx UNNEEDED, u32 cltv_expiry UNNEEDED)
-{ fprintf(stderr, "towire_final_incorrect_cltv_expiry called!\n"); abort(); }
-/* Generated stub for towire_final_incorrect_htlc_amount */
-u8 *towire_final_incorrect_htlc_amount(const tal_t *ctx UNNEEDED, struct amount_msat incoming_htlc_amt UNNEEDED)
-{ fprintf(stderr, "towire_final_incorrect_htlc_amount called!\n"); abort(); }
 /* Generated stub for towire_gossipd_addgossip */
 u8 *towire_gossipd_addgossip(const tal_t *ctx UNNEEDED, const u8 *msg UNNEEDED, struct amount_sat *known_channel UNNEEDED)
 { fprintf(stderr, "towire_gossipd_addgossip called!\n"); abort(); }
@@ -1182,6 +695,9 @@ u8 *towire_hsmd_derive_secret(const tal_t *ctx UNNEEDED, const u8 *info UNNEEDED
 /* Generated stub for towire_hsmd_dev_preinit */
 u8 *towire_hsmd_dev_preinit(const tal_t *ctx UNNEEDED, const struct tlv_hsmd_dev_preinit_tlvs *tlvs UNNEEDED)
 { fprintf(stderr, "towire_hsmd_dev_preinit called!\n"); abort(); }
+/* Generated stub for towire_hsmd_ecdh_req */
+u8 *towire_hsmd_ecdh_req(const tal_t *ctx UNNEEDED, const struct pubkey *point UNNEEDED)
+{ fprintf(stderr, "towire_hsmd_ecdh_req called!\n"); abort(); }
 /* Generated stub for towire_hsmd_forget_channel */
 u8 *towire_hsmd_forget_channel(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, u64 dbid UNNEEDED)
 { fprintf(stderr, "towire_hsmd_forget_channel called!\n"); abort(); }
@@ -1203,18 +719,6 @@ u8 *towire_hsmd_sign_any_cannouncement_req(const tal_t *ctx UNNEEDED, const u8 *
 /* Generated stub for towire_hsmd_sign_commitment_tx */
 u8 *towire_hsmd_sign_commitment_tx(const tal_t *ctx UNNEEDED, const struct node_id *peer_id UNNEEDED, u64 channel_dbid UNNEEDED, const struct bitcoin_tx *tx UNNEEDED, const struct pubkey *remote_funding_key UNNEEDED, u64 commit_num UNNEEDED)
 { fprintf(stderr, "towire_hsmd_sign_commitment_tx called!\n"); abort(); }
-/* Generated stub for towire_incorrect_cltv_expiry */
-u8 *towire_incorrect_cltv_expiry(const tal_t *ctx UNNEEDED, u32 cltv_expiry UNNEEDED, const u8 *channel_update UNNEEDED)
-{ fprintf(stderr, "towire_incorrect_cltv_expiry called!\n"); abort(); }
-/* Generated stub for towire_incorrect_or_unknown_payment_details */
-u8 *towire_incorrect_or_unknown_payment_details(const tal_t *ctx UNNEEDED, struct amount_msat htlc_msat UNNEEDED, u32 height UNNEEDED)
-{ fprintf(stderr, "towire_incorrect_or_unknown_payment_details called!\n"); abort(); }
-/* Generated stub for towire_invalid_onion_blinding */
-u8 *towire_invalid_onion_blinding(const tal_t *ctx UNNEEDED, const struct sha256 *sha256_of_onion UNNEEDED)
-{ fprintf(stderr, "towire_invalid_onion_blinding called!\n"); abort(); }
-/* Generated stub for towire_invalid_onion_payload */
-u8 *towire_invalid_onion_payload(const tal_t *ctx UNNEEDED, bigsize type UNNEEDED, u16 offset UNNEEDED)
-{ fprintf(stderr, "towire_invalid_onion_payload called!\n"); abort(); }
 /* Generated stub for towire_onchaind_dev_memleak */
 u8 *towire_onchaind_dev_memleak(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_onchaind_dev_memleak called!\n"); abort(); }
@@ -1224,23 +728,6 @@ u8 *towire_onchaind_known_preimage(const tal_t *ctx UNNEEDED, const struct preim
 /* Generated stub for towire_openingd_dev_memleak */
 u8 *towire_openingd_dev_memleak(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_openingd_dev_memleak called!\n"); abort(); }
-/* Generated stub for towire_permanent_channel_failure */
-u8 *towire_permanent_channel_failure(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "towire_permanent_channel_failure called!\n"); abort(); }
-/* Generated stub for towire_temporary_channel_failure */
-u8 *towire_temporary_channel_failure(const tal_t *ctx UNNEEDED, const u8 *channel_update UNNEEDED)
-{ fprintf(stderr, "towire_temporary_channel_failure called!\n"); abort(); }
-/* Generated stub for towire_temporary_node_failure */
-u8 *towire_temporary_node_failure(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "towire_temporary_node_failure called!\n"); abort(); }
-/* Generated stub for towire_unknown_next_peer */
-u8 *towire_unknown_next_peer(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "towire_unknown_next_peer called!\n"); abort(); }
-/* Generated stub for towire_warningfmt */
-u8 *towire_warningfmt(const tal_t *ctx UNNEEDED,
-		      const struct channel_id *channel UNNEEDED,
-		      const char *fmt UNNEEDED, ...)
-{ fprintf(stderr, "towire_warningfmt called!\n"); abort(); }
 /* Generated stub for unsigned_channel_update */
 u8 *unsigned_channel_update(const tal_t *ctx UNNEEDED,
 			    const struct channel *channel UNNEEDED,
@@ -1254,13 +741,6 @@ u8 *unsigned_node_announcement(const tal_t *ctx UNNEEDED,
 			       struct lightningd *ld UNNEEDED,
 			       const u8 *prev UNNEEDED)
 { fprintf(stderr, "unsigned_node_announcement called!\n"); abort(); }
-/* Generated stub for unwrap_onionreply */
-u8 *unwrap_onionreply(const tal_t *ctx UNNEEDED,
-		      const struct secret *shared_secrets UNNEEDED,
-		      const int numhops UNNEEDED,
-		      const struct onionreply *reply UNNEEDED,
-		      int *origin_index UNNEEDED)
-{ fprintf(stderr, "unwrap_onionreply called!\n"); abort(); }
 /* Generated stub for watch_opening_inflight */
 void watch_opening_inflight(struct lightningd *ld UNNEEDED,
 			    struct channel_inflight *inflight UNNEEDED)
@@ -1290,11 +770,6 @@ struct txowatch *watch_txo(const tal_t *ctx UNNEEDED,
 						   size_t input_num UNNEEDED,
 						   const struct block *block))
 { fprintf(stderr, "watch_txo called!\n"); abort(); }
-/* Generated stub for wrap_onionreply */
-struct onionreply *wrap_onionreply(const tal_t *ctx UNNEEDED,
-				   const struct secret *shared_secret UNNEEDED,
-				   const struct onionreply *reply UNNEEDED)
-{ fprintf(stderr, "wrap_onionreply called!\n"); abort(); }
 /* AUTOGENERATED MOCKS END */
 
 /* Fake stubs to talk to hsm */

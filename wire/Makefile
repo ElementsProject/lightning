@@ -1,48 +1,29 @@
 #! /usr/bin/make
 
-WIRE_HEADERS :=	wire/onion_defs.h		\
-		wire/peer_wire.h		\
-		wire/onion_wire.h		\
-		wire/tlvstream.h		\
-		wire/wire.h			\
-		wire/wire_sync.h		\
-		wire/wire_io.h			\
-		wire/peer_wiregen.h		\
-		wire/onion_wiregen.h		\
-		wire/bolt12_wiregen.h		\
-		wire/channel_type_wiregen.h	\
-		wire/bolt12_printgen.h		\
-		wire/peer_printgen.h		\
-		wire/onion_printgen.h
+WIRE_SRC_NOHDR := wire/fromwire.c			\
+		wire/towire.c			\
 
-# We don't include peer_printgen/onion_printgen or bolt12 here since most don't need it.
 WIRE_SRC := wire/wire_sync.c			\
 		wire/wire_io.c			\
-		wire/fromwire.c			\
 		wire/peer_wire.c		\
 		wire/tlvstream.c		\
-		wire/towire.c			\
 		wire/peer_wiregen.c		\
 		wire/channel_type_wiregen.c	\
-		wire/onion_wiregen.c	
-
-WIRE_BOLT12_SRC := wire/bolt12_wiregen.c
-
-WIRE_PRINT_SRC :=				\
+		wire/onion_wiregen.c		\
+		wire/bolt12_wiregen.c		\
 		wire/onion_printgen.c		\
 		wire/peer_printgen.c		\
 		wire/bolt12_printgen.c		\
 		wire/channel_type_printgen.c
 
-WIRE_PRINT_HEADERS := $(WIRE_PRINT_SRC:.c=.h)
+WIRE_HEADERS :=	wire/onion_defs.h		\
+		wire/wire.h			\
+		$(WIRE_SRC:.c=.h)
 
-WIRE_OBJS := $(WIRE_SRC:.c=.o) common/sciddir_or_pubkey.o
-WIRE_PRINT_OBJS := $(WIRE_PRINT_SRC:.c=.o)
-WIRE_BOLT12_OBJS := $(WIRE_BOLT12_SRC:.c=.o)
-$(WIRE_OBJS) $(WIRE_PRINT_OBJS) $(WIRE_BOLT12_OBJS): $(WIRE_HEADERS) $(WIRE_PRINT_HEADERS)
+WIRE_OBJS := $(WIRE_SRC:.c=.o) $(WIRE_SRC_NOHDR:.c=.o)
+$(WIRE_OBJS): $(WIRE_HEADERS)
 
-ALL_C_SOURCES += $(WIRE_SRC) $(WIRE_BOLT12_SRC) $(WIRE_PRINT_SRC)
-
+ALL_C_SOURCES += $(WIRE_SRC) $(WIRE_SRC_NOHDR)
 ALL_C_HEADERS += $(WIRE_HEADERS)
 
 # They may not have the bolts.
@@ -123,7 +104,7 @@ wire/channel_type_wiregen.h_args := -s
 wire/channel_type_wiregen.c_args := $(wire/channel_type_wiregen.h_args)
 
 # All generated wire/ files depend on this Makefile
-$(filter %printgen.h %printgen.c %wiregen.h %wiregen.c, $(WIRE_SRC) $(WIRE_BOLT12_SRC) $(WIRE_PRINT_SRC) $(WIRE_HEADERS)): wire/Makefile
+$(filter %printgen.h %printgen.c %wiregen.h %wiregen.c, $(WIRE_SRC) $(WIRE_HEADERS)): wire/Makefile
 
 maintainer-clean: wire-maintainer-clean
 

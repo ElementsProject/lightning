@@ -20,7 +20,7 @@ WIRE_TEST_COMMON_OBJS :=		\
 # run-tlvstream.c needs to reach into bitcoin/pubkey for SUPERVERBOSE
 $(WIRE_TEST_PROGRAMS): $(WIRE_TEST_COMMON_OBJS) $(filter-out bitcoin/pubkey.o bitcoin/chainparams.o,$(BITCOIN_OBJS))
 
-$(WIRE_TEST_OBJS): $(WIRE_HEADERS) $(WIRE_SRC) $(WIRE_PRINT_SRC)
+$(WIRE_TEST_OBJS): $(WIRE_HEADERS) $(WIRE_SRC) $(WIRE_PRINT_SRC) wire/test/Makefile
 
 wire-tests: $(WIRE_TEST_PROGRAMS:%=unittest/%)
 

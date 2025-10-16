@@ -8,17 +8,14 @@ ALL_C_SOURCES += $(TOOLS_SRC)
 ALL_C_HEADERS +=
 ALL_PROGRAMS += $(TOOLS)
 
-TOOLS_COMMON_OBJS = common/utils.o
-
 # We force make to relink this every time, to detect version changes.
 # Do it atomically, otherwise parallel builds can get upset!
 tools/headerversions: $(FORCE) tools/headerversions.o libccan.a
 	@trap "rm -f $@.tmp.$$$$" EXIT; $(LINK.o) tools/headerversions.o libccan.a $(LOADLIBES) $(LDLIBS) -o $@.tmp.$$$$ && mv -f $@.tmp.$$$$ $@
 
 tools/headerversions.o: ccan/config.h
-tools/check-bolt: tools/check-bolt.o $(TOOLS_COMMON_OBJS)
-
-tools/hsmtool: tools/hsmtool.o $(TOOLS_COMMON_OBJS) $(BITCOIN_OBJS) common/amount.o common/autodata.o common/bech32.o common/bech32_util.o common/bigsize.o common/codex32.o common/configdir.o common/configvar.o common/derive_basepoints.o common/descriptor_checksum.o common/hsm_encryption.o common/key_derive.o common/node_id.o common/version.o wire/fromwire.o wire/towire.o
+tools/check-bolt: tools/check-bolt.o libcommon.a
+tools/hsmtool: tools/hsmtool.o libcommon.a
 
 tools/lightning-hsmtool: tools/hsmtool
 	cp $< $@

@@ -23,8 +23,8 @@ PLUGIN_COMMANDO_OBJS := $(PLUGIN_COMMANDO_SRC:.c=.o)
 PLUGIN_KEYSEND_SRC := plugins/keysend.c
 PLUGIN_KEYSEND_OBJS := $(PLUGIN_KEYSEND_SRC:.c=.o)
 
-PLUGIN_LIB_SRC := plugins/libplugin.c common/trace.c
-PLUGIN_LIB_HEADER := plugins/libplugin.h common/trace.h
+PLUGIN_LIB_SRC := plugins/libplugin.c
+PLUGIN_LIB_HEADER := plugins/libplugin.h
 PLUGIN_LIB_OBJS := $(PLUGIN_LIB_SRC:.c=.o)
 
 PLUGIN_PAY_LIB_SRC := \
@@ -156,59 +156,6 @@ plugins/cln-bip353: $(RUST_TARGET_DIR)/cln-bip353
 PLUGINS += plugins/cln-grpc plugins/clnrest plugins/cln-lsps-client plugins/cln-lsps-service plugins/wss-proxy plugins/cln-bip353
 endif
 
-PLUGIN_COMMON_OBJS :=				\
-	bitcoin/base58.o			\
-	bitcoin/block.o				\
-	bitcoin/chainparams.o			\
-	bitcoin/feerate.o			\
-	bitcoin/preimage.o			\
-	bitcoin/privkey.o			\
-	bitcoin/psbt.o				\
-	bitcoin/pubkey.o			\
-	bitcoin/script.o			\
-	bitcoin/shadouble.o			\
-	bitcoin/short_channel_id.o		\
-	bitcoin/signature.o			\
-	bitcoin/tx.o				\
-	bitcoin/varint.o			\
-	common/addr.o				\
-	common/amount.o				\
-	common/autodata.o			\
-	common/coin_mvt.o			\
-	common/base32.o				\
-	common/bech32.o				\
-	common/bech32_util.o			\
-	common/bigsize.o			\
-	common/bolt11.o				\
-	common/channel_id.o			\
-	common/daemon.o				\
-	common/deprecation.o			\
-	common/features.o			\
-	common/hash_u5.o			\
-	common/json_command.o			\
-	common/json_param.o			\
-	common/json_parse.o			\
-	common/json_parse_simple.o		\
-	common/json_filter.o			\
-	common/json_stream.o			\
-	common/lease_rates.o			\
-	common/memleak.o			\
-	common/node_id.o			\
-	common/plugin.o				\
-	common/psbt_open.o			\
-	common/pseudorand.o			\
-	common/random_select.o			\
-	common/splice_script.o			\
-	common/setup.o				\
-	common/status_levels.o			\
-	common/utils.o				\
-	common/version.o			\
-	common/wireaddr.o			\
-	wire/fromwire.o				\
-	wire/peer_wiregen.o			\
-	wire/tlvstream.o			\
-	wire/towire.o
-
 include plugins/askrene/Makefile
 include plugins/bkpr/Makefile
 include plugins/renepay/Makefile
@@ -224,36 +171,36 @@ PLUGIN_ALL_OBJS := $(PLUGIN_ALL_SRC:.c=.o)
 # Make all plugins depend on all plugin headers, for simplicity.
 $(PLUGIN_ALL_OBJS): $(PLUGIN_ALL_HEADER)
 
-plugins/pay: $(PLUGIN_PAY_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_PAY_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS) common/gossmap.o common/fp16.o common/route.o common/dijkstra.o common/bolt12.o common/bolt12_merkle.o wire/bolt12_wiregen.o bitcoin/block.o common/blindedpay.o common/blindedpath.o common/hmac.o common/blinding.o common/onion_encode.o common/gossmods_listpeerchannels.o common/sciddir_or_pubkey.o wire/onion_wiregen.o
+plugins/pay: $(PLUGIN_PAY_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_PAY_LIB_OBJS) $(JSMN_OBJS) libcommon.a
 
-plugins/autoclean: $(PLUGIN_AUTOCLEAN_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS)
+plugins/autoclean: $(PLUGIN_AUTOCLEAN_OBJS) $(PLUGIN_LIB_OBJS) $(JSMN_OBJS) libcommon.a
 
-plugins/chanbackup: $(PLUGIN_chanbackup_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS) common/scb_wiregen.o wire/channel_type_wiregen.o common/htlc_wire.o common/onionreply.o common/derive_basepoints.o
+plugins/chanbackup: $(PLUGIN_chanbackup_OBJS) $(PLUGIN_LIB_OBJS) $(JSMN_OBJS) libcommon.a
 
-plugins/commando: $(PLUGIN_COMMANDO_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS)
+plugins/commando: $(PLUGIN_COMMANDO_OBJS) $(PLUGIN_LIB_OBJS) $(JSMN_OBJS) libcommon.a
 
 # Topology wants to decode node_announcement, and peer_wiregen which
 # pulls in some of bitcoin/.
-plugins/topology: common/route.o common/dijkstra.o common/gossmap.o common/sciddir_or_pubkey.o common/fp16.o wire/peer_wiregen.o wire/channel_type_wiregen.o bitcoin/block.o bitcoin/preimage.o common/gossmods_listpeerchannels.o  $(PLUGIN_TOPOLOGY_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS)
+plugins/topology:  $(PLUGIN_TOPOLOGY_OBJS) $(PLUGIN_LIB_OBJS) $(JSMN_OBJS) libcommon.a
 
-plugins/txprepare: $(PLUGIN_TXPREPARE_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS)
+plugins/txprepare: $(PLUGIN_TXPREPARE_OBJS) $(PLUGIN_LIB_OBJS) $(JSMN_OBJS) libcommon.a
 
-plugins/exposesecret: $(PLUGIN_EXPOSESECRET_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS) common/hsm_encryption.o common/codex32.o
+plugins/exposesecret: $(PLUGIN_EXPOSESECRET_OBJS) $(PLUGIN_LIB_OBJS) $(JSMN_OBJS) libcommon.a
 
-plugins/bcli: $(PLUGIN_BCLI_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS)
+plugins/bcli: $(PLUGIN_BCLI_OBJS) $(PLUGIN_LIB_OBJS) $(JSMN_OBJS) libcommon.a
 
-plugins/keysend: wire/tlvstream.o wire/onion_wiregen.o $(PLUGIN_KEYSEND_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_PAY_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS) common/gossmap.o common/fp16.o common/route.o common/dijkstra.o common/blindedpay.o common/blindedpath.o common/hmac.o common/blinding.o common/onion_encode.o common/gossmods_listpeerchannels.o common/sciddir_or_pubkey.o
-$(PLUGIN_KEYSEND_OBJS): $(PLUGIN_PAY_LIB_HEADER)
+plugins/keysend: $(PLUGIN_KEYSEND_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_PAY_LIB_OBJS) $(JSMN_OBJS) libcommon.a
+$(PLUGIN_KEYSEND_OBJS): $(PLUGIN_PAY_LIB_HEADER) libcommon.a
 
-plugins/spenderp: bitcoin/block.o bitcoin/preimage.o bitcoin/psbt.o common/psbt_open.o common/json_channel_type.o common/channel_type.o common/features.o wire/peer_wiregen.o $(PLUGIN_SPENDER_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS)
+plugins/spenderp: $(PLUGIN_SPENDER_OBJS) $(PLUGIN_LIB_OBJS) $(JSMN_OBJS) libcommon.a
 
-plugins/offers: $(PLUGIN_OFFERS_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) common/addr.o common/bolt12.o common/bolt12_merkle.o common/bolt11_json.o common/iso4217.o $(WIRE_OBJS) $(WIRE_BOLT12_OBJS) bitcoin/block.o common/channel_id.o bitcoin/preimage.o common/blindedpath.o common/bolt12_id.o common/blinding.o common/hmac.o common/json_blinded_path.o common/gossmap.o common/fp16.o $(JSMN_OBJS) common/dijkstra.o common/route.o common/gossmods_listpeerchannels.o common/onion_message.o common/sphinx.o common/onionreply.o
+plugins/offers: $(PLUGIN_OFFERS_OBJS) $(PLUGIN_LIB_OBJS) $(JSMN_OBJS) libcommon.a
 
-plugins/funder: bitcoin/psbt.o common/psbt_open.o $(PLUGIN_FUNDER_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS)
+plugins/funder: $(PLUGIN_FUNDER_OBJS) $(PLUGIN_LIB_OBJS) $(JSMN_OBJS) libcommon.a
 
-plugins/recover:  common/gossmap.o common/sciddir_or_pubkey.o common/fp16.o $(PLUGIN_RECOVER_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS)
+plugins/recover:  $(PLUGIN_RECOVER_OBJS) $(PLUGIN_LIB_OBJS) $(JSMN_OBJS) libcommon.a
 
-plugins/recklessrpc: $(PLUGIN_RECKLESSRPC_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS)
+plugins/recklessrpc: $(PLUGIN_RECKLESSRPC_OBJS) $(PLUGIN_LIB_OBJS) $(JSMN_OBJS) libcommon.a
 
 # This covers all the low-level list RPCs which return simple arrays
 SQL_LISTRPCS := listchannels listforwards listhtlcs listinvoices listnodes listoffers listpeers listpeerchannels listclosedchannels listtransactions listsendpays listchainmoves listchannelmoves bkpr-listaccountevents bkpr-listincome
@@ -284,7 +231,7 @@ plugins/sql-schema_gen.h: $(SQL_SCHEMA_PARTS)
 	)
 
 plugins/sql.o: plugins/sql-schema_gen.h
-plugins/sql: $(PLUGIN_SQL_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS) common/gossip_store.o gossipd/gossip_store_wiregen.o
+plugins/sql: $(PLUGIN_SQL_OBJS) $(PLUGIN_LIB_OBJS) $(JSMN_OBJS) gossipd/gossip_store_wiregen.o libcommon.a
 
 # Generated from PLUGINS definition in plugins/Makefile
 ALL_C_HEADERS += plugins/list_of_builtin_plugins_gen.h

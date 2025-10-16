@@ -46,37 +46,25 @@ const char *chain_event_description(const struct bkpr *bkpr UNNEEDED,
 const char *channel_event_description(const struct bkpr *bkpr UNNEEDED,
 				      const struct channel_event *ce UNNEEDED)
 { fprintf(stderr, "channel_event_description called!\n"); abort(); }
-/* Generated stub for command_fail_badparam */
-struct command_result *command_fail_badparam(struct command *cmd UNNEEDED,
-					     const char *paramname UNNEEDED,
-					     const char *buffer UNNEEDED,
-					     const jsmntok_t *tok UNNEEDED,
-					     const char *msg UNNEEDED)
-{ fprintf(stderr, "command_fail_badparam called!\n"); abort(); }
+/* Generated stub for command_check_only */
+bool command_check_only(const struct command *cmd UNNEEDED)
+{ fprintf(stderr, "command_check_only called!\n"); abort(); }
+/* Generated stub for command_dev_apis */
+bool command_dev_apis(const struct command *cmd UNNEEDED)
+{ fprintf(stderr, "command_dev_apis called!\n"); abort(); }
+/* Generated stub for command_fail */
+struct command_result *command_fail(struct command *cmd UNNEEDED, enum jsonrpc_errcode code UNNEEDED,
+				    const char *fmt UNNEEDED, ...)
+
+{ fprintf(stderr, "command_fail called!\n"); abort(); }
 /* Generated stub for command_filter_ptr */
 struct json_filter **command_filter_ptr(struct command *cmd UNNEEDED)
 { fprintf(stderr, "command_filter_ptr called!\n"); abort(); }
-/* Generated stub for first_fee_state */
-enum htlc_state first_fee_state(enum side opener UNNEEDED)
-{ fprintf(stderr, "first_fee_state called!\n"); abort(); }
-/* Generated stub for fmt_channel_id */
-char *fmt_channel_id(const tal_t *ctx UNNEEDED, const struct channel_id *channel_id UNNEEDED)
-{ fprintf(stderr, "fmt_channel_id called!\n"); abort(); }
-/* Generated stub for fmt_wireaddr_without_port */
-char *fmt_wireaddr_without_port(const tal_t *ctx UNNEEDED, const struct wireaddr *a UNNEEDED)
-{ fprintf(stderr, "fmt_wireaddr_without_port called!\n"); abort(); }
-/* Generated stub for fromwire_wireaddr */
-bool fromwire_wireaddr(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct wireaddr *addr UNNEEDED)
-{ fprintf(stderr, "fromwire_wireaddr called!\n"); abort(); }
-/* Generated stub for htlc_state_flags */
-int htlc_state_flags(enum htlc_state state UNNEEDED)
-{ fprintf(stderr, "htlc_state_flags called!\n"); abort(); }
-/* Generated stub for htlc_state_name */
-const char *htlc_state_name(enum htlc_state s UNNEEDED)
-{ fprintf(stderr, "htlc_state_name called!\n"); abort(); }
-/* Generated stub for last_fee_state */
-enum htlc_state last_fee_state(enum side opener UNNEEDED)
-{ fprintf(stderr, "last_fee_state called!\n"); abort(); }
+/* Generated stub for command_log */
+void command_log(struct command *cmd UNNEEDED, enum log_level level UNNEEDED,
+		 const char *fmt UNNEEDED, ...)
+
+{ fprintf(stderr, "command_log called!\n"); abort(); }
 /* Generated stub for plugin_err */
 void   plugin_err(struct plugin *p UNNEEDED, const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "plugin_err called!\n"); abort(); }
