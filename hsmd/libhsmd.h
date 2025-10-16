@@ -88,6 +88,10 @@ void hsmd_status_failed(enum status_failreason code,
 bool hsmd_check_client_capabilities(struct hsmd_client *client,
 				    enum hsmd_wire t);
 
+/* BIP86 key derivation functions */
+void derive_bip86_base_key(struct ext_key *bip86_base);
+void bip86_key(struct privkey *privkey, struct pubkey *pubkey, u32 index);
+
 /* The negotiated protocol version ends up in here. */
 extern u64 hsmd_mutual_version;
 

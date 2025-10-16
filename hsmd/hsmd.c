@@ -28,6 +28,7 @@
 #include <hsmd/permissions.h>
 #include <stdarg.h>
 #include <sys/stat.h>
+#include <wally_bip32.h>
 #include <wally_bip39.h>
 #include <wire/wire_io.h>
 
@@ -681,6 +682,68 @@ void hsmd_status_failed(enum status_failreason reason, const char *fmt, ...)
 	status_send_fatal(take(towire_status_fail(NULL, reason, str)));
 }
 
+/* Handle BIP86 key derivation request */
+static struct io_plan *handle_derive_bip86_key(struct io_conn *conn,
+					       struct client *c,
+					       const u8 *msg_in)
+{
+	u8 *reply;
+	u32 index;
+	bool is_change;
+
+	/* Extract parameters from the wire message */
+	if (!fromwire_hsmd_derive_bip86_key(msg_in, &index, &is_change))
+		return bad_req(conn, c, msg_in);
+
+	/* Check if we have a mnemonic-based HSM secret */
+	if (hsm_secret_size(&hsm_secret) != 64) {
+		return bad_req_fmt(conn, c, msg_in,
+				   "BIP86 derivation requires mnemonic-based HSM secret");
+	}
+
+	/* Derive only the BIP86 base key (m/86'/0'/0') */
+	struct ext_key bip86_base;
+	derive_bip86_base_key(&bip86_base);
+
+	/* Return the full BIP86 base extended key */
+	reply = towire_hsmd_derive_bip86_key_reply(NULL, &bip86_base);
+	return req_reply(conn, c, take(reply));
+}
+
+/* Handle BIP86 pubkey check request */
+static struct io_plan *handle_check_bip86_pubkey(struct io_conn *conn,
+						 struct client *c,
+						 const u8 *msg_in)
+{
+	u32 index;
+	struct pubkey their_pubkey, our_pubkey;
+	struct privkey our_privkey;
+	u8 *reply;
+
+	if (!fromwire_hsmd_check_bip86_pubkey(msg_in, &index, &their_pubkey))
+		return bad_req(conn, c, msg_in);
+
+	/* Check if we have a mnemonic-based HSM secret */
+	if (hsm_secret_size(&hsm_secret) != 64) {
+		return bad_req_fmt(conn, c, msg_in,
+				   "BIP86 derivation requires mnemonic-based HSM secret");
+	}
+
+	/* We abort if lightningd asks for a stupid index. */
+	bip86_key(&our_privkey, &our_pubkey, index);
+	if (!pubkey_eq(&our_pubkey, &their_pubkey)) {
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "BIP86 derivation index %u differed:"
+			      " they got %s, we got %s",
+			      index,
+			      fmt_pubkey(tmpctx, &their_pubkey),
+			      fmt_pubkey(tmpctx, &our_pubkey));
+	}
+
+	reply = towire_hsmd_check_bip86_pubkey_reply(NULL, true);
+	return req_reply(conn, c, take(reply));
+}
+
 /*~ This is the core of the HSM daemon: handling requests. */
 static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 {
@@ -711,6 +774,10 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 		if (developer)
 			return handle_memleak(conn, c, c->msg_in);
 		/* fall thru */
+	case WIRE_HSMD_DERIVE_BIP86_KEY:
+		return handle_derive_bip86_key(conn, c, c->msg_in);
+	case WIRE_HSMD_CHECK_BIP86_PUBKEY:
+		return handle_check_bip86_pubkey(conn, c, c->msg_in);
 	case WIRE_HSMD_NEW_CHANNEL:
 	case WIRE_HSMD_SETUP_CHANNEL:
  	case WIRE_HSMD_CHECK_OUTPOINT:
@@ -750,8 +817,6 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_SIGN_REMOTE_HTLC_TO_US:
 	case WIRE_HSMD_SIGN_DELAYED_PAYMENT_TO_US:
 	case WIRE_HSMD_CHECK_PUBKEY:
-	case WIRE_HSMD_DERIVE_BIP86_KEY:
-	case WIRE_HSMD_CHECK_BIP86_PUBKEY:
 	case WIRE_HSMD_SIGN_ANY_PENALTY_TO_US:
 	case WIRE_HSMD_SIGN_ANY_DELAYED_PAYMENT_TO_US:
 	case WIRE_HSMD_SIGN_ANY_REMOTE_HTLC_TO_US:
