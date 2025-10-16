@@ -557,3 +557,14 @@ size_t hsm_secret_size(const struct hsm_secret *hsm)
 		return tal_bytelen(hsm->secret_data);
 	return sizeof(hsm->secret);
 }
+
+bool is_mnemonic_secret(size_t secret_len)
+{
+	return secret_len == HSM_SECRET_MNEMONIC_SIZE;
+}
+
+bool use_bip86_derivation(size_t secret_len)
+{
+	/* BIP86 was introduced alongside mnemonic support, so they're available together */
+	return is_mnemonic_secret(secret_len);
+}

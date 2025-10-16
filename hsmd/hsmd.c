@@ -696,7 +696,7 @@ static struct io_plan *handle_derive_bip86_key(struct io_conn *conn,
 		return bad_req(conn, c, msg_in);
 
 	/* Check if we have a mnemonic-based HSM secret */
-	if (hsm_secret_size(&hsm_secret) != 64) {
+	if (!use_bip86_derivation(hsm_secret_size(&hsm_secret))) {
 		return bad_req_fmt(conn, c, msg_in,
 				   "BIP86 derivation requires mnemonic-based HSM secret");
 	}
@@ -724,7 +724,7 @@ static struct io_plan *handle_check_bip86_pubkey(struct io_conn *conn,
 		return bad_req(conn, c, msg_in);
 
 	/* Check if we have a mnemonic-based HSM secret */
-	if (hsm_secret_size(&hsm_secret) != 64) {
+	if (!use_bip86_derivation(hsm_secret_size(&hsm_secret))) {
 		return bad_req_fmt(conn, c, msg_in,
 				   "BIP86 derivation requires mnemonic-based HSM secret");
 	}

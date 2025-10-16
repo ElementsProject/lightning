@@ -58,6 +58,19 @@ const u8 *hsm_secret_bytes(const struct hsm_secret *hsm);
 size_t hsm_secret_size(const struct hsm_secret *hsm);
 
 /**
+ * Check if this HSM secret is mnemonic-based (64-byte seed).
+ * Returns true for mnemonic-derived secrets, false for legacy 32-byte secrets.
+ */
+bool is_mnemonic_secret(size_t secret_len);
+
+/**
+ * Check if we should use BIP86 derivation for this HSM secret.
+ * BIP86 was introduced alongside mnemonic support, so they're available together.
+ * Returns true if mnemonic-based secret is available, false otherwise.
+ */
+bool use_bip86_derivation(size_t secret_len);
+
+/**
  * Checks whether the hsm_secret data requires a passphrase to decrypt.
  * Handles legacy, encrypted, and mnemonic-based formats.
  */
