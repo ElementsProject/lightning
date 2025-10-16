@@ -1,7 +1,6 @@
 #include "config.h"
 #include <assert.h>
 #include <common/blindedpay.h>
-#include <common/bolt12.h>
 #include <common/onion_encode.h>
 #include <wire/onion_wiregen.h>
 

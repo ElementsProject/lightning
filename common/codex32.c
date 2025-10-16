@@ -22,22 +22,11 @@
  */
 #include "config.h"
 #include <assert.h>
-#include <bitcoin/chainparams.h>
 #include <ccan/array_size/array_size.h>
-#include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>
-#include <common/bech32_util.h>
-#include <common/bolt12.h>
-#include <common/bolt12_merkle.h>
 #include <common/codex32.h>
-#include <common/configdir.h>
-#include <common/features.h>
 #include <common/utils.h>
-#include <math.h>
-#include <secp256k1_schnorrsig.h>
-#include <string.h>
-#include <time.h>
 
 struct checksum_engine {
 	u8 generator[15];

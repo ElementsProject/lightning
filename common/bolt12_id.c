@@ -1,6 +1,5 @@
 #include "config.h"
 #include <bitcoin/privkey.h>
-#include <ccan/crypto/sha256/sha256.h>
 #include <common/bolt12_id.h>
 #include <common/utils.h>
 

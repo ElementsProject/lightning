@@ -8,7 +8,6 @@
 #include <common/utils.h>
 #include <common/wireaddr.h>
 #include <netdb.h>
-#include <netinet/in.h>
 #include <wire/wire.h>
 
 bool wireaddr_eq(const struct wireaddr *a, const struct wireaddr *b)

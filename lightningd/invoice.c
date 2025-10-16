@@ -2,7 +2,6 @@
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>
-#include <ccan/cast/cast.h>
 #include <ccan/json_escape/json_escape.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
@@ -10,14 +9,9 @@
 #include <common/bolt11_json.h>
 #include <common/bolt12_id.h>
 #include <common/bolt12_merkle.h>
-#include <common/configdir.h>
 #include <common/json_command.h>
-#include <common/json_param.h>
-#include <common/overflows.h>
 #include <common/random_select.h>
 #include <common/timeout.h>
-#include <db/exec.h>
-#include <errno.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <lightningd/channel.h>
 #include <lightningd/hsm_control.h>
@@ -27,10 +21,8 @@
 #include <lightningd/plugin_hook.h>
 #include <lightningd/routehint.h>
 #include <sodium/randombytes.h>
-#include <stdio.h>
 #include <wallet/invoices.h>
 #include <wallet/walletrpc.h>
-#include <wire/wire_sync.h>
 
 const char *invoice_status_str(enum invoice_status state)
 {

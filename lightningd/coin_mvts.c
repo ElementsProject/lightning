@@ -1,11 +1,9 @@
 #include "config.h"
-#include <ccan/array_size/array_size.h>
 #include <ccan/tal/str/str.h>
 #include <common/json_command.h>
 #include <lightningd/channel.h>
 #include <lightningd/coin_mvts.h>
 #include <lightningd/notification.h>
-#include <lightningd/peer_control.h>
 
 
 struct channel_coin_mvt *new_channel_mvt_invoice_hin(const tal_t *ctx,

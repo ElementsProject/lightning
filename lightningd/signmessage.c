@@ -1,9 +1,6 @@
 #include "config.h"
 #include <common/bech32.h>
-#include <common/configdir.h>
 #include <common/json_command.h>
-#include <common/json_param.h>
-#include <errno.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/plugin.h>

@@ -12,7 +12,6 @@
 #include <ccan/tal/str/str.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
-#include <common/lease_rates.h>
 #include <common/memleak.h>
 #include <common/overflows.h>
 #include <common/psbt_open.h>

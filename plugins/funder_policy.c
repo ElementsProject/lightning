@@ -4,7 +4,6 @@
 #include <ccan/tal/str/str.h>
 #include <common/json_stream.h>
 #include <common/lease_rates.h>
-#include <common/pseudorand.h>
 #include <inttypes.h>
 #include <plugins/funder_policy.h>
 

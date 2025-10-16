@@ -1,17 +1,10 @@
 #include "config.h"
-#include <assert.h>
 #include <bitcoin/chainparams.h>
 #include <common/peer_failed.h>
-#include <common/peer_io.h>
-#include <common/per_peer_state.h>
-#include <common/ping.h>
 #include <common/read_peer_msg.h>
 #include <common/status.h>
 #include <common/utils.h>
 #include <common/wire_error.h>
-#include <errno.h>
-#include <wire/peer_wire.h>
-#include <wire/wire_sync.h>
 
 bool handle_peer_error_or_warning(struct per_peer_state *pps,
 				  const u8 *msg TAKES)

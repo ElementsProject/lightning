@@ -2,7 +2,6 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/err/err.h>
-#include <ccan/strmap/strmap.h>
 #include <ccan/tal/str/str.h>
 #include <common/deprecation.h>
 #include <common/gossip_store.h>
@@ -16,8 +15,6 @@
 #include <plugins/libplugin.h>
 #include <sqlite3.h>
 #include <stdio.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 /* Minimized schemas.  C23 #embed, Where Art Thou? */

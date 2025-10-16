@@ -1,18 +1,13 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
-#include <ccan/crypto/siphash24/siphash24.h>
-#include <ccan/htable/htable_type.h>
-#include <ccan/json_escape/json_escape.h>
 #include <ccan/json_out/json_out.h>
 #include <ccan/mem/mem.h>
 #include <ccan/rune/rune.h>
 #include <ccan/tal/str/str.h>
-#include <ccan/time/time.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
-#include <common/pseudorand.h>
 #include <inttypes.h>
 #include <plugins/libplugin.h>
 

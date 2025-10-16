@@ -1,14 +1,9 @@
 #include "config.h"
 #include <assert.h>
-#include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
-#include <ccan/mem/mem.h>
-#include <common/blindedpath.h>
-#include <common/ecdh.h>
 #include <common/onion_encode.h>
 #include <common/sphinx.h>
 #include <common/utils.h>
-#include <sodium/crypto_aead_chacha20poly1305.h>
 
 /* BOLT #4:
  *

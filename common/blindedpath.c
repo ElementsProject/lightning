@@ -1,7 +1,5 @@
 #include "config.h"
-#include <bitcoin/privkey.h>
 #include <bitcoin/tx.h>
-#include <ccan/cast/cast.h>
 #include <common/blindedpath.h>
 #include <common/blinding.h>
 #include <common/bolt11.h>

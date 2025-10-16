@@ -1,12 +1,9 @@
 #include "config.h"
-#include <ccan/closefrom/closefrom.h>
 #include <ccan/err/err.h>
 #include <common/dev_disconnect.h>
 #include <common/status.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
 #include <unistd.h>
 #include <wire/peer_wire.h>
 

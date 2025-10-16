@@ -1,12 +1,6 @@
 #include "config.h"
-#include <bitcoin/chainparams.h>
 #include <ccan/array_size/array_size.h>
-#include <ccan/asort/asort.h>
 #include <ccan/cast/cast.h>
-#include <ccan/crypto/siphash24/siphash24.h>
-#include <ccan/htable/htable_type.h>
-#include <ccan/json_out/json_out.h>
-#include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <common/bolt12_merkle.h>
 #include <common/features.h>
@@ -14,10 +8,8 @@
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
-#include <common/pseudorand.h>
 #include <plugins/channel_hint.h>
 #include <plugins/libplugin-pay.h>
-#include <plugins/libplugin.h>
 #include <stdio.h>
 
 /* Public key of this node. */

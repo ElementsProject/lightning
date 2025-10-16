@@ -6,9 +6,7 @@
 #include <common/ecdh.h>
 #include <common/onion_message_parse.h>
 #include <common/sphinx.h>
-#include <common/status.h>
 #include <common/utils.h>
-#include <wire/onion_wiregen.h>
 #include <wire/peer_wire.h>
 
 static bool decrypt_final_onionmsg(const tal_t *ctx,

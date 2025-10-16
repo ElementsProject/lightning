@@ -19,14 +19,10 @@
 #include <channeld/channeld.h>
 #include <channeld/channeld_wiregen.h>
 #include <channeld/full_channel.h>
-#include <channeld/inflight.h>
 #include <channeld/splice.h>
 #include <channeld/watchtower.h>
 #include <common/billboard.h>
 #include <common/ecdh_hsmd.h>
-#include <common/gossip_store.h>
-#include <common/hsm_capable.h>
-#include <common/hsm_version.h>
 #include <common/interactivetx.h>
 #include <common/key_derive.h>
 #include <common/memleak.h>
@@ -48,10 +44,6 @@
 #include <fcntl.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <inttypes.h>
-#include <stdio.h>
-#include <wally_bip32.h>
-#include <wire/peer_wire.h>
-#include <wire/tlvstream.h>
 #include <wire/wire_sync.h>
 
 /* stdin == requests, 3 == peer, 4 = HSM */
