@@ -461,6 +461,7 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 	struct bip32_key_version bip32_key_version;
 	u32 minversion, maxversion;
 	const u32 our_minversion = 4, our_maxversion = 6;
+	struct tlv_hsmd_init_tlvs *tlvs;
 
 	/* This must be lightningd. */
 	assert(is_lightningd(c));
@@ -475,7 +476,7 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 				&dev_force_bip32_seed,
 				&dev_force_channel_secrets,
 				&dev_force_channel_secrets_shaseed,
-				&minversion, &maxversion))
+				&minversion, &maxversion, &tlvs))
 		return bad_req(conn, c, msg_in);
 
 	/*~ Usually we don't worry about API breakage between internal daemons,
@@ -486,6 +487,25 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 				   "Version %u-%u not valid: we need %u-%u",
 				   minversion, maxversion,
 				   our_minversion, our_maxversion);
+
+	/*~ We used to have lightningd hand us the encryption key derived from
+	 * the passphrase which was used to encrypt the `hsm_secret` file.  Then
+	 * Rusty gave me the thankless task of introducing BIP-39 mnemonics.  I
+	 * think this is some kind of obscure CLN hazing ritual?  Anyway, the
+	 * passphrase needs to be *appended* to the mnemonic, so the HSM needs
+	 * the raw passphrase.  To avoid a compatibility break, I put it inside
+	 * the TLV, and left the old "hsm_encryption_key" field in place, even
+	 * though we override it here for the old-style non-BIP39 hsm_secret. */
+	if (tlvs->hsm_passphrase) {
+		const char *hsm_passphrase = (const char *)tlvs->hsm_passphrase;
+		const char *err_msg;
+
+		hsm_encryption_key = tal(NULL, struct secret);
+		if (hsm_secret_encryption_key_with_exitcode(hsm_passphrase, hsm_encryption_key, &err_msg) != 0)
+			return bad_req_fmt(conn, c, msg_in,
+					   "Bad passphrase: %s", err_msg);
+	}
+	tal_free(tlvs);
 
 	/*~ The memory is actually copied in towire(), so lock the `hsm_secret`
 	 * encryption key (new) memory again here. */
