@@ -551,7 +551,9 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 
 	/* This was tallocated off NULL, and memleak complains if we don't free it */
 	tal_free(tlvs);
-	return req_reply(conn, c, hsmd_init(hsm_secret.secret, hsmd_mutual_version,
+	return req_reply(conn, c, hsmd_init(hsm_secret_bytes(&hsm_secret),
+					    hsm_secret_size(&hsm_secret),
+					    hsmd_mutual_version,
 					    bip32_key_version));
 }
 
