@@ -223,9 +223,6 @@ static void encrypt_hsm(const char *hsm_secret_path)
 	if (!encrypt_legacy_hsm_secret(encryption_key, &legacy_secret, encrypted_hsm_secret))
 		errx(ERROR_LIBSODIUM, "Could not encrypt the hsm_secret seed.");
 
-	/* Securely discard the encryption key */
-	destroy_secret(encryption_key);
-
 	/* Create a backup file, "just in case". */
 	rename(hsm_secret_path, backup);
 	fd = open(hsm_secret_path, O_CREAT|O_EXCL|O_WRONLY, 0400);
