@@ -16,6 +16,7 @@
 #include <common/errcode.h>
 #include <common/hsm_secret.h>
 #include <common/key_derive.h>
+#include <common/memleak.h>
 #include <common/utils.h>
 #include <common/utxo.h>
 #include <errno.h>
@@ -32,6 +33,12 @@
 #define ERROR_KEYDERIV 5
 #define ERROR_LANG_NOT_SUPPORTED 6
 #define ERROR_TERM 7
+
+/* We don't implement leak detection, since we don't persist. */
+void *notleak_(void *ptr, bool plus_children)
+{
+	return ptr;
+}
 
 static void show_usage(const char *progname)
 {

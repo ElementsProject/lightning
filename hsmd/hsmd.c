@@ -441,11 +441,9 @@ static void load_hsm(const char *passphrase)
 	}
 
 	/* Extract the secret using the new hsm_secret module */
-	tal_wally_start();
 	hsms = extract_hsm_secret(tmpctx, hsm_secret_contents,
 				 hsm_secret_len,
 				 passphrase, &err);
-	tal_wally_end(tmpctx);
 	if (!hsms) {
 		hsmd_send_init_reply_failure(err, STATUS_FAIL_INTERNAL_ERROR,
 			                        "Failed to load hsm_secret: %s", hsm_secret_error_str(err));
@@ -490,11 +488,11 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 				const u8 *msg_in)
 {
 	struct secret *hsm_encryption_key;
-	const char *hsm_passphrase = NULL;
 	struct bip32_key_version bip32_key_version;
 	u32 minversion, maxversion;
-	const u32 our_minversion = 4, our_maxversion = 6;
 	struct tlv_hsmd_init_tlvs *tlvs;
+	const u32 our_minversion = 4, our_maxversion = 6;
+	const char *hsm_passphrase = NULL;  /* Initialize to NULL */
 
 	/* This must be lightningd. */
 	assert(is_lightningd(c));
