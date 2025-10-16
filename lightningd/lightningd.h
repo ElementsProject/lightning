@@ -69,7 +69,6 @@ struct config {
 	/* Minimal amount of effective funding_satoshis for accepting channels */
 	u64 min_capacity_sat;
 
-
 	/* How long before we give up waiting for INIT msg */
 	u32 connection_timeout_secs;
 

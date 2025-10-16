@@ -13,7 +13,6 @@ import os
 import pytest
 import subprocess
 import sys
-import time
 import unittest
 
 
@@ -1246,60 +1245,6 @@ def write_all(fd, bytestr):
         off += os.write(fd, bytestr[off:])
 
 
-@unittest.skipIf(VALGRIND, "It does not play well with prompt and key derivation.")
-def test_hsm_secret_encryption(node_factory):
-    l1 = node_factory.get_node(may_fail=True)  # May fail when started without key
-    password = "reckful&é🍕\n"
-    # We need to simulate a terminal to use termios in `lightningd`.
-    master_fd, slave_fd = os.openpty()
-
-    # Test we can encrypt an already-existing and not encrypted hsm_secret
-    l1.stop()
-    l1.daemon.opts.update({"encrypted-hsm": None})
-    l1.daemon.start(stdin=slave_fd, wait_for_initialized=False)
-    l1.daemon.wait_for_log(r'Enter hsm_secret password')
-    write_all(master_fd, password.encode("utf-8"))
-    l1.daemon.wait_for_log(r'Confirm hsm_secret password')
-    write_all(master_fd, password.encode("utf-8"))
-    l1.daemon.wait_for_log("Server started with public key")
-    id = l1.rpc.getinfo()["id"]
-    l1.stop()
-
-    # Test we cannot start the same wallet without specifying --encrypted-hsm
-    l1.daemon.opts.pop("encrypted-hsm")
-    with pytest.raises(subprocess.CalledProcessError, match=r'returned non-zero exit status {}'.format(HSM_ERROR_IS_ENCRYPT)):
-        subprocess.check_call(l1.daemon.cmd_line)
-
-    # Test we cannot restore the same wallet with another password
-    l1.daemon.opts.update({"encrypted-hsm": None})
-    l1.daemon.start(stdin=slave_fd, wait_for_initialized=False, stderr_redir=True)
-    l1.daemon.wait_for_log(r'Enter hsm_secret password')
-    write_all(master_fd, password[2:].encode("utf-8"))
-    assert(l1.daemon.proc.wait(WAIT_TIMEOUT) == HSM_BAD_PASSWORD)
-    assert(l1.daemon.is_in_stderr("Wrong password for encrypted hsm_secret."))
-
-    # Not sure why this helps, but seems to reduce flakiness where
-    # tail() thread in testing/utils.py gets 'ValueError: readline of
-    # closed file' and we get `ValueError: Process died while waiting for logs`
-    # when waiting for "Server started with public key" below.
-    time.sleep(10)
-
-    # Test we can restore the same wallet with the same password
-    l1.daemon.start(stdin=slave_fd, wait_for_initialized=False)
-    l1.daemon.wait_for_log(r'The hsm_secret is encrypted')
-    write_all(master_fd, password.encode("utf-8"))
-    l1.daemon.wait_for_log("Server started with public key")
-    assert id == l1.rpc.getinfo()["id"]
-    l1.stop()
-
-    # We can restore the same wallet with the same password provided through stdin
-    l1.daemon.start(stdin=subprocess.PIPE, wait_for_initialized=False)
-    l1.daemon.proc.stdin.write(password.encode("utf-8"))
-    l1.daemon.proc.stdin.flush()
-    l1.daemon.wait_for_log("Server started with public key")
-    assert id == l1.rpc.getinfo()["id"]
-
-
 class HsmTool(TailableProc):
     """Helper for testing the hsmtool as a subprocess"""
     def __init__(self, directory, *args):
@@ -1436,6 +1381,36 @@ def test_hsmtool_generatehsm_variants(node_factory, mnemonic, passphrase, expect
             # Rest should be the mnemonic
             mnemonic_part = content[32:].decode('utf-8')
             assert mnemonic in mnemonic_part
+
+    # Verify Lightning node can use it
+    if passphrase:
+        # For passphrase case, start with hsm-passphrase option and handle prompt
+        master_fd, slave_fd = os.openpty()
+        l1.daemon.start(stdin=slave_fd, wait_for_initialized=False)
+        # Wait for the passphrase prompt
+        l1.daemon.wait_for_log("Enter hsm_secret passphrase:")
+        write_all(master_fd, f"{passphrase}\n".encode("utf-8"))
+        l1.daemon.wait_for_log("Server started with public key")
+    else:
+        # For no passphrase case, start normally without expecting a prompt
+        l1.daemon.start(wait_for_initialized=False)
+        l1.daemon.wait_for_log("Server started with public key")
+
+    node_id = l1.rpc.getinfo()['id']
+    print(f"Node ID for mnemonic '{mnemonic}' with passphrase '{passphrase}': {node_id}")
+    assert len(node_id) == 66  # Valid node ID
+
+    # Expected node IDs for deterministic testing
+    expected_node_ids = {
+        ("ritual idle hat sunny universe pluck key alpha wing cake have wedding", "test_passphrase"): "039020371fb803cd4ce1e9a909b502d7b0a9e0f10cccc35c3e9be959c52d3ba6bd",
+        ("abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about", ""): "03653e90c1ce4660fd8505dd6d643356e93cfe202af109d382787639dd5890e87d",
+    }
+
+    expected_id = expected_node_ids.get((mnemonic, passphrase))
+    if expected_id:
+        assert node_id == expected_id, f"Expected node ID {expected_id}, got {node_id}"
+    else:
+        print(f"No expected node ID found for this combination, got: {node_id}")
 
 
 @pytest.mark.parametrize("test_case", [
@@ -1656,6 +1631,65 @@ def test_hsmtool_all_commands_work_with_mnemonic_formats(node_factory):
         out = subprocess.check_output(cmd_line).decode("utf8")
         actual_output = out.strip()
         assert actual_output == expected_output, f"Command {cmd_args[0]} output mismatch"
+
+
+def test_hsmtool_deterministic_node_ids(node_factory):
+    """Test that HSM daemon creates deterministic node IDs in new mnemonic format"""
+    # Create a node and start it to trigger HSM daemon to create new format
+    l1 = node_factory.get_node(start=False)
+    hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
+
+    # Delete any existing hsm_secret so HSM daemon creates it in new format
+    if os.path.exists(hsm_path):
+        os.remove(hsm_path)
+
+    # Start the node to get its node ID (this will create a new hsm_secret in new format)
+    l1.start()
+    normal_node_id = l1.rpc.getinfo()['id']
+    l1.stop()
+
+    # Verify the hsm_secret was created in the new mnemonic format
+    with open(hsm_path, 'rb') as f:
+        content = f.read()
+        # Should be longer than 32 bytes (new format has 32-byte hash + mnemonic)
+        assert len(content) > 32, f"Expected new mnemonic format, got {len(content)} bytes"
+
+        # First 32 bytes should be the passphrase hash (likely zeros for no passphrase)
+        passphrase_hash = content[:32]
+        assert passphrase_hash == b'\x00' * 32
+        mnemonic_bytes = content[32:]
+
+        # Decode the mnemonic bytes
+        mnemonic = mnemonic_bytes.decode('utf-8').strip()
+
+        # Verify it's a valid mnemonic (should be 12 words)
+        words = mnemonic.split()
+        assert len(words) == 12, f"Expected 12 words, got {len(words)}: {mnemonic}"
+
+    # Create a second node and use generatehsm with the mnemonic from the first node
+    l2 = node_factory.get_node(start=False)
+    hsm_path2 = os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
+
+    # Delete any existing hsm_secret for the second node
+    if os.path.exists(hsm_path2):
+        os.remove(hsm_path2)
+
+    # Generate hsm_secret with the mnemonic from the first node
+    hsmtool = HsmTool(node_factory.directory, "generatehsm", hsm_path2)
+    master_fd, slave_fd = os.openpty()
+    hsmtool.start(stdin=slave_fd)
+    hsmtool.wait_for_log(r"Introduce your BIP39 word list")
+    write_all(master_fd, f"{mnemonic}\n".encode("utf-8"))
+    hsmtool.wait_for_log(r"Enter your passphrase:")
+    write_all(master_fd, "\n".encode("utf-8"))
+    assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
+
+    # Get the node ID from the generated hsm_secret
+    cmd_line = ["tools/hsmtool", "getnodeid", hsm_path2]
+    generated_node_id = subprocess.check_output(cmd_line).decode("utf8").strip()
+
+    # Verify both node IDs are identical
+    assert normal_node_id == generated_node_id, f"Node IDs don't match: {normal_node_id} != {generated_node_id}"
 
 
 # this test does a 'listtransactions' on a yet unconfirmed channel
