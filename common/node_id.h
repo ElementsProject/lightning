@@ -48,6 +48,9 @@ static inline int node_id_idx(const struct node_id *id1,
 void towire_node_id(u8 **pptr, const struct node_id *id);
 void fromwire_node_id(const u8 **cursor, size_t *max, struct node_id *id);
 
+/* Fuzzer creates these, so sets this flag to allow it */
+extern bool dev_towire_allow_invalid_node_id;
+
 /* Hash table functions for node ids */
 static inline const struct node_id *node_id_keyof(const struct node_id *id)
 {
