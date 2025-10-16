@@ -642,3 +642,22 @@ def test_channel_htlcs_id_change(bitcoind, node_factory):
     # Make some HTLCS
     for amt in (100, 500, 1000, 5000, 10000, 50000, 100000):
         l1.pay(l3, amt)
+
+
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "STRICT tables are SQLite3 specific")
+def test_sqlite_strict_mode(node_factory):
+    """Test that STRICT is appended to CREATE TABLE in developer mode."""
+    l1 = node_factory.get_node(options={'developer': None})
+
+    # Query sqlite_master to check table definitions
+    tables = l1.db_query("SELECT name, sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
+
+    strict_tables = [t for t in tables if t['sql'] and 'STRICT' in t['sql']]
+    assert len(strict_tables) > 0, f"Expected at least one STRICT table in developer mode, found none out of {len(tables)}"
+
+    # Check specific tables we know should be STRICT in developer mode
+    known_strict_tables = ['version', 'forwards', 'payments', 'local_anchors', 'addresses']
+    for table_name in known_strict_tables:
+        table_sql = next((t['sql'] for t in tables if t['name'] == table_name), None)
+        if table_sql:
+            assert 'STRICT' in table_sql, f"Expected table '{table_name}' to be STRICT in developer mode"
