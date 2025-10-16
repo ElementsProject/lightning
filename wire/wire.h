@@ -1,12 +1,9 @@
 #ifndef LIGHTNING_WIRE_WIRE_H
 #define LIGHTNING_WIRE_WIRE_H
 #include "config.h"
-#include <ccan/short_types/short_types.h>
-#include <ccan/tal/tal.h>
 #include <common/jsonrpc_errors.h>
 #include <common/wireaddr.h>
 #include <secp256k1_recovery.h>
-#include <stdlib.h>
 
 struct ripemd160;
 struct sha256;

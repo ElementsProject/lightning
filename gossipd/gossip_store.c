@@ -6,6 +6,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/gossip_store.h>
 #include <common/status.h>
+#include <common/utils.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <gossipd/gossip_store.h>

@@ -14,6 +14,7 @@
 #include <common/json_command.h>
 #include <common/json_param.h>
 #include <common/route.h>
+#include <common/utils.h>
 
 /* Overridden by run-param.c */
 #ifndef paramcheck_assert

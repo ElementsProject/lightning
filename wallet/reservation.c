@@ -11,6 +11,7 @@
 #include <common/psbt_open.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
+#include <lightningd/feerate.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>

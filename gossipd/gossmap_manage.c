@@ -9,6 +9,7 @@
 #include <common/memleak.h>
 #include <common/status.h>
 #include <common/timeout.h>
+#include <common/utils.h>
 #include <common/wire_error.h>
 #include <errno.h>
 #include <fcntl.h>

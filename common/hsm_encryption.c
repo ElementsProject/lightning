@@ -3,6 +3,7 @@
 #include <common/errcode.h>
 #include <common/hsm_encryption.h>
 #include <errno.h>
+#include <sys/stat.h>
 #include <termios.h>
 #include <unistd.h>
 

@@ -19,8 +19,10 @@
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>
 #include <common/bech32_util.h>
+#include <common/cryptomsg.h>
 #include <common/daemon_conn.h>
 #include <common/dev_disconnect.h>
+#include <common/ecdh.h>
 #include <common/ecdh_hsmd.h>
 #include <common/gossip_store.h>
 #include <common/gossmap.h>
@@ -29,6 +31,7 @@
 #include <common/status.h>
 #include <common/subdaemon.h>
 #include <common/timeout.h>
+#include <common/utils.h>
 #include <common/wire_error.h>
 #include <connectd/connectd.h>
 #include <connectd/connectd_gossipd_wiregen.h>

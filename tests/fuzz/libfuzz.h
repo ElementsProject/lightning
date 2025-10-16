@@ -4,6 +4,7 @@
 #include "config.h"
 #include <ccan/ccan/short_types/short_types.h>
 #include <ccan/ccan/tal/tal.h>
+#include <common/utils.h>
 #include <stddef.h>
 #include <stdint.h>
 

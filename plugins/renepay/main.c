@@ -5,6 +5,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/bolt11.h>
 #include <common/bolt12_merkle.h>
+#include <common/features.h>
 #include <common/gossmap.h>
 #include <common/gossmods_listpeerchannels.h>
 #include <common/json_param.h>

@@ -392,6 +392,7 @@ msgdata,hsmd_sign_bolt12,merkleroot,sha256,
 msgdata,hsmd_sign_bolt12,publictweaklen,u16,
 msgdata,hsmd_sign_bolt12,publictweak,u8,publictweaklen
 
+#include <bitcoin/signature.h>
 msgtype,hsmd_sign_bolt12_reply,125
 msgdata,hsmd_sign_bolt12_reply,sig,bip340sig,
 

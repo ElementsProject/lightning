@@ -24,6 +24,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <wally_bip32.h>
 #include <wally_bip39.h>

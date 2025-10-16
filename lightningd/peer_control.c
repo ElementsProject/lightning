@@ -71,7 +71,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <wally_bip32.h>
-#include <wire/onion_wire.h>
 #include <wire/wire_sync.h>
 
 /* FIXME: Reorder! */

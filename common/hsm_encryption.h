@@ -2,9 +2,7 @@
 #define LIGHTNING_COMMON_HSM_ENCRYPTION_H
 #include "config.h"
 #include <bitcoin/privkey.h>
-#include <ccan/tal/tal.h>
 #include <sodium.h>
-#include <sys/stat.h>
 
 /* Length of the encrypted hsm secret header. */
 #define HS_HEADER_LEN crypto_secretstream_xchacha20poly1305_HEADERBYTES

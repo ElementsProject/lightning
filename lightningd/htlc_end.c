@@ -5,6 +5,7 @@
 #include <common/htlc.h>
 #include <common/htlc_wire.h>
 #include <common/pseudorand.h>
+#include <common/utils.h>
 #include <lightningd/htlc_end.h>
 #include <lightningd/log.h>
 #include <wire/tlvstream.h>

@@ -1,4 +1,5 @@
 #include "config.h"
+#include <ccan/tal/tal.h>
 #include <common/hsm_capable.h>
 
 /* Is this capability supported by the HSM? (So far, always a message

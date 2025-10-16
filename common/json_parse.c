@@ -20,7 +20,6 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <stdio.h>
-#include <wire/onion_wire.h>
 
 bool json_to_millionths(const char *buffer, const jsmntok_t *tok,
 			u64 *millionths)

@@ -13,6 +13,7 @@
 #include <common/gossip_store.h>
 #include <common/gossmap.h>
 #include <common/setup.h>
+#include <common/utils.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <gossipd/gossip_store_wiregen.h>

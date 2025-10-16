@@ -10,6 +10,7 @@
 #include <common/bolt12_id.h>
 #include <common/bolt12_merkle.h>
 #include <common/dijkstra.h>
+#include <common/features.h>
 #include <common/gossmap.h>
 #include <common/gossmods_listpeerchannels.h>
 #include <common/json_param.h>
@@ -20,6 +21,7 @@
 #include <common/route.h>
 #include <common/utils.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <plugins/establish_onion_path.h>
 #include <plugins/fetchinvoice.h>
 #include <plugins/libplugin.h>

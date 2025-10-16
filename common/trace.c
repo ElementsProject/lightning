@@ -11,6 +11,7 @@
 #include <common/pseudorand.h>
 #include <common/trace.h>
 #include <fcntl.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <unistd.h>
 

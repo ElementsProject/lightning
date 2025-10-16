@@ -1,6 +1,7 @@
 #include "config.h"
 #include <ccan/cast/cast.h>
 #include <common/decode_array.h>
+#include <common/utils.h>
 #include <wire/peer_wire.h>
 
 struct short_channel_id *decode_short_ids(const tal_t *ctx, const u8 *encoded)

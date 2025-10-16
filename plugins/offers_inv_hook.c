@@ -3,6 +3,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/bolt12_id.h>
 #include <common/bolt12_merkle.h>
+#include <common/features.h>
 #include <common/json_stream.h>
 #include <plugins/offers.h>
 #include <plugins/offers_inv_hook.h>

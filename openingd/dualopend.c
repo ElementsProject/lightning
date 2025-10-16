@@ -38,9 +38,11 @@
 #include <common/wire_error.h>
 #include <errno.h>
 #include <hsmd/hsmd_wiregen.h>
+#include <inttypes.h>
 #include <openingd/common.h>
 #include <openingd/dualopend_wiregen.h>
 #include <unistd.h>
+#include <wally_script.h>
 #include <wire/wire_sync.h>
 
 /* stdin == lightningd, 3 == peer, 4 = hsmd */

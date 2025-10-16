@@ -8,6 +8,7 @@
 #include <common/blindedpath.h>
 #include <common/bolt12_id.h>
 #include <common/bolt12_merkle.h>
+#include <common/features.h>
 #include <common/gossmap.h>
 #include <common/iso4217.h>
 #include <common/json_stream.h>
@@ -15,6 +16,7 @@
 #include <common/onion_message.h>
 #include <common/overflows.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <plugins/offers.h>
 #include <plugins/offers_invreq_hook.h>
 #include <secp256k1_schnorrsig.h>

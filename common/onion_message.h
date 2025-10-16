@@ -1,7 +1,6 @@
 #ifndef LIGHTNING_COMMON_ONION_MESSAGE_H
 #define LIGHTNING_COMMON_ONION_MESSAGE_H
 #include "config.h"
-#include <ccan/tal/tal.h>
 #include <common/sciddir_or_pubkey.h>
 #include <common/utils.h>
 

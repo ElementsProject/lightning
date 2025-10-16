@@ -33,6 +33,7 @@
 #include <common/codex32.h>
 #include <common/configdir.h>
 #include <common/features.h>
+#include <common/utils.h>
 #include <math.h>
 #include <secp256k1_schnorrsig.h>
 #include <string.h>

@@ -14,6 +14,7 @@
 #include <common/timeout.h>
 #include <db/exec.h>
 #include <hsmd/hsmd_wiregen.h>
+#include <inttypes.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>

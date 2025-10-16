@@ -2,8 +2,6 @@
 #define LIGHTNING_WIRE_TLVSTREAM_H
 #include "config.h"
 #include <bitcoin/short_channel_id.h>
-#include <ccan/short_types/short_types.h>
-#include <ccan/tal/tal.h>
 
 struct tlv_record_type {
 	u64 type;

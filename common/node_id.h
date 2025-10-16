@@ -4,7 +4,6 @@
 #include "config.h"
 #include <bitcoin/pubkey.h>
 #include <ccan/crypto/siphash24/siphash24.h>
-#include <ccan/htable/htable_type.h>
 #include <common/pseudorand.h>
 
 struct sha256_double;

@@ -9,6 +9,7 @@
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
+#include <ccan/time/time.h>
 #include <common/cryptomsg.h>
 #include <common/features.h>
 #include <common/peer_failed.h>

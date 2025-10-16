@@ -10,6 +10,7 @@
 #include <common/onion_decode.h>
 #include <common/onion_encode.h>
 #include <common/sphinx.h>
+#include <common/utils.h>
 #include <common/version.h>
 #include <err.h>
 

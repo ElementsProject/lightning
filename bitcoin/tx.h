@@ -2,11 +2,7 @@
 #define LIGHTNING_BITCOIN_TX_H
 #include "config.h"
 #include <bitcoin/chainparams.h>
-#include <bitcoin/shadouble.h>
-#include <bitcoin/signature.h>
 #include <bitcoin/varint.h>
-#include <ccan/structeq/structeq.h>
-#include <common/amount.h>
 #include <wally_transaction.h>
 
 #define BITCOIN_TX_DEFAULT_SEQUENCE 0xFFFFFFFF

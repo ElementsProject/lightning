@@ -7,6 +7,7 @@
 #include <common/daemon_conn.h>
 #include <common/status.h>
 #include <common/status_wiregen.h>
+#include <common/utils.h>
 #include <common/version.h>
 #include <errno.h>
 #include <wire/peer_wire.h>

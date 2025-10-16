@@ -6,6 +6,7 @@
 #include <ccan/time/time.h>
 #include <common/coin_mvt.h>
 #include <common/node_id.h>
+#include <common/utils.h>
 #include <wire/wire.h>
 
 static const char *mvt_tags[] = {

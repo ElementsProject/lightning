@@ -9,6 +9,7 @@
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <common/bolt12_merkle.h>
+#include <common/features.h>
 #include <common/gossmap.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>

@@ -2,11 +2,8 @@
 #define LIGHTNING_DB_COMMON_H
 #include "config.h"
 #include <ccan/list/list.h>
-#include <ccan/short_types/short_types.h>
-#include <ccan/strset/strset.h>
 #include <common/autodata.h>
 #include <common/utils.h>
-#include <stdarg.h>
 
 /**
  * Macro to annotate a named SQL query.

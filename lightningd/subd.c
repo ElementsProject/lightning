@@ -7,6 +7,7 @@
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
 #include <common/memleak.h>
+#include <common/msg_queue.h>
 #include <common/peer_status_wiregen.h>
 #include <common/status_wiregen.h>
 #include <common/version.h>

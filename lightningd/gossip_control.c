@@ -1,5 +1,6 @@
 #include "config.h"
 #include <ccan/err/err.h>
+#include <ccan/io/io.h>
 #include <ccan/mem/mem.h>
 #include <ccan/ptrint/ptrint.h>
 #include <channeld/channeld_wiregen.h>

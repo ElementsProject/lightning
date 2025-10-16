@@ -5,6 +5,7 @@
 #include <ccan/ilog/ilog.h>
 #include <ccan/mem/mem.h>
 #include <common/bolt12_merkle.h>
+#include <common/utils.h>
 
 #ifndef SUPERVERBOSE
 #define SUPERVERBOSE(...)

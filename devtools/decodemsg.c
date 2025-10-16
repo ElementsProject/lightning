@@ -3,6 +3,7 @@
 #include <ccan/opt/opt.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <common/setup.h>
+#include <common/utils.h>
 #include <unistd.h>
 #include <wire/onion_printgen.h>
 #include <wire/peer_printgen.h>

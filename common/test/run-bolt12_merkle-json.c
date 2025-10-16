@@ -8,6 +8,7 @@
 #include "../../wire/fromwire.c"
 #include "../../wire/peer_wiregen.c"
 #include "../../wire/tlvstream.c"
+#include <ccan/array_size/array_size.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
 #include <common/channel_type.h>

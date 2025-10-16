@@ -11,6 +11,7 @@
 #include <common/json_stream.h>
 #include <common/psbt_open.h>
 #include <common/splice_script.h>
+#include <inttypes.h>
 #include <plugins/spender/splice.h>
 
 struct abort_pkg {

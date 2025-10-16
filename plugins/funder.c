@@ -16,6 +16,7 @@
 #include <common/memleak.h>
 #include <common/overflows.h>
 #include <common/psbt_open.h>
+#include <inttypes.h>
 #include <plugins/funder_policy.h>
 #include <plugins/libplugin.h>
 

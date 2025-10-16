@@ -8,6 +8,7 @@
 #include <common/ecdh.h>
 #include <common/onion_decode.h>
 #include <common/sphinx.h>
+#include <common/utils.h>
 #include <inttypes.h>
 #include <sodium/crypto_aead_chacha20poly1305.h>
 

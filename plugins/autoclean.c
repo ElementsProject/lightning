@@ -6,6 +6,7 @@
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
+#include <inttypes.h>
 #include <plugins/libplugin.h>
 
 static u64 cycle_seconds = 3600;

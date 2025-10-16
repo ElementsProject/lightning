@@ -9,9 +9,11 @@
 #include <common/configdir.h>
 #include <common/features.h>
 #include <common/overflows.h>
+#include <common/utils.h>
 #include <inttypes.h>
 #include <secp256k1_schnorrsig.h>
 #include <time.h>
+#include <wire/onion_wiregen.h>
 
 /* If chains is NULL, max_num_chains is ignored */
 bool bolt12_chains_match(const struct bitcoin_blkid *chains,

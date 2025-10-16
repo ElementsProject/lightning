@@ -42,10 +42,12 @@
 #include <common/status.h>
 #include <common/subdaemon.h>
 #include <common/timeout.h>
+#include <common/utils.h>
 #include <common/wire_error.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <hsmd/hsmd_wiregen.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <wally_bip32.h>
 #include <wire/peer_wire.h>

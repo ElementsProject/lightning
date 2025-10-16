@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_LIGHTNINGD_CHANNEL_H
 #define LIGHTNING_LIGHTNINGD_CHANNEL_H
 #include "config.h"
+#include <bitcoin/signature.h>
 #include <ccan/htable/htable_type.h>
 #include <common/channel_config.h>
 #include <common/channel_id.h>

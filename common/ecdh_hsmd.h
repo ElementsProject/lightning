@@ -1,7 +1,6 @@
 #ifndef LIGHTNING_COMMON_ECDH_HSMD_H
 #define LIGHTNING_COMMON_ECDH_HSMD_H
 #include "config.h"
-#include <common/ecdh.h>
 #include <common/status_levels.h>
 
 /* The via-the-hsmd implementation of ecdh(). */

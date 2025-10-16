@@ -1,7 +1,6 @@
 #ifndef LIGHTNING_COMMON_KEY_DERIVE_H
 #define LIGHTNING_COMMON_KEY_DERIVE_H
 #include "config.h"
-#include <ccan/short_types/short_types.h>
 #include <stdbool.h>
 
 struct pubkey;

@@ -7,6 +7,7 @@
 #include <common/htlc_wire.h>
 #include <common/node_id.h>
 #include <common/wireaddr.h>
+#include <common/utils.h>
 
 tlvtype,scb_tlvs,shachain,1,
 tlvdata,scb_tlvs,shachain,their_shachain,shachain,

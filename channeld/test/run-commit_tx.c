@@ -9,6 +9,7 @@ static bool print_superverbose;
 #define PRINT_ACTUAL_FEE
 #include "../commit_tx.c"
 #include <bitcoin/preimage.h>
+#include <bitcoin/privkey.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/err/err.h>
 #include <ccan/str/hex/hex.h>

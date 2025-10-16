@@ -2,7 +2,6 @@
 #define LIGHTNING_BITCOIN_PRIVKEY_H
 #include "config.h"
 #include <ccan/short_types/short_types.h>
-#include <ccan/structeq/structeq.h>
 #include <ccan/tal/tal.h>
 
 #define PRIVKEY_LEN 32

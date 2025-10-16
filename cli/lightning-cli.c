@@ -17,6 +17,7 @@
 #include <common/utils.h>
 #include <common/version.h>
 #include <libgen.h>
+#include <stdio.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/wait.h>

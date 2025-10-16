@@ -2,13 +2,10 @@
 #ifndef LIGHTNING_COMMON_JSON_PARAM_H
 #define LIGHTNING_COMMON_JSON_PARAM_H
 #include "config.h"
-#include <ccan/short_types/short_types.h>
 #include <common/bolt11.h>
 #include <common/json_parse.h>
 #include <common/lease_rates.h>
-#include <common/node_id.h>
 #include <common/sphinx.h>
-#include <wire/wire.h>
 
 /*~ Greetings adventurer!
  *

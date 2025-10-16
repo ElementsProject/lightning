@@ -1,16 +1,12 @@
 #ifndef LIGHTNING_CONNECTD_CONNECTD_H
 #define LIGHTNING_CONNECTD_CONNECTD_H
 #include "config.h"
-#include <bitcoin/pubkey.h>
 #include <bitcoin/short_channel_id.h>
-#include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/htable/htable_type.h>
 #include <ccan/timer/timer.h>
 #include <common/bigsize.h>
-#include <common/channel_id.h>
 #include <common/crypto_state.h>
 #include <common/node_id.h>
-#include <common/pseudorand.h>
 #include <common/wireaddr.h>
 #include <connectd/handshake.h>
 

@@ -4,6 +4,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/bolt12.h>
 #include <common/bolt12_id.h>
+#include <common/features.h>
 #include <common/gossmap.h>
 #include <common/iso4217.h>
 #include <common/json_param.h>

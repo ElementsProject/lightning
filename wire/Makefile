@@ -74,6 +74,8 @@ wire/peer_wiregen.h_args := --include='common/channel_id.h' --include='bitcoin/t
 
 wire/peer_wiregen.c_args := -s --expose-tlv-type=tlv_n1 --expose-tlv-type=tlv_n2
 
+wire/peer_printgen.c_args := --include='wire/peer_wiregen.h'
+
 # The payload isn't parsed in a fromwire, so we need to expose it.
 wire/onion_wiregen.h_args := --include='bitcoin/short_channel_id.h' --include='bitcoin/privkey.h' --include='common/bigsize.h' --include='common/amount.h' --include='common/node_id.h' --include='bitcoin/block.h' --include='common/sciddir_or_pubkey.h' -s --expose-tlv-type=tlv_payload
 
@@ -86,8 +88,8 @@ wire/peer_exp_printgen.h_args := --include='wire/channel_type_printgen.h'
 wire/onion_exp_wiregen.h_args := $(wire/onion_wiregen.h_args)
 wire/onion_exp_wiregen.c_args := $(wire/onion_wiregen.c_args)
 
-wire/bolt12_wiregen.c_args := -s --expose-tlv-type=tlv_blinded_path --expose-tlv-type=tlv_invoice_request --expose-tlv-type=tlv_invoice
-wire/bolt12_wiregen.h_args := --include='bitcoin/short_channel_id.h' --include='bitcoin/signature.h' --include='bitcoin/privkey.h' --include='common/bigsize.h' --include='common/amount.h' --include='common/node_id.h' --include='bitcoin/block.h'  --include='wire/onion_wire.h' $(wire/bolt12_wiregen.c_args)
+wire/bolt12_wiregen.c_args := -s --expose-tlv-type=tlv_blinded_path --expose-tlv-type=tlv_invoice_request --expose-tlv-type=tlv_invoice --include='wire/onion_wiregen.h' 
+wire/bolt12_wiregen.h_args := --include='bitcoin/short_channel_id.h' --include='bitcoin/signature.h' --include='bitcoin/privkey.h' --include='common/bigsize.h' --include='common/amount.h' --include='common/node_id.h' --include='bitcoin/block.h' $(wire/bolt12_wiregen.c_args)
 
 wire/bolt12_printgen.c_args := --expose-tlv-type=tlv_blinded_path --expose-tlv-type=tlv_invoice_request --include='wire/onion_wiregen.h'  --include='wire/onion_printgen.h'
 wire/bolt12_printgen.h_args := --include='wire/bolt12_wiregen.h' --expose-tlv-type=tlv_blinded_path --expose-tlv-type=tlv_invoice_request

@@ -37,6 +37,7 @@
  */
 #include <ccan/array_size/array_size.h>
 #include <ccan/closefrom/closefrom.h>
+#include <ccan/io/io.h>
 #include <ccan/json_escape/json_escape.h>
 #include <ccan/opt/opt.h>
 #include <ccan/pipecmd/pipecmd.h>
@@ -51,6 +52,7 @@
 #include <common/daemon.h>
 #include <common/deprecation.h>
 #include <common/ecdh_hsmd.h>
+#include <common/errcode.h>
 #include <common/hsm_encryption.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
