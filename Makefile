@@ -383,10 +383,7 @@ include cln-grpc/Makefile
 endif
 include plugins/Makefile
 include tests/plugins/Makefile
-
-ifneq ($(FUZZING),0)
-	include tests/fuzz/Makefile
-endif
+include tests/fuzz/Makefile
 
 ifneq ($V,1)
 MSGGEN_ARGS := -s
@@ -699,9 +696,12 @@ endif
 
 # We special case the fuzzing target binaries, as they need to link against libfuzzer,
 # which brings its own main().
+ifneq ($(FUZZING),0)
 FUZZ_LDFLAGS = -fsanitize=fuzzer
+endif
+
 $(ALL_FUZZ_TARGETS):
-	@$(call VERBOSE, "ld $@", $(LINK.o) $(filter-out %.a,$^) $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) libccan.a $(FUZZ_LDFLAGS) -o $@)
+	@$(call VERBOSE, "ld $@", $(LINK.o) $(filter-out %.a,$^) libcommon.a libccan.a $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) $(FUZZ_LDFLAGS) -o $@)
 ifeq ($(OS),Darwin)
 	@$(call VERBOSE, "dsymutil $@", dsymutil $@)
 endif
