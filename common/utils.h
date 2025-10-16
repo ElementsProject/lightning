@@ -145,6 +145,9 @@ void tal_wally_end_onto_(const tal_t *parent,
 			 tal_t *from_wally,
 			 const char *from_wally_name);
 
+/* ... or this if libwally only used temporary allocations. */
+void tal_wally_discard(void);
+
 /* Define sha256_eq. */
 STRUCTEQ_DEF(sha256, 0, u);
 
