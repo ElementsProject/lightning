@@ -619,6 +619,14 @@ bool wallet_can_spend(struct wallet *w,
 s64 wallet_get_newindex(struct lightningd *ld, enum addrtype addrtype);
 
 /**
+ * wallet_get_new_bip86_index - get a new BIP86 index from the wallet.
+ * @ld: (in) lightning daemon
+ *
+ * Returns -1 on error (key exhaustion).
+ */
+s64 wallet_get_new_bip86_index(struct lightningd *ld);
+
+/**
  * wallet_get_addrtype - get the address types for this key.
  * @wallet: (in) wallet
  * @keyidx: what address types we've published.
