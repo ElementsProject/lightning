@@ -1,14 +1,14 @@
 PLUGIN_TESTLIBPLUGIN_SRC := tests/plugins/test_libplugin.c 
 PLUGIN_TESTLIBPLUGIN_OBJS := $(PLUGIN_TESTLIBPLUGIN_SRC:.c=.o)
 
-tests/plugins/test_libplugin: $(PLUGIN_TESTLIBPLUGIN_OBJS) $(PLUGIN_LIB_OBJS) $(JSMN_OBJS) libcommon.a
+tests/plugins/test_libplugin: $(PLUGIN_TESTLIBPLUGIN_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
 
-$(PLUGIN_TESTLIBPLUGIN_OBJS): $(PLUGIN_LIB_HEADER)
+$(PLUGIN_TESTLIBPLUGIN_OBJS): $(PLUGIN_LIB_HEADER) tests/plugins/Makefile
 
 PLUGIN_TESTSELFDISABLE_AFTER_GETMANIFEST_SRC := tests/plugins/test_selfdisable_after_getmanifest.c 
 PLUGIN_TESTSELFDISABLE_AFTER_GETMANIFEST_OBJS := $(PLUGIN_TESTSELFDISABLE_AFTER_GETMANIFEST_SRC:.c=.o)
 
-tests/plugins/test_selfdisable_after_getmanifest: $(PLUGIN_TESTSELFDISABLE_AFTER_GETMANIFEST_OBJS) $(JSMN_OBJS) libcommon.a
+tests/plugins/test_selfdisable_after_getmanifest: $(PLUGIN_TESTSELFDISABLE_AFTER_GETMANIFEST_OBJS) libcommon.a
 
 PLUGIN_CHANNELD_FAKENET_SRC := tests/plugins/channeld_fakenet.c 
 PLUGIN_CHANNELD_FAKENET_OBJS := $(PLUGIN_CHANNELD_FAKENET_SRC:.c=.o)

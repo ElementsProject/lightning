@@ -42,9 +42,9 @@ PLUGIN_RENEPAY_OBJS := $(PLUGIN_RENEPAY_SRC:.c=.o)
 PLUGIN_ALL_SRC += $(PLUGIN_RENEPAY_SRC)
 PLUGIN_ALL_HEADER += $(PLUGIN_RENEPAY_HDRS)
 
-# Make all plugins depend on all plugin headers, for simplicity.
-$(PLUGIN_RENEPAY_OBJS): $(PLUGIN_RENEPAY_HDRS)
+# Make all plugins depend on all plugin headers, for simplicity (and this file).
+$(PLUGIN_RENEPAY_OBJS): $(PLUGIN_RENEPAY_HDRS) plugins/renepay/Makefile
 
-plugins/cln-renepay: $(PLUGIN_RENEPAY_OBJS) $(PLUGIN_LIB_OBJS) $(JSMN_OBJS) libcommon.a
+plugins/cln-renepay: $(PLUGIN_RENEPAY_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
 
 include plugins/renepay/test/Makefile

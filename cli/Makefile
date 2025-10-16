@@ -5,8 +5,8 @@ ALL_C_SOURCES += $(LIGHTNING_CLI_SRC)
 ALL_C_HEADERS +=
 ALL_PROGRAMS += cli/lightning-cli
 
-$(LIGHTNING_CLI_OBJS): $(JSMN_HEADERS) $(COMMON_HEADERS) $(CCAN_HEADERS)
+$(LIGHTNING_CLI_OBJS): cli/Makefile
 
-cli/lightning-cli: $(LIGHTNING_CLI_OBJS) $(JSMN_OBJS) libcommon.a libccan.a
+cli/lightning-cli: $(LIGHTNING_CLI_OBJS) libcommon.a
 
 include cli/test/Makefile

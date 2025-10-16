@@ -138,11 +138,11 @@ check-common-files:
 
 check-source: check-common-files
 
-# Common objects depends on bitcoin/ external/ and ccan
-$(COMMON_OBJS): $(CCAN_HEADERS) $(BITCOIN_HEADERS) $(EXTERNAL_HEADERS) $(COMMON_HEADERS_GEN)
-
 # Only common/version.c can include this header.
 common/version.o: version_gen.h
+
+# Rebuild objects should this file change.
+$(COMMON_OBJS): common/Makefile
 
 # We make a static library, this way linker can discard unused parts.
 libcommon.a: $(COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS)
