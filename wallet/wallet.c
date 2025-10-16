@@ -3261,7 +3261,7 @@ static void got_utxo(struct wallet *w,
 		utxo->utxotype = UTXO_P2TR;
 		goto type_ok;
 	case ADDR_P2TR_MNEMONIC:
-		utxo->utxotype = UTXO_P2TR_BIP86;
+		utxo->utxotype = UTXO_P2TR;
 		goto type_ok;
 	case ADDR_ALL:
 		break;
