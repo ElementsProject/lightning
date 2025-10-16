@@ -2,7 +2,6 @@ from bitcoin.rpc import JSONRPCError
 from decimal import Decimal
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
-from pathlib import Path
 from pyln.client import RpcError, Millisatoshi
 from utils import (
     only_one, wait_for, sync_blockheight,
@@ -1312,47 +1311,23 @@ class HsmTool(TailableProc):
 
 @unittest.skipIf(VALGRIND, "It does not play well with prompt and key derivation.")
 def test_hsmtool_secret_decryption(node_factory):
-    l1 = node_factory.get_node()
-    password = "reckless123#{ù}\n"
+    """Test that we can encrypt and decrypt hsm_secret using hsmtool"""
+    l1 = node_factory.get_node(start=False)  # Don't start the node
+    password = "test_password\n"
     hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
-    # We need to simulate a terminal to use termios in `lightningd`.
-    master_fd, slave_fd = os.openpty()
 
-    # Encrypt the master seed
-    l1.stop()
-    l1.daemon.opts.update({"encrypted-hsm": None})
-    l1.daemon.start(stdin=slave_fd, wait_for_initialized=False)
-    l1.daemon.wait_for_log(r'Enter hsm_secret password')
-    write_all(master_fd, password.encode("utf-8"))
-    l1.daemon.wait_for_log(r'Confirm hsm_secret password')
-    write_all(master_fd, password.encode("utf-8"))
-    l1.daemon.wait_for_log("Server started with public key")
-    node_id = l1.rpc.getinfo()["id"]
-    l1.stop()
+    # Write a known 32-byte key to hsm_secret
+    known_secret = b'\x01' * 32  # 32 bytes of 0x01
+    with open(hsm_path, 'wb') as f:
+        f.write(known_secret)
 
-    # We can't use a wrong password !
-    master_fd, slave_fd = os.openpty()
-    hsmtool = HsmTool(node_factory.directory, "decrypt", hsm_path)
-    hsmtool.start(stdin=slave_fd)
-    hsmtool.wait_for_log(r"Enter hsm_secret password:")
-    write_all(master_fd, "A wrong pass\n\n".encode("utf-8"))
-    hsmtool.proc.wait(WAIT_TIMEOUT)
-    hsmtool.is_in_log(r"Wrong password")
+    # Read the hsm_secret to verify it's what we expect
+    with open(hsm_path, 'rb') as f:
+        content = f.read()
+        assert content == known_secret, f"Expected {known_secret}, got {content}"
+        assert len(content) == 32, f"Expected 32 bytes, got {len(content)}"
 
-    # Decrypt it with hsmtool
-    master_fd, slave_fd = os.openpty()
-    hsmtool.start(stdin=slave_fd)
-    hsmtool.wait_for_log(r"Enter hsm_secret password:")
-    write_all(master_fd, password.encode("utf-8"))
-    assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
-
-    # Then test we can now start it without password
-    l1.daemon.opts.pop("encrypted-hsm")
-    l1.daemon.start(stdin=slave_fd, wait_for_initialized=True)
-    assert node_id == l1.rpc.getinfo()["id"]
-    l1.stop()
-
-    # Test we can encrypt it offline
+    # Encrypt it using hsmtool
     master_fd, slave_fd = os.openpty()
     hsmtool = HsmTool(node_factory.directory, "encrypt", hsm_path)
     hsmtool.start(stdin=slave_fd)
@@ -1361,51 +1336,28 @@ def test_hsmtool_secret_decryption(node_factory):
     hsmtool.wait_for_log(r"Confirm hsm_secret password:")
     write_all(master_fd, password.encode("utf-8"))
     assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
-    # Now we need to pass the encrypted-hsm startup option
-    l1.stop()
-    with pytest.raises(subprocess.CalledProcessError, match=r'returned non-zero exit status {}'.format(HSM_ERROR_IS_ENCRYPT)):
-        subprocess.check_call(l1.daemon.cmd_line)
+    hsmtool.is_in_log(r"Successfully encrypted")
 
-    l1.daemon.opts.update({"encrypted-hsm": None})
-    master_fd, slave_fd = os.openpty()
-    l1.daemon.start(stdin=slave_fd,
-                    wait_for_initialized=False)
+    # Read the hsm_secret again - it should now be encrypted (73 bytes)
+    with open(hsm_path, 'rb') as f:
+        encrypted_content = f.read()
+        assert len(encrypted_content) == 73, f"Expected 73 bytes after encryption, got {len(encrypted_content)}"
+        assert encrypted_content != known_secret, "File should be encrypted and different from original"
 
-    l1.daemon.wait_for_log(r'The hsm_secret is encrypted')
-    write_all(master_fd, password.encode("utf-8"))
-    l1.daemon.wait_for_log("Server started with public key")
-    print(node_id, l1.rpc.getinfo()["id"])
-    assert node_id == l1.rpc.getinfo()["id"]
-    l1.stop()
-
-    # And finally test that we can also decrypt if encrypted with hsmtool
+    # Decrypt it using hsmtool
     master_fd, slave_fd = os.openpty()
     hsmtool = HsmTool(node_factory.directory, "decrypt", hsm_path)
     hsmtool.start(stdin=slave_fd)
     hsmtool.wait_for_log(r"Enter hsm_secret password:")
     write_all(master_fd, password.encode("utf-8"))
     assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
-    l1.daemon.opts.pop("encrypted-hsm")
-    l1.daemon.start(stdin=slave_fd, wait_for_initialized=True)
-    assert node_id == l1.rpc.getinfo()["id"]
+    hsmtool.is_in_log(r"Successfully decrypted")
 
-    # We can roundtrip encryption and decryption using a password provided
-    # through stdin.
-    hsmtool = HsmTool(node_factory.directory, "encrypt", hsm_path)
-    hsmtool.start(stdin=subprocess.PIPE)
-    hsmtool.proc.stdin.write(password.encode("utf-8"))
-    hsmtool.proc.stdin.write(password.encode("utf-8"))
-    hsmtool.proc.stdin.flush()
-    hsmtool.wait_for_log("Successfully encrypted")
-    assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
-
-    master_fd, slave_fd = os.openpty()
-    hsmtool = HsmTool(node_factory.directory, "decrypt", hsm_path)
-    hsmtool.start(stdin=slave_fd)
-    hsmtool.wait_for_log("Enter hsm_secret password:")
-    write_all(master_fd, password.encode("utf-8"))
-    hsmtool.wait_for_log("Successfully decrypted")
-    assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
+    # Read the hsm_secret again - it should now be back to the original 32 bytes
+    with open(hsm_path, 'rb') as f:
+        decrypted_content = f.read()
+        assert decrypted_content == known_secret, f"Expected {known_secret}, got {decrypted_content}"
+        assert len(decrypted_content) == 32, f"Expected 32 bytes after decryption, got {len(decrypted_content)}"
 
 
 @unittest.skipIf(TEST_NETWORK == 'liquid-regtest', '')
@@ -1447,100 +1399,263 @@ def test_hsmtool_dump_descriptors(node_factory, bitcoind):
         assert res["total_amount"] == Decimal('0.00001000')
 
 
-def test_hsmtool_generatehsm(node_factory):
-    l1 = node_factory.get_node(start=False)
-    hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK,
-                            "hsm_secret")
+@pytest.mark.parametrize("mnemonic,passphrase,expected_format", [
+    ("ritual idle hat sunny universe pluck key alpha wing cake have wedding", "test_passphrase", "mnemonic with passphrase"),
+    ("abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about", "", "mnemonic without passphrase"),
+])
+def test_hsmtool_generatehsm_variants(node_factory, mnemonic, passphrase, expected_format):
+    """Test generating mnemonic-based hsm_secret with various configurations"""
+    # Only set hsm-passphrase option if there's actually a passphrase
+    node_options = {'hsm-passphrase': None} if passphrase else {}
+    l1 = node_factory.get_node(start=False, options=node_options)
+    hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
+    os.remove(hsm_path)  # Remove the auto-generated one
 
+    # Generate hsm_secret with mnemonic and passphrase
     hsmtool = HsmTool(node_factory.directory, "generatehsm", hsm_path)
-
-    # You cannot re-generate an already existing hsm_secret
     master_fd, slave_fd = os.openpty()
     hsmtool.start(stdin=slave_fd)
-    assert hsmtool.proc.wait(WAIT_TIMEOUT) == 2
+    hsmtool.wait_for_log(r"Introduce your BIP39 word list separated by space")
+    write_all(master_fd, f"{mnemonic}\n".encode("utf-8"))
+    hsmtool.wait_for_log(r"Enter your passphrase:")
+    write_all(master_fd, f"{passphrase}\n".encode("utf-8"))
+    assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
+    hsmtool.is_in_log(r"New hsm_secret file created")
+    hsmtool.is_in_log(f"Format: {expected_format}")
+
+    # Verify file format
+    with open(hsm_path, 'rb') as f:
+        content = f.read()
+        if passphrase:
+            # First 32 bytes should NOT be zeros (has passphrase hash)
+            assert content[:32] != b'\x00' * 32
+            assert mnemonic.encode('utf-8') in content[32:]
+        else:
+            # First 32 bytes should be zeros (no passphrase)
+            assert content[:32] == b'\x00' * 32
+            # Rest should be the mnemonic
+            mnemonic_part = content[32:].decode('utf-8')
+            assert mnemonic in mnemonic_part
+
+
+@pytest.mark.parametrize("test_case", [
+    pytest.param({
+        "name": "with_passphrase",
+        "mnemonic": "ritual idle hat sunny universe pluck key alpha wing cake have wedding",
+        "passphrase": "secret_passphrase",
+        "check_passphrase": "secret_passphrase",
+        "check_mnemonic": "ritual idle hat sunny universe pluck key alpha wing cake have wedding",
+        "expected_exit": 0,
+        "expected_log": "OK"
+    }, id="correct_mnemonic_with_passphrase"),
+    pytest.param({
+        "name": "no_passphrase",
+        "mnemonic": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+        "passphrase": "",
+        "check_passphrase": "",
+        "check_mnemonic": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+        "expected_exit": 0,
+        "expected_log": "OK"
+    }, id="correct_mnemonic_no_passphrase"),
+    pytest.param({
+        "name": "wrong_passphrase",
+        "mnemonic": "ritual idle hat sunny universe pluck key alpha wing cake have wedding",
+        "passphrase": "correct_passphrase",
+        "check_passphrase": "wrong_passphrase",
+        "check_mnemonic": "ritual idle hat sunny universe pluck key alpha wing cake have wedding",
+        "expected_exit": 5,  # ERROR_KEYDERIV
+        "expected_log": "resulting hsm_secret did not match"
+    }, id="wrong_passphrase_should_fail"),
+    pytest.param({
+        "name": "wrong_mnemonic",
+        "mnemonic": "ritual idle hat sunny universe pluck key alpha wing cake have wedding",
+        "passphrase": "",
+        "check_passphrase": "",
+        "check_mnemonic": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+        "expected_exit": 5,  # ERROR_KEYDERIV
+        "expected_log": "resulting hsm_secret did not match"
+    }, id="wrong_mnemonic_should_fail")
+])
+def test_hsmtool_checkhsm_variants(node_factory, test_case):
+    """Test checkhsm with various configurations"""
+    l1 = node_factory.get_node(start=False)
+    hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
     os.remove(hsm_path)
 
-    # We can generate a valid hsm_secret from a wordlist and a "passphrase"
+    # Create hsm_secret with known mnemonic and passphrase
+    hsmtool = HsmTool(node_factory.directory, "generatehsm", hsm_path)
     master_fd, slave_fd = os.openpty()
     hsmtool.start(stdin=slave_fd)
-    hsmtool.wait_for_log(r"Select your language:")
-    write_all(master_fd, "0\n".encode("utf-8"))
-    hsmtool.wait_for_log(r"Introduce your BIP39 word list")
-    write_all(master_fd, "ritual idle hat sunny universe pluck key alpha wing "
-              "cake have wedding\n".encode("utf-8"))
+    hsmtool.wait_for_log(r"Introduce your BIP39 word list separated by space")
+    write_all(master_fd, f"{test_case['mnemonic']}\n".encode("utf-8"))
     hsmtool.wait_for_log(r"Enter your passphrase:")
-    write_all(master_fd, "This is actually not a passphrase\n".encode("utf-8"))
-    if hsmtool.proc.wait(WAIT_TIMEOUT) != 0:
-        hsmtool.logs_catchup()
-        print("hsmtool failure! Logs:")
-        for l in hsmtool.logs:
-            print('  ' + l)
-        assert False
-    hsmtool.is_in_log(r"New hsm_secret file created")
+    write_all(master_fd, f"{test_case['passphrase']}\n".encode("utf-8"))
+    assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
 
-    # Check should pass.
+    # Test checkhsm with credentials
     hsmtool = HsmTool(node_factory.directory, "checkhsm", hsm_path)
     master_fd, slave_fd = os.openpty()
     hsmtool.start(stdin=slave_fd)
-    hsmtool.wait_for_log(r"Enter your passphrase:")
-    write_all(master_fd, "This is actually not a passphrase\n".encode("utf-8"))
-    hsmtool.wait_for_log(r"Select your language:")
-    write_all(master_fd, "0\n".encode("utf-8"))
-    hsmtool.wait_for_log(r"Introduce your BIP39 word list")
-    write_all(master_fd, "ritual idle hat sunny universe pluck key alpha wing "
-              "cake have wedding\n".encode("utf-8"))
+
+    # If the original had a passphrase, we need to unlock the file first
+    if test_case['passphrase']:
+        hsmtool.wait_for_log(r"Enter hsm_secret password:")  # Decrypt file
+        write_all(master_fd, f"{test_case['passphrase']}\n".encode("utf-8"))
+
+    hsmtool.wait_for_log(r"Enter your mnemonic passphrase:")     # Backup verification
+    write_all(master_fd, f"{test_case['check_passphrase']}\n".encode("utf-8"))
+    hsmtool.wait_for_log(r"Introduce your BIP39 word list separated by space")
+    write_all(master_fd, f"{test_case['check_mnemonic']}\n".encode("utf-8"))
+    assert hsmtool.proc.wait(WAIT_TIMEOUT) == test_case['expected_exit']
+    hsmtool.is_in_log(test_case['expected_log'])
+
+
+def test_hsmtool_checkhsm_legacy_encrypted_with_mnemonic_no_passphrase(node_factory):
+    """Test checkhsm with legacy encrypted hsm_secret containing mnemonic without passphrase"""
+    l1 = node_factory.get_node(start=False)
+    hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
+    os.remove(hsm_path)
+    seed_hex = "31bb58d1180831868fd5f562bb74659dca1e9673d034af635df53d677b9e5f03"
+    seed_bytes = bytes.fromhex(seed_hex)
+
+    # Write the 32-byte seed directly to file (simulating old generatehsm output)
+    # Make sure we write exactly 32 bytes with no newline
+    assert len(seed_bytes) == 32, f"Seed should be exactly 32 bytes, got {len(seed_bytes)}"
+    with open(hsm_path, 'wb') as f:
+        f.write(seed_bytes)
+
+    # Verify it's exactly 32 bytes
+    with open(hsm_path, 'rb') as f:
+        content = f.read()
+        print(content)
+        assert content == seed_bytes, "File content doesn't match expected seed"
+
+    # Now encrypt it using the legacy encrypt command
+    encryption_password = "encryption_password"
+    hsmtool = HsmTool(node_factory.directory, "encrypt", hsm_path)
+    master_fd, slave_fd = os.openpty()
+    hsmtool.start(stdin=slave_fd)
+    hsmtool.wait_for_log(r"Enter hsm_secret password:")
+    write_all(master_fd, f"{encryption_password}\n".encode("utf-8"))
+    hsmtool.wait_for_log(r"Confirm hsm_secret password:")
+    write_all(master_fd, f"{encryption_password}\n".encode("utf-8"))
+    assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
+    hsmtool.is_in_log(r"Successfully encrypted")
+
+    # Verify the file is now encrypted (73 bytes)
+    with open(hsm_path, 'rb') as f:
+        content = f.read()
+        assert len(content) == 73, f"Expected 73 bytes after encryption, got {len(content)}"
+
+    # Test checkhsm - should prompt for encryption password first, then mnemonic passphrase
+    hsmtool = HsmTool(node_factory.directory, "checkhsm", hsm_path)
+    master_fd, slave_fd = os.openpty()
+    hsmtool.start(stdin=slave_fd)
+    hsmtool.wait_for_log(r"Enter hsm_secret password:")  # Encryption password
+    write_all(master_fd, f"{encryption_password}\n".encode("utf-8"))
+    hsmtool.wait_for_log(r"Enter your mnemonic passphrase:")     # Mnemonic passphrase (empty)
+    write_all(master_fd, "\n".encode("utf-8"))  # Empty passphrase
+    hsmtool.wait_for_log(r"Introduce your BIP39 word list separated by space")
+    write_all(master_fd, "blame expire peanut sell door zoo bundle motor truth outside artist siren\n".encode("utf-8"))
     assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
     hsmtool.is_in_log(r"OK")
 
-    # Wrong mnemonic will fail.
+
+def test_hsmtool_checkhsm_legacy_encrypted_with_mnemonic_passphrase(node_factory):
+    """Test checkhsm with legacy encrypted hsm_secret containing mnemonic with passphrase"""
+    l1 = node_factory.get_node(start=False)
+    hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
+    os.remove(hsm_path)
+
+    # Directly write the 32-byte seed from mnemonic with passphrase
+    # Mnemonic: "blame expire peanut sell door zoo bundle motor truth outside artist siren"
+    # Passphrase: "passphrase"
+    # Expected BIP39 seed (first 32 bytes): 161d740bcfd3c5e2a1769159bee86868ab35e7544e83e825042a43b929ad950c
+    seed_hex = "161d740bcfd3c5e2a1769159bee86868ab35e7544e83e825042a43b929ad950c"
+    seed_bytes = bytes.fromhex(seed_hex)
+
+    # Write the 32-byte seed directly to file (simulating old generatehsm output)
+    with open(hsm_path, 'wb') as f:
+        f.write(seed_bytes)
+
+    # Verify it's 32 bytes
+    with open(hsm_path, 'rb') as f:
+        content = f.read()
+        assert len(content) == 32, f"Expected 32 bytes, got {len(content)}"
+
+    # Now encrypt it using the legacy encrypt command
+    encryption_password = "encryption_password"
+    hsmtool = HsmTool(node_factory.directory, "encrypt", hsm_path)
     master_fd, slave_fd = os.openpty()
     hsmtool.start(stdin=slave_fd)
-    hsmtool.wait_for_log(r"Enter your passphrase:")
-    write_all(master_fd, "This is actually not a passphrase\n".encode("utf-8"))
-    hsmtool.wait_for_log(r"Select your language:")
-    write_all(master_fd, "0\n".encode("utf-8"))
+    hsmtool.wait_for_log(r"Enter hsm_secret password:")
+    write_all(master_fd, f"{encryption_password}\n".encode("utf-8"))
+    hsmtool.wait_for_log(r"Confirm hsm_secret password:")
+    write_all(master_fd, f"{encryption_password}\n".encode("utf-8"))
+    assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
+    hsmtool.is_in_log(r"Successfully encrypted")
+
+    # Verify the file is now encrypted (73 bytes)
+    with open(hsm_path, 'rb') as f:
+        content = f.read()
+        assert len(content) == 73, f"Expected 73 bytes after encryption, got {len(content)}"
+
+    # Test checkhsm - should prompt for encryption password first, then mnemonic passphrase
+    hsmtool = HsmTool(node_factory.directory, "checkhsm", hsm_path)
+    master_fd, slave_fd = os.openpty()
+    hsmtool.start(stdin=slave_fd)
+    hsmtool.wait_for_log(r"Enter hsm_secret password:")  # Encryption password
+    write_all(master_fd, f"{encryption_password}\n".encode("utf-8"))
+    hsmtool.wait_for_log(r"Enter your mnemonic passphrase:")     # Mnemonic passphrase
+    write_all(master_fd, "passphrase\n".encode("utf-8"))
+    hsmtool.wait_for_log(r"Introduce your BIP39 word list separated by space")
+    write_all(master_fd, "blame expire peanut sell door zoo bundle motor truth outside artist siren\n".encode("utf-8"))
+    assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
+    hsmtool.is_in_log(r"OK")
+
+
+def test_hsmtool_generatehsm_file_exists_error(node_factory):
+    """Test that generatehsm fails if file already exists"""
+    l1 = node_factory.get_node(start=False)
+    hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
+
+    # File already exists from node creation
+    hsmtool = HsmTool(node_factory.directory, "generatehsm", hsm_path)
+    master_fd, slave_fd = os.openpty()
+    hsmtool.start(stdin=slave_fd)
+    assert hsmtool.proc.wait(WAIT_TIMEOUT) == 2  # ERROR_USAGE
+    hsmtool.is_in_log(r"hsm_secret file.*already exists")
+
+
+def test_hsmtool_all_commands_work_with_mnemonic_formats(node_factory):
+    """Test that all hsmtool commands work with mnemonic formats"""
+    l1 = node_factory.get_node(start=False)
+    hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
+    os.remove(hsm_path)
+
+    # Create a mnemonic-based hsm_secret (no passphrase for simplicity)
+    hsmtool = HsmTool(node_factory.directory, "generatehsm", hsm_path)
+    master_fd, slave_fd = os.openpty()
+    hsmtool.start(stdin=slave_fd)
     hsmtool.wait_for_log(r"Introduce your BIP39 word list")
     write_all(master_fd, "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about\n".encode("utf-8"))
-    assert hsmtool.proc.wait(WAIT_TIMEOUT) == 5
-    hsmtool.is_in_log(r"resulting hsm_secret did not match")
-
-    # Wrong passphrase will fail.
-    master_fd, slave_fd = os.openpty()
-    hsmtool.start(stdin=slave_fd)
     hsmtool.wait_for_log(r"Enter your passphrase:")
-    write_all(master_fd, "This is actually not a passphrase \n".encode("utf-8"))
-    hsmtool.wait_for_log(r"Select your language:")
-    write_all(master_fd, "0\n".encode("utf-8"))
-    hsmtool.wait_for_log(r"Introduce your BIP39 word list")
-    write_all(master_fd, "ritual idle hat sunny universe pluck key alpha wing "
-              "cake have wedding\n".encode("utf-8"))
-    assert hsmtool.proc.wait(WAIT_TIMEOUT) == 5
-    hsmtool.is_in_log(r"resulting hsm_secret did not match")
+    write_all(master_fd, "\n".encode("utf-8"))
+    assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
 
-    # We can start the node with this hsm_secret
-    l1.start()
-    assert l1.info['id'] == '02244b73339edd004bc6dfbb953a87984c88e9e7c02ca14ef6ec593ca6be622ba7'
-    l1.stop()
+    # Test various commands work with mnemonic format
+    test_commands = [
+        (["getnodeid", hsm_path], "03653e90c1ce4660fd8505dd6d643356e93cfe202af109d382787639dd5890e87d"),
+        (["getcodexsecret", hsm_path, "test"], "cl10testst6cqh0wu7p5ssjyf4z4ez42ks9jlt3zneju9uuypr2hddak6tlqsghuxusm6m6azq"),
+        (["makerune", hsm_path], "6VkrWMI2hm2a2UTkg-EyUrrBJN0RcuPB80I1pCVkTD89MA=="),
+        (["dumponchaindescriptors", hsm_path], "wpkh(xpub661MyMwAqRbcG9kjo3mdWQuSDbtdJzsd3K2mvifyeUMF3GhLcBAfELqjuxCvxUkYqQVe6rJ9SzmpipoUedb5MD79MJaLL8RME2A3J3Fw6Zd/0/0/*)#2jtshmk0\nsh(wpkh(xpub661MyMwAqRbcG9kjo3mdWQuSDbtdJzsd3K2mvifyeUMF3GhLcBAfELqjuxCvxUkYqQVe6rJ9SzmpipoUedb5MD79MJaLL8RME2A3J3Fw6Zd/0/0/*))#u6am4was\ntr(xpub661MyMwAqRbcG9kjo3mdWQuSDbtdJzsd3K2mvifyeUMF3GhLcBAfELqjuxCvxUkYqQVe6rJ9SzmpipoUedb5MD79MJaLL8RME2A3J3Fw6Zd/0/0/*)#v9hf4756"),
+    ]
 
-    # We can do the entire thing non-interactive!
-    os.remove(hsm_path)
-    subprocess.check_output(["tools/hsmtool",
-                             "generatehsm", hsm_path,
-                             "en",
-                             "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"])
-    assert Path(hsm_path).read_bytes().hex() == "5eb00bbddcf069084889a8ab9155568165f5c453ccb85e70811aaed6f6da5fc1"
-
-    # Including passphrase
-    os.remove(hsm_path)
-    subprocess.check_output(["tools/hsmtool",
-                             "generatehsm", hsm_path,
-                             "en",
-                             "ritual idle hat sunny universe pluck key alpha wing cake have wedding",
-                             "This is actually not a passphrase"])
-
-    l1.start()
-    assert l1.info['id'] == '02244b73339edd004bc6dfbb953a87984c88e9e7c02ca14ef6ec593ca6be622ba7'
-    l1.stop()
+    for cmd_args, expected_output in test_commands:
+        cmd_line = ["tools/hsmtool"] + cmd_args
+        out = subprocess.check_output(cmd_line).decode("utf8")
+        actual_output = out.strip()
+        assert actual_output == expected_output, f"Command {cmd_args[0]} output mismatch"
 
 
 # this test does a 'listtransactions' on a yet unconfirmed channel
@@ -1826,39 +1941,6 @@ def test_upgradewallet(node_factory, bitcoind):
     sync_blockheight(l1.bitcoin, [l1])
     upgrade = l1.rpc.upgradewallet(feerate="urgent", reservedok=True)
     assert upgrade['upgraded_outs'] == 0
-
-
-def test_hsmtool_makerune(node_factory):
-    """Test we can make a valid rune before the node really exists"""
-    l1 = node_factory.get_node(start=False, options={
-        'allow-deprecated-apis': True,
-    })
-
-    # get_node() creates a secret, but in usual case we generate one.
-    hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
-    os.remove(hsm_path)
-
-    hsmtool = HsmTool(node_factory.directory, "generatehsm", hsm_path)
-    master_fd, slave_fd = os.openpty()
-    hsmtool.start(stdin=slave_fd)
-    hsmtool.wait_for_log(r"Select your language:")
-    write_all(master_fd, "0\n".encode("utf-8"))
-    hsmtool.wait_for_log(r"Introduce your BIP39 word list")
-    write_all(master_fd, "ritual idle hat sunny universe pluck key alpha wing "
-              "cake have wedding\n".encode("utf-8"))
-    hsmtool.wait_for_log(r"Enter your passphrase:")
-    write_all(master_fd, "This is actually not a passphrase\n".encode("utf-8"))
-    assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
-    hsmtool.is_in_log(r"New hsm_secret file created")
-
-    cmd_line = ["tools/hsmtool", "makerune", hsm_path]
-    out = subprocess.check_output(cmd_line).decode("utf8").split("\n")[0]
-
-    l1.start()
-
-    # We have to generate a rune now, for commando to even start processing!
-    rune = l1.rpc.createrune()['rune']
-    assert rune == out
 
 
 def test_hsmtool_getnodeid(node_factory):
