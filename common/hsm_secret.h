@@ -41,21 +41,9 @@ enum hsm_secret_error {
 struct hsm_secret {
 	enum hsm_secret_type type;
 	u8 *secret_data;          /* Variable length: 32 bytes (legacy) or 64 bytes (mnemonic) */
-	struct secret secret;     /* Legacy 32-byte field for compatibility */
 	const char *mnemonic;           /* NULL if not derived from mnemonic */
 };
 
-/**
- * Get the secret bytes from an hsm_secret.
- * Returns secret_data if available, otherwise falls back to legacy secret.data.
- */
-const u8 *hsm_secret_bytes(const struct hsm_secret *hsm);
-
-/**
- * Get the secret size from an hsm_secret.
- * Returns tal_bytelen of secret_data if available, otherwise 32 bytes for legacy.
- */
-size_t hsm_secret_size(const struct hsm_secret *hsm);
 
 /**
  * Check if this HSM secret is mnemonic-based (64-byte seed).

@@ -30,6 +30,7 @@
 #include <sys/stat.h>
 #include <wally_bip32.h>
 #include <wally_bip39.h>
+#include <wally_core.h>
 #include <wire/wire_io.h>
 
 /*~ Each subdaemon is started with stdin connected to lightningd (for status
@@ -39,7 +40,7 @@
 #define REQ_FD 3
 
 /* Temporary storage for the secret until we pass it to `hsmd_init` */
-struct hsm_secret hsm_secret;
+struct hsm_secret *hsm_secret;
 
 /*~ We keep track of clients, but there's not much to keep. */
 struct client {
@@ -356,9 +357,6 @@ static void create_hsm(int fd, const char *passphrase)
 			                        "Failed to derive seed from mnemonic");
 	}
 
-	/* Use first 32 bytes for hsm_secret */
-	memcpy(&hsm_secret.secret, bip32_seed, sizeof(hsm_secret.secret));
-
 	/* Write the hsm_secret data to file */
 	if (!write_all(fd, hsm_secret_data, hsm_secret_len)) {
 		unlink_noerr("hsm_secret");
@@ -450,10 +448,14 @@ static void load_hsm(const char *passphrase)
 			                        "Failed to load hsm_secret: %s", hsm_secret_error_str(err));
 	}
 
-	/* Copy only the secret field to our global hsm_secret */
-	hsm_secret.secret = hsms->secret;
-	hsm_secret.type = hsms->type;
-	hsm_secret.mnemonic = hsms->mnemonic;
+	/* Allocate and populate our global hsm_secret */
+	hsm_secret = tal(NULL, struct hsm_secret);
+	hsm_secret->secret_data = tal_steal(hsm_secret, hsms->secret_data);
+	hsm_secret->type = hsms->type;
+	hsm_secret->mnemonic = tal_steal(hsm_secret, hsms->mnemonic);
+
+	/*~ Don't swap this secret data to disk for security. */
+	sodium_mlock(hsm_secret->secret_data, tal_bytelen(hsm_secret->secret_data));
 }
 
 /*~ We have a pre-init call in developer mode, to set dev flags */
@@ -531,9 +533,6 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 	if (tlvs->hsm_passphrase)
 		hsm_passphrase = tlvs->hsm_passphrase;
 
-	/*~ Don't swap this. */
-	sodium_mlock(hsm_secret.secret.data, sizeof(hsm_secret.secret.data));
-
 	if (!developer) {
 		assert(!dev_force_privkey);
 		assert(!dev_force_bip32_seed);
@@ -552,8 +551,8 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 
 	/* This was tallocated off NULL, and memleak complains if we don't free it */
 	tal_free(tlvs);
-	return req_reply(conn, c, hsmd_init(hsm_secret_bytes(&hsm_secret),
-					    hsm_secret_size(&hsm_secret),
+	return req_reply(conn, c, hsmd_init(hsm_secret->secret_data,
+					    tal_bytelen(hsm_secret->secret_data),
 					    hsmd_mutual_version,
 					    bip32_key_version));
 }
@@ -635,10 +634,10 @@ static struct io_plan *handle_memleak(struct io_conn *conn,
 	memleak_scan_region(memtable, dbid_zero_clients, sizeof(dbid_zero_clients));
 	memleak_scan_uintmap(memtable, &clients);
 	memleak_scan_obj(memtable, status_conn);
+	memleak_scan_obj(memtable, hsm_secret);
 
 	memleak_ptr(memtable, dev_force_privkey);
 	memleak_ptr(memtable, dev_force_bip32_seed);
-
 	found_leak = dump_memleak(memtable, memleak_status_broken, NULL);
 	reply = towire_hsmd_dev_memleak_reply(NULL, found_leak);
 	return req_reply(conn, c, take(reply));
@@ -696,7 +695,7 @@ static struct io_plan *handle_derive_bip86_key(struct io_conn *conn,
 		return bad_req(conn, c, msg_in);
 
 	/* Check if we have a mnemonic-based HSM secret */
-	if (!use_bip86_derivation(hsm_secret_size(&hsm_secret))) {
+	if (!use_bip86_derivation(tal_bytelen(hsm_secret->secret_data))) {
 		return bad_req_fmt(conn, c, msg_in,
 				   "BIP86 derivation requires mnemonic-based HSM secret");
 	}
@@ -724,7 +723,7 @@ static struct io_plan *handle_check_bip86_pubkey(struct io_conn *conn,
 		return bad_req(conn, c, msg_in);
 
 	/* Check if we have a mnemonic-based HSM secret */
-	if (!use_bip86_derivation(hsm_secret_size(&hsm_secret))) {
+	if (!use_bip86_derivation(tal_bytelen(hsm_secret->secret_data))) {
 		return bad_req_fmt(conn, c, msg_in,
 				   "BIP86 derivation requires mnemonic-based HSM secret");
 	}
@@ -774,6 +773,7 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 		if (developer)
 			return handle_memleak(conn, c, c->msg_in);
 		/* fall thru */
+
 	case WIRE_HSMD_DERIVE_BIP86_KEY:
 		return handle_derive_bip86_key(conn, c, c->msg_in);
 	case WIRE_HSMD_CHECK_BIP86_PUBKEY:

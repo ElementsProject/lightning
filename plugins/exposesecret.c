@@ -90,8 +90,8 @@ static struct command_result *json_exposesecret(struct command *cmd,
 	/* Before we expose it, check it's correct! */
 	hkdf_sha256(&node_privkey, sizeof(node_privkey),
 		    &salt, sizeof(salt),
-		    &hsms->secret,
-		    sizeof(hsms->secret),
+		    hsms->secret_data,
+		    32,
 		    "nodeid", 6);
 
 	/* Should not happen! */
@@ -125,7 +125,7 @@ static struct command_result *json_exposesecret(struct command *cmd,
 	}
 
 	/* This also cannot fail! */
-	const char *encode_err = codex32_secret_encode(tmpctx, "cl", id, 0, hsms->secret.data, 32, &bip93);
+	const char *encode_err = codex32_secret_encode(tmpctx, "cl", id, 0, hsms->secret_data, 32, &bip93);
 	if (encode_err)
 		return command_fail(cmd, LIGHTNINGD, "Unexpected failure encoding hsm_secret: %s", encode_err);
 
