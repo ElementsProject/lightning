@@ -140,7 +140,6 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 
 	case WIRE_HSMD_DERIVE_BIP86_KEY:
 	case WIRE_HSMD_CHECK_BIP86_PUBKEY:
-		return (client->capabilities & HSM_PERM_DERIVE_BIP86_KEY) != 0;
 	case WIRE_HSMD_INIT:
 	case WIRE_HSMD_DEV_PREINIT:
 	case WIRE_HSMD_NEW_CHANNEL:
