@@ -47,7 +47,16 @@ ALL_C_SOURCES += $(BITCOIN_SRC)
 check-makefile: check-bitcoin-makefile
 
 check-bitcoin-makefile:
-	@if [ "`echo bitcoin/*.h`" != "$(BITCOIN_HEADERS)" ]; then echo BITCOIN_HEADERS incorrect; exit 1; fi
+	@MISSING="$(filter-out $(BITCOIN_HEADERS), $(wildcard bitcoin/*.h))"; \
+	EXTRA="$(filter-out $(wildcard bitcoin/*.h), $(BITCOIN_HEADERS))"; \
+	if [ -n "$$MISSING" ]; then \
+		echo "BITCOIN_HEADERS missing: $$MISSING"; \
+		exit 1; \
+	fi; \
+	if [ -n "$$EXTRA" ]; then \
+		echo "BITCOIN_HEADERS has non-existent: $$EXTRA"; \
+		exit 1; \
+	fi
 
 check-whitespace: check-whitespace/bitcoin/Makefile
 
