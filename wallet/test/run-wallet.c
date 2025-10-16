@@ -317,9 +317,6 @@ bool fromwire_hsmd_client_hsmfd_reply(const void *p UNNEEDED)
 /* Generated stub for fromwire_hsmd_cupdate_sig_reply */
 bool fromwire_hsmd_cupdate_sig_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **cu UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_cupdate_sig_reply called!\n"); abort(); }
-/* Generated stub for fromwire_hsmd_derive_bip86_key_reply */
-bool fromwire_hsmd_derive_bip86_key_reply(const void *p UNNEEDED, struct ext_key *bip86_base UNNEEDED)
-{ fprintf(stderr, "fromwire_hsmd_derive_bip86_key_reply called!\n"); abort(); }
 /* Generated stub for fromwire_hsmd_derive_secret_reply */
 bool fromwire_hsmd_derive_secret_reply(const void *p UNNEEDED, struct secret *secret UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_derive_secret_reply called!\n"); abort(); }
@@ -705,9 +702,6 @@ u8 *towire_hsmd_client_hsmfd(const tal_t *ctx UNNEEDED, const struct node_id *id
 /* Generated stub for towire_hsmd_cupdate_sig_req */
 u8 *towire_hsmd_cupdate_sig_req(const tal_t *ctx UNNEEDED, const u8 *cu UNNEEDED)
 { fprintf(stderr, "towire_hsmd_cupdate_sig_req called!\n"); abort(); }
-/* Generated stub for towire_hsmd_derive_bip86_key */
-u8 *towire_hsmd_derive_bip86_key(const tal_t *ctx UNNEEDED, u32 index UNNEEDED, bool is_change UNNEEDED)
-{ fprintf(stderr, "towire_hsmd_derive_bip86_key called!\n"); abort(); }
 /* Generated stub for towire_hsmd_derive_secret */
 u8 *towire_hsmd_derive_secret(const tal_t *ctx UNNEEDED, const u8 *info UNNEEDED)
 { fprintf(stderr, "towire_hsmd_derive_secret called!\n"); abort(); }
@@ -795,6 +789,14 @@ struct txowatch *watch_txo(const tal_t *ctx UNNEEDED,
 u8 *towire_hsmd_get_channel_basepoints(const tal_t *ctx UNNEEDED, const struct node_id *peerid UNNEEDED, u64 dbid UNNEEDED)
 {
 	return NULL;
+}
+u8 *towire_hsmd_derive_bip86_key(const tal_t *ctx UNNEEDED, u32 index UNNEEDED, bool is_change UNNEEDED)
+{
+	return NULL;
+}
+bool fromwire_hsmd_derive_bip86_key_reply(const void *p UNNEEDED, struct ext_key *bip86_base UNNEEDED)
+{
+	return true;
 }
 bool wire_sync_write(int fd UNNEEDED, const void *msg TAKES UNNEEDED)
 {

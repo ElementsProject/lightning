@@ -46,6 +46,8 @@ const char *utxotype_to_str(enum utxotype utxotype)
 		return "p2wsh_from_close";
 	case UTXO_P2TR:
 		return "p2tr";
+	case UTXO_P2TR_BIP86:
+		return "p2tr_bip86";
 	}
 	abort();
 }

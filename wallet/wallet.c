@@ -169,6 +169,9 @@ static void our_addresses_add_for_index(struct wallet *w, u32 i)
 				  tal_bytelen(scriptpubkey),
 				  ADDR_P2TR);
 		return;
+	case ADDR_P2TR_MNEMONIC:
+		/* BIP86 addresses not yet implemented */
+		return;
 	}
 	abort();
 }
@@ -3186,6 +3189,9 @@ static void got_utxo(struct wallet *w,
 		goto type_ok;
 	case ADDR_P2TR:
 		utxo->utxotype = UTXO_P2TR;
+		goto type_ok;
+	case ADDR_P2TR_MNEMONIC:
+		utxo->utxotype = UTXO_P2TR_BIP86;
 		goto type_ok;
 	case ADDR_ALL:
 		break;
