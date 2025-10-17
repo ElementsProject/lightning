@@ -2,24 +2,16 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/bitmap/bitmap.h>
 #include <ccan/json_escape/json_escape.h>
-#include <ccan/rune/rune.h>
 #include <ccan/tal/str/str.h>
 #include <common/bolt12.h>
-#include <common/configdir.h>
 #include <common/json_command.h>
-#include <common/json_param.h>
-#include <common/json_stream.h>
-#include <common/memleak.h>
 #include <common/overflows.h>
-#include <common/timeout.h>
-#include <db/exec.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <inttypes.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/runes.h>
-#include <wallet/wallet.h>
 
 /* "640k should be enough for anybody!" */
 #define MAX_BLACKLIST_NUM 100000000

@@ -4,13 +4,9 @@
 #include <ccan/err/err.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
-#include <ccan/tal/tal.h>
-#include <ccan/time/time.h>
 #include <common/json_stream.h>
-#include <common/memleak.h>
 #include <common/pseudorand.h>
 #include <common/trace.h>
-#include <fcntl.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <unistd.h>

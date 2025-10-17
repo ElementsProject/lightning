@@ -1,25 +1,15 @@
 #include "config.h"
 #include <arpa/inet.h>
-#include <bitcoin/preimage.h>
-#include <bitcoin/privkey.h>
 #include <bitcoin/psbt.h>
 #include <bitcoin/signature.h>
-#include <bitcoin/tx.h>
 #include <ccan/io/io.h>
   /* To reach into io_plan: not a public header! */
   #include <ccan/io/backend.h>
 #include <ccan/json_escape/json_escape.h>
 #include <ccan/json_out/json_out.h>
 #include <ccan/str/hex/hex.h>
-#include <ccan/strmap/strmap.h>
-#include <ccan/tal/str/str.h>
-#include <common/channel_id.h>
-#include <common/configdir.h>
 #include <common/json_filter.h>
-#include <common/json_parse.h>
 #include <common/json_stream.h>
-#include <common/node_id.h>
-#include <common/wireaddr.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <wire/peer_wire.h>

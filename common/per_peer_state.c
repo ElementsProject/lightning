@@ -1,10 +1,8 @@
 #include "config.h"
 #include <assert.h>
 #include <ccan/fdpass/fdpass.h>
-#include <common/gossip_constants.h>
 #include <common/per_peer_state.h>
 #include <unistd.h>
-#include <wire/wire.h>
 
 bool dev_fast_gossip = false;
 

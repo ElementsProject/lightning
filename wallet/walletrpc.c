@@ -1,30 +1,19 @@
 #include "config.h"
-#include <bitcoin/base58.h>
 #include <bitcoin/script.h>
-#include <ccan/array_size/array_size.h>
-#include <ccan/cast/cast.h>
 #include <common/addr.h>
 #include <common/base64.h>
 #include <common/bech32.h>
-#include <common/configdir.h>
 #include <common/json_command.h>
-#include <common/json_param.h>
-#include <common/key_derive.h>
 #include <common/psbt_keypath.h>
 #include <common/psbt_open.h>
 #include <db/exec.h>
 #include <errno.h>
 #include <hsmd/hsmd_wiregen.h>
-#include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/hsm_control.h>
-#include <lightningd/jsonrpc.h>
-#include <lightningd/lightningd.h>
 #include <lightningd/notification.h>
-#include <lightningd/peer_control.h>
 #include <wallet/txfilter.h>
 #include <wallet/walletrpc.h>
-#include <wally_psbt.h>
 #include <wire/wire_sync.h>
 
 /* May return NULL if encoding error occurs. */

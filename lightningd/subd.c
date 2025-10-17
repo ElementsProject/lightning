@@ -18,7 +18,6 @@
 #include <lightningd/log_status.h>
 #include <lightningd/peer_fd.h>
 #include <lightningd/subd.h>
-#include <sys/socket.h>
 #include <sys/wait.h>
 #include <wire/wire_io.h>
 

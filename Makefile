@@ -254,8 +254,8 @@ man8dir = $(mandir)/man8
 ifeq ("$(OS)-$(ARCH)", "Darwin-arm64")
 CPATH := /opt/homebrew/include
 LIBRARY_PATH := /opt/homebrew/lib
-LDFLAGS := -L/opt/homebrew/opt/sqlite/lib
-CPPFLAGS := -I/opt/homebrew/opt/sqlite/include
+LDFLAGS := -L/opt/homebrew/opt/sqlite/lib -L/opt/homebrew/opt/openssl@3/lib
+CPPFLAGS := -I/opt/homebrew/opt/sqlite/include -I/opt/homebrew/opt/openssl@3/include
 PKG_CONFIG_PATH=/opt/homebrew/opt/sqlite/lib/pkgconfig
 else
 CPATH := /usr/local/include

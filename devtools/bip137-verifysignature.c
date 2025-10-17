@@ -1,8 +1,5 @@
 #include "config.h"
-#include <assert.h>
-#include <bitcoin/base58.h>
 #include <bitcoin/pubkey.h>
-#include <bitcoin/shadouble.h>
 #include <bitcoin/varint.h>
 #include <ccan/err/err.h>
 #include <common/addr.h>

@@ -11,7 +11,6 @@
 #include <lightningd/lightningd.h>
 #include <unistd.h>
 #include <wallet/account_migration.h>
-#include <wallet/wallet.h>
 
 /* These functions and definitions copied almost exactly from old
  * plugins/bkpr/{recorder.c,chain_event.h,channel_event.h}

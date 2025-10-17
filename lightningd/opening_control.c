@@ -1,22 +1,17 @@
 #include "config.h"
-#include <bitcoin/feerate.h>
 #include <bitcoin/psbt.h>
 #include <ccan/cast/cast.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/addr.h>
 #include <common/blockheight_states.h>
-#include <common/configdir.h>
 #include <common/fee_states.h>
 #include <common/json_channel_type.h>
 #include <common/json_command.h>
-#include <common/json_param.h>
 #include <common/memleak.h>
-#include <common/scb_wiregen.h>
 #include <connectd/connectd_wiregen.h>
 #include <errno.h>
 #include <hsmd/permissions.h>
-#include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/channel_control.h>
 #include <lightningd/connect_control.h>
@@ -29,6 +24,7 @@
 #include <lightningd/plugin_hook.h>
 #include <lightningd/subd.h>
 #include <openingd/openingd_wiregen.h>
+#include <unistd.h>
 #include <wally_psbt.h>
 
 void json_add_uncommitted_channel(struct command *cmd,

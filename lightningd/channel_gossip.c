@@ -1,7 +1,6 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
-#include <ccan/mem/mem.h>
 #include <common/memleak.h>
 #include <common/timeout.h>
 #include <common/wire_error.h>
@@ -13,7 +12,6 @@
 #include <lightningd/gossip_generation.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/lightningd.h>
-#include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 
 enum channel_gossip_state {

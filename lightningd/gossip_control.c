@@ -1,29 +1,17 @@
 #include "config.h"
 #include <ccan/err/err.h>
 #include <ccan/io/io.h>
-#include <ccan/mem/mem.h>
 #include <ccan/ptrint/ptrint.h>
-#include <channeld/channeld_wiregen.h>
-#include <common/daemon.h>
 #include <common/json_command.h>
-#include <common/json_param.h>
-#include <common/json_stream.h>
-#include <common/node_id.h>
-#include <common/timeout.h>
 #include <connectd/connectd_wiregen.h>
-#include <gossipd/gossipd_wiregen.h>
-#include <hsmd/hsmd_wiregen.h>
 #include <hsmd/permissions.h>
-#include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
-#include <lightningd/channel_control.h>
 #include <lightningd/channel_gossip.h>
 #include <lightningd/gossip_control.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
-#include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 
 static void got_txout(struct bitcoind *bitcoind,

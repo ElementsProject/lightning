@@ -1,13 +1,10 @@
 #include "config.h"
 #include <bitcoin/script.h>
 #include <ccan/cast/cast.h>
-#include <ccan/fdpass/fdpass.h>
 #include <ccan/tal/str/str.h>
 #include <closingd/closingd_wiregen.h>
 #include <common/close_tx.h>
 #include <common/closing_fee.h>
-#include <common/derive_basepoints.h>
-#include <common/htlc.h>
 #include <common/memleak.h>
 #include <common/peer_billboard.h>
 #include <common/peer_failed.h>
@@ -17,14 +14,11 @@
 #include <common/status.h>
 #include <common/subdaemon.h>
 #include <common/utils.h>
-#include <common/version.h>
-#include <common/wire_error.h>
 #include <errno.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <wally_bip32.h>
 #include <wire/peer_wire.h>
 #include <wire/wire_sync.h>
 

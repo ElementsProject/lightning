@@ -1,11 +1,7 @@
 #include "config.h"
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
-#include <ccan/build_assert/build_assert.h>
-#include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
-#include <common/bolt11.h>
-#include <common/key_derive.h>
 #include <common/version.h>
 #include <db/bindings.h>
 #include <db/common.h>
@@ -16,12 +12,9 @@
 #include <lightningd/channel.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/plugin_hook.h>
-#include <sodium/randombytes.h>
-#include <stddef.h>
 #include <wallet/account_migration.h>
 #include <wallet/db.h>
 #include <wallet/psbt_fixup.h>
-#include <wire/peer_wire.h>
 #include <wire/wire_sync.h>
 
 struct migration {
