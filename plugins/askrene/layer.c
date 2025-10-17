@@ -21,6 +21,7 @@ enum dstore_layer_type {
 	DSTORE_CHANNEL_CONSTRAINT = 3,
 	DSTORE_CHANNEL_BIAS = 4,
 	DSTORE_DISABLED_NODE = 5,
+	DSTORE_CHANNEL_BIAS_V2 = 6,
 };
 
 /* A channels which doesn't (necessarily) exist in the gossmap. */
@@ -58,6 +59,8 @@ struct bias {
 	struct short_channel_id_dir scidd;
 	const char *description;
 	s8 bias;
+	u64 timestamp;
+	u64 expires;
 };
 
 static const struct short_channel_id_dir *
@@ -289,7 +292,9 @@ static const struct bias *set_bias(struct layer *layer,
 				   const struct short_channel_id_dir *scidd,
 				   const char *description TAKES,
 				   s8 bias_factor,
-				   bool relative)
+				   bool relative,
+				   u64 timestamp,
+				   u64 expires)
 {
 	struct bias *bias;
 
@@ -307,6 +312,8 @@ static const struct bias *set_bias(struct layer *layer,
 	bias_new = MAX(-100, bias_new);
 	bias->bias = bias_new;
 	bias->description = tal_strdup_or_null(bias, description);
+	bias->timestamp = timestamp;
+	bias->expires = expires;
 
 	/* Don't bother keeping around zero biases */
 	if (bias->bias == 0) {
@@ -563,10 +570,12 @@ static void load_channel_constraint(struct plugin *plugin,
 
 static void towire_save_channel_bias(u8 **data, const struct bias *bias)
 {
-	towire_u16(data, DSTORE_CHANNEL_BIAS);
+	towire_u16(data, DSTORE_CHANNEL_BIAS_V2);
 	towire_short_channel_id_dir(data, &bias->scidd);
 	towire_s8(data, bias->bias);
 	towire_wirestring(data, bias->description);
+	towire_u64(data, bias->timestamp);
+	towire_u64(data, bias->expires);
 }
 
 static void save_channel_bias(struct layer *layer, const struct bias *bias)
@@ -595,7 +604,30 @@ static void load_channel_bias(struct plugin *plugin,
 	description = fromwire_wirestring(tmpctx, cursor, len);
 
 	if (*cursor)
-		set_bias(layer, &scidd, take(description), bias_factor, false);
+		set_bias(layer, &scidd, take(description), bias_factor, false,
+			 0, UINT64_MAX);
+}
+
+static void load_channel_bias_v2(struct plugin *plugin,
+                                 struct layer *layer,
+                                 const u8 **cursor,
+                                 size_t *len)
+{
+	struct short_channel_id_dir scidd;
+	char *description;
+	s8 bias_factor;
+	u64 timestamp;
+	u64 expires;
+
+	fromwire_short_channel_id_dir(cursor, len, &scidd);
+	bias_factor = fromwire_s8(cursor, len);
+	description = fromwire_wirestring(tmpctx, cursor, len);
+	timestamp = fromwire_u64(cursor, len);
+	expires = fromwire_u64(cursor, len);
+
+	if (*cursor)
+		set_bias(layer, &scidd, take(description), bias_factor, false,
+			 timestamp, expires);
 }
 
 static void towire_save_disabled_node(u8 **data, const struct node_id *node)
@@ -712,6 +744,9 @@ static void populate_layer(struct askrene *askrene,
 		case DSTORE_CHANNEL_BIAS:
 			load_channel_bias(askrene->plugin, layer, &data, &len);
 			continue;
+		case DSTORE_CHANNEL_BIAS_V2:
+			load_channel_bias_v2(askrene->plugin, layer, &data, &len);
+			continue;
 		case DSTORE_DISABLED_NODE:
 			load_disabled_node(askrene->plugin, layer, &data, &len);
 			continue;
@@ -826,11 +861,14 @@ const struct bias *layer_set_bias(struct layer *layer,
 				  const struct short_channel_id_dir *scidd,
 				  const char *description TAKES,
 				  s8 bias_factor,
-				  bool relative)
+				  bool relative,
+				  u64 timestamp,
+				  u64 expires)
 {
 	const struct bias *bias;
 
-	bias = set_bias(layer, scidd, description, bias_factor, relative);
+	bias = set_bias(layer, scidd, description, bias_factor, relative,
+			timestamp, expires);
 	save_channel_bias(layer, bias);
 	return bias;
 }
@@ -1065,6 +1103,9 @@ void json_add_bias(struct json_stream *js,
 	if (b->description)
 		json_add_string(js, "description", b->description);
 	json_add_s64(js, "bias", b->bias);
+	json_add_u64(js, "timestamp", b->timestamp);
+	if (b->expires < UINT64_MAX)
+		json_add_u64(js, "expires", b->expires);
 	json_object_end(js);
 }
 

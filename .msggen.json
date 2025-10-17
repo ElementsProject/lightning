@@ -593,12 +593,15 @@
         "Askrene-bias-channelBiases": {
             "AskRene-Bias-Channel.biases[].bias": 3,
             "AskRene-Bias-Channel.biases[].description": 4,
+            "AskRene-Bias-Channel.biases[].expires": 6,
             "AskRene-Bias-Channel.biases[].layer": 1,
-            "AskRene-Bias-Channel.biases[].short_channel_id_dir": 2
+            "AskRene-Bias-Channel.biases[].short_channel_id_dir": 2,
+            "AskRene-Bias-Channel.biases[].timestamp": 5
         },
         "Askrene-bias-channelRequest": {
             "AskRene-Bias-Channel.bias": 3,
             "AskRene-Bias-Channel.description": 4,
+            "AskRene-Bias-Channel.expires": 6,
             "AskRene-Bias-Channel.layer": 1,
             "AskRene-Bias-Channel.relative": 5,
             "AskRene-Bias-Channel.short_channel_id_dir": 2
@@ -631,7 +634,9 @@
         "Askrene-create-layerLayersBiases": {
             "AskRene-Create-Layer.layers[].biases[].bias": 2,
             "AskRene-Create-Layer.layers[].biases[].description": 3,
-            "AskRene-Create-Layer.layers[].biases[].short_channel_id_dir": 1
+            "AskRene-Create-Layer.layers[].biases[].expires": 5,
+            "AskRene-Create-Layer.layers[].biases[].short_channel_id_dir": 1,
+            "AskRene-Create-Layer.layers[].biases[].timestamp": 4
         },
         "Askrene-create-layerLayersChannelUpdates": {
             "AskRene-Create-Layer.layers[].channel_updates[].delay": 5,
@@ -704,7 +709,9 @@
         "Askrene-listlayersLayersBiases": {
             "AskRene-ListLayers.layers[].biases[].bias": 2,
             "AskRene-ListLayers.layers[].biases[].description": 3,
-            "AskRene-ListLayers.layers[].biases[].short_channel_id_dir": 1
+            "AskRene-ListLayers.layers[].biases[].expires": 5,
+            "AskRene-ListLayers.layers[].biases[].short_channel_id_dir": 1,
+            "AskRene-ListLayers.layers[].biases[].timestamp": 4
         },
         "Askrene-listlayersLayersChannelUpdates": {
             "AskRene-ListLayers.layers[].channel_updates[].cltv_expiry_delta": 7,
@@ -3976,6 +3983,10 @@
             "added": "v24.11",
             "deprecated": null
         },
+        "AskRene-Bias-Channel.biases[].expires": {
+            "added": "v25.12",
+            "deprecated": null
+        },
         "AskRene-Bias-Channel.biases[].layer": {
             "added": "v24.11",
             "deprecated": null
@@ -3984,8 +3995,16 @@
             "added": "v24.11",
             "deprecated": null
         },
+        "AskRene-Bias-Channel.biases[].timestamp": {
+            "added": "v25.12",
+            "deprecated": null
+        },
         "AskRene-Bias-Channel.description": {
             "added": "v24.11",
+            "deprecated": null
+        },
+        "AskRene-Bias-Channel.expires": {
+            "added": "v25.12",
             "deprecated": null
         },
         "AskRene-Bias-Channel.layer": {
@@ -4068,8 +4087,16 @@
             "added": "v24.11",
             "deprecated": null
         },
+        "AskRene-Create-Layer.layers[].biases[].expires": {
+            "added": "v25.12",
+            "deprecated": null
+        },
         "AskRene-Create-Layer.layers[].biases[].short_channel_id_dir": {
             "added": "v24.11",
+            "deprecated": null
+        },
+        "AskRene-Create-Layer.layers[].biases[].timestamp": {
+            "added": "v25.12",
             "deprecated": null
         },
         "AskRene-Create-Layer.layers[].channel_updates[]": {
@@ -4276,8 +4303,16 @@
             "added": "v24.11",
             "deprecated": null
         },
+        "AskRene-ListLayers.layers[].biases[].expires": {
+            "added": "v25.12",
+            "deprecated": null
+        },
         "AskRene-ListLayers.layers[].biases[].short_channel_id_dir": {
             "added": "v24.11",
+            "deprecated": null
+        },
+        "AskRene-ListLayers.layers[].biases[].timestamp": {
+            "added": "v25.12",
             "deprecated": null
         },
         "AskRene-ListLayers.layers[].channel_updates[]": {

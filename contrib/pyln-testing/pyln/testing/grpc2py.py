@@ -2986,7 +2986,9 @@ def askrene_listlayers_layers_biases2py(m):
     return remove_default({
         "bias": m.bias,  # PrimitiveField in generate_composite
         "description": m.description,  # PrimitiveField in generate_composite
+        "expires": m.expires,  # PrimitiveField in generate_composite
         "short_channel_id_dir": m.short_channel_id_dir,  # PrimitiveField in generate_composite
+        "timestamp": m.timestamp,  # PrimitiveField in generate_composite
     })
 
 
@@ -3043,7 +3045,9 @@ def askrene_create_layer_layers_biases2py(m):
     return remove_default({
         "bias": m.bias,  # PrimitiveField in generate_composite
         "description": m.description,  # PrimitiveField in generate_composite
+        "expires": m.expires,  # PrimitiveField in generate_composite
         "short_channel_id_dir": m.short_channel_id_dir,  # PrimitiveField in generate_composite
+        "timestamp": m.timestamp,  # PrimitiveField in generate_composite
     })
 
 
@@ -3171,8 +3175,10 @@ def askrene_bias_channel_biases2py(m):
     return remove_default({
         "bias": m.bias,  # PrimitiveField in generate_composite
         "description": m.description,  # PrimitiveField in generate_composite
+        "expires": m.expires,  # PrimitiveField in generate_composite
         "layer": m.layer,  # PrimitiveField in generate_composite
         "short_channel_id_dir": m.short_channel_id_dir,  # PrimitiveField in generate_composite
+        "timestamp": m.timestamp,  # PrimitiveField in generate_composite
     })
 
 

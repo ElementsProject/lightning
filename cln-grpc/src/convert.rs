@@ -4025,7 +4025,9 @@ impl From<responses::AskrenelistlayersLayersBiases> for pb::AskrenelistlayersLay
         Self {
             bias: c.bias, // Rule #2 for type integer
             description: c.description, // Rule #2 for type string?
+            expires: c.expires, // Rule #2 for type u64?
             short_channel_id_dir: c.short_channel_id_dir.to_string(), // Rule #2 for type short_channel_id_dir
+            timestamp: c.timestamp, // Rule #2 for type u64?
         }
     }
 }
@@ -4107,7 +4109,9 @@ impl From<responses::AskrenecreatelayerLayersBiases> for pb::AskrenecreatelayerL
         Self {
             bias: c.bias, // Rule #2 for type integer
             description: c.description, // Rule #2 for type string?
+            expires: c.expires, // Rule #2 for type u64?
             short_channel_id_dir: c.short_channel_id_dir.to_string(), // Rule #2 for type short_channel_id_dir
+            timestamp: c.timestamp, // Rule #2 for type u64?
         }
     }
 }
@@ -4296,8 +4300,10 @@ impl From<responses::AskrenebiaschannelBiases> for pb::AskrenebiaschannelBiases 
         Self {
             bias: c.bias, // Rule #2 for type integer
             description: c.description, // Rule #2 for type string?
+            expires: c.expires, // Rule #2 for type u64?
             layer: c.layer, // Rule #2 for type string
             short_channel_id_dir: c.short_channel_id_dir.to_string(), // Rule #2 for type short_channel_id_dir
+            timestamp: c.timestamp, // Rule #2 for type u64?
         }
     }
 }
@@ -6061,6 +6067,7 @@ impl From<requests::AskrenebiaschannelRequest> for pb::AskrenebiaschannelRequest
         Self {
             bias: c.bias, // Rule #2 for type integer
             description: c.description, // Rule #2 for type string?
+            expires: c.expires, // Rule #2 for type integer?
             layer: c.layer, // Rule #2 for type string
             relative: c.relative, // Rule #2 for type boolean?
             short_channel_id_dir: c.short_channel_id_dir.to_string(), // Rule #2 for type short_channel_id_dir
@@ -7748,6 +7755,7 @@ impl From<pb::AskrenebiaschannelRequest> for requests::AskrenebiaschannelRequest
         Self {
             bias: c.bias, // Rule #1 for type integer
             description: c.description, // Rule #1 for type string?
+            expires: c.expires, // Rule #1 for type integer?
             layer: c.layer, // Rule #1 for type string
             relative: c.relative, // Rule #1 for type boolean?
             short_channel_id_dir: cln_rpc::primitives::ShortChannelIdDir::from_str(&c.short_channel_id_dir).unwrap(), // Rule #1 for type short_channel_id_dir

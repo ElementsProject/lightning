@@ -1085,19 +1085,33 @@ static struct command_result *json_askrene_bias_channel(struct command *cmd,
 	s8 *bias;
 	const struct bias *b;
 	bool *relative;
+	u64 *expires;
+	u64 timestamp;
 
 	if (!param(cmd, buffer, params,
 		   p_req("layer", param_known_layer, &layer),
 		   p_req("short_channel_id_dir", param_short_channel_id_dir, &scidd),
 		   p_req("bias", param_s8_hundred, &bias),
 		   p_opt("description", param_string, &description),
+		   p_opt_def("expires", param_u64, &expires, UINT64_MAX),
 		   p_opt_def("relative", param_bool, &relative, false),
 		   NULL))
 		return command_param_failed();
 	plugin_log(cmd->plugin, LOG_TRACE, "%s called: %.*s", __func__,
 		   json_tok_full_len(params), json_tok_full(buffer, params));
 
-	b = layer_set_bias(layer, scidd, description, *bias, *relative);
+	timestamp = time_now().ts.tv_sec;
+	/* "expires" the option is a relative time, while "expires" the variable
+	 * is an absolute time. */
+	if (*expires < UINT64_MAX) {
+		/* We enforce a cap here to avoid overflow, UINT32_MAX seconds
+                 * is 136 years which is a long time. */
+		if (*expires > UINT32_MAX)
+			*expires = UINT32_MAX;
+		*expires += timestamp;
+	}
+	b = layer_set_bias(layer, scidd, description, *bias, *relative,
+			   timestamp, *expires);
 	response = jsonrpc_stream_success(cmd);
 	json_array_start(response, "biases");
 	if (b)
