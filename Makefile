@@ -32,6 +32,15 @@ BOLTVERSION := $(DEFAULT_BOLTVERSION)
 
 -include config.vars
 
+# Use Homebrew LLVM toolchain for fuzzing support on macOS
+ifeq ($(OS),Darwin)
+export PATH := /opt/homebrew/opt/llvm/bin:$(PATH)
+export DYLD_LIBRARY_PATH := /opt/homebrew/opt/llvm/lib:$(DYLD_LIBRARY_PATH)
+endif
+
+# Define EXTERNAL_LDLIBS for linking external libraries
+EXTERNAL_LDLIBS=$(SODIUM_LDLIBS) $(SQLITE3_LDLIBS) $(POSTGRES_LDLIBS)
+
 SORT=LC_ALL=C sort
 
 
@@ -254,8 +263,8 @@ man8dir = $(mandir)/man8
 ifeq ("$(OS)-$(ARCH)", "Darwin-arm64")
 CPATH := /opt/homebrew/include
 LIBRARY_PATH := /opt/homebrew/lib
-LDFLAGS := -L/opt/homebrew/opt/sqlite/lib
-CPPFLAGS := -I/opt/homebrew/opt/sqlite/include
+LDFLAGS := -L/opt/homebrew/opt/sqlite/lib -L/opt/homebrew/opt/openssl@3/lib
+CPPFLAGS := -I/opt/homebrew/opt/sqlite/include -I/opt/homebrew/opt/openssl@3/include
 PKG_CONFIG_PATH=/opt/homebrew/opt/sqlite/lib/pkgconfig
 else
 CPATH := /usr/local/include
@@ -698,7 +707,17 @@ endif
 
 # We special case the fuzzing target binaries, as they need to link against libfuzzer,
 # which brings its own main().
+# FUZZER_LIB and LLVM_LDFLAGS are set by configure script on macOS
+ifeq ($(OS),Darwin)
+ifneq ($(FUZZER_LIB),)
+FUZZ_LDFLAGS = $(FUZZER_LIB) $(LLVM_LDFLAGS)
+else
 FUZZ_LDFLAGS = -fsanitize=fuzzer
+endif
+else
+FUZZ_LDFLAGS = -fsanitize=fuzzer
+endif
+
 $(ALL_FUZZ_TARGETS):
 	@$(call VERBOSE, "ld $@", $(LINK.o) $(filter-out %.a,$^) $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) libccan.a $(FUZZ_LDFLAGS) -o $@)
 ifeq ($(OS),Darwin)

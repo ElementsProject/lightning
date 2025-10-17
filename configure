@@ -170,6 +170,8 @@ set_defaults()
     if [ "$(uname -s)" = "Darwin" ]; then
         # Always override to avoid DWARF 5
         CDEBUGFLAGS="-std=gnu11 -g -gdwarf-4 -fno-standalone-debug -fstack-protector-strong"
+        # Set SDKROOT for macOS
+        SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
 
         # Optional: confirm dsymutil is available
         if ! command -v dsymutil >/dev/null 2>&1; then
@@ -538,6 +540,45 @@ if ! check_command 'jq' jq; then
     exit 1
 fi
 
+# Detect LLVM paths for fuzzing on macOS
+LLVM_LIBDIR=""
+FUZZER_LIB=""
+LLVM_LDFLAGS=""
+if [ "$OS" = "Darwin" ] && [ "$FUZZING" = "1" ]; then
+    echo -n "Detecting LLVM paths for fuzzing... "
+
+    # Try to find LLVM using Homebrew
+    if command -v brew >/dev/null 2>&1; then
+        LLVM_PREFIX=$(brew --prefix llvm 2>/dev/null || echo "")
+        if [ -n "$LLVM_PREFIX" ]; then
+            LLVM_LIBDIR="$LLVM_PREFIX/lib"
+
+            # Find the fuzzer library
+            # Look for libclang_rt.fuzzer_osx.a in the clang lib directories
+            CLANG_VERSION=$(ls -1 "$LLVM_LIBDIR/clang" 2>/dev/null | sort -V | tail -n1)
+            if [ -n "$CLANG_VERSION" ]; then
+                FUZZER_LIB="$LLVM_LIBDIR/clang/$CLANG_VERSION/lib/darwin/libclang_rt.fuzzer_osx.a"
+                if [ ! -f "$FUZZER_LIB" ]; then
+                    echo "Warning: Could not find fuzzer library at $FUZZER_LIB" >&2
+                    FUZZER_LIB=""
+                fi
+            fi
+
+            # Set LLVM C++ library path
+            if [ -d "$LLVM_PREFIX/lib/c++" ]; then
+                LLVM_LDFLAGS="-L$LLVM_PREFIX/lib/c++ -lc++"
+            fi
+
+            echo "found at $LLVM_PREFIX"
+        else
+            echo "not found"
+            echo "Warning: LLVM not found via Homebrew. Fuzzing may not work." >&2
+        fi
+    else
+        echo "not found (Homebrew not available)"
+    fi
+fi
+
 # Now we can finally set our warning flags
 if [ -z ${CWARNFLAGS+x} ]; then
     CWARNFLAGS=$(default_cwarnflags "$COPTFLAGS" \
@@ -551,8 +592,13 @@ add_var CONFIGURATOR_CC "$CONFIGURATOR_CC"
 add_var CWARNFLAGS "$CWARNFLAGS"
 add_var CDEBUGFLAGS "$CDEBUGFLAGS"
 add_var COPTFLAGS "$COPTFLAGS"
+if [ -n "${SDKROOT:-}" ]; then
+    add_var SDKROOT "$SDKROOT"
+fi
 add_var CSANFLAGS "$CSANFLAGS"
 add_var FUZZFLAGS "$FUZZFLAGS"
+add_var FUZZER_LIB "$FUZZER_LIB"
+add_var LLVM_LDFLAGS "$LLVM_LDFLAGS"
 add_var SQLITE3_CFLAGS "$SQLITE3_CFLAGS"
 add_var SQLITE3_LDLIBS "$SQLITE3_LDLIBS"
 add_var POSTGRES_INCLUDE "$POSTGRES_INCLUDE"
