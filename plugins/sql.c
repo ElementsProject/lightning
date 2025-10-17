@@ -197,6 +197,10 @@ static const struct index indices[] = {
 		"channelmoves",
 		{ "account_id", NULL },
 	},
+	{
+		"channelmoves",
+		{ "payment_hash", NULL },
+	},
 };
 
 static enum fieldtype find_fieldtype(const jsmntok_t *name)
@@ -1757,20 +1761,22 @@ static const char *fmt_indexes(const tal_t *ctx, const char *table)
 	for (size_t i = 0; i < ARRAY_SIZE(indices); i++) {
 		if (!streq(indices[i].tablename, table))
 			continue;
-		/* FIXME: Handle multiple indices! */
-		assert(!ret);
+		if (!ret)
+			ret = tal_fmt(ctx, " indexed by ");
+		else
+			tal_append_fmt(&ret, ", also indexed by ");
 		BUILD_ASSERT(ARRAY_SIZE(indices[i].fields) == 2);
 		if (indices[i].fields[1])
-			ret = tal_fmt(tmpctx, "`%s` and `%s`",
-				      indices[i].fields[0],
-				      indices[i].fields[1]);
+			tal_append_fmt(&ret, "`%s` and `%s`",
+				       indices[i].fields[0],
+				       indices[i].fields[1]);
 		else
-			ret = tal_fmt(tmpctx, "`%s`",
-				      indices[i].fields[0]);
+			tal_append_fmt(&ret, "`%s`",
+				       indices[i].fields[0]);
 	}
 	if (!ret)
 		return "";
-	return tal_fmt(ctx, " indexed by %s", ret);
+	return ret;
 }
 
 static const char *json_prefix(const tal_t *ctx,
