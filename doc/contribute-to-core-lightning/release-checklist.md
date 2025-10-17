@@ -123,4 +123,5 @@ Here's a checklist for the release process.
 13. Append the signatures received from the team to the `SHA256SUMS-v<VERSION>.asc` file. Verify the file using `gpg --verify SHA256SUMS-v<VERSION>.asc`. Then re-upload the file.
 14. Finalize and publish the release (change it from draft to public).
 15. Ensure that the GitHub Actions for `Publish Python 🐍 distributions 📦 to PyPI and TestPyPI` and `Build and push multi-platform docker images` are functioning correctly. Check that the `PyPI` modules published on `https://pypi.org/project/pyln-*` and that the Docker image has been uploaded to Docker Hub.
-16. Announce the hotfix release in the core-lightning release-chat channel on Discord and on Telegram.
+16. Create a PR to merge updates from `update-versions` and `CHANGELOG.md` into `master` to keep it up-to-date for the next release.
+17. Announce the hotfix release in the core-lightning release-chat channel on Discord and on Telegram.
