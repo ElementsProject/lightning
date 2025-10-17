@@ -1,16 +1,14 @@
 /* This plugin covers both sending and receiving offers */
 #include "config.h"
-#include <bitcoin/chainparams.h>
 #include <ccan/array_size/array_size.h>
-#include <ccan/cast/cast.h>
 #include <ccan/rune/rune.h>
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>
 #include <common/bech32_util.h>
-#include <common/bolt11.h>
 #include <common/bolt11_json.h>
 #include <common/bolt12_id.h>
 #include <common/bolt12_merkle.h>
+#include <common/features.h>
 #include <common/gossmap.h>
 #include <common/iso4217.h>
 #include <common/json_blinded_path.h>
@@ -19,6 +17,7 @@
 #include <common/memleak.h>
 #include <common/onion_message.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <plugins/establish_onion_path.h>
 #include <plugins/fetchinvoice.h>
 #include <plugins/offers.h>

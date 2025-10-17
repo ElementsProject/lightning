@@ -4,7 +4,6 @@
 #include <ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
 #include <common/htlc_tx.h>
-#include <common/key_derive.h>
 #include <common/memleak.h>
 #include <common/psbt_keypath.h>
 #include <db/exec.h>
@@ -18,15 +17,10 @@
 #include <lightningd/coin_mvts.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/onchain_control.h>
-#include <lightningd/peer_control.h>
 #include <lightningd/peer_htlcs.h>
 #include <lightningd/subd.h>
 #include <onchaind/onchaind_wiregen.h>
 #include <wallet/txfilter.h>
-#include <wallet/wallet.h>
-#include <wally_bip32.h>
-#include <wally_psbt.h>
-#include <wire/wire_sync.h>
 
 /* If we're restarting, we keep a per-channel copy of watches, and replay */
 struct replay_tx {

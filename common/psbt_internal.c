@@ -2,9 +2,9 @@
 #include <assert.h>
 #include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
-#include <bitcoin/varint.h>
 #include <common/psbt_internal.h>
 #include <common/psbt_open.h>
+#include <common/utils.h>
 #include <wire/peer_wire.h>
 
 

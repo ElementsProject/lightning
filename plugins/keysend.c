@@ -1,14 +1,14 @@
 #include "config.h"
-#include <bitcoin/preimage.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>
 #include <ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
-#include <common/gossmap.h>
+#include <common/features.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
-#include <errno.h>
+#include <inttypes.h>
+#include <plugins/channel_hint.h>
 #include <plugins/libplugin-pay.h>
 #include <sodium.h>
 

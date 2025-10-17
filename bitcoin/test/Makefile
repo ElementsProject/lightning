@@ -2,10 +2,8 @@ BITCOIN_TEST_SRC := $(wildcard bitcoin/test/run-*.c)
 BITCOIN_TEST_OBJS := $(BITCOIN_TEST_SRC:.c=.o)
 BITCOIN_TEST_PROGRAMS := $(BITCOIN_TEST_OBJS:.o=)
 
-BITCOIN_TEST_COMMON_OBJS := common/utils.o common/setup.o common/autodata.o
-
-$(BITCOIN_TEST_PROGRAMS): $(BITCOIN_TEST_COMMON_OBJS) bitcoin/chainparams.o
-$(BITCOIN_TEST_OBJS): $(CCAN_HEADERS) $(BITCOIN_HEADERS) $(BITCOIN_SRC)
+$(BITCOIN_TEST_PROGRAMS): bitcoin/chainparams.o libcommon.a
+$(BITCOIN_TEST_OBJS): $(BITCOIN_HEADERS) $(BITCOIN_SRC) bitcoin/test/Makefile
 
 ALL_TEST_PROGRAMS += $(BITCOIN_TEST_PROGRAMS)
 ALL_C_SOURCES += $(BITCOIN_TEST_PROGRAMS:=.c)

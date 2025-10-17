@@ -1,10 +1,8 @@
-#include <bitcoin/block.h>
 #include <common/channel_id.h>
-#include <common/cryptomsg.h>
 #include <common/features.h>
 #include <common/node_id.h>
 #include <common/wireaddr.h>
-#include <wire/onion_wire.h>
+#include <wire/onion_wiregen.h>
 
 msgtype,connectd_init,2000
 msgdata,connectd_init,chainparams,chainparams,

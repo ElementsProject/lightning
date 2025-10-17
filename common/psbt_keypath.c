@@ -2,7 +2,6 @@
 #include <bitcoin/tx.h>
 #include <common/psbt_keypath.h>
 #include <common/utils.h>
-#include <wally_bip32.h>
 
 void psbt_output_set_keypath(u32 index, const struct ext_key *ext, bool is_taproot, struct wally_psbt_output *output) {
 	u8 fingerprint[BIP32_KEY_FINGERPRINT_LEN];

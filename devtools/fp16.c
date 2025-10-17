@@ -1,6 +1,5 @@
 /* Simple tool to convert to/from our internal fp16 representation */
 #include "config.h"
-#include <ccan/err/err.h>
 #include <ccan/opt/opt.h>
 #include <common/fp16.h>
 #include <common/setup.h>

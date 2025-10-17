@@ -5,12 +5,12 @@
 #include <bitcoin/short_channel_id.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/err/err.h>
-#include <ccan/mem/mem.h>
 #include <ccan/opt/opt.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
 #include <common/configdir.h>
 #include <common/node_id.h>
+#include <common/utils.h>
 #include <inttypes.h>
 #include <sqlite3.h>
 
@@ -144,7 +144,7 @@ int main(int argc, char *argv[])
 		errx(1, "failed to open database %s: %s", dbfile,
 			 sqlite3_errstr(dberr));
 
-	hsm_secret = grab_file(hsmfile, hsmfile);
+	hsm_secret = grab_file_raw(hsmfile, hsmfile);
 	if (!hsm_secret)
 		err(1, "failed to read %s", hsmfile);
 

@@ -5,6 +5,7 @@
 #include "../json_parse.c"
 #include "../json_parse_simple.c"
 #include <ccan/array_size/array_size.h>
+#include <ccan/json_escape/json_escape.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
 #include <common/setup.h>
@@ -167,13 +168,13 @@ int main(int argc, char *argv[])
 	common_setup(argv[0]);
 
 	if (argv[1])
-		json = grab_file(tmpctx, argv[1]);
+		json = grab_file_str(tmpctx, argv[1]);
 	else {
 		char *dir = getenv("BOLTDIR");
-		json = grab_file(tmpctx,
-				 path_join(tmpctx,
-					   dir ? dir : ".tmp.lightningrfc",
-					   "bolt12/format-string-test.json"));
+		json = grab_file_str(tmpctx,
+				     path_join(tmpctx,
+					       dir ? dir : ".tmp.lightningrfc",
+					       "bolt12/format-string-test.json"));
 		if (!json) {
 			printf("test file not found, skipping\n");
 			goto out;

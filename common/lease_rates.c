@@ -2,6 +2,7 @@
 #include <ccan/ccan/tal/str/str.h>
 #include <common/lease_rates.h>
 #include <common/overflows.h>
+#include <common/utils.h>
 
 bool lease_rates_empty(const struct lease_rates *rates)
 {

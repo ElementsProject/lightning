@@ -1,21 +1,18 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
-#include <ccan/err/err.h>
 #include <ccan/json_out/json_out.h>
 #include <ccan/noerr/noerr.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/str/str.h>
-#include <ccan/time/time.h>
-#include <common/features.h>
-#include <common/hsm_encryption.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <common/scb_wiregen.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
 #include <plugins/libplugin.h>
 #include <sodium.h>
 #include <unistd.h>
@@ -245,13 +242,9 @@ static void maybe_create_new_scb(struct plugin *p,
 
 static u8 *get_file_data(const tal_t *ctx, struct plugin *p)
 {
-	u8 *scb = grab_file(ctx, FILENAME);
-	if (!scb) {
+	u8 *scb = grab_file_raw(ctx, FILENAME);
+	if (!scb)
 		plugin_err(p, "Cannot read emergency.recover: %s", strerror(errno));
-	} else {
-		/* grab_file adds nul term */
-		tal_resize(&scb, tal_bytelen(scb) - 1);
-	}
 	return scb;
 }
 

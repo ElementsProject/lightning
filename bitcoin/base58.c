@@ -6,9 +6,6 @@
 #include "config.h"
 #include <bitcoin/address.h>
 #include <bitcoin/base58.h>
-#include <bitcoin/privkey.h>
-#include <bitcoin/pubkey.h>
-#include <bitcoin/shadouble.h>
 #include <common/utils.h>
 #include <wally_core.h>
 

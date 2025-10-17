@@ -1,10 +1,7 @@
 #include "config.h"
-#include <assert.h>
-#include <ccan/cast/cast.h>
 #include <ccan/membuf/membuf.h>
 #include <common/daemon.h>
 #include <common/msg_queue.h>
-#include <common/utils.h>
 #include <wire/wire.h>
 
 static bool warned_once;

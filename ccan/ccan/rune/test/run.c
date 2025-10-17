@@ -39,7 +39,7 @@ int main(void)
 	mr = rune_new(NULL, secret_zero, sizeof(secret_zero), NULL); 
 
 	/* Python runes library generates test vectors */
-	vecs = grab_file(mr, "test/test_vectors.csv");
+	vecs = grab_file_str(mr, "test/test_vectors.csv");
 	assert(vecs);
 	lines = tal_strsplit(mr, take(vecs), "\n", STR_NO_EMPTY);
 

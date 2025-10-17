@@ -2,6 +2,7 @@
 #define LIGHTNING_OPENINGD_COMMON_H
 
 #include "config.h"
+#include <common/utils.h>
 
 struct amount_sat;
 struct bitcoin_tx;

@@ -2,13 +2,11 @@
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
 #include <common/json_command.h>
-#include <common/json_param.h>
 #include <common/memleak.h>
 #include <common/timeout.h>
 #include <errno.h>
 #include <lightningd/notification.h>
 #include <lightningd/plugin_control.h>
-#include <unistd.h>
 
 /* A dummy structure used to give multiple arguments to callbacks. */
 struct plugin_command {

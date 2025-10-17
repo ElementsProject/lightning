@@ -1,8 +1,6 @@
 #ifndef LIGHTNING_HSMD_HSM_UTXO_H
 #define LIGHTNING_HSMD_HSM_UTXO_H
 #include "config.h"
-#include <bitcoin/tx.h>
-#include <common/amount.h>
 #include <common/utxo.h>
 
 /* FIXME: If we make our static_remotekey a normal keypath key, we can

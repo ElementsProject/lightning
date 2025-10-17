@@ -1,6 +1,7 @@
 #include "config.h"
 #include <bitcoin/script.h>
 #include <common/shutdown_scriptpubkey.h>
+#include <wally_script.h>
 #include <wire/wire.h>
 
 /* BOLT #2:

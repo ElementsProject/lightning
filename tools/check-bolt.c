@@ -74,9 +74,9 @@ static bool get_files(const char *dir, const char *subdir,
 
 		bf.prefix = tal_strndup(*files, e->d_name, preflen);
 		bf.contents
-			= canonicalize(grab_file(*files,
-						 path_join(path, path,
-							   e->d_name)));
+			= canonicalize(grab_file_str(*files,
+						     path_join(path, path,
+							       e->d_name)));
 		tal_arr_expand(files, bf);
 	}
 	closedir(d);
@@ -308,7 +308,7 @@ int main(int argc, char *argv[])
 	bolts = get_bolt_files(argv[1]);
 
 	for (i = 2; i < argc; i++) {
-		char *f = grab_file(NULL, argv[i]), *p, *bolt;
+		char *f = grab_file_str(NULL, argv[i]), *p, *bolt;
 		size_t len;
 		if (!f)
 			err(1, "Loading %s", argv[i]);

@@ -3,9 +3,7 @@
 #include "config.h"
 
 #include <bitcoin/tx.h>
-#include <common/amount.h>
 #include <common/channel_id.h>
-#include <common/utils.h>
 
 #define COIN_MVT_VERSION 2
 #define ACCOUNT_NAME_WALLET "wallet"

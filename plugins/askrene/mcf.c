@@ -7,6 +7,7 @@
 #include <ccan/tal/tal.h>
 #include <common/utils.h>
 #include <float.h>
+#include <inttypes.h>
 #include <math.h>
 #include <plugins/askrene/algorithm.h>
 #include <plugins/askrene/askrene.h>

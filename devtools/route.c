@@ -6,6 +6,7 @@
 #include <common/gossmap.h>
 #include <common/route.h>
 #include <common/setup.h>
+#include <common/utils.h>
 #include <devtools/clean_topo.h>
 #include <inttypes.h>
 #include <stdio.h>

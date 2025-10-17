@@ -1,5 +1,7 @@
 #include "config.h"
+#include <common/ecdh.h>
 #include <common/ecdh_hsmd.h>
+#include <common/utils.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <wire/wire_sync.h>
 

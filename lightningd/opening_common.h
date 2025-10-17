@@ -1,8 +1,6 @@
 #ifndef LIGHTNING_LIGHTNINGD_OPENING_COMMON_H
 #define LIGHTNING_LIGHTNINGD_OPENING_COMMON_H
 #include "config.h"
-#include <bitcoin/pubkey.h>
-#include <common/amount.h>
 #include <common/channel_config.h>
 #include <common/channel_id.h>
 #include <common/derive_basepoints.h>

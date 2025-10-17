@@ -45,7 +45,7 @@ COMMON_SRC_NOGEN :=				\
 	common/hash_u5.c			\
 	common/hmac.c				\
 	common/hsm_capable.c			\
-	common/hsm_encryption.c			\
+	common/hsm_secret.c			\
 	common/htlc_state.c			\
 	common/htlc_trim.c			\
 	common/htlc_tx.c			\
@@ -138,11 +138,15 @@ check-common-files:
 
 check-source: check-common-files
 
-# Common objects depends on bitcoin/ external/ and ccan
-$(COMMON_OBJS): $(CCAN_HEADERS) $(BITCOIN_HEADERS) $(EXTERNAL_HEADERS) $(COMMON_HEADERS_GEN)
-
 # Only common/version.c can include this header.
 common/version.o: version_gen.h
+
+# Rebuild objects should this file change.
+$(COMMON_OBJS): common/Makefile
+
+# We make a static library, this way linker can discard unused parts.
+libcommon.a: $(COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS)
+	@$(call VERBOSE, "ar $@", $(AR) r $@ $?)
 
 ALL_C_HEADERS += $(COMMON_HEADERS)
 ALL_C_SOURCES += $(COMMON_SRC)
@@ -158,6 +162,7 @@ check-whitespace: $(COMMON_SRC_NOGEN:%=check-whitespace/%) $(COMMON_HEADERS:%=ch
 clean: common-clean
 
 common-clean:
+	$(RM) libcommon.a
 	$(RM) common/gen*
 
 include common/test/Makefile

@@ -1,11 +1,11 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/mem/mem.h>
-#include <ccan/ptrint/ptrint.h>
 #include <ccan/tal/str/str.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
+#include <inttypes.h>
 #include <plugins/libplugin.h>
 
 static u64 cycle_seconds = 3600;

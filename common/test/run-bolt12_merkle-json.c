@@ -8,6 +8,7 @@
 #include "../../wire/fromwire.c"
 #include "../../wire/peer_wiregen.c"
 #include "../../wire/tlvstream.c"
+#include <ccan/array_size/array_size.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
 #include <common/channel_type.h>
@@ -109,13 +110,13 @@ int main(int argc, char *argv[])
 	common_setup(argv[0]);
 
 	if (argv[1])
-		json = grab_file(tmpctx, argv[1]);
+		json = grab_file_str(tmpctx, argv[1]);
 	else {
 		char *dir = getenv("BOLTDIR");
-		json = grab_file(tmpctx,
-				 path_join(tmpctx,
-					   dir ? dir : ".tmp.lightningrfc",
-					   "bolt12/merkle-test.json"));
+		json = grab_file_str(tmpctx,
+				     path_join(tmpctx,
+					       dir ? dir : ".tmp.lightningrfc",
+					       "bolt12/merkle-test.json"));
 		if (!json) {
 			printf("test file not found, skipping\n");
 			goto out;

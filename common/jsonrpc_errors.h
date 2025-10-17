@@ -6,7 +6,6 @@
 
 #include "config.h"
 
-#include <common/errcode.h>
 
 enum jsonrpc_errcode {
 	/* Standard errors defined by JSON-RPC 2.0 standard */

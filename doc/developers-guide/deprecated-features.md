@@ -21,6 +21,7 @@ hidden: false
 | channel_state_changed.null_scid                    | Notification Field | v25.09           | v26.09         | In channel_state_changed notification, `short_channel_id` will be missing instead of `null`                               |
 | notification.payload                               | Notification Field | v25.09           | v26.09         | Notifications from plugins used to have fields in `payload` sub-object, now they are not (just like normal notifications) |
 | pay_notifications.raw_fields                       | Field              | v25.09           | v26.09         | `channel_hint_update`, `pay_failure` and `pay_success` notifications now wrap members in an object of the same name       |
+| encrypted_hsm	                                     | Config             | v25.12           | v26.12         | `hsm-passphrase` is a name which also makes sense for modern hsm_secrets which use BIP 39                                 |
 
 Inevitably there are features which need to change: either to be generalized, or removed when they can no longer be supported.
 

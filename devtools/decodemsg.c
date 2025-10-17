@@ -3,6 +3,7 @@
 #include <ccan/opt/opt.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <common/setup.h>
+#include <common/utils.h>
 #include <unistd.h>
 #include <wire/onion_printgen.h>
 #include <wire/peer_printgen.h>
@@ -82,7 +83,7 @@ int main(int argc, char *argv[])
 			ok &= printwire(m);
 		}
 	} else {
-		u8 *f = grab_fd(NULL, STDIN_FILENO);
+		u8 *f = grab_fd_str(NULL, STDIN_FILENO);
 		size_t off = 0;
 
 		while (off != tal_count(f)) {

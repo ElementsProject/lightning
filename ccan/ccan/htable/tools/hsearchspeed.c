@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
 	char **w;
 	ENTRY *words, *misswords;
 
-	w = tal_strsplit(NULL, grab_file(NULL,
+	w = tal_strsplit(NULL, grab_file_str(NULL,
 					 argv[1] ? argv[1] : "/usr/share/dict/words"), "\n", STR_NO_EMPTY);
 	num = tal_count(w) - 1;
 	printf("%zu words\n", num);

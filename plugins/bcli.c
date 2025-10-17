@@ -1,5 +1,4 @@
 #include "config.h"
-#include <bitcoin/base58.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
 #include <ccan/io/io.h>
@@ -11,6 +10,7 @@
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <plugins/libplugin.h>
 
 /* Bitcoind's web server has a default of 4 threads, with queue depth 16.
@@ -1066,7 +1066,7 @@ static void wait_and_check_bitcoind(struct plugin *p)
 		plugin_err(p, "%s exec failed: %s", cmd[0], strerror(errno));
 	}
 
-	output = grab_fd(cmd, from);
+	output = grab_fd_str(cmd, from);
 
 	waitpid(child, &status, 0);
 

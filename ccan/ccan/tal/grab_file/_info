@@ -20,7 +20,7 @@
  *
  *		if (argc > 2)
  *			err(1, "Takes 0 or 1 arguments");
- *		file = grab_file(NULL, argv[1]);
+ *		file = grab_file_str(NULL, argv[1]);
  *		if (!file)
  *			err(1, "Could not read file %s", argv[1]);
  *		if (strlen(file)+1 != tal_count(file))
@@ -45,6 +45,7 @@ int main(int argc, char *argv[])
 		return 1;
 
 	if (strcmp(argv[1], "depends") == 0) {
+		printf("ccan/compiler\n");
 		printf("ccan/tal\n");
 		printf("ccan/noerr\n");
 		return 0;

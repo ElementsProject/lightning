@@ -361,8 +361,8 @@ endif
 
 include external/Makefile
 include bitcoin/Makefile
-include common/Makefile
 include wire/Makefile
+include common/Makefile
 include db/Makefile
 include hsmd/Makefile
 include gossipd/Makefile
@@ -383,10 +383,7 @@ include cln-grpc/Makefile
 endif
 include plugins/Makefile
 include tests/plugins/Makefile
-
-ifneq ($(FUZZING),0)
-	include tests/fuzz/Makefile
-endif
+include tests/fuzz/Makefile
 
 ifneq ($V,1)
 MSGGEN_ARGS := -s
@@ -689,18 +686,22 @@ $(ALL_TEST_PROGRAMS) $(ALL_FUZZ_TARGETS): %: %.o
 # Without this rule, the (built-in) link line contains
 # external/libwallycore.a directly, which causes a symbol clash (it
 # uses some ccan modules internally).  We want to rely on -lwallycore etc.
-# (as per EXTERNAL_LDLIBS) so we filter them out here.
+# (as per EXTERNAL_LDLIBS) so we filter them out here.  We have to put the other
+# .a files (if any) at the end of the link line.
 $(ALL_PROGRAMS) $(ALL_TEST_PROGRAMS):
-	@$(call VERBOSE, "ld $@", $(LINK.o) $(filter-out %.a,$^) $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) libccan.a $($(@)_LDLIBS) -o $@)
+	@$(call VERBOSE, "ld $@", $(LINK.o) $(filter-out %.a,$^) $(filter-out external/%,$(filter %.a,$^)) $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) $($(@)_LDLIBS) -o $@)
 ifeq ($(OS),Darwin)
 	@$(call VERBOSE, "dsymutil $@", dsymutil $@)
 endif
 
 # We special case the fuzzing target binaries, as they need to link against libfuzzer,
 # which brings its own main().
+ifneq ($(FUZZING),0)
 FUZZ_LDFLAGS = -fsanitize=fuzzer
+endif
+
 $(ALL_FUZZ_TARGETS):
-	@$(call VERBOSE, "ld $@", $(LINK.o) $(filter-out %.a,$^) $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) libccan.a $(FUZZ_LDFLAGS) -o $@)
+	@$(call VERBOSE, "ld $@", $(LINK.o) $(filter-out %.a,$^) libcommon.a libccan.a $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) $(FUZZ_LDFLAGS) -o $@)
 ifeq ($(OS),Darwin)
 	@$(call VERBOSE, "dsymutil $@", dsymutil $@)
 endif
@@ -1074,3 +1075,8 @@ ccan-rune-rune.o: $(CCANDIR)/ccan/rune/rune.c
 	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-rune-coding.o: $(CCANDIR)/ccan/rune/coding.c
 	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+
+print-binary-sizes: $(ALL_PROGRAMS) $(ALL_TEST_PROGRAMS)
+	@find $(ALL_PROGRAMS) $(ALL_TEST_PROGRAMS) -printf '%p\t%s\n'
+	@echo 'Total program size:	'`find $(ALL_PROGRAMS) -printf '%s\n' | awk '{TOTAL+= $$1} END {print TOTAL}'`
+	@echo 'Total tests size:	'`find $(ALL_TEST_PROGRAMS) -printf '%s\n' | awk '{TOTAL+= $$1} END {print TOTAL}'`

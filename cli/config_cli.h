@@ -2,7 +2,6 @@
 #define LIGHTNING_CLI_CONFIG_CLI_H
 
 #include "config.h"
-#include <stdio.h>
 
 #ifndef CLN_TEST
 /* Redefinition procedure is a very cool feature, but

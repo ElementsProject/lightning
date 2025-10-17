@@ -1,48 +1,29 @@
 #! /usr/bin/make
 
-WIRE_HEADERS :=	wire/onion_defs.h		\
-		wire/peer_wire.h		\
-		wire/onion_wire.h		\
-		wire/tlvstream.h		\
-		wire/wire.h			\
-		wire/wire_sync.h		\
-		wire/wire_io.h			\
-		wire/peer_wiregen.h		\
-		wire/onion_wiregen.h		\
-		wire/bolt12_wiregen.h		\
-		wire/channel_type_wiregen.h	\
-		wire/bolt12_printgen.h		\
-		wire/peer_printgen.h		\
-		wire/onion_printgen.h
+WIRE_SRC_NOHDR := wire/fromwire.c			\
+		wire/towire.c			\
 
-# We don't include peer_printgen/onion_printgen or bolt12 here since most don't need it.
 WIRE_SRC := wire/wire_sync.c			\
 		wire/wire_io.c			\
-		wire/fromwire.c			\
 		wire/peer_wire.c		\
 		wire/tlvstream.c		\
-		wire/towire.c			\
 		wire/peer_wiregen.c		\
 		wire/channel_type_wiregen.c	\
-		wire/onion_wiregen.c	
-
-WIRE_BOLT12_SRC := wire/bolt12_wiregen.c
-
-WIRE_PRINT_SRC :=				\
+		wire/onion_wiregen.c		\
+		wire/bolt12_wiregen.c		\
 		wire/onion_printgen.c		\
 		wire/peer_printgen.c		\
 		wire/bolt12_printgen.c		\
 		wire/channel_type_printgen.c
 
-WIRE_PRINT_HEADERS := $(WIRE_PRINT_SRC:.c=.h)
+WIRE_HEADERS :=	wire/onion_defs.h		\
+		wire/wire.h			\
+		$(WIRE_SRC:.c=.h)
 
-WIRE_OBJS := $(WIRE_SRC:.c=.o) common/sciddir_or_pubkey.o
-WIRE_PRINT_OBJS := $(WIRE_PRINT_SRC:.c=.o)
-WIRE_BOLT12_OBJS := $(WIRE_BOLT12_SRC:.c=.o)
-$(WIRE_OBJS) $(WIRE_PRINT_OBJS) $(WIRE_BOLT12_OBJS): $(WIRE_HEADERS) $(WIRE_PRINT_HEADERS)
+WIRE_OBJS := $(WIRE_SRC:.c=.o) $(WIRE_SRC_NOHDR:.c=.o)
+$(WIRE_OBJS): $(WIRE_HEADERS)
 
-ALL_C_SOURCES += $(WIRE_SRC) $(WIRE_BOLT12_SRC) $(WIRE_PRINT_SRC)
-
+ALL_C_SOURCES += $(WIRE_SRC) $(WIRE_SRC_NOHDR)
 ALL_C_HEADERS += $(WIRE_HEADERS)
 
 # They may not have the bolts.
@@ -93,6 +74,8 @@ wire/peer_wiregen.h_args := --include='common/channel_id.h' --include='bitcoin/t
 
 wire/peer_wiregen.c_args := -s --expose-tlv-type=tlv_n1 --expose-tlv-type=tlv_n2
 
+wire/peer_printgen.c_args := --include='wire/peer_wiregen.h'
+
 # The payload isn't parsed in a fromwire, so we need to expose it.
 wire/onion_wiregen.h_args := --include='bitcoin/short_channel_id.h' --include='bitcoin/privkey.h' --include='common/bigsize.h' --include='common/amount.h' --include='common/node_id.h' --include='bitcoin/block.h' --include='common/sciddir_or_pubkey.h' -s --expose-tlv-type=tlv_payload
 
@@ -105,8 +88,8 @@ wire/peer_exp_printgen.h_args := --include='wire/channel_type_printgen.h'
 wire/onion_exp_wiregen.h_args := $(wire/onion_wiregen.h_args)
 wire/onion_exp_wiregen.c_args := $(wire/onion_wiregen.c_args)
 
-wire/bolt12_wiregen.c_args := -s --expose-tlv-type=tlv_blinded_path --expose-tlv-type=tlv_invoice_request --expose-tlv-type=tlv_invoice
-wire/bolt12_wiregen.h_args := --include='bitcoin/short_channel_id.h' --include='bitcoin/signature.h' --include='bitcoin/privkey.h' --include='common/bigsize.h' --include='common/amount.h' --include='common/node_id.h' --include='bitcoin/block.h'  --include='wire/onion_wire.h' $(wire/bolt12_wiregen.c_args)
+wire/bolt12_wiregen.c_args := -s --expose-tlv-type=tlv_blinded_path --expose-tlv-type=tlv_invoice_request --expose-tlv-type=tlv_invoice --include='wire/onion_wiregen.h' 
+wire/bolt12_wiregen.h_args := --include='bitcoin/short_channel_id.h' --include='bitcoin/signature.h' --include='bitcoin/privkey.h' --include='common/bigsize.h' --include='common/amount.h' --include='common/node_id.h' --include='bitcoin/block.h' $(wire/bolt12_wiregen.c_args)
 
 wire/bolt12_printgen.c_args := --expose-tlv-type=tlv_blinded_path --expose-tlv-type=tlv_invoice_request --include='wire/onion_wiregen.h'  --include='wire/onion_printgen.h'
 wire/bolt12_printgen.h_args := --include='wire/bolt12_wiregen.h' --expose-tlv-type=tlv_blinded_path --expose-tlv-type=tlv_invoice_request
@@ -123,7 +106,7 @@ wire/channel_type_wiregen.h_args := -s
 wire/channel_type_wiregen.c_args := $(wire/channel_type_wiregen.h_args)
 
 # All generated wire/ files depend on this Makefile
-$(filter %printgen.h %printgen.c %wiregen.h %wiregen.c, $(WIRE_SRC) $(WIRE_BOLT12_SRC) $(WIRE_PRINT_SRC) $(WIRE_HEADERS)): wire/Makefile
+$(filter %printgen.h %printgen.c %wiregen.h %wiregen.c, $(WIRE_SRC) $(WIRE_HEADERS)): wire/Makefile
 
 maintainer-clean: wire-maintainer-clean
 

@@ -18,6 +18,7 @@
 #include <lightningd/wait.h>
 
 struct amount_msat;
+struct bitcoin_signature;
 struct invoices;
 struct channel;
 struct channel_inflight;
@@ -612,6 +613,7 @@ bool wallet_can_spend(struct wallet *w,
  * Returns -1 on error (key exhaustion).
  */
 s64 wallet_get_newindex(struct lightningd *ld, enum addrtype addrtype);
+
 
 /**
  * wallet_get_addrtype - get the address types for this key.

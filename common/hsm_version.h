@@ -29,6 +29,10 @@
  * v6 with sign_bolt12_2 (tweak using node id): 8fcb731279a10af3f95aeb8be1da6b2ced76a1984afa18c5f46a03515d70ea0e
  * v6 with dev_warn_on_overgrind: a273b68e19336073e551c01a78bcd1e1f8cc510da7d0dde3afc45e249f9830cc
  * v6 with bip137_sign_message: 4bfe28b02e92aae276b8eca2228e32f32d5dee8d5381639e7364939fa2fa1370
+ * v6 with hsm_passphrase changes: c646d557d7561dd885df3cad5b99c82895cda4b040699f3853980ec61b2873fa
+ * v6 with hsm_secret struct cleanup: 06c56396fe42f4f47911d7f865dd0004d264fc1348f89547743755b6b33fec90
+ * v6 with hsm_secret_type TLV: 7bb5deb2367482feb084d304ee14b2373d42910ad56484fbf47614dbb3d4cb74
+ * v6 with bip86_base in TLV: 6bb6e6ee256f22a6fb41856c90feebde3065a9074e79a46731e453a932be83f0
  */
 #define HSM_MIN_VERSION 5
 #define HSM_MAX_VERSION 6

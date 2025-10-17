@@ -5,17 +5,13 @@
 #include <ccan/io/io.h>
 #include <ccan/json_escape/json_escape.h>
 #include <ccan/json_out/json_out.h>
-#include <ccan/mem/mem.h>
-#include <ccan/opt/opt.h>
 #include <ccan/pipecmd/pipecmd.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/utf8/utf8.h>
-#include <common/configdir.h>
 #include <common/configvar.h>
 #include <common/deprecation.h>
-#include <common/features.h>
 #include <common/json_command.h>
 #include <common/memleak.h>
 #include <common/plugin.h>
@@ -32,7 +28,6 @@
 #include <lightningd/plugin_control.h>
 #include <lightningd/plugin_hook.h>
 #include <lightningd/subd.h>
-#include <sys/stat.h>
 
 /* Only this file can include this generated header! */
 # include <plugins/list_of_builtin_plugins_gen.h>
@@ -326,7 +321,7 @@ static u32 file_checksum(struct lightningd *ld, const char *path)
 	if (ld->dev_no_plugin_checksum)
 		return 0;
 
-	content = grab_file(tmpctx, path);
+	content = grab_file_raw(tmpctx, path);
 	crc = crc32c(0, content, tal_count(content));
 	/* We could leave this around, but we checksum many files in a loop,
 	 * causing 450MB of allocations at startup! */

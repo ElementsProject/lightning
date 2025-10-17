@@ -1,8 +1,8 @@
 #include "config.h"
 #include <assert.h>
 #include <common/blindedpay.h>
-#include <common/bolt12.h>
 #include <common/onion_encode.h>
+#include <wire/onion_wiregen.h>
 
 u8 **blinded_onion_hops(const tal_t *ctx,
 			struct amount_msat final_amount,

@@ -29,8 +29,12 @@ msgdata,hsmd_init,dev_force_channel_secrets,?secrets,
 msgdata,hsmd_init,dev_force_channel_secrets_shaseed,?sha256,
 msgdata,hsmd_init,hsm_wire_min_version,u32,
 msgdata,hsmd_init,hsm_wire_max_version,u32,
+msgdata,hsmd_init,tlvs,hsmd_init_tlvs,
+tlvtype,hsmd_init_tlvs,hsm_passphrase,1
+tlvdata,hsmd_init_tlvs,hsm_passphrase,passphrase,wirestring,
 
 #include <common/bip32.h>
+#include <wally_bip32.h>
 # Sorry: I should have put version in v2 :(
 msgtype,hsmd_init_reply_v4,114
 # This gets upgraded when the wire protocol changes in incompatible
@@ -43,6 +47,17 @@ msgdata,hsmd_init_reply_v4,hsm_capabilities,u32,num_hsm_capabilities
 msgdata,hsmd_init_reply_v4,node_id,node_id,
 msgdata,hsmd_init_reply_v4,bip32,ext_key,
 msgdata,hsmd_init_reply_v4,bolt12,pubkey,
+msgdata,hsmd_init_reply_v4,tlvs,hsmd_init_reply_v4_tlvs,
+# TLV to indicate HSM secret type
+tlvtype,hsmd_init_reply_v4_tlvs,hsm_secret_type,1
+tlvdata,hsmd_init_reply_v4_tlvs,hsm_secret_type,hsm_type,u8,
+tlvtype,hsmd_init_reply_v4_tlvs,bip86_base,2
+tlvdata,hsmd_init_reply_v4_tlvs,bip86_base,base,ext_key,
+
+# HSM initialization failure response
+msgtype,hsmd_init_reply_failure,115
+msgdata,hsmd_init_reply_failure,error_code,u32,
+msgdata,hsmd_init_reply_failure,error_message,wirestring,
 
 # Declare a new channel.
 msgtype,hsmd_new_channel,30
@@ -392,6 +407,7 @@ msgdata,hsmd_sign_bolt12,merkleroot,sha256,
 msgdata,hsmd_sign_bolt12,publictweaklen,u16,
 msgdata,hsmd_sign_bolt12,publictweak,u8,publictweaklen
 
+#include <bitcoin/signature.h>
 msgtype,hsmd_sign_bolt12_reply,125
 msgdata,hsmd_sign_bolt12_reply,sig,bip340sig,
 
@@ -437,6 +453,14 @@ msgdata,hsmd_check_pubkey,pubkey,pubkey,
 # Reply
 msgtype,hsmd_check_pubkey_reply,128
 msgdata,hsmd_check_pubkey_reply,ok,bool,
+
+# Sanity check this BIP86 pubkey derivation is correct (unhardened only)
+msgtype,hsmd_check_bip86_pubkey,56
+msgdata,hsmd_check_bip86_pubkey,index,u32,
+msgdata,hsmd_check_bip86_pubkey,pubkey,pubkey,
+
+msgtype,hsmd_check_bip86_pubkey_reply,156
+msgdata,hsmd_check_bip86_pubkey_reply,ok,bool,
 
 msgtype,hsmd_sign_anchorspend,147
 msgdata,hsmd_sign_anchorspend,peerid,node_id,

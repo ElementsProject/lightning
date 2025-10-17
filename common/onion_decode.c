@@ -1,15 +1,12 @@
 #include "config.h"
-#include <assert.h>
-#include <ccan/array_size/array_size.h>
-#include <ccan/cast/cast.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/blindedpath.h>
 #include <common/ecdh.h>
 #include <common/onion_decode.h>
 #include <common/sphinx.h>
+#include <common/utils.h>
 #include <inttypes.h>
-#include <sodium/crypto_aead_chacha20poly1305.h>
 
 /* BOLT #4:
  * - If `encrypted_recipient_data` is present:

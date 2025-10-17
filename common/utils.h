@@ -1,7 +1,6 @@
 #ifndef LIGHTNING_COMMON_UTILS_H
 #define LIGHTNING_COMMON_UTILS_H
 #include "config.h"
-#include <ccan/build_assert/build_assert.h>
 #include <ccan/crypto/ripemd160/ripemd160.h>
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/short_types/short_types.h>
@@ -53,6 +52,16 @@ char *tal_hex(const tal_t *ctx, const tal_t *data);
 
 /* Allocate and fill a buffer with the data of this hex string. */
 u8 *tal_hexdata(const tal_t *ctx, const void *str, size_t len);
+
+/**
+ * mlock_tal_memory - lock a tal-allocated memory with sodium_mlock.
+ * @ptr - the tal-allocated memory to lock
+ *
+ * This is a generic function to replace the pattern of sodium_mlock + tal_add_destructor.
+ *
+ * Aborts on failure (memory locking is mandatory for security).
+ */
+void mlock_tal_memory(const tal_t *ptr);
 
 /* Note: p is never a complex expression, otherwise this multi-evaluates! */
 #define tal_arr_expand(p, s)						\
@@ -145,6 +154,9 @@ void tal_wally_end(const tal_t *parent);
 void tal_wally_end_onto_(const tal_t *parent,
 			 tal_t *from_wally,
 			 const char *from_wally_name);
+
+/* ... or this if libwally only used temporary allocations. */
+void tal_wally_discard(void);
 
 /* Define sha256_eq. */
 STRUCTEQ_DEF(sha256, 0, u);

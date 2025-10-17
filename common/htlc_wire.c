@@ -4,7 +4,7 @@
 #include <ccan/crypto/shachain/shachain.h>
 #include <common/htlc_wire.h>
 #include <common/onionreply.h>
-#include <wire/tlvstream.h>
+#include <common/utils.h>
 
 static struct failed_htlc *failed_htlc_dup(const tal_t *ctx,
 					   const struct failed_htlc *f TAKES)

@@ -3,11 +3,10 @@
 
 #include <ccan/array_size/array_size.h>
 #include <ccan/mem/mem.h>
-#include <common/onion_decode.h>
 #include <common/onionreply.h>
 #include <common/overflows.h>
 #include <common/sphinx.h>
-
+#include <common/utils.h>
 
 #include <secp256k1_ecdh.h>
 

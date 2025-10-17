@@ -14,48 +14,13 @@ $(HSMD_OBJS): $(HSMD_HEADERS)
 HSMD_CLIENT_OBJS := \
 	hsmd/hsmd_wiregen.o			\
 	hsmd/hsm_utxo.o				\
-	common/htlc_wire.o
 
 # Make sure these depend on everything.
 ALL_C_SOURCES += $(HSMD_SRC)
 ALL_C_HEADERS += $(HSMD_HEADERS)
 ALL_PROGRAMS += lightningd/lightning_hsmd
 
-# Common source we use.
-HSMD_COMMON_OBJS :=				\
-	common/amount.o				\
-	common/autodata.o			\
-	common/base32.o				\
-	common/bigsize.o			\
-	common/bip32.o				\
-	common/bolt12_id.o			\
-	common/bolt12_merkle.o			\
-	common/channel_id.o			\
-	common/daemon.o				\
-	common/daemon_conn.o			\
-	common/derive_basepoints.o		\
-	common/hash_u5.o			\
-	common/hsm_encryption.o			\
-	common/htlc_wire.o			\
-	common/key_derive.o			\
-	common/lease_rates.o			\
-	common/memleak.o			\
-	common/msg_queue.o			\
-	common/node_id.o			\
-	common/onionreply.o			\
-	common/permute_tx.o			\
-	common/psbt_open.o			\
-	common/pseudorand.o			\
-	common/setup.o				\
-	common/status.o				\
-	common/status_wire.o			\
-	common/status_wiregen.o			\
-	common/subdaemon.o			\
-	common/utils.o				\
-	common/version.o			\
-	common/wireaddr.o
-
-lightningd/lightning_hsmd: $(HSMD_OBJS) $(HSMD_COMMON_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS)
+lightningd/lightning_hsmd: $(HSMD_OBJS) libcommon.a
 
 check-source: check-hsm-versions
 

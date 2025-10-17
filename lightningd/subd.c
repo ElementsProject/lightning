@@ -1,5 +1,4 @@
 #include "config.h"
-#include <ccan/closefrom/closefrom.h>
 #include <ccan/err/err.h>
 #include <ccan/io/fdpass/fdpass.h>
 #include <ccan/mem/mem.h>
@@ -7,6 +6,7 @@
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
 #include <common/memleak.h>
+#include <common/msg_queue.h>
 #include <common/peer_status_wiregen.h>
 #include <common/status_wiregen.h>
 #include <common/version.h>
@@ -17,7 +17,6 @@
 #include <lightningd/log_status.h>
 #include <lightningd/peer_fd.h>
 #include <lightningd/subd.h>
-#include <sys/socket.h>
 #include <sys/wait.h>
 #include <wire/wire_io.h>
 

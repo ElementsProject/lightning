@@ -1,5 +1,4 @@
 #include "config.h"
-#include <bitcoin/feerate.h>
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>
@@ -11,16 +10,14 @@
 #include <common/keyset.h>
 #include <common/lease_rates.h>
 #include <common/memleak.h>
-#include <common/overflows.h>
 #include <common/peer_billboard.h>
-#include <common/psbt_keypath.h>
 #include <common/status.h>
 #include <common/subdaemon.h>
 #include <hsmd/hsmd_wiregen.h>
+#include <inttypes.h>
 #include <onchaind/onchain_types.h>
 #include <onchaind/onchaind_wiregen.h>
 #include <unistd.h>
-#include <wally_bip32.h>
 #include <wire/wire_sync.h>
   #include "onchain_types_names_gen.h"
 
