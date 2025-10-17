@@ -53,6 +53,10 @@ static struct refresh_info *use_rinfo(struct refresh_info *rinfo)
 	return rinfo;
 }
 
+/* Recursion */
+static struct command_result *limited_listchannelmoves(struct command *cmd,
+						       struct refresh_info *rinfo);
+
 static struct command_result *rinfo_one_done(struct command *cmd,
 					     struct refresh_info *rinfo)
 {
@@ -123,7 +127,29 @@ static struct command_result *listchannelmoves_done(struct command *cmd,
 				     &be_index, sizeof(be_index),
 				     "create-or-replace",
 				     datastore_done, NULL, use_rinfo(rinfo));
+
+	/* If there might be more, try asking for more */
+	if (moves->size != 0)
+		limited_listchannelmoves(cmd, rinfo);
+
 	return rinfo_one_done(cmd, rinfo);
+}
+
+/* We do 1000 at a time to avoid overwhelming lightningd */
+static struct command_result *limited_listchannelmoves(struct command *cmd,
+						       struct refresh_info *rinfo)
+{
+	struct bkpr *bkpr = bkpr_of(cmd->plugin);
+	struct out_req *req;
+
+	req = jsonrpc_request_start(cmd, "listchannelmoves",
+				    listchannelmoves_done,
+				    plugin_broken_cb,
+				    use_rinfo(rinfo));
+	json_add_string(req->js, "index", "created");
+	json_add_u64(req->js, "start", bkpr->channelmoves_index + 1);
+	json_add_u64(req->js, "limit", 1000);
+	return send_outreq(req);
 }
 
 static struct command_result *listchainmoves_done(struct command *cmd,
@@ -132,7 +158,6 @@ static struct command_result *listchainmoves_done(struct command *cmd,
 						  const jsmntok_t *result,
 						  struct refresh_info *rinfo)
 {
-	struct out_req *req;
 	const jsmntok_t *moves, *t;
 	size_t i;
 	struct bkpr *bkpr = bkpr_of(cmd->plugin);
@@ -148,13 +173,7 @@ static struct command_result *listchainmoves_done(struct command *cmd,
 				     "create-or-replace",
 				     datastore_done, NULL, use_rinfo(rinfo));
 
-	req = jsonrpc_request_start(cmd, "listchannelmoves",
-				    listchannelmoves_done,
-				    plugin_broken_cb,
-				    use_rinfo(rinfo));
-	json_add_string(req->js, "index", "created");
-	json_add_u64(req->js, "start", bkpr->channelmoves_index + 1);
-	send_outreq(req);
+	limited_listchannelmoves(cmd, rinfo);
 	return rinfo_one_done(cmd, rinfo);
 }
 
