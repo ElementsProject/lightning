@@ -1,7 +1,6 @@
 #ifndef LIGHTNING_COMMON_HTLC_TX_H
 #define LIGHTNING_COMMON_HTLC_TX_H
 #include "config.h"
-#include <bitcoin/chainparams.h>
 #include <bitcoin/tx.h>
 #include <common/htlc.h>
 #include <common/utils.h>

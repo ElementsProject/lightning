@@ -5,8 +5,6 @@
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <channeld/channeld_wiregen.h>
-#include <common/blockheight_states.h>
-#include <common/fee_states.h>
 #include <common/memleak.h>
 #include <common/onionreply.h>
 #include <common/trace.h>
@@ -14,20 +12,17 @@
 #include <db/common.h>
 #include <db/exec.h>
 #include <db/utils.h>
-#include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/channel_gossip.h>
 #include <lightningd/closed_channel.h>
 #include <lightningd/coin_mvts.h>
 #include <lightningd/notification.h>
-#include <lightningd/peer_control.h>
 #include <lightningd/peer_htlcs.h>
 #include <lightningd/runes.h>
 #include <onchaind/onchaind_wiregen.h>
 #include <wallet/invoices.h>
 #include <wallet/txfilter.h>
 #include <wallet/wallet.h>
-#include <wally_bip32.h>
 
 #define SQLITE_MAX_UINT 0x7FFFFFFFFFFFFFFF
 #define DIRECTION_INCOMING 0

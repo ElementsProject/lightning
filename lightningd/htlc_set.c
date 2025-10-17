@@ -1,5 +1,4 @@
 #include "config.h"
-#include <common/features.h>
 #include <common/timeout.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>

@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_COMMON_PSEUDORAND_H
 #define LIGHTNING_COMMON_PSEUDORAND_H
 #include "config.h"
+#include <ccan/crypto/siphash24/siphash24.h>
 #include <stdint.h>
 #include <stdlib.h>
 

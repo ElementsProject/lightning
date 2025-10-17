@@ -1,20 +1,13 @@
 #include "config.h"
 #include <ccan/cast/cast.h>
-#include <ccan/json_escape/json_escape.h>
-#include <ccan/take/take.h>
 #include <common/bolt12_id.h>
 #include <common/bolt12_merkle.h>
-#include <common/configdir.h>
 #include <common/json_command.h>
-#include <common/json_param.h>
-#include <common/json_stream.h>
-#include <errno.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <inttypes.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
-#include <secp256k1_schnorrsig.h>
 
 static void json_populate_offer(struct json_stream *response,
 				const struct sha256 *offer_id,

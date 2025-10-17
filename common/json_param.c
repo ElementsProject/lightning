@@ -1,7 +1,6 @@
 #include "config.h"
 #include <bitcoin/address.h>
 #include <bitcoin/base58.h>
-#include <bitcoin/feerate.h>
 #include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
 #include <ccan/asort/asort.h>
@@ -10,10 +9,10 @@
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>
-#include <common/configdir.h>
 #include <common/json_command.h>
 #include <common/json_param.h>
 #include <common/route.h>
+#include <common/utils.h>
 
 /* Overridden by run-param.c */
 #ifndef paramcheck_assert

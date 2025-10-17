@@ -3,6 +3,7 @@
 
 #include "config.h"
 #include <bitcoin/pubkey.h>
+#include <bitcoin/signature.h>
 #include <bitcoin/tx.h>
 #include <common/amount.h>
 

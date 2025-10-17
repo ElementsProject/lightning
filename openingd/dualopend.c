@@ -19,15 +19,12 @@
 #include <ccan/tal/str/str.h>
 #include <common/billboard.h>
 #include <common/blockheight_states.h>
-#include <common/channel_type.h>
-#include <common/gossip_store.h>
 #include <common/initial_channel.h>
 #include <common/lease_rates.h>
 #include <common/memleak.h>
 #include <common/peer_billboard.h>
 #include <common/peer_failed.h>
 #include <common/peer_io.h>
-#include <common/peer_status_wiregen.h>
 #include <common/per_peer_state.h>
 #include <common/psbt_internal.h>
 #include <common/psbt_open.h>
@@ -38,9 +35,11 @@
 #include <common/wire_error.h>
 #include <errno.h>
 #include <hsmd/hsmd_wiregen.h>
+#include <inttypes.h>
 #include <openingd/common.h>
 #include <openingd/dualopend_wiregen.h>
 #include <unistd.h>
+#include <wally_script.h>
 #include <wire/wire_sync.h>
 
 /* stdin == lightningd, 3 == peer, 4 = hsmd */

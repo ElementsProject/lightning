@@ -5,15 +5,14 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/io/io.h>
 #include <ccan/pipecmd/pipecmd.h>
-#include <ccan/str/str.h>
 #include <ccan/tal/str/str.h>
 #include <common/json_param.h>
-#include <common/json_parse_simple.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <errno.h>
 #include <plugins/libplugin.h>
 #include <signal.h>
+#include <unistd.h>
 
 static struct plugin *plugin;
 

@@ -7,11 +7,13 @@ fi
 
 CCMD=$(make show-flags | sed -n 's/CC://p')
 for file; do
+    # We have a rule (and a check!) that a .c includes its own .h directly.
+    OWN_HDR='<'$(echo "$file" | sed -n 's/\.c$/.h/p')'>'
     i=1
     echo "$file":
     while true; do
 	# Don't eliminate config.h includes!
-	LINE="$(grep '^#include <' "$file" | grep -v '[<"]config.h[">]' | tail -n +$i | head -n1)"
+	LINE="$(grep '^#include <' "$file" | grep -v '[<"]config.h[">]' | grep -F -v "$OWN_HDR" | tail -n +$i | head -n1)"
 	[ -n "$LINE" ] || break
 	# Make sure even headers end in .c
 	grep -F -v "$LINE" "$file" > "$file".c

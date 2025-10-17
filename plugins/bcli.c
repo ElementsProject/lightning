@@ -1,5 +1,4 @@
 #include "config.h"
-#include <bitcoin/base58.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
 #include <ccan/io/io.h>
@@ -11,6 +10,7 @@
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <plugins/libplugin.h>
 
 /* Bitcoind's web server has a default of 4 threads, with queue depth 16.

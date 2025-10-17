@@ -2,7 +2,6 @@
 #define LIGHTNING_COMMON_ONION_MESSAGE_PARSE_H
 #include "config.h"
 #include <bitcoin/privkey.h>
-#include <common/amount.h>
 
 struct tlv_onionmsg_tlv;
 struct sciddir_or_pubkey;

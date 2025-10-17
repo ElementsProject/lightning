@@ -1,22 +1,23 @@
 #include "config.h"
-#include <ccan/array_size/array_size.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/blindedpay.h>
+#include <common/bolt11.h>
 #include <common/daemon.h>
 #include <common/dijkstra.h>
+#include <common/features.h>
 #include <common/gossmap.h>
 #include <common/gossmods_listpeerchannels.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
-#include <common/pseudorand.h>
 #include <common/random_select.h>
+#include <common/route.h>
 #include <common/trace.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <math.h>
+#include <plugins/channel_hint.h>
 #include <plugins/libplugin-pay.h>
-#include <stdio.h>
-#include <sys/types.h>
 #include <wire/peer_wire.h>
 
 static struct gossmap *global_gossmap;

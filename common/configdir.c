@@ -1,7 +1,6 @@
 #include "config.h"
 #include <assert.h>
 #include <bitcoin/chainparams.h>
-#include <ccan/cast/cast.h>
 #include <ccan/err/err.h>
 #include <ccan/opt/opt.h>
 #include <ccan/opt/private.h>

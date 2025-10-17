@@ -1,8 +1,6 @@
 #ifndef LIGHTNING_COMMON_ONION_DECODE_H
 #define LIGHTNING_COMMON_ONION_DECODE_H
 #include "config.h"
-#include <bitcoin/privkey.h>
-#include <common/amount.h>
 #include <common/onion_encode.h>
 
 /**

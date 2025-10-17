@@ -2,6 +2,7 @@
 #include <ccan/str/hex/hex.h>
 #include <common/setup.h>
 #include <common/status.h>
+#include <common/utils.h>
 #include <stdio.h>
 #include <wire/peer_wire.h>
 

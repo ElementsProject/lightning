@@ -1,7 +1,6 @@
 #include "config.h"
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
-#include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/daemon_conn.h>
 #include <common/gossip_store.h>
@@ -9,9 +8,8 @@
 #include <common/memleak.h>
 #include <common/status.h>
 #include <common/timeout.h>
+#include <common/utils.h>
 #include <common/wire_error.h>
-#include <errno.h>
-#include <fcntl.h>
 #include <gossipd/gossip_store.h>
 #include <gossipd/gossip_store_wiregen.h>
 #include <gossipd/gossipd.h>
@@ -20,7 +18,6 @@
 #include <gossipd/seeker.h>
 #include <gossipd/sigcheck.h>
 #include <gossipd/txout_failures.h>
-#include <string.h>
 
 struct pending_cannounce {
 	const u8 *scriptpubkey;

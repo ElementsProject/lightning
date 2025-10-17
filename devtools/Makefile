@@ -16,94 +16,20 @@ ifeq ($(HAVE_ZLIB),1)
 devtools/gossmap-compress_LDLIBS=-lz
 endif # ZLIB
 
-DEVTOOLS_COMMON_OBJS :=				\
-	common/amount.o				\
-	common/autodata.o			\
-	common/blinding.o			\
-	common/blindedpath.o			\
-	common/coin_mvt.o			\
-	common/base32.o				\
-	common/bech32.o				\
-	common/bech32_util.o			\
-	common/bigsize.o			\
-	common/bolt11.o				\
-	common/blockheight_states.o		\
-	common/channel_id.o			\
-	common/decode_array.o			\
-	common/features.o			\
-	common/fee_states.o			\
-	common/hash_u5.o			\
-	common/hmac.o				\
-	common/htlc_state.o			\
-	common/json_parse.o			\
-	common/json_parse_simple.o		\
-	common/memleak.o			\
-	common/node_id.o			\
-	common/per_peer_state.o			\
-	common/psbt_open.o			\
-	common/pseudorand.o			\
-	common/sciddir_or_pubkey.o		\
-	common/setup.o				\
-	common/utils.o				\
-	common/version.o			\
-	common/wireaddr.o			\
-	wire/onion_wiregen.o			\
-	wire/peer_wiregen.o			\
-	wire/channel_type_wiregen.o		\
-	wire/tlvstream.o
+$(DEVTOOLS): %: %.o libcommon.a
+$(DEVTOOLS_TOOL_OBJS): wire/wire.h
 
-devtools/features: common/features.o common/utils.o wire/fromwire.o wire/towire.o devtools/features.o
+# Some devtools require extra objects
+DEVTOOLS_NEEDS_GOSSIP_STORE := devtools/gossmap-compress devtools/dump-gossipstore devtools/convert-gossmap devtools/create-gossipstore
 
-devtools/rune: common/utils.o common/autodata.o common/setup.o common/version.o wire/fromwire.o wire/towire.o devtools/rune.o
+$(DEVTOOLS_NEEDS_GOSSIP_STORE): gossipd/gossip_store_wiregen.o
+$(DEVTOOLS_NEEDS_GOSSIP_STORE:=.o): gossipd/gossip_store_wiregen.h
 
-devtools/fp16: common/fp16.o common/utils.o common/setup.o common/autodata.o devtools/fp16.o
+devtools/decodemsg: devtools/print_wire.o
+devtools/decodemsg.o: devtools/print_wire.h
 
-devtools/bolt11-cli: $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/bolt11-cli.o
+devtools/mkcommit: channeld/full_channel.o channeld/commit_tx.o
+devtools/mkcommit.o: channeld/full_channel.h channeld/commit_tx.h
 
-devtools/encodeaddr: common/utils.o common/bech32.o devtools/encodeaddr.o
-
-devtools/gossmap-compress: $(DEVTOOLS_COMMON_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o wire/tlvstream.o common/gossmap.o common/fp16.o devtools/gossmap-compress.o gossipd/gossip_store_wiregen.o
-
-devtools/bolt12-cli: $(DEVTOOLS_COMMON_OBJS) $(BITCOIN_OBJS) wire/bolt12_wiregen.o wire/fromwire.o wire/towire.o common/bolt12.o common/bolt12_merkle.o devtools/bolt12-cli.o common/setup.o common/iso4217.o
-
-devtools/decodemsg: $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(BITCOIN_OBJS) $(WIRE_PRINT_OBJS) wire/fromwire.o wire/towire.o devtools/print_wire.o devtools/decodemsg.o
-
-devtools/dump-gossipstore: $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/dump-gossipstore.o gossipd/gossip_store_wiregen.o
-
-devtools/dump-gossipstore.o: gossipd/gossip_store_wiregen.h
-
-devtools/convert-gossmap: $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/convert-gossmap.o
-devtools/convert-gossmap.o: gossipd/gossip_store_wiregen.h
-
-devtools/create-gossipstore: $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/create-gossipstore.o gossipd/gossip_store_wiregen.o
-devtools/create-gossipstore.o: gossipd/gossip_store_wiregen.h
-
-devtools/onion.c: ccan/config.h
-
-devtools/onion: $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(BITCOIN_OBJS) common/onion_decode.o common/onion_encode.o common/onionreply.o wire/fromwire.o wire/towire.o devtools/onion.o common/sphinx.o
-
-devtools/gossipwith: $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o wire/peer_wiregen.o devtools/gossipwith.o common/cryptomsg.o common/ping.o
-
-$(DEVTOOLS_OBJS) $(DEVTOOLS_TOOL_OBJS): wire/wire.h
-
-devtools/mkcommit: $(DEVTOOLS_COMMON_OBJS) $(BITCOIN_OBJS) common/derive_basepoints.o common/channel_type.o common/keyset.o common/key_derive.o common/initial_commit_tx.o common/permute_tx.o wire/fromwire.o wire/towire.o devtools/mkcommit.o channeld/full_channel.o common/initial_channel.o common/htlc_state.o common/pseudorand.o common/htlc_tx.o channeld/commit_tx.o common/htlc_trim.o
-
-devtools/mkfunding: $(DEVTOOLS_COMMON_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o common/key_derive.o devtools/mkfunding.o
-
-devtools/mkclose: $(DEVTOOLS_COMMON_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/mkclose.o
-
-devtools/mkgossip: $(DEVTOOLS_COMMON_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o common/utxo.o common/permute_tx.o common/key_derive.o devtools/mkgossip.o
-
-devtools/mkencoded: $(DEVTOOLS_COMMON_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/mkencoded.o
-
-devtools/checkchannels: $(DEVTOOLS_COMMON_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/checkchannels.o common/configdir.o common/configvar.o
-
-devtools/mkquery: $(DEVTOOLS_COMMON_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/mkquery.o
-
-devtools/lightning-checkmessage: $(DEVTOOLS_COMMON_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/lightning-checkmessage.o
-
-devtools/bip137-verifysignature: $(DEVTOOLS_COMMON_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/bip137-verifysignature.o
-
-devtools/route: $(DEVTOOLS_COMMON_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o wire/tlvstream.o common/gossmap.o common/fp16.o common/random_select.o common/route.o common/dijkstra.o devtools/clean_topo.o devtools/route.o
-
-devtools/topology: $(DEVTOOLS_COMMON_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o wire/tlvstream.o common/gossmap.o common/fp16.o common/random_select.o common/dijkstra.o common/route.o devtools/clean_topo.o devtools/topology.o
+devtools/route devtools/topology: devtools/clean_topo.o
+devtools/route.o devtools/topology.o: devtools/clean_topo.h

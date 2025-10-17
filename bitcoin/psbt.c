@@ -1,13 +1,10 @@
 #include "config.h"
 #include <assert.h>
-#include <bitcoin/chainparams.h>
 #include <bitcoin/psbt.h>
 #include <bitcoin/pubkey.h>
 #include <bitcoin/script.h>
-#include <bitcoin/varint.h>
 #include <ccan/ccan/array_size/array_size.h>
 #include <ccan/ccan/mem/mem.h>
-#include <ccan/tal/str/str.h>
 #include <common/utils.h>
 #include <wally_psbt.h>
 #include <wire/wire.h>

@@ -15,6 +15,7 @@
 #include <common/node_id.h>
 #include <db/exec.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <plugins/bkpr/account.h>
 #include <plugins/bkpr/account_entry.h>
 #include <plugins/bkpr/blockheights.h>

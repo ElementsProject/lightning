@@ -7,13 +7,11 @@
 #include <ccan/tal/str/str.h>
 #include <common/configvar.h>
 #include <common/json_command.h>
-#include <common/json_param.h>
 #include <common/memleak.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <lightningd/log.h>
 #include <lightningd/notification.h>
-#include <signal.h>
 #include <stdio.h>
 
 /* What logging level to use if they didn't specify */

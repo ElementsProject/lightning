@@ -4,24 +4,15 @@
  * standardized and you can use another plugin as the Bitcoin backend, or
  * even make your own! */
 #include "config.h"
-#include <bitcoin/base58.h>
-#include <bitcoin/block.h>
 #include <bitcoin/feerate.h>
 #include <bitcoin/script.h>
-#include <bitcoin/shadouble.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/io/io.h>
 #include <ccan/tal/str/str.h>
-#include <common/configdir.h>
-#include <common/json_parse.h>
-#include <common/memleak.h>
 #include <common/trace.h>
-#include <db/exec.h>
 #include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/io_loop_with_timers.h>
-#include <lightningd/lightningd.h>
-#include <lightningd/log.h>
 #include <lightningd/plugin.h>
 
 /* The names of the requests we can make to our Bitcoin backend. */

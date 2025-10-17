@@ -1,22 +1,19 @@
 #include "config.h"
-#include <ccan/array_size/array_size.h>
 #include <ccan/crc32c/crc32c.h>
 #include <ccan/noerr/noerr.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/str/str.h>
 #include <common/gossip_store.h>
 #include <common/status.h>
+#include <common/utils.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <gossipd/gossip_store.h>
 #include <gossipd/gossip_store_wiregen.h>
 #include <gossipd/gossipd.h>
-#include <gossipd/gossmap_manage.h>
 #include <inttypes.h>
 #include <sys/stat.h>
-#include <sys/uio.h>
 #include <unistd.h>
-#include <wire/peer_wire.h>
 
 /* Obsolete ZOMBIE bit */
 #define GOSSIP_STORE_ZOMBIE_BIT_V13 0x1000U

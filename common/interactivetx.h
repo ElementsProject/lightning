@@ -2,12 +2,8 @@
 #define LIGHTNING_COMMON_INTERACTIVETX_H
 
 #include "config.h"
-#include <ccan/short_types/short_types.h>
 #include <common/channel_id.h>
-#include <common/per_peer_state.h>
 #include <common/tx_roles.h>
-#include <common/utils.h>
-#include <wally_psbt.h>
 
 /* Interactive tx handles the building and updating of a transaction between
  * two peers. A PSBT is passed back and forth between two peers in steps. In

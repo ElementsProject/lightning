@@ -1,5 +1,4 @@
 #include "config.h"
-#include <bitcoin/tx.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/err/err.h>
@@ -12,18 +11,17 @@
 #include <common/bech32.h>
 #include <common/bech32_util.h>
 #include <common/codex32.h>
-#include <common/configdir.h>
 #include <common/derive_basepoints.h>
 #include <common/descriptor_checksum.h>
 #include <common/errcode.h>
 #include <common/hsm_encryption.h>
 #include <common/key_derive.h>
-#include <common/node_id.h>
 #include <common/utils.h>
 #include <common/utxo.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <wally_bip32.h>
 #include <wally_bip39.h>

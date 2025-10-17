@@ -9,6 +9,7 @@
 #include <common/json_stream.h>
 #include <common/psbt_open.h>
 #include <common/pseudorand.h>
+#include <inttypes.h>
 #include <plugins/spender/multiwithdraw.h>
 #include <wally_psbt.h>
 

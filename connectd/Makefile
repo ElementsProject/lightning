@@ -35,61 +35,8 @@ ALL_PROGRAMS += lightningd/lightning_websocketd
 LIGHTNINGD_CONTROL_HEADERS += connectd/connectd_wiregen.h
 LIGHTNINGD_CONTROL_OBJS += connectd/connectd_wiregen.o
 
-# Common source we use.
-CONNECTD_COMMON_OBJS :=				\
-	common/amount.o				\
-	common/autodata.o			\
-	common/base32.o				\
-	common/base64.o				\
-	common/bech32.o				\
-	common/bech32_util.o			\
-	common/bigsize.o			\
-	common/bip32.o				\
-	common/blinding.o			\
-	common/blindedpath.o			\
-	common/channel_id.o			\
-	common/cryptomsg.o			\
-	common/daemon.o				\
-	common/daemon_conn.o			\
-	common/decode_array.o			\
-	common/derive_basepoints.o		\
-	common/dev_disconnect.o			\
-	common/ecdh_hsmd.o			\
-	common/features.o			\
-	common/fp16.o				\
-	common/hmac.o				\
-	common/status_wiregen.o			\
-	common/gossip_store.o			\
-	common/gossmap.o			\
-	common/key_derive.o			\
-	common/memleak.o			\
-	common/msg_queue.o			\
-	common/node_id.o			\
-	common/onion_decode.o			\
-	common/onionreply.o			\
-	common/onion_message_parse.o		\
-	common/ping.o				\
-	common/per_peer_state.o			\
-	common/psbt_open.o			\
-	common/pseudorand.o			\
-	common/sciddir_or_pubkey.o		\
-	common/setup.o				\
-	common/sphinx.o				\
-	common/status.o				\
-	common/status_wire.o			\
-	common/subdaemon.o			\
-	common/timeout.o			\
-	common/utils.o				\
-	common/utxo.o				\
-	common/version.o			\
-	common/wireaddr.o			\
-	common/wire_error.o			\
-	gossipd/gossipd_wiregen.o		\
-	gossipd/gossip_store_wiregen.o		\
-	wire/onion_wiregen.o
+lightningd/lightning_connectd: $(CONNECTD_OBJS) $(HSMD_CLIENT_OBJS) gossipd/gossipd_wiregen.o gossipd/gossip_store_wiregen.o libcommon.a
 
-lightningd/lightning_connectd: $(CONNECTD_OBJS) $(CONNECTD_COMMON_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS) $(HSMD_CLIENT_OBJS)
-
-lightningd/lightning_websocketd: $(WEBSOCKETD_OBJS) common/setup.o common/utils.o common/autodata.o
+lightningd/lightning_websocketd: $(WEBSOCKETD_OBJS) libcommon.a
 
 include connectd/test/Makefile

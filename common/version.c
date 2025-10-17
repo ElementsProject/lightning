@@ -1,10 +1,7 @@
 #include "config.h"
-#include <ccan/compiler/compiler.h>
 #include <common/configvar.h>
 #include <common/version.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 /* Only common/version.c can safely include this.  */
 # include "version_gen.h"

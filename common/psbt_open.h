@@ -1,7 +1,6 @@
 #ifndef LIGHTNING_COMMON_PSBT_OPEN_H
 #define LIGHTNING_COMMON_PSBT_OPEN_H
 #include "config.h"
-#include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 #include <common/tx_roles.h>
 #include <wally_psbt.h>

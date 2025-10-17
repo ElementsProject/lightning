@@ -3,7 +3,6 @@
 #include "config.h"
 #include "signature.h"
 #include "tx.h"
-#include <wally_script.h>
 
 struct bitcoin_address;
 struct preimage;

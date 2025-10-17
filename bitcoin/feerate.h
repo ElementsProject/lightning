@@ -2,7 +2,6 @@
 #define LIGHTNING_BITCOIN_FEERATE_H
 #include "config.h"
 #include <ccan/build_assert/build_assert.h>
-#include <ccan/short_types/short_types.h>
 #include <common/amount.h>
 
 /* bitcoind considers 250 satoshi per kw to be the minimum acceptable fee:

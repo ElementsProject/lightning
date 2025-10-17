@@ -13,22 +13,22 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>
 #include <ccan/closefrom/closefrom.h>
-#include <ccan/fdpass/fdpass.h>
 #include <ccan/io/backend.h>
 #include <ccan/noerr/noerr.h>
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>
 #include <common/bech32_util.h>
+#include <common/cryptomsg.h>
 #include <common/daemon_conn.h>
 #include <common/dev_disconnect.h>
+#include <common/ecdh.h>
 #include <common/ecdh_hsmd.h>
-#include <common/gossip_store.h>
 #include <common/gossmap.h>
-#include <common/jsonrpc_errors.h>
 #include <common/memleak.h>
 #include <common/status.h>
 #include <common/subdaemon.h>
 #include <common/timeout.h>
+#include <common/utils.h>
 #include <common/wire_error.h>
 #include <connectd/connectd.h>
 #include <connectd/connectd_gossipd_wiregen.h>
@@ -43,16 +43,11 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <netdb.h>
-#include <netinet/in.h>
-#include <signal.h>
 #include <sodium.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <sys/wait.h>
-#include <unistd.h>
 #include <wire/peer_wire.h>
 #include <wire/wire_io.h>
-#include <wire/wire_sync.h>
 
 /*~ We are passed two file descriptors when exec'ed from `lightningd`: the
  * first is a connection to `hsmd`, which we need for the cryptographic

@@ -1,9 +1,7 @@
 #include "config.h"
 #include <assert.h>
-#include <ccan/str/str.h>
 #include <ccan/tal/tal.h>
 #include <common/deprecation.h>
-#include <stdlib.h>
 
 #define MONTH_VAL (10)
 #define YEAR_VAL (12 * MONTH_VAL)

@@ -12,10 +12,10 @@
 #include <ccan/tal/str/str.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
-#include <common/lease_rates.h>
 #include <common/memleak.h>
 #include <common/overflows.h>
 #include <common/psbt_open.h>
+#include <inttypes.h>
 #include <plugins/funder_policy.h>
 #include <plugins/libplugin.h>
 

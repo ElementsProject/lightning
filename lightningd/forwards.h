@@ -2,7 +2,8 @@
 #ifndef LIGHTNING_LIGHTNINGD_FORWARDS_H
 #define LIGHTNING_LIGHTNINGD_FORWARDS_H
 #include "config.h"
-#include <wire/onion_wire.h>
+#include <ccan/time/time.h>
+#include <wire/onion_wiregen.h>
 
 struct json_stream;
 struct lightningd;

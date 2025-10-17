@@ -1,5 +1,4 @@
 #include "config.h"
-#include <ccan/tal/tal.h>
 #include <channeld/splice.h>
 
 struct splice_state *splice_state_new(const tal_t *ctx)

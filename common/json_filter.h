@@ -4,9 +4,7 @@
 #ifndef LIGHTNING_COMMON_JSON_FILTER_H
 #define LIGHTNING_COMMON_JSON_FILTER_H
 #include "config.h"
-#include <ccan/tal/tal.h>
 #include <common/json_parse_simple.h>
-#include <stdbool.h>
 
 struct command;
 struct json_filter;
