@@ -99,7 +99,7 @@ static struct subd *find_subd(struct peer *peer,
  * not reading, we have to give up. */
 static void close_peer_io_timeout(struct peer *peer)
 {
-	status_peer_unusual(&peer->id, CI_UNEXPECTED "Peer did not close, forcing close");
+	status_peer_unusual(&peer->id, "Peer did not close, forcing close");
 	io_close(peer->to_peer);
 }
 
