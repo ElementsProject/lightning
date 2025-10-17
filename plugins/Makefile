@@ -181,6 +181,7 @@ PLUGIN_COMMON_OBJS :=				\
 	common/bigsize.o			\
 	common/bolt11.o				\
 	common/channel_id.o			\
+	common/clock_time.o			\
 	common/daemon.o				\
 	common/deprecation.o			\
 	common/features.o			\
@@ -197,6 +198,7 @@ PLUGIN_COMMON_OBJS :=				\
 	common/plugin.o				\
 	common/psbt_open.o			\
 	common/pseudorand.o			\
+	common/randbytes.o			\
 	common/random_select.o			\
 	common/splice_script.o			\
 	common/setup.o				\

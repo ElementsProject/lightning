@@ -402,15 +402,12 @@ class BitcoinD(TailableProc):
     def __init__(self, bitcoin_dir="/tmp/bitcoind-test", rpcport=None):
         TailableProc.__init__(self, bitcoin_dir, verbose=False)
 
-        if rpcport is None:
-            self.reserved_rpcport = reserve_unused_port()
-            rpcport = self.reserved_rpcport
-        else:
-            self.reserved_rpcport = None
-
         self.bitcoin_dir = bitcoin_dir
         self.rpcport = rpcport
+        self.reserved_rpcport = None
+        self.port_setup = False
         self.prefix = 'bitcoind'
+        self.canned_blocks = None
 
         regtestdir = os.path.join(bitcoin_dir, 'regtest')
         if not os.path.exists(regtestdir):
@@ -432,29 +429,40 @@ class BitcoinD(TailableProc):
             '-debug=validation',
             '-rpcthreads=20',
         ]
-        # For up to and including 0.16.1, this needs to be in main section.
-        BITCOIND_CONFIG['rpcport'] = rpcport
-        # For after 0.16.1 (eg. 3f398d7a17f136cd4a67998406ca41a124ae2966), this
-        # needs its own [regtest] section.
-        BITCOIND_REGTEST = {'rpcport': rpcport}
         self.conf_file = os.path.join(bitcoin_dir, 'bitcoin.conf')
+
+    def set_port(self, rpcport):
+        assert self.port_setup is False
+
+        BITCOIND_REGTEST = {'rpcport': rpcport}
         write_config(self.conf_file, BITCOIND_CONFIG, BITCOIND_REGTEST)
-        self.rpc = SimpleBitcoinProxy(btc_conf_file=self.conf_file)
-        self.proxies = []
+        self.port_setup = True
 
     def __del__(self):
         if self.reserved_rpcport is not None:
             drop_unused_port(self.reserved_rpcport)
 
-    def start(self):
+    def start(self, wallet_file=None):
+        if not self.port_setup:
+            if self.rpcport is None:
+                self.reserved_rpcport = reserve_unused_port()
+                self.rpcport = self.reserved_rpcport
+            self.set_port(self.rpcport)
+
+        self.rpc = SimpleBitcoinProxy(btc_conf_file=self.conf_file)
+        self.proxies = []
+
         TailableProc.start(self)
         self.wait_for_log("Done loading", timeout=TIMEOUT)
 
         logging.info("BitcoinD started")
-        try:
-            self.rpc.createwallet("lightningd-tests")
-        except JSONRPCError:
-            self.rpc.loadwallet("lightningd-tests")
+        if wallet_file:
+            self.rpc.restorewallet("lightningd-tests", wallet_file)
+        else:
+            try:
+                self.rpc.createwallet("lightningd-tests")
+            except JSONRPCError:
+                self.rpc.loadwallet("lightningd-tests")
 
     def stop(self):
         for p in self.proxies:
@@ -467,6 +475,10 @@ class BitcoinD(TailableProc):
         self.proxies.append(proxy)
         proxy.start()
         return proxy
+
+    def set_canned_blocks(self, blocks):
+        """Set blocks as an array of blocks to "generate", or None to reset"""
+        self.canned_blocks = blocks
 
     # wait_for_mempool can be used to wait for the mempool before generating blocks:
     # True := wait for at least 1 transation
@@ -481,6 +493,16 @@ class BitcoinD(TailableProc):
                 wait_for(lambda: all(txid in self.rpc.getrawmempool() for txid in wait_for_mempool))
             else:
                 wait_for(lambda: len(self.rpc.getrawmempool()) >= wait_for_mempool)
+
+        # Use canned blocks if we have them (fails if we run out!).
+        if self.canned_blocks is not None:
+            ret = []
+            while numblocks > 0:
+                self.rpc.submitblock(self.canned_blocks[0])
+                ret.append(self.rpc.getbestblockhash())
+                numblocks -= 1
+                del self.canned_blocks[0]
+            return ret
 
         mempool = self.rpc.getrawmempool(True)
         logging.debug("Generating {numblocks}, confirming {lenmempool} transactions: {mempool}".format(
@@ -509,6 +531,21 @@ class BitcoinD(TailableProc):
 
         return self.rpc.generatetoaddress(numblocks, to_addr)
 
+    def send_and_mine_block(self, addr, sats):
+        """Sometimes we want the txid.  We assume it's the first tx for canned blocks"""
+        if self.canned_blocks:
+            self.generate_block(1)
+            # Find which non-coinbase txs sent to this address: return txid
+            for txid in self.rpc.getblock(self.rpc.getbestblockhash())['tx'][1:]:
+                for out in self.rpc.getrawtransaction(txid, 1)['vout']:
+                    if out['scriptPubKey'].get('address') == addr:
+                        return txid
+            assert False, f"No address {addr} in block {self.rpc.getblock(self.rpc.getbestblockhash())}"
+
+        txid = self.rpc.sendtoaddress(addr, sats / 10**8)
+        self.generate_block(1)
+        return txid
+
     def simple_reorg(self, height, shift=0):
         """
         Reorganize chain by creating a fork at height=[height] and re-mine all mempool
@@ -526,6 +563,7 @@ class BitcoinD(TailableProc):
            forward to h1.
         2. Set [height]=h2 and [shift]= h1-h2
         """
+        assert self.canned_blocks is None
         hashes = []
         fee_delta = 1000000
         orig_len = self.rpc.getblockcount()
@@ -559,7 +597,7 @@ class BitcoinD(TailableProc):
         """Bundle up blocks into an array, for restore_blocks"""
         blocks = []
         numblocks = self.rpc.getblockcount()
-        for bnum in range(1, numblocks):
+        for bnum in range(1, numblocks + 1):
             bhash = self.rpc.getblockhash(bnum)
             blocks.append(self.rpc.getblock(bhash, False))
         return blocks
@@ -794,6 +832,7 @@ class LightningNode(object):
                  valgrind_plugins=True,
                  executable=None,
                  bad_notifications=False,
+                 no_entropy=False,
                  **kwargs):
         self.bitcoin = bitcoind
         self.executor = executor
@@ -805,6 +844,7 @@ class LightningNode(object):
         self.allow_warning = allow_warning
         self.db = db
         self.lightning_dir = Path(lightning_dir)
+        self.no_entropy = no_entropy
 
         # Assume successful exit
         self.rc = 0
@@ -858,6 +898,8 @@ class LightningNode(object):
         # Avoid test flakes cause by this option unless explicitly set.
         if self.cln_version >= "v24.11":
             self.daemon.opts.update({"autoconnect-seeker-peers": 0})
+        if no_entropy:
+            self.daemon.env["CLN_DEV_ENTROPY_SEED"] = str(node_id)
 
         jsondir = Path(lightning_dir) / "plugin-io"
         jsondir.mkdir()
@@ -891,6 +933,10 @@ class LightningNode(object):
             if grpc_port:
                 self.daemon.opts['grpc-port'] = grpc_port
             self.grpc_port = grpc_port or 9736
+
+        # If bitcoind is serving canned blocks, it will keep initialblockdownload on true!
+        if self.bitcoin.canned_blocks is not None:
+            self.daemon.opts['dev-ignore-ibd'] = True
 
     def _create_rpc(self, jsonschemas):
         """Prepares anything related to the RPC.
@@ -987,10 +1033,12 @@ class LightningNode(object):
 
     def fundwallet(self, sats, addrtype="bech32", mine_block=True):
         addr = self.rpc.newaddr(addrtype)[addrtype]
-        txid = self.bitcoin.rpc.sendtoaddress(addr, sats / 10**8)
         if mine_block:
-            self.bitcoin.generate_block(1)
+            txid = self.bitcoin.send_and_mine_block(addr, sats)
             self.daemon.wait_for_log('Owning output .* txid {} CONFIRMED'.format(txid))
+        else:
+            txid = self.bitcoin.rpc.sendtoaddress(addr, sats / 10**8)
+
         return addr, txid
 
     def fundbalancedchannel(self, remote_node, total_capacity=FUNDAMOUNT, announce=True):
@@ -1118,8 +1166,7 @@ class LightningNode(object):
         # We should not have funds on that address yet, we just generated it.
         assert not has_funds_on_addr(addr)
 
-        self.bitcoin.rpc.sendtoaddress(addr, (amount + 1000000) / 10**8)
-        self.bitcoin.generate_block(1)
+        self.bitcoin.send_and_mine_block(addr, amount + 1000000)
 
         # Now we should.
         wait_for(lambda: has_funds_on_addr(addr))
@@ -1134,9 +1181,17 @@ class LightningNode(object):
                                    **kwargs)
         blockid = self.bitcoin.generate_block(1, wait_for_mempool=res['txid'])[0]
 
+        txnum = None
         for i, txid in enumerate(self.bitcoin.rpc.getblock(blockid)['tx']):
             if txid == res['txid']:
                 txnum = i
+
+        if txnum is None:
+            print(f"mempool = {self.bitcoin.rpc.getrawmempool()}")
+            print(f"txs:")
+            for txid in self.bitcoin.rpc.getblock(blockid)['tx'][1:]:
+                print(f"txid {txid}: {self.bitcoin.rpc.getrawtransaction(txid)} {self.bitcoin.rpc.getrawtransaction(txid, 1)}")
+            assert False, f"txid {res['txid']} not found"
 
         scid = "{}x{}x{}".format(self.bitcoin.rpc.getblockcount(),
                                  txnum, res['outnum'])
@@ -1619,6 +1674,8 @@ class NodeFactory(object):
             'allow_bad_gossip',
             'start',
             'gossip_store_file',
+            'no_entropy',
+            'base_port',
         ]
         node_opts = {k: v for k, v in opts.items() if k in node_opt_keys}
         cli_opts = {k: v for k, v in opts.items() if k not in node_opt_keys}
@@ -1665,10 +1722,14 @@ class NodeFactory(object):
     def get_node(self, node_id=None, options=None, dbfile=None,
                  bkpr_dbfile=None, feerates=(15000, 11000, 7500, 3750),
                  start=True, wait_for_bitcoind_sync=True, may_fail=False,
-                 expect_fail=False, cleandir=True, gossip_store_file=None, unused_grpc_port=True, **kwargs):
+                 expect_fail=False, cleandir=True, gossip_store_file=None, unused_grpc_port=True, base_port=None, **kwargs):
         node_id = self.get_node_id() if not node_id else node_id
-        port = reserve_unused_port()
-        grpc_port = self.get_unused_port() if unused_grpc_port else None
+        if base_port:
+            port = base_port + node_id * 2 - 1
+            grpc_port = base_port + node_id * 2
+        else:
+            port = reserve_unused_port()
+            grpc_port = self.get_unused_port() if unused_grpc_port else None
 
         lightning_dir = os.path.join(
             self.directory, "lightning-{}/".format(node_id))
@@ -1692,7 +1753,8 @@ class NodeFactory(object):
             node.set_feerates(feerates, False)
 
         self.nodes.append(node)
-        self.reserved_ports.append(port)
+        if not base_port:
+            self.reserved_ports.append(port)
         if dbfile:
             with open(os.path.join(node.daemon.lightning_dir, TEST_NETWORK,
                                    'lightningd.sqlite3'), 'xb') as out:

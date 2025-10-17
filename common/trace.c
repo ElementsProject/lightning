@@ -77,7 +77,7 @@ static void init_span(struct span *s,
 		      const char *name,
 		      struct span *parent)
 {
-	struct timeabs now = time_now();
+	struct timeabs now = time_now(); /* discouraged: but tracing wants non-dev time */
 
 	s->key = key;
 	s->id = pseudorand_u64();
@@ -184,15 +184,11 @@ static inline void trace_check_tree(void) {}
 static void trace_init(void)
 {
 	const char *dev_trace_file;
-	const char notleak_name[] = "struct span **NOTLEAK**";
 
 	if (active_spans)
 		return;
 
-	active_spans = tal_arrz(NULL, struct span, 1);
-	/* We're usually too early for memleak to be initialized, so mark
-	 * this notleak manually! */
-	tal_set_name(active_spans, notleak_name);
+	active_spans = notleak(tal_arrz(NULL, struct span, 1));
 
 	current = NULL;
 	dev_trace_file = getenv("CLN_DEV_TRACE_FILE");
@@ -372,7 +368,7 @@ void trace_span_end(const void *key)
 
 	trace_check_tree();
 
-	struct timeabs now = time_now();
+	struct timeabs now = time_now(); /* discouraged: but tracing wants non-dev time */
 	s->end_time = (now.ts.tv_sec * 1000000) + now.ts.tv_nsec / 1000;
 	DTRACE_PROBE1(lightningd, span_end, s->id);
 	if (trace_to_file) {

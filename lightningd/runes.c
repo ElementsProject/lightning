@@ -5,6 +5,7 @@
 #include <ccan/rune/rune.h>
 #include <ccan/tal/str/str.h>
 #include <common/bolt12.h>
+#include <common/clock_time.h>
 #include <common/configdir.h>
 #include <common/json_command.h>
 #include <common/json_param.h>
@@ -946,7 +947,7 @@ static struct command_result *json_checkrune(struct command *cmd,
 	cinfo.buf = buffer;
 	cinfo.method = method;
 	cinfo.params = methodparams;
-	cinfo.now = time_now();
+	cinfo.now = clock_time();
 	strmap_init(&cinfo.cached_params);
 
 	err = rune_is_ours(cmd->ld, ras->rune);

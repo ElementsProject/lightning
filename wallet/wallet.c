@@ -1,14 +1,17 @@
 #include "config.h"
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
+#include <ccan/asort/asort.h>
 #include <ccan/cast/cast.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <channeld/channeld_wiregen.h>
 #include <common/blockheight_states.h>
+#include <common/clock_time.h>
 #include <common/fee_states.h>
 #include <common/memleak.h>
 #include <common/onionreply.h>
+#include <common/randbytes.h>
 #include <common/trace.h>
 #include <db/bindings.h>
 #include <db/common.h>
@@ -181,8 +184,7 @@ static void our_addresses_add_for_index(struct wallet *w, u32 i)
 static void our_addresses_init(struct wallet *w)
 {
 	w->our_addresses_maxindex = 0;
-	w->our_addresses = tal(w, struct wallet_address_htable);
-	wallet_address_htable_init(w->our_addresses);
+	w->our_addresses = new_htable(w, wallet_address_htable);
 
 	our_addresses_add_for_index(w, w->our_addresses_maxindex);
 }
@@ -462,7 +464,23 @@ bool wallet_update_output_status(struct wallet *w,
 	return changes > 0;
 }
 
-static struct utxo **gather_utxos(const tal_t *ctx, struct db_stmt *stmt STEALS)
+static int cmp_utxo(struct utxo *const *a,
+		    struct utxo *const *b,
+		    void *unused)
+{
+	int ret = memcmp(&(*a)->outpoint.txid, &(*b)->outpoint.txid,
+			 sizeof((*a)->outpoint.txid));
+	if (ret)
+		return ret;
+	if ((*a)->outpoint.n < (*b)->outpoint.n)
+		return -1;
+	else if ((*a)->outpoint.n > (*b)->outpoint.n)
+		return 1;
+	return 0;
+}
+
+static struct utxo **gather_utxos(const tal_t *ctx,
+				  struct db_stmt *stmt STEALS)
 {
 	struct utxo **results;
 
@@ -473,6 +491,10 @@ static struct utxo **gather_utxos(const tal_t *ctx, struct db_stmt *stmt STEALS)
 		tal_arr_expand(&results, u);
 	}
 	tal_free(stmt);
+
+	/* Make sure these are in order if we're trying to remove entropy */
+	if (randbytes_overridden())
+		asort(results, tal_count(results), cmp_utxo, NULL);
 
 	return results;
 }
@@ -820,27 +842,53 @@ struct utxo *wallet_find_utxo(const tal_t *ctx, struct wallet *w,
 	struct db_stmt *stmt;
 	struct utxo *utxo;
 
-	stmt = db_prepare_v2(w->db, SQL("SELECT"
-					"  prev_out_tx"
-					", prev_out_index"
-					", value"
-					", type"
-					", status"
-					", keyindex"
-					", channel_id"
-					", peer_id"
-					", commitment_point"
-					", option_anchor_outputs"
-					", confirmation_height"
-					", spend_height"
-					", scriptpubkey "
-					", reserved_til"
-					", csv_lock"
-					", is_in_coinbase"
-					" FROM outputs"
-					" WHERE status = ?"
-					" OR (status = ? AND reserved_til <= ?)"
-					"ORDER BY RANDOM();"));
+	/* Make sure these are in order if we're trying to remove entropy! */
+	if (w->ld->developer && getenv("CLN_DEV_ENTROPY_SEED")) {
+		stmt = db_prepare_v2(w->db, SQL("SELECT"
+						"  prev_out_tx"
+						", prev_out_index"
+						", value"
+						", type"
+						", status"
+						", keyindex"
+						", channel_id"
+						", peer_id"
+						", commitment_point"
+						", option_anchor_outputs"
+						", confirmation_height"
+						", spend_height"
+						", scriptpubkey "
+						", reserved_til"
+						", csv_lock"
+						", is_in_coinbase"
+						" FROM outputs"
+						" WHERE status = ?"
+						" OR (status = ? AND reserved_til <= ?)"
+						"ORDER BY prev_out_tx, prev_out_index;"));
+	} else {
+		stmt = db_prepare_v2(w->db, SQL("SELECT"
+						"  prev_out_tx"
+						", prev_out_index"
+						", value"
+						", type"
+						", status"
+						", keyindex"
+						", channel_id"
+						", peer_id"
+						", commitment_point"
+						", option_anchor_outputs"
+						", confirmation_height"
+						", spend_height"
+						", scriptpubkey "
+						", reserved_til"
+						", csv_lock"
+						", is_in_coinbase"
+						" FROM outputs"
+						" WHERE status = ?"
+						" OR (status = ? AND reserved_til <= ?)"
+						"ORDER BY RANDOM();"));
+	}
+
 	db_bind_int(stmt, output_status_in_db(OUTPUT_STATE_AVAILABLE));
 	db_bind_int(stmt, output_status_in_db(OUTPUT_STATE_RESERVED));
 	db_bind_u64(stmt, current_blockheight);
@@ -4186,7 +4234,7 @@ void wallet_payment_set_status(struct wallet *wallet,
 	u32 completed_at = 0;
 
 	if (newstatus != PAYMENT_PENDING)
-		completed_at = time_now().ts.tv_sec;
+		completed_at = clock_time().ts.tv_sec;
 
 	stmt = db_prepare_v2(wallet->db,
 			     SQL("UPDATE payments SET status=?, completed_at=?, updated_index=? "
@@ -5189,9 +5237,16 @@ struct bitcoin_txid *wallet_transactions_by_height(const tal_t *ctx,
 	struct db_stmt *stmt;
 	struct bitcoin_txid *txids = tal_arr(ctx, struct bitcoin_txid, 0);
 	int count = 0;
-	stmt = db_prepare_v2(
-	    w->db, SQL("SELECT id FROM transactions WHERE blockheight=?"));
-	db_bind_int(stmt, blockheight);
+
+	/* Note: blockheight=NULL is not the same as is NULL! */
+	if (blockheight == 0) {
+		stmt = db_prepare_v2(
+			w->db, SQL("SELECT id FROM transactions WHERE blockheight IS NULL"));
+	} else {
+		stmt = db_prepare_v2(
+			w->db, SQL("SELECT id FROM transactions WHERE blockheight=?"));
+		db_bind_int(stmt, blockheight);
+	}
 	db_query_prepared(stmt);
 
 	while (db_step(stmt)) {
@@ -5334,7 +5389,7 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 
 	if (state == FORWARD_SETTLED || state == FORWARD_FAILED) {
 		resolved_time = tal(tmpctx, struct timeabs);
-		*resolved_time = time_now();
+		*resolved_time = clock_time();
 	} else {
 		resolved_time = NULL;
 	}
@@ -6909,13 +6964,6 @@ struct local_anchor_info *wallet_get_local_anchors(const tal_t *ctx,
 	tal_free(stmt);
 
 	return anchors;
-}
-
-void wallet_memleak_scan(struct htable *memtable, const struct wallet *w)
-{
-	memleak_scan_outpointfilter(memtable, w->utxoset_outpoints);
-	memleak_scan_outpointfilter(memtable, w->owned_outpoints);
-	memleak_scan_htable(memtable, &w->our_addresses->raw);
 }
 
 struct issued_address_type *wallet_list_addresses(const tal_t *ctx, struct wallet *wallet,

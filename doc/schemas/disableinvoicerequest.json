@@ -93,14 +93,14 @@
         "id": "example:disableinvoicerequest#1",
         "method": "disableinvoicerequest",
         "params": {
-          "invreq_id": "invreqid02020202020202020202020202020202020202020202020202020202"
+          "invreq_id": "c5b8ebc06bdc246d7b852ce5637be459d3c053a5b3f8f68854f97af7371c9a50"
         }
       },
       "response": {
-        "invreq_id": "invreqid02020202020202020202020202020202020202020202020202020202",
+        "invreq_id": "c5b8ebc06bdc246d7b852ce5637be459d3c053a5b3f8f68854f97af7371c9a50",
         "active": false,
         "single_use": true,
-        "bolt12": "lno1qgsq000bolt240002400024000240002400024000240002400024000240002400024000240002400024000240002400024000240002400024000240002400024000",
+        "bolt12": "lnr1qqg99gqg2990zl3j22sqs52279lryzsk2fjhzat9wd6xjmn8ypnx7u3qd9h8vmmfvdj3yyrrd35kw6r5de5kueeqwd6x7un92qsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzr6jqwvfdqzcyypz6g3kyz34nfrl7lm6c3rushzxey3a55ecjgs6qp2vz8q78j336k0sgr76j2yl0lrljzljjdz8ztcpryunwgfk4hzz3sle3mhaw8v2gc4dn9map7v6dlpya98jy2mcrwe27qcsywlfqp6dhh30l54sj0e8tqsk",
         "used": false
       }
     }

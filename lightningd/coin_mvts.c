@@ -1,6 +1,7 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/str/str.h>
+#include <common/clock_time.h>
 #include <common/json_command.h>
 #include <lightningd/channel.h>
 #include <lightningd/coin_mvts.h>
@@ -12,7 +13,7 @@ struct channel_coin_mvt *new_channel_mvt_invoice_hin(const tal_t *ctx,
 						     const struct htlc_in *hin,
 						     const struct channel *channel)
 {
-	return new_channel_coin_mvt(ctx, channel, time_now().ts.tv_sec,
+	return new_channel_coin_mvt(ctx, channel, coinmvt_current_time(),
 				    &hin->payment_hash, NULL, NULL,
 				    COIN_CREDIT, hin->msat,
 				    mk_mvt_tags(MVT_INVOICE),
@@ -32,7 +33,7 @@ struct channel_coin_mvt *new_channel_mvt_routed_hin(const tal_t *ctx,
 			     hin->payload->amt_to_forward))
 		return NULL;
 
-	return new_channel_coin_mvt(ctx, channel, time_now().ts.tv_sec,
+	return new_channel_coin_mvt(ctx, channel, coinmvt_current_time(),
 				    &hin->payment_hash, NULL, NULL,
 				    COIN_CREDIT, hin->msat,
 				    mk_mvt_tags(MVT_ROUTED),
@@ -43,7 +44,7 @@ struct channel_coin_mvt *new_channel_mvt_invoice_hout(const tal_t *ctx,
 						      const struct htlc_out *hout,
 						      const struct channel *channel)
 {
-	return new_channel_coin_mvt(ctx, channel, time_now().ts.tv_sec,
+	return new_channel_coin_mvt(ctx, channel, coinmvt_current_time(),
 				    &hout->payment_hash,
 				    &hout->partid,
 				    &hout->groupid,
@@ -56,7 +57,7 @@ struct channel_coin_mvt *new_channel_mvt_routed_hout(const tal_t *ctx,
 						     const struct htlc_out *hout,
 						     const struct channel *channel)
 {
-	return new_channel_coin_mvt(ctx, channel, time_now().ts.tv_sec,
+	return new_channel_coin_mvt(ctx, channel, coinmvt_current_time(),
 				    &hout->payment_hash, NULL, NULL,
 				    COIN_DEBIT, hout->msat,
 				    mk_mvt_tags(MVT_ROUTED),
@@ -68,7 +69,7 @@ struct channel_coin_mvt *new_channel_mvt_penalty_adj(const tal_t *ctx,
 						     struct amount_msat amount,
 						     enum coin_mvt_dir direction)
 {
-	return new_channel_coin_mvt(ctx, channel, time_now().ts.tv_sec,
+	return new_channel_coin_mvt(ctx, channel, coinmvt_current_time(),
 				    NULL, NULL, NULL,
 				    direction, amount,
 				    mk_mvt_tags(MVT_PENALTY_ADJ),
@@ -109,7 +110,7 @@ void send_account_balance_snapshot(struct lightningd *ld)
 	struct peer_node_id_map_iter it;
 
 	snap->blockheight = get_block_height(ld->topology);
-	snap->timestamp = time_now().ts.tv_sec;
+	snap->timestamp = coinmvt_current_time();
 	snap->node_id = &ld->our_nodeid;
 
 	/* Add the 'wallet' account balance */

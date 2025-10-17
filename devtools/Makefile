@@ -29,6 +29,7 @@ DEVTOOLS_COMMON_OBJS :=				\
 	common/bolt11.o				\
 	common/blockheight_states.o		\
 	common/channel_id.o			\
+	common/clock_time.o			\
 	common/decode_array.o			\
 	common/features.o			\
 	common/fee_states.o			\
@@ -42,6 +43,7 @@ DEVTOOLS_COMMON_OBJS :=				\
 	common/per_peer_state.o			\
 	common/psbt_open.o			\
 	common/pseudorand.o			\
+	common/randbytes.o			\
 	common/sciddir_or_pubkey.o		\
 	common/setup.o				\
 	common/utils.o				\
@@ -86,7 +88,7 @@ devtools/gossipwith: $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(BITCOIN_OBJS) wire/f
 
 $(DEVTOOLS_OBJS) $(DEVTOOLS_TOOL_OBJS): wire/wire.h
 
-devtools/mkcommit: $(DEVTOOLS_COMMON_OBJS) $(BITCOIN_OBJS) common/derive_basepoints.o common/channel_type.o common/keyset.o common/key_derive.o common/initial_commit_tx.o common/permute_tx.o wire/fromwire.o wire/towire.o devtools/mkcommit.o channeld/full_channel.o common/initial_channel.o common/htlc_state.o common/pseudorand.o common/htlc_tx.o channeld/commit_tx.o common/htlc_trim.o
+devtools/mkcommit: $(DEVTOOLS_COMMON_OBJS) $(BITCOIN_OBJS) common/derive_basepoints.o common/channel_type.o common/keyset.o common/key_derive.o common/initial_commit_tx.o common/permute_tx.o wire/fromwire.o wire/towire.o devtools/mkcommit.o channeld/full_channel.o common/initial_channel.o common/htlc_state.o common/pseudorand.o common/randbytes.o common/htlc_tx.o channeld/commit_tx.o common/htlc_trim.o
 
 devtools/mkfunding: $(DEVTOOLS_COMMON_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o common/key_derive.o devtools/mkfunding.o
 

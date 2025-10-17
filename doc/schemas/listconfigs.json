@@ -1722,7 +1722,15 @@
         "id": "example:listconfigs#1",
         "method": "listconfigs",
         "params": {
-          "config": "network"
+          "config": "network",
+          "scb": [
+            "0000000000000006f4e1de801de57374d5737da622611e3a1ad9f16d5df9c30fceecc11ce732eeeb022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59017f000001a95cbe3270e5e0998af5eb0a67f7bf6e8d5b3d3d43059b3e4cfbd1e4fca6152c51320000000100000000000f42400003401000000000eb015c0000fffffffffffe000000020000ffffffffffff3283fc1863a9702a8e188ed55475324e55485a8758d2068cfea35851418c55740000fffffffffffed00ec892b1739b55ddc0cca2988d8731eb33f2295c1fcc13fdbdfff9d3f85d6d038402a6939f0f9d5c7a41464169eb692b4d2d73266b3c46345cd036ca577a15bdeeaa027662682a646ce7671c3a091bf639176e87d3379022126b209ebadadae19ffc0e02c59668c64362eaeabf44ee4f10b98fc92412cbea74b6f3a917423dfdf3ca282602773e6c29472ab708e5b127e8ae1ce2d8b7f56b457299f93bb72bb73fdbcf91770501010702a5f8",
+            "000000000000000121bd30cac60f477f2c4267220b1702a6ec5780db34f9934fa94b8c0508bf3357035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d017f000001dcf8fdd5381f36008c3eac24cdde5ec0fea8f39240575ef0cb4406cb51ad419dd7810000000000000000000f424000034010000000011301840000fffffffffffa000000030000fffffffffffb8ff7d0df4eee78e558b4e07f82049aaa933f4f4932e13e1e7fee5cb103f7a0b50000fffffffffffa79176754ea338ffa080591b946a6ac1c47ff579ae7e45857bf01261ebe1c46ba0000fffffffffffcbdb924885293efdaa1ba8f556161f4fe525c19483def49b9af85c1623bc6d27b038402add69f29ad433cb7d4c9470f2d49d80245fd9e76a992197528a131e37711efac02c57de22185162001ffaf2e61b053b1d0e280d73ecec1b04916df2c65642d94a102cd4e1a07ee85714b6eada09d9cf81aeb15bfc72ddd003235530c58bbd0c0144902b10f36d2ebab3ce560abf15ceb1bef619491e0597a794fdafcfdf8708eec9e2d0501010702a5f8",
+            "00000000000000027512083907c74ed3a045e9bf772b3d72948eb93daf84a1cee57108800451aaf2035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d017f000001dcf80239a9c9f2a91e69ba01800baf71f55efe457677b2e5cbd640b888dc1c9375b40000000000000000000f42400003401000000000c301340000ffffffffffff000000010000ffffffffffff0e07b6188dd51f15bb5cb9027950bf487a612dca57e2928de3f28f6ee796978b03840330b7ddf07e5bc779ea468875371ea25b560491c5feaeeb5e229ded3820d1d69103620748b3796c4988dd0fc63b92ae011dc989f15c433a55ed38e24318a43b4c93021bfe48bb1aded55878b00a3f00c5c1bffa1010510d8ba1c6372012ac9c3205d20201604aa7056ab8926038a846014bdbe4874ceef7ce45141b8009b0e2f49e7ec70501010702a5f8",
+            "0000000000000003222d999f537e32e9458c5db17a63e012dcced61340de06fda5bc30566270b0aa0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518017f0000017531932479f6d82ee59c7aa67b99568de0a31c202f6a3ff18a6bdd1ec22683cf026500000000000000000bebb3cb00034010000000009b010c0001000000000000000000000384021f90b5f38e0c0ea50bccfcf70a32cd4395c8c544e70636b7cc41831fe33fb4ce03bcfb0d457dfa07f508f434e6a2f040dd3dd233e7002dbe1c1b5d86ed5d3efd76030a4ce755504748f47401fc016578a52e104cbbd28251f10b11e4b3e55d0fe1d303986bdd0842662b8d0d18147630a720e952a2cda624c63ef4903357d27e54f7920501000702a5f8",
+            "0000000000000004a4a379248e49d207cc984646e632e1a31105a85708b9d6d961a5018fdd489f5a0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518017f000001970c7f07a15ce1fe1519d46536c4036f1c13527fa8bf52f6a5299b860f982ba2ed7e00000001000000000000753000034010000000009b010c000100000000000000000000038402c8aabcf1224df10e9d803dc3918797892fe0abec56d3e06f121bcebbe9ab0a2c03bd181375d57b8b1d15def9c5f9007b3c3ff98a140c0a44c9dc5f54ac7ea4baf30310952e08f9960711d8142dfa171c0fc2348762acea003f3897397f6ace8454130382da2a229450c4a8e8cea70bbd147eaaf981184bff8c1d70b70c30a494d848420501010702a5f8",
+            "000000000000000509eb55872cd9039ecd08281af756e23b15aad4129fd6a9bcd71b472114ebf43a0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518017f000001970c64ed91a21c10208d715b59801b12b4a6eff9ea9e4e7d45971c298b62d90ece8e00000000000000000000c35000034010000000009b010c000100000000000000000000038402e885f38e784050b386fb32d20935acc61059d8b02b6bec0ac2bfc8b2c5cf7f3103ae69dbfc6511ba0781c13113e16e1557a875b910cb1cb1fe1ef95a7edb36135a03758d5faa8515942873911e21869b1b90a4be72af14b394bc064da6ba518b087003750b588cd1fb8d60276c12c1c3eef7e302e3772414234404289db8c10f5731320501010702a5f8"
+          ]
         }
       },
       "response": {
@@ -1759,29 +1767,174 @@
       },
       "response": {
         "configs": {
-          "accept-htlc-tlv-type": {
-            "values_int": [],
-            "sources": []
+          "developer": {
+            "set": true,
+            "source": "cmdline"
           },
-          "addr": {
-            "values_str": [
-              "127.0.0.1:19735"
-            ],
-            "sources": [
-              "cmdline"
-            ]
+          "lightning-dir": {
+            "value_str": "/home/rusty/.lightning/regtest",
+            "source": "cmdline"
           },
-          "alias": {
-            "value_str": "SILENTARTIST",
+          "network": {
+            "value_str": "regtest",
+            "source": "cmdline"
+          },
+          "testnet": {
+            "set": false,
+            "source": "default"
+          },
+          "testnet4": {
+            "set": false,
+            "source": "default"
+          },
+          "signet": {
+            "set": false,
+            "source": "default"
+          },
+          "mainnet": {
+            "set": false,
+            "source": "default"
+          },
+          "regtest": {
+            "set": false,
+            "source": "default"
+          },
+          "rpc-file": {
+            "value_str": "lightning-rpc",
             "source": "default"
           },
           "allow-deprecated-apis": {
             "value_bool": true,
             "source": "cmdline"
           },
+          "plugin": {
+            "values_str": [],
+            "sources": []
+          },
+          "plugin-dir": {
+            "values_str": [],
+            "sources": []
+          },
+          "clear-plugins": {
+            "set": false,
+            "source": "default"
+          },
+          "disable-plugin": {
+            "values_str": [],
+            "sources": []
+          },
+          "important-plugin": {
+            "values_str": [],
+            "sources": []
+          },
           "always-use-proxy": {
             "value_bool": false,
             "source": "default"
+          },
+          "daemon": {
+            "set": false,
+            "source": "default"
+          },
+          "experimental-dual-fund": {
+            "set": true,
+            "source": "cmdline"
+          },
+          "experimental-splicing": {
+            "set": false,
+            "source": "default"
+          },
+          "experimental-shutdown-wrong-funding": {
+            "set": false,
+            "source": "default"
+          },
+          "experimental-quiesce": {
+            "set": false,
+            "source": "default"
+          },
+          "rgb": {
+            "value_str": "022d22",
+            "source": "default"
+          },
+          "alias": {
+            "value_str": "SILENTARTIST-v25.12",
+            "source": "default"
+          },
+          "pid-file": {
+            "value_str": "/home/rusty/.lightning/lightningd-regtest.pid",
+            "source": "default"
+          },
+          "ignore-fee-limits": {
+            "value_bool": false,
+            "source": "cmdline"
+          },
+          "watchtime-blocks": {
+            "value_int": 5,
+            "source": "cmdline"
+          },
+          "funding-confirms": {
+            "value_int": 1,
+            "source": "default"
+          },
+          "require-confirmed-inputs": {
+            "value_bool": false,
+            "source": "default"
+          },
+          "cltv-delta": {
+            "value_int": 6,
+            "source": "cmdline"
+          },
+          "cltv-final": {
+            "value_int": 5,
+            "source": "cmdline"
+          },
+          "commit-time": {
+            "value_int": 10,
+            "source": "default"
+          },
+          "fee-base": {
+            "value_int": 1,
+            "source": "default"
+          },
+          "rescan": {
+            "value_int": 1,
+            "source": "cmdline"
+          },
+          "fee-per-satoshi": {
+            "value_int": 10,
+            "source": "default"
+          },
+          "htlc-minimum-msat": {
+            "value_msat": 0,
+            "source": "default"
+          },
+          "htlc-maximum-msat": {
+            "value_msat": 18446744073709551615,
+            "source": "default"
+          },
+          "max-concurrent-htlcs": {
+            "value_int": 483,
+            "source": "default"
+          },
+          "max-dust-htlc-exposure-msat": {
+            "value_msat": 50000000,
+            "source": "default"
+          },
+          "min-capacity-sat": {
+            "value_int": 500000,
+            "source": "/home/rusty/.lightning/regtest/config.setconfig:3",
+            "dynamic": true
+          },
+          "addr": {
+            "values_str": [
+              "127.0.0.1:30003"
+            ],
+            "sources": [
+              "cmdline"
+            ]
+          },
+          "bind-addr": {
+            "values_str": [],
+            "sources": []
           },
           "announce-addr": {
             "values_str": [],
@@ -1795,71 +1948,29 @@
             "value_int": 19846,
             "source": "default"
           },
-          "autoclean-cycle": {
-            "value_int": 3600,
-            "source": "default",
-            "plugin": "/root/lightning/plugins/autoclean",
-            "dynamic": true
-          },
-          "autoclean-expiredinvoices-age": {
-            "value_int": 300,
-            "source": "/tmp/.lightning/regtest/config.setconfig:2",
-            "plugin": "/root/lightning/plugins/autoclean",
-            "dynamic": true
-          },
-          "autoconnect-seeker-peers": {
-            "value_int": 0,
-            "source": "cmdline"
+          "offline": {
+            "set": false,
+            "source": "default"
           },
           "autolisten": {
             "value_bool": false,
             "source": "default"
           },
-          "bind-addr": {
-            "values_str": [],
+          "accept-htlc-tlv-type": {
+            "values_int": [],
             "sources": []
           },
-          "bitcoin-datadir": {
-            "value_str": "/tmp/.lightning/",
-            "source": "cmdline",
-            "plugin": "/root/lightning/plugins/bcli"
+          "disable-dns": {
+            "set": true,
+            "source": "cmdline"
           },
-          "bitcoin-retry-timeout": {
-            "value_int": 60,
-            "source": "default",
-            "plugin": "/root/lightning/plugins/bcli"
-          },
-          "bitcoin-rpcclienttimeout": {
-            "value_int": 60,
-            "source": "default",
-            "plugin": "/root/lightning/plugins/bcli"
-          },
-          "bitcoin-rpcpassword": {
-            "value_str": "rpcpass",
-            "source": "cmdline",
-            "plugin": "/root/lightning/plugins/bcli"
-          },
-          "bitcoin-rpcport": {
-            "value_int": 18332,
-            "source": "cmdline",
-            "plugin": "/root/lightning/plugins/bcli"
-          },
-          "bitcoin-rpcuser": {
-            "value_str": "rpcuser",
-            "source": "cmdline",
-            "plugin": "/root/lightning/plugins/bcli"
-          },
-          "clear-plugins": {
+          "encrypted-hsm": {
             "set": false,
             "source": "default"
           },
-          "cltv-delta": {
-            "value_int": 6,
-            "source": "cmdline"
-          },
-          "cltv-final": {
-            "value_int": 5,
-            "source": "cmdline"
+          "rpc-file-mode": {
+            "value_str": "0600",
+            "source": "default"
           },
           "commit-fee": {
             "value_int": 100,
@@ -1869,194 +1980,11 @@
             "value_int": 5,
             "source": "default"
           },
-          "commit-time": {
-            "value_int": 10,
+          "min-emergency-msat": {
+            "value_msat": 25000000,
             "source": "default"
           },
-          "daemon": {
-            "set": false,
-            "source": "default"
-          },
-          "dev-autoclean-max-batch": {
-            "value_int": 100,
-            "source": "default",
-            "plugin": "/root/lightning/plugins/autoclean",
-            "dynamic": true
-          },
-          "dev-bitcoind-poll": {
-            "value_int": 3,
-            "source": "cmdline"
-          },
-          "dev-crash-after": {
-            "value_str": "3600",
-            "source": "cmdline"
-          },
-          "dev-fail-on-subdaemon-fail": {
-            "set": true,
-            "source": "cmdline"
-          },
-          "dev-fast-gossip": {
-            "set": true,
-            "source": "cmdline"
-          },
-          "dev-hsmd-no-preapprove-check": {
-            "set": true,
-            "source": "cmdline"
-          },
-          "dev-invoice-bpath-scid": {
-            "set": false,
-            "source": "default",
-            "plugin": "/root/lightning/plugins/offers"
-          },
-          "dev-no-plugin-checksum": {
-            "set": true,
-            "source": "cmdline"
-          },
-          "dev-no-version-checks": {
-            "set": true,
-            "source": "cmdline"
-          },
-          "developer": {
-            "set": true,
-            "source": "cmdline"
-          },
-          "disable-dns": {
-            "set": true,
-            "source": "cmdline"
-          },
-          "disable-mpp": {
-            "set": false,
-            "source": "default",
-            "plugin": "/root/lightning/plugins/pay"
-          },
-          "disable-plugin": {
-            "values_str": [],
-            "sources": []
-          },
-          "encrypted-hsm": {
-            "set": false,
-            "source": "default"
-          },
-          "experimental-dual-fund": {
-            "set": true,
-            "source": "cmdline"
-          },
-          "experimental-quiesce": {
-            "set": false,
-            "source": "default"
-          },
-          "experimental-shutdown-wrong-funding": {
-            "set": false,
-            "source": "default"
-          },
-          "experimental-splicing": {
-            "set": false,
-            "source": "default"
-          },
-          "exposesecret-passphrase": {
-            "value_str": "...",
-            "source": "default",
-            "plugin": "/root/lightning/plugins/exposesecret"
-          },
-          "fee-base": {
-            "value_int": 1,
-            "source": "default"
-          },
-          "fee-per-satoshi": {
-            "value_int": 10,
-            "source": "default"
-          },
-          "fetchinvoice-noconnect": {
-            "set": false,
-            "source": "default",
-            "plugin": "/root/lightning/plugins/offers"
-          },
-          "funder-fund-probability": {
-            "value_int": 100,
-            "source": "default",
-            "plugin": "/root/lightning/plugins/funder"
-          },
-          "funder-fuzz-percent": {
-            "value_int": 0,
-            "source": "default",
-            "plugin": "/root/lightning/plugins/funder"
-          },
-          "funder-lease-requests-only": {
-            "value_bool": true,
-            "source": "default",
-            "plugin": "/root/lightning/plugins/funder"
-          },
-          "funder-max-their-funding": {
-            "value_str": "4294967295sat",
-            "source": "default",
-            "plugin": "/root/lightning/plugins/funder"
-          },
-          "funder-min-their-funding": {
-            "value_str": "10000sat",
-            "source": "default",
-            "plugin": "/root/lightning/plugins/funder"
-          },
-          "funder-per-channel-max": {
-            "value_str": "4294967295sat",
-            "source": "default",
-            "plugin": "/root/lightning/plugins/funder"
-          },
-          "funder-per-channel-min": {
-            "value_str": "10000sat",
-            "source": "default",
-            "plugin": "/root/lightning/plugins/funder"
-          },
-          "funder-policy": {
-            "value_str": "fixed",
-            "source": "default",
-            "plugin": "/root/lightning/plugins/funder"
-          },
-          "funder-policy-mod": {
-            "value_str": "0",
-            "source": "default",
-            "plugin": "/root/lightning/plugins/funder"
-          },
-          "funder-reserve-tank": {
-            "value_str": "0sat",
-            "source": "default",
-            "plugin": "/root/lightning/plugins/funder"
-          },
-          "funding-confirms": {
-            "value_int": 1,
-            "source": "default"
-          },
-          "grpc-host": {
-            "value_str": "127.0.0.1",
-            "source": "default",
-            "plugin": "/root/lightning/plugins/cln-grpc"
-          },
-          "grpc-msg-buffer-size": {
-            "value_int": 1024,
-            "source": "default",
-            "plugin": "/root/lightning/plugins/cln-grpc"
-          },
-          "grpc-port": {
-            "value_int": 9736,
-            "source": "cmdline",
-            "plugin": "/root/lightning/plugins/cln-grpc"
-          },
-          "htlc-maximum-msat": {
-            "value_msat": 18446744073709552000,
-            "source": "default"
-          },
-          "htlc-minimum-msat": {
-            "value_msat": 0,
-            "source": "default"
-          },
-          "i-promise-to-fix-broken-api-user": {
-            "values_str": [],
-            "sources": []
-          },
-          "ignore-fee-limits": {
-            "value_bool": false,
-            "source": "cmdline"
-          },
-          "important-plugin": {
+          "subdaemon": {
             "values_str": [],
             "sources": []
           },
@@ -2064,138 +1992,222 @@
             "set": false,
             "source": "default"
           },
-          "lightning-dir": {
-            "value_str": "/tmp/.lightning/",
-            "source": "cmdline"
-          },
-          "log-file": {
-            "values_str": [
-              "-",
-              "/tmp/.lightning/log"
-            ],
-            "sources": [
-              "cmdline",
-              "cmdline"
-            ]
+          "i-promise-to-fix-broken-api-user": {
+            "values_str": [],
+            "sources": []
           },
           "log-level": {
             "value_str": "debug",
-            "source": "cmdline"
-          },
-          "log-prefix": {
-            "value_str": "lightningd-2 ",
             "source": "cmdline"
           },
           "log-timestamps": {
             "value_bool": true,
             "source": "default"
           },
-          "mainnet": {
-            "set": false,
-            "source": "default"
-          },
-          "max-concurrent-htlcs": {
-            "value_int": 483,
-            "source": "default"
-          },
-          "max-dust-htlc-exposure-msat": {
-            "value_msat": 50000000,
-            "source": "default"
-          },
-          "min-capacity-sat": {
-            "value_int": 500000,
-            "source": "/tmp/.lightning/regtest/config.setconfig:3",
-            "dynamic": true
-          },
-          "min-emergency-msat": {
-            "value_msat": 25000000,
-            "source": "default"
-          },
-          "network": {
-            "value_str": "regtest",
+          "log-prefix": {
+            "value_str": "lightningd-2 ",
             "source": "cmdline"
           },
-          "offline": {
-            "set": false,
-            "source": "default"
+          "log-file": {
+            "values_str": [
+              "-",
+              "/home/rusty/.lightning/log"
+            ],
+            "sources": [
+              "cmdline",
+              "cmdline"
+            ]
           },
-          "pid-file": {
-            "value_str": "/tmp/.lightning/lightningd-regtest.pid",
-            "source": "default"
+          "dev-no-plugin-checksum": {
+            "set": true,
+            "source": "cmdline"
           },
-          "plugin": {
-            "values_str": [],
-            "sources": []
+          "dev-fail-on-subdaemon-fail": {
+            "set": true,
+            "source": "cmdline"
           },
-          "plugin-dir": {
-            "values_str": [],
-            "sources": []
+          "dev-bitcoind-poll": {
+            "value_int": 3,
+            "source": "cmdline"
           },
-          "regtest": {
-            "set": false,
-            "source": "default"
+          "dev-fast-gossip": {
+            "set": true,
+            "source": "cmdline"
+          },
+          "dev-no-version-checks": {
+            "set": true,
+            "source": "cmdline"
+          },
+          "dev-hsmd-no-preapprove-check": {
+            "set": true,
+            "source": "cmdline"
+          },
+          "autoconnect-seeker-peers": {
+            "value_int": 0,
+            "source": "cmdline"
+          },
+          "dev-crash-after": {
+            "value_str": "3600",
+            "source": "cmdline"
+          },
+          "dev-save-plugin-io": {
+            "value_str": "/tmp/plugin-io",
+            "source": "cmdline"
+          },
+          "autoclean-cycle": {
+            "value_int": 3600,
+            "source": "default",
+            "plugin": "/usr/local/libexec/plugins/autoclean",
+            "dynamic": true
+          },
+          "autoclean-expiredinvoices-age": {
+            "value_int": 300,
+            "source": "/home/rusty/.lightning/regtest/config.setconfig:2",
+            "plugin": "/usr/local/libexec/plugins/autoclean",
+            "dynamic": true
+          },
+          "dev-autoclean-max-batch": {
+            "value_int": 100,
+            "source": "default",
+            "plugin": "/usr/local/libexec/plugins/autoclean",
+            "dynamic": true
+          },
+          "bitcoin-datadir": {
+            "value_str": "/var/lib/bitcoind",
+            "source": "cmdline",
+            "plugin": "/usr/local/libexec/plugins/bcli"
+          },
+          "bitcoin-retry-timeout": {
+            "value_int": 60,
+            "source": "default",
+            "plugin": "/usr/local/libexec/plugins/bcli"
+          },
+          "bitcoin-rpcclienttimeout": {
+            "value_int": 60,
+            "source": "default",
+            "plugin": "/usr/local/libexec/plugins/bcli"
+          },
+          "bitcoin-rpcpassword": {
+            "value_str": "rpcpass",
+            "source": "cmdline",
+            "plugin": "/usr/local/libexec/plugins/bcli"
+          },
+          "bitcoin-rpcport": {
+            "value_int": 8332,
+            "source": "cmdline",
+            "plugin": "/usr/local/libexec/plugins/bcli"
+          },
+          "bitcoin-rpcuser": {
+            "value_str": "rpcuser",
+            "source": "cmdline",
+            "plugin": "/usr/local/libexec/plugins/bcli"
+          },
+          "grpc-host": {
+            "value_str": "127.0.0.1",
+            "source": "default",
+            "plugin": "/usr/local/libexec/plugins/cln-grpc"
+          },
+          "grpc-msg-buffer-size": {
+            "value_int": 1024,
+            "source": "default",
+            "plugin": "/usr/local/libexec/plugins/cln-grpc"
+          },
+          "grpc-port": {
+            "value_int": 30004,
+            "source": "cmdline",
+            "plugin": "/usr/local/libexec/plugins/cln-grpc"
           },
           "renepay-debug-mcf": {
             "set": false,
             "source": "default",
-            "plugin": "/root/lightning/plugins/cln-renepay"
+            "plugin": "/usr/local/libexec/plugins/cln-renepay"
           },
           "renepay-debug-payflow": {
             "set": false,
             "source": "default",
-            "plugin": "/root/lightning/plugins/cln-renepay"
-          },
-          "require-confirmed-inputs": {
-            "value_bool": false,
-            "source": "default"
-          },
-          "rescan": {
-            "value_int": 1,
-            "source": "cmdline"
-          },
-          "rgb": {
-            "value_str": "022d22",
-            "source": "default"
-          },
-          "rpc-file": {
-            "value_str": "lightning-rpc",
-            "source": "default"
-          },
-          "rpc-file-mode": {
-            "value_str": "0600",
-            "source": "default"
-          },
-          "signet": {
-            "set": false,
-            "source": "default"
-          },
-          "subdaemon": {
-            "values_str": [],
-            "sources": []
-          },
-          "testnet": {
-            "set": false,
-            "source": "default"
-          },
-          "testnet4": {
-            "set": false,
-            "source": "default"
-          },
-          "watchtime-blocks": {
-            "value_int": 5,
-            "source": "cmdline"
+            "plugin": "/usr/local/libexec/plugins/cln-renepay"
           },
           "xpay-handle-pay": {
             "value_bool": false,
             "source": "default",
-            "plugin": "/root/lightning/plugins/cln-xpay",
+            "plugin": "/usr/local/libexec/plugins/cln-xpay",
             "dynamic": true
           },
           "xpay-slow-mode": {
             "value_bool": false,
             "source": "default",
-            "plugin": "/root/lightning/plugins/cln-xpay",
+            "plugin": "/usr/local/libexec/plugins/cln-xpay",
             "dynamic": true
+          },
+          "exposesecret-passphrase": {
+            "value_str": "...",
+            "source": "default",
+            "plugin": "/usr/local/libexec/plugins/exposesecret"
+          },
+          "funder-fund-probability": {
+            "value_int": 100,
+            "source": "default",
+            "plugin": "/usr/local/libexec/plugins/funder"
+          },
+          "funder-fuzz-percent": {
+            "value_int": 0,
+            "source": "default",
+            "plugin": "/usr/local/libexec/plugins/funder"
+          },
+          "funder-lease-requests-only": {
+            "value_bool": true,
+            "source": "default",
+            "plugin": "/usr/local/libexec/plugins/funder"
+          },
+          "funder-max-their-funding": {
+            "value_str": "4294967295sat",
+            "source": "default",
+            "plugin": "/usr/local/libexec/plugins/funder"
+          },
+          "funder-min-their-funding": {
+            "value_str": "10000sat",
+            "source": "default",
+            "plugin": "/usr/local/libexec/plugins/funder"
+          },
+          "funder-per-channel-max": {
+            "value_str": "4294967295sat",
+            "source": "default",
+            "plugin": "/usr/local/libexec/plugins/funder"
+          },
+          "funder-per-channel-min": {
+            "value_str": "10000sat",
+            "source": "default",
+            "plugin": "/usr/local/libexec/plugins/funder"
+          },
+          "funder-policy": {
+            "value_str": "fixed",
+            "source": "default",
+            "plugin": "/usr/local/libexec/plugins/funder"
+          },
+          "funder-policy-mod": {
+            "value_str": "0",
+            "source": "default",
+            "plugin": "/usr/local/libexec/plugins/funder"
+          },
+          "funder-reserve-tank": {
+            "value_str": "0sat",
+            "source": "default",
+            "plugin": "/usr/local/libexec/plugins/funder"
+          },
+          "dev-invoice-bpath-scid": {
+            "set": false,
+            "source": "default",
+            "plugin": "/usr/local/libexec/plugins/offers"
+          },
+          "fetchinvoice-noconnect": {
+            "set": false,
+            "source": "default",
+            "plugin": "/usr/local/libexec/plugins/offers"
+          },
+          "disable-mpp": {
+            "set": false,
+            "source": "default",
+            "plugin": "/usr/local/libexec/plugins/pay"
           }
         }
       }

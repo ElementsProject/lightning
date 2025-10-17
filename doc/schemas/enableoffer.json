@@ -97,14 +97,14 @@
         "id": "example:enableoffer#1",
         "method": "enableoffer",
         "params": {
-          "offer_id": "offeridl23000002300000230000023000002300000230000023000002300000"
+          "offer_id": "b791f88cebf775853112c30828e116487f4d6c252d669372532b468bc7de8a24"
         }
       },
       "response": {
-        "offer_id": "offeridl23000002300000230000023000002300000230000023000002300000",
+        "offer_id": "b791f88cebf775853112c30828e116487f4d6c252d669372532b468bc7de8a24",
         "active": true,
         "single_use": false,
-        "bolt12": "lno1qgsq000bolt230002300023000230002300023000230002300023000230002300023000230002300023000230002300023000230002300023000230002300023000",
+        "bolt12": "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcgqv0gfqq2zp8kven9wgs8gmeqg35hxctzd3j3vggz953rvg9rtxj8lalh43z8epwydjfrmffn3y3p5qz5cywpu09rr4vs",
         "used": false
       }
     }

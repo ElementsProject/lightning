@@ -95,6 +95,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/channel_config.o			\
 	common/channel_id.o			\
 	common/channel_type.o			\
+	common/clock_time.o			\
 	common/coin_mvt.o			\
 	common/configdir.o			\
 	common/configvar.o			\
@@ -139,6 +140,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/psbt_open.o			\
 	common/pseudorand.o			\
 	common/plugin.o				\
+	common/randbytes.o			\
 	common/random_select.o			\
 	common/setup.o				\
 	common/shutdown_scriptpubkey.o		\

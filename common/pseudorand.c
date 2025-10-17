@@ -6,7 +6,7 @@
 #include <ccan/likely/likely.h>
 #include <ccan/tal/tal.h>
 #include <common/pseudorand.h>
-#include <sodium/randombytes.h>
+#include <common/randbytes.h>
 #include <string.h>
 
 static struct isaac64_ctx isaac64;
@@ -19,7 +19,7 @@ static void init_if_needed(void)
 		unsigned char seedbuf[16];
 		struct sha256 sha;
 
-		randombytes_buf(seedbuf, sizeof(seedbuf));
+		randbytes(seedbuf, sizeof(seedbuf));
 		memcpy(&siphashseed, seedbuf, sizeof(siphashseed));
 
 		/* In case isaac is reversible, don't leak seed. */
@@ -29,25 +29,42 @@ static void init_if_needed(void)
 	}
 }
 
-uint64_t pseudorand(uint64_t max)
+uint64_t pseudorand_(uint64_t max, uint64_t *offset)
 {
 	init_if_needed();
 
 	assert(max);
+
+	/* We try to avoid being order-dependent here. */
+	if (randbytes_overridden()) {
+		uint64_t rand;
+		randbytes_(&rand, sizeof(rand), offset);
+		return rand % max;
+	}
 	return isaac64_next_uint(&isaac64, max);
 }
 
-uint64_t pseudorand_u64(void)
+uint64_t pseudorand_u64_(uint64_t *offset)
 {
 	init_if_needed();
 
+	if (randbytes_overridden()) {
+		uint64_t rand;
+		randbytes_(&rand, sizeof(rand), offset);
+		return rand;
+	}
 	return isaac64_next_uint64(&isaac64);
 }
 
-double pseudorand_double(void)
+double pseudorand_double_(uint64_t *offset)
 {
 	init_if_needed();
 
+	if (randbytes_overridden()) {
+		uint64_t rand;
+		randbytes_(&rand, sizeof(rand), offset);
+		return rand / (double)UINT64_MAX;
+	}
 	return isaac64_next_double(&isaac64);
 }
 

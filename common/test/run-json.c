@@ -4,7 +4,9 @@
 #include <assert.h>
 #include <ccan/tal/str/str.h>
 #include <common/channel_type.h>
+#include <common/clock_time.h>
 #include <common/json_filter.h>
+#include <common/memleak.h>
 #include <common/setup.h>
 #include <inttypes.h>
 #include <stdio.h>

@@ -35,6 +35,7 @@ GOSSIPD_COMMON_OBJS :=				\
 	common/bigsize.o			\
 	common/bip32.o				\
 	common/channel_id.o			\
+	common/clock_time.o			\
 	common/cryptomsg.o			\
 	common/daemon.o				\
 	common/daemon_conn.o			\
@@ -56,6 +57,7 @@ GOSSIPD_COMMON_OBJS :=				\
 	common/ping.o				\
 	common/psbt_open.o			\
 	common/pseudorand.o			\
+	common/randbytes.o			\
 	common/random_select.o			\
 	common/setup.o				\
 	common/status.o				\

@@ -9,7 +9,7 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/str/str.h>
-#include <ccan/time/time.h>
+#include <common/clock_time.h>
 #include <common/dijkstra.h>
 #include <common/gossmap.h>
 #include <common/gossmods_listpeerchannels.h>
@@ -1029,7 +1029,7 @@ static struct command_result *json_askrene_inform_channel(struct command *cmd,
 			*amount = AMOUNT_MSAT(0);
 		if (command_check_only(cmd))
 			return command_check_done(cmd);
-		c = layer_add_constraint(layer, scidd, time_now().ts.tv_sec,
+		c = layer_add_constraint(layer, scidd, clock_time().ts.tv_sec,
 					 NULL, amount);
 		goto output;
 	case INFORM_UNCONSTRAINED:
@@ -1037,7 +1037,7 @@ static struct command_result *json_askrene_inform_channel(struct command *cmd,
 		 * that no reserves were used) */
 		if (command_check_only(cmd))
 			return command_check_done(cmd);
-		c = layer_add_constraint(layer, scidd, time_now().ts.tv_sec,
+		c = layer_add_constraint(layer, scidd, clock_time().ts.tv_sec,
 					 amount, NULL);
 		goto output;
 	case INFORM_SUCCEEDED:
@@ -1290,13 +1290,6 @@ static const struct plugin_command commands[] = {
 	},
 };
 
-static void askrene_markmem(struct plugin *plugin, struct htable *memtable)
-{
-	struct askrene *askrene = get_askrene(plugin);
-	layer_memleak_mark(askrene, memtable);
-	reserve_memleak_mark(askrene, memtable);
-}
-
 static const char *init(struct command *init_cmd,
 			const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
@@ -1316,7 +1309,6 @@ static const char *init(struct command *init_cmd,
 		 "{id:%}", JSON_SCAN(json_to_node_id, &askrene->my_id));
 
 	plugin_set_data(plugin, askrene);
-	plugin_set_memleak_handler(plugin, askrene_markmem);
 
 	load_layers(askrene, init_cmd);
 

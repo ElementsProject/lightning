@@ -79,28 +79,28 @@
       "response": {
         "reservations": [
           {
-            "short_channel_id_dir": "109x1x1/1",
+            "short_channel_id_dir": "110x1x0/1",
             "amount_msat": 1250000,
             "age_in_seconds": 2,
-            "command_id": "\"-c:askrene-reserve#62/cln:askrene-reserve#122\""
+            "command_id": "examples.py:askrene-reserve#1/cln:askrene-reserve#2"
           },
           {
-            "short_channel_id_dir": "123x1x1/0",
+            "short_channel_id_dir": "110x1x0/1",
+            "amount_msat": 1250000000000,
+            "age_in_seconds": 2,
+            "command_id": "examples.py:askrene-reserve#2/cln:askrene-reserve#3"
+          },
+          {
+            "short_channel_id_dir": "124x1x1/0",
             "amount_msat": 1250001,
             "age_in_seconds": 2,
-            "command_id": "\"-c:askrene-reserve#62/cln:askrene-reserve#122\""
+            "command_id": "examples.py:askrene-reserve#3/cln:askrene-reserve#4"
           },
           {
-            "short_channel_id_dir": "109x1x1/1",
+            "short_channel_id_dir": "124x1x1/0",
             "amount_msat": 1250000000000,
             "age_in_seconds": 2,
-            "command_id": "\"-c:askrene-reserve#66/cln:askrene-reserve#126\""
-          },
-          {
-            "short_channel_id_dir": "123x1x1/0",
-            "amount_msat": 1250000000000,
-            "age_in_seconds": 2,
-            "command_id": "\"-c:askrene-reserve#66/cln:askrene-reserve#126\""
+            "command_id": "examples.py:askrene-reserve#4/cln:askrene-reserve#5"
           }
         ]
       }

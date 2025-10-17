@@ -13,6 +13,7 @@ WIRE_TEST_COMMON_OBJS :=		\
 	common/autodata.o		\
 	common/base32.o			\
 	common/pseudorand.o		\
+	common/randbytes.o		\
 	common/setup.o			\
 	common/utils.o			\
 	common/wireaddr.o

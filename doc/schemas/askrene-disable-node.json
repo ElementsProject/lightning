@@ -53,7 +53,7 @@
         "method": "askrene-disable-node",
         "params": {
           "layer": "test_layers",
-          "node": "nodeid010101010101010101010101010101010101010101010101010101010101"
+          "node": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518"
         }
       },
       "response": {}

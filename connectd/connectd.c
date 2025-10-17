@@ -19,6 +19,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>
 #include <common/bech32_util.h>
+#include <common/clock_time.h>
 #include <common/daemon_conn.h>
 #include <common/dev_disconnect.h>
 #include <common/ecdh_hsmd.h>
@@ -26,6 +27,7 @@
 #include <common/gossmap.h>
 #include <common/jsonrpc_errors.h>
 #include <common/memleak.h>
+#include <common/randbytes.h>
 #include <common/status.h>
 #include <common/subdaemon.h>
 #include <common/timeout.h>
@@ -129,7 +131,7 @@ static struct peer *new_peer(struct daemon *daemon,
 	peer->draining_state = NOT_DRAINING;
 	peer->peer_in_lastmsg = -1;
 	peer->peer_outq = msg_queue_new(peer, false);
-	peer->last_recv_time = time_now();
+	peer->last_recv_time = time_mono();
 	peer->is_websocket = is_websocket;
 	peer->dev_writes_enabled = NULL;
 	peer->dev_read_enabled = true;
@@ -1517,7 +1519,7 @@ setup_listeners(const tal_t *ctx,
 				if (sodium_mlock(&random, sizeof(random)) != 0)
 						status_failed(STATUS_FAIL_INTERNAL_ERROR,
 									"Could not lock the random prf key memory.");
-				randombytes_buf((void * const)&random, 32);
+				randbytes((void * const)&random, 32);
 				/* generate static tor node address, take first 32 bytes from secret of node_id plus 32 random bytes from sodiom */
 				struct sha256 sha;
 				struct secret ss;
@@ -1542,7 +1544,7 @@ setup_listeners(const tal_t *ctx,
 					    localaddr,
 					    0);
 		/* get rid of blob data on our side of tor and add jitter */
-		randombytes_buf((void * const)proposed_wireaddr[i].u.torservice.blob, TOR_V3_BLOBLEN);
+		randbytes((void * const)proposed_wireaddr[i].u.torservice.blob, TOR_V3_BLOBLEN);
 
 		if (!(proposed_listen_announce[i] & ADDR_ANNOUNCE)) {
 				continue;
@@ -2021,9 +2023,6 @@ static void dev_connect_memleak(struct daemon *daemon, const u8 *msg)
 
 	/* Now delete daemon and those which it has pointers to. */
 	memleak_scan_obj(memtable, daemon);
-	memleak_scan_htable(memtable, &daemon->peers->raw);
-	memleak_scan_htable(memtable, &daemon->scid_htable->raw);
-	memleak_scan_htable(memtable, &daemon->important_ids->raw);
 
 	found_leak = dump_memleak(memtable, memleak_status_broken, NULL);
 	daemon_conn_send(daemon->master,
@@ -2211,7 +2210,7 @@ static void dev_report_fds(struct daemon *daemon, const u8 *msg)
 void update_recent_timestamp(struct daemon *daemon, struct gossmap *gossmap)
 {
 	/* 2 hours allows for some clock drift, not too much gossip */
-	u32 recent = time_now().ts.tv_sec - 7200;
+	u32 recent = clock_time().ts.tv_sec - 7200;
 
 	/* Only update every minute */
 	if (daemon->gossip_recent_time + 60 > recent)
@@ -2437,14 +2436,6 @@ static struct io_plan *recv_gossip(struct io_conn *conn,
 	return daemon_conn_read_next(conn, daemon->gossipd);
 }
 
-/*~ This is a hook used by the memleak code: it can't see pointers
- * inside hash tables, so we give it a hint here. */
-static void memleak_daemon_cb(struct htable *memtable, struct daemon *daemon)
-{
-	memleak_scan_htable(memtable, &daemon->peers->raw);
-	memleak_scan_htable(memtable, &daemon->connecting->raw);
-}
-
 static void gossipd_failed(struct daemon_conn *gossipd)
 {
 	status_failed(STATUS_FAIL_GOSSIP_IO, "gossipd exited?");
@@ -2464,14 +2455,13 @@ int main(int argc, char *argv[])
 	daemon = tal(NULL, struct daemon);
 	daemon->developer = developer;
 	daemon->connection_counter = 1;
-	daemon->peers = tal(daemon, struct peer_htable);
+	/* htable_new is our helper which allocates a htable, initializes it
+	 * and set up the memleak callback so our memleak code can see objects
+	 * inside it */
+	daemon->peers = new_htable(daemon, peer_htable);
 	daemon->listeners = tal_arr(daemon, struct io_listener *, 0);
-	peer_htable_init(daemon->peers);
-	memleak_add_helper(daemon, memleak_daemon_cb);
-	daemon->connecting = tal(daemon, struct connecting_htable);
-	connecting_htable_init(daemon->connecting);
-	daemon->important_ids = tal(daemon, struct important_id_htable);
-	important_id_htable_init(daemon->important_ids);
+	daemon->connecting = new_htable(daemon, connecting_htable);
+	daemon->important_ids = new_htable(daemon, important_id_htable);
 	timers_init(&daemon->timers, time_mono());
 	daemon->gossmap_raw = NULL;
 	daemon->shutting_down = false;
@@ -2481,8 +2471,7 @@ int main(int argc, char *argv[])
 	daemon->dev_exhausted_fds = false;
 	/* We generally allow 1MB per second per peer, except for dev testing */
 	daemon->gossip_stream_limit = 1000000;
-	daemon->scid_htable = tal(daemon, struct scid_htable);
-	scid_htable_init(daemon->scid_htable);
+	daemon->scid_htable = new_htable(daemon, scid_htable);
 
 	/* stdin == control */
 	daemon->master = daemon_conn_new(daemon, STDIN_FILENO, recv_req, NULL,

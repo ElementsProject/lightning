@@ -807,10 +807,6 @@ static void dev_register_opts(struct lightningd *ld)
 		     opt_set_bool,
 		     &ld->dev_fast_gossip_prune,
 		     "Make gossip pruning 120 seconds");
-	clnopt_witharg("--dev-gossip-time", OPT_DEV|OPT_SHOWINT,
-		       opt_set_u32, opt_show_u32,
-		       &ld->dev_gossip_time,
-		       "UNIX time to override gossipd to use.");
 	clnopt_witharg("--dev-force-privkey", OPT_DEV,
 		       opt_force_privkey, NULL, ld,
 		       "Force HSM to use this as node private key");

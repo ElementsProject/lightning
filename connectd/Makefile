@@ -48,6 +48,7 @@ CONNECTD_COMMON_OBJS :=				\
 	common/blinding.o			\
 	common/blindedpath.o			\
 	common/channel_id.o			\
+	common/clock_time.o			\
 	common/cryptomsg.o			\
 	common/daemon.o				\
 	common/daemon_conn.o			\
@@ -72,6 +73,7 @@ CONNECTD_COMMON_OBJS :=				\
 	common/per_peer_state.o			\
 	common/psbt_open.o			\
 	common/pseudorand.o			\
+	common/randbytes.o			\
 	common/sciddir_or_pubkey.o		\
 	common/setup.o				\
 	common/sphinx.o				\

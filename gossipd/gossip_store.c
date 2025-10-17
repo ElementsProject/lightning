@@ -4,6 +4,7 @@
 #include <ccan/noerr/noerr.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/str/str.h>
+#include <common/clock_time.h>
 #include <common/gossip_store.h>
 #include <common/status.h>
 #include <errno.h>
@@ -197,7 +198,7 @@ static int gossip_store_compact(struct daemon *daemon,
 	struct gossip_hdr hdr;
 	u8 oldversion, version = GOSSIP_STORE_VER;
 	struct stat st;
-	struct timeabs start = time_now();
+	struct timemono start = time_mono();
 	const char *bad;
 
 	*populated = false;
@@ -344,7 +345,7 @@ static int gossip_store_compact(struct daemon *daemon,
 
 	/* If we have any contents, and the file is less than 1 hour
 	 * old, say "seems good" */
-	if (st.st_mtime > time_now().ts.tv_sec - 3600 && *total_len > 1) {
+	if (st.st_mtime > clock_time().ts.tv_sec - 3600 && *total_len > 1) {
 		*populated = true;
 	}
 
@@ -363,7 +364,7 @@ rename_new:
 	}
 
 	status_debug("Store compact time: %"PRIu64" msec",
-		     time_to_msec(time_between(time_now(), start)));
+		     time_to_msec(timemono_between(time_mono(), start)));
 	status_debug("gossip_store: Read %zu/%zu/%zu/%zu cannounce/cupdate/nannounce/delete from store in %"PRIu64" bytes, now %"PRIu64" bytes (populated=%s)",
 		     cannounces, cupdates, nannounces, deleted,
 		     old_len, *total_len,

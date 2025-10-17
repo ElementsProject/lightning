@@ -4,13 +4,14 @@
 #include <ccan/asort/asort.h>
 #include <ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
+#include <common/clock_time.h>
 #include <common/gossmap.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
+#include <common/randbytes.h>
 #include <errno.h>
 #include <plugins/libplugin-pay.h>
-#include <sodium.h>
 
 #define PREIMAGE_TLV_TYPE 5482373484
 #define KEYSEND_FEATUREBIT 55
@@ -49,7 +50,7 @@ static struct keysend_data *keysend_init(struct payment *p)
 		 * and populate the preimage field in the keysend_data and the
 		 * payment_hash in the payment. */
 		d = tal(p, struct keysend_data);
-		randombytes_buf(&d->preimage, sizeof(d->preimage));
+		randbytes(&d->preimage, sizeof(d->preimage));
 		ccan_sha256(&payment_hash, &d->preimage, sizeof(d->preimage));
 		p->payment_hash = tal_dup(p, struct sha256, &payment_hash);
 		d->extra_tlvs = NULL;
@@ -241,7 +242,7 @@ static struct command_result *json_keysend(struct command *cmd, const char *buf,
 	p->invstring_used = true;
 	p->why = "Initial attempt";
 	p->constraints.cltv_budget = *maxdelay;
-	p->deadline = timeabs_add(time_now(), time_from_sec(*retryfor));
+	p->deadline = timemono_add(time_mono(), time_from_sec(*retryfor));
 	p->getroute->riskfactorppm = 10000000;
 
 	if (node_id_eq(&my_id, p->route_destination)) {
@@ -448,7 +449,8 @@ static struct command_result *htlc_accepted_call(struct command *cmd,
 	bigsize_t s;
 	struct keysend_in *ki;
 	struct out_req *req;
-	struct timeabs now = time_now();
+	/* Even with CLN_DEV_SET_TIME, we need this to change */
+	struct timeabs now = clock_time_progresses();
 	const char *err;
 	u64 *allowed;
 	size_t err_off;

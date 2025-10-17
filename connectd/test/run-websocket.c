@@ -1,6 +1,7 @@
 #include "config.h"
 #include <assert.h>
 #include <common/amount.h>
+#include <common/memleak.h>
 #include <ccan/io/io.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <wire/wire.h>

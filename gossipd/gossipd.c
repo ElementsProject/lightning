@@ -13,6 +13,7 @@
 #include "config.h"
 #include <ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
+#include <common/clock_time.h>
 #include <common/daemon_conn.h>
 #include <common/ecdh_hsmd.h>
 #include <common/lease_rates.h>
@@ -374,19 +375,11 @@ static void master_or_connectd_gone(struct daemon_conn *dc UNUSED)
 	exit(2);
 }
 
-struct timeabs gossip_time_now(const struct daemon *daemon)
-{
-	if (daemon->dev_gossip_time)
-		return *daemon->dev_gossip_time;
-
-	return time_now();
-}
-
 /* We don't check this when loading from the gossip_store: that would break
  * our canned tests, and usually old gossip is better than no gossip */
 bool timestamp_reasonable(const struct daemon *daemon, u32 timestamp)
 {
-	u64 now = gossip_time_now(daemon).ts.tv_sec;
+	u64 now = clock_time().ts.tv_sec;
 
 	/* More than one day ahead? */
 	if (timestamp > now + 24*60*60)
@@ -400,25 +393,14 @@ bool timestamp_reasonable(const struct daemon *daemon, u32 timestamp)
 /*~ Parse init message from lightningd: starts the daemon properly. */
 static void gossip_init(struct daemon *daemon, const u8 *msg)
 {
-	u32 *dev_gossip_time;
-
 	if (!fromwire_gossipd_init(daemon, msg,
 				     &chainparams,
 				     &daemon->our_features,
 				     &daemon->id,
-				     &dev_gossip_time,
 				     &daemon->dev_fast_gossip,
 				     &daemon->dev_fast_gossip_prune,
 				     &daemon->autoconnect_seeker_peers)) {
 		master_badmsg(WIRE_GOSSIPD_INIT, msg);
-	}
-
-	if (dev_gossip_time) {
-		assert(daemon->developer);
-		daemon->dev_gossip_time = tal(daemon, struct timeabs);
-		daemon->dev_gossip_time->ts.tv_sec = *dev_gossip_time;
-		daemon->dev_gossip_time->ts.tv_nsec = 0;
-		tal_free(dev_gossip_time);
 	}
 
 	/* Gossmap manager starts up */
@@ -479,7 +461,6 @@ static void dev_gossip_memleak(struct daemon *daemon, const u8 *msg)
 	memleak_ptr(memtable, msg);
 	/* Now delete daemon and those which it has pointers to. */
 	memleak_scan_obj(memtable, daemon);
-	memleak_scan_htable(memtable, &daemon->peers->raw);
 	dev_seeker_memleak(memtable, daemon->seeker);
 	gossmap_manage_memleak(memtable, daemon->gm);
 
@@ -487,18 +468,6 @@ static void dev_gossip_memleak(struct daemon *daemon, const u8 *msg)
 	daemon_conn_send(daemon->master,
 			 take(towire_gossipd_dev_memleak_reply(NULL,
 							      found_leak)));
-}
-
-static void dev_gossip_set_time(struct daemon *daemon, const u8 *msg)
-{
-	u32 time;
-
-	if (!fromwire_gossipd_dev_set_time(msg, &time))
-		master_badmsg(WIRE_GOSSIPD_DEV_SET_TIME, msg);
-	if (!daemon->dev_gossip_time)
-		daemon->dev_gossip_time = tal(daemon, struct timeabs);
-	daemon->dev_gossip_time->ts.tv_sec = time;
-	daemon->dev_gossip_time->ts.tv_nsec = 0;
 }
 
 /*~ lightningd tells us when about a gossip message directly, when told to by
@@ -592,12 +561,6 @@ static struct io_plan *recv_req(struct io_conn *conn,
 			goto done;
 		}
 		/* fall thru */
-	case WIRE_GOSSIPD_DEV_SET_TIME:
-		if (daemon->developer) {
-			dev_gossip_set_time(daemon, msg);
-			goto done;
-		}
-		/* fall thru */
 
 	/* We send these, we don't receive them */
 	case WIRE_GOSSIPD_INIT_CUPDATE:
@@ -631,9 +594,7 @@ int main(int argc, char *argv[])
 
 	daemon = tal(NULL, struct daemon);
 	daemon->developer = developer;
-	daemon->dev_gossip_time = NULL;
-	daemon->peers = tal(daemon, struct peer_node_id_map);
-	peer_node_id_map_init(daemon->peers);
+	daemon->peers = new_htable(daemon, peer_node_id_map);
 	daemon->deferred_txouts = tal_arr(daemon, struct short_channel_id, 0);
 	daemon->current_blockheight = 0; /* i.e. unknown */
 
@@ -643,7 +604,7 @@ int main(int argc, char *argv[])
 	/* Note the use of time_mono() here.  That's a monotonic clock, which
 	 * is really useful: it can only be used to measure relative events
 	 * (there's no correspondence to time-since-Ken-grew-a-beard or
-	 * anything), but unlike time_now(), this will never jump backwards by
+	 * anything), but unlike time_now, this will never jump backwards by
 	 * half a second and leave me wondering how my tests failed CI! */
 	timers_init(&daemon->timers, time_mono());
 

@@ -279,7 +279,7 @@
         "id": "example:listpays#1",
         "method": "listpays",
         "params": {
-          "bolt11": "lnbcrt100n1pnt2bolt11invl032000000000bolt11invl032000000000bolt11invl032000000000bolt11invl032000000000bolt11invl032000000000bolt11invl032000000000bolt11invl032000000000bolt11invl032000000000bolt11invl032000000000bolt11invl032000000000"
+          "bolt11": "lnbcrt500n1pne035qsp5kk6w4wjl0wudssp0pze5lgkz9hcav6ql523hjxc92knt398y2csqpp54va949c65wepf98heejx7pmjxtqsexghcvehty6urt4l54cl5xssdqcdsenygryv4ekxunfwp6xjmmwxqyjw5qcqp9rzjqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4jqqqwqqqqqgqqqqqqqqpqqqqqzsqqc9qxpqysgqgrjzax5dyj6dqqhgrt7t53hrmw4xvjs56kdy450c8jdv53fzf3n4kmersmgydpyyam87jrnu9wrcn78zy6w53zx3lqv45js6sa6rspqqa07y46"
         }
       },
       "response": {
@@ -293,7 +293,99 @@
         "params": {}
       },
       "response": {
-        "pays": []
+        "pays": [
+          {
+            "bolt11": "lnbcrt5m1pne035qsp53ecfkxsrle7hea7ckvd62cdjyvq3r9vp8dj88fwawl220ljmda3spp57cdw7qf92ltyje5evsh8rc46ekjkwz6nwlrr2layqjzcz0avcc5qdpcv3jhxcmjd9c8g6t0dcs8xetwvss8xmmdv5s8xct5wvsxcv3qw3hjqmpnxqyjw5qcqp9rzjqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4jqqqwqqqqqgqqqqqqqqpqqqqqzsqqc9qxpqysgq5ang73w7jamq8nwwceyutacvktrm59qclwnrdd54q4qcr8a5n9r9jnxvg4k3s80frd3lt4tcv4dxz4yhsewnp8ujjd50mgevtwz4wmcq7glcsk",
+            "destination": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+            "payment_hash": "f61aef012557d6496699642e71e2bacda5670b5377c6357fa40485813facc628",
+            "status": "complete",
+            "created_at": 1738000000,
+            "completed_at": 1738000000,
+            "preimage": "83ffe698292fbb5e83ffe698292fbb5e83ffe698292fbb5e83ffe698292fbb5e",
+            "amount_msat": 500000000,
+            "amount_sent_msat": 500000000,
+            "created_index": 1,
+            "updated_index": 1
+          },
+          {
+            "bolt11": "lnbcrt5m1pne035qsp5qu4w4mj43n9up0ze7cq39rrqd7aqygw82cyma64mnzne69kzphfqpp57edpmeu5yea7xpxezhtq4yjh6t50g0e739lx399kr9ynunpqm98qdpcv3jhxcmjd9c8g6t0dcs8xetwvss8xmmdv5s8xct5wvsxcv3qw3hjqmp4xqyjw5qcqp9rzjqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4jcjsnr9ygaehpqqqqqqpqqqqqzsqqc9qxpqysgqsm86gyada8m86wr0sz33tnclnyawtvtaegqhdwcwyrzu0p8hxuuxyh9teph87urkxu4g7x4ug4gjswahjwfjufl22msvlv7mv790z6gp9vrhs7",
+            "destination": "032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e",
+            "payment_hash": "f65a1de794267be304d915d60a9257d2e8f43f3e897e6894b619493e4c20d94e",
+            "status": "complete",
+            "created_at": 1738000000,
+            "completed_at": 1738000000,
+            "preimage": "58148cd7e5a50ca858148cd7e5a50ca858148cd7e5a50ca858148cd7e5a50ca8",
+            "amount_msat": 500000000,
+            "amount_sent_msat": 500000000,
+            "created_index": 2,
+            "updated_index": 2
+          },
+          {
+            "bolt11": "lnbcrt1u1pne035qsp5xl6xj5nrlrwfadkw89p0htfcqlkt0qrnykpc4kh3vlyr69cglv5qpp59v2rfk0xrknvtuf9yd5lf2vwrhwwwg45mvalz42nhpaff5vax5wsdqcdsenxgryv4ekxunfwp6xjmmwxqyjw5qcqp9rzjqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4jqqqwqqqqqgqqqqqqqqpqqqqqzsqqc9qxpqysgq04xpv4pju07a2mt3d02rf5u8ptj8h8vy7qxtc74z6y609x8rwrkhvq2elv8v5mrwac42scc70c7nnyu4xrxu9c8wcsync9dd5dnqdfqqrngrdv",
+            "destination": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+            "payment_hash": "2b1434d9e61da6c5f1252369f4a98e1ddce722b4db3bf15553b87a94d19d351d",
+            "status": "complete",
+            "created_at": 1738000000,
+            "completed_at": 1738000000,
+            "preimage": "83ffe698292fbb6183ffe698292fbb6183ffe698292fbb6183ffe698292fbb61",
+            "amount_msat": 100000,
+            "amount_sent_msat": 100000,
+            "created_index": 3,
+            "updated_index": 3
+          },
+          {
+            "bolt12": "lni1qqg99gqg2990zl3322sqs52279lrzzst2d5k6urvv5s8getnw3gzqp3zderpzxstt8927ynqg044h0egcd8n5h3n9g0u0v4h8ncc3yg02gps7sjqtqssytfzxcs2xkdy0lml0tzy0jzugmyj8kjn8zfzrgq9fsgurc72x82e5zvqyehytxx360zptatj4pygsv9kpal8gnkeyd0tpvd6jv5rkv2uqdgcq204pv4whvd37qg3dg48n0nudvgfw0du46nveyle5q4a2tvru2g4gqgrstm06rld7qk9d5sjtajxztd0lua3zfujsv8lve3wg9px5f34c4wqqvh4pp0dfkr98pur2v55d6ae3cakhn6s9jxn8waf9l00g06g236ymyefu6engjwaqsj4w7cgpkg9naq6kf4zrsqqqqqqqqqqqqqqq5qqqqqqqqqqqqqayjedltzjqqqqqq9yq3ne035q5cq442pqemw8hu9fzzda8nvxcksvjra2sy4c5r9r6et8rj95qqd2ufj8xj065qc0gfq2uqczqqqtqggzvmj9nrga83q474e2sjygxzmq7ln5fmvjxh4skxafx2pmx9wqx5v0qsxsy7vmh0323083refvd9fwvm7r5klg8hjftuqqzygswxl9lfkvlcj72lhlw643qv2gwmfadfydpdwvhydnvgnxmhlgjaxd7nw06y7rx",
+            "destination": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+            "payment_hash": "cedc7bf0a9109bd3cd86c5a0c90faa812b8a0ca3d65671c8b4001aae2647349f",
+            "status": "complete",
+            "created_at": 1738000000,
+            "completed_at": 1738000000,
+            "preimage": "c01ed70eb9ddb906c01ed70eb9ddb906c01ed70eb9ddb906c01ed70eb9ddb906",
+            "amount_msat": 1000000,
+            "amount_sent_msat": 1000000,
+            "created_index": 4,
+            "updated_index": 4
+          },
+          {
+            "bolt11": "lnbcrt1pne035qsp5hu0s83c7qg77lgtagcr58sf07fvrqf27j67s2ptguw9wk8ruexfqpp50ge88lv20ge4a9ny7xc7rg8p6vqvnuuzwllkk2zng6txu7sfz3cqdqcdserxgryv4ekxunfwp6xjmmwxqyjw5qcqp99qxpqysgqrwjd83fygx3zcnupx0ftnpewajss6n4vpsugju00w8hu5lu0neujqhgw8jygwmawz8jq8pp2xu6r78f3m9yld6ky7539x5g5ahvtmqqqmgfjaa",
+            "destination": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+            "payment_hash": "7a3273fd8a7a335e9664f1b1e1a0e1d300c9f38277ff6b285346966e7a091470",
+            "status": "complete",
+            "created_at": 1738000000,
+            "completed_at": 1738000000,
+            "preimage": "08377744ca985c1f08377744ca985c1f08377744ca985c1f08377744ca985c1f",
+            "amount_msat": 9900,
+            "amount_sent_msat": 9900,
+            "created_index": 5,
+            "updated_index": 5
+          },
+          {
+            "bolt11": "lnbcrt40n1pne035qsp5pwtnqs2trxfwwkl8vaycu6fmvud0edagevz4eahvy6ls30u7cfrqpp52wnj6qrv99d6cte0s8ntstwkwxf42ksct8mujruyv7940nndzr3qdqaveskjmr9vssxgetnvdexjur5d9hkuxqyjw5qcqp9rzjqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4jqqqwqqqqqgqqqqqqqqpqqqqqzsqqc9qxpqysgq6sh90jk5uuccyzrdlnd5xyd92hxre78kupcpmlg0uerm35855xlklh5zlsmahpad6x8cv4ky2u6p394p270vyetlzx2u6ypyg22xn0qq0z6fuh",
+            "destination": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+            "payment_hash": "53a72d006c295bac2f2f81e6b82dd67193555a1859f7c90f84678b57ce6d10e2",
+            "status": "complete",
+            "created_at": 1738000000,
+            "completed_at": 1738000000,
+            "preimage": "83ffe698292fbb6283ffe698292fbb6283ffe698292fbb6283ffe698292fbb62",
+            "amount_msat": 4000,
+            "amount_sent_msat": 4000,
+            "created_index": 6,
+            "updated_index": 6
+          },
+          {
+            "bolt11": "lnbcrt5m1pne035qsp5qv7vwr9zt8sq94wzqdy2sg2cdddqfgh93vvsvfuxk0rdse47layqpp5z8v4uystpd9mvgwxm4zzr9w0q3dqep398jpkn6fdr24f2umgxcvqdpcv3jhxcmjd9c8g6t0dcs8xetwvss8xmmdv5s8xct5wvsxcv3qw3hjqmp5xqyjw5qcqp9rzjqgkjyd3q5dv6gllh77kygly9c3kfy0d9xwyjyxsq2nq3c83u5vw4jqqq5qqqqqgqqyqqqqqpqqqqqzsqqc9qxpqysgq9rl64vhvye4p8er9mld6jhuw56e0uf62w2r69e93hdy7js8a8y59esgp5ze7r9lnpt26tyh437t9c9g3m02eulm9fjrxepkghvvwyncp7wn4n3",
+            "destination": "0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199",
+            "payment_hash": "11d95e120b0b4bb621c6dd442195cf045a0c86253c8369e92d1aaa9573683618",
+            "status": "complete",
+            "created_at": 1738000000,
+            "completed_at": 1738000000,
+            "preimage": "a23af6838ba877f9a23af6838ba877f9a23af6838ba877f9a23af6838ba877f9",
+            "amount_msat": 500000000,
+            "amount_sent_msat": 500000000,
+            "created_index": 7,
+            "updated_index": 7
+          }
+        ]
       }
     }
   ]

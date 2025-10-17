@@ -25,6 +25,7 @@ CLOSINGD_COMMON_OBJS :=				\
 	common/bigsize.o			\
 	common/bip32.o				\
 	common/channel_id.o			\
+	common/clock_time.o			\
 	common/close_tx.o			\
 	common/cryptomsg.o			\
 	common/daemon.o				\
@@ -47,6 +48,7 @@ CLOSINGD_COMMON_OBJS :=				\
 	common/psbt_keypath.o			\
 	common/psbt_open.o			\
 	common/pseudorand.o			\
+	common/randbytes.o			\
 	common/status_wiregen.o			\
 	common/read_peer_msg.o			\
 	common/setup.o				\

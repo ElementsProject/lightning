@@ -23,7 +23,7 @@ struct tlv_encrypted_data_tlv_payment_relay;
  * @next_path_privkey: (out) e(i+1), the next blinding secret (optional)
  * @node_alias: (out) the blinded pubkey of the node to tell the recipient.
  *
- * You create a blinding secret using randombytes_buf(), then call this
+ * You create a blinding secret using randbytes(), then call this
  * iteratively for each node in the path.
  */
 u8 *encrypt_tlv_encrypted_data(const tal_t *ctx,

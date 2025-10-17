@@ -16,6 +16,7 @@
 #include <common/daemon_conn.h>
 #include <common/hsm_encryption.h>
 #include <common/memleak.h>
+#include <common/randbytes.h>
 #include <common/status.h>
 #include <common/status_wiregen.h>
 #include <common/subdaemon.h>
@@ -322,7 +323,7 @@ static void maybe_create_new_hsm(const struct secret *encryption_key,
 	/*~ This is libsodium's cryptographic randomness routine: we assume
 	 * it's doing a good job. */
 	if (random_hsm)
-		randombytes_buf(&hsm_secret, sizeof(hsm_secret));
+		randbytes(&hsm_secret, sizeof(hsm_secret));
 
 	/*~ If an encryption_key was provided, store an encrypted seed. */
 	if (encryption_key)

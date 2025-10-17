@@ -41,6 +41,7 @@ OPENINGD_COMMON_OBJS :=				\
 	common/channel_config.o			\
 	common/channel_id.o			\
 	common/channel_type.o			\
+	common/clock_time.o			\
 	common/cryptomsg.o			\
 	common/daemon.o				\
 	common/daemon_conn.o			\
@@ -70,6 +71,7 @@ OPENINGD_COMMON_OBJS :=				\
 	common/psbt_internal.o			\
 	common/psbt_open.o			\
 	common/pseudorand.o			\
+	common/randbytes.o			\
 	common/read_peer_msg.o			\
 	common/setup.o				\
 	common/shutdown_scriptpubkey.o		\

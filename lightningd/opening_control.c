@@ -6,6 +6,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/addr.h>
 #include <common/blockheight_states.h>
+#include <common/clock_time.h>
 #include <common/configdir.h>
 #include <common/fee_states.h>
 #include <common/json_channel_type.h>
@@ -243,7 +244,7 @@ wallet_commit_channel(struct lightningd *ld,
 	wallet_channel_insert(ld->wallet, channel);
 
 	/* Notify that channel state changed (from non existant to existant) */
-	timestamp = time_now();
+	timestamp = clock_time();
 	notify_channel_state_changed(ld, &channel->peer->id,
 				     &channel->cid,
 				     channel->scid, /* NULL */

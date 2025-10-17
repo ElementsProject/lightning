@@ -1,6 +1,7 @@
 #include "config.h"
 #include <assert.h>
 #include <common/amount.h>
+#include <common/memleak.h>
 #include <common/node_id.h>
 #include <common/setup.h>
 #include <common/status.c>

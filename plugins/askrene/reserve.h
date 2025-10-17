@@ -50,6 +50,4 @@ void json_add_reservations(struct json_stream *js,
 			   const struct reserve_htable *reserved,
 			   const char *fieldname);
 
-/* Scan for memleaks */
-void reserve_memleak_mark(struct askrene *askrene, struct htable *memtable);
 #endif /* LIGHTNING_PLUGINS_ASKRENE_RESERVE_H */

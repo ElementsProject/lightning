@@ -10,8 +10,10 @@
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
 #include <common/channel_id.h>
+#include <common/clock_time.h>
 #include <common/json_parse.h>
 #include <common/json_stream.h>
+#include <common/randbytes.h>
 #include <common/setup.h>
 #include <common/wireaddr.h>
 #include <stdio.h>

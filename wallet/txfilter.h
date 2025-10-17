@@ -64,9 +64,6 @@ bool outpointfilter_matches(struct outpointfilter *of,
 void outpointfilter_remove(struct outpointfilter *of,
 			   const struct bitcoin_outpoint *outpoint);
 
-void memleak_scan_outpointfilter(struct htable *memtable,
-				 const struct outpointfilter *opf);
-
 /* Useful for other callers */
 size_t scriptpubkey_hash(const u8 *out);
 

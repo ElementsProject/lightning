@@ -294,7 +294,7 @@ struct channel {
 	u32 feerate_base, feerate_ppm;
 
 	/* But allow these feerates/htlcs up until this time. */
-	struct timeabs old_feerate_timeout;
+	struct timemono old_feerate_timeout;
 	u32 old_feerate_base, old_feerate_ppm;
 	struct amount_msat old_htlc_minimum_msat, old_htlc_maximum_msat;
 
@@ -342,10 +342,6 @@ struct channel {
 	u32 lease_chan_max_msat;
 	/* Lease commited max part per thousandth channel fee (ppm * 1000) */
 	u16 lease_chan_max_ppt;
-
-	/* `Channel-shell` of this channel
-	 * (Minimum information required to backup this channel). */
-	struct modern_scb_chan *scb;
 
 	/* Do we allow the peer to set any fee it wants? */
 	bool ignore_fee_limits;

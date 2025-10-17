@@ -577,7 +577,7 @@ check-tmpctx:
 	@if git grep -n 'tal_free[(]tmpctx)' | grep -Ev '^ccan/|/test/|^common/setup.c:|^common/utils.c:'; then echo "Don't free tmpctx!">&2; exit 1; fi
 
 check-discouraged-functions:
-	@if git grep -E "[^a-z_/](fgets|fputs|gets|scanf|sprintf)\(" -- "*.c" "*.h" ":(exclude)ccan/" ":(exclude)contrib/"; then exit 1; fi
+	@if git grep -nE "[^a-z_/](fgets|fputs|gets|scanf|sprintf|randombytes_buf|time_now)\(" -- "*.c" "*.h" ":(exclude)ccan/" ":(exclude)contrib/" | grep -Fv '/* discouraged:'; then exit 1; fi
 
 # Don't access amount_msat and amount_sat members directly without a good reason
 # since it risks overflow.
@@ -590,14 +590,18 @@ repeat-doc-examples:
 		echo "----------------------------------" >> tests/autogenerate-examples-repeat.log; \
 		echo "Iteration $$i" >> tests/autogenerate-examples-repeat.log; \
 		echo "----------------------------------" >> tests/autogenerate-examples-repeat.log; \
-		VALGRIND=0 TIMEOUT=40 TEST_DEBUG=1 GENERATE_EXAMPLES=1 pytest -vvv tests/autogenerate-rpc-examples.py; \
+		VALGRIND=0 TIMEOUT=40 TEST_DEBUG=1 GENERATE_EXAMPLES=1 CLN_NEXT_VERSION=$(CLN_NEXT_VERSION) pytest -vvv tests/autogenerate-rpc-examples.py; \
 		git diff >> tests/autogenerate-examples-repeat.log; \
 		git reset --hard; \
 		echo "----------------------------------" >> tests/autogenerate-examples-repeat.log; \
 	done
 
 update-doc-examples:
-	TEST_DEBUG=1 VALGRIND=0 GENERATE_EXAMPLES=1 $(PYTEST) $(PYTEST_OPTS) --timeout=1200 tests/autogenerate-rpc-examples.py && $(MAKE) $(MSGGEN_GEN_ALL)
+	TEST_DEBUG=1 VALGRIND=0 GENERATE_EXAMPLES=1 CLN_NEXT_VERSION=$(CLN_NEXT_VERSION) $(PYTEST) $(PYTEST_OPTS) --timeout=1200 tests/autogenerate-rpc-examples.py && $(MAKE) $(MSGGEN_GEN_ALL)
+
+# If you changed tests/autogenerate-rpc-examples.py to require new blocks, you have to run this:
+update-doc-examples-newchain:
+	TEST_DEBUG=1 VALGRIND=0 GENERATE_EXAMPLES=1 CLN_NEXT_VERSION=$(CLN_NEXT_VERSION) REGENERATE_BLOCKCHAIN=1 $(PYTEST) $(PYTEST_OPTS) --timeout=1200 tests/autogenerate-rpc-examples.py && $(MAKE) $(MSGGEN_GEN_ALL)
 
 check-doc-examples: update-doc-examples
 	git diff --exit-code HEAD

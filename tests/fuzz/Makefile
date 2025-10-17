@@ -33,6 +33,7 @@ FUZZ_COMMON_OBJS := \
 	common/configdir.o				\
 	common/configvar.o				\
 	common/codex32.o				\
+	common/clock_time.o				\
 	common/cryptomsg.o				\
 	common/daemon.o					\
 	common/daemon_conn.o				\

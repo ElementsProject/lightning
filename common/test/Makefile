@@ -5,11 +5,14 @@ COMMON_TEST_PROGRAMS := $(COMMON_TEST_OBJS:.o=)
 
 COMMON_TEST_COMMON_OBJS :=				\
 	common/autodata.o				\
+	common/memleak.o				\
+	common/randbytes.o				\
+	common/clock_time.o				\
 	common/setup.o					\
 	common/utils.o
 
 $(COMMON_TEST_PROGRAMS): $(COMMON_TEST_COMMON_OBJS) $(BITCOIN_OBJS)
-$(COMMON_TEST_OBJS): $(COMMON_HEADERS) $(WIRE_HEADERS) $(COMMON_SRC)
+$(COMMON_TEST_OBJS): $(COMMON_HEADERS) $(WIRE_HEADERS) $(COMMON_SRC) common/test/Makefile
 
 ALL_C_SOURCES += $(COMMON_TEST_SRC)
 ALL_TEST_PROGRAMS += $(COMMON_TEST_PROGRAMS)
@@ -31,6 +34,7 @@ common/test/run-json:					\
 	common/lease_rates.o				\
 	common/node_id.o				\
 	common/pseudorand.o				\
+	common/randbytes.o			\
 	common/wireaddr.o				\
 	wire/fromwire.o					\
 	wire/onion_wiregen.o				\
@@ -44,6 +48,7 @@ common/test/run-route common/test/run-route-specific common/test/run-route-inflo
 	common/gossmap.o				\
 	common/node_id.o				\
 	common/pseudorand.o				\
+	common/randbytes.o				\
 	common/route.o					\
         gossipd/gossip_store_wiregen.o			\
 	wire/fromwire.o					\
@@ -117,13 +122,14 @@ common/test/run-splice_script:				\
 
 common/test/run-trace:					\
 	common/amount.o                                 \
-	common/memleak.o				\
 	common/pseudorand.o				\
+	common/randbytes.o				\
 	common/trace.o					\
 	wire/fromwire.o					\
 	wire/towire.o
 
 common/test/run-htable:					\
+	common/randbytes.o				\
 	common/pseudorand.o
 
 common/test/run-shutdown_scriptpubkey: wire/towire.o wire/fromwire.o

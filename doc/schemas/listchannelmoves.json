@@ -145,5 +145,241 @@
   ],
   "resources": [
     "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
+    {
+      "request": {
+        "id": "example:listchannelmoves#1",
+        "method": "listchannelmoves",
+        "params": {}
+      },
+      "response": {
+        "channelmoves": [
+          {
+            "created_index": 1,
+            "account_id": "252d1b0a1e57895e84137f28cf19ab2c35847e284c112fefdecc7afeaa5c1de7",
+            "credit_msat": 500000000,
+            "debit_msat": 0,
+            "timestamp": 1738000011,
+            "primary_tag": "invoice",
+            "payment_hash": "342cbb1cb564e8f32eb64fe8c254abf5ec5f6b87a0f8de7909caf8e658f3bd2a",
+            "fees_msat": 0
+          },
+          {
+            "created_index": 2,
+            "account_id": "a397dd9b3e44afcb67f3f3ce1d649b74a8ade63e35505985e4cc1828634f69a2",
+            "credit_msat": 0,
+            "debit_msat": 500000000,
+            "timestamp": 1738000012,
+            "primary_tag": "invoice",
+            "payment_hash": "f61aef012557d6496699642e71e2bacda5670b5377c6357fa40485813facc628",
+            "part_id": 0,
+            "group_id": 1,
+            "fees_msat": 0
+          },
+          {
+            "created_index": 3,
+            "account_id": "f8fc83a432cbfb2fffe222cc06727fdd977b5dd10ebd6707158e799e6f522d9f",
+            "credit_msat": 0,
+            "debit_msat": 500000000,
+            "timestamp": 1738000013,
+            "primary_tag": "invoice",
+            "payment_hash": "f65a1de794267be304d915d60a9257d2e8f43f3e897e6894b619493e4c20d94e",
+            "part_id": 0,
+            "group_id": 1,
+            "fees_msat": 0
+          },
+          {
+            "created_index": 4,
+            "account_id": "a397dd9b3e44afcb67f3f3ce1d649b74a8ade63e35505985e4cc1828634f69a2",
+            "credit_msat": 0,
+            "debit_msat": 10000,
+            "timestamp": 1738000014,
+            "primary_tag": "routed",
+            "payment_hash": "9562ee18e942b0eb2e36050c108efcb34cb07e5cdbe28d08d26bb71af1556c2f",
+            "fees_msat": 1
+          },
+          {
+            "created_index": 5,
+            "account_id": "252d1b0a1e57895e84137f28cf19ab2c35847e284c112fefdecc7afeaa5c1de7",
+            "credit_msat": 10001,
+            "debit_msat": 0,
+            "timestamp": 1738000015,
+            "primary_tag": "routed",
+            "payment_hash": "9562ee18e942b0eb2e36050c108efcb34cb07e5cdbe28d08d26bb71af1556c2f",
+            "fees_msat": 1
+          },
+          {
+            "created_index": 6,
+            "account_id": "a397dd9b3e44afcb67f3f3ce1d649b74a8ade63e35505985e4cc1828634f69a2",
+            "credit_msat": 0,
+            "debit_msat": 10000,
+            "timestamp": 1738000016,
+            "primary_tag": "routed",
+            "payment_hash": "097dcfa3b0bc58d499908855dae7d442854a02d4f2ffcc625f9385ed74f3256e",
+            "fees_msat": 1
+          },
+          {
+            "created_index": 7,
+            "account_id": "252d1b0a1e57895e84137f28cf19ab2c35847e284c112fefdecc7afeaa5c1de7",
+            "credit_msat": 10001,
+            "debit_msat": 0,
+            "timestamp": 1738000017,
+            "primary_tag": "routed",
+            "payment_hash": "097dcfa3b0bc58d499908855dae7d442854a02d4f2ffcc625f9385ed74f3256e",
+            "fees_msat": 1
+          },
+          {
+            "created_index": 8,
+            "account_id": "a397dd9b3e44afcb67f3f3ce1d649b74a8ade63e35505985e4cc1828634f69a2",
+            "credit_msat": 0,
+            "debit_msat": 10000101,
+            "timestamp": 1738000018,
+            "primary_tag": "routed",
+            "payment_hash": "9bf787fe700121009e2ecdca290632c8bf2da853527c700aa5746173981ae584",
+            "fees_msat": 101
+          },
+          {
+            "created_index": 9,
+            "account_id": "252d1b0a1e57895e84137f28cf19ab2c35847e284c112fefdecc7afeaa5c1de7",
+            "credit_msat": 10000202,
+            "debit_msat": 0,
+            "timestamp": 1738000019,
+            "primary_tag": "routed",
+            "payment_hash": "9bf787fe700121009e2ecdca290632c8bf2da853527c700aa5746173981ae584",
+            "fees_msat": 101
+          },
+          {
+            "created_index": 10,
+            "account_id": "a397dd9b3e44afcb67f3f3ce1d649b74a8ade63e35505985e4cc1828634f69a2",
+            "credit_msat": 0,
+            "debit_msat": 10000,
+            "timestamp": 1738000020,
+            "primary_tag": "routed",
+            "payment_hash": "da6c0b6d30ac35f62762bc7114d64d323dc79fb858061902263eb72df6310caf",
+            "fees_msat": 1
+          },
+          {
+            "created_index": 11,
+            "account_id": "252d1b0a1e57895e84137f28cf19ab2c35847e284c112fefdecc7afeaa5c1de7",
+            "credit_msat": 10001,
+            "debit_msat": 0,
+            "timestamp": 1738000021,
+            "primary_tag": "routed",
+            "payment_hash": "da6c0b6d30ac35f62762bc7114d64d323dc79fb858061902263eb72df6310caf",
+            "fees_msat": 1
+          },
+          {
+            "created_index": 12,
+            "account_id": "a397dd9b3e44afcb67f3f3ce1d649b74a8ade63e35505985e4cc1828634f69a2",
+            "credit_msat": 0,
+            "debit_msat": 50000,
+            "timestamp": 1738000022,
+            "primary_tag": "routed",
+            "payment_hash": "ab3a5a971aa3b21494f7ce646f077232c10c9917c33375935c1aebfa571fa1a1",
+            "fees_msat": 1
+          },
+          {
+            "created_index": 13,
+            "account_id": "252d1b0a1e57895e84137f28cf19ab2c35847e284c112fefdecc7afeaa5c1de7",
+            "credit_msat": 50001,
+            "debit_msat": 0,
+            "timestamp": 1738000023,
+            "primary_tag": "routed",
+            "payment_hash": "ab3a5a971aa3b21494f7ce646f077232c10c9917c33375935c1aebfa571fa1a1",
+            "fees_msat": 1
+          },
+          {
+            "created_index": 14,
+            "account_id": "a397dd9b3e44afcb67f3f3ce1d649b74a8ade63e35505985e4cc1828634f69a2",
+            "credit_msat": 0,
+            "debit_msat": 100000,
+            "timestamp": 1738000024,
+            "primary_tag": "invoice",
+            "payment_hash": "2b1434d9e61da6c5f1252369f4a98e1ddce722b4db3bf15553b87a94d19d351d",
+            "part_id": 0,
+            "group_id": 1,
+            "fees_msat": 0
+          },
+          {
+            "created_index": 15,
+            "account_id": "a397dd9b3e44afcb67f3f3ce1d649b74a8ade63e35505985e4cc1828634f69a2",
+            "credit_msat": 0,
+            "debit_msat": 10001,
+            "timestamp": 1738000025,
+            "primary_tag": "routed",
+            "payment_hash": "1bb513fb2fbde40592243877d9f404ba3668275e2eeacd9c7264f34f04d37fd1",
+            "fees_msat": 1
+          },
+          {
+            "created_index": 16,
+            "account_id": "252d1b0a1e57895e84137f28cf19ab2c35847e284c112fefdecc7afeaa5c1de7",
+            "credit_msat": 10002,
+            "debit_msat": 0,
+            "timestamp": 1738000026,
+            "primary_tag": "routed",
+            "payment_hash": "1bb513fb2fbde40592243877d9f404ba3668275e2eeacd9c7264f34f04d37fd1",
+            "fees_msat": 1
+          },
+          {
+            "created_index": 17,
+            "account_id": "252d1b0a1e57895e84137f28cf19ab2c35847e284c112fefdecc7afeaa5c1de7",
+            "credit_msat": 0,
+            "debit_msat": 1000000,
+            "timestamp": 1738000035,
+            "primary_tag": "invoice",
+            "payment_hash": "cedc7bf0a9109bd3cd86c5a0c90faa812b8a0ca3d65671c8b4001aae2647349f",
+            "part_id": 0,
+            "group_id": 1,
+            "fees_msat": 0
+          },
+          {
+            "created_index": 18,
+            "account_id": "252d1b0a1e57895e84137f28cf19ab2c35847e284c112fefdecc7afeaa5c1de7",
+            "credit_msat": 1000,
+            "debit_msat": 0,
+            "timestamp": 1738000036,
+            "primary_tag": "invoice",
+            "payment_hash": "ff498c3300881ea7a3c04193e43f123444c644662008108c23229da3511bedd1",
+            "fees_msat": 0
+          }
+        ]
+      }
+    },
+    {
+      "request": {
+        "id": "example:listchannelmoves#2",
+        "method": "listchannelmoves",
+        "params": {
+          "index": "created",
+          "start": 10,
+          "limit": 2
+        }
+      },
+      "response": {
+        "channelmoves": [
+          {
+            "created_index": 10,
+            "account_id": "a397dd9b3e44afcb67f3f3ce1d649b74a8ade63e35505985e4cc1828634f69a2",
+            "credit_msat": 0,
+            "debit_msat": 10000,
+            "timestamp": 1738000020,
+            "primary_tag": "routed",
+            "payment_hash": "da6c0b6d30ac35f62762bc7114d64d323dc79fb858061902263eb72df6310caf",
+            "fees_msat": 1
+          },
+          {
+            "created_index": 11,
+            "account_id": "252d1b0a1e57895e84137f28cf19ab2c35847e284c112fefdecc7afeaa5c1de7",
+            "credit_msat": 10001,
+            "debit_msat": 0,
+            "timestamp": 1738000021,
+            "primary_tag": "routed",
+            "payment_hash": "da6c0b6d30ac35f62762bc7114d64d323dc79fb858061902263eb72df6310caf",
+            "fees_msat": 1
+          }
+        ]
+      }
+    }
   ]
 }

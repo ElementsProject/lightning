@@ -113,17 +113,17 @@
         "id": "example:reserveinputs#1",
         "method": "reserveinputs",
         "params": {
-          "psbt": "cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt011100011100011100011100011100011100011100011100011100011100011100011100011100011100011100011100011100011100011100011100011100011100011100011100011100011100011100011100011100011100011100011100011100011100011100011100011100011100011100011100"
+          "psbt": "cHNidP8BADMCAAAAARxvUMSNjH7EKMXzxKwycdOSZ64xHQfWS7JFe0pAwIPCAAAAAAD9////AAAAAAAAAA=="
         }
       },
       "response": {
         "reservations": [
           {
-            "txid": "channeltxid111200111200111200111200111200111200111200111200111200",
-            "vout": 1,
+            "txid": "c283c0404a7b45b24bd6071d31ae6792d37132acc4f3c528c47e8c8dc4506f1c",
+            "vout": 0,
             "was_reserved": false,
             "reserved": true,
-            "reserved_to_block": 226
+            "reserved_to_block": 227
           }
         ]
       }
@@ -133,17 +133,17 @@
         "id": "example:reserveinputs#2",
         "method": "reserveinputs",
         "params": {
-          "psbt": "cHNidP8BAgQCAAAAAQMEbwAAAAEEAQpsbt011200011200011200011200011200011200011200011200011200011200011200011200011200011200011200011200011200011200011200011200011200011200011200011200011200011200011200011200011200011200011200011200011200011200011200011200011200011200011200011200"
+          "psbt": "cHNidP8BADMCAAAAAWI5Q9jlnWRjkrFQXx2bE0CP2y4UJMx2OfkJrOM2kSOWAAAAAAD9////AAAAAAAAAA=="
         }
       },
       "response": {
         "reservations": [
           {
-            "txid": "txidocsigned1011000110001100011000110001100011000110001100011000",
-            "vout": 1,
+            "txid": "96239136e3ac09f93976cc24142edb8f40139b1d5f50b19263649de5d8433962",
+            "vout": 0,
             "was_reserved": false,
             "reserved": true,
-            "reserved_to_block": 226
+            "reserved_to_block": 227
           }
         ]
       }

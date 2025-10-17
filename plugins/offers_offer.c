@@ -10,9 +10,9 @@
 #include <common/json_stream.h>
 #include <common/onion_message.h>
 #include <common/overflows.h>
+#include <common/randbytes.h>
 #include <plugins/offers.h>
 #include <plugins/offers_offer.h>
-#include <sodium/randombytes.h>
 
 static bool msat_or_any(const char *buffer,
 			const jsmntok_t *tok,
@@ -707,8 +707,8 @@ struct command_result *json_invoicerequest(struct command *cmd,
 	 * - MUST set `invreq_metadata` to an unpredictable series of bytes.
 	 */
 	invreq->invreq_metadata = tal_arr(invreq, u8, 16);
-	randombytes_buf(invreq->invreq_metadata,
-			tal_bytelen(invreq->invreq_metadata));
+	randbytes(invreq->invreq_metadata,
+		    tal_bytelen(invreq->invreq_metadata));
 
 	/* BOLT #12:
 	 * - otherwise (not responding to an offer):

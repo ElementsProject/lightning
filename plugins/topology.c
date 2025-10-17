@@ -11,6 +11,7 @@
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <common/pseudorand.h>
+#include <common/randbytes.h>
 #include <common/route.h>
 #include <common/wireaddr.h>
 #include <errno.h>
@@ -462,6 +463,33 @@ static struct amount_msat peer_capacity(const struct gossmap *gossmap,
 	return capacity;
 }
 
+/* For deterministic results with bolt12/11 routes, we only return a
+ * single candidate: choose the one with most capacity */
+static size_t best_candidate(const struct gossmap *gossmap,
+			     const struct gossmap_node *me)
+{
+	struct amount_msat best_cap = AMOUNT_MSAT(0);
+	size_t best_num = 0;
+	for (size_t i = 0; i < me->num_chans; i++) {
+		int dir;
+		struct gossmap_chan *ourchan;
+		struct amount_msat cap;
+		struct gossmap_node *peer;
+
+		ourchan = gossmap_nth_chan(gossmap, me, i, &dir);
+		if (ourchan->cupdate_off[!dir] == 0)
+			continue;
+
+		peer = gossmap_nth_node(gossmap, ourchan, !dir);
+		cap = peer_capacity(gossmap, me, peer, ourchan);
+		if (amount_msat_greater(cap, best_cap)) {
+			best_num = i;
+			best_cap = cap;
+		}
+	}
+	return best_num;
+}
+
 static struct command_result *
 listpeerchannels_listincoming_done(struct command *cmd,
 				   const char *method,
@@ -473,6 +501,7 @@ listpeerchannels_listincoming_done(struct command *cmd,
 	struct gossmap_node *me;
 	struct gossmap *gossmap;
 	struct gossmap_localmods *mods;
+	size_t deterministic_candidate = 0;
 
 	/* Get local knowledge */
 	mods = gossmods_from_listpeerchannels(tmpctx, &local_id,
@@ -490,6 +519,9 @@ listpeerchannels_listincoming_done(struct command *cmd,
 	if (!me)
 		goto done;
 
+	if (randbytes_overridden())
+		deterministic_candidate = best_candidate(gossmap, me);
+
 	for (size_t i = 0; i < me->num_chans; i++) {
 		struct node_id peer_id;
 		int dir;
@@ -502,6 +534,10 @@ listpeerchannels_listincoming_done(struct command *cmd,
 		/* Entirely missing?  Ignore. */
 		if (ourchan->cupdate_off[!dir] == 0)
 			continue;
+
+		if (randbytes_overridden() && i != deterministic_candidate)
+			continue;
+
 		/* We used to ignore if the peer said it was disabled,
 		 * but we have a report of LND telling us our unannounced
 		 * channel is disabled, so we still use them. */

@@ -27,6 +27,15 @@ bool blinding_next_path_privkey(const struct privkey *e UNNEEDED,
 				const struct sha256 *h UNNEEDED,
 				struct privkey *next UNNEEDED)
 { fprintf(stderr, "blinding_next_path_privkey called!\n"); abort(); }
+/* Generated stub for clock_time */
+struct timeabs clock_time(void)
+{ fprintf(stderr, "clock_time called!\n"); abort(); }
+/* Generated stub for clock_time_overridden */
+bool clock_time_overridden(void)
+{ fprintf(stderr, "clock_time_overridden called!\n"); abort(); }
+/* Generated stub for clock_time_progresses_ */
+struct timeabs clock_time_progresses_(u64 *progress UNNEEDED)
+{ fprintf(stderr, "clock_time_progresses_ called!\n"); abort(); }
 /* Generated stub for daemon_conn_send */
 void daemon_conn_send(struct daemon_conn *dc UNNEEDED, const u8 *msg UNNEEDED)
 { fprintf(stderr, "daemon_conn_send called!\n"); abort(); }

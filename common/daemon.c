@@ -5,8 +5,10 @@
 #include <ccan/err/err.h>
 #include <ccan/io/io.h>
 #include <ccan/tal/str/str.h>
+#include <common/clock_time.h>
 #include <common/daemon.h>
 #include <common/memleak.h>
+#include <common/randbytes.h>
 #include <common/setup.h>
 #include <common/utils.h>
 #include <common/version.h>
@@ -198,6 +200,7 @@ void daemon_shutdown(void)
 bool daemon_developer_mode(char *argv[])
 {
 	bool developer = false, debug = false;
+	const char *entropy_override, *time_override;
 
 	for (int i = 1; argv[i]; i++) {
 		if (streq(argv[i], "--dev-debug-self"))
@@ -220,6 +223,21 @@ bool daemon_developer_mode(char *argv[])
 		tal_free(cmd);
 		/* Continue in the debugger. */
 		kill(getpid(), SIGSTOP);
+	}
+
+	/* We can override cryptographic randomness with this var in development
+	 * mode, for reproducible results */
+	entropy_override = getenv("CLN_DEV_ENTROPY_SEED");
+	if (entropy_override)
+		dev_override_randbytes(argv[0], atol(entropy_override));
+
+	/* We can also control TIME ITSELF! */
+	time_override = getenv("CLN_DEV_SET_TIME");
+	if (time_override) {
+		struct timeabs t;
+		t.ts.tv_nsec = 0;
+		t.ts.tv_sec = atol(time_override);
+		dev_override_clock_time(t);
 	}
 
 	/* This checks for any tal_steal loops, but it's not free:

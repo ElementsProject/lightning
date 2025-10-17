@@ -276,21 +276,21 @@
         "id": "example:bkpr-listaccountevents#1",
         "method": "bkpr-listaccountevents",
         "params": [
-          "channelid0230200230200230200230200230200230200230200230200230200"
+          "ecabe6d86abdd57565b3fb7e7c5d724e60ca1a07633951769b5dbfa48dc884b3"
         ]
       },
       "response": {
         "events": [
           {
-            "account": "channelid0230200230200230200230200230200230200230200230200230200",
+            "account": "ecabe6d86abdd57565b3fb7e7c5d724e60ca1a07633951769b5dbfa48dc884b3",
             "type": "chain",
             "tag": "channel_open",
             "credit_msat": 0,
             "debit_msat": 0,
             "currency": "bcrt",
-            "outpoint": "txidbk0101010101010101010101010101010101010101010101010101010101:1",
-            "timestamp": 1738500000,
-            "blockheight": 123
+            "outpoint": "148a366c9a72e40af01daca6acc24e0a5648d0efb7e01f4708f23412d9deba69:1",
+            "timestamp": 1738000023,
+            "blockheight": 124
           }
         ]
       }
@@ -304,39 +304,400 @@
       "response": {
         "events": [
           {
-            "account": "external",
-            "origin": "channelid0340000340000340000340000340000340000340000340000340000",
-            "type": "chain",
-            "tag": "to_them",
-            "credit_msat": 510010000,
-            "debit_msat": 0,
-            "currency": "bcrt",
-            "outpoint": "txidbk0202020202020202020202020202020202020202020202020202020202:1",
-            "timestamp": 1738520000,
-            "blockheight": 142
-          },
-          {
             "account": "wallet",
             "type": "chain",
             "tag": "deposit",
             "credit_msat": 200000000000,
             "debit_msat": 0,
             "currency": "bcrt",
-            "outpoint": "txidbk0101010101010101010101010101010101010101010101010101010101:1",
-            "timestamp": 1738510000,
-            "blockheight": 141,
+            "outpoint": "0c609c5643e2f316985989417c48044311cf2c1fb2113a03af7d7d51b4874ac5:1",
+            "timestamp": 1738000001,
+            "blockheight": 106,
             "description": "edited utxo description"
           },
           {
-            "account": "channelid0230000230000230000230000230000230000230000230000230000",
+            "account": "a397dd9b3e44afcb67f3f3ce1d649b74a8ade63e35505985e4cc1828634f69a2",
             "type": "chain",
             "tag": "channel_open",
             "credit_msat": 0,
             "debit_msat": 0,
             "currency": "bcrt",
-            "outpoint": "txidbk0303030303030303030303030303030303030303030303030303030303:1",
-            "timestamp": 1738530000,
-            "blockheight": 143
+            "outpoint": "7cce7550c4b37924bb74fd4baf8f1946a4b14c050c42f2479b04fede08652aa9:0",
+            "timestamp": 1738000002,
+            "blockheight": 112
+          },
+          {
+            "account": "wallet",
+            "type": "chain",
+            "tag": "deposit",
+            "credit_msat": 2000000000,
+            "debit_msat": 0,
+            "currency": "bcrt",
+            "outpoint": "c3f4a0f787b5ea11505afaba3e9599d6135943d0f562df3d6a7d3e7f372e2067:0",
+            "timestamp": 1738000003,
+            "blockheight": 113
+          },
+          {
+            "account": "wallet",
+            "type": "chain",
+            "tag": "withdrawal",
+            "credit_msat": 0,
+            "debit_msat": 2000000000,
+            "currency": "bcrt",
+            "outpoint": "c3f4a0f787b5ea11505afaba3e9599d6135943d0f562df3d6a7d3e7f372e2067:0",
+            "txid": "efa52a006f5909ed9cb8a098f2dec8ad7146a1384b6eaaf2fae7aac05077f7b6",
+            "timestamp": 1738000004,
+            "blockheight": 114
+          },
+          {
+            "account": "wallet",
+            "type": "onchain_fee",
+            "tag": "onchain_fee",
+            "credit_msat": 1004927000,
+            "debit_msat": 0,
+            "currency": "bcrt",
+            "timestamp": 1738000004,
+            "txid": "efa52a006f5909ed9cb8a098f2dec8ad7146a1384b6eaaf2fae7aac05077f7b6"
+          },
+          {
+            "account": "wallet",
+            "type": "onchain_fee",
+            "tag": "onchain_fee",
+            "credit_msat": 0,
+            "debit_msat": 1004927000,
+            "currency": "bcrt",
+            "timestamp": 1738000004,
+            "txid": "efa52a006f5909ed9cb8a098f2dec8ad7146a1384b6eaaf2fae7aac05077f7b6"
+          },
+          {
+            "account": "wallet",
+            "type": "chain",
+            "tag": "deposit",
+            "credit_msat": 995073000,
+            "debit_msat": 0,
+            "currency": "bcrt",
+            "outpoint": "efa52a006f5909ed9cb8a098f2dec8ad7146a1384b6eaaf2fae7aac05077f7b6:1",
+            "timestamp": 1738000005,
+            "blockheight": 114
+          },
+          {
+            "account": "21bd30cac60f477f2c4267220b1702a6ec5780db34f9934fa94b8c0508bf3357",
+            "type": "chain",
+            "tag": "channel_open",
+            "credit_msat": 1000000000,
+            "debit_msat": 0,
+            "currency": "bcrt",
+            "outpoint": "efa52a006f5909ed9cb8a098f2dec8ad7146a1384b6eaaf2fae7aac05077f7b6:0",
+            "timestamp": 1738000006,
+            "blockheight": 114
+          },
+          {
+            "account": "21bd30cac60f477f2c4267220b1702a6ec5780db34f9934fa94b8c0508bf3357",
+            "type": "onchain_fee",
+            "tag": "onchain_fee",
+            "credit_msat": 4927000,
+            "debit_msat": 0,
+            "currency": "bcrt",
+            "timestamp": 1738000006,
+            "txid": "efa52a006f5909ed9cb8a098f2dec8ad7146a1384b6eaaf2fae7aac05077f7b6"
+          },
+          {
+            "account": "a397dd9b3e44afcb67f3f3ce1d649b74a8ade63e35505985e4cc1828634f69a2",
+            "type": "channel",
+            "tag": "invoice",
+            "credit_msat": 500000000,
+            "debit_msat": 0,
+            "currency": "bcrt",
+            "payment_id": "f61aef012557d6496699642e71e2bacda5670b5377c6357fa40485813facc628",
+            "part_id": 0,
+            "description": "edited invoice description from description send some sats l2 to l3",
+            "timestamp": 1738000007,
+            "is_rebalance": false
+          },
+          {
+            "account": "21bd30cac60f477f2c4267220b1702a6ec5780db34f9934fa94b8c0508bf3357",
+            "type": "channel",
+            "tag": "invoice",
+            "credit_msat": 0,
+            "debit_msat": 500000000,
+            "currency": "bcrt",
+            "payment_id": "864ef81f03c4eabf9e3087d55b18b53beedce221f9a1bcb91d4d69767a022805",
+            "part_id": 0,
+            "description": "description send some sats l3 to l4",
+            "timestamp": 1738000008,
+            "is_rebalance": false
+          },
+          {
+            "account": "a397dd9b3e44afcb67f3f3ce1d649b74a8ade63e35505985e4cc1828634f69a2",
+            "type": "channel",
+            "tag": "invoice",
+            "credit_msat": 10000,
+            "debit_msat": 0,
+            "currency": "bcrt",
+            "payment_id": "9562ee18e942b0eb2e36050c108efcb34cb07e5cdbe28d08d26bb71af1556c2f",
+            "part_id": 0,
+            "description": "Invoice description l31",
+            "timestamp": 1738000009,
+            "is_rebalance": false
+          },
+          {
+            "account": "a397dd9b3e44afcb67f3f3ce1d649b74a8ade63e35505985e4cc1828634f69a2",
+            "type": "channel",
+            "tag": "invoice",
+            "credit_msat": 10000,
+            "debit_msat": 0,
+            "currency": "bcrt",
+            "payment_id": "097dcfa3b0bc58d499908855dae7d442854a02d4f2ffcc625f9385ed74f3256e",
+            "part_id": 0,
+            "description": "keysend",
+            "timestamp": 1738000010,
+            "is_rebalance": false
+          },
+          {
+            "account": "21bd30cac60f477f2c4267220b1702a6ec5780db34f9934fa94b8c0508bf3357",
+            "type": "channel",
+            "tag": "routed",
+            "credit_msat": 0,
+            "debit_msat": 10000000,
+            "fees_msat": 101,
+            "currency": "bcrt",
+            "payment_id": "9bf787fe700121009e2ecdca290632c8bf2da853527c700aa5746173981ae584",
+            "part_id": 0,
+            "timestamp": 1738000011,
+            "is_rebalance": false
+          },
+          {
+            "account": "a397dd9b3e44afcb67f3f3ce1d649b74a8ade63e35505985e4cc1828634f69a2",
+            "type": "channel",
+            "tag": "routed",
+            "credit_msat": 10000101,
+            "debit_msat": 0,
+            "fees_msat": 101,
+            "currency": "bcrt",
+            "payment_id": "9bf787fe700121009e2ecdca290632c8bf2da853527c700aa5746173981ae584",
+            "part_id": 0,
+            "timestamp": 1738000012,
+            "is_rebalance": false
+          },
+          {
+            "account": "a397dd9b3e44afcb67f3f3ce1d649b74a8ade63e35505985e4cc1828634f69a2",
+            "type": "channel",
+            "tag": "invoice",
+            "credit_msat": 10000,
+            "debit_msat": 0,
+            "currency": "bcrt",
+            "payment_id": "da6c0b6d30ac35f62762bc7114d64d323dc79fb858061902263eb72df6310caf",
+            "part_id": 0,
+            "description": "keysend",
+            "timestamp": 1738000013,
+            "is_rebalance": false
+          },
+          {
+            "account": "a397dd9b3e44afcb67f3f3ce1d649b74a8ade63e35505985e4cc1828634f69a2",
+            "type": "channel",
+            "tag": "invoice",
+            "credit_msat": 50000,
+            "debit_msat": 0,
+            "currency": "bcrt",
+            "payment_id": "ab3a5a971aa3b21494f7ce646f077232c10c9917c33375935c1aebfa571fa1a1",
+            "part_id": 0,
+            "description": "l32 description",
+            "timestamp": 1738000014,
+            "is_rebalance": false
+          },
+          {
+            "account": "a397dd9b3e44afcb67f3f3ce1d649b74a8ade63e35505985e4cc1828634f69a2",
+            "type": "channel",
+            "tag": "invoice",
+            "credit_msat": 100000,
+            "debit_msat": 0,
+            "currency": "bcrt",
+            "payment_id": "2b1434d9e61da6c5f1252369f4a98e1ddce722b4db3bf15553b87a94d19d351d",
+            "part_id": 0,
+            "description": "l33 description",
+            "timestamp": 1738000015,
+            "is_rebalance": false
+          },
+          {
+            "account": "21bd30cac60f477f2c4267220b1702a6ec5780db34f9934fa94b8c0508bf3357",
+            "type": "channel",
+            "tag": "routed",
+            "credit_msat": 0,
+            "debit_msat": 10000,
+            "fees_msat": 1,
+            "currency": "bcrt",
+            "payment_id": "1bb513fb2fbde40592243877d9f404ba3668275e2eeacd9c7264f34f04d37fd1",
+            "part_id": 0,
+            "timestamp": 1738000016,
+            "is_rebalance": false
+          },
+          {
+            "account": "a397dd9b3e44afcb67f3f3ce1d649b74a8ade63e35505985e4cc1828634f69a2",
+            "type": "channel",
+            "tag": "routed",
+            "credit_msat": 10001,
+            "debit_msat": 0,
+            "fees_msat": 1,
+            "currency": "bcrt",
+            "payment_id": "1bb513fb2fbde40592243877d9f404ba3668275e2eeacd9c7264f34f04d37fd1",
+            "part_id": 0,
+            "timestamp": 1738000017,
+            "is_rebalance": false
+          },
+          {
+            "account": "wallet",
+            "type": "chain",
+            "tag": "deposit",
+            "credit_msat": 510190000,
+            "debit_msat": 0,
+            "currency": "bcrt",
+            "outpoint": "40b4acd3759ac69b5160488d73a5890a46bf4f013381e52e9171ee038b3c96d6:1",
+            "timestamp": 1738000018,
+            "blockheight": 122
+          },
+          {
+            "account": "21bd30cac60f477f2c4267220b1702a6ec5780db34f9934fa94b8c0508bf3357",
+            "type": "chain",
+            "tag": "channel_close",
+            "credit_msat": 0,
+            "debit_msat": 489990000,
+            "currency": "bcrt",
+            "outpoint": "efa52a006f5909ed9cb8a098f2dec8ad7146a1384b6eaaf2fae7aac05077f7b6:0",
+            "txid": "1aa6d7b0bb6c5d1dac62724caa4e26dc37ed8af5e747c836746987d28603fed2",
+            "timestamp": 1738000019,
+            "blockheight": 122
+          },
+          {
+            "account": "external",
+            "origin": "21bd30cac60f477f2c4267220b1702a6ec5780db34f9934fa94b8c0508bf3357",
+            "type": "chain",
+            "tag": "to_them",
+            "credit_msat": 510010000,
+            "debit_msat": 0,
+            "currency": "bcrt",
+            "outpoint": "1aa6d7b0bb6c5d1dac62724caa4e26dc37ed8af5e747c836746987d28603fed2:1",
+            "timestamp": 1738000020,
+            "blockheight": 122
+          },
+          {
+            "account": "a397dd9b3e44afcb67f3f3ce1d649b74a8ade63e35505985e4cc1828634f69a2",
+            "type": "chain",
+            "tag": "channel_close",
+            "credit_msat": 0,
+            "debit_msat": 510190102,
+            "currency": "bcrt",
+            "outpoint": "7cce7550c4b37924bb74fd4baf8f1946a4b14c050c42f2479b04fede08652aa9:0",
+            "txid": "40b4acd3759ac69b5160488d73a5890a46bf4f013381e52e9171ee038b3c96d6",
+            "timestamp": 1738000021,
+            "blockheight": 122
+          },
+          {
+            "account": "a397dd9b3e44afcb67f3f3ce1d649b74a8ade63e35505985e4cc1828634f69a2",
+            "type": "onchain_fee",
+            "tag": "onchain_fee",
+            "credit_msat": 102,
+            "debit_msat": 0,
+            "currency": "bcrt",
+            "timestamp": 1738000021,
+            "txid": "40b4acd3759ac69b5160488d73a5890a46bf4f013381e52e9171ee038b3c96d6"
+          },
+          {
+            "account": "external",
+            "origin": "a397dd9b3e44afcb67f3f3ce1d649b74a8ade63e35505985e4cc1828634f69a2",
+            "type": "chain",
+            "tag": "to_them",
+            "credit_msat": 486914000,
+            "debit_msat": 0,
+            "currency": "bcrt",
+            "outpoint": "40b4acd3759ac69b5160488d73a5890a46bf4f013381e52e9171ee038b3c96d6:0",
+            "timestamp": 1738000022,
+            "blockheight": 122
+          },
+          {
+            "account": "ecabe6d86abdd57565b3fb7e7c5d724e60ca1a07633951769b5dbfa48dc884b3",
+            "type": "chain",
+            "tag": "channel_open",
+            "credit_msat": 0,
+            "debit_msat": 0,
+            "currency": "bcrt",
+            "outpoint": "148a366c9a72e40af01daca6acc24e0a5648d0efb7e01f4708f23412d9deba69:1",
+            "timestamp": 1738000023,
+            "blockheight": 124
+          },
+          {
+            "account": "wallet",
+            "type": "chain",
+            "tag": "deposit",
+            "credit_msat": 2000000000,
+            "debit_msat": 0,
+            "currency": "bcrt",
+            "outpoint": "e72c5b057eb2944ade8a57c7d1143cc5eea12f0905287ce40c2716ed7032bd29:0",
+            "timestamp": 1738000024,
+            "blockheight": 125
+          },
+          {
+            "account": "wallet",
+            "type": "chain",
+            "tag": "withdrawal",
+            "credit_msat": 0,
+            "debit_msat": 2000000000,
+            "currency": "bcrt",
+            "outpoint": "e72c5b057eb2944ade8a57c7d1143cc5eea12f0905287ce40c2716ed7032bd29:0",
+            "txid": "a7875c7325031784771cf9468aae991f7cb178bd9472a701339a7a5eab234af2",
+            "timestamp": 1738000025,
+            "blockheight": 126
+          },
+          {
+            "account": "wallet",
+            "type": "onchain_fee",
+            "tag": "onchain_fee",
+            "credit_msat": 1004927000,
+            "debit_msat": 0,
+            "currency": "bcrt",
+            "timestamp": 1738000025,
+            "txid": "a7875c7325031784771cf9468aae991f7cb178bd9472a701339a7a5eab234af2"
+          },
+          {
+            "account": "wallet",
+            "type": "onchain_fee",
+            "tag": "onchain_fee",
+            "credit_msat": 0,
+            "debit_msat": 1004927000,
+            "currency": "bcrt",
+            "timestamp": 1738000025,
+            "txid": "a7875c7325031784771cf9468aae991f7cb178bd9472a701339a7a5eab234af2"
+          },
+          {
+            "account": "wallet",
+            "type": "chain",
+            "tag": "deposit",
+            "credit_msat": 995073000,
+            "debit_msat": 0,
+            "currency": "bcrt",
+            "outpoint": "a7875c7325031784771cf9468aae991f7cb178bd9472a701339a7a5eab234af2:1",
+            "timestamp": 1738000026,
+            "blockheight": 126
+          },
+          {
+            "account": "7512083907c74ed3a045e9bf772b3d72948eb93daf84a1cee57108800451aaf2",
+            "type": "chain",
+            "tag": "channel_open",
+            "credit_msat": 1000000000,
+            "debit_msat": 0,
+            "currency": "bcrt",
+            "outpoint": "a7875c7325031784771cf9468aae991f7cb178bd9472a701339a7a5eab234af2:0",
+            "timestamp": 1738000027,
+            "blockheight": 126
+          },
+          {
+            "account": "7512083907c74ed3a045e9bf772b3d72948eb93daf84a1cee57108800451aaf2",
+            "type": "onchain_fee",
+            "tag": "onchain_fee",
+            "credit_msat": 4927000,
+            "debit_msat": 0,
+            "currency": "bcrt",
+            "timestamp": 1738000027,
+            "txid": "a7875c7325031784771cf9468aae991f7cb178bd9472a701339a7a5eab234af2"
           }
         ]
       }

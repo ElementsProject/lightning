@@ -7,6 +7,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/bolt11.h>
 #include <common/bolt12.h>
+#include <common/clock_time.h>
 #include <common/daemon.h>
 #include <common/dijkstra.h>
 #include <common/gossmap.h>
@@ -1869,7 +1870,7 @@ static struct command_result *xpay_core(struct command *cmd,
 	payment->requests = tal_arr(payment, struct out_req *, 0);
 	payment->prior_results = tal_strdup(payment, "");
 	payment->deadline = timemono_add(time_mono(), time_from_sec(retryfor));
-	payment->start_time = time_now();
+	payment->start_time = clock_time();
 	payment->pay_compat = as_pay;
 	payment->invstring = tal_strdup(payment, invstring);
 	if (layers)
@@ -1977,7 +1978,7 @@ static struct command_result *xpay_core(struct command *cmd,
 		invexpiry = b11->timestamp + b11->expiry;
 	}
 
-	now = time_now().ts.tv_sec;
+	now = clock_time().ts.tv_sec;
 	if (now > invexpiry)
 		return command_fail(cmd, PAY_INVOICE_EXPIRED,
 				    "Invoice expired %"PRIu64" seconds ago",
@@ -2094,7 +2095,7 @@ static struct command_result *age_layer(struct command *timer_cmd, void *unused)
 				    plugin_broken_cb,
 				    NULL);
 	json_add_string(req->js, "layer", "xpay");
-	json_add_u64(req->js, "cutoff", time_now().ts.tv_sec - 3600);
+	json_add_u64(req->js, "cutoff", clock_time().ts.tv_sec - 3600);
 	return send_outreq(req);
 }
 

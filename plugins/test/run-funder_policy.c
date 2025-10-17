@@ -1,6 +1,7 @@
 #include "config.h"
 #include "../funder_policy.c"
 #include <ccan/array_size/array_size.h>
+#include <common/memleak.h>
 #include <common/setup.h>
 #include <stdio.h>
 

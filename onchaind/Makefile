@@ -36,6 +36,7 @@ ONCHAIND_COMMON_OBJS :=				\
 	common/base32.o				\
 	common/bigsize.o			\
 	common/bip32.o				\
+	common/clock_time.o			\
 	common/coin_mvt.o			\
 	common/channel_id.o			\
 	common/daemon.o				\
@@ -56,6 +57,7 @@ ONCHAIND_COMMON_OBJS :=				\
 	common/psbt_keypath.o			\
 	common/psbt_open.o			\
 	common/pseudorand.o			\
+	common/randbytes.o			\
 	common/setup.o				\
 	common/status.o				\
 	common/status_wire.o			\

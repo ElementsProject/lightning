@@ -9,6 +9,7 @@
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/blockheight_states.h>
+#include <common/clock_time.h>
 #include <common/json_channel_type.h>
 #include <common/json_command.h>
 #include <common/json_param.h>
@@ -33,6 +34,7 @@
 #include <lightningd/peer_fd.h>
 #include <lightningd/plugin_hook.h>
 #include <openingd/dualopend_wiregen.h>
+#include <stdio.h>
 
 struct commit_rcvd {
 	struct channel *channel;
@@ -1336,7 +1338,7 @@ wallet_update_channel_commit(struct lightningd *ld,
 					     &channel->peer->id,
 					     &channel->cid,
 					     channel->scid,
-					     time_now(),
+					     clock_time(),
 					     DUALOPEND_OPEN_COMMIT_READY,
 					     DUALOPEND_OPEN_COMMITTED,
 					     REASON_REMOTE,
@@ -1434,7 +1436,7 @@ wallet_commit_channel(struct lightningd *ld,
 				     &channel->peer->id,
 				     &channel->cid,
 				     channel->scid,
-				     time_now(),
+				     clock_time(),
 				     DUALOPEND_OPEN_INIT,
 				     DUALOPEND_OPEN_COMMIT_READY,
 				     REASON_REMOTE,
@@ -1467,28 +1469,9 @@ wallet_commit_channel(struct lightningd *ld,
 					     &commitment_feerate);
 	channel->min_possible_feerate = commitment_feerate;
 	channel->max_possible_feerate = commitment_feerate;
-	if (channel->peer->addr.itype == ADDR_INTERNAL_WIREADDR) {
-		channel->scb = tal(channel, struct modern_scb_chan);
-		channel->scb->id = channel->dbid;
-		channel->scb->addr = channel->peer->addr.u.wireaddr.wireaddr;
-		channel->scb->node_id = channel->peer->id;
-		channel->scb->funding = *funding;
-		channel->scb->cid = channel->cid;
-		channel->scb->funding_sats = total_funding;
-
-		struct tlv_scb_tlvs *scb_tlvs = tlv_scb_tlvs_new(channel);
-		scb_tlvs->shachain = &channel->their_shachain.chain;
-		scb_tlvs->basepoints = &channel_info->theirbase;
-		scb_tlvs->opener = &channel->opener;
-		scb_tlvs->remote_to_self_delay = &channel_info->their_config.to_self_delay;
-
-		channel->scb->tlvs = scb_tlvs;
-	} else
-		channel->scb = NULL;
 
 	tal_free(channel->type);
 	channel->type = channel_type_dup(channel, type);
-	channel->scb->type = channel_type_dup(channel->scb, type);
 
 	if (our_upfront_shutdown_script)
 		channel->shutdown_scriptpubkey[LOCAL]
@@ -4108,6 +4091,35 @@ static void dualopen_errmsg(struct channel *channel,
 				       err_for_them ? "sent" : "received", desc);
 }
 
+/* This is a hack for CLN_DEV_ENTROPY_SEED.  We cannot actually use
+ * the same seed for each dualopend, or they choose the same ids, and we
+ * clash when combining the PSBTs (this is phenomenally unlikey normally).
+ * So we set it (for the child) to an incrementing value. */
+static const char *dev_setup_dualopend_seed(const tal_t *ctx, struct lightningd *ld)
+{
+	static u64 seed_incr = 0;
+	char seedstr[STR_MAX_CHARS(u64)];
+	const char *old_seed;
+
+	if (!ld->developer)
+		return NULL;
+
+	old_seed = getenv("CLN_DEV_ENTROPY_SEED");
+	if (!old_seed)
+		return NULL;
+
+	old_seed = tal_strdup(tmpctx, old_seed);
+	seed_incr++;
+	snprintf(seedstr, sizeof(seedstr), "%"PRIu64, atol(old_seed) + seed_incr);
+	setenv("CLN_DEV_ENTROPY_SEED", seedstr, 1);
+	return old_seed;
+}
+
+static void dev_restore_seed(const char *old_seed)
+{
+	if (old_seed)
+		setenv("CLN_DEV_ENTROPY_SEED", old_seed, 1);
+}
 
 bool peer_start_dualopend(struct peer *peer,
 			  struct peer_fd *peer_fd,
@@ -4117,6 +4129,7 @@ bool peer_start_dualopend(struct peer *peer,
 	u32 max_to_self_delay;
 	struct amount_msat min_effective_htlc_capacity;
 	const u8 *msg;
+	const char *dev_old_seed;
 
 	hsmfd = hsm_get_client_fd(peer->ld, &peer->id, channel->unsaved_dbid,
 				  HSM_PERM_COMMITMENT_POINT
@@ -4130,6 +4143,7 @@ bool peer_start_dualopend(struct peer *peer,
 		return false;
 	}
 
+	dev_old_seed = dev_setup_dualopend_seed(tmpctx, peer->ld);
 	channel->owner = new_channel_subd(channel,
 					  peer->ld,
 					  "lightning_dualopend",
@@ -4142,6 +4156,7 @@ bool peer_start_dualopend(struct peer *peer,
 					  channel_set_billboard,
 					  take(&peer_fd->fd),
 					  take(&hsmfd), NULL);
+	dev_restore_seed(dev_old_seed);
 
 	if (!channel->owner) {
 		channel_internal_error(channel,
@@ -4195,6 +4210,7 @@ bool peer_restart_dualopend(struct peer *peer,
         int hsmfd;
 	u32 *local_shutdown_script_wallet_index;
 	u8 *msg;
+	const char *dev_old_seed;
 
 	if (channel_state_uncommitted(channel->state))
 		return peer_start_dualopend(peer, peer_fd, channel);
@@ -4214,6 +4230,7 @@ bool peer_restart_dualopend(struct peer *peer,
 		return false;
 	}
 
+	dev_old_seed = dev_setup_dualopend_seed(tmpctx, peer->ld);
 	channel_set_owner(channel,
 			  new_channel_subd(channel, peer->ld,
 					   "lightning_dualopend",
@@ -4226,6 +4243,8 @@ bool peer_restart_dualopend(struct peer *peer,
 					   channel_set_billboard,
 					   take(&peer_fd->fd),
 					   take(&hsmfd), NULL));
+	dev_restore_seed(dev_old_seed);
+
 	if (!channel->owner) {
 		log_broken(channel->log, "Could not subdaemon channel: %s",
 			   strerror(errno));

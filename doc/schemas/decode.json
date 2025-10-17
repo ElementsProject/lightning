@@ -2426,7 +2426,7 @@
         "id": "example:decode#2",
         "method": "decode",
         "params": [
-          "lnbcrt100n1pnt2bolt11invl020200000000bolt11invl020200000000bolt11invl020200000000bolt11invl020200000000bolt11invl020200000000bolt11invl020200000000bolt11invl020200000000bolt11invl020200000000bolt11invl020200000000bolt11invl020200000000"
+          "lnbcrt2u1pne035qsp5u7glcpdagz8xcw9nw4t7xjhad5fjk9vu9h6s4da9tue6cj6x772spp52jyd84j7psgd4u2tp627hsrf9ntzptcjl3ywn03v4fdsehw4s2ysdqcdserygryv4ekxunfwp6xjmmwxqyjw5qcqp9rzjqdwjkyvjm7apxnssu4qgwhfkd67ghs6n6k48v6uqczgt88p6tky96qqqwqqqqqgqqqqqqqqpqqqqqzsqqc9qxpqysgqdyykau6tf258sy2g5q94ma8jqthrs7zszaj2y4wj23dznnz5rcvxvxvkkv76uj076mz5std62p3gf2kvycq29t69345667cvs0pmvzsq4lawhd"
         ]
       },
       "response": {
@@ -2434,25 +2434,25 @@
         "currency": "bcrt",
         "created_at": 1738000000,
         "expiry": 604800,
-        "payee": "nodeid020202020202020202020202020202020202020202020202020202020202",
+        "payee": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
         "amount_msat": 200000,
         "description": "l22 description",
         "min_final_cltv_expiry": 5,
-        "payment_secret": "paymentsecretinvl00220002200022000220002200022000220002200022000",
+        "payment_secret": "e791fc05bd408e6c38b37557e34afd6d132b159c2df50ab7a55f33ac4b46f795",
         "features": "02024100",
         "routes": [
           [
             {
-              "pubkey": "nodeid030303030303030303030303030303030303030303030303030303030303",
-              "short_channel_id": "111x1x1",
+              "pubkey": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+              "short_channel_id": "112x1x0",
               "fee_base_msat": 1,
               "fee_proportional_millionths": 10,
               "cltv_expiry_delta": 6
             }
           ]
         ],
-        "payment_hash": "paymenthashinvl0220022002200220022002200220022002200220022002200",
-        "signature": "dcde30c4bb50bed221009d010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101",
+        "payment_hash": "5488d3d65e0c10daf14b0e95ebc0692cd620af12fc48e9be2caa5b0cddd58289",
+        "signature": "3044022069096ef34b4aa8781148a00b5df4f202ee3878501764a255d2545a29cc541e180220661996b33dae49fed6c5482dba506284aacc2600a2af458d69ad7b0c83c3b60a",
         "valid": true
       }
     }

@@ -9,6 +9,7 @@
 #include <common/blindedpath.h>
 #include <common/bolt12_id.h>
 #include <common/bolt12_merkle.h>
+#include <common/clock_time.h>
 #include <common/dijkstra.h>
 #include <common/gossmap.h>
 #include <common/gossmods_listpeerchannels.h>
@@ -17,6 +18,7 @@
 #include <common/memleak.h>
 #include <common/onion_message.h>
 #include <common/overflows.h>
+#include <common/randbytes.h>
 #include <common/route.h>
 #include <common/utils.h>
 #include <errno.h>
@@ -25,7 +27,6 @@
 #include <plugins/libplugin.h>
 #include <plugins/offers.h>
 #include <secp256k1_schnorrsig.h>
-#include <sodium.h>
 
 static LIST_HEAD(sent_list);
 
@@ -462,7 +463,7 @@ static struct blinded_path *make_reply_path(const tal_t *ctx,
 
 	assert(tal_count(path) > 0);
 
-	randombytes_buf(reply_secret, sizeof(struct secret));
+	randbytes(reply_secret, sizeof(struct secret));
 
 	if (sent->dev_reply_path) {
 		ids = sent->dev_reply_path;
@@ -754,7 +755,7 @@ static struct command_result *invreq_done(struct command *cmd,
 		}
 
 		if (base) {
-			u64 period_start, period_end, now = time_now().ts.tv_sec;
+			u64 period_start, period_end, now = clock_time().ts.tv_sec;
 			offer_period_paywindow(recurrence,
 					       sent->invreq->offer_recurrence_paywindow,
 					       sent->invreq->offer_recurrence_base,
@@ -952,7 +953,7 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 	 *        (i.e. continuing an existing offer with recurrence is ok)
 	 */
 	if (sent->offer->offer_absolute_expiry
-	    && time_now().ts.tv_sec > *sent->offer->offer_absolute_expiry
+	    && clock_time().ts.tv_sec > *sent->offer->offer_absolute_expiry
 	    && (!recurrence_counter || *recurrence_counter == 0)) {
 		return command_fail(cmd, OFFER_EXPIRED, "Offer expired");
 	}
@@ -1090,8 +1091,8 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 			 *   bytes.
 			 */
 			invreq->invreq_metadata = tal_arr(invreq, u8, 16);
-			randombytes_buf(invreq->invreq_metadata,
-					tal_bytelen(invreq->invreq_metadata));
+			randbytes(invreq->invreq_metadata,
+				    tal_bytelen(invreq->invreq_metadata));
 		}
 	}
 
@@ -1591,7 +1592,7 @@ struct command_result *json_sendinvoice(struct command *cmd,
 	 *      `invreq_chain`.
 	 */
 	sent->inv->invoice_created_at = tal(sent->inv, u64);
-	*sent->inv->invoice_created_at = time_now().ts.tv_sec;
+	*sent->inv->invoice_created_at = clock_time().ts.tv_sec;
 
 	/* FIXME: Support blinded paths, in which case use fake nodeid */
 
@@ -1599,7 +1600,7 @@ struct command_result *json_sendinvoice(struct command *cmd,
 	 * - MUST set `invoice_payment_hash` to the SHA256 hash of the
 	 *   `payment_preimage` that will be given in return for payment.
 	 */
-	randombytes_buf(&sent->inv_preimage, sizeof(sent->inv_preimage));
+	randbytes(&sent->inv_preimage, sizeof(sent->inv_preimage));
 	sent->inv->invoice_payment_hash = tal(sent->inv, struct sha256);
 	sha256(sent->inv->invoice_payment_hash,
 	       &sent->inv_preimage, sizeof(sent->inv_preimage));

@@ -157,8 +157,8 @@
         "config": {
           "config": "autoclean-expiredinvoices-age",
           "value_int": 300,
-          "source": "/tmp/.lightning/regtest/config.setconfig:2",
-          "plugin": "/root/lightning/plugins/autoclean",
+          "source": "/home/rusty/.lightning/regtest/config.setconfig:2",
+          "plugin": "/usr/local/libexec/plugins/autoclean",
           "dynamic": true
         }
       }
@@ -176,7 +176,7 @@
         "config": {
           "config": "min-capacity-sat",
           "value_int": 500000,
-          "source": "/tmp/.lightning/regtest/config.setconfig:3",
+          "source": "/home/rusty/.lightning/regtest/config.setconfig:3",
           "dynamic": true
         }
       }

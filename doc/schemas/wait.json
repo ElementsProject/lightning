@@ -724,13 +724,13 @@
           "status": "pending",
           "partid": 0,
           "groupid": 1,
-          "payment_hash": "paymenthashwtspct20101010101010101010101010101010101010101010101"
+          "payment_hash": "9a33e433faddc3371f6a56a34146c82629d567520ddaf28244bd9f196288af71"
         },
         "sendpays": {
           "status": "pending",
           "partid": 0,
           "groupid": 1,
-          "payment_hash": "paymenthashwtspct20101010101010101010101010101010101010101010101"
+          "payment_hash": "9a33e433faddc3371f6a56a34146c82629d567520ddaf28244bd9f196288af71"
         }
       }
     },
@@ -751,13 +751,13 @@
           "status": "complete",
           "partid": 0,
           "groupid": 1,
-          "payment_hash": "paymenthashwtspct20101010101010101010101010101010101010101010101"
+          "payment_hash": "9a33e433faddc3371f6a56a34146c82629d567520ddaf28244bd9f196288af71"
         },
         "sendpays": {
           "status": "complete",
           "partid": 0,
           "groupid": 1,
-          "payment_hash": "paymenthashwtspct20101010101010101010101010101010101010101010101"
+          "payment_hash": "9a33e433faddc3371f6a56a34146c82629d567520ddaf28244bd9f196288af71"
         }
       }
     }

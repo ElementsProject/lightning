@@ -31,6 +31,7 @@ HSMD_COMMON_OBJS :=				\
 	common/bolt12_id.o			\
 	common/bolt12_merkle.o			\
 	common/channel_id.o			\
+	common/clock_time.o			\
 	common/daemon.o				\
 	common/daemon_conn.o			\
 	common/derive_basepoints.o		\
@@ -46,6 +47,7 @@ HSMD_COMMON_OBJS :=				\
 	common/permute_tx.o			\
 	common/psbt_open.o			\
 	common/pseudorand.o			\
+	common/randbytes.o			\
 	common/setup.o				\
 	common/status.o				\
 	common/status_wire.o			\

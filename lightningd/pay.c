@@ -4,6 +4,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/blinding.h>
 #include <common/bolt12_merkle.h>
+#include <common/clock_time.h>
 #include <common/configdir.h>
 #include <common/json_command.h>
 #include <common/json_param.h>
@@ -1151,7 +1152,7 @@ send_payment_core(struct lightningd *ld,
 
 	payment = wallet_add_payment(cmd,
 				     ld->wallet,
-				     time_now().ts.tv_sec,
+				     clock_time().ts.tv_sec,
 				     NULL,
 				     rhash,
 				     partid,
@@ -1465,7 +1466,7 @@ static struct command_result *self_payment(struct lightningd *ld,
 
 	payment = wallet_add_payment(tmpctx,
 				     ld->wallet,
-				     time_now().ts.tv_sec,
+				     clock_time().ts.tv_sec,
 				     NULL,
 				     rhash,
 				     partid,
@@ -1795,7 +1796,7 @@ static void register_payment_and_waiter(struct command *cmd,
 {
 	wallet_add_payment(cmd,
 			   cmd->ld->wallet,
-			   time_now().ts.tv_sec,
+			   clock_time().ts.tv_sec,
 			   NULL,
 			   payment_hash,
 			   partid,
@@ -2022,7 +2023,7 @@ static struct command_result *json_injectpaymentonion(struct command *cmd,
 	if (amount_msat_greater(*msat, next->htlc_maximum_msat)
 	    || amount_msat_less(*msat, next->htlc_minimum_msat)) {
 		/* Are we in old-range grace-period? */
-		if (!time_before(time_now(), next->old_feerate_timeout)
+		if (!timemono_before(time_mono(), next->old_feerate_timeout)
 		    || amount_msat_less(*msat, next->old_htlc_minimum_msat)
 		    || amount_msat_greater(*msat, next->old_htlc_maximum_msat)) {
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,

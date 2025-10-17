@@ -4,6 +4,7 @@
 
 #include <bitcoin/tx.h>
 #include <ccan/tal/str/str.h>
+#include <common/clock_time.h>
 #include <common/coin_mvt.h>
 #include <common/daemon.h>
 #include <common/deprecation.h>
@@ -46,6 +47,12 @@ const char *chain_event_description(const struct bkpr *bkpr UNNEEDED,
 const char *channel_event_description(const struct bkpr *bkpr UNNEEDED,
 				      const struct channel_event *ce UNNEEDED)
 { fprintf(stderr, "channel_event_description called!\n"); abort(); }
+/* Generated stub for clock_time_overridden */
+bool clock_time_overridden(void)
+{ fprintf(stderr, "clock_time_overridden called!\n"); abort(); }
+/* Generated stub for clock_time_progresses_ */
+struct timeabs clock_time_progresses_(u64 *progress UNNEEDED)
+{ fprintf(stderr, "clock_time_progresses_ called!\n"); abort(); }
 /* Generated stub for command_fail_badparam */
 struct command_result *command_fail_badparam(struct command *cmd UNNEEDED,
 					     const char *paramname UNNEEDED,
