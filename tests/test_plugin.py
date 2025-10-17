@@ -3795,7 +3795,7 @@ def test_sql(node_factory, bitcoind):
                         {'name': 'extra_tags',
                          'type': 'string'}]},
         'channelmoves': {
-            'indices': [['account_id']],
+            'indices': [['account_id'], ['payment_hash']],
             'columns': [{'name': 'created_index',
                          'type': 'u64'},
                         {'name': 'account_id',

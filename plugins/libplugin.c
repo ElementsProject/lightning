@@ -290,17 +290,6 @@ static void ld_rpc_send(struct plugin *plugin, struct json_stream *stream)
 		io_wake(plugin->io_rpc_conn);
 }
 
-
-/* When cmd for request is gone, we use this as noop callback */
-static struct command_result *ignore_cb(struct command *command,
-					const char *method,
-					const char *buf,
-					const jsmntok_t *result,
-					void *arg)
-{
-	return &complete;
-}
-
 /* Ignore the result, and terminate the timer/aux/hook */
 struct command_result *ignore_and_complete(struct command *cmd,
 					   const char *method,
@@ -355,14 +344,6 @@ struct command_result *plugin_broken_cb(struct command *cmd,
 		   method,
 		   json_tok_full_len(result),
 		   json_tok_full(buf, result));
-}
-
-static void disable_request_cb(struct command *cmd, struct out_req *out)
-{
-	out->errcb = NULL;
-	out->cb = ignore_cb;
-	/* Called because cmd got free'd */
-	out->cmd = NULL;
 }
 
 /* Prefix is usually a cmd->id */
@@ -423,9 +404,6 @@ jsonrpc_request_start_(struct command *cmd,
 	out->arg = arg;
 	strmap_add(&cmd->plugin->out_reqs, out->id, out);
 	tal_add_destructor2(out, destroy_out_req, cmd->plugin);
-
-	/* If command goes away, don't call callbacks! */
-	tal_add_destructor2(out->cmd, disable_request_cb, out);
 
 	out->js = new_json_stream(NULL, cmd, NULL);
 	json_object_start(out->js, NULL);
@@ -1099,9 +1077,6 @@ static void handle_rpc_reply(struct plugin *plugin, const char *buf, const jsmnt
 			   json_tok_full(buf, toks));
 		return;
 	}
-
-	/* Remove destructor if one existed */
-	tal_del_destructor2(out->cmd, disable_request_cb, out);
 
 	/* We want to free this if callback doesn't. */
 	tal_steal(tmpctx, out);
