@@ -111,7 +111,7 @@ cd lightning
 Checkout a release tag:
 
 ```shell
-git checkout v25.02
+git checkout master
 ```
 
 For development or running tests, get additional dependencies:
@@ -379,7 +379,7 @@ cd lightning
 Checkout a release tag:
 
 ```shell
-git checkout v24.05
+git checkout master
 ```
 
 Build lightning:
