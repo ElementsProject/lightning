@@ -51,6 +51,7 @@ FUZZ_COMMON_OBJS := \
 	common/msg_queue.o				\
 	common/node_id.o				\
 	common/permute_tx.o				\
+	common/ping.o					\
 	common/psbt_keypath.o				\
 	common/sciddir_or_pubkey.o			\
 	common/setup.o					\
