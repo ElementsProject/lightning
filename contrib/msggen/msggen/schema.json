@@ -26796,6 +26796,16 @@
               "Make recurrence optional, for backwards compatibility (older payers will only pay once)."
             ]
           },
+          "fronting_nodes": {
+            "added": "v25.12",
+            "type": "array",
+            "items": {
+              "type": "pubkey"
+            },
+            "description": [
+              "An optional array of peer nodes to create blinded paths from.  One of these blinded paths will also be used for the invoice, when they request it."
+            ]
+          },
           "dev_paths": {
             "hidden": true
           }
