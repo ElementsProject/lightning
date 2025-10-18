@@ -1,7 +1,6 @@
 from fixtures import *  # noqa: F401,F403
 from decimal import Decimal
 from pyln.client import Millisatoshi, RpcError
-from pyln.testing.db import Sqlite3Db
 from fixtures import TEST_NETWORK
 from utils import (
     sync_blockheight, wait_for, only_one, first_channel_id, TIMEOUT
@@ -10,6 +9,7 @@ from utils import (
 from pathlib import Path
 import os
 import pytest
+import time
 import unittest
 
 
@@ -21,6 +21,12 @@ def find_first_tag(evs, tag):
     ev = find_tags(evs, tag)
     assert len(ev) > 0
     return ev[0]
+
+
+def check_events(node, channel_id, exp_events):
+    chan_events = [ev for ev in node.rpc.bkpr_listaccountevents()['events'] if ev['account'] == channel_id]
+    stripped = [{k: d[k] for k in ('tag', 'credit_msat', 'debit_msat') if k in d} for d in chan_events]
+    assert stripped == exp_events
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "fixme: broadcast fails, dusty")
@@ -198,73 +204,6 @@ def test_bookkeeping_external_withdraws(node_factory, bitcoind):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "External wallet support doesn't work with elements yet.")
-@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Depends on sqlite3 database location")
-def test_bookkeeping_external_withdraw_missing(node_factory, bitcoind):
-    """ Withdrawals to an external address turn up as
-    extremely large onchain_fees when they happen before
-    our accounting plugin is attached"""
-    l1 = node_factory.get_node()
-
-    basedir = l1.daemon.opts.get("lightning-dir")
-    addr = l1.rpc.newaddr()['bech32']
-
-    amount = 1111111
-    amount_msat = Millisatoshi(amount * 1000)
-    bitcoind.rpc.sendtoaddress(addr, amount / 10**8)
-    bitcoind.rpc.sendtoaddress(addr, amount / 10**8)
-
-    bitcoind.generate_block(1)
-    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 2)
-
-    waddr = l1.bitcoin.rpc.getnewaddress()
-
-    # Ok, now we send some funds to an external address
-    l1.rpc.withdraw(waddr, amount // 2)
-
-    # Only two income events: deposits
-    assert len(l1.rpc.bkpr_listincome()['income_events']) == 2
-    # 4 account events:  2 wallet deposits, 1 external deposit
-    assert len(l1.rpc.bkpr_listaccountevents()['events']) == 3
-
-    # Stop node and remove the accounts data
-    l1.stop()
-    os.remove(os.path.join(basedir, TEST_NETWORK, 'accounts.sqlite3'))
-    l1.start()
-
-    # Number of income events should be unchanged
-    assert len(l1.rpc.bkpr_listincome()['income_events']) == 2
-    # we're now missing the external deposit
-    events = l1.rpc.bkpr_listaccountevents()['events']
-    assert len(events) == 2
-    assert len([e for e in events if e['account'] == 'external']) == 0
-    assert len(find_tags(events, 'journal_entry')) == 0
-
-    # the wallet balance should be unchanged
-    btc_balance = only_one(only_one(l1.rpc.bkpr_listbalances()['accounts'])['balances'])
-    assert btc_balance['balance_msat'] == amount_msat * 2
-
-    # ok now we mine a block
-    bitcoind.generate_block(1)
-    sync_blockheight(bitcoind, [l1])
-
-    # expect the withdrawal to appear in the incomes
-    # and there should be an onchain fee
-    incomes = l1.rpc.bkpr_listincome()['income_events']
-    # 2 wallet deposits, 1 onchain_fee
-    assert len(incomes) == 3
-    assert len(find_tags(incomes, 'withdrawal')) == 0
-
-    fee_events = find_tags(incomes, 'onchain_fee')
-    assert len(fee_events) == 1
-    fees = fee_events[0]['debit_msat']
-    assert fees > Millisatoshi(amount // 2 * 1000)
-
-    # wallet balance is decremented now
-    bal = only_one(only_one(l1.rpc.bkpr_listbalances()['accounts'])['balances'])
-    assert bal['balance_msat'] == amount_msat * 2 - fees
-
-
-@unittest.skipIf(TEST_NETWORK != 'regtest', "External wallet support doesn't work with elements yet.")
 def test_bookkeeping_rbf_withdraw(node_factory, bitcoind):
     """ If a withdraw to an external gets RBF'd,
         it should *not* show up in our income ever.
@@ -379,8 +318,14 @@ def test_bookkeeping_missed_chans_leases(node_factory, bitcoind):
     l1.wait_local_channel_active(scid)
     channel_id = first_channel_id(l1, l2)
 
+    # Sigh.  bookkeeper sorts events by timestamp.  If the invoice event happens
+    # too close, it can change the order, so sleep here.
+    time.sleep(2)
+
+    # Send l2 funds via the channel
     l1.pay(l2, invoice_msat)
-    l1.daemon.wait_for_log(r'coin movement:.*\'invoice\'')
+    # Make sure they're completely settled, so accounting correct.
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
 
     # Now turn the bookkeeper on and restart
     l1.stop()
@@ -390,30 +335,18 @@ def test_bookkeeping_missed_chans_leases(node_factory, bitcoind):
     l1.start()
     l2.start()
 
-    # Wait for the balance snapshot to fire/finish
-    l1.daemon.wait_for_log('Snapshot balances updated')
-    l2.daemon.wait_for_log('Snapshot balances updated')
+    # l1 events: nothing missed!
+    exp_events = [{'tag': 'channel_open', 'credit_msat': open_amt * 1000 + lease_fee, 'debit_msat': 0},
+                  {'tag': 'lease_fee', 'credit_msat': 0, 'debit_msat': lease_fee},
+                  {'tag': 'onchain_fee', 'credit_msat': 1314000, 'debit_msat': 0},
+                  {'tag': 'invoice', 'credit_msat': 0, 'debit_msat': invoice_msat}]
+    check_events(l1, channel_id, exp_events)
 
-    def _check_events(node, channel_id, exp_events):
-        chan_events = [ev for ev in node.rpc.bkpr_listaccountevents()['events'] if ev['account'] == channel_id]
-        assert len(chan_events) == len(exp_events)
-        for ev, exp in zip(chan_events, exp_events):
-            assert ev['tag'] == exp[0]
-            assert ev['credit_msat'] == Millisatoshi(exp[1])
-            assert ev['debit_msat'] == Millisatoshi(exp[2])
-
-    # l1 events
-    exp_events = [('channel_open', open_amt * 1000 + lease_fee, 0),
-                  ('onchain_fee', 1314000, 0),
-                  ('lease_fee', 0, lease_fee),
-                  ('journal_entry', 0, invoice_msat)]
-    _check_events(l1, channel_id, exp_events)
-
-    exp_events = [('channel_open', open_amt * 1000, 0),
-                  ('onchain_fee', 894000, 0),
-                  ('lease_fee', lease_fee, 0),
-                  ('journal_entry', invoice_msat, 0)]
-    _check_events(l2, channel_id, exp_events)
+    exp_events = [{'tag': 'channel_open', 'credit_msat': open_amt * 1000, 'debit_msat': 0},
+                  {'tag': 'lease_fee', 'credit_msat': lease_fee, 'debit_msat': 0},
+                  {'tag': 'onchain_fee', 'credit_msat': 894000, 'debit_msat': 0},
+                  {'tag': 'invoice', 'credit_msat': invoice_msat, 'debit_msat': 0}]
+    check_events(l2, channel_id, exp_events)
 
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "turns off bookkeeper at start")
@@ -444,9 +377,14 @@ def test_bookkeeping_missed_chans_pushed(node_factory, bitcoind):
     l1.wait_local_channel_active(scid)
     channel_id = first_channel_id(l1, l2)
 
+    # Sigh.  bookkeeper sorts events by timestamp.  If the invoice event happens
+    # too close, it can change the order, so sleep here.
+    time.sleep(1)
+
     # Send l2 funds via the channel
     l1.pay(l2, invoice_msat)
-    l1.daemon.wait_for_log(r'coin movement:.*\'invoice\'')
+    # Make sure they're completely settled, so accounting correct.
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
 
     # Now turn the bookkeeper on and restart
     l1.stop()
@@ -456,30 +394,18 @@ def test_bookkeeping_missed_chans_pushed(node_factory, bitcoind):
     l1.start()
     l2.start()
 
-    # Wait for the balance snapshot to fire/finish
-    l1.daemon.wait_for_log('Snapshot balances updated')
-    l2.daemon.wait_for_log('Snapshot balances updated')
-
-    def _check_events(node, channel_id, exp_events):
-        chan_events = [ev for ev in node.rpc.bkpr_listaccountevents()['events'] if ev['account'] == channel_id]
-        assert len(chan_events) == len(exp_events)
-        for ev, exp in zip(chan_events, exp_events):
-            assert ev['tag'] == exp[0]
-            assert ev['credit_msat'] == Millisatoshi(exp[1])
-            assert ev['debit_msat'] == Millisatoshi(exp[2])
-
     # l1 events
-    exp_events = [('channel_open', open_amt * 1000, 0),
-                  ('onchain_fee', 4927000, 0),
-                  ('pushed', 0, push_amt),
-                  ('journal_entry', 0, invoice_msat)]
-    _check_events(l1, channel_id, exp_events)
+    exp_events = [{'tag': 'channel_open', 'credit_msat': open_amt * 1000, 'debit_msat': 0},
+                  {'tag': 'pushed', 'credit_msat': 0, 'debit_msat': push_amt},
+                  {'tag': 'onchain_fee', 'credit_msat': 4927000, 'debit_msat': 0},
+                  {'tag': 'invoice', 'credit_msat': 0, 'debit_msat': invoice_msat}]
+    check_events(l1, channel_id, exp_events)
 
     # l2 events
-    exp_events = [('channel_open', 0, 0),
-                  ('pushed', push_amt, 0),
-                  ('journal_entry', invoice_msat, 0)]
-    _check_events(l2, channel_id, exp_events)
+    exp_events = [{'tag': 'channel_open', 'credit_msat': 0, 'debit_msat': 0},
+                  {'tag': 'pushed', 'credit_msat': push_amt, 'debit_msat': 0},
+                  {'tag': 'invoice', 'credit_msat': invoice_msat, 'debit_msat': 0}]
+    check_events(l2, channel_id, exp_events)
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "network fees hardcoded")
@@ -648,10 +574,6 @@ def test_bookkeeping_missed_chans_pay_after(node_factory, bitcoind):
     l1.start()
     l2.start()
 
-    # Wait for the balance snapshot to fire/finish
-    l1.daemon.wait_for_log('Snapshot balances updated')
-    l2.daemon.wait_for_log('Snapshot balances updated')
-
     # Should have channel in both, with balances
     for n in [l1, l2]:
         accts = [ba['account'] for ba in n.rpc.bkpr_listbalances()['accounts']]
@@ -663,24 +585,16 @@ def test_bookkeeping_missed_chans_pay_after(node_factory, bitcoind):
     l1.pay(l2, invoice_msat)
     l1.daemon.wait_for_log(r'coin movement:.*\'invoice\'')
 
-    def _check_events(node, channel_id, exp_events):
-        chan_events = [ev for ev in node.rpc.bkpr_listaccountevents()['events'] if ev['account'] == channel_id]
-        assert len(chan_events) == len(exp_events)
-        for ev, exp in zip(chan_events, exp_events):
-            assert ev['tag'] == exp[0]
-            assert ev['credit_msat'] == Millisatoshi(exp[1])
-            assert ev['debit_msat'] == Millisatoshi(exp[2])
-
     # l1 events
-    exp_events = [('channel_open', open_amt * 1000, 0),
-                  ('onchain_fee', 4927000, 0),
-                  ('invoice', 0, invoice_msat)]
-    _check_events(l1, channel_id, exp_events)
+    exp_events = [{'tag': 'channel_open', 'credit_msat': open_amt * 1000, 'debit_msat': 0},
+                  {'tag': 'onchain_fee', 'credit_msat': 4927000, 'debit_msat': 0},
+                  {'tag': 'invoice', 'credit_msat': 0, 'debit_msat': invoice_msat}]
+    check_events(l1, channel_id, exp_events)
 
     # l2 events
-    exp_events = [('channel_open', 0, 0),
-                  ('invoice', invoice_msat, 0)]
-    _check_events(l2, channel_id, exp_events)
+    exp_events = [{'tag': 'channel_open', 'credit_msat': 0, 'debit_msat': 0},
+                  {'tag': 'invoice', 'credit_msat': invoice_msat, 'debit_msat': 0}]
+    check_events(l2, channel_id, exp_events)
 
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "turns off bookkeeper at start")
@@ -719,19 +633,11 @@ def test_bookkeeping_onchaind_txs(node_factory, bitcoind):
     l1.daemon.opts['rescan'] = 102
     l1.start()
 
-    # Wait for the balance snapshot to fire/finish
-    l1.daemon.wait_for_log('Snapshot balances updated')
-
-    # We should have the deposit
+    # We should have everything.
     events = l1.rpc.bkpr_listaccountevents()['events']
-    assert len(events) == 2
-    assert events[0]['account'] == 'wallet'
-    assert events[0]['tag'] == 'deposit'
-    assert events[1]['account'] == 'wallet'
-    assert events[1]['tag'] == 'journal_entry'
+    assert len(events) == 12
 
-    wallet_bal = only_one(l1.rpc.bkpr_listbalances()['accounts'])
-    assert wallet_bal['account'] == 'wallet'
+    wallet_bal = only_one([a for a in l1.rpc.bkpr_listbalances()['accounts'] if a['account'] == 'wallet'])
     funds = l1.rpc.listfunds()
     assert len(funds['channels']) == 0
     outs = sum([out['amount_msat'] for out in funds['outputs']])
@@ -748,11 +654,15 @@ def test_bookkeeping_descriptions(node_factory, bitcoind, chainparams):
     # Send l2 funds via the channel
     bolt11_desc = 'test "bolt11" description, 🥰🪢'
     l1.pay(l2, 11000000, label=bolt11_desc)
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+
+    # Need to call bookkeeper to trigger analysis!
+    l1_inc_ev = l1.rpc.bkpr_listincome()['income_events']
     l1.daemon.wait_for_log('coin_move .* [(]invoice[)] 0msat -11000000msat')
+    l2.rpc.bkpr_listincome()
     l2.daemon.wait_for_log('coin_move .* [(]invoice[)] 11000000msat')
 
     # Test paying an bolt11 invoice (rcvr)
-    l1_inc_ev = l1.rpc.bkpr_listincome()['income_events']
     inv = only_one([ev for ev in l1_inc_ev if ev['tag'] == 'invoice'])
     assert inv['description'] == bolt11_desc
 
@@ -766,11 +676,14 @@ def test_bookkeeping_descriptions(node_factory, bitcoind, chainparams):
     offer = l1.rpc.call('offer', [100, bolt12_desc])
     invoice = l2.rpc.call('fetchinvoice', {'offer': offer['bolt12']})
     paid = l2.rpc.pay(invoice['invoice'])
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+    l1_inc_ev = l1.rpc.bkpr_listincome()['income_events']
     l1.daemon.wait_for_log('coin_move .* [(]invoice[)] 100msat')
+    l2.rpc.bkpr_listincome()
     l2.daemon.wait_for_log('coin_move .* [(]invoice[)] 0msat -100msat')
 
     # Test paying an offer (bolt12) (rcvr)
-    l1_inc_ev = l1.rpc.bkpr_listincome()['income_events']
     inv = only_one([ev for ev in l1_inc_ev if 'payment_id' in ev and ev['payment_id'] == paid['payment_hash']])
     assert inv['description'] == bolt12_desc
 
@@ -783,7 +696,7 @@ def test_bookkeeping_descriptions(node_factory, bitcoind, chainparams):
     l1.rpc.bkpr_dumpincomecsv('koinly', 'koinly.csv')
     l2.rpc.bkpr_dumpincomecsv('koinly', 'koinly.csv')
     koinly_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'koinly.csv')
-    l1_koinly_csv = open(koinly_path, 'rb').read()
+    l1_koinly_csv = Path(koinly_path).read_bytes()
     bolt11_exp = bytes('invoice,"test \'bolt11\' description, 🥰🪢",', 'utf-8')
     bolt12_exp = bytes('invoice,"test \'bolt12\' description, 🥰🪢",', 'utf-8')
 
@@ -791,7 +704,7 @@ def test_bookkeeping_descriptions(node_factory, bitcoind, chainparams):
     assert l1_koinly_csv.find(bolt12_exp) >= 0
 
     koinly_path = os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, 'koinly.csv')
-    l2_koinly_csv = open(koinly_path, 'rb').read()
+    l2_koinly_csv = Path(koinly_path).read_bytes()
     assert l2_koinly_csv.find(bolt11_exp) >= 0
     assert l2_koinly_csv.find(bolt12_exp) >= 0
 
@@ -819,6 +732,11 @@ def test_bookkeeping_descriptions(node_factory, bitcoind, chainparams):
     for evs in [acct_evs, income_evs]:
         assert only_one([ev for ev in evs if 'description' in ev and ev['description'] == edited_desc_payid])
         assert only_one([ev for ev in evs if 'description' in ev and ev['description'] == edited_desc_outpoint])
+
+    # Test persistence!
+    l1.restart()
+    assert l1.rpc.bkpr_listaccountevents()['events'] == acct_evs
+    assert l1.rpc.bkpr_listincome()['income_events'] == income_evs
 
 
 def test_empty_node(node_factory, bitcoind):
@@ -904,22 +822,20 @@ def test_rebalance_tracking(node_factory, bitcoind):
     assert outbound_ev['credit_msat'] == Millisatoshi(0)
     assert outbound_ev['payment_id'] == pay_hash
 
+    # Will reload on restart!
+    l1.restart()
 
-@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "This test is based on a sqlite3 snapshot")
-def test_bookkeeper_lease_fee_dupe_migration(node_factory):
-    """ Check that if there's duplicate lease_fees, we remove them"""
+    inc_evs = l1.rpc.bkpr_listincome()['income_events']
+    outbound_chan_id = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['channel_id']
 
-    l1 = node_factory.get_node(bkpr_dbfile='dupe_lease_fee.sqlite3.xz')
-
-    wait_for(lambda: l1.daemon.is_in_log('Duplicate \'lease_fee\' found for account'))
-
-    accts_db_path = os.path.join(l1.lightning_dir, TEST_NETWORK, 'accounts.sqlite3')
-    accts_db = Sqlite3Db(accts_db_path)
-
-    assert accts_db.query('SELECT tag from channel_events where tag = \'lease_fee\';') == [{'tag': 'lease_fee'}]
+    outbound_ev = only_one([ev for ev in inc_evs if ev['tag'] == 'rebalance_fee'])
+    assert outbound_ev['account'] == outbound_chan_id
+    assert outbound_ev['debit_msat'] == Millisatoshi(1001)
+    assert outbound_ev['credit_msat'] == Millisatoshi(0)
+    assert outbound_ev['payment_id'] == pay_hash
 
 
-def test_bookkeeper_custom_notifs(node_factory):
+def test_bookkeeper_custom_notifs(node_factory, chainparams):
     # FIXME: what happens if we send internal funds to 'external' wallet?
     plugin = os.path.join(
         os.path.dirname(__file__), "plugins", "bookkeeper_custom_coins.py"
@@ -937,9 +853,9 @@ def test_bookkeeper_custom_notifs(node_factory):
     acct = "nifty's secret stash"
 
     l1.rpc.senddeposit(acct, False, outpoint_in, amount)
+    l1.daemon.wait_for_log(r"Foreign chain event: deposit \(nifty's secret stash\) 180000000msat -0msat 1679955976 111 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:0")
     l1.rpc.sendspend(acct, outpoint_in, spend_txid, amount)
-    l1.daemon.wait_for_log(r"utxo_deposit \(deposit|nifty's secret stash\) .* -0msat 1679955976 111 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:0")
-    l1.daemon.wait_for_log(r"utxo_spend \(withdrawal|nifty's secret stash\) 0msat -12345678000msat 1679955976 111 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:0 bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+    l1.daemon.wait_for_log(r"Foreign chain event: withdrawal \(nifty's secret stash\) 0msat -180000000msat 1679955976 111 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:0 bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
 
     # balance should be zero
     bals = l1.rpc.bkpr_listbalances()['accounts']
@@ -949,7 +865,7 @@ def test_bookkeeper_custom_notifs(node_factory):
             assert only_one(bal['balances'])['balance_msat'] == Millisatoshi(0)
 
     l1.rpc.senddeposit(acct, False, change_deposit, amount - withdraw_amt - fee)
-    l1.daemon.wait_for_log(r"utxo_deposit \(deposit|nifty's secret stash\) .* -0msat 1679955976 111 bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:0")
+    l1.daemon.wait_for_log(r"Foreign chain event: deposit \(nifty's secret stash\) .* -0msat 1679955976 111 bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:0")
 
     # balance should be equal to amount
     events = l1.rpc.bkpr_listaccountevents(acct)['events']
@@ -961,30 +877,61 @@ def test_bookkeeper_custom_notifs(node_factory):
     assert onchain_fee_one == fee + withdraw_amt
 
     l1.rpc.senddeposit(acct, True, external_deposit, withdraw_amt)
-    l1.daemon.wait_for_log(r"utxo_deposit \(deposit|external\) .* -0msat 1679955976 111 bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:1")
+    l1.daemon.wait_for_log(r"Foreign chain event: deposit \(external\) .* -0msat 1679955976 111 bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:1")
     events = l1.rpc.bkpr_listaccountevents(acct)['events']
     onchain_fees = [x for x in events if x['type'] == 'onchain_fee']
     assert len(onchain_fees) == 2
     assert onchain_fees[0]['credit_msat'] == onchain_fee_one
     assert onchain_fees[1]['debit_msat'] == withdraw_amt
+    assert events == [{'account': "nifty's secret stash",
+                       'blockheight': 111,
+                       'credit_msat': 180000000,
+                       'currency': chainparams['bip173_prefix'],
+                       'debit_msat': 0,
+                       'outpoint': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:0',
+                       'tag': 'deposit',
+                       'timestamp': 1679955976,
+                       'type': 'chain'},
+                      {'account': "nifty's secret stash",
+                       'blockheight': 111,
+                       'credit_msat': 0,
+                       'currency': chainparams['bip173_prefix'],
+                       'debit_msat': 180000000,
+                       'outpoint': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:0',
+                       'tag': 'withdrawal',
+                       'timestamp': 1679955976,
+                       'txid': 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+                       'type': 'chain'},
+                      {'account': "nifty's secret stash",
+                       'blockheight': 111,
+                       'credit_msat': 124443000,
+                       'currency': chainparams['bip173_prefix'],
+                       'debit_msat': 0,
+                       'outpoint': 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:0',
+                       'tag': 'deposit',
+                       'timestamp': 1679955976,
+                       'type': 'chain'},
+                      {'account': "nifty's secret stash",
+                       'credit_msat': 55557000,
+                       'currency': chainparams['bip173_prefix'],
+                       'debit_msat': 0,
+                       'tag': 'onchain_fee',
+                       'timestamp': 1679955976,
+                       'txid': 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+                       'type': 'onchain_fee'},
+                      {'account': "nifty's secret stash",
+                       'credit_msat': 0,
+                       'currency': chainparams['bip173_prefix'],
+                       'debit_msat': 55555000,
+                       'tag': 'onchain_fee',
+                       'timestamp': 1679955976,
+                       'txid': 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+                       'type': 'onchain_fee'}]
 
     # This should not blow up
     incomes = l1.rpc.bkpr_listincome()['income_events']
     acct_fee = only_one([inc['debit_msat'] for inc in incomes if inc['account'] == acct and inc['tag'] == 'onchain_fee'])
     assert acct_fee == Millisatoshi(fee)
-
-
-@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "This test is based on a sqlite3 snapshot")
-def test_bookkeeper_bad_migration(node_factory):
-    l1 = node_factory.get_node(bkpr_dbfile='bookkeeper-accounts-pre-v24.08-migration.sqlite3.xz')
-    l2 = node_factory.get_node()
-
-    # Make sure l1 does fixup, use query to force an access (which would fail if column not present)
-    assert l1.daemon.is_in_log("plugin-bookkeeper: Database fixup: adding spliced column to chain_events table")
-    l1.rpc.bkpr_listaccountevents('wallet')
-
-    # l2 will *not* do this
-    assert not l2.daemon.is_in_log("adding spliced column")
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Snapshots are bitcoin regtest.")
@@ -1058,3 +1005,160 @@ def test_migration(node_factory, bitcoind):
 
     # When generating, we want to stop so you can grab databases.
     assert generate is False
+
+    l1_events = l1.rpc.bkpr_listaccountevents()['events']
+    for e in l1_events:
+        del e['timestamp']
+
+    l2_events = l2.rpc.bkpr_listaccountevents()['events']
+    for e in l2_events:
+        del e['timestamp']
+
+    # These were snapshotted before the bkpr migration, so should
+    # be the same!
+    assert l1_events == [{'account': 'wallet',
+                          'blockheight': 102,
+                          'credit_msat': 2000000000,
+                          'currency': 'bcrt',
+                          'debit_msat': 0,
+                          'outpoint': '63c59b312976320528552c258ae51563498dfd042b95bb0c842696614d59bb89:1',
+                          'tag': 'deposit',
+                          'type': 'chain'},
+                         {'account': 'wallet',
+                          'blockheight': 103,
+                          'credit_msat': 0,
+                          'currency': 'bcrt',
+                          'debit_msat': 2000000000,
+                          'outpoint': '63c59b312976320528552c258ae51563498dfd042b95bb0c842696614d59bb89:1',
+                          'tag': 'withdrawal',
+                          'txid': '675ab2a8c43afcf98b82a1120d1a4d36768c898792fe1282c5be4ac055377fbe',
+                          'type': 'chain'},
+                         {'account': 'wallet',
+                          'blockheight': 103,
+                          'credit_msat': 995073000,
+                          'currency': 'bcrt',
+                          'debit_msat': 0,
+                          'description': "Rusty's change",
+                          'outpoint': '675ab2a8c43afcf98b82a1120d1a4d36768c898792fe1282c5be4ac055377fbe:1',
+                          'tag': 'deposit',
+                          'type': 'chain'},
+                         {'account': 'be7f3755c04abec58212fe9287898c76364d1a0d12a1828bf9fc3ac4a8b25a67',
+                          'blockheight': 103,
+                          'credit_msat': 1000000000,
+                          'currency': 'bcrt',
+                          'debit_msat': 0,
+                          'description': "Rusty's channel",
+                          'outpoint': '675ab2a8c43afcf98b82a1120d1a4d36768c898792fe1282c5be4ac055377fbe:0',
+                          'tag': 'channel_open',
+                          'type': 'chain'},
+                         {'account': 'be7f3755c04abec58212fe9287898c76364d1a0d12a1828bf9fc3ac4a8b25a67',
+                          'credit_msat': 0,
+                          'currency': 'bcrt',
+                          'debit_msat': 12345678,
+                          'description': "Rusty's payment",
+                          'is_rebalance': False,
+                          'part_id': 0,
+                          'payment_id': '7ccef7e9fabbf4a841af44b1fc7319bc70ce98697b77ce6dacffa84bebcd4350',
+                          'tag': 'invoice',
+                          'type': 'channel'},
+                         {'account': 'be7f3755c04abec58212fe9287898c76364d1a0d12a1828bf9fc3ac4a8b25a67',
+                          'credit_msat': 4927000,
+                          'currency': 'bcrt',
+                          'debit_msat': 0,
+                          'tag': 'onchain_fee',
+                          'txid': '675ab2a8c43afcf98b82a1120d1a4d36768c898792fe1282c5be4ac055377fbe',
+                          'type': 'onchain_fee'},
+                         {'account': 'wallet',
+                          'credit_msat': 1004927000,
+                          'currency': 'bcrt',
+                          'debit_msat': 0,
+                          'tag': 'onchain_fee',
+                          'txid': '675ab2a8c43afcf98b82a1120d1a4d36768c898792fe1282c5be4ac055377fbe',
+                          'type': 'onchain_fee'},
+                         {'account': 'wallet',
+                          'credit_msat': 0,
+                          'currency': 'bcrt',
+                          'debit_msat': 1004927000,
+                          'tag': 'onchain_fee',
+                          'txid': '675ab2a8c43afcf98b82a1120d1a4d36768c898792fe1282c5be4ac055377fbe',
+                          'type': 'onchain_fee'}]
+
+    assert l2_events == [{'account': 'be7f3755c04abec58212fe9287898c76364d1a0d12a1828bf9fc3ac4a8b25a67',
+                          'blockheight': 103,
+                          'credit_msat': 0,
+                          'currency': 'bcrt',
+                          'debit_msat': 0,
+                          'outpoint': '675ab2a8c43afcf98b82a1120d1a4d36768c898792fe1282c5be4ac055377fbe:0',
+                          'tag': 'channel_open',
+                          'type': 'chain'},
+                         {'account': 'be7f3755c04abec58212fe9287898c76364d1a0d12a1828bf9fc3ac4a8b25a67',
+                          'credit_msat': 12345678,
+                          'currency': 'bcrt',
+                          'debit_msat': 0,
+                          'description': "Rusty's payment",
+                          'is_rebalance': False,
+                          'part_id': 0,
+                          'payment_id': '7ccef7e9fabbf4a841af44b1fc7319bc70ce98697b77ce6dacffa84bebcd4350',
+                          'tag': 'invoice',
+                          'type': 'channel'}]
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', "Snapshots are bitcoin regtest.")
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "uses snapshots")
+def test_migration_no_bkpr(node_factory, bitcoind):
+    """These nodes need to invent coinmoves to make the balances work"""
+    bitcoind.generate_block(1)
+    l1 = node_factory.get_node(dbfile="l1-before-moves-in-db.sqlite3.xz",
+                               options={'database-upgrade': True})
+    l2 = node_factory.get_node(dbfile="l2-before-moves-in-db.sqlite3.xz",
+                               options={'database-upgrade': True})
+
+    chan = only_one(l1.rpc.listpeerchannels()['channels'])
+
+    l1_events = l1.rpc.bkpr_listaccountevents()['events']
+    for e in l1_events:
+        del e['timestamp']
+
+    l2_events = l2.rpc.bkpr_listaccountevents()['events']
+    for e in l2_events:
+        del e['timestamp']
+
+    assert l1_events == [{'account': chan['channel_id'],
+                          'blockheight': 103,
+                          'credit_msat': 1000000000,
+                          'currency': 'bcrt',
+                          'debit_msat': 0,
+                          'outpoint': f"{chan['funding_txid']}:{chan['funding_outnum']}",
+                          'tag': 'channel_open',
+                          'type': 'chain'},
+                         {'account': 'wallet',
+                          'blockheight': 103,
+                          'credit_msat': 995073000,
+                          'currency': 'bcrt',
+                          'debit_msat': 0,
+                          'outpoint': f"{chan['funding_txid']}:{chan['funding_outnum'] ^ 1}",
+                          'tag': 'deposit',
+                          'type': 'chain'},
+                         {'account': chan['channel_id'],
+                          'credit_msat': 0,
+                          'currency': 'bcrt',
+                          'debit_msat': 12345678,
+                          'is_rebalance': False,
+                          'tag': 'journal_entry',
+                          'type': 'channel'}]
+
+    assert l2_events == [{'account': chan['channel_id'],
+                          'blockheight': 103,
+                          'credit_msat': 0,
+                          'currency': 'bcrt',
+                          'debit_msat': 0,
+                          'outpoint': f"{chan['funding_txid']}:{chan['funding_outnum']}",
+                          'tag': 'channel_open',
+                          'type': 'chain'},
+                         {'account': chan['channel_id'],
+                          'credit_msat': 12345678,
+                          'currency': 'bcrt',
+                          'debit_msat': 0,
+                          'is_rebalance': False,
+                          'tag': 'journal_entry',
+                          'type': 'channel'}]

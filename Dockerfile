@@ -1,316 +1,200 @@
-# This Dockerfile is used by buildx to build ARM64, AMD64, and ARM32 Docker images from an AMD64 host.
-# To speed up the build process, we are cross-compiling rather than relying on QEMU.
-# There are four main stages:
-# * downloader: Downloads specific binaries needed for core lightning for each architecture.
-# * builder: Cross-compiles for each architecture.
-# * final: Creates the runtime image.
+# syntax=docker/dockerfile:1.7-labs
 
-ARG DEFAULT_TARGETPLATFORM="linux/amd64"
-ARG BASE_DISTRO="debian:bookworm-slim"
+FROM --platform=${BUILDPLATFORM} debian:bookworm-slim AS base-host
 
-FROM --platform=$BUILDPLATFORM ${BASE_DISTRO} AS base-downloader
-RUN set -ex \
-	&& apt-get update \
-	&& apt-get install -qq --no-install-recommends ca-certificates dirmngr wget qemu-user-static binfmt-support
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
-FROM base-downloader AS base-downloader-linux-amd64
-ENV TARBALL_ARCH_FINAL=x86_64-linux-gnu
+FROM --platform=${TARGETPLATFORM} debian:bookworm-slim AS base-target
 
-FROM base-downloader AS base-downloader-linux-arm64
-ENV TARBALL_ARCH_FINAL=aarch64-linux-gnu
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
-FROM base-downloader AS base-downloader-linux-arm
-ENV TARBALL_ARCH_FINAL=arm-linux-gnueabihf
+FROM base-host AS downloader-linux-amd64
 
-FROM base-downloader-${TARGETOS}-${TARGETARCH} AS downloader
+ARG target_arch=x86_64-linux-gnu
 
-RUN set -ex \
-	&& apt-get update \
-	&& apt-get install -qq --no-install-recommends ca-certificates dirmngr wget
+FROM base-host AS downloader-linux-arm64
 
-WORKDIR /opt
+ARG target_arch=aarch64-linux-gnu
 
+FROM base-host AS downloader-linux-arm
 
-ENV BITCOIN_VERSION=27.1
-ENV BITCOIN_TARBALL bitcoin-${BITCOIN_VERSION}-${TARBALL_ARCH_FINAL}.tar.gz
-ENV BITCOIN_URL https://bitcoincore.org/bin/bitcoin-core-$BITCOIN_VERSION/$BITCOIN_TARBALL
-ENV BITCOIN_ASC_URL https://bitcoincore.org/bin/bitcoin-core-$BITCOIN_VERSION/SHA256SUMS
+ARG target_arch=arm-linux-gnueabihf
 
-RUN mkdir /opt/bitcoin && cd /opt/bitcoin \
-    && wget -qO $BITCOIN_TARBALL "$BITCOIN_URL" \
-    && wget -qO bitcoin "$BITCOIN_ASC_URL" \
-    && grep $BITCOIN_TARBALL bitcoin | tee SHA256SUMS \
-    && sha256sum -c SHA256SUMS \
-    && BD=bitcoin-$BITCOIN_VERSION/bin \
-    && tar -xzvf $BITCOIN_TARBALL $BD/ --strip-components=1 \
-    && rm $BITCOIN_TARBALL
+FROM downloader-${TARGETOS}-${TARGETARCH} AS downloader
 
-ENV LITECOIN_VERSION 0.16.3
-ENV LITECOIN_URL https://download.litecoin.org/litecoin-${LITECOIN_VERSION}/linux/litecoin-${LITECOIN_VERSION}-${TARBALL_ARCH_FINAL}.tar.gz
-
-# install litecoin binaries
-RUN mkdir /opt/litecoin && cd /opt/litecoin \
-    && wget -qO litecoin.tar.gz "$LITECOIN_URL" \
-    && tar -xzvf litecoin.tar.gz litecoin-$LITECOIN_VERSION/bin/litecoin-cli --strip-components=1 --exclude=*-qt \
-    && rm litecoin.tar.gz
-
-FROM --platform=${DEFAULT_TARGETPLATFORM} ${BASE_DISTRO} AS base-builder
-RUN apt-get update -qq && \
+RUN apt-get update && \
     apt-get install -qq -y --no-install-recommends \
+        gnupg
+
+ARG BITCOIN_VERSION=27.1
+ARG BITCOIN_URL=https://bitcoincore.org/bin/bitcoin-core-${BITCOIN_VERSION}
+ARG BITCOIN_TARBALL=bitcoin-${BITCOIN_VERSION}-${target_arch}.tar.gz
+
+WORKDIR /opt/bitcoin
+
+ADD ${BITCOIN_URL}/${BITCOIN_TARBALL}    .
+ADD ${BITCOIN_URL}/SHA256SUMS            .
+ADD ${BITCOIN_URL}/SHA256SUMS.asc        .
+COPY contrib/keys/bitcoin/               gpg/
+
+RUN gpg --quiet --import gpg/* && \
+    gpg --verify SHA256SUMS.asc SHA256SUMS && \
+    sha256sum -c SHA256SUMS --ignore-missing
+
+RUN tar xzf ${BITCOIN_TARBALL} --strip-components=1
+
+ARG LITECOIN_VERSION=0.16.3
+ARG LITECOIN_BASE_URL=https://download.litecoin.org/litecoin-${LITECOIN_VERSION}
+ARG LITECOIN_URL=${LITECOIN_BASE_URL}/linux
+ARG LITECOIN_TARBALL=litecoin-${LITECOIN_VERSION}-${target_arch}.tar.gz
+
+WORKDIR /opt/litecoin
+
+ADD ${LITECOIN_URL}/${LITECOIN_TARBALL}        .
+ADD ${LITECOIN_URL}/${LITECOIN_TARBALL}.asc    .
+ADD ${LITECOIN_BASE_URL}/SHA256SUMS.asc        .
+COPY contrib/keys/litecoin/                    gpg/
+
+RUN gpg --quiet --import gpg/* && \
+    gpg --verify SHA256SUMS.asc && \
+    gpg --verify ${LITECOIN_TARBALL}.asc ${LITECOIN_TARBALL} && \
+    sha256sum -c SHA256SUMS.asc --ignore-missing
+
+RUN tar xzf ${LITECOIN_TARBALL} --strip-components=1
+
+FROM base-host AS base-builder
+
+RUN apt-get update && \
+    apt-get install -qq -y --no-install-recommends \
+        build-essential \
+        ca-certificates \
+        wget \
+        git \
         autoconf \
         automake \
         bison \
-        build-essential \
-        ca-certificates \
-        curl \
-        dirmngr \
         flex \
-        gettext \
-        git \
-        gnupg \
         jq \
-        libicu-dev \
         libtool \
-        libffi-dev \
-        pkg-config \
-        libssl-dev \
-        protobuf-compiler \
-        python3 \
-        python3-dev \
-        python3-mako \
-        python3-pip \
-        python3-venv \
-        python3-setuptools \
-        libev-dev \
-        libevent-dev \
-        qemu-user-static \
-        wget \
-        unzip \
-        tclsh
+        gettext \
+        protobuf-compiler
 
-ENV PATH="/root/.local/bin:$PATH" \
-    PYTHON_VERSION=3 \
-    POETRY_VERSION=2.0.1
-RUN curl -sSL https://install.python-poetry.org | python3 - && \
-    poetry self add poetry-plugin-export
-RUN mkdir -p /root/.venvs && \
-    python3 -m venv /root/.venvs/cln && \
-    . /root/.venvs/cln/bin/activate && \
-    pip3 install --upgrade pip setuptools wheel
+WORKDIR /opt
 
-RUN wget -q https://zlib.net/fossils/zlib-1.2.13.tar.gz -O zlib.tar.gz && \
-    wget -q https://www.sqlite.org/2019/sqlite-src-3290000.zip -O sqlite.zip && \
-    wget -q https://ftp.postgresql.org/pub/source/v17.1/postgresql-17.1.tar.gz -O postgres.tar.gz
+ADD --chmod=750 https://astral.sh/uv/install.sh      install-uv.sh
+ADD --chmod=750 https://sh.rustup.rs                 install-rust.sh
 
 WORKDIR /opt/lightningd
-COPY . /tmp/lightning
-RUN git clone --recursive /tmp/lightning . && \
-    git checkout $(git --work-tree=/tmp/lightning --git-dir=/tmp/lightning/.git rev-parse HEAD)
 
-# Do not build python plugins here, python doesn't support cross compilation.
-RUN poetry lock && \
-    poetry export -o requirements.txt --without-hashes
-RUN mkdir -p /root/.venvs && \
-    python3 -m venv /root/.venvs/cln && \
-    . /root/.venvs/cln/bin/activate && \
-    pip3 install -r requirements.txt && \
-    pip3 cache purge
-WORKDIR /
+COPY --exclude=.git/ . .
 
 FROM base-builder AS base-builder-linux-amd64
 
-ENV POSTGRES_CONFIG="--without-readline" \
-    PG_CONFIG=/usr/local/pgsql/bin/pg_config
+ARG target_arch=x86_64-linux-gnu
+ARG target_arch_gcc=x86-64-linux-gnu
+ARG target_arch_dpkg=amd64
+ARG target_arch_rust=x86_64-unknown-linux-gnu
+ARG COPTFLAGS="-O2 -march=x86-64"
 
 FROM base-builder AS base-builder-linux-arm64
-ENV target_host=aarch64-linux-gnu \
-    target_host_rust=aarch64-unknown-linux-gnu \
-    target_host_qemu=qemu-aarch64-static
 
-RUN apt-get install -qq -y --no-install-recommends \
-        libc6-arm64-cross \
-        gcc-${target_host} \
-        g++-${target_host}
-
-ENV AR=${target_host}-ar \
-    AS=${target_host}-as \
-    CC=${target_host}-gcc \
-    CXX=${target_host}-g++ \
-    LD=${target_host}-ld \
-    STRIP=${target_host}-strip \
-    QEMU_LD_PREFIX=/usr/${target_host} \
-    HOST=${target_host} \
-    TARGET=${target_host_rust} \
-    RUSTUP_INSTALL_OPTS="--target ${target_host_rust} --default-host ${target_host_rust}" \
-    PKG_CONFIG_PATH="/usr/${target_host}/lib/pkgconfig"
-
-ENV ZLIB_CONFIG="--prefix=${QEMU_LD_PREFIX}" \
-    SQLITE_CONFIG="--host=${target_host} --prefix=${QEMU_LD_PREFIX}" \
-    POSTGRES_CONFIG="--without-readline --prefix=${QEMU_LD_PREFIX}" \
-    PG_CONFIG="${QEMU_LD_PREFIX}/bin/pg_config"
+ARG target_arch=aarch64-linux-gnu
+ARG target_arch_gcc=aarch64-linux-gnu
+ARG target_arch_dpkg=arm64
+ARG target_arch_rust=aarch64-unknown-linux-gnu
+ARG COPTFLAGS="-O2 -march=armv8-a"
 
 FROM base-builder AS base-builder-linux-arm
 
-ENV target_host=arm-linux-gnueabihf \
-    target_host_rust=armv7-unknown-linux-gnueabihf \
-    target_host_qemu=qemu-arm-static
-
-RUN apt-get install -qq -y --no-install-recommends \
-        libc6-armhf-cross \
-        gcc-${target_host} \
-        g++-${target_host}
-
-ENV AR=${target_host}-ar \
-    AS=${target_host}-as \
-    CC=${target_host}-gcc \
-    CXX=${target_host}-g++ \
-    LD=${target_host}-ld \
-    STRIP=${target_host}-strip \
-    QEMU_LD_PREFIX=/usr/${target_host} \
-    HOST=${target_host} \
-    TARGET=${target_host_rust} \
-    RUSTUP_INSTALL_OPTS="--target ${target_host_rust} --default-host ${target_host_rust}" \
-    PKG_CONFIG_PATH="/usr/${target_host}/lib/pkgconfig"
-
-ENV ZLIB_CONFIG="--prefix=${QEMU_LD_PREFIX}" \
-    SQLITE_CONFIG="--host=${target_host} --prefix=${QEMU_LD_PREFIX}" \
-    POSTGRES_CONFIG="--without-readline --prefix=${QEMU_LD_PREFIX}" \
-    PG_CONFIG="${QEMU_LD_PREFIX}/bin/pg_config"
+ARG target_arch=arm-linux-gnueabihf
+ARG target_arch_gcc=arm-linux-gnueabihf
+ARG target_arch_dpkg=armhf
+ARG target_arch_rust=armv7-unknown-linux-gnueabihf
+#TODO: bug with -O2 in armv7, see https://github.com/ElementsProject/lightning/issues/8501
+ARG COPTFLAGS="-O1 -march=armv7-a -mfpu=vfpv3-d16 -mfloat-abi=hard"
 
 FROM base-builder-${TARGETOS}-${TARGETARCH} AS builder
 
 ENV LIGHTNINGD_VERSION=master
 
-RUN mkdir zlib && tar xvf zlib.tar.gz -C zlib --strip-components=1 \
-    && cd zlib \
-    && ./configure ${ZLIB_CONFIG} \
-    && make \
-    && make install && cd .. && \
-    rm zlib.tar.gz && \
-    rm -rf zlib
+RUN dpkg --add-architecture ${target_arch_dpkg}
 
-RUN unzip sqlite.zip \
-    && cd sqlite-* \
-    && ./configure --enable-static --disable-readline --disable-threadsafe --disable-load-extension ${SQLITE_CONFIG} \
-    && make \
-    && make install && cd .. && rm sqlite.zip && rm -rf sqlite-*
-
-RUN mkdir postgres && tar xvf postgres.tar.gz -C postgres --strip-components=1 \
-    && cd postgres \
-    && ./configure ${POSTGRES_CONFIG} \
-    && cd src/include \
-    && make install \
-    && cd ../interfaces/libpq \
-    && make install \
-    && cd ../../bin/pg_config \
-    && make install \
-    && cd ../../../../ && \
-    rm postgres.tar.gz && \
-    rm -rf postgres && \
-    ldconfig "$(${PG_CONFIG} --libdir)"
-
-# Save libpq to a specific location to copy it into the final image.
-RUN mkdir /var/libpq && cp -a "$(${PG_CONFIG} --libdir)"/libpq.* /var/libpq
-
-ENV RUST_PROFILE=release \
-    PATH="/root/.cargo/bin:/root/.local/bin:$PATH"
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y ${RUSTUP_INSTALL_OPTS}
-RUN rustup toolchain install stable --component rustfmt --allow-downgrade
-
-COPY --from=downloader /usr/bin/${target_host_qemu} /usr/bin/${target_host_qemu}
-WORKDIR /opt/lightningd
-
-# If cross-compiling, need to tell it to cargo.
-RUN ( ! [ -n "${target_host}" ] ) || \
-    (mkdir -p .cargo && echo "[target.${target_host_rust}]\nlinker = \"${target_host}-gcc\"" > .cargo/config)
-
-# Weird errors with cargo for cln-grpc on arm7 https://github.com/ElementsProject/lightning/issues/6596
-RUN ( ! [ "${target_host}" = "arm-linux-gnueabihf" ] ) || \
-    (sed -i '/documentation = "https:\/\/docs.rs\/cln-grpc"/a include = ["**\/*.*"]' cln-grpc/Cargo.toml)
-
-# Ensure that the desired grpcio-tools & protobuf versions are installed
-# https://github.com/ElementsProject/lightning/pull/7376#issuecomment-2161102381
-RUN poetry lock && poetry install && \
-    poetry self add poetry-plugin-export
-
-# Ensure that git differences are removed before making bineries, to avoid `-modded` suffix
-# poetry.lock changed due to pyln-client, pyln-proto and pyln-testing version updates
-RUN git reset --hard HEAD
-
-RUN ./configure --prefix=/tmp/lightning_install --enable-static && poetry run make install
-
-WORKDIR /opt/lightningd
-RUN echo 'RUSTUP_INSTALL_OPTS="${RUSTUP_INSTALL_OPTS}"' > /tmp/rustup_install_opts.txt
-
-# We need to build python plugins on the target's arch because python doesn't support cross build
-FROM ${BASE_DISTRO} AS builder-python
-RUN apt-get update -qq && \
+#TODO: python3-dev needs QEMU for post install scripts. find a workaround to not use QEMU
+RUN apt-get update && \
     apt-get install -qq -y --no-install-recommends \
-        git \
-        curl \
-        libtool \
-        pkg-config \
-        autoconf \
-        automake \
-        build-essential \
-        libffi-dev \
-        libssl-dev \
-        python3 \
-        python3-dev \
-        python3-pip \
-        python3-venv && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+        pkg-config:${target_arch_dpkg} \
+        libffi-dev:${target_arch_dpkg} \
+        python3-dev:${target_arch_dpkg} \
+        libicu-dev:${target_arch_dpkg} \
+        zlib1g-dev:${target_arch_dpkg} \
+        libsqlite3-dev:${target_arch_dpkg} \
+        libpq-dev:${target_arch_dpkg} \
+        crossbuild-essential-${target_arch_dpkg}
 
-ENV PYTHON_VERSION=3
-RUN mkdir -p /root/.venvs && \
-    python3 -m venv /root/.venvs/cln && \
-    . /root/.venvs/cln/bin/activate && \
-    pip3 install --upgrade pip setuptools wheel
+ARG AR=${target_arch}-ar
+ARG AS=${target_arch}-as
+ARG CC=${target_arch}-gcc
+ARG CXX=${target_arch}-g++
+ARG LD=${target_arch}-ld
+ARG STRIP=${target_arch}-strip
+ARG TARGET=${target_arch_rust}
+ARG RUST_PROFILE=release
 
-# Copy rustup_install_opts.txt file from builder
-COPY --from=builder /tmp/rustup_install_opts.txt /tmp/rustup_install_opts.txt
-# Setup ENV $RUSTUP_INSTALL_OPTS for this stage
-RUN export $(cat /tmp/rustup_install_opts.txt)
-ENV PATH="/root/.cargo/bin:/root/.venvs/cln/bin:$PATH"
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y ${RUSTUP_INSTALL_OPTS}
+#TODO: set all the following cargo config options via env variables (https://doc.rust-lang.org/cargo/reference/environment-variables.html)
+RUN mkdir -p .cargo && tee .cargo/config.toml <<EOF
+
+[build]
+target = "${target_arch_rust}"
+rustflags = ["-C", "target-cpu=generic"]
+
+[target.${target_arch_rust}]
+linker = "${CC}"
+
+EOF
+
+WORKDIR /opt
+
+RUN ./install-uv.sh -q
+RUN ./install-rust.sh -y -q --profile minimal --component rustfmt --target ${target_arch_rust}
+
+ENV PATH="/root/.cargo/bin:/root/.local/bin:${PATH}"
 
 WORKDIR /opt/lightningd
 
-FROM ${BASE_DISTRO} AS final
+#TODO: find a way to avoid copying the .git/ directory (it always invalidates the cache)
+COPY .git/ .git/
+RUN git submodule update --init --recursive --jobs $(nproc) --depth 1
+
+RUN ./configure --prefix=/tmp/lightning_install --enable-static --disable-compat --disable-valgrind
+RUN uv run make install-program -j$(nproc)
+
+RUN find /tmp/lightning_install -type f -executable -exec \
+    file {} + | \
+    awk -F: '/ELF/ {print $1}' | \
+    xargs -r ${STRIP} --strip-unneeded
+
+FROM base-target AS final
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-      tini \
-      socat \
-      inotify-tools \
-      jq \
-      python3 \
-      python3-pip && \
+    apt-get install -qq -y --no-install-recommends \
+        inotify-tools \
+        socat \
+        jq \
+        libpq5 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-ENV LIGHTNINGD_DATA=/root/.lightning \
-    LIGHTNINGD_RPC_PORT=9835 \
-    LIGHTNINGD_PORT=9735 \
-    LIGHTNINGD_NETWORK=bitcoin
+COPY --from=downloader    /opt/bitcoin/bin/bitcoin-cli      /usr/bin/
+COPY --from=downloader    /opt/litecoin/bin/litecoin-cli    /usr/bin/
+COPY --from=builder       /tmp/lightning_install/           /usr/local/
 
-RUN mkdir $LIGHTNINGD_DATA && \
-    touch $LIGHTNINGD_DATA/config
-VOLUME [ "/root/.lightning" ]
+COPY tools/docker-entrypoint.sh    /entrypoint.sh
 
-# Take libpq directly from builder.
-RUN mkdir /var/libpq && mkdir -p /usr/local/pgsql/lib
-RUN --mount=type=bind,from=builder,source=/var/libpq,target=/var/libpq,rw \
-    cp -a /var/libpq/libpq.* /usr/local/pgsql/lib && \
-    echo "/usr/local/pgsql/lib" > /etc/ld.so.conf.d/libpq.conf && \
-    ldconfig
-
-COPY --from=builder /tmp/lightning_install/ /usr/local/
-COPY --from=builder-python /root/.venvs/cln/lib/python3.11/site-packages /usr/local/lib/python3.11/dist-packages/
-COPY --from=downloader /opt/bitcoin/bin /usr/bin
-COPY --from=downloader /opt/litecoin/bin /usr/bin
-COPY tools/docker-entrypoint.sh entrypoint.sh
+ENV LIGHTNINGD_DATA=/root/.lightning
+ENV LIGHTNINGD_RPC_PORT=9835
+ENV LIGHTNINGD_PORT=9735
+ENV LIGHTNINGD_NETWORK=bitcoin
 
 EXPOSE 9735 9835
-ENTRYPOINT  [ "/usr/bin/tini", "-g", "--", "./entrypoint.sh" ]
+VOLUME ["/root/.lightning"]
+ENTRYPOINT ["/entrypoint.sh"]

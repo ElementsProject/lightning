@@ -10,7 +10,7 @@ from utils import (
     expected_peer_features, expected_node_features,
     expected_channel_features, account_balance,
     check_coin_moves, first_channel_id, EXPERIMENTAL_DUAL_FUND,
-    mine_funding_to_announce, VALGRIND
+    mine_funding_to_announce, VALGRIND, first_scid
 )
 
 import ast
@@ -833,13 +833,13 @@ def test_channel_state_changed_bilateral(node_factory, bitcoind):
         for ev in [event1a, event1b]:
             assert(ev['peer_id'] == l2_id)  # we only test these IDs the first time
             assert(ev['channel_id'] == cid)
-            assert(ev['short_channel_id'] is None)  # None until locked in
+            assert('short_channel_id' not in ev)  # Missing until locked in
             assert(ev['cause'] == "remote")
 
         for ev in [event2a, event2b]:
             assert(ev['peer_id'] == l1_id)  # we only test these IDs the first time
             assert(ev['channel_id'] == cid)
-            assert(ev['short_channel_id'] is None)  # None until locked in
+            assert('short_channel_id' not in ev)  # Missing until locked in
             assert(ev['cause'] == "remote")
 
         for ev in [event1a, event2a]:
@@ -861,12 +861,12 @@ def test_channel_state_changed_bilateral(node_factory, bitcoind):
         event2 = wait_for_event(l2)
         assert(event1['peer_id'] == l2_id)  # we only test these IDs the first time
         assert(event1['channel_id'] == cid)
-        assert(event1['short_channel_id'] is None)  # None until locked in
+        assert('short_channel_id' not in event1)  # Not present until locked in
         assert(event1['cause'] == "user")
 
         assert(event2['peer_id'] == l1_id)  # we only test these IDs the first time
         assert(event2['channel_id'] == cid)
-        assert(event2['short_channel_id'] is None)  # None until locked in
+        assert('short_channel_id' not in event2)  # Not present until locked in
         assert(event2['cause'] == "remote")
 
         for ev in [event1, event2]:
@@ -989,7 +989,7 @@ def test_channel_state_changed_unilateral(node_factory, bitcoind):
     event2 = wait_for_event(l2)
     assert(event2['peer_id'] == l1_id)
     assert(event2['channel_id'] == cid)
-    assert(event2['short_channel_id'] is None)
+    assert('short_channel_id' not in event2)
     assert(event2['cause'] == "remote")
 
     if l2.config('experimental-dual-fund'):
@@ -1244,7 +1244,8 @@ def test_htlc_accepted_hook_forward_restart(node_factory, executor):
     # additional checks
     logline = l2.daemon.wait_for_log(r'Onion written to')
     fname = re.search(r'Onion written to (.*\.json)', logline).group(1)
-    onion = json.load(open(fname))
+    with open(fname) as f:
+        onion = json.load(f)
     assert onion['type'] == 'tlv'
     assert re.match(r'^11020203e80401..0608................$', onion['payload'])
     assert len(onion['shared_secret']) == 64
@@ -1635,6 +1636,7 @@ def test_libplugin(node_factory):
 
     # Test commands
     assert l1.rpc.call("helloworld") == {"hello": "NOT FOUND"}
+    l1.daemon.wait_for_log(r'listpeers gave 3 tokens: {"peers":\[\]}')
     l1.daemon.wait_for_log("get_ds_bin_done: 00010203")
     l1.daemon.wait_for_log("BROKEN.* Datastore gave nonstring result.*00010203")
     assert l1.rpc.call("helloworld", {"name": "test"}) == {"hello": "test"}
@@ -2071,15 +2073,16 @@ def test_watchtower(node_factory, bitcoind, directory, chainparams):
 
     cheat_tx = bitcoind.rpc.decoderawtransaction(tx)
     lastcommitnum = 0
-    for l in open(wt_file, 'r'):
-        txid, penalty, channel_id_hook, commitnum = l.strip().split(', ')
-        assert lastcommitnum == int(commitnum)
-        assert channel_id_hook == channel_id
-        lastcommitnum += 1
-        if txid == cheat_tx['txid']:
-            # This one should succeed, since it is a response to the cheat_tx
-            bitcoind.rpc.sendrawtransaction(penalty)
-            break
+    with open(wt_file, 'r') as f:
+        for l in f:
+            txid, penalty, channel_id_hook, commitnum = l.strip().split(', ')
+            assert lastcommitnum == int(commitnum)
+            assert channel_id_hook == channel_id
+            lastcommitnum += 1
+            if txid == cheat_tx['txid']:
+                # This one should succeed, since it is a response to the cheat_tx
+                bitcoind.rpc.sendrawtransaction(penalty)
+                break
 
     # Need this to check that l2 gets the funds
     penalty_meta = bitcoind.rpc.decoderawtransaction(penalty)
@@ -2641,7 +2644,7 @@ def test_custom_notification_topics(node_factory):
     )
     l1, l2 = node_factory.line_graph(2, opts=[{'plugin': plugin}, {}])
     l1.rpc.emit()
-    l1.daemon.wait_for_log(r'Got a custom notification Hello world')
+    l1.daemon.wait_for_log("Got a custom notification Hello world from plugin custom_notifications.py")
 
     inv = l2.rpc.invoice(42, "lbl", "desc")['bolt11']
     l1.rpc.pay(inv)
@@ -2685,9 +2688,8 @@ plugin.run()
     # write hello world plugin to lndir/plugins
     os.makedirs(os.path.join(lndir, 'plugins'), exist_ok=True)
     path = os.path.join(lndir, 'plugins', 'test_restart_on_update.py')
-    file = open(path, 'w+')
-    file.write(content % "1")
-    file.close()
+    with open(path, 'w+') as file:
+        file.write(content % "1")
     os.chmod(path, os.stat(path).st_mode | stat.S_IEXEC)
 
     # now fire up the node and wait for the plugin to print hello
@@ -2700,9 +2702,8 @@ plugin.run()
     assert not n.daemon.is_in_log(r"Plugin changed, needs restart.")
 
     # modify the file
-    file = open(path, 'w+')
-    file.write(content % "2")
-    file.close()
+    with open(path, 'w+') as file:
+        file.write(content % "2")
     os.chmod(path, os.stat(path).st_mode | stat.S_IEXEC)
 
     # rescan and check
@@ -3756,6 +3757,65 @@ def test_sql(node_factory, bitcoind):
                          'type': 'msat'},
                         {'name': 'scriptPubKey',
                          'type': 'hex'}]},
+        'chainmoves': {
+            'indices': [['account_id']],
+            'columns': [{'name': 'created_index',
+                         'type': 'u64'},
+                        {'name': 'account_id',
+                         'type': 'string'},
+                        {'name': 'credit_msat',
+                         'type': 'msat'},
+                        {'name': 'debit_msat',
+                         'type': 'msat'},
+                        {'name': 'timestamp',
+                         'type': 'u64'},
+                        {'name': 'primary_tag',
+                         'type': 'string'},
+                        {'name': 'peer_id',
+                         'type': 'pubkey'},
+                        {'name': 'originating_account',
+                         'type': 'string'},
+                        {'name': 'spending_txid',
+                         'type': 'txid'},
+                        {'name': 'utxo',
+                         'type': 'outpoint'},
+                        {'name': 'payment_hash',
+                         'type': 'hash'},
+                        {'name': 'output_msat',
+                         'type': 'msat'},
+                        {'name': 'output_count',
+                         'type': 'u32'},
+                        {'name': 'blockheight',
+                         'type': 'u32'}]},
+        'chainmoves_extra_tags': {
+            'columns': [{'name': 'row',
+                         'type': 'u64'},
+                        {'name': 'arrindex',
+                         'type': 'u64'},
+                        {'name': 'extra_tags',
+                         'type': 'string'}]},
+        'channelmoves': {
+            'indices': [['account_id']],
+            'columns': [{'name': 'created_index',
+                         'type': 'u64'},
+                        {'name': 'account_id',
+                         'type': 'string'},
+                        {'name': 'credit_msat',
+                         'type': 'msat'},
+                        {'name': 'debit_msat',
+                         'type': 'msat'},
+                        {'name': 'timestamp',
+                         'type': 'u64'},
+                        {'name': 'primary_tag',
+                         'type': 'string'},
+                        {'name': 'payment_hash',
+                         'type': 'hash'},
+                        {'name': 'part_id',
+                         'type': 'u64'},
+                        {'name': 'group_id',
+                         'type': 'u64'},
+                        {'name': 'fees_msat',
+                         'type': 'msat'}]},
         'bkpr_accountevents': {
             'columns': [{'name': 'account',
                          'type': 'string'},
@@ -3822,18 +3882,23 @@ def test_sql(node_factory, bitcoind):
                   'hex': 'BLOB',
                   'hash': 'BLOB',
                   'txid': 'BLOB',
+                  'outpoint': 'TEXT',
                   'pubkey': 'BLOB',
                   'secret': 'BLOB',
                   'number': 'REAL',
                   'short_channel_id': 'TEXT'}
 
-    # Check schemas match (each one has rowid at start)
-    rowidcol = {'name': 'rowid', 'type': 'u64'}
+    # Check schemas match
     for table, schema in expected_schemas.items():
         res = only_one(l2.rpc.listsqlschemas(table)['schemas'])
         assert res['tablename'] == table
         assert res.get('indices') == schema.get('indices')
-        sqlcolumns = [{'name': c['name'], 'type': sqltypemap[c['type']]} for c in [rowidcol] + schema['columns']]
+        # Those without a created_index get an *explicit* rowid;
+        if any([c['name'] == 'created_index' for c in schema['columns']]):
+            prefix = []
+        else:
+            prefix = [{'name': 'rowid', 'type': 'u64'}]
+        sqlcolumns = [{'name': c['name'], 'type': sqltypemap[c['type']]} for c in prefix + schema['columns']]
         assert res['columns'] == sqlcolumns
 
     # Make sure we didn't miss any
@@ -3871,11 +3936,17 @@ def test_sql(node_factory, bitcoind):
 
     for table, schema in expected_schemas.items():
         ret = l2.rpc.sql("SELECT * FROM {};".format(table))
-        assert len(ret['rows'][0]) == 1 + len(schema['columns'])
+        # If you have created_index, we don't create an explicit rowid.
+        has_rowid = not any([c['name'] == 'created_index' for c in schema['columns']])
 
-        # First column is always rowid!
-        for row in ret['rows']:
-            assert row[0] > 0
+        if has_rowid:
+            assert len(ret['rows'][0]) == 1 + len(schema['columns'])
+
+            # First column is always rowid!
+            for row in ret['rows']:
+                assert row[0] > 0
+        else:
+            assert len(ret['rows'][0]) == len(schema['columns'])
 
         for col in schema['columns']:
             # We will get a complaint for trying to access deprecated cols by name:
@@ -3902,6 +3973,10 @@ def test_sql(node_factory, bitcoind):
                 val += ""
             elif col['type'] == "short_channel_id":
                 assert len(val.split('x')) == 3
+            elif col['type'] == "outpoint":
+                txid, vout = val.split(':')
+                assert len(bytes.fromhex(txid)) == 32
+                int(vout)
             else:
                 assert False
 
@@ -3970,19 +4045,29 @@ def test_sql(node_factory, bitcoind):
     wait_for(lambda: l3.rpc.sql("SELECT * FROM nodes WHERE alias = '{}'".format(alias))['rows'] != [])
 
     # Test json functions
-    l1.fundchannel(l2)
-    bitcoind.generate_block(6)
-    l1.rpc.pay(l2.rpc.invoice(amount_msat=1000000, label='inv1000', description='description 1000 msat')['bolt11'])
-    ret = l1.rpc.sql("SELECT json_object('peer_id', hex(pc.peer_id), 'alias', alias, 'htlcs',"
+    scidl1l3, _ = l1.fundchannel(l3)
+    l1.rpc.pay(l3.rpc.invoice(amount_msat=1000000, label='inv1000', description='description 1000 msat')['bolt11'])
+
+    # Two channels, l1->l3 *may* have an HTLC in flight.
+    ret = l1.rpc.sql("SELECT json_object('peer_id', hex(pc.peer_id), 'alias', alias, 'scid', short_channel_id, 'htlcs',"
                      " (SELECT json_group_array(json_object('id', hex(id), 'amount_msat', amount_msat))"
                      " FROM peerchannels_htlcs ph WHERE ph.row = pc.rowid)) FROM peerchannels pc JOIN nodes n"
                      " ON pc.peer_id = n.nodeid ORDER BY n.alias, pc.peer_id;")
     assert len(ret['rows']) == 2
-    row1 = json.loads(ret['rows'][0][0])
-    row2 = json.loads(ret['rows'][1][0])
-    assert row1['peer_id'] == format(l2.info['id'].upper())
-    assert len(row2['htlcs']) == 1
-    assert row2['htlcs'][0]['amount_msat'] == 1000000
+    row1 = json.loads(only_one(ret['rows'][0]))
+    row2 = json.loads(only_one(ret['rows'][1]))
+    assert row1 in ({"peer_id": format(l3.info['id'].upper()),
+                     "alias": l3.rpc.getinfo()['alias'],
+                     "scid": scidl1l3,
+                     "htlcs": []},
+                    {"peer_id": format(l3.info['id'].upper()),
+                     "alias": l3.rpc.getinfo()['alias'],
+                     "scid": scidl1l3,
+                     "htlcs": [{"id": "30", "amount_msat": 1000000}]})
+    assert row2 == {"peer_id": format(l2.info['id'].upper()),
+                    "alias": l2.rpc.getinfo()['alias'],
+                    "scid": scid,
+                    "htlcs": []}
 
 
 def test_sql_deprecated(node_factory, bitcoind):
@@ -4184,6 +4269,19 @@ def test_sql_crash(node_factory, bitcoind):
     l1.rpc.sql(f"SELECT * FROM peerchannels;")
 
 
+def test_sql_parallel(node_factory, executor):
+    """Parallel refreshes of tables causes SQL errors:
+    Error executing INSERT INTO chainmoves VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?); on row 0: UNIQUE constraint failed: chainmoves.created_index
+    """
+    l1, l2 = node_factory.line_graph(2)
+
+    futs = []
+    for _ in range(5):
+        futs.append(executor.submit(l1.rpc.sql, "SELECT * FROM chainmoves"))
+    for f in futs:
+        f.result(TIMEOUT)
+
+
 def test_listchannels_broken_message(node_factory):
     """This gave a bogus BROKEN message with deprecated-apis enabled"""
     l1 = node_factory.get_node(options={'allow-deprecated-apis': True})
@@ -4372,6 +4470,80 @@ def test_peer_storage(node_factory, bitcoind):
     # This should never happen
     assert not l1.daemon.is_in_log(r'PeerStorageFailed')
     assert not l2.daemon.is_in_log(r'PeerStorageFailed')
+
+
+@pytest.mark.parametrize("deprecated", [False, True])
+def test_pay_plugin_notifications(node_factory, bitcoind, chainparams, deprecated):
+    plugin = os.path.join(os.getcwd(), 'tests/plugins/all_notifications.py')
+    opts = {"plugin": plugin}
+    if deprecated:
+        opts['allow-deprecated-apis'] = True
+
+    l1, l2, l3 = node_factory.line_graph(3, opts=[opts, {}, {}],
+                                         wait_for_announce=True)
+
+    def zero_timestamps(obj):
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                if k == "timestamp":
+                    obj[k] = 0
+                else:
+                    zero_timestamps(v)
+        elif isinstance(obj, list):
+            for item in obj:
+                zero_timestamps(item)
+        # other types are ignored
+        return obj
+
+    inv1 = l3.rpc.invoice(20000, "first", "desc")
+    l1.rpc.pay(inv1['bolt11'])
+
+    # It gets a channel hint update notification
+    line = l1.daemon.wait_for_log(f"plugin-all_notifications.py: notification channel_hint_update: ")
+    dict_str = line.split("notification channel_hint_update: ", 1)[1]
+    data = zero_timestamps(ast.literal_eval(dict_str))
+
+    channel_hint_update_core = {'scid': first_scid(l1, l2) + '/1',
+                                'estimated_capacity_msat': 964719000 if chainparams['elements'] else 978718000,
+                                'total_capacity_msat': 1000000000,
+                                'timestamp': 0,
+                                'enabled': True}
+    channel_hint_update = {'origin': 'pay',
+                           'channel_hint_update': channel_hint_update_core}
+    if deprecated:
+        # pyln-client's plugin.py duplicated payload into same name as update.
+        channel_hint_update['payload'] = {'channel_hint': channel_hint_update_core}
+
+    assert data == channel_hint_update
+
+    # It gets a success notification
+    line = l1.daemon.wait_for_log(f"plugin-all_notifications.py: notification pay_success: ")
+    dict_str = line.split("notification pay_success: ", 1)[1]
+    data = ast.literal_eval(dict_str)
+    success_core = {'payment_hash': inv1['payment_hash'],
+                    'bolt11': inv1['bolt11']}
+    success = {'origin': 'pay',
+               'pay_success': success_core}
+    if deprecated:
+        # pyln-client's plugin.py duplicated payload into same name as update.
+        success['payload'] = success_core
+    assert data == success
+
+    inv2 = l3.rpc.invoice(10000, "second", "desc")
+    l3.rpc.delinvoice('second', 'unpaid')
+    with pytest.raises(RpcError, match="WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS"):
+        l1.rpc.pay(inv2['bolt11'])
+
+    line = l1.daemon.wait_for_log(f"plugin-all_notifications.py: notification pay_failure: ")
+    dict_str = line.split("notification pay_failure: ", 1)[1]
+    data = ast.literal_eval(dict_str)
+    failure_core = {'payment_hash': inv2['payment_hash'], 'bolt11': inv2['bolt11'], 'error': {'message': 'failed: WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS (reply from remote)'}}
+    failure = {'origin': 'pay',
+               'pay_failure': failure_core}
+    if deprecated:
+        # pyln-client's plugin.py duplicated payload into same name as update.
+        failure['payload'] = failure_core
+    assert data == failure
 
 
 @pytest.mark.openchannel('v1')

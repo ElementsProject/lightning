@@ -377,11 +377,6 @@ static void add_months(struct tm *tm, u32 number)
 	tm->tm_mon += number;
 }
 
-static void add_years(struct tm *tm, u32 number)
-{
-	tm->tm_year += number;
-}
-
 static u64 time_change(u64 prevstart, u32 number,
 		       void (*add_time)(struct tm *tm, u32 number),
 		       bool day_const)
@@ -412,8 +407,7 @@ u64 offer_period_start(u64 basetime, size_t n,
 		       const struct recurrence *recur)
 {
 	/* BOLT-recurrence #12:
-	 * 1. A `time_unit` defining 0 (seconds), 1 (days), 2 (months),
-	 *    3 (years).
+	 * 1. A `time_unit` defining 0 (seconds), 1 (days), 2 (months).
 	 */
 	switch (recur->time_unit) {
 	case 0:
@@ -422,8 +416,6 @@ u64 offer_period_start(u64 basetime, size_t n,
 		return time_change(basetime, recur->period * n, add_days, false);
 	case 2:
 		return time_change(basetime, recur->period * n, add_months, true);
-	case 3:
-		return time_change(basetime, recur->period * n, add_years, true);
 	default:
 		/* This is our offer, how did we get here? */
 		return 0;
@@ -437,17 +429,17 @@ void offer_period_paywindow(const struct recurrence *recurrence,
 			    u64 *start, u64 *end)
 {
 	/* BOLT-recurrence #12:
-	 * - if the offer contains `recurrence_paywindow`:
+	 * - if `offer_recurrence_paywindow` is present:
 	 */
 	if (recurrence_paywindow) {
 		u64 pstart = offer_period_start(basetime, period_idx,
 						recurrence);
 		/* BOLT-recurrence #12:
-		 * - if the offer has a `recurrence_basetime` or the
+		 * - if `recurrence_basetime` is present or
 		 *    `recurrence_counter` is non-zero:
-		 *   - SHOULD NOT send an `invreq` for a period prior to
+		 *   - SHOULD NOT send an `invoice_request` for a period prior to
 		 *     `seconds_before` seconds before that period start.
-		 *   - SHOULD NOT send an `invreq` for a period later
+		 *   - SHOULD NOT send an `invoice_request` for a period later
 		 *     than `seconds_after` seconds past that period start.
 		 */
 		*start = pstart - recurrence_paywindow->seconds_before;
@@ -462,9 +454,9 @@ void offer_period_paywindow(const struct recurrence *recurrence,
 	} else {
 		/* BOLT-recurrence #12:
 		 * - otherwise:
-		 *   - SHOULD NOT send an `invreq` with
-		 *     `recurrence_counter` is non-zero for a period whose
-		 *     immediate predecessor has not yet begun.
+		 *   - SHOULD NOT send an `invoice_request` with
+		 *     non-zero `recurrence_counter` for a period
+		 *     whose immediate predecessor has not yet begun.
 		 */
 		if (period_idx == 0)
 			*start = 0;
@@ -473,7 +465,7 @@ void offer_period_paywindow(const struct recurrence *recurrence,
 						    recurrence);
 
 		/* BOLT-recurrence #12:
-		 *     - SHOULD NOT send an `invreq` for a period which
+		 *     - SHOULD NOT send an `invoice_request` for a period which
 		 *       has already passed.
 		 */
 		*end = offer_period_start(basetime, period_idx+1,
@@ -594,7 +586,7 @@ static bool bolt12_has_request_prefix(const char *str)
 	return strstarts(str, "lnr1") || strstarts(str, "LNR1");
 }
 
-static bool bolt12_has_offer_prefix(const char *str)
+bool bolt12_has_offer_prefix(const char *str)
 {
 	return strstarts(str, "lno1") || strstarts(str, "LNO1");
 }
@@ -814,4 +806,25 @@ bool bolt12_bip353_valid_string(const u8 *str, size_t len)
 		return false;
 	}
 	return true;
+}
+
+const struct recurrence *offer_recurrence(const struct tlv_offer *offer)
+{
+	if (offer->offer_recurrence_compulsory)
+		return offer->offer_recurrence_compulsory;
+	return offer->offer_recurrence_optional;
+}
+
+const struct recurrence *invreq_recurrence(const struct tlv_invoice_request *invreq)
+{
+	if (invreq->offer_recurrence_compulsory)
+		return invreq->offer_recurrence_compulsory;
+	return invreq->offer_recurrence_optional;
+}
+
+const struct recurrence *invoice_recurrence(const struct tlv_invoice *inv)
+{
+	if (inv->offer_recurrence_compulsory)
+		return inv->offer_recurrence_compulsory;
+	return inv->offer_recurrence_optional;
 }

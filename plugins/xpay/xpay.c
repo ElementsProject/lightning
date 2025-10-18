@@ -38,6 +38,8 @@ struct xpay {
 	bool take_over_pay;
 	/* Are we to wait for all parts to complete before returning? */
 	bool slow_mode;
+	/* Suppress calls to askrene-age */
+	bool dev_no_age;
 };
 
 static struct xpay *xpay_of(struct plugin *plugin)
@@ -77,9 +79,9 @@ struct payment {
 	/* Maximum fee we're prepare to pay */
 	struct amount_msat maxfee;
 	/* Maximum delay on the route we're ok with */
-	u32 *maxdelay;
+	u32 maxdelay;
 	/* Maximum number of payment routes that can be pending. */
-	u32 *maxparts;
+	u32 maxparts;
 	/* Do we have to do it all in a single part? */
 	bool disable_mpp;
 	/* BOLT11 payment secret (NULL for BOLT12, it uses blinded paths) */
@@ -162,6 +164,18 @@ struct attempt {
 	/* Preimage, iff we succeeded. */
 	const struct preimage *preimage;
 };
+
+/* Recursion */
+static struct command_result *xpay_core(struct command *cmd,
+					const char *invstring TAKES,
+					const struct amount_msat *msat,
+					const struct amount_msat *maxfee,
+					const char **layers,
+					u32 retryfor,
+					const struct amount_msat *partial,
+					u32 maxdelay,
+					u32 dev_maxparts,
+					bool as_pay);
 
 /* Wrapper for pending commands (ignores return) */
 static void was_pending(const struct command_result *res)
@@ -1367,10 +1381,10 @@ static struct command_result *getroutes_for(struct command *aux_cmd,
 	json_array_end(req->js);
 	json_add_amount_msat(req->js, "maxfee_msat", maxfee);
 	json_add_u32(req->js, "final_cltv", payment->final_cltv);
-	json_add_u32(req->js, "maxdelay", *payment->maxdelay);
+	json_add_u32(req->js, "maxdelay", payment->maxdelay);
 	count_pending = count_current_attempts(payment);
-	assert(*payment->maxparts > count_pending);
-	json_add_u32(req->js, "maxparts", *payment->maxparts - count_pending);
+	assert(payment->maxparts > count_pending);
+	json_add_u32(req->js, "maxparts", payment->maxparts - count_pending);
 
 	return send_payment_req(aux_cmd, payment, req);
 }
@@ -1640,33 +1654,210 @@ preapproveinvoice_succeed(struct command *cmd,
 	return populate_private_layer(cmd, payment);
 }
 
-static struct command_result *json_xpay_core(struct command *cmd,
-					     const char *buffer,
-					     const jsmntok_t *params,
-					     bool as_pay)
+static struct command_result *check_offer_payable(struct command *cmd,
+						  const char *offerstr,
+						  const struct amount_msat *msat)
 {
-	struct xpay *xpay = xpay_of(cmd->plugin);
+	char *err;
+	struct tlv_offer *b12offer = offer_decode(tmpctx,
+						  offerstr,
+						  strlen(offerstr),
+						  plugin_feature_set(cmd->plugin),
+						  chainparams, &err);
+	if (!b12offer)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Invalid bolt12 offer: %s", err);
+	/* We will only one-shot if we know amount!  (FIXME: Convert!) */
+	if (b12offer->offer_currency)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Cannot pay offer in different currency %s",
+				    b12offer->offer_currency);
+	if (b12offer->offer_amount) {
+		if (msat && !amount_msat_eq(amount_msat(*b12offer->offer_amount), *msat)) {
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Offer amount is %s, you tried to pay %s",
+					    fmt_amount_msat(tmpctx, amount_msat(*b12offer->offer_amount)),
+					    fmt_amount_msat(tmpctx, *msat));
+		}
+	} else {
+		if (!msat)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Must specify amount for this offer");
+	}
+	if (offer_recurrence(b12offer))
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Cannot xpay recurring offers");
+
+	return NULL;
+}
+
+struct xpay_params {
 	struct amount_msat *msat, *maxfee, *partial;
-	struct payment *payment = tal(cmd, struct payment);
+	const char **layers;
+	unsigned int retryfor;
+	u32 maxdelay, dev_maxparts;
+	const char *bip353;
+};
+
+static struct command_result *
+invoice_fetched(struct command *cmd,
+		const char *method,
+		const char *buf,
+		const jsmntok_t *result,
+		struct xpay_params *params)
+{
+	char *inv;
+
+	inv = json_strdup(NULL, buf, json_get_member(buf, result, "invoice"));
+	return xpay_core(cmd, take(to_canonical_invstr(NULL, take(inv))),
+			 NULL, params->maxfee, params->layers,
+			 params->retryfor, params->partial, params->maxdelay,
+			 params->dev_maxparts, false);
+}
+
+static struct command_result *
+do_fetchinvoice(struct command *cmd, const char *offerstr, struct xpay_params *xparams)
+{
+	struct out_req *req;
+
+	req = jsonrpc_request_start(cmd, "fetchinvoice",
+				    invoice_fetched,
+				    forward_error,
+				    xparams);
+	json_add_string(req->js, "offer", offerstr);
+	if (xparams->msat)
+		json_add_amount_msat(req->js, "amount_msat", *xparams->msat);
+	if (xparams->bip353)
+		json_add_string(req->js, "bip353", xparams->bip353);
+	return send_outreq(req);
+}
+
+static struct command_result *
+bip353_fetched(struct command *cmd,
+		const char *method,
+		const char *buf,
+		const jsmntok_t *result,
+		struct xpay_params *xparams)
+{
+	const jsmntok_t *instructions, *t, *offertok;
+	const char *offerstr;
+	struct command_result *ret;
+	size_t i;
+
+	instructions = json_get_member(buf, result, "instructions");
+	json_for_each_arr(i, t, instructions) {
+		offertok = json_get_member(buf, t, "offer");
+		if (offertok)
+			break;
+	}
+
+	if (!offertok)
+		return command_fail(cmd, PAY_UNSPECIFIED_ERROR,
+				    "BIP353 response did not contain an offer (%.*s)",
+				    json_tok_full_len(result),
+				    json_tok_full(buf, result));
+	offerstr = json_strdup(tmpctx, buf, offertok);
+
+	ret = check_offer_payable(cmd, offerstr, xparams->msat);
+	if (ret)
+		return ret;
+
+	return do_fetchinvoice(cmd, offerstr, xparams);
+}
+
+static struct command_result *json_xpay_params(struct command *cmd,
+					       const char *buffer,
+					       const jsmntok_t *params,
+					       bool as_pay)
+{
+	struct amount_msat *msat, *maxfee, *partial;
+	const char *invstring;
+	const char **layers;
+	u32 *maxdelay, *maxparts;
 	unsigned int *retryfor;
 	struct out_req *req;
-	u64 now, invexpiry;
-	char *err;
+	struct xpay_params *xparams;
 
 	if (!param_check(cmd, buffer, params,
-			 p_req("invstring", param_invstring, &payment->invstring),
+			 p_req("invstring", param_invstring, &invstring),
 			 p_opt("amount_msat", param_msat, &msat),
 			 p_opt("maxfee", param_msat, &maxfee),
-			 p_opt("layers", param_string_array, &payment->layers),
+			 p_opt("layers", param_string_array, &layers),
 			 p_opt_def("retry_for", param_number, &retryfor, 60),
 			 p_opt("partial_msat", param_msat, &partial),
-			 p_opt_def("maxdelay", param_u32, &payment->maxdelay, 2016),
-			 p_opt_dev("dev_maxparts", param_u32, &payment->maxparts, 100),
+			 p_opt_def("maxdelay", param_u32, &maxdelay, 2016),
+			 p_opt_dev("dev_maxparts", param_u32, &maxparts, 100),
 			 NULL))
 		return command_param_failed();
-	if (*payment->maxparts == 0)
+
+	if (*maxparts == 0)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "maxparts cannot be zero");
+
+	/* Is this a one-shot vibe payment?  Kids these days! */
+	if (!as_pay && bolt12_has_offer_prefix(invstring)) {
+		struct command_result *ret;
+
+		ret = check_offer_payable(cmd, invstring, msat);
+		if (ret)
+			return ret;
+
+		if (command_check_only(cmd))
+			return command_check_done(cmd);
+
+		xparams = tal(cmd, struct xpay_params);
+		xparams->msat = msat;
+		xparams->maxfee = maxfee;
+		xparams->partial = partial;
+		xparams->layers = layers;
+		xparams->retryfor = *retryfor;
+		xparams->maxdelay = *maxdelay;
+		xparams->dev_maxparts = *maxparts;
+		xparams->bip353 = NULL;
+
+		return do_fetchinvoice(cmd, invstring, xparams);
+	}
+
+	/* BIP353? */
+	if (!as_pay && strchr(invstring, '@')) {
+		xparams = tal(cmd, struct xpay_params);
+		xparams->msat = msat;
+		xparams->maxfee = maxfee;
+		xparams->partial = partial;
+		xparams->layers = layers;
+		xparams->retryfor = *retryfor;
+		xparams->maxdelay = *maxdelay;
+		xparams->dev_maxparts = *maxparts;
+		xparams->bip353 = invstring;
+
+		req = jsonrpc_request_start(cmd, "fetchbip353",
+					    bip353_fetched,
+					    forward_error, xparams);
+		json_add_string(req->js, "address", invstring);
+		return send_outreq(req);
+	}
+
+	return xpay_core(cmd, invstring,
+			 msat, maxfee, layers, *retryfor, partial, *maxdelay, *maxparts,
+			 as_pay);
+}
+
+static struct command_result *xpay_core(struct command *cmd,
+					const char *invstring TAKES,
+					const struct amount_msat *msat,
+					const struct amount_msat *maxfee,
+					const char **layers,
+					u32 retryfor,
+					const struct amount_msat *partial,
+					u32 maxdelay,
+					u32 dev_maxparts,
+					bool as_pay)
+{
+	struct payment *payment = tal(cmd, struct payment);
+	struct xpay *xpay = xpay_of(cmd->plugin);
+	u64 now, invexpiry;
+	struct out_req *req;
+	char *err;
 
 	list_head_init(&payment->current_attempts);
 	list_head_init(&payment->past_attempts);
@@ -1677,9 +1868,16 @@ static struct command_result *json_xpay_core(struct command *cmd,
 	payment->total_num_attempts = payment->num_failures = 0;
 	payment->requests = tal_arr(payment, struct out_req *, 0);
 	payment->prior_results = tal_strdup(payment, "");
-	payment->deadline = timemono_add(time_mono(), time_from_sec(*retryfor));
+	payment->deadline = timemono_add(time_mono(), time_from_sec(retryfor));
 	payment->start_time = time_now();
 	payment->pay_compat = as_pay;
+	payment->invstring = tal_strdup(payment, invstring);
+	if (layers)
+		payment->layers = tal_dup_talarr(payment, const char *, layers);
+	else
+		payment->layers = NULL;
+	payment->maxdelay = maxdelay;
+	payment->maxparts = dev_maxparts;
 
 	if (bolt12_has_prefix(payment->invstring)) {
 		struct gossmap *gossmap = get_gossmap(xpay);
@@ -1827,14 +2025,14 @@ static struct command_result *json_xpay(struct command *cmd,
 					const char *buffer,
 					const jsmntok_t *params)
 {
-	return json_xpay_core(cmd, buffer, params, false);
+	return json_xpay_params(cmd, buffer, params, false);
 }
 
 static struct command_result *json_xpay_as_pay(struct command *cmd,
 					       const char *buffer,
 					       const jsmntok_t *params)
 {
-	return json_xpay_core(cmd, buffer, params, true);
+	return json_xpay_params(cmd, buffer, params, true);
 }
 
 static struct command_result *getchaininfo_done(struct command *aux_cmd,
@@ -1902,6 +2100,10 @@ static struct command_result *age_layer(struct command *timer_cmd, void *unused)
 
 static void start_aging_timer(struct plugin *plugin)
 {
+	struct xpay *xpay = xpay_of(plugin);
+
+	if (xpay->dev_no_age)
+		return;
 	notleak(global_timer(plugin, time_from_sec(60), age_layer, NULL));
 }
 
@@ -2226,6 +2428,7 @@ int main(int argc, char *argv[])
 	xpay = tal(NULL, struct xpay);
 	xpay->take_over_pay = false;
 	xpay->slow_mode = false;
+	xpay->dev_no_age = false;
 	plugin_main(argv, init, take(xpay),
 		    PLUGIN_RESTARTABLE, true, NULL,
 		    commands, ARRAY_SIZE(commands),
@@ -2238,5 +2441,8 @@ int main(int argc, char *argv[])
 		    plugin_option_dynamic("xpay-slow-mode", "bool",
 					  "Wait until all parts have completed before returning success or failure",
 					  bool_option, bool_jsonfmt, &xpay->slow_mode),
+		    plugin_option_dev("dev-xpay-no-age", "flag",
+				      "Don't call askrene-age",
+				      flag_option, flag_jsonfmt, &xpay->dev_no_age),
 		    NULL);
 }

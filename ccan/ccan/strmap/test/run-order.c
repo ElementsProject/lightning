@@ -43,7 +43,7 @@ int main(void)
 
 	for (i = 0; i < NUM; i++) {
 		char template[10];
-		sprintf(template, "%08u", i);
+		snprintf(template, sizeof(template), "%08u", i);
 		str[i] = strdup(template);
 	}
 

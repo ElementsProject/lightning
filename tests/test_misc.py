@@ -3,14 +3,16 @@ from bitcoin.rpc import RawProxy
 from decimal import Decimal
 from fixtures import *  # noqa: F401,F403
 from fixtures import LightningNode, TEST_NETWORK
+from pathlib import Path
 from pyln.client import RpcError, Millisatoshi
 from threading import Event
 from pyln.testing.utils import (
     TIMEOUT, VALGRIND, sync_blockheight, only_one,
-    wait_for, TailableProc, env, mine_funding_to_announce
+    wait_for, TailableProc, env, mine_funding_to_announce,
 )
 from utils import (
-    account_balance, scriptpubkey_addr, check_coin_moves, first_scid
+    account_balance, scriptpubkey_addr, check_coin_moves, first_scid,
+    serialize_payload_tlv, serialize_payload_final_tlv,
 )
 
 import copy
@@ -1899,11 +1901,13 @@ def test_logging(node_factory):
     wait_for(lambda: os.path.exists(logpath_moved))
     wait_for(lambda: os.path.exists(logpath))
 
-    log1 = open(logpath_moved).readlines()
+    with open(logpath_moved) as f:
+        log1 = f.readlines()
     assert log1[-1].endswith("Ending log due to SIGHUP\n")
 
     def check_new_log():
-        log2 = open(logpath).readlines()
+        with open(logpath) as f:
+            log2 = f.readlines()
         return len(log2) > 0 and log2[0].endswith("Started log due to SIGHUP\n")
     wait_for(check_new_log)
 
@@ -2117,7 +2121,7 @@ def test_bad_onion(node_factory, bitcoind):
 
 def test_bad_onion_immediate_peer(node_factory, bitcoind):
     """Test that we handle the malformed msg when we're the origin"""
-    l1, l2 = node_factory.line_graph(2, opts={'dev-fail-process-onionpacket': None})
+    l1, l2 = node_factory.line_graph(2, opts=[{}, {'dev-fail-process-onionpacket': None}])
 
     inv = l2.rpc.invoice(123000, 'test_bad_onion_immediate_peer', 'description')
     route = l1.rpc.getroute(l2.info['id'], 123000, 1)['route']
@@ -2133,6 +2137,26 @@ def test_bad_onion_immediate_peer(node_factory, bitcoind):
     # FIXME: WIRE_INVALID_ONION_HMAC = BADONION|PERM|5
     WIRE_INVALID_ONION_HMAC = 0x8000 | 0x4000 | 5
     assert err.value.error['data']['failcode'] == WIRE_INVALID_ONION_HMAC
+
+    # Same, but using injectpaymentonion with corrupt onion.
+    blockheight = l1.rpc.getinfo()['blockheight']
+    hops = [{'pubkey': l1.info['id'],
+             'payload': serialize_payload_tlv(123000, 18 + 6, first_scid(l1, l2), blockheight).hex()},
+            {'pubkey': l2.info['id'],
+             'payload': serialize_payload_final_tlv(123000, 18, 123000, blockheight, inv['payment_secret']).hex()}]
+    onion = l1.rpc.createonion(hops=hops, assocdata=inv['payment_hash'])
+
+    with pytest.raises(RpcError) as err:
+        l1.rpc.injectpaymentonion(onion=onion['onion'],
+                                  payment_hash=inv['payment_hash'],
+                                  amount_msat=123000,
+                                  cltv_expiry=blockheight + 18 + 6,
+                                  partid=1,
+                                  groupid=0)
+    # FIXME: PAY_INJECTPAYMENTONION_FAILED = 218
+    PAY_INJECTPAYMENTONION_FAILED = 218
+    assert err.value.error['code'] == PAY_INJECTPAYMENTONION_FAILED
+    assert 'onionreply' in err.value.error['data']
 
 
 def test_newaddr(node_factory, chainparams):
@@ -2723,6 +2747,9 @@ def test_new_node_is_mainnet(node_factory):
     assert not os.path.isfile(os.path.join(netdir, "lightningd-bitcoin.pid"))
     assert os.path.isfile(os.path.join(basedir, "lightningd-bitcoin.pid"))
 
+    # Teardown expects this to exist...
+    os.mkdir(basedir + "/plugin-io")
+
 
 def test_unicode_rpc(node_factory, executor, bitcoind):
     node = node_factory.get_node()
@@ -3103,7 +3130,7 @@ def test_recover_plugin(node_factory, bitcoind):
 
     # Save copy of the db.
     dbpath = os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, "lightningd.sqlite3")
-    orig_db = open(dbpath, "rb").read()
+    orig_db = Path(dbpath).read_bytes()
 
     l2.start()
 
@@ -3118,7 +3145,7 @@ def test_recover_plugin(node_factory, bitcoind):
     l2.stop()
 
     # Overwrite with OLD db.
-    open(dbpath, "wb").write(orig_db)
+    Path(dbpath).write_bytes(orig_db)
 
     l2.start()
 
@@ -3455,6 +3482,9 @@ def test_listforwards_and_listhtlcs(node_factory, bitcoind):
     l2.rpc.delforward(in_channel=c12, in_htlc_id=2, status='local_failed')
     assert l2.rpc.listforwards() == {'forwards': []}
 
+    l2.restart()
+    assert l2.rpc.wait('htlcs', 'deleted', 0)['deleted'] == 5
+
 
 def test_listforwards_wait(node_factory, executor):
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
@@ -3659,7 +3689,8 @@ def test_version_reexec(node_factory, bitcoind):
     # We use a file to tell our openingd wrapper where the real one is
     with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "openingd-real"), 'w') as f:
         f.write(os.path.abspath('lightningd/lightning_openingd'))
-
+    # Internal restart doesn't work well with --dev-save-plugin-io
+    del l1.daemon.opts['dev-save-plugin-io']
     l1.start()
     # This is a "version" message
     verfile = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "openingd-version")
@@ -3819,8 +3850,8 @@ def test_datastore_escapeing(node_factory):
 
 
 def test_datastore(node_factory):
-    # Suppress xpay, which makes a layer
-    l1 = node_factory.get_node(options={"disable-plugin": "cln-xpay"})
+    # Suppress xpay and bookkeeper which use the datastore
+    l1 = node_factory.get_node(options={"disable-plugin": ["cln-xpay", "bookkeeper"]})
 
     # Starts empty
     assert l1.rpc.listdatastore() == {'datastore': []}
@@ -3934,8 +3965,8 @@ def test_datastore(node_factory):
 
 
 def test_datastore_keylist(node_factory):
-    # Suppress xpay, which makes a layer
-    l1 = node_factory.get_node(options={"disable-plugin": "cln-xpay"})
+    # Suppress xpay and bookkeeper which use the datastore
+    l1 = node_factory.get_node(options={"disable-plugin": ["cln-xpay", "bookkeeper"]})
 
     # Starts empty
     assert l1.rpc.listdatastore() == {'datastore': []}
@@ -3997,7 +4028,8 @@ def test_datastore_keylist(node_factory):
 
 
 def test_datastoreusage(node_factory):
-    l1: LightningNode = node_factory.get_node(options={"disable-plugin": "cln-xpay"})
+    # Suppress xpay and bookkeeper which use the datastore
+    l1: LightningNode = node_factory.get_node(options={"disable-plugin": ["cln-xpay", "bookkeeper"]})
     assert l1.rpc.datastoreusage() == {'datastoreusage': {'key': '[]', 'total_bytes': 0}}
 
     data = 'somedatatostoreinthedatastore'  # len 29
@@ -4534,7 +4566,11 @@ def test_setconfig_changed(node_factory, bitcoind):
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "deletes database, which is assumed sqlite3")
 def test_recover_command(node_factory, bitcoind):
-    l1, l2 = node_factory.get_nodes(2)
+    l1 = node_factory.get_node(start=False)
+    # Internal restart doesn't work well with --dev-save-plugin-io
+    del l1.daemon.opts['dev-save-plugin-io']
+    l1.start()
+    l2 = node_factory.get_node()
 
     l1oldid = l1.info['id']
 
@@ -4908,43 +4944,46 @@ def test_tracing(node_factory):
     traces = set()
     suspended = set()
     for fname in glob.glob(f"{trace_fnamebase}.*"):
-        for linenum, l in enumerate(open(fname, "rt").readlines(), 1):
-            # In case an assertion fails
-            print(f"Parsing {fname}:{linenum}")
-            parts = l.split(maxsplit=2)
-            cmd = parts[0]
-            spanid = parts[1]
-            if cmd == 'span_emit':
-                assert spanid in traces
-                assert spanid not in suspended
-                # Should be valid JSON
-                res = json.loads(parts[2])
+        with open(fname, "rt") as f:
+            for linenum, l in enumerate(f.readlines(), 1):
+                # In case an assertion fails
+                print(f"Parsing {fname}:{linenum}")
+                parts = l.split(maxsplit=2)
+                cmd = parts[0]
+                spanid = parts[1]
+                if cmd == 'span_emit':
+                    assert spanid in traces
+                    assert spanid not in suspended
+                    # Should be valid JSON
+                    res = json.loads(parts[2])
 
-                # This is an array for some reason
-                assert len(res) == 1
-                res = res[0]
-                assert res['id'] == spanid
-                assert res['localEndpoint'] == {"serviceName": "lightningd"}
-                expected_keys = ['id', 'name', 'timestamp', 'duration', 'tags', 'traceId', 'localEndpoint']
-                if 'parentId' in res:
-                    assert res['parentId'] in traces
-                    expected_keys.append('parentId')
-                assert set(res.keys()) == set(expected_keys)
-                traces.remove(spanid)
-            elif cmd == 'span_end':
-                assert spanid in traces
-            elif cmd == 'span_start':
-                assert spanid not in traces
-                traces.add(spanid)
-            elif cmd == 'span_suspend':
-                assert spanid in traces
-                assert spanid not in suspended
-                suspended.add(spanid)
-            elif cmd == 'span_resume':
-                assert spanid in traces
-                suspended.remove(spanid)
-            else:
-                assert False, "Unknown trace line"
+                    # This is an array for some reason
+                    assert len(res) == 1
+                    res = res[0]
+                    assert res['id'] == spanid
+                    assert res['localEndpoint'] == {"serviceName": "lightningd"}
+                    expected_keys = ['id', 'name', 'timestamp', 'duration', 'tags', 'traceId', 'localEndpoint']
+                    if 'parentId' in res:
+                        assert res['parentId'] in traces
+                        expected_keys.append('parentId')
+                    assert set(res.keys()) == set(expected_keys)
+                    traces.remove(spanid)
+                elif cmd == 'span_end':
+                    assert spanid in traces
+                elif cmd == 'span_start':
+                    assert spanid not in traces
+                    traces.add(spanid)
+                elif cmd == 'span_suspend':
+                    assert spanid in traces
+                    assert spanid not in suspended
+                    suspended.add(spanid)
+                elif cmd == 'span_resume':
+                    assert spanid in traces
+                    suspended.remove(spanid)
+                elif cmd == 'destroying':
+                    pass
+                else:
+                    assert False, "Unknown trace line"
 
         assert suspended == set()
         assert traces == set()
@@ -4958,20 +4997,21 @@ def test_tracing(node_factory):
 
     # The parent should set all the trace ids and span ids
     for fname in glob.glob(f"{trace_fnamebase}.*"):
-        for linenum, l in enumerate(open(fname, "rt").readlines(), 1):
-            # In case an assertion fails
-            print(f"Parsing {fname}:{linenum}")
-            parts = l.split(maxsplit=2)
-            cmd = parts[0]
-            spanid = parts[1]
-            # This span doesn't actually appear anywhere
-            assert spanid != '0123456789abcdef'
-            if cmd == 'span_emit':
-                # Should be valid JSON
-                res = json.loads(parts[2])
-                assert res[0]['traceId'] == '00112233445566778899aabbccddeeff'
-                # Everyone has a parent!
-                assert 'parentId' in res[0]
+        with open(fname, "rt") as f:
+            for linenum, l in enumerate(f.readlines(), 1):
+                # In case an assertion fails
+                print(f"Parsing {fname}:{linenum}")
+                parts = l.split(maxsplit=2)
+                cmd = parts[0]
+                spanid = parts[1]
+                # This span doesn't actually appear anywhere
+                assert spanid != '0123456789abcdef'
+                if cmd == 'span_emit':
+                    # Should be valid JSON
+                    res = json.loads(parts[2])
+                    assert res[0]['traceId'] == '00112233445566778899aabbccddeeff'
+                    # Everyone has a parent!
+                    assert 'parentId' in res[0]
 
 
 def test_zero_locktime_blocks(node_factory, bitcoind):

@@ -24,6 +24,8 @@ static const char *subsystem_names[] = {
 	"sendpays",
 	"invoices",
 	"htlcs",
+	"chainmoves",
+	"channelmoves",
 };
 
 static const char *index_names[] = {
@@ -51,6 +53,8 @@ const char *wait_subsystem_name(enum wait_subsystem subsystem)
 	case WAIT_SUBSYSTEM_SENDPAY:
 	case WAIT_SUBSYSTEM_INVOICE:
 	case WAIT_SUBSYSTEM_HTLCS:
+	case WAIT_SUBSYSTEM_CHAINMOVES:
+	case WAIT_SUBSYSTEM_CHANNELMOVES:
 		return subsystem_names[subsystem];
 	}
 	abort();
@@ -124,6 +128,7 @@ static void json_add_index(struct command *cmd,
 }
 
 static u64 wait_index_bump(struct lightningd *ld,
+			   struct db *db,
 			   enum wait_subsystem subsystem,
 			   enum wait_index index,
 			   u64 num,
@@ -138,7 +143,7 @@ static u64 wait_index_bump(struct lightningd *ld,
 	/* FIXME: We can optimize this!  It's always the max of the fields in
 	 * the table, *unless* we delete one.  So we can lazily write this on
 	 * delete, and fix it up to MAX() when we startup. */
-	db_set_intvar(ld->wallet->db,
+	db_set_intvar(db,
 		      tal_fmt(tmpctx, "last_%s_%s_index",
 			      wait_subsystem_name(subsystem),
 			      wait_index_name(index)),
@@ -168,6 +173,7 @@ static u64 wait_index_bump(struct lightningd *ld,
 }
 
 u64 wait_index_increment(struct lightningd *ld,
+			 struct db *db,
 			 enum wait_subsystem subsystem,
 			 enum wait_index index,
 			 ...)
@@ -176,13 +182,14 @@ u64 wait_index_increment(struct lightningd *ld,
 	u64 ret;
 
 	va_start(ap, index);
-	ret = wait_index_bump(ld, subsystem, index, 1, ap);
+	ret = wait_index_bump(ld, db, subsystem, index, 1, ap);
 	va_end(ap);
 
 	return ret;
 }
 
 void wait_index_increase(struct lightningd *ld,
+			 struct db *db,
 			 enum wait_subsystem subsystem,
 			 enum wait_index index,
 			 u64 num,
@@ -194,7 +201,7 @@ void wait_index_increase(struct lightningd *ld,
 		return;
 
 	va_start(ap, num);
-	wait_index_bump(ld, subsystem, index, num, ap);
+	wait_index_bump(ld, db, subsystem, index, num, ap);
 	va_end(ap);
 }
 

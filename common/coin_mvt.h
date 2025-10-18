@@ -11,6 +11,7 @@
 #define ACCOUNT_NAME_WALLET "wallet"
 #define ACCOUNT_NAME_EXTERNAL "external"
 
+/* /!\ You cannot change this order, it's committed to the db! /!\ */
 enum mvt_tag {
 	MVT_DEPOSIT = 0,
 	MVT_WITHDRAWAL = 1,
@@ -38,7 +39,9 @@ enum mvt_tag {
 	MVT_SPLICE = 23,
 	MVT_PENALTY_ADJ = 24,
 	MVT_JOURNAL = 25,
-#define NUM_MVT_TAGS (MVT_JOURNAL + 1)
+	MVT_FOREIGN = 26,
+	MVT_IGNORED = 27,
+#define NUM_MVT_TAGS (MVT_IGNORED + 1)
 };
 
 struct mvt_tags {
@@ -128,8 +131,14 @@ static inline struct mvt_tags tag_to_mvt_tags(enum mvt_tag tag)
 	return tags;
 }
 
+/* Add a tag */
+void mvt_tag_set(struct mvt_tags *tags, enum mvt_tag tag);
+
 /* Extract the primary tag */
 enum mvt_tag primary_mvt_tag(struct mvt_tags tags);
+
+/* Useful for assertions */
+bool mvt_tags_valid(struct mvt_tags tags);
 
 /* Useful constructor for mvt_account_id: exactly one of channel/account_name must be NULL */
 void set_mvt_account_id(struct mvt_account_id *acct_id,
@@ -253,6 +262,57 @@ struct channel_coin_mvt *new_coin_channel_push(const tal_t *ctx,
 					       struct amount_msat amount,
 					       struct mvt_tags tags)
 	NON_NULL_ARGS(2);
+
+/* FIXME: Does not set originating_acct, caller must do that! */
+struct chain_coin_mvt *new_foreign_deposit(const tal_t *ctx,
+					   const struct bitcoin_outpoint *outpoint,
+					   u32 blockheight,
+					   struct amount_sat amount,
+					   const char *account,
+					   u64 timestamp)
+	NON_NULL_ARGS(2, 5);
+
+struct chain_coin_mvt *new_foreign_withdrawal(const tal_t *ctx,
+					      const struct bitcoin_outpoint *outpoint,
+					      const struct bitcoin_txid *spend_txid,
+					      struct amount_sat amount,
+					      u32 blockheight,
+					      const char *account,
+					      u64 timestamp)
+	NON_NULL_ARGS(2, 3, 6);
+
+/* Generic versions (prefer the above ones: these are for migrations) */
+struct channel_coin_mvt *new_channel_coin_mvt_general(const tal_t *ctx,
+						      const struct channel *channel,
+						      const struct channel_id *cid,
+						      u64 timestamp,
+						      const struct sha256 *payment_hash TAKES,
+						      const u64 *part_id,
+						      const u64 *group_id,
+						      enum coin_mvt_dir direction,
+						      struct amount_msat amount,
+						      struct mvt_tags tags,
+						      struct amount_msat fees);
+
+struct chain_coin_mvt *new_coin_channel_open_general(const tal_t *ctx,
+						     const struct channel *channel,
+						     const struct channel_id *cid,
+						     u64 timestamp,
+						     const struct bitcoin_outpoint *out,
+						     const struct node_id *peer_id,
+						     u32 blockheight,
+						     const struct amount_msat amount,
+						     const struct amount_sat output_val,
+						     bool is_opener,
+						     bool is_leased);
+
+struct channel_coin_mvt *new_coin_channel_push_general(const tal_t *ctx,
+						       const struct channel *channel,
+						       const struct channel_id *cid,
+						       u64 timestamp,
+						       enum coin_mvt_dir direction,
+						       struct amount_msat amount,
+						       struct mvt_tags tags);
 
 /* There are three standard accounts:
  * "wallet" for our internal wallet,

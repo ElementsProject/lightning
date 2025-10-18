@@ -34,7 +34,9 @@ static const char *mvt_tags[] = {
 	"channel_proposed",
 	"splice",
 	"penalty_adj",
-	"journal",
+	"journal_entry",
+	"foreign",
+	"ignored",
 };
 
 #define PRIMARY_TAG_BITS ((1ULL << MVT_DEPOSIT) |	\
@@ -58,23 +60,116 @@ static const char *mvt_tags[] = {
 			  (1ULL << MVT_LEASE_FEE) |	\
 			  (1ULL << MVT_PENALTY_ADJ) |	\
 			  (1ULL << MVT_JOURNAL) |	\
-			  (1ULL << MVT_CHANNEL_PROPOSED))
+			  (1ULL << MVT_CHANNEL_PROPOSED) | \
+			  (1ULL << MVT_IGNORED))
+
+static enum mvt_tag mvt_tag_in_db(enum mvt_tag mvt_tag)
+{
+	switch (mvt_tag) {
+	case MVT_DEPOSIT:
+		BUILD_ASSERT(MVT_DEPOSIT == 0);
+		return mvt_tag;
+	case MVT_WITHDRAWAL:
+		BUILD_ASSERT(MVT_WITHDRAWAL == 1);
+		return mvt_tag;
+	case MVT_PENALTY:
+		BUILD_ASSERT(MVT_PENALTY == 2);
+		return mvt_tag;
+	case MVT_INVOICE:
+		BUILD_ASSERT(MVT_INVOICE == 3);
+		return mvt_tag;
+	case MVT_ROUTED:
+		BUILD_ASSERT(MVT_ROUTED == 4);
+		return mvt_tag;
+	case MVT_PUSHED:
+		BUILD_ASSERT(MVT_PUSHED == 5);
+		return mvt_tag;
+	case MVT_CHANNEL_OPEN:
+		BUILD_ASSERT(MVT_CHANNEL_OPEN == 6);
+		return mvt_tag;
+	case MVT_CHANNEL_CLOSE:
+		BUILD_ASSERT(MVT_CHANNEL_CLOSE == 7);
+		return mvt_tag;
+	case MVT_CHANNEL_TO_US:
+		BUILD_ASSERT(MVT_CHANNEL_TO_US == 8);
+		return mvt_tag;
+	case MVT_HTLC_TIMEOUT:
+		BUILD_ASSERT(MVT_HTLC_TIMEOUT == 9);
+		return mvt_tag;
+	case MVT_HTLC_FULFILL:
+		BUILD_ASSERT(MVT_HTLC_FULFILL == 10);
+		return mvt_tag;
+	case MVT_HTLC_TX:
+		BUILD_ASSERT(MVT_HTLC_TX == 11);
+		return mvt_tag;
+	case MVT_TO_WALLET:
+		BUILD_ASSERT(MVT_TO_WALLET == 12);
+		return mvt_tag;
+	case MVT_ANCHOR:
+		BUILD_ASSERT(MVT_ANCHOR == 13);
+		return mvt_tag;
+	case MVT_TO_THEM:
+		BUILD_ASSERT(MVT_TO_THEM == 14);
+		return mvt_tag;
+	case MVT_PENALIZED:
+		BUILD_ASSERT(MVT_PENALIZED == 15);
+		return mvt_tag;
+	case MVT_STOLEN:
+		BUILD_ASSERT(MVT_STOLEN == 16);
+		return mvt_tag;
+	case MVT_TO_MINER:
+		BUILD_ASSERT(MVT_TO_MINER == 17);
+		return mvt_tag;
+	case MVT_OPENER:
+		BUILD_ASSERT(MVT_OPENER == 18);
+		return mvt_tag;
+	case MVT_LEASE_FEE:
+		BUILD_ASSERT(MVT_LEASE_FEE == 19);
+		return mvt_tag;
+	case MVT_LEASED:
+		BUILD_ASSERT(MVT_LEASED == 20);
+		return mvt_tag;
+	case MVT_STEALABLE:
+		BUILD_ASSERT(MVT_STEALABLE == 21);
+		return mvt_tag;
+	case MVT_CHANNEL_PROPOSED:
+		BUILD_ASSERT(MVT_CHANNEL_PROPOSED == 22);
+		return mvt_tag;
+	case MVT_SPLICE:
+		BUILD_ASSERT(MVT_SPLICE == 23);
+		return mvt_tag;
+	case MVT_PENALTY_ADJ:
+		BUILD_ASSERT(MVT_PENALTY_ADJ == 24);
+		return mvt_tag;
+	case MVT_JOURNAL:
+		BUILD_ASSERT(MVT_JOURNAL == 25);
+		return mvt_tag;
+	case MVT_FOREIGN:
+		BUILD_ASSERT(MVT_FOREIGN == 26);
+		return mvt_tag;
+	case MVT_IGNORED:
+		BUILD_ASSERT(MVT_IGNORED == 27);
+		return mvt_tag;
+	}
+	abort();
+}
 
 const char *mvt_tag_str(enum mvt_tag tag)
 {
+	assert((unsigned)tag < NUM_MVT_TAGS);
 	return mvt_tags[tag];
 }
 
-static void tag_set(struct mvt_tags *tags, enum mvt_tag tag)
+void mvt_tag_set(struct mvt_tags *tags, enum mvt_tag tag)
 {
-	u64 bitnum = tag;
+	u64 bitnum = mvt_tag_in_db(tag);
 	assert(bitnum < NUM_MVT_TAGS);
 	/* Not already set! */
 	assert((tags->bits & (1ULL << bitnum)) == 0);
 	tags->bits |= (1ULL << bitnum);
 }
 
-static bool mvt_tags_valid(struct mvt_tags tags)
+bool mvt_tags_valid(struct mvt_tags tags)
 {
 	u64 primaries = (tags.bits & PRIMARY_TAG_BITS);
 	/* Must have exactly one primary. */
@@ -117,21 +212,22 @@ struct mvt_account_id *new_mvt_account_id(const tal_t *ctx,
 	return acct;
 }
 
-struct channel_coin_mvt *new_channel_coin_mvt(const tal_t *ctx,
-					      const struct channel *channel,
-					      u64 timestamp,
-					      const struct sha256 *payment_hash TAKES,
-					      const u64 *part_id,
-					      const u64 *group_id,
-					      enum coin_mvt_dir direction,
-					      struct amount_msat amount,
-					      struct mvt_tags tags,
-					      struct amount_msat fees)
+struct channel_coin_mvt *new_channel_coin_mvt_general(const tal_t *ctx,
+						      const struct channel *channel,
+						      const struct channel_id *cid,
+						      u64 timestamp,
+						      const struct sha256 *payment_hash TAKES,
+						      const u64 *part_id,
+						      const u64 *group_id,
+						      enum coin_mvt_dir direction,
+						      struct amount_msat amount,
+						      struct mvt_tags tags,
+						      struct amount_msat fees)
 {
 	struct channel_coin_mvt *mvt = tal(ctx, struct channel_coin_mvt);
 
 	assert(mvt_tags_valid(tags));
-	set_mvt_account_id(&mvt->account, channel, NULL);
+	set_mvt_account_id(&mvt->account, channel, cid ? take(fmt_channel_id(NULL, cid)) : NULL);
 	mvt->timestamp = timestamp;
 	mvt->payment_hash = tal_dup_or_null(mvt, struct sha256, payment_hash);
 	if (!part_id) {
@@ -159,6 +255,21 @@ struct channel_coin_mvt *new_channel_coin_mvt(const tal_t *ctx,
 	}
 
 	abort();
+}
+
+struct channel_coin_mvt *new_channel_coin_mvt(const tal_t *ctx,
+					      const struct channel *channel,
+					      u64 timestamp,
+					      const struct sha256 *payment_hash TAKES,
+					      const u64 *part_id,
+					      const u64 *group_id,
+					      enum coin_mvt_dir direction,
+					      struct amount_msat amount,
+					      struct mvt_tags tags,
+					      struct amount_msat fees)
+{
+	return new_channel_coin_mvt_general(ctx, channel, NULL, timestamp, payment_hash,
+					    part_id, group_id, direction, amount, tags, fees);
 }
 
 static struct chain_coin_mvt *new_chain_coin_mvt(const tal_t *ctx,
@@ -304,15 +415,48 @@ struct chain_coin_mvt *new_coin_channel_open_proposed(const tal_t *ctx,
 
 	/* If we're the opener, add to the tag list */
 	if (is_opener)
-		tag_set(&tags, MVT_OPENER);
+		mvt_tag_set(&tags, MVT_OPENER);
 
 	if (is_leased)
-		tag_set(&tags, MVT_LEASED);
+		mvt_tag_set(&tags, MVT_LEASED);
 
 	mvt = new_chain_coin_mvt(ctx, channel, NULL, time_now().ts.tv_sec,
 				 NULL, out, NULL, 0,
 				 tags,
 				 COIN_CREDIT, amount, output_val, 0);
+	mvt->peer_id = tal_dup(mvt, struct node_id, peer_id);
+
+	return mvt;
+}
+
+struct chain_coin_mvt *new_coin_channel_open_general(const tal_t *ctx,
+						     const struct channel *channel,
+						     const struct channel_id *cid,
+						     u64 timestamp,
+						     const struct bitcoin_outpoint *out,
+						     const struct node_id *peer_id,
+						     u32 blockheight,
+						     const struct amount_msat amount,
+						     const struct amount_sat output_val,
+						     bool is_opener,
+						     bool is_leased)
+{
+	struct chain_coin_mvt *mvt;
+	struct mvt_tags tags = tag_to_mvt_tags(MVT_CHANNEL_OPEN);
+
+	/* If we're the opener, add to the tag list */
+	if (is_opener)
+		mvt_tag_set(&tags, MVT_OPENER);
+
+	if (is_leased)
+		mvt_tag_set(&tags, MVT_LEASED);
+
+	mvt = new_chain_coin_mvt(ctx, channel, cid ? take(fmt_channel_id(NULL, cid)) : NULL,
+				 timestamp,
+				 NULL, out, NULL, blockheight,
+				 tags,
+				 COIN_CREDIT, amount,
+				 output_val, 0);
 	mvt->peer_id = tal_dup(mvt, struct node_id, peer_id);
 
 	return mvt;
@@ -328,24 +472,10 @@ struct chain_coin_mvt *new_coin_channel_open(const tal_t *ctx,
 					     bool is_opener,
 					     bool is_leased)
 {
-	struct chain_coin_mvt *mvt;
-	struct mvt_tags tags = tag_to_mvt_tags(MVT_CHANNEL_OPEN);
-
-	/* If we're the opener, add to the tag list */
-	if (is_opener)
-		tag_set(&tags, MVT_OPENER);
-
-	if (is_leased)
-		tag_set(&tags, MVT_LEASED);
-
-	mvt = new_chain_coin_mvt(ctx, channel, NULL, time_now().ts.tv_sec,
-				 NULL, out, NULL, blockheight,
-				 tags,
-				 COIN_CREDIT, amount,
-				 output_val, 0);
-	mvt->peer_id = tal_dup(mvt, struct node_id, peer_id);
-
-	return mvt;
+	return new_coin_channel_open_general(ctx, channel, NULL,
+					     time_now().ts.tv_sec,
+					     out, peer_id, blockheight,
+					     amount, output_val, is_opener, is_leased);
 }
 
 struct chain_coin_mvt *new_onchain_htlc_deposit(const tal_t *ctx,
@@ -432,16 +562,66 @@ struct chain_coin_mvt *new_coin_wallet_withdraw(const tal_t *ctx,
 				      COIN_DEBIT, amount);
 }
 
+struct channel_coin_mvt *new_coin_channel_push_general(const tal_t *ctx,
+						       const struct channel *channel,
+						       const struct channel_id *cid,
+						       u64 timestamp,
+						       enum coin_mvt_dir direction,
+						       struct amount_msat amount,
+						       struct mvt_tags tags)
+{
+	return new_channel_coin_mvt_general(ctx, channel, cid, timestamp, NULL,
+				    NULL, NULL, direction, amount,
+				    tags,
+				    AMOUNT_MSAT(0));
+}
+
 struct channel_coin_mvt *new_coin_channel_push(const tal_t *ctx,
 					       const struct channel *channel,
 					       enum coin_mvt_dir direction,
 					       struct amount_msat amount,
 					       struct mvt_tags tags)
 {
-	return new_channel_coin_mvt(ctx, channel, time_now().ts.tv_sec, NULL,
-				    NULL, NULL, direction, amount,
-				    tags,
-				    AMOUNT_MSAT(0));
+	return new_coin_channel_push_general(ctx, channel, NULL,
+					     time_now().ts.tv_sec,
+					     direction, amount, tags);
+}
+
+struct chain_coin_mvt *new_foreign_deposit(const tal_t *ctx,
+					   const struct bitcoin_outpoint *outpoint,
+					   u32 blockheight,
+					   struct amount_sat amount,
+					   const char *account,
+					   u64 timestamp)
+{
+	struct chain_coin_mvt *e;
+
+	e = new_chain_coin_mvt_sat(ctx, NULL, account, NULL, outpoint, NULL,
+				   blockheight,
+				   mk_mvt_tags(MVT_DEPOSIT, MVT_FOREIGN),
+				   COIN_CREDIT,
+				   amount);
+	e->timestamp = timestamp;
+	return e;
+}
+
+struct chain_coin_mvt *new_foreign_withdrawal(const tal_t *ctx,
+					      const struct bitcoin_outpoint *outpoint,
+					      const struct bitcoin_txid *spend_txid,
+					      struct amount_sat amount,
+					      u32 blockheight,
+					      const char *account,
+					      u64 timestamp)
+{
+	struct chain_coin_mvt *e;
+
+	e = new_chain_coin_mvt_sat(ctx, NULL, account, spend_txid, outpoint, NULL,
+				   blockheight,
+				   mk_mvt_tags(MVT_WITHDRAWAL, MVT_FOREIGN),
+				   COIN_DEBIT,
+				   amount);
+	e->timestamp = timestamp;
+	return e;
 }
 
 const char **mvt_tag_strs(const tal_t *ctx, struct mvt_tags tags)
@@ -557,10 +737,10 @@ struct mvt_tags mk_mvt_tags_(enum mvt_tag tag, ...)
 	va_list ap;
 	struct mvt_tags ret = { 0 };
 
-	tag_set(&ret, tag);
+	mvt_tag_set(&ret, tag);
 	va_start(ap, tag);
 	while ((tag = va_arg(ap, enum mvt_tag)) != 999)
-		tag_set(&ret, tag);
+		mvt_tag_set(&ret, mvt_tag_in_db(tag));
 	va_end(ap);
 	return ret;
 }

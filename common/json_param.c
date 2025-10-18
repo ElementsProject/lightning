@@ -883,6 +883,19 @@ struct command_result *param_txid(struct command *cmd,
 				     "should be a txid");
 }
 
+struct command_result *param_outpoint(struct command *cmd,
+				      const char *name,
+				      const char *buffer,
+				      const jsmntok_t *tok,
+				      struct bitcoin_outpoint **outp)
+{
+	*outp = tal(cmd, struct bitcoin_outpoint);
+	if (json_to_outpoint(buffer, tok, *outp))
+		return NULL;
+	return command_fail_badparam(cmd, name, buffer, tok,
+				     "should be a txid:outnum");
+}
+
 struct command_result *param_bitcoin_address(struct command *cmd,
 					     const char *name,
 					     const char *buffer,
@@ -973,8 +986,7 @@ struct command_result *param_extra_tlvs(struct command *cmd, const char *name,
 		/* Accept either bare ints as keys (not spec
 		 * compliant, but simpler), or ints in strings, which
 		 * are JSON spec compliant. */
-		if (!(json_str_to_u64(buffer, curr, &f->numtype) ||
-		      json_to_u64(buffer, curr, &f->numtype))) {
+		if (!json_to_u64(buffer, curr, &f->numtype)) {
 			return command_fail(
 			    cmd, JSONRPC2_INVALID_PARAMS,
 			    "\"%s\" is not a valid numeric TLV type.",

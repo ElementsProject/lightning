@@ -29,7 +29,7 @@ If you're on a different distribution or OS, you can compile the source by follo
 
 # Docker
 
-To install the Docker image for the latest stable release: 
+To install the Docker image for the latest stable release:
 
 ```shell
 docker pull elementsproject/lightningd:latest
@@ -39,6 +39,12 @@ To install for a specific version, for example, 24.05:
 
 ```shell
 docker pull elementsproject/lightningd:v24.05
+```
+
+To run the Docker container:
+
+```shell
+docker run --rm --init -v /path/on/host/lightning-data:/root/.lightning -p 9735:9735 -p 9835:9835 lightningd
 ```
 
 See all of the docker images for Core Lightning on [Docker Hub](https://hub.docker.com/r/elementsproject/lightningd/tags).
@@ -123,8 +129,8 @@ If you want to build the Rust plugins (cln-grpc, clnrest, cln-bip353 and wss-pro
 sudo apt-get install -y cargo rustfmt protobuf-compiler
 ```
 
-> 📘 
-> 
+> 📘
+>
 > If your build fails because of your Rust version, you might want to check out [rustup](https://rustup.rs/) to install a newer version
 
 
@@ -133,20 +139,20 @@ There are two ways to build core lightning, and this depends on how you want use
 To build CLN for production:
 
 ```shell
-uv sync --all-extras --all-groups
+uv sync --all-extras --all-groups --frozen
 ./configure
 RUST_PROFILE=release uv run make
 sudo RUST_PROFILE=release make install
 ```
 
-> 📘 
-> 
+> 📘
+>
 > If you want to disable Rust because you don’t need it or its plugins (cln-grpc, clnrest, cln-bip353 or wss-proxy), you can use `./configure --disable-rust`.
 
 To build CLN for development:
 
 ```shell
-uv sync --all-extras --all-groups
+uv sync --all-extras --all-groups --frozen
 ./configure
 uv run make
 uv run make check VALGRIND=0
@@ -256,15 +262,15 @@ If you want to compile locally and fiddle with compile time options:
 
 See `/usr/ports/net-p2p/c-lightning/Makefile` for instructions on how to build from an arbitrary git commit, instead of the latest release tag.
 
-> 📘 
-> 
+> 📘
+>
 > Make sure you've set an utf-8 locale, e.g. `export LC_CTYPE=en_US.UTF-8`, otherwise manpage installation may fail.
 
 Running lightning:
 
 Configure bitcoind, if not already: add `rpcuser=<foo>` and `rpcpassword=<bar>` to `/usr/local/etc/bitcoin.conf`, maybe also `testnet=1`.
 
-Configure lightningd: copy `/usr/local/etc/lightningd-bitcoin.conf.sample` to  
+Configure lightningd: copy `/usr/local/etc/lightningd-bitcoin.conf.sample` to
 `/usr/local/etc/lightningd-bitcoin.conf` and edit according to your needs.
 
 ```shell
@@ -344,16 +350,13 @@ export CPATH=/opt/homebrew/include
 export LIBRARY_PATH=/opt/homebrew/lib
 ```
 
-If you need Python 3.x for mako (or get a mako build error):
+Install uv for Python dependency management:
 
 ```shell
-brew install pyenv
-echo -e 'if command -v pyenv 1>/dev/null 2>&1; then\n  eval "$(pyenv init -)"\nfi' >> ~/.bash_profile
-source ~/.bash_profile
-pyenv install 3.9
-pip install --upgrade pip
-pip install poetry==2.0.1
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
+
+After installing uv, restart your shell or run `source ~/.zshrc` to ensure `uv` is in your PATH.
 
 If you don't have bitcoind installed locally you'll need to install that as well:
 
@@ -382,15 +385,15 @@ git checkout v24.05
 Build lightning:
 
 ```shell
-poetry install
+uv sync --all-extras --all-groups --frozen
 ./configure
-poetry run make
+uv run make
 ```
 
 Running lightning:
 
-> 📘 
-> 
+> 📘
+>
 > Edit your `~/Library/Application\ Support/Bitcoin/bitcoin.conf`to include `rpcuser=<foo>` and `rpcpassword=<bar>` first, you may also need to include `testnet=1`.
 
 ```shell
@@ -443,7 +446,7 @@ Launch Core Lightning:
 
 ## To cross-compile for Android
 
-Make a standalone toolchain as per <https://developer.android.com/ndk/guides/standalone_toolchain.html>.  
+Make a standalone toolchain as per <https://developer.android.com/ndk/guides/standalone_toolchain.html>.
 For Core Lightning you must target an API level of 24 or higher.
 
 Depending on your toolchain location and target arch, source env variables such as:
@@ -468,8 +471,8 @@ make clean -C ccan/ccan/cdump/tools \
   && make CC=clang -C ccan/ccan/cdump/tools
 ```
 
-Install the `qemu-user` package.  
-This will allow you to properly configure the build for the target device environment.  
+Install the `qemu-user` package.
+This will allow you to properly configure the build for the target device environment.
 Build with:
 
 ```shell
@@ -496,8 +499,8 @@ export LD=$target_host-ld
 export STRIP=$target_host-strip
 ```
 
-Install the `qemu-user` package. This will allow you to properly configure the  
-build for the target device environment.  
+Install the `qemu-user` package. This will allow you to properly configure the
+build for the target device environment.
 Config the arm elf interpreter prefix:
 
 ```shell
@@ -541,7 +544,7 @@ For all the other Pi devices out there, consider using [Armbian](https://www.arm
 
 You can compile in `customize-image.sh` using the instructions for Ubuntu.
 
-A working example that compiles both bitcoind and Core Lightning for Armbian can  
+A working example that compiles both bitcoind and Core Lightning for Armbian can
 be found [here](https://github.com/Sjors/armbian-bitcoin-core).
 
 ## To compile for Alpine
@@ -585,6 +588,6 @@ apk add libgcc libsodium sqlite-libs zlib
 
 ## Python plugins
 
-Python plugins will be installed with the `poetry install` step mentioned above fron development setup. 
+Python plugins will be installed with the `poetry install` step mentioned above fron development setup.
 
 Other users will need some Python packages if python plugins are used. Unfortunately there are some Python packages which are not packaged in Ubuntu, and so force installation will be needed (Flag `--user` is recommended which will install them in user's own .local directory, so at least the risk of breaking Python globally can be avoided!).

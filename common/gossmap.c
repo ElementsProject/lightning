@@ -694,10 +694,15 @@ static bool map_catchup(struct gossmap *map, bool must_be_clean, bool *changed)
 		reclen = msglen + sizeof(ghdr);
 
 		flags = be16_to_cpu(ghdr.flags);
+
+		/* Not finished, this can happen. */
+		if (!(flags & GOSSIP_STORE_COMPLETED_BIT))
+			break;
+
 		if (flags & GOSSIP_STORE_DELETED_BIT)
 			continue;
 
-		/* Partial write, this can happen. */
+		/* Partial write, should not happen with completed records. */
 		if (map->map_end + reclen > map->map_size)
 			break;
 
@@ -706,8 +711,10 @@ static bool map_catchup(struct gossmap *map, bool must_be_clean, bool *changed)
 			map->logcb(map->cbarg,
 				   LOG_BROKEN,
 				   "Truncated gossmap record @%"PRIu64
-				   "/%"PRIu64" (len %zu): waiting",
-				   map->map_end, map->map_size, msglen);
+				   "/%"PRIu64" (len %zu): waiting%s",
+				   map->map_end, map->map_size, msglen,
+				   gossmap_has_mmap(map) ? " and disabling mmap" : "");
+			gossmap_disable_mmap(map);
 			if (must_be_clean)
 				return false;
  			break;
@@ -725,10 +732,12 @@ static bool map_catchup(struct gossmap *map, bool must_be_clean, bool *changed)
 			map->logcb(map->cbarg,
 				   LOG_BROKEN,
 				   "Bad checksum on gossmap record @%"PRIu64
-				   "/%"PRIu64" should be %u (%s): waiting",
+				   "/%"PRIu64" should be %u (%s): waiting%s",
 				   map->map_end, map->map_size,
 				   be32_to_cpu(ghdr.crc),
-				   tal_hexstr(tmpctx, msgbuf, msglen));
+				   tal_hexstr(tmpctx, msgbuf, msglen),
+				   gossmap_has_mmap(map) ? " and disabling mmap" : "");
+			gossmap_disable_mmap(map);
 			if (must_be_clean)
 				return false;
 			break;
@@ -779,12 +788,9 @@ static bool load_gossip_store(struct gossmap *map, bool must_be_clean)
 	map->local_announces = NULL;
 	map->local_updates = NULL;
 
-	/* gossipd uses pwritev(), which is not consistent with mmap on OpenBSD! */
-#ifndef __OpenBSD__
 	/* If this fails, we fall back to read */
 	map->mmap = mmap(NULL, map->map_size, PROT_READ, MAP_SHARED, map->fd, 0);
 	if (map->mmap == MAP_FAILED)
-#endif /* __OpenBSD__ */
 		map->mmap = NULL;
 
 	/* We only support major version 0 */
@@ -1211,20 +1217,19 @@ bool gossmap_refresh(struct gossmap *map)
 	/* You must remove local modifications before this. */
 	assert(!map->local_announces);
 
-	/* If file has gotten larger, try rereading */
+	/* If file has gotten larger, remap */
 	len = lseek(map->fd, 0, SEEK_END);
-	if (len == map->map_size)
-		return false;
+	if (len != map->map_size) {
+		if (map->mmap)
+			munmap(map->mmap, map->map_size);
+		map->map_size = len;
 
-	if (map->mmap)
-		munmap(map->mmap, map->map_size);
-	map->map_size = len;
-	/* gossipd uses pwritev(), which is not consistent with mmap on OpenBSD! */
-#ifndef __OpenBSD__
-	map->mmap = mmap(NULL, map->map_size, PROT_READ, MAP_SHARED, map->fd, 0);
-	if (map->mmap == MAP_FAILED)
-#endif /* __OpenBSD__ */
-		map->mmap = NULL;
+		if (map->mmap) {
+			map->mmap = mmap(NULL, map->map_size, PROT_READ, MAP_SHARED, map->fd, 0);
+			if (map->mmap == MAP_FAILED)
+				map->mmap = NULL;
+		}
+	}
 
 	map_catchup(map, false, &changed);
 	return changed;
@@ -1857,16 +1862,14 @@ int gossmap_fd(const struct gossmap *map)
 	return map->fd;
 }
 
-const u8 *gossmap_fetch_tail(const tal_t *ctx, const struct gossmap *map)
+bool gossmap_has_mmap(const struct gossmap *map)
 {
-	size_t len;
-	u8 *p;
+	return map->mmap != NULL;
+}
 
-	/* Shouldn't happen... */
-	if (map->map_end > map->map_size)
-		return NULL;
-	len = map->map_size - map->map_end;
-	p = tal_arr(ctx, u8, len);
-	map_copy(map, map->map_size, p, len);
-	return p;
+void gossmap_disable_mmap(struct gossmap *map)
+{
+	if (map->mmap)
+		munmap(map->mmap, map->map_size);
+	map->mmap = NULL;
 }

@@ -9,19 +9,19 @@ export LANG LC_ALL
 for arg; do
     case "$arg" in
     --force-version=*)
-	    FORCE_VERSION=${arg#*=}
+	FORCE_VERSION=${arg#*=}
         ;;
-	--force-mtime=*)
-	    FORCE_MTIME=${arg#*=}
-	    ;;
-	--help)
-	    echo "Usage: [--force-version=<ver>] [--force-mtime=YYYY-MM-DD]"
-	    exit 0
-	    ;;
-	*)
-	    echo "Unknown arg $arg" >&2
-	    exit 1
-	    ;;
+    --force-mtime=*)
+	FORCE_MTIME=${arg#*=}
+	;;
+    --help)
+	echo "Usage: [--force-version=<ver>] [--force-mtime=YYYY-MM-DD]"
+	exit 0
+	;;
+    *)
+	echo "Unknown arg $arg" >&2
+	exit 1
+	;;
     esac
     shift
 done
@@ -56,6 +56,7 @@ fi
 ARCH=$(dpkg --print-architecture)
 PLATFORM="$OS"-"$VER"
 VERSION=${FORCE_VERSION:-$(git describe --tags --always --dirty=-modded --abbrev=7 2>/dev/null || pwd | sed -n 's,.*/clightning-\(v[0-9.rc\-]*\)$,\1,p')}
+MAKEPAR=${MAKEPAR:-1}
 
 # eg. ## [0.6.3] - 2019-01-09: "The Smallblock Conspiracy"
 # Skip 'v' here in $VERSION
@@ -133,7 +134,7 @@ cc3f9f7a1e576173fb59c36652c0a67c6426feae752b352404ba92dfcb1b26c9  /var/cache/apt
 5ae9a98e73545002cd891f028859941af2a3c760cb6190e635c7ef36953912de  /var/cache/apt/archives/automake_1%3a1.16.5-1.3ubuntu1_all.deb
 0e0bb8b25153ed1c44ab92bc219eed469fcb5820c5c0bc6454b2fd366a33d3ee  /var/cache/apt/archives/gcc_4%3a13.2.0-7ubuntu1_amd64.deb
 f11b4d687a305dd7ee47a384d82a9bf04de913362df9efa67d2a029ae65051a9  /var/cache/apt/archives/libsodium-dev_1.0.18-1build3_amd64.deb
-f476da62789a23baa8a972973163d88ae96fca1a356f9421728997ae6489ccd0  /var/cache/apt/archives/libsqlite3-dev_3.45.1-1ubuntu2.4_amd64.deb
+5131ce3d7cdb7193bcef1b402741a0e0f436e25a50e65443fffcc7064e2cd780  /var/cache/apt/archives/libsqlite3-dev_3.45.1-1ubuntu2.5_amd64.deb
 9d1d707179675d38e024bb13613b1d99e0d33fa6c45e5f3bcba19340781781d3  /var/cache/apt/archives/libtool_2.4.7-7build1_all.deb
 1fe6a815b56c7b6e9ce4086a363f09444bbd0a0d30e230c453d0b78e44b57a99  /var/cache/apt/archives/make_4.3-4.1build2_amd64.deb
 023cbe9dbf0af87f10e54e342c67571874e412b9950d89c6cd7b010be2e67c3c  /var/cache/apt/archives/zlib1g-dev_1%3a1.3.dfsg-3.1ubuntu2.1_amd64.deb
@@ -160,8 +161,8 @@ $INST $(cut -c66- < /tmp/SHASUMS)
 # Once everyone has gcc8, we can use CC="gcc -ffile-prefix-map=$(pwd)=/home/clightning"
 ./configure --prefix=/usr CC="gcc -fdebug-prefix-map=$(pwd)=/home/clightning"
 # libwally wants "python".  Seems to work to force it here.
-make PYTHON_VERSION=3 VERSION="$VERSION"
-make install DESTDIR=inst/
+make -j"$MAKEPAR" PYTHON_VERSION=3 VERSION="$VERSION"
+make -j"$MAKEPAR" install DESTDIR=inst/
 
 cd inst && tar --sort=name \
       --mtime="$MTIME 00:00Z" \

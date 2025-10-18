@@ -1,24 +1,24 @@
 [project]
 name = "pyln-proto"
-version = "25.05"
+version = "25.09"
 description = "This package implements some of the Lightning Network protocol in pure python. It is intended for protocol testing and some minor tooling only. It is not deemed secure enough to handle any amount of real funds (you have been warned!)."
 authors = [
     {name = "Christian Decker", email = "decker.christian@gmail.com"}
 ]
 license = {text = "BSD-MIT"}
 readme = "README.md"
-requires-python = ">=3.8,<4.0"
+requires-python = ">=3.9.2,<4.0"
 dependencies = [
     "base58>=2.1.1",
-    "bitstring>=4.1.0",
+    "bitstring>=4.3.0",
     "coincurve==20.0.0",
-    "cryptography>=42",
+    "cryptography>=46",
     "PySocks>=1"
 ]
 
 [dependency-groups]
 dev = [
-  "pytest>=7.0.0"
+  "pytest>=8.0.0"
 ]
 
 [tool.hatch.build.targets.wheel]

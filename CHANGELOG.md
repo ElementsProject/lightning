@@ -3,6 +3,125 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+## [25.09] - 2025-09-01: "Hot Wallet Guardian"
+
+This release named by @king-11.
+
+Note: release schedule moved one month: this is v25.09, and all deprecations incremented accordingly. ([#8370])
+
+### Added
+
+ - JSON-RPC: `xpay` can now directly pay a BIP353 address, like `₿rusty@rustcorp.com.au`. ([#8467])
+ - JSON-RPC: `xpay` can now pay a simple offer directly, rather than requiring fetchinvoice first. ([#8467])
+ - JSON-RPC: `listchainmoves` and `listchannelmoves` commands to access the audit log of coin movements. ([#8410])
+ - `reckless` can now install python plugins using the uv package manager. ([#8430])
+ - JSON-RPC: `getroutes` new parameter `maxparts` to limit the number of routes in the solution. ([#8448])
+ - Plugins: `openchannel` and `openchannel2` hooks now expose the `channel_type` field for the offered channel. ([#8454])
+ - Plugins: The `htlc_accepted_hook` now gets the TLV-stream ([#8433])
+ - Plugins: `xpay` now publishes `pay_part_start` and `pay_part_end` notifications on every payment send attempt. ([#8354])
+ - JSON-RPC: `sql` also supports functions `json_object(key1, value1, ...)` to construct JSON objects and `json_group_array(value)` to aggregate rows into JSON array. ([#8446])
+ - clnrest: can now return successful responses as xml, yaml, or form-encoded in addition to json defined in the 'Accept' header. The same goes for request types defined in the 'Content-type' header. ([#8383])
+ - JSON-RPC: `getroutes` now performs better when using the "auto.no_mpp_support" layer (for forced single-part payments) ([#8299])
+ - contrib/log_visualizer.html: A new tool for rendering CLN log files in the browser. ([#7725])
+ - hsmtool: new `derivetoremote` method. ([#7344])
+ - JSON-RPC: `sql` plugin now supports `chainmoves` and `channelmoves` tables. ([#8410])
+ - JSON-RPC: `wait`: new subsystems `chainmoves` and `channelmoves`. ([#8410])
+ - Plugins: `channel_hint_update`, `pay_failure` and `pay_success` notifications now have objects of the same name containing the expected fields. ([#8376])
+ - JSON-RPC: `coin_movement` notification `utxo` field. ([#8445])
+ - JSON-RPC: `coin_movement` notification `spending_txid` field. ([#8445])
+ - JSON-RPC: `coin_movement` notification `primary_tag` and `extra_tags`. ([#8445])
+ - Plugins: `coin_movement` notification with `part_id` field now always has `group_id` field. ([#8445])
+
+
+### Changed
+
+ - Build: we now use `uv` to build instead of poetry: see doc/getting-started/getting-started/installation.md ([#8249])
+ - Protocol: We now insist that peers support `option_channel_type` (in CLN since 0.12.0 in late 2022, similar for other implementations). ([#8389])
+ - Protocol: payment secret ('s' field) is now mandatory in BOLT11 payment requests for improved security. ([#8377])
+ - Protocol: Offers on nodes with only private channels are now payable (i.e. no more blinded path errors!). ([#8500])
+ - wss-proxy.py was replaced by a rust version with support for multiple `wss-bind-addr`. If you install CLN from pre-compiled binaries you must remove the old wss-proxy directory first before installing CLN, usually ([#8080])
+ - pyln-client: plugin notifications parameters now exposed directly, not wrapped in `params` object. ([#8376])
+ - Plugins: `bookkeeper` now explicitly assumes every transaction is in the same currency as the node (true unless you added manually) ([#8445])
+ - JSON-RPC: fundchannel / fundchannel_start returned `channel_type` will include option_zeroconf if it was implied by a 0 minimum_depth, even if we didn't explicitly ask for a zero conf channel. ([#8389])
+ - build: we now require sqlite3 version 3.26 or above (released 2018-12-01). ([#8418])
+ - Plugins: `bookkeeper` now uses the lightningd database, not "accounts.db". ([#8410])
+ - libplugin: you can now call the synchronous API functions at any time (not just in the init callback). ([#8410])
+ - Plugins: "utxo_deposit" notification is allowed to have missing `transfer_from`, and null is not considered an account name. ([#8410])
+ - Plugins: `sql` tables `forwards`, `htlcs`, `invoices`, `sendpays` all use `created_index` as their primary key (and `rowid` is now an alias to this). ([#8410])
+ - Rust: custom notifications fields no longer wrapped in `payload` object, and `origin` is now outside the `params` object ([#8376])
+
+
+### Deprecated
+
+Note: You should always set `allow-deprecated-apis=false` to test for changes.
+
+ - Plugins: `channel_hint_update`, `pay_failure` and `pay_success` notification fields outside the same-named object. ([#8376])
+ - pyln-client: plugin custom notifications `origin` and `payload` (use parameters directly) ([#8376])
+ - JSON-RPC: `coin_movement` notification `utxo_txid`, `vout` and `txid` fields (use `utxo` and `spending_txid`). ([#8445])
+ - JSON-RPC: `coin_movement` notification `tags` array (use `primary_tag` and `extra_tags`). ([#8445])
+
+
+### Removed
+
+ - Protocol: backwards compatibility allowances for CLN before 23.08 which didn't handle `option_scid_alias` properly. ([#8389])
+ - Config: `experimental-anchors` and `experimental-onion-messages` (deprecated 24.02 / 24.08, disabled v25.05). ([#8352])
+ - JSON-RPC: `commando-rune`, `commando-listrunes`, `commando-blacklist` (deprecated v23.08, disabled v25.05). ([#8352])
+ - Config: autodetection for rest-port/rest-protocol/rest-host/rest-certs options to clnrest-* (deprecated v23.11, disabled v25.02). ([#8352])
+ - Config: `max-locktime-blocks` (deprecated v24.05, disabled v25.02). ([#8352])
+
+
+### Fixed
+
+ - Certificates auto-generated by grpc-plugin, rest-plugin, and wss-proxy-plugin now include the required Authority Key Identifier and Key Usages extensions. ([#8495])
+ - JSON-RPC: `fetchinvoice` is now more reliable. ([#8470])
+ - lightningd: don't get confused with parallel ping commands. ([#8344])
+ - libbacktrace works with macOS, so we get backtraces on crashes ([#8431])
+ - Protocol: trying to create a channel below our own min-capacity-sat will now fail before asking the peer, not with an error blaming the peer when they accept! ([#8468])
+ - Config: the node no longer crashes if you set `watchtime-blocks` to 0 (which is fine for testing: don't do this on mainnet!). ([#8436])
+
+
+### EXPERIMENTAL
+
+ - Protocol: support for `start_batch` in splicing makes us Eclair compatible! ([#8335])
+ - Protocol: we now allow routing through old short-channel-ids once a splice is done (previously we would refuse, leading to a 6 block gap in service). ([#8387])
+ - Config: Removed the non-functional `experimental-upgrade-protocol` config option. ([#8377])
+
+
+
+[#8495]: https://github.com/ElementsProject/lightning/pull/8495
+[#8500]: https://github.com/ElementsProject/lightning/pull/8500
+[#8376]: https://github.com/ElementsProject/lightning/pull/8376
+[#8436]: https://github.com/ElementsProject/lightning/pull/8436
+[#8389]: https://github.com/ElementsProject/lightning/pull/8389
+[#8431]: https://github.com/ElementsProject/lightning/pull/8431
+[#8430]: https://github.com/ElementsProject/lightning/pull/8430
+[#8418]: https://github.com/ElementsProject/lightning/pull/8418
+[#8445]: https://github.com/ElementsProject/lightning/pull/8445
+[#8470]: https://github.com/ElementsProject/lightning/pull/8470
+[#8370]: https://github.com/ElementsProject/lightning/pull/8370
+[#8446]: https://github.com/ElementsProject/lightning/pull/8446
+[#8448]: https://github.com/ElementsProject/lightning/pull/8448
+[#8080]: https://github.com/ElementsProject/lightning/pull/8080
+[#8468]: https://github.com/ElementsProject/lightning/pull/8468
+[#8433]: https://github.com/ElementsProject/lightning/pull/8433
+[#8383]: https://github.com/ElementsProject/lightning/pull/8383
+[#7725]: https://github.com/ElementsProject/lightning/pull/7725
+[#8467]: https://github.com/ElementsProject/lightning/pull/8467
+[#8454]: https://github.com/ElementsProject/lightning/pull/8454
+[#8352]: https://github.com/ElementsProject/lightning/pull/8352
+[#8299]: https://github.com/ElementsProject/lightning/pull/8299
+[#8377]: https://github.com/ElementsProject/lightning/pull/8377
+[#8363]: https://github.com/ElementsProject/lightning/pull/8363
+[#8335]: https://github.com/ElementsProject/lightning/pull/8335
+[#8354]: https://github.com/ElementsProject/lightning/pull/8354
+[#8344]: https://github.com/ElementsProject/lightning/pull/8344
+[#8387]: https://github.com/ElementsProject/lightning/pull/8387
+[#7344]: https://github.com/ElementsProject/lightning/pull/7344
+[#8410]: https://github.com/ElementsProject/lightning/pull/8410
+[#8249]: https://github.com/ElementsProject/lightning/pull/8249
+[25.09]: https://github.com/ElementsProject/lightning/releases/tag/v25.09
+
+
 
 ## [25.05] - 2025-06-16: "Satoshi's OP_RETURN Opinion"
 

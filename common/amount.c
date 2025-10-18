@@ -336,6 +336,9 @@ WARN_UNUSED_RESULT bool amount_msat_scale(struct amount_msat *val,
 					  struct amount_msat msat,
 					  double scale)
 {
+	if (scale != scale || scale < 0)
+		return false;
+
 	double scaled = msat.millisatoshis * scale;
 
 	/* If mantissa is < 64 bits, a naive "if (scaled >
@@ -350,6 +353,9 @@ WARN_UNUSED_RESULT bool amount_sat_scale(struct amount_sat *val,
 					 struct amount_sat sat,
 					 double scale)
 {
+	if (scale != scale || scale < 0)
+		return false;
+
 	double scaled = sat.satoshis * scale;
 
 	/* If mantissa is < 64 bits, a naive "if (scaled >

@@ -51,8 +51,8 @@ bool param(struct command *cmd, const char *buffer,
 
 /*
  * Version which *doesn't* fail if command_check_only(cmd) is true:
- * allows you can do extra checks after, but MUST still fail with
- * command_param_failed(); if command_check_only(cmd) is true! */
+ * allows you can do extra checks after, but MUST terminate
+ * with command_check_done() if command_check_only(cmd) is true! */
 bool param_check(struct command *cmd,
 		 const char *buffer,
 		 const jsmntok_t tokens[], ...) LAST_ARG_NULL;
@@ -321,6 +321,12 @@ struct command_result *param_txid(struct command *cmd,
 				  const char *buffer,
 				  const jsmntok_t *tok,
 				  struct bitcoin_txid **txid);
+
+struct command_result *param_outpoint(struct command *cmd,
+				      const char *name,
+				      const char *buffer,
+				      const jsmntok_t *tok,
+				      struct bitcoin_outpoint **outp);
 
 enum address_parse_result {
 	/* Not recognized as an onchain address */

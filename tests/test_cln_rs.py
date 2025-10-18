@@ -1,7 +1,7 @@
 from fixtures import *  # noqa: F401,F403
 from pathlib import Path
 from pyln import grpc as clnpb
-from pyln.testing.utils import env, TEST_NETWORK, wait_for, sync_blockheight, TIMEOUT, RpcError
+from pyln.testing.utils import RUST, TEST_NETWORK, wait_for, sync_blockheight, TIMEOUT, RpcError
 from utils import first_scid
 import grpc
 import pytest
@@ -11,7 +11,7 @@ import re
 
 # Skip the entire module if we don't have Rust.
 pytestmark = pytest.mark.skipif(
-    env('RUST') != '1',
+    not RUST,
     reason='RUST is not enabled skipping rust-dependent tests'
 )
 
@@ -129,9 +129,9 @@ def test_grpc_connect(node_factory):
     key_path = p / "client-key.pem"
     ca_cert_path = p / "ca.pem"
     creds = grpc.ssl_channel_credentials(
-        root_certificates=ca_cert_path.open('rb').read(),
-        private_key=key_path.open('rb').read(),
-        certificate_chain=cert_path.open('rb').read()
+        root_certificates=ca_cert_path.read_bytes(),
+        private_key=key_path.read_bytes(),
+        certificate_chain=cert_path.read_bytes()
     )
 
     wait_for_grpc_start(l1)
@@ -196,15 +196,15 @@ def test_grpc_generate_certificate(node_factory):
     assert [f.exists() for f in files] == [True] * len(files)
 
     # The files exist, restarting should not change them
-    contents = [f.open().read() for f in files]
+    contents = [f.read_bytes() for f in files]
     l1.restart()
-    assert contents == [f.open().read() for f in files]
+    assert contents == [f.read_bytes() for f in files]
 
     # Now we delete the last file, we should regenerate it as well as its key
     files[-1].unlink()
     l1.restart()
-    assert contents[-2] != files[-2].open().read()
-    assert contents[-1] != files[-1].open().read()
+    assert contents[-2] != files[-2].read_bytes()
+    assert contents[-1] != files[-1].read_bytes()
 
     keys = [f for f in files if f.name.endswith('-key.pem')]
     modes = [f.stat().st_mode for f in keys]
@@ -241,7 +241,7 @@ def test_grpc_wrong_auth(node_factory):
 
     def connect(node):
         p = Path(node.daemon.lightning_dir) / TEST_NETWORK
-        cert, key, ca = [f.open('rb').read() for f in [
+        cert, key, ca = [f.read_bytes() for f in [
             p / 'client.pem',
             p / 'client-key.pem',
             p / "ca.pem"]]
@@ -464,15 +464,11 @@ def test_grpc_custommsg_notification(node_factory):
 def test_bip353(node_factory):
     l1 = node_factory.get_node()
 
-    bip353_result = l1.rpc.call("fetchbip353", "send.some@satsto.me")
+    bip353_result = l1.rpc.call("fetchbip353", "rusty@rustcorp.com.au")
 
     assert "proof" in bip353_result
-    assert len(bip353_result["instructions"]) == 2
-    for instruction in bip353_result["instructions"]:
-        if "offer" in instruction:
-            assert instruction["offer"] == "lno1zr5qyugqgskrk70kqmuq7v3dnr2fnmhukps9n8hut48vkqpqnskt2svsqwjakp7k6pyhtkuxw7y2kqmsxlwruhzqv0zsnhh9q3t9xhx39suc6qsr07ekm5esdyum0w66mnx8vdquwvp7dp5jp7j3v5cp6aj0w329fnkqqv60q96sz5nkrc5r95qffx002q53tqdk8x9m2tmt85jtpmcycvfnrpx3lr45h2g7na3sec7xguctfzzcm8jjqtj5ya27te60j03vpt0vq9tm2n9yxl2hngfnmygesa25s4u4zlxewqpvp94xt7rur4rhxunwkthk9vly3lm5hh0pqv4aymcqejlgssnlpzwlggykkajp7yjs5jvr2agkyypcdlj280cy46jpynsezrcj2kwa2lyr8xvd6lfkph4xrxtk2xc3lpq"
-        if "onchain" in instruction:
-            assert instruction["onchain"] == "bc1qztwy6xen3zdtt7z0vrgapmjtfz8acjkfp5fp7l"
+    assert bip353_result["instructions"] == [{'description': 'Rusty via BIP353',
+                                              'offer': 'lno1pgg9yatnw3ujqanfvysyyj2sxv6nx93pqf9e58aguqr0rcun0ajlvmzq3ek63cw2w282gv3z5uupmuwvgjtq2'}]
 
     with pytest.raises(RpcError, match=r"failed to fetch payment instructions"):
         l1.rpc.call("fetchbip353", "invalid@address")

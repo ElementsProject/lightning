@@ -315,29 +315,20 @@ static struct command_result *prev_payment(struct command *cmd,
 			continue;
 
 		/* BOLT-recurrence #12:
-		 * - if the offer contained `recurrence_base` with
-		 *   `start_any_period` non-zero:
-		 *   - MUST include `recurrence_start`
-		 *   - MUST set `period_offset` to the period the sender wants
-		 *     for the initial request
-		 *   - MUST set `period_offset` to the same value on all
-		 *     following requests.
+		 * - if `offer_recurrence_base` is present:
+		 *   - MUST include `invreq_recurrence_start`
+		 *   - MUST set `period_offset` to the period the sender wants for the
+		 *     initial request
+		 *   - MUST set `period_offset` to the same value on all following requests.
 		 */
-		if (invreq->invreq_recurrence_start) {
-			if (!inv->invreq_recurrence_start)
-				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-						    "unexpected"
-						    " recurrence_start");
-			if (*inv->invreq_recurrence_start != *invreq->invreq_recurrence_start)
-				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-						    "recurrence_start was"
-						    " previously %u",
-						    *inv->invreq_recurrence_start);
-		} else {
-			if (inv->invreq_recurrence_start)
-				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-						    "missing"
-						    " recurrence_start");
+		if (inv->invreq_recurrence_start
+		    && invreq->invreq_recurrence_start
+		    && *inv->invreq_recurrence_start != *invreq->invreq_recurrence_start) {
+			tal_free(stmt);
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "recurrence_start was"
+					    " previously %u",
+					    *inv->invreq_recurrence_start);
 		}
 
 		/* They should all have the same basetime */

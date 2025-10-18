@@ -21,7 +21,7 @@ from urllib.error import HTTPError
 import venv
 
 
-__VERSION__ = '25.05'
+__VERSION__ = '25.09'
 
 logging.basicConfig(
     level=logging.INFO,
@@ -30,6 +30,19 @@ logging.basicConfig(
 )
 
 LAST_FOUND = None
+
+
+def chunk_string(string: str, size: int):
+    for i in range(0, len(string), size):
+        yield string[i: i + size]
+
+
+def ratelimit_output(output: str):
+    sys.stdout.reconfigure(encoding='utf-8')
+    for i in chunk_string(output, 1024):
+        sys.stdout.write(i)
+        sys.stdout.flush()
+        time.sleep(0.01)
 
 
 class Logger:
@@ -89,7 +102,8 @@ class Logger:
            isinstance(log.json_output["result"][0], list):
             # unpack sources output
             log.json_output["result"] = log.json_output["result"][0]
-        print(json.dumps(log.json_output, indent=3))
+        output = json.dumps(log.json_output, indent=3) + '\n'
+        ratelimit_output(output)
 
 
 log = Logger()
@@ -312,7 +326,7 @@ class InstInfo:
                     return False
                 log.debug(f"falling back to cloning remote repo {self}")
                 # Update to reflect use of a local clone
-                self.source_loc = target.location
+                self.source_loc = str(target.location)
                 self.srctype = target.srctype
                 result = search_dir(self, target, False, 5)
 
@@ -1027,7 +1041,7 @@ def install_python_uv_legacy(cloned_plugin: InstInfo):
     (Path(cloned_plugin.source_loc) / 'requirements.txt').\
         symlink_to(source / 'requirements.txt')
 
-    venv = run(['uv', '-v', 'venv'], cwd=str(cloned_plugin.source_loc),
+    venv = run(['uv', 'venv'], cwd=str(cloned_plugin.source_loc),
                stdout=PIPE, stderr=PIPE, text=True, check=False)
     if venv.returncode != 0:
         for line in venv.stderr.splitlines():
@@ -1041,7 +1055,7 @@ def install_python_uv_legacy(cloned_plugin: InstInfo):
     # Running this as a shell allows overriding any active virtual environment
     # which would make uv skip installing packages already present in the
     # current env.
-    call = ['. .venv/bin/activate; uv -v pip install -r requirements.txt']
+    call = ['. .venv/bin/activate; uv pip install -r requirements.txt']
     uv = run(call, shell=True, cwd=str(cloned_plugin.source_loc),
              stdout=PIPE, stderr=PIPE, text=True, check=False)
     if uv.returncode != 0:
@@ -1135,7 +1149,7 @@ def _source_search(name: str, src: str) -> Union[InstInfo, None]:
             if _git_update(source, local_clone_location):
                 log.debug(f"Using local clone of {src}: "
                           f"{local_clone_location}")
-                source.source_loc = local_clone_location
+                source.source_loc = str(local_clone_location)
                 source.srctype = Source.GIT_LOCAL_CLONE
 
     if source.get_inst_details():
@@ -1341,7 +1355,7 @@ def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
     if not cloned_src.entry:
         # The plugin entrypoint may not be discernable prior to cloning.
         # Need to search the newly cloned directory, not the original
-        cloned_src.source_loc = plugin_path
+        cloned_src.source_loc = str(plugin_path)
 
     # Relocate plugin to a staging directory prior to testing
     if not Path(inst_path).exists():

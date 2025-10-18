@@ -1235,13 +1235,13 @@ def test_forward(node_factory, bitcoind):
     route = copy.deepcopy(baseroute)
     l1.rpc.sendpay(route, rhash, payment_secret=inv['payment_secret'])
     l1.rpc.waitsendpay(rhash)
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
 
     # Check that invoice payment and fee are tracked appropriately
-    l1.daemon.wait_for_log('coin_move .* [(]invoice[)]')
     l1.rpc.bkpr_dumpincomecsv('koinly', 'koinly.csv')
 
     koinly_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'koinly.csv')
-    koinly_csv = open(koinly_path, 'rb').read()
+    koinly_csv = Path(koinly_path).read_bytes()
     expected_line = r'0.00100000000,.*,,,0.00000001001,.*,invoice'
     assert only_one(re.findall(expected_line, str(koinly_csv)))
 
@@ -1441,9 +1441,8 @@ def test_forward_pad_fees_and_cltv(node_factory, bitcoind):
     # the balance on l3 should equal the invoice
     accts = l3.rpc.bkpr_listbalances()['accounts']
     assert len(accts) == 2
-    wallet = accts[0]
-    chan_acct = accts[1]
-    assert wallet['account'] == 'wallet'
+    wallet = only_one([a for a in accts if a['account'] == 'wallet'])
+    chan_acct = only_one([a for a in accts if a['account'] != 'wallet'])
     # We no longer make a zero balance entry for the wallet at start
     assert wallet['balances'] == []
     assert incomes[0]['tag'] == 'invoice'
@@ -4392,8 +4391,7 @@ def test_offer(node_factory, bitcoind):
               ['10weeks', 'days', 70],
               ['1month', 'months', 1],
               ['10months', 'months', 10],
-              ['1year', 'years', 1],
-              ['10years', 'years', 10]]:
+              ['120months', 'months', 120]]:
         ret = l1.rpc.call('offer', {
             'amount': '100000sat',
             'description': 'quantity_max test',
@@ -4403,7 +4401,7 @@ def test_offer(node_factory, bitcoind):
         offer = only_one(l1.rpc.call('listoffers', [ret['offer_id']])['offers'])
         output = subprocess.check_output([bolt12tool, 'decode',
                                           offer['bolt12']]).decode('UTF-8')
-        assert 'recurrence: every {} {}\n'.format(r[2], r[1]) in output
+        assert 'recurrence_compulsory: every {} {}\n'.format(r[2], r[1]) in output
 
     # Test limit
     ret = l1.rpc.call('offer', {'amount': '100000sat',
@@ -4413,28 +4411,10 @@ def test_offer(node_factory, bitcoind):
     offer = only_one(l1.rpc.call('listoffers', [ret['offer_id']])['offers'])
     output = subprocess.check_output([bolt12tool, 'decode',
                                       offer['bolt12']]).decode('UTF-8')
-    assert 'recurrence: every 600 seconds limit 5\n' in output
+    assert 'recurrence_compulsory: every 600 seconds limit 5\n' in output
 
     # Test base
     # (1456740000 == 10:00:00 (am) UTC on 29 February, 2016)
-
-    # Cannot use recurrence_start_any_period without recurrence_base
-    with pytest.raises(RpcError, match='Cannot set to false without specifying recurrence_base'):
-        l1.rpc.call('offer', {'amount': '100000sat',
-                              'description': 'quantity_max test',
-                              'recurrence': '10minutes',
-                              'recurrence_start_any_period': False})
-
-    ret = l1.rpc.call('offer', {'amount': '100000sat',
-                                'description': 'quantity_max test',
-                                'recurrence': '10minutes',
-                                'recurrence_base': 1456740000,
-                                'recurrence_start_any_period': False})
-    offer = only_one(l1.rpc.call('listoffers', [ret['offer_id']])['offers'])
-    output = subprocess.check_output([bolt12tool, 'decode',
-                                      offer['bolt12']]).decode('UTF-8')
-    assert 'recurrence: every 600 seconds start 1456740000' in output
-    assert '(can start any period)' not in output
 
     ret = l1.rpc.call('offer', {'amount': '100000sat',
                                 'description': 'quantity_max test',
@@ -4443,8 +4423,7 @@ def test_offer(node_factory, bitcoind):
     offer = only_one(l1.rpc.call('listoffers', [ret['offer_id']])['offers'])
     output = subprocess.check_output([bolt12tool, 'decode',
                                       offer['bolt12']]).decode('UTF-8')
-    assert 'recurrence: every 600 seconds start 1456740000' in output
-    assert '(can start any period)' in output
+    assert 'recurrence_compulsory: every 600 seconds start 1456740000' in output
 
     # Test paywindow
     ret = l1.rpc.call('offer', {'amount': '100000sat',
@@ -4454,24 +4433,28 @@ def test_offer(node_factory, bitcoind):
     offer = only_one(l1.rpc.call('listoffers', [ret['offer_id']])['offers'])
     output = subprocess.check_output([bolt12tool, 'decode',
                                       offer['bolt12']]).decode('UTF-8')
-    assert 'recurrence: every 600 seconds paywindow -10 to +20\n' in output
+    assert 'recurrence_compulsory: every 600 seconds paywindow -10 to +20\n' in output
 
     ret = l1.rpc.call('offer', {'amount': '100000sat',
                                 'description': 'quantity_max test',
                                 'recurrence': '10minutes',
-                                'recurrence_paywindow': '-10+600%'})
+                                'recurrence_base': 1456740000,
+                                'proportional_amount': True})
     offer = only_one(l1.rpc.call('listoffers', [ret['offer_id']])['offers'])
     output = subprocess.check_output([bolt12tool, 'decode',
                                       offer['bolt12']]).decode('UTF-8')
-    assert 'recurrence: every 600 seconds paywindow -10 to +600 (pay proportional)\n' in output
+    assert '(pay proportional)\n' in output
 
-    # This is deprecated:
-    l1.rpc.jsonschemas = {}
-    with pytest.raises(RpcError, match='invalid token'):
-        l1.rpc.call('offer', {'amount': '100000sat',
-                              'description': 'test deprecated recurrence_base',
-                              'recurrence': '10minutes',
-                              'recurrence_base': '@1456740000'})
+    # Optional variant
+    ret = l1.rpc.call('offer', {'amount': '100000sat',
+                                'description': 'quantity_max test',
+                                'recurrence': '10minutes',
+                                'recurrence_limit': 5,
+                                'optional_recurrence': True})
+    offer = only_one(l1.rpc.call('listoffers', [ret['offer_id']])['offers'])
+    output = subprocess.check_output([bolt12tool, 'decode',
+                                      offer['bolt12']]).decode('UTF-8')
+    assert 'recurrence_optional: every 600 seconds limit 5\n' in output
 
 
 def test_offer_deprecated_api(node_factory, bitcoind):
@@ -4742,6 +4725,26 @@ def test_fetchinvoice_recurrence(node_factory, bitcoind):
                                      'recurrence_label': 'test paywindow'})
 
 
+def test_recurrence_expired_offer(node_factory, bitcoind):
+    """We *can* use an expired offer for successive recurrences"""
+    l1, l2 = node_factory.line_graph(2)
+
+    offer = l2.rpc.offer(amount='1msat',
+                         description='paywindow test',
+                         recurrence='20seconds',
+                         absolute_expiry=int(time.time()) + 15)
+    ret = l1.rpc.fetchinvoice(offer=offer['bolt12'],
+                              recurrence_counter=0,
+                              recurrence_label='test_recurrence_expired_offer')
+    l1.rpc.pay(ret['invoice'], label='test_recurrence_expired_offer')
+
+    time.sleep(16)
+    ret = l1.rpc.fetchinvoice(offer=offer['bolt12'],
+                              recurrence_counter=1,
+                              recurrence_label='test_recurrence_expired_offer')
+    l1.rpc.pay(ret['invoice'], label='test_recurrence_expired_offer')
+
+
 def test_fetchinvoice_autoconnect(node_factory, bitcoind):
     """We should autoconnect if we need to, to route."""
 
@@ -4782,6 +4785,18 @@ def test_fetchinvoice_autoconnect(node_factory, bitcoind):
     l3.rpc.call('sendinvoice', {'invreq': invreq['bolt12'], 'label': 'payme for real!'})
     # It will have autoconnected, to send invoice (since l1 says it doesn't do onion messages!)
     assert l3.rpc.listpeers(l2.info['id'])['peers'] != []
+
+
+def test_fetchinvoice_autoconnect_if_disconnected(node_factory, bitcoind):
+    """If peer is disconnected, we should NOT try to use it"""
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
+                                         opts={'dev-allow-localhost': None})
+
+    offer = l3.rpc.offer(amount='2msat', description='test_fetchinvoice_autoconnect_if_disconnected1')['bolt12']
+    l1.rpc.fetchinvoice(offer)
+
+    l1.rpc.disconnect(l2.info['id'], force=True)
+    l1.rpc.fetchinvoice(offer)
 
 
 def test_fetchinvoice_disconnected_reply(node_factory, bitcoind):
@@ -5430,7 +5445,7 @@ def test_invoice_pay_desc_with_quotes(node_factory):
     invoice = l2.rpc.invoice(label="test12345", amount_msat=1000,
                              description=description, deschashonly=True)["bolt11"]
 
-    l1.rpc.decodepay(invoice, description)
+    l1.rpc.decode(invoice)
 
     # pay an invoice
     l1.rpc.pay(invoice, description=description)
@@ -6037,7 +6052,8 @@ def test_fetch_no_description_with_amount(node_factory):
 
 def test_decodepay(node_factory, chainparams):
     """Test we don't break (deprecated) decodepay command"""
-    l1 = node_factory.get_node(options={'allow-deprecated-apis': True})
+    l1 = node_factory.get_node(options={'allow-deprecated-apis': True},
+                               broken_log="DEPRECATED API USED decodepay")
 
     addr1 = l1.rpc.newaddr('bech32')['bech32']
     addr2 = '2MxqzNANJNAdMjHQq8ZLkwzooxAFiRzXvEz' if not chainparams['elements'] else 'XGx1E2JSTLZLmqYMAo3CGpsco85aS7so33'
@@ -7003,3 +7019,74 @@ def test_sendonion_sendpay(node_factory, bitcoind):
     invoice = only_one(l3.rpc.listinvoices("inv")["invoices"])
     # the receive amount should be exact
     assert invoice["amount_received_msat"] == Millisatoshi(total_amount)
+
+
+def test_cancel_recurrence(node_factory):
+    """Test handling of invoice cancellation"""
+    l1, l2 = node_factory.line_graph(2)
+
+    # Recurring offer.
+    offer = l2.rpc.offer(amount='1msat',
+                         description='test_cancel_recurrence',
+                         recurrence='1minutes')
+
+    # We cannot cancel if we never got the first one.
+    with pytest.raises(RpcError, match="recurrence_counter: Must be non-zero"):
+        l1.rpc.cancelrecurringinvoice(offer['bolt12'], 0, 'test_cancel_recurrence')
+
+    with pytest.raises(RpcError, match="No previous payment attempted for this label and offer"):
+        l1.rpc.cancelrecurringinvoice(offer['bolt12'], 1, 'test_cancel_recurrence')
+
+    # Fetch and pay first one
+    ret = l1.rpc.fetchinvoice(offer=offer['bolt12'],
+                              recurrence_counter=0,
+                              recurrence_label='test_cancel_recurrence')
+    l1.rpc.pay(ret['invoice'], label='test_cancel_recurrence')
+
+    # Cancel counter must be correct!
+    with pytest.raises(RpcError, match=r"previous invoice has not been paid \(last was 0\)"):
+        l1.rpc.cancelrecurringinvoice(offer['bolt12'], 2, 'test_cancel_recurrence')
+
+    # Cancel second one.
+    l1.rpc.cancelrecurringinvoice(offer=offer['bolt12'],
+                                  recurrence_counter=1,
+                                  recurrence_label='test_cancel_recurrence')
+
+    # Now we cannot fetch second one!
+    with pytest.raises(RpcError, match=r"invoice expired \(cancelled\?\)"):
+        l1.rpc.fetchinvoice(offer=offer['bolt12'],
+                            recurrence_counter=1,
+                            recurrence_label='test_cancel_recurrence')
+
+
+def test_htlc_tlv_crash(node_factory):
+    """Marshalling code treated an array of htlc_added as if they were tal objects, but only the head is a tal object so if we have more than one, BOOM!"""
+    plugin = os.path.join(os.path.dirname(__file__), 'plugins/htlc_accepted-customtlv.py')
+    # To crash, we need TWO added htlcs at once.  Try to force batching!
+    l1, l2, l3 = node_factory.line_graph(3, opts=[{},
+                                                  {'commit-time': 10000, 'plugin': plugin},
+                                                  {'plugin': plugin}],
+                                         wait_for_announce=True)
+
+    single_tlv = "fe00010001012a"  # represents type: 65537, lenght: 1, value: 42
+    l2.rpc.setcustomtlvs(tlvs=single_tlv)
+
+    route = [{'amount_msat': 101,
+              'id': l2.info['id'],
+              'delay': 16,
+              'channel': first_scid(l1, l2),
+              },
+             {'amount_msat': 100,
+              'id': l3.info['id'],
+              'delay': 10,
+              'channel': first_scid(l2, l3)
+              }]
+
+    # Amount must be nonzero!
+    inv1 = l3.rpc.invoice(100, "inv1", "inv1")
+    inv2 = l3.rpc.invoice(100, "inv2", "inv2")
+    l1.rpc.sendpay(route, inv1['payment_hash'], payment_secret=inv1['payment_secret'])
+    l1.rpc.sendpay(route, inv2['payment_hash'], payment_secret=inv2['payment_secret'])
+
+    l1.rpc.waitsendpay(inv1['payment_hash'], TIMEOUT)
+    l1.rpc.waitsendpay(inv2['payment_hash'], TIMEOUT)

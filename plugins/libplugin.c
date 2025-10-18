@@ -187,6 +187,27 @@ static struct command *new_command(const tal_t *ctx,
 	return cmd;
 }
 
+static int rpc_open(struct plugin *plugin)
+{
+	struct sockaddr_un addr;
+	int fd = socket(AF_UNIX, SOCK_STREAM, 0);
+
+	if (strlen(plugin->rpc_location) + 1 > sizeof(addr.sun_path))
+		plugin_err(plugin, "rpc filename '%s' too long",
+			   plugin->rpc_location);
+	strcpy(addr.sun_path, plugin->rpc_location);
+	addr.sun_family = AF_UNIX;
+
+	if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0) {
+		plugin_log(plugin, LOG_UNUSUAL,
+			   "Could not connect to '%s': %s",
+			   plugin->rpc_location, strerror(errno));
+		close(fd);
+		fd = -1;
+	}
+	return fd;
+}
+
 static void complain_deprecated(const char *feature,
 				bool allowing,
 				struct command *cmd)
@@ -236,6 +257,19 @@ bool command_deprecated_out_ok(struct command *cmd,
 			     tal_fmt(tmpctx, "%s.%s", cmd->methodname, fieldname),
 			     depr_start, depr_end,
 			     cmd->plugin->beglist,
+			     NULL, NULL);
+}
+
+bool notification_deprecated_out_ok(struct plugin *plugin,
+				    const char *method,
+				    const char *fieldname,
+				    const char *depr_start,
+				    const char *depr_end)
+{
+	return deprecated_ok(plugin->deprecated_ok,
+			     tal_fmt(tmpctx, "%s.%s", method, fieldname),
+			     depr_start, depr_end,
+			     plugin->beglist,
 			     NULL, NULL);
 }
 
@@ -519,6 +553,8 @@ struct json_out *json_out_obj(const tal_t *ctx,
 	json_out_start(jout, NULL, '{');
 	if (str)
 		json_out_addstr(jout, fieldname, str);
+	if (taken(str))
+		tal_free(str);
 	json_out_end(jout, '}');
 	json_out_finished(jout);
 
@@ -721,14 +757,14 @@ void command_set_usage(struct command *cmd, const char *usage TAKES)
 }
 
 /* Reads rpc reply and returns tokens, setting contents to 'error' or
- * 'result' (depending on *error). */
-static const jsmntok_t *read_rpc_reply(const tal_t *ctx,
-				       struct plugin *plugin,
-				       const jsmntok_t **contents,
-				       bool *error,
-				       int *reqlen)
+- * 'result' (depending on *error). */
+static jsmntok_t *read_rpc_reply(const tal_t *ctx,
+				 struct plugin *plugin,
+				 const jsmntok_t **contents,
+				 bool *error,
+				 int *reqlen)
 {
-	const jsmntok_t *toks;
+	jsmntok_t *toks;
 
 	do {
 		*reqlen = read_json_from_rpc(plugin);
@@ -765,38 +801,56 @@ static const jsmntok_t *sync_req(const tal_t *ctx,
 				 const char **resp)
 {
 	bool error;
+	jsmntok_t *toks;
 	const jsmntok_t *contents;
 	int reqlen;
 	struct json_out *jout = json_out_new(tmpctx);
 	const char *id = json_id(tmpctx, plugin, "init/", method);
+	size_t num_toks;
 
 	json_out_start(jout, NULL, '{');
 	json_out_addstr(jout, "jsonrpc", "2.0");
 	/* Copy in id *literally* */
 	memcpy(json_out_member_direct(jout, "id", strlen(id)), id, strlen(id));
 	json_out_addstr(jout, "method", method);
-	json_out_add_splice(jout, "params", params);
+	if (params)
+		json_out_add_splice(jout, "params", params);
+	else {
+		json_out_start(jout, "params", '{');
+		json_out_end(jout, '}');
+	}
 	if (taken(params))
 		tal_free(params);
+
+	/* If we're past init, we may need a new fd (the old one
+	 * is being used for async comms). */
+	if (plugin->rpc_conn->fd == -1)
+		plugin->rpc_conn->fd = rpc_open(plugin);
+
 	finish_and_send_json(plugin->rpc_conn->fd, jout);
 
-	read_rpc_reply(ctx, plugin, &contents, &error, &reqlen);
+	toks = read_rpc_reply(ctx, plugin, &contents, &error, &reqlen);
 	if (error)
 		plugin_err(plugin, "Got error reply to %s: '%.*s'",
 			   method, reqlen, membuf_elems(&plugin->rpc_conn->mb));
 
 	*resp = membuf_consume(&plugin->rpc_conn->mb, reqlen);
-	return contents;
+
+	/* Make the returned pointer the valid tal object of minimal length */
+	num_toks = json_next(contents) - contents;
+	memmove(toks, contents, num_toks * sizeof(*toks));
+	tal_resize(&toks, num_toks);
+	return toks;
 }
 
 const jsmntok_t *jsonrpc_request_sync(const tal_t *ctx,
-				      struct command *init_cmd,
+				      struct command *cmd,
 				      const char *method,
 				      const struct json_out *params TAKES,
 				      const char **resp)
 {
-	assert(streq(init_cmd->methodname, "init"));
-	return sync_req(ctx, init_cmd->plugin, method, params, resp);
+
+	return sync_req(ctx, cmd->plugin, method, params, resp);
 }
 
 /* Returns contents of scanning guide on 'result' */
@@ -815,7 +869,7 @@ static const char *rpc_scan_core(const tal_t *ctx,
 }
 
 /* Synchronous routine to send command and extract fields from response */
-void rpc_scan(struct command *init_cmd,
+void rpc_scan(struct command *cmd,
 	      const char *method,
 	      const struct json_out *params TAKES,
 	      const char *guide,
@@ -824,13 +878,12 @@ void rpc_scan(struct command *init_cmd,
 	const char *err;
 	va_list ap;
 
-	assert(streq(init_cmd->methodname, "init"));
 	va_start(ap, guide);
-	err = rpc_scan_core(tmpctx, init_cmd->plugin, method, params, guide, ap);
+	err = rpc_scan_core(tmpctx, cmd->plugin, method, params, guide, ap);
 	va_end(ap);
 
 	if (err)
-		plugin_err(init_cmd->plugin, "Could not parse %s in reply to %s: %s",
+		plugin_err(cmd->plugin, "Could not parse %s in reply to %s: %s",
 			   guide, method, err);
 }
 
@@ -845,7 +898,7 @@ static void json_add_keypath(struct json_out *jout, const char *fieldname, const
 }
 
 static const char *rpc_scan_datastore(const tal_t *ctx,
-				      struct command *init_cmd,
+				      struct command *cmd,
 				      const char *path,
 				      const char *hex_or_string,
 				      va_list ap)
@@ -853,7 +906,6 @@ static const char *rpc_scan_datastore(const tal_t *ctx,
 	const char *guide;
 	struct json_out *params;
 
-	assert(streq(init_cmd->methodname, "init"));
 	params = json_out_new(NULL);
 	json_out_start(params, NULL, '{');
 	json_add_keypath(params, "key", path);
@@ -861,12 +913,12 @@ static const char *rpc_scan_datastore(const tal_t *ctx,
 	json_out_finished(params);
 
 	guide = tal_fmt(tmpctx, "{datastore:[0:{%s:%%}]}", hex_or_string);
-	return rpc_scan_core(ctx, init_cmd->plugin, "listdatastore", take(params),
+	return rpc_scan_core(ctx, cmd->plugin, "listdatastore", take(params),
 			     guide, ap);
 }
 
 const char *rpc_scan_datastore_str(const tal_t *ctx,
-				   struct command *init_cmd,
+				   struct command *cmd,
 				   const char *path,
 				   ...)
 {
@@ -874,14 +926,14 @@ const char *rpc_scan_datastore_str(const tal_t *ctx,
 	va_list ap;
 
 	va_start(ap, path);
-	ret = rpc_scan_datastore(ctx, init_cmd, path, "string", ap);
+	ret = rpc_scan_datastore(ctx, cmd, path, "string", ap);
 	va_end(ap);
 	return ret;
 }
 
 /* This variant scans the hex encoding, not the string */
 const char *rpc_scan_datastore_hex(const tal_t *ctx,
-				   struct command *init_cmd,
+				   struct command *cmd,
 				   const char *path,
 				   ...)
 {
@@ -889,7 +941,7 @@ const char *rpc_scan_datastore_hex(const tal_t *ctx,
 	va_list ap;
 
 	va_start(ap, path);
-	ret = rpc_scan_datastore(ctx, init_cmd, path, "hex", ap);
+	ret = rpc_scan_datastore(ctx, cmd, path, "hex", ap);
 	va_end(ap);
 	return ret;
 }
@@ -1025,13 +1077,12 @@ static void destroy_cmd_mark_freed(struct command *cmd, bool *cmd_freed)
 	*cmd_freed = true;
 }
 
-static void handle_rpc_reply(struct plugin *plugin, const jsmntok_t *toks)
+static void handle_rpc_reply(struct plugin *plugin, const char *buf, const jsmntok_t *toks)
 {
 	const jsmntok_t *idtok, *contenttok;
 	struct out_req *out;
 	struct command_result *res;
 	bool cmd_freed;
-	const char *buf = plugin->rpc_buffer + plugin->rpc_read_offset;
 
 	idtok = json_get_member(buf, toks, "id");
 	if (!idtok)
@@ -1384,7 +1435,7 @@ static bool rpc_read_response_one(struct plugin *plugin)
 			   plugin->rpc_buffer + plugin->rpc_read_offset);
 	}
 
-	handle_rpc_reply(plugin, plugin->rpc_toks);
+	handle_rpc_reply(plugin, plugin->rpc_buffer + plugin->rpc_read_offset, plugin->rpc_toks);
 
 	/* Move this object out of the buffer */
 	plugin->rpc_read_offset += plugin->rpc_toks[0].end;
@@ -1534,11 +1585,10 @@ static struct command_result *handle_init(struct command *cmd,
 					  const jsmntok_t *params)
 {
 	const jsmntok_t *configtok, *opttok, *t;
-	struct sockaddr_un addr;
 	size_t i;
 	char *dir, *network;
 	struct plugin *p = cmd->plugin;
-	bool with_rpc = p->rpc_conn != NULL;
+	bool with_rpc;
 	const char *err;
 
 	configtok = json_get_member(buf, params, "configuration");
@@ -1565,28 +1615,17 @@ static struct command_result *handle_init(struct command *cmd,
 	/* Only attempt to connect if the plugin has configured the rpc_conn
 	 * already, if that's not the case we were told to run without an RPC
 	 * connection, so don't even log an error. */
-	/* FIXME: Move this to its own function so we can initialize at a
-	 * later point in time. */
 	if (p->rpc_conn != NULL) {
-		p->rpc_conn->fd = socket(AF_UNIX, SOCK_STREAM, 0);
-		if (strlen(p->rpc_location) + 1 > sizeof(addr.sun_path))
-			plugin_err(p, "rpc filename '%s' too long",
-				   p->rpc_location);
-		strcpy(addr.sun_path, p->rpc_location);
-		addr.sun_family = AF_UNIX;
-
-		if (connect(p->rpc_conn->fd, (struct sockaddr *)&addr,
-			    sizeof(addr)) != 0) {
+		p->rpc_conn->fd = rpc_open(p);
+		if (p->rpc_conn->fd == -1)
 			with_rpc = false;
-			plugin_log(p, LOG_UNUSUAL,
-				   "Could not connect to '%s': %s",
-				   p->rpc_location, strerror(errno));
-		}
+		else
+			with_rpc = true;
 
 		membuf_init(&p->rpc_conn->mb, tal_arr(p, char, READ_CHUNKSIZE),
 			    READ_CHUNKSIZE, membuf_tal_realloc);
-
-	}
+	} else
+		with_rpc = false;
 
 	opttok = json_get_member(buf, params, "options");
 	json_for_each_obj(i, t, opttok) {
@@ -1620,6 +1659,9 @@ static struct command_result *handle_init(struct command *cmd,
 					    get_beglist, plugin_broken_cb, NULL);
 		json_add_string(req->js, "config", "i-promise-to-fix-broken-api-user");
 		send_outreq(req);
+
+		/* We will open a new one if we want to be sync. */
+		p->rpc_conn->fd = -1;
 	}
 
 	return command_success(cmd, json_out_obj(cmd, NULL, NULL));
@@ -1859,8 +1901,8 @@ void plugin_gossmap_logcb(struct plugin *plugin,
 	va_end(ap);
 }
 
-struct json_stream *plugin_notification_start(const tal_t *ctx,
-					      const char *method)
+struct json_stream *plugin_notification_start_obs(const tal_t *ctx,
+						  const char *method)
 {
 	struct json_stream *js = new_json_stream(ctx, NULL, NULL);
 
@@ -1872,11 +1914,26 @@ struct json_stream *plugin_notification_start(const tal_t *ctx,
 	return js;
 }
 
+void plugin_notification_end_obs(struct plugin *plugin,
+				 struct json_stream *stream STEALS)
+{
+	json_object_end(stream);
+	jsonrpc_finish_and_send(plugin, stream);
+}
+
+struct json_stream *plugin_notification_start(const tal_t *ctx,
+					      const char *method)
+{
+	struct json_stream *js = plugin_notification_start_obs(ctx, method);
+	json_object_start(js, method);
+	return js;
+}
+
 void plugin_notification_end(struct plugin *plugin,
 			     struct json_stream *stream STEALS)
 {
 	json_object_end(stream);
-	jsonrpc_finish_and_send(plugin, stream);
+	plugin_notification_end_obs(plugin, stream);
 }
 
 struct json_stream *plugin_notify_start(struct command *cmd, const char *method)

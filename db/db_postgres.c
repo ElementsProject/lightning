@@ -14,7 +14,7 @@
 #define INT4OID			23
 #define TEXTOID			25
 
-static bool db_postgres_setup(struct db *db)
+static bool db_postgres_setup(struct db *db, bool create)
 {
 	size_t prefix_len = strlen("postgres://");
 

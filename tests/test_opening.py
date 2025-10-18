@@ -931,7 +931,7 @@ def test_rbf_reconnect_tx_construct(node_factory, bitcoind, chainparams):
     l1.daemon.wait_for_logs([r'Got dualopend reestablish',
                              r'No commitment, not sending our sigs',
                              r'dev_disconnect: -WIRE_COMMITMENT_SIGNED',
-                             'peer_disconnect_done'])
+                             'peer_disconnected'])
     assert not l1.rpc.getpeer(l2.info['id'])['connected']
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
@@ -2796,3 +2796,32 @@ def test_zeroconf_forget(node_factory, bitcoind, dopay: bool):
         # It will forget the older one.
         l2.daemon.wait_for_log(r"UNUSUAL {}-chan#1: Forgetting channel: It has been {} blocks without the funding transaction ".format(l1.info['id'], blocks + 1))
         assert [c['peer_id'] for c in l2.rpc.listpeerchannels()["channels"]] == [l3.info['id']]
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd gives different numbers')
+@pytest.mark.openchannel('v1')
+def test_opening_below_min_capacity_sat(bitcoind, node_factory):
+    """OK, here's what happens:
+
+    The user configures min-capacity-sat=2,000,000.
+    They try to open a channel with 591,000 sat
+    We let them (for some reason), which kinda makes sense: it's their own rules
+    We then get upset when you accept!
+
+    The "capacity" here is the effective capacity of the channel, which is capped at funding - (reserves and 2 anchors), and at max_htlc_value_in_flight.
+    """
+    l1, l2 = node_factory.line_graph(2, fundchannel=False, opts=[{'min-capacity-sat': 2_000_000}, {}])
+
+    l1.fundwallet(3_000_000)
+
+    with pytest.raises(RpcError, match=r'which is below 2000000sat'):
+        l1.rpc.fundchannel(l2.info['id'], "591000sat")
+
+    l1.connect(l2)
+
+    # Even with the exact amount, the *capacity* is different.
+    with pytest.raises(RpcError, match=r'channel capacity is 1955125sat, which is below 2000000sat'):
+        l1.rpc.fundchannel(l2.info['id'], "2000000sat")
+
+    # But we shouldn't have bothered l2
+    assert not l2.daemon.is_in_log('peer_in WIRE_ERROR')

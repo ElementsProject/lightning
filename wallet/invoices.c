@@ -777,13 +777,14 @@ static u64 invoice_index_inc(struct lightningd *ld,
 		invstrname = "bolt11";
 
 
-	return wait_index_increment(ld, WAIT_SUBSYSTEM_INVOICE, idx,
-				 "status", state ? invoice_status_str(*state) : NULL,
-				 /* We don't want to add more JSON escapes here! */
-				 "=label", label ? tal_fmt(tmpctx, "\"%s\"", label->s) : NULL,
-				 invstrname, invstring,
-				 "description", description,
-				 NULL);
+	return wait_index_increment(ld, ld->wallet->db,
+				    WAIT_SUBSYSTEM_INVOICE, idx,
+				    "status", state ? invoice_status_str(*state) : NULL,
+				    /* We don't want to add more JSON escapes here! */
+				    "=label", label ? tal_fmt(tmpctx, "\"%s\"", label->s) : NULL,
+				    invstrname, invstring,
+				    "description", description,
+				    NULL);
 }
 
 void invoice_index_deleted(struct lightningd *ld,

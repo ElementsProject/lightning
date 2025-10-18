@@ -1,10 +1,10 @@
 [project]
 name = "pyln-bolt7"
-version = "1.0.4.246"
+version = "1.0.246"
 description = "BOLT7"
 authors = [{ name = "Rusty Russell" }]
 license = { text = "BSD-MIT" }
-requires-python = ">=3.8,<4.0"
+requires-python = ">=3.9,<4.0"
 dependencies = []
 
 [dependency-groups]
@@ -16,6 +16,3 @@ packages = ["pyln"]
 [build-system]
 requires = ["hatchling>=1.0.0"]
 build-backend = "hatchling.build"
-
-[tool.uv.sources]
-pyln-proto = { workspace = true }

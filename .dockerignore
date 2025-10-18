@@ -1,3 +1,6 @@
 Dockerfile
 contrib/docker/Dockerfile.*
 target
+config.vars
+release/
+.venv/

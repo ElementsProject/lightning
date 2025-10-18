@@ -90,7 +90,7 @@ static void disconnect_notification_serialize(struct json_stream *stream,
 }
 REGISTER_NOTIFICATION(disconnect);
 
-void notify_disconnect(struct lightningd *ld, struct node_id *nodeid)
+void notify_disconnect(struct lightningd *ld, const struct node_id *nodeid)
 {
 	struct jsonrpc_notification *n = notify_start(ld, "disconnect");
 	if (!n)
@@ -290,7 +290,10 @@ static void channel_state_changed_notification_serialize(struct json_stream *str
 	json_add_channel_id(stream, "channel_id", cid);
 	if (scid)
 		json_add_short_channel_id(stream, "short_channel_id", *scid);
-	else
+	else if (lightningd_deprecated_out_ok(ld, ld->deprecated_ok,
+					      "channel_state_changed",
+					      "null_scid",
+					      "v25.09", "v26.09"))
 		json_add_null(stream, "short_channel_id");
 	json_add_timeiso(stream, "timestamp", timestamp);
 	if (old_state != 0 || lightningd_deprecated_out_ok(ld, ld->deprecated_ok,
@@ -458,7 +461,8 @@ static void json_add_standard_notify_mvt_fields(struct json_stream *stream,
 REGISTER_NOTIFICATION(coin_movement);
 
 void notify_channel_mvt(struct lightningd *ld,
-			const struct channel_coin_mvt *chan_mvt)
+			const struct channel_coin_mvt *chan_mvt,
+			u64 id)
 {
 	bool include_tags_arr;
 	struct jsonrpc_notification *n = notify_start(ld, "coin_movement");
@@ -470,12 +474,13 @@ void notify_channel_mvt(struct lightningd *ld,
 
 	json_add_standard_notify_mvt_fields(n->stream, ld, "channel_mvt");
 	/* Adding (empty) extra_tags field unifies this with notify_chain_mvt */
-	json_add_channel_mvt_fields(n->stream, include_tags_arr, chan_mvt, true);
+	json_add_channel_mvt_fields(n->stream, include_tags_arr, chan_mvt, id, true);
 	notify_send(ld, n);
 }
 
 void notify_chain_mvt(struct lightningd *ld,
-		      const struct chain_coin_mvt *chain_mvt)
+		      const struct chain_coin_mvt *chain_mvt,
+		      u64 id)
 {
 	bool include_tags_arr, include_old_utxo_fields, include_old_txid_field;
 	struct jsonrpc_notification *n = notify_start(ld, "coin_movement");
@@ -497,7 +502,7 @@ void notify_chain_mvt(struct lightningd *ld,
 				  include_tags_arr,
 				  include_old_utxo_fields,
 				  include_old_txid_field,
-				  chain_mvt);
+				  chain_mvt, id);
 	notify_send(ld, n);
 }
 

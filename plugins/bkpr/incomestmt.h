@@ -6,9 +6,9 @@
 #include <stdio.h>
 
 struct income_event {
-	char *acct_name;
-	char *tag;
-	char *desc;
+	const char *acct_name;
+	const char *tag;
+	const char *desc;
 	struct amount_msat credit;
 	struct amount_msat debit;
 	/* Some CSVs require us to put fees on the
@@ -23,19 +23,22 @@ struct income_event {
 
 /* Each csv format has a header and a 'row print' function */
 struct csv_fmt {
-	char *fmt_name;
+	const char *fmt_name;
 	void (*emit_header)(FILE *);
 	void (*emit_entry)(const tal_t *, FILE *, struct income_event *);
 };
 
 /* List all the events that are income related (gain/loss) */
-struct income_event **list_income_events_all(const tal_t *ctx, struct db *db,
+struct income_event **list_income_events_all(const tal_t *ctx,
+					     const struct bkpr *bkpr,
+					     struct command *cmd,
 					     bool consolidate_fees);
 
 /* List all the events that are income related (gain/loss),
  * by a start and end date */
 struct income_event **list_income_events(const tal_t *ctx,
-					 struct db *db,
+					 const struct bkpr *bkpr,
+					 struct command *cmd,
 					 u64 start_time,
 					 u64 end_time,
 					 bool consolidate_fees);

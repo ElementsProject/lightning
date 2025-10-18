@@ -19,7 +19,8 @@ static u64 forward_index_inc(struct lightningd *ld,
 			     const struct short_channel_id *out_channel,
 			     enum wait_index idx)
 {
-	return wait_index_increment(ld, WAIT_SUBSYSTEM_FORWARD, idx,
+	return wait_index_increment(ld, ld->wallet->db,
+				    WAIT_SUBSYSTEM_FORWARD, idx,
 				    "status", forward_status_name(status),
 				    "in_channel", fmt_short_channel_id(tmpctx, in_channel),
 				    "=in_htlc_id", tal_fmt(tmpctx, "%"PRIu64, in_htlc_id),

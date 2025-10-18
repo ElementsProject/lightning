@@ -4,9 +4,11 @@
 #include <ccan/crc32c/crc32c.h>
 #include <ccan/io/io.h>
 #include <ccan/json_escape/json_escape.h>
+#include <ccan/json_out/json_out.h>
 #include <ccan/mem/mem.h>
 #include <ccan/opt/opt.h>
 #include <ccan/pipecmd/pipecmd.h>
+#include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/utf8/utf8.h>
@@ -23,6 +25,7 @@
 #include <db/exec.h>
 #include <dirent.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <lightningd/io_loop_with_timers.h>
 #include <lightningd/notification.h>
 #include <lightningd/plugin.h>
@@ -76,6 +79,7 @@ struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
 	p->plugin_idx = 0;
 	p->dev_builtin_plugins_unimportant = false;
 	p->want_db_transaction = true;
+	p->dev_save_io = NULL;
 	p->subscriptions = tal(p, struct plugin_subscription_htable);
 	plugin_subscription_htable_init(p->subscriptions);
 
@@ -624,10 +628,10 @@ static const char *plugin_notification_handle(struct plugin *plugin,
 			    "forwarding to subscribers.",
 			    methname);
 	} else if (notifications_have_topic(plugin->plugins, methname)) {
-		n = jsonrpc_notification_start(NULL, methname);
+		n = jsonrpc_notification_start_noparams(NULL, methname);
 		json_add_string(n->stream, "origin", plugin->shortname);
-		json_add_tok(n->stream, "payload", paramstok, plugin->buffer);
-		jsonrpc_notification_end(n);
+		json_add_tok(n->stream, "params", paramstok, plugin->buffer);
+		jsonrpc_notification_end_noparams(n);
 
 		plugins_notify(plugin->plugins, take(n));
 	}
@@ -1815,6 +1819,11 @@ static const char *plugin_parse_getmanifest_response(const char *buffer,
 			return tal_fmt(plugin,
 				    "Custom featurebits already present");
 		}
+
+		/* Store fset to allow to remove feature bits when init returns disabled */
+		plugin->fset = tal_dup_or_null(plugin, struct feature_set, fset);
+	} else {
+		plugin->fset = NULL;
 	}
 
 	custommsgtok = json_get_member(buffer, resulttok, "custommessages");
@@ -2144,6 +2153,10 @@ static void plugin_config_cb(const char *buffer,
 		      JSON_SCAN_TAL(tmpctx, json_strdup, &disable)) == NULL) {
 		/* Don't get upset if this was a built-in! */
 		plugin->important = false;
+		if (plugin->fset)
+			/* We don't have those features anymore! */
+			feature_set_sub(plugin->plugins->ld->our_features,
+					plugin->fset);
 		plugin_kill(plugin, LOG_DBG,
 			    "disabled itself at init: %s",
 			    disable);
@@ -2534,6 +2547,10 @@ void plugins_notify(struct plugins *plugins,
 	if (!plugins)
 		return;
 
+	dev_save_plugin_io_out(plugins,
+			       "notification_out",
+			       n->method, n->stream);
+
 	for (struct plugin_subscription *sub
 		     = plugin_subscription_htable_getfirst(plugins->subscriptions,
 							   n->method, &it);
@@ -2672,4 +2689,50 @@ void shutdown_plugins(struct lightningd *ld)
 			tal_free(p);
 		}
 	}
+}
+
+static void dev_save_plugin_io(struct plugins *plugins,
+ 			       const char *type,
+			       const char *name,
+			       const char *buf, size_t len)
+{
+	static size_t counter;
+	const char *file;
+	int fd;
+
+	if (!plugins->dev_save_io)
+		return;
+
+	file = path_join(tmpctx, plugins->dev_save_io,
+			 take(tal_fmt(NULL, "%s-%s-%u-%zu",
+				      type, name,
+				      (unsigned int)getpid(),
+				      counter++)));
+	fd = open(file, O_CREAT|O_EXCL|O_WRONLY, 0600);
+	if (fd < 0 || !write_all(fd, buf, len))
+		fatal("Writing --dev-save-plugin-io %s: %s",
+		      file, strerror(errno));
+	close(fd);
+}
+
+void dev_save_plugin_io_in(struct plugins *plugins,
+			   const char *type,
+			   const char *name,
+			   const char *buffer,
+			   const jsmntok_t *tok)
+{
+	dev_save_plugin_io(plugins, type, name,
+			   buffer + tok->start, tok->end - tok->start);
+}
+
+void dev_save_plugin_io_out(struct plugins *plugins,
+			    const char *type,
+			    const char *name,
+			    const struct json_stream *stream)
+{
+	size_t len;
+	const char *buf;
+
+	buf = json_out_contents(stream->jout, &len);
+	dev_save_plugin_io(plugins, type, name, buf, len);
 }

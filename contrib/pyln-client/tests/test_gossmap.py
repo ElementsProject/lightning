@@ -50,7 +50,7 @@ def test_gossmap(tmp_path):
 
 
 def test_gossmap_halfchannel(tmp_path):
-    """ this test a simple [l1->l2] gossip store that was created by the pyln-testing framework """
+    """ this test a simple [l1->l2] gossip store that was created by the pyln-testing framework (tests/test_gossip.py::test_announce_address) """
     sfile = unxz_data_tmp("gossip_store.simple.xz", tmp_path, "gossip_store", "xb")
     g = Gossmap(sfile)
 
@@ -64,13 +64,13 @@ def test_gossmap_halfchannel(tmp_path):
     assert n1
     assert n2
 
-    chan = g.get_channel("103x1x1")
+    chan = g.get_channel("103x1x0")
     assert chan
     assert chan.node1 == n1
     assert chan.node2 == n2
 
     half0 = chan.get_direction(0)
-    half1 = g.get_halfchannel("103x1x1", 1)
+    half1 = g.get_halfchannel("103x1x0", 1)
     assert half0
     assert half1
     assert half0.direction == 0
@@ -83,8 +83,8 @@ def test_gossmap_halfchannel(tmp_path):
     assert half1.destination == n1
 
     # check metadata
-    assert half0.timestamp == 1631005020
-    assert half1.timestamp == 1631005020
+    assert half0.timestamp == 1759208366
+    assert half1.timestamp == 1759208366
     assert half0.cltv_expiry_delta == 6
     assert half1.cltv_expiry_delta == 6
     assert half0.htlc_minimum_msat == 0

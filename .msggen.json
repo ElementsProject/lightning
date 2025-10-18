@@ -439,7 +439,8 @@
             "ipv6": 2,
             "local socket": 0,
             "torv2": 3,
-            "torv3": 4
+            "torv3": 4,
+            "websocket": 5
         },
         "PeerConnectDirection": {
             "in": 0,
@@ -547,6 +548,8 @@
             "pending": 0
         },
         "WaitSubsystem": {
+            "chainmoves": 4,
+            "channelmoves": 5,
             "forwards": 1,
             "htlcs": 3,
             "invoices": 0,
@@ -3143,6 +3146,8 @@
             "Offer.description": 2,
             "Offer.issuer": 3,
             "Offer.label": 4,
+            "Offer.optional_recurrence": 14,
+            "Offer.proportional_amount": 13,
             "Offer.quantity_max": 5,
             "Offer.recurrence": 7,
             "Offer.recurrence_base": 8,
@@ -3714,6 +3719,16 @@
             "UtxoPsbt.psbt": 1,
             "UtxoPsbt.reservations[]": 6
         },
+        "WaitChainmoves": {
+            "Wait.chainmoves.account": 1,
+            "Wait.chainmoves.credit_msat": 2,
+            "Wait.chainmoves.debit_msat": 3
+        },
+        "WaitChannelmoves": {
+            "Wait.channelmoves.account": 1,
+            "Wait.channelmoves.credit_msat": 2,
+            "Wait.channelmoves.debit_msat": 3
+        },
         "WaitDetails": {
             "Wait.details.bolt11": 4,
             "Wait.details.bolt12": 5,
@@ -3757,6 +3772,8 @@
             "Wait.subsystem": 1
         },
         "WaitResponse": {
+            "Wait.chainmoves": 10,
+            "Wait.channelmoves": 11,
             "Wait.created": 2,
             "Wait.deleted": 4,
             "Wait.details": 5,
@@ -11323,6 +11340,14 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "Offer.optional_recurrence": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "Offer.proportional_amount": {
+            "added": "v25.09",
+            "deprecated": null
+        },
         "Offer.quantity_max": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -12889,6 +12914,38 @@
         },
         "Wait": {
             "added": "v23.08",
+            "deprecated": null
+        },
+        "Wait.chainmoves": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "Wait.chainmoves.account": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "Wait.chainmoves.credit_msat": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "Wait.chainmoves.debit_msat": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "Wait.channelmoves": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "Wait.channelmoves.account": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "Wait.channelmoves.credit_msat": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "Wait.channelmoves.debit_msat": {
+            "added": "v25.09",
             "deprecated": null
         },
         "Wait.created": {

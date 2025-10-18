@@ -60,7 +60,8 @@ def env(name, default=None):
     """
     fname = 'config.vars'
     if os.path.exists(fname):
-        lines = open(fname, 'r').readlines()
+        with open(fname, 'r') as f:
+            lines = f.readlines()
         config = dict([(line.rstrip().split('=', 1)) for line in lines])
     else:
         config = {}
@@ -82,6 +83,7 @@ TIMEOUT = int(env("TIMEOUT", 180 if SLOW_MACHINE else 60))
 EXPERIMENTAL_DUAL_FUND = env("EXPERIMENTAL_DUAL_FUND", "0") == "1"
 EXPERIMENTAL_SPLICING = env("EXPERIMENTAL_SPLICING", "0") == "1"
 GENERATE_EXAMPLES = env("GENERATE_EXAMPLES", "0") == "1"
+RUST = env("RUST", "0") == "1"
 
 
 def wait_for(success, timeout=TIMEOUT):
@@ -364,8 +366,9 @@ class SimpleBitcoinProxy:
     throwaway connections. This is easier than to reach into the RPC
     library to close, reopen and reauth upon failure.
     """
-    def __init__(self, btc_conf_file, *args, **kwargs):
+    def __init__(self, btc_conf_file, timeout=TIMEOUT, *args, **kwargs):
         self.__btc_conf_file__ = btc_conf_file
+        self.__timeout__ = timeout
 
     def __getattr__(self, name):
         if name.startswith('__') and name.endswith('__'):
@@ -373,7 +376,8 @@ class SimpleBitcoinProxy:
             raise AttributeError
 
         # Create a callable to do the actual call
-        proxy = BitcoinProxy(btc_conf_file=self.__btc_conf_file__)
+        proxy = BitcoinProxy(btc_conf_file=self.__btc_conf_file__,
+                             timeout=self.__timeout__)
 
         def f(*args):
             logging.debug("Calling {name} with arguments {args}".format(
@@ -789,11 +793,13 @@ class LightningNode(object):
                  jsonschemas={},
                  valgrind_plugins=True,
                  executable=None,
+                 bad_notifications=False,
                  **kwargs):
         self.bitcoin = bitcoind
         self.executor = executor
         self.may_fail = may_fail
         self.may_reconnect = may_reconnect
+        self.bad_notifications = bad_notifications
         self.broken_log = broken_log
         self.allow_bad_gossip = allow_bad_gossip
         self.allow_warning = allow_warning
@@ -852,6 +858,11 @@ class LightningNode(object):
         # Avoid test flakes cause by this option unless explicitly set.
         if self.cln_version >= "v24.11":
             self.daemon.opts.update({"autoconnect-seeker-peers": 0})
+
+        jsondir = Path(lightning_dir) / "plugin-io"
+        jsondir.mkdir()
+        if self.cln_version >= "v25.09":
+            self.daemon.opts['dev-save-plugin-io'] = jsondir
 
         if options is not None:
             self.daemon.opts.update(options)
@@ -932,7 +943,7 @@ class LightningNode(object):
 
         import grpc
         p = Path(self.daemon.lightning_dir) / TEST_NETWORK
-        cert, key, ca = [f.open('rb').read() for f in [
+        cert, key, ca = [f.read_bytes() for f in [
             p / 'client.pem',
             p / 'client-key.pem',
             p / "ca.pem"]]
@@ -1601,6 +1612,7 @@ class NodeFactory(object):
             'broken_log',
             'allow_warning',
             'may_reconnect',
+            'bad_notifications',
             'random_hsm',
             'feerates',
             'wait_for_bitcoind_sync',
@@ -1682,16 +1694,16 @@ class NodeFactory(object):
         self.nodes.append(node)
         self.reserved_ports.append(port)
         if dbfile:
-            out = open(os.path.join(node.daemon.lightning_dir, TEST_NETWORK,
-                                    'lightningd.sqlite3'), 'xb')
-            with lzma.open(os.path.join('tests/data', dbfile), 'rb') as f:
-                out.write(f.read())
+            with open(os.path.join(node.daemon.lightning_dir, TEST_NETWORK,
+                                   'lightningd.sqlite3'), 'xb') as out:
+                with lzma.open(os.path.join('tests/data', dbfile), 'rb') as f:
+                    out.write(f.read())
 
         if bkpr_dbfile:
-            out = open(os.path.join(node.daemon.lightning_dir, TEST_NETWORK,
-                                    'accounts.sqlite3'), 'xb')
-            with lzma.open(os.path.join('tests/data', bkpr_dbfile), 'rb') as f:
-                out.write(f.read())
+            with open(os.path.join(node.daemon.lightning_dir, TEST_NETWORK,
+                                   'accounts.sqlite3'), 'xb') as out:
+                with lzma.open(os.path.join('tests/data', bkpr_dbfile), 'rb') as f:
+                    out.write(f.read())
 
         if gossip_store_file:
             shutil.copy(gossip_store_file, os.path.join(node.daemon.lightning_dir, TEST_NETWORK,

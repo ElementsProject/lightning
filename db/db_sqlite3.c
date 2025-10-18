@@ -98,19 +98,22 @@ static const char *db_sqlite3_fmt_error(struct db_stmt *stmt)
 		       sqlite3_errmsg(conn2sql(stmt->db->conn)));
 }
 
-static bool db_sqlite3_setup(struct db *db)
+static bool db_sqlite3_setup(struct db *db, bool create)
 {
 	char *filename;
 	char *sep;
 	char *backup_filename = NULL;
 	sqlite3_stmt *stmt;
 	sqlite3 *sql;
-	int err, flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE;
-
+	int err, flags;
 	struct db_sqlite3 *wrapper;
 
 	if (!strstarts(db->filename, "sqlite3://") || strlen(db->filename) < 10)
 		db_fatal(db, "Could not parse the wallet DSN: %s", db->filename);
+
+	flags = SQLITE_OPEN_READWRITE;
+	if (create)
+		flags |= SQLITE_OPEN_CREATE;
 
 	/* Strip the scheme from the dsn. */
 	filename = db->filename + strlen("sqlite3://");
@@ -126,8 +129,11 @@ static bool db_sqlite3_setup(struct db *db)
 	db->conn = wrapper;
 
 	err = sqlite3_open_v2(filename, &sql, flags, NULL);
-
 	if (err != SQLITE_OK) {
+		/* Note: even on error, the sql connection is allocated! */
+		sqlite3_close(sql);
+		if (!create)
+			return false;
 		db_fatal(db, "failed to open database %s: %s", filename,
 			 sqlite3_errstr(err));
 	}
@@ -418,7 +424,7 @@ static const char *find_column_name(const tal_t *ctx,
 {
 	size_t start = 0;
 
-	while (isspace(sqlpart[start]))
+	while (cisspace(sqlpart[start]))
 		start++;
 	*after = strspn(sqlpart + start, "abcdefghijklmnopqrstuvwxyz_0123456789") + start;
 	if (*after == start || !cisspace(sqlpart[*after]))

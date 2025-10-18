@@ -3,38 +3,40 @@ name = "cln-meta-project"
 version = "0.1.0"
 description = "Just a helper to get our python dependencies under control"
 authors = [{ name = "Christian Decker", email = "cdecker@blockstream.com" }]
-requires-python = ">=3.8.1,<4.0"
+requires-python = ">=3.9.2,<4.0"
 dependencies = [
   "Mako>=1.1.6",
   "websocket-client>=1.2.3",
-  "grpcio-tools==1.69.0",
-  "grpcio==1.69.0",
+  "grpcio-tools==1.75.1",
+  "grpcio==1.75.1",
   # We want a specific version of protobuf to match CI's .github/scripts/setup.sh
-  "protobuf==5.29.4",
-  "cryptography>=42",
+  "protobuf==6.32.1",
+  "cryptography>=46",
   "pyln-client",
   "pyln-proto",
   "pyln-grpc-proto",
 ]
-
+package-mode = false
 [dependency-groups]
 dev = [
   # Test dependencies and inherited dependencies belong here
   "crc32c>=2.2.post0",              # Belongs to lnprototest
-  "pytest>=7.0.0",
-  "pytest-xdist>=2.5.0",
-  "pytest-test-groups>=1.0.3",
-  "pytest-timeout>=2.1.0",
-  "flake8>=6.0",
-  "mypy>=0.931",
+  "pytest>=8.0.0",
+  "pytest-xdist>=3.6.0",
+  "pytest-test-groups>=1.2.0",
+  "pytest-timeout>=2.4.0",
+  "flake8>=7.0",
   "pytest-custom-exit-code==0.3.0",
   "flaky>=3.7.0",
-  "requests>=2.31.0",
+  "requests>=2.32.0",
   "flask-socketio>=5",
 ]
 
 [project.optional-dependencies]
 grpc = ["pyln-testing"]
+
+[tool.poetry]
+package-mode = false
 
 [tool.uv]
 package = false

@@ -100,31 +100,11 @@ static struct connecting *find_connecting(struct daemon *daemon,
 	return connecting_htable_get(daemon->connecting, id);
 }
 
-/*~ When we free a peer, we remove it from the daemon's hashtable.
- * We also call this manually if we want to elegantly drain peer's
- * queues. */
-void destroy_peer(struct peer *peer)
+/*~ When we free a peer, we remove it from the daemon's hashtable. */
+static void destroy_peer(struct peer *peer)
 {
-	assert(!peer->draining);
-
 	if (!peer_htable_del(peer->daemon->peers, peer))
 		abort();
-
-	/* Tell gossipd to stop asking this peer gossip queries */
-	daemon_conn_send(peer->daemon->gossipd,
-			 take(towire_gossipd_peer_gone(NULL, &peer->id)));
-
-	/* Tell lightningd it's really disconnected */
-	daemon_conn_send(peer->daemon->master,
-			 take(towire_connectd_peer_disconnect_done(NULL,
-								   &peer->id,
-								   peer->counter)));
-	/* This makes multiplex.c routines not feed us more, but
-	 * *also* means that if we're freed directly, the ->to_peer
-	 * destructor won't call drain_peer(). */
-	peer->draining = true;
-
-	schedule_reconnect_if_important(peer->daemon, &peer->id);
 }
 
 /*~ This is where we create a new peer. */
@@ -146,7 +126,7 @@ static struct peer *new_peer(struct daemon *daemon,
 	peer->peer_in = NULL;
 	peer->sent_to_peer = NULL;
 	peer->urgent = false;
-	peer->draining = false;
+	peer->draining_state = NOT_DRAINING;
 	peer->peer_in_lastmsg = -1;
 	peer->peer_outq = msg_queue_new(peer, false);
 	peer->last_recv_time = time_now();
@@ -277,6 +257,22 @@ static void reset_reconnect_timer(struct peer *peer)
 		imp->reconnect_secs = INITIAL_WAIT_SECONDS;
 }
 
+void send_disconnected(struct daemon *daemon,
+		       const struct node_id *id,
+		       u64 connectd_counter)
+{
+	/* lightningd: it's gone */
+	daemon_conn_send(daemon->master,
+			 take(towire_connectd_peer_disconnected(NULL, id, connectd_counter)));
+
+	/* Tell gossipd to stop asking this peer gossip queries */
+	daemon_conn_send(daemon->gossipd,
+			 take(towire_gossipd_peer_gone(NULL, id)));
+
+	/* Start reconnection process if we care */
+	schedule_reconnect_if_important(daemon, id);
+}
+
 /*~ Note the lack of static: this is called by peer_exchange_initmsg.c once the
  * INIT messages are exchanged, and also by the retry code above. */
 struct io_plan *peer_connected(struct io_conn *conn,
@@ -290,17 +286,20 @@ struct io_plan *peer_connected(struct io_conn *conn,
 			       bool incoming)
 {
 	u8 *msg;
-	struct peer *peer;
+	struct peer *peer, *oldpeer;
 	int unsup;
 	size_t depender, missing;
 	int subd_fd;
 	bool option_gossip_queries;
 	struct connecting *connect;
+	u64 prev_connectd_counter;
 
 	/* We remove any previous connection immediately, on the assumption it's dead */
-	peer = peer_htable_get(daemon->peers, id);
-	if (peer)
-		tal_free(peer);
+	oldpeer = peer_htable_get(daemon->peers, id);
+	if (oldpeer) {
+		prev_connectd_counter = oldpeer->counter;
+		destroy_peer_immediately(oldpeer);
+	}
 
 	/* We promised we'd take it by marking it TAKEN above; prepare to free it. */
 	if (taken(their_features))
@@ -318,6 +317,9 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	unsup = features_unsupported(daemon->our_features, their_features,
 				     INIT_FEATURE);
 	if (unsup != -1) {
+		/* We were going to send a reconnect message, but not now! */
+		if (oldpeer)
+			send_disconnected(daemon, id, prev_connectd_counter);
 		status_peer_unusual(id, "Unsupported feature %u", unsup);
 		msg = towire_warningfmt(NULL, NULL, "Unsupported feature %u",
 					unsup);
@@ -326,6 +328,9 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	}
 
 	if (!feature_check_depends(their_features, &depender, &missing)) {
+		/* We were going to send a reconnect message, but not now! */
+		if (oldpeer)
+			send_disconnected(daemon, id, prev_connectd_counter);
 		status_peer_unusual(id, "Feature %zu requires feature %zu",
 				    depender, missing);
 		msg = towire_warningfmt(NULL, NULL,
@@ -362,23 +367,37 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	peer = new_peer(daemon, id, cs, their_features, is_websocket, conn,
 			&subd_fd);
 	/* Only takes over conn if it succeeds. */
-	if (!peer)
+	if (!peer) {
+		/* We were going to send a reconnect message, but not now! */
+		if (oldpeer)
+			send_disconnected(daemon, id, prev_connectd_counter);
 		return io_close(conn);
+	}
 
 	/* Tell gossipd it can ask query this new peer for gossip */
 	option_gossip_queries = feature_negotiated(daemon->our_features,
 						   their_features,
 						   OPT_GOSSIP_QUERIES);
-	msg = towire_gossipd_new_peer(NULL, id, option_gossip_queries);
-	daemon_conn_send(daemon->gossipd, take(msg));
 
 	/* Get ready for streaming gossip from the store */
 	setup_peer_gossip_store(peer, daemon->our_features, their_features);
 
-	/* Create message to tell master peer has connected. */
-	msg = towire_connectd_peer_connected(NULL, id, peer->counter,
-					     addr, remote_addr,
-					     incoming, their_features);
+	/* Create message to tell master peer has connected/reconnected. */
+	if (oldpeer) {
+		msg = towire_connectd_peer_reconnected(NULL, id,
+						       prev_connectd_counter,
+						       peer->counter,
+						       addr, remote_addr,
+						       incoming, their_features);
+	} else {
+		/* Tell gossipd about new peer */
+		msg = towire_gossipd_new_peer(NULL, id, option_gossip_queries);
+		daemon_conn_send(daemon->gossipd, take(msg));
+
+		msg = towire_connectd_peer_connected(NULL, id, peer->counter,
+						     addr, remote_addr,
+						     incoming, their_features);
+	}
 
 	/*~ daemon_conn is a message queue for inter-daemon communication: we
 	 * queue up the `connect_peer_connected` message to tell lightningd
@@ -1923,9 +1942,7 @@ static void peer_disconnect(struct daemon *daemon, const u8 *msg)
 	if (peer->counter != counter)
 		return;
 
-	/* We make sure any final messages from the subds are sent! */
-	status_peer_debug(&id, "disconnect_peer");
-	drain_peer(peer);
+	disconnect_peer(peer);
 }
 
 /* lightningd tells us a peer is no longer "important". */
@@ -2371,7 +2388,8 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_CONNECTD_PING_DONE:
 	case WIRE_CONNECTD_GOT_ONIONMSG_TO_US:
 	case WIRE_CONNECTD_CUSTOMMSG_IN:
-	case WIRE_CONNECTD_PEER_DISCONNECT_DONE:
+	case WIRE_CONNECTD_PEER_DISCONNECTED:
+	case WIRE_CONNECTD_PEER_RECONNECTED:
 	case WIRE_CONNECTD_START_SHUTDOWN_REPLY:
 	case WIRE_CONNECTD_INJECT_ONIONMSG_REPLY:
 	case WIRE_CONNECTD_ONIONMSG_FORWARD_FAIL:

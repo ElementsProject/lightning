@@ -36,12 +36,29 @@ void bitcoind_getrawblockbyheight_(const tal_t *ctx UNNEEDED,
 					      void *arg) UNNEEDED,
 				   void *arg UNNEEDED)
 { fprintf(stderr, "bitcoind_getrawblockbyheight_ called!\n"); abort(); }
+/* Generated stub for chain_mvt_index_created */
+u64 chain_mvt_index_created(struct lightningd *ld UNNEEDED,
+			    struct db *db UNNEEDED,
+			    const struct mvt_account_id *account UNNEEDED,
+			    struct amount_msat credit UNNEEDED,
+			    struct amount_msat debit UNNEEDED)
+{ fprintf(stderr, "chain_mvt_index_created called!\n"); abort(); }
+/* Generated stub for channel_by_dbid */
+struct channel *channel_by_dbid(struct lightningd *ld UNNEEDED, const u64 dbid UNNEEDED)
+{ fprintf(stderr, "channel_by_dbid called!\n"); abort(); }
 /* Generated stub for channel_gossip_get_remote_update */
 const struct peer_update *channel_gossip_get_remote_update(const struct channel *channel UNNEEDED)
 { fprintf(stderr, "channel_gossip_get_remote_update called!\n"); abort(); }
 /* Generated stub for channel_gossip_update */
 void channel_gossip_update(struct channel *channel UNNEEDED)
 { fprintf(stderr, "channel_gossip_update called!\n"); abort(); }
+/* Generated stub for channel_mvt_index_created */
+u64 channel_mvt_index_created(struct lightningd *ld UNNEEDED,
+			      struct db *db UNNEEDED,
+			      const struct mvt_account_id *account UNNEEDED,
+			      struct amount_msat credit UNNEEDED,
+			      struct amount_msat debit UNNEEDED)
+{ fprintf(stderr, "channel_mvt_index_created called!\n"); abort(); }
 /* Generated stub for channel_scid_or_local_alias */
 struct short_channel_id channel_scid_or_local_alias(const struct channel *chan UNNEEDED)
 { fprintf(stderr, "channel_scid_or_local_alias called!\n"); abort(); }
@@ -59,10 +76,6 @@ struct onionreply *create_onionreply(const tal_t *ctx UNNEEDED,
 				     const struct secret *shared_secret UNNEEDED,
 				     const u8 *failure_msg UNNEEDED)
 { fprintf(stderr, "create_onionreply called!\n"); abort(); }
-/* Generated stub for derive_channel_id */
-void derive_channel_id(struct channel_id *channel_id UNNEEDED,
-		       const struct bitcoin_outpoint *outpoint UNNEEDED)
-{ fprintf(stderr, "derive_channel_id called!\n"); abort(); }
 /* Generated stub for fatal */
 void   fatal(const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "fatal called!\n"); abort(); }
@@ -72,9 +85,6 @@ void  fatal_vfmt(const char *fmt UNNEEDED, va_list ap UNNEEDED)
 /* Generated stub for find_peer_by_dbid */
 struct peer *find_peer_by_dbid(struct lightningd *ld UNNEEDED, u64 dbid UNNEEDED)
 { fprintf(stderr, "find_peer_by_dbid called!\n"); abort(); }
-/* Generated stub for fmt_channel_id */
-char *fmt_channel_id(const tal_t *ctx UNNEEDED, const struct channel_id *channel_id UNNEEDED)
-{ fprintf(stderr, "fmt_channel_id called!\n"); abort(); }
 /* Generated stub for forward_index_created */
 u64 forward_index_created(struct lightningd *ld UNNEEDED,
 			  enum forward_status status UNNEEDED,
@@ -167,6 +177,9 @@ void memleak_scan_outpointfilter(struct htable *memtable UNNEEDED,
 /* Generated stub for mk_mvt_tags_ */
 struct mvt_tags mk_mvt_tags_(enum mvt_tag tag UNNEEDED, ...)
 { fprintf(stderr, "mk_mvt_tags_ called!\n"); abort(); }
+/* Generated stub for mvt_tags_valid */
+bool mvt_tags_valid(struct mvt_tags tags UNNEEDED)
+{ fprintf(stderr, "mvt_tags_valid called!\n"); abort(); }
 /* Generated stub for new_channel */
 struct channel *new_channel(struct peer *peer UNNEEDED, u64 dbid UNNEEDED,
 			    /* NULL or stolen */
@@ -190,7 +203,7 @@ struct channel *new_channel(struct peer *peer UNNEEDED, u64 dbid UNNEEDED,
 			    struct amount_sat our_funds UNNEEDED,
 			    bool remote_channel_ready UNNEEDED,
 			    /* NULL or stolen */
-			    struct short_channel_id *scid STEALS UNNEEDED,
+			    struct short_channel_id *scid TAKES UNNEEDED,
 			    struct short_channel_id *old_scids TAKES UNNEEDED,
 			    struct short_channel_id alias_local UNNEEDED,
 			    struct short_channel_id *alias_remote STEALS UNNEEDED,
@@ -243,6 +256,19 @@ struct channel *new_channel(struct peer *peer UNNEEDED, u64 dbid UNNEEDED,
 			    const struct channel_stats *stats UNNEEDED,
 			    struct channel_state_change **state_changes STEALS UNNEEDED)
 { fprintf(stderr, "new_channel called!\n"); abort(); }
+/* Generated stub for new_channel_coin_mvt_general */
+struct channel_coin_mvt *new_channel_coin_mvt_general(const tal_t *ctx UNNEEDED,
+						      const struct channel *channel UNNEEDED,
+						      const struct channel_id *cid UNNEEDED,
+						      u64 timestamp UNNEEDED,
+						      const struct sha256 *payment_hash TAKES UNNEEDED,
+						      const u64 *part_id UNNEEDED,
+						      const u64 *group_id UNNEEDED,
+						      enum coin_mvt_dir direction UNNEEDED,
+						      struct amount_msat amount UNNEEDED,
+						      struct mvt_tags tags UNNEEDED,
+						      struct amount_msat fees UNNEEDED)
+{ fprintf(stderr, "new_channel_coin_mvt_general called!\n"); abort(); }
 /* Generated stub for new_channel_state_change */
 struct channel_state_change *new_channel_state_change(const tal_t *ctx UNNEEDED,
 						      struct timeabs timestamp UNNEEDED,
@@ -251,6 +277,28 @@ struct channel_state_change *new_channel_state_change(const tal_t *ctx UNNEEDED,
 						      enum state_change cause UNNEEDED,
 						      const char *message TAKES UNNEEDED)
 { fprintf(stderr, "new_channel_state_change called!\n"); abort(); }
+/* Generated stub for new_coin_channel_open_general */
+struct chain_coin_mvt *new_coin_channel_open_general(const tal_t *ctx UNNEEDED,
+						     const struct channel *channel UNNEEDED,
+						     const struct channel_id *cid UNNEEDED,
+						     u64 timestamp UNNEEDED,
+						     const struct bitcoin_outpoint *out UNNEEDED,
+						     const struct node_id *peer_id UNNEEDED,
+						     u32 blockheight UNNEEDED,
+						     const struct amount_msat amount UNNEEDED,
+						     const struct amount_sat output_val UNNEEDED,
+						     bool is_opener UNNEEDED,
+						     bool is_leased UNNEEDED)
+{ fprintf(stderr, "new_coin_channel_open_general called!\n"); abort(); }
+/* Generated stub for new_coin_channel_push_general */
+struct channel_coin_mvt *new_coin_channel_push_general(const tal_t *ctx UNNEEDED,
+						       const struct channel *channel UNNEEDED,
+						       const struct channel_id *cid UNNEEDED,
+						       u64 timestamp UNNEEDED,
+						       enum coin_mvt_dir direction UNNEEDED,
+						       struct amount_msat amount UNNEEDED,
+						       struct mvt_tags tags UNNEEDED)
+{ fprintf(stderr, "new_coin_channel_push_general called!\n"); abort(); }
 /* Generated stub for new_coin_wallet_deposit */
 struct chain_coin_mvt *new_coin_wallet_deposit(const tal_t *ctx UNNEEDED,
 					       const struct bitcoin_outpoint *outpoint UNNEEDED,
@@ -294,8 +342,14 @@ struct peer *new_peer(struct lightningd *ld UNNEEDED, u64 dbid UNNEEDED,
 { fprintf(stderr, "new_peer called!\n"); abort(); }
 /* Generated stub for notify_chain_mvt */
 void notify_chain_mvt(struct lightningd *ld UNNEEDED,
-		      const struct chain_coin_mvt *chain_mvt UNNEEDED)
+		      const struct chain_coin_mvt *chain_mvt UNNEEDED,
+		      u64 id UNNEEDED)
 { fprintf(stderr, "notify_chain_mvt called!\n"); abort(); }
+/* Generated stub for notify_channel_mvt */
+void notify_channel_mvt(struct lightningd *ld UNNEEDED,
+			const struct channel_coin_mvt *chan_mvt UNNEEDED,
+			u64 id UNNEEDED)
+{ fprintf(stderr, "notify_channel_mvt called!\n"); abort(); }
 /* Generated stub for notify_forward_event */
 void notify_forward_event(struct lightningd *ld UNNEEDED,
 			  const struct htlc_in *in UNNEEDED,
@@ -331,6 +385,9 @@ void outpointfilter_remove(struct outpointfilter *of UNNEEDED,
 /* Generated stub for peer_set_dbid */
 void peer_set_dbid(struct peer *peer UNNEEDED, u64 dbid UNNEEDED)
 { fprintf(stderr, "peer_set_dbid called!\n"); abort(); }
+/* Generated stub for primary_mvt_tag */
+enum mvt_tag primary_mvt_tag(struct mvt_tags tags UNNEEDED)
+{ fprintf(stderr, "primary_mvt_tag called!\n"); abort(); }
 /* Generated stub for psbt_fixup */
 const u8 *psbt_fixup(const tal_t *ctx UNNEEDED, const u8 *psbtblob UNNEEDED)
 { fprintf(stderr, "psbt_fixup called!\n"); abort(); }
@@ -395,6 +452,10 @@ void plugin_hook_db_sync(struct db *db UNNEEDED)
 {
 }
 
+void migrate_from_account_db(struct lightningd *ld UNNEEDED, struct db *db UNNEEDED)
+{
+}
+
 static struct db *create_test_db(void)
 {
 	struct db *db;
@@ -407,7 +468,7 @@ static struct db *create_test_db(void)
 
 	dsn = tal_fmt(NULL, "sqlite3://%s", filename);
 	tal_free(filename);
-	db = db_open(NULL, dsn, true, db_error, (struct lightningd *)NULL);
+	db = db_open(NULL, dsn, true, true, db_error, (struct lightningd *)NULL);
 	db->data_version = 0;
 	db->report_changes_fn = NULL;
 

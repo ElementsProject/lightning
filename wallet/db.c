@@ -18,6 +18,7 @@
 #include <lightningd/plugin_hook.h>
 #include <sodium/randombytes.h>
 #include <stddef.h>
+#include <wallet/account_migration.h>
 #include <wallet/db.h>
 #include <wallet/psbt_fixup.h>
 #include <wire/peer_wire.h>
@@ -1045,6 +1046,55 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE channel_funding_inflights ADD i_sent_sigs INTEGER DEFAULT 0"), NULL},
     {SQL("ALTER TABLE channels ADD old_scids BLOB DEFAULT NULL;"), NULL},
     {NULL, migrate_initialize_alias_local},
+    /* Avoids duplication in chain_moves and coin_moves tables */
+    {SQL("CREATE TABLE move_accounts ("
+	 "  id BIGSERIAL,"
+	 "  name TEXT,"
+	 "  PRIMARY KEY (id),"
+	 "  UNIQUE (name)"
+	 ")"), NULL},
+    {SQL("CREATE TABLE chain_moves ("
+	 "  id BIGSERIAL,"
+	 /* One of these is null */
+	 "  account_channel_id BIGINT references channels(id),"
+	 "  account_nonchannel_id BIGINT references move_accounts(id),"
+	 "  tag_bitmap BIGINT NOT NULL,"
+	 "  credit_or_debit BIGINT NOT NULL,"
+	 "  timestamp BIGINT NOT NULL,"
+	 "  utxo BLOB NOT NULL,"
+	 "  spending_txid BLOB,"
+	 /* This does NOT reference peers(node_id), since we can have
+	  * MVT_CHANNEL_PROPOSED events on zeroconf channels where we end up
+	  * forgetting the channel, thus the peer */
+	 "  peer_id BLOB,"
+	 "  payment_hash BLOB,"
+	 "  block_height INTEGER NOT NULL,"
+	 "  output_sat BIGINT NOT NULL,"
+	 /* One of these is null */
+	 "  originating_channel_id BIGINT references channels(id),"
+	 "  originating_nonchannel_id BIGINT references move_accounts(id),"
+	 "  output_count INTEGER,"
+	 "  PRIMARY KEY (id)"
+	 ")"), NULL},
+    {SQL("CREATE TABLE channel_moves ("
+	 "  id BIGSERIAL,"
+	 /* One of these is null */
+	 "  account_channel_id BIGINT references channels(id),"
+	 "  account_nonchannel_id BIGINT references move_accounts(id),"
+	 "  tag_bitmap BIGINT NOT NULL,"
+	 "  credit_or_debit BIGINT NOT NULL,"
+	 "  timestamp BIGINT NOT NULL,"
+	 "  payment_hash BLOB,"
+	 "  payment_part_id BIGINT,"
+	 "  payment_group_id BIGINT,"
+	 "  fees BIGINT NOT NULL,"
+	 "  PRIMARY KEY (id)"
+	 ")"), NULL},
+    /* We do a lookup before each append, to avoid duplicates */
+    {SQL("CREATE INDEX chain_moves_utxo_idx ON chain_moves (utxo)"), NULL},
+    {NULL, migrate_from_account_db},
+    /* We accidentally allowed duplicate entries */
+    {NULL, migrate_remove_chain_moves_duplicates}
 };
 
 /**
@@ -1125,7 +1175,7 @@ static void db_error(struct lightningd *ld, bool fatal, const char *fmt, va_list
 struct db *db_setup(const tal_t *ctx, struct lightningd *ld,
 		    const struct ext_key *bip32_base)
 {
-	struct db *db = db_open(ctx, ld->wallet_dsn, ld->developer,
+	struct db *db = db_open(ctx, ld->wallet_dsn, ld->developer, true,
 				db_error, ld);
 	bool migrated;
 

@@ -876,11 +876,19 @@ where
         method: String,
         v: serde_json::Value,
     ) -> Result<(), Error> {
+        // Modern has them inside object of same name.
+        // This is deprecated, scheduled for removal 26.09.
+        let mut params = match &v {
+            serde_json::Value::Object(map) => map.clone(),
+            _ => return Err(anyhow::anyhow!("params must be a JSON object")),
+        };
+        params.insert(method.clone(), json!(v));
+
         self.sender
             .send(json!({
                 "jsonrpc": "2.0",
                 "method": method,
-                "params": v,
+                "params": params,
             }))
             .await
             .context("sending custom notification")?;

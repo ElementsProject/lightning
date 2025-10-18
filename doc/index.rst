@@ -38,6 +38,7 @@ Core Lightning Documentation
    bkpr-listbalances <bkpr-listbalances.7.md>
    bkpr-listincome <bkpr-listincome.7.md>
    blacklistrune <blacklistrune.7.md>
+   cancelrecurringinvoice <cancelrecurringinvoice.7.md>
    check <check.7.md>
    checkmessage <checkmessage.7.md>
    checkrune <checkrune.7.md>
@@ -65,6 +66,7 @@ Core Lightning Documentation
    enableoffer <enableoffer.7.md>
    exposesecret <exposesecret.7.md>
    feerates <feerates.7.md>
+   fetchbip353 <fetchbip353.7.md>
    fetchinvoice <fetchinvoice.7.md>
    fundchannel <fundchannel.7.md>
    fundchannel_cancel <fundchannel_cancel.7.md>
@@ -90,6 +92,8 @@ Core Lightning Documentation
    lightningd-config <lightningd-config.5.md>
    lightningd-rpc <lightningd-rpc.7.md>
    listaddresses <listaddresses.7.md>
+   listchainmoves <listchainmoves.7.md>
+   listchannelmoves <listchannelmoves.7.md>
    listchannels <listchannels.7.md>
    listclosedchannels <listclosedchannels.7.md>
    listconfigs <listconfigs.7.md>

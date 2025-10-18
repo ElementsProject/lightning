@@ -293,18 +293,6 @@ authenticate with username `user` and password `pass`, and then use the
 database `db_name`. The database must exist, but the schema will be managed
 automatically by `lightningd`.
 
-* **bookkeeper-dir**=*DIR* [plugin `bookkeeper`]
-
-  Directory to keep the accounts.sqlite3 database file in.
-Defaults to lightning-dir.
-
-* **bookkeeper-db**=*DSN* [plugin `bookkeeper`]
-
-  Identify the location of the bookkeeper data. This is a fully qualified data source
-name, including a scheme such as `sqlite3` or `postgres` followed by the
-connection parameters.
-Defaults to `sqlite3://accounts.sqlite3` in the `bookkeeper-dir`.
-
 * **encrypted-hsm**
 
  If set, you will be prompted to enter a password used to encrypt the `hsm_secret`.
@@ -815,12 +803,6 @@ including dual fund, additional channel splices, or generic transaction activity
 The operations will be bundled into a single transaction. The channel will remain
 active while awaiting splice confirmation, however you can only spend the smaller
 of the prior channel balance and the new one.
-
-* **experimental-quiesce**
-
-  Specifying this option advertizes `option_quiesce`.  Not very useful
-by itself, except for testing.
-
 
 
 BUGS

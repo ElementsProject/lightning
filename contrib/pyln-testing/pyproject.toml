@@ -1,29 +1,29 @@
 [project]
 name = "pyln-testing"
-version = "25.05"
+version = "25.09"
 description = "Test your Core Lightning integration, plugins or whatever you want"
 authors = [{ name = "Christian Decker", email = "decker.christian@gmail.com" }]
 license = { text = "BSD-MIT" }
 readme = "README.md"
-requires-python = ">=3.8,<4.0"
+requires-python = ">=3.9,<4.0"
 dependencies = [
-  "pytest>=7.0.0",
+  "pytest>=8.0.0",
   "ephemeral-port-reserve>=1.1.4",
   "psycopg2-binary>=2.9.0",
   "python-bitcoinlib>=0.11.0",
   "jsonschema>=4.4.0",
   "pyln-client>=23",
-  "Flask>=2.0.0",
+  "Flask>=3.0.0",
   "cheroot>=8,<=10",
   "psutil>=5.9.0",
-  "requests>=2.31.0",
+  "requests>=2.32.0",
 ]
 
 [dependency-groups]
 dev = ["pyln-client", "pyln-grpc-proto"]
 
 [project.optional-dependencies]
-grpc = ["pyln-grpc-proto>=0.1", "grpcio>=1.0.0"]
+grpc = ["pyln-grpc-proto>=0.1", "grpcio>=1.75.0"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["pyln"]
@@ -31,7 +31,3 @@ packages = ["pyln"]
 [build-system]
 requires = ["hatchling>=1.0.0"]
 build-backend = "hatchling.build"
-
-[tool.uv.sources]
-pyln-client = { workspace = true }
-pyln-grpc-proto = { workspace = true }

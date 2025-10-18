@@ -86,8 +86,8 @@ void towire_changed_htlc(u8 **pptr, const struct changed_htlc *changed);
 void towire_side(u8 **pptr, const enum side side);
 void towire_shachain(u8 **pptr, const struct shachain *shachain);
 
-void fromwire_added_htlc(const u8 **cursor, size_t *max,
-			 struct added_htlc *added);
+struct added_htlc *fromwire_added_htlc(const tal_t *ctx, const u8 **cursor,
+				       size_t *max);
 struct existing_htlc *fromwire_existing_htlc(const tal_t *ctx,
 					     const u8 **cursor, size_t *max);
 void fromwire_fulfilled_htlc(const u8 **cursor, size_t *max,

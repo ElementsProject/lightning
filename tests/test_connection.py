@@ -1,6 +1,7 @@
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from decimal import Decimal
+from pathlib import Path
 from pyln.client import RpcError, Millisatoshi
 import pyln.proto.wire as wire
 from utils import (
@@ -12,7 +13,7 @@ from utils import (
     mine_funding_to_announce, first_scid,
     CHANNEL_SIZE
 )
-from pyln.testing.utils import SLOW_MACHINE, VALGRIND, EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT
+from pyln.testing.utils import SLOW_MACHINE, VALGRIND, EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT, RUST
 
 import os
 import pytest
@@ -325,26 +326,6 @@ def test_balance(node_factory):
     assert p1['total_msat'] == 10**6 * 1000
     assert p2['to_us_msat'] == 0
     assert p2['total_msat'] == 10**6 * 1000
-
-
-@pytest.mark.openchannel('v1')
-@pytest.mark.openchannel('v2')
-def test_bad_opening(node_factory):
-    # l1 asks for a too-long locktime
-    l1 = node_factory.get_node(options={'watchtime-blocks': 2017})
-    l2 = node_factory.get_node()
-    ret = l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-
-    assert ret['id'] == l2.info['id']
-
-    l1.daemon.wait_for_log('Handed peer, entering loop')
-    l2.daemon.wait_for_log('Handed peer, entering loop')
-
-    l1.fundwallet(10**6 + 1000000)
-    with pytest.raises(RpcError):
-        l1.rpc.fundchannel(l2.info['id'], 10**6)
-
-    l2.daemon.wait_for_log('to_self_delay 2017 larger than 2016')
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Fee computation and limits are network specific")
@@ -1416,7 +1397,8 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
 
 @pytest.mark.openchannel('v2')
 def test_funding_v2_corners(node_factory, bitcoind):
-    l1 = node_factory.get_node(may_reconnect=True)
+    # dualopend doesn't listen :(
+    l1 = node_factory.get_node(may_reconnect=True, broken_log='Subd did not close, forcing close')
     l2 = node_factory.get_node(may_reconnect=True)
 
     # We have wumbo, it's OK
@@ -2990,7 +2972,7 @@ def test_opener_feerate_reconnect(node_factory, bitcoind):
 
     # Wait until they reconnect.
     l1.daemon.wait_for_logs(['Peer transient failure in CHANNELD_NORMAL',
-                             'peer_disconnect_done'])
+                             'peer_disconnected'])
     wait_for(lambda: l1.rpc.getpeer(l2.info['id'])['connected'])
 
     # Should work normally.
@@ -3039,7 +3021,7 @@ def test_dataloss_protection(node_factory, bitcoind):
 
     # Save copy of the db.
     dbpath = os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, "lightningd.sqlite3")
-    orig_db = open(dbpath, "rb").read()
+    orig_db = Path(dbpath).read_bytes()
     l2.start()
 
     # l1 should have sent WIRE_CHANNEL_REESTABLISH with extra fields.
@@ -3083,7 +3065,7 @@ def test_dataloss_protection(node_factory, bitcoind):
     # Now, move l2 back in time.
     l2.stop()
     # Overwrite with OLD db.
-    open(dbpath, "wb").write(orig_db)
+    Path(dbpath).write_bytes(orig_db)
     l2.start()
 
     # l2 should freak out!
@@ -3138,7 +3120,7 @@ def test_dataloss_protection_no_broadcast(node_factory, bitcoind):
 
     # Save copy of the db.
     dbpath = os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, "lightningd.sqlite3")
-    orig_db = open(dbpath, "rb").read()
+    orig_db = Path(dbpath).read_bytes()
     l2.start()
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -3153,9 +3135,9 @@ def test_dataloss_protection_no_broadcast(node_factory, bitcoind):
     # Now, move l2 back in time.
     l2.stop()
     # Save new db
-    new_db = open(dbpath, "rb").read()
+    new_db = Path(dbpath).read_bytes()
     # Overwrite with OLD db.
-    open(dbpath, "wb").write(orig_db)
+    Path(dbpath).write_bytes(orig_db)
     l2.start()
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -3169,7 +3151,7 @@ def test_dataloss_protection_no_broadcast(node_factory, bitcoind):
 
     # fix up l2.
     l2.stop()
-    open(dbpath, "wb").write(new_db)
+    Path(dbpath).write_bytes(new_db)
     l2.start()
 
     # All is forgiven
@@ -4525,7 +4507,7 @@ def test_reconnect_no_additional_transient_failure(node_factory, bitcoind):
     l1.stop()
     # We wait for l2 to disconnect, ofc we also see an expected "Peer transient failure" here.
     l2.daemon.wait_for_logs([f"{l1id}-channeld-chan#1: Peer connection lost",
-                             f"{l1id}-lightningd: peer_disconnect_done",
+                             f"{l1id}-lightningd: peer_disconnected",
                              f"{l1id}-chan#1: Peer transient failure in CHANNELD_NORMAL: channeld: Owning subdaemon channeld died"])
 
     # When we restart l1 we should not see another Peer transient failure message.
@@ -4583,6 +4565,7 @@ def test_last_stable_connection(node_factory):
     assert only_one(l2.rpc.listpeerchannels()['channels'])['last_stable_connection'] >= recon_time + STABLE_TIME
 
 
+@unittest.skipUnless(RUST, 'RUST is not enabled')
 def test_wss_proxy(node_factory):
     wss_port = node_factory.get_unused_port()
     ws_port = node_factory.get_unused_port()

@@ -2,9 +2,13 @@
 
 #include <common/json_stream.h>
 #include <plugins/bkpr/chain_event.h>
+#include <plugins/bkpr/descriptions.h>
 
-void json_add_chain_event(struct json_stream *out, struct chain_event *ev)
+void json_add_chain_event(struct json_stream *out,
+			  const struct bkpr *bkpr,
+			  struct chain_event *ev)
 {
+	const char *desc;
 	json_object_start(out, NULL);
 	json_add_string(out, "account", ev->acct_name);
 	if (ev->origin_acct)
@@ -15,14 +19,16 @@ void json_add_chain_event(struct json_stream *out, struct chain_event *ev)
 	json_add_amount_msat(out, "debit_msat", ev->debit);
 	json_add_string(out, "currency", chainparams->lightning_hrp);
 	json_add_outpoint(out, "outpoint", &ev->outpoint);
+	desc = chain_event_description(bkpr, ev);
 
 	if (ev->spending_txid)
 		json_add_txid(out, "txid", ev->spending_txid);
-	if (ev->payment_id)
+	if (ev->payment_id) {
 		json_add_sha256(out, "payment_id", ev->payment_id);
+	}
 	json_add_u64(out, "timestamp", ev->timestamp);
 	json_add_u32(out, "blockheight", ev->blockheight);
-	if (ev->desc)
-		json_add_string(out, "description", ev->desc);
+	if (desc)
+		json_add_string(out, "description", desc);
 	json_object_end(out);
 }

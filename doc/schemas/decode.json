@@ -307,12 +307,6 @@
                     "Period starts at this UNIX timestamp."
                   ]
                 },
-                "start_any_period": {
-                  "type": "u64",
-                  "description": [
-                    "You can start at any period (only if `basetime` present)."
-                  ]
-                },
                 "limit": {
                   "type": "u32",
                   "description": [
@@ -729,12 +723,6 @@
                   "type": "u64",
                   "description": [
                     "Period starts at this UNIX timestamp."
-                  ]
-                },
-                "start_any_period": {
-                  "type": "u64",
-                  "description": [
-                    "You can start at any period (only if `basetime` present)."
                   ]
                 },
                 "limit": {
@@ -1367,12 +1355,6 @@
                   "type": "u64",
                   "description": [
                     "Period starts at this UNIX timestamp."
-                  ]
-                },
-                "start_any_period": {
-                  "type": "u64",
-                  "description": [
-                    "You can start at any period (only if `basetime` present)."
                   ]
                 },
                 "limit": {

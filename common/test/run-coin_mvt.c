@@ -43,6 +43,9 @@ struct amount_asset amount_sat_to_asset(struct amount_sat *sat UNNEEDED, const u
 /* Generated stub for amount_tx_fee */
 struct amount_sat amount_tx_fee(u32 fee_per_kw UNNEEDED, size_t weight UNNEEDED)
 { fprintf(stderr, "amount_tx_fee called!\n"); abort(); }
+/* Generated stub for fmt_channel_id */
+char *fmt_channel_id(const tal_t *ctx UNNEEDED, const struct channel_id *channel_id UNNEEDED)
+{ fprintf(stderr, "fmt_channel_id called!\n"); abort(); }
 /* Generated stub for fromwire */
 const u8 *fromwire(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, void *copy UNNEEDED, size_t n UNNEEDED)
 { fprintf(stderr, "fromwire called!\n"); abort(); }
@@ -180,6 +183,10 @@ static bool mvt_tag_is_primary(enum mvt_tag tag)
 	case MVT_PENALTY_ADJ:
 		return true;
 	case MVT_JOURNAL:
+		return true;
+	case MVT_FOREIGN:
+		return false;
+	case MVT_IGNORED:
 		return true;
 	}
 	abort();

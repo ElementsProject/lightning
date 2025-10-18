@@ -2687,6 +2687,28 @@ impl From<responses::WaitblockheightResponse> for pb::WaitblockheightResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::WaitChainmoves> for pb::WaitChainmoves {
+    fn from(c: responses::WaitChainmoves) -> Self {
+        Self {
+            account: c.account, // Rule #2 for type string
+            credit_msat: Some(c.credit_msat.into()), // Rule #2 for type msat
+            debit_msat: Some(c.debit_msat.into()), // Rule #2 for type msat
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::WaitChannelmoves> for pb::WaitChannelmoves {
+    fn from(c: responses::WaitChannelmoves) -> Self {
+        Self {
+            account: c.account, // Rule #2 for type string
+            credit_msat: Some(c.credit_msat.into()), // Rule #2 for type msat
+            debit_msat: Some(c.debit_msat.into()), // Rule #2 for type msat
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::WaitDetails> for pb::WaitDetails {
     fn from(c: responses::WaitDetails) -> Self {
         Self {
@@ -2763,6 +2785,8 @@ impl From<responses::WaitSendpays> for pb::WaitSendpays {
 impl From<responses::WaitResponse> for pb::WaitResponse {
     fn from(c: responses::WaitResponse) -> Self {
         Self {
+            chainmoves: c.chainmoves.map(|v| v.into()),
+            channelmoves: c.channelmoves.map(|v| v.into()),
             created: c.created, // Rule #2 for type u64?
             deleted: c.deleted, // Rule #2 for type u64?
             details: c.details.map(|v| v.into()),
@@ -4429,7 +4453,7 @@ impl From<notifications::ChannelStateChangedNotification> for pb::ChannelStateCh
             new_state: c.new_state as i32,
             old_state: c.old_state.map(|v| v as i32),
             peer_id: c.peer_id.serialize().to_vec(), // Rule #2 for type pubkey
-            short_channel_id: c.short_channel_id.to_string(), // Rule #2 for type short_channel_id
+            short_channel_id: c.short_channel_id.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
             timestamp: c.timestamp, // Rule #2 for type string
         }
     }
@@ -5407,12 +5431,13 @@ impl From<requests::OfferRequest> for pb::OfferRequest {
             description: c.description, // Rule #2 for type string?
             issuer: c.issuer, // Rule #2 for type string?
             label: c.label, // Rule #2 for type string?
+            optional_recurrence: c.optional_recurrence, // Rule #2 for type boolean?
+            proportional_amount: c.proportional_amount, // Rule #2 for type boolean?
             quantity_max: c.quantity_max, // Rule #2 for type u64?
             recurrence: c.recurrence, // Rule #2 for type string?
             recurrence_base: c.recurrence_base, // Rule #2 for type string?
             recurrence_limit: c.recurrence_limit, // Rule #2 for type u32?
             recurrence_paywindow: c.recurrence_paywindow, // Rule #2 for type string?
-            recurrence_start_any_period: c.recurrence_start_any_period, // Rule #2 for type boolean?
             single_use: c.single_use, // Rule #2 for type boolean?
         }
     }
@@ -7101,12 +7126,13 @@ impl From<pb::OfferRequest> for requests::OfferRequest {
             description: c.description, // Rule #1 for type string?
             issuer: c.issuer, // Rule #1 for type string?
             label: c.label, // Rule #1 for type string?
+            optional_recurrence: c.optional_recurrence, // Rule #1 for type boolean?
+            proportional_amount: c.proportional_amount, // Rule #1 for type boolean?
             quantity_max: c.quantity_max, // Rule #1 for type u64?
             recurrence: c.recurrence, // Rule #1 for type string?
             recurrence_base: c.recurrence_base, // Rule #1 for type string?
             recurrence_limit: c.recurrence_limit, // Rule #1 for type u32?
             recurrence_paywindow: c.recurrence_paywindow, // Rule #1 for type string?
-            recurrence_start_any_period: c.recurrence_start_any_period, // Rule #1 for type boolean?
             single_use: c.single_use, // Rule #1 for type boolean?
         }
     }

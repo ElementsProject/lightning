@@ -120,6 +120,9 @@ struct plugin {
 
 	/* Can this handle check commands? */
 	bool can_check;
+
+	/* custom feature-bits */
+	struct feature_set *fset;
 };
 
 /**
@@ -154,6 +157,9 @@ struct plugins {
 
 	/* Whether builtin plugins should be overridden as unimportant.  */
 	bool dev_builtin_plugins_unimportant;
+
+	/* Whether to save all IO to a file */
+	char *dev_save_io;
 };
 
 /**
@@ -415,4 +421,17 @@ struct command_result *plugin_set_dynamic_opt(struct command *cmd,
 					       const struct opt_table *,
 					       const char *,
 					       bool));
+
+/* --dev-plugin-save-io */
+void dev_save_plugin_io_in(struct plugins *plugins,
+			   const char *type,
+			   const char *name,
+			   const char *buffer,
+			   const jsmntok_t *tok);
+
+void dev_save_plugin_io_out(struct plugins *plugins,
+			    const char *type,
+			    const char *name,
+			    const struct json_stream *stream);
+
 #endif /* LIGHTNING_LIGHTNINGD_PLUGIN_H */

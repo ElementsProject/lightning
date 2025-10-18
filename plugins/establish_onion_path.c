@@ -69,6 +69,10 @@ static bool can_carry_onionmsg(const struct gossmap *map,
 {
 	const struct gossmap_node *n;
 
+	/* Don't try to use disabled channels! */
+	if (!c->half[dir].enabled)
+		return false;
+
 	/* Our local additions are always fine, since we checked features then */
 	if (gossmap_chan_is_localmod(map, c))
 		return true;
@@ -78,11 +82,40 @@ static bool can_carry_onionmsg(const struct gossmap *map,
 	return gossmap_node_get_feature(map, n, OPT_ONION_MESSAGES) != -1;
 }
 
+static void local_mods_remove_channels(struct gossmap_localmods *mods,
+				       const struct gossmap *gossmap,
+				       const struct node_id *selfid,
+				       const struct node_id *peerid)
+{
+	const struct gossmap_node *peer = gossmap_find_node(gossmap, peerid);
+	const struct gossmap_node *self = gossmap_find_node(gossmap, selfid);
+	const bool enabled_off = false;
+
+	if (!peer || !self)
+		return;
+
+	for (size_t i = 0; i < self->num_chans; i++) {
+		int dir;
+		struct short_channel_id_dir scidd;
+		struct gossmap_chan *c = gossmap_nth_chan(gossmap, self, i, &dir);
+
+		if (gossmap_nth_node(gossmap, c, !dir) != peer)
+			continue;
+		scidd.scid = gossmap_chan_scid(gossmap, c);
+		scidd.dir = dir;
+
+		/* Set enabled -> false for this channel */
+		gossmap_local_updatechan(mods, &scidd, &enabled_off,
+					 NULL, NULL, NULL, NULL, NULL);
+	}
+}
+
 /* We add fake channels to gossmap to represent current outgoing connections.
  * This allows dijkstra to find transient connections as well. */
 static struct gossmap_localmods *
 gossmods_from_listpeers(const tal_t *ctx,
-			struct command *cmd,
+			struct plugin *plugin,
+			const struct gossmap *gossmap,
 			const struct node_id *self,
 			const char *buf,
 			const jsmntok_t *toks)
@@ -108,11 +141,17 @@ gossmods_from_listpeers(const tal_t *ctx,
 				JSON_SCAN(json_to_node_id, &peer_id),
 				JSON_SCAN_TAL(tmpctx, json_tok_bin_from_hex, &features));
 		if (err) {
-			plugin_err(cmd->plugin, "Bad listpeers.peers %zu: %s", i, err);
+			plugin_err(plugin, "Bad listpeers.peers %zu: %s", i, err);
 		}
 
-		if (!connected || !feature_offered(features, OPT_ONION_MESSAGES))
+		if (!feature_offered(features, OPT_ONION_MESSAGES))
 			continue;
+
+		if (!connected) {
+			/* Discard any channels we have with that. */
+			local_mods_remove_channels(mods, gossmap, self, &peer_id);
+			continue;
+		}
 
 		/* Add a fake channel */
 		fake_scidd.scid.u64 = i;
@@ -145,7 +184,7 @@ static const struct pubkey *path_to_node(const tal_t *ctx,
 
 	node_id_from_pubkey(&local_nodeid, local_id);
 	node_id_from_pubkey(&dst_nodeid, dst_key);
-	mods = gossmods_from_listpeers(tmpctx, cmd, &local_nodeid, buf, listpeers);
+	mods = gossmods_from_listpeers(tmpctx, cmd->plugin, gossmap, &local_nodeid, buf, listpeers);
 
 	gossmap_apply_localmods(gossmap, mods);
 	dst = gossmap_find_node(gossmap, &dst_nodeid);

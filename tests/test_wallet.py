@@ -2,6 +2,7 @@ from bitcoin.rpc import JSONRPCError
 from decimal import Decimal
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
+from pathlib import Path
 from pyln.client import RpcError, Millisatoshi
 from utils import (
     only_one, wait_for, sync_blockheight,
@@ -1527,7 +1528,7 @@ def test_hsmtool_generatehsm(node_factory):
                              "generatehsm", hsm_path,
                              "en",
                              "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"])
-    assert open(hsm_path, "rb").read().hex() == "5eb00bbddcf069084889a8ab9155568165f5c453ccb85e70811aaed6f6da5fc1"
+    assert Path(hsm_path).read_bytes().hex() == "5eb00bbddcf069084889a8ab9155568165f5c453ccb85e70811aaed6f6da5fc1"
 
     # Including passphrase
     os.remove(hsm_path)
@@ -1884,3 +1885,26 @@ def test_onchain_missing_no_p2tr_migrate(node_factory, bitcoind):
 
     # This can actually take a while for 100 blocks!
     l2.daemon.wait_for_log('Rescan finished! 1 outputs recovered')
+
+
+def test_old_htlcs_cleanup(node_factory, bitcoind):
+    """We lazily delete htlcs from channel_htlcs table"""
+    l1, l2 = node_factory.line_graph(2)
+
+    for _ in range(10):
+        l1.pay(l2, 1000)
+
+    l1.rpc.close(l2.info['id'])
+    bitcoind.generate_block(100, wait_for_mempool=1)
+    wait_for(lambda: l1.rpc.listpeerchannels() == {'channels': []})
+    # We don't see them!
+    assert l1.rpc.listhtlcs() == {'htlcs': []}
+
+    l1.stop()
+    # They're still there.
+    assert l1.db_query('SELECT COUNT(*) as c FROM channel_htlcs')[0]['c'] == 10
+
+    l1.start()
+    # Now they're not
+    assert l1.db_query('SELECT COUNT(*) as c FROM channel_htlcs')[0]['c'] == 0
+    assert l1.rpc.listhtlcs() == {'htlcs': []}

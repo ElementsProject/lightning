@@ -1,5 +1,7 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
+#include <ccan/tal/str/str.h>
+#include <common/json_command.h>
 #include <lightningd/channel.h>
 #include <lightningd/coin_mvts.h>
 #include <lightningd/notification.h>
@@ -188,11 +190,20 @@ void json_add_chain_mvt_fields(struct json_stream *stream,
 			       bool include_tags_arr,
 			       bool include_old_utxo_fields,
 			       bool include_old_txid_field,
-			       const struct chain_coin_mvt *chain_mvt)
+			       const struct chain_coin_mvt *chain_mvt,
+			       u64 id)
 {
+	/* Fields in common with channel moves go first */
+	json_add_u64(stream, "created_index", id);
+	json_add_mvt_account_id(stream, "account_id", &chain_mvt->account);
+	json_add_amount_msat(stream, "credit_msat", chain_mvt->credit);
+	json_add_amount_msat(stream, "debit_msat", chain_mvt->debit);
+	json_add_u64(stream, "timestamp", chain_mvt->timestamp);
+	add_movement_tags(stream, include_tags_arr, chain_mvt->tags, true);
+
+	json_add_outpoint(stream, "utxo", &chain_mvt->outpoint);
 	if (chain_mvt->peer_id)
 		json_add_node_id(stream, "peer_id", chain_mvt->peer_id);
-	json_add_mvt_account_id(stream, "account_id", &chain_mvt->account);
 
 	if (chain_mvt->originating_acct)
 		json_add_mvt_account_id(stream, "originating_account", chain_mvt->originating_acct);
@@ -210,30 +221,32 @@ void json_add_chain_mvt_fields(struct json_stream *stream,
 						 &chain_mvt->outpoint.txid));
 		json_add_u32(stream, "vout", chain_mvt->outpoint.n);
 	}
-	json_add_outpoint(stream, "utxo", &chain_mvt->outpoint);
 
 	/* on-chain htlcs include a payment hash */
 	if (chain_mvt->payment_hash)
 		json_add_sha256(stream, "payment_hash", chain_mvt->payment_hash);
-	json_add_amount_msat(stream, "credit_msat", chain_mvt->credit);
-	json_add_amount_msat(stream, "debit_msat", chain_mvt->debit);
-
 	json_add_amount_sat_msat(stream,
 				 "output_msat", chain_mvt->output_val);
 	if (chain_mvt->output_count > 0)
 		json_add_num(stream, "output_count", chain_mvt->output_count);
 
-	add_movement_tags(stream, include_tags_arr, chain_mvt->tags, true);
 	json_add_u32(stream, "blockheight", chain_mvt->blockheight);
-	json_add_u64(stream, "timestamp", chain_mvt->timestamp);
 }
 
 void json_add_channel_mvt_fields(struct json_stream *stream,
 				 bool include_tags_arr,
 				 const struct channel_coin_mvt *chan_mvt,
+				 u64 id,
 				 bool extra_tags_field)
 {
+	/* Fields in common with chain moves go first */
+	json_add_u64(stream, "created_index", id);
 	json_add_mvt_account_id(stream, "account_id", &chan_mvt->account);
+	json_add_amount_msat(stream, "credit_msat", chan_mvt->credit);
+	json_add_amount_msat(stream, "debit_msat", chan_mvt->debit);
+	json_add_u64(stream, "timestamp", chan_mvt->timestamp);
+	add_movement_tags(stream, include_tags_arr, chan_mvt->tags, extra_tags_field);
+
 	/* push funding / leases don't have a payment_hash */
 	if (chan_mvt->payment_hash)
 		json_add_sha256(stream, "payment_hash", chan_mvt->payment_hash);
@@ -241,10 +254,244 @@ void json_add_channel_mvt_fields(struct json_stream *stream,
 		json_add_u64(stream, "part_id", chan_mvt->part_and_group->part_id);
 		json_add_u64(stream, "group_id", chan_mvt->part_and_group->group_id);
 	}
-	json_add_amount_msat(stream, "credit_msat", chan_mvt->credit);
-	json_add_amount_msat(stream, "debit_msat", chan_mvt->debit);
 	json_add_amount_msat(stream, "fees_msat", chan_mvt->fees);
-
-	add_movement_tags(stream, include_tags_arr, chan_mvt->tags, extra_tags_field);
-	json_add_u64(stream, "timestamp", chan_mvt->timestamp);
 }
+
+static u64 coinmvt_index_inc(struct lightningd *ld,
+			     struct db *db,
+			     enum wait_subsystem subsys,
+			     const struct mvt_account_id *account,
+			     struct amount_msat credit,
+			     struct amount_msat debit,
+			     enum wait_index idx)
+{
+	return wait_index_increment(ld, db, subsys, idx,
+				    "account", account->channel ? fmt_channel_id(tmpctx, &account->channel->cid) : account->alt_account,
+				    "=credit_msat", tal_fmt(tmpctx, "%"PRIu64, credit.millisatoshis), /* Raw: JSON output */
+				    "=debit_msat", tal_fmt(tmpctx, "%"PRIu64, debit.millisatoshis), /* Raw: JSON output */
+				    NULL);
+}
+
+u64 chain_mvt_index_created(struct lightningd *ld,
+			    struct db *db,
+			    const struct mvt_account_id *account,
+			    struct amount_msat credit,
+			    struct amount_msat debit)
+{
+	return coinmvt_index_inc(ld, db, WAIT_SUBSYSTEM_CHAINMOVES,
+				 account, credit, debit,
+				 WAIT_INDEX_CREATED);
+}
+
+u64 channel_mvt_index_created(struct lightningd *ld,
+			      struct db *db,
+			      const struct mvt_account_id *account,
+			      struct amount_msat credit,
+			      struct amount_msat debit)
+{
+	return coinmvt_index_inc(ld, db, WAIT_SUBSYSTEM_CHANNELMOVES,
+				 account, credit, debit,
+				 WAIT_INDEX_CREATED);
+}
+
+static struct command_result *json_listchainmoves(struct command *cmd,
+						  const char *buffer,
+						  const jsmntok_t *obj UNNEEDED,
+						  const jsmntok_t *params)
+{
+	struct json_stream *response;
+	struct db_stmt *stmt;
+	enum wait_index *listindex;
+	u64 *liststart;
+	u32 *listlimit;
+
+	if (!param(cmd, buffer, params,
+		   p_opt("index", param_index, &listindex),
+		   p_opt_def("start", param_u64, &liststart, 0),
+		   p_opt("limit", param_u32, &listlimit),
+		   NULL))
+		return command_param_failed();
+
+	if (*liststart != 0 && !listindex) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Can only specify {start} with {index}");
+	}
+	if (listlimit && !listindex) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Can only specify {limit} with {index}");
+	}
+	if (listindex && *listindex != WAIT_INDEX_CREATED) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "index must be 'created', since chainmoves are never updated");
+	}
+	response = json_stream_success(cmd);
+	json_array_start(response, "chainmoves");
+	for (stmt = wallet_chain_moves_first(cmd->ld->wallet, *liststart, listlimit);
+	     stmt;
+	     stmt = wallet_chain_moves_next(cmd->ld->wallet, stmt)) {
+		struct chain_coin_mvt *chain_mvt;
+		u64 id;
+		chain_mvt = wallet_chain_move_extract(cmd, stmt, cmd->ld, &id);
+		json_object_start(response, NULL);
+		json_add_chain_mvt_fields(response, false, false, false, chain_mvt, id);
+		json_object_end(response);
+	}
+	json_array_end(response);
+
+	return command_success(cmd, response);
+}
+static const struct json_command listchainmoves_command = {
+	"listchainmoves",
+	json_listchainmoves,
+};
+AUTODATA(json_command, &listchainmoves_command);
+
+static struct command_result *json_listchannelmoves(struct command *cmd,
+						    const char *buffer,
+						    const jsmntok_t *obj UNNEEDED,
+						    const jsmntok_t *params)
+{
+	struct json_stream *response;
+	struct db_stmt *stmt;
+	enum wait_index *listindex;
+	u64 *liststart;
+	u32 *listlimit;
+
+	if (!param(cmd, buffer, params,
+		   p_opt("index", param_index, &listindex),
+		   p_opt_def("start", param_u64, &liststart, 0),
+		   p_opt("limit", param_u32, &listlimit),
+		   NULL))
+		return command_param_failed();
+
+	if (*liststart != 0 && !listindex) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Can only specify {start} with {index}");
+	}
+	if (listlimit && !listindex) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Can only specify {limit} with {index}");
+	}
+	if (listindex && *listindex != WAIT_INDEX_CREATED) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "index must be 'created', since channelmoves are never updated");
+	}
+
+	response = json_stream_success(cmd);
+	json_array_start(response, "channelmoves");
+	for (stmt = wallet_channel_moves_first(cmd->ld->wallet, *liststart, listlimit);
+	     stmt;
+	     stmt = wallet_channel_moves_next(cmd->ld->wallet, stmt)) {
+		struct channel_coin_mvt *chan_mvt;
+		u64 id;
+		chan_mvt = wallet_channel_move_extract(cmd, stmt, cmd->ld, &id);
+		json_object_start(response, NULL);
+		/* No deprecated tags[], no extra_tags field */
+		json_add_channel_mvt_fields(response, false, chan_mvt, id, false);
+		json_object_end(response);
+	}
+	json_array_end(response);
+
+	return command_success(cmd, response);
+}
+static const struct json_command listchannelmoves_command = {
+	"listchannelmoves",
+	json_listchannelmoves,
+};
+AUTODATA(json_command, &listchannelmoves_command);
+
+static struct command_result *param_msat_as_sat(struct command *cmd,
+						const char *name,
+						const char *buffer,
+						const jsmntok_t *tok,
+						struct amount_sat **sat)
+{
+	struct amount_msat msat;
+
+	*sat = tal(cmd, struct amount_sat);
+	if (parse_amount_msat(&msat, buffer + tok->start, tok->end - tok->start)
+	    && amount_msat_to_sat(*sat, msat))
+		return NULL;
+
+	return command_fail_badparam(cmd, name, buffer, tok,
+				     "should be a millisatoshi amount");
+}
+
+/* Internal interfaces for bookkeeper.c.
+ * FIXME: handle utxo_deposit / utxo_spend notifications directly! */
+static struct command_result *json_injectutxodeposit(struct command *cmd,
+						     const char *buffer,
+						     const jsmntok_t *obj UNNEEDED,
+						     const jsmntok_t *params)
+{
+	struct chain_coin_mvt *ev;
+	const char *account, *origin_acct;
+	struct bitcoin_outpoint *outpoint;
+	struct amount_sat *amount;
+	u64 *timestamp;
+	u32 *blockheight;
+
+	if (!param(cmd, buffer, params,
+		   p_req("account", param_string, &account),
+		   p_req("outpoint", param_outpoint, &outpoint),
+		   p_req("amount_msat", param_msat_as_sat, &amount),
+		   p_req("timestamp", param_u64, &timestamp),
+		   p_req("blockheight", param_u32, &blockheight),
+		   p_opt("transfer_from", param_string, &origin_acct),
+		   NULL))
+		return command_param_failed();
+
+	ev = new_foreign_deposit(cmd, outpoint, *blockheight, *amount,
+				 account, *timestamp);
+	if (origin_acct) {
+		/* Need temporary because originating_acct is const */
+		struct mvt_account_id *acct;
+		ev->originating_acct = acct = tal(ev, struct mvt_account_id);
+		acct->channel = NULL;
+		acct->alt_account = tal_strdup(acct, origin_acct);
+	}
+	wallet_save_chain_mvt(cmd->ld, ev);
+
+	return command_success(cmd, json_stream_success(cmd));
+}
+static const struct json_command injectutxodeposit_command = {
+	"injectutxodeposit",
+	json_injectutxodeposit,
+};
+AUTODATA(json_command, &injectutxodeposit_command);
+
+static struct command_result *json_injectutxospend(struct command *cmd,
+						   const char *buffer,
+						   const jsmntok_t *obj UNNEEDED,
+						   const jsmntok_t *params)
+{
+	struct chain_coin_mvt *ev;
+	const char *account;
+	struct bitcoin_txid *spending_txid;
+	struct bitcoin_outpoint *outpoint;
+	struct amount_sat *amount;
+	u64 *timestamp;
+	u32 *blockheight;
+
+	if (!param(cmd, buffer, params,
+		   p_req("account", param_string, &account),
+		   p_req("outpoint", param_outpoint, &outpoint),
+		   p_req("spending_txid", param_txid, &spending_txid),
+		   p_req("amount_msat", param_msat_as_sat, &amount),
+		   p_req("timestamp", param_u64, &timestamp),
+		   p_req("blockheight", param_u32, &blockheight),
+		   NULL))
+		return command_param_failed();
+
+	ev = new_foreign_withdrawal(cmd, outpoint, spending_txid,
+				    *amount, *blockheight, account, *timestamp);
+	wallet_save_chain_mvt(cmd->ld, ev);
+
+	return command_success(cmd, json_stream_success(cmd));
+}
+static const struct json_command injectutxospend_command = {
+	"injectutxospend",
+	json_injectutxospend,
+};
+AUTODATA(json_command, &injectutxospend_command);
+

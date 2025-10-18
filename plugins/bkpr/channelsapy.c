@@ -12,6 +12,7 @@
 #include <db/utils.h>
 #include <plugins/bkpr/account.h>
 #include <plugins/bkpr/account_entry.h>
+#include <plugins/bkpr/bookkeeper.h>
 #include <plugins/bkpr/chain_event.h>
 #include <plugins/bkpr/channel_event.h>
 #include <plugins/bkpr/channelsapy.h>
@@ -24,22 +25,14 @@ static int cmp_channel_event_acct(struct channel_event *const *ev1,
 				  struct channel_event *const *ev2,
 				  void *unused UNUSED)
 {
-	if ((*ev1)->acct_db_id < (*ev2)->acct_db_id)
-		return -1;
-	else if ((*ev1)->acct_db_id > (*ev2)->acct_db_id)
-		return 1;
-	return 0;
+	return strcmp((*ev1)->acct_name, (*ev2)->acct_name);
 }
 
 static int cmp_acct(struct account *const *a1,
 		    struct account *const *a2,
 		    void *unused UNUSED)
 {
-	if ((*a1)->db_id < (*a2)->db_id)
-		return -1;
-	else if ((*a1)->db_id > (*a2)->db_id)
-		return 1;
-	return 0;
+	return strcmp((*a1)->name, (*a2)->name);
 }
 
 struct channel_apy *new_channel_apy(const tal_t *ctx)
@@ -93,17 +86,18 @@ bool channel_apy_sum(struct channel_apy *sum_apy,
 	return ok;
 }
 
-static struct account *search_account(struct account **accts, u64 acct_id)
+static struct account *search_account(struct account **accts, const char *acctname)
 {
 	for (size_t i = 0; i < tal_count(accts); i++) {
-		if (accts[i]->db_id == acct_id)
+		if (streq(accts[i]->name, acctname))
 			return accts[i];
 	}
 
 	return NULL;
 }
 
-static void fillin_apy_acct_details(struct db *db,
+static void fillin_apy_acct_details(const struct bkpr *bkpr,
+				    struct command *cmd,
 				    const struct account *acct,
 				    u32 current_blockheight,
 				    struct channel_apy *apy)
@@ -114,7 +108,7 @@ static void fillin_apy_acct_details(struct db *db,
 	apy->acct_name = tal_strdup(apy, acct->name);
 
 	assert(acct->open_event_db_id);
-	ev = find_chain_event_by_id(acct, db, *acct->open_event_db_id);
+	ev = find_chain_event_by_id(tmpctx, bkpr, cmd, *acct->open_event_db_id);
 	assert(ev);
 
 	apy->start_blockheight = ev->blockheight;
@@ -123,7 +117,7 @@ static void fillin_apy_acct_details(struct db *db,
 
 	/* if this account is closed, add closing blockheight */
 	if (acct->closed_event_db_id) {
-		ev = find_chain_event_by_id(acct, db,
+		ev = find_chain_event_by_id(tmpctx, bkpr, cmd,
 					    *acct->closed_event_db_id);
 		assert(ev);
 		apy->end_blockheight = ev->blockheight;
@@ -146,7 +140,9 @@ static void fillin_apy_acct_details(struct db *db,
 	assert(ok);
 }
 
-struct channel_apy **compute_channel_apys(const tal_t *ctx, struct db *db,
+struct channel_apy **compute_channel_apys(const tal_t *ctx,
+					  const struct bkpr *bkpr,
+					  struct command *cmd,
 					  u64 start_time,
 					  u64 end_time,
 					  u32 current_blockheight)
@@ -155,8 +151,8 @@ struct channel_apy **compute_channel_apys(const tal_t *ctx, struct db *db,
 	struct channel_apy *apy, **apys;
 	struct account *acct, **accts;
 
-	evs = list_channel_events_timebox(ctx, db, start_time, end_time);
-	accts = list_accounts(ctx, db);
+	evs = list_channel_events_timebox(ctx, bkpr, cmd, start_time, end_time);
+	accts = list_accounts(ctx, bkpr);
 
 	apys = tal_arr(ctx, struct channel_apy *, 0);
 
@@ -171,16 +167,16 @@ struct channel_apy **compute_channel_apys(const tal_t *ctx, struct db *db,
 		struct channel_event *ev = evs[i];
 		bool ok;
 
-		if (!acct || acct->db_id != ev->acct_db_id) {
+		if (!acct || !streq(acct->name, ev->acct_name)) {
 			if (acct && is_channel_account(acct->name)) {
-				fillin_apy_acct_details(db, acct,
+				fillin_apy_acct_details(bkpr, cmd, acct,
 							current_blockheight,
 							apy);
 				/* Save current apy, make new */
 				tal_arr_expand(&apys, apy);
 				apy = new_channel_apy(apys);
 			}
-			acct = search_account(accts, ev->acct_db_id);
+			acct = search_account(accts, ev->acct_name);
 			assert(acct);
 		}
 
@@ -231,7 +227,7 @@ struct channel_apy **compute_channel_apys(const tal_t *ctx, struct db *db,
 	}
 
 	if (acct && is_channel_account(acct->name)) {
-		fillin_apy_acct_details(db, acct,
+		fillin_apy_acct_details(bkpr, cmd, acct,
 					current_blockheight,
 					apy);
 		/* Save current apy, make new */

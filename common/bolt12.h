@@ -125,6 +125,7 @@ void offer_period_paywindow(const struct recurrence *recurrence,
 /**
  * Preliminary prefix check to see if the string might be a bolt12 string.
  */
+bool bolt12_has_offer_prefix(const char *str);
 bool bolt12_has_prefix(const char *str);
 
 /**
@@ -182,4 +183,9 @@ const struct tlv_field *any_field_outside_range(const struct tlv_field *fields,
  *     `A`-`Z`, `-`, `_` or `.`.
  */
 bool bolt12_bip353_valid_string(const u8 *str, size_t strlen);
+
+/* Extract either offer_recurrence_compulsory or offer_recurrence_optional */
+const struct recurrence *offer_recurrence(const struct tlv_offer *offer);
+const struct recurrence *invreq_recurrence(const struct tlv_invoice_request *invreq);
+const struct recurrence *invoice_recurrence(const struct tlv_invoice *inv);
 #endif /* LIGHTNING_COMMON_BOLT12_H */

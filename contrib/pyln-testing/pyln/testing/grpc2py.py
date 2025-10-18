@@ -1239,7 +1239,6 @@ def decode_offer_recurrence2py(m):
         "basetime": m.basetime,  # PrimitiveField in generate_composite
         "limit": m.limit,  # PrimitiveField in generate_composite
         "period": m.period,  # PrimitiveField in generate_composite
-        "start_any_period": m.start_any_period,  # PrimitiveField in generate_composite
         "time_unit": m.time_unit,  # PrimitiveField in generate_composite
         "time_unit_name": m.time_unit_name,  # PrimitiveField in generate_composite
     })
@@ -2094,6 +2093,22 @@ def upgradewallet2py(m):
 def waitblockheight2py(m):
     return remove_default({
         "blockheight": m.blockheight,  # PrimitiveField in generate_composite
+    })
+
+
+def wait_chainmoves2py(m):
+    return remove_default({
+        "account": m.account,  # PrimitiveField in generate_composite
+        "credit_msat": amount2msat(m.credit_msat),  # PrimitiveField in generate_composite
+        "debit_msat": amount2msat(m.debit_msat),  # PrimitiveField in generate_composite
+    })
+
+
+def wait_channelmoves2py(m):
+    return remove_default({
+        "account": m.account,  # PrimitiveField in generate_composite
+        "credit_msat": amount2msat(m.credit_msat),  # PrimitiveField in generate_composite
+        "debit_msat": amount2msat(m.debit_msat),  # PrimitiveField in generate_composite
     })
 
 

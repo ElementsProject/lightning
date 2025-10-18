@@ -112,7 +112,7 @@
     "* json_group_array"
   ],
   "tables": [
-    "Note that the first column of every table is a unique integer called `rowid`: this is used for related tables to refer to specific rows in their parent. sqlite3 usually has this as an implicit column, but we make it explicit as the implicit version is not allowed to be used as a foreign key.",
+    "Note that tables which have a `created_index` field use that as the primary key (and `rowid` is an alias to this), otherwise an explicit `rowid` integer primary key is generated, whose value changes on each refresh.  This field is used for related tables to refer to specific rows in their parent. (sqlite3 usually has this as an implicit column, but we make it explicit as the implicit version is not allowed to be used as a foreign key).",
     ""
   ],
   "errors": [
@@ -123,8 +123,17 @@
   ],
   "see_also": [
     "lightning-listtransactions(7)",
+    "lightning-listhtlcs(7)",
+    "lightning-listinvoices(7)",
+    "lightning-listoffers(7)",
     "lightning-listchannels(7)",
     "lightning-listpeers(7)",
+    "lightning-listpeerchannels(7)",
+    "lightning-listsendpays(7)",
+    "lightning-listchainmoves(7)",
+    "lightning-listchannelmoves(7)",
+    "lightning-bkpr-listaccountevents(7)",
+    "lightning-bkpr-listincome(7)",
     "lightning-listnodes(7)",
     "lightning-listforwards(7)"
   ],

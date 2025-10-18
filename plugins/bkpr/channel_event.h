@@ -6,6 +6,7 @@
 #include <common/utils.h>
 
 struct amount_msat;
+struct bkpr;
 struct json_stream;
 struct sha256;
 
@@ -14,11 +15,8 @@ struct channel_event {
 	/* Id of this chain event in the database */
 	u64 db_id;
 
-	/* db_id of account this event belongs to */
-	u64 acct_db_id;
-
 	/* Name of the account this belongs to */
-	char *acct_name;
+	const char *acct_name;
 
 	/* Tag describing the event */
 	const char *tag;
@@ -40,12 +38,6 @@ struct channel_event {
 
 	/* What time did the event happen */
 	u64 timestamp;
-
-	/* Description, usually from invoice */
-	const char *desc;
-
-	/* ID of paired event, iff is a rebalance */
-	u64 *rebalance_id;
 };
 
 struct channel_event *new_channel_event(const tal_t *ctx,
@@ -53,11 +45,12 @@ struct channel_event *new_channel_event(const tal_t *ctx,
 					struct amount_msat credit,
 					struct amount_msat debit,
 					struct amount_msat fees,
-					struct sha256 *payment_id STEALS,
+					const struct sha256 *payment_id TAKES,
 					u32 part_id,
 					u64 timestamp);
 
 void json_add_channel_event(struct json_stream *out,
+			    const struct bkpr *bkpr,
 			    struct channel_event *ev);
 
 #endif /* LIGHTNING_PLUGINS_BKPR_CHANNEL_EVENT_H */

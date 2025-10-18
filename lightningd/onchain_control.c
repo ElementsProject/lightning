@@ -17,13 +17,13 @@
 #include <lightningd/channel_control.h>
 #include <lightningd/coin_mvts.h>
 #include <lightningd/hsm_control.h>
-#include <lightningd/notification.h>
 #include <lightningd/onchain_control.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/peer_htlcs.h>
 #include <lightningd/subd.h>
 #include <onchaind/onchaind_wiregen.h>
 #include <wallet/txfilter.h>
+#include <wallet/wallet.h>
 #include <wally_bip32.h>
 #include <wally_psbt.h>
 #include <wire/wire_sync.h>
@@ -354,8 +354,7 @@ static void handle_onchain_log_coin_move(struct channel *channel, const u8 *msg)
 		mvt->originating_acct = new_mvt_account_id(mvt, channel, NULL);
 	}
 
-	notify_chain_mvt(channel->peer->ld, mvt);
-	tal_free(mvt);
+	wallet_save_chain_mvt(channel->peer->ld, take(mvt));
 }
 
 static void handle_onchain_log_penalty_adj(struct channel *channel, const u8 *msg)
@@ -369,9 +368,9 @@ static void handle_onchain_log_penalty_adj(struct channel *channel, const u8 *ms
 	}
 
 	mvt = new_channel_mvt_penalty_adj(tmpctx, channel, msat, COIN_CREDIT);
-	notify_channel_mvt(channel->peer->ld, mvt);
+	wallet_save_channel_mvt(channel->peer->ld, mvt);
 	mvt = new_channel_mvt_penalty_adj(tmpctx, channel, msat, COIN_DEBIT);
-	notify_channel_mvt(channel->peer->ld, mvt);
+	wallet_save_channel_mvt(channel->peer->ld, mvt);
 }
 
 static void replay_watch_tx(struct channel *channel,
@@ -597,7 +596,7 @@ static void onchain_add_utxo(struct channel *channel, const u8 *msg)
 			              amount, mk_mvt_tags(MVT_DEPOSIT));
 	mvt->originating_acct = new_mvt_account_id(mvt, channel, NULL);
 
-	notify_chain_mvt(channel->peer->ld, mvt);
+	wallet_save_chain_mvt(channel->peer->ld, mvt);
 }
 
 static void onchain_annotate_txout(struct channel *channel, const u8 *msg)

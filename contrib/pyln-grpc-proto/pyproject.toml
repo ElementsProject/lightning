@@ -1,15 +1,15 @@
 [project]
 name = "pyln-grpc-proto"
-version = "0.1.2"
+version = "25.09"
 description = "The compiled GRPC proto for CLN"
 authors = [{ name = "Christian Decker", email = "decker@blockstream.com" }]
 license = { text = "MIT" }
 readme = "README.md"
-requires-python = ">=3.8,<4.0"
-dependencies = ["grpcio==1.69.0", "protobuf==5.29.4"]
+requires-python = ">=3.9,<4.0"
+dependencies = ["grpcio==1.75.1", "protobuf==6.32.1"]
 
 [dependency-groups]
-dev = ["grpcio==1.69.0", "twine>=4.0.2", "mypy-protobuf<3.5.0", "grpcio-tools==1.69.0"]
+dev = ["grpcio==1.75.1", "mypy-protobuf<4", "grpcio-tools==1.75.1"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["pyln"]

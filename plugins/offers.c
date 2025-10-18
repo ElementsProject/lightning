@@ -295,13 +295,9 @@ static struct command_result *onion_message_recv(struct command *cmd,
 	invreqtok = json_get_member(buf, om, "invoice_request");
 	if (invreqtok) {
 		const u8 *invreqbin = json_tok_bin_from_hex(tmpctx, buf, invreqtok);
-		if (reply_path)
-			return handle_invoice_request(cmd,
-						      invreqbin,
-						      reply_path, secret);
-		else
-			plugin_log(cmd->plugin, LOG_DBG,
-				   "invoice_request without reply_path");
+		return handle_invoice_request(cmd,
+					      invreqbin,
+					      reply_path, secret);
 	}
 
 	invtok = json_get_member(buf, om, "invoice");
@@ -612,8 +608,6 @@ static bool json_add_blinded_paths(struct command *cmd,
 				     paths[i]->first_node_id.scidd.dir);
 		}
 
-		if (command_deprecated_out_ok(cmd, "blinding", "v24.11", "v25.05"))
-			json_add_pubkey(js, "blinding", &paths[i]->first_path_key);
 		json_add_pubkey(js, "first_path_key", &paths[i]->first_path_key);
 
 		/* Don't crash if we're short a payinfo! */
@@ -668,7 +662,7 @@ static bool json_add_blinded_paths(struct command *cmd,
 static const char *recurrence_time_unit_name(u8 time_unit)
 {
 	/* BOLT-recurrence #12:
-	 * `time_unit` defining 0 (seconds), 1 (days), 2 (months), 3 (years).
+	 * `time_unit` defining 0 (seconds), 1 (days), 2 (months).
 	 */
 	switch (time_unit) {
 	case 0:
@@ -677,8 +671,6 @@ static const char *recurrence_time_unit_name(u8 time_unit)
 		return "days";
 	case 2:
 		return "months";
-	case 3:
-		return "years";
 	}
 	return NULL;
 }
@@ -696,6 +688,39 @@ static bool json_add_utf8(struct json_stream *js,
 	return false;
 }
 
+static void json_add_recurrence(struct json_stream *js,
+				const char *fieldname,
+				const struct recurrence *offer_recurrence,
+				const struct recurrence_paywindow *offer_recurrence_paywindow,
+				const u32 *offer_recurrence_limit,
+				const struct recurrence_base *offer_recurrence_base)
+{
+	const char *name;
+	json_object_start(js, fieldname);
+	json_add_num(js, "time_unit", offer_recurrence->time_unit);
+	name = recurrence_time_unit_name(offer_recurrence->time_unit);
+	if (name)
+		json_add_string(js, "time_unit_name", name);
+	json_add_num(js, "period", offer_recurrence->period);
+	if (offer_recurrence_base) {
+		json_add_u64(js, "basetime",
+			     offer_recurrence_base->basetime);
+		if (offer_recurrence_base->proportional_amount)
+			json_add_bool(js, "proportional_amount", true);
+	}
+	if (offer_recurrence_limit)
+		json_add_u32(js, "limit", *offer_recurrence_limit);
+	if (offer_recurrence_paywindow) {
+		json_object_start(js, "paywindow");
+		json_add_u32(js, "seconds_before",
+			     offer_recurrence_paywindow->seconds_before);
+		json_add_u32(js, "seconds_after",
+			     offer_recurrence_paywindow->seconds_after);
+		json_object_end(js);
+	}
+	json_object_end(js);
+}
+
 static bool json_add_offer_fields(struct command *cmd,
 				  struct json_stream *js,
 				  const struct bitcoin_blkid *offer_chains,
@@ -709,7 +734,8 @@ static bool json_add_offer_fields(struct command *cmd,
 				  const char *offer_issuer,
 				  const u64 *offer_quantity_max,
 				  const struct pubkey *offer_issuer_id,
-				  const struct recurrence *offer_recurrence,
+				  const struct recurrence *offer_recurrence_compulsory,
+				  const struct recurrence *offer_recurrence_optional,
 				  const struct recurrence_paywindow *offer_recurrence_paywindow,
 				  const u32 *offer_recurrence_limit,
 				  const struct recurrence_base *offer_recurrence_base)
@@ -763,34 +789,18 @@ static bool json_add_offer_fields(struct command *cmd,
 	if (offer_quantity_max)
 		json_add_u64(js, "offer_quantity_max", *offer_quantity_max);
 
-	if (offer_recurrence) {
-		const char *name;
-		json_object_start(js, "offer_recurrence");
-		json_add_num(js, "time_unit", offer_recurrence->time_unit);
-		name = recurrence_time_unit_name(offer_recurrence->time_unit);
-		if (name)
-			json_add_string(js, "time_unit_name", name);
-		json_add_num(js, "period", offer_recurrence->period);
-		if (offer_recurrence_base) {
-			json_add_u64(js, "basetime",
-				     offer_recurrence_base->basetime);
-			if (offer_recurrence_base->start_any_period)
-				json_add_bool(js, "start_any_period", true);
-		}
-		if (offer_recurrence_limit)
-			json_add_u32(js, "limit", *offer_recurrence_limit);
-		if (offer_recurrence_paywindow) {
-			json_object_start(js, "paywindow");
-			json_add_u32(js, "seconds_before",
-				     offer_recurrence_paywindow->seconds_before);
-			json_add_u32(js, "seconds_after",
-				     offer_recurrence_paywindow->seconds_after);
-			if (offer_recurrence_paywindow->proportional_amount)
-				json_add_bool(js, "proportional_amount", true);
-			json_object_end(js);
-		}
-		json_object_end(js);
-	}
+	if (offer_recurrence_compulsory)
+		json_add_recurrence(js, "offer_recurrence_compulsory",
+				    offer_recurrence_compulsory,
+				    offer_recurrence_paywindow,
+				    offer_recurrence_limit,
+				    offer_recurrence_base);
+	if (offer_recurrence_optional)
+		json_add_recurrence(js, "offer_recurrence_optional",
+				    offer_recurrence_optional,
+				    offer_recurrence_paywindow,
+				    offer_recurrence_limit,
+				    offer_recurrence_base);
 
 	if (offer_issuer_id)
 		json_add_pubkey(js, "offer_issuer_id", offer_issuer_id);
@@ -842,7 +852,8 @@ static void json_add_offer(struct command *cmd, struct json_stream *js, const st
 				       offer->offer_issuer,
 				       offer->offer_quantity_max,
 				       offer->offer_issuer_id,
-				       offer->offer_recurrence,
+				       offer->offer_recurrence_compulsory,
+				       offer->offer_recurrence_optional,
 				       offer->offer_recurrence_paywindow,
 				       offer->offer_recurrence_limit,
 				       offer->offer_recurrence_base);
@@ -869,7 +880,7 @@ static bool json_add_invreq_fields(struct command *cmd,
 				   const struct pubkey *invreq_payer_id,
 				   const utf8 *invreq_payer_note,
 				   struct blinded_path **invreq_paths,
-				   struct tlv_invoice_request_invreq_bip_353_name *bip353,
+				   struct bip_353_name *bip353,
 				   const u32 *invreq_recurrence_counter,
 				   const u32 *invreq_recurrence_start)
 {
@@ -1044,7 +1055,8 @@ static void json_add_invoice_request(struct command *cmd,
 				       invreq->offer_issuer,
 				       invreq->offer_quantity_max,
 				       invreq->offer_issuer_id,
-				       invreq->offer_recurrence,
+				       invreq->offer_recurrence_compulsory,
+				       invreq->offer_recurrence_optional,
 				       invreq->offer_recurrence_paywindow,
 				       invreq->offer_recurrence_limit,
 				       invreq->offer_recurrence_base);
@@ -1103,16 +1115,6 @@ static void json_add_b12_invoice(struct command *cmd,
 				 const struct tlv_invoice *invoice)
 {
 	bool valid = true;
-	/* FIXME: Technically, different types! */
-	struct tlv_invoice_request_invreq_bip_353_name *bip353;
-
-	if (invoice->invreq_bip_353_name) {
-		bip353 = tal(tmpctx, struct tlv_invoice_request_invreq_bip_353_name);
-		bip353->name = invoice->invreq_bip_353_name->name;
-		bip353->domain = invoice->invreq_bip_353_name->domain;
-	} else {
-		bip353 = NULL;
-	}
 
 	/* If there's an offer_issuer_id or offer_paths, then there's an offer. */
 	if (invoice->offer_issuer_id || invoice->offer_paths) {
@@ -1134,7 +1136,8 @@ static void json_add_b12_invoice(struct command *cmd,
 				       invoice->offer_issuer,
 				       invoice->offer_quantity_max,
 				       invoice->offer_issuer_id,
-				       invoice->offer_recurrence,
+				       invoice->offer_recurrence_compulsory,
+				       invoice->offer_recurrence_optional,
 				       invoice->offer_recurrence_paywindow,
 				       invoice->offer_recurrence_limit,
 				       invoice->offer_recurrence_base);
@@ -1147,7 +1150,7 @@ static void json_add_b12_invoice(struct command *cmd,
 					invoice->invreq_payer_id,
 					invoice->invreq_payer_note,
 					invoice->invreq_paths,
-					bip353,
+					invoice->invreq_bip_353_name,
 					invoice->invreq_recurrence_counter,
 					invoice->invreq_recurrence_start);
 
@@ -1233,11 +1236,10 @@ static void json_add_b12_invoice(struct command *cmd,
 	}
 
 	/* BOLT-recurrence #12:
-	 * - if the offer contained `recurrence`:
-	 *   - MUST reject the invoice if `recurrence_basetime` is not
-	 *     set.
+	 * - if `offer_recurrence_optional` or `offer_recurrence_compulsory` are present:
+	 *   - MUST reject the invoice if `invoice_recurrence_basetime` is not present.
 	 */
-	if (invoice->offer_recurrence) {
+	if (invoice_recurrence(invoice)) {
 		if (invoice->invoice_recurrence_basetime)
 			json_add_u64(js, "invoice_recurrence_basetime",
 				     *invoice->invoice_recurrence_basetime);
@@ -1355,8 +1357,8 @@ static void json_add_rune(struct command *cmd, struct json_stream *js, const str
 								else {
 									/* months */
 									diff /= 30;
-									tal_append_fmt(&v, "%"PRIu64" years %"PRIu64" months",
-										       diff / 12, diff % 12);
+									tal_append_fmt(&v, "%"PRIu64" months",
+										       diff);
 								}
 							}
 						}
@@ -1567,6 +1569,10 @@ static const struct plugin_command commands[] = {
     {
 	    "sendinvoice",
 	    json_sendinvoice,
+    },
+    {
+	    "cancelrecurringinvoice",
+	    json_cancelrecurringinvoice,
     },
     {
 	    "dev-rawrequest",

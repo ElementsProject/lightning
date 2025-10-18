@@ -1,10 +1,10 @@
 #! /usr/bin/make
 
 # Extract version from git, or if we're from a zipfile, use dirname
-VERSION=$(shell git describe --tags --always --dirty=-modded --abbrev=7 2>/dev/null || pwd | sed -n 's|.*/c\{0,1\}lightning-v\{0,1\}\([0-9a-f.rc\-]*\)$$|v\1|gp')
+VERSION=$(shell git describe --tags --always --dirty=-modded --abbrev=7 2>/dev/null || pwd | $(SED) -n 's|.*/c\{0,1\}lightning-v\{0,1\}\([0-9a-f.rc\-]*\)$$|v\1|gp')
 
 # Next release.
-CLN_NEXT_VERSION := v25.09
+CLN_NEXT_VERSION := v25.12
 
 # --quiet / -s means quiet, dammit!
 ifeq ($(findstring s,$(word 1, $(MAKEFLAGS))),s)
@@ -318,7 +318,7 @@ else
 # Git doesn't maintain timestamps, so we only regen if sources actually changed:
 # We place the SHA inside some generated files so we can tell if they need updating.
 # Usage: $(call SHA256STAMP_CHANGED)
-SHA256STAMP_CHANGED = [ x"`sed -n 's/.*SHA256STAMP:\([a-f0-9]*\).*/\1/p' $@ 2>/dev/null`" != x"`cat $(sort $(filter-out FORCE,$^)) | $(SHA256SUM) | cut -c1-64`" ]
+SHA256STAMP_CHANGED = [ x"`$(SED) -n 's/.*SHA256STAMP:\([a-f0-9]*\).*/\1/p' $@ 2>/dev/null`" != x"`cat $(sort $(filter-out FORCE,$^)) | $(SHA256SUM) | cut -c1-64`" ]
 # Usage: $(call SHA256STAMP,commentprefix,commentpostfix)
 SHA256STAMP = echo "$(1) SHA256STAMP:"`cat $(sort $(filter-out FORCE,$^)) | $(SHA256SUM) | cut -c1-64`"$(2)" >> $@
 endif
@@ -326,27 +326,35 @@ endif
 # generate-wire.py --page [header|impl] hdrfilename wirename < csv > file
 %_wiregen.h: %_wire.csv $(WIRE_GEN_DEPS)
 	@if $(call SHA256STAMP_CHANGED); then \
-		$(call VERBOSE,"wiregen $@",tools/generate-wire.py --page header $($@_args) $@ `basename $< .csv | sed 's/_exp_/_/'` < $< > $@ && $(call SHA256STAMP,//,)); \
+		$(call VERBOSE,"wiregen $@",tools/generate-wire.py --page header $($@_args) $@ `basename $< .csv | $(SED) 's/_exp_/_/'` < $< > $@ && $(call SHA256STAMP,//,)); \
 	fi
 
 %_wiregen.c: %_wire.csv $(WIRE_GEN_DEPS)
 	@if $(call SHA256STAMP_CHANGED); then \
-		$(call VERBOSE,"wiregen $@",tools/generate-wire.py --page impl $($@_args) ${@:.c=.h} `basename $< .csv | sed 's/_exp_/_/'` < $< > $@ && $(call SHA256STAMP,//,)); \
+		$(call VERBOSE,"wiregen $@",tools/generate-wire.py --page impl $($@_args) ${@:.c=.h} `basename $< .csv | $(SED) 's/_exp_/_/'` < $< > $@ && $(call SHA256STAMP,//,)); \
 	fi
 
 %_printgen.h: %_wire.csv $(WIRE_GEN_DEPS)
 	@if $(call SHA256STAMP_CHANGED); then \
-		$(call VERBOSE,"printgen $@",tools/generate-wire.py -s -P --page header $($@_args) $@ `basename $< .csv | sed 's/_exp_/_/'` < $< > $@ && $(call SHA256STAMP,//,)); \
+		$(call VERBOSE,"printgen $@",tools/generate-wire.py -s -P --page header $($@_args) $@ `basename $< .csv | $(SED) 's/_exp_/_/'` < $< > $@ && $(call SHA256STAMP,//,)); \
 	fi
 
 %_printgen.c: %_wire.csv $(WIRE_GEN_DEPS)
 	@if $(call SHA256STAMP_CHANGED); then \
-		$(call VERBOSE,"printgen $@",tools/generate-wire.py -s -P --page impl $($@_args) ${@:.c=.h} `basename $< .csv | sed 's/_exp_/_/'` < $< > $@ && $(call SHA256STAMP,//,)); \
+		$(call VERBOSE,"printgen $@",tools/generate-wire.py -s -P --page impl $($@_args) ${@:.c=.h} `basename $< .csv | $(SED) 's/_exp_/_/'` < $< > $@ && $(call SHA256STAMP,//,)); \
 	fi
 
 RUST_PROFILE ?= debug
+
+# Cargo places cross compiled packages in a different directory, using the target triple
+ifeq ($(TARGET),)
+RUST_TARGET_DIR = target/$(RUST_PROFILE)
+else
+RUST_TARGET_DIR = target/$(TARGET)/$(RUST_PROFILE)
+endif
+
 ifneq ($(RUST_PROFILE),debug)
-CARGO_OPTS := --profile=$(RUST_PROFILE) --quiet
+CARGO_OPTS := --profile=$(RUST_PROFILE) --locked --quiet
 else
 CARGO_OPTS := --quiet
 endif
@@ -403,7 +411,7 @@ ALL_TEST_GEN += $(GRPC_GEN)
 $(GRPC_GEN) &: cln-grpc/proto/node.proto cln-grpc/proto/primitives.proto
 	$(PYTHON) -m grpc_tools.protoc -I cln-grpc/proto cln-grpc/proto/node.proto --python_out=$(GRPC_PATH)/ --grpc_python_out=$(GRPC_PATH)/ --experimental_allow_proto3_optional
 	$(PYTHON) -m grpc_tools.protoc -I cln-grpc/proto cln-grpc/proto/primitives.proto --python_out=$(GRPC_PATH)/ --experimental_allow_proto3_optional
-	find $(GRPC_DIR)/ -type f -name "*.py" -print0 | xargs -0 sed -i'.bak' -e 's/^import \(.*\)_pb2 as .*__pb2/from pyln.grpc import \1_pb2 as \1__pb2/g'
+	find $(GRPC_DIR)/ -type f -name "*.py" -print0 | xargs -0 $(SED) -i'.bak' -e 's/^import \(.*\)_pb2 as .*__pb2/from pyln.grpc import \1_pb2 as \1__pb2/g'
 	find $(GRPC_DIR)/ -type f -name "*.py.bak" -print0 | xargs -0 rm -f
 
 # We make pretty much everything depend on these.
@@ -436,7 +444,7 @@ mkdocs.yml: $(MANPAGES:=.md)
 	@$(call VERBOSE, "genidx $@", \
 	  find doc -maxdepth 1 -name '*\.[0-9]\.md' | \
 	  cut -b 5- | LC_ALL=C sort | \
-	  sed 's/\(.*\)\.\(.*\).*\.md/- "\1": "\1.\2.md"/' | \
+	  $(SED) 's/\(.*\)\.\(.*\).*\.md/- "\1": "\1.\2.md"/' | \
 	  $(PYTHON) devtools/blockreplace.py mkdocs.yml manpages --language=yml --indent "          " \
 	)
 
@@ -551,7 +559,7 @@ check-python-flake8:
 	@# E731 do not assign a lambda expression, use a def
 	@# W503: line break before binary operator
 	@# E741: ambiguous variable name
-	@uv run flake8 --ignore=E501,E731,E741,W503,F541,E275 --exclude $(shell echo ${PYTHON_GENERATED} | sed 's/ \+/,/g') ${PYSRC}
+	@uv run flake8 --ignore=E501,E731,E741,W503,F541,E275 --exclude $(shell echo ${PYTHON_GENERATED} | $(SED) 's/ \+/,/g') ${PYSRC}
 
 check-pytest-pyln-proto:
 	PATH=$(PYLN_PATH) PYTHONPATH=$(MY_CHECK_PYTHONPATH) uv run $(PYTEST) contrib/pyln-proto/tests/
@@ -709,7 +717,7 @@ $(ALL_TEST_PROGRAMS:=.o): $(ALL_GEN_SOURCES)
 
 update-ccan:
 	mv ccan ccan.old
-	DIR=$$(pwd)/ccan; cd ../ccan && ./tools/create-ccan-tree -a $$DIR `cd $$DIR.old/ccan && find * -name _info | sed s,/_info,, | $(SORT)` $(CCAN_NEW)
+	DIR=$$(pwd)/ccan; cd ../ccan && ./tools/create-ccan-tree -a $$DIR `cd $$DIR.old/ccan && find * -name _info | $(SED) s,/_info,, | $(SORT)` $(CCAN_NEW)
 	mkdir -p ccan/tools/configurator
 	cp ../ccan/tools/configurator/configurator.c ../ccan/doc/configurator.1 ccan/tools/configurator/
 	$(MAKE) ccan/config.h
@@ -756,12 +764,16 @@ clean: obsclean
 
 # See doc/contribute-to-core-lightning/contributor-workflow.md
 PYLNS=client proto testing
+update-versions: update-pyln-versions update-reckless-version update-dot-version # FIXME: update-doc-examples
+	@uv lock
+
 update-pyln-versions: $(PYLNS:%=update-pyln-version-%)
 
 update-pyln-version-%:
 	@if [ -z "$(NEW_VERSION)" ]; then echo "Set NEW_VERSION!" >&2; exit 1; fi
 	@echo "Updating contrib/pyln-$* to $(NEW_VERSION)"
-	@sed -i '' 's/^version = .*/version = "$(NEW_VERSION)"/' contrib/pyln-$*/pyproject.toml
+	@$(SED) -i.bak 's/^version = .*/version = "$(NEW_VERSION)"/' contrib/pyln-$*/pyproject.toml && rm contrib/pyln-$*/pyproject.toml.bak
+	@$(SED) -i.bak 's/^__version__ = .*/__version__ = "$(NEW_VERSION)"/' contrib/pyln-$*/pyln/$*/__init__.py && rm contrib/pyln-$*/pyln/$*/__init__.py.bak
 
 pyln-release:  $(PYLNS:%=pyln-release-%)
 
@@ -792,7 +804,8 @@ update-lock:
 
 update-reckless-version:
 	@if [ -z "$(NEW_VERSION)" ]; then echo "Set NEW_VERSION!" >&2; exit 1; fi
-	@sed -i '' "s/__VERSION__ = '\([.-z]*\)'/__VERSION__ = '$(NEW_VERSION)'/" tools/reckless
+	@echo "Updating tools/reckless to $(NEW_VERSION)"
+	@$(SED) -i.bak "s/__VERSION__ = '.*'/__VERSION__ = '$(NEW_VERSION)'/" tools/reckless && rm tools/reckless.bak
 
 update-dot-version:
 	@if [ -z "$(NEW_VERSION)" ]; then echo "Set NEW_VERSION!" >&2; exit 1; fi
@@ -803,7 +816,7 @@ update-mocks: $(ALL_TEST_PROGRAMS:%=update-mocks/%.c)
 $(ALL_TEST_PROGRAMS:%=update-mocks/%.c): $(ALL_GEN_HEADERS) $(EXTERNAL_LIBS) libccan.a ccan/ccan/cdump/tools/cdump-enumstr config.vars
 
 update-mocks/%: % $(ALL_GEN_HEADERS) $(ALL_GEN_SOURCES)
-	@MAKE=$(MAKE) tools/update-mocks.sh "$*" $(SUPPRESS_OUTPUT)
+	@MAKE=$(MAKE) SED=$(SED) tools/update-mocks.sh "$*" $(SUPPRESS_OUTPUT)
 
 unittest/%: % bolt-precheck
 	BOLTDIR=$(LOCAL_BOLTDIR) $(VG) $(VG_TEST_ARGS) $* > /dev/null

@@ -213,6 +213,10 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->channels_by_scid = tal(ld, struct channel_scid_map);
 	channel_scid_map_init(ld->channels_by_scid);
 
+	/*~ Coin movements in db are indexed by the channel dbid. */
+	ld->channels_by_dbid = tal(ld, struct channel_dbid_map);
+	channel_dbid_map_init(ld->channels_by_dbid);
+
 	/*~ For multi-part payments, we need to keep some incoming payments
 	 * in limbo until we get all the parts, or we time them out. */
 	ld->htlc_sets = tal(ld, struct htlc_set_map);
@@ -267,6 +271,8 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->try_reexec = false;
 	ld->recover_secret = NULL;
 	ld->db_upgrade_ok = NULL;
+	ld->old_bookkeeper_dir = NULL;
+	ld->old_bookkeeper_db = NULL;
 
 	/* --invoices-onchain-fallback */
 	ld->unified_invoices = false;
@@ -1365,6 +1371,9 @@ int main(int argc, char *argv[])
 	trace_span_end(ld->topology);
 
 	db_begin_transaction(ld->wallet->db);
+	trace_span_start("delete_old_htlcs", ld->wallet);
+	wallet_delete_old_htlcs(ld->wallet);
+	trace_span_end(ld->wallet);
 
 	/*~ Pull peers, channels and HTLCs from db. Needs to happen after the
 	 *  topology is initialized since some decisions rely on being able to

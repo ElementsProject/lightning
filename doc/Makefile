@@ -30,6 +30,7 @@ MARKDOWNPAGES := doc/addgossip.7 \
 	doc/bkpr-listbalances.7 \
 	doc/bkpr-listincome.7 \
 	doc/blacklistrune.7 \
+	doc/cancelrecurringinvoice.7 \
 	doc/check.7 \
 	doc/checkmessage.7 \
 	doc/checkrune.7 \
@@ -57,6 +58,7 @@ MARKDOWNPAGES := doc/addgossip.7 \
 	doc/enableoffer.7	\
 	doc/exposesecret.7 \
 	doc/feerates.7 \
+	doc/fetchbip353.7 \
 	doc/fetchinvoice.7 \
 	doc/fundchannel_cancel.7 \
 	doc/fundchannel_complete.7 \
@@ -76,6 +78,8 @@ MARKDOWNPAGES := doc/addgossip.7 \
 	doc/invoicerequest.7 \
 	doc/keysend.7 \
 	doc/listaddresses.7 \
+	doc/listchainmoves.7 \
+	doc/listchannelmoves.7 \
 	doc/listchannels.7 \
 	doc/listclosedchannels.7 \
 	doc/listconfigs.7 \
@@ -222,9 +226,9 @@ doc/.doc_version: version_gen.h
 	@if cmp $@.new $@ >/dev/null 2>&1; then rm -f $@.new; else mv $@.new $@; $(ECHO) Documentation version updated to `cat doc/.doc_version`; fi
 
 $(PREFIXED_MANPAGES): doc/lightning-%: doc/%.md tools/md2man.sh doc/.doc_version
-	@VERSION=`cat doc/.doc_version` tools/md2man.sh $(LOWDOWN) $<
+	@VERSION=`cat doc/.doc_version` SED=$(SED) tools/md2man.sh $(LOWDOWN) $<
 $(NON_PREFIXED_MANPAGES): doc/%: doc/%.md tools/md2man.sh doc/.doc_version
-	@VERSION=`cat doc/.doc_version` tools/md2man.sh $(LOWDOWN) $<
+	@VERSION=`cat doc/.doc_version` SED=$(SED) tools/md2man.sh $(LOWDOWN) $<
 
 doc/protocol-%.svg: test/test_protocol
 	test/test_protocol --svg < test/commits/$*.script > $@
@@ -259,8 +263,8 @@ check: check-manpages
 
 # This needs plugins, too.
 check-manpages: all-programs check-config-docs default-targets
-	@tools/check-manpage.sh cli/lightning-cli doc/lightning-cli.1.md
-	@tools/check-manpage.sh "lightningd/lightningd --lightning-dir=/tmp/" doc/lightningd-config.5.md
+	@SED=$(SED) tools/check-manpage.sh cli/lightning-cli doc/lightning-cli.1.md
+	@SED=$(SED) tools/check-manpage.sh "lightningd/lightningd --lightning-dir=/tmp/" doc/lightningd-config.5.md
 	@awk '/^$$/ { do { getline } while ($$0 ~ /^( {4,}|\t)/) } /^\s*```/ { do { getline } while ($$0 !~ /^\s*```/) } /^([^`_\\]|`([^`\\]|\\.)*`|\b_|_\b|\\.)*\B_\B/ { print "" ; print "Unescaped underscore at " FILENAME ":" NR ":" ; print ; ret = 1 } ENDFILE { NR = 0 } END { exit ret }' doc/*.[0-9].md
 
 # Makes sure that fields mentioned in schema are in man page, and vice versa.
@@ -277,7 +281,7 @@ doc/index.rst: $(MARKDOWNPAGES_WITH_EXT) $(NON_PREFIXED_MARKDOWNPAGES_WITH_EXT) 
 	  for m in $(MARKDOWNPAGES_WITH_EXT) $(NON_PREFIXED_MARKDOWNPAGES_WITH_EXT); do \
 	    base=$$(basename "$$m"); \
 	    echo "$$base" | \
-	      sed -E 's/^(.*)\.([0-9]+)\.md$$/\1 <\1.\2.md>/; t; s/^(.*)\.md$$/\1 <\1.md>/'; \
+	      $(SED) -E 's/^(.*)\.([0-9]+)\.md$$/\1 <\1.\2.md>/; t; s/^(.*)\.md$$/\1 <\1.md>/'; \
 	  done | \
 	  LC_ALL=C sort | \
 	  $(PYTHON) devtools/blockreplace.py doc/index.rst manpages --language=rst --indent "   " \

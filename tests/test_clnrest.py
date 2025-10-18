@@ -1,5 +1,5 @@
 from fixtures import *  # noqa: F401,F403
-from pyln.testing.utils import TEST_NETWORK, wait_for
+from pyln.testing.utils import RUST, TEST_NETWORK, wait_for
 from pyln.client import Millisatoshi
 import requests
 from pathlib import Path
@@ -9,6 +9,12 @@ import socketio
 import time
 import pytest
 import json
+
+# Skip the entire module if we don't have Rust.
+pytestmark = pytest.mark.skipif(
+    not RUST,
+    reason='RUST is not enabled; skipping Rust-dependent tests'
+)
 
 
 def http_session_with_retry():
@@ -105,22 +111,22 @@ def test_generate_certificate(node_factory):
     wait_for(lambda: [f.exists() for f in files] == [True] * len(files))
 
     # the files exist, restarting should not change them
-    contents = [f.open().read() for f in files]
+    contents = [f.read_bytes() for f in files]
     l1.restart()
-    assert contents == [f.open().read() for f in files]
+    assert contents == [f.read_bytes() for f in files]
 
     # remove client.pem file, so all certs are regenerated at restart
     files[2].unlink()
     l1.restart()
     wait_for(lambda: [f.exists() for f in files] == [True] * len(files))
-    contents_1 = [f.open().read() for f in files]
+    contents_1 = [f.read_bytes() for f in files]
     assert [c[0] != c[1] for c in zip(contents, contents_1)] == [True] * len(files)
 
     # remove client-key.pem file, so all certs are regenerated at restart
     files[3].unlink()
     l1.restart()
     wait_for(lambda: [f.exists() for f in files] == [True] * len(files))
-    contents_2 = [f.open().read() for f in files]
+    contents_2 = [f.read_bytes() for f in files]
     assert [c[0] != c[1] for c in zip(contents, contents_2)] == [True] * len(files)
 
 

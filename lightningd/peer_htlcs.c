@@ -1967,7 +1967,7 @@ static void remove_htlc_in(struct channel *channel, struct htlc_in *hin)
 				   "Unable to calculate fees collected."
 				   " Not logging an inbound HTLC");
 		else
-			notify_channel_mvt(channel->peer->ld, mvt);
+			wallet_save_channel_mvt(channel->peer->ld, mvt);
 	}
 
 	tal_free(hin);
@@ -2018,7 +2018,7 @@ static void remove_htlc_out(struct channel *channel, struct htlc_out *hout)
 				   "Unable to calculate fees."
 				   " Not logging an outbound HTLC");
 		else
-			notify_channel_mvt(channel->peer->ld, mvt);
+			wallet_save_channel_mvt(channel->peer->ld, mvt);
 	}
 
 	tal_free(hout);
@@ -2309,7 +2309,7 @@ static bool channel_added_their_htlc(struct channel *channel,
 /* The peer doesn't tell us this separately, but logically it's a separate
  * step to receiving commitsig */
 static bool peer_sending_revocation(struct channel *channel,
-				    struct added_htlc *added,
+				    struct added_htlc **added,
 				    struct fulfilled_htlc *fulfilled,
 				    struct failed_htlc **failed,
 				    struct changed_htlc *changed)
@@ -2317,7 +2317,7 @@ static bool peer_sending_revocation(struct channel *channel,
 	size_t i;
 
 	for (i = 0; i < tal_count(added); i++) {
-		if (!update_in_htlc(channel, added[i].id, SENT_ADD_REVOCATION))
+		if (!update_in_htlc(channel, added[i]->id, SENT_ADD_REVOCATION))
 			return false;
 	}
 	for (i = 0; i < tal_count(fulfilled); i++) {
@@ -2364,7 +2364,7 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 	struct fee_states *fee_states;
 	struct height_states *blockheight_states;
 	struct bitcoin_signature commit_sig, *htlc_sigs;
-	struct added_htlc *added;
+	struct added_htlc **added;
 	struct fulfilled_htlc *fulfilled;
 	struct failed_htlc **failed;
 	struct changed_htlc *changed;
@@ -2439,7 +2439,7 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 
 	/* New HTLCs */
 	for (i = 0; i < tal_count(added); i++) {
-		if (!channel_added_their_htlc(channel, &added[i]))
+		if (!channel_added_their_htlc(channel, added[i]))
 			return;
 	}
 
@@ -3043,7 +3043,8 @@ static u64 htlcs_index_inc(struct lightningd *ld,
 			   enum htlc_state hstate,
 			   enum wait_index idx)
 {
-	return wait_index_increment(ld, WAIT_SUBSYSTEM_HTLCS, idx,
+	return wait_index_increment(ld, ld->wallet->db,
+				    WAIT_SUBSYSTEM_HTLCS, idx,
 				    "state", htlc_state_name(hstate),
 				    "short_channel_id", fmt_short_channel_id(tmpctx, channel_scid_or_local_alias(channel)),
 				    "direction", owner == LOCAL ? "out": "in",
@@ -3058,7 +3059,8 @@ void htlcs_index_deleted(struct lightningd *ld,
 			 const struct channel *channel,
 			 u64 num_deleted)
 {
-	wait_index_increase(ld, WAIT_SUBSYSTEM_HTLCS, WAIT_INDEX_DELETED,
+	wait_index_increase(ld, ld->wallet->db,
+			    WAIT_SUBSYSTEM_HTLCS, WAIT_INDEX_DELETED,
 			    num_deleted,
 			    "short_channel_id", fmt_short_channel_id(tmpctx, channel_scid_or_local_alias(channel)),
 			    NULL);

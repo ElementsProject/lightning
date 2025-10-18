@@ -931,6 +931,10 @@ static void dev_register_opts(struct lightningd *ld)
 		       opt_set_bool,
 		       &ld->dev_hsmd_warn_on_overgrind,
 		       "Warn if we create signatures that are not exactly 71 bytes.");
+	clnopt_witharg("--dev-save-plugin-io", OPT_DEV,
+		       opt_set_charp, opt_show_charp,
+		       &ld->plugins->dev_save_io,
+		       "Directory to place all plugin notifications/hooks JSON into.");
 	/* This is handled directly in daemon_developer_mode(), so we ignore it here */
 	clnopt_noarg("--dev-debug-self", OPT_DEV,
 		     opt_ignore,
@@ -1249,23 +1253,6 @@ static char *opt_set_peer_storage(struct lightningd *ld)
 	return NULL;
 }
 
-static char *opt_set_quiesce(struct lightningd *ld)
-{
-	if (!opt_deprecated_ok(ld, "experimental-quiesce", NULL,
-			       "v24.11", "v25.05"))
-		return "--experimental-quiesce is now enabled by default";
-	return NULL;
-}
-
-static char *opt_set_offers(struct lightningd *ld)
-{
-	if (!opt_deprecated_ok(ld, "experimental-offers", NULL,
-			       "v24.11", "v25.05"))
-		return "--experimental-offers has been deprecated (now the default)";
-
-	return NULL;
-}
-
 static char *opt_set_db_upgrade(const char *arg, struct lightningd *ld)
 {
 	ld->db_upgrade_ok = tal(ld, bool);
@@ -1436,19 +1423,12 @@ static void register_opts(struct lightningd *ld)
 				 " channels using splicing");
 
 	/* This affects our features, so set early. */
-	opt_register_early_noarg("--experimental-offers",
-				 opt_set_offers, ld,
-				 opt_hidden);
 	opt_register_early_noarg("--experimental-shutdown-wrong-funding",
 				 opt_set_shutdown_wrong_funding, ld,
 				 "EXPERIMENTAL: allow shutdown with alternate txids");
 	opt_register_early_noarg("--experimental-peer-storage",
 				 opt_set_peer_storage, ld,
 				 opt_hidden);
-	opt_register_early_noarg("--experimental-quiesce",
-				 opt_set_quiesce, ld,
-				 "experimental: Advertise ability to quiesce"
-				 " channels.");
 
 	clnopt_noarg("--help|-h", OPT_EXITS,
 		     opt_lightningd_usage, ld, "Print this message.");
@@ -1598,6 +1578,16 @@ static void register_opts(struct lightningd *ld)
 		       ld,
 		       "Re-enable a long-deprecated API (which will be removed entirely next version!)");
 	opt_register_logging(ld);
+
+	/* Old bookkeeper migration flags. */
+	opt_register_early_arg("--bookkeeper-dir",
+			       opt_set_talstr, NULL,
+			       &ld->old_bookkeeper_dir,
+			       opt_hidden);
+	opt_register_early_arg("--bookkeeper-db",
+			       opt_set_talstr, NULL,
+			       &ld->old_bookkeeper_db,
+			       opt_hidden);
 
 	dev_register_opts(ld);
 }
