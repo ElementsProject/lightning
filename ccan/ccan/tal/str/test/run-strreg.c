@@ -21,7 +21,7 @@ int main(void)
 	/* If it accesses this, it will crash. */
 	char **invalid = (char **)1L;
 
-	plan_tests(54);
+	plan_tests(53);
 	/* Simple matching. */
 	ok1(tal_strreg(ctx, "hello world!", "hello") == true);
 	ok1(tal_strreg(ctx, "hello world!", "hi") == false);
@@ -89,10 +89,6 @@ int main(void)
 
 	/* No leaks! */
 	ok1(no_children(ctx));
-
-	/* NULL arg with take means always fail. */
-	ok1(tal_strreg(ctx, take(NULL), "((hello|goodbye) world)",
-		       &b, NULL, invalid) == false);
 
 	/* Take string. */
 	a = tal_strdup(ctx, "hello world!");

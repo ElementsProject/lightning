@@ -1371,6 +1371,9 @@ int main(int argc, char *argv[])
 	trace_span_end(ld->topology);
 
 	db_begin_transaction(ld->wallet->db);
+	trace_span_start("delete_old_htlcs", ld->wallet);
+	wallet_delete_old_htlcs(ld->wallet);
+	trace_span_end(ld->wallet);
 
 	/*~ Pull peers, channels and HTLCs from db. Needs to happen after the
 	 *  topology is initialized since some decisions rely on being able to

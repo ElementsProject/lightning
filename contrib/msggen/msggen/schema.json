@@ -4828,6 +4828,87 @@
         }
       ]
     },
+    "cancelrecurringinvoice.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "type": "object",
+      "added": "v25.09",
+      "rpc": "cancelrecurringinvoice",
+      "title": "Command for sending a cancel message for a recurring offer",
+      "description": [
+        "NOTE: Recurring offers are experimental, and may be changed in backwards-incompable ways.",
+        "",
+        "The **cancelrecurringinvoice** RPC command sends a cancellation message in place of an invoice_request.  The BOLT 12 specification suggests sending this as a courtesy in place of the next invoice_request (as would be sent by fetchinvoice)."
+      ],
+      "request": {
+        "required": [
+          "offer",
+          "recurrence_counter",
+          "recurrence_label"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "offer": {
+            "type": "string",
+            "description": [
+              "Offer string (must be recurring) which we have been paying."
+            ]
+          },
+          "recurrence_counter": {
+            "type": "u64",
+            "description": [
+              "One later than the last-specified recurrence_counter for the last invoice."
+            ]
+          },
+          "recurrence_label": {
+            "type": "string",
+            "description": [
+              "This must be the same as prior fetchinvoice calls for the same recurrence, as it is used to link them together."
+            ]
+          },
+          "recurrence_start": {
+            "type": "number",
+            "description": [
+              "Indicates what period number to start at (usually 0).  This will be the same as previous fetchinvoice calls."
+            ]
+          },
+          "payer_note": {
+            "type": "string",
+            "description": [
+              "To tell the issuer the reason for the cancellation."
+            ]
+          },
+          "bip353": {
+            "type": "string",
+            "description": [
+              "BIP353 string (optionally with \u20bf) indicating where we fetched the offer from"
+            ]
+          }
+        }
+      },
+      "response": {
+        "required": [
+          "bolt12"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "bolt12": {
+            "type": "string",
+            "description": [
+              "The invoice_request we sent to the issuer."
+            ]
+          }
+        }
+      },
+      "author": [
+        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-fetchinvoice(7)"
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ]
+    },
     "check.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
@@ -7242,12 +7323,6 @@
                         "Period starts at this UNIX timestamp."
                       ]
                     },
-                    "start_any_period": {
-                      "type": "u64",
-                      "description": [
-                        "You can start at any period (only if `basetime` present)."
-                      ]
-                    },
                     "limit": {
                       "type": "u32",
                       "description": [
@@ -7664,12 +7739,6 @@
                       "type": "u64",
                       "description": [
                         "Period starts at this UNIX timestamp."
-                      ]
-                    },
-                    "start_any_period": {
-                      "type": "u64",
-                      "description": [
-                        "You can start at any period (only if `basetime` present)."
                       ]
                     },
                     "limit": {
@@ -8302,12 +8371,6 @@
                       "type": "u64",
                       "description": [
                         "Period starts at this UNIX timestamp."
-                      ]
-                    },
-                    "start_any_period": {
-                      "type": "u64",
-                      "description": [
-                        "You can start at any period (only if `basetime` present)."
                       ]
                     },
                     "limit": {
@@ -12411,7 +12474,7 @@
           "recurrence_start": {
             "type": "number",
             "description": [
-              "Required if the offer specifies recurrence_base with start_any_period set, otherwise it is not allowed. It indicates what period number to start at."
+              "Indicates what period number to start at (usually 0)."
             ]
           },
           "recurrence_label": {
@@ -26690,7 +26753,7 @@
           "recurrence": {
             "type": "string",
             "description": [
-              "An invoice is expected at regular intervals. The argument is a positive number followed by one of `seconds`, `minutes`, `hours`, `days`, `weeks`, `months` or `years` (variants without the trailing `s` are also permitted). This is encoded in the offer. The semantics of recurrence is fairly predictable, but fully documented in BOLT 12. e.g. `4weeks`."
+              "An invoice is expected at regular intervals. The argument is a positive number followed by one of `seconds`, `minutes`, `hours`, `days`, `weeks`, or `months` (variants without the trailing `s` are also permitted). This is encoded in the offer. The semantics of recurrence is fairly predictable, but fully documented in BOLT 12. e.g. `4weeks`."
             ]
           },
           "recurrence_base": {
@@ -26702,7 +26765,7 @@
           "recurrence_paywindow": {
             "type": "string",
             "description": [
-              "Argument of form `-time+time[%]`. The first time is the number of seconds before the start of a period in which an invoice and payment is valid, the second time is the number of seconds after the start of the period. For example *-604800+86400* means you can fetch an pay the invoice 4 weeks before the given period starts, and up to 1 day afterwards. The optional *%* indicates that the amount of the invoice will be scaled by the time remaining in the period. This is encoded in the offer."
+              "Argument of form `-time+time`. The first time is the number of seconds before the start of a period in which an invoice and payment is valid, the second time is the number of seconds after the start of the period. For example *-604800+86400* means you can fetch an pay the invoice 4 weeks before the given period starts, and up to 1 day afterwards. The optional *%* indicates that the amount of the invoice will be scaled by the time remaining in the period. This is encoded in the offer."
             ],
             "default": "that payment is allowed during the current and previous periods"
           },
@@ -26719,13 +26782,19 @@
             ],
             "default": "False"
           },
-          "recurrence_start_any_period": {
-            "added": "v24.02",
+          "proportional_amount": {
+            "added": "v25.09",
             "type": "boolean",
             "description": [
-              "This means that the invoice may start by paying during any period; otherwise it must start by paying at the first period.  Setting this to false only makes sense if *recurrence_base* was provided. This is encoded in the offer."
-            ],
-            "default": "True"
+              "Payment will be charged for the initial period proportional to the amount remaining (only makes sense if recurrence_base is specified)"
+            ]
+          },
+          "optional_recurrence": {
+            "added": "v25.09",
+            "type": "boolean",
+            "description": [
+              "Make recurrence optional, for backwards compatibility (older payers will only pay once)."
+            ]
           },
           "dev_paths": {
             "hidden": true

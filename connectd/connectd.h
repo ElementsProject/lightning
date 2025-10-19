@@ -46,6 +46,15 @@ enum pong_expect_type {
 	PONG_EXPECTED_PROBING = 2,
 };
 
+enum draining_state {
+	/* Normal state */
+	NOT_DRAINING,
+	/* First, reading remaining messages from subds */
+	READING_FROM_SUBDS,
+	/* Finally, writing any queued messages to peer */
+	WRITING_TO_PEER,
+};
+
 /*~ We keep a hash table (ccan/htable) of peers, which tells us what peers are
  * already connected (by peer->id). */
 struct peer {
@@ -60,14 +69,14 @@ struct peer {
 	/* Counters and keys for symmetric crypto */
 	struct crypto_state cs;
 
-	/* Connection to the peer */
+	/* Connection to the peer (NULL if it's disconnected and we're flushing) */
 	struct io_conn *to_peer;
+
+	/* Non-zero if shutting down. */
+	enum draining_state draining_state;
 
 	/* Counter to distinguish this connection from the next re-connection */
 	u64 counter;
-
-	/* Is this draining?  If so, just keep writing until queue empty */
-	bool draining;
 
 	/* Connections to the subdaemons */
 	struct subd **subds;
@@ -376,8 +385,13 @@ struct io_plan *peer_connected(struct io_conn *conn,
 			       enum is_websocket is_websocket,
 			       bool incoming);
 
-/* Removes peer from hash table, tells gossipd and lightningd. */
-void destroy_peer(struct peer *peer);
+/* Tell gossipd and lightningd that this peer is gone. */
+void send_disconnected(struct daemon *daemon,
+		       const struct node_id *id,
+		       u64 connectd_counter);
+
+/* Free peer immediately (don't wait for draining). */
+void destroy_peer_immediately(struct peer *peer);
 
 /* Remove a random connection, when under stress. */
 void close_random_connection(struct daemon *daemon);

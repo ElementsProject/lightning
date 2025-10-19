@@ -40,7 +40,7 @@
  *		json_out_start(jout, NULL, '{');
  *		for (int i = 1; i < argc; i++) {
  *			char fieldname[80];
- *			sprintf(fieldname, "argv%i", i);
+ *			snprintf(fieldname, sizeof(fieldname), "argv%i", i);
  *			json_out_add(jout, fieldname,
  *				     !can_be_json_literal(argv[i]),
  *				     "%s", argv[i]);

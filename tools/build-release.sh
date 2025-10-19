@@ -8,6 +8,7 @@ if [ "$1" = "--inside-docker" ]; then
     PLTFM="$3"
     PLTFMVER="$4"
     ARCH="$5"
+    MAKEPAR="$6"
     git config --global --add safe.directory /src/.git
     git clone /src /build
     cd /build || exit
@@ -15,8 +16,8 @@ if [ "$1" = "--inside-docker" ]; then
     uv export --format requirements.txt > /tmp/requirements.txt
     uv pip install -r /tmp/requirements.txt
     ./configure
-    uv run make VERSION="$VER"
-    uv run make install DESTDIR=/"$VER-$PLTFM-$PLTFMVER-$ARCH" RUST_PROFILE=release
+    uv run make -j"$MAKEPAR" VERSION="$VER"
+    uv run make -j"$MAKEPAR" install DESTDIR=/"$VER-$PLTFM-$PLTFMVER-$ARCH" RUST_PROFILE=release
     cd /"$VER-$PLTFM-$PLTFMVER-$ARCH" && tar cvfz /release/clightning-"$VER-$PLTFM-$PLTFMVER-$ARCH".tar.gz -- *
     echo "Inside docker: build finished"
     exit 0
@@ -25,6 +26,7 @@ fi
 FORCE_UNCLEAN=false
 VERIFY_RELEASE=false
 WITHOUT_ZIP=false
+SUDO=
 
 ALL_TARGETS="bin-Fedora bin-Ubuntu docker sign"
 # ALL_TARGETS="bin-Fedora bin-Ubuntu tarball deb docker sign"
@@ -32,7 +34,7 @@ ALL_TARGETS="bin-Fedora bin-Ubuntu docker sign"
 for arg; do
     case "$arg" in
     --force-version=*)
-	    FORCE_VERSION=${arg#*=}
+        FORCE_VERSION=${arg#*=}
         ;;
     --force-unclean)
         FORCE_UNCLEAN=true
@@ -46,13 +48,16 @@ for arg; do
     --without-zip)
         WITHOUT_ZIP=true
         ;;
+    --sudo)
+        SUDO=sudo
+        ;;
     --help)
         echo "Usage: [--force-version=<ver>] [--force-unclean] [--force-mtime=YYYY-MM-DD] [--verify] [TARGETS]"
         echo Known targets: "$ALL_TARGETS"
-	    echo "Example: tools/build-release.sh"
-	    echo "Example: tools/build-release.sh --force-version=v23.05 --force-unclean --force-mtime=2023-05-01 bin-Fedora bin-Ubuntu sign"
-	    echo "Example: tools/build-release.sh --verify"
-	    echo "Example: tools/build-release.sh --force-version=v23.05 --force-unclean --force-mtime=2023-05-01 --verify"
+        echo "Example: tools/build-release.sh"
+        echo "Example: tools/build-release.sh --force-version=v23.05 --force-unclean --force-mtime=2023-05-01 bin-Fedora bin-Ubuntu sign"
+        echo "Example: tools/build-release.sh --verify"
+        echo "Example: tools/build-release.sh --force-version=v23.05 --force-unclean --force-mtime=2023-05-01 --verify"
         echo "Example: tools/build-release.sh docker"
         echo "Example: tools/build-release.sh --force-version=v23.05 --force-unclean --force-mtime=2023-05-01 docker"
         exit 0
@@ -82,6 +87,15 @@ if [ "$VERSION" = "" ]; then
     exit 1
 fi
 
+# Don't forget the v prefix!
+case "$VERSION" in
+    v*) ;;
+    *)
+    echo "Version must begin with v! Not $VERSION" >&2
+    exit 1
+    ;;
+esac
+
 # `status --porcelain -u no` suppressed modified!  Bug reported...
 if [ "$(git diff --name-only)" != "" ] && ! $FORCE_UNCLEAN; then
     echo "Not a clean git directory" >&2
@@ -97,12 +111,15 @@ if [ -z "$MTIME" ]; then
     exit 1
 fi
 
+MAKEPAR=${MAKEPAR:-$(nproc)}
+echo "Parallel: $MAKEPAR"
+
 if [ "$VERIFY_RELEASE" = "true" ]; then
     if [ -f "SHA256SUMS-$VERSION.asc" ] && [ -f "SHA256SUMS-$VERSION" ]; then
         ALL_TARGETS="bin-Ubuntu"
     else
         echo "Unable to verify. File SHA256SUMS-$VERSION or SHA256SUMS-$VERSION.asc not found in the root."
-		exit 1
+        exit 1
     fi
 fi
 
@@ -127,6 +144,8 @@ if [ "$WITHOUT_ZIP" = "false" ]; then
     # submodcheck needs to know if we have lowdown
     touch config.vars
     ./configure --reconfigure
+    # If you don't have lowdown, your zip file will include it: we assume everyone has it now!
+    grep -q "HAVE_LOWDOWN=1" config.vars || (echo "Please install lowdown" >&2; exit 1)
     # If it's a completely clean directory, we need submodules!
     make submodcheck
 
@@ -163,20 +182,20 @@ for target in $TARGETS; do
         DOCKERFILE=contrib/docker/Dockerfile.builder.fedora
         FEDORA_VERSION=$(grep -oP '^FROM fedora:\K[0-9]+' "$DOCKERFILE")
         docker build -f $DOCKERFILE -t $TAG --load .
-        docker run --rm=true -v "$(pwd)":/src:ro -v "$RELEASEDIR":/release $TAG /src/tools/build-release.sh --inside-docker "$VERSION" "$platform" "$FEDORA_VERSION" "$ARCH"
+        docker run --rm=true -v "$(pwd)":/src:ro -v "$RELEASEDIR":/release $TAG /src/tools/build-release.sh --inside-docker "$VERSION" "$platform" "$FEDORA_VERSION" "$ARCH" "$MAKEPAR"
         docker run --rm=true -w /build $TAG rm -rf /"$VERSION-$platform-$FEDORA_VERSION-$ARCH" /build
         echo "Fedora Image Built"
         ;;
     Ubuntu*)
         distributions=${platform#Ubuntu-}
         [ "$distributions" = "Ubuntu" ] && distributions="focal jammy noble"
-		for d in $distributions; do
+        for d in $distributions; do
             # Capitalize the first letter of distro
             D=$(echo "$d" | awk '{print toupper(substr($0,1,1))substr($0,2)}')
-			echo "Building Ubuntu $D Image"
-			docker run --rm -v "$(pwd)":/repo -e FORCE_MTIME="$MTIME" -e FORCE_VERSION="$VERSION" cl-repro-"$d"
+            echo "Building Ubuntu $D Image"
+            docker run --rm -v "$(pwd)":/repo -e FORCE_MTIME="$MTIME" -e FORCE_VERSION="$VERSION" -e MAKEPAR="$MAKEPAR" cl-repro-"$d"
             echo "Ubuntu $D Image Built"
-		done
+        done
         ;;
     *)
         echo "No Dockerfile for $platform" >&2
@@ -193,23 +212,23 @@ if [ -z "${TARGETS##* docker *}" ]; then
     DOCKER_OPTS="--push --platform linux/amd64,linux/arm64,linux/arm/v7"
     DOCKER_OPTS="$DOCKER_OPTS -t $DOCKER_USER/lightningd:$VERSION"
     DOCKER_OPTS="$DOCKER_OPTS -t $DOCKER_USER/lightningd:latest"
-    DOCKER_OPTS="$DOCKER_OPTS --cache-to=type=local,dest=/tmp/docker-cache --cache-from=type=local,src=/tmp/docker-cache"    
+    DOCKER_OPTS="$DOCKER_OPTS --cache-to=type=local,dest=/tmp/docker-cache --cache-from=type=local,src=/tmp/docker-cache"
     echo "Docker Options: $DOCKER_OPTS"
-    if sudo docker buildx ls | grep -q 'cln-builder'; then
-        sudo docker buildx use cln-builder
+    if $SUDO docker buildx ls | grep -q 'cln-builder'; then
+        $SUDO docker buildx use cln-builder
     else
-        sudo docker buildx create --name=cln-builder --use
+        $SUDO docker buildx create --name=cln-builder --use
     fi
     # shellcheck disable=SC2086
-    sudo docker buildx build $DOCKER_OPTS .
+    $SUDO docker buildx build $DOCKER_OPTS .
     echo "Pushed multi-platform images tagged as $VERSION and latest"
 fi
 
 if [ -z "${TARGETS##* sign *}" ]; then
     echo "Signing Release"
     cd release/ || exit
-    sha256sum clightning-"$VERSION"* > SHA256SUMS
-    gpg -sb --armor -o SHA256SUMS.asc"$(gpgconf --list-options gpg | awk -F: '$1 == "default-key" {print $10}' | tr -d '"')" SHA256SUMS
+    sha256sum clightning-"$VERSION"* > SHA256SUMS-"$VERSION"
+    gpg -sb --armor -o SHA256SUMS-"$VERSION".asc "$(gpgconf --list-options gpg | awk -F: '$1 == "default-key" {print $10}' | tr -d '"')" SHA256SUMS-"$VERSION"
     cd ..
     echo "Release Signed"
 fi
@@ -240,7 +259,7 @@ if [ "$VERIFY_RELEASE" = "true" ]; then
         echo "SHA256SUMS are Identical"
     else
         echo "Error: SHA256SUMS do NOT Match"
-	exit 1
+    exit 1
     fi
     # verify release captain signature
     gpg --verify "../SHA256SUMS-$VERSION.asc"

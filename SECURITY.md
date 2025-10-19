@@ -28,6 +28,7 @@ developers, and to validate signatures on releases:
 | Alex Myers | `alex@endothermic.dev` | 0437 4E42 789B BBA9 462E  4767 F3BF 63F2 7474 36AB |
 | Peter Neuroth | `pet.v.ne@gmail.com` | 653B 19F3 3DF7 EFF3 E9D1  C94C C3F2 1EE3 87FF 4CD2 |
 | Shahana Farooqui | `sfarooqui@blockstream.com` | FE13 58EB 7793 51DB 24E5  555A A327 573C 9758 9BF5 |
+| Madeline Paech | `madeline@blockstream.com` | 7169 D262 72B5 0A3F 531A  A1C2 A57A FC23 1B58 0804 |
 | Blockstream CLN Release | `cln@blockstream.com` | 616C 52F9 9D06 12B2 A151  B107 4129 A994 AA7E 9852 |
 
 You can import a key by running the following command with that individual’s fingerprint: 

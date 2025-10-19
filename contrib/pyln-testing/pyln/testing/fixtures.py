@@ -512,6 +512,9 @@ def node_factory(request, directory, test_name, bitcoind, executor, db_provider,
     if not ok:
         map_node_error(nf.nodes, prinErrlog, "some node failed unexpected, non-empty errlog file")
 
+    for n in nf.nodes:
+        n.daemon.cleanup_files()
+
 
 def getErrlog(node):
     for error_file in os.listdir(node.daemon.lightning_dir):
@@ -609,7 +612,7 @@ def checkBadGossip(node):
 
 def checkBroken(node):
     node.daemon.logs_catchup()
-    broken_lines = [l for l in node.daemon.logs if '**BROKEN**' in l]
+    broken_lines = [l for l in node.daemon.logs if '**BROKEN**' in l or "That's weird: " in l]
     if node.broken_log:
         ex = re.compile(node.broken_log)
         broken_lines = [l for l in broken_lines if not ex.search(l)]

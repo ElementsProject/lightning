@@ -1,4 +1,4 @@
-DEVTOOLS := devtools/bolt11-cli devtools/decodemsg devtools/onion devtools/dump-gossipstore devtools/gossipwith devtools/create-gossipstore devtools/mkcommit devtools/mkfunding devtools/mkclose devtools/mkgossip devtools/mkencoded devtools/mkquery devtools/lightning-checkmessage devtools/topology devtools/route devtools/bolt12-cli devtools/encodeaddr devtools/features devtools/fp16 devtools/rune devtools/gossmap-compress devtools/bip137-verifysignature
+DEVTOOLS := devtools/bolt11-cli devtools/decodemsg devtools/onion devtools/dump-gossipstore devtools/gossipwith devtools/create-gossipstore devtools/mkcommit devtools/mkfunding devtools/mkclose devtools/mkgossip devtools/mkencoded devtools/mkquery devtools/lightning-checkmessage devtools/topology devtools/route devtools/bolt12-cli devtools/encodeaddr devtools/features devtools/fp16 devtools/rune devtools/gossmap-compress devtools/bip137-verifysignature devtools/convert-gossmap
 ifeq ($(HAVE_SQLITE3),1)
 DEVTOOLS += devtools/checkchannels
 endif
@@ -71,6 +71,9 @@ devtools/decodemsg: $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(BITCOIN_OBJS) $(WIRE_
 devtools/dump-gossipstore: $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/dump-gossipstore.o gossipd/gossip_store_wiregen.o
 
 devtools/dump-gossipstore.o: gossipd/gossip_store_wiregen.h
+
+devtools/convert-gossmap: $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/convert-gossmap.o
+devtools/convert-gossmap.o: gossipd/gossip_store_wiregen.h
 
 devtools/create-gossipstore: $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/create-gossipstore.o gossipd/gossip_store_wiregen.o
 devtools/create-gossipstore.o: gossipd/gossip_store_wiregen.h

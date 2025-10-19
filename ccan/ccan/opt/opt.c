@@ -296,8 +296,10 @@ void opt_log_stderr_exit(const char *fmt, ...)
 
 char *opt_invalid_argument(const char *arg)
 {
-	char *str = opt_alloc.alloc(sizeof("Invalid argument '%s'") + strlen(arg));
-	sprintf(str, "Invalid argument '%s'", arg);
+	size_t maxlen = sizeof("Invalid argument '%s'") + strlen(arg);
+	char *str = opt_alloc.alloc(maxlen + 1);
+	snprintf(str, maxlen, "Invalid argument '%s'", arg);
+	str[maxlen] = '\0';
 	return str;
 }
 

@@ -527,6 +527,11 @@ def test_route_by_old_scid(node_factory, bitcoind):
     l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
     l1.rpc.waitsendpay(inv['payment_hash'])
 
+    # Make sure l1 has seen and processed announcement for new splice
+    # scid, otherwise we can get gossip warning here (which breaks CI) if we splice again.
+    scid = only_one(l3.rpc.listchannels(source=l3.info['id'])['channels'])['short_channel_id']
+    wait_for(lambda: l1.rpc.listchannels(short_channel_id=scid)['channels'] != [])
+
     # Let's splice again, so the original scid is two behind the times.
     l3.fundwallet(200000)
     funds_result = l3.rpc.fundpsbt("109000sat", "slow", 166, excess_as_change=True)

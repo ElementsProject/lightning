@@ -16,8 +16,9 @@
 
 static char *arg_bad(const char *fmt, const char *arg)
 {
-	char *str = opt_alloc.alloc(strlen(fmt) + strlen(arg));
-	sprintf(str, fmt, arg);
+	char *str = opt_alloc.alloc(strlen(fmt) + strlen(arg) + 1);
+	snprintf(str, strlen(fmt) + strlen(arg), fmt, arg);
+	str[strlen(fmt) + strlen(arg)] = '\0';
 	return str;
 }
 

@@ -47,7 +47,8 @@ static void write_outmsg(int outfd, const u8 *outmsg, u32 timestamp)
 {
 	struct gossip_hdr hdr;
 
-	hdr.len = cpu_to_be32(tal_count(outmsg));
+	hdr.flags = CPU_TO_BE16(GOSSIP_STORE_COMPLETED_BIT);
+	hdr.len = cpu_to_be16(tal_count(outmsg));
 	hdr.crc = cpu_to_be32(crc32c(timestamp, outmsg, tal_count(outmsg)));
 	hdr.timestamp = cpu_to_be32(timestamp);
 

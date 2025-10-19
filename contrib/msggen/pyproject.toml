@@ -4,11 +4,11 @@ version = "0.1.0"
 description = "A utility to transform wire messages and JSON-RPC messages to arbitrary target languages."
 authors = [{ name = "Christian Decker", email = "decker@blockstream.com" }]
 license = { text = "BSD-MIT" }
-requires-python = ">=3.6,<4.0"
+requires-python = ">=3.9,<4.0"
 dependencies = []
 
 [dependency-groups]
-dev = ["pytest>=6.2.5"]
+dev = ["pytest>=8.0.0"]
 
 [project.scripts]
 msggen = "msggen.__main__:main"
@@ -18,7 +18,7 @@ include = ["msggen/schema.json"]
 
 
 [tool.poetry.dependencies]
-python = "^3.6"
+python = "^3.9"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^6.2.5"

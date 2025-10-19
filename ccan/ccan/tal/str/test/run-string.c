@@ -7,7 +7,7 @@ int main(void)
 {
 	char *parent, *c;
 
-	plan_tests(43);
+	plan_tests(34);
 
 	parent = tal(NULL, char);
 	ok1(parent);
@@ -69,20 +69,6 @@ int main(void)
 	ok1(tal_parent(c) == parent);
 	ok1(single_child(parent, c));
 
-	/* NULL pass through works... */
-	c = tal_strcat(parent, take(NULL), take(c));
-	ok1(!c);
-	ok1(no_children(parent));
-
-	c = tal_strcat(parent, take(tal_strdup(parent, "hi")),
-		       take(NULL));
-	ok1(!c);
-	ok1(no_children(parent));
-
-	c = tal_strcat(parent, take(NULL), take(NULL));
-	ok1(!c);
-	ok1(no_children(parent));
-
 	/* Appending formatted strings. */
 	c = tal_strdup(parent, "hi");
 	ok1(tal_count(c) == strlen(c) + 1);
@@ -90,10 +76,6 @@ int main(void)
 	ok1(strcmp(c, "hithere world") == 0);
 	ok1(tal_count(c) == strlen(c) + 1);
 	ok1(tal_parent(c) == parent);
-
-	ok1(!tal_append_fmt(&c, take(NULL), "there", "world"));
-	ok1(strcmp(c, "hithere world") == 0);
-	ok1(tal_count(c) == strlen(c) + 1);
 
 	tal_free(parent);
 

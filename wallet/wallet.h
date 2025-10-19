@@ -726,6 +726,14 @@ void wallet_state_change_add(struct wallet *w,
 void wallet_delete_peer_if_unused(struct wallet *w, u64 peer_dbid);
 
 /**
+ * wallet_delete_old_htlcs -- delete htlcs associated with CLOSED channels.
+ *
+ * We do this at startup, instead of when we finally CLOSED a channel, to
+ * avoid a significant pause.
+ */
+void wallet_delete_old_htlcs(struct wallet *w);
+
+/**
  * wallet_init_channels -- Loads active channels into peers
  *    and inits the dbid counter for next channel.
  *
@@ -1911,7 +1919,6 @@ void db_bind_mvt_account_id(struct db_stmt *stmt,
 void db_bind_credit_debit(struct db_stmt *stmt,
 			  struct amount_msat credit,
 			  struct amount_msat debit);
-u64 move_accounts_id(struct db *db, const char *name);
 void wallet_datastore_save_utxo_description(struct db *db,
 					    const struct bitcoin_outpoint *outpoint,
 					    const char *desc);
@@ -1919,6 +1926,7 @@ void wallet_datastore_save_payment_description(struct db *db,
 					       const struct sha256 *payment_hash,
 					       const char *desc);
 void migrate_setup_coinmoves(struct lightningd *ld, struct db *db);
+void migrate_remove_chain_moves_duplicates(struct lightningd *ld, struct db *db);
 
 /**
  * wallet_memleak_scan - Check for memleaks in wallet.

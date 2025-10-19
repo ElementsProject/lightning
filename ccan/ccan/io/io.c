@@ -583,8 +583,10 @@ struct io_plan *io_sock_shutdown(struct io_conn *conn)
 	if (shutdown(io_conn_fd(conn), SHUT_WR) != 0)
 		return io_close(conn);
 
-	/* And leave unset .*/
-	return &conn->plan[IO_IN];
+	/* We need to make sure we don't try to write again, so
+	 * "wait" on something which will never be woken: otherwise
+	 * we will try to write, fail, and immediately close. */
+	return io_wait_dir(conn, io_sock_shutdown, IO_OUT, io_never, NULL);
 }
 
 bool io_flush_sync(struct io_conn *conn)

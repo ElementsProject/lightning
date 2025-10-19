@@ -107,7 +107,7 @@ const char *taken_any(void)
 				return labelarr[i];
 	}
 
-	sprintf(pointer_buf, "%p", takenarr[0]);
+	snprintf(pointer_buf, sizeof(pointer_buf), "%p", takenarr[0]);
 	return pointer_buf;
 }
 

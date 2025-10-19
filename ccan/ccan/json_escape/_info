@@ -32,6 +32,7 @@ int main(int argc, char *argv[])
 
 	if (strcmp(argv[1], "depends") == 0) {
 		printf("ccan/tal\n");
+		printf("ccan/tal/str\n");
 		return 0;
 	}
 

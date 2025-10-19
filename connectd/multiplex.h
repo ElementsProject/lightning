@@ -34,7 +34,10 @@ void set_custommsgs(struct daemon *daemon, const u8 *msg);
 /* Lightningd wants to talk to you. */
 void peer_connect_subd(struct daemon *daemon, const u8 *msg, int fd);
 
-/* Start shutting down peer. */
-void drain_peer(struct peer *peer);
+/* Disconnect peer: give outgoing msgs time to drain though. */
+void disconnect_peer(struct peer *peer);
+
+/* Get rid of this immediately. */
+void destroy_peer_immediately(struct peer *peer);
 
 #endif /* LIGHTNING_CONNECTD_MULTIPLEX_H */

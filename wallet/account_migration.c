@@ -87,6 +87,17 @@ struct chain_event {
 	bool we_opened;
 };
 
+/* Every 10 seconds, give progress indication */
+static bool give_progress(struct timemono *prev)
+{
+	struct timemono now = time_mono();
+	if (time_to_sec(timemono_between(now, *prev)) >= 10) {
+		*prev = now;
+		return true;
+	}
+	return false;
+}
+
 static struct chain_event *stmt2chain_event(const tal_t *ctx, struct db_stmt *stmt)
 {
 	struct chain_event *e = tal(ctx, struct chain_event);
@@ -354,6 +365,8 @@ void migrate_from_account_db(struct lightningd *ld, struct db *db)
 	size_t descriptions_migrated = 0;
 	struct db_stmt *stmt;
 	int version;
+	struct timemono prev;
+	u64 num_channel_events;
 
 	/* Initialize wait indices: we're going to use it to generate ids. */
 	load_indexes(db, ld->indexes);
@@ -379,6 +392,7 @@ void migrate_from_account_db(struct lightningd *ld, struct db *db)
 	}
 
 	/* Load events */
+	prev = time_mono();
 	db_begin_transaction(account_db);
 	version = db_get_version(account_db);
 	/* -1 means empty database (Postgres usually). */
@@ -396,6 +410,8 @@ void migrate_from_account_db(struct lightningd *ld, struct db *db)
 	db_commit_transaction(account_db);
 	tal_free(account_db);
 
+	log_debug(ld->log, "Transferring %zu chain_events",
+		  tal_count(chain_events));
 	for (size_t i = 0; i < tal_count(chain_events); i++) {
 		const struct chain_event *ev = chain_events[i];
 		struct mvt_account_id *account = tal(ev, struct mvt_account_id);
@@ -486,13 +502,19 @@ void migrate_from_account_db(struct lightningd *ld, struct db *db)
 			wallet_datastore_save_utxo_description(db, &ev->outpoint, ev->desc);
 			descriptions_migrated++;
 		}
+		if (give_progress(&prev))
+			log_info(ld->log, "Inserted %zu/%zu chain_events", i, tal_count(chain_events));
 	}
 
+	log_debug(ld->log, "Transferring %zu channel_events",
+		  tal_count(channel_events));
+
+	/* There can be lots of these, so do a single update at the end */
+	num_channel_events = 0;
 	for (size_t i = 0; i < tal_count(channel_events); i++) {
 		const struct channel_event *ev = channel_events[i];
 		struct mvt_account_id *account = tal(ev, struct mvt_account_id);
 		enum mvt_tag tag;
-		u64 id;
 
 		/* We removed currency support, because the only way you could
 		 * use it was to inject your own events, and nobody did that
@@ -517,8 +539,7 @@ void migrate_from_account_db(struct lightningd *ld, struct db *db)
 				 " payment_group_id,"
 				 " fees) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 		set_mvt_account_id(account, NULL, ev->acct_name);
-		id = channel_mvt_index_created(ld, db, account, ev->credit, ev->debit);
-		db_bind_u64(stmt, id);
+		db_bind_u64(stmt, ++num_channel_events);
 		db_bind_mvt_account_id(stmt, db, account);
 		db_bind_credit_debit(stmt, ev->credit, ev->debit);
 		if (!mvt_tag_parse(ev->tag, strlen(ev->tag), &tag))
@@ -546,7 +567,15 @@ void migrate_from_account_db(struct lightningd *ld, struct db *db)
 			wallet_datastore_save_payment_description(db, ev->payment_id, ev->desc);
 			descriptions_migrated++;
 		}
+		if (give_progress(&prev))
+			log_info(ld->log, "Inserted %zu/%zu channel_events", i, tal_count(channel_events));
 	}
+
+	wait_index_increase(ld, db,
+			    WAIT_SUBSYSTEM_CHANNELMOVES,
+			    WAIT_INDEX_CREATED,
+			    num_channel_events,
+			    NULL);
 
 	log_info(ld->log, "bookkeeper migration complete: migrated %zu chainmoves, %zu channelmoves, %zu descriptions",
 		 tal_count(chain_events),

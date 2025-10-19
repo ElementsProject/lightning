@@ -90,7 +90,7 @@ static void disconnect_notification_serialize(struct json_stream *stream,
 }
 REGISTER_NOTIFICATION(disconnect);
 
-void notify_disconnect(struct lightningd *ld, struct node_id *nodeid)
+void notify_disconnect(struct lightningd *ld, const struct node_id *nodeid)
 {
 	struct jsonrpc_notification *n = notify_start(ld, "disconnect");
 	if (!n)

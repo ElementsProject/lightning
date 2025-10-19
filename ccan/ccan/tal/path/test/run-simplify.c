@@ -6,7 +6,7 @@ int main(void)
 {
 	char cwd[1024], *path, *ctx = tal_strdup(NULL, "ctx");
 
-	plan_tests(87);
+	plan_tests(85);
 
 	if (!getcwd(cwd, sizeof(cwd)))
 		abort();
@@ -232,10 +232,6 @@ int main(void)
 	ok1(streq(path, "/tmp"));
 	ok1(tal_parent(path) == ctx);
 	tal_free(path);
-	ok1(tal_first(ctx) == NULL);
-
-	path = path_simplify(ctx, take(NULL));
-	ok1(!path);
 	ok1(tal_first(ctx) == NULL);
 
 	tal_free(ctx);

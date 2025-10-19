@@ -84,6 +84,7 @@ char *likely_stats(unsigned int min_hits, unsigned int percent)
 	struct thash_iter i;
 	char *ret;
 	struct trace *t;
+	size_t maxlen;
 
 	worst = NULL;
 	worst_ratio = 2;
@@ -101,15 +102,16 @@ char *likely_stats(unsigned int min_hits, unsigned int percent)
 	if (worst_ratio * 100 > percent)
 		return NULL;
 
-	ret = malloc(strlen(worst->condstr) +
-		     strlen(worst->file) +
-		     sizeof(long int) * 8 +
-		     sizeof("%s:%u:%slikely(%s) correct %u%% (%lu/%lu)"));
-	sprintf(ret, "%s:%u:%slikely(%s) correct %u%% (%lu/%lu)",
-		worst->file, worst->line,
-		worst->expect ? "" : "un", worst->condstr,
-		(unsigned)(worst_ratio * 100),
-		worst->right, worst->count);
+	maxlen = strlen(worst->condstr) +
+		strlen(worst->file) +
+		sizeof(long int) * 8 +
+		sizeof("%s:%u:%slikely(%s) correct %u%% (%lu/%lu)");
+	ret = malloc(maxlen);
+	snprintf(ret, maxlen - 1, "%s:%u:%slikely(%s) correct %u%% (%lu/%lu)",
+		 worst->file, worst->line,
+		 worst->expect ? "" : "un", worst->condstr,
+		 (unsigned)(worst_ratio * 100),
+		 worst->right, worst->count);
 
 	thash_del(&htable, worst);
 	free(worst);

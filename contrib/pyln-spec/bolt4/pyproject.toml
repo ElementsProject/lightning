@@ -6,7 +6,7 @@ authors = [
     {name = "Rusty Russell", email = "rusty@blockstream.com"}
 ]
 license = {text = "MIT"}
-requires-python = ">=3.8,<4.0"
+requires-python = ">=3.9,<4.0"
 dependencies = []
 
 [dependency-groups]
@@ -20,6 +20,3 @@ packages = ["pyln"]
 [build-system]
 requires = ["hatchling>=1.0.0"]
 build-backend = "hatchling.build"
-
-[tool.uv.sources]
-pyln-proto = { workspace = true }

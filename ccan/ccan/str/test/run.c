@@ -31,8 +31,10 @@ int main(void)
 		for (j = 0; j < NUM_SUBSTRINGS; j++) {
 			strings[n] = malloc(strlen(substrings[i])
 					    + strlen(substrings[j]) + 1);
-			sprintf(strings[n++], "%s%s",
-				substrings[i], substrings[j]);
+			snprintf(strings[n++],
+				 strlen(substrings[i]) + strlen(substrings[j]),
+				 "%s%s",
+				 substrings[i], substrings[j]);
 		}
 	}
 

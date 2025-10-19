@@ -24,35 +24,35 @@ int main(void)
 	memset(&types, 0xFF, sizeof(types));
 
 	/* Hex versions */
-	sprintf(str, "0x%llx", (unsigned long long)types.u1byte);
+	snprintf(str, sizeof(str), "0x%llx", (unsigned long long)types.u1byte);
 	ok1(strlen(str) < STR_MAX_CHARS(types.u1byte));
-	sprintf(str, "0x%llx", (unsigned long long)types.u2byte);
+	snprintf(str, sizeof(str), "0x%llx", (unsigned long long)types.u2byte);
 	ok1(strlen(str) < STR_MAX_CHARS(types.u2byte));
-	sprintf(str, "0x%llx", (unsigned long long)types.u4byte);
+	snprintf(str, sizeof(str), "0x%llx", (unsigned long long)types.u4byte);
 	ok1(strlen(str) < STR_MAX_CHARS(types.u4byte));
-	sprintf(str, "0x%llx", (unsigned long long)types.u8byte);
+	snprintf(str, sizeof(str), "0x%llx", (unsigned long long)types.u8byte);
 	ok1(strlen(str) < STR_MAX_CHARS(types.u8byte));
 
 	/* Decimal versions */
-	sprintf(str, "%u", types.u1byte);
+	snprintf(str, sizeof(str), "%u", types.u1byte);
 	ok1(strlen(str) < STR_MAX_CHARS(types.u1byte));
-	sprintf(str, "%d", types.s1byte);
+	snprintf(str, sizeof(str), "%d", types.s1byte);
 	ok1(strlen(str) < STR_MAX_CHARS(types.s1byte));
-	sprintf(str, "%u", types.u2byte);
+	snprintf(str, sizeof(str), "%u", types.u2byte);
 	ok1(strlen(str) < STR_MAX_CHARS(types.u2byte));
-	sprintf(str, "%d", types.s2byte);
+	snprintf(str, sizeof(str), "%d", types.s2byte);
 	ok1(strlen(str) < STR_MAX_CHARS(types.s2byte));
-	sprintf(str, "%u", types.u4byte);
+	snprintf(str, sizeof(str), "%u", types.u4byte);
 	ok1(strlen(str) < STR_MAX_CHARS(types.u4byte));
-	sprintf(str, "%d", types.s4byte);
+	snprintf(str, sizeof(str), "%d", types.s4byte);
 	ok1(strlen(str) < STR_MAX_CHARS(types.s4byte));
-	sprintf(str, "%llu", (unsigned long long)types.u8byte);
+	snprintf(str, sizeof(str), "%llu", (unsigned long long)types.u8byte);
 	ok1(strlen(str) < STR_MAX_CHARS(types.u8byte));
-	sprintf(str, "%lld", (long long)types.s8byte);
+	snprintf(str, sizeof(str), "%lld", (long long)types.s8byte);
 	ok1(strlen(str) < STR_MAX_CHARS(types.s8byte));
 
 	/* Pointer version. */
-	sprintf(str, "%p", types.ptr);
+	snprintf(str, sizeof(str), "%p", types.ptr);
 	ok1(strlen(str) < STR_MAX_CHARS(types.ptr));
 
 	return exit_status();

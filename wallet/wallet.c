@@ -246,7 +246,7 @@ struct wallet *wallet_new(struct lightningd *ld, struct timers *timers)
 }
 
 /* Get id for move_accounts; create if necessary */
-u64 move_accounts_id(struct db *db, const char *name)
+static u64 move_accounts_id(struct db *db, const char *name, bool create)
 {
 	struct db_stmt *stmt;
 	u64 ret;
@@ -267,6 +267,9 @@ u64 move_accounts_id(struct db *db, const char *name)
 		return ret;
 	}
 	tal_free(stmt);
+
+	if (!create)
+		return 0;
 
 	/* Does not exist, so create */
 	stmt = db_prepare_v2(db,
@@ -2957,6 +2960,21 @@ void wallet_channel_insert(struct wallet *w, struct channel *chan)
 	wallet_channel_save(w, chan);
 }
 
+void wallet_delete_old_htlcs(struct wallet *w)
+{
+	struct db_stmt *stmt;
+
+	/* Delete htlcs for closed channels */
+	stmt = db_prepare_v2(w->db, SQL("DELETE FROM channel_htlcs"
+					" WHERE id IN ("
+					"  SELECT ch.id"
+					"  FROM channel_htlcs AS ch"
+					"  JOIN channels AS c ON c.id = ch.channel_id"
+					"  WHERE c.state = ?);"));
+	db_bind_int(stmt, channel_state_in_db(CLOSED));
+	db_exec_prepared_v2(take(stmt));
+}
+
 void wallet_channel_close(struct wallet *w,
 			  const struct channel *chan)
 {
@@ -2967,15 +2985,21 @@ void wallet_channel_close(struct wallet *w,
 	 * dbs to recover. */
 	struct db_stmt *stmt;
 	u64 new_move_id;
+	u64 htlcs;
 
-	/* Delete entries from `channel_htlcs` */
-	stmt = db_prepare_v2(w->db, SQL("DELETE FROM channel_htlcs "
+	/* The channel_htlcs table is quite large, and deleting it can take a
+	 * while.  So we do that on next restart by calling
+	 * wallet_delete_old_htlcs.  But update delete count in case anyone
+	 * is watching. */
+	stmt = db_prepare_v2(w->db, SQL("SELECT COUNT(*) FROM channel_htlcs "
 					"WHERE channel_id=?"));
 	db_bind_u64(stmt, chan->dbid);
-	db_exec_prepared_v2(stmt);
-	/* FIXME: We don't actually tell them what was deleted! */
-	if (db_count_changes(stmt) != 0)
-		htlcs_index_deleted(w->ld, chan, db_count_changes(stmt));
+	db_query_prepared(stmt);
+	db_step(stmt);
+
+	htlcs = db_col_u64(stmt, "COUNT(*)");
+	if (htlcs != 0)
+		htlcs_index_deleted(w->ld, chan, htlcs);
 	tal_free(stmt);
 
 	/* Delete entries from `htlc_sigs` */
@@ -3026,7 +3050,7 @@ void wallet_channel_close(struct wallet *w,
 	/* Update all accouting records to use channel_id string, instead of
 	 * referring to dbid.  This is robust if we delete in future, and saves
 	 * a lookup in the load path. */
-	new_move_id = move_accounts_id(w->db, fmt_channel_id(tmpctx, &chan->cid));
+	new_move_id = move_accounts_id(w->db, fmt_channel_id(tmpctx, &chan->cid), true);
 	stmt = db_prepare_v2(w->db, SQL("UPDATE chain_moves "
 					"SET account_channel_id=?,"
 					" account_nonchannel_id=? "
@@ -6558,7 +6582,8 @@ struct wallet_htlc_iter *wallet_htlcs_first(const tal_t *ctx,
 					    ", h.updated_index"
 					    " FROM channel_htlcs h"
 					    " JOIN channels ON channels.id = h.channel_id"
-					    " WHERE h.updated_index >= ?"
+					    " WHERE channels.state != ?"
+					    "   AND h.updated_index >= ?"
 					    " ORDER BY h.updated_index ASC"
 					    " LIMIT ?;"));
 		} else {
@@ -6575,10 +6600,12 @@ struct wallet_htlc_iter *wallet_htlcs_first(const tal_t *ctx,
 					    ", h.updated_index"
 					    " FROM channel_htlcs h"
 					    " JOIN channels ON channels.id = h.channel_id"
-					    " WHERE h.id >= ?"
+					    " WHERE channels.state != ?"
+					    "   AND h.id >= ?"
 					    " ORDER BY h.id ASC"
 					    " LIMIT ?;"));
 		}
+		db_bind_int(i->stmt, channel_state_in_db(CLOSED));
 	}
 	db_bind_u64(i->stmt, liststart);
 	if (listlimit)
@@ -6935,7 +6962,7 @@ void db_bind_mvt_account_id(struct db_stmt *stmt,
 		db_bind_null(stmt);
 	} else {
 		db_bind_null(stmt);
-		db_bind_u64(stmt, move_accounts_id(db, account->alt_account));
+		db_bind_u64(stmt, move_accounts_id(db, account->alt_account, true));
 	}
 }
 
@@ -7061,73 +7088,124 @@ static u64 insert_chain_mvt(struct lightningd *ld,
 	return id;
 }
 
+static struct mvt_tags db_col_mvt_tags(struct db_stmt *stmt,
+				       const char *colname)
+{
+	struct mvt_tags tags;
+	tags.bits = db_col_u64(stmt, colname);
+	assert(mvt_tags_valid(tags));
+	return tags;
+}
+
+static bool find_duplicate_chain_move(struct db *db,
+				      const char *nonchannel_acctname,
+				      /* 0 if none */
+				      u64 channel_dbid,
+				      const struct bitcoin_outpoint *outpoint,
+				      /* optional */
+				      const struct bitcoin_txid *spending_txid,
+				      struct mvt_tags tags,
+				      u64 id_ceiling)
+{
+	struct db_stmt *stmt;
+	u64 nonchannel_id;
+
+	nonchannel_id = move_accounts_id(db, nonchannel_acctname, false);
+
+	stmt = db_prepare_v2(db,
+			     SQL("SELECT"
+				 "  spending_txid, tag_bitmap, account_channel_id, account_nonchannel_id"
+				 " FROM chain_moves"
+				 " WHERE "
+				 "  utxo = ?"
+				 " AND "
+				 "  id < ?"));
+	db_bind_outpoint(stmt, outpoint);
+	db_bind_u64(stmt, id_ceiling);
+	db_query_prepared(stmt);
+
+	/* Check that spending_txid and primary_tag match.  We could
+	 * probably just match on spending_txid, but this is robust. */
+	while (db_step(stmt)) {
+		struct mvt_tags these_tags;
+		u64 this_nonchannel_id, this_channel_id;
+		bool have_spending_txid;
+
+		/* Access this now so it never complains we don't */
+		these_tags = db_col_mvt_tags(stmt, "tag_bitmap");
+		have_spending_txid = !db_col_is_null(stmt, "spending_txid");
+		this_nonchannel_id = db_col_is_null(stmt, "account_nonchannel_id") ? 0 : db_col_u64(stmt, "account_nonchannel_id");
+		this_channel_id = db_col_is_null(stmt, "account_channel_id") ? 0 : db_col_u64(stmt, "account_channel_id");
+
+		/* Either nonchannel id, or channel id must match */
+		if (nonchannel_id != this_nonchannel_id
+		    && channel_dbid != this_channel_id) {
+			continue;
+		}
+
+		/* spending_txid must match */
+		if (spending_txid) {
+			struct bitcoin_txid txid;
+			if (!have_spending_txid)
+				continue;
+			db_col_txid(stmt, "spending_txid", &txid);
+			/* This would only happen for reorgs */
+			if (!bitcoin_txid_eq(&txid, spending_txid))
+				continue;
+		} else {
+			if (have_spending_txid)
+				continue;
+		}
+
+		/* Tags must match */
+		if (primary_mvt_tag(these_tags) != primary_mvt_tag(tags))
+			continue;
+
+		/* It's a duplicate. */
+		tal_free(stmt);
+		return true;
+	}
+	tal_free(stmt);
+	return false;
+}
+
+static bool is_duplicate(struct db *db, const struct chain_coin_mvt *chain_mvt)
+{
+	const char *nonchannel_acctname;
+	u64 channel_dbid;
+
+	/* If we migrated in account_migration.c, it will use the
+	 * nonchannel id!  But we don't worry about adding a
+	 * non-channel which conflicts with a channel. */
+	if (chain_mvt->account.channel) {
+		nonchannel_acctname = fmt_channel_id(tmpctx, &chain_mvt->account.channel->cid);
+		channel_dbid = chain_mvt->account.channel->dbid;
+	} else {
+		nonchannel_acctname = chain_mvt->account.alt_account;
+		channel_dbid = 0;
+	}
+
+	return find_duplicate_chain_move(db, nonchannel_acctname,
+					 channel_dbid,
+					 &chain_mvt->outpoint,
+					 chain_mvt->spending_txid,
+					 chain_mvt->tags,
+					 INT64_MAX);
+}
+
 void wallet_save_chain_mvt(struct lightningd *ld,
 			   const struct chain_coin_mvt *chain_mvt)
 {
-	struct db_stmt *stmt;
 	u64 id;
 
 	/* On restart, we do chain replay.  For this (and other
 	 * reorgs) we need to de-duplicate here.  The other db tables
 	 * do this by deleting old entries on reorg, but we never
 	 * delete. */
-	if (chain_mvt->account.channel) {
-		stmt = db_prepare_v2(ld->wallet->db,
-				     SQL("SELECT"
-					 "  cm.spending_txid, cm.tag_bitmap, cm.id"
-					 " FROM chain_moves cm"
-					 " WHERE "
-					 "  account_channel_id = ?"
-					 "  AND utxo = ?"));
-		db_bind_u64(stmt, chain_mvt->account.channel->dbid);
-	} else {
-		stmt = db_prepare_v2(ld->wallet->db,
-				     SQL("SELECT"
-					 "  cm.spending_txid, cm.tag_bitmap, cm.id"
-					 " FROM chain_moves cm"
-					 " JOIN move_accounts ma ON cm.account_nonchannel_id = ma.id"
-					 " WHERE"
-					 "  ma.name = ?"
-					 "  AND utxo = ?"));
-		db_bind_text(stmt, chain_mvt->account.alt_account);
-	}
-	db_bind_outpoint(stmt, &chain_mvt->outpoint);
-	db_query_prepared(stmt);
-
-	/* Check that spending_txid and primary_tag match.  We could
-	 * probably just match on spending_txid, but this is robust. */
-	while (db_step(stmt)) {
-		struct mvt_tags tags;
-
-		/* Access this now so it never complains we don't */
-		tags.bits = db_col_u64(stmt, "cm.tag_bitmap");
-		id = db_col_u64(stmt, "cm.id");
-
-		/* spending_txid must match */
-		if (chain_mvt->spending_txid) {
-			struct bitcoin_txid txid;
-			if (db_col_is_null(stmt, "cm.spending_txid"))
-				continue;
-			db_col_txid(stmt, "cm.spending_txid", &txid);
-			/* This would only happen for reorgs */
-			if (!bitcoin_txid_eq(&txid, chain_mvt->spending_txid))
-				continue;
-		} else {
-			if (!db_col_is_null(stmt, "cm.spending_txid"))
-				continue;
-		}
-
-		/* Tags must match */
-		if (primary_mvt_tag(tags) != primary_mvt_tag(chain_mvt->tags))
-			continue;
-
-		/* It's a duplicate.  Don't re-add. */
-		tal_free(stmt);
+	if (is_duplicate(ld->wallet->db, chain_mvt))
 		goto out;
-	}
-	tal_free(stmt);
 
-	id = insert_chain_mvt(ld, ld->wallet->db, chain_mvt),
+	id = insert_chain_mvt(ld, ld->wallet->db, chain_mvt);
 	notify_chain_mvt(ld, chain_mvt, id);
 out:
 	if (taken(chain_mvt))
@@ -7164,15 +7242,6 @@ static void db_col_credit_or_debit(struct db_stmt *stmt,
 		*credit = amount_msat(amount);
 		*debit = AMOUNT_MSAT(0);
 	}
-}
-
-static struct mvt_tags db_col_mvt_tags(struct db_stmt *stmt,
-				       const char *colname)
-{
-	struct mvt_tags tags;
-	tags.bits = db_col_u64(stmt, colname);
-	assert(mvt_tags_valid(tags));
-	return tags;
 }
 
 struct chain_coin_mvt *wallet_chain_move_extract(const tal_t *ctx,
@@ -7654,3 +7723,84 @@ void migrate_setup_coinmoves(struct lightningd *ld, struct db *db)
 	tal_free(stmt);
 }
 
+/* When we imported from accounts.db, we always used a reference into
+ * the move_accounts table (via account_nonchannel_id).  But (on
+ * replay) if a channel was live, we used the reference into the
+ * channels table (via account_channel_id) and our duplicate detection
+ * didn't trigger.  Now we need to get rid of such duplicates.
+ *
+ * Note that if the channel is now CLOSED, the references to account_channel_id
+ * will have been converted to references using account_nonchannel_id. */
+void migrate_remove_chain_moves_duplicates(struct lightningd *ld, struct db *db)
+{
+	/* This is O(n^2) but there just aren't that many! */
+	u64 *to_delete = tal_arr(tmpctx, u64, 0);
+	struct db_stmt *stmt;
+
+	/* Gather */
+	stmt = db_prepare_v2(db, SQL("SELECT"
+				     " chain_moves.id,"
+				     " utxo,"
+				     " spending_txid,"
+				     " tag_bitmap,"
+				     " account_channel_id,"
+				     " channels.full_channel_id,"
+				     " move_accounts.name"
+				     " FROM chain_moves "
+				     " LEFT JOIN move_accounts "
+				     "  ON move_accounts.id = chain_moves.account_nonchannel_id "
+				     " LEFT JOIN channels "
+				     "  ON channels.id = chain_moves.account_channel_id "
+				     " ORDER BY move_accounts.id;"));
+	db_query_prepared(stmt);
+	while (db_step(stmt)) {
+		struct bitcoin_outpoint outpoint;
+		u64 id, channel_dbid;
+		struct bitcoin_txid *spending_txid;
+		struct mvt_tags tags;
+		const char *nonchannel_acctname;
+
+		id = db_col_u64(stmt, "chain_moves.id");
+		db_col_outpoint(stmt, "utxo", &outpoint);
+		if (db_col_is_null(stmt, "spending_txid"))
+			spending_txid = NULL;
+		else {
+			spending_txid = tal(tmpctx, struct bitcoin_txid);
+			db_col_txid(stmt, "spending_txid", spending_txid);
+		}
+		tags = db_col_mvt_tags(stmt, "tag_bitmap");
+		if (db_col_is_null(stmt, "account_channel_id")) {
+			channel_dbid = 0;
+			nonchannel_acctname = db_col_strdup(tmpctx, stmt, "move_accounts.name");
+			db_col_ignore(stmt, "channels.full_channel_id");
+ 		} else {
+			struct channel_id cid;
+			channel_dbid = db_col_u64(stmt, "account_channel_id");
+			db_col_channel_id(stmt, "channels.full_channel_id", &cid);
+			nonchannel_acctname = fmt_channel_id(tmpctx, &cid);
+		}
+
+		if (find_duplicate_chain_move(db, nonchannel_acctname,
+					      channel_dbid,
+					      &outpoint,
+					      spending_txid,
+					      tags,
+					      id)) {
+			log_unusual(ld->log,
+				    "Deleting redundant chain_moves %"PRIu64" for account %s",
+				    id, nonchannel_acctname);
+			tal_arr_expand(&to_delete, id);
+		}
+	}
+	tal_free(stmt);
+
+	/* Do the delete.  We do it separately to avoid any db issues
+	 * while iterating */
+	for (size_t i = 0; i < tal_count(to_delete); i++) {
+		stmt = db_prepare_v2(db,
+				     SQL("DELETE FROM chain_moves "
+					 "WHERE id = ?;"));
+		db_bind_u64(stmt, to_delete[i]);
+		db_exec_prepared_v2(take(stmt));
+	}
+}

@@ -727,6 +727,11 @@ def test_coinmoves_unilateral_htlc_timeout(node_factory, bitcoind):
     line = l1.daemon.is_in_log('Tracking output.*/OUR_HTLC')
     htlc = int(re.search(r'output [0-9a-f]{64}:([0-9]):', line).group(1))
 
+    # commitment tx weight can vary (DER sigs, FML) and so even though the feerate target
+    # is fixed, the amount of the child tx we create will vary, hence the change varies.
+    # So it's usually 15579000, but one in 128 it will be 15586000...
+    anchor_change_msats = bitcoind.rpc.gettxout(anchor_spend_txid, 0)['value'] * 100_000_000_000
+
     expected_chain1 += [{'account_id': 'wallet',  # Anchor spend from fundchannel change
                          'blockheight': 104,
                          'credit_msat': 0,
@@ -738,10 +743,10 @@ def test_coinmoves_unilateral_htlc_timeout(node_factory, bitcoind):
                          'utxo': f"{fundchannel['txid']}:{fundchannel['outnum'] ^ 1}"},
                         {'account_id': 'wallet',  # change from anchor spend
                          'blockheight': 104,
-                         'credit_msat': 15579000,
+                         'credit_msat': anchor_change_msats,
                          'debit_msat': 0,
                          'extra_tags': [],
-                         'output_msat': 15579000,
+                         'output_msat': anchor_change_msats,
                          'primary_tag': 'deposit',
                          'utxo': f"{anchor_spend_txid}:0"},
                         {'account_id': fundchannel['channel_id'],
@@ -1221,6 +1226,11 @@ def test_coinmoves_unilateral_htlc_fulfill(node_factory, bitcoind):
     line = l1.daemon.is_in_log('Tracking output.*/OUR_HTLC')
     htlc = int(re.search(r'output [0-9a-f]{64}:([0-9]):', line).group(1))
 
+    # commitment tx weight can vary (DER sigs, FML) and so even though the feerate target
+    # is fixed, the amount of the child tx we create will vary, hence the change varies.
+    # So it's usually 15579000, but one in 128 it will be 15586000...
+    anchor_change_msats = bitcoind.rpc.gettxout(anchor_spend_txid, 0)['value'] * 100_000_000_000
+
     expected_chain1 += [{'account_id': 'wallet',  # Anchor spend from fundchannel change
                          'blockheight': 104,
                          'credit_msat': 0,
@@ -1232,10 +1242,10 @@ def test_coinmoves_unilateral_htlc_fulfill(node_factory, bitcoind):
                          'utxo': f"{fundchannel['txid']}:{fundchannel['outnum'] ^ 1}"},
                         {'account_id': 'wallet',  # Change from anchor spend
                          'blockheight': 104,
-                         'credit_msat': 15579000,
+                         'credit_msat': anchor_change_msats,
                          'debit_msat': 0,
                          'extra_tags': [],
-                         'output_msat': 15579000,
+                         'output_msat': anchor_change_msats,
                          'primary_tag': 'deposit',
                          'utxo': f"{anchor_spend_txid}:0"},
                         {'account_id': fundchannel['channel_id'],

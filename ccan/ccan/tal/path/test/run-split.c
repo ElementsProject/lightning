@@ -6,7 +6,7 @@ int main(void)
 {
 	char *ctx = tal_strdup(NULL, "ctx"), **split;
 
-	plan_tests(46);
+	plan_tests(44);
 
 	split = path_split(ctx, "foo" PATH_SEP_STR "bar");
 	ok1(tal_parent(split) == ctx);
@@ -92,10 +92,6 @@ int main(void)
 	ok1(streq(split[0], PATH_SEP_STR));
 	ok1(split[1] == NULL);
 	tal_free(split);
-	ok1(tal_first(ctx) == NULL);
-
-	split = path_split(ctx, take(NULL));
-	ok1(!split);
 	ok1(tal_first(ctx) == NULL);
 
 	ok1(tal_first(NULL) == ctx && tal_next(ctx) == NULL && tal_first(ctx) == NULL);

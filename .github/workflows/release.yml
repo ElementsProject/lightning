@@ -148,7 +148,7 @@ jobs:
           sudo apt-get install -y lowdown
           ./configure
           tools/build-release.sh --without-zip sign
-          mv release/SHA256SUMS.asc${{ steps.gpg.outputs.keyid  }} release/SHA256SUMS.asc
+          mv release/SHA256SUMS.${{ env.version }}.asc${{ steps.gpg.outputs.keyid  }} release/SHA256SUMS.${{ env.version }}.asc
 
       - name: Upload signed artifact
         uses: actions/upload-artifact@v4

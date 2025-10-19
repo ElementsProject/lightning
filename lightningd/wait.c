@@ -189,6 +189,7 @@ u64 wait_index_increment(struct lightningd *ld,
 }
 
 void wait_index_increase(struct lightningd *ld,
+			 struct db *db,
 			 enum wait_subsystem subsystem,
 			 enum wait_index index,
 			 u64 num,
@@ -200,7 +201,7 @@ void wait_index_increase(struct lightningd *ld,
 		return;
 
 	va_start(ap, num);
-	wait_index_bump(ld, ld->wallet->db, subsystem, index, num, ap);
+	wait_index_bump(ld, db, subsystem, index, num, ap);
 	va_end(ap);
 }
 

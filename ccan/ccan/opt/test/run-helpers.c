@@ -163,7 +163,7 @@ int main(int argc, char *argv[])
 			pass("Can't test error message");
 		} else {
 			char buf[30];
-			sprintf(buf, "%lu", ULONG_MAX);
+			snprintf(buf, sizeof(buf), "%lu", ULONG_MAX);
 			ok1(!parse_args(&argc, &argv, "-a", buf, NULL));
 			ok1(strstr(err_output, ": -a: value '")
 			    && strstr(err_output, buf)

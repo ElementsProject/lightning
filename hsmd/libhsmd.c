@@ -606,6 +606,18 @@ static void sign_our_inputs(struct hsm_utxo **utxos, struct wally_psbt *psbt)
 	}
 }
 
+static void check_overgrind(const struct bitcoin_signature *sig)
+{
+	u8 der[73];
+	size_t len;
+
+	if (!dev_warn_on_overgrind)
+		return;
+	len = signature_to_der(der, sig);
+	if (len != 71)
+		hsmd_status_broken("overgrind: short signature length %zu", len);
+}
+
 /*~ This covers several cases where onchaind is creating a transaction which
  * sends funds to our internal wallet. */
 /* FIXME: Derive output address for this client, and check it here! */
@@ -632,6 +644,7 @@ static u8 *handle_sign_to_us_tx(struct hsmd_client *c, const u8 *msg_in,
 		return hsmd_status_bad_request(c, msg_in, "bad txinput count");
 
 	sign_tx_input(tx, 0, NULL, wscript, privkey, &pubkey, sighash_type, &sig);
+	check_overgrind(&sig);
 
 	return towire_hsmd_sign_tx_reply(NULL, &sig);
 }
@@ -1401,6 +1414,7 @@ static u8 *handle_sign_mutual_close_tx(struct hsmd_client *c, const u8 *msg_in)
 		      &secrets.funding_privkey,
 		      &local_funding_pubkey,
 		      SIGHASH_ALL, &sig);
+	check_overgrind(&sig);
 
 	return towire_hsmd_sign_tx_reply(NULL, &sig);
 }
@@ -1435,6 +1449,7 @@ static u8 *handle_sign_splice_tx(struct hsmd_client *c, const u8 *msg_in)
 		      &secrets.funding_privkey,
 		      &local_funding_pubkey,
 		      SIGHASH_ALL, &sig);
+	check_overgrind(&sig);
 
 	return towire_hsmd_sign_tx_reply(NULL, &sig);
 }
@@ -1513,6 +1528,7 @@ static u8 *do_sign_local_htlc_tx(struct hsmd_client *c,
 		      ? (SIGHASH_SINGLE|SIGHASH_ANYONECANPAY)
 		      : SIGHASH_ALL,
 		      &sig);
+	check_overgrind(&sig);
 
 	return towire_hsmd_sign_tx_reply(NULL, &sig);
 }
@@ -1605,6 +1621,7 @@ static u8 *handle_sign_remote_htlc_tx(struct hsmd_client *c, const u8 *msg_in)
 		      option_anchor_outputs
 		      ? (SIGHASH_SINGLE|SIGHASH_ANYONECANPAY)
 		      : SIGHASH_ALL, &sig);
+	check_overgrind(&sig);
 
 	return towire_hsmd_sign_tx_reply(NULL, &sig);
 }
@@ -1662,6 +1679,7 @@ static u8 *handle_sign_remote_commitment_tx(struct hsmd_client *c, const u8 *msg
 		      &local_funding_pubkey,
 		      SIGHASH_ALL,
 		      &sig);
+	check_overgrind(&sig);
 
 	return towire_hsmd_sign_tx_reply(NULL, &sig);
 }
@@ -1855,6 +1873,7 @@ static u8 *handle_sign_commitment_tx(struct hsmd_client *c, const u8 *msg_in)
 		      &local_funding_pubkey,
 		      SIGHASH_ALL,
 		      &sig);
+	check_overgrind(&sig);
 
 	return towire_hsmd_sign_commitment_tx_reply(NULL, &sig);
 }
