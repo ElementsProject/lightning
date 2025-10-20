@@ -1,6 +1,10 @@
-Dockerfile
-contrib/docker/Dockerfile.*
-target
 config.vars
-release/
+.cargo/
+.vscode/
 .venv/
+dist/
+target/
+release/
+focal/
+jammy/
+noble/

@@ -125,6 +125,8 @@ ARG LD=${target_arch}-ld
 ARG STRIP=${target_arch}-strip
 ARG TARGET=${target_arch_rust}
 ARG RUST_PROFILE=release
+ARG VERSION
+ENV VERSION=${VERSION}
 
 #TODO: set all the following cargo config options via env variables (https://doc.rust-lang.org/cargo/reference/environment-variables.html)
 RUN mkdir -p .cargo && tee .cargo/config.toml <<EOF
