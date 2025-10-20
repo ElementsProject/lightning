@@ -5,6 +5,7 @@ import argparse
 import copy
 import datetime
 from enum import Enum
+import io
 import json
 import logging
 import os
@@ -1124,9 +1125,16 @@ INSTALLERS = [pythonuv, pythonuvlegacy, python3venv, poetryvenv,
 
 def help_alias(targets: list):
     if len(targets) == 0:
-        parser.print_help(sys.stdout)
+        if log.capture:
+            help_output = io.StringIO()
+            parser.print_help(help_output)
+            log.add_result(help_output.getvalue())
+        else:
+            parser.print_help(sys.stdout)
     else:
         log.info('try "reckless {} -h"'.format(' '.join(targets)))
+        if log.capture:
+            log.reply_json()
         sys.exit(1)
 
 
@@ -2124,7 +2132,9 @@ if __name__ == '__main__':
 
     if 'targets' in args: # and len(args.targets) > 0:
         if args.func.__name__ == 'help_alias':
-            args.func(args.targets)
+            log.add_result(args.func(args.targets))
+            if log.capture:
+                log.reply_json()
             sys.exit(0)
         # Catch a missing argument so that we can overload functions.
         if len(args.targets) == 0:
