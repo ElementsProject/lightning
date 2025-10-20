@@ -170,6 +170,18 @@ def test_basic_help():
     assert r.search_stdout("options:") or r.search_stdout("optional arguments:")
 
 
+def test_version():
+    '''Version should be reported without loading config and should advance
+    with lightningd'''
+    r = reckless(["-V", "-v", "--json"])
+    assert r.returncode == 0
+    import json
+    json_out = ''.join(r.stdout)
+    with open('.version', 'r') as f:
+        version = f.readlines()[0].strip()
+        assert json.loads(json_out)['result'][0] == version
+
+
 def test_contextual_help(node_factory):
     n = get_reckless_node(node_factory)
     for subcmd in ['install', 'uninstall', 'search',
