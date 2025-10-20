@@ -445,7 +445,7 @@ async fn on_htlc_accepted(
 
     // Safe unwrap(): we already checked that `extra_tlvs` exists.
     let extra_tlvs = req.htlc.extra_tlvs.unwrap();
-    let deducted_amt = match extra_tlvs.get_tu64(65537)? {
+    let deducted_amt = match extra_tlvs.get_u64(65537)? {
         Some(amt) => amt,
         None => {
             warn!("htlc is missing the extra_fee amount");
