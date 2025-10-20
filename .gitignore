@@ -86,6 +86,7 @@ plugins/clnrest
 plugins/wss-proxy
 plugins/cln-bip353
 .clangd
+.cargo/
 
 # Build directories
 bionic/

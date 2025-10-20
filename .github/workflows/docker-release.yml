@@ -36,6 +36,7 @@ jobs:
       uses: actions/checkout@v4
       with:
         ref: ${{ github.ref }}  # Ensures the branch triggering the workflow is checked out
+        fetch-depth: 0
 
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v3
@@ -116,3 +117,5 @@ jobs:
         push: true
         platforms: ${{ env.PLATFORMS }}
         tags: ${{ env.TAGS }}
+        build-args: |
+          VERSION=${{ env.VERSION }}
