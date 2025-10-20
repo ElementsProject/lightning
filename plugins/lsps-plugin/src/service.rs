@@ -10,7 +10,7 @@ use cln_lsps::lsps2::cln::{HtlcAcceptedRequest, HtlcAcceptedResponse};
 use cln_lsps::lsps2::handler::{ClnApiRpc, HtlcAcceptedHookHandler};
 use cln_lsps::lsps2::model::{Lsps2BuyRequest, Lsps2GetInfoRequest};
 use cln_lsps::util::wrap_payload_with_peer_id;
-use cln_lsps::{lsps0, lsps2, util, LSP_FEATURE_BIT};
+use cln_lsps::{lsps0, lsps2};
 use cln_plugin::Plugin;
 use cln_rpc::notifications::CustomMsgNotification;
 use cln_rpc::primitives::PublicKey;
@@ -30,14 +30,18 @@ async fn main() -> Result<(), anyhow::Error> {
     if let Some(plugin) = cln_plugin::Builder::new(tokio::io::stdin(), tokio::io::stdout())
         .option(lsps2::OPTION_ENABLED)
         .option(lsps2::OPTION_PROMISE_SECRET)
-        .featurebits(
-            cln_plugin::FeatureBitsKind::Node,
-            util::feature_bit_to_hex(LSP_FEATURE_BIT),
-        )
-        .featurebits(
-            cln_plugin::FeatureBitsKind::Init,
-            util::feature_bit_to_hex(LSP_FEATURE_BIT),
-        )
+        // FIXME: Temporarily disabled lsp feature to please test cases, this is
+        // ok as the feature is optional per spec.
+        // We need to ensure that `connectd` only starts after all plugins have
+        // been initialized.
+        // .featurebits(
+        //     cln_plugin::FeatureBitsKind::Node,
+        //     util::feature_bit_to_hex(LSP_FEATURE_BIT),
+        // )
+        // .featurebits(
+        //     cln_plugin::FeatureBitsKind::Init,
+        //     util::feature_bit_to_hex(LSP_FEATURE_BIT),
+        // )
         .hook("custommsg", on_custommsg)
         .hook("htlc_accepted", on_htlc_accepted)
         .configure()
