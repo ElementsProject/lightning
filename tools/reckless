@@ -2082,6 +2082,9 @@ if __name__ == '__main__':
                           'signet', 'testnet', 'testnet4']
     if args.version:
         report_version()
+        if log.capture:
+            log.reply_json()
+        sys.exit(0)
     elif args.cmd1 is None:
         parser.print_help(sys.stdout)
         sys.exit(1)
