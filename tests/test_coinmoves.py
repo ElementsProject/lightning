@@ -889,18 +889,19 @@ def test_coinmoves_unilateral_htlc_timeout(node_factory, bitcoind):
     expected_chain1 += [{'account_id': 'wallet',
                          'blockheight': 115,
                          'credit_msat': 0,
-                         'debit_msat': 15579000,
+                         'debit_msat': anchor_change_msats,
                          'extra_tags': [],
-                         'output_msat': 15579000,
+                         'output_msat': anchor_change_msats,
                          'primary_tag': 'withdrawal',
                          'spending_txid': htlc_timeout_txid,
                          'utxo': f"{anchor_spend_txid}:0"},
+                        # Change
                         {'account_id': 'wallet',
                          'blockheight': 115,
-                         'credit_msat': 6358000,
+                         'credit_msat': (15579000 + 6358000) - anchor_change_msats,
                          'debit_msat': 0,
                          'extra_tags': [],
-                         'output_msat': 6358000,
+                         'output_msat': (15579000 + 6358000) - anchor_change_msats,
                          'primary_tag': 'deposit',
                          'utxo': f"{htlc_timeout_txid}:1"},
                         {'account_id': fundchannel['channel_id'],
@@ -1500,6 +1501,9 @@ def test_coinmoves_unilateral_htlc_fulfilled_oneside(node_factory, bitcoind):
     line = l1.daemon.is_in_log('Tracking output.*/OUTPUT_TO_THEM')
     to_l2 = int(re.search(r'output [0-9a-f]{64}:([0-9]):', line).group(1))
 
+    # Usually 16186000, but if we're lucky it's 16193000
+    anchor_change_msats = bitcoind.rpc.gettxout(anchor_spend_txid, 0)['value'] * 100_000_000_000
+
     expected_chain1 += [{'account_id': 'wallet',  # Anchor spend from fundchannel change
                          'blockheight': 104,
                          'credit_msat': 0,
@@ -1511,10 +1515,10 @@ def test_coinmoves_unilateral_htlc_fulfilled_oneside(node_factory, bitcoind):
                          'utxo': f"{fundchannel['txid']}:{fundchannel['outnum'] ^ 1}"},
                         {'account_id': 'wallet',  # Change from anchor spend
                          'blockheight': 104,
-                         'credit_msat': 16186000,
+                         'credit_msat': anchor_change_msats,
                          'debit_msat': 0,
                          'extra_tags': [],
-                         'output_msat': 16186000,
+                         'output_msat': anchor_change_msats,
                          'primary_tag': 'deposit',
                          'utxo': f"{anchor_spend_txid}:0"},
                         {'account_id': fundchannel['channel_id'],
