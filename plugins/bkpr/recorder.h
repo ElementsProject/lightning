@@ -18,6 +18,7 @@ struct fee_sum {
 	const char *acct_name;
 	struct bitcoin_txid *txid;
 	struct amount_msat fees_paid;
+	u64 last_timestamp;
 };
 
 struct txo_pair {

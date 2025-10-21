@@ -290,11 +290,7 @@ static struct onchain_fee **find_consolidated_fees(const tal_t *ctx,
 		fee->debit = AMOUNT_MSAT(0);
 		fee->acct_name = tal_steal(fee, sums[i]->acct_name);
 		fee->txid = *sums[i]->txid;
-
-		fee->timestamp =
-			onchain_fee_last_timestamp(bkpr, sums[i]->acct_name,
-						   sums[i]->txid);
-
+		fee->timestamp = sums[i]->last_timestamp;
 		tal_arr_expand(&fee_sums, fee);
 	}
 

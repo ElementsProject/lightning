@@ -67,11 +67,6 @@ struct fee_sum **find_account_onchain_fees(const tal_t *ctx,
 struct fee_sum **calculate_onchain_fee_sums(const tal_t *ctx,
 					    const struct bkpr *bkpr);
 
-/* Find the last timestamp for the onchain fees for this txid + account */
-u64 onchain_fee_last_timestamp(const struct bkpr *bkpr,
-			       const char *acct_name,
-			       const struct bitcoin_txid *txid);
-
 /* Update our onchain fees now? */
 char *maybe_update_onchain_fees(const tal_t *ctx,
 				struct command *cmd,
