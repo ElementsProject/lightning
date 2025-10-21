@@ -383,11 +383,13 @@ static struct fee_sum **fee_sums_by_txid_and_account(const tal_t *ctx,
 }
 
 struct fee_sum **calculate_onchain_fee_sums(const tal_t *ctx,
-					    const struct bkpr *bkpr)
+					    const struct bkpr *bkpr,
+					    u64 start_time,
+					    u64 end_time)
 {
 	struct onchain_fee **ofs;
 
-	ofs = list_chain_fees(tmpctx, bkpr);
+	ofs = list_chain_fees_timebox(tmpctx, bkpr, start_time, end_time);
 	return fee_sums_by_txid_and_account(ctx, ofs);
 }
 

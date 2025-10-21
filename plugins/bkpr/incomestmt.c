@@ -276,7 +276,7 @@ static struct onchain_fee **find_consolidated_fees(const tal_t *ctx,
 	struct onchain_fee **fee_sums
 		= tal_arr(ctx, struct onchain_fee *, 0);
 
-	sums = calculate_onchain_fee_sums(ctx, bkpr);
+	sums = calculate_onchain_fee_sums(ctx, bkpr, start_time, end_time);
 
 	for (size_t i = 0; i < tal_count(sums); i++) {
 		/* Find the last matching feerate's data */
