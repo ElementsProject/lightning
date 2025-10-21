@@ -366,10 +366,13 @@ static struct fee_sum **fee_sums_by_txid_and_account(const tal_t *ctx,
 			sum->txid = tal_dup(sum, struct bitcoin_txid,
 					    &ofs[i]->txid);
 			credit = debit = AMOUNT_MSAT(0);
+			sum->last_timestamp = 0;
 		}
 		ok = amount_msat_accumulate(&credit, ofs[i]->credit);
 		assert(ok);
 		ok = amount_msat_accumulate(&debit, ofs[i]->debit);
+		if (ofs[i]->timestamp > sum->last_timestamp)
+			sum->last_timestamp = ofs[i]->timestamp;
 	}
 
 	/* Final, if any */
@@ -677,24 +680,6 @@ struct fee_sum **find_account_onchain_fees(const tal_t *ctx,
 
 	ofs = account_get_chain_fees(tmpctx, bkpr, acct->name);
 	return fee_sums_by_txid_and_account(ctx, ofs);
-}
-
-/* FIXME: Put this value into fee_sums! */
-u64 onchain_fee_last_timestamp(const struct bkpr *bkpr,
-			       const char *acct_name,
-			       const struct bitcoin_txid *txid)
-{
-	struct onchain_fee **ofs;
-	u64 timestamp = 0;
-
-	ofs = account_get_chain_fees(tmpctx, bkpr, acct_name);
-	for (size_t i = 0; i < tal_count(ofs); i++) {
-		if (!bitcoin_txid_eq(&ofs[i]->txid, txid))
-			continue;
-		if (ofs[i]->timestamp > timestamp)
-			timestamp = ofs[i]->timestamp;
-	}
-	return timestamp;
 }
 
 /* If we're freeing the entire hash table, remove destructors from
