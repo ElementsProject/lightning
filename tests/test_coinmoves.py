@@ -37,13 +37,21 @@ def check_moves(moves, expected):
 
 
 def check_channel_moves(node, expected):
-    wait_for(lambda: len(node.rpc.listchannelmoves()['channelmoves']) == len(expected))
+    # If this times out, show the result anyway.
+    try:
+        wait_for(lambda: len(node.rpc.listchannelmoves()['channelmoves']) == len(expected))
+    except ValueError:
+        print("*** Didn't see enough channelmoves")
     check_moves(node.rpc.listchannelmoves()['channelmoves'], expected)
     check_sql(node, "channelmoves", expected)
 
 
 def check_chain_moves(node, expected):
-    wait_for(lambda: len(node.rpc.listchainmoves()['chainmoves']) == len(expected))
+    # If this times out, show the result anyway.
+    try:
+        wait_for(lambda: len(node.rpc.listchainmoves()['chainmoves']) == len(expected))
+    except ValueError:
+        print("*** Didn't see enough chainmoves")
     check_moves(node.rpc.listchainmoves()['chainmoves'], expected)
     check_sql(node, "chainmoves", expected)
     # Check extra_tags.
