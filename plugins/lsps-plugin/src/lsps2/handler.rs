@@ -507,7 +507,7 @@ impl<A: ClnApi> HtlcAcceptedHookHandler<A> {
             push_msat: None,
             request_amt: None,
             reserve: None,
-            channel_type: Some(vec![12, 22, 50]),
+            channel_type: Some(vec![12, 46, 50]),
             utxos: None,
             amount: AmountOrAll::Amount(Amount::from_msat(cap)),
             id: ds_rec.peer_id,
