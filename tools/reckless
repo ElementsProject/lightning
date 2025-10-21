@@ -277,14 +277,14 @@ class InstInfo:
                 pass
             # If unable to search deeper, resort to matching directory name
             elif recursion < 1:
-                if sub.name.lower() == self.name.lower():
+                if sub.name.lower().removesuffix('.git') == self.name.lower():
                     # Partial success (can't check for entrypoint)
                     self.name = sub.name
                     return sub
                 return None
             sub.populate()
 
-            if sub.name.lower() == self.name.lower():
+            if sub.name.lower().removesuffix('.git') == self.name.lower():
                 # Directory matches the name we're trying to install, so check
                 # for entrypoint and dependencies.
                 for inst in INSTALLERS:
@@ -302,7 +302,7 @@ class InstInfo:
                             self.entry = found_entry.name
                             self.deps = found_dep.name
                             return sub
-                        log.debug(f"missing dependency for {self}")
+                        log.debug(f"{inst.name} installer: missing dependency for {self}")
                         found_entry = None
             for file in sub.contents:
                 if isinstance(file, SourceDir):
@@ -404,7 +404,7 @@ class Source(Enum):
         trailing = Path(source.lower().partition('github.com/')[2]).parts
         if len(trailing) < 2:
             return None, None
-        return trailing[0], trailing[1]
+        return trailing[0], trailing[1].removesuffix('.git')
 
 
 class SourceDir():
@@ -451,7 +451,7 @@ class SourceDir():
         for c in self.contents:
             if ftype and not isinstance(c, ftype):
                 continue
-            if c.name.lower() == name.lower():
+            if c.name.lower().removesuffix('.git') == name.lower():
                 return c
         return None
 
@@ -627,7 +627,7 @@ def populate_github_repo(url: str) -> list:
     while '' in repo:
         repo.remove('')
     repo_name = None
-    parsed_url = urlparse(url)
+    parsed_url = urlparse(url.removesuffix('.git'))
     if 'github.com' not in parsed_url.netloc:
         return None
     if len(parsed_url.path.split('/')) < 2:
@@ -1212,7 +1212,7 @@ def _git_update(github_source: InstInfo, local_copy: PosixPath):
     if git.returncode != 0:
         return False
     default_branch = git.stdout.splitlines()[0]
-    if default_branch != 'origin/master':
+    if default_branch not in ['origin/master', 'origin/main']:
         log.debug(f'UNUSUAL: fetched default branch {default_branch} for '
                   f'{github_source.source_loc}')
 
@@ -1589,7 +1589,7 @@ def search(plugin_name: str) -> Union[InstInfo, None]:
     for src in RECKLESS_SOURCES:
         # Search repos named after the plugin before collections
         if Source.get_type(src) == Source.GITHUB_REPO:
-            if src.split('/')[-1].lower() == plugin_name.lower():
+            if src.split('/')[-1].lower().removesuffix('.git') == plugin_name.lower():
                 ordered_sources.remove(src)
                 ordered_sources.insert(0, src)
     # Check locally before reaching out to remote repositories
