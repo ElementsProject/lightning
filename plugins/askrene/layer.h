@@ -135,6 +135,4 @@ bool layer_disables_chan(const struct layer *layer, const struct short_channel_i
 /* For explain_failure: did this layer disable this node? */
 bool layer_disables_node(const struct layer *layer, const struct node_id *node);
 
-/* Scan for memleaks */
-void layer_memleak_mark(struct askrene *askrene, struct htable *memtable);
 #endif /* LIGHTNING_PLUGINS_ASKRENE_LAYER_H */

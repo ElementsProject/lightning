@@ -189,19 +189,6 @@ static bool lightningd_check_leaks(struct command *cmd)
 	memleak_ptr(memtable, cmd);
 	memleak_ignore_children(memtable, cmd);
 
-	/* First delete known false positives. */
-	memleak_scan_htable(memtable, &ld->topology->txwatches->raw);
-	memleak_scan_htable(memtable, &ld->topology->txowatches->raw);
-	memleak_scan_htable(memtable, &ld->topology->outgoing_txs->raw);
-	memleak_scan_htable(memtable, &ld->htlcs_in->raw);
-	memleak_scan_htable(memtable, &ld->htlcs_out->raw);
-	memleak_scan_htable(memtable, &ld->htlc_sets->raw);
-	memleak_scan_htable(memtable, &ld->peers->raw);
-	memleak_scan_htable(memtable, &ld->peers_by_dbid->raw);
-	memleak_scan_htable(memtable, &ld->channels_by_scid->raw);
-	memleak_scan_htable(memtable, &ld->closed_channels->raw);
-	wallet_memleak_scan(memtable, ld->wallet);
-
 	/* Now delete ld and those which it has pointers to. */
 	memleak_scan_obj(memtable, ld);
 

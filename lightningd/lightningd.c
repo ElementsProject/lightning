@@ -186,42 +186,34 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 * list attached to the channel structure itself, or even left them in
 	 * the database rather than making an in-memory version.  Obviously
 	 * I was in a premature optimization mood when I wrote this: */
-	ld->htlcs_in = tal(ld, struct htlc_in_map);
-	htlc_in_map_init(ld->htlcs_in);
+	ld->htlcs_in = new_htable(ld, htlc_in_map);
 
 	/*~ Note also: we didn't need to use an allocation here!  We could
 	 * have simply made the `struct htlc_out_map` a member.  But we
 	 * override the htable allocation routines to use tal(), and they
 	 * want a tal parent, so we always make our hash table a tallocated
 	 * object. */
-	ld->htlcs_out = tal(ld, struct htlc_out_map);
-	htlc_out_map_init(ld->htlcs_out);
+	ld->htlcs_out = new_htable(ld, htlc_out_map);
 
 	/*~ This is the hash table of peers: converted from a
 	 *  linked-list as part of the 100k-peers project! */
-	ld->peers = tal(ld, struct peer_node_id_map);
-	peer_node_id_map_init(ld->peers);
+	ld->peers = new_htable(ld, peer_node_id_map);
 	/*~ And this was done at the same time, for db lookups at startup */
-	ld->peers_by_dbid = tal(ld, struct peer_dbid_map);
-	peer_dbid_map_init(ld->peers_by_dbid);
+	ld->peers_by_dbid = new_htable(ld, peer_dbid_map);
 
 	/*~ This speeds lookups for short_channel_ids to their channels. */
-	ld->channels_by_scid = tal(ld, struct channel_scid_map);
-	channel_scid_map_init(ld->channels_by_scid);
+	ld->channels_by_scid = new_htable(ld, channel_scid_map);
 
 	/*~ Coin movements in db are indexed by the channel dbid. */
-	ld->channels_by_dbid = tal(ld, struct channel_dbid_map);
-	channel_dbid_map_init(ld->channels_by_dbid);
+	ld->channels_by_dbid = new_htable(ld, channel_dbid_map);
 
 	/*~ For multi-part payments, we need to keep some incoming payments
 	 * in limbo until we get all the parts, or we time them out. */
-	ld->htlc_sets = tal(ld, struct htlc_set_map);
-	htlc_set_map_init(ld->htlc_sets);
+	ld->htlc_sets = new_htable(ld, htlc_set_map);
 
 	/*~ We keep a map of closed channels.  Mainly so we can respond to peers
 	 * who talk to us about long-closed channels. */
-	ld->closed_channels = tal(ld, struct closed_channel_map);
-	closed_channel_map_init(ld->closed_channels);
+	ld->closed_channels = new_htable(ld, closed_channel_map);
 
 	/*~ We have a multi-entry log-book infrastructure: we define a 10MB log
 	 * book to hold all the entries (and trims as necessary), and multiple
