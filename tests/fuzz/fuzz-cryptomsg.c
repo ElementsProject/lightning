@@ -54,7 +54,9 @@ void init(int *argc, char ***argv)
 	init_cs_in.s_ck = ck;
 	init_cs_in.r_ck = ck;
 
-	common_setup("fuzzer");
+	/* Don't call this if we're in unit-test mode, as libfuzz.c does it */
+	if (!tmpctx)
+		common_setup("fuzzer");
 }
 
 /* Test that encrypting and decrypting the message does not alter it. */

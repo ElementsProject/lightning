@@ -2,10 +2,18 @@
 
 #include <assert.h>
 #include <ccan/isaac/isaac64.h>
+#include <ccan/short_types/short_types.h>
+#include <ccan/tal/grab_file/grab_file.h>
+#include <ccan/tal/path/path.h>
+#include <ccan/tal/tal.h>
 #include <common/pseudorand.h>
+#include <common/setup.h>
+#include <dirent.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
 #include <tests/fuzz/libfuzz.h>
+#include <unistd.h>
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size);
 int LLVMFuzzerInitialize(int *argc, char ***argv);
@@ -118,3 +126,38 @@ size_t cross_over(const u8 *in1, size_t in1_size, const u8 *in2,
 				   max_out_size);
 	return overwrite_part(in1, in1_size, in2, in2_size, out, max_out_size);
 }
+
+/* In non-fuzzing builds, these become unit tests which just run the corpora:
+ * this is also good for attaching a debugger to! */
+#ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+int main(int argc, char *argv[])
+{
+	DIR *d;
+	struct dirent *di;
+
+	common_setup(argv[0]);
+	assert(chdir("tests/fuzz/corpora") == 0);
+	assert(chdir(path_basename(tmpctx, argv[0])) == 0);
+
+	/* FIXME: Support explicit path args? */
+	init(&argc, &argv);
+	d = opendir(".");
+	while ((di = readdir(d)) != NULL) {
+		u8 *contents;
+		if (streq(di->d_name, ".") || streq(di->d_name, ".."))
+			continue;
+		contents = grab_file(tmpctx, di->d_name);
+		assert(contents);
+		run(contents, tal_bytelen(contents)-1);
+	}
+	closedir(d);
+	common_shutdown();
+}
+
+/* We never call any functions which might call these */
+size_t LLVMFuzzerMutate(uint8_t *data, size_t size, size_t max_size);
+size_t LLVMFuzzerMutate(uint8_t *data, size_t size, size_t max_size)
+{
+	abort();
+}
+#endif /* !FUZZING */

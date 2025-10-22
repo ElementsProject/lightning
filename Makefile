@@ -392,10 +392,7 @@ include cln-grpc/Makefile
 endif
 include plugins/Makefile
 include tests/plugins/Makefile
-
-ifneq ($(FUZZING),0)
-	include tests/fuzz/Makefile
-endif
+include tests/fuzz/Makefile
 
 ifneq ($V,1)
 MSGGEN_ARGS := -s
@@ -709,6 +706,7 @@ endif
 # We special case the fuzzing target binaries, as they need to link against libfuzzer,
 # which brings its own main().
 # FUZZER_LIB and LLVM_LDFLAGS are set by configure script on macOS
+ifneq ($(FUZZING),0)
 ifeq ($(OS),Darwin)
 ifneq ($(FUZZER_LIB),)
 FUZZ_LDFLAGS = $(FUZZER_LIB) $(LLVM_LDFLAGS)
@@ -718,9 +716,10 @@ endif
 else
 FUZZ_LDFLAGS = -fsanitize=fuzzer
 endif
+endif
 
 $(ALL_FUZZ_TARGETS):
-	@$(call VERBOSE, "ld $@", $(LINK.o) $(filter-out %.a,$^) $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) libccan.a $(FUZZ_LDFLAGS) -o $@)
+	@$(call VERBOSE, "ld $@", $(LINK.o) $(filter-out %.a,$^) libcommon.a libccan.a $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) $(FUZZ_LDFLAGS) -o $@)
 ifeq ($(OS),Darwin)
 	@$(call VERBOSE, "dsymutil $@", dsymutil $@)
 endif
@@ -840,6 +839,10 @@ update-mocks/%: % $(ALL_GEN_HEADERS) $(ALL_GEN_SOURCES)
 
 unittest/%: % bolt-precheck
 	BOLTDIR=$(LOCAL_BOLTDIR) $(VG) $(VG_TEST_ARGS) $* > /dev/null
+
+# FIXME: we don't do leak detection on fuzz tests, since they don't have a cleanup function.
+fuzzunittest/%: % bolt-precheck
+	BOLTDIR=$(LOCAL_BOLTDIR) $(VG) $* > /dev/null
 
 # Commands
 MKDIR_P = mkdir -p

@@ -34,7 +34,9 @@ static struct codex32 *codex32_dup(const tal_t *ctx, const struct codex32 *src)
 
 void init(int *argc, char ***argv)
 {
-	common_setup("fuzzer");
+	/* Don't call this if we're in unit-test mode, as libfuzz.c does it */
+	if (!tmpctx)
+		common_setup("fuzzer");
 }
 
 /* Custom mutator with structure-aware and byte-level mutations */

@@ -74,7 +74,9 @@ void init(int *argc, char ***argv)
 	assert(devnull >= 0);
 	status_setup_sync(devnull);
 
-	common_setup("fuzzer");
+	/* Don't call this if we're in unit-test mode, as libfuzz.c does it */
+	if (!tmpctx)
+		common_setup("fuzzer");
 
 	/* These keys are copied from BOLT 8 test vectors, though we use them in
 	 * a different setting.

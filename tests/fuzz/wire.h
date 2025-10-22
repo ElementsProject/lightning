@@ -21,7 +21,13 @@ static u8 *prefix_arr(const u8 *data, size_t size, u16 prefix)
 }
 
 /* The init function used by all fuzz-wire-* targets. */
-void init(int *argc, char ***argv) { common_setup("fuzzer"); dev_towire_allow_invalid_node_id = true; }
+void init(int *argc, char ***argv)
+{
+	/* Don't call this if we're in unit-test mode, as libfuzz.c does it */
+	if (!tmpctx)
+		common_setup("fuzzer");
+	dev_towire_allow_invalid_node_id = true;
+}
 
 /* Test that decoding arbitrary data does not crash. Then, if the data was
  * successfully decoded, test that encoding and decoding the message does not

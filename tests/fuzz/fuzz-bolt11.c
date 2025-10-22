@@ -18,7 +18,12 @@ size_t LLVMFuzzerCustomCrossOver(const u8 *in1, size_t in1_size, const u8 *in2,
 				 size_t in2_size, u8 *out, size_t max_out_size,
 				 unsigned seed);
 
-void init(int *argc, char ***argv) { common_setup("fuzzer"); }
+void init(int *argc, char ***argv)
+{
+	/* Don't call this if we're in unit-test mode, as libfuzz.c does it */
+	if (!tmpctx)
+		common_setup("fuzzer");
+}
 
 // Encodes a dummy bolt11 invoice into `fuzz_data` and returns the size of the
 // encoded string.
