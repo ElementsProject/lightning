@@ -2827,7 +2827,6 @@ def test_opening_below_min_capacity_sat(bitcoind, node_factory):
     assert not l2.daemon.is_in_log('peer_in WIRE_ERROR')
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 def test_opening_crash(bitcoind, node_factory):

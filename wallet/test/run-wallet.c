@@ -66,6 +66,16 @@ void bitcoind_getutxout_(const tal_t *ctx UNNEEDED,
 				    void *) UNNEEDED,
 			 void *arg UNNEEDED)
 { fprintf(stderr, "bitcoind_getutxout_ called!\n"); abort(); }
+/* Generated stub for bitcoind_sendrawtx_ */
+void bitcoind_sendrawtx_(const tal_t *ctx UNNEEDED,
+			 struct bitcoind *bitcoind UNNEEDED,
+			 const char *id_prefix TAKES UNNEEDED,
+			 const char *hextx UNNEEDED,
+			 bool allowhighfees UNNEEDED,
+			 void (*cb)(struct bitcoind * UNNEEDED,
+				    bool success UNNEEDED, const char *msg UNNEEDED, void *) UNNEEDED,
+			 void *arg UNNEEDED)
+{ fprintf(stderr, "bitcoind_sendrawtx_ called!\n"); abort(); }
 /* Generated stub for blinding_hash_e_and_ss */
 void blinding_hash_e_and_ss(const struct pubkey *e UNNEEDED,
 			    const struct secret *ss UNNEEDED,
