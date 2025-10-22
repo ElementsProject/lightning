@@ -1094,7 +1094,8 @@ static struct migration dbmigrations[] = {
     {SQL("CREATE INDEX chain_moves_utxo_idx ON chain_moves (utxo)"), NULL},
     {NULL, migrate_from_account_db},
     /* We accidentally allowed duplicate entries */
-    {NULL, migrate_remove_chain_moves_duplicates}
+    {NULL, migrate_remove_chain_moves_duplicates},
+    {SQL("ALTER TABLE channels ADD withheld INTEGER DEFAULT 0;"), NULL},
 };
 
 /**

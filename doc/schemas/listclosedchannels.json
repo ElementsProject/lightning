@@ -43,6 +43,8 @@
             "total_htlcs_sent",
             "funding_txid",
             "funding_outnum",
+            "funding_psbt",
+            "funding_withheld",
             "leased",
             "final_to_us_msat",
             "min_to_us_msat",
@@ -186,6 +188,20 @@
               "type": "u32",
               "description": [
                 "The 0-based output number of the funding transaction which opens the channel."
+              ]
+            },
+            "funding_psbt": {
+              "type": "string",
+              "added": "v25.12",
+              "description": [
+                "The PSBT (may be non-final or unsigned) we should use to open the channel, if any"
+              ]
+            },
+            "funding_withheld": {
+              "type": "boolean",
+              "added": "v25.12",
+              "description": [
+                "True if we have not broadcast the funding transaction (see fundchannel_complete)."
               ]
             },
             "leased": {

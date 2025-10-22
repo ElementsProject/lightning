@@ -1225,8 +1225,10 @@ impl From<responses::ListpeerchannelsChannelsFunding> for pb::ListpeerchannelsCh
             fee_paid_msat: c.fee_paid_msat.map(|f| f.into()), // Rule #2 for type msat?
             fee_rcvd_msat: c.fee_rcvd_msat.map(|f| f.into()), // Rule #2 for type msat?
             local_funds_msat: Some(c.local_funds_msat.into()), // Rule #2 for type msat
+            psbt: c.psbt, // Rule #2 for type string?
             pushed_msat: c.pushed_msat.map(|f| f.into()), // Rule #2 for type msat?
             remote_funds_msat: Some(c.remote_funds_msat.into()), // Rule #2 for type msat
+            withheld: c.withheld, // Rule #2 for type boolean?
         }
     }
 }
@@ -1401,8 +1403,10 @@ impl From<responses::ListclosedchannelsClosedchannels> for pb::Listclosedchannel
             funding_fee_paid_msat: c.funding_fee_paid_msat.map(|f| f.into()), // Rule #2 for type msat?
             funding_fee_rcvd_msat: c.funding_fee_rcvd_msat.map(|f| f.into()), // Rule #2 for type msat?
             funding_outnum: c.funding_outnum, // Rule #2 for type u32
+            funding_psbt: c.funding_psbt, // Rule #2 for type string?
             funding_pushed_msat: c.funding_pushed_msat.map(|f| f.into()), // Rule #2 for type msat?
             funding_txid: hex::decode(&c.funding_txid).unwrap(), // Rule #2 for type txid
+            funding_withheld: c.funding_withheld, // Rule #2 for type boolean?
             last_commitment_fee_msat: c.last_commitment_fee_msat.map(|f| f.into()), // Rule #2 for type msat?
             last_commitment_txid: c.last_commitment_txid.map(|v| <Sha256 as AsRef<[u8]>>::as_ref(&v).to_vec()), // Rule #2 for type hash?
             last_stable_connection: c.last_stable_connection, // Rule #2 for type u64?
@@ -5219,6 +5223,7 @@ impl From<requests::FundchannelCompleteRequest> for pb::FundchannelCompleteReque
         Self {
             id: c.id.serialize().to_vec(), // Rule #2 for type pubkey
             psbt: c.psbt, // Rule #2 for type string
+            withhold: c.withhold, // Rule #2 for type boolean?
         }
     }
 }
@@ -6922,6 +6927,7 @@ impl From<pb::FundchannelCompleteRequest> for requests::FundchannelCompleteReque
         Self {
             id: PublicKey::from_slice(&c.id).unwrap(), // Rule #1 for type pubkey
             psbt: c.psbt, // Rule #1 for type string
+            withhold: c.withhold, // Rule #1 for type boolean?
         }
     }
 }
