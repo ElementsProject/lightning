@@ -31,6 +31,19 @@ struct channel *new_initial_channel(const tal_t *ctx,
 	struct channel *channel = tal(ctx, struct channel);
 	struct amount_msat remote_msatoshi;
 
+	/* takes() if necessary */
+	channel->fee_states = dup_fee_states(channel, fee_states);
+
+	/* takes() if necessary */
+	if (!height_states)
+		channel->blockheight_states = NULL;
+	else
+		channel->blockheight_states
+			= dup_height_states(channel, height_states);
+
+	/* takes() if necessary */
+	channel->type = tal_dup(channel, struct channel_type, type);
+
 	channel->cid = *cid;
 	channel->funding = *funding;
 	channel->funding_sats = funding_sats;
@@ -46,16 +59,6 @@ struct channel *new_initial_channel(const tal_t *ctx,
 	channel->funding_pubkey[LOCAL] = *local_funding_pubkey;
 	channel->funding_pubkey[REMOTE] = *remote_funding_pubkey;
 	channel->htlcs = NULL;
-
-	/* takes() if necessary */
-	channel->fee_states = dup_fee_states(channel, fee_states);
-
-	/* takes() if necessary */
-	if (!height_states)
-		channel->blockheight_states = NULL;
-	else
-		channel->blockheight_states
-			= dup_height_states(channel, height_states);
 
 	channel->view[LOCAL].owed[LOCAL]
 		= channel->view[REMOTE].owed[LOCAL]
@@ -77,8 +80,6 @@ struct channel *new_initial_channel(const tal_t *ctx,
 					 &channel->basepoints[!opener].payment);
 
 	channel->option_wumbo = option_wumbo;
-	/* takes() if necessary */
-	channel->type = tal_dup(channel, struct channel_type, type);
 
 	return channel;
 }
