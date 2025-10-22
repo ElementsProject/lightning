@@ -558,8 +558,9 @@ def test_route_by_old_scid(node_factory, bitcoind):
     l1.rpc.waitsendpay(inv2['payment_hash'])
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
 def test_splice_unannounced(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, fundamount=1000000, wait_for_announce=False, opts={'experimental-splicing': None})
 
