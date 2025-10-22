@@ -3,10 +3,19 @@
 
 #include <ccan/mem/mem.h>
 #include <common/hsm_encryption.h>
+#include <common/setup.h>
+#include <stdlib.h>
 #include <tests/fuzz/libfuzz.h>
 
 void init(int *argc, char ***argv)
 {
+	/* Don't run as a unit test under valgrind: too slow! */
+#ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+	if (getenv("VALGRIND") && strcmp(getenv("VALGRIND"), "1") == 0) {
+		common_shutdown();
+		exit(0);
+	}
+#endif
 }
 
 void run(const uint8_t *data, size_t size)
