@@ -11,6 +11,7 @@
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <plugins/libplugin.h>
 
 /* Bitcoind's web server has a default of 4 threads, with queue depth 16.

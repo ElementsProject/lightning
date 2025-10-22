@@ -5,6 +5,7 @@
 #include <common/gossmap.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
+#include <inttypes.h>
 #include <plugins/askrene/askrene.h>
 #include <plugins/askrene/reserve.h>
 

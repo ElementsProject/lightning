@@ -1,7 +1,6 @@
 #ifndef LIGHTNING_LIGHTNINGD_BITCOIND_H
 #define LIGHTNING_LIGHTNINGD_BITCOIND_H
 #include "config.h"
-#include <bitcoin/chainparams.h>
 #include <bitcoin/tx.h>
 #include <ccan/list/list.h>
 #include <ccan/strmap/strmap.h>

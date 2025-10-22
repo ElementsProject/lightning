@@ -21,6 +21,7 @@
 #include <common/status.h>
 #include <common/subdaemon.h>
 #include <common/timeout.h>
+#include <common/utils.h>
 #include <common/wire_error.h>
 #include <common/wireaddr.h>
 #include <connectd/connectd_gossipd_wiregen.h>

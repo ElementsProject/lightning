@@ -2,7 +2,6 @@
 #ifndef LIGHTNING_WIRE_ONION_DEFS_H
 #define LIGHTNING_WIRE_ONION_DEFS_H
 #include "config.h"
-#include <common/sciddir_or_pubkey.h>
 
 /* BOLT #4:
  *

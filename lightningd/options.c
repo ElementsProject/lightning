@@ -15,6 +15,7 @@
 #include <common/codex32.h>
 #include <common/configdir.h>
 #include <common/configvar.h>
+#include <common/errcode.h>
 #include <common/features.h>
 #include <common/hsm_encryption.h>
 #include <common/json_command.h>
@@ -26,6 +27,7 @@
 #include <fcntl.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <lightningd/chaintopology.h>
+#include <lightningd/feerate.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/options.h>
 #include <lightningd/plugin.h>

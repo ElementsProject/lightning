@@ -13,6 +13,7 @@
 #include <common/random_select.h>
 #include <common/status.h>
 #include <common/timeout.h>
+#include <common/utils.h>
 #include <gossipd/gossipd.h>
 #include <gossipd/gossipd_wiregen.h>
 #include <gossipd/gossmap_manage.h>

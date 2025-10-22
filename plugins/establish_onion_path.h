@@ -1,7 +1,6 @@
 #ifndef LIGHTNING_PLUGINS_ESTABLISH_ONION_PATH_H
 #define LIGHTNING_PLUGINS_ESTABLISH_ONION_PATH_H
 #include "config.h"
-#include <ccan/typesafe_cb/typesafe_cb.h>
 #include <plugins/libplugin.h>
 
 struct gossmap;

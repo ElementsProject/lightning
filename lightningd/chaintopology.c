@@ -17,6 +17,7 @@
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/coin_mvts.h>
+#include <lightningd/feerate.h>
 #include <lightningd/gossip_control.h>
 #include <lightningd/invoice.h>
 #include <lightningd/io_loop_with_timers.h>

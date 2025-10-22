@@ -1,6 +1,7 @@
 #include "config.h"
 #include <ccan/crc32c/crc32c.h>
 #include <common/status.h>
+#include <common/utils.h>
 #include <connectd/gossip_store.h>
 #include <errno.h>
 #include <fcntl.h>

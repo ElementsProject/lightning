@@ -3,9 +3,7 @@
 #ifndef LIGHTNING_COMMON_JSON_COMMAND_H
 #define LIGHTNING_COMMON_JSON_COMMAND_H
 #include "config.h"
-#include <ccan/compiler/compiler.h>
 #include <common/json_parse.h>
-#include <common/jsonrpc_errors.h>
 #include <common/status_levels.h>
 
 struct command;

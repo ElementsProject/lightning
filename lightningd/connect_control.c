@@ -1,6 +1,7 @@
 #include "config.h"
 #include <bitcoin/chainparams.h>
 #include <ccan/err/err.h>
+#include <ccan/io/io.h>
 #include <ccan/tal/str/str.h>
 #include <common/configdir.h>
 #include <common/json_command.h>

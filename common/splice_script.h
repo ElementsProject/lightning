@@ -2,7 +2,6 @@
 #define LIGHTNING_COMMON_SPLICE_SCRIPT_H
 
 #include "config.h"
-#include <ccan/tal/tal.h>
 #include <common/channel_id.h>
 #include <common/json_stream.h>
 #include <common/node_id.h>

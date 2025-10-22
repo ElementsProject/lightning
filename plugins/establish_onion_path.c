@@ -1,6 +1,7 @@
 #include "config.h"
 #include <ccan/tal/str/str.h>
 #include <common/dijkstra.h>
+#include <common/features.h>
 #include <common/gossmap.h>
 #include <common/gossmods_listpeerchannels.h>
 #include <common/json_stream.h>

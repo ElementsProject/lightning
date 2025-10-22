@@ -1,9 +1,11 @@
 #include "config.h"
 #include <bitcoin/chainparams.h>
 #include <ccan/io/io.h>
+#include <common/cryptomsg.h>
 #include <common/dev_disconnect.h>
 #include <common/memleak.h>
 #include <common/status.h>
+#include <common/utils.h>
 #include <common/wire_error.h>
 #include <connectd/connectd.h>
 #include <connectd/connectd_wiregen.h>

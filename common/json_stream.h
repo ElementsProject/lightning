@@ -9,8 +9,6 @@
 # include <external/jsmn/jsmn.h>
 
 #include <bitcoin/short_channel_id.h>
-#include <ccan/short_types/short_types.h>
-#include <ccan/tal/tal.h>
 #include <ccan/time/time.h>
 #include <common/amount.h>
 #include <common/jsonrpc_errors.h>

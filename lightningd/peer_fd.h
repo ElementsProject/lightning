@@ -1,7 +1,6 @@
 #ifndef LIGHTNING_LIGHTNINGD_PEER_FD_H
 #define LIGHTNING_LIGHTNINGD_PEER_FD_H
 #include "config.h"
-#include <ccan/compiler/compiler.h>
 #include <ccan/tal/tal.h>
 
 /* Tal wrapper for fd connecting subd to connectd */

@@ -17,6 +17,7 @@
 #include <common/json_stream.h>
 #include <common/route.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <math.h>
 #include <plugins/askrene/askrene.h>
 #include <plugins/askrene/flow.h>

@@ -1,7 +1,6 @@
 #include "config.h"
 #include <assert.h>
 #include <ccan/crypto/sha256/sha256.h>
-#include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/isaac/isaac64.h>
 #include <ccan/likely/likely.h>
 #include <ccan/tal/tal.h>

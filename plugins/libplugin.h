@@ -3,21 +3,11 @@
 #define LIGHTNING_PLUGINS_LIBPLUGIN_H
 #include "config.h"
 
-#include <bitcoin/tx.h>
-#include <ccan/intmap/intmap.h>
-#include <ccan/membuf/membuf.h>
-#include <ccan/strmap/strmap.h>
-#include <ccan/time/time.h>
 #include <ccan/timer/timer.h>
-#include <common/errcode.h>
-#include <common/features.h>
 #include <common/htlc.h>
 #include <common/json_command.h>
-#include <common/jsonrpc_errors.h>
 #include <common/node_id.h>
-#include <common/status_levels.h>
 #include <common/utils.h>
-#include <stdarg.h>
 
 struct json_out;
 struct htable;

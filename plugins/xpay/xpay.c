@@ -9,6 +9,7 @@
 #include <common/bolt12.h>
 #include <common/daemon.h>
 #include <common/dijkstra.h>
+#include <common/features.h>
 #include <common/gossmap.h>
 #include <common/gossmods_listpeerchannels.h>
 #include <common/json_param.h>
@@ -20,6 +21,7 @@
 #include <common/route.h>
 #include <common/wireaddr.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <plugins/libplugin.h>
 #include <stdarg.h>
 

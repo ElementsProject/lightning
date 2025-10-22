@@ -8,6 +8,7 @@
 #include <common/peer_status_wiregen.h>
 #include <common/status.h>
 #include <common/status_wiregen.h>
+#include <common/utils.h>
 #include <common/wire_error.h>
 
 /* Fatal error here, return peer control to lightningd */

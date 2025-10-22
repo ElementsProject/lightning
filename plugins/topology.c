@@ -14,6 +14,7 @@
 #include <common/route.h>
 #include <common/wireaddr.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <plugins/libplugin.h>
 
 /* Access via get_gossmap() */

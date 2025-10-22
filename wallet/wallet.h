@@ -18,6 +18,7 @@
 #include <lightningd/wait.h>
 
 struct amount_msat;
+struct bitcoin_signature;
 struct invoices;
 struct channel;
 struct channel_inflight;

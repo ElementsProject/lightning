@@ -7,6 +7,7 @@
 #include <common/ping.h>
 #include <common/read_peer_msg.h>
 #include <common/status.h>
+#include <common/utils.h>
 #include <common/wire_error.h>
 #include <errno.h>
 #include <wire/peer_wire.h>

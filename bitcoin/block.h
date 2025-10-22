@@ -4,7 +4,6 @@
 #include "bitcoin/shadouble.h"
 #include <ccan/endian/endian.h>
 #include <ccan/structeq/structeq.h>
-#include <ccan/tal/tal.h>
 
 struct chainparams;
 

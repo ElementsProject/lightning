@@ -11,6 +11,7 @@
 #include <ccan/tal/path/path.h>
 #include <common/configdir.h>
 #include <common/node_id.h>
+#include <common/utils.h>
 #include <inttypes.h>
 #include <sqlite3.h>
 

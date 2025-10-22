@@ -2,11 +2,6 @@
 #define LIGHTNING_PLUGINS_CHANNEL_HINT_H
 
 #include "config.h"
-#include <bitcoin/short_channel_id.h>
-#include <ccan/short_types/short_types.h>
-#include <ccan/time/time.h>
-#include <common/amount.h>
-#include <common/json_stream.h>
 #include <plugins/libplugin.h>
 
 /* Information about channels we inferred from a) looking at our channels, and

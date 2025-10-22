@@ -3,11 +3,8 @@
 #include "config.h"
 
 #include <ccan/io/io.h>
-#include <common/bolt11.h>
-#include <common/route.h>
-#include <plugins/channel_hint.h>
 #include <plugins/libplugin.h>
-#include <wire/onion_wire.h>
+#include <wire/onion_wiregen.h>
 
 struct legacy_payload {
 	struct short_channel_id scid;

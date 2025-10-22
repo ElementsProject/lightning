@@ -1,7 +1,6 @@
 #ifndef LIGHTNING_COMMON_GOSSIP_CONSTANTS_H
 #define LIGHTNING_COMMON_GOSSIP_CONSTANTS_H
 #include "config.h"
-#include <common/utils.h>
 
 /* FIXME: This is a legacy concept, which should be eliminated now we have
  * only onion tlv payloads. */
