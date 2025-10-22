@@ -37,9 +37,7 @@ HTABLE_DEFINE_DUPS_TYPE(struct reserve, reserve_scidd, hash_scidd,
 
 struct reserve_htable *new_reserve_htable(const tal_t *ctx)
 {
-	struct reserve_htable *reserved = tal(ctx, struct reserve_htable);
-	reserve_htable_init(reserved);
-	return reserved;
+	return new_htable(ctx, reserve_htable);
 }
 
 void reserve_add(struct reserve_htable *reserved,
@@ -176,9 +174,4 @@ const char *fmt_reservations(const tal_t *ctx,
 			tal_append_fmt(&ret, " (%"PRIu64" seconds ago)", seconds);
 	}
 	return ret;
-}
-
-void reserve_memleak_mark(struct askrene *askrene, struct htable *memtable)
-{
-	memleak_scan_htable(memtable, &askrene->reserved->raw);
 }

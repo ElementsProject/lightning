@@ -18,12 +18,6 @@
   /* Needs to be at end, since it doesn't include its own hdrs */
   #include "full_channel_error_names_gen.h"
 
-static void memleak_help_htlcmap(struct htable *memtable,
-				 struct htlc_map *htlcs)
-{
-	memleak_scan_htable(memtable, &htlcs->raw);
-}
-
 /* This is a dangerous thing!  Because we apply HTLCs in many places
  * in bulk, we can temporarily go negative.  You must check balance_ok()
  * at the end! */
@@ -114,11 +108,9 @@ struct channel *new_full_channel(const tal_t *ctx,
 						      option_wumbo,
 						      opener);
 
-	if (channel) {
-		channel->htlcs = tal(channel, struct htlc_map);
-		htlc_map_init(channel->htlcs);
-		memleak_add_helper(channel->htlcs, memleak_help_htlcmap);
-	}
+	if (channel)
+		channel->htlcs = new_htable(channel, htlc_map);
+
 	return channel;
 }
 

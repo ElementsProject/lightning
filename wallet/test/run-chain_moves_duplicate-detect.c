@@ -157,10 +157,6 @@ struct invoices *invoices_new(const tal_t *ctx UNNEEDED,
 			      struct wallet *wallet UNNEEDED,
 			      struct timers *timers UNNEEDED)
 { fprintf(stderr, "invoices_new called!\n"); abort(); }
-/* Generated stub for memleak_scan_outpointfilter */
-void memleak_scan_outpointfilter(struct htable *memtable UNNEEDED,
-				 const struct outpointfilter *opf UNNEEDED)
-{ fprintf(stderr, "memleak_scan_outpointfilter called!\n"); abort(); }
 /* Generated stub for new_channel */
 struct channel *new_channel(struct peer *peer UNNEEDED, u64 dbid UNNEEDED,
 			    /* NULL or stolen */

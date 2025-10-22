@@ -1037,10 +1037,8 @@ static void setup_backup_map(struct command *init_cmd,
 	const jsmntok_t *datastore, *t;
 	size_t i, total = 0;
 
-	cb->backups = tal(cb, struct backup_map);
-	backup_map_init(cb->backups);
-	cb->peers = tal(cb, struct peer_map);
-	peer_map_init(cb->peers);
+	cb->backups = new_htable(cb, backup_map);
+	cb->peers = new_htable(cb, peer_map);
 
 	json_out_start(params, NULL, '{');
 	json_out_start(params, "key", '[');
@@ -1079,14 +1077,6 @@ static void setup_backup_map(struct command *init_cmd,
 	if (total)
 		plugin_log(init_cmd->plugin, LOG_INFORM,
 			   "Loaded %zu stored backups for peers", total);
-}
-
-static void chanbackup_mark_mem(struct plugin *plugin,
-				struct htable *memtable)
-{
-	const struct chanbackup *cb = chanbackup(plugin);
-	memleak_scan_htable(memtable, &cb->backups->raw);
-	memleak_scan_htable(memtable, &cb->peers->raw);
 }
 
 static const char *init(struct command *init_cmd,
@@ -1129,9 +1119,6 @@ static const char *init(struct command *init_cmd,
 	unlink_noerr("scb.tmp");
 
 	maybe_create_new_scb(init_cmd->plugin, scb_chan);
-
-	plugin_set_memleak_handler(init_cmd->plugin,
-				   chanbackup_mark_mem);
 	return NULL;
 }
 

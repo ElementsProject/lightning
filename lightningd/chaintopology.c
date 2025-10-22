@@ -1220,14 +1220,10 @@ struct chain_topology *new_topology(struct lightningd *ld, struct logger *log)
 	struct chain_topology *topo = tal(ld, struct chain_topology);
 
 	topo->ld = ld;
-	topo->block_map = tal(topo, struct block_map);
-	block_map_init(topo->block_map);
-	topo->outgoing_txs = tal(topo, struct outgoing_tx_map);
-	outgoing_tx_map_init(topo->outgoing_txs);
-	topo->txwatches = tal(topo, struct txwatch_hash);
-	txwatch_hash_init(topo->txwatches);
-	topo->txowatches = tal(topo, struct txowatch_hash);
-	txowatch_hash_init(topo->txowatches);
+	topo->block_map = new_htable(topo, block_map);
+	topo->outgoing_txs = new_htable(topo, outgoing_tx_map);
+	topo->txwatches = new_htable(topo, txwatch_hash);
+	topo->txowatches = new_htable(topo, txowatch_hash);
 	topo->log = log;
 	topo->bitcoind = new_bitcoind(topo, ld, log);
 	topo->poll_seconds = 30;

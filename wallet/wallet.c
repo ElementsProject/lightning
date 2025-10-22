@@ -176,8 +176,7 @@ static void our_addresses_add_for_index(struct wallet *w, u32 i)
 static void our_addresses_init(struct wallet *w)
 {
 	w->our_addresses_maxindex = 0;
-	w->our_addresses = tal(w, struct wallet_address_htable);
-	wallet_address_htable_init(w->our_addresses);
+	w->our_addresses = new_htable(w, wallet_address_htable);
 
 	our_addresses_add_for_index(w, w->our_addresses_maxindex);
 }
@@ -6911,13 +6910,6 @@ struct local_anchor_info *wallet_get_local_anchors(const tal_t *ctx,
 	tal_free(stmt);
 
 	return anchors;
-}
-
-void wallet_memleak_scan(struct htable *memtable, const struct wallet *w)
-{
-	memleak_scan_outpointfilter(memtable, w->utxoset_outpoints);
-	memleak_scan_outpointfilter(memtable, w->owned_outpoints);
-	memleak_scan_htable(memtable, &w->our_addresses->raw);
 }
 
 struct issued_address_type *wallet_list_addresses(const tal_t *ctx, struct wallet *wallet,

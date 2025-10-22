@@ -2019,9 +2019,6 @@ static void dev_connect_memleak(struct daemon *daemon, const u8 *msg)
 
 	/* Now delete daemon and those which it has pointers to. */
 	memleak_scan_obj(memtable, daemon);
-	memleak_scan_htable(memtable, &daemon->peers->raw);
-	memleak_scan_htable(memtable, &daemon->scid_htable->raw);
-	memleak_scan_htable(memtable, &daemon->important_ids->raw);
 
 	found_leak = dump_memleak(memtable, memleak_status_broken, NULL);
 	daemon_conn_send(daemon->master,
@@ -2435,14 +2432,6 @@ static struct io_plan *recv_gossip(struct io_conn *conn,
 	return daemon_conn_read_next(conn, daemon->gossipd);
 }
 
-/*~ This is a hook used by the memleak code: it can't see pointers
- * inside hash tables, so we give it a hint here. */
-static void memleak_daemon_cb(struct htable *memtable, struct daemon *daemon)
-{
-	memleak_scan_htable(memtable, &daemon->peers->raw);
-	memleak_scan_htable(memtable, &daemon->connecting->raw);
-}
-
 static void gossipd_failed(struct daemon_conn *gossipd)
 {
 	status_failed(STATUS_FAIL_GOSSIP_IO, "gossipd exited?");
@@ -2462,14 +2451,13 @@ int main(int argc, char *argv[])
 	daemon = tal(NULL, struct daemon);
 	daemon->developer = developer;
 	daemon->connection_counter = 1;
-	daemon->peers = tal(daemon, struct peer_htable);
+	/* htable_new is our helper which allocates a htable, initializes it
+	 * and set up the memleak callback so our memleak code can see objects
+	 * inside it */
+	daemon->peers = new_htable(daemon, peer_htable);
 	daemon->listeners = tal_arr(daemon, struct io_listener *, 0);
-	peer_htable_init(daemon->peers);
-	memleak_add_helper(daemon, memleak_daemon_cb);
-	daemon->connecting = tal(daemon, struct connecting_htable);
-	connecting_htable_init(daemon->connecting);
-	daemon->important_ids = tal(daemon, struct important_id_htable);
-	important_id_htable_init(daemon->important_ids);
+	daemon->connecting = new_htable(daemon, connecting_htable);
+	daemon->important_ids = new_htable(daemon, important_id_htable);
 	timers_init(&daemon->timers, time_mono());
 	daemon->gossmap_raw = NULL;
 	daemon->shutting_down = false;
@@ -2479,8 +2467,7 @@ int main(int argc, char *argv[])
 	daemon->dev_exhausted_fds = false;
 	/* We generally allow 1MB per second per peer, except for dev testing */
 	daemon->gossip_stream_limit = 1000000;
-	daemon->scid_htable = tal(daemon, struct scid_htable);
-	scid_htable_init(daemon->scid_htable);
+	daemon->scid_htable = new_htable(daemon, scid_htable);
 
 	/* stdin == control */
 	daemon->master = daemon_conn_new(daemon, STDIN_FILENO, recv_req, NULL,
