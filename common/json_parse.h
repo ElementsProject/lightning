@@ -2,9 +2,7 @@
 #define LIGHTNING_COMMON_JSON_PARSE_H
 #include "config.h"
 #include <bitcoin/short_channel_id.h>
-#include <ccan/crypto/sha256/sha256.h>
 #include <common/coin_mvt.h>
-#include <common/errcode.h>
 /* Simple helpers are here: this file contains heavier ones */
 #include <common/json_parse_simple.h>
 #include <common/jsonrpc_errors.h>

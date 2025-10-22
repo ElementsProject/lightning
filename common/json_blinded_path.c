@@ -1,7 +1,9 @@
 #include "config.h"
+#include <bitcoin/pubkey.h>
 #include <common/json_blinded_path.h>
 #include <common/json_parse.h>
-#include <wire/onion_wire.h>
+#include <common/utils.h>
+#include <wire/onion_wiregen.h>
 
 struct blinded_path *
 json_to_blinded_path(const tal_t *ctx, const char *buffer, const jsmntok_t *tok)

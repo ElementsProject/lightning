@@ -8,6 +8,7 @@
 #include <common/decode_array.h>
 #include <common/gossmap.h>
 #include <common/status.h>
+#include <common/utils.h>
 #include <common/wire_error.h>
 #include <connectd/connectd.h>
 #include <connectd/connectd_wiregen.h>

@@ -2,7 +2,6 @@
 #define LIGHTNING_COMMON_GOSSMODS_LISTPEERCHANNELS_H
 #include "config.h"
 #include <bitcoin/short_channel_id.h>
-#include <ccan/typesafe_cb/typesafe_cb.h>
 #include <common/amount.h>
 #include <common/json_parse_simple.h>
 

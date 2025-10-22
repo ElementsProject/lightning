@@ -1,11 +1,7 @@
 #ifndef LIGHTNING_DEVTOOLS_PRINT_WIRE_H
 #define LIGHTNING_DEVTOOLS_PRINT_WIRE_H
 #include "config.h"
-#include <bitcoin/preimage.h>
-#include <bitcoin/tx.h>
-#include <common/wireaddr.h>
-#include <wire/peer_wire.h>
-#include <wire/onion_wire.h>
+#include <wire/onion_wiregen.h>
 
 struct tlv_print_record_type {
 	u64 type;

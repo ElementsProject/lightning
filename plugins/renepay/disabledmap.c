@@ -1,4 +1,5 @@
 #include "config.h"
+#include <common/utils.h>
 #include <plugins/renepay/disabledmap.h>
 
 struct disabledmap *disabledmap_new(const tal_t *ctx)

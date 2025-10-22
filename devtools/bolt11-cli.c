@@ -12,6 +12,7 @@
 #include <common/bolt11.h>
 #include <common/features.h>
 #include <common/setup.h>
+#include <common/utils.h>
 #include <common/version.h>
 #include <inttypes.h>
 #include <stdio.h>

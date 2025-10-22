@@ -2,7 +2,6 @@
 #define LIGHTNING_LIGHTNINGD_INVOICE_H
 #include "config.h"
 #include <wallet/wallet.h>
-#include <wire/onion_wire.h>
 
 struct amount_msat;
 struct htlc_set;

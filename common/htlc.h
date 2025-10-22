@@ -3,7 +3,6 @@
 #include "config.h"
 #include "bitcoin/locktime.h"
 #include "htlc_state.h"
-#include <assert.h>
 #include <ccan/htable/htable_type.h>
 
 #define NUM_SIDES (REMOTE + 1)

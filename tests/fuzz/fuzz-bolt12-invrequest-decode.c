@@ -1,4 +1,5 @@
 #include "config.h"
+#include <assert.h>
 #include <ccan/mem/mem.h>
 #include <common/bolt12.h>
 #include <common/utils.h>

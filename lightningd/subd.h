@@ -1,12 +1,7 @@
 #ifndef LIGHTNING_LIGHTNINGD_SUBD_H
 #define LIGHTNING_LIGHTNINGD_SUBD_H
 #include "config.h"
-#include <ccan/endian/endian.h>
 #include <ccan/list/list.h>
-#include <ccan/short_types/short_types.h>
-#include <ccan/tal/tal.h>
-#include <ccan/typesafe_cb/typesafe_cb.h>
-#include <common/msg_queue.h>
 #include <wire/wire.h>
 
 struct crypto_state;

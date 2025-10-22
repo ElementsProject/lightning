@@ -1,8 +1,6 @@
 #ifndef LIGHTNING_COMMON_AUTODATA_H
 #define LIGHTNING_COMMON_AUTODATA_H
 #include "config.h"
-#include <ccan/compiler/compiler.h>
-#include <ccan/cppmagic/cppmagic.h>
 #include <stddef.h>
 
 #define AUTODATA_TYPE(name, type)					\

@@ -13,6 +13,7 @@
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <common/pseudorand.h>
+#include <inttypes.h>
 #include <plugins/libplugin.h>
 
 /* We (as your local commando command) detected an error. */

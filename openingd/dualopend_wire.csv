@@ -1,5 +1,6 @@
 #include <bitcoin/chainparams.h>
 #include <bitcoin/psbt.h>
+#include <bitcoin/signature.h>
 #include <common/cryptomsg.h>
 #include <common/channel_config.h>
 #include <common/channel_id.h>

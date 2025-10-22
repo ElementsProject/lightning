@@ -3,8 +3,6 @@
 #include "config.h"
 #include <ccan/strmap/strmap.h>
 #include <ccan/tal/tal.h>
-#include <ccan/typesafe_cb/typesafe_cb.h>
-#include <inttypes.h>
 
 struct htable;
 struct list_head;

@@ -1,7 +1,6 @@
 #ifndef LIGHTNING_COMMON_LEASE_RATES_H
 #define LIGHTNING_COMMON_LEASE_RATES_H
 #include "config.h"
-#include <stdbool.h>
 #include <wire/peer_wire.h>
 
 struct amount_msat;

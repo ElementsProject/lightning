@@ -16,6 +16,7 @@
 #include <common/scb_wiregen.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
 #include <plugins/libplugin.h>
 #include <sodium.h>
 #include <unistd.h>

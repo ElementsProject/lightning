@@ -17,6 +17,7 @@
 #include <common/status.h>
 #include <common/subdaemon.h>
 #include <hsmd/hsmd_wiregen.h>
+#include <inttypes.h>
 #include <onchaind/onchain_types.h>
 #include <onchaind/onchaind_wiregen.h>
 #include <unistd.h>

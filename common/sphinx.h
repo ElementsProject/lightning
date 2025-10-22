@@ -6,7 +6,7 @@
 #include "bitcoin/pubkey.h"
 
 #include <common/hmac.h>
-#include <wire/onion_wire.h>
+#include <wire/onion_wiregen.h>
 
 struct node_id;
 

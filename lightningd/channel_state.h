@@ -2,7 +2,6 @@
 #define LIGHTNING_LIGHTNINGD_CHANNEL_STATE_H
 #include "config.h"
 
-#include <ccan/time/time.h>
 
 /* These are in the database, so don't renumber them! */
 enum channel_state {

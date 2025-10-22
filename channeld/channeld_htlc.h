@@ -1,11 +1,8 @@
 #ifndef LIGHTNING_CHANNELD_CHANNELD_HTLC_H
 #define LIGHTNING_CHANNELD_CHANNELD_HTLC_H
 #include "config.h"
-#include <ccan/crypto/siphash24/siphash24.h>
 #include <common/htlc.h>
 #include <common/pseudorand.h>
-#include <wire/onion_wire.h>
-#include <wire/tlvstream.h>
 
 struct htlc {
 	/* What's the status. */

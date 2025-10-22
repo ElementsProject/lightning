@@ -11,6 +11,7 @@
 #include <common/gossmap.h>
 #include <common/pseudorand.h>
 #include <common/sciddir_or_pubkey.h>
+#include <common/utils.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <gossipd/gossip_store_wiregen.h>

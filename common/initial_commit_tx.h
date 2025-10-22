@@ -2,7 +2,6 @@
 #ifndef LIGHTNING_COMMON_INITIAL_COMMIT_TX_H
 #define LIGHTNING_COMMON_INITIAL_COMMIT_TX_H
 #include "config.h"
-#include <bitcoin/chainparams.h>
 #include <bitcoin/pubkey.h>
 #include <bitcoin/tx.h>
 #include <common/htlc.h>

@@ -1,3 +1,4 @@
+#include <bitcoin/signature.h>
 #include <bitcoin/tx_parts.h>
 #include <common/bip32.h>
 #include <common/coin_mvt.h>

@@ -2,8 +2,6 @@
 #define LIGHTNING_COMMON_PER_PEER_STATE_H
 #include "config.h"
 
-#include <ccan/tal/tal.h>
-#include <ccan/time/time.h>
 #include <common/crypto_state.h>
 
 /* Things we hand between daemons to talk to peers. */

@@ -3,7 +3,6 @@
 
 #include "config.h"
 
-#include <ccan/short_types/short_types.h>
 
 // Setup errors
 #define EXITCODE_SUBDAEMON_FAIL 10

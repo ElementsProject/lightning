@@ -7,7 +7,6 @@
 #include <common/amount.h>
 #include <common/pseudorand.h>
 #include <common/utils.h>
-#include <wire/onion_wire.h>
 
 struct lightningd;
 struct logger;

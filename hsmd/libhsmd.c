@@ -8,6 +8,7 @@
 #include <common/hash_u5.h>
 #include <common/key_derive.h>
 #include <common/lease_rates.h>
+#include <common/utils.h>
 #include <hsmd/libhsmd.h>
 #include <hsmd/permissions.h>
 #include <inttypes.h>

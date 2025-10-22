@@ -8,11 +8,13 @@
  */
 #include "config.h"
 #include <assert.h>
+#include <bitcoin/signature.h>
 #include <ccan/crc32c/crc32c.h>
 #include <ccan/err/err.h>
 #include <ccan/opt/opt.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
+#include <common/utils.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <wire/peer_wire.h>

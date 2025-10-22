@@ -21,7 +21,9 @@
 #include <common/setup.h>
 #include <common/status.h>
 #include <common/subdaemon.h>
+#include <common/utils.h>
 #include <common/wire_error.h>
+#include <inttypes.h>
 
 #ifndef SUPERVERBOSE
 #define SUPERVERBOSE(...)

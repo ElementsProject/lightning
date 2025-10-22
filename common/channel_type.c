@@ -1,6 +1,7 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
 #include <common/channel_type.h>
+#include <common/utils.h>
 
 static struct channel_type *new_channel_type(const tal_t *ctx)
 {

@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_COMMON_AMOUNT_H
 #define LIGHTNING_COMMON_AMOUNT_H
 #include "config.h"
+#include <ccan/build_assert/build_assert.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 

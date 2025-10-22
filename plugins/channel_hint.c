@@ -1,4 +1,5 @@
 #include "config.h"
+#include <common/json_stream.h>
 #include <common/memleak.h>
 #include <plugins/channel_hint.h>
 

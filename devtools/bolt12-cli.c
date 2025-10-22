@@ -11,6 +11,7 @@
 #include <common/features.h>
 #include <common/iso4217.h>
 #include <common/setup.h>
+#include <common/utils.h>
 #include <common/version.h>
 #include <inttypes.h>
 #include <secp256k1_schnorrsig.h>

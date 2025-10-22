@@ -2,7 +2,6 @@
 #ifndef LIGHTNING_COMMON_BLINDEDPAY_H
 #define LIGHTNING_COMMON_BLINDEDPAY_H
 #include "config.h"
-#include <ccan/tal/tal.h>
 #include <common/amount.h>
 
 struct blinded_path;

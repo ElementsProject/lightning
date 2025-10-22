@@ -4,6 +4,7 @@
 #include <ccan/mem/mem.h>
 #include <common/memleak.h>
 #include <common/pseudorand.h>
+#include <common/utils.h>
 #include <wallet/txfilter.h>
 #include <wallet/wallet.h>
 

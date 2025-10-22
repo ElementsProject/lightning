@@ -7,6 +7,7 @@
 #include <common/dijkstra.h>
 #include <common/gossmap.h>
 #include <common/overflows.h>
+#include <common/utils.h>
 #include <gheap.h>
 
 /* Each node has this side-info. */

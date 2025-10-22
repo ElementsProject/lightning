@@ -2,6 +2,7 @@
 #include "config.h"
 #include <ccan/err/err.h>
 #include <ccan/str/hex/hex.h>
+#include <common/utils.h>
 #include <stdio.h>
 #include <wire/peer_wire.h>
 

@@ -2,9 +2,6 @@
 #define LIGHTNING_COMMON_GOSSMAP_H
 #include "config.h"
 #include <bitcoin/short_channel_id.h>
-#include <ccan/take/take.h>
-#include <ccan/typesafe_cb/typesafe_cb.h>
-#include <common/amount.h>
 #include <common/fp16.h>
 #include <common/status_levels.h>
 
