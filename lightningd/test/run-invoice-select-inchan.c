@@ -244,6 +244,16 @@ struct channel *find_channel_by_id(const struct peer *peer UNNEEDED,
 struct plugin *find_plugin_for_command(struct lightningd *ld UNNEEDED,
 				       const char *cmd_name UNNEEDED)
 { fprintf(stderr, "find_plugin_for_command called!\n"); abort(); }
+/* Generated stub for find_txwatch_ */
+struct txwatch *find_txwatch_(struct chain_topology *topo UNNEEDED,
+			      const struct bitcoin_txid *txid UNNEEDED,
+			      enum watch_result (*cb)(struct lightningd *ld UNNEEDED,
+						      const struct bitcoin_txid * UNNEEDED,
+						      const struct bitcoin_tx * UNNEEDED,
+						      unsigned int depth UNNEEDED,
+						      void *arg) UNNEEDED,
+			    void *arg UNNEEDED)
+{ fprintf(stderr, "find_txwatch_ called!\n"); abort(); }
 /* Generated stub for fixup_htlcs_out */
 void fixup_htlcs_out(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "fixup_htlcs_out called!\n"); abort(); }
