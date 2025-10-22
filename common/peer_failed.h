@@ -3,6 +3,7 @@
 #include "config.h"
 #include <ccan/compiler/compiler.h>
 #include <ccan/short_types/short_types.h>
+#include <ccan/take/take.h>
 
 struct channel_id;
 struct per_peer_state;

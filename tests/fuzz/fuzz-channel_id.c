@@ -10,7 +10,9 @@
 
 void init(int *argc, char ***argv)
 {
-	common_setup("fuzzer");
+	/* Don't call this if we're in unit-test mode, as libfuzz.c does it */
+	if (!tmpctx)
+		common_setup("fuzzer");
 }
 
 void run(const uint8_t *data, size_t size)

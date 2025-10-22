@@ -13,8 +13,13 @@ FUZZ_TARGETS_SRC := $(wildcard tests/fuzz/fuzz-*.c)
 FUZZ_TARGETS_OBJS := $(FUZZ_TARGETS_SRC:.c=.o)
 FUZZ_TARGETS_BIN := $(FUZZ_TARGETS_SRC:.c=)
 
-$(FUZZ_TARGETS_OBJS): $(COMMON_HEADERS) $(WIRE_HEADERS) $(COMMON_SRC)
+$(FUZZ_TARGETS_OBJS): $(COMMON_HEADERS) $(WIRE_HEADERS) $(COMMON_SRC) tests/fuzz/libfuzz.h
 $(FUZZ_TARGETS_BIN): $(LIBFUZZ_OBJS) libcommon.a
 
 ALL_C_SOURCES += $(FUZZ_TARGETS_SRC) $(LIBFUZZ_SRC)
 ALL_FUZZ_TARGETS += $(FUZZ_TARGETS_BIN)
+
+# In non-fuzzing builds, these become normal tests.
+ifneq ($(FUZZING),1)
+check-units: $(FUZZ_TARGETS_BIN:%=fuzzunittest/%)
+endif

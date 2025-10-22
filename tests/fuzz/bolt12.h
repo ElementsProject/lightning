@@ -144,6 +144,11 @@ size_t LLVMFuzzerCustomCrossOver(const u8 *data1, size_t size1, const u8 *data2,
 	return encoded_size;
 }
 
-void init(int *argc, char ***argv) { common_setup("fuzzer"); }
+void init(int *argc, char ***argv)
+{
+	/* Don't call this if we're in unit-test mode, as libfuzz.c does it */
+	if (!tmpctx)
+		common_setup("fuzzer");
+}
 
 #endif /* LIGHTNING_TESTS_FUZZ_BOLT12_H */
