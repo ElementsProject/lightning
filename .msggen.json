@@ -2035,6 +2035,7 @@
             "ListClosedChannels.closedchannels[].funding_fee_paid_msat": 15,
             "ListClosedChannels.closedchannels[].funding_fee_rcvd_msat": 16,
             "ListClosedChannels.closedchannels[].funding_outnum": 13,
+            "ListClosedChannels.closedchannels[].funding_psbt": 26,
             "ListClosedChannels.closedchannels[].funding_pushed_msat": 17,
             "ListClosedChannels.closedchannels[].funding_txid": 12,
             "ListClosedChannels.closedchannels[].last_commitment_fee_msat": 23,
@@ -2804,6 +2805,7 @@
             "ListPeerChannels.channels[].funding.fee_paid_msat": 4,
             "ListPeerChannels.channels[].funding.fee_rcvd_msat": 5,
             "ListPeerChannels.channels[].funding.local_funds_msat": 2,
+            "ListPeerChannels.channels[].funding.psbt": 6,
             "ListPeerChannels.channels[].funding.pushed_msat": 1,
             "ListPeerChannels.channels[].funding.remote_funds_msat": 3
         },
@@ -8204,6 +8206,10 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "ListClosedChannels.closedchannels[].funding_psbt": {
+            "added": "v25.12",
+            "deprecated": null
+        },
         "ListClosedChannels.closedchannels[].funding_pushed_msat": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -10194,6 +10200,10 @@
         },
         "ListPeerChannels.channels[].funding.local_funds_msat": {
             "added": "v23.02",
+            "deprecated": null
+        },
+        "ListPeerChannels.channels[].funding.psbt": {
+            "added": "v25.12",
             "deprecated": null
         },
         "ListPeerChannels.channels[].funding.pushed_msat": {

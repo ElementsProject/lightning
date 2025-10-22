@@ -518,6 +518,11 @@ void json_add_num(struct json_stream *result UNNEEDED, const char *fieldname UNN
 void json_add_preimage(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		     const struct preimage *preimage UNNEEDED)
 { fprintf(stderr, "json_add_preimage called!\n"); abort(); }
+/* Generated stub for json_add_psbt */
+void json_add_psbt(struct json_stream *stream UNNEEDED,
+		   const char *fieldname UNNEEDED,
+		   const struct wally_psbt *psbt UNNEEDED)
+{ fprintf(stderr, "json_add_psbt called!\n"); abort(); }
 /* Generated stub for json_add_pubkey */
 void json_add_pubkey(struct json_stream *response UNNEEDED,
 		     const char *fieldname UNNEEDED,

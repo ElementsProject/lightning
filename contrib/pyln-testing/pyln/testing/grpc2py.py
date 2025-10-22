@@ -915,6 +915,7 @@ def listpeerchannels_channels_funding2py(m):
         "fee_paid_msat": amount2msat(m.fee_paid_msat),  # PrimitiveField in generate_composite
         "fee_rcvd_msat": amount2msat(m.fee_rcvd_msat),  # PrimitiveField in generate_composite
         "local_funds_msat": amount2msat(m.local_funds_msat),  # PrimitiveField in generate_composite
+        "psbt": m.psbt,  # PrimitiveField in generate_composite
         "pushed_msat": amount2msat(m.pushed_msat),  # PrimitiveField in generate_composite
         "remote_funds_msat": amount2msat(m.remote_funds_msat),  # PrimitiveField in generate_composite
     })
@@ -1072,6 +1073,7 @@ def listclosedchannels_closedchannels2py(m):
         "funding_fee_paid_msat": amount2msat(m.funding_fee_paid_msat),  # PrimitiveField in generate_composite
         "funding_fee_rcvd_msat": amount2msat(m.funding_fee_rcvd_msat),  # PrimitiveField in generate_composite
         "funding_outnum": m.funding_outnum,  # PrimitiveField in generate_composite
+        "funding_psbt": m.funding_psbt,  # PrimitiveField in generate_composite
         "funding_pushed_msat": amount2msat(m.funding_pushed_msat),  # PrimitiveField in generate_composite
         "funding_txid": hexlify(m.funding_txid),  # PrimitiveField in generate_composite
         "last_commitment_fee_msat": amount2msat(m.last_commitment_fee_msat),  # PrimitiveField in generate_composite
