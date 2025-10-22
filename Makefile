@@ -1093,3 +1093,8 @@ ccan-rune-rune.o: $(CCANDIR)/ccan/rune/rune.c
 	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-rune-coding.o: $(CCANDIR)/ccan/rune/coding.c
 	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+
+print-binary-sizes: $(ALL_PROGRAMS) $(ALL_TEST_PROGRAMS)
+	@find $(ALL_PROGRAMS) $(ALL_TEST_PROGRAMS) -printf '%p\t%s\n'
+	@echo 'Total program size:	'`find $(ALL_PROGRAMS) -printf '%s\n' | awk '{TOTAL+= $$1} END {print TOTAL}'`
+	@echo 'Total tests size:	'`find $(ALL_TEST_PROGRAMS) -printf '%s\n' | awk '{TOTAL+= $$1} END {print TOTAL}'`
