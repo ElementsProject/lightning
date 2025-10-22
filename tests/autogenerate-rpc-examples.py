@@ -972,6 +972,19 @@ def generate_bookkeeper_examples(l2, l3, c23_2_chan_id):
         raise
 
 
+def generate_coinmvt_examples(l2):
+    """Generates listchannelmoves and listchainmoves rpc examples"""
+    try:
+        logger.info('listcoinmoves Start...')
+        update_example(node=l2, method='listchainmoves', params={})
+        update_example(node=l2, method='listchainmoves', params={'index': 'created', 'start': 10})
+        update_example(node=l2, method='listchannelmoves', params={})
+        update_example(node=l2, method='listchannelmoves', params={'index': 'created', 'start': 10, 'limit': 2})
+    except Exception as e:
+        logger.error(f'Error in generating coinmoves examples: {e}')
+        raise
+
+
 def generate_offers_renepay_examples(l1, l2, inv_l21, inv_l34):
     """Covers all offers and renepay related examples"""
     try:
@@ -2096,6 +2109,7 @@ def test_generate_examples(node_factory, bitcoind, executor):
         c23_2, c23res2, c34_2, inv_l11, inv_l21, inv_l22, inv_l31, inv_l32, inv_l34 = generate_transactions_examples(l1, l2, l3, l4, l5, c25, bitcoind)
         rune_l21 = generate_runes_examples(l1, l2, l3)
         generate_datastore_examples(l2)
+        generate_coinmvt_examples(l2)
         generate_bookkeeper_examples(l2, l3, c23res2['channel_id'])
         offer_l23, inv_req_l1_l22 = generate_offers_renepay_examples(l1, l2, inv_l21, inv_l34)
         generate_askrene_examples(l1, l2, l3, c12, c23_2)
