@@ -28,9 +28,6 @@ static struct route_hop *least_cost(struct gossmap *map,
 	struct route_hop *path;
 	struct timemono tstart, tstop;
 
-	setup_locale();
-	setup_tmpctx();
-
 	tstart = time_mono();
 	dij = dijkstra(tmpctx, map, dst,
 		       sent, riskfactor, route_can_carry,
