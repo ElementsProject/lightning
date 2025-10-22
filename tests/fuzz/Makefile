@@ -13,72 +13,8 @@ FUZZ_TARGETS_SRC := $(wildcard tests/fuzz/fuzz-*.c)
 FUZZ_TARGETS_OBJS := $(FUZZ_TARGETS_SRC:.c=.o)
 FUZZ_TARGETS_BIN := $(FUZZ_TARGETS_SRC:.c=)
 
-FUZZ_COMMON_OBJS := \
-	common/addr.o					\
-	common/amount.o					\
-	common/autodata.o				\
-	common/base32.o					\
-	common/base64.o					\
-	common/bech32.o					\
-	common/bech32_util.o				\
-	common/bigsize.o				\
-	common/bip32.o					\
-	common/blockheight_states.o			\
-	common/bolt11.o					\
-	common/bolt12_merkle.o				\
-	common/channel_config.o				\
-	common/channel_id.o				\
-	common/channel_type.o				\
-	common/close_tx.o				\
-	common/configdir.o				\
-	common/configvar.o				\
-	common/codex32.o				\
-	common/cryptomsg.o				\
-	common/daemon.o					\
-	common/daemon_conn.o				\
-	common/derive_basepoints.o			\
-	common/descriptor_checksum.o			\
-	common/features.o				\
-	common/fee_states.o				\
-	common/hash_u5.o				\
-	common/hsm_encryption.o				\
-	common/htlc_state.o				\
-	common/initial_channel.o			\
-	common/initial_commit_tx.o			\
-	common/key_derive.o				\
-	common/keyset.o					\
-	common/memleak.o				\
-	common/msg_queue.o				\
-	common/node_id.o				\
-	common/permute_tx.o				\
-	common/psbt_keypath.o				\
-	common/sciddir_or_pubkey.o			\
-	common/setup.o					\
-	common/status.o					\
-	common/status_wire.o				\
-	common/status_wiregen.o				\
-	common/utils.o					\
-	common/version.o				\
-	common/wireaddr.o				\
-	wire/bolt12_wiregen.o				\
-	wire/channel_type_wiregen.o			\
-	wire/fromwire.o					\
-	wire/onion_wiregen.o				\
-	wire/peer_wire.o				\
-	wire/peer_wiregen.o				\
-	wire/tlvstream.o				\
-	wire/towire.o					\
-	wire/wire_io.o					\
-	wire/wire_sync.o
-
 $(FUZZ_TARGETS_OBJS): $(COMMON_HEADERS) $(WIRE_HEADERS) $(COMMON_SRC)
-$(FUZZ_TARGETS_BIN): $(LIBFUZZ_OBJS) $(FUZZ_COMMON_OBJS) $(BITCOIN_OBJS)
-
-tests/fuzz/fuzz-error-warning:	common/peer_billboard.o		\
-				common/wire_error.o		\
-				common/peer_io.o		\
-				common/read_peer_msg.o		\
-				common/peer_status_wiregen.o
+$(FUZZ_TARGETS_BIN): $(LIBFUZZ_OBJS) libcommon.a
 
 ALL_C_SOURCES += $(FUZZ_TARGETS_SRC) $(LIBFUZZ_SRC)
 ALL_FUZZ_TARGETS += $(FUZZ_TARGETS_BIN)

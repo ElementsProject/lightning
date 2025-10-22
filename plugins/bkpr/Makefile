@@ -40,7 +40,7 @@ PLUGIN_ALL_HEADER += $(BOOKKEEPER_HEADER)
 C_PLUGINS += plugins/bookkeeper
 PLUGINS += plugins/bookkeeper
 
-plugins/bookkeeper: common/bolt12.o common/bolt12_merkle.o common/channel_type.o $(BOOKKEEPER_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(WIRE_OBJS) $(WIRE_BOLT12_OBJS)
+plugins/bookkeeper: $(BOOKKEEPER_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
 
 maintainer-clean: clean
 clean: bkpr-maintainer-clean

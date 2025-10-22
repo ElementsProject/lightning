@@ -370,8 +370,8 @@ endif
 
 include external/Makefile
 include bitcoin/Makefile
-include common/Makefile
 include wire/Makefile
+include common/Makefile
 include db/Makefile
 include hsmd/Makefile
 include gossipd/Makefile
@@ -698,9 +698,10 @@ $(ALL_TEST_PROGRAMS) $(ALL_FUZZ_TARGETS): %: %.o
 # Without this rule, the (built-in) link line contains
 # external/libwallycore.a directly, which causes a symbol clash (it
 # uses some ccan modules internally).  We want to rely on -lwallycore etc.
-# (as per EXTERNAL_LDLIBS) so we filter them out here.
+# (as per EXTERNAL_LDLIBS) so we filter them out here.  We have to put the other
+# .a files (if any) at the end of the link line.
 $(ALL_PROGRAMS) $(ALL_TEST_PROGRAMS):
-	@$(call VERBOSE, "ld $@", $(LINK.o) $(filter-out %.a,$^) $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) libccan.a $($(@)_LDLIBS) -o $@)
+	@$(call VERBOSE, "ld $@", $(LINK.o) $(filter-out %.a,$^) $(filter-out external/%,$(filter %.a,$^)) $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) $($(@)_LDLIBS) -o $@)
 ifeq ($(OS),Darwin)
 	@$(call VERBOSE, "dsymutil $@", dsymutil $@)
 endif
