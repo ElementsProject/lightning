@@ -38,9 +38,6 @@ BITCOIN_HEADERS := bitcoin/address.h		\
 	bitcoin/tx_parts.h			\
 	bitcoin/varint.h
 
-# Bitcoin objects depends on bitcoin/ external/ and ccan
-$(BITCOIN_OBJS): $(CCAN_HEADERS) $(BITCOIN_HEADERS) $(EXTERNAL_HEADERS)
-
 ALL_C_HEADERS += $(BITCOIN_HEADERS)
 ALL_C_SOURCES += $(BITCOIN_SRC)
 
