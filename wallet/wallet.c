@@ -5184,9 +5184,16 @@ struct bitcoin_txid *wallet_transactions_by_height(const tal_t *ctx,
 	struct db_stmt *stmt;
 	struct bitcoin_txid *txids = tal_arr(ctx, struct bitcoin_txid, 0);
 	int count = 0;
-	stmt = db_prepare_v2(
-	    w->db, SQL("SELECT id FROM transactions WHERE blockheight=?"));
-	db_bind_int(stmt, blockheight);
+
+	/* Note: blockheight=NULL is not the same as is NULL! */
+	if (blockheight == 0) {
+		stmt = db_prepare_v2(
+			w->db, SQL("SELECT id FROM transactions WHERE blockheight IS NULL"));
+	} else {
+		stmt = db_prepare_v2(
+			w->db, SQL("SELECT id FROM transactions WHERE blockheight=?"));
+		db_bind_int(stmt, blockheight);
+	}
 	db_query_prepared(stmt);
 
 	while (db_step(stmt)) {
