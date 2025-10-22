@@ -29,63 +29,8 @@ ALL_PROGRAMS += lightningd/lightning_openingd lightningd/lightning_dualopend
 LIGHTNINGD_CONTROL_HEADERS += openingd/openingd_wiregen.h openingd/dualopend_wiregen.h
 LIGHTNINGD_CONTROL_OBJS += openingd/openingd_wiregen.o openingd/dualopend_wiregen.o
 
-# Common source we use.
-OPENINGD_COMMON_OBJS :=				\
-	common/amount.o				\
-	common/autodata.o			\
-	common/base32.o				\
-	common/bigsize.o			\
-	common/billboard.o			\
-	common/bip32.o				\
-	common/blockheight_states.o		\
-	common/channel_config.o			\
-	common/channel_id.o			\
-	common/channel_type.o			\
-	common/cryptomsg.o			\
-	common/daemon.o				\
-	common/daemon_conn.o			\
-	common/derive_basepoints.o		\
-	common/features.o			\
-	common/fee_states.o			\
-	common/gossip_store.o			\
-	common/htlc_state.o			\
-	common/htlc_wire.o			\
-	common/initial_channel.o		\
-	common/initial_commit_tx.o		\
-	common/key_derive.o			\
-	common/keyset.o				\
-	common/lease_rates.o			\
-	common/memleak.o			\
-	common/msg_queue.o			\
-	common/node_id.o			\
-	common/onionreply.o			\
-	common/peer_billboard.o			\
-	common/peer_failed.o			\
-	common/peer_io.o			\
-	common/peer_status_wiregen.o		\
-	common/penalty_base.o			\
-	common/per_peer_state.o			\
-	common/permute_tx.o			\
-	common/ping.o				\
-	common/psbt_internal.o			\
-	common/psbt_open.o			\
-	common/pseudorand.o			\
-	common/read_peer_msg.o			\
-	common/setup.o				\
-	common/shutdown_scriptpubkey.o		\
-	common/status.o				\
-	common/status_wire.o			\
-	common/status_wiregen.o			\
-	common/subdaemon.o			\
-	common/tx_roles.o			\
-	common/utils.o				\
-	common/utxo.o				\
-	common/version.o			\
-	common/wire_error.o			\
-	common/wireaddr.o
+lightningd/lightning_openingd: $(OPENINGD_OBJS) $(HSMD_CLIENT_OBJS) libcommon.a
 
-lightningd/lightning_openingd: $(OPENINGD_OBJS) $(OPENINGD_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(HSMD_CLIENT_OBJS)
-
-lightningd/lightning_dualopend: $(DUALOPEND_OBJS) $(OPENINGD_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(HSMD_CLIENT_OBJS)
+lightningd/lightning_dualopend: $(DUALOPEND_OBJS) $(HSMD_CLIENT_OBJS) libcommon.a
 
 -include openingd/test/Makefile

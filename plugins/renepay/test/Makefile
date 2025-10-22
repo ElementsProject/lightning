@@ -6,18 +6,13 @@ PLUGIN_RENEPAY_TEST_PROGRAMS := $(PLUGIN_RENEPAY_TEST_OBJS:.o=)
 
 ALL_C_SOURCES += $(PLUGIN_RENEPAY_TEST_SRC)
 ALL_TEST_PROGRAMS += $(PLUGIN_RENEPAY_TEST_PROGRAMS)
-$(PLUGIN_RENEPAY_TEST_OBJS): $(PLUGIN_RENEPAY_SRC) plugins/renepay/test/common.h
+$(PLUGIN_RENEPAY_TEST_OBJS): $(PLUGIN_RENEPAY_SRC) plugins/renepay/test/common.h plugins/renepay/test/Makefile
 
-PLUGIN_RENEPAY_TEST_COMMON_OBJS :=		\
+$(PLUGIN_RENEPAY_TEST_PROGRAMS):		\
 	plugins/renepay/dijkstra.o		\
 	plugins/renepay/chan_extra.o		\
-	bitcoin/chainparams.o			\
-	common/gossmap.o			\
-	common/fp16.o				\
-	common/dijkstra.o			\
-	gossipd/gossip_store_wiregen.o
-
-$(PLUGIN_RENEPAY_TEST_PROGRAMS): $(PLUGIN_RENEPAY_TEST_COMMON_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS)
+	gossipd/gossip_store_wiregen.o		\
+	libcommon.a
 
 check-renepay: $(PLUGIN_RENEPAY_TEST_PROGRAMS:%=unittest/%)
 
