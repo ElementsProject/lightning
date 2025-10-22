@@ -2622,16 +2622,24 @@ static void dev_save_plugin_io(struct plugins *plugins,
 			       const char *buf, size_t len)
 {
 	static size_t counter;
+	static u64 starttime;
 	const char *file;
 	int fd;
 
 	if (!plugins->dev_save_io)
 		return;
 
+	/* If we reexec, we still want unique names */
+	if (!starttime) {
+		struct timemono start = time_mono();
+		starttime = start.ts.tv_sec * 1000000 + start.ts.tv_nsec / 1000;
+	}
+
 	file = path_join(tmpctx, plugins->dev_save_io,
-			 take(tal_fmt(NULL, "%s-%s-%u-%zu",
+			 take(tal_fmt(NULL, "%s-%s-%u-%"PRIu64"-%zu",
 				      type, name,
 				      (unsigned int)getpid(),
+				      starttime,
 				      counter++)));
 	fd = open(file, O_CREAT|O_EXCL|O_WRONLY, 0600);
 	if (fd < 0 || !write_all(fd, buf, len))

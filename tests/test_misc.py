@@ -3692,8 +3692,6 @@ def test_version_reexec(node_factory, bitcoind):
     # We use a file to tell our openingd wrapper where the real one is
     with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "openingd-real"), 'w') as f:
         f.write(os.path.abspath('lightningd/lightning_openingd'))
-    # Internal restart doesn't work well with --dev-save-plugin-io
-    del l1.daemon.opts['dev-save-plugin-io']
     l1.start()
     # This is a "version" message
     verfile = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "openingd-version")
@@ -4569,11 +4567,7 @@ def test_setconfig_changed(node_factory, bitcoind):
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "deletes database, which is assumed sqlite3")
 def test_recover_command(node_factory, bitcoind):
-    l1 = node_factory.get_node(start=False)
-    # Internal restart doesn't work well with --dev-save-plugin-io
-    del l1.daemon.opts['dev-save-plugin-io']
-    l1.start()
-    l2 = node_factory.get_node()
+    l1, l2 = node_factory.get_nodes(2)
 
     l1oldid = l1.info['id']
 
