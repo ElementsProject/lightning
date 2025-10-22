@@ -694,7 +694,6 @@ struct filteredblock_call {
 	struct filteredblock *result;
 	struct filteredblock_outpoint **outpoints;
 	size_t current_outpoint;
-	struct timeabs start_time;
 	u32 height;
 };
 
@@ -849,7 +848,6 @@ void bitcoind_getfilteredblock_(const tal_t *ctx,
 	call->arg = arg;
 	call->height = height;
 	assert(call->cb != NULL);
-	call->start_time = time_now();
 	call->result = NULL;
 	call->current_outpoint = 0;
 
