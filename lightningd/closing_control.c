@@ -1,27 +1,15 @@
 #include "config.h"
-#include <bitcoin/feerate.h>
 #include <bitcoin/script.h>
-#include <ccan/cast/cast.h>
-#include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <channeld/channeld_wiregen.h>
 #include <closingd/closingd_wiregen.h>
-#include <common/close_tx.h>
 #include <common/closing_fee.h>
-#include <common/configdir.h>
-#include <common/fee_states.h>
-#include <common/initial_commit_tx.h>
 #include <common/json_command.h>
-#include <common/json_param.h>
 #include <common/shutdown_scriptpubkey.h>
 #include <common/timeout.h>
-#include <common/utils.h>
-#include <connectd/connectd_wiregen.h>
 #include <errno.h>
-#include <gossipd/gossipd_wiregen.h>
 #include <hsmd/permissions.h>
 #include <inttypes.h>
-#include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/closing_control.h>
@@ -31,14 +19,9 @@
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
-#include <lightningd/log.h>
 #include <lightningd/opening_common.h>
-#include <lightningd/options.h>
-#include <lightningd/peer_control.h>
 #include <lightningd/peer_fd.h>
-#include <lightningd/subd.h>
 #include <openingd/dualopend_wiregen.h>
-#include <wally_bip32.h>
 
 struct close_command {
 	/* Inside struct lightningd close_commands. */

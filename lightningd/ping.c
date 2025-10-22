@@ -1,12 +1,9 @@
 #include "config.h"
 #include <common/json_command.h>
-#include <common/json_param.h>
 #include <connectd/connectd_wiregen.h>
 #include <inttypes.h>
-#include <lightningd/channel.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
-#include <lightningd/peer_control.h>
 #include <lightningd/ping.h>
 #include <lightningd/subd.h>
 

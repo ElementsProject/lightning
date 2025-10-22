@@ -1,7 +1,6 @@
 #include "config.h"
 #include <ccan/cast/cast.h>
 #include <common/onionreply.h>
-#include <common/utils.h>
 #include <wire/wire.h>
 
 void towire_onionreply(u8 **cursor, const struct onionreply *r)

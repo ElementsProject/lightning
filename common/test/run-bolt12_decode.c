@@ -5,6 +5,7 @@
 #include "../json_parse.c"
 #include "../json_parse_simple.c"
 #include <ccan/array_size/array_size.h>
+#include <ccan/json_escape/json_escape.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
 #include <common/setup.h>

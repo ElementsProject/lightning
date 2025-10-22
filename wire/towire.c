@@ -2,7 +2,6 @@
 #include "wire.h"
 #include <assert.h>
 #include <ccan/crypto/siphash24/siphash24.h>
-#include <ccan/endian/endian.h>
 #include <ccan/mem/mem.h>
 #include <channeld/inflight.h>
 #include <common/utils.h>

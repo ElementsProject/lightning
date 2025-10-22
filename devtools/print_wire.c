@@ -6,7 +6,6 @@
 #include <ccan/utf8/utf8.h>
 #include <common/channel_id.h>
 #include <common/decode_array.h>
-#include <common/sciddir_or_pubkey.h>
 #include <common/utils.h>
 #include <devtools/print_wire.h>
 #include <errno.h>

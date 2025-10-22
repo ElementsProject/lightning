@@ -5,20 +5,16 @@
 #include <common/fee_states.h>
 #include <common/json_command.h>
 #include <common/wire_error.h>
-#include <errno.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <lightningd/channel.h>
 #include <lightningd/channel_gossip.h>
 #include <lightningd/channel_state_names_gen.h>
 #include <lightningd/connect_control.h>
-#include <lightningd/gossip_control.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/notification.h>
 #include <lightningd/opening_common.h>
-#include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 #include <wallet/txfilter.h>
-#include <wire/peer_wire.h>
 
 void channel_set_owner(struct channel *channel, struct subd *owner)
 {

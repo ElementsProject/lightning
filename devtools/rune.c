@@ -1,11 +1,8 @@
 /* Decodes a rune. */
 #include "config.h"
-#include <ccan/err/err.h>
 #include <ccan/opt/opt.h>
 #include <ccan/rune/rune.h>
-#include <common/configdir.h>
 #include <common/setup.h>
-#include <common/utils.h>
 #include <common/version.h>
 #include <stdio.h>
 

@@ -1,7 +1,6 @@
 #include "config.h"
 #include <assert.h>
 #include <common/dijkstra.h>
-#include <common/features.h>
 #include <common/gossmap.h>
 #include <common/route.h>
 

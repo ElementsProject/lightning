@@ -3,13 +3,11 @@
 #include <bitcoin/script.h>
 #include <channeld/channeld.h>
 #include <channeld/watchtower.h>
-#include <common/features.h>
 #include <common/htlc_tx.h>
 #include <common/keyset.h>
 #include <common/psbt_keypath.h>
 #include <common/status.h>
 #include <hsmd/hsmd_wiregen.h>
-#include <wire/wire_sync.h>
 
 static const u8 ONE = 0x1;
 

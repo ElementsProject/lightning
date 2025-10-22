@@ -3,7 +3,6 @@
 #include <bitcoin/signature.h>
 #include <ccan/tal/str/str.h>
 #include <common/utils.h>
-#include <common/wire_error.h>
 #include <gossipd/sigcheck.h>
 
 /* Verify the signature of a channel_update message */

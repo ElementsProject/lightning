@@ -11,29 +11,21 @@
  * add complexity to this daemon.
  */
 #include "config.h"
-#include <ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
 #include <common/daemon_conn.h>
 #include <common/ecdh_hsmd.h>
-#include <common/lease_rates.h>
 #include <common/memleak.h>
-#include <common/pseudorand.h>
 #include <common/status.h>
 #include <common/subdaemon.h>
 #include <common/timeout.h>
 #include <common/utils.h>
 #include <common/wire_error.h>
-#include <common/wireaddr.h>
 #include <connectd/connectd_gossipd_wiregen.h>
-#include <errno.h>
-#include <gossipd/gossip_store.h>
-#include <gossipd/gossip_store_wiregen.h>
 #include <gossipd/gossipd.h>
 #include <gossipd/gossipd_wiregen.h>
 #include <gossipd/gossmap_manage.h>
 #include <gossipd/queries.h>
 #include <gossipd/seeker.h>
-#include <sodium/crypto_aead_chacha20poly1305.h>
 
 const struct node_id *peer_node_id(const struct peer *peer)
 {

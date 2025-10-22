@@ -1,14 +1,9 @@
 #include "config.h"
 #include <ccan/cast/cast.h>
 #include <ccan/mem/mem.h>
-#include <common/features.h>
-#include <common/htlc.h>
-#include <common/node_id.h>
 #include <lightningd/channel.h>
 #include <lightningd/gossip_generation.h>
 #include <lightningd/lightningd.h>
-#include <lightningd/peer_control.h>
-#include <wire/peer_wire.h>
 
 /* Once we know which way nodes go, it's easy to construct */
 static u8 *create_channel_announcement_dir(const tal_t *ctx,

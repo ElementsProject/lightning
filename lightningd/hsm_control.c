@@ -2,22 +2,17 @@
 #include <ccan/err/err.h>
 #include <ccan/fdpass/fdpass.h>
 #include <common/bolt12_id.h>
-#include <common/ecdh.h>
 #include <common/errcode.h>
 #include <common/hsm_capable.h>
 #include <common/hsm_encryption.h>
 #include <common/hsm_version.h>
 #include <common/json_command.h>
-#include <common/json_param.h>
-#include <common/jsonrpc_errors.h>
 #include <errno.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/subd.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
 #include <wally_bip32.h>
 #include <wire/wire_sync.h>
 

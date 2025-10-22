@@ -1,7 +1,5 @@
 #include "config.h"
-#include <assert.h>
 #include <ccan/crc32c/crc32c.h>
-#include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/err/err.h>
 #include <ccan/htable/htable_type.h>
 #include <ccan/ptrint/ptrint.h>
@@ -9,7 +7,6 @@
 #include <common/features.h>
 #include <common/gossip_store.h>
 #include <common/gossmap.h>
-#include <common/pseudorand.h>
 #include <common/sciddir_or_pubkey.h>
 #include <common/utils.h>
 #include <errno.h>

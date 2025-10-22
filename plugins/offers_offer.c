@@ -1,7 +1,5 @@
 #include "config.h"
-#include <bitcoin/chainparams.h>
 #include <ccan/array_size/array_size.h>
-#include <ccan/tal/str/str.h>
 #include <common/bolt12.h>
 #include <common/bolt12_id.h>
 #include <common/features.h>

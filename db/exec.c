@@ -1,5 +1,4 @@
 #include "config.h"
-#include <ccan/tal/tal.h>
 #include <db/bindings.h>
 #include <db/common.h>
 #include <db/exec.h>

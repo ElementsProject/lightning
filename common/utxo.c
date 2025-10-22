@@ -1,6 +1,5 @@
 #include "config.h"
 #include <common/utxo.h>
-#include <wire/wire.h>
 
 size_t utxo_spend_weight(const struct utxo *utxo, size_t min_witness_weight)
 {

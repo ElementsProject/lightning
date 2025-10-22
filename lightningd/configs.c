@@ -10,12 +10,8 @@
 #include <common/configdir.h>
 #include <common/configvar.h>
 #include <common/json_command.h>
-#include <common/json_param.h>
-#include <common/version.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <lightningd/jsonrpc.h>
-#include <lightningd/options.h>
 #include <lightningd/plugin.h>
 #include <unistd.h>
 

@@ -3,12 +3,9 @@
 #include <backtrace.h>
 #include <ccan/tal/str/str.h>
 #include <common/json_command.h>
-#include <common/json_param.h>
 #include <common/memleak.h>
 #include <common/timeout.h>
 #include <connectd/connectd_wiregen.h>
-#include <errno.h>
-#include <gossipd/gossipd_wiregen.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
@@ -17,8 +14,6 @@
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/memdump.h>
-#include <lightningd/opening_common.h>
-#include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 
 static void json_add_ptr(struct json_stream *response, const char *name,

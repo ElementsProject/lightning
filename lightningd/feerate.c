@@ -1,5 +1,4 @@
 #include "config.h"
-#include <common/configdir.h>
 #include <common/json_command.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/feerate.h>

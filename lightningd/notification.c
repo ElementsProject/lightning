@@ -1,9 +1,7 @@
 #include "config.h"
 #include <ccan/cast/cast.h>
-#include <common/configdir.h>
 #include <lightningd/channel.h>
 #include <lightningd/coin_mvts.h>
-#include <lightningd/log.h>
 #include <lightningd/notification.h>
 
 bool notifications_topic_is_native(const char *topic)

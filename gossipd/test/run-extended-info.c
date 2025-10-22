@@ -1,6 +1,7 @@
 #include "config.h"
 
 #include "../queries.c"
+#include <ccan/array_size/array_size.h>
 #include <ccan/str/hex/hex.h>
 #include <common/blinding.h>
 #include <common/channel_type.h>

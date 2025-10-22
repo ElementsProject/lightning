@@ -1,14 +1,8 @@
 /*~ This contains all the code to handle onion messages. */
 #include "config.h"
-#include <ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
-#include <common/blindedpath.h>
-#include <common/blinding.h>
 #include <common/daemon_conn.h>
-#include <common/ecdh_hsmd.h>
-#include <common/features.h>
 #include <common/onion_message_parse.h>
-#include <common/sphinx.h>
 #include <common/status.h>
 #include <common/utils.h>
 #include <common/wire_error.h>

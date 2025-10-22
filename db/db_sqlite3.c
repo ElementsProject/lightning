@@ -1,7 +1,5 @@
 #include "config.h"
 #include <ccan/ccan/tal/str/str.h>
-#include <common/utils.h>
-#include <db/bindings.h>
 #include <db/common.h>
 #include <db/exec.h>
 #include <db/utils.h>

@@ -12,9 +12,7 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/breakpoint/breakpoint.h>
 #include <ccan/tal/str/str.h>
-#include <common/channel_type.h>
 #include <common/fee_states.h>
-#include <common/gossip_store.h>
 #include <common/initial_channel.h>
 #include <common/memleak.h>
 #include <common/peer_billboard.h>
@@ -25,7 +23,6 @@
 #include <common/status.h>
 #include <common/subdaemon.h>
 #include <common/wire_error.h>
-#include <errno.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <openingd/common.h>
 #include <openingd/openingd_wiregen.h>

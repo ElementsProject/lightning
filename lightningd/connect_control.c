@@ -1,27 +1,17 @@
 #include "config.h"
-#include <bitcoin/chainparams.h>
 #include <ccan/err/err.h>
 #include <ccan/io/io.h>
 #include <ccan/tal/str/str.h>
-#include <common/configdir.h>
 #include <common/json_command.h>
-#include <common/json_param.h>
-#include <common/memleak.h>
-#include <common/timeout.h>
 #include <connectd/connectd_wiregen.h>
-#include <gossipd/gossipd_wiregen.h>
 #include <hsmd/permissions.h>
 #include <lightningd/channel.h>
-#include <lightningd/channel_gossip.h>
 #include <lightningd/connect_control.h>
 #include <lightningd/dual_open_control.h>
 #include <lightningd/hsm_control.h>
-#include <lightningd/lightningd.h>
 #include <lightningd/notification.h>
 #include <lightningd/onion_message.h>
 #include <lightningd/opening_common.h>
-#include <lightningd/opening_control.h>
-#include <lightningd/peer_control.h>
 #include <lightningd/ping.h>
 #include <lightningd/plugin_hook.h>
 

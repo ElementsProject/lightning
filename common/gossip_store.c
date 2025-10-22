@@ -1,14 +1,7 @@
 #include "config.h"
-#include <ccan/crc32c/crc32c.h>
 #include <common/gossip_store.h>
-#include <common/per_peer_state.h>
-#include <common/status.h>
-#include <errno.h>
-#include <fcntl.h>
 #include <gossipd/gossip_store_wiregen.h>
-#include <inttypes.h>
 #include <unistd.h>
-#include <wire/peer_wire.h>
 
 /* We cheat and read first two bytes of message too. */
 struct hdr_and_type {

@@ -39,7 +39,6 @@
 #include <ccan/closefrom/closefrom.h>
 #include <ccan/io/io.h>
 #include <ccan/json_escape/json_escape.h>
-#include <ccan/opt/opt.h>
 #include <ccan/pipecmd/pipecmd.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/grab_file/grab_file.h>
@@ -48,13 +47,11 @@
 
 /*~ This is common code: routines shared by one or more executables
  *  (separate daemons, or the lightning-cli program). */
-#include <common/configdir.h>
 #include <common/daemon.h>
 #include <common/deprecation.h>
 #include <common/ecdh_hsmd.h>
 #include <common/errcode.h>
 #include <common/hsm_encryption.h>
-#include <common/json_stream.h>
 #include <common/memleak.h>
 #include <common/timeout.h>
 #include <common/trace.h>
@@ -64,13 +61,11 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <header_versions_gen.h>
-#include <hsmd/hsmd_wiregen.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/channel_control.h>
 #include <lightningd/channel_gossip.h>
 #include <lightningd/closed_channel.h>
-#include <lightningd/coin_mvts.h>
 #include <lightningd/connect_control.h>
 #include <lightningd/gossip_control.h>
 #include <lightningd/hsm_control.h>
@@ -78,7 +73,6 @@
 #include <lightningd/lightningd.h>
 #include <lightningd/onchain_control.h>
 #include <lightningd/peer_htlcs.h>
-#include <lightningd/plugin.h>
 #include <lightningd/plugin_hook.h>
 #include <lightningd/runes.h>
 #include <lightningd/subd.h>

@@ -2,7 +2,6 @@
 #include <ccan/strset/strset.h>
 #include <ccan/tal/str/str.h>
 #include <common/trace.h>
-#include <common/utils.h>
 #include <db/common.h>
 #include <db/utils.h>
 

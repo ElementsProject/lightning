@@ -7,7 +7,6 @@
 #include <db/utils.h>
 #include <lightningd/invoice.h>
 #include <lightningd/lightningd.h>
-#include <lightningd/wait.h>
 #include <wallet/invoices.h>
 
 struct invoice_waiter {

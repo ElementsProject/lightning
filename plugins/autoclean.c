@@ -1,7 +1,6 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/mem/mem.h>
-#include <ccan/ptrint/ptrint.h>
 #include <ccan/tal/str/str.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
