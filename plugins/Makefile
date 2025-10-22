@@ -168,39 +168,39 @@ ALL_PROGRAMS += $(C_PLUGINS)
 
 PLUGIN_ALL_OBJS := $(PLUGIN_ALL_SRC:.c=.o)
 
-# Make all plugins depend on all plugin headers, for simplicity.
-$(PLUGIN_ALL_OBJS): $(PLUGIN_ALL_HEADER)
+# Make all plugins depend on all plugin headers, for simplicity (and this file!)
+$(PLUGIN_ALL_OBJS): $(PLUGIN_ALL_HEADER) plugins/Makefile
 
-plugins/pay: $(PLUGIN_PAY_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_PAY_LIB_OBJS) $(JSMN_OBJS) libcommon.a
+plugins/pay: $(PLUGIN_PAY_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_PAY_LIB_OBJS) libcommon.a
 
-plugins/autoclean: $(PLUGIN_AUTOCLEAN_OBJS) $(PLUGIN_LIB_OBJS) $(JSMN_OBJS) libcommon.a
+plugins/autoclean: $(PLUGIN_AUTOCLEAN_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
 
-plugins/chanbackup: $(PLUGIN_chanbackup_OBJS) $(PLUGIN_LIB_OBJS) $(JSMN_OBJS) libcommon.a
+plugins/chanbackup: $(PLUGIN_chanbackup_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
 
-plugins/commando: $(PLUGIN_COMMANDO_OBJS) $(PLUGIN_LIB_OBJS) $(JSMN_OBJS) libcommon.a
+plugins/commando: $(PLUGIN_COMMANDO_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
 
 # Topology wants to decode node_announcement, and peer_wiregen which
 # pulls in some of bitcoin/.
-plugins/topology:  $(PLUGIN_TOPOLOGY_OBJS) $(PLUGIN_LIB_OBJS) $(JSMN_OBJS) libcommon.a
+plugins/topology:  $(PLUGIN_TOPOLOGY_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
 
-plugins/txprepare: $(PLUGIN_TXPREPARE_OBJS) $(PLUGIN_LIB_OBJS) $(JSMN_OBJS) libcommon.a
+plugins/txprepare: $(PLUGIN_TXPREPARE_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
 
-plugins/exposesecret: $(PLUGIN_EXPOSESECRET_OBJS) $(PLUGIN_LIB_OBJS) $(JSMN_OBJS) libcommon.a
+plugins/exposesecret: $(PLUGIN_EXPOSESECRET_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
 
-plugins/bcli: $(PLUGIN_BCLI_OBJS) $(PLUGIN_LIB_OBJS) $(JSMN_OBJS) libcommon.a
+plugins/bcli: $(PLUGIN_BCLI_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
 
-plugins/keysend: $(PLUGIN_KEYSEND_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_PAY_LIB_OBJS) $(JSMN_OBJS) libcommon.a
+plugins/keysend: $(PLUGIN_KEYSEND_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_PAY_LIB_OBJS) libcommon.a
 $(PLUGIN_KEYSEND_OBJS): $(PLUGIN_PAY_LIB_HEADER) libcommon.a
 
-plugins/spenderp: $(PLUGIN_SPENDER_OBJS) $(PLUGIN_LIB_OBJS) $(JSMN_OBJS) libcommon.a
+plugins/spenderp: $(PLUGIN_SPENDER_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
 
-plugins/offers: $(PLUGIN_OFFERS_OBJS) $(PLUGIN_LIB_OBJS) $(JSMN_OBJS) libcommon.a
+plugins/offers: $(PLUGIN_OFFERS_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
 
-plugins/funder: $(PLUGIN_FUNDER_OBJS) $(PLUGIN_LIB_OBJS) $(JSMN_OBJS) libcommon.a
+plugins/funder: $(PLUGIN_FUNDER_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
 
-plugins/recover:  $(PLUGIN_RECOVER_OBJS) $(PLUGIN_LIB_OBJS) $(JSMN_OBJS) libcommon.a
+plugins/recover:  $(PLUGIN_RECOVER_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
 
-plugins/recklessrpc: $(PLUGIN_RECKLESSRPC_OBJS) $(PLUGIN_LIB_OBJS) $(JSMN_OBJS) libcommon.a
+plugins/recklessrpc: $(PLUGIN_RECKLESSRPC_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
 
 # This covers all the low-level list RPCs which return simple arrays
 SQL_LISTRPCS := listchannels listforwards listhtlcs listinvoices listnodes listoffers listpeers listpeerchannels listclosedchannels listtransactions listsendpays listchainmoves listchannelmoves bkpr-listaccountevents bkpr-listincome
@@ -231,7 +231,7 @@ plugins/sql-schema_gen.h: $(SQL_SCHEMA_PARTS)
 	)
 
 plugins/sql.o: plugins/sql-schema_gen.h
-plugins/sql: $(PLUGIN_SQL_OBJS) $(PLUGIN_LIB_OBJS) $(JSMN_OBJS) gossipd/gossip_store_wiregen.o libcommon.a
+plugins/sql: $(PLUGIN_SQL_OBJS) $(PLUGIN_LIB_OBJS) gossipd/gossip_store_wiregen.o libcommon.a
 
 # Generated from PLUGINS definition in plugins/Makefile
 ALL_C_HEADERS += plugins/list_of_builtin_plugins_gen.h
