@@ -5,8 +5,8 @@
 #include <assert.h>
 #include <ccan/crypto/hmac_sha256/hmac_sha256.h>
 #include <ccan/mem/mem.h>
-#include <openssl/hmac.h>
 #include <openssl/evp.h>
+#include <openssl/hmac.h>
 #include <openssl/sha.h>
 #include <tests/fuzz/libfuzz.h>
 

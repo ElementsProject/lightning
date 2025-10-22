@@ -1,12 +1,12 @@
 #include "config.h"
-#include <stdio.h>
-#include <fcntl.h>
-#include <setjmp.h>
-#include <common/per_peer_state.h>
 #include <common/peer_failed.h>
+#include <common/per_peer_state.h>
 #include <common/read_peer_msg.h>
 #include <common/status.h>
 #include <common/utils.h>
+#include <fcntl.h>
+#include <setjmp.h>
+#include <stdio.h>
 #include <tests/fuzz/libfuzz.h>
 
 static jmp_buf exit_jmp;
