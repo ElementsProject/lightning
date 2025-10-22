@@ -1,7 +1,5 @@
 /* This contains the code which actively seeks out gossip from peers */
 #include "config.h"
-#include <bitcoin/chainparams.h>
-#include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>
 #include <ccan/intmap/intmap.h>
 #include <ccan/tal/str/str.h>
@@ -9,8 +7,6 @@
 #include <common/decode_array.h>
 #include <common/gossmap.h>
 #include <common/memleak.h>
-#include <common/pseudorand.h>
-#include <common/random_select.h>
 #include <common/status.h>
 #include <common/timeout.h>
 #include <common/utils.h>

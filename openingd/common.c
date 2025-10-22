@@ -1,7 +1,6 @@
 #include "config.h"
 #include <ccan/ccan/tal/str/str.h>
 #include <common/channel_config.h>
-#include <common/features.h>
 #include <common/initial_commit_tx.h>
 #include <common/shutdown_scriptpubkey.h>
 #include <common/status.h>

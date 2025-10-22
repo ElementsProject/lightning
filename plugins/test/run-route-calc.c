@@ -4,6 +4,7 @@
 #include "../../common/dijkstra.c"
 #include "../libplugin-pay.c"
 #include <bitcoin/chainparams.h>
+#include <ccan/array_size/array_size.h>
 #include <ccan/crc32c/crc32c.h>
 #include <common/gossip_store.h>
 #include <common/setup.h>

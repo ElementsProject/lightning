@@ -8,15 +8,10 @@
 #include <ccan/io/io.h>
 #include <ccan/mem/mem.h>
 #include <ccan/read_write_all/read_write_all.h>
-#include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <common/setup.h>
 #include <common/utils.h>
 #include <connectd/sha1.h>
-#include <poll.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <unistd.h>
 
 /*
       0                   1                   2                   3

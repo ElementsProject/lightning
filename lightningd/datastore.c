@@ -1,8 +1,6 @@
 #include "config.h"
 #include <ccan/tal/str/str.h>
 #include <common/json_command.h>
-#include <common/json_param.h>
-#include <common/json_stream.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 

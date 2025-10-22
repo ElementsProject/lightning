@@ -2,38 +2,29 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
 #include <ccan/err/err.h>
-#include <ccan/json_escape/json_escape.h>
-#include <ccan/mem/mem.h>
 #include <ccan/noerr/noerr.h>
 #include <ccan/opt/opt.h>
-#include <ccan/opt/private.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/str/hex/hex.h>
-#include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
 #include <common/codex32.h>
 #include <common/configdir.h>
 #include <common/configvar.h>
 #include <common/errcode.h>
-#include <common/features.h>
 #include <common/hsm_encryption.h>
-#include <common/json_command.h>
-#include <common/json_param.h>
 #include <common/version.h>
-#include <common/wireaddr.h>
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/feerate.h>
-#include <lightningd/hsm_control.h>
 #include <lightningd/options.h>
 #include <lightningd/plugin.h>
 #include <lightningd/subd.h>
-#include <sys/stat.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
 /* FIXME: Put into ccan/time. */
 #define TIME_FROM_SEC(sec) { { .tv_nsec = 0, .tv_sec = sec } }

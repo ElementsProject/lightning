@@ -1,9 +1,6 @@
 #include "config.h"
-#include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/htable/htable.h>
 #include <ccan/ptrint/ptrint.h>
-#include <common/memleak.h>
-#include <common/pseudorand.h>
 #include <connectd/gossip_rcvd_filter.h>
 #include <wire/peer_wire.h>
 

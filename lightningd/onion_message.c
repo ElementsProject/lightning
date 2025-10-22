@@ -1,18 +1,12 @@
 #include "config.h"
-#include <ccan/mem/mem.h>
 #include <common/blindedpath.h>
 #include <common/blinding.h>
-#include <common/configdir.h>
 #include <common/ecdh.h>
 #include <common/json_command.h>
-#include <common/json_param.h>
 #include <connectd/connectd_wiregen.h>
-#include <lightningd/channel.h>
 #include <lightningd/onion_message.h>
-#include <lightningd/peer_control.h>
 #include <lightningd/plugin_hook.h>
 #include <lightningd/subd.h>
-#include <sodium/randombytes.h>
 
 struct onion_message_hook_payload {
 	/* Optional */

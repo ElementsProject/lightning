@@ -1,19 +1,12 @@
 #include "config.h"
 #include <ccan/ccan/tal/str/str.h>
 #include <common/json_command.h>
-#include <common/wire_error.h>
-#include <errno.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <lightningd/channel.h>
-#include <lightningd/channel_control.h>
-#include <lightningd/connect_control.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/notification.h>
 #include <lightningd/opening_common.h>
-#include <lightningd/peer_control.h>
-#include <lightningd/peer_fd.h>
 #include <lightningd/subd.h>
-#include <openingd/openingd_wiregen.h>
 
 static void destroy_uncommitted_channel(struct uncommitted_channel *uc)
 {

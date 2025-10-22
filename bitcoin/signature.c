@@ -3,8 +3,6 @@
 #include <bitcoin/privkey.h>
 #include <bitcoin/psbt.h>
 #include <bitcoin/pubkey.h>
-#include <bitcoin/script.h>
-#include <bitcoin/shadouble.h>
 #include <bitcoin/signature.h>
 #include <bitcoin/tx.h>
 #include <ccan/mem/mem.h>

@@ -1,5 +1,4 @@
 #include "config.h"
-#include <bitcoin/pubkey.h>
 #include <common/json_blinded_path.h>
 #include <common/json_parse.h>
 #include <common/utils.h>

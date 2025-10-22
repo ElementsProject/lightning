@@ -23,11 +23,8 @@
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
 #include <common/codex32.h>
-#include <common/configdir.h>
-#include <common/deprecation.h>
 #include <common/json_command.h>
 #include <common/json_filter.h>
-#include <common/json_param.h>
 #include <common/memleak.h>
 #include <common/timeout.h>
 #include <common/trace.h>
@@ -36,11 +33,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <lightningd/jsonrpc.h>
-#include <lightningd/options.h>
 #include <lightningd/plugin_hook.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
-#include <sys/un.h>
 
 
 /* Dummy structure. */

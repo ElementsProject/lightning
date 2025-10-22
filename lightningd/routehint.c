@@ -1,10 +1,6 @@
 #include "config.h"
-#include <common/bolt11.h>
-#include <common/json_parse.h>
-#include <gossipd/gossipd_wiregen.h>
 #include <lightningd/channel.h>
 #include <lightningd/lightningd.h>
-#include <lightningd/peer_control.h>
 #include <lightningd/routehint.h>
 
 static bool scid_in_arr(const struct short_channel_id *scidarr,

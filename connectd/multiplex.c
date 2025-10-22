@@ -1,19 +1,12 @@
 /*~ This contains all the code to shuffle data between socket to the peer
  * itself, and the subdaemons. */
 #include "config.h"
-#include <assert.h>
-#include <bitcoin/block.h>
-#include <bitcoin/chainparams.h>
-#include <ccan/io/io.h>
 #include <ccan/tal/str/str.h>
 #include <common/cryptomsg.h>
 #include <common/daemon_conn.h>
 #include <common/dev_disconnect.h>
-#include <common/features.h>
-#include <common/gossip_constants.h>
 #include <common/gossmap.h>
 #include <common/memleak.h>
-#include <common/per_peer_state.h>
 #include <common/ping.h>
 #include <common/status.h>
 #include <common/timeout.h>
@@ -23,22 +16,15 @@
 #include <connectd/connectd_gossipd_wiregen.h>
 #include <connectd/connectd_wiregen.h>
 #include <connectd/gossip_rcvd_filter.h>
-#include <connectd/gossip_store.h>
 #include <connectd/multiplex.h>
 #include <connectd/onion_message.h>
 #include <connectd/queries.h>
 #include <errno.h>
-#include <fcntl.h>
 #include <inttypes.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <wire/peer_wire.h>
-#include <wire/wire.h>
 #include <wire/wire_io.h>
-#include <wire/wire_sync.h>
 
 struct subd {
 	/* Owner: we are in peer->subds[] */

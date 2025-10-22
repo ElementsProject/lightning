@@ -2,7 +2,6 @@
 #include <ccan/err/err.h>
 #include <common/gossmap.h>
 #include <common/gossmods_listpeerchannels.h>
-#include <common/node_id.h>
 #include <plugins/libplugin.h>
 
 void gossmod_add_localchan(struct gossmap_localmods *mods,

@@ -6,11 +6,8 @@
  * As of libwally 0.88 (and perhaps 0.87?) it will refuse to load them.
  */
 #include "config.h"
-#include <bitcoin/pubkey.h>
 #include <bitcoin/signature.h>
-#include <ccan/array_size/array_size.h>
 #include <ccan/endian/endian.h>
-#include <ccan/mem/mem.h>
 #include <common/utils.h>
 #include <wallet/psbt_fixup.h>
 #include <wire/wire.h>

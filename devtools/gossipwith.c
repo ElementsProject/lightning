@@ -1,7 +1,5 @@
 /* Simple tool to route gossip from a peer. */
 #include "config.h"
-#include <bitcoin/block.h>
-#include <bitcoin/chainparams.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/err/err.h>
 #include <ccan/io/io.h>
@@ -12,14 +10,9 @@
 #include <ccan/time/time.h>
 #include <common/cryptomsg.h>
 #include <common/features.h>
-#include <common/peer_failed.h>
-#include <common/per_peer_state.h>
 #include <common/ping.h>
-#include <common/status.h>
 #include <inttypes.h>
 #include <netdb.h>
-#include <poll.h>
-#include <secp256k1_ecdh.h>
 #include <stdio.h>
 #include <wire/peer_wire.h>
 

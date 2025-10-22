@@ -3,11 +3,7 @@
 #include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
 #include <ccan/cast/cast.h>
-#include <ccan/mem/mem.h>
-#include <common/configdir.h>
 #include <common/json_command.h>
-#include <common/json_param.h>
-#include <common/key_derive.h>
 #include <common/psbt_open.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
@@ -16,7 +12,6 @@
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <wallet/txfilter.h>
-#include <wally_psbt.h>
 
 /* 12 hours is usually enough reservation time */
 #define RESERVATION_DEFAULT (6 * 12)

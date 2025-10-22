@@ -5,7 +5,6 @@
 #include <bitcoin/preimage.h>
 #include <bitcoin/pubkey.h>
 #include <bitcoin/script.h>
-#include <ccan/endian/endian.h>
 #include <ccan/mem/mem.h>
 #include <common/utils.h>
 #include <sodium/randombytes.h>

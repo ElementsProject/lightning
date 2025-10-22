@@ -4,19 +4,15 @@
 #include <ccan/tal/str/str.h>
 #include <common/blinding.h>
 #include <common/bolt12_merkle.h>
-#include <common/configdir.h>
 #include <common/json_command.h>
-#include <common/json_param.h>
 #include <common/onion_decode.h>
 #include <common/onionreply.h>
 #include <common/route.h>
 #include <common/timeout.h>
-#include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/invoice.h>
 #include <lightningd/notification.h>
 #include <lightningd/pay.h>
-#include <lightningd/peer_control.h>
 #include <lightningd/peer_htlcs.h>
 #include <wallet/invoices.h>
 

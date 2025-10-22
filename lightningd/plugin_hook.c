@@ -1,7 +1,5 @@
 #include "config.h"
 #include <ccan/io/io.h>
-#include <ccan/tal/str/str.h>
-#include <common/json_parse.h>
 #include <common/memleak.h>
 #include <db/exec.h>
 #include <db/utils.h>

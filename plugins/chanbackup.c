@@ -1,15 +1,11 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
-#include <ccan/err/err.h>
 #include <ccan/json_out/json_out.h>
 #include <ccan/noerr/noerr.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/str/str.h>
-#include <ccan/time/time.h>
-#include <common/features.h>
-#include <common/hsm_encryption.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>

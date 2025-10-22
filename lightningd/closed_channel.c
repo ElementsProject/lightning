@@ -1,14 +1,9 @@
 #include "config.h"
 #include <common/json_channel_type.h>
-#include <common/json_command.h>
-#include <common/json_param.h>
-#include <common/json_stream.h>
 #include <lightningd/channel.h>
 #include <lightningd/closed_channel.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
-#include <lightningd/peer_control.h>
-#include <wallet/wallet.h>
 
 size_t hash_cid(const struct channel_id *cid)
 {

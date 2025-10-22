@@ -1,14 +1,10 @@
 /* Tool we can use to convert our testing gossip_store files */
 #include "config.h"
-#include <ccan/crc32c/crc32c.h>
 #include <ccan/err/err.h>
-#include <ccan/opt/opt.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <common/gossip_store.h>
 #include <common/utils.h>
-#include <fcntl.h>
 #include <gossipd/gossip_store_wiregen.h>
-#include <stdio.h>
 #include <unistd.h>
 #include <wire/peer_wire.h>
 

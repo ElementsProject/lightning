@@ -1,6 +1,4 @@
 #include "config.h"
-#include <bitcoin/chainparams.h>
-#include <bitcoin/privkey.h>
 #include <ccan/io/io.h>
 #include <ccan/json_out/json_out.h>
 #include <ccan/membuf/membuf.h>
@@ -12,7 +10,6 @@
 #include <common/features.h>
 #include <common/json_filter.h>
 #include <common/json_param.h>
-#include <common/json_parse_simple.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <common/plugin.h>
@@ -22,8 +19,7 @@
 #include <inttypes.h>
 #include <plugins/libplugin.h>
 #include <stdio.h>
-#include <sys/socket.h>
-#include <sys/un.h>
+#include <unistd.h>
 
 #define READ_CHUNKSIZE 4096
 

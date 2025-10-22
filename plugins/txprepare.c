@@ -1,15 +1,11 @@
 #include "config.h"
 #include <bitcoin/psbt.h>
-#include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
-#include <common/addr.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <common/psbt_open.h>
-#include <common/pseudorand.h>
 #include <plugins/libplugin.h>
-#include <wally_psbt.h>
 
 struct tx_output {
 	struct amount_sat amount;

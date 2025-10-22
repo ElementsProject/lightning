@@ -2,7 +2,6 @@
 #include <common/channel_type.h>
 #include <common/json_channel_type.h>
 #include <common/json_command.h>
-#include <common/json_param.h>
 #include <common/json_stream.h>
 
 struct command_result *param_channel_type(struct command *cmd,

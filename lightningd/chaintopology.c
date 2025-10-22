@@ -1,19 +1,13 @@
 #include "config.h"
-#include <bitcoin/feerate.h>
 #include <bitcoin/script.h>
-#include <bitcoin/tx.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/io/io.h>
 #include <ccan/tal/str/str.h>
-#include <common/configdir.h>
 #include <common/htlc_tx.h>
-#include <common/json_command.h>
-#include <common/json_param.h>
 #include <common/memleak.h>
 #include <common/timeout.h>
 #include <common/trace.h>
 #include <db/exec.h>
-#include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/coin_mvts.h>
@@ -21,13 +15,9 @@
 #include <lightningd/gossip_control.h>
 #include <lightningd/invoice.h>
 #include <lightningd/io_loop_with_timers.h>
-#include <lightningd/jsonrpc.h>
-#include <lightningd/lightningd.h>
-#include <lightningd/log.h>
 #include <lightningd/notification.h>
 #include <math.h>
 #include <wallet/txfilter.h>
-#include <wallet/wallet.h>
 
 /* Mutual recursion via timer. */
 static void try_extend_tip(struct chain_topology *topo);

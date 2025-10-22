@@ -1,5 +1,4 @@
 #include "config.h"
-#include <assert.h>
 #include <bitcoin/psbt.h>
 #include <bitcoin/short_channel_id.h>
 #include <channeld/inflight.h>

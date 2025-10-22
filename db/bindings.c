@@ -2,12 +2,9 @@
 #include <bitcoin/privkey.h>
 #include <bitcoin/psbt.h>
 #include <ccan/mem/mem.h>
-#include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
-#include <ccan/tal/tal.h>
 #include <common/channel_id.h>
 #include <common/channel_type.h>
-#include <common/htlc_state.h>
 #include <common/node_id.h>
 #include <common/onionreply.h>
 #include <db/bindings.h>

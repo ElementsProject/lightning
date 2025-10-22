@@ -1,8 +1,6 @@
 #include "config.h"
-#include <bitcoin/privkey.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
-#include <ccan/crypto/sha256/sha256.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>

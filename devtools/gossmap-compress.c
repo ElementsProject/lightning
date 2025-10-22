@@ -1,15 +1,11 @@
 #include "config.h"
-#include <bitcoin/privkey.h>
-#include <bitcoin/pubkey.h>
 #include <ccan/asort/asort.h>
-#include <ccan/cast/cast.h>
 #include <ccan/crc32c/crc32c.h>
 #include <ccan/err/err.h>
 #include <ccan/mem/mem.h>
 #include <ccan/opt/opt.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/str/str.h>
-#include <common/bigsize.h>
 #include <common/gossip_store.h>
 #include <common/gossmap.h>
 #include <common/setup.h>

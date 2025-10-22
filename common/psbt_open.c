@@ -2,8 +2,6 @@
 #include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
 #include <ccan/asort/asort.h>
-#include <ccan/ccan/endian/endian.h>
-#include <ccan/ccan/mem/mem.h>
 #include <common/channel_id.h>
 #include <common/psbt_open.h>
 #include <common/pseudorand.h>
