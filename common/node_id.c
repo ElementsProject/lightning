@@ -56,14 +56,16 @@ void fromwire_node_id(const u8 **cursor, size_t *max, struct node_id *id)
 	fromwire(cursor, max, &id->k, sizeof(id->k));
 }
 
+bool dev_towire_allow_invalid_node_id = false;
+
 void towire_node_id(u8 **pptr, const struct node_id *id)
 {
-#ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
 	/* Cheap sanity check. For wire fuzzing, we only care about correct
 	 * encoding of node IDs and not whether the IDs are valid, so we disable
 	 * this check while fuzzing. */
-	assert(id->k[0] == 0x2 || id->k[0] == 0x3);
-#endif
+	if (!dev_towire_allow_invalid_node_id)
+		assert(id->k[0] == 0x2 || id->k[0] == 0x3);
+
 	towire(pptr, id->k, sizeof(id->k));
 }
 
