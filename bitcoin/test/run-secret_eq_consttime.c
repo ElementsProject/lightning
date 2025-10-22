@@ -16,7 +16,7 @@ static struct timerel const_time_test(struct secret *s1,
 				      struct secret *s2,
 				      size_t off)
 {
-	struct timeabs start, end;
+	struct timemono start, end;
 	int result = 0;
 
 	memset(s1, 0, RUNS * sizeof(*s1));
@@ -25,16 +25,16 @@ static struct timerel const_time_test(struct secret *s1,
 	for (size_t i = 0; i < RUNS; i++)
 		s2[i].data[off] = i;
 
-	start = time_now();
+	start = time_mono();
 	for (size_t i = 0; i < RUNS; i++)
 		result += secret_eq_consttime(&s1[i], &s2[i]);
-	end = time_now();
+	end = time_mono();
 
 	if (result != RUNS / 256)
 		errx(1, "Expected %u successes at offset %zu, not %u!",
 		     RUNS / 256, off, result);
 
-	return time_between(end, start);
+	return timemono_between(end, start);
 }
 
 static inline bool secret_eq_nonconst(const struct secret *a,
@@ -47,7 +47,7 @@ static struct timerel nonconst_time_test(struct secret *s1,
 					 struct secret *s2,
 					 size_t off)
 {
-	struct timeabs start, end;
+	struct timemono start, end;
 	int result = 0;
 
 	memset(s1, 0, RUNS * sizeof(*s1));
@@ -56,16 +56,16 @@ static struct timerel nonconst_time_test(struct secret *s1,
 	for (size_t i = 0; i < RUNS; i++)
 		s2[i].data[off] = i;
 
-	start = time_now();
+	start = time_mono();
 	for (size_t i = 0; i < RUNS; i++)
 		result += secret_eq_nonconst(&s1[i], &s2[i]);
-	end = time_now();
+	end = time_mono();
 
 	if (result != RUNS / 256)
 		errx(1, "Expected %u successes at offset %zu, not %u!",
 		     RUNS / 256, off, result);
 
-	return time_between(end, start);
+	return timemono_between(end, start);
 }
 
 static struct secret *s1, *s2;
