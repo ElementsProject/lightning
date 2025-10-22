@@ -2125,7 +2125,8 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 			   db_col_u64(stmt, "last_stable_connection"),
 			   &stats,
 			   state_changes,
-			   funding_psbt);
+			   funding_psbt,
+			   db_col_int(stmt, "withheld"));
 
 	if (!wallet_channel_load_inflights(w, chan)) {
 		tal_free(chan);
@@ -2183,6 +2184,7 @@ static struct closed_channel *wallet_stmt2closed_channel(const tal_t *ctx,
 		cc->funding_psbt = db_col_psbt(cc, stmt, "funding_psbt");
 	else
 		cc->funding_psbt = NULL;
+	cc->withheld = db_col_int(stmt, "withheld");
 
 	return cc;
 }
@@ -2219,6 +2221,7 @@ void wallet_load_closed_channels(struct wallet *w,
 					", last_stable_connection"
 					", shachain_remote_id"
 					", funding_psbt"
+					", withheld"
 					" FROM channels"
 					" LEFT JOIN peers p ON p.id = peer_id"
                                         " WHERE state = ?;"));
@@ -2265,6 +2268,7 @@ void wallet_load_one_closed_channel(struct wallet *w,
 					", last_stable_connection"
 					", shachain_remote_id"
 					", funding_psbt"
+					", withheld"
 					" FROM channels"
 					" LEFT JOIN peers p ON p.id = peer_id"
                                         " WHERE channels.id = ?;"));
@@ -2385,6 +2389,7 @@ static bool wallet_channels_load_active(struct wallet *w)
 					", out_msatoshi_fulfilled"
 					", close_attempt_height"
 					", funding_psbt"
+					", withheld"
 					" FROM channels"
                                         " WHERE state != ?;")); //? 0
 	db_bind_int(stmt, CLOSED);
@@ -2637,7 +2642,8 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 					"  last_stable_connection=?,"
 					"  require_confirm_inputs_remote=?,"
 					"  close_attempt_height=?,"
-					"  funding_psbt=?"
+					"  funding_psbt=?,"
+					"  withheld=?"
 					" WHERE id=?"));
 	db_bind_u64(stmt, chan->their_shachain.id);
 	if (chan->scid)
@@ -2739,6 +2745,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 		db_bind_psbt(stmt, chan->funding_psbt);
 	else
 		db_bind_null(stmt);
+	db_bind_int(stmt, chan->withheld);
 	db_bind_u64(stmt, chan->dbid);
 	db_exec_prepared_v2(take(stmt));
 
