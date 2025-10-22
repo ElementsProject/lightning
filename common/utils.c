@@ -1,4 +1,5 @@
 #include "config.h"
+#include <assert.h>
 #include <bitcoin/chainparams.h>
 #include <ccan/list/list.h>
 #include <ccan/mem/mem.h>
@@ -99,6 +100,8 @@ void setup_locale(void)
 /* Initial creation of tmpctx. */
 void setup_tmpctx(void)
 {
+	/* Don't call me twice! */
+	assert(!tmpctx);
 	tmpctx = tal_arr_label(NULL, char, 0, "tmpctx");
 }
 

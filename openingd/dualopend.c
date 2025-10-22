@@ -4334,7 +4334,7 @@ static void fetch_per_commitment_point(u32 point_count,
 
 int main(int argc, char *argv[])
 {
-	common_setup(argv[0]);
+	setup_locale();
 
 	struct pollfd pollfd[2];
 	struct state *state = tal(NULL, struct state);
