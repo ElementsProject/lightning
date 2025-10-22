@@ -5223,6 +5223,7 @@ impl From<requests::FundchannelCompleteRequest> for pb::FundchannelCompleteReque
         Self {
             id: c.id.serialize().to_vec(), // Rule #2 for type pubkey
             psbt: c.psbt, // Rule #2 for type string
+            withhold: c.withhold, // Rule #2 for type boolean?
         }
     }
 }
@@ -6926,6 +6927,7 @@ impl From<pb::FundchannelCompleteRequest> for requests::FundchannelCompleteReque
         Self {
             id: PublicKey::from_slice(&c.id).unwrap(), // Rule #1 for type pubkey
             psbt: c.psbt, // Rule #1 for type string
+            withhold: c.withhold, // Rule #1 for type boolean?
         }
     }
 }
