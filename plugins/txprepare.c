@@ -522,7 +522,7 @@ static struct command_result *listfunds_done(struct command *cmd,
 	txp->output_total = AMOUNT_SAT(0);
 	if (!outputs_tok)
 		plugin_err(cmd->plugin,
-			   "`listfunds` payload has no outputs token: %*.s",
+			   "`listfunds` payload has no outputs token: %.*s",
 			   json_tok_full_len(result),
 			   json_tok_full(buf, result));
 
@@ -547,7 +547,7 @@ static struct command_result *listfunds_done(struct command *cmd,
 				JSON_SCAN(json_to_number, &prev_out.n));
 		if (err)
 			plugin_err(cmd->plugin,
-				   "`listfunds` payload did not scan. %s: %*.s",
+				   "`listfunds` payload did not scan. %s: %.*s",
 				   err, json_tok_full_len(result),
 				   json_tok_full(buf, result));
 
