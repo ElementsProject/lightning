@@ -1995,6 +1995,7 @@ void NORETURN plugin_errv(struct plugin *p, const char *fmt, va_list ap)
 
 	plugin_logv(p, LOG_BROKEN, fmt, ap);
 	vfprintf(stderr, fmt, ap2);
+	fprintf(stderr, "\n");
 	plugin_exit(p, 1);
 	va_end(ap2);
 }
