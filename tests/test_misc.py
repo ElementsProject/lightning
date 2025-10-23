@@ -951,8 +951,8 @@ def test_malformed_rpc(node_factory):
     obj, _ = l1.rpc._readobj(sock, b'')
     assert obj['error']['code'] == -32600
 
-    # Complete crap (this makes it hang up!)
-    sock.sendall(b'[]')
+    # Complete crap: needs } to even try parsing, and also this makes it hang up!
+    sock.sendall(b'[]}')
     obj, _ = l1.rpc._readobj(sock, b'')
     assert obj['error']['code'] == -32600
 

@@ -64,6 +64,15 @@ const char *jsonrpc_io_parse(const tal_t *ctx,
 	*toks = NULL;
 	*buf = NULL;
 
+	/* Our JSON parser is pretty good at incremental parsing, but
+	 * `getrawblock` gives a giant 2MB token, which forces it to re-parse
+	 * every time until we have all of it. However, we can't complete a
+	 * JSON object without a '}', so we do a cheaper check here.
+	 */
+	if (!memchr(membuf_elems(&json_in->membuf), '}',
+		    membuf_num_elems(&json_in->membuf)))
+		return NULL;
+
 	if (!json_parse_input(&json_in->parser, &json_in->toks,
 			      membuf_elems(&json_in->membuf),
 			      membuf_num_elems(&json_in->membuf),
