@@ -1484,9 +1484,21 @@ def _enable_installed(installed: InstInfo, plugin_name: str) -> Union[str, None]
     if enable(installed.name):
         return f"{installed.source_loc}"
 
-    log.error(('dynamic activation failed: '
-              f'{installed.name} not found in reckless directory'))
+    log.error('dynamic activation failed')
     return None
+
+
+def cleanup_plugin_installation(plugin_name):
+    """Remove traces of an installation attempt."""
+    inst_path = Path(RECKLESS_CONFIG.reckless_dir) / plugin_name
+    if not inst_path.exists():
+        log.warning(f'asked to clean up {inst_path}, but nothing is present.')
+        return
+
+    log.info(f'Cleaning up partial installation of {plugin_name} at {inst_path}')
+    shutil.rmtree(inst_path)
+    return
+
 
 def install(plugin_name: str) -> Union[str, None]:
     """Downloads plugin from source repos, installs and activates plugin.
@@ -1504,7 +1516,7 @@ def install(plugin_name: str) -> Union[str, None]:
     direct_location, name = location_from_name(name)
     src = None
     if direct_location:
-        logging.debug(f"install of {name} requested from {direct_location}")
+        log.debug(f"install of {name} requested from {direct_location}")
         src = InstInfo(name, direct_location, name)
         # Treating a local git repo as a directory allows testing
         # uncommitted changes.
@@ -1529,8 +1541,17 @@ def install(plugin_name: str) -> Union[str, None]:
     except FileExistsError as err:
         log.error(f'File exists: {err.filename}')
         return None
-    return _enable_installed(installed, plugin_name)
+    except InstallationFailure as err:
+        cleanup_plugin_installation(plugin_name)
+        if log.capture:
+            log.warning(err)
+            return None
+        raise err
 
+    result = _enable_installed(installed, plugin_name)
+    if not result:
+        cleanup_plugin_installation(plugin_name)
+    return result
 
 
 def uninstall(plugin_name: str) -> str:
