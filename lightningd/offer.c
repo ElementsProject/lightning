@@ -1,5 +1,6 @@
 #include "config.h"
 #include <ccan/cast/cast.h>
+#include <ccan/json_escape/json_escape.h> /* Ubuntu focal's gcc needs json_escape defined */
 #include <common/bolt12_id.h>
 #include <common/bolt12_merkle.h>
 #include <common/json_command.h>
