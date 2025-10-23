@@ -148,9 +148,6 @@ struct payment {
 	struct plugin *plugin;
 	struct node_id *local_id;
 
-	const char *json_buffer;
-	const jsmntok_t *json_toks;
-
 	/* The current phase we are in. */
 	enum payment_step step;
 
