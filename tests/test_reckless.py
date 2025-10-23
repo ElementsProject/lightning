@@ -276,6 +276,18 @@ def test_install(node_factory):
     assert os.path.exists(plugin_path)
 
 
+def test_install_cleanup(node_factory):
+    """test failed installation and post install cleanup"""
+    n = get_reckless_node(node_factory)
+    n.start()
+    r = reckless([f"--network={NETWORK}", "-v", "install", "testplugfail"], dir=n.lightning_dir)
+    assert r.returncode == 0
+    assert r.search_stdout('testplugfail failed to start')
+    r.check_stderr()
+    plugin_path = Path(n.lightning_dir) / 'reckless/testplugfail'
+    assert not os.path.exists(plugin_path)
+
+
 @unittest.skipIf(VALGRIND, "virtual environment triggers memleak detection")
 def test_poetry_install(node_factory):
     """test search, git clone, and installation to folder."""
