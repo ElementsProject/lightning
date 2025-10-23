@@ -2025,6 +2025,7 @@ static struct command_result *param_tok(struct command *cmd, const char *name,
 }
 
 static void ld_command_handle(struct plugin *plugin,
+			      const char *buffer,
 			      const jsmntok_t *toks)
 {
 	const jsmntok_t *methtok, *paramstok, *filtertok;
@@ -2033,18 +2034,18 @@ static void ld_command_handle(struct plugin *plugin,
 	const char *id;
 	enum command_type type;
 
-	methtok = json_get_member(plugin->buffer, toks, "method");
-	paramstok = json_get_member(plugin->buffer, toks, "params");
-	filtertok = json_get_member(plugin->buffer, toks, "filter");
+	methtok = json_get_member(buffer, toks, "method");
+	paramstok = json_get_member(buffer, toks, "params");
+	filtertok = json_get_member(buffer, toks, "filter");
 
 	if (!methtok || !paramstok)
 		plugin_err(plugin, "Malformed JSON-RPC notification missing "
 			   "\"method\" or \"params\": %.*s",
 			   json_tok_full_len(toks),
-			   json_tok_full(plugin->buffer, toks));
+			   json_tok_full(buffer, toks));
 
-	methodname = json_strdup(NULL, plugin->buffer, methtok);
-	id = json_get_id(tmpctx, plugin->buffer, toks);
+	methodname = json_strdup(NULL, buffer, methtok);
+	id = json_get_id(tmpctx, buffer, toks);
 
 	if (!id)
 		type = COMMAND_TYPE_NOTIFICATION;
@@ -2060,7 +2061,7 @@ static void ld_command_handle(struct plugin *plugin,
 
 	if (!plugin->manifested) {
 		if (streq(cmd->methodname, "getmanifest")) {
-			handle_getmanifest(cmd, plugin->buffer, paramstok);
+			handle_getmanifest(cmd, buffer, paramstok);
 			plugin->manifested = true;
 			return;
 		}
@@ -2070,7 +2071,7 @@ static void ld_command_handle(struct plugin *plugin,
 
 	if (!plugin->initialized) {
 		if (streq(cmd->methodname, "init")) {
-			handle_init(cmd, plugin->buffer, paramstok);
+			handle_init(cmd, buffer, paramstok);
 			plugin->initialized = true;
 			return;
 		}
@@ -2088,7 +2089,7 @@ static void ld_command_handle(struct plugin *plugin,
 			const char *err;
 
 			plugin->deprecated_ok_override = tal(plugin, bool);
-			err = json_scan(tmpctx, plugin->buffer, paramstok,
+			err = json_scan(tmpctx, buffer, paramstok,
 					"{deprecated_oneshot:{deprecated_ok:%}}",
 					JSON_SCAN(json_to_bool,
 						  plugin->deprecated_ok_override));
@@ -2102,7 +2103,7 @@ static void ld_command_handle(struct plugin *plugin,
 			    || is_asterix_notification(cmd->methodname,
 						       plugin->notif_subs[i].name)) {
 				plugin->notif_subs[i].handle(cmd,
-							     plugin->buffer,
+							     buffer,
 							     paramstok);
 				return;
 			}
@@ -2114,14 +2115,14 @@ static void ld_command_handle(struct plugin *plugin,
 
 		plugin_err(plugin, "Unregistered notification %.*s",
 			   json_tok_full_len(methtok),
-			   json_tok_full(plugin->buffer, methtok));
+			   json_tok_full(buffer, methtok));
 	}
 
 	for (size_t i = 0; i < plugin->num_hook_subs; i++) {
 		if (streq(cmd->methodname, plugin->hook_subs[i].name)) {
 			cmd->type = COMMAND_TYPE_HOOK;
 			plugin->hook_subs[i].handle(cmd,
-						    plugin->buffer,
+						    buffer,
 						    paramstok);
 			return;
 		}
@@ -2129,7 +2130,7 @@ static void ld_command_handle(struct plugin *plugin,
 
 	if (filtertok) {
 		/* On error, this fails cmd */
-		if (parse_filter(cmd, "filter", plugin->buffer, filtertok)
+		if (parse_filter(cmd, "filter", buffer, filtertok)
 		    != NULL)
 			return;
 	}
@@ -2141,17 +2142,17 @@ static void ld_command_handle(struct plugin *plugin,
 
 		/* We're going to mangle it, so make a copy */
 		mod_params = json_tok_copy(cmd, paramstok);
-		if (!param_check(cmd, plugin->buffer, mod_params,
+		if (!param_check(cmd, buffer, mod_params,
 				 p_req("command_to_check", param_tok, &method),
 				 p_opt_any(),
 				 NULL)) {
 			plugin_err(plugin,
 				   "lightningd check without command_to_check: %.*s",
 				   json_tok_full_len(toks),
-				   json_tok_full(plugin->buffer, toks));
+				   json_tok_full(buffer, toks));
 		}
 		tal_free(cmd->methodname);
-		cmd->methodname = json_strdup(cmd, plugin->buffer, method);
+		cmd->methodname = json_strdup(cmd, buffer, method);
 
 		/* Point method to the name, not the value */
 		if (mod_params->type == JSMN_OBJECT)
@@ -2164,7 +2165,7 @@ static void ld_command_handle(struct plugin *plugin,
 	for (size_t i = 0; i < plugin->num_commands; i++) {
 		if (streq(cmd->methodname, plugin->commands[i].name)) {
 			plugin->commands[i].handle(cmd,
-						   plugin->buffer,
+						   buffer,
 						   paramstok);
 			/* Reset this */
 			plugin->deprecated_ok_override
@@ -2181,8 +2182,8 @@ static void ld_command_handle(struct plugin *plugin,
 		struct command_result *ret;
 		bool check_only;
 
-		config = json_strdup(tmpctx, plugin->buffer,
-				     json_get_member(plugin->buffer, paramstok, "config"));
+		config = json_strdup(tmpctx, buffer,
+				     json_get_member(buffer, paramstok, "config"));
 		popt = find_opt(plugin, config);
 		if (!popt) {
 			plugin_err(plugin,
@@ -2198,9 +2199,9 @@ static void ld_command_handle(struct plugin *plugin,
 		check_only = command_check_only(cmd);
 		plugin_log(plugin, LOG_DBG, "setconfig %s check_only=%i", config, check_only);
 
-		valtok = json_get_member(plugin->buffer, paramstok, "val");
+		valtok = json_get_member(buffer, paramstok, "val");
 		if (valtok)
-			val = json_strdup(tmpctx, plugin->buffer, valtok);
+			val = json_strdup(tmpctx, buffer, valtok);
 		else
 			val = "true";
 
@@ -2252,7 +2253,7 @@ static bool ld_read_json_one(struct plugin *plugin)
 
 	/* FIXME: Spark doesn't create proper jsonrpc 2.0!  So we don't
 	 * check for "jsonrpc" here. */
-	ld_command_handle(plugin, plugin->toks);
+	ld_command_handle(plugin, plugin->buffer, plugin->toks);
 
 	/* Move this object out of the buffer */
 	memmove(plugin->buffer, plugin->buffer + plugin->toks[0].end,
