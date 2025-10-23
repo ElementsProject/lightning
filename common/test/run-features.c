@@ -1,6 +1,7 @@
 #include "config.h"
 #include "../features.c"
 #include "../memleak.c"
+#include <bitcoin/script.h>
 #include <ccan/mem/mem.h>
 #include <common/setup.h>
 

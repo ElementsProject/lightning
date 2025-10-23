@@ -667,3 +667,13 @@ json_tok_channel_id(const char *buffer, const jsmntok_t *tok,
 	return hex_decode(buffer + tok->start, tok->end - tok->start,
 			  cid, sizeof(*cid));
 }
+
+void json_dup_contents(const tal_t *ctx,
+		       const char *buffer,
+		       const jsmntok_t *tok,
+		       const char **new_buffer,
+		       const jsmntok_t **new_toks)
+{
+	*new_buffer = tal_dup_arr(ctx, char, buffer, tok->end, 0);
+	*new_toks = tal_dup_arr(ctx, jsmntok_t, tok, json_next(tok) - tok, 0);
+}

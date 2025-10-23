@@ -991,8 +991,8 @@ rpc_command_hook_callback(struct rpc_command_hook_payload *p,
 	if (tok) {
 		/* We need to make copies here, as buffer and tokens
 		 * can be reused. */
-		p->custom_replace = json_tok_copy(p, tok);
-		p->custom_buffer = tal_dup_talarr(p, char, buffer);
+		json_dup_contents(p, buffer, tok,
+				  &p->custom_buffer, &p->custom_replace);
 		return true;
 	}
 
@@ -1139,8 +1139,9 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 	rpc_hook = tal(c, struct rpc_command_hook_payload);
 	rpc_hook->cmd = c;
 	/* Duplicate since we might outlive the connection */
-	rpc_hook->buffer = tal_dup_talarr(rpc_hook, char, jcon->buffer);
-	rpc_hook->request = tal_dup_talarr(rpc_hook, jsmntok_t, tok);
+	json_dup_contents(rpc_hook, jcon->buffer, tok,
+			  &rpc_hook->buffer,
+			  &rpc_hook->request);
 
 	/* NULL the custom_ values for the hooks */
 	rpc_hook->custom_result = NULL;
