@@ -80,7 +80,7 @@ unreserve_done(struct command *aux_cmd,
 	       struct pending_open *open)
 {
 	plugin_log(open->p, LOG_DBG,
-		   "`unreserveinputs` for channel %s completed. %*.s",
+		   "`unreserveinputs` for channel %s completed. %.*s",
 		   fmt_channel_id(tmpctx, &open->channel_id),
 		   json_tok_full_len(result),
 		   json_tok_full(buf, result));
@@ -159,7 +159,7 @@ datastore_del_success(struct command *cmd,
 {
 	/* Cool we deleted some stuff */
 	plugin_log(cmd->plugin, LOG_DBG,
-		   "`datastore` del succeeded: %*.s",
+		   "`datastore` del succeeded: %.*s",
 		   json_tok_full_len(result),
 		   json_tok_full(buf, result));
 
@@ -175,7 +175,7 @@ datastore_add_fail(struct command *cmd,
 {
 	/* Oops, something's broken */
 	plugin_log(cmd->plugin, LOG_BROKEN,
-		   "%s failed: %*.s",
+		   "%s failed: %.*s",
 		   method, json_tok_full_len(error),
 		   json_tok_full(buf, error));
 
@@ -197,7 +197,7 @@ datastore_add_success(struct command *cmd,
 
 	if (err)
 		plugin_err(cmd->plugin,
-			   "`datastore` payload did not scan. %s: %*.s",
+			   "`datastore` payload did not scan. %s: %.*s",
 			   err, json_tok_full_len(result),
 			   json_tok_full(buf, result));
 
@@ -266,7 +266,7 @@ signpsbt_done(struct command *cmd,
 
 	if (err)
 		plugin_err(cmd->plugin,
-			   "`signpsbt` payload did not scan %s: %*.s",
+			   "`signpsbt` payload did not scan %s: %.*s",
 			   err, json_tok_full_len(result),
 			   json_tok_full(buf, result));
 
@@ -594,7 +594,7 @@ listfunds_success(struct command *cmd,
 	outputs_tok = json_get_member(buf, result, "outputs");
 	if (!outputs_tok)
 		plugin_err(cmd->plugin,
-			   "`listfunds` payload has no outputs token: %*.s",
+			   "`listfunds` payload has no outputs token: %.*s",
 			   json_tok_full_len(result),
 			   json_tok_full(buf, result));
 
@@ -624,7 +624,7 @@ listfunds_success(struct command *cmd,
 				JSON_SCAN(json_to_number, &utxo->out.n));
 		if (err)
 			plugin_err(cmd->plugin,
-				   "`listfunds` payload did not scan. %s: %*.s",
+				   "`listfunds` payload did not scan. %s: %.*s",
 				   err, json_tok_full_len(result),
 				   json_tok_full(buf, result));
 
@@ -923,7 +923,7 @@ datastore_list_fail(struct command *cmd,
 
 	/* Oops, something's broken */
 	plugin_log(cmd->plugin, LOG_BROKEN,
-		   "`datastore` list failed: %*.s",
+		   "`datastore` list failed: %.*s",
 		   json_tok_full_len(error),
 		   json_tok_full(buf, error));
 
@@ -965,7 +965,7 @@ datastore_list_success(struct command *cmd,
 		if (err)
 			plugin_err(cmd->plugin,
 				   "`listdatastore` payload did"
-				   " not scan. %s: %*.s",
+				   " not scan. %s: %.*s",
 				   err, json_tok_full_len(result),
 				   json_tok_full(buf, result));
 

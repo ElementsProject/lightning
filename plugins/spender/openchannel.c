@@ -554,7 +554,7 @@ static struct command_result *json_peer_sigs(struct command *cmd,
 			JSON_SCAN_TAL(cmd, json_to_psbt, &psbt));
 	if (err)
 		plugin_err(cmd->plugin,
-			   "`openchannel_peer_sigs` did not scan: %s. %*.s",
+			   "`openchannel_peer_sigs` did not scan: %s. %.*s",
 			   err, json_tok_full_len(params),
 			   json_tok_full(buf, params));
 

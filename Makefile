@@ -585,6 +585,9 @@ check-tmpctx:
 check-discouraged-functions:
 	@if git grep -E "[^a-z_/](fgets|fputs|gets|scanf|sprintf)\(" -- "*.c" "*.h" ":(exclude)ccan/" ":(exclude)contrib/"; then exit 1; fi
 
+check-bad-sprintf:
+	@if git grep -n "%[*]\.s"; then exit 1; fi
+
 # Don't access amount_msat and amount_sat members directly without a good reason
 # since it risks overflow.
 check-amount-access:
@@ -609,7 +612,7 @@ check-doc-examples: update-doc-examples
 	git diff --exit-code HEAD
 
 # For those without working cppcheck
-check-source-no-cppcheck: check-makefile check-source-bolt check-whitespace check-spelling check-python check-includes check-shellcheck check-setup_locale check-tmpctx check-discouraged-functions check-amount-access
+check-source-no-cppcheck: check-makefile check-source-bolt check-whitespace check-spelling check-python check-includes check-shellcheck check-setup_locale check-tmpctx check-discouraged-functions check-amount-access check-bad-sprintf
 
 check-source: check-source-no-cppcheck
 
