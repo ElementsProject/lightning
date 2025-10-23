@@ -135,6 +135,13 @@ const char *json_scan(const tal_t *ctx,
 		      const char *guide,
 		      ...);
 
+/* Duplicate the tok(s) and buffer required (don't assume they're tal objects!) */
+void json_dup_contents(const tal_t *ctx,
+		       const char *buffer,
+		       const jsmntok_t *tok,
+		       const char **new_buffer,
+		       const jsmntok_t **new_toks);
+
 /* eg. JSON_SCAN(json_to_bool, &boolvar) */
 #define JSON_SCAN(fmt, var)						\
 	json_scan,							\
