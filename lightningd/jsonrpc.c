@@ -1041,7 +1041,9 @@ REGISTER_PLUGIN_HOOK(rpc_command,
 /* We return struct command_result so command_fail return value has a natural
  * sink; we don't actually use the result. */
 static struct command_result *
-parse_request(struct json_connection *jcon, const jsmntok_t tok[])
+parse_request(struct json_connection *jcon,
+	      const char *buffer,
+	      const jsmntok_t tok[])
 {
 	const jsmntok_t *method, *id, *params, *filter, *jsonrpc;
 	struct command *c;
@@ -1054,10 +1056,10 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 		return NULL;
 	}
 
-	method = json_get_member(jcon->buffer, tok, "method");
-	params = json_get_member(jcon->buffer, tok, "params");
-	filter = json_get_member(jcon->buffer, tok, "filter");
-	id = json_get_member(jcon->buffer, tok, "id");
+	method = json_get_member(buffer, tok, "method");
+	params = json_get_member(buffer, tok, "params");
+	filter = json_get_member(buffer, tok, "filter");
+	id = json_get_member(buffer, tok, "id");
 
 	if (!id) {
 		json_command_malformed(jcon, "null", "No id");
@@ -1070,8 +1072,8 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 		return NULL;
 	}
 
-	jsonrpc = json_get_member(jcon->buffer, tok, "jsonrpc");
-	if (!jsonrpc || jsonrpc->type != JSMN_STRING || !json_tok_streq(jcon->buffer, jsonrpc, "2.0")) {
+	jsonrpc = json_get_member(buffer, tok, "jsonrpc");
+	if (!jsonrpc || jsonrpc->type != JSMN_STRING || !json_tok_streq(buffer, jsonrpc, "2.0")) {
 		json_command_malformed(jcon, "null", "jsonrpc: \"2.0\" must be specified in the request");
 		return NULL;
 	}
@@ -1087,7 +1089,7 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 	c->id_is_string = (id->type == JSMN_STRING);
 	/* Include "" around string */
 	c->id = tal_strndup(c,
-			    json_tok_full(jcon->buffer, id),
+			    json_tok_full(buffer, id),
 			    json_tok_full_len(id));
 	c->mode = CMD_NORMAL;
 	c->filter = NULL;
@@ -1106,7 +1108,7 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 
 	if (filter) {
 		struct command_result *ret;
-		ret = parse_filter(c, "filter", jcon->buffer, filter);
+		ret = parse_filter(c, "filter", buffer, filter);
 		if (ret)
 			return ret;
 	}
@@ -1115,11 +1117,11 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 	 * actually just logging the id */
 	log_io(jcon->log, LOG_IO_IN, NULL, c->id, NULL, 0);
 
-	c->json_cmd = find_cmd(jcon->ld->jsonrpc, jcon->buffer, method);
+	c->json_cmd = find_cmd(jcon->ld->jsonrpc, buffer, method);
 	if (!c->json_cmd) {
 		return command_fail(
 		    c, JSONRPC2_METHOD_NOT_FOUND, "Unknown command '%.*s'",
-		    method->end - method->start, jcon->buffer + method->start);
+		    method->end - method->start, buffer + method->start);
 	}
 	if (!command_deprecated_in_ok(c, NULL,
 				      c->json_cmd->depr_start,
@@ -1127,19 +1129,19 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 		return command_fail(c, JSONRPC2_METHOD_NOT_FOUND,
 				    "Command %.*s is deprecated",
 				    json_tok_full_len(method),
-				    json_tok_full(jcon->buffer, method));
+				    json_tok_full(buffer, method));
 	}
 	if (c->json_cmd->dev_only && !jcon->ld->developer) {
 		return command_fail(c, JSONRPC2_METHOD_NOT_FOUND,
 				    "Command %.*s is developer-only",
 				    json_tok_full_len(method),
-				    json_tok_full(jcon->buffer, method));
+				    json_tok_full(buffer, method));
 	}
 
 	rpc_hook = tal(c, struct rpc_command_hook_payload);
 	rpc_hook->cmd = c;
 	/* Duplicate since we might outlive the connection */
-	json_dup_contents(rpc_hook, jcon->buffer, tok,
+	json_dup_contents(rpc_hook, buffer, tok,
 			  &rpc_hook->buffer,
 			  &rpc_hook->request);
 
@@ -1257,7 +1259,7 @@ again:
 		db_begin_transaction(jcon->ld->wallet->db);
 		in_transaction = true;
 	}
-	parse_request(jcon, jcon->input_toks);
+	parse_request(jcon, jcon->buffer, jcon->input_toks);
 
 	/* Remove first {}. */
 	memmove(jcon->buffer, jcon->buffer + jcon->input_toks[0].end,
