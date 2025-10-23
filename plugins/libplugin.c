@@ -88,10 +88,7 @@ struct plugin {
 	const char **beglist;
 
 	/* To read from lightningd */
-	char *buffer;
-	size_t used, len_read;
-	jsmn_parser parser;
-	jsmntok_t *toks;
+	struct jsonrpc_io *lightningd_in;
 
 	/* To write to lightningd */
 	struct list_head js_list;
@@ -2222,65 +2219,31 @@ static void ld_command_handle(struct plugin *plugin,
 	plugin_err(plugin, "Unknown command '%s'", cmd->methodname);
 }
 
-/**
- * Try to parse a complete message from lightningd's buffer, and return true
- * if we could handle it.
- */
-static bool ld_read_json_one(struct plugin *plugin)
-{
-	bool complete;
-
-	if (!json_parse_input(&plugin->parser, &plugin->toks,
-			      plugin->buffer, plugin->used,
-			      &complete)) {
-		plugin_err(plugin, "Failed to parse JSON response '%.*s'",
-			   (int)plugin->used, plugin->buffer);
-		return false;
-	}
-
-	if (!complete) {
-		/* We need more. */
-		return false;
-	}
-
-	/* Empty buffer? (eg. just whitespace). */
-	if (tal_count(plugin->toks) == 1) {
-		toks_reset(plugin->toks);
-		jsmn_init(&plugin->parser);
-		plugin->used = 0;
-		return false;
-	}
-
-	/* FIXME: Spark doesn't create proper jsonrpc 2.0!  So we don't
-	 * check for "jsonrpc" here. */
-	ld_command_handle(plugin, plugin->buffer, plugin->toks);
-
-	/* Move this object out of the buffer */
-	memmove(plugin->buffer, plugin->buffer + plugin->toks[0].end,
-		tal_count(plugin->buffer) - plugin->toks[0].end);
-	plugin->used -= plugin->toks[0].end;
-	toks_reset(plugin->toks);
-	jsmn_init(&plugin->parser);
-
-	return true;
-}
-
 static struct io_plan *ld_read_json(struct io_conn *conn,
 				    struct plugin *plugin)
 {
-	plugin->used += plugin->len_read;
-	if (plugin->used && plugin->used == tal_count(plugin->buffer))
-		tal_resize(&plugin->buffer, plugin->used * 2);
+	/* Gather an parse any new bytes */
+	for (;;) {
+		const jsmntok_t *toks;
+		const char *buf;
+		const char *err;
 
-	/* Read and process all messages from the connection */
-	while (ld_read_json_one(plugin))
-		;
+		err = jsonrpc_io_parse(tmpctx,
+				       plugin->lightningd_in,
+				       &toks, &buf);
+		if (err)
+			plugin_err(plugin, "%s", err);
 
-	/* Now read more from the connection */
-	return io_read_partial(plugin->stdin_conn,
-			       plugin->buffer + plugin->used,
-			       tal_count(plugin->buffer) - plugin->used,
-			       &plugin->len_read, ld_read_json, plugin);
+		if (!toks)
+			break;
+
+		ld_command_handle(plugin, buf, toks);
+		jsonrpc_io_parse_done(plugin->lightningd_in);
+	}
+
+	/* Read more */
+	return jsonrpc_io_read(conn, plugin->lightningd_in,
+				  ld_read_json, plugin);
 }
 
 static struct io_plan *ld_write_json(struct io_conn *conn,
@@ -2326,9 +2289,7 @@ static struct io_plan *stdin_conn_init(struct io_conn *conn,
 {
 	plugin->stdin_conn = conn;
 	io_set_finish(conn, ld_conn_finish, plugin);
-	return io_read_partial(plugin->stdin_conn, plugin->buffer,
-			       tal_bytelen(plugin->buffer), &plugin->len_read,
-			       ld_read_json, plugin);
+	return ld_read_json(conn, plugin);
 }
 
 /* lightningd reads from our stdout */
@@ -2369,12 +2330,8 @@ static struct plugin *new_plugin(const tal_t *ctx,
 	p->id = name;
 	p->developer = developer;
 	p->deprecated_ok_override = NULL;
-	p->buffer = tal_arr(p, char, 64);
+	p->lightningd_in = jsonrpc_io_new(p);
 	list_head_init(&p->js_list);
-	p->used = 0;
-	p->len_read = 0;
-	jsmn_init(&p->parser);
-	p->toks = toks_alloc(p);
 	/* Async RPC */
 	p->jsonrpc_in = jsonrpc_io_new(p);
 	list_head_init(&p->rpc_js_list);
