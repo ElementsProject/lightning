@@ -62,6 +62,7 @@ COMMON_SRC_NOGEN :=				\
 	common/json_parse.c			\
 	common/json_parse_simple.c		\
 	common/json_stream.c			\
+	common/jsonrpc_io.c			\
 	common/key_derive.c			\
 	common/keyset.c				\
 	common/lease_rates.c			\
