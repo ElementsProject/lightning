@@ -8,8 +8,8 @@
 #include <ccan/tal/tal.h>
 #include <secp256k1.h>
 
+struct membuf;
 extern secp256k1_context *secp256k1_ctx;
-
 extern const struct chainparams *chainparams;
 
 /* Unsigned min/max macros: BUILD_ASSERT make sure types are unsigned */
@@ -162,6 +162,9 @@ extern const tal_t *wally_tal_ctx;
 /* Like mkstemp but resolves template relative to $TMPDIR (or /tmp if unset).
  * Returns created temporary path name at *created if successful. */
 int tmpdir_mkstemp(const tal_t *ctx, const char *template TAKES, char **created);
+
+/* For use with membuf_init */
+void *membuf_tal_resize(struct membuf *mb, void *rawelems, size_t newsize);
 
 /**
  * tal_strlowering - return the same string by in lower case.

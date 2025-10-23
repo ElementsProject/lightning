@@ -194,3 +194,13 @@ char *str_lowering(const void *ctx, const char *string TAKES)
 	for (char *p = ret; *p; p++) *p = tolower(*p);
 	return ret;
 }
+
+/* Realloc helper for tal membufs */
+void *membuf_tal_resize(struct membuf *mb, void *rawelems, size_t newsize)
+{
+	char *p = rawelems;
+
+	tal_resize(&p, newsize);
+	return p;
+}
+
