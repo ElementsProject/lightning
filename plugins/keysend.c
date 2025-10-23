@@ -221,8 +221,6 @@ static struct command_result *json_keysend(struct command *cmd, const char *buf,
 
 	p = payment_new(cmd, cmd, NULL /* No parent */, global_hints, pay_mods);
 	p->local_id = &my_id;
-	p->json_buffer = tal_dup_talarr(p, const char, buf);
-	p->json_toks = params;
 	p->route_destination = tal_steal(p, destination);
 	p->pay_destination = p->route_destination;
 	p->payment_secret = NULL;

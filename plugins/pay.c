@@ -1468,8 +1468,6 @@ static struct command_result *json_pay(struct command *cmd,
 	}
 
 	p->local_id = &my_id;
-	p->json_buffer = buf;
-	p->json_toks = params;
 	p->why = "Initial attempt";
 	p->constraints.cltv_budget = *maxdelay;
 	tal_free(maxdelay);
