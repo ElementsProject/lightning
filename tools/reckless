@@ -1958,6 +1958,93 @@ def update_plugins(plugin_name: str):
     return update_results
 
 
+MD_FORMAT = {'installation date': "None",
+             'installation time': "None",
+             'original source': "None",
+             'requested commit': "None",
+             'installed commit': "None",
+             }
+
+
+def extract_metadata(plugin_name: str) -> dict:
+    metadata_file = Path(RECKLESS_CONFIG.reckless_dir) / plugin_name / '.metadata'
+    if not metadata_file.exists():
+        return None
+
+    with open(metadata_file, 'r') as md:
+        lines = md.readlines()
+        metadata = MD_FORMAT.copy()
+        current_key = None
+
+        for line in lines:
+            if line.strip() in metadata:
+                current_key = line.strip()
+                continue
+
+            if current_key:
+                metadata.update({current_key: line.strip()})
+                current_key = None
+
+    return metadata
+
+
+def listinstalled():
+    """list all plugins currently managed by reckless"""
+    dir_contents = os.listdir(RECKLESS_CONFIG.reckless_dir)
+    plugins = {}
+    for plugin in dir_contents:
+        if (Path(RECKLESS_CONFIG.reckless_dir) / plugin).is_dir():
+            # skip hidden dirs such as reckless' .remote_sources
+            if plugin[0] == '.':
+                continue
+            plugins.update({plugin: None})
+
+    # Format output in a simple table
+    name_len = 0
+    inst_len = 0
+    for plugin in plugins.keys():
+        md = extract_metadata(plugin)
+        name_len = max(name_len, len(plugin) + 1)
+        if md:
+            inst_len = max(inst_len, len(md['installed commit']) + 1)
+        else:
+            inst_len = max(inst_len, 5)
+    for plugin in plugins.keys():
+        md = extract_metadata(plugin)
+        # Older installed plugins may be missing a .metadata file
+        if not md:
+            md = MD_FORMAT.copy()
+        try:
+            installed = InferInstall(plugin)
+        except:
+            log.debug(f'no plugin detected in directory {plugin}')
+            continue
+
+        status = "unmanaged"
+        for line in RECKLESS_CONFIG.content:
+            if installed.entry in line.strip() :
+                if line.strip()[:7] == 'plugin=':
+                    status = "enabled"
+                elif line.strip()[:15] == 'disable-plugin=':
+                    status = "disabled"
+                else:
+                    print(f'cant handle {line}')
+        log.info(f"{plugin:<{name_len}} {md['installed commit']:<{inst_len}} "
+                 f"{md['installation date']:<11} {status}")
+        # This doesn't originate from the metadata, but we want to provide enabled status for json output
+        md['enabled'] = status == "enabled"
+        md['entrypoint'] = installed.entry
+        # Format for json output
+        for key in md:
+            if md[key] == 'None':
+                md[key] = None
+            if key == 'installation time' and md[key]:
+                md[key] = int(md[key])
+        plugins[plugin] = {k.replace(' ', '_'): v for k, v in md.items()}
+
+    return plugins
+
+
 def report_version() -> str:
     """return reckless version"""
     log.info(__VERSION__)
@@ -2057,6 +2144,9 @@ if __name__ == '__main__':
     update.add_argument('targets', type=str, nargs='*')
     update.set_defaults(func=update_plugins)
 
+    list_cmd = cmd1.add_parser('listinstalled', help='list reckless-installed plugins')
+    list_cmd.set_defaults(func=listinstalled)
+
     help_cmd = cmd1.add_parser('help', help='for contextual help, use '
                                '"reckless <cmd> -h"')
     help_cmd.add_argument('targets', type=str, nargs='*')
@@ -2067,7 +2157,7 @@ if __name__ == '__main__':
 
     all_parsers = [parser, install_cmd, uninstall_cmd, search_cmd, enable_cmd,
                    disable_cmd, list_parse, source_add, source_rem, help_cmd,
-                   update]
+                   update, list_cmd]
     for p in all_parsers:
         # This default depends on the .lightning directory
         p.add_argument('-d', '--reckless-dir', action=StoreIdempotent,
