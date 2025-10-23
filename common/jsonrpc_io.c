@@ -5,6 +5,8 @@
 #include <ccan/tal/str/str.h>
 #include <common/jsonrpc_io.h>
 #include <common/utils.h>
+#include <errno.h>
+#include <unistd.h>
 
 #define READ_CHUNKSIZE 64
 
@@ -125,4 +127,25 @@ struct io_plan *jsonrpc_io_read_(struct io_conn *conn,
 			       membuf_num_space(&json_in->membuf),
 			       &json_in->bytes_read,
 			       next, arg);
+}
+
+bool jsonrpc_sync_read(struct jsonrpc_io *json_in, int infd)
+{
+	int r;
+
+	/* Make sure there's more room */
+	membuf_prepare_space(&json_in->membuf, READ_CHUNKSIZE);
+
+	/* Try to read more. */
+	r = read(infd,
+		 membuf_space(&json_in->membuf),
+		 membuf_num_space(&json_in->membuf));
+	if (r < 0)
+		return false;
+	if (r == 0) {
+		errno = 0;
+		return false;
+	}
+	json_in->bytes_read = r;
+	return true;
 }

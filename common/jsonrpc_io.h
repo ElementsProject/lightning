@@ -44,6 +44,15 @@ const char *jsonrpc_newly_read(struct jsonrpc_io *json_in,
 			       size_t *len);
 
 /**
+ * jsonrpc_sync_read: read from fd into buffer.
+ * @json_in: buffer to read into.
+ * @infd: file descriptort to read.
+ *
+ * Returns false on error or EOF; for EOF errno will be 0.
+ */
+bool jsonrpc_sync_read(struct jsonrpc_io *json_in, int infd);
+
+/**
  * jsonrpc_io_parse: try to parse more of the buffer.
  * @ctx: context to allocate error message off.
  * @json_in: json_in after jsonrpc_io_read.
