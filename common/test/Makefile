@@ -130,4 +130,6 @@ common/test/run-shutdown_scriptpubkey: wire/towire.o wire/fromwire.o
 
 common/test/run-wireaddr: wire/towire.o wire/fromwire.o
 
+common/test/run-jsonrpc_io: common/json_parse_simple.o
+
 check-units: $(COMMON_TEST_PROGRAMS:%=unittest/%)
