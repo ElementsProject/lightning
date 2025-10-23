@@ -480,16 +480,18 @@ static void plugin_send(struct plugin *plugin, struct json_stream *stream)
 
 /* Returns the error string, or NULL */
 static const char *plugin_log_handle(struct plugin *plugin,
+				     const char *buffer,
 				     const jsmntok_t *paramstok)
 	WARN_UNUSED_RESULT;
 static const char *plugin_log_handle(struct plugin *plugin,
+				     const char *buffer,
 				     const jsmntok_t *paramstok)
 {
 	const jsmntok_t *msgtok, *leveltok;
 	enum log_level level;
 	bool call_notifier;
-	msgtok = json_get_member(plugin->buffer, paramstok, "message");
-	leveltok = json_get_member(plugin->buffer, paramstok, "level");
+	msgtok = json_get_member(buffer, paramstok, "message");
+	leveltok = json_get_member(buffer, paramstok, "level");
 
 	if (!msgtok || msgtok->type != JSMN_STRING) {
 		return tal_fmt(plugin, "Log notification from plugin doesn't have "
@@ -498,7 +500,7 @@ static const char *plugin_log_handle(struct plugin *plugin,
 
 	if (!leveltok)
 		level = LOG_INFORM;
-	else if (!log_level_parse(plugin->buffer + leveltok->start,
+	else if (!log_level_parse(buffer + leveltok->start,
 				  leveltok->end - leveltok->start,
 				  &level)
 		 /* FIXME: Allow io logging? */
@@ -508,15 +510,15 @@ static const char *plugin_log_handle(struct plugin *plugin,
 			       "Unknown log-level %.*s, valid values are "
 			       "\"trace\", \"debug\", \"info\", \"warn\", or \"error\".",
 			       json_tok_full_len(leveltok),
-			       json_tok_full(plugin->buffer, leveltok));
+			       json_tok_full(buffer, leveltok));
 	}
 
 	call_notifier = (level == LOG_BROKEN || level == LOG_UNUSUAL)? true : false;
 
 	/* Only bother unescaping and splitting if it has \ */
-	if (memchr(plugin->buffer + msgtok->start, '\\', msgtok->end - msgtok->start)) {
+	if (memchr(buffer + msgtok->start, '\\', msgtok->end - msgtok->start)) {
 		const char *log_msg = json_escape_unescape_len(tmpctx,
-							       plugin->buffer + msgtok->start,
+							       buffer + msgtok->start,
 							       msgtok->end - msgtok->start);
 		char **lines;
 
@@ -534,13 +536,14 @@ static const char *plugin_log_handle(struct plugin *plugin,
 	print_raw:
 		log_(plugin->log, level, NULL, call_notifier, "%.*s",
 		     msgtok->end - msgtok->start,
-		     plugin->buffer + msgtok->start);
+		     buffer + msgtok->start);
 	}
 
 	return NULL;
 }
 
 static const char *plugin_notify_handle(struct plugin *plugin,
+					const char *buffer,
 					const jsmntok_t *methodtok,
 					const jsmntok_t *paramstok)
 {
@@ -548,7 +551,7 @@ static const char *plugin_notify_handle(struct plugin *plugin,
 	struct jsonrpc_request *request;
 
 	/* id inside params tells us which id to redirect to. */
-	idtok = json_get_member(plugin->buffer, paramstok, "id");
+	idtok = json_get_member(buffer, paramstok, "id");
 	if (!idtok) {
 		return tal_fmt(plugin,
 			       "JSON-RPC notify \"id\"-field is not present");
@@ -556,7 +559,7 @@ static const char *plugin_notify_handle(struct plugin *plugin,
 
 	/* Include any "" in id */
 	request = strmap_getn(&plugin->pending_requests,
-			      json_tok_full(plugin->buffer, idtok),
+			      json_tok_full(buffer, idtok),
 			      json_tok_full_len(idtok));
 	if (!request) {
 		return NULL;
@@ -564,7 +567,7 @@ static const char *plugin_notify_handle(struct plugin *plugin,
 
 	/* Ignore if they don't have a callback */
 	if (request->notify_cb)
-		request->notify_cb(plugin->buffer, methodtok, paramstok, idtok,
+		request->notify_cb(buffer, methodtok, paramstok, idtok,
 				   request->response_cb_arg);
 	return NULL;
 }
@@ -583,38 +586,40 @@ static bool plugin_notification_allowed(const struct plugin *plugin, const char 
 
 /* Returns the error string, or NULL */
 static const char *plugin_notification_handle(struct plugin *plugin,
+					      const char *buffer,
 					      const jsmntok_t *toks)
 	WARN_UNUSED_RESULT;
 
 static const char *plugin_notification_handle(struct plugin *plugin,
+					      const char *buffer,
 					      const jsmntok_t *toks)
 {
 	const jsmntok_t *methtok, *paramstok;
 	const char *methname;
 	struct jsonrpc_notification *n;
-	methtok = json_get_member(plugin->buffer, toks, "method");
-	paramstok = json_get_member(plugin->buffer, toks, "params");
+	methtok = json_get_member(buffer, toks, "method");
+	paramstok = json_get_member(buffer, toks, "params");
 
 	if (!methtok || !paramstok) {
 		return tal_fmt(plugin,
 			       "Malformed JSON-RPC notification missing "
 			       "\"method\" or \"params\": %.*s",
 			       toks->end - toks->start,
-			       plugin->buffer + toks->start);
+			       buffer + toks->start);
 	}
 
 	/* Dispatch incoming notifications. This is currently limited
 	 * to just a few method types, should this ever become
 	 * unwieldy we can switch to the AUTODATA construction to
 	 * register notification handlers in a variety of places. */
-	if (json_tok_streq(plugin->buffer, methtok, "log")) {
-		return plugin_log_handle(plugin, paramstok);
-	} else if (json_tok_streq(plugin->buffer, methtok, "message")
-		   || json_tok_streq(plugin->buffer, methtok, "progress")) {
-		return plugin_notify_handle(plugin, methtok, paramstok);
+	if (json_tok_streq(buffer, methtok, "log")) {
+		return plugin_log_handle(plugin, buffer, paramstok);
+	} else if (json_tok_streq(buffer, methtok, "message")
+		   || json_tok_streq(buffer, methtok, "progress")) {
+		return plugin_notify_handle(plugin, buffer, methtok, paramstok);
 	}
 
-	methname = json_strdup(tmpctx, plugin->buffer, methtok);
+	methname = json_strdup(tmpctx, buffer, methtok);
 
 	if (!plugin_notification_allowed(plugin, methname)) {
 		log_unusual(plugin->log,
@@ -625,7 +630,7 @@ static const char *plugin_notification_handle(struct plugin *plugin,
 	} else if (notifications_have_topic(plugin->plugins, methname)) {
 		n = jsonrpc_notification_start_noparams(NULL, methname);
 		json_add_string(n->stream, "origin", plugin->shortname);
-		json_add_tok(n->stream, "params", paramstok, plugin->buffer);
+		json_add_tok(n->stream, "params", paramstok, buffer);
 		jsonrpc_notification_end_noparams(n);
 
 		plugins_notify(plugin->plugins, take(n));
@@ -670,6 +675,7 @@ static void destroy_request(struct jsonrpc_request *req,
 }
 
 static void plugin_response_handle(struct plugin *plugin,
+				   const char *buffer,
 				   const jsmntok_t *toks,
 				   const jsmntok_t *idtok)
 {
@@ -677,7 +683,7 @@ static void plugin_response_handle(struct plugin *plugin,
 	const tal_t *ctx;
 
 	request = strmap_getn(&plugin->pending_requests,
-			      json_tok_full(plugin->buffer, idtok),
+			      json_tok_full(buffer, idtok),
 			      json_tok_full_len(idtok));
 	/* Can happen if request was freed before plugin responded */
 	if (!request) {
@@ -691,7 +697,7 @@ static void plugin_response_handle(struct plugin *plugin,
 	/* Don't keep track of this request; we will terminate it */
 	tal_del_destructor2(request, destroy_request, plugin);
 	destroy_request(request, plugin);
-	request->response_cb(plugin->buffer, toks, idtok, request->response_cb_arg);
+	request->response_cb(buffer, toks, idtok, request->response_cb_arg);
 	tal_free(ctx);
 }
 
@@ -773,7 +779,7 @@ static const char *plugin_read_json_one(struct plugin *plugin,
 		 *
 		 * https://www.jsonrpc.org/specification#notification
 		 */
-		err = plugin_notification_handle(plugin, plugin->toks);
+		err = plugin_notification_handle(plugin, plugin->buffer, plugin->toks);
 
 	} else {
 		/* When a rpc call is made, the Server MUST reply with
@@ -803,7 +809,7 @@ static const char *plugin_read_json_one(struct plugin *plugin,
 		 *
 		 * https://www.jsonrpc.org/specification#response_object
 		 */
-		plugin_response_handle(plugin, plugin->toks, idtok);
+		plugin_response_handle(plugin, plugin->buffer, plugin->toks, idtok);
 		err = NULL;
 	}
 	if (want_transaction)
@@ -1522,7 +1528,7 @@ static const char *plugin_subscriptions_add(struct plugin *plugin,
 		 * manifest, without checking that they exist, since
 		 * later plugins may also emit notifications of custom
 		 * types that we don't know about yet. */
-		sub.topic = json_strdup(plugin, plugin->buffer, s);
+		sub.topic = json_strdup(plugin, buffer, s);
 		sub.owner = plugin;
 		tal_arr_expand(&plugin->subscriptions, sub);
 	}
@@ -1563,7 +1569,7 @@ static const char *plugin_hooks_add(struct plugin *plugin, const char *buffer,
 			aftertok = json_get_member(buffer, t, "after");
 		} else {
 			/* FIXME: deprecate in 3 releases after v0.9.2! */
-			name = json_strdup(tmpctx, plugin->buffer, t);
+			name = json_strdup(tmpctx, buffer, t);
 			beforetok = aftertok = NULL;
 		}
 
