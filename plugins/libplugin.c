@@ -538,16 +538,6 @@ struct json_out *json_out_obj(const tal_t *ctx,
 	return jout;
 }
 
-/* Realloc helper for tal membufs */
-static void *membuf_tal_realloc(struct membuf *mb, void *rawelems,
-				size_t newsize)
-{
-	char *p = rawelems;
-
-	tal_resize(&p, newsize);
-	return p;
-}
-
 static int read_json_from_rpc(struct plugin *p)
 {
 	char *end;
@@ -1597,7 +1587,7 @@ static struct command_result *handle_init(struct command *cmd,
 			with_rpc = true;
 
 		membuf_init(&p->rpc_conn->mb, tal_arr(p, char, READ_CHUNKSIZE),
-			    READ_CHUNKSIZE, membuf_tal_realloc);
+			    READ_CHUNKSIZE, membuf_tal_resize);
 	} else
 		with_rpc = false;
 

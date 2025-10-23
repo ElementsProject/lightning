@@ -2,6 +2,7 @@
 #include <ccan/membuf/membuf.h>
 #include <common/daemon.h>
 #include <common/msg_queue.h>
+#include <common/utils.h>
 #include <wire/wire.h>
 
 static bool warned_once;
@@ -33,21 +34,11 @@ static void destroy_msg_queue(struct msg_queue *q)
 	}
 }
 
-/* Realloc helper for tal membufs */
-static void *membuf_tal_realloc(struct membuf *mb, void *rawelems,
-				size_t newsize)
-{
-	char *p = rawelems;
-
-	tal_resize(&p, newsize);
-	return p;
-}
-
 struct msg_queue *msg_queue_new(const tal_t *ctx, bool fd_passing)
 {
 	struct msg_queue *q = tal(ctx, struct msg_queue);
 	q->fd_passing = fd_passing;
-	membuf_init(&q->mb, tal_arr(q, const u8 *, 0), 0, membuf_tal_realloc);
+	membuf_init(&q->mb, tal_arr(q, const u8 *, 0), 0, membuf_tal_resize);
 
 	if (q->fd_passing)
 		tal_add_destructor(q, destroy_msg_queue);
