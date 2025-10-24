@@ -645,6 +645,7 @@ static void send_ping(struct peer *peer)
 		}
 
 		inject_peer_msg(peer, take(make_ping(NULL, 1, 0)));
+		peer->ping_start = time_mono();
 		peer->expecting_pong = PONG_EXPECTED_PROBING;
 	}
 
@@ -719,6 +720,10 @@ static void handle_pong_in(struct peer *peer, const u8 *msg)
 		/* fall thru */
 	case PONG_EXPECTED_PROBING:
 		peer->expecting_pong = PONG_UNEXPECTED;
+		daemon_conn_send(peer->daemon->master,
+				 take(towire_connectd_ping_latency(NULL,
+								   &peer->id,
+								   time_to_nsec(timemono_since(peer->ping_start)))));
 		return;
 	case PONG_UNEXPECTED:
 		status_debug("Unexpected pong?");
