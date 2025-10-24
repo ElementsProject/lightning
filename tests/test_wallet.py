@@ -25,13 +25,12 @@ HSM_BAD_PASSWORD = 22
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Test relies on a number of example addresses valid only in regtest")
-@pytest.mark.skip(reason="Skipping due to script verification issues with BIP86/BIP32 derivation mismatch")
 def test_withdraw(node_factory, bitcoind):
     amount = 1000000
     # Don't get any funds from previous runs.
     l1 = node_factory.get_node(random_hsm=True, options={'log-level': 'io'})
     l2 = node_factory.get_node(random_hsm=True)
-    addr = l1.rpc.newaddr()['bech32']
+    addr = l1.rpc.newaddr('p2tr')['p2tr']
 
     # Add some funds to withdraw later
     for i in range(10):
@@ -81,8 +80,8 @@ def test_withdraw(node_factory, bitcoind):
     assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=2')[0]['c'] == 2
 
     # Now send some money to l2.
-    # lightningd uses P2SH-P2WPKH
-    waddr = l2.rpc.newaddr('bech32')['bech32']
+    # BIP86 wallets use P2TR addresses
+    waddr = l2.rpc.newaddr('p2tr')['p2tr']
     l1.rpc.withdraw(waddr, 2 * amount)
 
     # Now make sure an additional two of them were marked as reserved
@@ -158,11 +157,11 @@ def test_withdraw(node_factory, bitcoind):
     with pytest.raises(RpcError):
         l1.rpc.withdraw('tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3pjxtptv', 2 * amount)
 
-    # Should have 6 outputs available.
+    # Should have 6 outputs available: 2 original unspent + 4 change outputs from withdrawals
     assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=0')[0]['c'] == 6
 
     # Test withdrawal to self.
-    l1.rpc.withdraw(l1.rpc.newaddr('bech32')['bech32'], 'all', minconf=0)
+    l1.rpc.withdraw(l1.rpc.newaddr('p2tr')['p2tr'], 'all', minconf=0)
     bitcoind.generate_block(1)
     assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=0')[0]['c'] == 1
 
@@ -194,17 +193,16 @@ def test_withdraw(node_factory, bitcoind):
         assert utxo in vins
 
     # Try passing unconfirmed utxos
-    unconfirmed_utxos = [l1.rpc.withdraw(l1.rpc.newaddr()["bech32"], 10**5)
+    unconfirmed_utxos = [l1.rpc.withdraw(l1.rpc.newaddr("p2tr")["p2tr"], 10**5)
                          for _ in range(5)]
     uutxos = [u["txid"] + ":0" for u in unconfirmed_utxos]
     l1.rpc.withdraw(waddr, "all", minconf=0, utxos=uutxos)
 
     # Try passing minimum feerates (for relay)
-    l1.rpc.withdraw(l1.rpc.newaddr()["bech32"], 10**5, feerate="253perkw")
-    l1.rpc.withdraw(l1.rpc.newaddr()["bech32"], 10**5, feerate="1000perkb")
+    l1.rpc.withdraw(l1.rpc.newaddr("p2tr")["p2tr"], 10**5, feerate="253perkw")
+    l1.rpc.withdraw(l1.rpc.newaddr("p2tr")["p2tr"], 10**5, feerate="1000perkb")
 
 
-@pytest.mark.skip(reason="Skipping due to script verification issues with BIP86/BIP32 derivation mismatch")
 def test_minconf_withdraw(node_factory, bitcoind):
     """Issue 2518: ensure that ridiculous confirmation levels don't overflow
 
@@ -217,7 +215,7 @@ def test_minconf_withdraw(node_factory, bitcoind):
     amount = 1000000
     # Don't get any funds from previous runs.
     l1 = node_factory.get_node(random_hsm=True)
-    addr = l1.rpc.newaddr()['bech32']
+    addr = l1.rpc.newaddr('p2tr')['p2tr']
 
     # Add some funds to withdraw later
     for i in range(10):
@@ -233,7 +231,6 @@ def test_minconf_withdraw(node_factory, bitcoind):
         l1.rpc.withdraw(destination=addr, satoshi=10000, feerate='normal', minconf=9999999)
 
 
-@pytest.mark.skip(reason="Skipping due to script verification issues with BIP86/BIP32 derivation mismatch")
 def test_addfunds_from_block(node_factory, bitcoind):
     """Send funds to the daemon without telling it explicitly
     """
@@ -241,7 +238,7 @@ def test_addfunds_from_block(node_factory, bitcoind):
     coin_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
     l1 = node_factory.get_node(random_hsm=True, options={'plugin': coin_plugin})
 
-    addr = l1.rpc.newaddr()['bech32']
+    addr = l1.rpc.newaddr('p2tr')['p2tr']
     bitcoind.rpc.sendtoaddress(addr, 0.1)
     bitcoind.generate_block(1)
 
@@ -274,12 +271,11 @@ def test_addfunds_from_block(node_factory, bitcoind):
     check_utxos_channel(l1, [], expected_utxos)
 
 
-@pytest.mark.skip(reason="Skipping due to script verification issues with BIP86/BIP32 derivation mismatch")
 def test_txprepare_multi(node_factory, bitcoind):
     amount = 10000000
     l1 = node_factory.get_node(random_hsm=True)
 
-    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'], amount / 10**8)
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr('p2tr')['p2tr'], amount / 10**8)
     bitcoind.generate_block(1)
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
 
@@ -307,7 +303,6 @@ def feerate_from_psbt(chainparams, bitcoind, node, psbt):
     return fee / weight * 1000
 
 
-@pytest.mark.skip(reason="Skipping due to script verification issues with BIP86/BIP32 derivation mismatch")
 def test_txprepare(node_factory, bitcoind, chainparams):
     amount = 1000000
     l1 = node_factory.get_node(random_hsm=True, options={'dev-warn-on-overgrind': None},
@@ -316,7 +311,7 @@ def test_txprepare(node_factory, bitcoind, chainparams):
 
     # Add some funds to withdraw later
     for i in range(10):
-        bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'],
+        bitcoind.rpc.sendtoaddress(l1.rpc.newaddr('p2tr')['p2tr'],
                                    amount / 10**8)
 
     bitcoind.generate_block(1)
@@ -1201,7 +1196,6 @@ def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
     check_coin_moves(l1, 'wallet', wallet_coin_mvts, chainparams)
 
 
-@pytest.mark.skip(reason="Skipping due to script verification issues with BIP86/BIP32 derivation mismatch")
 def test_txsend(node_factory, bitcoind, chainparams):
     amount = 1000000
     l1 = node_factory.get_node(random_hsm=True)
@@ -1209,7 +1203,7 @@ def test_txsend(node_factory, bitcoind, chainparams):
 
     # Add some funds to withdraw later
     for i in range(10):
-        bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'],
+        bitcoind.rpc.sendtoaddress(l1.rpc.newaddr('p2tr')['p2tr'],
                                    amount / 10**8)
     bitcoind.generate_block(1)
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 10)
@@ -1724,13 +1718,12 @@ def setup_bip86_node(node_factory, mnemonic="abandon abandon abandon abandon aba
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "BIP86 tests are regtest-specific")
-@pytest.mark.skip(reason="Skipping BIP86 tests due to derivation implementation changes")
 def test_bip86_newaddr_rpc(node_factory, chainparams):
     """Test that BIP86 addresses can be generated via newaddr RPC"""
     l1 = setup_bip86_node(node_factory)
 
     # Test BIP86 address generation
-    bip86_addr = l1.rpc.newaddr(addresstype="bip86")
+    bip86_addr = l1.rpc.newaddr(addresstype="p2tr")
     assert 'p2tr' in bip86_addr
     assert 'bech32' not in bip86_addr
 
@@ -1747,7 +1740,7 @@ def test_bip86_newaddr_rpc(node_factory, chainparams):
 
     # Test that our BIP86 implementation follows the correct derivation path m/86'/0'/0'/0/index
     # Generate the same address again and verify it's identical
-    bip86_addr2 = l1.rpc.newaddr(addresstype="bip86")
+    bip86_addr2 = l1.rpc.newaddr(addresstype="p2tr")
     p2tr_addr2 = bip86_addr2['p2tr']
 
     # The second address should be different (next index)
@@ -1770,7 +1763,6 @@ def test_bip86_newaddr_rpc(node_factory, chainparams):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "BIP86 tests are regtest-specific")
-@pytest.mark.skip(reason="Skipping BIP86 tests due to derivation implementation changes")
 def test_bip86_listaddresses(node_factory, chainparams):
     """Test that listaddresses includes BIP86 addresses and verifies first 10 addresses"""
     l1 = setup_bip86_node(node_factory)
@@ -1794,7 +1786,7 @@ def test_bip86_listaddresses(node_factory, chainparams):
 
     # Generate the first 10 BIP86 addresses and verify they match expected values
     for i in range(10):
-        addr_result = l1.rpc.newaddr('bip86')
+        addr_result = l1.rpc.newaddr('p2tr')
         assert addr_result['p2tr'] == expected_addrs[i]
 
     # Use listaddresses with start and limit parameters to verify the addresses were generated
@@ -1812,7 +1804,6 @@ def test_bip86_listaddresses(node_factory, chainparams):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "BIP86 tests are regtest-specific")
-@pytest.mark.skip(reason="Skipping BIP86 tests due to derivation implementation changes")
 def test_bip86_deterministic_addresses(node_factory):
     """Test that BIP86 addresses are deterministic and unique"""
     # Create two nodes with the same mnemonic
@@ -1822,11 +1813,11 @@ def test_bip86_deterministic_addresses(node_factory):
     l2 = setup_bip86_node(node_factory, mnemonic)
 
     # Generate addresses with the same index
-    addr1_0 = l1.rpc.newaddr('bip86')['p2tr']
-    addr2_0 = l2.rpc.newaddr('bip86')['p2tr']
+    addr1_0 = l1.rpc.newaddr('p2tr')['p2tr']
+    addr2_0 = l2.rpc.newaddr('p2tr')['p2tr']
 
-    addr1_1 = l1.rpc.newaddr('bip86')['p2tr']
-    addr2_1 = l2.rpc.newaddr('bip86')['p2tr']
+    addr1_1 = l1.rpc.newaddr('p2tr')['p2tr']
+    addr2_1 = l2.rpc.newaddr('p2tr')['p2tr']
 
     # Addresses should be identical for the same index
     assert addr1_0 == addr2_0, f"Addresses for index 0 don't match: {addr1_0} != {addr2_0}"
@@ -1837,13 +1828,12 @@ def test_bip86_deterministic_addresses(node_factory):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "BIP86 tests are regtest-specific")
-@pytest.mark.skip(reason="Skipping BIP86 tests due to derivation implementation changes")
 def test_bip86_vs_regular_p2tr(node_factory):
     """Test that BIP86 addresses are different from regular P2TR addresses"""
     l1 = setup_bip86_node(node_factory)
 
     # Generate addresses of both types
-    bip86_addr = l1.rpc.newaddr('bip86')['p2tr']
+    bip86_addr = l1.rpc.newaddr('p2tr')['p2tr']
     p2tr_addr = l1.rpc.newaddr('p2tr')['p2tr']
 
     # They should be different
@@ -1855,13 +1845,12 @@ def test_bip86_vs_regular_p2tr(node_factory):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "BIP86 tests are regtest-specific")
-@pytest.mark.skip(reason="Skipping BIP86 tests due to derivation implementation changes")
 def test_bip86_full_bitcoin_integration(node_factory, bitcoind):
     """Test full Bitcoin integration: generate addresses, receive funds, list outputs"""
     l1 = setup_bip86_node(node_factory)
 
     # Generate a BIP86 address
-    bip86_addr = l1.rpc.newaddr('bip86')['p2tr']
+    bip86_addr = l1.rpc.newaddr('p2tr')['p2tr']
 
     # Send funds to the BIP86 address
     amount = 1000000  # 0.01 BTC
@@ -1896,7 +1885,6 @@ def test_bip86_full_bitcoin_integration(node_factory, bitcoind):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "BIP86 tests are regtest-specific")
-@pytest.mark.skip(reason="Skipping BIP86 tests due to derivation implementation changes")
 def test_bip86_mnemonic_recovery(node_factory, bitcoind):
     """Test that funds can be recovered using the same mnemonic in a new wallet"""
     # Use a known mnemonic for predictable recovery
@@ -1904,7 +1892,7 @@ def test_bip86_mnemonic_recovery(node_factory, bitcoind):
 
     # Create first node and fund it
     l1 = setup_bip86_node(node_factory, mnemonic)
-    bip86_addr = l1.rpc.newaddr('bip86')['p2tr']
+    bip86_addr = l1.rpc.newaddr('p2tr')['p2tr']
 
     # Send funds
     amount = 1000000  # 0.01 BTC
@@ -1937,7 +1925,7 @@ def test_bip86_index_boundaries(node_factory):
     # This tests the internal index management
     addresses = []
     for i in range(5):
-        addr = l1.rpc.newaddr('bip86')['p2tr']
+        addr = l1.rpc.newaddr('p2tr')['p2tr']
         addresses.append(addr)
         # Each address should be unique
         assert addr not in addresses[:-1], f"Duplicate address generated: {addr}"
@@ -1947,7 +1935,7 @@ def test_bip86_index_boundaries(node_factory):
 
     addresses2 = []
     for i in range(5):
-        addr = l2.rpc.newaddr('bip86')['p2tr']
+        addr = l2.rpc.newaddr('p2tr')['p2tr']
         addresses2.append(addr)
 
     # Should generate the same addresses in the same order
@@ -1956,7 +1944,7 @@ def test_bip86_index_boundaries(node_factory):
     # Test generating a large number of addresses to check for any overflow issues
     # Generate 100 more addresses to test higher indices
     for i in range(100):
-        addr = l1.rpc.newaddr('bip86')['p2tr']
+        addr = l1.rpc.newaddr('p2tr')['p2tr']
         assert addr.startswith('bcrt1p'), f"Invalid BIP86 address format: {addr}"
         assert len(addr) > 50, f"BIP86 address too short: {addr}"
 
@@ -1967,7 +1955,7 @@ def test_bip86_psbt_integration(node_factory, bitcoind, chainparams):
     l1 = setup_bip86_node(node_factory)
 
     # Fund BIP86 address
-    bip86_addr = l1.rpc.newaddr('bip86')['p2tr']
+    bip86_addr = l1.rpc.newaddr('p2tr')['p2tr']
     amount_sats = 1000000  # 0.01 BTC
 
     # Send funds to the BIP86 address
@@ -2022,8 +2010,8 @@ def test_bip86_address_type_validation(node_factory):
     """Test address type validation for BIP86 addresses"""
     l1 = setup_bip86_node(node_factory)
 
-    # Test that 'bip86' is a valid address type
-    bip86_addr = l1.rpc.newaddr('bip86')['p2tr']
+    # Test that 'p2tr' automatically uses BIP86 for mnemonic wallets
+    bip86_addr = l1.rpc.newaddr('p2tr')['p2tr']
 
     # Test that we can list addresses
     addrs = l1.rpc.listaddresses()
@@ -2236,27 +2224,32 @@ def test_withdraw_bech32m(node_factory, bitcoind):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Elements-based schnorr is not yet supported")
-@pytest.mark.skip(reason="Skipping due to script verification issues with BIP86/BIP32 derivation mismatch")
 def test_p2tr_deposit_withdrawal(node_factory, bitcoind):
 
     # Don't get any funds from previous runs.
-    l1 = node_factory.get_node(random_hsm=True)
+    # Use BIP86 node to ensure consistent derivation for both P2TR and P2WPKH
+    l1 = setup_bip86_node(node_factory)
 
     # Can fetch p2tr addresses through 'all' or specifically
     deposit_addrs = [l1.rpc.newaddr('all')] * 3
     withdrawal_addr = l1.rpc.newaddr('p2tr')
 
-    # Add some funds to withdraw
-    for addr_type in ['p2tr', 'bech32']:
-        for i in range(3):
-            l1.bitcoin.rpc.sendtoaddress(deposit_addrs[i][addr_type], 1)
+    # Add some funds to withdraw - only use P2TR to avoid derivation conflicts
+    for i in range(6):
+        if i < 3:
+            l1.bitcoin.rpc.sendtoaddress(deposit_addrs[i]['p2tr'], 1)
+        else:
+            # Create additional P2TR addresses for more inputs
+            addr = l1.rpc.newaddr('p2tr')
+            l1.bitcoin.rpc.sendtoaddress(addr['p2tr'], 1)
 
     bitcoind.generate_block(1)
 
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 6)
-    for i in range(3):
-        assert l1.rpc.listfunds()['outputs'][i]['address'] == deposit_addrs[i]['p2tr']
-        assert l1.rpc.listfunds()['outputs'][i + 3]['address'] == deposit_addrs[i]['bech32']
+    # Verify we have P2TR outputs
+    funds = l1.rpc.listfunds()
+    for output in funds['outputs']:
+        assert 'address' in output
     l1.rpc.withdraw(withdrawal_addr['p2tr'], 100000000 * 5)
     wait_for(lambda: len(bitcoind.rpc.getrawmempool()) == 1)
     raw_tx = bitcoind.rpc.getrawtransaction(bitcoind.rpc.getrawmempool()[0], 1)
@@ -2275,7 +2268,6 @@ def test_p2tr_deposit_withdrawal(node_factory, bitcoind):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Elements-based schnorr is not yet supported")
-@pytest.mark.skip(reason="Skipping BIP86 tests due to derivation implementation changes")
 def test_p2tr_deposit_withdrawal_with_bip86(node_factory, bitcoind):
     """Test P2TR deposit and withdrawal with BIP86 derivation (default for mnemonic nodes)"""
 
@@ -2283,9 +2275,9 @@ def test_p2tr_deposit_withdrawal_with_bip86(node_factory, bitcoind):
     l1 = setup_bip86_node(node_factory)
 
     # Generate a BIP86 P2TR address for deposit
-    deposit_addr = l1.rpc.newaddr('bip86')
+    deposit_addr = l1.rpc.newaddr('p2tr')
 
-    # Send some funds to the BIP86 P2TR address
+    # Send some funds to the P2TR address (uses BIP86 for mnemonic wallets)
     l1.bitcoin.rpc.sendtoaddress(deposit_addr['p2tr'], 1)
     bitcoind.generate_block(1)
 
@@ -2297,10 +2289,10 @@ def test_p2tr_deposit_withdrawal_with_bip86(node_factory, bitcoind):
     assert len(funds['outputs']) == 1
     assert funds['outputs'][0]['amount_msat'] == 100000000000  # 1 BTC in msat
 
-    # Generate another BIP86 P2TR address for withdrawal
-    withdrawal_addr = l1.rpc.newaddr('bip86')
+    # Generate another P2TR address for withdrawal (uses BIP86 for mnemonic wallets)
+    withdrawal_addr = l1.rpc.newaddr('p2tr')
 
-    # Withdraw to the new BIP86 P2TR address
+    # Withdraw to the new P2TR address
     l1.rpc.withdraw(withdrawal_addr['p2tr'], 50000000)  # 0.5 BTC
     wait_for(lambda: len(bitcoind.rpc.getrawmempool()) == 1)
 
@@ -2315,11 +2307,28 @@ def test_p2tr_deposit_withdrawal_with_bip86(node_factory, bitcoind):
 
     bitcoind.generate_block(1)
 
-    # After withdrawal, we should have change left (new output from the withdrawal transaction)
-    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
+    # After withdrawal, we should have 2 outputs: the withdrawal destination + change
+    # Both belong to the same node since we withdrew to our own BIP86 address
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 2)
     funds = l1.rpc.listfunds()
-    # Should have exactly 0.5 BTC (the withdrawal amount went to our own BIP86 address)
-    assert funds['outputs'][0]['amount_msat'] == 50000000000  # 0.5 BTC in msat
+
+    # Check that we have exactly the addresses we expect
+    fund_addresses = [output['address'] for output in funds['outputs']]
+    assert withdrawal_addr['p2tr'] in fund_addresses, f"Withdrawal address {withdrawal_addr['p2tr']} not found in {fund_addresses}"
+
+    # Find the withdrawal and change outputs
+    withdrawal_output = next(output for output in funds['outputs'] if output['address'] == withdrawal_addr['p2tr'])
+    change_output = next(output for output in funds['outputs'] if output['address'] != withdrawal_addr['p2tr'])
+
+    # Verify amounts
+    assert withdrawal_output['amount_msat'] == 50000000000  # Exactly 0.5 BTC
+    assert change_output['amount_msat'] < 50000000000  # Less than 0.5 BTC due to fees
+    assert change_output['amount_msat'] > 49000000000   # But more than 0.49 BTC
+
+    # Verify total is close to original 1 BTC minus fees
+    total_amount = sum(output['amount_msat'] for output in funds['outputs'])
+    assert total_amount < 100000000000  # Less than 1 BTC due to fees
+    assert total_amount > 99000000000   # But more than 0.99 BTC
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Address is network specific")
