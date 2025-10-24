@@ -107,9 +107,13 @@ enum hsm_secret_type detect_hsm_secret_type(const u8 *hsm_secret, size_t len)
 	/* Legacy 73-byte encrypted format */
 	if (len == ENCRYPTED_HSM_SECRET_LEN)
 		return HSM_SECRET_ENCRYPTED;
-	assert(len > sizeof(struct sha256));
-	/* Check if it starts with our type bytes (mnemonic formats) */
-	if (memeqzero(hsm_secret, 32))
+
+	/* Since HSM_SECRET_PLAIN_SIZE == 32, this must be true! */
+	assert(len >= sizeof(struct sha256));
+
+	/* First 32 bytes are the hash of the resulting seed: all 0
+	 * for "no passphrase" */
+	if (memeqzero(hsm_secret, sizeof(struct sha256)))
 		return HSM_SECRET_MNEMONIC_NO_PASS;
 	else
 		return HSM_SECRET_MNEMONIC_WITH_PASS;
@@ -200,8 +204,6 @@ const char *hsm_secret_error_str(enum hsm_secret_error err)
 		return "Invalid hsm_secret format";
 	case HSM_SECRET_ERR_TERMINAL:
 		return "Terminal error";
-	case HSM_SECRET_ERR_MEMORY:
-		return "Memory error";
 	}
 	return "Unknown error";
 }
@@ -403,7 +405,7 @@ static void restore_echo(const struct termios *saved_term)
 }
 
 /* Read line from stdin (uses tal allocation) */
-static char *read_line(const tal_t *ctx)
+static const char *read_line(const tal_t *ctx)
 {
 	char *line = NULL;
 	size_t size = 0;
@@ -433,7 +435,7 @@ const char *read_stdin_pass(const tal_t *ctx, enum hsm_secret_error *err)
 		return NULL;
 	}
 
-	char *input = read_line(ctx);
+	const char *input = read_line(ctx);
 	if (!input) {
 		if (echo_disabled)
 			restore_echo(&saved_term);
@@ -455,7 +457,7 @@ const char *read_stdin_mnemonic(const tal_t *ctx, enum hsm_secret_error *err)
 	printf("Introduce your BIP39 word list separated by space (at least 12 words):\n");
 	fflush(stdout);
 
-	char *line = read_line(ctx);
+	const char *line = read_line(ctx);
 	if (!line) {
 		*err = HSM_SECRET_ERR_INVALID_FORMAT;
 		return NULL;

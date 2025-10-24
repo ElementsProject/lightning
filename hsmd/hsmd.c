@@ -301,7 +301,6 @@ static void hsmd_send_init_reply_failure(enum hsm_secret_error error_code, enum 
 static void create_hsm(int fd, const char *passphrase)
 {
 	u8 *hsm_secret_data;
-	size_t hsm_secret_len;
 	int ret;
 	/* Always create a mnemonic-based hsm_secret */
 	u8 entropy[BIP39_ENTROPY_LEN_128];
@@ -313,7 +312,6 @@ static void create_hsm(int fd, const char *passphrase)
 	/* Generate random entropy for new mnemonic */
 	randombytes_buf(entropy, sizeof(entropy));
 
-
 	/* Generate mnemonic from entropy */
 	tal_wally_start();
 	ret = bip39_mnemonic_from_bytes(NULL, entropy, sizeof(entropy), &mnemonic);
@@ -322,27 +320,26 @@ static void create_hsm(int fd, const char *passphrase)
 	if (ret != WALLY_OK) {
 		unlink_noerr("hsm_secret");
 		hsmd_send_init_reply_failure(HSM_SECRET_ERR_SEED_DERIVATION_FAILED, STATUS_FAIL_INTERNAL_ERROR,
-			                        "Failed to generate mnemonic from entropy");
+					     "Failed to generate mnemonic from entropy");
 	}
 
 	if (!mnemonic) {
 		unlink_noerr("hsm_secret");
 		hsmd_send_init_reply_failure(HSM_SECRET_ERR_SEED_DERIVATION_FAILED, STATUS_FAIL_INTERNAL_ERROR,
-			                        "Failed to get generated mnemonic");
+					     "Failed to get generated mnemonic");
 	}
 
 	/* Derive seed hash from mnemonic + passphrase (or zero if no passphrase) */
 	if (!derive_seed_hash(mnemonic, passphrase, &seed_hash)) {
 		unlink_noerr("hsm_secret");
 		hsmd_send_init_reply_failure(HSM_SECRET_ERR_SEED_DERIVATION_FAILED, STATUS_FAIL_INTERNAL_ERROR,
-			                        "Failed to derive seed hash from mnemonic");
+					     "Failed to derive seed hash from mnemonic");
 	}
 
 	/* Create hsm_secret format: seed_hash (32 bytes) + mnemonic */
 	hsm_secret_data = tal_arr(tmpctx, u8, 0);
 	towire_sha256(&hsm_secret_data, &seed_hash);
 	towire(&hsm_secret_data, mnemonic, strlen(mnemonic));
-	hsm_secret_len = tal_count(hsm_secret_data);
 
 	/* Derive the actual secret from mnemonic + passphrase for our global hsm_secret */
 	u8 bip32_seed[BIP39_SEED_LEN_512];
@@ -358,7 +355,7 @@ static void create_hsm(int fd, const char *passphrase)
 	}
 
 	/* Write the hsm_secret data to file */
-	if (!write_all(fd, hsm_secret_data, hsm_secret_len)) {
+	if (!write_all(fd, hsm_secret_data, tal_count(hsm_secret_data))) {
 		unlink_noerr("hsm_secret");
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 		              "writing: %s", strerror(errno));
@@ -494,7 +491,7 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 	u32 minversion, maxversion;
 	struct tlv_hsmd_init_tlvs *tlvs;
 	const u32 our_minversion = 4, our_maxversion = 6;
-	const char *hsm_passphrase = NULL;  /* Initialize to NULL */
+	const char *hsm_passphrase;
 
 	/* This must be lightningd. */
 	assert(is_lightningd(c));
@@ -531,6 +528,8 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 	 * never sets that anymore), and we use the TLV instead. */
 	if (tlvs->hsm_passphrase)
 		hsm_passphrase = tlvs->hsm_passphrase;
+	else
+		hsm_passphrase = NULL;
 
 	if (!developer) {
 		assert(!dev_force_privkey);
@@ -637,6 +636,7 @@ static struct io_plan *handle_memleak(struct io_conn *conn,
 
 	memleak_ptr(memtable, dev_force_privkey);
 	memleak_ptr(memtable, dev_force_bip32_seed);
+
 	found_leak = dump_memleak(memtable, memleak_status_broken, NULL);
 	reply = towire_hsmd_dev_memleak_reply(NULL, found_leak);
 	return req_reply(conn, c, take(reply));
@@ -768,15 +768,16 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_CLIENT_HSMFD:
 		return pass_client_hsmfd(conn, c, c->msg_in);
 
-	case WIRE_HSMD_DEV_MEMLEAK:
-		if (developer)
-			return handle_memleak(conn, c, c->msg_in);
-		/* fall thru */
-
 	case WIRE_HSMD_DERIVE_BIP86_KEY:
 		return handle_derive_bip86_key(conn, c, c->msg_in);
 	case WIRE_HSMD_CHECK_BIP86_PUBKEY:
 		return handle_check_bip86_pubkey(conn, c, c->msg_in);
+
+	case WIRE_HSMD_DEV_MEMLEAK:
+		if (!developer)
+			break;
+		return handle_memleak(conn, c, c->msg_in);
+
 	case WIRE_HSMD_NEW_CHANNEL:
 	case WIRE_HSMD_SETUP_CHANNEL:
  	case WIRE_HSMD_CHECK_OUTPOINT:
