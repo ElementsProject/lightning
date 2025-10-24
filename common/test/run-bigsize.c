@@ -333,8 +333,8 @@ int main(int argc, char *argv[])
 
 	common_setup(argv[0]);
 
-	lines = tal_strsplit(tmpctx, grab_file(tmpctx, tal_fmt(tmpctx, "%s.c",
-							       argv[0])),
+	lines = tal_strsplit(tmpctx, grab_file_str(tmpctx, tal_fmt(tmpctx, "%s.c",
+								   argv[0])),
 			     "\n", STR_NO_EMPTY);
 
 	for (size_t i = 0; lines[i]; i++) {

@@ -499,17 +499,9 @@ const char *format_type_name(enum hsm_secret_type type)
 
 u8 *grab_file_contents(const tal_t *ctx, const char *filename, size_t *len)
 {
-	u8 *contents = grab_file(ctx, filename);
-	if (!contents) {
-		if (len)
-			*len = 0;
-		return NULL;
-	}
-
-	/* grab_file adds a NUL terminator, so we resize to remove it */
-	size_t contents_len = tal_bytelen(contents) - 1;
+	u8 *contents = grab_file_raw(ctx, filename);
 	if (len)
-		*len = contents_len;
+		*len = tal_bytelen(contents);
 
 	return contents;
 }

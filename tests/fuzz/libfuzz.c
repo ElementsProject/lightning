@@ -146,9 +146,9 @@ int main(int argc, char *argv[])
 		u8 *contents;
 		if (streq(di->d_name, ".") || streq(di->d_name, ".."))
 			continue;
-		contents = grab_file(tmpctx, di->d_name);
+		contents = grab_file_raw(tmpctx, di->d_name);
 		assert(contents);
-		run(contents, tal_bytelen(contents)-1);
+		run(contents, tal_bytelen(contents));
 	}
 	closedir(d);
 	common_shutdown();

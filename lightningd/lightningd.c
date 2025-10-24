@@ -487,8 +487,8 @@ void test_subdaemons(const struct lightningd *ld)
 			err(EXITCODE_SUBDAEMON_FAIL, "Could not run %s", dpath);
 
 		/*~ CCAN's grab_file module contains a routine to read into a
-		 * tallocated buffer until EOF */
-		verstring = grab_fd(tmpctx, outfd);
+		 * tallocated buffer until EOF (with nul appended!) */
+		verstring = grab_fd_str(tmpctx, outfd);
 		/*~ Like many CCAN modules, it set errno on failure, which
 		 * err (ccan/err, but usually just the BSD <err.h>) prints */
 		if (!verstring)

@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
 	struct htable_str ht;
 	char **words, **misswords;
 
-	words = tal_strsplit(NULL, grab_file(NULL,
+	words = tal_strsplit(NULL, grab_file_str(NULL,
 					     argv[1] ? argv[1] : "/usr/share/dict/words"), "\n",
 			     STR_NO_EMPTY);
 	htable_str_init(&ht);

@@ -321,7 +321,7 @@ static u32 file_checksum(struct lightningd *ld, const char *path)
 	if (ld->dev_no_plugin_checksum)
 		return 0;
 
-	content = grab_file(tmpctx, path);
+	content = grab_file_raw(tmpctx, path);
 	crc = crc32c(0, content, tal_count(content));
 	/* We could leave this around, but we checksum many files in a loop,
 	 * causing 450MB of allocations at startup! */

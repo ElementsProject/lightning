@@ -1066,7 +1066,7 @@ static void wait_and_check_bitcoind(struct plugin *p)
 		plugin_err(p, "%s exec failed: %s", cmd[0], strerror(errno));
 	}
 
-	output = grab_fd(cmd, from);
+	output = grab_fd_str(cmd, from);
 
 	waitpid(child, &status, 0);
 

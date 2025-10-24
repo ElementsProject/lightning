@@ -32,7 +32,7 @@
  *		char *file, *word;
  *
  *		strset_init(&words);
- *		file = grab_fd(NULL, 0);
+ *		file = grab_fd_str(NULL, 0);
  *		if (!file)
  *			err(1, "Reading stdin");
  *
