@@ -1488,7 +1488,8 @@ static const struct refresh_funcs refresh_funcs[] = {
 	{ "listclosedchannels", default_refresh },
 	{ "listtransactions", default_refresh },
 	{ "bkpr-listaccountevents", default_refresh },
-	{ "bkpr-listincome", default_refresh }
+	{ "bkpr-listincome", default_refresh },
+	{ "listnetworkevents", default_refresh },
 };
 
 static const struct refresh_funcs *find_command_refresh(const char *cmdname)
