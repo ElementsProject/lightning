@@ -2367,8 +2367,7 @@ u8 *hsmd_init(struct secret hsm_secret, const u64 hsmd_version,
 
 	/* Fill in the BIP32 tree for bitcoin addresses. */
 	/* In libwally-core, the version BIP32_VER_TEST_PRIVATE is for testnet/regtest,
-	 * and BIP32_VER_MAIN_PRIVATE is for mainnet. For litecoin, we also set it like
-	 * bitcoin else.*/
+	 * and BIP32_VER_MAIN_PRIVATE is for mainnet. */
 	do {
 		hkdf_sha256(bip32_seed, sizeof(bip32_seed),
 			    &salt, sizeof(salt),
