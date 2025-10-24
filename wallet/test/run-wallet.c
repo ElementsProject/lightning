@@ -315,6 +315,9 @@ bool fromwire_dualopend_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNN
 /* Generated stub for fromwire_gossipd_addgossip_reply */
 bool fromwire_gossipd_addgossip_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, wirestring **err UNNEEDED)
 { fprintf(stderr, "fromwire_gossipd_addgossip_reply called!\n"); abort(); }
+/* Generated stub for fromwire_hsmd_check_bip86_pubkey_reply */
+bool fromwire_hsmd_check_bip86_pubkey_reply(const void *p UNNEEDED, bool *ok UNNEEDED)
+{ fprintf(stderr, "fromwire_hsmd_check_bip86_pubkey_reply called!\n"); abort(); }
 /* Generated stub for fromwire_hsmd_check_pubkey_reply */
 bool fromwire_hsmd_check_pubkey_reply(const void *p UNNEEDED, bool *ok UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_check_pubkey_reply called!\n"); abort(); }
@@ -324,6 +327,9 @@ bool fromwire_hsmd_client_hsmfd_reply(const void *p UNNEEDED)
 /* Generated stub for fromwire_hsmd_cupdate_sig_reply */
 bool fromwire_hsmd_cupdate_sig_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **cu UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_cupdate_sig_reply called!\n"); abort(); }
+/* Generated stub for fromwire_hsmd_derive_bip86_key_reply */
+bool fromwire_hsmd_derive_bip86_key_reply(const void *p UNNEEDED, struct ext_key *bip86_base UNNEEDED)
+{ fprintf(stderr, "fromwire_hsmd_derive_bip86_key_reply called!\n"); abort(); }
 /* Generated stub for fromwire_hsmd_derive_secret_reply */
 bool fromwire_hsmd_derive_secret_reply(const void *p UNNEEDED, struct secret *secret UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_derive_secret_reply called!\n"); abort(); }
@@ -693,6 +699,9 @@ u8 *towire_dualopend_dev_memleak(const tal_t *ctx UNNEEDED)
 /* Generated stub for towire_gossipd_addgossip */
 u8 *towire_gossipd_addgossip(const tal_t *ctx UNNEEDED, const u8 *msg UNNEEDED, struct amount_sat *known_channel UNNEEDED)
 { fprintf(stderr, "towire_gossipd_addgossip called!\n"); abort(); }
+/* Generated stub for towire_hsmd_check_bip86_pubkey */
+u8 *towire_hsmd_check_bip86_pubkey(const tal_t *ctx UNNEEDED, u32 index UNNEEDED, const struct pubkey *pubkey UNNEEDED)
+{ fprintf(stderr, "towire_hsmd_check_bip86_pubkey called!\n"); abort(); }
 /* Generated stub for towire_hsmd_check_pubkey */
 u8 *towire_hsmd_check_pubkey(const tal_t *ctx UNNEEDED, u32 index UNNEEDED, const struct pubkey *pubkey UNNEEDED)
 { fprintf(stderr, "towire_hsmd_check_pubkey called!\n"); abort(); }
@@ -702,6 +711,9 @@ u8 *towire_hsmd_client_hsmfd(const tal_t *ctx UNNEEDED, const struct node_id *id
 /* Generated stub for towire_hsmd_cupdate_sig_req */
 u8 *towire_hsmd_cupdate_sig_req(const tal_t *ctx UNNEEDED, const u8 *cu UNNEEDED)
 { fprintf(stderr, "towire_hsmd_cupdate_sig_req called!\n"); abort(); }
+/* Generated stub for towire_hsmd_derive_bip86_key */
+u8 *towire_hsmd_derive_bip86_key(const tal_t *ctx UNNEEDED, u32 index UNNEEDED, bool is_change UNNEEDED)
+{ fprintf(stderr, "towire_hsmd_derive_bip86_key called!\n"); abort(); }
 /* Generated stub for towire_hsmd_derive_secret */
 u8 *towire_hsmd_derive_secret(const tal_t *ctx UNNEEDED, const u8 *info UNNEEDED)
 { fprintf(stderr, "towire_hsmd_derive_secret called!\n"); abort(); }
