@@ -602,7 +602,7 @@ def test_withdraw_misc(node_factory, bitcoind, chainparams):
                                options={'plugin': coin_mvt_plugin},
                                feerates=(7500, 7500, 7500, 7500))
     l2 = node_factory.get_node(random_hsm=True)
-    addr = l1.rpc.newaddr()['bech32']
+    addr = l1.rpc.newaddr('p2tr')['p2tr']
 
     # Add some funds to withdraw later
     for i in range(10):
