@@ -43,25 +43,6 @@ RUN gpg --quiet --import gpg/* && \
 
 RUN tar xzf ${BITCOIN_TARBALL} --strip-components=1
 
-ARG LITECOIN_VERSION=0.16.3
-ARG LITECOIN_BASE_URL=https://download.litecoin.org/litecoin-${LITECOIN_VERSION}
-ARG LITECOIN_URL=${LITECOIN_BASE_URL}/linux
-ARG LITECOIN_TARBALL=litecoin-${LITECOIN_VERSION}-${target_arch}.tar.gz
-
-WORKDIR /opt/litecoin
-
-ADD ${LITECOIN_URL}/${LITECOIN_TARBALL}        .
-ADD ${LITECOIN_URL}/${LITECOIN_TARBALL}.asc    .
-ADD ${LITECOIN_BASE_URL}/SHA256SUMS.asc        .
-COPY contrib/keys/litecoin/                    gpg/
-
-RUN gpg --quiet --import gpg/* && \
-    gpg --verify SHA256SUMS.asc && \
-    gpg --verify ${LITECOIN_TARBALL}.asc ${LITECOIN_TARBALL} && \
-    sha256sum -c SHA256SUMS.asc --ignore-missing
-
-RUN tar xzf ${LITECOIN_TARBALL} --strip-components=1
-
 FROM base-host AS base-builder
 
 RUN apt-get update && \
@@ -185,7 +166,6 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=downloader    /opt/bitcoin/bin/bitcoin-cli      /usr/bin/
-COPY --from=downloader    /opt/litecoin/bin/litecoin-cli    /usr/bin/
 COPY --from=builder       /tmp/lightning_install/           /usr/local/
 
 COPY tools/docker-entrypoint.sh    /entrypoint.sh

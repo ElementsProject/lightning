@@ -369,8 +369,7 @@ int main(int argc, char *argv[])
 	opt_register_arg("--network", opt_set_network, opt_show_network,
 	                 NULL,
 	                 "Select the network parameters (bitcoin, testnet, signet,"
-	                 " regtest, liquid, liquid-regtest, litecoin or"
-	                 " litecoin-testnet)");
+	                 " regtest, liquid, or liquid-regtest)");
 	opt_register_noarg("--must-get-max-messages", opt_set_bool, &no_early_close,
 			   "Fail with exit code 1 unless we reach maximum messages");
 	opt_register_noarg("--help|-h", opt_usage_and_exit,

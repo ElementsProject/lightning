@@ -1,13 +1,8 @@
 SUBMODULES =					\
-	external/libsodium			\
 	external/libwally-core			\
 	external/gheap				\
 	external/jsmn				\
 	external/libbacktrace
-
-ifeq ($(HAVE_LOWDOWN),0)
-SUBMODULES += external/lowdown
-endif
 
 TOP := ../..
 ifdef BUILD
@@ -17,7 +12,6 @@ else
 TARGET_DIR := external/build-$(shell ${CC} -dumpmachine)
 endif
 
-LIBSODIUM_HEADERS := external/libsodium/src/libsodium/include/sodium.h
 LIBWALLY_HEADERS := external/libwally-core/include/wally_bip32.h		\
 			external/libwally-core/include/wally_core.h	\
 			external/libwally-core/include/wally_psbt.h	\
@@ -29,12 +23,8 @@ JSMN_HEADERS := external/jsmn/jsmn.h
 GHEAP_HEADERS := external/gheap/gheap.h
 LIBBACKTRACE_HEADERS := external/libbacktrace/backtrace.h
 
-EXTERNAL_HEADERS := $(LIBSODIUM_HEADERS) $(LIBWALLY_HEADERS) $(LIBSECP_HEADERS) $(JSMN_HEADERS) $(GHEAP_HEADERS) $(LIBBACKTRACE_HEADERS)
+EXTERNAL_HEADERS := $(LIBWALLY_HEADERS) $(LIBSECP_HEADERS) $(JSMN_HEADERS) $(GHEAP_HEADERS) $(LIBBACKTRACE_HEADERS)
 EXTERNAL_LIBS := ${TARGET_DIR}/libwallycore.a ${TARGET_DIR}/libsecp256k1.a ${TARGET_DIR}/libjsmn.a ${TARGET_DIR}/libbacktrace.a
-
-ifeq ($(HAVE_LOWDOWN),0)
-EXTERNAL_HEADERS += external/lowdown/lowdown.h
-endif
 
 EXTERNAL_INCLUDE_FLAGS :=					\
 	-I external/libwally-core/include/			\
@@ -44,14 +34,7 @@ EXTERNAL_INCLUDE_FLAGS :=					\
 	-I external/gheap/					\
 	-I ${TARGET_DIR}/libbacktrace-build
 
-ifneq ($(HAVE_GOOD_LIBSODIUM),1)
-EXTERNAL_INCLUDE_FLAGS += -I external/libsodium/src/libsodium/include \
-			  -I external/libsodium/src/libsodium/include/sodium \
-			  -I $(TARGET_DIR)/libsodium-build/src/libsodium/include
-EXTERNAL_LIBS += ${TARGET_DIR}/libsodium.a
-else
 LDLIBS += $(SODIUM_LDLIBS)
-endif
 
 ifeq ($(HAVE_ZLIB),1)
 LDLIBS += -lz
@@ -66,15 +49,6 @@ ifneq ($(VERSION),)
 endif
 
 $(EXTERNAL_HEADERS): submodcheck
-
-# We build libsodium, since Ubuntu xenial has one too old.
-$(TARGET_DIR)/libsodium.a: $(TARGET_DIR)/libsodium-build/src/libsodium/libsodium.la
-	$(MAKE) -C $(TARGET_DIR)/libsodium-build DESTDIR=$$(pwd)/$(TARGET_DIR) install-exec
-
-$(TARGET_DIR)/libsodium-build/src/libsodium/libsodium.la: external/libsodium/src/libsodium/include/sodium.h
-	cd external/libsodium && ./autogen.sh
-	mkdir -p ${TARGET_DIR}/libsodium-build
-	cd $(TARGET_DIR)/libsodium-build && $(TOP)/libsodium/configure CC="$(CC)" CFLAGS="$(FUZZFLAGS)" LDFLAGS="$(FUZZFLAGS)" --enable-static=yes $(CROSSCOMPILE_OPTS) --enable-shared=no --prefix=/ --libdir=/ && $(MAKE)
 
 # libsecp included in libwally.
 # Wildcards here are magic.  See http://stackoverflow.com/questions/2973445/gnu-makefile-rule-generating-a-few-targets-from-a-single-source-file
@@ -117,10 +91,6 @@ $(TARGET_DIR)/libbacktrace.a: external/libbacktrace/backtrace.h
 	cd $(TARGET_DIR)/libbacktrace-build && $(TOP)/libbacktrace/configure CC="$(CC)" --enable-static=yes $(CROSSCOMPILE_OPTS) --enable-shared=no --prefix=/ --libdir=/ && $(MAKE)
 	$(MAKE) -C $(TARGET_DIR)/libbacktrace-build DESTDIR=$$(pwd)/$(TARGET_DIR) install-exec
 
-$(TARGET_DIR)/lowdown-build/bin/lowdown: external/lowdown/lowdown.h
-	cd external/lowdown && CC="$(CC)" CFLAGS="$(FUZZFLAGS)" ./configure LDFLAGS="$(FUZZFLAGS)" PREFIX=`pwd`/$(TOP)/$(TARGET_DIR)/lowdown-build/
-	$(MAKE) -C external/lowdown install
-
 distclean: external-distclean
 clean: external-clean
 
@@ -129,7 +99,5 @@ external-clean:
 	$(RM) -rf $(TARGET_DIR)
 
 external-distclean:
-	make -C external/libsodium distclean || true
-	if [ -f external/lowdown/Makefile.configure ]; then $(MAKE) -C external/lowdown distclean; fi
 	$(RM) -rf ${TARGET_DIR}/libbacktrace-build ${TARGET_DIR}/libsodium-build ${TARGET_DIR}/libwally-core-build ${TARGET_DIR}/jsmn-build
 	$(RM) -r `git status --ignored --porcelain external/libwally-core | grep '^!! ' | cut -c3-`
