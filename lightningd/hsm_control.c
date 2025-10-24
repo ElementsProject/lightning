@@ -98,7 +98,7 @@ struct ext_key *hsm_init(struct lightningd *ld)
 	/* If hsm_secret is encrypted and the --encrypted-hsm startup option is
 	 * not passed, don't let hsmd use the first 32 bytes of the cypher as the
 	 * actual secret. */
-	if (!ld->config.keypass) {
+	if (!ld->hsm_passphrase) {
 		if (is_hsm_secret_encrypted("hsm_secret") == 1)
 			errx(EXITCODE_HSM_ERROR_IS_ENCRYPT, "hsm_secret is encrypted, you need to pass the "
 			     "--encrypted-hsm startup option.");
@@ -122,16 +122,24 @@ struct ext_key *hsm_init(struct lightningd *ld)
 		    err(EXITCODE_HSM_GENERIC_ERROR, "Writing preinit msg to hsm");
 	}
 
+	/* Create TLV for passphrase if needed */
+	struct tlv_hsmd_init_tlvs *tlv = NULL;
+	if (ld->hsm_passphrase) {
+		tlv = tlv_hsmd_init_tlvs_new(tmpctx);
+		tlv->hsm_passphrase = ld->hsm_passphrase;
+	}
+
 	if (!wire_sync_write(ld->hsm_fd, towire_hsmd_init(tmpctx,
 							  &chainparams->bip32_key_version,
 							  chainparams,
-							  ld->config.keypass,
+							  NULL,
 							  ld->dev_force_privkey,
 							  ld->dev_force_bip32_seed,
 							  ld->dev_force_channel_secrets,
 							  ld->dev_force_channel_secrets_shaseed,
 							  HSM_MIN_VERSION,
-							  HSM_MAX_VERSION)))
+							  HSM_MAX_VERSION,
+							  tlv)))
 		err(EXITCODE_HSM_GENERIC_ERROR, "Writing init msg to hsm");
 
 	bip32_base = tal(ld, struct ext_key);
@@ -143,7 +151,7 @@ struct ext_key *hsm_init(struct lightningd *ld)
 					&unused)) {
 		/* nothing to do. */
 	} else {
-		if (ld->config.keypass)
+		if (ld->hsm_passphrase)
 			errx(EXITCODE_HSM_BAD_PASSWORD, "Wrong password for encrypted hsm_secret.");
 		errx(EXITCODE_HSM_GENERIC_ERROR, "HSM did not give init reply");
 	}

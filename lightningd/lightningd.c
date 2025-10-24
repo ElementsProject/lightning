@@ -309,10 +309,10 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	/*~ This is set when a JSON RPC command comes in to shut us down. */
 	ld->stop_conn = NULL;
 
-	/*~ This is used to signal that `hsm_secret` is encrypted, and will
-	 * be set to `true` if the `--encrypted-hsm` option is passed at startup.
+	/*~ This is used to store the passphrase for hsm_secret if needed.
+	 * It will be set if the `--hsm-passphrase` option is passed at startup.
 	 */
-	ld->encrypted_hsm = false;
+	ld->hsm_passphrase = NULL;
 
 	/* This is used to override subdaemons */
 	strmap_init(&ld->alt_subdaemons);
@@ -1304,11 +1304,6 @@ int main(int argc, char *argv[])
 
 	/*~ This is the ccan/io central poll override from above. */
 	io_poll_override(io_poll_lightningd);
-
-	/*~ If hsm_secret is encrypted, we don't need its encryption key
-	 * anymore. Note that sodium_munlock() also zeroes the memory.*/
-	if (ld->config.keypass)
-		discard_key(take(ld->config.keypass));
 
 	/*~ Our default color and alias are derived from our node id, so we
 	 * can only set those now (if not set by config options). */

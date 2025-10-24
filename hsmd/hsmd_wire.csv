@@ -29,6 +29,9 @@ msgdata,hsmd_init,dev_force_channel_secrets,?secrets,
 msgdata,hsmd_init,dev_force_channel_secrets_shaseed,?sha256,
 msgdata,hsmd_init,hsm_wire_min_version,u32,
 msgdata,hsmd_init,hsm_wire_max_version,u32,
+msgdata,hsmd_init,tlvs,hsmd_init_tlvs,
+tlvtype,hsmd_init_tlvs,hsm_passphrase,1
+tlvdata,hsmd_init_tlvs,hsm_passphrase,passphrase,wirestring,
 
 #include <common/bip32.h>
 # Sorry: I should have put version in v2 :(

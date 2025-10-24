@@ -641,6 +641,9 @@ void tell_connectd_peer_importance(struct peer *peer UNNEEDED,
 /* Generated stub for tlv_hsmd_dev_preinit_tlvs_new */
 struct tlv_hsmd_dev_preinit_tlvs *tlv_hsmd_dev_preinit_tlvs_new(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "tlv_hsmd_dev_preinit_tlvs_new called!\n"); abort(); }
+/* Generated stub for tlv_hsmd_init_tlvs_new */
+struct tlv_hsmd_init_tlvs *tlv_hsmd_init_tlvs_new(const tal_t *ctx UNNEEDED)
+{ fprintf(stderr, "tlv_hsmd_init_tlvs_new called!\n"); abort(); }
 /* Generated stub for topology_add_sync_waiter_ */
 void topology_add_sync_waiter_(const tal_t *ctx UNNEEDED,
 			       struct chain_topology *topo UNNEEDED,
@@ -712,7 +715,7 @@ u8 *towire_hsmd_forget_channel(const tal_t *ctx UNNEEDED, const struct node_id *
 u8 *towire_hsmd_get_output_scriptpubkey(const tal_t *ctx UNNEEDED, u64 channel_id UNNEEDED, const struct node_id *peer_id UNNEEDED, const struct pubkey *commitment_point UNNEEDED)
 { fprintf(stderr, "towire_hsmd_get_output_scriptpubkey called!\n"); abort(); }
 /* Generated stub for towire_hsmd_init */
-u8 *towire_hsmd_init(const tal_t *ctx UNNEEDED, const struct bip32_key_version *bip32_key_version UNNEEDED, const struct chainparams *chainparams UNNEEDED, const struct secret *hsm_encryption_key UNNEEDED, const struct privkey *dev_force_privkey UNNEEDED, const struct secret *dev_force_bip32_seed UNNEEDED, const struct secrets *dev_force_channel_secrets UNNEEDED, const struct sha256 *dev_force_channel_secrets_shaseed UNNEEDED, u32 hsm_wire_min_version UNNEEDED, u32 hsm_wire_max_version UNNEEDED)
+u8 *towire_hsmd_init(const tal_t *ctx UNNEEDED, const struct bip32_key_version *bip32_key_version UNNEEDED, const struct chainparams *chainparams UNNEEDED, const struct secret *hsm_encryption_key UNNEEDED, const struct privkey *dev_force_privkey UNNEEDED, const struct secret *dev_force_bip32_seed UNNEEDED, const struct secrets *dev_force_channel_secrets UNNEEDED, const struct sha256 *dev_force_channel_secrets_shaseed UNNEEDED, u32 hsm_wire_min_version UNNEEDED, u32 hsm_wire_max_version UNNEEDED, const struct tlv_hsmd_init_tlvs *tlvs UNNEEDED)
 { fprintf(stderr, "towire_hsmd_init called!\n"); abort(); }
 /* Generated stub for towire_hsmd_new_channel */
 u8 *towire_hsmd_new_channel(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, u64 dbid UNNEEDED)
