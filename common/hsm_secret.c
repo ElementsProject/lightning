@@ -415,8 +415,8 @@ static char *read_line(const tal_t *ctx)
 
 	/* Strip newline */
 	size_t len = strlen(line);
-	if (len > 0 && line[len - 1] == '\n')
-		line[len - 1] = '\0';
+	if (strends(line, "\n"))
+		len--;
 
 	/* Convert to tal string */
 	char *result = tal_strndup(ctx, line, len);
