@@ -45,7 +45,6 @@ COMMON_SRC_NOGEN :=				\
 	common/hash_u5.c			\
 	common/hmac.c				\
 	common/hsm_capable.c			\
-	common/hsm_encryption.c			\
 	common/hsm_secret.c			\
 	common/htlc_state.c			\
 	common/htlc_trim.c			\
