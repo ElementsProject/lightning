@@ -740,6 +740,7 @@ message ExposesecretRequest {
 message ExposesecretResponse {
 	string identifier = 1;
 	string codex32 = 2;
+	optional string mnemonic = 3;
 }
 
 message RecoverRequest {

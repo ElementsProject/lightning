@@ -451,6 +451,7 @@ def exposesecret2py(m):
     return remove_default({
         "codex32": m.codex32,  # PrimitiveField in generate_composite
         "identifier": m.identifier,  # PrimitiveField in generate_composite
+        "mnemonic": m.mnemonic,  # PrimitiveField in generate_composite
     })
 
 
