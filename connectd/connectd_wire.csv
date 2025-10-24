@@ -73,6 +73,7 @@ msgdata,connectd_connect_failed,connect_reason,wirestring,
 msgdata,connectd_connect_failed,connect_nsec,u64,
 msgdata,connectd_connect_failed,failcode,enum jsonrpc_errcode,
 msgdata,connectd_connect_failed,failreason,wirestring,
+msgdata,connectd_connect_failed,connect_attempted,bool,
 
 # Connectd -> master: we got a peer.
 msgtype,connectd_peer_connected,2002
