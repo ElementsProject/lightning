@@ -1917,6 +1917,95 @@ def test_bip86_mnemonic_recovery(node_factory, bitcoind):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "BIP86 tests are regtest-specific")
+def test_bip86_index_boundaries(node_factory):
+    """Test BIP86 behavior at index boundaries"""
+    l1 = setup_bip86_node(node_factory)
+
+    # Test that we can generate multiple addresses in sequence
+    # This tests the internal index management
+    addresses = []
+    for i in range(5):
+        addr = l1.rpc.newaddr('bip86')['p2tr']
+        addresses.append(addr)
+        # Each address should be unique
+        assert addr not in addresses[:-1], f"Duplicate address generated: {addr}"
+
+    # Test that addresses are deterministic - same node should generate same sequence
+    l2 = setup_bip86_node(node_factory)  # Same mnemonic
+
+    addresses2 = []
+    for i in range(5):
+        addr = l2.rpc.newaddr('bip86')['p2tr']
+        addresses2.append(addr)
+
+    # Should generate the same addresses in the same order
+    assert addresses == addresses2, "BIP86 addresses not deterministic across nodes with same mnemonic"
+
+    # Test generating a large number of addresses to check for any overflow issues
+    # Generate 100 more addresses to test higher indices
+    for i in range(100):
+        addr = l1.rpc.newaddr('bip86')['p2tr']
+        assert addr.startswith('bcrt1p'), f"Invalid BIP86 address format: {addr}"
+        assert len(addr) > 50, f"BIP86 address too short: {addr}"
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', "BIP86 tests are regtest-specific")
+def test_bip86_psbt_integration(node_factory, bitcoind, chainparams):
+    """Test BIP86 addresses in PSBT workflows"""
+    l1 = setup_bip86_node(node_factory)
+
+    # Fund BIP86 address
+    bip86_addr = l1.rpc.newaddr('bip86')['p2tr']
+    amount_sats = 1000000  # 0.01 BTC
+
+    # Send funds to the BIP86 address
+    bitcoind.rpc.sendtoaddress(bip86_addr, amount_sats / 10**8)
+    bitcoind.generate_block(1)
+
+    # Wait for the node to see the transaction
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
+
+    # Verify the funds are visible and confirmed
+    funds = l1.rpc.listfunds()
+    bip86_outputs = [out for out in funds['outputs'] if out['address'] == bip86_addr]
+    assert len(bip86_outputs) == 1, f"Expected 1 BIP86 output, got {len(bip86_outputs)}"
+    assert bip86_outputs[0]['amount_msat'] == amount_sats * 1000
+    assert bip86_outputs[0]['status'] == 'confirmed'
+
+    # Create PSBT with BIP86 input
+    dest_addr = bitcoind.rpc.getnewaddress()
+    send_amount = 500000  # 0.005 BTC
+
+    # Use txprepare to create a PSBT
+    psbt_result = l1.rpc.txprepare([{dest_addr: send_amount}])
+    psbt_str = psbt_result['psbt']
+
+    # Verify PSBT was created successfully
+    assert psbt_str is not None and len(psbt_str) > 0, "PSBT creation failed"
+
+    # Sign the PSBT
+    signed_result = l1.rpc.signpsbt(psbt_str)
+    assert 'signed_psbt' in signed_result, "PSBT signing failed - no signed_psbt returned"
+    assert len(signed_result['signed_psbt']) > 0, "PSBT signing failed - empty signed_psbt"
+
+    # Send the signed PSBT
+    send_result = l1.rpc.sendpsbt(signed_result['signed_psbt'])
+    sent_txid = send_result['txid']
+
+    # Mine the transaction
+    bitcoind.generate_block(1)
+
+    # Wait for the transaction to be confirmed (blockheight > 0)
+    wait_for(lambda: len([tx for tx in l1.rpc.listtransactions()['transactions']
+                         if tx['hash'] == sent_txid and tx['blockheight'] > 0]) > 0)
+
+    # Verify the transaction exists in the blockchain and is confirmed
+    transactions = l1.rpc.listtransactions()['transactions']
+    sent_tx = [tx for tx in transactions if tx['hash'] == sent_txid][0]
+    assert sent_tx['blockheight'] > 0, "Transaction should be confirmed in a block"
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', "BIP86 tests are regtest-specific")
 def test_bip86_address_type_validation(node_factory):
     """Test address type validation for BIP86 addresses"""
     l1 = setup_bip86_node(node_factory)
