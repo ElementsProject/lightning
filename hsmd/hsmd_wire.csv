@@ -34,6 +34,7 @@ tlvtype,hsmd_init_tlvs,hsm_passphrase,1
 tlvdata,hsmd_init_tlvs,hsm_passphrase,passphrase,wirestring,
 
 #include <common/bip32.h>
+#include <wally_bip32.h>
 # Sorry: I should have put version in v2 :(
 msgtype,hsmd_init_reply_v4,114
 # This gets upgraded when the wire protocol changes in incompatible
@@ -50,6 +51,8 @@ msgdata,hsmd_init_reply_v4,tlvs,hsmd_init_reply_v4_tlvs,
 # TLV to indicate HSM secret type
 tlvtype,hsmd_init_reply_v4_tlvs,hsm_secret_type,1
 tlvdata,hsmd_init_reply_v4_tlvs,hsm_secret_type,hsm_type,u8,
+tlvtype,hsmd_init_reply_v4_tlvs,bip86_base,2
+tlvdata,hsmd_init_reply_v4_tlvs,bip86_base,base,ext_key,
 
 # HSM initialization failure response
 msgtype,hsmd_init_reply_failure,115
@@ -199,14 +202,6 @@ msgdata,hsmd_preapprove_keysend_check,check_only,bool,
 # Result is true if approved, declined if false 
 msgtype,hsmd_preapprove_keysend_check_reply,152
 msgdata,hsmd_preapprove_keysend_check_reply,approved,bool,
-
-# Derive BIP86 key using path m/86'/0'/0'/change/address_index
-msgtype,hsmd_derive_bip86_key,54
-msgdata,hsmd_derive_bip86_key,index,u32,
-msgdata,hsmd_derive_bip86_key,is_change,bool,
-
-msgtype,hsmd_derive_bip86_key_reply,154
-msgdata,hsmd_derive_bip86_key_reply,bip86_base,ext_key,
 
 # Give me ECDH(node-id-secret,point)
 msgtype,hsmd_ecdh_req,1

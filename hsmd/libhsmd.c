@@ -138,7 +138,6 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 	case WIRE_HSMD_LOCK_OUTPOINT:
 		return (client->capabilities & HSM_PERM_LOCK_OUTPOINT) != 0;
 
-	case WIRE_HSMD_DERIVE_BIP86_KEY:
 	case WIRE_HSMD_CHECK_BIP86_PUBKEY:
 	case WIRE_HSMD_INIT:
 	case WIRE_HSMD_DEV_PREINIT:
@@ -209,7 +208,6 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 	case WIRE_HSMD_PREAPPROVE_KEYSEND_CHECK_REPLY:
 	case WIRE_HSMD_DERIVE_SECRET_REPLY:
 	case WIRE_HSMD_CHECK_PUBKEY_REPLY:
-	case WIRE_HSMD_DERIVE_BIP86_KEY_REPLY:
 	case WIRE_HSMD_CHECK_BIP86_PUBKEY_REPLY:
 	case WIRE_HSMD_SIGN_ANCHORSPEND_REPLY:
 	case WIRE_HSMD_SIGN_HTLC_TX_MINGLE_REPLY:
@@ -542,26 +540,9 @@ static void hsm_key_for_utxo(struct privkey *privkey, struct pubkey *pubkey,
 		hsmd_status_debug("Derived public key %s from unilateral close",
 				  fmt_pubkey(tmpctx, pubkey));
 	} else {
-		/* Check if this is a BIP86 UTXO by examining the scriptPubkey */
-		const size_t script_len = tal_bytelen(utxo->scriptPubkey);
-		bool is_bip86 = false;
-
-		/* For P2TR scripts, we need to determine if it's BIP86 or regular P2TR
-		 * But BIP86 derivation requires mnemonic-based secrets */
-		if (is_p2tr(utxo->scriptPubkey, script_len, NULL) &&
-		    use_bip86_derivation(tal_bytelen(secretstuff.bip32_seed))) {
-			/* Try BIP86 derivation first and see if it matches */
-			struct pubkey test_pubkey;
-			bip86_key(NULL, &test_pubkey, utxo->keyindex);
-
-			/* Create P2TR scriptpubkey from BIP86 key and compare */
-			const u8 *bip86_script = scriptpubkey_p2tr(tmpctx, &test_pubkey);
-			if (memeq(utxo->scriptPubkey, script_len, bip86_script, tal_bytelen(bip86_script))) {
-				is_bip86 = true;
-			}
-		}
-
-		if (is_bip86) {
+		/* Modern HSMs use bip86 for p2tr. */
+		if (is_p2tr(utxo->scriptPubkey, tal_bytelen(utxo->scriptPubkey), NULL)
+		    && use_bip86_derivation(tal_bytelen(secretstuff.bip32_seed))) {
 			/* Use BIP86 derivation */
 			bip86_key(privkey, pubkey, utxo->keyindex);
 		} else {
@@ -2316,7 +2297,6 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 		return handle_derive_secret(client, msg);
 	case WIRE_HSMD_CHECK_PUBKEY:
 		return handle_check_pubkey(client, msg);
-	case WIRE_HSMD_DERIVE_BIP86_KEY:
 	case WIRE_HSMD_CHECK_BIP86_PUBKEY:
 		/* This should be handled by hsmd.c, not libhsmd */
 		return hsmd_status_bad_request_fmt(
@@ -2373,7 +2353,6 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 	case WIRE_HSMD_PREAPPROVE_KEYSEND_REPLY:
 	case WIRE_HSMD_PREAPPROVE_INVOICE_CHECK_REPLY:
 	case WIRE_HSMD_PREAPPROVE_KEYSEND_CHECK_REPLY:
-	case WIRE_HSMD_DERIVE_BIP86_KEY_REPLY:
 	case WIRE_HSMD_CHECK_PUBKEY_REPLY:
 	case WIRE_HSMD_CHECK_BIP86_PUBKEY_REPLY:
 	case WIRE_HSMD_SIGN_ANCHORSPEND_REPLY:
@@ -2610,8 +2589,13 @@ u8 *hsmd_init(const u8 *secret_data, size_t secret_len, const u64 hsmd_version,
 	 */
 	/* Create TLV with HSM secret type */
 	struct tlv_hsmd_init_reply_v4_tlvs *tlvs = tlv_hsmd_init_reply_v4_tlvs_new(tmpctx);
-	tlvs->hsm_secret_type = tal(tlvs, u8);
-	*tlvs->hsm_secret_type = hsm_secret_type;
+	tlvs->hsm_secret_type = tal_dup(tlvs, u8, &hsm_secret_type);
+
+	/* If we have a mnemonic-based HSM, include the BIP86 base key */
+	if (use_bip86_derivation(tal_bytelen(secretstuff.bip32_seed))) {
+		tlvs->bip86_base = tal(tlvs, struct ext_key);
+		derive_bip86_base_key(tlvs->bip86_base);
+	}
 
 	return take(towire_hsmd_init_reply_v4(
 		    NULL, hsmd_version, caps,
