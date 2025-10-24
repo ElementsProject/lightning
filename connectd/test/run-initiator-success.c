@@ -186,6 +186,7 @@ static struct io_plan *success(struct io_conn *conn UNUSED,
 			       struct crypto_state *cs,
 			       struct oneshot *timeout UNUSED,
 			       enum is_websocket is_websocket UNUSED,
+			       struct timemono starttime UNUSED,
 			       void *unused UNUSED)
 {
 	assert(pubkey_eq(them, &rs_pub));

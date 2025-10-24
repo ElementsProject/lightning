@@ -1392,9 +1392,10 @@ static void destroy_peer_conn(struct io_conn *peer_conn, struct peer *peer)
 {
 	assert(peer->to_peer == peer_conn);
 
-	/* We are no longer connected.  Tell lightningd & gossipd*/
+	/* We are no longer connected.  Tell lightningd & gossipd */
 	peer->to_peer = NULL;
-	send_disconnected(peer->daemon, &peer->id, peer->counter);
+	send_disconnected(peer->daemon, &peer->id, peer->counter,
+			  peer->connect_starttime);
 
 	/* Wake subds: give them 5 seconds to flush. */
 	for (size_t i = 0; i < tal_count(peer->subds); i++) {
