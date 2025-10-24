@@ -2477,7 +2477,7 @@ u8 *hsmd_init(const u8 *secret_data, size_t secret_len, const u64 hsmd_version,
 
 	/*~ Store the secret (32 or 64 bytes) - use NULL context for persistence */
 	secretstuff.bip32_seed = notleak(tal_dup_arr(NULL, u8, secret_data, secret_len, 0));
-	sodium_mlock(secretstuff.bip32_seed, tal_bytelen(secretstuff.bip32_seed));
+	mlock_tal_memory(secretstuff.bip32_seed);
 
 	assert(bip32_key_version.bip32_pubkey_version == BIP32_VER_MAIN_PUBLIC
 			|| bip32_key_version.bip32_pubkey_version == BIP32_VER_TEST_PUBLIC);

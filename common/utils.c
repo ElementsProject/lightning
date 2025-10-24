@@ -10,6 +10,7 @@
 #include <common/utils.h>
 #include <errno.h>
 #include <locale.h>
+#include <sodium.h>
 
 const tal_t *wally_tal_ctx = NULL;
 secp256k1_context *secp256k1_ctx;
@@ -90,6 +91,18 @@ u8 *tal_hexdata(const tal_t *ctx, const void *str, size_t len)
 	if (!hex_decode(str, len, data, hex_data_size(len)))
 		return NULL;
 	return data;
+}
+
+static void destroy_munlock(const tal_t *ptr)
+{
+	sodium_munlock((void *)ptr, tal_bytelen(ptr));
+}
+
+void mlock_tal_memory(const tal_t *ptr)
+{
+	if (sodium_mlock((void *)ptr, tal_bytelen(ptr)) != 0)
+		abort();
+	tal_add_destructor(ptr, destroy_munlock);
 }
 
 bool tal_arr_eq_(const void *a, const void *b, size_t unused)

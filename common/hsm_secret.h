@@ -159,12 +159,6 @@ bool derive_seed_hash(const char *mnemonic, const char *passphrase, struct sha25
 int is_legacy_hsm_secret_encrypted(const char *path);
 
 /**
- * Zero and unlock a secret's memory.
- * @secret - the secret to destroy
- */
-void destroy_secret(struct secret *secret);
-
-/**
  * Convert hsm_secret_type enum to human-readable string.
  * @type - the hsm_secret_type to convert
  *
