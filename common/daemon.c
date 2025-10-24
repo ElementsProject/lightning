@@ -1,5 +1,8 @@
 #include "config.h"
 #include <assert.h>
+/*~ This is Ian Lance Taylor's libbacktrace.  It turns out that it's
+ * horrifically difficult to obtain a decent backtrace in C; the standard
+ * backtrace function is useless in most programs. */
 #include <backtrace-supported.h>
 #include <backtrace.h>
 #include <ccan/err/err.h>
