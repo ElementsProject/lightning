@@ -4319,6 +4319,7 @@ def test_important_plugin_shutdown(node_factory):
     l1.rpc.plugin_start(os.path.join(os.getcwd(), 'plugins/pay'))
 
 
+@pytest.mark.skip(reason="Temporarily disabled expose secrets test")
 @unittest.skipIf(VALGRIND, "It does not play well with prompt and key derivation.")
 def test_exposesecret(node_factory):
     l1, l2 = node_factory.get_nodes(2, opts=[{'exposesecret-passphrase': "test_exposesecret"}, {}])

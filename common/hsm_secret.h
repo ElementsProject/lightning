@@ -149,4 +149,33 @@ int is_legacy_hsm_secret_encrypted(const char *path);
  */
 void destroy_secret(struct secret *secret);
 
+/**
+ * Convert hsm_secret_type enum to human-readable string.
+ * @type - the hsm_secret_type to convert
+ *
+ * Returns a string describing the type.
+ */
+const char *format_type_name(enum hsm_secret_type type);
+
+/**
+ * Wrapper around grab_file that removes the NUL terminator.
+ * @ctx - tal context for allocation
+ * @filename - path to the file to read
+ * @len - output parameter for the file length (excluding NUL terminator)
+ *
+ * Returns file contents with NUL terminator removed, or NULL on error.
+ * Unlike grab_file, the returned data does not include the NUL terminator.
+ */
+u8 *grab_file_contents(const tal_t *ctx, const char *filename, size_t *len);
+
+/**
+ * Derive encryption key from passphrase using Argon2.
+ * @ctx - tal context for allocation
+ * @passphrase - the passphrase to derive from
+ *
+ * Returns derived encryption key, or NULL on error.
+ * The returned key is memory-locked and has a destructor to clear it.
+ */
+struct secret *get_encryption_key(const tal_t *ctx, const char *passphrase);
+
 #endif /* LIGHTNING_COMMON_HSM_SECRET_H */

@@ -1,6 +1,7 @@
 #include "config.h"
 #include <assert.h>
 #include <ccan/mem/mem.h>
+#include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/str/str.h>
 #include <common/errcode.h>
 #include <common/hsm_secret.h>
@@ -458,4 +459,38 @@ int is_legacy_hsm_secret_encrypted(const char *path)
 		return -1;
 
 	return st.st_size == ENCRYPTED_HSM_SECRET_LEN;
+}
+
+const char *format_type_name(enum hsm_secret_type type)
+{
+	switch (type) {
+	case HSM_SECRET_PLAIN:
+		return "plain (32-byte binary)";
+	case HSM_SECRET_ENCRYPTED:
+		return "encrypted (73-byte binary)";
+	case HSM_SECRET_MNEMONIC_NO_PASS:
+		return "mnemonic (no password)";
+	case HSM_SECRET_MNEMONIC_WITH_PASS:
+		return "mnemonic (with password)";
+	case HSM_SECRET_INVALID:
+		return "invalid";
+	}
+	return "unknown";
+}
+
+u8 *grab_file_contents(const tal_t *ctx, const char *filename, size_t *len)
+{
+	u8 *contents = grab_file(ctx, filename);
+	if (!contents) {
+		if (len)
+			*len = 0;
+		return NULL;
+	}
+
+	/* grab_file adds a NUL terminator, so we resize to remove it */
+	size_t contents_len = tal_bytelen(contents) - 1;
+	if (len)
+		*len = contents_len;
+
+	return contents;
 }
