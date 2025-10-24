@@ -215,6 +215,7 @@ void connect_succeeded(struct lightningd *ld UNNEEDED, const struct peer *peer U
 /* Generated stub for connectd_connect_to_peer */
 void connectd_connect_to_peer(struct lightningd *ld UNNEEDED,
 			      const struct peer *peer UNNEEDED,
+			      const char *reason UNNEEDED,
 			      bool is_important UNNEEDED)
 { fprintf(stderr, "connectd_connect_to_peer called!\n"); abort(); }
 /* Generated stub for create_anchor_details */
@@ -266,13 +267,13 @@ void force_peer_disconnect(struct lightningd *ld UNNEEDED,
 bool fromwire_channeld_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
 { fprintf(stderr, "fromwire_channeld_dev_memleak_reply called!\n"); abort(); }
 /* Generated stub for fromwire_connectd_peer_connected */
-bool fromwire_connectd_peer_connected(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id *id UNNEEDED, u64 *counter UNNEEDED, struct wireaddr_internal *addr UNNEEDED, struct wireaddr **remote_addr UNNEEDED, bool *incoming UNNEEDED, u8 **features UNNEEDED)
+bool fromwire_connectd_peer_connected(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id *id UNNEEDED, u64 *counter UNNEEDED, struct wireaddr_internal *addr UNNEEDED, struct wireaddr **remote_addr UNNEEDED, bool *incoming UNNEEDED, u8 **features UNNEEDED, wirestring **connect_reason UNNEEDED, u64 *connect_nsec UNNEEDED)
 { fprintf(stderr, "fromwire_connectd_peer_connected called!\n"); abort(); }
 /* Generated stub for fromwire_connectd_peer_disconnected */
-bool fromwire_connectd_peer_disconnected(const void *p UNNEEDED, struct node_id *id UNNEEDED, u64 *counter UNNEEDED)
+bool fromwire_connectd_peer_disconnected(const void *p UNNEEDED, struct node_id *id UNNEEDED, u64 *counter UNNEEDED, u64 *connected_time_nsec UNNEEDED)
 { fprintf(stderr, "fromwire_connectd_peer_disconnected called!\n"); abort(); }
 /* Generated stub for fromwire_connectd_peer_reconnected */
-bool fromwire_connectd_peer_reconnected(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id *id UNNEEDED, u64 *prev_counter UNNEEDED, u64 *counter UNNEEDED, struct wireaddr_internal *addr UNNEEDED, struct wireaddr **remote_addr UNNEEDED, bool *incoming UNNEEDED, u8 **features UNNEEDED)
+bool fromwire_connectd_peer_reconnected(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id *id UNNEEDED, u64 *prev_counter UNNEEDED, u64 *counter UNNEEDED, struct wireaddr_internal *addr UNNEEDED, struct wireaddr **remote_addr UNNEEDED, bool *incoming UNNEEDED, u8 **features UNNEEDED, u64 *connected_time_nsec UNNEEDED)
 { fprintf(stderr, "fromwire_connectd_peer_reconnected called!\n"); abort(); }
 /* Generated stub for fromwire_connectd_peer_spoke */
 bool fromwire_connectd_peer_spoke(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id *id UNNEEDED, u64 *counter UNNEEDED, u16 *msgtype UNNEEDED, struct channel_id *channel_id UNNEEDED, wirestring **error UNNEEDED)
@@ -683,6 +684,14 @@ char *wallet_offer_find(const tal_t *ctx UNNEEDED,
 			enum offer_status *status)
 
 { fprintf(stderr, "wallet_offer_find called!\n"); abort(); }
+/* Generated stub for wallet_save_network_event */
+void wallet_save_network_event(struct lightningd *ld UNNEEDED,
+			       const struct node_id *peer_id UNNEEDED,
+			       enum network_event etype UNNEEDED,
+			       const char *reason UNNEEDED,
+			       u64 duration_nsec UNNEEDED,
+			       bool connect_attempted UNNEEDED)
+{ fprintf(stderr, "wallet_save_network_event called!\n"); abort(); }
 /* Generated stub for wallet_total_forward_fees */
 struct amount_msat wallet_total_forward_fees(struct wallet *w UNNEEDED)
 { fprintf(stderr, "wallet_total_forward_fees called!\n"); abort(); }

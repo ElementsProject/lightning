@@ -43,6 +43,7 @@
 static void peer_disconnected(struct lightningd *ld,
 			      const struct node_id *id,
 			      u64 connectd_counter,
+			      u64 connected_time_nsec,
 			      bool fail_connect_attempts);
 
 /* Common pattern: create a sockpair for this channel, return one as a peer_fd */
@@ -1703,33 +1704,46 @@ void handle_peer_connected(struct lightningd *ld, const u8 *msg)
 	struct peer_connected_hook_payload *hook_payload;
 	u64 connectd_counter;
 	const char *cmd_id;
+	char *connect_reason;
+	u64 connect_nsec;
 	struct wireaddr *last_known_addr;
 
 	hook_payload = tal(NULL, struct peer_connected_hook_payload);
 	hook_payload->ld = ld;
 	hook_payload->error = NULL;
 	if (!fromwire_connectd_peer_connected(hook_payload, msg,
-					     &id, &connectd_counter,
-					     &hook_payload->addr,
-					     &hook_payload->remote_addr,
-					     &hook_payload->incoming,
-					     &their_features)) {
-		u64 prev_connectd_counter;
+					      &id, &connectd_counter,
+					      &hook_payload->addr,
+					      &hook_payload->remote_addr,
+					      &hook_payload->incoming,
+					      &their_features,
+					      &connect_reason,
+					      &connect_nsec)) {
+		u64 prev_connectd_counter, connected_time_nsec;
 		if (!fromwire_connectd_peer_reconnected(hook_payload, msg,
 							&id, &prev_connectd_counter,
 							&connectd_counter,
 							&hook_payload->addr,
 							&hook_payload->remote_addr,
 							&hook_payload->incoming,
-							&their_features)) {
+							&their_features,
+							&connected_time_nsec)) {
 			fatal("Connectd gave bad CONNECT_PEER_(RE)CONNECTED message %s",
 			      tal_hex(msg, msg));
 		}
 		/* Reconnect?  Mark the disconnect *first*, but don't
 		 * fail any connect attempts: this is a race. */
 		log_peer_debug(ld->log, &id, "peer reconnected");
-		peer_disconnected(ld, &id, prev_connectd_counter, false);
+		peer_disconnected(ld, &id, prev_connectd_counter, connected_time_nsec, false);
+		connect_reason = "";
+		connect_nsec = 0;
 	}
+
+	wallet_save_network_event(ld, &id,
+				  NETWORK_EVENT_CONNECT,
+				  hook_payload->incoming ? NULL : connect_reason,
+				  connect_nsec,
+				  false);
 
 	/* If we connected, and it's a normal address */
 	if (!hook_payload->incoming
@@ -2070,10 +2084,15 @@ static void destroy_disconnect_command(struct disconnect_command *dc)
 static void peer_disconnected(struct lightningd *ld,
 			      const struct node_id *id,
 			      u64 connectd_counter,
+			      u64 connected_time_nsec,
 			      bool fail_connect_attempts)
 {
 	struct disconnect_command *i, *next;
 	struct peer *p;
+
+	wallet_save_network_event(ld, id,
+				  NETWORK_EVENT_DISCONNECT,
+				  NULL, connected_time_nsec, false);
 
 	/* If we still have peer, it's disconnected now */
 	p = peer_by_id(ld, id);
@@ -2114,13 +2133,16 @@ static void peer_disconnected(struct lightningd *ld,
 void handle_peer_disconnected(struct lightningd *ld, const u8 *msg)
 {
 	struct node_id id;
-	u64 connectd_counter;
+	u64 connectd_counter, connected_time_nsec;
 
-	if (!fromwire_connectd_peer_disconnected(msg, &id, &connectd_counter))
+	if (!fromwire_connectd_peer_disconnected(msg,
+						 &id,
+						 &connectd_counter,
+						 &connected_time_nsec))
 		fatal("Connectd gave bad PEER_DISCONNECTED message %s",
 		      tal_hex(msg, msg));
 
-	peer_disconnected(ld, &id, connectd_counter, true);
+	peer_disconnected(ld, &id, connectd_counter, connected_time_nsec, true);
 }
 
 void update_channel_from_inflight(struct lightningd *ld,
@@ -2684,7 +2706,9 @@ static void setup_peer(struct peer *peer)
 	/* Make sure connectd knows to try reconnecting (unless
 	 * --dev-no-reconnect). */
 	if (connect && ld->reconnect)
-		connectd_connect_to_peer(ld, peer, important);
+		connectd_connect_to_peer(ld, peer,
+					 "started with channel",
+					 important);
 }
 
 void setup_peers(struct lightningd *ld)

@@ -235,7 +235,9 @@ static struct command_result *json_connect(struct command *cmd,
 		peer_channels_cleanup(peer);
 
 	subd_send_msg(cmd->ld->connectd,
-		      take(towire_connectd_connect_to_peer(NULL, &id_addr.id, addr, true)));
+		      take(towire_connectd_connect_to_peer(NULL, &id_addr.id,
+							   addr, true,
+							   tal_fmt(tmpctx, "connect command %s", cmd->id))));
 
 	/* Leave this here for peer_connected, connect_failed or peer_disconnected. */
 	new_connect(cmd->ld, &id_addr.id, cmd);
@@ -252,10 +254,21 @@ AUTODATA(json_command, &connect_command);
 static void connect_failed(struct lightningd *ld,
 			   const struct node_id *id,
 			   const struct wireaddr_internal *addrhint,
+			   const char *connect_reason,
+			   u64 connect_nsec,
 			   enum jsonrpc_errcode errcode,
-			   const char *errmsg)
+			   const char *errmsg,
+			   bool connect_attempted)
 {
 	struct connect *c;
+
+	/* Don't record twice. */
+	if (errcode != CONNECT_DISCONNECTED_DURING)
+		wallet_save_network_event(ld, id,
+					  NETWORK_EVENT_CONNECTFAIL,
+					  errmsg,
+					  connect_nsec,
+					  connect_attempted);
 
 	/* We can have multiple connect commands: fail them all */
 	while ((c = find_connect(ld, id)) != NULL) {
@@ -268,8 +281,11 @@ void connect_failed_disconnect(struct lightningd *ld,
 			       const struct node_id *id,
 			       const struct wireaddr_internal *addrhint)
 {
-	connect_failed(ld, id, addrhint, CONNECT_DISCONNECTED_DURING,
-		       "disconnected during connection");
+	connect_failed(ld, id, addrhint,
+		       "", 0,
+		       CONNECT_DISCONNECTED_DURING,
+		       "disconnected during connection",
+		       false);
 }
 
 static void handle_connect_failed(struct lightningd *ld, const u8 *msg)
@@ -277,12 +293,20 @@ static void handle_connect_failed(struct lightningd *ld, const u8 *msg)
 	struct node_id id;
 	enum jsonrpc_errcode errcode;
 	char *errmsg;
+	char *connect_reason;
+	u64 nsec;
+	bool connect_attempted;
 
-	if (!fromwire_connectd_connect_failed(tmpctx, msg, &id, &errcode, &errmsg))
+	if (!fromwire_connectd_connect_failed(tmpctx, msg, &id,
+					      &connect_reason,
+					      &nsec,
+					      &errcode, &errmsg,
+					      &connect_attempted))
 		fatal("Connect gave bad CONNECTD_CONNECT_FAILED message %s",
 		      tal_hex(msg, msg));
 
-	connect_failed(ld, &id, NULL, errcode, errmsg);
+	connect_failed(ld, &id, NULL, connect_reason, nsec, errcode, errmsg,
+		       connect_attempted);
 }
 
 const char *connect_any_cmd_id(const tal_t *ctx,
@@ -422,6 +446,7 @@ void connectd_start_shutdown(struct subd *connectd)
 
 void connectd_connect_to_peer(struct lightningd *ld,
 			      const struct peer *peer,
+			      const char *reason,
 			      bool is_important)
 {
 	/* Give connectd an address if we know it. */
@@ -435,7 +460,8 @@ void connectd_connect_to_peer(struct lightningd *ld,
 	subd_send_msg(peer->ld->connectd,
 		      take(towire_connectd_connect_to_peer(NULL, &peer->id,
 							   waddr,
-							   !is_important)));
+							   !is_important,
+							   reason)));
 }
 
 void tell_connectd_peer_importance(struct peer *peer,
@@ -453,8 +479,31 @@ void tell_connectd_peer_importance(struct peer *peer,
 	} else if (!was_important && is_important) {
 		/* Tell connectd it's now important (unless we're told not to reconnect) */
 		if (peer->ld->reconnect)
-			connectd_connect_to_peer(peer->ld, peer, true);
+			connectd_connect_to_peer(peer->ld, peer,
+						 "peer established channel",
+						 true);
 	}
+}
+
+static void handle_ping_latency(struct lightningd *ld, const u8 *msg)
+{
+	struct node_id id;
+	u64 nsec;
+
+	if (!fromwire_connectd_ping_latency(msg, &id, &nsec)) {
+		log_broken(ld->log, "Malformed ping_latency: %s",
+			   tal_hex(tmpctx, msg));
+		return;
+	}
+
+	log_peer_trace(ld->log, &id, "Ping latency: %"PRIu64"nsec",
+		       nsec);
+
+	wallet_save_network_event(ld, &id,
+				  NETWORK_EVENT_PING,
+				  NULL,
+				  nsec,
+				  false);
 }
 
 static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fds)
@@ -521,6 +570,10 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 
 	case WIRE_CONNECTD_PING_DONE:
 		handle_ping_done(connectd, msg);
+		break;
+
+	case WIRE_CONNECTD_PING_LATENCY:
+		handle_ping_latency(connectd->ld, msg);
 		break;
 	}
 	return 0;

@@ -89,6 +89,7 @@ MARKDOWNPAGES := doc/addgossip.7 \
 	doc/listhtlcs.7 \
 	doc/listinvoicerequests.7 \
 	doc/listinvoices.7 \
+	doc/listnetworkevents.7 \
 	doc/listnodes.7 \
 	doc/listoffers.7 \
 	doc/listpays.7 \

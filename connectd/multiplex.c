@@ -645,6 +645,7 @@ static void send_ping(struct peer *peer)
 		}
 
 		inject_peer_msg(peer, take(make_ping(NULL, 1, 0)));
+		peer->ping_start = time_mono();
 		peer->expecting_pong = PONG_EXPECTED_PROBING;
 	}
 
@@ -719,6 +720,10 @@ static void handle_pong_in(struct peer *peer, const u8 *msg)
 		/* fall thru */
 	case PONG_EXPECTED_PROBING:
 		peer->expecting_pong = PONG_UNEXPECTED;
+		daemon_conn_send(peer->daemon->master,
+				 take(towire_connectd_ping_latency(NULL,
+								   &peer->id,
+								   time_to_nsec(timemono_since(peer->ping_start)))));
 		return;
 	case PONG_UNEXPECTED:
 		status_debug("Unexpected pong?");
@@ -1387,9 +1392,10 @@ static void destroy_peer_conn(struct io_conn *peer_conn, struct peer *peer)
 {
 	assert(peer->to_peer == peer_conn);
 
-	/* We are no longer connected.  Tell lightningd & gossipd*/
+	/* We are no longer connected.  Tell lightningd & gossipd */
 	peer->to_peer = NULL;
-	send_disconnected(peer->daemon, &peer->id, peer->counter);
+	send_disconnected(peer->daemon, &peer->id, peer->counter,
+			  peer->connect_starttime);
 
 	/* Wake subds: give them 5 seconds to flush. */
 	for (size_t i = 0; i < tal_count(peer->subds); i++) {

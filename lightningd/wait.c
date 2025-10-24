@@ -26,6 +26,7 @@ static const char *subsystem_names[] = {
 	"htlcs",
 	"chainmoves",
 	"channelmoves",
+	"networkevents",
 };
 
 static const char *index_names[] = {
@@ -55,6 +56,7 @@ const char *wait_subsystem_name(enum wait_subsystem subsystem)
 	case WAIT_SUBSYSTEM_HTLCS:
 	case WAIT_SUBSYSTEM_CHAINMOVES:
 	case WAIT_SUBSYSTEM_CHANNELMOVES:
+	case WAIT_SUBSYSTEM_NETWORKEVENTS:
 		return subsystem_names[subsystem];
 	}
 	abort();
@@ -90,8 +92,8 @@ static void json_add_index(struct command *cmd,
 		return;
 
 	va_copy(ap2, *ap);
-	/* "htlcs" never had details field: it came after! */
-	if (subsystem != WAIT_SUBSYSTEM_HTLCS
+	/* "htlcs" etc never had details field: they came after! */
+	if (subsystem < WAIT_SUBSYSTEM_HTLCS
 	    && command_deprecated_out_ok(cmd, "details", "v25.05", "v26.06")) {
 		json_object_start(response, "details");
 		while ((name = va_arg(*ap, const char *)) != NULL) {
@@ -116,10 +118,13 @@ static void json_add_index(struct command *cmd,
 		if (!value)
 			continue;
 
-		/* This is a hack! */
+		/* This is a hack!  Means "copy in literally". */
 		if (name[0] == '=') {
-			/* Copy in literally! */
-			json_add_jsonstr(response, name + 1, value, strlen(value));
+			/* This is also a hack!  Means "current value"*/
+			if (streq(value, ""))
+				json_add_u64(response, name + 1, val);
+			else
+				json_add_jsonstr(response, name + 1, value, strlen(value));
 		} else {
 			json_add_string(response, name, value);
 		}

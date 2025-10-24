@@ -26,7 +26,8 @@ enum is_websocket {
 						 const struct wireaddr_internal *, \
 						 struct crypto_state *, \
 						 struct oneshot *,	\
-						 enum is_websocket),	\
+						 enum is_websocket,	\
+						 struct timemono),	\
 			     (cbarg))
 
 
@@ -42,6 +43,7 @@ struct io_plan *initiator_handshake_(struct io_conn *conn,
 							   struct crypto_state *,
 							   struct oneshot *timeout,
 							   enum is_websocket,
+							   struct timemono,
 							   void *cbarg),
 				     void *cbarg);
 
@@ -55,7 +57,8 @@ struct io_plan *initiator_handshake_(struct io_conn *conn,
 						 const struct wireaddr_internal *, \
 						 struct crypto_state *, \
 						 struct oneshot *,	\
-						 enum is_websocket),	\
+						 enum is_websocket,	\
+						 struct timemono),	\
 			     (cbarg))
 
 struct io_plan *responder_handshake_(struct io_conn *conn,
@@ -69,6 +72,7 @@ struct io_plan *responder_handshake_(struct io_conn *conn,
 							   struct crypto_state *,
 							   struct oneshot *,
 							   enum is_websocket,
+							   struct timemono,
 							   void *cbarg),
 				     void *cbarg);
 #endif /* LIGHTNING_CONNECTD_HANDSHAKE_H */

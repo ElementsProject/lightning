@@ -64,12 +64,16 @@ msgdata,connectd_connect_to_peer,id,node_id,
 msgdata,connectd_connect_to_peer,len,u32,
 msgdata,connectd_connect_to_peer,addrs,wireaddr_internal,len
 msgdata,connectd_connect_to_peer,transient,bool,
+msgdata,connectd_connect_to_peer,reason,wirestring,
 
 # Connectd->master: connect failed.
 msgtype,connectd_connect_failed,2020
 msgdata,connectd_connect_failed,id,node_id,
+msgdata,connectd_connect_failed,connect_reason,wirestring,
+msgdata,connectd_connect_failed,connect_nsec,u64,
 msgdata,connectd_connect_failed,failcode,enum jsonrpc_errcode,
 msgdata,connectd_connect_failed,failreason,wirestring,
+msgdata,connectd_connect_failed,connect_attempted,bool,
 
 # Connectd -> master: we got a peer.
 msgtype,connectd_peer_connected,2002
@@ -80,11 +84,14 @@ msgdata,connectd_peer_connected,remote_addr,?wireaddr,
 msgdata,connectd_peer_connected,incoming,bool,
 msgdata,connectd_peer_connected,flen,u16,
 msgdata,connectd_peer_connected,features,u8,flen
+msgdata,connectd_peer_connected,connect_reason,wirestring,
+msgdata,connectd_peer_connected,connect_nsec,u64,
 
 # connectd -> master: peer disconnected.
 msgtype,connectd_peer_disconnected,2006
 msgdata,connectd_peer_disconnected,id,node_id,
 msgdata,connectd_peer_disconnected,counter,u64,
+msgdata,connectd_peer_disconnected,connected_time_nsec,u64,
 
 # Connectd -> master: peer reconnected (disconnect & connect)
 msgtype,connectd_peer_reconnected,2010
@@ -96,6 +103,7 @@ msgdata,connectd_peer_reconnected,remote_addr,?wireaddr,
 msgdata,connectd_peer_reconnected,incoming,bool,
 msgdata,connectd_peer_reconnected,flen,u16,
 msgdata,connectd_peer_reconnected,features,u8,flen
+msgdata,connectd_peer_reconnected,connected_time_nsec,u64,
 
 # Master -> connectd: make peer active immediately (we want to talk) (+ fd to subd).
 msgtype,connectd_peer_connect_subd,2004
@@ -150,6 +158,11 @@ msgdata,connectd_ping_done,reqid,u64,
 msgdata,connectd_ping_done,sent,bool,
 # 0 == no pong expected, otherwise length of pong.
 msgdata,connectd_ping_done,totlen,u16,
+
+# We give lightningd stats about ping latencies
+msgtype,connectd_ping_latency,2038
+msgdata,connectd_ping_latency,id,node_id,
+msgdata,connectd_ping_latency,ping_nsec,u64,
 
 # We tell lightningd we got an onionmsg
 msgtype,connectd_got_onionmsg_to_us,2145

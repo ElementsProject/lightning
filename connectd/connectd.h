@@ -64,6 +64,8 @@ struct peer {
 	struct node_id id;
 	/* Counters and keys for symmetric crypto */
 	struct crypto_state cs;
+	/* Time when we first connected */
+	struct timemono connect_starttime;
 
 	/* Connection to the peer (NULL if it's disconnected and we're flushing) */
 	struct io_conn *to_peer;
@@ -95,6 +97,9 @@ struct peer {
 	/* Are we expecting a pong? */
 	enum pong_expect_type expecting_pong;
 	u64 ping_reqid;
+
+	/* Timestamp when we initially sent probe ping */
+	struct timemono ping_start;
 
 	/* Random ping timer, to detect dead connections. */
 	struct oneshot *ping_timer;
@@ -202,6 +207,15 @@ struct connecting {
 
 	/* How far did we get? */
 	const char *connstate;
+
+	/* Why are we connecting? */
+	const char *reason;
+
+	/* When did we start? */
+	struct timemono start;
+
+	/* Did we find an address we could attempt to connect to? */
+	bool connect_attempted;
 
 	/* Accumulated errors */
 	char *errors;
@@ -379,12 +393,14 @@ struct io_plan *peer_connected(struct io_conn *conn,
 			       struct crypto_state *cs,
 			       const u8 *their_features TAKES,
 			       enum is_websocket is_websocket,
+			       struct timemono starttime,
 			       bool incoming);
 
 /* Tell gossipd and lightningd that this peer is gone. */
 void send_disconnected(struct daemon *daemon,
 		       const struct node_id *id,
-		       u64 connectd_counter);
+		       u64 connectd_counter,
+		       struct timemono starttime);
 
 /* Free peer immediately (don't wait for draining). */
 void destroy_peer_immediately(struct peer *peer);

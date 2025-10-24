@@ -134,8 +134,8 @@ common/scb_wiregen.c_args := -s
 
 # Check that all h and c files are in the Makefile!
 check-common-files:
-	@$(call VERBOSE, "MISSING-SRC common", [ "$(filter-out $(COMMON_SRC), $(wildcard common/*.c))" = "" ])
-	@$(call VERBOSE, "MISSING-HEADERS common", [ "$(filter-out $(COMMON_HEADERS) $(COMMON_SRC:.c=.h), $(wildcard common/*.h))" = "" ])
+	@$(call VERBOSE, "checking common source", [ "$(filter-out $(COMMON_SRC), $(wildcard common/*.c))" = "" ])
+	@$(call VERBOSE, "checking common headers", [ "$(filter-out $(COMMON_HEADERS) $(COMMON_SRC:.c=.h), $(wildcard common/*.h))" = "" ])
 
 check-source: check-common-files
 
