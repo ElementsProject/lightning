@@ -28,11 +28,6 @@
 #define PASSPHRASE_HASH_LEN 32
 #define HSM_SECRET_PLAIN_SIZE 32
 
-void destroy_secret(struct secret *secret)
-{
-	sodium_munlock(secret->data, sizeof(secret->data));
-}
-
 /* Helper function to validate a mnemonic string */
 static bool validate_mnemonic(const char *mnemonic, enum hsm_secret_error *err)
 {
@@ -70,9 +65,7 @@ struct secret *get_encryption_key(const tal_t *ctx, const char *passphrase)
 	}
 
 	/* Don't swap the encryption key ! */
-	if (sodium_mlock(secret->data, sizeof(secret->data)) != 0)
-		return tal_free(secret);
-	tal_add_destructor(secret, destroy_secret);
+	mlock_tal_memory(secret);
 
 	/* Now derive the key. */
 	if (crypto_pwhash(secret->data, sizeof(secret->data), passphrase, strlen(passphrase), salt,
@@ -254,10 +247,6 @@ static struct hsm_secret *extract_encrypted_secret(const tal_t *ctx,
 	/* Attempt decryption */
 	struct secret temp_secret;
 	decrypt_success = decrypt_hsm_secret(encryption_key, hsm_secret, &temp_secret);
-
-	/* Clear encryption key immediately after use */
-	destroy_secret(encryption_key);
-
 	if (!decrypt_success) {
 		*err = HSM_SECRET_ERR_WRONG_PASSPHRASE;
 		return tal_free(hsms);
@@ -389,11 +378,6 @@ bool encrypt_legacy_hsm_secret(const struct secret *encryption_key,
 	return true;
 }
 
-static void destroy_passphrase(char *passphrase)
-{
-	sodium_munlock(passphrase, tal_bytelen(passphrase));
-}
-
 /* Disable terminal echo if needed */
 static bool disable_echo(struct termios *saved_term)
 {
@@ -457,11 +441,7 @@ const char *read_stdin_pass(const tal_t *ctx, enum hsm_secret_error *err)
 		return NULL;
 	}
 
-	/* Memory locking is mandatory: failure means we're on an insecure system */
-	if (sodium_mlock(input, tal_bytelen(input)) != 0)
-		abort();
-
-	tal_add_destructor(input, destroy_passphrase);
+	mlock_tal_memory(input);
 
 	if (echo_disabled)
 		restore_echo(&saved_term);

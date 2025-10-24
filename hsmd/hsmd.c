@@ -455,7 +455,7 @@ static void load_hsm(const char *passphrase)
 	hsm_secret->mnemonic = tal_steal(hsm_secret, hsms->mnemonic);
 
 	/*~ Don't swap this secret data to disk for security. */
-	sodium_mlock(hsm_secret->secret_data, tal_bytelen(hsm_secret->secret_data));
+	mlock_tal_memory(hsm_secret->secret_data);
 }
 
 /*~ We have a pre-init call in developer mode, to set dev flags */
