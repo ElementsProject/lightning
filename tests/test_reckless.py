@@ -170,6 +170,18 @@ def test_basic_help():
     assert r.search_stdout("options:") or r.search_stdout("optional arguments:")
 
 
+def test_version():
+    '''Version should be reported without loading config and should advance
+    with lightningd'''
+    r = reckless(["-V", "-v", "--json"])
+    assert r.returncode == 0
+    import json
+    json_out = ''.join(r.stdout)
+    with open('.version', 'r') as f:
+        version = f.readlines()[0].strip()
+        assert json.loads(json_out)['result'][0] == version
+
+
 def test_contextual_help(node_factory):
     n = get_reckless_node(node_factory)
     for subcmd in ['install', 'uninstall', 'search',
@@ -236,6 +248,18 @@ def test_install(node_factory):
     plugin_path = Path(n.lightning_dir) / 'reckless/testplugpass'
     print(plugin_path)
     assert os.path.exists(plugin_path)
+
+
+def test_install_cleanup(node_factory):
+    """test failed installation and post install cleanup"""
+    n = get_reckless_node(node_factory)
+    n.start()
+    r = reckless([f"--network={NETWORK}", "-v", "install", "testplugfail"], dir=n.lightning_dir)
+    assert r.returncode == 0
+    assert r.search_stdout('testplugfail failed to start')
+    r.check_stderr()
+    plugin_path = Path(n.lightning_dir) / 'reckless/testplugfail'
+    assert not os.path.exists(plugin_path)
 
 
 @unittest.skipIf(VALGRIND, "virtual environment triggers memleak detection")
