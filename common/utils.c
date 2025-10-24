@@ -33,6 +33,13 @@ void tal_wally_start(void)
 	wally_tal_ctx = tal_arr(NULL, char, 0);
 }
 
+void tal_wally_discard(void)
+{
+	assert(wally_tal_ctx);
+	assert(tal_first(wally_tal_ctx) == NULL);
+	wally_tal_ctx = tal_free(wally_tal_ctx);
+}
+
 void tal_wally_end(const tal_t *parent)
 {
 	tal_t *p;
