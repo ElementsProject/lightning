@@ -5332,6 +5332,12 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AutocleanonceAutocleanNetworkevents {
+	    pub cleaned: u64,
+	    pub uncleaned: u64,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct AutocleanonceAutocleanPaidinvoices {
 	    pub cleaned: u64,
 	    pub uncleaned: u64,
@@ -5357,6 +5363,8 @@ pub mod responses {
 	    pub failedforwards: Option<AutocleanonceAutocleanFailedforwards>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub failedpays: Option<AutocleanonceAutocleanFailedpays>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub networkevents: Option<AutocleanonceAutocleanNetworkevents>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub paidinvoices: Option<AutocleanonceAutocleanPaidinvoices>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -5406,6 +5414,14 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AutocleanstatusAutocleanNetworkevents {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub age: Option<u64>,
+	    pub cleaned: u64,
+	    pub enabled: bool,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct AutocleanstatusAutocleanPaidinvoices {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub age: Option<u64>,
@@ -5437,6 +5453,8 @@ pub mod responses {
 	    pub failedforwards: Option<AutocleanstatusAutocleanFailedforwards>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub failedpays: Option<AutocleanstatusAutocleanFailedpays>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub networkevents: Option<AutocleanstatusAutocleanNetworkevents>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub paidinvoices: Option<AutocleanstatusAutocleanPaidinvoices>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
