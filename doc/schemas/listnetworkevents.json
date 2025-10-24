@@ -1,0 +1,152 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "rpc": "listnetworkevents",
+  "title": "Command for querying network events",
+  "added": "v25.12",
+  "description": [
+    "The **listnetworkevents** RPC command retrieves the log of connections, disconnections and pings on the network.  This can be analyzed to evaluate node reliability and latency."
+  ],
+  "categories": [
+    "readonly"
+  ],
+  "request": {
+    "required": [],
+    "additionalProperties": false,
+    "properties": {
+      "id": {
+        "type": "string",
+        "description": [
+          "A node id: if set, only network events for this peer are returned"
+        ]
+      },
+      "index": {
+        "type": "string",
+        "enum": [
+          "created"
+        ],
+        "description": [
+          "This controls the ordering of results."
+        ],
+        "default": "`created`"
+      },
+      "start": {
+        "type": "u64",
+        "description": [
+          "If `index` is specified, `start` may be specified to start from that value, which is generally returned from lightning-wait(7)."
+        ]
+      },
+      "limit": {
+        "type": "u32",
+        "description": [
+          "If `index` is specified, `limit` can be used to specify the maximum number of entries to return."
+        ]
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "networkevents"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "networkevents": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "created_index",
+            "timestamp",
+            "peer_id",
+            "type"
+          ],
+          "properties": {
+            "created_index": {
+              "type": "u64",
+              "description": [
+                "1-based index indicating order this network event was created in."
+              ]
+            },
+            "timestamp": {
+              "type": "u64",
+              "description": [
+                "Time this event was recorded, in seconds since January 1 1970 UTC"
+              ]
+            },
+            "peer_id": {
+              "type": "pubkey",
+              "description": [
+                "The node the network connection was talking to."
+              ]
+            },
+            "type": {
+              "type": "string",
+              "description": [
+                "The type of event (currently `ping`, `connect`, `connect_fail` or `disconnect`)"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "description": [
+                "The cause of the event (if known)"
+              ]
+            },
+            "duration_nsec": {
+              "type": "u64",
+              "description": [
+                "The time taken (for ping, the latency, for connect / connect_fail, the time taken to get a result, for disconnect, the time we were connected)"
+              ]
+            },
+            "connect_attempted": {}
+          },
+          "allOf": [
+            {
+              "if": {
+                "additionalProperties": true,
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "connect_fail"
+                    ]
+                  }
+                }
+              },
+              "then": {
+                "additionalProperties": false,
+                "required": [
+                  "connect_attempted"
+                ],
+                "properties": {
+                  "connect_attempted": {
+                    "type": "boolean",
+                    "description": [
+                      "True if we found an address we could attempt to connect to, e.g. ignoring Tor addresses if we don't have a proxy, and ignoring IPv6 addresses if we don't have IPv6 support."
+                    ]
+                  },
+                  "created_index": {},
+                  "timestamp": {},
+                  "peer_id": {},
+                  "type": {},
+                  "reason": {},
+                  "duration_nsec": {}
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-autoclean(7)",
+    "lightning-listpeers(7)"
+  ],
+  "resources": [
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ]
+}
