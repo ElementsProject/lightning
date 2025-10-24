@@ -148,6 +148,12 @@ static void our_addresses_add_for_index(struct wallet *w, u32 i)
 	/* FIXME: We could deprecate P2SH once we don't see
 	 * any, since we stopped publishing them in 24.02 */
 	if (!wallet_get_addrtype(w, i, &addrtype)) {
+		if (w->ld->bip86_base) {
+			/* Derive and add BIP86 script for this index */
+			our_addresses_add_bip86_for_index(w, i);
+			return;
+		}
+
 		const u8 *addr;
 		scriptpubkey = scriptpubkey_p2wpkh_derkey(NULL, ext.pub_key);
 		addr = scriptpubkey_p2sh(NULL, scriptpubkey);
@@ -206,7 +212,17 @@ static void our_addresses_init(struct wallet *w)
 	w->our_addresses = tal(w, struct wallet_address_htable);
 	wallet_address_htable_init(w->our_addresses);
 
-	our_addresses_add_for_index(w, w->our_addresses_maxindex);
+	/* If BIP86 is enabled, prefill the address table up to keyscan_gap so
+	 * rescans immediately include BIP86 scripts without needing prior
+	 * address allocations. */
+	if (w->ld->bip86_base) {
+		for (u32 i = 0; i <= w->keyscan_gap; i++) {
+			our_addresses_add_for_index(w, i);
+		}
+		w->our_addresses_maxindex = w->keyscan_gap;
+	} else {
+		our_addresses_add_for_index(w, w->our_addresses_maxindex);
+	}
 }
 
 static void outpointfilters_init(struct wallet *w)

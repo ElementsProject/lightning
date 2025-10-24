@@ -21,9 +21,8 @@
  * before anything else. */
 #include "config.h"
 
-/*~ This is Ian Lance Taylor's libbacktrace.  It turns out that it's
- * horrifically difficult to obtain a decent backtrace in C; the standard
- * backtrace function is useless in most programs. */
+/*~ Various bitcoin-related helpers live in the bitcoin/ directory */
+#include <bitcoin/script.h>
 
 /*~ These headers are from CCAN: http://ccodearchive.net.
  *
@@ -56,8 +55,8 @@
 #include <common/timeout.h>
 #include <common/trace.h>
 #include <common/version.h>
-#include <db/exec.h>
 
+#include <db/exec.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <header_versions_gen.h>
@@ -684,7 +683,7 @@ static void init_txfilter(struct wallet *w,
 	struct ext_key ext;
 	/*~ Note the use of ccan/short_types u64 rather than uint64_t.
 	 * Thank me later. */
-	u64 bip32_max_index;
+	u64 bip32_max_index, bip86_max_index;
 
 	bip32_max_index = db_get_intvar(w->db, "bip32_max_index", 0);
 	/*~ One of the C99 things I unequivocally approve: for-loop scope. */
@@ -693,6 +692,17 @@ static void init_txfilter(struct wallet *w,
 			abort();
 		}
 		txfilter_add_derkey(filter, ext.pub_key);
+	}
+
+	/* If BIP86 is enabled, also add BIP86-derived keys to the filter */
+	if (w->ld->bip86_base) {
+		bip86_max_index = db_get_intvar(w->db, "bip86_max_index", 0);
+		for (u64 i = 0; i <= bip86_max_index + w->keyscan_gap; i++) {
+			struct pubkey pubkey;
+			bip86_pubkey(w->ld, &pubkey, i);
+			u8 *script = scriptpubkey_p2tr(tmpctx, &pubkey);
+			txfilter_add_scriptpubkey(filter, take(script));
+		}
 	}
 }
 
