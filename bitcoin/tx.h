@@ -53,6 +53,8 @@ enum utxotype {
 	UTXO_P2WSH_FROM_CLOSE = 3,
 	/* "p2tr" addresses. */
 	UTXO_P2TR = 4,
+	/* "bip86" addresses (P2TR with BIP86 derivation). */
+	UTXO_P2TR_BIP86 = 5,
 };
 
 struct bitcoin_tx_output *new_tx_output(const tal_t *ctx,
