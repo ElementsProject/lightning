@@ -50,7 +50,6 @@ encode_pubkey_to_addr(const tal_t *ctx,
 		ok = segwit_addr_encode(out, hrp, 0, h160.u.u8, sizeof(h160));
 		goto done;
 
-	case ADDR_P2TR_MNEMONIC:
 	case ADDR_P2TR: {
 		u8 *p2tr_spk = scriptpubkey_p2tr(ctx, pubkey);
 		u8 *x_key = p2tr_spk + 2;
@@ -96,13 +95,11 @@ static struct command_result *param_newaddr(struct command *cmd,
 		**addrtype = ADDR_BECH32;
 	else if (!chainparams->is_elements && json_tok_streq(buffer, tok, "p2tr"))
 		**addrtype = ADDR_P2TR;
-	else if (!chainparams->is_elements && json_tok_streq(buffer, tok, "bip86"))
-		**addrtype = ADDR_P2TR_MNEMONIC;
 	else if (json_tok_streq(buffer, tok, "all"))
 		**addrtype = ADDR_ALL;
 	else
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "'%s' should be 'p2tr', 'bip86', 'bech32', or 'all', not '%.*s'",
+				    "'%s' should be 'p2tr', 'bech32', or 'all', not '%.*s'",
 				    name, tok->end - tok->start, buffer + tok->start);
 	return NULL;
 }
@@ -112,34 +109,31 @@ bool WARN_UNUSED_RESULT newaddr_inner(struct command *cmd, struct pubkey *pubkey
 	s64 keyidx;
 	u8 *b32script;
 	u8 *p2tr_script;
+	bool use_bip86_base = (cmd->ld->bip86_base != NULL);
 
-	/* Handle BIP86 separately since it only supports P2TR */
-	if (addrtype == ADDR_P2TR_MNEMONIC) {
-		keyidx = wallet_get_new_bip86_index(cmd->ld);
-		if (keyidx < 0) return false;
-
-		/* Use HSM for BIP86 derivation */
-		bip86_pubkey(cmd->ld, pubkey, keyidx);
-
-		u8 *script = scriptpubkey_p2tr(tmpctx, pubkey);
-		txfilter_add_scriptpubkey(cmd->ld->owned_txfilter, script);
-		return true;
-	}
-
+	/* Get new index - wallet_get_newindex now handles both BIP32 and BIP86 */
 	keyidx = wallet_get_newindex(cmd->ld, addrtype);
-	if (keyidx < 0) {
-		// return command_fail(cmd, LIGHTNINGD, "Keys exhausted ");
-		return false;
+	if (keyidx < 0) return false;
+
+	/* Choose derivation method based on wallet type */
+	if (use_bip86_base) {
+		/* Wallet has mnemonic - use BIP86 derivation */
+		bip86_pubkey(cmd->ld, pubkey, keyidx);
+	} else {
+		/* Legacy wallet - use BIP32 derivation */
+		bip32_pubkey(cmd->ld, pubkey, keyidx);
 	}
 
-	bip32_pubkey(cmd->ld, pubkey, keyidx);
-
+	/* Generate scripts from pubkey (same logic for both wallet types) */
 	b32script = scriptpubkey_p2wpkh(tmpctx, pubkey);
 	p2tr_script = scriptpubkey_p2tr(tmpctx, pubkey);
+
+	/* Add scripts to filter based on requested address type */
 	if (addrtype & ADDR_BECH32)
 		txfilter_add_scriptpubkey(cmd->ld->owned_txfilter, b32script);
 	if (addrtype & ADDR_P2TR)
 		txfilter_add_scriptpubkey(cmd->ld->owned_txfilter, p2tr_script);
+
 	return true;
 }
 
@@ -165,28 +159,18 @@ static struct command_result *json_newaddr(struct command *cmd,
 
 	response = json_stream_success(cmd);
 
-	/* For BIP86, only return P2TR address */
-	if (*addrtype == ADDR_P2TR_MNEMONIC) {
-		p2tr = encode_pubkey_to_addr(cmd, &pubkey, ADDR_P2TR, NULL);
-		if (!p2tr) {
-			return command_fail(cmd, LIGHTNINGD,
-					    "BIP86 P2TR address encoding failure.");
-		}
-		json_add_string(response, "p2tr", p2tr);
-	} else {
-		/* For other address types, generate both bech32 and p2tr */
-		bech32 = encode_pubkey_to_addr(cmd, &pubkey, ADDR_BECH32, NULL);
-		p2tr = encode_pubkey_to_addr(cmd, &pubkey, ADDR_P2TR, NULL);
-		if (!bech32 || !p2tr) {
-			return command_fail(cmd, LIGHTNINGD,
-					    "p2wpkh address encoding failure.");
-		}
-
-		if (*addrtype & ADDR_BECH32)
-			json_add_string(response, "bech32", bech32);
-		if (*addrtype & ADDR_P2TR)
-			json_add_string(response, "p2tr", p2tr);
+	/* Generate addresses based on requested type */
+	bech32 = encode_pubkey_to_addr(cmd, &pubkey, ADDR_BECH32, NULL);
+	p2tr = encode_pubkey_to_addr(cmd, &pubkey, ADDR_P2TR, NULL);
+	if (!bech32 || !p2tr) {
+		return command_fail(cmd, LIGHTNINGD,
+				    "p2wpkh address encoding failure.");
 	}
+
+	if (*addrtype & ADDR_BECH32)
+		json_add_string(response, "bech32", bech32);
+	if (*addrtype & ADDR_P2TR)
+		json_add_string(response, "p2tr", p2tr);
 	return command_success(cmd, response);
 }
 
@@ -204,7 +188,7 @@ static void json_add_address_details(struct json_stream *response,
 {
 	json_object_start(response, NULL);
 	json_add_u64(response, "keyidx", keyidx);
-	if (!streq(out_p2wpkh, "") && addrtype != ADDR_P2TR_MNEMONIC) {
+	if (!streq(out_p2wpkh, "")) {
 		json_add_string(response, "bech32", out_p2wpkh);
 	}
 	if (!streq(out_p2tr,"")) {
@@ -245,12 +229,12 @@ static struct command_result *json_listaddresses(struct command *cmd,
 		if (listaddrtypes[i].keyidx == BIP32_INITIAL_HARDENED_CHILD){
 			break;
 		}
-		/* Use appropriate derivation based on address type */
-		if (listaddrtypes[i].addrtype == ADDR_P2TR_MNEMONIC) {
-			/* For BIP86 addresses, use BIP86 derivation */
+		/* Use appropriate derivation based on wallet type */
+		if (cmd->ld->bip86_base) {
+			/* Mnemonic wallet - use BIP86 derivation */
 			bip86_pubkey(cmd->ld, &pubkey, listaddrtypes[i].keyidx);
 		} else {
-			/* For regular addresses, use standard BIP32 derivation */
+			/* Legacy wallet - use BIP32 derivation */
 			bip32_pubkey(cmd->ld, &pubkey, listaddrtypes[i].keyidx);
 		}
 		char *out_p2wpkh = "";
@@ -265,7 +249,7 @@ static struct command_result *json_listaddresses(struct command *cmd,
 				abort();
 			}
 		}
-		if (listaddrtypes[i].addrtype == ADDR_P2TR || listaddrtypes[i].addrtype == ADDR_ALL || listaddrtypes[i].addrtype == ADDR_P2TR_MNEMONIC) {
+		if (listaddrtypes[i].addrtype == ADDR_P2TR || listaddrtypes[i].addrtype == ADDR_ALL) {
 			out_p2tr = encode_pubkey_to_addr(cmd,
 								&pubkey,
 								ADDR_P2TR,
