@@ -283,6 +283,7 @@ enum addrtype {
 	ADDR_P2SH_SEGWIT = 1,
 	ADDR_BECH32 = 2,
 	ADDR_P2TR = 4,
+	ADDR_P2TR_MNEMONIC = 8,
 	ADDR_ALL = (ADDR_BECH32 + ADDR_P2TR)
 };
 
@@ -294,6 +295,9 @@ static inline enum addrtype wallet_addrtype_in_db(enum addrtype t)
 		return t;
 	case ADDR_P2TR:
 		BUILD_ASSERT(ADDR_P2TR == 4);
+		return t;
+	case ADDR_P2TR_MNEMONIC:
+		BUILD_ASSERT(ADDR_P2TR_MNEMONIC == 8);
 		return t;
 	case ADDR_ALL:
 		BUILD_ASSERT(ADDR_ALL == 6);

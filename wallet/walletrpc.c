@@ -50,6 +50,7 @@ encode_pubkey_to_addr(const tal_t *ctx,
 		ok = segwit_addr_encode(out, hrp, 0, h160.u.u8, sizeof(h160));
 		goto done;
 
+	case ADDR_P2TR_MNEMONIC:
 	case ADDR_P2TR: {
 		u8 *p2tr_spk = scriptpubkey_p2tr(ctx, pubkey);
 		u8 *x_key = p2tr_spk + 2;
