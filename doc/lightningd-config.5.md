@@ -575,7 +575,7 @@ the address is announced.
 IPv4 or IPv6 address of the Tor control port (default port 9051),
 and this will be used to configure a Tor hidden service for port 9735
 in case of mainnet (bitcoin) network whereas other networks (testnet,
-testnet4, signet, regtest) will set the same default ports they use for 
+testnet4, signet, regtest) will set the same default ports they use for
 non-Tor addresses (see above).
 The Tor hidden service will be configured to point to the
 first IPv4 or IPv6 address we bind to and is by default unique to
@@ -804,6 +804,24 @@ The operations will be bundled into a single transaction. The channel will remai
 active while awaiting splice confirmation, however you can only spend the smaller
 of the prior channel balance and the new one.
 
+* **experimental-lsps-client**
+
+  Specifying this enables client side support for the lsps protocol
+([blip][blip] #50). Core-Lightning only supports the lsps2 ([blip][blip] #52)
+subprotocol describing the creation of just-in-time-channel (JIT-channels)
+between a LSP and this client.
+
+* **experimental-lsps2-service**
+
+  Specifying this enables a LSP JIT-Channel service according to the lsps
+protocol ([blip][blip] #52). It requires a LSP-Policy plugin to be available and
+a *experimental-lsps2-promise-secret* to be set.
+
+* **experimental-lsps2-promise-secret**=*promisesecret*
+
+  Sets a `promisesecret` for the LSP JIT-Channel service. Is a 64-character hex
+ string that acts as the secret for promises according to ([blip][blip] #52).
+ Is required if *experimental-lsps2-service* is set.
 
 BUGS
 ----
@@ -838,3 +856,4 @@ the rest of the code is covered by the BSD-style MIT license.
 [bolt]: https://github.com/lightning/bolts
 [bolt12]: https://github.com/rustyrussell/lightning-rfc/blob/guilt/offers/12-offer-encoding.md
 [pr4421]: https://github.com/ElementsProject/lightning/pull/4421
+[blip]: https://github.com/lightning/blips
