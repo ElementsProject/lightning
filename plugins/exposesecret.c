@@ -68,13 +68,9 @@ static struct command_result *json_exposesecret(struct command *cmd,
 	if (!compare_passphrases(exposesecret->exposure_passphrase, passphrase))
 		return command_fail(cmd, LIGHTNINGD, "passphrase does not match exposesecrets-passphrase");
 
-	contents = grab_file(tmpctx, "hsm_secret");
+	contents = grab_file_raw(tmpctx, "hsm_secret");
 	if (!contents)
 		return command_fail(cmd, LIGHTNINGD, "Could not open hsm_secret: %s", strerror(errno));
-
-	/* grab_file adds a \0 byte at the end for convenience */
-	if (tal_bytelen(contents) > 0)
-		tal_resize(&contents, tal_bytelen(contents) - 1);
 
 	/* Check if the HSM secret needs a passphrase */
 	if (hsm_secret_needs_passphrase(contents, tal_bytelen(contents))) {

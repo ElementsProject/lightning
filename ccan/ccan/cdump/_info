@@ -33,7 +33,7 @@
  *	size_t j;
  *
  * 	// Read code from stdin.
- * 	code = grab_file(NULL, NULL);
+ * 	code = grab_file_str(NULL, NULL);
  *
  * 	defs = cdump_extract(NULL, code, &problems);
  * 	if (!defs)

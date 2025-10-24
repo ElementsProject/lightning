@@ -231,18 +231,15 @@ static void negotiate_auth(struct rbuf *rbuf, const char *tor_password)
 
 			/* If we can't access this, try other methods */
 			cookiefile = tal_strdup(tmpctx, p);
-			contents = grab_file(tmpctx, p);
+			contents = grab_file_raw(tmpctx, p);
 			if (!contents) {
 				cookiefileerrno = errno;
 				continue;
 			}
-			assert(tal_count(contents) != 0);
 			discard_remaining_response(rbuf);
 			tor_send_cmd(rbuf,
 				     tal_fmt(tmpctx, "AUTHENTICATE %s",
-					     tal_hexstr(tmpctx,
-							contents,
-							tal_count(contents)-1)));
+					     tal_hex(tmpctx, contents)));
 			discard_remaining_response(rbuf);
 			return;
 		}

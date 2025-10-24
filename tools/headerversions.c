@@ -49,7 +49,7 @@ int main(int argc, char *argv[])
 	if (argc != 2)
 		errx(1, "Usage: %s <versionheader>", argv[0]);
 
-	file = grab_file(NULL, argv[1]);
+	file = grab_file_str(NULL, argv[1]);
 	if (!file && errno != ENOENT)
 		err(1, "Reading %s", argv[1]);
 

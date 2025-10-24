@@ -395,7 +395,7 @@ int main(int argc, char *argv[])
 	critbit0_tree ct;
 	char **words, **misswords;
 
-	words = tal_strsplit(NULL, grab_file(NULL,
+	words = tal_strsplit(NULL, grab_file_str(NULL,
 					 argv[1] ? argv[1] : "/usr/share/dict/words"), "\n", STR_NO_EMPTY);
 	ct.root = NULL;
 	num = tal_count(words) - 1;

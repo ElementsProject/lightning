@@ -27,7 +27,7 @@ int main(int argc, char *argv[])
 	if (argc < 2)
 		errx(1, "Usage: cdump-enumstr <filename> [<enums>...]");
 
-	code = grab_file(NULL, streq(argv[1], "-") ? NULL : argv[1]);
+	code = grab_file_str(NULL, streq(argv[1], "-") ? NULL : argv[1]);
 	if (!code)
 		err(1, "Reading %s", argv[1]);
 
