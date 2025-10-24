@@ -597,13 +597,7 @@ static char *opt_set_hsm_password(struct lightningd *ld)
 	}
 	prompt(ld, "");
 
-	ld->config.keypass = tal(NULL, struct secret);
-
-	opt_exitcode = hsm_secret_encryption_key_with_exitcode(passwd, ld->config.keypass, &err_msg);
-	if (opt_exitcode > 0)
-		return cast_const(char *, err_msg);
-
-	ld->encrypted_hsm = true;
+	ld->hsm_passphrase = tal_strdup(ld, passwd);
 	free(passwd);
 
 	return NULL;
