@@ -60,7 +60,7 @@ jobs:
           git clone https://github.com/lightning/bolts.git ../bolts
           # fatal: unsafe repository ('/Users/runner/work/lightning/lightning' is owned by someone else)
           git config --global --add safe.directory `pwd`
-          for d in libsodium libwally-core gheap jsmn libbacktrace lowdown; do git config --global --add safe.directory `pwd`/external/$d; done
+          for d in libsodium libwally-core gheap jsmn libbacktrace; do git config --global --add safe.directory `pwd`/external/$d; done
           git submodule update --init --recursive
 
           ./configure CC="$CC" --disable-valgrind

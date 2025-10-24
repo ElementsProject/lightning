@@ -518,10 +518,9 @@ else
     HAVE_PYTHON3_MAKO=0
 fi
 
-if check_command 'lowdown' lowdown; then
-    HAVE_LOWDOWN=1
-else
-    HAVE_LOWDOWN=0
+if ! check_command 'lowdown' lowdown; then
+    echo "*** We need lowdown!" >&2
+    exit 1
 fi
 
 if echo | check_command sha256sum sha256sum; then
@@ -615,7 +614,6 @@ add_var ASAN "$ASAN"
 add_var UBSAN "$UBSAN"
 add_var TEST_NETWORK "$TEST_NETWORK"
 add_var HAVE_PYTHON3_MAKO "$HAVE_PYTHON3_MAKO"
-add_var HAVE_LOWDOWN "$HAVE_LOWDOWN"
 add_var SHA256SUM "$SHA256SUM"
 add_var FUZZING "$FUZZING"
 add_var RUST "$RUST"
