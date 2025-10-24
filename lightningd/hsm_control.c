@@ -188,17 +188,19 @@ struct ext_key *hsm_init(struct lightningd *ld)
 		fatal("--experimental-splicing needs HSM capable of signing splices!");
 	}
 
-	/* Check if BIP86 derivation is requested and supported */
-	if (ld->use_bip86_derivation) {
-		/* Get BIP86 base key from HSM */
-		ld->bip86_base = tal(ld, struct ext_key);
-		msg = towire_hsmd_derive_bip86_key(NULL, 0, false);
-		const u8 *reply = hsm_sync_req(tmpctx, ld, take(msg));
-		if (!fromwire_hsmd_derive_bip86_key_reply(reply, ld->bip86_base)) {
-			errx(EXITCODE_HSM_GENERIC_ERROR, "Failed to get BIP86 base key from HSM");
-		}
+	/* Try to get BIP86 base key from HSM (works only for mnemonic secrets) */
+	ld->bip86_base = tal(ld, struct ext_key);
+	msg = towire_hsmd_derive_bip86_key(NULL, 0, false);
+	const u8 *reply = hsm_sync_req(tmpctx, ld, take(msg));
+	if (fromwire_hsmd_derive_bip86_key_reply(reply, ld->bip86_base)) {
+		/* BIP86 derivation succeeded - we have a mnemonic-based secret */
+		log_info(ld->log, "Using BIP86 for new addresses, BIP32 for channels (mnemonic HSM secret)");
+		/* Keep bip32_base for channel operations, database, etc. */
 	} else {
-		ld->bip86_base = NULL;
+		/* BIP86 derivation failed - we have a legacy secret */
+		log_info(ld->log, "Using BIP32 derivation for all operations (legacy HSM secret)");
+		ld->bip86_base = tal_free(ld->bip86_base);
+		/* bip32_base was already set by the HSM init reply */
 	}
 
 	/* This is equivalent to makesecret("bolt12-invoice-base") */
