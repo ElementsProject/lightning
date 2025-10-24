@@ -24,6 +24,13 @@ HSM_ERROR_IS_ENCRYPT = 21
 HSM_BAD_PASSWORD = 22
 
 
+def good_addrtype():
+    """Elements doesn't support p2tr"""
+    if TEST_NETWORK == 'regtest':
+        return "p2tr"
+    return "bech32"
+
+
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Test relies on a number of example addresses valid only in regtest")
 def test_withdraw(node_factory, bitcoind):
     amount = 1000000
@@ -215,7 +222,7 @@ def test_minconf_withdraw(node_factory, bitcoind):
     amount = 1000000
     # Don't get any funds from previous runs.
     l1 = node_factory.get_node(random_hsm=True)
-    addr = l1.rpc.newaddr('p2tr')['p2tr']
+    addr = l1.rpc.newaddr(good_addrtype())[good_addrtype()]
 
     # Add some funds to withdraw later
     for i in range(10):
@@ -231,6 +238,7 @@ def test_minconf_withdraw(node_factory, bitcoind):
         l1.rpc.withdraw(destination=addr, satoshi=10000, feerate='normal', minconf=9999999)
 
 
+@unittest.skipIf(TEST_NETWORK == 'liquid-regtest', "BIP86 random_hsm not compatible with liquid-regtest bech32")
 def test_addfunds_from_block(node_factory, bitcoind):
     """Send funds to the daemon without telling it explicitly
     """
@@ -238,7 +246,7 @@ def test_addfunds_from_block(node_factory, bitcoind):
     coin_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
     l1 = node_factory.get_node(random_hsm=True, options={'plugin': coin_plugin})
 
-    addr = l1.rpc.newaddr('p2tr')['p2tr']
+    addr = l1.rpc.newaddr(good_addrtype())[good_addrtype()]
     bitcoind.rpc.sendtoaddress(addr, 0.1)
     bitcoind.generate_block(1)
 
@@ -275,7 +283,7 @@ def test_txprepare_multi(node_factory, bitcoind):
     amount = 10000000
     l1 = node_factory.get_node(random_hsm=True)
 
-    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr('p2tr')['p2tr'], amount / 10**8)
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr('all')[good_addrtype()], amount / 10**8)
     bitcoind.generate_block(1)
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
 
@@ -303,6 +311,7 @@ def feerate_from_psbt(chainparams, bitcoind, node, psbt):
     return fee / weight * 1000
 
 
+@unittest.skipIf(TEST_NETWORK == 'liquid-regtest', "BIP86 random_hsm not compatible with liquid-regtest bech32")
 def test_txprepare(node_factory, bitcoind, chainparams):
     amount = 1000000
     l1 = node_factory.get_node(random_hsm=True, options={'dev-warn-on-overgrind': None},
@@ -311,7 +320,7 @@ def test_txprepare(node_factory, bitcoind, chainparams):
 
     # Add some funds to withdraw later
     for i in range(10):
-        bitcoind.rpc.sendtoaddress(l1.rpc.newaddr('p2tr')['p2tr'],
+        bitcoind.rpc.sendtoaddress(l1.rpc.newaddr(good_addrtype())[good_addrtype()],
                                    amount / 10**8)
 
     bitcoind.generate_block(1)
@@ -1196,6 +1205,7 @@ def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
     check_coin_moves(l1, 'wallet', wallet_coin_mvts, chainparams)
 
 
+@unittest.skipIf(TEST_NETWORK == 'liquid-regtest', "BIP86 random_hsm not compatible with liquid-regtest bech32")
 def test_txsend(node_factory, bitcoind, chainparams):
     amount = 1000000
     l1 = node_factory.get_node(random_hsm=True)
@@ -1203,7 +1213,7 @@ def test_txsend(node_factory, bitcoind, chainparams):
 
     # Add some funds to withdraw later
     for i in range(10):
-        bitcoind.rpc.sendtoaddress(l1.rpc.newaddr('p2tr')['p2tr'],
+        bitcoind.rpc.sendtoaddress(l1.rpc.newaddr(good_addrtype())[good_addrtype()],
                                    amount / 10**8)
     bitcoind.generate_block(1)
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 10)
