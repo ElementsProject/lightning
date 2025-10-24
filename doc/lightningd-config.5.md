@@ -293,14 +293,29 @@ authenticate with username `user` and password `pass`, and then use the
 database `db_name`. The database must exist, but the schema will be managed
 automatically by `lightningd`.
 
-* **encrypted-hsm**
+* **hsm-passphrase**
 
- If set, you will be prompted to enter a password used to encrypt the `hsm_secret`.
-Note that once you encrypt the `hsm_secret` this option will be mandatory for
-`lightningd` to start.
-If there is no `hsm_secret` yet, `lightningd` will create a new encrypted secret.
-If you have an unencrypted `hsm_secret` you want to encrypt on-disk, or vice versa,
-see lightning-hsmtool(8).
+  If set, you will be prompted to enter a passphrase for your HSM secret.
+  This option supports both legacy 32-byte `hsm_secret` files (where the passphrase
+  encrypts the secret) and new BIP39 mnemonic-based secrets (where the passphrase
+  is used as additional entropy during seed derivation according to the BIP39 standard).
+  
+  Note that once you set a passphrase, this option will be mandatory for
+  `lightningd` to start. If there is no HSM secret yet, `lightningd` will create 
+  a new mnemonic-based secret that will be secured with your passphrase following
+  BIP39 specifications.
+  
+  For legacy users: If you have an existing encrypted `hsm_secret` that was created
+  with the deprecated `encrypted-hsm` option, this will continue to work seamlessly.
+  
+  For new mnemonic-based secrets: The passphrase becomes part of the seed derivation
+  process as specified in BIP39, providing an additional factor of security. The 
+  mnemonic words alone are not sufficient to derive the seed without the passphrase.
+  
+  If you have an unencrypted legacy `hsm_secret` you want to encrypt, or need to
+  manage your HSM secrets, see lightning-hsmtool(8).
+
+  (Note: This option replaces the deprecated `encrypted-hsm` option.)
 
 
 * **grpc-host**=*HOST* [plugin `cln-grpc`]
