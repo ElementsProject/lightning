@@ -129,8 +129,9 @@ enum jsonrpc_errcode {
 	/* Errors from signmessage command */
 	SIGNMESSAGE_PUBKEY_NOT_FOUND = 1301,
 
-	/* Errors from delforward command */
+	/* Errors from del commands */
 	DELFORWARD_NOT_FOUND = 1401,
+	DELNETWORKEVENT_NOT_FOUND = 1402,
 
 	/* Errors from runes */
 	RUNE_NOT_AUTHORIZED = 1501,
