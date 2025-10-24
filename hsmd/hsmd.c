@@ -432,8 +432,7 @@ static void load_hsm(const char *passphrase)
 	enum hsm_secret_error err;
 
 	/* Read the hsm_secret file */
-	size_t hsm_secret_len;
-	hsm_secret_contents = grab_file_contents(tmpctx, "hsm_secret", &hsm_secret_len);
+	hsm_secret_contents = grab_file_raw(tmpctx, "hsm_secret");
 	if (!hsm_secret_contents) {
 		hsmd_send_init_reply_failure(HSM_SECRET_ERR_INVALID_FORMAT, STATUS_FAIL_INTERNAL_ERROR,
 			                        "Could not read hsm_secret: %s", strerror(errno));
@@ -441,8 +440,8 @@ static void load_hsm(const char *passphrase)
 
 	/* Extract the secret using the new hsm_secret module */
 	hsms = extract_hsm_secret(tmpctx, hsm_secret_contents,
-				 hsm_secret_len,
-				 passphrase, &err);
+				  tal_bytelen(hsm_secret_contents),
+				  passphrase, &err);
 	if (!hsms) {
 		hsmd_send_init_reply_failure(err, STATUS_FAIL_INTERNAL_ERROR,
 			                        "Failed to load hsm_secret: %s", hsm_secret_error_str(err));
