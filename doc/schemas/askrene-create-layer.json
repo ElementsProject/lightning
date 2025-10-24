@@ -202,7 +202,8 @@
                 "type": "object",
                 "required": [
                   "short_channel_id_dir",
-                  "bias"
+                  "bias",
+                  "timestamp"
                 ],
                 "additionalProperties": false,
                 "properties": {
@@ -222,6 +223,64 @@
                     "type": "string",
                     "description": [
                       "Description/annotation to display in askrene-listlayers(7)"
+                    ]
+                  },
+                  "timestamp": {
+                    "type": "u64",
+                    "added": "v25.12",
+                    "description": [
+                      "The UNIX timestamp when this bias was created."
+                    ]
+                  }
+                }
+              }
+            },
+            "node_biases": {
+              "added": "v25.12",
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "node",
+                  "in_bias",
+                  "out_bias",
+                  "timestamp"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "node": {
+                    "added": "v25.12",
+                    "type": "pubkey",
+                    "description": [
+                      "The id of the biased node."
+                    ]
+                  },
+                  "in_bias": {
+                    "added": "v25.12",
+                    "type": "integer",
+                    "description": [
+                      "The bias (-100 to +100) on incoming channels."
+                    ]
+                  },
+                  "out_bias": {
+                    "added": "v25.12",
+                    "type": "integer",
+                    "description": [
+                      "The bias (-100 to +100) on outgoing channels."
+                    ]
+                  },
+                  "description": {
+                    "added": "v25.12",
+                    "type": "string",
+                    "description": [
+                      "A human readable annotation."
+                    ]
+                  },
+                  "timestamp": {
+                    "added": "v25.12",
+                    "type": "u64",
+                    "description": [
+                      "The UNIX timestamp when this bias was created or last updated."
                     ]
                   }
                 }
@@ -264,7 +323,8 @@
             "created_channels": [],
             "channel_updates": [],
             "constraints": [],
-            "biases": []
+            "biases": [],
+            "node_biases": []
           }
         ]
       }

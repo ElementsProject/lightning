@@ -25,6 +25,8 @@
 #include <plugins/libplugin.h>
 #include <stdarg.h>
 
+#define XPAY_GLOBAL_LAYER "xpay"
+
 /* For the whole plugin */
 struct xpay {
 	struct pubkey local_id;
@@ -486,7 +488,7 @@ static const char *layer_of(const struct payment *payment,
 	struct gossmap *gossmap = get_gossmap(xpay_of(payment->plugin));
 
 	if (gossmap_find_chan(gossmap, &scidd->scid))
-		return "xpay";
+		return XPAY_GLOBAL_LAYER;
 	return payment->private_layer;
 }
 
@@ -843,7 +845,7 @@ strange_error:
 			   describe_scidd(attempt, index));
 
 disable_channel:
-	/* We only do this for the current payment */
+	/* We disable this channel for the current payment */
 	req = payment_ignored_req(aux_cmd, attempt, "askrene-update-channel");
 	json_add_string(req->js, "layer", attempt->payment->private_layer);
 	json_add_short_channel_id_dir(req->js,
@@ -851,6 +853,32 @@ disable_channel:
 				      attempt->hops[index].scidd);
 	json_add_bool(req->js, "enabled", false);
 	send_payment_req(aux_cmd, attempt->payment, req);
+
+	/* We add a negative bias to this channel to penalize it for other
+	 * payments.
+	 * Biases are nice way to penalize or encourage the use of
+	 * channels. But it has some limitations. For example the bias would
+	 * have no effect if the channel already provides 0 cost routing. */
+	req = payment_ignored_req(aux_cmd, attempt, "askrene-bias-channel");
+	json_add_string(req->js, "layer", XPAY_GLOBAL_LAYER);
+	json_add_short_channel_id_dir(req->js, "short_channel_id_dir",
+				      attempt->hops[index].scidd);
+	json_add_s32(req->js, "bias", -5);
+	json_add_bool(req->js, "relative", true);
+	send_payment_req(aux_cmd, attempt->payment, req);
+
+	/* We add a negative bias to the node that owns this half channel. */
+	if (index) {
+		req =
+		    payment_ignored_req(aux_cmd, attempt, "askrene-bias-node");
+		json_add_string(req->js, "layer", XPAY_GLOBAL_LAYER);
+		json_add_pubkey(req->js, "node",
+				&attempt->hops[index - 1].next_node);
+		json_add_s32(req->js, "bias", -1);
+		json_add_bool(req->js, "relative", true);
+		json_add_bool(req->js, "out_direction", true);
+		send_payment_req(aux_cmd, attempt->payment, req);
+	}
 	goto check_previous_success;
 
 channel_capacity:
@@ -1372,7 +1400,7 @@ static struct command_result *getroutes_for(struct command *aux_cmd,
 	/* We don't pay fees for ourselves */
 	json_add_string(req->js, NULL, "auto.sourcefree");
 	/* Add xpay global channel */
-	json_add_string(req->js, NULL, "xpay");
+	json_add_string(req->js, NULL, XPAY_GLOBAL_LAYER);
 	/* Add private layer */
 	json_add_string(req->js, NULL, payment->private_layer);
 	/* Add user-specified layers */
@@ -2095,7 +2123,7 @@ static struct command_result *age_layer(struct command *timer_cmd, void *unused)
 				    age_done,
 				    plugin_broken_cb,
 				    NULL);
-	json_add_string(req->js, "layer", "xpay");
+	json_add_string(req->js, "layer", XPAY_GLOBAL_LAYER);
 	json_add_u64(req->js, "cutoff", time_now().ts.tv_sec - 3600);
 	return send_outreq(req);
 }
@@ -2155,7 +2183,7 @@ static const char *init(struct command *init_cmd,
 				    xpay_layer_created,
 				    plugin_broken_cb,
 				    "askrene-create-layer");
-	json_add_string(req->js, "layer", "xpay");
+	json_add_string(req->js, "layer", XPAY_GLOBAL_LAYER);
 	json_add_bool(req->js, "persistent", true);
 	send_outreq(req);
 

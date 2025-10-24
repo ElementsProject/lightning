@@ -1086,6 +1086,7 @@ static struct command_result *json_askrene_bias_channel(struct command *cmd,
 	s8 *bias;
 	const struct bias *b;
 	bool *relative;
+	u64 timestamp;
 
 	if (!param(cmd, buffer, params,
 		   p_req("layer", param_known_layer, &layer),
@@ -1098,11 +1099,50 @@ static struct command_result *json_askrene_bias_channel(struct command *cmd,
 	plugin_log(cmd->plugin, LOG_TRACE, "%s called: %.*s", __func__,
 		   json_tok_full_len(params), json_tok_full(buffer, params));
 
-	b = layer_set_bias(layer, scidd, description, *bias, *relative);
+	timestamp = time_now().ts.tv_sec;
+	b = layer_set_bias(layer, scidd, description, *bias, *relative,
+			   timestamp);
 	response = jsonrpc_stream_success(cmd);
 	json_array_start(response, "biases");
 	if (b)
 		json_add_bias(response, NULL, b, layer);
+	json_array_end(response);
+	return command_finished(cmd, response);
+}
+
+static struct command_result *json_askrene_bias_node(struct command *cmd,
+						     const char *buffer,
+						     const jsmntok_t *params)
+{
+	struct layer *layer;
+	struct node_id *node;
+        struct json_stream *response;
+	const char *description;
+	s8 *bias;
+	const struct node_bias *b;
+	bool *relative;
+	bool *out_dir;
+	u64 timestamp;
+
+	if (!param(cmd, buffer, params,
+		   p_req("layer", param_known_layer, &layer),
+		   p_req("node", param_node_id, &node),
+		   p_req("bias", param_s8_hundred, &bias),
+		   p_opt("description", param_string, &description),
+		   p_opt_def("relative", param_bool, &relative, false),
+		   p_opt_def("out_direction", param_bool, &out_dir, true),
+		   NULL))
+		return command_param_failed();
+	plugin_log(cmd->plugin, LOG_TRACE, "%s called: %.*s", __func__,
+		   json_tok_full_len(params), json_tok_full(buffer, params));
+
+	timestamp = time_now().ts.tv_sec;
+	b = layer_set_node_bias(layer, node, description, *bias, *relative,
+				*out_dir, timestamp);
+	response = jsonrpc_stream_success(cmd);
+	json_array_start(response, "node_biases");
+	if (b)
+		json_add_node_bias(response, NULL, b, layer);
 	json_array_end(response);
 	return command_finished(cmd, response);
 }
@@ -1272,6 +1312,10 @@ static const struct plugin_command commands[] = {
 	{
 		"askrene-bias-channel",
 		json_askrene_bias_channel,
+	},
+	{
+		"askrene-bias-node",
+		json_askrene_bias_node,
 	},
 	{
 		"askrene-create-layer",
