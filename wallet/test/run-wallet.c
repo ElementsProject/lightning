@@ -336,6 +336,9 @@ bool fromwire_hsmd_forget_channel_reply(const void *p UNNEEDED)
 /* Generated stub for fromwire_hsmd_get_output_scriptpubkey_reply */
 bool fromwire_hsmd_get_output_scriptpubkey_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **script UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_get_output_scriptpubkey_reply called!\n"); abort(); }
+/* Generated stub for fromwire_hsmd_init_reply_failure */
+bool fromwire_hsmd_init_reply_failure(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u32 *error_code UNNEEDED, wirestring **error_message UNNEEDED)
+{ fprintf(stderr, "fromwire_hsmd_init_reply_failure called!\n"); abort(); }
 /* Generated stub for fromwire_hsmd_init_reply_v4 */
 bool fromwire_hsmd_init_reply_v4(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u32 *hsm_version UNNEEDED, u32 **hsm_capabilities UNNEEDED, struct node_id *node_id UNNEEDED, struct ext_key *bip32 UNNEEDED, struct pubkey *bolt12 UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_init_reply_v4 called!\n"); abort(); }
