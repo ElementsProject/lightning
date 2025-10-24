@@ -13,6 +13,10 @@
 #include <unistd.h>
 #include <wally_bip39.h>
 
+/* HSM secret size constants */
+#define HSM_SECRET_PLAIN_SIZE 32
+#define HSM_SECRET_MNEMONIC_SIZE 64
+
 /* Length of the encrypted hsm secret header. */
 #define HS_HEADER_LEN crypto_secretstream_xchacha20poly1305_HEADERBYTES
 /* From libsodium: "The ciphertext length is guaranteed to always be message
@@ -219,6 +223,11 @@ static struct hsm_secret *extract_plain_secret(const tal_t *ctx,
 	assert(len == sizeof(hsms->secret));
 	hsms->type = HSM_SECRET_PLAIN;
 	hsms->mnemonic = NULL;
+
+	/* Allocate and populate secret_data (new field) */
+	hsms->secret_data = tal_dup_arr(hsms, u8, hsm_secret, HSM_SECRET_PLAIN_SIZE, 0);
+
+	/* Also populate legacy secret field for compatibility */
 	memcpy(&hsms->secret, hsm_secret, sizeof(hsms->secret));
 
 	*err = HSM_SECRET_OK;
@@ -260,6 +269,9 @@ static struct hsm_secret *extract_encrypted_secret(const tal_t *ctx,
 		*err = HSM_SECRET_ERR_WRONG_PASSPHRASE;
 		return tal_free(hsms);
 	}
+
+	/* Allocate and populate secret_data (new field) */
+	hsms->secret_data = tal_dup_arr(hsms, u8, hsms->secret.data, HSM_SECRET_PLAIN_SIZE, 0);
 
 	hsms->type = HSM_SECRET_ENCRYPTED;
 	hsms->mnemonic = NULL;
@@ -327,7 +339,10 @@ static struct hsm_secret *extract_mnemonic_secret(const tal_t *ctx,
 		return tal_free(hsms);
 	}
 
-	/* We only use the first 32 bytes for the hsm_secret */
+	/* Allocate and populate secret_data with full 64-byte seed */
+	hsms->secret_data = tal_dup_arr(hsms, u8, bip32_seed.seed, sizeof(bip32_seed.seed), 0);
+
+	/* Also populate legacy secret field with first 32 bytes for compatibility */
 	memcpy(hsms->secret.data, bip32_seed.seed, sizeof(hsms->secret.data));
 
 	*err = HSM_SECRET_OK;
@@ -527,4 +542,18 @@ u8 *grab_file_contents(const tal_t *ctx, const char *filename, size_t *len)
 		*len = contents_len;
 
 	return contents;
+}
+
+const u8 *hsm_secret_bytes(const struct hsm_secret *hsm)
+{
+	if (hsm->secret_data)
+		return hsm->secret_data;
+	return hsm->secret.data;
+}
+
+size_t hsm_secret_size(const struct hsm_secret *hsm)
+{
+	if (hsm->secret_data)
+		return tal_bytelen(hsm->secret_data);
+	return sizeof(hsm->secret);
 }
