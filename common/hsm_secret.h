@@ -32,7 +32,6 @@ enum hsm_secret_error {
 	HSM_SECRET_ERR_SEED_DERIVATION_FAILED,
 	HSM_SECRET_ERR_INVALID_FORMAT,
 	HSM_SECRET_ERR_TERMINAL,
-	HSM_SECRET_ERR_MEMORY
 };
 
 /**
@@ -40,7 +39,7 @@ enum hsm_secret_error {
  */
 struct hsm_secret {
 	enum hsm_secret_type type;
-	u8 *secret_data;          /* Variable length: 32 bytes (legacy) or 64 bytes (mnemonic) */
+	const u8 *secret_data;          /* Variable length: 32 bytes (legacy) or 64 bytes (mnemonic) */
 	const char *mnemonic;           /* NULL if not derived from mnemonic */
 };
 
@@ -71,7 +70,7 @@ bool hsm_secret_needs_passphrase(const u8 *hsm_secret, size_t len);
  * @hsm_secret - raw file contents
  * @len - length of file
  * @passphrase - passphrase, or NULL if not needed
- * @err - optional pointer to set error code on failure
+ * @err - pointer to set error code on failure
  *
  * Returns parsed `struct hsm_secret` or NULL on error.
  */
@@ -100,8 +99,8 @@ struct secret *get_encryption_key(const tal_t *ctx, const char *passphrase);
  * Returns true on success.
  */
 bool encrypt_legacy_hsm_secret(const struct secret *encryption_key,
-			const struct secret *hsm_secret,
-			u8 *output);
+			       const struct secret *hsm_secret,
+			       u8 *output);
 
 /**
  * Reads a passphrase from stdin, disabling terminal echo.
