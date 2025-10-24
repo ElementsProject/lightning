@@ -196,6 +196,14 @@ msgdata,hsmd_preapprove_keysend_check,check_only,bool,
 msgtype,hsmd_preapprove_keysend_check_reply,152
 msgdata,hsmd_preapprove_keysend_check_reply,approved,bool,
 
+# Derive BIP86 key using path m/86'/0'/0'/change/address_index
+msgtype,hsmd_derive_bip86_key,54
+msgdata,hsmd_derive_bip86_key,index,u32,
+msgdata,hsmd_derive_bip86_key,is_change,bool,
+
+msgtype,hsmd_derive_bip86_key_reply,154
+msgdata,hsmd_derive_bip86_key_reply,bip86_base,ext_key,
+
 # Give me ECDH(node-id-secret,point)
 msgtype,hsmd_ecdh_req,1
 msgdata,hsmd_ecdh_req,point,pubkey,
@@ -446,6 +454,14 @@ msgdata,hsmd_check_pubkey,pubkey,pubkey,
 # Reply
 msgtype,hsmd_check_pubkey_reply,128
 msgdata,hsmd_check_pubkey_reply,ok,bool,
+
+# Sanity check this BIP86 pubkey derivation is correct (unhardened only)
+msgtype,hsmd_check_bip86_pubkey,56
+msgdata,hsmd_check_bip86_pubkey,index,u32,
+msgdata,hsmd_check_bip86_pubkey,pubkey,pubkey,
+
+msgtype,hsmd_check_bip86_pubkey_reply,156
+msgdata,hsmd_check_bip86_pubkey_reply,ok,bool,
 
 msgtype,hsmd_sign_anchorspend,147
 msgdata,hsmd_sign_anchorspend,peerid,node_id,
