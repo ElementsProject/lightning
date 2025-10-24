@@ -632,6 +632,12 @@ static char *opt_set_hsm_passphrase(struct lightningd *ld)
 	return read_hsm_passphrase(ld);
 }
 
+static char *opt_set_bip86_derivation(struct lightningd *ld)
+{
+	ld->use_bip86_derivation = true;
+	return NULL;
+}
+
 static char *opt_force_privkey(const char *optarg, struct lightningd *ld)
 {
 	tal_free(ld->dev_force_privkey);
@@ -1552,6 +1558,9 @@ static void register_opts(struct lightningd *ld)
 
 	opt_register_noarg("--hsm-passphrase", opt_set_hsm_passphrase, ld,
 			 "Prompt for passphrase for encrypted hsm_secret (replaces --encrypted-hsm)");
+
+	opt_register_noarg("--use-bip86-derivation", opt_set_bip86_derivation, ld,
+			 "Use BIP86 derivation for mnemonic-based HSM secrets (experimental)");
 
 	opt_register_arg("--rpc-file-mode", &opt_set_mode, &opt_show_mode,
 			 &ld->rpc_filemode,
