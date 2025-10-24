@@ -38,7 +38,7 @@ struct hsmd_client {
 /* Given the (unencrypted) base secret, intialize all derived secrets.
  *
  * While we ensure that the memory the internal secrets are stored in
- * is secure (mlock), the caller must make sure that the `hsm_secret`
+ * is secure (mlock), the caller must make sure that the `secret_data`
  * argument is handled securely before this call to avoid potential
  * issues. The function copies the secret, so the caller can free the
  * secret after the call.
@@ -46,7 +46,7 @@ struct hsmd_client {
  * Returns the `hsmd_init_reply` with the information required by
  * `lightningd`.
  */
-u8 *hsmd_init(struct secret hsm_secret, const u64 hsmd_version,
+u8 *hsmd_init(const u8 *secret_data, size_t secret_len, const u64 hsmd_version,
 	      struct bip32_key_version bip32_key_version);
 
 struct hsmd_client *hsmd_client_new_main(const tal_t *ctx, u64 capabilities,

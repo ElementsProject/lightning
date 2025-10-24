@@ -8,6 +8,7 @@
 #include <common/hash_u5.h>
 #include <common/key_derive.h>
 #include <common/lease_rates.h>
+#include <common/memleak.h>
 #include <common/utils.h>
 #include <hsmd/libhsmd.h>
 #include <hsmd/permissions.h>
@@ -25,11 +26,17 @@ struct privkey *dev_force_privkey;
 /* If they specify --dev-force-bip32-seed it ends up in here. */
 struct secret *dev_force_bip32_seed;
 
-/*~ Nobody will ever find it here!  hsm_secret is our root secret, the bip32
+/*~ Nobody will ever find it here!  bip32_seed is our root secret, the bip32
  * tree, bolt12 payer_id keys and derived_secret are derived from that, and
  * cached here. */
 struct {
+	/* keep for legacy callers that read 32B directly today */
 	struct secret hsm_secret;
+
+	/* new: full root bytes we received (32 or 64) */
+	u8 *bip32_seed;
+	size_t bip32_seed_len;
+
 	struct ext_key bip32;
 	struct secret bolt12;
 	struct secret derived_secret;
@@ -2334,7 +2341,7 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 	return hsmd_status_bad_request(client, msg, "Unknown request");
 }
 
-u8 *hsmd_init(struct secret hsm_secret, const u64 hsmd_version,
+u8 *hsmd_init(const u8 *secret_data, size_t secret_len, const u64 hsmd_version,
 	      struct bip32_key_version bip32_key_version)
 {
 	u8 bip32_seed[BIP32_ENTROPY_LEN_256];
@@ -2356,10 +2363,13 @@ u8 *hsmd_init(struct secret hsm_secret, const u64 hsmd_version,
 	};
 	u32 *caps;
 
-	/*~ Don't swap this. */
-	sodium_mlock(secretstuff.hsm_secret.data,
-		     sizeof(secretstuff.hsm_secret.data));
-	memcpy(secretstuff.hsm_secret.data, hsm_secret.data, sizeof(hsm_secret.data));
+	/* new: keep the full 32/64B root */
+	secretstuff.bip32_seed_len = secret_len;
+	secretstuff.bip32_seed = notleak(tal_dup_arr(NULL, u8, secret_data, secret_len, 0));
+	sodium_mlock(secretstuff.bip32_seed, secret_len);
+
+	/* legacy mirror: first 32 bytes for existing code paths */
+	memcpy(secretstuff.hsm_secret.data, secret_data, 32);
 
 	assert(bip32_key_version.bip32_pubkey_version == BIP32_VER_MAIN_PUBLIC
 			|| bip32_key_version.bip32_pubkey_version == BIP32_VER_TEST_PUBLIC);
