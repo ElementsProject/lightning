@@ -12,6 +12,7 @@ from utils import (
     check_coin_moves, first_channel_id, EXPERIMENTAL_DUAL_FUND,
     mine_funding_to_announce, VALGRIND, first_scid
 )
+from tests.test_wallet import HsmTool, write_all, WAIT_TIMEOUT
 
 import ast
 import json
@@ -4319,7 +4320,6 @@ def test_important_plugin_shutdown(node_factory):
     l1.rpc.plugin_start(os.path.join(os.getcwd(), 'plugins/pay'))
 
 
-@pytest.mark.skip(reason="Temporarily disabled expose secrets test")
 @unittest.skipIf(VALGRIND, "It does not play well with prompt and key derivation.")
 def test_exposesecret(node_factory):
     l1, l2 = node_factory.get_nodes(2, opts=[{'exposesecret-passphrase': "test_exposesecret"}, {}])
@@ -4376,28 +4376,95 @@ def test_exposesecret(node_factory):
     assert l1.rpc.exposesecret(passphrase='test_exposesecret') == {'codex32': 'cl10junxsd35kw6r5de5kueedxyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq6mdtn5lql6p8m',
                                                                    'identifier': 'junx'}
 
-    # Test with encrypted-hsm (fails!)
-    password = 'test_exposesecret'
-    l1.stop()
-    # We need to simulate a terminal to use termios in `lightningd`.
+
+@unittest.skipIf(VALGRIND, "It does not play well with prompt and key derivation.")
+def test_exposesecret_with_hsm_passphrase(node_factory):
+    """Test that exposesecret plugin correctly handles hsm-passphrase option"""
+    # Create a node with exposesecret-passphrase option
+    l1 = node_factory.get_node(options={
+        'exposesecret-passphrase': "test_exposesecret",
+    }, start=False)
+
+    hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
+    if os.path.exists(hsm_path):
+        os.remove(hsm_path)
+
+    # Generate hsm_secret with mnemonic and passphrase using hsmtool
+    mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+    hsm_passphrase = "test_hsm_passphrase"  # Any passphrase, since we expect exposesecret to fail
+    expected_format = "mnemonic with passphrase"
+
+    hsmtool = HsmTool(node_factory.directory, "generatehsm", hsm_path)
     master_fd, slave_fd = os.openpty()
+    hsmtool.start(stdin=slave_fd)
+    hsmtool.wait_for_log(r"Introduce your BIP39 word list")
+    write_all(master_fd, f"{mnemonic}\n".encode("utf-8"))
+    hsmtool.wait_for_log(r"Enter your passphrase:")
+    write_all(master_fd, f"{hsm_passphrase}\n".encode("utf-8"))
+    assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
+    hsmtool.is_in_log(r"New hsm_secret file created")
+    hsmtool.is_in_log(f"Format: {expected_format}")
+    os.close(master_fd)
+    os.close(slave_fd)
 
-    def write_all(fd, bytestr):
-        """Wrapper, since os.write can do partial writes"""
-        off = 0
-        while off < len(bytestr):
-            off += os.write(fd, bytestr[off:])
+    # Add --hsm-passphrase option to trigger interactive prompting
+    l1.daemon.opts["hsm-passphrase"] = None
 
-    l1.daemon.opts.update({"encrypted-hsm": None})
-    l1.daemon.start(stdin=slave_fd, wait_for_initialized=False)
-    l1.daemon.wait_for_log(r'Enter hsm_secret password')
-    write_all(master_fd, (password + '\n').encode("utf-8"))
-    l1.daemon.wait_for_log(r'Confirm hsm_secret password')
-    write_all(master_fd, (password + '\n').encode("utf-8"))
+    # Create a pty to handle the interactive passphrase prompt
+    master_fd2, slave_fd2 = os.openpty()
+    l1.daemon.start(stdin=slave_fd2, wait_for_initialized=False)
+
+    # Wait for the passphrase prompt and provide it
+    l1.daemon.wait_for_log("Enter hsm_secret passphrase:")
+    print(f"DEBUG: About to send passphrase: '{hsm_passphrase}'")
+    passphrase_bytes = f"{hsm_passphrase}\n".encode("utf-8")
+    print(f"DEBUG: Passphrase bytes: {passphrase_bytes}")
+    write_all(master_fd2, passphrase_bytes)
+    print("DEBUG: Passphrase sent!")
+
+    # Wait for the node to be ready
     l1.daemon.wait_for_log("Server started with public key")
 
-    with pytest.raises(RpcError, match="maybe encrypted"):
-        l1.rpc.exposesecret(passphrase=password)
+    os.close(master_fd2)
+    os.close(slave_fd2)
+
+    # Test that exposesecret fails with mnemonic+passphrase format since it needs a passphrase
+    with pytest.raises(RpcError, match="Secret with passphrase is not supported"):
+        l1.rpc.exposesecret(passphrase="test_exposesecret")
+
+
+@unittest.skipIf(VALGRIND, "It does not play well with prompt and key derivation.")
+def test_exposesecret_with_mnemonic_no_passphrase(node_factory):
+    """Test that exposesecret plugin works correctly with mnemonic-based hsm_secret without passphrase"""
+    # Create a node with exposesecret-passphrase option
+    l1 = node_factory.get_node(options={
+        'exposesecret-passphrase': "test_exposesecret",
+    }, start=False)
+    hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
+    if os.path.exists(hsm_path):
+        os.remove(hsm_path)
+
+    # Generate hsm_secret with mnemonic and no passphrase using hsmtool
+    mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+    hsmtool = HsmTool(node_factory.directory, "generatehsm", hsm_path)
+    master_fd, slave_fd = os.openpty()
+    hsmtool.start(stdin=slave_fd)
+    hsmtool.wait_for_log(r"Introduce your BIP39 word list")
+    write_all(master_fd, f"{mnemonic}\n".encode("utf-8"))
+    hsmtool.wait_for_log(r"Enter your passphrase:")
+    write_all(master_fd, "\n".encode("utf-8"))
+    assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
+
+    # Start the daemon normally (no hsm-passphrase option needed for mnemonic without passphrase)
+    l1.start()
+
+    # Test that exposesecret works correctly with mnemonic-based hsm_secret without passphrase
+    result = l1.rpc.exposesecret(passphrase="test_exposesecret")
+    assert result == {
+        'codex32': 'cl10peevst6cqh0wu7p5ssjyf4z4ez42ks9jlt3zneju9uuypr2hddak6tlqsjhsks4laxts8q',
+        'identifier': 'peev',
+        'mnemonic': 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'
+    }
 
 
 def test_peer_storage(node_factory, bitcoind):

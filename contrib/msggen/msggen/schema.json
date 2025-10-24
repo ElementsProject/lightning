@@ -11785,6 +11785,13 @@
             "description": [
               "The full codex32-encoded (i.e. BIP-93 encoded) HSM secret."
             ]
+          },
+          "mnemonic": {
+            "type": "string",
+            "added": "v25.12",
+            "description": [
+              "The BIP39 mnemonic phrase for the HSM secret (only present for mnemonic-based secrets)."
+            ]
           }
         }
       },
@@ -11823,6 +11830,20 @@
           "response": {
             "identifier": "cln2",
             "codex32": "cl10cln2sd35kw6r5de5kueedxyesqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqn9lcvcu7cez4s"
+          }
+        },
+        {
+          "request": {
+            "id": "example:exposesecret#3",
+            "method": "exposesecret",
+            "params": {
+              "passphrase": "test_exposesecret"
+            }
+          },
+          "response": {
+            "identifier": "peev",
+            "codex32": "cl10peevst6cqh0wu7p5ssjyf4z4ez42ks9jlt3zneju9uuypr2hddak6tlqsjhsks4laxts8q",
+            "mnemonic": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
           }
         }
       ]

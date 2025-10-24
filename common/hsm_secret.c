@@ -5,6 +5,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/errcode.h>
 #include <common/hsm_secret.h>
+#include <common/memleak.h>
 #include <common/utils.h>
 #include <errno.h>
 #include <sys/stat.h>
@@ -32,12 +33,19 @@ void destroy_secret(struct secret *secret)
 static bool validate_mnemonic(const char *mnemonic, enum hsm_secret_error *err)
 {
 	struct words *words;
+	bool ok;
 
+	tal_wally_start();
 	if (bip39_get_wordlist("en", &words) != WALLY_OK) {
 		abort();
 	}
 
-	if (bip39_mnemonic_validate(words, mnemonic) != WALLY_OK) {
+	ok = (bip39_mnemonic_validate(words, mnemonic) == WALLY_OK);
+
+	/* Wordlists can persist, so provide a common context! */
+	tal_wally_end(notleak_with_children(tal(NULL, char)));
+
+	if (!ok) {
 		*err = HSM_SECRET_ERR_INVALID_MNEMONIC;
 		return false;
 	}
@@ -110,22 +118,45 @@ enum hsm_secret_type detect_hsm_secret_type(const u8 *hsm_secret, size_t len)
 		return HSM_SECRET_MNEMONIC_WITH_PASS;
 }
 
+struct bip32_seed {
+	u8 seed[BIP39_SEED_LEN_512];
+};
+
+static bool mnemonic_to_seed(const char *mnemonic, const char *passphrase,
+			     struct bip32_seed *bip32_seed)
+{
+	size_t len;
+
+	tal_wally_start();
+	if (bip39_mnemonic_to_seed(mnemonic, passphrase,
+				   bip32_seed->seed, sizeof(bip32_seed->seed),
+				   &len) != WALLY_OK) {
+		tal_wally_end(tmpctx);
+		return false;
+	}
+	/* libwally only allocate the salt temporarily, so context
+	 * doesn't matter. */
+	tal_wally_end(tmpctx);
+
+	assert(len == sizeof(bip32_seed->seed));
+	return true;
+}
+
 /* Helper function to derive seed hash from mnemonic + passphrase */
 bool derive_seed_hash(const char *mnemonic, const char *passphrase, struct sha256 *seed_hash)
 {
+	struct bip32_seed bip32_seed;
+
 	if (!passphrase) {
 		/* No passphrase - return zero hash */
 		memset(seed_hash, 0, sizeof(*seed_hash));
 		return true;
 	}
 
-	u8 bip32_seed[BIP39_SEED_LEN_512];
-	size_t bip32_seed_len;
-
-	if (bip39_mnemonic_to_seed(mnemonic, passphrase, bip32_seed, sizeof(bip32_seed), &bip32_seed_len) != WALLY_OK)
+	if (!mnemonic_to_seed(mnemonic, passphrase, &bip32_seed))
 		return false;
 
-	sha256(seed_hash, bip32_seed, sizeof(bip32_seed));
+	sha256(seed_hash, bip32_seed.seed, sizeof(bip32_seed.seed));
 	return true;
 }
 
@@ -247,6 +278,7 @@ static struct hsm_secret *extract_mnemonic_secret(const tal_t *ctx,
 	struct hsm_secret *hsms = tal(ctx, struct hsm_secret);
 	const u8 *mnemonic_start;
 	size_t mnemonic_len;
+	struct bip32_seed bip32_seed;
 
 	assert(type == HSM_SECRET_MNEMONIC_NO_PASS || type == HSM_SECRET_MNEMONIC_WITH_PASS);
 	hsms->type = type;
@@ -290,17 +322,13 @@ static struct hsm_secret *extract_mnemonic_secret(const tal_t *ctx,
 		return tal_free(hsms);
 	}
 
-	/* Derive the seed from the mnemonic */
-	u8 bip32_seed[BIP39_SEED_LEN_512];
-	size_t bip32_seed_len;
-
-	if (bip39_mnemonic_to_seed(hsms->mnemonic, passphrase, bip32_seed, sizeof(bip32_seed), &bip32_seed_len) != WALLY_OK) {
+	if (!mnemonic_to_seed(hsms->mnemonic, passphrase, &bip32_seed)) {
 		*err = HSM_SECRET_ERR_SEED_DERIVATION_FAILED;
 		return tal_free(hsms);
 	}
 
 	/* We only use the first 32 bytes for the hsm_secret */
-	memcpy(hsms->secret.data, bip32_seed, sizeof(hsms->secret.data));
+	memcpy(hsms->secret.data, bip32_seed.seed, sizeof(hsms->secret.data));
 
 	*err = HSM_SECRET_OK;
 	return hsms;
@@ -315,18 +343,24 @@ struct hsm_secret *extract_hsm_secret(const tal_t *ctx,
 {
 	enum hsm_secret_type type = detect_hsm_secret_type(hsm_secret, len);
 
+	/* Switch will cause gcc to complain if a type isn't handled. */
 	switch (type) {
 	case HSM_SECRET_PLAIN:
 		return extract_plain_secret(ctx, hsm_secret, len, err);
+
 	case HSM_SECRET_ENCRYPTED:
 		return extract_encrypted_secret(ctx, hsm_secret, len, passphrase, err);
+
 	case HSM_SECRET_MNEMONIC_NO_PASS:
 	case HSM_SECRET_MNEMONIC_WITH_PASS:
 		return extract_mnemonic_secret(ctx, hsm_secret, len, passphrase, type, err);
+
 	case HSM_SECRET_INVALID:
 		*err = HSM_SECRET_ERR_INVALID_FORMAT;
 		return NULL;
 	}
+
+	/* detect_hsm_secret_type promised to return a valid type. */
 	abort();
 }
 

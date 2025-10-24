@@ -5937,6 +5937,8 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ExposesecretResponse {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub mnemonic: Option<String>,
 	    pub codex32: String,
 	    pub identifier: String,
 	}

@@ -1546,7 +1546,8 @@
         },
         "ExposesecretResponse": {
             "ExposeSecret.codex32": 2,
-            "ExposeSecret.identifier": 1
+            "ExposeSecret.identifier": 1,
+            "ExposeSecret.mnemonic": 3
         },
         "FeeratesOnchainFeeEstimates": {
             "Feerates.onchain_fee_estimates.htlc_success_satoshis": 5,
@@ -6758,6 +6759,10 @@
         },
         "ExposeSecret.identifier": {
             "added": "v24.11",
+            "deprecated": null
+        },
+        "ExposeSecret.mnemonic": {
+            "added": "v25.12",
             "deprecated": null
         },
         "ExposeSecret.passphrase": {
