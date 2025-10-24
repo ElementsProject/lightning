@@ -796,14 +796,6 @@ u8 *towire_hsmd_get_channel_basepoints(const tal_t *ctx UNNEEDED, const struct n
 {
 	return NULL;
 }
-u8 *towire_hsmd_derive_bip86_key(const tal_t *ctx UNNEEDED, u32 index UNNEEDED, bool is_change UNNEEDED)
-{
-	return NULL;
-}
-bool fromwire_hsmd_derive_bip86_key_reply(const void *p UNNEEDED, struct ext_key *bip86_base UNNEEDED)
-{
-	return true;
-}
 bool wire_sync_write(int fd UNNEEDED, const void *msg TAKES UNNEEDED)
 {
 	return true;
