@@ -89,7 +89,7 @@ jobs:
       - name: Check source
         env:
           VALGRIND: 0
-          PYTEST_OPTS: --timeout=1200
+          PYTEST_OPTS: --timeout=1200 --durations=10
         run: |
           uv run make check-source BASE_REF="origin/${{ github.base_ref }}"
       - name: Check Generated Files have been updated
@@ -241,7 +241,7 @@ jobs:
     timeout-minutes: 120
     env:
       RUST_PROFILE: release # Has to match the one in the compile step
-      PYTEST_OPTS: --timeout=1200
+      PYTEST_OPTS: --timeout=1200 --durations=10
     needs:
       - compile
     strategy:
@@ -350,7 +350,7 @@ jobs:
     env:
       RUST_PROFILE: release # Has to match the one in the compile step
       CFG: compile-gcc
-      PYTEST_OPTS: --test-group-random-seed=42 --timeout=1800
+      PYTEST_OPTS: --test-group-random-seed=42 --timeout=1800 --durations=10
     needs:
       - compile
     strategy:
@@ -421,7 +421,7 @@ jobs:
       RUST_PROFILE: release
       SLOW_MACHINE: 1
       TEST_DEBUG: 1
-      PYTEST_OPTS: --test-group-random-seed=42 --timeout=1800
+      PYTEST_OPTS: --test-group-random-seed=42 --timeout=1800 --durations=10
     needs:
       - compile
     strategy:
@@ -489,7 +489,7 @@ jobs:
     env:
       VALGRIND: 0
       GENERATE_EXAMPLES: 1
-      PYTEST_OPTS: --timeout=1200
+      PYTEST_OPTS: --timeout=1200 --durations=10
       TEST_NETWORK: regtest
     needs:
       - compile
@@ -528,7 +528,7 @@ jobs:
     timeout-minutes: 120
     env:
       RUST_PROFILE: release # Has to match the one in the compile step
-      PYTEST_OPTS: --timeout=1200
+      PYTEST_OPTS: --timeout=1200 --durations=10
     needs:
       - compile
     strategy:
