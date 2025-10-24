@@ -25,6 +25,9 @@ static void db_log_(struct logger *log UNUSED, enum log_level level UNUSED, cons
 /* Generated stub for bip32_pubkey */
 void bip32_pubkey(struct lightningd *ld UNNEEDED, struct pubkey *pubkey UNNEEDED, u32 index UNNEEDED)
 { fprintf(stderr, "bip32_pubkey called!\n"); abort(); }
+/* Generated stub for bip86_pubkey */
+void bip86_pubkey(struct lightningd *ld UNNEEDED, struct pubkey *pubkey UNNEEDED, u32 index UNNEEDED)
+{ fprintf(stderr, "bip86_pubkey called!\n"); abort(); }
 /* Generated stub for bitcoind_getrawblockbyheight_ */
 void bitcoind_getrawblockbyheight_(const tal_t *ctx UNNEEDED,
 				   struct bitcoind *bitcoind UNNEEDED,
