@@ -629,6 +629,11 @@ while IFS='=' read VAR VAL; do
     eval $VAR=\"$VAL\"
 done < $CONFIG_VAR_FILE.$$
 
+if [ "$HAVE_GOOD_LIBSODIUM" != 1 ]; then
+    echo "*** We need a libsodium >= 1.0.4 (released 2015-06-11)." >&2
+    exit 1
+fi
+
 if [ "$HAVE_SQLITE3" = 0 -a "$HAVE_POSTGRES" = 0 ]; then
     # I have no database yet I must schema!)
     echo "*** We need a database, but neither sqlite3 nor postgres found" >&2
