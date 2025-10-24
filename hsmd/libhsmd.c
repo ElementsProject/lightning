@@ -2,10 +2,12 @@
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
+#include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/bolt12_id.h>
 #include <common/bolt12_merkle.h>
 #include <common/hash_u5.h>
+#include <common/hsm_secret.h>
 #include <common/key_derive.h>
 #include <common/lease_rates.h>
 #include <common/memleak.h>
@@ -542,8 +544,32 @@ static void hsm_key_for_utxo(struct privkey *privkey, struct pubkey *pubkey,
 		hsmd_status_debug("Derived public key %s from unilateral close",
 				  fmt_pubkey(tmpctx, pubkey));
 	} else {
-		/* Simple case: just get derive via HD-derivation */
-		bitcoin_key(privkey, pubkey, utxo->keyindex);
+		/* Check if this is a BIP86 UTXO by examining the scriptPubkey */
+		const size_t script_len = tal_bytelen(utxo->scriptPubkey);
+		bool is_bip86 = false;
+
+		/* For P2TR scripts, we need to determine if it's BIP86 or regular P2TR
+		 * But BIP86 derivation requires mnemonic-based secrets */
+		if (is_p2tr(utxo->scriptPubkey, script_len, NULL) &&
+		    use_bip86_derivation(secretstuff.bip32_seed_len)) {
+			/* Try BIP86 derivation first and see if it matches */
+			struct pubkey test_pubkey;
+			bip86_key(NULL, &test_pubkey, utxo->keyindex);
+
+			/* Create P2TR scriptpubkey from BIP86 key and compare */
+			const u8 *bip86_script = scriptpubkey_p2tr(tmpctx, &test_pubkey);
+			if (memeq(utxo->scriptPubkey, script_len, bip86_script, tal_bytelen(bip86_script))) {
+				is_bip86 = true;
+			}
+		}
+
+		if (is_bip86) {
+			/* Use BIP86 derivation */
+			bip86_key(privkey, pubkey, utxo->keyindex);
+		} else {
+			/* Simple case: just get derive via HD-derivation */
+			bitcoin_key(privkey, pubkey, utxo->keyindex);
+		}
 	}
 }
 
