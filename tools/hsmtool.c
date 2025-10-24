@@ -87,8 +87,7 @@ static bool ensure_hsm_secret_exists(int fd, const char *path)
 /* Load hsm_secret using the unified interface */
 static struct hsm_secret *load_hsm_secret(const tal_t *ctx, const char *hsm_secret_path)
 {
-	size_t contents_len;
-	u8 *contents = grab_file_contents(tmpctx, hsm_secret_path, &contents_len);
+	u8 *contents = grab_file_raw(tmpctx, hsm_secret_path);
 	const char *passphrase = NULL;
 	struct hsm_secret *hsms;
 	enum hsm_secret_error error;
@@ -97,7 +96,7 @@ static struct hsm_secret *load_hsm_secret(const tal_t *ctx, const char *hsm_secr
 		err(EXITCODE_ERROR_HSM_FILE, "Reading hsm_secret");
 
 	/* Get passphrase if needed */
-	if (hsm_secret_needs_passphrase(contents, contents_len)) {
+	if (hsm_secret_needs_passphrase(contents, tal_bytelen(contents))) {
 		printf("Enter hsm_secret password:\n");
 		fflush(stdout);
 		passphrase = read_stdin_pass(tmpctx, &error);
@@ -105,7 +104,7 @@ static struct hsm_secret *load_hsm_secret(const tal_t *ctx, const char *hsm_secr
 			errx(EXITCODE_ERROR_HSM_FILE, "Could not read password: %s", hsm_secret_error_str(error));
 	}
 
-	hsms = extract_hsm_secret(ctx, contents, contents_len, passphrase, &error);
+	hsms = extract_hsm_secret(ctx, contents, tal_bytelen(contents), passphrase, &error);
 	if (!hsms) {
 		err(EXITCODE_ERROR_HSM_FILE, "%s", hsm_secret_error_str(error));
 	}
@@ -120,12 +119,11 @@ static void decrypt_hsm(const char *hsm_secret_path)
 	const char *dir, *backup;
 
 	/* Check if it's a format we can decrypt */
-	size_t contents_len;
-	u8 *contents = grab_file_contents(tmpctx, hsm_secret_path, &contents_len);
+	u8 *contents = grab_file_raw(tmpctx, hsm_secret_path);
 	if (!contents)
 		err(EXITCODE_ERROR_HSM_FILE, "Reading hsm_secret");
 
-	enum hsm_secret_type type = detect_hsm_secret_type(contents, contents_len);
+	enum hsm_secret_type type = detect_hsm_secret_type(contents, tal_bytelen(contents));
 
 	if (type != HSM_SECRET_ENCRYPTED) {
 		errx(ERROR_USAGE, "decrypt command only works on legacy encrypted binary format (73 bytes).\n"
@@ -178,12 +176,11 @@ static void encrypt_hsm(const char *hsm_secret_path)
 	enum hsm_secret_error pass_err;
 
 	/* Check if it's a format we can encrypt */
-	size_t contents_len;
-	u8 *contents = grab_file_contents(tmpctx, hsm_secret_path, &contents_len);
+	u8 *contents = grab_file_raw(tmpctx, hsm_secret_path);
 	if (!contents)
 		err(EXITCODE_ERROR_HSM_FILE, "Reading hsm_secret");
 
-	enum hsm_secret_type type = detect_hsm_secret_type(contents, contents_len);
+	enum hsm_secret_type type = detect_hsm_secret_type(contents, tal_bytelen(contents));
 
 	if (type != HSM_SECRET_PLAIN) {
 		errx(ERROR_USAGE, "encrypt command only works on legacy plain binary format (32 bytes).\n"
@@ -290,15 +287,14 @@ static void print_codexsecret(const char *hsm_secret_path, const char *id)
 
 static void print_emergencyrecover(const char *emer_rec_path)
 {
-	size_t scb_len;
-	u8 *scb = grab_file_contents(tmpctx, emer_rec_path, &scb_len);
+	u8 *scb = grab_file_raw(tmpctx, emer_rec_path);
 	char *output, *hrp = "clnemerg";
 	if (!scb) {
 		err(EXITCODE_ERROR_HSM_FILE, "Reading emergency.recover");
 	}
 	u5 *data = tal_arr(tmpctx, u5, 0);
 
-	bech32_push_bits(&data, scb, scb_len * 8);
+	bech32_push_bits(&data, scb, tal_bytelen(scb) * 8);
 	output = tal_arr(tmpctx, char, strlen(hrp) + tal_count(data) + 8);
 
 	bech32_encode(output, hrp, data, tal_count(data), (size_t)-1,

@@ -497,15 +497,6 @@ const char *format_type_name(enum hsm_secret_type type)
 	return "unknown";
 }
 
-u8 *grab_file_contents(const tal_t *ctx, const char *filename, size_t *len)
-{
-	u8 *contents = grab_file_raw(ctx, filename);
-	if (len)
-		*len = tal_bytelen(contents);
-
-	return contents;
-}
-
 bool is_mnemonic_secret(size_t secret_len)
 {
 	return secret_len == HSM_SECRET_MNEMONIC_SIZE;

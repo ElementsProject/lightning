@@ -167,17 +167,6 @@ int is_legacy_hsm_secret_encrypted(const char *path);
 const char *format_type_name(enum hsm_secret_type type);
 
 /**
- * Wrapper around grab_file that removes the NUL terminator.
- * @ctx - tal context for allocation
- * @filename - path to the file to read
- * @len - output parameter for the file length (excluding NUL terminator)
- *
- * Returns file contents with NUL terminator removed, or NULL on error.
- * Unlike grab_file, the returned data does not include the NUL terminator.
- */
-u8 *grab_file_contents(const tal_t *ctx, const char *filename, size_t *len);
-
-/**
  * Derive encryption key from passphrase using Argon2.
  * @ctx - tal context for allocation
  * @passphrase - the passphrase to derive from
