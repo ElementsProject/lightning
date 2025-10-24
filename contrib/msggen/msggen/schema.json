@@ -27135,13 +27135,12 @@
           "addresstype": {
             "type": "string",
             "description": [
-              "It specifies the type of address wanted; currently *bech32* (e.g. `tb1qu9j4lg5f9rgjyfhvfd905vw46eg39czmktxqgg` on bitcoin testnet or `bc1qwqdg6squsna38e46795at95yu9atm8azzmyvckulcc7kytlcckxswvvzej` on bitcoin mainnet), *p2tr* taproot addresses, or *bip86* for BIP86-derived taproot addresses. The special value *all* generates all known address types for the same underlying key."
+              "It specifies the type of address wanted; currently *bech32* (e.g. `tb1qu9j4lg5f9rgjyfhvfd905vw46eg39czmktxqgg` on bitcoin testnet or `bc1qwqdg6squsna38e46795at95yu9atm8azzmyvckulcc7kytlcckxswvvzej` on bitcoin mainnet), or *p2tr* taproot addresses. The special value *all* generates all known address types for the same underlying key."
             ],
             "default": "*bech32* address",
             "enum": [
               "bech32",
               "p2tr",
-              "bip86",
               "all"
             ]
           }
@@ -27155,7 +27154,7 @@
             "added": "v23.08",
             "type": "string",
             "description": [
-              "The taproot address (returned for both 'p2tr' and 'bip86' addresstype)."
+              "The taproot address."
             ]
           },
           "bech32": {
@@ -27198,18 +27197,6 @@
             "method": "newaddr",
             "params": {
               "addresstype": "p2tr"
-            }
-          },
-          "response": {
-            "p2tr": "bcrt1p2gppccw6ywewmg74qqxxmqfdpjds3rpr0mf22y9tm9xcc0muggwsea9nkf"
-          }
-        },
-        {
-          "request": {
-            "id": "example:newaddr#3",
-            "method": "newaddr",
-            "params": {
-              "addresstype": "bip86"
             }
           },
           "response": {
