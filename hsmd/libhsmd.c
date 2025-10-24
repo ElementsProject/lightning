@@ -2450,7 +2450,7 @@ void bip86_key(struct privkey *privkey, struct pubkey *pubkey, u32 index)
 }
 
 u8 *hsmd_init(const u8 *secret_data, size_t secret_len, const u64 hsmd_version,
-	      struct bip32_key_version bip32_key_version)
+	      struct bip32_key_version bip32_key_version, u8 hsm_secret_type)
 {
 	u8 bip32_seed[BIP32_ENTROPY_LEN_256];
 	struct pubkey key, bolt12;
@@ -2608,8 +2608,13 @@ u8 *hsmd_init(const u8 *secret_data, size_t secret_len, const u64 hsmd_version,
 	 * And version is 4: we offer limited compatibility (or at least,
 	 * incompatibility detection) with alternate implementations.
 	 */
+	/* Create TLV with HSM secret type */
+	struct tlv_hsmd_init_reply_v4_tlvs *tlvs = tlv_hsmd_init_reply_v4_tlvs_new(tmpctx);
+	tlvs->hsm_secret_type = tal(tlvs, u8);
+	*tlvs->hsm_secret_type = hsm_secret_type;
+
 	return take(towire_hsmd_init_reply_v4(
-			    NULL, hsmd_version, caps,
-			    &node_id, &secretstuff.bip32,
-			    &bolt12));
+		    NULL, hsmd_version, caps,
+		    &node_id, &secretstuff.bip32,
+		    &bolt12, tlvs));
 }

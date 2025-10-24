@@ -31,6 +31,7 @@
  * v6 with bip137_sign_message: 4bfe28b02e92aae276b8eca2228e32f32d5dee8d5381639e7364939fa2fa1370
  * v6 with hsm_passphrase changes: c646d557d7561dd885df3cad5b99c82895cda4b040699f3853980ec61b2873fa
  * v6 with hsm_secret struct cleanup: 06c56396fe42f4f47911d7f865dd0004d264fc1348f89547743755b6b33fec90
+ * v6 with hsm_secret_type TLV: 7bb5deb2367482feb084d304ee14b2373d42910ad56484fbf47614dbb3d4cb74
  */
 #define HSM_MIN_VERSION 5
 #define HSM_MAX_VERSION 6
