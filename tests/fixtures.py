@@ -21,6 +21,11 @@ class LightningNode(utils.LightningNode):
         kwargs["executable"] = "lightningd/lightningd"
         utils.LightningNode.__init__(self, *args, **kwargs)
 
+        # Avoid socket path name too long on Linux
+        if os.uname()[0] == 'Linux' and \
+                len(str(self.lightning_dir / TEST_NETWORK / 'lightning-rpc')) >= 108:
+            self.daemon.opts['rpc-file'] = '/proc/self/cwd/lightning-rpc'
+
         # This is a recent innovation, and we don't want to nail pyln-testing to this version.
         self.daemon.opts['dev-crash-after'] = 3600
 
