@@ -31,7 +31,7 @@ int main(int argc, char *argv[])
 	if (argc < 2 || (runs = atol(argv[1])) == 0)
 		errx(1, "Usage: bench <num-runs> [<file>]");
 
-	p = grab_file(NULL, argv[2]);
+	p = grab_file_str(NULL, argv[2]);
 	if (!p)
 		err(1, "Reading %s", argv[2] ? argv[2] : "<stdin>");
 	len = tal_count(p) - 1;

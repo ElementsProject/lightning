@@ -21,9 +21,8 @@
  * before anything else. */
 #include "config.h"
 
-/*~ This is Ian Lance Taylor's libbacktrace.  It turns out that it's
- * horrifically difficult to obtain a decent backtrace in C; the standard
- * backtrace function is useless in most programs. */
+/*~ Various bitcoin-related helpers live in the bitcoin/ directory */
+#include <bitcoin/script.h>
 
 /*~ These headers are from CCAN: http://ccodearchive.net.
  *
@@ -51,13 +50,13 @@
 #include <common/deprecation.h>
 #include <common/ecdh_hsmd.h>
 #include <common/errcode.h>
-#include <common/hsm_encryption.h>
+#include <common/hsm_secret.h>
 #include <common/memleak.h>
 #include <common/timeout.h>
 #include <common/trace.h>
 #include <common/version.h>
-#include <db/exec.h>
 
+#include <db/exec.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <header_versions_gen.h>
@@ -231,6 +230,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->alias = NULL;
 	ld->rgb = NULL;
 	ld->recover = NULL;
+	ld->hsm_passphrase = NULL;
 	list_head_init(&ld->connects);
 	list_head_init(&ld->waitsendpay_commands);
 	list_head_init(&ld->close_commands);
@@ -309,10 +309,10 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	/*~ This is set when a JSON RPC command comes in to shut us down. */
 	ld->stop_conn = NULL;
 
-	/*~ This is used to signal that `hsm_secret` is encrypted, and will
-	 * be set to `true` if the `--encrypted-hsm` option is passed at startup.
+	/*~ This is used to store the passphrase for hsm_secret if needed.
+	 * It will be set if the `--hsm-passphrase` option is passed at startup.
 	 */
-	ld->encrypted_hsm = false;
+	ld->hsm_passphrase = NULL;
 
 	/* This is used to override subdaemons */
 	strmap_init(&ld->alt_subdaemons);
@@ -479,8 +479,8 @@ void test_subdaemons(const struct lightningd *ld)
 			err(EXITCODE_SUBDAEMON_FAIL, "Could not run %s", dpath);
 
 		/*~ CCAN's grab_file module contains a routine to read into a
-		 * tallocated buffer until EOF */
-		verstring = grab_fd(tmpctx, outfd);
+		 * tallocated buffer until EOF (with nul appended!) */
+		verstring = grab_fd_str(tmpctx, outfd);
 		/*~ Like many CCAN modules, it set errno on failure, which
 		 * err (ccan/err, but usually just the BSD <err.h>) prints */
 		if (!verstring)
@@ -675,7 +675,7 @@ static void init_txfilter(struct wallet *w,
 	struct ext_key ext;
 	/*~ Note the use of ccan/short_types u64 rather than uint64_t.
 	 * Thank me later. */
-	u64 bip32_max_index;
+	u64 bip32_max_index, bip86_max_index;
 
 	bip32_max_index = db_get_intvar(w->db, "bip32_max_index", 0);
 	/*~ One of the C99 things I unequivocally approve: for-loop scope. */
@@ -684,6 +684,17 @@ static void init_txfilter(struct wallet *w,
 			abort();
 		}
 		txfilter_add_derkey(filter, ext.pub_key);
+	}
+
+	/* If BIP86 is enabled, also add BIP86-derived keys to the filter */
+	if (w->ld->bip86_base) {
+		bip86_max_index = db_get_intvar(w->db, "bip86_max_index", 0);
+		for (u64 i = 0; i <= bip86_max_index + w->keyscan_gap; i++) {
+			struct pubkey pubkey;
+			bip86_pubkey(w->ld, &pubkey, i);
+			u8 *script = scriptpubkey_p2tr(tmpctx, &pubkey);
+			txfilter_add_scriptpubkey(filter, take(script));
+		}
 	}
 }
 
@@ -1304,11 +1315,6 @@ int main(int argc, char *argv[])
 
 	/*~ This is the ccan/io central poll override from above. */
 	io_poll_override(io_poll_lightningd);
-
-	/*~ If hsm_secret is encrypted, we don't need its encryption key
-	 * anymore. Note that sodium_munlock() also zeroes the memory.*/
-	if (ld->config.keypass)
-		discard_key(take(ld->config.keypass));
 
 	/*~ Our default color and alias are derived from our node id, so we
 	 * can only set those now (if not set by config options). */

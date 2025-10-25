@@ -144,7 +144,7 @@ int main(int argc, char *argv[])
 		errx(1, "failed to open database %s: %s", dbfile,
 			 sqlite3_errstr(dberr));
 
-	hsm_secret = grab_file(hsmfile, hsmfile);
+	hsm_secret = grab_file_raw(hsmfile, hsmfile);
 	if (!hsm_secret)
 		err(1, "failed to read %s", hsmfile);
 

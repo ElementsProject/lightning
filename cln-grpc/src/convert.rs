@@ -616,6 +616,7 @@ impl From<responses::ExposesecretResponse> for pb::ExposesecretResponse {
         Self {
             codex32: c.codex32, // Rule #2 for type string
             identifier: c.identifier, // Rule #2 for type string
+            mnemonic: c.mnemonic, // Rule #2 for type string?
         }
     }
 }

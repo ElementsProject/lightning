@@ -614,6 +614,7 @@ bool wallet_can_spend(struct wallet *w,
  */
 s64 wallet_get_newindex(struct lightningd *ld, enum addrtype addrtype);
 
+
 /**
  * wallet_get_addrtype - get the address types for this key.
  * @wallet: (in) wallet

@@ -62,7 +62,7 @@ static struct configvar **gather_file_configvars(const tal_t *ctx,
 	char *contents, **lines;
 	struct configvar **cvs = tal_arr(ctx, struct configvar *, 0);
 
-	contents = grab_file(tmpctx, filename);
+	contents = grab_file_str(tmpctx, filename);
 
 	/* The default config doesn't have to exist, but if the config was
 	 * specified on the command line it has to exist. */

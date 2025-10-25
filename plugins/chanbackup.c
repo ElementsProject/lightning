@@ -242,13 +242,9 @@ static void maybe_create_new_scb(struct plugin *p,
 
 static u8 *get_file_data(const tal_t *ctx, struct plugin *p)
 {
-	u8 *scb = grab_file(ctx, FILENAME);
-	if (!scb) {
+	u8 *scb = grab_file_raw(ctx, FILENAME);
+	if (!scb)
 		plugin_err(p, "Cannot read emergency.recover: %s", strerror(errno));
-	} else {
-		/* grab_file adds nul term */
-		tal_resize(&scb, tal_bytelen(scb) - 1);
-	}
 	return scb;
 }
 

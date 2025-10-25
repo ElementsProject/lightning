@@ -210,7 +210,12 @@ u8 *p2tr_for_keyidx(const tal_t *ctx, struct lightningd *ld, u64 keyidx)
 {
 	struct pubkey shutdownkey;
 
-	bip32_pubkey(ld, &shutdownkey, keyidx);
+	/* Use BIP86 derivation if wallet has BIP86 base, otherwise use BIP32 */
+	if (ld->bip86_base) {
+		bip86_pubkey(ld, &shutdownkey, keyidx);
+	} else {
+		bip32_pubkey(ld, &shutdownkey, keyidx);
+	}
 
 	return scriptpubkey_p2tr(ctx, &shutdownkey);
 }

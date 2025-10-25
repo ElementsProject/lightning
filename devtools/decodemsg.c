@@ -83,7 +83,7 @@ int main(int argc, char *argv[])
 			ok &= printwire(m);
 		}
 	} else {
-		u8 *f = grab_fd(NULL, STDIN_FILENO);
+		u8 *f = grab_fd_str(NULL, STDIN_FILENO);
 		size_t off = 0;
 
 		while (off != tal_count(f)) {

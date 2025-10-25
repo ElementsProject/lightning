@@ -141,7 +141,7 @@ static void do_decode(int argc, char **argv, const u8 *assocdata)
 		opt_usage_exit_fail("Expect an filename and privkey with 'decode' method");
 
 	/* "-" means stdin, which is NULL for grab_file */
-	char *hextemp = grab_file(ctx, streq(argv[2], "-") ? NULL : argv[2]);
+	char *hextemp = grab_file_str(ctx, streq(argv[2], "-") ? NULL : argv[2]);
 	size_t hexlen = strlen(hextemp);
 
 	// trim trailing whitespace
@@ -193,7 +193,7 @@ static char *opt_set_node_id(const char *arg, struct node_id *node_id)
 static void runtest(const char *filename)
 {
 	const tal_t *ctx = tal(NULL, u8);
-	char *buffer = grab_file(ctx, filename);
+	char *buffer = grab_file_str(ctx, filename);
 	const jsmntok_t *toks, *session_key_tok, *associated_data_tok, *gentok,
 		*hopstok, *hop, *payloadtok, *pubkeytok, *typetok, *oniontok, *decodetok;
 	const u8 *associated_data, *session_key_raw, *payload, *serialized, *onion;
