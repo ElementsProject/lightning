@@ -490,7 +490,8 @@ channel_current_inflight(const struct channel *channel);
 u32 channel_last_funding_feerate(const struct channel *channel);
 
 /* Only set completely_eliminate for never-existed channels */
-void delete_channel(struct channel *channel STEALS, bool completely_eliminate);
+void delete_channel(struct channel *channel STEALS,
+		    bool completely_eliminate);
 
 /* Add a historic (public) short_channel_id to this channel */
 void channel_add_old_scid(struct channel *channel,
