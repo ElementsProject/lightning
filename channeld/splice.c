@@ -8,7 +8,6 @@ struct splice_state *splice_state_new(const tal_t *ctx)
 	splice_state->count = 0;
 	splice_state->locked_ready[LOCAL] = false;
 	splice_state->locked_ready[REMOTE] = false;
-	splice_state->await_commitment_succcess = false;
 	splice_state->inflights = NULL;
 	splice_state->remote_locked_txid = NULL;
 
