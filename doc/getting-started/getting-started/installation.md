@@ -237,7 +237,7 @@ lightningd --network=testnet
 OS version: FreeBSD 11.1-RELEASE or above
 
 ```shell
-pkg install git python py39-pip gmake libtool gmp sqlite3 postgresql13-client gettext autotools lowdown
+pkg install git python py39-pip gmake libtool gmp sqlite3 postgresql13-client gettext autotools lowdown libsodium
 https://github.com/ElementsProject/lightning.git
 pip install --upgrade pip
 pip3 install mako

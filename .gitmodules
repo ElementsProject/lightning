@@ -1,9 +1,6 @@
 [submodule "daemon/jsmn"]
 	path = external/jsmn
 	url = https://github.com/zserge/jsmn
-[submodule "libsodium"]
-	path = external/libsodium
-	url = https://github.com/jedisct1/libsodium.git
 [submodule "external/libbacktrace"]
 	path = external/libbacktrace
 	url = https://github.com/ianlancetaylor/libbacktrace.git

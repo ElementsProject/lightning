@@ -37,7 +37,7 @@ jobs:
         run: |
           export PATH="/usr/local/opt:/Users/runner/.local/bin:/opt/homebrew/bin/python3.10/bin:$PATH"
 
-          brew install gnu-sed autoconf automake libtool protobuf openssl lowdown
+          brew install gnu-sed autoconf automake libtool protobuf openssl lowdown libsodium
 
           # https://github.com/grpc/grpc/issues/31737#issuecomment-1323796842
           export GRPC_PYTHON_BUILD_SYSTEM_OPENSSL=1
