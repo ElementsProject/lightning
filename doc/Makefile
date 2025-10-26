@@ -202,16 +202,7 @@ RBRACKET=)
 $(MARKDOWNPAGES_WITH_EXT): doc/%.7.md: doc/schemas/%.json tools/fromschema.py
 	@tools/fromschema.py --markdownfile=$@ $< > $@.tmp && mv $@.tmp $@
 
-# If we need to build lowdown, make tools/md2man.sh depend on it.
-# That way it's not used in SHA256STAMP (which only uses direct
-# dependencies), but make will be forced to build it.
-ifeq ($(HAVE_LOWDOWN),0)
-LOWDOWN := $(TARGET_DIR)/lowdown-build/bin/lowdown
-tools/md2man.sh: $(LOWDOWN)
-	touch $@
-else
 LOWDOWN := lowdown
-endif
 
 # For versions in documentation, we don't change with every git version, to
 # save build time.  We build them on new tags or keep them on pre-next-release version.
