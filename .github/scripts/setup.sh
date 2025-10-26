@@ -30,6 +30,7 @@ sudo apt-get -qq install --no-install-recommends --allow-unauthenticated -yy \
      libicu-dev \
      libpq-dev \
      libprotobuf-c-dev \
+     libsodium-dev \
      libsqlite3-dev \
      libssl-dev \
      libtool \

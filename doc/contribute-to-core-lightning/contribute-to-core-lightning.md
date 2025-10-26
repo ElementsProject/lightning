@@ -24,7 +24,6 @@ Here's a list of parts, with notes:
 
 - external/ - external libraries from other sources
   - libbacktrace - library to provide backtraces when things go wrong.
-  - libsodium - encryption library (should be replaced soon with built-in)
   - libwally-core - bitcoin helper library
   - secp256k1 - bitcoin curve encryption library within libwally-core
   - jsmn - tiny JSON parsing helper
