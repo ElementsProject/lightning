@@ -35,6 +35,7 @@ sudo apt-get -qq install --no-install-recommends --allow-unauthenticated -yy \
      libtool \
      libxml2-utils \
      locales \
+     lowdown \
      net-tools \
      postgresql \
      python-pkg-resources \

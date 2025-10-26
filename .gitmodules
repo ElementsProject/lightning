@@ -14,7 +14,3 @@
 [submodule "external/gheap"]
 	path = external/gheap
 	url = https://github.com/valyala/gheap
-[submodule "external/lowdown"]
-	path = external/lowdown
-	url = https://github.com/kristapsdz/lowdown.git
-	ignore = dirty
