@@ -23,16 +23,17 @@ RUN apt-get update \
 	libsodium23 \
 	libtool \
 	m4 \
-	sudo \
 	unzip \
 	wget \
 	jq \
 	zip
 
-# Ensure correct ownership
-RUN chown root:root /etc/sudoers
-RUN chown root:root /etc/sudo.conf
-RUN chown root:root /usr/libexec/sudo/sudoers.so
+RUN printf 'root ALL=(ALL) ALL\n%%sudo ALL=(ALL) ALL\n' > /etc/sudoers && \
+    chmod 0440 /etc/sudoers
+
+# Since we're running as root, create a sudo wrapper that's a no-op
+RUN printf '#!/bin/sh\nexec "$@"\n' > /usr/local/bin/sudo && \
+    chmod +x /usr/local/bin/sudo
 
 # Install Python3.10 (more reproducible than relying on python3-setuptools)
 RUN git clone https://github.com/pyenv/pyenv.git /root/.pyenv && \
