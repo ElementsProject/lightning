@@ -3,6 +3,8 @@ name: Reproducible Build Verification
 on:
   schedule:
     - cron: "0 0 * * *"  # Daily at midnight UTC
+  pull_request:
+    types: [opened, synchronize]
   workflow_dispatch:
 
 concurrency:
