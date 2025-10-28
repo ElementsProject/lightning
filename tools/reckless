@@ -1138,6 +1138,16 @@ def help_alias(targets: list):
         sys.exit(1)
 
 
+def _get_local_clone(source: str) -> Union[Path, None]:
+    """Returns the path of a local repository clone of a github source. If one
+    already exists, prefer searching that to accessing the github API."""
+    user, repo = Source.get_github_user_repo(source)
+    local_clone_location = RECKLESS_DIR / '.remote_sources' / user / repo
+    if local_clone_location.exists():
+        return local_clone_location
+    return None
+
+
 def _source_search(name: str, src: str) -> Union[InstInfo, None]:
     """Identify source type, retrieve contents, and populate InstInfo
     if the relevant contents are found."""
@@ -1147,18 +1157,11 @@ def _source_search(name: str, src: str) -> Union[InstInfo, None]:
     # If a local clone of a github source already exists, prefer searching
     # that instead of accessing the github API.
     if source.srctype == Source.GITHUB_REPO:
-        # Do we have a local copy already? Use that.
-        user, repo = Source.get_github_user_repo(src)
-        assert user
-        assert repo
-        local_clone_location = RECKLESS_DIR / '.remote_sources' / user / repo
-        if local_clone_location.exists():
-            # Make sure it's the correct remote source and fetch any updates.
-            if _git_update(source, local_clone_location):
-                log.debug(f"Using local clone of {src}: "
-                          f"{local_clone_location}")
-                source.source_loc = str(local_clone_location)
-                source.srctype = Source.GIT_LOCAL_CLONE
+        local_clone = _get_local_clone(source)
+        if local_clone and _git_update(source, local_clone):
+            log.debug(f"Using local clone of {src}: {local_clone}")
+            source.source_loc = str(local_clone)
+            source.srctype = Source.GIT_LOCAL_CLONE
 
     if source.get_inst_details():
         return source
