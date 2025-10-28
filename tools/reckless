@@ -2104,6 +2104,54 @@ def listinstalled():
     return plugins
 
 
+def find_plugin_candidates(source: SourceDir, depth=2) -> list:
+    """Filter through a source and return any candidates that appear to be
+    installable plugins with the registered installers."""
+    candidates = []
+    assert isinstance(source, SourceDir)
+    if not source.contents and not source.prepopulated:
+        source.populate()
+
+    guess = InstInfo(source.name, source.location, None, source_dir=source)
+    if guess.get_inst_details():
+        candidates.append(source.name)
+    if depth <= 1:
+        return candidates
+
+    for c in source.contents:
+        if not isinstance(c, SourceDir):
+            continue
+        candidates.extend(find_plugin_candidates(c, depth=depth-1))
+
+    return candidates
+
+
+def available_plugins() -> list:
+    """List installable plugins available from the sources list"""
+    candidates = []
+    # FIXME: update for LoadedSource object
+    for source in RECKLESS_SOURCES:
+        if source.type == Source.UNKNOWN:
+            log.debug(f'confusing source: {source.type}')
+            continue
+        # It takes too many API calls to query for installable plugins accurately.
+        if source.type == Source.GITHUB_REPO and not source.local_clone:
+            # FIXME: ignoring non-cloned repos for now.
+            log.debug(f'unable to search {source.original_source} without a local clone of the repository.')
+            continue
+
+        if source.local_clone:
+            candidates.extend(find_plugin_candidates(source.local_clone))
+        else:
+            candidates.extend(find_plugin_candidates(source.content))
+
+    # Order and deduplicate results
+    candidates = list(set(candidates))
+    candidates.sort()
+    log.info(' '.join(candidates))
+    return candidates
+
+
 def report_version() -> str:
     """return reckless version"""
     log.info(__VERSION__)
@@ -2177,6 +2225,10 @@ if __name__ == '__main__':
     search_cmd.add_argument('targets', type=str, nargs='*')
     search_cmd.set_defaults(func=search)
 
+    available_cmd = cmd1.add_parser('listavailable', help='list plugins available '
+                                    'from the sources list')
+    available_cmd.set_defaults(func=available_plugins)
+
     enable_cmd = cmd1.add_parser('enable', help='dynamically enable a plugin '
                                  'and update config')
     enable_cmd.add_argument('targets', type=str, nargs='*')
@@ -2216,7 +2268,7 @@ if __name__ == '__main__':
 
     all_parsers = [parser, install_cmd, uninstall_cmd, search_cmd, enable_cmd,
                    disable_cmd, list_parse, source_add, source_rem, help_cmd,
-                   update, list_cmd]
+                   update, list_cmd, available_cmd]
     for p in all_parsers:
         # This default depends on the .lightning directory
         p.add_argument('-d', '--reckless-dir', action=StoreIdempotent,
