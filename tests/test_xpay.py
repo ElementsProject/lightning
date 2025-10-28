@@ -1018,3 +1018,37 @@ def test_xpay_bip353(node_factory):
 
     node_factory.join_nodes([l2, l1])
     l2.rpc.xpay('fake@fake.com', 100)
+
+
+def test_blockheight_mismatch(node_factory, bitcoind):
+    """Test that we can send a payment even if not caught up with the chain.
+
+    Since CLTV computations are based on headers and not our own sync height, the
+    recipient should still be happy with the parameters we chose.
+
+    Stolen from pay
+    """
+
+    send, direct, recv = node_factory.line_graph(3, wait_for_announce=True)
+    sync_blockheight(bitcoind, [send, recv])
+
+    # Pin `send` at the current height. by not returning the next
+    # block. This error is special-cased not to count as the
+    # backend failing since it is used to poll for the next block.
+    def mock_getblock(req):
+        return {
+            "id": req["id"],
+            "error": {"code": -8, "message": "Block height out of range"},
+        }
+
+    send.daemon.rpcproxy.mock_rpc("getblock", mock_getblock)
+    bitcoind.generate_block(100)
+
+    sync_blockheight(bitcoind, [recv])
+
+    inv = recv.rpc.invoice(42, "lbl", "desc")["bolt11"]
+    send.rpc.xpay(inv)
+
+    # Test a direct payment as well.
+    inv = direct.rpc.invoice(13, "lbl", "desc")["bolt11"]
+    send.rpc.xpay(inv)
