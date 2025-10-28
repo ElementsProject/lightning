@@ -1631,6 +1631,31 @@ static struct command_result *param_string_array(struct command *cmd, const char
 	return NULL;
 }
 
+static struct command_result *getchaininfo_success(struct command *cmd,
+                                                   const char *method,
+                                                   const char *buffer,
+                                                   const jsmntok_t *toks,
+                                                   struct payment *payment)
+{
+	struct xpay *xpay = xpay_of(cmd->plugin);
+	u32 headercount;
+	const char *err;
+
+	err = json_scan(tmpctx, buffer, toks, "{headercount:%}",
+			JSON_SCAN(json_to_u32, &headercount));
+	if (err)
+		plugin_err(cmd->plugin, "Bad getchaininfo response: %s", err);
+
+	if (headercount > xpay->blockheight) {
+		plugin_log(cmd->plugin, LOG_DBG,
+			   "Updating payment blockheight from %d (blocks "
+			   "synced) to %d (headercount)",
+			   (int)xpay->blockheight, (int)headercount);
+		xpay->blockheight = headercount;
+	}
+	return populate_private_layer(cmd, payment);
+}
+
 static struct command_result *
 preapproveinvoice_succeed(struct command *cmd,
 			  const char *method,
@@ -1639,6 +1664,7 @@ preapproveinvoice_succeed(struct command *cmd,
 			  struct payment *payment)
 {
 	struct xpay *xpay = xpay_of(cmd->plugin);
+	struct out_req *req;
 
 	/* Now we can conclude `check` command */
 	if (command_check_only(cmd)) {
@@ -1653,7 +1679,11 @@ preapproveinvoice_succeed(struct command *cmd,
 	if (payment->disable_mpp)
 		payment_log(payment, LOG_INFORM, "No MPP support: this is going to be hard to pay");
 
-	return populate_private_layer(cmd, payment);
+	/* Fetch the header height for we might be out-of-sync. */
+	req = jsonrpc_request_start(cmd, "getchaininfo", &getchaininfo_success,
+				    forward_error, payment);
+	json_add_u32(req->js, "last_height", 0);
+	return send_outreq(req);
 }
 
 static struct command_result *check_offer_payable(struct command *cmd,
