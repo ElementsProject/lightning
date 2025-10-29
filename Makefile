@@ -392,7 +392,12 @@ include cln-grpc/Makefile
 endif
 include plugins/Makefile
 include tests/plugins/Makefile
+
+# Only include fuzz tests if OpenSSL >= 3.0, will be disabled on ubuntu focal
+OPENSSL_VERSION := $(shell openssl version | sed -n 's/OpenSSL \([0-9]\+\)\..*/\1/p')
+ifneq ($(shell test $(OPENSSL_VERSION) -ge 3 && echo yes),)
 include tests/fuzz/Makefile
+endif
 
 ifneq ($V,1)
 MSGGEN_ARGS := -s
