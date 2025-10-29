@@ -1018,3 +1018,42 @@ def test_xpay_bip353(node_factory):
 
     node_factory.join_nodes([l2, l1])
     l2.rpc.xpay('fake@fake.com', 100)
+
+
+@pytest.mark.xfail(strict=True)
+def test_xpay_blockheight_mismatch(node_factory, bitcoind, executor):
+    """We should wait a (reasonable) amount if the final node gives us a blockheight that would explain our failure."""
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+    sync_blockheight(bitcoind, [l1, l2, l3])
+
+    # Pin `send` at the current height. by not returning the next
+    # blockhash. This error is special-cased not to count as the
+    # backend failing since it is used to poll for the next block.
+    def mock_getblockhash(req):
+        return {
+            "id": req['id'],
+            "error": {
+                "code": -8,
+                "message": "Block height out of range"
+            }
+        }
+
+    l1.daemon.rpcproxy.mock_rpc('getblockhash', mock_getblockhash)
+    bitcoind.generate_block(4)
+    sync_blockheight(bitcoind, [l2, l3])
+    l1_height = l1.rpc.getinfo()['blockheight']
+    l3_height = l3.rpc.getinfo()['blockheight']
+
+    inv = l3.rpc.invoice(42, 'lbl', 'desc')['bolt11']
+
+    # This will wait, then fail.
+    with pytest.raises(RpcError, match=f'Timed out waiting for blockheight {l3_height}'):
+        l1.rpc.xpay(invstring=inv, retry_for=10)
+
+    # This will succeed, because we wait for the blocks.
+    fut = executor.submit(l1.rpc.xpay, invstring=inv, retry_for=60)
+    l1.daemon.wait_for_log(fr"Our blockheight may be too low: waiting .* seconds for height {l3_height} \(we are at {l1_height}\)")
+
+    # Now let it catch up, and it will retry, and succeed.
+    l1.daemon.rpcproxy.mock_rpc('getblockhash')
+    fut.result(TIMEOUT)
