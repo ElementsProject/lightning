@@ -418,6 +418,13 @@ WARN_UNUSED_RESULT bool amount_sat_add_sat_s64(struct amount_sat *val,
 		return amount_sat_add(val, a, amount_sat(b));
 }
 
+bool amount_msat_can_add_sat_s64(struct amount_msat a, s64 b)
+{
+	struct amount_msat val;
+	/* This fails if the result goes below 0 */
+	return amount_msat_add_sat_s64(&val, a, b);
+}
+
 bool amount_sat_eq(struct amount_sat a, struct amount_sat b)
 {
 	return a.satoshis == b.satoshis;

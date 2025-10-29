@@ -4178,11 +4178,11 @@ def test_mpp_interference_2(node_factory, bitcoind, executor):
     unit = Millisatoshi(11000 * 1000)
 
     # Build the public network.
-    public_network = [l4.fundbalancedchannel(l5, unit * 14),
-                      l4.fundbalancedchannel(l6, unit * 14),
-                      l5.fundbalancedchannel(l6, unit * 14),
-                      l5.fundbalancedchannel(l7, unit * 14),
-                      l6.fundbalancedchannel(l7, unit * 14)]
+    public_network = [l4.fundbalancedchannel(l5, unit * 14)[0],
+                      l4.fundbalancedchannel(l6, unit * 14)[0],
+                      l5.fundbalancedchannel(l6, unit * 14)[0],
+                      l5.fundbalancedchannel(l7, unit * 14)[0],
+                      l6.fundbalancedchannel(l7, unit * 14)[0]]
 
     # Build unpublished channels to the merchant l1.
     l4.rpc.connect(l1.info['id'], 'localhost', l1.port)
@@ -4274,16 +4274,16 @@ def test_mpp_overload_payee(node_factory, bitcoind):
     # l1 is the very well-connected payer.
     # l2 is the poorly-connected payee.
     # l3->l6 are well-connected hop nodes.
-    public_network = [l1.fundbalancedchannel(l3, amt),
-                      l1.fundbalancedchannel(l4, amt),
-                      l1.fundbalancedchannel(l5, amt),
-                      l1.fundbalancedchannel(l6, amt),
-                      l2.fundbalancedchannel(l6, amt),
-                      l3.fundbalancedchannel(l4, amt),
-                      l3.fundbalancedchannel(l5, amt),
-                      l3.fundbalancedchannel(l6, amt),
-                      l4.fundbalancedchannel(l5, amt),
-                      l5.fundbalancedchannel(l6, amt)]
+    public_network = [l1.fundbalancedchannel(l3, amt)[0],
+                      l1.fundbalancedchannel(l4, amt)[0],
+                      l1.fundbalancedchannel(l5, amt)[0],
+                      l1.fundbalancedchannel(l6, amt)[0],
+                      l2.fundbalancedchannel(l6, amt)[0],
+                      l3.fundbalancedchannel(l4, amt)[0],
+                      l3.fundbalancedchannel(l5, amt)[0],
+                      l3.fundbalancedchannel(l6, amt)[0],
+                      l4.fundbalancedchannel(l5, amt)[0],
+                      l5.fundbalancedchannel(l6, amt)[0]]
 
     # Ensure l1 knows the entire public network.
     mine_funding_to_announce(bitcoind, [l1, l2, l3, l4, l5, l6])

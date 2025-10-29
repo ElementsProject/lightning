@@ -1117,7 +1117,7 @@ class LightningNode(object):
             if txid == res['txid']:
                 txnum = i
 
-        return '{}x{}x{}'.format(self.bitcoin.rpc.getblockcount(), txnum, res['outnum'])
+        return '{}x{}x{}'.format(self.bitcoin.rpc.getblockcount(), txnum, res['outnum']), res['txid']
 
     def db_query(self, query):
         return self.db.query(query)
@@ -1728,7 +1728,7 @@ class NodeFactory(object):
             self.next_id += 1
             return node_id
 
-    def get_nodes(self, num_nodes, opts=None):
+    def get_nodes(self, num_nodes, opts=None, allow_bad_gossip=False):
         """Start a number of nodes in parallel, each with its own options
         """
         if opts is None:
@@ -1753,7 +1753,8 @@ class NodeFactory(object):
             jobs.append(self.executor.submit(
                 self.get_node, options=cli_opts,
                 node_id=self.get_node_id(), **node_opts,
-                valgrind_plugins=valgrind_plugins[i]
+                valgrind_plugins=valgrind_plugins[i],
+                allow_bad_gossip=allow_bad_gossip
             ))
 
         return [j.result() for j in jobs]
@@ -1815,7 +1816,7 @@ class NodeFactory(object):
                 raise
         return node
 
-    def join_nodes(self, nodes, fundchannel=True, fundamount=FUNDAMOUNT, wait_for_announce=False, announce_channels=True) -> None:
+    def join_nodes(self, nodes, fundchannel=True, fundamount=FUNDAMOUNT, wait_for_announce=False, announce_channels=True, balance_channels=False) -> None:
         """Given nodes, connect them in a line, optionally funding a channel, wait_for_announce waits for channel and node announcements"""
         assert not (wait_for_announce and not announce_channels), "You've asked to wait for an announcement that's not coming. (wait_for_announce=True,announce_channels=False)"
         connections = [(nodes[i], nodes[i + 1]) for i in range(len(nodes) - 1)]
@@ -1841,10 +1842,15 @@ class NodeFactory(object):
         sync_blockheight(bitcoind, nodes)
         txids = []
         for src, dst in connections:
-            txids.append(src.rpc.fundchannel(dst.info['id'], fundamount, announce=announce_channels)['txid'])
+            if balance_channels:
+                _, txid = src.fundbalancedchannel(remote_node=dst, total_capacity=fundamount, announce=announce_channels)
+                txids.append(txid)
+            else:
+                txids.append(src.rpc.fundchannel(dst.info['id'], fundamount, announce=announce_channels)['txid'])
 
-        # Confirm all channels and wait for them to become usable
-        bitcoind.generate_block(1, wait_for_mempool=txids)
+        if not balance_channels:
+            # Confirm all channels and wait for them to become usable
+            bitcoind.generate_block(1, wait_for_mempool=txids)
         scids = []
         for src, dst in connections:
             wait_for(lambda: src.channel_state(dst) == 'CHANNELD_NORMAL')
@@ -1872,12 +1878,12 @@ class NodeFactory(object):
                 alias = n2.rpc.getinfo()['alias']
                 wait_for(lambda: [n.get('alias') for n in n.rpc.listnodes(n2.info['id'])['nodes']] == [alias])
 
-    def line_graph(self, num_nodes, fundchannel=True, fundamount=FUNDAMOUNT, wait_for_announce=False, opts=None, announce_channels=True):
+    def line_graph(self, num_nodes, fundchannel=True, fundamount=FUNDAMOUNT, wait_for_announce=False, opts=None, announce_channels=True, balanced=False, allow_bad_gossip=False):
         """ Create nodes, connect them and optionally fund channels.
         """
-        nodes = self.get_nodes(num_nodes, opts=opts)
+        nodes = self.get_nodes(num_nodes, opts=opts, allow_bad_gossip=allow_bad_gossip)
 
-        self.join_nodes(nodes, fundchannel, fundamount, wait_for_announce, announce_channels)
+        self.join_nodes(nodes, fundchannel, fundamount, wait_for_announce, announce_channels, balanced)
         return nodes
 
     def get_unused_port(self):
