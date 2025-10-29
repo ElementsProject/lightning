@@ -61,6 +61,8 @@ struct payment {
 	struct plugin *plugin;
 	/* Stop sending new payments after this */
 	struct timemono deadline;
+	/* Blockheight when we started (if in future, wait for this!) */
+	u32 start_blockheight;
 	/* This is the command which is expecting the success/fail.  When
 	 * it's NULL, that means we're just cleaning up */
 	struct command *cmd;
@@ -631,6 +633,19 @@ static void outgoing_notify_failure(const struct attempt *attempt,
 	plugin_notification_end(attempt->payment->plugin, js);
 }
 
+/* Extract blockheight from the error */
+static u32 error_blockheight(const u8 *errmsg)
+{
+	struct amount_msat htlc_msat;
+	u32 height;
+
+	if (!fromwire_incorrect_or_unknown_payment_details(errmsg,
+							   &htlc_msat,
+							   &height))
+		return 0;
+	return height;
+}
+
 static void update_knowledge_from_error(struct command *aux_cmd,
 					const char *buf,
 					const jsmntok_t *error,
@@ -765,14 +780,24 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 			index--;
 			goto strange_error;
 
-		case WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS:
-			/* FIXME: Maybe this was actually a height
-			 * disagreement, so check height */
+		case WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS: {
+			struct xpay *xpay = xpay_of(attempt->payment->plugin);
+			u32 blockheight = error_blockheight(replymsg);
+			if (blockheight > attempt->payment->start_blockheight) {
+				attempt_log(attempt, LOG_INFORM,
+					    "Destination failed and said their blockheight was %u (we're at %u): waiting",
+					    blockheight, xpay->blockheight);
+				/* This will make the next attempt wait. */
+				attempt->payment->start_blockheight = blockheight;
+				return;
+			}
+
 			payment_give_up(aux_cmd, attempt->payment,
 					PAY_DESTINATION_PERM_FAIL,
 					"Destination said it doesn't know invoice: %s",
 					errmsg);
 			return;
+		}
 
 		case WIRE_MPP_TIMEOUT:
 			/* Not actually an error at all, nothing to do. */
@@ -1315,6 +1340,35 @@ static struct command_result *getroutes_done_err(struct command *aux_cmd,
 	return command_still_pending(aux_cmd);
 }
 
+static struct command_result *waitblockheight_done(struct command *aux_cmd,
+						   const char *method,
+						   const char *buf,
+						   const jsmntok_t *result,
+						   struct payment *payment)
+{
+	/* Kick off however much is outstanding */
+	struct amount_msat needs_routing;
+
+	if (!amount_msat_sub(&needs_routing,
+			     payment->amount,
+			     total_being_sent(payment)))
+		abort();
+	return getroutes_for(aux_cmd, payment, needs_routing);
+}
+
+static struct command_result *waitblockheight_failed(struct command *aux_cmd,
+						     const char *method,
+						     const char *buf,
+						     const jsmntok_t *result,
+						     struct payment *payment)
+{
+	payment_give_up(aux_cmd, payment, PAY_UNSPECIFIED_ERROR,
+			"Timed out waiting for blockheight %u. %s",
+			payment->start_blockheight,
+			payment->prior_results);
+	return command_still_pending(aux_cmd);
+}
+
 static struct command_result *getroutes_for(struct command *aux_cmd,
 					    struct payment *payment,
 					    struct amount_msat deliver)
@@ -1343,6 +1397,28 @@ static struct command_result *getroutes_for(struct command *aux_cmd,
 	if (pubkey_eq(&xpay->local_id, dst)) {
 		struct attempt *attempt = new_attempt(payment, deliver, NULL);
 		return do_inject(aux_cmd, attempt);
+	}
+
+	/* Failure message indicated a blockheight difference. */
+	if (payment->start_blockheight > xpay->blockheight) {
+		struct timemono now = time_mono();
+		u64 seconds;
+
+		if (time_greater_(now.ts, payment->deadline.ts))
+			seconds = 0;
+		else
+			seconds = time_to_sec(timemono_between(payment->deadline, now));
+
+		payment_log(payment, LOG_UNUSUAL,
+			    "Our blockheight may be too low: waiting %"PRIu64" seconds for height %u (we are at %u)",
+			    seconds, payment->start_blockheight, xpay->blockheight);
+		req = jsonrpc_request_start(aux_cmd, "waitblockheight",
+					    waitblockheight_done,
+					    waitblockheight_failed,
+					    payment);
+		json_add_u32(req->js, "blockheight", payment->start_blockheight);
+		json_add_u64(req->js, "timeout", seconds);
+		return send_payment_req(aux_cmd, payment, req);
 	}
 
 	if (!amount_msat_sub(&maxfee, payment->maxfee, total_fees_being_sent(payment))) {
@@ -1872,6 +1948,7 @@ static struct command_result *xpay_core(struct command *cmd,
 	payment->prior_results = tal_strdup(payment, "");
 	payment->deadline = timemono_add(time_mono(), time_from_sec(retryfor));
 	payment->start_time = time_now();
+	payment->start_blockheight = xpay->blockheight;
 	payment->pay_compat = as_pay;
 	payment->invstring = tal_strdup(payment, invstring);
 	if (layers)

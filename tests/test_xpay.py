@@ -1020,7 +1020,6 @@ def test_xpay_bip353(node_factory):
     l2.rpc.xpay('fake@fake.com', 100)
 
 
-@pytest.mark.xfail(strict=True)
 def test_xpay_blockheight_mismatch(node_factory, bitcoind, executor):
     """We should wait a (reasonable) amount if the final node gives us a blockheight that would explain our failure."""
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
