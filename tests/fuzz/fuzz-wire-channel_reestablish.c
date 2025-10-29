@@ -48,9 +48,7 @@ static bool equal(const struct channel_reestablish *x,
 
 	if (!tal_arr_eq(x->tlvs->next_funding, y->tlvs->next_funding))
 		return false;
-	if (!tal_arr_eq(x->tlvs->your_last_funding_locked_txid, y->tlvs->your_last_funding_locked_txid))
-		return false;
-	if (!tal_arr_eq(x->tlvs->my_current_funding_locked_txid, y->tlvs->my_current_funding_locked_txid))
+	if (!tal_arr_eq(x->tlvs->my_current_funding_locked, y->tlvs->my_current_funding_locked))
 		return false;
 #if EXPERIMENTAL_UPGRADE_ENABLED
 	if (!tal_arr_eq(x->tlvs->next_to_send, y->tlvs->next_to_send))

@@ -489,6 +489,32 @@ static void check_mutual_splice_locked(struct peer *peer)
 	peer->splice_state->remote_locked_txid = tal_free(peer->splice_state->remote_locked_txid);
 }
 
+static void implied_peer_splice_locked(struct peer *peer,
+				       struct bitcoin_txid splice_txid)
+{
+	/* If we've `mutual_splice_locked` but our peer hasn't, we can ignore
+	 * this message harmlessly */
+	if (!tal_count(peer->splice_state->inflights)) {
+		status_info("Peer implied redundant splice_locked, ignoring");
+		return;
+	}
+
+	/* If we've `mutual_splice_locked` but our peer hasn't, we can ignore
+	 * this message harmlessly */
+	if (!tal_count(peer->splice_state->inflights)) {
+		status_info("Peer implied redundant splice_locked, ignoring");
+		return;
+	}
+
+	peer->splice_state->remote_locked_txid = tal(peer->splice_state,
+						     struct bitcoin_txid);
+
+	*peer->splice_state->remote_locked_txid = splice_txid;
+
+	peer->splice_state->locked_ready[REMOTE] = true;
+	check_mutual_splice_locked(peer);
+}
+
 /* Our peer told us they saw our splice confirm on chain with `splice_locked`.
  * If we see it to we jump into transitioning to post-splice, otherwise we mark
  * a flag and wait until we see it on chain too. */
@@ -506,11 +532,6 @@ static void handle_peer_splice_locked(struct peer *peer, const u8 *msg)
 				"Peer sent duplicate splice_locked message %s",
 				tal_hex(tmpctx, msg));
 
-	peer->splice_state->remote_locked_txid = tal(peer->splice_state,
-						     struct bitcoin_txid);
-
-	*peer->splice_state->remote_locked_txid = splice_txid;
-
 	if (!channel_id_eq(&chanid, &peer->channel_id))
 		peer_failed_err(peer->pps, &chanid,
 				"Wrong splice lock channel id in %s "
@@ -525,8 +546,7 @@ static void handle_peer_splice_locked(struct peer *peer, const u8 *msg)
 		return;
 	}
 
-	peer->splice_state->locked_ready[REMOTE] = true;
-	check_mutual_splice_locked(peer);
+	implied_peer_splice_locked(peer, splice_txid);
 }
 
 static void handle_peer_channel_ready(struct peer *peer, const u8 *msg)
@@ -5485,8 +5505,8 @@ static void peer_reconnect(struct peer *peer,
 	bool dataloss_protect, check_extra_fields;
 	const u8 **premature_msgs = tal_arr(peer, const u8 *, 0);
 	struct inflight *inflight;
-	struct bitcoin_txid *local_next_funding, *remote_next_funding,
-			    *remote_your_last_funding;
+	struct tlv_channel_reestablish_tlvs_next_funding *local_next_funding,
+							 *remote_next_funding;
 	u64 send_next_commitment_number;
 
 	struct tlv_channel_reestablish_tlvs *send_tlvs, *recv_tlvs;
@@ -5529,17 +5549,25 @@ static void peer_reconnect(struct peer *peer,
 				 * tal off peer */
 				send_tlvs = tlv_channel_reestablish_tlvs_new(peer);
 			}
-			send_tlvs->next_funding = &inflight->outpoint.txid;
+			send_tlvs->next_funding = talz(send_tlvs, struct tlv_channel_reestablish_tlvs_next_funding);
+			send_tlvs->next_funding->next_funding_txid = inflight->outpoint.txid;
 
-			/* Eclair wants us to decrement commitment number to
-			 * indicate that we would like them to re-send
-			 * commitment signatures */
-			/* DTODO: Add bolt reference */
+			/* BOLT-??? #2:
+			 * The `next_funding.retransmit_flags` bitfield is used to let the
+			 * receiving peer know which messages they must retransmit for the
+			 * corresponding `next_funding_txid` after the reconnection:
+			 * | Bit Position  | Name                |
+			 * | ------------- | --------------------|
+			 * | 0             | `commitment_signed` |
+			 */
 			if (!inflight->last_tx)
-				send_next_commitment_number--;
+				send_tlvs->next_funding->retransmit_flags |= 1; /* commitment_signed */
 		}
 	}
 
+	/* BOLT-??? #2:
+	 *  - if `option_splice` was negotiated:
+	 */
 	if (feature_negotiated(peer->our_features, peer->their_features,
 			       OPT_SPLICE)) {
 		if (!send_tlvs) {
@@ -5548,46 +5576,67 @@ static void peer_reconnect(struct peer *peer,
 			send_tlvs = tlv_channel_reestablish_tlvs_new(peer);
 		}
 
-		if (peer->channel_ready[REMOTE])
-			send_tlvs->your_last_funding_locked_txid = &peer->channel->funding.txid;
-
-		send_tlvs->my_current_funding_locked_txid = &peer->channel->funding.txid;
-		status_debug("Setting send_tlvs->my_current_funding_locked_txid"
-			     " to %s",
-			     fmt_bitcoin_txid(tmpctx,
-			     		      &peer->channel->funding.txid));
-
 		for (size_t i = 0; i < tal_count(peer->splice_state->inflights); i++) {
 			struct inflight *itr = peer->splice_state->inflights[i];
 			if (itr->locked_scid) {
-				send_tlvs->my_current_funding_locked_txid = &itr->outpoint.txid;
-				status_debug("Overriding send_tlvs->my_current_"
-					     "funding_locked_txid to %s because"
-					     " inflight is locked to scid %s",
-					     fmt_bitcoin_txid(tmpctx,
-					     		      &itr->outpoint.txid),
-					     fmt_short_channel_id(tmpctx,
-					     			  *itr->locked_scid));
+				peer->splice_state->short_channel_id = *itr->locked_scid;
+				peer->splice_state->locked_txid = itr->outpoint.txid;
+				peer->splice_state->locked_ready[LOCAL] = true;
 			}
+		}
+
+		/* BOLT-??? #2:
+		 *    - if a splice transaction reached acceptable depth while disconnected:
+		 *      - MUST include `my_current_funding_locked` with the txid of the latest such transaction.
+		 *    - otherwise, if it has already sent `splice_locked` for any transaction:
+		 *      - MUST include `my_current_funding_locked` with the txid of the last `splice_locked` it sent.
+		 */
+		if (peer->splice_state->locked_ready[LOCAL]) {
+
+			send_tlvs->my_current_funding_locked = talz(send_tlvs, struct tlv_channel_reestablish_tlvs_my_current_funding_locked);
+			send_tlvs->my_current_funding_locked->my_current_funding_locked_txid = peer->splice_state->locked_txid;
+			status_debug("Setting send_tlvs->my_current_funding"
+				     "_locked_txid to splice txid %s",
+				     fmt_bitcoin_txid(tmpctx,
+				     		      &peer->splice_state->locked_txid));
+		}
+		/* BOLT-??? #2:
+		 *    - otherwise, if it has already sent `channel_ready`:
+		 *      - MUST include `my_current_funding_locked` with the txid of the channel funding transaction.
+		 */
+		else if (peer->channel_ready[LOCAL]) {
+
+			send_tlvs->my_current_funding_locked = talz(send_tlvs, struct tlv_channel_reestablish_tlvs_my_current_funding_locked);
+			send_tlvs->my_current_funding_locked->my_current_funding_locked_txid = peer->channel->funding.txid;
+			status_debug("Setting send_tlvs->my_current_funding"
+				     "_locked_txid to channel txid %s",
+				     fmt_bitcoin_txid(tmpctx,
+				     		      &peer->channel->funding.txid));
+		}
+		/* BOLT-??? #2:
+		 *    - otherwise (it has never sent `channel_ready` or `splice_locked`):
+		 *      - MUST NOT include `my_current_funding_locked`.
+		*/
+		else {
+			status_debug("Not setting send_tlvs->my_current_funding"
+				     "_locked_txid (funding txid %s)",
+				     fmt_bitcoin_txid(tmpctx,
+				     		      &peer->channel->funding.txid));
+			assert(!send_tlvs->my_current_funding_locked);
 		}
 	}
 
 	status_debug("Sending channel_reestablish with"
 		     " next_funding_tx_id: %s,"
-		     " your_last_funding_locked: %s,"
 		     " my_current_funding_locked: %s,"
 		     " next_local_commit_number: %"PRIu64",",
 		     send_tlvs && send_tlvs->next_funding
 		     	? fmt_bitcoin_txid(tmpctx,
-		     			   send_tlvs->next_funding)
+		     			   &send_tlvs->next_funding->next_funding_txid)
 		     	: "NULL",
-		     send_tlvs && send_tlvs->your_last_funding_locked_txid
+		     send_tlvs && send_tlvs->my_current_funding_locked
 		     	? fmt_bitcoin_txid(tmpctx,
-		     			   send_tlvs->your_last_funding_locked_txid)
-		     	: "NULL",
-		     send_tlvs && send_tlvs->my_current_funding_locked_txid
-		     	? fmt_bitcoin_txid(tmpctx,
-		     			   send_tlvs->my_current_funding_locked_txid)
+		     			   &send_tlvs->my_current_funding_locked->my_current_funding_locked_txid)
 		     	: "NULL",
 		     send_next_commitment_number);
 
@@ -5703,7 +5752,7 @@ static void peer_reconnect(struct peer *peer,
 						  !inflight->last_tx,
 						  false,
 						  true);
-		} else if (bitcoin_txid_eq(remote_next_funding,
+		} else if (bitcoin_txid_eq(&remote_next_funding->next_funding_txid,
 					   &inflight->outpoint.txid)) {
 			/* Don't send sigs unless we have theirs */
 			assert(local_next_funding || inflight->remote_tx_sigs);
@@ -5713,11 +5762,13 @@ static void peer_reconnect(struct peer *peer,
 			if (local_next_funding)
 				assume_stfu_mode(peer);
 			resume_splice_negotiation(peer,
-						  next_commitment_number == peer->next_index[REMOTE] - 1,
+						  remote_next_funding
+						  	? remote_next_funding->retransmit_flags & 1
+						  	: false,
 						  local_next_funding && !inflight->last_tx,
 						  true,
 						  local_next_funding);
-		} else if (bitcoin_txid_eq(remote_next_funding,
+		} else if (bitcoin_txid_eq(&remote_next_funding->next_funding_txid,
 					   &peer->channel->funding.txid)) {
 			peer_failed_err(peer->pps,
 					&peer->channel_id,
@@ -5726,7 +5777,7 @@ static void peer_reconnect(struct peer *peer,
 					" active funding txid %s. Should be %s"
 					" or NULL",
 					fmt_bitcoin_txid(tmpctx,
-							 remote_next_funding),
+							 &remote_next_funding->next_funding_txid),
 					fmt_bitcoin_txid(tmpctx,
 							 &peer->channel->funding.txid),
 					fmt_bitcoin_txid(tmpctx,
@@ -5737,71 +5788,21 @@ static void peer_reconnect(struct peer *peer,
 					"Invalid reestablish with unrecognized"
 					" next_funding txid %s, should be %s",
 					fmt_bitcoin_txid(tmpctx,
-							 remote_next_funding),
+							 &remote_next_funding->next_funding_txid),
 					fmt_bitcoin_txid(tmpctx,
 							 &inflight->outpoint.txid));
 		}
 	} else if (remote_next_funding) { /* No current inflight */
 		/* If our peer is trying to negotiate details about a splice
 		 * that is already onchain, jump ahead to sending splice_lock */
-		if (bitcoin_txid_eq(remote_next_funding,
-				    &peer->channel->funding.txid)) {
+		if (bitcoin_txid_eq(&remote_next_funding->next_funding_txid,
+				    &peer->channel->funding.txid))
 			status_info("We have no pending splice but peer"
-				    " is negotiating one; resending"
-				    " splice_lock %s",
+				    " is negotiating one that matches current"
+				    " channel, ignoring it: %s",
 				    fmt_bitcoin_outpoint(tmpctx, &peer->channel->funding));
-			peer_write(peer->pps,
-				   take(towire_splice_locked(NULL,
-				   			     &peer->channel_id,
-				   			     &peer->channel->funding.txid)));
-		}
-		else {
-			splice_abort(peer, "next_funding_txid not recognized."
-					     " Sending tx_abort.");
-		}
-	}
-
-	/* Re-send `splice_locked` if an inflight is locked */
-	for (size_t i = 0; i < tal_count(peer->splice_state->inflights); i++) {
-		struct inflight *itr = peer->splice_state->inflights[i];
-		if (!itr->locked_scid)
-			continue;
-
-		status_info("Resending splice_locked because an inflight %s is"
-			    " locked",
-			    fmt_bitcoin_outpoint(tmpctx, &itr->outpoint));
-		peer_write(peer->pps,
-			   take(towire_splice_locked(NULL,
-						     &peer->channel_id,
-						     &itr->outpoint.txid)));
-		peer->splice_state->locked_ready[LOCAL] = true;
-	}
-
-	/* If no inflight, no splice negotiation, but
-	   `your_last_funding_locked_txid is stale, re-send `splice_locked`. */
-	if (!inflight && !remote_next_funding
-	    && feature_negotiated(peer->our_features, peer->their_features,
-				  OPT_SPLICE)) {
-		remote_your_last_funding = recv_tlvs
-			? recv_tlvs->your_last_funding_locked_txid : NULL;
-		if (remote_your_last_funding
-			&& !bitcoin_txid_eq(&peer->channel->funding.txid,
-					    remote_your_last_funding)) {
-			status_info("Resending splice_locked with no inflight,"
-				    " no splice negotation, but we did recv"
-				    " remote_your_last_funding value of %s"
-				    " instead of %s. Our sent splice_locked"
-				    " value is %s.",
-				    remote_your_last_funding
-				    	? fmt_bitcoin_txid(tmpctx, remote_your_last_funding)
-				    	: "NULL",
-				    fmt_bitcoin_outpoint(tmpctx, &peer->channel->funding),
-				    fmt_bitcoin_txid(tmpctx, &peer->channel->funding.txid));
-			peer_write(peer->pps,
-				   take(towire_splice_locked(NULL,
-							     &peer->channel_id,
-							     &peer->channel->funding.txid)));
-		}
+		else
+			splice_abort(peer, "next_funding_txid not recognized.");
 	}
 
 	/* BOLT #2:
@@ -5827,6 +5828,26 @@ static void peer_reconnect(struct peer *peer,
 					    &peer->channel_id,
 					    &peer->next_local_per_commit, tlvs);
 		peer_write(peer->pps, take(msg));
+	}
+
+	/* BOLT-??? #2
+	 * A receiving node:
+	 *   - if splice transactions are pending and `my_current_funding_locked` matches one of
+	 *     those splice transactions, for which it hasn't received `splice_locked` yet:
+  	 */
+	if (inflight && recv_tlvs && recv_tlvs->my_current_funding_locked) {
+		for (size_t i = 0; i < tal_count(peer->splice_state->inflights); i++) {
+			struct inflight *itr = peer->splice_state->inflights[i];
+			if (!bitcoin_txid_eq(&itr->outpoint.txid,
+					     &recv_tlvs->my_current_funding_locked->my_current_funding_locked_txid))
+				continue;
+			/* BOLT-??? #2
+			 *     - MUST process `my_current_funding_locked` as if it was receiving `splice_locked`
+			 *       for this `txid`.
+			 */
+			implied_peer_splice_locked(peer, itr->outpoint.txid);
+			break;
+		}
 	}
 
 	/* Note: next_index is the index of the current commit we're working
