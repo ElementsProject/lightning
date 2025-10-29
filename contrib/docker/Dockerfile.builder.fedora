@@ -20,7 +20,17 @@ RUN dnf update -y && \
 		jq \
 		xz \
 		zlib-devel \
-		cargo && \
+		cargo \
+		libsodium-devel && \
+	wget https://github.com/kristapsdz/lowdown/archive/refs/tags/VERSION_1_0_2.tar.gz && \
+	tar -xzf VERSION_1_0_2.tar.gz && \
+	cd lowdown-VERSION_1_0_2 && \
+	./configure && \
+	make && \
+	make install && \
+	ldconfig && \
+	cd /tmp && \
+	rm -rf VERSION_1_0_2.tar.gz lowdown-VERSION_1_0_2 && \
 	dnf clean all
 
 RUN wget https://storage.googleapis.com/c-lightning-tests/bitcoind/bitcoin-${BITCOIN_VERSION}-x86_64-linux-gnu.tar.gz \

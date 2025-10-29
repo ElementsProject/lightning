@@ -118,6 +118,7 @@ adae5a301c7899c1bce8ae26b5423716a47e516df25c09d6d536607bc34853bc  /var/cache/apt
 d8b8653388e676a3ae2fcf565c2b1a42a01a1104062317f641e8d24f0eaff9c3  /var/cache/apt/archives/libpq-dev_14.2-1ubuntu1_amd64.deb
 542dcee1409c74d03ecdd4ca4a0cfd467e5d2804d9985b58e39d3c5889a409e3  /var/cache/apt/archives/libpq5_14.2-1ubuntu1_amd64.deb
 885ee09c37d0e37ef6042e8cb4a22ccbab92101f21ab0c8f51ae961e4484407c  /var/cache/apt/archives/libsodium23_1.0.18-1build2_amd64.deb
+09584c8ab2f840bf3db4a5763f6e4b450688aa8879acd4c8f4c1942375b9ca57  /var/cache/apt/archives/libsodium-dev_1.0.18-1build2_amd64.deb
 000a1d5c0df0373c75fadbfea604afb6b1325bf866a3ce637ae0138abe6d556d  /var/cache/apt/archives/libsqlite3-0_3.37.2-2_amd64.deb
 1b2a93020593c9e94a25f750ce442da5a6e8ff48a20f52cec92dfc3fa35336d8  /var/cache/apt/archives/linux-libc-dev_5.15.0-25.25_amd64.deb
 572a544d2c18bf49d25c465720c570cd8e6e38731386ac9c0a7f29bed2486f3e  /var/cache/apt/archives/m4_1.4.18-5ubuntu2_amd64.deb
