@@ -3986,8 +3986,11 @@ static void do_reconnect_dance(struct state *state)
 	 *   - MUST NOT set `next_funding_txid`.
 	 */
 	tlvs = tlv_channel_reestablish_tlvs_new(tmpctx);
-	if (!tx_state->remote_funding_sigs_rcvd)
-		tlvs->next_funding = &tx_state->funding.txid;
+	if (!tx_state->remote_funding_sigs_rcvd) {
+		tlvs->next_funding = talz(tlvs, struct tlv_channel_reestablish_tlvs_next_funding);
+		tlvs->next_funding->next_funding_txid = tx_state->funding.txid;
+		tlvs->next_funding->retransmit_flags = 1; /* COMMITMENT_SIGNED */
+	}
 
 	msg = towire_channel_reestablish
 		(NULL, &state->channel_id, 1, 0,
@@ -4060,7 +4063,7 @@ static void do_reconnect_dance(struct state *state)
 	 */
 	if (tlvs->next_funding) {
 		/* Does this match ours? */
-		if (bitcoin_txid_eq(tlvs->next_funding, &tx_state->funding.txid)) {
+		if (bitcoin_txid_eq(&tlvs->next_funding->next_funding_txid, &tx_state->funding.txid)) {
 			bool send_our_sigs = true;
 			char *err;
 			/* We haven't gotten their tx_sigs */
@@ -4089,7 +4092,7 @@ static void do_reconnect_dance(struct state *state)
 			open_abort(state, "Sent next_funding_txid %s doesn't match ours %s",
 
 				   fmt_bitcoin_txid(tmpctx,
-						    tlvs->next_funding),
+						    &tlvs->next_funding->next_funding_txid),
 				   fmt_bitcoin_txid(tmpctx,
 						    &tx_state->funding.txid));
 			return;
