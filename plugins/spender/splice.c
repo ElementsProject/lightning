@@ -395,8 +395,6 @@ static struct command_result *onchain_wallet_fund(struct command *cmd,
 	if (addinginputs) {
 		command = "addpsbtinput";
 		splice_cmd->wallet_inputs_to_signed++;
-		/* DTODO track which specific inputs are added and only sign
-		 * those */
 	}
 
 	req = jsonrpc_request_start(cmd, command,
