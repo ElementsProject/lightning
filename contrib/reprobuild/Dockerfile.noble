@@ -22,6 +22,8 @@ RUN apt-get update \
     libsqlite3-dev \
 	libpq-dev \
 	libsodium23 \
+    libsodium-dev \
+    lowdown \
 	libtool \
 	m4 \
 	sudo \

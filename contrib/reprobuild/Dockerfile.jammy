@@ -10,24 +10,35 @@ ENV PROTOC_VERSION=29.4
 RUN sed -i '/updates/d' /etc/apt/sources.list && \
     sed -i '/security/d' /etc/apt/sources.list
 
-RUN apt-get update \
-	&& apt-get install -y --no-install-recommends \
-	autoconf \
-	build-essential \
-	ca-certificates \
-	file \
-	gettext \
-	git \
-	libsqlite3-dev \
-	libpq-dev \
-	libsodium23 \
-	libtool \
-	m4 \
-	sudo \
-	unzip \
-	wget \
-	jq \
-	zip
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        autoconf \
+        build-essential \
+        ca-certificates \
+        file \
+        gettext \
+        git \
+        libsqlite3-dev \
+        libpq-dev \
+        libsodium23 \
+        libsodium-dev \
+        libtool \
+        m4 \
+        sudo \
+        unzip \
+        wget \
+        jq \
+        zip \
+    && cd /tmp \
+    && wget https://github.com/kristapsdz/lowdown/archive/refs/tags/VERSION_1_0_2.tar.gz \
+    && tar -xzf VERSION_1_0_2.tar.gz \
+    && cd lowdown-VERSION_1_0_2 \
+    && ./configure \
+    && make \
+    && make install \
+    && ldconfig \
+    && cd / \
+    && rm -rf /tmp/VERSION_1_0_2.tar.gz /tmp/lowdown-VERSION_1_0_2
 
 # Ensure correct ownership
 RUN chown root:root /etc/sudoers
