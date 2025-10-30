@@ -62,6 +62,10 @@ RUN cd /tmp/ && \
     mv bin/protoc /usr/local/bin && \
     rm -rf include bin protoc-${PROTOC_VERSION}-linux-x86_64.zip
 
+RUN wget http://ftp.ch.debian.org/debian/pool/main/l/lowdown/lowdown_2.0.2-2_amd64.deb && \
+    dpkg -i lowdown_2.0.2-2_amd64.deb && \
+    rm lowdown_2.0.2-2_amd64.deb
+
 RUN mkdir /build
 WORKDIR /build
 
