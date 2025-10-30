@@ -1377,6 +1377,7 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 
 	while (!amount_msat_is_zero(amount_to_deliver)) {
 		size_t num_parts, parts_slots, excess_parts;
+		u32 bottleneck_idx;
 
                 /* FIXME: This algorithm to limit the number of parts is dumb
                  * for two reasons:
@@ -1424,7 +1425,7 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 		}
 
 		error_message =
-		    refine_flows(ctx, rq, amount_to_deliver, &new_flows);
+			refine_flows(ctx, rq, amount_to_deliver, &new_flows, &bottleneck_idx);
 		if (error_message)
 			goto fail;
 
@@ -1459,14 +1460,19 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 			excess_parts = 1;
 		} else
 			excess_parts = 0;
-		if (excess_parts > 0 &&
-		    !remove_flows(&new_flows, excess_parts)) {
-			error_message = rq_log(ctx, rq, LOG_BROKEN,
-					       "%s: failed to remove %zu"
-					       " flows from a set of %zu",
-					       __func__, excess_parts,
-					       tal_count(new_flows));
-			goto fail;
+		if (excess_parts > 0) {
+			/* If we removed all the flows we found, avoid selecting them again,
+			 * by disabling one. */
+			if (excess_parts == tal_count(new_flows))
+				bitmap_set_bit(rq->disabled_chans, bottleneck_idx);
+			if (!remove_flows(&new_flows, excess_parts)) {
+				error_message = rq_log(ctx, rq, LOG_BROKEN,
+						       "%s: failed to remove %zu"
+						       " flows from a set of %zu",
+						       __func__, excess_parts,
+						       tal_count(new_flows));
+				goto fail;
+			}
 		}
 
 		/* Is this set of flows too expensive?

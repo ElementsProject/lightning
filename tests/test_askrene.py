@@ -1538,7 +1538,6 @@ def test_simple_dummy_channel(node_factory):
     )
 
 
-@pytest.mark.xfail(strict=True)
 def test_maxparts_infloop(node_factory, bitcoind):
     # Three paths from l1 -> l5.
     # FIXME: enhance explain_failure!
