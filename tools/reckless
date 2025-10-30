@@ -707,7 +707,7 @@ def populate_github_repo(url: str) -> list:
     return contents
 
 
-def copy_remote_git_source(github_source: InstInfo):
+def copy_remote_git_source(github_source: InstInfo, verbose: bool=True):
     """clone or fetch & checkout a local copy of a remote git repo"""
     user, repo = Source.get_github_user_repo(github_source.source_loc)
     if not user or not repo:
@@ -726,7 +726,7 @@ def copy_remote_git_source(github_source: InstInfo):
         # FIXME: pass LoadedSource and check fetch status
         assert _git_update(github_source.source_loc, local_path)
     else:
-        _git_clone(github_source, local_path)
+        _git_clone(github_source, local_path, verbose)
     return SourceDir(local_path, srctype=Source.GIT_LOCAL_CLONE)
 
 
@@ -1215,8 +1215,11 @@ def _source_search(name: str, src: LoadedSource) -> Union[InstInfo, None]:
     return None
 
 
-def _git_clone(src: InstInfo, dest: Union[PosixPath, str]) -> bool:
-    log.info(f'cloning {src.srctype} {src}')
+def _git_clone(src: InstInfo, dest: Union[PosixPath, str], verbose: bool=True) -> bool:
+    if verbose:
+        log.info(f'cloning {src.srctype} {src}')
+    else:
+        log.debug(f'cloning {src.srctype} {src}')
     if src.srctype == Source.GITHUB_REPO:
         assert 'github.com' in src.source_loc
         source = f"{GITHUB_COM}" + src.source_loc.split("github.com")[-1]
@@ -2137,8 +2140,17 @@ def available_plugins() -> list:
         # It takes too many API calls to query for installable plugins accurately.
         if source.type == Source.GITHUB_REPO and not source.local_clone:
             # FIXME: ignoring non-cloned repos for now.
-            log.debug(f'unable to search {source.original_source} without a local clone of the repository.')
-            continue
+            log.debug(f'cloning {source.original_source} in order to search')
+            clone = copy_remote_git_source(InstInfo(None,
+                                                    source.original_source,
+                                                    source.original_source,
+                                                    source_dir=source.content),
+                                           verbose=False)
+            if not clone:
+                log.warning(f"could not clone github source {source.original_source}")
+                continue
+            source.local_clone = clone
+            source.local_clone.parent_source = source
 
         if source.local_clone:
             candidates.extend(find_plugin_candidates(source.local_clone))
