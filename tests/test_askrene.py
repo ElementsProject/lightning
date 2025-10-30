@@ -4,7 +4,7 @@ from pyln.client import RpcError
 from pyln.testing.utils import SLOW_MACHINE
 from utils import (
     only_one, first_scid, GenChannel, generate_gossip_store,
-    sync_blockheight, wait_for, TEST_NETWORK, TIMEOUT
+    sync_blockheight, wait_for, TEST_NETWORK, TIMEOUT, mine_funding_to_announce
 )
 import os
 import pytest
@@ -1536,3 +1536,41 @@ def test_simple_dummy_channel(node_factory):
         final_cltv=5,
         layers=["mylayer"],
     )
+
+
+@pytest.mark.xfail(strict=True)
+def test_maxparts_infloop(node_factory, bitcoind):
+    # Three paths from l1 -> l5.
+    # FIXME: enhance explain_failure!
+    l1, l2, l3, l4, l5 = node_factory.get_nodes(5, opts=[{'broken_log': 'plugin-cln-askrene.*the obvious route'}] + [{}] * 4)
+
+    for intermediate in (l2, l3, l4):
+        node_factory.join_nodes([l1, intermediate, l5])
+
+    # We create exorbitant fees into l3.
+    for n in (l2, l3, l4):
+        n.rpc.setchannel(l5.info['id'], feeppm=100000)
+
+    mine_funding_to_announce(bitcoind, (l1, l2, l3, l4, l5))
+    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 12)
+
+    amount = 1_400_000_000
+    # You can do this one
+    route = l1.rpc.getroutes(source=l1.info['id'],
+                             destination=l5.info['id'],
+                             amount_msat=amount,
+                             layers=[],
+                             maxfee_msat=amount,
+                             final_cltv=5)
+    assert len(route['routes']) == 3
+
+    # Now with maxparts == 2.  Usually askrene can't figure out why it failed,
+    # but sometimes it gets a theory.
+    with pytest.raises(RpcError):
+        l1.rpc.getroutes(source=l1.info['id'],
+                         destination=l5.info['id'],
+                         amount_msat=amount,
+                         layers=[],
+                         maxfee_msat=amount,
+                         final_cltv=5,
+                         maxparts=2)
