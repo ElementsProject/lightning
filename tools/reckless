@@ -206,146 +206,6 @@ class Installer:
         return copy.deepcopy(self)
 
 
-class InstInfo:
-    def __init__(self, name: str, location: str, git_url: str):
-        self.name = name
-        self.source_loc = str(location)     # Used for 'git clone'
-        self.git_url: str = git_url         # API access for github repos
-        self.srctype: Source = Source.get_type(location)
-        self.entry: SourceFile = None       # relative to source_loc or subdir
-        self.deps: str = None
-        self.subdir: str = None
-        self.commit: str = None
-
-    def __repr__(self):
-        return (f'InstInfo({self.name}, {self.source_loc}, {self.git_url}, '
-                f'{self.entry}, {self.deps}, {self.subdir})')
-
-    def get_repo_commit(self) -> Union[str, None]:
-        """The latest commit from a remote repo or the HEAD of a local repo."""
-        if self.srctype in [Source.LOCAL_REPO, Source.GIT_LOCAL_CLONE]:
-            git = run(['git', 'rev-parse', 'HEAD'], cwd=str(self.source_loc),
-                      stdout=PIPE, stderr=PIPE, text=True, check=False, timeout=10)
-            if git.returncode != 0:
-                return None
-            return git.stdout.splitlines()[0]
-
-        if self.srctype == Source.GITHUB_REPO:
-            parsed_url = urlparse(self.source_loc)
-            if 'github.com' not in parsed_url.netloc:
-                return None
-            if len(parsed_url.path.split('/')) < 2:
-                return None
-            start = 1
-            # Maybe we were passed an api.github.com/repo/<user> url
-            if 'api' in parsed_url.netloc:
-                start += 1
-            repo_user = parsed_url.path.split('/')[start]
-            repo_name = parsed_url.path.split('/')[start + 1]
-            api_url = f'{API_GITHUB_COM}/repos/{repo_user}/{repo_name}/commits?ref=HEAD'
-            r = urlopen(api_url, timeout=5)
-            if r.status != 200:
-                return None
-            try:
-                return json.loads(r.read().decode())['0']['sha']
-            except:
-                return None
-
-    def get_inst_details(self) -> bool:
-        """Search the source_loc for plugin install details.
-        This may be necessary if a contents api is unavailable.
-        Extracts entrypoint and dependencies if searchable, otherwise
-        matches a directory to the plugin name and stops."""
-        if self.srctype == Source.DIRECTORY:
-            assert Path(self.source_loc).exists()
-            assert os.path.isdir(self.source_loc)
-        target = SourceDir(self.source_loc, srctype=self.srctype)
-        # Set recursion for how many directories deep we should search
-        depth = 0
-        if self.srctype in [Source.DIRECTORY, Source.LOCAL_REPO,
-                            Source.GIT_LOCAL_CLONE]:
-            depth = 5
-        elif self.srctype == Source.GITHUB_REPO:
-            depth = 1
-
-        def search_dir(self, sub: SourceDir, subdir: bool,
-                       recursion: int) -> Union[SourceDir, None]:
-            assert isinstance(recursion, int)
-            # carveout for archived plugins in lightningd/plugins. Other repos
-            # are only searched by API at the top level.
-            if recursion == 0 and 'archive' in sub.name.lower():
-                pass
-            # If unable to search deeper, resort to matching directory name
-            elif recursion < 1:
-                if sub.name.lower().removesuffix('.git') == self.name.lower():
-                    # Partial success (can't check for entrypoint)
-                    self.name = sub.name
-                    return sub
-                return None
-            sub.populate()
-
-            if sub.name.lower().removesuffix('.git') == self.name.lower():
-                # Directory matches the name we're trying to install, so check
-                # for entrypoint and dependencies.
-                for inst in INSTALLERS:
-                    for g in inst.get_entrypoints(self.name):
-                        found_entry = sub.find(g, ftype=SourceFile)
-                        if found_entry:
-                            break
-                    # FIXME: handle a list of dependencies
-                    found_dep = sub.find(inst.dependency_file,
-                                         ftype=SourceFile)
-                    if found_entry:
-                        # Success!
-                        if found_dep:
-                            self.name = sub.name
-                            self.entry = found_entry.name
-                            self.deps = found_dep.name
-                            return sub
-                        log.debug(f"{inst.name} installer: missing dependency for {self}")
-                        found_entry = None
-            for file in sub.contents:
-                if isinstance(file, SourceDir):
-                    assert file.relative
-                    success = search_dir(self, file, True, recursion - 1)
-                    if success:
-                        return success
-            return None
-
-        try:
-            result = search_dir(self, target, False, depth)
-        # Using the rest API of github.com may result in a
-        # "Error 403: rate limit exceeded" or other access issues.
-        # Fall back to cloning and searching the local copy instead.
-        except HTTPError:
-            result = None
-            if self.srctype == Source.GITHUB_REPO:
-                # clone source to reckless dir
-                target = copy_remote_git_source(self)
-                if not target:
-                    log.warning(f"could not clone github source {self}")
-                    return False
-                log.debug(f"falling back to cloning remote repo {self}")
-                # Update to reflect use of a local clone
-                self.source_loc = str(target.location)
-                self.srctype = target.srctype
-                result = search_dir(self, target, False, 5)
-
-                if not result:
-                    return False
-
-        if result:
-            if result != target:
-                if result.relative:
-                    self.subdir = result.relative
-                else:
-                    # populate() should always assign a relative path
-                    # if not in the top-level source directory
-                    assert self.subdir == result.name
-            return True
-        return False
-
-
 def create_dir(directory: PosixPath) -> bool:
     try:
         Path(directory).mkdir(parents=False, exist_ok=True)
@@ -407,10 +267,41 @@ class Source(Enum):
         return trailing[0], trailing[1].removesuffix('.git')
 
 
+class SubmoduleSource:
+    """Allows us to only fetch submodules once."""
+    def __init__(self, location: str):
+        self.location = str(location)
+        self.local_clone = None
+        self.clone_fetched = False
+
+    def __repr__(self):
+        return f'<SubmoduleSource {self.location}, {self.clone_fetched}>'
+
+
+class LoadedSource:
+    """Allows loading all sources only once per call of reckless.  Initialized
+    with a single line of the reckless .sources file.  Keeping state also allows
+    minimizing API calls and refetching repositories."""
+    def __init__(self, source: str):
+        self.original_source = source
+        self.type = Source.get_type(source)
+        self.content = SourceDir(source, self.type)
+        self.local_clone = None
+        self.local_clone_fetched = False
+        if self.type == Source.GITHUB_REPO:
+            local = _get_local_clone(source)
+            if local:
+                self.local_clone = SourceDir(local, Source.GIT_LOCAL_CLONE)
+                self.local_clone.parent_source = self
+
+    def __repr__(self):
+        return f'<Source {self.type}, {self.original_source}>'
+
+
 class SourceDir():
     """Structure to search source contents."""
     def __init__(self, location: str, srctype: Source = None, name: str = None,
-                 relative: str = None):
+                 relative: str = None, parent_source: LoadedSource = None):
         self.location = str(location)
         if name:
             self.name = name
@@ -420,6 +311,7 @@ class SourceDir():
         self.srctype = srctype
         self.prepopulated = False
         self.relative = relative  # location relative to source
+        self.parent_source = parent_source
 
     def populate(self):
         """populates contents of the directory at least one level"""
@@ -430,7 +322,7 @@ class SourceDir():
         if self.srctype == Source.DIRECTORY:
             self.contents = populate_local_dir(self.location)
         elif self.srctype in [Source.LOCAL_REPO, Source.GIT_LOCAL_CLONE]:
-            self.contents = populate_local_repo(self.location)
+            self.contents = populate_local_repo(self.location, parent_source=self.parent_source)
         elif self.srctype == Source.GITHUB_REPO:
             self.contents = populate_github_repo(self.location)
         else:
@@ -484,6 +376,153 @@ class SourceFile():
         return False
 
 
+class InstInfo:
+    def __init__(self, name: str, location: str, git_url: str, source_dir: SourceDir=None):
+        self.name = name
+        self.source_loc = str(location)     # Used for 'git clone'
+        self.source_dir = source_dir        # Use this insead of source_loc to only fetch once.
+        self.git_url: str = git_url         # API access for github repos
+        self.srctype: Source = Source.get_type(location)
+        self.entry: SourceFile = None       # relative to source_loc or subdir
+        self.deps: str = None
+        self.subdir: str = None
+        self.commit: str = None
+
+    def __repr__(self):
+        return (f'InstInfo({self.name}, {self.source_loc}, {self.git_url}, '
+                f'{self.entry}, {self.deps}, {self.subdir})')
+
+    def get_repo_commit(self) -> Union[str, None]:
+        """The latest commit from a remote repo or the HEAD of a local repo."""
+        if self.srctype in [Source.LOCAL_REPO, Source.GIT_LOCAL_CLONE]:
+            git = run(['git', 'rev-parse', 'HEAD'], cwd=str(self.source_loc),
+                      stdout=PIPE, stderr=PIPE, text=True, check=False, timeout=10)
+            if git.returncode != 0:
+                return None
+            return git.stdout.splitlines()[0]
+
+        if self.srctype == Source.GITHUB_REPO:
+            parsed_url = urlparse(self.source_loc)
+            if 'github.com' not in parsed_url.netloc:
+                return None
+            if len(parsed_url.path.split('/')) < 2:
+                return None
+            start = 1
+            # Maybe we were passed an api.github.com/repo/<user> url
+            if 'api' in parsed_url.netloc:
+                start += 1
+            repo_user = parsed_url.path.split('/')[start]
+            repo_name = parsed_url.path.split('/')[start + 1]
+            api_url = f'{API_GITHUB_COM}/repos/{repo_user}/{repo_name}/commits?ref=HEAD'
+            r = urlopen(api_url, timeout=5)
+            if r.status != 200:
+                return None
+            try:
+                return json.loads(r.read().decode())['0']['sha']
+            except:
+                return None
+
+    def get_inst_details(self, permissive: bool=False) -> bool:
+        """Search the source_loc for plugin install details.
+        This may be necessary if a contents api is unavailable.
+        Extracts entrypoint and dependencies if searchable, otherwise
+        matches a directory to the plugin name and stops.
+        permissive: allows search to sometimes match directory name only for
+                    faster searching of remote repositorys."""
+        if self.srctype == Source.DIRECTORY:
+            assert Path(self.source_loc).exists()
+            assert os.path.isdir(self.source_loc)
+        target = self.source_dir
+        if not target:
+            target = SourceDir(self.source_loc, srctype=self.srctype)
+        # Set recursion for how many directories deep we should search
+        depth = 0
+        if self.srctype in [Source.DIRECTORY, Source.LOCAL_REPO,
+                            Source.GIT_LOCAL_CLONE]:
+            depth = 5
+        elif self.srctype == Source.GITHUB_REPO:
+            depth = 1
+
+        def search_dir(self, sub: SourceDir, subdir: bool,
+                       recursion: int) -> Union[SourceDir, None]:
+            assert isinstance(recursion, int)
+            # carveout for archived plugins in lightningd/plugins. Other repos
+            # are only searched by API at the top level.
+            if recursion == 0 and 'archive' in sub.name.lower():
+                pass
+            # If unable to search deeper, resort to matching directory name
+            elif recursion < 1 and permissive:
+                if sub.name.lower().removesuffix('.git') == self.name.lower():
+                    # Partial success (can't check for entrypoint)
+                    self.name = sub.name
+                    return sub
+                return None
+            if not sub.contents and not sub.prepopulated:
+                sub.populate()
+
+            if sub.name.lower().removesuffix('.git') == self.name.lower():
+                # Directory matches the name we're trying to install, so check
+                # for entrypoint and dependencies.
+                for inst in INSTALLERS:
+                    for g in inst.get_entrypoints(self.name):
+                        found_entry = sub.find(g, ftype=SourceFile)
+                        if found_entry:
+                            break
+                    # FIXME: handle a list of dependencies
+                    found_dep = sub.find(inst.dependency_file,
+                                         ftype=SourceFile)
+                    if found_entry:
+                        # Success!
+                        if found_dep:
+                            self.name = sub.name
+                            self.entry = found_entry.name
+                            self.deps = found_dep.name
+                            return sub
+                        if permissive is True:
+                            log.debug(f"{inst.name} installer: missing dependency for {self}")
+                        found_entry = None
+            for file in sub.contents:
+                if isinstance(file, SourceDir):
+                    assert file.relative
+                    success = search_dir(self, file, True, recursion - 1)
+                    if success:
+                        return success
+            return None
+
+        try:
+            result = search_dir(self, target, False, depth)
+        # Using the rest API of github.com may result in a
+        # "Error 403: rate limit exceeded" or other access issues.
+        # Fall back to cloning and searching the local copy instead.
+        except HTTPError:
+            result = None
+            if self.srctype == Source.GITHUB_REPO:
+                # clone source to reckless dir
+                target = copy_remote_git_source(self)
+                if not target:
+                    log.warning(f"could not clone github source {self}")
+                    return False
+                log.debug(f"falling back to cloning remote repo {self}")
+                # Update to reflect use of a local clone
+                self.source_loc = str(target.location)
+                self.srctype = target.srctype
+                result = search_dir(self, target, False, 5)
+
+                if not result:
+                    return False
+
+        if result:
+            if result != target:
+                if result.relative:
+                    self.subdir = result.relative
+                else:
+                    # populate() should always assign a relative path
+                    # if not in the top-level source directory
+                    assert self.subdir == result.name
+            return True
+        return False
+
+
 def populate_local_dir(path: str) -> list:
     assert Path(os.path.realpath(path)).exists()
     contents = []
@@ -497,7 +536,7 @@ def populate_local_dir(path: str) -> list:
     return contents
 
 
-def populate_local_repo(path: str, parent=None) -> list:
+def populate_local_repo(path: str, parent=None, parent_source=None) -> list:
     assert Path(os.path.realpath(path)).exists()
     if parent is None:
         basedir = SourceDir('base')
@@ -571,10 +610,13 @@ def populate_local_repo(path: str, parent=None) -> list:
                 relative_path = str(Path(basedir.relative) / filepath)
             assert relative_path
             submodule_dir = SourceDir(filepath, srctype=Source.LOCAL_REPO,
-                                      relative=relative_path)
-            populate_local_repo(Path(path) / filepath, parent=submodule_dir)
+                                      relative=relative_path,
+                                      parent_source=parent_source)
+            populate_local_repo(Path(path) / filepath, parent=submodule_dir,
+                                parent_source=parent_source)
             submodule_dir.prepopulated = True
             basedir.contents.append(submodule_dir)
+            # parent_source.submodules.append(submodule_dir)
         else:
             populate_source_path(basedir, Path(filepath))
     return basedir.contents
@@ -681,7 +723,8 @@ def copy_remote_git_source(github_source: InstInfo):
     local_path = local_path / repo
     if local_path.exists():
         # Fetch the latest
-        assert _git_update(github_source, local_path)
+        # FIXME: pass LoadedSource and check fetch status
+        assert _git_update(github_source.source_loc, local_path)
     else:
         _git_clone(github_source, local_path)
     return SourceDir(local_path, srctype=Source.GIT_LOCAL_CLONE)
@@ -1148,22 +1191,26 @@ def _get_local_clone(source: str) -> Union[Path, None]:
     return None
 
 
-def _source_search(name: str, src: str) -> Union[InstInfo, None]:
+def _source_search(name: str, src: LoadedSource) -> Union[InstInfo, None]:
     """Identify source type, retrieve contents, and populate InstInfo
     if the relevant contents are found."""
-    root_dir = SourceDir(src)
+    root_dir = src.content
     source = InstInfo(name, root_dir.location, None)
 
     # If a local clone of a github source already exists, prefer searching
     # that instead of accessing the github API.
-    if source.srctype == Source.GITHUB_REPO:
-        local_clone = _get_local_clone(source)
-        if local_clone and _git_update(source, local_clone):
-            log.debug(f"Using local clone of {src}: {local_clone}")
-            source.source_loc = str(local_clone)
+    if src.type == Source.GITHUB_REPO:
+        if src.local_clone:
+            if not src.local_clone_fetched:
+                # FIXME: Pass the LoadedSource here?
+                if _git_update(src.original_source, src.local_clone.location):
+                    src.local_clone_fetched = True
+                    log.debug(f'fetching local clone of {src.original_source}')
+            log.debug(f"Using local clone of {src}: {src.local_clone.location}")
+            source.source_loc = str(src.local_clone.location)
             source.srctype = Source.GIT_LOCAL_CLONE
 
-    if source.get_inst_details():
+    if source.get_inst_details(permissive=True):
         return source
     return None
 
@@ -1190,9 +1237,9 @@ def _git_clone(src: InstInfo, dest: Union[PosixPath, str]) -> bool:
     return True
 
 
-def _git_update(github_source: InstInfo, local_copy: PosixPath):
+def _git_update(github_source: str, local_copy: PosixPath):
     # Ensure this is the correct source
-    git = run(['git', 'remote', 'set-url', 'origin', github_source.source_loc],
+    git = run(['git', 'remote', 'set-url', 'origin', github_source],
               cwd=str(local_copy), stdout=PIPE, stderr=PIPE, text=True,
               check=False, timeout=60)
     assert git.returncode == 0
@@ -1217,7 +1264,7 @@ def _git_update(github_source: InstInfo, local_copy: PosixPath):
     default_branch = git.stdout.splitlines()[0]
     if default_branch not in ['origin/master', 'origin/main']:
         log.debug(f'UNUSUAL: fetched default branch {default_branch} for '
-                  f'{github_source.source_loc}')
+                  f'{github_source}')
 
     # Checkout default branch
     git = run(['git', 'checkout', default_branch],
@@ -1337,7 +1384,11 @@ def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
     # FIXME: Validate path was cloned successfully.
     # Depending on how we accessed the original source, there may be install
     # details missing. Searching the cloned repo makes sure we have it.
-    cloned_src = _source_search(src.name, str(clone_path))
+    clone = LoadedSource(plugin_path)
+    clone.content.populate()
+    # Make sure we don't try to fetch again!
+    assert clone.type in [Source.DIRECTORY, Source.LOCAL_REPO]
+    cloned_src = _source_search(src.name, clone)
     log.debug(f'cloned_src: {cloned_src}')
     if not cloned_src:
         log.warning('failed to find plugin after cloning repo.')
@@ -1525,7 +1576,7 @@ def install(plugin_name: str) -> Union[str, None]:
         # uncommitted changes.
         if src and src.srctype == Source.LOCAL_REPO:
             src.srctype = Source.DIRECTORY
-        if not src.get_inst_details():
+        if not src.get_inst_details(permissive=True):
             src = None
     if not direct_location or not src:
         log.debug(f"Searching for {name}")
@@ -1596,7 +1647,7 @@ def _get_all_plugins_from_source(src: str) -> list:
         return plugins
 
     plugins.append((root.name, src))
-    
+
     for item in root.contents:
         if isinstance(item, SourceDir):
             # Skip archive directories
@@ -1612,20 +1663,20 @@ def search(plugin_name: str) -> Union[InstInfo, None]:
 
     for src in RECKLESS_SOURCES:
         # Search repos named after the plugin before collections
-        if Source.get_type(src) == Source.GITHUB_REPO:
-            if src.split('/')[-1].lower().removesuffix('.git') == plugin_name.lower():
+        if src.type == Source.GITHUB_REPO:
+            if src.original_source.split('/')[-1].lower().removesuffix('.git') == plugin_name.lower():
                 ordered_sources.remove(src)
                 ordered_sources.insert(0, src)
     # Check locally before reaching out to remote repositories
     for src in RECKLESS_SOURCES:
-        if Source.get_type(src) in [Source.DIRECTORY, Source.LOCAL_REPO]:
+        if src.type in [Source.DIRECTORY, Source.LOCAL_REPO]:
             ordered_sources.remove(src)
             ordered_sources.insert(0, src)
 
     # First, collect all partial matches to display to user
     partial_matches = []
     for source in ordered_sources:
-        for plugin_name_found, src_url in _get_all_plugins_from_source(source):
+        for plugin_name_found, src_url in _get_all_plugins_from_source(source.original_source):
             if plugin_name.lower() in plugin_name_found.lower():
                 partial_matches.append((plugin_name_found, src_url))
 
@@ -1638,12 +1689,11 @@ def search(plugin_name: str) -> Union[InstInfo, None]:
     # Now try exact match for installation purposes
     exact_match = None
     for source in ordered_sources:
-        srctype = Source.get_type(source)
-        if srctype == Source.UNKNOWN:
-            log.debug(f'cannot search {srctype} {source}')
+        if source.type == Source.UNKNOWN:
+            log.debug(f'cannot search {source.type} {source.original_source}')
             continue
-        if srctype in [Source.DIRECTORY, Source.LOCAL_REPO,
-                       Source.GITHUB_REPO, Source.OTHER_URL]:
+        if source.type in [Source.DIRECTORY, Source.LOCAL_REPO,
+                           Source.GITHUB_REPO, Source.OTHER_URL]:
             found = _source_search(plugin_name, source)
             if found:
                 log.debug(f"{found}, {found.srctype}")
@@ -1835,8 +1885,14 @@ def load_sources() -> list:
         log.debug('Warning: Reckless requires write access')
         Config(path=str(sources_file),
                default_text='https://github.com/lightningd/plugins')
-        return ['https://github.com/lightningd/plugins']
-    return sources_from_file()
+        sources = ['https://github.com/lightningd/plugins']
+    else:
+        sources = sources_from_file()
+
+    all_sources = []
+    for src in sources:
+        all_sources.append(LoadedSource(src))
+    return all_sources
 
 
 def add_source(src: str):
