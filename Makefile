@@ -263,12 +263,24 @@ man8dir = $(mandir)/man8
 ifeq ("$(OS)-$(ARCH)", "Darwin-arm64")
 CPATH := /opt/homebrew/include
 LIBRARY_PATH := /opt/homebrew/lib
-LDFLAGS := -L/opt/homebrew/opt/sqlite/lib -L/opt/homebrew/opt/openssl@3/lib
-CPPFLAGS := -I/opt/homebrew/opt/sqlite/include -I/opt/homebrew/opt/openssl@3/include
-PKG_CONFIG_PATH=/opt/homebrew/opt/sqlite/lib/pkgconfig
 else
 CPATH := /usr/local/include
 LIBRARY_PATH := /usr/local/lib
+endif
+
+# Detect OpenSSL and SQLite paths dynamically using brew --prefix
+ifeq ("$(OS)", "Darwin")
+OPENSSL_PREFIX := $(shell brew --prefix openssl@3 2>/dev/null || brew --prefix openssl 2>/dev/null || echo "")
+SQLITE_PREFIX := $(shell brew --prefix sqlite 2>/dev/null || echo "")
+ifneq ("$(OPENSSL_PREFIX)", "")
+LDFLAGS += -L$(OPENSSL_PREFIX)/lib
+CPPFLAGS += -I$(OPENSSL_PREFIX)/include
+endif
+ifneq ("$(SQLITE_PREFIX)", "")
+LDFLAGS += -L$(SQLITE_PREFIX)/lib
+CPPFLAGS += -I$(SQLITE_PREFIX)/include
+PKG_CONFIG_PATH := $(SQLITE_PREFIX)/lib/pkgconfig:$(PKG_CONFIG_PATH)
+endif
 endif
 
 CPPFLAGS += -DCLN_NEXT_VERSION="\"$(CLN_NEXT_VERSION)\"" -DPKGLIBEXECDIR="\"$(pkglibexecdir)\"" -DBINDIR="\"$(bindir)\"" -DPLUGINDIR="\"$(plugindir)\"" -DCCAN_TAL_NEVER_RETURN_NULL=1
