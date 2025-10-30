@@ -235,16 +235,25 @@ static int revcmp_flows(const size_t *a, const size_t *b, struct flow **flows)
 //      -> check that htlc_max are all satisfied
 //      -> check that (x+1) at least one htlc_max is violated
 /* Given the channel constraints, return the maximum amount that can be
- * delivered. */
-static struct amount_msat path_max_deliverable(struct channel_data *path)
+ * delivered.  Sets *bottleneck_idx to one of the contraining channels' idx, if non-NULL */
+static struct amount_msat path_max_deliverable(struct channel_data *path,
+					       u32 *bottleneck_idx)
 {
 	struct amount_msat deliver = AMOUNT_MSAT(-1);
 	for (size_t i = 0; i < tal_count(path); i++) {
 		deliver =
 		    amount_msat_sub_fee(deliver, path[i].fee_base_msat,
 					path[i].fee_proportional_millionths);
-		deliver = amount_msat_min(deliver, path[i].htlc_max);
-		deliver = amount_msat_min(deliver, path[i].liquidity_max);
+		if (amount_msat_greater(deliver, path[i].htlc_max)) {
+			if (bottleneck_idx)
+				*bottleneck_idx = path[i].idx;
+			deliver = path[i].htlc_max;
+		}
+		if (amount_msat_greater(deliver, path[i].liquidity_max)) {
+			if (bottleneck_idx)
+				*bottleneck_idx = path[i].idx;
+			deliver = path[i].liquidity_max;
+		}
 	}
 	return deliver;
 }
@@ -477,9 +486,9 @@ static void write_selected_flows(const tal_t *ctx, size_t *flows_index,
 	tal_free(tmp_flows);
 }
 
-/* FIXME: on failure return error message */
 const char *refine_flows(const tal_t *ctx, struct route_query *rq,
-			 struct amount_msat deliver, struct flow ***flows)
+			 struct amount_msat deliver, struct flow ***flows,
+			 u32 *bottleneck_idx)
 {
 	const tal_t *working_ctx = tal(ctx, tal_t);
 	const char *error_message = NULL;
@@ -499,7 +508,7 @@ const char *refine_flows(const tal_t *ctx, struct route_query *rq,
 	for (size_t i = 0; i < tal_count(channel_mpp_cache); i++) {
 		// FIXME: does path_max_deliverable work for a single
 		// channel with 0 fees?
-		max_deliverable[i] = path_max_deliverable(channel_mpp_cache[i]);
+		max_deliverable[i] = path_max_deliverable(channel_mpp_cache[i], bottleneck_idx);
 		min_deliverable[i] = path_min_deliverable(channel_mpp_cache[i]);
 		/* We use an array of indexes to keep track of the order
 		 * of the flows. Likewise flows can be removed by simply
@@ -578,7 +587,7 @@ void squash_flows(const tal_t *ctx, struct route_query *rq,
 		struct short_channel_id_dir scidd;
 		flows_index[i] = i;
 		paths_str[i] = tal_strdup(working_ctx, "");
-		max_deliverable[i] = path_max_deliverable(channel_mpp_cache[i]);
+		max_deliverable[i] = path_max_deliverable(channel_mpp_cache[i], NULL);
 
 		for (size_t j = 0; j < tal_count(flow->path); j++) {
 			scidd.scid =
