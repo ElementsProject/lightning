@@ -418,3 +418,15 @@ def test_reckless_uv_install(node_factory):
 
     assert r.search_stdout('using installer pythonuv')
     r.check_stderr()
+
+
+def test_reckless_available(node_factory):
+    """list available plugins"""
+    n = get_reckless_node(node_factory)
+    r = reckless([f"--network={NETWORK}", "listavailable", "-v", "--json"], dir=n.lightning_dir)
+    assert r.returncode == 0
+    # All plugins in the default repo should be found and identified as installable.
+    assert r.search_stdout('testplugfail')
+    assert r.search_stdout('testplugpass')
+    assert r.search_stdout('testplugpyproj')
+    assert r.search_stdout('testpluguv')
