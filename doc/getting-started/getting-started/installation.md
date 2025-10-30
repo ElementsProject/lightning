@@ -324,28 +324,132 @@ poetry install
 make
 ```
 
-## To Build on macOS
+## To Build on macOS Apple Silicon
 
-Assuming you have Xcode and Homebrew installed. Install dependencies:
+Assuming you have Xcode and Homebrew installed.
+
+First confirm which architecture of Mac you are running
+```shell
+arch
+```
+If you see this result: `arm64`
+Continue with these instructions. If you see any other result switch to Build on macOS Intel instructions.
+
+Confirm you are using Apple Silicon Homebrew
+```shell
+which brew
+which pkg-config
+```
+If you see this result:
+```
+/opt/homebrew/bin/brew
+/opt/homebrew/bin/pkg-config
+```
+You are using Apple Silicon Homebrew and can continue with the instructions, skip to "Install dependencies"
+
+If you see this in the result: `/usr/local/bin/brew`
+You are using brew in Intel compatibility mode. The simplest solution is to remove brew entirely, reinstall it, and start these instructions over.
+
+Install dependencies:
 
 ```shell
-brew install autoconf automake libtool python3 gnu-sed gettext libsodium protobuf lowdown
-export PATH="/usr/local/opt:$PATH"
+brew install autoconf automake libtool python3 gnu-sed gettext libsodium protobuf lowdown pkgconf openssl
+export PATH="/opt/homebrew/opt/:$PATH"
+export CPATH=/opt/homebrew/include
+export LIBRARY_PATH=/opt/homebrew/lib
 ```
 
 If you need SQLite (or get a SQLite mismatch build error):
 
 ```shell
 brew install sqlite
-export LDFLAGS="-L/usr/local/opt/sqlite/lib"
-export CPPFLAGS="-I/usr/local/opt/sqlite/include"
 ```
 
-Some library paths are different when using `homebrew` on Macs with Apple silicon, therefore the following two variables need to be set for Macs with Apple silicon:
+Install uv for Python dependency management:
 
 ```shell
-export CPATH=/opt/homebrew/include
-export LIBRARY_PATH=/opt/homebrew/lib
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+After installing uv, restart your shell or run `source ~/.zshrc` to ensure `uv` is in your PATH.
+
+If you don't have bitcoind installed locally you'll need to install that as well:
+
+```shell
+brew install boost cmake pkg-config libevent
+git clone https://github.com/bitcoin/bitcoin
+cd bitcoin
+cmake -B build
+cmake --build build --target bitcoind bitcoin-cli
+cmake --install build --component bitcoind && cmake --install build --component bitcoin-cli
+```
+
+Clone lightning:
+
+```shell
+git clone https://github.com/ElementsProject/lightning.git
+cd lightning
+```
+
+Checkout a release tag:
+
+```shell
+git checkout v24.05
+```
+
+Build lightning:
+
+```shell
+uv sync --all-extras --all-groups --frozen
+./configure
+```
+
+If you see `/usr/local` in the log, an Intel compatability dependency has been picked up. The simplest solution is to remove brew entirely, reinstall it, and start these instructions over.
+
+```shell
+uv run make
+```
+
+Running lightning:
+
+> 📘
+>
+> Edit your `~/Library/Application\ Support/Bitcoin/bitcoin.conf`to include `rpcuser=<foo>` and `rpcpassword=<bar>` first, you may also need to include `testnet=1`.
+
+```shell
+bitcoind &
+./lightningd/lightningd &
+./cli/lightning-cli help
+```
+
+To install the built binaries into your system, you'll need to run `make install`:
+
+```shell
+make install
+```
+
+You may need to use this command instead. Confirm the exported PATH, CPATH, and LIBRARY_PATH environment varaibles set earlier are still present.
+```shell
+sudo make install
+```
+
+## To Build on macOS Intel
+
+Assuming you have Xcode and Homebrew installed.
+
+Install dependencies:
+
+```shell
+brew install autoconf automake libtool python3 gnu-sed gettext libsodium protobuf lowdown pkgconf openssl
+export PATH="/usr/local/opt/:$PATH"
+export CPATH=/usr/local/include
+export LIBRARY_PATH=/usr/local/lib
+```
+
+If you need SQLite (or get a SQLite mismatch build error):
+
+```shell
+brew install sqlite
 ```
 
 Install uv for Python dependency management:
@@ -404,12 +508,6 @@ To install the built binaries into your system, you'll need to run `make install
 
 ```shell
 make install
-```
-
-On a Mac with Apple silicon, you may need to use this command instead:
-
-```shell
-sudo PATH="/usr/local/opt:$PATH"  LIBRARY_PATH=/opt/homebrew/lib CPATH=/opt/homebrew/include make install
 ```
 
 ## To Build on Arch Linux
