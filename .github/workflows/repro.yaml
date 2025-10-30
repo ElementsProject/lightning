@@ -1,0 +1,183 @@
+---
+name: Reproducible Build Verification
+on:
+  schedule:
+    - cron: "0 0 * * *"  # Daily at midnight UTC
+  pull_request:
+    types: [opened, synchronize]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-base-image:
+    name: Build jammy Docker Image
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build base image
+        run: |
+          echo "Building base image for jammy"
+          docker run --rm -v $(pwd):/build ubuntu:jammy \
+            bash -c "apt-get update && apt-get install -y debootstrap && debootstrap jammy /build/jammy"
+          tar -C jammy -c . | docker import - jammy
+          echo "Verifying jammy base image:"
+          docker run jammy cat /etc/lsb-release
+
+      - name: Build builder image
+        run: |
+          echo "Building CL repro jammy:"
+          docker build -t cl-repro-jammy - < contrib/reprobuild/Dockerfile.jammy
+
+      - name: Save Docker image
+        run: |
+          mkdir -p docker-images
+          docker save cl-repro-jammy | gzip > docker-images/cl-repro-jammy.tar.gz
+
+      - name: Upload Docker image
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-images
+          path: docker-images/
+          retention-days: 1
+
+  build-ubuntu:
+    name: Build CLN on Ubuntu
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    needs: build-base-image
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Docker image
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-images
+          path: docker-images/
+
+      - name: Load Docker image
+        run: |
+          docker load --input docker-images/cl-repro-jammy.tar.gz
+
+      - name: Create release directory
+        run: |
+          mkdir -p release
+
+      - name: Build with jammy
+        run: |
+          docker run --rm -v $(pwd):/repo cl-repro-jammy bash -c "git clone /repo . && uv sync --all-extras --all-groups && uv run tools/repro-build.sh --force-mtime=2000-01-01 && cp *.xz /repo/release/"
+
+
+      - name: Generate checksums
+        run: |
+          cd release
+          sha256sum *.xz > SHA256SUMS-ubuntu
+          cat SHA256SUMS-ubuntu
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ubuntu-artifacts
+          path: release/
+          retention-days: 1
+
+  build-debian:
+    name: Build CLN on Debian
+    runs-on: debian-latest
+    timeout-minutes: 120
+    needs: build-base-image
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Docker image
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-images
+          path: docker-images/
+
+      - name: Load Docker image
+        run: |
+          docker load --input docker-images/cl-repro-jammy.tar.gz
+
+      - name: Create release directory
+        run: |
+          mkdir -p release
+
+      - name: Build with jammy
+        run: |
+          docker run --rm -v $(pwd):/repo cl-repro-jammy bash -c "git clone /repo . && uv sync --all-extras --all-groups && uv run tools/repro-build.sh --force-mtime=2000-01-01 && cp *.xz /repo/release/"
+
+      - name: Generate checksums
+        run: |
+          cd release
+          sha256sum *.xz > SHA256SUMS-debian
+          cat SHA256SUMS-debian
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: debian-artifacts
+          path: release/
+          retention-days: 1
+
+  verify-reproducibility:
+    name: Verify Reproducibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [build-ubuntu, build-debian]
+    if: always()
+    steps:
+      - name: Download Ubuntu artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ubuntu-artifacts
+          path: ubuntu-release/
+
+      - name: Download Debian artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: debian-artifacts
+          path: debian-release/
+
+      - name: Compare artifacts
+        run: |
+          echo "=== Ubuntu checksums ==="
+          cat ubuntu-release/SHA256SUMS-ubuntu || echo "Ubuntu checksums not found"
+          echo ""
+          echo "=== Debian checksums ==="
+          cat debian-release/SHA256SUMS-debian || echo "Debian checksums not found"
+          echo ""
+          echo "=== Comparing binary reproducibility ==="
+
+          # Extract just the hashes and filenames for comparison
+          if [ -f ubuntu-release/SHA256SUMS-ubuntu ] && [ -f debian-release/SHA256SUMS-debian ]; then
+            # Get just the hash and filename parts, sort them for comparison
+            ubuntu_hashes=$(grep -v SHA256SUMS ubuntu-release/SHA256SUMS-ubuntu | sort || true)
+            debian_hashes=$(grep -v SHA256SUMS debian-release/SHA256SUMS-debian | sort || true)
+
+            if [ -z "$ubuntu_hashes" ] || [ -z "$debian_hashes" ]; then
+              echo "Checksums are empty, builds may have failed"
+              exit 1
+            fi
+
+            # Compare the hashes
+            if diff <(echo "$ubuntu_hashes") <(echo "$debian_hashes"); then
+              echo "✓ Builds are reproducible! Checksums match between Ubuntu and Debian runners."
+              exit 0
+            else
+              echo "✗ Builds are NOT reproducible. Checksums differ between Ubuntu and Debian runners."
+              exit 1
+            fi
+          else
+            echo "Could not find checksum files from both builds"
+            exit 1
+          fi
