@@ -1164,6 +1164,7 @@ def test_migration_no_bkpr(node_factory, bitcoind):
                           'type': 'channel'}]
 
 
+@pytest.mark.xfail(strict=True)
 @unittest.skipIf(TEST_NETWORK != 'regtest', "External wallet support doesn't work with elements yet.")
 def test_listincome_timebox(node_factory, bitcoind):
     l1 = node_factory.get_node()
@@ -1193,3 +1194,10 @@ def test_listincome_timebox(node_factory, bitcoind):
 
     incomes = l1.rpc.bkpr_listincome(end_time=first_one)['income_events']
     assert [i for i in incomes if i['timestamp'] > first_one] == []
+
+    # We save blockheights in storage, so make sure we restore them on restart!
+    acctevents_before = l1.rpc.bkpr_listaccountevents()
+    l1.restart()
+
+    acctevents_after = l1.rpc.bkpr_listaccountevents()
+    assert acctevents_after == acctevents_before
