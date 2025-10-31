@@ -1345,6 +1345,7 @@ static bool check_htlc_max_limits(struct route_query *rq, struct flow **flows)
  */
 static const char *
 linear_routes(const tal_t *ctx, struct route_query *rq,
+	      struct timemono deadline,
 	      const struct gossmap_node *srcnode,
 	      const struct gossmap_node *dstnode, struct amount_msat amount,
 	      struct amount_msat maxfee, u32 finalcltv, u32 maxdelay,
@@ -1377,6 +1378,13 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 	while (!amount_msat_is_zero(amount_to_deliver)) {
 		size_t num_parts, parts_slots, excess_parts;
 		u32 bottleneck_idx;
+
+		if (timemono_after(time_mono(), deadline)) {
+			error_message = rq_log(ctx, rq, LOG_BROKEN,
+					       "%s: timed out after deadline",
+					       __func__);
+			goto fail;
+		}
 
                 /* FIXME: This algorithm to limit the number of parts is dumb
                  * for two reasons:
@@ -1640,17 +1648,19 @@ fail:
 }
 
 const char *default_routes(const tal_t *ctx, struct route_query *rq,
+			   struct timemono deadline,
 			   const struct gossmap_node *srcnode,
 			   const struct gossmap_node *dstnode,
 			   struct amount_msat amount, struct amount_msat maxfee,
 			   u32 finalcltv, u32 maxdelay, struct flow ***flows,
 			   double *probability)
 {
-	return linear_routes(ctx, rq, srcnode, dstnode, amount, maxfee,
+	return linear_routes(ctx, rq, deadline, srcnode, dstnode, amount, maxfee,
 			     finalcltv, maxdelay, flows, probability, minflow);
 }
 
 const char *single_path_routes(const tal_t *ctx, struct route_query *rq,
+			       struct timemono deadline,
 			       const struct gossmap_node *srcnode,
 			       const struct gossmap_node *dstnode,
 			       struct amount_msat amount,
@@ -1658,7 +1668,7 @@ const char *single_path_routes(const tal_t *ctx, struct route_query *rq,
 			       u32 maxdelay, struct flow ***flows,
 			       double *probability)
 {
-	return linear_routes(ctx, rq, srcnode, dstnode, amount, maxfee,
+	return linear_routes(ctx, rq, deadline, srcnode, dstnode, amount, maxfee,
 			     finalcltv, maxdelay, flows, probability,
 			     single_path_flow);
 }

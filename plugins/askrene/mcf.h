@@ -64,6 +64,7 @@ struct amount_msat linear_flow_cost(const struct flow *flow,
 /* A wrapper to the min. cost flow solver that actually takes into consideration
  * the extra msats per channel needed to pay for fees. */
 const char *default_routes(const tal_t *ctx, struct route_query *rq,
+			   struct timemono deadline,
 			   const struct gossmap_node *srcnode,
 			   const struct gossmap_node *dstnode,
 			   struct amount_msat amount,
@@ -73,6 +74,7 @@ const char *default_routes(const tal_t *ctx, struct route_query *rq,
 
 /* A wrapper to the single-path constrained solver. */
 const char *single_path_routes(const tal_t *ctx, struct route_query *rq,
+			       struct timemono deadline,
 			       const struct gossmap_node *srcnode,
 			       const struct gossmap_node *dstnode,
 			       struct amount_msat amount,
