@@ -34,6 +34,8 @@ struct askrene {
 	struct node_id my_id;
 	/* Aux command for layer */
 	struct command *layer_cmd;
+	/* How long before we abort trying to find a route? */
+	u32 route_seconds;
 };
 
 /* Information for a single route query. */

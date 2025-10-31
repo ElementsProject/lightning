@@ -614,13 +614,15 @@ static struct command_result *do_getroutes(struct command *cmd,
 	/* Compute the routes. At this point we might select between multiple
 	 * algorithms. Right now there is only one algorithm available. */
 	struct timemono time_start = time_mono();
+	struct timemono deadline = timemono_add(time_start,
+						time_from_sec(askrene->route_seconds));
 	if (info->dev_algo == ALGO_SINGLE_PATH) {
-		err = single_path_routes(rq, rq, srcnode, dstnode, info->amount,
+		err = single_path_routes(rq, rq, deadline, srcnode, dstnode, info->amount,
 					 info->maxfee, info->finalcltv,
 					 info->maxdelay, &flows, &probability);
 	} else {
 		assert(info->dev_algo == ALGO_DEFAULT);
-		err = default_routes(rq, rq, srcnode, dstnode, info->amount,
+		err = default_routes(rq, rq, deadline, srcnode, dstnode, info->amount,
 				     info->maxfee, info->finalcltv,
 				     info->maxdelay, &flows, &probability);
 	}
@@ -1295,7 +1297,8 @@ static const char *init(struct command *init_cmd,
 			const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
 	struct plugin *plugin = init_cmd->plugin;
-	struct askrene *askrene = tal(plugin, struct askrene);
+	struct askrene *askrene = get_askrene(plugin);
+
 	askrene->plugin = plugin;
 	list_head_init(&askrene->layers);
 	askrene->reserved = new_reserve_htable(askrene);
@@ -1320,7 +1323,18 @@ static const char *init(struct command *init_cmd,
 
 int main(int argc, char *argv[])
 {
+	struct askrene *askrene;
 	setup_locale();
-	plugin_main(argv, init, NULL, PLUGIN_RESTARTABLE, true, NULL, commands, ARRAY_SIZE(commands),
-	            NULL, 0, NULL, 0, NULL, 0, NULL);
+
+	askrene = tal(NULL, struct askrene);
+	askrene->route_seconds = 10;
+	plugin_main(argv, init, take(askrene), PLUGIN_RESTARTABLE, true, NULL, commands, ARRAY_SIZE(commands),
+	            NULL, 0, NULL, 0, NULL, 0,
+		    plugin_option_dynamic("askrene-timeout",
+					  "int",
+					  "How many seconds to try before giving up on calculating a route."
+					  " Defaults to 10 seconds",
+					  u32_option, u32_jsonfmt,
+					  &askrene->route_seconds),
+		    NULL);
 }
