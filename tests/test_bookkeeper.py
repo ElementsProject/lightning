@@ -1156,3 +1156,42 @@ def test_migration_no_bkpr(node_factory, bitcoind):
                           'is_rebalance': False,
                           'tag': 'journal_entry',
                           'type': 'channel'}]
+
+
+@pytest.mark.xfail(strict=True)
+@unittest.skipIf(TEST_NETWORK != 'regtest', "External wallet support doesn't work with elements yet.")
+def test_listincome_timebox(node_factory, bitcoind):
+    l1 = node_factory.get_node()
+    addr = l1.rpc.newaddr()['bech32']
+
+    amount = 1111111
+    bitcoind.rpc.sendtoaddress(addr, amount / 10**8)
+
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
+
+    waddr = bitcoind.rpc.getnewaddress()
+
+    # Ok, now we send some funds to an external address, get change.
+    l1.rpc.withdraw(waddr, amount // 2)
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    wait_for(lambda: len(l1.rpc.listfunds(spent=True)['outputs']) == 2)
+
+    first_one = int(time.time())
+    time.sleep(2)
+
+    # Do another one, make sure we don't see it if we filter by timestamp.
+    bitcoind.rpc.sendtoaddress(addr, amount / 10**8)
+
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 2)
+
+    incomes = l1.rpc.bkpr_listincome(end_time=first_one)['income_events']
+    assert [i for i in incomes if i['timestamp'] > first_one] == []
+
+    # We save blockheights in storage, so make sure we restore them on restart!
+    acctevents_before = l1.rpc.bkpr_listaccountevents()
+    l1.restart()
+
+    acctevents_after = l1.rpc.bkpr_listaccountevents()
+    assert acctevents_after == acctevents_before
