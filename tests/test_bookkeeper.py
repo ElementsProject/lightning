@@ -1164,7 +1164,6 @@ def test_migration_no_bkpr(node_factory, bitcoind):
                           'type': 'channel'}]
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(TEST_NETWORK != 'regtest', "External wallet support doesn't work with elements yet.")
 def test_listincome_timebox(node_factory, bitcoind):
     l1 = node_factory.get_node()
