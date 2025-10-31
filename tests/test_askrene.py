@@ -1185,7 +1185,9 @@ def test_real_data(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, fundamount=AMOUNT,
                                      opts=[{'gossip_store_file': outfile.name,
                                             'allow_warning': True,
-                                            'dev-throttle-gossip': None},
+                                            'dev-throttle-gossip': None,
+                                            # This can be slow!
+                                            'askrene-timeout': TIMEOUT},
                                            {'allow_warning': True}])
 
     # These were obviously having a bad day at the time of the snapshot:
@@ -1573,3 +1575,36 @@ def test_maxparts_infloop(node_factory, bitcoind):
                          maxfee_msat=amount,
                          final_cltv=5,
                          maxparts=2)
+
+
+def test_askrene_timeout(node_factory, bitcoind):
+    """Test askrene's route timeout"""
+    l1, l2 = node_factory.line_graph(2, opts=[{'broken_log': 'linear_routes: timed out after deadline'}, {}])
+
+    assert l1.rpc.listconfigs('askrene-timeout')['configs']['askrene-timeout']['value_int'] == 10
+    l1.rpc.getroutes(source=l1.info['id'],
+                     destination=l2.info['id'],
+                     amount_msat=1,
+                     layers=['auto.localchans'],
+                     maxfee_msat=1,
+                     final_cltv=5)
+
+    # It will exit instantly.
+    l1.rpc.setconfig('askrene-timeout', 0)
+
+    with pytest.raises(RpcError, match='linear_routes: timed out after deadline'):
+        l1.rpc.getroutes(source=l1.info['id'],
+                         destination=l2.info['id'],
+                         amount_msat=1,
+                         layers=['auto.localchans'],
+                         maxfee_msat=1,
+                         final_cltv=5)
+
+    # We can put it back though.
+    l1.rpc.setconfig('askrene-timeout', 10)
+    l1.rpc.getroutes(source=l1.info['id'],
+                     destination=l2.info['id'],
+                     amount_msat=1,
+                     layers=['auto.localchans'],
+                     maxfee_msat=1,
+                     final_cltv=5)

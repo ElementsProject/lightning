@@ -553,6 +553,10 @@ command, so they invoices can also be paid onchain.
 
   Setting this makes `xpay` wait until all parts have failed/succeeded before returning.  Usually this is unnecessary, as xpay will return on the first success (we have the preimage, if they don't take all the parts that's their problem) or failure (the destination could succeed another part, but it would mean it was only partially paid).  The default is `false`.
 
+* **askrene-timeout**=*SECONDS* [plugin `askrene`, *dynamic*]
+
+  This option makes the `getroutes` call fail if it takes more than this many seconds.  Setting it to zero is a fun way to ensure your node never makes payments.
+
 ### Networking options
 
 Note that for simple setups, the implicit *autolisten* option does the
