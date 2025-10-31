@@ -140,7 +140,7 @@ struct blockheights *init_blockheights(const tal_t *ctx,
 		if (keytok->size != 3)
 			goto weird;
 
-		if (!json_to_txid(buf, keytok + 2, &txid))
+		if (!json_to_txid(buf, keytok + 3, &txid))
 			goto weird;
 		if (!json_hex_to_be32(buf, hextok, &be_blockheight))
 			goto weird;
