@@ -4295,7 +4295,7 @@ def test_sql_crash(node_factory, bitcoind):
     """
     l1, l2 = node_factory.line_graph(2, fundchannel=False)
 
-    addr = l1.rpc.newaddr()['bech32']
+    addr = l1.rpc.newaddr('bech32')['bech32']
     bitcoind.rpc.sendtoaddress(addr, 1)
     bitcoind.generate_block(1)
 

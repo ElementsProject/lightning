@@ -315,7 +315,7 @@ def start_channels(connections):
     bitcoind = nodes[0].bitcoin
     # If we got here, we want to fund channels
     for src, dst, fundamount in connections:
-        addr = src.rpc.newaddr()["bech32"]
+        addr = src.rpc.newaddr('bech32')["bech32"]
         bitcoind.rpc.sendtoaddress(addr, (fundamount + 1000000) / 10**8)
 
     bitcoind.generate_block(1)

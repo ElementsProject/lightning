@@ -1106,7 +1106,7 @@ class LightningNode(object):
     def fundchannel(self, l2, amount=FUNDAMOUNT, wait_for_active=True,
                     announce_channel=True, **kwargs):
         # Give yourself some funds to work with
-        addr = self.rpc.newaddr()['bech32']
+        addr = self.rpc.newaddr('bech32')['bech32']
 
         def has_funds_on_addr(addr):
             """Check if the given address has funds in the internal wallet.
@@ -1737,7 +1737,7 @@ class NodeFactory(object):
         bitcoind = nodes[0].bitcoin
         # If we got here, we want to fund channels
         for src, dst in connections:
-            addr = src.rpc.newaddr()['bech32']
+            addr = src.rpc.newaddr('bech32')['bech32']
             bitcoind.rpc.sendtoaddress(addr, (fundamount + 1000000) / 10**8)
 
         bitcoind.generate_block(1)

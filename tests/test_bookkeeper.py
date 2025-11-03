@@ -128,7 +128,7 @@ def test_bookkeeping_external_withdraws(node_factory, bitcoind):
     """ Withdrawals to an external address shouldn't be included
     in the income statements until confirmed"""
     l1 = node_factory.get_node()
-    addr = l1.rpc.newaddr()['bech32']
+    addr = l1.rpc.newaddr()['p2tr']
 
     amount = 1111111
     amount_msat = Millisatoshi(amount * 1000)
@@ -210,7 +210,7 @@ def test_bookkeeping_rbf_withdraw(node_factory, bitcoind):
         (but it will show up in our account events)
     """
     l1 = node_factory.get_node()
-    addr = l1.rpc.newaddr()['bech32']
+    addr = l1.rpc.newaddr()['p2tr']
 
     amount = 1111111
     event_counter = 0
@@ -1167,7 +1167,7 @@ def test_migration_no_bkpr(node_factory, bitcoind):
 @unittest.skipIf(TEST_NETWORK != 'regtest', "External wallet support doesn't work with elements yet.")
 def test_listincome_timebox(node_factory, bitcoind):
     l1 = node_factory.get_node()
-    addr = l1.rpc.newaddr()['bech32']
+    addr = l1.rpc.newaddr()['p2tr']
 
     amount = 1111111
     bitcoind.rpc.sendtoaddress(addr, amount / 10**8)

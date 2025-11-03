@@ -299,7 +299,7 @@ def test_lightningd_still_loading(node_factory, bitcoind, executor):
     # Attempting to fund an extremely large transaction should fail
     # with a 'unsynced' error
     with pytest.raises(RpcError, match=r'304'):
-        l1.rpc.txprepare([{l1.rpc.newaddr()['bech32']: '200000000sat'}])
+        l1.rpc.txprepare([{l1.rpc.newaddr('bech32')['bech32']: '200000000sat'}])
 
     # Funding a new channel blocks...
     l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
@@ -325,7 +325,7 @@ def test_lightningd_still_loading(node_factory, bitcoind, executor):
 
     # Now we get insufficient funds error
     with pytest.raises(RpcError, match=r'301'):
-        l1.rpc.txprepare([{l1.rpc.newaddr()['bech32']: '200000000sat'}])
+        l1.rpc.txprepare([{l1.rpc.newaddr('bech32')['bech32']: '200000000sat'}])
 
     # This will now work normally.
     l1.pay(l2, 1000)
