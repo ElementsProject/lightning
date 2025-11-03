@@ -1194,6 +1194,22 @@ def test_listincome_timebox(node_factory, bitcoind):
     incomes = l1.rpc.bkpr_listincome(end_time=first_one)['income_events']
     assert [i for i in incomes if i['timestamp'] > first_one] == []
 
+
+@pytest.mark.xfail(strict=True)
+@unittest.skipIf(TEST_NETWORK != 'regtest', "Snapshots are bitcoin regtest.")
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "uses snapshots")
+def test_bkpr_parallel(node_factory, bitcoind, executor):
+    """Bookkeeper could crash with parallel requests"""
+    bitcoind.generate_block(1)
+    l1 = node_factory.get_node(dbfile="l1-before-moves-in-db.sqlite3.xz",
+                               options={'database-upgrade': True})
+
+    fut1 = executor.submit(l1.rpc.bkpr_listincome)
+    fut2 = executor.submit(l1.rpc.bkpr_listincome)
+
+    fut1.result()
+    fut2.result()
+
     # We save blockheights in storage, so make sure we restore them on restart!
     acctevents_before = l1.rpc.bkpr_listaccountevents()
     l1.restart()
