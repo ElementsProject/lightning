@@ -6755,7 +6755,6 @@ def test_injectpaymentonion_failures(node_factory, executor):
     assert 'onionreply' in err.value.error['data']
 
 
-@pytest.mark.xfail(strict=True)
 def test_injectpaymentonion_peerfail(node_factory, executor):
     l1, l2 = node_factory.line_graph(2,
                                      opts=[{'may_reconnect': True,
