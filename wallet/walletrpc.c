@@ -149,9 +149,18 @@ static struct command_result *json_newaddr(struct command *cmd,
 	char *bech32, *p2tr;
 
 	if (!param(cmd, buffer, params,
-		   p_opt_def("addresstype", param_newaddr, &addrtype, ADDR_BECH32),
+		   p_opt("addresstype", param_newaddr, &addrtype),
 		   NULL))
 		return command_param_failed();
+
+	if (!addrtype) {
+		addrtype = tal(cmd, enum addrtype);
+		if (command_deprecated_in_ok(cmd, "addresstype.defaultbech32",
+					     "v25.12", "v26.12"))
+			*addrtype = ADDR_ALL;
+		else
+			*addrtype = ADDR_P2TR;
+	}
 
 	if (!newaddr_inner(cmd, &pubkey, *addrtype)) {
 		return command_fail(cmd, LIGHTNINGD, "Keys exhausted ");
