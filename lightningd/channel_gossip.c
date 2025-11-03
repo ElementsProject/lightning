@@ -115,6 +115,8 @@ static struct state_transition allowed_transitions[] = {
 	  "Unannounced channel closed onchain." },
 	{ CGOSSIP_CHANNEL_UNANNOUNCED_DYING, CGOSSIP_CHANNEL_ANNOUNCED_DYING,
 	  "Unannounced closing channel reached announce depth." },
+	{ CGOSSIP_CHANNEL_UNANNOUNCED_DYING, CGOSSIP_CHANNEL_ANNOUNCED_DEAD,
+	  "Unannounced closing channel reached announce depth and was closed in same block." },
 	{ CGOSSIP_WAITING_FOR_ANNOUNCE_DEPTH, CGOSSIP_ANNOUNCED,
 	  "Channel fully announced" },
 	{ CGOSSIP_WAITING_FOR_MATCHING_PEER_SIGS, CGOSSIP_ANNOUNCED,
