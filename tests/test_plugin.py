@@ -1875,7 +1875,6 @@ def test_bitcoin_backend(node_factory, bitcoind):
                                " bitcoind")
 
 
-@pytest.mark.xfail(strict=True)
 def test_bitcoin_backend_gianttx(node_factory, bitcoind):
     """Test that a giant tx doesn't crash bcli"""
     l1 = node_factory.get_node(start=False)
