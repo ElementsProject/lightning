@@ -1222,8 +1222,10 @@ parse_and_log_chain_move(struct command *cmd,
 	if (e->origin_acct)
 		find_or_create_account(cmd, bkpr, e->origin_acct);
 
-	/* Make this visible for queries (we expect increasing!) */
-	assert(e->db_id > bkpr->chainmoves_index);
+	/* Make this visible for queries (we expect increasing!).  If we raced, this is not true. */
+	if (e->db_id <= bkpr->chainmoves_index)
+		return;
+
 	bkpr->chainmoves_index = e->db_id;
 
 	/* This event *might* have implications for account;
@@ -1336,8 +1338,9 @@ parse_and_log_channel_move(struct command *cmd,
 			   " but no account exists %s",
 			   acct_name);
 
-	/* Make this visible for queries (we expect increasing!) */
-	assert(e->db_id > bkpr->channelmoves_index);
+	/* Make this visible for queries (we expect increasing!).  If we raced, this is not true. */
+	if (e->db_id <= bkpr->channelmoves_index)
+		return;
 	bkpr->channelmoves_index = e->db_id;
 
 	/* Check for invoice desc data, necessary */

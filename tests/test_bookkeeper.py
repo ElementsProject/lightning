@@ -1195,7 +1195,6 @@ def test_listincome_timebox(node_factory, bitcoind):
     assert [i for i in incomes if i['timestamp'] > first_one] == []
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Snapshots are bitcoin regtest.")
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "uses snapshots")
 def test_bkpr_parallel(node_factory, bitcoind, executor):
