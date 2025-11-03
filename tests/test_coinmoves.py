@@ -894,6 +894,8 @@ def test_coinmoves_unilateral_htlc_timeout(node_factory, bitcoind):
 
     line = l1.daemon.wait_for_log('Resolved OUR_UNILATERAL/OUR_HTLC by our proposal OUR_HTLC_TIMEOUT_TX')
     htlc_timeout_txid = re.search(r'by our proposal OUR_HTLC_TIMEOUT_TX \(([0-9a-f]{64})\)', line).group(1)
+    # Usually 6358000, but if we're lucky it's 6366000.
+    htlc_timeout_change_msats = bitcoind.rpc.gettxout(htlc_timeout_txid, 1)['value'] * 100_000_000_000
     expected_chain1 += [{'account_id': 'wallet',
                          'blockheight': 115,
                          'credit_msat': 0,
@@ -906,10 +908,10 @@ def test_coinmoves_unilateral_htlc_timeout(node_factory, bitcoind):
                         # Change
                         {'account_id': 'wallet',
                          'blockheight': 115,
-                         'credit_msat': (15579000 + 6358000) - anchor_change_msats,
+                         'credit_msat': htlc_timeout_change_msats,
                          'debit_msat': 0,
                          'extra_tags': [],
-                         'output_msat': (15579000 + 6358000) - anchor_change_msats,
+                         'output_msat': htlc_timeout_change_msats,
                          'primary_tag': 'deposit',
                          'utxo': f"{htlc_timeout_txid}:1"},
                         {'account_id': fundchannel['channel_id'],
