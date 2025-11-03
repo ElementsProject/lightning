@@ -76,6 +76,7 @@ struct bitcoin_cli {
 	int *exitstatus;
 	pid_t pid;
 	const char **args;
+	const char **stdinargs;
 	struct timeabs start;
 	enum bitcoind_prio prio;
 	char *output;
@@ -95,7 +96,8 @@ static void add_arg(const char ***args, const char *arg TAKES)
 	tal_arr_expand(args, arg);
 }
 
-static const char **gather_argsv(const tal_t *ctx, const char *cmd, va_list ap)
+/* If stdinargs is non-NULL, that is where we put additional args */
+static const char **gather_argsv(const tal_t *ctx, const char ***stdinargs, const char *cmd, va_list ap)
 {
 	const char **args = tal_arr(ctx, const char *, 1);
 	const char *arg;
@@ -128,23 +130,30 @@ static const char **gather_argsv(const tal_t *ctx, const char *cmd, va_list ap)
 		// `-rpcpassword` argument - secrets in arguments can leak when listing
 		// system processes.
 		add_arg(&args, "-stdinrpcpass");
+	/* To avoid giant command lines, we use -stdin (avail since bitcoin 0.13) */
+	if (stdinargs)
+		add_arg(&args, "-stdin");
 
 	add_arg(&args, cmd);
-	while ((arg = va_arg(ap, char *)) != NULL)
-		add_arg(&args, arg);
+	while ((arg = va_arg(ap, char *)) != NULL) {
+		if (stdinargs)
+			add_arg(stdinargs, arg);
+		else
+			add_arg(&args, arg);
+	}
 	add_arg(&args, NULL);
 
 	return args;
 }
 
 static LAST_ARG_NULL const char **
-gather_args(const tal_t *ctx, const char *cmd, ...)
+gather_args(const tal_t *ctx, const char ***stdinargs, const char *cmd, ...)
 {
 	va_list ap;
 	const char **ret;
 
 	va_start(ap, cmd);
-	ret = gather_argsv(ctx, cmd, ap);
+	ret = gather_argsv(ctx, stdinargs, cmd, ap);
 	va_end(ap);
 
 	return ret;
@@ -170,7 +179,7 @@ static struct io_plan *output_init(struct io_conn *conn, struct bitcoin_cli *bcl
 static void next_bcli(enum bitcoind_prio prio);
 
 /* For printing: simple string of args (no secrets!) */
-static char *args_string(const tal_t *ctx, const char **args)
+static char *args_string(const tal_t *ctx, const char **args, const char **stdinargs)
 {
 	size_t i;
 	char *ret = tal_strdup(ctx, args[0]);
@@ -185,12 +194,16 @@ static char *args_string(const tal_t *ctx, const char **args)
 			ret = tal_strcat(ctx, take(ret), args[i]);
 		}
 	}
+	for (i = 0; i < tal_count(stdinargs); i++) {
+		ret = tal_strcat(ctx, take(ret), " ");
+		ret = tal_strcat(ctx, take(ret), stdinargs[i]);
+	}
 	return ret;
 }
 
 static char *bcli_args(const tal_t *ctx, struct bitcoin_cli *bcli)
 {
-    return args_string(ctx, bcli->args);
+	return args_string(ctx, bcli->args, bcli->stdinargs);
 }
 
 /* Only set as destructor once bcli is in current. */
@@ -313,9 +326,14 @@ static void next_bcli(enum bitcoind_prio prio)
 			   bcli->args[0], strerror(errno));
 
 
-	if (bitcoind->rpcpass)
+	if (bitcoind->rpcpass) {
 		write_all(in, bitcoind->rpcpass, strlen(bitcoind->rpcpass));
-
+		write_all(in, "\n", strlen("\n"));
+	}
+	for (size_t i = 0; i < tal_count(bcli->stdinargs); i++) {
+		write_all(in, bcli->stdinargs[i], strlen(bcli->stdinargs[i]));
+		write_all(in, "\n", strlen("\n"));
+	}
 	close(in);
 
 	bcli->start = time_now();
@@ -351,7 +369,8 @@ start_bitcoin_cliv(const tal_t *ctx,
 	else
 		bcli->exitstatus = NULL;
 
-	bcli->args = gather_argsv(bcli, method, ap);
+	bcli->stdinargs = tal_arr(bcli, const char *, 0);
+	bcli->args = gather_argsv(bcli, &bcli->stdinargs, method, ap);
 	bcli->stash = stash;
 
 	list_add_tail(&bitcoind->pending[bcli->prio], &bcli->list);
@@ -994,14 +1013,14 @@ static struct command_result *getutxout(struct command *cmd,
 
 static void bitcoind_failure(struct plugin *p, const char *error_message)
 {
-	const char **cmd = gather_args(bitcoind, "echo", NULL);
+	const char **cmd = gather_args(bitcoind, NULL, "echo", NULL);
 	plugin_err(p, "\n%s\n\n"
 		      "Make sure you have bitcoind running and that bitcoin-cli"
 		      " is able to connect to bitcoind.\n\n"
 		      "You can verify that your Bitcoin Core installation is"
 		      " ready for use by running:\n\n"
 		      "    $ %s 'hello world'\n", error_message,
-		      args_string(cmd, cmd));
+		   args_string(cmd, cmd, NULL));
 }
 
 /* Do some sanity checks on bitcoind based on the output of `getnetworkinfo`. */
@@ -1016,7 +1035,7 @@ static void parse_getnetworkinfo_result(struct plugin *p, const char *buf)
 	if (!result)
 		plugin_err(p, "Invalid response to '%s': '%s'. Can not "
 			      "continue without proceeding to sanity checks.",
-			   args_string(tmpctx, gather_args(bitcoind, "getnetworkinfo", NULL)),
+			   args_string(tmpctx, gather_args(bitcoind, NULL, "getnetworkinfo", NULL), NULL),
 			   buf);
 
 	/* Check that we have a fully-featured `estimatesmartfee`. */
@@ -1046,7 +1065,7 @@ static void wait_and_check_bitcoind(struct plugin *p)
 {
 	int in, from, status, ret;
 	pid_t child;
-	const char **cmd = gather_args(bitcoind, "getnetworkinfo", NULL);
+	const char **cmd = gather_args(bitcoind, NULL, "getnetworkinfo", NULL);
 	bool printed = false;
 	char *output = NULL;
 

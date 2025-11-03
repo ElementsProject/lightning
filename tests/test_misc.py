@@ -2178,7 +2178,7 @@ def test_bitcoind_fail_first(node_factory, bitcoind):
     # first.
     timeout = 5 if 5 < TIMEOUT // 3 else TIMEOUT // 3
     l1 = node_factory.get_node(start=False,
-                               broken_log=r'plugin-bcli: .*(-stdinrpcpass getblockhash 100 exited 1 \(after [0-9]* other errors\)|we have been retrying command for)',
+                               broken_log=r'plugin-bcli: .*(-stdinrpcpass -stdin getblockhash 100 exited 1 \(after [0-9]* other errors\)|we have been retrying command for)',
                                may_fail=True,
                                options={'bitcoin-retry-timeout': timeout})
 
