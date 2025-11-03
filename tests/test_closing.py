@@ -213,7 +213,7 @@ def test_closing_different_fees(node_factory, bitcoind, executor):
     balance = [False, True]
     num_peers = len(feerates) * len(balance)
 
-    addr = l1.rpc.newaddr()['bech32']
+    addr = l1.rpc.newaddr()['p2tr']
     bitcoind.rpc.sendtoaddress(addr, 1)
     numfunds = len(l1.rpc.listfunds()['outputs'])
     bitcoind.generate_block(1)
@@ -1014,17 +1014,17 @@ def test_channel_lease_unilat_closes(node_factory, bitcoind):
 
     # we *shouldn't* be able to spend it, there's a lock on it
     with pytest.raises(RpcError, match='UTXO .* is csv locked'):
-        l2.rpc.withdraw(l2.rpc.newaddr()['bech32'], "all", utxos=[utxo1])
+        l2.rpc.withdraw(l2.rpc.newaddr()['p2tr'], "all", utxos=[utxo1])
 
     # we *can* spend the 1csv lock one
-    l2.rpc.withdraw(l2.rpc.newaddr()['bech32'], "all", utxos=[utxo3])
+    l2.rpc.withdraw(l2.rpc.newaddr()['p2tr'], "all", utxos=[utxo3])
 
     # This can timeout, so do it in easy stages.
     for i in range(16):
         bitcoind.generate_block(4032 // 16)
         sync_blockheight(bitcoind, [l2, l3])
 
-    l2.rpc.withdraw(l2.rpc.newaddr()['bech32'], "all", utxos=[utxo1])
+    l2.rpc.withdraw(l2.rpc.newaddr()['p2tr'], "all", utxos=[utxo1])
 
     # We actually mined this many blocks already, so we should see this message:
     l3.daemon.wait_for_log('waiting confirmation that we spent DELAYED_OUTPUT_TO_US .* using OUR_DELAYED_RETURN_TO_WALLET')
@@ -1803,7 +1803,7 @@ def test_onchain_unwatch(node_factory, bitcoind, chainparams):
 
     # Now test unrelated onchain churn.
     # Daemon gets told about wallet; says it doesn't care.
-    l1.rpc.withdraw(l1.rpc.newaddr()['bech32'], 'all')
+    l1.rpc.withdraw(l1.rpc.newaddr('bech32')['bech32'], 'all')
     bitcoind.generate_block(1)
 
     l1.daemon.wait_for_log("but we don't care")
@@ -1813,7 +1813,7 @@ def test_onchain_unwatch(node_factory, bitcoind, chainparams):
 
     # So these should not generate further messages
     for i in range(5):
-        l1.rpc.withdraw(l1.rpc.newaddr()['bech32'], 'all')
+        l1.rpc.withdraw(l1.rpc.newaddr('bech32')['bech32'], 'all')
         bitcoind.generate_block(1)
         # Make sure it digests the block
         sync_blockheight(bitcoind, [l1])
@@ -3366,7 +3366,7 @@ Try a range of future segwit versions as shutdown scripts.  We create many nodes
     # Give it one UTXO to spend for each node.
     addresses = {}
     for n in nodes:
-        addresses[l1.rpc.newaddr()['bech32']] = (10**6 + 100000) / 10**8
+        addresses[l1.rpc.newaddr('bech32')['bech32']] = (10**6 + 100000) / 10**8
     bitcoind.rpc.sendmany("", addresses)
     bitcoind.generate_block(1)
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == len(addresses))
@@ -3787,7 +3787,7 @@ def test_closing_anchorspend_htlc_tx_rbf(node_factory, bitcoind):
     fundsats = int(Millisatoshi(only_one(l1.rpc.listfunds()['outputs'])['amount_msat']).to_satoshi())
     psbt = l1.rpc.fundpsbt("all", "1000perkw", 1000)['psbt']
     # Pay 5k sats in fees, send most to l2
-    psbt = l1.rpc.addpsbtoutput(fundsats - 24000 - 5000, psbt, destination=l2.rpc.newaddr()['bech32'])['psbt']
+    psbt = l1.rpc.addpsbtoutput(fundsats - 24000 - 5000, psbt, destination=l2.rpc.newaddr()['p2tr'])['psbt']
     # 12x2000 sat outputs for l1 to use.
     for i in range(12):
         psbt = l1.rpc.addpsbtoutput(2000, psbt)['psbt']
@@ -4005,7 +4005,7 @@ def test_peer_anchor_push(node_factory, bitcoind, executor, chainparams):
     NUM_OUTPUTS = 10
     psbt = l2.rpc.fundpsbt("all", "1000perkw", 1000)['psbt']
     # Pay 5k sats in fees.
-    psbt = l2.rpc.addpsbtoutput(fundsats - OUTPUT_SAT * NUM_OUTPUTS - 5000, psbt, destination=l3.rpc.newaddr()['bech32'])['psbt']
+    psbt = l2.rpc.addpsbtoutput(fundsats - OUTPUT_SAT * NUM_OUTPUTS - 5000, psbt, destination=l3.rpc.newaddr()['p2tr'])['psbt']
     for _ in range(NUM_OUTPUTS):
         psbt = l2.rpc.addpsbtoutput(OUTPUT_SAT, psbt)['psbt']
     l2.rpc.sendpsbt(l2.rpc.signpsbt(psbt)['signed_psbt'])
@@ -4090,12 +4090,12 @@ def test_closing_cpfp(node_factory, bitcoind):
 
     l1out = only_one([o for o in l1.rpc.listfunds()['outputs'] if o != change])
     assert l1out['txid'] == close_txid
-    l1.rpc.withdraw(l1.rpc.newaddr()['bech32'], 'all', '20000perkb', minconf=0, utxos=["{}:{}".format(l1out['txid'], l1out['output'])])
+    l1.rpc.withdraw(l1.rpc.newaddr('bech32')['bech32'], 'all', '20000perkb', minconf=0, utxos=["{}:{}".format(l1out['txid'], l1out['output'])])
 
     # l2 should be able to do this too!
     l2out = only_one(l2.rpc.listfunds()['outputs'])
     assert l2out['txid'] == close_txid
-    l2.rpc.withdraw(l2.rpc.newaddr()['bech32'], 'all', '20000perkb', minconf=0, utxos=["{}:{}".format(l2out['txid'], l2out['output'])])
+    l2.rpc.withdraw(l2.rpc.newaddr('bech32')['bech32'], 'all', '20000perkb', minconf=0, utxos=["{}:{}".format(l2out['txid'], l2out['output'])])
 
     # There should be *three* transactions in mempool now!
     bitcoind.generate_block(1, wait_for_mempool=3)
@@ -4148,7 +4148,7 @@ def test_closing_no_anysegwit_retry(node_factory, bitcoind):
     with pytest.raises(RpcError, match=r'Peer does not allow v1\+ shutdown addresses'):
         l1.rpc.close(l2.info['id'], destination='bcrt1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6qejxtdg4y5r3zarvary0c5xw7k0ylj56')
 
-    oldaddr = l1.rpc.newaddr()['bech32']
+    oldaddr = l1.rpc.newaddr('bech32')['bech32']
     l1.rpc.close(l2.info['id'], destination=oldaddr)
 
 

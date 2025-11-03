@@ -117,7 +117,7 @@ def test_coinmoves(node_factory, bitcoind):
     check_chain_moves(l2, expected_chain2)
 
     # MVT_DEPOSIT
-    addr = l1.rpc.newaddr()['bech32']
+    addr = l1.rpc.newaddr('bech32')['bech32']
     txid_deposit = bitcoind.rpc.sendtoaddress(addr, 200000000 / 10**8)
     bitcoind.generate_block(1, wait_for_mempool=1)
     sync_blockheight(bitcoind, [l1])
@@ -140,7 +140,7 @@ def test_coinmoves(node_factory, bitcoind):
     first_rowid = only_one(only_one(l1.rpc.sql("SELECT rowid FROM chainmoves;")['rows']))
 
     # MVT_WITHDRAWAL
-    addr = l3.rpc.newaddr()['bech32']
+    addr = l3.rpc.newaddr('bech32')['bech32']
     withdraw = l1.rpc.withdraw(addr, 100000000)
     bitcoind.generate_block(1, wait_for_mempool=1)
     sync_blockheight(bitcoind, [l1])
@@ -395,7 +395,7 @@ def setup_channel(bitcoind, l1, l2):
     expected_chain1 = []
     expected_chain2 = []
 
-    addr = l1.rpc.newaddr()['bech32']
+    addr = l1.rpc.newaddr('bech32')['bech32']
     txid_deposit = bitcoind.rpc.sendtoaddress(addr, 100000000 / 10**8)
     bitcoind.generate_block(1, wait_for_mempool=1)
     sync_blockheight(bitcoind, [l1])
@@ -1916,7 +1916,7 @@ def test_wait(node_factory, bitcoind, executor):
 
     fut = executor.submit(l1.rpc.wait, subsystem='chainmoves', indexname='created', nextvalue=1)
 
-    addr = l1.rpc.newaddr()['bech32']
+    addr = l1.rpc.newaddr('bech32')['bech32']
     bitcoind.rpc.sendtoaddress(addr, 200000000 / 10**8)
     bitcoind.generate_block(1, wait_for_mempool=1)
 

@@ -436,7 +436,7 @@ def test_channel_abandon(node_factory, bitcoind):
 
     # Now it's unreserved, we can doublespend it (as long as we exceed
     # previous fee to RBF!).
-    withdraw = l1.rpc.withdraw(l1.rpc.newaddr()['bech32'], "all")
+    withdraw = l1.rpc.withdraw(l1.rpc.newaddr('bech32')['bech32'], "all")
 
     assert bitcoind.rpc.decoderawtransaction(withdraw['tx'])['vout'][0]['value'] > SATS / 10**8
     bitcoind.generate_block(1, wait_for_mempool=withdraw['txid'])
@@ -1108,7 +1108,7 @@ def test_funding_fail(node_factory, bitcoind):
 
     funds = 1000000
 
-    addr = l1.rpc.newaddr()['bech32']
+    addr = l1.rpc.newaddr('bech32')['bech32']
     l1.bitcoin.rpc.sendtoaddress(addr, funds / 10**8)
     bitcoind.generate_block(1)
 
@@ -1150,7 +1150,7 @@ def test_funding_toolarge(node_factory, bitcoind):
 
     # Send funds.
     amount = 2**24
-    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'], amount / 10**8 + 0.01)
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr('bech32')['bech32'], amount / 10**8 + 0.01)
     bitcoind.generate_block(1)
 
     # Wait for it to arrive.
@@ -1172,7 +1172,7 @@ def test_v2_open(node_factory, bitcoind, chainparams):
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     amount = 2**24
-    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'], amount / 10**8 + 0.01)
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr('bech32')['bech32'], amount / 10**8 + 0.01)
     bitcoind.generate_block(1)
     # Wait for it to arrive.
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
@@ -1204,7 +1204,7 @@ def test_funding_push(node_factory, bitcoind, chainparams):
     # Send funds.
     amount = 2**24
     push_msat = 20000 * 1000
-    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'], amount / 10**8 + 0.01)
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr('bech32')['bech32'], amount / 10**8 + 0.01)
     bitcoind.generate_block(1)
 
     # Wait for it to arrive.
@@ -1289,7 +1289,7 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
     l1.fundwallet(amount + 10000000)
 
     # make sure we can generate PSBTs.
-    addr = l1.rpc.newaddr()['bech32']
+    addr = l1.rpc.newaddr('bech32')['bech32']
     bitcoind.rpc.sendtoaddress(addr, (amount + 1000000) / 10**8)
     bitcoind.generate_block(1)
     wait_for(lambda: len(l1.rpc.listfunds()["outputs"]) != 0)
@@ -1320,7 +1320,7 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
         l1.rpc.txdiscard(wrongamt['txid'])
 
     # Can't complete with incorrect address.
-    wrongaddr = l1.rpc.txprepare([{l1.rpc.newaddr()['bech32']: amount}])
+    wrongaddr = l1.rpc.txprepare([{l1.rpc.newaddr('bech32')['bech32']: amount}])
     with pytest.raises(RpcError, match=r'No output to open channel'):
         l1.rpc.fundchannel_complete(l2.info['id'], wrongaddr['psbt'])
     l1.rpc.txdiscard(wrongaddr['txid'])
@@ -1406,7 +1406,7 @@ def test_funding_v2_corners(node_factory, bitcoind):
     l1.fundwallet(amount + 10000000)
 
     # make sure we can generate PSBTs.
-    addr = l1.rpc.newaddr()['bech32']
+    addr = l1.rpc.newaddr('bech32')['bech32']
     bitcoind.rpc.sendtoaddress(addr, (amount + 1000000) / 10**8)
     bitcoind.generate_block(1)
     wait_for(lambda: len(l1.rpc.listfunds()["outputs"]) != 0)
@@ -1469,7 +1469,7 @@ def test_funding_cancel_race(node_factory, bitcoind, executor):
     l1 = node_factory.get_node()
 
     # make sure we can generate PSBTs.
-    addr = l1.rpc.newaddr()['bech32']
+    addr = l1.rpc.newaddr('bech32')['bech32']
     bitcoind.rpc.sendtoaddress(addr, 200000 / 10**8)
     bitcoind.generate_block(1)
     wait_for(lambda: len(l1.rpc.listfunds()["outputs"]) != 0)
@@ -1550,7 +1550,7 @@ def test_funding_v2_cancel_race(node_factory, bitcoind, executor):
     l1 = node_factory.get_node()
 
     # make sure we can generate PSBTs.
-    addr = l1.rpc.newaddr()['bech32']
+    addr = l1.rpc.newaddr('bech32')['bech32']
     bitcoind.rpc.sendtoaddress(addr, 2000000 / 10**8)
     bitcoind.generate_block(1)
     wait_for(lambda: len(l1.rpc.listfunds()["outputs"]) != 0)
@@ -1680,7 +1680,7 @@ def test_funding_close_upfront(node_factory, bitcoind):
     _close(l1, l2)
 
     # check that you can provide a closing address upfront
-    addr = l1.rpc.newaddr()['bech32']
+    addr = l1.rpc.newaddr('bech32')['bech32']
     _fundchannel(l1, l2, amt_normal, addr)
     # confirm that it appears in listpeerchannels
     assert addr == l1.rpc.listpeerchannels()['channels'][1]['close_to_addr']
@@ -1701,7 +1701,7 @@ def test_funding_close_upfront(node_factory, bitcoind):
     assert _close(l2, l1) in ([addr, remote_valid_addr], [remote_valid_addr, addr])
 
     # check that passing in a different addr to close causes an RPC error
-    addr2 = l1.rpc.newaddr()['bech32']
+    addr2 = l1.rpc.newaddr('bech32')['bech32']
     _fundchannel(l1, l2, amt_normal, addr)
     with pytest.raises(RpcError, match=r'does not match previous shutdown script'):
         l1.rpc.close(l2.info['id'], destination=addr2)
@@ -2249,7 +2249,7 @@ def test_lockin_between_restart(node_factory, bitcoind):
 @pytest.mark.openchannel('v2')
 def test_funding_while_offline(node_factory, bitcoind):
     l1 = node_factory.get_node()
-    addr = l1.rpc.newaddr()['bech32']
+    addr = l1.rpc.newaddr('bech32')['bech32']
     sync_blockheight(bitcoind, [l1])
 
     # l1 goes down.
@@ -2889,17 +2889,17 @@ def test_no_fee_estimate(node_factory, bitcoind, executor):
 
     # Can't withdraw either.
     with pytest.raises(RpcError, match=r'Cannot estimate fees'):
-        l1.rpc.withdraw(l2.rpc.newaddr()['bech32'], 'all')
+        l1.rpc.withdraw(l2.rpc.newaddr('bech32')['bech32'], 'all')
 
     # Can't use feerate names, either.
     with pytest.raises(RpcError, match=r'Cannot estimate fees'):
-        l1.rpc.withdraw(l2.rpc.newaddr()['bech32'], 'all', 'urgent')
+        l1.rpc.withdraw(l2.rpc.newaddr('bech32')['bech32'], 'all', 'urgent')
 
     with pytest.raises(RpcError, match=r'Cannot estimate fees'):
-        l1.rpc.withdraw(l2.rpc.newaddr()['bech32'], 'all', 'normal')
+        l1.rpc.withdraw(l2.rpc.newaddr('bech32')['bech32'], 'all', 'normal')
 
     with pytest.raises(RpcError, match=r'Cannot estimate fees'):
-        l1.rpc.withdraw(l2.rpc.newaddr()['bech32'], 'all', 'slow')
+        l1.rpc.withdraw(l2.rpc.newaddr('bech32')['bech32'], 'all', 'slow')
 
     with pytest.raises(RpcError, match=r'Cannot estimate fees'):
         l1.rpc.fundchannel(l2.info['id'], 10**6, 'urgent')
@@ -2911,7 +2911,7 @@ def test_no_fee_estimate(node_factory, bitcoind, executor):
         l1.rpc.fundchannel(l2.info['id'], 10**6, 'slow')
 
     # With anchors, not even with manual feerate!
-    l1.rpc.withdraw(l2.rpc.newaddr()['bech32'], 10000, '1500perkb')
+    l1.rpc.withdraw(l2.rpc.newaddr('bech32')['bech32'], 10000, '1500perkb')
     if TEST_NETWORK == 'regtest':
         with pytest.raises(RpcError, match=r'Cannot estimate fees'):
             l1.rpc.fundchannel(l2.info['id'], 10**6, '2000perkw', minconf=0)
@@ -2951,7 +2951,7 @@ def test_no_fee_estimate(node_factory, bitcoind, executor):
 
     # Can withdraw (use urgent feerate). `minconf` may be needed depending on
     # the previous `fundchannel` selecting all confirmed outputs.
-    l1.rpc.withdraw(l2.rpc.newaddr()['bech32'], 'all', 'urgent', minconf=0)
+    l1.rpc.withdraw(l2.rpc.newaddr('bech32')['bech32'], 'all', 'urgent', minconf=0)
 
 
 def test_opener_feerate_reconnect(node_factory, bitcoind):
@@ -3581,7 +3581,7 @@ def test_channel_features(node_factory, bitcoind, anchors):
             opts = {'dev-force-features': "+23"}
     l1, l2 = node_factory.line_graph(2, fundchannel=False, opts=opts)
 
-    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'], 0.1)
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr('bech32')['bech32'], 0.1)
     bitcoind.generate_block(1)
     wait_for(lambda: l1.rpc.listfunds()['outputs'] != [])
 
@@ -4057,7 +4057,7 @@ def test_multichan_stress(node_factory, executor, bitcoind):
                                                   'dev-no-reconnect': None})
 
     # Now fund *second* channel l2->l3 (slightly larger)
-    bitcoind.rpc.sendtoaddress(l2.rpc.newaddr()['bech32'], 0.1)
+    bitcoind.rpc.sendtoaddress(l2.rpc.newaddr('bech32')['bech32'], 0.1)
     bitcoind.generate_block(1)
     sync_blockheight(bitcoind, [l2])
     l2.rpc.fundchannel(l3.info['id'], '0.01001btc')
@@ -4216,7 +4216,7 @@ def test_multichan(node_factory, executor, bitcoind):
     scid23a = l2.get_channel_scid(l3)
 
     # Now fund *second* channel l2->l3 (slightly larger)
-    bitcoind.rpc.sendtoaddress(l2.rpc.newaddr()['bech32'], 0.1)
+    bitcoind.rpc.sendtoaddress(l2.rpc.newaddr('bech32')['bech32'], 0.1)
     bitcoind.generate_block(1)
     sync_blockheight(bitcoind, [l1, l2, l3])
     l2.rpc.fundchannel(l3.info['id'], '0.01001btc')
@@ -4725,7 +4725,7 @@ def test_connect_ratelimit(node_factory, bitcoind):
     l1 = nodes[0]
     nodes = nodes[1:]
 
-    addr = l1.rpc.newaddr()['bech32']
+    addr = l1.rpc.newaddr('bech32')['bech32']
     for n in nodes:
         bitcoind.rpc.sendtoaddress(addr, (FUNDAMOUNT + 1000000) / 10**8)
     bitcoind.generate_block(1, wait_for_mempool=len(nodes))

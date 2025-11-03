@@ -59,7 +59,7 @@ def test_block_backfill(node_factory, bitcoind, chainparams):
     l1, l2 = node_factory.line_graph(2, fundchannel=False)
 
     # Get some funds to l1
-    addr = l1.rpc.newaddr()['bech32']
+    addr = l1.rpc.newaddr()['p2tr']
     bitcoind.rpc.sendtoaddress(addr, 1)
     bitcoind.generate_block(1)
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
@@ -426,7 +426,7 @@ def test_sqlite3_builtin_backup(bitcoind, node_factory):
     l1.start()
 
     # Get an address and put some funds.
-    addr = l1.rpc.newaddr()['bech32']
+    addr = l1.rpc.newaddr('bech32')['bech32']
     bitcoind.rpc.sendtoaddress(addr, 1)
     bitcoind.generate_block(1)
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)

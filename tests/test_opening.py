@@ -150,7 +150,7 @@ def test_v2_open_sigs_reconnect_2(node_factory, bitcoind):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     amount = 2**24
     chan_amount = 100000
-    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'], amount / 10**8 + 0.01)
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['p2tr'], amount / 10**8 + 0.01)
     bitcoind.generate_block(1)
     # Wait for it to arrive.
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
@@ -188,7 +188,7 @@ def test_v2_open_sigs_reconnect_1(node_factory, bitcoind):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     amount = 2**24
     chan_amount = 100000
-    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'], amount / 10**8 + 0.01)
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['p2tr'], amount / 10**8 + 0.01)
     bitcoind.generate_block(1)
     # Wait for it to arrive.
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
@@ -229,7 +229,7 @@ def test_v2_open_sigs_out_of_order(node_factory, bitcoind):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     amount = 2**24
     chan_amount = 100000
-    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'], amount / 10**8 + 0.01)
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['p2tr'], amount / 10**8 + 0.01)
     bitcoind.generate_block(1)
     # Wait for it to arrive.
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
@@ -260,7 +260,7 @@ def test_v2_fail_second(node_factory, bitcoind):
     l1.fundwallet(amount + 10000000)
 
     # make sure we can generate PSBTs.
-    addr = l1.rpc.newaddr()['bech32']
+    addr = l1.rpc.newaddr('bech32')['bech32']
     bitcoind.rpc.sendtoaddress(addr, (amount + 1000000) / 10**8)
     bitcoind.generate_block(1)
     wait_for(lambda: len(l1.rpc.listfunds()["outputs"]) != 0)
@@ -309,7 +309,7 @@ def test_v2_open_sigs_restart_while_dead(node_factory, bitcoind):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     amount = 2**24
     chan_amount = 100000
-    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'], amount / 10**8 + 0.01)
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['p2tr'], amount / 10**8 + 0.01)
     bitcoind.generate_block(1)
     # Wait for it to arrive.
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
@@ -342,7 +342,7 @@ def test_v2_rbf_single(node_factory, bitcoind, chainparams):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     amount = 2**24
     chan_amount = 100000
-    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'], amount / 10**8 + 0.01)
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['p2tr'], amount / 10**8 + 0.01)
     bitcoind.generate_block(1)
     # Wait for it to arrive.
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
@@ -438,8 +438,8 @@ def test_v2_rbf_abort_retry(node_factory, bitcoind, chainparams):
     amount = 2**24
     chan_amount = 100000
     bitcoind.rpc.sendmany("",
-                          {l1.rpc.newaddr()['bech32']: amount / 10**8 + 0.01,
-                           l2.rpc.newaddr()['bech32']: amount / 10**8 + 0.01})
+                          {l1.rpc.newaddr()['p2tr']: amount / 10**8 + 0.01,
+                           l2.rpc.newaddr()['p2tr']: amount / 10**8 + 0.01})
     bitcoind.generate_block(1)
     # Wait for it to arrive.
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
@@ -519,8 +519,8 @@ def test_v2_rbf_abort_channel_opens(node_factory, bitcoind, chainparams):
     amount = 2**24
     chan_amount = 100000
     bitcoind.rpc.sendmany("",
-                          {l1.rpc.newaddr()['bech32']: amount / 10**8 + 0.01,
-                           l2.rpc.newaddr()['bech32']: amount / 10**8 + 0.01})
+                          {l1.rpc.newaddr()['p2tr']: amount / 10**8 + 0.01,
+                           l2.rpc.newaddr()['p2tr']: amount / 10**8 + 0.01})
     bitcoind.generate_block(1)
     # Wait for it to arrive.
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
@@ -672,7 +672,7 @@ def test_v2_rbf_multi(node_factory, bitcoind, chainparams):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     amount = 2**24
     chan_amount = 100000
-    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'], amount / 10**8 + 0.01)
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['p2tr'], amount / 10**8 + 0.01)
     bitcoind.generate_block(1)
     # Wait for it to arrive.
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
@@ -765,7 +765,7 @@ def test_rbf_reconnect_init(node_factory, bitcoind, chainparams):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     amount = 2**24
     chan_amount = 100000
-    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'], amount / 10**8 + 0.01)
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['p2tr'], amount / 10**8 + 0.01)
     bitcoind.generate_block(1)
     # Wait for it to arrive.
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
@@ -813,7 +813,7 @@ def test_rbf_reconnect_ack(node_factory, bitcoind, chainparams):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     amount = 2**24
     chan_amount = 100000
-    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'], amount / 10**8 + 0.01)
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['p2tr'], amount / 10**8 + 0.01)
     bitcoind.generate_block(1)
     # Wait for it to arrive.
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
@@ -871,7 +871,7 @@ def test_rbf_reconnect_tx_construct(node_factory, bitcoind, chainparams):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     amount = 2**24
     chan_amount = 100000
-    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'], amount / 10**8 + 0.01)
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['p2tr'], amount / 10**8 + 0.01)
     bitcoind.generate_block(1)
     # Wait for it to arrive.
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
@@ -998,7 +998,7 @@ def test_rbf_reconnect_tx_sigs(node_factory, bitcoind, chainparams):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     amount = 2**24
     chan_amount = 100000
-    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'], amount / 10**8 + 0.01)
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['p2tr'], amount / 10**8 + 0.01)
     bitcoind.generate_block(1)
     # Wait for it to arrive.
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
@@ -1068,7 +1068,7 @@ def test_rbf_to_chain_before_commit(node_factory, bitcoind, chainparams):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     amount = 2**24
     chan_amount = 100000
-    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'], amount / 10**8 + 0.01)
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['p2tr'], amount / 10**8 + 0.01)
     bitcoind.generate_block(1)
     # Wait for it to arrive.
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
@@ -1123,8 +1123,8 @@ def test_rbf_no_overlap(node_factory, bitcoind, chainparams):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     amount = 2**24
     chan_amount = 100000
-    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'], amount / 10**8 + 0.01)
-    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'], amount / 10**8 + 0.01)
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['p2tr'], amount / 10**8 + 0.01)
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['p2tr'], amount / 10**8 + 0.01)
     bitcoind.generate_block(1)
     # Wait for it to arrive.
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
@@ -1160,7 +1160,7 @@ def test_rbf_fails_to_broadcast(node_factory, bitcoind, chainparams):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     amount = 2**24
     chan_amount = 100000
-    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'], amount / 10**8 + 0.01)
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['p2tr'], amount / 10**8 + 0.01)
     bitcoind.generate_block(1)
     # Wait for it to arrive.
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
@@ -1244,7 +1244,7 @@ def test_rbf_broadcast_close_inflights(node_factory, bitcoind, chainparams):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     amount = 2**24
     chan_amount = 100000
-    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'], amount / 10**8 + 0.01)
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['p2tr'], amount / 10**8 + 0.01)
     bitcoind.generate_block(1)
     # Wait for it to arrive.
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
@@ -1317,7 +1317,7 @@ def test_rbf_non_last_mined(node_factory, bitcoind, chainparams):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     amount = 2**24
     chan_amount = 100000
-    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'], amount / 10**8 + 0.01)
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['p2tr'], amount / 10**8 + 0.01)
     bitcoind.generate_block(1)
     # Wait for it to arrive.
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
@@ -2266,10 +2266,10 @@ def test_coinbase_unspendable(node_factory, bitcoind):
 
     [l1] = node_factory.get_nodes(1)
 
-    addr = l1.rpc.newaddr()["bech32"]
+    addr = l1.rpc.newaddr("bech32")["bech32"]
     bitcoind.rpc.generatetoaddress(1, addr)
 
-    addr2 = l1.rpc.newaddr()["bech32"]
+    addr2 = l1.rpc.newaddr("bech32")["bech32"]
 
     # Wait til money in wallet
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
@@ -2283,13 +2283,13 @@ def test_coinbase_unspendable(node_factory, bitcoind):
     assert len(bitcoind.rpc.getrawmempool()) == 0
 
     # Mine 98 blocks
-    bitcoind.rpc.generatetoaddress(98, l1.rpc.newaddr()['bech32'])
+    bitcoind.rpc.generatetoaddress(98, l1.rpc.newaddr('bech32')['bech32'])
     assert len([out for out in l1.rpc.listfunds()['outputs'] if out['status'] == 'confirmed']) == 0
     with pytest.raises(RpcError, match='Could not afford all using all 0 available UTXOs'):
         l1.rpc.withdraw(addr2, "all")
 
     # One more and the first coinbase unlocks
-    bitcoind.rpc.generatetoaddress(1, l1.rpc.newaddr()['bech32'])
+    bitcoind.rpc.generatetoaddress(1, l1.rpc.newaddr('bech32')['bech32'])
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 100)
     assert len([out for out in l1.rpc.listfunds()['outputs'] if out['status'] == 'confirmed']) == 1
     l1.rpc.withdraw(addr2, "all")
@@ -2297,7 +2297,7 @@ def test_coinbase_unspendable(node_factory, bitcoind):
     assert len(bitcoind.rpc.getrawmempool()) == 1
 
     # Mine one block, assert one more is spendable
-    bitcoind.rpc.generatetoaddress(1, l1.rpc.newaddr()['bech32'])
+    bitcoind.rpc.generatetoaddress(1, l1.rpc.newaddr('bech32')['bech32'])
     assert len([out for out in l1.rpc.listfunds()['outputs'] if out['status'] == 'confirmed']) == 1
 
 
@@ -2524,7 +2524,7 @@ def test_commitment_feerate(bitcoind, node_factory, anchors):
 def test_anchor_min_emergency(bitcoind, node_factory):
     l1, l2 = node_factory.line_graph(2, fundchannel=False)
 
-    addr = l1.rpc.newaddr()['bech32']
+    addr = l1.rpc.newaddr('bech32')['bech32']
     bitcoind.rpc.sendtoaddress(addr, 5000000 / 10**8)
     bitcoind.generate_block(1, wait_for_mempool=1)
     wait_for(lambda: l1.rpc.listfunds()['outputs'] != [])
@@ -2542,7 +2542,7 @@ def test_anchor_min_emergency(bitcoind, node_factory):
     assert only_one(l1.rpc.listfunds()['outputs'])['amount_msat'] == Millisatoshi('25000sat')
 
     # And we can't spend it, either!
-    addr2 = l2.rpc.newaddr()['bech32']
+    addr2 = l2.rpc.newaddr('bech32')['bech32']
     with pytest.raises(RpcError, match=r'We would not have enough left for min-emergency-msat 25000sat'):
         l1.rpc.withdraw(addr2, '500sat')
 
@@ -2579,7 +2579,7 @@ def test_fundchannel_utxo_too_small(bitcoind, node_factory):
     l1, l2 = node_factory.get_nodes(2)
 
     # Add 1 600 sat UTXO to a fresh node
-    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'], 0.00000600)
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr('bech32')['bech32'], 0.00000600)
     bitcoind.generate_block(1, wait_for_mempool=1)
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
 
