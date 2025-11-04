@@ -943,7 +943,7 @@ static struct migration dbmigrations[] = {
 	 " in_channel_scid"
 	 ", COALESCE("
 	 "    (SELECT channel_htlc_id FROM channel_htlcs WHERE id = forwarded_payments.in_htlc_id),"
-	 "    -_ROWID_"
+	 "    -row_number() OVER ()"
 	 "  )"
 	 ", out_channel_scid"
 	 ", (SELECT channel_htlc_id FROM channel_htlcs WHERE id = forwarded_payments.out_htlc_id)"
