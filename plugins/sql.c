@@ -119,6 +119,8 @@ struct table_desc {
 	bool is_subobject;
 	/* Do we use created_index as primary key?  Otherwise we create rowid. */
 	bool has_created_index;
+	/* Have we created our sql indexes yet? */
+	bool indices_created;
 	/* function to refresh it. */
 	struct command_result *(*refresh)(struct command *cmd,
 					  const struct table_desc *td,
@@ -487,6 +489,28 @@ static struct command_result *refresh_complete(struct command *cmd,
 	return command_finished(cmd, ret);
 }
 
+static void init_indices(struct plugin *plugin, const struct table_desc *td)
+{
+	for (size_t i = 0; i < ARRAY_SIZE(indices); i++) {
+		char *errmsg, *cmd;
+		int err;
+
+		if (!streq(indices[i].tablename, td->name))
+			continue;
+
+		cmd = tal_fmt(tmpctx, "CREATE INDEX %s_%zu_idx ON %s (%s",
+			      indices[i].tablename, i,
+			      indices[i].tablename,
+			      indices[i].fields[0]);
+		if (indices[i].fields[1])
+			tal_append_fmt(&cmd, ", %s", indices[i].fields[1]);
+		tal_append_fmt(&cmd, ");");
+		err = sqlite3_exec(db, cmd, NULL, NULL, &errmsg);
+		if (err != SQLITE_OK)
+			plugin_err(plugin, "Failed '%s': %s", cmd, errmsg);
+	}
+}
+
 /* Recursion */
 static struct command_result *refresh_tables(struct command *cmd,
 					     struct db_query *dbq);
@@ -501,6 +525,11 @@ static struct command_result *one_refresh_done(struct command *cmd,
 	/* We are no longer refreshing */
 	assert(td->refreshing);
 	td->refreshing = false;
+
+	if (!td->indices_created) {
+		init_indices(cmd->plugin, td);
+		td->indices_created = 1;
+	}
 
 	/* Transfer refresh waiters onto local list */
 	list_head_init(&waiters);
@@ -1524,6 +1553,7 @@ static struct table_desc *new_table_desc(const tal_t *ctx,
 	td->last_created_index = 0;
 	td->has_created_index = false;
 	td->refreshing = false;
+	td->indices_created = false;
 	list_head_init(&td->refresh_waiters);
 
 	/* Only top-levels have refresh functions */
@@ -1704,25 +1734,6 @@ static void init_tablemap(struct plugin *plugin)
 	}
 }
 
-static void init_indices(struct plugin *plugin)
-{
-	for (size_t i = 0; i < ARRAY_SIZE(indices); i++) {
-		char *errmsg, *cmd;
-		int err;
-
-		cmd = tal_fmt(tmpctx, "CREATE INDEX %s_%zu_idx ON %s (%s",
-			      indices[i].tablename, i,
-			      indices[i].tablename,
-			      indices[i].fields[0]);
-		if (indices[i].fields[1])
-			tal_append_fmt(&cmd, ", %s", indices[i].fields[1]);
-		tal_append_fmt(&cmd, ");");
-		err = sqlite3_exec(db, cmd, NULL, NULL, &errmsg);
-		if (err != SQLITE_OK)
-			plugin_err(plugin, "Failed '%s': %s", cmd, errmsg);
-	}
-}
-
 static void memleak_mark_tablemap(struct plugin *p, struct htable *memtable)
 {
 	memleak_ptr(memtable, dbfilename);
@@ -1735,7 +1746,6 @@ static const char *init(struct command *init_cmd,
 	struct plugin *plugin = init_cmd->plugin;
 	db = sqlite_setup(plugin);
 	init_tablemap(plugin);
-	init_indices(plugin);
 
 	plugin_set_memleak_handler(plugin, memleak_mark_tablemap);
 	return NULL;
