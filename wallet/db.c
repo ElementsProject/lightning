@@ -244,10 +244,10 @@ static struct migration dbmigrations[] = {
     {SQL("UPDATE invoices SET pay_index=id WHERE state=1;"),
      NULL}, /* only paid invoice */
     /* Create next_pay_index variable (highest pay_index). */
-    {SQL("INSERT INTO vars(name, val)"
+	{SQL("INSERT INTO vars(name, val)"
 	 "  VALUES('next_pay_index', "
-	 "    COALESCE((SELECT MAX(pay_index) FROM invoices WHERE state=1), 0) "
-	 "+ 1"
+	 "    CAST(COALESCE((SELECT MAX(pay_index) FROM invoices WHERE state=1), 0) "
+	 "+ 1 AS TEXT)"
 	 "  );"),
      NULL},
     /* Create first_block field; initialize from channel id if any.
