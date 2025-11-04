@@ -11,7 +11,7 @@ requires-python = ">=3.9.2,<4.0"
 dependencies = [
     "base58>=2.1.1",
     "bitstring>=4.3.0",
-    "coincurve==20.0.0",
+    "coincurve",
     "cryptography>=46",
     "PySocks>=1"
 ]
@@ -27,3 +27,6 @@ packages = ["pyln"]
 [build-system]
 requires = ["hatchling>=1.0.0"]
 build-backend = "hatchling.build"
+
+[tool.uv.sources]
+coincurve = { git = "https://github.com/ofek/coincurve", rev = "435d4a22f6e104712016064bf8373a29593cccd2" }
