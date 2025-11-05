@@ -191,6 +191,8 @@ def test_lsps2_buyjitchannel_no_mpp_var_invoice(node_factory, bitcoind):
     chs = l1.rpc.listpeerchannels()["channels"]
     assert len(chs) == 1
 
+    # Check that the client cleaned up after themselves.
+    assert l1.rpc.listdatastore(["lsps"]) == {"datastore": []}
 
 
 def test_lsps2_buyjitchannel_mpp_fixed_invoice(node_factory, bitcoind):
@@ -290,6 +292,9 @@ def test_lsps2_buyjitchannel_mpp_fixed_invoice(node_factory, bitcoind):
     # l1 should have gotten a jit-channel.
     chs = l1.rpc.listpeerchannels()["channels"]
     assert len(chs) == 1
+
+    # Check that the client cleaned up after themselves.
+    assert l1.rpc.listdatastore("lsps") == {"datastore": []}
 
 
 def test_lsps2_non_approved_zero_conf(node_factory, bitcoind):
