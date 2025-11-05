@@ -9,8 +9,8 @@ use cln_lsps::lsps0::{
 };
 use cln_lsps::lsps2::cln::tlv::encode_tu64;
 use cln_lsps::lsps2::cln::{
-    HtlcAcceptedRequest, HtlcAcceptedResponse, InvoicePaymentRequest, TLV_FORWARD_AMT,
-    TLV_PAYMENT_SECRET,
+    HtlcAcceptedRequest, HtlcAcceptedResponse, InvoicePaymentRequest, OpenChannelRequest,
+    TLV_FORWARD_AMT, TLV_PAYMENT_SECRET,
 };
 use cln_lsps::lsps2::model::{
     compute_opening_fee, Lsps2BuyRequest, Lsps2BuyResponse, Lsps2GetInfoRequest,
@@ -636,15 +636,11 @@ async fn on_openchannel(
     p: cln_plugin::Plugin<State>,
     v: serde_json::Value,
 ) -> Result<serde_json::Value, anyhow::Error> {
-    #[derive(Deserialize)]
-    struct Request {
-        id: String,
-    }
+    let req: OpenChannelRequest = ok_or_continue!(
+        serde_json::from_value(v).context("failed to deserialize open_channel request JSON")
+    );
 
-    let req: Request = ok_or_continue!(serde_json::from_value(
-        v.get("openchannel").unwrap().clone()
-    )
-    .context("failed to deserialize open_channel request JSON"));
+    // Fixme: Check that channel parameters are as negotiated.
 
     let dir = p.configuration().lightning_dir;
     let rpc_path = Path::new(&dir).join(&p.configuration().rpc_file);
@@ -656,7 +652,7 @@ async fn on_openchannel(
         key: Some(vec![
             "lsps".to_string(),
             "client".to_string(),
-            req.id.clone(),
+            req.openchannel.id.clone(),
         ]),
     };
     let ds_res = ok_or_continue!(cln_client
@@ -665,10 +661,17 @@ async fn on_openchannel(
         .context("failed to get datastore record"));
 
     if let Some(_rec) = ds_res.datastore.iter().next() {
-        info!("Allowing zero-conf channel from LSP {}", &req.id);
+        info!(
+            "Allowing zero-conf channel from LSP {}",
+            &req.openchannel.id
+        );
         let ds_req = DeldatastoreRequest {
             generation: None,
-            key: vec!["lsps".to_string(), "client".to_string(), req.id.clone()],
+            key: vec![
+                "lsps".to_string(),
+                "client".to_string(),
+                req.openchannel.id.clone(),
+            ],
         };
         if let Some(err) = cln_client.call_typed(&ds_req).await.err() {
             // We can do nothing but report that there was an issue deleting the
