@@ -117,6 +117,17 @@ impl HtlcAcceptedResponse {
     }
 }
 
+#[derive(Debug, Deserialize)]
+pub struct InvoicePaymentRequest {
+    pub payment: InvoicePaymentRequestPayment,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct InvoicePaymentRequestPayment {
+    pub label: String,
+    pub preimage: String,
+    pub msat: u64,
+}
 /// Deserializes a lowercase hex string to a `Vec<u8>`.
 pub fn from_hex<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
 where

@@ -1,4 +1,5 @@
 use anyhow::{anyhow, bail, Context};
+use bitcoin::hashes::{hex::FromHex, sha256, Hash};
 use chrono::{Duration, Utc};
 use cln_lsps::jsonrpc::client::JsonRpcClient;
 use cln_lsps::lsps0::primitives::Msat;
@@ -8,7 +9,8 @@ use cln_lsps::lsps0::{
 };
 use cln_lsps::lsps2::cln::tlv::encode_tu64;
 use cln_lsps::lsps2::cln::{
-    HtlcAcceptedRequest, HtlcAcceptedResponse, TLV_FORWARD_AMT, TLV_PAYMENT_SECRET,
+    HtlcAcceptedRequest, HtlcAcceptedResponse, InvoicePaymentRequest, TLV_FORWARD_AMT,
+    TLV_PAYMENT_SECRET,
 };
 use cln_lsps::lsps2::model::{
     compute_opening_fee, Lsps2BuyRequest, Lsps2BuyResponse, Lsps2GetInfoRequest,
@@ -80,6 +82,7 @@ async fn main() -> Result<(), anyhow::Error> {
             "Requests a new jit channel from LSP and returns the matching invoice",
             on_lsps_jitchannel,
         )
+        .hook("invoice_payment", on_invoice_payment)
         .hook("htlc_accepted", on_htlc_accepted)
         .hook("openchannel", on_openchannel)
         .configure()
@@ -251,7 +254,7 @@ async fn on_lsps_lsps2_approve(
 ) -> Result<serde_json::Value, anyhow::Error> {
     let req: ClnRpcLsps2Approve = serde_json::from_value(v)?;
     let ds_rec = DatastoreRecord {
-        jit_channel_scid: req.jit_channel_scid,
+        jit_channel_scid: req.jit_channel_scid.clone(),
         client_trusts_lsp: req.client_trusts_lsp.unwrap_or_default(),
     };
     let ds_rec_json = serde_json::to_string(&ds_rec)?;
@@ -487,6 +490,29 @@ async fn on_lsps_jitchannel(
         payment_secret: public_inv.payment_secret,
     };
     Ok(serde_json::to_value(out)?)
+}
+
+async fn on_invoice_payment(
+    p: cln_plugin::Plugin<State>,
+    v: serde_json::Value,
+) -> Result<serde_json::Value, anyhow::Error> {
+    let req: InvoicePaymentRequest = serde_json::from_value(v).context("invalid hook request")?;
+    let preimage = <[u8; 32]>::from_hex(&req.payment.preimage).context("invalid preimage hex")?;
+    let hash = payment_hash(&preimage);
+
+    // Delete DS-entries.
+    let dir = p.configuration().lightning_dir;
+    let rpc_path = Path::new(&dir).join(&p.configuration().rpc_file);
+    let mut cln_client = cln_rpc::ClnRpc::new(rpc_path.clone()).await?;
+    cln_client
+        .call_typed(&DeldatastoreRequest {
+            key: vec!["lsps".to_string(), "invoice".to_string(), hash.to_string()],
+            generation: None,
+        })
+        .await
+        .ok();
+
+    Ok(serde_json::json!({"result": "continue"}))
 }
 
 async fn on_htlc_accepted(
@@ -759,6 +785,10 @@ pub fn gen_rand_preimage_hex<R: Rng + CryptoRng>(rng: &mut R) -> String {
     let mut pre = [0u8; 32];
     rng.fill_bytes(&mut pre);
     hex::encode(&pre)
+}
+
+pub fn payment_hash(preimage: &[u8]) -> sha256::Hash {
+    sha256::Hash::hash(preimage)
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
