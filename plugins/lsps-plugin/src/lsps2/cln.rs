@@ -128,6 +128,27 @@ pub struct InvoicePaymentRequestPayment {
     pub preimage: String,
     pub msat: u64,
 }
+
+#[derive(Debug, Deserialize)]
+pub struct OpenChannelRequest {
+    pub openchannel: OpenChannelRequestOpenChannel,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OpenChannelRequestOpenChannel {
+    pub id: String,
+    pub funding_msat: u64,
+    pub push_msat: u64,
+    pub dust_limit_msat: u64,
+    pub max_htlc_value_in_flight_msat: u64,
+    pub channel_reserve_msat: u64,
+    pub htlc_minimum_msat: u64,
+    pub feerate_per_kw: u32,
+    pub to_self_delay: u32,
+    pub max_accepted_htlcs: u32,
+    pub channel_flags: u64,
+}
+
 /// Deserializes a lowercase hex string to a `Vec<u8>`.
 pub fn from_hex<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
 where
