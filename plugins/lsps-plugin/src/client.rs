@@ -540,17 +540,6 @@ async fn on_htlc_accepted(
         "htlc is a forward, continue"
     );
 
-    let extra_fee_msat = req
-        .htlc
-        .extra_tlvs
-        .as_ref()
-        .map(|tlvs| tlvs.get_u64(65537))
-        .transpose()?
-        .flatten();
-    if let Some(amt) = extra_fee_msat {
-        debug!("lsp htlc is deducted by an extra_fee={amt}");
-    }
-
     // Check that the htlc belongs to a jit-channel request.
     let dir = p.configuration().lightning_dir;
     let rpc_path = Path::new(&dir).join(&p.configuration().rpc_file);
@@ -572,11 +561,30 @@ async fn on_htlc_accepted(
     // If we don't know about this payment it's not an LSP payment, continue.
     some_or_continue!(lsp_data.datastore.first());
 
+    let extra_fee_msat = req
+        .htlc
+        .extra_tlvs
+        .as_ref()
+        .map(|tlvs| tlvs.get_u64(65537))
+        .transpose()?
+        .flatten()
+        .unwrap_or_default();
+
     debug!(
-        "incoming jit-channel htlc with htlc_amt={} and onion_amt={}",
+        "incoming jit-channel htlc with htlc_amt={}, onion_amt={} and extra_fee={}",
         htlc_amt.msat(),
-        onion_amt.msat()
+        onion_amt.msat(),
+        extra_fee_msat
     );
+
+    if htlc_amt.msat() + extra_fee_msat != onion_amt.msat() {
+        warn!(
+            "amounts don't match (htlc_amt + extra_fee) = {} != onion_amt = {}",
+            (htlc_amt.msat() + extra_fee_msat),
+            onion_amt.msat()
+        );
+        // FIXME: If we are strict, we should reject the htlc here.
+    }
 
     let inv_res = ok_or_continue!(cln_client
         .call_typed(&ListinvoicesRequest {
@@ -597,22 +605,7 @@ async fn on_htlc_accepted(
         hex::encode(&req.htlc.payment_hash)
     );
 
-    let total_amt = match invoice.amount_msat {
-        Some(a) => {
-            debug!("invoice has total_amt={}msat", &a.msat());
-            a.msat()
-        }
-        None => {
-            debug!("invoice has no total amount, only accept single htlc");
-            htlc_amt.msat()
-        }
-    };
-
-    // Fixme: Check that we did not already pay for this channel.
-    // - via datastore or invoice label.
-
-    // Fixme: Check the if MPP or No-MPP, assuming No-MPP for now.
-    // - check that extra_fee + htlc is the total_amount_msat of the onion.
+    let total_amt = invoice.amount_msat.unwrap_or(htlc_amt).msat();
 
     let mut payload = req.onion.payload.clone();
     payload.set_tu64(TLV_FORWARD_AMT, htlc_amt.msat());
