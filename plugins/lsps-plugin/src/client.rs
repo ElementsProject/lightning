@@ -18,12 +18,14 @@ use cln_lsps::util;
 use cln_lsps::LSP_FEATURE_BIT;
 use cln_plugin::options;
 use cln_rpc::model::requests::{
-    DatastoreMode, DatastoreRequest, DeldatastoreRequest, ListdatastoreRequest, ListpeersRequest,
+    DatastoreMode, DatastoreRequest, DeldatastoreRequest, DelinvoiceRequest, DelinvoiceStatus,
+    ListdatastoreRequest, ListinvoicesRequest, ListpeersRequest,
 };
 use cln_rpc::model::responses::InvoiceResponse;
-use cln_rpc::primitives::{AmountOrAny, PublicKey, ShortChannelId};
+use cln_rpc::primitives::{Amount, AmountOrAny, PublicKey, ShortChannelId};
 use cln_rpc::ClnRpc;
 use log::{debug, info, warn};
+use rand::{CryptoRng, Rng};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::str::FromStr as _;
@@ -263,7 +265,15 @@ async fn on_lsps_lsps2_approve(
         hex: None,
         mode: Some(DatastoreMode::CREATE_OR_REPLACE),
         string: Some(ds_rec_json),
-        key: vec!["lsps".to_string(), "client".to_string(), req.lsp_id],
+        key: vec!["lsps".to_string(), "client".to_string(), req.lsp_id.clone()],
+    };
+    let _ds_res = cln_client.call_typed(&ds_req).await?;
+    let ds_req = DatastoreRequest {
+        generation: None,
+        hex: None,
+        mode: Some(DatastoreMode::CREATE_OR_REPLACE),
+        string: Some(req.lsp_id),
+        key: vec!["lsps".to_string(), "invoice".to_string(), req.payment_hash],
     };
     let _ds_res = cln_client.call_typed(&ds_req).await?;
     Ok(serde_json::Value::default())
@@ -338,6 +348,30 @@ async fn on_lsps_jitchannel(
         AmountOrAny::Any => None,
     };
 
+    // Check that the amount is big enough to cover the fee and a single HTLC.
+    let reduced_amount_msat = if let Some(payment_msat) = payment_size_msat {
+        match compute_opening_fee(
+            payment_msat.msat(),
+            selected_params.min_fee_msat.msat(),
+            selected_params.proportional.ppm() as u64,
+        ) {
+            Some(fee_msat) => {
+                if payment_msat.msat() - fee_msat < 1000 {
+                    bail!(
+                        "amount_msat {}msat is too small, needs to be at least {}msat: opening fee is {}msat",
+                        payment_msat,
+                        1000 + fee_msat,
+                        fee_msat
+                    );
+                }
+                Some(payment_msat.msat() - fee_msat)
+            }
+            None => bail!("failed to compute opening fee"),
+        }
+    } else {
+        None
+    };
+
     // 3. Request channel from LSP.
     let buy_res: Lsps2BuyResponse = cln_client
         .call_raw(
@@ -372,50 +406,91 @@ async fn on_lsps_jitchannel(
         cltv_expiry_delta: u16::try_from(buy_res.lsp_cltv_expiry_delta)?,
     };
 
-    let inv: cln_rpc::model::responses::InvoiceResponse = cln_client
+    // Generate a preimage if we have an amount specified.
+    let preimage = if payment_size_msat.is_some() {
+        Some(gen_rand_preimage_hex(&mut rand::rng()))
+    } else {
+        None
+    };
+
+    let public_inv: cln_rpc::model::responses::InvoiceResponse = cln_client
         .call_raw(
             "invoice",
             &InvoiceRequest {
                 amount_msat: req.amount_msat,
-                dev_routes: Some(vec![vec![hint]]),
-                description: req.description,
-                label: req.label,
+                dev_routes: Some(vec![vec![hint.clone()]]),
+                description: req.description.clone(),
+                label: req.label.clone(),
                 expiry: Some(expiry as u64),
-                cltv: Some(u32::try_from(6 + 2)?), // TODO: FETCH REAL VALUE!
+                cltv: None,
                 deschashonly: None,
-                preimage: None,
+                preimage: preimage.clone(),
                 exposeprivatechannels: None,
                 fallbacks: None,
             },
         )
         .await?;
 
+    // We need to reduce the expected amount if the invoice has an amount set
+    if let Some(amount_msat) = reduced_amount_msat {
+        debug!(
+            "amount_msat is specified: create new invoice with reduced amount {}msat",
+            amount_msat,
+        );
+        let _ = cln_client
+            .call_typed(&DelinvoiceRequest {
+                desconly: None,
+                status: DelinvoiceStatus::UNPAID,
+                label: req.label.clone(),
+            })
+            .await?;
+
+        let _: cln_rpc::model::responses::InvoiceResponse = cln_client
+            .call_raw(
+                "invoice",
+                &InvoiceRequest {
+                    amount_msat: AmountOrAny::Amount(Amount::from_msat(amount_msat)),
+                    dev_routes: Some(vec![vec![hint]]),
+                    description: req.description,
+                    label: req.label,
+                    expiry: Some(expiry as u64),
+                    cltv: None,
+                    deschashonly: None,
+                    preimage,
+                    exposeprivatechannels: None,
+                    fallbacks: None,
+                },
+            )
+            .await?;
+    }
+
     // 5. Approve jit_channel_scid for a jit channel opening.
     let appr_req = ClnRpcLsps2Approve {
         lsp_id: req.lsp_id,
         jit_channel_scid: buy_res.jit_channel_scid,
+        payment_hash: public_inv.payment_hash.to_string(),
         client_trusts_lsp: Some(buy_res.client_trusts_lsp),
     };
     let _: serde_json::Value = cln_client.call_raw("lsps-lsps2-approve", &appr_req).await?;
 
     // 6. Return invoice.
     let out = InvoiceResponse {
-        bolt11: inv.bolt11,
-        created_index: inv.created_index,
-        warning_capacity: inv.warning_capacity,
-        warning_deadends: inv.warning_deadends,
-        warning_mpp: inv.warning_mpp,
-        warning_offline: inv.warning_offline,
-        warning_private_unused: inv.warning_private_unused,
-        expires_at: inv.expires_at,
-        payment_hash: inv.payment_hash,
-        payment_secret: inv.payment_secret,
+        bolt11: public_inv.bolt11,
+        created_index: public_inv.created_index,
+        warning_capacity: public_inv.warning_capacity,
+        warning_deadends: public_inv.warning_deadends,
+        warning_mpp: public_inv.warning_mpp,
+        warning_offline: public_inv.warning_offline,
+        warning_private_unused: public_inv.warning_private_unused,
+        expires_at: public_inv.expires_at,
+        payment_hash: public_inv.payment_hash,
+        payment_secret: public_inv.payment_secret,
     };
     Ok(serde_json::to_value(out)?)
 }
 
 async fn on_htlc_accepted(
-    _p: cln_plugin::Plugin<State>,
+    p: cln_plugin::Plugin<State>,
     v: serde_json::Value,
 ) -> Result<serde_json::Value, anyhow::Error> {
     let req: HtlcAcceptedRequest = serde_json::from_value(v)?;
@@ -424,38 +499,87 @@ async fn on_htlc_accepted(
     let onion_amt = match req.onion.forward_msat {
         Some(a) => a,
         None => {
-            debug!("onion is missing forward_msat");
+            debug!("onion is missing forward_msat, continue");
             let value = serde_json::to_value(HtlcAcceptedResponse::continue_(None, None, None))?;
             return Ok(value);
         }
     };
 
-    let is_lsp_payment = req
+    let Some(payment_data) = req.onion.payload.get(TLV_PAYMENT_SECRET) else {
+        debug!("payment is a forward, continue");
+        let value = serde_json::to_value(HtlcAcceptedResponse::continue_(None, None, None))?;
+        return Ok(value);
+    };
+
+    let extra_fee_msat = req
         .htlc
         .extra_tlvs
         .as_ref()
-        .map_or(false, |tlv| tlv.contains(65537));
+        .map(|tlvs| tlvs.get_u64(65537))
+        .transpose()?
+        .flatten();
+    if let Some(amt) = extra_fee_msat {
+        debug!("lsp htlc is deducted by an extra_fee={amt}");
+    }
 
-    if !is_lsp_payment || htlc_amt.msat() >= onion_amt.msat() {
-        // Not an Lsp payment.
+    // Check that the htlc belongs to a jit-channel request.
+    let dir = p.configuration().lightning_dir;
+    let rpc_path = Path::new(&dir).join(&p.configuration().rpc_file);
+    let mut cln_client = cln_rpc::ClnRpc::new(rpc_path.clone()).await?;
+    let lsp_data = cln_client
+        .call_typed(&ListdatastoreRequest {
+            key: Some(vec![
+                "lsps".to_string(),
+                "invoice".to_string(),
+                hex::encode(&req.htlc.payment_hash),
+            ]),
+        })
+        .await?;
+
+    if lsp_data.datastore.first().is_none() {
+        // Not an LSP payment, just continue
+        debug!("payment is a not a jit-channel-opening, continue");
         let value = serde_json::to_value(HtlcAcceptedResponse::continue_(None, None, None))?;
         return Ok(value);
-    }
-    debug!("incoming jit-channel htlc");
+    };
 
-    // Safe unwrap(): we already checked that `extra_tlvs` exists.
-    let extra_tlvs = req.htlc.extra_tlvs.unwrap();
-    let deducted_amt = match extra_tlvs.get_u64(65537)? {
-        Some(amt) => amt,
+    debug!(
+        "incoming jit-channel htlc with htlc_amt={} and onion_amt={}",
+        htlc_amt.msat(),
+        onion_amt.msat()
+    );
+
+    let inv_res = cln_client
+        .call_typed(&ListinvoicesRequest {
+            index: None,
+            invstring: None,
+            label: None,
+            limit: None,
+            offer_id: None,
+            payment_hash: Some(hex::encode(&req.htlc.payment_hash)),
+            start: None,
+        })
+        .await?;
+
+    let Some(invoice) = inv_res.invoices.first() else {
+        debug!(
+            "no invoice found for jit-channel opening with payment_hash={}",
+            hex::encode(&req.htlc.payment_hash)
+        );
+        let value = serde_json::to_value(HtlcAcceptedResponse::continue_(None, None, None))?;
+        return Ok(value);
+    };
+
+    let total_amt = match invoice.amount_msat {
+        Some(a) => {
+            debug!("invoice has total_amt={}msat", &a.msat());
+            a.msat()
+        }
         None => {
-            warn!("htlc is missing the extra_fee amount");
-            let value = serde_json::to_value(HtlcAcceptedResponse::continue_(None, None, None))?;
-            return Ok(value);
+            debug!("invoice has no total amount, only accept single htlc");
+            htlc_amt.msat()
         }
     };
-    debug!("lsp htlc is deducted by an extra_fee={}", deducted_amt);
-
-    // Fixme: Check that it is not a forward (has payment_secret) before rpc_calls.
 
     // Fixme: Check that we did not already pay for this channel.
     // - via datastore or invoice label.
@@ -465,18 +589,9 @@ async fn on_htlc_accepted(
 
     let mut payload = req.onion.payload.clone();
     payload.set_tu64(TLV_FORWARD_AMT, htlc_amt.msat());
-    let payment_secret = match payload.get(TLV_PAYMENT_SECRET) {
-        Some(s) => s,
-        None => {
-            debug!("can't decode tlv payment_secret {:?}", payload);
-            let value = serde_json::to_value(HtlcAcceptedResponse::continue_(None, None, None))?;
-            return Ok(value);
-        }
-    };
 
-    let total_amt = htlc_amt.msat();
     let mut ps = Vec::new();
-    ps.extend_from_slice(&payment_secret[0..32]);
+    ps.extend_from_slice(&payment_data[0..32]);
     ps.extend(encode_tu64(total_amt));
     payload.insert(TLV_PAYMENT_SECRET, ps);
     let payload_bytes = match payload.to_bytes() {
@@ -640,6 +755,12 @@ async fn check_peer_lsp_status(
     })
 }
 
+pub fn gen_rand_preimage_hex<R: Rng + CryptoRng>(rng: &mut R) -> String {
+    let mut pre = [0u8; 32];
+    rng.fill_bytes(&mut pre);
+    hex::encode(&pre)
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 struct LspsBuyJitChannelResponse {
     bolt11: String,
@@ -694,6 +815,7 @@ struct ClnRpcLsps2GetinfoRequest {
 struct ClnRpcLsps2Approve {
     lsp_id: String,
     jit_channel_scid: ShortChannelId,
+    payment_hash: String,
     #[serde(default)]
     client_trusts_lsp: Option<bool>,
 }
