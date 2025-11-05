@@ -99,10 +99,13 @@ class Logger:
 
     def reply_json(self):
         """json output to stdout with accumulated result."""
-        if len(log.json_output["result"]) == 1 and \
-           isinstance(log.json_output["result"][0], list):
-            # unpack sources output
-            log.json_output["result"] = log.json_output["result"][0]
+        if len(log.json_output["result"]) == 1:
+            if isinstance(log.json_output["result"][0], list):
+                # unpack sources output
+                log.json_output["result"] = log.json_output["result"][0]
+            elif isinstance(log.json_output['result'][0], dict):
+                # If result is only a single dict, unpack it from the result list
+                log.json_output['result'] = log.json_output['result'][0]
         output = json.dumps(log.json_output, indent=3) + '\n'
         ratelimit_output(output)
 
@@ -846,6 +849,8 @@ class RecklessConfig(Config):
             )
         Config.__init__(self, path=str(path), default_text=default_text)
         self.reckless_dir = Path(path).parent
+        # Which lightning config needs to inherit the reckless config?
+        self.lightning_conf = None
 
 
 class LightningBitcoinConfig(Config):
@@ -1863,6 +1868,7 @@ def load_config(reckless_dir: Union[str, None] = None,
         reckless_abort('Error: could not load or create the network specific lightningd'
                        ' config (default .lightning/bitcoin)')
     net_conf.editConfigFile(f'include {reckless_conf.conf_fp}', None)
+    reckless_conf.lightning_conf = network_path
     return reckless_conf
 
 
@@ -2164,6 +2170,31 @@ def available_plugins() -> list:
     return candidates
 
 
+def listconfig() -> dict:
+    """Useful for checking options passed through the reckless-rpc."""
+    config = {}
+
+    log.info(f'requested lightning config: {LIGHTNING_CONFIG}')
+    config.update({'requested_lightning_conf': LIGHTNING_CONFIG})
+
+    log.info(f'lightning config in use: {RECKLESS_CONFIG.lightning_conf}')
+    config.update({'lightning_conf': str(RECKLESS_CONFIG.lightning_conf)})
+
+    log.info(f'lightning directory: {LIGHTNING_DIR}')
+    config.update({'lightning_dir': str(LIGHTNING_DIR)})
+
+    log.info(f'reckless directory: {RECKLESS_CONFIG.reckless_dir}')
+    config.update({'reckless_dir': str(RECKLESS_CONFIG.reckless_dir)})
+
+    log.info(f'network: {NETWORK}')
+    config.update({'network': NETWORK})
+
+    log.info(f'reckless version: {__VERSION__}')
+    config.update({'version': __VERSION__})
+
+    return config
+
+
 def report_version() -> str:
     """return reckless version"""
     log.info(__VERSION__)
@@ -2178,7 +2209,7 @@ def unpack_json_arg(json_target: str) -> list:
         return None
     if isinstance(targets, list):
         return targets
-    log.warning(f'input {target_list} is not a json array')
+    log.warning(f'input {json_target} is not a json array')
     return None
 
 
@@ -2277,10 +2308,12 @@ if __name__ == '__main__':
     parser.add_argument('-V', '--version',
                         action=StoreTrueIdempotent, const=None,
                         help='print version and exit')
+    listconfig_cmd = cmd1.add_parser('listconfig', help='list options passed to reckless')
+    listconfig_cmd.set_defaults(func=listconfig)
 
     all_parsers = [parser, install_cmd, uninstall_cmd, search_cmd, enable_cmd,
                    disable_cmd, list_parse, source_add, source_rem, help_cmd,
-                   update, list_cmd, available_cmd]
+                   update, list_cmd, available_cmd, listconfig_cmd]
     for p in all_parsers:
         # This default depends on the .lightning directory
         p.add_argument('-d', '--reckless-dir', action=StoreIdempotent,
