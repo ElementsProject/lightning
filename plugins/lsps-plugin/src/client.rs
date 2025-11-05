@@ -496,21 +496,27 @@ async fn on_invoice_payment(
     p: cln_plugin::Plugin<State>,
     v: serde_json::Value,
 ) -> Result<serde_json::Value, anyhow::Error> {
-    let req: InvoicePaymentRequest = serde_json::from_value(v).context("invalid hook request")?;
-    let preimage = <[u8; 32]>::from_hex(&req.payment.preimage).context("invalid preimage hex")?;
+    let req: InvoicePaymentRequest = ok_or_continue!(
+        serde_json::from_value(v).context("failed to deserialize htlc_accepted request JSON")
+    );
+    let preimage = ok_or_continue!(
+        <[u8; 32]>::from_hex(&req.payment.preimage).context("invalid preimage hex")
+    );
     let hash = payment_hash(&preimage);
 
     // Delete DS-entries.
     let dir = p.configuration().lightning_dir;
     let rpc_path = Path::new(&dir).join(&p.configuration().rpc_file);
-    let mut cln_client = cln_rpc::ClnRpc::new(rpc_path.clone()).await?;
-    cln_client
+    let mut cln_client = ok_or_continue!(cln_rpc::ClnRpc::new(rpc_path.clone())
+        .await
+        .context("failed to connect to core-lightning"));
+    ok_or_continue!(cln_client
         .call_typed(&DeldatastoreRequest {
             key: vec!["lsps".to_string(), "invoice".to_string(), hash.to_string()],
             generation: None,
         })
         .await
-        .ok();
+        .context("failed to delete datastore record"));
 
     Ok(serde_json::json!({"result": "continue"}))
 }
@@ -519,23 +525,20 @@ async fn on_htlc_accepted(
     p: cln_plugin::Plugin<State>,
     v: serde_json::Value,
 ) -> Result<serde_json::Value, anyhow::Error> {
-    let req: HtlcAcceptedRequest = serde_json::from_value(v)?;
+    let req: HtlcAcceptedRequest = ok_or_continue!(
+        serde_json::from_value(v).context("failed to deserialize htlc_accepted request JSON")
+    );
 
     let htlc_amt = req.htlc.amount_msat;
-    let onion_amt = match req.onion.forward_msat {
-        Some(a) => a,
-        None => {
-            debug!("onion is missing forward_msat, continue");
-            let value = serde_json::to_value(HtlcAcceptedResponse::continue_(None, None, None))?;
-            return Ok(value);
-        }
-    };
+    let onion_amt = some_or_continue!(
+        req.onion.forward_msat,
+        "missing forward_msat in onion, continue"
+    );
 
-    let Some(payment_data) = req.onion.payload.get(TLV_PAYMENT_SECRET) else {
-        debug!("payment is a forward, continue");
-        let value = serde_json::to_value(HtlcAcceptedResponse::continue_(None, None, None))?;
-        return Ok(value);
-    };
+    let payment_data = some_or_continue!(
+        req.onion.payload.get(TLV_PAYMENT_SECRET),
+        "htlc is a forward, continue"
+    );
 
     let extra_fee_msat = req
         .htlc
@@ -551,8 +554,11 @@ async fn on_htlc_accepted(
     // Check that the htlc belongs to a jit-channel request.
     let dir = p.configuration().lightning_dir;
     let rpc_path = Path::new(&dir).join(&p.configuration().rpc_file);
-    let mut cln_client = cln_rpc::ClnRpc::new(rpc_path.clone()).await?;
-    let lsp_data = cln_client
+    let mut cln_client = ok_or_continue!(cln_rpc::ClnRpc::new(rpc_path.clone())
+        .await
+        .context("failed to connect to core-lightning"));
+
+    let lsp_data = ok_or_continue!(cln_client
         .call_typed(&ListdatastoreRequest {
             key: Some(vec![
                 "lsps".to_string(),
@@ -560,14 +566,11 @@ async fn on_htlc_accepted(
                 hex::encode(&req.htlc.payment_hash),
             ]),
         })
-        .await?;
+        .await
+        .context("failed to fetch datastore record"));
 
-    if lsp_data.datastore.first().is_none() {
-        // Not an LSP payment, just continue
-        debug!("payment is a not a jit-channel-opening, continue");
-        let value = serde_json::to_value(HtlcAcceptedResponse::continue_(None, None, None))?;
-        return Ok(value);
-    };
+    // If we don't know about this payment it's not an LSP payment, continue.
+    some_or_continue!(lsp_data.datastore.first());
 
     debug!(
         "incoming jit-channel htlc with htlc_amt={} and onion_amt={}",
@@ -575,7 +578,7 @@ async fn on_htlc_accepted(
         onion_amt.msat()
     );
 
-    let inv_res = cln_client
+    let inv_res = ok_or_continue!(cln_client
         .call_typed(&ListinvoicesRequest {
             index: None,
             invstring: None,
@@ -585,16 +588,14 @@ async fn on_htlc_accepted(
             payment_hash: Some(hex::encode(&req.htlc.payment_hash)),
             start: None,
         })
-        .await?;
+        .await
+        .context("failed to get invoice"));
 
-    let Some(invoice) = inv_res.invoices.first() else {
-        debug!(
-            "no invoice found for jit-channel opening with payment_hash={}",
-            hex::encode(&req.htlc.payment_hash)
-        );
-        let value = serde_json::to_value(HtlcAcceptedResponse::continue_(None, None, None))?;
-        return Ok(value);
-    };
+    let invoice = some_or_continue!(
+        inv_res.invoices.first(),
+        "no invoice found for jit-channel-opening with payment_hash={}",
+        hex::encode(&req.htlc.payment_hash)
+    );
 
     let total_amt = match invoice.amount_msat {
         Some(a) => {
@@ -620,14 +621,9 @@ async fn on_htlc_accepted(
     ps.extend_from_slice(&payment_data[0..32]);
     ps.extend(encode_tu64(total_amt));
     payload.insert(TLV_PAYMENT_SECRET, ps);
-    let payload_bytes = match payload.to_bytes() {
-        Ok(b) => b,
-        Err(e) => {
-            warn!("can't encode payload to bytes {}", e);
-            let value = serde_json::to_value(HtlcAcceptedResponse::continue_(None, None, None))?;
-            return Ok(value);
-        }
-    };
+    let payload_bytes = ok_or_continue!(payload
+        .to_bytes()
+        .context("failed to encode payload as bytes"));
 
     info!(
         "Amended onion payload with forward_amt={} and total_msat={}",
@@ -652,11 +648,16 @@ async fn on_openchannel(
         id: String,
     }
 
-    let req: Request = serde_json::from_value(v.get("openchannel").unwrap().clone())
-        .context("Failed to parse request JSON")?;
+    let req: Request = ok_or_continue!(serde_json::from_value(
+        v.get("openchannel").unwrap().clone()
+    )
+    .context("failed to deserialize open_channel request JSON"));
+
     let dir = p.configuration().lightning_dir;
     let rpc_path = Path::new(&dir).join(&p.configuration().rpc_file);
-    let mut cln_client = cln_rpc::ClnRpc::new(rpc_path.clone()).await?;
+    let mut cln_client = ok_or_continue!(cln_rpc::ClnRpc::new(rpc_path.clone())
+        .await
+        .context("failed to connect to core-lightning"));
 
     let ds_req = ListdatastoreRequest {
         key: Some(vec![
@@ -665,7 +666,11 @@ async fn on_openchannel(
             req.id.clone(),
         ]),
     };
-    let ds_res = cln_client.call_typed(&ds_req).await?;
+    let ds_res = ok_or_continue!(cln_client
+        .call_typed(&ds_req)
+        .await
+        .context("failed to get datastore record"));
+
     if let Some(_rec) = ds_res.datastore.iter().next() {
         info!("Allowing zero-conf channel from LSP {}", &req.id);
         let ds_req = DeldatastoreRequest {
@@ -789,6 +794,51 @@ pub fn gen_rand_preimage_hex<R: Rng + CryptoRng>(rng: &mut R) -> String {
 
 pub fn payment_hash(preimage: &[u8]) -> sha256::Hash {
     sha256::Hash::hash(preimage)
+}
+
+fn continue_ok() -> Result<serde_json::Value, anyhow::Error> {
+    Ok(serde_json::json!({"result": "continue"}))
+}
+
+#[macro_export]
+macro_rules! some_or_continue {
+    ($expr:expr) => {
+        match $expr {
+            Some(v) => v,
+            None => return continue_ok(),
+        }
+    };
+    ($expr:expr, $($log:tt)+) => {
+        match $expr {
+            Some(v) => v,
+            None => {
+                debug!($($log)+);
+                return continue_ok();
+            },
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! ok_or_continue {
+    ($expr:expr) => {
+        match $expr {
+            Ok(v) => v,
+            Err(e) => {
+                debug!("{:#}", e);
+                return continue_ok();
+            }
+        }
+    };
+    ($expr:expr, $($log:tt)+) => {
+        match $expr {
+            Ok(v) => v,
+            Err(e) => {
+                debug!("{}: {:#}",format_args!($($log)+), e);
+                return continue_ok();
+            }
+        }
+    };
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
