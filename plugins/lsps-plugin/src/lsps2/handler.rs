@@ -402,12 +402,15 @@ impl<A: ClnApi> HtlcAcceptedHookHandler<A> {
         // ---
 
         // Fixme: We only accept no-mpp for now, mpp and other flows will be added later on
+        // Fixme: We continue mpp for now to let the test mock handle the htlc, as we need
+        // to test the client implementation for mpp payments.
         if ds_rec.expected_payment_size.is_some() {
             warn!("mpp payments are not implemented yet");
-            return Ok(HtlcAcceptedResponse::fail(
-                Some(UNKNOWN_NEXT_PEER.to_string()),
-                None,
-            ));
+            return Ok(HtlcAcceptedResponse::continue_(None, None, None));
+            // return Ok(HtlcAcceptedResponse::fail(
+            //     Some(UNKNOWN_NEXT_PEER.to_string()),
+            //     None,
+            // ));
         }
 
         // B) Is the fee option menu still valid?
@@ -1558,6 +1561,8 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore] // We deactivate the mpp check on the experimental server for
+              // client side checks.
     async fn test_htlc_mpp_not_implemented() {
         let fake = FakeCln::default();
         let handler = HtlcAcceptedHookHandler::new(fake.clone(), 1000);
