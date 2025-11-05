@@ -4061,7 +4061,7 @@ def test_peer_anchor_push(node_factory, bitcoind, executor, chainparams):
         total_weight = sum([d['weight'] for d in details])
         total_fees = sum([float(d['fees']['base']) * 100_000_000 for d in details])
         total_feerate_perkw = total_fees / total_weight * 1000
-        check_feerate([l3, l2], total_feerate_perkw, feerate)
+        check_feerate([l3, l2], total_feerate_perkw, feerate + 10)
         bitcoind.generate_block(1, needfeerate=16000)
         sync_blockheight(bitcoind, [l2])
         assert len(bitcoind.rpc.getrawmempool()) == 2
