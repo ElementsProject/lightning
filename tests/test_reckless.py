@@ -3,6 +3,7 @@ import subprocess
 from pathlib import PosixPath, Path
 import socket
 from pyln.testing.utils import VALGRIND
+import json
 import pytest
 import os
 import re
@@ -170,16 +171,30 @@ def test_basic_help():
     assert r.search_stdout("options:") or r.search_stdout("optional arguments:")
 
 
-def test_version():
+def test_reckless_version(node_factory):
     '''Version should be reported without loading config and should advance
-    with lightningd'''
-    r = reckless(["-V", "-v", "--json"])
+    with lightningd.'''
+    node = get_reckless_node(node_factory)
+    r = reckless(["-V", "-v", "--json"], dir=node.lightning_dir)
     assert r.returncode == 0
-    import json
     json_out = ''.join(r.stdout)
     with open('.version', 'r') as f:
         version = f.readlines()[0].strip()
         assert json.loads(json_out)['result'][0] == version
+    assert not r.search_stdout('config file not found')
+
+    # reckless listconfig should report the reckless version as well.
+    NETWORK = os.environ.get('TEST_NETWORK')
+    if not NETWORK:
+        NETWORK = 'regtest'
+    r = reckless(['listconfig', f'--network={NETWORK}', '--json'],
+                 dir=node.lightning_dir)
+    assert r.returncode == 0
+    result = json.loads(''.join(r.stdout))['result']
+    assert result['network'] == NETWORK
+    assert result['reckless_dir'] == str(node.lightning_dir / 'reckless')
+    assert result['lightning_conf'] == str(node.lightning_dir / NETWORK / 'config')
+    assert result['version'] == version
 
 
 def test_contextual_help(node_factory):
