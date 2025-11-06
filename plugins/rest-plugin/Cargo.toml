@@ -26,12 +26,11 @@ rcgen = "0.13"
 hyper = "1"
 tower= "0.5"
 tower-http = { version = "0.6", features = ["cors", "set-header"] }
-utoipa = { git = "https://github.com/rustyrussell/utoipa.git", features = ['axum_extras'] }
+utoipa = { version = "5", features = ['axum_extras'] }
 
 log-panics = "2"
 socketioxide = "0.15"
 
 cln-plugin = { version = "0.5", path = "../../plugins" }
 cln-rpc = { version = "0.5", path = "../../cln-rpc" }
-utoipa-swagger-ui = { git = "https://github.com/rustyrussell/utoipa.git", features = ["vendored", "axum"] }
-
+utoipa-swagger-ui = { version = "9.0.0", features = ["vendored", "axum"] }
