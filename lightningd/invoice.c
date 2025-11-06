@@ -332,6 +332,7 @@ invoice_check_payment(const tal_t *ctx,
 		      struct lightningd *ld,
 		      const struct sha256 *payment_hash,
 		      const struct amount_msat msat,
+		      const struct amount_msat *expected_msat_override,
 		      const struct secret *payment_secret,
 		      const char **err)
 {
@@ -408,15 +409,19 @@ invoice_check_payment(const tal_t *ctx,
 	if (details->msat != NULL) {
 		struct amount_msat twice;
 
-		if (amount_msat_less(msat, *details->msat)) {
+		/* Override the expected amount. */
+		struct amount_msat expected_msat =
+			expected_msat_override ? *expected_msat_override : *details->msat;
+
+		if (amount_msat_less(msat, expected_msat)) {
 			*err = tal_fmt(ctx, "Attempt to pay %s with amount %s < %s",
 				       fmt_sha256(tmpctx, &details->rhash),
 				       fmt_amount_msat(tmpctx, msat),
-				       fmt_amount_msat(tmpctx, *details->msat));
+				       fmt_amount_msat(tmpctx, expected_msat));
 			return tal_free(details);
 		}
 
-		if (amount_msat_add(&twice, *details->msat, *details->msat)
+		if (amount_msat_add(&twice, expected_msat, expected_msat)
 		    && amount_msat_greater(msat, twice)) {
 			*err = tal_fmt(ctx, "Attempt to pay %s with amount %s > %s",
 				       fmt_sha256(tmpctx, &details->rhash),

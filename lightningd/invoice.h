@@ -50,6 +50,7 @@ struct invoice_details {
  * @ld: lightningd
  * @payment_hash: hash of preimage they want.
  * @msat: amount they offer to pay.
+ * @expected_msat_override: if set: overrides the amount we expect to be payed.
  * @payment_secret: they payment secret they sent, if any.
  * @err: error string if it returns NULL.
  *
@@ -59,6 +60,7 @@ const struct invoice_details *invoice_check_payment(const tal_t *ctx,
 						    struct lightningd *ld,
 						    const struct sha256 *payment_hash,
 						    const struct amount_msat msat,
+						    const struct amount_msat *expected_msat_override,
 						    const struct secret *payment_secret,
 						    const char **err);
 
