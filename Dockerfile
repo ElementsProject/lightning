@@ -122,7 +122,8 @@ RUN dpkg --add-architecture ${target_arch_dpkg}
 # Install architecture-independent libraries
 RUN apt-get update && \
     apt-get install -qq -y --no-install-recommends \
-        python3-dev
+        python3-dev \
+        lowdown
 
 # Install target-arch libraries
 RUN apt-get install -qq -y --no-install-recommends \
@@ -132,6 +133,7 @@ RUN apt-get install -qq -y --no-install-recommends \
     zlib1g-dev:${target_arch_dpkg} \
     libsqlite3-dev:${target_arch_dpkg} \
     libpq-dev:${target_arch_dpkg} \
+    libsodium-dev:${target_arch_dpkg} \
     crossbuild-essential-${target_arch_dpkg}
 
 ARG AR=${target_arch}-ar
@@ -161,6 +163,8 @@ RUN ./install-uv.sh -q
 RUN ./install-rust.sh -y -q --profile minimal --component rustfmt --target ${target_arch_rust}
 
 ENV PATH="/root/.cargo/bin:/root/.local/bin:${PATH}"
+ENV PKG_CONFIG_PATH=/usr/lib/${target_arch}/pkgconfig
+ENV PKG_CONFIG_LIBDIR=/usr/lib/${target_arch}/pkgconfig
 
 WORKDIR /opt/lightningd
 
@@ -184,7 +188,8 @@ RUN apt-get update && \
         socat \
         jq \
         libpq5 \
-        libsqlite3-0 && \
+        libsqlite3-0 \
+        libsodium23 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
