@@ -391,6 +391,7 @@ const struct invoice_details *invoice_check_payment(const tal_t *ctx UNNEEDED,
 						    struct lightningd *ld UNNEEDED,
 						    const struct sha256 *payment_hash UNNEEDED,
 						    const struct amount_msat msat UNNEEDED,
+						    const struct amount_msat *expected_msat_override UNNEEDED,
 						    const struct secret *payment_secret UNNEEDED,
 						    const char **err UNNEEDED)
 { fprintf(stderr, "invoice_check_payment called!\n"); abort(); }

@@ -1482,7 +1482,7 @@ static struct command_result *self_payment(struct lightningd *ld,
 				     local_invreq_id);
 
 	/* Now, resolve the invoice */
-	inv = invoice_check_payment(tmpctx, ld, rhash, msat, payment_secret, &err);
+	inv = invoice_check_payment(tmpctx, ld, rhash, msat, NULL, payment_secret, &err);
 	if (!inv) {
 		struct routing_failure *fail;
 		wallet_payment_set_status(ld->wallet, rhash, partid, groupid,

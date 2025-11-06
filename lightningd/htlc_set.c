@@ -150,8 +150,8 @@ void htlc_set_add_(struct lightningd *ld,
 	 *     [Failure Messages](#failure-messages)
 	 *     - Note: "amount paid" specified there is the `total_msat` field.
 	 */
-	details = invoice_check_payment(tmpctx, ld, payment_hash,
-					total_msat, payment_secret, &err);
+	details = invoice_check_payment(tmpctx, ld, payment_hash, total_msat,
+					NULL, payment_secret, &err);
 	if (!details) {
 		log_debug(log, "payment failed: %s", err);
 		fail(arg, take(failmsg_incorrect_or_unknown(NULL, ld, msat)));
