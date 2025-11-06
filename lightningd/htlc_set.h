@@ -60,15 +60,17 @@ void htlc_set_add_(struct lightningd *ld,
 		   struct logger *log,
 		   struct amount_msat msat,
 		   struct amount_msat total_msat,
+		   const struct amount_msat *invoice_msat_override,
 		   const struct sha256 *payment_hash,
 		   const struct secret *payment_secret,
 		   void (*fail)(void *, const u8 *),
 		   void (*succeeded)(void *, const struct preimage *),
 		   void *arg);
 
-#define htlc_set_add(ld, log, msat, total_msat, payment_hash, payment_secret, \
-		     fail, succeeded, arg)				\
-	htlc_set_add_((ld), (log), (msat), (total_msat), (payment_hash), \
+#define htlc_set_add(ld, log, msat, total_msat, invoice_msat_override,  \
+		     payment_hash, payment_secret, fail, succeeded, arg)\
+	htlc_set_add_((ld), (log), (msat), (total_msat),		\
+		      (invoice_msat_override), (payment_hash),		\
 		      (payment_secret),					\
 		      typesafe_cb_postargs(void, void *,		\
 					   (fail), (arg),		\

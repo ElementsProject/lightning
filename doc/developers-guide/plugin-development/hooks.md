@@ -462,6 +462,8 @@ It can also specify `forward_to` in the response, replacing the destination.  Th
 
 Also, it can specify `extra_tlvs` in the response. This will replace the TLV-stream `update_add_htlc_tlvs` in the `update_add_htlc` message for forwarded htlcs.
 
+If the node is the final destination, the plugin can also replace the amount of the invoice that belongs to the `payment_hash` by specifying `invoice_msat`.
+
 ```json
 {
   "result": "fail",

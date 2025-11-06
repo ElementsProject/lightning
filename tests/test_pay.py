@@ -7133,3 +7133,32 @@ def test_htlc_tlv_crash(node_factory):
 
     l1.rpc.waitsendpay(inv1['payment_hash'], TIMEOUT)
     l1.rpc.waitsendpay(inv2['payment_hash'], TIMEOUT)
+
+
+def test_invoice_amount_override(node_factory):
+    """Uses the htlc_accepted hook response value `invoice_msat` to override
+    the expected total payment amount of the invoice.
+    """
+    plugin = os.path.join(os.path.dirname(__file__), "plugins/override_invoice_msat.py")
+    l1, l2 = node_factory.line_graph(2, opts=[{}, {"plugin": plugin}])
+
+    inv = l2.rpc.invoice(10_000, "expected_amt_override", "expected_amt_override")
+
+    route = [
+        {
+            "amount_msat": 1_000,  # Reduced amount that is below the expected amount
+            "id": l2.info["id"],
+            "delay": 10,
+            "channel": first_scid(l1, l2),
+        }
+    ]
+
+    with pytest.raises(RpcError):
+        l1.rpc.sendpay(route, inv["payment_hash"], payment_secret=inv["payment_secret"])
+        l1.rpc.waitsendpay(inv["payment_hash"])
+
+    # Override expected invoice amount, via htlc_accepted.
+    l2.rpc.setinvoicemsat(msat=1_000)
+
+    l1.rpc.sendpay(route, inv["payment_hash"], payment_secret=inv["payment_secret"])
+    assert l1.rpc.waitsendpay(inv["payment_hash"])["status"] == "complete"
