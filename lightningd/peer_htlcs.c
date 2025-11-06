@@ -3,9 +3,11 @@
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <channeld/channeld_wiregen.h>
+#include <common/amount.h>
 #include <common/blinding.h>
 #include <common/ecdh.h>
 #include <common/json_command.h>
+#include <common/json_parse.h>
 #include <common/onion_decode.h>
 #include <common/onionreply.h>
 #include <common/timeout.h>
@@ -435,6 +437,7 @@ static void handle_localpay(struct htlc_in *hin,
 			    struct amount_msat amt_to_forward,
 			    u32 outgoing_cltv_value,
 			    struct amount_msat total_msat,
+			    const struct amount_msat *invoice_msat_override,
 			    const struct secret *payment_secret,
 			    const u8 *payment_metadata)
 {
@@ -525,6 +528,7 @@ static void handle_localpay(struct htlc_in *hin,
 
 	htlc_set_add(ld, hin->key.channel->log,
 		     hin->msat, total_msat,
+		     invoice_msat_override,
 		     &hin->payment_hash,
 		     payment_secret,
 		     local_fail_in_htlc,
@@ -947,6 +951,9 @@ struct htlc_accepted_hook_payload {
 	size_t failtlvpos;
 	const char *failexplanation;
 	u8 *extra_tlvs_raw;
+	/* Default is NULL, if NOT NULL: used to override the amount of the
+	 * invoice this htlc belongs to in checks! */
+	struct amount_msat *invoice_msat;
 };
 
 static void
@@ -1003,7 +1010,8 @@ static bool htlc_accepted_hook_deserialize(struct htlc_accepted_hook_payload *re
 	struct htlc_in *hin = request->hin;
 	struct lightningd *ld = request->ld;
 	struct preimage payment_preimage;
-	const jsmntok_t *resulttok, *paykeytok, *payloadtok, *fwdtok, *extra_tlvs_tok;
+	const jsmntok_t *resulttok, *paykeytok, *payloadtok, *fwdtok, *extra_tlvs_tok,
+		*invmsattok;
 	u8 *failonion, *raw_tlvs;
 
 	if (!toks || !buffer)
@@ -1016,6 +1024,17 @@ static bool htlc_accepted_hook_deserialize(struct htlc_accepted_hook_payload *re
 	if (!resulttok) {
 		fatal("Plugin return value does not contain 'result' key %s",
 		      json_strdup(tmpctx, buffer, toks));
+	}
+
+	invmsattok = json_get_member(buffer, toks, "invoice_msat");
+	if (invmsattok) {
+		tal_free(request->invoice_msat);
+		request->invoice_msat = tal(request, struct amount_msat);
+		if (!json_to_msat(buffer, invmsattok, request->invoice_msat)) {
+			fatal("Bad invoice_msat for htlc_accepted hook: %.*s",
+				invmsattok->end - invmsattok->start,
+				buffer + invmsattok->start);
+		}
 	}
 
 	extra_tlvs_tok = json_get_member(buffer, toks, "extra_tlvs");
@@ -1275,6 +1294,7 @@ htlc_accepted_hook_final(struct htlc_accepted_hook_payload *request STEALS)
 				request->payload->amt_to_forward,
 				request->payload->outgoing_cltv,
 				*request->payload->total_msat,
+				request->invoice_msat,
 				request->payload->payment_secret,
 				request->payload->payment_metadata);
 
@@ -1554,6 +1574,11 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 	} else {
 		hook_payload->extra_tlvs_raw = NULL;
 	}
+
+	/* We don't set the invoice amount here, if it is set during a hook
+	 * response, it will be used to override the actual invoice amount on
+	 * later checks. */
+	hook_payload->invoice_msat = NULL;
 
 	plugin_hook_call_htlc_accepted(ld, NULL, hook_payload);
 

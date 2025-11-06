@@ -1973,7 +1973,7 @@ static struct command_result *json_injectpaymentonion(struct command *cmd,
 		 * not resolve immediately */
 		fixme_ignore(command_still_pending(cmd));
 		htlc_set_add(cmd->ld, cmd->ld->log, *msat, *payload->total_msat,
-			     payment_hash, payload->payment_secret,
+			     NULL, payment_hash, payload->payment_secret,
 			     selfpay_mpp_fail, selfpay_mpp_succeeded,
 			     selfpay);
 		return command_its_complicated("htlc_set_add may have immediately succeeded or failed");
