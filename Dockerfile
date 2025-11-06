@@ -119,17 +119,20 @@ ENV LIGHTNINGD_VERSION=master
 
 RUN dpkg --add-architecture ${target_arch_dpkg}
 
-#TODO: python3-dev needs QEMU for post install scripts. find a workaround to not use QEMU
+# Install architecture-independent libraries
 RUN apt-get update && \
     apt-get install -qq -y --no-install-recommends \
-        pkg-config:${target_arch_dpkg} \
-        libffi-dev:${target_arch_dpkg} \
-        python3-dev:${target_arch_dpkg} \
-        libicu-dev:${target_arch_dpkg} \
-        zlib1g-dev:${target_arch_dpkg} \
-        libsqlite3-dev:${target_arch_dpkg} \
-        libpq-dev:${target_arch_dpkg} \
-        crossbuild-essential-${target_arch_dpkg}
+        python3-dev
+
+# Install target-arch libraries
+RUN apt-get install -qq -y --no-install-recommends \
+    pkg-config:${target_arch_dpkg} \
+    libffi-dev:${target_arch_dpkg} \
+    libicu-dev:${target_arch_dpkg} \
+    zlib1g-dev:${target_arch_dpkg} \
+    libsqlite3-dev:${target_arch_dpkg} \
+    libpq-dev:${target_arch_dpkg} \
+    crossbuild-essential-${target_arch_dpkg}
 
 ARG AR=${target_arch}-ar
 ARG AS=${target_arch}-as
