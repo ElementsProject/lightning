@@ -161,7 +161,8 @@ RUN apt-get update && \
         inotify-tools \
         socat \
         jq \
-        libpq5 && \
+        libpq5 \
+        libsqlite3-0 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
