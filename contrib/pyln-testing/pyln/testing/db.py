@@ -3,7 +3,7 @@ from .utils import reserve_unused_port, drop_unused_port
 import itertools
 import logging
 import os
-import psycopg2  # type: ignore
+import psycopg  # type: ignore
 import random
 import shutil
 import signal
@@ -73,7 +73,7 @@ class PostgresDb(BaseDb):
         self.port = port
         self.provider = None
 
-        self.conn = psycopg2.connect("dbname={dbname} user=postgres host=localhost port={port}".format(
+        self.conn = psycopg.connect("dbname={dbname} user=postgres host=localhost port={port}".format(
             dbname=dbname, port=port
         ))
         cur = self.conn.cursor()
@@ -108,7 +108,7 @@ class PostgresDb(BaseDb):
         """Clean up the database.
         """
         self.conn.close()
-        conn = psycopg2.connect("dbname=postgres user=postgres host=localhost port={self.port}")
+        conn = psycopg.connect("dbname=postgres user=postgres host=localhost port={self.port}")
         cur = conn.cursor()
         cur.execute("DROP DATABASE {};".format(self.dbname))
         cur.close()
@@ -205,13 +205,13 @@ class PostgresDbProvider(object):
         # TailableProc as well if too flaky).
         for i in range(30):
             try:
-                self.conn = psycopg2.connect("dbname=template1 user=postgres host=localhost port={}".format(self.port))
+                self.conn = psycopg.connect("dbname=template1 user=postgres host=localhost port={}".format(self.port))
                 break
             except Exception:
                 time.sleep(0.5)
 
         # Required for CREATE DATABASE to work
-        self.conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
+        self.conn.set_isolation_level(psycopg.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
 
     def get_db(self, node_directory, testname, node_id):
         # Random suffix to avoid collisions on repeated tests
