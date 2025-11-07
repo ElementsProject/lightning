@@ -3,6 +3,52 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+
+## [25.09.3] - 2025-11-06: "Hot Wallet Guardian IV"
+
+### Fixed
+
+ - Docker image was missing SQLite library
+
+[#8667]: https://github.com/ElementsProject/lightning/pull/8667
+[25.09.3]: https://github.com/ElementsProject/lightning/releases/tag/v25.09.3
+
+## [25.09.2] - 2025-11-04: "Hot Wallet Guardian III"
+
+`Bookkeeper` and `xpay` users: please upgrade!
+This point release includes fixes for `xpay`, `bookkeeper` and optimizations for large nodes using `bookkeeper`. 
+
+### Changed
+
+ - plugins: the sql plugin now keeps an index on `channelmoves` by `payment_hash`. ([#8618])
+ - plugins: `bookkeeper` reduced logging for large imports to increase speed. ([#8657])
+ - plugins: `sql` initial load for tables is much faster (e.g 82 to 17 seconds for very large channelmoves table). ([#8657])
+
+### Fixed
+
+ - Core lightning builds for Ubuntu Focal, Jammy and Noble are deterministic again. ([#8547])
+ - Reproducible build for Ubuntu noble by updating sqlite3 version and shasums. ([#8551])
+ - plugins: bookkeeper first invocation after migration from prior to 25.09 with very large databases will not crash. ([#8618])
+ - `xpay` would sometimes leave payment parts status `pending` in failure cases (as seen in listpays or listsendpays). ([#8635])
+ - Plugins: `askrene` could enter an infinite loop when maxparts is restricted. ([#8636])
+ - plugins: `bcli` would fail with "Argument list too long" when sending a giant tx. ([#8639])
+ - JSON-RPC: Dealing with giant PSBTs (700 inputs!) is now much faster. ([#8639])
+ - plugins: assertion crash in bookkeeper when fresh records arrive while multiple queries in progress. ([#8642])
+ - Plugins: `bookkeeper` now correctly restores chain event blockheights it has derived. ([#8649])
+
+[#8529]: https://github.com/ElementsProject/lightning/pull/8529
+[#8547]: https://github.com/ElementsProject/lightning/pull/8547
+[#8551]: https://github.com/ElementsProject/lightning/pull/8551
+[#8607]: https://github.com/ElementsProject/lightning/pull/8607
+[#8618]: https://github.com/ElementsProject/lightning/pull/8618
+[#8635]: https://github.com/ElementsProject/lightning/pull/8635
+[#8636]: https://github.com/ElementsProject/lightning/pull/8636
+[#8639]: https://github.com/ElementsProject/lightning/pull/8639
+[#8642]: https://github.com/ElementsProject/lightning/pull/8642
+[#8649]: https://github.com/ElementsProject/lightning/pull/8649 
+[#8657]: https://github.com/ElementsProject/lightning/pull/8657
+[25.09.2]: https://github.com/ElementsProject/lightning/releases/tag/v25.09.2
+
 ## [25.09.1] - 2025-10-15: "Hot Wallet Guardian II"
 
 Several important fixes, please upgrade!
