@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [25.09.3] - 2025-11-06: "Hot Wallet Guardian IV"
+
+### Fixed
+
+ - Docker image was missing SQLite library
+
+[#8667]: https://github.com/ElementsProject/lightning/pull/8667
+[25.09.3]: https://github.com/ElementsProject/lightning/releases/tag/v25.09.3
+
 ## [25.09.2] - 2025-11-04: "Hot Wallet Guardian III"
 
 `Bookkeeper` and `xpay` users: please upgrade!
