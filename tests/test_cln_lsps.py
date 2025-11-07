@@ -140,9 +140,7 @@ def test_lsps2_buyjitchannel_no_mpp_var_invoice(node_factory, bitcoind):
     )
 
     # Give the LSP some funds to open jit-channels
-    addr = l2.rpc.newaddr()["bech32"]
-    bitcoind.rpc.sendtoaddress(addr, 1)
-    bitcoind.generate_block(1)
+    l2.fundwallet(1_000_000)
 
     node_factory.join_nodes([l3, l2], fundchannel=True, wait_for_announce=True)
     node_factory.join_nodes([l1, l2], fundchannel=False)
@@ -231,9 +229,7 @@ def test_lsps2_buyjitchannel_mpp_fixed_invoice(node_factory, bitcoind):
     )
 
     # Give the LSP some funds to open jit-channels
-    addr = l2.rpc.newaddr()["bech32"]
-    bitcoind.rpc.sendtoaddress(addr, 1)
-    bitcoind.generate_block(1)
+    l2.fundwallet(1_000_000)
 
     node_factory.join_nodes([l3, l2], fundchannel=True, wait_for_announce=True)
     node_factory.join_nodes([l1, l2], fundchannel=False)
@@ -320,9 +316,7 @@ def test_lsps2_non_approved_zero_conf(node_factory, bitcoind):
     )
 
     # Give the LSP some funds to open jit-channels
-    addr = l2.rpc.newaddr()["bech32"]
-    bitcoind.rpc.sendtoaddress(addr, 1)
-    bitcoind.generate_block(1)
+    l2.fundwallet(1_000_000)
 
     node_factory.join_nodes([l3, l2], fundchannel=True, wait_for_announce=True)
     node_factory.join_nodes([l1, l2], fundchannel=False)
