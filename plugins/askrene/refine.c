@@ -592,7 +592,7 @@ refine_with_fees_and_limits(const tal_t *ctx,
 	/* Total flowset probability is now easily calculated given reservations
 	 * contains the total amounts through each channel (once we remove them) */
 	destroy_reservations(reservations, get_askrene(rq->plugin));
-	tal_add_destructor2(reservations, destroy_reservations, get_askrene(rq->plugin));
+	tal_del_destructor2(reservations, destroy_reservations, get_askrene(rq->plugin));
 
 	*flowset_probability = 1.0;
 	for (size_t i = 0; i < tal_count(reservations); i++) {
