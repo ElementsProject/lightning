@@ -22,8 +22,15 @@ static void get_scidd(const struct gossmap *gossmap,
 
 static void destroy_reservations(struct reserve_hop *rhops, struct askrene *askrene)
 {
-	for (size_t i = 0; i < tal_count(rhops); i++)
-		reserve_remove(askrene->reserved, &rhops[i]);
+	for (size_t i = 0; i < tal_count(rhops); i++){
+		if (!reserve_remove(askrene->reserved, &rhops[i])) {
+			plugin_log(
+			    askrene->plugin, LOG_BROKEN,
+			    "reserve_remove failed: %s on %s",
+			    fmt_amount_msat(tmpctx, rhops[i].amount),
+			    fmt_short_channel_id_dir(tmpctx, &rhops[i].scidd));
+		}
+	}
 }
 
 static struct reserve_hop *new_reservations(const tal_t *ctx,
