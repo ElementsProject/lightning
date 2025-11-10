@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [25.05.1] - 2025-11-10: "Satoshi's OP_RETURN Opinion II"
+
+Minor fix for xpay when used heavily.
+
+### Fixed
+
+ - askrene: fix reservation code, which caused xpay to fail due to previous payments. ([#8670])
+
+[#8670]: https://github.com/ElementsProject/lightning/pull/8670
+[25.05.1]: https://github.com/ElementsProject/lightning/releases/tag/v25.05.1
+
+
 ## [25.05] - 2025-06-16: "Satoshi's OP_RETURN Opinion"
 
 This release named by Peter Neuroth (@nepet).
