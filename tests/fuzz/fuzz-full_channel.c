@@ -3,15 +3,15 @@
  * from that test.
  */
 #include "config.h"
-#include <fcntl.h>
-#include <common/blockheight_states.h>
 #include <ccan/ccan/array_size/array_size.h>
+#include <channeld/full_channel.h>
+#include <common/blockheight_states.h>
 #include <common/channel_type.h>
 #include <common/fee_states.h>
 #include <common/htlc_wire.h>
 #include <common/setup.h>
 #include <common/status.h>
-#include <channeld/full_channel.h>
+#include <fcntl.h>
 #include <tests/fuzz/libfuzz.h>
 
 /* MOCKS START */

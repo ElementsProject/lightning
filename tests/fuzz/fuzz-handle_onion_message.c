@@ -1,18 +1,18 @@
 #include "config.h"
-#include <fcntl.h>
-#include <setjmp.h>
-#include <secp256k1_ecdh.h>
 #include <common/daemon_conn.h>
 #include <common/ecdh.h>
 #include <common/setup.h>
 #include <common/status.h>
 #include <common/wire_error.h>
-#include <connectd/connectd_wiregen.h>
 #include <connectd/connectd.h>
+#include <connectd/connectd_wiregen.h>
 #include <connectd/multiplex.h>
 #include <connectd/onion_message.h>
-#include <wire/peer_wiregen.h>
+#include <fcntl.h>
+#include <secp256k1_ecdh.h>
+#include <setjmp.h>
 #include <tests/fuzz/libfuzz.h>
+#include <wire/peer_wiregen.h>
 
 static int lightningd_fd;
 static struct privkey priv;
