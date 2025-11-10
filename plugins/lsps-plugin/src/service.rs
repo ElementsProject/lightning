@@ -12,6 +12,7 @@ use cln_lsps::lsps2::model::{Lsps2BuyRequest, Lsps2GetInfoRequest};
 use cln_lsps::util::wrap_payload_with_peer_id;
 use cln_lsps::{lsps0, lsps2};
 use cln_plugin::Plugin;
+use cln_plugin::{HookBuilder, HookFilter};
 use cln_rpc::notifications::CustomMsgNotification;
 use cln_rpc::primitives::PublicKey;
 use log::debug;
@@ -42,7 +43,9 @@ async fn main() -> Result<(), anyhow::Error> {
         //     cln_plugin::FeatureBitsKind::Init,
         //     util::feature_bit_to_hex(LSP_FEATURE_BIT),
         // )
-        .hook("custommsg", on_custommsg)
+        .hook_from_builder(HookBuilder::new("custommsg", on_custommsg).filters(vec![
+            HookFilter::Int(i64::from(lsps0::transport::LSPS0_MESSAGE_TYPE)),
+        ]))
         .hook("htlc_accepted", on_htlc_accepted)
         .configure()
         .await?
