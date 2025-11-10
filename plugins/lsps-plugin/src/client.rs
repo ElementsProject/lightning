@@ -17,11 +17,11 @@ use cln_lsps::{
         transport::{MultiplexedTransport, PendingRequests},
     },
     proto::{
-        lsps0::{Msat, LSP_FEATURE_BIT},
+        lsps0::{Msat, LSPS0_MESSAGE_TYPE, LSP_FEATURE_BIT},
         lsps2::{compute_opening_fee, Lsps2BuyResponse, Lsps2GetInfoResponse, OpeningFeeParams},
     },
 };
-use cln_plugin::options;
+use cln_plugin::{options, HookBuilder, HookFilter};
 use cln_rpc::{
     model::{
         requests::{
@@ -82,7 +82,10 @@ impl ClientState for State {
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
     if let Some(plugin) = cln_plugin::Builder::new(tokio::io::stdin(), tokio::io::stdout())
-        .hook("custommsg", hooks::client_custommsg_hook)
+        .hook_from_builder(
+            HookBuilder::new("custommsg", hooks::client_custommsg_hook)
+                .filters(vec![HookFilter::Int(i64::from(LSPS0_MESSAGE_TYPE))]),
+        )
         .option(OPTION_ENABLED)
         .rpcmethod(
             "lsps-listprotocols",
