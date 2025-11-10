@@ -20,9 +20,9 @@ void init(int *argc, char ***argv)
 
 void run(const uint8_t *data, size_t size)
 {
-	/* 4294967295 is crypto_pwhash_argon2id_PASSWD_MAX. libfuzzer won't
-	 * generate inputs that large in practice, but hey. */
-	if (size > 32 && size < 4294967295) {
+	/* LibFuzzer won't generate inputs larger than
+	 * crypto_pwhash_argon2id_PASSWD_MAX in practice, but hey. */
+	if (size > sizeof(struct secret) && size < crypto_pwhash_argon2id_PASSWD_MAX) {
 		struct secret *hsm_secret, *encryption_key;
 		char *passphrase;
 		u8 encrypted_data[ENCRYPTED_HSM_SECRET_LEN];
@@ -31,8 +31,9 @@ void run(const uint8_t *data, size_t size)
 
 		/* Take the first 32 bytes as the plaintext hsm_secret seed,
 		 * and the remaining ones as the passphrase. */
-		hsm_secret = (struct secret *)tal_dup_arr(NULL, u8, data, 32, 0);
-		passphrase = to_string(NULL, data + 32, size - 32);
+		hsm_secret = (struct secret *)tal_dup_arr(NULL, u8, data, sizeof(struct secret), 0);
+		mlock_tal_memory(hsm_secret);
+		passphrase = to_string(NULL, data + sizeof(struct secret), size - sizeof(struct secret));
 
 		/* A valid seed, a valid passphrase. This should not fail. */
 		encryption_key = get_encryption_key(NULL, passphrase);
