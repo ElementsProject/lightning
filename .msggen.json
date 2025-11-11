@@ -791,6 +791,7 @@
             "AutoClean-Once.autoclean.expiredinvoices": 6,
             "AutoClean-Once.autoclean.failedforwards": 2,
             "AutoClean-Once.autoclean.failedpays": 4,
+            "AutoClean-Once.autoclean.networkevents": 7,
             "AutoClean-Once.autoclean.paidinvoices": 5,
             "AutoClean-Once.autoclean.succeededforwards": 1,
             "AutoClean-Once.autoclean.succeededpays": 3
@@ -806,6 +807,10 @@
         "Autoclean-onceAutocleanFailedpays": {
             "AutoClean-Once.autoclean.failedpays.cleaned": 1,
             "AutoClean-Once.autoclean.failedpays.uncleaned": 2
+        },
+        "Autoclean-onceAutocleanNetworkevents": {
+            "AutoClean-Once.autoclean.networkevents.cleaned": 1,
+            "AutoClean-Once.autoclean.networkevents.uncleaned": 2
         },
         "Autoclean-onceAutocleanPaidinvoices": {
             "AutoClean-Once.autoclean.paidinvoices.cleaned": 1,
@@ -830,6 +835,7 @@
             "AutoClean-Status.autoclean.expiredinvoices": 6,
             "AutoClean-Status.autoclean.failedforwards": 2,
             "AutoClean-Status.autoclean.failedpays": 4,
+            "AutoClean-Status.autoclean.networkevents": 7,
             "AutoClean-Status.autoclean.paidinvoices": 5,
             "AutoClean-Status.autoclean.succeededforwards": 1,
             "AutoClean-Status.autoclean.succeededpays": 3
@@ -848,6 +854,11 @@
             "AutoClean-Status.autoclean.failedpays.age": 3,
             "AutoClean-Status.autoclean.failedpays.cleaned": 2,
             "AutoClean-Status.autoclean.failedpays.enabled": 1
+        },
+        "Autoclean-statusAutocleanNetworkevents": {
+            "AutoClean-Status.autoclean.networkevents.age": 3,
+            "AutoClean-Status.autoclean.networkevents.cleaned": 2,
+            "AutoClean-Status.autoclean.networkevents.enabled": 1
         },
         "Autoclean-statusAutocleanPaidinvoices": {
             "AutoClean-Status.autoclean.paidinvoices.age": 3,
@@ -4574,6 +4585,18 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "AutoClean-Once.autoclean.networkevents": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "AutoClean-Once.autoclean.networkevents.cleaned": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "AutoClean-Once.autoclean.networkevents.uncleaned": {
+            "added": "v25.12",
+            "deprecated": null
+        },
         "AutoClean-Once.autoclean.paidinvoices": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -4668,6 +4691,22 @@
         },
         "AutoClean-Status.autoclean.failedpays.enabled": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "AutoClean-Status.autoclean.networkevents": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "AutoClean-Status.autoclean.networkevents.age": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "AutoClean-Status.autoclean.networkevents.cleaned": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "AutoClean-Status.autoclean.networkevents.enabled": {
+            "added": "v25.12",
             "deprecated": null
         },
         "AutoClean-Status.autoclean.paidinvoices": {

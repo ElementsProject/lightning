@@ -21,7 +21,8 @@
           "succeededpays",
           "failedpays",
           "paidinvoices",
-          "expiredinvoices"
+          "expiredinvoices",
+          "networkevents"
         ],
         "description": [
           "What subsystem to clean. Currently supported subsystems are:",
@@ -30,7 +31,8 @@
           "    * `failedpays`: payment attempts which did not succeed (`failed` in listpays `status`).",
           "    * `succeededpays`: payment attempts which succeeded (`complete` in listpays `status`).",
           "    * `expiredinvoices`: invoices which were not paid (and cannot be) (`expired` in listinvoices `status`).",
-          "    * `paidinvoices`: invoices which were paid (`paid` in listinvoices `status)."
+          "    * `paidinvoices`: invoices which were paid (`paid` in listinvoices `status).",
+          "    * `networkevents`: all events in listnetworkevents (added *v25.12*)"
         ]
       },
       "age": {
@@ -176,6 +178,31 @@
                 ]
               },
               "uncleaned": {
+                "type": "u64",
+                "description": [
+                  "The total number of entries *not* deleted this run."
+                ]
+              }
+            }
+          },
+          "networkevents": {
+            "type": "object",
+            "additionalProperties": false,
+            "added": "v25.12",
+            "required": [
+              "cleaned",
+              "uncleaned"
+            ],
+            "properties": {
+              "cleaned": {
+                "added": "v25.12",
+                "type": "u64",
+                "description": [
+                  "Total number of deletions done this run."
+                ]
+              },
+              "uncleaned": {
+                "added": "v25.12",
                 "type": "u64",
                 "description": [
                   "The total number of entries *not* deleted this run."

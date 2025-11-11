@@ -274,6 +274,16 @@ impl From<responses::AutocleanonceAutocleanFailedpays> for pb::AutocleanonceAuto
 }
 
 #[allow(unused_variables)]
+impl From<responses::AutocleanonceAutocleanNetworkevents> for pb::AutocleanonceAutocleanNetworkevents {
+    fn from(c: responses::AutocleanonceAutocleanNetworkevents) -> Self {
+        Self {
+            cleaned: c.cleaned, // Rule #2 for type u64
+            uncleaned: c.uncleaned, // Rule #2 for type u64
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::AutocleanonceAutocleanPaidinvoices> for pb::AutocleanonceAutocleanPaidinvoices {
     fn from(c: responses::AutocleanonceAutocleanPaidinvoices) -> Self {
         Self {
@@ -310,6 +320,7 @@ impl From<responses::AutocleanonceAutoclean> for pb::AutocleanonceAutoclean {
             expiredinvoices: c.expiredinvoices.map(|v| v.into()),
             failedforwards: c.failedforwards.map(|v| v.into()),
             failedpays: c.failedpays.map(|v| v.into()),
+            networkevents: c.networkevents.map(|v| v.into()),
             paidinvoices: c.paidinvoices.map(|v| v.into()),
             succeededforwards: c.succeededforwards.map(|v| v.into()),
             succeededpays: c.succeededpays.map(|v| v.into()),
@@ -360,6 +371,17 @@ impl From<responses::AutocleanstatusAutocleanFailedpays> for pb::Autocleanstatus
 }
 
 #[allow(unused_variables)]
+impl From<responses::AutocleanstatusAutocleanNetworkevents> for pb::AutocleanstatusAutocleanNetworkevents {
+    fn from(c: responses::AutocleanstatusAutocleanNetworkevents) -> Self {
+        Self {
+            age: c.age, // Rule #2 for type u64?
+            cleaned: c.cleaned, // Rule #2 for type u64
+            enabled: c.enabled, // Rule #2 for type boolean
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::AutocleanstatusAutocleanPaidinvoices> for pb::AutocleanstatusAutocleanPaidinvoices {
     fn from(c: responses::AutocleanstatusAutocleanPaidinvoices) -> Self {
         Self {
@@ -399,6 +421,7 @@ impl From<responses::AutocleanstatusAutoclean> for pb::AutocleanstatusAutoclean 
             expiredinvoices: c.expiredinvoices.map(|v| v.into()),
             failedforwards: c.failedforwards.map(|v| v.into()),
             failedpays: c.failedpays.map(|v| v.into()),
+            networkevents: c.networkevents.map(|v| v.into()),
             paidinvoices: c.paidinvoices.map(|v| v.into()),
             succeededforwards: c.succeededforwards.map(|v| v.into()),
             succeededpays: c.succeededpays.map(|v| v.into()),

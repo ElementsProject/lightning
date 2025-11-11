@@ -502,6 +502,10 @@ specified multuple times. (Added in v23.08).
   Perform search for things to clean every *SECONDS* seconds (default
 3600, or 1 hour, which is usually sufficient).
 
+* **autoclean-networkevents-age**=*SECONDS* [plugin `autoclean`, *dynamic*]
+
+How old network events (in `listnetworkevents`) have to be before deletion (default 30 days, i.e. 2592000 seconds)
+
 * **autoclean-succeededforwards-age**=*SECONDS* [plugin `autoclean`, *dynamic*]
 
   How old successful forwards (`settled` in listforwards `status`) have to be before deletion (default 0, meaning never).
