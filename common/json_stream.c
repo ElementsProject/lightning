@@ -194,14 +194,22 @@ void json_add_primitive(struct json_stream *js,
 		tal_free(val);
 }
 
+void json_add_stringn(struct json_stream *js,
+		      const char *fieldname,
+		      const char *str TAKES,
+		      size_t len)
+{
+	if (json_filter_ok(js->filter, fieldname))
+		json_out_addstrn(js->jout, fieldname, str, len);
+	if (taken(str))
+		tal_free(str);
+}
+
 void json_add_string(struct json_stream *js,
 		     const char *fieldname,
 		     const char *str TAKES)
 {
-	if (json_filter_ok(js->filter, fieldname))
-		json_out_addstr(js->jout, fieldname, str);
-	if (taken(str))
-		tal_free(str);
+	json_add_stringn(js, fieldname, str, strlen(str));
 }
 
 static char *json_member_direct(struct json_stream *js,
@@ -298,14 +306,6 @@ void json_add_s32(struct json_stream *result, const char *fieldname,
 		  int32_t value)
 {
 	json_add_primitive_fmt(result, fieldname, "%d", value);
-}
-
-void json_add_stringn(struct json_stream *result, const char *fieldname,
-		      const char *value TAKES, size_t value_len)
-{
-	json_add_str_fmt(result, fieldname, "%.*s", (int)value_len, value);
-	if (taken(value))
-		tal_free(value);
 }
 
 void json_add_bool(struct json_stream *result, const char *fieldname, bool value)
