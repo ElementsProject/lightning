@@ -400,13 +400,12 @@ start_bitcoin_cli(const tal_t *ctx,
 	va_end(ap);
 }
 
-static void strip_trailing_whitespace(char *str, size_t len)
+static size_t length_no_trailing(const char *str, size_t len)
 {
-	size_t stripped_len = len;
-	while (stripped_len > 0 && cisspace(str[stripped_len-1]))
-		stripped_len--;
+	while (len > 0 && cisspace(str[len-1]))
+		len--;
 
-	str[stripped_len] = 0x00;
+	return len;
 }
 
 static struct command_result *command_err_bcli_badjson(struct bitcoin_cli *bcli,
@@ -590,7 +589,6 @@ static struct command_result *process_sendrawtransaction(struct bitcoin_cli *bcl
 struct getrawblock_stash {
 	const char *block_hash;
 	u32 block_height;
-	const char *block_hex;
 	int *peers;
 };
 
@@ -602,12 +600,10 @@ static struct command_result *process_rawblock(struct bitcoin_cli *bcli)
 	struct json_stream *response;
 	struct getrawblock_stash *stash = bcli->stash;
 
-	strip_trailing_whitespace(bcli->output, bcli->output_bytes);
-	stash->block_hex = tal_steal(stash, bcli->output);
-
 	response = jsonrpc_stream_success(bcli->cmd);
 	json_add_string(response, "blockhash", stash->block_hash);
-	json_add_string(response, "block", stash->block_hex);
+	json_add_stringn(response, "block", bcli->output,
+			 length_no_trailing(bcli->output, bcli->output_bytes));
 
 	return command_finished(bcli->cmd, response);
 }
@@ -778,9 +774,10 @@ static struct command_result *process_getblockhash(struct bitcoin_cli *bcli)
 		return getrawblockbyheight_notfound(bcli);
 	}
 
-	strip_trailing_whitespace(bcli->output, bcli->output_bytes);
-	stash->block_hash = tal_strdup(stash, bcli->output);
-	if (!stash->block_hash || strlen(stash->block_hash) != 64) {
+	stash->block_hash = tal_strndup(stash, bcli->output,
+					length_no_trailing(bcli->output,
+							   bcli->output_bytes));
+	if (strlen(stash->block_hash) != 64) {
 		return command_err_bcli_badjson(bcli, "bad blockhash");
 	}
 
