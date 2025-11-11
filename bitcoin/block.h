@@ -52,6 +52,11 @@ void fromwire_chainparams(const u8 **cursor, size_t *max,
 			  const struct chainparams **chainparams);
 void towire_chainparams(u8 **cursor, const struct chainparams *chainparams);
 
+bool bitcoin_blkid_from_hex(const char *hexstr, size_t hexstr_len,
+			    struct bitcoin_blkid *blkid);
+bool bitcoin_blkid_to_hex(const struct bitcoin_blkid *blkid,
+			  char *hexstr, size_t hexstr_len);
+
 char *fmt_bitcoin_blkid(const tal_t *ctx,
 			const struct bitcoin_blkid *blkid);
 

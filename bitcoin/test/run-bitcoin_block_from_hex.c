@@ -62,15 +62,6 @@ static const char block[] =
 
 STRUCTEQ_DEF(sha256_double, 0, sha);
 
-static bool bitcoin_blkid_from_hex(const char *hexstr, size_t hexstr_len,
-				   struct bitcoin_blkid *blockid)
-{
-	struct bitcoin_txid fake_txid;
-	if (!bitcoin_txid_from_hex(hexstr, hexstr_len, &fake_txid))
-		return false;
-	blockid->shad = fake_txid.shad;
-	return true;
-}
 int main(int argc, const char *argv[])
 {
 	struct bitcoin_blkid prev;

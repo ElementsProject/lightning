@@ -459,6 +459,15 @@ void json_add_txid(struct json_stream *result, const char *fieldname,
 	json_add_string(result, fieldname, hex);
 }
 
+void json_add_bitcoin_blkid(struct json_stream *result, const char *fieldname,
+			    const struct bitcoin_blkid *blkid)
+{
+	char hex[hex_str_size(sizeof(*blkid))];
+
+	bitcoin_blkid_to_hex(blkid, hex, sizeof(hex));
+	json_add_string(result, fieldname, hex);
+}
+
 void json_add_outpoint(struct json_stream *result, const char *fieldname,
 		       const struct bitcoin_outpoint *out)
 {
