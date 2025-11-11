@@ -1708,17 +1708,21 @@ void handle_peer_connected(struct lightningd *ld, const u8 *msg)
 	struct peer_connected_hook_payload *hook_payload;
 	u64 connectd_counter;
 	const char *cmd_id;
+	char *connect_reason;
+	u64 connect_nsec;
 	struct wireaddr *last_known_addr;
 
 	hook_payload = tal(NULL, struct peer_connected_hook_payload);
 	hook_payload->ld = ld;
 	hook_payload->error = NULL;
 	if (!fromwire_connectd_peer_connected(hook_payload, msg,
-					     &id, &connectd_counter,
-					     &hook_payload->addr,
-					     &hook_payload->remote_addr,
-					     &hook_payload->incoming,
-					     &their_features)) {
+					      &id, &connectd_counter,
+					      &hook_payload->addr,
+					      &hook_payload->remote_addr,
+					      &hook_payload->incoming,
+					      &their_features,
+					      &connect_reason,
+					      &connect_nsec)) {
 		u64 prev_connectd_counter;
 		if (!fromwire_connectd_peer_reconnected(hook_payload, msg,
 							&id, &prev_connectd_counter,
@@ -1734,6 +1738,8 @@ void handle_peer_connected(struct lightningd *ld, const u8 *msg)
 		 * fail any connect attempts: this is a race. */
 		log_peer_debug(ld->log, &id, "peer reconnected");
 		peer_disconnected(ld, &id, prev_connectd_counter, false);
+		connect_reason = tal_strdup(hook_payload, "");
+		connect_nsec = 0;
 	}
 
 	/* If we connected, and it's a normal address */
@@ -1809,6 +1815,8 @@ void handle_peer_connected(struct lightningd *ld, const u8 *msg)
 		}
 	}
 
+	/* Free connection reason string to keep memleak detection happy. */
+	tal_free(connect_reason);
 	plugin_hook_call_peer_connected(ld, cmd_id, hook_payload);
 }
 
@@ -2689,7 +2697,9 @@ static void setup_peer(struct peer *peer)
 	/* Make sure connectd knows to try reconnecting (unless
 	 * --dev-no-reconnect). */
 	if (connect && ld->reconnect)
-		connectd_connect_to_peer(ld, peer, important);
+		connectd_connect_to_peer(ld, peer,
+					 "started with channel",
+					 important);
 }
 
 void setup_peers(struct lightningd *ld)
