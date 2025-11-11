@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 30
     if: |
-      github.event.action != 'edited' || 
+      github.event.action != 'edited' ||
       contains(github.event.pull_request.body, 'Changelog')
     env:
       BOLTDIR: bolts
@@ -595,6 +595,25 @@ jobs:
           env
           cat config.vars
           VALGRIND=0 uv run eatmydata pytest tests/ -vvv -n ${PYTEST_PAR} ${PYTEST_OPTS}
+
+  check-flake:
+    name: Check Nix Flake
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+      - name: Check Nix flake inputs
+        uses: DeterminateSystems/flake-checker-action@v8
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+      - name: Check flake
+        run: nix flake check
 
   gather:
     # A dummy task that depends on the full matrix of tests, and
