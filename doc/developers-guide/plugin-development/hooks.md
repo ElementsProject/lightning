@@ -400,6 +400,7 @@ The payload of the hook call has the following format:
 
 ```json
 {
+  "peer_id": "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f",
   "onion": {
     "payload": "",
     "short_channel_id": "1x2x3",
@@ -425,6 +426,7 @@ The payload of the hook call has the following format:
 
 For detailed information about each field please refer to [BOLT 04 of the specification](https://github.com/lightning/bolts/blob/master/04-onion-routing.md), the following is just a brief summary:
 
+- `peer_id`: is the id of the peer that offered us this htlc.
 - `onion`:
   - `payload` contains the unparsed payload that was sent to us from the sender of the payment.
   - `short_channel_id` determines the channel that the sender is hinting   should be used next.  Not present if we're the final destination.

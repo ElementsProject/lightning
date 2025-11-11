@@ -1193,6 +1193,9 @@ static void htlc_accepted_hook_serialize(struct htlc_accepted_hook_payload *p,
 	    tal_fmt(hin, "Waiting for the htlc_accepted hook of plugin %s",
 		    plugin->shortname);
 
+	if (p->channel && p->channel->peer)
+		json_add_node_id(s, "peer_id", &p->channel->peer->id);
+
 	json_object_start(s, "onion");
 
 	json_add_hex_talarr(s, "payload", rs->raw_payload);
