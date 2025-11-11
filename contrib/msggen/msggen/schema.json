@@ -1851,7 +1851,8 @@
               "succeededpays",
               "failedpays",
               "paidinvoices",
-              "expiredinvoices"
+              "expiredinvoices",
+              "networkevents"
             ],
             "description": [
               "What subsystem to clean. Currently supported subsystems are:",
@@ -1860,7 +1861,8 @@
               "    * `failedpays`: payment attempts which did not succeed (`failed` in listpays `status`).",
               "    * `succeededpays`: payment attempts which succeeded (`complete` in listpays `status`).",
               "    * `expiredinvoices`: invoices which were not paid (and cannot be) (`expired` in listinvoices `status`).",
-              "    * `paidinvoices`: invoices which were paid (`paid` in listinvoices `status)."
+              "    * `paidinvoices`: invoices which were paid (`paid` in listinvoices `status).",
+              "    * `networkevents`: all events in listnetworkevents (added *v25.12*)"
             ]
           },
           "age": {
@@ -2012,6 +2014,31 @@
                     ]
                   }
                 }
+              },
+              "networkevents": {
+                "type": "object",
+                "additionalProperties": false,
+                "added": "v25.12",
+                "required": [
+                  "cleaned",
+                  "uncleaned"
+                ],
+                "properties": {
+                  "cleaned": {
+                    "added": "v25.12",
+                    "type": "u64",
+                    "description": [
+                      "Total number of deletions done this run."
+                    ]
+                  },
+                  "uncleaned": {
+                    "added": "v25.12",
+                    "type": "u64",
+                    "description": [
+                      "The total number of entries *not* deleted this run."
+                    ]
+                  }
+                }
               }
             }
           }
@@ -2086,7 +2113,8 @@
               "succeededpays",
               "failedpays",
               "paidinvoices",
-              "expiredinvoices"
+              "expiredinvoices",
+              "networkevents"
             ],
             "description": [
               "What subsystem to ask about. Currently supported subsystems are:",
@@ -2095,7 +2123,8 @@
               "    * `failedpays`: payment attempts which did not succeed (`failed` in listpays `status`).",
               "    * `succeededpays`: payment attempts which succeeded (`complete` in listpays `status`).",
               "    * `expiredinvoices`: invoices which were not paid (and cannot be) (`expired` in listinvoices `status`).",
-              "    * `paidinvoices`: invoices which were paid (`paid` in listinvoices `status)."
+              "    * `paidinvoices`: invoices which were paid (`paid` in listinvoices `status).",
+              "    * `networkevents`: all events in listnetworkevents (added *v25.12*)"
             ]
           }
         }
@@ -2466,6 +2495,72 @@
                       "type": "u64",
                       "description": [
                         "Age (in seconds) to expired listinvoices."
+                      ]
+                    }
+                  }
+                },
+                "else": {
+                  "additionalProperties": false,
+                  "required": [
+                    "enabled",
+                    "cleaned"
+                  ],
+                  "properties": {
+                    "enabled": {},
+                    "cleaned": {}
+                  }
+                }
+              },
+              "networkevents": {
+                "type": "object",
+                "added": "v25.12",
+                "additionalProperties": true,
+                "required": [
+                  "enabled",
+                  "cleaned"
+                ],
+                "properties": {
+                  "enabled": {
+                    "type": "boolean",
+                    "added": "v25.12",
+                    "description": [
+                      "Whether autocleaning is enabled for networkevents."
+                    ]
+                  },
+                  "cleaned": {
+                    "type": "u64",
+                    "added": "v25.12",
+                    "description": [
+                      "Total number of deletions done (ever)."
+                    ]
+                  }
+                },
+                "if": {
+                  "additionalProperties": true,
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  }
+                },
+                "then": {
+                  "additionalProperties": false,
+                  "required": [
+                    "enabled",
+                    "age",
+                    "cleaned"
+                  ],
+                  "properties": {
+                    "enabled": {},
+                    "cleaned": {},
+                    "age": {
+                      "added": "v25.12",
+                      "type": "u64",
+                      "description": [
+                        "Age (in seconds) to clean networkevents."
                       ]
                     }
                   }
@@ -22451,7 +22546,8 @@
       "title": "Command for querying network events",
       "added": "v25.12",
       "description": [
-        "The **listnetworkevents** RPC command retrieves the log of connections, disconnections and pings on the network.  This can be analyzed to evaluate node reliability and latency."
+        "The **listnetworkevents** RPC command retrieves the log of connections, disconnections and pings on the network.  This can be analyzed to evaluate node reliability and latency.",
+        "Note: the `autoclean` plugin deletes network events older than 30 days; you can adjust `autoclean-networkevents-age` to change this"
       ],
       "categories": [
         "readonly"

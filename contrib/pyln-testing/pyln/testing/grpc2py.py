@@ -219,6 +219,13 @@ def autoclean_once_autoclean_failedpays2py(m):
     })
 
 
+def autoclean_once_autoclean_networkevents2py(m):
+    return remove_default({
+        "cleaned": m.cleaned,  # PrimitiveField in generate_composite
+        "uncleaned": m.uncleaned,  # PrimitiveField in generate_composite
+    })
+
+
 def autoclean_once_autoclean_paidinvoices2py(m):
     return remove_default({
         "cleaned": m.cleaned,  # PrimitiveField in generate_composite
@@ -267,6 +274,14 @@ def autoclean_status_autoclean_failedforwards2py(m):
 
 
 def autoclean_status_autoclean_failedpays2py(m):
+    return remove_default({
+        "age": m.age,  # PrimitiveField in generate_composite
+        "cleaned": m.cleaned,  # PrimitiveField in generate_composite
+        "enabled": m.enabled,  # PrimitiveField in generate_composite
+    })
+
+
+def autoclean_status_autoclean_networkevents2py(m):
     return remove_default({
         "age": m.age,  # PrimitiveField in generate_composite
         "cleaned": m.cleaned,  # PrimitiveField in generate_composite

@@ -5,7 +5,8 @@
   "title": "Command for querying network events",
   "added": "v25.12",
   "description": [
-    "The **listnetworkevents** RPC command retrieves the log of connections, disconnections and pings on the network.  This can be analyzed to evaluate node reliability and latency."
+    "The **listnetworkevents** RPC command retrieves the log of connections, disconnections and pings on the network.  This can be analyzed to evaluate node reliability and latency.",
+    "Note: the `autoclean` plugin deletes network events older than 30 days; you can adjust `autoclean-networkevents-age` to change this"
   ],
   "categories": [
     "readonly"
