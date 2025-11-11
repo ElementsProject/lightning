@@ -96,6 +96,9 @@ struct peer {
 	enum pong_expect_type expecting_pong;
 	u64 ping_reqid;
 
+	/* Timestamp when we initially sent probe ping */
+	struct timemono ping_start;
+
 	/* Random ping timer, to detect dead connections. */
 	struct oneshot *ping_timer;
 

@@ -156,6 +156,11 @@ msgdata,connectd_ping_done,sent,bool,
 # 0 == no pong expected, otherwise length of pong.
 msgdata,connectd_ping_done,totlen,u16,
 
+# We give lightningd stats about ping latencies
+msgtype,connectd_ping_latency,2038
+msgdata,connectd_ping_latency,id,node_id,
+msgdata,connectd_ping_latency,ping_nsec,u64,
+
 # We tell lightningd we got an onionmsg
 msgtype,connectd_got_onionmsg_to_us,2145
 msgdata,connectd_got_onionmsg_to_us,path_secret,?secret,
