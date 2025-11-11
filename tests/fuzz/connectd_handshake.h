@@ -147,6 +147,7 @@ static struct io_plan *
 success(struct io_conn *conn UNUSED, const struct pubkey *them UNUSED,
 	const struct wireaddr_internal *addr UNUSED, struct crypto_state *cs,
 	struct oneshot *timeout UNUSED, enum is_websocket is_websocket UNUSED,
+	struct timemono starttime UNUSED,
 	void *unused UNUSED)
 {
 	assert(false && "handshake unexpectedly succeeded");

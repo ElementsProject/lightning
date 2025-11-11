@@ -43,6 +43,7 @@
 static void peer_disconnected(struct lightningd *ld,
 			      const struct node_id *id,
 			      u64 connectd_counter,
+			      u64 connected_time_nsec,
 			      bool fail_connect_attempts);
 
 /* Common pattern: create a sockpair for this channel, return one as a peer_fd */
@@ -1723,21 +1724,22 @@ void handle_peer_connected(struct lightningd *ld, const u8 *msg)
 					      &their_features,
 					      &connect_reason,
 					      &connect_nsec)) {
-		u64 prev_connectd_counter;
+		u64 prev_connectd_counter, connected_time_nsec;
 		if (!fromwire_connectd_peer_reconnected(hook_payload, msg,
 							&id, &prev_connectd_counter,
 							&connectd_counter,
 							&hook_payload->addr,
 							&hook_payload->remote_addr,
 							&hook_payload->incoming,
-							&their_features)) {
+							&their_features,
+							&connected_time_nsec)) {
 			fatal("Connectd gave bad CONNECT_PEER_(RE)CONNECTED message %s",
 			      tal_hex(msg, msg));
 		}
 		/* Reconnect?  Mark the disconnect *first*, but don't
 		 * fail any connect attempts: this is a race. */
 		log_peer_debug(ld->log, &id, "peer reconnected");
-		peer_disconnected(ld, &id, prev_connectd_counter, false);
+		peer_disconnected(ld, &id, prev_connectd_counter, connected_time_nsec, false);
 		connect_reason = tal_strdup(hook_payload, "");
 		connect_nsec = 0;
 	}
@@ -2083,6 +2085,7 @@ static void destroy_disconnect_command(struct disconnect_command *dc)
 static void peer_disconnected(struct lightningd *ld,
 			      const struct node_id *id,
 			      u64 connectd_counter,
+			      u64 connected_time_nsec,
 			      bool fail_connect_attempts)
 {
 	struct disconnect_command *i, *next;
@@ -2127,13 +2130,16 @@ static void peer_disconnected(struct lightningd *ld,
 void handle_peer_disconnected(struct lightningd *ld, const u8 *msg)
 {
 	struct node_id id;
-	u64 connectd_counter;
+	u64 connectd_counter, connected_time_nsec;
 
-	if (!fromwire_connectd_peer_disconnected(msg, &id, &connectd_counter))
+	if (!fromwire_connectd_peer_disconnected(msg,
+						 &id,
+						 &connectd_counter,
+						 &connected_time_nsec))
 		fatal("Connectd gave bad PEER_DISCONNECTED message %s",
 		      tal_hex(msg, msg));
 
-	peer_disconnected(ld, &id, connectd_counter, true);
+	peer_disconnected(ld, &id, connectd_counter, connected_time_nsec, true);
 }
 
 void update_channel_from_inflight(struct lightningd *ld,

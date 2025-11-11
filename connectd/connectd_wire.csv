@@ -90,6 +90,7 @@ msgdata,connectd_peer_connected,connect_nsec,u64,
 msgtype,connectd_peer_disconnected,2006
 msgdata,connectd_peer_disconnected,id,node_id,
 msgdata,connectd_peer_disconnected,counter,u64,
+msgdata,connectd_peer_disconnected,connected_time_nsec,u64,
 
 # Connectd -> master: peer reconnected (disconnect & connect)
 msgtype,connectd_peer_reconnected,2010
@@ -101,6 +102,7 @@ msgdata,connectd_peer_reconnected,remote_addr,?wireaddr,
 msgdata,connectd_peer_reconnected,incoming,bool,
 msgdata,connectd_peer_reconnected,flen,u16,
 msgdata,connectd_peer_reconnected,features,u8,flen
+msgdata,connectd_peer_reconnected,connected_time_nsec,u64,
 
 # Master -> connectd: make peer active immediately (we want to talk) (+ fd to subd).
 msgtype,connectd_peer_connect_subd,2004
