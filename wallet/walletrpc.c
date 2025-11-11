@@ -1301,3 +1301,28 @@ static const struct json_command listnetworkevents_cmd = {
 	json_listnetworkevents
 };
 AUTODATA(json_command, &listnetworkevents_cmd);
+
+static struct command_result *json_delnetworkevent(struct command *cmd,
+						   const char *buffer,
+						   const jsmntok_t *obj UNNEEDED,
+						   const jsmntok_t *params)
+{
+	u64 *created_index;
+
+	if (!param(cmd, buffer, params,
+		   p_req("created_index", param_u64, &created_index),
+		   NULL))
+		return command_param_failed();
+
+	if (!wallet_network_event_delete(cmd->ld->wallet, *created_index))
+		return command_fail(cmd, DELNETWORKEVENT_NOT_FOUND,
+				    "Could not find that networkevent");
+
+	return command_success(cmd, json_stream_success(cmd));
+}
+
+static const struct json_command delnetworkevent_command = {
+	"delnetworkevent",
+	json_delnetworkevent,
+};
+AUTODATA(json_command, &delnetworkevent_command);
