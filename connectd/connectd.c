@@ -2420,6 +2420,7 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_CONNECTD_START_SHUTDOWN_REPLY:
 	case WIRE_CONNECTD_INJECT_ONIONMSG_REPLY:
 	case WIRE_CONNECTD_ONIONMSG_FORWARD_FAIL:
+	case WIRE_CONNECTD_PING_LATENCY:
 		break;
 	}
 

@@ -472,6 +472,21 @@ void tell_connectd_peer_importance(struct peer *peer,
 	}
 }
 
+static void handle_ping_latency(struct lightningd *ld, const u8 *msg)
+{
+	struct node_id id;
+	u64 nsec;
+
+	if (!fromwire_connectd_ping_latency(msg, &id, &nsec)) {
+		log_broken(ld->log, "Malformed ping_latency: %s",
+			   tal_hex(tmpctx, msg));
+		return;
+	}
+
+	log_peer_trace(ld->log, &id, "Ping latency: %"PRIu64"nsec",
+		       nsec);
+}
+
 static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fds)
 {
 	enum connectd_wire t = fromwire_peektype(msg);
@@ -536,6 +551,10 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 
 	case WIRE_CONNECTD_PING_DONE:
 		handle_ping_done(connectd, msg);
+		break;
+
+	case WIRE_CONNECTD_PING_LATENCY:
+		handle_ping_latency(connectd->ld, msg);
 		break;
 	}
 	return 0;
