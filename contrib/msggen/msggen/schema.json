@@ -34881,7 +34881,8 @@
               "  `forwards`: corresponding to `listforwards` (added in *v23.11*).",
               "  `htlcs`: corresponding to `listhtlcs` (added in *v25.05*).",
               "  `chainmoves`: corresponding to `listchainmoves` (added in *v25.09*).",
-              "  `channelmoves`: corresponding to `listchannelmoves` (added in *v25.09*)."
+              "  `channelmoves`: corresponding to `listchannelmoves` (added in *v25.09*).",
+              "  `networkevents`: corresponding to `listnetworkevents` (added in *v25.12*)."
             ],
             "enum": [
               "invoices",
@@ -34889,7 +34890,8 @@
               "sendpays",
               "htlcs",
               "chainmoves",
-              "channelmoves"
+              "channelmoves",
+              "networkevents"
             ]
           },
           "indexname": {
@@ -34928,7 +34930,8 @@
               "sendpays",
               "htlcs",
               "chainmoves",
-              "channelmoves"
+              "channelmoves",
+              "networkevents"
             ]
           },
           "created": {
@@ -34955,6 +34958,7 @@
           "htlcs": {},
           "chainmoves": {},
           "channelmoves": {},
+          "networkevents": {},
           "details": {}
         },
         "allOf": [
@@ -35498,6 +35502,62 @@
                       "type": "msat",
                       "description": [
                         "The amount outgoing"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "additionalProperties": true,
+              "properties": {
+                "subsystem": {
+                  "type": "string",
+                  "enum": [
+                    "networkevents"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "additionalProperties": false,
+              "properties": {
+                "subsystem": {},
+                "created": {},
+                "updated": {},
+                "deleted": {},
+                "networkevents": {
+                  "added": "v25.12",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "created_index": {
+                      "added": "v25.12",
+                      "type": "u64",
+                      "description": [
+                        "The created_index of the record added/deleted"
+                      ]
+                    },
+                    "type": {
+                      "added": "v25.12",
+                      "type": "string",
+                      "enum": [
+                        "connect",
+                        "connect_fail",
+                        "ping",
+                        "disconnect"
+                      ],
+                      "description": [
+                        "The kind of network event"
+                      ]
+                    },
+                    "peer_id": {
+                      "added": "v25.12",
+                      "type": "pubkey",
+                      "description": [
+                        "The peer this network event was with"
                       ]
                     }
                   }
