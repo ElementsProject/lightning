@@ -1921,6 +1921,9 @@ struct db_stmt *wallet_network_events_first(struct wallet *w,
 struct db_stmt *wallet_network_events_next(struct wallet *w,
 					   struct db_stmt *stmt);
 
+/* Delete one entry.  Returns false if it doesn't exist. */
+bool wallet_network_event_delete(struct wallet *w, u64 created_index);
+
 /**
  * Extract a network event from the db.
  * @ctx: the tal ctx to allocate off

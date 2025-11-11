@@ -7552,6 +7552,13 @@ static u64 network_event_index_created(struct lightningd *ld,
 				       WAIT_INDEX_CREATED);
 }
 
+static void network_event_index_deleted(struct lightningd *ld,
+					u64 created_index)
+{
+	network_event_index_inc(ld, &created_index, NULL, NULL,
+				WAIT_INDEX_DELETED);
+}
+
 /* Put the next network event into the db */
 void wallet_save_network_event(struct lightningd *ld,
 			       const struct node_id *peer_id,
@@ -7585,6 +7592,30 @@ void wallet_save_network_event(struct lightningd *ld,
 	db_bind_u64(stmt, duration_nsec);
 	db_bind_int(stmt, connect_attempted);
 	db_exec_prepared_v2(take(stmt));
+}
+
+bool wallet_network_event_delete(struct wallet *w, u64 created_index)
+{
+	struct db_stmt *stmt;
+	bool changed;
+
+	stmt = db_prepare_v2(w->db,
+			     SQL("DELETE FROM network_events"
+				 " WHERE id = ?"));
+	db_bind_u64(stmt, created_index);
+	db_exec_prepared_v2(stmt);
+
+	changed = db_count_changes(stmt) != 0;
+	tal_free(stmt);
+
+	if (changed) {
+		/* FIXME: We don't set other details here, since that
+		 * would need an extra lookup */
+		network_event_index_deleted(w->ld, created_index);
+	}
+
+	return changed;
+
 }
 
 struct missing {
