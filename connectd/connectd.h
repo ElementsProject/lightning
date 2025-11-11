@@ -64,6 +64,8 @@ struct peer {
 	struct node_id id;
 	/* Counters and keys for symmetric crypto */
 	struct crypto_state cs;
+	/* Time when we first connected */
+	struct timemono connect_starttime;
 
 	/* Connection to the peer (NULL if it's disconnected and we're flushing) */
 	struct io_conn *to_peer;
@@ -388,12 +390,14 @@ struct io_plan *peer_connected(struct io_conn *conn,
 			       struct crypto_state *cs,
 			       const u8 *their_features TAKES,
 			       enum is_websocket is_websocket,
+			       struct timemono starttime,
 			       bool incoming);
 
 /* Tell gossipd and lightningd that this peer is gone. */
 void send_disconnected(struct daemon *daemon,
 		       const struct node_id *id,
-		       u64 connectd_counter);
+		       u64 connectd_counter,
+		       struct timemono starttime);
 
 /* Free peer immediately (don't wait for draining). */
 void destroy_peer_immediately(struct peer *peer);
