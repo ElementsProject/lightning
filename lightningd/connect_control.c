@@ -257,7 +257,8 @@ static void connect_failed(struct lightningd *ld,
 			   const char *connect_reason,
 			   u64 connect_nsec,
 			   enum jsonrpc_errcode errcode,
-			   const char *errmsg)
+			   const char *errmsg,
+			   bool connect_attempted)
 {
 	struct connect *c;
 
@@ -275,7 +276,8 @@ void connect_failed_disconnect(struct lightningd *ld,
 	connect_failed(ld, id, addrhint,
 		       "", 0,
 		       CONNECT_DISCONNECTED_DURING,
-		       "disconnected during connection");
+		       "disconnected during connection",
+		       false);
 }
 
 static void handle_connect_failed(struct lightningd *ld, const u8 *msg)
@@ -285,15 +287,18 @@ static void handle_connect_failed(struct lightningd *ld, const u8 *msg)
 	char *errmsg;
 	char *connect_reason;
 	u64 nsec;
+	bool connect_attempted;
 
 	if (!fromwire_connectd_connect_failed(tmpctx, msg, &id,
 					      &connect_reason,
 					      &nsec,
-					      &errcode, &errmsg))
+					      &errcode, &errmsg,
+					      &connect_attempted))
 		fatal("Connect gave bad CONNECTD_CONNECT_FAILED message %s",
 		      tal_hex(msg, msg));
 
-	connect_failed(ld, &id, NULL, connect_reason, nsec, errcode, errmsg);
+	connect_failed(ld, &id, NULL, connect_reason, nsec, errcode, errmsg,
+		       connect_attempted);
 }
 
 const char *connect_any_cmd_id(const tal_t *ctx,

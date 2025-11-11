@@ -214,6 +214,9 @@ struct connecting {
 	/* When did we start? */
 	struct timemono start;
 
+	/* Did we find an address we could attempt to connect to? */
+	bool connect_attempted;
+
 	/* Accumulated errors */
 	char *errors;
 };

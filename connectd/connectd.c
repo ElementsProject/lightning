@@ -789,11 +789,12 @@ struct io_plan *connection_out(struct io_conn *conn, struct connecting *connect)
  */
 static void connect_failed(struct daemon *daemon,
 			   const struct node_id *id,
+			   bool connect_attempted,
 			   const char *connect_reason,
 			   struct timemono start,
 			   enum jsonrpc_errcode errcode,
 			   const char *errfmt, ...)
-	PRINTF_FMT(6, 7);
+	PRINTF_FMT(7, 8);
 
 static void reconnect(struct important_id *imp)
 {
@@ -865,6 +866,7 @@ void release_one_waiting_connection(struct daemon *daemon, const char *why)
 
 static void connect_failed(struct daemon *daemon,
 			   const struct node_id *id,
+			   bool connect_attempted,
 			   const char *connect_reason,
 			   struct timemono start,
 			   enum jsonrpc_errcode errcode,
@@ -885,7 +887,8 @@ static void connect_failed(struct daemon *daemon,
 	msg = towire_connectd_connect_failed(NULL, id,
 					     connect_reason,
 					     time_to_nsec(timemono_since(start)),
-					     errcode, errmsg);
+					     errcode, errmsg,
+					     connect_attempted);
 	daemon_conn_send(daemon->master, take(msg));
 
 	/* If we're supposed to schedule a reconnect, do so */
@@ -1038,9 +1041,10 @@ static void try_connect_one_addr(struct connecting *connect)
 		const char *errors = tal_steal(tmpctx, connect->errors);
 		const char *reason = tal_steal(tmpctx, connect->reason);
 		struct timemono start = connect->start;
+		bool attempted = connect->connect_attempted;
 
 		tal_free(connect);
-		connect_failed(daemon, &id, reason, start,
+		connect_failed(daemon, &id, attempted, reason, start,
 			       CONNECT_ALL_ADDRESSES_FAILED,
 			       "All addresses failed: %s",
 			       errors);
@@ -1166,6 +1170,8 @@ static void try_connect_one_addr(struct connecting *connect)
 			       af, strerror(errno));
 		goto next;
 	}
+
+	connect->connect_attempted = true;
 
 	/* This creates the new connection using our fd, with the initialization
 	 * function one of the above. */
@@ -1873,7 +1879,7 @@ static void try_connect_peer(struct daemon *daemon,
 	/* Still no address?  Fail immediately.  Important ones get
 	 * retried; an address may get gossiped. */
 	if (tal_count(addrs) == 0) {
-		connect_failed(daemon, id, reason, time_mono(),
+		connect_failed(daemon, id, false, reason, time_mono(),
 			       CONNECT_NO_KNOWN_ADDRESS,
 			       "Unable to connect, no address known for peer");
 		return;
@@ -1893,6 +1899,7 @@ static void try_connect_peer(struct daemon *daemon,
 	connect->connstate = "Connection establishment";
 	connect->errors = tal_strdup(connect, "");
 	connect->conn = NULL;
+	connect->connect_attempted = false;
 	connecting_htable_add(daemon->connecting, connect);
 	tal_add_destructor(connect, destroy_connecting);
 
