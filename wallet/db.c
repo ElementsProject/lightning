@@ -1087,7 +1087,17 @@ static struct migration dbmigrations[] = {
     {SQL("CREATE INDEX chain_moves_utxo_idx ON chain_moves (utxo)"), NULL},
     {NULL, migrate_from_account_db},
     /* We accidentally allowed duplicate entries */
-    {NULL, migrate_remove_chain_moves_duplicates}
+    {NULL, migrate_remove_chain_moves_duplicates},
+    {SQL("CREATE TABLE network_events ("
+	 "  id BIGSERIAL,"
+	 "  peer_id BLOB NOT NULL,"
+	 "  type INTEGER NOT NULL,"
+	 "  timestamp BIGINT,"
+	 "  reason TEXT,"
+	 "  duration_nsec BIGINT,"
+	 "  connect_attempted INTEGER NOT NULL,"
+	 " PRIMARY KEY (id)"
+	 ")"), NULL},
 };
 
 /**

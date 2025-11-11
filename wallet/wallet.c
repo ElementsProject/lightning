@@ -7438,6 +7438,155 @@ struct db_stmt *wallet_channel_moves_next(struct wallet *wallet, struct db_stmt 
 	return stmt;
 }
 
+struct db_stmt *wallet_network_events_first(struct wallet *w,
+					    const struct node_id *specific_id,
+					    u64 liststart,
+					    u32 *listlimit)
+{
+	struct db_stmt *stmt;
+
+	if (specific_id) {
+		stmt = db_prepare_v2(w->db,
+				     SQL("SELECT"
+					 " id"
+					 ", peer_id"
+					 ", type"
+					 ", reason"
+					 ", timestamp"
+					 ", duration_nsec"
+					 ", connect_attempted"
+					 " FROM network_events"
+					 " WHERE peer_id = ? AND id >= ?"
+					 " ORDER BY id"
+					 " LIMIT ?;"));
+		db_bind_node_id(stmt, specific_id);
+	} else {
+		stmt = db_prepare_v2(w->db,
+				     SQL("SELECT"
+					 " id"
+					 ", peer_id"
+					 ", type"
+					 ", reason"
+					 ", timestamp"
+					 ", duration_nsec"
+					 ", connect_attempted"
+					 " FROM network_events"
+					 " WHERE id >= ?"
+					 " ORDER BY id"
+					 " LIMIT ?;"));
+	}
+	db_bind_u64(stmt, liststart);
+	if (listlimit)
+		db_bind_int(stmt, *listlimit);
+	else
+		db_bind_int(stmt, INT_MAX);
+	db_query_prepared(stmt);
+	return wallet_channel_moves_next(w, stmt);
+}
+
+const char *network_event_name(enum network_event n)
+{
+	switch (n) {
+	case NETWORK_EVENT_CONNECT:
+		return "connect";
+	case NETWORK_EVENT_CONNECTFAIL:
+		return "connect_fail";
+	case NETWORK_EVENT_PING:
+		return "ping";
+	case NETWORK_EVENT_DISCONNECT:
+		return "disconnect";
+	}
+	fatal("%s: %u is invalid", __func__, n);
+}
+
+struct db_stmt *wallet_network_events_next(struct wallet *w,
+					  struct db_stmt *stmt)
+{
+	if (!db_step(stmt))
+		return tal_free(stmt);
+
+	return stmt;
+}
+
+void wallet_network_events_extract(const tal_t *ctx,
+				   struct db_stmt *stmt,
+				   u64 *id,
+				   struct node_id *peer_id,
+				   u64 *timestamp,
+				   enum network_event *etype,
+				   const char **reason,
+				   u64 *duration_nsec,
+				   bool *connect_attempted)
+{
+	*id = db_col_u64(stmt, "id");
+	db_col_node_id(stmt, "peer_id", peer_id);
+	*etype = network_event_in_db(db_col_int(stmt, "type"));
+	*timestamp = db_col_u64(stmt, "timestamp");
+	*reason = db_col_strdup_optional(ctx, stmt, "reason");
+	*duration_nsec = db_col_u64(stmt, "duration_nsec");
+	*connect_attempted = db_col_int(stmt, "connect_attempted");
+}
+
+static u64 network_event_index_inc(struct lightningd *ld,
+				   /* NULL means it's being created */
+				   const u64 *created_index,
+				   const enum network_event *etype,
+				   const struct node_id *peer_id,
+				   enum wait_index idx)
+{
+	return wait_index_increment(ld, ld->wallet->db,
+				    WAIT_SUBSYSTEM_NETWORKEVENTS, idx,
+				    /* "" is a magic value meaning 'current val' */
+				    "=created_index", created_index ? tal_fmt(tmpctx, "%"PRIu64, *created_index) : "",
+				    "type", etype ? network_event_name(*etype) : NULL,
+				    "peer_id", peer_id ? fmt_node_id(tmpctx, peer_id) : NULL,
+				    NULL);
+}
+
+static u64 network_event_index_created(struct lightningd *ld,
+				       enum network_event etype,
+				       const struct node_id *peer_id)
+{
+	return network_event_index_inc(ld, NULL,
+				       &etype, peer_id,
+				       WAIT_INDEX_CREATED);
+}
+
+/* Put the next network event into the db */
+void wallet_save_network_event(struct lightningd *ld,
+			       const struct node_id *peer_id,
+			       enum network_event etype,
+			       const char *reason,
+			       u64 duration_nsec,
+			       bool connect_attempted)
+{
+	u64 id;
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(ld->wallet->db,
+			     SQL("INSERT INTO network_events ("
+				 " id,"
+				 " peer_id,"
+				 " type, "
+				 " timestamp,"
+				 " reason,"
+				 " duration_nsec,"
+				 " connect_attempted) VALUES "
+				 "(?, ?, ?, ?, ?, ?, ?);"));
+	id = network_event_index_created(ld, etype, peer_id);
+	db_bind_u64(stmt, id);
+	db_bind_node_id(stmt, peer_id);
+	db_bind_int(stmt, network_event_in_db(etype));
+	db_bind_u64(stmt, time_now().ts.tv_sec);
+	if (reason)
+		db_bind_text(stmt, reason);
+	else
+		db_bind_null(stmt);
+	db_bind_u64(stmt, duration_nsec);
+	db_bind_int(stmt, connect_attempted);
+	db_exec_prepared_v2(take(stmt));
+}
+
 struct missing {
 	size_t num_found;
 	struct missing_addr *addrs;

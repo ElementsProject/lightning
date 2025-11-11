@@ -1876,6 +1876,81 @@ struct issued_address_type *wallet_list_addresses(const tal_t *ctx, struct walle
 					 u64 liststart, const u32 *listlimit);
 
 
+enum network_event {
+	NETWORK_EVENT_CONNECT = 1,
+	NETWORK_EVENT_CONNECTFAIL = 2,
+	NETWORK_EVENT_PING = 3,
+	NETWORK_EVENT_DISCONNECT = 4,
+};
+
+static inline enum network_event network_event_in_db(enum network_event n)
+{
+	switch (n) {
+	case NETWORK_EVENT_CONNECT:
+		BUILD_ASSERT(NETWORK_EVENT_CONNECT == 1);
+		return n;
+	case NETWORK_EVENT_CONNECTFAIL:
+		BUILD_ASSERT(NETWORK_EVENT_CONNECTFAIL == 2);
+		return n;
+	case NETWORK_EVENT_PING:
+		BUILD_ASSERT(NETWORK_EVENT_PING == 3);
+		return n;
+	case NETWORK_EVENT_DISCONNECT:
+		BUILD_ASSERT(NETWORK_EVENT_DISCONNECT == 4);
+		return n;
+	}
+	fatal("%s: %u is invalid", __func__, n);
+}
+
+const char *network_event_name(enum network_event n);
+
+/**
+ * Iterate through the network events.
+ * @w: the wallet
+ * @specific_id: filter by peer_id if non-NULL.
+ * @liststart: first index to return (0 == all).
+ * @listlimit: limit on number of entries to return (NULL == no limit).
+ *
+ * Returns pointer to hand as @stmt to wallet_network_events_next(), or NULL.
+ * If you choose not to call wallet_network_events_next() you must free it!
+ */
+struct db_stmt *wallet_network_events_first(struct wallet *w,
+					    const struct node_id *specific_id,
+					    u64 liststart,
+					    u32 *listlimit);
+struct db_stmt *wallet_network_events_next(struct wallet *w,
+					   struct db_stmt *stmt);
+
+/**
+ * Extract a network event from the db.
+ * @ctx: the tal ctx to allocate off
+ * @stmt: the db_stmt from wallet_network_events_first/next
+ * @id: the creation key
+ * @peer_id: the peer we're talking to
+ * @timestamp: the time the event was recorded
+ * @etype: the network_event type
+ * @reason: the optional reason (or set to NULL)
+ * @duration_nsec: the time it took (if applicable).
+ * @connect_attempted: whether we attempted at least one address (for NETWORK_EVENT_CONNECTFAIL)
+ */
+void wallet_network_events_extract(const tal_t *ctx,
+				   struct db_stmt *stmt,
+				   u64 *id,
+				   struct node_id *peer_id,
+				   u64 *timestamp,
+				   enum network_event *etype,
+				   const char **reason,
+				   u64 *duration_nsec,
+				   bool *connect_attempted);
+
+/* Put the next network event into the db */
+void wallet_save_network_event(struct lightningd *ld,
+			       const struct node_id *peer_id,
+			       enum network_event etype,
+			       const char *reason,
+			       u64 duration_nsec,
+			       bool connect_attempted);
+
 /**
  * wallet_begin_old_close_rescan: rescan for missing mutual close p2wpkh outputs.
  *
