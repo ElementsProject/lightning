@@ -294,7 +294,14 @@ bool json_out_addstr(struct json_out *jout,
 		     const char *fieldname,
 		     const char *str)
 {
-	size_t len = strlen(str);
+	return json_out_addstrn(jout, fieldname, str, strlen(str));
+}
+
+bool json_out_addstrn(struct json_out *jout,
+		      const char *fieldname,
+		      const char *str,
+		      size_t len)
+{
 	char *p;
 	struct json_escape *e;
 
