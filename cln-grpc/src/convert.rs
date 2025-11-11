@@ -2771,6 +2771,17 @@ impl From<responses::WaitInvoices> for pb::WaitInvoices {
 }
 
 #[allow(unused_variables)]
+impl From<responses::WaitNetworkevents> for pb::WaitNetworkevents {
+    fn from(c: responses::WaitNetworkevents) -> Self {
+        Self {
+            created_index: c.created_index, // Rule #2 for type u64?
+            peer_id: c.peer_id.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
+            item_type: c.item_type.map(|v| v as i32),
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::WaitSendpays> for pb::WaitSendpays {
     fn from(c: responses::WaitSendpays) -> Self {
         Self {
@@ -2794,6 +2805,7 @@ impl From<responses::WaitResponse> for pb::WaitResponse {
             forwards: c.forwards.map(|v| v.into()),
             htlcs: c.htlcs.map(|v| v.into()),
             invoices: c.invoices.map(|v| v.into()),
+            networkevents: c.networkevents.map(|v| v.into()),
             sendpays: c.sendpays.map(|v| v.into()),
             subsystem: c.subsystem as i32,
             updated: c.updated, // Rule #2 for type u64?

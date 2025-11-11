@@ -4885,3 +4885,133 @@ def test_listpeerchannels_by_scid(node_factory):
 
     with pytest.raises(RpcError, match="Cannot specify both short_channel_id and id"):
         l2.rpc.listpeerchannels(peer_id=l1.info['id'], short_channel_id='1x2x3')
+
+
+def test_networkevents(node_factory, executor):
+    l1, l2 = node_factory.get_nodes(2)
+
+    before = time.time()
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    after = time.time()
+
+    nevents = l1.rpc.listnetworkevents()['networkevents']
+    # Filtering by id gives same results
+    assert nevents == l1.rpc.listnetworkevents(l2.info['id'])['networkevents']
+    assert nevents == l1.rpc.listnetworkevents(id=l2.info['id'])['networkevents']
+
+    # Another id gives no events
+    assert l1.rpc.listnetworkevents(l1.info['id']) == {'networkevents': []}
+
+    # These can only be estimated, will vary each time
+    assert int(before) <= only_one(nevents)['timestamp'] <= after
+    del only_one(nevents)['timestamp']
+
+    assert only_one(nevents)['duration_nsec'] <= int((after - before) * 1_000_000_000)
+    del only_one(nevents)['duration_nsec']
+
+    assert only_one(nevents)['reason'].startswith('connect command "')
+    del only_one(nevents)['reason']
+
+    assert nevents == [{'created_index': 1,
+                        'peer_id': l2.info['id'],
+                        'type': 'connect'}]
+
+    # We will eventually get a ping event.
+    res = l1.rpc.wait('networkevents', 'created', 2)
+    assert res == {'subsystem': 'networkevents',
+                   'created': 2,
+                   'networkevents': {'created_index': 2,
+                                     'type': 'ping',
+                                     'peer_id': l2.info['id']}}
+
+    nevents = l1.rpc.listnetworkevents(start=2)['networkevents']
+    del only_one(nevents)['duration_nsec']
+    del only_one(nevents)['timestamp']
+
+    assert nevents == [{'created_index': 2,
+                        'peer_id': l2.info['id'],
+                        'type': 'ping'}]
+
+    # Finally, disconnect event.
+    fut = executor.submit(l1.rpc.wait, 'networkevents', 'created', 3)
+    time.sleep(1)
+    l2.rpc.disconnect(l1.info['id'])
+    after = time.time()
+
+    res = fut.result(TIMEOUT)
+    assert res == {'subsystem': 'networkevents',
+                   'created': 3,
+                   'networkevents': {'created_index': 3,
+                                     'type': 'disconnect',
+                                     'peer_id': l2.info['id']}}
+
+    nevents = l1.rpc.listnetworkevents(None, 'created', 3)['networkevents']
+    del only_one(nevents)['timestamp']
+    assert only_one(nevents)['duration_nsec'] < (after - before) * 1_000_000_000
+    del only_one(nevents)['duration_nsec']
+
+    assert nevents == [{'created_index': 3,
+                        'peer_id': l2.info['id'],
+                        'type': 'disconnect'}]
+
+    # Failed connects
+    with pytest.raises(RpcError, match="Cryptographic handshake: peer closed connection"):
+        l1.rpc.connect(l2.info['id'], 'localhost', l1.port)
+    nevents = l1.rpc.listnetworkevents(start=4)['networkevents']
+    del only_one(nevents)['timestamp']
+    del only_one(nevents)['duration_nsec']
+
+    assert nevents == [{'created_index': 4,
+                        'peer_id': l2.info['id'],
+                        'type': 'connect_fail',
+                        'connect_attempted': True,
+                        'reason': f'All addresses failed: 127.0.0.1:{l1.port}: Cryptographic handshake: peer closed connection (wrong key?). '}]
+
+    # Connect failed because no listener
+    with pytest.raises(RpcError, match="Connection establishment: Connection refused."):
+        l1.rpc.connect(l2.info['id'], 'localhost', 1)
+    nevents = l1.rpc.listnetworkevents(start=5)['networkevents']
+    del only_one(nevents)['timestamp']
+    del only_one(nevents)['duration_nsec']
+
+    assert nevents == [{'created_index': 5,
+                        'peer_id': l2.info['id'],
+                        'type': 'connect_fail',
+                        'connect_attempted': True,
+                        'reason': f'All addresses failed: 127.0.0.1:1: Connection establishment: Connection refused. '}]
+
+    # Connect failed because unreachable
+    with pytest.raises(RpcError, match="Connection establishment: Connection timed out."):
+        l1.rpc.connect(l2.info['id'], '1.1.1.1', 8081)
+    nevents = l1.rpc.listnetworkevents(start=6)['networkevents']
+    del only_one(nevents)['timestamp']
+    del only_one(nevents)['duration_nsec']
+
+    assert nevents == [{'created_index': 6,
+                        'peer_id': l2.info['id'],
+                        'type': 'connect_fail',
+                        'connect_attempted': True,
+                        'reason': f'All addresses failed: 1.1.1.1:8081: Connection establishment: Connection timed out. '}]
+
+    # Connect failed because it doesn't advertize any addresses.
+    with pytest.raises(RpcError, match="Unable to connect, no address known for peer"):
+        l2.rpc.connect(l1.info['id'])
+
+    failevents = [n for n in l2.rpc.listnetworkevents()['networkevents'] if n['type'] == 'connect_fail']
+    assert failevents[-1]['connect_attempted'] is False
+
+    # Connect failed because we don't have a proxy for Tor.
+    l1.stop()
+    l1.daemon.opts['announce-addr'] = '4acth47i6kxnvkewtm6q7ib2s3ufpo5sqbsnzjpbi7utijcltosqemad.onion'
+    l1.start()
+    node_factory.join_nodes([l1, l2], wait_for_announce=True)
+
+    # Make sure l2 sees l1's onion address.
+    wait_for(lambda: [len(n.get('addresses', [])) for n in l2.rpc.listnodes(l1.info['id'])['nodes']] == [1])
+
+    l2.rpc.disconnect(l1.info['id'], force=True)
+    with pytest.raises(RpcError, match="All addresses failed.*need a proxy"):
+        l2.rpc.connect(l1.info['id'])
+
+    failevents = [n for n in l2.rpc.listnetworkevents()['networkevents'] if n['type'] == 'connect_fail']
+    assert failevents[-1]['connect_attempted'] is False

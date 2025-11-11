@@ -3804,7 +3804,7 @@ pub mod requests {
 	    }
 	}
 
-	/// ['The subsystem to get the next index value from.', '  `invoices`: corresponding to `listinvoices` (added in *v23.08*).', '  `sendpays`: corresponding to `listsendpays` (added in *v23.11*).', '  `forwards`: corresponding to `listforwards` (added in *v23.11*).', '  `htlcs`: corresponding to `listhtlcs` (added in *v25.05*).', '  `chainmoves`: corresponding to `listchainmoves` (added in *v25.09*).', '  `channelmoves`: corresponding to `listchannelmoves` (added in *v25.09*).']
+	/// ['The subsystem to get the next index value from.', '  `invoices`: corresponding to `listinvoices` (added in *v23.08*).', '  `sendpays`: corresponding to `listsendpays` (added in *v23.11*).', '  `forwards`: corresponding to `listforwards` (added in *v23.11*).', '  `htlcs`: corresponding to `listhtlcs` (added in *v25.05*).', '  `chainmoves`: corresponding to `listchainmoves` (added in *v25.09*).', '  `channelmoves`: corresponding to `listchannelmoves` (added in *v25.09*).', '  `networkevents`: corresponding to `listnetworkevents` (added in *v25.12*).']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	#[allow(non_camel_case_types)]
 	pub enum WaitSubsystem {
@@ -3820,6 +3820,8 @@ pub mod requests {
 	    CHAINMOVES = 4,
 	    #[serde(rename = "channelmoves")]
 	    CHANNELMOVES = 5,
+	    #[serde(rename = "networkevents")]
+	    NETWORKEVENTS = 6,
 	}
 
 	impl TryFrom<i32> for WaitSubsystem {
@@ -3832,6 +3834,7 @@ pub mod requests {
 	    3 => Ok(WaitSubsystem::HTLCS),
 	    4 => Ok(WaitSubsystem::CHAINMOVES),
 	    5 => Ok(WaitSubsystem::CHANNELMOVES),
+	    6 => Ok(WaitSubsystem::NETWORKEVENTS),
 	            o => Err(anyhow::anyhow!("Unknown variant {} for enum WaitSubsystem", o)),
 	        }
 	    }
@@ -3846,6 +3849,7 @@ pub mod requests {
 	            WaitSubsystem::HTLCS => "HTLCS",
 	            WaitSubsystem::CHAINMOVES => "CHAINMOVES",
 	            WaitSubsystem::CHANNELMOVES => "CHANNELMOVES",
+	            WaitSubsystem::NETWORKEVENTS => "NETWORKEVENTS",
 	        }.to_string()
 	    }
 	}
@@ -9987,6 +9991,54 @@ pub mod responses {
 	    pub status: Option<WaitInvoicesStatus>,
 	}
 
+	/// ['The kind of network event']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	#[allow(non_camel_case_types)]
+	pub enum WaitNetworkeventsType {
+	    #[serde(rename = "connect")]
+	    CONNECT = 0,
+	    #[serde(rename = "connect_fail")]
+	    CONNECT_FAIL = 1,
+	    #[serde(rename = "ping")]
+	    PING = 2,
+	    #[serde(rename = "disconnect")]
+	    DISCONNECT = 3,
+	}
+
+	impl TryFrom<i32> for WaitNetworkeventsType {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<WaitNetworkeventsType, anyhow::Error> {
+	        match c {
+	    0 => Ok(WaitNetworkeventsType::CONNECT),
+	    1 => Ok(WaitNetworkeventsType::CONNECT_FAIL),
+	    2 => Ok(WaitNetworkeventsType::PING),
+	    3 => Ok(WaitNetworkeventsType::DISCONNECT),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum WaitNetworkeventsType", o)),
+	        }
+	    }
+	}
+
+	impl ToString for WaitNetworkeventsType {
+	    fn to_string(&self) -> String {
+	        match self {
+	            WaitNetworkeventsType::CONNECT => "CONNECT",
+	            WaitNetworkeventsType::CONNECT_FAIL => "CONNECT_FAIL",
+	            WaitNetworkeventsType::PING => "PING",
+	            WaitNetworkeventsType::DISCONNECT => "DISCONNECT",
+	        }.to_string()
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct WaitNetworkevents {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub created_index: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub item_type: Option<WaitNetworkeventsType>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub peer_id: Option<PublicKey>,
+	}
+
 	/// ['Status of the payment.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	#[allow(non_camel_case_types)]
@@ -10048,6 +10100,8 @@ pub mod responses {
 	    CHAINMOVES = 4,
 	    #[serde(rename = "channelmoves")]
 	    CHANNELMOVES = 5,
+	    #[serde(rename = "networkevents")]
+	    NETWORKEVENTS = 6,
 	}
 
 	impl TryFrom<i32> for WaitSubsystem {
@@ -10060,6 +10114,7 @@ pub mod responses {
 	    3 => Ok(WaitSubsystem::HTLCS),
 	    4 => Ok(WaitSubsystem::CHAINMOVES),
 	    5 => Ok(WaitSubsystem::CHANNELMOVES),
+	    6 => Ok(WaitSubsystem::NETWORKEVENTS),
 	            o => Err(anyhow::anyhow!("Unknown variant {} for enum WaitSubsystem", o)),
 	        }
 	    }
@@ -10074,6 +10129,7 @@ pub mod responses {
 	            WaitSubsystem::HTLCS => "HTLCS",
 	            WaitSubsystem::CHAINMOVES => "CHAINMOVES",
 	            WaitSubsystem::CHANNELMOVES => "CHANNELMOVES",
+	            WaitSubsystem::NETWORKEVENTS => "NETWORKEVENTS",
 	        }.to_string()
 	    }
 	}
@@ -10097,6 +10153,8 @@ pub mod responses {
 	    pub htlcs: Option<WaitHtlcs>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub invoices: Option<WaitInvoices>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub networkevents: Option<WaitNetworkevents>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub sendpays: Option<WaitSendpays>,
 	    #[serde(skip_serializing_if = "Option::is_none")]

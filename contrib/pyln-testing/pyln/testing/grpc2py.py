@@ -2162,6 +2162,14 @@ def wait_invoices2py(m):
     })
 
 
+def wait_networkevents2py(m):
+    return remove_default({
+        "type": str(m.item_type),  # EnumField in generate_composite
+        "created_index": m.created_index,  # PrimitiveField in generate_composite
+        "peer_id": hexlify(m.peer_id),  # PrimitiveField in generate_composite
+    })
+
+
 def wait_sendpays2py(m):
     return remove_default({
         "status": str(m.status),  # EnumField in generate_composite

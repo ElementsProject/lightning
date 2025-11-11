@@ -1238,3 +1238,66 @@ static const struct json_command signmessagewithkey_command = {
 	json_signmessagewithkey
 };
 AUTODATA(json_command, &signmessagewithkey_command);
+
+static struct command_result *
+json_listnetworkevents(struct command *cmd,
+		       const char *buffer,
+		       const jsmntok_t *obj UNNEEDED,
+		       const jsmntok_t *params)
+{
+	struct node_id *specific_id;
+	enum wait_index *listindex;
+	u64 *liststart;
+	u32 *listlimit;
+	struct db_stmt *stmt;
+	struct json_stream *response;
+
+	if (!param(cmd, buffer, params,
+		   p_opt("id", param_node_id, &specific_id),
+		   p_opt("index", param_index, &listindex),
+		   p_opt_def("start", param_u64, &liststart, 0),
+		   p_opt("limit", param_u32, &listlimit),
+		   NULL))
+		return command_param_failed();
+
+	response = json_stream_success(cmd);
+	json_array_start(response, "networkevents");
+	stmt = wallet_network_events_first(cmd->ld->wallet,
+					   specific_id,
+					   *liststart,
+					   listlimit);
+	while (stmt) {
+		u64 id;
+		struct node_id peer_id;
+		enum network_event etype;
+		const char *reason;
+		u64 timestamp, duration_nsec;
+		bool connect_attempted;
+
+		wallet_network_events_extract(tmpctx, stmt,
+					      &id, &peer_id, &timestamp, &etype,
+					      &reason, &duration_nsec,
+					      &connect_attempted);
+		json_object_start(response, NULL);
+		json_add_u64(response, "created_index", id);
+		json_add_node_id(response, "peer_id", &peer_id);
+		json_add_string(response, "type", network_event_name(etype));
+		json_add_u64(response, "timestamp", timestamp);
+		if (reason)
+			json_add_string(response, "reason", reason);
+		if (duration_nsec)
+			json_add_u64(response, "duration_nsec", duration_nsec);
+		if (etype == NETWORK_EVENT_CONNECTFAIL)
+			json_add_bool(response, "connect_attempted", connect_attempted);
+		json_object_end(response);
+		stmt = wallet_network_events_next(cmd->ld->wallet, stmt);
+	}
+	json_array_end(response);
+	return command_success(cmd, response);
+}
+
+static const struct json_command listnetworkevents_cmd = {
+	"listnetworkevents",
+	json_listnetworkevents
+};
+AUTODATA(json_command, &listnetworkevents_cmd);
