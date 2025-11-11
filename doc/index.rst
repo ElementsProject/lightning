@@ -103,6 +103,7 @@ Core Lightning Documentation
    listhtlcs <listhtlcs.7.md>
    listinvoicerequests <listinvoicerequests.7.md>
    listinvoices <listinvoices.7.md>
+   listnetworkevents <listnetworkevents.7.md>
    listnodes <listnodes.7.md>
    listoffers <listoffers.7.md>
    listpays <listpays.7.md>

@@ -2853,6 +2853,7 @@ message WaitRequest {
 		HTLCS = 3;
 		CHAINMOVES = 4;
 		CHANNELMOVES = 5;
+		NETWORKEVENTS = 6;
 	}
 	// Wait.indexname
 	enum WaitIndexname {
@@ -2874,6 +2875,7 @@ message WaitResponse {
 		HTLCS = 3;
 		CHAINMOVES = 4;
 		CHANNELMOVES = 5;
+		NETWORKEVENTS = 6;
 	}
 	WaitSubsystem subsystem = 1;
 	optional uint64 created = 2;
@@ -2886,6 +2888,7 @@ message WaitResponse {
 	optional WaitHtlcs htlcs = 9;
 	optional WaitChainmoves chainmoves = 10;
 	optional WaitChannelmoves channelmoves = 11;
+	optional WaitNetworkevents networkevents = 12;
 }
 
 message WaitForwards {
@@ -2978,6 +2981,19 @@ message WaitChannelmoves {
 	string account = 1;
 	Amount credit_msat = 2;
 	Amount debit_msat = 3;
+}
+
+message WaitNetworkevents {
+	// Wait.networkevents.type
+	enum WaitNetworkeventsType {
+		CONNECT = 0;
+		CONNECT_FAIL = 1;
+		PING = 2;
+		DISCONNECT = 3;
+	}
+	optional uint64 created_index = 1;
+	optional WaitNetworkeventsType item_type = 2;
+	optional bytes peer_id = 3;
 }
 
 message WaitDetails {

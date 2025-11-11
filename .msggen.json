@@ -542,6 +542,12 @@
             "paid": 1,
             "unpaid": 0
         },
+        "WaitNetworkeventsType": {
+            "connect": 0,
+            "connect_fail": 1,
+            "disconnect": 3,
+            "ping": 2
+        },
         "WaitSendpaysStatus": {
             "complete": 2,
             "failed": 1,
@@ -553,6 +559,7 @@
             "forwards": 1,
             "htlcs": 3,
             "invoices": 0,
+            "networkevents": 6,
             "sendpays": 2
         },
         "WaitanyinvoiceStatus": {
@@ -3767,6 +3774,11 @@
             "Wait.invoices.label": 2,
             "Wait.invoices.status": 1
         },
+        "WaitNetworkevents": {
+            "Wait.networkevents.created_index": 1,
+            "Wait.networkevents.peer_id": 3,
+            "Wait.networkevents.type": 2
+        },
         "WaitRequest": {
             "Wait.indexname": 2,
             "Wait.nextvalue": 3,
@@ -3781,6 +3793,7 @@
             "Wait.forwards": 6,
             "Wait.htlcs": 9,
             "Wait.invoices": 7,
+            "Wait.networkevents": 12,
             "Wait.sendpays": 8,
             "Wait.subsystem": 1,
             "Wait.updated": 3
@@ -13095,6 +13108,22 @@
         },
         "Wait.invoices.status": {
             "added": "v25.05",
+            "deprecated": null
+        },
+        "Wait.networkevents": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "Wait.networkevents.created_index": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "Wait.networkevents.peer_id": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "Wait.networkevents.type": {
+            "added": "v25.12",
             "deprecated": null
         },
         "Wait.nextvalue": {
