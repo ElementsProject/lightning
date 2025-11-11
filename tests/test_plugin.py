@@ -3907,7 +3907,23 @@ def test_sql(node_factory, bitcoind):
                         {'name': 'txid',
                          'type': 'txid'},
                         {'name': 'payment_id',
-                         'type': 'hex'}]}}
+                         'type': 'hex'}]},
+        'networkevents': {
+            'columns': [{'name': 'created_index',
+                         'type': 'u64'},
+                        {'name': 'timestamp',
+                         'type': 'u64'},
+                        {'name': 'peer_id',
+                         'type': 'pubkey'},
+                        {'name': 'type',
+                         'type': 'string'},
+                        {'name': 'reason',
+                         'type': 'string'},
+                        {'name': 'duration_nsec',
+                         'type': 'u64'},
+                        {'name': 'connect_attempted',
+                         'type': 'boolean'}]},
+    }
 
     sqltypemap = {'string': 'TEXT',
                   'boolean': 'INTEGER',
