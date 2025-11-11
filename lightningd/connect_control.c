@@ -262,6 +262,14 @@ static void connect_failed(struct lightningd *ld,
 {
 	struct connect *c;
 
+	/* Don't record twice. */
+	if (errcode != CONNECT_DISCONNECTED_DURING)
+		wallet_save_network_event(ld, id,
+					  NETWORK_EVENT_CONNECTFAIL,
+					  errmsg,
+					  connect_nsec,
+					  connect_attempted);
+
 	/* We can have multiple connect commands: fail them all */
 	while ((c = find_connect(ld, id)) != NULL) {
 		/* They delete themselves from list */
@@ -490,6 +498,12 @@ static void handle_ping_latency(struct lightningd *ld, const u8 *msg)
 
 	log_peer_trace(ld->log, &id, "Ping latency: %"PRIu64"nsec",
 		       nsec);
+
+	wallet_save_network_event(ld, &id,
+				  NETWORK_EVENT_PING,
+				  NULL,
+				  nsec,
+				  false);
 }
 
 static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fds)
