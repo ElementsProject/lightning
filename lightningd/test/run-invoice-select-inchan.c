@@ -687,6 +687,14 @@ char *wallet_offer_find(const tal_t *ctx UNNEEDED,
 			enum offer_status *status)
 
 { fprintf(stderr, "wallet_offer_find called!\n"); abort(); }
+/* Generated stub for wallet_save_network_event */
+void wallet_save_network_event(struct lightningd *ld UNNEEDED,
+			       const struct node_id *peer_id UNNEEDED,
+			       enum network_event etype UNNEEDED,
+			       const char *reason UNNEEDED,
+			       u64 duration_nsec UNNEEDED,
+			       bool connect_attempted UNNEEDED)
+{ fprintf(stderr, "wallet_save_network_event called!\n"); abort(); }
 /* Generated stub for wallet_total_forward_fees */
 struct amount_msat wallet_total_forward_fees(struct wallet *w UNNEEDED)
 { fprintf(stderr, "wallet_total_forward_fees called!\n"); abort(); }

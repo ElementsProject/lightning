@@ -1744,6 +1744,12 @@ void handle_peer_connected(struct lightningd *ld, const u8 *msg)
 		connect_nsec = 0;
 	}
 
+	wallet_save_network_event(ld, &id,
+				  NETWORK_EVENT_CONNECT,
+				  hook_payload->incoming ? NULL : connect_reason,
+				  connect_nsec,
+				  false);
+
 	/* If we connected, and it's a normal address */
 	if (!hook_payload->incoming
 	    && hook_payload->addr.itype == ADDR_INTERNAL_WIREADDR
@@ -2090,6 +2096,10 @@ static void peer_disconnected(struct lightningd *ld,
 {
 	struct disconnect_command *i, *next;
 	struct peer *p;
+
+	wallet_save_network_event(ld, id,
+				  NETWORK_EVENT_DISCONNECT,
+				  NULL, connected_time_nsec, false);
 
 	/* If we still have peer, it's disconnected now */
 	p = peer_by_id(ld, id);
