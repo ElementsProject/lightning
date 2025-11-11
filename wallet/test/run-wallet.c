@@ -213,6 +213,7 @@ void connect_succeeded(struct lightningd *ld UNNEEDED, const struct peer *peer U
 /* Generated stub for connectd_connect_to_peer */
 void connectd_connect_to_peer(struct lightningd *ld UNNEEDED,
 			      const struct peer *peer UNNEEDED,
+			      const char *reason UNNEEDED,
 			      bool is_important UNNEEDED)
 { fprintf(stderr, "connectd_connect_to_peer called!\n"); abort(); }
 /* Generated stub for create_anchor_details */
@@ -298,7 +299,7 @@ bool fromwire_channeld_offer_htlc_reply(const tal_t *ctx UNNEEDED, const void *p
 bool fromwire_channeld_sending_commitsig(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u64 *commitnum UNNEEDED, struct penalty_base **pbase UNNEEDED, struct fee_states **fee_states UNNEEDED, struct height_states **blockheight_states UNNEEDED, struct changed_htlc **changed UNNEEDED)
 { fprintf(stderr, "fromwire_channeld_sending_commitsig called!\n"); abort(); }
 /* Generated stub for fromwire_connectd_peer_connected */
-bool fromwire_connectd_peer_connected(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id *id UNNEEDED, u64 *counter UNNEEDED, struct wireaddr_internal *addr UNNEEDED, struct wireaddr **remote_addr UNNEEDED, bool *incoming UNNEEDED, u8 **features UNNEEDED)
+bool fromwire_connectd_peer_connected(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id *id UNNEEDED, u64 *counter UNNEEDED, struct wireaddr_internal *addr UNNEEDED, struct wireaddr **remote_addr UNNEEDED, bool *incoming UNNEEDED, u8 **features UNNEEDED, wirestring **connect_reason UNNEEDED, u64 *connect_nsec UNNEEDED)
 { fprintf(stderr, "fromwire_connectd_peer_connected called!\n"); abort(); }
 /* Generated stub for fromwire_connectd_peer_disconnected */
 bool fromwire_connectd_peer_disconnected(const void *p UNNEEDED, struct node_id *id UNNEEDED, u64 *counter UNNEEDED)

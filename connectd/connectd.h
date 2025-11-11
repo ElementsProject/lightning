@@ -203,6 +203,12 @@ struct connecting {
 	/* How far did we get? */
 	const char *connstate;
 
+	/* Why are we connecting? */
+	const char *reason;
+
+	/* When did we start? */
+	struct timemono start;
+
 	/* Accumulated errors */
 	char *errors;
 };

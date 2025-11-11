@@ -177,7 +177,8 @@ static void handle_connect_to_peer(struct subd *gossip, const u8 *msg)
 	connectmsg = towire_connectd_connect_to_peer(NULL,
 						     &id,
 						     NULL,	//addrhint,
-						     true);	//transient
+						     true,	//transient
+						     "gossipd");
 	subd_send_msg(gossip->ld->connectd, take(connectmsg));
 }
 

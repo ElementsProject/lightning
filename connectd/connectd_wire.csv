@@ -64,10 +64,13 @@ msgdata,connectd_connect_to_peer,id,node_id,
 msgdata,connectd_connect_to_peer,len,u32,
 msgdata,connectd_connect_to_peer,addrs,wireaddr_internal,len
 msgdata,connectd_connect_to_peer,transient,bool,
+msgdata,connectd_connect_to_peer,reason,wirestring,
 
 # Connectd->master: connect failed.
 msgtype,connectd_connect_failed,2020
 msgdata,connectd_connect_failed,id,node_id,
+msgdata,connectd_connect_failed,connect_reason,wirestring,
+msgdata,connectd_connect_failed,connect_nsec,u64,
 msgdata,connectd_connect_failed,failcode,enum jsonrpc_errcode,
 msgdata,connectd_connect_failed,failreason,wirestring,
 
@@ -80,6 +83,8 @@ msgdata,connectd_peer_connected,remote_addr,?wireaddr,
 msgdata,connectd_peer_connected,incoming,bool,
 msgdata,connectd_peer_connected,flen,u16,
 msgdata,connectd_peer_connected,features,u8,flen
+msgdata,connectd_peer_connected,connect_reason,wirestring,
+msgdata,connectd_peer_connected,connect_nsec,u64,
 
 # connectd -> master: peer disconnected.
 msgtype,connectd_peer_disconnected,2006
