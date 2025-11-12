@@ -1,9 +1,8 @@
 ---
-title: "WSS Proxy"
-slug: "wss-proxy"
-hidden: false
-createdAt: "2024-04-15T09:54:01.784Z"
-updatedAt: "2024-04-15T09:54:01.784Z"
+title: WSS Proxy
+slug: wss-proxy
+privacy:
+  view: public
 ---
 
 # WSS-Proxy

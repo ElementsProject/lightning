@@ -1,9 +1,8 @@
 ---
-title: "Tutorials"
-slug: "additional-resources"
-hidden: false
-createdAt: "2023-02-03T08:33:51.998Z"
-updatedAt: "2023-02-08T09:36:57.988Z"
+title: Tutorials
+slug: additional-resources
+privacy:
+  view: public
 ---
 ## Writing a plugin in Python
 

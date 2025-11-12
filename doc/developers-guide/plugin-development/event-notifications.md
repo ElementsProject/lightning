@@ -1,9 +1,8 @@
 ---
-title: "Event notifications"
-slug: "event-notifications"
-hidden: false
-createdAt: "2023-02-03T08:57:15.799Z"
-updatedAt: "2023-07-14T07:17:17.114Z"
+title: Event notifications
+slug: event-notifications
+privacy:
+  view: public
 ---
 Event notifications allow a plugin to subscribe to events in `lightningd`. `lightningd` will then send a push notification if an event matching the subscription occurred. A notification is defined in the JSON-RPC [specification][jsonrpc-spec] as an RPC call that does not include an `id` parameter:
 

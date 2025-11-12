@@ -1,9 +1,8 @@
 ---
-title: "JSON-RPC passthrough"
-slug: "json-rpc-passthrough"
-hidden: false
-createdAt: "2023-02-03T08:53:50.840Z"
-updatedAt: "2023-02-03T08:53:50.840Z"
+title: JSON-RPC passthrough
+slug: json-rpc-passthrough
+privacy:
+  view: public
 ---
 Plugins may register their own JSON-RPC methods that are exposed through the JSON-RPC provided by `lightningd`. This provides users with a single interface to interact with, while allowing the addition of custom methods without having to modify the daemon itself.
 

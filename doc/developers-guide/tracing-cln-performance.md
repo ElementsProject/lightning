@@ -1,7 +1,8 @@
 ---
-title: "Tracing CLN Performance"
-slug: "tracing-cln-performance"
-hidden: false
+title: Tracing CLN Performance
+slug: tracing-cln-performance
+privacy:
+  view: public
 ---
 CLN includes a simple opentracing exporter that allows tracing the execution of the node in real-time, without incurring a performance penalty when not listening for traces. Quoting the [Wikipedia](https://en.wikipedia.org/wiki/Tracing_(software)) entry on Tracing:
 

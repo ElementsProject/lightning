@@ -1,9 +1,8 @@
 ---
-title: "REST APIs"
-slug: "rest"
-hidden: false
-createdAt: "2023-09-05T09:54:01.784Z"
-updatedAt: "2023-10-13T09:54:01.784Z"
+title: REST APIs
+slug: rest
+privacy:
+  view: public
 ---
 
 # CLNRest

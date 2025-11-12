@@ -1,10 +1,12 @@
 ---
-title: "Plugin Development"
-slug: "plugin-development"
-excerpt: "Customise your Core Lightning node by leveraging its powerful modular architecture via plugins."
-hidden: false
-createdAt: "2022-12-09T09:56:22.085Z"
-updatedAt: "2023-02-06T03:21:36.614Z"
+title: Plugin Development
+slug: plugin-development
+content:
+  excerpt: >-
+    Customise your Core Lightning node by leveraging its powerful modular
+    architecture via plugins.
+privacy:
+  view: public
 ---
 Plugins are a simple yet powerful way to extend the functionality provided by Core Lightning. They are subprocesses that are started by the main `lightningd` daemon and can interact with `lightningd` in a variety of ways:
 

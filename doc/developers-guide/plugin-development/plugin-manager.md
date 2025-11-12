@@ -1,10 +1,10 @@
 ---
-title: "Plugin manager"
-slug: "plugin-manager"
-excerpt: "Learn how to add your plugin to the `reckless` plugin manager."
-hidden: false
-createdAt: "2023-02-08T13:22:17.211Z"
-updatedAt: "2023-02-21T15:11:45.714Z"
+title: Plugin manager
+slug: plugin-manager
+content:
+  excerpt: Learn how to add your plugin to the `reckless` plugin manager.
+privacy:
+  view: public
 ---
 `reckless` is a plugin manager for Core Lightning that you can use to install and uninstall [plugins](doc:plugins) with a single command.
 

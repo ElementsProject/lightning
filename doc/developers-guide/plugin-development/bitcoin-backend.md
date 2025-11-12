@@ -1,9 +1,8 @@
 ---
-title: "Bitcoin backend"
-slug: "bitcoin-backend"
-hidden: false
-createdAt: "2023-02-03T08:58:27.125Z"
-updatedAt: "2023-07-13T05:18:59.439Z"
+title: Bitcoin backend
+slug: bitcoin-backend
+privacy:
+  view: public
 ---
 Core Lightning communicates with the Bitcoin network through a plugin. It uses the `bcli` plugin by default but you can use a custom one, multiple custom ones for different operations, or write your own for your favourite Bitcoin data source!
 
