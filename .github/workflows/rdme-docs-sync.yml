@@ -16,36 +16,26 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Sync doc/getting-started/ 🚀
-        uses: readmeio/rdme@v8
-        env:
-          README_API_KEY: ${{ secrets.README_API_KEY }}
+        uses: readmeio/rdme@v10
         with:
-          rdme: docs doc/getting-started --key=${{ env.README_API_KEY }} --version=1
+          rdme: docs upload ./doc/getting-started --key=${{ secrets.README_API_KEY }} --branch=1
             
       - name: Sync doc/beginners-guide/ 🚀
-        uses: readmeio/rdme@v8
-        env:
-          README_API_KEY: ${{ secrets.README_API_KEY }}
+        uses: readmeio/rdme@v10
         with:
-          rdme: docs doc/beginners-guide --key=${{ env.README_API_KEY }} --version=1
+          rdme: docs upload ./doc/beginners-guide --key=${{ secrets.README_API_KEY }} --branch=1
       
       - name: Sync doc/node-operators-guide/ 🚀
-        uses: readmeio/rdme@v8
-        env:
-          README_API_KEY: ${{ secrets.README_API_KEY }}
+        uses: readmeio/rdme@v10
         with:
-          rdme: docs doc/node-operators-guide --key=${{ env.README_API_KEY }} --version=1
+          rdme: docs upload ./doc/node-operators-guide --key=${{ secrets.README_API_KEY }} --branch=1
       
       - name: Sync doc/developers-guide/ 🚀
-        uses: readmeio/rdme@v8
-        env:
-          README_API_KEY: ${{ secrets.README_API_KEY }}
+        uses: readmeio/rdme@v10
         with:
-          rdme: docs doc/developers-guide --key=${{ env.README_API_KEY }} --version=1
+          rdme: docs upload ./doc/developers-guide --key=${{ secrets.README_API_KEY }} --branch=1
       
       - name: Sync doc/contributing-to-core-lightning/ 🚀
-        uses: readmeio/rdme@v8
-        env:
-          README_API_KEY: ${{ secrets.README_API_KEY }}
+        uses: readmeio/rdme@v10
         with:
-          rdme: docs doc/contribute-to-core-lightning --key=${{ env.README_API_KEY }} --version=1
+          rdme: docs upload ./doc/contribute-to-core-lightning --key=${{ secrets.README_API_KEY }} --branch=1
