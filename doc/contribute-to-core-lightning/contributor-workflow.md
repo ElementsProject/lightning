@@ -1,10 +1,10 @@
 ---
-title: "Contributor Workflow"
-slug: "contributor-workflow"
-excerpt: "Learn the practical process and guidelines for contributing."
-hidden: false
-createdAt: "2022-12-09T09:57:57.245Z"
-updatedAt: "2023-07-12T13:40:58.465Z"
+title: Contributor Workflow
+slug: contributor-workflow
+content:
+  excerpt: Learn the practical process and guidelines for contributing.
+privacy:
+  view: public
 ---
 ## Build and Development
 

@@ -1,9 +1,8 @@
 ---
-title: "Writing JSON Schemas"
-slug: "writing-json-schemas"
-hidden: false
-createdAt: "2023-01-25T05:46:43.718Z"
-updatedAt: "2024-01-18T15:36:28.523Z"
+title: Writing JSON Schemas
+slug: writing-json-schemas
+privacy:
+  view: public
 ---
 A JSON Schema is a JSON file which defines what a structure should look like; in our case we use it in our testsuite to check that they match command requests and responses, and also use it to generate our documentation.
 

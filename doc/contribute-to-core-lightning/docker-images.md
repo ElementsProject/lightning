@@ -1,9 +1,8 @@
 ---
-title: "Docker Images"
-slug: "docker-images"
-hidden: false
-createdAt: "2023-12-07T10:00:00.000Z"
-updatedAt: "2023-12-07T10:00:00.000Z"
+title: Docker Images
+slug: docker-images
+privacy:
+  view: public
 ---
 # Setting up Docker's Buildx
 

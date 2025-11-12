@@ -1,9 +1,8 @@
 ---
-title: "Release Checklist"
-slug: "release-checklist"
-hidden: false
-createdAt: "2023-12-07T10:00:00.000Z"
-updatedAt: "2023-12-07T10:00:00.000Z"
+title: Release Checklist
+slug: release-checklist
+privacy:
+  view: public
 ---
 # Release checklist
 

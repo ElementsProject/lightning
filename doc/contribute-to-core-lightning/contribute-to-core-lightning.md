@@ -1,10 +1,10 @@
 ---
-title: "CLN Architecture"
-slug: "contribute-to-core-lightning"
-excerpt: "Familiarise yourself with the core components of Core Lightning."
-hidden: false
-createdAt: "2022-11-18T14:28:33.564Z"
-updatedAt: "2023-02-21T15:12:37.888Z"
+title: CLN Architecture
+slug: contribute-to-core-lightning
+content:
+  excerpt: Familiarise yourself with the core components of Core Lightning.
+privacy:
+  view: public
 ---
 The Core Lightning project implements the lightning protocol as specified in [various BOLTs](https://github.com/lightning/bolts). It's broken into subdaemons, with the idea being that we can add more layers of separation between different clients and extra barriers to exploits.
 

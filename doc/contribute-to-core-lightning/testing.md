@@ -1,10 +1,10 @@
 ---
-title: "Testing"
-slug: "testing"
-excerpt: "Understand the testing and code review practices."
-hidden: false
-createdAt: "2022-12-09T09:58:21.295Z"
-updatedAt: "2023-07-13T05:21:39.220Z"
+title: Testing
+slug: testing
+content:
+  excerpt: Understand the testing and code review practices.
+privacy:
+  view: public
 ---
 # Testing
 
