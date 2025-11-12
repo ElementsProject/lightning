@@ -1,10 +1,10 @@
 ---
-title: "Troubleshooting & FAQ"
-slug: "faq"
-excerpt: "Common issues and frequently asked questions on operating a CLN node."
-hidden: false
-createdAt: "2023-01-25T13:15:09.290Z"
-updatedAt: "2023-07-05T09:42:38.017Z"
+title: Troubleshooting & FAQ
+slug: faq
+content:
+  excerpt: Common issues and frequently asked questions on operating a CLN node.
+privacy:
+  view: public
 ---
 # General questions
 

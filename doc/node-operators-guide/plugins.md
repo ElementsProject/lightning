@@ -1,10 +1,10 @@
 ---
-title: "Plugins"
-slug: "plugins"
-excerpt: "Leverage a plethora of plugins on Core Lightning."
-hidden: false
-createdAt: "2022-12-09T09:55:05.629Z"
-updatedAt: "2023-02-14T12:47:46.112Z"
+title: Plugins
+slug: plugins
+content:
+  excerpt: Leverage a plethora of plugins on Core Lightning.
+privacy:
+  view: public
 ---
 Power up your Core Lightning node and tailor it for your business needs with community built plugins.
 
