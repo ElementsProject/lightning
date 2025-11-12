@@ -1,14 +1,15 @@
 import os
+from urllib.parse import quote
 from time import sleep
 import requests
 import re
 from enum import Enum
 
 # readme url
-URL = "https://dash.readme.com/api/v1"
+URL = "https://api.readme.com/v2/branches/stable"
 # category id for API reference
 CATEGORY_ID = "685ce4df1df887006ff221c5"
-CATEGORY_SLUG = "json-rpc-apis"
+CATEGORY_SLUG = "JSON-RPC API Reference"
 
 
 class Action(Enum):
@@ -18,9 +19,9 @@ class Action(Enum):
 
 
 def getListOfRPCDocs(headers):
-    response = requests.get(f"{URL}/categories/{CATEGORY_SLUG}/docs", headers=headers)
+    response = requests.get(f"{URL}/categories/reference/{quote(CATEGORY_SLUG)}/pages", headers=headers)
     if response.status_code == 200:
-        return response.json()
+        return response.json().get('data', [])
     else:
         return []
 
@@ -30,28 +31,30 @@ def publishDoc(action, title, body, order, headers):
         "title": title,
         "type": "basic",
         "body": body,
-        "category": CATEGORY_ID,
+        "category": {
+            "id": CATEGORY_ID
+        },
         "hidden": False,
         "order": order,
     }
-    # title == slug
     if action == Action.ADD:
         # create doc
-        response = requests.post(URL + "/docs", json=payload, headers=headers)
+        payload['slug'] = title
+        response = requests.post(URL + "/reference", json=payload, headers=headers)
         if response.status_code != 201:
             print(response.text)
         else:
             print("Created ", title)
     elif action == Action.UPDATE:
         # update doc
-        response = requests.put(f"{URL}/docs/{title}", json=payload, headers=headers)
+        response = requests.patch(f"{URL}/reference/{title}", json=payload, headers=headers)
         if response.status_code != 200:
             print(response.text)
         else:
             print("Updated ", title)
     elif action == Action.DELETE:
         # delete doc
-        response = requests.delete(f"{URL}/docs/{title}", headers=headers)
+        response = requests.delete(f"{URL}/reference/{title}", headers=headers)
         if response.status_code != 204:
             print(response.text)
         else:
@@ -79,7 +82,7 @@ def main():
     headers = {
         "accept": "application/json",
         "content-type": "application/json",
-        "authorization": "Basic " + os.environ.get("README_API_KEY"),
+        "Authorization": "Bearer " + os.environ.get("README_API_KEY"),
     }
 
     # path to the rst file from where we fetch all the RPC commands
