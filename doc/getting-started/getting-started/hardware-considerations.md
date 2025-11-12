@@ -1,10 +1,12 @@
 ---
-title: "Hardware considerations"
-slug: "hardware-considerations"
-excerpt: "A lightning node requires reasonable amount of memory and storage. Learn what's suitable for your scenario."
-hidden: true
-createdAt: "2022-11-18T14:31:38.695Z"
-updatedAt: "2023-04-01T00:09:20.148Z"
+title: Hardware considerations
+slug: hardware-considerations
+content:
+  excerpt: >-
+    A lightning node requires reasonable amount of memory and storage.
+    Learn what's suitable for your scenario.
+privacy:
+  view: anyone_with_link
 ---
 # Hobbyist
 

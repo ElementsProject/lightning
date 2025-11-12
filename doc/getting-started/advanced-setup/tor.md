@@ -1,9 +1,8 @@
 ---
-title: "Using Tor"
-slug: "tor"
-hidden: false
-createdAt: "2023-01-25T10:55:50.059Z"
-updatedAt: "2023-02-21T13:30:33.294Z"
+title: Using Tor
+slug: tor
+privacy:
+  view: public
 ---
 To use any Tor features with Core Lightning you must have Tor installed and running.
 

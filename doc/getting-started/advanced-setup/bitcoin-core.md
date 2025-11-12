@@ -1,9 +1,8 @@
 ---
-title: "Bitcoin Core"
-slug: "bitcoin-core"
-hidden: false
-createdAt: "2023-01-31T13:24:19.300Z"
-updatedAt: "2023-02-21T13:30:53.906Z"
+title: Bitcoin Core
+slug: bitcoin-core
+privacy:
+  view: public
 ---
 # Using a pruned Bitcoin Core node
 

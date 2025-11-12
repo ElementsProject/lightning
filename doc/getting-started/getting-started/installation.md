@@ -1,10 +1,11 @@
 ---
-title: "Installation"
-slug: "installation"
-excerpt: "Core lightning is available on many platforms and environments. Learn how to install on your preferred platform."
-hidden: false
-createdAt: "2022-11-18T14:32:02.251Z"
-updatedAt: "2023-07-13T05:08:44.966Z"
+title: Installation
+slug: installation
+content:
+  excerpt: >-
+    Core lightning is available on many platforms and environments. Learn how to install on your preferred platform.
+privacy:
+  view: public
 ---
 # Binaries
 

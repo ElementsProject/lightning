@@ -1,9 +1,8 @@
 ---
-title: "Reproducible builds"
-slug: "repro"
-hidden: false
-createdAt: "2023-01-25T10:37:03.476Z"
-updatedAt: "2023-07-12T13:26:52.005Z"
+title: Reproducible builds
+slug: repro
+privacy:
+  view: public
 ---
 [Reproducible builds](https://reproducible-builds.org/) close the final gap in the lifecycle of open-source projects by allowing anyone to verify that a given binary was produced by compiling publicly available source code.
 

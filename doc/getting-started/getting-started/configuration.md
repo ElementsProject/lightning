@@ -1,10 +1,10 @@
 ---
-title: "Configuring your node"
-slug: "configuration"
-excerpt: "Choose from a variety of configuration options as per your needs."
-hidden: false
-createdAt: "2022-11-18T14:32:13.821Z"
-updatedAt: "2023-02-21T13:26:18.280Z"
+title: Configuring your node
+slug: configuration
+content:
+  excerpt: Choose from a variety of configuration options as per your needs.
+privacy:
+  view: public
 ---
 `lightningd` can be configured either by passing options via the command line, or via a configuration file.
 
