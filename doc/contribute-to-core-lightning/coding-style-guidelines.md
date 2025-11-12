@@ -1,9 +1,8 @@
 ---
-title: "Coding Style Guidelines"
-slug: "coding-style-guidelines"
-hidden: false
-createdAt: "2023-01-25T05:34:10.822Z"
-updatedAt: "2023-07-13T05:11:09.525Z"
+title: Coding Style Guidelines
+slug: coding-style-guidelines
+privacy:
+  view: public
 ---
 Style is an individualistic thing, but working on software is group activity, so consistency is important.  Generally our coding style is similar to the [Linux coding style](https://www.kernel.org/doc/html/v4.10/process/coding-style.html).
 

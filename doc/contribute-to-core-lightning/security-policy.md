@@ -1,10 +1,10 @@
 ---
-title: "Security policy"
-slug: "security-policy"
-excerpt: "Learn how to responsibly report a security issue."
-hidden: false
-createdAt: "2022-12-09T09:58:38.899Z"
-updatedAt: "2025-03-22T15:15:57.281Z"
+title: Security policy
+slug: security-policy
+content:
+  excerpt: Learn how to responsibly report a security issue.
+privacy:
+  view: public
 ---
 ## Supported Versions
 

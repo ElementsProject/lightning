@@ -1,9 +1,8 @@
 ---
-title: "Code Generation"
-slug: "code-generation"
-hidden: false
-createdAt: "2023-04-22T12:29:01.116Z"
-updatedAt: "2024-01-18T12:44:47.814Z"
+title: Code Generation
+slug: code-generation
+privacy:
+  view: public
 ---
 The CLN project has a multitude of interfaces, most of which are generated from an abstract schema:
 
