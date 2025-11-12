@@ -1,8 +1,10 @@
 ---
-title: "HSM Secret"
-slug: "hsm-secret"
-excerpt: "Learn about various cool HSM secret methods."
-hidden: false
+title: HSM Secret
+slug: hsm-secret
+content:
+  excerpt: Learn about various cool HSM secret methods.
+privacy:
+  view: public
 ---
 
 

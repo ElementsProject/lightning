@@ -1,10 +1,10 @@
 ---
-title: "Running your node"
-slug: "beginners-guide"
-excerpt: "A guide to all the basics you need to get up and running immediately."
-hidden: false
-createdAt: "2022-11-18T14:27:50.098Z"
-updatedAt: "2023-02-21T13:49:20.132Z"
+title: Running your node
+slug: beginners-guide
+content:
+  excerpt: A guide to all the basics you need to get up and running immediately.
+privacy:
+  view: public
 ---
 ## Starting `lightningd`
 

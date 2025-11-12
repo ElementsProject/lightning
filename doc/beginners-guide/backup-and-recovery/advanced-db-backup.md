@@ -1,8 +1,10 @@
 ---
-title: "Advanced DB Backup"
-slug: "advanced-db-backup"
-excerpt: "Learn the various DB backup techniques."
-hidden: false
+title: Advanced DB Backup
+slug: advanced-db-backup
+content:
+  excerpt: Learn the various DB backup techniques.
+privacy:
+  view: public
 ---
 
 To recover in-channel funds, you need to use one or more of the backup strategies below.

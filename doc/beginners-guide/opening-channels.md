@@ -1,9 +1,8 @@
 ---
-title: "Opening channels"
-slug: "opening-channels"
-hidden: false
-createdAt: "2022-11-18T16:26:57.798Z"
-updatedAt: "2023-01-31T15:07:08.196Z"
+title: Opening channels
+slug: opening-channels
+privacy:
+  view: public
 ---
 First you need to transfer some funds to `lightningd` so that it can open a channel:
 

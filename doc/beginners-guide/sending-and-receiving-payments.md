@@ -1,9 +1,8 @@
 ---
-title: "Sending and receiving payments"
-slug: "sending-and-receiving-payments"
-hidden: false
-createdAt: "2022-11-18T16:27:07.625Z"
-updatedAt: "2023-01-31T15:06:02.214Z"
+title: Sending and receiving payments
+slug: sending-and-receiving-payments
+privacy:
+  view: public
 ---
 Payments in Lightning are invoice based.
 
