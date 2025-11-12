@@ -1,9 +1,8 @@
 ---
-title: "JSON-RPC commands"
-slug: "json-rpc"
-hidden: false
-createdAt: "2023-02-07T12:53:11.917Z"
-updatedAt: "2023-02-21T13:50:10.086Z"
+title: JSON-RPC commands
+slug: json-rpc
+privacy:
+  view: public
 ---
 > 📘 
 > 

@@ -1,10 +1,12 @@
 ---
-title: "Setting up a dev environment"
-slug: "developers-guide"
-excerpt: "Get up and running in your local environment with essential tools and libraries in your preferred programming language."
-hidden: false
-createdAt: "2022-11-18T14:28:23.407Z"
-updatedAt: "2023-02-08T11:42:44.759Z"
+title: Setting up a dev environment
+slug: developers-guide
+content:
+  excerpt: >-
+    Get up and running in your local environment with essential tools and
+    libraries in your preferred programming language.
+privacy:
+  view: public
 ---
 ## Using `startup_regtest.sh`
 

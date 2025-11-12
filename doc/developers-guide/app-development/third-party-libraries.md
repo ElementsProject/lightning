@@ -1,9 +1,8 @@
 ---
-title: "Third-party libraries"
-slug: "third-party-libraries"
-hidden: false
-createdAt: "2023-02-08T09:54:01.784Z"
-updatedAt: "2023-09-05T13:55:16.224Z"
+title: Third-party libraries
+slug: third-party-libraries
+privacy:
+  view: public
 ---
 
 ## GraphQL

@@ -1,9 +1,8 @@
 ---
-title: "Hooks"
-slug: "hooks"
-hidden: false
-createdAt: "2023-02-03T08:57:58.166Z"
-updatedAt: "2023-02-21T15:08:30.254Z"
+title: Hooks
+slug: hooks
+privacy:
+  view: public
 ---
 Hooks allow a plugin to define custom behavior for `lightningd` without having to modify the Core Lightning source code itself. A plugin declares that it'd like to be consulted on what to do next for certain events in the daemon. A hook can then decide how `lightningd` should
 react to the given event.

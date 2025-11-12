@@ -1,9 +1,8 @@
 ---
-title: "A day in the life of a plugin"
-slug: "a-day-in-the-life-of-a-plugin"
-hidden: false
-createdAt: "2023-02-03T08:32:53.431Z"
-updatedAt: "2023-07-12T13:48:23.030Z"
+title: A day in the life of a plugin
+slug: a-day-in-the-life-of-a-plugin
+privacy:
+  view: public
 ---
 A plugin may be written in any language, and communicates with `lightningd` through the plugin's `stdin` and `stdout`. JSON-RPCv2 is used as protocol on top of the two streams, with the plugin acting as server and `lightningd` acting as client. The plugin file needs to be executable (e.g. use `chmod a+x plugin_name`).
 

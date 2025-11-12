@@ -1,8 +1,10 @@
 ---
-title: "App Development"
-slug: "app-development"
-excerpt: "Build a lightning application using Core Lightning APIs."
-hidden: false
+title: App Development
+slug: app-development
+content:
+  excerpt: Build a lightning application using Core Lightning APIs.
+privacy:
+  view: public
 ---
 
 ## Interacting with CLN Node

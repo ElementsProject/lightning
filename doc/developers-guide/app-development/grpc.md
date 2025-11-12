@@ -1,9 +1,8 @@
 ---
-title: "gRPC APIs"
-slug: "grpc"
-hidden: false
-createdAt: "2023-02-07T12:52:39.665Z"
-updatedAt: "2023-02-08T09:56:41.158Z"
+title: gRPC APIs
+slug: grpc
+privacy:
+  view: public
 ---
 > 📘
 >
