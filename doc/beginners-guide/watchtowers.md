@@ -1,10 +1,10 @@
 ---
-title: "Watchtowers"
-slug: "watchtowers"
-excerpt: "Defend your node against breaches using a watchtower."
-hidden: false
-createdAt: "2022-11-18T16:28:27.054Z"
-updatedAt: "2023-02-02T07:13:57.111Z"
+title: Watchtowers
+slug: watchtowers
+content:
+  excerpt: Defend your node against breaches using a watchtower.
+privacy:
+  view: public
 ---
 The Lightning Network protocol assumes that a node is always online and synchronised with the network. Should your lightning node go offline for some time, it is possible that a node on the other side of your channel may attempt to force close the channel with an outdated state (also known as revoked commitment). This may allow them to steal funds from the channel that belonged to you. 
 

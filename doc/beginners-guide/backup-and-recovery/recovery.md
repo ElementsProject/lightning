@@ -1,8 +1,10 @@
 ---
-title: "Wallet recovery"
-slug: "recovery"
-excerpt: "Learn about various recovery methods."
-hidden: false
+title: Wallet recovery
+slug: recovery
+content:
+  excerpt: Learn about various recovery methods.
+privacy:
+  view: public
 ---
 
 

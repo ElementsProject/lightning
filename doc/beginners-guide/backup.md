@@ -1,10 +1,10 @@
 ---
-title: "Backup your wallet"
-slug: "backup"
-excerpt: "Learn the various backup options available for your Core Lightning node."
-hidden: false
-createdAt: "2022-11-18T16:28:17.292Z"
-updatedAt: "2023-04-22T12:51:49.775Z"
+title: Backup your wallet
+slug: backup
+content:
+  excerpt: Learn the various backup options available for your Core Lightning node.
+privacy:
+  view: public
 ---
 
 In Lightning, since _you_ are the only one storing all your financial information, you **_cannot_** recover this financial information from anywhere else.This means that on Lightning, **you have to** responsibly back up your financial information yourself, using various processes and automation.
