@@ -1,10 +1,12 @@
 ---
-title: "Set up your node"
-slug: "getting-started"
-excerpt: "This guide will help you set up a Core Lightning node. You'll be up and running in a jiffy!"
-hidden: false
-createdAt: "2022-11-07T15:26:37.081Z"
-updatedAt: "2023-02-22T06:00:15.160Z"
+title: Set up your node
+slug: getting-started
+content:
+  excerpt: >-
+    This guide will help you set up a Core Lightning node. You'll be up and
+    running in a jiffy!
+privacy:
+  view: public
 ---
 The Core Lightning implementation has been in production use on the Bitcoin mainnet since early 2018, with the launch of the [Blockstream Store](https://blockstream.com/2018/01/16/en-lightning-charge/). We recommend getting started by experimenting on `testnet` (or `regtest`), but the implementation is considered stable and can be safely used on mainnet.
 

@@ -1,10 +1,11 @@
 ---
-title: "Welcome to Core Lightning Documentation Portal"
-slug: "home"
-excerpt: "Here you can find everything you need to jump-start your journey to running and building on Core Lightning."
-hidden: false
-createdAt: "2023-01-30T15:53:40.926Z"
-updatedAt: "2023-02-13T15:43:05.463Z"
+title: Welcome to Core Lightning Documentation Portal
+slug: home
+content:
+  excerpt: >-
+    Here you can find everything you need to jump-start your journey to running and building on Core Lightning.
+privacy:
+  view: public
 ---
 > 📘 Help us improve!
 > 

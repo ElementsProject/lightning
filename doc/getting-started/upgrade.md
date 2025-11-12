@@ -1,10 +1,10 @@
 ---
-title: "Upgrade"
-slug: "upgrade"
-excerpt: "Upgrade to the latest stable releases without interruption."
-hidden: false
-createdAt: "2022-11-18T14:32:58.821Z"
-updatedAt: "2023-01-25T10:54:43.810Z"
+title: Upgrade
+slug: upgrade
+content:
+  excerpt: Upgrade to the latest stable releases without interruption.
+privacy:
+  view: public
 ---
 Upgrading your Core Lightning node is the same as installing it. So if you previously installed it using a release binary, download the latest binary in the same directory as before. If you previously built it from the source, fetch the latest source and build it again.
 
