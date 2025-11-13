@@ -75,7 +75,7 @@ static void init_span(struct span *s,
 		      const char *name,
 		      struct span *parent)
 {
-	struct timeabs now = time_now();
+	struct timeabs now = time_now(); /* discouraged: but tracing wants non-dev time */
 
 	s->key = key;
 	s->id = pseudorand_u64();
@@ -366,7 +366,7 @@ void trace_span_end(const void *key)
 
 	trace_check_tree();
 
-	struct timeabs now = time_now();
+	struct timeabs now = time_now(); /* discouraged: but tracing wants non-dev time */
 	s->end_time = (now.ts.tv_sec * 1000000) + now.ts.tv_nsec / 1000;
 	DTRACE_PROBE1(lightningd, span_end, s->id);
 	if (trace_to_file) {

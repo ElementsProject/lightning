@@ -8,6 +8,7 @@
 #include <common/bolt11_json.h>
 #include <common/bolt12_id.h>
 #include <common/bolt12_merkle.h>
+#include <common/clock_time.h>
 #include <common/features.h>
 #include <common/gossmap.h>
 #include <common/iso4217.h>
@@ -1321,7 +1322,7 @@ static void json_add_rune(struct command *cmd, struct json_stream *js, const str
 				u64 t = atol(alt->value);
 
 				if (t) {
-					u64 diff, now = time_now().ts.tv_sec;
+					u64 diff, now = clock_time().ts.tv_sec;
 					/* Need a non-const during construction */
 					char *v;
 

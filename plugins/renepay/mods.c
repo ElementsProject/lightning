@@ -3,6 +3,7 @@
 #include <ccan/bitmap/bitmap.h>
 #include <common/amount.h>
 #include <common/bolt11.h>
+#include <common/clock_time.h>
 #include <common/gossmods_listpeerchannels.h>
 #include <common/json_stream.h>
 #include <plugins/renepay/json.h>
@@ -917,7 +918,7 @@ REGISTER_PAYMENT_MODIFIER(end, end_cb);
 
 static struct command_result *checktimeout_cb(struct payment *payment)
 {
-	if (time_after(time_now(), payment->payment_info.stop_time)) {
+	if (time_after(clock_time(), payment->payment_info.stop_time)) {
 		return payment_fail(payment, PAY_STOPPED_RETRYING, "Timed out");
 	}
 	return payment_continue(payment);
@@ -1129,7 +1130,7 @@ REGISTER_PAYMENT_MODIFIER(pendingsendpays, pendingsendpays_cb);
 
 static struct command_result *knowledgerelax_cb(struct payment *payment)
 {
-	const u64 now_sec = time_now().ts.tv_sec;
+	const u64 now_sec = clock_time().ts.tv_sec;
 	enum renepay_errorcode err = uncertainty_relax(
 	    pay_plugin->uncertainty, now_sec - pay_plugin->last_time);
 	if (err)

@@ -4,6 +4,7 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/json_escape/json_escape.h>
 #include <ccan/tal/str/str.h>
+#include <common/clock_time.h>
 #include <common/coin_mvt.h>
 #include <common/json_parse_simple.h>
 #include <common/json_stream.h>
@@ -438,7 +439,7 @@ const char *csv_filename(const tal_t *ctx, const struct csv_fmt *fmt)
 {
 	return tal_fmt(ctx, "cln_incomestmt_%s_%lu.csv",
 		       fmt->fmt_name,
-		       (unsigned long)time_now().ts.tv_sec);
+		       (unsigned long)clock_time().ts.tv_sec);
 }
 
 static void cointrack_header(FILE *csvf)

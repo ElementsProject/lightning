@@ -8,6 +8,7 @@
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
+#include <common/clock_time.h>
 #include <common/cryptomsg.h>
 #include <common/features.h>
 #include <common/ping.h>
@@ -209,7 +210,7 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 		msg = towire_gossip_timestamp_filter(NULL,
 						     &chainparams->genesis_blockhash,
 						     all_gossip ? 0
-						     : no_gossip ? 0xFFFFFFFF : time_now().ts.tv_sec,
+						     : no_gossip ? 0xFFFFFFFF : clock_time().ts.tv_sec,
 						     0xFFFFFFFF);
 		sync_crypto_write(peer_fd, cs, take(msg));
 	}

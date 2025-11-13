@@ -8,6 +8,7 @@
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/blockheight_states.h>
+#include <common/clock_time.h>
 #include <common/json_channel_type.h>
 #include <common/json_command.h>
 #include <common/psbt_open.h>
@@ -1333,7 +1334,7 @@ wallet_update_channel_commit(struct lightningd *ld,
 					     &channel->peer->id,
 					     &channel->cid,
 					     channel->scid,
-					     time_now(),
+					     clock_time(),
 					     DUALOPEND_OPEN_COMMIT_READY,
 					     DUALOPEND_OPEN_COMMITTED,
 					     REASON_REMOTE,
@@ -1431,7 +1432,7 @@ wallet_commit_channel(struct lightningd *ld,
 				     &channel->peer->id,
 				     &channel->cid,
 				     channel->scid,
-				     time_now(),
+				     clock_time(),
 				     DUALOPEND_OPEN_INIT,
 				     DUALOPEND_OPEN_COMMIT_READY,
 				     REASON_REMOTE,

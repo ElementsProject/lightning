@@ -3,6 +3,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/blindedpay.h>
 #include <common/bolt11.h>
+#include <common/clock_time.h>
 #include <common/daemon.h>
 #include <common/dijkstra.h>
 #include <common/features.h>
@@ -88,7 +89,7 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 	p->modifiers = mods;
 	p->cmd = cmd;
 	p->finished = false;
-	p->start_time = time_now();
+	p->start_time = clock_time();
 	p->result = NULL;
 	p->why = NULL;
 	p->getroute = tal(p, struct getroute_request);
@@ -429,7 +430,7 @@ static void channel_hints_update(struct payment *p,
 	/* Local channels must have an HTLC budget */
 	assert(!local || htlc_budget != NULL);
 
-	channel_hint_set_add(root->hints, time_now().ts.tv_sec, scidd, enabled,
+	channel_hint_set_add(root->hints, clock_time().ts.tv_sec, scidd, enabled,
 			     estimated_capacity, overall_capacity, htlc_budget);
 
 	hint = channel_hint_set_find(root->hints, scidd);
@@ -1638,7 +1639,7 @@ payment_waitsendpay_finished(struct command *cmd,
 
 	assert(p->route != NULL);
 
-	p->end_time = time_now();
+	p->end_time = clock_time();
 	p->result = tal_sendpay_result_from_json(p, buffer, toks);
 
 	if (p->result == NULL) {
@@ -2333,7 +2334,7 @@ void payment_set_step(struct payment *p, enum payment_step newstep)
 
 	/* Any final state needs an end_time */
 	if (p->step >= PAYMENT_STEP_SPLIT)
-		p->end_time = time_now();
+		p->end_time = clock_time();
 }
 
 struct command_result *payment_continue(struct payment *p)
@@ -2392,7 +2393,7 @@ struct command_result *payment_abort(struct payment *p, enum jsonrpc_errcode cod
 	va_list ap;
 	struct payment *root = payment_root(p);
 	payment_set_step(p, PAYMENT_STEP_FAILED);
-	p->end_time = time_now();
+	p->end_time = clock_time();
 
 	/* We can fail twice, it seems. */
 	tal_free(p->failreason);
@@ -2419,7 +2420,7 @@ struct command_result *payment_abort(struct payment *p, enum jsonrpc_errcode cod
 struct command_result *payment_fail(struct payment *p, const char *fmt, ...)
 {
 	va_list ap;
-	p->end_time = time_now();
+	p->end_time = clock_time();
 	payment_set_step(p, PAYMENT_STEP_FAILED);
 	/* We can fail twice, it seems. */
 	tal_free(p->failreason);
@@ -2645,7 +2646,7 @@ local_channel_hints_listpeerchannels(struct command *cmd,
 	 * observations, and should re-enable some channels that would
 	 * otherwise start out as excluded and remain so until
 	 * forever. */
-	channel_hint_set_update(payment_root(p)->hints, time_now());
+	channel_hint_set_update(payment_root(p)->hints, clock_time());
 	p->mods = gossmods_from_listpeerchannels(
 	    p, p->local_id, buffer, toks, true, gossmod_add_localchan, NULL);
 

@@ -4,6 +4,7 @@
 #include <ccan/json_escape/json_escape.h>
 #include <ccan/tal/str/str.h>
 #include <common/bolt12.h>
+#include <common/clock_time.h>
 #include <common/json_command.h>
 #include <common/overflows.h>
 #include <hsmd/hsmd_wiregen.h>
@@ -939,7 +940,7 @@ static struct command_result *json_checkrune(struct command *cmd,
 	cinfo.buf = buffer;
 	cinfo.method = method;
 	cinfo.params = methodparams;
-	cinfo.now = time_now();
+	cinfo.now = clock_time();
 	strmap_init(&cinfo.cached_params);
 
 	err = rune_is_ours(cmd->ld, ras->rune);

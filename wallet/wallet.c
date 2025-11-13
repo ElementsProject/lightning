@@ -5,6 +5,7 @@
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <channeld/channeld_wiregen.h>
+#include <common/clock_time.h>
 #include <common/memleak.h>
 #include <common/onionreply.h>
 #include <common/trace.h>
@@ -24,6 +25,7 @@
 #include <wallet/invoices.h>
 #include <wallet/txfilter.h>
 #include <wallet/wallet.h>
+#include <wally_bip32.h>
 
 #define SQLITE_MAX_UINT 0x7FFFFFFFFFFFFFFF
 #define DIRECTION_INCOMING 0
@@ -4195,7 +4197,7 @@ void wallet_payment_set_status(struct wallet *wallet,
 	u32 completed_at = 0;
 
 	if (newstatus != PAYMENT_PENDING)
-		completed_at = time_now().ts.tv_sec;
+		completed_at = clock_time().ts.tv_sec;
 
 	stmt = db_prepare_v2(wallet->db,
 			     SQL("UPDATE payments SET status=?, completed_at=?, updated_index=? "
@@ -5350,7 +5352,7 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 
 	if (state == FORWARD_SETTLED || state == FORWARD_FAILED) {
 		resolved_time = tal(tmpctx, struct timeabs);
-		*resolved_time = time_now();
+		*resolved_time = clock_time();
 	} else {
 		resolved_time = NULL;
 	}
@@ -7584,7 +7586,7 @@ void wallet_save_network_event(struct lightningd *ld,
 	db_bind_u64(stmt, id);
 	db_bind_node_id(stmt, peer_id);
 	db_bind_int(stmt, network_event_in_db(etype));
-	db_bind_u64(stmt, time_now().ts.tv_sec);
+	db_bind_u64(stmt, clock_time().ts.tv_sec);
 	if (reason)
 		db_bind_text(stmt, reason);
 	else
@@ -7786,7 +7788,7 @@ void migrate_setup_coinmoves(struct lightningd *ld, struct db *db)
 {
 	struct utxo **utxos = db_get_unspent_utxos(tmpctx, db);
 	struct db_stmt *stmt;
-	u64 base_timestamp = time_now().ts.tv_sec - 2;
+	u64 base_timestamp = clock_time().ts.tv_sec - 2;
 
 	for (size_t i = 0; i < tal_count(utxos); i++) {
 		struct chain_coin_mvt *mvt;

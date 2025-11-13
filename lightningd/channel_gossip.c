@@ -1,6 +1,7 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
+#include <common/clock_time.h>
 #include <common/memleak.h>
 #include <common/timeout.h>
 #include <common/wire_error.h>
@@ -580,7 +581,7 @@ static void arm_refresh_timer(struct channel *channel)
 {
 	struct lightningd *ld = channel->peer->ld;
 	struct channel_gossip *cg = channel->channel_gossip;
-	struct timeabs now = time_now(), due;
+	struct timeabs now = clock_time(), due;
 	u32 timestamp;
 
 	if (!channel_update_details(cg->cupdate, &timestamp, NULL)) {
@@ -1186,7 +1187,7 @@ void channel_gossip_init_done(struct lightningd *ld)
 static void channel_reestablished_stable(struct channel *channel)
 {
 	channel->stable_conn_timer = NULL;
-	channel->last_stable_connection = time_now().ts.tv_sec;
+	channel->last_stable_connection = clock_time().ts.tv_sec;
 	wallet_channel_save(channel->peer->ld->wallet, channel);
 }
 

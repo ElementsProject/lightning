@@ -1,6 +1,7 @@
 #include "config.h"
 #include <ccan/cast/cast.h>
 #include <ccan/mem/mem.h>
+#include <common/clock_time.h>
 #include <lightningd/channel.h>
 #include <lightningd/gossip_generation.h>
 #include <lightningd/lightningd.h>
@@ -119,7 +120,7 @@ u8 *unsigned_channel_update(const tal_t *ctx,
 		message_flags |= ROUTING_OPT_DONT_FORWARD;
 
 	/* Make sure timestamp changes! */
-	timestamp = time_now().ts.tv_sec;
+	timestamp = clock_time().ts.tv_sec;
 	/* FIXME: @endothermicdev points out that our clock could be
 	 * wrong once, and now we'll keep producing future timestamps.
 	 * We could sanity check that old_timestamp is within 2 weeks and
@@ -412,7 +413,7 @@ u8 *unsigned_node_announcement(const tal_t *ctx,
 {
 	secp256k1_ecdsa_signature sig;
 	const struct wireaddr *addrs;
-	u32 timestamp = time_now().ts.tv_sec;
+	u32 timestamp = clock_time().ts.tv_sec;
 
 	addrs = gather_addresses(tmpctx, ld);
 	/* Even if we're quick, don't duplicate timestamps! */

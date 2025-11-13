@@ -10,6 +10,7 @@
 #include <ccan/time/time.h>
 #include <common/bech32.h>
 #include <common/bolt11.h>
+#include <common/clock_time.h>
 #include <common/features.h>
 #include <common/setup.h>
 #include <common/utils.h>
@@ -109,7 +110,7 @@ static void encode(const tal_t *ctx,
 	struct pubkey me;
 	bool explicit_n = false;
 
-	b11->timestamp = time_now().ts.tv_sec;
+	b11->timestamp = clock_time().ts.tv_sec;
 	b11->chain = chainparams_for_network("regtest");
 	b11->expiry = 3600;
 	b11->min_final_cltv_expiry = DEFAULT_FINAL_CLTV_DELTA;

@@ -3,6 +3,7 @@
 #include <ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
 #include <common/bolt12_merkle.h>
+#include <common/clock_time.h>
 #include <common/features.h>
 #include <common/gossmap.h>
 #include <common/json_param.h>
@@ -143,7 +144,7 @@ static void paystatus_add_payment(struct json_stream *s, const struct payment *p
 		json_add_string(s, "strategy", p->why);
 	json_add_string(s, "start_time", timestr);
 	json_add_u64(s, "age_in_seconds",
-		     time_to_sec(time_between(time_now(), p->start_time)));
+		     time_to_sec(time_between(clock_time(), p->start_time)));
 
 	/* Any final state will have an end time. */
 	if (p->step >= PAYMENT_STEP_SPLIT) {
@@ -1417,7 +1418,7 @@ static struct command_result *json_pay(struct command *cmd,
 		p->payment_secret = NULL;
 	}
 
-	if (time_now().ts.tv_sec > invexpiry)
+	if (clock_time().ts.tv_sec > invexpiry)
 		return command_fail(cmd, PAY_INVOICE_EXPIRED, "Invoice expired");
 
 	if (invmsat) {
@@ -1540,7 +1541,7 @@ static struct command_result *handle_channel_hint_update(struct command *cmd,
 		   fmt_amount_msat(tmpctx, hint->estimated_capacity),
 		   fmt_amount_msat(tmpctx, hint->capacity)
 	);
-	channel_hint_set_add(global_hints, time_now().ts.tv_sec, &hint->scid,
+	channel_hint_set_add(global_hints, clock_time().ts.tv_sec, &hint->scid,
 			     hint->enabled, &hint->estimated_capacity,
 			     hint->capacity, NULL);
 	tal_free(hint);

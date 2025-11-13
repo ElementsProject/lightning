@@ -3,6 +3,7 @@
 #include "plugins/bkpr/sql.c"
 #include "plugins/libplugin.c"
 
+#include <common/clock_time.h>
 #include <common/json_filter.h>
 #include <common/json_stream.h>
 #include <common/fee_states.h>
