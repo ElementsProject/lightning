@@ -84,6 +84,8 @@ static void migrate_convert_old_channel_keyidx(struct lightningd *ld,
 					       struct db *db);
 static void migrate_initialize_channel_htlcs_wait_indexes_and_fixup_forwards(struct lightningd *ld,
 									     struct db *db);
+static void migrate_fail_pending_payments_without_htlcs(struct lightningd *ld,
+							struct db *db);
 
 /* Do not reorder or remove elements from this array, it is used to
  * migrate existing databases from a previous state, based on the
@@ -1098,6 +1100,7 @@ static struct migration dbmigrations[] = {
 	 "  connect_attempted INTEGER NOT NULL,"
 	 " PRIMARY KEY (id)"
 	 ")"), NULL},
+    {NULL, migrate_fail_pending_payments_without_htlcs},
 };
 
 /**
@@ -2125,5 +2128,27 @@ static void migrate_convert_old_channel_keyidx(struct lightningd *ld,
 	db_bind_int(stmt, channel_state_in_db(FUNDING_SPEND_SEEN));
 	db_bind_int(stmt, channel_state_in_db(ONCHAIN));
 	db_bind_int(stmt, channel_state_in_db(CLOSED));
+	db_exec_prepared_v2(take(stmt));
+}
+
+static void migrate_fail_pending_payments_without_htlcs(struct lightningd *ld,
+							struct db *db)
+{
+	/* If channeld died or was offline at the right moment, we
+	 * could register a payment as pending, but then not create an
+	 * HTLC.  Clean those up. */
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(db, SQL("UPDATE payments AS p"
+				     " SET status = ?"
+				     " WHERE p.status = ?"
+				     "   AND NOT EXISTS ("
+				     "     SELECT 1"
+				     "     FROM channel_htlcs AS h"
+				     "     WHERE h.payment_hash = p.payment_hash"
+				     "       AND h.groupid = p.groupid"
+				     "       AND h.partid  = p.partid);"));
+	db_bind_int(stmt, payment_status_in_db(PAYMENT_FAILED));
+	db_bind_int(stmt, payment_status_in_db(PAYMENT_PENDING));
 	db_exec_prepared_v2(take(stmt));
 }
