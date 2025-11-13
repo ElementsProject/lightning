@@ -1,6 +1,7 @@
 #include "config.h"
 
 #include <assert.h>
+#include <ccan/err/err.h>
 #include <ccan/isaac/isaac64.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/grab_file/grab_file.h>
@@ -130,24 +131,40 @@ size_t cross_over(const u8 *in1, size_t in1_size, const u8 *in2,
 /* In non-fuzzing builds, these become unit tests which just run the corpora:
  * this is also good for attaching a debugger to! */
 #ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+static size_t find_opt(char *argv[], const char *opt)
+{
+	for (size_t i = 1; argv[i]; i++) {
+		if (streq(argv[i], opt))
+			return i;
+	}
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	DIR *d;
 	struct dirent *di;
+	int verbose_flag;
 
 	common_setup(argv[0]);
 	assert(chdir("tests/fuzz/corpora") == 0);
 	assert(chdir(path_basename(tmpctx, argv[0])) == 0);
 
-	/* FIXME: Support explicit path args? */
 	init(&argc, &argv);
+	verbose_flag = find_opt(argv, "-v");
 	d = opendir(".");
 	while ((di = readdir(d)) != NULL) {
 		u8 *contents;
 		if (streq(di->d_name, ".") || streq(di->d_name, ".."))
 			continue;
+		/* If you specify options other than -v, they're test names */
+		if (argv[verbose_flag + 1] && !find_opt(argv, di->d_name))
+			continue;
+		if (verbose_flag)
+			printf("%s\n", di->d_name);
 		contents = grab_file_raw(tmpctx, di->d_name);
-		assert(contents);
+		if (!contents)
+			err(1, "Could not read %s", di->d_name);
 		run(contents, tal_bytelen(contents));
 	}
 	closedir(d);
