@@ -16,8 +16,8 @@ anyhow = "1.0"
 async-trait = "0.1"
 bitcoin = "0.31"
 chrono = { version= "0.4.42", features = ["serde"] }
-cln-plugin = { version = "0.5", path = "../" }
-cln-rpc = { version = "0.5", path = "../../cln-rpc" }
+cln-plugin = { workspace = true }
+cln-rpc = { workspace = true }
 hex = "0.4"
 log = "0.4"
 rand = "0.9"
