@@ -372,10 +372,10 @@ static struct amount_msat remove_excess(struct flow **flows,
 	/* Remove the smaller parts if they deliver less than the
 	 * excess.  */
 	for (int i = tal_count(*flows_index) - 1; i >= 0; i--) {
-		if (!amount_msat_sub(&excess, excess,
+		if (!amount_msat_deduct(&excess,
 				     flows[(*flows_index)[i]]->delivers))
 			break;
-		if (!amount_msat_sub(&all_deliver, all_deliver,
+		if (!amount_msat_deduct(&all_deliver,
 				     flows[(*flows_index)[i]]->delivers))
 			abort();
 		tal_arr_remove(flows_index, i);
@@ -397,21 +397,19 @@ static struct amount_msat remove_excess(struct flow **flows,
 		/* rounding errors: don't remove more than excess */
 		remove = amount_msat_min(remove, excess);
 
-		if (!amount_msat_sub(&excess, excess, remove))
+		if (!amount_msat_deduct(&excess, remove))
 			abort();
 
-		if (!amount_msat_sub(&all_deliver, all_deliver, remove) ||
-		    !amount_msat_sub(&flows[(*flows_index)[i]]->delivers,
-				     flows[(*flows_index)[i]]->delivers,
-				     remove))
+		if (!amount_msat_deduct(&all_deliver, remove) ||
+		    !amount_msat_deduct(&flows[(*flows_index)[i]]->delivers,
+					remove))
 			abort();
 	}
 
 	/* any rounding error left, take it from the first */
 	assert(tal_count(*flows_index) > 0);
-	if (!amount_msat_sub(&all_deliver, all_deliver, excess) ||
-	    !amount_msat_sub(&flows[(*flows_index)[0]]->delivers,
-			     flows[(*flows_index)[0]]->delivers, excess))
+	if (!amount_msat_deduct(&all_deliver, excess) ||
+	    !amount_msat_deduct(&flows[(*flows_index)[0]]->delivers, excess))
 		abort();
 	return all_deliver;
 }

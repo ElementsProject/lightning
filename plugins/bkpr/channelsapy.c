@@ -126,11 +126,9 @@ static void fillin_apy_acct_details(const struct bkpr *bkpr,
 
 	/* If there is any push_out or lease_fees_out, we subtract
 	 * from starting balance */
-	ok = amount_msat_sub(&apy->our_start_bal, apy->our_start_bal,
-			     apy->push_out);
+	ok = amount_msat_deduct(&apy->our_start_bal, apy->push_out);
 	assert(ok);
-	ok = amount_msat_sub(&apy->our_start_bal, apy->our_start_bal,
-			     apy->lease_out);
+	ok = amount_msat_deduct(&apy->our_start_bal, apy->lease_out);
 	assert(ok);
 
 	/* we add values in to starting balance */

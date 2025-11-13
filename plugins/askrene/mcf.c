@@ -345,7 +345,7 @@ static double pickhardt_richter_probability(struct amount_msat low,
 	struct amount_msat all_states, good_states;
 	if (amount_msat_greater_eq(amount, high))
 		return 0.0;
-	if (!amount_msat_sub(&amount, amount, low))
+	if (!amount_msat_deduct(&amount, low))
 		return 1.0;
 	if (!amount_msat_sub(&all_states, high, low))
 		abort(); // we expect high > low
@@ -1587,9 +1587,8 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 			}
 		}
 
-		if (!amount_msat_sub(&feebudget, feebudget, all_fees) ||
-		    !amount_msat_sub(&amount_to_deliver, amount_to_deliver,
-				     all_deliver)) {
+		if (!amount_msat_deduct(&feebudget, all_fees) ||
+		    !amount_msat_deduct(&amount_to_deliver, all_deliver)) {
 			error_message =
 			    rq_log(ctx, rq, LOG_BROKEN,
 				   "%s: unexpected arithmetic operation "

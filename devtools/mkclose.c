@@ -121,7 +121,7 @@ int main(int argc, char *argv[])
 	if (option_anchor_outputs && !amount_sat_add(&fee, fee, AMOUNT_SAT(660)))
 		errx(1, "Can't afford anchors");
 
-	if (!amount_msat_sub_sat(&local_msat, local_msat, fee))
+	if (!amount_msat_deduct_sat(&local_msat, fee))
 		errx(1, "Can't afford fee %s",
 		     fmt_amount_sat(NULL, fee));
 	if (!amount_sat_sub_msat(&remote_msat, funding_amount, local_msat))

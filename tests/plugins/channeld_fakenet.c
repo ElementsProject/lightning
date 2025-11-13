@@ -657,9 +657,8 @@ static struct amount_msat calc_capacity(struct info *info,
 		if (!short_channel_id_dir_eq(&info->reservations[i]->scidd, scidd))
 			continue;
 		/* We should never use more that we have! */
-		if (!amount_msat_sub(&dynamic_capacity,
-				     dynamic_capacity,
-				     info->reservations[i]->amount))
+		if (!amount_msat_deduct(&dynamic_capacity,
+					info->reservations[i]->amount))
 			abort();
 		status_debug("... minus reservation %s",
 			     fmt_amount_msat(tmpctx, info->reservations[i]->amount));

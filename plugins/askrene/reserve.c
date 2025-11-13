@@ -103,7 +103,7 @@ void reserve_sub(const struct reserve_htable *reserved,
 	for (r = reserve_htable_getfirst(reserved, scidd, &rit);
 	     r;
 	     r = reserve_htable_getnext(reserved, scidd, &rit)) {
-		if (!amount_msat_sub(amount, *amount, r->rhop.amount))
+		if (!amount_msat_deduct(amount, r->rhop.amount))
 			*amount = AMOUNT_MSAT(0);
 	}
 }

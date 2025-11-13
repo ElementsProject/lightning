@@ -2006,8 +2006,7 @@ static void remove_htlc_out(struct channel *channel, struct htlc_out *hout)
 		const struct channel_coin_mvt *mvt;
 		struct amount_msat oldamt = channel->our_msat;
 		/* We paid for this HTLC, so deduct balance. */
-		if (!amount_msat_sub(&channel->our_msat, channel->our_msat,
-				     hout->msat)) {
+		if (!amount_msat_deduct(&channel->our_msat, hout->msat)) {
 			channel_internal_error(channel,
 					       "Underflow our_msat %s - HTLC %s",
 					       fmt_amount_msat(tmpctx,

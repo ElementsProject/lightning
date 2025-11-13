@@ -40,7 +40,7 @@ bool try_subtract_fee(enum side opener, enum side side,
 	else
 		opener_amount = other;
 
-	if (amount_msat_sub_sat(opener_amount, *opener_amount, base_fee))
+	if (amount_msat_deduct_sat(opener_amount, base_fee))
 		return true;
 
 	*opener_amount = AMOUNT_MSAT(0);

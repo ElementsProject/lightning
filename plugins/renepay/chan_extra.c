@@ -128,7 +128,7 @@ enum renepay_errorcode channel_liquidity(struct amount_msat *liquidity,
 	if (!h)
 		return RENEPAY_CHANNEL_NOT_FOUND;
 	struct amount_msat value_liquidity = h->known_max;
-	if (!amount_msat_sub(&value_liquidity, value_liquidity, h->htlc_total))
+	if (!amount_msat_deduct(&value_liquidity, h->htlc_total))
 		return RENEPAY_AMOUNT_OVERFLOW;
 	*liquidity = value_liquidity;
 	return RENEPAY_NOERROR;
@@ -616,12 +616,12 @@ double edge_probability(struct amount_msat min, struct amount_msat max,
 		goto function_fail;
 
 	// in_flight cannot be greater than max
-	if (!amount_msat_sub(&B, B, in_flight))
+	if (!amount_msat_deduct(&B, in_flight))
 		goto function_fail;
 
 	struct amount_msat A = min; // = MAX(0,min-in_flight);
 
-	if (!amount_msat_sub(&A, A, in_flight))
+	if (!amount_msat_deduct(&A, in_flight))
 		A = AMOUNT_MSAT(0);
 
 	struct amount_msat denominator; // = B-A
@@ -655,7 +655,7 @@ chan_extra_remove_htlc(struct chan_extra_map *chan_extra_map,
 	if (h->num_htlcs <= 0)
 		return RENEPAY_PRECONDITION_ERROR;
 
-	if (!amount_msat_sub(&h->htlc_total, h->htlc_total, amount))
+	if (!amount_msat_deduct(&h->htlc_total, amount))
 		return RENEPAY_AMOUNT_OVERFLOW;
 	h->num_htlcs--;
 	return RENEPAY_NOERROR;
