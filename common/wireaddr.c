@@ -262,7 +262,7 @@ char *fmt_wireaddr_without_port(const tal_t * ctx, const struct wireaddr *a)
 		return tal_fmt(ctx, "%s.onion",
 			       b32_encode(tmpctx, a->addr, a->addrlen));
 	case ADDR_TYPE_DNS:
-		return tal_fmt(ctx, "%s", a->addr);
+		return tal_fmt(ctx, "%.*s", a->addrlen, a->addr);
 	}
 
 	hex = tal_hexstr(ctx, a->addr, a->addrlen);
