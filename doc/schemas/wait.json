@@ -486,7 +486,7 @@
                   ],
                   "added": "v25.05",
                   "description": [
-                    "The first 10 states are for `in`, the next 10 are for `out`."
+                    "The first 10 states are for `out`, the next 10 are for `in`."
                   ]
                 },
                 "htlc_id": {

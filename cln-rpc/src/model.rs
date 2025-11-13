@@ -9841,108 +9841,6 @@ pub mod responses {
 	    }
 	}
 
-	/// ['The first 10 states are for `in`, the next 10 are for `out`.']
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-	#[allow(non_camel_case_types)]
-	pub enum WaitHtlcsState {
-	    #[serde(rename = "SENT_ADD_HTLC")]
-	    SENT_ADD_HTLC = 0,
-	    #[serde(rename = "SENT_ADD_COMMIT")]
-	    SENT_ADD_COMMIT = 1,
-	    #[serde(rename = "RCVD_ADD_REVOCATION")]
-	    RCVD_ADD_REVOCATION = 2,
-	    #[serde(rename = "RCVD_ADD_ACK_COMMIT")]
-	    RCVD_ADD_ACK_COMMIT = 3,
-	    #[serde(rename = "SENT_ADD_ACK_REVOCATION")]
-	    SENT_ADD_ACK_REVOCATION = 4,
-	    #[serde(rename = "RCVD_REMOVE_HTLC")]
-	    RCVD_REMOVE_HTLC = 5,
-	    #[serde(rename = "RCVD_REMOVE_COMMIT")]
-	    RCVD_REMOVE_COMMIT = 6,
-	    #[serde(rename = "SENT_REMOVE_REVOCATION")]
-	    SENT_REMOVE_REVOCATION = 7,
-	    #[serde(rename = "SENT_REMOVE_ACK_COMMIT")]
-	    SENT_REMOVE_ACK_COMMIT = 8,
-	    #[serde(rename = "RCVD_REMOVE_ACK_REVOCATION")]
-	    RCVD_REMOVE_ACK_REVOCATION = 9,
-	    #[serde(rename = "RCVD_ADD_HTLC")]
-	    RCVD_ADD_HTLC = 10,
-	    #[serde(rename = "RCVD_ADD_COMMIT")]
-	    RCVD_ADD_COMMIT = 11,
-	    #[serde(rename = "SENT_ADD_REVOCATION")]
-	    SENT_ADD_REVOCATION = 12,
-	    #[serde(rename = "SENT_ADD_ACK_COMMIT")]
-	    SENT_ADD_ACK_COMMIT = 13,
-	    #[serde(rename = "RCVD_ADD_ACK_REVOCATION")]
-	    RCVD_ADD_ACK_REVOCATION = 14,
-	    #[serde(rename = "SENT_REMOVE_HTLC")]
-	    SENT_REMOVE_HTLC = 15,
-	    #[serde(rename = "SENT_REMOVE_COMMIT")]
-	    SENT_REMOVE_COMMIT = 16,
-	    #[serde(rename = "RCVD_REMOVE_REVOCATION")]
-	    RCVD_REMOVE_REVOCATION = 17,
-	    #[serde(rename = "RCVD_REMOVE_ACK_COMMIT")]
-	    RCVD_REMOVE_ACK_COMMIT = 18,
-	    #[serde(rename = "SENT_REMOVE_ACK_REVOCATION")]
-	    SENT_REMOVE_ACK_REVOCATION = 19,
-	}
-
-	impl TryFrom<i32> for WaitHtlcsState {
-	    type Error = anyhow::Error;
-	    fn try_from(c: i32) -> Result<WaitHtlcsState, anyhow::Error> {
-	        match c {
-	    0 => Ok(WaitHtlcsState::SENT_ADD_HTLC),
-	    1 => Ok(WaitHtlcsState::SENT_ADD_COMMIT),
-	    2 => Ok(WaitHtlcsState::RCVD_ADD_REVOCATION),
-	    3 => Ok(WaitHtlcsState::RCVD_ADD_ACK_COMMIT),
-	    4 => Ok(WaitHtlcsState::SENT_ADD_ACK_REVOCATION),
-	    5 => Ok(WaitHtlcsState::RCVD_REMOVE_HTLC),
-	    6 => Ok(WaitHtlcsState::RCVD_REMOVE_COMMIT),
-	    7 => Ok(WaitHtlcsState::SENT_REMOVE_REVOCATION),
-	    8 => Ok(WaitHtlcsState::SENT_REMOVE_ACK_COMMIT),
-	    9 => Ok(WaitHtlcsState::RCVD_REMOVE_ACK_REVOCATION),
-	    10 => Ok(WaitHtlcsState::RCVD_ADD_HTLC),
-	    11 => Ok(WaitHtlcsState::RCVD_ADD_COMMIT),
-	    12 => Ok(WaitHtlcsState::SENT_ADD_REVOCATION),
-	    13 => Ok(WaitHtlcsState::SENT_ADD_ACK_COMMIT),
-	    14 => Ok(WaitHtlcsState::RCVD_ADD_ACK_REVOCATION),
-	    15 => Ok(WaitHtlcsState::SENT_REMOVE_HTLC),
-	    16 => Ok(WaitHtlcsState::SENT_REMOVE_COMMIT),
-	    17 => Ok(WaitHtlcsState::RCVD_REMOVE_REVOCATION),
-	    18 => Ok(WaitHtlcsState::RCVD_REMOVE_ACK_COMMIT),
-	    19 => Ok(WaitHtlcsState::SENT_REMOVE_ACK_REVOCATION),
-	            o => Err(anyhow::anyhow!("Unknown variant {} for enum WaitHtlcsState", o)),
-	        }
-	    }
-	}
-
-	impl ToString for WaitHtlcsState {
-	    fn to_string(&self) -> String {
-	        match self {
-	            WaitHtlcsState::SENT_ADD_HTLC => "SENT_ADD_HTLC",
-	            WaitHtlcsState::SENT_ADD_COMMIT => "SENT_ADD_COMMIT",
-	            WaitHtlcsState::RCVD_ADD_REVOCATION => "RCVD_ADD_REVOCATION",
-	            WaitHtlcsState::RCVD_ADD_ACK_COMMIT => "RCVD_ADD_ACK_COMMIT",
-	            WaitHtlcsState::SENT_ADD_ACK_REVOCATION => "SENT_ADD_ACK_REVOCATION",
-	            WaitHtlcsState::RCVD_REMOVE_HTLC => "RCVD_REMOVE_HTLC",
-	            WaitHtlcsState::RCVD_REMOVE_COMMIT => "RCVD_REMOVE_COMMIT",
-	            WaitHtlcsState::SENT_REMOVE_REVOCATION => "SENT_REMOVE_REVOCATION",
-	            WaitHtlcsState::SENT_REMOVE_ACK_COMMIT => "SENT_REMOVE_ACK_COMMIT",
-	            WaitHtlcsState::RCVD_REMOVE_ACK_REVOCATION => "RCVD_REMOVE_ACK_REVOCATION",
-	            WaitHtlcsState::RCVD_ADD_HTLC => "RCVD_ADD_HTLC",
-	            WaitHtlcsState::RCVD_ADD_COMMIT => "RCVD_ADD_COMMIT",
-	            WaitHtlcsState::SENT_ADD_REVOCATION => "SENT_ADD_REVOCATION",
-	            WaitHtlcsState::SENT_ADD_ACK_COMMIT => "SENT_ADD_ACK_COMMIT",
-	            WaitHtlcsState::RCVD_ADD_ACK_REVOCATION => "RCVD_ADD_ACK_REVOCATION",
-	            WaitHtlcsState::SENT_REMOVE_HTLC => "SENT_REMOVE_HTLC",
-	            WaitHtlcsState::SENT_REMOVE_COMMIT => "SENT_REMOVE_COMMIT",
-	            WaitHtlcsState::RCVD_REMOVE_REVOCATION => "RCVD_REMOVE_REVOCATION",
-	            WaitHtlcsState::RCVD_REMOVE_ACK_COMMIT => "RCVD_REMOVE_ACK_COMMIT",
-	            WaitHtlcsState::SENT_REMOVE_ACK_REVOCATION => "SENT_REMOVE_ACK_REVOCATION",
-	        }.to_string()
-	    }
-	}
-
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct WaitHtlcs {
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -9958,7 +9856,7 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub short_channel_id: Option<ShortChannelId>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub state: Option<WaitHtlcsState>,
+	    pub state: Option<HtlcState>,
 	}
 
 	/// ["Whether it's paid, unpaid or unpayable."]

@@ -31,6 +31,7 @@ pub enum ChannelState {
     DUALOPEND_OPEN_COMMIT_READY = 13,
 }
 
+/// ['The first 10 states are for `out`, the next 10 are for `in`.']
 #[derive(Copy, Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
 #[allow(non_camel_case_types)]
 pub enum HtlcState {
@@ -102,6 +103,19 @@ impl TryFrom<i32> for AutocleanSubsystem {
             4 => Ok(AutocleanSubsystem::PAIDINVOICES),
             5 => Ok(AutocleanSubsystem::EXPIREDINVOICES),
             _ => Err(anyhow!("Invalid AutocleanSubsystem {}", value)),
+        }
+    }
+}
+
+impl Display for AutocleanSubsystem {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AutocleanSubsystem::SUCCEEDEDFORWARDS => write!(f, "SUCCEEDEDFORWARDS"),
+            AutocleanSubsystem::FAILEDFORWARDS => write!(f, "FAILEDFORWARDS"),
+            AutocleanSubsystem::SUCCEEDEDPAYS => write!(f, "SUCCEEDEDPAYS"),
+            AutocleanSubsystem::FAILEDPAYS => write!(f, "FAILEDPAYS"),
+            AutocleanSubsystem::PAIDINVOICES => write!(f, "PAIDINVOICES"),
+            AutocleanSubsystem::EXPIREDINVOICES => write!(f, "EXPIREDINVOICES"),
         }
     }
 }
@@ -452,6 +466,27 @@ impl TryFrom<i32> for ChannelState {
     }
 }
 
+impl Display for ChannelState {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ChannelState::OPENINGD => write!(f, "OPENINGD"),
+            ChannelState::CHANNELD_AWAITING_LOCKIN => write!(f, "CHANNELD_AWAITING_LOCKIN"),
+            ChannelState::CHANNELD_NORMAL => write!(f, "CHANNELD_NORMAL"),
+            ChannelState::CHANNELD_SHUTTING_DOWN => write!(f, "CHANNELD_SHUTTING_DOWN"),
+            ChannelState::CLOSINGD_SIGEXCHANGE => write!(f, "CLOSINGD_SIGEXCHANGE"),
+            ChannelState::CLOSINGD_COMPLETE => write!(f, "CLOSINGD_COMPLETE"),
+            ChannelState::AWAITING_UNILATERAL => write!(f, "AWAITING_UNILATERAL"),
+            ChannelState::FUNDING_SPEND_SEEN => write!(f, "FUNDING_SPEND_SEEN"),
+            ChannelState::ONCHAIN => write!(f, "ONCHAIN"),
+            ChannelState::DUALOPEND_OPEN_INIT => write!(f, "DUALOPEND_OPEN_INIT"),
+            ChannelState::DUALOPEND_AWAITING_LOCKIN => write!(f, "DUALOPEND_AWAITING_LOCKIN"),
+            ChannelState::CHANNELD_AWAITING_SPLICE => write!(f, "CHANNELD_AWAITING_SPLICE"),
+            ChannelState::DUALOPEND_OPEN_COMMITTED => write!(f, "DUALOPEND_OPEN_COMMITTED"),
+            ChannelState::DUALOPEND_OPEN_COMMIT_READY => write!(f, "DUALOPEND_OPEN_COMMIT_READY"),
+        }
+    }
+}
+
 impl From<i32> for ChannelTypeName {
     fn from(value: i32) -> Self {
         match value {
@@ -475,6 +510,21 @@ impl From<ChannelTypeName> for i32 {
             ChannelTypeName::SCID_ALIAS_EVEN => 3,
             ChannelTypeName::ZEROCONF_EVEN => 4,
             ChannelTypeName::ANCHORS_EVEN => 5,
+        }
+    }
+}
+
+impl Display for ChannelTypeName {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ChannelTypeName::STATIC_REMOTEKEY_EVEN => write!(f, "STATIC_REMOTEKEY_EVEN"),
+            ChannelTypeName::ANCHOR_OUTPUTS_EVEN => write!(f, "ANCHOR_OUTPUTS_EVEN"),
+            ChannelTypeName::ANCHORS_ZERO_FEE_HTLC_TX_EVEN => {
+                write!(f, "ANCHORS_ZERO_FEE_HTLC_TX_EVEN")
+            }
+            ChannelTypeName::SCID_ALIAS_EVEN => write!(f, "SCID_ALIAS_EVEN"),
+            ChannelTypeName::ZEROCONF_EVEN => write!(f, "ZEROCONF_EVEN"),
+            ChannelTypeName::ANCHORS_EVEN => write!(f, "ANCHORS_EVEN"),
         }
     }
 }
@@ -504,6 +554,33 @@ impl From<i32> for HtlcState {
             19 => HtlcState::SENT_REMOVE_ACK_REVOCATION,
 
             n => panic!("Unmapped HtlcState variant: {}", n),
+        }
+    }
+}
+
+impl Display for HtlcState {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            HtlcState::SENT_ADD_HTLC => write!(f, "SENT_ADD_HTLC"),
+            HtlcState::SENT_ADD_COMMIT => write!(f, "SENT_ADD_COMMIT"),
+            HtlcState::RCVD_ADD_REVOCATION => write!(f, "RCVD_ADD_REVOCATION"),
+            HtlcState::RCVD_ADD_ACK_COMMIT => write!(f, "RCVD_ADD_ACK_COMMIT"),
+            HtlcState::SENT_ADD_ACK_REVOCATION => write!(f, "SENT_ADD_ACK_REVOCATION"),
+            HtlcState::RCVD_ADD_ACK_REVOCATION => write!(f, "RCVD_ADD_ACK_REVOCATION"),
+            HtlcState::RCVD_REMOVE_HTLC => write!(f, "RCVD_REMOVE_HTLC"),
+            HtlcState::RCVD_REMOVE_COMMIT => write!(f, "RCVD_REMOVE_COMMIT"),
+            HtlcState::SENT_REMOVE_REVOCATION => write!(f, "SENT_REMOVE_REVOCATION"),
+            HtlcState::SENT_REMOVE_ACK_COMMIT => write!(f, "SENT_REMOVE_ACK_COMMIT"),
+            HtlcState::RCVD_REMOVE_ACK_REVOCATION => write!(f, "RCVD_REMOVE_ACK_REVOCATION"),
+            HtlcState::RCVD_ADD_HTLC => write!(f, "RCVD_ADD_HTLC"),
+            HtlcState::RCVD_ADD_COMMIT => write!(f, "RCVD_ADD_COMMIT"),
+            HtlcState::SENT_ADD_REVOCATION => write!(f, "SENT_ADD_REVOCATION"),
+            HtlcState::SENT_ADD_ACK_COMMIT => write!(f, "SENT_ADD_ACK_COMMIT"),
+            HtlcState::SENT_REMOVE_HTLC => write!(f, "SENT_REMOVE_HTLC"),
+            HtlcState::SENT_REMOVE_COMMIT => write!(f, "SENT_REMOVE_COMMIT"),
+            HtlcState::RCVD_REMOVE_REVOCATION => write!(f, "RCVD_REMOVE_REVOCATION"),
+            HtlcState::RCVD_REMOVE_ACK_COMMIT => write!(f, "RCVD_REMOVE_ACK_COMMIT"),
+            HtlcState::SENT_REMOVE_ACK_REVOCATION => write!(f, "SENT_REMOVE_ACK_REVOCATION"),
         }
     }
 }

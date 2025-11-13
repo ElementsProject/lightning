@@ -2947,35 +2947,12 @@ message WaitSendpays {
 }
 
 message WaitHtlcs {
-	// Wait.htlcs.state
-	enum WaitHtlcsState {
-		SENT_ADD_HTLC = 0;
-		SENT_ADD_COMMIT = 1;
-		RCVD_ADD_REVOCATION = 2;
-		RCVD_ADD_ACK_COMMIT = 3;
-		SENT_ADD_ACK_REVOCATION = 4;
-		RCVD_REMOVE_HTLC = 5;
-		RCVD_REMOVE_COMMIT = 6;
-		SENT_REMOVE_REVOCATION = 7;
-		SENT_REMOVE_ACK_COMMIT = 8;
-		RCVD_REMOVE_ACK_REVOCATION = 9;
-		RCVD_ADD_HTLC = 10;
-		RCVD_ADD_COMMIT = 11;
-		SENT_ADD_REVOCATION = 12;
-		SENT_ADD_ACK_COMMIT = 13;
-		RCVD_ADD_ACK_REVOCATION = 14;
-		SENT_REMOVE_HTLC = 15;
-		SENT_REMOVE_COMMIT = 16;
-		RCVD_REMOVE_REVOCATION = 17;
-		RCVD_REMOVE_ACK_COMMIT = 18;
-		SENT_REMOVE_ACK_REVOCATION = 19;
-	}
 	// Wait.htlcs.direction
 	enum WaitHtlcsDirection {
 		OUT = 0;
 		IN = 1;
 	}
-	optional WaitHtlcsState state = 1;
+	optional HtlcState state = 1;
 	optional uint64 htlc_id = 2;
 	optional string short_channel_id = 3;
 	optional uint32 cltv_expiry = 4;
