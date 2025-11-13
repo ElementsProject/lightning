@@ -1,6 +1,7 @@
 #include "config.h"
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
+#include <ccan/asort/asort.h>
 #include <ccan/cast/cast.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
@@ -8,6 +9,7 @@
 #include <common/clock_time.h>
 #include <common/memleak.h>
 #include <common/onionreply.h>
+#include <common/randbytes.h>
 #include <common/trace.h>
 #include <db/bindings.h>
 #include <db/common.h>
@@ -451,7 +453,23 @@ bool wallet_update_output_status(struct wallet *w,
 	return changes > 0;
 }
 
-static struct utxo **gather_utxos(const tal_t *ctx, struct db_stmt *stmt STEALS)
+static int cmp_utxo(struct utxo *const *a,
+		    struct utxo *const *b,
+		    void *unused)
+{
+	int ret = memcmp(&(*a)->outpoint.txid, &(*b)->outpoint.txid,
+			 sizeof((*a)->outpoint.txid));
+	if (ret)
+		return ret;
+	if ((*a)->outpoint.n < (*b)->outpoint.n)
+		return -1;
+	else if ((*a)->outpoint.n > (*b)->outpoint.n)
+		return 1;
+	return 0;
+}
+
+static struct utxo **gather_utxos(const tal_t *ctx,
+				  struct db_stmt *stmt STEALS)
 {
 	struct utxo **results;
 
@@ -462,6 +480,10 @@ static struct utxo **gather_utxos(const tal_t *ctx, struct db_stmt *stmt STEALS)
 		tal_arr_expand(&results, u);
 	}
 	tal_free(stmt);
+
+	/* Make sure these are in order if we're trying to remove entropy */
+	if (randbytes_overridden())
+		asort(results, tal_count(results), cmp_utxo, NULL);
 
 	return results;
 }
@@ -809,27 +831,53 @@ struct utxo *wallet_find_utxo(const tal_t *ctx, struct wallet *w,
 	struct db_stmt *stmt;
 	struct utxo *utxo;
 
-	stmt = db_prepare_v2(w->db, SQL("SELECT"
-					"  prev_out_tx"
-					", prev_out_index"
-					", value"
-					", type"
-					", status"
-					", keyindex"
-					", channel_id"
-					", peer_id"
-					", commitment_point"
-					", option_anchor_outputs"
-					", confirmation_height"
-					", spend_height"
-					", scriptpubkey "
-					", reserved_til"
-					", csv_lock"
-					", is_in_coinbase"
-					" FROM outputs"
-					" WHERE status = ?"
-					" OR (status = ? AND reserved_til <= ?)"
-					"ORDER BY RANDOM();"));
+	/* Make sure these are in order if we're trying to remove entropy! */
+	if (w->ld->developer && getenv("CLN_DEV_ENTROPY_SEED")) {
+		stmt = db_prepare_v2(w->db, SQL("SELECT"
+						"  prev_out_tx"
+						", prev_out_index"
+						", value"
+						", type"
+						", status"
+						", keyindex"
+						", channel_id"
+						", peer_id"
+						", commitment_point"
+						", option_anchor_outputs"
+						", confirmation_height"
+						", spend_height"
+						", scriptpubkey "
+						", reserved_til"
+						", csv_lock"
+						", is_in_coinbase"
+						" FROM outputs"
+						" WHERE status = ?"
+						" OR (status = ? AND reserved_til <= ?)"
+						"ORDER BY prev_out_tx, prev_out_index;"));
+	} else {
+		stmt = db_prepare_v2(w->db, SQL("SELECT"
+						"  prev_out_tx"
+						", prev_out_index"
+						", value"
+						", type"
+						", status"
+						", keyindex"
+						", channel_id"
+						", peer_id"
+						", commitment_point"
+						", option_anchor_outputs"
+						", confirmation_height"
+						", spend_height"
+						", scriptpubkey "
+						", reserved_til"
+						", csv_lock"
+						", is_in_coinbase"
+						" FROM outputs"
+						" WHERE status = ?"
+						" OR (status = ? AND reserved_til <= ?)"
+						"ORDER BY RANDOM();"));
+	}
+
 	db_bind_int(stmt, output_status_in_db(OUTPUT_STATE_AVAILABLE));
 	db_bind_int(stmt, output_status_in_db(OUTPUT_STATE_RESERVED));
 	db_bind_u64(stmt, current_blockheight);
