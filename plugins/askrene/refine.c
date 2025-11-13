@@ -168,7 +168,7 @@ enum why_capped {
 };
 
 /* Reverse order: bigger first */
-static int revcmp_flows_noidx(struct flow *const *a, struct flow *const *b, void *unused)
+static int revcmp_flows(struct flow *const *a, struct flow *const *b, void *unused)
 {
 	if (amount_msat_eq((*a)->delivers, (*b)->delivers))
 		return 0;
@@ -309,7 +309,7 @@ remove_htlc_min_violations(const tal_t *ctx, struct route_query *rq,
 }
 
 
-static struct amount_msat sum_all_deliver_noidx(struct flow **flows)
+static struct amount_msat sum_all_deliver(struct flow **flows)
 {
 	struct amount_msat all_deliver = AMOUNT_MSAT(0);
 	for (size_t i = 0; i < tal_count(flows); i++) {
@@ -330,14 +330,14 @@ static struct amount_msat remove_excess(struct flow ***flows,
 		return AMOUNT_MSAT(0);
 
 	struct amount_msat all_deliver, excess;
-	all_deliver = sum_all_deliver_noidx(*flows);
+	all_deliver = sum_all_deliver(*flows);
 
 	/* early exit: there is no excess */
 	if (!amount_msat_sub(&excess, all_deliver, max_deliver) ||
 	    amount_msat_is_zero(excess))
 		return all_deliver;
 
-	asort(*flows, tal_count(*flows), revcmp_flows_noidx, NULL);
+	asort(*flows, tal_count(*flows), revcmp_flows, NULL);
 
 	/* Remove the smaller parts if they deliver less than the
 	 * excess.  */
@@ -396,14 +396,14 @@ static struct amount_msat increase_flows(const struct route_query *rq,
 		return AMOUNT_MSAT(0);
 
 	struct amount_msat all_deliver, defect;
-	all_deliver = sum_all_deliver_noidx(flows);
+	all_deliver = sum_all_deliver(flows);
 
 	/* early exit: target is already met */
 	if (!amount_msat_sub(&defect, deliver, all_deliver) ||
 	    amount_msat_is_zero(defect))
 		return all_deliver;
 
-	asort(flows, tal_count(flows), revcmp_flows_noidx, NULL);
+	asort(flows, tal_count(flows), revcmp_flows, NULL);
 
 	all_deliver = AMOUNT_MSAT(0);
 	for (size_t i = 0;
@@ -484,7 +484,7 @@ const char *refine_flows(const tal_t *ctx, struct route_query *rq,
 	}
 
 	/* remove 0 amount flows if any */
-	asort(*flows, tal_count(*flows), revcmp_flows_noidx, NULL);
+	asort(*flows, tal_count(*flows), revcmp_flows, NULL);
 	for (int i = tal_count(*flows) - 1; i >= 0; i--) {
 		if (!amount_msat_is_zero((*flows)[i]->delivers))
 			break;
