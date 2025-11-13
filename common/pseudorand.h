@@ -8,18 +8,21 @@
 /**
  * pseudorand - pseudo (guessable!) random number between 0 and max-1.
  */
-uint64_t pseudorand(uint64_t max);
+#define pseudorand(max) ({static uint64_t offset; pseudorand_((max), &offset);})
+uint64_t pseudorand_(uint64_t max, uint64_t *offset);
 
 /**
- * pseudorand - pseudo (guessable!) random number between 0 and UINT64_MAX.
+ * pseudorand_u64 - pseudo (guessable!) random number between 0 and UINT64_MAX.
  */
-uint64_t pseudorand_u64(void);
+#define pseudorand_u64() ({static uint64_t offset; pseudorand_u64_(&offset);})
+uint64_t pseudorand_u64_(uint64_t *offset);
 
 /**
  * pseudorand - pseudo (guessable!) random number between 0 (inclusive) and 1
  * (exclusive).
  */
-double pseudorand_double(void);
+#define pseudorand_double()  ({static uint64_t offset; pseudorand_double_(&offset);})
+double pseudorand_double_(uint64_t *offset);
 
 /**
  * Get the siphash seed for hash tables.

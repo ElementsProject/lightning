@@ -21,7 +21,7 @@ int LLVMFuzzerInitialize(int *argc, char ***argv);
 /* Provide a non-random pseudo-random function to speed fuzzing. */
 static isaac64_ctx isaac64;
 
-uint64_t pseudorand(uint64_t max)
+uint64_t pseudorand_(uint64_t max, uint64_t *offset)
 {
 	assert(max);
 	return isaac64_next_uint(&isaac64, max);
