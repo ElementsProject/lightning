@@ -639,6 +639,12 @@ static struct command_result *do_getroutes(struct command *cmd,
 		       "Layer no_mpp_support is active we switch to a "
 		       "single path algorithm.");
 	}
+	if (rq->maxparts == 1 &&
+	    info->dev_algo != ALGO_SINGLE_PATH) {
+		info->dev_algo = ALGO_SINGLE_PATH;
+		rq_log(tmpctx, rq, LOG_DBG,
+		       "maxparts == 1: switching to a single path algorithm.");
+	}
 
 	/* Compute the routes. At this point we might select between multiple
 	 * algorithms. Right now there is only one algorithm available. */
@@ -828,6 +834,11 @@ static struct command_result *json_getroutes(struct command *cmd,
 	if (amount_msat_is_zero(*amount)) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "amount must be non-zero");
+	}
+
+	if (maxparts == 0) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "maxparts must be non-zero");
 	}
 
 	if (*maxdelay > maxdelay_allowed) {
