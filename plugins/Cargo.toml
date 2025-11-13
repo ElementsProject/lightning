@@ -27,4 +27,4 @@ tracing = { version = "^0.1", features = ["async-await", "log"] }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread", ] }
-cln-grpc = { version = "0.5", path = "../cln-grpc" }
+cln-grpc = { workspace = true }

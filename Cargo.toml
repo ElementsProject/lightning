@@ -13,3 +13,8 @@ members = [
     "plugins/wss-proxy-plugin",
     "plugins/bip353-plugin",
 ]
+
+[workspace.dependencies]
+cln-rpc = { path = "cln-rpc", version = "0.5.0" }
+cln-grpc = { path = "cln-grpc", version = "0.5.0" }
+cln-plugin = { path = "plugins", version = "0.5.0" }
