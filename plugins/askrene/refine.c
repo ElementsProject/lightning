@@ -389,11 +389,11 @@ static struct amount_msat remove_excess(struct flow **flows,
  * flow beyond the tolerance fraction. It doesn't increase any flow above its
  * max_deliverable value.
  * Returns the total delivery amount. */
-static struct amount_msat increase_flows(struct flow **flows,
+static struct amount_msat increase_flows(const struct route_query *rq,
+					 struct flow **flows,
 					 size_t **flows_index,
 					 struct amount_msat deliver,
-					 double tolerance,
-					 struct amount_msat *max_deliverable)
+					 double tolerance)
 {
 	if (tal_count(flows) == 0)
 		return AMOUNT_MSAT(0);
@@ -422,7 +422,7 @@ static struct amount_msat increase_flows(struct flow **flows,
 			can_add = amount_msat_min(can_add, amt);
 
 		/* no more than max_deliverable */
-		if (!amount_msat_sub(&amt, max_deliverable[index],
+		if (!amount_msat_sub(&amt, flow_max_deliverable(rq, flow, NULL),
 				     flow->delivers))
 			continue;
 		else
@@ -461,19 +461,15 @@ const char *refine_flows(const tal_t *ctx, struct route_query *rq,
 {
 	const tal_t *working_ctx = tal(ctx, tal_t);
 	const char *error_message = NULL;
-	struct amount_msat *max_deliverable;
 	struct amount_msat *min_deliverable;
 	size_t *flows_index;
 
-	max_deliverable = tal_arrz(working_ctx, struct amount_msat,
-				   tal_count(*flows));
 	min_deliverable = tal_arrz(working_ctx, struct amount_msat,
 				   tal_count(*flows));
 	flows_index = tal_arrz(working_ctx, size_t, tal_count(*flows));
 	for (size_t i = 0; i < tal_count(*flows); i++) {
 		// FIXME: does flow_max_deliverable work for a single
 		// channel with 0 fees?
-		max_deliverable[i] = flow_max_deliverable(rq, (*flows)[i], bottleneck_idx);
 		min_deliverable[i] = flow_min_deliverable(rq, (*flows)[i]);
 		/* We use an array of indexes to keep track of the order
 		 * of the flows. Likewise flows can be removed by simply
@@ -485,15 +481,14 @@ const char *refine_flows(const tal_t *ctx, struct route_query *rq,
 	for (size_t i = 0; i < tal_count(flows_index); i++) {
 		(*flows)[flows_index[i]]->delivers =
 		    amount_msat_min((*flows)[flows_index[i]]->delivers,
-				    max_deliverable[flows_index[i]]);
+				    flow_max_deliverable(rq, (*flows)[flows_index[i]], bottleneck_idx));
 	}
 
 	/* remove excess from MCF granularity if any */
 	remove_excess(*flows, &flows_index, deliver);
 
 	/* increase flows if necessary to meet the target */
-	increase_flows(*flows, &flows_index, deliver, /* tolerance = */ 0.02,
-		       max_deliverable);
+	increase_flows(rq, *flows, &flows_index, deliver, /* tolerance = */ 0.02);
 
 	/* detect htlc_min violations */
 	for (size_t i = 0; i < tal_count(flows_index);) {
