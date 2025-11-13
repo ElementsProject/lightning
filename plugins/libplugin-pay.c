@@ -482,7 +482,7 @@ payment_constraints_update(struct payment_constraints *cons,
 		return false;
 
 	/* amount_msat_sub performs a check before actually subtracting. */
-	if (!amount_msat_sub(&cons->fee_budget, cons->fee_budget, delta_fee))
+	if (!amount_msat_deduct(&cons->fee_budget, delta_fee))
 		return false;
 
 	cons->cltv_budget -= delta_cltv;
@@ -571,9 +571,8 @@ static bool payment_chanhints_apply_route(struct payment *p)
 			curhint->local->htlc_budget--;
 		}
 
-		if (!amount_msat_sub(&curhint->estimated_capacity,
-				     curhint->estimated_capacity,
-				     curhop->amount)) {
+		if (!amount_msat_deduct(&curhint->estimated_capacity,
+					curhop->amount)) {
 			/* Given our preemptive test
 			 * above, this should never
 			 * happen either. */
@@ -1447,7 +1446,7 @@ handle_intermediate_failure(struct command *cmd,
 		 * work. This allows us to then allow on equality, this is for
 		 * example necessary for local channels where exact matches
 		 * should be allowed. */
-		if (!amount_msat_sub(&estimated, estimated, AMOUNT_MSAT(1)))
+		if (!amount_msat_deduct(&estimated, AMOUNT_MSAT(1)))
 			abort();
 
 		/* These are an indication that the capacity was insufficient,
@@ -3407,10 +3406,8 @@ static struct command_result *shadow_route_listchannels(struct command *cmd,
 		 * destination could otherwise cause the route to be too
 		 * expensive, while really being ok. If any of these fail then
 		 * the above checks are insufficient. */
-		if (!amount_msat_sub(&d->constraints.fee_budget,
-				     d->constraints.fee_budget, best_fee) ||
-		    !amount_msat_sub(&p->constraints.fee_budget,
-				     p->constraints.fee_budget, best_fee))
+		if (!amount_msat_deduct(&d->constraints.fee_budget, best_fee) ||
+		    !amount_msat_deduct(&p->constraints.fee_budget, best_fee))
 			paymod_err(p,
 				   "Could not update fee constraints "
 				   "for shadow route extension. "

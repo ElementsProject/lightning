@@ -364,7 +364,7 @@ struct route **get_routes(const tal_t *ctx,
 			}
 
 			// update the fee budget
-			if (!amount_msat_sub(&feebudget, feebudget, fee)) {
+			if (!amount_msat_deduct(&feebudget, fee)) {
 				// should never happen
 				tal_report_error(
 				    ctx, ecode, fail, PLUGIN_ERROR,
@@ -377,8 +377,7 @@ struct route **get_routes(const tal_t *ctx,
 			}
 
 			// update the amount that we deliver
-			if (!amount_msat_sub(&amount_to_deliver,
-					     amount_to_deliver, delivering)) {
+			if (!amount_msat_deduct(&amount_to_deliver, delivering)) {
 				// should never happen
 				tal_report_error(
 				    ctx, ecode, fail, PLUGIN_ERROR,

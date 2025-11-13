@@ -1440,7 +1440,7 @@ get_flow_paths(const tal_t *ctx, const struct gossmap *gossmap,
 			// substract the excess of msats for not having msat
 			// accuracy
 			struct amount_msat delivered = amount_msat(delta*1000);
-			if (!amount_msat_sub(&delivered, delivered, excess)) {
+			if (!amount_msat_deduct(&delivered, excess)) {
 				if (fail)
 				*fail = tal_fmt(
 				    ctx, "unable to substract excess");

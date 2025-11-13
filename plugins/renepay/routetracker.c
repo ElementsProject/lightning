@@ -330,11 +330,10 @@ void payment_collect_results(struct payment *payment,
 				*final_msg = tal_strdup(tmpctx, r->final_msg);
 		}
 
-		if (!amount_msat_sub(&payment->total_delivering,
-				     payment->total_delivering,
-				     route_delivers(r)) ||
-		    !amount_msat_sub(&payment->total_sent, payment->total_sent,
-				     route_sends(r))) {
+		if (!amount_msat_deduct(&payment->total_delivering,
+					route_delivers(r)) ||
+		    !amount_msat_deduct(&payment->total_sent,
+					route_sends(r))) {
 			plugin_err(pay_plugin->plugin,
 				   "%s: routes do not add up to "
 				   "payment total amount.",

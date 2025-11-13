@@ -263,6 +263,18 @@ WARN_UNUSED_RESULT bool amount_msat_accumulate(struct amount_msat *a,
 	return amount_msat_add(a, *a, b);
 }
 
+WARN_UNUSED_RESULT bool amount_msat_deduct(struct amount_msat *a,
+					       struct amount_msat b)
+{
+	return amount_msat_sub(a, *a, b);
+}
+
+WARN_UNUSED_RESULT bool amount_msat_deduct_sat(struct amount_msat *a,
+					       struct amount_sat b)
+{
+	return amount_msat_sub_sat(a, *a, b);
+}
+
 WARN_UNUSED_RESULT bool amount_msat_sub(struct amount_msat *val,
 					struct amount_msat a,
 					struct amount_msat b)

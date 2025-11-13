@@ -288,7 +288,7 @@ static void insert_chain_fees_diff(struct command *cmd,
 		if (!amount_msat_accumulate(&current_amt, ofs[i]->credit))
 			plugin_err(cmd->plugin, "Overflow when adding onchain fees");
 
-		if (!amount_msat_sub(&current_amt, current_amt, ofs[i]->debit))
+		if (!amount_msat_deduct(&current_amt, ofs[i]->debit))
 			plugin_err(cmd->plugin, "Underflow when subtracting onchain fees");
 		if (ofs[i]->update_count > max_update_count)
 			max_update_count = ofs[i]->update_count;

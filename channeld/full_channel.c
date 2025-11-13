@@ -416,7 +416,7 @@ static bool get_room_above_reserve(const struct channel *channel,
 		return false;
 	}
 
-	if (!amount_msat_sub_sat(remainder, *remainder, reserve)) {
+	if (!amount_msat_deduct_sat(remainder, reserve)) {
 		status_debug("%s cannot afford htlc: would make balance %s"
 			     " below reserve %s",
 			     side_to_str(side),
@@ -504,7 +504,7 @@ static bool htlc_dust(const struct channel *channel,
 				      side, &trim_rmvd))
 		return false;
 
-	return amount_msat_sub(trim_total, *trim_total, trim_rmvd);
+	return amount_msat_deduct(trim_total, trim_rmvd);
 }
 
 /*
@@ -773,7 +773,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 		 */
 		if ((option_anchor_outputs || option_anchors_zero_fee_htlc_tx)
 		    && channel->opener == sender
-		    && !amount_msat_sub_sat(&remainder, remainder, AMOUNT_SAT(660)))
+		    && !amount_msat_deduct_sat(&remainder, AMOUNT_SAT(660)))
 			return CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED;
 
 		if (channel->opener== sender) {
@@ -805,7 +805,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 
 			if ((option_anchor_outputs || option_anchors_zero_fee_htlc_tx)
 			    && channel->opener != sender
-			    && !amount_msat_sub_sat(&remainder, remainder, AMOUNT_SAT(660)))
+			    && !amount_msat_deduct_sat(&remainder, AMOUNT_SAT(660)))
 				return CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED;
 
 			/* Should be able to afford both their own commit tx
@@ -1257,12 +1257,12 @@ u32 approx_max_feerate(const struct channel *channel)
 	 * `to_remote`).
 	 */
 	if ((option_anchor_outputs || option_anchors_zero_fee_htlc_tx)
-	    && !amount_msat_sub_sat(&avail, avail, AMOUNT_SAT(660))) {
+	    && !amount_msat_deduct_sat(&avail, AMOUNT_SAT(660))) {
 		avail = AMOUNT_MSAT(0);
 	} else {
 		/* We should never go below reserve. */
-		if (!amount_msat_sub_sat(&avail, avail,
-					 channel->config[!channel->opener].channel_reserve))
+		if (!amount_msat_deduct_sat(&avail,
+					    channel->config[!channel->opener].channel_reserve))
 		avail = AMOUNT_MSAT(0);
 	}
 

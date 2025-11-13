@@ -721,7 +721,7 @@ static void subtract_offered_htlcs(const struct channel *channel,
 	     hout = htlc_out_map_next(ld->htlcs_out, &outi)) {
 		if (hout->key.channel != channel)
 			continue;
-		if (!amount_msat_sub(amount, *amount, hout->msat))
+		if (!amount_msat_deduct(amount, hout->msat))
 			*amount = AMOUNT_MSAT(0);
 	}
 }
@@ -738,7 +738,7 @@ static void subtract_received_htlcs(const struct channel *channel,
 	     hin = htlc_in_map_next(ld->htlcs_in, &ini)) {
 		if (hin->key.channel != channel)
 			continue;
-		if (!amount_msat_sub(amount, *amount, hin->msat))
+		if (!amount_msat_deduct(amount, hin->msat))
 			*amount = AMOUNT_MSAT(0);
 	}
 }
@@ -759,9 +759,9 @@ struct amount_msat channel_amount_spendable(const struct channel *channel)
 
 	/* If we're opener, subtract txfees we'll need to spend this */
 	if (channel->opener == LOCAL) {
-		if (!amount_msat_sub_sat(&spendable, spendable,
-					 commit_txfee(channel, spendable,
-						      LOCAL)))
+		if (!amount_msat_deduct_sat(&spendable,
+					    commit_txfee(channel, spendable,
+							 LOCAL)))
 			return AMOUNT_MSAT(0);
 	}
 
@@ -803,9 +803,9 @@ struct amount_msat channel_amount_receivable(const struct channel *channel)
 
 	/* If they're opener, subtract txfees they'll need to spend this */
 	if (channel->opener == REMOTE) {
-		if (!amount_msat_sub_sat(&receivable, receivable,
-					 commit_txfee(channel,
-						      receivable, REMOTE)))
+		if (!amount_msat_deduct_sat(&receivable,
+					    commit_txfee(channel,
+							 receivable, REMOTE)))
 			return AMOUNT_MSAT(0);
 	}
 

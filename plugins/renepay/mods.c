@@ -679,7 +679,7 @@ static struct command_result *compute_routes_cb(struct payment *payment)
 			   __func__);
 
 	/* Remaining fee budget. */
-	if (!amount_msat_sub(&feebudget, feebudget, fees_spent))
+	if (!amount_msat_deduct(&feebudget, fees_spent))
 		feebudget = AMOUNT_MSAT(0);
 
 	/* How much are we still trying to send? */

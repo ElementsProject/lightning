@@ -105,6 +105,14 @@ WARN_UNUSED_RESULT bool amount_sat_add_sat_s64(struct amount_sat *val,
 WARN_UNUSED_RESULT bool amount_msat_accumulate(struct amount_msat *a,
 					       struct amount_msat b);
 
+/* a -= b */
+WARN_UNUSED_RESULT bool amount_msat_deduct(struct amount_msat *a,
+					   struct amount_msat b);
+
+/* a -= b */
+WARN_UNUSED_RESULT bool amount_msat_deduct_sat(struct amount_msat *a,
+					       struct amount_sat b);
+
 /* returns floor(msat/div) */
 struct amount_msat amount_msat_div(struct amount_msat msat, u64 div);
 
