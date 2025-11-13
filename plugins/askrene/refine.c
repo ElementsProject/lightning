@@ -8,14 +8,6 @@
 #include <plugins/askrene/reserve.h>
 #include <string.h>
 
-/* Channel data for fast retrieval. */
-struct channel_data {
-	struct amount_msat htlc_min, htlc_max, liquidity_max;
-	u32 fee_base_msat, fee_proportional_millionths;
-	struct short_channel_id_dir scidd;
-	u32 idx;
-};
-
 /* We (ab)use the reservation system to place temporary reservations
  * on channels while we are refining each flow.  This has the effect
  * of making flows aware of each other. */
@@ -146,12 +138,12 @@ bool create_flow_reservations_verify(const struct route_query *rq,
 /* We use an fp16_t approximatin for htlc_max/min: this gets the exact value. */
 static struct amount_msat get_chan_htlc_max(const struct route_query *rq,
 					    const struct gossmap_chan *c,
-					    const struct short_channel_id_dir *scidd)
+					    int dir)
 {
 	struct amount_msat htlc_max;
 
 	gossmap_chan_get_update_details(rq->gossmap,
-					c, scidd->dir,
+					c, dir,
 					NULL, NULL, NULL, NULL, NULL, NULL,
 					NULL, &htlc_max);
 	return htlc_max;
@@ -159,12 +151,12 @@ static struct amount_msat get_chan_htlc_max(const struct route_query *rq,
 
 static struct amount_msat get_chan_htlc_min(const struct route_query *rq,
 					    const struct gossmap_chan *c,
-					    const struct short_channel_id_dir *scidd)
+					    int dir)
 {
 	struct amount_msat htlc_min;
 
 	gossmap_chan_get_update_details(rq->gossmap,
-					c, scidd->dir,
+					c, dir,
 					NULL, NULL, NULL, NULL, NULL, NULL,
 					&htlc_min, NULL);
 	return htlc_min;
@@ -174,50 +166,6 @@ enum why_capped {
 	CAPPED_HTLC_MAX,
 	CAPPED_CAPACITY,
 };
-
-/* Cache channel data along the path used by this flow. */
-static struct channel_data *new_channel_path_cache(const tal_t *ctx,
-						   struct route_query *rq,
-						   struct flow *flow)
-{
-	const size_t pathlen = tal_count(flow->path);
-	struct channel_data *path = tal_arr(ctx, struct channel_data, pathlen);
-
-	for (size_t i = 0; i < pathlen; i++) {
-		/* knowledge on liquidity bounds */
-		struct amount_msat known_min, known_max;
-		const struct half_chan *h = flow_edge(flow, i);
-		struct short_channel_id_dir scidd;
-
-		get_scidd(rq->gossmap, flow, i, &scidd);
-		get_constraints(rq, flow->path[i], flow->dirs[i], &known_min,
-				&known_max);
-
-		path[i].htlc_min = get_chan_htlc_min(rq, flow->path[i], &scidd);
-		path[i].htlc_max = get_chan_htlc_max(rq, flow->path[i], &scidd);
-		path[i].fee_base_msat = h->base_fee;
-		path[i].fee_proportional_millionths = h->proportional_fee;
-		path[i].liquidity_max = known_max;
-		path[i].scidd = scidd;
-		path[i].idx = scidd.dir +
-			      2 * gossmap_chan_idx(rq->gossmap, flow->path[i]);
-	}
-	return path;
-}
-
-/* Cache channel data along multiple paths. */
-static struct channel_data **new_channel_mpp_cache(const tal_t *ctx,
-						   struct route_query *rq,
-						   struct flow **flows)
-{
-	const size_t npaths = tal_count(flows);
-	struct channel_data **paths =
-	    tal_arr(ctx, struct channel_data *, npaths);
-	for (size_t i = 0; i < npaths; i++) {
-		paths[i] = new_channel_path_cache(paths, rq, flows[i]);
-	}
-	return paths;
-}
 
 /* Reverse order: bigger first */
 static int revcmp_flows(const size_t *a, const size_t *b, struct flow **flows)
@@ -231,28 +179,36 @@ static int revcmp_flows(const size_t *a, const size_t *b, struct flow **flows)
 
 // TODO: unit test:
 //      -> make a path
-//      -> compute x = path_max_deliverable
+//      -> compute x = flow_max_deliverable
 //      -> check that htlc_max are all satisfied
 //      -> check that (x+1) at least one htlc_max is violated
 /* Given the channel constraints, return the maximum amount that can be
  * delivered.  Sets *bottleneck_idx to one of the contraining channels' idx, if non-NULL */
-static struct amount_msat path_max_deliverable(struct channel_data *path,
+static struct amount_msat flow_max_deliverable(const struct route_query *rq,
+					       const struct flow *flow,
 					       u32 *bottleneck_idx)
 {
 	struct amount_msat deliver = AMOUNT_MSAT(-1);
-	for (size_t i = 0; i < tal_count(path); i++) {
-		deliver =
-		    amount_msat_sub_fee(deliver, path[i].fee_base_msat,
-					path[i].fee_proportional_millionths);
-		if (amount_msat_greater(deliver, path[i].htlc_max)) {
+	for (size_t i = 0; i < tal_count(flow->path); i++) {
+		const struct half_chan *hc = &flow->path[i]->half[flow->dirs[i]];
+		struct amount_msat unused, known_max, htlc_max;
+		size_t idx = flow->dirs[i]
+			+ 2 * gossmap_chan_idx(rq->gossmap, flow->path[i]);
+
+		deliver = amount_msat_sub_fee(deliver, hc->base_fee,
+					      hc->proportional_fee);
+		htlc_max = get_chan_htlc_max(rq, flow->path[i], flow->dirs[i]);
+		if (amount_msat_greater(deliver, htlc_max)) {
 			if (bottleneck_idx)
-				*bottleneck_idx = path[i].idx;
-			deliver = path[i].htlc_max;
+				*bottleneck_idx = idx;
+			deliver = htlc_max;
 		}
-		if (amount_msat_greater(deliver, path[i].liquidity_max)) {
+		get_constraints(rq, flow->path[i], flow->dirs[i],
+				&unused, &known_max);
+		if (amount_msat_greater(deliver, known_max)) {
 			if (bottleneck_idx)
-				*bottleneck_idx = path[i].idx;
-			deliver = path[i].liquidity_max;
+				*bottleneck_idx = idx;
+			deliver = known_max;
 		}
 	}
 	return deliver;
@@ -265,28 +221,36 @@ static struct amount_msat path_max_deliverable(struct channel_data *path,
 //      -> check that (x-1) at least one htlc_min is violated
 /* The least amount that we can deliver at the destination such that when one
  * computes the hop amounts backwards the htlc_min are always met. */
-static struct amount_msat path_min_deliverable(struct channel_data *path)
+static struct amount_msat flow_min_deliverable(const struct route_query *rq,
+					       const struct flow *flow)
 {
 	struct amount_msat least_send = AMOUNT_MSAT(1);
-	const size_t pathlen = tal_count(path);
+	const size_t pathlen = tal_count(flow->path);
+
 	for (size_t i = pathlen - 1; i < pathlen; i--) {
-		least_send = amount_msat_max(least_send, path[i].htlc_min);
-		if (!amount_msat_add_fee(&least_send, path[i].fee_base_msat,
-					 path[i].fee_proportional_millionths))
+		const struct half_chan *hc = &flow->path[i]->half[flow->dirs[i]];
+		struct amount_msat htlc_min = get_chan_htlc_min(rq, flow->path[i], flow->dirs[i]);
+
+		least_send = amount_msat_max(least_send, htlc_min);
+		if (!amount_msat_add_fee(&least_send, hc->base_fee,
+					 hc->proportional_fee))
 			abort();
 	}
+
 	/* least_send: is the least amount we can send in order to deliver at
 	 * least 1 msat at the destination. */
 	struct amount_msat least_destination = least_send;
 	for (size_t i = 0; i < pathlen; i++) {
+		const struct half_chan *hc = &flow->path[i]->half[flow->dirs[i]];
+		struct amount_msat htlc_min = get_chan_htlc_min(rq, flow->path[i], flow->dirs[i]);
 		struct amount_msat in_value = least_destination;
 		struct amount_msat out_value =
-		    amount_msat_sub_fee(in_value, path[i].fee_base_msat,
-					path[i].fee_proportional_millionths);
-		assert(amount_msat_greater_eq(out_value, path[i].htlc_min));
+		    amount_msat_sub_fee(in_value, hc->base_fee,
+					hc->proportional_fee);
+		assert(amount_msat_greater_eq(out_value, htlc_min));
 		struct amount_msat x = out_value;
-		if (!amount_msat_add_fee(&x, path[i].fee_base_msat,
-					 path[i].fee_proportional_millionths))
+		if (!amount_msat_add_fee(&x, hc->base_fee,
+					 hc->proportional_fee))
 			abort();
 		/* if the in_value computed from the out_value is smaller than
 		 * it should, then we add 1msat */
@@ -294,11 +258,11 @@ static struct amount_msat path_min_deliverable(struct channel_data *path)
 		    !amount_msat_accumulate(&out_value, AMOUNT_MSAT(1)))
 			abort();
 		/* check conditions */
-		assert(amount_msat_greater_eq(out_value, path[i].htlc_min));
+		assert(amount_msat_greater_eq(out_value, htlc_min));
 		x = out_value;
 		assert(
-		    amount_msat_add_fee(&x, path[i].fee_base_msat,
-					path[i].fee_proportional_millionths) &&
+		    amount_msat_add_fee(&x, hc->base_fee,
+					hc->proportional_fee) &&
 		    amount_msat_greater_eq(x, in_value));
 		least_destination = out_value;
 	}
@@ -307,27 +271,34 @@ static struct amount_msat path_min_deliverable(struct channel_data *path)
 
 static const char *
 remove_htlc_min_violations(const tal_t *ctx, struct route_query *rq,
-			   const struct flow *flow,
-			   const struct channel_data *channels)
+			   const struct flow *flow)
 {
 	const char *error_message = NULL;
 	struct amount_msat msat = flow->delivers;
 	for (size_t i = tal_count(flow->path) - 1; i < tal_count(flow->path);
 	     i--) {
-		if (amount_msat_less(msat, channels[i].htlc_min)) {
+		struct amount_msat htlc_min = get_chan_htlc_min(rq, flow->path[i], flow->dirs[i]);
+		const struct half_chan *hc = &flow->path[i]->half[flow->dirs[i]];
+		if (amount_msat_less(msat, htlc_min)) {
+			struct short_channel_id_dir scidd;
+			/* FIXME: hoist this! */
+			size_t idx = flow->dirs[i]
+				+ 2 * gossmap_chan_idx(rq->gossmap, flow->path[i]);
+
+			get_scidd(rq->gossmap, flow, i, &scidd);
 			rq_log(
 			    ctx, rq, LOG_INFORM,
 			    "Sending %s across %s would violate htlc_min "
 			    "(~%s), disabling this channel",
 			    fmt_amount_msat(ctx, msat),
-			    fmt_short_channel_id_dir(ctx, &channels[i].scidd),
-			    fmt_amount_msat(ctx, channels[i].htlc_min));
-			bitmap_set_bit(rq->disabled_chans, channels[i].idx);
+			    fmt_short_channel_id_dir(ctx, &scidd),
+			    fmt_amount_msat(ctx, htlc_min));
+			bitmap_set_bit(rq->disabled_chans, idx);
 			break;
 		}
 		if (!amount_msat_add_fee(
-			&msat, channels[i].fee_base_msat,
-			channels[i].fee_proportional_millionths)) {
+			&msat, hc->base_fee,
+			hc->proportional_fee)) {
 			error_message =
 			    rq_log(ctx, rq, LOG_BROKEN,
 				   "%s: Adding fee to amount", __func__);
@@ -492,22 +463,18 @@ const char *refine_flows(const tal_t *ctx, struct route_query *rq,
 	const char *error_message = NULL;
 	struct amount_msat *max_deliverable;
 	struct amount_msat *min_deliverable;
-	struct channel_data **channel_mpp_cache;
 	size_t *flows_index;
 
-	/* we might need to access this data multiple times, so we cache
-	 * it */
-	channel_mpp_cache = new_channel_mpp_cache(working_ctx, rq, *flows);
 	max_deliverable = tal_arrz(working_ctx, struct amount_msat,
-				   tal_count(channel_mpp_cache));
+				   tal_count(*flows));
 	min_deliverable = tal_arrz(working_ctx, struct amount_msat,
-				   tal_count(channel_mpp_cache));
+				   tal_count(*flows));
 	flows_index = tal_arrz(working_ctx, size_t, tal_count(*flows));
-	for (size_t i = 0; i < tal_count(channel_mpp_cache); i++) {
-		// FIXME: does path_max_deliverable work for a single
+	for (size_t i = 0; i < tal_count(*flows); i++) {
+		// FIXME: does flow_max_deliverable work for a single
 		// channel with 0 fees?
-		max_deliverable[i] = path_max_deliverable(channel_mpp_cache[i], bottleneck_idx);
-		min_deliverable[i] = path_min_deliverable(channel_mpp_cache[i]);
+		max_deliverable[i] = flow_max_deliverable(rq, (*flows)[i], bottleneck_idx);
+		min_deliverable[i] = flow_min_deliverable(rq, (*flows)[i]);
 		/* We use an array of indexes to keep track of the order
 		 * of the flows. Likewise flows can be removed by simply
 		 * shrinking the flows_index array. */
@@ -539,7 +506,7 @@ const char *refine_flows(const tal_t *ctx, struct route_query *rq,
 		/* htlc_min is not met for this flow */
 		tal_arr_remove(&flows_index, i);
 		error_message = remove_htlc_min_violations(
-		    working_ctx, rq, (*flows)[k], channel_mpp_cache[k]);
+		    working_ctx, rq, (*flows)[k]);
 		if (error_message)
 			goto fail;
 	}
@@ -575,17 +542,15 @@ void squash_flows(const tal_t *ctx, struct route_query *rq,
 	const tal_t *working_ctx = tal(ctx, tal_t);
 	size_t *flows_index = tal_arrz(working_ctx, size_t, tal_count(*flows));
 	char **paths_str = tal_arrz(working_ctx, char *, tal_count(*flows));
-	struct channel_data **channel_mpp_cache =
-	    new_channel_mpp_cache(working_ctx, rq, *flows);
 	struct amount_msat *max_deliverable = tal_arrz(
-	    working_ctx, struct amount_msat, tal_count(channel_mpp_cache));
+	    working_ctx, struct amount_msat, tal_count(*flows));
 
 	for (size_t i = 0; i < tal_count(flows_index); i++) {
-		struct flow *flow = (*flows)[i];
+		const struct flow *flow = (*flows)[i];
 		struct short_channel_id_dir scidd;
 		flows_index[i] = i;
 		paths_str[i] = tal_strdup(working_ctx, "");
-		max_deliverable[i] = path_max_deliverable(channel_mpp_cache[i], NULL);
+		max_deliverable[i] = flow_max_deliverable(rq, flow, NULL);
 
 		for (size_t j = 0; j < tal_count(flow->path); j++) {
 			scidd.scid =
