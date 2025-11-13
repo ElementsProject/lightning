@@ -216,6 +216,7 @@ class OverridePatch(Patch):
         "channel_state_changed.old_state": "ChannelState",
         "channel_state_changed.new_state": "ChannelState",
         "ListPeerChannels.channels[].state": "ChannelState",
+        "Wait.htlcs.state": "HtlcState",
     }
 
     def visit(self, f: model.Field, parent: Optional[model.Field] = None) -> None:
