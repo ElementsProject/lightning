@@ -3124,7 +3124,7 @@ def test_autoclean_once(node_factory):
     # Make sure > 1 second old!
     time.sleep(2)
     assert (l1.rpc.autoclean_once('failedpays', 1)
-            == {'autoclean': {'failedpays': {'cleaned': 1, 'uncleaned': 1}}})
+            == {'autoclean': {'failedpays': {'cleaned': 1, 'uncleaned': 0}}})
 
     assert (l1.rpc.autoclean_once('succeededpays', 1)
             == {'autoclean': {'succeededpays': {'cleaned': 1, 'uncleaned': 0}}})
@@ -3133,7 +3133,7 @@ def test_autoclean_once(node_factory):
     assert l1.rpc.autoclean_status() == expected[0]
 
     assert (l2.rpc.autoclean_once('failedforwards', 1)
-            == {'autoclean': {'failedforwards': {'cleaned': 1, 'uncleaned': 1}}})
+            == {'autoclean': {'failedforwards': {'cleaned': 1, 'uncleaned': 0}}})
     expected[1]['autoclean']['failedforwards']['cleaned'] = 1
     assert l2.rpc.autoclean_status() == expected[1]
 
@@ -3143,7 +3143,7 @@ def test_autoclean_once(node_factory):
     assert l2.rpc.autoclean_status() == expected[1]
 
     assert (l3.rpc.autoclean_once('expiredinvoices', 1)
-            == {'autoclean': {'expiredinvoices': {'cleaned': 1, 'uncleaned': 1}}})
+            == {'autoclean': {'expiredinvoices': {'cleaned': 1, 'uncleaned': 0}}})
     expected[2]['autoclean']['expiredinvoices']['cleaned'] = 1
     assert l3.rpc.autoclean_status() == expected[2]
 

@@ -555,13 +555,11 @@ static struct command_result *list_done(struct command *cmd,
 
 		variant = ops->get_variant(buf, t, subsystem, &timestamp);
 		if (!variant) {
-			subsystem->num_uncleaned++;
 			continue;
 		}
 
 		/* Continue if we don't care. */
 		if (variant->age == 0) {
-			subsystem->num_uncleaned++;
 			continue;
 		}
 

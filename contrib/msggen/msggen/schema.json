@@ -1862,7 +1862,9 @@
               "    * `succeededpays`: payment attempts which succeeded (`complete` in listpays `status`).",
               "    * `expiredinvoices`: invoices which were not paid (and cannot be) (`expired` in listinvoices `status`).",
               "    * `paidinvoices`: invoices which were paid (`paid` in listinvoices `status).",
-              "    * `networkevents`: all events in listnetworkevents (added *v25.12*)"
+              "    * `networkevents`: all events in listnetworkevents (added *v25.12*)",
+              "",
+              "NOTE: until v25.12, the `uncleaned` field contained all entries not removed (e.g. in `failedforwards` it counted all forwards, not just failed ones).  This was an interface only an engineer could love, so it was fixed."
             ]
           },
           "age": {
@@ -1894,13 +1896,13 @@
                   "cleaned": {
                     "type": "u64",
                     "description": [
-                      "Total number of deletions done this run."
+                      "The number of successful forwards deleted."
                     ]
                   },
                   "uncleaned": {
                     "type": "u64",
                     "description": [
-                      "The total number of entries *not* deleted this run."
+                      "The number of successful forwards *not* deleted (too new)."
                     ]
                   }
                 }
@@ -1916,13 +1918,13 @@
                   "cleaned": {
                     "type": "u64",
                     "description": [
-                      "Total number of deletions done this run."
+                      "The number of failed forwards deleted."
                     ]
                   },
                   "uncleaned": {
                     "type": "u64",
                     "description": [
-                      "The total number of entries *not* deleted this run."
+                      "The number of failed forwards *not* deleted (too new)."
                     ]
                   }
                 }
@@ -1938,13 +1940,13 @@
                   "cleaned": {
                     "type": "u64",
                     "description": [
-                      "Total number of deletions done this run."
+                      "The number of successful payments deleted."
                     ]
                   },
                   "uncleaned": {
                     "type": "u64",
                     "description": [
-                      "The total number of entries *not* deleted this run."
+                      "The number of successful forwards *not* deleted (too new)."
                     ]
                   }
                 }
@@ -1960,13 +1962,13 @@
                   "cleaned": {
                     "type": "u64",
                     "description": [
-                      "Total number of deletions done this run."
+                      "The number of unsuccessful payments deleted."
                     ]
                   },
                   "uncleaned": {
                     "type": "u64",
                     "description": [
-                      "The total number of entries *not* deleted this run."
+                      "The number of unsuccessful payments *not* deleted (too new)."
                     ]
                   }
                 }
@@ -1982,13 +1984,13 @@
                   "cleaned": {
                     "type": "u64",
                     "description": [
-                      "Total number of deletions done this run."
+                      "The number of paid invoices deleted."
                     ]
                   },
                   "uncleaned": {
                     "type": "u64",
                     "description": [
-                      "The total number of entries *not* deleted this run."
+                      "The number of paid invoices *not* deleted (too new)."
                     ]
                   }
                 }
@@ -2004,13 +2006,13 @@
                   "cleaned": {
                     "type": "u64",
                     "description": [
-                      "Total number of deletions done this run."
+                      "The number of expired invoices deleted."
                     ]
                   },
                   "uncleaned": {
                     "type": "u64",
                     "description": [
-                      "The total number of entries *not* deleted this run."
+                      "The number of expired invoices *not* deleted (too new)."
                     ]
                   }
                 }
