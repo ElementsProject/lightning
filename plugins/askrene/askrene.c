@@ -1088,6 +1088,7 @@ static struct command_result *json_askrene_bias_channel(struct command *cmd,
 	s8 *bias;
 	const struct bias *b;
 	bool *relative;
+	u64 timestamp;
 
 	if (!param(cmd, buffer, params,
 		   p_req("layer", param_known_layer, &layer),
@@ -1100,7 +1101,9 @@ static struct command_result *json_askrene_bias_channel(struct command *cmd,
 	plugin_log(cmd->plugin, LOG_TRACE, "%s called: %.*s", __func__,
 		   json_tok_full_len(params), json_tok_full(buffer, params));
 
-	b = layer_set_bias(layer, scidd, description, *bias, *relative);
+	timestamp = time_now().ts.tv_sec;
+	b = layer_set_bias(layer, scidd, description, *bias, *relative,
+			   timestamp);
 	response = jsonrpc_stream_success(cmd);
 	json_array_start(response, "biases");
 	if (b)

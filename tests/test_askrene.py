@@ -260,14 +260,17 @@ def test_layers(node_factory):
         l2.rpc.askrene_remove_layer('test_layers_unknown')
 
     # Add biases.
-    l2.rpc.askrene_bias_channel('test_layers', '1x1x1/1', 1)
-    expect['biases'] = [{'short_channel_id_dir': '1x1x1/1', 'bias': 1}]
+    r = l2.rpc.askrene_bias_channel('test_layers', '1x1x1/1', 1)
+    expect['biases'] = [{'short_channel_id_dir': '1x1x1/1', 'bias': 1,
+                         'timestamp': r['biases'][0]['timestamp']}]
     listlayers = l2.rpc.askrene_listlayers('test_layers')
     assert listlayers == {'layers': [expect]}
 
     # Works with description.
-    l2.rpc.askrene_bias_channel('test_layers', '1x1x1/1', -5, "bigger bias")
-    expect['biases'] = [{'short_channel_id_dir': '1x1x1/1', 'bias': -5, 'description': "bigger bias"}]
+    r = l2.rpc.askrene_bias_channel('test_layers', '1x1x1/1', -5, "bigger bias")
+    expect['biases'] = [{'short_channel_id_dir': '1x1x1/1', 'bias': -5,
+                         'description': "bigger bias",
+                         'timestamp': r['biases'][0]['timestamp']}]
     listlayers = l2.rpc.askrene_listlayers('test_layers')
     assert listlayers == {'layers': [expect]}
 
@@ -278,19 +281,23 @@ def test_layers(node_factory):
         l2.rpc.askrene_bias_channel('test_layers', '1x1x1/1', 101, "bigger bias")
 
     # We can make them relative.
-    l2.rpc.askrene_bias_channel('test_layers', '1x1x1/1', 1, 'adding bias', True)
-    expect['biases'] = [{'short_channel_id_dir': '1x1x1/1', 'bias': -4, 'description': "adding bias"}]
+    r = l2.rpc.askrene_bias_channel('test_layers', '1x1x1/1', 1, 'adding bias', True)
+    expect['biases'] = [{'short_channel_id_dir': '1x1x1/1', 'bias': -4,
+                         'description': "adding bias",
+                         'timestamp': r['biases'][0]['timestamp']}]
     listlayers = l2.rpc.askrene_listlayers('test_layers')
     assert listlayers == {'layers': [expect]}
 
-    l2.rpc.askrene_bias_channel(layer='test_layers', short_channel_id_dir='1x1x1/1', bias=-1, relative=True)
-    expect['biases'] = [{'short_channel_id_dir': '1x1x1/1', 'bias': -5}]
+    r = l2.rpc.askrene_bias_channel(layer='test_layers', short_channel_id_dir='1x1x1/1', bias=-1, relative=True)
+    expect['biases'] = [{'short_channel_id_dir': '1x1x1/1', 'bias': -5,
+                         'timestamp': r['biases'][0]['timestamp']}]
     listlayers = l2.rpc.askrene_listlayers('test_layers')
     assert listlayers == {'layers': [expect]}
 
     # They truncate on +/- 100 though:
-    l2.rpc.askrene_bias_channel('test_layers', '1x1x1/1', -99, None, True)
-    expect['biases'] = [{'short_channel_id_dir': '1x1x1/1', 'bias': -100}]
+    r = l2.rpc.askrene_bias_channel('test_layers', '1x1x1/1', -99, None, True)
+    expect['biases'] = [{'short_channel_id_dir': '1x1x1/1', 'bias': -100,
+                         'timestamp': r['biases'][0]['timestamp']}]
     listlayers = l2.rpc.askrene_listlayers('test_layers')
     assert listlayers == {'layers': [expect]}
 
