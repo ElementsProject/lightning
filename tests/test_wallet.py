@@ -2469,7 +2469,6 @@ def test_old_htlcs_cleanup(node_factory, bitcoind):
     assert l1.rpc.listhtlcs() == {'htlcs': []}
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Makes use of the sqlite3 db")
 @unittest.skipIf(TEST_NETWORK != 'regtest', "sqlite3 snapshot is regtest")
 def test_pending_payments_cleanup(node_factory, bitcoind):
