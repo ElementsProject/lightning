@@ -3,6 +3,7 @@
 #include "../blinding.c"
 #include "../hmac.c"
 #include <common/channel_id.h>
+#include <common/randbytes.h>
 #include <common/setup.h>
 #include <stdio.h>
 

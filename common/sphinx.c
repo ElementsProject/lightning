@@ -5,13 +5,13 @@
 #include <ccan/mem/mem.h>
 #include <common/onionreply.h>
 #include <common/overflows.h>
+#include <common/randbytes.h>
 #include <common/sphinx.h>
 #include <common/utils.h>
 
 #include <secp256k1_ecdh.h>
 
 #include <sodium/crypto_stream_chacha20.h>
-#include <sodium/randombytes.h>
 
 
 #define BLINDING_FACTOR_SIZE 32
@@ -566,7 +566,7 @@ struct onionpacket *create_onionpacket(
 
 	if (sp->session_key == NULL) {
 		sp->session_key = tal(sp, struct secret);
-		randombytes_buf(sp->session_key, sizeof(struct secret));
+		randbytes(sp->session_key, sizeof(struct secret));
 	}
 
 	params = generate_hop_params(ctx, sp->session_key->data, sp);

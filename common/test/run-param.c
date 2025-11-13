@@ -8,6 +8,7 @@
 #include <ccan/array_size/array_size.h>
 #include <common/channel_type.h>
 #include <common/memleak.h>
+#include <common/randbytes.h>
 #include <common/setup.h>
 #include <stdio.h>
 

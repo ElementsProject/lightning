@@ -11,11 +11,11 @@
 #include <common/json_stream.h>
 #include <common/onion_message.h>
 #include <common/overflows.h>
+#include <common/randbytes.h>
 #include <inttypes.h>
 #include <plugins/establish_onion_path.h>
 #include <plugins/fetchinvoice.h>
 #include <plugins/offers.h>
-#include <sodium.h>
 
 static LIST_HEAD(sent_list);
 
@@ -452,7 +452,7 @@ static struct blinded_path *make_reply_path(const tal_t *ctx,
 
 	assert(tal_count(path) > 0);
 
-	randombytes_buf(reply_secret, sizeof(struct secret));
+	randbytes(reply_secret, sizeof(struct secret));
 
 	if (sent->dev_reply_path) {
 		ids = sent->dev_reply_path;
@@ -1080,8 +1080,8 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 			 *   bytes.
 			 */
 			invreq->invreq_metadata = tal_arr(invreq, u8, 16);
-			randombytes_buf(invreq->invreq_metadata,
-					tal_bytelen(invreq->invreq_metadata));
+			randbytes(invreq->invreq_metadata,
+				    tal_bytelen(invreq->invreq_metadata));
 		}
 	}
 
@@ -1589,7 +1589,7 @@ struct command_result *json_sendinvoice(struct command *cmd,
 	 * - MUST set `invoice_payment_hash` to the SHA256 hash of the
 	 *   `payment_preimage` that will be given in return for payment.
 	 */
-	randombytes_buf(&sent->inv_preimage, sizeof(sent->inv_preimage));
+	randbytes(&sent->inv_preimage, sizeof(sent->inv_preimage));
 	sent->inv->invoice_payment_hash = tal(sent->inv, struct sha256);
 	sha256(sent->inv->invoice_payment_hash,
 	       &sent->inv_preimage, sizeof(sent->inv_preimage));

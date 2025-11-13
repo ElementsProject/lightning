@@ -6,8 +6,8 @@
 #include <bitcoin/pubkey.h>
 #include <bitcoin/script.h>
 #include <ccan/mem/mem.h>
+#include <common/randbytes.h>
 #include <common/utils.h>
-#include <sodium/randombytes.h>
 #include <wally_script.h>
 
 /* To push 0-75 bytes onto stack. */

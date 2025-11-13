@@ -8,6 +8,7 @@
 #include <common/bolt12.h>
 #include <common/bolt12_merkle.h>
 #include <common/features.h>
+#include <common/randbytes.h>
 #include <common/setup.h>
 #include <common/utils.h>
 

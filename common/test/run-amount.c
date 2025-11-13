@@ -1,5 +1,6 @@
 #include "config.h"
 #include "../amount.c"
+#include <common/randbytes.h>
 #include <common/setup.h>
 #include <stdio.h>
 

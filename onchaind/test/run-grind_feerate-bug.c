@@ -4,6 +4,7 @@
 */
 #include "config.h"
 #include <ccan/str/hex/hex.h>
+#include <common/randbytes.h>
 #include <common/setup.h>
 #include <stdio.h>
 
@@ -171,6 +172,9 @@ void *notleak_(void *ptr UNNEEDED, bool plus_children UNNEEDED)
 /* Generated stub for peer_billboard */
 void peer_billboard(bool perm UNNEEDED, const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "peer_billboard called!\n"); abort(); }
+/* Generated stub for randbytes_ */
+void randbytes_(void *bytes UNNEEDED, size_t num_bytes UNNEEDED, u64 *offset UNNEEDED)
+{ fprintf(stderr, "randbytes_ called!\n"); abort(); }
 /* Generated stub for shachain_get_secret */
 bool shachain_get_secret(const struct shachain *shachain UNNEEDED,
 			 u64 commit_num UNNEEDED,
