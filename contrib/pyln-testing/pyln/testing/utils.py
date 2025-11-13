@@ -411,6 +411,7 @@ class BitcoinD(TailableProc):
         self.bitcoin_dir = bitcoin_dir
         self.rpcport = rpcport
         self.prefix = 'bitcoind'
+        self.canned_blocks = None
 
         regtestdir = os.path.join(bitcoin_dir, 'regtest')
         if not os.path.exists(regtestdir):
@@ -446,15 +447,18 @@ class BitcoinD(TailableProc):
         if self.reserved_rpcport is not None:
             drop_unused_port(self.reserved_rpcport)
 
-    def start(self):
+    def start(self, wallet_file=None):
         TailableProc.start(self)
         self.wait_for_log("Done loading", timeout=TIMEOUT)
 
         logging.info("BitcoinD started")
-        try:
-            self.rpc.createwallet("lightningd-tests")
-        except JSONRPCError:
-            self.rpc.loadwallet("lightningd-tests")
+        if wallet_file:
+            self.rpc.restorewallet("lightningd-tests", wallet_file)
+        else:
+            try:
+                self.rpc.createwallet("lightningd-tests")
+            except JSONRPCError:
+                self.rpc.loadwallet("lightningd-tests")
 
     def stop(self):
         for p in self.proxies:
@@ -467,6 +471,10 @@ class BitcoinD(TailableProc):
         self.proxies.append(proxy)
         proxy.start()
         return proxy
+
+    def set_canned_blocks(self, blocks):
+        """Set blocks as an array of blocks to "generate", or None to reset"""
+        self.canned_blocks = blocks
 
     # wait_for_mempool can be used to wait for the mempool before generating blocks:
     # True := wait for at least 1 transation
@@ -481,6 +489,16 @@ class BitcoinD(TailableProc):
                 wait_for(lambda: all(txid in self.rpc.getrawmempool() for txid in wait_for_mempool))
             else:
                 wait_for(lambda: len(self.rpc.getrawmempool()) >= wait_for_mempool)
+
+        # Use canned blocks if we have them (fails if we run out!).
+        if self.canned_blocks is not None:
+            ret = []
+            while numblocks > 0:
+                self.rpc.submitblock(self.canned_blocks[0])
+                ret.append(self.rpc.getbestblockhash())
+                numblocks -= 1
+                del self.canned_blocks[0]
+            return ret
 
         mempool = self.rpc.getrawmempool(True)
         logging.debug("Generating {numblocks}, confirming {lenmempool} transactions: {mempool}".format(
@@ -509,6 +527,21 @@ class BitcoinD(TailableProc):
 
         return self.rpc.generatetoaddress(numblocks, to_addr)
 
+    def send_and_mine_block(self, addr, sats):
+        """Sometimes we want the txid.  We assume it's the first tx for canned blocks"""
+        if self.canned_blocks:
+            self.generate_block(1)
+            # Find which non-coinbase txs sent to this address: return txid
+            for txid in self.rpc.getblock(self.rpc.getbestblockhash())['tx'][1:]:
+                for out in self.rpc.getrawtransaction(txid, 1)['vout']:
+                    if out['scriptPubKey'].get('address') == addr:
+                        return txid
+            assert False, f"No address {addr} in block {self.rpc.getblock(self.rpc.getbestblockhash())}"
+
+        txid = self.rpc.sendtoaddress(addr, sats / 10**8)
+        self.generate_block(1)
+        return txid
+
     def simple_reorg(self, height, shift=0):
         """
         Reorganize chain by creating a fork at height=[height] and re-mine all mempool
@@ -526,6 +559,7 @@ class BitcoinD(TailableProc):
            forward to h1.
         2. Set [height]=h2 and [shift]= h1-h2
         """
+        assert self.canned_blocks is None
         hashes = []
         fee_delta = 1000000
         orig_len = self.rpc.getblockcount()
@@ -559,7 +593,7 @@ class BitcoinD(TailableProc):
         """Bundle up blocks into an array, for restore_blocks"""
         blocks = []
         numblocks = self.rpc.getblockcount()
-        for bnum in range(1, numblocks):
+        for bnum in range(1, numblocks + 1):
             bhash = self.rpc.getblockhash(bnum)
             blocks.append(self.rpc.getblock(bhash, False))
         return blocks
@@ -892,6 +926,10 @@ class LightningNode(object):
                 self.daemon.opts['grpc-port'] = grpc_port
             self.grpc_port = grpc_port or 9736
 
+        # If bitcoind is serving canned blocks, it will keep initialblockdownload on true!
+        if self.bitcoin.canned_blocks is not None:
+            self.daemon.opts['dev-ignore-ibd'] = True
+
     def _create_rpc(self, jsonschemas):
         """Prepares anything related to the RPC.
         """
@@ -987,10 +1025,12 @@ class LightningNode(object):
 
     def fundwallet(self, sats, addrtype="bech32", mine_block=True):
         addr = self.rpc.newaddr(addrtype)[addrtype]
-        txid = self.bitcoin.rpc.sendtoaddress(addr, sats / 10**8)
         if mine_block:
-            self.bitcoin.generate_block(1)
+            txid = self.bitcoin.send_and_mine_block(addr, sats)
             self.daemon.wait_for_log('Owning output .* txid {} CONFIRMED'.format(txid))
+        else:
+            txid = self.bitcoin.rpc.sendtoaddress(addr, sats / 10**8)
+
         return addr, txid
 
     def fundbalancedchannel(self, remote_node, total_capacity=FUNDAMOUNT, announce=True):
@@ -1118,8 +1158,7 @@ class LightningNode(object):
         # We should not have funds on that address yet, we just generated it.
         assert not has_funds_on_addr(addr)
 
-        self.bitcoin.rpc.sendtoaddress(addr, (amount + 1000000) / 10**8)
-        self.bitcoin.generate_block(1)
+        self.bitcoin.send_and_mine_block(addr, amount + 1000000)
 
         # Now we should.
         wait_for(lambda: has_funds_on_addr(addr))
@@ -1134,9 +1173,17 @@ class LightningNode(object):
                                    **kwargs)
         blockid = self.bitcoin.generate_block(1, wait_for_mempool=res['txid'])[0]
 
+        txnum = None
         for i, txid in enumerate(self.bitcoin.rpc.getblock(blockid)['tx']):
             if txid == res['txid']:
                 txnum = i
+
+        if txnum is None:
+            print(f"mempool = {self.bitcoin.rpc.getrawmempool()}")
+            print("txs:")
+            for txid in self.bitcoin.rpc.getblock(blockid)['tx'][1:]:
+                print(f"txid {txid}: {self.bitcoin.rpc.getrawtransaction(txid)} {self.bitcoin.rpc.getrawtransaction(txid, 1)}")
+            assert False, f"txid {res['txid']} not found"
 
         scid = "{}x{}x{}".format(self.bitcoin.rpc.getblockcount(),
                                  txnum, res['outnum'])
