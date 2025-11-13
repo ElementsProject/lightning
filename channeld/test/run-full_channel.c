@@ -11,6 +11,7 @@
 #include <ccan/err/err.h>
 #include <ccan/io/io.h>
 #include <common/daemon.h>
+#include <common/randbytes.h>
 #include <common/setup.h>
 #include <wire/wire_io.h>
 #include <wire/wire_sync.h>

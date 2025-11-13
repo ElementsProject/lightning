@@ -6,6 +6,7 @@
 #include "../json_stream.c"
 #include <ccan/json_out/json_out.h>
 #include <common/json_command.h>
+#include <common/randbytes.h>
 #include <common/setup.h>
 #include <stdio.h>
 

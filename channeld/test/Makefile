@@ -27,6 +27,7 @@ channeld/test/run-full_channel:			\
 	common/msg_queue.o			\
 	common/permute_tx.o			\
 	common/pseudorand.o			\
+	common/randbytes.o			\
 	common/setup.o				\
 	common/utils.o
 

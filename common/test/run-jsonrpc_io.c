@@ -4,6 +4,7 @@
 #include <ccan/io/io.h>
 #include <common/amount.h>
 #include <common/bigsize.h>
+#include <common/randbytes.h>
 #include <common/setup.h>
 #include <stdio.h>
 #include <wire/wire.h>

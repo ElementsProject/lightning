@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <ccan/tal/str/str.h>
 #include <common/channel_type.h>
+#include <common/randbytes.h>
 #include <common/setup.h>
 #include <inttypes.h>
 #include <stdio.h>

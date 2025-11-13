@@ -17,6 +17,7 @@
 #include <common/daemon_conn.h>
 #include <common/hsm_secret.h>
 #include <common/memleak.h>
+#include <common/randbytes.h>
 #include <common/status.h>
 #include <common/status_wiregen.h>
 #include <common/subdaemon.h>
@@ -310,7 +311,7 @@ static void create_hsm(int fd, const char *passphrase)
 	/* Initialize wally tal context for libwally operations */
 
 	/* Generate random entropy for new mnemonic */
-	randombytes_buf(entropy, sizeof(entropy));
+	randbytes(entropy, sizeof(entropy));
 
 	/* Generate mnemonic from entropy */
 	tal_wally_start();
