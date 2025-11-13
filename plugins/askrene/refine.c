@@ -506,7 +506,7 @@ const char *refine_flows(const tal_t *ctx, struct route_query *rq,
 		/* htlc_min is not met for this flow */
 		tal_arr_remove(&flows_index, i);
 		error_message = remove_htlc_min_violations(
-		    working_ctx, rq, (*flows)[k]);
+		    ctx, rq, (*flows)[k]);
 		if (error_message)
 			goto fail;
 	}
