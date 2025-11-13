@@ -1926,6 +1926,7 @@ int main(int argc, const char *argv[])
 	ld = tal(tmpctx, struct lightningd);
 	ld->config = test_config;
 	ld->hsm_capabilities = NULL;
+	ld->developer = true;
 	memset(&ld->indexes[WAIT_SUBSYSTEM_HTLCS], 0,
 	       sizeof(ld->indexes[WAIT_SUBSYSTEM_HTLCS]));
 
