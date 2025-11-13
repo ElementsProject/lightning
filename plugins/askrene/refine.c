@@ -177,6 +177,15 @@ static int revcmp_flows(const size_t *a, const size_t *b, struct flow **flows)
 	return 1;
 }
 
+static int revcmp_flows_noidx(struct flow *const *a, struct flow *const *b, void *unused)
+{
+	if (amount_msat_eq((*a)->delivers, (*b)->delivers))
+		return 0;
+	if (amount_msat_greater((*a)->delivers, (*b)->delivers))
+		return -1;
+	return 1;
+}
+
 // TODO: unit test:
 //      -> make a path
 //      -> compute x = flow_max_deliverable
@@ -320,36 +329,46 @@ static struct amount_msat sum_all_deliver(struct flow **flows,
 	return all_deliver;
 }
 
+static struct amount_msat sum_all_deliver_noidx(struct flow **flows)
+{
+	struct amount_msat all_deliver = AMOUNT_MSAT(0);
+	for (size_t i = 0; i < tal_count(flows); i++) {
+		if (!amount_msat_accumulate(&all_deliver,
+					    flows[i]->delivers))
+			abort();
+	}
+	return all_deliver;
+}
+
 /* It reduces the amount of the flows and/or removes some flows in order to
  * deliver no more than max_deliver. It will leave at least one flow.
  * Returns the total delivery amount. */
-static struct amount_msat remove_excess(struct flow **flows,
-					size_t **flows_index,
+static struct amount_msat remove_excess(struct flow ***flows,
 					struct amount_msat max_deliver)
 {
-	if (tal_count(flows) == 0)
+	if (tal_count(*flows) == 0)
 		return AMOUNT_MSAT(0);
 
 	struct amount_msat all_deliver, excess;
-	all_deliver = sum_all_deliver(flows, *flows_index);
+	all_deliver = sum_all_deliver_noidx(*flows);
 
 	/* early exit: there is no excess */
 	if (!amount_msat_sub(&excess, all_deliver, max_deliver) ||
 	    amount_msat_is_zero(excess))
 		return all_deliver;
 
-	asort(*flows_index, tal_count(*flows_index), revcmp_flows, flows);
+	asort(*flows, tal_count(*flows), revcmp_flows_noidx, NULL);
 
 	/* Remove the smaller parts if they deliver less than the
 	 * excess.  */
-	for (int i = tal_count(*flows_index) - 1; i >= 0; i--) {
+	for (int i = tal_count(*flows) - 1; i >= 0; i--) {
 		if (!amount_msat_deduct(&excess,
-				     flows[(*flows_index)[i]]->delivers))
+				     (*flows)[i]->delivers))
 			break;
 		if (!amount_msat_deduct(&all_deliver,
-				     flows[(*flows_index)[i]]->delivers))
+				     (*flows)[i]->delivers))
 			abort();
-		tal_arr_remove(flows_index, i);
+		tal_arr_remove(flows, i);
 	}
 
 	/* If we still have some excess, remove it from the
@@ -357,9 +376,9 @@ static struct amount_msat remove_excess(struct flow **flows,
 	 * total. */
 	struct amount_msat old_excess = excess;
 	struct amount_msat old_deliver = all_deliver;
-	for (size_t i = 0; i < tal_count(*flows_index); i++) {
+	for (size_t i = 0; i < tal_count(*flows); i++) {
 		double fraction = amount_msat_ratio(
-		    flows[(*flows_index)[i]]->delivers, old_deliver);
+			(*flows)[i]->delivers, old_deliver);
 		struct amount_msat remove;
 
 		if (!amount_msat_scale(&remove, old_excess, fraction))
@@ -372,15 +391,14 @@ static struct amount_msat remove_excess(struct flow **flows,
 			abort();
 
 		if (!amount_msat_deduct(&all_deliver, remove) ||
-		    !amount_msat_deduct(&flows[(*flows_index)[i]]->delivers,
-					remove))
+		    !amount_msat_deduct(&(*flows)[i]->delivers, remove))
 			abort();
 	}
 
 	/* any rounding error left, take it from the first */
-	assert(tal_count(*flows_index) > 0);
+	assert(tal_count(*flows) > 0);
 	if (!amount_msat_deduct(&all_deliver, excess) ||
-	    !amount_msat_deduct(&flows[(*flows_index)[0]]->delivers, excess))
+	    !amount_msat_deduct(&(*flows)[0]->delivers, excess))
 		abort();
 	return all_deliver;
 }
@@ -464,6 +482,16 @@ const char *refine_flows(const tal_t *ctx, struct route_query *rq,
 	struct amount_msat *min_deliverable;
 	size_t *flows_index;
 
+	/* do not deliver more than HTLC_MAX allow us */
+	for (size_t i = 0; i < tal_count(*flows); i++) {
+		(*flows)[i]->delivers =
+		    amount_msat_min((*flows)[i]->delivers,
+				    flow_max_deliverable(rq, (*flows)[i], bottleneck_idx));
+	}
+
+	/* remove excess from MCF granularity if any */
+	remove_excess(flows, deliver);
+
 	min_deliverable = tal_arrz(working_ctx, struct amount_msat,
 				   tal_count(*flows));
 	flows_index = tal_arrz(working_ctx, size_t, tal_count(*flows));
@@ -476,16 +504,6 @@ const char *refine_flows(const tal_t *ctx, struct route_query *rq,
 		 * shrinking the flows_index array. */
 		flows_index[i] = i;
 	}
-
-	/* do not deliver more than HTLC_MAX allow us */
-	for (size_t i = 0; i < tal_count(flows_index); i++) {
-		(*flows)[flows_index[i]]->delivers =
-		    amount_msat_min((*flows)[flows_index[i]]->delivers,
-				    flow_max_deliverable(rq, (*flows)[flows_index[i]], bottleneck_idx));
-	}
-
-	/* remove excess from MCF granularity if any */
-	remove_excess(*flows, &flows_index, deliver);
 
 	/* increase flows if necessary to meet the target */
 	increase_flows(rq, *flows, &flows_index, deliver, /* tolerance = */ 0.02);
