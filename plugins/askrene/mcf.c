@@ -1618,24 +1618,21 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 		    rq_log(rq, rq, LOG_BROKEN,
 			   "%s: check_htlc_min_limits failed", __func__);
 		*flows = tal_free(*flows);
-		goto fail;
+		return error_message;
 	}
 	if (!check_htlc_max_limits(rq, *flows)) {
-		error_message =
-		    rq_log(rq, rq, LOG_BROKEN,
-			   "%s: check_htlc_max_limits failed", __func__);
 		*flows = tal_free(*flows);
-		goto fail;
+		return rq_log(rq, rq, LOG_BROKEN,
+			      "%s: check_htlc_max_limits failed", __func__);
 	}
 	if (tal_count(*flows) > rq->maxparts) {
-		error_message = rq_log(
-		    rq, rq, LOG_BROKEN,
-		    "%s: the number of flows (%zu) exceeds the limit set "
-		    "on payment parts (%" PRIu32
-		    "), please submit a bug report",
-		    __func__, tal_count(*flows), rq->maxparts);
+		size_t num_flows = tal_count(*flows);
 		*flows = tal_free(*flows);
-		goto fail;
+		return rq_log(rq, rq, LOG_BROKEN,
+			      "%s: the number of flows (%zu) exceeds the limit set "
+			      "on payment parts (%" PRIu32
+			      "), please submit a bug report",
+			      __func__, num_flows, rq->maxparts);
 	}
 
 	return NULL;
