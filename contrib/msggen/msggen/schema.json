@@ -380,6 +380,7 @@
         }
       },
       "see_also": [
+        "lightning-askrene-bias-node(7)",
         "lightning-getroutes(7)",
         "lightning-askrene-disable-node(7)",
         "lightning-askrene-create-channel(7)",
@@ -431,6 +432,186 @@
                 "short_channel_id_dir": "109x1x1/1",
                 "description": "bigger bias",
                 "bias": -5
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "askrene-bias-node.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "type": "object",
+      "rpc": "askrene-bias-node",
+      "title": "Command to apply a manual bias to a node in a layer",
+      "added": "v25.12",
+      "description": [
+        "The **askrene-bias-node** RPC command tells askrene to favor or disfavor all outgoing or incoming channels of a node when considering them for routing."
+      ],
+      "request": {
+        "required": [
+          "layer",
+          "node",
+          "direction",
+          "bias"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "layer": {
+            "type": "string",
+            "description": [
+              "The name of the layer to apply this bias to."
+            ]
+          },
+          "node": {
+            "type": "pubkey",
+            "description": [
+              "The node to which this bias applies.  It does not need to exist."
+            ]
+          },
+          "direction": {
+            "type": "string",
+            "description": [
+              "Either *in* or *out* to specify if the bias applies to incoming or outgoing channels with respect to this node."
+            ]
+          },
+          "bias": {
+            "type": "integer",
+            "description": [
+              "The bias, positive being good and negative being bad (0 being no bias).  Useful values are +/-1 through +/-10, though -100 through +100 are possible values."
+            ]
+          },
+          "description": {
+            "type": "string",
+            "description": [
+              "Description/annotation to display in askrene-listlayers(7)"
+            ]
+          },
+          "relative": {
+            "type": "boolean",
+            "default": false,
+            "description": [
+              "The bias will be added to the previous value."
+            ]
+          }
+        }
+      },
+      "response": {
+        "required": [
+          "node_biases"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "node_biases": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "layer",
+                "node",
+                "in_bias",
+                "out_bias",
+                "timestamp"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "layer": {
+                  "type": "string",
+                  "description": [
+                    "The name of the layer this bias applies to."
+                  ]
+                },
+                "node": {
+                  "type": "pubkey",
+                  "description": [
+                    "The id of the biased node."
+                  ]
+                },
+                "in_bias": {
+                  "type": "integer",
+                  "description": [
+                    "The bias (-100 to +100) on incoming channels."
+                  ]
+                },
+                "out_bias": {
+                  "type": "integer",
+                  "description": [
+                    "The bias (-100 to +100) on outgoing channels."
+                  ]
+                },
+                "description": {
+                  "type": "string",
+                  "description": [
+                    "A human readable annotation."
+                  ]
+                },
+                "timestamp": {
+                  "type": "u64",
+                  "description": [
+                    "The UNIX timestamp when this bias was created or last updated."
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "see_also": [
+        "lightning-askrene-bias-channel(7)",
+        "lightning-getroutes(7)",
+        "lightning-askrene-disable-node(7)",
+        "lightning-askrene-create-channel(7)",
+        "lightning-askrene-listlayers(7)",
+        "lightning-askrene-age(7)"
+      ],
+      "author": [
+        "Lagrange <<lagrang3@protonmail.com>> is mainly responsible."
+      ],
+      "resources": [
+        "Main web site: <https://github.com/ElementsProject/lightning>"
+      ],
+      "examples": [
+        {
+          "request": {
+            "id": "example:askrene-bias-node#1",
+            "method": "askrene-bias-node",
+            "params": {
+              "layer": "test_layers",
+              "node": "nodeid030303030303030303030303030303030303030303030303030303030303",
+              "direction": "out",
+              "bias": 1
+            }
+          },
+          "response": {
+            "node_biases": [
+              {
+                "layer": "test_layers",
+                "node": "nodeid030303030303030303030303030303030303030303030303030303030303",
+                "in_bias": 0,
+                "out_bias": 1
+              }
+            ]
+          }
+        },
+        {
+          "request": {
+            "id": "example:askrene-bias-node#2",
+            "method": "askrene-bias-node",
+            "params": [
+              "test_layers",
+              "nodeid030303030303030303030303030303030303030303030303030303030303",
+              "out",
+              -5,
+              "this node is unreliable"
+            ]
+          },
+          "response": {
+            "node_biases": [
+              {
+                "layer": "test_layers",
+                "node": "nodeid030303030303030303030303030303030303030303030303030303030303",
+                "description": "this is node is unreliable",
+                "in_bias": 0,
+                "out_bias": -5
               }
             ]
           }
@@ -761,6 +942,57 @@
                       }
                     }
                   }
+                },
+                "node_biases": {
+                  "added": "v25.12",
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "node",
+                      "in_bias",
+                      "out_bias",
+                      "timestamp"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "node": {
+                        "added": "v25.12",
+                        "type": "pubkey",
+                        "description": [
+                          "The id of the biased node."
+                        ]
+                      },
+                      "in_bias": {
+                        "added": "v25.12",
+                        "type": "integer",
+                        "description": [
+                          "The bias (-100 to +100) on incoming channels."
+                        ]
+                      },
+                      "out_bias": {
+                        "added": "v25.12",
+                        "type": "integer",
+                        "description": [
+                          "The bias (-100 to +100) on outgoing channels."
+                        ]
+                      },
+                      "description": {
+                        "added": "v25.12",
+                        "type": "string",
+                        "description": [
+                          "A human readable annotation."
+                        ]
+                      },
+                      "timestamp": {
+                        "added": "v25.12",
+                        "type": "u64",
+                        "description": [
+                          "The UNIX timestamp when this bias was created or last updated."
+                        ]
+                      }
+                    }
+                  }
                 }
               }
             }
@@ -799,7 +1031,8 @@
                 "created_channels": [],
                 "channel_updates": [],
                 "constraints": [],
-                "biases": []
+                "biases": [],
+                "node_biases": []
               }
             ]
           }
@@ -1245,6 +1478,57 @@
                       }
                     }
                   }
+                },
+                "node_biases": {
+                  "added": "v25.12",
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "node",
+                      "in_bias",
+                      "out_bias",
+                      "timestamp"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "node": {
+                        "added": "v25.12",
+                        "type": "pubkey",
+                        "description": [
+                          "The id of the biased node."
+                        ]
+                      },
+                      "in_bias": {
+                        "added": "v25.12",
+                        "type": "integer",
+                        "description": [
+                          "The bias (-100 to +100) on incoming channels."
+                        ]
+                      },
+                      "out_bias": {
+                        "added": "v25.12",
+                        "type": "integer",
+                        "description": [
+                          "The bias (-100 to +100) on outgoing channels."
+                        ]
+                      },
+                      "description": {
+                        "added": "v25.12",
+                        "type": "string",
+                        "description": [
+                          "A human readable annotation."
+                        ]
+                      },
+                      "timestamp": {
+                        "added": "v25.12",
+                        "type": "u64",
+                        "description": [
+                          "The UNIX timestamp when this bias was created or last updated."
+                        ]
+                      }
+                    }
+                  }
                 }
               }
             }
@@ -1257,6 +1541,7 @@
         "lightning-askrene-create-channel(7)",
         "lightning-askrene-inform-channel(7)",
         "lightning-askrene-bias-channel(7)",
+        "lightning-askrene-bias-node(7)",
         "lightning-askrene-age(7)"
       ],
       "author": [
@@ -1313,6 +1598,14 @@
                     "description": "bigger bias",
                     "bias": -5
                   }
+                ],
+                "node_biases": [
+                  {
+                    "node": "nodeid030303030303030303030303030303030303030303030303030303030303",
+                    "description": "this node is unreliable",
+                    "in_bias": 0,
+                    "out_bias": -5
+                  }
                 ]
               }
             ]
@@ -1363,6 +1656,14 @@
                     "description": "bigger bias",
                     "bias": -5
                   }
+                ],
+                "node_biases": [
+                  {
+                    "node": "nodeid030303030303030303030303030303030303030303030303030303030303",
+                    "description": "this node is unreliable",
+                    "in_bias": 0,
+                    "out_bias": -5
+                  }
                 ]
               },
               {
@@ -1372,7 +1673,8 @@
                 "created_channels": [],
                 "channel_updates": [],
                 "constraints": [],
-                "biases": []
+                "biases": [],
+                "node_biases": []
               }
             ]
           }

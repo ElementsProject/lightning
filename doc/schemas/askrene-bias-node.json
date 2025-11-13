@@ -1,16 +1,17 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "rpc": "askrene-bias-channel",
-  "title": "Command to apply a manual bias to a channel in a layer",
-  "added": "v24.11",
+  "rpc": "askrene-bias-node",
+  "title": "Command to apply a manual bias to a node in a layer",
+  "added": "v25.12",
   "description": [
-    "The **askrene-bias-channel** RPC command tells askrene to favor or disfavor a channel when considering it for routing."
+    "The **askrene-bias-node** RPC command tells askrene to favor or disfavor all outgoing or incoming channels of a node when considering them for routing."
   ],
   "request": {
     "required": [
       "layer",
-      "short_channel_id_dir",
+      "node",
+      "direction",
       "bias"
     ],
     "additionalProperties": false,
@@ -21,10 +22,16 @@
           "The name of the layer to apply this bias to."
         ]
       },
-      "short_channel_id_dir": {
-        "type": "short_channel_id_dir",
+      "node": {
+        "type": "pubkey",
         "description": [
-          "The short channel id and direction to apply this bias to."
+          "The node to which this bias applies.  It does not need to exist."
+        ]
+      },
+      "direction": {
+        "type": "string",
+        "description": [
+          "Either *in* or *out* to specify if the bias applies to incoming or outgoing channels with respect to this node."
         ]
       },
       "bias": {
@@ -41,7 +48,6 @@
       },
       "relative": {
         "type": "boolean",
-        "added": "v25.05",
         "default": false,
         "description": [
           "The bias will be added to the previous value."
@@ -51,18 +57,19 @@
   },
   "response": {
     "required": [
-      "biases"
+      "node_biases"
     ],
     "additionalProperties": false,
     "properties": {
-      "biases": {
+      "node_biases": {
         "type": "array",
         "items": {
           "type": "object",
           "required": [
             "layer",
-            "short_channel_id_dir",
-            "bias",
+            "node",
+            "in_bias",
+            "out_bias",
             "timestamp"
           ],
           "additionalProperties": false,
@@ -73,29 +80,34 @@
                 "The name of the layer this bias applies to."
               ]
             },
-            "short_channel_id_dir": {
-              "type": "short_channel_id_dir",
+            "node": {
+              "type": "pubkey",
               "description": [
-                "The short channel id and direction"
+                "The id of the biased node."
               ]
             },
-            "bias": {
+            "in_bias": {
               "type": "integer",
               "description": [
-                "The bias (-100 to +100)"
+                "The bias (-100 to +100) on incoming channels."
+              ]
+            },
+            "out_bias": {
+              "type": "integer",
+              "description": [
+                "The bias (-100 to +100) on outgoing channels."
               ]
             },
             "description": {
               "type": "string",
               "description": [
-                "The bias (-100 to +100)"
+                "A human readable annotation."
               ]
             },
             "timestamp": {
               "type": "u64",
-              "added": "v25.12",
               "description": [
-                "The UNIX timestamp when this bias was created."
+                "The UNIX timestamp when this bias was created or last updated."
               ]
             }
           }
@@ -104,7 +116,7 @@
     }
   },
   "see_also": [
-    "lightning-askrene-bias-node(7)",
+    "lightning-askrene-bias-channel(7)",
     "lightning-getroutes(7)",
     "lightning-askrene-disable-node(7)",
     "lightning-askrene-create-channel(7)",
@@ -112,7 +124,7 @@
     "lightning-askrene-age(7)"
   ],
   "author": [
-    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+    "Lagrange <<lagrang3@protonmail.com>> is mainly responsible."
   ],
   "resources": [
     "Main web site: <https://github.com/ElementsProject/lightning>"
@@ -120,42 +132,46 @@
   "examples": [
     {
       "request": {
-        "id": "example:askrene-bias-channel#1",
-        "method": "askrene-bias-channel",
+        "id": "example:askrene-bias-node#1",
+        "method": "askrene-bias-node",
         "params": {
           "layer": "test_layers",
-          "short_channel_id_dir": "109x1x1/1",
+          "node": "nodeid030303030303030303030303030303030303030303030303030303030303",
+          "direction": "out",
           "bias": 1
         }
       },
       "response": {
-        "biases": [
+        "node_biases": [
           {
             "layer": "test_layers",
-            "short_channel_id_dir": "109x1x1/1",
-            "bias": 1
+            "node": "nodeid030303030303030303030303030303030303030303030303030303030303",
+            "in_bias": 0,
+            "out_bias": 1
           }
         ]
       }
     },
     {
       "request": {
-        "id": "example:askrene-bias-channel#2",
-        "method": "askrene-bias-channel",
+        "id": "example:askrene-bias-node#2",
+        "method": "askrene-bias-node",
         "params": [
           "test_layers",
-          "109x1x1/1",
+          "nodeid030303030303030303030303030303030303030303030303030303030303",
+          "out",
           -5,
-          "bigger bias"
+          "this node is unreliable"
         ]
       },
       "response": {
-        "biases": [
+        "node_biases": [
           {
             "layer": "test_layers",
-            "short_channel_id_dir": "109x1x1/1",
-            "description": "bigger bias",
-            "bias": -5
+            "node": "nodeid030303030303030303030303030303030303030303030303030303030303",
+            "description": "this is node is unreliable",
+            "in_bias": 0,
+            "out_bias": -5
           }
         ]
       }

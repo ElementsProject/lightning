@@ -22,6 +22,7 @@ enum dstore_layer_type {
 	DSTORE_CHANNEL_BIAS = 4,
 	DSTORE_DISABLED_NODE = 5,
 	DSTORE_CHANNEL_BIAS_V2 = 6,
+	DSTORE_NODE_BIAS = 7,
 };
 
 /* A channels which doesn't (necessarily) exist in the gossmap. */
@@ -59,6 +60,13 @@ struct bias {
 	struct short_channel_id_dir scidd;
 	const char *description;
 	s8 bias;
+	u64 timestamp;
+};
+
+struct node_bias {
+	struct node_id node;
+	const char *description;
+	s8 in_bias, out_bias;
 	u64 timestamp;
 };
 
@@ -128,6 +136,25 @@ static bool bias_eq_scidd(const struct bias *bias,
 HTABLE_DEFINE_NODUPS_TYPE(struct bias, bias_scidd, hash_scidd,
 			  bias_eq_scidd, bias_hash);
 
+static const struct node_id *bias_nodeid(const struct node_bias *bias)
+{
+	return &bias->node;
+}
+
+static size_t hash_nodeid(const struct node_id *node)
+{
+	return *(size_t *)(node->k);
+}
+
+static bool bias_eq_nodeid(const struct node_bias *bias,
+			   const struct node_id *node)
+{
+	return node_id_eq(node, &bias->node);
+}
+
+HTABLE_DEFINE_NODUPS_TYPE(struct node_bias, bias_nodeid, hash_nodeid,
+			  bias_eq_nodeid, node_bias_hash);
+
 struct layer {
 	/* Inside global list of layers */
 	struct list_node list;
@@ -153,6 +180,9 @@ struct layer {
 	/* Bias, indexed by scid+dir */
 	struct bias_hash *biases;
 
+	/* Node bias, indexed by node_id */
+	struct node_bias_hash *node_biases;
+
 	/* Nodes to completely disable (tal_arr) */
 	struct node_id *disabled_nodes;
 };
@@ -168,6 +198,7 @@ struct layer *new_temp_layer(const tal_t *ctx, struct askrene *askrene, const ch
 	l->local_updates = new_htable(l, local_update_hash);
 	l->constraints = new_htable(l, constraint_hash);
 	l->biases = new_htable(l, bias_hash);
+	l->node_biases = new_htable(l, node_bias_hash);
 	l->disabled_nodes = tal_arr(l, struct node_id, 0);
 
 	return l;
@@ -311,6 +342,51 @@ static const struct bias *set_bias(struct layer *layer,
 	/* Don't bother keeping around zero biases */
 	if (bias->bias == 0) {
 		bias_hash_del(layer->biases, bias);
+		bias = tal_free(bias);
+	}
+	return bias;
+}
+
+static const struct node_bias *set_node_bias(struct layer *layer,
+					     const struct node_id *node,
+					     const char *description TAKES,
+					     s8 bias_factor,
+					     bool relative,
+					     bool dir_out,
+					     u64 timestamp)
+{
+	struct node_bias *bias;
+
+	bias = node_bias_hash_get(layer->node_biases, node);
+	if (!bias) {
+		bias = tal(layer, struct node_bias);
+		bias->node = *node;
+		node_bias_hash_add(layer->node_biases, bias);
+		bias->in_bias = 0;
+		bias->out_bias = 0;
+	} else {
+		tal_free(bias->description);
+	}
+	bias->description = tal_strdup_or_null(bias, description);
+	bias->timestamp = timestamp;
+
+	if (dir_out) {
+		int bias_new =
+		    relative ? bias->out_bias + bias_factor : bias_factor;
+		bias_new = MIN(100, bias_new);
+		bias_new = MAX(-100, bias_new);
+		bias->out_bias = bias_new;
+	} else {
+		int bias_new =
+		    relative ? bias->in_bias + bias_factor : bias_factor;
+		bias_new = MIN(100, bias_new);
+		bias_new = MAX(-100, bias_new);
+		bias->in_bias = bias_new;
+	}
+
+	/* Don't bother keeping around zero biases */
+	if (bias->in_bias == 0 && bias->out_bias == 0) {
+		node_bias_hash_del(layer->node_biases, bias);
 		bias = tal_free(bias);
 	}
 	return bias;
@@ -573,6 +649,19 @@ static void towire_save_channel_bias(u8 **data, const struct bias *bias)
 	towire_u64(data, bias->timestamp);
 }
 
+static void towire_save_node_bias(u8 **data, const struct node_bias *bias)
+{
+	towire_u16(data, DSTORE_NODE_BIAS);
+	towire_node_id(data, &bias->node);
+	towire_s8(data, bias->in_bias);
+	towire_s8(data, bias->out_bias);
+        // has description?
+	towire_bool_val(data, bias->description != NULL);
+	if (bias->description)
+		towire_wirestring(data, bias->description);
+	towire_u64(data, bias->timestamp);
+}
+
 static void save_channel_bias(struct layer *layer, const struct bias *bias)
 {
 	u8 *data;
@@ -582,6 +671,18 @@ static void save_channel_bias(struct layer *layer, const struct bias *bias)
 
 	data = tal_arr(tmpctx, u8, 0);
 	towire_save_channel_bias(&data, bias);
+	append_layer_datastore(layer, data);
+}
+
+static void save_node_bias(struct layer *layer, const struct node_bias *bias)
+{
+	u8 *data;
+
+	if (!layer->persistent)
+		return;
+
+	data = tal_arr(tmpctx, u8, 0);
+	towire_save_node_bias(&data, bias);
 	append_layer_datastore(layer, data);
 }
 
@@ -628,6 +729,34 @@ static void load_channel_bias_v2(struct plugin *plugin,
 			 timestamp);
 }
 
+static void load_node_bias(struct plugin *plugin,
+			   struct layer *layer,
+			   const u8 **cursor,
+			   size_t *len)
+{
+	struct node_id node;
+	char *description = NULL;
+	s8 in_bias, out_bias;
+	u64 timestamp;
+
+	fromwire_node_id(cursor, len, &node);
+	in_bias = fromwire_s8(cursor, len);
+	out_bias = fromwire_s8(cursor, len);
+	if (fromwire_bool(cursor, len)) {
+		description = fromwire_wirestring(tmpctx, cursor, len);
+	}
+	timestamp = fromwire_u64(cursor, len);
+
+	if (*cursor){
+		set_node_bias(layer, &node, take(description), in_bias,
+			      /* relative = */ false,
+			      /* out dir = */ false, timestamp);
+		set_node_bias(layer, &node, take(description), out_bias,
+			      /* relative = */ false,
+			      /* out dir = */ true, timestamp);
+	}
+}
+
 static void towire_save_disabled_node(u8 **data, const struct node_id *node)
 {
 	towire_u16(data, DSTORE_DISABLED_NODE);
@@ -667,6 +796,8 @@ static void save_complete_layer(struct layer *layer)
 	const struct constraint *c;
 	struct bias_hash_iter biasit;
 	const struct bias *b;
+	struct node_bias_hash_iter nbiasit;
+	const struct node_bias *nb;
 	struct out_req *req;
 	u8 *data;
 
@@ -699,6 +830,10 @@ static void save_complete_layer(struct layer *layer)
 	     b;
 	     b = bias_hash_next(layer->biases, &biasit)) {
 		towire_save_channel_bias(&data, b);
+	}
+	for (nb = node_bias_hash_first(layer->node_biases, &nbiasit); nb;
+	     nb = node_bias_hash_next(layer->node_biases, &nbiasit)) {
+		towire_save_node_bias(&data, nb);
 	}
 
 	/* Wholesale replacement */
@@ -747,6 +882,9 @@ static void populate_layer(struct askrene *askrene,
 			continue;
 		case DSTORE_DISABLED_NODE:
 			load_disabled_node(askrene->plugin, layer, &data, &len);
+			continue;
+		case DSTORE_NODE_BIAS:
+			load_node_bias(askrene->plugin, layer, &data, &len);
 			continue;
 		}
 		plugin_err(askrene->plugin, "Invalid type %i in datastore: layer %s %s",
@@ -870,12 +1008,52 @@ const struct bias *layer_set_bias(struct layer *layer,
 	return bias;
 }
 
+const struct node_bias *layer_set_node_bias(struct layer *layer,
+					    const struct node_id *node,
+					    const char *description TAKES,
+					    s8 bias_factor,
+					    bool relative,
+					    bool dir_out,
+					    u64 timestamp)
+{
+	const struct node_bias *bias;
+
+	bias = set_node_bias(layer, node, description, bias_factor, relative,
+			     dir_out, timestamp);
+	save_node_bias(layer, bias);
+	return bias;
+}
+
 void layer_apply_biases(const struct layer *layer,
 			const struct gossmap *gossmap,
 			s8 *biases)
 {
 	struct bias *bias;
 	struct bias_hash_iter it;
+	struct node_bias *node_bias;
+	struct node_bias_hash_iter node_it;
+
+	/* We assume bias from individual channels and their node are additive,
+	 * this is completely arbitrary. */
+	for (node_bias = node_bias_hash_first(layer->node_biases, &node_it);
+	     node_bias;
+	     node_bias = node_bias_hash_next(layer->node_biases, &node_it)) {
+		struct gossmap_node *n;
+		struct gossmap_chan *c;
+		int dir;
+		u32 idx;
+
+		n = gossmap_find_node(gossmap, &node_bias->node);
+		if (!n)
+			continue;
+		for (size_t i = 0; i < n->num_chans; i++) {
+			c = gossmap_nth_chan(gossmap, n, i, &dir);
+			idx = (gossmap_chan_idx(gossmap, c) << 1) | dir;
+
+			biases[idx] += node_bias->out_bias;
+			biases[idx ^ 1] += node_bias->in_bias;
+		}
+	}
 
 	for (bias = bias_hash_first(layer->biases, &it);
 	     bias;
@@ -886,7 +1064,7 @@ void layer_apply_biases(const struct layer *layer,
 		if (!c)
 			continue;
 		biases[(gossmap_chan_idx(gossmap, c) << 1) | bias->scidd.dir]
-			= bias->bias;
+			+= bias->bias;
 	}
 }
 
@@ -958,6 +1136,8 @@ size_t layer_trim_constraints(struct layer *layer, u64 cutoff)
 	struct constraint *con;
 	struct bias_hash_iter biasit;
 	struct bias *bias;
+	struct node_bias_hash_iter node_it;
+	struct node_bias *node_bias;
 
 	for (con = constraint_hash_first(layer->constraints, &conit);
 	     con;
@@ -974,6 +1154,29 @@ size_t layer_trim_constraints(struct layer *layer, u64 cutoff)
 		if (bias->timestamp < cutoff) {
 			bias_hash_delval(layer->biases, &biasit);
 			tal_free(bias);
+			num_removed++;
+		}
+	}
+
+	/* FIXME:
+	 * Having both in_bias and out_bias bundled in the same node bias
+	 * package help us save space. However we end up having a timestamp that
+	 * applies to both biases and we lose precision in that.
+	 * A possible pathological case is the following:
+	 *      - in a certain moment we highly penalize a node A's outgoing
+	 *      channels,
+	 *      - then we often add or substract a small amount of bias to the
+	 *      same node's incoming channels,
+	 * As long as we keep updating the incoming channels biases the data
+	 * timestamp will never grow old and we will never decay the outgoing
+	 * bias that we set at the begining.
+	 **/
+	for (node_bias = node_bias_hash_first(layer->node_biases, &node_it);
+	     node_bias;
+	     node_bias = node_bias_hash_next(layer->node_biases, &node_it)) {
+		if (node_bias->timestamp < cutoff) {
+			node_bias_hash_delval(layer->node_biases, &node_it);
+			tal_free(node_bias);
 			num_removed++;
 		}
 	}
@@ -1115,6 +1318,23 @@ void json_add_bias(struct json_stream *js,
 	json_object_end(js);
 }
 
+void json_add_node_bias(struct json_stream *js,
+                        const char *fieldname,
+                        const struct node_bias *b,
+                        const struct layer *layer)
+{
+	json_object_start(js, fieldname);
+	if (layer)
+		json_add_string(js, "layer", layer->name);
+	json_add_node_id(js, "node", &b->node);
+	if (b->description)
+		json_add_string(js, "description", b->description);
+	json_add_s64(js, "in_bias", b->in_bias);
+	json_add_s64(js, "out_bias", b->out_bias);
+	json_add_u64(js, "timestamp", b->timestamp);
+	json_object_end(js);
+}
+
 static void json_add_layer(struct json_stream *js,
 			   const char *fieldname,
 			   const struct layer *layer)
@@ -1127,6 +1347,8 @@ static void json_add_layer(struct json_stream *js,
 	const struct constraint *c;
 	struct bias_hash_iter biasit;
 	const struct bias *b;
+	struct node_bias_hash_iter node_it;
+	const struct node_bias *node_bias;
 
 	json_object_start(js, fieldname);
 	json_add_string(js, "layer", layer->name);
@@ -1164,6 +1386,13 @@ static void json_add_layer(struct json_stream *js,
 	     b;
 	     b = bias_hash_next(layer->biases, &biasit)) {
 		json_add_bias(js, NULL, b, NULL);
+	}
+	json_array_end(js);
+	json_array_start(js, "node_biases");
+	for (node_bias = node_bias_hash_first(layer->node_biases, &node_it);
+	     node_bias;
+	     node_bias = node_bias_hash_next(layer->node_biases, &node_it)) {
+		json_add_node_bias(js, NULL, node_bias, NULL);
 	}
 	json_array_end(js);
 	json_object_end(js);

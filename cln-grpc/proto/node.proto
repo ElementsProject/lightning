@@ -3833,6 +3833,7 @@ message AskrenelistlayersLayers {
 	repeated string disabled_channels = 6;
 	repeated AskrenelistlayersLayersChannelUpdates channel_updates = 7;
 	repeated AskrenelistlayersLayersBiases biases = 8;
+	repeated AskrenelistlayersLayersNodeBiases node_biases = 9;
 }
 
 message AskrenelistlayersLayersCreatedChannels {
@@ -3866,6 +3867,14 @@ message AskrenelistlayersLayersBiases {
 	optional uint64 timestamp = 4;
 }
 
+message AskrenelistlayersLayersNodeBiases {
+	bytes node = 1;
+	sint64 in_bias = 2;
+	sint64 out_bias = 3;
+	optional string description = 4;
+	uint64 timestamp = 5;
+}
+
 message AskrenecreatelayerRequest {
 	string layer = 1;
 	optional bool persistent = 2;
@@ -3884,6 +3893,7 @@ message AskrenecreatelayerLayers {
 	repeated AskrenecreatelayerLayersChannelUpdates channel_updates = 6;
 	repeated AskrenecreatelayerLayersConstraints constraints = 7;
 	repeated AskrenecreatelayerLayersBiases biases = 8;
+	repeated AskrenecreatelayerLayersNodeBiases node_biases = 9;
 }
 
 message AskrenecreatelayerLayersCreatedChannels {
@@ -3913,6 +3923,14 @@ message AskrenecreatelayerLayersBiases {
 	sint64 bias = 2;
 	optional string description = 3;
 	optional uint64 timestamp = 4;
+}
+
+message AskrenecreatelayerLayersNodeBiases {
+	bytes node = 1;
+	sint64 in_bias = 2;
+	sint64 out_bias = 3;
+	optional string description = 4;
+	uint64 timestamp = 5;
 }
 
 message AskreneremovelayerRequest {
