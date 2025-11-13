@@ -12,6 +12,7 @@
 #include <stdio.h>
 
 #include <common/channel_type.h>
+#include <common/memleak.h>
 #include <common/setup.h>
 #include <common/sphinx.h>
 #include <common/wireaddr.h>

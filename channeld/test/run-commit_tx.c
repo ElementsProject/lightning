@@ -16,6 +16,7 @@ static bool print_superverbose;
 #include <common/channel_id.h>
 #include <common/daemon.h>
 #include <common/key_derive.h>
+#include <common/memleak.h>
 #include <common/setup.h>
 #include <common/status.h>
 

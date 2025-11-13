@@ -9,6 +9,7 @@ static const char *reason;
 #include <common/amount.c>
 #include <common/bigsize.c>
 #include <common/channel_type.h>
+#include <common/memleak.h>
 #include <common/node_id.c>
 #include <common/setup.h>
 

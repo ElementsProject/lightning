@@ -35,6 +35,7 @@ In particular, we set feature bit 19.  The spec says we should set feature bit 1
 #include <common/channel_type.h>
 #include <common/ecdh.h>
 #include <common/json_stream.h>
+#include <common/memleak.h>
 #include <common/onionreply.h>
 #include <common/sciddir_or_pubkey.h>
 #include <common/setup.h>
