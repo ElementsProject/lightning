@@ -5,6 +5,7 @@
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/link/link.h>
 #include <ccan/tal/str/str.h>
+#include <common/clock_time.h>
 #include <common/configvar.h>
 #include <common/json_command.h>
 #include <common/memleak.h>
@@ -398,7 +399,7 @@ struct log_book *new_log_book(struct lightningd *ld, size_t max_mem)
 	log_book->prefix = tal_strdup(log_book, "");
 	list_head_init(&log_book->print_filters);
 	list_head_init(&log_book->loggers);
-	log_book->init_time = time_now();
+	log_book->init_time = clock_time();
 	log_book->ld = ld;
 	log_book->cache = tal(log_book, struct node_id_map);
 	node_id_map_init(log_book->cache);
@@ -523,7 +524,7 @@ static struct log_entry *new_log_entry(struct logger *log, enum log_level level,
 		tal_resize(&log->log_book->log, tal_count(log->log_book->log) * 2);
 
 	l = &log->log_book->log[log->log_book->num_entries];
-	l->time = time_now();
+	l->time = clock_time();
 	l->level = level;
 	l->skipped = 0;
 	l->prefix = log_prefix_get(log->prefix);
@@ -1012,7 +1013,7 @@ void log_backtrace_exit(void)
 	int fd;
 	char timebuf[sizeof("YYYYmmddHHMMSS")];
 	char logfile[sizeof("/tmp/lightning-crash.log.") + sizeof(timebuf)];
-	struct timeabs time = time_now();
+	struct timeabs time = clock_time();
 
 	strftime(timebuf, sizeof(timebuf), "%Y%m%d%H%M%S", gmtime(&time.ts.tv_sec));
 

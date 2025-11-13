@@ -5,6 +5,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/bolt12_id.h>
 #include <common/bolt12_merkle.h>
+#include <common/clock_time.h>
 #include <common/features.h>
 #include <common/gossmap.h>
 #include <common/json_param.h>
@@ -744,7 +745,7 @@ static struct command_result *invreq_done(struct command *cmd,
 		}
 
 		if (base) {
-			u64 period_start, period_end, now = time_now().ts.tv_sec;
+			u64 period_start, period_end, now = clock_time().ts.tv_sec;
 			offer_period_paywindow(recurrence,
 					       sent->invreq->offer_recurrence_paywindow,
 					       sent->invreq->offer_recurrence_base,
@@ -942,7 +943,7 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 	 *        (i.e. continuing an existing offer with recurrence is ok)
 	 */
 	if (sent->offer->offer_absolute_expiry
-	    && time_now().ts.tv_sec > *sent->offer->offer_absolute_expiry
+	    && clock_time().ts.tv_sec > *sent->offer->offer_absolute_expiry
 	    && (!recurrence_counter || *recurrence_counter == 0)) {
 		return command_fail(cmd, OFFER_EXPIRED, "Offer expired");
 	}
@@ -1581,7 +1582,7 @@ struct command_result *json_sendinvoice(struct command *cmd,
 	 *      `invreq_chain`.
 	 */
 	sent->inv->invoice_created_at = tal(sent->inv, u64);
-	*sent->inv->invoice_created_at = time_now().ts.tv_sec;
+	*sent->inv->invoice_created_at = clock_time().ts.tv_sec;
 
 	/* FIXME: Support blinded paths, in which case use fake nodeid */
 

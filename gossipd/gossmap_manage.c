@@ -2,6 +2,7 @@
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/str/str.h>
+#include <common/clock_time.h>
 #include <common/daemon_conn.h>
 #include <common/gossip_store.h>
 #include <common/gossmap.h>
@@ -357,7 +358,7 @@ static bool channel_already_dying(const struct chan_dying dying_channels[],
 /* Every half a week we look for dead channels (faster in dev) */
 static void prune_network(struct gossmap_manage *gm)
 {
-	u64 now = time_now().ts.tv_sec;
+	u64 now = clock_time().ts.tv_sec;
 	/* Anything below this highwater mark ought to be pruned */
 	const s64 highwater = now - GOSSIP_PRUNE_INTERVAL(gm->daemon->dev_fast_gossip_prune);
 	const struct gossmap_node *me;

@@ -33,6 +33,7 @@ In particular, we set feature bit 19.  The spec says we should set feature bit 1
 #include <assert.h>
 #include <common/blinding.h>
 #include <common/channel_type.h>
+#include <common/clock_time.h>
 #include <common/ecdh.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>

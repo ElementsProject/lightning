@@ -3,6 +3,7 @@
 #include <ccan/htable/htable_type.h>
 #include <ccan/json_out/json_out.h>
 #include <ccan/tal/str/str.h>
+#include <common/clock_time.h>
 #include <common/gossmap.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
@@ -696,7 +697,7 @@ static void load_channel_bias(struct plugin *plugin,
 	s8 bias_factor;
         /* If we read an old version without timestamp, just put the current
          * time. */
-        u64 timestamp = time_now().ts.tv_sec;
+        u64 timestamp = clock_time().ts.tv_sec;
 
 	fromwire_short_channel_id_dir(cursor, len, &scidd);
 	bias_factor = fromwire_s8(cursor, len);

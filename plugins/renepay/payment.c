@@ -3,6 +3,7 @@
 #include <bitcoin/privkey.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
+#include <common/clock_time.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <plugins/renepay/json.h>
@@ -96,7 +97,7 @@ bool payment_refresh(struct payment *p){
 	p->retry = false;
 	p->waitresult_timer = tal_free(p->waitresult_timer);
 
-	pinfo->start_time = time_now();
+	pinfo->start_time = clock_time();
 	pinfo->stop_time =
 	    timeabs_add(pinfo->start_time, time_from_sec(pinfo->retryfor));
 

@@ -78,7 +78,7 @@ if ! bitcoin-cli -regtest ping >/dev/null 2>&1; then
     while ! bitcoin-cli -regtest ping >/dev/null 2>&1; do sleep 1; done
 fi
 
-LIGHTNINGD="./lightningd/lightningd --developer --network=regtest --dev-gossip-time=1550513768"
+LIGHTNINGD="CLN_DEV_SET_TIME=1550513768 ./lightningd/lightningd --developer --network=regtest"
 LCLI1="./cli/lightning-cli --lightning-dir=$DIR -R"
 
 if [ -z "$DIR" ]; then

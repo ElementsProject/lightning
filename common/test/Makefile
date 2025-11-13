@@ -6,6 +6,7 @@ COMMON_TEST_PROGRAMS := $(COMMON_TEST_OBJS:.o=)
 COMMON_TEST_COMMON_OBJS :=				\
 	common/autodata.o				\
 	common/randbytes.o				\
+	common/clock_time.o				\
 	common/setup.o					\
 	common/utils.o
 

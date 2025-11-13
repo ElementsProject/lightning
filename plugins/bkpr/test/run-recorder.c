@@ -4,6 +4,7 @@
 
 #include <bitcoin/tx.h>
 #include <ccan/tal/str/str.h>
+#include <common/clock_time.h>
 #include <common/coin_mvt.h>
 #include <common/daemon.h>
 #include <common/deprecation.h>

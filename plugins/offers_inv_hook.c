@@ -3,6 +3,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/bolt12_id.h>
 #include <common/bolt12_merkle.h>
+#include <common/clock_time.h>
 #include <common/features.h>
 #include <common/json_stream.h>
 #include <plugins/offers.h>
@@ -312,7 +313,7 @@ struct command_result *handle_invoice(struct command *cmd,
 		invexpiry = *inv->inv->invoice_created_at + *inv->inv->invoice_relative_expiry;
 	else
 		invexpiry = *inv->inv->invoice_created_at + BOLT12_DEFAULT_REL_EXPIRY;
-	if (time_now().ts.tv_sec > invexpiry)
+	if (clock_time().ts.tv_sec > invexpiry)
 		return fail_inv(cmd, inv, "Expired invoice");
 
 	/* BOLT #12:

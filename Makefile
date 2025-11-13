@@ -603,7 +603,7 @@ check-tmpctx:
 	@if git grep -n 'tal_free[(]tmpctx)' | grep -Ev '^ccan/|/test/|^common/setup.c:|^common/utils.c:'; then echo "Don't free tmpctx!">&2; exit 1; fi
 
 check-discouraged-functions:
-	@if git grep -nE "[^a-z_/](fgets|fputs|gets|scanf|sprintf|randombytes_buf)\(" -- "*.c" "*.h" ":(exclude)ccan/" ":(exclude)contrib/" | grep -Fv '/* discouraged:'; then exit 1; fi
+	@if git grep -nE "[^a-z_/](fgets|fputs|gets|scanf|sprintf|randombytes_buf|time_now)\(" -- "*.c" "*.h" ":(exclude)ccan/" ":(exclude)contrib/" | grep -Fv '/* discouraged:'; then exit 1; fi
 
 check-bad-sprintf:
 	@if git grep -n "%[*]\.s"; then exit 1; fi

@@ -2,6 +2,7 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
+#include <common/clock_time.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
@@ -546,7 +547,7 @@ static struct command_result *list_done(struct command *cmd,
 	const struct subsystem_ops *ops = get_subsystem_ops(subsystem);
 	const jsmntok_t *t, *inv = json_get_member(buf, result, ops->arr_name);
 	size_t i;
-	u64 now = time_now().ts.tv_sec;
+	u64 now = clock_time().ts.tv_sec;
 
 	json_for_each_arr(i, t, inv) {
 		struct per_variant *variant;

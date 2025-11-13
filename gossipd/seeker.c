@@ -3,6 +3,7 @@
 #include <ccan/asort/asort.h>
 #include <ccan/intmap/intmap.h>
 #include <ccan/tal/str/str.h>
+#include <common/clock_time.h>
 #include <common/daemon_conn.h>
 #include <common/decode_array.h>
 #include <common/gossmap.h>
@@ -242,7 +243,7 @@ static void enable_gossip_stream(struct seeker *seeker, struct peer *peer,
 		start = 0;
 	} else {
 		/* Just in case they care */
-		start = time_now().ts.tv_sec - GOSSIP_SEEKER_INTERVAL(seeker) * 10;
+		start = clock_time().ts.tv_sec - GOSSIP_SEEKER_INTERVAL(seeker) * 10;
 	}
 
 	status_peer_debug(&peer->id, "seeker: starting gossip (%s)",
