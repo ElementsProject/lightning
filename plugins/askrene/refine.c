@@ -383,54 +383,94 @@ static struct amount_msat remove_excess(struct flow ***flows,
 	return all_deliver;
 }
 
-/* It increases the flows to meet the deliver target. It does not increase any
- * flow beyond the tolerance fraction. It doesn't increase any flow above its
- * max_deliverable value.
- * Returns the total delivery amount. */
-static struct amount_msat increase_flows(const struct route_query *rq,
-					 struct flow **flows,
-					 struct amount_msat deliver,
-					 double tolerance)
+/* Return true (and set shortage) if flow doesn't deliver this much */
+static bool flows_short(struct flow **flows,
+			struct amount_msat deliver,
+			struct amount_msat *shortage)
 {
-	if (tal_count(flows) == 0)
-		return AMOUNT_MSAT(0);
+	return amount_msat_sub(shortage, deliver, sum_all_deliver(flows))
+		&& !amount_msat_is_zero(*shortage);
+}
 
-	struct amount_msat all_deliver, defect;
-	all_deliver = sum_all_deliver(flows);
+/* It increases the flows to meet the deliver target. It does not increase any
+ * flow beyond the tolerance fraction (unless negative).
+ * Returns true if it managed to increase total amount to "deliver". */
+static bool increase_flows(const struct route_query *rq,
+			   struct flow **flows,
+			   struct amount_msat deliver,
+			   double tolerance)
+{
+	const tal_t *working_ctx = tal(NULL, tal_t);
+	struct amount_msat shortage, *ceiling;
 
-	/* early exit: target is already met */
-	if (!amount_msat_sub(&defect, deliver, all_deliver) ||
-	    amount_msat_is_zero(defect))
-		return all_deliver;
-
-	asort(flows, tal_count(flows), revcmp_flows, NULL);
-
-	all_deliver = AMOUNT_MSAT(0);
-	for (size_t i = 0;
-	     i < tal_count(flows) && !amount_msat_is_zero(defect); i++) {
-		struct flow *flow = flows[i];
-		struct amount_msat can_add = defect, amt;
-
-		/* no more than tolerance */
-		if (!amount_msat_scale(&amt, flow->delivers, tolerance))
-			continue;
-		else
-			can_add = amount_msat_min(can_add, amt);
-
-		/* no more than max_deliverable */
-		if (!amount_msat_sub(&amt, flow_max_deliverable(rq, flow, NULL),
-				     flow->delivers))
-			continue;
-		else
-			can_add = amount_msat_min(can_add, amt);
-
-		if (!amount_msat_add(&flow->delivers, flow->delivers,
-				     can_add) ||
-		    !amount_msat_sub(&defect, defect, can_add) ||
-		    !amount_msat_accumulate(&all_deliver, flow->delivers))
+	/* Record max we can deliver for each flow, so we don't exceed it */
+	ceiling = tal_arr(working_ctx, struct amount_msat, tal_count(flows));
+	for (size_t i = 0; i < tal_count(flows); i++) {
+		if (tolerance < 0)
+			ceiling[i] = deliver;
+		else if (!amount_msat_scale(&ceiling[i], flows[i]->delivers, 1.0 + tolerance))
 			abort();
 	}
-	return all_deliver;
+
+	/* This is naive, but since flows can overlap, increasing one
+	 * can alter the remaining capacity of the others! */
+	while (flows_short(flows, deliver, &shortage)) {
+		size_t best_flownum = 0;
+		struct amount_msat best_remaining = AMOUNT_MSAT(0);
+		struct reserve_hop **reservations;
+		struct amount_msat addition;
+
+		/* Because flows can interact, we reserve them all, removing one at a time. */
+		reservations = tal_arr(NULL, struct reserve_hop *, tal_count(flows));
+		for (size_t i = 0; i < tal_count(flows); i++) {
+			reservations[i] = new_reservations(reservations, rq);
+			create_flow_reservations(rq, &reservations[i], flows[i]);
+		}
+
+		/* Find flow with most excess capacity. */
+		for (size_t i = 0; i < tal_count(flows); i++) {
+			struct amount_msat capacity, remaining;
+
+			/* flow_max_deliverable considers reservations *and*
+			 * htlc_max.  So remove this reservation, to get the
+			 * real maximum for one flow, then replace it. */
+			tal_free(reservations[i]);
+			capacity = flow_max_deliverable(rq, flows[i], NULL);
+			reservations[i] = new_reservations(reservations, rq);
+			create_flow_reservations(rq, &reservations[i], flows[i]);
+
+			/* Don't go above our tolerance */
+			if (amount_msat_greater(capacity, ceiling[i]))
+				capacity = ceiling[i];
+
+			if (!amount_msat_sub(&remaining, capacity, flows[i]->delivers))
+				abort();
+			if (amount_msat_greater(remaining, best_remaining)) {
+				best_flownum = i;
+				best_remaining = remaining;
+			}
+		}
+		tal_free(reservations);
+
+		/* Add 1/n of the remainder, or all we can if that's less than 10 sats. */
+		if (amount_msat_less_sat(shortage, AMOUNT_SAT(10)))
+			addition = shortage;
+		else
+			addition = amount_msat_div_ceil(shortage, tal_count(flows));
+
+		/* Can't add it? */
+		if (amount_msat_less(best_remaining, addition)) {
+			tal_free(working_ctx);
+			return false;
+		}
+
+		if (!amount_msat_accumulate(&flows[best_flownum]->delivers, addition))
+			abort();
+		if (!amount_msat_deduct(&shortage, addition))
+			abort();
+	}
+	tal_free(working_ctx);
+	return true;
 }
 
 const char *refine_flows(const tal_t *ctx, struct route_query *rq,
