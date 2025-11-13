@@ -508,32 +508,31 @@ const char *refine_flows(const tal_t *ctx, struct route_query *rq,
 	/* increase flows if necessary to meet the target */
 	increase_flows(rq, *flows, &flows_index, deliver, /* tolerance = */ 0.02);
 
+	/* finally write the remaining flows */
+	write_selected_flows(working_ctx, flows_index, flows);
+
 	/* detect htlc_min violations */
-	for (size_t i = 0; i < tal_count(flows_index);) {
-		size_t k = flows_index[i];
-		if (amount_msat_greater_eq((*flows)[k]->delivers,
-					   min_deliverable[k])) {
+	for (size_t i = 0; i < tal_count(*flows);) {
+		if (amount_msat_greater_eq((*flows)[i]->delivers,
+					   flow_min_deliverable(rq, (*flows)[i]))) {
 			i++;
 			continue;
 		}
-		/* htlc_min is not met for this flow */
-		tal_arr_remove(&flows_index, i);
 		error_message = remove_htlc_min_violations(
-		    ctx, rq, (*flows)[k]);
+		    ctx, rq, (*flows)[i]);
 		if (error_message)
 			goto fail;
+		/* htlc_min is not met for this flow */
+		tal_arr_remove(flows, i);
 	}
 
 	/* remove 0 amount flows if any */
-	asort(flows_index, tal_count(flows_index), revcmp_flows, *flows);
-	for (int i = tal_count(flows_index) - 1; i >= 0; i--) {
-		if (!amount_msat_is_zero((*flows)[flows_index[i]]->delivers))
+	asort(*flows, tal_count(*flows), revcmp_flows_noidx, NULL);
+	for (int i = tal_count(*flows) - 1; i >= 0; i--) {
+		if (!amount_msat_is_zero((*flows)[i]->delivers))
 			break;
-		tal_arr_remove(&flows_index, i);
+		tal_arr_remove(flows, i);
 	}
-
-	/* finally write the remaining flows */
-	write_selected_flows(working_ctx, flows_index, flows);
 
 	tal_free(working_ctx);
 	return NULL;
