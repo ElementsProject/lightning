@@ -433,24 +433,6 @@ static struct amount_msat increase_flows(const struct route_query *rq,
 	return all_deliver;
 }
 
-static void write_selected_flows(const tal_t *ctx, size_t *flows_index,
-				 struct flow ***flows)
-{
-	struct flow **tmp_flows = tal_arr(ctx, struct flow *, 0);
-	for (size_t i = 0; i < tal_count(flows_index); i++) {
-		tal_arr_expand(&tmp_flows, (*flows)[flows_index[i]]);
-		(*flows)[flows_index[i]] = NULL;
-	}
-	for (size_t i = 0; i < tal_count(*flows); i++) {
-		(*flows)[i] = tal_free((*flows)[i]);
-	}
-	tal_resize(flows, 0);
-	for (size_t i = 0; i < tal_count(tmp_flows); i++) {
-		tal_arr_expand(flows, tmp_flows[i]);
-	}
-	tal_free(tmp_flows);
-}
-
 const char *refine_flows(const tal_t *ctx, struct route_query *rq,
 			 struct amount_msat deliver, struct flow ***flows,
 			 u32 *bottleneck_idx)
@@ -517,64 +499,47 @@ fail:
 	return error_message;
 }
 
-/* Order of flows according to path string */
-static int cmppath_flows(const size_t *a, const size_t *b, char **paths_str)
+/* Order of flows in lexicographic order */
+static int cmppath_flows(struct flow *const *a, struct flow *const *b, void *unused)
 {
-	return strcmp(paths_str[*a], paths_str[*b]);
+	const struct flow *fa = *a, *fb = *b;
+	for (size_t i = 0; i < tal_count(fa->path); i++) {
+		/* Shorter comes first */
+		if (i >= tal_count(fb->path))
+			return 1;
+		if (fa->path[i] < fb->path[i])
+			return -1;
+		if (fa->path[i] > fb->path[i])
+			return 1;
+	}
+	/* fa equal to fb, but is fb longer? */
+	if (tal_count(fb->path) > tal_count(fa->path))
+		return -1;
+	/* equal */
+	return 0;
 }
 
 void squash_flows(const tal_t *ctx, struct route_query *rq,
 		  struct flow ***flows)
 {
-	const tal_t *working_ctx = tal(ctx, tal_t);
-	size_t *flows_index = tal_arrz(working_ctx, size_t, tal_count(*flows));
-	char **paths_str = tal_arrz(working_ctx, char *, tal_count(*flows));
-	struct amount_msat *max_deliverable = tal_arrz(
-	    working_ctx, struct amount_msat, tal_count(*flows));
-
-	for (size_t i = 0; i < tal_count(flows_index); i++) {
-		const struct flow *flow = (*flows)[i];
-		struct short_channel_id_dir scidd;
-		flows_index[i] = i;
-		paths_str[i] = tal_strdup(working_ctx, "");
-		max_deliverable[i] = flow_max_deliverable(rq, flow, NULL);
-
-		for (size_t j = 0; j < tal_count(flow->path); j++) {
-			scidd.scid =
-			    gossmap_chan_scid(rq->gossmap, flow->path[j]);
-			scidd.dir = flow->dirs[j];
-			tal_append_fmt(
-			    &paths_str[i], "%s%s", j > 0 ? "->" : "",
-			    fmt_short_channel_id_dir(working_ctx, &scidd));
-		}
-	}
-
-	asort(flows_index, tal_count(flows_index), cmppath_flows, paths_str);
-	for (size_t i = 0; i < tal_count(flows_index); i++) {
-		const size_t j = i + 1;
-		struct amount_msat combined;
-		struct amount_msat max = max_deliverable[flows_index[i]];
+	asort(*flows, tal_count(*flows), cmppath_flows, NULL);
+	for (size_t i = 0; i < tal_count(*flows); i++) {
+		struct flow *flow = (*flows)[i];
 
 		/* same path? We merge */
-		while (j < tal_count(flows_index) &&
-		       cmppath_flows(&flows_index[i],
-				     &flows_index[j],
-                                     paths_str) == 0) {
-			if (!amount_msat_add(
-				&combined, (*flows)[flows_index[i]]->delivers,
-				(*flows)[flows_index[j]]->delivers))
+		while (i + 1 < tal_count(*flows) &&
+		       cmppath_flows(&flow, &(*flows)[i+1], NULL) == 0) {
+			struct amount_msat combined, max = flow_max_deliverable(rq, flow, NULL);
+
+			if (!amount_msat_add(&combined, flow->delivers, (*flows)[i+1]->delivers))
 				abort();
 			/* do we break any HTLC max limits */
 			if (amount_msat_greater(combined, max))
 				break;
-			(*flows)[flows_index[i]]->delivers = combined;
-			tal_arr_remove(&flows_index, j);
+			flow->delivers = combined;
+			tal_arr_remove(flows, i+1);
 		}
 	}
-
-	write_selected_flows(working_ctx, flows_index, flows);
-
-	tal_free(working_ctx);
 }
 
 double flows_probability(const tal_t *ctx, struct route_query *rq,
