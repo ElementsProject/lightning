@@ -105,7 +105,7 @@ struct peer {
 	struct oneshot *ping_timer;
 
 	/* Last time we received traffic */
-	struct timeabs last_recv_time;
+	struct timemono last_recv_time;
 
 	/* How long have we been ignoring peer input? */
 	struct timemono peer_in_lasttime;
