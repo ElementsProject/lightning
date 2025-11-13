@@ -1052,6 +1052,8 @@ def generate_askrene_examples(l1, l2, l3, c12, c23_2):
         askrene_inform_channel_res1 = update_example(node=l2, method='askrene-inform-channel', params={'layer': 'test_layers', 'short_channel_id_dir': '0x0x1/1', 'amount_msat': 100000, 'inform': 'unconstrained'})
         update_example(node=l2, method='askrene-bias-channel', params={'layer': 'test_layers', 'short_channel_id_dir': scid12dir, 'bias': 1})
         update_example(node=l2, method='askrene-bias-channel', params=['test_layers', scid12dir, -5, 'bigger bias'])
+        update_example(node=l2, method='askrene-bias-node', params={'layer': 'test_layers', 'node': l3.info["id"], "direction": "out", 'bias': 1})
+        update_example(node=l2, method='askrene-bias-node', params=['test_layers', l3.info["id"], "out", -5, 'this node is unreliable'])
         askrene_listlayers_res1 = update_example(node=l2, method='askrene-listlayers', params=['test_layers'])
         update_example(node=l2, method='askrene-listlayers', params={})
         ts1 = only_one(only_one(askrene_listlayers_res1['layers'])['constraints'])['timestamp']

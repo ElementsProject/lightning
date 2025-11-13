@@ -135,7 +135,8 @@ def test_layers(node_factory):
               'created_channels': [],
               'channel_updates': [],
               'constraints': [],
-              'biases': []}
+              'biases': [],
+              'node_biases': []}
     l2.rpc.askrene_create_layer('test_layers')
     l2.rpc.askrene_disable_node('test_layers', l1.info['id'])
     expect['disabled_nodes'].append(l1.info['id'])
@@ -316,6 +317,237 @@ def test_layers(node_factory):
     assert l2.rpc.askrene_listlayers() == {'layers': []}
 
 
+def test_node_bias_rpc(node_factory):
+    """Test manipulating node bias in layers."""
+    # remove xpay, since it creates a layer!
+    l1, l2 = node_factory.line_graph(
+        2, wait_for_announce=True, opts={"disable-plugin": "cln-xpay"}
+    )
+
+    # Simply test the presence of 'node_biases'
+    expect = {
+        "layer": "test_layers",
+        "persistent": False,
+        "disabled_nodes": [],
+        "created_channels": [],
+        "channel_updates": [],
+        "constraints": [],
+        "biases": [],
+        "node_biases": [],
+    }
+    l1.rpc.askrene_create_layer("test_layers")
+    assert l1.rpc.askrene_listlayers("test_layers") == {"layers": [expect]}
+
+    # Adding a node bias in the out direction
+    r = l1.rpc.askrene_bias_node(
+        layer="test_layers",
+        node=l2.info["id"],
+        direction="out",
+        bias=3,
+        relative=False,
+    )
+    # Adding a node bias in the in direction
+    r = l1.rpc.askrene_bias_node(
+        layer="test_layers",
+        node=l2.info["id"],
+        direction="in",
+        bias=-3,
+        relative=False,
+    )
+    expect["node_biases"] = [
+        {
+            "node": l2.info["id"],
+            "in_bias": -3,
+            "out_bias": 3,
+            "timestamp": r["node_biases"][0]["timestamp"],
+        }
+    ]
+    listlayers = l1.rpc.askrene_listlayers("test_layers")
+    assert listlayers == {"layers": [expect]}
+
+    # Testing relative bias and descriptions
+    r = l1.rpc.askrene_bias_node(
+        layer="test_layers",
+        node=l2.info["id"],
+        direction="in",
+        bias=-3,
+        relative=True,
+        description="testing node bias",
+    )
+    r = l1.rpc.askrene_bias_node(
+        layer="test_layers",
+        node=l2.info["id"],
+        direction="out",
+        bias=-1,
+        relative=True,
+        description="testing node bias",
+    )
+    expect["node_biases"] = [
+        {
+            "node": l2.info["id"],
+            "in_bias": -6,
+            "out_bias": 2,
+            "timestamp": r["node_biases"][0]["timestamp"],
+            "description": "testing node bias",
+        }
+    ]
+    listlayers = l1.rpc.askrene_listlayers("test_layers")
+    assert listlayers == {"layers": [expect]}
+
+    # Setting one direction bias, still the other remains
+    r = l1.rpc.askrene_bias_node(
+        layer="test_layers",
+        node=l2.info["id"],
+        direction="in",
+        bias=0,
+        relative=False,
+    )
+    expect["node_biases"] = [
+        {
+            "node": l2.info["id"],
+            "in_bias": 0,
+            "out_bias": 2,
+            "timestamp": r["node_biases"][0]["timestamp"],
+        }
+    ]
+    listlayers = l1.rpc.askrene_listlayers("test_layers")
+    assert listlayers == {"layers": [expect]}
+
+    # If the bias in both direction is zero the entry is removed
+    r = l1.rpc.askrene_bias_node(
+        layer="test_layers",
+        node=l2.info["id"],
+        direction="out",
+        bias=0,
+        relative=False,
+    )
+    expect["node_biases"] = []
+    listlayers = l1.rpc.askrene_listlayers("test_layers")
+    assert listlayers == {"layers": [expect]}
+
+
+def test_node_bias_persistence(node_factory):
+    """Test node bias persistence."""
+    # remove xpay, since it creates a layer!
+    l1, l2 = node_factory.line_graph(
+        2, wait_for_announce=True, opts={"disable-plugin": "cln-xpay"}
+    )
+
+    expect = {
+        "layer": "mylayer",
+        "persistent": True,
+        "disabled_nodes": [],
+        "created_channels": [],
+        "channel_updates": [],
+        "constraints": [],
+        "biases": [],
+        "node_biases": [],
+    }
+    l1.rpc.askrene_create_layer(layer="mylayer", persistent=True)
+    r = l1.rpc.askrene_bias_node(
+        layer="mylayer", node=l2.info["id"], direction="out", bias=14, relative=False
+    )
+    expect["node_biases"] = [
+        {
+            "node": l2.info["id"],
+            "in_bias": 0,
+            "out_bias": 14,
+            "timestamp": r["node_biases"][0]["timestamp"],
+        }
+    ]
+    assert l1.rpc.askrene_listlayers("mylayer") == {"layers": [expect]}
+    # restarting the node we see the same data again
+    l2.restart()
+    assert l1.rpc.askrene_listlayers("mylayer") == {"layers": [expect]}
+
+    r = l1.rpc.askrene_bias_node(
+        layer="mylayer",
+        node=l2.info["id"],
+        direction="in",
+        bias=11,
+        relative=False,
+        description="Some description",
+    )
+    expect["node_biases"] = [
+        {
+            "node": l2.info["id"],
+            "in_bias": 11,
+            "out_bias": 14,
+            "timestamp": r["node_biases"][0]["timestamp"],
+            "description": "Some description",
+        }
+    ]
+    assert l1.rpc.askrene_listlayers("mylayer") == {"layers": [expect]}
+
+    # restarting the node we see the same data again
+    l2.restart()
+    assert l1.rpc.askrene_listlayers("mylayer") == {"layers": [expect]}
+
+
+def test_node_bias_routes(node_factory):
+    """Test getroutes with biased nodes."""
+    # There are many cheap routes that go through node 2:
+    #   0->2->x->1
+    # And a very expensive route that go through node 3:
+    #   0->3->1
+    gsfile, nodemap = generate_gossip_store(
+        [
+            GenChannel(0, 2, forward=GenChannel.Half(propfee=10)),
+            GenChannel(2, 11, forward=GenChannel.Half(propfee=10)),
+            GenChannel(2, 12, forward=GenChannel.Half(propfee=10)),
+            GenChannel(2, 13, forward=GenChannel.Half(propfee=10)),
+            GenChannel(2, 14, forward=GenChannel.Half(propfee=10)),
+            GenChannel(2, 15, forward=GenChannel.Half(propfee=10)),
+            GenChannel(2, 16, forward=GenChannel.Half(propfee=10)),
+            GenChannel(2, 17, forward=GenChannel.Half(propfee=10)),
+            GenChannel(2, 18, forward=GenChannel.Half(propfee=10)),
+            GenChannel(2, 19, forward=GenChannel.Half(propfee=10)),
+            GenChannel(11, 1, forward=GenChannel.Half(propfee=10)),
+            GenChannel(12, 1, forward=GenChannel.Half(propfee=10)),
+            GenChannel(13, 1, forward=GenChannel.Half(propfee=10)),
+            GenChannel(14, 1, forward=GenChannel.Half(propfee=10)),
+            GenChannel(15, 1, forward=GenChannel.Half(propfee=10)),
+            GenChannel(16, 1, forward=GenChannel.Half(propfee=10)),
+            GenChannel(17, 1, forward=GenChannel.Half(propfee=10)),
+            GenChannel(18, 1, forward=GenChannel.Half(propfee=10)),
+            GenChannel(19, 1, forward=GenChannel.Half(propfee=10)),
+            GenChannel(0, 3, forward=GenChannel.Half(propfee=1000)),
+            GenChannel(3, 1, forward=GenChannel.Half(propfee=1000)),
+        ]
+    )
+    l1 = node_factory.get_node(gossip_store_file=gsfile.name)
+    l1.rpc.askrene_create_layer(layer="mylayer")
+    l1.rpc.askrene_bias_node(layer="mylayer", node=nodemap[2], direction="out", bias=-50)
+
+    # by default the best route goes through node 2
+    r = l1.rpc.getroutes(
+        source=nodemap[0],
+        destination=nodemap[1],
+        amount_msat=10000000,
+        layers=[],
+        maxfee_msat=1000000,
+        final_cltv=99,
+    )
+    assert len(r["routes"]) == 1
+    assert len(r["routes"][0]["path"]) == 3
+    assert r["routes"][0]["path"][0]["next_node_id"] == nodemap[2]
+    assert r["routes"][0]["path"][2]["next_node_id"] == nodemap[1]
+
+    # by using the layer that penalizes node 2, we end up routing through node 3
+    r = l1.rpc.getroutes(
+        source=nodemap[0],
+        destination=nodemap[1],
+        amount_msat=10000000,
+        layers=["mylayer"],
+        maxfee_msat=1000000,
+        final_cltv=99,
+    )
+    assert len(r["routes"]) == 1
+    assert len(r["routes"][0]["path"]) == 2
+    assert r["routes"][0]["path"][0]["next_node_id"] == nodemap[3]
+    assert r["routes"][0]["path"][1]["next_node_id"] == nodemap[1]
+
+
 def test_layer_persistence(node_factory):
     """Test persistence of layers across restart"""
     l1, l2 = node_factory.line_graph(2, wait_for_announce=True,
@@ -332,7 +564,8 @@ def test_layer_persistence(node_factory):
               'created_channels': [],
               'channel_updates': [],
               'constraints': [],
-              'biases': []}
+              'biases': [],
+              'node_biases': []}
     assert l1.rpc.askrene_listlayers('test_layer_persistence') == {'layers': [expect]}
 
     # Restart, (empty layer) should still be there.

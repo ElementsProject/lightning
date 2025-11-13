@@ -64,6 +64,14 @@ const struct bias *layer_set_bias(struct layer *layer,
 				  bool relative,
 				  u64 timestamp);
 
+const struct node_bias *layer_set_node_bias(struct layer *layer,
+					    const struct node_id *node,
+					    const char *description TAKES,
+					    s8 bias_factor,
+					    bool relative,
+					    bool dir_out,
+					    u64 timestamp);
+
 /* Update details on a channel (could be in this layer, or another) */
 void layer_add_update_channel(struct layer *layer,
 			      const struct short_channel_id_dir *scidd,
@@ -127,6 +135,11 @@ void json_add_bias(struct json_stream *js,
 		   const char *fieldname,
 		   const struct bias *b,
 		   const struct layer *layer);
+
+void json_add_node_bias(struct json_stream *js,
+                        const char *fieldname,
+                        const struct node_bias *b,
+                        const struct layer *layer);
 
 /* For explain_failure: did this layer create this scid? */
 bool layer_created(const struct layer *layer, struct short_channel_id scid);

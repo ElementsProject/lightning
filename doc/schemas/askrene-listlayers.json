@@ -236,6 +236,57 @@
                   }
                 }
               }
+            },
+            "node_biases": {
+              "added": "v25.12",
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "node",
+                  "in_bias",
+                  "out_bias",
+                  "timestamp"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "node": {
+                    "added": "v25.12",
+                    "type": "pubkey",
+                    "description": [
+                      "The id of the biased node."
+                    ]
+                  },
+                  "in_bias": {
+                    "added": "v25.12",
+                    "type": "integer",
+                    "description": [
+                      "The bias (-100 to +100) on incoming channels."
+                    ]
+                  },
+                  "out_bias": {
+                    "added": "v25.12",
+                    "type": "integer",
+                    "description": [
+                      "The bias (-100 to +100) on outgoing channels."
+                    ]
+                  },
+                  "description": {
+                    "added": "v25.12",
+                    "type": "string",
+                    "description": [
+                      "A human readable annotation."
+                    ]
+                  },
+                  "timestamp": {
+                    "added": "v25.12",
+                    "type": "u64",
+                    "description": [
+                      "The UNIX timestamp when this bias was created or last updated."
+                    ]
+                  }
+                }
+              }
             }
           }
         }
@@ -248,6 +299,7 @@
     "lightning-askrene-create-channel(7)",
     "lightning-askrene-inform-channel(7)",
     "lightning-askrene-bias-channel(7)",
+    "lightning-askrene-bias-node(7)",
     "lightning-askrene-age(7)"
   ],
   "author": [
@@ -304,6 +356,14 @@
                 "description": "bigger bias",
                 "bias": -5
               }
+            ],
+            "node_biases": [
+              {
+                "node": "nodeid030303030303030303030303030303030303030303030303030303030303",
+                "description": "this node is unreliable",
+                "in_bias": 0,
+                "out_bias": -5
+              }
             ]
           }
         ]
@@ -354,6 +414,14 @@
                 "description": "bigger bias",
                 "bias": -5
               }
+            ],
+            "node_biases": [
+              {
+                "node": "nodeid030303030303030303030303030303030303030303030303030303030303",
+                "description": "this node is unreliable",
+                "in_bias": 0,
+                "out_bias": -5
+              }
             ]
           },
           {
@@ -363,7 +431,8 @@
             "created_channels": [],
             "channel_updates": [],
             "constraints": [],
-            "biases": []
+            "biases": [],
+            "node_biases": []
           }
         ]
       }
