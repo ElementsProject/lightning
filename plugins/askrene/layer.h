@@ -56,11 +56,13 @@ void layer_add_local_channel(struct layer *layer,
 			     struct amount_msat capacity);
 
 /* Add/set a bias for this layer.  Returns NULL if bias_factor is 0. */
+// FIXME: add timestamp
 const struct bias *layer_set_bias(struct layer *layer,
 				  const struct short_channel_id_dir *scidd,
 				  const char *description TAKES,
 				  s8 bias_factor,
-				  bool relative);
+				  bool relative,
+				  u64 timestamp);
 
 /* Update details on a channel (could be in this layer, or another) */
 void layer_add_update_channel(struct layer *layer,

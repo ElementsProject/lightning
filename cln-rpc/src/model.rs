@@ -11510,6 +11510,8 @@ pub mod responses {
 	pub struct AskrenelistlayersLayersBiases {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub description: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub timestamp: Option<u64>,
 	    pub bias: i64,
 	    pub short_channel_id_dir: ShortChannelIdDir,
 	}
@@ -11587,6 +11589,8 @@ pub mod responses {
 	pub struct AskrenecreatelayerLayersBiases {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub description: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub timestamp: Option<u64>,
 	    pub bias: i64,
 	    pub short_channel_id_dir: ShortChannelIdDir,
 	}
@@ -11812,6 +11816,8 @@ pub mod responses {
 	pub struct AskrenebiaschannelBiases {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub description: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub timestamp: Option<u64>,
 	    pub bias: i64,
 	    pub layer: String,
 	    pub short_channel_id_dir: ShortChannelIdDir,

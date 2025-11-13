@@ -3863,6 +3863,7 @@ message AskrenelistlayersLayersBiases {
 	string short_channel_id_dir = 1;
 	sint64 bias = 2;
 	optional string description = 3;
+	optional uint64 timestamp = 4;
 }
 
 message AskrenecreatelayerRequest {
@@ -3911,6 +3912,7 @@ message AskrenecreatelayerLayersBiases {
 	string short_channel_id_dir = 1;
 	sint64 bias = 2;
 	optional string description = 3;
+	optional uint64 timestamp = 4;
 }
 
 message AskreneremovelayerRequest {
@@ -4047,6 +4049,7 @@ message AskrenebiaschannelBiases {
 	string short_channel_id_dir = 2;
 	sint64 bias = 3;
 	optional string description = 4;
+	optional uint64 timestamp = 5;
 }
 
 message AskrenelistreservationsRequest {
