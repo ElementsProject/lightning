@@ -168,15 +168,6 @@ enum why_capped {
 };
 
 /* Reverse order: bigger first */
-static int revcmp_flows(const size_t *a, const size_t *b, struct flow **flows)
-{
-	if (amount_msat_eq(flows[*a]->delivers, flows[*b]->delivers))
-		return 0;
-	if (amount_msat_greater(flows[*a]->delivers, flows[*b]->delivers))
-		return -1;
-	return 1;
-}
-
 static int revcmp_flows_noidx(struct flow *const *a, struct flow *const *b, void *unused)
 {
 	if (amount_msat_eq((*a)->delivers, (*b)->delivers))
@@ -317,17 +308,6 @@ remove_htlc_min_violations(const tal_t *ctx, struct route_query *rq,
 	return error_message;
 }
 
-static struct amount_msat sum_all_deliver(struct flow **flows,
-					  size_t *flows_index)
-{
-	struct amount_msat all_deliver = AMOUNT_MSAT(0);
-	for (size_t i = 0; i < tal_count(flows_index); i++) {
-		if (!amount_msat_accumulate(&all_deliver,
-					    flows[flows_index[i]]->delivers))
-			abort();
-	}
-	return all_deliver;
-}
 
 static struct amount_msat sum_all_deliver_noidx(struct flow **flows)
 {
@@ -409,7 +389,6 @@ static struct amount_msat remove_excess(struct flow ***flows,
  * Returns the total delivery amount. */
 static struct amount_msat increase_flows(const struct route_query *rq,
 					 struct flow **flows,
-					 size_t **flows_index,
 					 struct amount_msat deliver,
 					 double tolerance)
 {
@@ -417,20 +396,19 @@ static struct amount_msat increase_flows(const struct route_query *rq,
 		return AMOUNT_MSAT(0);
 
 	struct amount_msat all_deliver, defect;
-	all_deliver = sum_all_deliver(flows, *flows_index);
+	all_deliver = sum_all_deliver_noidx(flows);
 
 	/* early exit: target is already met */
 	if (!amount_msat_sub(&defect, deliver, all_deliver) ||
 	    amount_msat_is_zero(defect))
 		return all_deliver;
 
-	asort(*flows_index, tal_count(*flows_index), revcmp_flows, flows);
+	asort(flows, tal_count(flows), revcmp_flows_noidx, NULL);
 
 	all_deliver = AMOUNT_MSAT(0);
 	for (size_t i = 0;
-	     i < tal_count(*flows_index) && !amount_msat_is_zero(defect); i++) {
-		const size_t index = (*flows_index)[i];
-		struct flow *flow = flows[index];
+	     i < tal_count(flows) && !amount_msat_is_zero(defect); i++) {
+		struct flow *flow = flows[i];
 		struct amount_msat can_add = defect, amt;
 
 		/* no more than tolerance */
@@ -506,10 +484,7 @@ const char *refine_flows(const tal_t *ctx, struct route_query *rq,
 	}
 
 	/* increase flows if necessary to meet the target */
-	increase_flows(rq, *flows, &flows_index, deliver, /* tolerance = */ 0.02);
-
-	/* finally write the remaining flows */
-	write_selected_flows(working_ctx, flows_index, flows);
+	increase_flows(rq, *flows, deliver, /* tolerance = */ 0.02);
 
 	/* detect htlc_min violations */
 	for (size_t i = 0; i < tal_count(*flows);) {
