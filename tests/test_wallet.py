@@ -2467,3 +2467,13 @@ def test_old_htlcs_cleanup(node_factory, bitcoind):
     # Now they're not
     assert l1.db_query('SELECT COUNT(*) as c FROM channel_htlcs')[0]['c'] == 0
     assert l1.rpc.listhtlcs() == {'htlcs': []}
+
+
+@pytest.mark.xfail(strict=True)
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Makes use of the sqlite3 db")
+@unittest.skipIf(TEST_NETWORK != 'regtest', "sqlite3 snapshot is regtest")
+def test_pending_payments_cleanup(node_factory, bitcoind):
+    bitcoind.generate_block(1)
+    l1 = node_factory.get_node(dbfile='l1-pending-sendpays-with-no-htlc.sqlite3.xz', options={'database-upgrade': True})
+    assert [p['status'] for p in l1.rpc.listsendpays()['payments']] == ['failed', 'pending']
+    assert [p['status'] for p in l1.rpc.listpays()['pays']] == ['pending']
