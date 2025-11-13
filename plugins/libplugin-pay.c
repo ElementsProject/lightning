@@ -2526,12 +2526,12 @@ static struct command_result *retry_step_cb(struct retry_mod_data *rd,
 {
 	struct payment *subpayment, *root = payment_root(p);
 	struct retry_mod_data *rdata = payment_mod_retry_get_data(p);
-	struct timeabs now = time_now();
+	struct timemono now = time_mono();
 
 	if (p->step != PAYMENT_STEP_FAILED)
 		return payment_continue(p);
 
-	if (time_after(now, p->deadline)) {
+	if (timemono_after(now, p->deadline)) {
 		paymod_log(
 		    p, LOG_INFORM,
 		    "Payment deadline expired, not retrying (partial-)payment "

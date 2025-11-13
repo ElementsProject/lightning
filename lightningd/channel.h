@@ -295,7 +295,7 @@ struct channel {
 	u32 feerate_base, feerate_ppm;
 
 	/* But allow these feerates/htlcs up until this time. */
-	struct timeabs old_feerate_timeout;
+	struct timemono old_feerate_timeout;
 	u32 old_feerate_base, old_feerate_ppm;
 	struct amount_msat old_htlc_minimum_msat, old_htlc_maximum_msat;
 
