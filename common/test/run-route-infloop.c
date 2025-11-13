@@ -7,6 +7,7 @@
 #include <common/dijkstra.h>
 #include <common/gossmap.h>
 #include <common/gossip_store.h>
+#include <common/memleak.h>
 #include <common/route.h>
 #include <common/sciddir_or_pubkey.h>
 #include <common/setup.h>

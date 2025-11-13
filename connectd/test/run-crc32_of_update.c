@@ -7,6 +7,7 @@ int unused_main(int argc, char *argv[]);
 #include <common/channel_type.h>
 #include <common/ecdh.h>
 #include <common/json_stream.h>
+#include <common/memleak.h>
 #include <common/onionreply.h>
 #include <common/setup.h>
 #include <stdio.h>
