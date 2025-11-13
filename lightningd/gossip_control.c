@@ -102,6 +102,10 @@ static void get_txout(struct subd *gossip, const u8 *msg)
 		subd_send_msg(gossip, take(towire_gossipd_get_txout_reply(
 						   NULL, scid, AMOUNT_SAT(0), NULL)));
 	} else {
+		/* If we're shutting down, don't ask plugins */
+		if (gossip->ld->state == LD_STATE_SHUTDOWN)
+			return;
+
 		/* Make a pointer of a copy of scid here, for got_filteredblock */
 		bitcoind_getfilteredblock(topo->bitcoind, topo->bitcoind,
 					  short_channel_id_blocknum(scid),
