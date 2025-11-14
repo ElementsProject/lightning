@@ -56,7 +56,6 @@ contrib/pyln-*/pyln/*/__version__.py
 tests/plugins/test_selfdisable_after_getmanifest
 
 # Ignore generated files
-devtools/features
 doc/schemas/sql.json
 doc/*.7.md
 doc/*.[1578]
@@ -72,6 +71,7 @@ tests/primitives_pb2_grpc.py
 tests/autogenerate-examples-status.log
 tests/autogenerate-examples.json
 tests/autogenerate-examples-repeat.log
+libcommon.a
 
 # Ignore unrelated stuff
 .DS_Store
