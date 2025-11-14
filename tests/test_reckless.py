@@ -171,7 +171,7 @@ def test_basic_help():
     assert r.search_stdout("options:") or r.search_stdout("optional arguments:")
 
 
-def test_reckless_version(node_factory):
+def test_reckless_version_listconfig(node_factory):
     '''Version should be reported without loading config and should advance
     with lightningd.'''
     node = get_reckless_node(node_factory)
@@ -195,6 +195,16 @@ def test_reckless_version(node_factory):
     assert result['reckless_dir'] == str(node.lightning_dir / 'reckless')
     assert result['lightning_conf'] == str(node.lightning_dir / NETWORK / 'config')
     assert result['version'] == version
+
+    # Now test via reckless-rpc plugin
+    node.start()
+    # FIXME: the plugin finds the installed reckless utility rather than the build directory reckless
+    listconfig = node.rpc.reckless('listconfig')
+    print(listconfig)
+    assert listconfig['result']['lightning_dir'] == str(node.lightning_dir)
+    assert listconfig['result']['lightning_conf'] == str(node.lightning_dir / NETWORK / 'config')
+    assert listconfig['result']['network'] == NETWORK
+    assert listconfig['result']['version'] == version
 
 
 def test_contextual_help(node_factory):
