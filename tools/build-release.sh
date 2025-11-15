@@ -18,7 +18,8 @@ if [ "$1" = "--inside-docker" ]; then
     ./configure
     uv run make -j"$MAKEPAR" VERSION="$VER"
     uv run make -j"$MAKEPAR" install DESTDIR=/"$VER-$PLTFM-$PLTFMVER-$ARCH" RUST_PROFILE=release
-    cd /"$VER-$PLTFM-$PLTFMVER-$ARCH" && tar cvfz /release/clightning-"$VER-$PLTFM-$PLTFMVER-$ARCH".tar.gz -- *
+    cd /"$VER-$PLTFM-$PLTFMVER-$ARCH"
+    tar cvfz /release/clightning-"$VER-$PLTFM-$PLTFMVER-$ARCH".tar.gz --mtime='@1672531200' -- *
     echo "Inside docker: build finished"
     exit 0
 fi
