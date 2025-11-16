@@ -1,5 +1,6 @@
 #include "config.h"
 #include <ccan/asort/asort.h>
+#include <ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
 #include <common/gossmap.h>
 #include <plugins/askrene/askrene.h>
@@ -597,29 +598,43 @@ double flows_probability(const tal_t *ctx, struct route_query *rq,
 	return probability;
 }
 
-/* Compare flows by deliver amount */
-static int reverse_cmp_flows(struct flow *const *fa, struct flow *const *fb,
-			     void *unused UNUSED)
+const char *reduce_num_flows(const tal_t *ctx,
+			     const struct route_query *rq,
+			     struct flow ***flows,
+			     struct amount_msat deliver,
+			     size_t num_parts)
 {
-	if (amount_msat_eq((*fa)->delivers, (*fb)->delivers))
-		return 0;
-	if (amount_msat_greater((*fa)->delivers, (*fb)->delivers))
-		return -1;
-	return 1;
-}
+	/* Keep the largest flows (not as I originally implemented, the largest
+	 * capacity flows).  Here's Lagrang3's analysis:
+	 *
+	 * I think it is better to keep the largest-deliver flows.  If we only
+	 * go for the highest capacity we may throw away the low cost benefits
+	 * of the MCF.
 
-bool remove_flows(struct flow ***flows, u32 n)
-{
-	if (n == 0)
-		goto fail;
-	if (n > tal_count(*flows))
-		goto fail;
-	asort(*flows, tal_count(*flows), reverse_cmp_flows, NULL);
-	for (size_t count = tal_count(*flows); n > 0; n--, count--) {
-		assert(count > 0);
-		tal_arr_remove(flows, count - 1);
-	}
-	return true;
-fail:
-	return false;
+	 * Hypothetical scenario: MCF finds 3 flows but maxparts=2,
+	 * flow 1: deliver=10, cost=0, capacity=0
+	 * flow 2: deliver=7, cost=1, capacity=5
+	 * flow 3: deliver=1, cost=10, capacity=100
+	 *
+	 * It is better to keep flows 1 and 2 by accomodating 1 more unit of
+	 * flow in flow2 at 1 value expense (per flow), than to keep flows 2 and
+	 * 3 by accomodating 5 more units of flow in flow2 at cost 1 and 5 in
+	 * flow3 at cost 100.
+	 *
+	 * The trade-off is: if we prioritize the delivery value already
+	 * computed by MCF then we find better solutions, but we might fail to
+	 * find feasible solutions sometimes. If we prioritize capacity then we
+	 * generally find bad solutions though we find feasibility more often
+	 * than the alternative.
+	 */
+	size_t orig_num_flows = tal_count(*flows);
+	asort(*flows, orig_num_flows, revcmp_flows, NULL);
+	tal_resize(flows, num_parts);
+
+	if (!increase_flows(rq, *flows, deliver, -1.0))
+		return rq_log(ctx, rq, LOG_INFORM,
+			      "Failed to reduce %zu flows down to maxparts (%zu)",
+			      orig_num_flows, num_parts);
+
+	return NULL;
 }
