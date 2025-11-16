@@ -184,33 +184,24 @@ static int revcmp_flows(struct flow *const *a, struct flow *const *b, void *unus
 //      -> check that htlc_max are all satisfied
 //      -> check that (x+1) at least one htlc_max is violated
 /* Given the channel constraints, return the maximum amount that can be
- * delivered.  Sets *bottleneck_idx to one of the contraining channels' idx, if non-NULL */
+ * delivered. */
 static struct amount_msat flow_max_deliverable(const struct route_query *rq,
-					       const struct flow *flow,
-					       u32 *bottleneck_idx)
+					       const struct flow *flow)
 {
 	struct amount_msat deliver = AMOUNT_MSAT(-1);
 	for (size_t i = 0; i < tal_count(flow->path); i++) {
 		const struct half_chan *hc = &flow->path[i]->half[flow->dirs[i]];
 		struct amount_msat unused, known_max, htlc_max;
-		size_t idx = flow->dirs[i]
-			+ 2 * gossmap_chan_idx(rq->gossmap, flow->path[i]);
-
 		deliver = amount_msat_sub_fee(deliver, hc->base_fee,
 					      hc->proportional_fee);
 		htlc_max = get_chan_htlc_max(rq, flow->path[i], flow->dirs[i]);
-		if (amount_msat_greater(deliver, htlc_max)) {
-			if (bottleneck_idx)
-				*bottleneck_idx = idx;
+		if (amount_msat_greater(deliver, htlc_max))
 			deliver = htlc_max;
-		}
+
 		get_constraints(rq, flow->path[i], flow->dirs[i],
 				&unused, &known_max);
-		if (amount_msat_greater(deliver, known_max)) {
-			if (bottleneck_idx)
-				*bottleneck_idx = idx;
+		if (amount_msat_greater(deliver, known_max))
 			deliver = known_max;
-		}
 	}
 	return deliver;
 }
@@ -436,7 +427,7 @@ static bool increase_flows(const struct route_query *rq,
 			 * htlc_max.  So remove this reservation, to get the
 			 * real maximum for one flow, then replace it. */
 			tal_free(reservations[i]);
-			capacity = flow_max_deliverable(rq, flows[i], NULL);
+			capacity = flow_max_deliverable(rq, flows[i]);
 			reservations[i] = new_reservations(reservations, rq);
 			create_flow_reservations(rq, &reservations[i], flows[i]);
 
@@ -475,8 +466,7 @@ static bool increase_flows(const struct route_query *rq,
 }
 
 const char *refine_flows(const tal_t *ctx, struct route_query *rq,
-			 struct amount_msat deliver, struct flow ***flows,
-			 u32 *bottleneck_idx)
+			 struct amount_msat deliver, struct flow ***flows)
 {
 	const tal_t *working_ctx = tal(ctx, tal_t);
 	const char *error_message = NULL;
@@ -487,7 +477,7 @@ const char *refine_flows(const tal_t *ctx, struct route_query *rq,
 	for (size_t i = 0; i < tal_count(*flows); i++) {
 		(*flows)[i]->delivers =
 		    amount_msat_min((*flows)[i]->delivers,
-				    flow_max_deliverable(rq, (*flows)[i], bottleneck_idx));
+				    flow_max_deliverable(rq, (*flows)[i]));
 	}
 
 	/* remove excess from MCF granularity if any */
@@ -570,7 +560,7 @@ void squash_flows(const tal_t *ctx, struct route_query *rq,
 		/* same path? We merge */
 		while (i + 1 < tal_count(*flows) &&
 		       cmppath_flows(&flow, &(*flows)[i+1], NULL) == 0) {
-			struct amount_msat combined, max = flow_max_deliverable(rq, flow, NULL);
+			struct amount_msat combined, max = flow_max_deliverable(rq, flow);
 
 			if (!amount_msat_add(&combined, flow->delivers, (*flows)[i+1]->delivers))
 				abort();

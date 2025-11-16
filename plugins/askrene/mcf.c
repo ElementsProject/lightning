@@ -1412,7 +1412,7 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 		}
 
 		error_message =
-			refine_flows(ctx, rq, amount_to_deliver, &new_flows, NULL);
+			refine_flows(ctx, rq, amount_to_deliver, &new_flows);
 		if (error_message)
 			goto fail;
 

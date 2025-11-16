@@ -23,12 +23,9 @@ bool create_flow_reservations_verify(const struct route_query *rq,
 
 /* Modify flows to meet HTLC min/max requirements.
  * It takes into account the exact value of the fees expected at each hop.
- * If we reduce flows because it's too large for one channel, *bottleneck_idx
- * is set to the idx of a channel which caused a reduction (if non-NULL).
  */
 const char *refine_flows(const tal_t *ctx, struct route_query *rq,
-			 struct amount_msat deliver, struct flow ***flows,
-			 u32 *bottleneck_idx);
+			 struct amount_msat deliver, struct flow ***flows);
 
 /* Duplicated flows are merged into one. This saves in base fee and HTLC fees.
  */
