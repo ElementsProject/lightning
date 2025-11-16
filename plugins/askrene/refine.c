@@ -312,6 +312,13 @@ static struct amount_msat sum_all_deliver(struct flow **flows)
 	return all_deliver;
 }
 
+/* Remove and free the flow */
+static void del_flow_from_arr(struct flow ***flows, size_t i)
+{
+	tal_free((*flows)[i]);
+	tal_arr_remove(flows, i);
+}
+
 /* It reduces the amount of the flows and/or removes some flows in order to
  * deliver no more than max_deliver. It will leave at least one flow.
  * Returns the total delivery amount. */
@@ -340,7 +347,7 @@ static struct amount_msat remove_excess(struct flow ***flows,
 		if (!amount_msat_deduct(&all_deliver,
 				     (*flows)[i]->delivers))
 			abort();
-		tal_arr_remove(flows, i);
+		del_flow_from_arr(flows, i);
 	}
 
 	/* If we still have some excess, remove it from the
@@ -511,7 +518,7 @@ const char *refine_flows(const tal_t *ctx, struct route_query *rq,
 		if (error_message)
 			goto fail;
 		/* htlc_min is not met for this flow */
-		tal_arr_remove(flows, i);
+		del_flow_from_arr(flows, i);
 	}
 
 	/* remove 0 amount flows if any */
@@ -519,7 +526,7 @@ const char *refine_flows(const tal_t *ctx, struct route_query *rq,
 	for (int i = tal_count(*flows) - 1; i >= 0; i--) {
 		if (!amount_msat_is_zero((*flows)[i]->delivers))
 			break;
-		tal_arr_remove(flows, i);
+		del_flow_from_arr(flows, i);
 	}
 
 	tal_free(working_ctx);
@@ -568,7 +575,7 @@ void squash_flows(const tal_t *ctx, struct route_query *rq,
 			if (amount_msat_greater(combined, max))
 				break;
 			flow->delivers = combined;
-			tal_arr_remove(flows, i+1);
+			del_flow_from_arr(flows, i+1);
 		}
 	}
 }
@@ -619,7 +626,8 @@ const char *reduce_num_flows(const tal_t *ctx,
 	 */
 	size_t orig_num_flows = tal_count(*flows);
 	asort(*flows, orig_num_flows, revcmp_flows, NULL);
-	tal_resize(flows, num_parts);
+	while (tal_count(*flows) > num_parts)
+		del_flow_from_arr(flows, tal_count(*flows) - 1);
 
 	if (!increase_flows(rq, *flows, deliver, -1.0))
 		return rq_log(ctx, rq, LOG_INFORM,
