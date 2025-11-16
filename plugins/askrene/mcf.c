@@ -1377,9 +1377,6 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 	struct reserve_hop *reservations = new_reservations(working_ctx, rq);
 
 	while (!amount_msat_is_zero(amount_to_deliver)) {
-		size_t num_parts, parts_slots, excess_parts;
-		u32 bottleneck_idx;
-
 		if (timemono_after(time_mono(), deadline)) {
 			error_message = rq_log(ctx, rq, LOG_BROKEN,
 					       "%s: timed out after deadline",
@@ -1387,24 +1384,7 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 			goto fail;
 		}
 
-                /* FIXME: This algorithm to limit the number of parts is dumb
-                 * for two reasons:
-                 *      1. it does not take into account that several loop
-                 *      iterations here may produce two flows along the same
-                 *      path that after "squash_flows" become a single flow.
-                 *      2. limiting the number of "slots" to 1 makes us fail to
-                 *      see some solutions that use more than one of those
-                 *      existing paths.
-                 *
-                 * A better approach could be to run MCF, remove the excess
-                 * paths and then recompute a MCF on a network where each arc is
-                 * one of the previously remaining paths, ie. redistributing the
-                 * payment amount among the selected paths in a cost-efficient
-                 * way. */
 		new_flows = tal_free(new_flows);
-		num_parts = tal_count(*flows);
-		assert(num_parts < rq->maxparts);
-		parts_slots = rq->maxparts - num_parts;
 
 		/* If the amount_to_deliver is very small we better use a single
 		 * path computation because:
@@ -1415,8 +1395,7 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
                  * do not deliver the entire payment amount by just a small
                  * amount. */
 		if (amount_msat_less_eq(amount_to_deliver,
-					SINGLE_PATH_THRESHOLD) ||
-		    parts_slots == 1) {
+					SINGLE_PATH_THRESHOLD)) {
 			new_flows = single_path_flow(working_ctx, rq, srcnode,
 						     dstnode, amount_to_deliver,
 						     mu, delay_feefactor);
@@ -1433,7 +1412,7 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 		}
 
 		error_message =
-			refine_flows(ctx, rq, amount_to_deliver, &new_flows, &bottleneck_idx);
+			refine_flows(ctx, rq, amount_to_deliver, &new_flows, NULL);
 		if (error_message)
 			goto fail;
 
@@ -1455,32 +1434,6 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 		for (size_t i = 0; i < tal_count(new_flows); i++) {
                         // FIXME: replace all assertions with LOG_BROKEN
 			assert(!amount_msat_is_zero(new_flows[i]->delivers));
-		}
-
-		if (tal_count(new_flows) > parts_slots) {
-			/* Remove the excees of parts and leave one slot for the
-			 * next round of computations. */
-			excess_parts = 1 + tal_count(new_flows) - parts_slots;
-		} else if (tal_count(new_flows) == parts_slots &&
-			   amount_msat_less(all_deliver, amount_to_deliver)) {
-			/* Leave exactly 1 slot for the next round of
-			 * computations. */
-			excess_parts = 1;
-		} else
-			excess_parts = 0;
-		if (excess_parts > 0) {
-			/* If we removed all the flows we found, avoid selecting them again,
-			 * by disabling one. */
-			if (excess_parts == tal_count(new_flows))
-				bitmap_set_bit(rq->disabled_chans, bottleneck_idx);
-			if (!remove_flows(&new_flows, excess_parts)) {
-				error_message = rq_log(ctx, rq, LOG_BROKEN,
-						       "%s: failed to remove %zu"
-						       " flows from a set of %zu",
-						       __func__, excess_parts,
-						       tal_count(new_flows));
-				goto fail;
-			}
 		}
 
 		/* Is this set of flows too expensive?
@@ -1605,6 +1558,34 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 
 	/* all set! Now squash flows that use the same path */
 	squash_flows(ctx, rq, flows);
+
+	/* If we're over the number of parts, try to cram excess into the
+	 * largest-capacity parts */
+	if (tal_count(*flows) > rq->maxparts) {
+		struct amount_msat fee;
+
+		error_message = reduce_num_flows(rq, rq, flows, amount, rq->maxparts);
+		if (error_message) {
+			*flows = tal_free(*flows);
+			return error_message;
+		}
+
+		/* Check fee budget! */
+		fee = flowset_fee(rq->plugin, *flows);
+		if (amount_msat_greater(fee, maxfee)) {
+			error_message = rq_log(rq, rq, LOG_INFORM,
+					       "After reducing the flows to %zu (i.e. maxparts),"
+					       " we had a fee of %s, greater than "
+					       "max of %s.",
+					       tal_count(*flows),
+					       fmt_amount_msat(tmpctx, fee),
+					       fmt_amount_msat(tmpctx, maxfee));
+			if (error_message) {
+				*flows = tal_free(*flows);
+				return error_message;
+			}
+		}
+	}
 
 	/* flows_probability re-does a temporary reservation so we need to call
 	 * it after we have cleaned the reservations we used to build the flows
