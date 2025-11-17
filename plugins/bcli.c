@@ -418,6 +418,12 @@ static struct command_result *command_err_bcli_badjson(struct bitcoin_cli *bcli,
 	return command_done_err(bcli->cmd, BCLI_ERROR, err, NULL);
 }
 
+/* Don't use this in general: it's better to omit fields. */
+static void json_add_null(struct json_stream *stream, const char *fieldname)
+{
+	json_add_primitive(stream, fieldname, "null");
+}
+
 static struct command_result *process_getutxout(struct bitcoin_cli *bcli)
 {
 	const jsmntok_t *tokens;

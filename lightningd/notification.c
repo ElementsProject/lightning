@@ -273,6 +273,12 @@ void notify_channel_opened(struct lightningd *ld,
 	notify_send(ld, n);
 }
 
+/* Don't use this: omit fields instead! */
+static void json_add_null(struct json_stream *stream, const char *fieldname)
+{
+	json_add_primitive(stream, fieldname, "null");
+}
+
 static void channel_state_changed_notification_serialize(struct json_stream *stream,
 							 struct lightningd *ld,
 							 const struct node_id *peer_id,
@@ -302,8 +308,12 @@ static void channel_state_changed_notification_serialize(struct json_stream *str
 	json_add_string(stream, "cause", channel_change_state_reason_str(cause));
 	if (message != NULL)
 		json_add_string(stream, "message", message);
-	else
+	else if (lightningd_deprecated_out_ok(ld, ld->deprecated_ok,
+					      "channel_state_changed",
+					      "null_message",
+					      "v25.12", "v26.12")) {
 		json_add_null(stream, "message");
+	}
 }
 
 REGISTER_NOTIFICATION(channel_state_changed)
