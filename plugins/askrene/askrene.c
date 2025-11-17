@@ -147,12 +147,21 @@ static struct command_result *parse_reserve_hop(struct command *cmd,
 						struct reserve_hop *rhop)
 {
 	const char *err;
+	const char *layername = NULL;
 
-	err = json_scan(tmpctx, buffer, tok, "{short_channel_id_dir:%,amount_msat:%}",
+	err = json_scan(tmpctx, buffer, tok, "{short_channel_id_dir:%,amount_msat:%,layer?:%}",
 			JSON_SCAN(json_to_short_channel_id_dir, &rhop->scidd),
-			JSON_SCAN(json_to_msat, &rhop->amount));
+			JSON_SCAN(json_to_msat, &rhop->amount),
+			JSON_SCAN_TAL(tmpctx, json_strdup, &layername));
 	if (err)
 		return command_fail_badparam(cmd, name, buffer, tok, err);
+	if (layername) {
+		rhop->layer = find_layer(get_askrene(cmd->plugin), layername);
+		if (!rhop->layer)
+			return command_fail_badparam(cmd, name, buffer, tok, "Unknown layer");
+	} else
+		rhop->layer = NULL;
+
 	return NULL;
 }
 
@@ -548,8 +557,8 @@ void get_constraints(const struct route_query *rq,
 		*max = gossmap_chan_get_capacity(rq->gossmap, chan);
 
 	/* Finally, if any is in use, subtract that! */
-	reserve_sub(rq->reserved, &scidd, min);
-	reserve_sub(rq->reserved, &scidd, max);
+	reserve_sub(rq->reserved, &scidd, rq->layers, min);
+	reserve_sub(rq->reserved, &scidd, rq->layers, max);
 }
 
 static struct command_result *do_getroutes(struct command *cmd,
@@ -916,9 +925,11 @@ static struct command_result *json_askrene_unreserve(struct command *cmd,
 	for (size_t i = 0; i < tal_count(path); i++) {
 		if (!reserve_remove(askrene->reserved, &path[i])) {
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "Unknown reservation for %s",
+					    "Unknown reservation for %s%s%s",
 					    fmt_short_channel_id_dir(tmpctx,
-								     &path[i].scidd));
+								     &path[i].scidd),
+					    path[i].layer ? " on layer " : "",
+					    path[i].layer ? layer_name(path[i].layer) : "");
 		}
  	}
 
@@ -933,6 +944,7 @@ static struct command_result *json_askrene_listreservations(struct command *cmd,
 	struct askrene *askrene = get_askrene(cmd->plugin);
 	struct json_stream *response;
 
+	/* FIXME: We could allow layer names here? */
 	if (!param(cmd, buffer, params,
 		   NULL))
 		return command_param_failed();
@@ -940,7 +952,7 @@ static struct command_result *json_askrene_listreservations(struct command *cmd,
 		   json_tok_full_len(params), json_tok_full(buffer, params));
 
 	response = jsonrpc_stream_success(cmd);
-	json_add_reservations(response, askrene->reserved, "reservations");
+	json_add_reservations(response, askrene->reserved, "reservations", NULL);
 	return command_finished(cmd, response);
 }
 
@@ -1065,7 +1077,7 @@ static struct command_result *json_askrene_inform_channel(struct command *cmd,
 	case INFORM_CONSTRAINED:
 		/* It didn't pass, so minimal assumption is that reserve was all used
 		 * then there we were one msat short. */
-		if (!reserve_accumulate(askrene->reserved, scidd, amount))
+		if (!reserve_accumulate(askrene->reserved, scidd, layer, amount))
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Amount overflow with reserves");
 		if (!amount_msat_deduct(amount, AMOUNT_MSAT(1)))

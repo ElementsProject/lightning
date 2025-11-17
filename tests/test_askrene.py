@@ -1847,7 +1847,6 @@ def test_askrene_timeout(node_factory, bitcoind):
                      final_cltv=5)
 
 
-@pytest.mark.xfail(strict=True)
 def test_askrene_reserve_clash(node_factory, bitcoind):
     """Reserves get (erroneously) counted globally by scid, even for fake scids."""
     l1 = node_factory.get_node()
@@ -1897,7 +1896,7 @@ def test_askrene_reserve_clash(node_factory, bitcoind):
 
     l1.rpc.askrene_reserve(path=[{'short_channel_id_dir': '0x0x0/1',
                                   'amount_msat': 950000,
-#                                  'layer': 'layer1'
+                                  'layer': 'layer1'
                                   }])
 
     # We can't use this on layer 1 anymore, only 50000 msat left.

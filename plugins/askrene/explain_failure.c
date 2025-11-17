@@ -60,7 +60,7 @@ static const char *why_max_constrained(const tal_t *ctx,
 			       fmt_amount_msat(tmpctx, max));
 	}
 
-	reservations = fmt_reservations(tmpctx, rq->reserved, scidd);
+	reservations = fmt_reservations(tmpctx, rq->reserved, scidd, rq->layers);
 	if (reservations) {
 		if (!ret)
 			ret = tal_strdup(ctx, "");
