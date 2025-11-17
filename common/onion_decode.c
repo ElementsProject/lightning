@@ -200,6 +200,7 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 	size_t max = tal_bytelen(cursor), len;
 
 	p->final = (rs->nextcase == ONION_END);
+	p->type = rs->type;
 
 	/* BOLT #4:
 	 * 1. type: `hop_payloads`

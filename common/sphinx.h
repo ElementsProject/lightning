@@ -59,7 +59,13 @@ struct sphinx_hop {
 	const u8 *raw_payload;
 };
 
+enum onion_payload_type {
+	ONION_V0_PAYLOAD = 0,
+	ONION_TLV_PAYLOAD = 1,
+};
+
 struct route_step {
+	enum onion_payload_type type;
 	enum route_next_case nextcase;
 	struct onionpacket *next;
 	u8 *raw_payload;
