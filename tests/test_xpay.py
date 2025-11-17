@@ -1020,7 +1020,6 @@ def test_xpay_bip353(node_factory):
     l2.rpc.xpay('fake@fake.com', 100)
 
 
-@pytest.mark.xfail(strict=True)
 def test_xpay_limited_max_accepted_htlcs(node_factory):
     """xpay should try to reduce flows to 6 if there is an unannounced channel, and only try more if that fails"""
     CHANNEL_SIZE_SATS = 10**6
@@ -1047,6 +1046,9 @@ def test_xpay_limited_max_accepted_htlcs(node_factory):
     # 7 flows.
     l3.daemon.wait_for_log('Final answer has 7 flows')
 
+    # Make sure xpay has completely finished!
+    wait_for(lambda: l3.rpc.askrene_listreservations() == {'reservations': []})
+
     # If we have a routehint, it will squeeze into 6.
     inv2 = l2.rpc.invoice(f"{CHANNEL_SIZE_SATS * 5}sat",
                           'test_xpay_limited_max_accepted_htlcs',
@@ -1058,13 +1060,16 @@ def test_xpay_limited_max_accepted_htlcs(node_factory):
     # 6 flows.
     l3.daemon.wait_for_log('Final answer has 6 flows')
 
-    # If we force it, it will use more flows.
+    # Make sure xpay has completely finished!
+    wait_for(lambda: l3.rpc.askrene_listreservations() == {'reservations': []})
+
+    # If we force it, it will use more flows.  And fail on 7th part!
     inv2 = l2.rpc.invoice(f"{CHANNEL_SIZE_SATS * 6}sat",
                           'test_xpay_limited_max_accepted_htlcs2',
                           'test_xpay_limited_max_accepted_htlcs2')['bolt11']
-    l2.rpc.delinvoice('test_xpay_limited_max_accepted_htlcs2', 'unpaid')
     with pytest.raises(RpcError, match="We got temporary_channel_failure"):
         l3.rpc.xpay(inv2)
+    l3.daemon.wait_for_log('Final answer has 7 flows')
 
 
 def test_xpay_blockheight_mismatch(node_factory, bitcoind, executor):
