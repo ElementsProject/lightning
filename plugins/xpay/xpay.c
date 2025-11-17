@@ -148,6 +148,8 @@ struct hop {
 	u32 cltv_value_in;
 	/* This is the delay, out from node. */
 	u32 cltv_value_out;
+	/* This is a fake channel. */
+	bool fake_channel;
 };
 
 /* Each actual payment attempt */
@@ -481,18 +483,6 @@ static void payment_give_up(struct command *aux_cmd,
 		cleanup(aux_cmd, payment);
 }
 
-/* We usually add things we learned to the global layer, but not
- * if it's a fake channel */
-static const char *layer_of(const struct payment *payment,
-			    const struct short_channel_id_dir *scidd)
-{
-	struct gossmap *gossmap = get_gossmap(xpay_of(payment->plugin));
-
-	if (gossmap_find_chan(gossmap, &scidd->scid))
-		return "xpay";
-	return payment->private_layer;
-}
-
 static void add_result_summary(struct attempt *attempt,
 			       enum log_level level,
 			       const char *fmt, ...)
@@ -713,8 +703,11 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 	/* We learned something about prior nodes */
 	for (size_t i = 0; i < index; i++) {
 		req = payment_ignored_req(aux_cmd, attempt, "askrene-inform-channel");
+		/* Put what we learned in xpay, unless it's a fake channel */
 		json_add_string(req->js, "layer",
-				layer_of(attempt->payment, &attempt->hops[i].scidd));
+				attempt->hops[i].fake_channel
+				? attempt->payment->private_layer
+				: "xpay");
 		json_add_short_channel_id_dir(req->js,
 					      "short_channel_id_dir",
 					      attempt->hops[i].scidd);
@@ -881,8 +874,11 @@ disable_channel:
 
 channel_capacity:
 	req = payment_ignored_req(aux_cmd, attempt, "askrene-inform-channel");
+	/* Put what we learned in xpay, unless it's a fake channel */
 	json_add_string(req->js, "layer",
-			layer_of(attempt->payment, &attempt->hops[index].scidd));
+			attempt->hops[index].fake_channel
+			? attempt->payment->private_layer
+			: "xpay");
 	json_add_short_channel_id_dir(req->js,
 				      "short_channel_id_dir",
 				      attempt->hops[index].scidd);
@@ -918,6 +914,8 @@ static struct command_result *unreserve_path(struct command *aux_cmd,
 		json_object_start(req->js, NULL);
 		json_add_short_channel_id_dir(req->js, "short_channel_id_dir", hop->scidd);
 		json_add_amount_msat(req->js, "amount_msat", hop->amount_out);
+		if (hop->fake_channel)
+			json_add_string(req->js, "layer", attempt->payment->private_layer);
 		json_object_end(req->js);
 	}
 	json_array_end(req->js);
@@ -1203,6 +1201,7 @@ static struct command_result *getroutes_done(struct command *aux_cmd,
 	const jsmntok_t *t, *routes;
 	size_t i;
 	struct amount_msat needs_routing, was_routing;
+	struct gossmap *gossmap = get_gossmap(xpay_of(payment->plugin));
 
 	payment_log(payment, LOG_DBG, "getroutes_done: %s",
 		    payment->cmd ? "continuing" : "ignoring");
@@ -1270,6 +1269,7 @@ static struct command_result *getroutes_done(struct command *aux_cmd,
 			if (err)
 				plugin_err(aux_cmd->plugin, "Malformed routes: %s",
 					   err);
+			hop->fake_channel = !gossmap_find_chan(gossmap, &hop->scidd.scid);
 			if (j > 0) {
 				hops[j-1].amount_out = hop->amount_in;
 				hops[j-1].cltv_value_out = hop->cltv_value_in;
@@ -1294,6 +1294,8 @@ static struct command_result *getroutes_done(struct command *aux_cmd,
 			json_add_short_channel_id_dir(req->js, "short_channel_id_dir",
 						      hop->scidd);
 			json_add_amount_msat(req->js, "amount_msat", hop->amount_out);
+			if (hop->fake_channel)
+				json_add_string(req->js, "layer", payment->private_layer);
 			json_object_end(req->js);
 		}
 		json_array_end(req->js);
