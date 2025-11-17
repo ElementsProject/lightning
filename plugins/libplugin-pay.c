@@ -1703,6 +1703,11 @@ static struct command_result *payment_sendonion_success(struct command *cmd,
 							struct payment *p)
 {
 	struct out_req *req;
+	struct payment *root = payment_root(p);
+
+	if (p->invstring)
+		root->invstring_used = true;
+
 	req = jsonrpc_request_start(payment_cmd(p), "waitsendpay",
 				    payment_waitsendpay_finished,
 				    payment_waitsendpay_finished, p);
@@ -1765,8 +1770,6 @@ static struct command_result *payment_createonion_success(struct command *cmd,
 
 		if (p->description)
 			json_add_string(req->js, "description", p->description);
-
-		root->invstring_used = true;
 	}
 
 	if (p->pay_destination)
