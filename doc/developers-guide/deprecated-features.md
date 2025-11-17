@@ -25,7 +25,8 @@ privacy:
 | pay_notifications.raw_fields                       | Field              | v25.09           | v26.09         | `channel_hint_update`, `pay_failure` and `pay_success` notifications now wrap members in an object of the same name       |
 | encrypted_hsm                                      | Config             | v25.12           | v26.12         | `hsm-passphrase` is a name which also makes sense for modern hsm_secrets which use BIP 39                                 |
 | newaddr.addresstype.defaultbech32                  | Parameter          | v25.12           | v26.12         | Use `p2tr` in the response (present since v23.08 if `addresstype` is `p2tr`,  and always present since v24.12).           |
-
+| channel_state_changed.null_message                 | Notification Field | v25.12           | v26.12         | In channel_state_changed notification, `message` will be missing instead of `null`                                        |
+ 
 Inevitably there are features which need to change: either to be generalized, or removed when they can no longer be supported.
 
 Types of deprecation:
