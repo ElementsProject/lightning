@@ -5983,6 +5983,7 @@ impl From<requests::AskreneunreservePath> for pb::AskreneunreservePath {
     fn from(c: requests::AskreneunreservePath) -> Self {
         Self {
             amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
+            layer: c.layer, // Rule #2 for type string?
             short_channel_id_dir: c.short_channel_id_dir.map(|v| v.to_string()), // Rule #2 for type short_channel_id_dir?
         }
     }
@@ -6031,6 +6032,7 @@ impl From<requests::AskrenereservePath> for pb::AskrenereservePath {
     fn from(c: requests::AskrenereservePath) -> Self {
         Self {
             amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
+            layer: c.layer, // Rule #2 for type string?
             short_channel_id_dir: c.short_channel_id_dir.map(|v| v.to_string()), // Rule #2 for type short_channel_id_dir?
         }
     }
@@ -7673,6 +7675,7 @@ impl From<pb::AskreneunreservePath> for requests::AskreneunreservePath {
     fn from(c: pb::AskreneunreservePath) -> Self {
         Self {
             amount_msat: c.amount_msat.unwrap().into(), // Rule #1 for type msat
+            layer: c.layer, // Rule #1 for type string?
             short_channel_id_dir: c.short_channel_id_dir.map(|v| cln_rpc::primitives::ShortChannelIdDir::from_str(&v).unwrap()), // Rule #1 for type short_channel_id_dir?
         }
     }
@@ -7720,6 +7723,7 @@ impl From<pb::AskrenereservePath> for requests::AskrenereservePath {
     fn from(c: pb::AskrenereservePath) -> Self {
         Self {
             amount_msat: c.amount_msat.unwrap().into(), // Rule #1 for type msat
+            layer: c.layer, // Rule #1 for type string?
             short_channel_id_dir: c.short_channel_id_dir.map(|v| cln_rpc::primitives::ShortChannelIdDir::from_str(&v).unwrap()), // Rule #1 for type short_channel_id_dir?
         }
     }

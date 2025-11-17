@@ -1122,7 +1122,7 @@
           "layer": {
             "type": "string",
             "description": [
-              "The name of the layer to apply this change to."
+              "The name of the layer to apply this change to.  Also causes us to consider any reservations which are local to that layer (which is useful for fake channels where `layer` is set in an `askrene-reserve` `path` object)."
             ]
           },
           "short_channel_id_dir": {
@@ -1879,6 +1879,13 @@
                   "description": [
                     "The amount to send into this hop."
                   ]
+                },
+                "layer": {
+                  "added": "v25.12",
+                  "type": "string",
+                  "description": [
+                    "The layer to restrict this reservation to.  This is only useful for fake channels which are not uniquely identified by `short_channel_id_dir`, which would otherwise confuse multiple unrelated callers."
+                  ]
                 }
               }
             }
@@ -1979,6 +1986,13 @@
                   "type": "msat",
                   "description": [
                     "The amount to send into this hop."
+                  ]
+                },
+                "layer": {
+                  "added": "v25.12",
+                  "type": "string",
+                  "description": [
+                    "The layer to restrict this reservation to (useful for fake channels)."
                   ]
                 }
               }
