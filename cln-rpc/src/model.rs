@@ -4278,6 +4278,8 @@ pub mod requests {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct AskreneunreservePath {
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub layer: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub short_channel_id_dir: Option<ShortChannelIdDir>,
 	    pub amount_msat: Amount,
 	}
@@ -4375,6 +4377,8 @@ pub mod requests {
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct AskrenereservePath {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub layer: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub short_channel_id_dir: Option<ShortChannelIdDir>,
 	    pub amount_msat: Amount,
