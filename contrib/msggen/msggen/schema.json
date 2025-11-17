@@ -37731,10 +37731,12 @@
               "DUALOPEND_AWAITING_LOCKIN",
               "CHANNELD_AWAITING_SPLICE",
               "DUALOPEND_OPEN_COMMITTED",
-              "DUALOPEND_OPEN_COMMIT_READY"
+              "DUALOPEND_OPEN_COMMIT_READY",
+              "CLOSED"
             ],
             "description": [
-              "The channel state, in particular \"CHANNELD_NORMAL\" and \"CHANNELD_AWAITING_SPLICE\" mean the channel can be used normally"
+              "The channel state, in particular \"CHANNELD_NORMAL\" and \"CHANNELD_AWAITING_SPLICE\" mean the channel can be used normally",
+              "Note: *CLOSED* state was only added in v25.12."
             ],
             "added": "pre-v0.10.1"
           },
