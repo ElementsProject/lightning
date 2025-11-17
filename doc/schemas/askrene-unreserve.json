@@ -36,6 +36,13 @@
               "description": [
                 "The amount to send into this hop."
               ]
+            },
+            "layer": {
+              "added": "v25.12",
+              "type": "string",
+              "description": [
+                "The layer to restrict this reservation to (useful for fake channels)."
+              ]
             }
           }
         }

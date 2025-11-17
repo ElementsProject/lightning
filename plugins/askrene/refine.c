@@ -69,6 +69,9 @@ static void add_reservation(struct reserve_hop **reservations,
 	}
 	rhop.scidd = *scidd;
 	rhop.amount = amt;
+	/* We don't have to restrict it to a layer, since it's transitory:
+	 * nobody else will see this. */
+	rhop.layer = NULL;
 	reserve_add(askrene->reserved, &rhop, rq->cmd->id);
 
 	/* Set capacities entry to 0 so it get_constraints() looks in reserve. */
