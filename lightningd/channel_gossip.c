@@ -94,6 +94,8 @@ static struct state_transition allowed_transitions[] = {
 	  "Channel usable (zeroconf) but no scid yet" },
 	{ CGOSSIP_WAITING_FOR_SCID, CGOSSIP_CHANNEL_DEAD,
 	  "Zeroconf channel closed before funding tx mined" },
+	{ CGOSSIP_WAITING_FOR_SCID, CGOSSIP_CHANNEL_UNANNOUNCED_DYING,
+	  "Zeroconf channel closing mutually before funding tx" },
 	{ CGOSSIP_WAITING_FOR_USABLE, CGOSSIP_WAITING_FOR_MATCHING_PEER_SIGS,
 	  "Channel mined, but we haven't got matching announcment sigs from peer" },
 	{ CGOSSIP_WAITING_FOR_USABLE, CGOSSIP_WAITING_FOR_ANNOUNCE_DEPTH,
