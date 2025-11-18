@@ -2008,6 +2008,7 @@ message FundchannelCancelResponse {
 message FundchannelCompleteRequest {
 	bytes id = 1;
 	string psbt = 2;
+	optional bool withhold = 3;
 }
 
 message FundchannelCompleteResponse {

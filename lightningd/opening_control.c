@@ -1023,10 +1023,12 @@ static struct command_result *json_fundchannel_complete(struct command *cmd,
 	struct wally_psbt *funding_psbt;
 	u32 *funding_txout_num = NULL;
 	struct funding_channel *fc;
+	bool *withhold;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("id", param_node_id, &id),
 			 p_req("psbt", param_psbt, &funding_psbt),
+			 p_opt_def("withhold", param_bool, &withhold, false),
 			 NULL))
 		return command_param_failed();
 
@@ -1099,9 +1101,7 @@ static struct command_result *json_fundchannel_complete(struct command *cmd,
 		return command_check_done(cmd);
 
 	fc->funding_psbt = tal_steal(fc, funding_psbt);
-
-	/* FIXME: Set by option */
-	fc->withheld = false;
+	fc->withheld = *withhold;
 
 	/* Set the cmd to this new cmd */
 	peer->uncommitted_channel->fc->cmd = cmd;
