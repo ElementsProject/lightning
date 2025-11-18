@@ -940,7 +940,7 @@ def test_channel_state_changed_bilateral(node_factory, bitcoind):
     assert(event2['cause'] == "remote")
     assert(event2['message'] == "Closing complete")
 
-    bitcoind.generate_block(100, wait_for_mempool=1)  # so it gets settled
+    bitcoind.generate_block(99, wait_for_mempool=1)  # so it gets settled
 
     event1 = wait_for_event(l1)
     assert(event1['old_state'] == "CLOSINGD_COMPLETE")
@@ -963,6 +963,18 @@ def test_channel_state_changed_bilateral(node_factory, bitcoind):
     assert(event2['new_state'] == "ONCHAIN")
     assert(event2['cause'] == "remote")
     assert(event2['message'] == "Onchain init reply")
+
+    bitcoind.generate_block(1)
+    event1 = wait_for_event(l1)
+    assert(event1['old_state'] == "ONCHAIN")
+    assert(event1['new_state'] == "CLOSED")
+    assert(event1['cause'] == "unknown")
+    assert('message' not in event1)
+    event2 = wait_for_event(l2)
+    assert(event2['old_state'] == "ONCHAIN")
+    assert(event2['new_state'] == "CLOSED")
+    assert(event2['cause'] == "unknown")
+    assert('message' not in event2)
 
 
 @pytest.mark.openchannel('v1')
@@ -1058,8 +1070,8 @@ def test_channel_state_changed_unilateral(node_factory, bitcoind):
     assert(event1['cause'] == "protocol")
     assert(event1['message'] == "channeld: received ERROR channel {}: Forcibly closed by `close` command timeout".format(cid))
 
-    # settle the channel closure
-    bitcoind.generate_block(100)
+    # Almost settle the channel closure
+    bitcoind.generate_block(99, wait_for_mempool=1)
 
     event2 = wait_for_event(l2)
     assert(event2['old_state'] == "AWAITING_UNILATERAL")
@@ -1086,6 +1098,19 @@ def test_channel_state_changed_unilateral(node_factory, bitcoind):
     assert(event1['new_state'] == "ONCHAIN")
     assert(event1['cause'] == "onchain")
     assert(event1['message'] == "Onchain init reply")
+
+    bitcoind.generate_block(1)
+    event1 = wait_for_event(l1)
+    assert(event1['old_state'] == "ONCHAIN")
+    assert(event1['new_state'] == "CLOSED")
+    assert(event1['cause'] == "unknown")
+    assert('message' not in event1)
+
+    event2 = wait_for_event(l2)
+    assert(event2['old_state'] == "ONCHAIN")
+    assert(event2['new_state'] == "CLOSED")
+    assert(event2['cause'] == "unknown")
+    assert('message' not in event2)
 
 
 @pytest.mark.openchannel('v1')
