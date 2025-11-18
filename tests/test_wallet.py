@@ -948,6 +948,23 @@ def test_sign_external_psbt(node_factory, bitcoind, chainparams):
     l1.rpc.signpsbt(psbt)
 
 
+@pytest.mark.xfail(strict=True)
+def test_sign_signed_psbt(node_factory, bitcoind, chainparams):
+    l1 = node_factory.get_node()
+    l1.fundwallet(10**6)
+
+    psbt = l1.rpc.txprepare([{l1.rpc.newaddr('bech32')['bech32']: 10000}])['psbt']
+    signed_psbt = l1.rpc.signpsbt(psbt)['signed_psbt']
+
+    if TEST_NETWORK != 'liquid-regtest':
+        # FIXME: ideally this would succeed, as a noop.  But it shouldn't crash
+        with pytest.raises(RpcError):
+            l1.rpc.signpsbt(signed_psbt)['signed_psbt']
+    else:
+        # Non-taproot works fine.
+        assert l1.rpc.signpsbt(signed_psbt)['signed_psbt'] == signed_psbt
+
+
 def test_psbt_version(node_factory, bitcoind, chainparams):
 
     sats_amount = 10**8
