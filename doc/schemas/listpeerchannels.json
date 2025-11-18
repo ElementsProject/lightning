@@ -509,6 +509,13 @@
                   "description": [
                     "The PSBT (may be non-final or unsigned) we should use to open the channel, if any.  This is initially from `fundchannel_complete`, but will be updated with if `sendpsbt` is called with an updated PSBT."
                   ]
+                },
+                "withheld": {
+                  "type": "boolean",
+                  "added": "v25.12",
+                  "description": [
+                    "True if `fundchannel_complete` told us it will not broadcast the funding transaction (so we know not to bother with any other onchain transactions in the case of this channel).  This is set to false if `sendpsbt` is send on the above PSBT."
+                  ]
                 }
               }
             },
