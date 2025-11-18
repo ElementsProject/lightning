@@ -1199,6 +1199,8 @@ static struct command_result *json_sendpsbt(struct command *cmd,
 		struct channel *c;
 
 		list_for_each(&p->channels, c, list) {
+			bool was_withheld;
+
 			if (!c->funding_psbt)
 				continue;
 			if (psbt_is_finalized(c->funding_psbt))
@@ -1209,9 +1211,12 @@ static struct command_result *json_sendpsbt(struct command *cmd,
 			/* Found one! */
 			tal_free(c->funding_psbt);
 			c->funding_psbt = clone_psbt(c, sending->psbt);
+			was_withheld = c->withheld;
+			c->withheld = false;
 			wallet_channel_save(ld->wallet, c);
 			log_info(c->log,
-				 "Funding PSBT sent, and stored for rexmit");
+				 "Funding PSBT sent, and stored for rexmit%s",
+				 was_withheld ? " (was withheld)" : "");
 		}
 	}
 
