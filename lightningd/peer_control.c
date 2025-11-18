@@ -478,6 +478,47 @@ void resend_closing_transactions(struct lightningd *ld)
 	}
 }
 
+static void resend_funding_done(struct bitcoind *bitcoind,
+				bool success,
+				const char *msg,
+				struct channel *channel)
+{
+	if (success)
+		log_info(channel->log, "Successfully rexmitted funding tx");
+	else
+		log_unusual(channel->log, "Failed to re-transmit funding tx: %s", msg);
+}
+
+void resend_opening_transactions(struct lightningd *ld)
+{
+	struct peer *peer;
+	struct channel *channel;
+	struct peer_node_id_map_iter it;
+
+	for (peer = peer_node_id_map_first(ld->peers, &it);
+	     peer;
+	     peer = peer_node_id_map_next(ld->peers, &it)) {
+		list_for_each(&peer->channels, channel, list) {
+			struct wally_tx *wtx;
+			if (channel_state_uncommitted(channel->state))
+				continue;
+			if (!channel->funding_psbt)
+				continue;
+			if (channel->depth != 0)
+				continue;
+			wtx = psbt_final_tx(tmpctx, channel->funding_psbt);
+			if (!wtx)
+				continue;
+			bitcoind_sendrawtx(channel,
+					   ld->topology->bitcoind,
+					   NULL,
+					   tal_hex(tmpctx,
+						   linearize_wtx(tmpctx, wtx)),
+					   false, resend_funding_done, channel);
+		}
+	}
+}
+
 void channel_errmsg(struct channel *channel,
 		    struct peer_fd *peer_fd,
 		    const char *desc,
