@@ -348,6 +348,17 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 	struct channel_inflight *inflight;
 	const char *cmd_id;
 
+	/* If we withheld the funding tx, we simply close */
+	if (channel->withheld) {
+		log_info(channel->log,
+			 "Withheld channel: not sending a close transaction");
+		resolve_close_command(ld, channel, cooperative,
+				      tal_arr(tmpctx, const struct bitcoin_tx *, 0));
+		free_htlcs(ld, channel);
+		delete_channel(channel, false);
+		return;
+	}
+
 	/* If we're not already (e.g. close before channel fully open),
 	 * make sure we're watching for the funding spend */
 	if (!channel->funding_spend_watch) {

@@ -1096,15 +1096,20 @@ static void list_awaiting_channels(struct command *init_cmd)
 		struct channel_id cid;
 		struct command *aux_cmd;
 		struct wally_psbt *psbt;
+		bool withheld;
 
-		if (json_scan(tmpctx, buf, t, "{state:%,channel_id:%,funding:{psbt:%}}",
+		if (json_scan(tmpctx, buf, t, "{state:%,channel_id:%,funding:{withheld:%,psbt:%}}",
 			      JSON_SCAN_TAL(tmpctx, json_strdup, &state),
 			      JSON_SCAN(json_tok_channel_id, &cid),
+			      JSON_SCAN(json_to_bool, &withheld),
 			      JSON_SCAN_TAL(tmpctx, json_to_psbt, &psbt)) != NULL)
 			continue;
 
 		if (!streq(state, "CHANNELD_AWAITING_LOCKIN")
 		    && !streq(state, "DUALOPEND_AWAITING_LOCKIN"))
+			continue;
+
+		if (withheld)
 			continue;
 
 		/* Don't do this sync, as it can reasonably fail! */

@@ -1088,12 +1088,18 @@ static void channel_fail_perm(struct channel *channel,
 
 	channel_set_owner(channel, NULL);
 
-	if (channel_state_wants_onchain_fail(channel->state))
+	if (channel_state_wants_onchain_fail(channel->state) && !channel->withheld) {
 		channel_set_state(channel,
 				  channel->state,
 				  AWAITING_UNILATERAL,
 				  reason,
 				  why);
+	}
+
+	if (channel_state_open_uncommitted(channel->state)) {
+		delete_channel(channel, false);
+		return;
+	}
 
 	/* Drop non-cooperatively (unilateral) to chain. If we detect
 	 * the close from the blockchain, then we can observe
@@ -1101,8 +1107,6 @@ static void channel_fail_perm(struct channel *channel,
 	 * it doesn't stand a chance anyway. */
 	drop_to_chain(ld, channel, false, spent_by);
 
-	if (channel_state_open_uncommitted(channel->state))
-		delete_channel(channel, false);
 }
 
 void channel_fail_permanent(struct channel *channel,
