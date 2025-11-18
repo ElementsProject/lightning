@@ -4227,5 +4227,5 @@ message ChannelStateChangedNotification {
 	optional ChannelState old_state = 5;
 	ChannelState new_state = 6;
 	ChannelStateChangedCause cause = 7;
-	string message = 8;
+	optional string message = 8;
 }

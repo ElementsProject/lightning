@@ -503,17 +503,6 @@ void notify_channel_mvt(struct lightningd *ld UNNEEDED,
 void notify_channel_open_failed(struct lightningd *ld UNNEEDED,
                                 const struct channel_id *cid UNNEEDED)
 { fprintf(stderr, "notify_channel_open_failed called!\n"); abort(); }
-/* Generated stub for notify_channel_state_changed */
-void notify_channel_state_changed(struct lightningd *ld UNNEEDED,
-				  const struct node_id *peer_id UNNEEDED,
-				  const struct channel_id *cid UNNEEDED,
-				  const struct short_channel_id *scid UNNEEDED,
-				  struct timeabs timestamp UNNEEDED,
-				  enum channel_state old_state UNNEEDED,
-				  enum channel_state new_state UNNEEDED,
-				  enum state_change cause UNNEEDED,
-				  const char *message UNNEEDED)
-{ fprintf(stderr, "notify_channel_state_changed called!\n"); abort(); }
 /* Generated stub for notify_connect */
 void notify_connect(struct lightningd *ld UNNEEDED,
 		    const struct node_id *nodeid UNNEEDED,
@@ -808,6 +797,17 @@ u8 *wire_sync_read(const tal_t *ctx UNNEEDED, int fd UNNEEDED)
 	return NULL;
 }
 void plugin_hook_db_sync(struct db *db UNNEEDED)
+{
+}
+void notify_channel_state_changed(struct lightningd *ld UNNEEDED,
+				  const struct node_id *peer_id UNNEEDED,
+				  const struct channel_id *cid UNNEEDED,
+				  const struct short_channel_id *scid UNNEEDED,
+				  struct timeabs timestamp UNNEEDED,
+				  enum channel_state old_state UNNEEDED,
+				  enum channel_state new_state UNNEEDED,
+				  enum state_change cause UNNEEDED,
+				  const char *message UNNEEDED)
 {
 }
 bool fromwire_hsmd_get_channel_basepoints_reply(const void *p UNNEEDED,
