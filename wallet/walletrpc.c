@@ -1,5 +1,6 @@
 #include "config.h"
 #include <bitcoin/script.h>
+#include <ccan/mem/mem.h>
 #include <common/addr.h>
 #include <common/base64.h>
 #include <common/bech32.h>
@@ -1065,6 +1066,85 @@ static const struct json_command dev_finalizepsbt_command = {
 };
 AUTODATA(json_command, &dev_finalizepsbt_command);
 
+/* Yuck. */
+static const u8 *psbt_input_txid(const struct wally_psbt *psbt, size_t index)
+{
+	if (psbt->version == WALLY_PSBT_VERSION_0)
+		return psbt->tx->inputs[index].txhash;
+	return psbt->inputs[index].txhash;
+}
+
+static u32 psbt_input_index(const struct wally_psbt *psbt, size_t index)
+{
+	if (psbt->version == WALLY_PSBT_VERSION_0)
+		return psbt->tx->inputs[index].index;
+	return psbt->inputs[index].index;
+}
+
+static u32 psbt_input_sequence(const struct wally_psbt *psbt, size_t index)
+{
+	if (psbt->version == WALLY_PSBT_VERSION_0)
+		return psbt->tx->inputs[index].sequence;
+	return psbt->inputs[index].sequence;
+}
+
+static u64 psbt_output_amount(const struct wally_psbt *psbt, size_t index)
+{
+	if (psbt->version == WALLY_PSBT_VERSION_0)
+		return psbt->tx->outputs[index].satoshi;
+	return psbt->outputs[index].amount;
+}
+
+static size_t psbt_output_scriptlen(const struct wally_psbt *psbt, size_t index)
+{
+	if (psbt->version == WALLY_PSBT_VERSION_0)
+		return psbt->tx->outputs[index].script_len;
+	return psbt->outputs[index].script_len;
+}
+
+static const u8 *psbt_output_script(const struct wally_psbt *psbt, size_t index)
+{
+	if (psbt->version == WALLY_PSBT_VERSION_0)
+		return psbt->tx->outputs[index].script;
+	return psbt->outputs[index].script;
+}
+
+/* We consider two PSBTs *equivalent* if they have the same inputs and outputs */
+static bool psbt_equivalent(const struct wally_psbt *a,
+			    const struct wally_psbt *b)
+{
+	if (a->num_inputs != b->num_inputs)
+		return false;
+	if (a->num_outputs != b->num_outputs)
+		return false;
+
+	for (size_t i = 0; i < a->num_inputs; i++) {
+		if (!memeq(psbt_input_txid(a, i), WALLY_TXHASH_LEN,
+			   psbt_input_txid(b, i), WALLY_TXHASH_LEN))
+			return false;
+
+		if (psbt_input_index(a, i) != psbt_input_index(b, i))
+			return false;
+
+		if (psbt_input_sequence(a, i) != psbt_input_sequence(b, i))
+			return false;
+	}
+
+	for (size_t i = 0; i < a->num_outputs; i++) {
+		size_t a_scriptlen, b_scriptlen;
+
+		if (psbt_output_amount(a, i) != psbt_output_amount(b, i))
+			return false;
+		a_scriptlen = psbt_output_scriptlen(a, i);
+		b_scriptlen = psbt_output_scriptlen(b, i);
+		if (!memeq(psbt_output_script(a, i), a_scriptlen,
+			   psbt_output_script(b, i), b_scriptlen))
+			return false;
+	}
+
+	return true;
+}
+
 static struct command_result *json_sendpsbt(struct command *cmd,
 					    const char *buffer,
 					    const jsmntok_t *obj,
@@ -1075,6 +1155,8 @@ static struct command_result *json_sendpsbt(struct command *cmd,
 	struct wally_psbt *psbt;
 	struct lightningd *ld = cmd->ld;
 	u32 *reserve_blocks;
+	struct peer *p;
+	struct peer_node_id_map_iter it;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("psbt", param_psbt, &psbt),
@@ -1108,6 +1190,30 @@ static struct command_result *json_sendpsbt(struct command *cmd,
 
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
+
+	/* If this corresponds to one or more channels' PSBT, upgrade
+	 * those to signed versions! */
+	for (p = peer_node_id_map_first(ld->peers, &it);
+	     p;
+	     p = peer_node_id_map_next(ld->peers, &it)) {
+		struct channel *c;
+
+		list_for_each(&p->channels, c, list) {
+			if (!c->funding_psbt)
+				continue;
+			if (psbt_is_finalized(c->funding_psbt))
+				continue;
+			if (!psbt_equivalent(psbt, c->funding_psbt))
+				continue;
+
+			/* Found one! */
+			tal_free(c->funding_psbt);
+			c->funding_psbt = clone_psbt(c, sending->psbt);
+			wallet_channel_save(ld->wallet, c);
+			log_info(c->log,
+				 "Funding PSBT sent, and stored for rexmit");
+		}
+	}
 
 	for (size_t i = 0; i < tal_count(sending->utxos); i++) {
 		if (!wallet_reserve_utxo(ld->wallet, sending->utxos[i],

@@ -4,7 +4,7 @@
   "rpc": "sendpsbt",
   "title": "Command to finalize, extract and send a partially signed bitcoin transaction (PSBT).",
   "description": [
-    "The **sendpsbt** is a low-level RPC command which sends a fully-signed PSBT."
+    "The **sendpsbt** is a low-level RPC command which sends a fully-signed PSBT.  If the PSBT is the same one promised by a channel (via fundchannel_complete) it will also be associated with that channel and re-transmitted if necessary on restart."
   ],
   "request": {
     "required": [
