@@ -276,6 +276,9 @@ void force_peer_disconnect(struct lightningd *ld UNNEEDED,
 			   const struct peer *peer UNNEEDED,
 			   const char *why UNNEEDED)
 { fprintf(stderr, "force_peer_disconnect called!\n"); abort(); }
+/* Generated stub for free_htlcs */
+void free_htlcs(struct lightningd *ld UNNEEDED, const struct channel *channel UNNEEDED)
+{ fprintf(stderr, "free_htlcs called!\n"); abort(); }
 /* Generated stub for fromwire_channeld_dev_memleak_reply */
 bool fromwire_channeld_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
 { fprintf(stderr, "fromwire_channeld_dev_memleak_reply called!\n"); abort(); }
