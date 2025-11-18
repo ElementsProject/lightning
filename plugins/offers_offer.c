@@ -303,7 +303,7 @@ static struct command_result *maybe_add_path(struct command *cmd,
 	 */
 	if (!offinfo->offer->offer_paths) {
 		if (we_want_blinded_path(cmd->plugin, false))
-			return find_best_peer(cmd, OPT_ONION_MESSAGES,
+			return find_best_peer(cmd, 1ULL << OPT_ONION_MESSAGES,
 					      found_best_peer, offinfo);
 	}
 	return create_offer(cmd, offinfo);
@@ -729,7 +729,7 @@ struct command_result *json_invoicerequest(struct command *cmd,
 		idata->invreq = invreq;
 		idata->single_use = *single_use;
 		idata->label = label;
-		return find_best_peer(cmd, OPT_ONION_MESSAGES,
+		return find_best_peer(cmd, 1ULL << OPT_ONION_MESSAGES,
 				      found_best_peer_invrequest, idata);
 	}
 
