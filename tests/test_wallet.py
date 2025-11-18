@@ -948,7 +948,6 @@ def test_sign_external_psbt(node_factory, bitcoind, chainparams):
     l1.rpc.signpsbt(psbt)
 
 
-@pytest.mark.xfail(strict=True)
 def test_sign_signed_psbt(node_factory, bitcoind, chainparams):
     l1 = node_factory.get_node()
     l1.fundwallet(10**6)

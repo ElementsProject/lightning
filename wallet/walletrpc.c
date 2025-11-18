@@ -738,9 +738,11 @@ static struct command_result *match_psbt_inputs_to_utxos(struct command *cmd,
 	return NULL;
 }
 
-static void match_psbt_outputs_to_wallet(struct wally_psbt *psbt,
+static bool match_psbt_outputs_to_wallet(struct wally_psbt *psbt,
 				  struct wallet *w)
 {
+	bool ok = true;
+
 	tal_wally_start();
 	for (size_t outndx = 0; outndx < psbt->num_outputs; ++outndx) {
 		struct ext_key ext;
@@ -756,11 +758,16 @@ static void match_psbt_outputs_to_wallet(struct wally_psbt *psbt,
 			abort();
 		}
 
-		psbt_output_set_keypath(index, &ext,
-					is_p2tr(script, script_len, NULL),
-					&psbt->outputs[outndx]);
+		if (!psbt_output_set_keypath(index, &ext,
+					     is_p2tr(script, script_len, NULL),
+					     &psbt->outputs[outndx])) {
+			ok = false;
+			break;
+		}
 	}
 	tal_wally_end(psbt);
+
+	return ok;
 }
 
 static struct command_result *param_input_numbers(struct command *cmd,
@@ -842,7 +849,9 @@ static struct command_result *json_signpsbt(struct command *cmd,
 		return command_check_done(cmd);
 
 	/* Update the keypaths on any outputs that are in our wallet (change addresses). */
-	match_psbt_outputs_to_wallet(psbt, cmd->ld->wallet);
+	if (!match_psbt_outputs_to_wallet(psbt, cmd->ld->wallet))
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Could not add keypaths to PSBT?");
 
 	/* FIXME: hsm will sign almost anything, but it should really
 	 * fail cleanly (not abort!) and let us report the error here. */

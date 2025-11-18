@@ -79,8 +79,11 @@ penalty_tx_create(const tal_t *ctx,
 	if (final_index) {
 		size_t script_len = tal_bytelen(final_scriptpubkey);
 		bool is_tr = is_p2tr(final_scriptpubkey, script_len, NULL);
-		psbt_add_keypath_to_last_output(tx, *final_index,
-						final_ext_key, is_tr);
+		if (!psbt_add_keypath_to_last_output(tx, *final_index,
+						     final_ext_key, is_tr))
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "Cannot add final keypath?");
+
         }
 
 	/* Worst-case sig is 73 bytes */

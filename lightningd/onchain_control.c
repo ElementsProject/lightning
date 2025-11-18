@@ -880,6 +880,7 @@ static struct bitcoin_tx *onchaind_tx_unsigned(const tal_t *ctx,
 	struct ext_key final_wallet_ext_key;
 	u64 block_target;
 	struct lightningd *ld = channel->peer->ld;
+	bool keypath_ok;
 
 	bip32_pubkey(ld, &final_key, channel->final_key_idx);
 	if (bip32_key_from_parent(ld->bip32_base,
@@ -899,13 +900,16 @@ static struct bitcoin_tx *onchaind_tx_unsigned(const tal_t *ctx,
 	if (chainparams->is_elements) {
 		bitcoin_tx_add_output(
 			tx, scriptpubkey_p2wpkh(tmpctx, &final_key), NULL, info->out_sats);
-		psbt_add_keypath_to_last_output(tx, channel->final_key_idx, &final_wallet_ext_key, false /* is_taproot */);
+		keypath_ok = psbt_add_keypath_to_last_output(tx, channel->final_key_idx, &final_wallet_ext_key, false /* is_taproot */);
 	} else {
 		bitcoin_tx_add_output(
 			tx, scriptpubkey_p2tr(tmpctx, &final_key), NULL, info->out_sats);
-		psbt_add_keypath_to_last_output(tx, channel->final_key_idx, &final_wallet_ext_key, true /* is_taproot */);
+		keypath_ok = psbt_add_keypath_to_last_output(tx, channel->final_key_idx, &final_wallet_ext_key, true /* is_taproot */);
 	}
-
+	if (!keypath_ok) {
+ 		channel_internal_error(channel, "Could not add keypath?");
+		return tal_free(tx);
+	}
 	/* Worst-case sig is 73 bytes */
 	weight = bitcoin_tx_weight(tx) + 1 + 3 + 73 + 0 + tal_count(info->wscript);
 	weight += elements_tx_overhead(chainparams, 1, 1);
