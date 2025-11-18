@@ -381,7 +381,12 @@ static struct command_result *add_blindedpaths(struct command *cmd,
 	if (!we_want_blinded_path(cmd->plugin, true))
 		return create_invoicereq(cmd, ir);
 
-	return find_best_peer(cmd, 1ULL << OPT_ROUTE_BLINDING,
+	/* Technically, this only needs OPT_ROUTE_BLINDING, but we have a report
+	 * of this failing with LND nodes, so we require both OPT_ROUTE_BLINDING
+	 * *and* OPT_ONION_MESSAGES.  This also helps support nodes which provide
+	 * us onion messaging. */
+	return find_best_peer(cmd,
+			      (1ULL << OPT_ROUTE_BLINDING) | (1ULL << OPT_ONION_MESSAGES),
 			      found_best_peer, ir);
 }
 
