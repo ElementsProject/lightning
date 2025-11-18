@@ -4518,7 +4518,7 @@ impl From<notifications::ChannelStateChangedNotification> for pb::ChannelStateCh
         Self {
             cause: c.cause as i32,
             channel_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.channel_id).to_vec(), // Rule #2 for type hash
-            message: c.message, // Rule #2 for type string
+            message: c.message, // Rule #2 for type string?
             new_state: c.new_state as i32,
             old_state: c.old_state.map(|v| v as i32),
             peer_id: c.peer_id.serialize().to_vec(), // Rule #2 for type pubkey

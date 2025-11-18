@@ -85,7 +85,8 @@ static void destroy_channel(struct channel *channel)
 	list_del_from(&channel->peer->channels, &channel->list);
 }
 
-void delete_channel(struct channel *channel STEALS, bool completely_eliminate)
+void delete_channel(struct channel *channel STEALS,
+		    bool completely_eliminate)
 {
 	const u8 *msg;
 	struct peer *peer = channel->peer;
@@ -108,6 +109,16 @@ void delete_channel(struct channel *channel STEALS, bool completely_eliminate)
 		if (!fromwire_hsmd_forget_channel_reply(msg))
 			fatal("HSM gave bad hsm_forget_channel_reply %s", tal_hex(msg, msg));
 	}
+
+	notify_channel_state_changed(channel->peer->ld,
+				     &channel->peer->id,
+				     &channel->cid,
+				     channel->scid,
+				     clock_time(),
+				     channel->state,
+				     CLOSED,
+				     REASON_UNKNOWN,
+				     NULL);
 
 	tal_free(channel);
 
