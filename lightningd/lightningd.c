@@ -1447,9 +1447,10 @@ int main(int argc, char *argv[])
 		plugin_hook_call_recover(ld, NULL, payload);
 	}
 
-	/*~ If we have channels closing, make sure we re-xmit the last
+	/*~ If we have channels closing or opening, make sure we re-xmit the last
 	 * transaction, in case bitcoind lost it. */
 	db_begin_transaction(ld->wallet->db);
+	resend_opening_transactions(ld);
 	resend_closing_transactions(ld);
 	db_commit_transaction(ld->wallet->db);
 
