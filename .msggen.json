@@ -1698,7 +1698,8 @@
         },
         "FundchannelCompleteRequest": {
             "FundChannel_Complete.id": 1,
-            "FundChannel_Complete.psbt": 2
+            "FundChannel_Complete.psbt": 2,
+            "FundChannel_Complete.withhold": 3
         },
         "FundchannelCompleteResponse": {
             "FundChannel_Complete.channel_id": 1,
@@ -7320,6 +7321,10 @@
         },
         "FundChannel_Complete.psbt": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "FundChannel_Complete.withhold": {
+            "added": "v25.12",
             "deprecated": null
         },
         "FundChannel_Start": {

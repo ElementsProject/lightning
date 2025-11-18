@@ -13594,6 +13594,13 @@
             "description": [
               "Transaction to use for funding (does not need to be signed but must be otherwise complete)."
             ]
+          },
+          "withhold": {
+            "type": "boolean",
+            "added": "v25.12",
+            "description": [
+              "Mark this channel 'withheld' so we know we haven't broadcast the funding transaction.  If the channel is closed before we call `sendpsbt` on this psbt, it will simply be closed immediately."
+            ]
           }
         }
       },

@@ -2408,6 +2408,8 @@ pub mod requests {
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct FundchannelCompleteRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub withhold: Option<bool>,
 	    pub id: PublicKey,
 	    pub psbt: String,
 	}
