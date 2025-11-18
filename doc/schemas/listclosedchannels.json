@@ -188,6 +188,13 @@
                 "The 0-based output number of the funding transaction which opens the channel."
               ]
             },
+            "funding_psbt": {
+              "type": "string",
+              "added": "v25.12",
+              "description": [
+                "The PSBT (may be non-final or unsigned) we should use to open the channel, if any"
+              ]
+            },
             "leased": {
               "type": "boolean",
               "description": [
