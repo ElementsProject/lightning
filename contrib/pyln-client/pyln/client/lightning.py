@@ -847,13 +847,14 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("fundchannel_cancel", payload)
 
-    def fundchannel_complete(self, node_id, psbt):
+    def fundchannel_complete(self, node_id, psbt, withhold=True):
         """
         Complete channel establishment with {id}, using {psbt}.
         """
         payload = {
             "id": node_id,
             "psbt": psbt,
+            "withhold": withhold,
         }
         return self.call("fundchannel_complete", payload)
 
