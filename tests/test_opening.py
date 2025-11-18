@@ -2847,3 +2847,22 @@ def test_opening_crash(bitcoind, node_factory):
     l1.start()
 
     bitcoind.generate_block(1, wait_for_mempool=txid)
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.openchannel('v1')
+def test_sendpsbt_crash(bitcoind, node_factory):
+    """Stop sendpsbt, check it eventually opens"""
+    plugin_path = Path(__file__).parent / "plugins" / "stop_sendpsbt.py"
+    l1, l2 = node_factory.get_nodes(2, opts=[{"plugin": plugin_path, 'may_fail': True}, {}])
+
+    l1.fundwallet(3_000_000)
+    l1.connect(l2)
+
+    # signpsbt kills l1.
+    with pytest.raises(RpcError, match=r'Connection to RPC server lost.'):
+        l1.rpc.fundchannel(l2.info['id'], "2000000sat")
+
+    del l1.daemon.opts['plugin']
+    l1.start()
+    bitcoind.generate_block(1, wait_for_mempool=1)
