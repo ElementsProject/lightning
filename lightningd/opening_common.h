@@ -104,6 +104,9 @@ struct funding_channel {
 
 	/* Were we the one to publish the commitment/splicing tx? */
 	const struct wally_psbt *funding_psbt;
+
+	/* Were we told to withhold the commitment tx? */
+	bool withheld;
 };
 
 struct uncommitted_channel *new_uncommitted_channel(struct peer *peer);

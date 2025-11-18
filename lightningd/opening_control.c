@@ -97,7 +97,8 @@ wallet_commit_channel(struct lightningd *ld,
 		      const u8 *our_upfront_shutdown_script,
 		      const u8 *remote_upfront_shutdown_script,
 		      const struct channel_type *type,
-		      const struct wally_psbt *funding_psbt)
+		      const struct wally_psbt *funding_psbt,
+		      bool withheld)
 {
 	struct channel *channel;
 	struct amount_msat our_msat;
@@ -237,7 +238,8 @@ wallet_commit_channel(struct lightningd *ld,
 			      0,
 			      &zero_channel_stats,
 			      tal_arr(NULL, struct channel_state_change *, 0),
-			      funding_psbt);
+			      funding_psbt,
+			      withheld);
 
 	/* Now we finally put it in the database. */
 	wallet_channel_insert(ld->wallet, channel);
@@ -446,7 +448,8 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 					fc->our_upfront_shutdown_script,
 					remote_upfront_shutdown_script,
 					type,
-					fc->funding_psbt);
+					fc->funding_psbt,
+					fc->withheld);
 	if (!channel) {
 		was_pending(command_fail(fc->cmd, LIGHTNINGD,
 					 "Key generation failure"));
@@ -550,7 +553,8 @@ static void opening_fundee_finished(struct subd *openingd,
 					local_upfront_shutdown_script,
 					remote_upfront_shutdown_script,
 					type,
-					NULL);
+					NULL,
+					false);
 	if (!channel) {
 		uncommitted_channel_disconnect(uc, LOG_BROKEN,
 					       "Commit channel failed");
@@ -1095,6 +1099,9 @@ static struct command_result *json_fundchannel_complete(struct command *cmd,
 		return command_check_done(cmd);
 
 	fc->funding_psbt = tal_steal(fc, funding_psbt);
+
+	/* FIXME: Set by option */
+	fc->withheld = false;
 
 	/* Set the cmd to this new cmd */
 	peer->uncommitted_channel->fc->cmd = cmd;
@@ -1644,7 +1651,8 @@ static struct channel *stub_chan(struct command *cmd,
 			      0,
 			      &zero_channel_stats,
 			      tal_arr(NULL, struct channel_state_change *, 0),
-			      NULL);
+			      NULL,
+			      false);
 
 	/* We don't want to gossip about this, ever. */
 	channel->channel_gossip = tal_free(channel->channel_gossip);
