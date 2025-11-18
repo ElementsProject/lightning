@@ -1155,6 +1155,8 @@ static void NON_NULL_ARGS(1, 2, 4, 5) json_add_channel(struct command *cmd,
 				     channel->push);
 	}
 
+	if (channel->funding_psbt)
+		json_add_psbt(response, "psbt", channel->funding_psbt);
 	json_object_end(response);
 
 	if (!amount_sat_to_msat(&funding_msat, channel->funding_sats)) {

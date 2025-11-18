@@ -502,6 +502,13 @@
                   "description": [
                     "Amount we were paid by peer at open."
                   ]
+                },
+                "psbt": {
+                  "type": "string",
+                  "added": "v25.12",
+                  "description": [
+                    "The PSBT (may be non-final or unsigned) we should use to open the channel, if any.  This is initially from `fundchannel_complete`, but will be updated with if `sendpsbt` is called with an updated PSBT."
+                  ]
                 }
               }
             },

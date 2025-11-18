@@ -59,6 +59,8 @@ static void json_add_closed_channel(struct json_stream *response,
 	} else if (!amount_msat_is_zero(channel->push))
 		json_add_amount_msat(response, "funding_pushed_msat",
 				     channel->push);
+	if (channel->funding_psbt)
+		json_add_psbt(response, "funding_psbt", channel->funding_psbt);
 
 	json_add_amount_sat_msat(response, "total_msat", channel->funding_sats);
 	json_add_amount_msat(response, "final_to_us_msat", channel->our_msat);
