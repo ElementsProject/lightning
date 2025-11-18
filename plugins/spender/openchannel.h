@@ -4,6 +4,7 @@
 #include <ccan/tal/tal.h>
 
 struct wally_psbt;
+struct command;
 
 extern const struct plugin_notification openchannel_notifs[];
 extern const size_t num_openchannel_notifs;
@@ -15,7 +16,7 @@ void register_mfc(struct multifundchannel_command *mfc);
 struct command_result *
 openchannel_init_dest(struct multifundchannel_destination *dest);
 
-void openchannel_init(struct plugin *p, const char *b,
+void openchannel_init(struct command *init_cmd, const char *b,
 		      const jsmntok_t *t);
 
 struct command_result *

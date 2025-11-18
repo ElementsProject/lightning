@@ -1034,10 +1034,95 @@ openchannel_init_dest(struct multifundchannel_destination *dest)
 	return send_outreq(req);
 }
 
-void openchannel_init(struct plugin *p, const char *b, const jsmntok_t *t)
+static struct command_result *psbt_error(struct command *aux_cmd,
+					 const char *methodname,
+					 const char *buf,
+					 const jsmntok_t *result,
+					 struct channel_id *cid)
+{
+	plugin_log(aux_cmd->plugin, LOG_UNUSUAL,
+		   "Failed %s for waiting channel %s: %.*s",
+		   methodname,
+		   fmt_channel_id(tmpctx, cid),
+		   json_tok_full_len(result),
+		   json_tok_full(buf, result));
+	return aux_command_done(aux_cmd);
+}
+
+static struct command_result *sendpsbt_done(struct command *aux_cmd,
+					    const char *methodname,
+					    const char *buf,
+					    const jsmntok_t *result,
+					    struct channel_id *cid)
+{
+	plugin_log(aux_cmd->plugin, LOG_INFORM,
+		   "Signed and sent psbt for waiting channel %s",
+		   fmt_channel_id(tmpctx, cid));
+	return aux_command_done(aux_cmd);
+}
+
+static struct command_result *signpsbt_done(struct command *aux_cmd,
+					    const char *methodname,
+					    const char *buf,
+					    const jsmntok_t *result,
+					    struct channel_id *cid)
+{
+	const jsmntok_t *psbttok = json_get_member(buf, result, "signed_psbt");
+	struct wally_psbt *psbt = json_to_psbt(tmpctx, buf, psbttok);
+	struct out_req *req;
+
+	req = jsonrpc_request_start(aux_cmd, "sendpsbt",
+				    sendpsbt_done, psbt_error,
+				    cid);
+	json_add_psbt(req->js, "psbt", psbt);
+	return send_outreq(req);
+}
+
+/* If there are any channels with unsigned PSBTs in AWAITING_LOCKIN,
+ * sign them now (assume we crashed) */
+static void list_awaiting_channels(struct command *init_cmd)
+{
+	const char *buf;
+	size_t i;
+	const jsmntok_t *resp, *t, *channels;
+
+	resp = jsonrpc_request_sync(tmpctx, init_cmd,
+				     "listpeerchannels",
+				     NULL, &buf);
+	channels = json_get_member(buf, resp, "channels");
+	json_for_each_arr(i, t, channels) {
+		struct out_req *req;
+		const char *state;
+		struct channel_id cid;
+		struct command *aux_cmd;
+		struct wally_psbt *psbt;
+
+		if (json_scan(tmpctx, buf, t, "{state:%,channel_id:%,funding:{psbt:%}}",
+			      JSON_SCAN_TAL(tmpctx, json_strdup, &state),
+			      JSON_SCAN(json_tok_channel_id, &cid),
+			      JSON_SCAN_TAL(tmpctx, json_to_psbt, &psbt)) != NULL)
+			continue;
+
+		if (!streq(state, "CHANNELD_AWAITING_LOCKIN")
+		    && !streq(state, "DUALOPEND_AWAITING_LOCKIN"))
+			continue;
+
+		/* Don't do this sync, as it can reasonably fail! */
+		aux_cmd = aux_command(init_cmd);
+		req = jsonrpc_request_start(aux_cmd, "signpsbt",
+					    signpsbt_done, psbt_error,
+					    tal_dup(aux_cmd, struct channel_id, &cid));
+		json_add_psbt(req->js, "psbt", psbt);
+		send_outreq(req);
+	}
+}
+
+void openchannel_init(struct command *init_cmd, const char *b, const jsmntok_t *t)
 {
 	/* Initialize our list! */
 	list_head_init(&mfc_commands);
+
+	list_awaiting_channels(init_cmd);
 }
 
 const struct plugin_notification openchannel_notifs[] = {
