@@ -2405,6 +2405,11 @@ static struct command_result *single_splice_signed(struct command *cmd,
 				    SPLICE_INPUT_ERROR,
 				    "Splice failed to convert to v2");
 
+	/* Update "funding" psbt now */
+	tal_free(channel->funding_psbt);
+	channel->funding_psbt = clone_psbt(channel, psbt);
+	wallet_channel_save(cmd->ld->wallet, channel);
+
 	msg = towire_channeld_splice_signed(tmpctx, psbt, sign_first);
 	subd_send_msg(channel->owner, take(msg));
 	if (success)
