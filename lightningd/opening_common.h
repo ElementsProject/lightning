@@ -101,6 +101,9 @@ struct funding_channel {
 	/* Place to stash the per-peer-state while we wait
 	 * for them to get back to us with signatures */
 	struct peer_fd *peer_fd;
+
+	/* Were we the one to publish the commitment/splicing tx? */
+	const struct wally_psbt *funding_psbt;
 };
 
 struct uncommitted_channel *new_uncommitted_channel(struct peer *peer);

@@ -1501,6 +1501,8 @@ wallet_commit_channel(struct lightningd *ld,
 	channel->lease_chan_max_ppt = lease_chan_max_ppt;
 	channel->htlc_minimum_msat = channel_info->their_config.htlc_minimum;
 	channel->htlc_maximum_msat = htlc_max_possible_send(channel);
+	/* Filled in when we have PSBT for inflight */
+	channel->funding_psbt = NULL;
 
 	/* Now we finally put it in the database. */
 	wallet_channel_insert(ld->wallet, channel);
@@ -2772,6 +2774,11 @@ json_openchannel_signed(struct command *cmd,
 	/* Update the PSBT on disk */
 	wallet_inflight_save(cmd->ld->wallet, inflight);
 	watch_opening_inflight(cmd->ld, inflight);
+
+	/* Channel's funding psbt also updated now */
+	tal_free(channel->funding_psbt);
+	channel->funding_psbt = clone_psbt(channel, inflight->funding_psbt);
+	wallet_channel_save(cmd->ld->wallet, channel);
 
 	/* Only after we've updated/saved our psbt do we check
 	 * for peer connected */

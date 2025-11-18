@@ -1906,6 +1906,7 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 	struct peer_update *remote_update;
 	struct channel_stats stats;
 	struct channel_state_change **state_changes;
+	struct wally_psbt *funding_psbt;
 
 	peer_dbid = db_col_u64(stmt, "peer_id");
 	peer = find_peer_by_dbid(w->ld, peer_dbid);
@@ -2110,6 +2111,11 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 				      &stats.out_msatoshi_fulfilled,
 				      AMOUNT_MSAT(0));
 
+	if (!db_col_is_null(stmt, "funding_psbt"))
+		funding_psbt = db_col_psbt(tmpctx, stmt, "funding_psbt");
+	else
+		funding_psbt = NULL;
+
 	/* Stolen by new_channel */
 	state_changes = wallet_state_change_get(NULL, w, db_col_u64(stmt, "id"));
 	chan = new_channel(peer, db_col_u64(stmt, "id"),
@@ -2177,7 +2183,8 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 			   remote_update,
 			   db_col_u64(stmt, "last_stable_connection"),
 			   &stats,
-			   state_changes);
+			   state_changes,
+			   funding_psbt);
 
 	if (!wallet_channel_load_inflights(w, chan)) {
 		tal_free(chan);
@@ -2231,6 +2238,10 @@ static struct closed_channel *wallet_stmt2closed_channel(const tal_t *ctx,
 		cc->their_shachain = tal_dup(cc, struct shachain, &wshachain.chain);
 	else
 		cc->their_shachain = NULL;
+	if (!db_col_is_null(stmt, "funding_psbt"))
+		cc->funding_psbt = db_col_psbt(cc, stmt, "funding_psbt");
+	else
+		cc->funding_psbt = NULL;
 
 	return cc;
 }
@@ -2266,6 +2277,7 @@ void wallet_load_closed_channels(struct wallet *w,
 					", lease_commit_sig"
 					", last_stable_connection"
 					", shachain_remote_id"
+					", funding_psbt"
 					" FROM channels"
 					" LEFT JOIN peers p ON p.id = peer_id"
                                         " WHERE state = ?;"));
@@ -2311,6 +2323,7 @@ void wallet_load_one_closed_channel(struct wallet *w,
 					", lease_commit_sig"
 					", last_stable_connection"
 					", shachain_remote_id"
+					", funding_psbt"
 					" FROM channels"
 					" LEFT JOIN peers p ON p.id = peer_id"
                                         " WHERE channels.id = ?;"));
@@ -2430,6 +2443,7 @@ static bool wallet_channels_load_active(struct wallet *w)
 					", out_msatoshi_offered"
 					", out_msatoshi_fulfilled"
 					", close_attempt_height"
+					", funding_psbt"
 					" FROM channels"
                                         " WHERE state != ?;")); //? 0
 	db_bind_int(stmt, CLOSED);
@@ -2681,7 +2695,8 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 					"  remote_htlc_maximum_msat=?,"
 					"  last_stable_connection=?,"
 					"  require_confirm_inputs_remote=?,"
-					"  close_attempt_height=?"
+					"  close_attempt_height=?,"
+					"  funding_psbt=?"
 					" WHERE id=?"));
 	db_bind_u64(stmt, chan->their_shachain.id);
 	if (chan->scid)
@@ -2779,6 +2794,10 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 
 	db_bind_int(stmt, chan->req_confirmed_ins[REMOTE]);
 	db_bind_int(stmt, chan->close_attempt_height);
+	if (chan->funding_psbt)
+		db_bind_psbt(stmt, chan->funding_psbt);
+	else
+		db_bind_null(stmt);
 	db_bind_u64(stmt, chan->dbid);
 	db_exec_prepared_v2(take(stmt));
 
