@@ -2825,3 +2825,26 @@ def test_opening_below_min_capacity_sat(bitcoind, node_factory):
 
     # But we shouldn't have bothered l2
     assert not l2.daemon.is_in_log('peer_in WIRE_ERROR')
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+def test_opening_crash(bitcoind, node_factory):
+    """Stop transmission of initial funding tx, check it eventually opens"""
+    l1, l2 = node_factory.get_nodes(2)
+
+    def censoring_sendrawtx(r):
+        return {'id': r['id'], 'result': {}}
+
+    l1.daemon.rpcproxy.mock_rpc('sendrawtransaction', censoring_sendrawtx)
+    l2.daemon.rpcproxy.mock_rpc('sendrawtransaction', censoring_sendrawtx)
+    l1.fundwallet(3_000_000)
+    l1.connect(l2)
+    txid = l1.rpc.fundchannel(l2.info['id'], "2000000sat")['txid']
+
+    l1.stop()
+    l1.daemon.rpcproxy.mock_rpc('sendrawtransaction', None)
+    l1.start()
+
+    bitcoind.generate_block(1, wait_for_mempool=txid)
