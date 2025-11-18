@@ -219,20 +219,27 @@ static struct command_result *json_connect(struct command *cmd,
 
 	/* If we know about peer, see if it's already connected. */
 	peer = peer_by_id(cmd->ld, &id_addr.id);
-	if (peer && peer->connected == PEER_CONNECTED) {
-		log_debug(cmd->ld->log, "Already connected via %s",
-			  fmt_wireaddr_internal(tmpctx,
+	if (peer) {
+		switch (peer->connected) {
+		case PEER_CONNECTED:
+			log_debug(cmd->ld->log, "Already connected via %s",
+				  fmt_wireaddr_internal(tmpctx,
 					 &peer->addr));
-		return connect_cmd_succeed(cmd, peer,
-					   peer->connected_incoming,
-					   &peer->addr);
+			return connect_cmd_succeed(cmd, peer,
+						   peer->connected_incoming,
+						   &peer->addr);
+		case PEER_DISCONNECTED:
+			/* When a peer disconnects, we give subds time to clean themselves up
+			 * (this lets connectd ensure they've seen the final messages).  But
+			 * now it's going to try to reconnect, we've gotta force them out. */
+			peer_channels_cleanup(peer);
+			break;
+		case PEER_CONNECTING:
+			/* Just wait until connection finished.  Though we still ask connectd to connect,
+			 * it's going to ignore it. */
+			break;
+		}
 	}
-
-	/* When a peer disconnects, we give subds time to clean themselves up
-	 * (this lets connectd ensure they've seen the final messages).  But
-	 * now it's going to try to reconnect, we've gotta force them out. */
-	if (peer)
-		peer_channels_cleanup(peer);
 
 	subd_send_msg(cmd->ld->connectd,
 		      take(towire_connectd_connect_to_peer(NULL, &id_addr.id,
