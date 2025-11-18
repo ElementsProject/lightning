@@ -1,6 +1,7 @@
 /* This plugin covers both sending and receiving offers */
 #include "config.h"
 #include <ccan/array_size/array_size.h>
+#include <ccan/bitops/bitops.h>
 #include <ccan/rune/rune.h>
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>
@@ -313,7 +314,7 @@ struct find_best_peer_data {
 	struct command_result *(*cb)(struct command *,
 				     const struct chaninfo *,
 				     void *);
-	int needed_feature;
+	u64 needed_features;
 	void *arg;
 };
 
@@ -332,6 +333,7 @@ static struct command_result *listincoming_done(struct command *cmd,
 		struct chaninfo ci;
 		const jsmntok_t *pftok;
 		u8 *features;
+		u64 feature_bits;
 		const char *err;
 		struct amount_msat feebase;
 		bool enabled;
@@ -372,11 +374,20 @@ static struct command_result *listincoming_done(struct command *cmd,
 		if (!pftok)
 			continue;
 		features = json_tok_bin_from_hex(tmpctx, buf, pftok);
-		if (!feature_offered(features, data->needed_feature))
-			continue;
+
+		/* It must have all the features we need */
+		feature_bits = data->needed_features;
+		while (feature_bits) {
+			int feature = bitops_ls64(feature_bits);
+			if (!feature_offered(features, feature))
+				goto next;
+			feature_bits &= ~(1ULL << feature);
+		}
 
 		if (!best || amount_msat_greater(ci.capacity, best->capacity))
 			best = tal_dup(tmpctx, struct chaninfo, &ci);
+
+		next:;
 	}
 
 	/* Free data if they don't */
@@ -385,7 +396,7 @@ static struct command_result *listincoming_done(struct command *cmd,
 }
 
 struct command_result *find_best_peer_(struct command *cmd,
-				       int needed_feature,
+				       u64 needed_features,
 				       struct command_result *(*cb)(struct command *,
 								    const struct chaninfo *,
 								    void *),
@@ -395,7 +406,7 @@ struct command_result *find_best_peer_(struct command *cmd,
 	struct find_best_peer_data *data = tal(cmd, struct find_best_peer_data);
 	data->cb = cb;
 	data->arg = arg;
-	data->needed_feature = needed_feature;
+	data->needed_features = needed_features;
 	req = jsonrpc_request_start(cmd, "listincoming",
 				    listincoming_done, forward_error, data);
 	return send_outreq(req);
