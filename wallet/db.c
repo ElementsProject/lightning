@@ -1101,6 +1101,7 @@ static struct migration dbmigrations[] = {
 	 " PRIMARY KEY (id)"
 	 ")"), NULL},
     {NULL, migrate_fail_pending_payments_without_htlcs},
+    {SQL("ALTER TABLE channels ADD withheld INTEGER DEFAULT 0;"), NULL},
 };
 
 /**
