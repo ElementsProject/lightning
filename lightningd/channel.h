@@ -356,6 +356,9 @@ struct channel {
 
 	/* Our change history. */
 	struct channel_state_change **state_changes;
+
+	/* Unsigned PSBT if we initiated the open channel */
+	const struct wally_psbt *funding_psbt;
 };
 
 /* Is channel owned (and should be talking to peer) */
@@ -441,7 +444,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    struct peer_update *peer_update STEALS,
 			    u64 last_stable_connection,
 			    const struct channel_stats *stats,
-			    struct channel_state_change **state_changes STEALS);
+			    struct channel_state_change **state_changes STEALS,
+			    const struct wally_psbt *funding_psbt STEALS);
 
 /* new_inflight - Create a new channel_inflight for a channel */
 struct channel_inflight *new_inflight(struct channel *channel,

@@ -96,7 +96,8 @@ wallet_commit_channel(struct lightningd *ld,
 		      u32 feerate,
 		      const u8 *our_upfront_shutdown_script,
 		      const u8 *remote_upfront_shutdown_script,
-		      const struct channel_type *type)
+		      const struct channel_type *type,
+		      const struct wally_psbt *funding_psbt)
 {
 	struct channel *channel;
 	struct amount_msat our_msat;
@@ -235,7 +236,8 @@ wallet_commit_channel(struct lightningd *ld,
 			      NULL,
 			      0,
 			      &zero_channel_stats,
-			      tal_arr(NULL, struct channel_state_change *, 0));
+			      tal_arr(NULL, struct channel_state_change *, 0),
+			      funding_psbt);
 
 	/* Now we finally put it in the database. */
 	wallet_channel_insert(ld->wallet, channel);
@@ -443,7 +445,8 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 					feerate,
 					fc->our_upfront_shutdown_script,
 					remote_upfront_shutdown_script,
-					type);
+					type,
+					fc->funding_psbt);
 	if (!channel) {
 		was_pending(command_fail(fc->cmd, LIGHTNINGD,
 					 "Key generation failure"));
@@ -546,7 +549,8 @@ static void opening_fundee_finished(struct subd *openingd,
 					feerate,
 					local_upfront_shutdown_script,
 					remote_upfront_shutdown_script,
-					type);
+					type,
+					NULL);
 	if (!channel) {
 		uncommitted_channel_disconnect(uc, LOG_BROKEN,
 					       "Commit channel failed");
@@ -1089,6 +1093,8 @@ static struct command_result *json_fundchannel_complete(struct command *cmd,
 
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
+
+	fc->funding_psbt = tal_steal(fc, funding_psbt);
 
 	/* Set the cmd to this new cmd */
 	peer->uncommitted_channel->fc->cmd = cmd;
@@ -1637,7 +1643,8 @@ static struct channel *stub_chan(struct command *cmd,
 			      NULL,
 			      0,
 			      &zero_channel_stats,
-			      tal_arr(NULL, struct channel_state_change *, 0));
+			      tal_arr(NULL, struct channel_state_change *, 0),
+			      NULL);
 
 	/* We don't want to gossip about this, ever. */
 	channel->channel_gossip = tal_free(channel->channel_gossip);

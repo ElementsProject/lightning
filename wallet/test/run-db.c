@@ -242,7 +242,8 @@ struct channel *new_channel(struct peer *peer UNNEEDED, u64 dbid UNNEEDED,
 			    struct peer_update *peer_update STEALS UNNEEDED,
 			    u64 last_stable_connection UNNEEDED,
 			    const struct channel_stats *stats UNNEEDED,
-			    struct channel_state_change **state_changes STEALS UNNEEDED)
+			    struct channel_state_change **state_changes STEALS UNNEEDED,
+			    const struct wally_psbt *funding_psbt STEALS UNNEEDED)
 { fprintf(stderr, "new_channel called!\n"); abort(); }
 /* Generated stub for new_channel_state_change */
 struct channel_state_change *new_channel_state_change(const tal_t *ctx UNNEEDED,

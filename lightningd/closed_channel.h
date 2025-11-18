@@ -30,6 +30,7 @@ struct closed_channel {
 	u64 last_stable_connection;
 	/* NULL for older closed channels */
 	const struct shachain *their_shachain;
+	const struct wally_psbt *funding_psbt;
 };
 
 static inline const struct channel_id *keyof_closed_channel(const struct closed_channel *cc)
