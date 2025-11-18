@@ -513,7 +513,7 @@ void resend_opening_transactions(struct lightningd *ld)
 			struct wally_tx *wtx;
 			if (channel_state_uncommitted(channel->state))
 				continue;
-			if (!channel->funding_psbt)
+			if (!channel->funding_psbt || channel->withheld)
 				continue;
 			if (channel->depth != 0)
 				continue;
