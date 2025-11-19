@@ -2069,6 +2069,10 @@ static void dev_connect_memleak(struct daemon *daemon, const u8 *msg)
 	struct htable *memtable;
 	bool found_leak;
 
+	/* As a side-effect, this tells us lightningd will be unresponsive,
+	 * so don't complain (and break CI!) if it's slow. */
+	daemon->dev_lightningd_is_slow = true;
+
 	memtable = memleak_start(tmpctx);
 	memleak_ptr(memtable, msg);
 
@@ -2521,6 +2525,7 @@ int main(int argc, char *argv[])
 	daemon->dev_suppress_gossip = false;
 	daemon->custom_msgs = NULL;
 	daemon->dev_exhausted_fds = false;
+	daemon->dev_lightningd_is_slow = false;
 	/* We generally allow 1MB per second per peer, except for dev testing */
 	daemon->gossip_stream_limit = 1000000;
 	daemon->scid_htable = new_htable(daemon, scid_htable);

@@ -370,6 +370,8 @@ struct daemon {
 	bool dev_no_reconnect;
 	/* --dev-fast-reconnect */
 	bool dev_fast_reconnect;
+	/* Don't complain about lightningd being unresponsive. */
+	bool dev_lightningd_is_slow;
  };
 
 /* Called by io_tor_connect once it has a connection out. */
