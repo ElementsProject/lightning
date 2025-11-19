@@ -1150,7 +1150,7 @@ static struct io_plan *write_to_subd(struct io_conn *subd_conn,
 		if (subd->peer->peer_in_lastmsg != -1) {
 			u64 msec = time_to_msec(timemono_between(time_mono(),
 								 subd->peer->peer_in_lasttime));
-			if (msec > 5000)
+			if (msec > 5000 && !subd->peer->daemon->dev_lightningd_is_slow)
 				status_peer_broken(&subd->peer->id,
 						   "wake delay for %s: %"PRIu64"msec",
 						   peer_wire_name(subd->peer->peer_in_lastmsg),
