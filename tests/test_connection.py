@@ -4719,8 +4719,11 @@ def test_injectonionmessage(node_factory):
 
 def test_connect_ratelimit(node_factory, bitcoind):
     """l1 has 5 peers, restarts, make sure we limit"""
+    # Sending nodes SIGSTOP at the wrong time makes connectd complain about
+    # how long operations took!
     nodes = node_factory.get_nodes(6,
-                                   opts=[{'dev-limit-connections-inflight': None, 'may_reconnect': True}] + [{'may_reconnect': True}] * 5)
+                                   opts=[{'dev-limit-connections-inflight': None, 'may_reconnect': True}]
+                                   + [{'may_reconnect': True, 'broken_log': "connectd: wake delay for"}] * 5)
 
     l1 = nodes[0]
     nodes = nodes[1:]
