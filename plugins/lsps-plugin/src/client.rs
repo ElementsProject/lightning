@@ -78,9 +78,9 @@ async fn main() -> Result<(), anyhow::Error> {
             on_lsps_lsps2_approve,
         )
         .rpcmethod(
-            "lsps-jitchannel",
+            "lsps-lsps2-invoice",
             "Requests a new jit channel from LSP and returns the matching invoice",
-            on_lsps_jitchannel,
+            on_lsps_lsps2_invoice,
         )
         .hook("invoice_payment", on_invoice_payment)
         .hook("htlc_accepted", on_htlc_accepted)
@@ -285,7 +285,7 @@ async fn on_lsps_lsps2_approve(
 /// RPC Method handler for `lsps-jitchannel`.
 /// Calls lsps2.get_info, selects parameters, calculates fee, calls lsps2.buy,
 /// creates invoice.
-async fn on_lsps_jitchannel(
+async fn on_lsps_lsps2_invoice(
     p: cln_plugin::Plugin<State>,
     v: serde_json::Value,
 ) -> Result<serde_json::Value, anyhow::Error> {
