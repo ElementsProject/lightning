@@ -1027,7 +1027,7 @@ class LightningNode(object):
         addr = self.rpc.newaddr(addrtype)[addrtype]
         if mine_block:
             txid = self.bitcoin.send_and_mine_block(addr, sats)
-            self.daemon.wait_for_log('Owning output .* txid {} CONFIRMED'.format(txid))
+            wait_for(lambda: any([t['hash'] == txid for t in self.rpc.listtransactions()['transactions']]))
         else:
             txid = self.bitcoin.rpc.sendtoaddress(addr, sats / 10**8)
 
@@ -1778,7 +1778,8 @@ class NodeFactory(object):
         # getpeers.
         if not fundchannel:
             for src, dst in connections:
-                dst.daemon.wait_for_log(r'{}-connectd: Handed peer, entering loop'.format(src.info['id']))
+                wait_for(lambda: src.rpc.listpeers(dst.info['id'])['peers'] != [])
+                wait_for(lambda: dst.rpc.listpeers(src.info['id'])['peers'] != [])
             return
 
         bitcoind = nodes[0].bitcoin
