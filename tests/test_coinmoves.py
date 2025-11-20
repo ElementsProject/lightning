@@ -10,6 +10,7 @@ import pytest
 import random
 import re
 import threading
+import statistics
 import time
 from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND
 
@@ -2110,8 +2111,8 @@ def test_generate_coinmoves(node_factory, bitcoind, executor):
     next_timestamp = entries[-1]['timestamp'] + 1
 
     batch = []
-    # Let's make 2 million entries.
-    for _ in range(2_000_000 // len(entries)):
+    # Let's make 5 million entries.
+    for _ in range(5_000_000 // len(entries)):
         # Random payment_hash
         entries[0]['payment_hash'] = entries[1]['payment_hash'] = random.randbytes(32)
         entries[2]['payment_hash'] = random.randbytes(32)
@@ -2170,4 +2171,6 @@ def test_generate_coinmoves(node_factory, bitcoind, executor):
 
     stopme.set()
     # Latency under 1 second
-    assert max(fut.result(TIMEOUT)) < 1
+    latencies = fut.result(TIMEOUT)
+    print(f"RESULT: min, median, max: {min(latencies)}, {statistics.median(latencies)}, {max(latencies)}")
+    assert max(latencies) < 1
