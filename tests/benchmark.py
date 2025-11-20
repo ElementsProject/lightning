@@ -12,6 +12,24 @@ num_workers = 480
 num_payments = 10000
 
 
+def get_bench_node(node_factory):
+    """Get a node which is optimized for benchmarking"""
+    # The normal log-level trace makes for a lot of IO.
+    node = node_factory.get_node(start=False, options={'log-level': 'info'})
+    # Memleak detection here creates significant overhead!
+    del node.daemon.env["LIGHTNINGD_DEV_MEMLEAK"]
+    # Don't bother recording all our io.
+    del node.daemon.opts['dev-save-plugin-io']
+    node.start()
+    return node
+
+
+def get_bench_line_graph(node_factory, num_nodes, wait_for_announce=False):
+    nodes = [get_bench_node(node_factory) for _ in range(num_nodes)]
+    node_factory.join_nodes(nodes, wait_for_announce=wait_for_announce)
+    return nodes
+
+
 @pytest.fixture
 def executor():
     ex = futures.ThreadPoolExecutor(max_workers=num_workers)
@@ -20,8 +38,8 @@ def executor():
 
 
 def test_single_hop(node_factory, executor):
-    l1 = node_factory.get_node()
-    l2 = node_factory.get_node()
+    l1 = get_bench_node(node_factory)
+    l2 = get_bench_node(node_factory)
 
     l1.rpc.connect(l2.rpc.getinfo()['id'], 'localhost:%d' % l2.port)
     l1.openchannel(l2, 4000000)
@@ -53,7 +71,7 @@ def test_single_hop(node_factory, executor):
 
 
 def test_single_payment(node_factory, benchmark):
-    l1, l2 = node_factory.line_graph(2)
+    l1, l2 = get_bench_line_graph(node_factory, 2)
 
     def do_pay(l1, l2):
         invoice = l2.rpc.invoice(1000, 'invoice-{}'.format(random.random()), 'desc')['bolt11']
@@ -63,7 +81,7 @@ def test_single_payment(node_factory, benchmark):
 
 
 def test_forward_payment(node_factory, benchmark):
-    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+    l1, l2, l3 = get_bench_line_graph(node_factory, 3, wait_for_announce=True)
 
     def do_pay(src, dest):
         invoice = dest.rpc.invoice(1000, 'invoice-{}'.format(random.random()), 'desc')['bolt11']
@@ -73,7 +91,7 @@ def test_forward_payment(node_factory, benchmark):
 
 
 def test_long_forward_payment(node_factory, benchmark):
-    nodes = node_factory.line_graph(21, wait_for_announce=True)
+    nodes = get_bench_line_graph(node_factory, 21, wait_for_announce=True)
 
     def do_pay(src, dest):
         invoice = dest.rpc.invoice(1000, 'invoice-{}'.format(random.random()), 'desc')['bolt11']
@@ -83,7 +101,7 @@ def test_long_forward_payment(node_factory, benchmark):
 
 
 def test_invoice(node_factory, benchmark):
-    l1 = node_factory.get_node()
+    l1 = get_bench_node(node_factory)
 
     def bench_invoice():
         l1.rpc.invoice(1000, 'invoice-{}'.format(time()), 'desc')
@@ -92,7 +110,7 @@ def test_invoice(node_factory, benchmark):
 
 
 def test_pay(node_factory, benchmark):
-    l1, l2 = node_factory.line_graph(2)
+    l1, l2 = get_bench_line_graph(node_factory, 2)
 
     invoices = []
     for _ in range(1, 100):
