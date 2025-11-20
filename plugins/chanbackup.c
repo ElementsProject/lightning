@@ -1126,10 +1126,14 @@ static const struct plugin_notification notifs[] = {
 	},
 };
 
+static u64 custommsg_types[] = { WIRE_PEER_STORAGE, WIRE_PEER_STORAGE_RETRIEVAL };
+
 static const struct plugin_hook hooks[] = {
         {
-                "custommsg",
-                handle_your_peer_storage,
+                .name = "custommsg",
+                .handle = handle_your_peer_storage,
+		.intfilters = custommsg_types,
+		.num_intfilters = ARRAY_SIZE(custommsg_types),
         },
 	{
 		"peer_connected",
