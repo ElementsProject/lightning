@@ -164,6 +164,8 @@ void onchaind_replay_channels(struct lightningd *ld UNNEEDED)
 /* Generated stub for plugin_hook_call_ */
 bool plugin_hook_call_(struct lightningd *ld UNNEEDED,
 		       struct plugin_hook *hook UNNEEDED,
+		       const char *strfilterfield TAKES UNNEEDED,
+		       u64 intfilterfield UNNEEDED,
 		       const char *cmd_id TAKES UNNEEDED,
 		       tal_t *cb_arg STEALS UNNEEDED)
 { fprintf(stderr, "plugin_hook_call_ called!\n"); abort(); }
