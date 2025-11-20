@@ -163,7 +163,71 @@ RUN find /tmp/lightning_install -type f -executable -exec \
     awk -F: '/ELF/ {print $1}' | \
     xargs -r ${STRIP} --strip-unneeded
 
-FROM base-target AS final
+# VLS builder stage (only used by lightningd-vls-signer)
+FROM base-builder-${TARGETOS}-${TARGETARCH} AS vls-builder
+
+# First declare the variables that come from parent stages
+ARG target_arch
+ARG target_arch_gcc
+ARG target_arch_dpkg
+ARG target_arch_rust
+ARG COPTFLAGS
+
+# Then declare the tool variables using the target_arch
+ARG AR=${target_arch}-ar
+ARG AS=${target_arch}-as
+ARG CC=${target_arch}-gcc
+ARG CXX=${target_arch}-g++
+ARG LD=${target_arch}-ld
+ARG STRIP=${target_arch}-strip
+ARG TARGET=${target_arch_rust}
+ARG RUST_PROFILE=release
+ARG VERSION
+ARG VLS_VERSION=v0.14.0
+
+# Install cross-compilation toolchain (same as builder stage)
+RUN dpkg --add-architecture ${target_arch_dpkg}
+
+RUN apt-get update && \
+    apt-get install -qq -y --no-install-recommends \
+        pkg-config:${target_arch_dpkg} \
+        crossbuild-essential-${target_arch_dpkg} && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV PATH="/root/.cargo/bin:/root/.local/bin:${PATH}"
+ENV PKG_CONFIG_PATH=/usr/lib/${target_arch}/pkgconfig
+ENV PKG_CONFIG_LIBDIR=/usr/lib/${target_arch}/pkgconfig
+
+WORKDIR /opt
+
+RUN ./install-uv.sh -q
+RUN ./install-rust.sh -y -q --profile minimal --component rustfmt --target ${target_arch_rust}
+
+RUN git clone --depth 1 --branch ${VLS_VERSION} https://gitlab.com/lightning-signer/validating-lightning-signer.git
+WORKDIR /opt/validating-lightning-signer
+
+RUN mkdir -p .cargo && tee .cargo/config.toml <<EOF
+
+[build]
+target = "${target_arch_rust}"
+rustflags = ["-C", "target-cpu=generic"]
+
+[target.${target_arch_rust}]
+linker = "${CC}"
+
+EOF
+
+RUN cargo build --release --target ${target_arch_rust}
+
+RUN cp -r ./target/${target_arch_rust}/release/ /tmp/vls_install/ \
+    && find /tmp/vls_install -type f -executable -exec \
+    file {} + | \
+    awk -F: '/ELF/ {print $1}' | \
+    xargs -r ${STRIP} --strip-unneeded
+
+# Standard Lightning image (without VLS)
+FROM base-target AS lightningd
 
 RUN apt-get update && \
     apt-get install -qq -y --no-install-recommends \
@@ -176,8 +240,8 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-COPY --from=downloader    /opt/bitcoin/bin/bitcoin-cli      /usr/bin/
-COPY --from=builder       /tmp/lightning_install/           /usr/local/
+COPY --from=downloader    /opt/bitcoin/bin/bitcoin-cli          /usr/bin/
+COPY --from=builder       /tmp/lightning_install/               /usr/local/
 
 COPY tools/docker-entrypoint.sh    /entrypoint.sh
 
@@ -189,3 +253,36 @@ ENV LIGHTNINGD_NETWORK=bitcoin
 EXPOSE 9735 9835
 VOLUME ["/root/.lightning"]
 ENTRYPOINT ["/entrypoint.sh"]
+
+# Lightning with VLS Signer
+FROM base-target AS lightningd-vls-signer
+
+RUN apt-get update && \
+    apt-get install -qq -y --no-install-recommends \
+        inotify-tools \
+        socat \
+        jq \
+        libpq5 \
+        libsqlite3-0 \
+        libsodium23 && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY --from=downloader    /opt/bitcoin/bin/bitcoin-cli          /usr/bin/
+COPY --from=builder       /tmp/lightning_install/               /usr/local/
+COPY --from=vls-builder   /tmp/vls_install/remote_hsmd_socket   /var/lib/vls/bin/
+
+COPY tools/docker-entrypoint.sh    /entrypoint.sh
+
+ENV LIGHTNINGD_DATA=/root/.lightning
+ENV LIGHTNINGD_RPC_PORT=9835
+ENV LIGHTNINGD_PORT=9735
+ENV LIGHTNINGD_NETWORK=bitcoin
+ENV VLS_ENABLED=true
+
+EXPOSE 9735 9835
+VOLUME ["/root/.lightning"]
+ENTRYPOINT ["/entrypoint.sh"]
+
+# Default target (for backward compatibility)
+FROM lightningd AS final
