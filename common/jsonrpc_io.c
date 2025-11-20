@@ -8,7 +8,7 @@
 #include <errno.h>
 #include <unistd.h>
 
-#define READ_CHUNKSIZE 64
+#define READ_CHUNKSIZE 2048
 
 struct jsonrpc_io {
 	MEMBUF(char) membuf;
@@ -22,13 +22,14 @@ struct jsonrpc_io {
 struct jsonrpc_io *jsonrpc_io_new(const tal_t *ctx)
 {
 	struct jsonrpc_io *json_in;
+	const size_t bufsize = READ_CHUNKSIZE * 2;
 
 	json_in = tal(ctx, struct jsonrpc_io);
 	json_in->bytes_read = 0;
 
 	membuf_init(&json_in->membuf,
-		    tal_arr(json_in, char, READ_CHUNKSIZE),
-		    READ_CHUNKSIZE, membuf_tal_resize);
+		    tal_arr(json_in, char, bufsize),
+		    bufsize, membuf_tal_resize);
 	json_in->toks = toks_alloc(json_in);
 	jsmn_init(&json_in->parser);
 
