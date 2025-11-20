@@ -2093,7 +2093,7 @@ def test_migration_no_bkpr(node_factory, bitcoind):
 
 
 def test_generate_coinmoves(node_factory, bitcoind, executor):
-    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True, opts={'log-level': 'info'})
 
     # Route some payments
     l1.rpc.xpay(l3.rpc.invoice(1, "test_generate_coinmoves", "test_generate_coinmoves")['bolt11'])
@@ -2110,8 +2110,8 @@ def test_generate_coinmoves(node_factory, bitcoind, executor):
     next_timestamp = entries[-1]['timestamp'] + 1
 
     batch = []
-    # Let's make 100,000 entries.
-    for _ in range(100_000 // len(entries)):
+    # Let's make 2 million entries.
+    for _ in range(2_000_000 // len(entries)):
         # Random payment_hash
         entries[0]['payment_hash'] = entries[1]['payment_hash'] = random.randbytes(32)
         entries[2]['payment_hash'] = random.randbytes(32)
@@ -2144,6 +2144,8 @@ def test_generate_coinmoves(node_factory, bitcoind, executor):
 
     # Memleak detection here creates significant overhead!
     del l2.daemon.env["LIGHTNINGD_DEV_MEMLEAK"]
+    # Don't bother recording all our io.
+    del l2.daemon.opts['dev-save-plugin-io']
     l2.start()
 
     def measure_latency(node, stop_event):
