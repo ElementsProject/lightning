@@ -197,6 +197,44 @@ static struct command_result *json_checkthis(struct command *cmd,
 	return send_outreq(req);
 }
 
+static struct command_result *spam_done(struct command *cmd, void *unused)
+{
+	return command_success(cmd, json_out_obj(cmd, NULL, NULL));
+}
+
+static struct command_result *spam_errcb(struct command *cmd,
+					 const char *method,
+					 const char *buf,
+					 const jsmntok_t *tok,
+					 void *unused)
+{
+	plugin_err(cmd->plugin, "%.*s",
+		   json_tok_full_len(tok),
+		   json_tok_full(buf, tok));
+}
+
+static struct command_result *json_spamcommand(struct command *cmd,
+					       const char *buf,
+					       const jsmntok_t *params)
+{
+	u64 *iterations;
+	struct request_batch *batch;
+
+	if (!param(cmd, buf, params,
+		   p_req("iterations", param_u64, &iterations),
+		   NULL))
+		return command_param_failed();
+
+	batch = request_batch_new(cmd, NULL, spam_errcb, spam_done, NULL);
+	for (size_t i = 0; i < *iterations; i++) {
+		struct out_req *req = add_to_batch(cmd, batch, "batching");
+		json_add_bool(req->js, "enable", true);
+		send_outreq(req);
+	}
+	return batch_done(cmd, batch);
+}
+
+
 static char *set_dynamic(struct plugin *plugin,
 			 const char *arg,
 			 bool check_only,
@@ -269,6 +307,10 @@ static const struct plugin_command commands[] = { {
 	{
 		"checkthis",
 		json_checkthis,
+	},
+	{
+		"spamcommand",
+		json_spamcommand,
 	},
 };
 
