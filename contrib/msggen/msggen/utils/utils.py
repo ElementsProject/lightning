@@ -67,6 +67,7 @@ grpc_method_names = [
     "Feerates",
     "FetchBip353",
     "FetchInvoice",
+    "CancelRecurringInvoice",
     "FundChannel_Cancel",
     "FundChannel_Complete",
     "FundChannel",
@@ -140,11 +141,16 @@ grpc_method_names = [
     "AskRene-Create-Channel",
     "AskRene-Update-Channel",
     "AskRene-Bias-Channel",
+    # "Askrene-Bias-Node",
     "AskRene-ListReservations",
     "InjectPaymentOnion",
     "InjectOnionMessage",
     "Xpay",
     "SignMessageWithKey",
+    "ListChannelMoves",
+    "ListChainMoves",
+    # "ListNetworkEvents",
+    # "DelNetworkEvent",
 ]
 
 grpc_notification_names = [

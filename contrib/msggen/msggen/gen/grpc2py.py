@@ -58,6 +58,7 @@ class Grpc2PyGenerator(IGenerator):
             "sat": "amount2sat(m.{name})",
             "currency": "m.{name}",
             "number": "m.{name}",
+            "outpoint": "m.{name}",
         }
 
     def generate_responses(self, service):

@@ -126,6 +126,7 @@ class GrpcConverterGenerator(IGenerator):
                     "feerate?": f"c.{name}.map(|o|o.into())",
                     "feerate": f"Some(c.{name}.into())",
                     "outpoint?": f"c.{name}.map(|o|o.into())",
+                    "outpoint": f"Some(c.{name}.into())",
                     "TlvStream?": f"c.{name}.map(|s| s.into())",
                     "RoutehintList?": f"c.{name}.map(|rl| rl.into())",
                     "DecodeRoutehintList?": f"c.{name}.map(|drl| drl.into())",

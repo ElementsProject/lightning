@@ -153,6 +153,39 @@
         "KeysendStatus": {
             "complete": 0
         },
+        "ListchainmovesChainmovesPrimaryTag": {
+            "anchor": 10,
+            "channel_close": 4,
+            "channel_open": 3,
+            "delayed_to_us": 5,
+            "deposit": 0,
+            "htlc_fulfill": 8,
+            "htlc_timeout": 7,
+            "htlc_tx": 6,
+            "ignored": 14,
+            "penalized": 12,
+            "penalty": 2,
+            "stolen": 13,
+            "to_miner": 15,
+            "to_them": 11,
+            "to_wallet": 9,
+            "withdrawal": 1
+        },
+        "ListchainmovesIndex": {
+            "created": 0
+        },
+        "ListchannelmovesChannelmovesPrimaryTag": {
+            "channel_proposed": 4,
+            "invoice": 0,
+            "journal_entry": 6,
+            "lease_fee": 3,
+            "penalty_adj": 5,
+            "pushed": 2,
+            "routed": 1
+        },
+        "ListchannelmovesIndex": {
+            "created": 0
+        },
         "ListclosedchannelsClosedchannelsCloseCause": {
             "local": 1,
             "onchain": 5,
@@ -1105,6 +1138,17 @@
             "block_added.hash": 1,
             "block_added.height": 2
         },
+        "CancelrecurringinvoiceRequest": {
+            "CancelRecurringInvoice.bip353": 6,
+            "CancelRecurringInvoice.offer": 1,
+            "CancelRecurringInvoice.payer_note": 5,
+            "CancelRecurringInvoice.recurrence_counter": 2,
+            "CancelRecurringInvoice.recurrence_label": 3,
+            "CancelRecurringInvoice.recurrence_start": 4
+        },
+        "CancelrecurringinvoiceResponse": {
+            "CancelRecurringInvoice.bolt12": 1
+        },
         "ChannelOpenFailedNotification": {
             "channel_open_failed.channel_id": 1
         },
@@ -2039,6 +2083,52 @@
         },
         "ListaddressesResponse": {
             "ListAddresses.addresses[]": 1
+        },
+        "ListchainmovesChainmoves": {
+            "ListChainMoves.chainmoves[].account_id": 2,
+            "ListChainMoves.chainmoves[].blockheight": 15,
+            "ListChainMoves.chainmoves[].created_index": 1,
+            "ListChainMoves.chainmoves[].credit_msat": 3,
+            "ListChainMoves.chainmoves[].debit_msat": 4,
+            "ListChainMoves.chainmoves[].extra_tags": 16,
+            "ListChainMoves.chainmoves[].extra_tags[]": 7,
+            "ListChainMoves.chainmoves[].originating_account": 9,
+            "ListChainMoves.chainmoves[].output_count": 14,
+            "ListChainMoves.chainmoves[].output_msat": 13,
+            "ListChainMoves.chainmoves[].payment_hash": 12,
+            "ListChainMoves.chainmoves[].peer_id": 8,
+            "ListChainMoves.chainmoves[].primary_tag": 6,
+            "ListChainMoves.chainmoves[].spending_txid": 10,
+            "ListChainMoves.chainmoves[].timestamp": 5,
+            "ListChainMoves.chainmoves[].utxo": 11
+        },
+        "ListchainmovesRequest": {
+            "ListChainMoves.index": 1,
+            "ListChainMoves.limit": 3,
+            "ListChainMoves.start": 2
+        },
+        "ListchainmovesResponse": {
+            "ListChainMoves.chainmoves[]": 1
+        },
+        "ListchannelmovesChannelmoves": {
+            "ListChannelMoves.channelmoves[].account_id": 2,
+            "ListChannelMoves.channelmoves[].created_index": 1,
+            "ListChannelMoves.channelmoves[].credit_msat": 3,
+            "ListChannelMoves.channelmoves[].debit_msat": 4,
+            "ListChannelMoves.channelmoves[].fees_msat": 10,
+            "ListChannelMoves.channelmoves[].group_id": 9,
+            "ListChannelMoves.channelmoves[].part_id": 8,
+            "ListChannelMoves.channelmoves[].payment_hash": 7,
+            "ListChannelMoves.channelmoves[].primary_tag": 6,
+            "ListChannelMoves.channelmoves[].timestamp": 5
+        },
+        "ListchannelmovesRequest": {
+            "ListChannelMoves.index": 1,
+            "ListChannelMoves.limit": 3,
+            "ListChannelMoves.start": 2
+        },
+        "ListchannelmovesResponse": {
+            "ListChannelMoves.channelmoves[]": 1
         },
         "ListchannelsChannels": {
             "ListChannels.channels[].active": 8,
@@ -5443,6 +5533,38 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "CancelRecurringInvoice": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "CancelRecurringInvoice.bip353": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "CancelRecurringInvoice.bolt12": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "CancelRecurringInvoice.offer": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "CancelRecurringInvoice.payer_note": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "CancelRecurringInvoice.recurrence_counter": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "CancelRecurringInvoice.recurrence_label": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "CancelRecurringInvoice.recurrence_start": {
+            "added": "v25.09",
+            "deprecated": null
+        },
         "CheckMessage": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -8213,6 +8335,150 @@
         },
         "ListAddresses.start": {
             "added": "v24.11",
+            "deprecated": null
+        },
+        "ListChainMoves": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "ListChainMoves.chainmoves[]": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "ListChainMoves.chainmoves[].account_id": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "ListChainMoves.chainmoves[].blockheight": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "ListChainMoves.chainmoves[].created_index": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "ListChainMoves.chainmoves[].credit_msat": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "ListChainMoves.chainmoves[].debit_msat": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "ListChainMoves.chainmoves[].extra_tags": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "ListChainMoves.chainmoves[].extra_tags[]": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "ListChainMoves.chainmoves[].originating_account": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "ListChainMoves.chainmoves[].output_count": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "ListChainMoves.chainmoves[].output_msat": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "ListChainMoves.chainmoves[].payment_hash": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "ListChainMoves.chainmoves[].peer_id": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "ListChainMoves.chainmoves[].primary_tag": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "ListChainMoves.chainmoves[].spending_txid": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "ListChainMoves.chainmoves[].timestamp": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "ListChainMoves.chainmoves[].utxo": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "ListChainMoves.index": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "ListChainMoves.limit": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "ListChainMoves.start": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "ListChannelMoves": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "ListChannelMoves.channelmoves[]": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "ListChannelMoves.channelmoves[].account_id": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "ListChannelMoves.channelmoves[].created_index": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "ListChannelMoves.channelmoves[].credit_msat": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "ListChannelMoves.channelmoves[].debit_msat": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "ListChannelMoves.channelmoves[].fees_msat": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "ListChannelMoves.channelmoves[].group_id": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "ListChannelMoves.channelmoves[].part_id": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "ListChannelMoves.channelmoves[].payment_hash": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "ListChannelMoves.channelmoves[].primary_tag": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "ListChannelMoves.channelmoves[].timestamp": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "ListChannelMoves.index": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "ListChannelMoves.limit": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "ListChannelMoves.start": {
+            "added": "v25.09",
             "deprecated": null
         },
         "ListChannels": {

@@ -2034,6 +2034,38 @@ impl Node for Server
 
     }
 
+    async fn cancel_recurring_invoice(
+        &self,
+        request: tonic::Request<pb::CancelrecurringinvoiceRequest>,
+    ) -> Result<tonic::Response<pb::CancelrecurringinvoiceResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::CancelrecurringinvoiceRequest = req.into();
+        debug!("Client asked for cancel_recurring_invoice");
+        trace!("cancel_recurring_invoice request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::CancelRecurringInvoice(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method CancelRecurringInvoice: {:?}", e)))?;
+        match result {
+            Response::CancelRecurringInvoice(r) => {
+               trace!("cancel_recurring_invoice response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call CancelRecurringInvoice",
+                    r
+                )
+            )),
+        }
+
+    }
+
     async fn fund_channel_cancel(
         &self,
         request: tonic::Request<pb::FundchannelCancelRequest>,
@@ -4427,6 +4459,70 @@ impl Node for Server
                 Code::Internal,
                 format!(
                     "Unexpected result {:?} to method call SignMessageWithKey",
+                    r
+                )
+            )),
+        }
+
+    }
+
+    async fn list_channel_moves(
+        &self,
+        request: tonic::Request<pb::ListchannelmovesRequest>,
+    ) -> Result<tonic::Response<pb::ListchannelmovesResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::ListchannelmovesRequest = req.into();
+        debug!("Client asked for list_channel_moves");
+        trace!("list_channel_moves request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::ListChannelMoves(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method ListChannelMoves: {:?}", e)))?;
+        match result {
+            Response::ListChannelMoves(r) => {
+               trace!("list_channel_moves response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call ListChannelMoves",
+                    r
+                )
+            )),
+        }
+
+    }
+
+    async fn list_chain_moves(
+        &self,
+        request: tonic::Request<pb::ListchainmovesRequest>,
+    ) -> Result<tonic::Response<pb::ListchainmovesResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::ListchainmovesRequest = req.into();
+        debug!("Client asked for list_chain_moves");
+        trace!("list_chain_moves request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::ListChainMoves(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method ListChainMoves: {:?}", e)))?;
+        match result {
+            Response::ListChainMoves(r) => {
+               trace!("list_chain_moves response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call ListChainMoves",
                     r
                 )
             )),

@@ -69,6 +69,7 @@ service Node {
 	rpc Feerates(FeeratesRequest) returns (FeeratesResponse) {}
 	rpc FetchBip353(Fetchbip353Request) returns (Fetchbip353Response) {}
 	rpc FetchInvoice(FetchinvoiceRequest) returns (FetchinvoiceResponse) {}
+	rpc CancelRecurringInvoice(CancelrecurringinvoiceRequest) returns (CancelrecurringinvoiceResponse) {}
 	rpc FundChannelCancel(FundchannelCancelRequest) returns (FundchannelCancelResponse) {}
 	rpc FundChannelComplete(FundchannelCompleteRequest) returns (FundchannelCompleteResponse) {}
 	rpc FundChannel(FundchannelRequest) returns (FundchannelResponse) {}
@@ -144,6 +145,8 @@ service Node {
 	rpc InjectOnionMessage(InjectonionmessageRequest) returns (InjectonionmessageResponse) {}
 	rpc Xpay(XpayRequest) returns (XpayResponse) {}
 	rpc SignMessageWithKey(SignmessagewithkeyRequest) returns (SignmessagewithkeyResponse) {}
+	rpc ListChannelMoves(ListchannelmovesRequest) returns (ListchannelmovesResponse) {}
+	rpc ListChainMoves(ListchainmovesRequest) returns (ListchainmovesResponse) {}
 
 	rpc SubscribeBlockAdded(StreamBlockAddedRequest) returns (stream BlockAddedNotification) {}
 	rpc SubscribeChannelOpenFailed(StreamChannelOpenFailedRequest) returns (stream ChannelOpenFailedNotification) {}
@@ -1995,6 +1998,19 @@ message FetchinvoiceNextPeriod {
 	uint64 endtime = 3;
 	uint64 paywindow_start = 4;
 	uint64 paywindow_end = 5;
+}
+
+message CancelrecurringinvoiceRequest {
+	string offer = 1;
+	uint64 recurrence_counter = 2;
+	string recurrence_label = 3;
+	optional double recurrence_start = 4;
+	optional string payer_note = 5;
+	optional string bip353 = 6;
+}
+
+message CancelrecurringinvoiceResponse {
+	string bolt12 = 1;
 }
 
 message FundchannelCancelRequest {
@@ -4147,6 +4163,94 @@ message SignmessagewithkeyResponse {
 	bytes pubkey = 2;
 	bytes signature = 3;
 	string base64 = 4;
+}
+
+message ListchannelmovesRequest {
+	// ListChannelMoves.index
+	enum ListchannelmovesIndex {
+		CREATED = 0;
+	}
+	optional ListchannelmovesIndex index = 1;
+	optional uint64 start = 2;
+	optional uint32 limit = 3;
+}
+
+message ListchannelmovesResponse {
+	repeated ListchannelmovesChannelmoves channelmoves = 1;
+}
+
+message ListchannelmovesChannelmoves {
+	// ListChannelMoves.channelmoves[].primary_tag
+	enum ListchannelmovesChannelmovesPrimaryTag {
+		INVOICE = 0;
+		ROUTED = 1;
+		PUSHED = 2;
+		LEASE_FEE = 3;
+		CHANNEL_PROPOSED = 4;
+		PENALTY_ADJ = 5;
+		JOURNAL_ENTRY = 6;
+	}
+	uint64 created_index = 1;
+	string account_id = 2;
+	Amount credit_msat = 3;
+	Amount debit_msat = 4;
+	uint64 timestamp = 5;
+	ListchannelmovesChannelmovesPrimaryTag primary_tag = 6;
+	optional bytes payment_hash = 7;
+	optional uint64 part_id = 8;
+	optional uint64 group_id = 9;
+	Amount fees_msat = 10;
+}
+
+message ListchainmovesRequest {
+	// ListChainMoves.index
+	enum ListchainmovesIndex {
+		CREATED = 0;
+	}
+	optional ListchainmovesIndex index = 1;
+	optional uint64 start = 2;
+	optional uint32 limit = 3;
+}
+
+message ListchainmovesResponse {
+	repeated ListchainmovesChainmoves chainmoves = 1;
+}
+
+message ListchainmovesChainmoves {
+	// ListChainMoves.chainmoves[].primary_tag
+	enum ListchainmovesChainmovesPrimaryTag {
+		DEPOSIT = 0;
+		WITHDRAWAL = 1;
+		PENALTY = 2;
+		CHANNEL_OPEN = 3;
+		CHANNEL_CLOSE = 4;
+		DELAYED_TO_US = 5;
+		HTLC_TX = 6;
+		HTLC_TIMEOUT = 7;
+		HTLC_FULFILL = 8;
+		TO_WALLET = 9;
+		ANCHOR = 10;
+		TO_THEM = 11;
+		PENALIZED = 12;
+		STOLEN = 13;
+		IGNORED = 14;
+		TO_MINER = 15;
+	}
+	uint64 created_index = 1;
+	string account_id = 2;
+	Amount credit_msat = 3;
+	Amount debit_msat = 4;
+	uint64 timestamp = 5;
+	ListchainmovesChainmovesPrimaryTag primary_tag = 6;
+	optional bytes peer_id = 8;
+	optional string originating_account = 9;
+	optional bytes spending_txid = 10;
+	Outpoint utxo = 11;
+	optional bytes payment_hash = 12;
+	Amount output_msat = 13;
+	optional uint32 output_count = 14;
+	uint32 blockheight = 15;
+	repeated string extra_tags = 16;
 }
 
 message StreamBlockAddedRequest {

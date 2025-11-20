@@ -1933,6 +1933,15 @@ impl From<responses::FetchinvoiceResponse> for pb::FetchinvoiceResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::CancelrecurringinvoiceResponse> for pb::CancelrecurringinvoiceResponse {
+    fn from(c: responses::CancelrecurringinvoiceResponse) -> Self {
+        Self {
+            bolt12: c.bolt12, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::FundchannelCancelResponse> for pb::FundchannelCancelResponse {
     fn from(c: responses::FundchannelCancelResponse) -> Self {
         Self {
@@ -4453,6 +4462,68 @@ impl From<responses::SignmessagewithkeyResponse> for pb::SignmessagewithkeyRespo
 }
 
 #[allow(unused_variables)]
+impl From<responses::ListchannelmovesChannelmoves> for pb::ListchannelmovesChannelmoves {
+    fn from(c: responses::ListchannelmovesChannelmoves) -> Self {
+        Self {
+            account_id: c.account_id, // Rule #2 for type string
+            created_index: c.created_index, // Rule #2 for type u64
+            credit_msat: Some(c.credit_msat.into()), // Rule #2 for type msat
+            debit_msat: Some(c.debit_msat.into()), // Rule #2 for type msat
+            fees_msat: Some(c.fees_msat.into()), // Rule #2 for type msat
+            group_id: c.group_id, // Rule #2 for type u64?
+            part_id: c.part_id, // Rule #2 for type u64?
+            payment_hash: c.payment_hash.map(|v| <Sha256 as AsRef<[u8]>>::as_ref(&v).to_vec()), // Rule #2 for type hash?
+            primary_tag: c.primary_tag as i32,
+            timestamp: c.timestamp, // Rule #2 for type u64
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListchannelmovesResponse> for pb::ListchannelmovesResponse {
+    fn from(c: responses::ListchannelmovesResponse) -> Self {
+        Self {
+            // Field: ListChannelMoves.channelmoves[]
+            channelmoves: c.channelmoves.into_iter().map(|i| i.into()).collect(), // Rule #3 for type ListchannelmovesChannelmoves
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListchainmovesChainmoves> for pb::ListchainmovesChainmoves {
+    fn from(c: responses::ListchainmovesChainmoves) -> Self {
+        Self {
+            account_id: c.account_id, // Rule #2 for type string
+            blockheight: c.blockheight, // Rule #2 for type u32
+            created_index: c.created_index, // Rule #2 for type u64
+            credit_msat: Some(c.credit_msat.into()), // Rule #2 for type msat
+            debit_msat: Some(c.debit_msat.into()), // Rule #2 for type msat
+            // Field: ListChainMoves.chainmoves[].extra_tags
+            extra_tags: c.extra_tags.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+            originating_account: c.originating_account, // Rule #2 for type string?
+            output_count: c.output_count, // Rule #2 for type u32?
+            output_msat: Some(c.output_msat.into()), // Rule #2 for type msat
+            payment_hash: c.payment_hash.map(|v| <Sha256 as AsRef<[u8]>>::as_ref(&v).to_vec()), // Rule #2 for type hash?
+            peer_id: c.peer_id.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
+            primary_tag: c.primary_tag as i32,
+            spending_txid: c.spending_txid.map(|v| hex::decode(v).unwrap()), // Rule #2 for type txid?
+            timestamp: c.timestamp, // Rule #2 for type u64
+            utxo: Some(c.utxo.into()), // Rule #2 for type outpoint
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListchainmovesResponse> for pb::ListchainmovesResponse {
+    fn from(c: responses::ListchainmovesResponse) -> Self {
+        Self {
+            // Field: ListChainMoves.chainmoves[]
+            chainmoves: c.chainmoves.into_iter().map(|i| i.into()).collect(), // Rule #3 for type ListchainmovesChainmoves
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<notifications::BlockAddedNotification> for pb::BlockAddedNotification {
     fn from(c: notifications::BlockAddedNotification) -> Self {
         Self {
@@ -5273,6 +5344,20 @@ impl From<requests::FetchinvoiceRequest> for pb::FetchinvoiceRequest {
             recurrence_label: c.recurrence_label, // Rule #2 for type string?
             recurrence_start: c.recurrence_start, // Rule #2 for type number?
             timeout: c.timeout, // Rule #2 for type number?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::CancelrecurringinvoiceRequest> for pb::CancelrecurringinvoiceRequest {
+    fn from(c: requests::CancelrecurringinvoiceRequest) -> Self {
+        Self {
+            bip353: c.bip353, // Rule #2 for type string?
+            offer: c.offer, // Rule #2 for type string
+            payer_note: c.payer_note, // Rule #2 for type string?
+            recurrence_counter: c.recurrence_counter, // Rule #2 for type u64
+            recurrence_label: c.recurrence_label, // Rule #2 for type string
+            recurrence_start: c.recurrence_start, // Rule #2 for type number?
         }
     }
 }
@@ -6207,6 +6292,28 @@ impl From<requests::SignmessagewithkeyRequest> for pb::SignmessagewithkeyRequest
 }
 
 #[allow(unused_variables)]
+impl From<requests::ListchannelmovesRequest> for pb::ListchannelmovesRequest {
+    fn from(c: requests::ListchannelmovesRequest) -> Self {
+        Self {
+            index: c.index.map(|v| v as i32),
+            limit: c.limit, // Rule #2 for type u32?
+            start: c.start, // Rule #2 for type u64?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::ListchainmovesRequest> for pb::ListchainmovesRequest {
+    fn from(c: requests::ListchainmovesRequest) -> Self {
+        Self {
+            index: c.index.map(|v| v as i32),
+            limit: c.limit, // Rule #2 for type u32?
+            start: c.start, // Rule #2 for type u64?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<notifications::requests::StreamBlockAddedRequest> for pb::StreamBlockAddedRequest {
     fn from(c: notifications::requests::StreamBlockAddedRequest) -> Self {
         Self {
@@ -6979,6 +7086,20 @@ impl From<pb::FetchinvoiceRequest> for requests::FetchinvoiceRequest {
             recurrence_label: c.recurrence_label, // Rule #1 for type string?
             recurrence_start: c.recurrence_start, // Rule #1 for type number?
             timeout: c.timeout, // Rule #1 for type number?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::CancelrecurringinvoiceRequest> for requests::CancelrecurringinvoiceRequest {
+    fn from(c: pb::CancelrecurringinvoiceRequest) -> Self {
+        Self {
+            bip353: c.bip353, // Rule #1 for type string?
+            offer: c.offer, // Rule #1 for type string
+            payer_note: c.payer_note, // Rule #1 for type string?
+            recurrence_counter: c.recurrence_counter, // Rule #1 for type u64
+            recurrence_label: c.recurrence_label, // Rule #1 for type string
+            recurrence_start: c.recurrence_start, // Rule #1 for type number?
         }
     }
 }
@@ -7891,6 +8012,28 @@ impl From<pb::SignmessagewithkeyRequest> for requests::SignmessagewithkeyRequest
         Self {
             address: c.address, // Rule #1 for type string
             message: c.message, // Rule #1 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::ListchannelmovesRequest> for requests::ListchannelmovesRequest {
+    fn from(c: pb::ListchannelmovesRequest) -> Self {
+        Self {
+            index: c.index.map(|v| v.try_into().unwrap()),
+            limit: c.limit, // Rule #1 for type u32?
+            start: c.start, // Rule #1 for type u64?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::ListchainmovesRequest> for requests::ListchainmovesRequest {
+    fn from(c: pb::ListchainmovesRequest) -> Self {
+        Self {
+            index: c.index.map(|v| v.try_into().unwrap()),
+            limit: c.limit, // Rule #1 for type u32?
+            start: c.start, // Rule #1 for type u64?
         }
     }
 }
