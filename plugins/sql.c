@@ -12,6 +12,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <gossipd/gossip_store_wiregen.h>
+#include <inttypes.h>
 #include <plugins/libplugin.h>
 #include <sqlite3.h>
 #include <stdio.h>
@@ -129,6 +130,8 @@ struct table_desc {
 	u64 last_created_index;
 	/* Are we refreshing now? */
 	bool refreshing;
+	/* When did we start refreshing? */
+	struct timemono refresh_start;
 	/* Any other commands waiting for the refresh completion */
 	struct list_head refresh_waiters;
 };
@@ -513,14 +516,27 @@ static struct command_result *one_refresh_done(struct command *cmd,
 	struct table_desc *td = dbq->tables[0];
 	struct list_head waiters;
 	struct refresh_waiter *rw;
+	struct timerel refresh_duration = timemono_since(td->refresh_start);
 
 	/* We are no longer refreshing */
 	assert(td->refreshing);
 	td->refreshing = false;
+	plugin_log(cmd->plugin, LOG_DBG,
+		   "Time to refresh %s: %"PRIu64".%09"PRIu64" seconds (last=%"PRIu64")",
+		   td->name,
+		   (u64)refresh_duration.ts.tv_sec,
+		   (u64)refresh_duration.ts.tv_nsec,
+		   td->last_created_index);
 
 	if (!td->indices_created) {
 		init_indices(cmd->plugin, td);
 		td->indices_created = 1;
+		refresh_duration = timemono_since(td->refresh_start);
+		plugin_log(cmd->plugin, LOG_DBG,
+			   "Time to refresh + create indices for %s: %"PRIu64".%09"PRIu64" seconds",
+			   td->name,
+			   (u64)refresh_duration.ts.tv_sec,
+			   (u64)refresh_duration.ts.tv_nsec);
 	}
 
 	/* Transfer refresh waiters onto local list */
@@ -801,6 +817,12 @@ static struct command_result *process_json_result(struct command *cmd,
 						  const struct table_desc *td,
 						  u64 *last_created_index)
 {
+	struct timerel so_far = timemono_since(td->refresh_start);
+	plugin_log(cmd->plugin, LOG_DBG,
+		   "Time to call %s: %"PRIu64".%09"PRIu64" seconds",
+		   td->cmdname,
+		   (u64)so_far.ts.tv_sec, (u64)so_far.ts.tv_nsec);
+
 	return process_json_list(cmd, buf,
 				 json_get_member(buf, result, td->arrname),
 				 NULL, td, last_created_index);
@@ -1147,6 +1169,7 @@ static struct command_result *refresh_tables(struct command *cmd,
 
 	dbq->last_created_index = &dbq->tables[0]->last_created_index;
 	td->refreshing = true;
+	td->refresh_start = time_mono();
 	return td->refresh(cmd, dbq->tables[0], dbq);
 }
 
