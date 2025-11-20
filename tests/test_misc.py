@@ -2903,6 +2903,12 @@ def test_sendcustommsg(node_factory):
             msg=msg, peer_id=l2.info['id']),
     ])
 
+    # custommessage_b plugin only registers for 0xaaff msgs, so it won't see this one:
+    msg2 = 'aa' + ('fd' * 30) + 'bb'
+    l2.rpc.sendcustommsg(l4.info['id'], msg2)
+    l4.daemon.wait_for_log(f'Got custommessage_a {msg2} from peer')
+    assert not l4.daemon.is_in_log(f'Got custommessage_b {msg2} from peer')
+
 
 def test_custommsg_triggers_notification(node_factory):
     """Check that a notification is triggered when a node receives

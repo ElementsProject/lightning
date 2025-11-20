@@ -375,11 +375,11 @@ static void custommsg_payload_serialize(struct custommsg_payload *payload,
 	json_add_node_id(stream, "peer_id", &payload->peer_id);
 }
 
-REGISTER_PLUGIN_HOOK(custommsg,
-		     custommsg_cb,
-		     custommsg_final,
-		     custommsg_payload_serialize,
-		     struct custommsg_payload *);
+REGISTER_PLUGIN_HOOK_INTFILTER(custommsg,
+			       custommsg_cb,
+			       custommsg_final,
+			       custommsg_payload_serialize,
+			       struct custommsg_payload *);
 
 static void handle_custommsg_in(struct lightningd *ld, const u8 *msg)
 {
@@ -393,7 +393,7 @@ static void handle_custommsg_in(struct lightningd *ld, const u8 *msg)
 	}
 
 	notify_custommsg(ld, &p->peer_id, p->msg);
-	plugin_hook_call_custommsg(ld, NULL, p);
+	plugin_hook_call_custommsg(ld, fromwire_peektype(p->msg), NULL, p);
 }
 
 static void handle_onionmsg_forward_fail(struct lightningd *ld, const u8 *msg)
