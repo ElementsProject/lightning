@@ -182,6 +182,8 @@ pub enum Request {
 	AskReneUpdateChannel(requests::AskreneupdatechannelRequest),
 	#[serde(rename = "askrene-bias-channel")]
 	AskReneBiasChannel(requests::AskrenebiaschannelRequest),
+	#[serde(rename = "askrene-bias-node")]
+	AskreneBiasNode(requests::AskrenebiasnodeRequest),
 	#[serde(rename = "askrene-listreservations")]
 	AskReneListReservations(requests::AskrenelistreservationsRequest),
 	InjectPaymentOnion(requests::InjectpaymentonionRequest),
@@ -190,6 +192,7 @@ pub enum Request {
 	SignMessageWithKey(requests::SignmessagewithkeyRequest),
 	ListChannelMoves(requests::ListchannelmovesRequest),
 	ListChainMoves(requests::ListchainmovesRequest),
+	ListNetworkEvents(requests::ListnetworkeventsRequest),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -362,6 +365,8 @@ pub enum Response {
 	AskReneUpdateChannel(responses::AskreneupdatechannelResponse),
 	#[serde(rename = "askrene-bias-channel")]
 	AskReneBiasChannel(responses::AskrenebiaschannelResponse),
+	#[serde(rename = "askrene-bias-node")]
+	AskreneBiasNode(responses::AskrenebiasnodeResponse),
 	#[serde(rename = "askrene-listreservations")]
 	AskReneListReservations(responses::AskrenelistreservationsResponse),
 	InjectPaymentOnion(responses::InjectpaymentonionResponse),
@@ -370,6 +375,7 @@ pub enum Response {
 	SignMessageWithKey(responses::SignmessagewithkeyResponse),
 	ListChannelMoves(responses::ListchannelmovesResponse),
 	ListChainMoves(responses::ListchainmovesResponse),
+	ListNetworkEvents(responses::ListnetworkeventsResponse),
 }
 
 
@@ -4712,6 +4718,35 @@ pub mod requests {
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskrenebiasnodeRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub description: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub relative: Option<bool>,
+	    pub bias: i64,
+	    pub direction: String,
+	    pub layer: String,
+	    pub node: PublicKey,
+	}
+
+	impl From<AskrenebiasnodeRequest> for Request {
+	    fn from(r: AskrenebiasnodeRequest) -> Self {
+	        Request::AskreneBiasNode(r)
+	    }
+	}
+
+	impl IntoRequest for AskrenebiasnodeRequest {
+	    type Response = super::responses::AskrenebiasnodeResponse;
+	}
+
+	impl TypedRequest for AskrenebiasnodeRequest {
+	    type Response = super::responses::AskrenebiasnodeResponse;
+
+	    fn method(&self) -> &str {
+	        "askrene-bias-node"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct AskrenelistreservationsRequest {
 	}
 
@@ -4951,6 +4986,61 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "listchainmoves"
+	    }
+	}
+	/// ['This controls the ordering of results.']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	#[allow(non_camel_case_types)]
+	pub enum ListnetworkeventsIndex {
+	    #[serde(rename = "created")]
+	    CREATED = 0,
+	}
+
+	impl TryFrom<i32> for ListnetworkeventsIndex {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<ListnetworkeventsIndex, anyhow::Error> {
+	        match c {
+	    0 => Ok(ListnetworkeventsIndex::CREATED),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ListnetworkeventsIndex", o)),
+	        }
+	    }
+	}
+
+	impl ToString for ListnetworkeventsIndex {
+	    fn to_string(&self) -> String {
+	        match self {
+	            ListnetworkeventsIndex::CREATED => "CREATED",
+	        }.to_string()
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListnetworkeventsRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub id: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub index: Option<ListnetworkeventsIndex>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub limit: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub start: Option<u64>,
+	}
+
+	impl From<ListnetworkeventsRequest> for Request {
+	    fn from(r: ListnetworkeventsRequest) -> Self {
+	        Request::ListNetworkEvents(r)
+	    }
+	}
+
+	impl IntoRequest for ListnetworkeventsRequest {
+	    type Response = super::responses::ListnetworkeventsResponse;
+	}
+
+	impl TypedRequest for ListnetworkeventsRequest {
+	    type Response = super::responses::ListnetworkeventsResponse;
+
+	    fn method(&self) -> &str {
+	        "listnetworkevents"
 	    }
 	}
 }
@@ -12036,6 +12126,33 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskrenebiasnodeNodeBiases {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub description: Option<String>,
+	    pub in_bias: i64,
+	    pub layer: String,
+	    pub node: PublicKey,
+	    pub out_bias: i64,
+	    pub timestamp: u64,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskrenebiasnodeResponse {
+	    pub node_biases: Vec<AskrenebiasnodeNodeBiases>,
+	}
+
+	impl TryFrom<Response> for AskrenebiasnodeResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::AskreneBiasNode(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct AskrenelistreservationsReservations {
 	    pub age_in_seconds: u64,
 	    pub amount_msat: Amount,
@@ -12338,6 +12455,36 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::ListChainMoves(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListnetworkeventsNetworkevents {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub connect_attempted: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub duration_nsec: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub reason: Option<String>,
+	    pub created_index: u64,
+	    pub item_type: String,
+	    pub peer_id: PublicKey,
+	    pub timestamp: u64,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListnetworkeventsResponse {
+	    pub networkevents: Vec<ListnetworkeventsNetworkevents>,
+	}
+
+	impl TryFrom<Response> for ListnetworkeventsResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::ListNetworkEvents(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

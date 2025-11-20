@@ -141,7 +141,7 @@ grpc_method_names = [
     "AskRene-Create-Channel",
     "AskRene-Update-Channel",
     "AskRene-Bias-Channel",
-    # "Askrene-Bias-Node",
+    "Askrene-Bias-Node",
     "AskRene-ListReservations",
     "InjectPaymentOnion",
     "InjectOnionMessage",
@@ -149,7 +149,7 @@ grpc_method_names = [
     "SignMessageWithKey",
     "ListChannelMoves",
     "ListChainMoves",
-    # "ListNetworkEvents",
+    "ListNetworkEvents",
     # "DelNetworkEvent",
 ]
 

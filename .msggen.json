@@ -267,6 +267,9 @@
             "paid": 1,
             "unpaid": 0
         },
+        "ListnetworkeventsIndex": {
+            "created": 0
+        },
         "ListnodesNodesAddressesType": {
             "dns": 0,
             "ipv4": 1,
@@ -646,6 +649,25 @@
         },
         "Askrene-bias-channelResponse": {
             "AskRene-Bias-Channel.biases[]": 1
+        },
+        "Askrene-bias-nodeNodeBiases": {
+            "Askrene-Bias-Node.node_biases[].description": 5,
+            "Askrene-Bias-Node.node_biases[].in_bias": 3,
+            "Askrene-Bias-Node.node_biases[].layer": 1,
+            "Askrene-Bias-Node.node_biases[].node": 2,
+            "Askrene-Bias-Node.node_biases[].out_bias": 4,
+            "Askrene-Bias-Node.node_biases[].timestamp": 6
+        },
+        "Askrene-bias-nodeRequest": {
+            "Askrene-Bias-Node.bias": 4,
+            "Askrene-Bias-Node.description": 5,
+            "Askrene-Bias-Node.direction": 3,
+            "Askrene-Bias-Node.layer": 1,
+            "Askrene-Bias-Node.node": 2,
+            "Askrene-Bias-Node.relative": 6
+        },
+        "Askrene-bias-nodeResponse": {
+            "Askrene-Bias-Node.node_biases[]": 1
         },
         "Askrene-create-channelRequest": {
             "AskRene-Create-Channel.base_fee": 8,
@@ -2785,6 +2807,24 @@
         "ListinvoicesResponse": {
             "ListInvoices.invoices[]": 1
         },
+        "ListnetworkeventsNetworkevents": {
+            "ListNetworkEvents.networkevents[].connect_attempted": 7,
+            "ListNetworkEvents.networkevents[].created_index": 1,
+            "ListNetworkEvents.networkevents[].duration_nsec": 6,
+            "ListNetworkEvents.networkevents[].peer_id": 3,
+            "ListNetworkEvents.networkevents[].reason": 5,
+            "ListNetworkEvents.networkevents[].timestamp": 2,
+            "ListNetworkEvents.networkevents[].type": 4
+        },
+        "ListnetworkeventsRequest": {
+            "ListNetworkEvents.id": 1,
+            "ListNetworkEvents.index": 2,
+            "ListNetworkEvents.limit": 4,
+            "ListNetworkEvents.start": 3
+        },
+        "ListnetworkeventsResponse": {
+            "ListNetworkEvents.networkevents[]": 1
+        },
         "ListnodesNodes": {
             "ListNodes.nodes[].addresses[]": 6,
             "ListNodes.nodes[].alias": 3,
@@ -4719,6 +4759,62 @@
         },
         "AskRene-Update-Channel.short_channel_id_dir": {
             "added": "v24.11",
+            "deprecated": null
+        },
+        "Askrene-Bias-Node": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "Askrene-Bias-Node.bias": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "Askrene-Bias-Node.description": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "Askrene-Bias-Node.direction": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "Askrene-Bias-Node.layer": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "Askrene-Bias-Node.node": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "Askrene-Bias-Node.node_biases[]": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "Askrene-Bias-Node.node_biases[].description": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "Askrene-Bias-Node.node_biases[].in_bias": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "Askrene-Bias-Node.node_biases[].layer": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "Askrene-Bias-Node.node_biases[].node": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "Askrene-Bias-Node.node_biases[].out_bias": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "Askrene-Bias-Node.node_biases[].timestamp": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "Askrene-Bias-Node.relative": {
+            "added": "v25.12",
             "deprecated": null
         },
         "AutoClean-Once": {
@@ -10307,6 +10403,58 @@
         },
         "ListInvoices.start": {
             "added": "v23.08",
+            "deprecated": null
+        },
+        "ListNetworkEvents": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "ListNetworkEvents.id": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "ListNetworkEvents.index": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "ListNetworkEvents.limit": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "ListNetworkEvents.networkevents[]": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "ListNetworkEvents.networkevents[].connect_attempted": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "ListNetworkEvents.networkevents[].created_index": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "ListNetworkEvents.networkevents[].duration_nsec": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "ListNetworkEvents.networkevents[].peer_id": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "ListNetworkEvents.networkevents[].reason": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "ListNetworkEvents.networkevents[].timestamp": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "ListNetworkEvents.networkevents[].type": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "ListNetworkEvents.start": {
+            "added": "v25.12",
             "deprecated": null
         },
         "ListNodes": {

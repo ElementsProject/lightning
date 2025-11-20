@@ -140,6 +140,7 @@ service Node {
 	rpc AskReneCreateChannel(AskrenecreatechannelRequest) returns (AskrenecreatechannelResponse) {}
 	rpc AskReneUpdateChannel(AskreneupdatechannelRequest) returns (AskreneupdatechannelResponse) {}
 	rpc AskReneBiasChannel(AskrenebiaschannelRequest) returns (AskrenebiaschannelResponse) {}
+	rpc AskreneBiasNode(AskrenebiasnodeRequest) returns (AskrenebiasnodeResponse) {}
 	rpc AskReneListReservations(AskrenelistreservationsRequest) returns (AskrenelistreservationsResponse) {}
 	rpc InjectPaymentOnion(InjectpaymentonionRequest) returns (InjectpaymentonionResponse) {}
 	rpc InjectOnionMessage(InjectonionmessageRequest) returns (InjectonionmessageResponse) {}
@@ -147,6 +148,7 @@ service Node {
 	rpc SignMessageWithKey(SignmessagewithkeyRequest) returns (SignmessagewithkeyResponse) {}
 	rpc ListChannelMoves(ListchannelmovesRequest) returns (ListchannelmovesResponse) {}
 	rpc ListChainMoves(ListchainmovesRequest) returns (ListchainmovesResponse) {}
+	rpc ListNetworkEvents(ListnetworkeventsRequest) returns (ListnetworkeventsResponse) {}
 
 	rpc SubscribeBlockAdded(StreamBlockAddedRequest) returns (stream BlockAddedNotification) {}
 	rpc SubscribeChannelOpenFailed(StreamChannelOpenFailedRequest) returns (stream ChannelOpenFailedNotification) {}
@@ -4093,6 +4095,28 @@ message AskrenebiaschannelBiases {
 	optional uint64 timestamp = 5;
 }
 
+message AskrenebiasnodeRequest {
+	string layer = 1;
+	bytes node = 2;
+	string direction = 3;
+	sint64 bias = 4;
+	optional string description = 5;
+	optional bool relative = 6;
+}
+
+message AskrenebiasnodeResponse {
+	repeated AskrenebiasnodeNodeBiases node_biases = 1;
+}
+
+message AskrenebiasnodeNodeBiases {
+	string layer = 1;
+	bytes node = 2;
+	sint64 in_bias = 3;
+	sint64 out_bias = 4;
+	optional string description = 5;
+	uint64 timestamp = 6;
+}
+
 message AskrenelistreservationsRequest {
 }
 
@@ -4251,6 +4275,31 @@ message ListchainmovesChainmoves {
 	optional uint32 output_count = 14;
 	uint32 blockheight = 15;
 	repeated string extra_tags = 16;
+}
+
+message ListnetworkeventsRequest {
+	// ListNetworkEvents.index
+	enum ListnetworkeventsIndex {
+		CREATED = 0;
+	}
+	optional string id = 1;
+	optional ListnetworkeventsIndex index = 2;
+	optional uint64 start = 3;
+	optional uint32 limit = 4;
+}
+
+message ListnetworkeventsResponse {
+	repeated ListnetworkeventsNetworkevents networkevents = 1;
+}
+
+message ListnetworkeventsNetworkevents {
+	uint64 created_index = 1;
+	uint64 timestamp = 2;
+	bytes peer_id = 3;
+	string item_type = 4;
+	optional string reason = 5;
+	optional uint64 duration_nsec = 6;
+	optional bool connect_attempted = 7;
 }
 
 message StreamBlockAddedRequest {

@@ -3241,6 +3241,23 @@ def askrene_bias_channel2py(m):
     })
 
 
+def askrene_bias_node_node_biases2py(m):
+    return remove_default({
+        "description": m.description,  # PrimitiveField in generate_composite
+        "in_bias": m.in_bias,  # PrimitiveField in generate_composite
+        "layer": m.layer,  # PrimitiveField in generate_composite
+        "node": hexlify(m.node),  # PrimitiveField in generate_composite
+        "out_bias": m.out_bias,  # PrimitiveField in generate_composite
+        "timestamp": m.timestamp,  # PrimitiveField in generate_composite
+    })
+
+
+def askrene_bias_node2py(m):
+    return remove_default({
+        "node_biases": [askrene_bias_node_node_biases2py(i) for i in m.node_biases],  # ArrayField[composite] in generate_composite
+    })
+
+
 def askrene_listreservations_reservations2py(m):
     return remove_default({
         "age_in_seconds": m.age_in_seconds,  # PrimitiveField in generate_composite
@@ -3333,6 +3350,24 @@ def listchainmoves_chainmoves2py(m):
 def listchainmoves2py(m):
     return remove_default({
         "chainmoves": [listchainmoves_chainmoves2py(i) for i in m.chainmoves],  # ArrayField[composite] in generate_composite
+    })
+
+
+def listnetworkevents_networkevents2py(m):
+    return remove_default({
+        "connect_attempted": m.connect_attempted,  # PrimitiveField in generate_composite
+        "created_index": m.created_index,  # PrimitiveField in generate_composite
+        "duration_nsec": m.duration_nsec,  # PrimitiveField in generate_composite
+        "peer_id": hexlify(m.peer_id),  # PrimitiveField in generate_composite
+        "reason": m.reason,  # PrimitiveField in generate_composite
+        "timestamp": m.timestamp,  # PrimitiveField in generate_composite
+        "item_type": m.type,  # PrimitiveField in generate_composite
+    })
+
+
+def listnetworkevents2py(m):
+    return remove_default({
+        "networkevents": [listnetworkevents_networkevents2py(i) for i in m.networkevents],  # ArrayField[composite] in generate_composite
     })
 
 

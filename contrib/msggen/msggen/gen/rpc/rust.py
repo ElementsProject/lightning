@@ -211,9 +211,9 @@ def gen_primitive(p):
         defi += "    #[deprecated]\n"
     defi += rename_if_necessary(org, p.name.name)
     if not p.optional:
-        defi += f"    pub {p.name}: {typename},\n"
+        defi += f"    pub {p.name.normalized()}: {typename},\n"
     else:
-        defi += f'    #[serde(skip_serializing_if = "Option::is_none")]\n    pub {p.name}: Option<{typename}>,\n'
+        defi += f'    #[serde(skip_serializing_if = "Option::is_none")]\n    pub {p.name.normalized()}: Option<{typename}>,\n'
 
     return defi, decl
 

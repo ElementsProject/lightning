@@ -4306,6 +4306,38 @@ impl Node for Server
 
     }
 
+    async fn askrene_bias_node(
+        &self,
+        request: tonic::Request<pb::AskrenebiasnodeRequest>,
+    ) -> Result<tonic::Response<pb::AskrenebiasnodeResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::AskrenebiasnodeRequest = req.into();
+        debug!("Client asked for askrene_bias_node");
+        trace!("askrene_bias_node request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::AskreneBiasNode(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method AskreneBiasNode: {:?}", e)))?;
+        match result {
+            Response::AskreneBiasNode(r) => {
+               trace!("askrene_bias_node response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call AskreneBiasNode",
+                    r
+                )
+            )),
+        }
+
+    }
+
     async fn ask_rene_list_reservations(
         &self,
         request: tonic::Request<pb::AskrenelistreservationsRequest>,
@@ -4523,6 +4555,38 @@ impl Node for Server
                 Code::Internal,
                 format!(
                     "Unexpected result {:?} to method call ListChainMoves",
+                    r
+                )
+            )),
+        }
+
+    }
+
+    async fn list_network_events(
+        &self,
+        request: tonic::Request<pb::ListnetworkeventsRequest>,
+    ) -> Result<tonic::Response<pb::ListnetworkeventsResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::ListnetworkeventsRequest = req.into();
+        debug!("Client asked for list_network_events");
+        trace!("list_network_events request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::ListNetworkEvents(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method ListNetworkEvents: {:?}", e)))?;
+        match result {
+            Response::ListNetworkEvents(r) => {
+               trace!("list_network_events response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call ListNetworkEvents",
                     r
                 )
             )),
