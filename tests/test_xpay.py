@@ -387,7 +387,13 @@ def test_xpay_takeover(node_factory, executor):
     # Simple bolt11/bolt12 payment.
     inv = l3.rpc.invoice(100000, "test_xpay_takeover1", "test_xpay_takeover1")['bolt11']
     l1.rpc.pay(inv)
+    l1.daemon.wait_for_log('Calling rpc_command hook of plugin cln-xpay')
     l1.daemon.wait_for_log('Redirecting pay->xpay')
+
+    # Quickly test that xpay does NOT receive other commands now.
+    l1.rpc.help()
+    assert not l1.daemon.is_in_log('Calling rpc_command hook of plugin cln-xpay',
+                                   start=l1.daemon.logsearch_start)
 
     # Array version
     inv = l3.rpc.invoice(100000, "test_xpay_takeover2", "test_xpay_takeover2")['bolt11']
