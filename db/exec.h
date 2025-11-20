@@ -41,6 +41,11 @@ void db_begin_transaction_(struct db *db, const char *location);
 bool db_in_transaction(struct db *db);
 
 /**
+ * db_need_transaction: we now need to actually enable the transaction, if not
+ * already. */
+void db_need_transaction(struct db *db, const char *location);
+
+/**
  * db_commit_transaction - Commit a running transaction
  *
  * Requires that we are currently in a transaction.  fatal() if we

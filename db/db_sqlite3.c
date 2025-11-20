@@ -474,12 +474,14 @@ static char **prepare_table_manip(const tal_t *ctx,
 
 	/* But core insists we're "in a transaction" for all ops, so fake it */
 	db->in_transaction = "Not really";
+	db->transaction_started = true;
 	/* Turn off foreign keys first. */
 	db_prepare_for_changes(db);
 	db_exec_prepared_v2(take(db_prepare_untranslated(db,
 							 "PRAGMA foreign_keys = OFF;")));
 	db_report_changes(db, NULL, 0);
 	db->in_transaction = NULL;
+	db->transaction_started = false;
 
 	db_begin_transaction(db);
 	cmd = tal_fmt(tmpctx, "ALTER TABLE %s RENAME TO temp_%s;",
@@ -525,11 +527,13 @@ static bool complete_table_manip(struct db *db,
 
 	/* Allow links between them (esp. cascade deletes!) */
 	db->in_transaction = "Not really";
+	db->transaction_started = true;
 	db_prepare_for_changes(db);
 	db_exec_prepared_v2(take(db_prepare_untranslated(db,
 					       "PRAGMA foreign_keys = ON;")));
 	db_report_changes(db, NULL, 0);
 	db->in_transaction = NULL;
+	db->transaction_started = false;
 
 	/* migrations are performed inside transactions, so start one. */
 	db_begin_transaction(db);

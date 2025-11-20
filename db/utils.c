@@ -3,6 +3,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/trace.h>
 #include <db/common.h>
+#include <db/exec.h>
 #include <db/utils.h>
 
 /* Matches the hash function used in devtools/sql-rewrite.py */
@@ -143,6 +144,7 @@ bool db_query_prepared_canfail(struct db_stmt *stmt)
 	assert(stmt->query->readonly);
 	trace_span_start("db_query_prepared", stmt);
 	trace_span_tag(stmt, "query", stmt->query->query);
+	db_need_transaction(stmt->db, stmt->query->query);
 	ret = stmt->db->config->query_fn(stmt);
 	stmt->executed = true;
 	list_del_from(&stmt->db->pending_statements, &stmt->list);
@@ -174,9 +176,12 @@ bool db_step(struct db_stmt *stmt)
 
 void db_exec_prepared_v2(struct db_stmt *stmt TAKES)
 {
+	bool ret;
+
+	db_need_transaction(stmt->db, stmt->query->query);
 	trace_span_start("db_exec_prepared", stmt);
 	trace_span_tag(stmt, "query", stmt->query->query);
-	bool ret = stmt->db->config->exec_fn(stmt);
+	ret = stmt->db->config->exec_fn(stmt);
 	trace_span_end(stmt);
 
 	if (stmt->db->readonly)
@@ -358,6 +363,7 @@ struct db *db_open_(const tal_t *ctx, const char *filename,
 		db_fatal(db, "Unable to find DB queries for %s", db->config->name);
 
 	db->in_transaction = NULL;
+	db->transaction_started = false;
 	db->changes = NULL;
 
 	/* This must be outside a transaction, so catch it */
