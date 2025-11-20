@@ -9,6 +9,7 @@
 # include <external/jsmn/jsmn.h>
 
 #include <bitcoin/short_channel_id.h>
+#include <ccan/list/list.h>
 #include <ccan/time/time.h>
 #include <common/amount.h>
 #include <common/jsonrpc_errors.h>
@@ -36,6 +37,8 @@ struct wireaddr;
 struct wireaddr_internal;
 
 struct json_stream {
+	struct list_node list;
+
 	struct json_out *jout;
 
 	/* Who is writing to this buffer now; NULL if nobody is. */

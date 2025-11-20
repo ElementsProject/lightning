@@ -78,10 +78,9 @@ struct plugin {
 	/* Stuff we read */
 	struct jsonrpc_io *json_in;
 
-	/* Our json_streams. Since multiple streams could start
-	 * returning data at once, we always service these in order,
-	 * freeing once empty. */
-	struct json_stream **js_arr;
+	/* Our plugin_jstream_out list. Since multiple streams could start
+	 * returning data at once, we always service these in order. */
+	struct list_head jsouts;
 
 	struct logger *log;
 
