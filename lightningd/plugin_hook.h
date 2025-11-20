@@ -50,6 +50,13 @@ struct plugin_hook {
 	/* Which plugins have registered this hook? This is a `tal_arr`
 	 * initialized at creation. */
 	struct hook_instance **hooks;
+
+	/* Reference count for using the hook right now */
+	size_t num_users;
+
+	/* If someone was using the hooks while we were trying to update,
+	 * we put the hook here for later use. */
+	struct hook_instance **new_hooks;
 };
 AUTODATA_TYPE(hooks, struct plugin_hook);
 
@@ -60,7 +67,7 @@ AUTODATA_TYPE(hooks, struct plugin_hook);
  * still waiting on a plugin response.
  */
 bool plugin_hook_call_(struct lightningd *ld,
-		       const struct plugin_hook *hook,
+		       struct plugin_hook *hook,
 		       const char *cmd_id TAKES,
 		       tal_t *cb_arg STEALS);
 

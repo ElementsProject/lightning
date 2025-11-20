@@ -163,7 +163,7 @@ void onchaind_replay_channels(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "onchaind_replay_channels called!\n"); abort(); }
 /* Generated stub for plugin_hook_call_ */
 bool plugin_hook_call_(struct lightningd *ld UNNEEDED,
-		       const struct plugin_hook *hook UNNEEDED,
+		       struct plugin_hook *hook UNNEEDED,
 		       const char *cmd_id TAKES UNNEEDED,
 		       tal_t *cb_arg STEALS UNNEEDED)
 { fprintf(stderr, "plugin_hook_call_ called!\n"); abort(); }

@@ -9,7 +9,7 @@
  * dispatch an eventual plugin_hook response. */
 struct plugin_hook_request {
 	const char *cmd_id;
-	const struct plugin_hook *hook;
+	struct plugin_hook *hook;
 	void *cb_arg;
 	/* db_hook doesn't have ld yet */
 	struct db *db;
@@ -49,16 +49,27 @@ static struct plugin_hook *plugin_hook_by_name(const char *name)
 }
 
 /* When we destroy a plugin, we NULL out any hooks it registered */
-static void destroy_hook_instance(struct hook_instance *h,
-				  struct plugin_hook *hook)
+static void remove_hook_instance(const struct hook_instance *h,
+				 struct hook_instance **hookarr)
 {
-	for (size_t i = 0; i < tal_count(hook->hooks); i++) {
-		if (h == hook->hooks[i]) {
-			hook->hooks[i] = NULL;
+	for (size_t i = 0; i < tal_count(hookarr); i++) {
+		if (h == hookarr[i]) {
+			hookarr[i] = NULL;
 			return;
 		}
 	}
 	abort();
+}
+
+static void destroy_hook_instance(struct hook_instance *h,
+				  struct plugin_hook *hook)
+{
+	/* NULL it out. */
+	remove_hook_instance(h, hook->hooks);
+
+	/* If there's a pending set of hooks, remove ourselves there too! */
+	if (hook->new_hooks)
+		remove_hook_instance(h, hook->new_hooks);
 }
 
 struct plugin_hook *plugin_hook_register(struct plugin *plugin, const char *method)
@@ -71,8 +82,11 @@ struct plugin_hook *plugin_hook_register(struct plugin *plugin, const char *meth
 	}
 
 	/* Make sure the hook_elements array is initialized. */
-	if (hook->hooks == NULL)
+	if (hook->hooks == NULL) {
 		hook->hooks = notleak(tal_arr(NULL, struct hook_instance *, 0));
+		hook->new_hooks = NULL;
+		hook->num_users = 0;
+	}
 
 	/* Ensure we don't register the same plugin multple times. */
 	for (size_t i=0; i<tal_count(hook->hooks); i++) {
@@ -105,6 +119,31 @@ bool plugin_hook_continue(void *unused, const char *buffer, const jsmntok_t *tok
 	const jsmntok_t *resrestok = json_get_member(buffer, toks, "result");
 	return resrestok && json_tok_streq(buffer, resrestok, "continue");
 }
+
+static void hook_start(struct plugin_hook *hook)
+{
+	hook->num_users++;
+}
+
+static void hook_done(struct lightningd *ld,
+		      struct plugin_hook *hook,
+		      void *cb_arg)
+{
+	/* If we're the last one out, we can update hooks */
+	if (--hook->num_users == 0) {
+		if (hook->new_hooks) {
+			log_debug(ld->log, "Updating hooks for %s now usage is done.",
+				  hook->name);
+			/* Free this later (after final_cb) if not already done */
+			tal_steal(tmpctx, hook->hooks);
+			hook->hooks = hook->new_hooks;
+			hook->new_hooks = NULL;
+		}
+	}
+
+	hook->final_cb(cb_arg);
+}
+
 
 /**
  * Callback to be passed to the jsonrpc_request.
@@ -171,7 +210,7 @@ static void plugin_hook_call_next(struct plugin_hook_request *ph_req)
 	do {
 		ph_req->hook_index++;
 		if (ph_req->hook_index >= tal_count(hook->hooks)) {
-			ph_req->hook->final_cb(ph_req->cb_arg);
+			hook_done(ph_req->ld, ph_req->hook, ph_req->cb_arg);
 			tal_free(ph_req);
 			return;
 		}
@@ -195,10 +234,11 @@ static void plugin_hook_call_next(struct plugin_hook_request *ph_req)
 	plugin_request_send(plugin, req);
 }
 
-bool plugin_hook_call_(struct lightningd *ld, const struct plugin_hook *hook,
+bool plugin_hook_call_(struct lightningd *ld, struct plugin_hook *hook,
 		       const char *cmd_id TAKES,
 		       tal_t *cb_arg STEALS)
 {
+	hook_start(hook);
 	if (tal_count(hook->hooks)) {
 		/* If we have a plugin that has registered for this
 		 * hook, serialize and call it */
@@ -222,7 +262,7 @@ bool plugin_hook_call_(struct lightningd *ld, const struct plugin_hook *hook,
 		 * roundtrip to the serializer and deserializer. If we
 		 * were expecting a default response it should have
 		 * been part of the `cb_arg`. */
-		hook->final_cb(cb_arg);
+		hook_done(ld, hook, cb_arg);
 		return true;
 	}
 }
@@ -285,7 +325,7 @@ static void db_hook_response(const char *buffer, const jsmntok_t *toks,
 
 void plugin_hook_db_sync(struct db *db)
 {
-	const struct plugin_hook *hook = &db_write_hook;
+	struct plugin_hook *hook = &db_write_hook;
 	struct jsonrpc_request *req;
 	struct plugin_hook_request *ph_req;
 	void *ret;
@@ -501,10 +541,17 @@ static struct plugin **plugin_hook_make_ordered(const tal_t *ctx,
 		return ret;
 	}
 
-	/* Success!  Replace with sorted hooks. */
-	tal_free(hook->hooks);
-	hook->hooks = notleak(tal_steal(NULL, done));
+	/* If we had previous update pending, this subsumes it */
+	tal_free(hook->new_hooks);
+	hook->new_hooks = notleak(tal_steal(NULL, done));
 
+	/* If nobody is using it now, we can just replace the hooks array.
+	 * Otherwise defer. */
+	if (hook->num_users == 0) {
+		tal_free(hook->hooks);
+		hook->hooks = hook->new_hooks;
+		hook->new_hooks = NULL;
+	}
 	return NULL;
 }
 

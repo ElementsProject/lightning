@@ -2610,6 +2610,38 @@ def test_htlc_accepted_hook_failonion(node_factory):
         l1.rpc.pay(inv)
 
 
+def test_hook_in_use(node_factory):
+    """If a hook is in use when we add a plugin to it, we have to defer"""
+    dep_a = os.path.join(os.path.dirname(__file__), 'plugins/dep_a.py')
+    dep_b = os.path.join(os.path.dirname(__file__), 'plugins/dep_b.py')
+
+    l1, l2 = node_factory.line_graph(2, opts=[{}, {'plugin': [dep_a]}])
+
+    NUM_ITERATIONS = 10
+
+    invs = [l2.rpc.invoice(1, f'test_hook_in_use{i}', 'test_hook_in_use') for i in range(NUM_ITERATIONS)]
+
+    route = [{'amount_msat': 1,
+              'id': l2.info['id'],
+              'delay': 20,
+              'channel': l1.get_channel_scid(l2)}]
+
+    for i in range(NUM_ITERATIONS):
+        l1.rpc.sendpay(route,
+                       amount_msat=1,
+                       payment_hash=invs[i]['payment_hash'],
+                       payment_secret=invs[i]['payment_secret'])
+        if i % 2 == 1:
+            l1.rpc.waitsendpay(payment_hash=invs[i - 1]['payment_hash'])
+            l1.rpc.waitsendpay(payment_hash=invs[i]['payment_hash'])
+        else:
+            l2.rpc.plugin_start(plugin=dep_b)
+            l2.rpc.plugin_stop(plugin=dep_b)
+
+    # We should have deferred hook update at least once!
+    l2.daemon.wait_for_log("Updating hooks for htlc_accepted now usage is done.")
+
+
 def test_htlc_accepted_hook_fwdto(node_factory):
     plugin = os.path.join(os.path.dirname(__file__), 'plugins/htlc_accepted-fwdto.py')
     l1, l2, l3 = node_factory.line_graph(3, opts=[{}, {'plugin': plugin}, {}], wait_for_announce=True)
