@@ -1006,7 +1006,8 @@ REGISTER_PLUGIN_HOOK_STRFILTER(rpc_command,
 static struct command_result *
 parse_request(struct json_connection *jcon,
 	      const char *buffer,
-	      const jsmntok_t tok[])
+	      const jsmntok_t tok[],
+	      const char **methodname)
 {
 	const jsmntok_t *method, *id, *params, *filter, *jsonrpc;
 	struct command *c;
@@ -1114,6 +1115,7 @@ parse_request(struct json_connection *jcon,
 	rpc_hook->custom_replace = NULL;
 	rpc_hook->custom_buffer = NULL;
 
+	*methodname = c->json_cmd->name;
 	trace_span_start("lightningd/jsonrpc", &c);
 	trace_span_tag(&c, "method", c->json_cmd->name);
 	/* They can filter by command name */
@@ -1183,6 +1185,7 @@ static struct io_plan *read_json(struct io_conn *conn,
 	const jsmntok_t *toks;
 	const char *buffer, *error;
 	size_t num_parsed = 0;
+	const char *last_method = NULL;
 
 	buffer = jsonrpc_newly_read(jcon->json_in, &len_read);
 	if (len_read)
@@ -1209,7 +1212,7 @@ again:
 		db_begin_transaction(jcon->ld->wallet->db);
 		in_transaction = true;
 	}
-	parse_request(jcon, buffer, toks);
+	parse_request(jcon, buffer, toks, &last_method);
 	jsonrpc_io_parse_done(jcon->json_in);
 
 	/* Don't ever process for more than 100 commands or 250 msec
@@ -1218,7 +1221,10 @@ again:
 	    || time_greater(timemono_between(time_mono(), start_time),
 			    time_from_msec(250))) {
 		db_commit_transaction(jcon->ld->wallet->db);
-		log_debug(jcon->log, "Pausing parsing after %zu requests", num_parsed);
+		log_debug(jcon->log, "Pausing parsing after %zu requests and %"PRIu64"msec (last method=%s)",
+			  num_parsed,
+			  time_to_msec(timemono_between(time_mono(), start_time)),
+			  last_method ? last_method : "NONE");
 		/* Call us back, as if we read nothing new */
 		return io_always(conn, read_json, jcon);
 	}
