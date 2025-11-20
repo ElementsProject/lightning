@@ -2500,10 +2500,13 @@ dont_redirect:
 	return command_hook_success(cmd);
 }
 
+static const char *cmd_hook_filters[] = {"pay"};
 static const struct plugin_hook hooks[] = {
 	{
-		"rpc_command",
-		handle_rpc_command,
+		.name = "rpc_command",
+		.handle = handle_rpc_command,
+		.strfilters = cmd_hook_filters,
+		.num_strfilters = ARRAY_SIZE(cmd_hook_filters),
 	},
 };
 
