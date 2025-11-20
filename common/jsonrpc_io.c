@@ -8,7 +8,7 @@
 #include <errno.h>
 #include <unistd.h>
 
-#define READ_CHUNKSIZE 2048
+#define READ_CHUNKSIZE (1024*1024)
 
 struct jsonrpc_io {
 	MEMBUF(char) membuf;
