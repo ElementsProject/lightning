@@ -351,8 +351,8 @@ fund_nodes() {
 
 		"$LCLI" -H --lightning-dir="$LIGHTNING_DIR"/l"$node1" connect "$L2_NODE_ID"@localhost:"$L2_NODE_PORT" > /dev/null
 
-		L1_WALLET_ADDR=$($LCLI -F --lightning-dir="$LIGHTNING_DIR"/l"$node1" newaddr | sed -n 's/^bech32=\(.*\)/\1/p')
-		L2_WALLET_ADDR=$($LCLI -F --lightning-dir="$LIGHTNING_DIR"/l"$node2" newaddr | sed -n 's/^bech32=\(.*\)/\1/p')
+		L1_WALLET_ADDR=$($LCLI -F --lightning-dir="$LIGHTNING_DIR"/l"$node1" newaddr | sed -n 's/^p2tr=\(.*\)/\1/p')
+		L2_WALLET_ADDR=$($LCLI -F --lightning-dir="$LIGHTNING_DIR"/l"$node2" newaddr | sed -n 's/^p2tr=\(.*\)/\1/p')
 
 		ensure_bitcoind_funds
 
