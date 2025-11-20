@@ -2639,7 +2639,8 @@ def test_hook_in_use(node_factory):
             l2.rpc.plugin_stop(plugin=dep_b)
 
     # We should have deferred hook update at least once!
-    l2.daemon.wait_for_log("Updating hooks for htlc_accepted now usage is done.")
+    l2.daemon.wait_for_log("UNUSUAL plugin-dep_b.py: Deferring registration of hook htlc_accepted until it's not in use.")
+    l2.daemon.wait_for_log("UNUSUAL lightningd: Updating hooks for htlc_accepted now usage is done.")
 
 
 def test_htlc_accepted_hook_fwdto(node_factory):
