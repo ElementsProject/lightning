@@ -1302,6 +1302,19 @@ handle_getmanifest(struct command *getmanifest_cmd,
 						p->hook_subs[i].after[j]);
 			json_array_end(params);
 		}
+		if (p->hook_subs[i].num_strfilters) {
+			json_array_start(params, "filters");
+			for (size_t j = 0; j < p->hook_subs[i].num_strfilters; j++)
+				json_add_string(params, NULL,
+						p->hook_subs[i].strfilters[j]);
+			json_array_end(params);
+		} else if (p->hook_subs[i].num_intfilters) {
+			json_array_start(params, "filters");
+			for (size_t j = 0; j < p->hook_subs[i].num_intfilters; j++)
+				json_add_u64(params, NULL,
+					     p->hook_subs[i].intfilters[j]);
+			json_array_end(params);
+		}
 		json_object_end(params);
 	}
 	json_array_end(params);
