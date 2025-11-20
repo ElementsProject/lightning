@@ -128,6 +128,7 @@ void plugin_hook_add_deps(struct plugin_hook *hook,
 			  const jsmntok_t *after);
 
 /* Returns array of plugins which cannot be ordered (empty on success) */
-struct plugin **plugin_hooks_make_ordered(const tal_t *ctx);
+struct plugin **plugin_hooks_make_ordered(const tal_t *ctx,
+					  struct logger *log);
 
 #endif /* LIGHTNING_LIGHTNINGD_PLUGIN_HOOK_H */

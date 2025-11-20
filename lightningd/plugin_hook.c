@@ -132,8 +132,8 @@ static void hook_done(struct lightningd *ld,
 	/* If we're the last one out, we can update hooks */
 	if (--hook->num_users == 0) {
 		if (hook->new_hooks) {
-			log_debug(ld->log, "Updating hooks for %s now usage is done.",
-				  hook->name);
+			log_unusual(ld->log, "Updating hooks for %s now usage is done.",
+				    hook->name);
 			/* Free this later (after final_cb) if not already done */
 			tal_steal(tmpctx, hook->hooks);
 			hook->hooks = hook->new_hooks;
@@ -472,6 +472,7 @@ static struct hook_node *get_best_candidate(struct hook_node *graph)
 }
 
 static struct plugin **plugin_hook_make_ordered(const tal_t *ctx,
+						struct logger *log,
 						struct plugin_hook *hook)
 {
 	struct hook_node *graph, *n;
@@ -551,7 +552,10 @@ static struct plugin **plugin_hook_make_ordered(const tal_t *ctx,
 		tal_free(hook->hooks);
 		hook->hooks = hook->new_hooks;
 		hook->new_hooks = NULL;
-	}
+	} else
+		/* If this ever live locks, we will see this in the log! */
+		log_unusual(log, "Deferring registration of hook %s until it's not in use.",
+			    hook->name);
 	return NULL;
 }
 
@@ -565,14 +569,15 @@ static void append_plugin_once(struct plugin ***ret, struct plugin *p)
 	tal_arr_expand(ret, p);
 }
 
-struct plugin **plugin_hooks_make_ordered(const tal_t *ctx)
+struct plugin **plugin_hooks_make_ordered(const tal_t *ctx,
+					  struct logger *log)
 {
 	size_t num_hooks;
 	struct plugin_hook **hooks = get_hooks(&num_hooks);
 	struct plugin **ret = tal_arr(ctx, struct plugin *, 0);
 
 	for (size_t i=0; i<num_hooks; i++) {
-		struct plugin **these = plugin_hook_make_ordered(ctx, hooks[i]);
+		struct plugin **these = plugin_hook_make_ordered(ctx, log, hooks[i]);
 		for (size_t j = 0; j < tal_count(these); j++)
 			append_plugin_once(&ret, these[j]);
 	}

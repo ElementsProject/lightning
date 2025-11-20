@@ -124,7 +124,8 @@ static bool plugins_all_in_state(const struct plugins *plugins,
 }
 
 /* Once they've all replied with their manifests, we can order them. */
-static void check_plugins_manifests(struct plugins *plugins)
+static void check_plugins_manifests(struct plugins *plugins,
+				    struct logger *log)
 {
 	struct plugin *plugin;
 	struct plugin **depfail;
@@ -133,7 +134,7 @@ static void check_plugins_manifests(struct plugins *plugins)
 		return;
 
 	/* Now things are settled, try to order hooks. */
-	depfail = plugin_hooks_make_ordered(tmpctx);
+	depfail = plugin_hooks_make_ordered(tmpctx, log);
 	for (size_t i = 0; i < tal_count(depfail); i++) {
 		/* Only complain and free plugins! */
 		if (depfail[i]->plugin_state != NEEDS_INIT)
@@ -284,7 +285,7 @@ static void destroy_plugin(struct plugin *p)
 
 	/* If this was last one manifests were waiting for, handle deps */
 	if (p->plugin_state == AWAITING_GETMANIFEST_RESPONSE)
-		check_plugins_manifests(p->plugins);
+		check_plugins_manifests(p->plugins, p->plugins->ld->log);
 
 	/* Daemon shutdown overrules plugin's importance; aborts init checks */
 	if (p->plugins->ld->state == LD_STATE_SHUTDOWN) {
@@ -1843,7 +1844,7 @@ static void plugin_manifest_cb(const char *buffer,
 		plugin_kill(plugin, LOG_INFORM,
 			    "Not a dynamic plugin");
 	else
-		check_plugins_manifests(plugin->plugins);
+		check_plugins_manifests(plugin->plugins, plugin->log);
 }
 
 /* If this is a valid plugin return full path name, otherwise NULL */
