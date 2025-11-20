@@ -234,6 +234,26 @@ static struct command_result *json_spamcommand(struct command *cmd,
 	return batch_done(cmd, batch);
 }
 
+static struct command_result *json_spamlistcommand(struct command *cmd,
+						   const char *buf,
+						   const jsmntok_t *params)
+{
+	u64 *iterations;
+	struct request_batch *batch;
+
+	if (!param(cmd, buf, params,
+		   p_req("iterations", param_u64, &iterations),
+		   NULL))
+		return command_param_failed();
+
+	batch = request_batch_new(cmd, NULL, spam_errcb, spam_done, NULL);
+	for (size_t i = 0; i < *iterations; i++) {
+		struct out_req *req = add_to_batch(cmd, batch, "listinvoices");
+		send_outreq(req);
+	}
+	return batch_done(cmd, batch);
+}
+
 
 static char *set_dynamic(struct plugin *plugin,
 			 const char *arg,
@@ -311,6 +331,10 @@ static const struct plugin_command commands[] = { {
 	{
 		"spamcommand",
 		json_spamcommand,
+	},
+	{
+		"spamlistcommand",
+		json_spamlistcommand,
 	},
 };
 
