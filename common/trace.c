@@ -1,7 +1,9 @@
 #include "config.h"
 #include <assert.h>
+#include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/endian/endian.h>
 #include <ccan/err/err.h>
+#include <ccan/htable/htable_type.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <common/json_stream.h>
@@ -67,7 +69,24 @@ struct span {
 	bool suspended;
 };
 
-static struct span *active_spans = NULL;
+static size_t span_keyof(const struct span *span)
+{
+	return span->key;
+}
+
+static size_t span_key_hash(size_t key)
+{
+	return siphash24(siphash_seed(), &key, sizeof(key));
+}
+
+static bool span_key_eq(const struct span *span, size_t key)
+{
+	return span->key == key;
+}
+HTABLE_DEFINE_NODUPS_TYPE(struct span, span_keyof, span_key_hash, span_key_eq,
+			  span_htable);
+
+static struct span_htable *spans = NULL;
 static struct span *current;
 
 static void init_span(struct span *s,
@@ -83,6 +102,8 @@ static void init_span(struct span *s,
 	s->parent = parent;
 	s->name = name;
 	s->suspended = false;
+	for (size_t i = 0; i < SPAN_MAX_TAGS; i++)
+		s->tags[i].name = NULL;
 
 	/* If this is a new root span we also need to associate a new
 	 * trace_id with it. */
@@ -93,6 +114,7 @@ static void init_span(struct span *s,
 		s->trace_id_hi = current->trace_id_hi;
 		s->trace_id_lo = current->trace_id_lo;
 	}
+	span_htable_add(spans, s);
 }
 
 /* FIXME: forward decls for minimal patch size */
@@ -118,7 +140,7 @@ static void trace_inject_traceparent(void)
 	current = trace_span_slot();
 	assert(current);
 
-	init_span(current, trace_key(&active_spans), "", NULL);
+	init_span(current, trace_key(&spans), "", NULL);
 	assert(current && !current->parent);
 
 	if (!hex_decode(traceparent + 3, 16, &trace_hi, sizeof(trace_hi))
@@ -135,58 +157,15 @@ static void trace_inject_traceparent(void)
 	}
 }
 
-#ifdef TRACE_DEBUG
-
-/** Quickly print out the entries in the `active_spans`. */
-static void trace_spans_print(void)
-{
-	for (size_t j = 0; j < tal_count(active_spans); j++) {
-		struct span *s = &active_spans[j], *parent = s->parent;
-		TRACE_DBG(" > %zu: %s (key=%zu, parent=%s, "
-			  "parent_key=%zu)\n",
-			  j, s->name, s->key, parent ? parent->name : "-",
-			  parent ? parent->key : 0);
-	}
-}
-
-/** Small helper to check for consistency in the linking. The idea is
- * that we should be able to reach the root (a span without a
- * `parent`) in less than the number of spans. */
-static void trace_check_tree(void)
-{
-	/* `current` is either NULL or a valid entry. */
-
-	/* Walk the tree structure from leaves to their roots. It
-	 * should not take more than the number of spans. */
-	struct span *c;
-	for (size_t i = 0; i < tal_count(active_spans); i++) {
-		c = &active_spans[i];
-		for (int j = 0; j < tal_count(active_spans); j++)
-			if (c->parent == NULL)
-				break;
-			else
-				c = c->parent;
-		if (c->parent != NULL) {
-			TRACE_DBG("Cycle in the trace tree structure!\n");
-			trace_spans_print();
-			abort();
-		}
-
-		assert(c->parent == NULL);
-	}
-}
-#else
-static inline void trace_check_tree(void) {}
-#endif
-
 static void trace_init(void)
 {
 	const char *dev_trace_file;
 
-	if (active_spans)
+	if (spans)
 		return;
 
-	active_spans = notleak(tal_arrz(NULL, struct span, 1));
+	spans = notleak_with_children(tal(NULL, struct span_htable));
+	span_htable_init(spans);
 
 	current = NULL;
 	dev_trace_file = getenv("CLN_DEV_TRACE_FILE");
@@ -210,14 +189,7 @@ static size_t trace_key(const void *key)
 
 static struct span *trace_span_find(size_t key)
 {
-	for (size_t i = 0; i < tal_count(active_spans); i++)
-		if (active_spans[i].key == key)
-			return &active_spans[i];
-
-	/* Return NULL to signal that there is no such span yet. Used
-	 * to check for accidental collisions that'd reuse the span
-	 * `key`. */
-	return NULL;
+	return span_htable_get(spans, key);
 }
 
 /**
@@ -225,44 +197,8 @@ static struct span *trace_span_find(size_t key)
  */
 static struct span *trace_span_slot(void)
 {
-	/* Empty slots are defined as having `key=NULL`, so search for
-	 * that, and we should get an empty slot. */
-	struct span *s = trace_span_find(0);
-
-	/* In the unlikely case this fails, double it */
-	if (!s) {
-		/* Adjust current and parents when we reallocate! */
-		size_t num_active = tal_count(active_spans);
-		size_t current_off COMPILER_WANTS_INIT("11.4.0-1ubuntu1~22.04 -03");
-		size_t parent_off[num_active];
-		if (current)
-			current_off = current - active_spans;
-		for (size_t i = 0; i < num_active; i++) {
-			if (!active_spans[i].parent)
-				continue;
-			parent_off[i] = active_spans[i].parent - active_spans;
-		}
-		TRACE_DBG("%u: out of %zu spans, doubling!\n",
-			  getpid(), tal_count(active_spans));
-		tal_resizez(&active_spans, tal_count(active_spans) * 2);
-		s = trace_span_find(0);
-		if (current)
-			current = active_spans + current_off;
-		for (size_t i = 0; i < num_active; i++) {
-			if (!active_spans[i].parent)
-				continue;
-			active_spans[i].parent = active_spans + parent_off[i];
-		}
-	}
-	assert(s->parent == NULL);
-
-	/* Be extra careful not to create cycles. If we return the
-	 * position that is pointed at by current then we can only
-	 * stub the trace by removing the parent link here. */
-	if (s == current)
-		current = NULL;
-
-	return s;
+	/* FIXME: Try to avoid allocation! */
+	return tal(spans, struct span);
 }
 
 #define MAX_BUF_SIZE 2048
@@ -323,7 +259,9 @@ static void trace_emit(struct span *s)
  */
 static void trace_span_clear(struct span *s)
 {
-	memset(s, 0, sizeof(*s));
+	if (!span_htable_del(spans, s))
+		abort();
+	tal_free(s);
 }
 
 void trace_span_start_(const char *name, const void *key)
@@ -333,7 +271,6 @@ void trace_span_start_(const char *name, const void *key)
 	if (disable_trace)
 		return;
 	trace_init();
-	trace_check_tree();
 
 	assert(trace_span_find(numkey) == NULL);
 	struct span *s = trace_span_slot();
@@ -341,7 +278,6 @@ void trace_span_start_(const char *name, const void *key)
 		return;
 	init_span(s, numkey, name, current);
 	current = s;
-	trace_check_tree();
 	DTRACE_PROBE1(lightningd, span_start, s->id);
 	if (trace_to_file) {
 		fprintf(trace_to_file, "span_start %016"PRIx64"\n", s->id);
@@ -364,8 +300,6 @@ void trace_span_end(const void *key)
 	assert(s && "Span to end not found");
 	assert(s == current && "Ending a span that isn't the current one");
 
-	trace_check_tree();
-
 	struct timeabs now = time_now(); /* discouraged: but tracing wants non-dev time */
 	s->end_time = (now.ts.tv_sec * 1000000) + now.ts.tv_nsec / 1000;
 	DTRACE_PROBE1(lightningd, span_end, s->id);
@@ -380,7 +314,6 @@ void trace_span_end(const void *key)
 
 	/* Now reset the span */
 	trace_span_clear(s);
-	trace_check_tree();
 }
 
 void trace_span_tag(const void *key, const char *name, const char *value)
@@ -473,7 +406,7 @@ void trace_span_resume_(const void *key, const char *lbl)
 
 void trace_cleanup(void)
 {
-	active_spans = tal_free(active_spans);
+	spans = tal_free(spans);
 }
 
 #else /* HAVE_USDT */
