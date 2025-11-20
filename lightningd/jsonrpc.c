@@ -1190,6 +1190,7 @@ static struct io_plan *read_json(struct io_conn *conn,
 	size_t len_read;
 	const jsmntok_t *toks;
 	const char *buffer, *error;
+	size_t num_parsed = 0;
 
 	buffer = jsonrpc_newly_read(jcon->json_in, &len_read);
 	if (len_read)
@@ -1219,20 +1220,20 @@ again:
 	parse_request(jcon, buffer, toks);
 	jsonrpc_io_parse_done(jcon->json_in);
 
+	/* Don't ever process for more than 100 commands or 250 msec
+	 * without giving others a chance */
+	if (num_parsed++ == 100
+	    || time_greater(timemono_between(time_mono(), start_time),
+			    time_from_msec(250))) {
+		db_commit_transaction(jcon->ld->wallet->db);
+		log_debug(jcon->log, "Pausing parsing after %zu requests", num_parsed);
+		/* Call us back, as if we read nothing new */
+		return io_always(conn, read_json, jcon);
+	}
+
 	if (!jcon->db_batching) {
 		db_commit_transaction(jcon->ld->wallet->db);
 		in_transaction = false;
-	} else {
-		/* FIXME: io_always() should interleave with
-		 * real IO, and then we should rotate order we
-		 * service fds in, to avoid starvation. */
-		if (time_greater(timemono_between(time_mono(),
-						  start_time),
-				 time_from_msec(250))) {
-			db_commit_transaction(jcon->ld->wallet->db);
-			/* Call us back, as if we read nothing new */
-			return io_always(conn, read_json, jcon);
-		}
 	}
 	goto again;
 
