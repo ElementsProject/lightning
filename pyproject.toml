@@ -30,6 +30,8 @@ dev = [
   "flaky>=3.7.0",
   "requests>=2.32.0",
   "flask-socketio>=5",
+  "tqdm",
+  "pytest-benchmark",
 ]
 
 [project.optional-dependencies]
