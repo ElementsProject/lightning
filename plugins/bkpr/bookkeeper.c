@@ -238,12 +238,12 @@ getblockheight_done(struct command *cmd,
 	if (!blockheight_tok)
 		plugin_err(cmd->plugin, "getblockheight: "
 			   "getinfo gave no 'blockheight'? '%.*s'",
-			   result->end - result->start, buf);
+			   result->end - result->start, buf + result->start);
 
 	if (!json_to_u32(buf, blockheight_tok, &blockheight))
 		plugin_err(cmd->plugin, "getblockheight: "
 			   "getinfo gave non-unsigned-32-bit 'blockheight'? '%.*s'",
-			   result->end - result->start, buf);
+			   result->end - result->start, buf + result->start);
 
 	/* Get the income events */
 	apys = compute_channel_apys(cmd, bkpr, cmd,
@@ -1013,7 +1013,7 @@ listinvoices_done(struct command *cmd,
 			   "listinvoices:"
 			   " description/bolt11/bolt12"
 			   " not found (%.*s)",
-			   result->end - result->start, buf);
+			   result->end - result->start, buf + result->start);
 
 	return rinfo_one_done(cmd, phinfo->rinfo);
 }
@@ -1053,7 +1053,7 @@ listsendpays_done(struct command *cmd,
 		plugin_log(cmd->plugin, LOG_DBG,
 			   "listpays: bolt11/bolt12 not found:"
 			   "(%.*s)",
-			   result->end - result->start, buf);
+			   result->end - result->start, buf + result->start);
 
 	return rinfo_one_done(cmd, phinfo->rinfo);
 }
