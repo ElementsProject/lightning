@@ -112,6 +112,8 @@ struct table_desc {
 	const char *name;
 	/* e.g. "payments" for listsendpays */
 	const char *arrname;
+	/* name if we need to wait for changes */
+	const char *waitname;
 	struct column **columns;
 	char *update_stmt;
 	/* If we are a subtable */
@@ -128,6 +130,8 @@ struct table_desc {
 					  struct db_query *dbq);
 	/* some refresh functions maintain changed and created indexes */
 	u64 last_created_index;
+	/* Do we need a refresh? */
+	bool needs_refresh;
 	/* Are we refreshing now? */
 	bool refreshing;
 	/* When did we start refreshing? */
@@ -535,6 +539,24 @@ static void init_indices(struct plugin *plugin, const struct table_desc *td)
 static struct command_result *refresh_tables(struct command *cmd,
 					     struct db_query *dbq);
 
+static struct command_result *next_refresh(struct command *cmd,
+					   struct db_query *dbq)
+{
+	/* Remove that, iterate */
+	tal_arr_remove(&dbq->tables, 0);
+	return refresh_tables(cmd, dbq);
+}
+
+static struct command_result *wait_done(struct command *cmd,
+					const char *method,
+					const char *buf,
+					const jsmntok_t *result,
+					struct table_desc *td)
+{
+	td->needs_refresh = true;
+	return aux_command_done(cmd);
+}
+
 static struct command_result *one_refresh_done(struct command *cmd,
 					       struct db_query *dbq)
 {
@@ -564,6 +586,18 @@ static struct command_result *one_refresh_done(struct command *cmd,
 			   (u64)refresh_duration.ts.tv_nsec);
 	}
 
+	/* We put in a wait command to we get told when we need to refresh */
+	if (td->waitname) {
+		struct out_req *req;
+		td->needs_refresh = false;
+		req = jsonrpc_request_start(aux_command(cmd), "wait", wait_done,
+					    plugin_broken_cb, td);
+		json_add_string(req->js, "subsystem", td->waitname);
+		json_add_string(req->js, "indexname", "created");
+		json_add_u64(req->js, "nextvalue", td->last_created_index+1);
+		send_outreq(req);
+	}
+
 	/* Transfer refresh waiters onto local list */
 	list_head_init(&waiters);
 	list_append_list(&waiters, &td->refresh_waiters);
@@ -578,10 +612,7 @@ static struct command_result *one_refresh_done(struct command *cmd,
 		tal_arr_remove(&rwdbq->tables, 0);
 		refresh_tables(rwcmd, rwdbq);
 	}
-
-	/* Remove that, iterate */
-	tal_arr_remove(&dbq->tables, 0);
-	return refresh_tables(cmd, dbq);
+	return next_refresh(cmd, dbq);
 }
 
 /* Mutual recursion */
@@ -1199,6 +1230,9 @@ static struct command_result *refresh_tables(struct command *cmd,
 		return command_still_pending(cmd);
 	}
 
+	if (!td->needs_refresh)
+		return next_refresh(cmd, dbq);
+
 	dbq->last_created_index = &dbq->tables[0]->last_created_index;
 	td->refreshing = true;
 	td->refresh_start = time_mono();
@@ -1548,29 +1582,30 @@ struct refresh_funcs {
 	struct command_result *(*refresh)(struct command *cmd,
 					  const struct table_desc *td,
 					  struct db_query *dbq);
+	const char *waitname;
 };
 
 static const struct refresh_funcs refresh_funcs[] = {
 	/* These are special, using gossmap */
-	{ "listchannels", channels_refresh },
-	{ "listnodes", nodes_refresh },
-	/* FIXME: These support wait and full pagination */
-	{ "listhtlcs", default_refresh },
-	{ "listforwards", default_refresh },
-	{ "listinvoices", default_refresh },
-	{ "listsendpays", default_refresh },
+	{ "listchannels", channels_refresh, NULL },
+	{ "listnodes", nodes_refresh, NULL },
+	/* FIXME: These support wait and full pagination,  but we need to watch for deletes, too! */
+	{ "listhtlcs", default_refresh, NULL },
+	{ "listforwards", default_refresh, NULL },
+	{ "listinvoices", default_refresh, NULL },
+	{ "listsendpays", default_refresh, NULL },
 	/* These are never changed or deleted */
-	{ "listchainmoves", refresh_by_created_index },
-	{ "listchannelmoves", refresh_by_created_index },
+	{ "listchainmoves", refresh_by_created_index, "chainmoves" },
+	{ "listchannelmoves", refresh_by_created_index, "channelmoves" },
 	/* No pagination support */
-	{ "listoffers", default_refresh },
-	{ "listpeers", default_refresh },
-	{ "listpeerchannels", default_refresh },
-	{ "listclosedchannels", default_refresh },
-	{ "listtransactions", default_refresh },
-	{ "bkpr-listaccountevents", default_refresh },
-	{ "bkpr-listincome", default_refresh },
-	{ "listnetworkevents", default_refresh },
+	{ "listoffers", default_refresh, NULL },
+	{ "listpeers", default_refresh, NULL },
+	{ "listpeerchannels", default_refresh, NULL },
+	{ "listclosedchannels", default_refresh, NULL },
+	{ "listtransactions", default_refresh, NULL },
+	{ "bkpr-listaccountevents", default_refresh, NULL },
+	{ "bkpr-listincome", default_refresh, NULL },
+	{ "listnetworkevents", default_refresh, NULL },
 };
 
 static const struct refresh_funcs *find_command_refresh(const char *cmdname)
@@ -1606,6 +1641,7 @@ static struct table_desc *new_table_desc(const tal_t *ctx,
 	td->columns = tal_arr(td, struct column *, 0);
 	td->last_created_index = 0;
 	td->has_created_index = false;
+	td->needs_refresh = true;
 	td->refreshing = false;
 	td->indices_created = false;
 	list_head_init(&td->refresh_waiters);
@@ -1614,6 +1650,7 @@ static struct table_desc *new_table_desc(const tal_t *ctx,
 	if (!parent) {
 		refresh_func = find_command_refresh(td->cmdname);
 		td->refresh = refresh_func->refresh;
+		td->waitname = refresh_func->waitname;
 	}
 
 	/* sub-objects are a JSON thing, not a real table! */
