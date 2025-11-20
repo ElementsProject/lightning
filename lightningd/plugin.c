@@ -1472,7 +1472,7 @@ static const char *plugin_subscriptions_add(struct plugin *plugin,
 static const char *plugin_hooks_add(struct plugin *plugin, const char *buffer,
 				    const jsmntok_t *resulttok)
 {
-	const jsmntok_t *t, *hookstok, *beforetok, *aftertok;
+	const jsmntok_t *t, *hookstok, *beforetok, *aftertok, *filterstok;
 	size_t i;
 
 	hookstok = json_get_member(buffer, resulttok, "hooks");
@@ -1482,6 +1482,7 @@ static const char *plugin_hooks_add(struct plugin *plugin, const char *buffer,
 	json_for_each_arr(i, t, hookstok) {
 		char *name;
 		struct plugin_hook *hook;
+		const char *err;
 
 		if (t->type == JSMN_OBJECT) {
 			const jsmntok_t *nametok;
@@ -1494,21 +1495,16 @@ static const char *plugin_hooks_add(struct plugin *plugin, const char *buffer,
 			name = json_strdup(tmpctx, buffer, nametok);
 			beforetok = json_get_member(buffer, t, "before");
 			aftertok = json_get_member(buffer, t, "after");
+			filterstok = json_get_member(buffer, t, "filters");
 		} else {
 			/* FIXME: deprecate in 3 releases after v0.9.2! */
 			name = json_strdup(tmpctx, buffer, t);
-			beforetok = aftertok = NULL;
+			beforetok = aftertok = filterstok = NULL;
 		}
 
-		hook = plugin_hook_register(plugin, name);
-		if (!hook) {
-			return tal_fmt(plugin,
-				    "could not register hook '%s', either the "
-				    "name doesn't exist or another plugin "
-				    "already registered it.",
-				    name);
-		}
-
+		err = plugin_hook_register(plugin, name, buffer, filterstok, &hook);
+		if (err)
+			return err;
 		plugin_hook_add_deps(hook, plugin, buffer, beforetok, aftertok);
 		tal_free(name);
 	}

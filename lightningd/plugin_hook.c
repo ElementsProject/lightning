@@ -1,5 +1,6 @@
 #include "config.h"
 #include <ccan/io/io.h>
+#include <ccan/tal/str/str.h>
 #include <common/memleak.h>
 #include <db/exec.h>
 #include <db/utils.h>
@@ -15,6 +16,10 @@ struct plugin_hook_request {
 	struct db *db;
 	struct lightningd *ld;
 
+	/* Only one of these can be non-NULL */
+	const char *strfilterfield;
+	u64 intfilterfield;
+
 	/* Where are we up to in the hook->hooks[] array */
 	size_t hook_index;
 };
@@ -25,6 +30,10 @@ struct hook_instance {
 
 	/* Dependencies it asked for. */
 	const char **before, **after;
+
+	/* Optional filter fields. */
+	const char **strfilters;
+	const u64 *intfilters;
 };
 
 static struct plugin_hook **get_hooks(size_t *num)
@@ -72,13 +81,99 @@ static void destroy_hook_instance(struct hook_instance *h,
 		remove_hook_instance(h, hook->new_hooks);
 }
 
-struct plugin_hook *plugin_hook_register(struct plugin *plugin, const char *method)
+/* Filters in an array of strings */
+static const char *parse_str_filters(const tal_t *ctx,
+				     const char *buffer,
+				     const jsmntok_t *filterstok,
+				     const char ***filters)
+{
+	size_t i;
+	const jsmntok_t *t;
+
+	if (!filterstok) {
+		*filters = NULL;
+		return NULL;
+	}
+
+	if (filterstok->type != JSMN_ARRAY)
+		return tal_fmt(ctx, "filters token must be an array");
+
+	*filters = tal_arr(ctx, const char *, filterstok->size);
+	json_for_each_arr(i, t, filterstok) {
+		if (t->type != JSMN_STRING)
+			return tal_fmt(ctx, "filters must be array of strings, not '%.*s'",
+				       json_tok_full_len(t),
+				       json_tok_full(buffer, t));
+		(*filters)[i] = json_strdup(*filters, buffer, t);
+	}
+	return NULL;
+}
+
+/* Filters in an array of ints */
+static const char *parse_int_filters(const tal_t *ctx,
+				     const char *buffer,
+				     const jsmntok_t *filterstok,
+				     u64 **filters)
+{
+	size_t i;
+	const jsmntok_t *t;
+
+	if (!filterstok) {
+		*filters = NULL;
+		return NULL;
+	}
+
+	if (filterstok->type != JSMN_ARRAY)
+		return tal_fmt(ctx, "filters token must be an array");
+
+	*filters = tal_arr(ctx, u64, filterstok->size);
+	json_for_each_arr(i, t, filterstok) {
+		if (!json_to_u64(buffer, t, &(*filters)[i]))
+			return tal_fmt(ctx, "filters must be array of unsigned integers, not '%.*s'",
+				       json_tok_full_len(t),
+				       json_tok_full(buffer, t));
+	}
+	return NULL;
+}
+
+const char *plugin_hook_register(struct plugin *plugin,
+				 const char *method,
+				 const char *buf, const jsmntok_t *filterstok,
+				 struct plugin_hook **plugin_hook)
 {
 	struct hook_instance *h;
-	struct plugin_hook *hook = plugin_hook_by_name(method);
-	if (!hook) {
-		/* No such hook name registered */
-		return NULL;
+	struct plugin_hook *hook;
+	const char *err;
+	const char **strfilters;
+	u64 *intfilters;
+
+	hook = plugin_hook_by_name(method);
+	if (!hook)
+		return tal_fmt(plugin, "Unknown hook name %s", method);
+
+	switch (hook->filter_type) {
+	case JSMN_UNDEFINED:
+		if (filterstok)
+			return tal_fmt(plugin, "Hook %s does not allow filters", method);
+		intfilters = NULL;
+		strfilters = NULL;
+		break;
+	case JSMN_PRIMITIVE:
+		strfilters = NULL;
+		err = parse_int_filters(plugin, buf, filterstok, &intfilters);
+		if (err)
+			return err;
+		break;
+	case JSMN_STRING:
+		intfilters = NULL;
+		err = parse_str_filters(plugin, buf, filterstok, &strfilters);
+		if (err)
+			return err;
+		break;
+
+	/* Nothing else is valid (yet?) */
+	default:
+		abort();
 	}
 
 	/* Make sure the hook_elements array is initialized. */
@@ -93,7 +188,8 @@ struct plugin_hook *plugin_hook_register(struct plugin *plugin, const char *meth
 		if (!hook->hooks[i])
 			continue;
 		if (hook->hooks[i]->plugin == plugin)
-			return NULL;
+			return tal_fmt(plugin, "Registered for hook %s multiple times",
+				       method);
 	}
 
 	/* Ok, we're sure they can register and they aren't yet registered, so
@@ -102,14 +198,17 @@ struct plugin_hook *plugin_hook_register(struct plugin *plugin, const char *meth
 	h->plugin = plugin;
 	h->before = tal_arr(h, const char *, 0);
 	h->after = tal_arr(h, const char *, 0);
+	h->strfilters = tal_steal(h, strfilters);
+	h->intfilters = tal_steal(h, intfilters);
 	tal_add_destructor2(h, destroy_hook_instance, hook);
 
 	tal_arr_expand(&hook->hooks, h);
-	return hook;
+	*plugin_hook = hook;
+	return NULL;
 }
 
 /* Mutual recursion */
-static void plugin_hook_call_next(struct plugin_hook_request *ph_req);
+static bool plugin_hook_call_next(struct plugin_hook_request *ph_req);
 static void plugin_hook_callback(const char *buffer, const jsmntok_t *toks,
 				 const jsmntok_t *idtok,
 				 struct plugin_hook_request *r);
@@ -200,7 +299,38 @@ static void plugin_hook_callback(const char *buffer, const jsmntok_t *toks,
 	plugin_hook_call_next(ph_req);
 }
 
-static void plugin_hook_call_next(struct plugin_hook_request *ph_req)
+static bool hook_callable(const struct hook_instance *hook,
+			  const char *strfilterfield,
+			  u64 intfilterfield)
+{
+	/* NULL?  Skip */
+	if (!hook)
+		return false;
+
+	/* String filters?  If there are some we must match one. */
+	if (hook->strfilters) {
+		for (size_t i = 0; i < tal_count(hook->strfilters); i++) {
+			if (streq(strfilterfield, hook->strfilters[i]))
+				return true;
+		}
+		return false;
+	}
+
+	/* Integer filters? */
+	if (hook->intfilters) {
+		for (size_t i = 0; i < tal_count(hook->intfilters); i++) {
+			if (intfilterfield == hook->intfilters[i])
+				return true;
+		}
+		return false;
+	}
+
+	/* No filters: always call. */
+	return true;
+}
+
+/* Returns true if it finished all the hooks (and thus didn't call anything) */
+static bool plugin_hook_call_next(struct plugin_hook_request *ph_req)
 {
 	struct jsonrpc_request *req;
 	const struct plugin_hook *hook = ph_req->hook;
@@ -212,9 +342,11 @@ static void plugin_hook_call_next(struct plugin_hook_request *ph_req)
 		if (ph_req->hook_index >= tal_count(hook->hooks)) {
 			hook_done(ph_req->ld, ph_req->hook, ph_req->cb_arg);
 			tal_free(ph_req);
-			return;
+			return true;
 		}
-	} while (hook->hooks[ph_req->hook_index] == NULL);
+	} while (!hook_callable(hook->hooks[ph_req->hook_index],
+				ph_req->strfilterfield,
+				ph_req->intfilterfield));
 
 	plugin = hook->hooks[ph_req->hook_index]->plugin;
 	log_trace(ph_req->ld->log, "Calling %s hook of plugin %s",
@@ -232,9 +364,13 @@ static void plugin_hook_call_next(struct plugin_hook_request *ph_req)
 			       req->stream);
 
 	plugin_request_send(plugin, req);
+	return false;
 }
 
-bool plugin_hook_call_(struct lightningd *ld, struct plugin_hook *hook,
+bool plugin_hook_call_(struct lightningd *ld,
+		       struct plugin_hook *hook,
+		       const char *strfilterfield TAKES,
+		       u64 intfilterfield,
 		       const char *cmd_id TAKES,
 		       tal_t *cb_arg STEALS)
 {
@@ -254,8 +390,9 @@ bool plugin_hook_call_(struct lightningd *ld, struct plugin_hook *hook,
 		ph_req->ld = ld;
 		ph_req->cmd_id = tal_strdup_or_null(ph_req, cmd_id);
 		ph_req->hook_index = -1;
-		plugin_hook_call_next(ph_req);
-		return false;
+		ph_req->strfilterfield = tal_strdup_or_null(ph_req, strfilterfield);
+		ph_req->intfilterfield = intfilterfield;
+		return plugin_hook_call_next(ph_req);
 	} else {
 		/* If no plugin has registered for this hook, just
 		 * call the callback with a NULL result. Saves us the
