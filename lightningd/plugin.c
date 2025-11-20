@@ -710,6 +710,7 @@ static struct io_plan *plugin_read_json(struct io_conn *conn,
 	const char *new_bytes, *buffer;
 	const jsmntok_t *toks;
 	size_t new_bytes_len;
+	size_t num_responses = 0;
 	/* wallet is NULL in really early code */
 	bool want_transaction = (plugin->plugins->want_db_transaction
 				 && wallet != NULL);
@@ -803,6 +804,12 @@ static struct io_plan *plugin_read_json(struct io_conn *conn,
 		}
 
 		jsonrpc_io_parse_done(plugin->json_in);
+		/* Don't let it flood us with logs/responses and starve everyone else */
+		if (num_responses++ == 100) {
+			log_debug(plugin->log, "Pausing response parsing after %zu response", num_responses);
+			/* Call us back, as if we read nothing new */
+			return io_always(conn, plugin_read_json, plugin);
+		}
 	}
 
 	/* Now read more from the connection */
