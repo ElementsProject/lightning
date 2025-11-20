@@ -99,6 +99,14 @@ struct plugin_hook {
 	                                 const jsmntok_t *params);
 	/* If non-NULL, these are NULL-terminated arrays of deps */
 	const char **before, **after;
+
+	/* String filters (you can only set this *or* intfilters) */
+	const char **strfilters;
+	size_t num_strfilters;
+
+	/* Integer filters */
+	const u64 *intfilters;
+	size_t num_intfilters;
 };
 
 /* Return the feature set of the current lightning node */
