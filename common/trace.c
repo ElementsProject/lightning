@@ -1,5 +1,6 @@
 #include "config.h"
 #include <assert.h>
+#include <ccan/array_size/array_size.h>
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/endian/endian.h>
 #include <ccan/err/err.h>
@@ -86,6 +87,7 @@ static bool span_key_eq(const struct span *span, size_t key)
 HTABLE_DEFINE_NODUPS_TYPE(struct span, span_keyof, span_key_hash, span_key_eq,
 			  span_htable);
 
+static struct span fixed_spans[8];
 static struct span_htable *spans = NULL;
 static struct span *current;
 
@@ -157,6 +159,19 @@ static void trace_inject_traceparent(void)
 	}
 }
 
+static void memleak_scan_spans(struct htable *memtable, struct span_htable *spantable)
+{
+	struct span_htable_iter i;
+	const struct span *span;
+
+	for (span = span_htable_first(spantable, &i);
+	     span;
+	     span = span_htable_next(spantable, &i)) {
+		memleak_ptr(memtable, span);
+		memleak_scan_region(memtable, span, sizeof(*span));
+	}
+}
+
 static void trace_init(void)
 {
 	const char *dev_trace_file;
@@ -164,7 +179,10 @@ static void trace_init(void)
 	if (spans)
 		return;
 
-	spans = notleak_with_children(tal(NULL, struct span_htable));
+	/* We can't use new_htable here because we put non-tal
+	 * objects in our htable, and that breaks memleak_scan_htable! */
+	spans = notleak(tal(NULL, struct span_htable));
+	memleak_add_helper(spans, memleak_scan_spans);
 	span_htable_init(spans);
 
 	current = NULL;
@@ -197,7 +215,13 @@ static struct span *trace_span_find(size_t key)
  */
 static struct span *trace_span_slot(void)
 {
-	/* FIXME: Try to avoid allocation! */
+	/* Look for a free fixed slot. */
+	for (size_t i = 0; i < ARRAY_SIZE(fixed_spans); i++) {
+		if (fixed_spans[i].key == 0)
+			return &fixed_spans[i];
+	}
+
+	/* Those are used up, we have to allocate. */
 	return tal(spans, struct span);
 }
 
@@ -261,6 +285,14 @@ static void trace_span_clear(struct span *s)
 {
 	if (!span_htable_del(spans, s))
 		abort();
+
+	/* If s is actually in fixed_spans, just zero it out. */
+	if (s >= fixed_spans && s < fixed_spans + ARRAY_SIZE(fixed_spans)) {
+		s->key = 0;
+		return;
+	}
+
+	/* Dynamically allocated, so we need to free it */
 	tal_free(s);
 }
 
