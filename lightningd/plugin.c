@@ -372,7 +372,7 @@ struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES,
 	p->can_check = false;
 
 	p->plugin_state = UNCONFIGURED;
-	p->js_arr = tal_arr(p, struct json_stream *, 0);
+	list_head_init(&p->jsouts);
 	p->notification_topics = tal_arr(p, const char *, 0);
 	p->subscriptions = NULL;
 	p->dynamic = false;
@@ -474,8 +474,8 @@ void plugin_kill(struct plugin *plugin, enum log_level loglevel,
  */
 static void plugin_send(struct plugin *plugin, struct json_stream *stream)
 {
-	tal_steal(plugin->js_arr, stream);
-	tal_arr_expand(&plugin->js_arr, stream);
+	tal_steal(plugin, stream);
+	list_add_tail(&plugin->jsouts, &stream->list);
 	io_wake(plugin);
 }
 
@@ -816,10 +816,7 @@ static struct io_plan *plugin_write_json(struct io_conn *conn,
 
 static struct io_plan *plugin_stream_complete(struct io_conn *conn, struct json_stream *js, struct plugin *plugin)
 {
-	assert(tal_count(plugin->js_arr) > 0);
-	/* Remove js and shift all remainig over */
-	tal_arr_remove(&plugin->js_arr, 0);
-
+	list_del_from(&plugin->jsouts, &js->list);
 	/* It got dropped off the queue, free it. */
 	tal_free(js);
 
@@ -829,8 +826,11 @@ static struct io_plan *plugin_stream_complete(struct io_conn *conn, struct json_
 static struct io_plan *plugin_write_json(struct io_conn *conn,
 					 struct plugin *plugin)
 {
-	if (tal_count(plugin->js_arr)) {
-		return json_stream_output(plugin->js_arr[0], plugin->stdin_conn, plugin_stream_complete, plugin);
+	struct json_stream *js;
+
+	js = list_top(&plugin->jsouts, struct json_stream, list);
+	if (js) {
+		return json_stream_output(js, plugin->stdin_conn, plugin_stream_complete, plugin);
 	}
 
 	return io_out_wait(conn, plugin, plugin_write_json, plugin);

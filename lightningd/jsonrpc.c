@@ -96,8 +96,8 @@ struct json_connection {
 
 	/* Our json_streams (owned by the commands themselves while running).
 	 * Since multiple streams could start returning data at once, we
-	 * always service these in order, freeing once empty. */
-	struct json_stream **js_arr;
+	 * always service these in order. */
+	struct list_head jsouts;
 };
 
 /**
@@ -125,23 +125,8 @@ static struct json_stream *jcon_new_json_stream(const tal_t *ctx,
 
 	/* Wake writer to start streaming, in case it's not already. */
 	io_wake(jcon);
-
-	/* FIXME: Keep streams around for recycling. */
-	tal_arr_expand(&jcon->js_arr, js);
+	list_add_tail(&jcon->jsouts, &js->list);
 	return js;
-}
-
-static void jcon_remove_json_stream(struct json_connection *jcon,
-				    struct json_stream *js)
-{
-	for (size_t i = 0; i < tal_count(jcon->js_arr); i++) {
-		if (js != jcon->js_arr[i])
-			continue;
-
-		tal_arr_remove(&jcon->js_arr, i);
-		return;
-	}
-	abort();
 }
 
 /* jcon and cmd have separate lifetimes: we detach them on either destruction */
@@ -1156,13 +1141,16 @@ static struct io_plan *stream_out_complete(struct io_conn *conn,
 static struct io_plan *start_json_stream(struct io_conn *conn,
 					 struct json_connection *jcon)
 {
+	struct json_stream *js;
+
 	/* If something has created an output buffer, start streaming. */
-	if (tal_count(jcon->js_arr)) {
+	js = list_top(&jcon->jsouts, struct json_stream, list);
+	if (js) {
 		size_t len;
-		const char *p = json_out_contents(jcon->js_arr[0]->jout, &len);
+		const char *p = json_out_contents(js->jout, &len);
 		if (len)
 			log_io(jcon->log, LOG_IO_OUT, NULL, "", p, len);
-		return json_stream_output(jcon->js_arr[0], conn,
+		return json_stream_output(js, conn,
 					  stream_out_complete, jcon);
 	}
 
@@ -1186,7 +1174,7 @@ static struct io_plan *stream_out_complete(struct io_conn *conn,
 					   struct json_stream *js,
 					   struct json_connection *jcon)
 {
-	jcon_remove_json_stream(jcon, js);
+	list_del_from(&jcon->jsouts, &js->list);
 	tal_free(js);
 
 	/* Wait for more output. */
@@ -1207,7 +1195,7 @@ static struct io_plan *read_json(struct io_conn *conn,
 		log_io(jcon->log, LOG_IO_IN, NULL, "", buffer, len_read);
 
 	/* We wait for pending output to be consumed, to avoid DoS */
-	if (tal_count(jcon->js_arr) != 0) {
+	if (!list_empty(&jcon->jsouts)) {
 		return io_wait(conn, conn, read_json, jcon);
 	}
 
@@ -1262,7 +1250,7 @@ static struct io_plan *jcon_connected(struct io_conn *conn,
 	jcon = notleak(tal(conn, struct json_connection));
 	jcon->conn = conn;
 	jcon->ld = ld;
-	jcon->js_arr = tal_arr(jcon, struct json_stream *, 0);
+	list_head_init(&jcon->jsouts);
 	jcon->json_in = jsonrpc_io_new(jcon);
 	jcon->notifications_enabled = false;
 	jcon->db_batching = false;
