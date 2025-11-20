@@ -518,6 +518,7 @@ DecodeRoutehintListField = PrimitiveField(
 )
 CreateRuneRestrictionsField = ArrayField(itemtype=PrimitiveField("string", None, None, added=None, deprecated=None), dims=1, path=None, description=None, added=None, deprecated=None)
 CheckRuneParamsField = ArrayField(itemtype=PrimitiveField("string", None, None, added=None, deprecated=None), dims=1, path=None, description=None, added=None, deprecated=None)
+ChainMovesExtraTagsField = ArrayField(itemtype=PrimitiveField("string", None, None, added=None, deprecated=None), dims=1, path=None, description=None, added=None, deprecated=None)
 
 # TlvStreams are special, they don't have preset dict-keys, rather
 # they can specify `u64` keys pointing to hex payloads. So the schema
@@ -553,6 +554,7 @@ overrides = {
     'SetConfig.val': SetConfigValField,
     'CreateRune.restrictions': CreateRuneRestrictionsField,
     'CheckRune.params': CheckRuneParamsField,
+    "ListChainMoves.chainmoves[].extra_tags": ChainMovesExtraTagsField,
 }
 
 

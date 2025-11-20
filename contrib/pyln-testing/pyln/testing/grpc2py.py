@@ -1554,6 +1554,12 @@ def fetchinvoice2py(m):
     })
 
 
+def cancelrecurringinvoice2py(m):
+    return remove_default({
+        "bolt12": m.bolt12,  # PrimitiveField in generate_composite
+    })
+
+
 def fundchannel_cancel2py(m):
     return remove_default({
         "cancelled": m.cancelled,  # PrimitiveField in generate_composite
@@ -3280,6 +3286,53 @@ def signmessagewithkey2py(m):
         "base64": m.base64,  # PrimitiveField in generate_composite
         "pubkey": hexlify(m.pubkey),  # PrimitiveField in generate_composite
         "signature": hexlify(m.signature),  # PrimitiveField in generate_composite
+    })
+
+
+def listchannelmoves_channelmoves2py(m):
+    return remove_default({
+        "primary_tag": str(m.primary_tag),  # EnumField in generate_composite
+        "account_id": m.account_id,  # PrimitiveField in generate_composite
+        "created_index": m.created_index,  # PrimitiveField in generate_composite
+        "credit_msat": amount2msat(m.credit_msat),  # PrimitiveField in generate_composite
+        "debit_msat": amount2msat(m.debit_msat),  # PrimitiveField in generate_composite
+        "fees_msat": amount2msat(m.fees_msat),  # PrimitiveField in generate_composite
+        "group_id": m.group_id,  # PrimitiveField in generate_composite
+        "part_id": m.part_id,  # PrimitiveField in generate_composite
+        "payment_hash": hexlify(m.payment_hash),  # PrimitiveField in generate_composite
+        "timestamp": m.timestamp,  # PrimitiveField in generate_composite
+    })
+
+
+def listchannelmoves2py(m):
+    return remove_default({
+        "channelmoves": [listchannelmoves_channelmoves2py(i) for i in m.channelmoves],  # ArrayField[composite] in generate_composite
+    })
+
+
+def listchainmoves_chainmoves2py(m):
+    return remove_default({
+        "extra_tags": [m.extra_tags for i in m.extra_tags], # ArrayField[primitive] in generate_composite
+        "primary_tag": str(m.primary_tag),  # EnumField in generate_composite
+        "account_id": m.account_id,  # PrimitiveField in generate_composite
+        "blockheight": m.blockheight,  # PrimitiveField in generate_composite
+        "created_index": m.created_index,  # PrimitiveField in generate_composite
+        "credit_msat": amount2msat(m.credit_msat),  # PrimitiveField in generate_composite
+        "debit_msat": amount2msat(m.debit_msat),  # PrimitiveField in generate_composite
+        "originating_account": m.originating_account,  # PrimitiveField in generate_composite
+        "output_count": m.output_count,  # PrimitiveField in generate_composite
+        "output_msat": amount2msat(m.output_msat),  # PrimitiveField in generate_composite
+        "payment_hash": hexlify(m.payment_hash),  # PrimitiveField in generate_composite
+        "peer_id": hexlify(m.peer_id),  # PrimitiveField in generate_composite
+        "spending_txid": hexlify(m.spending_txid),  # PrimitiveField in generate_composite
+        "timestamp": m.timestamp,  # PrimitiveField in generate_composite
+        "utxo": m.utxo,  # PrimitiveField in generate_composite
+    })
+
+
+def listchainmoves2py(m):
+    return remove_default({
+        "chainmoves": [listchainmoves_chainmoves2py(i) for i in m.chainmoves],  # ArrayField[composite] in generate_composite
     })
 
 
