@@ -84,8 +84,7 @@ static void
 parse_and_log_channel_move(struct command *cmd,
 			   const char *buf,
 			   const jsmntok_t *channelmove,
-			   struct refresh_info *rinfo,
-			   bool log);
+			   struct refresh_info *rinfo);
 
 static struct command_result *datastore_done(struct command *cmd,
 					     const char *method,
@@ -118,15 +117,8 @@ static struct command_result *listchannelmoves_done(struct command *cmd,
 	be64 be_index;
 
 	moves = json_get_member(buf, result, "channelmoves");
-	if (moves->size > 2) {
-		plugin_log(cmd->plugin, LOG_DBG,
-			   "%u channelmoves, only logging first and last",
-			   moves->size);
-	}
-
 	json_for_each_arr(i, t, moves)
-		parse_and_log_channel_move(cmd, buf, t, rinfo,
-					   i == 0 || i == moves->size - 1);
+		parse_and_log_channel_move(cmd, buf, t, rinfo);
 
 	be_index = cpu_to_be64(bkpr->channelmoves_index);
 	jsonrpc_set_datastore_binary(cmd, "bookkeeper/channelmoves_index",
@@ -1268,8 +1260,7 @@ static void
 parse_and_log_channel_move(struct command *cmd,
 			   const char *buf,
 			   const jsmntok_t *channelmove,
-			   struct refresh_info *rinfo,
-			   bool log)
+			   struct refresh_info *rinfo)
 {
 	struct channel_event *e = tal(cmd, struct channel_event);
 	struct account *acct;
@@ -1316,12 +1307,11 @@ parse_and_log_channel_move(struct command *cmd,
 		err = tal_free(err);
 	}
 
-	if (log)
-		plugin_log(cmd->plugin, LOG_DBG, "coin_move 2 (%s) %s -%s %s %"PRIu64,
-			   e->tag,
-			   fmt_amount_msat(tmpctx, e->credit),
-			   fmt_amount_msat(tmpctx, e->debit),
-			   CHANNEL_MOVE, e->timestamp);
+	plugin_log(cmd->plugin, LOG_DBG, "coin_move 2 (%s) %s -%s %s %"PRIu64,
+		   e->tag,
+		   fmt_amount_msat(tmpctx, e->credit),
+		   fmt_amount_msat(tmpctx, e->debit),
+		   CHANNEL_MOVE, e->timestamp);
 
 	/* Go find the account for this event */
 	acct = find_account(bkpr, acct_name);
