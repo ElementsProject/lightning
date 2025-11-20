@@ -20,6 +20,9 @@
 struct migration {
 	const char *sql;
 	void (*func)(struct lightningd *ld, struct db *db);
+	const char *revertsql;
+	/* If non-NULL, returns string explaining why downgrade is impossible */
+	const char *(*revertfn)(const tal_t *ctx, struct db *db);
 };
 
 static void migrate_pr2342_feerate_per_channel(struct lightningd *ld, struct db *db);
@@ -86,6 +89,9 @@ static void migrate_initialize_channel_htlcs_wait_indexes_and_fixup_forwards(str
 									     struct db *db);
 static void migrate_fail_pending_payments_without_htlcs(struct lightningd *ld,
 							struct db *db);
+
+static const char *revert_too_early(const tal_t *ctx, struct db *db);
+static const char *revert_withheld_column(const tal_t *ctx, struct db *db);
 
 /* Do not reorder or remove elements from this array, it is used to
  * migrate existing databases from a previous state, based on the
@@ -1087,9 +1093,13 @@ static struct migration dbmigrations[] = {
 	 ")"), NULL},
     /* We do a lookup before each append, to avoid duplicates */
     {SQL("CREATE INDEX chain_moves_utxo_idx ON chain_moves (utxo)"), NULL},
-    {NULL, migrate_from_account_db},
+    {NULL, migrate_from_account_db, NULL, revert_too_early},
+    /* ^v25.09 */
+
     /* We accidentally allowed duplicate entries */
-    {NULL, migrate_remove_chain_moves_duplicates},
+    {NULL, migrate_remove_chain_moves_duplicates,
+     /* Removing duplicates is idempotent, so no revert needed */
+     NULL, NULL},
     {SQL("CREATE TABLE network_events ("
 	 "  id BIGSERIAL,"
 	 "  peer_id BLOB NOT NULL,"
@@ -1099,9 +1109,16 @@ static struct migration dbmigrations[] = {
 	 "  duration_nsec BIGINT,"
 	 "  connect_attempted INTEGER NOT NULL,"
 	 " PRIMARY KEY (id)"
-	 ")"), NULL},
-    {NULL, migrate_fail_pending_payments_without_htlcs},
-    {SQL("ALTER TABLE channels ADD withheld INTEGER DEFAULT 0;"), NULL},
+	 ")"), NULL,
+	 /* Simply drop table. */
+	 "DROP TABLE network_events"},
+    {NULL, migrate_fail_pending_payments_without_htlcs,
+     /* Failing pending payments is idempotent, so no revert needed */
+     NULL, NULL},
+    {SQL("ALTER TABLE channels ADD withheld INTEGER DEFAULT 0;"), NULL,
+     /* Need to make sure that withheld isn't used. */
+     NULL, revert_withheld_column},
+    /* ^v25.12 */
 };
 
 /**
@@ -2152,4 +2169,45 @@ static void migrate_fail_pending_payments_without_htlcs(struct lightningd *ld,
 	db_bind_int(stmt, payment_status_in_db(PAYMENT_FAILED));
 	db_bind_int(stmt, payment_status_in_db(PAYMENT_PENDING));
 	db_exec_prepared_v2(take(stmt));
+}
+
+static const char *revert_too_early(const tal_t *ctx, struct db *db)
+{
+	return tal_strdup(ctx, "Downgrade to before v25.09 not supported");
+}
+
+/* Don't allow downgrade if they've *used* the withheld column. */
+static const char *revert_withheld_column(const tal_t *ctx, struct db *db)
+{
+	struct db_stmt *stmt;
+	struct channel_id *cid;
+	struct short_channel_id *scid;
+
+	stmt = db_prepare_v2(db, SQL("SELECT full_channel_id, scid FROM channels WHERE withheld != 0"));
+	db_query_prepared(stmt);
+	if (db_step(stmt)) {
+		cid = tal(tmpctx, struct channel_id);
+		db_col_channel_id(stmt, "full_channel_id", cid);
+		if (db_col_is_null(stmt, "scid"))
+			scid = NULL;
+		else {
+			scid = tal(tmpctx, struct short_channel_id);
+			*scid = db_col_short_channel_id(stmt, "scid");
+		}
+	} else {
+		cid = NULL;
+		scid = NULL;
+	}
+	tal_free(stmt);
+
+	if (cid) {
+		return tal_fmt(tmpctx, "Channel %s (%s) used v25.12's withheld flag",
+			       fmt_channel_id(tmpctx, cid),
+			       scid ? fmt_short_channel_id(tmpctx, *scid) : "no short channel id");
+	}
+
+	/* For sqlite3 needs "2021-03-12 (3.35.0)" or above */
+	stmt = db_prepare_v2(db, SQL("ALTER TABLE channels DROP COLUMN withheld"));
+	db_exec_prepared_v2(take(stmt));
+	return NULL;
 }
