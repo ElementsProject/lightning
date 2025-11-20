@@ -603,10 +603,19 @@ static struct command_result *handle_custommsg(struct command *cmd,
 	return command_hook_success(cmd);
 }
 
+static u64 custommsg_types[] = {
+	COMMANDO_MSG_CMD_CONTINUES,
+	COMMANDO_MSG_CMD_TERM,
+	COMMANDO_MSG_REPLY_CONTINUES,
+	COMMANDO_MSG_REPLY_TERM,
+};
+
 static const struct plugin_hook hooks[] = {
 	{
-		"custommsg",
-		handle_custommsg
+		.name = "custommsg",
+		.handle = handle_custommsg,
+		.intfilters = custommsg_types,
+		.num_intfilters = ARRAY_SIZE(custommsg_types),
 	},
 };
 
