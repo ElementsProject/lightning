@@ -1003,11 +1003,11 @@ log_error_and_skip:
 	return true;
 }
 
-REGISTER_PLUGIN_HOOK(rpc_command,
-		     rpc_command_hook_callback,
-		     rpc_command_hook_final,
-		     rpc_command_hook_serialize,
-		     struct rpc_command_hook_payload *);
+REGISTER_PLUGIN_HOOK_STRFILTER(rpc_command,
+			       rpc_command_hook_callback,
+			       rpc_command_hook_final,
+			       rpc_command_hook_serialize,
+			       struct rpc_command_hook_payload *);
 
 /* We return struct command_result so command_fail return value has a natural
  * sink; we don't actually use the result. */
@@ -1124,7 +1124,8 @@ parse_request(struct json_connection *jcon,
 
 	trace_span_start("lightningd/jsonrpc", &c);
 	trace_span_tag(&c, "method", c->json_cmd->name);
-	completed = plugin_hook_call_rpc_command(jcon->ld, c->id, rpc_hook);
+	/* They can filter by command name */
+	completed = plugin_hook_call_rpc_command(jcon->ld, c->json_cmd->name, c->id, rpc_hook);
 	trace_span_end(&c);
 
 	/* If it's deferred, mark it (otherwise, it's completed) */

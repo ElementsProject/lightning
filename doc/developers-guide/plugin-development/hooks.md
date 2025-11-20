@@ -506,7 +506,8 @@ The `htlc_accepted` hook is a chained hook, i.e., multiple plugins can register 
 
 ### `rpc_command`
 
-The `rpc_command` hook allows a plugin to take over any RPC command. It sends the received JSON-RPC request (for any method!) to the registered plugin,
+The `rpc_command` hook allows a plugin to take over any RPC command. It sends the received JSON-RPC request to the registered plugin.  You can optionally specify a "filters" array, containing the command names you want to intercept: without this, all commands will be sent to this hook.
+
 
 ```json
 {
