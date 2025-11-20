@@ -133,7 +133,6 @@ struct table_desc {
 	struct list_head refresh_waiters;
 };
 static STRMAP(struct table_desc *) tablemap;
-static size_t max_dbmem = 500000000;
 static struct sqlite3 *db;
 static char *dbfilename;
 static int gosstore_fd = -1;
@@ -251,13 +250,6 @@ static struct sqlite3 *sqlite_setup(struct plugin *plugin)
 	sqlite3_limit(db, SQLITE_LIMIT_VARIABLE_NUMBER, 100);
 	sqlite3_limit(db, SQLITE_LIMIT_TRIGGER_DEPTH, 1);
 	sqlite3_limit(db, SQLITE_LIMIT_WORKER_THREADS, 1);
-
-	/* Default is now 4k pages, so allow 500MB */
-	err = sqlite3_exec(db, tal_fmt(tmpctx, "PRAGMA max_page_count = %zu;",
-				       max_dbmem / 4096),
-			   NULL, NULL, &errmsg);
-	if (err != SQLITE_OK)
-		plugin_err(plugin, "Could not set max_page_count: %s", errmsg);
 
 	err = sqlite3_exec(db, "PRAGMA foreign_keys = ON;", NULL, NULL, &errmsg);
 	if (err != SQLITE_OK)
