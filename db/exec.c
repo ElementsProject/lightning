@@ -121,19 +121,29 @@ static void db_data_version_incr(struct db *db)
 
 void db_begin_transaction_(struct db *db, const char *location)
 {
-	bool ok;
 	if (db->in_transaction)
 		db_fatal(db, "Already in transaction from %s", db->in_transaction);
 
+	db->in_transaction = location;
 	/* No writes yet. */
 	db->dirty = false;
+}
+
+void db_need_transaction(struct db *db, const char *location)
+{
+	bool ok;
+
+	if (!db->in_transaction)
+		db_fatal(db, "Not in a transaction for %s", location);
+
+	if (db->transaction_started)
+		return;
 
 	db_prepare_for_changes(db);
 	ok = db->config->begin_tx_fn(db);
 	if (!ok)
 		db_fatal(db, "Failed to start DB transaction: %s", db->error);
-
-	db->in_transaction = location;
+	db->transaction_started = true;
 }
 
 bool db_in_transaction(struct db *db)
@@ -150,6 +160,13 @@ void db_commit_transaction(struct db *db)
 {
 	bool ok;
 	assert(db->in_transaction);
+
+	if (!db->transaction_started) {
+		db->in_transaction = NULL;
+		assert(!db->dirty);
+		return;
+	}
+
 	db_assert_no_outstanding_statements(db);
 
 	/* Increment before reporting changes to an eventual plugin. */
@@ -164,4 +181,5 @@ void db_commit_transaction(struct db *db)
 
 	db->in_transaction = NULL;
 	db->dirty = false;
+	db->transaction_started = false;
 }

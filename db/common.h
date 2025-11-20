@@ -29,6 +29,8 @@
 struct db {
 	char *filename;
 	const char *in_transaction;
+	/* For lazy transaction activation */
+	bool transaction_started;
 
 	/* DB-specific context */
 	void *conn;
