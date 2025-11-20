@@ -218,4 +218,13 @@ def test_spam_commands(node_factory, bitcoind, benchmark):
     plugin = os.path.join(os.getcwd(), "tests/plugins/test_libplugin")
     l1 = get_bench_node(node_factory, extra_options={"plugin": plugin})
 
+    # This calls "batch" 1M times (which doesn't need a transaction)
     benchmark(l1.rpc.spamcommand, 1_000_000)
+
+
+def test_spam_listcommands(node_factory, bitcoind, benchmark):
+    plugin = os.path.join(os.getcwd(), "tests/plugins/test_libplugin")
+    l1 = get_bench_node(node_factory, extra_options={"plugin": plugin})
+
+    # This calls "listinvoice" 100,000 times (which doesn't need a transaction commit)
+    benchmark(l1.rpc.spamlistcommand, 100_000)
