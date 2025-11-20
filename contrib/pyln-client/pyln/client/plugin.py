@@ -59,6 +59,7 @@ class Method(object):
         self.description = description
         self.before: List[str] = []
         self.after: List[str] = []
+        self.filters: Optional[List[Union[str, int]]] = None
 
     def get_usage(self):
         # Handles out-of-order use of parameters like:
@@ -546,7 +547,8 @@ class Plugin(object):
     def add_hook(self, name: str, func: Callable[..., JSONType],
                  background: bool = False,
                  before: Optional[List[str]] = None,
-                 after: Optional[List[str]] = None) -> None:
+                 after: Optional[List[str]] = None,
+                 filters: Optional[List[Union[str, int]]] = None) -> None:
         """Register a hook that is called synchronously by lightningd on events
         """
         if name in self.methods:
@@ -574,17 +576,19 @@ class Plugin(object):
         method.after = []
         if after:
             method.after = after
+        method.filters = filters
         self.methods[name] = method
 
     def hook(self, method_name: str,
              before: List[str] = None,
-             after: List[str] = None) -> JsonDecoratorType:
+             after: List[str] = None,
+             filters: List[Union[str, int]] = None) -> JsonDecoratorType:
         """Decorator to add a plugin hook to the dispatch table.
 
         Internally uses add_hook.
         """
         def decorator(f: Callable[..., JSONType]) -> Callable[..., JSONType]:
-            self.add_hook(method_name, f, background=False, before=before, after=after)
+            self.add_hook(method_name, f, background=False, before=before, after=after, filters=filters)
             return f
         return decorator
 
@@ -961,9 +965,12 @@ class Plugin(object):
                 continue
 
             if method.mtype == MethodType.HOOK:
-                hooks.append({'name': method.name,
-                              'before': method.before,
-                              'after': method.after})
+                hook = {'name': method.name,
+                        'before': method.before,
+                        'after': method.after}
+                if method.filters:
+                    hook['filters'] = method.filters
+                hooks.append(hook)
                 continue
 
             # For compatibility with lightningd prior to 24.08, we must
