@@ -268,6 +268,17 @@ static struct sqlite3 *sqlite_setup(struct plugin *plugin)
 	if (err != SQLITE_OK)
 		plugin_err(plugin, "Could not set foreign_keys: %s", errmsg);
 
+	if (sql->dbfilename) {
+		err = sqlite3_exec(db,
+				   "PRAGMA synchronous = OFF;"
+				   "PRAGMA journal_mode = OFF;"
+				   "PRAGMA temp_store = MEMORY;"
+				   , NULL, NULL,
+				   &errmsg);
+		if (err != SQLITE_OK)
+			plugin_err(plugin, "Could not disable sync: %s", errmsg);
+	}
+
 	return db;
 }
 
