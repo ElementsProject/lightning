@@ -7,7 +7,9 @@ from utils import (
 import os
 import unittest
 import pytest
+import random
 import re
+import threading
 import time
 from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND
 
@@ -2088,3 +2090,82 @@ def test_migration_no_bkpr(node_factory, bitcoind):
     check_channel_moves(l2, expected_channel2)
     check_chain_moves(l1, expected_chain1)
     check_chain_moves(l2, expected_chain2)
+
+
+def test_generate_coinmoves(node_factory, bitcoind, executor):
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+
+    # Route some payments
+    l1.rpc.xpay(l3.rpc.invoice(1, "test_generate_coinmoves", "test_generate_coinmoves")['bolt11'])
+    # Make some payments
+    l2.rpc.xpay(l3.rpc.invoice(1, "test_generate_coinmoves3", "test_generate_coinmoves3")['bolt11'])
+    # Receive some payments
+    l1.rpc.xpay(l2.rpc.invoice(1, "test_generate_coinmoves", "test_generate_coinmoves")['bolt11'])
+    wait_for(lambda: all([c['htlcs'] == [] for c in l1.rpc.listpeerchannels()['channels']]))
+
+    l2.stop()
+    entries = l2.db.query('SELECT * FROM channel_moves ORDER BY id;')
+    assert len(entries) == 4
+    next_id = entries[-1]['id'] + 1
+    next_timestamp = entries[-1]['timestamp'] + 1
+
+    batch = []
+    # Let's make 100,000 entries.
+    for _ in range(100_000 // len(entries)):
+        # Random payment_hash
+        entries[0]['payment_hash'] = entries[1]['payment_hash'] = random.randbytes(32)
+        entries[2]['payment_hash'] = random.randbytes(32)
+        entries[3]['payment_hash'] = random.randbytes(32)
+        # Incrementing timestamps
+        for e in entries:
+            e['timestamp'] = next_timestamp
+            next_timestamp += 1
+
+        for e in entries:
+            batch.append((
+                next_id,
+                e['account_channel_id'],
+                e['account_nonchannel_id'],
+                e['tag_bitmap'],
+                e['credit_or_debit'],
+                e['timestamp'],
+                e['payment_hash'],
+                e['payment_part_id'],
+                e['payment_group_id'],
+                e['fees'],
+            ))
+            next_id += 1
+
+    l2.db.executemany("INSERT INTO channel_moves"
+                      " (id, account_channel_id, account_nonchannel_id, tag_bitmap, credit_or_debit,"
+                      "  timestamp, payment_hash, payment_part_id, payment_group_id, fees)"
+                      " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                      batch)
+
+    # Memleak detection here creates significant overhead!
+    del l2.daemon.env["LIGHTNINGD_DEV_MEMLEAK"]
+    l2.start()
+
+    def measure_latency(node, stop_event):
+        latencies = []
+
+        while not stop_event.is_set():
+            time.sleep(0.1)
+
+            start = time.time()
+            node.rpc.help()
+            end = time.time()
+
+            latencies.append(end - start)
+
+        return latencies
+
+    stopme = threading.Event()
+    fut = executor.submit(measure_latency, l2, stopme)
+
+    # This makes bkpr parse it all.
+    l2.rpc.bkpr_listbalances()
+
+    stopme.set()
+    # Latency under 1 second
+    assert max(fut.result(TIMEOUT)) < 1
