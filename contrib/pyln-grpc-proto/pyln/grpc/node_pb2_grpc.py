@@ -694,6 +694,11 @@ class NodeStub(object):
                 request_serializer=node__pb2.AskrenebiaschannelRequest.SerializeToString,
                 response_deserializer=node__pb2.AskrenebiaschannelResponse.FromString,
                 _registered_method=True)
+        self.AskreneBiasNode = channel.unary_unary(
+                '/cln.Node/AskreneBiasNode',
+                request_serializer=node__pb2.AskrenebiasnodeRequest.SerializeToString,
+                response_deserializer=node__pb2.AskrenebiasnodeResponse.FromString,
+                _registered_method=True)
         self.AskReneListReservations = channel.unary_unary(
                 '/cln.Node/AskReneListReservations',
                 request_serializer=node__pb2.AskrenelistreservationsRequest.SerializeToString,
@@ -728,6 +733,11 @@ class NodeStub(object):
                 '/cln.Node/ListChainMoves',
                 request_serializer=node__pb2.ListchainmovesRequest.SerializeToString,
                 response_deserializer=node__pb2.ListchainmovesResponse.FromString,
+                _registered_method=True)
+        self.ListNetworkEvents = channel.unary_unary(
+                '/cln.Node/ListNetworkEvents',
+                request_serializer=node__pb2.ListnetworkeventsRequest.SerializeToString,
+                response_deserializer=node__pb2.ListnetworkeventsResponse.FromString,
                 _registered_method=True)
         self.SubscribeBlockAdded = channel.unary_stream(
                 '/cln.Node/SubscribeBlockAdded',
@@ -1556,6 +1566,12 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def AskreneBiasNode(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def AskReneListReservations(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -1593,6 +1609,12 @@ class NodeServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def ListChainMoves(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListNetworkEvents(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -2297,6 +2319,11 @@ def add_NodeServicer_to_server(servicer, server):
                     request_deserializer=node__pb2.AskrenebiaschannelRequest.FromString,
                     response_serializer=node__pb2.AskrenebiaschannelResponse.SerializeToString,
             ),
+            'AskreneBiasNode': grpc.unary_unary_rpc_method_handler(
+                    servicer.AskreneBiasNode,
+                    request_deserializer=node__pb2.AskrenebiasnodeRequest.FromString,
+                    response_serializer=node__pb2.AskrenebiasnodeResponse.SerializeToString,
+            ),
             'AskReneListReservations': grpc.unary_unary_rpc_method_handler(
                     servicer.AskReneListReservations,
                     request_deserializer=node__pb2.AskrenelistreservationsRequest.FromString,
@@ -2331,6 +2358,11 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.ListChainMoves,
                     request_deserializer=node__pb2.ListchainmovesRequest.FromString,
                     response_serializer=node__pb2.ListchainmovesResponse.SerializeToString,
+            ),
+            'ListNetworkEvents': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListNetworkEvents,
+                    request_deserializer=node__pb2.ListnetworkeventsRequest.FromString,
+                    response_serializer=node__pb2.ListnetworkeventsResponse.SerializeToString,
             ),
             'SubscribeBlockAdded': grpc.unary_stream_rpc_method_handler(
                     servicer.SubscribeBlockAdded,
@@ -5938,6 +5970,33 @@ class Node(object):
             _registered_method=True)
 
     @staticmethod
+    def AskreneBiasNode(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/cln.Node/AskreneBiasNode',
+            node__pb2.AskrenebiasnodeRequest.SerializeToString,
+            node__pb2.AskrenebiasnodeResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
     def AskReneListReservations(request,
             target,
             options=(),
@@ -6116,6 +6175,33 @@ class Node(object):
             '/cln.Node/ListChainMoves',
             node__pb2.ListchainmovesRequest.SerializeToString,
             node__pb2.ListchainmovesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListNetworkEvents(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/cln.Node/ListNetworkEvents',
+            node__pb2.ListnetworkeventsRequest.SerializeToString,
+            node__pb2.ListnetworkeventsResponse.FromString,
             options,
             channel_credentials,
             insecure,

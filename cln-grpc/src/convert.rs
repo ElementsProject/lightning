@@ -4395,6 +4395,30 @@ impl From<responses::AskrenebiaschannelResponse> for pb::AskrenebiaschannelRespo
 }
 
 #[allow(unused_variables)]
+impl From<responses::AskrenebiasnodeNodeBiases> for pb::AskrenebiasnodeNodeBiases {
+    fn from(c: responses::AskrenebiasnodeNodeBiases) -> Self {
+        Self {
+            description: c.description, // Rule #2 for type string?
+            in_bias: c.in_bias, // Rule #2 for type integer
+            layer: c.layer, // Rule #2 for type string
+            node: c.node.serialize().to_vec(), // Rule #2 for type pubkey
+            out_bias: c.out_bias, // Rule #2 for type integer
+            timestamp: c.timestamp, // Rule #2 for type u64
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AskrenebiasnodeResponse> for pb::AskrenebiasnodeResponse {
+    fn from(c: responses::AskrenebiasnodeResponse) -> Self {
+        Self {
+            // Field: Askrene-Bias-Node.node_biases[]
+            node_biases: c.node_biases.into_iter().map(|i| i.into()).collect(), // Rule #3 for type AskrenebiasnodeNodeBiases
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::AskrenelistreservationsReservations> for pb::AskrenelistreservationsReservations {
     fn from(c: responses::AskrenelistreservationsReservations) -> Self {
         Self {
@@ -4519,6 +4543,31 @@ impl From<responses::ListchainmovesResponse> for pb::ListchainmovesResponse {
         Self {
             // Field: ListChainMoves.chainmoves[]
             chainmoves: c.chainmoves.into_iter().map(|i| i.into()).collect(), // Rule #3 for type ListchainmovesChainmoves
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListnetworkeventsNetworkevents> for pb::ListnetworkeventsNetworkevents {
+    fn from(c: responses::ListnetworkeventsNetworkevents) -> Self {
+        Self {
+            connect_attempted: c.connect_attempted, // Rule #2 for type boolean?
+            created_index: c.created_index, // Rule #2 for type u64
+            duration_nsec: c.duration_nsec, // Rule #2 for type u64?
+            peer_id: c.peer_id.serialize().to_vec(), // Rule #2 for type pubkey
+            reason: c.reason, // Rule #2 for type string?
+            timestamp: c.timestamp, // Rule #2 for type u64
+            item_type: c.item_type, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListnetworkeventsResponse> for pb::ListnetworkeventsResponse {
+    fn from(c: responses::ListnetworkeventsResponse) -> Self {
+        Self {
+            // Field: ListNetworkEvents.networkevents[]
+            networkevents: c.networkevents.into_iter().map(|i| i.into()).collect(), // Rule #3 for type ListnetworkeventsNetworkevents
         }
     }
 }
@@ -6230,6 +6279,20 @@ impl From<requests::AskrenebiaschannelRequest> for pb::AskrenebiaschannelRequest
 }
 
 #[allow(unused_variables)]
+impl From<requests::AskrenebiasnodeRequest> for pb::AskrenebiasnodeRequest {
+    fn from(c: requests::AskrenebiasnodeRequest) -> Self {
+        Self {
+            bias: c.bias, // Rule #2 for type integer
+            description: c.description, // Rule #2 for type string?
+            direction: c.direction, // Rule #2 for type string
+            layer: c.layer, // Rule #2 for type string
+            node: c.node.serialize().to_vec(), // Rule #2 for type pubkey
+            relative: c.relative, // Rule #2 for type boolean?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::AskrenelistreservationsRequest> for pb::AskrenelistreservationsRequest {
     fn from(c: requests::AskrenelistreservationsRequest) -> Self {
         Self {
@@ -6306,6 +6369,18 @@ impl From<requests::ListchannelmovesRequest> for pb::ListchannelmovesRequest {
 impl From<requests::ListchainmovesRequest> for pb::ListchainmovesRequest {
     fn from(c: requests::ListchainmovesRequest) -> Self {
         Self {
+            index: c.index.map(|v| v as i32),
+            limit: c.limit, // Rule #2 for type u32?
+            start: c.start, // Rule #2 for type u64?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::ListnetworkeventsRequest> for pb::ListnetworkeventsRequest {
+    fn from(c: requests::ListnetworkeventsRequest) -> Self {
+        Self {
+            id: c.id, // Rule #2 for type string?
             index: c.index.map(|v| v as i32),
             limit: c.limit, // Rule #2 for type u32?
             start: c.start, // Rule #2 for type u64?
@@ -7956,6 +8031,20 @@ impl From<pb::AskrenebiaschannelRequest> for requests::AskrenebiaschannelRequest
 }
 
 #[allow(unused_variables)]
+impl From<pb::AskrenebiasnodeRequest> for requests::AskrenebiasnodeRequest {
+    fn from(c: pb::AskrenebiasnodeRequest) -> Self {
+        Self {
+            bias: c.bias, // Rule #1 for type integer
+            description: c.description, // Rule #1 for type string?
+            direction: c.direction, // Rule #1 for type string
+            layer: c.layer, // Rule #1 for type string
+            node: PublicKey::from_slice(&c.node).unwrap(), // Rule #1 for type pubkey
+            relative: c.relative, // Rule #1 for type boolean?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<pb::AskrenelistreservationsRequest> for requests::AskrenelistreservationsRequest {
     fn from(c: pb::AskrenelistreservationsRequest) -> Self {
         Self {
@@ -8031,6 +8120,18 @@ impl From<pb::ListchannelmovesRequest> for requests::ListchannelmovesRequest {
 impl From<pb::ListchainmovesRequest> for requests::ListchainmovesRequest {
     fn from(c: pb::ListchainmovesRequest) -> Self {
         Self {
+            index: c.index.map(|v| v.try_into().unwrap()),
+            limit: c.limit, // Rule #1 for type u32?
+            start: c.start, // Rule #1 for type u64?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::ListnetworkeventsRequest> for requests::ListnetworkeventsRequest {
+    fn from(c: pb::ListnetworkeventsRequest) -> Self {
+        Self {
+            id: c.id, // Rule #1 for type string?
             index: c.index.map(|v| v.try_into().unwrap()),
             limit: c.limit, // Rule #1 for type u32?
             start: c.start, // Rule #1 for type u64?
