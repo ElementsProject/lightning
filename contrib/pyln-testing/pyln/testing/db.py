@@ -51,13 +51,17 @@ class Sqlite3Db(BaseDb):
         db.close()
         return result
 
-    def execute(self, query: str) -> None:
-        db = sqlite3.connect(self.path)
-        c = db.cursor()
-        c.execute(query)
-        db.commit()
-        c.close()
-        db.close()
+    def execute(self, query: str, params: tuple = ()) -> None:
+        """Execute a single statement with bound params. Placeholders: '?'"""
+        with sqlite3.connect(self.path) as db:
+            db.execute("PRAGMA busy_timeout = 5000")
+            db.execute(query, params)
+
+    def executemany(self, query: str, seq_of_params: list[tuple]) -> None:
+        """Batch execute with bound params. Placeholders: '?'"""
+        with sqlite3.connect(self.path) as db:
+            db.execute("PRAGMA busy_timeout = 5000")
+            db.executemany(query, seq_of_params)
 
     def stop(self):
         pass
@@ -100,9 +104,15 @@ class PostgresDb(BaseDb):
         cur.close()
         return res
 
-    def execute(self, query):
+    def execute(self, query: str, params: tuple = ()) -> None:
+        """Execute a single statement with bound params. Placeholders: '%s'"""
         with self.conn, self.conn.cursor() as cur:
-            cur.execute(query)
+            cur.execute(query, params)
+
+    def executemany(self, query: str, seq_of_params: list[tuple]) -> None:
+        """Batch execute with bound params. Placeholders: '%s'"""
+        with self.conn, self.conn.cursor() as cur:
+            cur.executemany(query.replace('?', '%s'), seq_of_params)
 
     def stop(self):
         """Clean up the database.
