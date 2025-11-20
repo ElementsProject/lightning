@@ -4719,23 +4719,3 @@ def test_openchannel_hook_channel_type(node_factory, bitcoind):
         l2.daemon.wait_for_log(r"plugin-openchannel_hook_accepter.py: accept by design: channel_type {'bits': \[12, 22\], 'names': \['static_remotekey/even', 'anchors/even'\]}")
     else:
         l2.daemon.wait_for_log(r"plugin-openchannel_hook_accepter.py: accept by design: channel_type {'bits': \[12\], 'names': \['static_remotekey/even'\]}")
-
-
-@pytest.mark.slow_test
-def test_spam_commands(node_factory, bitcoind):
-    plugin = os.path.join(os.getcwd(), "tests/plugins/test_libplugin")
-    l1 = node_factory.get_node(options={"plugin": plugin, 'log-level': 'info'},
-                               start=False)
-
-    # Memleak detection here creates significant overhead!
-    del l1.daemon.env["LIGHTNINGD_DEV_MEMLEAK"]
-    # Don't bother recording all our io.
-    del l1.daemon.opts['dev-save-plugin-io']
-    l1.start()
-
-    start_time = time.time()
-    l1.rpc.spamcommand(1_000_000)
-    duration = time.time() - start_time
-
-    # Change 100 to 0 to get test to fail so you can see the result!
-    assert duration < 100

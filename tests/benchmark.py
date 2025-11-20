@@ -1,21 +1,27 @@
 from concurrent import futures
 from fixtures import *  # noqa: F401,F403
-from time import time
 from tqdm import tqdm
+from utils import (wait_for, TIMEOUT)
 
 
+import os
 import pytest
 import random
+import statistics
+import threading
+import time
 
 
 num_workers = 480
 num_payments = 10000
 
 
-def get_bench_node(node_factory):
+def get_bench_node(node_factory, extra_options={}):
     """Get a node which is optimized for benchmarking"""
+    options = extra_options.copy()
     # The normal log-level trace makes for a lot of IO.
-    node = node_factory.get_node(start=False, options={'log-level': 'info'})
+    options['log-level'] = 'info'
+    node = node_factory.get_node(start=False, options=options)
     # Memleak detection here creates significant overhead!
     del node.daemon.env["LIGHTNINGD_DEV_MEMLEAK"]
     # Don't bother recording all our io.
@@ -125,3 +131,91 @@ def test_pay(node_factory, benchmark):
 
 def test_start(node_factory, benchmark):
     benchmark(node_factory.get_node)
+
+
+def test_generate_coinmoves(node_factory, bitcoind, executor, benchmark):
+    l1, l2, l3 = get_bench_line_graph(node_factory, 3, wait_for_announce=True)
+
+    # Route some payments
+    l1.rpc.xpay(l3.rpc.invoice(1, "test_generate_coinmoves", "test_generate_coinmoves")['bolt11'])
+    # Make some payments
+    l2.rpc.xpay(l3.rpc.invoice(1, "test_generate_coinmoves3", "test_generate_coinmoves3")['bolt11'])
+    # Receive some payments
+    l1.rpc.xpay(l2.rpc.invoice(1, "test_generate_coinmoves", "test_generate_coinmoves")['bolt11'])
+    wait_for(lambda: all([c['htlcs'] == [] for c in l1.rpc.listpeerchannels()['channels']]))
+
+    l2.stop()
+    entries = l2.db.query('SELECT * FROM channel_moves ORDER BY id;')
+    assert len(entries) == 4
+    next_id = entries[-1]['id'] + 1
+    next_timestamp = entries[-1]['timestamp'] + 1
+
+    batch = []
+    # Let's make 5 million entries.
+    for _ in range(5_000_000 // len(entries)):
+        # Random payment_hash
+        entries[0]['payment_hash'] = entries[1]['payment_hash'] = random.randbytes(32)
+        entries[2]['payment_hash'] = random.randbytes(32)
+        entries[3]['payment_hash'] = random.randbytes(32)
+        # Incrementing timestamps
+        for e in entries:
+            e['timestamp'] = next_timestamp
+            next_timestamp += 1
+
+        for e in entries:
+            batch.append((
+                next_id,
+                e['account_channel_id'],
+                e['account_nonchannel_id'],
+                e['tag_bitmap'],
+                e['credit_or_debit'],
+                e['timestamp'],
+                e['payment_hash'],
+                e['payment_part_id'],
+                e['payment_group_id'],
+                e['fees'],
+            ))
+            next_id += 1
+
+    l2.db.executemany("INSERT INTO channel_moves"
+                      " (id, account_channel_id, account_nonchannel_id, tag_bitmap, credit_or_debit,"
+                      "  timestamp, payment_hash, payment_part_id, payment_group_id, fees)"
+                      " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                      batch)
+    l2.start()
+
+    def measure_latency(node, stop_event):
+        latencies = []
+
+        while not stop_event.is_set():
+            time.sleep(0.1)
+
+            start = time.time()
+            node.rpc.help()
+            end = time.time()
+
+            latencies.append(end - start)
+
+        return latencies
+
+    stopme = threading.Event()
+    fut = executor.submit(measure_latency, l2, stopme)
+
+    # This makes bkpr parse it all.
+    benchmark(l2.rpc.bkpr_listbalances)
+
+    stopme.set()
+    latencies = fut.result(TIMEOUT)
+
+    # FIXME: Print this somewhere!
+    benchmark.extra_info = {"title": "Latency details:",
+                            "min": min(latencies),
+                            "median": statistics.median(latencies),
+                            "max": max(latencies)}
+
+
+def test_spam_commands(node_factory, bitcoind, benchmark):
+    plugin = os.path.join(os.getcwd(), "tests/plugins/test_libplugin")
+    l1 = get_bench_node(node_factory, extra_options={"plugin": plugin})
+
+    benchmark(l1.rpc.spamcommand, 1_000_000)
