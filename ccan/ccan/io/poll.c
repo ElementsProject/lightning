@@ -373,6 +373,8 @@ static void restore_pollfds(void)
 void *io_loop(struct timers *timers, struct timer **expired)
 {
 	void *ret;
+	/* This ensures we don't always service lower fds first */
+	static int fairness_counter;
 
 	/* if timers is NULL, expired must be.  If not, not. */
 	assert(!timers == !expired);
@@ -384,17 +386,12 @@ void *io_loop(struct timers *timers, struct timer **expired)
 	while (!io_loop_return) {
 		int i, r, ms_timeout = -1;
 
-		if (handle_always()) {
-			/* Could have started/finished more. */
-			continue;
-		}
-
 		/* Everything closed? */
 		if (num_fds == 0)
 			break;
 
 		/* You can't tell them all to go to sleep! */
-		assert(num_waiting);
+		assert(num_waiting || num_always);
 
 		if (timers) {
 			struct timemono now, first;
@@ -417,6 +414,10 @@ void *io_loop(struct timers *timers, struct timer **expired)
 			}
 		}
 
+		/* Don't wait if we have always requests pending! */
+		if (num_always != 0)
+			ms_timeout = 0;
+
 		/* We do this temporarily, assuming exclusive is unusual */
 		exclude_pollfds();
 		r = pollfn(pollfds, num_fds, ms_timeout);
@@ -430,15 +431,29 @@ void *io_loop(struct timers *timers, struct timer **expired)
 			break;
 		}
 
-		for (i = 0; i < num_fds && !io_loop_return; i++) {
-			struct io_conn *c = (void *)fds[i];
-			int events = pollfds[i].revents;
+		fairness_counter++;
+		for (size_t rotation = 0; rotation < num_fds && !io_loop_return; rotation++) {
+			struct io_conn *c;
+			int events;
+
+			i = (rotation + fairness_counter) % num_fds;
+			c = (void *)fds[i];
 
 			/* Clear so we don't get confused if exclusive next time */
+			events = pollfds[i].revents;
 			pollfds[i].revents = 0;
 
-			if (r == 0)
+			/* Timeout? */
+			if (r == 0) {
+				handle_always();
 				break;
+			}
+
+			/* We interleave always before the first fd */
+			if (i == 0 && handle_always()) {
+				/* Could have started/finished more. */
+				break;
+			}
 
 			if (fds[i]->listener) {
 				struct io_listener *l = (void *)fds[i];
