@@ -486,24 +486,24 @@ bool json_parse_input(jsmn_parser *parser,
 
 again:
 	ret = jsmn_parse(parser, input, len, *toks, tal_count(*toks) - 1);
-
-	switch (ret) {
-	case JSMN_ERROR_INVAL:
+	if (ret == JSMN_ERROR_INVAL)
 		return false;
-	case JSMN_ERROR_NOMEM:
-		tal_resize(toks, tal_count(*toks) * 2);
-		goto again;
-	}
 
 	/* Check whether we read at least one full root element, i.e., root
 	 * element has its end set. */
 	if ((*toks)[0].type == JSMN_UNDEFINED || (*toks)[0].end == -1) {
+		/* If it ran out of tokens, provide more. */
+		if (ret == JSMN_ERROR_NOMEM) {
+			tal_resize(toks, tal_count(*toks) * 2);
+			goto again;
+		}
+		/* Otherwise, must be incomplete */
 		*complete = false;
 		return true;
 	}
 
 	/* If we read a partial element at the end of the stream we'll get a
-	 * ret=JSMN_ERROR_PART, but due to the previous check we know we read at
+	 * errro, but due to the previous check we know we read at
 	 * least one full element, so count tokens that are part of this root
 	 * element. */
 	ret = json_next(*toks) - *toks;
