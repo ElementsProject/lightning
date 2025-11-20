@@ -131,3 +131,96 @@ docker exec -it <container-id-from-step2> bash
 docker run -it --rm --platform=linux/amd64 --network=host -v '/root/.lightning:/root/.lightning' -v '/root/.bitcoin:/root/.bitcoin' -e LIGHTNINGD_DATA=/root/.lightning elementsproject/lightningd:latest --network=regtest
 
 ```
+
+## Replace the `hsmd` subdaemon with VLS `remote_hsmd_socket`:
+
+1. This setup assumes that both `bitcoind` and `vlsd` will be running on your host system.
+
+2. Start your `bitcoind` node on the local machine.
+
+3. Start `vlsd` locally with your prefered configuration. For example:
+
+```shell
+export LIGHTNING_VLS_DIR=/root/.lightning
+export GREENLIGHT_VERSION="v25.12"
+export VLS_CLN_VERSION="v25.12"
+export VLS_NETWORK="regtest"
+export BITCOIND_RPC_URL="http://user:password@127.0.0.1:18443"
+export RUST_LOG=info
+export RUST_BACKTRACE=1
+
+/home/validating-lightning-signer/target/release/vlsd \
+  --datadir "$LIGHTNING_VLS_DIR"/.lightning-signer \
+  --network regtest \
+  --connect http://127.0.0.1:7701 \
+  --rpc-server-address 127.0.0.1 \
+  --rpc-server-port 8000 \
+  --rpc-user vlsuser \
+  --rpc-pass vlspassword \
+  --log-level info
+```
+
+4. Finally, run the Core Lightning node:
+
+4.1 Either by utilizing our docker image flavor `elementsproject/lightningd:v25.12-vls` which comes with pre-built `remote_hsmd_socket` binaries.
+
+```shell
+docker run -it --rm -d \
+  --platform=linux/amd64 \
+  --network=host \
+  -v '/root/.lightning:/root/.lightning' \
+  -v '/root/.bitcoin:/root/.bitcoin' \
+  -e GREENLIGHT_VERSION="v25.12" \
+  -e VLS_CLN_VERSION="v25.12" \
+  -e VLS_NETWORK="regtest" \
+  -e BITCOIND_RPC_URL="http://user:password@127.0.0.1:18443" \
+  -e LIGHTNINGD_NETWORK=regtest \
+  elementsproject/lightningd:v25.12-vls \
+  --bitcoin-rpcconnect=0.0.0.0 \
+  --bitcoin-rpcuser=user \
+  --bitcoin-rpcpassword=password \
+  --network=regtest \
+  --database-upgrade=true \
+  --bitcoin-datadir=/root/.bitcoin \
+  --log-level=debug \
+  --announce-addr=127.0.0.1:19750 \
+  --bind-addr=localhost:8989 \
+  --bind-addr=ws:127.0.0.1:5020 \
+  --bind-addr=0.0.0.0:19750 \
+  --bitcoin-rpcport=18443 \
+  --clnrest-port=3020 \
+  --grpc-port=9740 \
+  --subdaemon=hsmd:/var/lib/vls/bin/remote_hsmd_socket
+```
+
+4.2 Or, by replacing subdaemon `hsmd` with your mounted `remote_hsmd_socket`:
+
+```shell
+docker run -it --rm -d \
+  --platform=linux/amd64 \
+  --network=host \
+  -v '/root/.lightning:/root/.lightning' \
+  -v '/root/.bitcoin:/root/.bitcoin' \
+  -v '/root/vls/target/release/remote_hsmd_socket:/var/lib/vls/bin/remote_hsmd_socket'
+  -e GREENLIGHT_VERSION="v25.12" \
+  -e VLS_CLN_VERSION="v25.12" \
+  -e VLS_NETWORK="regtest" \
+  -e BITCOIND_RPC_URL="http://user:password@127.0.0.1:18443" \
+  -e LIGHTNINGD_NETWORK=regtest \
+  elementsproject/lightningd:v25.12 \
+  --bitcoin-rpcconnect=0.0.0.0 \
+  --bitcoin-rpcuser=user \
+  --bitcoin-rpcpassword=password \
+  --network=regtest \
+  --database-upgrade=true \
+  --bitcoin-datadir=/root/.bitcoin \
+  --log-level=debug \
+  --announce-addr=127.0.0.1:19750 \
+  --bind-addr=localhost:8989 \
+  --bind-addr=ws:127.0.0.1:5020 \
+  --bind-addr=0.0.0.0:19750 \
+  --bitcoin-rpcport=18443 \
+  --clnrest-port=3020 \
+  --grpc-port=9740 \
+  --subdaemon=hsmd:/var/lib/vls/bin/remote_hsmd_socket
+```
