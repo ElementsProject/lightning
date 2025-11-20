@@ -558,12 +558,17 @@ static struct command_result *wait_done(struct command *cmd,
 }
 
 static struct command_result *one_refresh_done(struct command *cmd,
-					       struct db_query *dbq)
+					       struct db_query *dbq,
+					       bool was_limited)
 {
 	struct table_desc *td = dbq->tables[0];
 	struct list_head waiters;
 	struct refresh_waiter *rw;
 	struct timerel refresh_duration = timemono_since(td->refresh_start);
+
+	/* If we may have more, keep going. */
+	if (was_limited)
+		return td->refresh(cmd, dbq->tables[0], dbq);
 
 	/* We are no longer refreshing */
 	assert(td->refreshing);
@@ -873,17 +878,20 @@ static struct command_result *process_json_result(struct command *cmd,
 						  const char *buf,
 						  const jsmntok_t *result,
 						  const struct table_desc *td,
-						  u64 *last_created_index)
+						  u64 *last_created_index,
+						  size_t *num_entries)
 {
+	const jsmntok_t *arr;
 	struct timerel so_far = timemono_since(td->refresh_start);
 	plugin_log(cmd->plugin, LOG_DBG,
 		   "Time to call %s: %"PRIu64".%09"PRIu64" seconds",
 		   td->cmdname,
 		   (u64)so_far.ts.tv_sec, (u64)so_far.ts.tv_nsec);
 
-	return process_json_list(cmd, buf,
-				 json_get_member(buf, result, td->arrname),
-				 NULL, td, last_created_index);
+	arr = json_get_member(buf, result, td->arrname);
+	if (num_entries)
+		*num_entries = arr->size;
+	return process_json_list(cmd, buf, arr, NULL, td, last_created_index);
 }
 
 static struct command_result *default_list_done(struct command *cmd,
@@ -906,11 +914,11 @@ static struct command_result *default_list_done(struct command *cmd,
 				    td->name, errmsg);
 	}
 
-	ret = process_json_result(cmd, buf, result, td, dbq->last_created_index);
+	ret = process_json_result(cmd, buf, result, td, dbq->last_created_index, NULL);
 	if (ret)
 		return ret;
 
-	return one_refresh_done(cmd, dbq);
+	return one_refresh_done(cmd, dbq, false);
 }
 
 static struct command_result *default_refresh(struct command *cmd,
@@ -989,7 +997,7 @@ static struct command_result *listchannels_one_done(struct command *cmd,
 	const struct table_desc *td = dbq->tables[0];
 	struct command_result *ret;
 
-	ret = process_json_result(cmd, buf, result, td, dbq->last_created_index);
+	ret = process_json_result(cmd, buf, result, td, dbq->last_created_index, NULL);
 	if (ret)
 		return ret;
 
@@ -1074,7 +1082,7 @@ static struct command_result *channels_refresh(struct command *cmd,
 		}
 	}
 
-	return one_refresh_done(cmd, dbq);
+	return one_refresh_done(cmd, dbq, false);
 }
 
 static struct command_result *nodes_refresh(struct command *cmd,
@@ -1090,7 +1098,7 @@ static struct command_result *listnodes_one_done(struct command *cmd,
 	const struct table_desc *td = dbq->tables[0];
 	struct command_result *ret;
 
-	ret = process_json_result(cmd, buf, result, td, dbq->last_created_index);
+	ret = process_json_result(cmd, buf, result, td, dbq->last_created_index, NULL);
 	if (ret)
 		return ret;
 
@@ -1206,7 +1214,7 @@ static struct command_result *nodes_refresh(struct command *cmd,
 		/* FIXME: Add WIRE_GOSSIP_STORE_DELETE_NODE marker! */
 	}
 
-	return one_refresh_done(cmd, dbq);
+	return one_refresh_done(cmd, dbq, false);
 }
 
 static struct command_result *refresh_tables(struct command *cmd,
@@ -1547,6 +1555,8 @@ static const char *db_table_name(const tal_t *ctx, const char *cmdname)
 	return ret;
 }
 
+#define LIMIT_PER_LIST 10000
+
 static struct command_result *limited_list_done(struct command *cmd,
 						const char *method,
 						const char *buf,
@@ -1555,12 +1565,15 @@ static struct command_result *limited_list_done(struct command *cmd,
 {
 	struct table_desc *td = dbq->tables[0];
 	struct command_result *ret;
+	size_t num_entries;
 
-	ret = process_json_result(cmd, buf, result, td, dbq->last_created_index);
+	ret = process_json_result(cmd, buf, result, td, dbq->last_created_index,
+				  &num_entries);
 	if (ret)
 		return ret;
 
-	return one_refresh_done(cmd, dbq);
+	/* If we got the number we asked for, we need to ask again. */
+	return one_refresh_done(cmd, dbq, num_entries == LIMIT_PER_LIST);
 }
 
 /* The simplest case: append-only lists */
@@ -1574,6 +1587,7 @@ static struct command_result *refresh_by_created_index(struct command *cmd,
 				    dbq);
 	json_add_string(req->js, "index", "created");
 	json_add_u64(req->js, "start", *dbq->last_created_index + 1);
+	json_add_u64(req->js, "limit", LIMIT_PER_LIST);
 	return send_outreq(req);
 }
 
