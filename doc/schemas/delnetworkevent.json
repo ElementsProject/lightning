@@ -3,6 +3,7 @@
   "type": "object",
   "rpc": "delnetworkevent",
   "title": "Command for removing a listnetworkevents entry",
+  "added": "v25.12",
   "description": [
     "The **delnetworkevent** RPC command removes a single event from **listnetworkevents**, using the uniquely-identifying *created_index*.",
     "",

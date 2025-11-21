@@ -47,6 +47,7 @@ MARKDOWNPAGES := doc/addgossip.7 \
 	doc/deldatastore.7 \
 	doc/delforward.7 \
 	doc/delinvoice.7 \
+	doc/delnetworkevent.7 \
 	doc/delpay.7 \
 	doc/deprecations.7 \
 	doc/dev-forget-channel.7 \

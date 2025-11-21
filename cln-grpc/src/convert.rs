@@ -4573,6 +4573,14 @@ impl From<responses::ListnetworkeventsResponse> for pb::ListnetworkeventsRespons
 }
 
 #[allow(unused_variables)]
+impl From<responses::DelnetworkeventResponse> for pb::DelnetworkeventResponse {
+    fn from(c: responses::DelnetworkeventResponse) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<notifications::BlockAddedNotification> for pb::BlockAddedNotification {
     fn from(c: notifications::BlockAddedNotification) -> Self {
         Self {
@@ -6389,6 +6397,15 @@ impl From<requests::ListnetworkeventsRequest> for pb::ListnetworkeventsRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::DelnetworkeventRequest> for pb::DelnetworkeventRequest {
+    fn from(c: requests::DelnetworkeventRequest) -> Self {
+        Self {
+            created_index: c.created_index, // Rule #2 for type u64
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<notifications::requests::StreamBlockAddedRequest> for pb::StreamBlockAddedRequest {
     fn from(c: notifications::requests::StreamBlockAddedRequest) -> Self {
         Self {
@@ -8135,6 +8152,15 @@ impl From<pb::ListnetworkeventsRequest> for requests::ListnetworkeventsRequest {
             index: c.index.map(|v| v.try_into().unwrap()),
             limit: c.limit, // Rule #1 for type u32?
             start: c.start, // Rule #1 for type u64?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::DelnetworkeventRequest> for requests::DelnetworkeventRequest {
+    fn from(c: pb::DelnetworkeventRequest) -> Self {
+        Self {
+            created_index: c.created_index, // Rule #1 for type u64
         }
     }
 }
