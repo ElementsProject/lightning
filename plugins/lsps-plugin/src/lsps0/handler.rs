@@ -1,6 +1,6 @@
 use crate::{
     jsonrpc::{server::RequestHandler, JsonRpcResponse, RequestObject, RpcError},
-    lsps0::model::{Lsps0listProtocolsRequest, Lsps0listProtocolsResponse},
+    proto::lsps0::{Lsps0listProtocolsRequest, Lsps0listProtocolsResponse},
     util::unwrap_payload_with_peer_id,
 };
 use async_trait::async_trait;
