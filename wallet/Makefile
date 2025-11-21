@@ -4,6 +4,7 @@ WALLET_LIB_SRC :=		\
 	wallet/account_migration.c \
 	wallet/db.c		\
 	wallet/invoices.c	\
+	wallet/migrations.c	\
 	wallet/psbt_fixup.c	\
 	wallet/txfilter.c	\
 	wallet/wallet.c		\
@@ -34,6 +35,7 @@ WALLET_SQL_FILES := 			\
 	wallet/account_migration.c	\
 	wallet/db.c 			\
 	wallet/invoices.c		\
+	wallet/migrations.c 		\
 	wallet/wallet.c 		\
 	wallet/test/run-db.c		\
 	wallet/test/run-wallet.c	\
