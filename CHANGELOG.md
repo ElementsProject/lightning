@@ -4,6 +4,134 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## v25.12rc1 - 2025-11-20: "Boltz's Seamless Upgrade Experience"
+
+Release Candidate for Core Lightning v25.12
+
+This release named by @sangbida
+
+### Added
+
+ - JSON-RPC: `listnetworkevents` to view the last 30 days of ping and connection times. ([#8558])
+ - JSON-RPC: `fundchannel_complete` new parameter `withhold` for zero-conf channels (default false). ([#8546])
+ - Plugins: `xpay` will now wait if it suspects a payment failure is due to a height disagreement with the final node. ([#8645])
+ - Tools: `lightning-hsmtool` now supports hsm_secret files using a 12-word mnemonic. ([#8400])
+ - JSON-RPC: `askrene-bias-node`: an RPC command to set a bias on node's outgoing or incoming channels. ([#8608])
+ - JSON-RPC: `listpeerchannels` `funding` object `withheld` flag, and `listclosedchannels` `funding_withheld` flags, indicating fundchannel_complete was called with the `withheld` parameter true. ([#8546])
+ - JSON-RPC: `psbt` field in `funding` in listpeerchannels, and `funding_psbt` in listclosedchannels. ([#8546])
+ - Plugins: `autoclean` will remove networkevents after 30 days by default. ([#8558])
+ - JSON-RPC: `delnetworkevent` to delete from listnetworkevents. ([#8558])
+ - JSON-RPC: `sql` now supports the `networkevents` table. ([#8558])
+ - JSON-RPC: `wait` now has `networkevents` subsystem. ([#8558])
+ - JSON-RPC: `newaddr` will now return a `p2tr` field by default. ([#8656])
+ - Plugins: `channel_state_changed` notification upon final change to `CLOSED` state. ([#8464])
+ - Plugins: `askrene-reserve` and `askrene-unreserve` can take an optional `layer` inside `path` elements. ([#8685])
+ - Plugins: askrene channel biases now have an associated timestamp, and are timed out by askrene-age. ([#8608])
+ - Plugins: `rpc_command` and `custommsg` hooks can now specify a "filter" to indicate what types they are interested in. ([#8677])
+ - Config: `hsm-passphrase` indicates we should use a manual passphrase with the hsm secret. ([#8400])
+
+### Changed
+
+ - hsmd: New nodes will now be created with a BIP-39 12-word phrase as their root secret. ([#8400])
+ - Postgres: significant speedup on read-only operations (e.g. 30% on empty SELECTs) ([#8677])
+ - Plugins: `htlc_accepted` hook now knows the `peer_id` of the peer that offered us the HTLC. ([#8680])
+ - Plugins: `htlc_accepted` hook can now override the expected total amount of the invoice that belongs to the HTLC. ([#8671])
+ - Build: libsodium version >= 1.0.4 now required (released 2015-06-11) ([#8536])
+ - Build: lowdown is now required (we no longer bundle our own). ([#8536])
+ - pyln-testing requires python>=3.9.2 ([#8592])
+
+### Deprecated
+
+Note: You should always set `allow-deprecated-apis=false` to test for changes.
+
+ - Plugins: `channel_state_changed` notification `message` field being `null`: it will be omitted instead. ([#8464])
+ - JSON-RPC: `newaddr` returning a `bech32` field if `addresstype` is not specified (use `p2tr`). ([#8656])
+ - Config: `encrypted-hsm` to require a passphrase (use `hsm-passphrase`). ([#8400])
+
+### Removed
+
+ - Tools: `lightning-hsmtool` support for mnemonics in non-english languages removed. ([#8400])
+ - Config: --experimental-offers and --experimental-quiesce (default since v24.11) ([#8523])
+ - Plugins: `onion\_message\_recv` hook `blinding` field (use `first\_path\_key` as per modern BOLT 4 naming). ([#8523])
+ - JSON-RPC: `decode` field `blinding` (use `first_path_key` as per modern BOLT naming) ([#8523])
+ - Config: non-functioning litecoin support (who knew we even had that?) ([#8536])
+
+### Fixed
+
+ - lightningd: multiple significant speedups for large nodes, especially preventing "freezes" under exceptionally high load. ([#8677])
+ - `xpay` will not try to send too many HTLCs through unknown channels (6, as that is Phoenix's limit) unless it has no choice ([#8537])
+ - `xpay` fixed clash with simultaneous payments via routehints and blinded paths. ([#8685])
+ - JSON-RPC: `signpsbt` no longer crashes if asked to sign an already-signed PSBT with taproot paths. ([#8546])
+ - Offers: require peers for blinded paths to have `option_onion_messages`, due to reports of LND not forwarding our blinded payments correctly. ([#8682])
+ - Protocol: we now re-transmit unseen funding transactions on startup, for more robustness. ([#8546])
+ - Plugins: `askrene` now handles limits on number of htlcs much more gracefully. ([#8688])
+ - Plugins: `bkpr_listincome` now honors `start\_time` and `end\_time` parameters for onchain fees. ([#8624])
+ - JSON-RPC: `autoclean-once` returns "uncleaned" number reflecting number of candidates which were too new to be cleaned, not all records we didn't delete. ([#8651])
+ - JSON-RPC: `invoice` no longer accepts 640-byte descriptions (it would produce malformed invoices). ([#8535])
+ - Protocol: `keysend` with descriptions of length 640-1023 bytes fixed. ([#8535])
+ - JSON-RPC: `listtransactions` now correctly updates `blockheight` for txs created by `sendpsbt` which have no change outputs. ([#8555])
+ - pytest: Tests that require Rust no longer fail if Rust is disabled. ([#8491])
+ - Protocol: fix occasional lost sending of final packet (usually warnings or errors). ([#8570])
+ - JSON-RPC: `keysend` command no longer corrupts the type numbers of extra TLVs when they are specified as numeric strings longer than 2 digits. ([#8413])
+ - Fix out-of-bounds error when handling 255-byte DNS names. ([#8325])
+ - pyln-client no longer leaks a file descriptor when connecting to an RPC socket with a long path name. ([#8488])
+ - Protocol: Fixed hash calculation inconsistency when processing invoices with unknown fallback address versions. ([#8302])
+ - Integration tests no longer fail when run in a deeply nested directory on Linux. ([#8492])
+ - Build: we can now build without sqlite3 support. ([#8561])
+ - Build: Fedora releases are also deterministic now. ([#8692])
+ - Docker: Core lightning version in Docker image will not be missing. ([#8659])
+
+### EXPERIMENTAL
+
+ - Splicing BREAKING change - spec changes mean peers must upgrade in unison! (`commitment_signed`s splice_info tlv's and `channel_reestablish` changed) ([#8646], [#8506])
+ - Protocol: stricter conformance to Bolt spec for splice commitments. ([#8463])
+ - Config: `experimental-lsps-client` and `experimental-lsps2-service` support for LSPS level 2 specification ([#8569])
+ - Protocol: specification for recurring offers changed: old recurring offers will no longer work. ([#8398])
+ - Protocol: BOLT 12 recurrence `start\_any\_period` removed, use expiry if you need to restrict when they can start using the offer. ([#8398])
+ - Protocol: BOLT 12 recurrence `years` removed; use 12 x months. ([#8398])
+ - Splicing: Fixed crash when we splice a channel which hasn't been announced yet. ([#8555])
+ - JSON-RPC: `cancelrecurringinvoice` command to send new "don't expect any more invoice requests" msg to recurring bolt12 invoices. ([#8398])
+
+[#8506]: https://github.com/ElementsProject/lightning/pull/8506
+[#8646]: https://github.com/ElementsProject/lightning/pull/8646
+[#8546]: https://github.com/ElementsProject/lightning/pull/8546
+[#8692]: https://github.com/ElementsProject/lightning/pull/8692
+[#8492]: https://github.com/ElementsProject/lightning/pull/8492
+[#8608]: https://github.com/ElementsProject/lightning/pull/8608
+[#8671]: https://github.com/ElementsProject/lightning/pull/8671
+[#8523]: https://github.com/ElementsProject/lightning/pull/8523
+[#8464]: https://github.com/ElementsProject/lightning/pull/8464
+[#8325]: https://github.com/ElementsProject/lightning/pull/8325
+[#8624]: https://github.com/ElementsProject/lightning/pull/8624
+[#8682]: https://github.com/ElementsProject/lightning/pull/8682
+[#8535]: https://github.com/ElementsProject/lightning/pull/8535
+[#8659]: https://github.com/ElementsProject/lightning/pull/8659
+[#8688]: https://github.com/ElementsProject/lightning/pull/8688
+[#8685]: https://github.com/ElementsProject/lightning/pull/8685
+[#8592]: https://github.com/ElementsProject/lightning/pull/8592
+[#8400]: https://github.com/ElementsProject/lightning/pull/8400
+[#8570]: https://github.com/ElementsProject/lightning/pull/8570
+[#8537]: https://github.com/ElementsProject/lightning/pull/8537
+[#8413]: https://github.com/ElementsProject/lightning/pull/8413
+[#8680]: https://github.com/ElementsProject/lightning/pull/8680
+[#8654]: https://github.com/ElementsProject/lightning/pull/8654
+[#8677]: https://github.com/ElementsProject/lightning/pull/8677
+[#8536]: https://github.com/ElementsProject/lightning/pull/8536
+[#8645]: https://github.com/ElementsProject/lightning/pull/8645
+[#8558]: https://github.com/ElementsProject/lightning/pull/8558
+[#8656]: https://github.com/ElementsProject/lightning/pull/8656
+[#8555]: https://github.com/ElementsProject/lightning/pull/8555
+[#8463]: https://github.com/ElementsProject/lightning/pull/8463
+[#8398]: https://github.com/ElementsProject/lightning/pull/8398
+[#8488]: https://github.com/ElementsProject/lightning/pull/8488
+[#8569]: https://github.com/ElementsProject/lightning/pull/8569
+[#8491]: https://github.com/ElementsProject/lightning/pull/8491
+[#8651]: https://github.com/ElementsProject/lightning/pull/8651
+[#8561]: https://github.com/ElementsProject/lightning/pull/8561
+[#8302]: https://github.com/ElementsProject/lightning/pull/8302
+[v25.12rc1]: https://github.com/ElementsProject/lightning/releases/tag/v25.12rc1
+
+
 ## [25.09.3] - 2025-11-06: "Hot Wallet Guardian IV"
 
 ### Fixed
