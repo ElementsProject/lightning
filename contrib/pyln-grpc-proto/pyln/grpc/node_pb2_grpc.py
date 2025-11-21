@@ -739,6 +739,11 @@ class NodeStub(object):
                 request_serializer=node__pb2.ListnetworkeventsRequest.SerializeToString,
                 response_deserializer=node__pb2.ListnetworkeventsResponse.FromString,
                 _registered_method=True)
+        self.DelNetworkEvent = channel.unary_unary(
+                '/cln.Node/DelNetworkEvent',
+                request_serializer=node__pb2.DelnetworkeventRequest.SerializeToString,
+                response_deserializer=node__pb2.DelnetworkeventResponse.FromString,
+                _registered_method=True)
         self.SubscribeBlockAdded = channel.unary_stream(
                 '/cln.Node/SubscribeBlockAdded',
                 request_serializer=node__pb2.StreamBlockAddedRequest.SerializeToString,
@@ -1620,6 +1625,12 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def DelNetworkEvent(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def SubscribeBlockAdded(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -2363,6 +2374,11 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.ListNetworkEvents,
                     request_deserializer=node__pb2.ListnetworkeventsRequest.FromString,
                     response_serializer=node__pb2.ListnetworkeventsResponse.SerializeToString,
+            ),
+            'DelNetworkEvent': grpc.unary_unary_rpc_method_handler(
+                    servicer.DelNetworkEvent,
+                    request_deserializer=node__pb2.DelnetworkeventRequest.FromString,
+                    response_serializer=node__pb2.DelnetworkeventResponse.SerializeToString,
             ),
             'SubscribeBlockAdded': grpc.unary_stream_rpc_method_handler(
                     servicer.SubscribeBlockAdded,
@@ -6202,6 +6218,33 @@ class Node(object):
             '/cln.Node/ListNetworkEvents',
             node__pb2.ListnetworkeventsRequest.SerializeToString,
             node__pb2.ListnetworkeventsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DelNetworkEvent(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/cln.Node/DelNetworkEvent',
+            node__pb2.DelnetworkeventRequest.SerializeToString,
+            node__pb2.DelnetworkeventResponse.FromString,
             options,
             channel_credentials,
             insecure,

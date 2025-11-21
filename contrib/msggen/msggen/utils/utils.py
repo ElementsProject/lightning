@@ -150,7 +150,7 @@ grpc_method_names = [
     "ListChannelMoves",
     "ListChainMoves",
     "ListNetworkEvents",
-    # "DelNetworkEvent",
+    "DelNetworkEvent",
 ]
 
 grpc_notification_names = [

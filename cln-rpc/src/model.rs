@@ -193,6 +193,7 @@ pub enum Request {
 	ListChannelMoves(requests::ListchannelmovesRequest),
 	ListChainMoves(requests::ListchainmovesRequest),
 	ListNetworkEvents(requests::ListnetworkeventsRequest),
+	DelNetworkEvent(requests::DelnetworkeventRequest),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -376,6 +377,7 @@ pub enum Response {
 	ListChannelMoves(responses::ListchannelmovesResponse),
 	ListChainMoves(responses::ListchainmovesResponse),
 	ListNetworkEvents(responses::ListnetworkeventsResponse),
+	DelNetworkEvent(responses::DelnetworkeventResponse),
 }
 
 
@@ -5041,6 +5043,28 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "listnetworkevents"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct DelnetworkeventRequest {
+	    pub created_index: u64,
+	}
+
+	impl From<DelnetworkeventRequest> for Request {
+	    fn from(r: DelnetworkeventRequest) -> Self {
+	        Request::DelNetworkEvent(r)
+	    }
+	}
+
+	impl IntoRequest for DelnetworkeventRequest {
+	    type Response = super::responses::DelnetworkeventResponse;
+	}
+
+	impl TypedRequest for DelnetworkeventRequest {
+	    type Response = super::responses::DelnetworkeventResponse;
+
+	    fn method(&self) -> &str {
+	        "delnetworkevent"
 	    }
 	}
 }
@@ -12486,6 +12510,21 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::ListNetworkEvents(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct DelnetworkeventResponse {
+	}
+
+	impl TryFrom<Response> for DelnetworkeventResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::DelNetworkEvent(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

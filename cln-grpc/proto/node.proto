@@ -149,6 +149,7 @@ service Node {
 	rpc ListChannelMoves(ListchannelmovesRequest) returns (ListchannelmovesResponse) {}
 	rpc ListChainMoves(ListchainmovesRequest) returns (ListchainmovesResponse) {}
 	rpc ListNetworkEvents(ListnetworkeventsRequest) returns (ListnetworkeventsResponse) {}
+	rpc DelNetworkEvent(DelnetworkeventRequest) returns (DelnetworkeventResponse) {}
 
 	rpc SubscribeBlockAdded(StreamBlockAddedRequest) returns (stream BlockAddedNotification) {}
 	rpc SubscribeChannelOpenFailed(StreamChannelOpenFailedRequest) returns (stream ChannelOpenFailedNotification) {}
@@ -4300,6 +4301,13 @@ message ListnetworkeventsNetworkevents {
 	optional string reason = 5;
 	optional uint64 duration_nsec = 6;
 	optional bool connect_attempted = 7;
+}
+
+message DelnetworkeventRequest {
+	uint64 created_index = 1;
+}
+
+message DelnetworkeventResponse {
 }
 
 message StreamBlockAddedRequest {

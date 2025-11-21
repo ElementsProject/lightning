@@ -1552,6 +1552,9 @@
             "DelInvoice.status": 7,
             "DelInvoice.updated_index": 13
         },
+        "DelnetworkeventRequest": {
+            "DelNetworkEvent.created_index": 1
+        },
         "DelpayPayments": {
             "DelPay.payments[].amount_msat": 8,
             "DelPay.payments[].amount_sent_msat": 5,
@@ -6839,6 +6842,14 @@
         },
         "DelInvoice.updated_index": {
             "added": "v23.08",
+            "deprecated": null
+        },
+        "DelNetworkEvent": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "DelNetworkEvent.created_index": {
+            "added": "v25.12",
             "deprecated": null
         },
         "DelPay": {
