@@ -233,6 +233,20 @@ def remove_dir(directory: str) -> bool:
     return False
 
 
+class GithubRepository():
+    """extract the github user account and repository name."""
+    def __init__(self, url: str):
+        assert 'github.com/' in url.lower()
+        url_parts = Path(str(url).lower().partition('github.com/')[2]).parts
+        assert len(url_parts) >= 2
+        self.user = url_parts[0]
+        self.name = url_parts[1].removesuffix('.git')
+        self.url = url
+
+    def __repr__(self):
+        return '<GithubRepository {self.user}/{self.repo}>'
+
+
 class Source(Enum):
     DIRECTORY = 1
     LOCAL_REPO = 2
@@ -262,12 +276,11 @@ class Source(Enum):
     @classmethod
     def get_github_user_repo(cls, source: str) -> (str, str):
         'extract a github username and repository name'
-        if 'github.com/' not in source.lower():
+        try:
+            repo = GithubRepository(source)
+            return repo.user, repo.name
+        except:
             return None, None
-        trailing = Path(source.lower().partition('github.com/')[2]).parts
-        if len(trailing) < 2:
-            return None, None
-        return trailing[0], trailing[1].removesuffix('.git')
 
 
 class SubmoduleSource:
@@ -325,7 +338,7 @@ class SourceDir():
         if self.srctype == Source.DIRECTORY:
             self.contents = populate_local_dir(self.location)
         elif self.srctype in [Source.LOCAL_REPO, Source.GIT_LOCAL_CLONE]:
-            self.contents = populate_local_repo(self.location, parent_source=self.parent_source)
+            self.contents = populate_local_repo(self.location, parent=self, parent_source=self.parent_source)
         elif self.srctype == Source.GITHUB_REPO:
             self.contents = populate_github_repo(self.location)
         else:
@@ -351,7 +364,7 @@ class SourceDir():
         return None
 
     def __repr__(self):
-        return f"<SourceDir: {self.name}, {self.location}, {self.relative}>"
+        return f"<SourceDir: {self.name}, {self.location}, {self.relative}, {self.parent_source}>"
 
     def __eq__(self, compared):
         if isinstance(compared, str):
@@ -576,7 +589,8 @@ def populate_local_repo(path: str, parent=None, parent_source=None) -> list:
                                         parentdir.name)
                 else:
                     relative_path = parentdir.name
-                child = SourceDir(p, srctype=Source.LOCAL_REPO,
+                child = SourceDir(p, srctype=parent.srctype,
+                                  parent_source=parent_source,
                                   relative=relative_path)
                 # ls-tree lists every file in the repo with full path.
                 # No need to populate each directory individually.
@@ -611,8 +625,13 @@ def populate_local_repo(path: str, parent=None, parent_source=None) -> list:
                 relative_path = filepath
             elif basedir.relative:
                 relative_path = str(Path(basedir.relative) / filepath)
-            assert relative_path
-            submodule_dir = SourceDir(filepath, srctype=Source.LOCAL_REPO,
+            else:
+                relative_path = filepath
+            if parent:
+                srctype = parent.srctype
+            else:
+                srctype = Source.LOCAL_REPO
+            submodule_dir = SourceDir(filepath, srctype=srctype,
                                       relative=relative_path,
                                       parent_source=parent_source)
             populate_local_repo(Path(path) / filepath, parent=submodule_dir,
@@ -710,7 +729,7 @@ def populate_github_repo(url: str) -> list:
     return contents
 
 
-def copy_remote_git_source(github_source: InstInfo, verbose: bool=True):
+def copy_remote_git_source(github_source: InstInfo, verbose: bool=True) -> SourceDir:
     """clone or fetch & checkout a local copy of a remote git repo"""
     user, repo = Source.get_github_user_repo(github_source.source_loc)
     if not user or not repo:
@@ -2113,17 +2132,84 @@ def listinstalled():
     return plugins
 
 
-def find_plugin_candidates(source: SourceDir, depth=2) -> list:
+def have_files(source: SourceDir):
+    """Do we have direct access to the files in this directory?"""
+    if source.srctype in [Source.DIRECTORY, Source.LOCAL_REPO,
+                          Source.GIT_LOCAL_CLONE]:
+        return True
+    log.info(f'no files in {source.name} ({source.srctype})')
+    return False
+
+
+def fetch_manifest(source: SourceDir) -> dict:
+    """read and ingest a manifest from the provided source."""
+    log.debug(f'ingesting manifest from {source.name}: {source.location}/manifest.json ({source.srctype})')
+    # local_path = RECKLESS_DIR / '.remote_sources' / user
+    if source.srctype not in [Source.GIT_LOCAL_CLONE, Source.LOCAL_REPO, Source.DIRECTORY]:
+        log.info(f'oops! {source.srctype}')
+        return None
+    if source.srctype == Source.GIT_LOCAL_CLONE:
+        try:
+            repo = GithubRepository(source.parent_source.original_source)
+            path = RECKLESS_DIR / '.remote_sources' / repo.user / repo.name
+        except AssertionError:
+            log.info(f'could not parse github source {source.parent_source.original_source}')
+            return None
+    elif source.srctype in [Source.DIRECTORY, Source.LOCAL_REPO]:
+        path = Path(source.location)
+    else:
+        raise Exception(f"cannot access manifest in {source.srctype}: {source}")
+    if source.relative:
+        path = path / source.relative
+    path = path / 'manifest.json'
+    if not path.exists():
+        return None
+    with open(path, 'r+') as manifest_file:
+        try:
+            manifest = json.load(manifest_file)
+            return manifest
+        except json.decoder.JSONDecodeError:
+            log.warning(f'{source.name} contains malformed manifest ({source.parent_source.original_source})')
+            return None
+
+
+def find_plugin_candidates(source: Union[LoadedSource, SourceDir], depth=2) -> list:
     """Filter through a source and return any candidates that appear to be
     installable plugins with the registered installers."""
+    if isinstance(source, LoadedSource):
+        if source.local_clone:
+            return find_plugin_candidates(source.local_clone)
+        return find_plugin_candidates(source.content)
+
     candidates = []
     assert isinstance(source, SourceDir)
     if not source.contents and not source.prepopulated:
         source.populate()
+        for s in source.contents:
+            if isinstance(s, SourceDir):
+                assert s.srctype == source.srctype, f'source dir {s.name}, {s.srctype} did not inherit {source.srctype} from {source.name}'
+                assert s.parent_source == source.parent_source, f'source dir {s.name} did not inherit parent {source.parent_source} from {source.name}'
 
     guess = InstInfo(source.name, source.location, None, source_dir=source)
+    guess.srctype = source.srctype
+    manifest = None
     if guess.get_inst_details():
-        candidates.append(source.name)
+        guess.srctype = source.srctype
+        guess.source_dir.srctype = source.srctype
+        if guess.source_dir.find('manifest.json'):
+            # FIXME: Handle github source case
+            if have_files(guess.source_dir):
+                manifest = fetch_manifest(guess.source_dir)
+
+        if manifest:
+            candidate = manifest
+        else:
+            candidate = {'name': source.name,
+                         'short_description': None,
+                         'long_description': None,
+                         'entrypoint': guess.entry,
+                         'requirements': []}
+        candidates.append(candidate)
     if depth <= 1:
         return candidates
 
@@ -2152,21 +2238,27 @@ def available_plugins() -> list:
                                                     source.original_source,
                                                     source_dir=source.content),
                                            verbose=False)
+            clone.srctype = Source.GIT_LOCAL_CLONE
+            clone.parent_source = source
             if not clone:
                 log.warning(f"could not clone github source {source.original_source}")
                 continue
             source.local_clone = clone
             source.local_clone.parent_source = source
 
-        if source.local_clone:
-            candidates.extend(find_plugin_candidates(source.local_clone))
-        else:
-            candidates.extend(find_plugin_candidates(source.content))
+        candidates.extend(find_plugin_candidates(source))
 
-    # Order and deduplicate results
-    candidates = list(set(candidates))
-    candidates.sort()
-    log.info(' '.join(candidates))
+    # json output requested
+    if log.capture:
+        return candidates
+
+    for c in candidates:
+        log.info(c['name'])
+        if c['short_description']:
+            log.info(f'\tdescription:  {c["short_description"]}')
+        if c['requirements']:
+            log.info(f'\trequirements: {c["requirements"]}')
+
     return candidates
 
 
