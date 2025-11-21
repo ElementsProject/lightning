@@ -1,6 +1,6 @@
 use crate::{
     jsonrpc::{JsonRpcRequest, RpcError},
-    lsps0::primitives::{DateTime, Msat, Ppm, ShortChannelId},
+    proto::primitives::{DateTime, Msat, Ppm, ShortChannelId},
 };
 use bitcoin::hashes::{sha256, Hash, HashEngine, Hmac, HmacEngine};
 use chrono::Utc;
