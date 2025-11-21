@@ -2,10 +2,8 @@ use anyhow::{anyhow, bail, Context};
 use bitcoin::hashes::{hex::FromHex, sha256, Hash};
 use chrono::{Duration, Utc};
 use cln_lsps::jsonrpc::client::JsonRpcClient;
-use cln_lsps::lsps0::primitives::Msat;
-use cln_lsps::lsps0::{
-    self,
-    transport::{Bolt8Transport, CustomMessageHookManager, WithCustomMessageHookManager},
+use cln_lsps::lsps0::transport::{
+    Bolt8Transport, CustomMessageHookManager, WithCustomMessageHookManager,
 };
 use cln_lsps::lsps2::cln::tlv::encode_tu64;
 use cln_lsps::lsps2::cln::{
@@ -16,6 +14,7 @@ use cln_lsps::lsps2::model::{
     compute_opening_fee, Lsps2BuyRequest, Lsps2BuyResponse, Lsps2GetInfoRequest,
     Lsps2GetInfoResponse, OpeningFeeParams,
 };
+use cln_lsps::proto::lsps0::{Lsps0listProtocolsRequest, Lsps0listProtocolsResponse};
 use cln_lsps::proto::primitives::Msat;
 use cln_lsps::util;
 use cln_lsps::LSP_FEATURE_BIT;
@@ -730,8 +729,8 @@ async fn on_lsps_listprotocols(
     // Now create the client using the transport
     let client = JsonRpcClient::new(transport);
 
-    let request = lsps0::model::Lsps0listProtocolsRequest {};
-    let res: lsps0::model::Lsps0listProtocolsResponse = client
+    let request = Lsps0listProtocolsRequest {};
+    let res: Lsps0listProtocolsResponse = client
         .call_typed(request)
         .await
         .map_err(|e| anyhow!("lsps0.list_protocols call failed: {}", e))?;
