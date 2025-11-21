@@ -338,7 +338,7 @@ connections. Default is 9736.
 
 * **recover**=*hsmsecret*
 
-  Restore the node from a 32-byte secret encoded as either a codex32 secret string or a 64-character hex string: this will fail if the `hsm_secret` file exists.  Your node will start the node in offline mode, for manual recovery.  The secret can be extracted from the `hsm_secret` using hsmtool(8).
+  Restore the node from a 32-byte secret encoded as either a codex32 secret string or a 64-character hex string: this will fail if the `hsm_secret` file exists.  Your node will start the node in offline mode, for manual recovery.  The secret can be extracted from the `hsm_secret` using lightning-hsmtool(8).
 
 * **alias**=*NAME*
 
