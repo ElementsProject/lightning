@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## v25.12rc1 - 2025-11-20: "Boltz's Seamless Upgrade Experience"
+## [25.12rc1] - 2025-11-20: "Boltz's Seamless Upgrade Experience"
 
 Release Candidate for Core Lightning v25.12
 
