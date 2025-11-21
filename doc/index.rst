@@ -55,6 +55,7 @@ Core Lightning Documentation
    deldatastore <deldatastore.7.md>
    delforward <delforward.7.md>
    delinvoice <delinvoice.7.md>
+   delnetworkevent <delnetworkevent.7.md>
    delpay <delpay.7.md>
    deprecations <deprecations.7.md>
    dev-forget-channel <dev-forget-channel.7.md>

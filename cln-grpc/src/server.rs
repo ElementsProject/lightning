@@ -4594,6 +4594,38 @@ impl Node for Server
 
     }
 
+    async fn del_network_event(
+        &self,
+        request: tonic::Request<pb::DelnetworkeventRequest>,
+    ) -> Result<tonic::Response<pb::DelnetworkeventResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::DelnetworkeventRequest = req.into();
+        debug!("Client asked for del_network_event");
+        trace!("del_network_event request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::DelNetworkEvent(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method DelNetworkEvent: {:?}", e)))?;
+        match result {
+            Response::DelNetworkEvent(r) => {
+               trace!("del_network_event response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call DelNetworkEvent",
+                    r
+                )
+            )),
+        }
+
+    }
+
 
 
     type SubscribeBlockAddedStream = NotificationStream<pb::BlockAddedNotification>;

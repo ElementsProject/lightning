@@ -3371,6 +3371,11 @@ def listnetworkevents2py(m):
     })
 
 
+def delnetworkevent2py(m):
+    return remove_default({
+    })
+
+
 def decodekeysend_routes2py(m): # manual override
     return remove_default({
         "expirydelta": m.expirydelta,
