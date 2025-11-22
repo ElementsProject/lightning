@@ -1,4 +1,4 @@
-name: Build and push multi-platform docker images
+name: Publish multi-platform docker images
 
 on:
   push:
@@ -30,6 +30,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        flavor: ['lightningd', 'lightningd-vls-signer']
 
     steps:
     - name: Checkout repository
@@ -50,7 +53,7 @@ jobs:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: Set up values
+    - name: Set up values for ${{ matrix.flavor }}
       id: set-values
       run: |
         if [[ "${{ github.event.inputs.version }}" != "" ]]; then
@@ -89,9 +92,9 @@ jobs:
         fi
         echo "PUSHLATEST=$PUSHLATEST" >> $GITHUB_ENV
 
-        TAGS="$REPONAME/lightningd:$VERSION"
+        TAGS="$REPONAME/${{ matrix.flavor }}:$VERSION"
         if [[ "$PUSHLATEST" == "true" ]]; then
-          TAGS="$TAGS,$REPONAME/lightningd:latest"
+          TAGS="$TAGS,$REPONAME/${{ matrix.flavor }}:latest"
         fi
         echo "TAGS=$TAGS" >> $GITHUB_ENV
 
@@ -109,13 +112,16 @@ jobs:
         echo "ENV PUSH LATEST: ${{ env.PUSHLATEST }}"
         echo "ENV TAGS: ${{ env.TAGS }}"
 
-    - name: Build and push Docker image
+    - name: Build and push Docker image - ${{ matrix.flavor }}
       uses: docker/build-push-action@v5
       with:
         context: .
         file: ./Dockerfile
+        target: ${{ matrix.flavor }}
         push: true
         platforms: ${{ env.PLATFORMS }}
         tags: ${{ env.TAGS }}
         build-args: |
           VERSION=${{ env.VERSION }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
