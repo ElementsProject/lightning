@@ -3,14 +3,10 @@
 #include "config.h"
 #include <bitcoin/privkey.h>
 #include <common/amount.h>
+#include <common/sphinx.h>
 
 struct route_step;
 struct tlv_encrypted_data_tlv_payment_relay;
-
-enum onion_payload_type {
-	ONION_V0_PAYLOAD = 0,
-	ONION_TLV_PAYLOAD = 1,
-};
 
 struct onion_payload {
 	enum onion_payload_type type;
