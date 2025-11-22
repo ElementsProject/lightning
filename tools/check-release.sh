@@ -50,10 +50,10 @@ if [ "$HEAD_VERSION" != "$VERSION" ]; then
 fi
 
 # The version tag should match the `make version` target output.
-MAKE_VERSION=$(make version)
+MAKE_VERSION=$(make version | tail -n 1)
 echo "MAKE_VERSION=$MAKE_VERSION"
 if [ "$MAKE_VERSION" != "$VERSION" ]; then
-    echo "The version tag must match the \`make version\` target output." >&2
+    echo "The version tag \"$VERSION\" must match the \`make version\` target output \"$MAKE_VERSION\"." >&2
     exit 1
 fi
 
