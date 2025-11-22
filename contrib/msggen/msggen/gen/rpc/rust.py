@@ -209,7 +209,7 @@ def gen_primitive(p):
 
     if p.deprecated:
         defi += "    #[deprecated]\n"
-    defi += rename_if_necessary(org, p.name.name)
+    defi += rename_if_necessary(org, p.name.normalized())
     if not p.optional:
         defi += f"    pub {p.name.normalized()}: {typename},\n"
     else:
