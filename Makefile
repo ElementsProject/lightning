@@ -9,6 +9,9 @@ $(info Building version $(VERSION))
 # Next release.
 CLN_NEXT_VERSION := v25.12
 
+# Previous release (for downgrade testing)
+CLN_PREV_VERSION := v25.09
+
 # --quiet / -s means quiet, dammit!
 ifeq ($(findstring s,$(word 1, $(MAKEFLAGS))),s)
 ECHO := :
@@ -552,8 +555,8 @@ CHECK_BOLT_PREFIX=--prefix="BOLT-$(BOLTVERSION)"
 endif
 
 # Any mention of BOLT# must be followed by an exact quote, modulo whitespace.
-bolt-check/%: % bolt-precheck tools/check-bolt
-	@if [ -d .tmp.lightningrfc ]; then tools/check-bolt $(CHECK_BOLT_PREFIX) .tmp.lightningrfc $<; else echo "Not checking BOLTs: BOLTDIR $(BOLTDIR) does not exist" >&2; fi
+bolt-check/%: % bolt-precheck devtools/check-bolt
+	@if [ -d .tmp.lightningrfc ]; then devtools/check-bolt $(CHECK_BOLT_PREFIX) .tmp.lightningrfc $<; else echo "Not checking BOLTs: BOLTDIR $(BOLTDIR) does not exist" >&2; fi
 
 LOCAL_BOLTDIR=.tmp.lightningrfc
 
@@ -565,7 +568,7 @@ check-source-bolt: $(ALL_NONGEN_SRCFILES:%=bolt-check/%)
 check-whitespace/%: %
 	@if grep -Hn '[ 	]$$' $<; then echo Extraneous whitespace found >&2; exit 1; fi
 
-check-whitespace: check-whitespace/Makefile check-whitespace/tools/check-bolt.c $(ALL_NONGEN_SRCFILES:%=check-whitespace/%)
+check-whitespace: check-whitespace/Makefile check-whitespace/devtools/check-bolt.c $(ALL_NONGEN_SRCFILES:%=check-whitespace/%)
 
 check-spelling:
 	@tools/check-spelling.sh
@@ -934,8 +937,7 @@ TESTBINS = \
 	$(CLN_PLUGIN_EXAMPLES) \
 	tests/plugins/test_libplugin \
 	tests/plugins/channeld_fakenet \
-	tests/plugins/test_selfdisable_after_getmanifest \
-	tools/hsmtool
+	tests/plugins/test_selfdisable_after_getmanifest
 
 # The testpack is used in CI to transfer built artefacts between the
 # build and the test phase. This is necessary because the fixtures in
@@ -944,7 +946,7 @@ TESTBINS = \
 # version of `lightningd` leading to bogus results. We bundle up all
 # built artefacts here, and will unpack them on the tester (overlaying
 # on top of the checked out repo as if we had just built it in place).
-testpack.tar.bz2: $(BIN_PROGRAMS) $(PKGLIBEXEC_PROGRAMS) $(PLUGINS) $(PY_PLUGINS) $(MAN1PAGES) $(MAN5PAGES) $(MAN7PAGES) $(MAN8PAGES) $(DOC_DATA) config.vars $(TESTBINS) $(DEVTOOLS)
+testpack.tar.bz2: $(BIN_PROGRAMS) $(PKGLIBEXEC_PROGRAMS) $(PLUGINS) $(PY_PLUGINS) $(MAN1PAGES) $(MAN5PAGES) $(MAN7PAGES) $(MAN8PAGES) $(DOC_DATA) config.vars $(TESTBINS) $(DEVTOOLS) $(TOOLS)
 	tar -caf $@ $^
 
 uninstall:

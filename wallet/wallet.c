@@ -25,6 +25,7 @@
 #include <lightningd/runes.h>
 #include <onchaind/onchaind_wiregen.h>
 #include <wallet/invoices.h>
+#include <wallet/migrations.h>
 #include <wallet/txfilter.h>
 #include <wallet/wallet.h>
 #include <wally_bip32.h>

@@ -1827,7 +1827,7 @@ def generate_backup_recovery_examples(node_factory, l4, l5, l6):
             """Returns codex32 and hex"""
             try:
                 hsmfile = os.path.join(n.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
-                codex32 = subprocess.check_output(["tools/hsmtool", "getcodexsecret", hsmfile, "leet"]).decode('utf-8').strip()
+                codex32 = subprocess.check_output(["tools/lightning-hsmtool", "getcodexsecret", hsmfile, "leet"]).decode('utf-8').strip()
                 with open(hsmfile, "rb") as f:
                     hexhsm = f.read().hex()
                 return codex32, hexhsm

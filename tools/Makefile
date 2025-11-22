@@ -1,5 +1,5 @@
 #! /usr/bin/make
-TOOLS := tools/hsmtool tools/check-bolt
+TOOLS := tools/lightning-hsmtool tools/lightning-downgrade
 TOOLS_SRC := $(TOOLS:=.c)
 TOOLS_OBJ := $(TOOLS_SRC:.c=.o)
 
@@ -13,16 +13,28 @@ ALL_PROGRAMS += $(TOOLS)
 tools/headerversions: $(FORCE) tools/headerversions.o libccan.a
 	@trap "rm -f $@.tmp.$$$$" EXIT; $(LINK.o) tools/headerversions.o libccan.a $(LOADLIBES) $(LDLIBS) -o $@.tmp.$$$$ && mv -f $@.tmp.$$$$ $@
 
-tools/headerversions.o: ccan/config.h
-tools/check-bolt: tools/check-bolt.o libcommon.a
-tools/hsmtool: tools/hsmtool.o libcommon.a
+$(TOOLS): libcommon.a
 
-tools/lightning-hsmtool: tools/hsmtool
-	cp $< $@
+tools/headerversions.o: ccan/config.h
+tools/lightning-hsmtool: tools/lightning-hsmtool.o
+tools/lightning-downgrade.o: CFLAGS:=$(CFLAGS) -DCLN_PREV_VERSION=$(CLN_PREV_VERSION)
+
+tools/lightning-downgrade:			\
+	db/exec.o				\
+	db/bindings.o				\
+	db/utils.o				\
+	tools/lightning-downgrade.o		\
+	wallet/migrations.o			\
+	$(DB_OBJS)				\
+	$(WALLET_DB_QUERIES:.c=.o)		\
+	tools/lightning-downgrade.o
+
+update-mocks: $(tools/lightning-downgrade.c:%=update-mocks/%.c)
 
 clean: tools-clean
 
 tools-clean:
+	$(RM) $(TOOLS) $(TOOLS_OBJ)
 	$(RM) tools/headerversions
 	$(RM) tools/headerversions.o
 

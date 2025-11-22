@@ -1274,10 +1274,10 @@ def write_all(fd, bytestr):
 class HsmTool(TailableProc):
     """Helper for testing the hsmtool as a subprocess"""
     def __init__(self, directory, *args):
-        self.prefix = "hsmtool"
-        TailableProc.__init__(self, os.path.join(directory, "hsmtool"))
+        self.prefix = "lightning-hsmtool"
+        TailableProc.__init__(self, os.path.join(directory, "lightning-hsmtool"))
         assert hasattr(self, "env")
-        self.cmd_line = ["tools/hsmtool", *args]
+        self.cmd_line = ["tools/lightning-hsmtool", *args]
 
 
 @unittest.skipIf(VALGRIND, "It does not play well with prompt and key derivation.")
@@ -1653,7 +1653,7 @@ def test_hsmtool_all_commands_work_with_mnemonic_formats(node_factory):
     ]
 
     for cmd_args, expected_output in test_commands:
-        cmd_line = ["tools/hsmtool"] + cmd_args
+        cmd_line = ["tools/lightning-hsmtool"] + cmd_args
         out = subprocess.check_output(cmd_line).decode("utf8")
         actual_output = out.strip()
         assert actual_output == expected_output, f"Command {cmd_args[0]} output mismatch"
