@@ -5,7 +5,7 @@ import warnings
 
 from pyln.grpc import node_pb2 as node__pb2
 
-GRPC_GENERATED_VERSION = '1.75.1'
+GRPC_GENERATED_VERSION = '1.69.0'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 

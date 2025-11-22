@@ -6,12 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [25.05.1] - 2025-11-10: "Satoshi's OP_RETURN Opinion II"
 
-Minor fix for xpay when used heavily.
+Fixes for xpay when used heavily.
 
 ### Fixed
 
- - askrene: fix reservation code, which caused xpay to fail due to previous payments. ([#8670])
+ - JSON-RPC: `xpay` clash with simultanous payments via routehints and blinded paths. ([#8685])
+ - Plugins: `askrene-reserve` and `askrene-unreserve` can take an optional `layer` inside `path` elements. ([#8685])
+ - Plugins: fix reservation code in askrene, which caused xpay to fail due to previous payments. ([#8670])
 
+[#8685]: https://github.com/ElementsProject/lightning/pull/8685
 [#8670]: https://github.com/ElementsProject/lightning/pull/8670
 [25.05.1]: https://github.com/ElementsProject/lightning/releases/tag/v25.05.1
 
