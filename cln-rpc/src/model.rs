@@ -12462,6 +12462,8 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListnetworkeventsNetworkevents {
+	    #[serde(rename = "type")]
+	    pub item_type: String,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub connect_attempted: Option<bool>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -12469,7 +12471,6 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub reason: Option<String>,
 	    pub created_index: u64,
-	    pub item_type: String,
 	    pub peer_id: PublicKey,
 	    pub timestamp: u64,
 	}
