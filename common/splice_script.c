@@ -278,6 +278,19 @@ static struct splice_script_error *new_error(const tal_t *ctx,
 	return new_error_offset(ctx, type, token, phase, 0);
 }
 
+static struct splice_script_error *new_error_msg(const tal_t *ctx,
+						 enum splice_script_error_type type,
+						 struct token *token,
+						 const char *phase,
+						 char *msg)
+{
+	struct splice_script_error *error = new_error(ctx, type, token, phase);
+
+	tal_append_fmt(&error->message, "%s", msg);
+
+	return error;
+}
+
 static char *context_snippet(const tal_t *ctx,
 			     const char *script,
 			     struct splice_script_error *error)
@@ -1110,12 +1123,6 @@ static struct splice_script_error *type_data(const tal_t *ctx,
 				input[i]->type = TOK_NODEID;
 				input[i]->node_id = tal(input[i],
 						    struct node_id);
-				if (!node_id_from_hexstr(input[i]->str,
-							 strlen(input[i]->str),
-							 input[i]->node_id))
-					return new_error(ctx, INVALID_NODEID,
-							 input[i],
-							 "type_data");
 				/* Rare corner case where channel begins with
 				 * prefix of 02 or 03 */
 				if (autocomplete_chan_id(input[i], channels,
@@ -1133,6 +1140,12 @@ static struct splice_script_error *type_data(const tal_t *ctx,
 								 "type_data");
 					input[i]->type = TOK_CHANID;
 					input[i]->node_id = tal_free(input[i]->node_id);
+				} else if (!node_id_from_hexstr(input[i]->str,
+							 strlen(input[i]->str),
+							 input[i]->node_id)) {
+					return new_error(ctx, INVALID_NODEID,
+							 input[i],
+							 "type_data");
 				}
 			} else if (is_bitcoin_address(input[i]->str)) {
 				input[i]->type = TOK_BTCADDR;
@@ -2341,10 +2354,15 @@ static struct splice_script_error *calculate_amounts(const tal_t *ctx,
 	/* Do we know precisely how much we're getting? */
 	if (!right_wilds && !right_used_ppm) {
 		/* Then we can give sat amount errors */
-		if (amount_sat_greater(left_total, right_total))
-			return new_error(ctx, INSUFFICENT_FUNDS,
-					 left_wildcard_token ?: input[0],
-					 "calculate_amounts");
+		if (amount_sat_greater(left_total, right_total)) {
+			return new_error_msg(ctx, INSUFFICENT_FUNDS,
+					     left_wildcard_token ?: input[0],
+					     "calculate_amounts",
+					     tal_fmt(tmpctx, "required: %s,"
+						     " provided: %s",
+						     fmt_amount_sat(tmpctx, left_total),
+						     fmt_amount_sat(tmpctx, right_total)));
+		}
 		if (left_used_ppm && amount_sat_eq(left_total, right_total))
 			return new_error(ctx, PERCENT_IS_ZERO,
 					 left_percent_token ?: input[0],

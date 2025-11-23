@@ -82,6 +82,9 @@ struct peer {
 	/* Feerate to be used when creating penalty transactions. */
 	u32 feerate_penalty;
 
+	/* Feerate to be used when opening (or splicing) a channel. */
+	u32 feerate_opening;
+
 	/* Local next per-commit point. */
 	struct pubkey next_local_per_commit;
 
@@ -963,6 +966,10 @@ static struct bitcoin_signature *calc_commitsigs(const tal_t *ctx,
 	struct pubkey local_htlckey;
 	const u8 *msg;
 	struct bitcoin_signature *htlc_sigs;
+
+	status_debug("calc_commitsigs(%p, %p, %p, %p, %p, %d, %p, %p)",
+		     ctx, peer, txs, funding_wscript, htlc_map,
+		     (int)commit_index, remote_per_commit, commit_sig);
 
 	htlcs = collect_htlcs(tmpctx, htlc_map);
 	msg = towire_hsmd_sign_remote_commitment_tx(NULL, txs[0],
@@ -3175,9 +3182,48 @@ static struct wally_psbt_output *find_channel_output(struct peer *peer,
 	return NULL;
 }
 
-static size_t calc_weight(enum tx_role role, const struct wally_psbt *psbt)
+static size_t calc_weight(enum tx_role role, const struct wally_psbt *psbt,
+			  bool log_math)
 {
-	size_t weight = 0;
+	size_t lweight = 0, weight = 0;
+
+	if (log_math)
+		status_debug("Counting tx weight;");
+
+	/* BOLT #2:
+	 * The rest of the transaction bytes' fees are the responsibility of
+	 * the peer who contributed that input or output via `tx_add_input` or
+	 * `tx_add_output`, at the agreed upon `feerate`.
+	 */
+	for (size_t i = 0; i < psbt->num_inputs; i++) {
+		if (is_initiators_serial(&psbt->inputs[i].unknowns)) {
+			if (role == TX_INITIATOR)
+				weight += psbt_input_get_weight(psbt, i, PSBT_GUESS_2OF2);
+		}
+		else {
+			if (role != TX_INITIATOR)
+				weight += psbt_input_get_weight(psbt, i, PSBT_GUESS_2OF2);
+		}
+		if (log_math)
+			status_debug(" Adding input"
+				     " %lu; weight: %lu", i, weight - lweight);
+		lweight = weight;
+	}
+
+	for (size_t i = 0; i < psbt->num_outputs; i++) {
+		if (is_initiators_serial(&psbt->outputs[i].unknowns)) {
+			if (role == TX_INITIATOR)
+				weight += psbt_output_get_weight(psbt, i);
+		}
+		else {
+			if (role != TX_INITIATOR)
+				weight += psbt_output_get_weight(psbt, i);
+		}
+		if (log_math)
+			status_debug(" Adding output"
+				     " %lu; weight: %lu", i, weight - lweight);
+		lweight = weight;
+	}
 
 	/* BOLT #2:
 	 * The *initiator* is responsible for paying the fees for the following fields,
@@ -3189,33 +3235,17 @@ static size_t calc_weight(enum tx_role role, const struct wally_psbt *psbt)
 	 *   - output count
 	 *   - locktime
 	 */
-	if (role == TX_INITIATOR)
+	if (role == TX_INITIATOR) {
 		weight += bitcoin_tx_core_weight(psbt->num_inputs,
 						 psbt->num_outputs);
+		if (log_math)
+			status_debug(" Adding bitcoin_tx_core_weight;"
+				     " weight: %lu", weight - lweight);
+		lweight = weight;
+	  }
 
-	/* BOLT #2:
-	 * The rest of the transaction bytes' fees are the responsibility of
-	 * the peer who contributed that input or output via `tx_add_input` or
-	 * `tx_add_output`, at the agreed upon `feerate`.
-	 */
-	for (size_t i = 0; i < psbt->num_inputs; i++)
-		if (is_initiators_serial(&psbt->inputs[i].unknowns)) {
-			if (role == TX_INITIATOR)
-				weight += psbt_input_get_weight(psbt, i);
-		}
-		else
-			if (role != TX_INITIATOR)
-				weight += psbt_input_get_weight(psbt, i);
-
-	for (size_t i = 0; i < psbt->num_outputs; i++)
-		if (is_initiators_serial(&psbt->outputs[i].unknowns)) {
-			if (role == TX_INITIATOR)
-				weight += psbt_output_get_weight(psbt, i);
-		}
-		else
-			if (role != TX_INITIATOR)
-				weight += psbt_output_get_weight(psbt, i);
-
+	if (log_math)
+		status_debug("Total weight: %lu", weight);
 	return weight;
 }
 
@@ -3307,7 +3337,7 @@ static struct amount_sat calc_balance(struct peer *peer)
 }
 
 /* Returns the total channel funding output amount if all checks pass.
- * Otherwise, exits via peer_failed_warn. DTODO: Change to `tx_abort`. */
+ * Otherwise, exits via peer_failed_warn. */
 static struct amount_sat check_balances(struct peer *peer,
 					enum tx_role our_role,
 					const struct wally_psbt *psbt,
@@ -3316,8 +3346,7 @@ static struct amount_sat check_balances(struct peer *peer,
 {
 	struct amount_sat min_initiator_fee, min_accepter_fee,
 			  max_initiator_fee, max_accepter_fee,
-			  funding_amount_res, min_multiplied,
-			  initiator_penalty_fee, accepter_penalty_fee;
+			  funding_amount_res;
 	struct amount_msat funding_amount,
 			   initiator_fee, accepter_fee;
 	struct amount_msat in[NUM_TX_ROLES], out[NUM_TX_ROLES],
@@ -3349,6 +3378,32 @@ static struct amount_sat check_balances(struct peer *peer,
 					 "Unable to add HTLC balance");
 	}
 
+	status_debug("in[TX_INITIATOR] %s; in[TX_ACCEPTER] %s",
+		     fmt_amount_m_as_sat(tmpctx, in[TX_INITIATOR]),
+		     fmt_amount_m_as_sat(tmpctx, in[TX_ACCEPTER]));
+
+	/* Here in[*] only contains the amounts from this channel.
+	 * This is a great opportunity to check their splice out amount does
+	 * not exceed their channel funds as this is never allowed even if
+	 * additional funds are otherwise contributed. */
+	if (!amount_msat_can_add_sat_s64(in[TX_INITIATOR],
+					 peer->splicing->opener_relative)) {
+		splice_abort(peer, "Intiator is attempting to splice out"
+			     " %"PRId64"sat funds out of channel while only "
+			     "having %s funds attributable to them.",
+			     peer->splicing->opener_relative,
+			     fmt_amount_m_as_sat(tmpctx, in[TX_INITIATOR]));
+	}
+	if (!amount_msat_can_add_sat_s64(in[TX_ACCEPTER],
+					 peer->splicing->accepter_relative)) {
+		splice_abort(peer, "Accepter is attempting to splice out"
+			     " %"PRId64"sat funds out of channel while only "
+			     "having %s funds attributable to them.",
+			     peer->splicing->accepter_relative,
+			     fmt_amount_m_as_sat(tmpctx, in[TX_ACCEPTER]));
+	}
+
+	/* Now add values from the other outputs */
 	for (size_t i = 0; i < psbt->num_inputs; i++)
 		if (i != chan_input_index)
 			add_amount_to_side(peer, in,
@@ -3402,6 +3457,11 @@ static struct amount_sat check_balances(struct peer *peer,
 			     " %"PRIu64,
 			     fmt_amount_msat(tmpctx, funding_amount),
 			     peer->splicing->opener_relative);
+
+	status_debug("out[TX_INITIATOR] %s + %"PRId64,
+		     fmt_amount_m_as_sat(tmpctx, out[TX_INITIATOR]),
+		     peer->splicing->opener_relative);
+
 	if (!amount_msat_add_sat_s64(&out[TX_INITIATOR], out[TX_INITIATOR],
 				     peer->splicing->opener_relative))
 		peer_failed_warn(peer->pps, &peer->channel_id,
@@ -3415,6 +3475,10 @@ static struct amount_sat check_balances(struct peer *peer,
 				     peer->splicing->accepter_relative))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Unable to add accepter funding to out amnt.");
+
+	status_debug("is in[TX_INITIATOR] %s less than out[TX_INITIATOR] %s?",
+		     fmt_amount_m_as_sat(tmpctx, in[TX_INITIATOR]),
+		     fmt_amount_m_as_sat(tmpctx, out[TX_INITIATOR]));
 
 	if (amount_msat_less(in[TX_INITIATOR], out[TX_INITIATOR])) {
 		msg = towire_channeld_splice_funding_error(NULL,
@@ -3466,33 +3530,26 @@ static struct amount_sat check_balances(struct peer *peer,
 			      "amount_sat_less / amount_sat_sub mismtach");
 
 	min_initiator_fee = amount_tx_fee(peer->splicing->feerate_per_kw,
-					  calc_weight(TX_INITIATOR, psbt));
+					  calc_weight(TX_INITIATOR, psbt, false));
 	min_accepter_fee = amount_tx_fee(peer->splicing->feerate_per_kw,
-					 calc_weight(TX_ACCEPTER, psbt));
+					 calc_weight(TX_ACCEPTER, psbt, false));
 
 	/* As a safeguard max feerate is checked (only) locally, if it's
 	 * particularly high we fail and tell the user but allow them to
 	 * override with `splice_force_feerate` */
-	max_accepter_fee = amount_tx_fee(peer->feerate_max,
-					 calc_weight(TX_ACCEPTER, psbt));
-	max_initiator_fee = amount_tx_fee(peer->feerate_max,
-					  calc_weight(TX_INITIATOR, psbt));
-	initiator_penalty_fee = amount_tx_fee(peer->feerate_penalty,
-					      calc_weight(TX_INITIATOR, psbt));
-	accepter_penalty_fee = amount_tx_fee(peer->feerate_penalty,
-					     calc_weight(TX_ACCEPTER, psbt));
+	max_accepter_fee = amount_tx_fee(peer->feerate_opening,
+					 calc_weight(TX_ACCEPTER, psbt, false));
+	max_initiator_fee = amount_tx_fee(peer->feerate_opening,
+					  calc_weight(TX_INITIATOR, psbt, opener));
 
-	/* Sometimes feerate_max is some absurdly high value, in that case we
-	 * give a fee warning based of a multiple of the min value. */
-	amount_sat_mul(&min_multiplied, min_accepter_fee, 5);
-	max_accepter_fee = SAT_MIN(min_multiplied, max_accepter_fee);
-	if (amount_sat_greater(accepter_penalty_fee, max_accepter_fee))
-		max_accepter_fee = accepter_penalty_fee;
-
-	amount_sat_mul(&min_multiplied, min_initiator_fee, 5);
-	max_initiator_fee = SAT_MIN(min_multiplied, max_initiator_fee);
-	if (amount_sat_greater(initiator_penalty_fee, max_initiator_fee))
-		max_initiator_fee = initiator_penalty_fee;
+	if (opener) {
+		status_debug("User specified fee of %s. Opening feerate %"PRIu32
+			     " * weight %lu / 1000 = %s",
+			     fmt_amount_m_as_sat(tmpctx, initiator_fee),
+			     peer->feerate_opening,
+			     calc_weight(TX_INITIATOR, psbt, false),
+			     fmt_amount_sat(tmpctx, max_initiator_fee));
+	}
 
 	/* Check initiator fee */
 	if (amount_msat_less_sat(initiator_fee, min_initiator_fee)) {
@@ -3509,12 +3566,24 @@ static struct amount_sat check_balances(struct peer *peer,
 		&& amount_msat_greater_sat(initiator_fee, max_initiator_fee)) {
 		msg = towire_channeld_splice_feerate_error(NULL, initiator_fee,
 							   true);
+		status_debug("Our own fee (%s) is too high to use without"
+			     " forcing. Opening feerate %"PRIu32
+			     " x weight %lu / 1000 = %s (max)",
+			     fmt_amount_m_as_sat(tmpctx, initiator_fee),
+			     peer->feerate_opening,
+			     calc_weight(TX_INITIATOR, psbt, false),
+			     fmt_amount_sat(tmpctx, max_initiator_fee));
+
 		wire_sync_write(MASTER_FD, take(msg));
+
 		splice_abort(peer,
-				 "Our own fee (%s) was too high, max without"
-				 " forcing is %s.",
-				 fmt_amount_msat(tmpctx, initiator_fee),
-				 fmt_amount_sat(tmpctx, max_initiator_fee));
+			     "Our own fee (%s) is too high to use without"
+			     " forcing. Opening feerate %"PRIu32
+			     " x weight %lu / 1000 = %s (max)",
+			     fmt_amount_m_as_sat(tmpctx, initiator_fee),
+			     peer->feerate_opening,
+			     calc_weight(TX_INITIATOR, psbt, false),
+			     fmt_amount_sat(tmpctx, max_initiator_fee));
 	}
 	/* Check accepter fee */
 	if (amount_msat_less_sat(accepter_fee, min_accepter_fee)) {
@@ -3522,10 +3591,13 @@ static struct amount_sat check_balances(struct peer *peer,
 							   false);
 		wire_sync_write(MASTER_FD, take(msg));
 		splice_abort(peer,
-				 "%s fee (%s) was too low, must be at least %s",
-				 opener ? "Your" : "Our",
-				 fmt_amount_msat(tmpctx, accepter_fee),
-				 fmt_amount_sat(tmpctx, min_accepter_fee));
+			     "%s fee (%s) was too low, must be at least %s"
+			     " weight: %"PRIu64", feerate_max: %"PRIu32,
+			     opener ? "Your" : "Our",
+			     fmt_amount_msat(tmpctx, accepter_fee),
+			     fmt_amount_sat(tmpctx, min_accepter_fee),
+			     calc_weight(TX_INITIATOR, psbt, false),
+			     peer->feerate_opening);
 	}
 	if (!peer->splicing->force_feerate && !opener
 		&& amount_msat_greater_sat(accepter_fee, max_accepter_fee)) {
@@ -3977,6 +4049,9 @@ static void resume_splice_negotiation(struct peer *peer,
 			end_stfu_mode(peer);
 
 		peer->splicing = tal_free(peer->splicing);
+
+		if (our_role == TX_INITIATOR)
+			calc_weight(TX_INITIATOR, current_psbt, true);
 
 		final_tx = bitcoin_tx_with_psbt(tmpctx, current_psbt);
 		msg = towire_channeld_splice_confirmed_signed(tmpctx, final_tx,
@@ -6305,7 +6380,8 @@ static void handle_feerates(struct peer *peer, const u8 *inmsg)
 	if (!fromwire_channeld_feerates(inmsg, &feerate,
 				       &peer->feerate_min,
 				       &peer->feerate_max,
-				       &peer->feerate_penalty))
+				       &peer->feerate_penalty,
+				       &peer->feerate_opening))
 		master_badmsg(WIRE_CHANNELD_FEERATES, inmsg);
 
 	/* BOLT #2:
@@ -6676,6 +6752,7 @@ static void init_channel(struct peer *peer)
 				    &peer->feerate_min,
 				    &peer->feerate_max,
 				    &peer->feerate_penalty,
+				    &peer->feerate_opening,
 				    &peer->their_commit_sig,
 				    &funding_pubkey[REMOTE],
 				    &points[REMOTE],
