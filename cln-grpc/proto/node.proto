@@ -3770,6 +3770,7 @@ message AskreneunreserveResponse {
 message AskreneunreservePath {
 	Amount amount_msat = 3;
 	optional string short_channel_id_dir = 4;
+	optional string layer = 5;
 }
 
 message AskrenelistlayersRequest {
@@ -3886,6 +3887,7 @@ message AskrenereserveResponse {
 message AskrenereservePath {
 	Amount amount_msat = 3;
 	optional string short_channel_id_dir = 4;
+	optional string layer = 5;
 }
 
 message AskreneageRequest {

@@ -41,6 +41,12 @@ struct reserve_htable *new_reserve_htable(const tal_t *ctx)
 	return reserved;
 }
 
+static void destroy_reserve(struct reserve *r, struct reserve_htable *reserved)
+{
+	if (!reserve_htable_del(reserved, r))
+		abort();
+}
+
 void reserve_add(struct reserve_htable *reserved,
 		 const struct reserve_hop *rhop,
 		 const char *cmd_id TAKES)
@@ -50,6 +56,11 @@ void reserve_add(struct reserve_htable *reserved,
 	r->timestamp = time_mono();
 	r->cmd_id = tal_strdup(r, cmd_id);
 
+	/* If owned by a layer, clean up when layer destroyed */
+	if (rhop->layer) {
+		tal_steal(rhop->layer, r);
+		tal_add_destructor2(r, destroy_reserve, reserved);
+	}
 	reserve_htable_add(reserved, r);
 }
 
@@ -66,8 +77,12 @@ bool reserve_remove(struct reserve_htable *reserved,
 	     r = reserve_htable_getnext(reserved, &rhop->scidd, &rit)) {
 		if (!amount_msat_eq(r->rhop.amount, rhop->amount))
 			continue;
+		if (r->rhop.layer != rhop->layer)
+			continue;
 
-		reserve_htable_del(reserved, r);
+		/* hops on layers have a destructor which does this. */
+		if (r->rhop.layer == NULL)
+			reserve_htable_del(reserved, r);
 		tal_free(r);
 		return true;
 	}
@@ -94,8 +109,18 @@ void reserves_clear_capacities(struct reserve_htable *reserved,
 	}
 }
 
+static bool layer_in(const struct layer *layer,
+		     const struct layer **layers)
+{
+	for (size_t i = 0; i < tal_count(layers); i++)
+		if (layer == layers[i])
+			return true;
+	return false;
+}
+
 void reserve_sub(const struct reserve_htable *reserved,
 		 const struct short_channel_id_dir *scidd,
+		 const struct layer **layers,
 		 struct amount_msat *amount)
 {
 	struct reserve *r;
@@ -104,6 +129,8 @@ void reserve_sub(const struct reserve_htable *reserved,
 	for (r = reserve_htable_getfirst(reserved, scidd, &rit);
 	     r;
 	     r = reserve_htable_getnext(reserved, scidd, &rit)) {
+		if (r->rhop.layer && !layer_in(r->rhop.layer, layers))
+			continue;
 		if (!amount_msat_sub(amount, *amount, r->rhop.amount))
 			*amount = AMOUNT_MSAT(0);
 	}
@@ -111,6 +138,7 @@ void reserve_sub(const struct reserve_htable *reserved,
 
 bool reserve_accumulate(const struct reserve_htable *reserved,
 			const struct short_channel_id_dir *scidd,
+			const struct layer *layer,
 			struct amount_msat *amount)
 {
 	struct reserve *r;
@@ -119,6 +147,10 @@ bool reserve_accumulate(const struct reserve_htable *reserved,
 	for (r = reserve_htable_getfirst(reserved, scidd, &rit);
 	     r;
 	     r = reserve_htable_getnext(reserved, scidd, &rit)) {
+		/* Non-layer ones always get counted.  Layered ones have
+		 * to match this layer. */
+		if (r->rhop.layer && r->rhop.layer != layer)
+			continue;
 		if (!amount_msat_add(amount, *amount, r->rhop.amount))
 			return false;
 	}
@@ -127,7 +159,8 @@ bool reserve_accumulate(const struct reserve_htable *reserved,
 
 void json_add_reservations(struct json_stream *js,
 			   const struct reserve_htable *reserved,
-			   const char *fieldname)
+			   const char *fieldname,
+			   const struct layer **layers)
 {
 	struct reserve *r;
 	struct reserve_htable_iter rit;
@@ -136,6 +169,8 @@ void json_add_reservations(struct json_stream *js,
 	for (r = reserve_htable_first(reserved, &rit);
 	     r;
 	     r = reserve_htable_next(reserved, &rit)) {
+		if (r->rhop.layer && !layer_in(r->rhop.layer, layers))
+			continue;
 		json_object_start(js, NULL);
 		json_add_short_channel_id_dir(js,
 					      "short_channel_id_dir",
@@ -153,7 +188,8 @@ void json_add_reservations(struct json_stream *js,
 
 const char *fmt_reservations(const tal_t *ctx,
 			     const struct reserve_htable *reserved,
-			     const struct short_channel_id_dir *scidd)
+			     const struct short_channel_id_dir *scidd,
+			     const struct layer **layers)
 {
 	struct reserve *r;
 	struct reserve_htable_iter rit;
@@ -163,6 +199,8 @@ const char *fmt_reservations(const tal_t *ctx,
 	     r;
 	     r = reserve_htable_getnext(reserved, scidd, &rit)) {
 		u64 seconds;
+		if (r->rhop.layer && !layer_in(r->rhop.layer, layers))
+			continue;
 		if (!ret)
 			ret = tal_strdup(ctx, "");
 		else

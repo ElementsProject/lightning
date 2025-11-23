@@ -36,6 +36,13 @@
               "description": [
                 "The amount to send into this hop."
               ]
+            },
+            "layer": {
+              "added": "v25.12",
+              "type": "string",
+              "description": [
+                "The layer to restrict this reservation to.  This is only useful for fake channels which are not uniquely identified by `short_channel_id_dir`, which would otherwise confuse multiple unrelated callers."
+              ]
             }
           }
         }

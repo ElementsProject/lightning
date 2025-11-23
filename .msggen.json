@@ -752,6 +752,7 @@
         "Askrene-reservePath": {
             "AskRene-Reserve.path[].amount_msat": 3,
             "AskRene-Reserve.path[].direction": 2,
+            "AskRene-Reserve.path[].layer": 5,
             "AskRene-Reserve.path[].short_channel_id": 1,
             "AskRene-Reserve.path[].short_channel_id_dir": 4
         },
@@ -761,6 +762,7 @@
         "Askrene-unreservePath": {
             "AskRene-Unreserve.path[].amount_msat": 3,
             "AskRene-Unreserve.path[].direction": 2,
+            "AskRene-Unreserve.path[].layer": 5,
             "AskRene-Unreserve.path[].short_channel_id": 1,
             "AskRene-Unreserve.path[].short_channel_id_dir": 4
         },
@@ -4412,6 +4414,10 @@
             "added": "v24.08",
             "deprecated": null
         },
+        "AskRene-Reserve.path[].layer": {
+            "added": "v25.12",
+            "deprecated": null
+        },
         "AskRene-Reserve.path[].short_channel_id": {
             "added": "v24.08",
             "deprecated": null
@@ -4434,6 +4440,10 @@
         },
         "AskRene-Unreserve.path[].direction": {
             "added": "v24.08",
+            "deprecated": null
+        },
+        "AskRene-Unreserve.path[].layer": {
+            "added": "v25.12",
             "deprecated": null
         },
         "AskRene-Unreserve.path[].short_channel_id": {

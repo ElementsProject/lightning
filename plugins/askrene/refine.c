@@ -69,6 +69,9 @@ static void add_reservation(struct reserve_hop **reservations,
 	}
 	rhop.scidd = *scidd;
 	rhop.amount = amt;
+	/* We don't have to restrict it to a layer, since it's transitory:
+	 * nobody else will see this. */
+	rhop.layer = NULL;
 	reserve_add(askrene->reserved, &rhop, rq->cmd->id);
 
 	/* Set capacities entry to 0 so it get_constraints() looks in reserve. */
@@ -592,7 +595,7 @@ refine_with_fees_and_limits(const tal_t *ctx,
 	/* Total flowset probability is now easily calculated given reservations
 	 * contains the total amounts through each channel (once we remove them) */
 	destroy_reservations(reservations, get_askrene(rq->plugin));
-	tal_add_destructor2(reservations, destroy_reservations, get_askrene(rq->plugin));
+	tal_del_destructor2(reservations, destroy_reservations, get_askrene(rq->plugin));
 
 	*flowset_probability = 1.0;
 	for (size_t i = 0; i < tal_count(reservations); i++) {

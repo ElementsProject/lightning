@@ -19,7 +19,7 @@
       "layer": {
         "type": "string",
         "description": [
-          "The name of the layer to apply this change to."
+          "The name of the layer to apply this change to.  Also causes us to consider any reservations which are local to that layer (which is useful for fake channels where `layer` is set in an `askrene-reserve` `path` object)."
         ]
       },
       "short_channel_id_dir": {

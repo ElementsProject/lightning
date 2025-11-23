@@ -14,9 +14,11 @@ struct reserve_htable *new_reserve_htable(const tal_t *ctx);
 struct reserve_hop {
 	struct short_channel_id_dir scidd;
 	struct amount_msat amount;
+	/* If non-NULL, only applies to this layer */
+	const struct layer *layer;
 };
 
-/* Add a reservation */
+/* Add a reservation. */
 void reserve_add(struct reserve_htable *reserved,
 		 const struct reserve_hop *rhop,
 		 const char *cmd_id TAKES);
@@ -33,22 +35,26 @@ void reserves_clear_capacities(struct reserve_htable *reserved,
 /* Subtract any reserves for scidd from this amount */
 void reserve_sub(const struct reserve_htable *reserved,
 		 const struct short_channel_id_dir *scidd,
+		 const struct layer **layers,
 		 struct amount_msat *amount);
 
 /* Add any reserves for scidd to this amount */
 bool reserve_accumulate(const struct reserve_htable *reserved,
 			const struct short_channel_id_dir *scidd,
+			const struct layer *layer,
 			struct amount_msat *amount);
 
 /* To explain why we couldn't route */
 const char *fmt_reservations(const tal_t *ctx,
 			     const struct reserve_htable *reserved,
-			     const struct short_channel_id_dir *scidd);
+			     const struct short_channel_id_dir *scidd,
+			     const struct layer **layers);
 
 /* Print out a json object for all reservations */
 void json_add_reservations(struct json_stream *js,
 			   const struct reserve_htable *reserved,
-			   const char *fieldname);
+			   const char *fieldname,
+			   const struct layer **layers);
 
 /* Scan for memleaks */
 void reserve_memleak_mark(struct askrene *askrene, struct htable *memtable);
