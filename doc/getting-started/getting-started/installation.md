@@ -516,8 +516,7 @@ make install
 Install dependencies:
 
 ```shell
-pacman --sync autoconf automake gcc git make python-pip
-pip install --user poetry
+pacman --sync autoconf automake gcc git make python-poetry python-mako lowdown jq
 ```
 
 Clone Core Lightning:
@@ -535,10 +534,10 @@ python -m poetry install
 python -m poetry run make
 ```
 
-Launch Core Lightning:
+Install
 
-```
-./lightningd/lightningd
+```shell
+sudo python -m poetry run make install
 ```
 
 ## To cross-compile for Android
