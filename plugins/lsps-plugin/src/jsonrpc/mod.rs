@@ -6,12 +6,9 @@ pub mod server;
 use std::fmt;
 use thiserror::Error;
 
-// Constants for JSON-RPC error codes
-const PARSE_ERROR: i64 = -32700;
-const INVALID_REQUEST: i64 = -32600;
-const METHOD_NOT_FOUND: i64 = -32601;
-const INVALID_PARAMS: i64 = -32602;
-const INTERNAL_ERROR: i64 = -32603;
+use crate::proto::lsps0::{
+    INTERNAL_ERROR, INVALID_PARAMS, INVALID_REQUEST, METHOD_NOT_FOUND, PARSE_ERROR,
+};
 
 /// Error type for JSON-RPC related operations.
 ///
