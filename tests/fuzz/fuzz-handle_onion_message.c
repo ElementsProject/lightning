@@ -75,12 +75,12 @@ void init(int *argc, char ***argv)
 
 void run(const uint8_t *data, size_t size)
 {
-	if (setjmp(fuzz_env) != 0)
-		goto cleanup;
-
-	struct daemon *daemon;
+	struct daemon *daemon = NULL;
 	struct peer *peer;
 	struct pubkey dummy_key;
+
+	if (setjmp(fuzz_env) != 0)
+		goto cleanup;
 
 	memset(&dummy_key, 'c', sizeof(dummy_key));
 
