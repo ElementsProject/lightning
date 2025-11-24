@@ -5,12 +5,12 @@ use cln_lsps::jsonrpc::TransportError;
 use cln_lsps::jsonrpc::{server::JsonRpcServer, JsonRpcRequest};
 use cln_lsps::lsps0::handler::Lsps0ListProtocolsHandler;
 use cln_lsps::lsps0::transport::{self, CustomMsg};
+use cln_lsps::lsps2;
 use cln_lsps::lsps2::cln::{HtlcAcceptedRequest, HtlcAcceptedResponse};
 use cln_lsps::lsps2::handler::{ClnApiRpc, HtlcAcceptedHookHandler};
 use cln_lsps::lsps2::model::{Lsps2BuyRequest, Lsps2GetInfoRequest};
-use cln_lsps::proto::lsps0::Lsps0listProtocolsRequest;
+use cln_lsps::proto::lsps0::{Lsps0listProtocolsRequest, LSPS0_MESSAGE_TYPE};
 use cln_lsps::util::wrap_payload_with_peer_id;
-use cln_lsps::{lsps0, lsps2};
 use cln_plugin::Plugin;
 use cln_rpc::notifications::CustomMsgNotification;
 use cln_rpc::primitives::PublicKey;
@@ -151,7 +151,7 @@ async fn on_custommsg(
         serde_json::from_value(v).map_err(|e| anyhow!("invalid custommsg: {e}"))?;
 
     let req = CustomMsg::from_str(&msg.payload).map_err(|e| anyhow!("invalid payload {e}"))?;
-    if req.message_type != lsps0::transport::LSPS0_MESSAGE_TYPE {
+    if req.message_type != LSPS0_MESSAGE_TYPE {
         // We don't care if this is not for us!
         return continue_response;
     }

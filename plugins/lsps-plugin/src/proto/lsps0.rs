@@ -1,6 +1,11 @@
 use crate::jsonrpc::JsonRpcRequest;
 use serde::{Deserialize, Serialize};
 
+// Optional feature bet to set according to LSPS0.
+pub const LSP_FEATURE_BIT: usize = 729;
+
+// Required message type for BOLT8 transport.
+pub const LSPS0_MESSAGE_TYPE: u16 = 37913;
 
 // Constants for JSON-RPC error codes.
 pub const PARSE_ERROR: i64 = -32700;

@@ -1,4 +1,7 @@
-use crate::jsonrpc::{client::Transport, Error, TransportError};
+use crate::{
+    jsonrpc::{client::Transport, Error, TransportError},
+    proto::lsps0::LSPS0_MESSAGE_TYPE,
+};
 use async_trait::async_trait;
 use cln_plugin::Plugin;
 use cln_rpc::{primitives::PublicKey, ClnRpc};
@@ -15,7 +18,6 @@ use tokio::{
     time::Duration,
 };
 
-pub const LSPS0_MESSAGE_TYPE: u16 = 37913;
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(60);
 
 /// Trait that must be implemented by plugin state to access the custom message hook manager.
