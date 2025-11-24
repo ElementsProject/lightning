@@ -150,6 +150,34 @@ def test_pay_limits(node_factory):
     assert status[0]['strategy'] == "Initial attempt"
 
 
+def test_pay_cltv_budget_exceeded_no_infinite_loop(node_factory):
+    """Test that CLTV budget exceeded doesn't cause infinite splitting loop.
+
+    Reproduces issue #8167: When CLTV delay exceeds budget, the adaptive
+    splitter would keep splitting the payment into thousands of sub-payments,
+    even though splitting cannot help (CLTV requirements don't depend on
+    payment amount).
+    """
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+
+    # Use amount > 100k msat to enable MPP adaptive splitting
+    amt = 1000000
+
+    inv = l3.rpc.invoice(amt, "test_cltv_no_infinite_loop", 'description')['bolt11']
+
+    # Set maxdelay very low to trigger CLTV budget exceeded
+    PAY_STOPPED_RETRYING = 210
+    failmsg = r'CLTV delay exceeds our CLTV budget'
+
+    with pytest.raises(RpcError, match=failmsg) as err:
+        l1.rpc.call('pay', {'bolt11': inv, 'maxdelay': 5})
+
+    assert err.value.error['code'] == PAY_STOPPED_RETRYING
+
+    status = l1.rpc.call('paystatus', {'bolt11': inv})['pay'][0]['attempts']
+    assert len(status) < 10, f"Too many attempts ({len(status)}), possible infinite loop bug"
+
+
 def test_pay_exclude_node(node_factory, bitcoind):
     """Test excluding the node if there's the NODE-level error in the failure_code
     """

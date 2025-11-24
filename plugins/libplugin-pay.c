@@ -3692,6 +3692,9 @@ static struct command_result *adaptive_splitter_cb(struct adaptive_split_mod_dat
 			    fields, root->payment_secret,
 			    root->final_amount.millisatoshis); /* Raw: onion payload */
 	} else if (p->step == PAYMENT_STEP_FAILED && !p->abort) {
+		/* No route means splitting won't help. */
+		if (p->route == NULL)
+			return payment_continue(p);
 		if (amount_msat_greater(p->our_amount, MPP_ADAPTIVE_LOWER_LIMIT)) {
 			struct payment *a, *b;
 			/* Random number in the range [90%, 110%] */
