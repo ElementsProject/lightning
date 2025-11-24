@@ -68,12 +68,6 @@ jobs:
       - name: Git checkout
         uses: actions/checkout@v4
 
-      # tools/build-release.sh requires lowdown
-      - name: Prepare base environment
-        run: |
-          sudo apt-get install -y lowdown
-          ./configure
-
       - name: Build environment setup
         run: |
           distribution=$(echo ${{ matrix.target }} | cut -d'-' -f3)
