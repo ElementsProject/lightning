@@ -970,8 +970,8 @@ def test_malformed_rpc(node_factory):
     obj, _ = l1.rpc._readobj(sock, b'')
     assert obj['error']['code'] == -32600
 
-    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    sock.connect(l1.rpc.socket_path)
+    sock.close()
+    sock = connect_unix(l1.rpc.socket_path)
 
     # Bad ID
     sock.sendall(b'{"id":{}, "jsonrpc":"2.0","method":"getinfo","params":[]}')
