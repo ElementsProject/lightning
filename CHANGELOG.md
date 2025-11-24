@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [25.12rc1] - 2025-11-20: "Boltz's Seamless Upgrade Experience"
+## [25.12rc1] - 2025-11-25: "Boltz's Seamless Upgrade Experience"
 
 Release Candidate for Core Lightning v25.12
 
@@ -65,6 +65,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - Offers: require peers for blinded paths to have `option_onion_messages`, due to reports of LND not forwarding our blinded payments correctly. ([#8682])
  - Protocol: we now re-transmit unseen funding transactions on startup, for more robustness. ([#8546])
  - Plugins: `askrene` now handles limits on number of htlcs much more gracefully. ([#8688])
+ - Plugins: `listpays` can be missing the bolt11 information in some cases where `pay` is used. ([#8690])
  - Plugins: `bkpr_listincome` now honors `start\_time` and `end\_time` parameters for onchain fees. ([#8624])
  - JSON-RPC: `autoclean-once` returns "uncleaned" number reflecting number of candidates which were too new to be cleaned, not all records we didn't delete. ([#8651])
  - JSON-RPC: `invoice` no longer accepts 640-byte descriptions (it would produce malformed invoices). ([#8535])
@@ -96,6 +97,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#8646]: https://github.com/ElementsProject/lightning/pull/8646
 [#8546]: https://github.com/ElementsProject/lightning/pull/8546
 [#8692]: https://github.com/ElementsProject/lightning/pull/8692
+[#8690]: https://github.com/ElementsProject/lightning/pull/8690
 [#8492]: https://github.com/ElementsProject/lightning/pull/8492
 [#8608]: https://github.com/ElementsProject/lightning/pull/8608
 [#8671]: https://github.com/ElementsProject/lightning/pull/8671
