@@ -14,10 +14,11 @@ use cln_lsps::lsps2::model::{
     compute_opening_fee, Lsps2BuyRequest, Lsps2BuyResponse, Lsps2GetInfoRequest,
     Lsps2GetInfoResponse, OpeningFeeParams,
 };
-use cln_lsps::proto::lsps0::{Lsps0listProtocolsRequest, Lsps0listProtocolsResponse};
+use cln_lsps::proto::lsps0::{
+    Lsps0listProtocolsRequest, Lsps0listProtocolsResponse, LSP_FEATURE_BIT,
+};
 use cln_lsps::proto::primitives::Msat;
 use cln_lsps::util;
-use cln_lsps::LSP_FEATURE_BIT;
 use cln_plugin::options;
 use cln_rpc::model::requests::{
     DatastoreMode, DatastoreRequest, DeldatastoreRequest, DelinvoiceRequest, DelinvoiceStatus,
