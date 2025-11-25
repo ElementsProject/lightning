@@ -1,6 +1,6 @@
 #define NDEBUG 1
 #include "config.h"
-#include <plugins/askrene/dijkstra.h>
+#include <plugins/askrene/child/dijkstra.h>
 
 /* In the heap we keep node idx, but in this structure we keep the distance
  * value associated to every node, and their position in the heap as a pointer

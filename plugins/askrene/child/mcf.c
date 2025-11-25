@@ -9,15 +9,14 @@
 #include <float.h>
 #include <inttypes.h>
 #include <math.h>
-#include <plugins/askrene/algorithm.h>
 #include <plugins/askrene/askrene.h>
-#include <plugins/askrene/dijkstra.h>
-#include <plugins/askrene/explain_failure.h>
-#include <plugins/askrene/flow.h>
-#include <plugins/askrene/graph.h>
-#include <plugins/askrene/mcf.h>
-#include <plugins/askrene/refine.h>
-#include <plugins/libplugin.h>
+#include <plugins/askrene/child/algorithm.h>
+#include <plugins/askrene/child/dijkstra.h>
+#include <plugins/askrene/child/explain_failure.h>
+#include <plugins/askrene/child/flow.h>
+#include <plugins/askrene/child/graph.h>
+#include <plugins/askrene/child/mcf.h>
+#include <plugins/askrene/child/refine.h>
 #include <stdint.h>
 
 /* # Optimal payments

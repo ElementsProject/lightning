@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_PLUGINS_ASKRENE_PRIORITYQUEUE_H
-#define LIGHTNING_PLUGINS_ASKRENE_PRIORITYQUEUE_H
+#ifndef LIGHTNING_PLUGINS_ASKRENE_CHILD_PRIORITYQUEUE_H
+#define LIGHTNING_PLUGINS_ASKRENE_CHILD_PRIORITYQUEUE_H
 
 /* Defines a priority queue using gheap. */
 
@@ -32,4 +32,4 @@ size_t priorityqueue_size(const struct priorityqueue *priorityqueue);
 /* Maximum number of elements the heap can host */
 size_t priorityqueue_maxsize(const struct priorityqueue *priorityqueue);
 
-#endif /* LIGHTNING_PLUGINS_ASKRENE_PRIORITYQUEUE_H */
+#endif /* LIGHTNING_PLUGINS_ASKRENE_CHILD_PRIORITYQUEUE_H */
