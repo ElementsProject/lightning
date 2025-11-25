@@ -12,6 +12,13 @@ on:
       version:
         description: 'Release version'
         required: true
+      skip_validation:
+        description: Skip release validation for untagged commit testing
+        default: no
+        type: choice
+        options:
+          - yes
+          - no
       create_release:
         description: Create a draft release
         default: no
@@ -31,6 +38,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.ref }}
+          fetch-depth: 0
 
       - name: Determine version
         run: |
@@ -46,6 +54,7 @@ jobs:
           echo "Determined version: $VERSION"
 
       - name: Validate release
+        if: github.event_name != 'workflow_dispatch' || github.event.inputs.skip_validation != 'yes'
         run: tools/check-release.sh --version=${VERSION}
 
       - name: Catpure version output
@@ -55,6 +64,8 @@ jobs:
   releases:
     name: Releases
     needs: check
+    env:
+      version: ${{ needs.check.outputs.version }}
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false    # Let each build finish.
@@ -67,6 +78,9 @@ jobs:
     steps:
       - name: Git checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
 
       - name: Build environment setup
         run: |
@@ -83,7 +97,13 @@ jobs:
         if: contains(matrix.target, 'Ubuntu')
 
       - name: Build release
-        run: tools/build-release.sh ${{ matrix.target }}
+        run: |
+          # Allow build release to execute if manually triggered for testing
+          if [ "${{ github.event_name }}" == "workflow_dispatch" && github.event.inputs.skip_validation == 'yes' ]; then
+            tools/build-release.sh ${{ matrix.target }} --force-version "${{ env.version }}" --force-unclean --force-mtime "$(date +%Y-%m-%d)"
+          else
+            tools/build-release.sh ${{ matrix.target }}
+          fi
 
       - name: Upload target artifacts
         uses: actions/upload-artifact@v4
@@ -119,6 +139,9 @@ jobs:
     steps:
       - name: Git checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
 
       - name: Download artifact
         uses: actions/download-artifact@v4
