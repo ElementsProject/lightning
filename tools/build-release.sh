@@ -242,14 +242,10 @@ if [ "$VERIFY_RELEASE" = "true" ]; then
     fi
     sumfile="$(pwd)/${sumfile}"
     cd release/ || exit
-    # Check that the release captains sum matches. Ignore missing entries as we
-    # do not have a repro build for Fedora. Strictly this is not necessary here
+    # Check that the release captains sum matches. Strictly this is not necessary here
     # as we compare our checksums with the release captains checksums later, but
     # it gives a direct hint which specific checksums don't match if so.
     sha256sum --check --ignore-missing "${sumfile}"
-    # Creating SHA256SUMS, except Fedora (copy that from theirs)
-    grep 'Fedora-' "$sumfile" > SHA256SUMS
-    sha256sum clightning-"$VERSION"* | grep -v 'Fedora' >> SHA256SUMS
     # compare our and release captain's SHA256SUMS contents
     if cmp -s SHA256SUMS "$sumfile"; then
         echo "SHA256SUMS are Identical"
