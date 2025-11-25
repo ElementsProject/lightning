@@ -32,7 +32,7 @@ Here's a checklist for the release process.
 2. Tag it `git pull && git tag -s v<VERSION>rc1`. Note that you should get a prompt to give this tag a 'message'. Make sure you fill this in.
 3. Confirm that the tag will show up for builds with `git describe`. We don't push it to GitHub yet, just in case the following steps fail, and more fixes are required!
 4. Run `contrib/cl-repro.sh` to generate the required `cl-repro-<codename>` builder images for the reproducible build environment.
-5. Execute `tools/build-release.sh bin-Ubuntu sign` to locally reproduce the release, generating a matching `SHA256SUMS-v<VERSION>` file and signing it with your GPG key.
+5. Execute `tools/build-release.sh bin-Fedora bin-Ubuntu sign` to locally reproduce the release, generating a matching `SHA256SUMS-v<VERSION>` file and signing it with your GPG key.
 6. Push the tag to trigger the "Release 🚀" CI action, which drafts a new `v<VERSION>rc1` pre-release on GitHub and uploads reproducible builds alongside the `SHA256SUMS-v<VERSION>` file and its signature from the `cln@blockstream.com` key.
 7. Verify your local `SHA256SUMS-v<VERSION>` file matches the one in the draft release, then append your local signatures to the release's `SHA256SUMS-v<VERSION>.asc` file to attest to the build's integrity.
 8. Announce rc1 release on core-lightning's release-chat channel on Discord & Telegram.
@@ -50,7 +50,7 @@ Here's a checklist for the release process.
 4. Tag it `git pull && git tag -s v<VERSION>rcN && git push --tags`.
 5. Pushing the tag automatically starts the "Release 🚀" CI job, creating a draft pre-release and uploading reproducible builds with their `SHA256SUMS` files signed by the project key.
 6. Set up the reproducible build environment by running the script `contrib/cl-repro.sh` to generate the necessary builder images.
-7. Use the command `tools/build-release.sh bin-Ubuntu sign` to locally rebuild the release and generate a personal signature file for the checksums.
+7. Use the command `tools/build-release.sh bin-Fedora bin-Ubuntu sign` to locally rebuild the release and generate a personal signature file for the checksums.
 8. After confirming the local and pre-release `SHA256SUMS-v<VERSION>` files match, append your signatures to the pre-release's `SHA256SUMS-v<VERSION>.asc` file to formally attest to the build's validity.
 9. Announce tagged rc release on core-lightning's release-chat channel on Discord & Telegram.
 10. Upgrade your personal nodes to the rcN.
@@ -67,9 +67,9 @@ Here's a checklist for the release process.
    - `git push --tags`
 5. Pushing the tag will trigger the CI pipeline, which will draft the pre-release and upload the build artifacts with project-signed checksums.
 6. Prepare the build environments by executing the `contrib/cl-repro.sh` script.
-7. Run `tools/build-release.sh bin-Ubuntu sign` (with `--sudo` if you need root to run Docker) to:
+7. Run `tools/build-release.sh bin-Fedora bin-Ubuntu sign` (with `--sudo` if you need root to run Docker) to:
    - Create reproducible zipfile
-   - Build non-reproducible Fedora image
+   - Build reproducible Fedora image
    - Build reproducible Ubuntu-v20.04, Ubuntu-v22.04 and Ubuntu-v24.04 images. Follow [link](https://docs.corelightning.org/docs/repro#building-using-the-builder-image) for manually Building Ubuntu Images.
    - Build Docker images for amd64 and arm64v8. Follow [link](https://docs.corelightning.org/docs/docker-images) for more details on Docker publishing.
    - Create and sign checksums. Follow [link](https://docs.corelightning.org/docs/repro#co-signing-the-release-manifest) for manually signing the release.
@@ -116,7 +116,7 @@ Here's a checklist for the release process.
 7. Confirm that the tag is properly set up for builds by running `git describe`.
 8. Trigger the pre-release by pushing the version tag with `git push --tags`; the CI will handle drafting the release and uploading the initial signed checksums.
 9. Generate the required builder images by running `contrib/cl-repro.sh`.
-10. Sign the release locally by running `tools/build-release.sh bin-Ubuntu sign` which will sign the release contents and create `SHA256SUMS-v<VERSION>` and `SHA256SUMS-v<VERSION>.asc` in the release folder.
+10. Sign the release locally by running `tools/build-release.sh bin-Fedora bin-Ubuntu sign` which will sign the release contents and create `SHA256SUMS-v<VERSION>` and `SHA256SUMS-v<VERSION>.asc` in the release folder.
 11. Validate that your local checksums `SHA256SUMS-v<VERSION>` match the Draft release's, then add your signatures to the draft release's signature `SHA256SUMS-v<VERSION>.asc` file.
 12. Share the `SHA256SUMS-v<VERSION>` and `SHA256SUMS-v<VERSION>.asc` files with the team for verification and signing.
 13. Append the signatures received from the team to the `SHA256SUMS-v<VERSION>.asc` file. Verify the file using `gpg --verify SHA256SUMS-v<VERSION>.asc`. Then re-upload the file.
