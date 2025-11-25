@@ -2492,3 +2492,47 @@ def test_pending_payments_cleanup(node_factory, bitcoind):
     l1 = node_factory.get_node(dbfile='l1-pending-sendpays-with-no-htlc.sqlite3.xz', options={'database-upgrade': True})
     assert [p['status'] for p in l1.rpc.listsendpays()['payments']] == ['failed', 'pending']
     assert [p['status'] for p in l1.rpc.listpays()['pays']] == ['pending']
+
+
+@unittest.skipIf(VALGRIND, "It does not play well with prompt and key derivation.")
+def test_hsm_wrong_passphrase_crash(node_factory):
+    """Test that hsmd handles wrong passphrase gracefully without crashing.
+
+    This test reproduces a bug where hsmd would crash with "HSM sent unknown message type"
+    when a wrong passphrase was provided. The issue was that hsmd_send_init_reply_failure
+    was using write_all() instead of wire_sync_write(), missing the length prefix.
+    """
+    l1 = node_factory.get_node(start=False, expect_fail=True)
+    hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
+    os.remove(hsm_path)
+
+    # Create hsm_secret with a passphrase
+    passphrase = "correct_passphrase"
+    mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+
+    hsmtool = HsmTool(node_factory.directory, "generatehsm", hsm_path)
+    master_fd, slave_fd = os.openpty()
+    hsmtool.start(stdin=slave_fd)
+    hsmtool.wait_for_log(r"Introduce your BIP39 word list")
+    write_all(master_fd, f"{mnemonic}\n".encode("utf-8"))
+    hsmtool.wait_for_log(r"Enter your passphrase:")
+    write_all(master_fd, f"{passphrase}\n".encode("utf-8"))
+    assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
+    os.close(master_fd)
+    os.close(slave_fd)
+
+    # Try to start with wrong passphrase
+    l1.daemon.opts["hsm-passphrase"] = None
+    master_fd2, slave_fd2 = os.openpty()
+    l1.daemon.start(stdin=slave_fd2, wait_for_initialized=False, stderr_redir=True)
+    l1.daemon.wait_for_log("Enter hsm_secret passphrase:")
+    write_all(master_fd2, "wrong_passphrase\n".encode("utf-8"))
+
+    # Should fail gracefully with proper error message, not "unknown message type"
+    l1.daemon.wait()
+    assert l1.daemon.is_in_stderr("Failed to load hsm_secret: Wrong passphrase")
+    assert not l1.daemon.is_in_stderr("HSM sent unknown message type")
+    assert not l1.daemon.is_in_stderr("send_backtrace")  # No backtrace for user error
+
+    os.close(master_fd2)
+    os.close(slave_fd2)

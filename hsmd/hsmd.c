@@ -33,6 +33,7 @@
 #include <wally_bip39.h>
 #include <wally_core.h>
 #include <wire/wire_io.h>
+#include <wire/wire_sync.h>
 
 /*~ Each subdaemon is started with stdin connected to lightningd (for status
  * messages), and stderr untouched (for emergency printing).  File descriptors
@@ -291,7 +292,7 @@ static void hsmd_send_init_reply_failure(enum hsm_secret_error error_code, enum 
 	msg = towire_hsmd_init_reply_failure(NULL, error_code, formatted_msg);
 	if (msg) {
 		/* Send directly to lightningd via REQ_FD */
-		write_all(REQ_FD, msg, tal_bytelen(msg));
+		wire_sync_write(REQ_FD, msg);
 		tal_free(msg);
 	}
 
@@ -441,6 +442,15 @@ static void load_hsm(const char *passphrase)
 				  tal_bytelen(hsm_secret_contents),
 				  passphrase, &err);
 	if (!hsms) {
+		/* Wrong passphrase is user error, not internal error - exit cleanly  */
+		if (err == HSM_SECRET_ERR_WRONG_PASSPHRASE) {
+			u8 *msg = towire_hsmd_init_reply_failure(NULL, err,
+								 tal_fmt(tmpctx,
+									 "Failed to load hsm_secret: %s",
+									 hsm_secret_error_str(err)));
+			wire_sync_write(REQ_FD, msg);
+			exit(0);
+		}
 		hsmd_send_init_reply_failure(err, STATUS_FAIL_INTERNAL_ERROR,
 			                        "Failed to load hsm_secret: %s", hsm_secret_error_str(err));
 	}
