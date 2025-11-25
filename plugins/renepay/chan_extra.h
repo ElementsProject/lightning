@@ -50,7 +50,8 @@ static inline bool chan_extra_eq_scid(const struct chan_extra *cd,
 	return short_channel_id_eq(scid, cd->scid);
 }
 
-HTABLE_DEFINE_NODUPS_TYPE(struct chan_extra, chan_extra_scid, short_channel_id_hash,
+HTABLE_DEFINE_NODUPS_TYPE(struct chan_extra, chan_extra_scid,
+			  hash_scid,
 			  chan_extra_eq_scid,
 			  chan_extra_map);
 
