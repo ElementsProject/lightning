@@ -40,17 +40,16 @@ double flow_probability(const struct flow *flow,
 			const struct route_query *rq);
 
 /* How much do we need to send to make this flow arrive. */
-struct amount_msat flow_spend(struct plugin *plugin, const struct flow *flow);
+struct amount_msat flow_spend(const struct flow *flow);
 
 /* How much do we pay in fees to make this flow arrive. */
-struct amount_msat flow_fee(struct plugin *plugin, const struct flow *flow);
+struct amount_msat flow_fee(const struct flow *flow);
 
 /* What fee to we pay for this entire flow set? */
-struct amount_msat flowset_fee(struct plugin *plugin, struct flow **flows);
+struct amount_msat flowset_fee(struct flow **flows);
 
 /* How much does this entire flowset deliver? */
-struct amount_msat flowset_delivers(struct plugin *plugin,
-				    struct flow **flows);
+struct amount_msat flowset_delivers(struct flow **flows);
 
 /* How much CLTV does this flow require? */
 u64 flow_delay(const struct flow *flow);
