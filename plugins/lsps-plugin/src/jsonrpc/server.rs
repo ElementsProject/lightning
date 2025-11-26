@@ -1,4 +1,4 @@
-use crate::proto::jsonrpc::{Result, RpcError};
+use crate::proto::jsonrpc::{Result, RpcError, RpcErrorExt as _};
 use async_trait::async_trait;
 use log::{debug, trace};
 use std::{collections::HashMap, sync::Arc};

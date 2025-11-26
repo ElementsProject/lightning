@@ -1,4 +1,4 @@
-use crate::proto::jsonrpc::JsonRpcRequest;
+use crate::proto::jsonrpc::{JsonRpcRequest, RpcError};
 use core::fmt;
 use serde::{
     de::{self},
@@ -13,18 +13,19 @@ pub const LSP_FEATURE_BIT: usize = 729;
 // Required message type for BOLT8 transport.
 pub const LSPS0_MESSAGE_TYPE: u16 = 37913;
 
-// Lsps0 error definitions. Are in the range 00000 to 00099.
-pub const CLIENT_REJECTED: i64 = 1;
-
-pub enum Error {
-    ClientRejected(String),
+// Lsps0 specific error codes defined in BLIP-50.
+// Are in the range 00000 to 00099.
+pub mod error_codes {
+    pub const CLIENT_REJECTED: i64 = 001;
 }
 
-impl Error {
-    pub fn client_rejected(msg: String) -> Error {
-        Self::ClientRejected(msg)
+pub trait LSPS0RpcErrorExt {
+    rpc_error_methods! {
+        client_rejected => error_codes::CLIENT_REJECTED,
     }
 }
+
+impl LSPS0RpcErrorExt for RpcError {}
 
 /// Represents a monetary amount as defined in LSPS0.msat. Is converted to a
 /// `String` in json messages with a suffix `_msat` or `_sat` and internally
