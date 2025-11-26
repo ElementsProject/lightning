@@ -1,5 +1,5 @@
 use crate::{
-    jsonrpc::{server::RequestHandler, JsonRpcResponse as _, RequestObject, RpcError},
+    jsonrpc::server::RequestHandler,
     lsps2::{
         cln::{HtlcAcceptedRequest, HtlcAcceptedResponse, TLV_FORWARD_AMT},
         model::{
@@ -12,7 +12,10 @@ use crate::{
         },
         DS_MAIN_KEY, DS_SUB_KEY,
     },
-    proto::primitives::{Msat, ShortChannelId},
+    proto::{
+        jsonrpc::{JsonRpcResponse as _, RequestObject, RpcError},
+        primitives::{Msat, ShortChannelId},
+    },
     util::unwrap_payload_with_peer_id,
 };
 use anyhow::{Context, Result as AnyResult};
@@ -678,11 +681,11 @@ mod tests {
 
     use super::*;
     use crate::{
-        jsonrpc::{JsonRpcRequest, ResponseObject},
         lsps2::{
             cln::{tlv::TlvStream, HtlcAcceptedResult},
             model::PolicyOpeningFeeParams,
         },
+        proto::jsonrpc::{JsonRpcRequest, ResponseObject},
         proto::primitives::Ppm,
         util::wrap_payload_with_peer_id,
     };

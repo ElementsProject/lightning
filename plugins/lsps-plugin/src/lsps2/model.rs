@@ -1,5 +1,5 @@
 use crate::{
-    jsonrpc::{JsonRpcRequest, RpcError},
+    proto::jsonrpc::{JsonRpcRequest, RpcError},
     proto::primitives::{DateTime, Msat, Ppm, ShortChannelId},
 };
 use bitcoin::hashes::{sha256, Hash, HashEngine, Hmac, HmacEngine};

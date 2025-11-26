@@ -7,7 +7,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
 use std::sync::Arc;
 
-use crate::jsonrpc::{
+use crate::proto::jsonrpc::{
     Error, JsonRpcRequest, JsonRpcResponse, RequestObject, ResponseObject, Result,
 };
 
@@ -172,7 +172,7 @@ mod test_json_rpc {
     use tokio::sync::OnceCell;
 
     use super::*;
-    use crate::jsonrpc::{self, RpcError};
+    use crate::proto::jsonrpc::{self, RpcError};
 
     #[derive(Clone)]
     struct TestTransport {
