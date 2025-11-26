@@ -14,7 +14,7 @@ use crate::{
     },
     proto::{
         jsonrpc::{JsonRpcResponse as _, RequestObject, RpcError},
-        primitives::{Msat, ShortChannelId},
+        lsps0::{Msat, ShortChannelId},
     },
     util::unwrap_payload_with_peer_id,
 };
@@ -686,7 +686,7 @@ mod tests {
             model::PolicyOpeningFeeParams,
         },
         proto::jsonrpc::{JsonRpcRequest, ResponseObject},
-        proto::primitives::Ppm,
+        proto::lsps0::Ppm,
         util::wrap_payload_with_peer_id,
     };
     use chrono::{TimeZone, Utc};
