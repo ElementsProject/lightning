@@ -10,12 +10,12 @@ use cln_lsps::lsps2::cln::{
     HtlcAcceptedRequest, HtlcAcceptedResponse, InvoicePaymentRequest, OpenChannelRequest,
     TLV_FORWARD_AMT, TLV_PAYMENT_SECRET,
 };
-use cln_lsps::lsps2::model::{
-    compute_opening_fee, Lsps2BuyRequest, Lsps2BuyResponse, Lsps2GetInfoRequest,
-    Lsps2GetInfoResponse, OpeningFeeParams,
-};
 use cln_lsps::proto::lsps0::{
     Lsps0listProtocolsRequest, Lsps0listProtocolsResponse, Msat, LSP_FEATURE_BIT,
+};
+use cln_lsps::proto::lsps2::{
+    compute_opening_fee, Lsps2BuyRequest, Lsps2BuyResponse, Lsps2GetInfoRequest,
+    Lsps2GetInfoResponse, OpeningFeeParams,
 };
 use cln_lsps::util;
 use cln_plugin::options;
