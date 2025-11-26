@@ -4,25 +4,20 @@ slug: hooks
 privacy:
   view: public
 ---
-Hooks allow a plugin to define custom behavior for `lightningd` without having to modify the Core Lightning source code itself. A plugin declares that it'd like to be consulted on what to do next for certain events in the daemon. A hook can then decide how `lightningd` should
-react to the given event.
+Hooks allow a plugin to define custom behavior for `lightningd` without having to modify the Core Lightning source code itself. A plugin declares that it'd like to be consulted on what to do next for certain events in the daemon. A hook can then decide how `lightningd` should react to the given event.
 
-When hooks are registered, they can optionally specify "before" and "after" arrays of plugin names, which control what order they will be called in.  If a plugin name is unknown, it is ignored, otherwise if the hook calls cannot be ordered to satisfy the specifications of all plugin hooks, the plugin registration will fail.
+When hooks are registered, they can optionally specify "before" and "after" arrays of plugin names, which control what order they will be called in. If a plugin name is unknown, it is ignored, otherwise if the hook calls cannot be ordered to satisfy the specifications of all plugin hooks, the plugin registration will fail.
 
 The call semantics of the hooks, i.e., when and how hooks are called, depend on the hook type. Most hooks are currently set to `single`-mode. In this mode only a single plugin can register the hook, and that plugin will get called for each event of that type. If a second plugin attempts to register the hook it gets killed and a corresponding log entry will be added to the logs.
 
 In `chain`-mode multiple plugins can register for the hook type and they are called in any order they are loaded (i.e. cmdline order first, configuration order file second: though note that the order of plugin directories is implementation-dependent), overridden only by `before` and `after` requirements the plugin's hook registrations specify. Each plugin can then handle the event or defer by returning a `continue` result like the following:
-
 ```json
 {
   "result": "continue"
 }
 ```
 
-
-
-The remainder of the response is ignored and if there are any more plugins that have registered the hook the next one gets called. If there are no more plugins then the internal handling is resumed as if no hook had been called. Any other result returned by a plugin is considered an exit from the chain. Upon exit no more plugin hooks are called for the current event, and
-the result is executed. Unless otherwise stated all hooks are `single`-mode.
+The remainder of the response is ignored and if there are any more plugins that have registered the hook the next one gets called. If there are no more plugins then the internal handling is resumed as if no hook had been called. Any other result returned by a plugin is considered an exit from the chain. Upon exit no more plugin hooks are called for the current event, and the result is executed. Unless otherwise stated all hooks are `single`-mode.
 
 Hooks and notifications are very similar, however there are a few key differences:
 
@@ -36,7 +31,6 @@ As a convention, for all hooks, returning the object `{ "result" : "continue" }`
 ### `peer_connected`
 
 This hook is called whenever a peer has connected and successfully completed the cryptographic handshake. The parameters have the following structure:
-
 ```json
 {
   "peer": {
@@ -48,17 +42,15 @@ This hook is called whenever a peer has connected and successfully completed the
 }
 ```
 
-
-
 The hook is sparse on information, since the plugin can use the JSON-RPC `listpeers` command to get additional details should they be required. `direction` is either `"in"` or `"out"`. The `addr` field shows the address that we are connected to ourselves, not the gossiped list of known addresses. In particular this means that the port for incoming connections is an ephemeral port, that may not be available for reconnections.
 
-The returned result must contain a `result` member which is either the string `disconnect` or `continue`.  If `disconnect` and there's a member `error_message`, that member is sent to the peer before disconnection.
+The returned result must contain a `result` member which is either the string `disconnect` or `continue`. If `disconnect` and there's a member `error_message`, that member is sent to the peer before disconnection.
 
 Note that `peer_connected` is a chained hook. The first plugin that decides to `disconnect` with or without an `error_message` will lead to the subsequent plugins not being called anymore.
 
 ### `recover`
 
-This hook is called whenever the node is started using the --recovery flag. So basically whenever a user wants to recover their node with a codex32 secret, they can use --recover=<codex32secret> to use that secret as their HSM Secret.
+This hook is called whenever the node is started using the --recovery flag. So basically whenever a user wants to recover their node with a codex32 secret, they can use --recover="codex32secret" to use that secret as their HSM Secret.
 
 The payload consists of the following information:
 ```json
@@ -78,10 +70,9 @@ This hook is called whenever a channel state is updated, and the old state was r
 3. Verification that the signatures match the commitment transaction
 4. Exchange of revocation secrets that could be used to penalize an eventual misbehaving party
 
-The `commitment_revocation` hook is used to inform the plugin about the state transition being completed, and deliver the penalty transaction. The penalty transaction could then be sent to a watchtower that automaticaly reacts in case one party attempts to settle using a revoked commitment.
+The `commitment_revocation` hook is used to inform the plugin about the state transition being completed, and deliver the penalty transaction. The penalty transaction could then be sent to a watchtower that automatically reacts in case one party attempts to settle using a revoked commitment.
 
 The payload consists of the following information:
-
 ```json
 {
 	"commitment_txid": "58eea2cf538cfed79f4d6b809b920b40bb6b35962c4bb4cc81f5550a7728ab05",
@@ -91,8 +82,6 @@ The payload consists of the following information:
 }
 ```
 
-
-
 Notice that the `commitment_txid` could also be extracted from the sole input of the `penalty_tx`, however it is enclosed so plugins don't have to include the logic to parse transactions.
 
 Not included are the `htlc_success` and `htlc_failure` transactions that may also be spending `commitment_tx` outputs. This is because these transactions are much more dynamic and have a predictable timeout, allowing wallets to ensure a quick checkin when the CLTV of the HTLC is about to expire.
@@ -101,8 +90,7 @@ The `commitment_revocation` hook is a chained hook, i.e., multiple plugins can r
 
 ### `db_write`
 
-This hook is called whenever a change is about to be committed to the database, if you are using a SQLITE3 database (the default).
-This hook will be useless (the `"writes"` field will always be empty) if you are using a PostgreSQL database.
+This hook is called whenever a change is about to be committed to the database, if you are using a SQLITE3 database (the default). This hook will be useless (the `"writes"` field will always be empty) if you are using a PostgreSQL database.
 
 It is currently extremely restricted:
 
@@ -111,7 +99,6 @@ It is currently extremely restricted:
 3. the hook will be called before your plugin is initialized!
 
 This hook, unlike all the other hooks, is also strongly synchronous: `lightningd` will stop almost all the other processing until this hook responds.
-
 ```json
 {
   "data_version": 42,
@@ -121,8 +108,6 @@ This hook, unlike all the other hooks, is also strongly synchronous: `lightningd
 }
 ```
 
-
-
 This hook is intended for creating continuous backups. The intent is that your backup plugin maintains three pieces of information (possibly in separate files):
 
 1. a snapshot of the database
@@ -131,32 +116,24 @@ This hook is intended for creating continuous backups. The intent is that your b
 
 `data_version` is an unsigned 32-bit number that will always increment by 1 each time `db_write` is called. Note that this will wrap around on the limit of 32-bit numbers.
 
-`writes` is an array of strings, each string being a database query that modifies the database.
-If the `data_version` above is validated correctly, then you can simply append this to the log of database queries.
+`writes` is an array of strings, each string being a database query that modifies the database. If the `data_version` above is validated correctly, then you can simply append this to the log of database queries.
 
 Your plugin **MUST** validate the `data_version`. It **MUST** keep track of the previous `data_version` it got, and:
 
 1. If the new `data_version` is **_exactly_** one higher than the previous, then this is the ideal case and nothing bad happened and we should save this and continue.
-2. If the new `data_version` is **_exactly_** the same value as the previous, then the previous set of queries was not committed.
-   Your plugin **MAY** overwrite the previous set of queries with the current set, or it **MAY** overwrite its entire backup with a new snapshot of the database and the current `writes`
-   array (treating this case as if `data_version` were two or more higher than the previous).
+2. If the new `data_version` is **_exactly_** the same value as the previous, then the previous set of queries was not committed. Your plugin **MAY** overwrite the previous set of queries with the current set, or it **MAY** overwrite its entire backup with a new snapshot of the database and the current `writes` array (treating this case as if `data_version` were two or more higher than the previous).
 3. If the new `data_version` is **_less than_** the previous, your plugin **MUST** halt and catch fire, and have the operator inspect what exactly happened here.
 4. Otherwise, some queries were lost and your plugin **SHOULD** recover by creating a new snapshot of the database: copy the database file, back up the given `writes` array, then delete (or atomically `rename` if in a POSIX filesystem) the previous backups of the database and SQL statements, or you **MAY** fail the hook to abort `lightningd`.
 
 The "rolling up" of the database could be done periodically as well if the log of SQL statements has grown large.
 
-Any response other than `{"result": "continue"}` will cause lightningd to error without
-committing to the database!
-This is the expected way to halt and catch fire.
+Any response other than `{"result": "continue"}` will cause lightningd to error without committing to the database! This is the expected way to halt and catch fire.
 
-`db_write` is a parallel-chained hook, i.e., multiple plugins can register it, and all of them will be invoked simultaneously without regard for order of registration.
-The hook is considered handled if all registered plugins return `{"result": "continue"}`.
-If any plugin returns anything else, `lightningd` will error without committing to the database.
+`db_write` is a parallel-chained hook, i.e., multiple plugins can register it, and all of them will be invoked simultaneously without regard for order of registration. The hook is considered handled if all registered plugins return `{"result": "continue"}`. If any plugin returns anything else, `lightningd` will error without committing to the database.
 
 ### `invoice_payment`
 
 This hook is called whenever a valid payment for an unpaid invoice has arrived.
-
 ```json
 {
   "payment": {
@@ -166,15 +143,14 @@ This hook is called whenever a valid payment for an unpaid invoice has arrived.
   }
 }
 ```
+
 Before version `23.11` the `msat` field was a string with msat-suffix, e.g: `"10000msat"`.
 
-The hook is deliberately sparse, since the plugin can use the JSON-RPC `listinvoices` command to get additional details about this invoice. It can return a `failure_message` field as defined for final nodes in [BOLT 4](https://github.com/lightning/bolts/blob/master/04-onion-routing.md#failure-messages), a `result` field with the string
-`reject` to fail it with `incorrect_or_unknown_payment_details`, or a `result` field with the string `continue` to accept the payment.
+The hook is deliberately sparse, since the plugin can use the JSON-RPC `listinvoices` command to get additional details about this invoice. It can return a `failure_message` field as defined for final nodes in [BOLT 4](https://github.com/lightning/bolts/blob/master/04-onion-routing.md#failure-messages), a `result` field with the string `reject` to fail it with `incorrect_or_unknown_payment_details`, or a `result` field with the string `continue` to accept the payment.
 
 ### `openchannel`
 
 This hook is called whenever a remote peer tries to fund a channel to us using the v1 protocol, and it has passed basic sanity checks:
-
 ```json
 {
   "openchannel": {
@@ -193,16 +169,13 @@ This hook is called whenever a remote peer tries to fund a channel to us using t
 }
 ```
 
+There may be additional fields, including `shutdown_scriptpubkey` and a hex-string. You can see the definitions of these fields in [BOLT 2's description of the open_channel message](https://github.com/lightning/bolts/blob/master/02-peer-protocol.md#the-open_channel-message).
 
-
-There may be additional fields, including `shutdown_scriptpubkey` and a hex-string.  You can see the definitions of these fields in [BOLT 2's description of the open_channel message](https://github.com/lightning/bolts/blob/master/02-peer-protocol.md#the-open_channel-message).
-
-The returned result must contain a `result` member which is either the string `reject` or `continue`.  If `reject` and there's a member `error_message`, that member is sent to the peer before disconnection.
+The returned result must contain a `result` member which is either the string `reject` or `continue`. If `reject` and there's a member `error_message`, that member is sent to the peer before disconnection.
 
 For a 'continue'd result, you can also include a `close_to` address, which will be used as the output address for a mutual close transaction.
 
 e.g.
-
 ```json
 {
     "result": "continue",
@@ -212,22 +185,17 @@ e.g.
 }
 ```
 
-
-
 Note that `close_to` must be a valid address for the current chain, an invalid address will cause the node to exit with an error.
 
-- `mindepth` is the number of confirmations to require before making the channel usable. Notice that setting this to 0 (`zeroconf`) or some other low value might expose you to double-spending issues, so only lower this value from the default if you trust the peer not to
-  double-spend, or you reject incoming payments, including forwards, until the funding is confirmed.
+- `mindepth` is the number of confirmations to require before making the channel usable. Notice that setting this to 0 (`zeroconf`) or some other low value might expose you to double-spending issues, so only lower this value from the default if you trust the peer not to double-spend, or you reject incoming payments, including forwards, until the funding is confirmed.
 
 - `reserve` is an absolute value for the amount in the channel that the peer must keep on their side. This ensures that they always have something to lose, so only lower this below the 1% of funding amount if you trust the peer. The protocol requires this to be larger than the dust limit, hence it will be adjusted to be the dust limit if the specified value is below.
 
-Note that `openchannel` is a chained hook. Therefore `close_to`, `reserve` will only be
-evaluated for the first plugin that sets it. If more than one plugin tries to set a `close_to` address an error will be logged.
+Note that `openchannel` is a chained hook. Therefore `close_to`, `reserve` will only be evaluated for the first plugin that sets it. If more than one plugin tries to set a `close_to` address an error will be logged.
 
 ### `openchannel2`
 
 This hook is called whenever a remote peer tries to fund a channel to us using the v2 protocol, and it has passed basic sanity checks:
-
 ```json
 {
   "openchannel2": {
@@ -254,14 +222,11 @@ This hook is called whenever a remote peer tries to fund a channel to us using t
 }
 ```
 
+There may be additional fields, such as `shutdown_scriptpubkey`. You can see the definitions of these fields in [BOLT 2's description of the open_channel message](https://github.com/lightning/bolts/blob/master/02-peer-protocol.md#the-open_channel-message).
 
+`requested_lease_msat`, `lease_blockheight_start`, and `node_blockheight` are only present if the opening peer has requested a funding lease, per `option_will_fund`.
 
-There may be additional fields, such as `shutdown_scriptpubkey`.  You can see the definitions of these fields in [BOLT 2's description of the open_channel message](https://github.com/lightning/bolts/blob/master/02-peer-protocol.md#the-open_channel-message).
-
-`requested_lease_msat`, `lease_blockheight_start`, and `node_blockheight` are
-only present if the opening peer has requested a funding lease, per `option_will_fund`.
-
-The returned result must contain a `result` member which is either the string `reject` or `continue`.  If `reject` and there's a member `error_message`, that member is sent to the peer before disconnection.
+The returned result must contain a `result` member which is either the string `reject` or `continue`. If `reject` and there's a member `error_message`, that member is sent to the peer before disconnection.
 
 For a 'continue'd result, you can also include a `close_to` address, which will be used as the output address for a mutual close transaction; you can include a `psbt` and an `our_funding_msat` to contribute funds, inputs and outputs to this channel open.
 
@@ -270,7 +235,6 @@ Note that, like `openchannel_init` RPC call, the `our_funding_msat` amount must 
 See `plugins/funder.c` for an example of how to use this hook to contribute funds to a channel open.
 
 e.g.
-
 ```json
 {
     "result": "continue",
@@ -280,8 +244,6 @@ e.g.
 }
 ```
 
-
-
 Note that `close_to` must be a valid address for the current chain, an invalid address will cause the node to exit with an error.
 
 Note that `openchannel` is a chained hook. Therefore `close_to` will only be evaluated for the first plugin that sets it. If more than one plugin tries to set a `close_to` address an error will be logged.
@@ -289,7 +251,6 @@ Note that `openchannel` is a chained hook. Therefore `close_to` will only be eva
 ### `openchannel2_changed`
 
 This hook is called when we received updates to the funding transaction from the peer.
-
 ```json
 {
 	"openchannel2_changed": {
@@ -299,13 +260,9 @@ This hook is called when we received updates to the funding transaction from the
 }
 ```
 
-
-
-In return, we expect a `result` indicated to `continue` and an updated `psbt`.
-If we have no updates to contribute, return the passed in PSBT. Once no changes to the PSBT are made on either side, the transaction construction negotiation will end and commitment transactions will be exchanged.
+In return, we expect a `result` indicated to `continue` and an updated `psbt`. If we have no updates to contribute, return the passed in PSBT. Once no changes to the PSBT are made on either side, the transaction construction negotiation will end and commitment transactions will be exchanged.
 
 #### Expected Return
-
 ```json
 {
 	"result": "continue",
@@ -313,14 +270,11 @@ If we have no updates to contribute, return the passed in PSBT. Once no changes 
 }
 ```
 
-
-
 See `plugins/funder.c` for an example of how to use this hook to continue a v2 channel open.
 
 ### `openchannel2_sign`
 
 This hook is called after we've gotten the commitment transactions for a channel open. It expects psbt to be returned which contains signatures for our inputs to the funding transaction.
-
 ```json
 {
 	"openchannel2_sign": {
@@ -330,14 +284,11 @@ This hook is called after we've gotten the commitment transactions for a channel
 }
 ```
 
-
-
 In return, we expect a `result` indicated to `continue` and an partially signed `psbt`.
 
 If we have no inputs to sign, return the passed in PSBT. Once we have also received the signatures from the peer, the funding transaction will be broadcast.
 
 #### Expected Return
-
 ```json
 {
 	"result": "continue",
@@ -345,14 +296,11 @@ If we have no inputs to sign, return the passed in PSBT. Once we have also recei
 }
 ```
 
-
-
 See `plugins/funder.c` for an example of how to use this hook to sign a funding transaction.
 
 ### `rbf_channel`
 
 Similar to `openchannel2`, the `rbf_channel` hook is called when a peer requests an RBF for a channel funding transaction.
-
 ```json
 {
   "rbf_channel": {
@@ -371,16 +319,13 @@ Similar to `openchannel2`, the `rbf_channel` hook is called when a peer requests
 }
 ```
 
-
-
-The returned result must contain a `result` member which is either the string `reject` or `continue`.  If `reject` and there's a member `error_message`, that member is sent to the peer before disconnection.
+The returned result must contain a `result` member which is either the string `reject` or `continue`. If `reject` and there's a member `error_message`, that member is sent to the peer before disconnection.
 
 For a 'continue'd result, you can include a `psbt` and an `our_funding_msat` to contribute funds, inputs and outputs to this channel open.
 
 Note that, like the `openchannel_init` RPC call, the `our_funding_msat` amount must NOT be accounted for in any supplied output. Change, however, should be included and should use the `funding_feerate_per_kw` to calculate.
 
 #### Return
-
 ```json
 {
     "result": "continue",
@@ -389,14 +334,11 @@ Note that, like the `openchannel_init` RPC call, the `our_funding_msat` amount m
 }
 ```
 
-
-
 ### `htlc_accepted`
 
 The `htlc_accepted` hook is called whenever an incoming HTLC is accepted, and its result determines how `lightningd` should treat that HTLC.
 
 The payload of the hook call has the following format:
-
 ```json
 {
   "peer_id": "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f",
@@ -421,14 +363,12 @@ The payload of the hook call has the following format:
 }
 ```
 
-
-
 For detailed information about each field please refer to [BOLT 04 of the specification](https://github.com/lightning/bolts/blob/master/04-onion-routing.md), the following is just a brief summary:
 
 - `peer_id`: is the id of the peer that offered us this htlc.
 - `onion`:
   - `payload` contains the unparsed payload that was sent to us from the sender of the payment.
-  - `short_channel_id` determines the channel that the sender is hinting   should be used next.  Not present if we're the final destination.
+  - `short_channel_id` determines the channel that the sender is hinting should be used next. Not present if we're the final destination.
   - `forward_amount` is the amount we should be forwarding to the next hop, and should match the incoming funds in case we are the recipient.
   - `outgoing_cltv_value` determines what the CLTV value for the HTLC that we forward to the next hop should be.
   - `total_msat` specifies the total amount to pay, if present.
@@ -446,25 +386,21 @@ For detailed information about each field please refer to [BOLT 04 of the specif
 - `forward_to`: if set, the channel_id we intend to forward this to (will not be present if the short_channel_id was invalid or we were the final destination).
 
 The hook response must have one of the following formats:
-
 ```json
 {
   "result": "continue"
 }
 ```
 
-
-
 This means that the plugin does not want to do anything special and `lightningd` should continue processing it normally, i.e., resolve the payment if we're the recipient, or attempt to forward it otherwise. Notice that the usual checks such as sufficient fees and CLTV deltas are still enforced.
 
-It can also replace the `onion.payload` by specifying a `payload` in the response.  Note that this is always a TLV-style payload, so unlike `onion.payload` there is no length prefix (and it must be at least 4 hex digits long).  This will be re-parsed; it's useful for removing onion fields which a plugin doesn't want lightningd to consider.
+It can also replace the `onion.payload` by specifying a `payload` in the response. Note that this is always a TLV-style payload, so unlike `onion.payload` there is no length prefix (and it must be at least 4 hex digits long). This will be re-parsed; it's useful for removing onion fields which a plugin doesn't want lightningd to consider.
 
-It can also specify `forward_to` in the response, replacing the destination.  This usually only makes sense if it wants to choose an alternate channel to the same next peer, but is useful if the `payload` is also replaced.
+It can also specify `forward_to` in the response, replacing the destination. This usually only makes sense if it wants to choose an alternate channel to the same next peer, but is useful if the `payload` is also replaced.
 
 Also, it can specify `extra_tlvs` in the response. This will replace the TLV-stream `update_add_htlc_tlvs` in the `update_add_htlc` message for forwarded htlcs.
 
 If the node is the final destination, the plugin can also replace the amount of the invoice that belongs to the `payment_hash` by specifying `invoice_msat`.
-
 ```json
 {
   "result": "fail",
@@ -472,10 +408,7 @@ If the node is the final destination, the plugin can also replace the amount of 
 }
 ```
 
-
-
 `fail` will tell `lightningd` to fail the HTLC with a given hex-encoded `failure_message` (please refer to the [spec](https://github.com/lightning/bolts/blob/master/04-onion-routing.md) for details: `incorrect_or_unknown_payment_details` is the most common).
-
 ```json
 {
   "result": "fail",
@@ -483,18 +416,13 @@ If the node is the final destination, the plugin can also replace the amount of 
 }
 ```
 
-
-
 Instead of `failure_message` the response can contain a hex-encoded `failure_onion` that will be used instead (please refer to the [spec](https://github.com/lightning/bolts/blob/master/04-onion-routing.md) for details). This can be used, for example, if you're writing a bridge between two Lightning Networks. Note that `lightningd` will apply the obfuscation step to the value returned here with its own shared secret (and key type `ammag`) before returning it to the previous hop.
-
 ```json
 {
   "result": "resolve",
   "payment_key": "0000000000000000000000000000000000000000000000000000000000000000"
 }
 ```
-
-
 
 `resolve` instructs `lightningd` to claim the HTLC by providing the preimage matching the `payment_hash` presented in the call. Notice that the plugin must ensure that the `payment_key` really matches the `payment_hash` since `lightningd` will not check and the wrong value could result in the channel being closed.
 
@@ -506,9 +434,7 @@ The `htlc_accepted` hook is a chained hook, i.e., multiple plugins can register 
 
 ### `rpc_command`
 
-The `rpc_command` hook allows a plugin to take over any RPC command. It sends the received JSON-RPC request to the registered plugin.  You can optionally specify a "filters" array, containing the command names you want to intercept: without this, all commands will be sent to this hook.
-
-
+The `rpc_command` hook allows a plugin to take over any RPC command. It sends the received JSON-RPC request to the registered plugin. You can optionally specify a "filters" array, containing the command names you want to intercept: without this, all commands will be sent to this hook.
 ```json
 {
     "rpc_command": {
@@ -522,23 +448,16 @@ The `rpc_command` hook allows a plugin to take over any RPC command. It sends th
     }
 }
 ```
-
-
-
 which can in turn:
 
 Let `lightningd` execute the command with
-
 ```json
 {
     "result" : "continue"
 }
 ```
 
-
-
 Replace the request made to `lightningd`:
-
 ```json
 {
     "replace": {
@@ -553,10 +472,7 @@ Replace the request made to `lightningd`:
 }
 ```
 
-
-
 Return a custom response to the request sender:
-
 ```json
 {
     "return": {
@@ -566,10 +482,7 @@ Return a custom response to the request sender:
 }
 ```
 
-
-
 Return a custom error to the request sender:
-
 ```json
 {
     "return": {
@@ -579,16 +492,13 @@ Return a custom error to the request sender:
 }
 ```
 
-
-
 Note: The `rpc_command` hook is chainable. If two or more plugins try to replace/result/error the same `method`, only the first plugin in the chain will be respected. Others will be ignored and a warning will be logged.
 
 ### `custommsg`
 
-The `custommsg` plugin hook is the receiving counterpart to the [`sendcustommsg`](ref:sendcustommsg) RPC method and allows plugins to handle messages that are not handled internally. The goal of these two components is to allow the implementation of custom protocols or prototypes on top of a Core Lightning node, without having to change the node's implementation itself.  Note that if the hook registration specifies "filters" then that should be a JSON array of message numbers, and the hook will only be called for those.  Otherwise, the hook is called for all messages not handled internally.
+The `custommsg` plugin hook is the receiving counterpart to the [`sendcustommsg`](ref:sendcustommsg) RPC method and allows plugins to handle messages that are not handled internally. The goal of these two components is to allow the implementation of custom protocols or prototypes on top of a Core Lightning node, without having to change the node's implementation itself. Note that if the hook registration specifies "filters" then that should be a JSON array of message numbers, and the hook will only be called for those. Otherwise, the hook is called for all messages not handled internally.
 
 The payload for a call follows this format:
-
 ```json
 {
 	"peer_id": "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f",
@@ -596,10 +506,7 @@ The payload for a call follows this format:
 }
 ```
 
-
-
-This payload would have been sent by the peer with the `node_id` matching `peer_id`, and the message has type `0x1337` and contents `ffffffff`. Notice that the messages are currently limited to odd-numbered types and must not match a type that is handled internally by Core Lightning. These limitations are in place in order to avoid conflicts with the internal state tracking, and avoiding disconnections or channel closures, since odd-numbered message can be
-ignored by nodes (see ["it's ok to be odd" in the specification](https://github.com/lightning/bolts/blob/c74a3bbcf890799d343c62cb05fcbcdc952a1cf3/01-messaging.md#lightning-message-format) for details). The plugin must implement the parsing of the message, including the type prefix, since Core Lightning does not know how to parse the message.
+This payload would have been sent by the peer with the `node_id` matching `peer_id`, and the message has type `0x1337` and contents `ffffffff`. Notice that the messages are currently limited to odd-numbered types and must not match a type that is handled internally by Core Lightning. These limitations are in place in order to avoid conflicts with the internal state tracking, and avoiding disconnections or channel closures, since odd-numbered message can be ignored by nodes (see ["it's ok to be odd" in the specification](https://github.com/lightning/bolts/blob/c74a3bbcf890799d343c62cb05fcbcdc952a1cf3/01-messaging.md#lightning-message-format) for details). The plugin must implement the parsing of the message, including the type prefix, since Core Lightning does not know how to parse the message.
 
 Because this is a chained hook, the daemon expects the result to be `{'result': 'continue'}`. It will fail if something else is returned.
 
@@ -607,12 +514,11 @@ Because this is a chained hook, the daemon expects the result to be `{'result': 
 
 These two hooks are almost identical, in that they are called when an onion message is received.
 
-`onion_message_recv` is used for unsolicited messages (where the source knows that it is sending to this node), and `onion_message_recv_secret` is used for messages which use a blinded path we supplied.  The latter hook will have a `pathsecret` field, the former never will.
+`onion_message_recv` is used for unsolicited messages (where the source knows that it is sending to this node), and `onion_message_recv_secret` is used for messages which use a blinded path we supplied. The latter hook will have a `pathsecret` field, the former never will.
 
-These hooks are separate, because replies MUST be ignored unless they use the correct path (i.e. `onion_message_recv_secret`, with the expected `pathsecret`).  This avoids the source trying to probe for responses without using the designated delivery path.
+These hooks are separate, because replies MUST be ignored unless they use the correct path (i.e. `onion_message_recv_secret`, with the expected `pathsecret`). This avoids the source trying to probe for responses without using the designated delivery path.
 
 The payload for a call follows this format:
-
 ```json
 {
   "onion_message": {

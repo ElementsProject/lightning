@@ -14,14 +14,12 @@ Here's a checklist for the release process.
 2. Look through outstanding issues, to identify any problems that might be necessary to fixup before the release. Good candidates are reports of the project not building on different architectures or crashes.
 3. Identify a good lead for each outstanding issue, and ask them about a fix timeline.
 4. Create a milestone for the _next_ release on Github, and go though open issues and PRs and mark accordingly.
-5. Ask (via email) the most significant contributor who has not already named a release to name the release (use
-   `devtools/credit --verbose v<PREVIOUS-VERSION>` to find this contributor). CC previous namers and team.
+5. Ask (via email) the most significant contributor who has not already named a release to name the release (use `devtools/credit --verbose v<PREVIOUS-VERSION>` to find this contributor). CC previous namers and team.
 
 ## Preparing for -rc1
 
 1. Check that `CHANGELOG.md` is well formatted, ordered in areas, covers all signficant changes, and sub-ordered approximately by user impact & coolness.
-2. Use `devtools/changelog.py` to collect the changelog entries from pull request commit messages and merge them into the manually maintained `CHANGELOG.md`.  This does API queries to GitHub, which are severely
-   ratelimited unless you use an API token: set the `GH_TOKEN` environment variable to a Personal Access Token from <https://github.com/settings/tokens>
+2. Use `devtools/changelog.py` to collect the changelog entries from pull request commit messages and merge them into the manually maintained `CHANGELOG.md`. This does API queries to GitHub, which are severely ratelimited unless you use an API token: set the `GH_TOKEN` environment variable to a Personal Access Token from https://github.com/settings/tokens
 3. Create a new CHANGELOG.md heading to `v<VERSION>rc1`, and create a link at the bottom. Note that you should exactly copy the date and name format from a previous release, as the `build-release.sh` script relies on this.
 4. Update the package versions: `uv run make update-versions NEW_VERSION=v<VERSION>rc1`
 5. Create a PR with the above.
@@ -73,8 +71,7 @@ Here's a checklist for the release process.
    - Build reproducible Ubuntu-v20.04, Ubuntu-v22.04 and Ubuntu-v24.04 images. Follow [link](https://docs.corelightning.org/docs/repro#building-using-the-builder-image) for manually Building Ubuntu Images.
    - Build Docker images for amd64 and arm64v8. Follow [link](https://docs.corelightning.org/docs/docker-images) for more details on Docker publishing.
    - Create and sign checksums. Follow [link](https://docs.corelightning.org/docs/repro#co-signing-the-release-manifest) for manually signing the release.
-8. If you used `--sudo`, the tarballs may be owned by root, so revert ownership if necessary:
-   `sudo chown ${USER}:${USER} *${VERSION}*`
+8. If you used `--sudo`, the tarballs may be owned by root, so revert ownership if necessary: `sudo chown ${USER}:${USER} *${VERSION}*`
 9. Verify the checksums match the pre-release `SHA256SUMS-v<VERSION>`, then append your signatures to the official signature `SHA256SUMS-v<VERSION>.asc` file to confirm the build's integrity.
 10. Send `SHA256SUMS-v<VERSION>` & `SHA256SUMS-v<VERSION>.asc` files to the rest of the team to check and sign the release.
 11. Team members can verify the release with the help of `build-release.sh`:
@@ -88,7 +85,6 @@ Here's a checklist for the release process.
     - `uv run make pyln-release-client`
     - ... repeat for each pyln package with the appropriate token.
 14. Publish multi-arch Docker images (`elementsproject/lightningd:v${VERSION}` and `elementsproject/lightningd:latest`) to Docker Hub either using the GitHub action `Build and push multi-platform docker images` or by running the `tools/build-release.sh docker` script. Prior to building docker images by `tools/build-release.sh` script, ensure that `multiarch/qemu-user-static` setup is working on your system as described [here](https://docs.corelightning.org/docs/docker-images#setting-up-multiarchqemu-user-static).
-
 
 ## Performing the Release
 

@@ -12,7 +12,7 @@ The CLN project has a multitude of interfaces, most of which are generated from 
   1. addition of FD passing semantics to allow establishing a new connection between daemons (communication uses [socketpair](https://man7.org/linux/man-pages/man2/socketpair.2.html), so no `connect`)
   2. change the message length prefix from `u16` to `u32`, allowing for messages larger than 65Kb. The CSV files are with the respective sub-daemon and also use [generate-wire.py](https://github.com/ElementsProject/lightning/blob/master/tools/generate-wire.py) to generate encoding, decoding and printing functions
 
-- We describe the JSON-RPC using [JSON Schema](https://json-schema.org/) in the [`doc/schemas`](https://github.com/ElementsProject/lightning/tree/master/doc/schemas) directory. Each method has a `lightning-*.json` for request and response. During tests the `pytest` target will verify responses, however the JSON-RPC methods are _not_ generated (yet?). We do generate various client stubs for languages, using the `msggen`[msggen] tool. More on the generated stubs and utilities below.
+- We describe the JSON-RPC using [JSON Schema](https://json-schema.org/) in the [`doc/schemas`](https://github.com/ElementsProject/lightning/tree/master/doc/schemas) directory. Each method has a `lightning-*.json` for request and response. During tests the `pytest` target will verify responses, however the JSON-RPC methods are _not_ generated (yet?). We do generate various client stubs for languages, using the `msggen` tool. More on the generated stubs and utilities below.
 
 ## Man pages
 
@@ -26,21 +26,9 @@ The manpages are generated from the JSON schemas using the [`fromschema`](https:
 
 `msggen` is used to generate JSON-RPC client stubs, and converters between in-memory formats and the JSON format. In addition, by chaining some of these we can expose a [grpc](https://grpc.io/) interface that matches the JSON-RPC interface. This conversion chain is implemented in the [grpc-plugin](https://github.com/ElementsProject/lightning/tree/master/plugins/grpc-plugin).
 
-[block:image]
-{
-  "images": [
-    {
-      "image": [
-        "https://files.readme.io/8777cc4-image.png",
-        null,
-        null
-      ],
-      "align": "center",
-      "caption": "Artifacts generated from the JSON Schemas using `msggen`"
-    }
-  ]
-}
-[/block]
+![Artifacts generated from the JSON Schemas using `msggen`](https://files.readme.io/8777cc4-image.png)
+
+*Artifacts generated from the JSON Schemas using `msggen`*
 
 ### `cln-rpc`
 
@@ -58,4 +46,4 @@ The `cln-grpc` crate is mostly used to provide the primitives to build the `grpc
 - Next it generates the `convert.rs` file which is used to convert the structs for in-memory representation from `cln-rpc` into the corresponding protobuf structs.
 - Finally `msggen` generates the `server.rs` file which can be bound to a grpc endpoint listening for incoming grpc requests, and it will convert the request and forward it to the JSON-RPC. Upon receiving the response it gets converted back into a grpc response and sent back.
 
-![](https://files.readme.io/53b4645-image.png)
+![Conversion chain for grpc functionality](https://files.readme.io/53b4645-image.png)

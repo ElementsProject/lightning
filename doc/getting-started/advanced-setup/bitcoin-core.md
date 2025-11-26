@@ -4,6 +4,7 @@ slug: bitcoin-core
 privacy:
   view: public
 ---
+
 # Using a pruned Bitcoin Core node
 
 Core Lightning requires JSON-RPC access to a fully synchronized `bitcoind` in order to synchronize with the Bitcoin network.
@@ -18,8 +19,8 @@ In order to avoid this situation you should be monitoring the gap between Core L
 
 # Connecting to Bitcoin Core remotely
 
-You can use _trusted_ third-party plugins as bitcoin backends instead of using your own node. 
+You can use _trusted_ third-party plugins as bitcoin backends instead of using your own node.
 
 - [sauron](https://github.com/lightningd/plugins/tree/master/sauron) is a bitcoin backend plugin relying on [Esplora](https://github.com/Blockstream/esplora).
 - [trustedcoin](https://github.com/nbd-wtf/trustedcoin) is a plugin that uses block explorers (blockstream.info, mempool.space, blockchair.com and blockchain.info) as backends instead of your own bitcoin node.
-- [bps](https://github.com/coinos/bps) is a proxy server that exposes just the RPC commands that lightning needs. There's a public endpoint at <https://coinos.io/proxy> or you can host your own.
+- [bps](https://github.com/coinos/bps) is a proxy server that exposes just the RPC commands that lightning needs. There's a public endpoint at https://coinos.io/proxy or you can host your own.

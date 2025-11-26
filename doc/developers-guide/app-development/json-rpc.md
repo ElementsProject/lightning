@@ -21,22 +21,16 @@ You can use `lightning-cli help` to print a table of RPC methods; `lightning-cli
 ### Installation
 
 `pyln-client` is available on `pip`:
-
 ```shell
 pip install pyln-client
 ```
 
-
-
 Alternatively you can also install the development version to get access to currently unreleased features by checking out the Core Lightning source code and installing into your python3 environment:
-
 ```shell
 git clone https://github.com/ElementsProject/lightning.git
 cd lightning/contrib/pyln-client
 uv sync
 ```
-
-
 
 This will add links to the library into your environment so changing the checked out source code will also result in the environment picking up these changes. Notice however that unreleased versions may change API without warning, so test thoroughly with the released version.
 
@@ -44,35 +38,9 @@ This will add links to the library into your environment so changing the checked
 
 Check out the following recipes to learn how to use pyln-client in your applications.
 
+🦉 **[Write a program in Python to interact with lightningd](https://docs.corelightning.org/v1.0/recipes/write-a-program-in-python-to-interact-with-lightningd)**
 
-[block:tutorial-tile]
-{
-  "backgroundColor": "#dfb316",
-  "emoji": "🦉",
-  "id": "63dbbcd59880f6000e329079",
-  "link": "https://docs.corelightning.org/v1.0/recipes/write-a-program-in-python-to-interact-with-lightningd",
-  "slug": "write-a-program-in-python-to-interact-with-lightningd",
-  "title": "Write a program in Python to interact with lightningd"
-}
-[/block]
-
-
-
-
-
-[block:tutorial-tile]
-{
-  "backgroundColor": "#dfb316",
-  "emoji": "🦉",
-  "id": "63dbd6993ef79b07b8f399be",
-  "link": "https://docs.corelightning.org/v1.0/recipes/write-a-hello-world-plugin-in-python",
-  "slug": "write-a-hello-world-plugin-in-python",
-  "title": "Write a hello-world plugin in Python"
-}
-[/block]
-
-
-
+🦉 **[Write a hello-world plugin in Python](https://docs.corelightning.org/v1.0/recipes/write-a-hello-world-plugin-in-python)**
 
 ## Using Rust
 
@@ -81,19 +49,13 @@ Check out the following recipes to learn how to use pyln-client in your applicat
 ### Installation
 
 Run the following Cargo command in your project directory:
-
 ```shell
 cargo add cln-rpc
 ```
 
-
-
 Or add the following line to your Cargo.toml:
-
-```Text Cargo.toml
+```toml
 cln-rpc = "0.1.2"
 ```
 
-
-
-Documentation for the `cln-rpc` crate is available at <https://docs.rs/cln-rpc/>.
+Documentation for the `cln-rpc` crate is available at https://docs.rs/cln-rpc/.

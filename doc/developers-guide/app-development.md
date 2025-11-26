@@ -28,6 +28,7 @@ commando+<protocol>://<cln-host>:<ws-port>?pubkey=<pubkey>&rune=<rune>&invoiceRu
 ```
 
 #### Parameters:
+
 - protocol: ws or wss (WebSocket or secure WebSocket)
 - cln-host: Hostname or IP address of the CLN node
 - ws-port: WebSocket port
@@ -37,7 +38,6 @@ commando+<protocol>://<cln-host>:<ws-port>?pubkey=<pubkey>&rune=<rune>&invoiceRu
 - certs: A Base64-encoded sequence created by concatenating the client key, client certificate, and CA certificate, in that order.
 
 #### Example:
-
 ```
 commando+wss://cln.local:5001?pubkey=023456789abcdef&rune=8hJ6ZKFvRune&invoiceRune=5kJ3ZKFvInvRune&certs=LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0t
 ```
@@ -48,6 +48,7 @@ clnrest+<protocol>://<rest-host>:<rest-port>?rune=<rune>&certs=<combined-base64-
 ```
 
 #### Parameters:
+
 - protocol: http or https
 - rest-host: Hostname or IP address of the REST interface
 - rest-port: REST API port (typically 3010)
@@ -55,18 +56,17 @@ clnrest+<protocol>://<rest-host>:<rest-port>?rune=<rune>&certs=<combined-base64-
 - certs: A Base64-encoded sequence created by concatenating the client key, client certificate, and CA certificate, in that order.
 
 #### Example:
-
 ```
 clnrest+https://cln.local:3010?rune=8hJ6ZKFvRune&certs=LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0t
 ```
 
-## gRPC Connection
-
+### gRPC Connection
 ```
 clngrpc://<grpc-host>:<grpc-port>?pubkey=<pubkey>&protoPath=<path-to-proto>&certs=<combined-base64-encoded-clientkey-clientcert-cacert>
 ```
 
 #### Parameters:
+
 - grpc-host: Hostname or IP address of the gRPC interface
 - grpc-port: gRPC port (typically 9736)
 - pubkey: Node's public key (hex encoded)
@@ -74,26 +74,12 @@ clngrpc://<grpc-host>:<grpc-port>?pubkey=<pubkey>&protoPath=<path-to-proto>&cert
 - certs: A Base64-encoded sequence created by concatenating the client key, client certificate, and CA certificate, in that order.
 
 #### Example:
-
 ```
 clngrpc://cln.grpc:9736?pubkey=023456789abcdef&protoPath=/path/to/cln.proto&certs=LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0t
 ```
 
 ## Image of available API interfaces and transport protocols
 
-[block:image]
-{
-  "images": [
-    {
-      "image": [
-        "https://files.readme.io/3eeb3ddc8687fa45432c215777e478c40998bf94c42aeb1591c8096aac102e40-CLN-App-Development.png",
-        null,
-        "A visual chart of all interface and transport protocols to interact with a CLN node."
-      ],
-      "align": "center",
-      "border": true,
-      "caption": "A visual chart of available API interfaces and transport protocols for interacting with a CLN node"
-    }
-  ]
-}
-[/block]
+![A visual chart of all interface and transport protocols to interact with a CLN node.](https://files.readme.io/3eeb3ddc8687fa45432c215777e478c40998bf94c42aeb1591c8096aac102e40-CLN-App-Development.png)
+
+*A visual chart of available API interfaces and transport protocols for interacting with a CLN node*
