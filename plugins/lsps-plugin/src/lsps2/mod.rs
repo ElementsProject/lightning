@@ -2,7 +2,6 @@ use cln_plugin::options;
 
 pub mod cln;
 pub mod handler;
-pub mod model;
 
 pub const OPTION_ENABLED: options::FlagConfigOption = options::ConfigOption::new_flag(
     "experimental-lsps2-service",

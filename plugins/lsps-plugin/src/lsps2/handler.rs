@@ -2,7 +2,12 @@ use crate::{
     jsonrpc::server::RequestHandler,
     lsps2::{
         cln::{HtlcAcceptedRequest, HtlcAcceptedResponse, TLV_FORWARD_AMT},
-        model::{
+        DS_MAIN_KEY, DS_SUB_KEY,
+    },
+    proto::{
+        jsonrpc::{JsonRpcResponse as _, RequestObject, RpcError},
+        lsps0::{Msat, ShortChannelId},
+        lsps2::{
             compute_opening_fee,
             failure_codes::{TEMPORARY_CHANNEL_FAILURE, UNKNOWN_NEXT_PEER},
             DatastoreEntry, Lsps2BuyRequest, Lsps2BuyResponse, Lsps2GetInfoRequest,
@@ -10,11 +15,6 @@ use crate::{
             Lsps2PolicyGetChannelCapacityResponse, Lsps2PolicyGetInfoRequest,
             Lsps2PolicyGetInfoResponse, OpeningFeeParams, Promise,
         },
-        DS_MAIN_KEY, DS_SUB_KEY,
-    },
-    proto::{
-        jsonrpc::{JsonRpcResponse as _, RequestObject, RpcError},
-        lsps0::{Msat, ShortChannelId},
     },
     util::unwrap_payload_with_peer_id,
 };
@@ -681,12 +681,12 @@ mod tests {
 
     use super::*;
     use crate::{
-        lsps2::{
-            cln::{tlv::TlvStream, HtlcAcceptedResult},
-            model::PolicyOpeningFeeParams,
+        lsps2::cln::{tlv::TlvStream, HtlcAcceptedResult},
+        proto::{
+            jsonrpc::{JsonRpcRequest, ResponseObject},
+            lsps0::Ppm,
+            lsps2::PolicyOpeningFeeParams,
         },
-        proto::jsonrpc::{JsonRpcRequest, ResponseObject},
-        proto::lsps0::Ppm,
         util::wrap_payload_with_peer_id,
     };
     use chrono::{TimeZone, Utc};
