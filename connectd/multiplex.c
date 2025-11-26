@@ -1280,9 +1280,17 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
 		* more verbose: hang up on error. */
 	       if (type == WIRE_ERROR || type == WIRE_WARNING) {
 		       char *desc = sanitize_error(tmpctx, decrypted, NULL);
-		       status_peer_info(&peer->id,
-					"Received %s: %s",
-					peer_wire_name(type), desc);
+		       /* FIXME: We should check old gossip, since we get many of
+			* these "no unspent txout" for closed channels which we
+			* somehow missed. */
+		       if (strstr(desc, "no unspent txout"))
+			       status_peer_debug(&peer->id,
+						 "Received %s: %s",
+						 peer_wire_name(type), desc);
+		       else
+			       status_peer_info(&peer->id,
+						"Received %s: %s",
+						peer_wire_name(type), desc);
 		       if (type == WIRE_WARNING)
 			       return next_read(peer_conn, peer);
 		       return io_close(peer_conn);
