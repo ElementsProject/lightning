@@ -5,7 +5,7 @@ use crate::{
         DS_MAIN_KEY, DS_SUB_KEY,
     },
     proto::{
-        jsonrpc::{JsonRpcResponse as _, RequestObject, RpcError},
+        jsonrpc::{JsonRpcResponse, RequestObject, RpcError, RpcErrorExt as _},
         lsps0::{Msat, ShortChannelId},
         lsps2::{
             compute_opening_fee,

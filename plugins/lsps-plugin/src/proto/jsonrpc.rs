@@ -205,6 +205,38 @@ where
     }
 }
 
+/// Macro to generate RpcError helper methods for protocol-specific error codes
+///
+/// This generates two methods for each error code:
+/// - `method_name(message)` - Creates error without data
+/// - `method_name_with_data(message, data)` - Creates error with data
+macro_rules! rpc_error_methods {
+    ($($method:ident => $code:expr),* $(,)?) => {
+        $(
+            paste::paste! {
+                fn $method<T: std::fmt::Display>(message: T) -> $crate::proto::jsonrpc::RpcError {
+                    $crate::proto::jsonrpc::RpcError {
+                        code: $code,
+                        message: message.to_string(),
+                        data: None,
+                    }
+                }
+
+                fn [<$method _with_data>]<T: std::fmt::Display>(
+                    message: T,
+                    data: serde_json::Value,
+                ) -> $crate::proto::jsonrpc::RpcError {
+                    $crate::proto::jsonrpc::RpcError {
+                        code: $code,
+                        message: message.to_string(),
+                        data: Some(data),
+                    }
+                }
+            }
+        )*
+    };
+}
+
 /// # RpcError
 ///
 /// Represents an error object in a JSON-RPC 2.0 Response object (section 5.1).
@@ -255,74 +287,19 @@ impl RpcError {
             data: Some(data),
         }
     }
+}
 
-    /// Invalid JSON was received by the server.
-    /// An error occurred on the server while parsing the JSON text.
-    pub fn parse_error<T: core::fmt::Display>(message: T) -> Self {
-        Self::custom_error(PARSE_ERROR, message)
-    }
-
-    /// Invalid JSON was received by the server.
-    /// An error occurred on the server while parsing the JSON text.
-    pub fn parse_error_with_data<T: core::fmt::Display>(
-        message: T,
-        data: serde_json::Value,
-    ) -> Self {
-        Self::custom_error_with_data(PARSE_ERROR, message, data)
-    }
-
-    /// The JSON sent is not a valid Request object.
-    pub fn invalid_request<T: core::fmt::Display>(message: T) -> Self {
-        Self::custom_error(INVALID_REQUEST, message)
-    }
-
-    /// The JSON sent is not a valid Request object.
-    pub fn invalid_request_with_data<T: core::fmt::Display>(
-        message: T,
-        data: serde_json::Value,
-    ) -> Self {
-        Self::custom_error_with_data(INVALID_REQUEST, message, data)
-    }
-
-    /// The method does not exist / is not available.
-    pub fn method_not_found<T: core::fmt::Display>(message: T) -> Self {
-        Self::custom_error(METHOD_NOT_FOUND, message)
-    }
-
-    /// The method does not exist / is not available.
-    pub fn method_not_found_with_data<T: core::fmt::Display>(
-        message: T,
-        data: serde_json::Value,
-    ) -> Self {
-        Self::custom_error_with_data(METHOD_NOT_FOUND, message, data)
-    }
-
-    /// Invalid method parameter(s).
-    pub fn invalid_params<T: core::fmt::Display>(message: T) -> Self {
-        Self::custom_error(INVALID_PARAMS, message)
-    }
-
-    /// Invalid method parameter(s).
-    pub fn invalid_params_with_data<T: core::fmt::Display>(
-        message: T,
-        data: serde_json::Value,
-    ) -> Self {
-        Self::custom_error_with_data(INVALID_PARAMS, message, data)
-    }
-
-    /// Internal JSON-RPC error.
-    pub fn internal_error<T: core::fmt::Display>(message: T) -> Self {
-        Self::custom_error(INTERNAL_ERROR, message)
-    }
-
-    /// Internal JSON-RPC error.
-    pub fn internal_error_with_data<T: core::fmt::Display>(
-        message: T,
-        data: serde_json::Value,
-    ) -> Self {
-        Self::custom_error_with_data(INTERNAL_ERROR, message, data)
+pub trait RpcErrorExt {
+    rpc_error_methods! {
+    parse_error => PARSE_ERROR,
+    internal_error => INTERNAL_ERROR,
+    invalid_params => INVALID_PARAMS,
+    method_not_found => METHOD_NOT_FOUND,
+    invalid_request => INVALID_REQUEST,
     }
 }
+
+impl RpcErrorExt for RpcError {}
 
 impl fmt::Display for RpcError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
