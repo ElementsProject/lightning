@@ -1,4 +1,3 @@
-use log::debug;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::{self, Value};
 use std::fmt;
@@ -94,15 +93,9 @@ where
         match (resp.result, resp.error) {
             (Some(result), None) => Ok(result),
             (None, Some(error)) => Err(Error::Rpc(error)),
-            _ => {
-                debug!(
-                    "Invalid JSON-RPC response - missing both result and error fields, or both set: id={}",
-                    resp.id
-                );
-                Err(Error::Rpc(RpcError::internal_error(
-                    "not a valid json respone",
-                )))
-            }
+            _ => Err(Error::Rpc(RpcError::internal_error(
+                "not a valid json respone",
+            ))),
         }
     }
 }
