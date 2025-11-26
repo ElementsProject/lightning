@@ -1,6 +1,9 @@
 use crate::{
-    jsonrpc::{server::RequestHandler, JsonRpcResponse, RequestObject, RpcError},
-    proto::lsps0::{Lsps0listProtocolsRequest, Lsps0listProtocolsResponse},
+    jsonrpc::server::RequestHandler,
+    proto::{
+        jsonrpc::{JsonRpcResponse as _, RequestObject, RpcError},
+        lsps0::{Lsps0listProtocolsRequest, Lsps0listProtocolsResponse},
+    },
     util::unwrap_payload_with_peer_id,
 };
 use async_trait::async_trait;
@@ -34,7 +37,7 @@ impl RequestHandler for Lsps0ListProtocolsHandler {
 mod test {
     use super::*;
     use crate::{
-        jsonrpc::{JsonRpcRequest, ResponseObject},
+        proto::jsonrpc::{JsonRpcRequest as _, ResponseObject},
         util::wrap_payload_with_peer_id,
     };
     use cln_rpc::primitives::PublicKey;

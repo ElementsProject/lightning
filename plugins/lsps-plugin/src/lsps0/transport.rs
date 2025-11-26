@@ -1,6 +1,9 @@
 use crate::{
-    jsonrpc::{client::Transport, Error, TransportError},
-    proto::lsps0::LSPS0_MESSAGE_TYPE,
+    jsonrpc::client::Transport,
+    proto::{
+        jsonrpc::{Error, TransportError},
+        lsps0::LSPS0_MESSAGE_TYPE,
+    },
 };
 use async_trait::async_trait;
 use cln_plugin::Plugin;
