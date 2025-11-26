@@ -150,6 +150,98 @@ def test_pay_limits(node_factory):
     assert status[0]['strategy'] == "Initial attempt"
 
 
+def test_pay_no_excessive_splitting_on_cltv(node_factory):
+    """Test that CLTV budget exceeded doesn't cause excessive splitting (#8167).
+    """
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+
+    inv = l3.rpc.invoice(1000000, "test_cltv", 'description')['bolt11']
+
+    PAY_STOPPED_RETRYING = 210
+    with pytest.raises(RpcError, match=r'CLTV delay exceeds our CLTV budget') as err:
+        l1.rpc.call('pay', {'bolt11': inv, 'maxdelay': 5})
+
+    assert err.value.error['code'] == PAY_STOPPED_RETRYING
+
+    status = l1.rpc.call('paystatus', {'bolt11': inv})['pay'][0]['attempts']
+
+    # Without fix: ~62 attempts. With fix: ~30 (depth-3 split limit).
+    assert len(status) < 35, \
+        f"Too many attempts ({len(status)}), possible infinite loop bug"
+
+
+def test_pay_mpp_splitting_still_works(node_factory, bitcoind):
+    """Regression test: MPP splitting still works after #8167 fix.
+    """
+    l1, l2, l3, l4 = node_factory.get_nodes(4)
+
+    # Diamond topology: l1->l2->l4 and l1->l3->l4, 200k capacity each
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    l2.rpc.connect(l4.info['id'], 'localhost', l4.port)
+    l3.rpc.connect(l4.info['id'], 'localhost', l4.port)
+
+    l1.fundchannel(l2, 200000, wait_for_active=True)
+    l1.fundchannel(l3, 200000, wait_for_active=True)
+    l2.fundchannel(l4, 200000, wait_for_active=True)
+    l3.fundchannel(l4, 200000, wait_for_active=True)
+
+    mine_funding_to_announce(bitcoind, [l1, l2, l3, l4])
+    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 8)
+
+    # 300k needs splitting across both paths
+    inv = l4.rpc.invoice(300000000, "diamond_split", "Needs splitting")['bolt11']
+
+    result = l1.rpc.pay(inv)
+    assert result['status'] == 'complete'
+
+    payments = l1.rpc.listsendpays(bolt11=inv)['payments']
+    successful = [p for p in payments if p['status'] == 'complete']
+    assert len(successful) > 1, "Payment should have been split"
+
+
+def test_pay_splitting_bypass_cltv_multiple_paths(node_factory, bitcoind):
+    """Test that splitting can bypass high-CLTV path via multiple low-CLTV paths.
+
+    Topology:
+    l1 ---(100k)---> l2 ---(100k)---> l5   [normal CLTV]
+    l1 ---(100k)---> l3 ---(100k)---> l5   [normal CLTV]
+    l1 ---(200k)---> l4 ---(200k)---> l5   [HIGH CLTV]
+
+    150k payment with tight CLTV budget must split via l2+l3, can't use l4.
+    """
+    l1, l2, l3, l4, l5 = node_factory.get_nodes(5, opts=[
+        {},
+        {'cltv-delta': 6},
+        {'cltv-delta': 6},
+        {'cltv-delta': 100},
+        {}
+    ])
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    l1.rpc.connect(l4.info['id'], 'localhost', l4.port)
+    l2.rpc.connect(l5.info['id'], 'localhost', l5.port)
+    l3.rpc.connect(l5.info['id'], 'localhost', l5.port)
+    l4.rpc.connect(l5.info['id'], 'localhost', l5.port)
+
+    l1.fundchannel(l2, 100000, wait_for_active=True)
+    l1.fundchannel(l3, 100000, wait_for_active=True)
+    l1.fundchannel(l4, 200000, wait_for_active=True)
+    l2.fundchannel(l5, 100000, wait_for_active=True)
+    l3.fundchannel(l5, 100000, wait_for_active=True)
+    l4.fundchannel(l5, 200000, wait_for_active=True)
+
+    mine_funding_to_announce(bitcoind, [l1, l2, l3, l4, l5])
+    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 12)
+
+    inv = l5.rpc.invoice(150000000, "test_split_cltv", "Test splitting")['bolt11']
+
+    # maxdelay=30 allows l2/l3 paths (~12 blocks) but not l4 (~106 blocks)
+    result = l1.rpc.call('pay', {'bolt11': inv, 'maxdelay': 30})
+    assert result['status'] == 'complete'
+
+
 def test_pay_exclude_node(node_factory, bitcoind):
     """Test excluding the node if there's the NODE-level error in the failure_code
     """
