@@ -124,6 +124,9 @@ void get_channel_basepoints(struct lightningd *ld UNNEEDED,
 			    struct basepoints *local_basepoints UNNEEDED,
 			    struct pubkey *local_funding_pubkey UNNEEDED)
 { fprintf(stderr, "get_channel_basepoints called!\n"); abort(); }
+/* Generated stub for get_db_migrations */
+const struct db_migration *get_db_migrations(size_t *num UNNEEDED)
+{ fprintf(stderr, "get_db_migrations called!\n"); abort(); }
 /* Generated stub for hash_cid */
 size_t hash_cid(const struct channel_id *cid UNNEEDED)
 { fprintf(stderr, "hash_cid called!\n"); abort(); }
@@ -172,9 +175,6 @@ struct invoices *invoices_new(const tal_t *ctx UNNEEDED,
 void logv(struct logger *logger UNNEEDED, enum log_level level UNNEEDED, const struct node_id *node_id UNNEEDED,
 	  bool call_notifier UNNEEDED, const char *fmt UNNEEDED, va_list ap UNNEEDED)
 { fprintf(stderr, "logv called!\n"); abort(); }
-/* Generated stub for migrate_from_account_db */
-void migrate_from_account_db(struct lightningd *ld UNNEEDED, struct db *db UNNEEDED)
-{ fprintf(stderr, "migrate_from_account_db called!\n"); abort(); }
 /* Generated stub for new_channel */
 struct channel *new_channel(struct peer *peer UNNEEDED, u64 dbid UNNEEDED,
 			    /* NULL or stolen */

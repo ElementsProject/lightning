@@ -12,6 +12,7 @@ static void db_log_(struct logger *log UNUSED, enum log_level level UNUSED, cons
 #include "db/utils.c"
 #include "wallet/db.c"
 #include "wallet/wallet.c"
+#include "wallet/migrations.c"
 
 #include "test_utils.h"
 
