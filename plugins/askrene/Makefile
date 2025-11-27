@@ -1,5 +1,6 @@
 PLUGIN_ASKRENE_SRC := \
 	plugins/askrene/askrene.c \
+	plugins/askrene/datastore_wire.c \
 	plugins/askrene/layer.c \
 	plugins/askrene/reserve.c \
 	plugins/askrene/mcf.c \
@@ -13,6 +14,7 @@ PLUGIN_ASKRENE_SRC := \
 
 PLUGIN_ASKRENE_HEADER := \
 	plugins/askrene/askrene.h \
+	plugins/askrene/datastore_wire.h \
 	plugins/askrene/layer.h \
 	plugins/askrene/reserve.h \
 	plugins/askrene/mcf.h \
