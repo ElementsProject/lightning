@@ -3,8 +3,6 @@ use serde_json::{self, Value};
 use std::fmt;
 use thiserror::Error;
 
-use crate::jsonrpc::client::TransportError;
-
 // Constants for JSON-RPC error codes.
 pub const PARSE_ERROR: i64 = -32700;
 pub const INVALID_REQUEST: i64 = -32600;
@@ -17,21 +15,30 @@ pub const INTERNAL_ERROR: i64 = -32603;
 /// Encapsulates various error conditions that may occur during JSON-RPC
 /// operations, including serialization errors, transport issues, and
 /// protocol-specific errors.
-#[derive(Error, Debug)]
+#[derive(Debug, Error)]
 pub enum Error {
-    #[error("JSON error: {0}")]
-    Json(#[from] serde_json::Error),
-    #[error("RPC error: {0}")]
-    Rpc(#[from] RpcError),
-    #[error("Transport error: {0}")]
-    Transport(#[from] TransportError),
-    #[error("Other error: {0}")]
+    #[error("Failed to parse JSON-RPC response")]
+    ParseResponse,
+    #[error("Failed to parse JSON-RPC response")]
+    ParseJsonResponse {
+        #[source]
+        source: serde_json::Error,
+    },
+    #[error("Got JSON-RPC error")]
+    RpcError(#[from] RpcError),
+    #[error("Internal error: {0}")]
     Other(String),
 }
 
 impl Error {
     pub fn other<T: core::fmt::Display>(v: T) -> Self {
         return Self::Other(v.to_string());
+    }
+}
+
+impl From<serde_json::Error> for Error {
+    fn from(value: serde_json::Error) -> Self {
+        Self::ParseJsonResponse { source: value }
     }
 }
 
@@ -84,10 +91,8 @@ where
     {
         match (resp.result, resp.error) {
             (Some(result), None) => Ok(result),
-            (None, Some(error)) => Err(Error::Rpc(error)),
-            _ => Err(Error::Rpc(RpcError::internal_error(
-                "not a valid json respone",
-            ))),
+            (None, Some(error)) => Err(Error::RpcError(error)),
+            _ => Err(Error::ParseResponse),
         }
     }
 }
@@ -438,7 +443,7 @@ mod test_message_serialization {
         let response = response_object.into_inner();
         let err = response.unwrap_err();
         match err {
-            Error::Rpc(err) => {
+            Error::RpcError(err) => {
                 assert_eq!(err.code, -32099);
                 assert_eq!(err.message, "something bad happened");
                 assert_eq!(

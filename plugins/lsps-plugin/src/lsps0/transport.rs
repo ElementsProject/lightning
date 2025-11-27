@@ -1,6 +1,6 @@
 use crate::{
-    jsonrpc::client::{Transport, TransportError},
-    proto::{jsonrpc::Error, lsps0::LSPS0_MESSAGE_TYPE},
+    jsonrpc::client::{Error, Transport},
+    proto::lsps0::LSPS0_MESSAGE_TYPE,
 };
 use async_trait::async_trait;
 use cln_plugin::Plugin;
@@ -8,6 +8,7 @@ use cln_rpc::{primitives::PublicKey, ClnRpc};
 use log::{debug, error, trace};
 use serde::{de::Visitor, Deserialize, Serialize};
 use std::{
+    array::TryFromSliceError,
     collections::HashMap,
     path::PathBuf,
     str::FromStr,
@@ -191,7 +192,7 @@ impl Bolt8Transport {
         timeout: Option<Duration>,
     ) -> Result<Self, Error> {
         let endpoint = cln_rpc::primitives::PublicKey::from_str(endpoint)
-            .map_err(|e| TransportError::Internal(e.to_string()))?;
+            .map_err(|e| Error::Internal(e.to_string()))?;
         let timeout = timeout.unwrap_or(DEFAULT_TIMEOUT);
         Ok(Self {
             endpoint,
@@ -205,7 +206,7 @@ impl Bolt8Transport {
     async fn connect_to_node(&self) -> Result<ClnRpc, Error> {
         ClnRpc::new(&self.rpc_path)
             .await
-            .map_err(|e| Error::Transport(TransportError::Internal(e.to_string())))
+            .map_err(|e| Error::Internal(e.to_string()))
     }
 
     /// Sends a custom message to the destination node.
@@ -220,10 +221,8 @@ impl Bolt8Transport {
     ) -> Result<CustomMsg, Error> {
         tokio::time::timeout(self.request_timeout, rx.recv())
             .await
-            .map_err(|_| Error::Transport(TransportError::Timeout))?
-            .ok_or(Error::Transport(TransportError::Internal(String::from(
-                "Channel unexpectedly closed",
-            ))))
+            .map_err(|_| Error::Timeout)?
+            .ok_or(Error::Internal(String::from("Channel unexpectedly closed")))
     }
 }
 
@@ -246,11 +245,7 @@ pub async fn send_custommsg(
     client
         .call_typed(&request)
         .await
-        .map_err(|e| {
-            Error::Transport(TransportError::Internal(format!(
-                "Failed to send custom msg: {e}"
-            )))
-        })
+        .map_err(|e| Error::Internal(format!("Failed to send custom msg: {e}")))
         .map(|r| {
             trace!("Successfully queued custom msg: {}", r.status);
             ()
@@ -282,18 +277,18 @@ impl Transport for Bolt8Transport {
         let res = self.wait_for_response(rx).await?;
 
         if res.message_type != LSPS0_MESSAGE_TYPE {
-            return Err(Error::Transport(TransportError::Internal(format!(
+            return Err(Error::Internal(format!(
                 "unexpected response message type: expected {}, got {}",
                 LSPS0_MESSAGE_TYPE, res.message_type
-            ))));
+            )));
         }
 
         core::str::from_utf8(&res.payload)
             .map_err(|e| {
-                Error::Transport(TransportError::Internal(format!(
+                Error::Internal(format!(
                     "failed to decode msg payload {:?}: {}",
                     res.payload, e
-                )))
+                ))
             })
             .map(|s| s.into())
     }
@@ -332,15 +327,17 @@ impl FromStr for CustomMsg {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let bytes = hex::decode(s).map_err(Error::other)?;
+        let bytes = hex::decode(s).map_err(|e| Error::Internal(e.to_string()))?;
 
         if bytes.len() < 2 {
-            return Err(Error::other(
-                "hex string too short to contain a valid message_type",
+            return Err(Error::Internal(
+                "hex string too short to contain a valid message_type".to_string(),
             ));
         }
 
-        let message_type_bytes: [u8; 2] = bytes[..2].try_into().map_err(Error::other)?;
+        let message_type_bytes: [u8; 2] = bytes[..2]
+            .try_into()
+            .map_err(|e: TryFromSliceError| Error::Internal(e.to_string()))?;
         let message_type = u16::from_be_bytes(message_type_bytes);
         let payload = bytes[2..].to_owned();
         Ok(CustomMsg {
