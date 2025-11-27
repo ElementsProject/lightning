@@ -203,7 +203,23 @@ static bool db_sqlite3_setup(struct db *db, bool create)
 			   "PRAGMA foreign_keys = ON;", -1, &stmt, NULL);
 	err = sqlite3_step(stmt);
 	sqlite3_finalize(stmt);
-	return err == SQLITE_DONE;
+
+	if (err != SQLITE_DONE)
+		return false;
+
+	if (db->developer) {
+		sqlite3_prepare_v2(conn2sql(db->conn),
+				   "PRAGMA trusted_schema = OFF;", -1, &stmt, NULL);
+		sqlite3_step(stmt);
+		sqlite3_finalize(stmt);
+
+		sqlite3_prepare_v2(conn2sql(db->conn),
+				   "PRAGMA cell_size_check = ON;", -1, &stmt, NULL);
+		sqlite3_step(stmt);
+		sqlite3_finalize(stmt);
+	}
+
+	return true;
 }
 
 static bool db_sqlite3_query(struct db_stmt *stmt)
@@ -211,8 +227,22 @@ static bool db_sqlite3_query(struct db_stmt *stmt)
 	sqlite3_stmt *s;
 	sqlite3 *conn = conn2sql(stmt->db->conn);
 	int err;
+	const char *query = stmt->query->query;
+	char *modified_query = NULL;
 
-	err = sqlite3_prepare_v2(conn, stmt->query->query, -1, &s, NULL);
+	/* STRICT tables for developer mode, and not during upgrades. */
+	if (stmt->db->developer &&
+	    !stmt->db->in_migration &&
+	    strncasecmp(query, "CREATE TABLE", 12) == 0 &&
+	    !strstr(query, "STRICT")) {
+		modified_query = tal_fmt(stmt, "%s STRICT", query);
+		query = modified_query;
+	}
+
+	err = sqlite3_prepare_v2(conn, query, -1, &s, NULL);
+
+	if (modified_query)
+		tal_free(modified_query);
 
 	for (size_t i=0; i<stmt->query->placeholders; i++) {
 		struct db_binding *b = &stmt->bindings[i];

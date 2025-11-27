@@ -163,6 +163,14 @@ def test_scid_upgrade(node_factory, bitcoind):
     assert l1.db_query('SELECT scid FROM channels;') == [{'scid': scid_to_int('103x1x1')}]
     assert l1.db_query('SELECT failscid FROM payments;') == [{'failscid': scid_to_int('103x1x1')}]
 
+    faildetail_types = l1.db_query(
+        "SELECT id, typeof(faildetail) as type "
+        "FROM payments WHERE faildetail IS NOT NULL"
+    )
+    for row in faildetail_types:
+        assert row['type'] == 'text', \
+            f"Payment {row['id']}: faildetail has type {row['type']}, expected 'text'"
+
 
 @unittest.skipIf(not COMPAT, "needs COMPAT to convert obsolete db")
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "This test is based on a sqlite3 snapshot")
@@ -642,3 +650,48 @@ def test_channel_htlcs_id_change(bitcoind, node_factory):
     # Make some HTLCS
     for amt in (100, 500, 1000, 5000, 10000, 50000, 100000):
         l1.pay(l3, amt)
+
+
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "STRICT tables are SQLite3 specific")
+def test_sqlite_strict_mode(node_factory):
+    """Test that STRICT is appended to CREATE TABLE in developer mode."""
+    l1 = node_factory.get_node(options={'developer': None})
+
+    tables = l1.db_query("SELECT name, sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
+
+    strict_tables = [t for t in tables if t['sql'] and 'STRICT' in t['sql']]
+    assert len(strict_tables) > 0, f"Expected at least one STRICT table in developer mode, found none out of {len(tables)}"
+
+    known_strict_tables = ['version', 'forwards', 'payments', 'local_anchors', 'addresses']
+    for table_name in known_strict_tables:
+        table_sql = next((t['sql'] for t in tables if t['name'] == table_name), None)
+        if table_sql:
+            assert 'STRICT' in table_sql, f"Expected table '{table_name}' to be STRICT in developer mode"
+
+
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "SQLite3-specific test")
+@unittest.skipIf(not COMPAT, "needs COMPAT to test old database upgrade")
+@unittest.skipIf(TEST_NETWORK != 'regtest', "The network must match the DB snapshot")
+def test_strict_mode_with_old_database(node_factory, bitcoind):
+    """Test old database upgrades work (STRICT not applied during migrations)."""
+    bitcoind.generate_block(1)
+
+    l1 = node_factory.get_node(dbfile='oldstyle-scids.sqlite3.xz',
+                               options={'database-upgrade': True,
+                                        'developer': None})
+
+    assert l1.rpc.getinfo()['id'] is not None
+
+    # Upgraded tables won't be STRICT (only fresh databases get STRICT).
+    strict_tables = l1.db_query(
+        "SELECT name FROM sqlite_master "
+        "WHERE type='table' AND sql LIKE '%STRICT%'"
+    )
+    assert len(strict_tables) == 0, "Upgraded database should not have STRICT tables"
+
+    # Verify BLOB->TEXT migration ran for faildetail cleanup.
+    result = l1.db_query(
+        "SELECT COUNT(*) as count FROM payments "
+        "WHERE typeof(faildetail) = 'blob'"
+    )
+    assert result[0]['count'] == 0, "Found BLOB-typed faildetail after migration"

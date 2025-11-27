@@ -86,6 +86,8 @@ static void migrate_initialize_channel_htlcs_wait_indexes_and_fixup_forwards(str
 									     struct db *db);
 static void migrate_fail_pending_payments_without_htlcs(struct lightningd *ld,
 							struct db *db);
+static void migrate_fix_payments_faildetail_type(struct lightningd *ld,
+						  struct db *db);
 
 /* Do not reorder or remove elements from this array, it is used to
  * migrate existing databases from a previous state, based on the
@@ -1102,6 +1104,8 @@ static struct migration dbmigrations[] = {
 	 ")"), NULL},
     {NULL, migrate_fail_pending_payments_without_htlcs},
     {SQL("ALTER TABLE channels ADD withheld INTEGER DEFAULT 0;"), NULL},
+    /* Fix BLOB→TEXT in payments.faildetail for old databases. */
+    {NULL, migrate_fix_payments_faildetail_type},
 };
 
 /**
@@ -1117,6 +1121,9 @@ static bool db_migrate(struct lightningd *ld, struct db *db,
 
 	orig = current = db_get_version(db);
 	available = ARRAY_SIZE(dbmigrations) - 1;
+
+	/* Disable STRICT for upgrades: legacy data may have wrong type affinity. */
+	db->in_migration = (current != -1);
 
 	if (current == -1)
 		log_info(ld->log, "Creating database");
@@ -1194,6 +1201,8 @@ struct db *db_setup(const tal_t *ctx, struct lightningd *ld,
 	migrated = db_migrate(ld, db, bip32_base);
 
 	db_commit_transaction(db);
+
+	db->in_migration = false;
 
 	/* This needs to be done outside a transaction, apparently.
 	 * It's a good idea to do this every so often, and on db
@@ -2152,4 +2161,56 @@ static void migrate_fail_pending_payments_without_htlcs(struct lightningd *ld,
 	db_bind_int(stmt, payment_status_in_db(PAYMENT_FAILED));
 	db_bind_int(stmt, payment_status_in_db(PAYMENT_PENDING));
 	db_exec_prepared_v2(take(stmt));
+}
+
+static void migrate_fix_payments_faildetail_type(struct lightningd *ld,
+						  struct db *db)
+{
+	/* Historical databases may have BLOB-typed faildetail data.
+	 * STRICT mode rejects this, so convert or NULL out invalid UTF-8. */
+	struct db_stmt *stmt;
+	size_t fixed = 0, invalid = 0;
+
+	stmt = db_prepare_v2(db, SQL("SELECT id, faildetail "
+				     "FROM payments "
+				     "WHERE typeof(faildetail) = 'blob'"));
+	db_query_prepared(stmt);
+
+	while (db_step(stmt)) {
+		u64 id = db_col_u64(stmt, "id");
+		const u8 *blob = db_col_blob(stmt, "faildetail");
+		size_t len = db_col_bytes(stmt, "faildetail");
+		struct db_stmt *upd;
+
+		if (!utf8_check(blob, len)) {
+			log_unusual(ld->log, "Payment %"PRIu64": "
+				    "Invalid UTF-8 in faildetail, setting to NULL",
+				    id);
+			upd = db_prepare_v2(db,
+				SQL("UPDATE payments "
+				    "SET faildetail = NULL "
+				    "WHERE id = ?"));
+			db_bind_u64(upd, id);
+			db_exec_prepared_v2(take(upd));
+			invalid++;
+			continue;
+		}
+
+		char *text = tal_strndup(tmpctx, (char *)blob, len);
+		upd = db_prepare_v2(db,
+			SQL("UPDATE payments "
+			    "SET faildetail = ? "
+			    "WHERE id = ?"));
+		db_bind_text(upd, text);
+		db_bind_u64(upd, id);
+		db_exec_prepared_v2(take(upd));
+		fixed++;
+	}
+
+	tal_free(stmt);
+
+	if (fixed > 0 || invalid > 0)
+		log_info(ld->log, "payments.faildetail migration: "
+			 "%zu converted, %zu invalid UTF-8 nulled",
+			 fixed, invalid);
 }
