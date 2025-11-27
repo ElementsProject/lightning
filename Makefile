@@ -9,6 +9,9 @@ $(info Building version $(VERSION))
 # Next release.
 CLN_NEXT_VERSION := v25.12
 
+# Previous release (for downgrade testing)
+CLN_PREV_VERSION := v25.09
+
 # --quiet / -s means quiet, dammit!
 ifeq ($(findstring s,$(word 1, $(MAKEFLAGS))),s)
 ECHO := :
