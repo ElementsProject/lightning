@@ -87,6 +87,7 @@ Core Lightning Documentation
    invoicerequest <invoicerequest.7.md>
    keysend <keysend.7.md>
    lightning-cli <lightning-cli.1.md>
+   lightning-downgrade <lightning-downgrade.8.md>
    lightning-hsmtool <lightning-hsmtool.8.md>
    lightning-reckless <lightning-reckless.1.md>
    lightningd <lightningd.8.md>
