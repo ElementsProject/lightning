@@ -15,6 +15,8 @@ typedef char utf8;
 
 /* Read the type; returns -1 if not long enough.  cursor is a tal ptr. */
 int fromwire_peektype(const u8 *cursor);
+/* Same, but doesn't need to be a tal ptr */
+int fromwire_peektypen(const u8 *cursor, size_t len);
 void *fromwire_fail(const u8 **cursor, size_t *max);
 
 void towire(u8 **pptr, const void *data, size_t len);
