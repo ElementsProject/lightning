@@ -934,8 +934,7 @@ TESTBINS = \
 	$(CLN_PLUGIN_EXAMPLES) \
 	tests/plugins/test_libplugin \
 	tests/plugins/channeld_fakenet \
-	tests/plugins/test_selfdisable_after_getmanifest \
-	tools/hsmtool
+	tests/plugins/test_selfdisable_after_getmanifest
 
 # The testpack is used in CI to transfer built artefacts between the
 # build and the test phase. This is necessary because the fixtures in

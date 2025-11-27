@@ -1,5 +1,5 @@
 #! /usr/bin/make
-TOOLS := tools/hsmtool tools/check-bolt
+TOOLS := tools/lightning-hsmtool tools/check-bolt
 TOOLS_SRC := $(TOOLS:=.c)
 TOOLS_OBJ := $(TOOLS_SRC:.c=.o)
 
@@ -15,10 +15,7 @@ tools/headerversions: $(FORCE) tools/headerversions.o libccan.a
 
 tools/headerversions.o: ccan/config.h
 tools/check-bolt: tools/check-bolt.o libcommon.a
-tools/hsmtool: tools/hsmtool.o libcommon.a
-
-tools/lightning-hsmtool: tools/hsmtool
-	cp $< $@
+tools/lightning-hsmtool: tools/lightning-hsmtool.o libcommon.a
 
 clean: tools-clean
 
