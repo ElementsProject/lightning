@@ -1,4 +1,5 @@
-use crate::proto::jsonrpc::{Result, RpcError};
+use crate::proto::jsonrpc::RpcError;
+use crate::{jsonrpc::client::Result, proto::jsonrpc::JsonRpcResponse};
 use async_trait::async_trait;
 use log::{debug, trace};
 use std::{collections::HashMap, sync::Arc};
@@ -155,7 +156,7 @@ impl JsonRpcServer {
     ) -> Result<()> {
         // No need to respond when we don't have an id - it's a notification
         if let Some(id) = id {
-            let err_res = err.clone().into_response(id.into());
+            let err_res = JsonRpcResponse::error(err, id);
             let err_vec = serde_json::to_vec(&err_res)?;
             return writer.write(&err_vec).await;
         }

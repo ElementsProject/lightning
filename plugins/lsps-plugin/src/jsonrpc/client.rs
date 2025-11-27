@@ -1,5 +1,5 @@
 use crate::proto::jsonrpc::{
-    Error as JsonRpcError, JsonRpcRequest, JsonRpcResponse, RequestObject, ResponseObject,
+    Error as JsonRpcError, JsonRpcRequest, JsonRpcResponse, RequestObject,
 };
 use async_trait::async_trait;
 use core::fmt::Debug;
@@ -35,6 +35,14 @@ impl From<serde_json::Error> for Error {
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
+
+impl<R> From<JsonRpcResponse<R>> for Result<R> {
+    fn from(value: JsonRpcResponse<R>) -> Self {
+        value
+            .into_result()
+            .map_err(|e| Error::JsonRpcError(JsonRpcError::RpcError(e)))
+    }
+}
 
 /// Defines the interface for transporting JSON-RPC messages.
 ///
@@ -74,8 +82,9 @@ impl<T: Transport> JsonRpcClient<T> {
             params,
             id: Some(id.clone().into()),
         };
-        let res_obj = self.send_request(method, &request, id).await?;
-        Ok(Value::from_response(res_obj)?)
+
+        let response: JsonRpcResponse<Value> = self.send_request(method, &request, id).await?;
+        response.into()
     }
 
     /// Makes a typed JSON-RPC method call with a request object and returns a
@@ -93,8 +102,8 @@ impl<T: Transport> JsonRpcClient<T> {
 
         debug!("Preparing request: method={}, id={}", method, id);
         let request = request.into_request(Some(id.clone().into()));
-        let res_obj = self.send_request(method, &request, id).await?;
-        Ok(RS::from_response(res_obj)?)
+        let response: JsonRpcResponse<RS> = self.send_request(method, &request, id).await?;
+        response.into()
     }
 
     /// Sends a notification with raw JSON parameters (no response expected).
@@ -126,7 +135,7 @@ impl<T: Transport> JsonRpcClient<T> {
         method: &str,
         payload: &RP,
         id: String,
-    ) -> Result<ResponseObject<RS>>
+    ) -> Result<JsonRpcResponse<RS>>
     where
         RP: Serialize + Send + Sync,
         RS: DeserializeOwned + Serialize + Debug + Send + Sync,
@@ -274,9 +283,7 @@ mod test_json_rpc {
             bar: 10,
         };
 
-        let res_obj = expected_res
-            .clone()
-            .into_response(String::from("unique-id-123"));
+        let res_obj = JsonRpcResponse::success(&expected_res, "my-id-123");
         let res_str = serde_json::to_string(&res_obj).unwrap();
 
         let transport = TestTransport {
@@ -323,7 +330,7 @@ mod test_json_rpc {
             serde_json::json!({"got": "some"}),
         );
 
-        let res_obj = err_res.clone().into_response("unique-id-123".into());
+        let res_obj = JsonRpcResponse::error(err_res, "unique-id-123");
         let res_str = serde_json::to_string(&res_obj).unwrap();
 
         let transport = TestTransport {
