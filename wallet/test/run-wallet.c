@@ -35,6 +35,7 @@ static void test_error(struct lightningd *ld, bool fatal, const char *fmt, va_li
 #include "db/db_sqlite3.c"
 #include "db/exec.c"
 #include "db/utils.c"
+#include "wallet/datastore.c"
 #include "wallet/db.c"
 #include "wallet/migrations.c"
 

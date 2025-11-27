@@ -2,6 +2,7 @@
 
 WALLET_LIB_SRC :=		\
 	wallet/account_migration.c \
+	wallet/datastore.c 	\
 	wallet/db.c		\
 	wallet/invoices.c	\
 	wallet/migrations.c	\
@@ -34,6 +35,7 @@ WALLET_SQL_FILES := 			\
 	$(DB_SQL_FILES)			\
 	wallet/account_migration.c	\
 	wallet/db.c 			\
+	wallet/datastore.c 		\
 	wallet/invoices.c		\
 	wallet/migrations.c 		\
 	wallet/wallet.c 		\

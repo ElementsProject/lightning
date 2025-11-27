@@ -78,6 +78,34 @@ void connect_htlc_in(struct htlc_in_map *map UNNEEDED, struct htlc_in *hin UNNEE
 /* Generated stub for connect_htlc_out */
 void connect_htlc_out(struct htlc_out_map *map UNNEEDED, struct htlc_out *hout UNNEEDED)
 { fprintf(stderr, "connect_htlc_out called!\n"); abort(); }
+/* Generated stub for db_bind_datastore_key */
+void db_bind_datastore_key(struct db_stmt *stmt UNNEEDED, const char **key UNNEEDED)
+{ fprintf(stderr, "db_bind_datastore_key called!\n"); abort(); }
+/* Generated stub for db_datastore_first */
+struct db_stmt *db_datastore_first(const tal_t *ctx UNNEEDED,
+				   struct db *db UNNEEDED,
+				   const char **startkey UNNEEDED,
+				   const char ***key UNNEEDED,
+				   const u8 **data UNNEEDED,
+				   u64 *generation UNNEEDED)
+{ fprintf(stderr, "db_datastore_first called!\n"); abort(); }
+/* Generated stub for db_datastore_get */
+u8 *db_datastore_get(const tal_t *ctx UNNEEDED,
+		     struct db *db UNNEEDED,
+		     const char **key UNNEEDED,
+		     u64 *generation UNNEEDED)
+{ fprintf(stderr, "db_datastore_get called!\n"); abort(); }
+/* Generated stub for db_datastore_next */
+struct db_stmt *db_datastore_next(const tal_t *ctx UNNEEDED,
+				  struct db_stmt *stmt UNNEEDED,
+				  const char **startkey UNNEEDED,
+				  const char ***key UNNEEDED,
+				  const u8 **data UNNEEDED,
+				  u64 *generation UNNEEDED)
+{ fprintf(stderr, "db_datastore_next called!\n"); abort(); }
+/* Generated stub for db_datastore_update */
+void db_datastore_update(struct db *db UNNEEDED, const char **key UNNEEDED, const u8 *data UNNEEDED)
+{ fprintf(stderr, "db_datastore_update called!\n"); abort(); }
 /* Generated stub for fatal */
 void   fatal(const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "fatal called!\n"); abort(); }
