@@ -146,7 +146,8 @@ async fn on_lsps_lsps2_getinfo(
     let info_res: Lsps2GetInfoResponse = client
         .call_typed(info_req)
         .await
-        .context("lsps2.get_info call failed")?;
+        .context("lsps2.get_info call failed")?
+        .into_result()?;
     debug!("received lsps2.get_info response: {:?}", info_res);
 
     Ok(serde_json::to_value(info_res)?)
@@ -243,7 +244,8 @@ async fn on_lsps_lsps2_buy(
     let buy_res: Lsps2BuyResponse = client
         .call_typed(buy_req)
         .await
-        .context("lsps2.buy call failed")?;
+        .context("lsps2.buy call failed")?
+        .into_result()?;
 
     Ok(serde_json::to_value(buy_res)?)
 }
@@ -733,7 +735,8 @@ async fn on_lsps_listprotocols(
     let res: Lsps0listProtocolsResponse = client
         .call_typed(request)
         .await
-        .map_err(|e| anyhow!("lsps0.list_protocols call failed: {}", e))?;
+        .context("lsps0.list_protocols call failed")?
+        .into_result()?;
 
     debug!("Received lsps0.list_protocols response: {:?}", res);
     Ok(serde_json::to_value(res)?)
