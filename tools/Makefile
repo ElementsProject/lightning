@@ -1,5 +1,5 @@
 #! /usr/bin/make
-TOOLS := tools/lightning-hsmtool tools/check-bolt
+TOOLS := tools/lightning-hsmtool
 TOOLS_SRC := $(TOOLS:=.c)
 TOOLS_OBJ := $(TOOLS_SRC:.c=.o)
 
@@ -14,12 +14,12 @@ tools/headerversions: $(FORCE) tools/headerversions.o libccan.a
 	@trap "rm -f $@.tmp.$$$$" EXIT; $(LINK.o) tools/headerversions.o libccan.a $(LOADLIBES) $(LDLIBS) -o $@.tmp.$$$$ && mv -f $@.tmp.$$$$ $@
 
 tools/headerversions.o: ccan/config.h
-tools/check-bolt: tools/check-bolt.o libcommon.a
 tools/lightning-hsmtool: tools/lightning-hsmtool.o libcommon.a
 
 clean: tools-clean
 
 tools-clean:
+	$(RM) $(TOOLS) $(TOOLS_OBJ)
 	$(RM) tools/headerversions
 	$(RM) tools/headerversions.o
 
