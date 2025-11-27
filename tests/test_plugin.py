@@ -1903,7 +1903,8 @@ def test_bitcoin_backend(node_factory, bitcoind):
 
 def test_bitcoin_backend_gianttx(node_factory, bitcoind):
     """Test that a giant tx doesn't crash bcli"""
-    l1 = node_factory.get_node(start=False)
+    # This complains about how long fundpsbt took.
+    l1 = node_factory.get_node(start=False, broken_log='Request fundpsbt took')
     # With memleak we spend far too much time gathering backtraces.
     if "LIGHTNINGD_DEV_MEMLEAK" in l1.daemon.env:
         del l1.daemon.env["LIGHTNINGD_DEV_MEMLEAK"]

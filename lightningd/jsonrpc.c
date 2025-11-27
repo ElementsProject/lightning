@@ -1186,6 +1186,7 @@ static struct io_plan *read_json(struct io_conn *conn,
 	const char *buffer, *error;
 	size_t num_parsed = 0;
 	const char *last_method = NULL;
+	u64 msec;
 
 	buffer = jsonrpc_newly_read(jcon->json_in, &len_read);
 	if (len_read)
@@ -1217,14 +1218,20 @@ again:
 
 	/* Don't ever process for more than 100 commands or 250 msec
 	 * without giving others a chance */
-	if (num_parsed++ == 100
-	    || time_greater(timemono_between(time_mono(), start_time),
-			    time_from_msec(250))) {
+	msec = time_to_msec(timemono_between(time_mono(), start_time));
+	if (num_parsed++ == 100 || msec > 250) {
+		static bool printed_once = false;
 		db_commit_transaction(jcon->ld->wallet->db);
 		log_debug(jcon->log, "Pausing parsing after %zu requests and %"PRIu64"msec (last method=%s)",
 			  num_parsed,
-			  time_to_msec(timemono_between(time_mono(), start_time)),
+			  msec,
 			  last_method ? last_method : "NONE");
+		if (msec > 5000 && last_method && !printed_once) {
+			log_unusual(jcon->log,
+				    CI_UNEXPECTED "Request %s took %"PRIu64" milliseconds",
+				    last_method, msec);
+			printed_once = true;
+		}
 		/* Call us back, as if we read nothing new */
 		return io_always(conn, read_json, jcon);
 	}
