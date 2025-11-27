@@ -182,17 +182,34 @@ static u64 db_postgres_column_u64(struct db_stmt *stmt, int col)
 
 static s64 db_postgres_column_int(struct db_stmt *stmt, int col)
 {
-	PGresult *res = (PGresult*)stmt->inner_stmt;
-	be32 bin;
-	size_t expected = sizeof(bin), actual = PQgetlength(res, stmt->row, col);
+    PGresult *res = (PGresult*)stmt->inner_stmt;
+    Oid col_type = PQftype(res, col); // Get the column's type OID
 
-	if (expected != actual)
-		db_fatal(stmt->db,
-		    "s32 field doesn't match size: expected %zu, actual %zu\n",
-		    expected, actual);
+    if (col_type == INT4OID) {
+        /* This is a 32-bit integer (PG INT or CRDB INT4) */
+        if (PQgetlength(res, stmt->row, col) != 4) {
+             /* This check is now for safety/correctness */
+             db_fatal(stmt->db, "INT4 field size not 4 bytes\n");
+        }
+        be32 bin;
+        memcpy(&bin, PQgetvalue(res, stmt->row, col), sizeof(bin));
+        return (s64)be32_to_cpu(bin); // Cast to s64 for return
+    }
+    else if (col_type == INT8OID) {
+        /* This is a 64-bit integer (PG BIGINT or CRDB INT) */
+        if (PQgetlength(res, stmt->row, col) != 8) {
+             db_fatal(stmt->db, "INT8 field size not 8 bytes\n");
+        }
+        be64 bin;
+        memcpy(&bin, PQgetvalue(res, stmt->row, col), sizeof(bin));
+        return be64_to_cpu(bin);
+    }
 
-	memcpy(&bin, PQgetvalue(res, stmt->row, col), sizeof(bin));
-	return be32_to_cpu(bin);
+    /* This function was called on an unsupported column type */
+    db_fatal(stmt->db,
+        "integer field type unexpected: expected INT4 (23) or INT8 (20), actual %u\n",
+        col_type);
+    return 0;
 }
 
 static size_t db_postgres_column_bytes(struct db_stmt *stmt, int col)
