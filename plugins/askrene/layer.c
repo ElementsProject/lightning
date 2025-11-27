@@ -8,23 +8,12 @@
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <plugins/askrene/askrene.h>
+#include <plugins/askrene/datastore_wire.h>
 #include <plugins/askrene/layer.h>
 #include <wire/wire.h>
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
-
-/* Different elements in the datastore */
-enum dstore_layer_type {
-	/* We don't use type 0, which fromwire_u16 returns on trunction */
-	DSTORE_CHANNEL = 1,
-	DSTORE_CHANNEL_UPDATE = 2,
-	DSTORE_CHANNEL_CONSTRAINT = 3,
-	DSTORE_CHANNEL_BIAS = 4,
-	DSTORE_DISABLED_NODE = 5,
-	DSTORE_CHANNEL_BIAS_V2 = 6,
-	DSTORE_NODE_BIAS = 7,
-};
 
 /* A channels which doesn't (necessarily) exist in the gossmap. */
 struct local_channel {
@@ -447,39 +436,9 @@ static void append_layer_datastore(struct layer *layer, const u8 *data)
 	send_outreq(req);
 }
 
-/* We don't autogenerate our wire code here.  Partially because the
- * fromwire_ routines we generate are aimed towards single messages,
- * not a continuous stream, but also because this needs to be
- * consistent across updates, and the extensions to the wire format
- * we use (for inter-daemon comms) do not have such a guarantee */
-
-/* Helper to append bool to data, and return value */
-static bool towire_bool_val(u8 **pptr, bool v)
-{
-	towire_bool(pptr, v);
-	return v;
-}
-
-static void towire_short_channel_id_dir(u8 **pptr, const struct short_channel_id_dir *scidd)
-{
-	towire_short_channel_id(pptr, scidd->scid);
-	towire_u8(pptr, scidd->dir);
-}
-
-static void fromwire_short_channel_id_dir(const u8 **cursor, size_t *max,
-					  struct short_channel_id_dir *scidd)
-{
-	scidd->scid = fromwire_short_channel_id(cursor, max);
-	scidd->dir = fromwire_u8(cursor, max);
-}
-
 static void towire_save_channel(u8 **data, const struct local_channel *lc)
 {
-	towire_u16(data, DSTORE_CHANNEL);
-	towire_node_id(data, &lc->n1);
-	towire_node_id(data, &lc->n2);
-	towire_short_channel_id(data, lc->scid);
-	towire_amount_msat(data, lc->capacity);
+	towire_dstore_channel(data, &lc->n1, &lc->n2, lc->scid, lc->capacity);
 }
 
 static void save_channel(struct layer *layer, const struct local_channel *lc)
@@ -503,31 +462,20 @@ static void load_channel(struct plugin *plugin,
 	struct short_channel_id scid;
 	struct amount_msat capacity;
 
-	fromwire_node_id(cursor, len, &n1);
-	fromwire_node_id(cursor, len, &n2);
-	scid = fromwire_short_channel_id(cursor, len);
-	capacity = fromwire_amount_msat(cursor, len);
-
-	if (*cursor)
+	if (fromwire_dstore_channel(cursor, len, &n1, &n2, &scid, &capacity))
 		add_local_channel(layer, &n1, &n2, scid, capacity);
 }
 
 static void towire_save_channel_update(u8 **data, const struct local_update *lu)
 {
-	towire_u16(data, DSTORE_CHANNEL_UPDATE);
-	towire_short_channel_id_dir(data, &lu->scidd);
-	if (towire_bool_val(data, lu->enabled != NULL))
-		towire_bool(data, *lu->enabled);
-	if (towire_bool_val(data, lu->htlc_min != NULL))
-		towire_amount_msat(data, *lu->htlc_min);
-	if (towire_bool_val(data, lu->htlc_max != NULL))
-		towire_amount_msat(data, *lu->htlc_max);
-	if (towire_bool_val(data, lu->base_fee != NULL))
-		towire_amount_msat(data, *lu->base_fee);
-	if (towire_bool_val(data, lu->proportional_fee != NULL))
-		towire_u32(data, *lu->proportional_fee);
-	if (towire_bool_val(data, lu->delay != NULL))
-		towire_u16(data, *lu->delay);
+	towire_dstore_channel_update(data,
+				     &lu->scidd,
+				     lu->enabled,
+				     lu->htlc_min,
+				     lu->htlc_max,
+				     lu->base_fee,
+				     lu->proportional_fee,
+				     lu->delay);
 }
 
 static void save_channel_update(struct layer *layer, const struct local_update *lu)
@@ -548,40 +496,19 @@ static void load_channel_update(struct plugin *plugin,
 				size_t *len)
 {
 	struct short_channel_id_dir scidd;
-	bool *enabled = NULL, enabled_val;
-	struct amount_msat *htlc_min = NULL, htlc_min_val;
-	struct amount_msat *htlc_max = NULL, htlc_max_val;
-	struct amount_msat *base_fee = NULL, base_fee_val;
-	u32 *proportional_fee = NULL, proportional_fee_val;
-	u16 *delay = NULL, delay_val;
+	bool *enabled;
+	struct amount_msat *htlc_min, *htlc_max, *base_fee;
+	u32 *proportional_fee;
+	u16 *delay;
 
-	fromwire_short_channel_id_dir(cursor, len, &scidd);
-	if (fromwire_bool(cursor, len)) {
-		enabled_val = fromwire_bool(cursor, len);
-		enabled = &enabled_val;
-	}
-	if (fromwire_bool(cursor, len)) {
-		htlc_min_val = fromwire_amount_msat(cursor, len);
-		htlc_min = &htlc_min_val;
-	}
-	if (fromwire_bool(cursor, len)) {
-		htlc_max_val = fromwire_amount_msat(cursor, len);
-		htlc_max = &htlc_max_val;
-	}
-	if (fromwire_bool(cursor, len)) {
-		base_fee_val = fromwire_amount_msat(cursor, len);
-		base_fee = &base_fee_val;
-	}
-	if (fromwire_bool(cursor, len)) {
-		proportional_fee_val = fromwire_u32(cursor, len);
-		proportional_fee = &proportional_fee_val;
-	}
-	if (fromwire_bool(cursor, len)) {
-		delay_val = fromwire_u16(cursor, len);
-		delay = &delay_val;
-	}
-
-	if (*cursor)
+	if (fromwire_dstore_channel_update(tmpctx, cursor, len,
+					   &scidd,
+					   &enabled,
+					   &htlc_min,
+					   &htlc_max,
+					   &base_fee,
+					   &proportional_fee,
+					   &delay))
 		add_update_channel(layer, &scidd,
 				   enabled,
 				   htlc_min,
@@ -593,13 +520,9 @@ static void load_channel_update(struct plugin *plugin,
 
 static void towire_save_channel_constraint(u8 **data, const struct constraint *c)
 {
-	towire_u16(data, DSTORE_CHANNEL_CONSTRAINT);
-	towire_short_channel_id_dir(data, &c->scidd);
-	towire_u64(data, c->timestamp);
-	if (towire_bool_val(data, !amount_msat_is_zero(c->min)))
-		towire_amount_msat(data, c->min);
-	if (towire_bool_val(data, !amount_msat_eq(c->max, AMOUNT_MSAT(UINT64_MAX))))
-		towire_amount_msat(data, c->max);
+	towire_dstore_channel_constraint(data, &c->scidd, c->timestamp,
+					 amount_msat_is_zero(c->min) ? NULL : &c->min,
+					 amount_msat_eq(c->max, AMOUNT_MSAT(UINT64_MAX)) ? NULL: &c->max);
 }
 
 static void save_channel_constraint(struct layer *layer, const struct constraint *c)
@@ -620,47 +543,23 @@ static void load_channel_constraint(struct plugin *plugin,
 				    size_t *len)
 {
 	struct short_channel_id_dir scidd;
-	struct amount_msat *min = NULL, min_val;
-	struct amount_msat *max = NULL, max_val;
+	struct amount_msat *min;
+	struct amount_msat *max;
 	u64 timestamp;
 
-	fromwire_short_channel_id_dir(cursor, len, &scidd);
-	timestamp = fromwire_u64(cursor, len);
-	if (fromwire_bool(cursor, len)) {
-		min_val = fromwire_amount_msat(cursor, len);
-		min = &min_val;
-	}
-	if (fromwire_bool(cursor, len)) {
-		max_val = fromwire_amount_msat(cursor, len);
-		max = &max_val;
-	}
-	if (*cursor)
+	if (fromwire_dstore_channel_constraint(tmpctx, cursor, len,
+					       &scidd, &timestamp,
+					       &min, &max))
 		add_constraint(layer, &scidd, timestamp, min, max);
 }
 
 static void towire_save_channel_bias(u8 **data, const struct bias *bias)
 {
-	towire_u16(data, DSTORE_CHANNEL_BIAS_V2);
-	towire_short_channel_id_dir(data, &bias->scidd);
-	towire_s8(data, bias->bias);
-        // has description?
-	towire_bool_val(data, bias->description != NULL);
-	if (bias->description)
-		towire_wirestring(data, bias->description);
-	towire_u64(data, bias->timestamp);
-}
-
-static void towire_save_node_bias(u8 **data, const struct node_bias *bias)
-{
-	towire_u16(data, DSTORE_NODE_BIAS);
-	towire_node_id(data, &bias->node);
-	towire_s8(data, bias->in_bias);
-	towire_s8(data, bias->out_bias);
-        // has description?
-	towire_bool_val(data, bias->description != NULL);
-	if (bias->description)
-		towire_wirestring(data, bias->description);
-	towire_u64(data, bias->timestamp);
+	towire_dstore_channel_bias_v2(data,
+				      &bias->scidd,
+				      bias->bias,
+				      bias->description,
+				      bias->timestamp);
 }
 
 static void save_channel_bias(struct layer *layer, const struct bias *bias)
@@ -673,6 +572,16 @@ static void save_channel_bias(struct layer *layer, const struct bias *bias)
 	data = tal_arr(tmpctx, u8, 0);
 	towire_save_channel_bias(&data, bias);
 	append_layer_datastore(layer, data);
+}
+
+static void towire_save_node_bias(u8 **data, const struct node_bias *bias)
+{
+	towire_dstore_node_bias(data,
+				&bias->node,
+				bias->description,
+				bias->in_bias,
+				bias->out_bias,
+				bias->timestamp);
 }
 
 static void save_node_bias(struct layer *layer, const struct node_bias *bias)
@@ -693,17 +602,16 @@ static void load_channel_bias(struct plugin *plugin,
 			      size_t *len)
 {
 	struct short_channel_id_dir scidd;
-	char *description;
+	const char *description;
 	s8 bias_factor;
         /* If we read an old version without timestamp, just put the current
          * time. */
         u64 timestamp = clock_time().ts.tv_sec;
 
-	fromwire_short_channel_id_dir(cursor, len, &scidd);
-	bias_factor = fromwire_s8(cursor, len);
-	description = fromwire_wirestring(tmpctx, cursor, len);
-
-	if (*cursor)
+	if (fromwire_dstore_channel_bias(tmpctx, cursor, len,
+					 &scidd,
+					 &bias_factor,
+					 &description))
 		set_bias(layer, &scidd, take(description), bias_factor, false,
 			 timestamp);
 }
@@ -714,18 +622,15 @@ static void load_channel_bias_v2(struct plugin *plugin,
                                  size_t *len)
 {
 	struct short_channel_id_dir scidd;
-	char *description = NULL;
+	const char *description;
 	s8 bias_factor;
 	u64 timestamp;
 
-	fromwire_short_channel_id_dir(cursor, len, &scidd);
-	bias_factor = fromwire_s8(cursor, len);
-	if (fromwire_bool(cursor, len)) {
-		description = fromwire_wirestring(tmpctx, cursor, len);
-	}
-	timestamp = fromwire_u64(cursor, len);
-
-	if (*cursor)
+	if (fromwire_dstore_channel_bias_v2(tmpctx, cursor, len,
+					    &scidd,
+					    &bias_factor,
+					    &description,
+					    &timestamp))
 		set_bias(layer, &scidd, take(description), bias_factor, false,
 			 timestamp);
 }
@@ -736,19 +641,16 @@ static void load_node_bias(struct plugin *plugin,
 			   size_t *len)
 {
 	struct node_id node;
-	char *description = NULL;
+	const char *description;
 	s8 in_bias, out_bias;
 	u64 timestamp;
 
-	fromwire_node_id(cursor, len, &node);
-	in_bias = fromwire_s8(cursor, len);
-	out_bias = fromwire_s8(cursor, len);
-	if (fromwire_bool(cursor, len)) {
-		description = fromwire_wirestring(tmpctx, cursor, len);
-	}
-	timestamp = fromwire_u64(cursor, len);
-
-	if (*cursor){
+	if (fromwire_dstore_node_bias(tmpctx, cursor, len,
+				      &node,
+				      &description,
+				      &in_bias,
+				      &out_bias,
+				      &timestamp)) {
 		set_node_bias(layer, &node, take(description), in_bias,
 			      /* relative = */ false,
 			      /* out dir = */ false, timestamp);
@@ -758,12 +660,6 @@ static void load_node_bias(struct plugin *plugin,
 	}
 }
 
-static void towire_save_disabled_node(u8 **data, const struct node_id *node)
-{
-	towire_u16(data, DSTORE_DISABLED_NODE);
-	towire_node_id(data, node);
-}
-
 static void save_disabled_node(struct layer *layer, const struct node_id *node)
 {
 	u8 *data;
@@ -771,7 +667,7 @@ static void save_disabled_node(struct layer *layer, const struct node_id *node)
 	if (!layer->persistent)
 		return;
 	data = tal_arr(tmpctx, u8, 0);
-	towire_save_disabled_node(&data, node);
+	towire_dstore_disabled_node(&data, node);
 	append_layer_datastore(layer, data);
 }
 
@@ -782,8 +678,7 @@ static void load_disabled_node(struct plugin *plugin,
 {
 	struct node_id node;
 
-	fromwire_node_id(cursor, len, &node);
-	if (*cursor)
+	if (fromwire_dstore_disabled_node(cursor, len, &node))
 		add_disabled_node(layer, &node);
 }
 
@@ -807,7 +702,7 @@ static void save_complete_layer(struct layer *layer)
 
 	data = tal_arr(tmpctx, u8, 0);
 	for (size_t i = 0; i < tal_count(layer->disabled_nodes); i++)
-		towire_save_disabled_node(&data, &layer->disabled_nodes[i]);
+		towire_dstore_disabled_node(&data, &layer->disabled_nodes[i]);
 
 	for (lc = local_channel_hash_first(layer->local_channels, &lcit);
 	     lc;
@@ -863,7 +758,7 @@ static void populate_layer(struct askrene *askrene,
 
 	while (len != 0) {
 		enum dstore_layer_type type;
-		type = fromwire_u16(&data, &len);
+		type = fromwire_peektypen(data, len);
 
 		switch (type) {
 		case DSTORE_CHANNEL:
