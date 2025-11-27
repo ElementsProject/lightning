@@ -1,5 +1,5 @@
 use crate::proto::jsonrpc::{
-    Error as JsonRpcError, JsonRpcRequest, JsonRpcResponse, RequestObject,
+    Error as JsonRpcError, JsonRpcRequest, JsonRpcResponse, RequestObject, RpcError,
 };
 use async_trait::async_trait;
 use core::fmt::Debug;
@@ -21,6 +21,8 @@ pub enum Error {
     Internal(String),
     #[error("Got JSON-RPC error")]
     JsonRpcError(#[from] JsonRpcError),
+    #[error("{0}")]
+    RpcError(#[from] RpcError),
     #[error("Couldn't parse JSON-RPC request")]
     ParseRequest {
         #[source]
@@ -92,7 +94,7 @@ impl<T: Transport> JsonRpcClient<T> {
     ///
     /// This method provides type safety by using request and response types
     /// that implement the necessary traits.
-    pub async fn call_typed<RQ, RS>(&self, request: RQ) -> Result<RS>
+    pub async fn call_typed<RQ, RS>(&self, request: RQ) -> Result<JsonRpcResponse<RS>>
     where
         RQ: JsonRpcRequest + Serialize + Send + Sync,
         RS: DeserializeOwned + Serialize + Debug + Send + Sync,
@@ -103,7 +105,7 @@ impl<T: Transport> JsonRpcClient<T> {
         debug!("Preparing request: method={}, id={}", method, id);
         let request = request.into_request(Some(id.clone().into()));
         let response: JsonRpcResponse<RS> = self.send_request(method, &request, id).await?;
-        response.into()
+        Ok(response)
     }
 
     /// Sends a notification with raw JSON parameters (no response expected).
@@ -296,7 +298,8 @@ mod test_json_rpc {
         let res = client_1
             .call_typed::<_, DummyResponse>(req.clone())
             .await
-            .expect("Should have an OK result");
+            .expect("Should have an OK result")
+            .expect("Should not be a JSON-RPC error");
         assert_eq!(res, expected_res);
         let transport_req = transport
             .last_request_json()
@@ -330,7 +333,7 @@ mod test_json_rpc {
             serde_json::json!({"got": "some"}),
         );
 
-        let res_obj = JsonRpcResponse::error(err_res, "unique-id-123");
+        let res_obj = JsonRpcResponse::error(err_res.clone(), "unique-id-123");
         let res_str = serde_json::to_string(&res_obj).unwrap();
 
         let transport = TestTransport {
@@ -343,8 +346,9 @@ mod test_json_rpc {
         let res = client_1
             .call_typed::<_, DummyResponse>(req)
             .await
-            .expect_err("Expected error response");
-        assert!(matches!(res, Error::JsonRpcError(..)));
+            .expect("only inner rpc error")
+            .expect_err("expect rpc error");
+        assert_eq!(res, err_res);
     }
 
     #[tokio::test]

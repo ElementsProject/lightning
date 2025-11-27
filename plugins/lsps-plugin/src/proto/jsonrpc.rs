@@ -117,6 +117,7 @@ fn is_none_or_null<T: Serialize>(opt: &Option<T>) -> bool {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
 pub struct JsonRpcResponse<R = ()> {
     id: String,
     body: JsonRpcResponseBody<R>,
@@ -165,14 +166,20 @@ impl<R> JsonRpcResponse<R> {
         }
     }
 
-    /// Unwrap the result, panicking on RPC error
     pub fn unwrap(self) -> R {
         self.body.unwrap()
     }
 
-    /// Expect success or panic with message
     pub fn expect(self, msg: &str) -> R {
         self.body.expect(msg)
+    }
+
+    pub fn unwrap_err(self) -> RpcError {
+        self.body.unwrap_err()
+    }
+
+    pub fn expect_err(self, msg: &str) -> RpcError {
+        self.body.expect_err(msg)
     }
 }
 
@@ -243,6 +250,7 @@ impl<'de, R: DeserializeOwned> Deserialize<'de> for JsonRpcResponse<R> {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
 pub enum JsonRpcResponseBody<R> {
     Success { result: R },
     Error { error: RpcError },
@@ -292,6 +300,22 @@ impl<R> JsonRpcResponseBody<R> {
         match self {
             Self::Success { result } => result,
             Self::Error { error } => panic!("{}: {}", msg, error),
+        }
+    }
+
+    pub fn unwrap_err(self) -> RpcError {
+        match self {
+            JsonRpcResponseBody::Success { .. } => {
+                panic!("Called unwrap_err on RPC Success")
+            }
+            JsonRpcResponseBody::Error { error } => error,
+        }
+    }
+
+    pub fn expect_err(self, msg: &str) -> RpcError {
+        match self {
+            JsonRpcResponseBody::Success { .. } => panic!("{}", msg),
+            JsonRpcResponseBody::Error { error } => error,
         }
     }
 }
