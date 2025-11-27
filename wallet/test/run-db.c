@@ -10,6 +10,7 @@ static void db_log_(struct logger *log UNUSED, enum log_level level UNUSED, cons
 #include "db/db_sqlite3.c"
 #include "db/exec.c"
 #include "db/utils.c"
+#include "wallet/datastore.c"
 #include "wallet/db.c"
 #include "wallet/wallet.c"
 #include "wallet/migrations.c"
