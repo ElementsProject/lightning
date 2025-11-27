@@ -239,10 +239,12 @@ impl<T: ClnApi + 'static> RequestHandler for Lsps2GetInfoHandler<T> {
             })
             .collect::<Result<Vec<_>, RpcError>>()?;
 
-        let res = Lsps2GetInfoResponse {
-            opening_fee_params_menu,
-        }
-        .into_response(req.id.unwrap()); // We checked that we got an id before.
+        let res = JsonRpcResponse::success(
+            Lsps2GetInfoResponse {
+                opening_fee_params_menu,
+            },
+            req.id.unwrap(),
+        ); // We checked that we got an id before.
 
         serde_json::to_vec(&res)
             .map_err(|e| RpcError::internal_error(format!("Failed to serialize response: {}", e)))
@@ -325,15 +327,17 @@ impl<A: ClnApi + 'static> RequestHandler for Lsps2BuyHandler<A> {
             RpcError::internal_error("Internal error")
         })?;
 
-        let res = Lsps2BuyResponse {
-            jit_channel_scid: jit_scid,
-            // We can make this configurable if necessary.
-            lsp_cltv_expiry_delta: DEFAULT_CLTV_EXPIRY_DELTA,
-            // We can implement the other mode later on as we might have to do
-            // some additional work on core-lightning to enable this.
-            client_trusts_lsp: false,
-        }
-        .into_response(req.id.unwrap()); // We checked that we got an id before.
+        let res = JsonRpcResponse::success(
+            Lsps2BuyResponse {
+                jit_channel_scid: jit_scid,
+                // We can make this configurable if necessary.
+                lsp_cltv_expiry_delta: DEFAULT_CLTV_EXPIRY_DELTA,
+                // We can implement the other mode later on as we might have to do
+                // some additional work on core-lightning to enable this.
+                client_trusts_lsp: false,
+            },
+            req.id.unwrap(),
+        ); // We checked that we got an id before.
 
         serde_json::to_vec(&res)
             .map_err(|e| RpcError::internal_error(format!("Failed to serialize response: {}", e)))
@@ -682,11 +686,7 @@ mod tests {
     use super::*;
     use crate::{
         lsps2::cln::{tlv::TlvStream, HtlcAcceptedResult},
-        proto::{
-            jsonrpc::{JsonRpcRequest, ResponseObject},
-            lsps0::Ppm,
-            lsps2::PolicyOpeningFeeParams,
-        },
+        proto::{jsonrpc::JsonRpcRequest, lsps0::Ppm, lsps2::PolicyOpeningFeeParams},
         util::wrap_payload_with_peer_id,
     };
     use chrono::{TimeZone, Utc};
@@ -1026,9 +1026,9 @@ mod tests {
         let payload = create_wrapped_request(&request);
 
         let result = handler.handle(&payload).await.unwrap();
-        let response: ResponseObject<Lsps2GetInfoResponse> =
+        let response: JsonRpcResponse<Lsps2GetInfoResponse> =
             serde_json::from_slice(&result).unwrap();
-        let response = response.into_inner().unwrap();
+        let response = response.into_result().unwrap();
 
         assert_eq!(
             response.opening_fee_params_menu[0].min_payment_size_msat,
@@ -1088,8 +1088,8 @@ mod tests {
         let payload = create_wrapped_request(&req);
 
         let out = handler.handle(&payload).await.unwrap();
-        let resp: ResponseObject<Lsps2BuyResponse> = serde_json::from_slice(&out).unwrap();
-        let resp = resp.into_inner().unwrap();
+        let resp: JsonRpcResponse<Lsps2BuyResponse> = serde_json::from_slice(&out).unwrap();
+        let resp = resp.into_result().unwrap();
 
         assert_eq!(resp.lsp_cltv_expiry_delta, DEFAULT_CLTV_EXPIRY_DELTA);
         assert!(!resp.client_trusts_lsp);
@@ -1120,8 +1120,8 @@ mod tests {
         let payload = create_wrapped_request(&req);
 
         let out = handler.handle(&payload).await.unwrap();
-        let resp: ResponseObject<Lsps2BuyResponse> = serde_json::from_slice(&out).unwrap();
-        assert!(resp.into_inner().is_ok());
+        let resp: JsonRpcResponse<Lsps2BuyResponse> = serde_json::from_slice(&out).unwrap();
+        assert!(resp.into_result().is_ok());
     }
 
     #[tokio::test]

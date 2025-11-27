@@ -65,43 +65,6 @@ pub trait JsonRpcRequest: Serialize {
     }
 }
 
-/// Trait for types that can be converted from JSON-RPC response objects.
-///
-/// This trait provides methods for converting between typed response objects
-/// and JSON-RPC protocol response envelopes.
-pub trait JsonRpcResponse<T>
-where
-    T: DeserializeOwned,
-{
-    fn into_response(self, id: String) -> ResponseObject<Self>
-    where
-        Self: Sized + DeserializeOwned,
-    {
-        ResponseObject {
-            jsonrpc: "2.0".into(),
-            id: id.into(),
-            result: Some(self),
-            error: None,
-        }
-    }
-
-    fn from_response(resp: ResponseObject<T>) -> Result<T>
-    where
-        T: core::fmt::Debug,
-    {
-        match (resp.result, resp.error) {
-            (Some(result), None) => Ok(result),
-            (None, Some(error)) => Err(Error::RpcError(error)),
-            _ => Err(Error::ParseResponse),
-        }
-    }
-}
-
-/// Automatically implements the `JsonRpcResponse` trait for all types that
-/// implement `DeserializeOwned`. This simplifies creating JSON-RPC services,
-/// as you only need to define data structures that can be deserialized.
-impl<T> JsonRpcResponse<T> for T where T: DeserializeOwned {}
-
 /// # RequestObject
 ///
 /// Represents a JSON-RPC 2.0 Request object, as defined in section 4 of the
@@ -154,44 +117,182 @@ fn is_none_or_null<T: Serialize>(opt: &Option<T>) -> bool {
     }
 }
 
-/// # ResponseObject
-///
-/// Represents a JSON-RPC 2.0 Response object, as defined in section 5.0 of the
-/// specification. This structure encapsulates either a successful result or
-/// an error.
-///
-/// # Type Parameters
-///
-/// * `T`: The type of the `result` field, which will be returned upon a
-///   succesful execution of the procedure. *MUST* implement both `Serialize`
-///   (to allow construction of responses) and `DeserializeOwned` (to allow
-///   receipt and parsing of responses).
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(bound = "T: Serialize + DeserializeOwned")]
-pub struct ResponseObject<T>
-where
-    T: DeserializeOwned,
-{
-    ///  **REQUIRED**.  MUST be `"2.0"`.
-    jsonrpc: String,
-    /// **REQUIRED**. The identifier of the original request this is a response.
+pub struct JsonRpcResponse<R = ()> {
     id: String,
-    /// **REQUIRED on success**. The data if there is a request and non-errored.
-    /// MUST NOT exist if there was an error triggered during invocation.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    result: Option<T>,
-    /// **REQUIRED on error** An error type if there was a failure.
-    error: Option<RpcError>,
+    body: JsonRpcResponseBody<R>,
 }
 
-impl<T> ResponseObject<T>
-where
-    T: DeserializeOwned + Serialize + core::fmt::Debug,
-{
-    /// Returns a potential data (result) if the code execution passed else it
-    /// returns with RPC error, data (error details) if there was
-    pub fn into_inner(self) -> Result<T> {
-        T::from_response(self)
+impl JsonRpcResponse<()> {
+    pub fn error<T: Into<String>>(error: RpcError, id: T) -> Self {
+        Self {
+            id: id.into(),
+            body: JsonRpcResponseBody::Error { error },
+        }
+    }
+}
+
+impl<R> JsonRpcResponse<R> {
+    pub fn success<T: Into<String>>(result: R, id: T) -> Self {
+        Self {
+            id: id.into(),
+            body: JsonRpcResponseBody::Success { result },
+        }
+    }
+
+    pub fn into_result(self) -> std::result::Result<R, RpcError> {
+        self.body.into_result()
+    }
+
+    pub fn as_result(&self) -> std::result::Result<&R, &RpcError> {
+        self.body.as_result()
+    }
+
+    pub fn is_ok(&self) -> bool {
+        self.body.is_ok()
+    }
+
+    pub fn is_err(&self) -> bool {
+        self.body.is_err()
+    }
+
+    pub fn map<U, F>(self, f: F) -> JsonRpcResponse<U>
+    where
+        F: FnOnce(R) -> U,
+    {
+        JsonRpcResponse {
+            id: self.id,
+            body: self.body.map(f),
+        }
+    }
+
+    /// Unwrap the result, panicking on RPC error
+    pub fn unwrap(self) -> R {
+        self.body.unwrap()
+    }
+
+    /// Expect success or panic with message
+    pub fn expect(self, msg: &str) -> R {
+        self.body.expect(msg)
+    }
+}
+
+// Custom Serialize to match JSON-RPC 2.0 wire format
+impl<R: Serialize> Serialize for JsonRpcResponse<R> {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+
+        let mut state = serializer.serialize_struct("JsonRpcResponse", 3)?;
+        state.serialize_field("jsonrpc", "2.0")?;
+        state.serialize_field("id", &self.id)?;
+
+        match &self.body {
+            JsonRpcResponseBody::Success { result } => {
+                state.serialize_field("result", result)?;
+            }
+            JsonRpcResponseBody::Error { error } => {
+                state.serialize_field("error", error)?;
+            }
+        }
+
+        state.end()
+    }
+}
+
+// Custom Deserialize from JSON-RPC 2.0 wire format
+impl<'de, R: DeserializeOwned> Deserialize<'de> for JsonRpcResponse<R> {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct RawResponse<R> {
+            jsonrpc: String,
+            result: Option<R>,
+            error: Option<RpcError>,
+            id: String,
+        }
+
+        let raw = RawResponse::deserialize(deserializer)?;
+
+        if raw.jsonrpc != "2.0" {
+            return Err(serde::de::Error::custom(format!(
+                "Invalid JSON-RPC version: {}",
+                raw.jsonrpc
+            )));
+        }
+
+        let body = match (raw.result, raw.error) {
+            (Some(result), None) => JsonRpcResponseBody::Success { result },
+            (None, Some(error)) => JsonRpcResponseBody::Error { error },
+            (Some(_), Some(_)) => {
+                return Err(serde::de::Error::custom(
+                    "Response cannot have both result and error",
+                ))
+            }
+            (None, None) => {
+                return Err(serde::de::Error::custom(
+                    "Response must have either result or error",
+                ))
+            }
+        };
+
+        Ok(JsonRpcResponse { id: raw.id, body })
+    }
+}
+
+pub enum JsonRpcResponseBody<R> {
+    Success { result: R },
+    Error { error: RpcError },
+}
+
+impl<R> JsonRpcResponseBody<R> {
+    pub fn into_result(self) -> std::result::Result<R, RpcError> {
+        match self {
+            Self::Success { result } => Ok(result),
+            Self::Error { error } => Err(error),
+        }
+    }
+
+    pub fn as_result(&self) -> std::result::Result<&R, &RpcError> {
+        match self {
+            Self::Success { result } => Ok(result),
+            Self::Error { error } => Err(error),
+        }
+    }
+
+    pub fn is_ok(&self) -> bool {
+        matches!(self, JsonRpcResponseBody::Success { .. })
+    }
+
+    pub fn is_err(&self) -> bool {
+        matches!(self, JsonRpcResponseBody::Error { .. })
+    }
+
+    pub fn map<U, F>(self, f: F) -> JsonRpcResponseBody<U>
+    where
+        F: FnOnce(R) -> U,
+    {
+        match self {
+            Self::Success { result } => JsonRpcResponseBody::Success { result: f(result) },
+            Self::Error { error } => JsonRpcResponseBody::Error { error },
+        }
+    }
+
+    pub fn unwrap(self) -> R {
+        match self {
+            Self::Success { result } => result,
+            Self::Error { error } => panic!("Called unwrap on RPC Error: {}", error),
+        }
+    }
+
+    pub fn expect(self, msg: &str) -> R {
+        match self {
+            Self::Success { result } => result,
+            Self::Error { error } => panic!("{}: {}", msg, error),
+        }
     }
 }
 
@@ -242,17 +343,6 @@ pub struct RpcError {
     /// were.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub data: Option<Value>,
-}
-
-impl RpcError {
-    pub fn into_response(self, id: String) -> ResponseObject<serde_json::Value> {
-        ResponseObject {
-            jsonrpc: "2.0".into(),
-            id: id.into(),
-            result: None,
-            error: Some(self),
-        }
-    }
 }
 
 impl RpcError {
@@ -383,17 +473,18 @@ mod test_message_serialization {
                 "id": "unique-id-123"
             }"#;
 
-        let response_object: ResponseObject<SayNameResponse> =
+        let response: JsonRpcResponse<SayNameResponse> =
             serde_json::from_str(json_response).unwrap();
 
-        let response: SayNameResponse = response_object.into_inner().unwrap();
-        let expected_response = SayNameResponse {
-            name: "Satoshi".into(),
-            age: 99,
-            message: "Hello Satoshi!".into(),
-        };
-
-        assert_eq!(response, expected_response);
+        let result = response.into_result().unwrap();
+        assert_eq!(
+            result,
+            SayNameResponse {
+                name: "Satoshi".into(),
+                age: 99,
+                message: "Hello Satoshi!".into(),
+            }
+        );
     }
 
     #[test]
@@ -409,13 +500,9 @@ mod test_message_serialization {
                 "id": "unique-id-123"
             }"#;
 
-        let response_object: ResponseObject<DummyResponse> =
-            serde_json::from_str(json_response).unwrap();
-
-        let response: DummyResponse = response_object.into_inner().unwrap();
-        let expected_response = DummyResponse {};
-
-        assert_eq!(response, expected_response);
+        let response: JsonRpcResponse<DummyResponse> = serde_json::from_str(json_response).unwrap();
+        let result = response.into_result().unwrap();
+        assert_eq!(result, DummyResponse {});
     }
     #[test]
     fn test_error_deserialization() {
@@ -437,22 +524,13 @@ mod test_message_serialization {
                 }
             }"#;
 
-        let response_object: ResponseObject<DummyResponse> =
-            serde_json::from_str(json_response).unwrap();
+        let response: JsonRpcResponse<DummyResponse> = serde_json::from_str(json_response).unwrap();
+        assert!(response.is_err());
 
-        let response = response_object.into_inner();
-        let err = response.unwrap_err();
-        match err {
-            Error::RpcError(err) => {
-                assert_eq!(err.code, -32099);
-                assert_eq!(err.message, "something bad happened");
-                assert_eq!(
-                    err.data,
-                    serde_json::from_str("{\"f1\":\"v1\",\"f2\":2}").unwrap()
-                );
-            }
-            _ => assert!(false),
-        }
+        let err = response.into_result().unwrap_err();
+        assert!(matches!(err, RpcError { .. }));
+        assert_eq!(err.message, "something bad happened");
+        assert_eq!(err.data, Some(serde_json::json!({"f1":"v1","f2":2})));
     }
 
     #[test]

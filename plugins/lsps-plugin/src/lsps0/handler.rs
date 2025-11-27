@@ -1,7 +1,7 @@
 use crate::{
     jsonrpc::server::RequestHandler,
     proto::{
-        jsonrpc::{JsonRpcResponse as _, RequestObject, RpcError},
+        jsonrpc::{JsonRpcResponse, RequestObject, RpcError},
         lsps0::{Lsps0listProtocolsRequest, Lsps0listProtocolsResponse},
     },
     util::unwrap_payload_with_peer_id,
@@ -24,7 +24,7 @@ impl RequestHandler for Lsps0ListProtocolsHandler {
             if self.lsps2_enabled {
                 protocols.push(2);
             }
-            let res = Lsps0listProtocolsResponse { protocols }.into_response(id);
+            let res = JsonRpcResponse::success(Lsps0listProtocolsResponse { protocols }, id);
             let res_vec = serde_json::to_vec(&res).unwrap();
             return Ok(res_vec);
         }
@@ -36,10 +36,7 @@ impl RequestHandler for Lsps0ListProtocolsHandler {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{
-        proto::jsonrpc::{JsonRpcRequest as _, ResponseObject},
-        util::wrap_payload_with_peer_id,
-    };
+    use crate::{proto::jsonrpc::JsonRpcRequest as _, util::wrap_payload_with_peer_id};
     use cln_rpc::primitives::PublicKey;
 
     const PUBKEY: [u8; 33] = [
@@ -67,10 +64,10 @@ mod test {
         let payload = create_wrapped_request(&request);
 
         let result = handler.handle(&payload).await.unwrap();
-        let response: ResponseObject<Lsps0listProtocolsResponse> =
+        let response: JsonRpcResponse<Lsps0listProtocolsResponse> =
             serde_json::from_slice(&result).unwrap();
 
-        let data = response.into_inner().expect("Should have result data");
+        let data = response.into_result().expect("Should have result data");
         assert!(data.protocols.is_empty());
     }
 
@@ -84,10 +81,10 @@ mod test {
         let payload = create_wrapped_request(&request);
 
         let result = handler.handle(&payload).await.unwrap();
-        let response: ResponseObject<Lsps0listProtocolsResponse> =
+        let response: JsonRpcResponse<Lsps0listProtocolsResponse> =
             serde_json::from_slice(&result).unwrap();
 
-        let data = response.into_inner().expect("Should have result data");
+        let data = response.into_result().expect("Should have result data");
         assert_eq!(data.protocols, vec![2]);
     }
 }

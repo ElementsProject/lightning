@@ -1,5 +1,6 @@
 use anyhow::{anyhow, bail};
 use async_trait::async_trait;
+use cln_lsps::jsonrpc::client::Error as CError;
 use cln_lsps::jsonrpc::server::JsonRpcResponseWriter;
 use cln_lsps::jsonrpc::server::JsonRpcServer;
 use cln_lsps::lsps0::handler::Lsps0ListProtocolsHandler;
@@ -184,13 +185,15 @@ pub struct LspsResponseWriter {
 
 #[async_trait]
 impl JsonRpcResponseWriter for LspsResponseWriter {
-    async fn write(&mut self, payload: &[u8]) -> std::result::Result<(), JError> {
+    async fn write(&mut self, payload: &[u8]) -> std::result::Result<(), CError> {
         let mut client = cln_rpc::ClnRpc::new(&self.rpc_path)
             .await
             .map_err(|e| JError::Other(e.to_string()))?;
 
-        transport::send_custommsg(&mut client, payload.to_vec(), self.peer_id)
-            .await
-            .map_err(|e| JError::Other(e.to_string()))
+        Ok(
+            transport::send_custommsg(&mut client, payload.to_vec(), self.peer_id)
+                .await
+                .map_err(|e| JError::Other(e.to_string()))?,
+        )
     }
 }
