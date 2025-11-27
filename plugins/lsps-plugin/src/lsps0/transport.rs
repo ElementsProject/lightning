@@ -1,9 +1,6 @@
 use crate::{
-    jsonrpc::client::Transport,
-    proto::{
-        jsonrpc::{Error, TransportError},
-        lsps0::LSPS0_MESSAGE_TYPE,
-    },
+    jsonrpc::client::{Transport, TransportError},
+    proto::{jsonrpc::Error, lsps0::LSPS0_MESSAGE_TYPE},
 };
 use async_trait::async_trait;
 use cln_plugin::Plugin;
@@ -194,7 +191,7 @@ impl Bolt8Transport {
         timeout: Option<Duration>,
     ) -> Result<Self, Error> {
         let endpoint = cln_rpc::primitives::PublicKey::from_str(endpoint)
-            .map_err(|e| TransportError::Other(e.to_string()))?;
+            .map_err(|e| TransportError::Internal(e.to_string()))?;
         let timeout = timeout.unwrap_or(DEFAULT_TIMEOUT);
         Ok(Self {
             endpoint,
@@ -208,7 +205,7 @@ impl Bolt8Transport {
     async fn connect_to_node(&self) -> Result<ClnRpc, Error> {
         ClnRpc::new(&self.rpc_path)
             .await
-            .map_err(|e| Error::Transport(TransportError::Other(e.to_string())))
+            .map_err(|e| Error::Transport(TransportError::Internal(e.to_string())))
     }
 
     /// Sends a custom message to the destination node.
@@ -224,7 +221,7 @@ impl Bolt8Transport {
         tokio::time::timeout(self.request_timeout, rx.recv())
             .await
             .map_err(|_| Error::Transport(TransportError::Timeout))?
-            .ok_or(Error::Transport(TransportError::Other(String::from(
+            .ok_or(Error::Transport(TransportError::Internal(String::from(
                 "Channel unexpectedly closed",
             ))))
     }
@@ -250,7 +247,7 @@ pub async fn send_custommsg(
         .call_typed(&request)
         .await
         .map_err(|e| {
-            Error::Transport(TransportError::Other(format!(
+            Error::Transport(TransportError::Internal(format!(
                 "Failed to send custom msg: {e}"
             )))
         })
@@ -285,7 +282,7 @@ impl Transport for Bolt8Transport {
         let res = self.wait_for_response(rx).await?;
 
         if res.message_type != LSPS0_MESSAGE_TYPE {
-            return Err(Error::Transport(TransportError::Other(format!(
+            return Err(Error::Transport(TransportError::Internal(format!(
                 "unexpected response message type: expected {}, got {}",
                 LSPS0_MESSAGE_TYPE, res.message_type
             ))));
@@ -293,7 +290,7 @@ impl Transport for Bolt8Transport {
 
         core::str::from_utf8(&res.payload)
             .map_err(|e| {
-                Error::Transport(TransportError::Other(format!(
+                Error::Transport(TransportError::Internal(format!(
                     "failed to decode msg payload {:?}: {}",
                     res.payload, e
                 )))

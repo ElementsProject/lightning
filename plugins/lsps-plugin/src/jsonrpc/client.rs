@@ -1,3 +1,6 @@
+use crate::proto::jsonrpc::{
+    Error, JsonRpcRequest, JsonRpcResponse, RequestObject, ResponseObject, Result,
+};
 use async_trait::async_trait;
 use core::fmt::Debug;
 use log::{debug, error};
@@ -6,10 +9,17 @@ use rand::TryRngCore;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
 use std::sync::Arc;
+use thiserror::Error;
 
-use crate::proto::jsonrpc::{
-    Error, JsonRpcRequest, JsonRpcResponse, RequestObject, ResponseObject, Result,
-};
+/// Transport-specific errors that may occur when sending or receiving JSON-RPC
+/// messages.
+#[derive(Error, Debug)]
+pub enum TransportError {
+    #[error("Timeout")]
+    Timeout,
+    #[error("Internal error: {0}")]
+    Internal(String),
+}
 
 /// Defines the interface for transporting JSON-RPC messages.
 ///
@@ -168,11 +178,10 @@ fn generate_random_id() -> String {
 #[cfg(test)]
 
 mod test_json_rpc {
+    use super::*;
+    use crate::proto::jsonrpc::RpcError;
     use serde::Deserialize;
     use tokio::sync::OnceCell;
-
-    use super::*;
-    use crate::proto::jsonrpc::{self, RpcError};
 
     #[derive(Clone)]
     struct TestTransport {
@@ -198,7 +207,7 @@ mod test_json_rpc {
 
             // Check for error first
             if let Some(err) = &*self.err {
-                return Err(Error::Transport(jsonrpc::TransportError::Other(err.into())));
+                return Err(Error::Transport(TransportError::Internal(err.into())));
             }
 
             // Then check for response
@@ -215,7 +224,7 @@ mod test_json_rpc {
 
             // Check for error
             if let Some(err) = &*self.err {
-                return Err(Error::Transport(jsonrpc::TransportError::Other(err.into())));
+                return Err(Error::Transport(TransportError::Internal(err.into())));
             }
 
             Ok(())
@@ -342,7 +351,7 @@ mod test_json_rpc {
             .expect_err("Expected error response");
         assert!(match res {
             Error::Transport(err) => {
-                assert_eq!(err.to_string(), "Other error: transport error");
+                assert_eq!(err.to_string(), "Internal error: transport error");
                 true
             }
             _ => false,
