@@ -7,14 +7,18 @@
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
 #include <common/configdir.h>
+#include <common/node_id.h>
 #include <common/utils.h>
 #include <db/bindings.h>
 #include <db/common.h>
 #include <db/exec.h>
 #include <db/utils.h>
+#include <plugins/askrene/datastore_wire.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <wallet/datastore.h>
 #include <wallet/migrations.h>
+#include <wire/wire.h>
 
 #define ERROR_DBVERSION 1
 #define ERROR_DBFAIL 2
@@ -26,11 +30,144 @@
 struct db_version {
 	const char *name;
 	size_t db_height;
+	const char *(*downgrade_datastore)(const tal_t *ctx, struct db *db);
 	bool gossip_store_compatible;
 };
 
+struct layer {
+	const char **key;
+	const u8 *data;
+};
+
+static void copy_data(u8 **out, const u8 *in, size_t len)
+{
+	size_t oldlen = tal_bytelen(*out);
+
+	tal_resize(out, oldlen + len);
+	memcpy(*out + oldlen, in, len);
+}
+
+/* askrene added DSTORE_CHANNEL_BIAS_V2 (convertable) and
+ * DSTORE_NODE_BIAS (not convertable) */
+static const char *convert_layer_data(const tal_t *ctx,
+				      const char *layername,
+				      const u8 *data_in,
+				      const u8 **data_out)
+{
+	size_t len = tal_bytelen(data_in);
+	struct node_id n;
+ 	struct short_channel_id scid;
+	struct amount_msat msat, *msat_ptr;
+ 	struct short_channel_id_dir scidd;
+	bool *bool_ptr;
+	u64 timestamp;
+	u32 *u32_ptr;
+	u16 *u16_ptr;
+	s8 bias;
+	const char *string;
+	u8 *out = tal_arr(ctx, u8, 0);
+
+	/* Unfortunately, there are no explicit lengths, so we have
+	 * to read all records even if we don't care about them. */
+	while (len != 0) {
+		enum dstore_layer_type type;
+		const u8 *olddata = data_in;
+		type = fromwire_peektypen(data_in, len);
+
+		switch (type) {
+		/* These are all simply digested and copied */
+		case DSTORE_CHANNEL:
+			if (fromwire_dstore_channel(&data_in, &len,
+						    &n, &n, &scid, &msat))
+				copy_data(&out, data_in, olddata - data_in);
+			continue;
+		case DSTORE_CHANNEL_UPDATE:
+			if (fromwire_dstore_channel_update(tmpctx, &data_in, &len,
+							   &scidd, &bool_ptr,
+							   &msat_ptr, &msat_ptr, &msat_ptr,
+							   &u32_ptr, &u16_ptr))
+				copy_data(&out, data_in, olddata - data_in);
+			continue;
+		case DSTORE_CHANNEL_CONSTRAINT:
+			if (fromwire_dstore_channel_constraint(tmpctx, &data_in, &len,
+							       &scidd, &timestamp,
+							       &msat_ptr, &msat_ptr))
+				copy_data(&out, data_in, olddata - data_in);
+			continue;
+		case DSTORE_CHANNEL_BIAS:
+			if (fromwire_dstore_channel_bias(tmpctx, &data_in, &len,
+							 &scidd, &bias,
+							 &string))
+				copy_data(&out, data_in, olddata - data_in);
+			continue;
+		case DSTORE_DISABLED_NODE:
+			if (fromwire_dstore_disabled_node(&data_in, &len, &n))
+				copy_data(&out, data_in, olddata - data_in);
+			continue;
+
+		/* Convert back, lose timestamp */
+		case DSTORE_CHANNEL_BIAS_V2:
+			if (fromwire_dstore_channel_bias_v2(tmpctx, &data_in, &len,
+							    &scidd, &bias,
+							    &string, &timestamp)) {
+				towire_dstore_channel_bias(&out, &scidd, bias, string);
+			}
+			continue;
+
+		case DSTORE_NODE_BIAS:
+			return "Askrene has a node bias, which is not supported in v25.09";
+		}
+
+		return tal_fmt(ctx, "Unknown askrene layer record %u in %s", type, layername);
+	}
+
+	if (!data_in)
+		return tal_fmt(ctx, "Corrupt askrene layer record for %s", layername);
+
+	*data_out = out;
+	return NULL;
+}
+
+static const char *downgrade_askrene_layers(const tal_t *ctx, struct db *db)
+{
+	const char **base, **k;
+	const u8 *data;
+	struct db_stmt *stmt;
+	struct layer **layers = tal_arr(tmpctx, struct layer *, 0);
+
+	base = tal_arr(tmpctx, const char *, 2);
+	base[0] = "askrene";
+	base[1] = "layers";
+
+	/* Gather and convert */
+	for (stmt = db_datastore_first(tmpctx, db, base,
+				       &k, &data, NULL);
+	     stmt;
+	     stmt = db_datastore_next(tmpctx, stmt, base,
+				      &k, &data, NULL)) {
+		struct layer *layer;
+		const char *err;
+
+		if (!data)
+			continue;
+		layer = tal(layers, struct layer);
+		layer->key = tal_steal(layer, k);
+		err = convert_layer_data(layer, k[2], data, &layer->data);
+		if (err) {
+			tal_free(stmt);
+			return err;
+		}
+		tal_arr_expand(&layers, layer);
+	}
+
+	/* Write back */
+	for (size_t i = 0; i < tal_count(layers); i++)
+		db_datastore_update(db, layers[i]->key, layers[i]->data);
+	return NULL;
+}
+
 static const struct db_version db_versions[] = {
-	{ "v25.09", 276, false },
+	{ "v25.09", 276, downgrade_askrene_layers, false },
 	/* When we implement v25.12 downgrade: { "v25.12", 280, ???}, */
 };
 
@@ -66,7 +203,8 @@ static void opt_log_stderr_exit_usage(const char *fmt, ...)
 int main(int argc, char *argv[])
 {
 	char *config_filename, *base_dir, *net_dir, *rpc_filename, *wallet_dsn = NULL;
-	size_t current, prev_version_height, num_migrations;
+	const struct db_version *prev_version;
+	size_t current, num_migrations;
 	struct db *db;
 	const struct db_migration *migrations;
 	struct db_stmt *stmt;
@@ -99,7 +237,7 @@ int main(int argc, char *argv[])
 	}
 
 	migrations = get_db_migrations(&num_migrations);
-	prev_version_height = version_db(PREV_VERSION)->db_height;
+	prev_version = version_db(PREV_VERSION);
 
 	/* Open db, check it's the expected version */
 	db = db_open(tmpctx, wallet_dsn, false, false, db_error, NULL);
@@ -111,10 +249,10 @@ int main(int argc, char *argv[])
 	db->data_version = db_data_version_get(db);
 	current = db_get_version(db);
 
-	if (current < prev_version_height)
+	if (current < prev_version->db_height)
 		errx(ERROR_DBVERSION, "Database version %zu already less than %zu expected for %s",
-		     current, prev_version_height, PREV_VERSION);
-	if (current == prev_version_height) {
+		     current, prev_version->db_height, PREV_VERSION);
+	if (current == prev_version->db_height) {
 		printf("Already compatible with %s\n", PREV_VERSION);
 		exit(0);
 	}
@@ -123,7 +261,7 @@ int main(int argc, char *argv[])
 		     current, num_migrations, stringify(CLN_NEXT_VERSION));
 
 	/* current version is the last migration we did. */
-	while (current > prev_version_height) {
+	while (current > prev_version->db_height) {
 		if (migrations[current].revertsql) {
 			stmt = db_prepare_v2(db, migrations[current].revertsql);
 			db_exec_prepared_v2(stmt);
@@ -135,6 +273,12 @@ int main(int argc, char *argv[])
 				errx(ERROR_DBFAIL, "Downgrade failed: %s", error);
 		}
 		current--;
+	}
+
+	if (prev_version->downgrade_datastore) {
+		const char *error = prev_version->downgrade_datastore(tmpctx, db);
+		if (error)
+			errx(ERROR_DBFAIL, "Downgrade failed: %s", error);
 	}
 
 	/* Finally update the version number in the version table */

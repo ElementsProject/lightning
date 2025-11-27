@@ -1,6 +1,7 @@
 from fixtures import *  # noqa: F401,F403
 from utils import (
-    TIMEOUT  # noqa: F401
+    TIMEOUT,  # noqa: F401
+    first_scid, only_one,
 )
 
 import os
@@ -8,7 +9,18 @@ import subprocess
 
 
 def test_downgrade(node_factory, executor):
-    l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True})
+    l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True}, wait_for_announce=True)
+
+    bias_scidd = f"{first_scid(l1, l2)}/0"
+    # Create a bias for this channel.
+    l1.rpc.askrene_bias_channel('xpay', bias_scidd, 1)
+    bias = only_one(only_one(l1.rpc.askrene_listlayers('xpay')['layers'])['biases'])
+    assert bias['short_channel_id_dir'] == bias_scidd
+    assert bias['bias'] == 1
+
+    # Make a payment, which means we update layer information.
+    old_inv = l2.rpc.invoice(1000, 'test_downgrade1', 'test_downgrade')
+    l1.rpc.xpay(old_inv['bolt11'])
 
     # From the binary:
     # ERROR_DBVERSION = 1
@@ -45,10 +57,19 @@ def test_downgrade(node_factory, executor):
 
         l1.start()
 
+        # Disable schema checking here: the node is OLD!
+        l1.rpc.jsonschemas = {}
+
         # It should connect to l2 no problems, make payment.
         l1.connect(l2)
         inv = l2.rpc.invoice(1000, 'test_downgrade', 'test_downgrade')
         l1.rpc.xpay(inv['bolt11'])
+
+        # It should see the bias!
+        bias = only_one(only_one(l1.rpc.askrene_listlayers('xpay')['layers'])['biases'])
+        assert bias['short_channel_id_dir'] == bias_scidd
+        assert bias['bias'] == 1
+
         l1.stop()
         l1.daemon.executable = current_executable
 
@@ -63,3 +84,8 @@ def test_downgrade(node_factory, executor):
     l1.connect(l2)
     inv2 = l2.rpc.invoice(1000, 'test_downgrade2', 'test_downgrade2')
     l1.rpc.xpay(inv2['bolt11'])
+
+    # bias still present
+    bias = only_one(only_one(l1.rpc.askrene_listlayers('xpay')['layers'])['biases'])
+    assert bias['short_channel_id_dir'] == bias_scidd
+    assert bias['bias'] == 1
