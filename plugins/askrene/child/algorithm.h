@@ -1,11 +1,11 @@
-#ifndef LIGHTNING_PLUGINS_ASKRENE_ALGORITHM_H
-#define LIGHTNING_PLUGINS_ASKRENE_ALGORITHM_H
+#ifndef LIGHTNING_PLUGINS_ASKRENE_CHILD_ALGORITHM_H
+#define LIGHTNING_PLUGINS_ASKRENE_CHILD_ALGORITHM_H
 
 /* Implementation of network algorithms: shortests path, minimum cost flow, etc.
  */
 
 #include "config.h"
-#include <plugins/askrene/graph.h>
+#include <plugins/askrene/child/graph.h>
 
 /* Search any path from source to destination using Breadth First Search.
  *
@@ -176,4 +176,4 @@ bool mcf_refinement(const tal_t *ctx,
 		    const s64 *cost,
 		    s64 *potential);
 
-#endif /* LIGHTNING_PLUGINS_ASKRENE_ALGORITHM_H */
+#endif /* LIGHTNING_PLUGINS_ASKRENE_CHILD_ALGORITHM_H */
