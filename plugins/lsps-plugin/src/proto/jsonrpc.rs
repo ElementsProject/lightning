@@ -3,6 +3,8 @@ use serde_json::{self, Value};
 use std::fmt;
 use thiserror::Error;
 
+use crate::jsonrpc::client::TransportError;
+
 // Constants for JSON-RPC error codes.
 pub const PARSE_ERROR: i64 = -32700;
 pub const INVALID_REQUEST: i64 = -32600;
@@ -31,16 +33,6 @@ impl Error {
     pub fn other<T: core::fmt::Display>(v: T) -> Self {
         return Self::Other(v.to_string());
     }
-}
-
-/// Transport-specific errors that may occur when sending or receiving JSON-RPC
-/// messages.
-#[derive(Error, Debug)]
-pub enum TransportError {
-    #[error("Timeout")]
-    Timeout,
-    #[error("Other error: {0}")]
-    Other(String),
 }
 
 /// Convenience type alias for Result with the JSON-RPC Error type.

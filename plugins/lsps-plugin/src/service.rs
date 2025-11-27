@@ -1,5 +1,6 @@
 use anyhow::{anyhow, bail};
 use async_trait::async_trait;
+use cln_lsps::jsonrpc::client::TransportError;
 use cln_lsps::jsonrpc::server::JsonRpcResponseWriter;
 use cln_lsps::jsonrpc::server::JsonRpcServer;
 use cln_lsps::lsps0::handler::Lsps0ListProtocolsHandler;
@@ -7,7 +8,7 @@ use cln_lsps::lsps0::transport::{self, CustomMsg};
 use cln_lsps::lsps2;
 use cln_lsps::lsps2::cln::{HtlcAcceptedRequest, HtlcAcceptedResponse};
 use cln_lsps::lsps2::handler::{ClnApiRpc, HtlcAcceptedHookHandler};
-use cln_lsps::proto::jsonrpc::{Error, JsonRpcRequest as _, Result as RpcResult, TransportError};
+use cln_lsps::proto::jsonrpc::{Error, JsonRpcRequest as _, Result as RpcResult};
 use cln_lsps::proto::lsps0::{Lsps0listProtocolsRequest, LSPS0_MESSAGE_TYPE};
 use cln_lsps::proto::lsps2::{Lsps2BuyRequest, Lsps2GetInfoRequest};
 use cln_lsps::util::wrap_payload_with_peer_id;
@@ -187,7 +188,7 @@ impl JsonRpcResponseWriter for LspsResponseWriter {
     async fn write(&mut self, payload: &[u8]) -> RpcResult<()> {
         let mut client = cln_rpc::ClnRpc::new(&self.rpc_path)
             .await
-            .map_err(|e| Error::Transport(TransportError::Other(e.to_string())))?;
+            .map_err(|e| Error::Transport(TransportError::Internal(e.to_string())))?;
         transport::send_custommsg(&mut client, payload.to_vec(), self.peer_id).await
     }
 }
