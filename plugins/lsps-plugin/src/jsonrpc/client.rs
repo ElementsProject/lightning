@@ -1,5 +1,5 @@
 use crate::proto::jsonrpc::{
-    Error, JsonRpcRequest, JsonRpcResponse, RequestObject, ResponseObject, Result,
+    Error as JsonRpcError, JsonRpcRequest, JsonRpcResponse, RequestObject, ResponseObject,
 };
 use async_trait::async_trait;
 use core::fmt::Debug;
@@ -14,12 +14,27 @@ use thiserror::Error;
 /// Transport-specific errors that may occur when sending or receiving JSON-RPC
 /// messages.
 #[derive(Error, Debug)]
-pub enum TransportError {
+pub enum Error {
     #[error("Timeout")]
     Timeout,
     #[error("Internal error: {0}")]
     Internal(String),
+    #[error("Got JSON-RPC error")]
+    JsonRpcError(#[from] JsonRpcError),
+    #[error("Couldn't parse JSON-RPC request")]
+    ParseRequest {
+        #[source]
+        source: serde_json::Error,
+    },
 }
+
+impl From<serde_json::Error> for Error {
+    fn from(value: serde_json::Error) -> Self {
+        Self::ParseRequest { source: value }
+    }
+}
+
+pub type Result<T> = std::result::Result<T, Error>;
 
 /// Defines the interface for transporting JSON-RPC messages.
 ///
@@ -60,7 +75,7 @@ impl<T: Transport> JsonRpcClient<T> {
             id: Some(id.clone().into()),
         };
         let res_obj = self.send_request(method, &request, id).await?;
-        Value::from_response(res_obj)
+        Ok(Value::from_response(res_obj)?)
     }
 
     /// Makes a typed JSON-RPC method call with a request object and returns a
@@ -79,7 +94,7 @@ impl<T: Transport> JsonRpcClient<T> {
         debug!("Preparing request: method={}, id={}", method, id);
         let request = request.into_request(Some(id.clone().into()));
         let res_obj = self.send_request(method, &request, id).await?;
-        RS::from_response(res_obj)
+        Ok(RS::from_response(res_obj)?)
     }
 
     /// Sends a notification with raw JSON parameters (no response expected).
@@ -207,7 +222,7 @@ mod test_json_rpc {
 
             // Check for error first
             if let Some(err) = &*self.err {
-                return Err(Error::Transport(TransportError::Internal(err.into())));
+                return Err(Error::Internal(err.into()));
             }
 
             // Then check for response
@@ -224,7 +239,7 @@ mod test_json_rpc {
 
             // Check for error
             if let Some(err) = &*self.err {
-                return Err(Error::Transport(TransportError::Internal(err.into())));
+                return Err(Error::Internal(err.into()));
             }
 
             Ok(())
@@ -322,17 +337,11 @@ mod test_json_rpc {
             .call_typed::<_, DummyResponse>(req)
             .await
             .expect_err("Expected error response");
-        assert!(match res {
-            Error::Rpc(rpc_error) => {
-                assert_eq!(rpc_error, err_res);
-                true
-            }
-            _ => false,
-        });
+        assert!(matches!(res, Error::JsonRpcError(..)));
     }
 
     #[tokio::test]
-    async fn test_typed_call_w_transport_error() {
+    async fn test_typed_call_w_internal_error() {
         let req = DummyCall {
             foo: "hello world!".into(),
             bar: 13,
@@ -349,12 +358,6 @@ mod test_json_rpc {
             .call_typed::<_, DummyResponse>(req)
             .await
             .expect_err("Expected error response");
-        assert!(match res {
-            Error::Transport(err) => {
-                assert_eq!(err.to_string(), "Internal error: transport error");
-                true
-            }
-            _ => false,
-        });
+        assert!(matches!(res, Error::Internal(..)));
     }
 }
