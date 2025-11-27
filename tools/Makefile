@@ -23,7 +23,9 @@ tools/lightning-downgrade:			\
 	db/exec.o				\
 	db/bindings.o				\
 	db/utils.o				\
+	wallet/datastore.o			\
 	wallet/migrations.o			\
+	plugins/askrene/datastore_wire.o	\
 	$(DB_OBJS)				\
 	$(WALLET_DB_QUERIES:.c=.o)		\
 	tools/lightning-downgrade.o
