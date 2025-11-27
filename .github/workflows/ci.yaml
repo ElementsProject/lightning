@@ -235,6 +235,86 @@ jobs:
           ./configure --enable-debugbuild --enable-fuzzing --enable-address-sanitizer --enable-ub-sanitizer --disable-valgrind CC=clang
           uv run make -j $(nproc) check-fuzz
 
+  check-downgrade:
+    name: Check we can downgrade the node
+    runs-on: ubuntu-22.04
+    needs:
+      - compile
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - CFG: compile-gcc
+            TEST_DB_PROVIDER: sqlite3
+            TEST_NETWORK: regtest
+            VALGRIND: 1
+          - CFG: compile-gcc
+            TEST_DB_PROVIDER: postgres
+            TEST_NETWORK: regtest
+          - CFG: compile-gcc
+            TEST_DB_PROVIDER: sqlite3
+            TEST_NETWORK: liquid-regtest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: |
+          bash -x .github/scripts/setup.sh
+
+      - name: Install bitcoind
+        env:
+          TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
+        run: .github/scripts/install-bitcoind.sh
+
+      - name: Download build
+        uses: actions/download-artifact@v4
+        with:
+          name: cln-${{ matrix.CFG }}.tar.bz2
+
+      - name: Unpack pre-built CLN
+        env:
+          CFG: ${{ matrix.CFG }}
+        run: |
+          tar -xaf cln-${CFG}.tar.bz2
+
+      - name: Fetch and unpack previous CLN
+        run: |
+          mkdir /tmp/old-cln
+          cd /tmp/old-cln
+          wget https://github.com/ElementsProject/lightning/releases/download/v25.09/clightning-v25.09-Ubuntu-22.04-amd64.tar.xz
+          tar -xaf clightning-v25.09-Ubuntu-22.04-amd64.tar.xz
+
+      - name: Switch network
+        if: ${{ matrix.TEST_NETWORK == 'liquid-regtest' }}
+        run: |
+          # Loading the network from config.vars rather than the envvar is a terrible idea...
+          sed -i 's/TEST_NETWORK=regtest/TEST_NETWORK=liquid-regtest/g' config.vars
+          cat config.vars
+
+      - name: Test
+        env:
+          SLOW_MACHINE: 1
+          PYTEST_PAR: 10
+          TEST_DEBUG: 1
+          TEST_DB_PROVIDER: ${{ matrix.TEST_DB_PROVIDER }}
+          TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
+          LIGHTNINGD_POSTGRES_NO_VACUUM: 1
+          VALGRIND: ${{ matrix.VALGRIND }}
+          PREV_LIGHTNINGD: /tmp/old-cln/usr/bin/lightningd
+        run: |
+          env
+          cat config.vars
+          uv run eatmydata pytest tests/test_downgrade.py -vvv -n ${PYTEST_PAR} ${PYTEST_OPTS}
+
   integration:
     name: Test CLN ${{ matrix.name }}
     runs-on: ubuntu-22.04
@@ -627,6 +707,7 @@ jobs:
       - integration-valgrind
       - integration-sanitizers
       - min-btc-support
+      - check-downgrade
     if: ${{ always() }}
     steps:
       - name: Complete
@@ -638,6 +719,7 @@ jobs:
           SANITIZERS: ${{ needs['integration-sanitizers'].result }}
           DOCS: ${{ needs['update-docs-examples'].result }}
           BTC: ${{ needs['min-btc-support'].result }}
+          CHECK_DOWNGRADE: ${{ needs['check-downgrade'].result }}
         run: |
           failed=""
           for name in $JOB_NAMES; do
