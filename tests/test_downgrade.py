@@ -7,6 +7,29 @@ from utils import (
 import os
 import subprocess
 
+# From the binary:
+# ERROR_DBVERSION = 1
+ERROR_DBFAIL = 2
+ERROR_USAGE = 3
+# ERROR_INTERNAL = 99
+
+
+def downgrade_cmdline(node):
+    # lightning-downgrade understands a subset of the options
+    # to lightningd.
+    downgrade_opts = []
+    for o in node.daemon.opts:
+        if o in ('network', 'lightning-dir', 'conf', 'rpc-file', 'wallet'):
+            if node.daemon.opts[o] is None:
+                downgrade_opts.append(f"--{o}")
+            else:
+                downgrade_opts.append(f"--{o}={node.daemon.opts[o]}")
+
+    cmd_line = ["tools/lightning-downgrade"] + downgrade_opts
+    if os.getenv("VALGRIND") == "1":
+        cmd_line = ['valgrind', '-q', '--error-exitcode=7'] + cmd_line
+    return cmd_line
+
 
 def test_downgrade(node_factory, executor):
     l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True}, wait_for_announce=True)
@@ -22,25 +45,7 @@ def test_downgrade(node_factory, executor):
     old_inv = l2.rpc.invoice(1000, 'test_downgrade1', 'test_downgrade')
     l1.rpc.xpay(old_inv['bolt11'])
 
-    # From the binary:
-    # ERROR_DBVERSION = 1
-    # ERROR_DBFAIL = 2
-    ERROR_USAGE = 3
-    # ERROR_INTERNAL = 99
-
-    # lightning-downgrade understands a subset of the options
-    # to lightningd.
-    downgrade_opts = []
-    for o in l1.daemon.opts:
-        if o in ('network', 'lightning-dir', 'conf', 'rpc-file', 'wallet'):
-            if l1.daemon.opts[o] is None:
-                downgrade_opts.append(f"--{o}")
-            else:
-                downgrade_opts.append(f"--{o}={l1.daemon.opts[o]}")
-
-    cmd_line = ["tools/lightning-downgrade"] + downgrade_opts
-    if os.getenv("VALGRIND") == "1":
-        cmd_line = ['valgrind', '-q', '--error-exitcode=7'] + cmd_line
+    cmd_line = downgrade_cmdline(l1)
 
     # No downgrade on live nodes!
     retcode = subprocess.call(cmd_line, timeout=TIMEOUT)
@@ -89,3 +94,19 @@ def test_downgrade(node_factory, executor):
     bias = only_one(only_one(l1.rpc.askrene_listlayers('xpay')['layers'])['biases'])
     assert bias['short_channel_id_dir'] == bias_scidd
     assert bias['bias'] == 1
+
+
+def test_downgrade_fail(node_factory, executor):
+    """If we have created as node bias, we cannot downgrade"""
+    l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True}, wait_for_announce=True)
+
+    l1.rpc.askrene_bias_node('xpay', l2.info['id'], 'in', 1)
+    cmd_line = downgrade_cmdline(l1)
+
+    l1.stop()
+
+    p = subprocess.Popen(cmd_line, stdout=subprocess.DEVNULL,
+                         stderr=subprocess.PIPE)
+    _, err = p.communicate(timeout=TIMEOUT)
+    assert p.returncode == ERROR_DBFAIL
+    assert 'Askrene has a node bias, which is not supported in v25.09' in err.decode('utf-8')
