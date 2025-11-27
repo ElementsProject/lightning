@@ -1274,10 +1274,10 @@ def write_all(fd, bytestr):
 class HsmTool(TailableProc):
     """Helper for testing the hsmtool as a subprocess"""
     def __init__(self, directory, *args):
-        self.prefix = "hsmtool"
-        TailableProc.__init__(self, os.path.join(directory, "hsmtool"))
+        self.prefix = "lightning-hsmtool"
+        TailableProc.__init__(self, os.path.join(directory, "lightning-hsmtool"))
         assert hasattr(self, "env")
-        self.cmd_line = ["tools/hsmtool", *args]
+        self.cmd_line = ["tools/lightning-hsmtool", *args]
 
 
 @unittest.skipIf(VALGRIND, "It does not play well with prompt and key derivation.")
@@ -1337,7 +1337,7 @@ def test_hsmtool_dump_descriptors(node_factory, bitcoind):
     l1.fundwallet(10**6)
     # Get a tpub descriptor of lightningd's wallet
     hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
-    cmd_line = ["tools/hsmtool", "dumponchaindescriptors", hsm_path, "testnet"]
+    cmd_line = ["tools/lightning-hsmtool", "dumponchaindescriptors", hsm_path, "testnet"]
     descriptors = subprocess.check_output(cmd_line).decode("utf8").split("\n")
 
     # Deprecated or empty line
@@ -1653,7 +1653,7 @@ def test_hsmtool_all_commands_work_with_mnemonic_formats(node_factory):
     ]
 
     for cmd_args, expected_output in test_commands:
-        cmd_line = ["tools/hsmtool"] + cmd_args
+        cmd_line = ["tools/lightning-hsmtool"] + cmd_args
         out = subprocess.check_output(cmd_line).decode("utf8")
         actual_output = out.strip()
         assert actual_output == expected_output, f"Command {cmd_args[0]} output mismatch"
@@ -1711,7 +1711,7 @@ def test_hsmtool_deterministic_node_ids(node_factory):
     assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
 
     # Get the node ID from the generated hsm_secret
-    cmd_line = ["tools/hsmtool", "getnodeid", hsm_path2]
+    cmd_line = ["tools/lightning-hsmtool", "getnodeid", hsm_path2]
     generated_node_id = subprocess.check_output(cmd_line).decode("utf8").strip()
 
     # Verify both node IDs are identical
@@ -2410,7 +2410,7 @@ def test_upgradewallet(node_factory, bitcoind):
 def test_hsmtool_getnodeid(node_factory):
     l1 = node_factory.get_node()
 
-    cmd_line = ["tools/hsmtool", "getnodeid", os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")]
+    cmd_line = ["tools/lightning-hsmtool", "getnodeid", os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")]
     out = subprocess.check_output(cmd_line).decode('utf-8').strip()
     assert out == l1.info['id']
 

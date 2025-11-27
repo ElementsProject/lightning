@@ -1671,7 +1671,7 @@ def test_askrene_fake_channeld(node_factory, bitcoind):
     hsmfile = os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
     # Needs peer node id and channel dbid (1, it's the first channel), prints out:
     # "shaseed: xxxxxxx\n"
-    shaseed = subprocess.check_output(["tools/hsmtool", "dumpcommitments", l1.info['id'], "1", "0", hsmfile]).decode('utf-8').strip().partition(": ")[2]
+    shaseed = subprocess.check_output(["tools/lightning-hsmtool", "dumpcommitments", l1.info['id'], "1", "0", hsmfile]).decode('utf-8').strip().partition(": ")[2]
     l1.rpc.dev_peer_shachain(l2.info['id'], shaseed)
 
     TEMPORARY_CHANNEL_FAILURE = 0x1007

@@ -40,7 +40,7 @@ def test_pay_fakenet(node_factory):
     hsmfile = os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
     # Needs peer node id and channel dbid (1, it's the first channel), prints out:
     # "shaseed: xxxxxxx\n"
-    shaseed = subprocess.check_output(["tools/hsmtool", "dumpcommitments", l1.info['id'], "1", "0", hsmfile]).decode('utf-8').strip().partition(": ")[2]
+    shaseed = subprocess.check_output(["tools/lightning-hsmtool", "dumpcommitments", l1.info['id'], "1", "0", hsmfile]).decode('utf-8').strip().partition(": ")[2]
     l1.rpc.dev_peer_shachain(l2.info['id'], shaseed)
 
     # Failure from final (unknown payment hash)
@@ -247,7 +247,7 @@ def test_xpay_fake_channeld(node_factory, bitcoind, chainparams, slow_mode):
     hsmfile = os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
     # Needs peer node id and channel dbid (1, it's the first channel), prints out:
     # "shaseed: xxxxxxx\n"
-    shaseed = subprocess.check_output(["tools/hsmtool", "dumpcommitments", l1.info['id'], "1", "0", hsmfile]).decode('utf-8').strip().partition(": ")[2]
+    shaseed = subprocess.check_output(["tools/lightning-hsmtool", "dumpcommitments", l1.info['id'], "1", "0", hsmfile]).decode('utf-8').strip().partition(": ")[2]
     l1.rpc.dev_peer_shachain(l2.info['id'], shaseed)
 
     # Toggle whether we wait for all the parts to finish.
@@ -564,7 +564,7 @@ def test_xpay_maxfee(node_factory, bitcoind, chainparams):
     hsmfile = os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
     # Needs peer node id and channel dbid (1, it's the first channel), prints out:
     # "shaseed: xxxxxxx\n"
-    shaseed = subprocess.check_output(["tools/hsmtool", "dumpcommitments", l1.info['id'], "1", "0", hsmfile]).decode('utf-8').strip().partition(": ")[2]
+    shaseed = subprocess.check_output(["tools/lightning-hsmtool", "dumpcommitments", l1.info['id'], "1", "0", hsmfile]).decode('utf-8').strip().partition(": ")[2]
     l1.rpc.dev_peer_shachain(l2.info['id'], shaseed)
 
     # This one triggers the bug!

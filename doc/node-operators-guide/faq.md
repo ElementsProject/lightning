@@ -159,7 +159,7 @@ There are 3 types of 'rescans' you can make:
 
 ### Database corruption / channel state lost
 
-If you lose data (likely corrupted `lightningd.sqlite3`) about a channel **with `option_static_remotekey` enabled**, you can wait for your peer to unilateraly close the channel, then use `tools/hsmtool` with the `guesstoremote` command to attempt to recover your funds from the peer's published unilateral close transaction.
+If you lose data (likely corrupted `lightningd.sqlite3`) about a channel **with `option_static_remotekey` enabled**, you can wait for your peer to unilateraly close the channel, then use `tools/lightning-hsmtool` with the `guesstoremote` command to attempt to recover your funds from the peer's published unilateral close transaction.
 
 If `option_static_remotekey` was not enabled, you're probably out of luck. The keys for your funds in your peer's unilateral close transaction are derived from information you lost. Fortunately, since version `0.7.3` channels are created with `option_static_remotekey` by default if your peer supports it. Which is to say that channels created after block [598000](https://blockstream.info/block/0000000000000000000dd93b8fb5c622b9c903bf6f921ef48e266f0ead7faedb)  
 (short channel id starting with > 598000) have a high chance of supporting `option_static_remotekey`. You can verify it using the `features` field from the [`listpeers` command](ref:listpeers)'s result.
