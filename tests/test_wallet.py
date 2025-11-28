@@ -4,9 +4,9 @@ from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from pyln.client import RpcError, Millisatoshi
 from utils import (
-    only_one, wait_for, sync_blockheight,
+    only_one, wait_for, sync_blockheight, mine_funding_to_announce,
     VALGRIND, check_coin_moves, TailableProc, scriptpubkey_addr,
-    check_utxos_channel, check_feerate, did_short_sig
+    check_utxos_channel, check_feerate, did_short_sig, first_scid,
 )
 
 import os
@@ -2536,3 +2536,48 @@ def test_hsm_wrong_passphrase_crash(node_factory):
 
     os.close(master_fd2)
     os.close(slave_fd2)
+
+
+@pytest.mark.xfail(strict=True)
+def test_unspend_during_reorg(node_factory, bitcoind):
+    l1, l2 = node_factory.line_graph(2)
+    scid = first_scid(l1, l2)
+    blockheight, txindex, _ = scid.split('x')
+
+    # Use mainnet settings for rescan.
+    l3 = node_factory.get_node(options={'rescan': 15})
+    l3.connect(l2)
+
+    mine_funding_to_announce(bitcoind, [l1, l2, l3])
+    bitcoind.generate_block(20)
+    sync_blockheight(bitcoind, [l3])
+    wait_for(lambda: len(l3.rpc.listchannels()['channels']) == 2)
+
+    # db shows it unspent.
+    assert only_one(l1.db_query(f"SELECT spendheight as spendheight FROM utxoset WHERE blockheight={blockheight} AND txindex={txindex}"))['spendheight'] is None
+
+    # Now, l3 sees the close, marks channel dying.
+    l1.rpc.close(l2.info['id'])
+    spentheight = bitcoind.rpc.getblockcount() + 1
+    bitcoind.generate_block(14, wait_for_mempool=1)
+    wait_for(lambda: len(l3.rpc.listchannels()['channels']) == 2)
+
+    # In one fell swoop it goes through dying, to dead (12 blocks)
+    l3.daemon.wait_for_log(f"Adding block {spentheight}")
+    l3.daemon.wait_for_log(f"gossipd: channel {scid} closing soon due to the funding outpoint being spent")
+    l3.daemon.wait_for_log(f"gossipd: Deleting channel {scid} due to the funding outpoint being spent")
+
+    # db shows it spent
+    assert only_one(l3.db_query(f"SELECT spendheight as spendheight FROM utxoset WHERE blockheight={blockheight} AND txindex={txindex}"))['spendheight'] == spentheight
+
+    # Restart, see replay.
+    l3.stop()
+    # This is enough to take channel from dying to dead.
+    bitcoind.generate_block(10)
+
+    l3.start()
+    # Channel should still be dead.
+    l3.daemon.wait_for_log(f"Adding block {spentheight}")
+
+    sync_blockheight(bitcoind, [l3])
+    assert only_one(l3.db_query(f"SELECT spendheight as spendheight FROM utxoset WHERE blockheight={blockheight} AND txindex={txindex}"))['spendheight'] == spentheight
