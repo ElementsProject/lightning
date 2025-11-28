@@ -2554,6 +2554,22 @@ u32 wallet_blocks_maxheight(struct wallet *w)
 	return max;
 }
 
+u32 wallet_blocks_minheight(struct wallet *w)
+{
+	u32 min = 0;
+	struct db_stmt *stmt = db_prepare_v2(w->db, SQL("SELECT MIN(height) FROM blocks;"));
+	db_query_prepared(stmt);
+
+	/* If we ever processed a block we'll get the latest block in the chain */
+	if (db_step(stmt)) {
+		if (!db_col_is_null(stmt, "MIN(height)")) {
+			min = db_col_int(stmt, "MIN(height)");
+		}
+	}
+	tal_free(stmt);
+	return min;
+}
+
 static void wallet_channel_config_insert(struct wallet *w,
 					 struct channel_config *cc)
 {
