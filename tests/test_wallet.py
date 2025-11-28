@@ -4,9 +4,9 @@ from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from pyln.client import RpcError, Millisatoshi
 from utils import (
-    only_one, wait_for, sync_blockheight,
+    only_one, wait_for, sync_blockheight, mine_funding_to_announce,
     VALGRIND, check_coin_moves, TailableProc, scriptpubkey_addr,
-    check_utxos_channel, check_feerate, did_short_sig
+    check_utxos_channel, check_feerate, did_short_sig, first_scid,
 )
 
 import os
@@ -1907,3 +1907,101 @@ def test_old_htlcs_cleanup(node_factory, bitcoind):
     # Now they're not
     assert l1.db_query('SELECT COUNT(*) as c FROM channel_htlcs')[0]['c'] == 0
     assert l1.rpc.listhtlcs() == {'htlcs': []}
+
+
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Makes use of the sqlite3 db")
+@unittest.skipIf(TEST_NETWORK != 'regtest', "sqlite3 snapshot is regtest")
+def test_pending_payments_cleanup(node_factory, bitcoind):
+    bitcoind.generate_block(1)
+    l1 = node_factory.get_node(dbfile='l1-pending-sendpays-with-no-htlc.sqlite3.xz', options={'database-upgrade': True})
+    assert [p['status'] for p in l1.rpc.listsendpays()['payments']] == ['failed', 'pending']
+    assert [p['status'] for p in l1.rpc.listpays()['pays']] == ['pending']
+
+
+@unittest.skipIf(VALGRIND, "It does not play well with prompt and key derivation.")
+def test_hsm_wrong_passphrase_crash(node_factory):
+    """Test that hsmd handles wrong passphrase gracefully without crashing.
+
+    This test reproduces a bug where hsmd would crash with "HSM sent unknown message type"
+    when a wrong passphrase was provided. The issue was that hsmd_send_init_reply_failure
+    was using write_all() instead of wire_sync_write(), missing the length prefix.
+    """
+    l1 = node_factory.get_node(start=False, expect_fail=True)
+    hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
+    os.remove(hsm_path)
+
+    # Create hsm_secret with a passphrase
+    passphrase = "correct_passphrase"
+    mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+
+    hsmtool = HsmTool(node_factory.directory, "generatehsm", hsm_path)
+    master_fd, slave_fd = os.openpty()
+    hsmtool.start(stdin=slave_fd)
+    hsmtool.wait_for_log(r"Introduce your BIP39 word list")
+    write_all(master_fd, f"{mnemonic}\n".encode("utf-8"))
+    hsmtool.wait_for_log(r"Enter your passphrase:")
+    write_all(master_fd, f"{passphrase}\n".encode("utf-8"))
+    assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
+    os.close(master_fd)
+    os.close(slave_fd)
+
+    # Try to start with wrong passphrase
+    l1.daemon.opts["hsm-passphrase"] = None
+    master_fd2, slave_fd2 = os.openpty()
+    l1.daemon.start(stdin=slave_fd2, wait_for_initialized=False, stderr_redir=True)
+    l1.daemon.wait_for_log("Enter hsm_secret passphrase:")
+    write_all(master_fd2, "wrong_passphrase\n".encode("utf-8"))
+
+    # Should fail gracefully with proper error message, not "unknown message type"
+    l1.daemon.wait()
+    assert l1.daemon.is_in_stderr("Failed to load hsm_secret: Wrong passphrase")
+    assert not l1.daemon.is_in_stderr("HSM sent unknown message type")
+    assert not l1.daemon.is_in_stderr("send_backtrace")  # No backtrace for user error
+
+    os.close(master_fd2)
+    os.close(slave_fd2)
+
+
+@pytest.mark.xfail(strict=True)
+def test_unspend_during_reorg(node_factory, bitcoind):
+    l1, l2 = node_factory.line_graph(2)
+    scid = first_scid(l1, l2)
+    blockheight, txindex, _ = scid.split('x')
+
+    # Use mainnet settings for rescan.
+    l3 = node_factory.get_node(options={'rescan': 15})
+    l3.connect(l2)
+
+    mine_funding_to_announce(bitcoind, [l1, l2, l3])
+    bitcoind.generate_block(20)
+    sync_blockheight(bitcoind, [l3])
+    wait_for(lambda: len(l3.rpc.listchannels()['channels']) == 2)
+
+    # db shows it unspent.
+    assert only_one(l1.db_query(f"SELECT spendheight as spendheight FROM utxoset WHERE blockheight={blockheight} AND txindex={txindex}"))['spendheight'] is None
+
+    # Now, l3 sees the close, marks channel dying.
+    l1.rpc.close(l2.info['id'])
+    spentheight = bitcoind.rpc.getblockcount() + 1
+    bitcoind.generate_block(14, wait_for_mempool=1)
+    wait_for(lambda: len(l3.rpc.listchannels()['channels']) == 2)
+
+    # In one fell swoop it goes through dying, to dead (12 blocks)
+    l3.daemon.wait_for_log(f"Adding block {spentheight}")
+    l3.daemon.wait_for_log(f"gossipd: channel {scid} closing soon due to the funding outpoint being spent")
+    l3.daemon.wait_for_log(f"gossipd: Deleting channel {scid} due to the funding outpoint being spent")
+
+    # db shows it spent
+    assert only_one(l3.db_query(f"SELECT spendheight as spendheight FROM utxoset WHERE blockheight={blockheight} AND txindex={txindex}"))['spendheight'] == spentheight
+
+    # Restart, see replay.
+    l3.stop()
+    # This is enough to take channel from dying to dead.
+    bitcoind.generate_block(10)
+
+    l3.start()
+    # Channel should still be dead.
+    l3.daemon.wait_for_log(f"Adding block {spentheight}")
+
+    sync_blockheight(bitcoind, [l3])
+    assert only_one(l3.db_query(f"SELECT spendheight as spendheight FROM utxoset WHERE blockheight={blockheight} AND txindex={txindex}"))['spendheight'] == spentheight
