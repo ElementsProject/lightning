@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [25.12rc1] - 2025-11-25: "Boltz's Seamless Upgrade Experience"
+## [25.12rc2] - 2025-11-28: "Boltz's Seamless Upgrade Experience"
 
 Release Candidate for Core Lightning v25.12
 
@@ -16,6 +16,7 @@ This release named by @sangbida
  - JSON-RPC: `fundchannel_complete` new parameter `withhold` for zero-conf channels (default false). ([#8546])
  - Plugins: `xpay` will now wait if it suspects a payment failure is due to a height disagreement with the final node. ([#8645])
  - Tools: `lightning-hsmtool` now supports hsm_secret files using a 12-word mnemonic. ([#8400])
+ - Tools: `lightningd-downgrade` can downgrade your database from v25.12 to v25.09 if something goes wrong. ([#8702])
  - JSON-RPC: `askrene-bias-node`: an RPC command to set a bias on node's outgoing or incoming channels. ([#8608])
  - JSON-RPC: `listpeerchannels` `funding` object `withheld` flag, and `listclosedchannels` `funding_withheld` flags, indicating fundchannel_complete was called with the `withheld` parameter true. ([#8546])
  - JSON-RPC: `psbt` field in `funding` in listpeerchannels, and `funding_psbt` in listclosedchannels. ([#8546])
@@ -93,6 +94,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - Splicing: Fixed crash when we splice a channel which hasn't been announced yet. ([#8555])
  - JSON-RPC: `cancelrecurringinvoice` command to send new "don't expect any more invoice requests" msg to recurring bolt12 invoices. ([#8398])
 
+[#8702]: https://github.com/ElementsProject/lightning/pull/8702
 [#8506]: https://github.com/ElementsProject/lightning/pull/8506
 [#8646]: https://github.com/ElementsProject/lightning/pull/8646
 [#8546]: https://github.com/ElementsProject/lightning/pull/8546
@@ -131,7 +133,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#8651]: https://github.com/ElementsProject/lightning/pull/8651
 [#8561]: https://github.com/ElementsProject/lightning/pull/8561
 [#8302]: https://github.com/ElementsProject/lightning/pull/8302
-[v25.12rc1]: https://github.com/ElementsProject/lightning/releases/tag/v25.12rc1
+[v25.12rc2]: https://github.com/ElementsProject/lightning/releases/tag/v25.12rc2
 
 
 ## [25.09.3] - 2025-11-06: "Hot Wallet Guardian IV"
