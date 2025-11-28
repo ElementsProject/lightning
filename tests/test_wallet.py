@@ -2538,7 +2538,6 @@ def test_hsm_wrong_passphrase_crash(node_factory):
     os.close(slave_fd2)
 
 
-@pytest.mark.xfail(strict=True)
 def test_unspend_during_reorg(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2)
     scid = first_scid(l1, l2)

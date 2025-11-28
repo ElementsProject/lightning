@@ -180,11 +180,28 @@ static void our_addresses_init(struct wallet *w)
 	w->our_addresses_maxindex = w->keyscan_gap;
 }
 
-static void outpointfilters_init(struct wallet *w)
+/* Idempotent: outpointfilter_add is a noop if it already exists. */
+static void refill_outpointfilters(struct wallet *w)
 {
 	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(
+	    w->db,
+	    SQL("SELECT txid, outnum FROM utxoset WHERE spendheight is NULL"));
+	db_query_prepared(stmt);
+
+	while (db_step(stmt)) {
+		struct bitcoin_outpoint outpoint;
+		db_col_txid(stmt, "txid", &outpoint.txid);
+		outpoint.n = db_col_int(stmt, "outnum");
+		outpointfilter_add(w->utxoset_outpoints, &outpoint);
+	}
+	tal_free(stmt);
+}
+
+static void outpointfilters_init(struct wallet *w)
+{
 	struct utxo **utxos = wallet_get_all_utxos(NULL, w);
-	struct bitcoin_outpoint outpoint;
 
 	w->owned_outpoints = outpointfilter_new(w);
 	for (size_t i = 0; i < tal_count(utxos); i++)
@@ -193,17 +210,7 @@ static void outpointfilters_init(struct wallet *w)
 	tal_free(utxos);
 
 	w->utxoset_outpoints = outpointfilter_new(w);
-	stmt = db_prepare_v2(
-	    w->db,
-	    SQL("SELECT txid, outnum FROM utxoset WHERE spendheight is NULL"));
-	db_query_prepared(stmt);
-
-	while (db_step(stmt)) {
-		db_col_txid(stmt, "txid", &outpoint.txid);
-		outpoint.n = db_col_int(stmt, "outnum");
-		outpointfilter_add(w->utxoset_outpoints, &outpoint);
-	}
-	tal_free(stmt);
+	refill_outpointfilters(w);
 }
 
 struct wallet *wallet_new(struct lightningd *ld, struct timers *timers)
@@ -4867,6 +4874,9 @@ void wallet_block_remove(struct wallet *w, struct block *b)
 	db_query_prepared(stmt);
 	assert(!db_step(stmt));
 	tal_free(stmt);
+
+	/* We might need to watch more now-unspent UTXOs */
+	refill_outpointfilters(w);
 }
 
 void wallet_blocks_rollback(struct wallet *w, u32 height)
@@ -4875,6 +4885,7 @@ void wallet_blocks_rollback(struct wallet *w, u32 height)
 							"WHERE height > ?"));
 	db_bind_int(stmt, height);
 	db_exec_prepared_v2(take(stmt));
+	refill_outpointfilters(w);
 }
 
 bool wallet_outpoint_spend(const tal_t *ctx, struct wallet *w, const u32 blockheight,
