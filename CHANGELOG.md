@@ -59,9 +59,11 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 
 ### Fixed
 
+ - lightningd: we could miss tx spends which happened in the past blocks when we restarted. ([#8735])
  - lightningd: multiple significant speedups for large nodes, especially preventing "freezes" under exceptionally high load. ([#8677])
  - `xpay` will not try to send too many HTLCs through unknown channels (6, as that is Phoenix's limit) unless it has no choice ([#8537])
  - `xpay` fixed clash with simultaneous payments via routehints and blinded paths. ([#8685])
+ - `xpay`: error messages no longer incorrectly label intermediate channels as "the invoice's route hint". ([#8741])
  - JSON-RPC: `signpsbt` no longer crashes if asked to sign an already-signed PSBT with taproot paths. ([#8546])
  - Offers: require peers for blinded paths to have `option_onion_messages`, due to reports of LND not forwarding our blinded payments correctly. ([#8682])
  - Protocol: we now re-transmit unseen funding transactions on startup, for more robustness. ([#8546])
@@ -94,6 +96,9 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - Splicing: Fixed crash when we splice a channel which hasn't been announced yet. ([#8555])
  - JSON-RPC: `cancelrecurringinvoice` command to send new "don't expect any more invoice requests" msg to recurring bolt12 invoices. ([#8398])
 
+
+[#8741]: https://github.com/ElementsProject/lightning/pull/8741
+[#8735]: https://github.com/ElementsProject/lightning/pull/8735
 [#8702]: https://github.com/ElementsProject/lightning/pull/8702
 [#8506]: https://github.com/ElementsProject/lightning/pull/8506
 [#8646]: https://github.com/ElementsProject/lightning/pull/8646
