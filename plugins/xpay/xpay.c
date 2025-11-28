@@ -522,7 +522,9 @@ static const char *describe_scidd(struct attempt *attempt, size_t index)
 
 	/* Routehint?  Often they are a single hop. */
 	if (tal_count(payment->route_hints) == 1
-	    && tal_count(payment->route_hints[0]) == 1)
+	    && tal_count(payment->route_hints[0]) == 1
+	    && short_channel_id_eq(scidd.scid,
+				   payment->route_hints[0][0].short_channel_id))
 		return tal_fmt(tmpctx, "the invoice's route hint (%s)",
 			       fmt_short_channel_id_dir(tmpctx, &scidd));
 
