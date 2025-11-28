@@ -161,10 +161,7 @@ jobs:
         run: echo "default-key ${{ steps.gpg.outputs.keyid }}" >> ~/.gnupg/gpg.conf
 
       - name: Sign release
-        run: |
-          sudo apt-get install -y lowdown
-          ./configure
-          tools/build-release.sh --without-zip sign
+        run: tools/build-release.sh --without-zip sign
 
       - name: Upload signed artifact
         uses: actions/upload-artifact@v4
