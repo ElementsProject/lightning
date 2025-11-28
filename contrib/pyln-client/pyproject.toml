@@ -1,6 +1,6 @@
 [project]
 name = "pyln-client"
-version = "v25.12rc2"
+version = "v25.12rc3"
 description = "Client library and plugin library for Core Lightning"
 authors = [{ name = "Christian Decker", email = "decker.christian@gmail.com" }]
 license = { text = "BSD-MIT" }
