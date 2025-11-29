@@ -400,6 +400,7 @@ dependencies = [
     { name = "pyln-client" },
     { name = "pyln-grpc-proto" },
     { name = "pyln-proto" },
+    { name = "pyln-testing" },
     { name = "websocket-client" },
 ]
 
@@ -434,6 +435,7 @@ requires-dist = [
     { name = "pyln-client", editable = "contrib/pyln-client" },
     { name = "pyln-grpc-proto", editable = "contrib/pyln-grpc-proto" },
     { name = "pyln-proto", editable = "contrib/pyln-proto" },
+    { name = "pyln-testing", editable = "contrib/pyln-testing" },
     { name = "pyln-testing", marker = "extra == 'grpc'", editable = "contrib/pyln-testing" },
     { name = "websocket-client", specifier = ">=1.2.3" },
 ]

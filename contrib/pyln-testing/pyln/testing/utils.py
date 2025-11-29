@@ -197,6 +197,29 @@ class TailableProc(object):
     def __init__(self, outputDir, verbose=True):
         self.logs = []
         self.env = os.environ.copy()
+
+        # Add coverage support: inject LLVM_PROFILE_FILE if CLN_COVERAGE_DIR is set
+        if os.getenv('CLN_COVERAGE_DIR'):
+            coverage_dir = os.getenv('CLN_COVERAGE_DIR')
+
+            # Organize profraw files by test name for per-test coverage analysis
+            test_name = os.getenv('CLN_TEST_NAME')
+            if test_name:
+                test_coverage_dir = os.path.join(coverage_dir, test_name)
+                os.makedirs(test_coverage_dir, exist_ok=True)
+                profraw_path = test_coverage_dir
+            else:
+                os.makedirs(coverage_dir, exist_ok=True)
+                profraw_path = coverage_dir
+
+            # %p=PID, %m=binary signature prevents collisions across parallel processes
+            # Note: We don't use %c (continuous mode) as it causes "__llvm_profile_counter_bias"
+            # errors with our multi-binary setup. Instead, we validate and filter corrupt files
+            # during collection (see contrib/coverage/collect-coverage.sh)
+            self.env['LLVM_PROFILE_FILE'] = os.path.join(
+                profraw_path, '%p-%m.profraw'
+            )
+
         self.proc = None
         self.outputDir = outputDir
         if not os.path.exists(outputDir):
@@ -1635,6 +1658,10 @@ class NodeFactory(object):
         else:
             self.valgrind = VALGRIND
         self.testname = testname
+
+        # Set test name in environment for coverage file organization
+        os.environ['CLN_TEST_NAME'] = testname
+
         self.next_id = 1
         self.nodes = []
         self.reserved_ports = []
