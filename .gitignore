@@ -27,6 +27,8 @@ coverage
 # Coverage profiling data files
 *.profraw
 *.profdata
+# Generated Python API documentation
+docs/python
 ccan/config.h
 __pycache__
 config.vars

@@ -689,6 +689,15 @@ coverage-clang-clean:
 
 .PHONY: coverage-clang-collect coverage-clang-report coverage-clang coverage-clang-clean
 
+# Python API documentation targets
+python-docs:
+	@./contrib/api/generate-python-docs.py
+
+python-docs-clean:
+	rm -rf docs/python
+
+.PHONY: python-docs python-docs-clean
+
 # We make libwallycore.la a dependency, so that it gets built normally, without ncc.
 # Ncc can't handle the libwally source code (yet).
 ncc: ${TARGET_DIR}/libwally-core-build/src/libwallycore.la
