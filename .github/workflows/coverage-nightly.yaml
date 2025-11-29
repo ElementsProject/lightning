@@ -1,0 +1,177 @@
+name: Coverage (Nightly)
+
+on:
+  schedule:
+    # Run at 2 AM UTC every day
+    - cron: '0 2 * * *'
+  # Allow manual triggers for testing
+  workflow_dispatch:
+
+concurrency:
+  group: coverage-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compile:
+    name: Build with Coverage
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: bash -x .github/scripts/setup.sh
+
+      - name: Build with coverage instrumentation
+        run: |
+          ./configure --enable-debugbuild --enable-coverage CC=clang
+          uv run make -j $(nproc) testpack.tar.bz2
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cln-coverage-build
+          path: testpack.tar.bz2
+
+  test:
+    name: Test (${{ matrix.name }})
+    runs-on: ubuntu-22.04
+    needs: compile
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: sqlite
+            db: sqlite3
+            pytest_par: 10
+          - name: postgres
+            db: postgres
+            pytest_par: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: bash -x .github/scripts/setup.sh
+
+      - name: Install Bitcoin Core
+        run: bash -x .github/scripts/install-bitcoind.sh
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: cln-coverage-build
+
+      - name: Unpack build
+        run: tar -xaf testpack.tar.bz2
+
+      - name: Run tests with coverage
+        env:
+          CLN_COVERAGE_DIR: ${{ github.workspace }}/coverage-raw
+          TEST_DB_PROVIDER: ${{ matrix.db }}
+          PYTEST_PAR: ${{ matrix.pytest_par }}
+          SLOW_MACHINE: 1
+          TIMEOUT: 900
+        run: |
+          mkdir -p "$CLN_COVERAGE_DIR"
+          uv run eatmydata pytest tests/ -n ${PYTEST_PAR} -vvv
+
+      - name: Upload coverage data
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-raw-${{ matrix.name }}
+          path: coverage-raw/*.profraw
+          if-no-files-found: error
+
+  report:
+    name: Generate Coverage Report
+    runs-on: ubuntu-22.04
+    needs: test
+    if: always()
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install LLVM tools
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 18
+          sudo ln -sf /usr/bin/llvm-profdata-18 /usr/bin/llvm-profdata
+          sudo ln -sf /usr/bin/llvm-cov-18 /usr/bin/llvm-cov
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: cln-coverage-build
+
+      - name: Unpack build
+        run: tar -xaf testpack.tar.bz2
+
+      - name: Download all coverage artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-raw-*
+          path: coverage-artifacts
+
+      - name: Merge coverage data
+        run: |
+          mkdir -p coverage-raw coverage
+          find coverage-artifacts -name "*.profraw" -exec cp {} coverage-raw/ \;
+          PROFRAW_COUNT=$(ls -1 coverage-raw/*.profraw 2>/dev/null | wc -l)
+          echo "Found $PROFRAW_COUNT profile files"
+          if [ "$PROFRAW_COUNT" -eq 0 ]; then
+            echo "ERROR: No coverage data found"
+            exit 1
+          fi
+          chmod +x contrib/coverage/collect-coverage.sh
+          CLN_COVERAGE_DIR=coverage-raw ./contrib/coverage/collect-coverage.sh
+
+      - name: Generate HTML report
+        run: |
+          chmod +x contrib/coverage/generate-coverage-report.sh
+          ./contrib/coverage/generate-coverage-report.sh
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage/merged.profdata
+          flags: integration-tests
+          name: cln-nightly-coverage
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+
+      - name: Upload HTML report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-html-report
+          path: coverage/html
+          retention-days: 90
+
+      - name: Add summary to job
+        run: |
+          echo "## Coverage Summary" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat coverage/summary.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📊 Download detailed HTML report from workflow artifacts" >> $GITHUB_STEP_SUMMARY

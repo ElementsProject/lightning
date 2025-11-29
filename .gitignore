@@ -24,6 +24,9 @@ gen_*.h
 wire/gen_*_csv
 cli/lightning-cli
 coverage
+# Coverage profiling data files
+*.profraw
+*.profdata
 ccan/config.h
 __pycache__
 config.vars

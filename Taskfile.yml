@@ -1,0 +1,85 @@
+version: '3'
+
+vars:
+  PYTEST_PAR: 4
+
+tasks:
+  build:
+    cmds:
+      - uv run make cln-grpc/proto/node.proto
+      - uv run make default -j {{ .PYTEST_PAR }}
+  test:
+    dir: '.'
+    deps:
+      - build
+    cmds:
+      - uv run pytest --force-flaky -vvv -n {{ .PYTEST_PAR }} tests {{ .CLI_ARGS }}
+
+  test-liquid:
+    env:
+      TEST_NETWORK: "liquid-regtest"
+    cmds:
+      - sed -i 's/TEST_NETWORK=regtest/TEST_NETWORK=liquid-regtest/g' config.vars
+      - uv run make cln-grpc/proto/node.proto
+      - uv run make default -j {{ .PYTEST_PAR }}
+      - uv run pytest --color=yes --force-flaky -vvv -n {{ .PYTEST_PAR }} tests {{ .CLI_ARGS }}
+      
+  clean:
+    cmds:
+      - poetry run make distclean
+
+
+  tester-docker-image:
+    cmds:
+      - docker build --build-arg DOCKER_USER=$(whoami) --build-arg UID=$(id -u) --build-arg GID=$(id -g) --network=host -t cln-tester - <contrib/docker/Dockerfile.tester
+      
+  isotest:
+    dir: '.'
+    deps:
+      - tester-docker-image
+    cmds:
+      - docker run -ti -v $(pwd):/repo cln-tester bash -c 'task -t /repo/Taskfile.yml in-docker-test'
+
+  in-docker-build-deps:
+    cmds:
+      - sudo apt-get update -q
+      - sudo apt-get install -y clang jq libsqlite3-dev libpq-dev systemtap-sdt-dev autoconf libtool zlib1g-dev libsodium-dev gettext git
+      
+  in-docker-init:
+    # pre-flight tasks, independent of the source code.
+    dir: '/'
+    cmds:
+      - git config --global --add safe.directory /repo/.git
+      - mkdir -p /test
+      - python3 -m venv /test/.venv
+      - /test/.venv/bin/pip3 install wheel
+      - /test/.venv/bin/pip3 install 'poetry>=1.8,<2'
+
+  in-docker-test:
+    # Just the counterpart called by `isotest` to actually initialize,
+    # build and test CLN.
+    dir: '/test'
+    deps:
+      - in-docker-init
+      - in-docker-build-deps
+    cmds:
+      # This way of copying allows us to copy the dirty tree, without
+      # triggering any of the potentially configured hooks which might
+      # not be available in the docker image.
+      - (cd /repo && git archive --format tar $(git stash create)) | tar -xvf -
+      # Yes, this is not that smart, but the `Makefile` relies on
+      # `git` being able to tell us about the version.
+      - cp -R /repo/.git /test
+      - git submodule update --init --recursive
+      - python3 -m pip install poetry
+      - poetry run make distclean
+      - poetry install --with=dev
+      - poetry run ./configure --disable-valgrind CC='clang'
+      - poetry run make -j 4
+      - poetry run pytest --color=yes -vvv -n {{ .PYTEST_PAR }} tests {{ .CLI_ARGS }}
+
+  kill:
+    cmds:
+      - killall -v bitcoind || true
+      - killall -v elementsd || true
+      - killall -v valgrind.bin || true

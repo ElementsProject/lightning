@@ -91,7 +91,7 @@ LLVM_PROFILE_FILE="full_channel.profraw" ./channeld/test/run-full_channel
 
 Finally, generate an HTML report from the profile. We have a script to make this easier:
 ```shell
-./contrib/clang-coverage-report.sh channeld/test/run-full_channel \
+./contrib/coverage/clang-coverage-report.sh channeld/test/run-full_channel \
     full_channel.profraw full_channel.html
 firefox full_channel.html
 ```
