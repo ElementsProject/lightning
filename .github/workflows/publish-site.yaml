@@ -1,0 +1,314 @@
+name: Publish Documentation Site
+
+on:
+  schedule:
+    # Run at 5 AM UTC every day, after other workflows
+    - cron: '0 5 * * *'
+  # Allow manual triggers for testing
+  workflow_dispatch:
+
+# Sets permissions for GitHub Pages deployment
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  # Generate coverage reports
+  coverage:
+    name: Generate Coverage Reports
+    uses: ./.github/workflows/coverage-nightly.yaml
+
+  # Generate Python API documentation
+  python-docs:
+    name: Generate Python API Documentation
+    uses: ./.github/workflows/python-docs-nightly.yaml
+
+  # Generate general documentation
+  docs:
+    name: Generate Project Documentation
+    uses: ./.github/workflows/docs-nightly.yaml
+
+  # Combine all documentation and deploy to GitHub Pages
+  deploy:
+    name: Deploy to GitHub Pages
+    runs-on: ubuntu-22.04
+    needs: [coverage, python-docs, docs]
+    if: always() # Run even if some jobs fail
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download coverage artifact
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: coverage-html-report
+          path: site-staging/coverage
+
+      - name: Download Python docs artifact
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: python-api-docs
+          path: site-staging/python
+
+      - name: Download project docs artifact
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: project-docs
+          path: site-staging/docs
+
+      - name: Create site index
+        run: |
+          cat > site-staging/index.html <<'EOF'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Core Lightning Documentation Hub</title>
+              <style>
+                  * {
+                      margin: 0;
+                      padding: 0;
+                      box-sizing: border-box;
+                  }
+
+                  body {
+                      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+                      line-height: 1.6;
+                      color: #24292e;
+                      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                      min-height: 100vh;
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      padding: 20px;
+                  }
+
+                  .container {
+                      max-width: 1000px;
+                      width: 100%;
+                      background: white;
+                      border-radius: 12px;
+                      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                      overflow: hidden;
+                  }
+
+                  .header {
+                      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                      color: white;
+                      padding: 60px 40px;
+                      text-align: center;
+                  }
+
+                  .header h1 {
+                      font-size: 2.5em;
+                      margin-bottom: 10px;
+                      font-weight: 600;
+                  }
+
+                  .header p {
+                      font-size: 1.2em;
+                      opacity: 0.9;
+                  }
+
+                  .content {
+                      padding: 40px;
+                  }
+
+                  .intro {
+                      text-align: center;
+                      margin-bottom: 40px;
+                      color: #586069;
+                  }
+
+                  .cards {
+                      display: grid;
+                      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                      gap: 24px;
+                      margin-top: 30px;
+                  }
+
+                  .card {
+                      background: #f6f8fa;
+                      border: 2px solid #e1e4e8;
+                      border-radius: 8px;
+                      padding: 30px;
+                      transition: all 0.3s ease;
+                      text-decoration: none;
+                      color: inherit;
+                      display: block;
+                  }
+
+                  .card:hover {
+                      transform: translateY(-4px);
+                      box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+                      border-color: #667eea;
+                  }
+
+                  .card-icon {
+                      font-size: 2.5em;
+                      margin-bottom: 15px;
+                  }
+
+                  .card h2 {
+                      font-size: 1.4em;
+                      margin-bottom: 12px;
+                      color: #24292e;
+                  }
+
+                  .card p {
+                      color: #586069;
+                      font-size: 0.95em;
+                      line-height: 1.5;
+                  }
+
+                  .footer {
+                      text-align: center;
+                      padding: 30px;
+                      color: #586069;
+                      font-size: 0.9em;
+                      border-top: 1px solid #e1e4e8;
+                  }
+
+                  .footer a {
+                      color: #667eea;
+                      text-decoration: none;
+                  }
+
+                  .footer a:hover {
+                      text-decoration: underline;
+                  }
+
+                  .timestamp {
+                      margin-top: 15px;
+                      font-size: 0.85em;
+                      opacity: 0.7;
+                  }
+              </style>
+          </head>
+          <body>
+              <div class="container">
+                  <div class="header">
+                      <h1>⚡ Core Lightning</h1>
+                      <p>Documentation Hub</p>
+                  </div>
+
+                  <div class="content">
+                      <div class="intro">
+                          <p>Welcome to the Core Lightning documentation portal. Choose a category below to explore.</p>
+                      </div>
+
+                      <div class="cards">
+                          <a href="docs/" class="card">
+                              <div class="card-icon">📖</div>
+                              <h2>Documentation</h2>
+                              <p>Project documentation, guides, and reference materials for Core Lightning.</p>
+                          </a>
+
+                          <a href="python/" class="card">
+                              <div class="card-icon">🐍</div>
+                              <h2>Python API Reference</h2>
+                              <p>Complete API documentation for pyln.client, pyln.proto, and other Python packages.</p>
+                          </a>
+
+                          <a href="coverage/" class="card">
+                              <div class="card-icon">📊</div>
+                              <h2>Code Coverage</h2>
+                              <p>Test coverage reports showing which parts of the codebase are tested.</p>
+                          </a>
+                      </div>
+                  </div>
+
+                  <div class="footer">
+                      <p>
+                          <a href="https://github.com/ElementsProject/lightning">View on GitHub</a> •
+                          <a href="https://github.com/ElementsProject/lightning/issues">Report Issue</a>
+                      </p>
+                      <p class="timestamp">Last updated: TIMESTAMP</p>
+                  </div>
+              </div>
+          </body>
+          </html>
+          EOF
+
+          # Update timestamp
+          TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M UTC")
+          sed -i "s/TIMESTAMP/$TIMESTAMP/" site-staging/index.html
+
+      - name: Add .nojekyll to prevent Jekyll processing
+        run: |
+          touch site-staging/.nojekyll
+
+      - name: Create 404 page
+        run: |
+          cat > site-staging/404.html <<'EOF'
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <title>404 - Page Not Found</title>
+              <style>
+                  body {
+                      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      min-height: 100vh;
+                      margin: 0;
+                      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                      color: white;
+                      text-align: center;
+                  }
+                  .container { max-width: 600px; padding: 40px; }
+                  h1 { font-size: 6em; margin: 0; }
+                  p { font-size: 1.2em; margin: 20px 0; }
+                  a { color: white; text-decoration: underline; }
+              </style>
+          </head>
+          <body>
+              <div class="container">
+                  <h1>404</h1>
+                  <p>Page not found</p>
+                  <p><a href="/">← Return to documentation hub</a></p>
+              </div>
+          </body>
+          </html>
+          EOF
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site-staging
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Add summary
+        run: |
+          echo "## 🚀 Documentation Site Deployed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The complete documentation site has been deployed to GitHub Pages." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Included Sections:" >> $GITHUB_STEP_SUMMARY
+          echo "- 📖 Project Documentation" >> $GITHUB_STEP_SUMMARY
+          echo "- 🐍 Python API Reference" >> $GITHUB_STEP_SUMMARY
+          echo "- 📊 Code Coverage Reports" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🔗 **Site URL:** ${{ steps.deployment.outputs.page_url }}" >> $GITHUB_STEP_SUMMARY

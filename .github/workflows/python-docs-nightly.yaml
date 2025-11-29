@@ -6,6 +6,8 @@ on:
     - cron: '0 3 * * *'
   # Allow manual triggers for testing
   workflow_dispatch:
+  # Allow being called from other workflows
+  workflow_call:
 
 concurrency:
   group: python-docs-${{ github.ref }}
