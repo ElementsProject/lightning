@@ -674,6 +674,21 @@ coverage/coverage.info: check pytest
 coverage: coverage/coverage.info
 	genhtml coverage/coverage.info --output-directory coverage
 
+# Clang coverage targets (source-based coverage)
+coverage-clang-collect:
+	@./contrib/coverage/collect-coverage.sh "$(CLN_COVERAGE_DIR)" coverage/merged.profdata
+
+coverage-clang-report: coverage/merged.profdata
+	@./contrib/coverage/generate-coverage-report.sh coverage/merged.profdata coverage/html
+
+coverage-clang: coverage-clang-collect coverage-clang-report
+	@echo "Coverage report: coverage/html/index.html"
+
+coverage-clang-clean:
+	rm -rf coverage/ "$(CLN_COVERAGE_DIR)"
+
+.PHONY: coverage-clang-collect coverage-clang-report coverage-clang coverage-clang-clean
+
 # We make libwallycore.la a dependency, so that it gets built normally, without ncc.
 # Ncc can't handle the libwally source code (yet).
 ncc: ${TARGET_DIR}/libwally-core-build/src/libwallycore.la
