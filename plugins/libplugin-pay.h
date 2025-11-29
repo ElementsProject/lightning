@@ -279,6 +279,9 @@ struct payment {
 	 * amount. */
 	bool failroute_retry;
 
+	/* Set when CLTV budget exceeded. Limits further splitting. */
+	bool cltv_budget_exceeded;
+
 	/* A unique id for the root of this payment.  */
 	u64 id;
 
