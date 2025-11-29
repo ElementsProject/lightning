@@ -1,0 +1,58 @@
+name: Python API Docs (Nightly)
+
+on:
+  schedule:
+    # Run at 3 AM UTC every day
+    - cron: '0 3 * * *'
+  # Allow manual triggers for testing
+  workflow_dispatch:
+
+concurrency:
+  group: python-docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  generate-docs:
+    name: Generate Python API Documentation
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: |
+          uv sync --all-extras
+
+      - name: Generate documentation
+        run: |
+          make python-docs
+
+      - name: Upload documentation artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-api-docs
+          path: docs/python
+          retention-days: 90
+
+      - name: Add summary to job
+        run: |
+          echo "## Python API Documentation Generated" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📚 Documentation has been generated for the following packages:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- pyln.client - Client library and plugin library" >> $GITHUB_STEP_SUMMARY
+          echo "- pyln.proto - Lightning Network protocol implementation" >> $GITHUB_STEP_SUMMARY
+          echo "- pyln.grpc - gRPC protocol definitions" >> $GITHUB_STEP_SUMMARY
+          echo "- pyln.testing - Testing utilities" >> $GITHUB_STEP_SUMMARY
+          echo "- pyln.spec.bolt7 - BOLT #7 specification implementation" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Download the artifact to view the complete API documentation." >> $GITHUB_STEP_SUMMARY

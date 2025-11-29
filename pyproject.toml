@@ -24,7 +24,7 @@ package-mode = false
 [dependency-groups]
 dev = [
   # Test dependencies and inherited dependencies belong here
-  "crc32c>=2.2.post0",              # Belongs to lnprototest
+  "crc32c>=2.2.post0", # Belongs to lnprototest
   "pytest>=8.0.0",
   "pytest-xdist>=3.6.0",
   "pytest-test-groups>=1.2.0",
@@ -35,6 +35,7 @@ dev = [
   "flask-socketio>=5",
   "tqdm",
   "pytest-benchmark",
+  "pdoc3>=0.11.6",
 ]
 
 [project.optional-dependencies]
