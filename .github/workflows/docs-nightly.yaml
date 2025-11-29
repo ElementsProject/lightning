@@ -1,0 +1,100 @@
+name: Documentation (Nightly)
+
+on:
+  schedule:
+    # Run at 4 AM UTC every day
+    - cron: '0 4 * * *'
+  # Allow manual triggers for testing
+  workflow_dispatch:
+  # Allow being called from other workflows
+  workflow_call:
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  generate-docs:
+    name: Generate Project Documentation
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare documentation directory
+        run: |
+          mkdir -p docs-output
+          cp -r doc/* docs-output/
+
+          # Create a simple index.html for the documentation
+          cat > docs-output/index.html <<'EOF'
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <title>Core Lightning Documentation</title>
+              <style>
+                  body {
+                      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+                      max-width: 1200px;
+                      margin: 0 auto;
+                      padding: 40px 20px;
+                      line-height: 1.6;
+                  }
+                  h1 {
+                      border-bottom: 2px solid #eaecef;
+                      padding-bottom: 0.3em;
+                  }
+                  .docs-list {
+                      list-style: none;
+                      padding: 0;
+                  }
+                  .docs-list li {
+                      padding: 8px 0;
+                  }
+                  .docs-list a {
+                      color: #0366d6;
+                      text-decoration: none;
+                      font-family: monospace;
+                  }
+                  .docs-list a:hover {
+                      text-decoration: underline;
+                  }
+                  .section {
+                      margin-top: 30px;
+                  }
+              </style>
+          </head>
+          <body>
+              <h1>Core Lightning Documentation</h1>
+              <p>Welcome to the Core Lightning documentation site.</p>
+
+              <div class="section">
+                  <h2>Available Documentation</h2>
+                  <p>This site contains the complete documentation for Core Lightning.</p>
+                  <ul>
+                      <li><a href="../">← Back to main site</a></li>
+                  </ul>
+              </div>
+
+              <div class="section">
+                  <p>For the full documentation, please visit the <a href="https://github.com/ElementsProject/lightning/tree/master/doc">doc directory on GitHub</a>.</p>
+              </div>
+          </body>
+          </html>
+          EOF
+
+      - name: Upload documentation artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: project-docs
+          path: docs-output
+          retention-days: 90
+
+      - name: Add summary to job
+        run: |
+          echo "## Project Documentation Generated" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📖 Documentation files have been collected and prepared." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Download the artifact to view the documentation." >> $GITHUB_STEP_SUMMARY
