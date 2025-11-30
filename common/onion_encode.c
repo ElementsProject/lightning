@@ -2,7 +2,6 @@
 #include <assert.h>
 #include <ccan/cast/cast.h>
 #include <common/onion_encode.h>
-#include <common/sphinx.h>
 #include <common/utils.h>
 
 /* BOLT #4:

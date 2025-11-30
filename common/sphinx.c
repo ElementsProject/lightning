@@ -684,6 +684,7 @@ struct route_step *process_onionpacket(
 		size_t legacy_max = 32;
 		u8 *onwire_tlv;
 
+		step->type = ONION_V0_PAYLOAD;
 		legacy->amt_to_forward = tal(legacy, u64);
 		legacy->outgoing_cltv_value = tal(legacy, u32);
 		legacy->short_channel_id = tal(legacy, struct short_channel_id);
@@ -718,6 +719,7 @@ struct route_step *process_onionpacket(
 		payload_size = 32;
 		fromwire_pad(&cursor, &max, payload_size);
 	} else {
+		step->type = ONION_TLV_PAYLOAD;
 		/* FIXME: raw_payload *includes* the length, which is redundant and
 		 * means we can't just ust fromwire_tal_arrn. */
 		fromwire_pad(&cursor, &max, payload_size);
