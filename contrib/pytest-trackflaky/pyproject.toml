@@ -1,0 +1,19 @@
+[project]
+name = "pytest-trackflaky"
+version = "0.1.0"
+description = "A pytest plugin to track and report test flakiness"
+authors = [
+    {name = "Lightning Development Team"}
+]
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "pytest>=7.0.0",
+]
+
+[project.entry-points.pytest11]
+trackflaky = "pytest_trackflaky.plugin"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
