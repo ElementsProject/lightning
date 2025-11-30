@@ -5,7 +5,9 @@ use cln_lsps::jsonrpc::client::JsonRpcClient;
 use cln_lsps::lsps0::primitives::Msat;
 use cln_lsps::lsps0::{
     self,
-    transport::{Bolt8Transport, CustomMessageHookManager, WithCustomMessageHookManager},
+    transport::{
+        Bolt8Transport, CustomMessageHookManager, WithCustomMessageHookManager, LSPS0_MESSAGE_TYPE,
+    },
 };
 use cln_lsps::lsps2::cln::tlv::encode_tu64;
 use cln_lsps::lsps2::cln::{
@@ -19,6 +21,7 @@ use cln_lsps::lsps2::model::{
 use cln_lsps::util;
 use cln_lsps::LSP_FEATURE_BIT;
 use cln_plugin::options;
+use cln_plugin::{HookBuilder, HookFilter};
 use cln_rpc::model::requests::{
     DatastoreMode, DatastoreRequest, DeldatastoreRequest, DelinvoiceRequest, DelinvoiceStatus,
     ListdatastoreRequest, ListinvoicesRequest, ListpeersRequest,
@@ -55,7 +58,10 @@ async fn main() -> Result<(), anyhow::Error> {
     let state = State { hook_manager };
 
     if let Some(plugin) = cln_plugin::Builder::new(tokio::io::stdin(), tokio::io::stdout())
-        .hook("custommsg", CustomMessageHookManager::on_custommsg::<State>)
+        .hook_from_builder(
+            HookBuilder::new("custommsg", CustomMessageHookManager::on_custommsg::<State>)
+                .filters(vec![HookFilter::Int(i64::from(LSPS0_MESSAGE_TYPE))]),
+        )
         .option(OPTION_ENABLED)
         .rpcmethod(
             "lsps-listprotocols",
