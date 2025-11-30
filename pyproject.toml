@@ -15,6 +15,7 @@ dependencies = [
   "pyln-client",
   "pyln-proto",
   "pyln-grpc-proto",
+  "pytest-global-fixture",
 ]
 package-mode = false
 [dependency-groups]
@@ -50,6 +51,7 @@ members = [
   "contrib/pyln-grpc-proto",
   "plugins/wss-proxy",
   "contrib/pyln-testing",
+  "contrib/pytest-global-fixture",
   "contrib/pyln-spec/bolt1",
   "contrib/pyln-spec/bolt2",
   "contrib/pyln-spec/bolt4",
@@ -66,3 +68,4 @@ pyln-bolt1 = { workspace = true }
 pyln-bolt2 = { workspace = true }
 pyln-bolt4 = { workspace = true }
 pyln-bolt7 = { workspace = true }
+pytest-global-fixture = { workspace = true }
