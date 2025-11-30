@@ -15,6 +15,8 @@ dependencies = [
   "pyln-client",
   "pyln-proto",
   "pyln-grpc-proto",
+  "pytest-trackflaky",
+  "pyln-testing",
 ]
 package-mode = false
 [dependency-groups]
@@ -54,6 +56,7 @@ members = [
   "contrib/pyln-spec/bolt2",
   "contrib/pyln-spec/bolt4",
   "contrib/pyln-spec/bolt7",
+  "contrib/pytest-trackflaky",
 ]
 
 [tool.uv.sources]
@@ -61,8 +64,9 @@ pyln-client = { workspace = true }
 pyln-proto = { workspace = true }
 pyln-grpc-proto = { workspace = true }
 wss-proxy = { workspace = true }
-pyln-testing = { workspace = true }
 pyln-bolt1 = { workspace = true }
 pyln-bolt2 = { workspace = true }
 pyln-bolt4 = { workspace = true }
 pyln-bolt7 = { workspace = true }
+pytest-trackflaky = { workspace = true }
+pyln-testing = { workspace = true }
