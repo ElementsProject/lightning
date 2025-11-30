@@ -9,6 +9,9 @@ dependencies = [
     "pytest-xdist>=3.0.0",
 ]
 
+[project.entry-points.pytest11]
+pytest_global_fixture = "pytest_global_fixture.plugin"
+
 [project.optional-dependencies]
 dev = [
     "testcontainers>=3.7.0",

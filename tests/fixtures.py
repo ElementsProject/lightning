@@ -1,6 +1,7 @@
 from utils import TEST_NETWORK, VALGRIND  # noqa: F401,F403
 from pyln.testing.fixtures import directory, test_base_dir, test_name, chainparams, node_factory, bitcoind, teardown_checks, db_provider, executor, setup_logging, jsonschemas  # noqa: F401,F403
 from pyln.testing import utils
+from pytest_global_fixture.plugin import global_resource, coordinator_client
 from utils import COMPAT
 from pathlib import Path
 

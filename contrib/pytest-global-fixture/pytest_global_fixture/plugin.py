@@ -19,6 +19,9 @@ def pytest_configure(config):
     """
     # Check if we are a worker (xdist). If no workerinput, we are Master.
     if not hasattr(config, "workerinput"):
+        print("\n" + "="*80)
+        print("PYTEST-GLOBAL-FIXTURE: Coordinator mode - managing shared resources")
+        print("="*80)
         manager = ServiceManager()
         
         # Bind to port 0 (ephemeral)
@@ -67,33 +70,44 @@ def coordinator_client(request):
     """
     if hasattr(request.config, "workerinput"):
         addr = request.config.workerinput["infra_rpc_addr"]
+        worker_id = request.config.workerinput.get("workerid", "unknown")
+        print(f"[{worker_id}] PYTEST-GLOBAL-FIXTURE: Worker connecting to coordinator at {addr}")
     else:
         # We are running sequentially (no xdist), or we are the master
         addr = request.config.infra_rpc_addr
-        
+        print(f"PYTEST-GLOBAL-FIXTURE: Sequential mode, using coordinator at {addr}")
+
     return xmlrpc.client.ServerProxy(addr)
 
 @pytest.fixture(scope="function")
-def global_resource(request, coordinator_client):
+def global_resource(request):
     """
     Factory fixture.
     Usage: global_resource("path.to:Class")
     """
-    
+
+    # Get RPC address
+    if hasattr(request.config, "workerinput"):
+        addr = request.config.workerinput["infra_rpc_addr"]
+    else:
+        addr = request.config.infra_rpc_addr
+
     # Track resources created in this scope for cleanup
     created_resources = []
 
     def _provision(class_path):
         # Create unique tenant ID: "gwX_testName_UUID"
         worker_id = getattr(request.config, "workerinput", {}).get("workerid", "master")
-        test_name = request.node.name.replace("[", "_").replace("]", "_") 
+        test_name = request.node.name.replace("[", "_").replace("]", "_")
         # Short uuid for uniqueness
         uid = uuid.uuid4().hex[:6]
         tenant_id = f"{worker_id}_{uid}"
-        
-        # RPC Call
-        config = coordinator_client.rpc_provision(class_path, tenant_id)
-        
+
+        # Create a new ServerProxy for each call to avoid connection reuse issues
+        # This prevents http.client.CannotSendRequest errors in multi-threaded scenarios
+        client = xmlrpc.client.ServerProxy(addr)
+        config = client.rpc_provision(class_path, tenant_id)
+
         created_resources.append((class_path, tenant_id))
         return config
 
@@ -102,7 +116,9 @@ def global_resource(request, coordinator_client):
     # Teardown logic
     for class_path, tenant_id in reversed(created_resources):
         try:
-            coordinator_client.rpc_deprovision(class_path, tenant_id)
+            # Create a new client for cleanup too
+            client = xmlrpc.client.ServerProxy(addr)
+            client.rpc_deprovision(class_path, tenant_id)
         except Exception as e:
             # We print but don't raise, to avoid masking test failures
             print(f"Warning: Failed to deprovision {tenant_id}: {e}")

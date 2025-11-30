@@ -1,5 +1,5 @@
 from concurrent import futures
-from pyln.testing.db import SqliteDbProvider, PostgresDbProvider
+from pyln.testing.db import SqliteDbProvider, PostgresDbProvider, GlobalPostgresDbProvider
 from pyln.testing.utils import NodeFactory, BitcoinD, ElementsD, env, LightningNode, TEST_DEBUG, TEST_NETWORK
 from pyln.client import Millisatoshi
 from typing import Dict
@@ -699,12 +699,20 @@ def checkMemleak(node):
 providers = {
     'sqlite3': SqliteDbProvider,
     'postgres': PostgresDbProvider,
+    'gpostgres': GlobalPostgresDbProvider,
 }
 
 
 @pytest.fixture
-def db_provider(test_base_dir):
+def db_provider(request, test_base_dir):
     provider = providers[os.getenv('TEST_DB_PROVIDER', 'sqlite3')](test_base_dir)
+
+    # If using GlobalPostgresDbProvider, inject the global_resource fixture
+    if isinstance(provider, GlobalPostgresDbProvider):
+        # Get the global_resource fixture from the same request context
+        global_resource = request.getfixturevalue('global_resource')
+        provider.set_global_resource(global_resource)
+
     provider.start()
     yield provider
     provider.stop()
