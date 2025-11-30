@@ -650,7 +650,7 @@ u8 *towire_hsmd_preapprove_keysend(const tal_t *ctx UNNEEDED, const struct node_
 u8 *towire_hsmd_preapprove_keysend_check(const tal_t *ctx UNNEEDED, const struct node_id *destination UNNEEDED, const struct sha256 *payment_hash UNNEEDED, struct amount_msat amount_msat UNNEEDED, bool check_only UNNEEDED)
 { fprintf(stderr, "towire_hsmd_preapprove_keysend_check called!\n"); abort(); }
 /* Generated stub for towire_hsmd_sign_bolt12 */
-u8 *towire_hsmd_sign_bolt12(const tal_t *ctx UNNEEDED, const wirestring *messagename UNNEEDED, const wirestring *fieldname UNNEEDED, const struct sha256 *merkleroot UNNEEDED, const u8 *publictweak UNNEEDED)
+u8 *towire_hsmd_sign_bolt12(const tal_t *ctx UNNEEDED, const wirestring *messagename UNNEEDED, const wirestring *fieldname UNNEEDED, const struct sha256 *merkleroot UNNEEDED, const struct pubkey *path_pubkey UNNEEDED)
 { fprintf(stderr, "towire_hsmd_sign_bolt12 called!\n"); abort(); }
 /* Generated stub for towire_hsmd_sign_commitment_tx */
 u8 *towire_hsmd_sign_commitment_tx(const tal_t *ctx UNNEEDED, const struct node_id *peer_id UNNEEDED, u64 channel_dbid UNNEEDED, const struct bitcoin_tx *tx UNNEEDED, const struct pubkey *remote_funding_key UNNEEDED, u64 commit_num UNNEEDED)
