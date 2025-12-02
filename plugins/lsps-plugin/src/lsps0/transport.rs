@@ -1,5 +1,5 @@
 use crate::{
-    jsonrpc::client::{Error, Transport},
+    core::transport::{Error, Transport},
     proto::lsps0::LSPS0_MESSAGE_TYPE,
 };
 use async_trait::async_trait;

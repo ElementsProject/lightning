@@ -1,6 +1,6 @@
 use anyhow::{anyhow, bail};
 use async_trait::async_trait;
-use cln_lsps::jsonrpc::client::Error as CError;
+use cln_lsps::core::transport::{Error, Result as TransportResult};
 use cln_lsps::jsonrpc::server::JsonRpcResponseWriter;
 use cln_lsps::jsonrpc::server::JsonRpcServer;
 use cln_lsps::lsps0::handler::Lsps0ListProtocolsHandler;
@@ -8,7 +8,7 @@ use cln_lsps::lsps0::transport::{self, CustomMsg};
 use cln_lsps::lsps2;
 use cln_lsps::lsps2::cln::{HtlcAcceptedRequest, HtlcAcceptedResponse};
 use cln_lsps::lsps2::handler::{ClnApiRpc, HtlcAcceptedHookHandler};
-use cln_lsps::proto::jsonrpc::{Error as JError, JsonRpcRequest as _};
+use cln_lsps::proto::jsonrpc::JsonRpcRequest as _;
 use cln_lsps::proto::lsps0::{Lsps0listProtocolsRequest, LSPS0_MESSAGE_TYPE};
 use cln_lsps::proto::lsps2::{Lsps2BuyRequest, Lsps2GetInfoRequest};
 use cln_lsps::util::wrap_payload_with_peer_id;
@@ -185,15 +185,11 @@ pub struct LspsResponseWriter {
 
 #[async_trait]
 impl JsonRpcResponseWriter for LspsResponseWriter {
-    async fn write(&mut self, payload: &[u8]) -> std::result::Result<(), CError> {
+    async fn write(&mut self, payload: &[u8]) -> TransportResult<()> {
         let mut client = cln_rpc::ClnRpc::new(&self.rpc_path)
             .await
-            .map_err(|e| JError::Other(e.to_string()))?;
+            .map_err(|e| Error::Internal(e.to_string()))?;
 
-        Ok(
-            transport::send_custommsg(&mut client, payload.to_vec(), self.peer_id)
-                .await
-                .map_err(|e| JError::Other(e.to_string()))?,
-        )
+        transport::send_custommsg(&mut client, payload.to_vec(), self.peer_id).await
     }
 }

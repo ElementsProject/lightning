@@ -1,5 +1,5 @@
 use crate::proto::jsonrpc::RpcError;
-use crate::{jsonrpc::client::Result, proto::jsonrpc::JsonRpcResponse};
+use crate::{core::transport::Result, proto::jsonrpc::JsonRpcResponse};
 use async_trait::async_trait;
 use log::{debug, trace};
 use std::{collections::HashMap, sync::Arc};
