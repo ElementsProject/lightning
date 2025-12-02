@@ -39,8 +39,9 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// request over some transport mechanism (RPC, Bolt8, etc.)
 #[async_trait]
 pub trait Transport: Send + Sync {
-    async fn send(&self, peer: &PublicKey, request: String) -> Result<String>;
-    async fn notify(&self, peer: &PublicKey, request: String) -> Result<()>;
+    async fn send(&self, peer: &PublicKey, request: &str) -> Result<String>;
+    async fn notify(&self, peer: &PublicKey, request: &str) -> Result<()>;
+}
 }
 
 /// A typed JSON-RPC client that works with any transport implementation.
@@ -152,7 +153,7 @@ impl<T: Transport> JsonRpcClient<T> {
             method, id, &request_json
         );
         let start = tokio::time::Instant::now();
-        let res_str = self.transport.send(peer, request_json).await?;
+        let res_str = self.transport.send(peer, &request_json).await?;
         let elapsed = start.elapsed();
         debug!(
             "Received response: method={}, id={}, response={}, elapsed={}ms",
@@ -176,7 +177,7 @@ impl<T: Transport> JsonRpcClient<T> {
         let request_json = serde_json::to_string(&payload)?;
         debug!("Sending notification: method={}", method);
         let start = tokio::time::Instant::now();
-        self.transport.notify(peer_id, request_json).await?;
+        self.transport.notify(peer_id, &request_json).await?;
         let elapsed = start.elapsed();
         debug!(
             "Sent notification: method={}, elapsed={}ms",
@@ -241,10 +242,10 @@ mod test_json_rpc {
         async fn send(
             &self,
             _peer_id: &PublicKey,
-            req: String,
+            req: &str,
         ) -> core::result::Result<String, Error> {
             // Store the request
-            let _ = self.req.set(req);
+            let _ = self.req.set(req.to_owned());
 
             // Check for error first
             if let Some(err) = &*self.err {
@@ -259,13 +260,9 @@ mod test_json_rpc {
             panic!("TestTransport: neither result nor error is set.");
         }
 
-        async fn notify(
-            &self,
-            _peer_id: &PublicKey,
-            req: String,
-        ) -> core::result::Result<(), Error> {
+        async fn notify(&self, _peer_id: &PublicKey, req: &str) -> core::result::Result<(), Error> {
             // Store the request
-            let _ = self.req.set(req);
+            let _ = self.req.set(req.to_owned());
 
             // Check for error
             if let Some(err) = &*self.err {

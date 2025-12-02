@@ -208,7 +208,7 @@ impl Bolt8Transport {
         &self,
         client: &mut ClnRpc,
         peer_id: &PublicKey,
-        payload: Vec<u8>,
+        payload: &[u8],
     ) -> Result<(), Error> {
         send_custommsg(client, payload, peer_id).await
     }
@@ -228,12 +228,12 @@ impl Bolt8Transport {
 /// Sends a custom message to the destination node.
 pub async fn send_custommsg(
     client: &mut ClnRpc,
-    payload: Vec<u8>,
+    payload: &[u8],
     peer: &PublicKey,
 ) -> Result<(), Error> {
     let msg = CustomMsg {
         message_type: LSPS0_MESSAGE_TYPE,
-        payload,
+        payload: payload.to_owned(),
     };
 
     let request = cln_rpc::model::requests::SendcustommsgRequest {
@@ -257,9 +257,9 @@ impl Transport for Bolt8Transport {
     async fn send(
         &self,
         peer_id: &PublicKey,
-        request: String,
+        request: &str,
     ) -> core::result::Result<String, Error> {
-        let id = extract_message_id(&request)?;
+        let id = extract_message_id(request)?;
         let mut client = self.connect_to_node().await?;
 
         let (tx, rx) = mpsc::channel(1);
@@ -274,7 +274,7 @@ impl Transport for Bolt8Transport {
         self.hook_watcher
             .subscribe_hook_once(id, Arc::downgrade(&tx_arc))
             .await;
-        self.send_custom_msg(&mut client, peer_id, request.into_bytes())
+        self.send_custom_msg(&mut client, peer_id, request.as_bytes())
             .await?;
 
         let res = self.wait_for_response(rx).await?;
@@ -297,13 +297,9 @@ impl Transport for Bolt8Transport {
     }
 
     /// Sends a notification without waiting for a response.
-    async fn notify(
-        &self,
-        peer_id: &PublicKey,
-        request: String,
-    ) -> core::result::Result<(), Error> {
+    async fn notify(&self, peer_id: &PublicKey, request: &str) -> core::result::Result<(), Error> {
         let mut client = self.connect_to_node().await?;
-        self.send_custom_msg(&mut client, peer_id, request.into_bytes())
+        self.send_custom_msg(&mut client, peer_id, request.as_bytes())
             .await
     }
 }
