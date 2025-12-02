@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [25.09.4] - 2025-12-01: "Hot Wallet Guardian V"
+
+This is a recommended upgrade.  Note that after upgrade: your node
+will start querying bitcoind for prior blocks, which can take hours,
+but will still be usable normally while that is occurring.
+
+### Fixed
+
+ - lightningd: we could miss tx spends which happened in the past blocks when we restarted. ([#8735])
+
+[#8735]: https://github.com/ElementsProject/lightning/pull/8735
+[25.09.4]: https://github.com/ElementsProject/lightning/releases/tag/v25.09.4
+
+
 ## [25.09.3] - 2025-11-06: "Hot Wallet Guardian IV"
 
 ### Fixed
