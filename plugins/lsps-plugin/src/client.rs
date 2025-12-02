@@ -1,7 +1,7 @@
 use anyhow::{anyhow, bail, Context};
 use bitcoin::hashes::{hex::FromHex, sha256, Hash};
 use chrono::{Duration, Utc};
-use cln_lsps::jsonrpc::client::JsonRpcClient;
+use cln_lsps::core::transport::JsonRpcClient;
 use cln_lsps::lsps0::transport::{
     Bolt8Transport, CustomMessageHookManager, WithCustomMessageHookManager,
 };

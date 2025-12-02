@@ -1,7 +1,6 @@
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::{self, Value};
 use std::fmt;
-use thiserror::Error;
 
 // Constants for JSON-RPC error codes.
 pub const PARSE_ERROR: i64 = -32700;
@@ -9,41 +8,6 @@ pub const INVALID_REQUEST: i64 = -32600;
 pub const METHOD_NOT_FOUND: i64 = -32601;
 pub const INVALID_PARAMS: i64 = -32602;
 pub const INTERNAL_ERROR: i64 = -32603;
-
-/// Error type for JSON-RPC related operations.
-///
-/// Encapsulates various error conditions that may occur during JSON-RPC
-/// operations, including serialization errors, transport issues, and
-/// protocol-specific errors.
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("Failed to parse JSON-RPC response")]
-    ParseResponse,
-    #[error("Failed to parse JSON-RPC response")]
-    ParseJsonResponse {
-        #[source]
-        source: serde_json::Error,
-    },
-    #[error("Got JSON-RPC error")]
-    RpcError(#[from] RpcError),
-    #[error("Internal error: {0}")]
-    Other(String),
-}
-
-impl Error {
-    pub fn other<T: core::fmt::Display>(v: T) -> Self {
-        return Self::Other(v.to_string());
-    }
-}
-
-impl From<serde_json::Error> for Error {
-    fn from(value: serde_json::Error) -> Self {
-        Self::ParseJsonResponse { source: value }
-    }
-}
-
-/// Convenience type alias for Result with the JSON-RPC Error type.
-pub type Result<T> = std::result::Result<T, Error>;
 
 /// Trait for types that can be converted into JSON-RPC request objects.
 ///

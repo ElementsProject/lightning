@@ -1,6 +1,4 @@
-use crate::proto::jsonrpc::{
-    Error as JsonRpcError, JsonRpcRequest, JsonRpcResponse, RequestObject, RpcError,
-};
+use crate::proto::jsonrpc::{JsonRpcRequest, JsonRpcResponse, RequestObject};
 use async_trait::async_trait;
 use core::fmt::Debug;
 use log::{debug, error};
@@ -19,10 +17,6 @@ pub enum Error {
     Timeout,
     #[error("Internal error: {0}")]
     Internal(String),
-    #[error("Got JSON-RPC error")]
-    JsonRpcError(#[from] JsonRpcError),
-    #[error("{0}")]
-    RpcError(#[from] RpcError),
     #[error("Couldn't parse JSON-RPC request")]
     ParseRequest {
         #[source]
@@ -37,14 +31,6 @@ impl From<serde_json::Error> for Error {
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
-
-impl<R> From<JsonRpcResponse<R>> for Result<R> {
-    fn from(value: JsonRpcResponse<R>) -> Self {
-        value
-            .into_result()
-            .map_err(|e| Error::JsonRpcError(JsonRpcError::RpcError(e)))
-    }
-}
 
 /// Defines the interface for transporting JSON-RPC messages.
 ///
@@ -74,7 +60,11 @@ impl<T: Transport> JsonRpcClient<T> {
 
     /// Makes a JSON-RPC method call with raw JSON parameters and returns a raw
     /// JSON result.
-    pub async fn call_raw(&self, method: &str, params: Option<Value>) -> Result<Value> {
+    pub async fn call_raw(
+        &self,
+        method: &str,
+        params: Option<Value>,
+    ) -> Result<JsonRpcResponse<Value>> {
         let id = generate_random_id();
 
         debug!("Preparing request: method={}, id={}", method, id);
@@ -86,7 +76,7 @@ impl<T: Transport> JsonRpcClient<T> {
         };
 
         let response: JsonRpcResponse<Value> = self.send_request(method, &request, id).await?;
-        response.into()
+        Ok(response)
     }
 
     /// Makes a typed JSON-RPC method call with a request object and returns a
