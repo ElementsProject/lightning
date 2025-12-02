@@ -113,6 +113,8 @@ async fn on_lsps_lsps2_getinfo(
         req.lsp_id, req.token
     );
 
+    let lsp_id = PublicKey::from_str(&req.lsp_id).context("lsp_id is not a valid public key")?;
+
     let dir = p.configuration().lightning_dir;
     let rpc_path = Path::new(&dir).join(&p.configuration().rpc_file);
     let mut cln_client = cln_rpc::ClnRpc::new(rpc_path.clone()).await?;
@@ -144,7 +146,7 @@ async fn on_lsps_lsps2_getinfo(
     // 1. Call lsps2.get_info.
     let info_req = Lsps2GetInfoRequest { token: req.token };
     let info_res: Lsps2GetInfoResponse = client
-        .call_typed(info_req)
+        .call_typed(&lsp_id, info_req)
         .await
         .context("lsps2.get_info call failed")?
         .into_result()?;
@@ -164,6 +166,8 @@ async fn on_lsps_lsps2_buy(
         "Asking for a channel from lsp {} with opening fee params {:?} and payment size {:?}",
         req.lsp_id, req.opening_fee_params, req.payment_size_msat
     );
+
+    let lsp_id = PublicKey::from_str(&req.lsp_id).context("lsp_id is not a valid public key")?;
 
     let dir = p.configuration().lightning_dir;
     let rpc_path = Path::new(&dir).join(&p.configuration().rpc_file);
@@ -242,7 +246,7 @@ async fn on_lsps_lsps2_buy(
         payment_size_msat: req.payment_size_msat,
     };
     let buy_res: Lsps2BuyResponse = client
-        .call_typed(buy_req)
+        .call_typed(&lsp_id, buy_req)
         .await
         .context("lsps2.buy call failed")?
         .into_result()?;
@@ -705,6 +709,7 @@ async fn on_lsps_listprotocols(
     let mut cln_client = cln_rpc::ClnRpc::new(rpc_path.clone()).await?;
 
     let req: Request = serde_json::from_value(v).context("Failed to parse request JSON")?;
+    let lsp_id = PublicKey::from_str(&req.lsp_id).context("lsp_id is not a valid public key")?;
     let lsp_status = check_peer_lsp_status(&mut cln_client, &req.lsp_id).await?;
 
     // Fail early: Check that we are connected to the peer.
@@ -733,7 +738,7 @@ async fn on_lsps_listprotocols(
 
     let request = Lsps0listProtocolsRequest {};
     let res: Lsps0listProtocolsResponse = client
-        .call_typed(request)
+        .call_typed(&lsp_id, request)
         .await
         .context("lsps0.list_protocols call failed")?
         .into_result()?;
