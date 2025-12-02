@@ -39,8 +39,8 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// request over some transport mechanism (RPC, Bolt8, etc.)
 #[async_trait]
 pub trait Transport: Send + Sync {
-    async fn send(&self, peer: &PublicKey, request: String) -> core::result::Result<String, Error>;
-    async fn notify(&self, peer: &PublicKey, request: String) -> core::result::Result<(), Error>;
+    async fn send(&self, peer: &PublicKey, request: String) -> Result<String>;
+    async fn notify(&self, peer: &PublicKey, request: String) -> Result<()>;
 }
 
 /// A typed JSON-RPC client that works with any transport implementation.
