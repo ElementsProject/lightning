@@ -1,9 +1,7 @@
 use crate::proto::jsonrpc::{JsonRpcRequest, RpcError};
 use core::fmt;
-use serde::{
-    de::{self},
-    Deserialize, Deserializer, Serialize, Serializer,
-};
+use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+use thiserror::Error;
 
 const MSAT_PER_SAT: u64 = 1_000;
 
@@ -26,6 +24,46 @@ pub trait LSPS0RpcErrorExt {
 }
 
 impl LSPS0RpcErrorExt for RpcError {}
+
+#[derive(Error, Debug)]
+pub enum Error {
+    #[error("invalid message type: got {type_}")]
+    InvalidMessageType { type_: u16 },
+    #[error("Invalid UTF-8 in message payload")]
+    InvalidUtf8(#[from] std::string::FromUtf8Error),
+    #[error("message too short: expected at least 2 bytes for type field, got {0}")]
+    TooShort(usize),
+}
+
+pub type Result<T> = std::result::Result<T, Error>;
+
+/// Encode raw payload bytes into an LSPS0 frame.
+///
+/// Format:
+/// [0-1] Message type: 37913 (0x9419) as big-endian u16
+/// [2..] Payload bytes
+pub fn encode_frame(payload: &[u8]) -> Vec<u8> {
+    let mut bytes = Vec::with_capacity(2 + payload.len());
+    bytes.extend_from_slice(&LSPS0_MESSAGE_TYPE.to_be_bytes());
+    bytes.extend_from_slice(payload);
+    bytes
+}
+
+/// Decode an LSPS0 frame and return the raw payload bytes.
+///
+/// Validates that the header matches the LSPS0 message type (37913).
+pub fn decode_frame(bytes: &[u8]) -> Result<&[u8]> {
+    if bytes.len() < 2 {
+        return Err(Error::TooShort(bytes.len()));
+    }
+    let message_type = u16::from_be_bytes([bytes[0], bytes[1]]);
+    if message_type != LSPS0_MESSAGE_TYPE {
+        return Err(Error::InvalidMessageType {
+            type_: message_type,
+        });
+    }
+    Ok(&bytes[2..])
+}
 
 /// Represents a monetary amount as defined in LSPS0.msat. Is converted to a
 /// `String` in json messages with a suffix `_msat` or `_sat` and internally
@@ -63,7 +101,7 @@ impl core::fmt::Display for Msat {
 }
 
 impl Serialize for Msat {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
@@ -72,7 +110,7 @@ impl Serialize for Msat {
 }
 
 impl<'de> Deserialize<'de> for Msat {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -85,7 +123,7 @@ impl<'de> Deserialize<'de> for Msat {
                 formatter.write_str("a string representing a number")
             }
 
-            fn visit_str<E>(self, value: &str) -> Result<Msat, E>
+            fn visit_str<E>(self, value: &str) -> std::result::Result<Msat, E>
             where
                 E: de::Error,
             {
@@ -96,14 +134,14 @@ impl<'de> Deserialize<'de> for Msat {
             }
 
             // Also handle if JSON mistakenly has a number instead of string
-            fn visit_u64<E>(self, value: u64) -> Result<Msat, E>
+            fn visit_u64<E>(self, value: u64) -> std::result::Result<Msat, E>
             where
                 E: de::Error,
             {
                 Ok(Msat::from_msat(value))
             }
 
-            fn visit_i64<E>(self, value: i64) -> Result<Msat, E>
+            fn visit_i64<E>(self, value: i64) -> std::result::Result<Msat, E>
             where
                 E: de::Error,
             {
@@ -175,11 +213,54 @@ pub struct Lsps0listProtocolsResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json;
+
+    const TEST_JSON: &str = r#"{"jsonrpc":"2.0","method":"test","id":"1"}"#;
 
     #[derive(Debug, Serialize, Deserialize)]
     struct TestMessage {
         amount: Msat,
+    }
+
+    #[test]
+    fn test_encode_frame() {
+        let json = TEST_JSON.as_bytes();
+        let wire_bytes = encode_frame(json);
+
+        assert_eq!(wire_bytes.len(), 2 + json.len());
+        assert_eq!(wire_bytes[0], 0x94);
+        assert_eq!(wire_bytes[1], 0x19);
+        assert_eq!(&wire_bytes[2..], json);
+    }
+
+    #[test]
+    fn test_encode_decode_frame_roundtrip() {
+        let json = TEST_JSON.as_bytes();
+        let wire_bytes = encode_frame(json);
+        let decoded = decode_frame(&wire_bytes).expect("should decode the frame");
+
+        assert_eq!(decoded, json)
+    }
+
+    #[test]
+    fn test_decode_empty_frame() {
+        let result = decode_frame(&[]);
+        assert!(matches!(result, Err(Error::TooShort(0))));
+    }
+
+    #[test]
+    fn test_decode_single_byte_frame() {
+        let result = decode_frame(&[0x94]);
+        assert!(matches!(result, Err(Error::TooShort(1))));
+    }
+
+    #[test]
+    fn test_decode_frame_with_wrong_message_type() {
+        let bytes = vec![0x00, 0x01, b'{', b'}'];
+        let result = decode_frame(&bytes);
+        assert!(matches!(
+            result,
+            Err(Error::InvalidMessageType { type_: 1 })
+        ));
     }
 
     /// Test serialization of a struct containing Msat.
