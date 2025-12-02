@@ -164,8 +164,6 @@ impl CustomMessageHookManager {
 /// receive responses.
 #[derive(Clone)]
 pub struct Bolt8Transport {
-    /// The node ID of the destination node.
-    endpoint: cln_rpc::primitives::PublicKey,
     /// Path to the Core Lightning RPC socket.
     rpc_path: PathBuf,
     /// Timeout for requests.
@@ -186,16 +184,12 @@ impl Bolt8Transport {
     /// # Returns
     /// A new `Bolt8Transport` instance or an error if the node ID is invalid
     pub fn new(
-        endpoint: &str,
         rpc_path: PathBuf,
         hook_watcher: CustomMessageHookManager,
         timeout: Option<Duration>,
     ) -> Result<Self, Error> {
-        let endpoint = cln_rpc::primitives::PublicKey::from_str(endpoint)
-            .map_err(|e| Error::Internal(e.to_string()))?;
         let timeout = timeout.unwrap_or(DEFAULT_TIMEOUT);
         Ok(Self {
-            endpoint,
             rpc_path,
             request_timeout: timeout,
             hook_watcher,
@@ -210,8 +204,13 @@ impl Bolt8Transport {
     }
 
     /// Sends a custom message to the destination node.
-    async fn send_custom_msg(&self, client: &mut ClnRpc, payload: Vec<u8>) -> Result<(), Error> {
-        send_custommsg(client, payload, self.endpoint).await
+    async fn send_custom_msg(
+        &self,
+        client: &mut ClnRpc,
+        peer_id: &PublicKey,
+        payload: Vec<u8>,
+    ) -> Result<(), Error> {
+        send_custommsg(client, payload, peer_id).await
     }
 
     /// Waits for a response with timeout.
@@ -230,7 +229,7 @@ impl Bolt8Transport {
 pub async fn send_custommsg(
     client: &mut ClnRpc,
     payload: Vec<u8>,
-    peer: PublicKey,
+    peer: &PublicKey,
 ) -> Result<(), Error> {
     let msg = CustomMsg {
         message_type: LSPS0_MESSAGE_TYPE,
@@ -239,7 +238,7 @@ pub async fn send_custommsg(
 
     let request = cln_rpc::model::requests::SendcustommsgRequest {
         msg: msg.to_string(),
-        node_id: peer,
+        node_id: peer.to_owned(),
     };
 
     client
@@ -257,7 +256,7 @@ impl Transport for Bolt8Transport {
     /// Sends a JSON-RPC request and waits for a response.
     async fn send(
         &self,
-        _peer_id: &PublicKey,
+        peer_id: &PublicKey,
         request: String,
     ) -> core::result::Result<String, Error> {
         let id = extract_message_id(&request)?;
@@ -275,7 +274,7 @@ impl Transport for Bolt8Transport {
         self.hook_watcher
             .subscribe_hook_once(id, Arc::downgrade(&tx_arc))
             .await;
-        self.send_custom_msg(&mut client, request.into_bytes())
+        self.send_custom_msg(&mut client, peer_id, request.into_bytes())
             .await?;
 
         let res = self.wait_for_response(rx).await?;
@@ -300,11 +299,11 @@ impl Transport for Bolt8Transport {
     /// Sends a notification without waiting for a response.
     async fn notify(
         &self,
-        _peer_id: &PublicKey,
+        peer_id: &PublicKey,
         request: String,
     ) -> core::result::Result<(), Error> {
         let mut client = self.connect_to_node().await?;
-        self.send_custom_msg(&mut client, request.into_bytes())
+        self.send_custom_msg(&mut client, peer_id, request.into_bytes())
             .await
     }
 }

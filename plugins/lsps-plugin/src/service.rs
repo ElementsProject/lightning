@@ -189,7 +189,6 @@ impl JsonRpcResponseWriter for LspsResponseWriter {
         let mut client = cln_rpc::ClnRpc::new(&self.rpc_path)
             .await
             .map_err(|e| Error::Internal(e.to_string()))?;
-
-        transport::send_custommsg(&mut client, payload.to_vec(), self.peer_id).await
+        transport::send_custommsg(&mut client, payload.to_vec(), &self.peer_id).await
     }
 }

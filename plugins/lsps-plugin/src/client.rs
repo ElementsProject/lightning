@@ -135,7 +135,6 @@ async fn on_lsps_lsps2_getinfo(
 
     // Create Transport and Client
     let transport = Bolt8Transport::new(
-        &req.lsp_id,
         rpc_path.clone(), // Clone path for potential reuse
         p.state().hook_manager.clone(),
         None, // Use default timeout
@@ -189,7 +188,6 @@ async fn on_lsps_lsps2_buy(
 
     // Create Transport and Client
     let transport = Bolt8Transport::new(
-        &req.lsp_id,
         rpc_path.clone(), // Clone path for potential reuse
         p.state().hook_manager.clone(),
         None, // Use default timeout
@@ -726,7 +724,6 @@ async fn on_lsps_listprotocols(
 
     // Create the transport first and handle potential errors
     let transport = Bolt8Transport::new(
-        &req.lsp_id,
         rpc_path,
         p.state().hook_manager.clone(),
         None, // Use default timeout
