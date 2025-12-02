@@ -255,7 +255,11 @@ pub async fn send_custommsg(
 #[async_trait]
 impl Transport for Bolt8Transport {
     /// Sends a JSON-RPC request and waits for a response.
-    async fn send(&self, request: String) -> core::result::Result<String, Error> {
+    async fn send(
+        &self,
+        _peer_id: &PublicKey,
+        request: String,
+    ) -> core::result::Result<String, Error> {
         let id = extract_message_id(&request)?;
         let mut client = self.connect_to_node().await?;
 
@@ -294,7 +298,11 @@ impl Transport for Bolt8Transport {
     }
 
     /// Sends a notification without waiting for a response.
-    async fn notify(&self, request: String) -> core::result::Result<(), Error> {
+    async fn notify(
+        &self,
+        _peer_id: &PublicKey,
+        request: String,
+    ) -> core::result::Result<(), Error> {
         let mut client = self.connect_to_node().await?;
         self.send_custom_msg(&mut client, request.into_bytes())
             .await
