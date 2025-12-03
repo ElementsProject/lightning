@@ -4,11 +4,9 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [25.12rc2] - 2025-11-28: "Boltz's Seamless Upgrade Experience"
+## [25.12] - 2025-12-04: "Boltz's Seamless Upgrade Experience"
 
-Release Candidate for Core Lightning v25.12
-
-This release named by @sangbida
+This release is named by @sangbida
 
 ### Added
 
@@ -138,7 +136,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#8651]: https://github.com/ElementsProject/lightning/pull/8651
 [#8561]: https://github.com/ElementsProject/lightning/pull/8561
 [#8302]: https://github.com/ElementsProject/lightning/pull/8302
-[v25.12rc2]: https://github.com/ElementsProject/lightning/releases/tag/v25.12rc2
+[v25.12]: https://github.com/ElementsProject/lightning/releases/tag/v25.12
 
 
 ## [25.09.3] - 2025-11-06: "Hot Wallet Guardian IV"
