@@ -16,6 +16,7 @@ dependencies = [
   "pyln-proto",
   "pyln-grpc-proto",
   "pytest-global-fixture",
+  "pytest-rerunfailures>=16.0.1",
 ]
 package-mode = false
 [dependency-groups]
