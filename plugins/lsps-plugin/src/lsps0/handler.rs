@@ -60,7 +60,7 @@ mod test {
             lsps2_enabled: false,
         };
 
-        let request = Lsps0listProtocolsRequest {}.into_request(Some("test-id".to_string()));
+        let request = Lsps0listProtocolsRequest {}.into_request();
         let payload = create_wrapped_request(&request);
 
         let result = handler.handle(&payload).await.unwrap();
@@ -77,7 +77,7 @@ mod test {
             lsps2_enabled: true,
         };
 
-        let request = Lsps0listProtocolsRequest {}.into_request(Some("test-id".to_string()));
+        let request = Lsps0listProtocolsRequest {}.into_request();
         let payload = create_wrapped_request(&request);
 
         let result = handler.handle(&payload).await.unwrap();

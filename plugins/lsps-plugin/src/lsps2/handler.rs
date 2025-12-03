@@ -1022,7 +1022,7 @@ mod tests {
         *fake.lsps2_getpolicy_response.lock().unwrap() = Some(params);
         let handler = Lsps2GetInfoHandler::new(fake, promise_secret);
 
-        let request = Lsps2GetInfoRequest { token: None }.into_request(Some("test-id".to_string()));
+        let request = Lsps2GetInfoRequest { token: None }.into_request();
         let payload = create_wrapped_request(&request);
 
         let result = handler.handle(&payload).await.unwrap();
@@ -1053,7 +1053,7 @@ mod tests {
             data: None,
         });
         let handler = Lsps2GetInfoHandler::new(fake, [0; 32]);
-        let request = Lsps2GetInfoRequest { token: None }.into_request(Some("test-id".to_string()));
+        let request = Lsps2GetInfoRequest { token: None }.into_request();
         let payload = create_wrapped_request(&request);
 
         let result = handler.handle(&payload).await;
@@ -1084,7 +1084,7 @@ mod tests {
             opening_fee_params: buy,
             payment_size_msat: Some(Msat(2_000_000)),
         }
-        .into_request(Some("ok-fixed".into()));
+        .into_request();
         let payload = create_wrapped_request(&req);
 
         let out = handler.handle(&payload).await.unwrap();
@@ -1116,7 +1116,7 @@ mod tests {
             opening_fee_params: buy,
             payment_size_msat: None,
         }
-        .into_request(Some("ok-var".into()));
+        .into_request();
         let payload = create_wrapped_request(&req);
 
         let out = handler.handle(&payload).await.unwrap();
@@ -1136,7 +1136,7 @@ mod tests {
             opening_fee_params: buy_wrong,
             payment_size_msat: Some(Msat(2_000_000)),
         }
-        .into_request(Some("bad-promise".into()));
+        .into_request();
         let err1 = handler
             .handle(&create_wrapped_request(&req_wrong))
             .await
@@ -1150,7 +1150,7 @@ mod tests {
             opening_fee_params: buy_past,
             payment_size_msat: Some(Msat(2_000_000)),
         }
-        .into_request(Some("past-valid".into()));
+        .into_request();
         let err2 = handler
             .handle(&create_wrapped_request(&req_past))
             .await
@@ -1190,7 +1190,7 @@ mod tests {
             opening_fee_params: buy,
             payment_size_msat: Some(Msat(9_999)), // strictly less than min_fee => opening_fee >= payment_size
         }
-        .into_request(Some("too-small".into()));
+        .into_request();
 
         let err = handler
             .handle(&create_wrapped_request(&req))
@@ -1232,7 +1232,7 @@ mod tests {
             opening_fee_params: buy,
             payment_size_msat: Some(Msat(u64::MAX / 2)),
         }
-        .into_request(Some("overflow".into()));
+        .into_request();
 
         let err = handler
             .handle(&create_wrapped_request(&req))

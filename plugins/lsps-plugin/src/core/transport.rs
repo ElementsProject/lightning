@@ -2,9 +2,6 @@ use crate::proto::jsonrpc::{JsonRpcRequest, JsonRpcResponse, RequestObject};
 use async_trait::async_trait;
 use bitcoin::secp256k1::PublicKey;
 use core::fmt::Debug;
-use log::{debug, error};
-use rand::rngs::OsRng;
-use rand::TryRngCore;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
 use std::sync::Arc;
@@ -23,6 +20,8 @@ pub enum Error {
         #[source]
         source: serde_json::Error,
     },
+    #[error("request is missing id")]
+    MissingId,
 }
 
 impl From<serde_json::Error> for Error {
@@ -41,7 +40,6 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub trait Transport: Send + Sync {
     async fn send(&self, peer: &PublicKey, request: &str) -> Result<String>;
     async fn notify(&self, peer: &PublicKey, request: &str) -> Result<()>;
-}
 }
 
 /// A typed JSON-RPC client that works with any transport implementation.
@@ -67,19 +65,16 @@ impl<T: Transport> JsonRpcClient<T> {
         peer_id: &PublicKey,
         method: &str,
         params: Option<Value>,
+        id: Option<String>,
     ) -> Result<JsonRpcResponse<Value>> {
-        let id = generate_random_id();
-
-        debug!("Preparing request: method={}, id={}", method, id);
         let request = RequestObject {
             jsonrpc: "2.0".into(),
             method: method.into(),
             params,
-            id: Some(id.clone().into()),
+            id,
         };
 
-        let response: JsonRpcResponse<Value> =
-            self.send_request(peer_id, method, &request, id).await?;
+        let response: JsonRpcResponse<Value> = self.send_request(peer_id, &request).await?;
         Ok(response)
     }
 
@@ -97,13 +92,8 @@ impl<T: Transport> JsonRpcClient<T> {
         RQ: JsonRpcRequest + Serialize + Send + Sync,
         RS: DeserializeOwned + Serialize + Debug + Send + Sync,
     {
-        let method = RQ::METHOD;
-        let id = generate_random_id();
-
-        debug!("Preparing request: method={}, id={}", method, id);
-        let request = request.into_request(Some(id.clone().into()));
-        let response: JsonRpcResponse<RS> =
-            self.send_request(peer_id, method, &request, id).await?;
+        let request = request.into_request();
+        let response: JsonRpcResponse<RS> = self.send_request(peer_id, &request).await?;
         Ok(response)
     }
 
@@ -114,14 +104,13 @@ impl<T: Transport> JsonRpcClient<T> {
         method: &str,
         params: Option<Value>,
     ) -> Result<()> {
-        debug!("Preparing notification: method={}", method);
         let request = RequestObject {
             jsonrpc: "2.0".into(),
             method: method.into(),
             params,
             id: None,
         };
-        Ok(self.send_notification(peer_id, method, &request).await?)
+        Ok(self.send_notification(peer_id, &request).await?)
     }
 
     /// Sends a typed notification (no response expected).
@@ -129,85 +118,31 @@ impl<T: Transport> JsonRpcClient<T> {
     where
         RQ: JsonRpcRequest + Serialize + Send + Sync,
     {
-        let method = RQ::METHOD;
-
-        debug!("Preparing notification: method={}", method);
-        let request = request.into_request(None);
-        Ok(self.send_notification(peer_id, method, &request).await?)
+        let request = request.into_request();
+        Ok(self.send_notification(peer_id, &request).await?)
     }
 
     async fn send_request<RS, RP>(
         &self,
         peer: &PublicKey,
-        method: &str,
         payload: &RP,
-        id: String,
     ) -> Result<JsonRpcResponse<RS>>
     where
         RP: Serialize + Send + Sync,
         RS: DeserializeOwned + Serialize + Debug + Send + Sync,
     {
         let request_json = serde_json::to_string(&payload)?;
-        debug!(
-            "Sending request: method={}, id={}, request={:?}",
-            method, id, &request_json
-        );
-        let start = tokio::time::Instant::now();
         let res_str = self.transport.send(peer, &request_json).await?;
-        let elapsed = start.elapsed();
-        debug!(
-            "Received response: method={}, id={}, response={}, elapsed={}ms",
-            method,
-            id,
-            &res_str,
-            elapsed.as_millis()
-        );
         Ok(serde_json::from_str(&res_str)?)
     }
 
-    async fn send_notification<RP>(
-        &self,
-        peer_id: &PublicKey,
-        method: &str,
-        payload: &RP,
-    ) -> Result<()>
+    async fn send_notification<RP>(&self, peer_id: &PublicKey, payload: &RP) -> Result<()>
     where
         RP: Serialize + Send + Sync,
     {
         let request_json = serde_json::to_string(&payload)?;
-        debug!("Sending notification: method={}", method);
-        let start = tokio::time::Instant::now();
         self.transport.notify(peer_id, &request_json).await?;
-        let elapsed = start.elapsed();
-        debug!(
-            "Sent notification: method={}, elapsed={}ms",
-            method,
-            elapsed.as_millis()
-        );
         Ok(())
-    }
-}
-
-/// Generates a random ID for JSON-RPC requests.
-///
-/// Uses a secure random number generator to create a hex-encoded ID. Falls back
-/// to a timestamp-based ID if random generation fails.
-fn generate_random_id() -> String {
-    let mut bytes = [0u8; 10];
-    match OsRng.try_fill_bytes(&mut bytes) {
-        Ok(_) => hex::encode(bytes),
-        Err(e) => {
-            // Fallback to a timestamp-based ID if random generation fails
-            error!(
-                "Failed to generate random ID: {}, falling back to timestamp",
-                e
-            );
-            let timestamp = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_nanos();
-            format!("fallback-{}", timestamp)
-        }
     }
 }
 
