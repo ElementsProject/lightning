@@ -2754,7 +2754,7 @@ message SetconfigResponse {
 
 message SetconfigConfig {
 	string config = 1;
-	string source = 2;
+	optional string source = 2;
 	optional string plugin = 3;
 	bool dynamic = 4;
 	optional bool set = 5;
@@ -2762,6 +2762,8 @@ message SetconfigConfig {
 	optional Amount value_msat = 7;
 	optional sint64 value_int = 8;
 	optional bool value_bool = 9;
+	repeated string sources = 10;
+	repeated string values_str = 11;
 }
 
 message SetpsbtversionRequest {
