@@ -1,3 +1,4 @@
+use rand::{rngs::OsRng, TryRngCore as _};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::{self, Value};
 use std::fmt;
@@ -16,7 +17,14 @@ pub const INTERNAL_ERROR: i64 = -32603;
 /// request format.
 pub trait JsonRpcRequest: Serialize {
     const METHOD: &'static str;
-    fn into_request(self, id: Option<String>) -> RequestObject<Self>
+    fn into_request(self) -> RequestObject<Self>
+    where
+        Self: Sized,
+    {
+        Self::into_request_with_id(self, Some(generate_random_id()))
+    }
+
+    fn into_request_with_id(self, id: Option<String>) -> RequestObject<Self>
     where
         Self: Sized,
     {
@@ -25,6 +33,25 @@ pub trait JsonRpcRequest: Serialize {
             method: Self::METHOD.into(),
             params: Some(self),
             id,
+        }
+    }
+}
+
+/// Generates a random ID for JSON-RPC requests.
+///
+/// Uses a secure random number generator to create a hex-encoded ID. Falls back
+/// to a timestamp-based ID if random generation fails.
+fn generate_random_id() -> String {
+    let mut bytes = [0u8; 10];
+    match OsRng.try_fill_bytes(&mut bytes) {
+        Ok(_) => hex::encode(bytes),
+        Err(_) => {
+            // Fallback to a timestamp-based ID if random generation fails
+            let timestamp = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos();
+            format!("fallback-{}", timestamp)
         }
     }
 }
@@ -41,10 +68,7 @@ pub trait JsonRpcRequest: Serialize {
 ///   to allow it to be encoded as JSON. Typically this will be a struct
 ///   implementing the `JsonRpcRequest` trait.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct RequestObject<T>
-where
-    T: Serialize,
-{
+pub struct RequestObject<T> {
     ///  **REQUIRED**.  MUST be `"2.0"`.
     pub jsonrpc: String,
     ///  **REQUIRED**.  The method to be invoked.
@@ -395,7 +419,7 @@ mod test_message_serialization {
         impl JsonRpcRequest for SayHelloRequest {
             const METHOD: &'static str = "say_hello";
         }
-        let rpc_request = SayHelloRequest.into_request(Some("unique-id-123".into()));
+        let rpc_request = SayHelloRequest.into_request();
         assert!(!serde_json::to_string(&rpc_request)
             .expect("could not convert to json")
             .contains("\"params\""));
@@ -416,7 +440,7 @@ mod test_message_serialization {
             name: "Satoshi".to_string(),
             age: 99,
         }
-        .into_request(Some("unique-id-123".into()));
+        .into_request_with_id(Some("unique-id-123".into()));
 
         let json_value: serde_json::Value = serde_json::to_value(&rpc_request).unwrap();
         let expected_value: serde_json::Value = serde_json::json!({
