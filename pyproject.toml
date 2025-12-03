@@ -17,6 +17,7 @@ dependencies = [
   "pyln-grpc-proto",
   "pytest-trackflaky",
   "pyln-testing",
+  "pytest-rerunfailures>=16.0.1",
 ]
 package-mode = false
 [dependency-groups]
