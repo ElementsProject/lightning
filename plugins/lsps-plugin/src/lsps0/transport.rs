@@ -1,12 +1,18 @@
 use crate::{
     core::transport::{Error, Transport},
-    proto::lsps0::LSPS0_MESSAGE_TYPE,
+    proto::{
+        jsonrpc::{JsonRpcResponse, RequestObject},
+        lsps0::LSPS0_MESSAGE_TYPE,
+    },
 };
 use async_trait::async_trait;
 use cln_plugin::Plugin;
 use cln_rpc::{primitives::PublicKey, ClnRpc};
 use log::{debug, error, trace};
-use serde::{de::Visitor, Deserialize, Serialize};
+use serde::{
+    de::{DeserializeOwned, Visitor},
+    Deserialize, Serialize,
+};
 use std::{
     array::TryFromSliceError,
     collections::HashMap,
@@ -253,13 +259,22 @@ pub async fn send_custommsg(
 
 #[async_trait]
 impl Transport for Bolt8Transport {
-    /// Sends a JSON-RPC request and waits for a response.
-    async fn send(
+    async fn request<P, R>(
         &self,
         peer_id: &PublicKey,
-        request: &str,
-    ) -> core::result::Result<String, Error> {
-        let id = extract_message_id(request)?;
+        request: &RequestObject<P>,
+    ) -> Result<JsonRpcResponse<R>, Error>
+    where
+        P: Serialize + Send + Sync,
+        R: DeserializeOwned + Send,
+    {
+        let id = if let Some(id) = request.id.as_ref() {
+            id
+        } else {
+            return Err(Error::MissingId);
+        };
+        let request_bytes = serde_json::to_vec(request)?;
+
         let mut client = self.connect_to_node().await?;
 
         let (tx, rx) = mpsc::channel(1);
@@ -274,7 +289,7 @@ impl Transport for Bolt8Transport {
         self.hook_watcher
             .subscribe_hook_once(id, Arc::downgrade(&tx_arc))
             .await;
-        self.send_custom_msg(&mut client, peer_id, request.as_bytes())
+        self.send_custom_msg(&mut client, peer_id, &request_bytes)
             .await?;
 
         let res = self.wait_for_response(rx).await?;
@@ -286,21 +301,7 @@ impl Transport for Bolt8Transport {
             )));
         }
 
-        core::str::from_utf8(&res.payload)
-            .map_err(|e| {
-                Error::Internal(format!(
-                    "failed to decode msg payload {:?}: {}",
-                    res.payload, e
-                ))
-            })
-            .map(|s| s.into())
-    }
-
-    /// Sends a notification without waiting for a response.
-    async fn notify(&self, peer_id: &PublicKey, request: &str) -> core::result::Result<(), Error> {
-        let mut client = self.connect_to_node().await?;
-        self.send_custom_msg(&mut client, peer_id, request.as_bytes())
-            .await
+        Ok(serde_json::from_slice(&res.payload)?)
     }
 }
 

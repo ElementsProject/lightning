@@ -1,7 +1,7 @@
 use anyhow::{anyhow, bail, Context};
 use bitcoin::hashes::{hex::FromHex, sha256, Hash};
 use chrono::{Duration, Utc};
-use cln_lsps::core::transport::JsonRpcClient;
+use cln_lsps::core::client::LspsClient;
 use cln_lsps::lsps0::transport::{
     Bolt8Transport, CustomMessageHookManager, WithCustomMessageHookManager,
 };
@@ -10,12 +10,9 @@ use cln_lsps::lsps2::cln::{
     HtlcAcceptedRequest, HtlcAcceptedResponse, InvoicePaymentRequest, OpenChannelRequest,
     TLV_FORWARD_AMT, TLV_PAYMENT_SECRET,
 };
-use cln_lsps::proto::lsps0::{
-    Lsps0listProtocolsRequest, Lsps0listProtocolsResponse, Msat, LSP_FEATURE_BIT,
-};
+use cln_lsps::proto::lsps0::{Msat, LSP_FEATURE_BIT};
 use cln_lsps::proto::lsps2::{
-    compute_opening_fee, Lsps2BuyRequest, Lsps2BuyResponse, Lsps2GetInfoRequest,
-    Lsps2GetInfoResponse, OpeningFeeParams,
+    compute_opening_fee, Lsps2BuyResponse, Lsps2GetInfoResponse, OpeningFeeParams,
 };
 use cln_lsps::util;
 use cln_plugin::options;
@@ -140,18 +137,13 @@ async fn on_lsps_lsps2_getinfo(
         None, // Use default timeout
     )
     .context("Failed to create Bolt8Transport")?;
-    let client = JsonRpcClient::new(transport);
 
     // 1. Call lsps2.get_info.
-    let info_req = Lsps2GetInfoRequest { token: req.token };
-    let info_res: Lsps2GetInfoResponse = client
-        .call_typed(&lsp_id, info_req)
-        .await
-        .context("lsps2.get_info call failed")?
-        .into_result()?;
-    debug!("received lsps2.get_info response: {:?}", info_res);
-
-    Ok(serde_json::to_value(info_res)?)
+    let client = LspsClient::new(transport);
+    match client.get_info(&lsp_id, req.token).await?.as_result() {
+        Ok(i) => Ok(serde_json::to_value(i)?),
+        Err(e) => Ok(serde_json::to_value(e)?),
+    }
 }
 
 /// Rpc Method handler for `lsps-lsps2-buy`.
@@ -193,7 +185,7 @@ async fn on_lsps_lsps2_buy(
         None, // Use default timeout
     )
     .context("Failed to create Bolt8Transport")?;
-    let client = JsonRpcClient::new(transport);
+    let client = LspsClient::new(transport);
 
     let selected_params = req.opening_fee_params;
     if let Some(payment_size) = req.payment_size_msat {
@@ -239,17 +231,14 @@ async fn on_lsps_lsps2_buy(
     }
 
     debug!("Calling lsps2.buy for peer {}", req.lsp_id);
-    let buy_req = Lsps2BuyRequest {
-        opening_fee_params: selected_params, // Pass the chosen params back
-        payment_size_msat: req.payment_size_msat,
-    };
-    let buy_res: Lsps2BuyResponse = client
-        .call_typed(&lsp_id, buy_req)
-        .await
-        .context("lsps2.buy call failed")?
-        .into_result()?;
-
-    Ok(serde_json::to_value(buy_res)?)
+    match client
+        .buy(&lsp_id, selected_params, req.payment_size_msat)
+        .await?
+        .as_result()
+    {
+        Ok(i) => Ok(serde_json::to_value(i)?),
+        Err(e) => Ok(serde_json::to_value(e)?),
+    }
 }
 
 async fn on_lsps_lsps2_approve(
@@ -731,17 +720,14 @@ async fn on_lsps_listprotocols(
     .context("Failed to create Bolt8Transport")?;
 
     // Now create the client using the transport
-    let client = JsonRpcClient::new(transport);
-
-    let request = Lsps0listProtocolsRequest {};
-    let res: Lsps0listProtocolsResponse = client
-        .call_typed(&lsp_id, request)
-        .await
-        .context("lsps0.list_protocols call failed")?
-        .into_result()?;
-
-    debug!("Received lsps0.list_protocols response: {:?}", res);
-    Ok(serde_json::to_value(res)?)
+    let client = LspsClient::new(transport);
+    match client.list_protocols(&lsp_id).await?.as_result() {
+        Ok(i) => {
+            debug!("Received lsps0.list_protocols response: {:?}", i);
+            Ok(serde_json::to_value(i)?)
+        }
+        Err(e) => Ok(serde_json::to_value(e)?),
+    }
 }
 
 struct PeerLspStatus {
