@@ -4,7 +4,6 @@ use bitcoin::secp256k1::PublicKey;
 use core::fmt::Debug;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
-use std::sync::Arc;
 use thiserror::Error;
 
 /// Transport-specific errors that may occur when sending or receiving JSON-RPC
@@ -40,6 +39,17 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub trait Transport: Send + Sync {
     async fn send(&self, peer: &PublicKey, request: &str) -> Result<String>;
     async fn notify(&self, peer: &PublicKey, request: &str) -> Result<()>;
+    async fn request<P, R>(
+        &self,
+        _peer_id: &PublicKey,
+        _request: &RequestObject<P>,
+    ) -> Result<JsonRpcResponse<R>>
+    where
+        P: Serialize + Send + Sync,
+        R: DeserializeOwned + Send,
+    {
+        unimplemented!();
+    }
 }
 
 /// A typed JSON-RPC client that works with any transport implementation.
@@ -48,14 +58,12 @@ pub trait Transport: Send + Sync {
 /// formatting, request ID generation, and response parsing.
 #[derive(Clone)]
 pub struct JsonRpcClient<T: Transport> {
-    transport: Arc<T>,
+    transport: T,
 }
 
 impl<T: Transport> JsonRpcClient<T> {
     pub fn new(transport: T) -> Self {
-        Self {
-            transport: Arc::new(transport),
-        }
+        Self { transport }
     }
 
     /// Makes a JSON-RPC method call with raw JSON parameters and returns a raw
@@ -73,9 +81,7 @@ impl<T: Transport> JsonRpcClient<T> {
             params,
             id,
         };
-
-        let response: JsonRpcResponse<Value> = self.send_request(peer_id, &request).await?;
-        Ok(response)
+        self.send_request(peer_id, &request).await
     }
 
     /// Makes a typed JSON-RPC method call with a request object and returns a
@@ -89,71 +95,32 @@ impl<T: Transport> JsonRpcClient<T> {
         request: RQ,
     ) -> Result<JsonRpcResponse<RS>>
     where
-        RQ: JsonRpcRequest + Serialize + Send + Sync,
-        RS: DeserializeOwned + Serialize + Debug + Send + Sync,
+        RQ: JsonRpcRequest + Send + Sync,
+        RS: DeserializeOwned + Serialize + Send,
     {
         let request = request.into_request();
-        let response: JsonRpcResponse<RS> = self.send_request(peer_id, &request).await?;
-        Ok(response)
+        self.send_request(peer_id, &request).await
     }
 
-    /// Sends a notification with raw JSON parameters (no response expected).
-    pub async fn notify_raw(
-        &self,
-        peer_id: &PublicKey,
-        method: &str,
-        params: Option<Value>,
-    ) -> Result<()> {
-        let request = RequestObject {
-            jsonrpc: "2.0".into(),
-            method: method.into(),
-            params,
-            id: None,
-        };
-        Ok(self.send_notification(peer_id, &request).await?)
-    }
-
-    /// Sends a typed notification (no response expected).
-    pub async fn notify_typed<RQ>(&self, peer_id: &PublicKey, request: RQ) -> Result<()>
-    where
-        RQ: JsonRpcRequest + Serialize + Send + Sync,
-    {
-        let request = request.into_request();
-        Ok(self.send_notification(peer_id, &request).await?)
-    }
-
-    async fn send_request<RS, RP>(
+    async fn send_request<RP, RS>(
         &self,
         peer: &PublicKey,
-        payload: &RP,
+        request: &RequestObject<RP>,
     ) -> Result<JsonRpcResponse<RS>>
     where
         RP: Serialize + Send + Sync,
-        RS: DeserializeOwned + Serialize + Debug + Send + Sync,
+        RS: DeserializeOwned + Serialize + Send,
     {
-        let request_json = serde_json::to_string(&payload)?;
-        let res_str = self.transport.send(peer, &request_json).await?;
-        Ok(serde_json::from_str(&res_str)?)
-    }
-
-    async fn send_notification<RP>(&self, peer_id: &PublicKey, payload: &RP) -> Result<()>
-    where
-        RP: Serialize + Send + Sync,
-    {
-        let request_json = serde_json::to_string(&payload)?;
-        self.transport.notify(peer_id, &request_json).await?;
-        Ok(())
+        self.transport.request(peer, request).await
     }
 }
 
 #[cfg(test)]
-
 mod test_json_rpc {
-    use std::str::FromStr as _;
-
     use super::*;
     use crate::proto::jsonrpc::RpcError;
     use serde::Deserialize;
+    use std::{str::FromStr as _, sync::Arc};
     use tokio::sync::OnceCell;
 
     #[derive(Clone)]
@@ -174,13 +141,18 @@ mod test_json_rpc {
 
     #[async_trait]
     impl Transport for TestTransport {
-        async fn send(
+        async fn request<P, R>(
             &self,
             _peer_id: &PublicKey,
-            req: &str,
-        ) -> core::result::Result<String, Error> {
+            request: &RequestObject<P>,
+        ) -> Result<JsonRpcResponse<R>>
+        where
+            P: Serialize + Send + Sync,
+            R: DeserializeOwned + Send,
+        {
             // Store the request
-            let _ = self.req.set(req.to_owned());
+            let req = serde_json::to_string(request).unwrap();
+            let _ = self.req.set(req);
 
             // Check for error first
             if let Some(err) = &*self.err {
@@ -189,22 +161,31 @@ mod test_json_rpc {
 
             // Then check for response
             if let Some(res) = &*self.res {
-                return Ok(res.clone());
+                let res: JsonRpcResponse<R> = match serde_json::from_str(&res) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        println!("GOT ERROR {}", e);
+                        panic!();
+                    }
+                };
+                return Ok(res);
             }
-
             panic!("TestTransport: neither result nor error is set.");
         }
+        async fn send(
+            &self,
+            _peer_id: &PublicKey,
+            _req: &str,
+        ) -> core::result::Result<String, Error> {
+            unimplemented!();
+        }
 
-        async fn notify(&self, _peer_id: &PublicKey, req: &str) -> core::result::Result<(), Error> {
-            // Store the request
-            let _ = self.req.set(req.to_owned());
-
-            // Check for error
-            if let Some(err) = &*self.err {
-                return Err(Error::Internal(err.into()));
-            }
-
-            Ok(())
+        async fn notify(
+            &self,
+            _peer_id: &PublicKey,
+            _req: &str,
+        ) -> core::result::Result<(), Error> {
+            unimplemented!();
         }
     }
 
