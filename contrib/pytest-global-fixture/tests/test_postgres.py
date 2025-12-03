@@ -1,5 +1,4 @@
-import pytest
-import os
+
 
 def test_table_isolation_a(postgres_db, worker_id):
     """
@@ -11,12 +10,13 @@ def test_table_isolation_a(postgres_db, worker_id):
         cur.execute("SELECT current_database();")
         db_name = cur.fetchone()[0]
         print(f"Worker {worker_id} connected to {db_name}")
-        
+
         cur.execute("CREATE TABLE items (id serial PRIMARY KEY, name text);")
         cur.execute("INSERT INTO items (name) VALUES ('item_from_a');")
-        
+
         cur.execute("SELECT count(*) FROM items;")
         assert cur.fetchone()[0] == 1
+
 
 def test_table_isolation_b(postgres_db, worker_id):
     """
@@ -36,8 +36,8 @@ def test_table_isolation_b(postgres_db, worker_id):
         except Exception:
             exists = False
             # Reset transaction if error occurred
-            postgres_db.rollback() 
-        
+            postgres_db.rollback()
+
         if not exists:
             # Good, table doesn't exist, let's create our own
             cur.execute("CREATE TABLE items (id serial PRIMARY KEY, name text);")

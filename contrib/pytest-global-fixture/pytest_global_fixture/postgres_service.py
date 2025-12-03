@@ -12,7 +12,6 @@ import signal
 import subprocess
 import tempfile
 import time
-from pathlib import Path
 from psycopg2 import sql
 from typing import Dict
 from .base import InfrastructureService

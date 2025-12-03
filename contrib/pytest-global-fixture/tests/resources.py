@@ -4,6 +4,7 @@ from psycopg2 import sql
 from testcontainers.postgres import PostgresContainer
 from pytest_global_fixture.base import InfrastructureService
 
+
 class PostgresService(InfrastructureService):
     def __init__(self):
         self.container = None
@@ -17,16 +18,16 @@ class PostgresService(InfrastructureService):
         time.sleep(30)
         self.container = PostgresContainer("postgres:15-alpine")
         self.container.start()
-        
+
         # Connection info for the Superuser
         self.master_config = {
             "host": self.container.get_container_host_ip(),
             "port": self.container.get_exposed_port(5432),
             "user": self.container.username,
             "password": self.container.password,
-            "dbname": self.container.dbname
+            "dbname": self.container.dbname,
         }
-        
+
         # Wait for readiness
         self._wait_for_ready()
 
@@ -47,7 +48,9 @@ class PostgresService(InfrastructureService):
             with conn.cursor() as cur:
                 # Sanitize the tenant_id slightly for SQL (simple alphanumeric check is best)
                 safe_name = tenant_id.replace("-", "_")
-                cur.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(safe_name)))
+                cur.execute(
+                    sql.SQL("CREATE DATABASE {}").format(sql.Identifier(safe_name))
+                )
         finally:
             conn.close()
 
@@ -66,14 +69,20 @@ class PostgresService(InfrastructureService):
         try:
             with conn.cursor() as cur:
                 # Force disconnect users before dropping
-                cur.execute(sql.SQL("""
+                cur.execute(
+                    sql.SQL("""
                     SELECT pg_terminate_backend(pg_stat_activity.pid)
                     FROM pg_stat_activity
                     WHERE pg_stat_activity.datname = {}
                     AND pid <> pg_backend_pid();
-                """).format(sql.Literal(safe_name)))
-                
-                cur.execute(sql.SQL("DROP DATABASE IF EXISTS {}").format(sql.Identifier(safe_name)))
+                """).format(sql.Literal(safe_name))
+                )
+
+                cur.execute(
+                    sql.SQL("DROP DATABASE IF EXISTS {}").format(
+                        sql.Identifier(safe_name)
+                    )
+                )
         finally:
             conn.close()
 

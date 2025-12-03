@@ -1,6 +1,7 @@
 import pytest
 import psycopg2
 
+
 @pytest.fixture(scope="function")
 def postgres_db(global_resource):
     """
@@ -12,12 +13,12 @@ def postgres_db(global_resource):
     """
     # Request the service by Class Path
     db_config = global_resource("tests.resources:PostgresService")
-    
+
     # Create the actual connection object for the test to use
     conn = psycopg2.connect(**db_config)
     conn.autocommit = True
-    
+
     yield conn
-    
+
     conn.close()
     # After yield, 'global_resource' fixture automatically calls remove_tenant

@@ -1,17 +1,19 @@
 import pytest
 import threading
 import uuid
-import sys
 from xmlrpc.server import SimpleXMLRPCServer, SimpleXMLRPCRequestHandler
 import xmlrpc.client
 from .manager import ServiceManager
 
 # --- RPC Server Setup (Runs on Master) ---
 
+
 class QuietXMLRPCRequestHandler(SimpleXMLRPCRequestHandler):
     """Suppress standard logging from XML-RPC server."""
+
     def log_message(self, format, *args):
         pass
+
 
 def pytest_configure(config):
     """
@@ -19,32 +21,33 @@ def pytest_configure(config):
     """
     # Check if we are a worker (xdist). If no workerinput, we are Master.
     if not hasattr(config, "workerinput"):
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("PYTEST-GLOBAL-FIXTURE: Coordinator mode - managing shared resources")
-        print("="*80)
+        print("=" * 80)
         manager = ServiceManager()
-        
+
         # Bind to port 0 (ephemeral)
         server = SimpleXMLRPCServer(
-            ("localhost", 0), 
-            requestHandler=QuietXMLRPCRequestHandler, 
+            ("localhost", 0),
+            requestHandler=QuietXMLRPCRequestHandler,
             allow_none=True,
-            logRequests=False
+            logRequests=False,
         )
         server.register_instance(manager)
-        
+
         # Run server in daemon thread
         t = threading.Thread(target=server.serve_forever, daemon=True)
         t.start()
-        
+
         host, port = server.server_address
         rpc_addr = f"http://{host}:{port}/"
-        
+
         # Store in config to pass to workers/hooks
         config.infra_rpc_addr = rpc_addr
         config.infra_manager = manager
-        
+
         print(f"--- [Coordinator] Infrastructure Manager listening at {rpc_addr} ---")
+
 
 def pytest_configure_node(node):
     """
@@ -52,6 +55,7 @@ def pytest_configure_node(node):
     Pass the RPC address to the worker.
     """
     node.workerinput["infra_rpc_addr"] = node.config.infra_rpc_addr
+
 
 def pytest_unconfigure(config):
     """
@@ -63,6 +67,7 @@ def pytest_unconfigure(config):
 
 # --- Fixture (Runs on Workers) ---
 
+
 @pytest.fixture(scope="session")
 def coordinator_client(request):
     """
@@ -71,13 +76,16 @@ def coordinator_client(request):
     if hasattr(request.config, "workerinput"):
         addr = request.config.workerinput["infra_rpc_addr"]
         worker_id = request.config.workerinput.get("workerid", "unknown")
-        print(f"[{worker_id}] PYTEST-GLOBAL-FIXTURE: Worker connecting to coordinator at {addr}")
+        print(
+            f"[{worker_id}] PYTEST-GLOBAL-FIXTURE: Worker connecting to coordinator at {addr}"
+        )
     else:
         # We are running sequentially (no xdist), or we are the master
         addr = request.config.infra_rpc_addr
         print(f"PYTEST-GLOBAL-FIXTURE: Sequential mode, using coordinator at {addr}")
 
     return xmlrpc.client.ServerProxy(addr)
+
 
 @pytest.fixture(scope="function")
 def global_resource(request):
@@ -98,7 +106,6 @@ def global_resource(request):
     def _provision(class_path):
         # Create unique tenant ID: "gwX_testName_UUID"
         worker_id = getattr(request.config, "workerinput", {}).get("workerid", "master")
-        test_name = request.node.name.replace("[", "_").replace("]", "_")
         # Short uuid for uniqueness
         uid = uuid.uuid4().hex[:6]
         tenant_id = f"{worker_id}_{uid}"

@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict
 
+
 class InfrastructureService(ABC):
     """
     Interface that all shared resources must implement.
@@ -27,12 +28,12 @@ class InfrastructureService(ABC):
     def create_tenant(self, tenant_id: str) -> Dict[str, Any]:
         """
         Create a logical isolation unit (Database, Schema, VHost).
-        
+
         Args:
             tenant_id: A unique string identifier for the requester (e.g., 'gw0_test_uuid').
-        
+
         Returns:
-            A JSON-serializable dictionary containing connection details 
+            A JSON-serializable dictionary containing connection details
             (host, port, user, password, db_name, etc.)
         """
         pass
