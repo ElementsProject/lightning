@@ -36,6 +36,8 @@ monkeytype.sqlite3
 !*/test/exp-run-*.c
 */*/test/run-*
 !*/*/test/run-*.c
+devtools/check-bolt
+tools/lightning-downgrade
 test/test_protocol
 test/test_sphinx
 tests/.pytest.restart
