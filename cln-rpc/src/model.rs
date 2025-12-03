@@ -9644,6 +9644,8 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub set: Option<bool>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub source: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub value_bool: Option<bool>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub value_int: Option<i64>,
@@ -9651,9 +9653,12 @@ pub mod responses {
 	    pub value_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub value_str: Option<String>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub sources: Option<Vec<String>>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub values_str: Option<Vec<String>>,
 	    pub config: String,
 	    pub dynamic: bool,
-	    pub source: String,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
