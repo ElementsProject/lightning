@@ -31,6 +31,11 @@ on:
         required: false
         type: string
         default: ''
+      os:
+        description: 'Operating system (ubuntu-22.04 or macos-14)'
+        required: false
+        type: string
+        default: 'ubuntu-22.04'
 
 env:
   RUST_PROFILE: release
@@ -39,7 +44,7 @@ env:
 jobs:
   build:
     name: Build CLN ${{ inputs.cfg }}
-    runs-on: ubuntu-22.04
+    runs-on: ${{ inputs.os }}
     timeout-minutes: 30
     steps:
       - name: Checkout
@@ -53,9 +58,20 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
 
-      - name: Install dependencies
+      - name: Install dependencies (Linux)
+        if: ${{ inputs.os == 'ubuntu-22.04' }}
         run: |
           bash -x .github/scripts/setup.sh
+
+      - name: Install dependencies (macOS)
+        if: ${{ startsWith(inputs.os, 'macos-') }}
+        env:
+          GRPC_PYTHON_BUILD_SYSTEM_OPENSSL: 1
+          GRPC_PYTHON_BUILD_SYSTEM_ZLIB: 1
+        run: |
+          export PATH="/usr/local/opt:/Users/runner/.local/bin:/opt/homebrew/bin/python3.10/bin:$PATH"
+          brew install gnu-sed autoconf automake libtool protobuf openssl lowdown libsodium
+          uv sync --all-groups
 
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.9
@@ -69,9 +85,25 @@ jobs:
           COMPAT: 1
           CFG: ${{ inputs.cfg }}
           RUSTC_WRAPPER: sccache
+          # macOS-specific environment variables
+          CPATH: ${{ startsWith(inputs.os, 'macos-') && '/opt/homebrew/include' || '' }}
+          LIBRARY_PATH: ${{ startsWith(inputs.os, 'macos-') && '/opt/homebrew/lib' || '' }}
+          GRPC_PYTHON_BUILD_SYSTEM_OPENSSL: ${{ startsWith(inputs.os, 'macos-') && '1' || '' }}
+          GRPC_PYTHON_BUILD_SYSTEM_ZLIB: ${{ startsWith(inputs.os, 'macos-') && '1' || '' }}
         run: |
           set -e
-          ./configure --enable-debugbuild CC="sccache $COMPILER" ${{ inputs.coptflags }}
+
+          # Determine configure flags based on OS
+          if [[ "${{ inputs.os }}" == ubuntu-* ]]; then
+            CONFIGURE_FLAGS="--enable-debugbuild"
+            CC_WRAPPER="sccache $COMPILER"
+          else
+            # macOS: disable valgrind (not available) and compat
+            CONFIGURE_FLAGS="--disable-valgrind --disable-compat"
+            CC_WRAPPER="$COMPILER"
+          fi
+
+          ./configure $CONFIGURE_FLAGS CC="$CC_WRAPPER" ${{ inputs.coptflags }}
 
           uv run make -j $(nproc) testpack.tar.bz2
 
@@ -83,7 +115,8 @@ jobs:
           RUSTC_WRAPPER: sccache
         run: cargo test --all
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
         with:
           name: cln-${{ inputs.cfg }}.tar.bz2
           path: cln-${{ inputs.cfg }}.tar.bz2

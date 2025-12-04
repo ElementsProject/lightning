@@ -2,11 +2,22 @@
 name: Mac OS pytest
 on:
   pull_request:
+  workflow_dispatch:
 jobs:
+  build-macos:
+    name: Build CLN (macOS)
+    uses: ./.github/workflows/build-cln.yaml
+    with:
+      cfg: macos-clang
+      compiler: clang
+      os: macos-14
+
   smoke-test:
     name: Smoke Test macOS
     runs-on: macos-14
     timeout-minutes: 120
+    needs:
+      - build-macos
     strategy:
       fail-fast: true
       matrix:
@@ -25,32 +36,13 @@ jobs:
           sudo mv bitcoin-${BITCOIND_VERSION}/bin/* /usr/local/bin
           rm -rf bitcoin-${BITCOIND_VERSION}-${TARGET_ARCH}.tar.gz bitcoin-${BITCOIND_VERSION}
 
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v5
+      - name: Download build
+        uses: actions/download-artifact@v4
         with:
-          python-version: "3.10"
+          name: cln-macos-clang.tar.bz2
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-
-      - name: Install dependencies
-        run: |
-          export PATH="/usr/local/opt:/Users/runner/.local/bin:/opt/homebrew/bin/python3.10/bin:$PATH"
-
-          brew install gnu-sed autoconf automake libtool protobuf openssl lowdown libsodium
-
-          # https://github.com/grpc/grpc/issues/31737#issuecomment-1323796842
-          export GRPC_PYTHON_BUILD_SYSTEM_OPENSSL=1
-          export GRPC_PYTHON_BUILD_SYSTEM_ZLIB=1
-          uv sync --all-groups
-
-      - name: Build and install CLN
-        run: |
-          export CPATH=/opt/homebrew/include
-          export LIBRARY_PATH=/opt/homebrew/lib
-
-          uv run ./configure --disable-valgrind --disable-compat
-          uv run make
+      - name: Unpack CLN
+        run: tar -xaf cln-macos-clang.tar.bz2
 
       - name: Start bitcoind in regtest mode
         run: |
