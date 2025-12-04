@@ -10,7 +10,8 @@ PLUGIN_ASKRENE_SRC := \
 	plugins/askrene/explain_failure.c \
 	plugins/askrene/graph.c \
 	plugins/askrene/priorityqueue.c \
-	plugins/askrene/algorithm.c
+	plugins/askrene/algorithm.c \
+	plugins/askrene/child/child_log.c \
 
 PLUGIN_ASKRENE_HEADER := \
 	plugins/askrene/askrene.h \
@@ -24,7 +25,8 @@ PLUGIN_ASKRENE_HEADER := \
 	plugins/askrene/explain_failure.h \
 	plugins/askrene/graph.h \
 	plugins/askrene/priorityqueue.h \
-	plugins/askrene/algorithm.h
+	plugins/askrene/algorithm.h \
+	plugins/askrene/child/child_log.h \
 
 PLUGIN_ASKRENE_OBJS := $(PLUGIN_ASKRENE_SRC:.c=.o)
 
