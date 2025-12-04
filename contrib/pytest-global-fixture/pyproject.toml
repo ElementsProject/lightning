@@ -1,0 +1,38 @@
+[project]
+name = "pytest-global-fixture"
+version = "0.1.0"
+description = "A pytest plugin for coordinating global resources across xdist workers"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "pytest>=7.0.0",
+    "pytest-xdist>=3.0.0",
+]
+
+[project.entry-points.pytest11]
+pytest_global_fixture = "pytest_global_fixture.plugin"
+
+[project.optional-dependencies]
+dev = [
+    "testcontainers>=3.7.0",
+    "psycopg2-binary>=2.9.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["pytest_global_fixture"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Register the plugin explicitly for local development
+addopts = "-p pytest_global_fixture.plugin -n auto"
+
+[dependency-groups]
+dev = [
+    "psycopg2-binary>=2.9.10",
+    "pytest-flakefinder>=1.1.0",
+    "testcontainers>=4.13.3",
+]

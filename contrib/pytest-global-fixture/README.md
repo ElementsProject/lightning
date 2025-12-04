@@ -1,0 +1,248 @@
+# pytest-global-fixture
+
+A pytest plugin for coordinating globally-shared infrastructure resources across pytest-xdist workers with per-test isolation.
+
+## The Problem
+
+When running integration tests that require heavy infrastructure (databases, message queues, caches, etc.), the traditional approach of starting and stopping these services for each test is prohibitively slow:
+
+```python
+# Traditional approach - SLOW!
+@pytest.fixture(scope="function")
+def postgres():
+    container = PostgresContainer()
+    container.start()  # 5-10 seconds
+    yield container
+    container.stop()   # 2-5 seconds
+```
+
+With 100 tests, this means 700-1500 seconds just for container lifecycle management!
+
+## The Solution
+
+This plugin enables a **shared infrastructure pattern** where:
+
+1. Heavy resources (Docker containers, VMs, etc.) are started **once** by a coordinator process
+2. Each test gets an **isolated tenant** within the shared resource (separate database, schema, vhost, etc.)
+3. Tests run in parallel via pytest-xdist without interfering with each other
+4. Cleanup happens per-test (tenant removal) and globally at session end
+
+```python
+# With pytest-global-fixture - FAST!
+@pytest.fixture(scope="function")
+def postgres_db(global_resource):
+    # Container started once, reused across all tests
+    db_config = global_resource("tests.resources:PostgresService")
+    conn = psycopg2.connect(**db_config)
+    yield conn  # Fresh database for this test
+    conn.close()  # Tenant cleaned up automatically
+```
+
+With 100 tests, the container starts once (~10 seconds) instead of 100 times, saving ~690-1490 seconds!
+
+## Architecture
+
+### Components
+
+1. **InfrastructureService Interface** (`base.py`)
+   - Abstract base class that all shared resources implement
+   - Defines lifecycle methods: `start_global()`, `stop_global()`, `create_tenant()`, `remove_tenant()`
+
+2. **ServiceManager** (`manager.py`)
+   - Runs exclusively on the coordinator (main) process
+   - Manages service lifecycle and tenant provisioning via XML-RPC
+   - Lazy-loads services on first request from any worker
+
+3. **Pytest Plugin** (`plugin.py`)
+   - Sets up XML-RPC server on coordinator process
+   - Provides `global_resource` fixture for tests
+   - Handles worker-coordinator communication
+
+
+### Request Lifecycle
+
+1. **Test starts**: Worker calls `global_resource("module:Class")`
+2. **RPC call**: Worker sends provision request to coordinator
+3. **Lazy start**: If first request, coordinator loads and starts the service
+4. **Tenant creation**: Coordinator creates isolated namespace (e.g., new database)
+5. **Config returned**: Worker receives connection details (host, port, dbname, etc.)
+6. **Test runs**: Test uses isolated tenant
+7. **Test cleanup**: Worker calls deprovision, coordinator removes tenant
+8. **Session end**: Coordinator tears down all global resources
+
+## Implementation Guide
+
+### Step 1: Implement InfrastructureService
+
+Create a service class implementing the required interface:
+
+```python
+from pytest_global_fixture.base import InfrastructureService
+from testcontainers.postgres import PostgresContainer
+import psycopg2
+
+class PostgresService(InfrastructureService):
+    def __init__(self):
+        self.container = None
+        self.master_config = {}
+
+    def start_global(self) -> None:
+        """Start the Docker container once."""
+        self.container = PostgresContainer("postgres:15-alpine")
+        self.container.start()
+
+        self.master_config = {
+            "host": self.container.get_container_host_ip(),
+            "port": self.container.get_exposed_port(5432),
+            "user": self.container.username,
+            "password": self.container.password,
+            "dbname": self.container.dbname
+        }
+
+    def stop_global(self) -> None:
+        """Stop the container at session end."""
+        if self.container:
+            self.container.stop()
+
+    def create_tenant(self, tenant_id: str) -> dict:
+        """Create an isolated database for this test."""
+        conn = psycopg2.connect(**self.master_config)
+        conn.autocommit = True
+        with conn.cursor() as cur:
+            cur.execute(f"CREATE DATABASE {tenant_id}")
+        conn.close()
+
+        # Return config pointing to the new database
+        tenant_config = self.master_config.copy()
+        tenant_config["dbname"] = tenant_id
+        return tenant_config
+
+    def remove_tenant(self, tenant_id: str) -> None:
+        """Drop the tenant database."""
+        conn = psycopg2.connect(**self.master_config)
+        conn.autocommit = True
+        with conn.cursor() as cur:
+            cur.execute(f"DROP DATABASE IF EXISTS {tenant_id}")
+        conn.close()
+```
+
+### Step 2: Create Test Fixture
+
+Wrap the `global_resource` fixture for convenient test usage:
+
+```python
+# conftest.py
+import pytest
+import psycopg2
+
+@pytest.fixture(scope="function")
+def postgres_db(global_resource):
+    """Provides an isolated PostgreSQL database for each test."""
+    # Request the service by its import path
+    db_config = global_resource("tests.resources:PostgresService")
+
+    # Create connection to the dedicated database
+    conn = psycopg2.connect(**db_config)
+    conn.autocommit = True
+
+    yield conn
+
+    conn.close()
+    # Tenant cleanup happens automatically via global_resource
+```
+
+### Step 3: Write Tests
+
+```python
+def test_create_table(postgres_db):
+    """Each test gets its own database."""
+    with postgres_db.cursor() as cur:
+        cur.execute("CREATE TABLE users (id serial PRIMARY KEY, name text)")
+        cur.execute("INSERT INTO users (name) VALUES ('Alice')")
+        cur.execute("SELECT count(*) FROM users")
+        assert cur.fetchone()[0] == 1
+
+def test_independent_data(postgres_db):
+    """This test won't see data from test_create_table."""
+    with postgres_db.cursor() as cur:
+        # This table doesn't exist in our isolated database
+        cur.execute("CREATE TABLE users (id serial PRIMARY KEY, name text)")
+        cur.execute("INSERT INTO users (name) VALUES ('Bob')")
+        cur.execute("SELECT count(*) FROM users")
+        assert cur.fetchone()[0] == 1  # Only Bob, not Alice
+```
+
+### Step 4: Run Tests
+
+```bash
+# Run with xdist for parallel execution
+pytest -n auto
+
+# The plugin is automatically loaded if installed
+```
+
+## When to Use This Pattern
+
+**Good Use Cases:**
+- Databases (PostgreSQL, MySQL, MongoDB)
+- Message queues (RabbitMQ, Kafka with topics/partitions)
+- Caches (Redis with separate key prefixes or databases)
+- Any containerized service with internal tenant isolation
+
+**Requirements:**
+- The resource must support logical isolation (databases, schemas, vhosts, namespaces, etc.)
+- Creating/destroying tenants must be faster than restarting the entire service
+- Tests must be independent (no shared state between tests)
+
+**Poor Fit:**
+- Services without tenant isolation capabilities
+- Tests that require exclusive access to the entire service
+- Resources that are fast to start/stop (< 1 second)
+
+## Configuration
+
+Add to `pyproject.toml`:
+
+```toml
+[tool.pytest.ini_options]
+addopts = "-p pytest_global_fixture.plugin -n auto"
+```
+
+## How It Works: Technical Details
+
+### XML-RPC Communication
+
+The plugin uses XML-RPC for coordinator-worker communication:
+- **Coordinator**: Runs `SimpleXMLRPCServer` on ephemeral port
+- **Workers**: Connect via `xmlrpc.client.ServerProxy`
+- **Methods**: `rpc_provision()` and `rpc_deprovision()`
+
+### Thread Safety
+
+The `ServiceManager` uses a `threading.Lock` to ensure:
+- Services are started exactly once (even with concurrent worker requests)
+- Tenant operations are atomic
+- No race conditions during service initialization
+
+### Dynamic Class Loading
+
+Services are loaded dynamically from string paths (`module:ClassName`):
+- Enables decoupled architecture (plugin doesn't depend on service implementations)
+- Supports user-defined services without plugin modification
+- Services are imported lazily when first requested
+
+### Tenant ID Format
+
+Generated as `{worker_id}_{uuid}`:
+- `worker_id`: `gw0`, `gw1`, ..., or `master` for sequential runs
+- `uuid`: Short random identifier for uniqueness
+- Example: `gw0_a3f2c1`
+
+## Performance Benefits
+
+Example with PostgreSQL container:
+- **Container startup**: ~8 seconds
+- **Container shutdown**: ~3 seconds
+- **Database creation**: ~0.1 seconds
+- **Database drop**: ~0.1 seconds
+

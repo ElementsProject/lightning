@@ -148,6 +148,56 @@ class SqliteDbProvider(object):
         pass
 
 
+class GlobalPostgresDbProvider(object):
+    """
+    Provider that uses pytest-global-fixture for a shared PostgreSQL instance.
+    This provider coordinates with the global_resource fixture to get databases
+    from a single globally-shared PostgreSQL instance.
+    """
+    def __init__(self, directory):
+        self.directory = directory
+        self.global_resource = None
+        self.port = None
+        print("Starting GlobalPostgresDbProvider (using global fixture)")
+
+    def set_global_resource(self, global_resource):
+        """Called by the db_provider fixture to inject the global_resource."""
+        self.global_resource = global_resource
+
+    def start(self):
+        """No-op: the global service is started by the coordinator."""
+        if self.global_resource is None:
+            raise RuntimeError(
+                "GlobalPostgresDbProvider requires global_resource fixture. "
+                "Make sure pytest-global-fixture plugin is loaded."
+            )
+        pass
+
+    def get_db(self, node_directory, testname, node_id):
+        """Get a database by requesting a tenant from the global service."""
+        if self.global_resource is None:
+            raise RuntimeError(
+                "global_resource not set. Did you call set_global_resource()?"
+            )
+
+        # Request a tenant from the global PostgreSQL service
+        config = self.global_resource(
+            "pytest_global_fixture.postgres_service:NativePostgresService"
+        )
+
+        # Store port for compatibility
+        if self.port is None:
+            self.port = config["port"]
+
+        # Create a PostgresDb instance
+        db = PostgresDb(config["dbname"], config["port"])
+        return db
+
+    def stop(self):
+        """No-op: global service cleanup is handled by the coordinator."""
+        pass
+
+
 class PostgresDbProvider(object):
     def __init__(self, directory):
         self.directory = directory
