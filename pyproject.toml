@@ -30,7 +30,6 @@ dev = [
   "pytest-timeout>=2.4.0",
   "flake8>=7.0",
   "pytest-custom-exit-code==0.3.0",
-  "flaky>=3.7.0",
   "requests>=2.32.0",
   "flask-socketio>=5",
   "tqdm",
