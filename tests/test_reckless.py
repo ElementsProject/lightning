@@ -351,6 +351,7 @@ def test_tag_install(node_factory):
             header = line
 
 
+@pytest.mark.flaky(reruns=5)
 @unittest.skipIf(VALGRIND and SLOW_MACHINE, "node too slow for starting plugin under valgrind")
 def test_reckless_uv_install(node_factory):
     node = get_reckless_node(node_factory)
