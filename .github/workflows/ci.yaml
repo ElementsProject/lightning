@@ -6,6 +6,7 @@ on:
       - "master"
   pull_request:
     types: [opened, synchronize, edited]
+  workflow_dispatch:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -214,330 +215,155 @@ jobs:
           ./configure --enable-debugbuild --enable-fuzzing --enable-address-sanitizer --enable-ub-sanitizer --disable-valgrind CC=clang
           uv run make -j $(nproc) check-fuzz
 
-  check-downgrade:
-    name: Check we can downgrade the node
-    runs-on: ubuntu-22.04
+  check-downgrade-sqlite:
+    name: Check downgrade (SQLite)
     needs:
       - compile-gcc
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - CFG: compile-gcc
-            TEST_DB_PROVIDER: sqlite3
-            TEST_NETWORK: regtest
-            VALGRIND: 1
-          - CFG: compile-gcc
-            TEST_DB_PROVIDER: postgres
-            TEST_NETWORK: regtest
-          - CFG: compile-gcc
-            TEST_DB_PROVIDER: sqlite3
-            TEST_NETWORK: liquid-regtest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    uses: ./.github/workflows/test-cln.yaml
+    with:
+      name: Check downgrade (SQLite)
+      cfg: compile-gcc
+      test_path: tests/test_downgrade.py
+      test_db_provider: sqlite3
+      valgrind: 1
+      setup_old_cln: true
 
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-
-      - name: Install dependencies
-        run: |
-          bash -x .github/scripts/setup.sh
-
-      - name: Install bitcoind
-        env:
-          TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
-        run: .github/scripts/install-bitcoind.sh
-
-      - name: Download build
-        uses: actions/download-artifact@v4
-        with:
-          name: cln-${{ matrix.CFG }}.tar.bz2
-
-      - name: Unpack pre-built CLN
-        env:
-          CFG: ${{ matrix.CFG }}
-        run: |
-          tar -xaf cln-${CFG}.tar.bz2
-
-      - name: Fetch and unpack previous CLN
-        run: |
-          mkdir /tmp/old-cln
-          cd /tmp/old-cln
-          wget https://github.com/ElementsProject/lightning/releases/download/v25.09/clightning-v25.09-Ubuntu-22.04-amd64.tar.xz
-          tar -xaf clightning-v25.09-Ubuntu-22.04-amd64.tar.xz
-
-      - name: Switch network
-        if: ${{ matrix.TEST_NETWORK == 'liquid-regtest' }}
-        run: |
-          # Loading the network from config.vars rather than the envvar is a terrible idea...
-          sed -i 's/TEST_NETWORK=regtest/TEST_NETWORK=liquid-regtest/g' config.vars
-          cat config.vars
-
-      - name: Test
-        env:
-          SLOW_MACHINE: 1
-          PYTEST_PAR: 10
-          TEST_DEBUG: 1
-          TEST_DB_PROVIDER: ${{ matrix.TEST_DB_PROVIDER }}
-          TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
-          LIGHTNINGD_POSTGRES_NO_VACUUM: 1
-          VALGRIND: ${{ matrix.VALGRIND }}
-          PREV_LIGHTNINGD: /tmp/old-cln/usr/bin/lightningd
-        run: |
-          env
-          cat config.vars
-          uv run eatmydata pytest tests/test_downgrade.py -vvv -n ${PYTEST_PAR} ${PYTEST_OPTS}
-
-  integration:
-    name: Test CLN ${{ matrix.name }}
-    runs-on: ubuntu-22.04
-    timeout-minutes: 120
-    env:
-      RUST_PROFILE: release # Has to match the one in the compile step
-      PYTEST_OPTS: --timeout=1200 --durations=10
+  check-downgrade-postgres:
+    name: Check downgrade (Postgres)
     needs:
       - compile-gcc
+    uses: ./.github/workflows/test-cln.yaml
+    with:
+      name: Check downgrade (Postgres)
+      cfg: compile-gcc
+      test_path: tests/test_downgrade.py
+      test_db_provider: postgres
+      setup_old_cln: true
+
+  check-downgrade-liquid:
+    name: Check downgrade (Liquid)
+    needs:
+      - compile-gcc
+    uses: ./.github/workflows/test-cln.yaml
+    with:
+      name: Check downgrade (Liquid)
+      cfg: compile-gcc
+      test_path: tests/test_downgrade.py
+      test_db_provider: sqlite3
+      test_network: liquid-regtest
+      setup_old_cln: true
+
+  integration-gcc:
+    name: Test CLN (GCC)
+    needs:
+      - compile-gcc
+    uses: ./.github/workflows/test-cln.yaml
+    with:
+      name: Test CLN (GCC)
+      cfg: compile-gcc
+      test_db_provider: sqlite3
+      compiler: gcc
+      compat: 1
+
+  integration-clang:
+    name: Test CLN (Clang)
+    needs:
       - compile-clang
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - NAME: gcc
-            CFG: compile-gcc
-            TEST_DB_PROVIDER: sqlite3
-            COMPILER: gcc
-            TEST_NETWORK: regtest
-          # While we're at it let's try to compile with clang
-          - NAME: clang
-            CFG: compile-clang
-            TEST_DB_PROVIDER: sqlite3
-            COMPILER: clang
-            TEST_NETWORK: regtest
-          # And of course we want to test postgres too
-          - NAME: postgres
-            CFG: compile-gcc
-            COMPILER: gcc
-            TEST_DB_PROVIDER: postgres
-            TEST_NETWORK: regtest
-          # And don't forget about elements (like cdecker did when
-          # reworking the CI...)
-          - NAME: liquid
-            CFG: compile-gcc
-            COMPILER: gcc
-            TEST_NETWORK: liquid-regtest
-            TEST_DB_PROVIDER: sqlite3
-          # And dual funding!
-          - NAME: dual-fund
-            CFG: compile-gcc
-            TEST_DB_PROVIDER: sqlite3
-            COMPILER: gcc
-            TEST_NETWORK: regtest
-            EXPERIMENTAL_DUAL_FUND: 1
-          # And splicing!
-          - NAME: splicing
-            CFG: compile-gcc
-            TEST_DB_PROVIDER: sqlite3
-            COMPILER: gcc
-            TEST_NETWORK: regtest
-            EXPERIMENTAL_SPLICING: 1
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    uses: ./.github/workflows/test-cln.yaml
+    with:
+      name: Test CLN (Clang)
+      cfg: compile-clang
+      test_db_provider: sqlite3
+      compiler: clang
+      compat: 1
 
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
+  integration-postgres:
+    name: Test CLN (Postgres)
+    needs:
+      - compile-gcc
+    uses: ./.github/workflows/test-cln.yaml
+    with:
+      name: Test CLN (Postgres)
+      cfg: compile-gcc
+      test_db_provider: postgres
+      compiler: gcc
+      compat: 1
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
+  integration-liquid:
+    name: Test CLN (Liquid)
+    needs:
+      - compile-gcc
+    uses: ./.github/workflows/test-cln.yaml
+    with:
+      name: Test CLN (Liquid)
+      cfg: compile-gcc
+      test_db_provider: sqlite3
+      compiler: gcc
+      test_network: liquid-regtest
+      compat: 1
 
-      - name: Install dependencies
-        run: |
-          bash -x .github/scripts/setup.sh
+  integration-dual-fund:
+    name: Test CLN (Dual Fund)
+    needs:
+      - compile-gcc
+    uses: ./.github/workflows/test-cln.yaml
+    with:
+      name: Test CLN (Dual Fund)
+      cfg: compile-gcc
+      test_db_provider: sqlite3
+      compiler: gcc
+      experimental_dual_fund: 1
+      compat: 1
 
-      - name: Install bitcoind
-        env:
-          TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
-        run: .github/scripts/install-bitcoind.sh
-
-      - name: Download build
-        uses: actions/download-artifact@v4
-        with:
-          name: cln-${{ matrix.CFG }}.tar.bz2
-
-      - name: Unpack pre-built CLN
-        env:
-          CFG: ${{ matrix.CFG }}
-        run: |
-          tar -xaf cln-${CFG}.tar.bz2
-
-      - name: Switch network
-        if: ${{ matrix.TEST_NETWORK == 'liquid-regtest' }}
-        run: |
-          # Loading the network from config.vars rather than the envvar is a terrible idea...
-          sed -i 's/TEST_NETWORK=regtest/TEST_NETWORK=liquid-regtest/g' config.vars
-          cat config.vars
-
-      - name: Test
-        env:
-          COMPILER: ${{ matrix.COMPILER }}
-          EXPERIMENTAL_DUAL_FUND: ${{ matrix.EXPERIMENTAL_DUAL_FUND }}
-          EXPERIMENTAL_SPLICING: ${{ matrix.EXPERIMENTAL_SPLICING }}
-          COMPAT: 1
-          CFG: ${{ matrix.CFG }}
-          SLOW_MACHINE: 1
-          PYTEST_PAR: 10
-          TEST_DEBUG: 1
-          TEST_DB_PROVIDER: ${{ matrix.TEST_DB_PROVIDER }}
-          TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
-          LIGHTNINGD_POSTGRES_NO_VACUUM: 1
-        run: |
-          env
-          cat config.vars
-          VALGRIND=0 uv run eatmydata pytest tests/ -vvv -n ${PYTEST_PAR} ${PYTEST_OPTS}
+  integration-splicing:
+    name: Test CLN (Splicing)
+    needs:
+      - compile-gcc
+    uses: ./.github/workflows/test-cln.yaml
+    with:
+      name: Test CLN (Splicing)
+      cfg: compile-gcc
+      test_db_provider: sqlite3
+      compiler: gcc
+      experimental_splicing: 1
+      compat: 1
 
   integration-valgrind:
-    name: Valgrind Test CLN ${{ matrix.name }}
-    runs-on: ubuntu-22.04
-    timeout-minutes: 120
-    env:
-      RUST_PROFILE: release # Has to match the one in the compile step
-      CFG: compile-gcc
-      PYTEST_OPTS: --test-group-random-seed=42 --timeout=1800 --durations=10
+    name: Valgrind Test CLN (${{ matrix.shard }}/10)
     needs:
       - compile-gcc
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - NAME: Valgrind (01/10)
-            PYTEST_OPTS: --test-group=1  --test-group-count=10
-          - NAME: Valgrind (02/10)
-            PYTEST_OPTS: --test-group=2  --test-group-count=10
-          - NAME: Valgrind (03/10)
-            PYTEST_OPTS: --test-group=3  --test-group-count=10
-          - NAME: Valgrind (04/10)
-            PYTEST_OPTS: --test-group=4  --test-group-count=10
-          - NAME: Valgrind (05/10)
-            PYTEST_OPTS: --test-group=5  --test-group-count=10
-          - NAME: Valgrind (06/10)
-            PYTEST_OPTS: --test-group=6  --test-group-count=10
-          - NAME: Valgrind (07/10)
-            PYTEST_OPTS: --test-group=7  --test-group-count=10
-          - NAME: Valgrind (08/10)
-            PYTEST_OPTS: --test-group=8  --test-group-count=10
-          - NAME: Valgrind (09/10)
-            PYTEST_OPTS: --test-group=9  --test-group-count=10
-          - NAME: Valgrind (10/10)
-            PYTEST_OPTS: --test-group=10 --test-group-count=10
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -yyq valgrind
-          bash -x .github/scripts/setup.sh
-
-      - name: Install bitcoind
-        run: .github/scripts/install-bitcoind.sh
-
-      - name: Download build
-        uses: actions/download-artifact@v4
-        with:
-          name: cln-compile-gcc.tar.bz2
-
-      - name: Unpack build
-        run: tar -xvjf cln-compile-gcc.tar.bz2
-
-      - name: Test
-        env:
-          SLOW_MACHINE: 1
-          TEST_DEBUG: 1
-        run: |
-          VALGRIND=1 uv run eatmydata pytest tests/ -vvv -n 3 ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    uses: ./.github/workflows/test-cln.yaml
+    with:
+      name: Valgrind Test CLN
+      cfg: compile-gcc
+      pytest_opts: '--test-group-random-seed=42 --timeout=1800 --durations=10'
+      pytest_workers: 3
+      valgrind: 1
+      install_valgrind: true
+      shard_count: 10
+      shard_index: ${{ matrix.shard }}
+      test_db_provider: sqlite3
 
   integration-sanitizers:
-    name: Sanitizers Test CLN
-    runs-on: ubuntu-22.04
-    timeout-minutes: 120
-    env:
-      RUST_PROFILE: release
-      SLOW_MACHINE: 1
-      TEST_DEBUG: 1
-      PYTEST_OPTS: --test-group-random-seed=42 --timeout=1800 --durations=10
+    name: Sanitizers Test CLN (${{ matrix.shard }}/10)
     needs:
       - compile-clang-sanitizers
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - NAME: ASan/UBSan (01/10)
-            PYTEST_OPTS: --test-group=1  --test-group-count=10
-          - NAME: ASan/UBSan (02/10)
-            PYTEST_OPTS: --test-group=2  --test-group-count=10 -n 1
-          - NAME: ASan/UBSan (03/10)
-            PYTEST_OPTS: --test-group=3  --test-group-count=10
-          - NAME: ASan/UBSan (04/10)
-            PYTEST_OPTS: --test-group=4  --test-group-count=10
-          - NAME: ASan/UBSan (05/10)
-            PYTEST_OPTS: --test-group=5  --test-group-count=10
-          - NAME: ASan/UBSan (06/10)
-            PYTEST_OPTS: --test-group=6  --test-group-count=10
-          - NAME: ASan/UBSan (07/10)
-            PYTEST_OPTS: --test-group=7  --test-group-count=10
-          - NAME: ASan/UBSan (08/10)
-            PYTEST_OPTS: --test-group=8  --test-group-count=10
-          - NAME: ASan/UBSan (09/10)
-            PYTEST_OPTS: --test-group=9  --test-group-count=10
-          - NAME: ASan/UBSan (10/10)
-            PYTEST_OPTS: --test-group=10 --test-group-count=10
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-
-      - name: Install dependencies
-        run: |
-          bash -x .github/scripts/setup.sh
-
-      - name: Install bitcoind
-        run: .github/scripts/install-bitcoind.sh
-
-      - name: Download build
-        uses: actions/download-artifact@v4
-        with:
-          name: cln-compile-clang-sanitizers.tar.bz2
-
-      - name: Unpack build
-        run: tar -xvjf cln-compile-clang-sanitizers.tar.bz2
-
-      - name: Test
-        run: |
-          uv run eatmydata pytest tests/ -vvv -n 2 ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    uses: ./.github/workflows/test-cln.yaml
+    with:
+      name: ASan/UBSan Test CLN
+      cfg: compile-clang-sanitizers
+      pytest_opts: '--test-group-random-seed=42 --timeout=1800 --durations=10'
+      pytest_workers: 2
+      shard_count: 10
+      shard_index: ${{ matrix.shard }}
 
   update-docs-examples:
     name: Update examples in doc schemas (disabled temporarily!)
@@ -682,24 +508,37 @@ jobs:
     name: CI completion
     runs-on: ubuntu-22.04
     needs:
-      - integration
+      - integration-gcc
+      - integration-clang
+      - integration-postgres
+      - integration-liquid
+      - integration-dual-fund
+      - integration-splicing
       - check-units
       - integration-valgrind
       - integration-sanitizers
       - min-btc-support
-      - check-downgrade
+      - check-downgrade-sqlite
+      - check-downgrade-postgres
+      - check-downgrade-liquid
     if: ${{ always() }}
     steps:
       - name: Complete
         env:
-          JOB_NAMES: "INTEGRATION CHECK_UNITS VALGRIND SANITIZERS BTC"
-          INTEGRATION: ${{ needs.integration.result }}
+          JOB_NAMES: "INTEGRATION_GCC INTEGRATION_CLANG INTEGRATION_POSTGRES INTEGRATION_LIQUID INTEGRATION_DUAL_FUND INTEGRATION_SPLICING CHECK_UNITS VALGRIND SANITIZERS BTC CHECK_DOWNGRADE_SQLITE CHECK_DOWNGRADE_POSTGRES CHECK_DOWNGRADE_LIQUID"
+          INTEGRATION_GCC: ${{ needs['integration-gcc'].result }}
+          INTEGRATION_CLANG: ${{ needs['integration-clang'].result }}
+          INTEGRATION_POSTGRES: ${{ needs['integration-postgres'].result }}
+          INTEGRATION_LIQUID: ${{ needs['integration-liquid'].result }}
+          INTEGRATION_DUAL_FUND: ${{ needs['integration-dual-fund'].result }}
+          INTEGRATION_SPLICING: ${{ needs['integration-splicing'].result }}
           CHECK_UNITS: ${{ needs['check-units'].result }}
           VALGRIND: ${{ needs['integration-valgrind'].result }}
           SANITIZERS: ${{ needs['integration-sanitizers'].result }}
-          DOCS: ${{ needs['update-docs-examples'].result }}
           BTC: ${{ needs['min-btc-support'].result }}
-          CHECK_DOWNGRADE: ${{ needs['check-downgrade'].result }}
+          CHECK_DOWNGRADE_SQLITE: ${{ needs['check-downgrade-sqlite'].result }}
+          CHECK_DOWNGRADE_POSTGRES: ${{ needs['check-downgrade-postgres'].result }}
+          CHECK_DOWNGRADE_LIQUID: ${{ needs['check-downgrade-liquid'].result }}
         run: |
           failed=""
           for name in $JOB_NAMES; do

@@ -1,0 +1,198 @@
+---
+name: Test CLN
+on:
+  workflow_call:
+    inputs:
+      name:
+        description: 'Test name for display'
+        required: true
+        type: string
+      cfg:
+        description: 'Build configuration to use (e.g., compile-gcc)'
+        required: true
+        type: string
+      test_path:
+        description: 'Path/pattern for pytest'
+        required: false
+        type: string
+        default: 'tests/'
+      pytest_opts:
+        description: 'Base pytest options'
+        required: false
+        type: string
+        default: '--timeout=1200 --durations=10'
+      matrix_pytest_opts:
+        description: 'Additional pytest options from matrix (e.g., test groups)'
+        required: false
+        type: string
+        default: ''
+      pytest_workers:
+        description: 'Number of pytest parallel workers (-n flag)'
+        required: false
+        type: number
+        default: 10
+      valgrind:
+        description: 'Enable valgrind (0 or 1)'
+        required: false
+        type: number
+        default: 0
+      test_debug:
+        description: 'Enable test debug (0 or 1)'
+        required: false
+        type: number
+        default: 1
+      test_db_provider:
+        description: 'Database provider (sqlite3, postgres, or empty)'
+        required: false
+        type: string
+        default: ''
+      test_network:
+        description: 'Test network (regtest, liquid-regtest)'
+        required: false
+        type: string
+        default: 'regtest'
+      experimental_dual_fund:
+        description: 'Enable experimental dual fund'
+        required: false
+        type: number
+        default: 0
+      experimental_splicing:
+        description: 'Enable experimental splicing'
+        required: false
+        type: number
+        default: 0
+      lightningd_postgres_no_vacuum:
+        description: 'Disable postgres vacuum'
+        required: false
+        type: number
+        default: 1
+      slow_machine:
+        description: 'Enable slow machine mode'
+        required: false
+        type: number
+        default: 1
+      compat:
+        description: 'Enable compatibility mode'
+        required: false
+        type: number
+        default: 0
+      compiler:
+        description: 'Compiler used (for env var)'
+        required: false
+        type: string
+        default: ''
+      rust_profile:
+        description: 'Rust profile'
+        required: false
+        type: string
+        default: 'release'
+      install_valgrind:
+        description: 'Install valgrind package before tests'
+        required: false
+        type: boolean
+        default: false
+      install_bitcoind:
+        description: 'Install bitcoind (true) or skip (false for custom Bitcoin install)'
+        required: false
+        type: boolean
+        default: true
+      setup_old_cln:
+        description: 'Download and setup old CLN for downgrade tests'
+        required: false
+        type: boolean
+        default: false
+      old_cln_version:
+        description: 'Version of old CLN to download (e.g., v25.09)'
+        required: false
+        type: string
+        default: 'v25.09'
+      shard_count:
+        description: 'Number of test shards (1 = no sharding, >1 = enable sharding)'
+        required: false
+        type: number
+        default: 1
+      shard_index:
+        description: 'Shard index for this run (1-based, used when shard_count > 1)'
+        required: false
+        type: number
+        default: 1
+
+jobs:
+  test:
+    name: ${{ inputs.shard_count > 1 && format('{0} ({1}/{2})', inputs.name, inputs.shard_index, inputs.shard_count) || inputs.name }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+    env:
+      RUST_PROFILE: ${{ inputs.rust_profile }}
+      PYTEST_OPTS: ${{ inputs.pytest_opts }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: |
+          bash -x .github/scripts/setup.sh
+
+      - name: Install valgrind
+        if: ${{ inputs.install_valgrind }}
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -yyq valgrind
+
+      - name: Install bitcoind
+        if: ${{ inputs.install_bitcoind }}
+        env:
+          TEST_NETWORK: ${{ inputs.test_network }}
+        run: .github/scripts/install-bitcoind.sh
+
+      - name: Download build
+        uses: actions/download-artifact@v4
+        with:
+          name: cln-${{ inputs.cfg }}.tar.bz2
+
+      - name: Unpack pre-built CLN
+        run: tar -xaf cln-${{ inputs.cfg }}.tar.bz2
+
+      - name: Fetch and unpack previous CLN
+        if: ${{ inputs.setup_old_cln }}
+        run: |
+          mkdir /tmp/old-cln
+          cd /tmp/old-cln
+          wget https://github.com/ElementsProject/lightning/releases/download/${{ inputs.old_cln_version }}/clightning-${{ inputs.old_cln_version }}-Ubuntu-22.04-amd64.tar.xz
+          tar -xaf clightning-${{ inputs.old_cln_version }}-Ubuntu-22.04-amd64.tar.xz
+
+      - name: Switch network
+        if: ${{ inputs.test_network == 'liquid-regtest' }}
+        run: |
+          # Loading the network from config.vars rather than the envvar is a terrible idea...
+          sed -i 's/TEST_NETWORK=regtest/TEST_NETWORK=liquid-regtest/g' config.vars
+          cat config.vars
+
+      - name: Test
+        env:
+          COMPILER: ${{ inputs.compiler }}
+          EXPERIMENTAL_DUAL_FUND: ${{ inputs.experimental_dual_fund }}
+          EXPERIMENTAL_SPLICING: ${{ inputs.experimental_splicing }}
+          COMPAT: ${{ inputs.compat }}
+          CFG: ${{ inputs.cfg }}
+          SLOW_MACHINE: ${{ inputs.slow_machine }}
+          PYTEST_PAR: ${{ inputs.pytest_workers }}
+          TEST_DEBUG: ${{ inputs.test_debug }}
+          TEST_DB_PROVIDER: ${{ inputs.test_db_provider }}
+          TEST_NETWORK: ${{ inputs.test_network }}
+          LIGHTNINGD_POSTGRES_NO_VACUUM: ${{ inputs.lightningd_postgres_no_vacuum }}
+          VALGRIND: ${{ inputs.valgrind }}
+          PREV_LIGHTNINGD: ${{ inputs.setup_old_cln && '/tmp/old-cln/usr/bin/lightningd' || '' }}
+          SHARD_OPTS: ${{ inputs.shard_count > 1 && format('--test-group={0} --test-group-count={1}', inputs.shard_index, inputs.shard_count) || '' }}
+        run: |
+          env
+          cat config.vars
+          uv run eatmydata pytest ${{ inputs.test_path }} -vvv -n ${PYTEST_PAR} ${PYTEST_OPTS} ${SHARD_OPTS} ${{ inputs.matrix_pytest_opts }}
