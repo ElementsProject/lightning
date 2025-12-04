@@ -2794,7 +2794,6 @@ static u8 *opener_commits(struct state *state,
 			  struct amount_sat total,
 			  char **err_reason)
 {
-	struct channel_id cid;
 	struct amount_msat our_msats;
 	struct penalty_base *pbase;
 	struct bitcoin_tx *local_commit;
@@ -2853,7 +2852,7 @@ static u8 *opener_commits(struct state *state,
 
 	tal_free(state->channel);
 	state->channel = new_initial_channel(state,
-					     &cid,
+					     &state->channel_id,
 					     &tx_state->funding,
 					     state->minimum_depth,
 					     take(new_height_states(NULL, LOCAL,
