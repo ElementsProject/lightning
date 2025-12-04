@@ -1,0 +1,31 @@
+coverage:
+  status:
+    project:
+      default:
+        # Coverage can decrease by up to 1% and still pass
+        target: auto
+        threshold: 1%
+    patch:
+      default:
+        # New code should maintain coverage
+        target: auto
+
+comment:
+  # Post coverage comments on PRs (if we add PR coverage later)
+  behavior: default
+  layout: "header, diff, files"
+  require_changes: false
+
+# Ignore files that shouldn't affect coverage metrics
+ignore:
+  - "external/**"
+  - "ccan/**"
+  - "*/test/**"
+  - "tools/**"
+  - "contrib/**"
+  - "doc/**"
+  - "devtools/**"
+
+# Don't fail if coverage data is incomplete
+codecov:
+  require_ci_to_pass: false
