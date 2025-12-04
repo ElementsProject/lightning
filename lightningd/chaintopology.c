@@ -1528,6 +1528,14 @@ static void fixup_scan_block(struct bitcoind *bitcoind,
 			     struct bitcoin_block *blk,
 			     struct chain_topology *topo)
 {
+	/* Can't scan the block?  We will try again next restart */
+	if (!blk) {
+		log_unusual(topo->ld->log,
+			    "fixup_scan: could not load block %u, will retry next restart",
+			    height);
+		return;
+	}
+
 	log_debug(topo->ld->log, "fixup_scan: block %u with %zu txs", height, tal_count(blk->tx));
 	topo_update_spends(topo, blk->tx, blk->txids, height);
 
