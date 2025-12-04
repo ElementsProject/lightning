@@ -1,0 +1,83 @@
+---
+name: Build CLN
+on:
+  workflow_call:
+    inputs:
+      cfg:
+        description: 'Configuration name (e.g., compile-gcc)'
+        required: true
+        type: string
+      compiler:
+        description: 'Compiler to use (gcc or clang)'
+        required: true
+        type: string
+      valgrind:
+        description: 'Enable valgrind (0 or 1)'
+        required: false
+        type: number
+        default: 1
+      asan:
+        description: 'Enable address sanitizer (0 or 1)'
+        required: false
+        type: number
+        default: 0
+      ubsan:
+        description: 'Enable undefined behavior sanitizer (0 or 1)'
+        required: false
+        type: number
+        default: 0
+      coptflags:
+        description: 'Additional compiler optimization flags'
+        required: false
+        type: string
+        default: ''
+
+env:
+  RUST_PROFILE: release
+  SLOW_MACHINE: 1
+
+jobs:
+  build:
+    name: Build CLN ${{ inputs.cfg }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: |
+          bash -x .github/scripts/setup.sh
+
+      - name: Build
+        env:
+          COMPILER: ${{ inputs.compiler }}
+          ASAN: ${{ inputs.asan }}
+          UBSAN: ${{ inputs.ubsan }}
+          VALGRIND: ${{ inputs.valgrind }}
+          COMPAT: 1
+          CFG: ${{ inputs.cfg }}
+        run: |
+          set -e
+          ./configure --enable-debugbuild CC="$COMPILER" ${{ inputs.coptflags }}
+
+          uv run make -j $(nproc) testpack.tar.bz2
+
+          # Rename now so we don't clash
+          mv testpack.tar.bz2 cln-${CFG}.tar.bz2
+
+      - name: Check rust packages
+        run: cargo test --all
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cln-${{ inputs.cfg }}.tar.bz2
+          path: cln-${{ inputs.cfg }}.tar.bz2
