@@ -9,7 +9,7 @@ struct json_out {
 	/* Callback if we reallocate. */
 	void (*move_cb)(struct json_out *jout, ptrdiff_t delta, void *arg);
 	void *cb_arg;
-	
+
 #ifdef CCAN_JSON_OUT_DEBUG
 	/* tal_arr of types ( or [ we're enclosed in.  NULL if oom. */
 	char *wrapping;
@@ -246,7 +246,7 @@ bool json_out_addv(struct json_out *jout,
 		dst = mkroom(jout, fmtlen + 1 + (int)quote*2);
 		if (!dst)
 			goto out;
-		vsprintf(dst + quote, fmt, ap2);
+		vsnprintf(dst + quote, fmtlen + 1, fmt, ap2);
 	}
 
 #ifdef CCAN_JSON_OUT_DEBUG
@@ -294,7 +294,14 @@ bool json_out_addstr(struct json_out *jout,
 		     const char *fieldname,
 		     const char *str)
 {
-	size_t len = strlen(str);
+	return json_out_addstrn(jout, fieldname, str, strlen(str));
+}
+
+bool json_out_addstrn(struct json_out *jout,
+		      const char *fieldname,
+		      const char *str,
+		      size_t len)
+{
 	char *p;
 	struct json_escape *e;
 
