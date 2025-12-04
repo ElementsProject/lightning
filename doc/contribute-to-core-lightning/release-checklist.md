@@ -45,7 +45,7 @@ Here's a checklist for the release process.
 1. Update CHANGELOG.md by changing rc(N-1) to rcN. Update the changelog list with information from newly merged PRs also.
 2. Update the package versions: `uv run make update-versions NEW_VERSION=v<VERSION>rcN`
 3. Add a PR with the rcN.
-4. Tag it `git pull && git tag -s v<VERSION>rcN && git push --tags`.
+4. Tag it `git pull && git tag -s v<VERSION>rcN && git push origin v<VERSION>rcN`.
 5. Pushing the tag automatically starts the "Release 🚀" CI job, creating a draft pre-release and uploading reproducible builds with their `SHA256SUMS` files signed by the project key.
 6. Set up the reproducible build environment by running the script `contrib/cl-repro.sh` to generate the necessary builder images.
 7. Use the command `tools/build-release.sh bin-Fedora bin-Ubuntu sign` to locally rebuild the release and generate a personal signature file for the checksums.
@@ -56,13 +56,14 @@ Here's a checklist for the release process.
 
 ## Tagging the Release
 
-1. Update the CHANGELOG.md; remove -rcN in both places, update the date and add title and namer.
-2. Update the contrib/pyln package versions: `uv run make update-versions NEW_VERSION=v<VERSION>`
-3. Add a PR with that release.
-4. Merge the PR, then:
-   - `git pull`
-   - `VERSION=23.05; git tag -a -s v$VERSION -m v$VERSION`
-   - `git push --tags`
+1. Update CHANGELOG.md: remove -rcN in both places, update the date, and add the title and namer.
+2. Update project-wide package versions: `uv run make update-versions NEW_VERSION=v<VERSION>`
+3. Create a PR with above changes.
+4. After the PR is merged, create and push the release tag:
+   - Run `git pull`.
+   - Set the current release version in your shell (e.g., if the current release is `v26.03`): `VERSION=26.03`
+   - Create a signed, annotated tag: `git tag -a -s v$VERSION -m "v$VERSION"`
+   - Push the tag: `git push origin v$VERSION`
 5. Pushing the tag will trigger the CI pipeline, which will draft the pre-release and upload the build artifacts with project-signed checksums.
 6. Prepare the build environments by executing the `contrib/cl-repro.sh` script.
 7. Run `tools/build-release.sh bin-Fedora bin-Ubuntu sign` (with `--sudo` if you need root to run Docker) to:
@@ -91,7 +92,7 @@ Here's a checklist for the release process.
 1. Edit the GitHub draft and include the `SHA256SUMS-v<VERSION>.asc` file.
 2. Publish the release as not a draft.
 3. Announce the final release on core-lightning's release-chat channel on Discord & Telegram.
-4. Send a mail to c-lightning and lightning-dev mailing lists, using the same wording as the Release Notes in GitHub.
+4. Send a mail to c-lightning mailing list (`c-lightning@lists.ozlabs.org`), using the same wording as the Release Notes in GitHub.
 5. Write release blog, post it on [Blockstream](https://blog.blockstream.com/) and announce the release on Twitter.
 
 ## Post-release
@@ -106,11 +107,11 @@ Here's a checklist for the release process.
 1. Create a new branch named `release-<VERSION>.<POINT_VERSION>`, where each new branch is based on the commit from the previous release tag. For example, `release-<VERSION>.1` is based on `release-<VERSION>`, `release-<VERSION>.2` is based on `release-<VERSION>.1`, and so on.
 2. Cherry-pick all necessary commits for the hotfix into the new branch.
 3. Add entries for changes and fixed issues in `CHANGELOG.md` under a new heading for `v<VERSION>.<POINT_VERSION>`.
-4. Update the python package versions by running `uv run make update-versions NEW_VERSION=<VERSION>.<POINT_VERSION>`
+4. Update project package versions by running `uv run make update-versions NEW_VERSION=<VERSION>.<POINT_VERSION>`
 5. Create a new commit that includes the updates from `update-versions` and `CHANGELOG.md`.
 6. Tag the release with `git pull && git tag -s v<VERSION>.<POINT_VERSION>`. You will be prompted to enter a tag message, ensure this is filled out.
 7. Confirm that the tag is properly set up for builds by running `git describe`.
-8. Trigger the pre-release by pushing the version tag with `git push --tags`; the CI will handle drafting the release and uploading the initial signed checksums.
+8. Trigger the pre-release by pushing the version tag with `git push origin v<VERSION>.<POINT_VERSION>`; the CI will handle drafting the release and uploading the initial signed checksums.
 9. Generate the required builder images by running `contrib/cl-repro.sh`.
 10. Sign the release locally by running `tools/build-release.sh bin-Fedora bin-Ubuntu sign` which will sign the release contents and create `SHA256SUMS-v<VERSION>` and `SHA256SUMS-v<VERSION>.asc` in the release folder.
 11. Validate that your local checksums `SHA256SUMS-v<VERSION>` match the Draft release's, then add your signatures to the draft release's signature `SHA256SUMS-v<VERSION>.asc` file.
