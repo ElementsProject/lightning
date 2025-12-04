@@ -30,7 +30,8 @@ developers, and to validate signatures on releases:
 | Shahana Farooqui | `sfarooqui@blockstream.com` | 0CCA 8183 C13A 2389 A9C5  FD29 BFB0 1536 0049 CB56 |
 | Madeline Paech | `madeline@blockstream.com` | 7169 D262 72B5 0A3F 531A  A1C2 A57A FC23 1B58 0804 |
 | Blockstream CLN Release | `cln@blockstream.com` | 616C 52F9 9D06 12B2 A151  B107 4129 A994 AA7E 9852 |
+| Sangbida Chaudhuri | `sangbidac@gmail.com` | 1A37 1C2C 3064 5FAA 91AA  6B7D B643 E612 8422 1961 |
 
-You can import a key by running the following command with that individual’s fingerprint: 
-`gpg --keyserver hkps://keys.openpgp.org --recv-keys "<fingerprint>"`. 
+You can import a key by running the following command with that individual’s fingerprint:
+`gpg --keyserver hkps://keys.openpgp.org --recv-keys "<fingerprint>"`.
 Ensure that you put quotes around fingerprints containing spaces.
