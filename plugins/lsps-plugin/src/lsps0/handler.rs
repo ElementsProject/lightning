@@ -1,5 +1,5 @@
 use crate::{
-    jsonrpc::server::RequestHandler,
+    core::server::RequestHandler,
     proto::{
         jsonrpc::{JsonRpcResponse, RequestObject, RpcError},
         lsps0::{Lsps0listProtocolsRequest, Lsps0listProtocolsResponse},

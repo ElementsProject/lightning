@@ -1,8 +1,9 @@
 use anyhow::{anyhow, bail};
 use async_trait::async_trait;
-use cln_lsps::core::transport::{Error, Result as TransportResult};
-use cln_lsps::jsonrpc::server::JsonRpcResponseWriter;
-use cln_lsps::jsonrpc::server::JsonRpcServer;
+use cln_lsps::core::{
+    server::{JsonRpcResponseWriter, JsonRpcServer},
+    transport::{Error, Result as TransportResult},
+};
 use cln_lsps::lsps0::handler::Lsps0ListProtocolsHandler;
 use cln_lsps::lsps0::transport::{self, CustomMsg};
 use cln_lsps::lsps2;
