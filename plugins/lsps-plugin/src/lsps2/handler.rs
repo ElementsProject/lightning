@@ -1,5 +1,5 @@
 use crate::{
-    jsonrpc::server::RequestHandler,
+    core::server::RequestHandler,
     lsps2::{
         cln::{HtlcAcceptedRequest, HtlcAcceptedResponse, TLV_FORWARD_AMT},
         DS_MAIN_KEY, DS_SUB_KEY,
