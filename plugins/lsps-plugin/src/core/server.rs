@@ -1,303 +1,172 @@
-use crate::proto::jsonrpc::RpcError;
-use crate::{core::transport::Result, proto::jsonrpc::JsonRpcResponse};
-use async_trait::async_trait;
-use log::{debug, trace};
-use std::{collections::HashMap, sync::Arc};
+use crate::core::router::{JsonRpcRouter, JsonRpcRouterBuilder, RequestContext};
+use crate::proto::lsps0::{Lsps0listProtocolsRequest, Lsps0listProtocolsResponse};
 
-/// Responsible for writing JSON-RPC responses back to clients.
-///
-/// This trait abstracts the mechanism for sending responses back to the client,
-/// allowing handlers to remain transport-agnostic. Implementations of this
-/// trait handle the actual transmission of response data over the underlying
-/// transport.
-#[async_trait]
-pub trait JsonRpcResponseWriter: Send + 'static {
-    /// Writes the provided payload as a response.
-    async fn write(&mut self, payload: &[u8]) -> Result<()>;
+pub trait LspsProtocol: Send + Sync + 'static {
+    fn register_handler(&self, router: &mut JsonRpcRouterBuilder);
+    fn protocol(&self) -> u8;
 }
 
-/// Processes JSON-RPC requests and produces responses.
-///
-/// This trait defines the interface for handling specific JSON-RPC methods.
-/// Each method supported by the server should have a corresponding handler
-/// that implements this trait.
-#[async_trait]
-pub trait RequestHandler: Send + Sync + 'static {
-    /// Handles a JSON-RPC request.
-    async fn handle(&self, payload: &[u8]) -> core::result::Result<Vec<u8>, RpcError>;
+pub struct LspsService {
+    router: JsonRpcRouter,
+    supported_protocols: Vec<u8>,
 }
 
-/// Builder for creating JSON-RPC servers.
-pub struct JsonRpcServerBuilder {
-    handlers: HashMap<String, Arc<dyn RequestHandler>>,
+impl LspsService {
+    pub fn builder() -> LspsServiceBuilder {
+        LspsServiceBuilder::new()
+    }
+
+    pub async fn handle(&self, ctx: &RequestContext, request: &[u8]) -> Option<Vec<u8>> {
+        self.router.handle(ctx, request).await
+    }
+
+    pub fn protocols(&self) -> &[u8] {
+        &self.supported_protocols
+    }
 }
 
-impl JsonRpcServerBuilder {
+pub struct LspsServiceBuilder {
+    router_builder: JsonRpcRouterBuilder,
+    supported_protocols: Vec<u8>,
+}
+
+impl LspsServiceBuilder {
     pub fn new() -> Self {
         Self {
-            handlers: HashMap::new(),
+            router_builder: JsonRpcRouterBuilder::new(),
+            supported_protocols: vec![],
         }
     }
 
-    /// Registers a handler for a specific JSON-RPC method.
-    pub fn with_handler(mut self, method: String, handler: Arc<dyn RequestHandler>) -> Self {
-        self.handlers.insert(method, handler);
+    pub fn with_protocol<M>(mut self, method: M) -> Self
+    where
+        M: LspsProtocol,
+    {
+        let proto = method.protocol();
+        self.supported_protocols.push(proto);
+        method.register_handler(&mut self.router_builder);
         self
     }
 
-    /// Builds a JSON-RPC server with the configured handlers.
-    pub fn build(self) -> JsonRpcServer {
-        JsonRpcServer {
-            handlers: Arc::new(self.handlers),
-        }
-    }
-}
+    pub fn build(mut self) -> LspsService {
+        self.supported_protocols.sort();
+        self.supported_protocols.dedup();
+        let supported_protocols: Vec<u8> = self
+            .supported_protocols
+            .into_iter()
+            .filter(|&p| p != 0)
+            .collect();
 
-/// Server for handling JSON-RPC 2.0 requests.
-///
-/// Dispatches incoming JSON-RPC requests to the appropriate handlers based on
-/// the method name, and manages the response lifecycle.
-#[derive(Clone)]
-pub struct JsonRpcServer {
-    handlers: Arc<HashMap<String, Arc<dyn RequestHandler>>>,
-}
-
-impl JsonRpcServer {
-    pub fn builder() -> JsonRpcServerBuilder {
-        JsonRpcServerBuilder::new()
-    }
-
-    // Processes a JSON-RPC message and writes the response.
-    ///
-    /// This is the main entry point for handling JSON-RPC requests. It:
-    /// 1. Parses and validates the incoming request
-    /// 2. Routes the request to the appropriate handler
-    /// 3. Writes the response back to the client (if needed)
-    pub async fn handle_message(
-        &self,
-        payload: &[u8],
-        writer: &mut dyn JsonRpcResponseWriter,
-    ) -> Result<()> {
-        trace!("Handle request with payload: {:?}", payload);
-        let value: serde_json::Value = serde_json::from_slice(payload)?;
-        let id = value.get("id").and_then(|id| id.as_str());
-        let method = value.get("method").and_then(|method| method.as_str());
-        let jsonrpc = value.get("jsonrpc").and_then(|jrpc| jrpc.as_str());
-
-        trace!(
-            "Validate request: id={:?}, method={:?}, jsonrpc={:?}",
-            id,
-            method,
-            jsonrpc
+        let protocols_for_rpc = supported_protocols.clone();
+        self.router_builder.register(
+            "lsps0.list_protocols",
+            move |_p: Lsps0listProtocolsRequest| {
+                let protocols = protocols_for_rpc.clone();
+                async move { Ok(Lsps0listProtocolsResponse { protocols }) }
+            },
         );
-        let method = match (jsonrpc, method) {
-            (Some(jrpc), Some(method)) if jrpc == "2.0" => method,
-            (_, _) => {
-                debug!("Got invalid request {}", value);
-                let err = RpcError {
-                    code: -32600,
-                    message: "Invalid request".into(),
-                    data: None,
-                };
-                return self.maybe_write_error(id, err, writer).await;
-            }
-        };
 
-        trace!("Get handler for id={:?}, method={:?}", id, method);
-        if let Some(handler) = self.handlers.get(method) {
-            trace!(
-                "Call handler for id={:?}, method={:?}, with payload={:?}",
-                id,
-                method,
-                payload
-            );
-            match handler.handle(payload).await {
-                Ok(res) => return self.maybe_write(id, &res, writer).await,
-                Err(e) => {
-                    debug!("Handler returned with error: {}", e);
-                    return self.maybe_write_error(id, e, writer).await;
-                }
-            };
-        } else {
-            debug!("No handler found for method: {}", method);
-            let err = RpcError {
-                code: -32601,
-                message: "Method not found".into(),
-                data: None,
-            };
-            return self.maybe_write_error(id, err, writer).await;
-        }
-    }
+        let router = self.router_builder.build();
 
-    /// Writes a response if the request has an ID.
-    ///
-    /// For notifications (requests without an ID), no response is written.
-    async fn maybe_write(
-        &self,
-        id: Option<&str>,
-        payload: &[u8],
-        writer: &mut dyn JsonRpcResponseWriter,
-    ) -> Result<()> {
-        // No need to respond when we don't have an id - it's a notification
-        if id.is_some() {
-            return writer.write(payload).await;
+        LspsService {
+            router,
+            supported_protocols,
         }
-        Ok(())
-    }
-
-    /// Writes an error response if the request has an ID.
-    ///
-    /// For notifications (requests without an ID), no response is written.
-    async fn maybe_write_error(
-        &self,
-        id: Option<&str>,
-        err: RpcError,
-        writer: &mut dyn JsonRpcResponseWriter,
-    ) -> Result<()> {
-        // No need to respond when we don't have an id - it's a notification
-        if let Some(id) = id {
-            let err_res = JsonRpcResponse::error(err, id);
-            let err_vec = serde_json::to_vec(&err_res)?;
-            return writer.write(&err_vec).await;
-        }
-        Ok(())
     }
 }
 
 #[cfg(test)]
-mod test_json_rpc_server {
+mod tests {
     use super::*;
 
-    #[derive(Default)]
-    struct MockWriter {
-        log_content: String,
-    }
-
-    #[async_trait]
-    impl JsonRpcResponseWriter for MockWriter {
-        async fn write(&mut self, payload: &[u8]) -> Result<()> {
-            println!("Write payload={:?}", &payload);
-            let byte_str = String::from_utf8(payload.to_vec()).unwrap();
-            self.log_content = byte_str;
-            Ok(())
+    fn test_context() -> RequestContext {
+        RequestContext {
+            peer_id: "0279BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798"
+                .parse()
+                .unwrap(),
         }
     }
 
-    // Echo handler
-    pub struct Echo;
+    // Minimal mock - just tracks protocol number
+    struct MockProtocol(u8);
 
-    #[async_trait]
-    impl RequestHandler for Echo {
-        async fn handle(&self, payload: &[u8]) -> core::result::Result<Vec<u8>, RpcError> {
-            println!("Called handler with payload: {:?}", &payload);
-            Ok(payload.to_vec())
+    impl LspsProtocol for MockProtocol {
+        fn register_handler(&self, _router: &mut JsonRpcRouterBuilder) {
+            // No-op, we just care about protocol number
+        }
+
+        fn protocol(&self) -> u8 {
+            self.0
         }
     }
 
-    #[tokio::test]
-    async fn test_notification() {
-        // A notification should not respond to the client so there is no need
-        // to write payload to the writer;
-        let server = JsonRpcServer::builder()
-            .with_handler("echo".to_string(), Arc::new(Echo))
+    #[test]
+    fn test_protocols_sorted() {
+        let service = LspsService::builder()
+            .with_protocol(MockProtocol(5))
+            .with_protocol(MockProtocol(1))
+            .with_protocol(MockProtocol(2))
             .build();
 
-        let mut writer = MockWriter {
-            log_content: String::default(),
-        };
+        assert_eq!(service.protocols(), &[1, 2, 5]);
+    }
 
-        let msg = r#"{"jsonrpc":"2.0","method":"echo","params":{"age":99,"name":"Satoshi"}}"#; // No id signals a notification.
-        let res = server.handle_message(msg.as_bytes(), &mut writer).await;
-        assert!(res.is_ok());
-        assert!(writer.log_content.is_empty()); // Was a notification we don't expect a response;
+    #[test]
+    fn test_protocols_deduped() {
+        let service = LspsService::builder()
+            .with_protocol(MockProtocol(2))
+            .with_protocol(MockProtocol(2))
+            .build();
+
+        assert_eq!(service.protocols(), &[2]);
+    }
+
+    #[test]
+    fn test_protocol_zero_filtered() {
+        let service = LspsService::builder()
+            .with_protocol(MockProtocol(0))
+            .with_protocol(MockProtocol(2))
+            .build();
+
+        assert_eq!(service.protocols(), &[2]);
     }
 
     #[tokio::test]
-    async fn missing_method_field() {
-        // We verify the request data, check that we return an error when we
-        // don't understand the request.
-        let server = JsonRpcServer::builder()
-            .with_handler("echo".to_string(), Arc::new(Echo))
+    async fn test_list_protocols_returns_registered() {
+        let service = LspsService::builder()
+            .with_protocol(MockProtocol(2))
+            .with_protocol(MockProtocol(1))
             .build();
 
-        let mut writer = MockWriter {
-            log_content: String::default(),
-        };
+        let request = serde_json::to_vec(&serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": "1",
+            "method": "lsps0.list_protocols",
+            "params": {}
+        }))
+        .unwrap();
 
-        let msg = r#"{"jsonrpc":"2.0","params":{"age":99,"name":"Satoshi"},"id":"unique-id-123"}"#;
-        let res = server.handle_message(msg.as_bytes(), &mut writer).await;
-        assert!(res.is_ok());
-        let expected = r#"{"jsonrpc":"2.0","id":"unique-id-123","error":{"code":-32600,"message":"Invalid request"}}"#; // Unknown method say_hello
-        assert_eq!(writer.log_content, expected);
+        let response = service.handle(&test_context(), &request).await.unwrap();
+        let parsed: serde_json::Value = serde_json::from_slice(&response).unwrap();
+
+        assert_eq!(parsed["result"]["protocols"], serde_json::json!([1, 2]));
     }
 
     #[tokio::test]
-    async fn wrong_version() {
-        // We only accept requests that have jsonrpc version 2.0.
-        let server = JsonRpcServer::builder()
-            .with_handler("echo".to_string(), Arc::new(Echo))
-            .build();
+    async fn test_list_protocols_empty() {
+        let service = LspsService::builder().build();
 
-        let mut writer = MockWriter {
-            log_content: String::default(),
-        };
+        let request = serde_json::to_vec(&serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": "1",
+            "method": "lsps0.list_protocols",
+            "params": {}
+        }))
+        .unwrap();
 
-        let msg = r#"{"jsonrpc":"1.0","method":"echo","params":{"age":99,"name":"Satoshi"},"id":"unique-id-123"}"#;
-        let res = server.handle_message(msg.as_bytes(), &mut writer).await;
-        assert!(res.is_ok());
-        let expected = r#"{"jsonrpc":"2.0","id":"unique-id-123","error":{"code":-32600,"message":"Invalid request"}}"#; // Unknown method say_hello
-        assert_eq!(writer.log_content, expected);
-    }
+        let response = service.handle(&test_context(), &request).await.unwrap();
+        let parsed: serde_json::Value = serde_json::from_slice(&response).unwrap();
 
-    #[tokio::test]
-    async fn propper_request() {
-        // Check that we call the handler and write back to the writer when
-        // processing a well-formed request.
-        let server = JsonRpcServer::builder()
-            .with_handler("echo".to_string(), Arc::new(Echo))
-            .build();
-
-        let mut writer = MockWriter {
-            log_content: String::default(),
-        };
-
-        let msg = r#"{"jsonrpc":"2.0","method":"echo","params":{"age":99,"name":"Satoshi"},"id":"unique-id-123"}"#;
-        let res = server.handle_message(msg.as_bytes(), &mut writer).await;
-        assert!(res.is_ok());
-        assert_eq!(writer.log_content, msg.to_string());
-    }
-
-    #[tokio::test]
-    async fn unknown_method() {
-        // We don't know the method and need to send back an error to the client.
-        let server = JsonRpcServer::builder()
-            .with_handler("echo".to_string(), Arc::new(Echo))
-            .build();
-
-        let mut writer = MockWriter {
-            log_content: String::default(),
-        };
-
-        let msg = r#"{"jsonrpc":"2.0","method":"say_hello","params":{"age":99,"name":"Satoshi"},"id":"unique-id-123"}"#; // Unknown method say_hello
-        let res = server.handle_message(msg.as_bytes(), &mut writer).await;
-        assert!(res.is_ok());
-        let expected = r#"{"jsonrpc":"2.0","id":"unique-id-123","error":{"code":-32601,"message":"Method not found"}}"#; // Unknown method say_hello
-        assert_eq!(writer.log_content, expected);
-    }
-
-    #[tokio::test]
-    async fn test_handler() {
-        let server = JsonRpcServer::builder()
-            .with_handler("echo".to_string(), Arc::new(Echo))
-            .build();
-
-        let mut writer = MockWriter {
-            log_content: String::default(),
-        };
-
-        let msg = r#"{"jsonrpc":"2.0","method":"echo","params":{"age":99,"name":"Satoshi"},"id":"unique-id-123"}"#;
-        let res = server.handle_message(msg.as_bytes(), &mut writer).await;
-        assert!(res.is_ok());
-        assert_eq!(writer.log_content, msg.to_string());
+        assert_eq!(parsed["result"]["protocols"], serde_json::json!([]));
     }
 }
