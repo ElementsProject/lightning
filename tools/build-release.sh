@@ -223,7 +223,7 @@ fi
 if [ -z "${TARGETS##* sign *}" ]; then
     echo "Signing Release"
     cd release/ || exit
-    sha256sum clightning-"$VERSION"* > SHA256SUMS-"$VERSION"
+    sha256sum clightning-"$VERSION"-*.tar.* clightning-"$VERSION".zip > SHA256SUMS-"$VERSION"
     gpg -sb --armor --default-key "$(gpgconf --list-options gpg | awk -F: '$1 == "default-key" {print $10}' | tr -d '"')" -o SHA256SUMS-"$VERSION".asc SHA256SUMS-"$VERSION"
     cd ..
     echo "Release Signed"
