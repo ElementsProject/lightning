@@ -2251,7 +2251,7 @@ static bool verify_option_will_fund_signature(struct peer *peer,
 static void handle_validate_lease(struct subd *dualopend,
 				  const u8 *msg)
 {
-	const secp256k1_ecdsa_signature sig;
+	secp256k1_ecdsa_signature sig = {{0}};
 	u16 chan_fee_max_ppt;
 	u32 chan_fee_max_base_msat, lease_expiry;
 	struct pubkey their_pubkey;
