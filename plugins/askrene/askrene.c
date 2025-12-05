@@ -26,9 +26,9 @@
 #include <math.h>
 #include <plugins/askrene/askrene.h>
 #include <plugins/askrene/child/child_log.h>
-#include <plugins/askrene/flow.h>
+#include <plugins/askrene/child/flow.h>
+#include <plugins/askrene/child/mcf.h>
 #include <plugins/askrene/layer.h>
-#include <plugins/askrene/mcf.h>
 #include <plugins/askrene/reserve.h>
 #include <sys/wait.h>
 #include <unistd.h>

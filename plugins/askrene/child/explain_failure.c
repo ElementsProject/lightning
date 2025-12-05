@@ -4,7 +4,7 @@
 #include <common/gossmap.h>
 #include <common/route.h>
 #include <plugins/askrene/askrene.h>
-#include <plugins/askrene/explain_failure.h>
+#include <plugins/askrene/child/explain_failure.h>
 #include <plugins/askrene/layer.h>
 #include <plugins/askrene/reserve.h>
 

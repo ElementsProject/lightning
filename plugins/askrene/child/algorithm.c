@@ -1,8 +1,8 @@
 #include "config.h"
 #include <ccan/bitmap/bitmap.h>
 #include <ccan/tal/tal.h>
-#include <plugins/askrene/algorithm.h>
-#include <plugins/askrene/priorityqueue.h>
+#include <plugins/askrene/child/algorithm.h>
+#include <plugins/askrene/child/priorityqueue.h>
 
 static const s64 INFINITE = INT64_MAX;
 
