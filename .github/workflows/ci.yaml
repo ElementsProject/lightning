@@ -364,6 +364,7 @@ jobs:
       pytest_workers: 2
       shard_count: 10
       shard_index: ${{ matrix.shard }}
+      test_db_provider: sqlite3
 
   update-docs-examples:
     name: Update examples in doc schemas (disabled temporarily!)
