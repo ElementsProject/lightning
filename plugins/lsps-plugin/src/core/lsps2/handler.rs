@@ -27,31 +27,22 @@ use cln_rpc::{
             DatastoreMode, DatastoreRequest, DeldatastoreRequest, FundchannelRequest,
             GetinfoRequest, ListdatastoreRequest, ListpeerchannelsRequest,
         },
-        responses::{
-            DatastoreResponse, DeldatastoreResponse, FundchannelResponse, ListdatastoreResponse,
-            ListpeerchannelsResponse,
-        },
+        responses::{FundchannelResponse, ListdatastoreResponse, ListpeerchannelsResponse},
     },
     primitives::{Amount, AmountOrAll, ChannelState},
     ClnRpc,
 };
 use log::{debug, warn};
 use rand::{rng, Rng as _};
+use serde::Serialize;
 use std::{fmt, path::PathBuf, sync::Arc, time::Duration};
 
 #[async_trait]
 pub trait ClnApi: Send + Sync {
-    async fn cln_datastore(&self, params: &DatastoreRequest) -> AnyResult<DatastoreResponse>;
-
-    async fn cln_listdatastore(
+    async fn lsps2_getchannelcapacity(
         &self,
-        params: &ListdatastoreRequest,
-    ) -> AnyResult<ListdatastoreResponse>;
-
-    async fn cln_deldatastore(
-        &self,
-        params: &DeldatastoreRequest,
-    ) -> AnyResult<DeldatastoreResponse>;
+        params: &Lsps2PolicyGetChannelCapacityRequest,
+    ) -> AnyResult<Lsps2PolicyGetChannelCapacityResponse>;
 
     async fn cln_fundchannel(&self, params: &FundchannelRequest) -> AnyResult<FundchannelResponse>;
 
@@ -80,34 +71,15 @@ impl ClnApiRpc {
 
 #[async_trait]
 impl ClnApi for ClnApiRpc {
-    async fn cln_datastore(&self, params: &DatastoreRequest) -> AnyResult<DatastoreResponse> {
-        let mut rpc = self.create_rpc().await?;
-        rpc.call_typed(params)
-            .await
-            .map_err(anyhow::Error::new)
-            .with_context(|| "calling datastore")
-    }
-
-    async fn cln_listdatastore(
+    async fn lsps2_getchannelcapacity(
         &self,
-        params: &ListdatastoreRequest,
-    ) -> AnyResult<ListdatastoreResponse> {
+        params: &Lsps2PolicyGetChannelCapacityRequest,
+    ) -> AnyResult<Lsps2PolicyGetChannelCapacityResponse> {
         let mut rpc = self.create_rpc().await?;
-        rpc.call_typed(params)
+        rpc.call_raw("lsps2-policy-getchannelcapacity", params)
             .await
             .map_err(anyhow::Error::new)
-            .with_context(|| "calling listdatastore")
-    }
-
-    async fn cln_deldatastore(
-        &self,
-        params: &DeldatastoreRequest,
-    ) -> AnyResult<DeldatastoreResponse> {
-        let mut rpc = self.create_rpc().await?;
-        rpc.call_typed(params)
-            .await
-            .map_err(anyhow::Error::new)
-            .with_context(|| "calling deldatastore")
+            .with_context(|| "calling lsps2-policy-getchannelcapacity")
     }
 
     async fn cln_fundchannel(&self, params: &FundchannelRequest) -> AnyResult<FundchannelResponse> {
@@ -127,6 +99,89 @@ impl ClnApi for ClnApiRpc {
             .await
             .map_err(anyhow::Error::new)
             .with_context(|| "calling listpeerchannels")
+    }
+}
+
+#[async_trait]
+impl DatastoreProvider for ClnApiRpc {
+    async fn store_buy_request(
+        &self,
+        scid: &ShortChannelId,
+        peer_id: &PublicKey,
+        opening_fee_params: &OpeningFeeParams,
+        expected_payment_size: &Option<Msat>,
+    ) -> AnyResult<bool> {
+        let mut rpc = self.create_rpc().await?;
+        #[derive(Serialize)]
+        struct BorrowedDatastoreEntry<'a> {
+            peer_id: &'a PublicKey,
+            opening_fee_params: &'a OpeningFeeParams,
+            #[serde(borrow)]
+            expected_payment_size: &'a Option<Msat>,
+        }
+
+        let ds = BorrowedDatastoreEntry {
+            peer_id,
+            opening_fee_params,
+            expected_payment_size,
+        };
+        let json_str = serde_json::to_string(&ds)?;
+
+        let ds = DatastoreRequest {
+            generation: None,
+            hex: None,
+            mode: Some(DatastoreMode::MUST_CREATE),
+            string: Some(json_str),
+            key: vec![
+                DS_MAIN_KEY.to_string(),
+                DS_SUB_KEY.to_string(),
+                scid.to_string(),
+            ],
+        };
+
+        let _ = rpc
+            .call_typed(&ds)
+            .await
+            .map_err(anyhow::Error::new)
+            .with_context(|| "calling datastore")?;
+
+        Ok(true)
+    }
+
+    async fn get_buy_request(&self, scid: &ShortChannelId) -> AnyResult<DatastoreEntry> {
+        let mut rpc = self.create_rpc().await?;
+        let key = vec![
+            DS_MAIN_KEY.to_string(),
+            DS_SUB_KEY.to_string(),
+            scid.to_string(),
+        ];
+        let res = rpc
+            .call_typed(&ListdatastoreRequest {
+                key: Some(key.clone()),
+            })
+            .await
+            .with_context(|| "calling listdatastore")?;
+
+        let (rec, _) = deserialize_by_key(&res, key)?;
+        Ok(rec)
+    }
+
+    async fn del_buy_request(&self, scid: &ShortChannelId) -> AnyResult<()> {
+        let mut rpc = self.create_rpc().await?;
+        let key = vec![
+            DS_MAIN_KEY.to_string(),
+            DS_SUB_KEY.to_string(),
+            scid.to_string(),
+        ];
+
+        let _ = rpc
+            .call_typed(&DeldatastoreRequest {
+                generation: None,
+                key,
+            })
+            .await;
+
+        Ok(())
     }
 }
 
@@ -185,6 +240,20 @@ type Blockheight = u32;
 #[async_trait]
 pub trait BlockheightProvider: Send + Sync {
     async fn get_blockheight(&self) -> AnyResult<Blockheight>;
+}
+
+#[async_trait]
+pub trait DatastoreProvider: Send + Sync {
+    async fn store_buy_request(
+        &self,
+        scid: &ShortChannelId,
+        peer_id: &PublicKey,
+        offer: &OpeningFeeParams,
+        expected_payment_size: &Option<Msat>,
+    ) -> AnyResult<bool>;
+
+    async fn get_buy_request(&self, scid: &ShortChannelId) -> AnyResult<DatastoreEntry>;
+    async fn del_buy_request(&self, scid: &ShortChannelId) -> AnyResult<()>;
 }
 
 pub struct Lsps2ServiceHandler<A> {
@@ -249,7 +318,7 @@ fn make_opening_fee_params(
 }
 
 #[async_trait]
-impl<A: ClnApi + BlockheightProvider + Lsps2OfferProvider + 'static> Lsps2Handler
+impl<A: DatastoreProvider + BlockheightProvider + Lsps2OfferProvider + 'static> Lsps2Handler
     for Lsps2ServiceHandler<A>
 {
     async fn handle_get_info(
@@ -280,34 +349,17 @@ impl<A: ClnApi + BlockheightProvider + Lsps2OfferProvider + 'static> Lsps2Handle
 
         // FIXME: Future task: Check that we don't conflict with any jit scid we
         // already handed out -> Check datastore entries.
-        let jit_scid_u64 = generate_jit_scid(blockheight);
-        let jit_scid = ShortChannelId::from(jit_scid_u64);
-        let ds_data = DatastoreEntry {
-            peer_id: peer_id.to_owned(),
-            opening_fee_params: fee_params,
-            expected_payment_size: request.payment_size_msat,
-        };
-        let ds_json = serde_json::to_string(&ds_data).map_err(|e| {
-            warn!("Failed to serialize opening fee params to string {}", e);
-            RpcError::internal_error("Internal error")
-        })?;
+        let jit_scid = ShortChannelId::from(generate_jit_scid(blockheight));
 
-        let ds_req = DatastoreRequest {
-            generation: None,
-            hex: None,
-            mode: Some(DatastoreMode::MUST_CREATE),
-            string: Some(ds_json),
-            key: vec![
-                DS_MAIN_KEY.to_string(),
-                DS_SUB_KEY.to_string(),
-                jit_scid.to_string(),
-            ],
-        };
+        let ok = self
+            .api
+            .store_buy_request(&jit_scid, &peer_id, &fee_params, &request.payment_size_msat)
+            .await
+            .map_err(|_| RpcError::internal_error("internal error"))?;
 
-        let _ds_res = self.api.cln_datastore(&ds_req).await.map_err(|e| {
-            warn!("Failed to store jit request in ds via rpc {}", e);
-            RpcError::internal_error("Internal error")
-        })?;
+        if !ok {
+            return Err(RpcError::internal_error("internal error"))?;
+        }
 
         Ok(Lsps2BuyResponse {
             jit_channel_scid: jit_scid,
@@ -329,13 +381,13 @@ fn generate_jit_scid(best_blockheigt: u32) -> u64 {
     ((block as u64) << 40) | ((tx_idx as u64) << 16) | (output_idx as u64)
 }
 
-pub struct HtlcAcceptedHookHandler<A: ClnApi> {
+pub struct HtlcAcceptedHookHandler<A> {
     api: A,
     htlc_minimum_msat: u64,
     backoff_listpeerchannels: Duration,
 }
 
-impl<A: ClnApi> HtlcAcceptedHookHandler<A> {
+impl<A> HtlcAcceptedHookHandler<A> {
     pub fn new(api: A, htlc_minimum_msat: u64) -> Self {
         Self {
             api,
@@ -345,7 +397,7 @@ impl<A: ClnApi> HtlcAcceptedHookHandler<A> {
     }
 }
 
-impl<A: Lsps2OfferProvider + ClnApi> HtlcAcceptedHookHandler<A> {
+impl<A: DatastoreProvider + Lsps2OfferProvider + ClnApi> HtlcAcceptedHookHandler<A> {
     pub async fn handle(&self, req: HtlcAcceptedRequest) -> AnyResult<HtlcAcceptedResponse> {
         let scid = match req.onion.short_channel_id {
             Some(scid) => scid,
@@ -356,28 +408,9 @@ impl<A: Lsps2OfferProvider + ClnApi> HtlcAcceptedHookHandler<A> {
         };
 
         // A) Is this SCID one that we care about?
-        let ds_req = ListdatastoreRequest {
-            key: Some(scid_ds_key(scid)),
-        };
-        let ds_res = self.api.cln_listdatastore(&ds_req).await.map_err(|e| {
-            warn!("Failed to listpeerchannels via rpc {}", e);
-            RpcError::internal_error("Internal error")
-        })?;
-
-        let (ds_rec, ds_gen) = match deserialize_by_key(&ds_res, scid_ds_key(scid)) {
-            Ok(r) => r,
-            Err(DsError::NotFound { .. }) => {
-                // We don't know the scid, continue.
-                return Ok(HtlcAcceptedResponse::continue_(None, None, None));
-            }
-            Err(e @ DsError::MissingValue { .. })
-            | Err(e @ DsError::HexDecode { .. })
-            | Err(e @ DsError::JsonParse { .. }) => {
-                // We have a data issue, log and continue.
-                // Note: We may want to actually reject the htlc here or throw
-                // an error alltogether but we will try to fulfill this htlc for
-                // now.
-                warn!("datastore issue: {}", e);
+        let ds_rec = match self.api.get_buy_request(&scid).await {
+            Ok(rec) => rec,
+            Err(_) => {
                 return Ok(HtlcAcceptedResponse::continue_(None, None, None));
             }
         };
@@ -402,14 +435,7 @@ impl<A: Lsps2OfferProvider + ClnApi> HtlcAcceptedHookHandler<A> {
         let now = Utc::now();
         if now >= ds_rec.opening_fee_params.valid_until {
             // Not valid anymore, remove from DS and fail HTLC.
-            let ds_req = DeldatastoreRequest {
-                generation: ds_gen,
-                key: scid_ds_key(scid),
-            };
-            match self.api.cln_deldatastore(&ds_req).await {
-                Ok(_) => debug!("removed datastore for scid: {}, wasn't valid anymore", scid),
-                Err(e) => warn!("could not remove datastore for scid: {}: {}", scid, e),
-            };
+            let _ = self.api.del_buy_request(&scid).await;
             return Ok(HtlcAcceptedResponse::fail(
                 Some(TEMPORARY_CHANNEL_FAILURE.to_string()),
                 None,
@@ -605,14 +631,6 @@ impl fmt::Display for DsError {
 
 impl std::error::Error for DsError {}
 
-fn scid_ds_key(scid: ShortChannelId) -> Vec<String> {
-    vec![
-        DS_MAIN_KEY.to_string(),
-        DS_SUB_KEY.to_string(),
-        scid.to_string(),
-    ]
-}
-
 pub fn deserialize_by_key<K>(
     resp: &ListdatastoreResponse,
     key: K,
@@ -668,8 +686,9 @@ mod tests {
             lsps2::{Lsps2PolicyGetInfoResponse, PolicyOpeningFeeParams},
         },
     };
+    use anyhow::bail;
     use chrono::{TimeZone, Utc};
-    use cln_rpc::{model::responses::ListdatastoreDatastore, RpcError as ClnRpcError};
+    use cln_rpc::RpcError as ClnRpcError;
     use cln_rpc::{
         model::responses::ListpeerchannelsChannels,
         primitives::{Amount, PublicKey, Sha256},
@@ -718,12 +737,9 @@ mod tests {
         lsps2_getpolicy_error: Arc<Mutex<Option<ClnRpcError>>>,
         blockheight_response: Option<u32>,
         blockheight_error: Arc<Mutex<Option<anyhow::Error>>>,
-        cln_datastore_response: Arc<Mutex<Option<DatastoreResponse>>>,
-        cln_datastore_error: Arc<Mutex<Option<ClnRpcError>>>,
-        cln_listdatastore_response: Arc<Mutex<Option<ListdatastoreResponse>>>,
-        cln_listdatastore_error: Arc<Mutex<Option<ClnRpcError>>>,
-        cln_deldatastore_response: Arc<Mutex<Option<DeldatastoreResponse>>>,
-        cln_deldatastore_error: Arc<Mutex<Option<ClnRpcError>>>,
+        store_buy_request_response: bool,
+        get_buy_request_response: Arc<Mutex<Option<DatastoreEntry>>>,
+        get_buy_request_error: Arc<Mutex<Option<anyhow::Error>>>,
         cln_fundchannel_response: Arc<Mutex<Option<FundchannelResponse>>>,
         cln_fundchannel_error: Arc<Mutex<Option<ClnRpcError>>>,
         cln_listpeerchannels_response: Arc<Mutex<Option<ListpeerchannelsResponse>>>,
@@ -735,43 +751,22 @@ mod tests {
 
     #[async_trait]
     impl ClnApi for FakeCln {
-        async fn cln_datastore(
+        async fn lsps2_getchannelcapacity(
             &self,
-            _params: &DatastoreRequest,
-        ) -> Result<DatastoreResponse, anyhow::Error> {
-            if let Some(err) = self.cln_datastore_error.lock().unwrap().take() {
-                return Err(anyhow::Error::new(err).context("from fake api"));
-            };
-            if let Some(res) = self.cln_datastore_response.lock().unwrap().take() {
-                return Ok(res);
-            };
-            panic!("No cln datastore response defined");
-        }
-
-        async fn cln_listdatastore(
-            &self,
-            _params: &ListdatastoreRequest,
-        ) -> AnyResult<ListdatastoreResponse> {
-            if let Some(err) = self.cln_listdatastore_error.lock().unwrap().take() {
+            _params: &Lsps2PolicyGetChannelCapacityRequest,
+        ) -> AnyResult<Lsps2PolicyGetChannelCapacityResponse> {
+            if let Some(err) = self.lsps2_getchannelcapacity_error.lock().unwrap().take() {
                 return Err(anyhow::Error::new(err).context("from fake api"));
             }
-            if let Some(res) = self.cln_listdatastore_response.lock().unwrap().take() {
+            if let Some(res) = self
+                .lsps2_getchannelcapacity_response
+                .lock()
+                .unwrap()
+                .take()
+            {
                 return Ok(res);
             }
-            panic!("No cln listdatastore response defined");
-        }
-
-        async fn cln_deldatastore(
-            &self,
-            _params: &DeldatastoreRequest,
-        ) -> AnyResult<DeldatastoreResponse> {
-            if let Some(err) = self.cln_deldatastore_error.lock().unwrap().take() {
-                return Err(anyhow::Error::new(err).context("from fake api"));
-            }
-            if let Some(res) = self.cln_deldatastore_response.lock().unwrap().take() {
-                return Ok(res);
-            }
-            panic!("No cln deldatastore response defined");
+            panic!("No lsps2 getchannelcapacity response defined");
         }
 
         async fn cln_fundchannel(
@@ -919,6 +914,34 @@ mod tests {
         }
     }
 
+    #[async_trait]
+    impl DatastoreProvider for FakeCln {
+        async fn store_buy_request(
+            &self,
+            _scid: &ShortChannelId,
+            _peer_id: &PublicKey,
+            _offer: &OpeningFeeParams,
+            _payment_size_msat: &Option<Msat>,
+        ) -> AnyResult<bool> {
+            Ok(self.store_buy_request_response)
+        }
+
+        async fn get_buy_request(&self, _scid: &ShortChannelId) -> AnyResult<DatastoreEntry> {
+            if let Some(err) = self.get_buy_request_error.lock().unwrap().take() {
+                return Err(err);
+            }
+            if let Some(res) = self.get_buy_request_response.lock().unwrap().take() {
+                return Ok(res);
+            } else {
+                bail!("request not found")
+            }
+        }
+
+        async fn del_buy_request(&self, _scid: &ShortChannelId) -> AnyResult<()> {
+            Ok(())
+        }
+    }
+
     fn create_test_htlc_request(
         scid: Option<ShortChannelId>,
         amount_msat: u64,
@@ -1035,12 +1058,7 @@ mod tests {
         let promise_secret = test_promise_secret();
         let mut fake = FakeCln::default();
         fake.blockheight_response = Some(900_000);
-        *fake.cln_datastore_response.lock().unwrap() = Some(DatastoreResponse {
-            generation: Some(0),
-            hex: None,
-            string: None,
-            key: vec![],
-        });
+        fake.store_buy_request_response = true;
 
         let handler = Lsps2ServiceHandler {
             api: Arc::new(fake),
@@ -1068,12 +1086,7 @@ mod tests {
         let promise_secret = test_promise_secret();
         let mut fake = FakeCln::default();
         fake.blockheight_response = Some(900_100);
-        *fake.cln_datastore_response.lock().unwrap() = Some(DatastoreResponse {
-            generation: Some(0),
-            hex: None,
-            string: None,
-            key: vec![],
-        });
+        fake.store_buy_request_response = true;
 
         let handler = Lsps2ServiceHandler {
             api: Arc::new(fake),
@@ -1222,12 +1235,9 @@ mod tests {
     #[tokio::test]
     async fn test_htlc_unknown_scid_continues() {
         let fake = FakeCln::default();
+
         let handler = HtlcAcceptedHookHandler::new(fake.clone(), 1000);
         let scid = ShortChannelId::from(123456789u64);
-
-        // Return empty datastore response (SCID not found)
-        *fake.cln_listdatastore_response.lock().unwrap() =
-            Some(ListdatastoreResponse { datastore: vec![] });
 
         let req = create_test_htlc_request(Some(scid), 1000000);
 
@@ -1247,23 +1257,7 @@ mod tests {
         ds_entry.opening_fee_params.valid_until =
             Utc.with_ymd_and_hms(1970, 1, 1, 0, 0, 0).unwrap(); // expired
 
-        let ds_entry_json = serde_json::to_string(&ds_entry).unwrap();
-        *fake.cln_listdatastore_response.lock().unwrap() = Some(ListdatastoreResponse {
-            datastore: vec![ListdatastoreDatastore {
-                key: scid_ds_key(scid),
-                generation: Some(1),
-                hex: None,
-                string: Some(ds_entry_json),
-            }],
-        });
-
-        // Mock successful deletion
-        *fake.cln_deldatastore_response.lock().unwrap() = Some(DeldatastoreResponse {
-            generation: Some(1),
-            hex: None,
-            string: None,
-            key: scid_ds_key(scid),
-        });
+        *fake.get_buy_request_response.lock().unwrap() = Some(ds_entry);
 
         let req = create_test_htlc_request(Some(scid), 1000000);
 
@@ -1283,16 +1277,7 @@ mod tests {
         let scid = ShortChannelId::from(123456789u64);
 
         let ds_entry = create_test_datastore_entry(peer_id, None);
-        let ds_entry_json = serde_json::to_string(&ds_entry).unwrap();
-
-        *fake.cln_listdatastore_response.lock().unwrap() = Some(ListdatastoreResponse {
-            datastore: vec![ListdatastoreDatastore {
-                key: scid_ds_key(scid),
-                generation: Some(1),
-                hex: None,
-                string: Some(ds_entry_json),
-            }],
-        });
+        *fake.get_buy_request_response.lock().unwrap() = Some(ds_entry);
 
         // HTLC amount below minimum
         let req = create_test_htlc_request(Some(scid), 100);
@@ -1313,16 +1298,7 @@ mod tests {
         let scid = ShortChannelId::from(123456789u64);
 
         let ds_entry = create_test_datastore_entry(peer_id, None);
-        let ds_entry_json = serde_json::to_string(&ds_entry).unwrap();
-
-        *fake.cln_listdatastore_response.lock().unwrap() = Some(ListdatastoreResponse {
-            datastore: vec![ListdatastoreDatastore {
-                key: scid_ds_key(scid),
-                generation: Some(1),
-                hex: None,
-                string: Some(ds_entry_json),
-            }],
-        });
+        *fake.get_buy_request_response.lock().unwrap() = Some(ds_entry);
 
         // HTLC amount above maximum
         let req = create_test_htlc_request(Some(scid), 200_000_000);
@@ -1343,16 +1319,7 @@ mod tests {
         let scid = ShortChannelId::from(123456789u64);
 
         let ds_entry = create_test_datastore_entry(peer_id, None);
-        let ds_entry_json = serde_json::to_string(&ds_entry).unwrap();
-
-        *fake.cln_listdatastore_response.lock().unwrap() = Some(ListdatastoreResponse {
-            datastore: vec![ListdatastoreDatastore {
-                key: scid_ds_key(scid),
-                generation: Some(1),
-                hex: None,
-                string: Some(ds_entry_json),
-            }],
-        });
+        *fake.get_buy_request_response.lock().unwrap() = Some(ds_entry);
 
         // HTLC amount just barely covers minimum fee but not minimum HTLC
         let req = create_test_htlc_request(Some(scid), 2500); // min_fee is 2000, htlc_minimum is 1000
@@ -1373,16 +1340,7 @@ mod tests {
         let scid = ShortChannelId::from(123456789u64);
 
         let ds_entry = create_test_datastore_entry(peer_id, None);
-        let ds_entry_json = serde_json::to_string(&ds_entry).unwrap();
-
-        *fake.cln_listdatastore_response.lock().unwrap() = Some(ListdatastoreResponse {
-            datastore: vec![ListdatastoreDatastore {
-                key: scid_ds_key(scid),
-                generation: Some(1),
-                hex: None,
-                string: Some(ds_entry_json),
-            }],
-        });
+        *fake.get_buy_request_response.lock().unwrap() = Some(ds_entry);
 
         *fake.lsps2_getchannelcapacity_error.lock().unwrap() = Some(ClnRpcError {
             code: Some(-1),
@@ -1408,16 +1366,7 @@ mod tests {
         let scid = ShortChannelId::from(123456789u64);
 
         let ds_entry = create_test_datastore_entry(peer_id, None);
-        let ds_entry_json = serde_json::to_string(&ds_entry).unwrap();
-
-        *fake.cln_listdatastore_response.lock().unwrap() = Some(ListdatastoreResponse {
-            datastore: vec![ListdatastoreDatastore {
-                key: scid_ds_key(scid),
-                generation: Some(1),
-                hex: None,
-                string: Some(ds_entry_json),
-            }],
-        });
+        *fake.get_buy_request_response.lock().unwrap() = Some(ds_entry);
 
         // Policy response with no channel capacity (denied)
         *fake.lsps2_getchannelcapacity_response.lock().unwrap() =
@@ -1443,16 +1392,7 @@ mod tests {
         let scid = ShortChannelId::from(123456789u64);
 
         let ds_entry = create_test_datastore_entry(peer_id, None);
-        let ds_entry_json = serde_json::to_string(&ds_entry).unwrap();
-
-        *fake.cln_listdatastore_response.lock().unwrap() = Some(ListdatastoreResponse {
-            datastore: vec![ListdatastoreDatastore {
-                key: scid_ds_key(scid),
-                generation: Some(1),
-                hex: None,
-                string: Some(ds_entry_json),
-            }],
-        });
+        *fake.get_buy_request_response.lock().unwrap() = Some(ds_entry);
 
         *fake.lsps2_getchannelcapacity_response.lock().unwrap() =
             Some(Lsps2PolicyGetChannelCapacityResponse {
@@ -1487,16 +1427,7 @@ mod tests {
         let scid = ShortChannelId::from(123456789u64);
 
         let ds_entry = create_test_datastore_entry(peer_id, None);
-        let ds_entry_json = serde_json::to_string(&ds_entry).unwrap();
-
-        *fake.cln_listdatastore_response.lock().unwrap() = Some(ListdatastoreResponse {
-            datastore: vec![ListdatastoreDatastore {
-                key: scid_ds_key(scid),
-                generation: Some(1),
-                hex: None,
-                string: Some(ds_entry_json),
-            }],
-        });
+        *fake.get_buy_request_response.lock().unwrap() = Some(ds_entry);
 
         *fake.lsps2_getchannelcapacity_response.lock().unwrap() =
             Some(Lsps2PolicyGetChannelCapacityResponse {
@@ -1542,16 +1473,7 @@ mod tests {
         // Create entry with expected_payment_size (MPP mode)
         let mut ds_entry = create_test_datastore_entry(peer_id, None);
         ds_entry.expected_payment_size = Some(Msat::from_msat(1000000));
-        let ds_entry_json = serde_json::to_string(&ds_entry).unwrap();
-
-        *fake.cln_listdatastore_response.lock().unwrap() = Some(ListdatastoreResponse {
-            datastore: vec![ListdatastoreDatastore {
-                key: scid_ds_key(scid),
-                generation: Some(1),
-                hex: None,
-                string: Some(ds_entry_json),
-            }],
-        });
+        *fake.get_buy_request_response.lock().unwrap() = Some(ds_entry);
 
         let req = create_test_htlc_request(Some(scid), 10_000_000);
 
