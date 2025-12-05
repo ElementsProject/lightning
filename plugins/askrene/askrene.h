@@ -24,8 +24,8 @@ struct route {
 struct askrene {
 	struct plugin *plugin;
 	struct gossmap *gossmap;
-	/* List of layers */
-	struct list_head layers;
+	/* Hash table of layers by name */
+	struct layer_name_hash *layers;
 	/* In-flight payment attempts */
 	struct reserve_htable *reserved;
 	/* Compact cache of gossmap capacities */
