@@ -258,6 +258,8 @@ impl From<Lsps2GetInfoRequest> for Lsps2PolicyGetInfoRequest {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Lsps2PolicyGetInfoResponse {
     pub policy_opening_fee_params_menu: Vec<PolicyOpeningFeeParams>,
+    #[serde(default)]
+    pub client_rejected: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

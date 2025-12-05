@@ -6,14 +6,14 @@ use crate::{
     },
     proto::{
         jsonrpc::{RpcError, RpcErrorExt as _},
-        lsps0::{Msat, ShortChannelId},
+        lsps0::{LSPS0RpcErrorExt, Msat, ShortChannelId},
         lsps2::{
             compute_opening_fee,
             failure_codes::{TEMPORARY_CHANNEL_FAILURE, UNKNOWN_NEXT_PEER},
             DatastoreEntry, Lsps2BuyRequest, Lsps2BuyResponse, Lsps2GetInfoRequest,
             Lsps2GetInfoResponse, Lsps2PolicyGetChannelCapacityRequest,
             Lsps2PolicyGetChannelCapacityResponse, Lsps2PolicyGetInfoRequest,
-            Lsps2PolicyGetInfoResponse, OpeningFeeParams, Promise,
+            Lsps2PolicyGetInfoResponse, OpeningFeeParams, PolicyOpeningFeeParams, Promise,
         },
     },
 };
@@ -41,16 +41,6 @@ use std::{fmt, path::PathBuf, sync::Arc, time::Duration};
 
 #[async_trait]
 pub trait ClnApi: Send + Sync {
-    async fn lsps2_getpolicy(
-        &self,
-        params: &Lsps2PolicyGetInfoRequest,
-    ) -> AnyResult<Lsps2PolicyGetInfoResponse>;
-
-    async fn lsps2_getchannelcapacity(
-        &self,
-        params: &Lsps2PolicyGetChannelCapacityRequest,
-    ) -> AnyResult<Lsps2PolicyGetChannelCapacityResponse>;
-
     async fn cln_getinfo(&self, params: &GetinfoRequest) -> AnyResult<GetinfoResponse>;
 
     async fn cln_datastore(&self, params: &DatastoreRequest) -> AnyResult<DatastoreResponse>;
@@ -92,28 +82,6 @@ impl ClnApiRpc {
 
 #[async_trait]
 impl ClnApi for ClnApiRpc {
-    async fn lsps2_getpolicy(
-        &self,
-        params: &Lsps2PolicyGetInfoRequest,
-    ) -> AnyResult<Lsps2PolicyGetInfoResponse> {
-        let mut rpc = self.create_rpc().await?;
-        rpc.call_raw("lsps2-policy-getpolicy", params)
-            .await
-            .map_err(anyhow::Error::new)
-            .with_context(|| "calling lsps2-policy-getpolicy")
-    }
-
-    async fn lsps2_getchannelcapacity(
-        &self,
-        params: &Lsps2PolicyGetChannelCapacityRequest,
-    ) -> AnyResult<Lsps2PolicyGetChannelCapacityResponse> {
-        let mut rpc = self.create_rpc().await?;
-        rpc.call_raw("lsps2-policy-getchannelcapacity", params)
-            .await
-            .map_err(anyhow::Error::new)
-            .with_context(|| "calling lsps2-policy-getchannelcapacity")
-    }
-
     async fn cln_getinfo(&self, params: &GetinfoRequest) -> AnyResult<GetinfoResponse> {
         let mut rpc = self.create_rpc().await?;
         rpc.call_typed(params)
@@ -172,12 +140,49 @@ impl ClnApi for ClnApiRpc {
     }
 }
 
-pub struct Lsps2ServiceHandler<A: ClnApi> {
+#[async_trait]
+impl Lsps2OfferProvider for ClnApiRpc {
+    async fn get_offer(
+        &self,
+        request: &Lsps2PolicyGetInfoRequest,
+    ) -> AnyResult<Lsps2PolicyGetInfoResponse> {
+        let mut rpc = self.create_rpc().await?;
+        rpc.call_raw("lsps2-policy-getpolicy", request)
+            .await
+            .context("failed to call lsps2-policy-getpolicy")
+    }
+
+    async fn get_channel_capacity(
+        &self,
+        params: &Lsps2PolicyGetChannelCapacityRequest,
+    ) -> AnyResult<Lsps2PolicyGetChannelCapacityResponse> {
+        let mut rpc = self.create_rpc().await?;
+        rpc.call_raw("lsps2-policy-getchannelcapacity", params)
+            .await
+            .map_err(anyhow::Error::new)
+            .with_context(|| "calling lsps2-policy-getchannelcapacity")
+    }
+}
+
+#[async_trait]
+pub trait Lsps2OfferProvider: Send + Sync {
+    async fn get_offer(
+        &self,
+        request: &Lsps2PolicyGetInfoRequest,
+    ) -> AnyResult<Lsps2PolicyGetInfoResponse>;
+
+    async fn get_channel_capacity(
+        &self,
+        params: &Lsps2PolicyGetChannelCapacityRequest,
+    ) -> AnyResult<Lsps2PolicyGetChannelCapacityResponse>;
+}
+
+pub struct Lsps2ServiceHandler<A> {
     pub api: Arc<A>,
     pub promise_secret: [u8; 32],
 }
 
-impl<A: ClnApi> Lsps2ServiceHandler<A> {
+impl<A> Lsps2ServiceHandler<A> {
     pub fn new(api: Arc<A>, promise_seret: &[u8; 32]) -> Self {
         Lsps2ServiceHandler {
             api,
@@ -186,47 +191,60 @@ impl<A: ClnApi> Lsps2ServiceHandler<A> {
     }
 }
 
+async fn get_info_handler<A: Lsps2OfferProvider + 'static>(
+    api: Arc<A>,
+    secret: &[u8; 32],
+    request: &Lsps2GetInfoRequest,
+) -> std::result::Result<Lsps2GetInfoResponse, RpcError> {
+    let res_data = api
+        .get_offer(&Lsps2PolicyGetInfoRequest {
+            token: request.token.clone(),
+        })
+        .await
+        .map_err(|_| RpcError::internal_error("internal error"))?;
+
+    if res_data.client_rejected {
+        return Err(RpcError::client_rejected("client was rejected"));
+    };
+
+    let opening_fee_params_menu = res_data
+        .policy_opening_fee_params_menu
+        .iter()
+        .map(|v| make_opening_fee_params(v, secret))
+        .collect::<Result<Vec<_>, _>>()?;
+
+    Ok(Lsps2GetInfoResponse {
+        opening_fee_params_menu,
+    })
+}
+
+fn make_opening_fee_params(
+    v: &PolicyOpeningFeeParams,
+    secret: &[u8; 32],
+) -> Result<OpeningFeeParams, RpcError> {
+    let promise: Promise = v
+        .get_hmac_hex(secret)
+        .try_into()
+        .map_err(|_| RpcError::internal_error("internal error"))?;
+    Ok(OpeningFeeParams {
+        min_fee_msat: v.min_fee_msat,
+        proportional: v.proportional,
+        valid_until: v.valid_until,
+        min_lifetime: v.min_lifetime,
+        max_client_to_self_delay: v.max_client_to_self_delay,
+        min_payment_size_msat: v.min_payment_size_msat,
+        max_payment_size_msat: v.max_payment_size_msat,
+        promise,
+    })
+}
+
 #[async_trait]
-impl<A: ClnApi + 'static> Lsps2Handler for Lsps2ServiceHandler<A> {
+impl<A: ClnApi + Lsps2OfferProvider + 'static> Lsps2Handler for Lsps2ServiceHandler<A> {
     async fn handle_get_info(
         &self,
         request: Lsps2GetInfoRequest,
     ) -> std::result::Result<Lsps2GetInfoResponse, RpcError> {
-        let policy_params: Lsps2PolicyGetInfoRequest = request.into();
-        let res_data: Lsps2PolicyGetInfoResponse = self
-            .api
-            .lsps2_getpolicy(&policy_params)
-            .await
-            .map_err(|e| RpcError {
-            code: 200,
-            message: format!("failed to fetch policy {e:#}"),
-            data: None,
-        })?;
-
-        let opening_fee_params_menu = res_data
-            .policy_opening_fee_params_menu
-            .iter()
-            .map(|v| {
-                let promise: Promise = v
-                    .get_hmac_hex(&self.promise_secret)
-                    .try_into()
-                    .map_err(|e| RpcError::internal_error(format!("invalid promise: {e}")))?;
-                Ok(OpeningFeeParams {
-                    min_fee_msat: v.min_fee_msat,
-                    proportional: v.proportional,
-                    valid_until: v.valid_until,
-                    min_lifetime: v.min_lifetime,
-                    max_client_to_self_delay: v.max_client_to_self_delay,
-                    min_payment_size_msat: v.min_payment_size_msat,
-                    max_payment_size_msat: v.max_payment_size_msat,
-                    promise,
-                })
-            })
-            .collect::<Result<Vec<_>, RpcError>>()?;
-
-        Ok(Lsps2GetInfoResponse {
-            opening_fee_params_menu,
-        })
+        get_info_handler(self.api.clone(), &self.promise_secret, &request).await
     }
 
     async fn handle_buy(
@@ -313,7 +331,9 @@ impl<A: ClnApi> HtlcAcceptedHookHandler<A> {
             backoff_listpeerchannels: Duration::from_secs(10),
         }
     }
+}
 
+impl<A: Lsps2OfferProvider + ClnApi> HtlcAcceptedHookHandler<A> {
     pub async fn handle(&self, req: HtlcAcceptedRequest) -> AnyResult<HtlcAcceptedResponse> {
         let scid = match req.onion.short_channel_id {
             Some(scid) => scid,
@@ -425,7 +445,7 @@ impl<A: ClnApi> HtlcAcceptedHookHandler<A> {
             init_payment_size: Msat::from_msat(req.htlc.amount_msat.msat()),
             scid,
         };
-        let ch_cap_res = match self.api.lsps2_getchannelcapacity(&ch_cap_req).await {
+        let ch_cap_res = match self.api.get_channel_capacity(&ch_cap_req).await {
             Ok(r) => r,
             Err(e) => {
                 warn!("failed to get channel capacity for scid {}: {}", scid, e);
@@ -632,7 +652,11 @@ mod tests {
     use super::*;
     use crate::{
         lsps2::cln::{tlv::TlvStream, HtlcAcceptedResult},
-        proto::{lsps0::Ppm, lsps2::PolicyOpeningFeeParams},
+        proto::{
+            jsonrpc,
+            lsps0::Ppm,
+            lsps2::{Lsps2PolicyGetInfoResponse, PolicyOpeningFeeParams},
+        },
     };
     use chrono::{TimeZone, Utc};
     use cln_rpc::{model::responses::ListdatastoreDatastore, RpcError as ClnRpcError};
@@ -700,37 +724,6 @@ mod tests {
 
     #[async_trait]
     impl ClnApi for FakeCln {
-        async fn lsps2_getpolicy(
-            &self,
-            _params: &Lsps2PolicyGetInfoRequest,
-        ) -> Result<Lsps2PolicyGetInfoResponse, anyhow::Error> {
-            if let Some(err) = self.lsps2_getpolicy_error.lock().unwrap().take() {
-                return Err(anyhow::Error::new(err).context("from fake api"));
-            };
-            if let Some(res) = self.lsps2_getpolicy_response.lock().unwrap().take() {
-                return Ok(res);
-            };
-            panic!("No lsps2 response defined");
-        }
-
-        async fn lsps2_getchannelcapacity(
-            &self,
-            _params: &Lsps2PolicyGetChannelCapacityRequest,
-        ) -> AnyResult<Lsps2PolicyGetChannelCapacityResponse> {
-            if let Some(err) = self.lsps2_getchannelcapacity_error.lock().unwrap().take() {
-                return Err(anyhow::Error::new(err).context("from fake api"));
-            }
-            if let Some(res) = self
-                .lsps2_getchannelcapacity_response
-                .lock()
-                .unwrap()
-                .take()
-            {
-                return Ok(res);
-            }
-            panic!("No lsps2 getchannelcapacity response defined");
-        }
-
         async fn cln_getinfo(
             &self,
             _params: &GetinfoRequest,
@@ -878,6 +871,43 @@ mod tests {
         }
     }
 
+    #[async_trait]
+    impl Lsps2OfferProvider for FakeCln {
+        async fn get_offer(
+            &self,
+            _request: &Lsps2PolicyGetInfoRequest,
+        ) -> AnyResult<Lsps2PolicyGetInfoResponse> {
+            if let Some(err) = self.lsps2_getpolicy_error.lock().unwrap().take() {
+                return Err(anyhow::Error::new(err).context("from fake api"));
+            };
+            if let Some(res) = self.lsps2_getpolicy_response.lock().unwrap().take() {
+                return Ok(Lsps2PolicyGetInfoResponse {
+                    policy_opening_fee_params_menu: res.policy_opening_fee_params_menu,
+                    client_rejected: false,
+                });
+            };
+            panic!("No lsps2 response defined");
+        }
+
+        async fn get_channel_capacity(
+            &self,
+            _params: &Lsps2PolicyGetChannelCapacityRequest,
+        ) -> AnyResult<Lsps2PolicyGetChannelCapacityResponse> {
+            if let Some(err) = self.lsps2_getchannelcapacity_error.lock().unwrap().take() {
+                return Err(anyhow::Error::new(err).context("from fake api"));
+            }
+            if let Some(res) = self
+                .lsps2_getchannelcapacity_response
+                .lock()
+                .unwrap()
+                .take()
+            {
+                return Ok(res);
+            }
+            panic!("No lsps2 getchannelcapacity response defined");
+        }
+    }
+
     fn create_test_htlc_request(
         scid: Option<ShortChannelId>,
         amount_msat: u64,
@@ -950,6 +980,7 @@ mod tests {
     async fn test_successful_get_info() {
         let promise_secret = test_promise_secret();
         let params = Lsps2PolicyGetInfoResponse {
+            client_rejected: false,
             policy_opening_fee_params_menu: vec![PolicyOpeningFeeParams {
                 min_fee_msat: Msat(2000),
                 proportional: Ppm(10000),
@@ -1006,8 +1037,8 @@ mod tests {
 
         assert!(result.is_err());
         let error = result.unwrap_err();
-        assert_eq!(error.code, 200);
-        assert!(error.message.contains("failed to fetch policy"));
+        assert_eq!(error.code, jsonrpc::INTERNAL_ERROR);
+        assert!(error.message.contains("internal error"));
     }
 
     #[tokio::test]
