@@ -1,32 +1,39 @@
 use anyhow::{anyhow, bail, Context};
 use bitcoin::hashes::{hex::FromHex, sha256, Hash};
 use chrono::{Duration, Utc};
-use cln_lsps::cln_adapters::transport::{
-    Bolt8Transport, CustomMessageHookManager, WithCustomMessageHookManager,
+use cln_lsps::{
+    cln_adapters::{hooks, sender::ClnSender, state::ClientState},
+    core::{
+        client::LspsClient,
+        transport::{MultiplexedTransport, PendingRequests},
+    },
+    lsps2::cln::{
+        tlv::encode_tu64, HtlcAcceptedRequest, HtlcAcceptedResponse, InvoicePaymentRequest,
+        OpenChannelRequest, TLV_FORWARD_AMT, TLV_PAYMENT_SECRET,
+    },
+    proto::{
+        lsps0::{Msat, LSP_FEATURE_BIT},
+        lsps2::{compute_opening_fee, Lsps2BuyResponse, Lsps2GetInfoResponse, OpeningFeeParams},
+    },
+    util,
 };
-use cln_lsps::core::client::LspsClient;
-use cln_lsps::lsps2::cln::tlv::encode_tu64;
-use cln_lsps::lsps2::cln::{
-    HtlcAcceptedRequest, HtlcAcceptedResponse, InvoicePaymentRequest, OpenChannelRequest,
-    TLV_FORWARD_AMT, TLV_PAYMENT_SECRET,
-};
-use cln_lsps::proto::lsps0::{Msat, LSP_FEATURE_BIT};
-use cln_lsps::proto::lsps2::{
-    compute_opening_fee, Lsps2BuyResponse, Lsps2GetInfoResponse, OpeningFeeParams,
-};
-use cln_lsps::util;
 use cln_plugin::options;
-use cln_rpc::model::requests::{
-    DatastoreMode, DatastoreRequest, DeldatastoreRequest, DelinvoiceRequest, DelinvoiceStatus,
-    ListdatastoreRequest, ListinvoicesRequest, ListpeersRequest,
+use cln_rpc::{
+    model::{
+        requests::{
+            DatastoreMode, DatastoreRequest, DeldatastoreRequest, DelinvoiceRequest,
+            DelinvoiceStatus, ListdatastoreRequest, ListinvoicesRequest, ListpeersRequest,
+        },
+        responses::InvoiceResponse,
+    },
+    primitives::{Amount, AmountOrAny, PublicKey, ShortChannelId},
+    ClnRpc,
 };
-use cln_rpc::model::responses::InvoiceResponse;
-use cln_rpc::primitives::{Amount, AmountOrAny, PublicKey, ShortChannelId};
-use cln_rpc::ClnRpc;
 use log::{debug, info, warn};
 use rand::{CryptoRng, Rng};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
+use std::path::PathBuf;
 use std::str::FromStr as _;
 
 /// An option to enable this service.
@@ -35,24 +42,43 @@ const OPTION_ENABLED: options::FlagConfigOption = options::ConfigOption::new_fla
     "Enables an LSPS client on the node.",
 );
 
+const DEFAULT_REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
+
 #[derive(Clone)]
-struct State {
-    hook_manager: CustomMessageHookManager,
+pub struct State {
+    sender: ClnSender,
+    pending: PendingRequests,
+    timeout: std::time::Duration,
 }
 
-impl WithCustomMessageHookManager for State {
-    fn get_custommsg_hook_manager(&self) -> &CustomMessageHookManager {
-        &self.hook_manager
+impl State {
+    pub fn new(rpc_path: PathBuf, timeout: std::time::Duration) -> Self {
+        Self {
+            sender: ClnSender::new(rpc_path),
+            pending: PendingRequests::new(),
+            timeout,
+        }
+    }
+
+    pub fn client(&self) -> LspsClient<MultiplexedTransport<ClnSender>> {
+        LspsClient::new(self.transport())
+    }
+}
+
+impl ClientState for State {
+    fn transport(&self) -> MultiplexedTransport<ClnSender> {
+        MultiplexedTransport::new(self.sender.clone(), self.pending.clone(), self.timeout)
+    }
+
+    fn pending(&self) -> &PendingRequests {
+        &self.pending
     }
 }
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
-    let hook_manager = CustomMessageHookManager::new();
-    let state = State { hook_manager };
-
     if let Some(plugin) = cln_plugin::Builder::new(tokio::io::stdin(), tokio::io::stdout())
-        .hook("custommsg", CustomMessageHookManager::on_custommsg::<State>)
+        .hook("custommsg", hooks::client_custommsg_hook)
         .option(OPTION_ENABLED)
         .rpcmethod(
             "lsps-listprotocols",
@@ -90,6 +116,10 @@ async fn main() -> Result<(), anyhow::Error> {
                 .disable(&format!("`{}` not enabled", OPTION_ENABLED.name))
                 .await;
         }
+
+        let dir = plugin.configuration().lightning_dir;
+        let rpc_path = Path::new(&dir).join(&plugin.configuration().rpc_file);
+        let state = State::new(rpc_path, DEFAULT_REQUEST_TIMEOUT);
 
         let plugin = plugin.start(state).await?;
         plugin.join().await
@@ -130,16 +160,8 @@ async fn on_lsps_lsps2_getinfo(
         debug!("Peer {} doesn't have the LSP feature bit set.", &req.lsp_id);
     }
 
-    // Create Transport and Client
-    let transport = Bolt8Transport::new(
-        rpc_path.clone(), // Clone path for potential reuse
-        p.state().hook_manager.clone(),
-        None, // Use default timeout
-    )
-    .context("Failed to create Bolt8Transport")?;
-
     // 1. Call lsps2.get_info.
-    let client = LspsClient::new(transport);
+    let client = p.state().client();
     match client.get_info(&lsp_id, req.token).await?.as_result() {
         Ok(i) => Ok(serde_json::to_value(i)?),
         Err(e) => Ok(serde_json::to_value(e)?),
@@ -178,14 +200,7 @@ async fn on_lsps_lsps2_buy(
         debug!("Peer {} doesn't have the LSP feature bit set.", &req.lsp_id);
     }
 
-    // Create Transport and Client
-    let transport = Bolt8Transport::new(
-        rpc_path.clone(), // Clone path for potential reuse
-        p.state().hook_manager.clone(),
-        None, // Use default timeout
-    )
-    .context("Failed to create Bolt8Transport")?;
-    let client = LspsClient::new(transport);
+    let client = p.state().client();
 
     let selected_params = req.opening_fee_params;
     if let Some(payment_size) = req.payment_size_msat {
@@ -711,16 +726,7 @@ async fn on_lsps_listprotocols(
         debug!("Peer {} doesn't have the LSP feature bit set.", &req.lsp_id);
     }
 
-    // Create the transport first and handle potential errors
-    let transport = Bolt8Transport::new(
-        rpc_path,
-        p.state().hook_manager.clone(),
-        None, // Use default timeout
-    )
-    .context("Failed to create Bolt8Transport")?;
-
-    // Now create the client using the transport
-    let client = LspsClient::new(transport);
+    let client = p.state().client();
     match client.list_protocols(&lsp_id).await?.as_result() {
         Ok(i) => {
             debug!("Received lsps0.list_protocols response: {:?}", i);
