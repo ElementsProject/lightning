@@ -509,26 +509,30 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - NAME: ASan/UBSan (01/10)
-            PYTEST_OPTS: --test-group=1  --test-group-count=10
-          - NAME: ASan/UBSan (02/10)
-            PYTEST_OPTS: --test-group=2  --test-group-count=10 -n 1
-          - NAME: ASan/UBSan (03/10)
-            PYTEST_OPTS: --test-group=3  --test-group-count=10
-          - NAME: ASan/UBSan (04/10)
-            PYTEST_OPTS: --test-group=4  --test-group-count=10
-          - NAME: ASan/UBSan (05/10)
-            PYTEST_OPTS: --test-group=5  --test-group-count=10
-          - NAME: ASan/UBSan (06/10)
-            PYTEST_OPTS: --test-group=6  --test-group-count=10
-          - NAME: ASan/UBSan (07/10)
-            PYTEST_OPTS: --test-group=7  --test-group-count=10
-          - NAME: ASan/UBSan (08/10)
-            PYTEST_OPTS: --test-group=8  --test-group-count=10
-          - NAME: ASan/UBSan (09/10)
-            PYTEST_OPTS: --test-group=9  --test-group-count=10
-          - NAME: ASan/UBSan (10/10)
-            PYTEST_OPTS: --test-group=10 --test-group-count=10
+          - NAME: ASan/UBSan (01/12)
+            PYTEST_OPTS: --test-group=1  --test-group-count=12
+          - NAME: ASan/UBSan (02/12)
+            PYTEST_OPTS: --test-group=2  --test-group-count=12 -n 1
+          - NAME: ASan/UBSan (03/12)
+            PYTEST_OPTS: --test-group=3  --test-group-count=12
+          - NAME: ASan/UBSan (04/12)
+            PYTEST_OPTS: --test-group=4  --test-group-count=12
+          - NAME: ASan/UBSan (05/12)
+            PYTEST_OPTS: --test-group=5  --test-group-count=12
+          - NAME: ASan/UBSan (06/12)
+            PYTEST_OPTS: --test-group=6  --test-group-count=12
+          - NAME: ASan/UBSan (07/12)
+            PYTEST_OPTS: --test-group=7  --test-group-count=12
+          - NAME: ASan/UBSan (08/12)
+            PYTEST_OPTS: --test-group=8  --test-group-count=12
+          - NAME: ASan/UBSan (09/12)
+            PYTEST_OPTS: --test-group=9  --test-group-count=12
+          - NAME: ASan/UBSan (10/12)
+            PYTEST_OPTS: --test-group=10 --test-group-count=12
+          - NAME: ASan/UBSan (11/12)
+            PYTEST_OPTS: --test-group=11 --test-group-count=12
+          - NAME: ASan/UBSan (12/12)
+            PYTEST_OPTS: --test-group=12 --test-group-count=12
     steps:
       - name: Checkout
         uses: actions/checkout@v4
