@@ -1,6 +1,6 @@
 use anyhow::bail;
 use cln_lsps::{
-    cln_adapters::service::{on_custommsg_service, ServiceStore},
+    cln_adapters::{hooks::service_custommsg_hook, sender::ClnSender, state::ServiceState},
     core::{
         lsps2::handler::{ClnApiRpc, HtlcAcceptedHookHandler, Lsps2ServiceHandler},
         server::LspsService,
@@ -11,18 +11,37 @@ use cln_lsps::{
     },
 };
 use cln_plugin::Plugin;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 #[derive(Clone)]
 struct State {
     lsps_service: Arc<LspsService>,
+    sender: ClnSender,
     lsps2_enabled: bool,
 }
 
-impl ServiceStore for State {
+impl State {
+    pub fn new(rpc_path: PathBuf, promise_secret: &[u8; 32]) -> Self {
+        let api = Arc::new(ClnApiRpc::new(rpc_path.clone()));
+        let sender = ClnSender::new(rpc_path);
+        let lsps2_handler = Arc::new(Lsps2ServiceHandler::new(api, promise_secret));
+        let lsps_service = Arc::new(LspsService::builder().with_protocol(lsps2_handler).build());
+        Self {
+            lsps_service,
+            sender,
+            lsps2_enabled: true,
+        }
+    }
+}
+
+impl ServiceState for State {
     fn service(&self) -> Arc<LspsService> {
         self.lsps_service.clone()
+    }
+
+    fn sender(&self) -> cln_lsps::cln_adapters::sender::ClnSender {
+        self.sender.clone()
     }
 }
 
@@ -43,7 +62,7 @@ async fn main() -> Result<(), anyhow::Error> {
         //     cln_plugin::FeatureBitsKind::Init,
         //     util::feature_bit_to_hex(LSP_FEATURE_BIT),
         // )
-        .hook("custommsg", on_custommsg_service)
+        .hook("custommsg", service_custommsg_hook)
         .hook("htlc_accepted", on_htlc_accepted)
         .configure()
         .await?
@@ -80,17 +99,7 @@ async fn main() -> Result<(), anyhow::Error> {
                     }
                 };
 
-                let cln_api_rpc = ClnApiRpc::new(rpc_path);
-                let lsps2_handler =
-                    Arc::new(Lsps2ServiceHandler::new(Arc::new(cln_api_rpc), &secret));
-
-                let lsps_service_builder = LspsService::builder();
-                let lsps_service = lsps_service_builder.with_protocol(lsps2_handler).build();
-
-                let state = State {
-                    lsps_service: Arc::new(lsps_service),
-                    lsps2_enabled: true,
-                };
+                let state = State::new(rpc_path, &secret);
                 let plugin = plugin.start(state).await?;
                 plugin.join().await
             } else {

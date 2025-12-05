@@ -1,6 +1,6 @@
 use crate::{
-    cln_adapters::utils::encode_lsps0_frame_hex,
     core::transport::{Error as TransportError, MessageSender},
+    proto::lsps0,
 };
 use async_trait::async_trait;
 use bitcoin::secp256k1::PublicKey;
@@ -37,4 +37,9 @@ impl MessageSender for ClnSender {
 
         Ok(())
     }
+}
+
+fn encode_lsps0_frame_hex(payload: &[u8]) -> String {
+    let frame = lsps0::encode_frame(payload);
+    hex::encode(&frame)
 }
