@@ -7,11 +7,11 @@
 #include <common/json_stream.h>
 #include <common/route.h>
 #include <common/utils.h>
-#include <plugins/askrene/askrene.h>
 #include <plugins/askrene/child/child_log.h>
 #include <plugins/askrene/child/entry.h>
 #include <plugins/askrene/child/flow.h>
 #include <plugins/askrene/child/mcf.h>
+#include <plugins/askrene/child/route_query.h>
 #include <unistd.h>
 
 /* A single route. */

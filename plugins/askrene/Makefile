@@ -15,6 +15,7 @@ PLUGIN_ASKRENE_CHILD_SRC := \
 	plugins/askrene/child/priorityqueue.c \
 	plugins/askrene/child/algorithm.c \
 	plugins/askrene/child/child_log.c \
+	plugins/askrene/child/route_query.c \
 
 PLUGIN_ASKRENE_SRC := $(PLUGIN_ASKRENE_PARENT_SRC) $(PLUGIN_ASKRENE_CHILD_SRC)
 PLUGIN_ASKRENE_HEADER := $(PLUGIN_ASKRENE_SRC:.c=.h) plugins/askrene/child/additional_costs.h
