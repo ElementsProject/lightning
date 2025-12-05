@@ -28,8 +28,8 @@ use cln_rpc::{
             GetinfoRequest, ListdatastoreRequest, ListpeerchannelsRequest,
         },
         responses::{
-            DatastoreResponse, DeldatastoreResponse, FundchannelResponse, GetinfoResponse,
-            ListdatastoreResponse, ListpeerchannelsResponse,
+            DatastoreResponse, DeldatastoreResponse, FundchannelResponse, ListdatastoreResponse,
+            ListpeerchannelsResponse,
         },
     },
     primitives::{Amount, AmountOrAll, ChannelState},
@@ -41,8 +41,6 @@ use std::{fmt, path::PathBuf, sync::Arc, time::Duration};
 
 #[async_trait]
 pub trait ClnApi: Send + Sync {
-    async fn cln_getinfo(&self, params: &GetinfoRequest) -> AnyResult<GetinfoResponse>;
-
     async fn cln_datastore(&self, params: &DatastoreRequest) -> AnyResult<DatastoreResponse>;
 
     async fn cln_listdatastore(
@@ -82,14 +80,6 @@ impl ClnApiRpc {
 
 #[async_trait]
 impl ClnApi for ClnApiRpc {
-    async fn cln_getinfo(&self, params: &GetinfoRequest) -> AnyResult<GetinfoResponse> {
-        let mut rpc = self.create_rpc().await?;
-        rpc.call_typed(params)
-            .await
-            .map_err(anyhow::Error::new)
-            .with_context(|| "calling getinfo")
-    }
-
     async fn cln_datastore(&self, params: &DatastoreRequest) -> AnyResult<DatastoreResponse> {
         let mut rpc = self.create_rpc().await?;
         rpc.call_typed(params)
@@ -165,6 +155,19 @@ impl Lsps2OfferProvider for ClnApiRpc {
 }
 
 #[async_trait]
+impl BlockheightProvider for ClnApiRpc {
+    async fn get_blockheight(&self) -> AnyResult<Blockheight> {
+        let mut rpc = self.create_rpc().await?;
+        let info = rpc
+            .call_typed(&GetinfoRequest {})
+            .await
+            .map_err(anyhow::Error::new)
+            .with_context(|| "calling getinfo")?;
+        Ok(info.blockheight)
+    }
+}
+
+#[async_trait]
 pub trait Lsps2OfferProvider: Send + Sync {
     async fn get_offer(
         &self,
@@ -175,6 +178,13 @@ pub trait Lsps2OfferProvider: Send + Sync {
         &self,
         params: &Lsps2PolicyGetChannelCapacityRequest,
     ) -> AnyResult<Lsps2PolicyGetChannelCapacityResponse>;
+}
+
+type Blockheight = u32;
+
+#[async_trait]
+pub trait BlockheightProvider: Send + Sync {
+    async fn get_blockheight(&self) -> AnyResult<Blockheight>;
 }
 
 pub struct Lsps2ServiceHandler<A> {
@@ -239,7 +249,9 @@ fn make_opening_fee_params(
 }
 
 #[async_trait]
-impl<A: ClnApi + Lsps2OfferProvider + 'static> Lsps2Handler for Lsps2ServiceHandler<A> {
+impl<A: ClnApi + BlockheightProvider + Lsps2OfferProvider + 'static> Lsps2Handler
+    for Lsps2ServiceHandler<A>
+{
     async fn handle_get_info(
         &self,
         request: Lsps2GetInfoRequest,
@@ -260,15 +272,15 @@ impl<A: ClnApi + Lsps2OfferProvider + 'static> Lsps2Handler for Lsps2ServiceHand
         fee_params.validate(&self.promise_secret, request.payment_size_msat, None)?;
 
         // Generate a tmp scid to identify jit channel request in htlc.
-        let get_info_req = GetinfoRequest {};
-        let info = self.api.cln_getinfo(&get_info_req).await.map_err(|e| {
-            warn!("Failed to call getinfo via rpc {}", e);
-            RpcError::internal_error("Internal error")
-        })?;
+        let blockheight = self
+            .api
+            .get_blockheight()
+            .await
+            .map_err(|_| RpcError::internal_error("internal error"))?;
 
         // FIXME: Future task: Check that we don't conflict with any jit scid we
         // already handed out -> Check datastore entries.
-        let jit_scid_u64 = generate_jit_scid(info.blockheight);
+        let jit_scid_u64 = generate_jit_scid(blockheight);
         let jit_scid = ShortChannelId::from(jit_scid_u64);
         let ds_data = DatastoreEntry {
             peer_id: peer_id.to_owned(),
@@ -647,8 +659,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::sync::{Arc, Mutex};
-
     use super::*;
     use crate::{
         lsps2::cln::{tlv::TlvStream, HtlcAcceptedResult},
@@ -664,6 +674,7 @@ mod tests {
         model::responses::ListpeerchannelsChannels,
         primitives::{Amount, PublicKey, Sha256},
     };
+    use std::sync::{Arc, Mutex};
 
     const PUBKEY: [u8; 33] = [
         0x02, 0x79, 0xbe, 0x66, 0x7e, 0xf9, 0xdc, 0xbb, 0xac, 0x55, 0xa0, 0x62, 0x95, 0xce, 0x87,
@@ -705,8 +716,8 @@ mod tests {
     struct FakeCln {
         lsps2_getpolicy_response: Arc<Mutex<Option<Lsps2PolicyGetInfoResponse>>>,
         lsps2_getpolicy_error: Arc<Mutex<Option<ClnRpcError>>>,
-        cln_getinfo_response: Arc<Mutex<Option<GetinfoResponse>>>,
-        cln_getinfo_error: Arc<Mutex<Option<ClnRpcError>>>,
+        blockheight_response: Option<u32>,
+        blockheight_error: Arc<Mutex<Option<anyhow::Error>>>,
         cln_datastore_response: Arc<Mutex<Option<DatastoreResponse>>>,
         cln_datastore_error: Arc<Mutex<Option<ClnRpcError>>>,
         cln_listdatastore_response: Arc<Mutex<Option<ListdatastoreResponse>>>,
@@ -724,19 +735,6 @@ mod tests {
 
     #[async_trait]
     impl ClnApi for FakeCln {
-        async fn cln_getinfo(
-            &self,
-            _params: &GetinfoRequest,
-        ) -> Result<GetinfoResponse, anyhow::Error> {
-            if let Some(err) = self.cln_getinfo_error.lock().unwrap().take() {
-                return Err(anyhow::Error::new(err).context("from fake api"));
-            };
-            if let Some(res) = self.cln_getinfo_response.lock().unwrap().take() {
-                return Ok(res);
-            };
-            panic!("No cln getinfo response defined");
-        }
-
         async fn cln_datastore(
             &self,
             _params: &DatastoreRequest,
@@ -908,6 +906,19 @@ mod tests {
         }
     }
 
+    #[async_trait]
+    impl BlockheightProvider for FakeCln {
+        async fn get_blockheight(&self) -> AnyResult<Blockheight> {
+            if let Some(err) = self.blockheight_error.lock().unwrap().take() {
+                return Err(err);
+            };
+            if let Some(blockheight) = self.blockheight_response {
+                return Ok(blockheight);
+            };
+            panic!("No cln getinfo response defined");
+        }
+    }
+
     fn create_test_htlc_request(
         scid: Option<ShortChannelId>,
         amount_msat: u64,
@@ -947,28 +958,6 @@ mod tests {
             peer_id,
             opening_fee_params: policy,
             expected_payment_size,
-        }
-    }
-
-    fn minimal_getinfo(height: u32) -> GetinfoResponse {
-        GetinfoResponse {
-            lightning_dir: String::default(),
-            alias: None,
-            our_features: None,
-            warning_bitcoind_sync: None,
-            warning_lightningd_sync: None,
-            address: None,
-            binding: None,
-            blockheight: height,
-            color: String::default(),
-            fees_collected_msat: Amount::from_msat(0),
-            id: PublicKey::from_slice(&PUBKEY).expect("pubkey from slice"),
-            network: String::default(),
-            num_active_channels: u32::default(),
-            num_inactive_channels: u32::default(),
-            num_peers: u32::default(),
-            num_pending_channels: u32::default(),
-            version: String::default(),
         }
     }
 
@@ -1044,8 +1033,8 @@ mod tests {
     #[tokio::test]
     async fn buy_ok_fixed_amount() {
         let promise_secret = test_promise_secret();
-        let fake = FakeCln::default();
-        *fake.cln_getinfo_response.lock().unwrap() = Some(minimal_getinfo(900_000));
+        let mut fake = FakeCln::default();
+        fake.blockheight_response = Some(900_000);
         *fake.cln_datastore_response.lock().unwrap() = Some(DatastoreResponse {
             generation: Some(0),
             hex: None,
@@ -1077,8 +1066,8 @@ mod tests {
     #[tokio::test]
     async fn buy_ok_variable_amount_no_payment_size() {
         let promise_secret = test_promise_secret();
-        let fake = FakeCln::default();
-        *fake.cln_getinfo_response.lock().unwrap() = Some(minimal_getinfo(900_100));
+        let mut fake = FakeCln::default();
+        fake.blockheight_response = Some(900_100);
         *fake.cln_datastore_response.lock().unwrap() = Some(DatastoreResponse {
             generation: Some(0),
             hex: None,
