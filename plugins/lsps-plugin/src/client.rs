@@ -1,10 +1,10 @@
 use anyhow::{anyhow, bail, Context};
 use bitcoin::hashes::{hex::FromHex, sha256, Hash};
 use chrono::{Duration, Utc};
-use cln_lsps::core::client::LspsClient;
-use cln_lsps::lsps0::transport::{
+use cln_lsps::cln_adapters::transport::{
     Bolt8Transport, CustomMessageHookManager, WithCustomMessageHookManager,
 };
+use cln_lsps::core::client::LspsClient;
 use cln_lsps::lsps2::cln::tlv::encode_tu64;
 use cln_lsps::lsps2::cln::{
     HtlcAcceptedRequest, HtlcAcceptedResponse, InvoicePaymentRequest, OpenChannelRequest,
