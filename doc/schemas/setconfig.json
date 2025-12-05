@@ -33,10 +33,19 @@
           },
           {
             "type": "boolean"
+          },
+          {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": [
+              "For multi options, an array of string values."
+            ]
           }
         ],
         "description": [
-          "Value of the config variable to be set or updated."
+          "Value of the config variable to be set or updated. For multi options, this must be an array of strings."
         ]
       },
       "transient": {
@@ -63,7 +72,6 @@
         "additionalProperties": false,
         "required": [
           "config",
-          "source",
           "dynamic"
         ],
         "properties": {
@@ -76,7 +84,17 @@
           "source": {
             "type": "string",
             "description": [
-              "Source of configuration setting (`file`:`linenum`)."
+              "Source of configuration setting (`file`:`linenum`) for non-multi options."
+            ]
+          },
+          "sources": {
+            "type": "array",
+            "added": "v25.12",
+            "items": {
+              "type": "string"
+            },
+            "description": [
+              "Sources of configuration settings (`file`:`linenum`) for multi options."
             ]
           },
           "plugin": {
@@ -122,6 +140,16 @@
             "type": "boolean",
             "description": [
               "For boolean options."
+            ]
+          },
+          "values_str": {
+            "type": "array",
+            "added": "v25.12",
+            "items": {
+              "type": "string"
+            },
+            "description": [
+              "For multi-string options."
             ]
           }
         }
@@ -177,6 +205,37 @@
           "config": "min-capacity-sat",
           "value_int": 500000,
           "source": "/tmp/.lightning/regtest/config.setconfig:3",
+          "dynamic": true
+        }
+      }
+    },
+    {
+      "description": [
+        "This shows setting a multi-value dynamic plugin option (requires a plugin that defines such an option)."
+      ],
+      "request": {
+        "id": "example:setconfig#3",
+        "method": "setconfig",
+        "params": {
+          "config": "my-multi-option",
+          "val": [
+            "value1",
+            "value2"
+          ]
+        }
+      },
+      "response": {
+        "config": {
+          "config": "my-multi-option",
+          "values_str": [
+            "value1",
+            "value2"
+          ],
+          "sources": [
+            "/tmp/.lightning/regtest/config.setconfig:4",
+            "/tmp/.lightning/regtest/config.setconfig:5"
+          ],
+          "plugin": "/root/lightning/plugins/myplugin",
           "dynamic": true
         }
       }
