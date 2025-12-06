@@ -5,9 +5,11 @@
   "rpc": "listpeerchannels",
   "title": "Command returning data on channels of connected lightning nodes",
   "description": [
-    "The **listpeerchannels** RPC command returns list of this node's channels, with the possibility to filter them by peer's node id.",
+    "The **listpeerchannels** RPC command returns a list of this node's channels.",
     "",
-    "If no *id* is supplied, then channel data on all lightning nodes that are connected, or not connected but have open channels with this node, are returned."
+    "By default, data for all known channels is returned, including those to peers that are currently connected and those to peers that are disconnected but still have open channels.",
+    "",
+    "At most one of *id*, *short_channel_id* or *channel_id* may be provided as a filter. If more than one is provided, the command fails with an error."
   ],
   "categories": [
     "readonly"
@@ -19,14 +21,21 @@
       "id": {
         "type": "pubkey",
         "description": [
-          "If supplied, limits the channels to just the peer with the given ID, if it exists."
+          "If supplied, limits the channels to just the peer with the given ID, if it exists. Cannot be used with 'short_channel_id' or 'channel_id'."
         ]
       },
       "short_channel_id": {
         "added": "v25.05",
         "type": "short_channel_id",
         "description": [
-          "If supplied, limits the channels to just this short_channel_id (or local alias), if it exists.  Cannot be used with 'id'."
+          "If supplied, limits the channels to just this short_channel_id (or local alias), if it exists. Cannot be used with 'id' or 'channel_id'."
+        ]
+      },
+      "channel_id": {
+        "added": "v26.03",
+        "type": "hash",
+        "description": [
+          "If supplied, limits the channels to just this channel_id, if it exists. Cannot be used with 'id' or 'short_channel_id'."
         ]
       }
     }
