@@ -1396,6 +1396,7 @@ message TxsendResponse {
 message ListpeerchannelsRequest {
 	optional bytes id = 1;
 	optional string short_channel_id = 2;
+	optional bytes channel_id = 3;
 }
 
 message ListpeerchannelsResponse {
