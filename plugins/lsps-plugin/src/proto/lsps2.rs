@@ -60,6 +60,23 @@ pub trait LSPS2RpcErrorExt {
 
 impl LSPS2RpcErrorExt for RpcError {}
 
+pub trait ShortChannelIdJITExt {
+    fn generate_jit(blockheight: u32, distance: u32) -> Self;
+}
+
+impl ShortChannelIdJITExt for ShortChannelId {
+    fn generate_jit(blockheight: u32, distance: u32) -> Self {
+        use rand::{rng, Rng as _};
+
+        let mut rng = rng();
+        let block = blockheight + distance;
+        let tx_idx: u32 = rng.random_range(0..5000);
+        let output_idx: u16 = rng.random_range(0..10);
+
+        (((block as u64) << 40) | ((tx_idx as u64) << 16) | (output_idx as u64)).into()
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Lsps2GetInfoRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -98,7 +115,7 @@ impl core::error::Error for PromiseError {}
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(try_from = "String")]
-pub struct Promise(String);
+pub struct Promise(pub String);
 
 impl Promise {
     pub const MAX_BYTES: usize = 512;
@@ -303,6 +320,19 @@ impl PolicyOpeningFeeParams {
             .map(|b| format!("{:02x}", b))
             .collect();
         promise
+    }
+
+    pub fn with_promise(&self, secret: &[u8; 32]) -> OpeningFeeParams {
+        OpeningFeeParams {
+            min_fee_msat: self.min_fee_msat,
+            proportional: self.proportional,
+            valid_until: self.valid_until,
+            min_lifetime: self.min_lifetime,
+            max_client_to_self_delay: self.max_client_to_self_delay,
+            min_payment_size_msat: self.min_payment_size_msat,
+            max_payment_size_msat: self.max_payment_size_msat,
+            promise: Promise(self.get_hmac_hex(secret)),
+        }
     }
 }
 
