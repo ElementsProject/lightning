@@ -1,8 +1,10 @@
 use anyhow::bail;
 use cln_lsps::{
-    cln_adapters::{hooks::service_custommsg_hook, sender::ClnSender, state::ServiceState},
+    cln_adapters::{
+        hooks::service_custommsg_hook, rpc::ClnApiRpc, sender::ClnSender, state::ServiceState,
+    },
     core::{
-        lsps2::handler::{ClnApiRpc, HtlcAcceptedHookHandler, Lsps2ServiceHandler},
+        lsps2::{htlc::HtlcAcceptedHookHandler, service::Lsps2ServiceHandler},
         server::LspsService,
     },
     lsps2::{
