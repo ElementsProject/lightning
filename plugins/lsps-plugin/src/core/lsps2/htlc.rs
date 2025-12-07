@@ -1,6 +1,9 @@
 use crate::{
-    core::lsps2::provider::{DatastoreProvider, LightningProvider, Lsps2OfferProvider},
-    lsps2::cln::{HtlcAcceptedRequest, HtlcAcceptedResponse, TLV_FORWARD_AMT},
+    cln_adapters::types::{HtlcAcceptedRequest, HtlcAcceptedResponse},
+    core::{
+        lsps2::provider::{DatastoreProvider, LightningProvider, Lsps2OfferProvider},
+        tlv::TLV_FORWARD_AMT,
+    },
     proto::{
         lsps0::Msat,
         lsps2::{
@@ -195,10 +198,8 @@ impl<A: DatastoreProvider + Lsps2OfferProvider + LightningProvider> HtlcAccepted
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::lsps2::cln::tlv::TlvStream;
-    use crate::lsps2::cln::Htlc;
-    use crate::lsps2::cln::HtlcAcceptedResult;
-    use crate::lsps2::cln::Onion;
+    use crate::cln_adapters::types::{Htlc, HtlcAcceptedResult, Onion};
+    use crate::core::tlv::TlvStream;
     use crate::proto::lsps0::{Msat, Ppm, ShortChannelId};
     use crate::proto::lsps2::{
         DatastoreEntry, Lsps2PolicyGetChannelCapacityResponse, Lsps2PolicyGetInfoRequest,
