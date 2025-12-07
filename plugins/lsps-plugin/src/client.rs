@@ -12,6 +12,7 @@ use cln_lsps::{
     },
     core::{
         client::LspsClient,
+        features::is_feature_bit_set_reversed,
         tlv::{encode_tu64, TLV_FORWARD_AMT, TLV_PAYMENT_SECRET},
         transport::{MultiplexedTransport, PendingRequests},
     },
@@ -19,7 +20,6 @@ use cln_lsps::{
         lsps0::{Msat, LSP_FEATURE_BIT},
         lsps2::{compute_opening_fee, Lsps2BuyResponse, Lsps2GetInfoResponse, OpeningFeeParams},
     },
-    util,
 };
 use cln_plugin::options;
 use cln_rpc::{
@@ -772,7 +772,7 @@ async fn check_peer_lsp_status(
     let has_lsp_feature = if let Some(f_str) = &peer.features {
         let feature_bits = hex::decode(f_str)
             .map_err(|e| anyhow!("Invalid feature bits hex for peer {peer_id}, {f_str}: {e}"))?;
-        util::is_feature_bit_set_reversed(&feature_bits, LSP_FEATURE_BIT)
+        is_feature_bit_set_reversed(&feature_bits, LSP_FEATURE_BIT)
     } else {
         false
     };
