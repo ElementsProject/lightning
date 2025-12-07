@@ -2,14 +2,18 @@ use anyhow::{anyhow, bail, Context};
 use bitcoin::hashes::{hex::FromHex, sha256, Hash};
 use chrono::{Duration, Utc};
 use cln_lsps::{
-    cln_adapters::{hooks, sender::ClnSender, state::ClientState},
+    cln_adapters::{
+        hooks,
+        sender::ClnSender,
+        state::ClientState,
+        types::{
+            HtlcAcceptedRequest, HtlcAcceptedResponse, InvoicePaymentRequest, OpenChannelRequest,
+        },
+    },
     core::{
         client::LspsClient,
+        tlv::{encode_tu64, TLV_FORWARD_AMT, TLV_PAYMENT_SECRET},
         transport::{MultiplexedTransport, PendingRequests},
-    },
-    lsps2::cln::{
-        tlv::encode_tu64, HtlcAcceptedRequest, HtlcAcceptedResponse, InvoicePaymentRequest,
-        OpenChannelRequest, TLV_FORWARD_AMT, TLV_PAYMENT_SECRET,
     },
     proto::{
         lsps0::{Msat, LSP_FEATURE_BIT},

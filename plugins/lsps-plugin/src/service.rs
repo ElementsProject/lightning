@@ -1,20 +1,31 @@
 use anyhow::bail;
 use cln_lsps::{
     cln_adapters::{
-        hooks::service_custommsg_hook, rpc::ClnApiRpc, sender::ClnSender, state::ServiceState,
+        hooks::service_custommsg_hook,
+        rpc::ClnApiRpc,
+        sender::ClnSender,
+        state::ServiceState,
+        types::{HtlcAcceptedRequest, HtlcAcceptedResponse},
     },
     core::{
         lsps2::{htlc::HtlcAcceptedHookHandler, service::Lsps2ServiceHandler},
         server::LspsService,
     },
-    lsps2::{
-        self,
-        cln::{HtlcAcceptedRequest, HtlcAcceptedResponse},
-    },
 };
-use cln_plugin::Plugin;
+use cln_plugin::{options, Plugin};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+
+pub const OPTION_ENABLED: options::FlagConfigOption = options::ConfigOption::new_flag(
+    "experimental-lsps2-service",
+    "Enables lsps2 for the LSP service",
+);
+
+pub const OPTION_PROMISE_SECRET: options::StringConfigOption =
+    options::ConfigOption::new_str_no_default(
+        "experimental-lsps2-promise-secret",
+        "A 64-character hex string that is the secret for promises",
+    );
 
 #[derive(Clone)]
 struct State {
@@ -50,8 +61,8 @@ impl ServiceState for State {
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
     if let Some(plugin) = cln_plugin::Builder::new(tokio::io::stdin(), tokio::io::stdout())
-        .option(lsps2::OPTION_ENABLED)
-        .option(lsps2::OPTION_PROMISE_SECRET)
+        .option(OPTION_ENABLED)
+        .option(OPTION_PROMISE_SECRET)
         // FIXME: Temporarily disabled lsp feature to please test cases, this is
         // ok as the feature is optional per spec.
         // We need to ensure that `connectd` only starts after all plugins have
@@ -72,9 +83,9 @@ async fn main() -> Result<(), anyhow::Error> {
         let rpc_path =
             Path::new(&plugin.configuration().lightning_dir).join(&plugin.configuration().rpc_file);
 
-        if plugin.option(&lsps2::OPTION_ENABLED)? {
+        if plugin.option(&OPTION_ENABLED)? {
             log::debug!("lsps2-service enabled");
-            if let Some(secret_hex) = plugin.option(&lsps2::OPTION_PROMISE_SECRET)? {
+            if let Some(secret_hex) = plugin.option(&OPTION_PROMISE_SECRET)? {
                 let secret_hex = secret_hex.trim().to_lowercase();
 
                 let decoded_bytes = match hex::decode(&secret_hex) {
@@ -109,7 +120,7 @@ async fn main() -> Result<(), anyhow::Error> {
             }
         } else {
             return plugin
-                .disable(&format!("`{}` not enabled", &lsps2::OPTION_ENABLED.name))
+                .disable(&format!("`{}` not enabled", &OPTION_ENABLED.name))
                 .await;
         }
     } else {
