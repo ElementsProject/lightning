@@ -1420,7 +1420,7 @@ void setup_topology(struct chain_topology *topo)
 	fixup = db_get_intvar(topo->ld->wallet->db, "fixup_block_scan", -1);
 	if (fixup == -1) {
 		/* Never done fixup: this is set to non-zero if we have blocks. */
-		topo->old_block_scan = wallet_blocks_minheight(topo->ld->wallet);
+		topo->old_block_scan = wallet_blocks_contig_minheight(topo->ld->wallet);
 		db_set_intvar(topo->ld->wallet->db, "fixup_block_scan",
 			      topo->old_block_scan);
 	} else {
