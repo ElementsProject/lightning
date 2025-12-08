@@ -1,18 +1,21 @@
 use anyhow::bail;
+use bitcoin::hashes::Hash;
 use cln_lsps::{
     cln_adapters::{
-        hooks::service_custommsg_hook,
-        rpc::ClnApiRpc,
-        sender::ClnSender,
-        state::ServiceState,
-        types::{HtlcAcceptedRequest, HtlcAcceptedResponse},
+        hooks::service_custommsg_hook, rpc::ClnApiRpc, sender::ClnSender, state::ServiceState,
+        types::HtlcAcceptedRequest,
     },
     core::{
-        lsps2::{htlc::HtlcAcceptedHookHandler, service::Lsps2ServiceHandler},
+        lsps2::{
+            htlc::{Htlc, HtlcAcceptedHookHandler, HtlcDecision, Onion, RejectReason},
+            service::Lsps2ServiceHandler,
+        },
         server::LspsService,
     },
+    proto::lsps0::Msat,
 };
 use cln_plugin::{options, Plugin};
+use log::{debug, error, trace};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -132,19 +135,127 @@ async fn on_htlc_accepted(
     p: Plugin<State>,
     v: serde_json::Value,
 ) -> Result<serde_json::Value, anyhow::Error> {
+    Ok(handle_htlc_safe(&p, v).await)
+}
+
+async fn handle_htlc_safe(p: &Plugin<State>, v: serde_json::Value) -> serde_json::Value {
+    match handle_htlc_inner(p, v).await {
+        Ok(response) => response,
+        Err(e) => {
+            error!("HTLC hook error (continuing): {:#}", e);
+            json_continue()
+        }
+    }
+}
+
+async fn handle_htlc_inner(
+    p: &Plugin<State>,
+    v: serde_json::Value,
+) -> Result<serde_json::Value, anyhow::Error> {
     if !p.state().lsps2_enabled {
-        // just continue.
-        // Fixme: Add forward and extra tlvs from incoming.
-        let res = serde_json::to_value(&HtlcAcceptedResponse::continue_(None, None, None))?;
-        return Ok(res);
+        return Ok(json_continue());
     }
 
     let req: HtlcAcceptedRequest = serde_json::from_value(v)?;
+
+    let short_channel_id = match req.onion.short_channel_id {
+        Some(scid) => scid,
+        None => {
+            trace!("We are the destination of the HTLC, continue.");
+            return Ok(json_continue());
+        }
+    };
+
     let rpc_path = Path::new(&p.configuration().lightning_dir).join(&p.configuration().rpc_file);
     let api = ClnApiRpc::new(rpc_path);
     // Fixme: Use real htlc_minimum_amount.
     let handler = HtlcAcceptedHookHandler::new(api, 1000);
-    let res = handler.handle(req).await?;
-    let res_val = serde_json::to_value(&res)?;
-    Ok(res_val)
+
+    let onion = Onion {
+        short_channel_id,
+        payload: req.onion.payload,
+    };
+
+    let htlc = Htlc {
+        amount_msat: Msat::from_msat(req.htlc.amount_msat.msat()),
+        extra_tlvs: req.htlc.extra_tlvs.unwrap_or_default(),
+    };
+
+    debug!("Handle potential jit-session HTLC.");
+    let response = match handler.handle(&htlc, &onion).await {
+        Ok(dec) => {
+            log_decision(&dec);
+            decision_to_response(dec)?
+        }
+        Err(e) => {
+            // Fixme: Should we log **BROKEN** here?
+            debug!("Htlc handler failed (continuing): {:#}", e);
+            return Ok(json_continue());
+        }
+    };
+
+    Ok(serde_json::to_value(&response)?)
+}
+
+fn decision_to_response(decision: HtlcDecision) -> Result<serde_json::Value, anyhow::Error> {
+    Ok(match decision {
+        HtlcDecision::NotOurs => json_continue(),
+
+        HtlcDecision::Forward {
+            mut payload,
+            forward_to,
+            mut extra_tlvs,
+        } => json_continue_forward(
+            payload.to_bytes()?,
+            forward_to.as_byte_array().to_vec(),
+            extra_tlvs.to_bytes()?,
+        ),
+
+        // Fixme: once we implement MPP-Support we need to remove this.
+        HtlcDecision::Reject {
+            reason: RejectReason::MppNotSupported,
+        } => json_continue(),
+        HtlcDecision::Reject { reason } => json_fail(reason.failure_code()),
+    })
+}
+
+fn json_continue() -> serde_json::Value {
+    serde_json::json!({"result": "continue"})
+}
+
+fn json_continue_forward(
+    payload: Vec<u8>,
+    forward_to: Vec<u8>,
+    extra_tlvs: Vec<u8>,
+) -> serde_json::Value {
+    serde_json::json!({
+        "result": "continue",
+        "payload": hex::encode(payload),
+        "forward_to": hex::encode(forward_to),
+        "extra_tlvs": hex::encode(extra_tlvs)
+    })
+}
+
+fn json_fail(failure_code: &str) -> serde_json::Value {
+    serde_json::json!({
+        "result": "fail",
+        "failure_message": failure_code
+    })
+}
+
+fn log_decision(decision: &HtlcDecision) {
+    match decision {
+        HtlcDecision::NotOurs => {
+            trace!("SCID not ours, continue");
+        }
+        HtlcDecision::Forward { forward_to, .. } => {
+            debug!(
+                "Forwarding via JIT channel {}",
+                hex::encode(forward_to.as_byte_array())
+            );
+        }
+        HtlcDecision::Reject { reason } => {
+            debug!("Rejecting HTLC: {:?}", reason);
+        }
+    }
 }

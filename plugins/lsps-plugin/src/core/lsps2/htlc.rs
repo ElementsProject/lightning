@@ -1,11 +1,10 @@
 use crate::{
-    cln_adapters::types::{HtlcAcceptedRequest, HtlcAcceptedResponse},
     core::{
         lsps2::provider::{DatastoreProvider, LightningProvider, Lsps2OfferProvider},
-        tlv::TLV_FORWARD_AMT,
+        tlv::{TlvStream, TLV_FORWARD_AMT},
     },
     proto::{
-        lsps0::Msat,
+        lsps0::{Msat, ShortChannelId},
         lsps2::{
             compute_opening_fee,
             failure_codes::{TEMPORARY_CHANNEL_FAILURE, UNKNOWN_NEXT_PEER},
@@ -13,11 +12,77 @@ use crate::{
         },
     },
 };
-use anyhow::Result;
-use bitcoin::hashes::Hash as _;
+use bitcoin::hashes::sha256::Hash;
 use chrono::Utc;
-use log::{debug, warn};
 use std::time::Duration;
+use thiserror::Error;
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum HtlcDecision {
+    NotOurs,
+    Forward {
+        payload: TlvStream,
+        forward_to: Hash,
+        extra_tlvs: TlvStream,
+    },
+
+    Reject {
+        reason: RejectReason,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum RejectReason {
+    OfferExpired { valid_until: chrono::DateTime<Utc> },
+    AmountBelowMinimum { minimum: Msat },
+    AmountAboveMaximum { maximum: Msat },
+    InsufficientForFee { fee: Msat },
+    FeeOverflow,
+    PolicyDenied,
+    FundingFailed,
+
+    // temporarily
+    MppNotSupported,
+}
+
+impl RejectReason {
+    pub fn failure_code(&self) -> &'static str {
+        match self {
+            Self::OfferExpired { .. } => TEMPORARY_CHANNEL_FAILURE,
+            _ => UNKNOWN_NEXT_PEER,
+        }
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum HtlcError {
+    #[error("failed to query channel capacity: {0}")]
+    CapacityQuery(#[source] anyhow::Error),
+    #[error("failed to fund channel: {0}")]
+    FundChannel(#[source] anyhow::Error),
+    #[error("channel ready check failed: {0}")]
+    ChannelReadyCheck(#[source] anyhow::Error),
+}
+
+#[derive(Debug, Clone)]
+pub struct Htlc {
+    pub amount_msat: Msat,
+    pub extra_tlvs: TlvStream,
+}
+impl Htlc {
+    pub fn new(amount_msat: Msat, tlvs: TlvStream) -> Self {
+        Self {
+            amount_msat,
+            extra_tlvs: tlvs,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Onion {
+    pub short_channel_id: ShortChannelId,
+    pub payload: TlvStream,
+}
 
 pub struct HtlcAcceptedHookHandler<A> {
     api: A,
@@ -35,21 +100,11 @@ impl<A> HtlcAcceptedHookHandler<A> {
     }
 }
 impl<A: DatastoreProvider + Lsps2OfferProvider + LightningProvider> HtlcAcceptedHookHandler<A> {
-    pub async fn handle(&self, req: HtlcAcceptedRequest) -> Result<HtlcAcceptedResponse> {
-        let scid = match req.onion.short_channel_id {
-            Some(scid) => scid,
-            None => {
-                // We are the final destination of this htlc.
-                return Ok(HtlcAcceptedResponse::continue_(None, None, None));
-            }
-        };
-
+    pub async fn handle(&self, htlc: &Htlc, onion: &Onion) -> Result<HtlcDecision, HtlcError> {
         // A) Is this SCID one that we care about?
-        let ds_rec = match self.api.get_buy_request(&scid).await {
+        let ds_rec = match self.api.get_buy_request(&onion.short_channel_id).await {
             Ok(rec) => rec,
-            Err(_) => {
-                return Ok(HtlcAcceptedResponse::continue_(None, None, None));
-            }
+            Err(_) => return Ok(HtlcDecision::NotOurs),
         };
 
         // Fixme: Check that we don't have a channel yet with the peer that we await to
@@ -60,85 +115,78 @@ impl<A: DatastoreProvider + Lsps2OfferProvider + LightningProvider> HtlcAccepted
         // Fixme: We continue mpp for now to let the test mock handle the htlc, as we need
         // to test the client implementation for mpp payments.
         if ds_rec.expected_payment_size.is_some() {
-            warn!("mpp payments are not implemented yet");
-            return Ok(HtlcAcceptedResponse::continue_(None, None, None));
-            // return Ok(HtlcAcceptedResponse::fail(
-            //     Some(UNKNOWN_NEXT_PEER.to_string()),
-            //     None,
-            // ));
+            return Ok(HtlcDecision::Reject {
+                reason: RejectReason::MppNotSupported,
+            });
         }
 
         // B) Is the fee option menu still valid?
-        let now = Utc::now();
-        if now >= ds_rec.opening_fee_params.valid_until {
+        if Utc::now() >= ds_rec.opening_fee_params.valid_until {
             // Not valid anymore, remove from DS and fail HTLC.
-            let _ = self.api.del_buy_request(&scid).await;
-            return Ok(HtlcAcceptedResponse::fail(
-                Some(TEMPORARY_CHANNEL_FAILURE.to_string()),
-                None,
-            ));
+            let _ = self.api.del_buy_request(&onion.short_channel_id).await;
+            return Ok(HtlcDecision::Reject {
+                reason: RejectReason::OfferExpired {
+                    valid_until: ds_rec.opening_fee_params.valid_until,
+                },
+            });
         }
 
         // C) Is the amount in the boundaries of the fee menu?
-        if req.htlc.amount_msat.msat() < ds_rec.opening_fee_params.min_fee_msat.msat()
-            || req.htlc.amount_msat.msat() > ds_rec.opening_fee_params.max_payment_size_msat.msat()
-        {
-            // No! reject the HTLC.
-            debug!("amount_msat for scid: {}, was too low or to high", scid);
-            return Ok(HtlcAcceptedResponse::fail(
-                Some(UNKNOWN_NEXT_PEER.to_string()),
-                None,
-            ));
+        if htlc.amount_msat.msat() < ds_rec.opening_fee_params.min_fee_msat.msat() {
+            return Ok(HtlcDecision::Reject {
+                reason: RejectReason::AmountBelowMinimum {
+                    minimum: ds_rec.opening_fee_params.min_fee_msat,
+                },
+            });
+        }
+
+        if htlc.amount_msat.msat() > ds_rec.opening_fee_params.max_payment_size_msat.msat() {
+            return Ok(HtlcDecision::Reject {
+                reason: RejectReason::AmountAboveMaximum {
+                    maximum: ds_rec.opening_fee_params.max_payment_size_msat,
+                },
+            });
         }
 
         // D) Check that the amount_msat covers the opening fee (only for non-mpp right now)
-        let opening_fee = if let Some(opening_fee) = compute_opening_fee(
-            req.htlc.amount_msat.msat(),
+        let opening_fee = match compute_opening_fee(
+            htlc.amount_msat.msat(),
             ds_rec.opening_fee_params.min_fee_msat.msat(),
             ds_rec.opening_fee_params.proportional.ppm() as u64,
         ) {
-            if opening_fee + self.htlc_minimum_msat >= req.htlc.amount_msat.msat() {
-                debug!("amount_msat for scid: {}, does not cover opening fee", scid);
-                return Ok(HtlcAcceptedResponse::fail(
-                    Some(UNKNOWN_NEXT_PEER.to_string()),
-                    None,
-                ));
+            Some(fee) if fee + self.htlc_minimum_msat < htlc.amount_msat.msat() => fee,
+            Some(fee) => {
+                return Ok(HtlcDecision::Reject {
+                    reason: RejectReason::InsufficientForFee {
+                        fee: Msat::from_msat(fee),
+                    },
+                })
             }
-            opening_fee
-        } else {
-            // The computation overflowed.
-            debug!("amount_msat for scid: {}, was too low or to high", scid);
-            return Ok(HtlcAcceptedResponse::fail(
-                Some(UNKNOWN_NEXT_PEER.to_string()),
-                None,
-            ));
+            None => {
+                return Ok(HtlcDecision::Reject {
+                    reason: RejectReason::FeeOverflow,
+                })
+            }
         };
 
         // E) We made it, open a channel to the peer.
         let ch_cap_req = Lsps2PolicyGetChannelCapacityRequest {
             opening_fee_params: ds_rec.opening_fee_params,
-            init_payment_size: Msat::from_msat(req.htlc.amount_msat.msat()),
-            scid,
+            init_payment_size: htlc.amount_msat,
+            scid: onion.short_channel_id,
         };
-        let ch_cap_res = match self.api.get_channel_capacity(&ch_cap_req).await {
-            Ok(r) => r,
-            Err(e) => {
-                warn!("failed to get channel capacity for scid {}: {}", scid, e);
-                return Ok(HtlcAcceptedResponse::fail(
-                    Some(UNKNOWN_NEXT_PEER.to_string()),
-                    None,
-                ));
-            }
-        };
+        let ch_cap_res = self
+            .api
+            .get_channel_capacity(&ch_cap_req)
+            .await
+            .map_err(HtlcError::CapacityQuery)?;
 
         let cap = match ch_cap_res.channel_capacity_msat {
             Some(c) => Msat::from_msat(c),
             None => {
-                debug!("policy giver does not allow channel for scid {}", scid);
-                return Ok(HtlcAcceptedResponse::fail(
-                    Some(UNKNOWN_NEXT_PEER.to_string()),
-                    None,
-                ));
+                return Ok(HtlcDecision::Reject {
+                    reason: RejectReason::PolicyDenied,
+                })
             }
         };
 
@@ -148,15 +196,11 @@ impl<A: DatastoreProvider + Lsps2OfferProvider + LightningProvider> HtlcAccepted
         // (amount_msat - opening fee) in the future.
         // Fixme: Make this configurable, maybe return the whole request from
         // the policy giver?
-        let channel_id = match self.api.fund_jit_channel(&ds_rec.peer_id, &cap).await {
-            Ok((channel_id, _)) => channel_id,
-            Err(_) => {
-                return Ok(HtlcAcceptedResponse::fail(
-                    Some(UNKNOWN_NEXT_PEER.to_string()),
-                    None,
-                ));
-            }
-        };
+        let (channel_id, _) = self
+            .api
+            .fund_jit_channel(&ds_rec.peer_id, &cap)
+            .await
+            .map_err(HtlcError::FundChannel)?;
 
         // F) Wait for the peer to send `channel_ready`.
         // Fixme: Use event to check for channel ready,
@@ -169,36 +213,30 @@ impl<A: DatastoreProvider + Lsps2OfferProvider + LightningProvider> HtlcAccepted
                 .await
             {
                 Ok(true) => break,
-                Ok(false) | Err(_) => tokio::time::sleep(self.backoff_listpeerchannels).await,
+                Ok(false) => tokio::time::sleep(self.backoff_listpeerchannels).await,
+                Err(e) => return Err(HtlcError::ChannelReadyCheck(e)),
             };
         }
 
         // G) We got a working channel, deduct fee and forward htlc.
-        let deducted_amt_msat = req.htlc.amount_msat.msat() - opening_fee;
-        let mut payload = req.onion.payload.clone();
+        let deducted_amt_msat = htlc.amount_msat.msat() - opening_fee;
+        let mut payload = onion.payload.clone();
         payload.set_tu64(TLV_FORWARD_AMT, deducted_amt_msat);
 
-        // It is okay to unwrap the next line as we do not have duplicate entries.
-        let payload_bytes = payload.to_bytes().unwrap();
-        debug!("about to send payload: {:02x?}", &payload_bytes);
-
-        let mut extra_tlvs = req.htlc.extra_tlvs.unwrap_or_default().clone();
+        let mut extra_tlvs = htlc.extra_tlvs.clone();
         extra_tlvs.set_u64(65537, opening_fee);
-        let extra_tlvs_bytes = extra_tlvs.to_bytes().unwrap();
-        debug!("extra_tlv: {:02x?}", extra_tlvs_bytes);
 
-        Ok(HtlcAcceptedResponse::continue_(
-            Some(payload_bytes),
-            Some(channel_id.as_byte_array().to_vec()),
-            Some(extra_tlvs_bytes),
-        ))
+        Ok(HtlcDecision::Forward {
+            payload,
+            forward_to: channel_id,
+            extra_tlvs,
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cln_adapters::types::{Htlc, HtlcAcceptedResult, Onion};
     use crate::core::tlv::TlvStream;
     use crate::proto::lsps0::{Msat, Ppm, ShortChannelId};
     use crate::proto::lsps2::{
@@ -210,10 +248,10 @@ mod tests {
     use bitcoin::hashes::{sha256::Hash as Sha256, Hash};
     use bitcoin::secp256k1::PublicKey;
     use chrono::{TimeZone, Utc};
-    use cln_rpc::primitives::Amount;
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
+    use std::u64;
 
     fn test_peer_id() -> PublicKey {
         "0279BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798"
@@ -257,31 +295,19 @@ mod tests {
         }
     }
 
-    fn test_htlc_request(scid: Option<ShortChannelId>, amount_msat: u64) -> HtlcAcceptedRequest {
-        HtlcAcceptedRequest {
-            onion: Onion {
-                short_channel_id: scid,
-                payload: TlvStream::default(),
-                next_onion: vec![],
-                forward_msat: None,
-                outgoing_cltv_value: None,
-                shared_secret: vec![],
-                total_msat: None,
-                type_: None,
-            },
-            htlc: Htlc {
-                amount_msat: Amount::from_msat(amount_msat),
-                cltv_expiry: 800_100,
-                cltv_expiry_relative: 40,
-                payment_hash: vec![0u8; 32],
-                extra_tlvs: None,
-                short_channel_id: test_scid(),
-                id: 0,
-            },
-            forward_to: None,
+    fn test_onion(scid: ShortChannelId, payload: TlvStream) -> Onion {
+        Onion {
+            short_channel_id: scid,
+            payload,
         }
     }
 
+    fn test_htlc(amount_msat: u64, extra_tlvs: TlvStream) -> Htlc {
+        Htlc {
+            amount_msat: Msat::from_msat(amount_msat),
+            extra_tlvs,
+        }
+    }
 
     #[derive(Default, Clone)]
     struct MockApi {
@@ -447,28 +473,15 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn continues_when_no_scid() {
-        let api = MockApi::new();
-        let h = handler(api);
-
-        let req = test_htlc_request(None, 10_000_000);
-        let result = h.handle(req).await.unwrap();
-
-        assert_eq!(result.result, HtlcAcceptedResult::Continue);
-        assert!(result.payload.is_none());
-        assert!(result.forward_to.is_none());
-    }
-
-    #[tokio::test]
     async fn continues_when_scid_not_found() {
         let api = MockApi::new().with_no_buy_request();
         let h = handler(api);
 
-        let req = test_htlc_request(Some(test_scid()), 10_000_000);
-        let result = h.handle(req).await.unwrap();
+        let onion = test_onion(test_scid(), TlvStream::default());
+        let htlc = test_htlc(10_000_000, TlvStream::default());
+        let result = h.handle(&htlc, &onion).await.unwrap();
 
-        assert_eq!(result.result, HtlcAcceptedResult::Continue);
-        assert!(result.payload.is_none());
+        assert_eq!(result, HtlcDecision::NotOurs);
     }
 
     #[tokio::test]
@@ -477,10 +490,16 @@ mod tests {
         let api = MockApi::new().with_buy_request(entry);
         let h = handler(api);
 
-        let req = test_htlc_request(Some(test_scid()), 10_000_000);
-        let result = h.handle(req).await.unwrap();
+        let onion = test_onion(test_scid(), TlvStream::default());
+        let htlc = test_htlc(10_000_000, TlvStream::default());
+        let result = h.handle(&htlc, &onion).await.unwrap();
 
-        assert_eq!(result.result, HtlcAcceptedResult::Continue);
+        assert_eq!(
+            result,
+            HtlcDecision::Reject {
+                reason: RejectReason::MppNotSupported
+            }
+        );
     }
 
     #[tokio::test]
@@ -490,14 +509,16 @@ mod tests {
         let api = MockApi::new().with_buy_request(entry);
         let h = handler(api.clone());
 
-        let req = test_htlc_request(Some(test_scid()), 10_000_000);
-        let result = h.handle(req).await.unwrap();
+        let onion = test_onion(test_scid(), TlvStream::default());
+        let htlc = test_htlc(10_000_000, TlvStream::default());
+        let result = h.handle(&htlc, &onion).await.unwrap();
 
-        assert_eq!(result.result, HtlcAcceptedResult::Fail);
-        assert_eq!(
-            result.failure_message.unwrap(),
-            TEMPORARY_CHANNEL_FAILURE.to_string()
-        );
+        assert!(matches!(
+            result,
+            HtlcDecision::Reject {
+                reason: RejectReason::OfferExpired { .. }
+            }
+        ));
         assert_eq!(api.del_call_count(), 1); // Should delete expired entry
     }
 
@@ -508,14 +529,16 @@ mod tests {
         let h = handler(api);
 
         // min_fee_msat is 2_000
-        let req = test_htlc_request(Some(test_scid()), 1_000);
-        let result = h.handle(req).await.unwrap();
+        let onion = test_onion(test_scid(), TlvStream::default());
+        let htlc = test_htlc(1_000, TlvStream::default());
+        let result = h.handle(&htlc, &onion).await.unwrap();
 
-        assert_eq!(result.result, HtlcAcceptedResult::Fail);
-        assert_eq!(
-            result.failure_message.unwrap(),
-            UNKNOWN_NEXT_PEER.to_string()
-        );
+        assert!(matches!(
+            result,
+            HtlcDecision::Reject {
+                reason: RejectReason::AmountBelowMinimum { .. }
+            }
+        ));
     }
 
     #[tokio::test]
@@ -525,14 +548,16 @@ mod tests {
         let h = handler(api);
 
         // max_payment_size_msat is 100_000_000
-        let req = test_htlc_request(Some(test_scid()), 200_000_000);
-        let result = h.handle(req).await.unwrap();
+        let onion = test_onion(test_scid(), TlvStream::default());
+        let htlc = test_htlc(200_000_000, TlvStream::default());
+        let result = h.handle(&htlc, &onion).await.unwrap();
 
-        assert_eq!(result.result, HtlcAcceptedResult::Fail);
-        assert_eq!(
-            result.failure_message.unwrap(),
-            UNKNOWN_NEXT_PEER.to_string()
-        );
+        assert!(matches!(
+            result,
+            HtlcDecision::Reject {
+                reason: RejectReason::AmountAboveMaximum { .. }
+            }
+        ));
     }
 
     #[tokio::test]
@@ -545,14 +570,16 @@ mod tests {
         // Amount must be > fee + htlc_minimum
         // At 3_000: fee ~= 2_000 + (3_000 * 10_000 / 1_000_000) = 2_030
         // 2_030 + 1_000 = 3_030 > 3_000, so should fail
-        let req = test_htlc_request(Some(test_scid()), 3_000);
-        let result = h.handle(req).await.unwrap();
+        let onion = test_onion(test_scid(), TlvStream::default());
+        let htlc = test_htlc(3_000, TlvStream::default());
+        let result = h.handle(&htlc, &onion).await.unwrap();
 
-        assert_eq!(result.result, HtlcAcceptedResult::Fail);
-        assert_eq!(
-            result.failure_message.unwrap(),
-            UNKNOWN_NEXT_PEER.to_string()
-        );
+        assert!(matches!(
+            result,
+            HtlcDecision::Reject {
+                reason: RejectReason::InsufficientForFee { .. }
+            }
+        ));
     }
 
     #[tokio::test]
@@ -566,14 +593,16 @@ mod tests {
         let api = MockApi::new().with_buy_request(entry);
         let h = handler(api);
 
-        let req = test_htlc_request(Some(test_scid()), u64::MAX / 2);
-        let result = h.handle(req).await.unwrap();
+        let onion = test_onion(test_scid(), TlvStream::default());
+        let htlc = test_htlc(u64::MAX / 2, TlvStream::default());
+        let result = h.handle(&htlc, &onion).await.unwrap();
 
-        assert_eq!(result.result, HtlcAcceptedResult::Fail);
-        assert_eq!(
-            result.failure_message.unwrap(),
-            UNKNOWN_NEXT_PEER.to_string()
-        );
+        assert!(matches!(
+            result,
+            HtlcDecision::Reject {
+                reason: RejectReason::FeeOverflow,
+            }
+        ));
     }
 
     #[tokio::test]
@@ -584,14 +613,11 @@ mod tests {
             .with_channel_capacity_error();
         let h = handler(api);
 
-        let req = test_htlc_request(Some(test_scid()), 10_000_000);
-        let result = h.handle(req).await.unwrap();
+        let onion = test_onion(test_scid(), TlvStream::default());
+        let htlc = test_htlc(10_000_000, TlvStream::default());
+        let result = h.handle(&htlc, &onion).await.expect_err("should fail");
 
-        assert_eq!(result.result, HtlcAcceptedResult::Fail);
-        assert_eq!(
-            result.failure_message.unwrap(),
-            UNKNOWN_NEXT_PEER.to_string()
-        );
+        assert!(matches!(result, HtlcError::CapacityQuery(_)));
     }
 
     #[tokio::test]
@@ -600,14 +626,16 @@ mod tests {
         let api = MockApi::new().with_buy_request(entry).with_channel_denied();
         let h = handler(api);
 
-        let req = test_htlc_request(Some(test_scid()), 10_000_000);
-        let result = h.handle(req).await.unwrap();
+        let onion = test_onion(test_scid(), TlvStream::default());
+        let htlc = test_htlc(10_000_000, TlvStream::default());
+        let result = h.handle(&htlc, &onion).await.unwrap();
 
-        assert_eq!(result.result, HtlcAcceptedResult::Fail);
-        assert_eq!(
-            result.failure_message.unwrap(),
-            UNKNOWN_NEXT_PEER.to_string()
-        );
+        assert!(matches!(
+            result,
+            HtlcDecision::Reject {
+                reason: RejectReason::PolicyDenied,
+            }
+        ));
     }
 
     #[tokio::test]
@@ -619,14 +647,11 @@ mod tests {
             .with_fund_error();
         let h = handler(api);
 
-        let req = test_htlc_request(Some(test_scid()), 10_000_000);
-        let result = h.handle(req).await.unwrap();
+        let onion = test_onion(test_scid(), TlvStream::default());
+        let htlc = test_htlc(10_000_000, TlvStream::default());
+        let result = h.handle(&htlc, &onion).await.expect_err("should fail");
 
-        assert_eq!(result.result, HtlcAcceptedResult::Fail);
-        assert_eq!(
-            result.failure_message.unwrap(),
-            UNKNOWN_NEXT_PEER.to_string()
-        );
+        assert!(matches!(result, HtlcError::FundChannel(_)));
     }
 
     #[tokio::test]
@@ -639,19 +664,22 @@ mod tests {
             .with_channel_ready(true);
         let h = handler(api.clone());
 
-        let req = test_htlc_request(Some(test_scid()), 10_000_000);
-        let result = h.handle(req).await.unwrap();
+        let onion = test_onion(test_scid(), TlvStream::default());
+        let htlc = test_htlc(10_000_000, TlvStream::default());
+        let result = h.handle(&htlc, &onion).await.unwrap();
 
-        assert_eq!(result.result, HtlcAcceptedResult::Continue);
-        assert!(result.payload.is_some());
-        assert!(result.forward_to.is_some());
-        assert!(result.extra_tlvs.is_some());
+        let HtlcDecision::Forward {
+            payload,
+            forward_to,
+            extra_tlvs,
+        } = result
+        else {
+            panic!("expected forward, got {:?}", result)
+        };
 
-        // Channel ID should match
-        assert_eq!(
-            result.forward_to.unwrap(),
-            test_channel_id().as_byte_array().to_vec()
-        );
+        assert_eq!(forward_to, test_channel_id());
+        assert!(!payload.0.is_empty());
+        assert!(!extra_tlvs.0.is_empty());
     }
 
     #[tokio::test]
@@ -667,8 +695,10 @@ mod tests {
 
         // Spawn handler, will block on channel ready
         let handle = tokio::spawn(async move {
-            let req = test_htlc_request(Some(test_scid()), 10_000_000);
-            h.handle(req).await
+            let onion = test_onion(test_scid(), TlvStream::default());
+            let htlc = test_htlc(10_000_000, TlvStream::default());
+            let result = h.handle(&htlc, &onion).await.unwrap();
+            result
         });
 
         // Let it poll a few times
@@ -678,8 +708,8 @@ mod tests {
         // Now make channel ready
         *api.channel_ready.lock().unwrap() = true;
 
-        let result = handle.await.unwrap().unwrap();
-        assert_eq!(result.result, HtlcAcceptedResult::Continue);
+        let result = handle.await.unwrap();
+        assert!(matches!(result, HtlcDecision::Forward { .. }));
     }
 
     #[tokio::test]
@@ -692,18 +722,18 @@ mod tests {
             .with_channel_ready(true);
         let h = handler(api);
 
-        let amount_msat = 10_000_000u64;
-        let req = test_htlc_request(Some(test_scid()), amount_msat);
-        let result = h.handle(req).await.unwrap();
+        let onion = test_onion(test_scid(), TlvStream::default());
+        let htlc = test_htlc(10_000_000, TlvStream::default());
+        let result = h.handle(&htlc, &onion).await.unwrap();
 
-        assert_eq!(result.result, HtlcAcceptedResult::Continue);
+        let HtlcDecision::Forward { payload, .. } = result else {
+            panic!("expected forward, got {:?}", result)
+        };
 
         // Verify payload contains deducted amount
         // fee = max(min_fee, amount * proportional / 1_000_000)
         // fee = max(2_000, 10_000_000 * 10_000 / 1_000_000) = max(2_000, 100_000) = 100_000
         // deducted = 10_000_000 - 100_000 = 9_900_000
-        let payload_bytes = result.payload.unwrap();
-        let payload = TlvStream::from_bytes(&payload_bytes).unwrap();
         let forward_amt = payload.get_tu64(TLV_FORWARD_AMT).unwrap();
         assert_eq!(forward_amt, Some(9_900_000));
     }
@@ -718,11 +748,13 @@ mod tests {
             .with_channel_ready(true);
         let h = handler(api);
 
-        let req = test_htlc_request(Some(test_scid()), 10_000_000);
-        let result = h.handle(req).await.unwrap();
+        let onion = test_onion(test_scid(), TlvStream::default());
+        let htlc = test_htlc(10_000_000, TlvStream::default());
+        let result = h.handle(&htlc, &onion).await.unwrap();
 
-        let extra_tlvs_bytes = result.extra_tlvs.unwrap();
-        let extra_tlvs = TlvStream::from_bytes(&extra_tlvs_bytes).unwrap();
+        let HtlcDecision::Forward { extra_tlvs, .. } = result else {
+            panic!("expected forward, got {:?}", result)
+        };
 
         // Opening fee should be in TLV 65537
         let opening_fee = extra_tlvs.get_u64(65537).unwrap();
@@ -743,10 +775,11 @@ mod tests {
         // fee at 1_000_000 = max(2_000, 1_000_000 * 10_000 / 1_000_000) = max(2_000, 10_000) = 10_000
         // Need: fee + htlc_minimum < amount
         // 10_000 + 1_000 = 11_000 < 1_000_000 ✓
-        let req = test_htlc_request(Some(test_scid()), 1_000_000);
-        let result = h.handle(req).await.unwrap();
+        let onion = test_onion(test_scid(), TlvStream::default());
+        let htlc = test_htlc(1_000_000, TlvStream::default());
+        let result = h.handle(&htlc, &onion).await.unwrap();
 
-        assert_eq!(result.result, HtlcAcceptedResult::Continue);
+        assert!(matches!(result, HtlcDecision::Forward { .. }));
     }
 
     #[tokio::test]
@@ -760,9 +793,10 @@ mod tests {
         let h = handler(api);
 
         // max_payment_size_msat is 100_000_000
-        let req = test_htlc_request(Some(test_scid()), 100_000_000);
-        let result = h.handle(req).await.unwrap();
+        let onion = test_onion(test_scid(), TlvStream::default());
+        let htlc = test_htlc(100_000_000, TlvStream::default());
+        let result = h.handle(&htlc, &onion).await.unwrap();
 
-        assert_eq!(result.result, HtlcAcceptedResult::Continue);
+        assert!(matches!(result, HtlcDecision::Forward { .. }));
     }
 }

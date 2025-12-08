@@ -7,13 +7,13 @@ pub const TLV_OUTGOING_CLTV: u64 = 4;
 pub const TLV_SHORT_CHANNEL_ID: u64 = 6;
 pub const TLV_PAYMENT_SECRET: u64 = 8;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TlvRecord {
     pub type_: u64,
     pub value: Vec<u8>,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TlvStream(pub Vec<TlvRecord>);
 
 #[derive(Debug)]
