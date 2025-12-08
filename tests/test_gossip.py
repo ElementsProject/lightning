@@ -2370,3 +2370,22 @@ def test_incoming_unreasonable(node_factory):
     wait_for(lambda: [c['updates']['remote']['fee_base_msat'] for c in l3.rpc.listpeerchannels()['channels']] == [100000000, 100000000])
     l3.restart()
     l3.rpc.listincoming()
+
+
+@pytest.mark.xfail(strict=True)
+def test_gossmap_lost_node(node_factory, bitcoind):
+    l1, l2, l3, l4 = node_factory.line_graph(4, wait_for_announce=True)
+
+    scid23 = only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['short_channel_id']
+    l2.rpc.close(l3.info['id'])
+    bitcoind.generate_block(13, wait_for_mempool=1)
+    wait_for(lambda: l1.rpc.listchannels(scid23) == {'channels': []})
+
+    pre_channels = l1.rpc.listchannels()
+    pre_nodes = l1.rpc.listnodes()
+    l1.restart()
+    post_channels = l1.rpc.listchannels()
+    post_nodes = l1.rpc.listnodes()
+
+    assert post_channels == pre_channels
+    assert post_nodes == pre_nodes
