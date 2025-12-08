@@ -2372,7 +2372,6 @@ def test_incoming_unreasonable(node_factory):
     l3.rpc.listincoming()
 
 
-@pytest.mark.xfail(strict=True)
 def test_gossmap_lost_node(node_factory, bitcoind):
     l1, l2, l3, l4 = node_factory.line_graph(4, wait_for_announce=True)
 
