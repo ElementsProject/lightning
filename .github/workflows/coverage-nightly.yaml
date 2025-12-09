@@ -8,6 +8,8 @@ on:
   workflow_dispatch:
   # Allow being called from other workflows
   workflow_call:
+  # Run on pull requests for testing
+  pull_request:
 
 concurrency:
   group: coverage-${{ github.ref }}
