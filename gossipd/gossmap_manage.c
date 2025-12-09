@@ -300,7 +300,7 @@ static void remove_channel(struct gossmap_manage *gm,
 
 		/* Maybe this was the last channel_announcement which preceeded node_announcement? */
 		if (chan->cann_off < node->nann_off
-		    && any_cannounce_preceeds_offset(gossmap, node, chan, node->nann_off)) {
+		    && !any_cannounce_preceeds_offset(gossmap, node, chan, node->nann_off)) {
 			const u8 *nannounce;
 			u32 timestamp;
 
