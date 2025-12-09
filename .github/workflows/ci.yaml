@@ -16,7 +16,7 @@ env:
   RUST_PROFILE: release
   SLOW_MACHINE: 1
   CI_SERVER_URL: "http://35.239.136.52:3170"
-  GLOBAL_PYTEST_OPTS: "--reruns=10 -vvv"
+  PYTEST_OPTS_BASE: "--reruns=10 -vvv --junit-xml=report.xml --timeout=1800 --durations=10"
 
 jobs:
   prebuild:
@@ -90,7 +90,7 @@ jobs:
       - name: Check source
         env:
           VALGRIND: 0
-          PYTEST_OPTS: --timeout=1200 --durations=10
+          PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }}
         run: |
           uv run make check-source BASE_REF="origin/${{ github.base_ref }}"
       - name: Check Generated Files have been updated
@@ -314,7 +314,7 @@ jobs:
         run: |
           env
           cat config.vars
-          uv run eatmydata pytest tests/test_downgrade.py ${GLOBAL_PYTEST_OPTS} -n ${PYTEST_PAR} ${PYTEST_OPTS}
+          uv run eatmydata pytest tests/test_downgrade.py -n ${PYTEST_PAR} ${PYTEST_OPTS}
 
   integration:
     name: Test CLN ${{ matrix.name }}
@@ -322,7 +322,7 @@ jobs:
     timeout-minutes: 120
     env:
       RUST_PROFILE: release # Has to match the one in the compile step
-      PYTEST_OPTS: --timeout=1200 --durations=10
+      PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }}
     needs:
       - compile
     strategy:
@@ -422,7 +422,7 @@ jobs:
         run: |
           env
           cat config.vars
-          VALGRIND=0 uv run eatmydata pytest tests/ -vvv ${GLOBAL_PYTEST_OPTS} -n ${PYTEST_PAR} ${PYTEST_OPTS}
+          VALGRIND=0 uv run eatmydata pytest tests/ -n ${PYTEST_PAR} ${PYTEST_OPTS}
 
   integration-valgrind:
     name: Valgrind Test CLN ${{ matrix.name }}
@@ -431,7 +431,7 @@ jobs:
     env:
       RUST_PROFILE: release # Has to match the one in the compile step
       CFG: compile-gcc
-      PYTEST_OPTS: --test-group-random-seed=42 --timeout=1800 --durations=10 --reruns=10
+      PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }} --test-group-random-seed=42
     needs:
       - compile
     strategy:
@@ -492,7 +492,7 @@ jobs:
           SLOW_MACHINE: 1
           TEST_DEBUG: 1
         run: |
-          VALGRIND=1 uv run eatmydata pytest tests/ ${GLOBAL_PYTEST_OPTS} -n 3 ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}
+          VALGRIND=1 uv run eatmydata pytest tests/ -n 3 ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}
 
   integration-sanitizers:
     name: Sanitizers Test CLN
@@ -502,7 +502,7 @@ jobs:
       RUST_PROFILE: release
       SLOW_MACHINE: 1
       TEST_DEBUG: 1
-      PYTEST_OPTS: --test-group-random-seed=42 --timeout=1800 --durations=10 --reruns=10
+      PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }} --test-group-random-seed=42 
     needs:
       - compile
     strategy:
@@ -562,7 +562,7 @@ jobs:
 
       - name: Test
         run: |
-          uv run eatmydata pytest tests/ ${GLOBAL_PYTEST_OPTS} -n 2 ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}
+          uv run eatmydata pytest tests/ -n 2 ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}
 
   update-docs-examples:
     name: Update examples in doc schemas (disabled temporarily!)
@@ -574,7 +574,7 @@ jobs:
     env:
       VALGRIND: 0
       GENERATE_EXAMPLES: 1
-      PYTEST_OPTS: --timeout=1200 --durations=10
+      PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }}
       TEST_NETWORK: regtest
     needs:
       - compile
@@ -613,7 +613,7 @@ jobs:
     timeout-minutes: 120
     env:
       RUST_PROFILE: release # Has to match the one in the compile step
-      PYTEST_OPTS: --timeout=1200 --durations=10
+      PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }}
     needs:
       - compile
     strategy:
@@ -679,7 +679,7 @@ jobs:
         run: |
           env
           cat config.vars
-          VALGRIND=0 uv run eatmydata pytest tests/ ${GLOBAL_PYTEST_OPTS} -n ${PYTEST_PAR} ${PYTEST_OPTS}
+          VALGRIND=0 uv run eatmydata pytest tests/ -n ${PYTEST_PAR} ${PYTEST_OPTS}
 
 
   gather:
