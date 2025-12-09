@@ -368,21 +368,6 @@ static void master_or_connectd_gone(struct daemon_conn *dc UNUSED)
 	exit(2);
 }
 
-/* We don't check this when loading from the gossip_store: that would break
- * our canned tests, and usually old gossip is better than no gossip */
-bool timestamp_reasonable(const struct daemon *daemon, u32 timestamp)
-{
-	u64 now = clock_time().ts.tv_sec;
-
-	/* More than one day ahead? */
-	if (timestamp > now + 24*60*60)
-		return false;
-	/* More than 2 weeks behind? */
-	if (timestamp < now - GOSSIP_PRUNE_INTERVAL(daemon->dev_fast_gossip_prune))
-		return false;
-	return true;
-}
-
 /*~ Parse init message from lightningd: starts the daemon properly. */
 static void gossip_init(struct daemon *daemon, const u8 *msg)
 {
