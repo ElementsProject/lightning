@@ -53,12 +53,26 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: sqlite
+          - name: sqlite-1
             db: sqlite3
             pytest_par: 10
-          - name: postgres
+            test_group: 1
+            test_group_count: 2
+          - name: sqlite-2
+            db: sqlite3
+            pytest_par: 10
+            test_group: 2
+            test_group_count: 2
+          - name: postgres-1
             db: postgres
             pytest_par: 10
+            test_group: 1
+            test_group_count: 2
+          - name: postgres-2
+            db: postgres
+            pytest_par: 10
+            test_group: 2
+            test_group_count: 2
 
     steps:
       - name: Checkout
@@ -108,9 +122,12 @@ jobs:
           export CLN_COVERAGE_DIR="${{ github.workspace }}/coverage-raw"
           mkdir -p "$CLN_COVERAGE_DIR"
           echo "CLN_COVERAGE_DIR=$CLN_COVERAGE_DIR"
+          echo "Running test group ${{ matrix.test_group }} of ${{ matrix.test_group_count }}"
           echo "Current directory: $(pwd)"
           ls -la
-          VALGRIND=0 uv run eatmydata pytest tests/ -n ${PYTEST_PAR} -vvv
+          VALGRIND=0 uv run eatmydata pytest tests/ -n ${PYTEST_PAR} -vvv \
+            --test-group-count ${{ matrix.test_group_count }} \
+            --test-group ${{ matrix.test_group }}
 
       - name: Check coverage files generated
         if: always()
@@ -127,12 +144,35 @@ jobs:
             echo "  3. LLVM_PROFILE_FILE environment variable not set correctly"
           fi
 
+      - name: Install LLVM tools for merging
+        if: always()
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 18
+          sudo ln -sf /usr/bin/llvm-profdata-18 /usr/bin/llvm-profdata
+
+      - name: Merge coverage data locally
+        if: always()
+        run: |
+          chmod +x contrib/coverage/collect-coverage.sh
+          mkdir -p coverage
+          CLN_COVERAGE_DIR="${{ github.workspace }}/coverage-raw" \
+            ./contrib/coverage/collect-coverage.sh \
+            coverage-raw \
+            coverage/${{ matrix.name }}.profdata
+          echo "Merged profdata size:"
+          ls -lh coverage/${{ matrix.name }}.profdata || echo "No profdata file created"
+          # Clean up raw files to save disk space
+          rm -rf coverage-raw/*.profraw
+          echo "Cleaned up raw profraw files"
+
       - name: Upload coverage data
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: coverage-raw-${{ matrix.name }}
-          path: coverage-raw/*.profraw
+          name: coverage-merged-${{ matrix.name }}
+          path: coverage/${{ matrix.name }}.profdata
           if-no-files-found: warn
 
   report:
@@ -164,21 +204,28 @@ jobs:
       - name: Download all coverage artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: coverage-raw-*
+          pattern: coverage-merged-*
           path: coverage-artifacts
 
       - name: Merge coverage data
         run: |
-          mkdir -p coverage-raw coverage
-          find coverage-artifacts -name "*.profraw" -exec cp {} coverage-raw/ \;
-          PROFRAW_COUNT=$(ls -1 coverage-raw/*.profraw 2>/dev/null | wc -l)
-          echo "Found $PROFRAW_COUNT profile files"
-          if [ "$PROFRAW_COUNT" -eq 0 ]; then
+          mkdir -p coverage
+          # Find all .profdata files from test jobs
+          PROFDATA_FILES=($(find coverage-artifacts -name "*.profdata"))
+          echo "Found ${#PROFDATA_FILES[@]} profdata files from test jobs:"
+          printf '%s\n' "${PROFDATA_FILES[@]}"
+
+          if [ ${#PROFDATA_FILES[@]} -eq 0 ]; then
             echo "ERROR: No coverage data found"
             exit 1
           fi
-          chmod +x contrib/coverage/collect-coverage.sh
-          CLN_COVERAGE_DIR=coverage-raw ./contrib/coverage/collect-coverage.sh
+
+          # Merge all pre-aggregated profdata files into final merged.profdata
+          echo "Merging ${#PROFDATA_FILES[@]} profdata files..."
+          llvm-profdata merge -sparse "${PROFDATA_FILES[@]}" -o coverage/merged.profdata
+
+          echo "Final merged profdata size:"
+          ls -lh coverage/merged.profdata
 
       - name: Generate HTML report
         run: |
