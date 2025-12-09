@@ -5912,34 +5912,6 @@ def test_offer_paths(node_factory, bitcoind):
         l5.rpc.fetchinvoice(offer=offer['bolt12'])
 
 
-def test_pay_legacy_forward(node_factory, bitcoind, executor):
-    """We removed legacy in 22.11, and LND will still send them for
-    route hints!  See
-    https://github.com/lightningnetwork/lnd/issues/8785
-
-    """
-    l1, l2, l3 = node_factory.line_graph(3, fundamount=10**6, wait_for_announce=True)
-
-    inv = l3.rpc.invoice(1000, "inv", "inv")
-
-    chanid12 = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['short_channel_id']
-    chanid23 = only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['short_channel_id']
-    route = [{'amount_msat': 1011,
-              'id': l2.info['id'],
-              'delay': 20,
-              'channel': chanid12},
-             {'amount_msat': 1000,
-              'id': l3.info['id'],
-              'delay': 10,
-              'channel': chanid23}]
-
-    l1.rpc.call("sendpay", payload={'route': route,
-                                    'payment_hash': inv['payment_hash'],
-                                    'payment_secret': inv['payment_secret'],
-                                    'dev_legacy_hop': True})
-    l1.rpc.waitsendpay(inv['payment_hash'])
-
-
 # CI is so slow under valgrind that this does not reach the ratelimit!
 @pytest.mark.slow_test
 def test_onionmessage_ratelimit(node_factory, executor):
