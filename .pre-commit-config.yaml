@@ -40,6 +40,11 @@ repos:
       args: [ "--indent", "2", "--no-sort-keys" ]
       files: ^doc/schemas/.*\.json$
       types: [ json ]
+    - id: trailing-whitespace
+      args: [ "--markdown-linebreak-ext=md" ]
+      exclude: ccan|contrib|tests/fuzz/corpora
+    - id: end-of-file-fixer
+      exclude: ccan|contrib|tests/fuzz/corpora
 
 - repo: https://github.com/codespell-project/codespell
   rev: v2.3.0
