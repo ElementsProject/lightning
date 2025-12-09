@@ -93,6 +93,13 @@ jobs:
           PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }}
         run: |
           uv run make check-source BASE_REF="origin/${{ github.base_ref }}"
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-results-prebuild
+          path: report.xml
+          if-no-files-found: ignore
       - name: Check Generated Files have been updated
         run: uv run make check-gen-updated
       - name: Check docs
@@ -315,6 +322,13 @@ jobs:
           env
           cat config.vars
           uv run eatmydata pytest tests/test_downgrade.py -n ${PYTEST_PAR} ${PYTEST_OPTS}
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-results-check-downgrade-${{ matrix.TEST_DB_PROVIDER }}-${{ matrix.TEST_NETWORK }}
+          path: report.xml
+          if-no-files-found: ignore
 
   integration:
     name: Test CLN ${{ matrix.name }}
@@ -423,6 +437,13 @@ jobs:
           env
           cat config.vars
           VALGRIND=0 uv run eatmydata pytest tests/ -n ${PYTEST_PAR} ${PYTEST_OPTS}
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-results-integration-${{ matrix.name }}
+          path: report.xml
+          if-no-files-found: ignore
 
   integration-valgrind:
     name: Valgrind Test CLN ${{ matrix.name }}
@@ -493,6 +514,13 @@ jobs:
           TEST_DEBUG: 1
         run: |
           VALGRIND=1 uv run eatmydata pytest tests/ -n 3 ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-results-integration-valgrind-${{ matrix.NAME }}
+          path: report.xml
+          if-no-files-found: ignore
 
   integration-sanitizers:
     name: Sanitizers Test CLN
@@ -563,6 +591,13 @@ jobs:
       - name: Test
         run: |
           uv run eatmydata pytest tests/ -n 2 ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-results-integration-sanitizers-${{ matrix.NAME }}
+          path: report.xml
+          if-no-files-found: ignore
 
   update-docs-examples:
     name: Update examples in doc schemas (disabled temporarily!)
@@ -606,6 +641,13 @@ jobs:
       - name: Test
         run: |
           uv run eatmydata make -j $(nproc) check-doc-examples
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-results-update-docs-examples
+          path: report.xml
+          if-no-files-found: ignore
 
   min-btc-support:
     name: Test minimum supported BTC v${{ matrix.MIN_BTC_VERSION }} with ${{ matrix.NAME }}
@@ -680,6 +722,13 @@ jobs:
           env
           cat config.vars
           VALGRIND=0 uv run eatmydata pytest tests/ -n ${PYTEST_PAR} ${PYTEST_OPTS}
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-results-min-btc-support-${{ matrix.NAME }}
+          path: report.xml
+          if-no-files-found: ignore
 
 
   gather:
