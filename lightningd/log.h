@@ -13,7 +13,7 @@ struct timerel;
 
 /* We can have a single log book, with multiple loggers writing to it: it's freed
  * by the last struct logger itself. */
-struct log_book *new_log_book(struct lightningd *ld, size_t max_mem);
+struct log_book *new_log_book(struct lightningd *ld);
 
 /* With different entry points */
 struct logger *new_logger(const tal_t *ctx, struct log_book *record,

@@ -113,7 +113,7 @@ int main(int argc, char *argv[])
 
 	ld = tal(tmpctx, struct lightningd);
 	ld->logfiles = NULL;
-	lb = ld->log_book = new_log_book(ld, 1024*1024);
+	lb = ld->log_book = new_log_book(ld);
 	ld->log = new_logger(ld, lb, NULL, "dummy");
 	assert(arg_log_to_file("-", ld) == NULL);
 
