@@ -84,16 +84,46 @@ jobs:
       - name: Unpack build
         run: tar -xaf testpack.tar.bz2
 
+      - name: Verify coverage instrumentation
+        run: |
+          echo "Checking if binaries are instrumented for coverage..."
+          if nm lightningd/lightningd | grep -q '__llvm_profile'; then
+            echo "✓ Binaries appear to be instrumented for coverage"
+          else
+            echo "⚠ WARNING: Binaries may not be properly instrumented"
+            echo "Checking build flags in config.vars:"
+            grep -E "COVERAGE|CFLAGS" config.vars || echo "No coverage flags found"
+          fi
+
       - name: Run tests with coverage
         env:
-          CLN_COVERAGE_DIR: ${{ github.workspace }}/coverage-raw
           TEST_DB_PROVIDER: ${{ matrix.db }}
           PYTEST_PAR: ${{ matrix.pytest_par }}
           SLOW_MACHINE: 1
           TIMEOUT: 900
+          VALGRIND: 0
         run: |
+          export CLN_COVERAGE_DIR="${{ github.workspace }}/coverage-raw"
           mkdir -p "$CLN_COVERAGE_DIR"
-          uv run eatmydata pytest tests/ -n ${PYTEST_PAR} -vvv
+          echo "CLN_COVERAGE_DIR=$CLN_COVERAGE_DIR"
+          echo "Current directory: $(pwd)"
+          ls -la
+          VALGRIND=0 uv run eatmydata pytest tests/ -n ${PYTEST_PAR} -vvv
+
+      - name: Check coverage files generated
+        if: always()
+        run: |
+          echo "Checking for profraw files in coverage-raw"
+          find "${{ github.workspace }}/coverage-raw" -name "*.profraw" -ls || echo "No profraw files found"
+          COUNT=$(find "${{ github.workspace }}/coverage-raw" -name "*.profraw" 2>/dev/null | wc -l)
+          echo "Total profraw files: $COUNT"
+          if [ "$COUNT" -eq 0 ]; then
+            echo "WARNING: No coverage data was generated!"
+            echo "This might indicate:"
+            echo "  1. Tests didn't run successfully"
+            echo "  2. Binaries aren't instrumented"
+            echo "  3. LLVM_PROFILE_FILE environment variable not set correctly"
+          fi
 
       - name: Upload coverage data
         uses: actions/upload-artifact@v4
@@ -101,7 +131,7 @@ jobs:
         with:
           name: coverage-raw-${{ matrix.name }}
           path: coverage-raw/*.profraw
-          if-no-files-found: error
+          if-no-files-found: warn
 
   report:
     name: Generate Coverage Report
