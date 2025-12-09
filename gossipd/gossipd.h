@@ -8,11 +8,8 @@
 #include <lightningd/options.h>
 #include <wire/peer_wire.h>
 
-/* We talk to `hsmd` to sign our gossip messages with the node key */
-#define HSM_FD 3
-/* connectd asks us for help finding nodes, and gossip fds for new peers */
-#define CONNECTD_FD 4
-#define CONNECTD2_FD 5
+/* connectd forwards gossip messages to us. */
+#define CONNECTD_FD 3
 
 struct chan;
 struct peer;

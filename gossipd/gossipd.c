@@ -1,11 +1,12 @@
 /*~ Welcome to the gossip daemon: keeper of maps!
  *
- * This is the last "global" daemon; it has three purposes.
+ * This is the last "global" daemon; it has one main purpose: to
+ * maintain the append-only gossip_store file for other daemons and
+ * plugins to read the global network map.
  *
- * 1. To determine routes for payments when lightningd asks.
- * 2. The second purpose is to receive gossip from peers (via their
- *    per-peer daemons) and send it out to them.
- * 3. Talk to `connectd` to to answer address queries for nodes.
+ * To do this, it gets gossip messages forwarded from connectd, makes
+ * gossip queries to peers, and can ask connect out to random peers to
+ * get more gossip.
  *
  * The gossip protocol itself is fairly simple, but has some twists which
  * add complexity to this daemon.
@@ -14,7 +15,6 @@
 #include <ccan/tal/str/str.h>
 #include <common/clock_time.h>
 #include <common/daemon_conn.h>
-#include <common/ecdh_hsmd.h>
 #include <common/memleak.h>
 #include <common/status.h>
 #include <common/subdaemon.h>
@@ -591,9 +591,6 @@ int main(int argc, char *argv[])
 	daemon->deferred_txouts = tal_arr(daemon, struct short_channel_id, 0);
 	daemon->current_blockheight = 0; /* i.e. unknown */
 
-	/* Tell the ecdh() function how to talk to hsmd */
-	ecdh_hsmd_setup(HSM_FD, status_failed);
-
 	/* Note the use of time_mono() here.  That's a monotonic clock, which
 	 * is really useful: it can only be used to measure relative events
 	 * (there's no correspondence to time-since-Ken-grew-a-beard or
@@ -620,8 +617,9 @@ int main(int argc, char *argv[])
 	}
 }
 
-/*~ Note that the actual routing stuff is in routing.c; you might want to
- * check that out later.
+/*~ Note that the production of the gossip_store file is in gossmap_manage.c
+ * and gossip_store.c, and the (highly optimized!)  read side is in
+ * common/gossmap.c; you might want to check those out later.
  *
  * But that's the last of the global daemons.  We now move on to the first of
  * the per-peer daemons: openingd/openingd.c.
