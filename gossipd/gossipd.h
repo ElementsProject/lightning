@@ -158,9 +158,4 @@ void tell_lightningd_peer_update(struct daemon *daemon,
 				 struct amount_msat htlc_minimum,
 				 struct amount_msat htlc_maximum);
 
-/**
- * Is this gossip timestamp reasonable?
- */
-bool timestamp_reasonable(const struct daemon *daemon, u32 timestamp);
-
 #endif /* LIGHTNING_GOSSIPD_GOSSIPD_H */
