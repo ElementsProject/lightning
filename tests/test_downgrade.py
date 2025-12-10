@@ -86,7 +86,7 @@ def test_downgrade(node_factory, executor):
     l1.daemon.opts['database-upgrade'] = True
     l1.start()
     # Note: currently a noop, this will break on first database upgrade.
-    assert not l1.daemon.is_in_log("Updating database from version 280")
+    assert not l1.daemon.is_in_log("Updating database from version 281")
 
     l1.connect(l2)
     inv2 = l2.rpc.invoice(1000, 'test_downgrade2', 'test_downgrade2')
