@@ -155,6 +155,9 @@ jobs:
       - name: Merge coverage data locally
         if: always()
         run: |
+          cd ${{ github.workspace }}
+          echo "Current directory: $(pwd)"
+          ls -la contrib/coverage/ || echo "contrib/coverage directory not found"
           chmod +x contrib/coverage/collect-coverage.sh
           mkdir -p coverage
           CLN_COVERAGE_DIR="${{ github.workspace }}/coverage-raw" \
@@ -229,6 +232,7 @@ jobs:
 
       - name: Generate HTML report
         run: |
+          cd ${{ github.workspace }}
           chmod +x contrib/coverage/generate-coverage-report.sh
           ./contrib/coverage/generate-coverage-report.sh
 
