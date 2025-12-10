@@ -61,6 +61,19 @@ uv build contrib/pyln-client/
 uv build contrib/pyln-proto/
 ```
 
+## Local checks with pre-commit
+
+You can avoid common mistakes, speed up your development workflow and avoid wasteful CI runs by opting in to the local code checks managed by [pre-commit](https://pre-commit.com). The `pre-commit` Python package is part of the `dev` group and should be installed along with the other packages using `pip` or `uv` when [installing from source](https://docs.corelightning.org/docs/installation#installing-from-source). Activate it on your local development environment from the root of your Core Lightning working directory with:
+```shell
+pre-commit install
+```
+
+You can disable and remove it with:
+```shell
+pre-commit uninstall
+pre-commit clean
+```
+
 ## Making BOLT Modifications
 
 All of code for marshalling/unmarshalling BOLT protocol messages is generated directly from the spec. These are pegged to the BOLTVERSION, as specified in `Makefile`.
