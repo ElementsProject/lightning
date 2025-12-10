@@ -66,6 +66,9 @@ struct db {
 
 	/* Fatal if we try to write to db */
 	bool readonly;
+
+	/* Set during migrations to skip STRICT on legacy table creation */
+	bool in_migration;
 };
 
 struct db_query {

@@ -364,6 +364,7 @@ struct db *db_open_(const tal_t *ctx, const char *filename,
 	db->in_transaction = NULL;
 	db->transaction_started = false;
 	db->changes = NULL;
+	db->in_migration = false;
 
 	/* This must be outside a transaction, so catch it */
 	assert(!db->in_transaction);

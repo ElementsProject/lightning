@@ -45,6 +45,8 @@ class Sqlite3Rewriter(Rewriter):
             r'BIGINT': 'INTEGER',
             r'BIGINTEGER': 'INTEGER',
             r'BIGSERIAL': 'INTEGER',
+            r'VARCHAR(?:\(\d+\))?': 'TEXT',
+            r'\bINT\b': 'INTEGER',
             r'CURRENT_TIMESTAMP\(\)': "strftime('%s', 'now')",
             r'INSERT INTO[ \t]+(.*)[ \t]+ON CONFLICT.*DO NOTHING;': 'INSERT OR IGNORE INTO \\1;',
             # Rewrite "decode('abcd', 'hex')" to become "x'abcd'"
