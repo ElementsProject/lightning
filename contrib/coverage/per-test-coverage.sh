@@ -12,8 +12,8 @@ fi
 
 # Get all binaries from Makefile (includes plugins, tools, test binaries)
 echo "Discovering instrumented binaries from Makefile..."
-BINARIES=($(make -qp 2>/dev/null | awk '/^ALL_PROGRAMS :=/ {$1=$2=""; print}' | tr ' ' '\n' | grep -v '^$'))
-TEST_BINARIES=($(make -qp 2>/dev/null | awk '/^ALL_TEST_PROGRAMS :=/ {$1=$2=""; print}' | tr ' ' '\n' | grep -v '^$'))
+mapfile -t BINARIES < <(make -qp 2>/dev/null | awk '/^ALL_PROGRAMS :=/ {$1=$2=""; print}' | tr ' ' '\n' | grep -v '^$')
+mapfile -t TEST_BINARIES < <(make -qp 2>/dev/null | awk '/^ALL_TEST_PROGRAMS :=/ {$1=$2=""; print}' | tr ' ' '\n' | grep -v '^$')
 
 # Combine all binaries
 ALL_BINARIES=("${BINARIES[@]}" "${TEST_BINARIES[@]}")
@@ -39,7 +39,7 @@ fi
 mkdir -p "$OUTPUT_DIR"
 
 # Find all test subdirectories
-TEST_DIRS=($(find "$COVERAGE_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort))
+mapfile -t TEST_DIRS < <(find "$COVERAGE_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort)
 
 if [ ${#TEST_DIRS[@]} -eq 0 ]; then
     echo "ERROR: No test subdirectories found in $COVERAGE_DIR"
@@ -55,7 +55,7 @@ for test_dir in "${TEST_DIRS[@]}"; do
     echo -n "  $test_name... "
 
     # Find profraw files for this test
-    PROFRAW_FILES=($(find "$test_dir" -name "*.profraw" 2>/dev/null || true))
+    mapfile -t PROFRAW_FILES < <(find "$test_dir" -name "*.profraw" 2>/dev/null || true)
 
     if [ ${#PROFRAW_FILES[@]} -eq 0 ]; then
         echo "no profraw files"

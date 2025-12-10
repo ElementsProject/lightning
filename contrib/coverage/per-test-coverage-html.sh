@@ -13,8 +13,8 @@ fi
 
 # Get all binaries from Makefile (includes plugins, tools, test binaries)
 echo "Discovering instrumented binaries from Makefile..."
-BINARIES=($(make -qp 2>/dev/null | awk '/^ALL_PROGRAMS :=/ {$1=$2=""; print}' | tr ' ' '\n' | grep -v '^$'))
-TEST_BINARIES=($(make -qp 2>/dev/null | awk '/^ALL_TEST_PROGRAMS :=/ {$1=$2=""; print}' | tr ' ' '\n' | grep -v '^$'))
+mapfile -t BINARIES < <(make -qp 2>/dev/null | awk '/^ALL_PROGRAMS :=/ {$1=$2=""; print}' | tr ' ' '\n' | grep -v '^$')
+mapfile -t TEST_BINARIES < <(make -qp 2>/dev/null | awk '/^ALL_TEST_PROGRAMS :=/ {$1=$2=""; print}' | tr ' ' '\n' | grep -v '^$')
 
 # Combine all binaries
 ALL_BINARIES=("${BINARIES[@]}" "${TEST_BINARIES[@]}")
@@ -38,7 +38,7 @@ if [ ${#ARGS[@]} -eq 0 ]; then
 fi
 
 # Find all profdata files
-PROFDATA_FILES=($(find "$PROFDATA_DIR" -name "*.profdata" 2>/dev/null | sort))
+mapfile -t PROFDATA_FILES < <(find "$PROFDATA_DIR" -name "*.profdata" 2>/dev/null | sort)
 
 if [ ${#PROFDATA_FILES[@]} -eq 0 ]; then
     echo "ERROR: No .profdata files found in $PROFDATA_DIR"

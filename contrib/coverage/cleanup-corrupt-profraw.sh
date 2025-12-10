@@ -12,7 +12,7 @@ fi
 echo "Scanning for corrupt profraw files in: $COVERAGE_DIR"
 
 # Find all profraw files
-PROFRAW_FILES=($(find "$COVERAGE_DIR" -name "*.profraw" 2>/dev/null || true))
+mapfile -t PROFRAW_FILES < <(find "$COVERAGE_DIR" -name "*.profraw" 2>/dev/null || true)
 
 if [ ${#PROFRAW_FILES[@]} -eq 0 ]; then
     echo "No .profraw files found"

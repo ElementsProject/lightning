@@ -8,7 +8,7 @@ OUTPUT="${2:-coverage/merged.profdata}"
 echo "Collecting coverage from: $COVERAGE_DIR"
 
 # Find all profraw files
-PROFRAW_FILES=($(find "$COVERAGE_DIR" -name "*.profraw" 2>/dev/null || true))
+mapfile -t PROFRAW_FILES < <(find "$COVERAGE_DIR" -name "*.profraw" 2>/dev/null || true)
 
 if [ ${#PROFRAW_FILES[@]} -eq 0 ]; then
     echo "ERROR: No .profraw files found in $COVERAGE_DIR"
@@ -75,7 +75,7 @@ mkdir -p "$(dirname "$OUTPUT")"
 BATCH_SIZE=500
 TOTAL_FILES=${#VALID_FILES[@]}
 
-if [ $TOTAL_FILES -le $BATCH_SIZE ]; then
+if [ "$TOTAL_FILES" -le "$BATCH_SIZE" ]; then
     # Small enough to merge in one go
     echo "Merging ${TOTAL_FILES} files..."
     llvm-profdata merge -sparse "${VALID_FILES[@]}" -o "$OUTPUT"
@@ -85,16 +85,16 @@ else
 
     # Create temp directory for intermediate files
     TEMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/profdata-merge.XXXXXX")
-    trap "rm -rf '$TEMP_DIR'" EXIT
+    trap 'rm -rf "$TEMP_DIR"' EXIT
 
     BATCH_NUM=0
     INTERMEDIATE_FILES=()
 
     # Merge files in batches
-    for ((i=0; i<$TOTAL_FILES; i+=$BATCH_SIZE)); do
+    for ((i=0; i<TOTAL_FILES; i+=BATCH_SIZE)); do
         BATCH_NUM=$((BATCH_NUM + 1))
         END=$((i + BATCH_SIZE))
-        if [ $END -gt $TOTAL_FILES ]; then
+        if [ "$END" -gt "$TOTAL_FILES" ]; then
             END=$TOTAL_FILES
         fi
 
