@@ -2614,6 +2614,7 @@ def test_htlc_accepted_hook_failonion(node_factory):
         l1.rpc.pay(inv)
 
 
+@pytest.mark.slow_test  # VALGRIND running generally too slow to trigger race we need.
 def test_hook_in_use(node_factory):
     """If a hook is in use when we add a plugin to it, we have to defer"""
     dep_a = os.path.join(os.path.dirname(__file__), 'plugins/dep_a.py')
