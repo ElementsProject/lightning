@@ -4523,15 +4523,24 @@ def test_reconnect_no_additional_transient_failure(node_factory, bitcoind):
     assert not l1.daemon.is_in_log(f"{l2id}-chan#1: Peer transient failure in CHANNELD_NORMAL: Disconnected", start=offset1)
 
 
-@pytest.mark.xfail(strict=True)
 def test_offline(node_factory):
     # if get_node starts it, it'll expect an address, so do it manually.
     l1 = node_factory.get_node(options={"offline": None}, start=False)
     l1.daemon.start()
 
-    # we expect it to log offline mode an not to create any listener
+    # we expect it to log offline mode not to listen.
     assert l1.daemon.is_in_log("Started in offline mode!")
-    assert not l1.daemon.is_in_log("connectd: Created listener on")
+    line = l1.daemon.is_in_log("connectd: Created listener on")
+    port = re.search(r'connectd: Created listener on 127.0.0.1:(.*)', line).groups()[0]
+
+    l2 = node_factory.get_node()
+
+    # We cannot connect in!
+    with pytest.raises(RpcError, match=f"All addresses failed: 127.0.0.1:{port}: Connection establishment: Connection refused."):
+        l2.rpc.connect(l1.rpc.getinfo()['id'], 'localhost', int(port))
+
+    # We *can* connect out
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
 
 def test_last_stable_connection(node_factory):
