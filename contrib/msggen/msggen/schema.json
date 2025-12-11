@@ -24159,6 +24159,12 @@
                     "The short_channel_id (once locked in)."
                   ]
                 },
+                "direction": {
+                  "type": "integer",
+                  "description": [
+                    "The direction of the channel (i.e. 0 if we are the lesser node id, 1 if we are the greater)."
+                  ]
+                },
                 "channel_id": {
                   "type": "hash",
                   "description": [
