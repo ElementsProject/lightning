@@ -1863,6 +1863,7 @@ message DisableofferResponse {
 	string bolt12 = 4;
 	bool used = 5;
 	optional string label = 6;
+	optional string description = 7;
 }
 
 message EnableofferRequest {
@@ -1876,6 +1877,7 @@ message EnableofferResponse {
 	string bolt12 = 4;
 	bool used = 5;
 	optional string label = 6;
+	optional string description = 7;
 }
 
 message DisconnectRequest {
@@ -2299,6 +2301,7 @@ message ListoffersOffers {
 	string bolt12 = 4;
 	bool used = 5;
 	optional string label = 6;
+	optional string description = 7;
 }
 
 message ListpaysRequest {

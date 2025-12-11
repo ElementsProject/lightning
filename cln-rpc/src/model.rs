@@ -8265,6 +8265,8 @@ pub mod responses {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct DisableofferResponse {
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub description: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub label: Option<String>,
 	    pub active: bool,
 	    pub bolt12: String,
@@ -8286,6 +8288,8 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct EnableofferResponse {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub description: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub label: Option<String>,
 	    pub active: bool,
@@ -8963,6 +8967,8 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListoffersOffers {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub description: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub label: Option<String>,
 	    pub active: bool,
