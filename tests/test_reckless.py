@@ -351,7 +351,6 @@ def test_tag_install(node_factory):
             header = line
 
 
-@pytest.mark.flaky(reruns=5)
 @pytest.mark.slow_test
 def test_reckless_uv_install(node_factory):
     node = get_reckless_node(node_factory)
