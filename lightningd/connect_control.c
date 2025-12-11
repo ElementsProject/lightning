@@ -277,10 +277,21 @@ static void connect_failed(struct lightningd *ld,
 					  connect_nsec,
 					  connect_attempted);
 
-	/* We can have multiple connect commands: fail them all */
-	while ((c = find_connect(ld, id)) != NULL) {
-		/* They delete themselves from list */
-		was_pending(command_fail(c->cmd, errcode, "%s", errmsg));
+	/* There's a race between autoreconnect and connect commands.  This
+	 * matters because the autoreconnect might have failed, but that was before
+	 * the connect_to_peer command gave connectd a new address.  This we wait for
+	 * one we explicitly asked for before failing.
+	 *
+	 * A similar pattern could occur with multiple connect commands, however connectd
+	 * does simply combine those, so we don't get a response per request, and it's a
+	 * very rare corner case (which, unlike the above, doesn't happen in CI!).
+	 */
+	if (strstarts(connect_reason, "connect command")) {
+		/* We can have multiple connect commands: fail them all */
+		while ((c = find_connect(ld, id)) != NULL) {
+			/* They delete themselves from list */
+			was_pending(command_fail(c->cmd, errcode, "%s", errmsg));
+		}
 	}
 }
 
