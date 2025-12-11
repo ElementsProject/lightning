@@ -2983,7 +2983,7 @@ def test_autoclean(node_factory):
 
     # Under valgrind in CI, it can 50 seconds between creating invoice
     # and restarting.
-    if node_factory.valgrind:
+    if VALGRIND:
         short_timeout = 10
         longer_timeout = 60
     else:

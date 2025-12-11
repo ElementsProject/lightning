@@ -1,6 +1,6 @@
 import pytest
 
-from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND
+from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND, VALGRIND, SLOW_MACHINE
 
 
 # This function is based upon the example of how to
@@ -37,3 +37,5 @@ def pytest_runtest_setup(item):
     else:  # If there's no openchannel marker, skip if EXP_DF
         if EXPERIMENTAL_DUAL_FUND:
             pytest.skip('v1-only test, EXPERIMENTAL_DUAL_FUND=1')
+    if "slow_test" in item.keywords and VALGRIND and SLOW_MACHINE:
+        pytest.skip("Skipping slow tests under VALGRIND")

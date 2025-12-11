@@ -13,7 +13,7 @@ from utils import (
     mine_funding_to_announce, first_scid,
     CHANNEL_SIZE
 )
-from pyln.testing.utils import SLOW_MACHINE, VALGRIND, EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT, RUST
+from pyln.testing.utils import VALGRIND, EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT, RUST
 
 import os
 import pytest
@@ -1463,7 +1463,7 @@ def test_funding_v2_corners(node_factory, bitcoind):
     assert l1.rpc.openchannel_update(start['channel_id'], start['psbt'])['commitments_secured']
 
 
-@unittest.skipIf(SLOW_MACHINE and not VALGRIND, "Way too taxing on CI machines")
+@pytest.mark.slow_test
 @pytest.mark.openchannel('v1')
 def test_funding_cancel_race(node_factory, bitcoind, executor):
     l1 = node_factory.get_node()
@@ -1474,7 +1474,7 @@ def test_funding_cancel_race(node_factory, bitcoind, executor):
     bitcoind.generate_block(1)
     wait_for(lambda: len(l1.rpc.listfunds()["outputs"]) != 0)
 
-    if node_factory.valgrind:
+    if VALGRIND:
         num = 5
     else:
         num = 100
@@ -1536,7 +1536,7 @@ def test_funding_cancel_race(node_factory, bitcoind, executor):
     assert num_cancel == len(nodes)
 
     # We should have raced at least once!
-    if not node_factory.valgrind:
+    if not VALGRIND:
         assert num_cancel > 0
         assert num_complete > 0
 
@@ -1544,7 +1544,7 @@ def test_funding_cancel_race(node_factory, bitcoind, executor):
     executor.map(lambda n: n.stop(), node_factory.nodes)
 
 
-@unittest.skipIf(SLOW_MACHINE and not VALGRIND, "Way too taxing on CI machines")
+@pytest.mark.slow_test
 @pytest.mark.openchannel('v2')
 def test_funding_v2_cancel_race(node_factory, bitcoind, executor):
     l1 = node_factory.get_node()
@@ -1555,7 +1555,7 @@ def test_funding_v2_cancel_race(node_factory, bitcoind, executor):
     bitcoind.generate_block(1)
     wait_for(lambda: len(l1.rpc.listfunds()["outputs"]) != 0)
 
-    if node_factory.valgrind:
+    if VALGRIND:
         num = 5
     else:
         num = 100
@@ -1610,7 +1610,7 @@ def test_funding_v2_cancel_race(node_factory, bitcoind, executor):
     print("Cancelled {} complete {}".format(num_cancel, num_complete))
 
     # We should have raced at least once!
-    if not node_factory.valgrind:
+    if not VALGRIND:
         assert num_cancel > 0
         assert num_complete > 0
 
@@ -3452,7 +3452,7 @@ def test_feerate_stress(node_factory, executor):
 @pytest.mark.slow_test
 def test_pay_disconnect_stress(node_factory, executor):
     """Expose race in htlc restoration in channeld: 50% chance of failure"""
-    if node_factory.valgrind:
+    if VALGRIND:
         NUM_RUNS = 2
     else:
         NUM_RUNS = 5

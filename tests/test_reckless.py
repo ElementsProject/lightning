@@ -2,7 +2,7 @@ from fixtures import *  # noqa: F401,F403
 import subprocess
 from pathlib import PosixPath, Path
 import socket
-from pyln.testing.utils import VALGRIND, SLOW_MACHINE
+from pyln.testing.utils import VALGRIND
 import pytest
 import os
 import re
@@ -352,7 +352,7 @@ def test_tag_install(node_factory):
 
 
 @pytest.mark.flaky(reruns=5)
-@unittest.skipIf(VALGRIND and SLOW_MACHINE, "node too slow for starting plugin under valgrind")
+@pytest.mark.slow_test
 def test_reckless_uv_install(node_factory):
     node = get_reckless_node(node_factory)
     node.start()
