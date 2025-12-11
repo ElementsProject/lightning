@@ -1851,8 +1851,8 @@ def test_onchaind_replay(node_factory, bitcoind):
 
     # Wait for nodes to notice the failure, this seach needle is after the
     # DB commit so we're sure the tx entries in onchaindtxs have been added
-    l1.daemon.wait_for_log("Deleting channel .* due to the funding outpoint being spent")
-    l2.daemon.wait_for_log("Deleting channel .* due to the funding outpoint being spent")
+    l1.daemon.wait_for_log("closing soon due to the funding outpoint being spent")
+    l2.daemon.wait_for_log("closing soon due to the funding outpoint being spent")
 
     # We should at least have the init tx now
     assert len(l1.db_query("SELECT * FROM channeltxs;")) > 0
