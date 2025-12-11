@@ -4492,6 +4492,20 @@ def test_offer(node_factory, bitcoind):
                                       offer['bolt12']]).decode('UTF-8')
     assert 'recurrence_optional: every 600 seconds limit 5\n' in output
 
+    # Test that description is returned in disableoffer and enableoffer
+    offer_desc = 'Test description returned'
+    ret = l1.rpc.call('offer', {'amount': '100000sat',
+                                'description': offer_desc})
+
+    # Description is not present in offer response
+    assert 'description' not in ret
+    # Description is returned in disableoffer
+    disable_ret = l1.rpc.call('disableoffer', {'offer_id': ret['offer_id']})
+    assert disable_ret['description'] == offer_desc
+    # Description is returned in enableoffer
+    enable_ret = l1.rpc.call('enableoffer', {'offer_id': ret['offer_id']})
+    assert enable_ret['description'] == offer_desc
+
 
 def test_offer_deprecated_api(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, opts={'allow-deprecated-apis': True})
