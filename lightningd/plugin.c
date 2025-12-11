@@ -2244,12 +2244,14 @@ bool plugins_config(struct plugins *plugins)
 
 struct plugin_set_return {
 	struct command *cmd;
-	const char *val;
+	const char **vals;
+	size_t nvals;
 	const char *optname;
 	bool transient;
 	struct command_result *(*success)(struct command *,
 					  const struct opt_table *,
-					  const char *,
+					  const char **,
+					  size_t,
 					  bool);
 };
 
@@ -2291,7 +2293,7 @@ static void plugin_setconfig_done(const char *buffer,
 	t = json_get_member(buffer, toks, "result");
 	if (!t)
 		goto bad_response;
-	was_pending(psr->success(psr->cmd, ot, psr->val, psr->transient));
+	was_pending(psr->success(psr->cmd, ot, psr->vals, psr->nvals, psr->transient));
 	return;
 
 bad_response:
@@ -2305,12 +2307,14 @@ bad_response:
 
 struct command_result *plugin_set_dynamic_opt(struct command *cmd,
 					      const struct opt_table *ot,
-					      const char *val,
+					      const char **vals,
+					      size_t nvals,
 					      bool transient,
 					      struct command_result *(*success)
 					      (struct command *,
 					       const struct opt_table *,
-					       const char *,
+					       const char **,
+					       size_t,
 					       bool))
 {
 	struct plugin_opt *popt;
@@ -2325,8 +2329,9 @@ struct command_result *plugin_set_dynamic_opt(struct command *cmd,
 
 	psr = tal(cmd, struct plugin_set_return);
 	psr->cmd = cmd;
-	/* val is a child of cmd, so no copy needed. */
-	psr->val = val;
+	/* vals is a child of cmd, so no copy needed. */
+	psr->vals = vals;
+	psr->nvals = nvals;
 	psr->optname = tal_strdup(psr, ot->names + 2);
 	psr->success = success;
 	psr->transient = transient;
@@ -2349,8 +2354,15 @@ struct command_result *plugin_set_dynamic_opt(struct command *cmd,
 					    psr);
 	}
 	json_add_string(req->stream, "config", psr->optname);
-	if (psr->val)
-		json_add_string(req->stream, "val", psr->val);
+	/* Multi options: send array. Scalar: send single value or nothing. */
+	if (ot->type & OPT_MULTI) {
+		json_array_start(req->stream, "val");
+		for (size_t i = 0; i < nvals; i++)
+			json_add_string(req->stream, NULL, vals[i]);
+		json_array_end(req->stream);
+	} else if (nvals > 0 && vals[0]) {
+		json_add_string(req->stream, "val", vals[0]);
+	}
 	jsonrpc_request_end(req);
 	plugin_request_send(plugin, req);
 	return command_still_pending(cmd);

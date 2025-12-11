@@ -4584,6 +4584,77 @@ def test_setconfig_changed(node_factory, bitcoind):
         l1.rpc.setconfig(config="min-capacity-sat", val=9999)
 
 
+def test_setconfig_dynamic_multi_option(node_factory, bitcoind):
+    """Test setconfig with multi-value dynamic plugin options (issue #8295)."""
+    pluginpath = os.path.join(os.getcwd(), 'tests/plugins/dynamic_multi_option.py')
+    l1 = node_factory.get_node(options={'plugin': pluginpath})
+
+    configfile = os.path.join(l1.daemon.opts.get("lightning-dir"), TEST_NETWORK, 'config')
+    setconfigfile = configfile + ".setconfig"
+
+    with pytest.raises(RpcError, match='is a multi option.*val must be an array'):
+        l1.rpc.setconfig(config='test-multi-dynamic', val='single-value')
+
+    with pytest.raises(RpcError, match='is not a multi option.*val must not be an array'):
+        l1.rpc.setconfig(config='min-capacity-sat', val=['1000', '2000'])
+
+    assert l1.rpc.call('dynamic-multi-report')['test-multi-dynamic'] is None
+
+    # Transient before any permanent values exist
+    ret = l1.rpc.setconfig(config='test-multi-dynamic', val=['transient1'], transient=True)
+    assert 'transient' in ret['config']['sources'][0]
+    assert l1.rpc.call('dynamic-multi-report')['test-multi-dynamic'] == ['transient1']
+    assert not os.path.exists(setconfigfile)
+
+    # This used to crash with SIGABRT (issue #8295)
+    ret = l1.rpc.setconfig(config='test-multi-dynamic', val=['value1', 'value2'])
+    assert ret['config']['config'] == 'test-multi-dynamic'
+    assert ret['config']['values_str'] == ['value1', 'value2']
+    assert ret['config']['dynamic'] is True
+    assert l1.rpc.call('dynamic-multi-report')['test-multi-dynamic'] == ['value1', 'value2']
+
+    with open(setconfigfile, 'r') as f:
+        lines = f.read().splitlines()
+        assert "test-multi-dynamic=value1" in lines
+        assert "test-multi-dynamic=value2" in lines
+
+    # Replaces, doesn't append
+    ret = l1.rpc.setconfig(config='test-multi-dynamic', val=['new1', 'new2'])
+    assert ret['config']['values_str'] == ['new1', 'new2']
+    assert l1.rpc.call('dynamic-multi-report')['test-multi-dynamic'] == ['new1', 'new2']
+
+    # Empty strings and duplicates are preserved
+    ret = l1.rpc.setconfig(config='test-multi-dynamic', val=['a', '', 'a'])
+    assert ret['config']['values_str'] == ['a', '', 'a']
+    assert l1.rpc.call('dynamic-multi-report')['test-multi-dynamic'] == ['a', '', 'a']
+
+    # Transient overrides permanent
+    ret = l1.rpc.setconfig(config='test-multi-dynamic', val=['transient_override'], transient=True)
+    assert ret['config']['values_str'] == ['transient_override']
+    assert 'transient' in ret['config']['sources'][0]
+    assert l1.rpc.call('dynamic-multi-report')['test-multi-dynamic'] == ['transient_override']
+
+    # Permanent clears transient
+    ret = l1.rpc.setconfig(config='test-multi-dynamic', val=['back_to_perm'])
+    assert ret['config']['values_str'] == ['back_to_perm']
+    assert 'transient' not in ret['config']['sources'][0]
+
+    # Empty array clears all values
+    ret = l1.rpc.setconfig(config='test-multi-dynamic', val=[])
+    assert ret['config']['values_str'] == []
+    assert l1.rpc.call('dynamic-multi-report')['test-multi-dynamic'] == []
+
+    # Persistent!
+    l1.rpc.setconfig(config='test-multi-dynamic', val=['persist1', 'persist2'])
+    l1.restart()
+    assert l1.rpc.call('dynamic-multi-report')['test-multi-dynamic'] == ['persist1', 'persist2']
+
+    # Plugin can reject
+    with pytest.raises(RpcError, match="I don't like reject-me"):
+        l1.rpc.setconfig(config='test-multi-dynamic', val=['reject-me'])
+    assert l1.rpc.call('dynamic-multi-report')['test-multi-dynamic'] == ['persist1', 'persist2']
+
+
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "deletes database, which is assumed sqlite3")
 def test_recover_command(node_factory, bitcoind):
     l1, l2 = node_factory.get_nodes(2)

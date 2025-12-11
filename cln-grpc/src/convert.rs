@@ -2585,11 +2585,15 @@ impl From<responses::SetconfigConfig> for pb::SetconfigConfig {
             dynamic: c.dynamic, // Rule #2 for type boolean
             plugin: c.plugin, // Rule #2 for type string?
             set: c.set, // Rule #2 for type boolean?
-            source: c.source, // Rule #2 for type string
+            source: c.source, // Rule #2 for type string?
+            // Field: SetConfig.config.sources[]
+            sources: c.sources.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
             value_bool: c.value_bool, // Rule #2 for type boolean?
             value_int: c.value_int, // Rule #2 for type integer?
             value_msat: c.value_msat.map(|f| f.into()), // Rule #2 for type msat?
             value_str: c.value_str, // Rule #2 for type string?
+            // Field: SetConfig.config.values_str[]
+            values_str: c.values_str.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
         }
     }
 }
