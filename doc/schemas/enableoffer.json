@@ -57,6 +57,13 @@
           "The bolt12 string representing this offer."
         ]
       },
+      "description": {
+        "added": "v26.04",
+        "type": "string",
+        "description": [
+          "The user-specified bolt 12 description."
+        ]
+      },
       "used": {
         "type": "boolean",
         "description": [
@@ -105,6 +112,7 @@
         "active": true,
         "single_use": false,
         "bolt12": "lno1qgsq000bolt230002300023000230002300023000230002300023000230002300023000230002300023000230002300023000230002300023000230002300023000",
+        "description": "Movie ticket",
         "used": false
       }
     }
