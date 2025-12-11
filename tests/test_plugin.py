@@ -2191,7 +2191,6 @@ def test_plugin_fail(node_factory):
     l1.daemon.wait_for_log(r': exited during normal operation')
 
 
-@pytest.mark.flaky(reruns=5)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 def test_coin_movement_notices(node_factory, bitcoind, chainparams):
@@ -2268,6 +2267,9 @@ def test_coin_movement_notices(node_factory, bitcoind, chainparams):
     route = l2.rpc.getroute(l1.info['id'], amount // 2, 1)['route']
     l2.rpc.sendpay(route, payment_hash21, payment_secret=inv['payment_secret'])
     l2.rpc.waitsendpay(payment_hash21)
+
+    # Make sure coin_movements.py sees event before we restart!
+    l2.daemon.wait_for_log(f"plugin-coin_movements.py: coin movement: .*'payment_hash': '{payment_hash21}'")
 
     # restart to test index
     l2.restart()
