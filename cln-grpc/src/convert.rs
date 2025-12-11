@@ -1333,7 +1333,7 @@ impl From<responses::ListpeerchannelsChannels> for pb::ListpeerchannelsChannels 
             close_to: c.close_to.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
             close_to_addr: c.close_to_addr, // Rule #2 for type string?
             closer: c.closer.map(|v| v as i32),
-            direction: c.direction, // Rule #2 for type u32?
+            direction: c.direction, // Rule #2 for type integer?
             dust_limit_msat: c.dust_limit_msat.map(|f| f.into()), // Rule #2 for type msat?
             fee_base_msat: c.fee_base_msat.map(|f| f.into()), // Rule #2 for type msat?
             fee_proportional_millionths: c.fee_proportional_millionths, // Rule #2 for type u32?
