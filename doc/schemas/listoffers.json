@@ -70,6 +70,13 @@
                 "The bolt12 encoding of the offer."
               ]
             },
+            "description": {
+              "added": "v26.04",
+              "type": "string",
+              "description": [
+                "The user-specified bolt 12 description."
+              ]
+            },
             "used": {
               "type": "boolean",
               "description": [
@@ -113,6 +120,7 @@
             "active": true,
             "single_use": false,
             "bolt12": "lno1qgsq000bolt210002100021000210002100021000210002100021000210002100021000210002100021000210002100021000210002100021000210002100021000",
+            "description": "Fish sale!",
             "used": false
           },
           {
@@ -120,6 +128,7 @@
             "active": true,
             "single_use": false,
             "bolt12": "lno1qgsq000bolt220002200022000220002200022000220002200022000220002200022000220002200022000220002200022000220002200022000220002200022000",
+            "description": "Coffee",
             "used": false
           },
           {
@@ -127,6 +136,7 @@
             "active": true,
             "single_use": false,
             "bolt12": "lno1qgsq000bolt230002300023000230002300023000230002300023000230002300023000230002300023000230002300023000230002300023000230002300023000",
+            "description": "Movie ticket",
             "used": false
           }
         ]
