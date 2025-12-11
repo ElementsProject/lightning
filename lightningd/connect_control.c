@@ -286,7 +286,8 @@ static void connect_failed(struct lightningd *ld,
 	 * does simply combine those, so we don't get a response per request, and it's a
 	 * very rare corner case (which, unlike the above, doesn't happen in CI!).
 	 */
-	if (strstarts(connect_reason, "connect command")) {
+	if (strstarts(connect_reason, "connect command")
+	    || errcode == CONNECT_DISCONNECTED_DURING) {
 		/* We can have multiple connect commands: fail them all */
 		while ((c = find_connect(ld, id)) != NULL) {
 			/* They delete themselves from list */
