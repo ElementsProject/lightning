@@ -407,9 +407,10 @@ def test_invoice_expiry(node_factory, executor):
 
     # Test expiration waiting.
     # The second invoice created expires first.
-    l2.rpc.invoice('any', 'inv1', 'description', 10)
-    l2.rpc.invoice('any', 'inv2', 'description', 4)
-    l2.rpc.invoice('any', 'inv3', 'description', 16)
+    # Times should be long enough even for our terrible CI runners!
+    l2.rpc.invoice('any', 'inv1', 'description', 16)
+    l2.rpc.invoice('any', 'inv2', 'description', 10)
+    l2.rpc.invoice('any', 'inv3', 'description', 22)
 
     # Check waitinvoice correctly waits
     w1 = executor.submit(l2.rpc.waitinvoice, 'inv1')
@@ -419,19 +420,18 @@ def test_invoice_expiry(node_factory, executor):
     assert not w1.done()
     assert not w2.done()
     assert not w3.done()
-    time.sleep(4)  # total 6
+    time.sleep(7)  # total 9
     assert not w1.done()
 
-    with pytest.raises(RpcError):
+    with pytest.raises(RpcError):  # total 10
         w2.result()
     assert not w3.done()
 
-    time.sleep(6)  # total 12
-    with pytest.raises(RpcError):
+    time.sleep(5)  # total 15
+    with pytest.raises(RpcError):  # total 16
         w1.result()
     assert not w3.done()
 
-    time.sleep(8)  # total 20
     with pytest.raises(RpcError):
         w3.result()
 
@@ -927,7 +927,6 @@ def test_invoices_wait_db_migration(node_factory, bitcoind):
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "This test is based on a sqlite3 snapshot")
 @unittest.skipIf(TEST_NETWORK != 'regtest', "The DB migration is network specific due to the chain var.")
-@pytest.mark.flaky(reruns=5)
 def test_invoice_botched_migration(node_factory, chainparams):
     """Test for grubles' case, where they ran successfully with the wrong var: they have *both* last_invoice_created_index *and *last_invoices_created_index* (this can happen if invoice id 1 was deleted, so they didn't die on invoice creation):
     Error executing statement: wallet/db.c:1684: UPDATE vars SET name = 'last_invoices_created_index' WHERE name = 'last_invoice_created_index': UNIQUE constraint failed: vars.name

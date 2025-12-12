@@ -681,7 +681,6 @@ def test_coinmoves_unilateral_htlc_before_included(node_factory, bitcoind):
     check_balances(l1, l2, fundchannel['channel_id'], 0)
 
 
-@pytest.mark.flaky(reruns=5)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Amounts are for regtest.")
