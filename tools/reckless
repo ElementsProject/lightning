@@ -1204,8 +1204,10 @@ shebang.add_entrypoint('{name}')
 # An extra installable check to see if a #! is present in the file
 shebang.check = check_for_shebang
 
-INSTALLERS = [shebang, pythonuv, pythonuvlegacy, python3venv, poetryvenv,
-              pyprojectViaPip, nodejs, rust_cargo]
+# Projects may include python dependencies for testing, so give other installers
+# first priority.
+INSTALLERS = [rust_cargo, nodejs, shebang, pythonuv, pythonuvlegacy, python3venv,
+              poetryvenv, pyprojectViaPip]
 
 
 def help_alias(targets: list):
