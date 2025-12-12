@@ -16,7 +16,7 @@ env:
   RUST_PROFILE: release
   SLOW_MACHINE: 1
   CI_SERVER_URL: "http://35.239.136.52:3170"
-  GLOBAL_PYTEST_OPTS: "--reruns=10 -vvv"
+  PYTEST_OPTS_BASE: "--reruns=10 -vvv --junit-xml=report.xml --timeout=1800 --durations=10"
 
 jobs:
   prebuild:
@@ -90,9 +90,16 @@ jobs:
       - name: Check source
         env:
           VALGRIND: 0
-          PYTEST_OPTS: --timeout=1200 --durations=10
+          PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }}
         run: |
           uv run make check-source BASE_REF="origin/${{ github.base_ref }}"
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-results-prebuild
+          path: report.xml
+          if-no-files-found: ignore
       - name: Check Generated Files have been updated
         run: uv run make check-gen-updated
       - name: Check docs
@@ -311,10 +318,18 @@ jobs:
           LIGHTNINGD_POSTGRES_NO_VACUUM: 1
           VALGRIND: ${{ matrix.VALGRIND }}
           PREV_LIGHTNINGD: /tmp/old-cln/usr/bin/lightningd
+          PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }}
         run: |
           env
           cat config.vars
-          uv run eatmydata pytest tests/test_downgrade.py ${GLOBAL_PYTEST_OPTS} -n ${PYTEST_PAR} ${PYTEST_OPTS}
+          uv run eatmydata pytest tests/test_downgrade.py -n ${PYTEST_PAR} ${PYTEST_OPTS}
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-results-check-downgrade-${{ matrix.TEST_DB_PROVIDER }}-${{ matrix.TEST_NETWORK }}
+          path: report.xml
+          if-no-files-found: ignore
 
   integration:
     name: Test CLN ${{ matrix.name }}
@@ -322,7 +337,7 @@ jobs:
     timeout-minutes: 120
     env:
       RUST_PROFILE: release # Has to match the one in the compile step
-      PYTEST_OPTS: --timeout=1200 --durations=10
+      PYTEST_OPTS: --reruns=10 -vvv --junit-xml=report.xml --timeout=1800 --durations=10
     needs:
       - compile
     strategy:
@@ -422,7 +437,14 @@ jobs:
         run: |
           env
           cat config.vars
-          VALGRIND=0 uv run eatmydata pytest tests/ -vvv ${GLOBAL_PYTEST_OPTS} -n ${PYTEST_PAR} ${PYTEST_OPTS}
+          VALGRIND=0 uv run eatmydata pytest tests/ -n ${PYTEST_PAR} ${PYTEST_OPTS}
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-results-integration-${{ matrix.name }}
+          path: report.xml
+          if-no-files-found: ignore
 
   integration-valgrind:
     name: Valgrind Test CLN ${{ matrix.name }}
@@ -431,7 +453,7 @@ jobs:
     env:
       RUST_PROFILE: release # Has to match the one in the compile step
       CFG: compile-gcc
-      PYTEST_OPTS: --test-group-random-seed=42 --timeout=1800 --durations=10 --reruns=10
+      PYTEST_OPTS: --reruns=10 -vvv --junit-xml=report.xml --timeout=1800 --durations=10 --test-group-random-seed=42
     needs:
       - compile
     strategy:
@@ -440,24 +462,34 @@ jobs:
         include:
           - NAME: Valgrind (01/10)
             PYTEST_OPTS: --test-group=1  --test-group-count=10
+            CFG: "01"
           - NAME: Valgrind (02/10)
             PYTEST_OPTS: --test-group=2  --test-group-count=10
+            CFG: "02"
           - NAME: Valgrind (03/10)
             PYTEST_OPTS: --test-group=3  --test-group-count=10
+            CFG: "03"
           - NAME: Valgrind (04/10)
             PYTEST_OPTS: --test-group=4  --test-group-count=10
+            CFG: "04"
           - NAME: Valgrind (05/10)
             PYTEST_OPTS: --test-group=5  --test-group-count=10
+            CFG: "05"
           - NAME: Valgrind (06/10)
             PYTEST_OPTS: --test-group=6  --test-group-count=10
+            CFG: "06"
           - NAME: Valgrind (07/10)
             PYTEST_OPTS: --test-group=7  --test-group-count=10
+            CFG: "07"
           - NAME: Valgrind (08/10)
             PYTEST_OPTS: --test-group=8  --test-group-count=10
+            CFG: "08"
           - NAME: Valgrind (09/10)
             PYTEST_OPTS: --test-group=9  --test-group-count=10
+            CFG: "09"
           - NAME: Valgrind (10/10)
             PYTEST_OPTS: --test-group=10 --test-group-count=10
+            CFG: "10"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -492,7 +524,14 @@ jobs:
           SLOW_MACHINE: 1
           TEST_DEBUG: 1
         run: |
-          VALGRIND=1 uv run eatmydata pytest tests/ ${GLOBAL_PYTEST_OPTS} -n 3 ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}
+          VALGRIND=1 uv run eatmydata pytest tests/ -n 3 ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-results-integration-valgrind-${{ matrix.CFG }}
+          path: report.xml
+          if-no-files-found: ignore
 
   integration-sanitizers:
     name: Sanitizers Test CLN
@@ -502,7 +541,7 @@ jobs:
       RUST_PROFILE: release
       SLOW_MACHINE: 1
       TEST_DEBUG: 1
-      PYTEST_OPTS: --test-group-random-seed=42 --timeout=1800 --durations=10 --reruns=10
+      PYTEST_OPTS: --reruns=10 -vvv --junit-xml=report.xml --timeout=1800 --durations=10 --test-group-random-seed=42 
     needs:
       - compile
     strategy:
@@ -562,7 +601,14 @@ jobs:
 
       - name: Test
         run: |
-          uv run eatmydata pytest tests/ ${GLOBAL_PYTEST_OPTS} -n 2 ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}
+          uv run eatmydata pytest tests/ -n 2 ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-results-integration-sanitizers-${{ matrix.NAME }}
+          path: report.xml
+          if-no-files-found: ignore
 
   update-docs-examples:
     name: Update examples in doc schemas (disabled temporarily!)
@@ -574,7 +620,7 @@ jobs:
     env:
       VALGRIND: 0
       GENERATE_EXAMPLES: 1
-      PYTEST_OPTS: --timeout=1200 --durations=10
+      PYTEST_OPTS: --reruns=10 -vvv --junit-xml=report.xml --timeout=1800 --durations=10
       TEST_NETWORK: regtest
     needs:
       - compile
@@ -606,6 +652,13 @@ jobs:
       - name: Test
         run: |
           uv run eatmydata make -j $(nproc) check-doc-examples
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-results-update-docs-examples
+          path: report.xml
+          if-no-files-found: ignore
 
   min-btc-support:
     name: Test minimum supported BTC v${{ matrix.MIN_BTC_VERSION }} with ${{ matrix.NAME }}
@@ -613,7 +666,7 @@ jobs:
     timeout-minutes: 120
     env:
       RUST_PROFILE: release # Has to match the one in the compile step
-      PYTEST_OPTS: --timeout=1200 --durations=10
+      PYTEST_OPTS: --reruns=10 -vvv --junit-xml=report.xml --timeout=1800 --durations=10
     needs:
       - compile
     strategy:
@@ -679,7 +732,14 @@ jobs:
         run: |
           env
           cat config.vars
-          VALGRIND=0 uv run eatmydata pytest tests/ ${GLOBAL_PYTEST_OPTS} -n ${PYTEST_PAR} ${PYTEST_OPTS}
+          VALGRIND=0 uv run eatmydata pytest tests/ -n ${PYTEST_PAR} ${PYTEST_OPTS}
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-results-min-btc-support-${{ matrix.NAME }}
+          path: report.xml
+          if-no-files-found: ignore
 
 
   gather:
