@@ -1070,6 +1070,13 @@ parse_request(struct json_connection *jcon,
 				    "Expected string for method");
 	}
 
+	c->json_cmd = find_cmd(jcon->ld->jsonrpc, buffer, method);
+	if (!c->json_cmd) {
+		return command_fail(
+		    c, JSONRPC2_METHOD_NOT_FOUND, "Unknown command '%.*s'",
+		    method->end - method->start, buffer + method->start);
+	}
+
 	if (filter) {
 		struct command_result *ret;
 		ret = parse_filter(c, "filter", buffer, filter);
@@ -1081,12 +1088,6 @@ parse_request(struct json_connection *jcon,
 	 * actually just logging the id */
 	log_io(jcon->log, LOG_IO_IN, NULL, c->id, NULL, 0);
 
-	c->json_cmd = find_cmd(jcon->ld->jsonrpc, buffer, method);
-	if (!c->json_cmd) {
-		return command_fail(
-		    c, JSONRPC2_METHOD_NOT_FOUND, "Unknown command '%.*s'",
-		    method->end - method->start, buffer + method->start);
-	}
 	if (!command_deprecated_in_ok(c, NULL,
 				      c->json_cmd->depr_start,
 				      c->json_cmd->depr_end)) {
