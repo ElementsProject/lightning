@@ -4168,6 +4168,7 @@ message XpayRequest {
 	optional uint32 retry_for = 5;
 	optional Amount partial_msat = 6;
 	optional uint32 maxdelay = 7;
+	optional string payer_note = 8;
 }
 
 message XpayResponse {
