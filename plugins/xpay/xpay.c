@@ -1821,10 +1821,10 @@ do_fetchinvoice(struct command *cmd, const char *offerstr, struct xpay_params *x
 	json_add_string(req->js, "offer", offerstr);
 	if (xparams->msat)
 		json_add_amount_msat(req->js, "amount_msat", *xparams->msat);
-    if (xparams->bip353)
-        json_add_string(req->js, "bip353", xparams->bip353);
-    if (xparams->payer_note)
-        json_add_string(req->js, "payer_note", xparams->payer_note);
+        if (xparams->bip353)
+            json_add_string(req->js, "bip353", xparams->bip353);
+        if (xparams->payer_note)
+            json_add_string(req->js, "payer_note", xparams->payer_note);
 
     return send_outreq(req);
 }
@@ -1871,8 +1871,8 @@ static struct command_result *json_xpay_params(struct command *cmd,
 	const char *invstring;
 	const char **layers;
 	u32 *maxdelay;
-    const char *payer_note;
-    unsigned int *retryfor;
+        const char *payer_note;
+        unsigned int *retryfor;
 	struct out_req *req;
 	struct xpay_params *xparams;
 
