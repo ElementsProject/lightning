@@ -1,6 +1,6 @@
-use crate::{
+use crate::proto::{
     jsonrpc::{JsonRpcRequest, RpcError},
-    lsps0::primitives::{DateTime, Msat, Ppm, ShortChannelId},
+    lsps0::{DateTime, Msat, Ppm, ShortChannelId},
 };
 use bitcoin::hashes::{sha256, Hash, HashEngine, Hmac, HmacEngine};
 use chrono::Utc;
@@ -12,54 +12,70 @@ pub mod failure_codes {
     pub const UNKNOWN_NEXT_PEER: &'static str = "4010";
 }
 
+// Lsps2 specific error codes defined in BLIP-52.
+// Are in the range 00200 to 00299.
+pub mod error_codes {
+    pub const INVALID_OPENING_FEE_PARAMS: i64 = 201;
+    pub const PAYMENT_SIZE_TOO_SMALL: i64 = 202;
+    pub const PAYMENT_SIZE_TOO_LARGE: i64 = 203;
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Error {
     InvalidOpeningFeeParams,
     PaymentSizeTooSmall,
     PaymentSizeTooLarge,
-    ClientRejected,
 }
 
 impl core::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let err_str = match self {
-            Error::InvalidOpeningFeeParams => "invalid opening fee params",
-            Error::PaymentSizeTooSmall => "payment size too small",
-            Error::PaymentSizeTooLarge => "payment size too large",
-            Error::ClientRejected => "client rejected",
+            Error::InvalidOpeningFeeParams => "Invalid opening fee params",
+            Error::PaymentSizeTooSmall => "Payment size too small",
+            Error::PaymentSizeTooLarge => "Payment size too large",
         };
         write!(f, "{}", &err_str)
     }
 }
 
 impl From<Error> for RpcError {
-    fn from(value: Error) -> Self {
-        match value {
-            Error::InvalidOpeningFeeParams => RpcError {
-                code: 201,
-                message: "invalid opening fee params".to_string(),
-                data: None,
-            },
-            Error::PaymentSizeTooSmall => RpcError {
-                code: 202,
-                message: "payment size too small".to_string(),
-                data: None,
-            },
-            Error::PaymentSizeTooLarge => RpcError {
-                code: 203,
-                message: "payment size too large".to_string(),
-                data: None,
-            },
-            Error::ClientRejected => RpcError {
-                code: 001,
-                message: "client rejected".to_string(),
-                data: None,
-            },
+    fn from(error: Error) -> Self {
+        match error {
+            Error::InvalidOpeningFeeParams => RpcError::invalid_opening_fee_params(error),
+            Error::PaymentSizeTooSmall => RpcError::payment_size_too_small(error),
+            Error::PaymentSizeTooLarge => RpcError::payment_size_too_large(error),
         }
     }
 }
 
 impl core::error::Error for Error {}
+
+pub trait LSPS2RpcErrorExt {
+    rpc_error_methods! {
+        invalid_opening_fee_params => error_codes::INVALID_OPENING_FEE_PARAMS,
+        payment_size_too_small => error_codes::PAYMENT_SIZE_TOO_SMALL,
+        payment_size_too_large => error_codes::PAYMENT_SIZE_TOO_LARGE
+    }
+}
+
+impl LSPS2RpcErrorExt for RpcError {}
+
+pub trait ShortChannelIdJITExt {
+    fn generate_jit(blockheight: u32, distance: u32) -> Self;
+}
+
+impl ShortChannelIdJITExt for ShortChannelId {
+    fn generate_jit(blockheight: u32, distance: u32) -> Self {
+        use rand::{rng, Rng as _};
+
+        let mut rng = rng();
+        let block = blockheight + distance;
+        let tx_idx: u32 = rng.random_range(0..5000);
+        let output_idx: u16 = rng.random_range(0..10);
+
+        (((block as u64) << 40) | ((tx_idx as u64) << 16) | (output_idx as u64)).into()
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Lsps2GetInfoRequest {
@@ -99,7 +115,7 @@ impl core::error::Error for PromiseError {}
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(try_from = "String")]
-pub struct Promise(String);
+pub struct Promise(pub String);
 
 impl Promise {
     pub const MAX_BYTES: usize = 512;
@@ -259,6 +275,8 @@ impl From<Lsps2GetInfoRequest> for Lsps2PolicyGetInfoRequest {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Lsps2PolicyGetInfoResponse {
     pub policy_opening_fee_params_menu: Vec<PolicyOpeningFeeParams>,
+    #[serde(default)]
+    pub client_rejected: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -302,6 +320,19 @@ impl PolicyOpeningFeeParams {
             .map(|b| format!("{:02x}", b))
             .collect();
         promise
+    }
+
+    pub fn with_promise(&self, secret: &[u8; 32]) -> OpeningFeeParams {
+        OpeningFeeParams {
+            min_fee_msat: self.min_fee_msat,
+            proportional: self.proportional,
+            valid_until: self.valid_until,
+            min_lifetime: self.min_lifetime,
+            max_client_to_self_delay: self.max_client_to_self_delay,
+            min_payment_size_msat: self.min_payment_size_msat,
+            max_payment_size_msat: self.max_payment_size_msat,
+            promise: Promise(self.get_hmac_hex(secret)),
+        }
     }
 }
 
