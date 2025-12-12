@@ -5042,3 +5042,27 @@ def test_zero_locktime_blocks(node_factory, bitcoind):
     l2.rpc.close(l3.info['id'])
     bitcoind.generate_block(1, wait_for_mempool=2)
     sync_blockheight(bitcoind, [l1, l2, l3])
+
+
+def test_filter_with_invalid_json(node_factory):
+    # This crashes only in *non-developer mode*: it uses command_log()
+    # in that case (since it doesn't print the invalid token in
+    # non-dev mode), and that expects cmd->json_cmd to be populated!`
+    l1 = node_factory.get_node(start=False)
+    l1.daemon.early_opts = []
+    l1.daemon.opts = {k: v for k, v in l1.daemon.opts.items() if not k.startswith('dev')}
+    l1.start()
+
+    out = subprocess.run(['cli/lightning-cli',
+                          '--network={}'.format(TEST_NETWORK),
+                          '--lightning-dir={}'
+                          .format(l1.daemon.lightning_dir),
+                          '-l', '1',
+                          '-k',
+                          'wait',
+                          'subsystem=invoices',
+                          'indexname=created',
+                          'nextvalue=0'],
+                         stdout=subprocess.PIPE)
+    assert 'filter: Expected object: invalid token' in out.stdout.decode('utf-8')
+    assert out.returncode == 1
