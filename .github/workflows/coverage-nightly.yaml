@@ -34,9 +34,17 @@ jobs:
       - name: Install dependencies
         run: bash -x .github/scripts/setup.sh
 
+      - name: Install Clang 18 for coverage
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 18
+          sudo ln -sf /usr/bin/clang-18 /usr/bin/clang
+          sudo ln -sf /usr/bin/clang++-18 /usr/bin/clang++
+
       - name: Build with coverage instrumentation
         run: |
-          ./configure --enable-debugbuild --enable-coverage CC=clang
+          ./configure --enable-debugbuild --enable-coverage CC=clang-18
           uv run make -j $(nproc) testpack.tar.bz2
 
       - name: Upload build artifact

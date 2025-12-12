@@ -61,6 +61,12 @@ CORRUPT_COUNT=$((TOTAL - ${#VALID_FILES[@]}))
 
 if [ ${#VALID_FILES[@]} -eq 0 ]; then
     echo "ERROR: No valid .profraw files found (all $CORRUPT_COUNT files were corrupt/incomplete)"
+    echo ""
+    echo "Sample validation error from first file:"
+    llvm-profdata show "${PROFRAW_FILES[0]}" 2>&1 | head -10
+    echo ""
+    echo "File size: $(stat -c%s "${PROFRAW_FILES[0]}" 2>/dev/null || stat -f%z "${PROFRAW_FILES[0]}" 2>/dev/null) bytes"
+    echo "File: ${PROFRAW_FILES[0]}"
     exit 1
 fi
 
