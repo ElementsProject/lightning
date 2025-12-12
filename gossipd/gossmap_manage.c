@@ -893,6 +893,21 @@ static const char *process_channel_update(const tal_t *ctx,
 	return NULL;
 }
 
+/* We don't check this when loading from the gossip_store: that would break
+ * our canned tests, and usually old gossip is better than no gossip */
+static bool timestamp_reasonable(const struct daemon *daemon, u32 timestamp)
+{
+	u64 now = clock_time().ts.tv_sec;
+
+	/* More than one day ahead? */
+	if (timestamp > now + 24*60*60)
+		return false;
+	/* More than 2 weeks behind? */
+	if (timestamp < now - GOSSIP_PRUNE_INTERVAL(daemon->dev_fast_gossip_prune))
+		return false;
+	return true;
+}
+
 const char *gossmap_manage_channel_update(const tal_t *ctx,
 					  struct gossmap_manage *gm,
 					  const u8 *update TAKES,

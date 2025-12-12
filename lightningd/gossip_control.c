@@ -302,14 +302,11 @@ static void gossipd_init_done(struct subd *gossipd,
 void gossip_init(struct lightningd *ld, int connectd_fd)
 {
 	u8 *msg;
-	int hsmfd;
 	void *ret;
-
-	hsmfd = hsm_get_global_fd(ld, HSM_PERM_ECDH|HSM_PERM_SIGN_GOSSIP);
 
 	ld->gossip = new_global_subd(ld, "lightning_gossipd",
 				     gossipd_wire_name, gossip_msg,
-				     take(&hsmfd), take(&connectd_fd), NULL);
+				     take(&connectd_fd), NULL);
 	if (!ld->gossip)
 		err(1, "Could not subdaemon gossip");
 
