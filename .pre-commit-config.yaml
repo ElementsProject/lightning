@@ -18,6 +18,19 @@ repos:
     - id: shellcheck
       args: [ -fgcc ]
 
+- repo: https://github.com/pre-commit/mirrors-clang-format
+  rev: v19.1.4
+  hooks:
+    - id: clang-format
+      description: Runs formatting checks on the c code and and throws errors if suggestions
+        are detected, without modifying the code. Style is defined in `.clang-format`. When
+        encountering formatting-related errors, run `clang-format -i <path-to-file>` to make
+        (destructively) the suggestions and evalute the resulting diff for more context.
+      args: [ --dry-run, -Werror ]
+      entry: clang-format
+      types: [ c ]
+      stages: [ manual ]
+
 - repo: https://github.com/python-jsonschema/check-jsonschema
   rev: 0.30.0
   hooks:
