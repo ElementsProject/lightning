@@ -535,6 +535,7 @@ impl<A: ClnApi> HtlcAcceptedHookHandler<A> {
         let mut is_active = false;
         while !is_active {
             let ls_ch_req = ListpeerchannelsRequest {
+                channel_id: None,
                 id: Some(ds_rec.peer_id),
                 short_channel_id: None,
             };

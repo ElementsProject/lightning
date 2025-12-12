@@ -2007,6 +2007,8 @@ pub mod requests {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListpeerchannelsRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub channel_id: Option<Sha256>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub id: Option<PublicKey>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub short_channel_id: Option<ShortChannelId>,

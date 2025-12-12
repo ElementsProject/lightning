@@ -6,6 +6,7 @@
 #include <ccan/tal/str/str.h>
 #include <channeld/channeld_wiregen.h>
 #include <common/addr.h>
+#include <common/channel_id.h>
 #include <common/htlc_trim.h>
 #include <common/initial_commit_tx.h>
 #include <common/json_channel_type.h>
@@ -2631,16 +2632,22 @@ static struct command_result *json_listpeerchannels(struct command *cmd,
 	struct peer *peer;
 	struct json_stream *response;
 	struct short_channel_id *scid;
+	struct channel_id *cid;
 
 	if (!param_check(cmd, buffer, params,
 			 p_opt("id", param_node_id, &peer_id),
 			 p_opt("short_channel_id", param_short_channel_id, &scid),
+			 p_opt("channel_id", param_channel_id, &cid),
 			 NULL))
 		return command_param_failed();
 
-	if (scid && peer_id)
+	int count = (peer_id != NULL) + (scid != NULL) + (cid != NULL);
+	if (count > 1) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "Cannot specify both short_channel_id and id");
+				    "Must not specify more than one of "
+					 "short_channel_id, channel_id or id"
+		);
+	}
 
 	response = json_stream_success(cmd);
 	json_array_start(response, "channels");
@@ -2651,6 +2658,10 @@ static struct command_result *json_listpeerchannels(struct command *cmd,
 			json_add_peerchannels(cmd, response, peer);
 	} else if (scid) {
 		const struct channel *c = any_channel_by_scid(cmd->ld, *scid, true);
+		if (c)
+			json_add_channel(cmd, response, NULL, c, c->peer);
+	} else if (cid) {
+		const struct channel *c = channel_by_cid(cmd->ld, cid);
 		if (c)
 			json_add_channel(cmd, response, NULL, c, c->peer);
 	} else {
