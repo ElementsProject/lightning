@@ -703,9 +703,16 @@ void gossmap_manage_handle_get_txout_reply(struct gossmap_manage *gm, const u8 *
 	 *    - MUST ignore the message.
 	 */
 	if (tal_count(outscript) == 0) {
-		peer_warning(gm, pca->source_peer,
-			     "channel_announcement: no unspent txout %s",
-			     fmt_short_channel_id(tmpctx, scid));
+		/* Don't flood them: this happens with pre-25.12 CLN
+		 * nodes, which lost their marbles about some old
+		 * UTXOs. */
+		static struct timemono prev;
+		if (time_greater(timemono_since(prev), time_from_sec(1))) {
+			peer_warning(gm, pca->source_peer,
+				     "channel_announcement: no unspent txout %s",
+				     fmt_short_channel_id(tmpctx, scid));
+			prev = time_mono();
+		}
 		goto bad;
 	}
 
