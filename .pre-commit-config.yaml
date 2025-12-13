@@ -85,3 +85,20 @@ repos:
       entry: '[^a-z_/](?:fgets|fputs|gets|scanf|sprintf)\('
       types: [ c ]
       exclude: ccan|contrib
+
+    - id: include-order-fixer
+      name: Fix Include Order
+      language: python
+      description: Analyzes Core Lightning C source and header files, assesses the order of
+        their include directives according to the published Coding Style Guidelines
+        [here](https://docs.corelightning.org/docs/coding-style-guidelines), automatically
+        applying sorting them. Aims to conform with `make check-includes`.
+      entry: python devtools/include-order-fixer.py
+      stages: [ manual ]
+      pass_filenames: false
+
+    - id: check-includes
+      name: Check Includes
+      language: system
+      entry: make check-includes
+      pass_filenames: false
