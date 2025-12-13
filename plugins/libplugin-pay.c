@@ -101,6 +101,7 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 	p->route = NULL;
 	p->temp_exclusion = NULL;
 	p->failroute_retry = false;
+	p->cltv_budget_exceeded = false;
 	p->routetxt = NULL;
 	p->max_htlcs = UINT32_MAX;
 	p->aborterror = NULL;
@@ -913,6 +914,7 @@ static struct command_result *payment_getroute(struct payment *p)
 	if (p->route[0].delay > p->constraints.cltv_budget) {
 		u32 delay = p->route[0].delay;
 		p->route = tal_free(p->route);
+		p->cltv_budget_exceeded = true;
 		return payment_fail(p, "CLTV delay exceeds our CLTV budget: %d > %d",
 				    delay, p->constraints.cltv_budget);
 	}
@@ -3695,6 +3697,17 @@ static struct command_result *adaptive_splitter_cb(struct adaptive_split_mod_dat
 			    fields, root->payment_secret,
 			    root->final_amount.millisatoshis); /* Raw: onion payload */
 	} else if (p->step == PAYMENT_STEP_FAILED && !p->abort) {
+		/* Limit split depth when CLTV budget exceeded. */
+		if (p->cltv_budget_exceeded) {
+			int split_depth = 0;
+			for (struct payment *pp = p->parent; pp != NULL; pp = pp->parent) {
+				if (pp->step == PAYMENT_STEP_SPLIT)
+					split_depth++;
+			}
+			if (split_depth >= 3)
+				return payment_continue(p);
+		}
+
 		if (amount_msat_greater(p->our_amount, MPP_ADAPTIVE_LOWER_LIMIT)) {
 			struct payment *a, *b;
 			/* Random number in the range [90%, 110%] */
