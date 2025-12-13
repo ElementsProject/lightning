@@ -101,6 +101,9 @@ WARN_UNUSED_RESULT bool amount_sat_add_sat_s64(struct amount_sat *val,
 					       struct amount_sat a,
 					       s64 b);
 
+WARN_UNUSED_RESULT bool amount_msat_can_add_sat_s64(struct amount_msat a,
+						    s64 b);
+
 /* a += b */
 WARN_UNUSED_RESULT bool amount_msat_accumulate(struct amount_msat *a,
 					       struct amount_msat b);
@@ -231,6 +234,9 @@ const char *fmt_amount_msat_btc(const tal_t *ctx,
 				bool append_unit);
 /* => 1234msat */
 char *fmt_amount_msat(const tal_t *ctx, struct amount_msat msat);
+
+/* => 1234.12sat */
+char *fmt_amount_m_as_sat(const tal_t *ctx, struct amount_msat msat);
 
 /* => 1.23456789btc (8 decimals!) */
 const char *fmt_amount_sat_btc(const tal_t *ctx,
