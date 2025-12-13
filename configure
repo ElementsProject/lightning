@@ -46,8 +46,9 @@ usage_with_default()
 # Given DEBUGBUILD, what COPTFLAGS do we default to.
 default_coptflags()
 {
+    printf "%s" "-ffunction-sections"
     if [ "$1" = 0 ]; then
-	echo "-Og"
+	echo " -Og"
     fi
 }
 
