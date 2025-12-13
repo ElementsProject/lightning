@@ -29,11 +29,13 @@ This approach provides accurate, detailed coverage information across the entire
 When building with `--enable-coverage`, CLN binaries are instrumented with LLVM coverage tracking:
 
 ```bash
-./configure --enable-coverage CC=clang
+./configure --enable-coverage CC=clang-18
 make
 ```
 
 This adds instrumentation that writes `.profraw` files when binaries execute.
+
+**⚠️ IMPORTANT:** Always specify the LLVM version explicitly (e.g., `clang-18`) rather than using `CC=clang`. This ensures compatibility with the same-version `llvm-profdata` tools used for processing. See [LLVM Version Mismatch](#profile-data-is-malformed-or-no-valid-profraw-files-found) for details.
 
 ### Collection Phase
 
@@ -346,9 +348,11 @@ export CLN_TEST_NAME=test_connect  # Creates subdir per test
 
 1. **Build with coverage:**
    ```bash
-   ./configure --enable-coverage CC=clang
+   ./configure --enable-coverage CC=clang-18
    make
    ```
+
+   **Note:** Use `CC=clang-18` (or whatever LLVM version you have installed) to ensure compatibility with your `llvm-profdata` tools. See [LLVM Version Mismatch](#profile-data-is-malformed-or-no-valid-profraw-files-found) troubleshooting section.
 
 2. **Set coverage environment:**
    ```bash
@@ -414,13 +418,72 @@ To see which tests cover which code:
 
 **Solution:** `collect-coverage.sh` handles this automatically via batched merging
 
-### "Profile data is malformed"
+### "Profile data is malformed" or "No valid .profraw files found"
 
-**Cause:** Corrupt or incomplete `.profraw` files (often from crashed tests)
+**Cause 1:** Corrupt or incomplete `.profraw` files (often from crashed tests)
 
 **Solutions:**
 - Run `cleanup-corrupt-profraw.sh` to identify and remove corrupt files
 - `collect-coverage.sh` automatically filters these out
+
+**Cause 2 (CRITICAL):** LLVM version mismatch between compilation and processing
+
+**Symptoms:**
+- All `.profraw` files marked as "corrupt/incomplete"
+- `llvm-profdata` validation fails on all files
+- Error: "No valid .profraw files found (all N files were corrupt/incomplete)"
+- Files are actually valid, but compiled with different LLVM version than processing tools
+
+**Root Cause:**
+The code is compiled with one version of `clang` (e.g., clang-14 from system apt), but processed with a different version of `llvm-profdata` tools (e.g., llvm-profdata-18). The profraw file format is version-specific and incompatible across major LLVM versions.
+
+**Example of the problem:**
+```bash
+# WRONG: Compilation with default clang
+CC=clang ./configure --enable-coverage  # Uses clang-14
+make
+
+# Then processing with different LLVM tools
+llvm-profdata-18 merge *.profraw  # FAILS: version mismatch!
+```
+
+**Solution:**
+Ensure the same LLVM version is used for both compilation AND processing throughout the entire workflow:
+
+1. **Use consistent LLVM from apt:** Install LLVM 18 tools in your setup script
+   ```bash
+   # In setup.sh or your environment setup
+   wget -qO - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+   sudo add-apt-repository "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main"
+   sudo apt-get install clang-18 llvm-18-tools
+   ```
+
+2. **Specify the compiler explicitly:** Use `CC=clang-18` not just `CC=clang`
+   ```bash
+   ./configure --enable-coverage CC=clang-18
+   make
+   ```
+
+3. **Record the version:** Keep track of LLVM version used during compilation
+   ```bash
+   clang-18 --version > LLVM_VERSION.txt
+   llvm-profdata-18 --version >> LLVM_VERSION.txt
+   ```
+
+4. **Verify consistency:** Before processing, verify the test/report jobs use the same LLVM version
+   ```bash
+   # In test job:
+   clang-18 --version  # Should match compilation version
+   llvm-profdata-18 --version
+   ```
+
+**Current Implementation:**
+The GitHub Actions workflow now:
+- Installs LLVM 18 from apt in `setup.sh` (runs for all jobs)
+- Uses `CC=clang-18` explicitly during compilation
+- Records LLVM version in `LLVM_VERSION.txt` during build
+- Verifies version consistency in test and report jobs
+- This ensures all `.profraw` files are created and processed with identical LLVM 18 tools
 
 ### High disk usage during CI
 
