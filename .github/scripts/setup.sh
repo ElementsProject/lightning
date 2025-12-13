@@ -67,6 +67,17 @@ sudo apt-get -qq install --no-install-recommends --allow-unauthenticated -yy \
      systemtap-sdt-dev \
      zlib1g-dev
 
+# Add LLVM 18 tools to PATH (they're installed in /usr/lib/llvm-18/bin/)
+export PATH="/usr/lib/llvm-18/bin:$PATH"
+echo 'export PATH="/usr/lib/llvm-18/bin:$PATH"' | sudo tee /etc/profile.d/llvm-18-path.sh
+
+# Create symlinks in /usr/bin for common LLVM tools so they're always accessible
+echo "Creating symlinks for LLVM 18 tools in /usr/bin..."
+sudo ln -sf /usr/lib/llvm-18/bin/llvm-profdata /usr/bin/llvm-profdata-18 || true
+sudo ln -sf /usr/lib/llvm-18/bin/llvm-cov /usr/bin/llvm-cov-18 || true
+sudo ln -sf /usr/bin/llvm-profdata-18 /usr/bin/llvm-profdata || true
+sudo ln -sf /usr/bin/llvm-cov-18 /usr/bin/llvm-cov || true
+
 echo "tester ALL=(root) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/tester
 sudo chmod 0440 /etc/sudoers.d/tester
 
