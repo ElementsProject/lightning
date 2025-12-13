@@ -28,8 +28,9 @@ RETURN VALUE
 
 On success, an object is returned, containing:
 
-- **result** (array of strings): Output of the requested reckless command.:
-  - (string, optional)
+- **result** (one of):
+  - (array): Output of the requested reckless command.
+  - (object): Output of the requested reckless command.:
 - **log** (array of strings): Verbose log entries of the requested reckless command.:
   - (string, optional)
 

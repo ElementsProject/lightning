@@ -68,7 +68,7 @@ static struct command_result *reckless_result(struct io_conn *conn,
 					       reckless->process_failed);
 		return command_finished(reckless->cmd, response);
 	}
-	const jsmntok_t *results, *result, *logs, *log;
+	const jsmntok_t *results, *result, *logs, *log, *conf;
 	size_t i;
 	jsmn_parser parser;
 	jsmntok_t *toks;
@@ -97,15 +97,26 @@ static struct command_result *reckless_result(struct io_conn *conn,
 	}
 
 	response = jsonrpc_stream_success(reckless->cmd);
-	json_array_start(response, "result");
 	results = json_get_member(reckless->stdoutbuf, toks, "result");
-	json_for_each_arr(i, result, results) {
-		json_add_string(response,
-				NULL,
-				json_strdup(reckless, reckless->stdoutbuf,
-					    result));
+	conf = json_get_member(reckless->stdoutbuf, results, "requested_lightning_conf");
+	if (conf) {
+		plugin_log(plugin, LOG_DBG, "dealing with listconfigs output");
+		json_object_start(response, "result");
+		json_for_each_obj(i, result, results) {
+			json_add_tok(response, json_strdup(tmpctx, reckless->stdoutbuf, result), result+1, reckless->stdoutbuf);
+		}
+		json_object_end(response);
+
+	} else {
+		json_array_start(response, "result");
+		json_for_each_arr(i, result, results) {
+			json_add_string(response,
+					NULL,
+					json_strdup(reckless, reckless->stdoutbuf,
+						    result));
+		}
+		json_array_end(response);
 	}
-	json_array_end(response);
 	json_array_start(response, "log");
 	logs = json_get_member(reckless->stdoutbuf, toks, "log");
 	json_for_each_arr(i, log, logs) {
@@ -151,6 +162,7 @@ static void reckless_conn_finish(struct io_conn *conn,
 			reckless_result(conn, reckless);
 		/* Don't try to process json if python raised an error. */
 		} else {
+			plugin_log(plugin, LOG_DBG, "%s", reckless->stderrbuf);
 			plugin_log(plugin, LOG_DBG,
 				   "Reckless process has crashed (%i).",
 				   WEXITSTATUS(status));
@@ -211,13 +223,25 @@ static struct io_plan *stderr_conn_init(struct io_conn *conn,
 	return stderr_read_more(conn, reckless);
 }
 
+static bool is_single_arg_cmd(const char *command) {
+	if (strcmp(command, "listconfig"))
+		return true;
+	if (strcmp(command, "listavailable"))
+		return true;
+	if (strcmp(command, "listinstalled"))
+		return true;
+	return false;
+}
+
 static struct command_result *reckless_call(struct command *cmd,
 					    const char *subcommand,
 					    const char *target,
 					    const char *target2)
 {
-	if (!subcommand || !target)
-		return command_fail(cmd, PLUGIN_ERROR, "invalid reckless call");
+	if (!is_single_arg_cmd(subcommand)) {
+		if (!subcommand || !target)
+			return command_fail(cmd, PLUGIN_ERROR, "invalid reckless call");
+	}
 	char **my_call;
 	my_call = tal_arrz(tmpctx, char *, 0);
 	tal_arr_expand(&my_call, "reckless");
@@ -232,7 +256,8 @@ static struct command_result *reckless_call(struct command *cmd,
 		tal_arr_expand(&my_call, lconfig.config);
 	}
 	tal_arr_expand(&my_call, (char *) subcommand);
-	tal_arr_expand(&my_call, (char *) target);
+	if (target)
+		tal_arr_expand(&my_call, (char *) target);
 	if (target2)
 		tal_arr_expand(&my_call, (char *) target2);
 	tal_arr_expand(&my_call, NULL);
@@ -273,7 +298,7 @@ static struct command_result *json_reckless(struct command *cmd,
 	/* Allow check command to evaluate. */
 	if (!param(cmd, buf, params,
 		   p_req("command", param_string, &command),
-		   p_req("target/subcommand", param_string, &target),
+		   p_opt("target/subcommand", param_string, &target),
 		   p_opt("target", param_string, &target2),
 		   NULL))
 		return command_param_failed();
