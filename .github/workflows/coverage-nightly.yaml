@@ -44,7 +44,7 @@ jobs:
           echo "Recording LLVM version used for compilation..."
           clang-18 --version > LLVM_VERSION.txt
           echo "" >> LLVM_VERSION.txt
-          llvm-profdata-18 --version >> LLVM_VERSION.txt
+          /usr/lib/llvm-18/bin/llvm-profdata --version >> LLVM_VERSION.txt
           cat LLVM_VERSION.txt
           tar -rf testpack.tar.bz2 LLVM_VERSION.txt
 
@@ -148,7 +148,7 @@ jobs:
             echo ""
             echo "Current system LLVM version:"
             clang-18 --version
-            llvm-profdata-18 --version
+            /usr/lib/llvm-18/bin/llvm-profdata --version
           else
             echo "⚠ WARNING: LLVM_VERSION.txt not found in build artifact"
           fi
@@ -190,10 +190,9 @@ jobs:
         if: always()
         run: |
           echo "Verifying LLVM 18 tools are available..."
-          which llvm-profdata-18
-          llvm-profdata-18 --version
+          /usr/lib/llvm-18/bin/llvm-profdata --version
           # Create symlinks for scripts that expect llvm-profdata without version suffix
-          sudo ln -sf /usr/bin/llvm-profdata-18 /usr/bin/llvm-profdata || true
+          sudo ln -sf /usr/lib/llvm-18/bin/llvm-profdata /usr/bin/llvm-profdata || true
 
       - name: Merge coverage data locally
         if: always()
@@ -234,13 +233,11 @@ jobs:
       - name: Verify LLVM tools are available
         run: |
           echo "Verifying LLVM 18 tools are available..."
-          which llvm-profdata-18
-          which llvm-cov-18
-          llvm-profdata-18 --version
-          llvm-cov-18 --version
+          /usr/lib/llvm-18/bin/llvm-profdata --version
+          /usr/lib/llvm-18/bin/llvm-cov --version
           # Create symlinks for scripts that expect tools without version suffix
-          sudo ln -sf /usr/bin/llvm-profdata-18 /usr/bin/llvm-profdata || true
-          sudo ln -sf /usr/bin/llvm-cov-18 /usr/bin/llvm-cov || true
+          sudo ln -sf /usr/lib/llvm-18/bin/llvm-profdata /usr/bin/llvm-profdata || true
+          sudo ln -sf /usr/lib/llvm-18/bin/llvm-cov /usr/bin/llvm-cov || true
 
       - name: Download build artifact
         uses: actions/download-artifact@v4
@@ -258,7 +255,7 @@ jobs:
             cat LLVM_VERSION.txt
             echo ""
             echo "Current system LLVM version:"
-            llvm-profdata-18 --version
+            /usr/lib/llvm-18/bin/llvm-profdata --version
             echo ""
             echo "✓ LLVM version verification complete"
           else
