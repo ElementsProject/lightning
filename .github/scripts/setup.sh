@@ -6,12 +6,18 @@ export RUST_VERSION=stable
 sudo useradd -ms /bin/bash tester
 sudo apt-get update -qq
 
+# Add LLVM apt repository for consistent LLVM 18 installation across all steps
+sudo apt-get install -qq --no-install-recommends -yy wget gnupg
+wget -qO - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+sudo add-apt-repository "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main"
+sudo apt-get update -qq
+
 sudo apt-get -qq install --no-install-recommends --allow-unauthenticated -yy \
      autoconf \
      automake \
      binfmt-support \
      build-essential \
-     clang \
+     clang-18 \
      cppcheck \
      docbook-xml \
      eatmydata \
@@ -22,6 +28,7 @@ sudo apt-get -qq install --no-install-recommends --allow-unauthenticated -yy \
      git \
      gnupg \
      jq \
+     llvm-18-tools \
      libc6-dev-arm64-cross \
      libc6-dev-armhf-cross \
      libev-dev \

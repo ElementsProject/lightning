@@ -36,8 +36,17 @@ jobs:
 
       - name: Build with coverage instrumentation
         run: |
-          ./configure --enable-debugbuild --enable-coverage CC=clang
+          ./configure --enable-debugbuild --enable-coverage CC=clang-18
           uv run make -j $(nproc) testpack.tar.bz2
+
+      - name: Record LLVM version
+        run: |
+          echo "Recording LLVM version used for compilation..."
+          clang-18 --version > LLVM_VERSION.txt
+          echo "" >> LLVM_VERSION.txt
+          llvm-profdata-18 --version >> LLVM_VERSION.txt
+          cat LLVM_VERSION.txt
+          tar -rf testpack.tar.bz2 LLVM_VERSION.txt
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
@@ -120,7 +129,7 @@ jobs:
       - name: Unpack build
         run: tar -xaf testpack.tar.bz2
 
-      - name: Verify coverage instrumentation
+      - name: Verify coverage instrumentation and LLVM version
         run: |
           echo "Checking if binaries are instrumented for coverage..."
           if nm lightningd/lightningd | grep -q '__llvm_profile'; then
@@ -129,6 +138,19 @@ jobs:
             echo "⚠ WARNING: Binaries may not be properly instrumented"
             echo "Checking build flags in config.vars:"
             grep -E "COVERAGE|CFLAGS" config.vars || echo "No coverage flags found"
+          fi
+
+          echo ""
+          echo "Verifying LLVM version consistency..."
+          if [ -f LLVM_VERSION.txt ]; then
+            echo "LLVM version used for compilation:"
+            cat LLVM_VERSION.txt
+            echo ""
+            echo "Current system LLVM version:"
+            clang-18 --version
+            llvm-profdata-18 --version
+          else
+            echo "⚠ WARNING: LLVM_VERSION.txt not found in build artifact"
           fi
 
       - name: Run tests with coverage
@@ -164,13 +186,14 @@ jobs:
             echo "  3. LLVM_PROFILE_FILE environment variable not set correctly"
           fi
 
-      - name: Install LLVM tools for merging
+      - name: Verify LLVM tools are available
         if: always()
         run: |
-          wget https://apt.llvm.org/llvm.sh
-          chmod +x llvm.sh
-          sudo ./llvm.sh 18
-          sudo ln -sf /usr/bin/llvm-profdata-18 /usr/bin/llvm-profdata
+          echo "Verifying LLVM 18 tools are available..."
+          which llvm-profdata-18
+          llvm-profdata-18 --version
+          # Create symlinks for scripts that expect llvm-profdata without version suffix
+          sudo ln -sf /usr/bin/llvm-profdata-18 /usr/bin/llvm-profdata || true
 
       - name: Merge coverage data locally
         if: always()
@@ -208,13 +231,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install LLVM tools
+      - name: Verify LLVM tools are available
         run: |
-          wget https://apt.llvm.org/llvm.sh
-          chmod +x llvm.sh
-          sudo ./llvm.sh 18
-          sudo ln -sf /usr/bin/llvm-profdata-18 /usr/bin/llvm-profdata
-          sudo ln -sf /usr/bin/llvm-cov-18 /usr/bin/llvm-cov
+          echo "Verifying LLVM 18 tools are available..."
+          which llvm-profdata-18
+          which llvm-cov-18
+          llvm-profdata-18 --version
+          llvm-cov-18 --version
+          # Create symlinks for scripts that expect tools without version suffix
+          sudo ln -sf /usr/bin/llvm-profdata-18 /usr/bin/llvm-profdata || true
+          sudo ln -sf /usr/bin/llvm-cov-18 /usr/bin/llvm-cov || true
 
       - name: Download build artifact
         uses: actions/download-artifact@v4
@@ -223,6 +249,21 @@ jobs:
 
       - name: Unpack build
         run: tar -xaf testpack.tar.bz2
+
+      - name: Verify LLVM version for report generation
+        run: |
+          echo "Verifying LLVM version consistency for report generation..."
+          if [ -f LLVM_VERSION.txt ]; then
+            echo "LLVM version used for compilation:"
+            cat LLVM_VERSION.txt
+            echo ""
+            echo "Current system LLVM version:"
+            llvm-profdata-18 --version
+            echo ""
+            echo "✓ LLVM version verification complete"
+          else
+            echo "⚠ WARNING: LLVM_VERSION.txt not found, cannot verify compilation version"
+          fi
 
       - name: Download all coverage artifacts
         uses: actions/download-artifact@v4
