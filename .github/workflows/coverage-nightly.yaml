@@ -18,7 +18,7 @@ concurrency:
 jobs:
   compile:
     name: Build with Coverage
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -36,15 +36,15 @@ jobs:
 
       - name: Build with coverage instrumentation
         run: |
-          ./configure --enable-debugbuild --enable-coverage CC=clang-18
+          ./configure --enable-debugbuild --enable-coverage CC=clang
           uv run make -j $(nproc) testpack.tar.bz2
 
       - name: Record LLVM version
         run: |
           echo "Recording LLVM version used for compilation..."
-          clang-18 --version > LLVM_VERSION.txt
+          clang --version > LLVM_VERSION.txt
           echo "" >> LLVM_VERSION.txt
-          /usr/lib/llvm-18/bin/llvm-profdata --version >> LLVM_VERSION.txt
+          llvm-profdata --version >> LLVM_VERSION.txt
           cat LLVM_VERSION.txt
           tar -rf testpack.tar.bz2 LLVM_VERSION.txt
 
@@ -56,7 +56,7 @@ jobs:
 
   test:
     name: Test (${{ matrix.name }})
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: compile
     strategy:
       fail-fast: false
@@ -147,8 +147,8 @@ jobs:
             cat LLVM_VERSION.txt
             echo ""
             echo "Current system LLVM version:"
-            clang-18 --version
-            /usr/lib/llvm-18/bin/llvm-profdata --version
+            clang --version
+            llvm-profdata --version
           else
             echo "⚠ WARNING: LLVM_VERSION.txt not found in build artifact"
           fi
@@ -189,10 +189,9 @@ jobs:
       - name: Verify LLVM tools are available
         if: always()
         run: |
-          echo "Verifying LLVM 18 tools are available..."
-          /usr/lib/llvm-18/bin/llvm-profdata --version
-          # Create symlinks for scripts that expect llvm-profdata without version suffix
-          sudo ln -sf /usr/lib/llvm-18/bin/llvm-profdata /usr/bin/llvm-profdata || true
+          echo "Verifying LLVM tools are available..."
+          which llvm-profdata
+          llvm-profdata --version
 
       - name: Merge coverage data locally
         if: always()
@@ -222,7 +221,7 @@ jobs:
 
   report:
     name: Generate Coverage Report
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: test
     if: always()
 
@@ -232,12 +231,10 @@ jobs:
 
       - name: Verify LLVM tools are available
         run: |
-          echo "Verifying LLVM 18 tools are available..."
-          /usr/lib/llvm-18/bin/llvm-profdata --version
-          /usr/lib/llvm-18/bin/llvm-cov --version
-          # Create symlinks for scripts that expect tools without version suffix
-          sudo ln -sf /usr/lib/llvm-18/bin/llvm-profdata /usr/bin/llvm-profdata || true
-          sudo ln -sf /usr/lib/llvm-18/bin/llvm-cov /usr/bin/llvm-cov || true
+          echo "Verifying LLVM tools are available..."
+          which llvm-profdata llvm-cov
+          llvm-profdata --version
+          llvm-cov --version
 
       - name: Download build artifact
         uses: actions/download-artifact@v4
@@ -255,7 +252,7 @@ jobs:
             cat LLVM_VERSION.txt
             echo ""
             echo "Current system LLVM version:"
-            /usr/lib/llvm-18/bin/llvm-profdata --version
+            llvm-profdata --version
             echo ""
             echo "✓ LLVM version verification complete"
           else
