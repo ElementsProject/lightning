@@ -12,6 +12,7 @@ sudo apt-get -qq install --no-install-recommends --allow-unauthenticated -yy \
      binfmt-support \
      build-essential \
      clang \
+     llvm \
      cppcheck \
      docbook-xml \
      eatmydata \
