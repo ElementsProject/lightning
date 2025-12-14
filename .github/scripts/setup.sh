@@ -6,19 +6,12 @@ export RUST_VERSION=stable
 sudo useradd -ms /bin/bash tester
 sudo apt-get update -qq
 
-# Add LLVM apt repository for consistent LLVM 18 installation across all steps
-sudo apt-get install -qq --no-install-recommends -yy wget gnupg
-wget -qO - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-sudo add-apt-repository "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main"
-sudo apt-get update -qq
-
 sudo apt-get -qq install --no-install-recommends --allow-unauthenticated -yy \
      autoconf \
      automake \
      binfmt-support \
      build-essential \
-     clang-18 \
-     libclang-rt-18-dev \
+     clang \
      cppcheck \
      docbook-xml \
      eatmydata \
@@ -29,7 +22,6 @@ sudo apt-get -qq install --no-install-recommends --allow-unauthenticated -yy \
      git \
      gnupg \
      jq \
-     llvm-18-tools \
      libc6-dev-arm64-cross \
      libc6-dev-armhf-cross \
      libev-dev \
@@ -66,17 +58,6 @@ sudo apt-get -qq install --no-install-recommends --allow-unauthenticated -yy \
      xsltproc \
      systemtap-sdt-dev \
      zlib1g-dev
-
-# Add LLVM 18 tools to PATH (they're installed in /usr/lib/llvm-18/bin/)
-export PATH="/usr/lib/llvm-18/bin:$PATH"
-echo 'export PATH="/usr/lib/llvm-18/bin:$PATH"' | sudo tee /etc/profile.d/llvm-18-path.sh
-
-# Create symlinks in /usr/bin for common LLVM tools so they're always accessible
-echo "Creating symlinks for LLVM 18 tools in /usr/bin..."
-sudo ln -sf /usr/lib/llvm-18/bin/llvm-profdata /usr/bin/llvm-profdata-18 || true
-sudo ln -sf /usr/lib/llvm-18/bin/llvm-cov /usr/bin/llvm-cov-18 || true
-sudo ln -sf /usr/bin/llvm-profdata-18 /usr/bin/llvm-profdata || true
-sudo ln -sf /usr/bin/llvm-cov-18 /usr/bin/llvm-cov || true
 
 echo "tester ALL=(root) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/tester
 sudo chmod 0440 /etc/sudoers.d/tester
