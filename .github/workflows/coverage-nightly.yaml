@@ -41,12 +41,10 @@ jobs:
 
       - name: Record LLVM version
         run: |
-          echo "Recording LLVM version used for compilation..."
-          clang --version > LLVM_VERSION.txt
-          echo "" >> LLVM_VERSION.txt
-          llvm-profdata --version >> LLVM_VERSION.txt
-          cat LLVM_VERSION.txt
-          tar -rf testpack.tar.bz2 LLVM_VERSION.txt
+          echo "=== LLVM version used for compilation ==="
+          clang --version
+          echo ""
+          llvm-profdata --version
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
@@ -141,17 +139,10 @@ jobs:
           fi
 
           echo ""
-          echo "Verifying LLVM version consistency..."
-          if [ -f LLVM_VERSION.txt ]; then
-            echo "LLVM version used for compilation:"
-            cat LLVM_VERSION.txt
-            echo ""
-            echo "Current system LLVM version:"
-            clang --version
-            llvm-profdata --version
-          else
-            echo "⚠ WARNING: LLVM_VERSION.txt not found in build artifact"
-          fi
+          echo "=== Current system LLVM version ==="
+          clang --version
+          echo ""
+          llvm-profdata --version
 
       - name: Run tests with coverage
         env:
@@ -244,20 +235,13 @@ jobs:
       - name: Unpack build
         run: tar -xaf testpack.tar.bz2
 
-      - name: Verify LLVM version for report generation
+      - name: Verify LLVM tools available
         run: |
-          echo "Verifying LLVM version consistency for report generation..."
-          if [ -f LLVM_VERSION.txt ]; then
-            echo "LLVM version used for compilation:"
-            cat LLVM_VERSION.txt
-            echo ""
-            echo "Current system LLVM version:"
-            llvm-profdata --version
-            echo ""
-            echo "✓ LLVM version verification complete"
-          else
-            echo "⚠ WARNING: LLVM_VERSION.txt not found, cannot verify compilation version"
-          fi
+          echo "=== System LLVM tools ==="
+          clang --version
+          echo ""
+          llvm-profdata --version
+          llvm-cov --version
 
       - name: Download all coverage artifacts
         uses: actions/download-artifact@v4
