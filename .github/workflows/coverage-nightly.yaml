@@ -220,6 +220,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -qq --no-install-recommends -yy llvm clang
+
       - name: Verify LLVM tools are available
         run: |
           echo "Verifying LLVM tools are available..."
