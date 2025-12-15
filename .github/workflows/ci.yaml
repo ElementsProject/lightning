@@ -461,24 +461,34 @@ jobs:
       matrix:
         include:
           - NAME: Valgrind (01/10)
+            GROUP: 1
             PYTEST_OPTS: --test-group=1  --test-group-count=10
           - NAME: Valgrind (02/10)
+            GROUP: 2
             PYTEST_OPTS: --test-group=2  --test-group-count=10
           - NAME: Valgrind (03/10)
+            GROUP: 3
             PYTEST_OPTS: --test-group=3  --test-group-count=10
           - NAME: Valgrind (04/10)
+            GROUP: 4
             PYTEST_OPTS: --test-group=4  --test-group-count=10
           - NAME: Valgrind (05/10)
+            GROUP: 5
             PYTEST_OPTS: --test-group=5  --test-group-count=10
           - NAME: Valgrind (06/10)
+            GROUP: 6
             PYTEST_OPTS: --test-group=6  --test-group-count=10
           - NAME: Valgrind (07/10)
+            GROUP: 7
             PYTEST_OPTS: --test-group=7  --test-group-count=10
           - NAME: Valgrind (08/10)
+            GROUP: 8
             PYTEST_OPTS: --test-group=8  --test-group-count=10
           - NAME: Valgrind (09/10)
+            GROUP: 9
             PYTEST_OPTS: --test-group=9  --test-group-count=10
           - NAME: Valgrind (10/10)
+            GROUP: 10
             PYTEST_OPTS: --test-group=10 --test-group-count=10
     steps:
       - name: Checkout
@@ -519,7 +529,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pytest-results-integration-valgrind-${{ replace(replace(replace(matrix.NAME, '/', '-'), '(', '-'), ')', '') }}
+          name: pytest-results-integration-valgrind-${{ matrix.GROUP }}
           path: report.xml
           if-no-files-found: ignore
 
@@ -539,28 +549,40 @@ jobs:
       matrix:
         include:
           - NAME: ASan/UBSan (01/12)
+            GROUP: 1
             PYTEST_OPTS: --test-group=1  --test-group-count=12
           - NAME: ASan/UBSan (02/12)
+            GROUP: 2
             PYTEST_OPTS: --test-group=2  --test-group-count=12 -n 1
           - NAME: ASan/UBSan (03/12)
+            GROUP: 3
             PYTEST_OPTS: --test-group=3  --test-group-count=12
           - NAME: ASan/UBSan (04/12)
+            GROUP: 4
             PYTEST_OPTS: --test-group=4  --test-group-count=12
           - NAME: ASan/UBSan (05/12)
+            GROUP: 5
             PYTEST_OPTS: --test-group=5  --test-group-count=12
           - NAME: ASan/UBSan (06/12)
+            GROUP: 6
             PYTEST_OPTS: --test-group=6  --test-group-count=12
           - NAME: ASan/UBSan (07/12)
+            GROUP: 7
             PYTEST_OPTS: --test-group=7  --test-group-count=12
           - NAME: ASan/UBSan (08/12)
+            GROUP: 8
             PYTEST_OPTS: --test-group=8  --test-group-count=12
           - NAME: ASan/UBSan (09/12)
+            GROUP: 9
             PYTEST_OPTS: --test-group=9  --test-group-count=12
           - NAME: ASan/UBSan (10/12)
+            GROUP: 10
             PYTEST_OPTS: --test-group=10 --test-group-count=12
           - NAME: ASan/UBSan (11/12)
+            GROUP: 11
             PYTEST_OPTS: --test-group=11 --test-group-count=12
           - NAME: ASan/UBSan (12/12)
+            GROUP: 12
             PYTEST_OPTS: --test-group=12 --test-group-count=12
     steps:
       - name: Checkout
@@ -596,7 +618,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pytest-results-integration-sanitizers-${{ replace(replace(replace(matrix.NAME, '/', '-'), '(', '-'), ')', '') }}
+          name: pytest-results-integration-sanitizers-${{ matrix.GROUP }}
           path: report.xml
           if-no-files-found: ignore
 
