@@ -3508,6 +3508,8 @@ def test_sql(node_factory, bitcoind):
                          'type': 'boolean'},
                         {'name': 'bolt12',
                          'type': 'string'},
+                        {'name': 'description',
+                         'type': 'string'},
                         {'name': 'used',
                          'type': 'boolean'},
                         {'name': 'label',
