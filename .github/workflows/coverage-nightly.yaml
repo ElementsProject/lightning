@@ -77,27 +77,27 @@ jobs:
             test_group_count: 4
           - name: sqlite-4
             db: sqlite3
-            pytest_par: 10
+            pytest_par: 4
             test_group: 4
             test_group_count: 4
           - name: postgres-1
             db: postgres
-            pytest_par: 10
+            pytest_par: 4
             test_group: 1
             test_group_count: 4
           - name: postgres-2
             db: postgres
-            pytest_par: 10
+            pytest_par: 4
             test_group: 2
             test_group_count: 4
           - name: postgres-3
             db: postgres
-            pytest_par: 10
+            pytest_par: 4
             test_group: 3
             test_group_count: 4
           - name: postgres-4
             db: postgres
-            pytest_par: 10
+            pytest_par: 4
             test_group: 4
             test_group_count: 2
 
