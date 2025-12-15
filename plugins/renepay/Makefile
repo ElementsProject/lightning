@@ -34,7 +34,7 @@ PLUGIN_RENEPAY_HDRS :=				\
 	plugins/renepay/uncertainty.h		\
 	plugins/renepay/mods.h			\
 	plugins/renepay/errorcodes.h		\
-	plugins/renepay/json.c
+	plugins/renepay/json.h
 
 PLUGIN_RENEPAY_OBJS := $(PLUGIN_RENEPAY_SRC:.c=.o)
 
