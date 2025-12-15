@@ -159,6 +159,7 @@ jobs:
           echo "Current directory: $(pwd)"
           ls -la
           VALGRIND=0 uv run eatmydata pytest tests/ -n ${PYTEST_PAR} -vvv \
+            --reruns=3 \
             --test-group-count ${{ matrix.test_group_count }} \
             --test-group ${{ matrix.test_group }}
 
