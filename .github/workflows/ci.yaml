@@ -519,7 +519,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pytest-results-integration-valgrind-${{ matrix.NAME }}
+          name: pytest-results-integration-valgrind-${{ replace(replace(replace(matrix.NAME, '/', '-'), '(', '-'), ')', '') }}
           path: report.xml
           if-no-files-found: ignore
 
@@ -596,7 +596,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pytest-results-integration-sanitizers-${{ matrix.NAME }}
+          name: pytest-results-integration-sanitizers-${{ replace(replace(replace(matrix.NAME, '/', '-'), '(', '-'), ')', '') }}
           path: report.xml
           if-no-files-found: ignore
 
