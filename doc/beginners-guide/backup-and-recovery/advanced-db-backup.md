@@ -84,13 +84,10 @@ However, if instead you are just replicating the database on another storage dev
 You can find the full source for the `backup` plugin here:
 https://github.com/lightningd/plugins/tree/master/backup
 
-The `backup` plugin requires Python 3.
+The `backup` plugin requires Python 3 and [uv](https://docs.astral.sh/uv/getting-started/installation/).
 
 - Download the source for the plugin.
   - `git clone https://github.com/lightningd/plugins.git`
-- `cd` into its directory and install requirements.
-  - `cd plugins/backup`
-  - `pip3 install -r requirements.txt`
 - Figure out where you will put the backup files.
   - Ideally you have an NFS or other network-based mount on your system, into which you will put the backup.
 - Stop your Lightning node.
@@ -112,7 +109,7 @@ Alternately, you _could_ put it in another storage device (e.g. USB flash disk) 
 
 To recover:
 
-- Re-download the `backup` plugin and install Python 3 and the requirements of `backup`.
+- Re-download the `backup` plugin and install Python 3 and [uv](https://docs.astral.sh/uv/getting-started/installation/).
 - `/path/to/backup-cli restore file:///path/to/nfs/mount ${LIGHTNINGDIR}`
 
 If your backup destination is a network-mounted filesystem that is in a remote location, then even loss of all hardware in one location will allow you to still recover your Lightning funds.
