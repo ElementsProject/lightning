@@ -200,6 +200,23 @@ static struct command_result *reckless_fail(struct reckless *reckless,
 	return command_finished(reckless->cmd, resp);
 }
 
+/* Regurgitates the syntax error reported by the utility */
+static struct command_result *fail_bad_usage(struct reckless *reckless)
+{
+	char **lines;
+	lines = tal_strsplit(reckless, reckless->stderrbuf, "\n", STR_EMPTY_OK);
+	if (lines != NULL)
+	{
+		/* The last line of reckless output contains the usage error.
+		 * Capture it for the user. */
+		int i = 0;
+		while (lines[i + 1] != NULL)
+			i++;
+		return reckless_fail(reckless, lines[i]);
+	}
+	return reckless_fail(reckless, "the reckless process has crashed");
+}
+
 static void reckless_conn_finish(struct io_conn *conn,
 				 struct reckless *reckless)
 {
@@ -239,14 +256,18 @@ static void reckless_conn_finish(struct io_conn *conn,
 				   "Reckless process has crashed (%i).",
 				   WEXITSTATUS(status));
 			char * err;
-			if (reckless->process_failed)
-				err = reckless->process_failed;
-			else
-				err = tal_strdup(tmpctx, "the reckless process "
-						 "has crashed");
-			reckless_fail(reckless, err);
-			plugin_log(plugin, LOG_UNUSUAL,
-				   "The reckless subprocess has failed.");
+			if (WEXITSTATUS(status) == 2)
+				fail_bad_usage(reckless);
+			else {
+				if (reckless->process_failed)
+					err = reckless->process_failed;
+				else
+					err = tal_strdup(tmpctx, "the reckless process "
+							 "has crashed");
+				reckless_fail(reckless, err);
+				plugin_log(plugin, LOG_UNUSUAL,
+					   "The reckless subprocess has failed.");
+			}
 		}
 	}
 	tal_free(reckless);

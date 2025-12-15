@@ -6,6 +6,7 @@ import subprocess
 import time
 import unittest
 from fixtures import *  # noqa: F401,F403
+from pyln.client import lightning
 from pyln.testing.utils import VALGRIND
 import pytest
 
@@ -481,3 +482,21 @@ def test_reckless_notifications(node_factory):
     listconfig_log.pop(1)
     for log in listconfig_log:
         assert node.daemon.is_in_log(f"reckless_log: {{'reckless_log': {{'log': '{log}'", start=0)
+
+
+def test_reckless_usage(node_factory):
+    """The reckless rpc response is more useful if it can pass back incorrect
+    usage errors."""
+    node = node_factory.get_node(options={}, may_fail=True, start=False)
+    node.start(stderr_redir=True)
+    r = reckless(['searhc', 'testplugpass'],
+                 dir=node.lightning_dir)
+    # The reckless utility should fail and argparse should provide a usage hint
+    # as the line of output.
+    assert r.returncode == 2
+    assert "reckless: error: argument cmd1: invalid choice: 'searhc' (choose from " in r.stderr[-1]
+
+    # The rpc plugin should capture and raise this usage error
+    with pytest.raises(lightning.RpcError,
+                       match="reckless: error: argument cmd1: invalid choice: 'saerch'"):
+        node.rpc.reckless('saerch', 'testplugpass')
