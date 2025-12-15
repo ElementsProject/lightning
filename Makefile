@@ -3,7 +3,7 @@
 # Prefer VERSION from environment if provided (e.g., from GitHub Actions)
 # Extract version from git, or if we're from a zipfile, use dirname
 VERSION ?= $(shell git describe --tags --always --dirty=-modded --abbrev=7 2>/dev/null || \
-	pwd | sed -n 's|.*/c\{0,1\}lightning-v\{0,1\}\([0-9a-f.rc\-]*\)$$|v\1|gp')
+	pwd | $(SED) -n 's|.*/c\{0,1\}lightning-v\{0,1\}\([0-9a-f.rc\-]*\)$$|v\1|gp')
 $(info Building version $(VERSION))
 
 # Next release.
@@ -412,7 +412,7 @@ include plugins/Makefile
 include tests/plugins/Makefile
 
 # Only include fuzz tests if OpenSSL >= 3.0, will be disabled on ubuntu focal
-OPENSSL_VERSION := $(shell openssl version | sed -n 's/OpenSSL \([0-9]\+\)\..*/\1/p')
+OPENSSL_VERSION := $(shell openssl version | $(SED) -n 's/OpenSSL \([0-9]\+\)\..*/\1/p')
 ifneq ($(shell test $(OPENSSL_VERSION) -ge 3 && echo yes),)
 include tests/fuzz/Makefile
 endif
