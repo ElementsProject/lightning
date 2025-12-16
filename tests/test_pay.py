@@ -6156,6 +6156,29 @@ def test_offer_with_private_channels_multyhop2(node_factory):
     wait_for(lambda: ['alias' in n for n in l4.rpc.listnodes()['nodes']] == [True, True, True, True])
 
     offer = l5.rpc.offer(amount='2msat', description='test_offer_with_private_channels_multyhop2')['bolt12']
+    decoded = l5.rpc.decode(offer)
+
+    assert decoded.get('offer_paths') is not None
+    assert decoded.get('offer_issuer_id') is None
+    invoice = l1.rpc.fetchinvoice(offer=offer)["invoice"]
+    l1.rpc.pay(invoice)
+
+
+def test_offer_with_private_channels_force_issuer_id_multyhop2(node_factory):
+    """We should be able to fetch an invoice through a private path while forcing the issuer id and pay the invoice"""
+    l1, l2, l3, l4, l5 = node_factory.line_graph(5, fundchannel=False)
+
+    node_factory.join_nodes([l1, l2], wait_for_announce=True)
+    node_factory.join_nodes([l2, l3], wait_for_announce=True)
+    node_factory.join_nodes([l3, l4], wait_for_announce=True)
+    node_factory.join_nodes([l3, l5], announce_channels=False)
+    wait_for(lambda: ['alias' in n for n in l4.rpc.listnodes()['nodes']] == [True, True, True, True])
+
+    offer = l5.rpc.offer(amount='2msat', description='test_offer_with_private_channels_force_issuer_id_multyhop2', force_issuer_id=True)['bolt12']
+    decoded = l5.rpc.decode(offer)
+
+    assert decoded.get('offer_paths') is not None
+    assert decoded.get('offer_issuer_id') is not None
     invoice = l1.rpc.fetchinvoice(offer=offer)["invoice"]
     l1.rpc.pay(invoice)
 

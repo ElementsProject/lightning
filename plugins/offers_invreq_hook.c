@@ -36,6 +36,12 @@ struct invreq {
 
 	/* Optional secret. */
 	const struct secret *secret;
+
+	/* The blinded node id the invoice request was received through. */
+	struct pubkey *blinded_node_id;
+
+	/* The path pubkey the invoice request was received through. */
+	struct pubkey *path_pubkey;
 };
 
 static struct command_result *WARN_UNUSED_RESULT
@@ -244,6 +250,7 @@ static struct command_result *create_invoicereq(struct command *cmd,
 
 	json_add_string(req->js, "invstring", invoice_encode(tmpctx, ir->inv));
 	json_add_preimage(req->js, "preimage", &ir->preimage);
+	if (ir->path_pubkey) json_add_pubkey(req->js, "path_pubkey", ir->path_pubkey);
 	json_add_label(req->js, &ir->offer_id, ir->inv->invreq_payer_id,
 		       ir->inv->invreq_recurrence_counter
 		       ? *ir->inv->invreq_recurrence_counter : 0);
@@ -995,11 +1002,19 @@ static struct command_result *listoffers_done(struct command *cmd,
 	ir->invreq->invreq_recurrence_cancel = cancel;
 
 	/* BOLT #12:
-	 *   - if `offer_issuer_id` is present:
-	 *     - MUST set `invoice_node_id` to the `offer_issuer_id`
+	 *  - if `offer_issuer_id` is present:
+	 *    - MUST set `invoice_node_id` to the `offer_issuer_id`
+	 *  - otherwise, if `offer_paths` is present:
+	 *    - MUST set `invoice_node_id` to the final `blinded_node_id` on the
+	 *      path it received the invoice request
 	 */
-	/* FIXME: We always provide an offer_issuer_id! */
-	ir->inv->invoice_node_id = ir->inv->offer_issuer_id;
+	if (!ir->inv->offer_issuer_id && ir->invreq->offer_paths) {
+		ir->inv->invoice_node_id = ir->blinded_node_id;
+
+	} else {
+		ir->inv->invoice_node_id = ir->inv->offer_issuer_id;
+		ir->path_pubkey = NULL;
+	}
 
 	/* BOLT #12:
 	 * - MUST set `invoice_created_at` to the number of seconds since
@@ -1037,7 +1052,9 @@ static struct command_result *listoffers_done(struct command *cmd,
 struct command_result *handle_invoice_request(struct command *cmd,
 					      const u8 *invreqbin,
 					      struct blinded_path *reply_path,
-					      const struct secret *secret)
+					      const struct secret *secret,
+					      const struct pubkey *blinded_node_id,
+					      const struct pubkey *path_pubkey)
 {
 	struct out_req *req;
 	int bad_feature;
@@ -1047,6 +1064,8 @@ struct command_result *handle_invoice_request(struct command *cmd,
 
 	ir->reply_path = tal_steal(ir, reply_path);
 	ir->secret = tal_dup_or_null(ir, struct secret, secret);
+	ir->blinded_node_id = tal_dup(ir, struct pubkey, blinded_node_id);
+	ir->path_pubkey = tal_dup(ir, struct pubkey, path_pubkey);
 	ir->invreq = fromwire_tlv_invoice_request(cmd, &cursor, &len);
 
 	if (!ir->invreq) {

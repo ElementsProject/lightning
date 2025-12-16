@@ -816,62 +816,61 @@ static u8 *handle_sign_option_will_fund_offer(struct hsmd_client *c,
 	return towire_hsmd_sign_option_will_fund_offer_reply(NULL, &sig);
 }
 
-static void payer_key_tweak(const struct pubkey *bolt12,
-			    const u8 *publictweak, size_t publictweaklen,
-			    struct sha256 *tweak)
+static void node_blinded_privkey(const struct pubkey *path_pubkey, struct privkey *blinded_privkey)
 {
-	u8 rawkey[PUBKEY_CMPR_LEN];
-	struct sha256_ctx sha;
+	struct secret ss;
+	struct secret node_id_blinding;
 
-	pubkey_to_der(rawkey, bolt12);
+	node_key(blinded_privkey, NULL);
 
-	sha256_init(&sha);
-	sha256_update(&sha, rawkey, sizeof(rawkey));
-	sha256_update(&sha, publictweak, publictweaklen);
-	sha256_done(&sha, tweak);
+	/* BOLT #4:
+	 *     - $`ss_i = SHA256(e_i * N_i) = SHA256(k_i * E_i)`$
+	 *        (ECDH shared secret known only by $`N_r`$ and $`N_i`$)
+	 */
+	if (secp256k1_ecdh(secp256k1_ctx, ss.data,
+				&path_pubkey->pubkey, blinded_privkey->secret.data,
+				NULL, NULL) != 1)
+		hsmd_status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				"Could not compute ss from path_key.");
+
+	/* BOLT #4:
+	 * - $`B_i = HMAC256(\text{"blinded\_node\_id"}, ss_i) * N_i`$
+	 *   (blinded `node_id` for $`N_i`$, private key known only by $`N_i`$)
+	 */
+	subkey_from_hmac("blinded_node_id", &ss, &node_id_blinding);
+
+	if (secp256k1_ec_seckey_tweak_mul(secp256k1_ctx,
+				blinded_privkey->secret.data,
+				node_id_blinding.data) != 1)
+		hsmd_status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				"Could tweak bolt12 key.");
 }
 
-/*~ lightningd asks us to sign a bolt12 (e.g. offer). */
+/*~ lightningd asks us to sign a bolt12 invoice. */
 static u8 *handle_sign_bolt12(struct hsmd_client *c, const u8 *msg_in)
 {
 	char *messagename, *fieldname;
 	struct sha256 merkle, sha;
 	struct bip340sig sig;
 	secp256k1_keypair kp;
-	u8 *publictweak;
+	struct pubkey* path_pubkey;
 
 	if (!fromwire_hsmd_sign_bolt12(tmpctx, msg_in,
 				       &messagename, &fieldname, &merkle,
-				       &publictweak))
+				       &path_pubkey))
 		return hsmd_status_malformed_request(c, msg_in);
 
 	sighash_from_merkle(messagename, fieldname, &merkle, &sha);
 
-	if (!publictweak) {
+	if (!path_pubkey) {
 		node_schnorrkey(&kp);
 	} else {
-		/* If we're tweaking key, we use bolt12 key */
-		struct privkey tweakedkey;
-		struct pubkey bolt12;
-		struct sha256 tweak;
+		struct privkey blinded_privkey;
 
-		if (secp256k1_ec_pubkey_create(secp256k1_ctx, &bolt12.pubkey,
-					       secretstuff.bolt12.data) != 1)
-			hsmd_status_failed(STATUS_FAIL_INTERNAL_ERROR,
-					   "Could derive bolt12 public key.");
-
-		payer_key_tweak(&bolt12, publictweak, tal_bytelen(publictweak),
-				&tweak);
-
-		tweakedkey.secret = secretstuff.bolt12;
-		if (secp256k1_ec_seckey_tweak_add(secp256k1_ctx,
-						  tweakedkey.secret.data,
-						  tweak.u.u8) != 1)
-			hsmd_status_failed(STATUS_FAIL_INTERNAL_ERROR,
-					   "Could tweak bolt12 key.");
+		node_blinded_privkey(path_pubkey, &blinded_privkey);
 
 		if (secp256k1_keypair_create(secp256k1_ctx, &kp,
-					     tweakedkey.secret.data) != 1)
+					     blinded_privkey.secret.data) != 1)
 			hsmd_status_failed(STATUS_FAIL_INTERNAL_ERROR,
 					   "Failed to derive bolt12 keypair");
 	}

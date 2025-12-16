@@ -28083,6 +28083,13 @@
               "Make recurrence optional, for backwards compatibility (older payers will only pay once)."
             ]
           },
+          "force_issuer_id": {
+            "added": "v26.03",
+            "type": "boolean",
+            "description": [
+              "Force the inclusion of `offer_issuer_id` even when not required due to the presence of blinded paths."
+            ]
+          },
           "dev_paths": {
             "hidden": true
           }
