@@ -175,7 +175,7 @@
     }
   },
   "author": [
-    "<<lagrang3@protonmail.com>> wrote the minimum-cost-flow solver, Rusty Russell <<rusty@rustcorp.com.au>> wrote the API and this documentation."
+    "[lagrang3@protonmail.com](mailto:lagrang3@protonmail.com) wrote the minimum-cost-flow solver, Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) wrote the API and this documentation."
   ],
   "see_also": [
     "lightning-askrene-reserve(7)",
@@ -187,7 +187,7 @@
     "lightning-askrene-age(7)"
   ],
   "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
+    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
   ],
   "examples": [
     {

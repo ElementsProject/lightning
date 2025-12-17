@@ -40,13 +40,13 @@
     }
   },
   "author": [
-    "Rusty Russell <<rusty@blockstream.com>> is mainly responsible."
+    "Rusty Russell [rusty@blockstream.com](mailto:rusty@blockstream.com) is mainly responsible."
   ],
   "see_also": [
     "lightning-hsmtool(7)"
   ],
   "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
+    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
   ],
   "examples": [
     {

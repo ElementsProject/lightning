@@ -87,7 +87,7 @@
     "- 313: The `min-emergency-msat` reserve not be preserved (and we have anchor channels)."
   ],
   "author": [
-    "Felix <<fixone@gmail.com>> is mainly responsible."
+    "Felix [fixone@gmail.com](mailto:fixone@gmail.com) is mainly responsible."
   ],
   "see_also": [
     "lightning-listfunds(7)",
@@ -97,7 +97,7 @@
     "lightning-feerates(7)"
   ],
   "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
+    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
   ],
   "examples": [
     {

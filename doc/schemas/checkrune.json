@@ -75,14 +75,14 @@
     "- 1503 (RUNE_BLACKLISTED): rune has been explicitly blacklisted."
   ],
   "author": [
-    "Shahana Farooqui <<sfarooqui@blockstream.com>> is mainly responsible for consolidating logic from commando."
+    "Shahana Farooqui [sfarooqui@blockstream.com](mailto:sfarooqui@blockstream.com) is mainly responsible for consolidating logic from commando."
   ],
   "see_also": [
     "lightning-createrune(7)",
     "lightning-blacklistrune(7)"
   ],
   "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
+    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
   ],
   "examples": [
     {

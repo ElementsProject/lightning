@@ -202,7 +202,7 @@
     "- 212: Invoice is invalid."
   ],
   "author": [
-    "Eduardo Quintana-Miranda <<eduardo.quintana@pm.me>> is mainly responsible."
+    "Eduardo Quintana-Miranda [eduardo.quintana@pm.me](mailto:eduardo.quintana@pm.me) is mainly responsible."
   ],
   "see_also": [
     "lightning-renepaystatus(7)",
@@ -210,9 +210,9 @@
     "lightning-invoice(7)"
   ],
   "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>",
+    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)",
     "",
-    "Pickhardt R. and Richter S., *Optimally Reliable & Cheap Payment Flows on the Lightning Network* <https://arxiv.org/abs/2107.05322>"
+    "Pickhardt R. and Richter S., *Optimally Reliable & Cheap Payment Flows on the Lightning Network* [https://arxiv.org/abs/2107.05322](https://arxiv.org/abs/2107.05322)"
   ],
   "examples": [
     {

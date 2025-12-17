@@ -36,7 +36,7 @@ On success, an object is returned, containing:
 AUTHOR
 ------
 
-Alex Myers <<alex@endothermic.dev>> is mainly responsible.
+Alex Myers [alex@endothermic.dev](mailto:alex@endothermic.dev) is mainly responsible.
 
 SEE ALSO
 --------
@@ -46,7 +46,7 @@ reckless(1)
 RESOURCES
 ---------
 
-Main web site: <https://github.com/ElementsProject/lightning>
+Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)
 
 EXAMPLES
 --------

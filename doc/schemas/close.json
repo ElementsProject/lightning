@@ -174,7 +174,7 @@
     "Notifications may be returned indicating what is going on, especially if the peer is offline and we are waiting."
   ],
   "author": [
-    "ZmnSCPxj <<ZmnSCPxj@protonmail.com>> is mainly responsible."
+    "ZmnSCPxj [ZmnSCPxj@protonmail.com](mailto:ZmnSCPxj@protonmail.com) is mainly responsible."
   ],
   "see_also": [
     "lightning-disconnect(7)",
@@ -182,7 +182,7 @@
     "lightningd-config(5)"
   ],
   "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
+    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
   ],
   "examples": [
     {

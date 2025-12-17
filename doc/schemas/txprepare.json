@@ -84,7 +84,7 @@
     "- 302: The dust limit is not met."
   ],
   "author": [
-    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+    "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
   ],
   "see_also": [
     "lightning-withdraw(7)",
@@ -93,7 +93,7 @@
     "lightning-feerates(7)"
   ],
   "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
+    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
   ],
   "examples": [
     {

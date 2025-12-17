@@ -35,13 +35,13 @@
     "properties": {}
   },
   "author": [
-    "Ken Sedgwick <<ken@bonsai.com>> is mainly responsible."
+    "Ken Sedgwick [ken@bonsai.com](mailto:ken@bonsai.com) is mainly responsible."
   ],
   "see_also": [
     "lightning-pay(7)"
   ],
   "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
+    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
   ],
   "examples": [
     {

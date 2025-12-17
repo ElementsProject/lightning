@@ -420,13 +420,13 @@
     "```"
   ],
   "author": [
-    "Dusty <<@dusty_daemon>> is mainly responsible."
+    "Dusty [@dusty_daemon](mailto:@dustydaemon) is mainly responsible."
   ],
   "see_also": [
     "lightning-splice_signed(7)",
     "lightning-splice_update(7)"
   ],
   "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
+    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
   ]
 }
