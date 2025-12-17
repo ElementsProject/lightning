@@ -7,8 +7,6 @@ from enum import Enum
 
 # readme url
 URL = "https://api.readme.com/v2/branches/stable"
-# category id for API reference
-CATEGORY_ID = "685ce4df1df887006ff221c5"
 CATEGORY_SLUG = "JSON-RPC API Reference"
 
 
@@ -26,39 +24,76 @@ def getListOfRPCDocs(headers):
         return []
 
 
+def check_renderable(response, action, title):
+    try:
+        data = response.json()
+    except Exception:
+        print("Non-JSON response:")
+        print(response.text)
+        return False
+
+    renderable = data.get("renderable")
+    if renderable is None:
+        # Some endpoints don’t include renderable (e.g. DELETE)
+        return True
+
+    if not renderable.get("status", False):
+        print(f"\n❌ RENDER FAILED for {action.value.upper()} '{title}'")
+        print("Error  :", renderable.get("error"))
+        print("Message:", renderable.get("message"))
+        return False
+
+    return True
+
+
 def publishDoc(action, title, body, order, headers):
     payload = {
         "title": title,
         "type": "basic",
-        "body": body,
+        "content": {
+            "body": body,
+        },
         "category": {
-            "id": CATEGORY_ID
+            "uri": f"/branches/1/categories/reference/{CATEGORY_SLUG}"
         },
         "hidden": False,
         "order": order,
     }
+
     if action == Action.ADD:
-        # create doc
-        payload['slug'] = title
+        payload["slug"] = title
         response = requests.post(URL + "/reference", json=payload, headers=headers)
         if response.status_code != 201:
+            print("❌ HTTP ERROR:", response.status_code)
             print(response.text)
-        else:
-            print("Created ", title)
+            return
+
+        if not check_renderable(response, action, title):
+            raise RuntimeError(f"Renderable check failed for {title}")
+
+        print("✅ Created", title)
+
     elif action == Action.UPDATE:
-        # update doc
         response = requests.patch(f"{URL}/reference/{title}", json=payload, headers=headers)
         if response.status_code != 200:
+            print("❌ HTTP ERROR:", response.status_code)
             print(response.text)
-        else:
-            print("Updated ", title)
+            return
+
+        if not check_renderable(response, action, title):
+            raise RuntimeError(f"Renderable check failed for {title}")
+
+        print("✅ Updated", title)
+
     elif action == Action.DELETE:
-        # delete doc
         response = requests.delete(f"{URL}/reference/{title}", headers=headers)
+
         if response.status_code != 204:
+            print("❌ DELETE FAILED:", title)
             print(response.text)
         else:
-            print("Deleted ", title)
+            print("🗑️ Deleted", title)
+
     else:
         print("Invalid action")
 
