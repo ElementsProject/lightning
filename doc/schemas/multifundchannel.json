@@ -320,7 +320,7 @@
     "There may be rare edge cases where a communications failure later in the channel funding process will cancel the funding locally, but the peer thinks the channel is already waiting for funding lockin. In that case, the next time we connect to the peer, our node will tell the peer to forget the channel, but some nodes (in particular, Core Lightning nodes) will disconnect when our node tells them to forget the channel. If you immediately **multifundchannel** with that peer, it could trigger this connect-forget-disconnect behavior, causing the second **multifundchannel** to fail as well due to disconnection. Doing a **connect** with the peers separately, and waiting for a few seconds, should help clear this hurdle; running **multifundchannel** a third time would also clear this."
   ],
   "author": [
-    "ZmnSCPxj <<ZmnSCPxj@protonmail.com>> is mainly responsible."
+    "ZmnSCPxj [ZmnSCPxj@protonmail.com](mailto:ZmnSCPxj@protonmail.com) is mainly responsible."
   ],
   "see_also": [
     "lightning-connect(7)",
@@ -329,7 +329,7 @@
     "lightning-fundchannel(7)"
   ],
   "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
+    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
   ],
   "examples": [
     {

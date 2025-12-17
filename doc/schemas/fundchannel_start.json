@@ -189,7 +189,7 @@
     "- 312: Peer negotiated `option_dual_fund`, must use `openchannel_init` not `fundchannel_start`. (Only if ``experimental-dual-fund` is enabled)"
   ],
   "author": [
-    "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+    "Lisa Neigut [niftynei@gmail.com](mailto:niftynei@gmail.com) is mainly responsible."
   ],
   "see_also": [
     "lightning-connect(7)",
@@ -204,7 +204,7 @@
     "lightning-openchannel_abort(7)"
   ],
   "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
+    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
   ],
   "examples": [
     {

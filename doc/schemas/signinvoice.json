@@ -41,7 +41,7 @@
     "- -1: Catchall nonspecific error."
   ],
   "author": [
-    "Carl Dong <<contact@carldong.me>> is mainly responsible."
+    "Carl Dong [contact@carldong.me](mailto:contact@carldong.me) is mainly responsible."
   ],
   "see_also": [
     "lightning-createinvoice(7)",
@@ -53,7 +53,7 @@
     "lightning-offer(7)"
   ],
   "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
+    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
   ],
   "examples": [
     {

@@ -31,13 +31,13 @@
         "properties": {}
       },
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-pay(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -134,14 +134,14 @@
         }
       },
       "author": [
-        "Dusty <<@dusty_daemon>> is mainly responsible."
+        "Dusty [@dusty_daemon](mailto:@dustydaemon) is mainly responsible."
       ],
       "see_also": [
         "lightning-fundpsbt(7)",
         "lightning-utxopsbt(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -388,10 +388,10 @@
         "lightning-askrene-age(7)"
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -564,10 +564,10 @@
         "lightning-askrene-age(7)"
       ],
       "author": [
-        "Lagrange <<lagrang3@protonmail.com>> is mainly responsible."
+        "Lagrange [lagrang3@protonmail.com](mailto:lagrang3@protonmail.com) is mainly responsible."
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -684,10 +684,10 @@
         "lightning-askrene-age(7)"
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -1008,10 +1008,10 @@
         "lightning-askrene-age(7)"
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -1082,10 +1082,10 @@
         "lightning-askrene-age(7)"
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -1210,10 +1210,10 @@
         "lightning-askrene-age(7)"
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -1545,10 +1545,10 @@
         "lightning-askrene-age(7)"
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -1747,10 +1747,10 @@
         "lightning-askrene-unreserve(7)"
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -1823,10 +1823,10 @@
         "lightning-askrene-listlayers(7)"
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -1903,10 +1903,10 @@
         "lightning-askrene-listreservations(7)"
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -2011,10 +2011,10 @@
         "lightning-askrene-listreservations(7)"
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -2133,10 +2133,10 @@
         "lightning-askrene-create-channel(7)"
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -2387,14 +2387,14 @@
         }
       },
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightningd-config(5)",
         "lightning-autoclean-status(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -2927,7 +2927,7 @@
         ]
       },
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightningd-config(5)",
@@ -2936,7 +2936,7 @@
         "lightning-listforwards(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -3028,10 +3028,10 @@
         "- -32602: Error in given parameters."
       ],
       "author": [
-        "Rusty Russell <<rusty@blockstream.com>> wrote the initial version of this man page."
+        "Rusty Russell [rusty@blockstream.com](mailto:rusty@blockstream.com) wrote the initial version of this man page."
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -3241,7 +3241,7 @@
         }
       },
       "author": [
-        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+        "Lisa Neigut [niftynei@gmail.com](mailto:niftynei@gmail.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-bkpr-listincome(7)",
@@ -3251,7 +3251,7 @@
         "lightning-listpeers(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -3429,7 +3429,7 @@
         }
       },
       "author": [
-        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+        "Lisa Neigut [niftynei@gmail.com](mailto:niftynei@gmail.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-bkpr-listincome(7)",
@@ -3439,7 +3439,7 @@
         "lightning-listpeers(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -3715,7 +3715,7 @@
         }
       },
       "author": [
-        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+        "Lisa Neigut [niftynei@gmail.com](mailto:niftynei@gmail.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-bkpr-editdescriptionbypaymentid(7)",
@@ -3723,7 +3723,7 @@
         "lightning-bkpr-listincome(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -4018,7 +4018,7 @@
         }
       },
       "author": [
-        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+        "Lisa Neigut [niftynei@gmail.com](mailto:niftynei@gmail.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-bkpr-editdescriptionbyoutpoint(7)",
@@ -4026,7 +4026,7 @@
         "lightning-bkpr-listincome(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -4270,7 +4270,7 @@
         }
       },
       "author": [
-        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+        "Lisa Neigut [niftynei@gmail.com](mailto:niftynei@gmail.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-listbalances(7)",
@@ -4278,7 +4278,7 @@
         "lightning-listpeers(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -4572,7 +4572,7 @@
         }
       },
       "author": [
-        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+        "Lisa Neigut [niftynei@gmail.com](mailto:niftynei@gmail.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-bkpr-listincome(7)",
@@ -4581,7 +4581,7 @@
         "lightning-bkpr-channelsapy(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -4782,7 +4782,7 @@
         }
       },
       "author": [
-        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+        "Lisa Neigut [niftynei@gmail.com](mailto:niftynei@gmail.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-bkpr-listincome(7)",
@@ -4792,7 +4792,7 @@
         "lightning-listpeers(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -4992,7 +4992,7 @@
         }
       },
       "author": [
-        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+        "Lisa Neigut [niftynei@gmail.com](mailto:niftynei@gmail.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-bkpr-listaccountevents(7)",
@@ -5000,7 +5000,7 @@
         "lightning-bkpr-listbalances(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -5175,14 +5175,14 @@
         }
       },
       "author": [
-        "Shahana Farooqui <<sfarooqui@blockstream.com>> is mainly responsible."
+        "Shahana Farooqui [sfarooqui@blockstream.com](mailto:sfarooqui@blockstream.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-commando-blacklist(7)",
         "lightning-showrunes(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -5337,13 +5337,13 @@
         }
       },
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-fetchinvoice(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ]
     },
     "check.json": {
@@ -5387,10 +5387,10 @@
         ]
       },
       "author": [
-        "Mark Beckwith <<wythe@intrig.com>> and Rusty Russell <<rusty@rustcorp.com.au>> are mainly responsible."
+        "Mark Beckwith [wythe@intrig.com](mailto:wythe@intrig.com) and Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) are mainly responsible."
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -5517,13 +5517,13 @@
         "- 1301: *pubkey* not found in the graph."
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-signmessage(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -5634,14 +5634,14 @@
         "- 1503 (RUNE_BLACKLISTED): rune has been explicitly blacklisted."
       ],
       "author": [
-        "Shahana Farooqui <<sfarooqui@blockstream.com>> is mainly responsible for consolidating logic from commando."
+        "Shahana Farooqui [sfarooqui@blockstream.com](mailto:sfarooqui@blockstream.com) is mainly responsible for consolidating logic from commando."
       ],
       "see_also": [
         "lightning-createrune(7)",
         "lightning-blacklistrune(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -5854,7 +5854,7 @@
         "Notifications may be returned indicating what is going on, especially if the peer is offline and we are waiting."
       ],
       "author": [
-        "ZmnSCPxj <<ZmnSCPxj@protonmail.com>> is mainly responsible."
+        "ZmnSCPxj [ZmnSCPxj@protonmail.com](mailto:ZmnSCPxj@protonmail.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-disconnect(7)",
@@ -5862,7 +5862,7 @@
         "lightningd-config(5)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -5985,7 +5985,7 @@
         "It can also fail if the peer does not respond, in which case it will simply hang awaiting a response."
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> wrote the original Python commando.py plugin, the in-tree commando plugin, and this manual page.",
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) wrote the original Python commando.py plugin, the in-tree commando plugin, and this manual page.",
         "",
         "Christian Decker came up with the name \"commando\", which almost excuses his previous adoption of the name \"Eltoo\"."
       ],
@@ -5993,7 +5993,7 @@
         "lightning-commando-rune(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -6244,7 +6244,7 @@
         "- -32602: If the given parameters are wrong"
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible. Felix <<fixone@gmail.com>> is the original author of this manpage."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible. Felix [fixone@gmail.com](mailto:fixone@gmail.com) is the original author of this manpage."
       ],
       "see_also": [
         "lightning-fundchannel(7)",
@@ -6253,7 +6253,7 @@
         "lightning-disconnect(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -6494,7 +6494,7 @@
         "- 900: An invoice with the given *label* already exists."
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-invoice(7)",
@@ -6505,7 +6505,7 @@
         "lightning-offer(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -6622,14 +6622,14 @@
         }
       },
       "author": [
-        "Christian Decker <<decker.christian@gmail.com>> is mainly responsible."
+        "Christian Decker [decker.christian@gmail.com](mailto:decker.christian@gmail.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-sendonion(7)",
         "lightning-getroute(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>",
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)",
         "",
         "[BOLT 04](https://github.com/lightning/bolts/blob/master/04-onion-routing.md)"
       ],
@@ -6815,16 +6815,16 @@
         "If a rune has a ratelimit, any derived rune will have the same id, and thus will compete for that ratelimit. You might want to consider adding a tighter ratelimit to a rune before sharing it, so you will keep the remainder. For example, if your rune has a limit of 60 times per minute, adding a limit of 5 times per minute and handing that rune out means you can still use your original rune 55 times per minute."
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> wrote the original Python commando.py plugin, the in-tree commando plugin, and this manual page.",
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) wrote the original Python commando.py plugin, the in-tree commando plugin, and this manual page.",
         "",
-        "Shahana Farooqui <<sfarooqui@blockstream.com>> is mainly responsible for migrating commando-rune to createrune."
+        "Shahana Farooqui [sfarooqui@blockstream.com](mailto:sfarooqui@blockstream.com) is mainly responsible for migrating commando-rune to createrune."
       ],
       "see_also": [
         "lightning-commando-rune(7)",
         "lightning-checkrune(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "usage": [
         "- You can use lightning-decode(7) to examine runes you have been given:",
@@ -7251,7 +7251,7 @@
         "- -32602: invalid parameters"
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-listdatastore(7)",
@@ -7259,7 +7259,7 @@
         "lightning-datastoreusage(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -7392,7 +7392,7 @@
         }
       },
       "author": [
-        "Peter Neuroth <<pet.v.ne@gmail.com>> is mainly responsible."
+        "Peter Neuroth [pet.v.ne@gmail.com](mailto:pet.v.ne@gmail.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-datastore(7)",
@@ -7400,7 +7400,7 @@
         "lightning-listdatastore(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -9840,7 +9840,7 @@
         ]
       },
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-pay(7)",
@@ -9855,7 +9855,7 @@
         "[BOLT #12](https://github.com/rustyrussell/lightning-rfc/blob/guilt/offers/12-offer-encoding.md)",
         "(experimental, [bolt](https://github.com/lightning/bolts) #798)",
         "",
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -10168,7 +10168,7 @@
         ]
       },
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-pay(7)",
@@ -10178,7 +10178,7 @@
       "resources": [
         "[BOLT #11](https://github.com/lightning/bolts/blob/master/11-payment-encoding.md)",
         "",
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -10299,7 +10299,7 @@
         "- -32602: invalid parameters"
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-listdatastore(7)",
@@ -10307,7 +10307,7 @@
         "lightning-datastoreusage(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -10405,13 +10405,13 @@
         "- 1401: The forward specified does not exist."
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-autoclean(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -10722,7 +10722,7 @@
         "- 908: The invoice already has no description, and *desconly* was set."
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-listinvoices(7)",
@@ -10731,7 +10731,7 @@
         "lightning-autoclean-status(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -10817,13 +10817,13 @@
         "- 1402: The listnetworkevents specified does not exist."
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-autoclean(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ]
     },
     "delpay.json": {
@@ -11025,7 +11025,7 @@
         "- 208: Payment with payment_hash not found."
       ],
       "author": [
-        "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> is mainly responsible."
+        "Vincenzo Palazzo [vincenzo.palazzo@protonmail.com](mailto:vincenzo.palazzo@protonmail.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-listpays(7)",
@@ -11033,7 +11033,7 @@
         "lightning-paystatus(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -11158,14 +11158,14 @@
         "- -32602: Error in given parameters."
       ],
       "author": [
-        "Rusty Russell <<rusty@blockstream.com>> wrote the initial version of this man page."
+        "Rusty Russell [rusty@blockstream.com](mailto:rusty@blockstream.com) wrote the initial version of this man page."
       ],
       "see_also": [
         "lightningd-config(5)",
         "lightning-notifications(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -11271,7 +11271,7 @@
         "- -1: Catch all nonspecific errors, eg. `Multiple channels: please specify short_channel_id.` OR `No channels matching that peer_id and that short_channel_id.`, etc."
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-close(7)",
@@ -11280,7 +11280,7 @@
         "lightning-listfunds(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -11743,14 +11743,14 @@
         "```"
       ],
       "author": [
-        "Dusty <<@dusty_daemon>> is mainly responsible."
+        "Dusty [@dusty_daemon](mailto:@dustydaemon) is mainly responsible."
       ],
       "see_also": [
         "lightning-splice_signed(7)",
         "lightning-splice_update(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ]
     },
     "disableinvoicerequest.json": {
@@ -11833,14 +11833,14 @@
         ]
       },
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-invoicerequest(7)",
         "lightning-listinvoicerequests(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -11940,7 +11940,7 @@
         ]
       },
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-enableoffer(7)",
@@ -11948,7 +11948,7 @@
         "lightning-listoffers(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -12008,14 +12008,14 @@
         "- -1: Catchall nonspecific error."
       ],
       "author": [
-        "Michael Hawkins <<michael.hawkins@protonmail.com>>."
+        "Michael Hawkins [michael.hawkins@protonmail.com](mailto:michael.hawkins@protonmail.com)."
       ],
       "see_also": [
         "lightning-connect(7)",
         "lightning-listpeerchannels(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -12075,13 +12075,13 @@
         }
       },
       "author": [
-        "Aditya <<aditya.sharma20111@gmail.com>> is mainly responsible."
+        "Aditya [aditya.sharma20111@gmail.com](mailto:aditya.sharma20111@gmail.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-getsharedsecret(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -12193,7 +12193,7 @@
         "- 1006: offer already enabled."
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-offer(7)",
@@ -12201,7 +12201,7 @@
         "lightning-listoffers(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -12278,13 +12278,13 @@
         }
       },
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-hsmtool(8)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -12703,7 +12703,7 @@
         "In C-lightning we like to call the weight unit \"sipa\" in honor of Pieter Wuille, who uses the name \"sipa\" on IRC and elsewhere. Internally we call the *perkw* style as \"feerate per kilosipa\"."
       ],
       "author": [
-        "ZmnSCPxj <<ZmnSCPxj@protonmail.com>> wrote the initial version of this manpage."
+        "ZmnSCPxj [ZmnSCPxj@protonmail.com](mailto:ZmnSCPxj@protonmail.com) wrote the initial version of this manpage."
       ],
       "see_also": [
         "lightning-parsefeerate(7)",
@@ -12713,7 +12713,7 @@
         "lightning-fundchannel_start(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -13131,14 +13131,14 @@
         "- 1005: We timed out trying to fetch an invoice."
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-sendinvoice(7)",
         "lightning-pay(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -13409,7 +13409,7 @@
         "lightning-multifundchannel(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -13524,7 +13524,7 @@
         "- 308: It is unsafe to cancel the channel: the funding transaction has been broadcast, or there are HTLCs already in the channel, or the peer was the initiator and not us."
       ],
       "author": [
-        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+        "Lisa Neigut [niftynei@gmail.com](mailto:niftynei@gmail.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-connect(7)",
@@ -13538,7 +13538,7 @@
         "lightning-openchannel_abort(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -13639,7 +13639,7 @@
         "- 309: PSBT does not have a unique, correct output to fund the channel."
       ],
       "author": [
-        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+        "Lisa Neigut [niftynei@gmail.com](mailto:niftynei@gmail.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-connect(7)",
@@ -13654,7 +13654,7 @@
         "lightning-openchannel_abort(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -13878,7 +13878,7 @@
         "- 312: Peer negotiated `option_dual_fund`, must use `openchannel_init` not `fundchannel_start`. (Only if ``experimental-dual-fund` is enabled)"
       ],
       "author": [
-        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+        "Lisa Neigut [niftynei@gmail.com](mailto:niftynei@gmail.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-connect(7)",
@@ -13893,7 +13893,7 @@
         "lightning-openchannel_abort(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -14219,14 +14219,14 @@
         "- -32602: If the given parameters are invalid."
       ],
       "author": [
-        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+        "Lisa Neigut [niftynei@gmail.com](mailto:niftynei@gmail.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-fundchannel(7)",
         "lightning-listfunds(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -14479,7 +14479,7 @@
         "- 301: Insufficient UTXOs to meet *satoshi* value."
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-utxopsbt(7)",
@@ -14487,7 +14487,7 @@
         "lightning-unreserveinputs(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -14560,13 +14560,13 @@
         }
       },
       "author": [
-        "Aditya <<aditya.sharma20111@gmail.com>> is mainly responsible."
+        "Aditya [aditya.sharma20111@gmail.com](mailto:aditya.sharma20111@gmail.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-getsharedsecret(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -14957,7 +14957,7 @@
         "- -32602: Error in given parameters or some error happened during the command process."
       ],
       "author": [
-        "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
+        "Vincenzo Palazzo [vincenzo.palazzo@protonmail.com](mailto:vincenzo.palazzo@protonmail.com) wrote the initial version of this man page,",
         "but many others did the hard work of actually implementing this rpc command."
       ],
       "see_also": [
@@ -14966,7 +14966,7 @@
         "lightning-listconfigs(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -15233,11 +15233,11 @@
         "- -32602: Error in given parameters."
       ],
       "author": [
-        "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
+        "Vincenzo Palazzo [vincenzo.palazzo@protonmail.com](mailto:vincenzo.palazzo@protonmail.com) wrote the initial version of this man page,",
         "but many others did the hard work of actually implementing this rpc command."
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -15445,194 +15445,33 @@
         "",
         "Here are the risk fees in millisatoshis, using various parameters. I assume a channel charges the default of 1000 millisatoshis plus 1 part-per-million. Common to_self_delay values on the network at 14 and 144 blocks.",
         "",
-        "<table>",
-        "<colgroup>",
-        "<col style=\"width: 20%\" />",
-        "<col style=\"width: 20%\" />",
-        "<col style=\"width: 20%\" />",
-        "<col style=\"width: 20%\" />",
-        "<col style=\"width: 20%\" />",
-        "</colgroup>",
-        "<thead>",
-        "<tr class=\"header\">",
-        "<th style=\"text-align: left;\">Amount (msat)</th>",
-        "<th style=\"text-align: left;\">Riskfactor</th>",
-        "<th style=\"text-align: left;\">Delay</th>",
-        "<th style=\"text-align: left;\">Risk Fee</th>",
-        "<th style=\"text-align: left;\">Route fee</th>",
-        "</tr>",
-        "</thead>",
-        "<tbody>",
-        "<tr class=\"odd\">",
-        "<td style=\"text-align: left;\"><p>10,000</p></td>",
-        "<td style=\"text-align: left;\"><p>1</p></td>",
-        "<td style=\"text-align: left;\"><p>14</p></td>",
-        "<td style=\"text-align: left;\"><p>0</p></td>",
-        "<td style=\"text-align: left;\"><p>1001</p></td>",
-        "</tr>",
-        "<tr class=\"even\">",
-        "<td style=\"text-align: left;\"><p>10,000</p></td>",
-        "<td style=\"text-align: left;\"><p>10</p></td>",
-        "<td style=\"text-align: left;\"><p>14</p></td>",
-        "<td style=\"text-align: left;\"><p>0</p></td>",
-        "<td style=\"text-align: left;\"><p>1001</p></td>",
-        "</tr>",
-        "<tr class=\"odd\">",
-        "<td style=\"text-align: left;\"><p>10,000</p></td>",
-        "<td style=\"text-align: left;\"><p>100</p></td>",
-        "<td style=\"text-align: left;\"><p>14</p></td>",
-        "<td style=\"text-align: left;\"><p>2</p></td>",
-        "<td style=\"text-align: left;\"><p>1001</p></td>",
-        "</tr>",
-        "<tr class=\"even\">",
-        "<td style=\"text-align: left;\"><p>10,000</p></td>",
-        "<td style=\"text-align: left;\"><p>1000</p></td>",
-        "<td style=\"text-align: left;\"><p>14</p></td>",
-        "<td style=\"text-align: left;\"><p>26</p></td>",
-        "<td style=\"text-align: left;\"><p>1001</p></td>",
-        "</tr>",
-        "<tr class=\"odd\">",
-        "<td style=\"text-align: left;\"><p>1,000,000</p></td>",
-        "<td style=\"text-align: left;\"><p>1</p></td>",
-        "<td style=\"text-align: left;\"><p>14</p></td>",
-        "<td style=\"text-align: left;\"><p>2</p></td>",
-        "<td style=\"text-align: left;\"><p>1001</p></td>",
-        "</tr>",
-        "<tr class=\"even\">",
-        "<td style=\"text-align: left;\"><p>1,000,000</p></td>",
-        "<td style=\"text-align: left;\"><p>10</p></td>",
-        "<td style=\"text-align: left;\"><p>14</p></td>",
-        "<td style=\"text-align: left;\"><p>26</p></td>",
-        "<td style=\"text-align: left;\"><p>1001</p></td>",
-        "</tr>",
-        "<tr class=\"odd\">",
-        "<td style=\"text-align: left;\"><p>1,000,000</p></td>",
-        "<td style=\"text-align: left;\"><p>100</p></td>",
-        "<td style=\"text-align: left;\"><p>14</p></td>",
-        "<td style=\"text-align: left;\"><p>266</p></td>",
-        "<td style=\"text-align: left;\"><p>1001</p></td>",
-        "</tr>",
-        "<tr class=\"even\">",
-        "<td style=\"text-align: left;\"><p>1,000,000</p></td>",
-        "<td style=\"text-align: left;\"><p>1000</p></td>",
-        "<td style=\"text-align: left;\"><p>14</p></td>",
-        "<td style=\"text-align: left;\"><p>2661</p></td>",
-        "<td style=\"text-align: left;\"><p>1001</p></td>",
-        "</tr>",
-        "<tr class=\"odd\">",
-        "<td style=\"text-align: left;\"><p>100,000,000</p></td>",
-        "<td style=\"text-align: left;\"><p>1</p></td>",
-        "<td style=\"text-align: left;\"><p>14</p></td>",
-        "<td style=\"text-align: left;\"><p>266</p></td>",
-        "<td style=\"text-align: left;\"><p>1100</p></td>",
-        "</tr>",
-        "<tr class=\"even\">",
-        "<td style=\"text-align: left;\"><p>100,000,000</p></td>",
-        "<td style=\"text-align: left;\"><p>10</p></td>",
-        "<td style=\"text-align: left;\"><p>14</p></td>",
-        "<td style=\"text-align: left;\"><p>2661</p></td>",
-        "<td style=\"text-align: left;\"><p>1100</p></td>",
-        "</tr>",
-        "<tr class=\"odd\">",
-        "<td style=\"text-align: left;\"><p>100,000,000</p></td>",
-        "<td style=\"text-align: left;\"><p>100</p></td>",
-        "<td style=\"text-align: left;\"><p>14</p></td>",
-        "<td style=\"text-align: left;\"><p>26617</p></td>",
-        "<td style=\"text-align: left;\"><p>1100</p></td>",
-        "</tr>",
-        "<tr class=\"even\">",
-        "<td style=\"text-align: left;\"><p>100,000,000</p></td>",
-        "<td style=\"text-align: left;\"><p>1000</p></td>",
-        "<td style=\"text-align: left;\"><p>14</p></td>",
-        "<td style=\"text-align: left;\"><p>266179</p></td>",
-        "<td style=\"text-align: left;\"><p>1100</p></td>",
-        "</tr>",
-        "<tr class=\"odd\">",
-        "<td style=\"text-align: left;\"><p>10,000</p></td>",
-        "<td style=\"text-align: left;\"><p>1</p></td>",
-        "<td style=\"text-align: left;\"><p>144</p></td>",
-        "<td style=\"text-align: left;\"><p>0</p></td>",
-        "<td style=\"text-align: left;\"><p>1001</p></td>",
-        "</tr>",
-        "<tr class=\"even\">",
-        "<td style=\"text-align: left;\"><p>10,000</p></td>",
-        "<td style=\"text-align: left;\"><p>10</p></td>",
-        "<td style=\"text-align: left;\"><p>144</p></td>",
-        "<td style=\"text-align: left;\"><p>2</p></td>",
-        "<td style=\"text-align: left;\"><p>1001</p></td>",
-        "</tr>",
-        "<tr class=\"odd\">",
-        "<td style=\"text-align: left;\"><p>10,000</p></td>",
-        "<td style=\"text-align: left;\"><p>100</p></td>",
-        "<td style=\"text-align: left;\"><p>144</p></td>",
-        "<td style=\"text-align: left;\"><p>27</p></td>",
-        "<td style=\"text-align: left;\"><p>1001</p></td>",
-        "</tr>",
-        "<tr class=\"even\">",
-        "<td style=\"text-align: left;\"><p>10,000</p></td>",
-        "<td style=\"text-align: left;\"><p>1000</p></td>",
-        "<td style=\"text-align: left;\"><p>144</p></td>",
-        "<td style=\"text-align: left;\"><p>273</p></td>",
-        "<td style=\"text-align: left;\"><p>1001</p></td>",
-        "</tr>",
-        "<tr class=\"odd\">",
-        "<td style=\"text-align: left;\"><p>1,000,000</p></td>",
-        "<td style=\"text-align: left;\"><p>1</p></td>",
-        "<td style=\"text-align: left;\"><p>144</p></td>",
-        "<td style=\"text-align: left;\"><p>27</p></td>",
-        "<td style=\"text-align: left;\"><p>1001</p></td>",
-        "</tr>",
-        "<tr class=\"even\">",
-        "<td style=\"text-align: left;\"><p>1,000,000</p></td>",
-        "<td style=\"text-align: left;\"><p>10</p></td>",
-        "<td style=\"text-align: left;\"><p>144</p></td>",
-        "<td style=\"text-align: left;\"><p>273</p></td>",
-        "<td style=\"text-align: left;\"><p>1001</p></td>",
-        "</tr>",
-        "<tr class=\"odd\">",
-        "<td style=\"text-align: left;\"><p>1,000,000</p></td>",
-        "<td style=\"text-align: left;\"><p>100</p></td>",
-        "<td style=\"text-align: left;\"><p>144</p></td>",
-        "<td style=\"text-align: left;\"><p>2737</p></td>",
-        "<td style=\"text-align: left;\"><p>1001</p></td>",
-        "</tr>",
-        "<tr class=\"even\">",
-        "<td style=\"text-align: left;\"><p>1,000,000</p></td>",
-        "<td style=\"text-align: left;\"><p>1000</p></td>",
-        "<td style=\"text-align: left;\"><p>144</p></td>",
-        "<td style=\"text-align: left;\"><p>27378</p></td>",
-        "<td style=\"text-align: left;\"><p>1001</p></td>",
-        "</tr>",
-        "<tr class=\"odd\">",
-        "<td style=\"text-align: left;\"><p>100,000,000</p></td>",
-        "<td style=\"text-align: left;\"><p>1</p></td>",
-        "<td style=\"text-align: left;\"><p>144</p></td>",
-        "<td style=\"text-align: left;\"><p>2737</p></td>",
-        "<td style=\"text-align: left;\"><p>1100</p></td>",
-        "</tr>",
-        "<tr class=\"even\">",
-        "<td style=\"text-align: left;\"><p>100,000,000</p></td>",
-        "<td style=\"text-align: left;\"><p>10</p></td>",
-        "<td style=\"text-align: left;\"><p>144</p></td>",
-        "<td style=\"text-align: left;\"><p>27378</p></td>",
-        "<td style=\"text-align: left;\"><p>1100</p></td>",
-        "</tr>",
-        "<tr class=\"odd\">",
-        "<td style=\"text-align: left;\"><p>100,000,000</p></td>",
-        "<td style=\"text-align: left;\"><p>100</p></td>",
-        "<td style=\"text-align: left;\"><p>144</p></td>",
-        "<td style=\"text-align: left;\"><p>273785</p></td>",
-        "<td style=\"text-align: left;\"><p>1100</p></td>",
-        "</tr>",
-        "<tr class=\"even\">",
-        "<td style=\"text-align: left;\"><p>100,000,000</p></td>",
-        "<td style=\"text-align: left;\"><p>1000</p></td>",
-        "<td style=\"text-align: left;\"><p>144</p></td>",
-        "<td style=\"text-align: left;\"><p>2737850</p></td>",
-        "<td style=\"text-align: left;\"><p>1100</p></td>",
-        "</tr>",
-        "</tbody>",
-        "</table>"
+        "| Amount (msat)          | Riskfactor         | Delay         | Risk Fee         | Route fee         |",
+        "|------------------------|--------------------|---------------|------------------|-------------------|",
+        "| 10,000                 | 1                  | 14            | 0                | 1001              |",
+        "| 10,000                 | 10                 | 14            | 0                | 1001              |",
+        "| 10,000                 | 100                | 14            | 2                | 1001              |",
+        "| 10,000                 | 1000               | 14            | 26               | 1001              |",
+        "| 1,000,000              | 1                  | 14            | 2                | 1001              |",
+        "| 1,000,000              | 10                 | 14            | 26               | 1001              |",
+        "| 1,000,000              | 100                | 14            | 266              | 1001              |",
+        "| 1,000,000              | 1000               | 14            | 2661             | 1001              |",
+        "| 100,000,000            | 1                  | 14            | 266              | 1100              |",
+        "| 100,000,000            | 10                 | 14            | 2661             | 1100              |",
+        "| 100,000,000            | 100                | 14            | 26617            | 1100              |",
+        "| 100,000,000            | 1000               | 14            | 266179           | 1100              |",
+        "| 10,000                 | 1                  | 144           | 0                | 1001              |",
+        "| 10,000                 | 10                 | 144           | 2                | 1001              |",
+        "| 10,000                 | 100                | 144           | 27               | 1001              |",
+        "| 10,000                 | 1000               | 144           | 273              | 1001              |",
+        "| 1,000,000              | 1                  | 144           | 27               | 1001              |",
+        "| 1,000,000              | 10                 | 144           | 273              | 1001              |",
+        "| 1,000,000              | 100                | 144           | 2737             | 1001              |",
+        "| 1,000,000              | 1000               | 144           | 27378            | 1001              |",
+        "| 100,000,000            | 1                  | 144           | 2737             | 1100              |",
+        "| 100,000,000            | 10                 | 144           | 27378            | 1100              |",
+        "| 100,000,000            | 100                | 144           | 273785           | 1100              |",
+        "| 100,000,000            | 1000               | 144           | 2737850          | 1100              |",
+        ""
       ],
       "recommended_riskfactor_values": [
         "The default *fuzz* factor is 5%, so as you can see from the table above, that tends to overwhelm the effect of *riskfactor* less than about 5.",
@@ -15644,14 +15483,14 @@
         "The default for lightning-pay(7) is 10, which starts to become a major factor for larger amounts, and is basically ignored for tiny ones."
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-pay(7)",
         "lightning-sendpay(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -15896,7 +15735,7 @@
         }
       },
       "author": [
-        "<<lagrang3@protonmail.com>> wrote the minimum-cost-flow solver, Rusty Russell <<rusty@rustcorp.com.au>> wrote the API and this documentation."
+        "[lagrang3@protonmail.com](mailto:lagrang3@protonmail.com) wrote the minimum-cost-flow solver, Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) wrote the API and this documentation."
       ],
       "see_also": [
         "lightning-askrene-reserve(7)",
@@ -15908,7 +15747,7 @@
         "lightning-askrene-age(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -16014,11 +15853,11 @@
         "- -32602: Error in given parameters."
       ],
       "author": [
-        "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
+        "Vincenzo Palazzo [vincenzo.palazzo@protonmail.com](mailto:vincenzo.palazzo@protonmail.com) wrote the initial version of this man page,",
         "but many others did the hard work of actually implementing this rpc command."
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -16094,10 +15933,10 @@
         "properties": {}
       },
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>",
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)",
         "",
         "[bolt04]: https://github.com/lightning/bolts/blob/master/04-onion-routing.md"
       ],
@@ -16246,7 +16085,7 @@
         "The *data* object contains the previous success, as per lightning-sendpay."
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-createonion(7)",
@@ -16254,7 +16093,7 @@
         "lightning-listsendpays(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>",
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)",
         "",
         "[bolt04]: https://github.com/lightning/bolts/blob/master/04-onion-routing.md"
       ],
@@ -16473,7 +16312,7 @@
         "- 902: None of the specified *exposeprivatechannels* were usable."
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-listinvoices(7)",
@@ -16481,7 +16320,7 @@
         "lightning-pay(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -16637,14 +16476,14 @@
         "- -1: Catchall nonspecific error."
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-listinvoicerequests(7)",
         "lightning-disableinvoicerequest(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -16904,7 +16743,7 @@
         "*channel_update*: The hex string of the *channel_update* message received from the remote node. Only present if error is from the remote node and the *failcode* has the `UPDATE` bit set, as per BOLT #4."
       ],
       "author": [
-        "Christian Decker <<decker@blockstream.com>> is mainly responsible."
+        "Christian Decker [decker@blockstream.com](mailto:decker@blockstream.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-listpays(7)",
@@ -16915,7 +16754,7 @@
         "lightning-invoice(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -17072,14 +16911,14 @@
         }
       },
       "author": [
-        "Shahana Farooqui <<sfarooqui@blockstream.com>> is mainly responsible."
+        "Shahana Farooqui [sfarooqui@blockstream.com](mailto:sfarooqui@blockstream.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-newaddr(7)",
         "lightning-withdraw(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -17321,7 +17160,7 @@
         "- -32602: Error in given parameters."
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -17823,7 +17662,7 @@
         "- -32602: Error in given parameters."
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -18238,16 +18077,16 @@
         "- -32602: If the given parameters are wrong."
       ],
       "author": [
-        "Michael Hawkins <<michael.hawkins@protonmail.com>>."
+        "Michael Hawkins [michael.hawkins@protonmail.com](mailto:michael.hawkins@protonmail.com)."
       ],
       "see_also": [
         "lightning-fundchannel(7)",
         "lightning-listnodes(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>",
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)",
         "",
-        "BOLT #7: <https://github.com/lightning/bolts/blob/master/07-routing-gossip.md>"
+        "BOLT #7: [https://github.com/lightning/bolts/blob/master/07-routing-gossip.md](https://github.com/lightning/bolts/blob/master/07-routing-gossip.md)"
       ],
       "examples": [
         {
@@ -18699,13 +18538,13 @@
         "- -32602: If the given parameters are wrong."
       ],
       "author": [
-        "Rusty Russell <<rusty@blockstream.com>>."
+        "Rusty Russell [rusty@blockstream.com](mailto:rusty@blockstream.com)."
       ],
       "see_also": [
         "lightning-listpeerchannels(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -20501,7 +20340,7 @@
         "- -32602: Error in given parameters or field with *config* name doesn't exist."
       ],
       "author": [
-        "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
+        "Vincenzo Palazzo [vincenzo.palazzo@protonmail.com](mailto:vincenzo.palazzo@protonmail.com) wrote the initial version of this man page,",
         "but many others did the hard work of actually implementing this rpc command."
       ],
       "see_also": [
@@ -20509,7 +20348,7 @@
         "lightningd-config(5)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -21082,7 +20921,7 @@
         "- -32602: invalid parameters."
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-datastore(7)",
@@ -21090,7 +20929,7 @@
         "lightning-datastoreusage(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -21511,14 +21350,14 @@
         }
       },
       "author": [
-        "Rene Pickhardt <<r.pickhardt@gmail.com>> is mainly responsible."
+        "Rene Pickhardt [r.pickhardt@gmail.com](mailto:r.pickhardt@gmail.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-autoclean-status(7)",
         "lightning-getinfo(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -21995,7 +21834,7 @@
         }
       },
       "author": [
-        "Felix <<fixone@gmail.com>> is mainly responsible."
+        "Felix [fixone@gmail.com](mailto:fixone@gmail.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-newaddr(7)",
@@ -22004,7 +21843,7 @@
         "lightning-listtransactions(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -22242,13 +22081,13 @@
         }
       },
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-listforwards(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -22439,14 +22278,14 @@
         }
       },
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-invoicerequests(7)",
         "lightning-disableinvoicerequest(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -22791,7 +22630,7 @@
         }
       },
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-waitinvoice(7)",
@@ -22799,7 +22638,7 @@
         "lightning-invoice(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -23047,14 +22886,14 @@
         }
       },
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-autoclean(7)",
         "lightning-listpeers(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ]
     },
     "listnodes.json": {
@@ -23314,14 +23153,14 @@
         "- -32602: Error in given parameters."
       ],
       "author": [
-        "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
+        "Vincenzo Palazzo [vincenzo.palazzo@protonmail.com](mailto:vincenzo.palazzo@protonmail.com) wrote the initial version of this man page,",
         "but many others did the hard work of actually implementing this rpc command."
       ],
       "see_also": [
         "lightning-listchannels(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -23480,14 +23319,14 @@
         }
       },
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-offer(7)",
         "lightning-listoffers(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -23811,7 +23650,7 @@
         ]
       },
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-pay(7)",
@@ -23819,7 +23658,7 @@
         "lightning-listsendpays(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -25307,16 +25146,16 @@
         "- -32602: If the given parameters are wrong."
       ],
       "author": [
-        "Michael Hawkins <<michael.hawkins@protonmail.com>>."
+        "Michael Hawkins [michael.hawkins@protonmail.com](mailto:michael.hawkins@protonmail.com)."
       ],
       "see_also": [
         "lightning-connect(7)",
         "lightning-fundchannel_start(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>",
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)",
         "Lightning RFC site (BOLT #9): ",
-        "<https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md>"
+        "[https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md](https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md)"
       ],
       "examples": [
         {
@@ -26049,7 +25888,7 @@
         "- -32602: If the given parameters are wrong."
       ],
       "author": [
-        "Michael Hawkins <<michael.hawkins@protonmail.com>>."
+        "Michael Hawkins [michael.hawkins@protonmail.com](mailto:michael.hawkins@protonmail.com)."
       ],
       "see_also": [
         "lightning-connect(7)",
@@ -26057,9 +25896,9 @@
         "lightning-setchannel(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>",
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)",
         "Lightning RFC site (BOLT #9):",
-        "<https://github.com/lightning/bolts/blob/master/09-features.md>"
+        "[https://github.com/lightning/bolts/blob/master/09-features.md](https://github.com/lightning/bolts/blob/master/09-features.md)"
       ],
       "examples": [
         {
@@ -26453,7 +26292,7 @@
         ]
       },
       "author": [
-        "Christian Decker <<decker.christian@gmail.com>> is mainly responsible."
+        "Christian Decker [decker.christian@gmail.com](mailto:decker.christian@gmail.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-listpays(7)",
@@ -26461,7 +26300,7 @@
         "lightning-listinvoices(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -26677,13 +26516,13 @@
         }
       },
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-sql(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -27016,7 +26855,7 @@
         "- -32602: Error in given parameters."
       ],
       "author": [
-        "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
+        "Vincenzo Palazzo [vincenzo.palazzo@protonmail.com](mailto:vincenzo.palazzo@protonmail.com) wrote the initial version of this man page,",
         "but many others did the hard work of actually implementing this rpc command."
       ],
       "see_also": [
@@ -27024,7 +26863,7 @@
         "lightning-listfunds(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -27135,10 +26974,10 @@
         "- -1: Catchall nonspecific error."
       ],
       "author": [
-        "Aditya <<aditya.sharma20111@gmail.com>> is mainly responsible."
+        "Aditya [aditya.sharma20111@gmail.com](mailto:aditya.sharma20111@gmail.com) is mainly responsible."
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -27489,7 +27328,7 @@
         "There may be rare edge cases where a communications failure later in the channel funding process will cancel the funding locally, but the peer thinks the channel is already waiting for funding lockin. In that case, the next time we connect to the peer, our node will tell the peer to forget the channel, but some nodes (in particular, Core Lightning nodes) will disconnect when our node tells them to forget the channel. If you immediately **multifundchannel** with that peer, it could trigger this connect-forget-disconnect behavior, causing the second **multifundchannel** to fail as well due to disconnection. Doing a **connect** with the peers separately, and waiting for a few seconds, should help clear this hurdle; running **multifundchannel** a third time would also clear this."
       ],
       "author": [
-        "ZmnSCPxj <<ZmnSCPxj@protonmail.com>> is mainly responsible."
+        "ZmnSCPxj [ZmnSCPxj@protonmail.com](mailto:ZmnSCPxj@protonmail.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-connect(7)",
@@ -27498,7 +27337,7 @@
         "lightning-fundchannel(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -27723,7 +27562,7 @@
         "- 302: The dust limit is not met."
       ],
       "author": [
-        "ZmnSCPxj <<ZmnSCPxj@protonmail.com>> is mainly responsible."
+        "ZmnSCPxj [ZmnSCPxj@protonmail.com](mailto:ZmnSCPxj@protonmail.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-listfunds(7)",
@@ -27733,7 +27572,7 @@
         "lightning-withdraw(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -27846,7 +27685,7 @@
         "If an unrecognized address type is requested an error message will be returned."
       ],
       "author": [
-        "Felix <<fixone@gmail.com>> is mainly responsible."
+        "Felix [fixone@gmail.com](mailto:fixone@gmail.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-listfunds(7)",
@@ -27855,7 +27694,7 @@
         "lightning-listtransactions(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -27928,10 +27767,10 @@
         "- -32602: Error in given parameters."
       ],
       "author": [
-        "Rusty Russell <<rusty@blockstream.com>> wrote the initial version of this man page."
+        "Rusty Russell [rusty@blockstream.com](mailto:rusty@blockstream.com) wrote the initial version of this man page."
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "example_notifications": [
         {
@@ -28155,7 +27994,7 @@
         "- 1000: Offer with this offer_id already exists (but is not active)."
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-listoffers(7)",
@@ -28163,7 +28002,7 @@
         "lightning-invoicerequest(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -28265,7 +28104,7 @@
         "- 312: Channel in an invalid state"
       ],
       "author": [
-        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+        "Lisa Neigut [niftynei@gmail.com](mailto:niftynei@gmail.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-openchannel_init(7)",
@@ -28280,7 +28119,7 @@
         "lightning-multifundchannel(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -28455,7 +28294,7 @@
         "- 312: Channel in an invalid state"
       ],
       "author": [
-        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+        "Lisa Neigut [niftynei@gmail.com](mailto:niftynei@gmail.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-openchannel_init(7)",
@@ -28470,7 +28309,7 @@
         "lightning-multifundchannel(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -28760,7 +28599,7 @@
         "- 312: Channel in an invalid state"
       ],
       "author": [
-        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+        "Lisa Neigut [niftynei@gmail.com](mailto:niftynei@gmail.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-openchannel_update(7)",
@@ -28775,7 +28614,7 @@
         "lightning-multifundchannel(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -28909,7 +28748,7 @@
         "- 312: Channel in an invalid state"
       ],
       "author": [
-        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+        "Lisa Neigut [niftynei@gmail.com](mailto:niftynei@gmail.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-openchannel_init(7)",
@@ -28924,7 +28763,7 @@
         "lightning-multifundchannel(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -29149,7 +28988,7 @@
         "- 312: Channel in an invalid state"
       ],
       "author": [
-        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+        "Lisa Neigut [niftynei@gmail.com](mailto:niftynei@gmail.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-openchannel_init(7)",
@@ -29164,7 +29003,7 @@
         "lightning-multifundchannel(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -29267,7 +29106,7 @@
         "In CLN we like to call the weight unit \"sipa\" in honor of Pieter Wuille, who uses the name \"sipa\" on IRC and elsewhere. Internally we call the *perkw* style as \"feerate per kilosipa\"."
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -29547,7 +29386,7 @@
         "The *data* field of errors will include statistics *getroute_tries* and *sendpay_tries*. It will also contain a *failures* field with detailed data about routing errors."
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-listpays(7)",
@@ -29558,7 +29397,7 @@
         "lightning-invoice(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -29657,14 +29496,14 @@
         "- -32602: Error in given parameters or we're already waiting for a ping response from peer."
       ],
       "author": [
-        "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
+        "Vincenzo Palazzo [vincenzo.palazzo@protonmail.com](mailto:vincenzo.palazzo@protonmail.com) wrote the initial version of this man page,",
         "but many others did the hard work of actually implementing this rpc command."
       ],
       "see_also": [
         "lightning-connect(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -29876,7 +29715,7 @@
         "On error, the reason why the action could not be taken upon the plugin is returned."
       ],
       "author": [
-        "Antoine Poinsot <<darosior@protonmail.com>> is mainly responsible."
+        "Antoine Poinsot [darosior@protonmail.com](mailto:darosior@protonmail.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-cli(1)",
@@ -29884,7 +29723,7 @@
         "[writing plugins][writing plugins]"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>",
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)",
         "",
         "[writing plugins]: https://docs.corelightning.org/docs/plugin-development"
       ],
@@ -30196,13 +30035,13 @@
         "properties": {}
       },
       "author": [
-        "Ken Sedgwick <<ken@bonsai.com>> is mainly responsible."
+        "Ken Sedgwick [ken@bonsai.com](mailto:ken@bonsai.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-pay(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -30282,13 +30121,13 @@
         "properties": {}
       },
       "author": [
-        "Ken Sedgwick <<ken@bonsai.com>> is mainly responsible."
+        "Ken Sedgwick [ken@bonsai.com](mailto:ken@bonsai.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-keysend(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -30406,13 +30245,13 @@
         }
       },
       "author": [
-        "Alex Myers <<alex@endothermic.dev>> is mainly responsible."
+        "Alex Myers [alex@endothermic.dev](mailto:alex@endothermic.dev) is mainly responsible."
       ],
       "see_also": [
         "reckless(1)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -30551,13 +30390,13 @@
         }
       },
       "author": [
-        "Rusty Russell <<rusty@blockstream.com>> is mainly responsible."
+        "Rusty Russell [rusty@blockstream.com](mailto:rusty@blockstream.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-hsmtool(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -30631,13 +30470,13 @@
         }
       },
       "author": [
-        "Aditya <<aditya.sharma20111@gmail.com>> is mainly responsible."
+        "Aditya [aditya.sharma20111@gmail.com](mailto:aditya.sharma20111@gmail.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-getsharedsecret(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -30872,7 +30711,7 @@
         "- 212: Invoice is invalid."
       ],
       "author": [
-        "Eduardo Quintana-Miranda <<eduardo.quintana@pm.me>> is mainly responsible."
+        "Eduardo Quintana-Miranda [eduardo.quintana@pm.me](mailto:eduardo.quintana@pm.me) is mainly responsible."
       ],
       "see_also": [
         "lightning-renepaystatus(7)",
@@ -30880,9 +30719,9 @@
         "lightning-invoice(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>",
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)",
         "",
-        "Pickhardt R. and Richter S., *Optimally Reliable & Cheap Payment Flows on the Lightning Network* <https://arxiv.org/abs/2107.05322>"
+        "Pickhardt R. and Richter S., *Optimally Reliable & Cheap Payment Flows on the Lightning Network* [https://arxiv.org/abs/2107.05322](https://arxiv.org/abs/2107.05322)"
       ],
       "examples": [
         {
@@ -31059,14 +30898,14 @@
         }
       },
       "author": [
-        "Eduardo Quintana-Miranda <<eduardo.quintana@pm.me>> is mainly responsible."
+        "Eduardo Quintana-Miranda [eduardo.quintana@pm.me](mailto:eduardo.quintana@pm.me) is mainly responsible."
       ],
       "see_also": [
         "lightning-renepay(7)",
         "lightning-listpays(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -31195,7 +31034,7 @@
         "- -32602: Invalid parameter, such as specifying a spent/reserved input in *psbt*."
       ],
       "author": [
-        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+        "Lisa Neigut [niftynei@gmail.com](mailto:niftynei@gmail.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-unreserveinputs(7)",
@@ -31203,7 +31042,7 @@
         "lightning-sendpsbt(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -31300,14 +31139,14 @@
         ]
       },
       "author": [
-        "Christian Decker <<decker.christian@gmail.com>> is mainly responsible."
+        "Christian Decker [decker.christian@gmail.com](mailto:decker.christian@gmail.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-createonion(7)",
         "lightning-sendonion(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -31524,13 +31363,13 @@
         "- 1005: We timed out waiting for the invoice to be paid"
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-fetchinvoice(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -31889,7 +31728,7 @@
         "the error details are decrypted and presented here, if *shared_secrets* was provided and an error was returned by one of the intermediate nodes"
       ],
       "author": [
-        "Christian Decker <<decker.christian@gmail.com>> is mainly responsible."
+        "Christian Decker [decker.christian@gmail.com](mailto:decker.christian@gmail.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-injectpaymentonion(7)",
@@ -31898,7 +31737,7 @@
         "lightning-listsendpays(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>",
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)",
         "",
         "[bolt04]: https://github.com/lightning/bolts/blob/master/04-onion-routing.md"
       ],
@@ -32281,7 +32120,7 @@
         "*channel_update*: The hex string of the *channel_update* message received from the remote node. Only present if error is from the remote node and the *failcode* has the UPDATE bit set, as per BOLT #4."
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-listinvoices(7)",
@@ -32292,7 +32131,7 @@
         "lightning-waitsendpay(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -32393,7 +32232,7 @@
         "- -32602: Error in given parameters or some error happened during the command process."
       ],
       "author": [
-        "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
+        "Vincenzo Palazzo [vincenzo.palazzo@protonmail.com](mailto:vincenzo.palazzo@protonmail.com) wrote the initial version of this man page,",
         "but many others did the hard work of actually implementing this rpc command."
       ],
       "see_also": [
@@ -32402,7 +32241,7 @@
         "lightning-listtransactions(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -32581,7 +32420,7 @@
         "- -32602: JSONRPC2_INVALID_PARAMS, i.e. Given id is not a channel ID or short channel ID."
       ],
       "author": [
-        "Michael Schmoock <<michael@schmoock.net>> is the author of this feature."
+        "Michael Schmoock [michael@schmoock.net](mailto:michael@schmoock.net) is the author of this feature."
       ],
       "see_also": [
         "lightningd-config(5)",
@@ -32590,7 +32429,7 @@
         "lightning-listpeers(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -32781,14 +32620,14 @@
         "- -32602: JSONRPC2_INVALID_PARAMS, i.e. the parameter is not dynamic, or the val was invalid."
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible for this feature."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible for this feature."
       ],
       "see_also": [
         "lightningd-config(5)",
         "lightning-listconfigs(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -32879,7 +32718,7 @@
         "- -32602: Parameter missed or malformed."
       ],
       "author": [
-        "Gregory Sanders <<gsanders87@gmail.com>> is mainly responsible."
+        "Gregory Sanders [gsanders87@gmail.com](mailto:gsanders87@gmail.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-fundpsbt(7)",
@@ -32887,7 +32726,7 @@
         "lightning-signpsbt(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -33076,14 +32915,14 @@
         }
       },
       "author": [
-        "Shahana Farooqui <<sfarooqui@blockstream.com>> is mainly responsible."
+        "Shahana Farooqui [sfarooqui@blockstream.com](mailto:sfarooqui@blockstream.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-commando-showrunes(7)",
         "lightning-blacklistrune(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -33464,7 +33303,7 @@
         "- -1: Catchall nonspecific error."
       ],
       "author": [
-        "Carl Dong <<contact@carldong.me>> is mainly responsible."
+        "Carl Dong [contact@carldong.me](mailto:contact@carldong.me) is mainly responsible."
       ],
       "see_also": [
         "lightning-createinvoice(7)",
@@ -33476,7 +33315,7 @@
         "lightning-offer(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -33560,13 +33399,13 @@
         }
       },
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-checkmessage(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>",
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)",
         "",
         "[SignMessageRequest](https://api.lightning.community/#grpc-request-signmessagerequest)"
       ],
@@ -33669,11 +33508,11 @@
         }
       },
       "author": [
-        "Lagrang3 <<lagrang3@protonmail.com>> is mainly responsible."
+        "Lagrang3 [lagrang3@protonmail.com](mailto:lagrang3@protonmail.com) is mainly responsible."
       ],
       "see_also": [],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -33749,7 +33588,7 @@
         "- -32602: Error in given parameters, or there aren't wallet's inputs to sign, or we couldn't sign all of *signonly*, or inputs are not reserved."
       ],
       "author": [
-        "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
+        "Vincenzo Palazzo [vincenzo.palazzo@protonmail.com](mailto:vincenzo.palazzo@protonmail.com) wrote the initial version of this man page,",
         "but many others did the hard work of actually implementing this rpc command."
       ],
       "see_also": [
@@ -33757,7 +33596,7 @@
         "lightning-sendpsbt(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -33889,14 +33728,14 @@
         "```"
       ],
       "author": [
-        "Dusty <<@dusty_daemon>> is mainly responsible."
+        "Dusty [@dusty_daemon](mailto:@dustydaemon) is mainly responsible."
       ],
       "see_also": [
         "lightning-splice_signed(7)",
         "lightning-splice_update(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -34053,14 +33892,14 @@
         "```"
       ],
       "author": [
-        "Dusty <<@dusty_daemon>> is mainly responsible."
+        "Dusty [@dusty_daemon](mailto:@dustydaemon) is mainly responsible."
       ],
       "see_also": [
         "lightning-splice_init(7)",
         "lightning-splice_update(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -34221,14 +34060,14 @@
         "```"
       ],
       "author": [
-        "Dusty <<@dusty_daemon>> is mainly responsible."
+        "Dusty [@dusty_daemon](mailto:@dustydaemon) is mainly responsible."
       ],
       "see_also": [
         "lightning-splice_init(7)",
         "lightning-splice_signed(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -34384,7 +34223,7 @@
         "On failure, an error is returned."
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-listtransactions(7)",
@@ -34403,7 +34242,7 @@
         "lightning-listforwards(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -34598,13 +34437,13 @@
         }
       },
       "author": [
-        "Aditya <<aditya.sharma20111@gmail.com>> is mainly responsible."
+        "Aditya [aditya.sharma20111@gmail.com](mailto:aditya.sharma20111@gmail.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-getsharedsecret(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -34655,11 +34494,11 @@
         }
       },
       "author": [
-        "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
+        "Vincenzo Palazzo [vincenzo.palazzo@protonmail.com](mailto:vincenzo.palazzo@protonmail.com) wrote the initial version of this man page,",
         "but many others did the hard work of actually implementing this rpc command."
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -34726,14 +34565,14 @@
         "- -1: An unknown *txid*."
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-txprepare(7)",
         "lightning-txsend(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -34850,7 +34689,7 @@
         "- 302: The dust limit is not met."
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-withdraw(7)",
@@ -34859,7 +34698,7 @@
         "lightning-feerates(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -34956,14 +34795,14 @@
         "- -1: Catchall nonspecific error."
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-txprepare(7)",
         "lightning-txdiscard(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -35110,7 +34949,7 @@
         "- -32602: Invalid parameter, i.e. an unparseable PSBT."
       ],
       "author": [
-        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+        "Lisa Neigut [niftynei@gmail.com](mailto:niftynei@gmail.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-unreserveinputs(7)",
@@ -35118,7 +34957,7 @@
         "lightning-sendpsbt(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -35219,7 +35058,7 @@
         "The caller can call `upgradewallet` to convert their funds to native segwit outputs, which are valid for liquidity ad buys."
       ],
       "author": [
-        "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+        "Lisa Neigut [niftynei@gmail.com](mailto:niftynei@gmail.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-utxopsbt(7)",
@@ -35227,7 +35066,7 @@
         "lightning-unreserveinputs(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -35454,13 +35293,13 @@
         "- 301: Insufficient UTXOs to meet *satoshi* value."
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-fundpsbt(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -36272,7 +36111,7 @@
         "- -32602: If the given parameters are wrong."
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-listinvoices(7)",
@@ -36283,7 +36122,7 @@
         "lightning-listchannelmoves(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -36574,7 +36413,7 @@
         "- 904: The *timeout* was reached without an invoice being paid."
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-waitinvoice(7)",
@@ -36583,7 +36422,7 @@
         "lightning-invoice(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -36687,10 +36526,10 @@
         "- 2000: Timed out."
       ],
       "author": [
-        "ZmnSCPxj <<ZmnSCPxj@protonmail.com>> is mainly responsible."
+        "ZmnSCPxj [ZmnSCPxj@protonmail.com](mailto:ZmnSCPxj@protonmail.com) is mainly responsible."
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -36946,7 +36785,7 @@
         "- 903: If the invoice expires before being paid, or is already expired."
       ],
       "author": [
-        "Christian Decker <<decker.christian@gmail.com>> is mainly responsible."
+        "Christian Decker [decker.christian@gmail.com](mailto:decker.christian@gmail.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-waitanyinvoice(7)",
@@ -36955,7 +36794,7 @@
         "lightning-invoice(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -37233,14 +37072,14 @@
         "*failcodename*: The human-readable name corresponding to *failcode*, if known."
       ],
       "author": [
-        "ZmnSCPxj <<ZmnSCPxj@protonmail.com>> is mainly responsible."
+        "ZmnSCPxj [ZmnSCPxj@protonmail.com](mailto:ZmnSCPxj@protonmail.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-sendpay(7)",
         "lightning-pay(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -37357,7 +37196,7 @@
         "- 313: The `min-emergency-msat` reserve not be preserved (and we have anchor channels)."
       ],
       "author": [
-        "Felix <<fixone@gmail.com>> is mainly responsible."
+        "Felix [fixone@gmail.com](mailto:fixone@gmail.com) is mainly responsible."
       ],
       "see_also": [
         "lightning-listfunds(7)",
@@ -37367,7 +37206,7 @@
         "lightning-feerates(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {
@@ -37529,14 +37368,14 @@
         "- 209: Other payment error."
       ],
       "author": [
-        "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
         "lightning-pay(7)",
         "lightning-decodepay(7)"
       ],
       "resources": [
-        "Main web site: <https://github.com/ElementsProject/lightning>"
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
       "examples": [
         {

@@ -39,10 +39,10 @@
     ]
   },
   "author": [
-    "Mark Beckwith <<wythe@intrig.com>> and Rusty Russell <<rusty@rustcorp.com.au>> are mainly responsible."
+    "Mark Beckwith [wythe@intrig.com](mailto:wythe@intrig.com) and Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) are mainly responsible."
   ],
   "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
+    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
   ],
   "examples": [
     {

@@ -174,16 +174,16 @@
     "- -32602: If the given parameters are wrong."
   ],
   "author": [
-    "Michael Hawkins <<michael.hawkins@protonmail.com>>."
+    "Michael Hawkins [michael.hawkins@protonmail.com](mailto:michael.hawkins@protonmail.com)."
   ],
   "see_also": [
     "lightning-fundchannel(7)",
     "lightning-listnodes(7)"
   ],
   "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>",
+    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)",
     "",
-    "BOLT #7: <https://github.com/lightning/bolts/blob/master/07-routing-gossip.md>"
+    "BOLT #7: [https://github.com/lightning/bolts/blob/master/07-routing-gossip.md](https://github.com/lightning/bolts/blob/master/07-routing-gossip.md)"
   ],
   "examples": [
     {

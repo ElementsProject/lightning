@@ -188,7 +188,7 @@
     "- 312: Channel in an invalid state"
   ],
   "author": [
-    "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
+    "Lisa Neigut [niftynei@gmail.com](mailto:niftynei@gmail.com) is mainly responsible."
   ],
   "see_also": [
     "lightning-openchannel_init(7)",
@@ -203,7 +203,7 @@
     "lightning-multifundchannel(7)"
   ],
   "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
+    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
   ],
   "examples": [
     {

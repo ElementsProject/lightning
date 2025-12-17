@@ -89,14 +89,14 @@
     }
   },
   "author": [
-    "Christian Decker <<decker.christian@gmail.com>> is mainly responsible."
+    "Christian Decker [decker.christian@gmail.com](mailto:decker.christian@gmail.com) is mainly responsible."
   ],
   "see_also": [
     "lightning-sendonion(7)",
     "lightning-getroute(7)"
   ],
   "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>",
+    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)",
     "",
     "[BOLT 04](https://github.com/lightning/bolts/blob/master/04-onion-routing.md)"
   ],

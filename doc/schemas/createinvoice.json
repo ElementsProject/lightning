@@ -192,7 +192,7 @@
     "- 900: An invoice with the given *label* already exists."
   ],
   "author": [
-    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+    "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
   ],
   "see_also": [
     "lightning-invoice(7)",
@@ -203,7 +203,7 @@
     "lightning-offer(7)"
   ],
   "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
+    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
   ],
   "examples": [
     {

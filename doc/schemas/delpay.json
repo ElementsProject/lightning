@@ -197,7 +197,7 @@
     "- 208: Payment with payment_hash not found."
   ],
   "author": [
-    "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> is mainly responsible."
+    "Vincenzo Palazzo [vincenzo.palazzo@protonmail.com](mailto:vincenzo.palazzo@protonmail.com) is mainly responsible."
   ],
   "see_also": [
     "lightning-listpays(7)",
@@ -205,7 +205,7 @@
     "lightning-paystatus(7)"
   ],
   "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
+    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
   ],
   "examples": [
     {

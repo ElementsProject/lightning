@@ -255,7 +255,7 @@
     ]
   },
   "author": [
-    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+    "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
   ],
   "see_also": [
     "lightning-pay(7)",
@@ -265,7 +265,7 @@
   "resources": [
     "[BOLT #11](https://github.com/lightning/bolts/blob/master/11-payment-encoding.md)",
     "",
-    "Main web site: <https://github.com/ElementsProject/lightning>"
+    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
   ],
   "examples": [
     {

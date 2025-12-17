@@ -50,14 +50,14 @@
     ]
   },
   "author": [
-    "Christian Decker <<decker.christian@gmail.com>> is mainly responsible."
+    "Christian Decker [decker.christian@gmail.com](mailto:decker.christian@gmail.com) is mainly responsible."
   ],
   "see_also": [
     "lightning-createonion(7)",
     "lightning-sendonion(7)"
   ],
   "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
+    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
   ],
   "examples": [
     {

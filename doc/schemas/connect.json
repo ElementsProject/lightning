@@ -175,7 +175,7 @@
     "- -32602: If the given parameters are wrong"
   ],
   "author": [
-    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible. Felix <<fixone@gmail.com>> is the original author of this manpage."
+    "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible. Felix [fixone@gmail.com](mailto:fixone@gmail.com) is the original author of this manpage."
   ],
   "see_also": [
     "lightning-fundchannel(7)",
@@ -184,7 +184,7 @@
     "lightning-disconnect(7)"
   ],
   "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
+    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
   ],
   "examples": [
     {

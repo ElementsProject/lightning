@@ -37,14 +37,14 @@
     "- -1: Catchall nonspecific error."
   ],
   "author": [
-    "Michael Hawkins <<michael.hawkins@protonmail.com>>."
+    "Michael Hawkins [michael.hawkins@protonmail.com](mailto:michael.hawkins@protonmail.com)."
   ],
   "see_also": [
     "lightning-connect(7)",
     "lightning-listpeerchannels(7)"
   ],
   "resources": [
-    "Main web site: <https://github.com/ElementsProject/lightning>"
+    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
   ],
   "examples": [
     {
