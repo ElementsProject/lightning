@@ -445,6 +445,21 @@ def test_reckless_uv_install(node_factory):
     r.check_stderr()
 
 
+@unittest.skipIf(VALGRIND, "node too slow for starting plugin under valgrind")
+def test_reckless_shebang_install(node_factory):
+    node = get_reckless_node(node_factory)
+    node.start()
+    r = reckless([f"--network={NETWORK}", "-v", "install", "testplugshebang"],
+                 dir=node.lightning_dir)
+    assert r.returncode == 0
+    installed_path = Path(node.lightning_dir) / 'reckless/testplugshebang'
+    assert installed_path.is_dir()
+    assert node.rpc.plugintest() == 'success'
+
+    assert r.search_stdout('using installer shebang')
+    r.check_stderr()
+
+
 def test_reckless_available(node_factory):
     """list available plugins"""
     n = get_reckless_node(node_factory)
