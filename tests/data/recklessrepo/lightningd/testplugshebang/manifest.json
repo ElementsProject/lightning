@@ -1,0 +1,7 @@
+{
+    "name": "testplugshebang",
+    "short_description": "a plugin to test reckless installation with a UV shebang",
+    "long_description": "This plugin is used in the reckless blackbox tests.  This one manages its own dependency installation with uv invoked by #! from within the plugin.",
+    "entrypoint": "testplugshebang.py",
+    "requirements": ["python3"]
+}

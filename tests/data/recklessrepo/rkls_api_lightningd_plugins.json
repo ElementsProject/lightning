@@ -34,5 +34,14 @@
     "git_url": "https://api.github.com/repos/lightningd/plugins/git/trees/testplugpyproj",
     "download_url": null,
     "type": "dir"
+  },
+  {
+    "name": "testplugshebang",
+    "path": "testplugshebang",
+    "url": "https://api.github.com/repos/lightningd/plugins/contents/webhook?ref=master",
+    "html_url": "https://github.com/lightningd/plugins/tree/master/testplugshebang",
+    "git_url": "https://api.github.com/repos/lightningd/plugins/git/trees/testplugshebang",
+    "download_url": null,
+    "type": "dir"
   }
 ]

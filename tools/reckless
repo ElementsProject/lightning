@@ -157,6 +157,9 @@ class Installer:
         self.manager = manager    # dependency manager (if required)
         self.dependency_file = None
         self.dependency_call = None
+        # extra check routine to see if a source is installable by this Installer
+        self.check = None
+
 
     def __repr__(self):
         return (f'<Installer {self.name}: '
@@ -175,7 +178,7 @@ class Installer:
             return False
         return True
 
-    def installable(self) -> bool:
+    def installable(self, source) -> bool:
         '''Validate the necessary compiler and package manager executables are
         available to install.  If these are defined, they are considered
         mandatory even though the user may have the requisite packages already
@@ -184,6 +187,8 @@ class Installer:
             return False
         if self.manager and not shutil.which(self.manager):
             return False
+        if self.check:
+            return self.check(source)
         return True
 
     def add_entrypoint(self, entry: str):
@@ -484,9 +489,14 @@ class InstInfo:
                         found_entry = sub.find(g, ftype=SourceFile)
                         if found_entry:
                             break
-                    # FIXME: handle a list of dependencies
-                    found_dep = sub.find(inst.dependency_file,
-                                         ftype=SourceFile)
+
+                    if inst.dependency_file:
+                        # FIXME: handle a list of dependencies
+                        found_dep = sub.find(inst.dependency_file,
+                                             ftype=SourceFile)
+                    else:
+                        found_dep = None
+
                     if found_entry:
                         # Success!
                         if found_dep:
@@ -1031,6 +1041,47 @@ def install_to_python_virtual_environment(cloned_plugin: InstInfo):
     return cloned_plugin
 
 
+def have_files(source: SourceDir):
+    """Do we have direct access to the files in this directory?"""
+    if source.srctype in [Source.DIRECTORY, Source.LOCAL_REPO,
+                          Source.GIT_LOCAL_CLONE]:
+        return True
+    log.info(f'no files in {source.name} ({source.srctype})')
+    return False
+
+
+def fetch_manifest(source: SourceDir) -> dict:
+    """read and ingest a manifest from the provided source."""
+    log.debug(f'ingesting manifest from {source.name}: {source.location}/manifest.json ({source.srctype})')
+    # local_path = RECKLESS_DIR / '.remote_sources' / user
+    if source.srctype not in [Source.GIT_LOCAL_CLONE, Source.LOCAL_REPO, Source.DIRECTORY]:
+        log.info(f'oops! {source.srctype}')
+        return None
+    if source.srctype == Source.GIT_LOCAL_CLONE:
+        try:
+            repo = GithubRepository(source.parent_source.original_source)
+            path = RECKLESS_DIR / '.remote_sources' / repo.user / repo.name
+        except AssertionError:
+            log.info(f'could not parse github source {source.parent_source.original_source}')
+            return None
+    elif source.srctype in [Source.DIRECTORY, Source.LOCAL_REPO]:
+        path = Path(source.location)
+    else:
+        raise Exception(f"cannot access manifest in {source.srctype}: {source}")
+    if source.relative:
+        path = path / source.relative
+    path = path / 'manifest.json'
+    if not path.exists():
+        return None
+    with open(path, 'r+') as manifest_file:
+        try:
+            manifest = json.load(manifest_file)
+            return manifest
+        except json.decoder.JSONDecodeError:
+            log.warning(f'{source.name} contains malformed manifest ({source.parent_source.original_source})')
+            return None
+
+
 def cargo_installation(cloned_plugin: InstInfo):
     call = ['cargo', 'build', '--release', '-vv']
     # FIXME: the symlinked Cargo.toml allows the installer to identify a valid
@@ -1144,6 +1195,45 @@ def install_python_uv_legacy(cloned_plugin: InstInfo):
     return cloned_plugin
 
 
+def open_source_entrypoint(source: InstInfo) -> str:
+    if source.srctype not in [Source.GIT_LOCAL_CLONE, Source.LOCAL_REPO, Source.DIRECTORY]:
+        log.info(f'oops! {source.srctype}')
+        return None
+    assert source.entry
+    file = Path(source.source_loc)
+    # if source.subdir:
+    #     file /= source.subdir
+    file /= source.entry
+    log.debug(f'checking entry file {str(file)}')
+    if file.exists():
+        # FIXME: check file encoding
+        try:
+            with open(file, 'r') as f:
+                return f.read()
+        except UnicodeDecodeError:
+            log.debug('failed to read source file')
+            return None
+    else:
+        log.debug('could not find source file')
+
+    return None
+
+def check_for_shebang(source: InstInfo) -> bool:
+    log.debug(f'checking for shebang in {source}')
+    if source.source_dir:
+        source.get_inst_details()
+        if have_files(source.source_dir):
+            entrypoint_file = open_source_entrypoint(source)
+            if entrypoint_file.split('\n')[0].startswith('#!'):
+                # Calling the python interpreter will not manage dependencies.
+                # Leave this to another python installer.
+                for interpreter in ['bin/python', 'env python']:
+                    if interpreter in entrypoint_file.split('\n')[0]:
+                        return False
+                return True
+    return False
+
+
 python3venv = Installer('python3venv', exe='python3',
                         manager='pip', entry='{name}.py')
 python3venv.add_entrypoint('{name}')
@@ -1186,7 +1276,12 @@ rust_cargo = Installer('rust', manager='cargo', entry='Cargo.toml')
 rust_cargo.add_dependency_file('Cargo.toml')
 rust_cargo.dependency_call = cargo_installation
 
-INSTALLERS = [pythonuv, pythonuvlegacy, python3venv, poetryvenv,
+shebang = Installer('shebang', entry='{name}.py')
+shebang.add_entrypoint('{name}')
+# An extra installable check to see if a #! is present in the file
+shebang.check = check_for_shebang
+
+INSTALLERS = [shebang, pythonuv, pythonuvlegacy, python3venv, poetryvenv,
               pyprojectViaPip, nodejs, rust_cargo]
 
 
@@ -1376,6 +1471,8 @@ def _checkout_commit(orig_src: InstInfo,
 def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
     """make sure the repo exists and clone it."""
     log.debug(f'Install requested from {src}.')
+    if src.source_dir and src.source_dir.parent_source:
+        log.debug(f'source has parent {src.source_dir.parent_source}')
     if RECKLESS_CONFIG is None:
         log.error('reckless install directory unavailable')
         return None
@@ -1411,6 +1508,8 @@ def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
     # FIXME: Validate path was cloned successfully.
     # Depending on how we accessed the original source, there may be install
     # details missing. Searching the cloned repo makes sure we have it.
+    # FIXME: This could be cloned to .remotesources and the global sources
+    # could then be updated with this new LoadedSource to save on additional cloning.
     clone = LoadedSource(plugin_path)
     clone.content.populate()
     # Make sure we don't try to fetch again!
@@ -1426,14 +1525,29 @@ def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
     if not plugin_path:
         return None
 
+    # FIXME: replace src wholesale
+    # We have a hunch it's in this directory/source, so link it here.
+    inst_check_src = copy.copy(src)
+    if not inst_check_src.source_dir:
+        inst_check_src.source_loc = plugin_path
+        inst_check_src.source_dir = clone.content
+        inst_check_src.source_dir.parent_source = clone
+
+        if src.srctype == Source.GITHUB_REPO:
+            inst_check_src.srctype = Source.GIT_LOCAL_CLONE
+        else:
+            inst_check_src.srctype = clone.type
+
     # Find a suitable installer
     INSTALLER = None
     for inst_method in INSTALLERS:
-        if not (inst_method.installable() and inst_method.executable()):
+        if not (inst_method.installable(inst_check_src) and inst_method.executable()):
             continue
         if inst_method.dependency_file is not None:
             if inst_method.dependency_file not in os.listdir(plugin_path):
                 continue
+        if inst_method.check and not inst_method.check(inst_check_src):
+            continue
         log.debug(f"using installer {inst_method.name}")
         INSTALLER = inst_method
         break
