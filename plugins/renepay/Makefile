@@ -10,7 +10,6 @@ PLUGIN_RENEPAY_SRC :=				\
 	plugins/renepay/routebuilder.c		\
 	plugins/renepay/routetracker.c		\
 	plugins/renepay/routefail.c		\
-	plugins/renepay/sendpay.c		\
 	plugins/renepay/uncertainty.c		\
 	plugins/renepay/mods.c			\
 	plugins/renepay/errorcodes.c		\
@@ -30,7 +29,6 @@ PLUGIN_RENEPAY_HDRS :=				\
 	plugins/renepay/routebuilder.h		\
 	plugins/renepay/routetracker.h		\
 	plugins/renepay/routefail.h		\
-	plugins/renepay/sendpay.h		\
 	plugins/renepay/uncertainty.h		\
 	plugins/renepay/mods.h			\
 	plugins/renepay/errorcodes.h		\

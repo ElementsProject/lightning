@@ -10,10 +10,6 @@ struct routetracker{
 	/* Routes that we compute and are kept here before sending them. */
 	struct route **computed_routes;
 
-	/* Routes that we sendpay and are still waiting for rpc returning
-	 * success. */
-	struct route_map *sent_routes;
-
 	/* Routes that have concluded (either SENDPAY_FAILED or
 	 * SENDPAY_COMPLETE). */
 	struct route **finalized_routes;

@@ -1,5 +1,7 @@
 #include "config.h"
 #include <common/json_stream.h>
+#include <common/onion_encode.h>
+#include <common/sphinx.h>
 #include <plugins/renepay/json.h>
 #include <plugins/renepay/payment.h>
 #include <plugins/renepay/payplugin.h>
@@ -23,21 +25,18 @@ struct routetracker *new_routetracker(const tal_t *ctx, struct payment *payment)
 	struct routetracker *rt = tal(ctx, struct routetracker);
 
 	rt->computed_routes = tal_arr(rt, struct route *, 0);
-	rt->sent_routes = tal(rt, struct route_map);
 	rt->finalized_routes = tal_arr(rt, struct route *, 0);
 
-	if (!rt->computed_routes || !rt->sent_routes || !rt->finalized_routes)
+	if (!rt->computed_routes || !rt->finalized_routes)
 		/* bad allocation */
 		return tal_free(rt);
 
-	route_map_init(rt->sent_routes);
 	return rt;
 }
 
 bool routetracker_have_results(struct routetracker *routetracker)
 {
-	return route_map_count(routetracker->sent_routes) == 0 &&
-	       tal_count(routetracker->finalized_routes) > 0;
+	return tal_count(routetracker->finalized_routes) > 0;
 }
 
 void routetracker_cleanup(struct routetracker *routetracker)
@@ -150,7 +149,7 @@ static void remove_route(struct route *route, struct route_map *map)
  *	- or after listsendpays reveals some pending route that we didn't
  *	previously know about. */
 static void route_pending_register(struct routetracker *routetracker,
-				   struct route *route)
+				   struct route *route TAKES)
 {
 	assert(route);
 	assert(routetracker);
@@ -165,17 +164,12 @@ static void route_pending_register(struct routetracker *routetracker,
 			   __func__,
 			   fmt_routekey(tmpctx, &route->key));
 
-	if (!route_map_del(routetracker->sent_routes, route))
-		plugin_err(pay_plugin->plugin,
-			   "%s: tracking a route (%s) not computed by this "
-			   "payment call",
-			   __func__,
-			   fmt_routekey(tmpctx, &route->key));
-
 	uncertainty_commit_htlcs(pay_plugin->uncertainty, route);
 
-	if (!tal_steal(pay_plugin->pending_routes, route) ||
-	    !route_map_add(pay_plugin->pending_routes, route) ||
+	if (taken(route))
+		tal_steal(pay_plugin->pending_routes, route);
+
+	if (!route_map_add(pay_plugin->pending_routes, route) ||
 	    !tal_add_destructor2(route, remove_route,
 				 pay_plugin->pending_routes))
 		plugin_err(pay_plugin->plugin, "%s: failed to register route.",
@@ -190,93 +184,6 @@ static void route_pending_register(struct routetracker *routetracker,
 			   "%s: amount_msat arithmetic overflow.",
 			   __func__);
 	}
-}
-
-/* Callback function for sendpay request success. */
-static struct command_result *sendpay_done(struct command *cmd,
-					   const char *method UNUSED,
-					   const char *buf,
-					   const jsmntok_t *result,
-					   struct route *route)
-{
-	assert(route);
-	struct payment *payment = route_get_payment_verify(route);
-	route_pending_register(payment->routetracker, route);
-
-	const jsmntok_t *t;
-	size_t i;
-	bool ret;
-
-	const jsmntok_t *secretstok =
-	    json_get_member(buf, result, "shared_secrets");
-
-	if (secretstok) {
-		assert(secretstok->type == JSMN_ARRAY);
-
-		route->shared_secrets =
-		    tal_arr(route, struct secret, secretstok->size);
-		json_for_each_arr(i, t, secretstok)
-		{
-			ret = json_to_secret(buf, t, &route->shared_secrets[i]);
-			assert(ret);
-		}
-	} else
-		route->shared_secrets = NULL;
-	return command_still_pending(cmd);
-}
-
-/* sendpay really only fails immediately in two ways:
- * 1. We screwed up and misused the API.
- * 2. The first peer is disconnected.
- */
-static struct command_result *sendpay_failed(struct command *cmd,
-					     const char *method UNUSED,
-					     const char *buf,
-					     const jsmntok_t *tok,
-					     struct route *route)
-{
-	assert(route);
-	struct payment *payment = route_get_payment_verify(route);
-	struct routetracker *routetracker = payment->routetracker;
-	assert(routetracker);
-
-	enum jsonrpc_errcode errcode;
-	const char *msg;
-	const char *err;
-
-	err = json_scan(tmpctx, buf, tok, "{code:%,message:%}",
-			JSON_SCAN(json_to_jsonrpc_errcode, &errcode),
-			JSON_SCAN_TAL(tmpctx, json_strdup, &msg));
-	if (err)
-		plugin_err(pay_plugin->plugin,
-			   "Unable to parse sendpay error: %s, json: %.*s", err,
-			   json_tok_full_len(tok), json_tok_full(buf, tok));
-
-	payment_note(payment, LOG_INFORM,
-		     "Sendpay failed: partid=%" PRIu64
-		     " errorcode:%d message=%s",
-		     route->key.partid, errcode, msg);
-
-	if (errcode != PAY_TRY_OTHER_ROUTE) {
-		plugin_log(pay_plugin->plugin, LOG_UNUSUAL,
-			   "Strange error from sendpay: %.*s",
-			   json_tok_full_len(tok), json_tok_full(buf, tok));
-	}
-
-	/* There is no new knowledge from this kind of failure.
-	 * We just disable this scid. */
-	struct short_channel_id_dir scidd_disable = {
-	    .scid = route->hops[0].scid, .dir = route->hops[0].direction};
-	payment_disable_chan(payment, scidd_disable, LOG_INFORM,
-			     "sendpay didn't like first hop: %s", msg);
-
-	if (!route_map_del(routetracker->sent_routes, route))
-		plugin_err(pay_plugin->plugin,
-			   "%s: route (%s) is not marked as sent",
-			   __func__,
-			   fmt_routekey(tmpctx, &route->key));
-	tal_free(route);
-	return command_still_pending(cmd);
 }
 
 void payment_collect_results(struct payment *payment,
@@ -345,59 +252,230 @@ void payment_collect_results(struct payment *payment,
 	tal_resize(&routetracker->finalized_routes, 0);
 }
 
+static void sphinx_append_blinded_path(const tal_t *ctx,
+				       struct sphinx_path *sp,
+				       const struct blinded_path *blinded_path,
+				       const struct amount_msat deliver,
+				       const struct amount_msat total,
+				       const u32 final_cltv)
+{
+	const size_t pathlen = tal_count(blinded_path->path);
+	bool ret;
+
+	for (size_t i = 0; i < pathlen; i++) {
+		bool first = (i == 0);
+		bool final = (i == pathlen - 1);
+
+		const struct blinded_path_hop *bhop = blinded_path->path[i];
+		const u8 *payload = onion_blinded_hop(
+		    ctx, final ? &deliver : NULL, final ? &total : NULL,
+		    final ? &final_cltv : NULL, bhop->encrypted_recipient_data,
+		    first ? &blinded_path->first_path_key : NULL);
+		// FIXME: better handle error here
+		ret = sphinx_add_hop_has_length(
+		    sp,
+		    first ? &blinded_path->first_node_id.pubkey
+			  : &bhop->blinded_node_id,
+		    take(payload));
+		assert(ret);
+	}
+}
+
+static void sphinx_append_final_hop(const tal_t *ctx,
+				    struct sphinx_path *sp,
+				    const struct secret *payment_secret,
+				    const struct node_id *node,
+				    const struct amount_msat deliver,
+				    const struct amount_msat total,
+				    const u32 final_cltv,
+				    const u8 *payment_metadata)
+{
+	struct pubkey destination;
+	bool ret = pubkey_from_node_id(&destination, node);
+	assert(ret);
+
+	const u8 *payload = onion_final_hop(ctx, deliver, final_cltv, total,
+					    payment_secret, payment_metadata);
+	// FIXME: better handle error here
+	ret = sphinx_add_hop_has_length(sp, &destination, take(payload));
+	assert(ret);
+}
+
+static const u8 *create_onion(
+    const tal_t *ctx, const unsigned int blockheight,
+    const struct route_hop *route, const struct sha256 *payment_hash,
+    const u32 final_cltv_delta, const struct blinded_path *blinded_path,
+    const struct secret *payment_secret, const struct amount_msat total_amount,
+    const struct amount_msat deliver_amount, const u8 *metadata,
+    const struct node_id first_node, const size_t first_index,
+    struct secret **shared_secrets)
+{
+	bool ret;
+	const tal_t *this_ctx = tal(ctx, tal_t);
+	struct node_id current_node = first_node;
+	struct pubkey node;
+	const u8 *payload;
+	const size_t pathlen = tal_count(route);
+
+	struct sphinx_path *sp = sphinx_path_new(this_ctx, payment_hash->u.u8,
+						 sizeof(payment_hash->u.u8));
+
+	for (size_t i = first_index; i < pathlen; i++) {
+		/* Encrypted message is for node[i] but the data is hop[i+1],
+		 * therein lays the problem with sendpay's API. */
+		ret = pubkey_from_node_id(&node, &current_node);
+		assert(ret);
+
+		const struct route_hop *hop = &route[i];
+		payload = onion_nonfinal_hop(this_ctx, &hop->scid, hop->amount,
+					     hop->delay + blockheight);
+		// FIXME: better handle error here
+		ret = sphinx_add_hop_has_length(sp, &node, take(payload));
+		assert(ret);
+		current_node = route[i].node_id;
+	}
+
+	const u32 final_cltv = final_cltv_delta + blockheight;
+	if (blinded_path) {
+		sphinx_append_blinded_path(this_ctx, sp, blinded_path,
+					   deliver_amount, total_amount,
+					   final_cltv);
+	} else {
+		sphinx_append_final_hop(this_ctx, sp, payment_secret,
+					&current_node, deliver_amount,
+					total_amount, final_cltv, metadata);
+	}
+
+	struct onionpacket *packet =
+	    create_onionpacket(this_ctx, sp, ROUTING_INFO_SIZE, shared_secrets);
+	*shared_secrets = tal_steal(ctx, *shared_secrets);
+
+	const u8 *onion = serialize_onionpacket(ctx, packet);
+	tal_free(this_ctx);
+	return onion;
+}
+
+static u32 initial_cltv_delta(const struct route *route,
+			      const struct payment_info *pinfo)
+{
+	if (tal_count(route->hops) == 0)
+		return pinfo->final_cltv;
+	return route->hops[0].delay;
+}
+
+static struct command_result *sendonion_done(struct command *aux_cmd,
+					     const char *method UNUSED,
+					     const char *buffer UNUSED,
+					     const jsmntok_t *toks UNUSED,
+					     struct payment *payment UNUSED)
+{
+	return aux_command_done(aux_cmd);
+}
+
+static struct command_result *
+sendonion_fail(struct command *aux_cmd, const char *method, const char *buffer,
+	       const jsmntok_t *toks, struct payment *payment UNUSED)
+{
+	plugin_log(aux_cmd->plugin, LOG_DBG, "%s failed with: %.*s", method,
+		   json_tok_full_len(toks), json_tok_full(buffer, toks));
+	return aux_command_done(aux_cmd);
+}
+
 struct command_result *route_sendpay_request(struct command *cmd,
 					     struct route *route TAKES,
 					     struct payment *payment)
 {
-	const struct payment_info *pinfo = &payment->payment_info;
-	struct out_req *req = jsonrpc_request_start(
-	    cmd, "renesendpay", sendpay_done, sendpay_failed, route);
+	// build onion
+	const u8 *onion;
+	const struct payment_info *pinfo;
+	const struct blinded_path *blinded_path = NULL;
+	struct out_req *req;
 
-	const size_t pathlen = tal_count(route->hops);
-	json_add_sha256(req->js, "payment_hash", &pinfo->payment_hash);
-	json_add_u64(req->js, "partid", route->key.partid);
-	json_add_u64(req->js, "groupid", route->key.groupid);
-	json_add_string(req->js, "invoice", pinfo->invstr);
-	json_add_node_id(req->js, "destination", &pinfo->destination);
-	json_add_amount_msat(req->js, "amount_msat", route->amount_deliver);
-	json_add_amount_msat(req->js, "total_amount_msat", pinfo->amount);
-	json_add_u32(req->js, "final_cltv", pinfo->final_cltv);
+	pinfo = &payment->payment_info;
+	if (tal_count(pinfo->blinded_paths) > 0) {
+		assert(route->path_num < tal_count(pinfo->blinded_paths));
+		blinded_path = pinfo->blinded_paths[route->path_num];
+	}
 
-	if (pinfo->label)
-		json_add_string(req->js, "label", pinfo->label);
-	if (pinfo->description)
-		json_add_string(req->js, "description", pinfo->description);
+	if (tal_count(route->hops) > 0) {
+		onion = create_onion(
+		    route, payment->blockheight, route->hops,
+		    &pinfo->payment_hash, pinfo->final_cltv, blinded_path,
+		    pinfo->payment_secret, pinfo->amount, route->amount_deliver,
+		    /* metadata = */ NULL, route->hops[0].node_id, 1,
+		    &route->shared_secrets);
+	} else {
+		/* This is either a self-payment or a payment through a blinded
+		 * path that starts at our node. */
+		onion = create_onion(route, payment->blockheight, route->hops,
+				     &pinfo->payment_hash, pinfo->final_cltv,
+				     blinded_path, pinfo->payment_secret,
+				     pinfo->amount, route->amount_deliver,
+				     /* metadata = */ NULL, pay_plugin->my_id,
+				     0, &route->shared_secrets);
+	}
 
-	json_array_start(req->js, "route");
-	/* An empty route means a payment to oneself, pathlen=0 */
-	for (size_t j = 0; j < pathlen; j++) {
-		const struct route_hop *hop = &route->hops[j];
-		json_object_start(req->js, NULL);
+	// send onion
+	// FIXME: use injectpaymentonion in both cases
+	if (tal_count(route->hops) > 0) {
+		req = jsonrpc_request_start(cmd, "sendonion", sendonion_done,
+					    sendonion_fail, payment);
+		json_add_hex_talarr(req->js, "onion", onion);
+		json_add_sha256(req->js, "payment_hash", &pinfo->payment_hash);
+		json_add_u64(req->js, "partid", route->key.partid);
+		json_add_u64(req->js, "groupid", route->key.groupid);
+		json_add_amount_msat(req->js, "amount_msat",
+				     route->amount_deliver);
+		if (pinfo->label)
+			json_add_string(req->js, "label", pinfo->label);
+		if (pinfo->invstr)
+			json_add_string(req->js, "bolt11", pinfo->invstr);
+		if (pinfo->description)
+			json_add_string(req->js, "description",
+					pinfo->description);
+		json_add_node_id(req->js, "destination", &pinfo->destination);
+		json_add_amount_msat(req->js, "total_amount_msat",
+				     pinfo->amount);
+
+		json_array_start(req->js, "shared_secrets");
+		for (size_t i = 0; i < tal_count(route->shared_secrets); i++) {
+			json_add_secret(req->js, NULL,
+					&route->shared_secrets[i]);
+		}
+		json_array_end(req->js);
+
+		const struct route_hop *hop = &route->hops[0];
+		json_object_start(req->js, "first_hop");
+		json_add_amount_msat(req->js, "amount_msat", hop->amount);
 		json_add_node_id(req->js, "id", &hop->node_id);
 		json_add_short_channel_id(req->js, "channel", hop->scid);
-		json_add_amount_msat(req->js, "amount_msat", hop->amount);
-		json_add_num(req->js, "direction", hop->direction);
-		json_add_u32(req->js, "delay", hop->delay);
-		json_add_string(req->js, "style", "tlv");
+		json_add_num(req->js, "delay",
+			     hop->delay + payment->blockheight);
 		json_object_end(req->js);
+
+		// FIXME: No localinvreqid is provided
+	} else {
+		req = jsonrpc_request_start(cmd, "injectpaymentonion",
+					    sendonion_done, sendonion_fail,
+					    payment);
+		json_add_hex_talarr(req->js, "onion", onion);
+		json_add_sha256(req->js, "payment_hash", &pinfo->payment_hash);
+		json_add_u64(req->js, "partid", route->key.partid);
+		json_add_u64(req->js, "groupid", route->key.groupid);
+		json_add_amount_msat(req->js, "amount_msat",
+				     route->amount_sent);
+		if (pinfo->label)
+			json_add_string(req->js, "label", pinfo->label);
+		if (pinfo->invstr)
+			json_add_string(req->js, "invstring", pinfo->invstr);
+		json_add_amount_msat(req->js, "destination_msat",
+				     route->amount_deliver);
+		json_add_u32(req->js, "cltv_expiry",
+			     initial_cltv_delta(route, pinfo) +
+				 payment->blockheight);
+		// FIXME: No localinvreqid is provided
 	}
-	json_array_end(req->js);
-
-	/* Either we have a payment_secret for BOLT11 or blinded_paths for
-	 * BOLT12 */
-	if (pinfo->payment_secret)
-		json_add_secret(req->js, "payment_secret", pinfo->payment_secret);
-	else {
-		assert(pinfo->blinded_paths);
-		const struct blinded_path *bpath =
-		    pinfo->blinded_paths[route->path_num];
-		json_myadd_blinded_path(req->js, "blinded_path", bpath);
-
-	}
-
-	route_map_add(payment->routetracker->sent_routes, route);
-	if (taken(route))
-		tal_steal(payment->routetracker->sent_routes, route);
+	route_pending_register(payment->routetracker, route);
 	return send_outreq(req);
 }
 
