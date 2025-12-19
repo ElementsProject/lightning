@@ -8,12 +8,26 @@ if [ -z "$DOCKER_USERNAME" ] || [ -z "$DOCKER_PASSWORD" ]; then
   echo "❌ Oops! Looks like someone forgot their Docker Hub credentials at home!"
   echo "🔑 Please set DOCKER_USERNAME and DOCKER_PASSWORD as environment variables."
   echo "💡 Hint: We can't log in with 'your-username' and 'your-password' (nice try though!)"
-  return 1 2>/dev/null || exit 1
+  return 1 2>/dev/null
+fi
+
+DOCKER_TOKEN=$(
+  curl -fsS \
+    -H "Content-Type: application/json" \
+    -X POST \
+    -d "{\"username\":\"$DOCKER_USERNAME\",\"password\":\"$DOCKER_PASSWORD\"}" \
+    https://hub.docker.com/v2/users/login/ \
+  | jq -r '.token // empty'
+)
+
+if [ -z "$DOCKER_TOKEN" ]; then
+  echo "❌ Failed to obtain Docker Hub token."
+  echo "🔑 Please verify DOCKER_USERNAME and DOCKER_PASSWORD."
+  echo "🌐 Also check your network connectivity."
+  return 1 2>/dev/null
 fi
 
 # Get Docker image information
-DOCKER_TOKEN=$(curl -s -H "Content-Type: application/json" -X POST -d "{\"username\": \"$DOCKER_USERNAME\", \"password\": \"$DOCKER_PASSWORD\"}" \
-  https://hub.docker.com/v2/users/login/ | jq -r .token)
 LATEST_INFO=$(curl -s -H "Authorization: JWT $DOCKER_TOKEN" https://hub.docker.com/v2/repositories/${IMAGE_NAME}/tags/latest/)
 LAST_UPDATED=$(echo "$LATEST_INFO" | jq -r .last_updated) || 0
 DAYS_OLD=$(( ($(date +%s) - $(date -d "$LAST_UPDATED" +%s)) / 86400 ))
