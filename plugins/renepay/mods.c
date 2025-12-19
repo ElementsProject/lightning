@@ -753,10 +753,30 @@ REGISTER_PAYMENT_MODIFIER(compute_routes, compute_routes_cb);
  * request calling sendpay.
  */
 
-static struct command_result *send_routes_cb(struct payment *payment)
+static struct command_result *waitblockheight_done(struct command *cmd,
+						   const char *method UNUSED,
+						   const char *buf,
+						   const jsmntok_t *result,
+						   struct payment *payment)
 {
-	assert(payment);
-	struct routetracker *routetracker = payment->routetracker;
+	const char *err;
+	struct command *aux_cmd;
+	struct route *route;
+	struct routetracker *routetracker;
+
+	err = json_scan(tmpctx, buf, result, "{blockheight:%}",
+			JSON_SCAN(json_to_u32, &payment->blockheight));
+	payment->blockheight += 1;
+
+	if (err) {
+		plugin_err(pay_plugin->plugin,
+			   "Failed to read blockheight from waitblockheight "
+			   "response: %s",
+			   err);
+		return payment_continue(payment);
+	}
+
+	routetracker = payment->routetracker;
 	assert(routetracker);
 	if (!routetracker->computed_routes ||
 	    tal_count(routetracker->computed_routes) == 0) {
@@ -765,12 +785,11 @@ static struct command_result *send_routes_cb(struct payment *payment)
 			   __func__);
 		return payment_continue(payment);
 	}
-	struct command *cmd = payment_command(payment);
-	assert(cmd);
 	for (size_t i = 0; i < tal_count(routetracker->computed_routes); i++) {
-		struct route *route = routetracker->computed_routes[i];
+		aux_cmd = aux_command(cmd);
+		route = routetracker->computed_routes[i];
 
-		route_sendpay_request(cmd, take(route), payment);
+		route_sendpay_request(aux_cmd, take(route), payment);
 
 		payment_note(payment, LOG_INFORM,
 			     "Sent route request: partid=%" PRIu64
@@ -783,6 +802,22 @@ static struct command_result *send_routes_cb(struct payment *payment)
 	}
 	tal_resize(&routetracker->computed_routes, 0);
 	return payment_continue(payment);
+}
+
+static struct command_result *send_routes_cb(struct payment *payment)
+{
+	struct command *cmd;
+	struct out_req *req;
+	assert(payment);
+	cmd = payment_command(payment);
+	if (!cmd)
+		plugin_err(pay_plugin->plugin,
+			   "send_routes_pay_mod: cannot get a valid cmd.");
+	req =
+	    jsonrpc_request_start(cmd, "waitblockheight", waitblockheight_done,
+				  payment_rpc_failure, payment);
+	json_add_num(req->js, "blockheight", 0);
+	return send_outreq(req);
 }
 
 REGISTER_PAYMENT_MODIFIER(send_routes, send_routes_cb);
