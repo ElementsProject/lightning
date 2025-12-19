@@ -4,6 +4,7 @@ import bitstring
 from pyln.client import Millisatoshi
 from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND, EXPERIMENTAL_SPLICING
 from pyln.proto.onion import TlvPayload
+import pytest
 import struct
 import subprocess
 import tempfile
@@ -674,18 +675,16 @@ def serialize_payload_final_tlv(amount_msat, delay, total_msat, blockheight, pay
 # I wish we could force libwally to use different entropy and thus force it to
 # create 71-byte sigs always!
 def did_short_sig(node):
-    # This can take a moment to appear in the log!
-    time.sleep(2)
-    return node.daemon.is_in_log('overgrind: short signature length')
+    try:
+        wait_for(lambda: node.daemon.is_in_log('overgrind: short signature length'), timeout=5)
+        return True
+    except (TimeoutError, ValueError):
+        return False
 
 
 def check_feerate(nodes, actual_feerate, expected_feerate):
-    # Feerate can't be lower.
-    
-    tolerance = 10
-    assert actual_feerate > expected_feerate - tolerance
-    if actual_feerate >= expected_feerate + tolerance:
+    assert actual_feerate >= expected_feerate - 10
+    if actual_feerate >= expected_feerate + 10:
         if any([did_short_sig(n) for n in nodes]):
             return
-    # Use assert as it shows the actual values on failure
-    assert actual_feerate < expected_feerate + tolerance
+    assert actual_feerate == pytest.approx(expected_feerate, rel=0.001, abs=10)
