@@ -850,7 +850,7 @@ struct logger *new_logger(const tal_t *ctx UNNEEDED, struct log_book *record UNN
 	return NULL;
 }
 
-struct log_book *new_log_book(struct lightningd *ld UNNEEDED, size_t max_mem UNNEEDED)
+struct log_book *new_log_book(struct lightningd *ld UNNEEDED)
 {
 	return NULL;
 }
