@@ -1,67 +1,47 @@
-use std::{net::SocketAddr, str::FromStr, time::Duration};
+use std::{
+    net::SocketAddr,
+    str::FromStr,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
+use anyhow::anyhow;
 use axum::{
     http::{HeaderName, HeaderValue},
     middleware,
-    routing::{get, post},
+    routing::{any, get},
     Extension, Router,
 };
 use axum_server::tls_rustls::RustlsConfig;
 use certs::{do_certificates_exist, generate_certificates};
-use cln_plugin::{Builder, Plugin};
+use cln_plugin::{Builder, Plugin, RpcMethodBuilder};
 use handlers::{
-    call_rpc_method, handle_notification, header_inspection_middleware, list_methods,
-    socketio_on_connect,
+    call_rpc_method, handle_notification, list_methods, socketio_on_connect,
+    swagger_redirect_middleware,
 };
 use options::*;
-use socketioxide::SocketIo;
+use serde_json::json;
+use socketioxide::{handler::ConnectHandler, SocketIo, SocketIoBuilder};
 use tokio::{
-    sync::mpsc::{self, Receiver, Sender},
+    sync::mpsc::{self, Receiver},
     time,
 };
 use tower::ServiceBuilder;
 use tower_http::set_header::SetResponseHeaderLayer;
-use utoipa::{
-    openapi::{
-        security::{ApiKey, ApiKeyValue, SecurityScheme},
-        Components,
-    },
-    Modify, OpenApi,
-};
+use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
+
+use crate::{
+    handlers::auth_socket_io_middleware,
+    shared::filter_json,
+    structs::{ApiDoc, CheckRuneParams, ClnrestMap, ClnrestOptions, ClnrestProtocol, PluginState},
+};
 
 mod certs;
 mod handlers;
 mod options;
 mod shared;
-
-#[derive(Clone, Debug)]
-struct PluginState {
-    notification_sender: Sender<serde_json::Value>,
-}
-
-#[derive(OpenApi)]
-#[openapi(
-        paths(
-            handlers::list_methods,
-            handlers::call_rpc_method,
-        ),
-        modifiers(&SecurityAddon),
-    )]
-struct ApiDoc;
-
-struct SecurityAddon;
-
-impl Modify for SecurityAddon {
-    fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
-        let components = openapi.components.get_or_insert_with(Components::new);
-        components.add_security_scheme(
-            "api_key",
-            SecurityScheme::ApiKey(ApiKey::Header(ApiKeyValue::new("rune"))),
-        );
-        openapi.components = Some(components.clone())
-    }
-}
+mod structs;
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -79,6 +59,11 @@ async fn main() -> Result<(), anyhow::Error> {
         .option(OPT_CLNREST_CORS)
         .option(OPT_CLNREST_CSP)
         .option(OPT_CLNREST_SWAGGER)
+        .rpcmethod_from_builder(
+            RpcMethodBuilder::new("clnrest-register-path", register_path)
+                .description("Register a dynamic REST path for clnrest")
+                .usage("path rpc_method [rune]"),
+        )
         .subscribe("*", handle_notification)
         .dynamic()
         .configure()
@@ -88,7 +73,7 @@ async fn main() -> Result<(), anyhow::Error> {
         None => return Ok(()),
     };
 
-    let clnrest_options = match parse_options(&plugin).await {
+    let clnrest_options = match parse_options(&plugin) {
         Ok(opts) => opts,
         Err(e) => return plugin.disable(&e.to_string()).await,
     };
@@ -97,6 +82,7 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let state = PluginState {
         notification_sender: notify_tx,
+        dyn_router: Arc::new(Mutex::new(matchit::Router::new())),
     };
 
     let plugin = plugin.start(state.clone()).await?;
@@ -121,9 +107,11 @@ async fn run_rest_server(
     clnrest_options: ClnrestOptions,
     notify_rx: Receiver<serde_json::Value>,
 ) -> Result<(), anyhow::Error> {
-    let (socket_layer, socket_io) = SocketIo::new_layer();
+    let (socket_layer, socket_io) = SocketIoBuilder::new()
+        .with_state(plugin.clone())
+        .build_layer();
 
-    socket_io.ns("/", socketio_on_connect);
+    socket_io.ns("/", socketio_on_connect.with(auth_socket_io_middleware));
 
     tokio::spawn(notification_background_task(socket_io.clone(), notify_rx));
 
@@ -132,36 +120,31 @@ async fn run_rest_server(
     } else {
         clnrest_options.swagger.clone()
     };
+
     let swagger_router =
         Router::new().merge(SwaggerUi::new(swagger_path).url("/swagger.json", ApiDoc::openapi()));
 
-    let rpc_router = Router::new()
+    let root_router = Router::new()
         .route("/", get(|| async { "Hello, World!" }))
+        .layer(ServiceBuilder::new().layer(middleware::from_fn(swagger_redirect_middleware)))
+        .layer(Extension(clnrest_options.swagger));
+
+    let rpc_router = Router::new()
+        .route("/v1/list-methods", get(list_methods))
+        .route("/{*path}", any(call_rpc_method))
+        .layer(clnrest_options.cors)
+        .layer(Extension(plugin.clone()))
         .layer(
-            ServiceBuilder::new()
-                .layer(middleware::from_fn_with_state(
-                    plugin.clone(),
-                    header_inspection_middleware,
-                ))
-                .layer(socket_layer),
-        )
-        .layer(Extension(clnrest_options.swagger))
-        .nest(
-            "/v1",
-            Router::new()
-                .route("/list-methods", get(list_methods))
-                .route("/{rpc_method}", post(call_rpc_method))
-                .layer(clnrest_options.cors)
-                .layer(Extension(plugin.clone()))
-                .layer(
-                    ServiceBuilder::new().layer(SetResponseHeaderLayer::if_not_present(
-                        HeaderName::from_str("Content-Security-Policy")?,
-                        HeaderValue::from_str(&clnrest_options.csp)?,
-                    )),
-                ),
+            ServiceBuilder::new().layer(SetResponseHeaderLayer::if_not_present(
+                HeaderName::from_str("Content-Security-Policy")?,
+                HeaderValue::from_str(&clnrest_options.csp)?,
+            )),
         );
 
-    let app = swagger_router.merge(rpc_router);
+    let app = swagger_router
+        .merge(root_router)
+        .merge(rpc_router)
+        .layer(socket_layer);
 
     match clnrest_options.protocol {
         ClnrestProtocol::Https => {
@@ -176,6 +159,7 @@ async fn run_rest_server(
             if !do_certificates_exist(&clnrest_options.certs) {
                 log::debug!("Certificates still not existing after retries. Generating...");
                 generate_certificates(&clnrest_options.certs, &plugin.option(&OPT_CLNREST_HOST)?)?;
+                log::debug!("Certificates generated.");
             }
 
             let config = RustlsConfig::from_pem_file(
@@ -207,10 +191,92 @@ async fn run_rest_server(
     }
 }
 
+async fn register_path(
+    plugin: Plugin<PluginState>,
+    mut args: serde_json::Value,
+) -> Result<serde_json::Value, anyhow::Error> {
+    filter_json(&mut args);
+
+    let (path_input, rpc_method, rune_params) = match args {
+        serde_json::Value::Array(args_arr) => {
+            let path_input = args_arr
+                .first()
+                .ok_or_else(|| anyhow!("path is required"))?
+                .as_str()
+                .ok_or_else(|| anyhow!("path must be a string"))?
+                .to_owned();
+            let rpc_method = args_arr
+                .get(1)
+                .ok_or_else(|| anyhow!("rpc_method is required"))?
+                .as_str()
+                .ok_or_else(|| anyhow!("rpc_method must be a string"))?
+                .to_owned();
+            let rune_val = args_arr.get(2);
+            let rune_params: Option<CheckRuneParams> = if let Some(r) = rune_val {
+                Some(serde_json::from_value(r.clone())?)
+            } else {
+                None
+            };
+            (path_input, rpc_method, rune_params)
+        }
+        serde_json::Value::Object(map) => {
+            let path_input = map
+                .get("path")
+                .ok_or_else(|| anyhow!("path is required"))?
+                .as_str()
+                .ok_or_else(|| anyhow!("path must be a string"))?
+                .to_owned();
+            let rpc_method = map
+                .get("rpc_method")
+                .ok_or_else(|| anyhow!("rpc_method is required"))?
+                .as_str()
+                .ok_or_else(|| anyhow!("rpc_method must be a string"))?
+                .to_owned();
+            let rune_val = map.get("rune");
+            let rune_params: Option<CheckRuneParams> = if let Some(r) = rune_val {
+                Some(serde_json::from_value(r.clone())?)
+            } else {
+                None
+            };
+            (path_input, rpc_method, rune_params)
+        }
+        _ => return Err(anyhow!("Input arguments must be an array or object")),
+    };
+
+    let clnrest_map = ClnrestMap {
+        rpc_method,
+        rune: rune_params,
+    };
+
+    if path_input.eq("/") {
+        return Err(anyhow!("Path must not be root"));
+    }
+
+    let path = path_input.trim_matches('/');
+
+    if path.is_empty() {
+        return Err(anyhow!("Path must not be empty"));
+    }
+    if path.contains("{*") {
+        return Err(anyhow!("Wildcards not supported"));
+    }
+
+    let mut dyn_router = plugin.state().dyn_router.lock().unwrap();
+    if dyn_router.at(path).is_ok() {
+        return Err(anyhow!(
+            "Path '{}' already exists or conflicts with an existing route",
+            path
+        ));
+    }
+    dyn_router.insert(path, clnrest_map)?;
+
+    Ok(json!({}))
+}
+
 async fn notification_background_task(io: SocketIo, mut receiver: Receiver<serde_json::Value>) {
     log::debug!("Background task spawned");
     while let Some(notification) = receiver.recv().await {
-        match io.emit("message", &notification) {
+        match io.emit("message", &notification).await {
             Ok(_) => (),
             Err(e) => log::info!("Could not emit notification from background task: {}", e),
         }

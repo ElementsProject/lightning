@@ -4626,6 +4626,38 @@ impl Node for Server
 
     }
 
+    async fn clnrest_register_path(
+        &self,
+        request: tonic::Request<pb::ClnrestregisterpathRequest>,
+    ) -> Result<tonic::Response<pb::ClnrestregisterpathResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::ClnrestregisterpathRequest = req.into();
+        debug!("Client asked for clnrest_register_path");
+        trace!("clnrest_register_path request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::ClnrestRegisterPath(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method ClnrestRegisterPath: {:?}", e)))?;
+        match result {
+            Response::ClnrestRegisterPath(r) => {
+               trace!("clnrest_register_path response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call ClnrestRegisterPath",
+                    r
+                )
+            )),
+        }
+
+    }
+
 
 
     type SubscribeBlockAddedStream = NotificationStream<pb::BlockAddedNotification>;

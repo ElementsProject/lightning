@@ -1,0 +1,74 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "added": "v26.04",
+  "rpc": "clnrest-register-path",
+  "title": "Command to add a path to clnrest",
+  "description": [
+    "Register a custom REST API path with an associated RPC method and optional rune validation."
+  ],
+  "request": {
+    "required": [
+      "path",
+      "rpc_method"
+    ],
+    "properties": {
+      "path": {
+        "type": "string",
+        "description": [
+          "The REST API path to register (e.g., '/v1/custom/endpoint'). Captures which translate to an rpc parameter of 'key:value' are written like this: '/user/{key}'"
+        ]
+      },
+      "rpc_method": {
+        "type": "string",
+        "description": [
+          "The RPC method name to invoke when this path is accessed."
+        ]
+      },
+      "rune": {
+        "type": "object",
+        "description": [
+          "Optional rune validation parameters to check before allowing access. These are passed to the checkrune RPC command. Omitting the rune parameter means access granted without authorization. You can use this for example to not require the user to create a new rune for your rpc_method but rather require something like method=pay."
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "nodeid": {
+            "type": "string",
+            "description": [
+              "Node id of requesting node *(required until v23.11)*."
+            ]
+          },
+          "method": {
+            "type": "string",
+            "description": [
+              "Method for which rune needs to be validated *(required until v23.11)*."
+            ]
+          },
+          "params": {
+            "type": "object",
+            "description": [
+              "Parameters for method."
+            ]
+          }
+        }
+      }
+    }
+  },
+  "response": {
+    "required": [],
+    "additionalProperties": false,
+    "properties": {}
+  },
+  "errors": [
+    "The following errors may be reported:",
+    "",
+    "- 32700: Message either indicating conflicting paths or invalid/missing parameters."
+  ],
+  "author": [
+    "daywalker90 is mainly responsible for this command."
+  ],
+  "see_also": [
+    "lightning-createrune(7)",
+    "lightning-checkrune(7)"
+  ]
+}
