@@ -432,6 +432,7 @@ class PrimitiveField(Field):
         "secret",
         "bip340sig",
         "hash",
+        "string_map",
     ]
 
     def __init__(self, typename, path, description, added, deprecated):
