@@ -201,7 +201,7 @@ class GrpcGenerator(IGenerator):
             if f.omit():
                 continue
 
-            opt = "optional " if f.optional else ""
+            opt = "optional " if f.optional and not (isinstance(f, PrimitiveField) and f.typename == "string_map") else ""
 
             if isinstance(f, ArrayField):
                 typename = f.override(

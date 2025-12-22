@@ -411,6 +411,17 @@ def _extra_validator(is_request: bool):
             return True
         return False
 
+    def is_string_map(checker, instance):
+        """key, value map with strings"""
+        if not checker.is_type(instance, "object"):
+            return False
+        for k, v in instance.items():
+            if not checker.is_type(k, "string"):
+                return False
+            if not checker.is_type(v, "string"):
+                return False
+        return True
+
     # "msat" for request can be many forms
     if is_request:
         is_msat = is_msat_request
@@ -439,6 +450,7 @@ def _extra_validator(is_request: bool):
         "outpoint": is_outpoint,
         "feerate": is_feerate,
         "outputdesc": is_outputdesc,
+        "string_map": is_string_map,
     })
 
     return jsonschema.validators.extend(jsonschema.Draft7Validator,
