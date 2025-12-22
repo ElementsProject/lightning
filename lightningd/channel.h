@@ -891,7 +891,7 @@ static inline bool scid_to_channel_eq_scid(const struct scid_to_channel *scidcha
 /* Define channel_scid_map */
 HTABLE_DEFINE_NODUPS_TYPE(struct scid_to_channel,
 			  scid_to_channel_key,
-			  short_channel_id_hash,
+			  hash_scid,
 			  scid_to_channel_eq_scid,
 			  channel_scid_map);
 

@@ -7,7 +7,7 @@
 #include <stdio.h>
 
 #define ASKRENE_UNITTEST
-#include "../graph.c"
+#include "../child/graph.c"
 
 #define MAX_NODES 10
 #define MAX_ARCS 256
