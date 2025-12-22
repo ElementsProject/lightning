@@ -19,26 +19,35 @@
 
 /* Helper functions for extracting description from bolt11/12 string*/
 static const char *decode_bolt11_description_simple(const tal_t *ctx,
-                                             const char *invstr)
+                                                    const char *invstr)
 {
     char *fail;
     struct bolt11 *b11 = bolt11_decode(ctx, invstr, NULL, NULL, NULL, &fail);
     if (!b11)
         return NULL;
-    if (b11->description)
-        return tal_strdup(ctx, b11->description);
-    return NULL;
+
+    if (!b11->description)
+        return NULL;
+
+    return tal_strdup(ctx, b11->description);
 }
 
-static const char *decode_bolt12_description(const tal_t *ctx, const char *invstr) {
+static const char *decode_bolt12_description(const tal_t *ctx,
+                                             const char *invstr)
+{
     char *fail;
-    struct tlv_invoice *tinv = invoice_decode(ctx, invstr, strlen(invstr),
-                                             NULL, NULL, &fail);
+    struct tlv_invoice *tinv =
+        invoice_decode(ctx, invstr, strlen(invstr), NULL, NULL, &fail);
+
     if (!tinv)
         return NULL;
-    if (tinv->invreq_payer_note)
-        return tal_strdup(ctx, tinv->invreq_payer_note);
-    return NULL;
+
+    if (!tinv->invreq_payer_note)
+        return NULL;
+
+    return tal_hexstr(ctx,
+                      tinv->invreq_payer_note,
+                      tal_count(tinv->invreq_payer_note));
 }
 
 /* Routing failure object */

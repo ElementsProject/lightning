@@ -11117,6 +11117,13 @@
                     "The bolt12 string (if supplied for pay)."
                   ]
                 },
+                "description": {
+                  "added": "v26.04",
+                  "type": "string",
+                  "description": [
+                    "The description matching the bolt11 description hash (if pay supplied one)."
+                  ]
+                },
                 "erroronion": {
                   "type": "hex",
                   "description": [
@@ -32152,6 +32159,12 @@
               "The bolt12 string (if supplied)."
             ]
           },
+          "description": {
+            "type": "string",
+            "description": [
+              "The description matching the bolt11 description hash (if pay supplied one)."
+            ]
+          },
           "message": {},
           "payment_preimage": {}
         },
@@ -32191,6 +32204,7 @@
                 "partid": {},
                 "bolt11": {},
                 "bolt12": {},
+                "description": {},
                 "payment_preimage": {
                   "type": "secret",
                   "description": [
@@ -32235,6 +32249,7 @@
                 "partid": {},
                 "bolt11": {},
                 "bolt12": {},
+                "description": {},
                 "message": {
                   "type": "string",
                   "description": [
@@ -37146,6 +37161,13 @@
               "The bolt12 string (if supplied for pay)."
             ]
           },
+          "description": {
+            "added": "v26.04",
+            "type": "string",
+            "description": [
+              "The description matching the bolt11 description hash (if pay supplied one)."
+            ]
+          },
           "message": {},
           "payment_preimage": {}
         },
@@ -37185,6 +37207,7 @@
                 "partid": {},
                 "bolt11": {},
                 "bolt12": {},
+                "description": {},
                 "payment_preimage": {
                   "type": "secret",
                   "description": [

@@ -347,6 +347,7 @@ message SendpayResponse {
 	optional uint64 completed_at = 15;
 	optional uint64 created_index = 16;
 	optional uint64 updated_index = 17;
+	optional string description = 18;
 }
 
 message SendpayRoute {
@@ -1225,6 +1226,7 @@ message WaitsendpayResponse {
 	optional double completed_at = 14;
 	optional uint64 created_index = 15;
 	optional uint64 updated_index = 16;
+	optional string description = 17;
 }
 
 message NewaddrRequest {
@@ -1836,6 +1838,7 @@ message DelpayPayments {
 	optional string bolt11 = 15;
 	optional string bolt12 = 16;
 	optional bytes erroronion = 17;
+	optional string description = 18;
 }
 
 message DelforwardRequest {

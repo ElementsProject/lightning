@@ -1575,6 +1575,7 @@
             "DelPay.payments[].completed_at": 11,
             "DelPay.payments[].created_at": 9,
             "DelPay.payments[].created_index": 1,
+            "DelPay.payments[].description": 18,
             "DelPay.payments[].destination": 7,
             "DelPay.payments[].erroronion": 17,
             "DelPay.payments[].groupid": 12,
@@ -3623,6 +3624,7 @@
             "SendOnion.bolt12": 10,
             "SendOnion.created_at": 6,
             "SendOnion.created_index": 14,
+            "SendOnion.description": 16,
             "SendOnion.destination": 5,
             "SendOnion.id": 1,
             "SendOnion.label": 8,
@@ -3665,6 +3667,7 @@
             "SendPay.completed_at": 15,
             "SendPay.created_at": 7,
             "SendPay.created_index": 16,
+            "SendPay.description": 18,
             "SendPay.destination": 6,
             "SendPay.groupid": 2,
             "SendPay.id": 1,
@@ -4059,6 +4062,7 @@
             "WaitSendPay.completed_at": 14,
             "WaitSendPay.created_at": 7,
             "WaitSendPay.created_index": 15,
+            "WaitSendPay.description": 17,
             "WaitSendPay.destination": 6,
             "WaitSendPay.groupid": 2,
             "WaitSendPay.id": 1,
@@ -6950,6 +6954,10 @@
         },
         "DelPay.payments[].created_index": {
             "added": "v23.11",
+            "deprecated": null
+        },
+        "DelPay.payments[].description": {
+            "added": "v26.04",
             "deprecated": null
         },
         "DelPay.payments[].destination": {
@@ -13994,6 +14002,10 @@
         },
         "WaitSendPay.created_index": {
             "added": "v23.11",
+            "deprecated": null
+        },
+        "WaitSendPay.description": {
+            "added": "v26.04",
             "deprecated": null
         },
         "WaitSendPay.destination": {
