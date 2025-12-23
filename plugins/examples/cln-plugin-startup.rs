@@ -7,7 +7,7 @@ use cln_plugin::options::{
     DefaultStringArrayConfigOption, IntegerArrayConfigOption, IntegerConfigOption,
     StringArrayConfigOption,
 };
-use cln_plugin::{messages, Builder, Error, Plugin};
+use cln_plugin::{messages, Builder, Error, HookBuilder, Plugin};
 
 const TEST_NOTIF_TAG: &str = "test_custom_notification";
 
@@ -79,7 +79,12 @@ async fn main() -> Result<(), anyhow::Error> {
         .rpcmethod("test-log-levels", "send on all log levels", test_log_levels)
         .subscribe("connect", connect_handler)
         .subscribe("test_custom_notification", test_receive_custom_notification)
-        .hook("peer_connected", peer_connected_handler)
+        .hook_from_builder(
+            HookBuilder::new("peer_connected", peer_connected_handler)
+                .after(Vec::new())
+                .before(Vec::new())
+                .filters(Vec::new()),
+        )
         .notification(messages::NotificationTopic::new(TEST_NOTIF_TAG))
         .start(state)
         .await?
