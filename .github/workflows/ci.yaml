@@ -16,13 +16,13 @@ env:
   RUST_PROFILE: release
   SLOW_MACHINE: 1
   CI_SERVER_URL: "http://35.239.136.52:3170"
-  PYTEST_OPTS_BASE: "--reruns=10 -vvv --junit-xml=report.xml --timeout=1800 --durations=10"
+  PYTEST_OPTS_BASE: "--reruns=4 -vvv --junit-xml=report.xml --timeout=1800 --durations=10"
 
 jobs:
   prebuild:
     name: Pre-build checks
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 60
     if: |
       github.event.action != 'edited' ||
       contains(github.event.pull_request.body, 'Changelog')
@@ -536,7 +536,7 @@ jobs:
   integration-sanitizers:
     name: Sanitizers Test CLN
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 150
     env:
       RUST_PROFILE: release
       SLOW_MACHINE: 1
