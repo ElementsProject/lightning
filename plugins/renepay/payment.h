@@ -73,6 +73,9 @@ struct payment {
 	struct plugin_timer *waitresult_timer;
 
 	struct routetracker *routetracker;
+
+	/* use this to build the onions */
+	u32 blockheight;
 };
 
 static inline const struct sha256 payment_hash(const struct payment *p)
