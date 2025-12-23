@@ -5,13 +5,12 @@ use cln_rpc::{
 };
 use serde_json::json;
 
-use crate::{handlers::AppError, PluginState};
+use crate::{structs::AppError, CheckRuneParams, ClnrestMap, PluginState};
 
 pub async fn verify_rune(
-    plugin: Plugin<PluginState>,
+    plugin: &Plugin<PluginState>,
     rune_header: Option<String>,
-    rpc_method: &str,
-    rpc_params: &serde_json::Value,
+    checkrune_params: &CheckRuneParams,
 ) -> Result<(), AppError> {
     let rune = match rune_header {
         Some(rune) => rune,
@@ -21,21 +20,28 @@ pub async fn verify_rune(
                 data: None,
                 message: "Not authorized: Missing rune".to_string(),
             };
-            log::info!("verify_rune failed: method:`{}` {}", rpc_method, err);
+            log::info!("verify_rune failed: {checkrune_params} {err}");
             return Err(AppError::Forbidden(err));
         }
     };
 
-    let checkrune_result = match call_rpc(
-        plugin.clone(),
-        "checkrune",
-        json!({"rune": rune, "method": rpc_method, "params": rpc_params}),
-    )
-    .await
-    {
+    let mut rpc_params = serde_json::Map::new();
+    rpc_params.insert("rune".to_owned(), json!(rune));
+    if let Some(nodeid) = &checkrune_params.nodeid {
+        rpc_params.insert("nodeid".to_owned(), json!(nodeid));
+    }
+    if let Some(method) = &checkrune_params.method {
+        rpc_params.insert("method".to_owned(), json!(method));
+    }
+    if let Some(params) = &checkrune_params.params {
+        rpc_params.insert("params".to_owned(), json!(params));
+    }
+    let rpc_params_value = serde_json::Value::Object(rpc_params);
+
+    let checkrune_result = match call_rpc(plugin, "checkrune", rpc_params_value).await {
         Ok(o) => serde_json::from_value::<CheckruneResponse>(o).unwrap(),
         Err(e) => {
-            log::info!("verify_rune failed: method:`{}` {}", rpc_method, e);
+            log::info!("verify_rune failed: {checkrune_params} {e}");
             return Err(AppError::Unauthorized(e));
         }
     };
@@ -46,7 +52,7 @@ pub async fn verify_rune(
             message: "Rune is not valid".to_string(),
             data: None,
         };
-        log::info!("verify_rune failed: method:`{}` {}", rpc_method, err);
+        log::info!("verify_rune failed: {checkrune_params} {err}");
         return Err(AppError::Unauthorized(err));
     }
 
@@ -56,17 +62,16 @@ pub async fn verify_rune(
     };
 
     log::info!(
-        "Authorized rune_id:`{}` access to method:`{}` with params:`{}`",
+        "Authorized rune_id:`{}` access to {}",
         showrunes_result.runes.first().unwrap().unique_id,
-        rpc_method,
-        rpc_params
+        checkrune_params,
     );
 
     Ok(())
 }
 
 pub async fn call_rpc(
-    plugin: Plugin<PluginState>,
+    plugin: &Plugin<PluginState>,
     method: &str,
     params: serde_json::Value,
 ) -> Result<serde_json::Value, RpcError> {
@@ -77,6 +82,43 @@ pub async fn call_rpc(
         message: e.to_string(),
     })?;
     rpc.call_raw(method, &params).await
+}
+
+pub fn path_to_rest_map_and_params(
+    plugin: &Plugin<PluginState>,
+    path: &str,
+) -> Result<(ClnrestMap, serde_json::Map<String, serde_json::Value>), AppError> {
+    let mut rpc_params = serde_json::Map::new();
+    let dynamic_paths = plugin.state().dyn_router.lock().unwrap();
+    if let Ok(dyn_path) = dynamic_paths.at(path) {
+        for (name, value) in dyn_path.params.iter() {
+            rpc_params.insert(name.to_owned(), serde_json::Value::String(value.to_owned()));
+        }
+        return Ok((dyn_path.value.clone(), rpc_params));
+    }
+    if let Some((prefix, suffix)) = path.split_once("v1/") {
+        if !prefix.is_empty() {
+            return Err(AppError::NotFound(RpcError {
+                code: Some(-32601),
+                message: "Path invalid, version not at start for CLN methods".to_owned(),
+                data: None,
+            }));
+        }
+        let clnrest_map = ClnrestMap {
+            rpc_method: suffix.to_owned(),
+            rune: Some(crate::CheckRuneParams {
+                nodeid: None,
+                method: Some(suffix.to_owned()),
+                params: Some(rpc_params.clone()),
+            }),
+        };
+        return Ok((clnrest_map, rpc_params));
+    }
+    Err(AppError::NotFound(RpcError {
+        code: Some(-32601),
+        message: "Path not found".to_owned(),
+        data: None,
+    }))
 }
 
 pub fn filter_json(value: &mut serde_json::Value) {

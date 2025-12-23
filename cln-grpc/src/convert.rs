@@ -9,6 +9,7 @@ use cln_rpc::model::{responses,requests};
 use cln_rpc::notifications;
 use crate::pb;
 use std::str::FromStr;
+use std::collections::HashMap;
 use bitcoin::hashes::sha256::Hash as Sha256;
 use bitcoin::hashes::Hash;
 use cln_rpc::primitives::PublicKey;
@@ -4584,6 +4585,14 @@ impl From<responses::DelnetworkeventResponse> for pb::DelnetworkeventResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::ClnrestregisterpathResponse> for pb::ClnrestregisterpathResponse {
+    fn from(c: responses::ClnrestregisterpathResponse) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<notifications::BlockAddedNotification> for pb::BlockAddedNotification {
     fn from(c: notifications::BlockAddedNotification) -> Self {
         Self {
@@ -6410,6 +6419,28 @@ impl From<requests::DelnetworkeventRequest> for pb::DelnetworkeventRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::ClnrestregisterpathRune> for pb::ClnrestregisterpathRune {
+    fn from(c: requests::ClnrestregisterpathRune) -> Self {
+        Self {
+            method: c.method, // Rule #2 for type string?
+            nodeid: c.nodeid, // Rule #2 for type string?
+            params: c.params.unwrap_or(HashMap::new()), // Rule #2 for type string_map?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::ClnrestregisterpathRequest> for pb::ClnrestregisterpathRequest {
+    fn from(c: requests::ClnrestregisterpathRequest) -> Self {
+        Self {
+            path: c.path, // Rule #2 for type string
+            rpc_method: c.rpc_method, // Rule #2 for type string
+            rune: c.rune.map(|v| v.into()),
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<notifications::requests::StreamBlockAddedRequest> for pb::StreamBlockAddedRequest {
     fn from(c: notifications::requests::StreamBlockAddedRequest) -> Self {
         Self {
@@ -8166,6 +8197,28 @@ impl From<pb::DelnetworkeventRequest> for requests::DelnetworkeventRequest {
     fn from(c: pb::DelnetworkeventRequest) -> Self {
         Self {
             created_index: c.created_index, // Rule #1 for type u64
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::ClnrestregisterpathRune> for requests::ClnrestregisterpathRune {
+    fn from(c: pb::ClnrestregisterpathRune) -> Self {
+        Self {
+            method: c.method, // Rule #1 for type string?
+            nodeid: c.nodeid, // Rule #1 for type string?
+            params: Some(c.params), // Rule #1 for type string_map?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::ClnrestregisterpathRequest> for requests::ClnrestregisterpathRequest {
+    fn from(c: pb::ClnrestregisterpathRequest) -> Self {
+        Self {
+            path: c.path, // Rule #1 for type string
+            rpc_method: c.rpc_method, // Rule #1 for type string
+            rune: c.rune.map(|v| v.into()),
         }
     }
 }
