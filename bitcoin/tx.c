@@ -983,12 +983,18 @@ struct amount_sat change_amount(struct amount_sat excess, u32 feerate_perkw,
 				size_t total_weight)
 {
 	struct amount_sat fee = change_fee(feerate_perkw, total_weight);
+	struct amount_sat dust_limit;
 
 	if (!amount_sat_sub(&excess, excess, fee))
 		return AMOUNT_SAT(0);
 
+	if (chainparams->is_elements)
+		dust_limit = AMOUNT_SAT(330); /* P2WPKH */
+	else
+		dust_limit = AMOUNT_SAT(330); /* P2TR */
+
 	/* Must be non-dust */
-	if (!amount_sat_greater_eq(excess, chainparams->dust_limit))
+	if (!amount_sat_greater_eq(excess, dust_limit))
 		return AMOUNT_SAT(0);
 
 	return excess;
