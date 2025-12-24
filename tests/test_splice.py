@@ -195,3 +195,184 @@ def test_script_splice_in(node_factory, bitcoind, chainparams):
     l1.wait_for_channel_onchain(l2.info['id'])
     account_info = only_one([acct for acct in l1.rpc.bkpr_listbalances()['accounts'] if acct['account'] == account_id])
     assert not account_info['account_closed']
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_script_two_chan_splice_in(node_factory, bitcoind):
+    l1, l2, l3 = node_factory.line_graph(3, fundamount=1000000, wait_for_announce=True, opts={'experimental-splicing': None})
+
+    chan_id1 = l2.get_channel_id(l1)
+    chan_id2 = l2.get_channel_id(l3)
+
+    # l2 will splice funds into the channels with l1 and l3 at the same time
+    result = l2.rpc.splice(f"wallet -> 200999; 100000 -> {chan_id1}; 100000 -> {chan_id2}")
+
+    l3.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+    l2.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+    l1.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+
+    wait_for(lambda: len(list(bitcoind.rpc.getrawmempool(True).keys())) == 1)
+    assert result['txid'] in list(bitcoind.rpc.getrawmempool(True).keys())
+
+    bitcoind.generate_block(6, wait_for_mempool=1)
+
+    l3.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+    l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+    l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+
+    inv = l2.rpc.invoice(10**2, '1', 'no_1')
+    l1.rpc.pay(inv['bolt11'])
+
+    inv = l3.rpc.invoice(10**2, '2', 'no_2')
+    l2.rpc.pay(inv['bolt11'])
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_script_two_chan_splice_out(node_factory, bitcoind):
+    l1, l2, l3 = node_factory.line_graph(3, fundamount=1000000, wait_for_announce=True, opts={'experimental-splicing': None})
+
+    # We need to get funds into l1 -> l2 channel so we can splice it out
+    inv = l2.rpc.invoice(100000000, '1', 'no_1')
+    l1.rpc.pay(inv['bolt11'])
+
+    chan_id1 = l2.get_channel_id(l1)
+    chan_id2 = l2.get_channel_id(l3)
+
+    # l2 will splice funds ouit of the channels with l1 and l3 at the same time
+    result = l2.rpc.splice(f"{chan_id1} -> 100000; {chan_id2} -> 100000")
+
+    l3.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+    l2.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+    l1.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+
+    wait_for(lambda: len(list(bitcoind.rpc.getrawmempool(True).keys())) == 1)
+    assert result['txid'] in list(bitcoind.rpc.getrawmempool(True).keys())
+
+    bitcoind.generate_block(6, wait_for_mempool=1)
+
+    l3.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+    l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+    l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+
+    inv = l2.rpc.invoice(10**2, '2', 'no_2')
+    l1.rpc.pay(inv['bolt11'])
+
+    inv = l3.rpc.invoice(10**2, '3', 'no_3')
+    l2.rpc.pay(inv['bolt11'])
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_script_two_chan_splice_inout(node_factory, bitcoind):
+    l1, l2, l3 = node_factory.line_graph(3, fundamount=1000000, wait_for_announce=True, opts={'experimental-splicing': None})
+
+    chan_id1 = l2.get_channel_id(l1)
+    chan_id2 = l2.get_channel_id(l3)
+
+    # move sats from chan 2 into chan 1
+    result = l2.rpc.splice(f"wallet -> 10000; 100000 -> {chan_id1}; {chan_id2} -> 100000")
+
+    l3.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+    l2.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+    l1.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+
+    wait_for(lambda: len(list(bitcoind.rpc.getrawmempool(True).keys())) == 1)
+    assert result['txid'] in list(bitcoind.rpc.getrawmempool(True).keys())
+
+    bitcoind.generate_block(6, wait_for_mempool=1)
+
+    l3.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+    l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+    l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+
+    inv = l2.rpc.invoice(10**2, '2', 'no_2')
+    l1.rpc.pay(inv['bolt11'])
+
+    inv = l3.rpc.invoice(10**2, '3', 'no_3')
+    l2.rpc.pay(inv['bolt11'])
+
+
+# Makes channels going from node 1 -> 2, 2 -> 3, etc up to 'qty' number channels.
+# If balanced is True, than each channel will be balanced -- otherwise the lower
+# index channel will have funds in the channel to the higher indexed one.
+# The second node is a *special case* -- it will get a channel to every other node.
+# Returns an array of all nodes, and an array of all the *second node's* channels
+def make_chans(node_factory, qty=2, fundamount=1000000, balanced=True):
+    nodes = node_factory.line_graph(qty+1, fundamount=fundamount, opts={'experimental-splicing': None})
+    chanids = []
+
+    if qty > 2:
+        for i in range(len(nodes) - 1, 2, -1):
+            chanid, _ = nodes[2].fundchannel(nodes[i].info["id"], fundamount)
+            chanids.append(chanid)
+
+    assert(qty > 1);
+    chanids.insert(0, nodes[1],get_channel_id(nodes[0]))
+    chanids.insert(0, nodes[1],get_channel_id(nodes[0]))
+
+    for i in range(len(nodes) - 1):
+        if i == 1:
+            continue;
+
+            TODO: balane the cahnenls for node[1]!!!
+        chanids.append(nodes[i].get_channel_id(nodes[i + 1]))
+        if balanced:
+            inv = nodes[i + 1].rpc.invoice(int(1000 * fundamount / 2), str(i) + "bal", str(i) + "bal")
+            nodes[i].rpc.pay(inv['bolt11'])
+
+    return [nodes, chanids]
+
+
+def test_chans(nodes, txid, bitcoind, payment_check_style = 1, payamount=1000000):
+    for node in nodes:
+        node.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+
+    wait_for(lambda: len(list(bitcoind.rpc.getrawmempool(True).keys())) == 1)
+    assert txid in list(bitcoind.rpc.getrawmempool(True).keys())
+
+    bitcoind.generate_block(6, wait_for_mempool=1)
+
+    for node in nodes:
+        node.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+
+    if payment_check_style == 1:
+        for i in range(len(nodes) - 1):
+            inv = nodes[i + 1].rpc.invoice(payamount, str(i) + "test", str(i) + "test")
+            nodes[i].rpc.pay(inv['bolt11'])
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_script_two_chan_splice_crazy(node_factory, bitcoind):
+    scripts = [
+        "wallet -> 10000; {} -> 100000; {} -> 100000",
+        "wallet -> 10000; 100000 -> {}; {} -> 100000",
+        "wallet -> 200000; 100000 -> {}; 100000 -> {}",
+        "{} -> 100000; {} -> 100000",
+        "{} -> 200000; 100000 -> {}", # '* -> wallet' is implied here
+        "{} -> 200000; 100000 -> {}; * -> wallet", # but we test it here explicitly
+        # "wallet -> 200000+fee; 100000 -> {}; 100000 -> {}", # Don't support wallet funding being used for fee
+        # "wallet -> *; 100000 -> {}; 100000 -> {}", # Don't support dynamic wallet funding amounts for now
+        # "100000 -> {}; {} -> 100000+fee", # Internal error; should not get here with non-channels with state NONE
+        # "100000-fee -> {}; {} -> 100000", # Internal error; should not get here with non-channels with state NONE
+    ]
+
+    for script in scripts:
+        nodes, chanids = make_chans(node_factory, script.count("{}"))
+        result = nodes[1].rpc.splice(script.format(*chanids))
+        test_chans(nodes, result['txid'], bitcoind)
+
+
+
+
+
+
+
+
+
