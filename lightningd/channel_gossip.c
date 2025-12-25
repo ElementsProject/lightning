@@ -1223,6 +1223,14 @@ void channel_gossip_channel_reestablished(struct channel *channel)
 	 *      `announcement_signatures` for the funding transaction:
 	 *        - MUST send its own `announcement_signatures` message.
 	 */
+	
+	 
+	if (channel->channel_gossip->state == CGOSSIP_WAITING_FOR_MATCHING_PEER_SIGS
+	    && channel->channel_gossip->remote_sigs) {
+		log_debug(channel->log, "channel_gossip: already have remote sigs, checking if we can progress");
+		update_gossip_state(channel);
+	}
+
 	/* We also always send a private channel_update, even if redundant
 	 * (they might have lost it) */
 	switch (channel->channel_gossip->state) {
