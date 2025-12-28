@@ -5,6 +5,7 @@ import argparse
 import copy
 import datetime
 from enum import Enum
+import io
 import json
 import logging
 import os
@@ -98,10 +99,13 @@ class Logger:
 
     def reply_json(self):
         """json output to stdout with accumulated result."""
-        if len(log.json_output["result"]) == 1 and \
-           isinstance(log.json_output["result"][0], list):
-            # unpack sources output
-            log.json_output["result"] = log.json_output["result"][0]
+        if len(log.json_output["result"]) == 1:
+            if isinstance(log.json_output["result"][0], list):
+                # unpack sources output
+                log.json_output["result"] = log.json_output["result"][0]
+            elif isinstance(log.json_output['result'][0], dict):
+                # If result is only a single dict, unpack it from the result list
+                log.json_output['result'] = log.json_output['result'][0]
         output = json.dumps(log.json_output, indent=3) + '\n'
         ratelimit_output(output)
 
@@ -205,10 +209,194 @@ class Installer:
         return copy.deepcopy(self)
 
 
+def create_dir(directory: PosixPath) -> bool:
+    try:
+        Path(directory).mkdir(parents=False, exist_ok=True)
+        return True
+    # Okay if directory already exists
+    except FileExistsError:
+        return True
+    # Parent directory missing
+    except FileNotFoundError:
+        return False
+
+
+def remove_dir(directory: str) -> bool:
+    try:
+        shutil.rmtree(directory)
+        return True
+    except NotADirectoryError:
+        log.warning(f"Tried to remove directory {directory} that "
+                    "does not exist.")
+    except PermissionError:
+        log.warning(f"Permission denied removing dir: {directory}")
+    return False
+
+
+class GithubRepository():
+    """extract the github user account and repository name."""
+    def __init__(self, url: str):
+        assert 'github.com/' in url.lower()
+        url_parts = Path(str(url).lower().partition('github.com/')[2]).parts
+        assert len(url_parts) >= 2
+        self.user = url_parts[0]
+        self.name = url_parts[1].removesuffix('.git')
+        self.url = url
+
+    def __repr__(self):
+        return '<GithubRepository {self.user}/{self.repo}>'
+
+
+class Source(Enum):
+    DIRECTORY = 1
+    LOCAL_REPO = 2
+    GITHUB_REPO = 3
+    OTHER_URL = 4
+    UNKNOWN = 5
+    # Cloned from remote source before searching (rather than github API)
+    GIT_LOCAL_CLONE = 6
+
+    @classmethod
+    def get_type(cls, source: str):
+        if Path(os.path.realpath(source)).exists():
+            if os.path.isdir(os.path.realpath(source)):
+                # returns 0 if git repository
+                proc = run(['git', '-C', source, 'rev-parse'],
+                           cwd=os.path.realpath(source), stdout=PIPE,
+                           stderr=PIPE, text=True, timeout=5)
+                if proc.returncode == 0:
+                    return cls(2)
+                return cls(1)
+        if 'github.com' in source.lower():
+            return cls(3)
+        if 'http://' in source.lower() or 'https://' in source.lower():
+            return cls(4)
+        return cls(5)
+
+    @classmethod
+    def get_github_user_repo(cls, source: str) -> (str, str):
+        'extract a github username and repository name'
+        try:
+            repo = GithubRepository(source)
+            return repo.user, repo.name
+        except:
+            return None, None
+
+
+class SubmoduleSource:
+    """Allows us to only fetch submodules once."""
+    def __init__(self, location: str):
+        self.location = str(location)
+        self.local_clone = None
+        self.clone_fetched = False
+
+    def __repr__(self):
+        return f'<SubmoduleSource {self.location}, {self.clone_fetched}>'
+
+
+class LoadedSource:
+    """Allows loading all sources only once per call of reckless.  Initialized
+    with a single line of the reckless .sources file.  Keeping state also allows
+    minimizing API calls and refetching repositories."""
+    def __init__(self, source: str):
+        self.original_source = source
+        self.type = Source.get_type(source)
+        self.content = SourceDir(source, self.type)
+        self.local_clone = None
+        self.local_clone_fetched = False
+        if self.type == Source.GITHUB_REPO:
+            local = _get_local_clone(source)
+            if local:
+                self.local_clone = SourceDir(local, Source.GIT_LOCAL_CLONE)
+                self.local_clone.parent_source = self
+
+    def __repr__(self):
+        return f'<Source {self.type}, {self.original_source}>'
+
+
+class SourceDir():
+    """Structure to search source contents."""
+    def __init__(self, location: str, srctype: Source = None, name: str = None,
+                 relative: str = None, parent_source: LoadedSource = None):
+        self.location = str(location)
+        if name:
+            self.name = name
+        else:
+            self.name = Path(location).name
+        self.contents = []
+        self.srctype = srctype
+        self.prepopulated = False
+        self.relative = relative  # location relative to source
+        self.parent_source = parent_source
+
+    def populate(self):
+        """populates contents of the directory at least one level"""
+        if self.prepopulated:
+            return
+        if not self.srctype:
+            self.srctype = Source.get_type(self.location)
+        if self.srctype == Source.DIRECTORY:
+            self.contents = populate_local_dir(self.location)
+        elif self.srctype in [Source.LOCAL_REPO, Source.GIT_LOCAL_CLONE]:
+            self.contents = populate_local_repo(self.location, parent=self, parent_source=self.parent_source)
+        elif self.srctype == Source.GITHUB_REPO:
+            self.contents = populate_github_repo(self.location)
+        else:
+            raise Exception("populate method undefined for {self.srctype}")
+        # Ensure the relative path of the contents is inherited.
+        for c in self.contents:
+            if self.relative is None:
+                c.relative = c.name
+            else:
+                c.relative = str(Path(self.relative) / c.name)
+
+    def find(self, name: str, ftype: type = None) -> str:
+        """Match a SourceFile or SourceDir to the provided name
+        (case insentive) and return its filename."""
+        assert isinstance(name, str)
+        if len(self.contents) == 0:
+            return None
+        for c in self.contents:
+            if ftype and not isinstance(c, ftype):
+                continue
+            if c.name.lower().removesuffix('.git') == name.lower():
+                return c
+        return None
+
+    def __repr__(self):
+        return f"<SourceDir: {self.name}, {self.location}, {self.relative}, {self.parent_source}>"
+
+    def __eq__(self, compared):
+        if isinstance(compared, str):
+            return self.name == compared
+        if isinstance(compared, SourceDir):
+            return (self.name == compared.name and
+                    self.location == compared.location)
+        return False
+
+
+class SourceFile():
+    def __init__(self, location: str):
+        self.location = str(location)
+        self.name = Path(location).name
+
+    def __repr__(self):
+        return f"<SourceFile: {self.name} ({self.location})>"
+
+    def __eq__(self, compared):
+        if isinstance(compared, str):
+            return self.name == compared
+        if isinstance(compared, SourceFile):
+            return (self.name == compared.name and
+                    self.location == compared.location)
+        return False
+
+
 class InstInfo:
-    def __init__(self, name: str, location: str, git_url: str):
+    def __init__(self, name: str, location: str, git_url: str, source_dir: SourceDir=None):
         self.name = name
         self.source_loc = str(location)     # Used for 'git clone'
+        self.source_dir = source_dir        # Use this insead of source_loc to only fetch once.
         self.git_url: str = git_url         # API access for github repos
         self.srctype: Source = Source.get_type(location)
         self.entry: SourceFile = None       # relative to source_loc or subdir
@@ -250,15 +438,19 @@ class InstInfo:
             except:
                 return None
 
-    def get_inst_details(self) -> bool:
+    def get_inst_details(self, permissive: bool=False) -> bool:
         """Search the source_loc for plugin install details.
         This may be necessary if a contents api is unavailable.
         Extracts entrypoint and dependencies if searchable, otherwise
-        matches a directory to the plugin name and stops."""
+        matches a directory to the plugin name and stops.
+        permissive: allows search to sometimes match directory name only for
+                    faster searching of remote repositorys."""
         if self.srctype == Source.DIRECTORY:
             assert Path(self.source_loc).exists()
             assert os.path.isdir(self.source_loc)
-        target = SourceDir(self.source_loc, srctype=self.srctype)
+        target = self.source_dir
+        if not target:
+            target = SourceDir(self.source_loc, srctype=self.srctype)
         # Set recursion for how many directories deep we should search
         depth = 0
         if self.srctype in [Source.DIRECTORY, Source.LOCAL_REPO,
@@ -275,15 +467,16 @@ class InstInfo:
             if recursion == 0 and 'archive' in sub.name.lower():
                 pass
             # If unable to search deeper, resort to matching directory name
-            elif recursion < 1:
-                if sub.name.lower() == self.name.lower():
+            elif recursion < 1 and permissive:
+                if sub.name.lower().removesuffix('.git') == self.name.lower():
                     # Partial success (can't check for entrypoint)
                     self.name = sub.name
                     return sub
                 return None
-            sub.populate()
+            if not sub.contents and not sub.prepopulated:
+                sub.populate()
 
-            if sub.name.lower() == self.name.lower():
+            if sub.name.lower().removesuffix('.git') == self.name.lower():
                 # Directory matches the name we're trying to install, so check
                 # for entrypoint and dependencies.
                 for inst in INSTALLERS:
@@ -301,7 +494,8 @@ class InstInfo:
                             self.entry = found_entry.name
                             self.deps = found_dep.name
                             return sub
-                        log.debug(f"missing dependency for {self}")
+                        if permissive is True:
+                            log.debug(f"{inst.name} installer: missing dependency for {self}")
                         found_entry = None
             for file in sub.contents:
                 if isinstance(file, SourceDir):
@@ -345,144 +539,6 @@ class InstInfo:
         return False
 
 
-def create_dir(directory: PosixPath) -> bool:
-    try:
-        Path(directory).mkdir(parents=False, exist_ok=True)
-        return True
-    # Okay if directory already exists
-    except FileExistsError:
-        return True
-    # Parent directory missing
-    except FileNotFoundError:
-        return False
-
-
-def remove_dir(directory: str) -> bool:
-    try:
-        shutil.rmtree(directory)
-        return True
-    except NotADirectoryError:
-        log.warning(f"Tried to remove directory {directory} that "
-                    "does not exist.")
-    except PermissionError:
-        log.warning(f"Permission denied removing dir: {directory}")
-    return False
-
-
-class Source(Enum):
-    DIRECTORY = 1
-    LOCAL_REPO = 2
-    GITHUB_REPO = 3
-    OTHER_URL = 4
-    UNKNOWN = 5
-    # Cloned from remote source before searching (rather than github API)
-    GIT_LOCAL_CLONE = 6
-
-    @classmethod
-    def get_type(cls, source: str):
-        if Path(os.path.realpath(source)).exists():
-            if os.path.isdir(os.path.realpath(source)):
-                # returns 0 if git repository
-                proc = run(['git', '-C', source, 'rev-parse'],
-                           cwd=os.path.realpath(source), stdout=PIPE,
-                           stderr=PIPE, text=True, timeout=5)
-                if proc.returncode == 0:
-                    return cls(2)
-                return cls(1)
-        if 'github.com' in source.lower():
-            return cls(3)
-        if 'http://' in source.lower() or 'https://' in source.lower():
-            return cls(4)
-        return cls(5)
-
-    @classmethod
-    def get_github_user_repo(cls, source: str) -> (str, str):
-        'extract a github username and repository name'
-        if 'github.com/' not in source.lower():
-            return None, None
-        trailing = Path(source.lower().partition('github.com/')[2]).parts
-        if len(trailing) < 2:
-            return None, None
-        return trailing[0], trailing[1]
-
-
-class SourceDir():
-    """Structure to search source contents."""
-    def __init__(self, location: str, srctype: Source = None, name: str = None,
-                 relative: str = None):
-        self.location = str(location)
-        if name:
-            self.name = name
-        else:
-            self.name = Path(location).name
-        self.contents = []
-        self.srctype = srctype
-        self.prepopulated = False
-        self.relative = relative  # location relative to source
-
-    def populate(self):
-        """populates contents of the directory at least one level"""
-        if self.prepopulated:
-            return
-        if not self.srctype:
-            self.srctype = Source.get_type(self.location)
-        if self.srctype == Source.DIRECTORY:
-            self.contents = populate_local_dir(self.location)
-        elif self.srctype in [Source.LOCAL_REPO, Source.GIT_LOCAL_CLONE]:
-            self.contents = populate_local_repo(self.location)
-        elif self.srctype == Source.GITHUB_REPO:
-            self.contents = populate_github_repo(self.location)
-        else:
-            raise Exception("populate method undefined for {self.srctype}")
-        # Ensure the relative path of the contents is inherited.
-        for c in self.contents:
-            if self.relative is None:
-                c.relative = c.name
-            else:
-                c.relative = str(Path(self.relative) / c.name)
-
-    def find(self, name: str, ftype: type = None) -> str:
-        """Match a SourceFile or SourceDir to the provided name
-        (case insentive) and return its filename."""
-        assert isinstance(name, str)
-        if len(self.contents) == 0:
-            return None
-        for c in self.contents:
-            if ftype and not isinstance(c, ftype):
-                continue
-            if c.name.lower() == name.lower():
-                return c
-        return None
-
-    def __repr__(self):
-        return f"<SourceDir: {self.name}, {self.location}, {self.relative}>"
-
-    def __eq__(self, compared):
-        if isinstance(compared, str):
-            return self.name == compared
-        if isinstance(compared, SourceDir):
-            return (self.name == compared.name and
-                    self.location == compared.location)
-        return False
-
-
-class SourceFile():
-    def __init__(self, location: str):
-        self.location = str(location)
-        self.name = Path(location).name
-
-    def __repr__(self):
-        return f"<SourceFile: {self.name} ({self.location})>"
-
-    def __eq__(self, compared):
-        if isinstance(compared, str):
-            return self.name == compared
-        if isinstance(compared, SourceFile):
-            return (self.name == compared.name and
-                    self.location == compared.location)
-        return False
-
-
 def populate_local_dir(path: str) -> list:
     assert Path(os.path.realpath(path)).exists()
     contents = []
@@ -496,7 +552,7 @@ def populate_local_dir(path: str) -> list:
     return contents
 
 
-def populate_local_repo(path: str, parent=None) -> list:
+def populate_local_repo(path: str, parent=None, parent_source=None) -> list:
     assert Path(os.path.realpath(path)).exists()
     if parent is None:
         basedir = SourceDir('base')
@@ -533,7 +589,8 @@ def populate_local_repo(path: str, parent=None) -> list:
                                         parentdir.name)
                 else:
                     relative_path = parentdir.name
-                child = SourceDir(p, srctype=Source.LOCAL_REPO,
+                child = SourceDir(p, srctype=parent.srctype,
+                                  parent_source=parent_source,
                                   relative=relative_path)
                 # ls-tree lists every file in the repo with full path.
                 # No need to populate each directory individually.
@@ -568,12 +625,20 @@ def populate_local_repo(path: str, parent=None) -> list:
                 relative_path = filepath
             elif basedir.relative:
                 relative_path = str(Path(basedir.relative) / filepath)
-            assert relative_path
-            submodule_dir = SourceDir(filepath, srctype=Source.LOCAL_REPO,
-                                      relative=relative_path)
-            populate_local_repo(Path(path) / filepath, parent=submodule_dir)
+            else:
+                relative_path = filepath
+            if parent:
+                srctype = parent.srctype
+            else:
+                srctype = Source.LOCAL_REPO
+            submodule_dir = SourceDir(filepath, srctype=srctype,
+                                      relative=relative_path,
+                                      parent_source=parent_source)
+            populate_local_repo(Path(path) / filepath, parent=submodule_dir,
+                                parent_source=parent_source)
             submodule_dir.prepopulated = True
             basedir.contents.append(submodule_dir)
+            # parent_source.submodules.append(submodule_dir)
         else:
             populate_source_path(basedir, Path(filepath))
     return basedir.contents
@@ -626,7 +691,7 @@ def populate_github_repo(url: str) -> list:
     while '' in repo:
         repo.remove('')
     repo_name = None
-    parsed_url = urlparse(url)
+    parsed_url = urlparse(url.removesuffix('.git'))
     if 'github.com' not in parsed_url.netloc:
         return None
     if len(parsed_url.path.split('/')) < 2:
@@ -664,7 +729,7 @@ def populate_github_repo(url: str) -> list:
     return contents
 
 
-def copy_remote_git_source(github_source: InstInfo):
+def copy_remote_git_source(github_source: InstInfo, verbose: bool=True) -> SourceDir:
     """clone or fetch & checkout a local copy of a remote git repo"""
     user, repo = Source.get_github_user_repo(github_source.source_loc)
     if not user or not repo:
@@ -680,9 +745,10 @@ def copy_remote_git_source(github_source: InstInfo):
     local_path = local_path / repo
     if local_path.exists():
         # Fetch the latest
-        assert _git_update(github_source, local_path)
+        # FIXME: pass LoadedSource and check fetch status
+        assert _git_update(github_source.source_loc, local_path)
     else:
-        _git_clone(github_source, local_path)
+        _git_clone(github_source, local_path, verbose)
     return SourceDir(local_path, srctype=Source.GIT_LOCAL_CLONE)
 
 
@@ -802,6 +868,8 @@ class RecklessConfig(Config):
             )
         Config.__init__(self, path=str(path), default_text=default_text)
         self.reckless_dir = Path(path).parent
+        # Which lightning config needs to inherit the reckless config?
+        self.lightning_conf = None
 
 
 class LightningBitcoinConfig(Config):
@@ -1124,41 +1192,58 @@ INSTALLERS = [pythonuv, pythonuvlegacy, python3venv, poetryvenv,
 
 def help_alias(targets: list):
     if len(targets) == 0:
-        parser.print_help(sys.stdout)
+        if log.capture:
+            help_output = io.StringIO()
+            parser.print_help(help_output)
+            log.add_result(help_output.getvalue())
+        else:
+            parser.print_help(sys.stdout)
     else:
         log.info('try "reckless {} -h"'.format(' '.join(targets)))
+        if log.capture:
+            log.reply_json()
         sys.exit(1)
 
 
-def _source_search(name: str, src: str) -> Union[InstInfo, None]:
+def _get_local_clone(source: str) -> Union[Path, None]:
+    """Returns the path of a local repository clone of a github source. If one
+    already exists, prefer searching that to accessing the github API."""
+    user, repo = Source.get_github_user_repo(source)
+    local_clone_location = RECKLESS_DIR / '.remote_sources' / user / repo
+    if local_clone_location.exists():
+        return local_clone_location
+    return None
+
+
+def _source_search(name: str, src: LoadedSource) -> Union[InstInfo, None]:
     """Identify source type, retrieve contents, and populate InstInfo
     if the relevant contents are found."""
-    root_dir = SourceDir(src)
+    root_dir = src.content
     source = InstInfo(name, root_dir.location, None)
 
     # If a local clone of a github source already exists, prefer searching
     # that instead of accessing the github API.
-    if source.srctype == Source.GITHUB_REPO:
-        # Do we have a local copy already? Use that.
-        user, repo = Source.get_github_user_repo(src)
-        assert user
-        assert repo
-        local_clone_location = RECKLESS_DIR / '.remote_sources' / user / repo
-        if local_clone_location.exists():
-            # Make sure it's the correct remote source and fetch any updates.
-            if _git_update(source, local_clone_location):
-                log.debug(f"Using local clone of {src}: "
-                          f"{local_clone_location}")
-                source.source_loc = str(local_clone_location)
-                source.srctype = Source.GIT_LOCAL_CLONE
+    if src.type == Source.GITHUB_REPO:
+        if src.local_clone:
+            if not src.local_clone_fetched:
+                # FIXME: Pass the LoadedSource here?
+                if _git_update(src.original_source, src.local_clone.location):
+                    src.local_clone_fetched = True
+                    log.debug(f'fetching local clone of {src.original_source}')
+            log.debug(f"Using local clone of {src}: {src.local_clone.location}")
+            source.source_loc = str(src.local_clone.location)
+            source.srctype = Source.GIT_LOCAL_CLONE
 
-    if source.get_inst_details():
+    if source.get_inst_details(permissive=True):
         return source
     return None
 
 
-def _git_clone(src: InstInfo, dest: Union[PosixPath, str]) -> bool:
-    log.info(f'cloning {src.srctype} {src}')
+def _git_clone(src: InstInfo, dest: Union[PosixPath, str], verbose: bool=True) -> bool:
+    if verbose:
+        log.info(f'cloning {src.srctype} {src}')
+    else:
+        log.debug(f'cloning {src.srctype} {src}')
     if src.srctype == Source.GITHUB_REPO:
         assert 'github.com' in src.source_loc
         source = f"{GITHUB_COM}" + src.source_loc.split("github.com")[-1]
@@ -1179,9 +1264,9 @@ def _git_clone(src: InstInfo, dest: Union[PosixPath, str]) -> bool:
     return True
 
 
-def _git_update(github_source: InstInfo, local_copy: PosixPath):
+def _git_update(github_source: str, local_copy: PosixPath):
     # Ensure this is the correct source
-    git = run(['git', 'remote', 'set-url', 'origin', github_source.source_loc],
+    git = run(['git', 'remote', 'set-url', 'origin', github_source],
               cwd=str(local_copy), stdout=PIPE, stderr=PIPE, text=True,
               check=False, timeout=60)
     assert git.returncode == 0
@@ -1204,9 +1289,9 @@ def _git_update(github_source: InstInfo, local_copy: PosixPath):
     if git.returncode != 0:
         return False
     default_branch = git.stdout.splitlines()[0]
-    if default_branch != 'origin/master':
+    if default_branch not in ['origin/master', 'origin/main']:
         log.debug(f'UNUSUAL: fetched default branch {default_branch} for '
-                  f'{github_source.source_loc}')
+                  f'{github_source}')
 
     # Checkout default branch
     git = run(['git', 'checkout', default_branch],
@@ -1326,7 +1411,11 @@ def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
     # FIXME: Validate path was cloned successfully.
     # Depending on how we accessed the original source, there may be install
     # details missing. Searching the cloned repo makes sure we have it.
-    cloned_src = _source_search(src.name, str(clone_path))
+    clone = LoadedSource(plugin_path)
+    clone.content.populate()
+    # Make sure we don't try to fetch again!
+    assert clone.type in [Source.DIRECTORY, Source.LOCAL_REPO]
+    cloned_src = _source_search(src.name, clone)
     log.debug(f'cloned_src: {cloned_src}')
     if not cloned_src:
         log.warning('failed to find plugin after cloning repo.')
@@ -1476,9 +1565,21 @@ def _enable_installed(installed: InstInfo, plugin_name: str) -> Union[str, None]
     if enable(installed.name):
         return f"{installed.source_loc}"
 
-    log.error(('dynamic activation failed: '
-              f'{installed.name} not found in reckless directory'))
+    log.error('dynamic activation failed')
     return None
+
+
+def cleanup_plugin_installation(plugin_name):
+    """Remove traces of an installation attempt."""
+    inst_path = Path(RECKLESS_CONFIG.reckless_dir) / plugin_name
+    if not inst_path.exists():
+        log.warning(f'asked to clean up {inst_path}, but nothing is present.')
+        return
+
+    log.info(f'Cleaning up partial installation of {plugin_name} at {inst_path}')
+    shutil.rmtree(inst_path)
+    return
+
 
 def install(plugin_name: str) -> Union[str, None]:
     """Downloads plugin from source repos, installs and activates plugin.
@@ -1496,13 +1597,13 @@ def install(plugin_name: str) -> Union[str, None]:
     direct_location, name = location_from_name(name)
     src = None
     if direct_location:
-        logging.debug(f"install of {name} requested from {direct_location}")
+        log.debug(f"install of {name} requested from {direct_location}")
         src = InstInfo(name, direct_location, name)
         # Treating a local git repo as a directory allows testing
         # uncommitted changes.
         if src and src.srctype == Source.LOCAL_REPO:
             src.srctype = Source.DIRECTORY
-        if not src.get_inst_details():
+        if not src.get_inst_details(permissive=True):
             src = None
     if not direct_location or not src:
         log.debug(f"Searching for {name}")
@@ -1521,8 +1622,17 @@ def install(plugin_name: str) -> Union[str, None]:
     except FileExistsError as err:
         log.error(f'File exists: {err.filename}')
         return None
-    return _enable_installed(installed, plugin_name)
+    except InstallationFailure as err:
+        cleanup_plugin_installation(plugin_name)
+        if log.capture:
+            log.warning(err)
+            return None
+        raise err
 
+    result = _enable_installed(installed, plugin_name)
+    if not result:
+        cleanup_plugin_installation(plugin_name)
+    return result
 
 
 def uninstall(plugin_name: str) -> str:
@@ -1554,22 +1664,21 @@ def search(plugin_name: str) -> Union[InstInfo, None]:
 
     for src in RECKLESS_SOURCES:
         # Search repos named after the plugin before collections
-        if Source.get_type(src) == Source.GITHUB_REPO:
-            if src.split('/')[-1].lower() == plugin_name.lower():
+        if src.type == Source.GITHUB_REPO:
+            if src.original_source.split('/')[-1].lower().removesuffix('.git') == plugin_name.lower():
                 ordered_sources.remove(src)
                 ordered_sources.insert(0, src)
     # Check locally before reaching out to remote repositories
     for src in RECKLESS_SOURCES:
-        if Source.get_type(src) in [Source.DIRECTORY, Source.LOCAL_REPO]:
+        if src.type in [Source.DIRECTORY, Source.LOCAL_REPO]:
             ordered_sources.remove(src)
             ordered_sources.insert(0, src)
     for source in ordered_sources:
-        srctype = Source.get_type(source)
-        if srctype == Source.UNKNOWN:
-            log.debug(f'cannot search {srctype} {source}')
+        if source.type == Source.UNKNOWN:
+            log.debug(f'cannot search {source.type} {source.original_source}')
             continue
-        if srctype in [Source.DIRECTORY, Source.LOCAL_REPO,
-                       Source.GITHUB_REPO, Source.OTHER_URL]:
+        if source.type in [Source.DIRECTORY, Source.LOCAL_REPO,
+                           Source.GITHUB_REPO, Source.OTHER_URL]:
             found = _source_search(plugin_name, source)
             if found:
                 log.debug(f"{found}, {found.srctype}")
@@ -1732,6 +1841,7 @@ def load_config(reckless_dir: Union[str, None] = None,
         reckless_abort('Error: could not load or create the network specific lightningd'
                        ' config (default .lightning/bitcoin)')
     net_conf.editConfigFile(f'include {reckless_conf.conf_fp}', None)
+    reckless_conf.lightning_conf = network_path
     return reckless_conf
 
 
@@ -1757,8 +1867,14 @@ def load_sources() -> list:
         log.debug('Warning: Reckless requires write access')
         Config(path=str(sources_file),
                default_text='https://github.com/lightningd/plugins')
-        return ['https://github.com/lightningd/plugins']
-    return sources_from_file()
+        sources = ['https://github.com/lightningd/plugins']
+    else:
+        sources = sources_from_file()
+
+    all_sources = []
+    for src in sources:
+        all_sources.append(LoadedSource(src))
+    return all_sources
 
 
 def add_source(src: str):
@@ -1883,6 +1999,248 @@ def update_plugins(plugin_name: str):
     return update_results
 
 
+MD_FORMAT = {'installation date': "None",
+             'installation time': "None",
+             'original source': "None",
+             'requested commit': "None",
+             'installed commit': "None",
+             }
+
+
+def extract_metadata(plugin_name: str) -> dict:
+    metadata_file = Path(RECKLESS_CONFIG.reckless_dir) / plugin_name / '.metadata'
+    if not metadata_file.exists():
+        return None
+
+    with open(metadata_file, 'r') as md:
+        lines = md.readlines()
+        metadata = MD_FORMAT.copy()
+        current_key = None
+
+        for line in lines:
+            if line.strip() in metadata:
+                current_key = line.strip()
+                continue
+
+            if current_key:
+                metadata.update({current_key: line.strip()})
+                current_key = None
+
+    return metadata
+
+
+def listinstalled():
+    """list all plugins currently managed by reckless"""
+    dir_contents = os.listdir(RECKLESS_CONFIG.reckless_dir)
+    plugins = {}
+    for plugin in dir_contents:
+        if (Path(RECKLESS_CONFIG.reckless_dir) / plugin).is_dir():
+            # skip hidden dirs such as reckless' .remote_sources
+            if plugin[0] == '.':
+                continue
+            plugins.update({plugin: None})
+
+    # Format output in a simple table
+    name_len = 0
+    inst_len = 0
+    for plugin in plugins.keys():
+        md = extract_metadata(plugin)
+        name_len = max(name_len, len(plugin) + 1)
+        if md:
+            inst_len = max(inst_len, len(md['installed commit']) + 1)
+        else:
+            inst_len = max(inst_len, 5)
+    for plugin in plugins.keys():
+        md = extract_metadata(plugin)
+        # Older installed plugins may be missing a .metadata file
+        if not md:
+            md = MD_FORMAT.copy()
+        try:
+            installed = InferInstall(plugin)
+        except:
+            log.debug(f'no plugin detected in directory {plugin}')
+            continue
+
+        status = "unmanaged"
+        for line in RECKLESS_CONFIG.content:
+            if installed.entry in line.strip() :
+                if line.strip()[:7] == 'plugin=':
+                    status = "enabled"
+                elif line.strip()[:15] == 'disable-plugin=':
+                    status = "disabled"
+                else:
+                    print(f'cant handle {line}')
+        log.info(f"{plugin:<{name_len}} {md['installed commit']:<{inst_len}} "
+                 f"{md['installation date']:<11} {status}")
+        # This doesn't originate from the metadata, but we want to provide enabled status for json output
+        md['enabled'] = status == "enabled"
+        md['entrypoint'] = installed.entry
+        # Format for json output
+        for key in md:
+            if md[key] == 'None':
+                md[key] = None
+            if key == 'installation time' and md[key]:
+                md[key] = int(md[key])
+        plugins[plugin] = {k.replace(' ', '_'): v for k, v in md.items()}
+
+    return plugins
+
+
+def have_files(source: SourceDir):
+    """Do we have direct access to the files in this directory?"""
+    if source.srctype in [Source.DIRECTORY, Source.LOCAL_REPO,
+                          Source.GIT_LOCAL_CLONE]:
+        return True
+    log.info(f'no files in {source.name} ({source.srctype})')
+    return False
+
+
+def fetch_manifest(source: SourceDir) -> dict:
+    """read and ingest a manifest from the provided source."""
+    log.debug(f'ingesting manifest from {source.name}: {source.location}/manifest.json ({source.srctype})')
+    # local_path = RECKLESS_DIR / '.remote_sources' / user
+    if source.srctype not in [Source.GIT_LOCAL_CLONE, Source.LOCAL_REPO, Source.DIRECTORY]:
+        log.info(f'oops! {source.srctype}')
+        return None
+    if source.srctype == Source.GIT_LOCAL_CLONE:
+        try:
+            repo = GithubRepository(source.parent_source.original_source)
+            path = RECKLESS_DIR / '.remote_sources' / repo.user / repo.name
+        except AssertionError:
+            log.info(f'could not parse github source {source.parent_source.original_source}')
+            return None
+    elif source.srctype in [Source.DIRECTORY, Source.LOCAL_REPO]:
+        path = Path(source.location)
+    else:
+        raise Exception(f"cannot access manifest in {source.srctype}: {source}")
+    if source.relative:
+        path = path / source.relative
+    path = path / 'manifest.json'
+    if not path.exists():
+        return None
+    with open(path, 'r+') as manifest_file:
+        try:
+            manifest = json.loads(manifest_file.read())
+            return manifest
+        except json.decoder.JSONDecodeError:
+            log.warning(f'{source.name} contains malformed manifest ({source.parent_source.original_source})')
+            return None
+
+
+def find_plugin_candidates(source: Union[LoadedSource, SourceDir], depth=2) -> list:
+    """Filter through a source and return any candidates that appear to be
+    installable plugins with the registered installers."""
+    if isinstance(source, LoadedSource):
+        if source.local_clone:
+            return find_plugin_candidates(source.local_clone)
+        return find_plugin_candidates(source.content)
+
+    candidates = []
+    assert isinstance(source, SourceDir)
+    if not source.contents and not source.prepopulated:
+        source.populate()
+        for s in source.contents:
+            if isinstance(s, SourceDir):
+                assert s.srctype == source.srctype, f'source dir {s.name}, {s.srctype} did not inherit {source.srctype} from {source.name}'
+                assert s.parent_source == source.parent_source, f'source dir {s.name} did not inherit parent {source.parent_source} from {source.name}'
+
+    guess = InstInfo(source.name, source.location, None, source_dir=source)
+    guess.srctype = source.srctype
+    manifest = None
+    if guess.get_inst_details():
+        guess.srctype = source.srctype
+        guess.source_dir.srctype = source.srctype
+        if guess.source_dir.find('manifest.json'):
+            # FIXME: Handle github source case
+            if have_files(guess.source_dir):
+                manifest = fetch_manifest(guess.source_dir)
+
+        if manifest:
+            candidate = manifest
+        else:
+            candidate = {'name': source.name,
+                         'short_description': None,
+                         'long_description': None,
+                         'entrypoint': guess.entry,
+                         'requirements': []}
+        candidates.append(candidate)
+    if depth <= 1:
+        return candidates
+
+    for c in source.contents:
+        if not isinstance(c, SourceDir):
+            continue
+        candidates.extend(find_plugin_candidates(c, depth=depth-1))
+
+    return candidates
+
+
+def available_plugins() -> list:
+    """List installable plugins available from the sources list"""
+    candidates = []
+    # FIXME: update for LoadedSource object
+    for source in RECKLESS_SOURCES:
+        if source.type == Source.UNKNOWN:
+            log.debug(f'confusing source: {source.type}')
+            continue
+        # It takes too many API calls to query for installable plugins accurately.
+        if source.type == Source.GITHUB_REPO and not source.local_clone:
+            # FIXME: ignoring non-cloned repos for now.
+            log.debug(f'cloning {source.original_source} in order to search')
+            clone = copy_remote_git_source(InstInfo(None,
+                                                    source.original_source,
+                                                    source.original_source,
+                                                    source_dir=source.content),
+                                           verbose=False)
+            clone.srctype = Source.GIT_LOCAL_CLONE
+            clone.parent_source = source
+            if not clone:
+                log.warning(f"could not clone github source {source.original_source}")
+                continue
+            source.local_clone = clone
+            source.local_clone.parent_source = source
+
+        candidates.extend(find_plugin_candidates(source))
+
+    # json output requested
+    if log.capture:
+        return candidates
+
+    for c in candidates:
+        log.info(c['name'])
+        if c['short_description']:
+            log.info(f'\tdescription:  {c["short_description"]}')
+        if c['requirements']:
+            log.info(f'\trequirements: {c["requirements"]}')
+
+    return candidates
+
+
+def listconfig() -> dict:
+    """Useful for checking options passed through the reckless-rpc."""
+    config = {}
+
+    log.info(f'requested lightning config: {LIGHTNING_CONFIG}')
+    config.update({'requested_lightning_conf': LIGHTNING_CONFIG})
+
+    log.info(f'lightning config in use: {RECKLESS_CONFIG.lightning_conf}')
+    config.update({'lightning_conf': str(RECKLESS_CONFIG.lightning_conf)})
+
+    log.info(f'lightning directory: {LIGHTNING_DIR}')
+    config.update({'lightning_dir': str(LIGHTNING_DIR)})
+
+    log.info(f'reckless directory: {RECKLESS_CONFIG.reckless_dir}')
+    config.update({'reckless_dir': str(RECKLESS_CONFIG.reckless_dir)})
+
+    log.info(f'network: {NETWORK}')
+    config.update({'network': NETWORK})
+
+    log.info(f'reckless version: {__VERSION__}')
+    config.update({'version': __VERSION__})
+
+    return config
+
+
 def report_version() -> str:
     """return reckless version"""
     log.info(__VERSION__)
@@ -1897,7 +2255,7 @@ def unpack_json_arg(json_target: str) -> list:
         return None
     if isinstance(targets, list):
         return targets
-    log.warning(f'input {target_list} is not a json array')
+    log.warning(f'input {json_target} is not a json array')
     return None
 
 
@@ -1956,6 +2314,10 @@ if __name__ == '__main__':
     search_cmd.add_argument('targets', type=str, nargs='*')
     search_cmd.set_defaults(func=search)
 
+    available_cmd = cmd1.add_parser('listavailable', help='list plugins available '
+                                    'from the sources list')
+    available_cmd.set_defaults(func=available_plugins)
+
     enable_cmd = cmd1.add_parser('enable', help='dynamically enable a plugin '
                                  'and update config')
     enable_cmd.add_argument('targets', type=str, nargs='*')
@@ -1982,6 +2344,9 @@ if __name__ == '__main__':
     update.add_argument('targets', type=str, nargs='*')
     update.set_defaults(func=update_plugins)
 
+    list_cmd = cmd1.add_parser('listinstalled', help='list reckless-installed plugins')
+    list_cmd.set_defaults(func=listinstalled)
+
     help_cmd = cmd1.add_parser('help', help='for contextual help, use '
                                '"reckless <cmd> -h"')
     help_cmd.add_argument('targets', type=str, nargs='*')
@@ -1989,10 +2354,12 @@ if __name__ == '__main__':
     parser.add_argument('-V', '--version',
                         action=StoreTrueIdempotent, const=None,
                         help='print version and exit')
+    listconfig_cmd = cmd1.add_parser('listconfig', help='list options passed to reckless')
+    listconfig_cmd.set_defaults(func=listconfig)
 
     all_parsers = [parser, install_cmd, uninstall_cmd, search_cmd, enable_cmd,
                    disable_cmd, list_parse, source_add, source_rem, help_cmd,
-                   update]
+                   update, list_cmd, available_cmd, listconfig_cmd]
     for p in all_parsers:
         # This default depends on the .lightning directory
         p.add_argument('-d', '--reckless-dir', action=StoreIdempotent,
@@ -2036,6 +2403,9 @@ if __name__ == '__main__':
                           'signet', 'testnet', 'testnet4']
     if args.version:
         report_version()
+        if log.capture:
+            log.reply_json()
+        sys.exit(0)
     elif args.cmd1 is None:
         parser.print_help(sys.stdout)
         sys.exit(1)
@@ -2075,7 +2445,9 @@ if __name__ == '__main__':
 
     if 'targets' in args: # and len(args.targets) > 0:
         if args.func.__name__ == 'help_alias':
-            args.func(args.targets)
+            log.add_result(args.func(args.targets))
+            if log.capture:
+                log.reply_json()
             sys.exit(0)
         # Catch a missing argument so that we can overload functions.
         if len(args.targets) == 0:
