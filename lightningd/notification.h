@@ -27,7 +27,11 @@ void notify_connect(struct lightningd *ld,
 		    const struct wireaddr_internal *addr);
 void notify_disconnect(struct lightningd *ld, const struct node_id *nodeid);
 
-void notify_warning(struct lightningd *ld, struct log_entry *l);
+void notify_warning(struct lightningd *ld,
+		    enum log_level level,
+		    struct timeabs time,
+		    const char *source,
+		    const char *logmsg);
 
 void notify_custommsg(struct lightningd *ld,
 		      const struct node_id *peer_id,
@@ -120,7 +124,11 @@ bool notify_deprecated_oneshot(struct lightningd *ld,
 /* Tell this plugin to shutdown: returns true if it was subscribed. */
 bool notify_plugin_shutdown(struct lightningd *ld, struct plugin *p);
 /* Inform the plugin when a log line is emitted */
-void notify_log(struct lightningd *ld, const struct log_entry *l);
+void notify_log(struct lightningd *ld,
+		enum log_level level,
+		struct timeabs time,
+		const char *source,
+		const char *logmsg);
 
 void notify_plugin_started(struct lightningd *ld, struct plugin *plugin);
 void notify_plugin_stopped(struct lightningd *ld, struct plugin *plugin);
