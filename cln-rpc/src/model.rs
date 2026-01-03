@@ -2881,6 +2881,8 @@ pub mod requests {
 	    pub active_only: Option<bool>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub offer_id: Option<Sha256>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub usable_only: Option<bool>,
 	}
 
 	impl From<ListoffersRequest> for Request {
