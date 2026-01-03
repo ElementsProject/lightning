@@ -4,6 +4,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/configvar.h>
 #include <common/utils.h>
+#include <unistd.h>
 
 struct configvar *configvar_new(const tal_t *ctx,
 				enum configvar_src src,
