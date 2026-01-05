@@ -3015,13 +3015,17 @@ static const u8 *peer_expect_msg_three(const tal_t *ctx,
 
 	msg = peer_read(ctx, peer->pps);
 	type = fromwire_peektype(msg);
+	if (type == WIRE_ERROR)
+		abort();
 	if (type != expect_type && type != second_allowed_type
 	    && type != third_allowed_type)
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				"Got incorrect message from peer: %s"
-				" (should be %s) [%s]",
+				" (should be %s or %s or %s) [%s]",
 				peer_wire_name(type),
 				peer_wire_name(expect_type),
+				peer_wire_name(second_allowed_type),
+				peer_wire_name(third_allowed_type),
 				sanitize_error(tmpctx, msg, &peer->channel_id));
 
 	return msg;
@@ -5705,6 +5709,8 @@ static void peer_reconnect(struct peer *peer,
 	do {
 		clean_tmpctx();
 		msg = peer_read(tmpctx, peer->pps);
+		check_tx_abort(peer, msg,
+			       inflight ? &inflight->outpoint.txid : NULL);
 	} while (handle_peer_error_or_warning(peer->pps, msg) ||
 		 capture_premature_msg(&premature_msgs, msg));
 
