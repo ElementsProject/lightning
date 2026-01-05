@@ -91,6 +91,13 @@ struct bitcoin_cli {
 	void *stash;
 };
 
+/* Result of a synchronous bitcoin-cli call */
+struct bcli_result {
+	char *output;
+	size_t output_len;
+	int exitstatus;
+};
+
 /* Add the n'th arg to *args, incrementing n and keeping args of size n+1 */
 static void add_arg(const char ***args, const char *arg TAKES)
 {
@@ -202,6 +209,71 @@ static char *args_string(const tal_t *ctx, const char **args, const char **stdin
 		ret = tal_strcat(ctx, take(ret), stdinargs[i]);
 	}
 	return ret;
+}
+
+/* Synchronous execution of bitcoin-cli.
+ * Returns result with output and exit status. */
+static UNNEEDED struct bcli_result *
+run_bitcoin_cliv(const tal_t *ctx,
+		 struct plugin *plugin,
+		 const char *method,
+		 va_list ap)
+{
+	int in, from, status;
+	pid_t child;
+	const char **stdinargs;
+	const char **cmd;
+	struct bcli_result *res;
+
+	stdinargs = tal_arr(ctx, const char *, 0);
+	cmd = gather_argsv(ctx, &stdinargs, method, ap);
+
+	child = pipecmdarr(&in, &from, &from, cast_const2(char **, cmd));
+	if (child < 0)
+		plugin_err(plugin, "%s exec failed: %s", cmd[0], strerror(errno));
+
+	/* Send rpcpass via stdin if configured */
+	if (bitcoind->rpcpass) {
+		write_all(in, bitcoind->rpcpass, strlen(bitcoind->rpcpass));
+		write_all(in, "\n", 1);
+	}
+	/* Send any additional stdin args */
+	for (size_t i = 0; i < tal_count(stdinargs); i++) {
+		write_all(in, stdinargs[i], strlen(stdinargs[i]));
+		write_all(in, "\n", 1);
+	}
+	close(in);
+
+	/* Read all output until EOF */
+	res = tal(ctx, struct bcli_result);
+	res->output = grab_fd_str(res, from);
+	res->output_len = strlen(res->output);
+
+	/* Wait for child to exit */
+	while (waitpid(child, &status, 0) < 0 && errno == EINTR);
+
+	if (!WIFEXITED(status))
+		plugin_err(plugin, "%s died with signal %i",
+			   args_string(tmpctx, cmd, stdinargs), WTERMSIG(status));
+
+	res->exitstatus = WEXITSTATUS(status);
+
+	return res;
+}
+
+static UNNEEDED LAST_ARG_NULL struct bcli_result *
+run_bitcoin_cli(const tal_t *ctx,
+		struct plugin *plugin,
+		const char *method, ...)
+{
+	va_list ap;
+	struct bcli_result *res;
+
+	va_start(ap, method);
+	res = run_bitcoin_cliv(ctx, plugin, method, ap);
+	va_end(ap);
+
+	return res;
 }
 
 static char *bcli_args(const tal_t *ctx, struct bitcoin_cli *bcli)
