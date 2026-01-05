@@ -496,7 +496,7 @@ static void json_add_null(struct json_stream *stream, const char *fieldname)
 	json_add_primitive(stream, fieldname, "null");
 }
 
-static struct command_result *process_getutxout(struct bitcoin_cli *bcli)
+static UNNEEDED struct command_result *process_getutxout(struct bitcoin_cli *bcli)
 {
 	const jsmntok_t *tokens;
 	struct json_stream *response;
@@ -926,7 +926,7 @@ static struct command_result *getchaininfo(struct command *cmd,
 	tokens = json_parse_simple(cmd, res->output, res->output_len);
 	if (!tokens) {
 		return command_done_err(cmd, BCLI_ERROR,
-					tal_fmt(cmd, "getblockchaininfo: bad JSON: %s",
+					tal_fmt(cmd, "getblockchaininfo: bad JSON: cannot parse (%s)",
 						res->output),
 					NULL);
 	}
@@ -1120,6 +1120,11 @@ static struct command_result *getutxout(struct command *cmd,
                                        const jsmntok_t *toks)
 {
 	const char *txid, *vout;
+	struct bcli_result *res;
+	const jsmntok_t *tokens;
+	struct json_stream *response;
+	struct bitcoin_tx_output output;
+	const char *err;
 
 	/* bitcoin-cli wants strings. */
 	if (!param(cmd, buf, toks,
@@ -1128,11 +1133,43 @@ static struct command_result *getutxout(struct command *cmd,
 	           NULL))
 		return command_param_failed();
 
-	start_bitcoin_cli(NULL, cmd, process_getutxout, true,
-			  BITCOIND_HIGH_PRIO, NULL,
-			  "gettxout", txid, vout, NULL);
+	res = run_bitcoin_cli(cmd, cmd->plugin, "gettxout", txid, vout, NULL);
 
-	return command_still_pending(cmd);
+	/* As of at least v0.15.1.0, bitcoind returns "success" but an empty
+	   string on a spent txout. */
+	if (res->exitstatus != 0 || res->output_len == 0) {
+		response = jsonrpc_stream_success(cmd);
+		json_add_null(response, "amount");
+		json_add_null(response, "script");
+		return command_finished(cmd, response);
+	}
+
+	tokens = json_parse_simple(cmd, res->output, res->output_len);
+	if (!tokens) {
+		return command_done_err(cmd, BCLI_ERROR,
+					tal_fmt(cmd, "gettxout: bad JSON: cannot parse (%s)",
+						res->output),
+					NULL);
+	}
+
+	err = json_scan(tmpctx, res->output, tokens,
+		       "{value:%,scriptPubKey:{hex:%}}",
+		       JSON_SCAN(json_to_bitcoin_amount,
+				 &output.amount.satoshis), /* Raw: bitcoind */
+		       JSON_SCAN_TAL(cmd, json_tok_bin_from_hex,
+				     &output.script));
+	if (err) {
+		return command_done_err(cmd, BCLI_ERROR,
+					tal_fmt(cmd, "gettxout: bad JSON: %s (%s)",
+						err, res->output),
+					NULL);
+	}
+
+	response = jsonrpc_stream_success(cmd);
+	json_add_sats(response, "amount", output.amount);
+	json_add_string(response, "script", tal_hex(response, output.script));
+
+	return command_finished(cmd, response);
 }
 
 static void bitcoind_failure(struct plugin *p, const char *error_message)
