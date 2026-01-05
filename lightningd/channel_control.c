@@ -1311,6 +1311,17 @@ static void peer_got_shutdown(struct channel *channel, const u8 *msg)
 	wallet_channel_save(ld->wallet, channel);
 }
 
+static void peer_channeld_reestablished(struct channel *channel, const u8* msg)
+{
+	bool announcement_sigs_requested;
+	if (!fromwire_channeld_reestablished(msg, &announcement_sigs_requested))
+		channel_internal_error(channel,
+				       "bad channeld_reestablished %s",
+				       tal_hex(channel, msg));
+
+	channel_gossip_channel_reestablished(channel, announcement_sigs_requested);
+}
+
 void channel_fallen_behind(struct channel *channel)
 {
 	channel->has_future_per_commitment_point = true;
@@ -1565,7 +1576,7 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 		peer_got_shutdown(sd->channel, msg);
 		break;
 	case WIRE_CHANNELD_REESTABLISHED:
-		channel_gossip_channel_reestablished(sd->channel);
+		peer_channeld_reestablished(sd->channel, msg);
 		break;
 	case WIRE_CHANNELD_SHUTDOWN_COMPLETE:
 		/* We expect 1 fd. */
@@ -1923,7 +1934,7 @@ bool peer_start_channeld(struct channel *channel,
 
 	/* "Reestablished" if we've just opened. */
 	if (!reconnected)
-		channel_gossip_channel_reestablished(channel);
+		channel_gossip_channel_reestablished(channel, false);
 
 	/* FIXME: DTODO: Use a pointer to a txid instead of zero'ing one out. */
 	memset(&txid, 0, sizeof(txid));
