@@ -2,9 +2,11 @@
 #include <assert.h>
 #include <ccan/asort/asort.h>
 #include <ccan/bitmap/bitmap.h>
+#include <ccan/bitops/bitops.h>
 #include <ccan/list/list.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
+#include <common/features.h>
 #include <common/utils.h>
 #include <float.h>
 #include <inttypes.h>
@@ -301,6 +303,8 @@ struct pay_parameters {
 
 	double delay_feefactor;
 	double base_fee_penalty;
+
+	u64 needed_features;
 };
 
 /* Helper function.
@@ -575,6 +579,8 @@ static void init_linear_network(const tal_t *ctx,
 	{
 		const u32 node_id = gossmap_node_idx(gossmap,node);
 
+		if (!node_has_needed_features(gossmap, node, params->needed_features)) goto next;
+
 		for(size_t j=0;j<node->num_chans;++j)
 		{
 			int half;
@@ -642,6 +648,7 @@ static void init_linear_network(const tal_t *ctx,
 				(*arc_fee_cost)[dual.idx] = -fee_cost;
 			}
 		}
+		next:;
 	}
 }
 
@@ -971,7 +978,7 @@ struct flow **minflow(const tal_t *ctx,
 		      const struct gossmap_node *target,
 		      struct amount_msat amount,
 		      u32 mu,
-		      double delay_feefactor)
+		      double delay_feefactor, u64 needed_features)
 {
 	struct flow **flow_paths;
 	/* We allocate everything off this, and free it at the end,
@@ -1006,6 +1013,7 @@ struct flow **minflow(const tal_t *ctx,
 
 	params->delay_feefactor = delay_feefactor;
 	params->base_fee_penalty = base_fee_penalty_estimate(amount);
+	params->needed_features = needed_features;
 
 	// build the uncertainty network with linearization and residual arcs
 	struct graph *graph;
@@ -1099,6 +1107,8 @@ static void init_linear_network_single_path(
 	     node = gossmap_next_node(gossmap, node)) {
 		const u32 node_id = gossmap_node_idx(gossmap, node);
 
+		if (!node_has_needed_features(gossmap, node, params->needed_features)) goto next;
+
 		for (size_t j = 0; j < node->num_chans; ++j) {
 			int half;
 			const struct gossmap_chan *c =
@@ -1164,6 +1174,7 @@ static void init_linear_network_single_path(
 			    fee_msat +
 			    params->delay_feefactor * c->half[half].delay;
 		}
+		next:;
 	}
 }
 
@@ -1172,7 +1183,7 @@ struct flow **single_path_flow(const tal_t *ctx, const struct route_query *rq,
 			       const struct gossmap_node *source,
 			       const struct gossmap_node *target,
 			       struct amount_msat amount, u32 mu,
-			       double delay_feefactor)
+			       double delay_feefactor, u64 needed_features)
 {
 	struct flow **flow_paths;
 	/* We allocate everything off this, and free it at the end,
@@ -1189,6 +1200,7 @@ struct flow **single_path_flow(const tal_t *ctx, const struct route_query *rq,
 	params->accuracy = amount;
 	params->delay_feefactor = delay_feefactor;
 	params->base_fee_penalty = base_fee_penalty_estimate(amount);
+	params->needed_features = needed_features;
 
 	struct graph *graph;
 	double *arc_prob_cost;
@@ -1350,11 +1362,12 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 	      const struct gossmap_node *srcnode,
 	      const struct gossmap_node *dstnode, struct amount_msat amount,
 	      struct amount_msat maxfee, u32 finalcltv, u32 maxdelay,
-	      struct flow ***flows, double *probability,
+	      u64 needed_features, struct flow ***flows, double *probability,
 	      struct flow **(*solver)(const tal_t *, const struct route_query *,
 				      const struct gossmap_node *,
 				      const struct gossmap_node *,
-				      struct amount_msat, u32, double))
+				      struct amount_msat, u32, double,
+				      u64))
 {
 	const tal_t *working_ctx = tal(ctx, tal_t);
 	const char *error_message;
@@ -1398,11 +1411,13 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 					SINGLE_PATH_THRESHOLD)) {
 			new_flows = single_path_flow(working_ctx, rq, srcnode,
 						     dstnode, amount_to_deliver,
-						     mu, delay_feefactor);
+						     mu, delay_feefactor,
+						     needed_features);
 		} else {
 			new_flows =
 			    solver(working_ctx, rq, srcnode, dstnode,
-				   amount_to_deliver, mu, delay_feefactor);
+				   amount_to_deliver, mu, delay_feefactor,
+				   needed_features);
 		}
 
 		if (!new_flows) {
@@ -1630,11 +1645,11 @@ const char *default_routes(const tal_t *ctx, struct route_query *rq,
 			   const struct gossmap_node *srcnode,
 			   const struct gossmap_node *dstnode,
 			   struct amount_msat amount, struct amount_msat maxfee,
-			   u32 finalcltv, u32 maxdelay, struct flow ***flows,
-			   double *probability)
+			   u32 finalcltv, u32 maxdelay, u64 needed_features,
+			   struct flow ***flows, double *probability)
 {
 	return linear_routes(ctx, rq, deadline, srcnode, dstnode, amount, maxfee,
-			     finalcltv, maxdelay, flows, probability, minflow);
+			     finalcltv, maxdelay, needed_features, flows, probability, minflow);
 }
 
 const char *single_path_routes(const tal_t *ctx, struct route_query *rq,
@@ -1643,10 +1658,25 @@ const char *single_path_routes(const tal_t *ctx, struct route_query *rq,
 			       const struct gossmap_node *dstnode,
 			       struct amount_msat amount,
 			       struct amount_msat maxfee, u32 finalcltv,
-			       u32 maxdelay, struct flow ***flows,
-			       double *probability)
+			       u32 maxdelay, u64 needed_features,
+			       struct flow ***flows, double *probability)
 {
 	return linear_routes(ctx, rq, deadline, srcnode, dstnode, amount, maxfee,
-			     finalcltv, maxdelay, flows, probability,
+			     finalcltv, maxdelay, needed_features, flows, probability,
 			     single_path_flow);
 }
+
+bool node_has_needed_features(const struct gossmap *map,
+			     const struct gossmap_node *n,
+			     u64 needed_features)
+{
+  /* It must have all the features we need */
+  while (needed_features) {
+    int feature = bitops_ls64(needed_features);
+    if (gossmap_node_get_feature(map, n, feature) == -1)
+      return false;
+    needed_features &= ~(1ULL << feature);
+  }
+  return true;
+}
+

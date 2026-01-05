@@ -399,6 +399,7 @@ struct getroutes_info {
 	struct node_id source, dest;
 	struct amount_msat amount, maxfee;
 	u32 finalcltv, maxdelay;
+	u64 needed_features;
 	/* algorithm selection, only dev */
 	enum algorithm dev_algo;
 	const char **layers;
@@ -630,12 +631,24 @@ static struct command_result *do_getroutes(struct command *cmd,
 		goto fail;
 	}
 
+	if (!node_has_needed_features(askrene->gossmap, srcnode, info->needed_features)) {
+		err = rq_log(tmpctx, rq, LOG_INFORM, "Source node %s does not have the needed features",
+			     fmt_node_id(tmpctx, &info->source));
+		goto fail;
+	}
+
 	/* checkout the destination */
 	const struct gossmap_node *dstnode =
 	    gossmap_find_node(askrene->gossmap, &info->dest);
 	if (!dstnode) {
 		err = rq_log(tmpctx, rq, LOG_INFORM,
 			     "Unknown destination node %s",
+			     fmt_node_id(tmpctx, &info->dest));
+		goto fail;
+	}
+
+	if (!node_has_needed_features(askrene->gossmap, dstnode, info->needed_features)) {
+		err = rq_log(tmpctx, rq, LOG_INFORM, "Destination node %s does not have the needed features",
 			     fmt_node_id(tmpctx, &info->dest));
 		goto fail;
 	}
@@ -663,12 +676,12 @@ static struct command_result *do_getroutes(struct command *cmd,
 	if (info->dev_algo == ALGO_SINGLE_PATH) {
 		err = single_path_routes(rq, rq, deadline, srcnode, dstnode, info->amount,
 					 info->maxfee, info->finalcltv,
-					 info->maxdelay, &flows, &probability);
+					 info->maxdelay, info->needed_features, &flows, &probability);
 	} else {
 		assert(info->dev_algo == ALGO_DEFAULT);
 		err = default_routes(rq, rq, deadline, srcnode, dstnode, info->amount,
 				     info->maxfee, info->finalcltv,
-				     info->maxdelay, &flows, &probability);
+				     info->maxdelay, info->needed_features, &flows, &probability);
 	}
 	struct timerel time_delta = timemono_between(time_mono(), time_start);
 
@@ -821,6 +834,7 @@ static struct command_result *json_getroutes(struct command *cmd,
 	u32 *finalcltv, *maxdelay;
 	enum algorithm *dev_algo;
 	u32 *maxparts;
+	u64* needed_features;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("source", param_node_id, &source),
@@ -835,6 +849,8 @@ static struct command_result *json_getroutes(struct command *cmd,
 				   default_maxparts),
 			 p_opt_dev("dev_algorithm", param_algorithm,
 				   &dev_algo, ALGO_DEFAULT),
+			 p_opt_def("needed_features", param_u64, &needed_features,
+				   0),
 			 NULL))
 		return command_param_failed();
 	plugin_log(cmd->plugin, LOG_TRACE, "%s called: %.*s", __func__,
@@ -870,6 +886,7 @@ static struct command_result *json_getroutes(struct command *cmd,
 	info->additional_costs = tal(info, struct additional_cost_htable);
 	additional_cost_htable_init(info->additional_costs);
 	info->maxparts = *maxparts;
+	info->needed_features = *needed_features;
 
 	if (have_layer(info->layers, "auto.localchans")) {
 		struct out_req *req;
