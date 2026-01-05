@@ -632,7 +632,7 @@ estimatefees_parse_feerate(struct bitcoin_cli *bcli, u64 *feerate)
 	return NULL;
 }
 
-static struct command_result *process_sendrawtransaction(struct bitcoin_cli *bcli)
+static UNNEEDED struct command_result *process_sendrawtransaction(struct bitcoin_cli *bcli)
 {
 	struct json_stream *response;
 
@@ -1094,6 +1094,8 @@ static struct command_result *sendrawtransaction(struct command *cmd,
 {
 	const char *tx, *highfeesarg;
 	bool *allowhighfees;
+	struct bcli_result *res;
+	struct json_stream *response;
 
 	/* bitcoin-cli wants strings. */
 	if (!param(cmd, buf, toks,
@@ -1107,12 +1109,26 @@ static struct command_result *sendrawtransaction(struct command *cmd,
 	} else
 		highfeesarg = NULL;
 
-	start_bitcoin_cli(NULL, cmd, process_sendrawtransaction, true,
-			  BITCOIND_HIGH_PRIO, NULL,
-			  "sendrawtransaction",
-			  tx, highfeesarg, NULL);
+	res = run_bitcoin_cli(cmd, cmd->plugin,
+			      "sendrawtransaction", tx, highfeesarg, NULL);
 
-	return command_still_pending(cmd);
+	/* This is useful for functional tests. */
+	if (res->exitstatus)
+		plugin_log(cmd->plugin, LOG_DBG,
+			   "sendrawtx exit %i (%s)",
+			   res->exitstatus,
+			   res->output);
+
+	response = jsonrpc_stream_success(cmd);
+	json_add_bool(response, "success",
+		      res->exitstatus == 0 ||
+			  res->exitstatus == RPC_TRANSACTION_ALREADY_IN_CHAIN);
+	json_add_string(response, "errmsg",
+			res->exitstatus ?
+			tal_strndup(cmd, res->output, res->output_len)
+			: "");
+
+	return command_finished(cmd, response);
 }
 
 static struct command_result *getutxout(struct command *cmd,
