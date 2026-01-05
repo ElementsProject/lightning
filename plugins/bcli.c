@@ -213,7 +213,7 @@ static char *args_string(const tal_t *ctx, const char **args, const char **stdin
 
 /* Synchronous execution of bitcoin-cli.
  * Returns result with output and exit status. */
-static UNNEEDED struct bcli_result *
+static struct bcli_result *
 run_bitcoin_cliv(const tal_t *ctx,
 		 struct plugin *plugin,
 		 const char *method,
@@ -261,7 +261,7 @@ run_bitcoin_cliv(const tal_t *ctx,
 	return res;
 }
 
-static UNNEEDED LAST_ARG_NULL struct bcli_result *
+static LAST_ARG_NULL struct bcli_result *
 run_bitcoin_cli(const tal_t *ctx,
 		struct plugin *plugin,
 		const char *method, ...)
@@ -535,7 +535,7 @@ static struct command_result *process_getutxout(struct bitcoin_cli *bcli)
 	return command_finished(bcli->cmd, response);
 }
 
-static struct command_result *process_getblockchaininfo(struct bitcoin_cli *bcli)
+static UNNEEDED struct command_result *process_getblockchaininfo(struct bitcoin_cli *bcli)
 {
 	const jsmntok_t *tokens;
 	struct json_stream *response;
@@ -904,16 +904,56 @@ static struct command_result *getchaininfo(struct command *cmd,
          * a lower height than the one we already know, by waiting for a short period.
          * However, I currently don't have a better idea on how to handle this situation. */
 	u32 *height UNUSED;
+	struct bcli_result *res;
+	const jsmntok_t *tokens;
+	struct json_stream *response;
+	bool ibd;
+	u32 headers, blocks;
+	const char *chain, *err;
+
 	if (!param(cmd, buf, toks,
 		   p_opt("last_height", param_number, &height),
 		   NULL))
 		return command_param_failed();
 
-	start_bitcoin_cli(NULL, cmd, process_getblockchaininfo, false,
-			  BITCOIND_HIGH_PRIO, NULL,
-			  "getblockchaininfo", NULL);
+	res = run_bitcoin_cli(cmd, cmd->plugin, "getblockchaininfo", NULL);
+	if (res->exitstatus != 0) {
+		return command_done_err(cmd, BCLI_ERROR,
+					tal_fmt(cmd, "getblockchaininfo: %s", res->output),
+					NULL);
+	}
 
-	return command_still_pending(cmd);
+	tokens = json_parse_simple(cmd, res->output, res->output_len);
+	if (!tokens) {
+		return command_done_err(cmd, BCLI_ERROR,
+					tal_fmt(cmd, "getblockchaininfo: bad JSON: %s",
+						res->output),
+					NULL);
+	}
+
+	err = json_scan(tmpctx, res->output, tokens,
+			"{chain:%,headers:%,blocks:%,initialblockdownload:%}",
+			JSON_SCAN_TAL(tmpctx, json_strdup, &chain),
+			JSON_SCAN(json_to_number, &headers),
+			JSON_SCAN(json_to_number, &blocks),
+			JSON_SCAN(json_to_bool, &ibd));
+	if (err) {
+		return command_done_err(cmd, BCLI_ERROR,
+					tal_fmt(cmd, "getblockchaininfo: bad JSON: %s (%s)",
+						err, res->output),
+					NULL);
+	}
+
+	if (bitcoind->dev_ignore_ibd)
+		ibd = false;
+
+	response = jsonrpc_stream_success(cmd);
+	json_add_string(response, "chain", chain);
+	json_add_u32(response, "headercount", headers);
+	json_add_u32(response, "blockcount", blocks);
+	json_add_bool(response, "ibd", ibd);
+
+	return command_finished(cmd, response);
 }
 
 /* Mutual recursion. */
