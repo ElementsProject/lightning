@@ -5526,6 +5526,7 @@ static void peer_reconnect(struct peer *peer,
 			   const struct secret *last_remote_per_commit_secret)
 {
 	struct channel_id channel_id;
+	bool announcement_sigs_requested;
 	/* Note: BOLT #2 uses these names! */
 	u64 next_commitment_number, next_revocation_number;
 	bool retransmit_revoke_and_ack, retransmit_commitment_signed;
@@ -6020,6 +6021,24 @@ static void peer_reconnect(struct peer *peer,
 	if (retransmit_revoke_and_ack && peer->last_was_revoke)
 		resend_revoke(peer);
 
+	/* BOLT-??? #2
+	 *     1. type: 5 (`my_current_funding_locked`)
+	 *     2. data:
+	 *         * [`sha256`:`my_current_funding_locked_txid`]
+	 *         * [`byte`:`retransmit_flags`]
+	 *
+	 * The `retransmit_flags` bitfield is used to let our peer know which messages
+	 * we expect them to retransmit after the reconnection:
+	 *
+	 * | Bit Position  | Name                      |
+	 * | ------------- | --------------------------|
+	 * | 0             | `announcement_signatures` |
+	 */
+	announcement_sigs_requested = false;
+	if (recv_tlvs && recv_tlvs->my_current_funding_locked
+	    && recv_tlvs->my_current_funding_locked->retransmit_flags & 1)
+		announcement_sigs_requested = true;
+
 	/* BOLT #2:
 	 *
 	 *   - upon reconnection:
@@ -6032,7 +6051,7 @@ static void peer_reconnect(struct peer *peer,
 	tal_free(send_tlvs);
 
 	/* We've reestablished! */
-	wire_sync_write(MASTER_FD, take(towire_channeld_reestablished(NULL)));
+	wire_sync_write(MASTER_FD, take(towire_channeld_reestablished(NULL, announcement_sigs_requested)));
 
 	/* Corner case: we didn't send shutdown before because update_add_htlc
 	 * pending, but now they're cleared by restart, and we're actually
