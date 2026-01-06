@@ -1580,27 +1580,30 @@ def test_funding_v2_cancel_race(node_factory, bitcoind, executor):
         # Switch order around.
         for i in range(4):
             if (i + count) % 2 == 0:
-                completes.append(executor.submit(l1.rpc.openchannel_update,
-                                                 start['channel_id'],
-                                                 start['psbt']))
+                completes.append(("openchannel_update",
+                                  executor.submit(l1.rpc.openchannel_update,
+                                                  start['channel_id'],
+                                                  start['psbt'])))
             else:
-                cancels.append(executor.submit(l1.rpc.openchannel_abort,
-                                               start['channel_id']))
+                cancels.append(("openchannel_abort",
+                                executor.submit(l1.rpc.openchannel_abort,
+                                                start['channel_id'])))
+
+        for i, c in enumerate(completes):
+            try:
+                c[1].result(TIMEOUT)
+                completes[i] = (completes[i][0], True)
+            except RpcError:
+                completes[i] = (completes[i][0], False)
 
         # Only up to one should succeed.
-        success = False
-        for c in completes:
-            try:
-                c.result(TIMEOUT)
-                num_complete += 1
-                assert not success
-                success = True
-            except RpcError:
-                pass
+        num_successes = sum(c[1] is True for c in completes)
+        assert num_successes <= 1, f"Multiple successes in {completes}, cancels = {cancels}"
+        num_complete += num_successes
 
         for c in cancels:
             try:
-                c.result(TIMEOUT)
+                c[1].result(TIMEOUT)
                 num_cancel += 1
             except RpcError:
                 pass
