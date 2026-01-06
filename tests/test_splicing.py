@@ -501,7 +501,13 @@ def test_splice_stuck_htlc(node_factory, bitcoind, executor):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 def test_route_by_old_scid(node_factory, bitcoind):
-    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True, opts={'experimental-splicing': None, 'may_reconnect': True})
+    opts = {'experimental-splicing': None, 'may_reconnect': True}
+    # l1 sometimes talks about pre-splice channels.  l2 (being part of the splice) immediately forgets
+    # the old scid and uses the new one, then complains when l1 talks about it.  Which is fine, but
+    # breaks CI.
+    l1opts = opts.copy()
+    l1opts['allow_warning'] = True
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True, opts=[l1opts, opts, opts])
 
     # Get pre-splice route.
     inv = l3.rpc.invoice(10000000, 'test_route_by_old_scid', 'test_route_by_old_scid')
@@ -526,11 +532,6 @@ def test_route_by_old_scid(node_factory, bitcoind):
     # Now l1 tries to send using old scid: should work
     l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
     l1.rpc.waitsendpay(inv['payment_hash'])
-
-    # Make sure l1 has seen and processed announcement for new splice
-    # scid, otherwise we can get gossip warning here (which breaks CI) if we splice again.
-    scid = only_one(l3.rpc.listchannels(source=l3.info['id'])['channels'])['short_channel_id']
-    wait_for(lambda: l1.rpc.listchannels(short_channel_id=scid)['channels'] != [])
 
     # Let's splice again, so the original scid is two behind the times.
     l3.fundwallet(200000)
