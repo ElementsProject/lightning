@@ -96,6 +96,8 @@ struct bcli_result {
 	char *output;
 	size_t output_len;
 	int exitstatus;
+	/* Command args string for error messages */
+	const char *args;
 };
 
 /* Add the n'th arg to *args, incrementing n and keeping args of size n+1 */
@@ -248,13 +250,14 @@ run_bitcoin_cliv(const tal_t *ctx,
 	res = tal(ctx, struct bcli_result);
 	res->output = grab_fd_str(res, from);
 	res->output_len = strlen(res->output);
+	res->args = args_string(res, cmd, stdinargs);
 
 	/* Wait for child to exit */
 	while (waitpid(child, &status, 0) < 0 && errno == EINTR);
 
 	if (!WIFEXITED(status))
 		plugin_err(plugin, "%s died with signal %i",
-			   args_string(tmpctx, cmd, stdinargs), WTERMSIG(status));
+			   res->args, WTERMSIG(status));
 
 	res->exitstatus = WEXITSTATUS(status);
 
@@ -490,6 +493,15 @@ static struct command_result *command_err_bcli_badjson(struct bitcoin_cli *bcli,
 	return command_done_err(bcli->cmd, BCLI_ERROR, err, NULL);
 }
 
+static struct command_result *command_err_badjson(struct command *cmd,
+						  struct bcli_result *res,
+						  const char *errmsg)
+{
+	char *err = tal_fmt(cmd, "%s: bad JSON: %s (%.*s)",
+			    res->args, errmsg, (int)res->output_len, res->output);
+	return command_done_err(cmd, BCLI_ERROR, err, NULL);
+}
+
 /* Don't use this in general: it's better to omit fields. */
 static void json_add_null(struct json_stream *stream, const char *fieldname)
 {
@@ -591,19 +603,19 @@ struct estimatefees_stash {
 };
 
 static struct command_result *
-estimatefees_null_response(struct bitcoin_cli *bcli)
+estimatefees_null_response(struct command *cmd)
 {
-	struct json_stream *response = jsonrpc_stream_success(bcli->cmd);
+	struct json_stream *response = jsonrpc_stream_success(cmd);
 
 	/* We give a floor, which is the standard minimum */
 	json_array_start(response, "feerates");
 	json_array_end(response);
 	json_add_u32(response, "feerate_floor", 1000);
 
-	return command_finished(bcli->cmd, response);
+	return command_finished(cmd, response);
 }
 
-static struct command_result *
+static UNNEEDED struct command_result *
 estimatefees_parse_feerate(struct bitcoin_cli *bcli, u64 *feerate)
 {
 	const jsmntok_t *tokens;
@@ -626,7 +638,7 @@ estimatefees_parse_feerate(struct bitcoin_cli *bcli, u64 *feerate)
 		}
 		/* We return null if estimation failed, and bitcoin-cli will
 		 * exit with 0 but no feerate field on failure. */
-		return estimatefees_null_response(bcli);
+		return estimatefees_null_response(bcli->cmd);
 	}
 
 	return NULL;
@@ -923,13 +935,9 @@ static struct command_result *getchaininfo(struct command *cmd,
 					NULL);
 	}
 
-	tokens = json_parse_simple(cmd, res->output, res->output_len);
-	if (!tokens) {
-		return command_done_err(cmd, BCLI_ERROR,
-					tal_fmt(cmd, "getblockchaininfo: bad JSON: cannot parse (%s)",
-						res->output),
-					NULL);
-	}
+	tokens = json_parse_simple(res->output, res->output, res->output_len);
+	if (!tokens)
+		return command_err_badjson(cmd, res, "cannot parse");
 
 	err = json_scan(tmpctx, res->output, tokens,
 			"{chain:%,headers:%,blocks:%,initialblockdownload:%}",
@@ -937,12 +945,8 @@ static struct command_result *getchaininfo(struct command *cmd,
 			JSON_SCAN(json_to_number, &headers),
 			JSON_SCAN(json_to_number, &blocks),
 			JSON_SCAN(json_to_bool, &ibd));
-	if (err) {
-		return command_done_err(cmd, BCLI_ERROR,
-					tal_fmt(cmd, "getblockchaininfo: bad JSON: %s (%s)",
-						err, res->output),
-					NULL);
-	}
+	if (err)
+		return command_err_badjson(cmd, res, err);
 
 	if (bitcoind->dev_ignore_ibd)
 		ibd = false;
@@ -962,30 +966,30 @@ static struct command_result *estimatefees_done(struct bitcoin_cli *bcli);
 /* Add a feerate, but don't publish one that bitcoind won't accept. */
 static void json_add_feerate(struct json_stream *result, const char *fieldname,
 			     struct command *cmd,
-			     const struct estimatefees_stash *stash,
-			     uint64_t value)
+			     u64 perkb_floor,
+			     u64 value)
 {
 	/* Anthony Towns reported signet had a 900kbtc fee block, and then
 	 * CLN got upset scanning feerate.  It expects a u32. */
 	if (value > 0xFFFFFFFF) {
 		plugin_log(cmd->plugin, LOG_UNUSUAL,
-			   "Feerate %"PRIu64" is ridiculous: trimming to 32 bites",
+			   "Feerate %"PRIu64" is ridiculous: trimming to 32 bits",
 			   value);
 		value = 0xFFFFFFFF;
 	}
 	/* 0 is special, it means "unknown" */
-	if (value && value < stash->perkb_floor) {
+	if (value && value < perkb_floor) {
 		plugin_log(cmd->plugin, LOG_DBG,
 			   "Feerate %s raised from %"PRIu64
 			   " perkb to floor of %"PRIu64,
-			   fieldname, value, stash->perkb_floor);
-		json_add_u64(result, fieldname, stash->perkb_floor);
+			   fieldname, value, perkb_floor);
+		json_add_u64(result, fieldname, perkb_floor);
 	} else {
 		json_add_u64(result, fieldname, value);
 	}
 }
 
-static struct command_result *estimatefees_next(struct command *cmd,
+static UNNEEDED struct command_result *estimatefees_next(struct command *cmd,
 						struct estimatefees_stash *stash)
 {
 	struct json_stream *response;
@@ -1010,7 +1014,7 @@ static struct command_result *estimatefees_next(struct command *cmd,
 			continue;
 		json_object_start(response, NULL);
 		json_add_u32(response, "blocks", estimatefee_params[i].blocks);
-		json_add_feerate(response, "feerate", cmd, stash, stash->perkb[i]);
+		json_add_feerate(response, "feerate", cmd, stash->perkb_floor, stash->perkb[i]);
 		json_object_end(response);
 	}
 	json_array_end(response);
@@ -1018,7 +1022,7 @@ static struct command_result *estimatefees_next(struct command *cmd,
 	return command_finished(cmd, response);
 }
 
-static struct command_result *getminfees_done(struct bitcoin_cli *bcli)
+static UNNEEDED struct command_result *getminfees_done(struct bitcoin_cli *bcli)
 {
 	const jsmntok_t *tokens;
 	const char *err;
@@ -1026,7 +1030,7 @@ static struct command_result *getminfees_done(struct bitcoin_cli *bcli)
 	struct estimatefees_stash *stash = bcli->stash;
 
 	if (*bcli->exitstatus != 0)
-		return estimatefees_null_response(bcli);
+		return estimatefees_null_response(bcli->cmd);
 
 	tokens = json_parse_simple(bcli->output,
 				   bcli->output, bcli->output_bytes);
@@ -1048,6 +1052,72 @@ static struct command_result *getminfees_done(struct bitcoin_cli *bcli)
 	return estimatefees_next(bcli->cmd, stash);
 }
 
+/* Get the feerate floor from getmempoolinfo.
+ * Returns NULL on success (floor stored in *perkb_floor), or error response. */
+static struct command_result *get_feerate_floor(struct command *cmd,
+						u64 *perkb_floor)
+{
+	struct bcli_result *res;
+	const jsmntok_t *tokens;
+	const char *err;
+	u64 mempoolfee, relayfee;
+
+	res = run_bitcoin_cli(cmd, cmd->plugin, "getmempoolinfo", NULL);
+	if (res->exitstatus != 0)
+		return estimatefees_null_response(cmd);
+
+	tokens = json_parse_simple(res->output, res->output, res->output_len);
+	if (!tokens)
+		return command_err_badjson(cmd, res, "cannot parse");
+
+	err = json_scan(tmpctx, res->output, tokens,
+			"{mempoolminfee:%,minrelaytxfee:%}",
+			JSON_SCAN(json_to_bitcoin_amount, &mempoolfee),
+			JSON_SCAN(json_to_bitcoin_amount, &relayfee));
+	if (err)
+		return command_err_badjson(cmd, res, err);
+
+	*perkb_floor = max_u64(mempoolfee, relayfee);
+	return NULL;
+}
+
+/* Get a single feerate from estimatesmartfee.
+ * Returns NULL on success (feerate stored in *perkb), or error response. */
+static struct command_result *get_feerate(struct command *cmd,
+					  u32 blocks,
+					  const char *style,
+					  u64 *perkb)
+{
+	struct bcli_result *res;
+	const jsmntok_t *tokens;
+
+	res = run_bitcoin_cli(cmd, cmd->plugin, "estimatesmartfee",
+			      tal_fmt(tmpctx, "%u", blocks), style, NULL);
+
+	if (res->exitstatus != 0)
+		return estimatefees_null_response(cmd);
+
+	tokens = json_parse_simple(res->output, res->output, res->output_len);
+	if (!tokens)
+		return command_err_badjson(cmd, res, "cannot parse");
+
+	if (json_scan(tmpctx, res->output, tokens, "{feerate:%}",
+		      JSON_SCAN(json_to_bitcoin_amount, perkb)) != NULL) {
+		/* Paranoia: if it had a feerate, but was malformed: */
+		if (json_get_member(res->output, tokens, "feerate"))
+			return command_err_badjson(cmd, res, "cannot scan");
+		/* Regtest fee estimation is generally awful: Fake it at min. */
+		if (bitcoind->fake_fees)
+			*perkb = 1000;
+		else
+			/* We return null if estimation failed, and bitcoin-cli will
+			 * exit with 0 but no feerate field on failure. */
+			return estimatefees_null_response(cmd);
+	}
+
+	return NULL;
+}
+
 /* Get the current feerates. We use an urgent feerate for unilateral_close and max,
  * a slightly less urgent feerate for htlc_resolution and penalty transactions,
  * a slow feerate for min, and a normal one for all others.
@@ -1056,26 +1126,48 @@ static struct command_result *estimatefees(struct command *cmd,
 					   const char *buf UNUSED,
 					   const jsmntok_t *toks UNUSED)
 {
-	struct estimatefees_stash *stash = tal(cmd, struct estimatefees_stash);
+	struct command_result *err;
+	u64 perkb_floor;
+	u64 perkb[ARRAY_SIZE(estimatefee_params)];
+	struct json_stream *response;
 
 	if (!param(cmd, buf, toks, NULL))
 		return command_param_failed();
 
-	start_bitcoin_cli(NULL, cmd, getminfees_done, true,
-			  BITCOIND_LOW_PRIO, stash,
-			  "getmempoolinfo",
-			  NULL);
-	return command_still_pending(cmd);
+	err = get_feerate_floor(cmd, &perkb_floor);
+	if (err)
+		return err;
+
+	for (size_t i = 0; i < ARRAY_SIZE(estimatefee_params); i++) {
+		err = get_feerate(cmd, estimatefee_params[i].blocks,
+				  estimatefee_params[i].style, &perkb[i]);
+		if (err)
+			return err;
+	}
+
+	response = jsonrpc_stream_success(cmd);
+	json_array_start(response, "feerates");
+	for (size_t i = 0; i < ARRAY_SIZE(perkb); i++) {
+		if (!perkb[i])
+			continue;
+		json_object_start(response, NULL);
+		json_add_u32(response, "blocks", estimatefee_params[i].blocks);
+		json_add_feerate(response, "feerate", cmd, perkb_floor, perkb[i]);
+		json_object_end(response);
+	}
+	json_array_end(response);
+	json_add_u64(response, "feerate_floor", perkb_floor);
+	return command_finished(cmd, response);
 }
 
-static struct command_result *estimatefees_done(struct bitcoin_cli *bcli)
+static UNNEEDED struct command_result *estimatefees_done(struct bitcoin_cli *bcli)
 {
 	struct command_result *err;
 	struct estimatefees_stash *stash = bcli->stash;
 
 	/* If we cannot estimate fees, no need to continue bothering bitcoind. */
 	if (*bcli->exitstatus != 0)
-		return estimatefees_null_response(bcli);
+		return estimatefees_null_response(bcli->cmd);
 
 	err = estimatefees_parse_feerate(bcli, &stash->perkb[stash->cursor]);
 	if (err)
@@ -1160,13 +1252,9 @@ static struct command_result *getutxout(struct command *cmd,
 		return command_finished(cmd, response);
 	}
 
-	tokens = json_parse_simple(cmd, res->output, res->output_len);
-	if (!tokens) {
-		return command_done_err(cmd, BCLI_ERROR,
-					tal_fmt(cmd, "gettxout: bad JSON: cannot parse (%s)",
-						res->output),
-					NULL);
-	}
+	tokens = json_parse_simple(res->output, res->output, res->output_len);
+	if (!tokens)
+		return command_err_badjson(cmd, res, "cannot parse");
 
 	err = json_scan(tmpctx, res->output, tokens,
 		       "{value:%,scriptPubKey:{hex:%}}",
@@ -1174,12 +1262,8 @@ static struct command_result *getutxout(struct command *cmd,
 				 &output.amount.satoshis), /* Raw: bitcoind */
 		       JSON_SCAN_TAL(cmd, json_tok_bin_from_hex,
 				     &output.script));
-	if (err) {
-		return command_done_err(cmd, BCLI_ERROR,
-					tal_fmt(cmd, "gettxout: bad JSON: %s (%s)",
-						err, res->output),
-					NULL);
-	}
+	if (err)
+		return command_err_badjson(cmd, res, err);
 
 	response = jsonrpc_stream_success(cmd);
 	json_add_sats(response, "amount", output.amount);
