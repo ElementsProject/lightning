@@ -1488,8 +1488,8 @@ def test_funding_reorg_remote_lags(node_factory, bitcoind):
 
     l1.rpc.close(l2.info['id'])
     bitcoind.generate_block(1, True)
-    l1.daemon.wait_for_log(r'Deleting channel')
-    l2.daemon.wait_for_log(r'Deleting channel')
+    l1.daemon.wait_for_log(r'closing soon due to the funding outpoint being spent')
+    l2.daemon.wait_for_log(r'closing soon due to the funding outpoint being spent')
 
 
 @pytest.mark.openchannel('v1')
