@@ -553,7 +553,7 @@ jobs:
             PYTEST_OPTS: --test-group=1  --test-group-count=12
           - NAME: ASan/UBSan (02/12)
             GROUP: 2
-            PYTEST_OPTS: --test-group=2  --test-group-count=12 -n 1
+            PYTEST_OPTS: --test-group=2  --test-group-count=12
           - NAME: ASan/UBSan (03/12)
             GROUP: 3
             PYTEST_OPTS: --test-group=3  --test-group-count=12
