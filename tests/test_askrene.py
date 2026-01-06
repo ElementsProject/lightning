@@ -3,7 +3,7 @@ from hashlib import sha256
 from pyln.client import RpcError
 from pyln.testing.utils import SLOW_MACHINE
 from utils import (
-    only_one, first_scid, GenChannel, generate_gossip_store,
+    only_one, first_scid, first_scidd, GenChannel, generate_gossip_store,
     sync_blockheight, wait_for, TEST_NETWORK, TIMEOUT, mine_funding_to_announce
 )
 import os
@@ -11,6 +11,7 @@ import pytest
 import subprocess
 import time
 import tempfile
+import unittest
 
 
 def direction(src, dst):
@@ -1915,3 +1916,46 @@ def test_askrene_reserve_clash(node_factory, bitcoind):
                      layers=['layer2'],
                      maxfee_msat=1000,
                      final_cltv=5)
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+def test_splice_dying_channel(node_factory, bitcoind):
+    """We should NOT try to use the pre-splice channel here"""
+    l1, l2, l3 = node_factory.line_graph(3,
+                                         wait_for_announce=True,
+                                         fundamount=200000,
+                                         opts={'experimental-splicing': None})
+
+    chan_id = l1.get_channel_id(l2)
+    funds_result = l1.rpc.addpsbtoutput(100000)
+    pre_splice_scidd = first_scidd(l1, l2)
+
+    # Pay with fee by subjtracting 5000 from channel balance
+    result = l1.rpc.splice_init(chan_id, -105000, funds_result['psbt'])
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert(result['commitments_secured'] is False)
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert(result['commitments_secured'] is True)
+    result = l1.rpc.splice_signed(chan_id, result['psbt'])
+
+    mine_funding_to_announce(bitcoind,
+                             [l1, l2, l3],
+                             num_blocks=6, wait_for_mempool=1)
+
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['state'] == 'CHANNELD_NORMAL')
+    post_splice_scidd = first_scidd(l1, l2)
+
+    # You will use the new scid
+    route = only_one(l1.rpc.getroutes(l1.info['id'], l2.info['id'], '50000sat', ['auto.localchans'], 100000, 6)['routes'])
+    assert only_one(route['path'])['short_channel_id_dir'] == post_splice_scidd
+
+    # And you will not be able to route 100001 sats:
+    with pytest.raises(RpcError, match="We could not find a usable set of paths"):
+        l1.rpc.getroutes(l1.info['id'], l2.info['id'], '100001sat', ['auto.localchans'], 100000, 6)
+
+    # But l3 would think it can use both, since it doesn't eliminate dying channel!
+    wait_for(lambda: [c['active'] for c in l3.rpc.listchannels()['channels']] == [True] * 6)
+    routes = l3.rpc.getroutes(l1.info['id'], l2.info['id'], '200001sat', [], 100000, 6)['routes']
+    assert set([only_one(r['path'])['short_channel_id_dir'] for r in routes]) == set([pre_splice_scidd, post_splice_scidd])
