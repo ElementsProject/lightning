@@ -1,5 +1,4 @@
 import os
-from urllib.parse import quote
 from time import sleep
 import requests
 import re
@@ -7,7 +6,7 @@ from enum import Enum
 
 # readme url
 URL = "https://api.readme.com/v2/branches/stable"
-CATEGORY_SLUG = "JSON-RPC API Reference"
+CATEGORY_SLUG = "JSON-RPC"
 
 
 class Action(Enum):
@@ -17,10 +16,12 @@ class Action(Enum):
 
 
 def getListOfRPCDocs(headers):
-    response = requests.get(f"{URL}/categories/reference/{quote(CATEGORY_SLUG)}/pages", headers=headers)
+    response = requests.get(f"{URL}/categories/reference/{CATEGORY_SLUG}/pages", headers=headers)
     if response.status_code == 200:
         return response.json().get('data', [])
     else:
+        print(f"❌ Failed to get pages: {response.status_code}")
+        print(response.text)
         return []
 
 
