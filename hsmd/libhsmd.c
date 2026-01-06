@@ -1820,6 +1820,13 @@ static u8 *handle_sign_anchorspend(struct hsmd_client *c, const u8 *msg_in)
 				    fmt_pubkey(tmpctx, &local_funding_pubkey),
 				    fmt_wally_psbt(tmpctx, psbt));
 	}
+	if (dev_warn_on_overgrind
+	    && psbt->inputs[0].signatures.num_items == 1
+	    && psbt->inputs[0].signatures.items[0].value_len < 71) {
+		hsmd_status_fmt(LOG_BROKEN, NULL,
+				"overgrind: short signature length %zu",
+				psbt->inputs[0].signatures.items[0].value_len);
+	}
 
 	return towire_hsmd_sign_anchorspend_reply(NULL, psbt);
 }
