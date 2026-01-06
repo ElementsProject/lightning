@@ -3480,7 +3480,6 @@ def test_reject_invalid_payload(node_factory):
     l2.daemon.wait_for_log(r'Failing HTLC because of an invalid payload')
 
 
-@unittest.skip("Test is flaky causing CI to be unusable.")
 def test_excluded_adjacent_routehint(node_factory, bitcoind):
     """Test case where we try have a routehint which leads to an adjacent
     node, but the result exceeds our maxfee; we crashed trying to find
@@ -3489,10 +3488,15 @@ def test_excluded_adjacent_routehint(node_factory, bitcoind):
     """
     l1, l2, l3 = node_factory.line_graph(3)
 
+    # Make sure l2->l3 is usable.
+    wait_for(lambda: 'remote' in only_one(l3.rpc.listpeerchannels()['channels'])['updates'])
+
     # We'll be forced to use routehint, since we don't know about l3.
     inv = l3.rpc.invoice(10**3, "lbl", "desc", exposeprivatechannels=l2.get_channel_scid(l3))
 
-    l1.wait_channel_active(l1.get_channel_scid(l2))
+    # Make sure l1->l2 is usable.
+    wait_for(lambda: 'remote' in only_one(l1.rpc.listpeerchannels()['channels'])['updates'])
+
     # This will make it reject the routehint.
     err = r'Fee exceeds our fee budget: 1msat > 0msat, discarding route'
     with pytest.raises(RpcError, match=err):
