@@ -1731,6 +1731,20 @@ def install(plugin_name: str) -> Union[str, None]:
             LAST_FOUND = None
             return None
 
+    # Check if we already have this installed.
+    destination = Path(RECKLESS_CONFIG.reckless_dir) / name.lower()
+
+    if Path(destination).exists():
+        # should we run listinstalled first and see what's in the list?
+        installed = listinstalled(plugin_name)
+        if installed:
+            log.info(f'already installed: {list(installed.keys())[0]} in {str(destination)}')
+            return name
+        else:
+            log.warning(f'destination directory {destination} already exists.')
+            return None
+
+
     try:
         installed = _install_plugin(src)
     except FileExistsError as err:
@@ -2189,14 +2203,17 @@ def extract_metadata(plugin_name: str) -> dict:
     return metadata
 
 
-def listinstalled():
-    """list all plugins currently managed by reckless"""
+def listinstalled(name: str = None):
+    """list all plugins currently managed by reckless.  Optionally passed
+    a plugin name."""
     dir_contents = os.listdir(RECKLESS_CONFIG.reckless_dir)
     plugins = {}
     for plugin in dir_contents:
         if (Path(RECKLESS_CONFIG.reckless_dir) / plugin).is_dir():
             # skip hidden dirs such as reckless' .remote_sources
             if plugin[0] == '.':
+                continue
+            if name and name != plugin:
                 continue
             plugins.update({plugin: None})
 
@@ -2230,8 +2247,9 @@ def listinstalled():
                     status = "disabled"
                 else:
                     print(f'cant handle {line}')
-        log.info(f"{plugin:<{name_len}} {md['installed commit']:<{inst_len}} "
-                 f"{md['installation date']:<11} {status}")
+        if not name:
+            log.info(f"{plugin:<{name_len}} {md['installed commit']:<{inst_len}} "
+                     f"{md['installation date']:<11} {status}")
         # This doesn't originate from the metadata, but we want to provide enabled status for json output
         md['enabled'] = status == "enabled"
         md['entrypoint'] = installed.entry
