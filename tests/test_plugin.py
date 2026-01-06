@@ -2845,7 +2845,8 @@ def test_plugin_shutdown(node_factory):
 
 def test_commando(node_factory, executor):
     l1, l2 = node_factory.line_graph(2, fundchannel=False,
-                                     opts={'log-level': 'io'})
+                                     # Under valgrind, checkrune of 400k command can be slow!
+                                     opts={'log-level': 'io', 'broken_log': "That's weird: Request .* took"})
 
     rune = l1.rpc.createrune()['rune']
 
