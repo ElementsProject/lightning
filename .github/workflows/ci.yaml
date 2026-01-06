@@ -16,7 +16,7 @@ env:
   RUST_PROFILE: release
   SLOW_MACHINE: 1
   CI_SERVER_URL: "http://35.239.136.52:3170"
-  PYTEST_OPTS_BASE: "--reruns=10 -vvv --junit-xml=report.xml --timeout=1800 --durations=10"
+  PYTEST_OPTS_BASE: "-vvv --junit-xml=report.xml --timeout=1800 --durations=10"
 
 jobs:
   prebuild:
@@ -337,7 +337,7 @@ jobs:
     timeout-minutes: 120
     env:
       RUST_PROFILE: release # Has to match the one in the compile step
-      PYTEST_OPTS: --reruns=10 -vvv --junit-xml=report.xml --timeout=1800 --durations=10
+      PYTEST_OPTS: -vvv --junit-xml=report.xml --timeout=1800 --durations=10
     needs:
       - compile
     strategy:
@@ -453,7 +453,7 @@ jobs:
     env:
       RUST_PROFILE: release # Has to match the one in the compile step
       CFG: compile-gcc
-      PYTEST_OPTS: --reruns=10 -vvv --junit-xml=report.xml --timeout=1800 --durations=10 --test-group-random-seed=42
+      PYTEST_OPTS: -vvv --junit-xml=report.xml --timeout=1800 --durations=10 --test-group-random-seed=42
     needs:
       - compile
     strategy:
@@ -541,7 +541,7 @@ jobs:
       RUST_PROFILE: release
       SLOW_MACHINE: 1
       TEST_DEBUG: 1
-      PYTEST_OPTS: --reruns=10 -vvv --junit-xml=report.xml --timeout=1800 --durations=10 --test-group-random-seed=42 
+      PYTEST_OPTS: -vvv --junit-xml=report.xml --timeout=1800 --durations=10 --test-group-random-seed=42 
     needs:
       - compile
     strategy:
@@ -632,7 +632,7 @@ jobs:
     env:
       VALGRIND: 0
       GENERATE_EXAMPLES: 1
-      PYTEST_OPTS: --reruns=10 -vvv --junit-xml=report.xml --timeout=1800 --durations=10
+      PYTEST_OPTS: -vvv --junit-xml=report.xml --timeout=1800 --durations=10
       TEST_NETWORK: regtest
     needs:
       - compile
@@ -678,7 +678,7 @@ jobs:
     timeout-minutes: 120
     env:
       RUST_PROFILE: release # Has to match the one in the compile step
-      PYTEST_OPTS: --reruns=10 -vvv --junit-xml=report.xml --timeout=1800 --durations=10
+      PYTEST_OPTS: -vvv --junit-xml=report.xml --timeout=1800 --durations=10
     needs:
       - compile
     strategy:
