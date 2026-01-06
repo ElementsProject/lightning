@@ -300,6 +300,12 @@ def test_install(node_factory):
     print(plugin_path)
     assert os.path.exists(plugin_path)
 
+    # Try to install again - should result in a warning.
+    r = reckless([f"--network={NETWORK}", "-v", "install", "testplugpass"], dir=n.lightning_dir)
+    r.check_stderr()
+    assert r.search_stdout('already installed')
+    assert r.returncode == 0
+
 
 def test_install_cleanup(node_factory):
     """test failed installation and post install cleanup"""
