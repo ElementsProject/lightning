@@ -149,6 +149,7 @@ Core Lightning Documentation
    showrunes <showrunes.7.md>
    signinvoice <signinvoice.7.md>
    signmessage <signmessage.7.md>
+   signmessagewithkey <signmessagewithkey.7.md>
    signpsbt <signpsbt.7.md>
    splice_init <splice_init.7.md>
    splice_signed <splice_signed.7.md>
