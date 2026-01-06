@@ -573,6 +573,7 @@ static struct command_result *do_getroutes(struct command *cmd,
 	struct route **routes;
 	struct flow **flows;
 	struct json_stream *response;
+	const struct gossmap_node *me;
 
 	/* update the gossmap */
 	if (gossmap_refresh(askrene->gossmap)) {
@@ -592,6 +593,30 @@ static struct command_result *do_getroutes(struct command *cmd,
 	/* FIXME: we still need to do something useful with these */
 	rq->additional_costs = info->additional_costs;
 	rq->maxparts = info->maxparts;
+
+	/* We also eliminate any local channels we *know* are dying.
+	 * Most channels get 12 blocks grace in case it's a splice,
+	 * but if it's us, we know about the splice already. */
+	me = gossmap_find_node(rq->gossmap, &askrene->my_id);
+	if (me) {
+		for (size_t i = 0; i < me->num_chans; i++) {
+			struct short_channel_id_dir scidd;
+			const struct gossmap_chan *c = gossmap_nth_chan(rq->gossmap,
+									me, i, NULL);
+			if (!gossmap_chan_is_dying(rq->gossmap, c))
+				continue;
+
+			scidd.scid = gossmap_chan_scid(rq->gossmap, c);
+			/* Disable both directions */
+			for (scidd.dir = 0; scidd.dir < 2; scidd.dir++) {
+				bool enabled = false;
+				gossmap_local_updatechan(localmods,
+							 &scidd,
+							 &enabled,
+							 NULL, NULL, NULL, NULL, NULL);
+			}
+		}
+	}
 
 	/* apply selected layers to the localmods */
 	apply_layers(askrene, rq, &info->source, info->amount, localmods,
