@@ -17,7 +17,7 @@
       "outputs": {
         "type": "array",
         "description": [
-          "Format is like: [{destination1: amount1}, {destination2: amount2}] or [{destination: *all*}]. It supports any number of **confirmed** outputs."
+          "Format is like: `[{destination1: amount1}, {destination2: amount2}]` or `[{destination: *all*}]`. It supports any number of **confirmed** outputs."
         ],
         "items": {
           "type": "outputdesc"

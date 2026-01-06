@@ -17,7 +17,7 @@ but configuable with lightningd-config(5)).
 JSON WIRE FORMAT
 ----------------
 
-JSON RPC is defined at <https://www.jsonrpc.org/specification> and
+JSON RPC is defined at [https://www.jsonrpc.org/specification](https://www.jsonrpc.org/specification) and
 generally involves writing a JSON request with a unique ID, and
 receiving a response containing that ID.
 
@@ -283,7 +283,7 @@ hex) that occurs.  It's extremely noisy though!
 AUTHOR
 ------
 
-Rusty Russell <<rusty@rustcorp.com.au>> wrote this man page, and
+Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) wrote this man page, and
 much of the configuration language, but many others did the hard work of
 actually implementing these options.
 
@@ -295,7 +295,7 @@ lightningd-config(5), lightning-notifications(7), lightningd(8)
 RESOURCES
 ---------
 
-Main web site: <https://github.com/ElementsProject/lightning>
+Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)
 
 COPYING
 -------

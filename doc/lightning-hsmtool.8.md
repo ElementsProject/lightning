@@ -106,9 +106,8 @@ to gain our eternal gratitude!
 AUTHOR
 ------
 
-ZmnSCPxj <<ZmnSCPxj@protonmail.com>> wrote the initial version of
-this man page, but many others did the hard work of actually implementing
-**lightning-hsmtool**.
+ZmnSCPxj [ZmnSCPxj@protonmail.com](mailto:ZmnSCPxj@protonmail.com) wrote the initial version of
+this man page, but many others did the hard work of actually implementing **lightning-hsmtool**.
 
 SEE ALSO
 --------
@@ -118,11 +117,11 @@ lightningd(8), lightningd-config(5)
 RESOURCES
 ---------
 
-Main web site: <https://github.com/ElementsProject/lightning>
+Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)
 
 COPYING
 -------
 
 Note: the modules in the ccan/ directory have their own licenses, but
 the rest of the code is covered by the BSD-style MIT license.
-Main web site: <https://github.com/ElementsProject/lightning>
+Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)

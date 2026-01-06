@@ -855,7 +855,7 @@ to gain our eternal gratitude!
 AUTHOR
 ------
 
-Rusty Russell <<rusty@rustcorp.com.au>> wrote this man page, and
+Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) wrote this man page, and
 much of the configuration language, but many others did the hard work of
 actually implementing these options.
 
@@ -868,7 +868,7 @@ lightning-hsmtool(8)
 RESOURCES
 ---------
 
-Main web site: <https://github.com/ElementsProject/lightning>
+Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)
 
 COPYING
 -------
