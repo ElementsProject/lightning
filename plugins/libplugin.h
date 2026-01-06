@@ -416,14 +416,12 @@ command_success(struct command *cmd, const struct json_out *result)
 	NON_NULL_ARGS(1, 2);
 
 /* End a hook normally (with "result": "continue") */
-struct command_result *WARN_UNUSED_RESULT
-command_hook_success(struct command *cmd)
-	NON_NULL_ARGS(1);
+struct command_result *command_hook_success(struct command *cmd)
+	WARN_UNUSED_RESULT NON_NULL_ARGS(1);
 
 /* End a notification handler.  */
-struct command_result *WARN_UNUSED_RESULT
-notification_handled(struct command *cmd)
-	NON_NULL_ARGS(1);
+struct command_result *notification_handled(struct command *cmd)
+	WARN_UNUSED_RESULT NON_NULL_ARGS(1);
 
 /* End a command created with aux_command.  */
 struct command_result *WARN_UNUSED_RESULT
