@@ -47,7 +47,7 @@ def check_renderable(response, action, title):
     return True
 
 
-def publishDoc(action, title, body, order, headers):
+def publishDoc(action, title, body, position, headers):
     payload = {
         "title": title,
         "type": "basic",
@@ -55,45 +55,45 @@ def publishDoc(action, title, body, order, headers):
             "body": body,
         },
         "category": {
-            "uri": f"/branches/1/categories/reference/{CATEGORY_SLUG}"
+            "uri": f"/branches/stable/categories/reference/{CATEGORY_SLUG}"
         },
         "hidden": False,
-        "order": order,
+        "position": position,
     }
 
     if action == Action.ADD:
         payload["slug"] = title
         response = requests.post(URL + "/reference", json=payload, headers=headers)
         if response.status_code != 201:
-            print("❌ HTTP ERROR:", response.status_code)
+            print(f"❌ HTTP ERROR ({response.status_code}):", title)
             print(response.text)
             return
 
         if not check_renderable(response, action, title):
             raise RuntimeError(f"Renderable check failed for {title}")
 
-        print("✅ Created", title)
+        print(f"✅ Created '{title}' at position {position + 1}")
 
     elif action == Action.UPDATE:
         response = requests.patch(f"{URL}/reference/{title}", json=payload, headers=headers)
         if response.status_code != 200:
-            print("❌ HTTP ERROR:", response.status_code)
+            print(f"❌ HTTP ERROR ({response.status_code}):", title)
             print(response.text)
             return
 
         if not check_renderable(response, action, title):
             raise RuntimeError(f"Renderable check failed for {title}")
 
-        print("✅ Updated", title)
+        print(f"✅ Updated '{title}' to position {position + 1}")
 
     elif action == Action.DELETE:
         response = requests.delete(f"{URL}/reference/{title}", headers=headers)
 
         if response.status_code != 204:
-            print("❌ DELETE FAILED:", title)
+            print(f"❌ DELETE FAILED ({response.status_code}):", title)
             print(response.text)
         else:
-            print("🗑️ Deleted", title)
+            print(f"🗑️  Deleted '{title}' from position {position + 1}")
 
     else:
         print("Invalid action")
@@ -139,13 +139,14 @@ def main():
         sleep(3)
 
     if commands_from_local:
-        order = 0
+        position = 0
         for name, file in commands_from_local:
             with open("doc/" + file) as f:
                 body = f.read()
-                publishDoc(Action.ADD if name in commands_to_add else Action.UPDATE, name, body, order, headers)
-            order = order + 1
-            sleep(3)
+                action = Action.ADD if name in commands_to_add else Action.UPDATE
+                publishDoc(action, name, body, position, headers)
+            position += 1
+            sleep(1)
     else:
         print("No commands found in the Manpages block.")
 
