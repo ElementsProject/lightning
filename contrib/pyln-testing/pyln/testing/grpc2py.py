@@ -3379,6 +3379,11 @@ def delnetworkevent2py(m):
     })
 
 
+def clnrest_register_path2py(m):
+    return remove_default({
+    })
+
+
 def decodekeysend_routes2py(m): # manual override
     return remove_default({
         "expirydelta": m.expirydelta,

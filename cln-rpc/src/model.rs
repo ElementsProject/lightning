@@ -194,6 +194,8 @@ pub enum Request {
 	ListChainMoves(requests::ListchainmovesRequest),
 	ListNetworkEvents(requests::ListnetworkeventsRequest),
 	DelNetworkEvent(requests::DelnetworkeventRequest),
+	#[serde(rename = "clnrest-register-path")]
+	ClnrestRegisterPath(requests::ClnrestregisterpathRequest),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -378,6 +380,8 @@ pub enum Response {
 	ListChainMoves(responses::ListchainmovesResponse),
 	ListNetworkEvents(responses::ListnetworkeventsResponse),
 	DelNetworkEvent(responses::DelnetworkeventResponse),
+	#[serde(rename = "clnrest-register-path")]
+	ClnrestRegisterPath(responses::ClnrestregisterpathResponse),
 }
 
 
@@ -400,6 +404,7 @@ pub mod requests {
     #[allow(unused_imports)]
     use serde::{{Deserialize, Serialize}};
     use core::fmt::Debug;
+    use std::collections::HashMap;
     use super::{IntoRequest, Request, TypedRequest};
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct GetinfoRequest {
@@ -5067,6 +5072,45 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "delnetworkevent"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ClnrestregisterpathRuneRestrictions {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub method: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub nodeid: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub params: Option<HashMap<String, String>>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ClnrestregisterpathRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub http_method: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub rune_required: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub rune_restrictions: Option<ClnrestregisterpathRuneRestrictions>,
+	    pub path: String,
+	    pub rpc_method: String,
+	}
+
+	impl From<ClnrestregisterpathRequest> for Request {
+	    fn from(r: ClnrestregisterpathRequest) -> Self {
+	        Request::ClnrestRegisterPath(r)
+	    }
+	}
+
+	impl IntoRequest for ClnrestregisterpathRequest {
+	    type Response = super::responses::ClnrestregisterpathResponse;
+	}
+
+	impl TypedRequest for ClnrestregisterpathRequest {
+	    type Response = super::responses::ClnrestregisterpathResponse;
+
+	    fn method(&self) -> &str {
+	        "clnrest-register-path"
 	    }
 	}
 }
@@ -12533,6 +12577,21 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::DelNetworkEvent(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ClnrestregisterpathResponse {
+	}
+
+	impl TryFrom<Response> for ClnrestregisterpathResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::ClnrestRegisterPath(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }
