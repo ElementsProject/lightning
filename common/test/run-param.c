@@ -376,9 +376,18 @@ static void bad_programmer(void)
 	      p_req("repeat", param_millionths, &fpval), NULL);
 	assert(paramcheck_assert_failed);
 
+	/* UBSan gets upset with doing arith on NULL pointers, inside
+	 * the p_req macro, so we do it raw here */
+#define p_req_raw(name, cbx, arg)			     \
+	name"",						     \
+	PARAM_REQUIRED,					     \
+	NULL, NULL,					     \
+	(param_cbx)(cbx),				     \
+	(arg)
+
 	paramcheck_assert_failed = false;
 	param(cmd, j->buffer, j->toks,
-	      p_req("u64", (param_cbx) NULL, NULL), NULL);
+	      p_req_raw("u64", NULL, NULL), NULL);
 	assert(paramcheck_assert_failed);
 
 	/* Add required param after optional */
