@@ -2135,6 +2135,7 @@ def test_bad_onion(node_factory, bitcoind):
     assert err.value.error['data']['erring_channel'] == route[1]['channel']
 
 
+@pytest.mark.xfail(strict=True)
 def test_bad_onion_immediate_peer(node_factory, bitcoind):
     """Test that we handle the malformed msg when we're the origin"""
     l1, l2 = node_factory.line_graph(2, opts=[{}, {'dev-fail-process-onionpacket': None}])
@@ -2152,6 +2153,13 @@ def test_bad_onion_immediate_peer(node_factory, bitcoind):
     assert err.value.error['code'] == PAY_UNPARSEABLE_ONION
     # FIXME: WIRE_INVALID_ONION_HMAC = BADONION|PERM|5
     WIRE_INVALID_ONION_HMAC = 0x8000 | 0x4000 | 5
+    assert err.value.error['data']['failcode'] == WIRE_INVALID_ONION_HMAC
+
+    # Asking again about the same payment should give same result.
+    with pytest.raises(RpcError) as err:
+        l1.rpc.waitsendpay(inv['payment_hash'])
+
+    assert err.value.error['code'] == PAY_UNPARSEABLE_ONION
     assert err.value.error['data']['failcode'] == WIRE_INVALID_ONION_HMAC
 
     # Same, but using injectpaymentonion with corrupt onion.
