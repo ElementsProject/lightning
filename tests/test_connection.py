@@ -472,6 +472,8 @@ def test_disconnect(node_factory):
 
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
+# FIXME: https://github.com/ElementsProject/lightning/issues/8822
+@pytest.mark.flaky(reruns=1)
 def test_disconnect_opener(node_factory):
     # Now error on opener side during channel open.
     disconnects = ['-WIRE_OPEN_CHANNEL',
