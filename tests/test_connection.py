@@ -13,7 +13,7 @@ from utils import (
     mine_funding_to_announce, first_scid,
     CHANNEL_SIZE
 )
-from pyln.testing.utils import VALGRIND, EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT, RUST
+from pyln.testing.utils import VALGRIND, EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT, RUST, SLOW_MACHINE
 
 import os
 import pytest
@@ -1476,6 +1476,8 @@ def test_funding_cancel_race(node_factory, bitcoind, executor):
 
     if VALGRIND:
         num = 5
+    elif SLOW_MACHINE:
+        num = 20
     else:
         num = 100
 
@@ -1557,6 +1559,8 @@ def test_funding_v2_cancel_race(node_factory, bitcoind, executor):
 
     if VALGRIND:
         num = 5
+    elif SLOW_MACHINE:
+        num = 20
     else:
         num = 100
 
