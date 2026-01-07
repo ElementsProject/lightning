@@ -2378,13 +2378,16 @@ def test_gossmap_lost_node(node_factory, bitcoind):
     scid23 = only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['short_channel_id']
     l2.rpc.close(l3.info['id'])
     bitcoind.generate_block(13, wait_for_mempool=1)
-    wait_for(lambda: l1.rpc.listchannels(scid23) == {'channels': []})
+
+    # Order of nodes is not stable.
+    sync_blockheight(bitcoind, [l1])
+    assert l1.rpc.listchannels(scid23) == {'channels': []}
 
     pre_channels = l1.rpc.listchannels()
-    pre_nodes = l1.rpc.listnodes()
+    pre_nodes = sorted(l1.rpc.listnodes()['nodes'], key=lambda n: n['nodeid'])
     l1.restart()
     post_channels = l1.rpc.listchannels()
-    post_nodes = l1.rpc.listnodes()
+    post_nodes = sorted(l1.rpc.listnodes()['nodes'], key=lambda n: n['nodeid'])
 
     assert post_channels == pre_channels
     assert post_nodes == pre_nodes
