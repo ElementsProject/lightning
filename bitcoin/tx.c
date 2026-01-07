@@ -987,11 +987,13 @@ struct amount_sat change_amount(struct amount_sat excess, u32 feerate_perkw,
 	if (!amount_sat_sub(&excess, excess, fee))
 		return AMOUNT_SAT(0);
 
-	// Change is P2TR (Bitcoin) or P2WPKH (Elements) both have
-	// dust limit of 330 sat. Legacy types (P2PKH/P2SH) use 546 sat
-	// but we dont create those as change outputs 
-	if (!amount_sat_greater_eq(excess, AMOUNT_SAT(330)))
-		return AMOUNT_SAT(0);
+	if (chainparams->is_elements) {
+		if (!amount_sat_greater_eq(excess, AMOUNT_SAT(546)))
+			return AMOUNT_SAT(0);
+	} else {
+		if (!amount_sat_greater_eq(excess, AMOUNT_SAT(330)))
+			return AMOUNT_SAT(0);
+	}
 
 	return excess;
 }
