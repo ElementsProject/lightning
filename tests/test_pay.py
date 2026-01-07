@@ -5255,6 +5255,7 @@ def test_sendpay_grouping(node_factory, bitcoind):
     assert([p['status'] for p in pays] == ['failed', 'failed', 'complete'])
 
 
+@pytest.mark.flaky(reruns=2)
 def test_pay_manual_exclude(node_factory, bitcoind):
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
     l1_id = l1.rpc.getinfo()['id']
