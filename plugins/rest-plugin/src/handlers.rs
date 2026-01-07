@@ -3,8 +3,8 @@ use std::{collections::HashMap, process};
 use anyhow::anyhow;
 use axum::{
     body::{to_bytes, Body},
-    extract::{Extension, Json, Path, State},
-    http::{Request, StatusCode},
+    extract::{Extension, Json, Path},
+    http::{self, Request, StatusCode},
     middleware::Next,
     response::{Html, IntoResponse, Redirect, Response},
 };
@@ -15,35 +15,13 @@ use cln_rpc::{
 };
 use serde_json::json;
 use socketioxide::extract::{Data, SocketRef};
+use std::fmt::Write;
 
 use crate::{
-    shared::{call_rpc, filter_json, verify_rune},
-    PluginState, SWAGGER_FALLBACK,
+    shared::{call_rpc, filter_json, path_to_rest_map_and_params, verify_rune},
+    structs::{AppError, CheckRuneParams, ClnrestMap, PluginState},
+    SWAGGER_FALLBACK,
 };
-
-#[derive(Debug)]
-pub enum AppError {
-    Unauthorized(RpcError),
-    Forbidden(RpcError),
-    NotFound(RpcError),
-    InternalServerError(RpcError),
-    NotAcceptable(RpcError),
-}
-
-impl IntoResponse for AppError {
-    fn into_response(self) -> Response {
-        let (status, error_message) = match self {
-            AppError::Unauthorized(err) => (StatusCode::UNAUTHORIZED, err),
-            AppError::Forbidden(err) => (StatusCode::FORBIDDEN, err),
-            AppError::NotFound(err) => (StatusCode::NOT_FOUND, err),
-            AppError::InternalServerError(err) => (StatusCode::INTERNAL_SERVER_ERROR, err),
-            AppError::NotAcceptable(err) => (StatusCode::NOT_ACCEPTABLE, err),
-        };
-
-        let body = Json(json!(error_message));
-        (status, body).into_response()
-    }
-}
 
 /* Handler for list-methods */
 #[utoipa::path(
@@ -57,7 +35,7 @@ impl IntoResponse for AppError {
 pub async fn list_methods(
     Extension(plugin): Extension<Plugin<PluginState>>,
 ) -> Result<Html<String>, AppError> {
-    match call_rpc(plugin, "help", json!(HelpRequest { command: None })).await {
+    match call_rpc(&plugin, "help", json!(HelpRequest { command: None })).await {
         Ok(help_response) => {
             let html_content = process_help_response(help_response);
             Ok(Html(html_content))
@@ -72,14 +50,20 @@ pub async fn list_methods(
 
 fn process_help_response(help_response: serde_json::Value) -> String {
     /* Parse the "help" field as an array of HelpCommand */
-    let processed_res: HelpResponse = serde_json::from_value(help_response).unwrap();
+    let processed_res: HelpResponse = match serde_json::from_value(help_response) {
+        Ok(res) => res,
+        Err(e) => {
+            log::error!("Failed to parse help response: {e}");
+            return format!("Failed to parse help response: {e}");
+        }
+    };
 
-    let line = "\n---------------------------------------------------------------------------------------------------------------------------------------------------------------------------\n\n";
+    let line = "\n---------------------------------------------------------------------------------------------------------------------------------------------------------------------------\n";
     let mut processed_html_res = String::new();
 
     for row in processed_res.help {
-        processed_html_res.push_str(&format!("Command: {}\n", row.command));
-        processed_html_res.push_str(line);
+        writeln!(processed_html_res, "Command: {}", row.command).unwrap();
+        writeln!(processed_html_res, "{line}").unwrap();
     }
 
     processed_html_res
@@ -120,7 +104,8 @@ struct DynamicForm(HashMap<String, String>);
     security(("api_key" = []))
 )]
 pub async fn call_rpc_method(
-    Path(rpc_method): Path<String>,
+    http_method: http::Method,
+    Path(path): Path<String>,
     headers: axum::http::HeaderMap,
     Extension(plugin): Extension<Plugin<PluginState>>,
     body: Request<Body>,
@@ -141,13 +126,26 @@ pub async fn call_rpc_method(
         }
     };
 
-    let mut rpc_params = convert_request_to_json(&headers, &rpc_method, request_bytes)?;
+    let (mut rest_map, mut rpc_params) = path_to_rest_map_and_params(&plugin, &path, &http_method)?;
 
-    filter_json(&mut rpc_params);
+    request_body_to_rpc_params(
+        &mut rpc_params,
+        &headers,
+        &rest_map.rpc_method,
+        request_bytes,
+    )?;
 
-    verify_rune(plugin.clone(), rune, &rpc_method, &rpc_params).await?;
+    fill_rune_restrictions(&mut rest_map, &rpc_params);
 
-    let cln_result = match call_rpc(plugin, &rpc_method, rpc_params).await {
+    let mut rpc_params_value = json!(rpc_params);
+
+    filter_json(&mut rpc_params_value);
+
+    if rest_map.rune_required || http_method != http::Method::GET {
+        verify_rune(&plugin, rune, &rest_map.rune_restrictions.unwrap()).await?;
+    }
+
+    let cln_result = match call_rpc(&plugin, &rest_map.rpc_method, rpc_params_value).await {
         Ok(result) => result,
         Err(err) => {
             if let Some(code) = err.code {
@@ -159,14 +157,35 @@ pub async fn call_rpc_method(
         }
     };
 
-    convert_json_to_response(headers, &rpc_method, cln_result)
+    convert_json_to_response(headers, &rest_map.rpc_method, cln_result)
 }
 
-fn convert_request_to_json(
+fn fill_rune_restrictions(
+    rest_map: &mut ClnrestMap,
+    rpc_params: &serde_json::Map<String, serde_json::Value>,
+) {
+    if let Some(r) = &mut rest_map.rune_restrictions {
+        if r.params.is_none() {
+            r.params = Some(rpc_params.clone());
+        }
+        if r.method.is_none() {
+            r.method = Some(rest_map.rpc_method.clone());
+        }
+    } else {
+        rest_map.rune_restrictions = Some(CheckRuneParams {
+            nodeid: None,
+            method: Some(rest_map.rpc_method.clone()),
+            params: Some(rpc_params.clone()),
+        });
+    }
+}
+
+fn request_body_to_rpc_params(
+    rpc_params: &mut serde_json::Map<String, serde_json::Value>,
     headers: &axum::http::HeaderMap,
     rpc_method: &str,
     request_bytes: axum::body::Bytes,
-) -> Result<serde_json::Value, AppError> {
+) -> Result<(), AppError> {
     let content_type = headers
         .get("content-type")
         .and_then(|v| v.to_str().ok())
@@ -188,11 +207,11 @@ fn convert_request_to_json(
     };
 
     if request_bytes.is_empty() {
-        return Ok(json!({}));
+        return Ok(());
     }
 
-    match format {
-        "yaml" => serde_yml::from_slice(&request_bytes).map_err(|e| {
+    let body_rpc_params: serde_json::Map<String, serde_json::Value> = match format {
+        "yaml" => serde_yaml_ng::from_slice(&request_bytes).map_err(|e| {
             AppError::InternalServerError(RpcError {
                 code: None,
                 data: None,
@@ -202,7 +221,7 @@ fn convert_request_to_json(
                     e
                 ),
             })
-        }),
+        })?,
         "xml" => {
             let req_str = std::str::from_utf8(&request_bytes).map_err(|e| {
                 AppError::InternalServerError(RpcError {
@@ -237,23 +256,19 @@ fn convert_request_to_json(
                     message: format!("Use rpc method name as root element: `{}`", rpc_method),
                 })
             })?;
-            Ok(json!(json_without_root))
+            serde_json::from_value(json_without_root.to_owned()).unwrap()
         }
-        "form" => {
-            let form_map: HashMap<String, serde_json::Value> = serde_qs::from_bytes(&request_bytes)
-                .map_err(|e| {
-                    AppError::InternalServerError(RpcError {
-                        code: None,
-                        data: None,
-                        message: format!(
-                            "Could not parse `{}` FORM-URLENCODED request: {}",
-                            String::from_utf8_lossy(&request_bytes),
-                            e
-                        ),
-                    })
-                })?;
-            Ok(json!(form_map))
-        }
+        "form" => serde_qs::from_bytes(&request_bytes).map_err(|e| {
+            AppError::InternalServerError(RpcError {
+                code: None,
+                data: None,
+                message: format!(
+                    "Could not parse `{}` FORM-URLENCODED request: {}",
+                    String::from_utf8_lossy(&request_bytes),
+                    e
+                ),
+            })
+        })?,
         _ => serde_json::from_slice(&request_bytes).map_err(|e| {
             AppError::InternalServerError(RpcError {
                 code: None,
@@ -264,8 +279,29 @@ fn convert_request_to_json(
                     e
                 ),
             })
-        }),
+        })?,
+    };
+
+    merge_maps_disjoint(rpc_params, body_rpc_params)?;
+
+    Ok(())
+}
+
+fn merge_maps_disjoint(
+    base: &mut serde_json::Map<String, serde_json::Value>,
+    other: serde_json::Map<String, serde_json::Value>,
+) -> Result<(), AppError> {
+    for (key, value) in other {
+        if base.contains_key(&key) {
+            return Err(AppError::NotAcceptable(RpcError {
+                code: None,
+                message: format!("Duplicate key: {key}"),
+                data: None,
+            }));
+        }
+        base.insert(key, value);
     }
+    Ok(())
 }
 
 fn convert_json_to_response(
@@ -294,7 +330,7 @@ fn convert_json_to_response(
     };
 
     match format {
-        "yaml" => match serde_yml::to_string(&cln_result) {
+        "yaml" => match serde_yaml_ng::to_string(&cln_result) {
             Ok(yaml) => Ok((
                 StatusCode::CREATED,
                 [("Content-Type", "application/yaml")],
@@ -366,36 +402,35 @@ pub async fn handle_notification(
     }
 }
 
-pub async fn header_inspection_middleware(
-    State(plugin): State<Plugin<PluginState>>,
+pub async fn swagger_redirect_middleware(
     Extension(swagger_path): Extension<String>,
     req: Request<Body>,
     next: Next,
 ) -> Result<Response, AppError> {
     let root_path = req.uri().path();
-    if !root_path.eq("/") && !root_path.eq("/socket.io/") {
-        return Ok(StatusCode::NOT_FOUND.into_response());
+
+    if root_path.eq("/") && swagger_path.eq("/") {
+        return Ok(Redirect::permanent(SWAGGER_FALLBACK).into_response());
     }
-    let rune = req
-        .headers()
+
+    Ok(next.run(req).await)
+}
+
+pub async fn auth_socket_io_middleware(
+    socket: SocketRef,
+    socketioxide::extract::State(plugin): socketioxide::extract::State<Plugin<PluginState>>,
+) -> Result<(), AppError> {
+    let rune = socket
+        .req_parts()
+        .headers
         .get("rune")
         .and_then(|v| v.to_str().ok())
         .map(String::from);
 
-    let upgrade = req
-        .headers()
-        .get("upgrade")
-        .and_then(|v| v.to_str().ok())
-        .map(String::from);
-
-    if upgrade.is_some() {
-        match verify_rune(plugin, rune, "listclnrest-notifications", &json!({})).await {
-            Ok(()) => Ok(next.run(req).await),
-            Err(e) => Err(e),
-        }
-    } else if swagger_path.eq("/") {
-        Ok(Redirect::permanent(SWAGGER_FALLBACK).into_response())
-    } else {
-        Ok(StatusCode::NOT_FOUND.into_response())
-    }
+    let checkrune_params = CheckRuneParams {
+        nodeid: None,
+        method: Some("listclnrest-notifications".to_owned()),
+        params: None,
+    };
+    verify_rune(&plugin, rune, &checkrune_params).await
 }

@@ -35,6 +35,7 @@ MARKDOWNPAGES := doc/addgossip.7 \
 	doc/check.7 \
 	doc/checkmessage.7 \
 	doc/checkrune.7 \
+	doc/clnrest-register-path.7 \
 	doc/close.7 \
 	doc/commando.7 \
 	doc/connect.7 \

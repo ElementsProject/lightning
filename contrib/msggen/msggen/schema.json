@@ -5678,6 +5678,123 @@
         }
       ]
     },
+    "clnrest-register-path.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "type": "object",
+      "added": "v26.04",
+      "rpc": "clnrest-register-path",
+      "title": "Command to add a path to clnrest",
+      "description": [
+        "`clnrest-register-path` is a low-level rpc command for plugin developers to register a custom REST API path with an associated RPC method and optional rune validation."
+      ],
+      "request": {
+        "required": [
+          "path",
+          "rpc_method"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": [
+              "The REST API path to register (e.g., '/v1/custom/endpoint'). Captures which translate to an rpc parameter of 'key:value' are written like this: '/user/{key}'"
+            ]
+          },
+          "rpc_method": {
+            "type": "string",
+            "description": [
+              "The RPC method name to invoke when this ``path`` and ``http_method`` combination is accessed."
+            ]
+          },
+          "http_method": {
+            "type": "string",
+            "description": [
+              "HTTP method for this ``path``. Valid values are: ``GET``, ``POST``, ``PUT``, ``PATCH`` or ``DELETE``. Defaults to ``POST``."
+            ]
+          },
+          "rune_required": {
+            "type": "boolean",
+            "description": [
+              "Whether a rune is required to access this ``path``. Is only allowed to be ``false`` for ``GET`` requests. Defaults to true"
+            ]
+          },
+          "rune_restrictions": {
+            "type": "object",
+            "description": [
+              "Optional rune validation parameters to check before allowing access. These are passed to the checkrune RPC command. Omitting the rune_restrictions parameter means using your matched rpc method and the rpc params used. You can use this for example to not require the user to create a new rune for your rpc_method but rather require something like method=pay."
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "nodeid": {
+                "type": "string",
+                "description": [
+                  "Node id of requesting node *(required until v23.11)*."
+                ]
+              },
+              "method": {
+                "type": "string",
+                "description": [
+                  "Method for which rune needs to be validated *(required until v23.11)*. Omitting this means your rpc_method will be used."
+                ]
+              },
+              "params": {
+                "type": "object",
+                "description": [
+                  "Parameters for method. Omitting this means the rpc params from the request will be used."
+                ]
+              }
+            }
+          }
+        }
+      },
+      "response": {
+        "required": [],
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "examples": [
+        {
+          "request": {
+            "id": "example:clnrest-register-path#1",
+            "method": "clnrest-register-path",
+            "params": {
+              "path": "/custom/endpoint/{user}",
+              "rpc_method": "custom-rpc-method",
+              "http_method": "GET",
+              "rune_required": false
+            }
+          },
+          "response": {}
+        },
+        {
+          "request": {
+            "id": "example:clnrest-register-path#2",
+            "method": "clnrest-register-path",
+            "params": {
+              "path": "/v1/superpay",
+              "rpc_method": "superpay",
+              "http_method": "POST",
+              "rune_required": true,
+              "rune_restrictions": {
+                "method": "pay"
+              }
+            }
+          },
+          "response": {}
+        }
+      ],
+      "errors": [
+        "The following errors may be reported:",
+        "",
+        "- 32700: Message either indicating conflicting paths or invalid/missing parameters."
+      ],
+      "author": [
+        "daywalker90 is mainly responsible for this command."
+      ],
+      "see_also": [
+        "lightning-createrune(7)",
+        "lightning-checkrune(7)"
+      ]
+    },
     "close.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
