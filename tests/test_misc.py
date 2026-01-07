@@ -4675,6 +4675,9 @@ def test_even_sendcustommsg(node_factory):
 
     # It does if we remove the plugin though!
     l2.rpc.plugin_stop("allow_even_msgs.py")
+    # Make sure connectd has processed the update!
+    l2.daemon.wait_for_log("connectd: Now allowing 0 custom message types")
+
     l1.rpc.sendcustommsg(l2.info['id'], msg)
     l2.daemon.wait_for_log(r'\[IN\] {}'.format(msg))
     l1.daemon.wait_for_log('Invalid unknown even msg')
