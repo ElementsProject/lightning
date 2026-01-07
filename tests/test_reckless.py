@@ -351,7 +351,9 @@ def test_tag_install(node_factory):
             header = line
 
 
+# Note: uv timeouts from the GH network seem to happen?
 @pytest.mark.slow_test
+@pytest.mark.flaky(reruns=3)
 def test_reckless_uv_install(node_factory):
     node = get_reckless_node(node_factory)
     node.start()
