@@ -1976,6 +1976,11 @@ def test_buy_liquidity_ad_check_bookkeeping(node_factory, bitcoind):
     bitcoind.generate_block(2)
     l1.daemon.wait_for_log('to CHANNELD_NORMAL')
 
+    # Avoid bad gossip messages caused by channel announcements being
+    # processed after closing.
+    for n in (l1, l2):
+        wait_for(lambda: all([c['active'] for c in n.rpc.listchannels()['channels']]))
+
     chan_id = first_channel_id(l1, l2)
     ev_tags = [e['tag'] for e in l1.rpc.bkpr_listaccountevents(chan_id)['events']]
     assert 'lease_fee' in ev_tags
