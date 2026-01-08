@@ -1,15 +1,13 @@
-from fixtures import *  # noqa: F401,F403
-import subprocess
-from pathlib import PosixPath, Path
-import socket
-from pyln.testing.utils import VALGRIND
 import json
-import pytest
 import os
+from pathlib import PosixPath, Path
 import re
-import shutil
+import subprocess
 import time
 import unittest
+from fixtures import *  # noqa: F401,F403
+from pyln.testing.utils import VALGRIND
+import pytest
 
 
 @pytest.fixture(autouse=True)
@@ -22,20 +20,10 @@ def canned_github_server(directory):
     if os.environ.get('LIGHTNING_CLI') is None:
         os.environ['LIGHTNING_CLI'] = str(FILE_PATH.parent / 'cli/lightning-cli')
         print('LIGHTNING_CALL: ', os.environ.get('LIGHTNING_CLI'))
-    # Use socket to provision a random free port
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.bind(('localhost', 0))
-    free_port = str(sock.getsockname()[1])
-    sock.close()
     global my_env
     my_env = os.environ.copy()
-    # This tells reckless to redirect to the canned server rather than github.
-    my_env['REDIR_GITHUB_API'] = f'http://127.0.0.1:{free_port}/api'
+    # This tells reckless to redirect to the local test plugins repo rather than github.
     my_env['REDIR_GITHUB'] = directory
-    my_env['FLASK_RUN_PORT'] = free_port
-    my_env['FLASK_APP'] = str(FILE_PATH / 'rkls_github_canned_server')
-    server = subprocess.Popen(["python3", "-m", "flask", "run"],
-                              env=my_env)
 
     # Generate test plugin repository to test reckless against.
     repo_dir = os.path.join(directory, "lightningd")
@@ -84,13 +72,10 @@ def canned_github_server(directory):
     del my_env['GIT_DIR']
     del my_env['GIT_WORK_TREE']
     del my_env['GIT_INDEX_FILE']
-    # We also need the github api data for the repo which will be served via http
-    shutil.copyfile(str(FILE_PATH / 'data/recklessrepo/rkls_api_lightningd_plugins.json'), os.path.join(directory, 'rkls_api_lightningd_plugins.json'))
     yield
     # Delete requirements.txt from the testplugpass directory
     with open(requirements_file_path, 'w') as f:
         f.write(f"pyln-client\n\n")
-    server.terminate()
 
 
 class RecklessResult:
