@@ -286,18 +286,35 @@ def test_coinmoves(node_factory, bitcoind):
     l3.rpc.xpay(inv['bolt11'], '10000000sat')
     # Make sure it's fully settled.
     wait_for(lambda: only_one(l3.rpc.listpeerchannels(l1.info['id'])['channels'])['htlcs'] == [])
-    expected_channel1 += [{'account_id': fundchannel['channel_id'],
-                           'credit_msat': 0,
-                           'debit_msat': 10000000000,
-                           'fees_msat': 100001,
-                           'payment_hash': inv['payment_hash'],
-                           'primary_tag': 'routed'},
-                          {'account_id': l3fundchannel['channel_id'],
-                           'credit_msat': 10000100001,
-                           'debit_msat': 0,
-                           'fees_msat': 100001,
-                           'payment_hash': inv['payment_hash'],
-                           'primary_tag': 'routed'}]
+    # These can actually go in either order, since we record them when HTLC is *fully*
+    # resolved.
+    wait_for(lambda: len(l1.rpc.listchannelmoves()['channelmoves']) > len(expected_channel1))
+    if l1.rpc.listchannelmoves()['channelmoves'][len(expected_channel1)]['credit_msat'] == 0:
+        expected_channel1 += [{'account_id': fundchannel['channel_id'],
+                               'credit_msat': 0,
+                               'debit_msat': 10000000000,
+                               'fees_msat': 100001,
+                               'payment_hash': inv['payment_hash'],
+                               'primary_tag': 'routed'},
+                              {'account_id': l3fundchannel['channel_id'],
+                               'credit_msat': 10000100001,
+                               'debit_msat': 0,
+                               'fees_msat': 100001,
+                               'payment_hash': inv['payment_hash'],
+                               'primary_tag': 'routed'}]
+    else:
+        expected_channel1 += [{'account_id': l3fundchannel['channel_id'],
+                               'credit_msat': 10000100001,
+                               'debit_msat': 0,
+                               'fees_msat': 100001,
+                               'payment_hash': inv['payment_hash'],
+                               'primary_tag': 'routed'},
+                              {'account_id': fundchannel['channel_id'],
+                               'credit_msat': 0,
+                               'debit_msat': 10000000000,
+                               'fees_msat': 100001,
+                               'payment_hash': inv['payment_hash'],
+                               'primary_tag': 'routed'}]
     expected_channel2 += [{'account_id': fundchannel['channel_id'],
                            'credit_msat': 10000000000,
                            'debit_msat': 0,
