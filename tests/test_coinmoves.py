@@ -521,6 +521,7 @@ def test_coinmoves_unilateral_htlc_before_included(node_factory, bitcoind):
     check_chain_moves(l2, expected_chain2)
 
     close_info = l1.rpc.close(l2.info['id'], unilateraltimeout=1)
+    # Close, no anchor.
     bitcoind.generate_block(1, wait_for_mempool=1)
 
     # Make sure onchaind has digested it.
@@ -714,7 +715,8 @@ def test_coinmoves_unilateral_htlc_timeout(node_factory, bitcoind):
     line = l1.daemon.wait_for_log("Creating anchor spend for local commit tx ")
     anchor_spend_txid = re.search(r'Creating anchor spend for local commit tx ([0-9a-f]{64})', line).group(1)
 
-    bitcoind.generate_block(1, wait_for_mempool=1)
+    # Close, and anchor.
+    bitcoind.generate_block(1, wait_for_mempool=2)
     sync_blockheight(bitcoind, [l1, l2])
 
     # Make sure onchaind has digested it.
@@ -1024,6 +1026,7 @@ def test_coinmoves_unilateral_htlc_dust(node_factory, bitcoind):
     check_chain_moves(l2, expected_chain2)
 
     close_info = l1.rpc.close(l2.info['id'], unilateraltimeout=1)
+    # Close, no anchor.
     bitcoind.generate_block(1, wait_for_mempool=1)
     sync_blockheight(bitcoind, [l1, l2])
 
@@ -1217,7 +1220,8 @@ def test_coinmoves_unilateral_htlc_fulfill(node_factory, bitcoind):
     line = l1.daemon.wait_for_log("Creating anchor spend for local commit tx ")
     anchor_spend_txid = re.search(r'Creating anchor spend for local commit tx ([0-9a-f]{64})', line).group(1)
 
-    bitcoind.generate_block(1, wait_for_mempool=1)
+    # Close, and anchor.
+    bitcoind.generate_block(1, wait_for_mempool=2)
     sync_blockheight(bitcoind, [l1, l2])
 
     # Make sure onchaind has digested it.
