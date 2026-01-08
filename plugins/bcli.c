@@ -493,11 +493,11 @@ static struct command_result *command_err_bcli_badjson(struct bitcoin_cli *bcli,
 	return command_done_err(bcli->cmd, BCLI_ERROR, err, NULL);
 }
 
-static struct command_result *command_err_badjson(struct command *cmd,
-						  struct bcli_result *res,
-						  const char *errmsg)
+static struct command_result *command_err(struct command *cmd,
+					  struct bcli_result *res,
+					  const char *errmsg)
 {
-	char *err = tal_fmt(cmd, "%s: bad JSON: %s (%.*s)",
+	char *err = tal_fmt(cmd, "%s: %s (%.*s)",
 			    res->args, errmsg, (int)res->output_len, res->output);
 	return command_done_err(cmd, BCLI_ERROR, err, NULL);
 }
@@ -679,9 +679,9 @@ struct getrawblock_stash {
 };
 
 /* Mutual recursion. */
-static struct command_result *getrawblock(struct bitcoin_cli *bcli);
+static UNNEEDED struct command_result *getrawblock(struct bitcoin_cli *bcli);
 
-static struct command_result *process_rawblock(struct bitcoin_cli *bcli)
+static UNNEEDED struct command_result *process_rawblock(struct bitcoin_cli *bcli)
 {
 	struct json_stream *response;
 	struct getrawblock_stash *stash = bcli->stash;
@@ -696,7 +696,7 @@ static struct command_result *process_rawblock(struct bitcoin_cli *bcli)
 	return command_finished(bcli->cmd, response);
 }
 
-static struct command_result *process_getblockfrompeer(struct bitcoin_cli *bcli)
+static UNNEEDED struct command_result *process_getblockfrompeer(struct bitcoin_cli *bcli)
 {
 	/* Remove the peer that we tried to get the block from and move along,
 	 * we may also check on errors here */
@@ -723,7 +723,7 @@ static struct command_result *process_getblockfrompeer(struct bitcoin_cli *bcli)
 	return getrawblock(bcli);
 }
 
-static struct command_result *process_getpeerinfo(struct bitcoin_cli *bcli)
+static UNNEEDED struct command_result *process_getpeerinfo(struct bitcoin_cli *bcli)
 {
 	const jsmntok_t *t, *toks;
 	struct getrawblock_stash *stash = bcli->stash;
@@ -773,7 +773,7 @@ static struct command_result *process_getpeerinfo(struct bitcoin_cli *bcli)
 	return command_still_pending(bcli->cmd);
 }
 
-static struct command_result *process_getrawblock(struct bitcoin_cli *bcli)
+static UNNEEDED struct command_result *process_getrawblock(struct bitcoin_cli *bcli)
 {
 	/* We failed to get the raw block. */
 	if (bcli->exitstatus && *bcli->exitstatus != 0) {
@@ -825,8 +825,8 @@ static struct command_result *process_getrawblock(struct bitcoin_cli *bcli)
 	return process_rawblock(bcli);
 }
 
-static struct command_result *
-getrawblockbyheight_notfound(struct bitcoin_cli *bcli)
+static UNNEEDED struct command_result *
+getrawblockbyheight_notfound_bcli(struct bitcoin_cli *bcli)
 {
 	struct json_stream *response;
 
@@ -837,7 +837,19 @@ getrawblockbyheight_notfound(struct bitcoin_cli *bcli)
 	return command_finished(bcli->cmd, response);
 }
 
-static struct command_result *getrawblock(struct bitcoin_cli *bcli)
+static struct command_result *
+getrawblockbyheight_notfound(struct command *cmd)
+{
+	struct json_stream *response;
+
+	response = jsonrpc_stream_success(cmd);
+	json_add_null(response, "blockhash");
+	json_add_null(response, "block");
+
+	return command_finished(cmd, response);
+}
+
+static UNNEEDED struct command_result *getrawblock(struct bitcoin_cli *bcli)
 {
 	struct getrawblock_stash *stash = bcli->stash;
 
@@ -850,7 +862,7 @@ static struct command_result *getrawblock(struct bitcoin_cli *bcli)
 	return command_still_pending(bcli->cmd);
 }
 
-static struct command_result *process_getblockhash(struct bitcoin_cli *bcli)
+static UNNEEDED struct command_result *process_getblockhash(struct bitcoin_cli *bcli)
 {
 	struct getrawblock_stash *stash = bcli->stash;
 
@@ -859,7 +871,7 @@ static struct command_result *process_getblockhash(struct bitcoin_cli *bcli)
 		/* Other error means we have to retry. */
 		if (*bcli->exitstatus != 8)
 			return NULL;
-		return getrawblockbyheight_notfound(bcli);
+		return getrawblockbyheight_notfound_bcli(bcli);
 	}
 
 	strip_trailing_whitespace(bcli->output, bcli->output_bytes);
@@ -871,6 +883,44 @@ static struct command_result *process_getblockhash(struct bitcoin_cli *bcli)
 	return getrawblock(bcli);
 }
 
+/* Get peers that support NODE_NETWORK (full nodes).
+ * Returns array of peer ids, or empty array if none found. */
+static int *get_fullnode_peers(const tal_t *ctx, struct command *cmd)
+{
+	struct bcli_result *res;
+	const jsmntok_t *t, *toks;
+	int *peers = tal_arr(ctx, int, 0);
+	size_t i;
+
+	res = run_bitcoin_cli(cmd, cmd->plugin, "getpeerinfo", NULL);
+	if (res->exitstatus != 0)
+		return peers;
+
+	toks = json_parse_simple(res->output, res->output, res->output_len);
+	if (!toks)
+		return peers;
+
+	json_for_each_arr(i, t, toks) {
+		int id;
+		u8 *services;
+
+		if (json_scan(tmpctx, res->output, t, "{id:%,services:%}",
+			      JSON_SCAN(json_to_int, &id),
+			      JSON_SCAN_TAL(tmpctx, json_tok_bin_from_hex, &services)) == NULL) {
+			/* From bitcoin source:
+			 *  NODE_NETWORK means that the node is capable of serving the complete block chain.
+			 *  It is currently set by all Bitcoin Core non pruned nodes, and is unset by SPV
+			 *  clients or other light clients.
+			 * NODE_NETWORK = (1 << 0)
+			 */
+			if (tal_count(services) > 0 && (services[tal_count(services)-1] & (1 << 0)))
+				tal_arr_expand(&peers, id);
+		}
+	}
+
+	return peers;
+}
+
 /* Get a raw block given its height.
  * Calls `getblockhash` then `getblock` to retrieve it from bitcoin_cli.
  * Will return early with null fields if block isn't known (yet).
@@ -879,27 +929,101 @@ static struct command_result *getrawblockbyheight(struct command *cmd,
                                                   const char *buf,
                                                   const jsmntok_t *toks)
 {
-	struct getrawblock_stash *stash;
+	struct bcli_result *res;
+	struct json_stream *response;
+	const char *block_hash;
 	u32 *height;
+	struct timemono first_error_time;
+	bool first_error = true;
+	int *peers = NULL;
 
-	/* bitcoin-cli wants a string. */
 	if (!param(cmd, buf, toks,
 	           p_req("height", param_number, &height),
 	           NULL))
 		return command_param_failed();
 
-	stash = tal(cmd, struct getrawblock_stash);
-	stash->block_height = *height;
-	stash->peers = NULL;
-	tal_free(height);
+	res = run_bitcoin_cli(cmd, cmd->plugin, "getblockhash",
+			      tal_fmt(tmpctx, "%u", *height), NULL);
 
-	start_bitcoin_cli(NULL, cmd, process_getblockhash, true,
-			  BITCOIND_LOW_PRIO, stash,
-			  "getblockhash",
-			  take(tal_fmt(NULL, "%u", stash->block_height)),
-			  NULL);
+	if (res->exitstatus != 0) {
+		/* Exit code 8 means block height doesn't exist (empty response) */
+		if (res->exitstatus == 8)
+			return getrawblockbyheight_notfound(cmd);
+		return command_err(cmd, res, "command failed");
+	}
 
-	return command_still_pending(cmd);
+	strip_trailing_whitespace(res->output, res->output_len);
+	if (strlen(res->output) != 64)
+		return command_err(cmd, res, "bad JSON: bad blockhash");
+
+	block_hash = tal_strdup(cmd, res->output);
+
+	for (;;) {
+		res = run_bitcoin_cli(cmd, cmd->plugin, "getblock",
+				      block_hash, "0", NULL);
+
+		if (res->exitstatus == 0) {
+			strip_trailing_whitespace(res->output, res->output_len);
+			response = jsonrpc_stream_success(cmd);
+			json_add_string(response, "blockhash", block_hash);
+			json_add_string(response, "block", res->output);
+			return command_finished(cmd, response);
+		}
+
+		plugin_log(cmd->plugin, LOG_DBG,
+			"failed to fetch block %s from the bitcoin backend (maybe pruned).",
+			block_hash);
+
+		if (first_error) {
+			first_error_time = time_mono();
+			first_error = false;
+		}
+
+		struct timerel elapsed = timemono_between(time_mono(), first_error_time);
+		if (time_greater(elapsed, time_from_sec(bitcoind->retry_timeout))) {
+			return command_done_err(cmd, BCLI_ERROR,
+				tal_fmt(cmd, "getblock %s timed out after %"PRIu64" seconds",
+					block_hash, bitcoind->retry_timeout), NULL);
+		}
+
+		/* Try fetching from peers if bitcoind >= 23.0.0 */
+		if (bitcoind->version >= 230000) {
+			if (!peers)
+				peers = get_fullnode_peers(cmd, cmd);
+
+			if (tal_count(peers) > 0) {
+				int peer = peers[tal_count(peers) - 1];
+				tal_resize(&peers, tal_count(peers) - 1);
+
+				res = run_bitcoin_cli(cmd, cmd->plugin,
+						      "getblockfrompeer",
+						      block_hash,
+						      tal_fmt(tmpctx, "%i", peer),
+						      NULL);
+
+				if (res->exitstatus != 0) {
+					/* We still continue with the execution if we cannot fetch the
+					 * block from peer */
+					plugin_log(cmd->plugin, LOG_DBG,
+						   "failed to fetch block %s from peer %i, skip.",
+						   block_hash, peer);
+				} else {
+					plugin_log(cmd->plugin, LOG_DBG,
+						   "try to fetch block %s from peer %i.",
+						   block_hash, peer);
+				}
+			}
+
+			if (tal_count(peers) == 0) {
+				plugin_log(cmd->plugin, LOG_DBG,
+					   "asked all known peers about block %s, retry",
+					   block_hash);
+				peers = tal_free(peers);
+			}
+		}
+
+		sleep(1);
+	}
 }
 
 /* Get infos about the block chain.
@@ -929,15 +1053,12 @@ static struct command_result *getchaininfo(struct command *cmd,
 		return command_param_failed();
 
 	res = run_bitcoin_cli(cmd, cmd->plugin, "getblockchaininfo", NULL);
-	if (res->exitstatus != 0) {
-		return command_done_err(cmd, BCLI_ERROR,
-					tal_fmt(cmd, "getblockchaininfo: %s", res->output),
-					NULL);
-	}
+	if (res->exitstatus != 0)
+		return command_err(cmd, res, "command failed");
 
 	tokens = json_parse_simple(res->output, res->output, res->output_len);
 	if (!tokens)
-		return command_err_badjson(cmd, res, "cannot parse");
+		return command_err(cmd, res, "bad JSON: cannot parse");
 
 	err = json_scan(tmpctx, res->output, tokens,
 			"{chain:%,headers:%,blocks:%,initialblockdownload:%}",
@@ -946,7 +1067,7 @@ static struct command_result *getchaininfo(struct command *cmd,
 			JSON_SCAN(json_to_number, &blocks),
 			JSON_SCAN(json_to_bool, &ibd));
 	if (err)
-		return command_err_badjson(cmd, res, err);
+		return command_err(cmd, res, tal_fmt(tmpctx, "bad JSON: %s", err));
 
 	if (bitcoind->dev_ignore_ibd)
 		ibd = false;
@@ -1068,14 +1189,14 @@ static struct command_result *get_feerate_floor(struct command *cmd,
 
 	tokens = json_parse_simple(res->output, res->output, res->output_len);
 	if (!tokens)
-		return command_err_badjson(cmd, res, "cannot parse");
+		return command_err(cmd, res, "bad JSON: cannot parse");
 
 	err = json_scan(tmpctx, res->output, tokens,
 			"{mempoolminfee:%,minrelaytxfee:%}",
 			JSON_SCAN(json_to_bitcoin_amount, &mempoolfee),
 			JSON_SCAN(json_to_bitcoin_amount, &relayfee));
 	if (err)
-		return command_err_badjson(cmd, res, err);
+		return command_err(cmd, res, tal_fmt(tmpctx, "bad JSON: %s", err));
 
 	*perkb_floor = max_u64(mempoolfee, relayfee);
 	return NULL;
@@ -1099,13 +1220,13 @@ static struct command_result *get_feerate(struct command *cmd,
 
 	tokens = json_parse_simple(res->output, res->output, res->output_len);
 	if (!tokens)
-		return command_err_badjson(cmd, res, "cannot parse");
+		return command_err(cmd, res, "bad JSON: cannot parse");
 
 	if (json_scan(tmpctx, res->output, tokens, "{feerate:%}",
 		      JSON_SCAN(json_to_bitcoin_amount, perkb)) != NULL) {
 		/* Paranoia: if it had a feerate, but was malformed: */
 		if (json_get_member(res->output, tokens, "feerate"))
-			return command_err_badjson(cmd, res, "cannot scan");
+			return command_err(cmd, res, "bad JSON: cannot scan");
 		/* Regtest fee estimation is generally awful: Fake it at min. */
 		if (bitcoind->fake_fees)
 			*perkb = 1000;
@@ -1254,7 +1375,7 @@ static struct command_result *getutxout(struct command *cmd,
 
 	tokens = json_parse_simple(res->output, res->output, res->output_len);
 	if (!tokens)
-		return command_err_badjson(cmd, res, "cannot parse");
+		return command_err(cmd, res, "bad JSON: cannot parse");
 
 	err = json_scan(tmpctx, res->output, tokens,
 		       "{value:%,scriptPubKey:{hex:%}}",
@@ -1263,7 +1384,7 @@ static struct command_result *getutxout(struct command *cmd,
 		       JSON_SCAN_TAL(cmd, json_tok_bin_from_hex,
 				     &output.script));
 	if (err)
-		return command_err_badjson(cmd, res, err);
+		return command_err(cmd, res, tal_fmt(tmpctx, "bad JSON: %s", err));
 
 	response = jsonrpc_stream_success(cmd);
 	json_add_sats(response, "amount", output.amount);
