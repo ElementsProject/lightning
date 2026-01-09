@@ -286,18 +286,35 @@ def test_coinmoves(node_factory, bitcoind):
     l3.rpc.xpay(inv['bolt11'], '10000000sat')
     # Make sure it's fully settled.
     wait_for(lambda: only_one(l3.rpc.listpeerchannels(l1.info['id'])['channels'])['htlcs'] == [])
-    expected_channel1 += [{'account_id': fundchannel['channel_id'],
-                           'credit_msat': 0,
-                           'debit_msat': 10000000000,
-                           'fees_msat': 100001,
-                           'payment_hash': inv['payment_hash'],
-                           'primary_tag': 'routed'},
-                          {'account_id': l3fundchannel['channel_id'],
-                           'credit_msat': 10000100001,
-                           'debit_msat': 0,
-                           'fees_msat': 100001,
-                           'payment_hash': inv['payment_hash'],
-                           'primary_tag': 'routed'}]
+    # These can actually go in either order, since we record them when HTLC is *fully*
+    # resolved.
+    wait_for(lambda: len(l1.rpc.listchannelmoves()['channelmoves']) > len(expected_channel1))
+    if l1.rpc.listchannelmoves()['channelmoves'][len(expected_channel1)]['credit_msat'] == 0:
+        expected_channel1 += [{'account_id': fundchannel['channel_id'],
+                               'credit_msat': 0,
+                               'debit_msat': 10000000000,
+                               'fees_msat': 100001,
+                               'payment_hash': inv['payment_hash'],
+                               'primary_tag': 'routed'},
+                              {'account_id': l3fundchannel['channel_id'],
+                               'credit_msat': 10000100001,
+                               'debit_msat': 0,
+                               'fees_msat': 100001,
+                               'payment_hash': inv['payment_hash'],
+                               'primary_tag': 'routed'}]
+    else:
+        expected_channel1 += [{'account_id': l3fundchannel['channel_id'],
+                               'credit_msat': 10000100001,
+                               'debit_msat': 0,
+                               'fees_msat': 100001,
+                               'payment_hash': inv['payment_hash'],
+                               'primary_tag': 'routed'},
+                              {'account_id': fundchannel['channel_id'],
+                               'credit_msat': 0,
+                               'debit_msat': 10000000000,
+                               'fees_msat': 100001,
+                               'payment_hash': inv['payment_hash'],
+                               'primary_tag': 'routed'}]
     expected_channel2 += [{'account_id': fundchannel['channel_id'],
                            'credit_msat': 10000000000,
                            'debit_msat': 0,
@@ -521,6 +538,7 @@ def test_coinmoves_unilateral_htlc_before_included(node_factory, bitcoind):
     check_chain_moves(l2, expected_chain2)
 
     close_info = l1.rpc.close(l2.info['id'], unilateraltimeout=1)
+    # Close, no anchor.
     bitcoind.generate_block(1, wait_for_mempool=1)
 
     # Make sure onchaind has digested it.
@@ -681,7 +699,6 @@ def test_coinmoves_unilateral_htlc_before_included(node_factory, bitcoind):
     check_balances(l1, l2, fundchannel['channel_id'], 0)
 
 
-@pytest.mark.flaky(reruns=5)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Amounts are for regtest.")
@@ -715,7 +732,8 @@ def test_coinmoves_unilateral_htlc_timeout(node_factory, bitcoind):
     line = l1.daemon.wait_for_log("Creating anchor spend for local commit tx ")
     anchor_spend_txid = re.search(r'Creating anchor spend for local commit tx ([0-9a-f]{64})', line).group(1)
 
-    bitcoind.generate_block(1, wait_for_mempool=1)
+    # Close, and anchor.
+    bitcoind.generate_block(1, wait_for_mempool=2)
     sync_blockheight(bitcoind, [l1, l2])
 
     # Make sure onchaind has digested it.
@@ -1025,6 +1043,7 @@ def test_coinmoves_unilateral_htlc_dust(node_factory, bitcoind):
     check_chain_moves(l2, expected_chain2)
 
     close_info = l1.rpc.close(l2.info['id'], unilateraltimeout=1)
+    # Close, no anchor.
     bitcoind.generate_block(1, wait_for_mempool=1)
     sync_blockheight(bitcoind, [l1, l2])
 
@@ -1218,7 +1237,8 @@ def test_coinmoves_unilateral_htlc_fulfill(node_factory, bitcoind):
     line = l1.daemon.wait_for_log("Creating anchor spend for local commit tx ")
     anchor_spend_txid = re.search(r'Creating anchor spend for local commit tx ([0-9a-f]{64})', line).group(1)
 
-    bitcoind.generate_block(1, wait_for_mempool=1)
+    # Close, and anchor.
+    bitcoind.generate_block(1, wait_for_mempool=2)
     sync_blockheight(bitcoind, [l1, l2])
 
     # Make sure onchaind has digested it.

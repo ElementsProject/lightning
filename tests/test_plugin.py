@@ -1904,7 +1904,7 @@ def test_bitcoin_backend(node_factory, bitcoind):
 def test_bitcoin_backend_gianttx(node_factory, bitcoind):
     """Test that a giant tx doesn't crash bcli"""
     # This complains about how long fundpsbt took.
-    l1 = node_factory.get_node(start=False, broken_log='Request fundpsbt took')
+    l1 = node_factory.get_node(start=False, broken_log="That's weird: Request .*psbt took")
     # With memleak we spend far too much time gathering backtraces.
     if "LIGHTNINGD_DEV_MEMLEAK" in l1.daemon.env:
         del l1.daemon.env["LIGHTNINGD_DEV_MEMLEAK"]
@@ -2191,7 +2191,6 @@ def test_plugin_fail(node_factory):
     l1.daemon.wait_for_log(r': exited during normal operation')
 
 
-@pytest.mark.flaky(reruns=5)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 def test_coin_movement_notices(node_factory, bitcoind, chainparams):
@@ -2268,6 +2267,9 @@ def test_coin_movement_notices(node_factory, bitcoind, chainparams):
     route = l2.rpc.getroute(l1.info['id'], amount // 2, 1)['route']
     l2.rpc.sendpay(route, payment_hash21, payment_secret=inv['payment_secret'])
     l2.rpc.waitsendpay(payment_hash21)
+
+    # Make sure coin_movements.py sees event before we restart!
+    l2.daemon.wait_for_log(f"plugin-coin_movements.py: coin movement: .*'payment_hash': '{payment_hash21}'")
 
     # restart to test index
     l2.restart()
@@ -2612,6 +2614,7 @@ def test_htlc_accepted_hook_failonion(node_factory):
         l1.rpc.pay(inv)
 
 
+@pytest.mark.slow_test  # VALGRIND running generally too slow to trigger race we need.
 def test_hook_in_use(node_factory):
     """If a hook is in use when we add a plugin to it, we have to defer"""
     dep_a = os.path.join(os.path.dirname(__file__), 'plugins/dep_a.py')
@@ -2845,7 +2848,8 @@ def test_plugin_shutdown(node_factory):
 
 def test_commando(node_factory, executor):
     l1, l2 = node_factory.line_graph(2, fundchannel=False,
-                                     opts={'log-level': 'io'})
+                                     # Under valgrind, checkrune of 400k command can be slow!
+                                     opts={'log-level': 'io', 'broken_log': "That's weird: Request .* took"})
 
     rune = l1.rpc.createrune()['rune']
 
@@ -2983,7 +2987,7 @@ def test_autoclean(node_factory):
 
     # Under valgrind in CI, it can 50 seconds between creating invoice
     # and restarting.
-    if node_factory.valgrind:
+    if VALGRIND:
         short_timeout = 10
         longer_timeout = 60
     else:
@@ -4308,7 +4312,6 @@ def test_plugin_nostart(node_factory):
     assert [p['name'] for p in l1.rpc.plugin_list()['plugins'] if 'badinterp' in p['name']] == []
 
 
-@unittest.skip("A bit flaky, but when breaks, it is costing us 2h of CI time")
 def test_plugin_startdir_lol(node_factory):
     """Though we fail to start many of them, we don't crash!"""
     l1 = node_factory.get_node(broken_log='.*')

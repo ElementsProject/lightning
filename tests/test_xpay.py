@@ -557,7 +557,9 @@ def test_xpay_maxfee(node_factory, bitcoind, chainparams):
                                      opts=[{'gossip_store_file': outfile.name,
                                             'subdaemon': 'channeld:../tests/plugins/channeld_fakenet',
                                             'allow_warning': True,
-                                            'dev-throttle-gossip': None},
+                                            'dev-throttle-gossip': None,
+                                            # This can be more than 10 seconds under CI!
+                                            'askrene-timeout': 60},
                                            {'allow_bad_gossip': True}])
 
     # l1 needs to know l2's shaseed for the channel so it can make revocations
