@@ -1488,8 +1488,8 @@ def test_funding_reorg_remote_lags(node_factory, bitcoind):
 
     l1.rpc.close(l2.info['id'])
     bitcoind.generate_block(1, True)
-    l1.daemon.wait_for_log(r'Deleting channel')
-    l2.daemon.wait_for_log(r'Deleting channel')
+    l1.daemon.wait_for_log(r'closing soon due to the funding outpoint being spent')
+    l2.daemon.wait_for_log(r'closing soon due to the funding outpoint being spent')
 
 
 @pytest.mark.openchannel('v1')
@@ -2152,6 +2152,13 @@ def test_bad_onion_immediate_peer(node_factory, bitcoind):
     assert err.value.error['code'] == PAY_UNPARSEABLE_ONION
     # FIXME: WIRE_INVALID_ONION_HMAC = BADONION|PERM|5
     WIRE_INVALID_ONION_HMAC = 0x8000 | 0x4000 | 5
+    assert err.value.error['data']['failcode'] == WIRE_INVALID_ONION_HMAC
+
+    # Asking again about the same payment should give same result.
+    with pytest.raises(RpcError) as err:
+        l1.rpc.waitsendpay(inv['payment_hash'])
+
+    assert err.value.error['code'] == PAY_UNPARSEABLE_ONION
     assert err.value.error['data']['failcode'] == WIRE_INVALID_ONION_HMAC
 
     # Same, but using injectpaymentonion with corrupt onion.
@@ -4668,6 +4675,9 @@ def test_even_sendcustommsg(node_factory):
 
     # It does if we remove the plugin though!
     l2.rpc.plugin_stop("allow_even_msgs.py")
+    # Make sure connectd has processed the update!
+    l2.daemon.wait_for_log("connectd: Now allowing 0 custom message types")
+
     l1.rpc.sendcustommsg(l2.info['id'], msg)
     l2.daemon.wait_for_log(r'\[IN\] {}'.format(msg))
     l1.daemon.wait_for_log('Invalid unknown even msg')

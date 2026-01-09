@@ -458,6 +458,11 @@ def first_scid(n1, n2):
     return only_one(n1.rpc.listpeerchannels(n2.info['id'])['channels'])['short_channel_id']
 
 
+def first_scidd(n1, n2):
+    c = only_one(n1.rpc.listpeerchannels(n2.info['id'])['channels'])
+    return c['short_channel_id'] + '/' + str(c['direction'])
+
+
 def basic_fee(feerate, anchor_expected):
     if anchor_expected:
         # option_anchor_outputs / option_anchors_zero_fee_htlc_tx

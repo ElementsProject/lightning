@@ -1,7 +1,7 @@
 from fixtures import *  # noqa: F401,F403
 from pyln.client import RpcError, Millisatoshi
 from shutil import copyfile
-from pyln.testing.utils import SLOW_MACHINE
+from pyln.testing.utils import SLOW_MACHINE, VALGRIND
 from utils import (
     only_one, sync_blockheight, wait_for, TIMEOUT,
     account_balance, first_channel_id, closing_fee, TEST_NETWORK,
@@ -1851,8 +1851,8 @@ def test_onchaind_replay(node_factory, bitcoind):
 
     # Wait for nodes to notice the failure, this seach needle is after the
     # DB commit so we're sure the tx entries in onchaindtxs have been added
-    l1.daemon.wait_for_log("Deleting channel .* due to the funding outpoint being spent")
-    l2.daemon.wait_for_log("Deleting channel .* due to the funding outpoint being spent")
+    l1.daemon.wait_for_log("closing soon due to the funding outpoint being spent")
+    l2.daemon.wait_for_log("closing soon due to the funding outpoint being spent")
 
     # We should at least have the init tx now
     assert len(l1.db_query("SELECT * FROM channeltxs;")) > 0
@@ -3232,7 +3232,7 @@ def test_permfail(node_factory, bitcoind):
 def test_shutdown(node_factory):
     # Fail, in that it will exit before cleanup.
     l1 = node_factory.get_node(may_fail=True)
-    if not node_factory.valgrind:
+    if not VALGRIND:
         leaks = l1.rpc.dev_memleak()['leaks']
         if len(leaks):
             raise Exception("Node {} has memory leaks: {}"
@@ -3437,7 +3437,7 @@ def test_closing_higherfee(node_factory, bitcoind, executor, anchors):
     wait_for(lambda: l2.rpc.listpeerchannels()['channels'][0]['state'] == 'CLOSINGD_COMPLETE')
 
 
-@unittest.skipIf(True, "Test is extremely flaky")
+@pytest.mark.flaky(reruns=3)
 def test_htlc_rexmit_while_closing(node_factory, executor):
     """Retranmitting an HTLC revocation while shutting down should work"""
     # FIXME: This should be in lnprototest!  UNRELIABLE.

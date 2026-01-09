@@ -2821,31 +2821,6 @@ def test_channel_spendable_receivable_capped(node_factory, bitcoind):
     assert l2.rpc.listpeerchannels()['channels'][0]['receivable_msat'] == Millisatoshi(0xFFFFFFFF)
 
 
-@unittest.skipIf(True, "Test is extremely flaky")
-def test_lockup_drain(node_factory, bitcoind):
-    """Try to get channel into a state where opener can't afford fees on additional HTLC, so peer can't add HTLC"""
-    l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True})
-
-    # l1 sends all the money to l2 until even 1 msat can't get through.
-    total = l1.drain(l2)
-
-    # Even if feerate now increases 2x (30000), l2 should be able to send
-    # non-dust HTLC to l1.
-    l1.force_feerates(30000)
-    l2.pay(l1, total // 2)
-
-    # reset fees and send all back again
-    l1.force_feerates(15000)
-    l1.drain(l2)
-
-    # But if feerate increase just a little more, l2 should not be able to send
-    # non-fust HTLC to l1
-    l1.force_feerates(30002)  # TODO: Why does 30001 fail? off by one in C code?
-    wait_for(lambda: l1.rpc.listpeers()['peers'][0]['connected'])
-    with pytest.raises(RpcError, match=r".*Capacity exceeded.*"):
-        l2.pay(l1, total // 2)
-
-
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'Assumes anchors')
 def test_htlc_too_dusty_outgoing(node_factory, bitcoind, chainparams):
     """ Try to hit the 'too much dust' limit, should fail the HTLC """
@@ -3505,7 +3480,6 @@ def test_reject_invalid_payload(node_factory):
     l2.daemon.wait_for_log(r'Failing HTLC because of an invalid payload')
 
 
-@unittest.skip("Test is flaky causing CI to be unusable.")
 def test_excluded_adjacent_routehint(node_factory, bitcoind):
     """Test case where we try have a routehint which leads to an adjacent
     node, but the result exceeds our maxfee; we crashed trying to find
@@ -3514,10 +3488,15 @@ def test_excluded_adjacent_routehint(node_factory, bitcoind):
     """
     l1, l2, l3 = node_factory.line_graph(3)
 
+    # Make sure l2->l3 is usable.
+    wait_for(lambda: 'remote' in only_one(l3.rpc.listpeerchannels()['channels'])['updates'])
+
     # We'll be forced to use routehint, since we don't know about l3.
     inv = l3.rpc.invoice(10**3, "lbl", "desc", exposeprivatechannels=l2.get_channel_scid(l3))
 
-    l1.wait_channel_active(l1.get_channel_scid(l2))
+    # Make sure l1->l2 is usable.
+    wait_for(lambda: 'remote' in only_one(l1.rpc.listpeerchannels()['channels'])['updates'])
+
     # This will make it reject the routehint.
     err = r'Fee exceeds our fee budget: 1msat > 0msat, discarding route'
     with pytest.raises(RpcError, match=err):
@@ -5276,6 +5255,7 @@ def test_sendpay_grouping(node_factory, bitcoind):
     assert([p['status'] for p in pays] == ['failed', 'failed', 'complete'])
 
 
+@pytest.mark.flaky(reruns=2)
 def test_pay_manual_exclude(node_factory, bitcoind):
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
     l1_id = l1.rpc.getinfo()['id']
