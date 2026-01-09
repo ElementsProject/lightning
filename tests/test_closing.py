@@ -4286,7 +4286,7 @@ def test_onchain_reestablish_reply(node_factory, bitcoind, executor):
 
     # We block l3 from seeing close, so it will try to reestablish.
     def no_new_blocks(req):
-        return {"error": "go away"}
+        return {"error": {"code": -8, "message": "Block height out of range"}}
     l3.daemon.rpcproxy.mock_rpc('getblockhash', no_new_blocks)
 
     l2.rpc.disconnect(l3.info['id'], force=True)
@@ -4369,7 +4369,7 @@ def test_reestablish_closed_channels(node_factory, bitcoind):
 
     # We block l2 from seeing close, so it will try to reestablish.
     def no_new_blocks(req):
-        return {"error": "go away"}
+        return {"error": {"code": -8, "message": "Block height out of range"}}
     l2.daemon.rpcproxy.mock_rpc('getblockhash', no_new_blocks)
 
     # Make a payment, make sure it's entirely finished before we close.
