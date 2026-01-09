@@ -111,6 +111,25 @@ static void bitcoin_plugin_error(struct bitcoind *bitcoind, const char *buf,
 	      toks->end - toks->start, buf + toks->start);
 }
 
+/* Check if response is an error and fail with clear message if so */
+static void check_bitcoin_error(struct bitcoind *bitcoind, const char *buf,
+				const jsmntok_t *toks, const char *method)
+{
+	const jsmntok_t *err_tok, *msg_tok;
+
+	err_tok = json_get_member(buf, toks, "error");
+	if (!err_tok)
+		return;
+
+	msg_tok = json_get_member(buf, err_tok, "message");
+	if (msg_tok)
+		fatal("%s: %.*s", method,
+		      json_tok_full_len(msg_tok), json_tok_full(buf, msg_tok));
+	else
+		fatal("%s: %.*s", method,
+		      json_tok_full_len(err_tok), json_tok_full(buf, err_tok));
+}
+
 /* Send a request to the Bitcoin plugin which registered that method,
  * if it's still alive. */
 static void bitcoin_plugin_send(struct bitcoind *bitcoind,
@@ -287,6 +306,8 @@ static void estimatefees_callback(const char *buf, const jsmntok_t *toks,
 	struct feerate_est *feerates;
 	u32 floor;
 
+	check_bitcoin_error(call->bitcoind, buf, toks, "estimatefees");
+
 	resulttok = json_get_member(buf, toks, "result");
 	if (!resulttok)
 		bitcoin_plugin_error(call->bitcoind, buf, toks,
@@ -390,6 +411,8 @@ static void sendrawtx_callback(const char *buf, const jsmntok_t *toks,
 	const char *errmsg = NULL;
 	bool success = false;
 
+	check_bitcoin_error(call->bitcoind, buf, toks, "sendrawtransaction");
+
 	err = json_scan(tmpctx, buf, toks, "{result:{success:%}}",
 			JSON_SCAN(json_to_bool, &success));
 	if (err) {
@@ -471,6 +494,8 @@ getrawblockbyheight_callback(const char *buf, const jsmntok_t *toks,
 	const tal_t *ctx;
 	trace_span_resume(call);
 	trace_span_end(call);
+
+	check_bitcoin_error(call->bitcoind, buf, toks, "getrawblockbyheight");
 
 	/* Callback may free parent of call, so steal onto context to
 	 * free if it doesn't */
@@ -569,6 +594,8 @@ static void getchaininfo_callback(const char *buf, const jsmntok_t *toks,
 	u32 headers, blocks;
 	bool ibd;
 
+	check_bitcoin_error(call->bitcoind, buf, toks, "getchaininfo");
+
 	err = json_scan(tmpctx, buf, toks,
 			"{result:{chain:%,headercount:%,blockcount:%,ibd:%}}",
 			JSON_SCAN_TAL(tmpctx, json_strdup, &chain),
@@ -641,6 +668,8 @@ static void getutxout_callback(const char *buf, const jsmntok_t *toks,
 
 	/* Whatever happens, we want to free this. */
 	tal_steal(tmpctx, call);
+
+	check_bitcoin_error(call->bitcoind, buf, toks, "getutxout");
 
 	err = json_scan(tmpctx, buf, toks, "{result:{script:null}}");
 	if (!err) {
