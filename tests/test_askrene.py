@@ -1961,7 +1961,6 @@ def test_splice_dying_channel(node_factory, bitcoind):
     assert set([only_one(r['path'])['short_channel_id_dir'] for r in routes]) == set([pre_splice_scidd, post_splice_scidd])
 
 
-@unittest.skip
 def test_excessive_fee_cost(node_factory):
     """Produce a arc with very large fee cost that triggers an assertion in
     askrene's single path solver."""
