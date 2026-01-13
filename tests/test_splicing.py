@@ -551,7 +551,7 @@ def test_route_by_old_scid(node_factory, bitcoind):
 
     # Now restart l2, make sure it remembers the original!
     l2.restart()
-    l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
 
     wait_for(lambda: only_one(l1.rpc.listpeers()['peers'])['connected'] is True)
