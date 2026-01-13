@@ -21,6 +21,12 @@ def direction(src, dst):
     return 1
 
 
+def scid_dir(nodemap, node1_idx, node2_idx, chan_idx):
+    """Get short_channel_id_dir for a channel in generate_gossip_store format"""
+    dir_val = direction(nodemap[node1_idx], nodemap[node2_idx])
+    return f"{node1_idx}x{node2_idx}x{chan_idx}/{dir_val}"
+
+
 def test_reserve(node_factory):
     """Test reserving channels"""
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
@@ -683,7 +689,8 @@ def test_getroutes(node_factory):
     l1 = node_factory.get_node(gossip_store_file=gsfile.name)
 
     # Too much should give a decent explanation.
-    with pytest.raises(RpcError, match=r"We could not find a usable set of paths\.  The shortest path is 0x1x0, but 0x1x0/1 isn't big enough to carry 1000000001msat\."):
+    dir01 = direction(nodemap[0], nodemap[1])
+    with pytest.raises(RpcError, match=rf"We could not find a usable set of paths\.  The shortest path is 0x1x0, but 0x1x0/{dir01} isn't big enough to carry 1000000001msat\."):
         l1.rpc.getroutes(source=nodemap[0],
                          destination=nodemap[1],
                          amount_msat=1000000001,
@@ -710,11 +717,12 @@ def test_getroutes(node_factory):
                          final_cltv=99)
 
     # Disabling channels makes getroutes fail
+    dir01 = direction(nodemap[0], nodemap[1])
     l1.rpc.askrene_create_layer('chans_disabled')
     l1.rpc.askrene_update_channel(layer="chans_disabled",
-                                  short_channel_id_dir='0x1x0/1',
+                                  short_channel_id_dir=f'0x1x0/{dir01}',
                                   enabled=False)
-    with pytest.raises(RpcError, match=r"We could not find a usable set of paths\.  The shortest path is 0x1x0, but 0x1x0/1 marked disabled by layer chans_disabled\."):
+    with pytest.raises(RpcError, match=rf"We could not find a usable set of paths\.  The shortest path is 0x1x0, but 0x1x0/{dir01} marked disabled by layer chans_disabled\."):
         l1.rpc.getroutes(source=nodemap[0],
                          destination=nodemap[1],
                          amount_msat=1000,
@@ -723,6 +731,7 @@ def test_getroutes(node_factory):
                          final_cltv=99)
 
     # Start easy
+    dir01 = direction(nodemap[0], nodemap[1])
     assert l1.rpc.getroutes(source=nodemap[0],
                             destination=nodemap[1],
                             amount_msat=1000,
@@ -732,11 +741,12 @@ def test_getroutes(node_factory):
                                                'routes': [{'probability_ppm': 999999,
                                                            'final_cltv': 99,
                                                            'amount_msat': 1000,
-                                                           'path': [{'short_channel_id_dir': '0x1x0/1',
+                                                           'path': [{'short_channel_id_dir': f'0x1x0/{dir01}',
                                                                      'next_node_id': nodemap[1],
                                                                      'amount_msat': 1010,
                                                                      'delay': 99 + 6}]}]}
     # Two hop, still easy.
+    dir13 = direction(nodemap[1], nodemap[3])
     assert l1.rpc.getroutes(source=nodemap[0],
                             destination=nodemap[3],
                             amount_msat=100000,
@@ -746,11 +756,11 @@ def test_getroutes(node_factory):
                                                'routes': [{'probability_ppm': 999798,
                                                            'final_cltv': 99,
                                                            'amount_msat': 100000,
-                                                           'path': [{'short_channel_id_dir': '0x1x0/1',
+                                                           'path': [{'short_channel_id_dir': f'0x1x0/{dir01}',
                                                                      'next_node_id': nodemap[1],
                                                                      'amount_msat': 103020,
                                                                      'delay': 99 + 6 + 6},
-                                                                    {'short_channel_id_dir': '1x3x2/1',
+                                                                    {'short_channel_id_dir': f'1x3x2/{dir13}',
                                                                      'next_node_id': nodemap[3],
                                                                      'amount_msat': 102000,
                                                                      'delay': 99 + 6}
@@ -781,6 +791,7 @@ def test_getroutes(node_factory):
                          final_cltv=99)
 
     # Two choices, but for <= 1000 sats we choose the larger.
+    dir02 = direction(nodemap[0], nodemap[2])
     assert l1.rpc.getroutes(source=nodemap[0],
                             destination=nodemap[2],
                             amount_msat=1000000,
@@ -790,7 +801,7 @@ def test_getroutes(node_factory):
                                                'routes': [{'probability_ppm': 900000,
                                                            'final_cltv': 99,
                                                            'amount_msat': 1000000,
-                                                           'path': [{'short_channel_id_dir': '0x2x3/1',
+                                                           'path': [{'short_channel_id_dir': f'0x2x3/{dir02}',
                                                                      'next_node_id': nodemap[2],
                                                                      'amount_msat': 1000001,
                                                                      'delay': 99 + 6}]}]}
@@ -800,11 +811,11 @@ def test_getroutes(node_factory):
                          nodemap[0],
                          nodemap[2],
                          10000000,
-                         [[{'short_channel_id_dir': '0x2x1/1',
+                         [[{'short_channel_id_dir': f'0x2x1/{dir02}',
                             'next_node_id': nodemap[2],
                             'amount_msat': 4500004,
                             'delay': 99 + 6}],
-                          [{'short_channel_id_dir': '0x2x3/1',
+                          [{'short_channel_id_dir': f'0x2x3/{dir02}',
                             'next_node_id': nodemap[2],
                             'amount_msat': 5500005,
                             'delay': 99 + 6}]])
@@ -917,13 +928,17 @@ def test_getroutes_fee_fallback(node_factory):
     l1 = node_factory.get_node(gossip_store_file=gsfile.name)
 
     # Don't hit maxfee?  Go easy path.
+    dir01 = direction(nodemap[0], nodemap[1])
+    dir13 = direction(nodemap[1], nodemap[3])
+    dir02 = direction(nodemap[0], nodemap[2])
+    dir23 = direction(nodemap[2], nodemap[3])
     check_getroute_paths(l1,
                          nodemap[0],
                          nodemap[3],
                          10000,
                          maxfee_msat=201,
-                         paths=[[{'short_channel_id_dir': '0x1x0/1'},
-                                 {'short_channel_id_dir': '1x3x2/1'}]])
+                         paths=[[{'short_channel_id_dir': f'0x1x0/{dir01}'},
+                                 {'short_channel_id_dir': f'1x3x2/{dir13}'}]])
 
     # maxfee exceeded?  lower prob path.
     check_getroute_paths(l1,
@@ -931,8 +946,8 @@ def test_getroutes_fee_fallback(node_factory):
                          nodemap[3],
                          10000,
                          maxfee_msat=200,
-                         paths=[[{'short_channel_id_dir': '0x2x1/1'},
-                                 {'short_channel_id_dir': '2x3x3/0'}]])
+                         paths=[[{'short_channel_id_dir': f'0x2x1/{dir02}'},
+                                 {'short_channel_id_dir': f'2x3x3/{dir23}'}]])
 
 
 def test_getroutes_auto_sourcefree(node_factory):
@@ -947,6 +962,7 @@ def test_getroutes_auto_sourcefree(node_factory):
     l1 = node_factory.get_node(gossip_store_file=gsfile.name)
 
     # Without sourcefree:
+    dir01 = direction(nodemap[0], nodemap[1])
     assert l1.rpc.getroutes(source=nodemap[0],
                             destination=nodemap[1],
                             amount_msat=1000,
@@ -956,7 +972,7 @@ def test_getroutes_auto_sourcefree(node_factory):
                                                'routes': [{'probability_ppm': 999999,
                                                            'final_cltv': 99,
                                                            'amount_msat': 1000,
-                                                           'path': [{'short_channel_id_dir': '0x1x0/1',
+                                                           'path': [{'short_channel_id_dir': f'0x1x0/{dir01}',
                                                                      'next_node_id': nodemap[1],
                                                                      'amount_msat': 1010,
                                                                      'delay': 105}]}]}
@@ -971,11 +987,12 @@ def test_getroutes_auto_sourcefree(node_factory):
                                                'routes': [{'probability_ppm': 999999,
                                                            'final_cltv': 99,
                                                            'amount_msat': 1000,
-                                                           'path': [{'short_channel_id_dir': '0x1x0/1',
+                                                           'path': [{'short_channel_id_dir': f'0x1x0/{dir01}',
                                                                      'next_node_id': nodemap[1],
                                                                      'amount_msat': 1000,
                                                                      'delay': 99}]}]}
     # Two hop, still easy.
+    dir13 = direction(nodemap[1], nodemap[3])
     assert l1.rpc.getroutes(source=nodemap[0],
                             destination=nodemap[3],
                             amount_msat=100000,
@@ -985,11 +1002,11 @@ def test_getroutes_auto_sourcefree(node_factory):
                                                'routes': [{'probability_ppm': 999798,
                                                            'final_cltv': 99,
                                                            'amount_msat': 100000,
-                                                           'path': [{'short_channel_id_dir': '0x1x0/1',
+                                                           'path': [{'short_channel_id_dir': f'0x1x0/{dir01}',
                                                                      'next_node_id': nodemap[1],
                                                                      'amount_msat': 102000,
                                                                      'delay': 99 + 6},
-                                                                    {'short_channel_id_dir': '1x3x2/1',
+                                                                    {'short_channel_id_dir': f'1x3x2/{dir13}',
                                                                      'next_node_id': nodemap[3],
                                                                      'amount_msat': 102000,
                                                                      'delay': 99 + 6}
@@ -1028,6 +1045,7 @@ def test_getroutes_maxdelay(node_factory):
     l1 = node_factory.get_node(gossip_store_file=gsfile.name)
 
     # Should prefer the cheaper channel
+    dir01 = direction(nodemap[0], nodemap[1])
     assert l1.rpc.getroutes(source=nodemap[0],
                             destination=nodemap[1],
                             amount_msat=1000,
@@ -1037,7 +1055,7 @@ def test_getroutes_maxdelay(node_factory):
                                                'routes': [{'probability_ppm': 999999,
                                                            'final_cltv': 99,
                                                            'amount_msat': 1000,
-                                                           'path': [{'short_channel_id_dir': '0x1x0/1',
+                                                           'path': [{'short_channel_id_dir': f'0x1x0/{dir01}',
                                                                      'next_node_id': nodemap[1],
                                                                      'amount_msat': 1010,
                                                                      'delay': 179}]}]}
@@ -1053,7 +1071,7 @@ def test_getroutes_maxdelay(node_factory):
                                               'routes': [{'probability_ppm': 999999,
                                                           'final_cltv': 99,
                                                           'amount_msat': 1000,
-                                                          'path': [{'short_channel_id_dir': '0x1x1/1',
+                                                          'path': [{'short_channel_id_dir': f'0x1x1/{dir01}',
                                                                     'next_node_id': nodemap[1],
                                                                     'amount_msat': 1020,
                                                                     'delay': 139}]}]}
@@ -1093,6 +1111,9 @@ def test_getroutes_auto_localchans(node_factory):
 
     # This should work
     scid21dir = f"{scid12}/{direction(l2.info['id'], l1.info['id'])}"
+    # Calculate directions dynamically based on node IDs
+    dir01 = direction(nodemap[0], nodemap[1])
+    dir12 = direction(nodemap[1], nodemap[2])
     check_getroute_paths(l2,
                          l2.info['id'],
                          nodemap[2],
@@ -1100,8 +1121,8 @@ def test_getroutes_auto_localchans(node_factory):
                          maxfee_msat=100000,
                          layers=['auto.localchans'],
                          paths=[[{'short_channel_id_dir': scid21dir, 'amount_msat': 102012, 'delay': 99 + 6 + 6 + 6},
-                                 {'short_channel_id_dir': '0x1x0/0', 'amount_msat': 102010, 'delay': 99 + 6 + 6},
-                                 {'short_channel_id_dir': '1x2x1/1', 'amount_msat': 101000, 'delay': 99 + 6}]])
+                                 {'short_channel_id_dir': f'0x1x0/{dir01}', 'amount_msat': 102010, 'delay': 99 + 6 + 6},
+                                 {'short_channel_id_dir': f'1x2x1/{dir12}', 'amount_msat': 101000, 'delay': 99 + 6}]])
 
     # This should get self-discount correct
     check_getroute_paths(l2,
@@ -1111,8 +1132,8 @@ def test_getroutes_auto_localchans(node_factory):
                          maxfee_msat=100000,
                          layers=['auto.localchans', 'auto.sourcefree'],
                          paths=[[{'short_channel_id_dir': scid21dir, 'amount_msat': 102010, 'delay': 99 + 6 + 6},
-                                 {'short_channel_id_dir': '0x1x0/0', 'amount_msat': 102010, 'delay': 99 + 6 + 6},
-                                 {'short_channel_id_dir': '1x2x1/1', 'amount_msat': 101000, 'delay': 99 + 6}]])
+                                 {'short_channel_id_dir': f'0x1x0/{dir01}', 'amount_msat': 102010, 'delay': 99 + 6 + 6},
+                                 {'short_channel_id_dir': f'1x2x1/{dir12}', 'amount_msat': 101000, 'delay': 99 + 6}]])
 
 
 def test_fees_dont_exceed_constraints(node_factory):
@@ -1169,6 +1190,7 @@ def test_sourcefree_on_mods(node_factory, bitcoind):
                                   fee_base_msat=1000,
                                   fee_proportional_millionths=2000,
                                   cltv_expiry_delta=18)
+    dir03 = direction(nodemap[0], l1.info['id'])
     routes = l1.rpc.getroutes(source=nodemap[0],
                               destination=l1.info['id'],
                               amount_msat=1000000,
@@ -1176,7 +1198,7 @@ def test_sourcefree_on_mods(node_factory, bitcoind):
                               maxfee_msat=100000,
                               final_cltv=99)['routes']
     # Expect no fee.
-    check_route_as_expected(routes, [[{'short_channel_id_dir': '0x3x3/1',
+    check_route_as_expected(routes, [[{'short_channel_id_dir': f'0x3x3/{dir03}',
                                        'amount_msat': 1000000, 'delay': 99}]])
 
     # NOT if we specify layers in the other order!
@@ -1187,7 +1209,7 @@ def test_sourcefree_on_mods(node_factory, bitcoind):
                               maxfee_msat=100000,
                               final_cltv=99)['routes']
     # Expect no fee.
-    check_route_as_expected(routes, [[{'short_channel_id_dir': '0x3x3/1',
+    check_route_as_expected(routes, [[{'short_channel_id_dir': f'0x3x3/{dir03}',
                                        'amount_msat': 1003000, 'delay': 117}]])
 
 
@@ -1272,11 +1294,12 @@ def test_limits_fake_gossmap(node_factory, bitcoind):
     l1 = node_factory.get_node(gossip_store_file=gsfile.name)
 
     # Create a layer like auto.localchans would from "spendable"
-    spendable = {'0x1x0/1': 87718000,
-                 '0x1x1/1': 87718000,
-                 '0x1x2/1': 186718000,
-                 '0x1x3/1': 285718000,
-                 '0x1x4/1': 384718000}
+    dir01 = direction(nodemap[0], nodemap[1])
+    spendable = {f'0x1x0/{dir01}': 87718000,
+                 f'0x1x1/{dir01}': 87718000,
+                 f'0x1x2/{dir01}': 186718000,
+                 f'0x1x3/{dir01}': 285718000,
+                 f'0x1x4/{dir01}': 384718000}
 
     # Sanity check that these exist!
     for scidd in spendable:
@@ -1353,18 +1376,19 @@ def test_max_htlc(node_factory, bitcoind):
                               maxfee_msat=20_000_000,
                               final_cltv=10)
 
+    dir01 = direction(nodemap[0], nodemap[1])
     check_route_as_expected(routes['routes'],
-                            [[{'short_channel_id_dir': '0x1x0/1', 'amount_msat': 1_000_001, 'delay': 10 + 6}],
-                             [{'short_channel_id_dir': '0x1x1/1', 'amount_msat': 19_000_019, 'delay': 10 + 6}]])
+                            [[{'short_channel_id_dir': f'0x1x0/{dir01}', 'amount_msat': 1_000_001, 'delay': 10 + 6}],
+                             [{'short_channel_id_dir': f'0x1x1/{dir01}', 'amount_msat': 19_000_019, 'delay': 10 + 6}]])
 
     # If we can't use channel 2, we fail.
     l1.rpc.askrene_create_layer('removechan2')
     l1.rpc.askrene_inform_channel(layer='removechan2',
-                                  short_channel_id_dir='0x1x1/1',
+                                  short_channel_id_dir=f'0x1x1/{dir01}',
                                   amount_msat=1,
                                   inform='constrained')
 
-    with pytest.raises(RpcError, match="We could not find a usable set of paths.  The shortest path is 0x1x0, but 0x1x0/1 exceeds htlc_maximum_msat ~1000448msat"):
+    with pytest.raises(RpcError, match=rf"We could not find a usable set of paths.  The shortest path is 0x1x0, but 0x1x0/{dir01} exceeds htlc_maximum_msat ~1000448msat"):
         l1.rpc.getroutes(source=nodemap[0],
                          destination=nodemap[1],
                          amount_msat=20_000_000,
@@ -1387,8 +1411,9 @@ def test_min_htlc(node_factory, bitcoind):
                               maxfee_msat=20_000_000,
                               final_cltv=10)
 
+    dir01 = direction(nodemap[0], nodemap[1])
     check_route_as_expected(routes['routes'],
-                            [[{'short_channel_id_dir': '0x1x1/1', 'amount_msat': 1_000, 'delay': 10 + 6}]])
+                            [[{'short_channel_id_dir': f'0x1x1/{dir01}', 'amount_msat': 1_000, 'delay': 10 + 6}]])
 
 
 def test_min_htlc_after_excess(node_factory, bitcoind):
@@ -1396,7 +1421,8 @@ def test_min_htlc_after_excess(node_factory, bitcoind):
                                                         forward=GenChannel.Half(htlc_min=2_000))])
     l1 = node_factory.get_node(gossip_store_file=gsfile.name)
 
-    with pytest.raises(RpcError, match=r"We could not find a usable set of paths.  The shortest path is 0x1x0, but 0x1x0/1 below htlc_minumum_msat ~2000msat"):
+    dir01 = direction(nodemap[0], nodemap[1])
+    with pytest.raises(RpcError, match=rf"We could not find a usable set of paths.  The shortest path is 0x1x0, but 0x1x0/{dir01} below htlc_minumum_msat ~2000msat"):
         l1.rpc.getroutes(source=nodemap[0],
                          destination=nodemap[1],
                          amount_msat=1999,
