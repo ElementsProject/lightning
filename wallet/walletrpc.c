@@ -292,28 +292,40 @@ static struct command_result *json_listaddrs(struct command *cmd,
 {
 	struct json_stream *response;
 	struct pubkey pubkey;
-	u64 *bip32_max_index;
+	u64 *max_index;
+	bool use_bip86 = (cmd->ld->bip86_base != NULL);
 
 	if (!param(cmd, buffer, params,
-		   p_opt("bip32_max_index", param_u64, &bip32_max_index),
+		   p_opt("max_index", param_u64, &max_index),
 		   NULL))
 		return command_param_failed();
 
-	if (!bip32_max_index) {
-		bip32_max_index = tal(cmd, u64);
-		*bip32_max_index = db_get_intvar(cmd->ld->wallet->db,
-						 "bip32_max_index", 0);
+	if (!max_index) {
+		max_index = tal(cmd, u64);
+		/* Use bip86_max_index for BIP86 wallets, bip32_max_index for legacy */
+		if (use_bip86) {
+			*max_index = db_get_intvar(cmd->ld->wallet->db,
+						   "bip86_max_index", 0);
+		} else {
+			*max_index = db_get_intvar(cmd->ld->wallet->db,
+						   "bip32_max_index", 0);
+		}
 	}
 	response = json_stream_success(cmd);
 	json_array_start(response, "addresses");
 
-	for (s64 keyidx = 1; keyidx <= *bip32_max_index; keyidx++) {
+	for (s64 keyidx = 1; keyidx <= *max_index; keyidx++) {
 
 		if (keyidx == BIP32_INITIAL_HARDENED_CHILD){
 			break;
 		}
 
-		bip32_pubkey(cmd->ld, &pubkey, keyidx);
+		/* Use BIP86 derivation for BIP86 wallets, BIP32 for legacy */
+		if (use_bip86) {
+			bip86_pubkey(cmd->ld, &pubkey, keyidx);
+		} else {
+			bip32_pubkey(cmd->ld, &pubkey, keyidx);
+		}
 
 		// bech32 : p2wpkh
 		u8 *redeemscript_p2wpkh;
