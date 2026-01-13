@@ -540,9 +540,8 @@ static void hsm_key_for_utxo(struct privkey *privkey, struct pubkey *pubkey,
 		hsmd_status_debug("Derived public key %s from unilateral close",
 				  fmt_pubkey(tmpctx, pubkey));
 	} else {
-		/* Modern HSMs use bip86 for p2tr. */
-		if (is_p2tr(utxo->scriptPubkey, tal_bytelen(utxo->scriptPubkey), NULL)
-		    && use_bip86_derivation(tal_bytelen(secretstuff.bip32_seed))) {
+		/* Modern HSMs use bip86. */
+		if (use_bip86_derivation(tal_bytelen(secretstuff.bip32_seed))) {
 			/* Use BIP86 derivation */
 			bip86_key(privkey, pubkey, utxo->keyindex);
 		} else {
