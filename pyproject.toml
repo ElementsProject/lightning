@@ -19,6 +19,7 @@ dependencies = [
   "pytest-rerunfailures>=16.0.1",
   "pyln-testing",
   "pyln-proto",
+  "mnemonic>=0.21",
 ]
 package-mode = false
 [dependency-groups]
