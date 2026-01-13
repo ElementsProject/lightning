@@ -215,6 +215,15 @@ char *str_lowering(const void *ctx, const char *string TAKES)
 	return ret;
 }
 
+char *str_uppering(const void *ctx, const char *string TAKES)
+{
+	char *ret;
+
+	ret = tal_strdup(ctx, string);
+	for (char *p = ret; *p; p++) *p = toupper(*p);
+	return ret;
+}
+
 /* Realloc helper for tal membufs */
 void *membuf_tal_resize(struct membuf *mb, void *rawelems, size_t newsize)
 {
