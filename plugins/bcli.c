@@ -344,10 +344,7 @@ static struct command_result *getrawblockbyheight(struct command *cmd,
 			      tal_fmt(tmpctx, "%u", *height), NULL);
 
 	if (res->exitstatus != 0) {
-		/* Exit code 8 means block height doesn't exist (empty response) */
-		if (res->exitstatus == 8)
-			return getrawblockbyheight_notfound(cmd);
-		return command_err(cmd, res, "command failed");
+		return getrawblockbyheight_notfound(cmd);
 	}
 
 	strip_trailing_whitespace(res->output, res->output_len);
