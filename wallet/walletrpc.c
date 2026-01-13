@@ -1282,36 +1282,22 @@ json_signmessagewithkey(struct command *cmd, const char *buffer,
 		    "HSM does not support signing BIP137 signing.");
 	}
 
-	const u32 bip32_max_index =
-	    db_get_intvar(cmd->ld->wallet->db, "bip32_max_index", 0);
-        bool match_found = false;
 	u32 keyidx;
-        enum addrtype addrtype;
+	enum addrtype addrtype;
 
-	/* loop over all generated keys, find a matching key */
-	for (keyidx = 1; keyidx <= bip32_max_index; keyidx++) {
-		bip32_pubkey(cmd->ld, &pubkey, keyidx);
-		u8 *redeemscript_p2wpkh;
-		char *out_p2wpkh = encode_pubkey_to_addr(
-		    cmd, &pubkey, ADDR_BECH32, &redeemscript_p2wpkh);
-		if (!out_p2wpkh) {
-			abort();
-		}
-		/* wallet_get_addrtype fails for entries prior to v24.11, all
-		 * address types are assumed in that case. */
-		if (!wallet_get_addrtype(cmd->ld->wallet, keyidx, &addrtype))
-			addrtype = ADDR_ALL;
-		if (streq(addr, out_p2wpkh) &&
-		    (addrtype == ADDR_BECH32 || addrtype == ADDR_ALL)) {
-			match_found = true;
-			break;
-		}
-	}
-
-	if (!match_found) {
+	/* Use wallet_can_spend which handles both BIP32 and BIP86 addresses */
+	if (!wallet_can_spend(cmd->ld->wallet, scriptpubkey, script_len,
+			      &keyidx, &addrtype)) {
 		return command_fail(
 		    cmd, JSONRPC2_INVALID_PARAMS,
 		    "Address is not found in the wallet's database");
+	}
+
+	/* Derive the pubkey for the found key index */
+	if (cmd->ld->bip86_base) {
+		bip86_pubkey(cmd->ld, &pubkey, keyidx);
+	} else {
+		bip32_pubkey(cmd->ld, &pubkey, keyidx);
 	}
 
 	/* wire to hsmd a sign request */
