@@ -911,6 +911,7 @@ static struct wallet *create_test_wallet(struct lightningd *ld, const tal_t *ctx
 	w->ld = ld;
 	ld->wallet = w;
 
+	ld->bip86_base = NULL;
 	ld->bip32_base = tal(ld, struct ext_key);
 	CHECK(bip32_key_from_seed(badseed, sizeof(badseed),
 				  BIP32_VER_TEST_PRIVATE, 0,
