@@ -81,7 +81,7 @@ def test_bookkeeping_closing_trimmed_htlcs(node_factory, bitcoind, executor):
 @unittest.skipIf(TEST_NETWORK != 'regtest', "fixme: broadcast fails, dusty")
 def test_bookkeeping_closing_subsat_htlcs(node_factory, bitcoind, chainparams):
     """Test closing balances when HTLCs are: sub 1-satoshi"""
-    l1, l2 = node_factory.line_graph(2)
+    l1, l2 = node_factory.line_graph(2, opts={'old_hsmsecret': True})
 
     l1.pay(l2, 111)
     l1.pay(l2, 222)
@@ -957,10 +957,12 @@ def test_migration(node_factory, bitcoind):
         bitcoind.generate_block(1)
         l1 = node_factory.get_node(dbfile="l1-before-moves-in-db.sqlite3.xz",
                                    bkpr_dbfile="l1-bkpr-accounts.sqlite3.xz",
-                                   options={'database-upgrade': True})
+                                   options={'database-upgrade': True},
+                                   old_hsmsecret=True)
         l2 = node_factory.get_node(dbfile="l2-before-moves-in-db.sqlite3.xz",
                                    bkpr_dbfile="l2-bkpr-accounts.sqlite3.xz",
-                                   options={'database-upgrade': True})
+                                   options={'database-upgrade': True},
+                                   old_hsmsecret=True)
 
         chan = only_one(l1.rpc.listpeerchannels()['channels'])
 
@@ -1109,9 +1111,11 @@ def test_migration_no_bkpr(node_factory, bitcoind):
     """These nodes need to invent coinmoves to make the balances work"""
     bitcoind.generate_block(1)
     l1 = node_factory.get_node(dbfile="l1-before-moves-in-db.sqlite3.xz",
-                               options={'database-upgrade': True})
+                               options={'database-upgrade': True},
+                               old_hsmsecret=True)
     l2 = node_factory.get_node(dbfile="l2-before-moves-in-db.sqlite3.xz",
-                               options={'database-upgrade': True})
+                               options={'database-upgrade': True},
+                               old_hsmsecret=True)
 
     chan = only_one(l1.rpc.listpeerchannels()['channels'])
 
@@ -1201,7 +1205,8 @@ def test_bkpr_parallel(node_factory, bitcoind, executor):
     """Bookkeeper could crash with parallel requests"""
     bitcoind.generate_block(1)
     l1 = node_factory.get_node(dbfile="l1-before-moves-in-db.sqlite3.xz",
-                               options={'database-upgrade': True})
+                               options={'database-upgrade': True},
+                               old_hsmsecret=True)
 
     fut1 = executor.submit(l1.rpc.bkpr_listincome)
     fut2 = executor.submit(l1.rpc.bkpr_listincome)
