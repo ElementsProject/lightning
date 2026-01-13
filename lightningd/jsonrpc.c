@@ -293,7 +293,8 @@ static struct command_result *json_recover(struct command *cmd,
 				    "Only sqlite3 supported for recover command");
 
 	/* Check this is an empty node! */
-	if (db_get_intvar(cmd->ld->wallet->db, "bip32_max_index", 0) != 0) {
+	if (db_get_intvar(cmd->ld->wallet->db, "bip32_max_index", 0) != 0
+	    || db_get_intvar(cmd->ld->wallet->db, "bip86_max_index", 0) != 0) {
 		return command_fail(cmd, RECOVER_NODE_IN_USE,
 				    "Node has already issued bitcoin addresses!");
 	}
