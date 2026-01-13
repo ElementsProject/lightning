@@ -86,7 +86,8 @@ void channel_update_feerates(struct lightningd *ld, const struct channel *channe
 	msg = towire_channeld_feerates(NULL, feerate,
 				       min_feerate,
 				       max_feerate,
-				       penalty_feerate(ld->topology));
+				       penalty_feerate(ld->topology),
+				       opening_feerate(ld->topology));
 	subd_send_msg(channel->owner, take(msg));
 }
 
@@ -587,9 +588,10 @@ static void send_splice_tx(struct channel *channel,
 	u8* tx_bytes = linearize_tx(tmpctx, tx);
 
 	log_debug(channel->log,
-		  "Broadcasting splice tx %s for channel %s.",
+		  "Broadcasting splice tx %s for channel %s. Final weight %lu",
 		  tal_hex(tmpctx, tx_bytes),
-		  fmt_channel_id(tmpctx, &channel->cid));
+		  fmt_channel_id(tmpctx, &channel->cid),
+		  bitcoin_tx_weight(tx));
 
 	struct send_splice_info *info = tal(NULL, struct send_splice_info);
 
@@ -1863,6 +1865,7 @@ bool peer_start_channeld(struct channel *channel,
 				       min_feerate,
 				       max_feerate,
 				       penalty_feerate(ld->topology),
+				       opening_feerate(ld->topology),
 				       &channel->last_sig,
 				       &channel->channel_info.remote_fundingkey,
 				       &channel->channel_info.theirbase,
@@ -2659,7 +2662,8 @@ static struct command_result *json_dev_feerate(struct command *cmd,
 	msg = towire_channeld_feerates(NULL, *feerate,
 				       feerate_min(cmd->ld, NULL),
 				       feerate_max(cmd->ld, NULL),
-				       penalty_feerate(cmd->ld->topology));
+				       penalty_feerate(cmd->ld->topology),
+				       opening_feerate(cmd->ld->topology));
 	subd_send_msg(channel->owner, take(msg));
 
 	response = json_stream_success(cmd);
