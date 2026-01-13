@@ -1648,7 +1648,7 @@ def test_hsmtool_all_commands_work_with_mnemonic_formats(node_factory):
     # Test various commands work with mnemonic format
     test_commands = [
         (["getnodeid", hsm_path], "03653e90c1ce4660fd8505dd6d643356e93cfe202af109d382787639dd5890e87d"),
-        (["getcodexsecret", hsm_path, "test"], "cl10testst6cqh0wu7p5ssjyf4z4ez42ks9jlt3zneju9uuypr2hddak6tlqsghuxusm6m6azq"),
+        (["getsecret", hsm_path], "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"),
         (["makerune", hsm_path], "6VkrWMI2hm2a2UTkg-EyUrrBJN0RcuPB80I1pCVkTD89MA=="),
         (["dumponchaindescriptors", hsm_path], "wpkh(xpub661MyMwAqRbcG9kjo3mdWQuSDbtdJzsd3K2mvifyeUMF3GhLcBAfELqjuxCvxUkYqQVe6rJ9SzmpipoUedb5MD79MJaLL8RME2A3J3Fw6Zd/0/0/*)#2jtshmk0\nsh(wpkh(xpub661MyMwAqRbcG9kjo3mdWQuSDbtdJzsd3K2mvifyeUMF3GhLcBAfELqjuxCvxUkYqQVe6rJ9SzmpipoUedb5MD79MJaLL8RME2A3J3Fw6Zd/0/0/*))#u6am4was\ntr(xpub661MyMwAqRbcG9kjo3mdWQuSDbtdJzsd3K2mvifyeUMF3GhLcBAfELqjuxCvxUkYqQVe6rJ9SzmpipoUedb5MD79MJaLL8RME2A3J3Fw6Zd/0/0/*)#v9hf4756"),
     ]
