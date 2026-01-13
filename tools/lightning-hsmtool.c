@@ -477,29 +477,60 @@ static void derive_to_remote(const struct unilateral_close_info *info, const cha
 				     fmt_pubkey(tmpctx, info->commitment_point));
 	printf("privkey : %s\n", fmt_secret(tmpctx, &privkey.secret));
 }
+
 static void dumponchaindescriptors(const char *hsm_secret_path,
 				   const u32 version, bool show_secrets)
 {
-	struct secret hsm_secret;
 	u8 bip32_seed[BIP32_ENTROPY_LEN_256];
 	u32 salt = 0;
 	struct ext_key master_extkey;
 	char *enc_xkey, *descriptor;
 	struct descriptor_checksum checksum;
 	struct hsm_secret *hsms = load_hsm_secret(tmpctx, hsm_secret_path);
-	/* Extract first 32 bytes for legacy compatibility */
-	memcpy(hsm_secret.data, hsms->secret_data, 32);
+	const char *path;
 
-	/* The root seed is derived from hsm_secret using hkdf.. */
-	do {
-		hkdf_sha256(bip32_seed, sizeof(bip32_seed),
-			    &salt, sizeof(salt),
-			    &hsm_secret, sizeof(hsm_secret),
-			    "bip32 seed", strlen("bip32 seed"));
-		salt++;
-		/* ..Which is used to derive m/ */
-	} while (bip32_key_from_seed(bip32_seed, sizeof(bip32_seed),
-				     version, 0, &master_extkey) != WALLY_OK);
+	/* For BIP 86, we derive from subkey: m/86'/0'/0' */
+	if (use_bip86_derivation(tal_bytelen(hsms->secret_data))) {
+		/* First create the master key from the seed */
+		struct ext_key master_key, bip86_base;
+		u32 base_path[3];
+		base_path[0] = 86 | 0x80000000;  /* 86' */
+		base_path[1] = 0x80000000;       /* 0' */
+		base_path[2] = 0x80000000;       /* 0' */
+
+		if (bip32_key_from_seed(hsms->secret_data, tal_bytelen(hsms->secret_data),
+					version, 0, &master_key) != WALLY_OK) {
+			errx(ERROR_LIBWALLY,
+			     "Failed to create master key from BIP32 seed");
+		}
+
+		/* Derive the BIP86 base key */
+		if (bip32_key_from_parent_path(&master_key, base_path, 3, BIP32_FLAG_KEY_PRIVATE, &bip86_base) != WALLY_OK) {
+			errx(ERROR_LIBWALLY,
+			     "Failed to derive BIP86 base key");
+		}
+		master_extkey = bip86_base;
+		/* Remaining path is 0/ */
+		path = "0";
+	} else {
+		struct secret hsm_secret;
+
+		/* Extract first 32 bytes for legacy compatibility */
+		memcpy(hsm_secret.data, hsms->secret_data, 32);
+
+		/* The root seed is derived from hsm_secret using hkdf.. */
+		do {
+			hkdf_sha256(bip32_seed, sizeof(bip32_seed),
+				    &salt, sizeof(salt),
+				    &hsm_secret, sizeof(hsm_secret),
+				    "bip32 seed", strlen("bip32 seed"));
+			salt++;
+			/* ..Which is used to derive m/ */
+		} while (bip32_key_from_seed(bip32_seed, sizeof(bip32_seed),
+					     version, 0, &master_extkey) != WALLY_OK);
+		/* Remaining path is 0/0/ */
+		path = "0/0";
+	}
 
 	if (show_secrets) {
 		if (bip32_key_to_base58(&master_extkey, BIP32_FLAG_KEY_PRIVATE,
@@ -513,20 +544,19 @@ static void dumponchaindescriptors(const char *hsm_secret_path,
 
 	/* Now we format the descriptor strings (we only ever create P2TR, P2WPKH, and
 	 * P2SH-P2WPKH outputs). */
-
-	descriptor = tal_fmt(NULL, "wpkh(%s/0/0/*)", enc_xkey);
+	descriptor = tal_fmt(NULL, "wpkh(%s/%s/*)", enc_xkey, path);
 	if (!descriptor_checksum(descriptor, strlen(descriptor), &checksum))
 		errx(ERROR_LIBWALLY, "Can't derive descriptor checksum for wpkh");
 	printf("%s#%s\n", descriptor, checksum.csum);
 	tal_free(descriptor);
 
-	descriptor = tal_fmt(NULL, "sh(wpkh(%s/0/0/*))", enc_xkey);
+	descriptor = tal_fmt(NULL, "sh(wpkh(%s/%s/*))", enc_xkey, path);
 	if (!descriptor_checksum(descriptor, strlen(descriptor), &checksum))
 		errx(ERROR_LIBWALLY, "Can't derive descriptor checksum for sh(wpkh)");
 	printf("%s#%s\n", descriptor, checksum.csum);
 	tal_free(descriptor);
 
-	descriptor = tal_fmt(NULL, "tr(%s/0/0/*)", enc_xkey);
+	descriptor = tal_fmt(NULL, "tr(%s/%s/*)", enc_xkey, path);
 	if (!descriptor_checksum(descriptor, strlen(descriptor), &checksum))
 		errx(ERROR_LIBWALLY, "Can't derive descriptor checksum for tr");
 	printf("%s#%s\n", descriptor, checksum.csum);
