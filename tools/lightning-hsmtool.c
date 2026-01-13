@@ -56,7 +56,7 @@ static void show_usage(const char *progname)
 	printf("	- checkhsm <path/to/new/hsm_secret>\n");
 	printf("	- dumponchaindescriptors [--show-secrets] <path/to/hsm_secret> [network]\n");
 	printf("	- makerune <path/to/hsm_secret>\n");
-	printf("	- getcodexsecret <path/to/hsm_secret> <id>\n");
+	printf("	- getsecret <path/to/hsm_secret> [<id>]\n");
 	printf("	- getemergencyrecover <path/to/emergency.recover>\n");
 	printf("	- getnodeid <path/to/hsm_secret>\n");
 	exit(0);
@@ -269,20 +269,40 @@ static void get_channel_seed(struct secret *channel_seed, const struct node_id *
 	            info, strlen(info));
 }
 
-static void print_codexsecret(const char *hsm_secret_path, const char *id)
+static void print_secret(const char *hsm_secret_path, const char *id, bool must_be_oldstyle)
 {
 	struct secret hsm_secret;
 	char *bip93;
 	const char *err;
 	struct hsm_secret *hsms = load_hsm_secret(tmpctx, hsm_secret_path);
-	/* Extract first 32 bytes for legacy compatibility */
-	memcpy(hsm_secret.data, hsms->secret_data, 32);
 
-	err = codex32_secret_encode(tmpctx, "cl", id, 0, hsm_secret.data, 32, &bip93);
-	if (err)
-		errx(ERROR_USAGE, "%s", err);
+	switch (hsms->type) {
+	case HSM_SECRET_ENCRYPTED:
+		errx(ERROR_USAGE, "Encrypted hsm_secret");
+	case HSM_SECRET_MNEMONIC_NO_PASS:
+		if (must_be_oldstyle)
+			errx(ERROR_USAGE, "Cannot use getcodexsecret with modern nodes: use getsecret");
+		printf("%s\n", hsms->mnemonic);
+		return;
+	case HSM_SECRET_MNEMONIC_WITH_PASS:
+		errx(ERROR_USAGE, "hsm_secret with passphrase");
+	case HSM_SECRET_PLAIN:
+		if (id == NULL)
+			errx(ERROR_USAGE, "Must set 'id' for a codex32 secret");
+		/* Extract first 32 bytes for legacy compatibility */
+		memcpy(hsm_secret.data, hsms->secret_data, 32);
 
-	printf("%s\n", bip93);
+		err = codex32_secret_encode(tmpctx, "cl", id, 0, hsm_secret.data, 32, &bip93);
+		if (err)
+			errx(ERROR_USAGE, "%s", err);
+
+		printf("%s\n", bip93);
+		return;
+	case HSM_SECRET_INVALID:
+		break;
+	}
+	/* Never happens. */
+	abort();
 }
 
 static void print_emergencyrecover(const char *emer_rec_path)
@@ -745,10 +765,14 @@ int main(int argc, char *argv[])
 		if (argc < 3)
 			show_usage(argv[0]);
 		make_rune(argv[2]);
+	} else if(streq(method, "getsecret")) {
+		if (argc < 3)
+			show_usage(argv[0]);
+		print_secret(argv[2], argv[3], false);
 	} else if(streq(method, "getcodexsecret")) {
 		if (argc < 4)
 			show_usage(argv[0]);
-		print_codexsecret(argv[2], argv[3]);
+		print_secret(argv[2], argv[3], true);
 	} else if(streq(method, "getemergencyrecover")) {
 		if (argc < 3)
 			show_usage(argv[0]);

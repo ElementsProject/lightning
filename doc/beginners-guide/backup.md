@@ -63,11 +63,12 @@ chmod 0400 hsm_secret
 ```
 
 
-#### Codex32 Format
+#### Readable Format
 
-Run `tools/lightning-hsmtool getcodexsecret <hsm/secret/path> <id>` to get the `hsm_secret` in codex32 format.
+Run `tools/lightning-hsmtool getsecret <hsm/secret/path>` to get the `hsm_secret` mnemonic (12 words).  For older
+nodes, you will get a codex32 string instead, and must supply a four-letter id to attach to it, like so:
 
-Example `tools/lightning-hsmtool getcodexsecret ~/.lightning/bitcoin/hsm_secret adt0`.
+Example `tools/lightning-hsmtool getsecret ~/.lightning/bitcoin/hsm_secret adt0`.
 
 `hsm/secret/path` in the above command is `$LIGHTNINGDIR/hsm_secret`, and
 `id` is any 4 character string used to identify this secret. It **cannot** contain `i`, `o`, or `b`, but **can** contain all digits except `1`.
