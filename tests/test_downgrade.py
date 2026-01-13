@@ -32,7 +32,8 @@ def downgrade_cmdline(node):
 
 
 def test_downgrade(node_factory, executor):
-    l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True}, wait_for_announce=True)
+    # To downgrade before 25.12, we need old-style hsm_secret.
+    l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True, 'old_hsmsecret': True}, wait_for_announce=True)
 
     bias_scidd = f"{first_scid(l1, l2)}/0"
     # Create a bias for this channel.
@@ -98,7 +99,7 @@ def test_downgrade(node_factory, executor):
 
 def test_downgrade_fail(node_factory, executor):
     """If we have created as node bias, we cannot downgrade"""
-    l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True}, wait_for_announce=True)
+    l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True, 'old_hsmsecret': True}, wait_for_announce=True)
 
     l1.rpc.askrene_bias_node('xpay', l2.info['id'], 'in', 1)
     cmd_line = downgrade_cmdline(l1)
