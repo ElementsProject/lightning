@@ -766,11 +766,11 @@ int main(int argc, char *argv[])
 			show_usage(argv[0]);
 		make_rune(argv[2]);
 	} else if(streq(method, "getsecret")) {
-		if (argc < 3)
+		if (argc < 3 || argc > 4)
 			show_usage(argv[0]);
 		print_secret(argv[2], argv[3], false);
 	} else if(streq(method, "getcodexsecret")) {
-		if (argc < 4)
+		if (argc != 4)
 			show_usage(argv[0]);
 		print_secret(argv[2], argv[3], true);
 	} else if(streq(method, "getemergencyrecover")) {
