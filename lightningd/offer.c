@@ -157,11 +157,13 @@ static struct command_result *json_listoffers(struct command *cmd,
 	const char *description;
 	const struct json_escape *label;
 	bool *active_only;
+	bool *usable_only;
 	enum offer_status status;
 
 	if (!param(cmd, buffer, params,
 		   p_opt("offer_id", param_sha256, &offer_id),
 		   p_opt_def("active_only", param_bool, &active_only, false),
+		   p_opt_def("usable_only", param_bool, &usable_only, false),
 		   NULL))
 		return command_param_failed();
 
@@ -170,7 +172,9 @@ static struct command_result *json_listoffers(struct command *cmd,
 	if (offer_id) {
 		b12 = wallet_offer_find(tmpctx, wallet, offer_id, &label,
 					&status);
-		if (b12 && offer_status_active(status) >= *active_only) {
+		if (b12 && offer_status_active(status) >= *active_only &&
+		    (offer_status_single(status) == 0 ||
+		     offer_status_used(status) == 0) >= *usable_only) {
 			json_object_start(response, NULL);
 			json_populate_offer(response,
 					    offer_id, b12,
@@ -189,7 +193,9 @@ static struct command_result *json_listoffers(struct command *cmd,
 		     stmt = wallet_offer_id_next(cmd->ld->wallet, stmt, &id)) {
 			b12 = wallet_offer_find(tmpctx, wallet, &id,
 						&label, &status);
-			if (offer_status_active(status) >= *active_only) {
+			if (offer_status_active(status) >= *active_only &&
+			    (offer_status_single(status) == 0 ||
+			     offer_status_used(status) == 0) >= *usable_only) {
 				json_object_start(response, NULL);
 				json_populate_offer(response,
 						    &id, b12,

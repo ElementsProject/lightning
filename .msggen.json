@@ -2869,7 +2869,8 @@
         },
         "ListoffersRequest": {
             "ListOffers.active_only": 2,
-            "ListOffers.offer_id": 1
+            "ListOffers.offer_id": 1,
+            "ListOffers.usable_only": 3
         },
         "ListoffersResponse": {
             "ListOffers.offers[]": 1
@@ -10598,6 +10599,10 @@
         },
         "ListOffers.offers[].used": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListOffers.usable_only": {
+            "added": "v26.04",
             "deprecated": null
         },
         "ListPays": {

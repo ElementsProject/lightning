@@ -1023,7 +1023,7 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("listnodes", payload)
 
-    def listoffers(self, offer_id=None, active_only=None):
+    def listoffers(self, offer_id=None, active_only=None, usable_only=None):
         """List offers
 
         List all offers, or with {offer_id}, only the offer with that {offer_id} (if it exists).
@@ -1032,6 +1032,7 @@ class LightningRpc(UnixDomainSocketRpc):
         payload = {
             "offer_id": offer_id,
             "active_only": active_only,
+            "usable_only": usable_only,
         }
         return self.call("listoffers", payload)
 
