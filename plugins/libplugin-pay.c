@@ -1196,12 +1196,15 @@ static void payment_result_infer(struct route_hop *route,
 
 	len = tal_count(route);
 	i = *r->erring_index;
-	assert(i <= len);
+	/* This can actually be greater than the route length?  Perhaps
+	 * multi-hop routehints?  Ignore. */
+	if (i > len)
+		return;
 
 	if (r->erring_node == NULL)
 		r->erring_node = &route[i-1].node_id;
 
-	/* The above assert was enough for the erring_node, but might be off
+	/* The above check was enough for the erring_node, but might be off
 	 * by one on channel and direction, in case the destination failed on
 	 * us. */
 	if (i == len)

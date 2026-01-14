@@ -2293,7 +2293,11 @@ def test_channel_persistence(node_factory, bitcoind, executor):
     l1 = node_factory.get_node(may_reconnect=True, feerates=(7500, 7500, 7500,
                                                              7500))
     l2 = node_factory.get_node(options={'dev-disable-commit-after': disable_commit_after},
-                               may_reconnect=True)
+                               may_reconnect=True, start=False)
+    # Saving IO can cause JSON errors when we check it, due to partial writes if we
+    # get lucky when we kill it.
+    del l2.daemon.opts['dev-save-plugin-io']
+    l2.start()
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
     # Neither node should have a channel open, they are just connected
@@ -4648,7 +4652,7 @@ def test_networkevents(node_factory, executor):
 
     # Finally, disconnect event.
     fut = executor.submit(l1.rpc.wait, 'networkevents', 'created', 3)
-    time.sleep(1)
+    l1.daemon.wait_for_log('waiting on networkevents created 3')
     l2.rpc.disconnect(l1.info['id'])
     after = time.time()
 
@@ -4731,7 +4735,7 @@ def test_networkevents(node_factory, executor):
     assert failevents[-1]['connect_attempted'] is False
 
     fut = executor.submit(l1.rpc.wait, 'networkevents', 'deleted', 1)
-    time.sleep(1)
+    l1.daemon.wait_for_log('waiting on networkevents deleted 1')
     l1.rpc.delnetworkevent(8)
     assert l1.rpc.listnetworkevents(start=8) == {'networkevents': []}
 

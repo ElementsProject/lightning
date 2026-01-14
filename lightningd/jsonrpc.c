@@ -240,17 +240,18 @@ static bool have_channels(struct lightningd *ld)
 	return false;
 }
 
-static struct command_result *param_codex32_or_hex(struct command *cmd,
-						   const char *name,
-						   const char *buffer,
-						   const jsmntok_t *tok,
-						   const char **hsm_secret)
+static struct command_result *param_hsm_secret(struct command *cmd,
+					       const char *name,
+					       const char *buffer,
+					       const jsmntok_t *tok,
+					       const char **hsm_secret)
 {
 	char *err;
-	const u8 *payload;
+	/* We parse here for sanity checking, but we just hand string to --recover */
+	const struct hsm_secret *hsms;
 
 	*hsm_secret = json_strdup(cmd, buffer, tok);
-	err = hsm_secret_arg(tmpctx, *hsm_secret, &payload);
+	err = hsm_secret_arg(tmpctx, *hsm_secret, &hsms);
 	if (err)
 		return command_fail_badparam(cmd, name, buffer, tok, err);
 	return NULL;
@@ -279,10 +280,10 @@ static struct command_result *json_recover(struct command *cmd,
 					   const jsmntok_t *obj UNNEEDED,
 					   const jsmntok_t *params)
 {
-	const char *hsm_secret, *dir;
+	const char *dir, *hsm_secret;
 
 	if (!param_check(cmd, buffer, params,
-			 p_req("hsmsecret", param_codex32_or_hex, &hsm_secret),
+			 p_req("hsmsecret", param_hsm_secret, &hsm_secret),
 			 NULL))
 		return command_param_failed();
 
@@ -292,7 +293,8 @@ static struct command_result *json_recover(struct command *cmd,
 				    "Only sqlite3 supported for recover command");
 
 	/* Check this is an empty node! */
-	if (db_get_intvar(cmd->ld->wallet->db, "bip32_max_index", 0) != 0) {
+	if (db_get_intvar(cmd->ld->wallet->db, "bip32_max_index", 0) != 0
+	    || db_get_intvar(cmd->ld->wallet->db, "bip86_max_index", 0) != 0) {
 		return command_fail(cmd, RECOVER_NODE_IN_USE,
 				    "Node has already issued bitcoin addresses!");
 	}

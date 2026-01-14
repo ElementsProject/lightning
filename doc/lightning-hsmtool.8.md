@@ -88,8 +88,11 @@ the last parameter. By default, mainnet-encoded keys are generated.
 This produces the same results as lightning-commando-rune(7) on a fresh node.
 You will still need to create a rune once the node starts, if you want commando to work (as it is only activated once it has generated one).
 
+**getsecret** *hsm\_secret\_path* [*id*]
+  Extract the secret from the `hsm_secret` file and print it out, for use with `--recover`.  This is usually a 12-word mnemonic, but for pre-v25.12 nodes, a 4-character `id` is needed to generate a BIP-93 formatted HSM secret (e.g. `ad00`): it cannot contain `i`, `o`, or `b`, but can contain digits except `1`.
+
 **getcodexsecret** *hsm\_secret\_path* *id*
-  Print out the BIP-93 formatted HSM secret, for use with `--recover`.  The `id` is any 4 character string you can use to identify this secret (e.g. `ad00`): it cannot contain `i`, `o`, or `b`, but can contain digits except `1`.
+  Deprecated alias for getsecret: only works on older (pre-v25.12) nodes.
 
 **getemergencyrecover** *emergency.recover\_path*
   Print out the bech32 encoded emergency.recover file.
