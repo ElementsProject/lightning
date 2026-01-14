@@ -171,7 +171,7 @@ add_waitsendpay_waiter_(struct lightningd *ld,
 void json_add_payment_fields(struct json_stream *response,
 			     const struct wallet_payment *t)
 {
-	const char *description = NULL;
+	const char *invoice_description = NULL;
 	json_add_u64(response, "created_index", t->id);
 	json_add_u64(response, "id", t->id);
 	json_add_sha256(response, "payment_hash", &t->payment_hash);
@@ -212,16 +212,16 @@ void json_add_payment_fields(struct json_stream *response,
 	if (t->invstring) {
     if (strstarts(t->invstring, "lni")) {
         json_add_string(response, "bolt12", t->invstring);
-        description = decode_bolt12_description(response, t->invstring);
+        invoice_description = decode_bolt12_description(response, t->invstring);
     } else {
         json_add_string(response, "bolt11", t->invstring);
-        description = decode_bolt11_description_simple(response, t->invstring);
+        invoice_description = decode_bolt11_description_simple(response, t->invstring);
     }
 }
 	if (t->description)
 		json_add_string(response, "description", t->description);
-	else if (description)
-		json_add_string(response, "description", description);
+	if (invoice_description)
+		json_add_string(response, "invoice_description", invoice_description);
 
 	if (t->failonion)
 		json_add_hex(response, "erroronion", t->failonion,

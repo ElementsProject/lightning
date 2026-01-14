@@ -347,7 +347,7 @@ message SendpayResponse {
 	optional uint64 completed_at = 15;
 	optional uint64 created_index = 16;
 	optional uint64 updated_index = 17;
-	optional string description = 18;
+	optional string invoice_description = 19;
 }
 
 message SendpayRoute {
@@ -1012,11 +1012,11 @@ message ListsendpaysPayments {
 	optional string bolt12 = 11;
 	optional bytes payment_preimage = 12;
 	optional bytes erroronion = 13;
-	optional string description = 14;
 	optional uint64 partid = 15;
 	optional uint64 created_index = 16;
 	optional uint64 updated_index = 17;
 	optional uint64 completed_at = 18;
+	optional string invoice_description = 19;
 }
 
 message ListtransactionsRequest {
@@ -1226,7 +1226,7 @@ message WaitsendpayResponse {
 	optional double completed_at = 14;
 	optional uint64 created_index = 15;
 	optional uint64 updated_index = 16;
-	optional string description = 17;
+	optional string invoice_description = 18;
 }
 
 message NewaddrRequest {
@@ -1838,7 +1838,7 @@ message DelpayPayments {
 	optional string bolt11 = 15;
 	optional string bolt12 = 16;
 	optional bytes erroronion = 17;
-	optional string description = 18;
+	optional string invoice_description = 19;
 }
 
 message DelforwardRequest {
@@ -2349,12 +2349,12 @@ message ListpaysPays {
 	optional Amount amount_msat = 8;
 	optional Amount amount_sent_msat = 9;
 	optional bytes erroronion = 10;
-	optional string description = 11;
 	optional uint64 completed_at = 12;
 	optional bytes preimage = 13;
 	optional uint64 number_of_parts = 14;
 	optional uint64 created_index = 15;
 	optional uint64 updated_index = 16;
+	optional string invoice_description = 17;
 }
 
 message ListhtlcsRequest {
