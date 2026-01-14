@@ -407,9 +407,10 @@ def test_invoice_expiry(node_factory, executor):
 
     # Test expiration waiting.
     # The second invoice created expires first.
-    l2.rpc.invoice('any', 'inv1', 'description', 10)
-    l2.rpc.invoice('any', 'inv2', 'description', 4)
-    l2.rpc.invoice('any', 'inv3', 'description', 16)
+    # Times should be long enough even for our terrible CI runners!
+    l2.rpc.invoice('any', 'inv1', 'description', 16)
+    l2.rpc.invoice('any', 'inv2', 'description', 10)
+    l2.rpc.invoice('any', 'inv3', 'description', 22)
 
     # Check waitinvoice correctly waits
     w1 = executor.submit(l2.rpc.waitinvoice, 'inv1')
@@ -419,19 +420,18 @@ def test_invoice_expiry(node_factory, executor):
     assert not w1.done()
     assert not w2.done()
     assert not w3.done()
-    time.sleep(4)  # total 6
+    time.sleep(7)  # total 9
     assert not w1.done()
 
-    with pytest.raises(RpcError):
+    with pytest.raises(RpcError):  # total 10
         w2.result()
     assert not w3.done()
 
-    time.sleep(6)  # total 12
-    with pytest.raises(RpcError):
+    time.sleep(5)  # total 15
+    with pytest.raises(RpcError):  # total 16
         w1.result()
     assert not w3.done()
 
-    time.sleep(8)  # total 20
     with pytest.raises(RpcError):
         w3.result()
 
@@ -668,7 +668,7 @@ def test_wait_invoices(node_factory, executor):
 
     # Now ask for 1.
     waitfut = executor.submit(l2.rpc.call, 'wait', {'subsystem': 'invoices', 'indexname': 'created', 'nextvalue': 1})
-    time.sleep(1)
+    l2.daemon.wait_for_log('waiting on invoices created 1')
 
     inv = l2.rpc.invoice(42, 'invlabel', 'invdesc')
     waitres = waitfut.result(TIMEOUT)
@@ -691,7 +691,7 @@ def test_wait_invoices(node_factory, executor):
                        'updated': 0}
 
     waitfut = executor.submit(l2.rpc.call, 'wait', {'subsystem': 'invoices', 'indexname': 'updated', 'nextvalue': 1})
-    time.sleep(1)
+    l2.daemon.wait_for_log('waiting on invoices updated 1')
     l1.rpc.pay(inv['bolt11'])
     waitres = waitfut.result(TIMEOUT)
     assert waitres == {'subsystem': 'invoices',
@@ -724,7 +724,7 @@ def test_wait_invoices(node_factory, executor):
                        'deleted': 0}
 
     waitfut = executor.submit(l2.rpc.call, 'wait', {'subsystem': 'invoices', 'indexname': 'deleted', 'nextvalue': 1})
-    time.sleep(1)
+    l2.daemon.wait_for_log('waiting on invoices deleted 1')
     l2.rpc.delinvoice('invlabel', 'paid')
     waitres = waitfut.result(TIMEOUT)
 
@@ -741,7 +741,8 @@ def test_wait_invoices(node_factory, executor):
 
     # Now check autoclean works.
     waitfut = executor.submit(l2.rpc.call, 'wait', {'subsystem': 'invoices', 'indexname': 'deleted', 'nextvalue': 2})
-    time.sleep(2)
+    l2.daemon.wait_for_log('waiting on invoices deleted 2')
+    time.sleep(1)
     l2.rpc.autoclean_once('expiredinvoices', 1)
     waitres = waitfut.result(TIMEOUT)
 
@@ -753,7 +754,7 @@ def test_wait_invoices(node_factory, executor):
 
     # Creating a new on gives us 3, not another 2!
     waitfut = executor.submit(l2.rpc.call, 'wait', {'subsystem': 'invoices', 'indexname': 'created', 'nextvalue': 3})
-    time.sleep(1)
+    l2.daemon.wait_for_log('waiting on invoices created 3')
     inv = l2.rpc.invoice(42, 'invlabel2', 'invdesc2', deschashonly=True)
     waitres = waitfut.result(TIMEOUT)
     assert waitres == {'subsystem': 'invoices',
@@ -766,7 +767,7 @@ def test_wait_invoices(node_factory, executor):
 
     # Deleting a description causes updated to fire!
     waitfut = executor.submit(l2.rpc.call, 'wait', {'subsystem': 'invoices', 'indexname': 'updated', 'nextvalue': 3})
-    time.sleep(1)
+    l2.daemon.wait_for_log('waiting on invoices updated 3')
     l2.rpc.delinvoice('invlabel2', status='unpaid', desconly=True)
     waitres = waitfut.result(TIMEOUT)
     assert waitres == {'subsystem': 'invoices',
@@ -819,7 +820,7 @@ def test_invoice_deschash(node_factory, chainparams):
     assert inv['description'] == b11['description_hash']
 
 
-def test_listinvoices_index(node_factory, executor):
+def test_listinvoices_index(node_factory):
     l1, l2 = node_factory.line_graph(2)
 
     invs = {}
@@ -863,7 +864,7 @@ def test_listinvoices_index(node_factory, executor):
         assert only_one(l2.rpc.listinvoices(index='updated', start=i, limit=1)['invoices'])['label'] == str(70 + 1 - i)
 
 
-def test_unified_invoices(node_factory, executor, bitcoind):
+def test_unified_invoices(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, opts={'invoices-onchain-fallback': None})
     amount_sat = 1000
     inv = l1.rpc.invoice(amount_sat * 1000, "inv1", "test_unified_invoices")
@@ -927,7 +928,6 @@ def test_invoices_wait_db_migration(node_factory, bitcoind):
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "This test is based on a sqlite3 snapshot")
 @unittest.skipIf(TEST_NETWORK != 'regtest', "The DB migration is network specific due to the chain var.")
-@pytest.mark.flaky(reruns=5)
 def test_invoice_botched_migration(node_factory, chainparams):
     """Test for grubles' case, where they ran successfully with the wrong var: they have *both* last_invoice_created_index *and *last_invoices_created_index* (this can happen if invoice id 1 was deleted, so they didn't die on invoice creation):
     Error executing statement: wallet/db.c:1684: UPDATE vars SET name = 'last_invoices_created_index' WHERE name = 'last_invoice_created_index': UNIQUE constraint failed: vars.name

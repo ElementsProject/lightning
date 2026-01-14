@@ -893,6 +893,21 @@ static const char *process_channel_update(const tal_t *ctx,
 	return NULL;
 }
 
+/* We don't check this when loading from the gossip_store: that would break
+ * our canned tests, and usually old gossip is better than no gossip */
+static bool timestamp_reasonable(const struct daemon *daemon, u32 timestamp)
+{
+	u64 now = clock_time().ts.tv_sec;
+
+	/* More than one day ahead? */
+	if (timestamp > now + 24*60*60)
+		return false;
+	/* More than 2 weeks behind? */
+	if (timestamp < now - GOSSIP_PRUNE_INTERVAL(daemon->dev_fast_gossip_prune))
+		return false;
+	return true;
+}
+
 const char *gossmap_manage_channel_update(const tal_t *ctx,
 					  struct gossmap_manage *gm,
 					  const u8 *update TAKES,
@@ -1317,7 +1332,6 @@ void gossmap_manage_channel_spent(struct gossmap_manage *gm,
 				  struct short_channel_id scid)
 {
 	struct gossmap_chan *chan;
-	const struct gossmap_node *me;
 	const u8 *msg;
 	struct chan_dying cd;
 	struct gossmap *gossmap = gossmap_manage_get_gossmap(gm);
@@ -1325,14 +1339,6 @@ void gossmap_manage_channel_spent(struct gossmap_manage *gm,
 	chan = gossmap_find_chan(gossmap, &scid);
 	if (!chan)
 		return;
-
-	me = gossmap_find_node(gossmap, &gm->daemon->id);
-	/* We delete our own channels immediately, since we have local knowledge */
-	if (gossmap_nth_node(gossmap, chan, 0) == me
-	    || gossmap_nth_node(gossmap, chan, 1) == me) {
-		kill_spent_channel(gm, gossmap, scid);
-		return;
-	}
 
 	/* Is it already dying?  It's lightningd re-telling us */
 	if (channel_already_dying(gm->dying_channels, scid))

@@ -16,13 +16,13 @@ env:
   RUST_PROFILE: release
   SLOW_MACHINE: 1
   CI_SERVER_URL: "http://35.239.136.52:3170"
-  PYTEST_OPTS_BASE: "--reruns=10 -vvv --junit-xml=report.xml --timeout=1800 --durations=10"
+  PYTEST_OPTS_BASE: "-vvv --junit-xml=report.xml --timeout=1800 --durations=10"
 
 jobs:
   prebuild:
     name: Pre-build checks
-    runs-on: ubuntu-22.04
-    timeout-minutes: 30
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
     if: |
       github.event.action != 'edited' ||
       contains(github.event.pull_request.body, 'Changelog')
@@ -107,7 +107,7 @@ jobs:
 
   compile:
     name: Compile CLN ${{ matrix.cfg }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     needs:
       - prebuild
@@ -174,7 +174,7 @@ jobs:
     # The unit test checks are not in the critical path (not dependent
     # on the integration tests), so run them with `valgrind`
     name: Run unit tests
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
       BOLTDIR: bolts
@@ -219,7 +219,7 @@ jobs:
 
   check-fuzz:
     name: Run fuzz regression tests
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - prebuild
     steps:
@@ -245,7 +245,7 @@ jobs:
 
   check-downgrade:
     name: Check we can downgrade the node
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - compile
     strategy:
@@ -298,8 +298,8 @@ jobs:
         run: |
           mkdir /tmp/old-cln
           cd /tmp/old-cln
-          wget https://github.com/ElementsProject/lightning/releases/download/v25.09/clightning-v25.09-Ubuntu-22.04-amd64.tar.xz
-          tar -xaf clightning-v25.09-Ubuntu-22.04-amd64.tar.xz
+          wget https://github.com/ElementsProject/lightning/releases/download/v25.09/clightning-v25.09-ubuntu-24.04-amd64.tar.xz
+          tar -xaf clightning-v25.09-ubuntu-24.04-amd64.tar.xz
 
       - name: Switch network
         if: ${{ matrix.TEST_NETWORK == 'liquid-regtest' }}
@@ -333,11 +333,11 @@ jobs:
 
   integration:
     name: Test CLN ${{ matrix.name }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
       RUST_PROFILE: release # Has to match the one in the compile step
-      PYTEST_OPTS: --reruns=10 -vvv --junit-xml=report.xml --timeout=1800 --durations=10
+      PYTEST_OPTS: -vvv --junit-xml=report.xml --timeout=1800 --durations=10
     needs:
       - compile
     strategy:
@@ -448,12 +448,12 @@ jobs:
 
   integration-valgrind:
     name: Valgrind Test CLN ${{ matrix.name }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
       RUST_PROFILE: release # Has to match the one in the compile step
       CFG: compile-gcc
-      PYTEST_OPTS: --reruns=10 -vvv --junit-xml=report.xml --timeout=1800 --durations=10 --test-group-random-seed=42
+      PYTEST_OPTS: -vvv --junit-xml=report.xml --timeout=1800 --durations=10 --test-group-random-seed=42
     needs:
       - compile
     strategy:
@@ -535,13 +535,13 @@ jobs:
 
   integration-sanitizers:
     name: Sanitizers Test CLN
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
       RUST_PROFILE: release
       SLOW_MACHINE: 1
       TEST_DEBUG: 1
-      PYTEST_OPTS: --reruns=10 -vvv --junit-xml=report.xml --timeout=1800 --durations=10 --test-group-random-seed=42 
+      PYTEST_OPTS: -vvv --junit-xml=report.xml --timeout=1800 --durations=10 --test-group-random-seed=42 
     needs:
       - compile
     strategy:
@@ -553,7 +553,7 @@ jobs:
             PYTEST_OPTS: --test-group=1  --test-group-count=12
           - NAME: ASan/UBSan (02/12)
             GROUP: 2
-            PYTEST_OPTS: --test-group=2  --test-group-count=12 -n 1
+            PYTEST_OPTS: --test-group=2  --test-group-count=12
           - NAME: ASan/UBSan (03/12)
             GROUP: 3
             PYTEST_OPTS: --test-group=3  --test-group-count=12
@@ -625,14 +625,14 @@ jobs:
   update-docs-examples:
     name: Update examples in doc schemas (disabled temporarily!)
     if: false
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
     env:
       VALGRIND: 0
       GENERATE_EXAMPLES: 1
-      PYTEST_OPTS: --reruns=10 -vvv --junit-xml=report.xml --timeout=1800 --durations=10
+      PYTEST_OPTS: -vvv --junit-xml=report.xml --timeout=1800 --durations=10
       TEST_NETWORK: regtest
     needs:
       - compile
@@ -674,11 +674,11 @@ jobs:
 
   min-btc-support:
     name: Test minimum supported BTC v${{ matrix.MIN_BTC_VERSION }} with ${{ matrix.NAME }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
       RUST_PROFILE: release # Has to match the one in the compile step
-      PYTEST_OPTS: --reruns=10 -vvv --junit-xml=report.xml --timeout=1800 --durations=10
+      PYTEST_OPTS: -vvv --junit-xml=report.xml --timeout=1800 --durations=10
     needs:
       - compile
     strategy:
@@ -759,7 +759,7 @@ jobs:
     # signals successful completion. Used for the PR status to pass
     # before merging.  Needs to run even if they failed!
     name: CI completion
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - integration
       - check-units

@@ -1976,6 +1976,11 @@ def test_buy_liquidity_ad_check_bookkeeping(node_factory, bitcoind):
     bitcoind.generate_block(2)
     l1.daemon.wait_for_log('to CHANNELD_NORMAL')
 
+    # Avoid bad gossip messages caused by channel announcements being
+    # processed after closing.
+    for n in (l1, l2):
+        wait_for(lambda: all([c['active'] for c in n.rpc.listchannels()['channels']]))
+
     chan_id = first_channel_id(l1, l2)
     ev_tags = [e['tag'] for e in l1.rpc.bkpr_listaccountevents(chan_id)['events']]
     assert 'lease_fee' in ev_tags
@@ -2853,7 +2858,11 @@ def test_opening_crash(bitcoind, node_factory):
 def test_sendpsbt_crash(bitcoind, node_factory):
     """Stop sendpsbt, check it eventually opens"""
     plugin_path = Path(__file__).parent / "plugins" / "stop_sendpsbt.py"
-    l1, l2 = node_factory.get_nodes(2, opts=[{"plugin": plugin_path, 'may_fail': True}, {}])
+    l1, l2 = node_factory.get_nodes(2, opts=[{"plugin": plugin_path, 'may_fail': True, 'start': False}, {}])
+    # Saving IO can cause JSON errors when we check it, due to partial writes if we
+    # get lucky when we kill it.
+    del l1.daemon.opts['dev-save-plugin-io']
+    l1.start()
 
     l1.fundwallet(3_000_000)
     l1.connect(l2)

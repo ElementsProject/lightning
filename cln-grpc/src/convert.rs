@@ -1749,6 +1749,7 @@ impl From<responses::DisableofferResponse> for pb::DisableofferResponse {
         Self {
             active: c.active, // Rule #2 for type boolean
             bolt12: c.bolt12, // Rule #2 for type string
+            description: c.description, // Rule #2 for type string?
             label: c.label, // Rule #2 for type string?
             offer_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.offer_id).to_vec(), // Rule #2 for type hash
             single_use: c.single_use, // Rule #2 for type boolean
@@ -1763,6 +1764,7 @@ impl From<responses::EnableofferResponse> for pb::EnableofferResponse {
         Self {
             active: c.active, // Rule #2 for type boolean
             bolt12: c.bolt12, // Rule #2 for type string
+            description: c.description, // Rule #2 for type string?
             label: c.label, // Rule #2 for type string?
             offer_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.offer_id).to_vec(), // Rule #2 for type hash
             single_use: c.single_use, // Rule #2 for type boolean
@@ -2150,6 +2152,7 @@ impl From<responses::ListoffersOffers> for pb::ListoffersOffers {
         Self {
             active: c.active, // Rule #2 for type boolean
             bolt12: c.bolt12, // Rule #2 for type string
+            description: c.description, // Rule #2 for type string?
             label: c.label, // Rule #2 for type string?
             offer_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.offer_id).to_vec(), // Rule #2 for type hash
             single_use: c.single_use, // Rule #2 for type boolean
@@ -6347,6 +6350,7 @@ impl From<requests::XpayRequest> for pb::XpayRequest {
             maxdelay: c.maxdelay, // Rule #2 for type u32?
             maxfee: c.maxfee.map(|f| f.into()), // Rule #2 for type msat?
             partial_msat: c.partial_msat.map(|f| f.into()), // Rule #2 for type msat?
+            payer_note: c.payer_note, // Rule #2 for type string?
             retry_for: c.retry_for, // Rule #2 for type u32?
         }
     }
@@ -8107,6 +8111,7 @@ impl From<pb::XpayRequest> for requests::XpayRequest {
             maxdelay: c.maxdelay, // Rule #1 for type u32?
             maxfee: c.maxfee.map(|a| a.into()), // Rule #1 for type msat?
             partial_msat: c.partial_msat.map(|a| a.into()), // Rule #1 for type msat?
+            payer_note: c.payer_note, // Rule #1 for type string?
             retry_for: c.retry_for, // Rule #1 for type u32?
         }
     }

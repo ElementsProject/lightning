@@ -11922,6 +11922,13 @@
               "The bolt12 string representing this offer."
             ]
           },
+          "description": {
+            "added": "v26.04",
+            "type": "string",
+            "description": [
+              "The user-specified bolt 12 description."
+            ]
+          },
           "used": {
             "type": "boolean",
             "description": [
@@ -11964,6 +11971,7 @@
             "active": false,
             "single_use": false,
             "bolt12": "lno1qgsq000bolt230002300023000230002300023000230002300023000230002300023000230002300023000230002300023000230002300023000230002300023000",
+            "description": "Movie ticket",
             "used": false
           }
         }
@@ -12169,6 +12177,13 @@
               "The bolt12 string representing this offer."
             ]
           },
+          "description": {
+            "added": "v26.04",
+            "type": "string",
+            "description": [
+              "The user-specified bolt 12 description."
+            ]
+          },
           "used": {
             "type": "boolean",
             "description": [
@@ -12217,6 +12232,7 @@
             "active": true,
             "single_use": false,
             "bolt12": "lno1qgsq000bolt230002300023000230002300023000230002300023000230002300023000230002300023000230002300023000230002300023000230002300023000",
+            "description": "Movie ticket",
             "used": false
           }
         }
@@ -23301,6 +23317,13 @@
                     "The bolt12 encoding of the offer."
                   ]
                 },
+                "description": {
+                  "added": "v26.04",
+                  "type": "string",
+                  "description": [
+                    "The user-specified bolt 12 description."
+                  ]
+                },
                 "used": {
                   "type": "boolean",
                   "description": [
@@ -23344,6 +23367,7 @@
                 "active": true,
                 "single_use": false,
                 "bolt12": "lno1qgsq000bolt210002100021000210002100021000210002100021000210002100021000210002100021000210002100021000210002100021000210002100021000",
+                "description": "Fish sale!",
                 "used": false
               },
               {
@@ -23351,6 +23375,7 @@
                 "active": true,
                 "single_use": false,
                 "bolt12": "lno1qgsq000bolt220002200022000220002200022000220002200022000220002200022000220002200022000220002200022000220002200022000220002200022000",
+                "description": "Coffee",
                 "used": false
               },
               {
@@ -23358,6 +23383,7 @@
                 "active": true,
                 "single_use": false,
                 "bolt12": "lno1qgsq000bolt230002300023000230002300023000230002300023000230002300023000230002300023000230002300023000230002300023000230002300023000",
+                "description": "Movie ticket",
                 "used": false
               }
             ]
@@ -30356,7 +30382,9 @@
       "description": [
         "The **recover** RPC command wipes your node and restarts it with the `--recover` option. This is only permitted if the node is unused: no channels, no bitcoin addresses issued (you can use `check` to see if recovery is possible).",
         "",
-        "*hsmsecret* is either a codex32 secret starting with \"cl1\" as returned by `lightning-hsmtool getcodexsecret`, or a raw 64 character hex string.",
+        "For nodes created with v25.12 or later, *hsmsecret* MUST be the 12-word mnemonic.",
+        "",
+        "For earlier nodes, *hsmsecret* is either a codex32 secret starting with \"cl1\" as returned by `lightning-hsmtool getcodexsecret`, or a raw 64 character hex string.",
         "",
         "NOTE: this command only currently works with the `sqlite3` database backend."
       ],
@@ -30369,7 +30397,7 @@
           "hsmsecret": {
             "type": "string",
             "description": [
-              "Either a codex32 secret starting with `cl1` as returned by `lightning-hsmtool getcodexsecret`, or a raw 64 character hex string."
+              "Usually a 12-word mnemonic; but for old nodes either a codex32 secret starting with `cl1` as returned by `lightning-hsmtool getcodexsecret` or a raw 64 character hex string."
             ]
           }
         }
@@ -37313,6 +37341,13 @@
               "A payment may be delayed for up to `maxdelay` blocks by another node; clients should be prepared for this worst case."
             ],
             "default": "2016"
+          },
+          "payer_note": {
+            "type": "string",
+            "added": "v26.04",
+            "description": [
+              "A message that a payer is willing to send to a payee within an invoice request."
+            ]
           }
         }
       },
@@ -37399,7 +37434,8 @@
             "id": "example:xpay#2",
             "method": "xpay",
             "params": {
-              "invstring": "lni1qqg0qe03030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303"
+              "invstring": "lni1qqg0qe03030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303",
+              "payer_note": "Coffee payment"
             }
           },
           "response": {

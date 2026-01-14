@@ -150,6 +150,17 @@ def test_pay_limits(node_factory):
     assert status[0]['strategy'] == "Initial attempt"
 
 
+def test_pay_maxdelay_direct_channel(node_factory):
+    """Test that maxdelay is enforced even for direct channel payments"""
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
+
+    inv = l2.rpc.invoice('10000msat', 'test_pay_maxdelay_direct', 'description')['bolt11']
+
+    # Delay too low for direct channel.
+    with pytest.raises(RpcError, match=r'CLTV delay exceeds our CLTV budget'):
+        l1.rpc.call('pay', {'bolt11': inv, 'maxdelay': 1})
+
+
 def test_pay_exclude_node(node_factory, bitcoind):
     """Test excluding the node if there's the NODE-level error in the failure_code
     """
@@ -724,8 +735,8 @@ def test_wait_sendpay(node_factory, executor):
 
     wait_created = executor.submit(l1.rpc.call, 'wait', {'subsystem': 'sendpays', 'indexname': 'created', 'nextvalue': 1})
     wait_updated = executor.submit(l1.rpc.call, 'wait', {'subsystem': 'sendpays', 'indexname': 'updated', 'nextvalue': 1})
+    l1.daemon.wait_for_logs(['waiting on sendpays created 1', 'waiting on sendpays updated 1'])
 
-    time.sleep(1)
     amt = 200000000
     inv = l2.rpc.invoice(amt, 'testpayment2', 'desc')
     routestep = {
@@ -2810,31 +2821,6 @@ def test_channel_spendable_receivable_capped(node_factory, bitcoind):
     assert l2.rpc.listpeerchannels()['channels'][0]['receivable_msat'] == Millisatoshi(0xFFFFFFFF)
 
 
-@unittest.skipIf(True, "Test is extremely flaky")
-def test_lockup_drain(node_factory, bitcoind):
-    """Try to get channel into a state where opener can't afford fees on additional HTLC, so peer can't add HTLC"""
-    l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True})
-
-    # l1 sends all the money to l2 until even 1 msat can't get through.
-    total = l1.drain(l2)
-
-    # Even if feerate now increases 2x (30000), l2 should be able to send
-    # non-dust HTLC to l1.
-    l1.force_feerates(30000)
-    l2.pay(l1, total // 2)
-
-    # reset fees and send all back again
-    l1.force_feerates(15000)
-    l1.drain(l2)
-
-    # But if feerate increase just a little more, l2 should not be able to send
-    # non-fust HTLC to l1
-    l1.force_feerates(30002)  # TODO: Why does 30001 fail? off by one in C code?
-    wait_for(lambda: l1.rpc.listpeers()['peers'][0]['connected'])
-    with pytest.raises(RpcError, match=r".*Capacity exceeded.*"):
-        l2.pay(l1, total // 2)
-
-
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'Assumes anchors')
 def test_htlc_too_dusty_outgoing(node_factory, bitcoind, chainparams):
     """ Try to hit the 'too much dust' limit, should fail the HTLC """
@@ -3494,7 +3480,6 @@ def test_reject_invalid_payload(node_factory):
     l2.daemon.wait_for_log(r'Failing HTLC because of an invalid payload')
 
 
-@unittest.skip("Test is flaky causing CI to be unusable.")
 def test_excluded_adjacent_routehint(node_factory, bitcoind):
     """Test case where we try have a routehint which leads to an adjacent
     node, but the result exceeds our maxfee; we crashed trying to find
@@ -3503,10 +3488,15 @@ def test_excluded_adjacent_routehint(node_factory, bitcoind):
     """
     l1, l2, l3 = node_factory.line_graph(3)
 
+    # Make sure l2->l3 is usable.
+    wait_for(lambda: 'remote' in only_one(l3.rpc.listpeerchannels()['channels'])['updates'])
+
     # We'll be forced to use routehint, since we don't know about l3.
     inv = l3.rpc.invoice(10**3, "lbl", "desc", exposeprivatechannels=l2.get_channel_scid(l3))
 
-    l1.wait_channel_active(l1.get_channel_scid(l2))
+    # Make sure l1->l2 is usable.
+    wait_for(lambda: 'remote' in only_one(l1.rpc.listpeerchannels()['channels'])['updates'])
+
     # This will make it reject the routehint.
     err = r'Fee exceeds our fee budget: 1msat > 0msat, discarding route'
     with pytest.raises(RpcError, match=err):
@@ -4481,6 +4471,20 @@ def test_offer(node_factory, bitcoind):
                                       offer['bolt12']]).decode('UTF-8')
     assert 'recurrence_optional: every 600 seconds limit 5\n' in output
 
+    # Test that description is returned in disableoffer and enableoffer
+    offer_desc = 'Test description returned'
+    ret = l1.rpc.call('offer', {'amount': '100000sat',
+                                'description': offer_desc})
+
+    # Description is not present in offer response
+    assert 'description' not in ret
+    # Description is returned in disableoffer
+    disable_ret = l1.rpc.call('disableoffer', {'offer_id': ret['offer_id']})
+    assert disable_ret['description'] == offer_desc
+    # Description is returned in enableoffer
+    enable_ret = l1.rpc.call('enableoffer', {'offer_id': ret['offer_id']})
+    assert enable_ret['description'] == offer_desc
+
 
 def test_offer_deprecated_api(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, opts={'allow-deprecated-apis': True})
@@ -5251,6 +5255,7 @@ def test_sendpay_grouping(node_factory, bitcoind):
     assert([p['status'] for p in pays] == ['failed', 'failed', 'complete'])
 
 
+@pytest.mark.flaky(reruns=2)
 def test_pay_manual_exclude(node_factory, bitcoind):
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
     l1_id = l1.rpc.getinfo()['id']
@@ -5577,7 +5582,7 @@ def test_sendpays_wait(node_factory, executor):
 
     # Now ask for 1.
     waitfut = executor.submit(l1.rpc.wait, subsystem='sendpays', indexname='created', nextvalue=1)
-    time.sleep(1)
+    l1.daemon.wait_for_log('waiting on sendpays created 1')
 
     inv1 = l2.rpc.invoice(42, 'invlabel', 'invdesc')
     l1.rpc.pay(inv1['bolt11'])
@@ -5605,7 +5610,7 @@ def test_sendpays_wait(node_factory, executor):
     inv2 = l2.rpc.invoice(42, 'invlabel2', 'invdesc2')
 
     waitfut = executor.submit(l1.rpc.wait, subsystem='sendpays', indexname='updated', nextvalue=2)
-    time.sleep(1)
+    l1.daemon.wait_for_log('waiting on sendpays updated 2')
     l1.rpc.pay(inv2['bolt11'])
     waitres = waitfut.result(TIMEOUT)
     assert waitres == {'subsystem': 'sendpays',
@@ -5627,7 +5632,7 @@ def test_sendpays_wait(node_factory, executor):
     l2.rpc.delinvoice('invlabel3', 'unpaid')
 
     waitfut = executor.submit(l1.rpc.wait, subsystem='sendpays', indexname='updated', nextvalue=3)
-    time.sleep(1)
+    l1.daemon.wait_for_log('waiting on sendpays updated 3')
     with pytest.raises(RpcError, match="WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS"):
         l1.rpc.pay(inv3['bolt11'])
 
@@ -5655,7 +5660,7 @@ def test_sendpays_wait(node_factory, executor):
                        'deleted': 0}
 
     waitfut = executor.submit(l1.rpc.wait, subsystem='sendpays', indexname='deleted', nextvalue=1)
-    time.sleep(1)
+    l1.daemon.wait_for_log('waiting on sendpays deleted 1')
 
     l1.rpc.delpay(inv3['payment_hash'], 'failed', 0, 1)
 
