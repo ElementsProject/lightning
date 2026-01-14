@@ -1917,7 +1917,6 @@ def test_askrene_reserve_clash(node_factory, bitcoind):
                      final_cltv=5)
 
 
-@unittest.skip
 def test_excessive_fee_cost(node_factory):
     """Produce a arc with very large fee cost that triggers an assertion in
     askrene's single path solver."""
