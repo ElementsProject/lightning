@@ -3541,7 +3541,7 @@ def test_listforwards_wait(node_factory, executor):
     # Now ask for 1.
     waitcreate = executor.submit(l2.rpc.wait, subsystem='forwards', indexname='created', nextvalue=1)
     waitupdate = executor.submit(l2.rpc.wait, subsystem='forwards', indexname='updated', nextvalue=1)
-    time.sleep(1)
+    l2.daemon.wait_for_logs(['waiting on forwards created 1', 'waiting on forwards updated 1'])
 
     amt1 = 1000
     inv1 = l3.rpc.invoice(amt1, 'inv1', 'desc')
@@ -3571,6 +3571,7 @@ def test_listforwards_wait(node_factory, executor):
 
     waitcreate = executor.submit(l2.rpc.wait, subsystem='forwards', indexname='created', nextvalue=2)
     waitupdate = executor.submit(l2.rpc.wait, subsystem='forwards', indexname='updated', nextvalue=2)
+    l2.daemon.wait_for_logs(['waiting on forwards created 2', 'waiting on forwards updated 2'])
     time.sleep(1)
 
     with pytest.raises(RpcError, match="WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS"):
@@ -3605,7 +3606,7 @@ def test_listforwards_wait(node_factory, executor):
 
     # Finally, check deletion.
     waitfut = executor.submit(l2.rpc.wait, subsystem='forwards', indexname='deleted', nextvalue=1)
-    time.sleep(1)
+    l2.daemon.wait_for_log('waiting on forwards deleted 1')
 
     l2.rpc.delforward(scid12, 1, 'failed')
 
@@ -3629,7 +3630,7 @@ def test_listhtlcs_wait(node_factory, bitcoind, executor):
     # Now ask for 1.
     waitcreate = executor.submit(l2.rpc.wait, subsystem='htlcs', indexname='created', nextvalue=1)
     waitupdate = executor.submit(l2.rpc.wait, subsystem='htlcs', indexname='updated', nextvalue=1)
-    time.sleep(1)
+    l2.daemon.wait_for_logs(['waiting on htlcs created 1', 'waiting on htlcs updated 1'])
 
     amt1 = 1000
     inv1 = l3.rpc.invoice(amt1, 'inv1', 'desc')
@@ -3665,7 +3666,7 @@ def test_listhtlcs_wait(node_factory, bitcoind, executor):
     l3.rpc.delinvoice('inv2', 'unpaid')
 
     waitcreate = executor.submit(l2.rpc.wait, subsystem='htlcs', indexname='created', nextvalue=4)
-    time.sleep(1)
+    l2.daemon.wait_for_log('waiting on htlcs created 4')
 
     with pytest.raises(RpcError, match="WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS"):
         l1.rpc.pay(inv2['bolt11'])
@@ -3685,7 +3686,7 @@ def test_listhtlcs_wait(node_factory, bitcoind, executor):
     l1.rpc.close(l2.info['id'])
 
     waitfut = executor.submit(l2.rpc.wait, subsystem='htlcs', indexname='deleted', nextvalue=1)
-    time.sleep(1)
+    l2.daemon.wait_for_log('waiting on htlcs deleted 1')
 
     bitcoind.generate_block(100, wait_for_mempool=1)
 

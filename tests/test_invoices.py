@@ -668,7 +668,7 @@ def test_wait_invoices(node_factory, executor):
 
     # Now ask for 1.
     waitfut = executor.submit(l2.rpc.call, 'wait', {'subsystem': 'invoices', 'indexname': 'created', 'nextvalue': 1})
-    time.sleep(1)
+    l2.daemon.wait_for_log('waiting on invoices created 1')
 
     inv = l2.rpc.invoice(42, 'invlabel', 'invdesc')
     waitres = waitfut.result(TIMEOUT)
@@ -691,7 +691,7 @@ def test_wait_invoices(node_factory, executor):
                        'updated': 0}
 
     waitfut = executor.submit(l2.rpc.call, 'wait', {'subsystem': 'invoices', 'indexname': 'updated', 'nextvalue': 1})
-    time.sleep(1)
+    l2.daemon.wait_for_log('waiting on invoices updated 1')
     l1.rpc.pay(inv['bolt11'])
     waitres = waitfut.result(TIMEOUT)
     assert waitres == {'subsystem': 'invoices',
@@ -724,7 +724,7 @@ def test_wait_invoices(node_factory, executor):
                        'deleted': 0}
 
     waitfut = executor.submit(l2.rpc.call, 'wait', {'subsystem': 'invoices', 'indexname': 'deleted', 'nextvalue': 1})
-    time.sleep(1)
+    l2.daemon.wait_for_log('waiting on invoices deleted 1')
     l2.rpc.delinvoice('invlabel', 'paid')
     waitres = waitfut.result(TIMEOUT)
 
@@ -741,7 +741,7 @@ def test_wait_invoices(node_factory, executor):
 
     # Now check autoclean works.
     waitfut = executor.submit(l2.rpc.call, 'wait', {'subsystem': 'invoices', 'indexname': 'deleted', 'nextvalue': 2})
-    time.sleep(2)
+    l2.daemon.wait_for_log('waiting on invoices deleted 2')
     l2.rpc.autoclean_once('expiredinvoices', 1)
     waitres = waitfut.result(TIMEOUT)
 
@@ -753,7 +753,7 @@ def test_wait_invoices(node_factory, executor):
 
     # Creating a new on gives us 3, not another 2!
     waitfut = executor.submit(l2.rpc.call, 'wait', {'subsystem': 'invoices', 'indexname': 'created', 'nextvalue': 3})
-    time.sleep(1)
+    l2.daemon.wait_for_log('waiting on invoices created 3')
     inv = l2.rpc.invoice(42, 'invlabel2', 'invdesc2', deschashonly=True)
     waitres = waitfut.result(TIMEOUT)
     assert waitres == {'subsystem': 'invoices',
@@ -766,7 +766,7 @@ def test_wait_invoices(node_factory, executor):
 
     # Deleting a description causes updated to fire!
     waitfut = executor.submit(l2.rpc.call, 'wait', {'subsystem': 'invoices', 'indexname': 'updated', 'nextvalue': 3})
-    time.sleep(1)
+    l2.daemon.wait_for_log('waiting on invoices updated 3')
     l2.rpc.delinvoice('invlabel2', status='unpaid', desconly=True)
     waitres = waitfut.result(TIMEOUT)
     assert waitres == {'subsystem': 'invoices',
@@ -819,7 +819,7 @@ def test_invoice_deschash(node_factory, chainparams):
     assert inv['description'] == b11['description_hash']
 
 
-def test_listinvoices_index(node_factory, executor):
+def test_listinvoices_index(node_factory):
     l1, l2 = node_factory.line_graph(2)
 
     invs = {}
@@ -863,7 +863,7 @@ def test_listinvoices_index(node_factory, executor):
         assert only_one(l2.rpc.listinvoices(index='updated', start=i, limit=1)['invoices'])['label'] == str(70 + 1 - i)
 
 
-def test_unified_invoices(node_factory, executor, bitcoind):
+def test_unified_invoices(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, opts={'invoices-onchain-fallback': None})
     amount_sat = 1000
     inv = l1.rpc.invoice(amount_sat * 1000, "inv1", "test_unified_invoices")
