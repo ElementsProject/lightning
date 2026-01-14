@@ -4,7 +4,7 @@ from .gossmap import Gossmap, GossmapNode, GossmapChannel, GossmapHalfchannel, G
 from .gossmapstats import GossmapStats
 from .version import NodeVersion
 
-__version__ = "v25.12"
+__version__ = "25.12.1"
 
 __all__ = [
     "LightningRpc",
