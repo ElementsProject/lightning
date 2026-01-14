@@ -1332,7 +1332,6 @@ void gossmap_manage_channel_spent(struct gossmap_manage *gm,
 				  struct short_channel_id scid)
 {
 	struct gossmap_chan *chan;
-	const struct gossmap_node *me;
 	const u8 *msg;
 	struct chan_dying cd;
 	struct gossmap *gossmap = gossmap_manage_get_gossmap(gm);
@@ -1340,14 +1339,6 @@ void gossmap_manage_channel_spent(struct gossmap_manage *gm,
 	chan = gossmap_find_chan(gossmap, &scid);
 	if (!chan)
 		return;
-
-	me = gossmap_find_node(gossmap, &gm->daemon->id);
-	/* We delete our own channels immediately, since we have local knowledge */
-	if (gossmap_nth_node(gossmap, chan, 0) == me
-	    || gossmap_nth_node(gossmap, chan, 1) == me) {
-		kill_spent_channel(gm, gossmap, scid);
-		return;
-	}
 
 	/* Is it already dying?  It's lightningd re-telling us */
 	if (channel_already_dying(gm->dying_channels, scid))

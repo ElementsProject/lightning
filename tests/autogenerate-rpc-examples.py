@@ -994,7 +994,7 @@ def generate_offers_renepay_examples(l1, l2, inv_l21, inv_l34):
         # Offers & Offers Lists
         offer_l21 = update_example(node=l2, method='offer', params={'amount': '10000msat', 'description': 'Fish sale!'})
         offer_l22 = update_example(node=l2, method='offer', params={'amount': '1000sat', 'description': 'Coffee', 'quantity_max': 10})
-        offer_l23 = l2.rpc.offer('2000sat', 'Offer to Disable')
+        offer_l23 = l2.rpc.offer('2000sat', 'Movie ticket')
         fetchinv_res1 = update_example(node=l1, method='fetchinvoice', params={'offer': offer_l21['bolt12'], 'payer_note': 'Thanks for the fish!'})
         fetchinv_res2 = update_example(node=l1, method='fetchinvoice', params={'offer': offer_l22['bolt12'], 'amount_msat': 2000000, 'quantity': 2})
         update_example(node=l2, method='disableoffer', params={'offer_id': offer_l23['offer_id']})

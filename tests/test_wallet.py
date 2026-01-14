@@ -1225,7 +1225,8 @@ def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
 @unittest.skipIf(TEST_NETWORK == 'liquid-regtest', "BIP86 random_hsm not compatible with liquid-regtest bech32")
 def test_txsend(node_factory, bitcoind, chainparams):
     amount = 1000000
-    l1 = node_factory.get_node(random_hsm=True)
+    # Under valgrind, we can actually take 5 seconds to sign multiple inputs!
+    l1 = node_factory.get_node(random_hsm=True, broken_log="That's weird: Request signpsbt took")
     addr = chainparams['example_addr']
 
     # Add some funds to withdraw later
@@ -1648,9 +1649,12 @@ def test_hsmtool_all_commands_work_with_mnemonic_formats(node_factory):
     # Test various commands work with mnemonic format
     test_commands = [
         (["getnodeid", hsm_path], "03653e90c1ce4660fd8505dd6d643356e93cfe202af109d382787639dd5890e87d"),
-        (["getcodexsecret", hsm_path, "test"], "cl10testst6cqh0wu7p5ssjyf4z4ez42ks9jlt3zneju9uuypr2hddak6tlqsghuxusm6m6azq"),
+        (["getsecret", hsm_path], "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"),
         (["makerune", hsm_path], "6VkrWMI2hm2a2UTkg-EyUrrBJN0RcuPB80I1pCVkTD89MA=="),
-        (["dumponchaindescriptors", hsm_path], "wpkh(xpub661MyMwAqRbcG9kjo3mdWQuSDbtdJzsd3K2mvifyeUMF3GhLcBAfELqjuxCvxUkYqQVe6rJ9SzmpipoUedb5MD79MJaLL8RME2A3J3Fw6Zd/0/0/*)#2jtshmk0\nsh(wpkh(xpub661MyMwAqRbcG9kjo3mdWQuSDbtdJzsd3K2mvifyeUMF3GhLcBAfELqjuxCvxUkYqQVe6rJ9SzmpipoUedb5MD79MJaLL8RME2A3J3Fw6Zd/0/0/*))#u6am4was\ntr(xpub661MyMwAqRbcG9kjo3mdWQuSDbtdJzsd3K2mvifyeUMF3GhLcBAfELqjuxCvxUkYqQVe6rJ9SzmpipoUedb5MD79MJaLL8RME2A3J3Fw6Zd/0/0/*)#v9hf4756"),
+        (["dumponchaindescriptors", hsm_path],
+         "wpkh(xpub6BgBgsespWvERF3LHQu6CnqdvfEvtMcQjYrcRzx53QJjSxarj2afYWcLteoGVky7D3UKDP9QyrLprQ3VCECoY49yfdDEHGCtMMj92pReUsQ/0/*)#hjszq0wk\n"
+         "sh(wpkh(xpub6BgBgsespWvERF3LHQu6CnqdvfEvtMcQjYrcRzx53QJjSxarj2afYWcLteoGVky7D3UKDP9QyrLprQ3VCECoY49yfdDEHGCtMMj92pReUsQ/0/*))#u0t3u3xz\n"
+         "tr(xpub6BgBgsespWvERF3LHQu6CnqdvfEvtMcQjYrcRzx53QJjSxarj2afYWcLteoGVky7D3UKDP9QyrLprQ3VCECoY49yfdDEHGCtMMj92pReUsQ/0/*)#8e7pq23w"),
     ]
 
     for cmd_args, expected_output in test_commands:

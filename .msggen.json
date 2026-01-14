@@ -1625,6 +1625,7 @@
         "DisableofferResponse": {
             "DisableOffer.active": 2,
             "DisableOffer.bolt12": 4,
+            "DisableOffer.description": 7,
             "DisableOffer.label": 6,
             "DisableOffer.offer_id": 1,
             "DisableOffer.single_use": 3,
@@ -1643,6 +1644,7 @@
         "EnableofferResponse": {
             "EnableOffer.active": 2,
             "EnableOffer.bolt12": 4,
+            "EnableOffer.description": 7,
             "EnableOffer.label": 6,
             "EnableOffer.offer_id": 1,
             "EnableOffer.single_use": 3,
@@ -2859,6 +2861,7 @@
         "ListoffersOffers": {
             "ListOffers.offers[].active": 2,
             "ListOffers.offers[].bolt12": 4,
+            "ListOffers.offers[].description": 7,
             "ListOffers.offers[].label": 6,
             "ListOffers.offers[].offer_id": 1,
             "ListOffers.offers[].single_use": 3,
@@ -7061,6 +7064,10 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "DisableOffer.description": {
+            "added": "v26.04",
+            "deprecated": null
+        },
         "DisableOffer.label": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -7107,6 +7114,10 @@
         },
         "EnableOffer.bolt12": {
             "added": "v24.11",
+            "deprecated": null
+        },
+        "EnableOffer.description": {
+            "added": "v26.04",
             "deprecated": null
         },
         "EnableOffer.label": {
@@ -10567,6 +10578,10 @@
         },
         "ListOffers.offers[].bolt12": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListOffers.offers[].description": {
+            "added": "v26.04",
             "deprecated": null
         },
         "ListOffers.offers[].label": {

@@ -244,9 +244,9 @@ def test_createrune_per_restriction(node_factory):
     l1 = node_factory.get_node()
 
     # 1 sec = 1,000,000,000 nanoseconds (nsec)
-    rune_per_nano_sec = l1.rpc.createrune(restrictions=[["per=1000000000nsec"]])['rune']
-    assert rune_per_nano_sec == 'Bl0V_vkVkGr4h356JbCMCcoDyyKE8djkoQ2156iPB509MCZwZXI9MTAwMDAwMDAwMG5zZWM='
-    do_test_rune_per_restriction(l1, rune_per_nano_sec, 1)
+    rune_per_nano_sec = l1.rpc.createrune(restrictions=[["per=2000000000nsec"]])['rune']
+    assert rune_per_nano_sec == 'FU709V1zX-JJR2hlpBfN2hpPEqahtzi6q65fZxnRRhM9MCZwZXI9MjAwMDAwMDAwMG5zZWM='
+    do_test_rune_per_restriction(l1, rune_per_nano_sec, 2)
 
     # 1 sec = 1,000,000 microseconds (usec)
     rune_per_micro_sec = l1.rpc.createrune(restrictions=[["per=2000000usec"]])['rune']
@@ -254,9 +254,9 @@ def test_createrune_per_restriction(node_factory):
     do_test_rune_per_restriction(l1, rune_per_micro_sec, 2)
 
     # 1 sec = 1,000 milliseconds (msec)
-    rune_per_milli_sec = l1.rpc.createrune(restrictions=[["per=1000msec"]])['rune']
-    assert rune_per_milli_sec == 'EzVpQwjYe2aoNQiRa4_s7FJtomD3kWzx7lusMpzA59w9MiZwZXI9MTAwMG1zZWM='
-    do_test_rune_per_restriction(l1, rune_per_milli_sec, 1)
+    rune_per_milli_sec = l1.rpc.createrune(restrictions=[["per=2000msec"]])['rune']
+    assert rune_per_milli_sec == 'eoEyi0Na_GeXBpmQ_cXQHrvmAuGWwq4bJrYo0jKk6V09MiZwZXI9MjAwMG1zZWM='
+    do_test_rune_per_restriction(l1, rune_per_milli_sec, 2)
 
     # 1 sec
     rune_per_sec = l1.rpc.createrune(restrictions=[["per=2sec"]])['rune']
@@ -264,9 +264,9 @@ def test_createrune_per_restriction(node_factory):
     do_test_rune_per_restriction(l1, rune_per_sec, 2)
 
     # default (sec)
-    rune_per_default = l1.rpc.createrune(restrictions=[["per=1"]])['rune']
-    assert rune_per_default == 'NrM7go6C4qzfRQDkUSv1DtRroJWSKqdjIOuvGS4TLFE9NCZwZXI9MQ=='
-    do_test_rune_per_restriction(l1, rune_per_default, 1)
+    rune_per_default = l1.rpc.createrune(restrictions=[["per=2"]])['rune']
+    assert rune_per_default == 'pd0Xr2U3uv-mJQfsp801doqTN5zpRRuc2Clp5Yb8zmU9NCZwZXI9Mg=='
+    do_test_rune_per_restriction(l1, rune_per_default, 2)
 
     # 1 minute
     rune_per_min = l1.rpc.createrune(restrictions=[["per=1min"]])['rune']
