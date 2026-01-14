@@ -30511,7 +30511,9 @@
       "description": [
         "The **recover** RPC command wipes your node and restarts it with the `--recover` option. This is only permitted if the node is unused: no channels, no bitcoin addresses issued (you can use `check` to see if recovery is possible).",
         "",
-        "*hsmsecret* is either a codex32 secret starting with \"cl1\" as returned by `lightning-hsmtool getcodexsecret`, or a raw 64 character hex string.",
+        "For nodes created with v25.12 or later, *hsmsecret* MUST be the 12-word mnemonic.",
+        "",
+        "For earlier nodes, *hsmsecret* is either a codex32 secret starting with \"cl1\" as returned by `lightning-hsmtool getcodexsecret`, or a raw 64 character hex string.",
         "",
         "NOTE: this command only currently works with the `sqlite3` database backend."
       ],
@@ -30524,7 +30526,7 @@
           "hsmsecret": {
             "type": "string",
             "description": [
-              "Either a codex32 secret starting with `cl1` as returned by `lightning-hsmtool getcodexsecret`, or a raw 64 character hex string."
+              "Usually a 12-word mnemonic; but for old nodes either a codex32 secret starting with `cl1` as returned by `lightning-hsmtool getcodexsecret` or a raw 64 character hex string."
             ]
           }
         }
