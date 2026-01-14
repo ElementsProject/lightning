@@ -1157,11 +1157,8 @@ static void init_linear_network_single_path(
 					     c->half[half].base_fee,
 					     c->half[half].proportional_fee))
 				abort();
-			u32 fee_msat;
-			if (!amount_msat_to_u32(fee, &fee_msat))
-				continue;
 			(*arc_fee_cost)[arc.idx] =
-			    fee_msat +
+			    fee.millisatoshis + /* Raw: fee cost */
 			    params->delay_feefactor * c->half[half].delay;
 		}
 	}

@@ -1523,50 +1523,61 @@ def test_decode(node_factory, bitcoind):
 
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "deletes database, which is assumed sqlite3")
-def test_recover(node_factory, bitcoind):
+@pytest.mark.parametrize("old_hsmsecret", [False, True])
+def test_recover(node_factory, bitcoind, old_hsmsecret):
     """Test the recover option
     """
-    # Start the node with --recovery with valid codex32 secret
+    if old_hsmsecret:
+        recoverarg = "cl10leetsllhdmn9m42vcsamx24zrxgs3qrl7ahwvhw4fnzrhve25gvezzyqqjdsjnzedu43ns"
+        hsmsecret = bytes.fromhex("ffeeddccbbaa99887766554433221100ffeeddccbbaa99887766554433221100")
+        bad_recoverarg = "CL10LEETSLLHDMN9M42VCSAMX24ZRXGS3QQAT3LTDVAKMT73"
+    else:
+        recoverarg = "hockey enroll sure trip track rescue original plate abandon abandon abandon account"
+        hsmsecret = bytes.fromhex("0000000000000000000000000000000000000000000000000000000000000000") + recoverarg.encode('utf-8')
+        bad_recoverarg = "hockey enroll sure trip track rescue original plate abandon abandon abandon abandon"
+
+    # Start the node with --recovery with valid secret
     l1 = node_factory.get_node(start=False,
-                               options={"recover": "cl10leetsllhdmn9m42vcsamx24zrxgs3qrl7ahwvhw4fnzrhve25gvezzyqqjdsjnzedu43ns"})
+                               options={"recover": recoverarg}, old_hsmsecret=old_hsmsecret)
 
     os.unlink(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret"))
     l1.daemon.start()
 
-    cmd_line = ["tools/lightning-hsmtool", "getcodexsecret", os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")]
-    out = subprocess.check_output(cmd_line + ["leet", "0"]).decode('utf-8')
-    assert out == "cl10leetsllhdmn9m42vcsamx24zrxgs3qrl7ahwvhw4fnzrhve25gvezzyqqjdsjnzedu43ns\n"
+    cmd_line = ["tools/lightning-hsmtool", "getsecret", os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")]
+    out = subprocess.check_output(cmd_line + ["leet"]).decode('utf-8')
+    assert out == recoverarg + "\n"
 
-    # Check bad ids.
-    out = subprocess.run(cmd_line + ["lee", "0"], stderr=subprocess.PIPE, timeout=TIMEOUT)
-    assert 'Invalid id: must be 4 characters' in out.stderr.decode('utf-8')
-    assert out.returncode == 2
-
-    out = subprocess.run(cmd_line + ["Leet", "0"], stderr=subprocess.PIPE, timeout=TIMEOUT)
-    assert 'Invalid id: must be lower-case' in out.stderr.decode('utf-8')
-    assert out.returncode == 2
-
-    out = subprocess.run(cmd_line + ["💔", "0"], stderr=subprocess.PIPE, timeout=TIMEOUT)
-    assert 'Invalid id: must be ASCII' in out.stderr.decode('utf-8')
-    assert out.returncode == 2
-
-    for bad_bech32 in ['b', 'o', 'i', '1']:
-        out = subprocess.run(cmd_line + [bad_bech32 + "eet", "0"], stderr=subprocess.PIPE, timeout=TIMEOUT)
-        assert 'Invalid id: must be valid bech32 string' in out.stderr.decode('utf-8')
+    # Check bad ids (we ignore id for modern hsm_secret)
+    if old_hsmsecret:
+        out = subprocess.run(cmd_line + ["lee"], stderr=subprocess.PIPE, timeout=TIMEOUT)
+        assert 'Invalid id: must be 4 characters' in out.stderr.decode('utf-8')
         assert out.returncode == 2
+
+        out = subprocess.run(cmd_line + ["Leet"], stderr=subprocess.PIPE, timeout=TIMEOUT)
+        assert 'Invalid id: must be lower-case' in out.stderr.decode('utf-8')
+        assert out.returncode == 2
+
+        out = subprocess.run(cmd_line + ["💔"], stderr=subprocess.PIPE, timeout=TIMEOUT)
+        assert 'Invalid id: must be ASCII' in out.stderr.decode('utf-8')
+        assert out.returncode == 2
+
+        for bad_bech32 in ['b', 'o', 'i', '1']:
+            out = subprocess.run(cmd_line + [bad_bech32 + "eet"], stderr=subprocess.PIPE, timeout=TIMEOUT)
+            assert 'Invalid id: must be valid bech32 string' in out.stderr.decode('utf-8')
+            assert out.returncode == 2
 
     basedir = l1.daemon.opts.get("lightning-dir")
     with open(os.path.join(basedir, TEST_NETWORK, 'hsm_secret'), 'rb') as f:
         buff = f.read()
 
     # Check the node secret
-    assert buff.hex() == "ffeeddccbbaa99887766554433221100ffeeddccbbaa99887766554433221100"
+    assert buff == hsmsecret
     l1.stop()
 
     os.unlink(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "lightningd.sqlite3"))
 
     # Node should throw error to recover flag if HSM already exists.
-    l1.daemon.opts['recover'] = "cl10leetsllhdmn9m42vcsamx24zrxgs3qrl7ahwvhw4fnzrhve25gvezzyqqjdsjnzedu43ns"
+    l1.daemon.opts['recover'] = recoverarg
     l1.daemon.start(wait_for_initialized=False, stderr_redir=True)
 
     # Will exit with failure code.
@@ -1575,12 +1586,15 @@ def test_recover(node_factory, bitcoind):
 
     os.unlink(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret"))
 
-    l1.daemon.opts.update({"recover": "CL10LEETSLLHDMN9M42VCSAMX24ZRXGS3QQAT3LTDVAKMT73"})
+    l1.daemon.opts.update({"recover": bad_recoverarg})
     l1.daemon.start(wait_for_initialized=False, stderr_redir=True)
     assert l1.daemon.wait() == 1
-    assert l1.daemon.is_in_stderr(r"Invalid length: must be 32 bytes")
+    if old_hsmsecret:
+        assert l1.daemon.is_in_stderr(r"Invalid length: must be 32 bytes")
+    else:
+        assert l1.daemon.is_in_stderr(r"Not a valid mnemonic, hex, or codex32 string")
 
-    # Can do HSM secret in hex, too!
+    # Old-style can do HSM secret in hex, too!
     l1.daemon.opts["recover"] = "6c696768746e696e672d31000000000000000000000000000000000000000000"
     l1.daemon.start()
     l1.stop()
@@ -3527,7 +3541,7 @@ def test_listforwards_wait(node_factory, executor):
     # Now ask for 1.
     waitcreate = executor.submit(l2.rpc.wait, subsystem='forwards', indexname='created', nextvalue=1)
     waitupdate = executor.submit(l2.rpc.wait, subsystem='forwards', indexname='updated', nextvalue=1)
-    time.sleep(1)
+    l2.daemon.wait_for_logs(['waiting on forwards created 1', 'waiting on forwards updated 1'])
 
     amt1 = 1000
     inv1 = l3.rpc.invoice(amt1, 'inv1', 'desc')
@@ -3557,6 +3571,7 @@ def test_listforwards_wait(node_factory, executor):
 
     waitcreate = executor.submit(l2.rpc.wait, subsystem='forwards', indexname='created', nextvalue=2)
     waitupdate = executor.submit(l2.rpc.wait, subsystem='forwards', indexname='updated', nextvalue=2)
+    l2.daemon.wait_for_logs(['waiting on forwards created 2', 'waiting on forwards updated 2'])
     time.sleep(1)
 
     with pytest.raises(RpcError, match="WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS"):
@@ -3591,7 +3606,7 @@ def test_listforwards_wait(node_factory, executor):
 
     # Finally, check deletion.
     waitfut = executor.submit(l2.rpc.wait, subsystem='forwards', indexname='deleted', nextvalue=1)
-    time.sleep(1)
+    l2.daemon.wait_for_log('waiting on forwards deleted 1')
 
     l2.rpc.delforward(scid12, 1, 'failed')
 
@@ -3615,7 +3630,7 @@ def test_listhtlcs_wait(node_factory, bitcoind, executor):
     # Now ask for 1.
     waitcreate = executor.submit(l2.rpc.wait, subsystem='htlcs', indexname='created', nextvalue=1)
     waitupdate = executor.submit(l2.rpc.wait, subsystem='htlcs', indexname='updated', nextvalue=1)
-    time.sleep(1)
+    l2.daemon.wait_for_logs(['waiting on htlcs created 1', 'waiting on htlcs updated 1'])
 
     amt1 = 1000
     inv1 = l3.rpc.invoice(amt1, 'inv1', 'desc')
@@ -3651,7 +3666,7 @@ def test_listhtlcs_wait(node_factory, bitcoind, executor):
     l3.rpc.delinvoice('inv2', 'unpaid')
 
     waitcreate = executor.submit(l2.rpc.wait, subsystem='htlcs', indexname='created', nextvalue=4)
-    time.sleep(1)
+    l2.daemon.wait_for_log('waiting on htlcs created 4')
 
     with pytest.raises(RpcError, match="WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS"):
         l1.rpc.pay(inv2['bolt11'])
@@ -3671,7 +3686,7 @@ def test_listhtlcs_wait(node_factory, bitcoind, executor):
     l1.rpc.close(l2.info['id'])
 
     waitfut = executor.submit(l2.rpc.wait, subsystem='htlcs', indexname='deleted', nextvalue=1)
-    time.sleep(1)
+    l2.daemon.wait_for_log('waiting on htlcs deleted 1')
 
     bitcoind.generate_block(100, wait_for_mempool=1)
 

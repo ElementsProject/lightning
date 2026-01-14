@@ -32,7 +32,7 @@ u32 get_feerate_floor(const struct chain_topology *topo UNNEEDED)
 /* Generated stub for hsm_secret_arg */
 char *hsm_secret_arg(const tal_t *ctx UNNEEDED,
 		     const char *arg UNNEEDED,
-		     const u8 **hsm_secret UNNEEDED)
+		     const struct hsm_secret **hsm_secret UNNEEDED)
 { fprintf(stderr, "hsm_secret_arg called!\n"); abort(); }
 /* Generated stub for lightningd_deprecated_in_ok */
 bool lightningd_deprecated_in_ok(struct lightningd *ld UNNEEDED,
