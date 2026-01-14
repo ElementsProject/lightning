@@ -21,9 +21,9 @@
 /* Minimized schemas.  C23 #embed, Where Art Thou? */
 static const char schemas[] =
 	#include "sql-schema_gen.h"
+	;
 
 /* TODO:
- * 10. General pagination API (not just chainmoves and channelmoves)
  * 11. Normalize account_id fields into another table, as they are highly duplicate, and use views to maintain the current API.
 */
 enum fieldtype {
@@ -1684,11 +1684,11 @@ static const struct refresh_funcs refresh_funcs[] = {
 	/* These are special, using gossmap */
 	{ "listchannels", channels_refresh, NULL },
 	{ "listnodes", nodes_refresh, NULL },
-	/* FIXME: These support wait and full pagination,  but we need to watch for deletes, too! */
-	{ "listhtlcs", default_refresh, NULL },
-	{ "listforwards", default_refresh, NULL },
-	{ "listinvoices", default_refresh, NULL },
-	{ "listsendpays", default_refresh, NULL },
+	/* These support wait and full pagination (TODO #10: DONE) */
+	{ "listhtlcs", refresh_by_created_index, "htlcs" },
+	{ "listforwards", refresh_by_created_index, "forwards" },
+	{ "listinvoices", refresh_by_created_index, "invoices" },
+	{ "listsendpays", refresh_by_created_index, "sendpays" },
 	/* These are never changed or deleted */
 	{ "listchainmoves", refresh_by_created_index, "chainmoves" },
 	{ "listchannelmoves", refresh_by_created_index, "channelmoves" },
