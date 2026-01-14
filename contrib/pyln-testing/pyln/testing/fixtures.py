@@ -59,6 +59,9 @@ def setup_logging():
     if TEST_DEBUG:
         logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
 
+    if env("TEST_LOG_IGNORE_ERRORS", "0") == "1":
+        logging.raiseExceptions = False
+
     yield
 
     loggers = [logging.getLogger()] + list(logging.Logger.manager.loggerDict.values())
