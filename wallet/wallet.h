@@ -790,13 +790,14 @@ void wallet_channel_stats_incr_out_fulfilled(struct wallet *w, u64 cdbid, struct
 u32 wallet_blocks_maxheight(struct wallet *w);
 
 /**
- * Retrieve the blockheight of the first block processed by lightningd.
+ * Retrieve the blockheight of the first block processed by lightningd (ignoring
+ * backfilled blocks for gossip).
  *
  * Will return the 0 if the wallet was never used before.
  *
  * @w: wallet to load from.
  */
-u32 wallet_blocks_minheight(struct wallet *w);
+u32 wallet_blocks_contig_minheight(struct wallet *w);
 
 /**
  * wallet_extract_owned_outputs - given a tx, extract all of our outputs
