@@ -4,6 +4,45 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [25.12.1] - 2026-1-14: "Boltz's Seamless Upgrade Experience II"
+
+This is a recommended release, particularly for those creating new nodes.
+
+### Changed
+
+ - JSON-RPC: `recover` takes a 12-word mnemonic for nodes created by v25.12 or later. ([#8830])
+ - `lightning-hsmtool`: `getsecret` replaces `getcodexsecret` for modern nodes (gives mnemonic). ([#8830])
+
+### Deprecated
+
+Note: You should always set `allow-deprecated-apis=false` to test for changes.
+
+ - `lightning-hsmtool`: `getcodexsecret`.  Use `getsecret`. ([#8830])
+
+### Fixed
+
+ - lightningd: we now correctly sign for non-taproot addresses given by nodes created by v25.12 or newer. ([#8831])
+ - `lightning-hsmtool`: handle mnemonic hsm_secret files (nodes created >= v25.12). ([#8831])
+ - plugins: `pay` can crash on errors returned from deep inside routehints. ([#8829])
+ - plugins: `askrene` can crash on a corner case in increase_flows. ([#8829])
+ - askrene: fix a plugin crash triggered during single path payments when a channel fees doesn't fit u32. ([#8832])
+ - JSON-RPC: malformed filters no longer crash lightningd. ([#8780])
+ - pay: `maxdelay` parameter now enforced for direct channel payments ([#8740])
+ - gossipd: we would occasionally not show a node announcement in listnodes(). ([#8769])
+ - lightningd: potential crash on startup if bitcoind isn't up-to-date. ([#8779])
+
+
+[#8832]: https://github.com/ElementsProject/lightning/pull/8832
+[#8780]: https://github.com/ElementsProject/lightning/pull/8780
+[#8831]: https://github.com/ElementsProject/lightning/pull/8831
+[#8740]: https://github.com/ElementsProject/lightning/pull/8740
+[#8769]: https://github.com/ElementsProject/lightning/pull/8769
+[#8829]: https://github.com/ElementsProject/lightning/pull/8829
+[#8779]: https://github.com/ElementsProject/lightning/pull/8779
+[#8830]: https://github.com/ElementsProject/lightning/pull/8830
+[25.12.1]: https://github.com/ElementsProject/lightning/releases/tag/v25.12.1
+
+
 ## [25.12] - 2025-12-04: "Boltz's Seamless Upgrade Experience"
 
 This release is named by @sangbida
