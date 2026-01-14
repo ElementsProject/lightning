@@ -1154,7 +1154,12 @@ static bool consider_onchain_htlc_tx_rebroadcast(struct channel *channel,
 	if (!amount_sat_eq(change, AMOUNT_SAT(0))) {
 		/* Append change output. */
 		struct pubkey final_key;
-		bip32_pubkey(ld, &final_key, channel->final_key_idx);
+		/* Use BIP86 derivation for P2TR if available, otherwise BIP32 */
+		if (ld->bip86_base) {
+			bip86_pubkey(ld, &final_key, channel->final_key_idx);
+		} else {
+			bip32_pubkey(ld, &final_key, channel->final_key_idx);
+		}
 		psbt_append_output(psbt,
 				   scriptpubkey_p2tr(tmpctx, &final_key),
 				   change);
