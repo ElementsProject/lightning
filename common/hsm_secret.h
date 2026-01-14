@@ -130,6 +130,14 @@ const char *hsm_secret_error_str(enum hsm_secret_error err);
 enum hsm_secret_type detect_hsm_secret_type(const u8 *hsm_secret, size_t len);
 
 /**
+ * Check a BIP39 mnemonic is valid.
+ * @mnemonic - 12 words, single-space separated, nul terminate.
+ *
+ * Returns HSM_SECRET_ERR_INVALID_MNEMONIC or HSM_SECRET_OK.
+ */
+enum hsm_secret_error validate_mnemonic(const char *mnemonic);
+
+/**
  * Reads a BIP39 mnemonic from stdin with validation.
  * Returns a newly allocated string on success, NULL on error.
  * @ctx - tal context for allocation
