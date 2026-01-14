@@ -1938,7 +1938,7 @@ def test_wait(node_factory, bitcoind, executor):
     l1, l2 = node_factory.get_nodes(2)
 
     fut = executor.submit(l1.rpc.wait, subsystem='chainmoves', indexname='created', nextvalue=1)
-    l1.daemon.wait_for_log('waiting on chainmovesmoves created 1')
+    l1.daemon.wait_for_log('waiting on chainmoves created 1')
 
     addr = l1.rpc.newaddr('bech32')['bech32']
     bitcoind.rpc.sendtoaddress(addr, 200000000 / 10**8)
