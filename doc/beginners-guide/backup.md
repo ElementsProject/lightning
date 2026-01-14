@@ -38,11 +38,92 @@ Core Lightning has an internal bitcoin wallet and you can backup three main comp
 it is kept in a secure location.
 
 
-The `hsm_secret` is created when you first create the node, and does not change. Thus, a one-time backup of `hsm_secret` is sufficient. 
-It should be noted down a few times on a piece of paper, in either hexadecimal or codex32 format, as described below:
+The `hsm_secret` is created when you first create the node, and does not change. Thus, a one-time backup of `hsm_secret` is sufficient.
 
 
-#### Hex Format
+#### Mnemonic Format (v25.12+)
+
+Starting with Core Lightning v25.12, new nodes are created with a BIP39 12-word mnemonic phrase as their root secret. By default, **no passphrase is used**. You can optionally protect your mnemonic with a passphrase for additional security by starting `lightningd` with the `--hsm-passphrase` option.
+
+**Backing up your mnemonic:**
+
+The **best way to back up your mnemonic** is to use `lightning-hsmtool getsecret`:
+
+```shell
+lightning-hsmtool getsecret $LIGHTNINGDIR/hsm_secret
+```
+
+This will output your 12-word mnemonic. Write it down on paper and store it securely. **Important:** If you used a passphrase when creating your node, you must back it up separately along with your mnemonic, as both are required to recover your funds.
+
+**Alternative: Creating your own mnemonic before first start**
+
+If you prefer to use your own mnemonic instead of having `lightningd` generate a random one, create the `hsm_secret` manually before starting your node for the first time:
+
+```shell
+lightning-hsmtool generatehsm $LIGHTNINGDIR/hsm_secret
+```
+
+This will prompt you to enter your mnemonic (12 words) and an optional passphrase. If you choose to use a passphrase, you must start `lightningd` with the `--hsm-passphrase` option to provide it.
+
+**Alternative: Using `exposesecret`**
+
+If your node was already created (with a randomly-generated mnemonic) and you did **not** use a passphrase (`--hsm-passphrase`), you can extract the mnemonic using the `exposesecret` RPC command:
+
+```shell
+lightning-cli exposesecret passphrase=<your-exposesecret-passphrase>
+```
+
+Note: This requires setting `exposesecret-passphrase` in your config. This is a separate security measure for the `exposesecret` command itself, not related to the HSM passphrase. **`exposesecret` does not work if your `hsm_secret` uses a passphrase** - it only works with non-passphrase-protected secrets.
+
+**Recovery with mnemonic:**
+
+For v25.12+ nodes, you can use the `recover` RPC command to recover directly from your mnemonic:
+
+```shell
+lightning-cli recover hsmsecret="word1 word2 word3 ... word12"
+```
+
+Alternatively, you can manually recreate the `hsm_secret` file using `lightning-hsmtool generatehsm`:
+
+```shell
+lightning-hsmtool generatehsm $LIGHTNINGDIR/hsm_secret
+```
+
+The command will prompt you to:
+1. Enter your backed-up mnemonic words (12 words, separated by spaces)
+2. Enter your passphrase (if you used one, or press Enter if you didn't)
+
+Then start `lightningd` normally (with `--hsm-passphrase` if you used a passphrase).
+
+
+#### Readable Format
+
+Run `tools/lightning-hsmtool getsecret <hsm/secret/path>` to get the `hsm_secret` in readable format. For v25.12+ nodes, this returns the 12-word mnemonic. For older nodes, you will get a codex32 string instead, and must supply a four-letter id to attach to it, like so:
+
+Example for newer nodes: `tools/lightning-hsmtool getsecret ~/.lightning/bitcoin/hsm_secret`
+
+Example for older nodes: `tools/lightning-hsmtool getsecret ~/.lightning/bitcoin/hsm_secret adt0`.
+
+`hsm/secret/path` in the above command is `$LIGHTNINGDIR/hsm_secret`, and
+`id` is any 4 character string used to identify this secret. It **cannot** contain `i`, `o`, or `b`, but **can** contain all digits except `1`.
+
+**Recovery with codex32 (legacy nodes):**
+
+Legacy nodes can recover using the `recover` RPC command with a codex32 secret:
+
+```shell
+lightning-cli recover hsmsecret=<codex32secret>
+```
+
+Click [here](doc:hsm-secret) to learn more about other cool hsm methods.
+
+
+#### Legacy Formats (Pre-v25.12)
+
+For nodes created before v25.12, the `hsm_secret` was stored as a 32-byte binary file. These can be backed up in hexadecimal format:
+
+
+##### Hex Format
 
 The secret is just 32 bytes, and can be converted into hexadecimal digits like below:
 
@@ -61,19 +142,6 @@ HEX
 xxd -r hsm_secret_hex.txt > hsm_secret
 chmod 0400 hsm_secret
 ```
-
-
-#### Readable Format
-
-Run `tools/lightning-hsmtool getsecret <hsm/secret/path>` to get the `hsm_secret` mnemonic (12 words).  For older
-nodes, you will get a codex32 string instead, and must supply a four-letter id to attach to it, like so:
-
-Example `tools/lightning-hsmtool getsecret ~/.lightning/bitcoin/hsm_secret adt0`.
-
-`hsm/secret/path` in the above command is `$LIGHTNINGDIR/hsm_secret`, and
-`id` is any 4 character string used to identify this secret. It **cannot** contain `i`, `o`, or `b`, but **can** contain all digits except `1`.
-
-Click [here](doc:hsm-secret) to learn more about other cool hsm methods.
 
 
 ### Static Channel Backup
