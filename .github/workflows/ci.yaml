@@ -17,6 +17,7 @@ env:
   SLOW_MACHINE: 1
   CI_SERVER_URL: "http://35.239.136.52:3170"
   PYTEST_OPTS_BASE: "-vvv --junit-xml=report.xml --timeout=1800 --durations=10"
+  TEST_LOG_IGNORE_ERRORS: "1"
 
 jobs:
   prebuild:

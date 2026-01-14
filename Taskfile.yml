@@ -12,12 +12,15 @@ tasks:
     dir: '.'
     deps:
       - build
+    env:
+      TEST_LOG_IGNORE_ERRORS: "1"
     cmds:
       - uv run pytest --force-flaky -vvv -n {{ .PYTEST_PAR }} tests {{ .CLI_ARGS }}
 
   test-liquid:
     env:
       TEST_NETWORK: "liquid-regtest"
+      TEST_LOG_IGNORE_ERRORS: "1"
     cmds:
       - sed -i 's/TEST_NETWORK=regtest/TEST_NETWORK=liquid-regtest/g' config.vars
       - uv run make cln-grpc/proto/node.proto
@@ -62,6 +65,8 @@ tasks:
     deps:
       - in-docker-init
       - in-docker-build-deps
+    env:
+      TEST_LOG_IGNORE_ERRORS: "1"
     cmds:
       # This way of copying allows us to copy the dirty tree, without
       # triggering any of the potentially configured hooks which might

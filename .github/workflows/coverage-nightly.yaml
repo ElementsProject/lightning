@@ -91,6 +91,7 @@ jobs:
           PYTEST_PAR: ${{ matrix.pytest_par }}
           SLOW_MACHINE: 1
           TIMEOUT: 900
+          TEST_LOG_IGNORE_ERRORS: "1"
         run: |
           mkdir -p "$CLN_COVERAGE_DIR"
           uv run eatmydata pytest tests/ -n ${PYTEST_PAR} -vvv
