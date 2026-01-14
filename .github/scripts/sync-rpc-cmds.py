@@ -1,5 +1,4 @@
 import os
-from urllib.parse import quote
 from time import sleep
 import requests
 import re
@@ -7,7 +6,7 @@ from enum import Enum
 
 # readme url
 URL = "https://api.readme.com/v2/branches/stable"
-CATEGORY_SLUG = "JSON-RPC API Reference"
+CATEGORY_SLUG = "JSON-RPC"
 
 
 class Action(Enum):
@@ -17,10 +16,12 @@ class Action(Enum):
 
 
 def getListOfRPCDocs(headers):
-    response = requests.get(f"{URL}/categories/reference/{quote(CATEGORY_SLUG)}/pages", headers=headers)
+    response = requests.get(f"{URL}/categories/reference/{CATEGORY_SLUG}/pages", headers=headers)
     if response.status_code == 200:
         return response.json().get('data', [])
     else:
+        print(f"❌ Failed to get pages: {response.status_code}")
+        print(response.text)
         return []
 
 
@@ -34,7 +35,7 @@ def check_renderable(response, action, title):
 
     renderable = data.get("renderable")
     if renderable is None:
-        # Some endpoints don’t include renderable (e.g. DELETE)
+        # Some endpoints don't include renderable (e.g. DELETE)
         return True
 
     if not renderable.get("status", False):
@@ -46,7 +47,7 @@ def check_renderable(response, action, title):
     return True
 
 
-def publishDoc(action, title, body, order, headers):
+def publishDoc(action, title, body, position, headers):
     payload = {
         "title": title,
         "type": "basic",
@@ -54,45 +55,45 @@ def publishDoc(action, title, body, order, headers):
             "body": body,
         },
         "category": {
-            "uri": f"/branches/1/categories/reference/{CATEGORY_SLUG}"
+            "uri": f"/branches/stable/categories/reference/{CATEGORY_SLUG}"
         },
         "hidden": False,
-        "order": order,
+        "position": position,
     }
 
     if action == Action.ADD:
         payload["slug"] = title
         response = requests.post(URL + "/reference", json=payload, headers=headers)
         if response.status_code != 201:
-            print("❌ HTTP ERROR:", response.status_code)
+            print(f"❌ HTTP ERROR ({response.status_code}):", title)
             print(response.text)
             return
 
         if not check_renderable(response, action, title):
             raise RuntimeError(f"Renderable check failed for {title}")
 
-        print("✅ Created", title)
+        print(f"✅ Created '{title}' at position {position + 1}")
 
     elif action == Action.UPDATE:
         response = requests.patch(f"{URL}/reference/{title}", json=payload, headers=headers)
         if response.status_code != 200:
-            print("❌ HTTP ERROR:", response.status_code)
+            print(f"❌ HTTP ERROR ({response.status_code}):", title)
             print(response.text)
             return
 
         if not check_renderable(response, action, title):
             raise RuntimeError(f"Renderable check failed for {title}")
 
-        print("✅ Updated", title)
+        print(f"✅ Updated '{title}' to position {position + 1}")
 
     elif action == Action.DELETE:
         response = requests.delete(f"{URL}/reference/{title}", headers=headers)
 
         if response.status_code != 204:
-            print("❌ DELETE FAILED:", title)
+            print(f"❌ DELETE FAILED ({response.status_code}):", title)
             print(response.text)
         else:
-            print("🗑️ Deleted", title)
+            print(f"🗑️  Deleted '{title}' from position {position + 1}")
 
     else:
         print("Invalid action")
@@ -120,8 +121,18 @@ def main():
         "Authorization": "Bearer " + os.environ.get("README_API_KEY"),
     }
 
+    # Validate API key exists
+    if not os.environ.get("README_API_KEY"):
+        print("❌ ERROR: README_API_KEY environment variable not set")
+        return
+
     # path to the rst file from where we fetch all the RPC commands
     path_to_rst = "doc/index.rst"
+
+    if not os.path.exists(path_to_rst):
+        print(f"❌ ERROR: File not found: {path_to_rst}")
+        return
+
     with open(path_to_rst, "r") as file:
         rst_content = file.read()
 
@@ -130,23 +141,31 @@ def main():
 
     # Compare local and server commands list to get the list of command to add or delete
     commands_local_title = set(command[0] for command in commands_from_local)
-    commands_readme_title = set(command['title'] for command in commands_from_readme)
+    commands_readme_title = set(command['slug'] for command in commands_from_readme)
     commands_to_delete = commands_readme_title - commands_local_title
     commands_to_add = commands_local_title - commands_readme_title
     for name in commands_to_delete:
         publishDoc(Action.DELETE, name, "", 0, headers)
-        sleep(3)
+        sleep(1)
 
     if commands_from_local:
-        order = 0
+        position = 0
         for name, file in commands_from_local:
-            with open("doc/" + file) as f:
+            file_path = "doc/" + file
+            if not os.path.exists(file_path):
+                print(f"⚠️  WARNING: File not found: {file_path}, skipping {name}")
+                continue
+
+            with open(file_path) as f:
                 body = f.read()
-                publishDoc(Action.ADD if name in commands_to_add else Action.UPDATE, name, body, order, headers)
-            order = order + 1
-            sleep(3)
+                action = Action.ADD if name in commands_to_add else Action.UPDATE
+                publishDoc(action, name, body, position, headers)
+            position += 1
+            sleep(1)
     else:
-        print("No commands found in the Manpages block.")
+        print("⚠️  No commands found in the Manpages block.")
+
+    print("\n✨ Sync complete!")
 
 
 if __name__ == "__main__":

@@ -3,9 +3,9 @@
   "type": "object",
   "additionalProperties": false,
   "rpc": "bkpr-editdescriptionbypaymentid",
-  "title": "Command to change the description for events with {payment_id} after they're made",
+  "title": "Command to change the description for events with `payment_id` after they're made",
   "description": [
-    "The **bkpr-editdescriptionbypaymentid** RPC command updates all chain and channel events that match the {payment_id} with the provided {description}"
+    "The **bkpr-editdescriptionbypaymentid** RPC command updates all chain and channel events that match the `payment_id` with the provided `description`"
   ],
   "request": {
     "required": [

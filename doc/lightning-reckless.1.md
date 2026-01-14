@@ -106,7 +106,7 @@ invoked, so **python3** should be available in your environment. This
 can be verified with **which Python3**. The default reckless directory
 is $USER/.lightning/reckless and it should be possible for the
 lightningd user to execute files located here.  If this is a problem,
-the option flag **reckless -d=<my\_alternate\_dir>** may be used to
+the option flag **reckless -d=`my_alternate_dir`** may be used to
 relocate the reckless directory from its default. Consider creating a
 permanent alias in this case.
 
@@ -145,16 +145,15 @@ based.
 
 Rusty Russell wrote the outline for the reckless utility's function
 
-Alex Myers <<alex@endothermic.dev>> is mostly responsible for the
-reckless code and this man page, with thanks to Christian Decker for
-extensive review.
+Alex Myers [alex@endothermic.dev](mailto:alex@endothermic.dev) is mostly responsible for the
+reckless code and this man page, with thanks to Christian Decker for extensive review.
 
 SEE ALSO
 --------
 
-reckless(7), Core-Lightning plugins repo: <https://github.com/lightningd/plugins>
+reckless(7), Core-Lightning plugins repo: [https://github.com/lightningd/plugins](https://github.com/lightningd/plugins)
 
 RESOURCES
 ---------
 
-Main web site: <https://github.com/ElementsProject/lightning>
+Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)
