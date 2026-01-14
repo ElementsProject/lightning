@@ -30,8 +30,14 @@ void channel_hint_to_json(const char *name, const struct channel_hint *hint,
 	json_object_start(dest, name);
 	json_add_u32(dest, "timestamp", hint->timestamp);
 	json_add_short_channel_id_dir(dest, "scid", hint->scid);
-	json_add_amount_msat(dest, "estimated_capacity_msat",
-			     hint->estimated_capacity);
+	/* The estimated_capacity is unset if it's not enabled; use total_capacity */
+	if (hint->enabled) {
+		json_add_amount_msat(dest, "estimated_capacity_msat",
+				     hint->estimated_capacity);
+	} else {
+		json_add_amount_msat(dest, "estimated_capacity_msat",
+				     hint->capacity);
+	}
 	json_add_amount_msat(dest, "total_capacity_msat", hint->capacity);
 	json_add_bool(dest, "enabled", hint->enabled);
 	json_object_end(dest);

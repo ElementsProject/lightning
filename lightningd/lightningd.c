@@ -691,8 +691,11 @@ static void init_txfilter(struct wallet *w,
 		for (u64 i = 0; i <= bip86_max_index + w->keyscan_gap; i++) {
 			struct pubkey pubkey;
 			bip86_pubkey(w->ld, &pubkey, i);
-			u8 *script = scriptpubkey_p2tr(tmpctx, &pubkey);
-			txfilter_add_scriptpubkey(filter, take(script));
+			/* Add both P2TR and P2WPKH scripts since BIP86 keys can be used for both */
+			u8 *p2tr_script = scriptpubkey_p2tr(tmpctx, &pubkey);
+			txfilter_add_scriptpubkey(filter, take(p2tr_script));
+			u8 *p2wpkh_script = scriptpubkey_p2wpkh(tmpctx, &pubkey);
+			txfilter_add_scriptpubkey(filter, take(p2wpkh_script));
 		}
 	}
 }
