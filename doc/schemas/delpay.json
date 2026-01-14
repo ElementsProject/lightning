@@ -172,11 +172,11 @@
                 "The bolt12 string (if supplied for pay)."
               ]
             },
-            "description": {
+            "invoice_description": {
               "added": "v26.04",
               "type": "string",
               "description": [
-                "The description matching the bolt11 description hash (if pay supplied one)."
+                "CHANGE: The description matching the bolt11 description hash (if pay supplied one)."
               ]
             },
             "erroronion": {
