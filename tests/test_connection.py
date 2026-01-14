@@ -2293,7 +2293,11 @@ def test_channel_persistence(node_factory, bitcoind, executor):
     l1 = node_factory.get_node(may_reconnect=True, feerates=(7500, 7500, 7500,
                                                              7500))
     l2 = node_factory.get_node(options={'dev-disable-commit-after': disable_commit_after},
-                               may_reconnect=True)
+                               may_reconnect=True, start=False)
+    # Saving IO can cause JSON errors when we check it, due to partial writes if we
+    # get lucky when we kill it.
+    del l2.daemon.opts['dev-save-plugin-io']
+    l2.start()
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
     # Neither node should have a channel open, they are just connected
