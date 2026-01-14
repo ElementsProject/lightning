@@ -1938,6 +1938,7 @@ def test_wait(node_factory, bitcoind, executor):
     l1, l2 = node_factory.get_nodes(2)
 
     fut = executor.submit(l1.rpc.wait, subsystem='chainmoves', indexname='created', nextvalue=1)
+    l1.daemon.wait_for_log('waiting on chainmovesmoves created 1')
 
     addr = l1.rpc.newaddr('bech32')['bech32']
     bitcoind.rpc.sendtoaddress(addr, 200000000 / 10**8)
@@ -1956,6 +1957,7 @@ def test_wait(node_factory, bitcoind, executor):
     wait_for(lambda: all([c['state'] == 'CHANNELD_NORMAL' for c in l1.rpc.listpeerchannels(l2.info['id'])['channels']]))
 
     fut = executor.submit(l1.rpc.wait, subsystem='channelmoves', indexname='created', nextvalue=1)
+    l1.daemon.wait_for_log('waiting on channelmoves created 1')
     inv = l2.rpc.invoice('any', 'test_wait', 'test_wait')
     l1.rpc.xpay(inv['bolt11'], '1000000sat')
 

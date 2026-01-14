@@ -735,8 +735,8 @@ def test_wait_sendpay(node_factory, executor):
 
     wait_created = executor.submit(l1.rpc.call, 'wait', {'subsystem': 'sendpays', 'indexname': 'created', 'nextvalue': 1})
     wait_updated = executor.submit(l1.rpc.call, 'wait', {'subsystem': 'sendpays', 'indexname': 'updated', 'nextvalue': 1})
+    l1.daemon.wait_for_logs(['waiting on sendpays created 1', 'waiting on sendpays updated 1'])
 
-    time.sleep(1)
     amt = 200000000
     inv = l2.rpc.invoice(amt, 'testpayment2', 'desc')
     routestep = {
@@ -5582,7 +5582,7 @@ def test_sendpays_wait(node_factory, executor):
 
     # Now ask for 1.
     waitfut = executor.submit(l1.rpc.wait, subsystem='sendpays', indexname='created', nextvalue=1)
-    time.sleep(1)
+    l1.daemon.wait_for_log('waiting on sendpays created 1')
 
     inv1 = l2.rpc.invoice(42, 'invlabel', 'invdesc')
     l1.rpc.pay(inv1['bolt11'])
@@ -5610,7 +5610,7 @@ def test_sendpays_wait(node_factory, executor):
     inv2 = l2.rpc.invoice(42, 'invlabel2', 'invdesc2')
 
     waitfut = executor.submit(l1.rpc.wait, subsystem='sendpays', indexname='updated', nextvalue=2)
-    time.sleep(1)
+    l1.daemon.wait_for_log('waiting on sendpays updated 2')
     l1.rpc.pay(inv2['bolt11'])
     waitres = waitfut.result(TIMEOUT)
     assert waitres == {'subsystem': 'sendpays',
@@ -5632,7 +5632,7 @@ def test_sendpays_wait(node_factory, executor):
     l2.rpc.delinvoice('invlabel3', 'unpaid')
 
     waitfut = executor.submit(l1.rpc.wait, subsystem='sendpays', indexname='updated', nextvalue=3)
-    time.sleep(1)
+    l1.daemon.wait_for_log('waiting on sendpays updated 3')
     with pytest.raises(RpcError, match="WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS"):
         l1.rpc.pay(inv3['bolt11'])
 
@@ -5660,7 +5660,7 @@ def test_sendpays_wait(node_factory, executor):
                        'deleted': 0}
 
     waitfut = executor.submit(l1.rpc.wait, subsystem='sendpays', indexname='deleted', nextvalue=1)
-    time.sleep(1)
+    l1.daemon.wait_for_log('waiting on sendpays deleted 1')
 
     l1.rpc.delpay(inv3['payment_hash'], 'failed', 0, 1)
 

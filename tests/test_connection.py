@@ -4652,7 +4652,7 @@ def test_networkevents(node_factory, executor):
 
     # Finally, disconnect event.
     fut = executor.submit(l1.rpc.wait, 'networkevents', 'created', 3)
-    time.sleep(1)
+    l1.daemon.wait_for_log('waiting on networkevents created 3')
     l2.rpc.disconnect(l1.info['id'])
     after = time.time()
 
@@ -4735,7 +4735,7 @@ def test_networkevents(node_factory, executor):
     assert failevents[-1]['connect_attempted'] is False
 
     fut = executor.submit(l1.rpc.wait, 'networkevents', 'deleted', 1)
-    time.sleep(1)
+    l1.daemon.wait_for_log('waiting on networkevents deleted 1')
     l1.rpc.delnetworkevent(8)
     assert l1.rpc.listnetworkevents(start=8) == {'networkevents': []}
 
