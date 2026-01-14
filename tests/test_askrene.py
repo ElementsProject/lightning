@@ -1915,3 +1915,39 @@ def test_askrene_reserve_clash(node_factory, bitcoind):
                      layers=['layer2'],
                      maxfee_msat=1000,
                      final_cltv=5)
+
+
+@unittest.skip
+def test_excessive_fee_cost(node_factory):
+    """Produce a arc with very large fee cost that triggers an assertion in
+    askrene's single path solver."""
+    l1 = node_factory.get_node()
+    node1 = "020000000000000000000000000000000000000000000000000000000000000001"
+    one_btc = 100000000000
+    l1.rpc.askrene_create_layer("mylayer")
+    l1.rpc.askrene_create_channel(
+        layer="mylayer",
+        source=l1.info["id"],
+        destination=node1,
+        short_channel_id="0x0x0",
+        capacity_msat=one_btc,
+    )
+    l1.rpc.askrene_update_channel(
+        layer="mylayer",
+        short_channel_id_dir="0x0x0/1",
+        enabled=True,
+        htlc_minimum_msat=0,
+        htlc_maximum_msat=one_btc,
+        fee_base_msat=0,
+        fee_proportional_millionths=100000,  # 10%
+        cltv_expiry_delta=18,
+    )
+    with pytest.raises(RpcError, match=r"Could not find route without excessive cost"):
+        l1.rpc.getroutes(
+            source=l1.info["id"],
+            destination=node1,
+            amount_msat=one_btc // 2,
+            layers=["mylayer", "auto.no_mpp_support"],
+            maxfee_msat=1000,
+            final_cltv=5,
+        )
