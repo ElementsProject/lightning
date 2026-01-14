@@ -767,8 +767,12 @@ static u8 *handle_bip137_sign_message(struct hsmd_client *c, const u8 *msg_in)
 	sha256_update(&sctx, msg, msg_len);
 	sha256_double_done(&sctx, &shad);
 
-	/* get the private key BIP32 */
-	bitcoin_key(&privkey, &pubkey, keyidx);
+	/* Get the private key using appropriate derivation method */
+	if (use_bip86_derivation(tal_bytelen(secretstuff.bip32_seed))) {
+		bip86_key(&privkey, &pubkey, keyidx);
+	} else {
+		bitcoin_key(&privkey, &pubkey, keyidx);
+	}
 
 	if (!secp256k1_ecdsa_sign_recoverable(
 		secp256k1_ctx, &rsig, shad.sha.u.u8, privkey.secret.data, NULL,
