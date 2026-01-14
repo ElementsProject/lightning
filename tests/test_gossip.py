@@ -748,7 +748,7 @@ def test_gossip_query_channel_range(node_factory, bitcoind, chainparams):
     msgs = l4.query_gossip('query_channel_range',
                            chainparams['chain_hash'],
                            0, 1000000,
-                           filters=['0109', '0107', '0012'])
+                           filters=['0109', '0107', '0012', '0105'])
     # Either order!
     encoded1 = subprocess.run(['devtools/mkencoded', '--scids', '00', scid12, scid23],
                               check=True,
