@@ -3240,14 +3240,15 @@ def test_shutdown(node_factory):
     l1.rpc.stop()
 
 
-def test_option_upfront_shutdown_script(node_factory, bitcoind, executor, chainparams):
-    l1 = node_factory.get_node(start=False, allow_warning=True)
+@pytest.mark.parametrize("old_hsmsecret", [False, True])
+def test_option_upfront_shutdown_script(node_factory, bitcoind, executor, chainparams, old_hsmsecret):
+    l1 = node_factory.get_node(start=False, allow_warning=True, old_hsmsecret=old_hsmsecret)
     # Insist on upfront script we're not going to match.
     # '0014' + l1.rpc.call('dev-listaddrs', [10])['addresses'][-1]['bech32_redeemscript']
     l1.daemon.env["DEV_OPENINGD_UPFRONT_SHUTDOWN_SCRIPT"] = "00143d43d226bcc27019ade52d7a3dc52a7ac1be28b8"
     l1.start()
 
-    l2 = node_factory.get_node(allow_warning=True)
+    l2 = node_factory.get_node(allow_warning=True, old_hsmsecret=old_hsmsecret)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.fundchannel(l2, 1000000, False)
 
@@ -3281,10 +3282,16 @@ def test_option_upfront_shutdown_script(node_factory, bitcoind, executor, chainp
     wait_for(lambda: [c['state'] for c in l2.rpc.listpeerchannels()['channels']] == ['ONCHAIN', 'ONCHAIN'])
 
     # Figure out what address it will try to use.
-    keyidx = int(l1.db_query("SELECT intval FROM vars WHERE name='bip32_max_index';")[0]['intval'])
+    # With BIP86 mnemonic format (old_hsmsecret=False), addresses use bip86_max_index
+    # With old hsmsecret (old_hsmsecret=True), use bip32_max_index
+    if old_hsmsecret:
+        keyidx = int(l1.db_query("SELECT intval FROM vars WHERE name='bip32_max_index';")[0]['intval'])
+    else:
+        keyidx = int(l1.db_query("SELECT intval FROM vars WHERE name='bip86_max_index';")[0]['intval'])
 
     # Expect 1 for change address, plus 1 for the funding address of the actual
     # funding tx.
+    # dev-listaddrs now handles both BIP32 and BIP86 wallets automatically
     addr = l1.rpc.call('dev-listaddrs', [keyidx + 2])['addresses'][-1]
     # the above used to be keyidx + 3, but that was when `fundchannel`
     # used the `txprepare`-`txdiscard`-`txprepare` trick, which skipped

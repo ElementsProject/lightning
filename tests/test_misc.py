@@ -30,22 +30,49 @@ import time
 import unittest
 
 
-def test_names(node_factory):
-    # Note:
-    # private keys:
-    # l1: 41bfd2660762506c9933ade59f1debf7e6495b10c14a92dbcd2d623da2507d3d01,
-    # l2: c4a813f81ffdca1da6864db81795ad2d320add274452cafa1fb2ac2d07d062bd01
-    # l3: dae24b3853e1443a176daba5544ee04f7db33ebe38e70bdfdb1da34e89512c1001
-    configs = [
-        ('0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518', 'JUNIORBEAM', '0266e4'),
-        ('022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59', 'SILENTARTIST', '022d22'),
-        ('035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d', 'HOPPINGFIRE', '035d2b'),
-        ('0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199', 'JUNIORFELONY', '0382ce'),
-        ('032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e', 'SOMBERFIRE', '032cf1'),
-        ('0265b6ab5ec860cd257865d61ef0bbf5b3339c36cbda8b26b74e7f1dca490b6518', 'LOUDPHOTO', '0265b6')
-    ]
+@pytest.mark.parametrize("old_hsmsecret", [False, True])
+def test_names(node_factory, old_hsmsecret):
+    if old_hsmsecret:
+        # Note:
+        # private keys:
+        # l1: 41bfd2660762506c9933ade59f1debf7e6495b10c14a92dbcd2d623da2507d3d01,
+        # l2: c4a813f81ffdca1da6864db81795ad2d320add274452cafa1fb2ac2d07d062bd01
+        # l3: dae24b3853e1443a176daba5544ee04f7db33ebe38e70bdfdb1da34e89512c1001
+        configs = [
+            ('0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518', 'JUNIORBEAM', '0266e4'),
+            ('022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59', 'SILENTARTIST', '022d22'),
+            ('035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d', 'HOPPINGFIRE', '035d2b'),
+            ('0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199', 'JUNIORFELONY', '0382ce'),
+            ('032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e', 'SOMBERFIRE', '032cf1'),
+            ('0265b6ab5ec860cd257865d61ef0bbf5b3339c36cbda8b26b74e7f1dca490b6518', 'LOUDPHOTO', '0265b6')
+        ]
+    else:
+        # Note:
+        # mnemonics:
+        # l1: hockey enroll sure trip track rescue original plate abandon abandon abandon account
+        # l2: hockey enroll sure trip track rescue original play abandon abandon abandon achieve
+        # l3: hockey enroll sure trip track rescue original please abandon abandon abandon ability
+        # l4: hockey enroll sure trip track rescue original pledge abandon abandon abandon achieve
+        # l5: hockey enroll sure trip track rescue original pluck abandon abandon abandon access
+        # l6: hockey enroll sure trip track rescue original plug abandon abandon abandon above
+        # private keys:
+        #
+        # l1: 0a2d7086e54a0982829f15e61d42f5bbd49d4fbdfb9b876a1064b7b89edd05aa01
+        # l2: 0c633a7c17c701a0980158f5483035e01fa8bd091b47fadf2e86e589a9f93fca01
+        # l3: 79893b45d1e57cf2ebf302af91aa52c9e573f638a61a83c6e603a331b53f452c01
+        # l4: 351895a3f18dbfd0b1c70da7c37297b8676eba3a689dc4ba825f9d3c52f3f20501
+        # l5: bb94a63cfdb447ea3a9c7953ae98539a46a90bc114b494673453b0dae58194dd01
+        # l6: 12ecb4eecac5c0c2c49fc491ae6af30fe6788736989b8f1ed05be7581bfb3d6501
+        configs = [
+            ('038194b5f32bdf0aa59812c86c4ef7ad2f294104fa027d1ace9b469bb6f88cf37b', 'STRANGEBOUNCE', '038194'),
+            ('033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a', 'SILENTGOPHER', '033845'),
+            ('03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31', 'GREENCHEF', '03cecb'),
+            ('02287bfac8b99b35477ebe9334eede1e32b189e24644eb701c079614712331cec0', 'JUNIORYARD', '02287b'),
+            ('0258f3ff3e0853ccc09f6fe89823056d7c0c55c95fab97674df5e1ad97a72f6265', 'BLUEFEED', '0258f3'),
+            ('02186115cb7e93e2cb4d9d9fe7a9cf5ff7a5784bfdda4f164ff041655e4bcd4fd0', 'VIOLETYARD', '021861'),
+        ]
 
-    nodes = node_factory.get_nodes(len(configs))
+    nodes = node_factory.get_nodes(len(configs), opts={'old_hsmsecret': old_hsmsecret})
     for n, (key, alias, color) in zip(nodes, configs):
         assert n.daemon.is_in_log(r'public key {}, alias {}.* \(color #{}\)'
                                   .format(key, alias, color))
@@ -2381,7 +2408,7 @@ def test_bitcoind_feerate_floor(node_factory, bitcoind, anchors):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Addresses are network specific")
 def test_dev_force_bip32_seed(node_factory):
-    l1 = node_factory.get_node(options={'dev-force-bip32-seed': '0000000000000000000000000000000000000000000000000000000000000001'})
+    l1 = node_factory.get_node(old_hsmsecret=True, options={'dev-force-bip32-seed': '0000000000000000000000000000000000000000000000000000000000000001'})
     # First is m/0/0/1 ..
     bech32 = l1.rpc.newaddr('bech32')['bech32']
     assert bech32 == "bcrt1qsdzqt93xsyewdjvagndw9523m27e52er5ca7hm"
@@ -2966,7 +2993,7 @@ def test_makesecret(node_factory):
     l1 = node_factory.get_node(options={"dev-force-privkey": "1212121212121212121212121212121212121212121212121212121212121212"})
     secret = l1.rpc.makesecret("73636220736563726574")["secret"]
 
-    assert (secret == "a9a2e742405c28f059349132923a99337ae7f71168b7485496e3365f5bc664ed")
+    assert (secret == "498a16a6c6b82b7280de7f5b0afa0478b29d3a1cbe52c376249cf46abb6c03da")
 
     # Same if we do it by parameter name
     assert l1.rpc.makesecret(hex="73636220736563726574")["secret"] == secret
@@ -3023,7 +3050,8 @@ def test_emergencyrecover_old_format_handling(node_factory, bitcoind):
     """
     Test test_emergencyrecover_old_format_handling
     """
-    l1 = node_factory.get_node()
+    # Use old_hsmsecret because the encrypted data was created with the old HSM secret
+    l1 = node_factory.get_node(old_hsmsecret=True)
 
     encrypted_data = (
         "4e90ed80be3ddf666967ecdebc296cb0ec9f9f2e1adf3b1ef359d74ae40dd152"
@@ -3781,8 +3809,9 @@ def test_getlog(node_factory):
 def test_log_filter(node_factory):
     """Test the log-level option with subsystem filters"""
     # This actually suppresses debug!
-    l1 = node_factory.get_node(options={'log-level': ['debug', 'broken:022d223620']})
-    l2 = node_factory.get_node(start=False)
+    l1 = node_factory.get_node(options={'log-level': ['debug', 'broken:022d223620']},
+                               old_hsmsecret=True)
+    l2 = node_factory.get_node(start=False, old_hsmsecret=True)
 
     log1 = os.path.join(l2.daemon.lightning_dir, "log")
     log2 = os.path.join(l2.daemon.lightning_dir, "log2")
@@ -4607,29 +4636,30 @@ def test_setconfig_changed(node_factory, bitcoind):
 
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "deletes database, which is assumed sqlite3")
-def test_recover_command(node_factory, bitcoind):
-    l1, l2 = node_factory.get_nodes(2)
+@pytest.mark.parametrize("old_hsmsecret", [False, True])
+def test_recover_command(node_factory, bitcoind, old_hsmsecret):
+    l1, l2 = node_factory.get_nodes(2, opts={'old_hsmsecret': old_hsmsecret})
 
     l1oldid = l1.info['id']
 
     def get_hsm_secret(n):
-        """Returns codex32 and hex"""
+        """Returns recoversecret and hex"""
         hsmfile = os.path.join(n.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
-        codex32 = subprocess.check_output(["tools/lightning-hsmtool", "getcodexsecret", hsmfile, "leet"]).decode('utf-8').strip()
+        recover = subprocess.check_output(["tools/lightning-hsmtool", "getsecret", hsmfile, "leet"]).decode('utf-8').strip()
         with open(hsmfile, "rb") as f:
             hexhsm = f.read().hex()
-        return codex32, hexhsm
+        return recover, hexhsm
 
-    l1codex32, l1hex = get_hsm_secret(l1)
-    l2codex32, l2hex = get_hsm_secret(l2)
+    l1recover, l1hex = get_hsm_secret(l1)
+    l2recover, l2hex = get_hsm_secret(l2)
 
     # Get the PID for later
     with open(os.path.join(l1.daemon.lightning_dir,
                            f"lightningd-{TEST_NETWORK}.pid"), "r") as f:
         pid = f.read().strip()
 
-    assert l1.rpc.check('recover', hsmsecret=l2codex32) == {'command_to_check': 'recover'}
-    l1.rpc.recover(hsmsecret=l2codex32)
+    assert l1.rpc.check('recover', hsmsecret=l2recover) == {'command_to_check': 'recover'}
+    l1.rpc.recover(hsmsecret=l2recover)
     l1.daemon.wait_for_log("Server started with public key")
     # l1.info is cached on start, so won't reflect current reality!
     assert l1.rpc.getinfo()['id'] == l2.info['id']
@@ -4638,10 +4668,10 @@ def test_recover_command(node_factory, bitcoind):
     l2.rpc.newaddr()
 
     with pytest.raises(RpcError, match='Node has already issued bitcoin addresses'):
-        l2.rpc.recover(hsmsecret=l1codex32)
+        l2.rpc.recover(hsmsecret=l1recover)
 
     with pytest.raises(RpcError, match='Node has already issued bitcoin addresses'):
-        l2.rpc.check('recover', hsmsecret=l1codex32)
+        l2.rpc.check('recover', hsmsecret=l1recover)
 
     # Now try recovering using hex secret (remove old prerecover!)
     shutil.rmtree(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK,
@@ -4650,14 +4680,21 @@ def test_recover_command(node_factory, bitcoind):
     # l1 already has --recover in cmdline: recovering again would add it
     # twice!
     with pytest.raises(RpcError, match='Already doing recover'):
-        l1.rpc.check('recover', hsmsecret=l1hex)
+        l1.rpc.check('recover', hsmsecret=l1recover)
 
     with pytest.raises(RpcError, match='Already doing recover'):
-        l1.rpc.recover(hsmsecret=l1hex)
+        l1.rpc.recover(hsmsecret=l1recover)
 
     l1.restart()
-    assert l1.rpc.check('recover', hsmsecret=l1hex) == {'command_to_check': 'recover'}
-    l1.rpc.recover(hsmsecret=l1hex)
+
+    if old_hsmsecret:
+        assert l1.rpc.check('recover', hsmsecret=l1hex) == {'command_to_check': 'recover'}
+        l1.rpc.recover(hsmsecret=l1hex)
+    else:
+        # Modern style requires mnemonic arg.
+        assert l1.rpc.check('recover', hsmsecret=l1recover) == {'command_to_check': 'recover'}
+        l1.rpc.recover(hsmsecret=l1recover)
+
     l1.daemon.wait_for_log("Server started with public key")
     assert l1.rpc.getinfo()['id'] == l1oldid
 
@@ -4948,8 +4985,9 @@ def test_listaddresses(node_factory):
     # Check all fields are present in the response
     addresses = l1.rpc.listaddresses(address=addr[0])["addresses"]
     assert addresses[0]['keyidx'] == 1
-    assert addresses[0]['bech32'] == 'bcrt1qq8adjz4u6enf0cjey9j8yt0y490tact93fzgsf'
-    assert addresses[0]['p2tr'] == 'bcrt1pjaazqg6qgqpv2wxgdpg8hyj49wehrfgajqe2tyuzhcp7p50hachq7tkdxf'
+    # With BIP86, addresses are different from BIP32
+    assert addresses[0]['p2tr'] == 'bcrt1ph9gd3vrxqv5c43lhz330n6u497utuqzzjwtrwj89wy879z6nwrpseaf4et'
+    assert addresses[0]['bech32'] == 'bcrt1qufr4lmec5a8humz7anckxk092uel83r2eqr33s'
 
     # start > 10 (issued addresses till now)
     addresses = l1.rpc.listaddresses(start=11, limit=2)["addresses"]

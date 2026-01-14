@@ -919,6 +919,7 @@ def test_invoices_wait_db_migration(node_factory, bitcoind):
     bitcoind.generate_block(28)
     l2 = node_factory.get_node(node_id=2,
                                dbfile='invoices_pre_waitindex.sqlite3.xz',
+                               old_hsmsecret=True,
                                options={'database-upgrade': True})
 
     # And now we crash:
@@ -933,6 +934,7 @@ def test_invoice_botched_migration(node_factory, chainparams):
     Error executing statement: wallet/db.c:1684: UPDATE vars SET name = 'last_invoices_created_index' WHERE name = 'last_invoice_created_index': UNIQUE constraint failed: vars.name
     """
     l1 = node_factory.get_node(dbfile='invoices_botched_waitindex_migrate.sqlite3.xz',
+                               old_hsmsecret=True,
                                options={'database-upgrade': True})
 
     assert ([(i['created_index'], i['label']) for i in l1.rpc.listinvoices()["invoices"]]

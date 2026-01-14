@@ -4455,7 +4455,8 @@ def test_connect_transient_pending(node_factory, bitcoind, executor):
 
 def test_injectonionmessage(node_factory):
     """Test for injectonionmessage API"""
-    l1, l2 = node_factory.line_graph(2)
+    # Hardcoded onion message was created with old hsmsecret format
+    l1, l2 = node_factory.line_graph(2, opts={'old_hsmsecret': True})
 
     # This is deterministic, so the onion message created by fetchinvoice can be replayed here
     # manually

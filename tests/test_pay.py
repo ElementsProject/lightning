@@ -2935,7 +2935,7 @@ def test_error_returns_blockheight(node_factory, bitcoind):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Invoice is network specific")
 def test_pay_no_secret(node_factory, bitcoind):
-    l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True, opts={'old_hsmsecret': True})
 
     l2.rpc.invoice(100000, "test_pay_no_secret", "test_pay_no_secret",
                    preimage='00' * 32, expiry=2000000000)
@@ -5042,7 +5042,7 @@ def test_unreachable_routehint(node_factory, bitcoind):
     # that l4 is there only to trick the deadend heuristic.
     l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
     l3, l4, l5 = node_factory.line_graph(3, wait_for_announce=True)
-    entrypoint = '0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199'
+    entrypoint = '02287bfac8b99b35477ebe9334eede1e32b189e24644eb701c079614712331cec0'
 
     # Generate an invoice with exactly one routehint.
     for i in range(100):
@@ -5285,7 +5285,7 @@ def test_pay_manual_exclude(node_factory, bitcoind):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Invoice is network specific")
 def test_pay_bolt11_metadata(node_factory, bitcoind):
-    l1, l2 = node_factory.line_graph(2)
+    l1, l2 = node_factory.line_graph(2, opts={'old_hsmsecret': True})
 
     # BOLT #11:
     # > ### Please send 0.01 BTC with payment metadata 0x01fafaf0
@@ -5350,18 +5350,28 @@ def test_pay_middle_fail(node_factory, bitcoind, executor):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Invoice is network specific")
+@pytest.mark.parametrize("old_hsmsecret", [True, False])
 @pytest.mark.slow_test
-def test_payerkey(node_factory):
+def test_payerkey(node_factory, old_hsmsecret):
     """payerkey calculation should not change across releases!"""
-    nodes = node_factory.get_nodes(7)
+    nodes = node_factory.get_nodes(7, opts={'old_hsmsecret': old_hsmsecret})
 
-    expected_keys = ["035e43e4ec029ee6cc0e320ebefdf863bc0f284ec0208275f780837d17e21bba32",
-                     "02411811b24f4940de49ad460ee14ecb96810e29ca49cdd3600a985da2eda06b87",
-                     "036a19f00424ff244af1841715e89f3716c08f1f62a8e5d9bd0f69a21aa96a7b8d",
-                     "026d8b82fe6039fe16f8ef376174b630247e821331b90620315a1e9c3db8384056",
-                     "0393fb950e04916c063a585aa644df3d72642c16de4eb44ccf5dbede194836140f",
-                     "030b68257230f7057e694222bbd54d9d108decced6b647a90da6f578360af53f7d",
-                     "02f402bd7374a1304b07c7236d9c683b83f81072517195ddede8ab328026d53157"]
+    if old_hsmsecret:
+        expected_keys = ["035e43e4ec029ee6cc0e320ebefdf863bc0f284ec0208275f780837d17e21bba32",
+                         "02411811b24f4940de49ad460ee14ecb96810e29ca49cdd3600a985da2eda06b87",
+                         "036a19f00424ff244af1841715e89f3716c08f1f62a8e5d9bd0f69a21aa96a7b8d",
+                         "026d8b82fe6039fe16f8ef376174b630247e821331b90620315a1e9c3db8384056",
+                         "0393fb950e04916c063a585aa644df3d72642c16de4eb44ccf5dbede194836140f",
+                         "030b68257230f7057e694222bbd54d9d108decced6b647a90da6f578360af53f7d",
+                         "02f402bd7374a1304b07c7236d9c683b83f81072517195ddede8ab328026d53157"]
+    else:
+        expected_keys = ["027c4ec2cf63aeb101109d6d16b9a97e74cd9a149860c16a9fd6ddddf18d337193",
+                         "028cd5b653ba55558095e66c0c42c43dd1077598a8d08a097387383dece4c2a325",
+                         "02bf5fe9675aed4728c7ed6afb3dab02143cbb693d2c49f62d4c28704d9877fbd0",
+                         "037b07ee0335a92f47e803d6ce5500dca721b43a1a9bc4a6ea6b75db4508c7b7de",
+                         "02484674b6acc7f3ddb4c5b13ef14ab0b018e748f4f3bffc55ab36dc57fdff6ec5",
+                         "024d11164cfd85c0f9383dd78703d3ad533e5af57bc5a09c1c1dae595f212941ae",
+                         "0369fb4a73973a31f7d357f4ec39fcc5663f9abae8b5fd47d1a3ada04ee4ae5656"]
 
     bolt12tool = os.path.join(os.path.dirname(__file__), "..", "devtools", "bolt12-cli")
 
