@@ -1684,7 +1684,7 @@ static const struct refresh_funcs refresh_funcs[] = {
 	/* These are special, using gossmap */
 	{ "listchannels", channels_refresh, NULL },
 	{ "listnodes", nodes_refresh, NULL },
-	/* These support wait and full pagination (TODO #10: DONE) */
+	/* These support wait and full pagination */
 	{ "listhtlcs", refresh_by_created_index, "htlcs" },
 	{ "listforwards", refresh_by_created_index, "forwards" },
 	{ "listinvoices", refresh_by_created_index, "invoices" },
