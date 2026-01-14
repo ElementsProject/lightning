@@ -742,6 +742,7 @@ def test_wait_invoices(node_factory, executor):
     # Now check autoclean works.
     waitfut = executor.submit(l2.rpc.call, 'wait', {'subsystem': 'invoices', 'indexname': 'deleted', 'nextvalue': 2})
     l2.daemon.wait_for_log('waiting on invoices deleted 2')
+    time.sleep(1)
     l2.rpc.autoclean_once('expiredinvoices', 1)
     waitres = waitfut.result(TIMEOUT)
 

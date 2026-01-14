@@ -3254,14 +3254,16 @@ def test_block_added_notifications(node_factory, bitcoind):
 def test_sql(node_factory, bitcoind):
     opts = {'experimental-dual-fund': None,
             'dev-allow-localhost': None,
-            'may_reconnect': True}
+            'may_reconnect': True,
+            'dev-no-reconnect': None}
     l2opts = {'lease-fee-basis': 50,
               'experimental-dual-fund': None,
               'lease-fee-base-sat': '2000msat',
               'channel-fee-max-base-msat': '500sat',
               'channel-fee-max-proportional-thousandths': 200,
               'dev-sqlfilename': 'sql.sqlite3',
-              'may_reconnect': True}
+              'may_reconnect': True,
+              'dev-no-reconnect': None}
     l2opts.update(opts)
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
                                          opts=[opts, l2opts, opts])
