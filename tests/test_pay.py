@@ -5042,7 +5042,7 @@ def test_unreachable_routehint(node_factory, bitcoind):
     # that l4 is there only to trick the deadend heuristic.
     l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
     l3, l4, l5 = node_factory.line_graph(3, wait_for_announce=True)
-    entrypoint = '0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199'
+    entrypoint = '02287bfac8b99b35477ebe9334eede1e32b189e24644eb701c079614712331cec0'
 
     # Generate an invoice with exactly one routehint.
     for i in range(100):

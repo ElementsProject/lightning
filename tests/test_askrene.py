@@ -1440,7 +1440,7 @@ def test_real_data(node_factory, bitcoind):
     outfile = tempfile.NamedTemporaryFile(prefix='gossip-store-')
     nodeids = subprocess.check_output(['devtools/gossmap-compress',
                                        'decompress',
-                                       '--node-map=3301=022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59',
+                                       '--node-map=3301=033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a',
                                        'tests/data/gossip-store-2024-09-22.compressed',
                                        outfile.name]).decode('utf-8').splitlines()
 
@@ -1559,7 +1559,7 @@ def test_real_biases(node_factory, bitcoind):
     outfile = tempfile.NamedTemporaryFile(prefix='gossip-store-')
     nodeids = subprocess.check_output(['devtools/gossmap-compress',
                                        'decompress',
-                                       '--node-map=3301=022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59',
+                                       '--node-map=3301=033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a',
                                        'tests/data/gossip-store-2024-09-22.compressed',
                                        outfile.name]).decode('utf-8').splitlines()
 
@@ -1678,7 +1678,7 @@ def test_askrene_fake_channeld(node_factory, bitcoind):
     outfile = tempfile.NamedTemporaryFile(prefix='gossip-store-')
     nodeids = subprocess.check_output(['devtools/gossmap-compress',
                                        'decompress',
-                                       '--node-map=3301=022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59',
+                                       '--node-map=3301=033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a',
                                        'tests/data/gossip-store-2024-09-22.compressed',
                                        outfile.name]).decode('utf-8').splitlines()
     AMOUNT = 100_000_000
