@@ -176,6 +176,7 @@ impl From<responses::SendpayResponse> for pb::SendpayResponse {
             completed_at: c.completed_at, // Rule #2 for type u64?
             created_at: c.created_at, // Rule #2 for type u64
             created_index: c.created_index, // Rule #2 for type u64?
+            description_hash: c.description_hash, // Rule #2 for type string?
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             groupid: c.groupid, // Rule #2 for type u64?
             id: c.id, // Rule #2 for type u64
@@ -836,6 +837,7 @@ impl From<responses::ListsendpaysPayments> for pb::ListsendpaysPayments {
             completed_at: c.completed_at, // Rule #2 for type u64?
             created_at: c.created_at, // Rule #2 for type u64
             created_index: c.created_index, // Rule #2 for type u64?
+            description_hash: c.description_hash, // Rule #2 for type string?
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             erroronion: c.erroronion.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
             groupid: c.groupid, // Rule #2 for type u64
@@ -1065,6 +1067,7 @@ impl From<responses::WaitsendpayResponse> for pb::WaitsendpayResponse {
             completed_at: c.completed_at, // Rule #2 for type number?
             created_at: c.created_at, // Rule #2 for type u64
             created_index: c.created_index, // Rule #2 for type u64?
+            description_hash: c.description_hash, // Rule #2 for type string?
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             groupid: c.groupid, // Rule #2 for type u64?
             id: c.id, // Rule #2 for type u64
@@ -1713,6 +1716,7 @@ impl From<responses::DelpayPayments> for pb::DelpayPayments {
             completed_at: c.completed_at, // Rule #2 for type u64?
             created_at: c.created_at, // Rule #2 for type u64
             created_index: c.created_index, // Rule #2 for type u64?
+            description_hash: c.description_hash, // Rule #2 for type string?
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             erroronion: c.erroronion.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
             groupid: c.groupid, // Rule #2 for type u64?
@@ -2185,6 +2189,7 @@ impl From<responses::ListpaysPays> for pb::ListpaysPays {
             completed_at: c.completed_at, // Rule #2 for type u64?
             created_at: c.created_at, // Rule #2 for type u64
             created_index: c.created_index, // Rule #2 for type u64?
+            description_hash: c.description_hash, // Rule #2 for type string?
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             erroronion: c.erroronion.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
             invoice_description: c.invoice_description, // Rule #2 for type string?

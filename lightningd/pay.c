@@ -17,6 +17,20 @@
 #include <lightningd/peer_htlcs.h>
 #include <wallet/invoices.h>
 
+/* Helper function to get description hash if supplied*/
+static const char *bolt11_get_description_hash(const char *invstr)
+{
+    char *fail;
+    struct bolt11 *b11 = bolt11_decode(tmpctx, invstr, NULL, NULL, NULL, &fail);
+    if (!b11)
+        return NULL;
+
+    if (!b11->description_hash)
+        return NULL;
+
+    return tal_hexstr(tmpctx, b11->description_hash, sizeof(*b11->description_hash));
+}
+
 /* Helper functions for extracting description from bolt11/12 string*/
 static const char *decode_bolt11_description_simple(const tal_t *ctx,
                                                     const char *invstr)
@@ -210,18 +224,24 @@ void json_add_payment_fields(struct json_stream *response,
 	if (t->label)
 		json_add_string(response, "label", t->label);
 	if (t->invstring) {
-    if (strstarts(t->invstring, "lni")) {
-        json_add_string(response, "bolt12", t->invstring);
-        invoice_description = decode_bolt12_description(response, t->invstring);
-    } else {
-        json_add_string(response, "bolt11", t->invstring);
-        invoice_description = decode_bolt11_description_simple(response, t->invstring);
-    }
-}
-	if (t->description)
-		json_add_string(response, "description", t->description);
-	if (invoice_description)
-		json_add_string(response, "invoice_description", invoice_description);
+		if (strstarts(t->invstring, "lni")) {
+			json_add_string(response, "bolt12", t->invstring);
+			invoice_description = decode_bolt12_description(response, t->invstring);
+		} else {
+			json_add_string(response, "bolt11", t->invstring);
+			invoice_description = decode_bolt11_description_simple(response, t->invstring);
+		}
+	}
+	const char *desc_hash = NULL;
+	if (t->invstring) {
+		desc_hash = bolt11_get_description_hash(t->invstring);
+	}
+	if (desc_hash) {
+		json_add_string(response, "description_hash", desc_hash);
+	} else {
+		if (invoice_description)
+			json_add_string(response, "invoice_description", invoice_description);
+	}
 
 	if (t->failonion)
 		json_add_hex(response, "erroronion", t->failonion,
