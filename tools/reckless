@@ -1248,6 +1248,14 @@ def _git_clone(src: InstInfo, dest: Union[PosixPath, str], verbose: bool=True) -
             remove_dir(str(dest))
         log.error('Failed to clone repo')
         return False
+
+    git = run(['git', 'submodule', 'update', '--init', '--recursive'],
+              cwd=str(dest), stdout=PIPE, stderr=PIPE, text=True,
+              check=False, timeout=120)
+    if git.returncode != 0:
+        log.warning(f'Failed to initialize submodules for {github_source}.')
+        return False
+
     return True
 
 
@@ -1278,7 +1286,6 @@ def _git_update(github_source: str, local_copy: PosixPath):
     git = run(['git', 'symbolic-ref', 'refs/remotes/origin/HEAD', '--short'],
               cwd=str(local_copy), stdout=PIPE, stderr=PIPE, text=True,
               check=False, timeout=60)
-    assert git.returncode == 0
     if git.returncode != 0:
         return False
     default_branch = git.stdout.splitlines()[0]
@@ -1290,8 +1297,16 @@ def _git_update(github_source: str, local_copy: PosixPath):
     git = run(['git', 'checkout', default_branch],
               cwd=str(local_copy), stdout=PIPE, stderr=PIPE, text=True,
               check=False, timeout=60)
-    assert git.returncode == 0
     if git.returncode != 0:
+        log.warning(f'Failed to checkout branch {default_branch} of {github_source}.')
+        return False
+
+    # Update all submodules to the referenced commit/branch/tag
+    git = run(['git', 'submodule', 'update', '--init', '--recursive'],
+              cwd=str(local_copy), stdout=PIPE, stderr=PIPE, text=True,
+              check=False, timeout=120)
+    if git.returncode != 0:
+        log.warning(f'Failed to initialize submodules for {github_source}.')
         return False
 
     return True
@@ -2260,9 +2275,11 @@ def available_plugins() -> list:
             log.debug(f'confusing source: {source.type}')
             continue
         # It takes too many API calls to query for installable plugins accurately.
-        if source.type == Source.REMOTE_GIT_REPO and not source.local_clone:
+        if source.type == Source.REMOTE_GIT_REPO:
             # FIXME: ignoring non-cloned repos for now.
-            log.debug(f'cloning {source.original_source} in order to search')
+            if not source.local_clone:
+                log.debug(f'cloning {source.original_source} in order to search')
+            # Also updates existing clone and submodules
             clone = copy_remote_git_source(InstInfo(None,
                                                     source.original_source,
                                                     source_dir=source.content),
