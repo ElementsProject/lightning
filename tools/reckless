@@ -579,11 +579,14 @@ def populate_local_repo(path: str, parent=None, parent_source=None) -> list:
         return None
     submodules = []
     for sub in proc.stdout.splitlines():
+        # `git submodule status` can list higher level directory contents.
+        if sub.split()[1].startswith('..') or sub.split()[1].startswith('./'):
+            continue
         submodules.append(sub.split()[1])
 
     # FIXME: Pass in tag or commit hash
     ver = 'HEAD'
-    git_call = ['git', '-C', path, 'ls-tree', '--full-tree', '-r',
+    git_call = ['git', '-C', path, 'ls-tree', '-r',
                 '--name-only', ver]
     proc = run(git_call, stdout=PIPE, stderr=PIPE, text=True, timeout=5)
     if proc.returncode != 0:
@@ -591,6 +594,9 @@ def populate_local_repo(path: str, parent=None, parent_source=None) -> list:
         return None
 
     for filepath in proc.stdout.splitlines():
+        # unfetched submodules can list the contents of the higher level repository here.
+        if filepath.startswith('./') or filepath.startswith('..'):
+            continue
         if filepath in submodules:
             if parent is None:
                 relative_path = filepath
@@ -615,7 +621,7 @@ def populate_local_repo(path: str, parent=None, parent_source=None) -> list:
     return basedir.contents
 
 
-def copy_remote_git_source(github_source: InstInfo, verbose: bool=True) -> SourceDir:
+def copy_remote_git_source(github_source: InstInfo, verbose: bool=True, parent_source=None) -> SourceDir:
     """clone or fetch & checkout a local copy of a remote git repo"""
     user, repo = Source.get_github_user_repo(github_source.source_loc)
     if not user or not repo:
@@ -635,7 +641,9 @@ def copy_remote_git_source(github_source: InstInfo, verbose: bool=True) -> Sourc
         assert _git_update(github_source.source_loc, local_path)
     else:
         _git_clone(github_source, local_path, verbose)
-    return SourceDir(local_path, srctype=Source.GIT_LOCAL_CLONE)
+    local_clone = SourceDir(local_path, srctype=Source.GIT_LOCAL_CLONE, parent_source=parent_source)
+    local_clone.populate()
+    return local_clone
 
 
 class Config():
@@ -2258,14 +2266,14 @@ def available_plugins() -> list:
             clone = copy_remote_git_source(InstInfo(None,
                                                     source.original_source,
                                                     source_dir=source.content),
-                                           verbose=False)
+                                           verbose=False,
+                                           parent_source=source)
             clone.srctype = Source.GIT_LOCAL_CLONE
             clone.parent_source = source
             if not clone:
                 log.warning(f"could not clone github source {source.original_source}")
                 continue
             source.local_clone = clone
-            source.local_clone.parent_source = source
 
         candidates.extend(find_plugin_candidates(source))
 
