@@ -1,4 +1,4 @@
-FROM fedora:35
+FROM fedora:40
 
 ENV UV_PYTHON=3.12
 ENV BITCOIN_VERSION=27.1
@@ -21,8 +21,25 @@ RUN dnf update -y && \
 		xz \
 		zlib-devel \
 		cargo \
-		libsodium-devel && \
-	wget https://github.com/kristapsdz/lowdown/archive/refs/tags/VERSION_1_0_2.tar.gz && \
+		libsodium-devel \
+		which \
+		sed \
+		gettext-devel \
+		gmp-devel \
+		python3-devel \
+		python3-pip \
+		python3-poetry \
+		postgresql-devel \
+		protobuf-compiler \
+		protobuf-devel && \
+	dnf clean all
+
+# Install Rust via rustup (for lockfile v4 support)
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# Install lowdown
+RUN wget https://github.com/kristapsdz/lowdown/archive/refs/tags/VERSION_1_0_2.tar.gz && \
 	tar -xzf VERSION_1_0_2.tar.gz && \
 	cd lowdown-VERSION_1_0_2 && \
 	./configure && \
@@ -30,9 +47,9 @@ RUN dnf update -y && \
 	make install && \
 	ldconfig && \
 	cd /tmp && \
-	rm -rf VERSION_1_0_2.tar.gz lowdown-VERSION_1_0_2 && \
-	dnf clean all
+	rm -rf VERSION_1_0_2.tar.gz lowdown-VERSION_1_0_2
 
+# Install Bitcoin Core
 RUN wget https://storage.googleapis.com/c-lightning-tests/bitcoind/bitcoin-${BITCOIN_VERSION}-x86_64-linux-gnu.tar.gz \
     -O bitcoin.tar.gz && \
     tar -xvzf bitcoin.tar.gz && \
@@ -42,6 +59,6 @@ RUN wget https://storage.googleapis.com/c-lightning-tests/bitcoind/bitcoin-${BIT
     mv bitcoin-$BITCOIN_VERSION/share/man/man1/* /usr/share/man/man1 && \
     rm -rf bitcoin.tar.gz bitcoin-$BITCOIN_VERSION
 
-# Ensure `uv` can be found
-ENV PATH=${PATH}:/root/.local/bin
+# Install uv
+ENV PATH="${PATH}:/root/.local/bin"
 RUN wget -qO- https://astral.sh/uv/install.sh | sh
