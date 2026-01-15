@@ -23,5 +23,5 @@ for v in focal jammy noble; do
   sudo docker run ubuntu:$v cat /etc/lsb-release
   echo "Building CL repro $v:"
   # shellcheck disable=SC2024
-  sudo docker build -t cl-repro-$v - < "$LIGHTNING_DIR"/contrib/reprobuild/Dockerfile.$v
+  sudo docker build --no-cache -t cl-repro-$v - < "$LIGHTNING_DIR"/contrib/reprobuild/Dockerfile.$v
 done
