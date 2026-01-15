@@ -15026,7 +15026,7 @@
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
       "rpc": "getlog",
-      "title": "Command to show logs.",
+      "title": "Command to show recent logs.",
       "description": [
         "The **getlog** the RPC command to show logs, with optional log *level*."
       ],
@@ -15200,8 +15200,7 @@
                     "required": [
                       "time",
                       "source",
-                      "log",
-                      "data"
+                      "log"
                     ],
                     "properties": {
                       "type": {},
