@@ -152,7 +152,7 @@ bitcoind &
 
 ## To Build on Fedora
 
-OS version: Fedora 27 or above
+OS version: Fedora 39 or above
 
 Get dependencies:
 ```shell
@@ -174,8 +174,33 @@ sudo dnf update -y && \
                 wget \
                 jq \
                 zlib-devel \
-				libsodium-devel && \
+                libsodium-devel \
+                which \
+                sed \
+                protobuf-compiler \
+                protobuf-devel \
+                postgresql-devel && \
         sudo dnf clean all
+```
+
+Install Rust via rustup (required for Cargo lockfile v4 support):
+```shell
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source $HOME/.cargo/env
+```
+
+Install lowdown (for documentation generation):
+```shell
+cd /tmp && \
+wget https://github.com/kristapsdz/lowdown/archive/refs/tags/VERSION_1_0_2.tar.gz && \
+tar -xzf VERSION_1_0_2.tar.gz && \
+cd lowdown-VERSION_1_0_2 && \
+./configure && \
+make && \
+sudo make install && \
+sudo ldconfig && \
+cd ~ && \
+rm -rf /tmp/VERSION_1_0_2.tar.gz /tmp/lowdown-VERSION_1_0_2
 ```
 
 Make sure you have [bitcoind](https://github.com/bitcoin/bitcoin) available to run.
