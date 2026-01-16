@@ -59,6 +59,7 @@ struct tlv_encrypted_data_tlv **new_encdata_tlvs(const tal_t *ctx,
  * You can turn the first_node_id into an scidd after if you want to.
  */
 struct blinded_path *blinded_path_from_encdata_tlvs(const tal_t *ctx,
+						    const ssize_t path_index,
 						    const struct tlv_encrypted_data_tlv **tlvs,
 						    const struct pubkey *ids);
 
@@ -98,6 +99,7 @@ struct sphinx_hop **onionmsg_tlvs_to_hops(const tal_t *ctx,
  * @path_secret: put this into final entry, so we can verify.
  */
 struct blinded_path *incoming_message_blinded_path(const tal_t *ctx,
+						   const ssize_t path_index,
 						   const struct pubkey *ids,
 						   const struct short_channel_id **scids,
 						   const struct secret *path_secret);

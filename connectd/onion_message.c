@@ -72,7 +72,7 @@ static const char *handle_onion(const tal_t *ctx,
 				 take(towire_connectd_got_onionmsg_to_us(NULL,
 							final_path_id,
 							final_om->reply_path,
-							omsg, &final_alias, path_key)));
+							omsg, &final_alias)));
 	} else {
 		struct node_id next_node_id;
 		struct peer *next_peer;

@@ -52,8 +52,11 @@ get_nodeid(const struct tlv_encrypted_data_tlv **tlvs,
 }
 
 /* Stage 1: tlv_encrypted_data_tlv[] -> struct blinded_path.
+ * A non-negative path_index indicates that `e_0` should be generated
+ * deterministically and provides the blinded path's index.
  * Optional array of node_ids, consulted iff tlv uses scid in one entry. */
 struct blinded_path *blinded_path_from_encdata_tlvs(const tal_t *ctx,
+						    const ssize_t path_index,
 						    const struct tlv_encrypted_data_tlv **tlvs,
 						    const struct pubkey *ids)
 {
@@ -67,7 +70,12 @@ struct blinded_path *blinded_path_from_encdata_tlvs(const tal_t *ctx,
 	assert(nhops > 0);
 	assert(tal_count(ids) > 0);
 
-	randbytes(&first_blinding, sizeof(first_blinding));
+	if (path_index >= 0) {
+	  assert(tlvs[nhops-1]->path_id && tal_bytelen(tlvs[nhops-1]->path_id) == sizeof(struct secret));
+	  derive_first_path_privkey((struct secret const*)tlvs[nhops-1]->path_id, ids, path_index, &first_blinding);
+
+	} else randbytes(&first_blinding, sizeof(first_blinding));
+
 	if (!pubkey_from_privkey(&first_blinding, &path->first_path_key))
 		abort();
 	sciddir_or_pubkey_from_pubkey(&path->first_node_id, &ids[0]);
@@ -132,6 +140,7 @@ struct sphinx_hop **onionmsg_tlvs_to_hops(const tal_t *ctx,
 }
 
 struct blinded_path *incoming_message_blinded_path(const tal_t *ctx,
+						   const ssize_t path_index,
 						   const struct pubkey *ids,
 						   const struct short_channel_id **scids,
 						   const struct secret *path_secret)
@@ -148,6 +157,7 @@ struct blinded_path *incoming_message_blinded_path(const tal_t *ctx,
 					      ARRAY_SIZE(path_secret->data), 0);
 
 	return blinded_path_from_encdata_tlvs(ctx,
+					      path_index,
 					      cast_const2(const struct tlv_encrypted_data_tlv **, etlvs),
 					      ids);
 }
@@ -196,6 +206,7 @@ struct onion_message *outgoing_onion_message(const tal_t *ctx,
 	}
 
 	our_path = blinded_path_from_encdata_tlvs(tmpctx,
+						  -1,
 						  cast_const2(const struct tlv_encrypted_data_tlv **, etlvs),
 						  ids);
 

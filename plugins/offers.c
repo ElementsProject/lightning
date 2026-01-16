@@ -263,11 +263,10 @@ static struct command_result *onion_message_recv(struct command *cmd,
 						 const char *buf,
 						 const jsmntok_t *params)
 {
-	const jsmntok_t *om, *secrettok, *nodeidtok, *pubkeytok, *replytok, *invreqtok, *invtok;
+	const jsmntok_t *om, *secrettok, *nodeidtok, *replytok, *invreqtok, *invtok;
 	struct blinded_path *reply_path = NULL;
  	struct secret *secret;
  	struct pubkey *blinded_node_id;
- 	struct pubkey *path_pubkey;
 
 	om = json_get_member(buf, params, "onion_message");
 	secrettok = json_get_member(buf, om, "pathsecret");
@@ -280,10 +279,6 @@ static struct command_result *onion_message_recv(struct command *cmd,
 	if (!nodeidtok) plugin_err(cmd->plugin, "Missing blinded node id");
 	blinded_node_id = tal(tmpctx, struct pubkey);
 	json_to_pubkey(buf, nodeidtok, blinded_node_id);
-	pubkeytok = json_get_member(buf, om, "path_pubkey");
-	if (!pubkeytok) plugin_err(cmd->plugin, "Missing path pubkey");
-	path_pubkey = tal(tmpctx, struct pubkey);
-	json_to_pubkey(buf, pubkeytok, path_pubkey);
 
 	/* Might be reply for fetchinvoice (which always has a secret,
 	 * so we can tell it's a response). */
@@ -308,7 +303,7 @@ static struct command_result *onion_message_recv(struct command *cmd,
 		const u8 *invreqbin = json_tok_bin_from_hex(tmpctx, buf, invreqtok);
 		return handle_invoice_request(cmd,
 					      invreqbin,
-					      reply_path, secret, blinded_node_id, path_pubkey);
+					      reply_path, secret, blinded_node_id);
 	}
 
 	invtok = json_get_member(buf, om, "invoice");

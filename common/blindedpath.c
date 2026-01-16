@@ -1,5 +1,7 @@
 #include "config.h"
+#include <string.h>
 #include <bitcoin/tx.h>
+#include <ccan/endian/endian.h>
 #include <common/blindedpath.h>
 #include <common/blinding.h>
 #include <common/bolt11.h>
@@ -12,6 +14,33 @@
 #ifndef SUPERVERBOSE
 #define SUPERVERBOSE(...)
 #endif
+
+/*
+ * The `first_path_privkey` (`e_0`) is derived using
+ * `e_0 = HMAC256(\text{"first_path_privkey"}, SHA256(path_id || N_0 || path_index))`,
+ * where `path_id` is from the offer's `encrypted_data_tlv` that is only known by the
+ * payee, where `N_0` is the `first_node_id` of the path and where `path_index`
+ * is a big-endian 64-bit integer containing the path's index, to
+ * differentiate potential multiple paths using the same `first_node_id`.
+ * The deterministic generation of e_0 allows for the recovery of the offer paths.
+ */
+void derive_first_path_privkey(const struct secret *path_id, const struct pubkey *first_node, const size_t path_index, struct privkey *first_path_privkey)
+{
+	u8 der[PUBKEY_CMPR_LEN];
+	struct sha256_ctx shactx;
+	struct secret sha;
+	uint64_t wire_path_index = cpu_to_be64(path_index);
+
+	pubkey_to_der(der, first_node);
+	sha256_init(&shactx);
+	sha256_update(&shactx, path_id->data, sizeof(path_id->data));
+	sha256_update(&shactx, der, sizeof(der));
+
+	sha256_update(&shactx, (u8*)&wire_path_index, sizeof(wire_path_index));
+	assert(sizeof(sha.data) == sizeof(struct sha256));
+	sha256_done(&shactx, (struct sha256*)sha.data);
+	subkey_from_hmac("first_path_privkey", &sha, &first_path_privkey->secret);
+}
 
 /* Blinds node_id and calculates next blinding factor. */
 static bool blind_node(const struct privkey *path_privkey,
@@ -255,4 +284,123 @@ void blindedpath_next_path_key(const struct tlv_encrypted_data_tlv *enc,
 		blinding_hash_e_and_ss(path_key, ss, &h);
 		blinding_next_path_key(path_key, &h, next_path_key);
 	}
+}
+
+/*
+ * The blinded path node ids and the path_pubkey of the last used hop are
+ * calculated given a set of blinded paths, the used blinded_node_id and the
+ * path_id (secret). The index of the used path is returned, unless an error
+ * occurred, in which case a negative value is returned.
+ */
+ssize_t unblind_paths(const tal_t *ctx,
+				struct blinded_path * const * const paths,
+				struct pubkey const * const blinded_node_id,
+				struct secret const * const path_id,
+				struct pubkey *** const node_ids,
+				struct pubkey ** const path_pubkey
+				)
+{
+	struct privkey path_privkey, next_path_privkey;
+	struct secret ss;
+	struct pubkey node_alias;
+	struct pubkey* last_node_id = NULL;
+	struct tlv_encrypted_data_tlv *encmsg;
+	size_t nhops;
+	ssize_t i, j;
+	ssize_t used_index = -1;
+	const size_t npaths = tal_count(paths);
+
+	if (npaths == 0) return -1;
+
+	*node_ids = tal_arr(ctx, struct pubkey*, npaths);
+
+	/* Loop over all blinded_paths */
+	for (i = 0; i < npaths; ++i) {
+		nhops = tal_count(paths[i]->path);
+
+		/* There must be at least one hop */
+		if (nhops == 0) return -1;
+
+		/* Generated offers by us are assumed to only use pubkeys as
+		 * first_node_id (Maybe not always true when using dev_paths?)*/
+		if (!paths[i]->first_node_id.is_pubkey) return -1;
+		(*node_ids)[i] = tal_arrz(ctx, struct pubkey, nhops);
+
+		(*node_ids)[i][0] = paths[i]->first_node_id.pubkey;
+		derive_first_path_privkey(path_id,
+				(*node_ids)[i],
+				i, &path_privkey);
+
+		for (j = 0;; ++j) {
+
+			if (!paths[i]->path[j]->encrypted_recipient_data)
+				return -1;
+
+			/* BOLT #4:
+			 *     - $`ss_i = SHA256(e_i * N_i) = SHA256(k_i * E_i)`$
+			 *        (ECDH shared secret known only by $`N_r`$ and $`N_i`$)
+			 */
+			if (secp256k1_ecdh(secp256k1_ctx, ss.data,
+						&(*node_ids)[i][j].pubkey, path_privkey.secret.data,
+						NULL, NULL) != 1)
+				return -1;
+			SUPERVERBOSE("\t\"ss\": \"%s\",\n",
+					fmt_secret(tmpctx, &ss));
+
+			/* This calculates the node's alias, and next path_key */
+			if (!blind_node(&path_privkey, &ss, (*node_ids)[i]+j,
+						&node_alias, &next_path_privkey))
+				return -1;
+
+			/* Verify that the blinded node id calculated by
+			 * tweaking the node id using path_privkey matches the
+			 * one provided in the path
+			 * */
+			if (pubkey_cmp(&paths[i]->path[j]->blinded_node_id, &node_alias)) return -1;
+			encmsg = decrypt_encrypted_data(ctx, &ss, paths[i]->path[j]->encrypted_recipient_data);
+
+			if (!encmsg)
+				return -1;
+
+			if (!encmsg->next_node_id) {
+
+				if (j != nhops - 1)
+				  return -1;
+
+				if (!encmsg->path_id || tal_count(encmsg->path_id) != sizeof(path_id->data))
+					return -1;
+
+				/* Verify that we generated the path by
+				 * verifying the stored secret
+				 */
+				if (memcmp(encmsg->path_id, path_id->data, sizeof(path_id->data)))
+					return -1;
+
+				if (last_node_id) {
+
+					/* Verify that the last hop of each blinded path points to the
+					 * same node id */
+					if (pubkey_cmp((*node_ids)[i] + j, last_node_id))
+						return -1;
+				} else last_node_id = (*node_ids)[i] + j;
+
+				/* Check if this is the path that contains blinded_node_id */
+				if (!pubkey_cmp(&paths[i]->path[j]->blinded_node_id, blinded_node_id)) {
+					used_index = i;
+					*path_pubkey = tal(ctx, struct pubkey);
+
+					if (!pubkey_from_privkey(&path_privkey, *path_pubkey))
+						return -1;
+				}
+				/* Only the last hop has next_node_id unset */
+				break;
+			}
+
+			/* The last hop cannot have next_node_id set */
+			if (j == nhops - 1) return -1;
+			(*node_ids)[i][j+1] = *encmsg->next_node_id;
+			path_privkey = next_path_privkey;
+		}
+	}
+	return used_index;
 }

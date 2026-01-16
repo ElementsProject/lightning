@@ -5,6 +5,7 @@
 #include <common/bech32_util.h>
 #include <common/bolt12_id.h>
 #include <common/bolt12_merkle.h>
+#include <common/blindedpath.h>
 #include <common/clock_time.h>
 #include <common/features.h>
 #include <common/gossmap.h>
@@ -42,6 +43,12 @@ struct invreq {
 
 	/* The path pubkey the invoice request was received through. */
 	struct pubkey *path_pubkey;
+
+	/* The offer path index the invoice request was received through. */
+	ssize_t used_path_index;
+
+	/* The node ids of all offer blinded paths. */
+	struct pubkey **offer_path_ids;
 };
 
 static struct command_result *WARN_UNUSED_RESULT
@@ -344,6 +351,7 @@ static struct command_result *found_best_peer(struct command *cmd,
 		ir->inv->invoice_paths = tal_arr(ir->inv, struct blinded_path *, 1);
 		ir->inv->invoice_paths[0]
 			= blinded_path_from_encdata_tlvs(ir->inv->invoice_paths,
+							 -1,
 							 cast_const2(const struct tlv_encrypted_data_tlv **, etlvs),
 							 ids);
 
@@ -1010,6 +1018,13 @@ static struct command_result *listoffers_done(struct command *cmd,
 	 */
 	if (!ir->inv->offer_issuer_id && ir->invreq->offer_paths) {
 		ir->inv->invoice_node_id = ir->blinded_node_id;
+		ir->used_path_index = unblind_paths(ir, ir->invreq->offer_paths,
+		    ir->blinded_node_id, ir->secret,
+		    &ir->offer_path_ids, &ir->path_pubkey);
+
+		if (ir->inv->invoice_node_id < 0)
+		  return fail_internalerr(cmd, ir,
+		      "Valid offer path node ids and  path_pubkey could not be derived");
 
 	} else {
 		ir->inv->invoice_node_id = ir->inv->offer_issuer_id;
@@ -1053,8 +1068,7 @@ struct command_result *handle_invoice_request(struct command *cmd,
 					      const u8 *invreqbin,
 					      struct blinded_path *reply_path,
 					      const struct secret *secret,
-					      const struct pubkey *blinded_node_id,
-					      const struct pubkey *path_pubkey)
+					      const struct pubkey *blinded_node_id)
 {
 	struct out_req *req;
 	int bad_feature;
@@ -1065,7 +1079,6 @@ struct command_result *handle_invoice_request(struct command *cmd,
 	ir->reply_path = tal_steal(ir, reply_path);
 	ir->secret = tal_dup_or_null(ir, struct secret, secret);
 	ir->blinded_node_id = tal_dup(ir, struct pubkey, blinded_node_id);
-	ir->path_pubkey = tal_dup(ir, struct pubkey, path_pubkey);
 	ir->invreq = fromwire_tlv_invoice_request(cmd, &cursor, &len);
 
 	if (!ir->invreq) {

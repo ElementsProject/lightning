@@ -171,7 +171,6 @@ msgdata,connectd_got_onionmsg_to_us,reply,?blinded_path,
 msgdata,connectd_got_onionmsg_to_us,rawmsg_len,u16,
 msgdata,connectd_got_onionmsg_to_us,rawmsg,u8,rawmsg_len
 msgdata,connectd_got_onionmsg_to_us,final_alias,pubkey,
-msgdata,connectd_got_onionmsg_to_us,path_pubkey,pubkey,
 
 # Lightningd tells us to send an onion message.
 msgtype,connectd_send_onionmsg,2041

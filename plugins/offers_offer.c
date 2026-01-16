@@ -290,6 +290,7 @@ static struct command_result *found_best_peer(struct command *cmd,
 		offinfo->offer->offer_paths = tal_arr(offinfo->offer, struct blinded_path *, 1);
 		offinfo->offer->offer_paths[0]
 			= incoming_message_blinded_path(offinfo->offer->offer_paths,
+							0,
 							ids,
 							NULL,
 							&blinding_path_secret);
@@ -555,6 +556,7 @@ struct command_result *json_offer(struct command *cmd,
 		offer->offer_paths = tal_arr(offer, struct blinded_path *, tal_count(paths));
 		for (size_t i = 0; i < tal_count(paths); i++) {
 			offer->offer_paths[i] = incoming_message_blinded_path(offer->offer_paths,
+									      i,
 									      paths[i]->path,
 									      NULL,
 									      &blinding_path_secret);
@@ -649,6 +651,7 @@ static struct command_result *found_best_peer_invrequest(struct command *cmd,
 		irdata->invreq->invreq_paths = tal_arr(irdata->invreq, struct blinded_path *, 1);
 		irdata->invreq->invreq_paths[0]
 			= incoming_message_blinded_path(irdata->invreq->invreq_paths,
+							0,
 							ids,
 							NULL,
 							&blinding_path_secret);

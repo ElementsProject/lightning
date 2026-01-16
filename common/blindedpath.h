@@ -3,6 +3,7 @@
 #include "config.h"
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
+#include <wire/onion_wiregen.h>
 
 struct route_info;
 struct pubkey;
@@ -12,6 +13,8 @@ struct short_channel_id;
 struct tlv_encrypted_data_tlv;
 struct tlv_encrypted_data_tlv_payment_constraints;
 struct tlv_encrypted_data_tlv_payment_relay;
+
+void derive_first_path_privkey(const struct secret *path_id, const struct pubkey *first_node, const size_t path_index, struct privkey *first_path_privkey);
 
 /**
  * encrypt_tlv_encrypted_data - Encrypt a tlv_encrypted_data_tlv.
@@ -85,5 +88,13 @@ void blindedpath_next_path_key(const struct tlv_encrypted_data_tlv *enc,
 			       const struct pubkey *path_key,
 			       const struct secret *ss,
 			       struct pubkey *next_path_key);
+
+ssize_t unblind_paths(const tal_t *ctx,
+				struct blinded_path * const * const paths,
+				struct pubkey const * const blinded_node_id,
+				struct secret const * const path_id,
+				struct pubkey *** const node_ids,
+				struct pubkey ** const path_pubkey
+				);
 
 #endif /* LIGHTNING_COMMON_BLINDEDPATH_H */

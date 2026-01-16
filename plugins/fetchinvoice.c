@@ -490,7 +490,7 @@ static struct blinded_path *make_reply_path(const tal_t *ctx,
 		plugin_log(plugin, LOG_DBG, "...%s", fmt_pubkey(tmpctx, &ids[i]));
 
 	/* Reply path */
-	return incoming_message_blinded_path(ctx, ids, NULL, reply_secret);
+	return incoming_message_blinded_path(ctx, -1, ids, NULL, reply_secret);
 }
 
 /* Container while we're establishing paths */
