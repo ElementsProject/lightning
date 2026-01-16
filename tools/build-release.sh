@@ -177,7 +177,7 @@ for target in $TARGETS; do
         TAG=fedora
         DOCKERFILE=contrib/docker/Dockerfile.builder.fedora
         FEDORA_VERSION=$(grep -oP '^FROM fedora:\K[0-9]+' "$DOCKERFILE")
-        docker build -f $DOCKERFILE -t $TAG --load .
+        docker build --no-cache -f $DOCKERFILE -t $TAG --load .
         docker run --rm=true -v "$(pwd)":/src:ro -v "$RELEASEDIR":/release $TAG /src/tools/build-release.sh --inside-docker "$VERSION" "$platform" "$FEDORA_VERSION" "$ARCH" "$MAKEPAR"
         docker run --rm=true -w /build $TAG rm -rf /"$VERSION-$platform-$FEDORA_VERSION-$ARCH" /build
         echo "Fedora Image Built"

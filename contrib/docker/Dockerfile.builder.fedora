@@ -2,6 +2,8 @@ FROM fedora:40
 
 ENV UV_PYTHON=3.12
 ENV BITCOIN_VERSION=27.1
+ENV SOURCE_DATE_EPOCH=1672531200
+ENV RUSTFLAGS="-C link-arg=-Wl,--build-id=none"
 
 WORKDIR /tmp
 
@@ -20,7 +22,6 @@ RUN dnf update -y && \
 		jq \
 		xz \
 		zlib-devel \
-		cargo \
 		libsodium-devel \
 		which \
 		sed \
@@ -35,7 +36,7 @@ RUN dnf update -y && \
 	dnf clean all
 
 # Install Rust via rustup (for lockfile v4 support)
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.92.0
 ENV PATH="/root/.cargo/bin:${PATH}"
 
 # Install lowdown
