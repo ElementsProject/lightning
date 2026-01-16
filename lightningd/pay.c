@@ -233,19 +233,20 @@ void json_add_payment_fields(struct json_stream *response,
 		}
 	}
 	const char *desc_hash = NULL;
-	if (t->invstring) {
+	if (t->invstring && strstarts(t->invstring, "ln")) {
+		/* Only BOLT11 has description hash */
 		desc_hash = bolt11_get_description_hash(t->invstring);
 	}
-	if (desc_hash) {
+
+	if (desc_hash)
 		json_add_string(response, "description_hash", desc_hash);
-	} else {
-		if (invoice_description)
-			json_add_string(response, "invoice_description", invoice_description);
-	}
+	const char *desc = t->description ? t->description : invoice_description;
+	if (desc != NULL)
+		json_add_string(response, "invoice_description", desc);
 
 	if (t->failonion)
 		json_add_hex(response, "erroronion", t->failonion,
-			     tal_count(t->failonion));
+				tal_count(t->failonion));
 }
 
 static struct command_result *sendpay_success(struct command *cmd,

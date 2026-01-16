@@ -3470,7 +3470,9 @@ def test_sql(node_factory, bitcoind):
             'indices': [['payment_hash']],
             'columns': [{'name': 'label',
                          'type': 'string'},
-                        {'name': 'description',
+                        {'name': 'invoice_description',
+                         'type': 'string'},
+                        {'name': 'description_hash',
                          'type': 'string'},
                         {'name': 'payment_hash',
                          'type': 'hash'},
@@ -3514,7 +3516,9 @@ def test_sql(node_factory, bitcoind):
                          'type': 'boolean'},
                         {'name': 'bolt12',
                          'type': 'string'},
-                        {'name': 'description',
+                        {'name': 'invoice_description',
+                         'type': 'string'},
+                        {'name': 'description_hash',
                          'type': 'string'},
                         {'name': 'used',
                          'type': 'boolean'},
@@ -3567,7 +3571,9 @@ def test_sql(node_factory, bitcoind):
                          'type': 'string'},
                         {'name': 'bolt11',
                          'type': 'string'},
-                        {'name': 'description',
+                        {'name': 'invoice_description',
+                         'type': 'string'},
+                        {'name': 'description_hash',
                          'type': 'string'},
                         {'name': 'bolt12',
                          'type': 'string'},
@@ -3997,13 +4003,17 @@ def test_sql(node_factory, bitcoind):
         res = only_one(l2.rpc.listsqlschemas(table)['schemas'])
         assert res['tablename'] == table
         assert res.get('indices') == schema.get('indices')
-        # Those without a created_index get an *explicit* rowid;
         if any([c['name'] == 'created_index' for c in schema['columns']]):
             prefix = []
         else:
             prefix = [{'name': 'rowid', 'type': 'u64'}]
         sqlcolumns = [{'name': c['name'], 'type': sqltypemap[c['type']]} for c in prefix + schema['columns']]
-        assert res['columns'] == sqlcolumns
+        assert res['columns'] == sqlcolumns, (
+            f"Schema mismatch for table '{table}'.\n"
+            f"Expected: {sqlcolumns}\n"
+            f"Actual:   {res['columns']}\n"
+            f"Full RPC response: {res}"
+        )
 
     # Make sure we didn't miss any
     assert (sorted([s['tablename'] for s in l1.rpc.listsqlschemas()['schemas']])

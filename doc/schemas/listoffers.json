@@ -70,11 +70,18 @@
                 "The bolt12 encoding of the offer."
               ]
             },
-            "description": {
+            "invoice_description": {
+              "type": "string",
+              "added": "v26.04",
+              "description": [
+                "The description matching the bolt11 || bolt12 description (if pay supplied one)."
+              ]
+            },
+            "description_hash": {
               "added": "v26.04",
               "type": "string",
               "description": [
-                "The user-specified bolt 12 description."
+                "The description hash matching the bolt11 description hash (if pay supplied one)."
               ]
             },
             "used": {

@@ -777,8 +777,9 @@ impl From<responses::ListinvoicesInvoices> for pb::ListinvoicesInvoices {
             bolt11: c.bolt11, // Rule #2 for type string?
             bolt12: c.bolt12, // Rule #2 for type string?
             created_index: c.created_index, // Rule #2 for type u64?
-            description: c.description, // Rule #2 for type string?
+            description_hash: c.description_hash, // Rule #2 for type string?
             expires_at: c.expires_at, // Rule #2 for type u64
+            invoice_description: c.invoice_description, // Rule #2 for type string?
             invreq_payer_note: c.invreq_payer_note, // Rule #2 for type string?
             label: c.label, // Rule #2 for type string
             local_offer_id: c.local_offer_id.map(|v| <Sha256 as AsRef<[u8]>>::as_ref(&v).to_vec()), // Rule #2 for type hash?
@@ -2159,7 +2160,8 @@ impl From<responses::ListoffersOffers> for pb::ListoffersOffers {
         Self {
             active: c.active, // Rule #2 for type boolean
             bolt12: c.bolt12, // Rule #2 for type string
-            description: c.description, // Rule #2 for type string?
+            description_hash: c.description_hash, // Rule #2 for type string?
+            invoice_description: c.invoice_description, // Rule #2 for type string?
             label: c.label, // Rule #2 for type string?
             offer_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.offer_id).to_vec(), // Rule #2 for type hash
             single_use: c.single_use, // Rule #2 for type boolean

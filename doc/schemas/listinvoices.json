@@ -105,10 +105,18 @@
                 "Unique label supplied at invoice creation."
               ]
             },
-            "description": {
+           "invoice_description": {
+              "type": "string",
+              "added": "v26.04",
+              "description": [
+                "The description matching the bolt11 || bolt12 description (if pay supplied one)."
+              ]
+            },
+            "description_hash": {
+              "added": "v26.04",
               "type": "string",
               "description": [
-                "Description used in the invoice."
+                "The description hash matching the bolt11 description hash (if pay supplied one)."
               ]
             },
             "payment_hash": {
@@ -272,7 +280,8 @@
                 "additionalProperties": false,
                 "properties": {
                   "label": {},
-                  "description": {},
+                  "invoice_description": {},
+                  "description_hash": {},
                   "payment_hash": {},
                   "status": {},
                   "msatoshi": {},

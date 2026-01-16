@@ -6484,7 +6484,9 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub created_index: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub description: Option<String>,
+	    pub description_hash: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub invoice_description: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub invreq_payer_note: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -8984,7 +8986,9 @@ pub mod responses {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListoffersOffers {
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub description: Option<String>,
+	    pub description_hash: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub invoice_description: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub label: Option<String>,
 	    pub active: bool,

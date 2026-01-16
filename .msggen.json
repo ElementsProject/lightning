@@ -2786,7 +2786,9 @@
             "ListInvoices.invoices[].bolt12": 8,
             "ListInvoices.invoices[].created_index": 16,
             "ListInvoices.invoices[].description": 2,
+            "ListInvoices.invoices[].description_hash": 20,
             "ListInvoices.invoices[].expires_at": 5,
+            "ListInvoices.invoices[].invoice_description": 19,
             "ListInvoices.invoices[].invreq_payer_note": 15,
             "ListInvoices.invoices[].label": 1,
             "ListInvoices.invoices[].local_offer_id": 9,
@@ -2865,6 +2867,8 @@
             "ListOffers.offers[].active": 2,
             "ListOffers.offers[].bolt12": 4,
             "ListOffers.offers[].description": 7,
+            "ListOffers.offers[].description_hash": 9,
+            "ListOffers.offers[].invoice_description": 8,
             "ListOffers.offers[].label": 6,
             "ListOffers.offers[].offer_id": 1,
             "ListOffers.offers[].single_use": 3,
@@ -10378,8 +10382,16 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "ListInvoices.invoices[].description_hash": {
+            "added": "v26.04",
+            "deprecated": null
+        },
         "ListInvoices.invoices[].expires_at": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListInvoices.invoices[].invoice_description": {
+            "added": "v26.04",
             "deprecated": null
         },
         "ListInvoices.invoices[].invreq_payer_note": {
@@ -10607,6 +10619,14 @@
             "deprecated": null
         },
         "ListOffers.offers[].description": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "ListOffers.offers[].description_hash": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "ListOffers.offers[].invoice_description": {
             "added": "v26.04",
             "deprecated": null
         },

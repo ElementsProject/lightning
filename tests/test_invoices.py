@@ -790,26 +790,25 @@ def test_invoice_deschash(node_factory, chainparams):
     assert b11['description_hash'] == '3925b6f67e2c340036ed12093dd44e0368df1b6ea26c53dbe4811f58fd5db8c1'
 
     listinv = only_one(l2.rpc.listinvoices()['invoices'])
-    assert listinv['description'] == 'One piece of chocolate cake, one icecream cone, one pickle, one slice of swiss cheese, one slice of salami, one lollypop, one piece of cherry pie, one sausage, one cupcake, and one slice of watermelon'
+    assert listinv['invoice_description'] == 'One piece of chocolate cake, one icecream cone, one pickle, one slice of swiss cheese, one slice of salami, one lollypop, one piece of cherry pie, one sausage, one cupcake, and one slice of watermelon'
 
     with pytest.raises(RpcError, match=r'does not match description'):
-        l1.rpc.pay(inv['bolt11'], description=listinv['description'][:-1])
+        l1.rpc.pay(inv['bolt11'], description=listinv['invoice_description'][:-1])
 
-    l1.rpc.pay(inv['bolt11'], description=listinv['description'])
+    l1.rpc.pay(inv['bolt11'], description=listinv['invoice_description'])
 
     # Description will be in some.
     found = False
     for p in l1.rpc.listsendpays()['payments']:
-        if 'description' in p:
+        if 'invoice_description' in p:
             found = True
-            assert p['description'] == listinv['description']
+            assert p['invoice_description'] == listinv['invoice_description']
     assert found
 
-    assert only_one(l1.rpc.listpays(inv['bolt11'])['pays'])['description'] == listinv['description']
-
+    assert only_one(l1.rpc.listsendpays(inv['bolt11'])['payments'])['invoice_description'] == listinv['invoice_description']
     # Try removing description.
     l2.rpc.delinvoice('label', "paid", desconly=True)
-    assert 'description' not in only_one(l2.rpc.listinvoices()['invoices'])
+    assert 'invoice_description' not in only_one(l2.rpc.listinvoices()['invoices'])
 
     with pytest.raises(RpcError, match=r'description already removed'):
         l2.rpc.delinvoice('label', "paid", desconly=True)

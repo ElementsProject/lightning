@@ -900,7 +900,6 @@ message ListinvoicesInvoices {
 		EXPIRED = 2;
 	}
 	string label = 1;
-	optional string description = 2;
 	bytes payment_hash = 3;
 	ListinvoicesInvoicesStatus status = 4;
 	uint64 expires_at = 5;
@@ -916,6 +915,8 @@ message ListinvoicesInvoices {
 	optional uint64 created_index = 16;
 	optional uint64 updated_index = 17;
 	optional ListinvoicesInvoicesPaidOutpoint paid_outpoint = 18;
+	optional string invoice_description = 19;
+	optional string description_hash = 20;
 }
 
 message ListinvoicesInvoicesPaidOutpoint {
@@ -2308,7 +2309,8 @@ message ListoffersOffers {
 	string bolt12 = 4;
 	bool used = 5;
 	optional string label = 6;
-	optional string description = 7;
+	optional string invoice_description = 8;
+	optional string description_hash = 9;
 }
 
 message ListpaysRequest {
