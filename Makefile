@@ -546,6 +546,11 @@ SRC_TO_CHECK := $(filter-out $(ALL_TEST_PROGRAMS:=.c), $(ALL_NONGEN_SOURCES))
 check-src-includes: $(SRC_TO_CHECK:%=check-src-include-order/%)
 check-hdr-includes: $(ALL_NONGEN_HEADERS:%=check-hdr-include-order/%)
 
+print-src-to-check:
+	@echo $(SRC_TO_CHECK)
+print-hdr-to-check:
+	@echo $(ALL_NONGEN_HEADERS)
+
 # If you want to check a specific variant of quotes use:
 #   make check-source-bolt BOLTVERSION=xxx
 ifeq ($(BOLTVERSION),$(DEFAULT_BOLTVERSION))
