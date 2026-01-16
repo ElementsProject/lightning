@@ -117,7 +117,7 @@ echo "Parallel: $MAKEPAR"
 
 if [ "$VERIFY_RELEASE" = "true" ]; then
     if [ -f "SHA256SUMS-$VERSION.asc" ] && [ -f "SHA256SUMS-$VERSION" ]; then
-        ALL_TARGETS="bin-Ubuntu"
+        ALL_TARGETS="bin-Fedora bin-Ubuntu"
     else
         echo "Unable to verify. File SHA256SUMS-$VERSION or SHA256SUMS-$VERSION.asc not found in the root."
         exit 1
