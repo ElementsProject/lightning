@@ -112,7 +112,8 @@ static struct command_result *param_layer_names(struct command *cmd,
 		/* Must be a known layer name */
 		if (streq((*arr)[i], "auto.localchans")
 		    || streq((*arr)[i], "auto.no_mpp_support")
-		    || streq((*arr)[i], "auto.sourcefree"))
+		    || streq((*arr)[i], "auto.sourcefree")
+		    || streq((*arr)[i], "auto.include_fees"))
 			continue;
 		if (!find_layer(get_askrene(cmd->plugin), (*arr)[i])) {
 			return command_fail_badparam(cmd, name, buffer, t,
@@ -425,6 +426,12 @@ static void apply_layers(struct askrene *askrene, struct route_query *rq,
 			} else if (streq(layers[i], "auto.no_mpp_support")) {
 				plugin_log(rq->plugin, LOG_DBG, "Adding auto.no_mpp_support, sorry");
 				l = remove_small_channel_layer(layers, askrene, amount, localmods);
+			} else if (streq(layers[i], "auto.include_fees")) {
+				plugin_log(rq->plugin, LOG_DBG,
+					   "Adding auto.include_fees");
+				/* This layer takes effect when converting flows
+				 * into routes. */
+				continue;
 			} else {
 				assert(streq(layers[i], "auto.sourcefree"));
 				plugin_log(rq->plugin, LOG_DBG, "Adding auto.sourcefree");
@@ -447,7 +454,8 @@ static struct route **convert_flows_to_routes(const tal_t *ctx,
 					      struct route_query *rq,
 					      u32 finalcltv,
 					      struct flow **flows,
-					      struct amount_msat **amounts)
+					      struct amount_msat **amounts,
+					      bool include_fees)
 {
 	struct route **routes;
 	routes = tal_arr(ctx, struct route *, tal_count(flows));
@@ -462,27 +470,70 @@ static struct route **convert_flows_to_routes(const tal_t *ctx,
 		r->success_prob = flow_probability(flows[i], rq);
 		r->hops = tal_arr(r, struct route_hop, tal_count(flows[i]->path));
 
-		/* Fill in backwards to calc amount and delay */
 		msat = flows[i]->delivers;
 		delay = finalcltv;
 
-		for (int j = tal_count(flows[i]->path) - 1; j >= 0; j--) {
-			struct route_hop *rh = &r->hops[j];
-			struct gossmap_node *far_end;
-			const struct half_chan *h = flow_edge(flows[i], j);
+		if (!include_fees) {
+			/* Fill in backwards to calc amount and delay */
+			for (int j = tal_count(flows[i]->path) - 1; j >= 0;
+			     j--) {
+				struct route_hop *rh = &r->hops[j];
+				struct gossmap_node *far_end;
+				const struct half_chan *h =
+				    flow_edge(flows[i], j);
 
-			if (!amount_msat_add_fee(&msat, h->base_fee, h->proportional_fee))
-				plugin_err(rq->plugin, "Adding fee to amount");
-			delay += h->delay;
+				if (!amount_msat_add_fee(&msat, h->base_fee,
+							 h->proportional_fee))
+					plugin_err(rq->plugin,
+						   "Adding fee to amount");
+				delay += h->delay;
 
-			rh->scid = gossmap_chan_scid(rq->gossmap, flows[i]->path[j]);
-			rh->direction = flows[i]->dirs[j];
-			far_end = gossmap_nth_node(rq->gossmap, flows[i]->path[j], !flows[i]->dirs[j]);
-			gossmap_node_get_id(rq->gossmap, far_end, &rh->node_id);
-			rh->amount = msat;
-			rh->delay = delay;
+				rh->scid = gossmap_chan_scid(rq->gossmap,
+							     flows[i]->path[j]);
+				rh->direction = flows[i]->dirs[j];
+				far_end = gossmap_nth_node(rq->gossmap,
+							   flows[i]->path[j],
+							   !flows[i]->dirs[j]);
+				gossmap_node_get_id(rq->gossmap, far_end,
+						    &rh->node_id);
+				rh->amount = msat;
+				rh->delay = delay;
+			}
+		        (*amounts)[i] = flows[i]->delivers;
+		} else {
+			/* Fill in backwards to calc delay */
+			for (int j = tal_count(flows[i]->path) - 1; j >= 0;
+			     j--) {
+				struct route_hop *rh = &r->hops[j];
+				struct gossmap_node *far_end;
+				const struct half_chan *h =
+				    flow_edge(flows[i], j);
+
+				delay += h->delay;
+
+				rh->scid = gossmap_chan_scid(rq->gossmap,
+							     flows[i]->path[j]);
+				rh->direction = flows[i]->dirs[j];
+				far_end = gossmap_nth_node(rq->gossmap,
+							   flows[i]->path[j],
+							   !flows[i]->dirs[j]);
+				gossmap_node_get_id(rq->gossmap, far_end,
+						    &rh->node_id);
+				rh->delay = delay;
+			}
+			/* Compute fees forward */
+			for (int j = 0; j < tal_count(flows[i]->path); j++) {
+				struct route_hop *rh = &r->hops[j];
+				const struct half_chan *h =
+				    flow_edge(flows[i], j);
+
+				rh->amount = msat;
+                                msat = amount_msat_sub_fee(msat, h->base_fee,
+							   h->proportional_fee);
+			}
+		        (*amounts)[i] = msat;
 		}
-		(*amounts)[i] = flows[i]->delivers;
+
 		rq_log(tmpctx, rq, LOG_INFORM, "Flow %zu/%zu: %s",
 		       i, tal_count(flows),
 		       fmt_route(tmpctx, r, (*amounts)[i], finalcltv));
@@ -574,6 +625,7 @@ static struct command_result *do_getroutes(struct command *cmd,
 	struct flow **flows;
 	struct json_stream *response;
 	const struct gossmap_node *me;
+	bool include_fees;
 
 	/* update the gossmap */
 	if (gossmap_refresh(askrene->gossmap)) {
@@ -709,9 +761,11 @@ static struct command_result *do_getroutes(struct command *cmd,
 	rq_log(tmpctx, rq, LOG_DBG, "Final answer has %zu flows",
 	       tal_count(flows));
 
+	include_fees = have_layer(info->layers, "auto.include_fees");
+
 	/* convert flows to routes */
 	routes = convert_flows_to_routes(rq, rq, info->finalcltv, flows,
-					 &amounts);
+					 &amounts, include_fees);
 	assert(tal_count(routes) == tal_count(flows));
 	assert(tal_count(amounts) == tal_count(flows));
 

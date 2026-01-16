@@ -1994,3 +1994,415 @@ def test_excessive_fee_cost(node_factory):
             maxfee_msat=1000,
             final_cltv=5,
         )
+
+
+def check_getroute_routes(
+    node,
+    source,
+    destination,
+    amount_msat,
+    routes,
+    layers=[],
+    maxfee_msat=1000,
+    final_cltv=99,
+):
+    """Check that routes are as expected in result. This is similar to
+    check_getroute_paths but it compares all fields inside the routes and not
+    just the path."""
+
+    def check_route_as_expected(routes, expected_routes):
+        """Make sure all fields in paths are match those in routes"""
+
+        def dict_subset_eq(a, b):
+            """Is every key in B is the same in A?"""
+            return all(a.get(key) == b[key] for key in b if key != "path")
+
+        for r in expected_routes:
+            found = False
+            for i, candidate in enumerate(routes):
+                pathlen = len(r["path"])
+                if len(candidate["path"]) != pathlen:
+                    continue
+                if dict_subset_eq(candidate, r) and all(
+                    dict_subset_eq(candidate["path"][i], r["path"][i])
+                    for i in range(pathlen)
+                ):
+                    del routes[i]
+                    found = True
+                    break
+
+            if not found:
+                raise ValueError(
+                    "Could not find route {} in routes {}".format(r, routes)
+                )
+
+        if routes != []:
+            raise ValueError("Did not expect paths {}".format(routes))
+
+    getroutes = node.rpc.getroutes(
+        source=source,
+        destination=destination,
+        amount_msat=amount_msat,
+        layers=layers,
+        maxfee_msat=maxfee_msat,
+        final_cltv=final_cltv,
+    )
+    assert getroutes["probability_ppm"] <= 1000000
+    check_route_as_expected(getroutes["routes"], routes)
+
+
+def test_includefees(node_factory):
+    """Test the amounts in the hops is set correctly when we use
+    auto.include_fees layer."""
+    gsfile, nodemap = generate_gossip_store(
+        [
+            GenChannel(
+                0,
+                1,
+                capacity_sats=1000000,
+                forward=GenChannel.Half(basefee=1, propfee=10000, delay=5),
+            ),
+            GenChannel(
+                1,
+                2,
+                capacity_sats=1000000,
+                forward=GenChannel.Half(basefee=2, propfee=20000, delay=5),
+            ),
+            GenChannel(
+                2,
+                3,
+                capacity_sats=1000000,
+                forward=GenChannel.Half(basefee=3, propfee=30000, delay=5),
+            ),
+        ]
+    )
+    l1 = node_factory.get_node(gossip_store_file=gsfile.name)
+
+    # Check computed fees in normal mode
+    check_getroute_routes(
+        l1,
+        nodemap[0],
+        nodemap[1],
+        1000,
+        [
+            {
+                "amount_msat": 1000,
+                "path": [
+                    {
+                        "short_channel_id_dir": "0x1x0/1",
+                        "next_node_id": nodemap[1],
+                        "amount_msat": 1011,
+                        "delay": 99 + 5,
+                    }
+                ],
+            }
+        ],
+        layers=[],
+    )
+
+    check_getroute_routes(
+        l1,
+        nodemap[0],
+        nodemap[2],
+        1000,
+        [
+            {
+                "amount_msat": 1000,
+                "path": [
+                    {
+                        "short_channel_id_dir": "0x1x0/1",
+                        "next_node_id": nodemap[1],
+                        "amount_msat": 1033,
+                        "delay": 99 + 5 + 5,
+                    },
+                    {
+                        "short_channel_id_dir": "1x2x1/1",
+                        "next_node_id": nodemap[2],
+                        "amount_msat": 1022,
+                        "delay": 99 + 5,
+                    },
+                ],
+            }
+        ],
+        layers=[],
+    )
+
+    check_getroute_routes(
+        l1,
+        nodemap[0],
+        nodemap[3],
+        1000,
+        [
+            {
+                "amount_msat": 1000,
+                "path": [
+                    {
+                        "short_channel_id_dir": "0x1x0/1",
+                        "next_node_id": nodemap[1],
+                        "amount_msat": 1066,
+                        "delay": 99 + 5 + 5 + 5,
+                    },
+                    {
+                        "short_channel_id_dir": "1x2x1/1",
+                        "next_node_id": nodemap[2],
+                        "amount_msat": 1055,
+                        "delay": 99 + 5 + 5,
+                    },
+                    {
+                        "short_channel_id_dir": "2x3x2/0",
+                        "next_node_id": nodemap[3],
+                        "amount_msat": 1033,
+                        "delay": 99 + 5,
+                    },
+                ],
+            }
+        ],
+        layers=[],
+    )
+
+    # Check computed fees in include_fees mode
+    check_getroute_routes(
+        l1,
+        nodemap[0],
+        nodemap[1],
+        1000,
+        [
+            # we compute a route for 1000msat and the recepient receives 990
+            {
+                "amount_msat": 990,
+                "path": [
+                    {
+                        "short_channel_id_dir": "0x1x0/1",
+                        "next_node_id": nodemap[1],
+                        "amount_msat": 1000,
+                        "delay": 99 + 5,
+                    }
+                ],
+            }
+        ],
+        layers=["auto.include_fees"],
+    )
+
+    check_getroute_routes(
+        l1,
+        nodemap[0],
+        nodemap[2],
+        1000,
+        [
+            {
+                "amount_msat": 969,
+                "path": [
+                    {
+                        "short_channel_id_dir": "0x1x0/1",
+                        "next_node_id": nodemap[1],
+                        "amount_msat": 1000,
+                        "delay": 99 + 5 + 5,
+                    },
+                    {
+                        "short_channel_id_dir": "1x2x1/1",
+                        "next_node_id": nodemap[2],
+                        "amount_msat": 990,
+                        "delay": 99 + 5,
+                    },
+                ],
+            }
+        ],
+        layers=["auto.include_fees"],
+    )
+
+    check_getroute_routes(
+        l1,
+        nodemap[0],
+        nodemap[3],
+        1000,
+        [
+            {
+                "amount_msat": 938,
+                "path": [
+                    {
+                        "short_channel_id_dir": "0x1x0/1",
+                        "next_node_id": nodemap[1],
+                        "amount_msat": 1000,
+                        "delay": 99 + 5 + 5 + 5,
+                    },
+                    {
+                        "short_channel_id_dir": "1x2x1/1",
+                        "next_node_id": nodemap[2],
+                        "amount_msat": 990,
+                        "delay": 99 + 5 + 5,
+                    },
+                    {
+                        "short_channel_id_dir": "2x3x2/0",
+                        "next_node_id": nodemap[3],
+                        "amount_msat": 969,
+                        "delay": 99 + 5,
+                    },
+                ],
+            }
+        ],
+        layers=["auto.include_fees"],
+    )
+
+    # Normal mode combined with "auto.sourcefree"
+    check_getroute_routes(
+        l1,
+        nodemap[0],
+        nodemap[1],
+        1000,
+        [
+            {
+                "amount_msat": 1000,
+                "path": [
+                    {
+                        "short_channel_id_dir": "0x1x0/1",
+                        "next_node_id": nodemap[1],
+                        "amount_msat": 1000,
+                        "delay": 99,
+                    }
+                ],
+            }
+        ],
+        layers=["auto.sourcefree"],
+    )
+
+    check_getroute_routes(
+        l1,
+        nodemap[0],
+        nodemap[2],
+        1000,
+        [
+            {
+                "amount_msat": 1000,
+                "path": [
+                    {
+                        "short_channel_id_dir": "0x1x0/1",
+                        "next_node_id": nodemap[1],
+                        "amount_msat": 1022,
+                        "delay": 99 + 5,
+                    },
+                    {
+                        "short_channel_id_dir": "1x2x1/1",
+                        "next_node_id": nodemap[2],
+                        "amount_msat": 1022,
+                        "delay": 99 + 5,
+                    },
+                ],
+            }
+        ],
+        layers=["auto.sourcefree"],
+    )
+
+    check_getroute_routes(
+        l1,
+        nodemap[0],
+        nodemap[3],
+        1000,
+        [
+            {
+                "amount_msat": 1000,
+                "path": [
+                    {
+                        "short_channel_id_dir": "0x1x0/1",
+                        "next_node_id": nodemap[1],
+                        "amount_msat": 1055,
+                        "delay": 99 + 5 + 5,
+                    },
+                    {
+                        "short_channel_id_dir": "1x2x1/1",
+                        "next_node_id": nodemap[2],
+                        "amount_msat": 1055,
+                        "delay": 99 + 5 + 5,
+                    },
+                    {
+                        "short_channel_id_dir": "2x3x2/0",
+                        "next_node_id": nodemap[3],
+                        "amount_msat": 1033,
+                        "delay": 99 + 5,
+                    },
+                ],
+            }
+        ],
+        layers=["auto.sourcefree"],
+    )
+
+    # "auto.include_fees" mode combined with "auto.sourcefree"
+    check_getroute_routes(
+        l1,
+        nodemap[0],
+        nodemap[1],
+        1000,
+        [
+            {
+                "amount_msat": 1000,
+                "path": [
+                    {
+                        "short_channel_id_dir": "0x1x0/1",
+                        "next_node_id": nodemap[1],
+                        "amount_msat": 1000,
+                        "delay": 99,
+                    }
+                ],
+            }
+        ],
+        layers=["auto.sourcefree", "auto.include_fees"],
+    )
+
+    check_getroute_routes(
+        l1,
+        nodemap[0],
+        nodemap[2],
+        1000,
+        [
+            {
+                "amount_msat": 979,
+                "path": [
+                    {
+                        "short_channel_id_dir": "0x1x0/1",
+                        "next_node_id": nodemap[1],
+                        "amount_msat": 1000,
+                        "delay": 99 + 5,
+                    },
+                    {
+                        "short_channel_id_dir": "1x2x1/1",
+                        "next_node_id": nodemap[2],
+                        "amount_msat": 1000,
+                        "delay": 99 + 5,
+                    },
+                ],
+            }
+        ],
+        layers=["auto.sourcefree", "auto.include_fees"],
+    )
+
+    check_getroute_routes(
+        l1,
+        nodemap[0],
+        nodemap[3],
+        1000,
+        [
+            {
+                "amount_msat": 948,
+                "path": [
+                    {
+                        "short_channel_id_dir": "0x1x0/1",
+                        "next_node_id": nodemap[1],
+                        "amount_msat": 1000,
+                        "delay": 99 + 5 + 5,
+                    },
+                    {
+                        "short_channel_id_dir": "1x2x1/1",
+                        "next_node_id": nodemap[2],
+                        "amount_msat": 1000,
+                        "delay": 99 + 5 + 5,
+                    },
+                    {
+                        "short_channel_id_dir": "2x3x2/0",
+                        "next_node_id": nodemap[3],
+                        "amount_msat": 979,
+                        "delay": 99 + 5,
+                    },
+                ],
+            }
+        ],
+        layers=["auto.sourcefree", "auto.include_fees"],
+    )
