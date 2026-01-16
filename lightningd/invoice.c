@@ -62,7 +62,7 @@ static void json_add_invoice_fields(struct json_stream *response,
 		json_add_preimage(response, "payment_preimage", &inv->r);
 	}
 	if (inv->description)
-		json_add_string(response, "description", inv->description);
+		json_add_string(response, "invoice_description", inv->description);
 
 	json_add_u64(response, "expires_at", inv->expiry_time);
 	if (inv->local_offer_id) {

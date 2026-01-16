@@ -1563,10 +1563,13 @@
             "DelPay.payments[].completed_at": 11,
             "DelPay.payments[].created_at": 9,
             "DelPay.payments[].created_index": 1,
+            "DelPay.payments[].description": 18,
+            "DelPay.payments[].description_hash": 20,
             "DelPay.payments[].destination": 7,
             "DelPay.payments[].erroronion": 17,
             "DelPay.payments[].groupid": 12,
             "DelPay.payments[].id": 2,
+            "DelPay.payments[].invoice_description": 19,
             "DelPay.payments[].label": 14,
             "DelPay.payments[].partid": 6,
             "DelPay.payments[].payment_hash": 3,
@@ -2783,7 +2786,9 @@
             "ListInvoices.invoices[].bolt12": 8,
             "ListInvoices.invoices[].created_index": 16,
             "ListInvoices.invoices[].description": 2,
+            "ListInvoices.invoices[].description_hash": 20,
             "ListInvoices.invoices[].expires_at": 5,
+            "ListInvoices.invoices[].invoice_description": 19,
             "ListInvoices.invoices[].invreq_payer_note": 15,
             "ListInvoices.invoices[].label": 1,
             "ListInvoices.invoices[].local_offer_id": 9,
@@ -2862,6 +2867,8 @@
             "ListOffers.offers[].active": 2,
             "ListOffers.offers[].bolt12": 4,
             "ListOffers.offers[].description": 7,
+            "ListOffers.offers[].description_hash": 9,
+            "ListOffers.offers[].invoice_description": 8,
             "ListOffers.offers[].label": 6,
             "ListOffers.offers[].offer_id": 1,
             "ListOffers.offers[].single_use": 3,
@@ -2883,8 +2890,10 @@
             "ListPays.pays[].created_at": 4,
             "ListPays.pays[].created_index": 15,
             "ListPays.pays[].description": 11,
+            "ListPays.pays[].description_hash": 18,
             "ListPays.pays[].destination": 3,
             "ListPays.pays[].erroronion": 10,
+            "ListPays.pays[].invoice_description": 17,
             "ListPays.pays[].label": 5,
             "ListPays.pays[].number_of_parts": 14,
             "ListPays.pays[].payment_hash": 1,
@@ -3162,10 +3171,12 @@
             "ListSendPays.payments[].created_at": 7,
             "ListSendPays.payments[].created_index": 16,
             "ListSendPays.payments[].description": 14,
+            "ListSendPays.payments[].description_hash": 20,
             "ListSendPays.payments[].destination": 6,
             "ListSendPays.payments[].erroronion": 13,
             "ListSendPays.payments[].groupid": 2,
             "ListSendPays.payments[].id": 1,
+            "ListSendPays.payments[].invoice_description": 19,
             "ListSendPays.payments[].label": 9,
             "ListSendPays.payments[].partid": 15,
             "ListSendPays.payments[].payment_hash": 3,
@@ -3611,6 +3622,7 @@
             "SendOnion.bolt12": 10,
             "SendOnion.created_at": 6,
             "SendOnion.created_index": 14,
+            "SendOnion.description": 16,
             "SendOnion.destination": 5,
             "SendOnion.id": 1,
             "SendOnion.label": 8,
@@ -3653,9 +3665,12 @@
             "SendPay.completed_at": 15,
             "SendPay.created_at": 7,
             "SendPay.created_index": 16,
+            "SendPay.description": 18,
+            "SendPay.description_hash": 20,
             "SendPay.destination": 6,
             "SendPay.groupid": 2,
             "SendPay.id": 1,
+            "SendPay.invoice_description": 19,
             "SendPay.label": 9,
             "SendPay.message": 14,
             "SendPay.partid": 10,
@@ -4047,9 +4062,12 @@
             "WaitSendPay.completed_at": 14,
             "WaitSendPay.created_at": 7,
             "WaitSendPay.created_index": 15,
+            "WaitSendPay.description": 17,
+            "WaitSendPay.description_hash": 19,
             "WaitSendPay.destination": 6,
             "WaitSendPay.groupid": 2,
             "WaitSendPay.id": 1,
+            "WaitSendPay.invoice_description": 18,
             "WaitSendPay.label": 9,
             "WaitSendPay.partid": 10,
             "WaitSendPay.payment_hash": 3,
@@ -6904,6 +6922,14 @@
             "added": "v23.11",
             "deprecated": null
         },
+        "DelPay.payments[].description": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "DelPay.payments[].description_hash": {
+            "added": "v26.04",
+            "deprecated": null
+        },
         "DelPay.payments[].destination": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -6918,6 +6944,10 @@
         },
         "DelPay.payments[].id": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "DelPay.payments[].invoice_description": {
+            "added": "v26.04",
             "deprecated": null
         },
         "DelPay.payments[].label": {
@@ -10352,8 +10382,16 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "ListInvoices.invoices[].description_hash": {
+            "added": "v26.04",
+            "deprecated": null
+        },
         "ListInvoices.invoices[].expires_at": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListInvoices.invoices[].invoice_description": {
+            "added": "v26.04",
             "deprecated": null
         },
         "ListInvoices.invoices[].invreq_payer_note": {
@@ -10584,6 +10622,14 @@
             "added": "v26.04",
             "deprecated": null
         },
+        "ListOffers.offers[].description_hash": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "ListOffers.offers[].invoice_description": {
+            "added": "v26.04",
+            "deprecated": null
+        },
         "ListOffers.offers[].label": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -10664,12 +10710,20 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "ListPays.pays[].description_hash": {
+            "added": "v26.04",
+            "deprecated": null
+        },
         "ListPays.pays[].destination": {
             "added": "pre-v0.10.1",
             "deprecated": null
         },
         "ListPays.pays[].erroronion": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListPays.pays[].invoice_description": {
+            "added": "v26.04",
             "deprecated": null
         },
         "ListPays.pays[].label": {
@@ -11596,6 +11650,10 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "ListSendPays.payments[].description_hash": {
+            "added": "v26.04",
+            "deprecated": null
+        },
         "ListSendPays.payments[].destination": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -11610,6 +11668,10 @@
         },
         "ListSendPays.payments[].id": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListSendPays.payments[].invoice_description": {
+            "added": "v26.04",
             "deprecated": null
         },
         "ListSendPays.payments[].label": {
@@ -12848,6 +12910,10 @@
             "added": "v0.11.0",
             "deprecated": null
         },
+        "SendPay.description_hash": {
+            "added": "v26.04",
+            "deprecated": null
+        },
         "SendPay.destination": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -12858,6 +12924,10 @@
         },
         "SendPay.id": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "SendPay.invoice_description": {
+            "added": "v26.04",
             "deprecated": null
         },
         "SendPay.label": {
@@ -13948,6 +14018,14 @@
             "added": "v23.11",
             "deprecated": null
         },
+        "WaitSendPay.description": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "WaitSendPay.description_hash": {
+            "added": "v26.04",
+            "deprecated": null
+        },
         "WaitSendPay.destination": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -13958,6 +14036,10 @@
         },
         "WaitSendPay.id": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "WaitSendPay.invoice_description": {
+            "added": "v26.04",
             "deprecated": null
         },
         "WaitSendPay.label": {

@@ -177,10 +177,18 @@
                 "The bolt11 string (if pay supplied one)."
               ]
             },
-            "description": {
+            "invoice_description": {
+              "type": "string",
+              "added": "v26.04",
+              "description": [
+                "The description matching the bolt11 || bolt12 description (if pay supplied one)."
+              ]
+            },
+            "description_hash": {
+              "added": "v26.04",
               "type": "string",
               "description": [
-                "The description matching the bolt11 description hash (if pay supplied one)."
+                "The description hash matching the bolt11 description hash (if pay supplied one)."
               ]
             },
             "bolt12": {
@@ -224,7 +232,8 @@
                   "amount_sent_msat": {},
                   "label": {},
                   "bolt11": {},
-                  "description": {},
+                  "invoice_description": {},
+                  "description_hash": {},
                   "bolt12": {},
                   "completed_at": {
                     "type": "u64",
@@ -274,7 +283,8 @@
                   "amount_sent_msat": {},
                   "label": {},
                   "bolt11": {},
-                  "description": {},
+                  "invoice_description": {},
+                  "description_hash": {},
                   "bolt12": {},
                   "erroronion": {
                     "type": "hex",
@@ -316,7 +326,7 @@
                   "amount_sent_msat": {},
                   "label": {},
                   "bolt11": {},
-                  "description": {},
+                  "invoice_description": {},
                   "bolt12": {}
                 }
               }

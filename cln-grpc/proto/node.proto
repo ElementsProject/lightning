@@ -346,6 +346,8 @@ message SendpayResponse {
 	optional uint64 completed_at = 15;
 	optional uint64 created_index = 16;
 	optional uint64 updated_index = 17;
+	optional string invoice_description = 19;
+	optional string description_hash = 20;
 }
 
 message SendpayRoute {
@@ -898,7 +900,6 @@ message ListinvoicesInvoices {
 		EXPIRED = 2;
 	}
 	string label = 1;
-	optional string description = 2;
 	bytes payment_hash = 3;
 	ListinvoicesInvoicesStatus status = 4;
 	uint64 expires_at = 5;
@@ -914,6 +915,8 @@ message ListinvoicesInvoices {
 	optional uint64 created_index = 16;
 	optional uint64 updated_index = 17;
 	optional ListinvoicesInvoicesPaidOutpoint paid_outpoint = 18;
+	optional string invoice_description = 19;
+	optional string description_hash = 20;
 }
 
 message ListinvoicesInvoicesPaidOutpoint {
@@ -1010,11 +1013,12 @@ message ListsendpaysPayments {
 	optional string bolt12 = 11;
 	optional bytes payment_preimage = 12;
 	optional bytes erroronion = 13;
-	optional string description = 14;
 	optional uint64 partid = 15;
 	optional uint64 created_index = 16;
 	optional uint64 updated_index = 17;
 	optional uint64 completed_at = 18;
+	optional string invoice_description = 19;
+	optional string description_hash = 20;
 }
 
 message ListtransactionsRequest {
@@ -1224,6 +1228,8 @@ message WaitsendpayResponse {
 	optional double completed_at = 14;
 	optional uint64 created_index = 15;
 	optional uint64 updated_index = 16;
+	optional string invoice_description = 18;
+	optional string description_hash = 19;
 }
 
 message NewaddrRequest {
@@ -1835,6 +1841,8 @@ message DelpayPayments {
 	optional string bolt11 = 15;
 	optional string bolt12 = 16;
 	optional bytes erroronion = 17;
+	optional string invoice_description = 19;
+	optional string description_hash = 20;
 }
 
 message DelforwardRequest {
@@ -2301,7 +2309,8 @@ message ListoffersOffers {
 	string bolt12 = 4;
 	bool used = 5;
 	optional string label = 6;
-	optional string description = 7;
+	optional string invoice_description = 8;
+	optional string description_hash = 9;
 }
 
 message ListpaysRequest {
@@ -2345,12 +2354,13 @@ message ListpaysPays {
 	optional Amount amount_msat = 8;
 	optional Amount amount_sent_msat = 9;
 	optional bytes erroronion = 10;
-	optional string description = 11;
 	optional uint64 completed_at = 12;
 	optional bytes preimage = 13;
 	optional uint64 number_of_parts = 14;
 	optional uint64 created_index = 15;
 	optional uint64 updated_index = 16;
+	optional string invoice_description = 17;
+	optional string description_hash = 18;
 }
 
 message ListhtlcsRequest {

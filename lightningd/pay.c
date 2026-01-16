@@ -17,6 +17,53 @@
 #include <lightningd/peer_htlcs.h>
 #include <wallet/invoices.h>
 
+/* Helper function to get description hash if supplied*/
+static const char *bolt11_get_description_hash(const char *invstr)
+{
+    char *fail;
+    struct bolt11 *b11 = bolt11_decode(tmpctx, invstr, NULL, NULL, NULL, &fail);
+    if (!b11)
+        return NULL;
+
+    if (!b11->description_hash)
+        return NULL;
+
+    return tal_hexstr(tmpctx, b11->description_hash, sizeof(*b11->description_hash));
+}
+
+/* Helper functions for extracting description from bolt11/12 string*/
+static const char *decode_bolt11_description_simple(const tal_t *ctx,
+                                                    const char *invstr)
+{
+    char *fail;
+    struct bolt11 *b11 = bolt11_decode(ctx, invstr, NULL, NULL, NULL, &fail);
+    if (!b11)
+        return NULL;
+
+    if (!b11->description)
+        return NULL;
+
+    return tal_strdup(ctx, b11->description);
+}
+
+static const char *decode_bolt12_description(const tal_t *ctx,
+                                             const char *invstr)
+{
+    char *fail;
+    struct tlv_invoice *tinv =
+        invoice_decode(ctx, invstr, strlen(invstr), NULL, NULL, &fail);
+
+    if (!tinv)
+        return NULL;
+
+    if (!tinv->invreq_payer_note)
+        return NULL;
+
+    return tal_hexstr(ctx,
+                      tinv->invreq_payer_note,
+                      tal_count(tinv->invreq_payer_note));
+}
+
 /* Routing failure object */
 struct routing_failure {
 	unsigned int erring_index;
@@ -138,6 +185,7 @@ add_waitsendpay_waiter_(struct lightningd *ld,
 void json_add_payment_fields(struct json_stream *response,
 			     const struct wallet_payment *t)
 {
+	const char *invoice_description = NULL;
 	json_add_u64(response, "created_index", t->id);
 	json_add_u64(response, "id", t->id);
 	json_add_sha256(response, "payment_hash", &t->payment_hash);
@@ -176,17 +224,29 @@ void json_add_payment_fields(struct json_stream *response,
 	if (t->label)
 		json_add_string(response, "label", t->label);
 	if (t->invstring) {
-		if (strstarts(t->invstring, "lni"))
+		if (strstarts(t->invstring, "lni")) {
 			json_add_string(response, "bolt12", t->invstring);
-		else
+			invoice_description = decode_bolt12_description(response, t->invstring);
+		} else {
 			json_add_string(response, "bolt11", t->invstring);
+			invoice_description = decode_bolt11_description_simple(response, t->invstring);
+		}
 	}
-	if (t->description)
-		json_add_string(response, "description", t->description);
+	const char *desc_hash = NULL;
+	if (t->invstring && strstarts(t->invstring, "ln")) {
+		/* Only BOLT11 has description hash */
+		desc_hash = bolt11_get_description_hash(t->invstring);
+	}
+
+	if (desc_hash)
+		json_add_string(response, "description_hash", desc_hash);
+	const char *desc = t->description ? t->description : invoice_description;
+	if (desc != NULL)
+		json_add_string(response, "invoice_description", desc);
 
 	if (t->failonion)
 		json_add_hex(response, "erroronion", t->failonion,
-			     tal_count(t->failonion));
+				tal_count(t->failonion));
 }
 
 static struct command_result *sendpay_success(struct command *cmd,
