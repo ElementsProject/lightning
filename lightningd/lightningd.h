@@ -179,6 +179,10 @@ struct lightningd {
 	/* Do we want to guess addresses to listen and announce? */
 	bool autolisten;
 
+	/* Do we want to avoid reestablishing channels with zero outstanding HTLCs?
+	 * This is useful for gracefully stopping the node. */
+	bool snub_idle_channels;
+
 	/* Setup: Addresses to bind/announce to the network (tal_count()) */
 	struct wireaddr_internal *proposed_wireaddr;
 	/* Setup: And the bitset for each, whether to listen, announce or both */
