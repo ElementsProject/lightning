@@ -148,22 +148,17 @@ static char *args_string(const tal_t *ctx, const char **args, const char **stdin
 	return ret;
 }
 
-/* Synchronous execution of bitcoin-cli.
+/* Execute bitcoin-cli with pre-built command and optional stdin args.
  * Returns result with output and exit status. */
 static struct bcli_result *
-run_bitcoin_cliv(const tal_t *ctx,
-		 struct plugin *plugin,
-		 const char *method,
-		 va_list ap)
+execute_bitcoin_cli(const tal_t *ctx,
+		    struct plugin *plugin,
+		    const char **cmd,
+		    const char **stdinargs)
 {
 	int in, from, status;
 	pid_t child;
-	const char **stdinargs;
-	const char **cmd;
 	struct bcli_result *res;
-
-	stdinargs = tal_arr(ctx, const char *, 0);
-	cmd = gather_argsv(ctx, &stdinargs, method, ap);
 
 	child = pipecmdarr(&in, &from, &from, cast_const2(char **, cmd));
 	if (child < 0)
@@ -175,9 +170,11 @@ run_bitcoin_cliv(const tal_t *ctx,
 		write_all(in, "\n", 1);
 	}
 	/* Send any additional stdin args */
-	for (size_t i = 0; i < tal_count(stdinargs); i++) {
-		write_all(in, stdinargs[i], strlen(stdinargs[i]));
-		write_all(in, "\n", 1);
+	if (stdinargs) {
+		for (size_t i = 0; i < tal_count(stdinargs); i++) {
+			write_all(in, stdinargs[i], strlen(stdinargs[i]));
+			write_all(in, "\n", 1);
+		}
 	}
 	close(in);
 
@@ -203,6 +200,23 @@ run_bitcoin_cliv(const tal_t *ctx,
 	res->exitstatus = WEXITSTATUS(status);
 
 	return res;
+}
+
+/* Synchronous execution of bitcoin-cli.
+ * Returns result with output and exit status. */
+static struct bcli_result *
+run_bitcoin_cliv(const tal_t *ctx,
+		 struct plugin *plugin,
+		 const char *method,
+		 va_list ap)
+{
+	const char **stdinargs;
+	const char **cmd;
+
+	stdinargs = tal_arr(ctx, const char *, 0);
+	cmd = gather_argsv(ctx, &stdinargs, method, ap);
+
+	return execute_bitcoin_cli(ctx, plugin, cmd, stdinargs);
 }
 
 static LAST_ARG_NULL struct bcli_result *
@@ -757,51 +771,28 @@ static void parse_getnetworkinfo_result(struct plugin *p, const char *buf)
 
 static void wait_and_check_bitcoind(struct plugin *p)
 {
-	int in, from, status;
-	pid_t child;
-	const char **cmd = gather_args(
-	    bitcoind, NULL, "-rpcwait", "-rpcwaittimeout=30", "getnetworkinfo", NULL);
-	char *output = NULL;
+	struct bcli_result *res;
+	const char **cmd;
 
-	child = pipecmdarr(&in, &from, &from, cast_const2(char **, cmd));
+	/* Special case: -rpcwait flags go on command line, not stdin */
+	cmd = gather_args(bitcoind, NULL, "-rpcwait", "-rpcwaittimeout=30",
+			  "getnetworkinfo", NULL);
+	res = execute_bitcoin_cli(bitcoind, p, cmd, NULL);
 
-	if (bitcoind->rpcpass)
-		write_all(in, bitcoind->rpcpass, strlen(bitcoind->rpcpass));
-
-	close(in);
-
-	if (child < 0) {
-		if (errno == ENOENT)
-			bitcoind_failure(
-			    p,
-			    "bitcoin-cli not found. Is bitcoin-cli "
-			    "(part of Bitcoin Core) available in your PATH?");
-		plugin_err(p, "%s exec failed: %s", cmd[0], strerror(errno));
-	}
-
-	output = grab_fd_str(cmd, from);
-	close(from);
-
-	waitpid(child, &status, 0);
-
-	if (!WIFEXITED(status))
-		bitcoind_failure(p, tal_fmt(bitcoind, "Death of %s: signal %i",
-					    cmd[0], WTERMSIG(status)));
-
-	if (WEXITSTATUS(status) != 0) {
-		if (WEXITSTATUS(status) == 1)
-			bitcoind_failure(p,
-					 "RPC connection timed out. Could "
-					 "not connect to bitcoind using "
-					 "bitcoin-cli. Is bitcoind running?");
+	if (res->exitstatus == 1)
+		bitcoind_failure(p,
+				 "RPC connection timed out. Could "
+				 "not connect to bitcoind using "
+				 "bitcoin-cli. Is bitcoind running?");
+	if (res->exitstatus != 0)
 		bitcoind_failure(p,
 				 tal_fmt(bitcoind, "%s exited with code %i: %s",
-					 cmd[0], WEXITSTATUS(status), output));
-	}
+					 res->args, res->exitstatus, res->output));
 
-	parse_getnetworkinfo_result(p, output);
+	parse_getnetworkinfo_result(p, res->output);
 
 	tal_free(cmd);
+	tal_free(res);
 }
 
 static void memleak_mark_bitcoind(struct plugin *p, struct htable *memtable)
