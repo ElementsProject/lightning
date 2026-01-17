@@ -15,7 +15,10 @@ use cln_plugin::{
 };
 use tower_http::cors::{Any, CorsLayer};
 
-use crate::PluginState;
+use crate::{
+    structs::{ClnrestOptions, ClnrestProtocol},
+    PluginState,
+};
 
 pub const OPT_CLNREST_PORT: IntegerConfigOption =
     ConfigOption::new_i64_no_default("clnrest-port", "REST server port to listen");
@@ -40,21 +43,7 @@ pub const OPT_CLNREST_SWAGGER: DefaultStringConfigOption =
     ConfigOption::new_str_with_default("clnrest-swagger-root", "/", "Root path for Swagger UI");
 pub const SWAGGER_FALLBACK: &str = "/swagger-ui";
 
-pub enum ClnrestProtocol {
-    Https,
-    Http,
-}
-pub struct ClnrestOptions {
-    pub certs: PathBuf,
-    pub protocol: ClnrestProtocol,
-    pub address_str: String,
-    pub address: SocketAddr,
-    pub cors: CorsLayer,
-    pub csp: String,
-    pub swagger: String,
-}
-
-pub async fn parse_options(
+pub fn parse_options(
     plugin: &ConfiguredPlugin<PluginState, tokio::io::Stdin, tokio::io::Stdout>,
 ) -> Result<ClnrestOptions, anyhow::Error> {
     let port = if let Some(p) = plugin.option(&OPT_CLNREST_PORT)? {

@@ -150,6 +150,7 @@ service Node {
 	rpc ListChainMoves(ListchainmovesRequest) returns (ListchainmovesResponse) {}
 	rpc ListNetworkEvents(ListnetworkeventsRequest) returns (ListnetworkeventsResponse) {}
 	rpc DelNetworkEvent(DelnetworkeventRequest) returns (DelnetworkeventResponse) {}
+	rpc ClnrestRegisterPath(ClnrestregisterpathRequest) returns (ClnrestregisterpathResponse) {}
 
 	rpc SubscribeBlockAdded(StreamBlockAddedRequest) returns (stream BlockAddedNotification) {}
 	rpc SubscribeChannelOpenFailed(StreamChannelOpenFailedRequest) returns (stream ChannelOpenFailedNotification) {}
@@ -4312,6 +4313,23 @@ message DelnetworkeventRequest {
 }
 
 message DelnetworkeventResponse {
+}
+
+message ClnrestregisterpathRequest {
+	string path = 1;
+	string rpc_method = 2;
+	optional ClnrestregisterpathRuneRestrictions rune_restrictions = 3;
+	optional bool rune_required = 4;
+	optional string http_method = 5;
+}
+
+message ClnrestregisterpathResponse {
+}
+
+message ClnrestregisterpathRuneRestrictions {
+	optional string nodeid = 1;
+	optional string method = 2;
+	map<string, string> params = 3;
 }
 
 message StreamBlockAddedRequest {

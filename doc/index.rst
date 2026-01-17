@@ -43,6 +43,7 @@ Core Lightning Documentation
    check <check.7.md>
    checkmessage <checkmessage.7.md>
    checkrune <checkrune.7.md>
+   clnrest-register-path <clnrest-register-path.7.md>
    close <close.7.md>
    commando <commando.7.md>
    connect <connect.7.md>

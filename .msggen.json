@@ -1208,6 +1208,18 @@
         "CheckruneResponse": {
             "CheckRune.valid": 1
         },
+        "Clnrest-register-pathRequest": {
+            "Clnrest-Register-Path.http_method": 5,
+            "Clnrest-Register-Path.path": 1,
+            "Clnrest-Register-Path.rpc_method": 2,
+            "Clnrest-Register-Path.rune_required": 4,
+            "Clnrest-Register-Path.rune_restrictions": 3
+        },
+        "Clnrest-register-pathRuneRestrictions": {
+            "Clnrest-Register-Path.rune_restrictions.method": 2,
+            "Clnrest-Register-Path.rune_restrictions.nodeid": 1,
+            "Clnrest-Register-Path.rune_restrictions.params": 3
+        },
         "CloseRequest": {
             "Close.destination": 3,
             "Close.fee_negotiation_step": 4,
@@ -5710,6 +5722,42 @@
         },
         "CheckRune.valid": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Clnrest-Register-Path": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "Clnrest-Register-Path.http_method": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "Clnrest-Register-Path.path": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "Clnrest-Register-Path.rpc_method": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "Clnrest-Register-Path.rune_required": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "Clnrest-Register-Path.rune_restrictions": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "Clnrest-Register-Path.rune_restrictions.method": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "Clnrest-Register-Path.rune_restrictions.nodeid": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "Clnrest-Register-Path.rune_restrictions.params": {
+            "added": "v26.04",
             "deprecated": null
         },
         "Close": {
