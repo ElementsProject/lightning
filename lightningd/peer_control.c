@@ -1307,6 +1307,13 @@ peer_connected_serialize(struct peer_connected_hook_payload *payload,
 	json_object_end(stream); /* .peer */
 }
 
+static bool should_snub_channel(const struct lightningd *ld,
+				/*const*/ struct channel *channel)
+{
+	return ld->snub_idle_channels && !channel_state_closed(channel->state) &&
+		!channel_has_htlc_out(channel) && !channel_has_htlc_in(channel);
+}
+
 /* Talk to connectd about an active channel */
 static void connect_activate_subd(struct lightningd *ld, struct channel *channel)
 {
@@ -1458,6 +1465,12 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 	list_for_each(&peer->channels, channel, list) {
 		/* FIXME: It can race by opening a channel before this! */
 		if (channel_state_wants_peercomms(channel->state) && !channel->owner) {
+			if (should_snub_channel(ld, channel)) {
+				log_debug(channel->log,
+					  "Peer has reconnected, but channel is snubbed; "
+					  "not connecting subd");
+				continue;
+			}
 			log_debug(channel->log, "Peer has reconnected, state %s: connecting subd",
 				  channel_state_name(channel));
 
@@ -1913,6 +1926,22 @@ void peer_spoke(struct lightningd *ld, const u8 *msg)
 				return;
 			}
 
+			if (msgtype == WIRE_CHANNEL_REESTABLISH &&
+			    should_snub_channel(ld, channel)) {
+				log_debug(channel->log,
+					  "Peer sent channel_reestablish, but channel is snubbed; "
+					  "sending warning and ignoring");
+				error = towire_warningfmt(tmpctx, &channel_id,
+							  "Declining to reestablish idle channel "
+							  "because this node will be halting soon.");
+				/* Don't goto send_error; we don't want to disconnect. */
+				subd_send_msg(ld->connectd,
+					      take(towire_connectd_peer_send_msg(NULL, &peer->id,
+										 peer->connectd_counter,
+										 error)));
+				return;
+			}
+
 			log_debug(channel->log, "channel already active");
 			if (channel->state == DUALOPEND_AWAITING_LOCKIN) {
 				pfd = sockpair(tmpctx, channel, &other_fd, &error);
@@ -1947,7 +1976,7 @@ void peer_spoke(struct lightningd *ld, const u8 *msg)
 		}
 		if (peer->uncommitted_channel) {
 			error = towire_errorfmt(tmpctx, &channel_id,
-						"Multiple simulteneous opens not supported");
+						"Multiple simultaneous opens not supported");
 			goto send_error;
 		}
 		peer->uncommitted_channel = new_uncommitted_channel(peer);
@@ -2585,7 +2614,8 @@ static void setup_peer(struct peer *peer)
 		    && !(channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL))
 			continue;
 
-		if (channel_state_wants_peercomms(channel->state))
+		if (channel_state_wants_peercomms(channel->state) &&
+		    !should_snub_channel(ld, channel))
 			connect = true;
 		if (channel_important_filter(channel, NULL))
 			important = true;

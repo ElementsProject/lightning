@@ -255,6 +255,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->discovered_ip_v6 = NULL;
 	ld->listen = true;
 	ld->autolisten = true;
+	ld->snub_idle_channels = false;
 	ld->reconnect = true;
 	ld->reconnect_private = true;
 	ld->try_reexec = false;
