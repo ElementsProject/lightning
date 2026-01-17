@@ -1,14 +1,13 @@
-from fixtures import *  # noqa: F401,F403
-import subprocess
-from pathlib import PosixPath, Path
-import socket
-from pyln.testing.utils import VALGRIND
-import pytest
+import json
 import os
+from pathlib import PosixPath, Path
 import re
-import shutil
+import subprocess
 import time
 import unittest
+from fixtures import *  # noqa: F401,F403
+from pyln.testing.utils import VALGRIND
+import pytest
 
 
 @pytest.fixture(autouse=True)
@@ -21,20 +20,10 @@ def canned_github_server(directory):
     if os.environ.get('LIGHTNING_CLI') is None:
         os.environ['LIGHTNING_CLI'] = str(FILE_PATH.parent / 'cli/lightning-cli')
         print('LIGHTNING_CALL: ', os.environ.get('LIGHTNING_CLI'))
-    # Use socket to provision a random free port
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.bind(('localhost', 0))
-    free_port = str(sock.getsockname()[1])
-    sock.close()
     global my_env
     my_env = os.environ.copy()
-    # This tells reckless to redirect to the canned server rather than github.
-    my_env['REDIR_GITHUB_API'] = f'http://127.0.0.1:{free_port}/api'
+    # This tells reckless to redirect to the local test plugins repo rather than github.
     my_env['REDIR_GITHUB'] = directory
-    my_env['FLASK_RUN_PORT'] = free_port
-    my_env['FLASK_APP'] = str(FILE_PATH / 'rkls_github_canned_server')
-    server = subprocess.Popen(["python3", "-m", "flask", "run"],
-                              env=my_env)
 
     # Generate test plugin repository to test reckless against.
     repo_dir = os.path.join(directory, "lightningd")
@@ -83,13 +72,10 @@ def canned_github_server(directory):
     del my_env['GIT_DIR']
     del my_env['GIT_WORK_TREE']
     del my_env['GIT_INDEX_FILE']
-    # We also need the github api data for the repo which will be served via http
-    shutil.copyfile(str(FILE_PATH / 'data/recklessrepo/rkls_api_lightningd_plugins.json'), os.path.join(directory, 'rkls_api_lightningd_plugins.json'))
     yield
     # Delete requirements.txt from the testplugpass directory
     with open(requirements_file_path, 'w') as f:
         f.write(f"pyln-client\n\n")
-    server.terminate()
 
 
 class RecklessResult:
@@ -170,6 +156,42 @@ def test_basic_help():
     assert r.search_stdout("options:") or r.search_stdout("optional arguments:")
 
 
+def test_reckless_version_listconfig(node_factory):
+    '''Version should be reported without loading config and should advance
+    with lightningd.'''
+    node = get_reckless_node(node_factory)
+    r = reckless(["-V", "-v", "--json"], dir=node.lightning_dir)
+    assert r.returncode == 0
+    json_out = ''.join(r.stdout)
+    with open('.version', 'r') as f:
+        version = f.readlines()[0].strip()
+        assert json.loads(json_out)['result'][0] == version
+    assert not r.search_stdout('config file not found')
+
+    # reckless listconfig should report the reckless version as well.
+    NETWORK = os.environ.get('TEST_NETWORK')
+    if not NETWORK:
+        NETWORK = 'regtest'
+    r = reckless(['listconfig', f'--network={NETWORK}', '--json'],
+                 dir=node.lightning_dir)
+    assert r.returncode == 0
+    result = json.loads(''.join(r.stdout))['result']
+    assert result['network'] == NETWORK
+    assert result['reckless_dir'] == str(node.lightning_dir / 'reckless')
+    assert result['lightning_conf'] == str(node.lightning_dir / NETWORK / 'config')
+    assert result['version'] == version
+
+    # Now test via reckless-rpc plugin
+    node.start()
+    # FIXME: the plugin finds the installed reckless utility rather than the build directory reckless
+    listconfig = node.rpc.reckless('listconfig')
+    print(listconfig)
+    assert listconfig['result']['lightning_dir'] == str(node.lightning_dir)
+    assert listconfig['result']['lightning_conf'] == str(node.lightning_dir / NETWORK / 'config')
+    assert listconfig['result']['network'] == NETWORK
+    assert listconfig['result']['version'] == version
+
+
 def test_contextual_help(node_factory):
     n = get_reckless_node(node_factory)
     for subcmd in ['install', 'uninstall', 'search',
@@ -236,6 +258,24 @@ def test_install(node_factory):
     plugin_path = Path(n.lightning_dir) / 'reckless/testplugpass'
     print(plugin_path)
     assert os.path.exists(plugin_path)
+
+    # Try to install again - should result in a warning.
+    r = reckless([f"--network={NETWORK}", "-v", "install", "testplugpass"], dir=n.lightning_dir)
+    r.check_stderr()
+    assert r.search_stdout('already installed')
+    assert r.returncode == 0
+
+
+def test_install_cleanup(node_factory):
+    """test failed installation and post install cleanup"""
+    n = get_reckless_node(node_factory)
+    n.start()
+    r = reckless([f"--network={NETWORK}", "-v", "install", "testplugfail"], dir=n.lightning_dir)
+    assert r.returncode == 0
+    assert r.search_stdout('testplugfail failed to start')
+    r.check_stderr()
+    plugin_path = Path(n.lightning_dir) / 'reckless/testplugfail'
+    assert not os.path.exists(plugin_path)
 
 
 @unittest.skipIf(VALGRIND, "virtual environment triggers memleak detection")
@@ -368,3 +408,30 @@ def test_reckless_uv_install(node_factory):
 
     assert r.search_stdout('using installer pythonuv')
     r.check_stderr()
+
+
+@unittest.skipIf(VALGRIND, "node too slow for starting plugin under valgrind")
+def test_reckless_shebang_install(node_factory):
+    node = get_reckless_node(node_factory)
+    node.start()
+    r = reckless([f"--network={NETWORK}", "-v", "install", "testplugshebang"],
+                 dir=node.lightning_dir)
+    assert r.returncode == 0
+    installed_path = Path(node.lightning_dir) / 'reckless/testplugshebang'
+    assert installed_path.is_dir()
+    assert node.rpc.plugintest() == 'success'
+
+    assert r.search_stdout('using installer shebang')
+    r.check_stderr()
+
+
+def test_reckless_available(node_factory):
+    """list available plugins"""
+    n = get_reckless_node(node_factory)
+    r = reckless([f"--network={NETWORK}", "listavailable", "-v", "--json"], dir=n.lightning_dir)
+    assert r.returncode == 0
+    # All plugins in the default repo should be found and identified as installable.
+    assert r.search_stdout('testplugfail')
+    assert r.search_stdout('testplugpass')
+    assert r.search_stdout('testplugpyproj')
+    assert r.search_stdout('testpluguv')
