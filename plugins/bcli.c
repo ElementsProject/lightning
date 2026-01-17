@@ -13,7 +13,14 @@
 #include <plugins/libplugin.h>
 #include <unistd.h>
 
+/* Bitcoin Core RPC error code for duplicate transaction */
 #define RPC_TRANSACTION_ALREADY_IN_CHAIN -27
+
+/* Hex-encoded SHA256 block hash length (32 bytes = 64 hex chars) */
+#define BLOCK_HASH_HEX_LEN 64
+
+/* Bitcoin Core version 23.0.0 introduced getblockfrompeer RPC */
+#define BITCOIND_VERSION_GETBLOCKFROMPEER 230000
 
 struct bitcoind {
 	/* eg. "bitcoin-cli" */
@@ -362,7 +369,7 @@ static struct command_result *getrawblockbyheight(struct command *cmd,
 	}
 
 	strip_trailing_whitespace(res->output, res->output_len);
-	if (strlen(res->output) != 64)
+	if (strlen(res->output) != BLOCK_HASH_HEX_LEN)
 		return command_err(cmd, res, "bad JSON: bad blockhash");
 
 	block_hash = tal_strdup(cmd, res->output);
@@ -396,7 +403,7 @@ static struct command_result *getrawblockbyheight(struct command *cmd,
 		}
 
 		/* Try fetching from peers if bitcoind >= 23.0.0 */
-		if (bitcoind->version >= 230000) {
+		if (bitcoind->version >= BITCOIND_VERSION_GETBLOCKFROMPEER) {
 			if (!peers)
 				peers = get_fullnode_peers(cmd, cmd);
 
