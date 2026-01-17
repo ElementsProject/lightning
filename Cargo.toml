@@ -12,6 +12,7 @@ members = [
     "plugins/lsps-plugin",
     "plugins/wss-proxy-plugin",
     "plugins/bip353-plugin",
+    "plugins/currencyrate-plugin",
 ]
 
 [workspace.dependencies]

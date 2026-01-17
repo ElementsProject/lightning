@@ -18,13 +18,28 @@ quick-xml = { version = "0.37", features = ["serialize"] }
 roxmltree_to_serde = "0.6"
 serde_qs = "0.15"
 tokio-util = { version = "0.7", features = ["codec"] }
-tokio = { version="1", features = ['io-std', 'rt-multi-thread', 'sync', 'macros', 'io-util'] }
+tokio = { version = "1", features = [
+    'io-std',
+    'rt-multi-thread',
+    'sync',
+    'macros',
+    'io-util',
+] }
 axum = "0.8"
-axum-server = { version = "0.6", features = ["tls-rustls"] }
-futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
+axum-server = { version = "0.8", features = ["tls-rustls-no-provider"] }
+rustls = { version = "0.23", default-features = false, features = [
+    "logging",
+    "tls12",
+    "std",
+    "ring",
+] }
+futures-util = { version = "0.3", default-features = false, features = [
+    "sink",
+    "std",
+] }
 rcgen = "0.13"
 hyper = "1"
-tower= "0.5"
+tower = "0.5"
 tower-http = { version = "0.6", features = ["cors", "set-header"] }
 utoipa = { version = "5", features = ['axum_extras'] }
 
