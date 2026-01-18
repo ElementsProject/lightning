@@ -24,6 +24,12 @@
         "description": [
           "If set and is true, only offers with `active` true are returned."
         ]
+      },
+      "usable_only": {
+        "type": "boolean",
+        "description": [
+          "If set and is true, only offers that can be either used multiple times or that have not been used yet are returned."
+        ]
       }
     }
   },

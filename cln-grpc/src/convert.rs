@@ -5564,6 +5564,7 @@ impl From<requests::ListoffersRequest> for pb::ListoffersRequest {
         Self {
             active_only: c.active_only, // Rule #2 for type boolean?
             offer_id: c.offer_id.map(|v| <Sha256 as AsRef<[u8]>>::as_ref(&v).to_vec()), // Rule #2 for type hash?
+            usable_only: c.usable_only, // Rule #2 for type boolean?
         }
     }
 }
@@ -7338,6 +7339,7 @@ impl From<pb::ListoffersRequest> for requests::ListoffersRequest {
         Self {
             active_only: c.active_only, // Rule #1 for type boolean?
             offer_id: c.offer_id.map(|v| Sha256::from_slice(&v).unwrap()), // Rule #1 for type hash?
+            usable_only: c.usable_only, // Rule #1 for type boolean?
         }
     }
 }
