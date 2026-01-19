@@ -233,6 +233,13 @@
           "The bolt12 string (if supplied)."
         ]
       },
+      "invoice_description": {
+        "type": "string",
+        "added": "v26.04",
+        "description": [
+          "CHANGE: The description matching the bolt11 description hash (if pay supplied one)."
+        ]
+      },
       "message": {},
       "payment_preimage": {}
     },
@@ -272,6 +279,7 @@
             "partid": {},
             "bolt11": {},
             "bolt12": {},
+            "invoice_description": {},
             "payment_preimage": {
               "type": "secret",
               "description": [
@@ -316,6 +324,7 @@
             "partid": {},
             "bolt11": {},
             "bolt12": {},
+            "invoice_description": {},
             "message": {
               "type": "string",
               "description": [

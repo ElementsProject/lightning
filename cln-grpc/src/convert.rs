@@ -180,6 +180,7 @@ impl From<responses::SendpayResponse> for pb::SendpayResponse {
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             groupid: c.groupid, // Rule #2 for type u64?
             id: c.id, // Rule #2 for type u64
+            invoice_description: c.invoice_description, // Rule #2 for type string?
             label: c.label, // Rule #2 for type string?
             message: c.message, // Rule #2 for type string?
             partid: c.partid, // Rule #2 for type u64?
@@ -836,11 +837,11 @@ impl From<responses::ListsendpaysPayments> for pb::ListsendpaysPayments {
             completed_at: c.completed_at, // Rule #2 for type u64?
             created_at: c.created_at, // Rule #2 for type u64
             created_index: c.created_index, // Rule #2 for type u64?
-            description: c.description, // Rule #2 for type string?
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             erroronion: c.erroronion.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
             groupid: c.groupid, // Rule #2 for type u64
             id: c.id, // Rule #2 for type u64
+            invoice_description: c.invoice_description, // Rule #2 for type string?
             label: c.label, // Rule #2 for type string?
             partid: c.partid, // Rule #2 for type u64?
             payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
@@ -1068,6 +1069,7 @@ impl From<responses::WaitsendpayResponse> for pb::WaitsendpayResponse {
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             groupid: c.groupid, // Rule #2 for type u64?
             id: c.id, // Rule #2 for type u64
+            invoice_description: c.invoice_description, // Rule #2 for type string?
             label: c.label, // Rule #2 for type string?
             partid: c.partid, // Rule #2 for type u64?
             payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
@@ -1716,6 +1718,7 @@ impl From<responses::DelpayPayments> for pb::DelpayPayments {
             erroronion: c.erroronion.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
             groupid: c.groupid, // Rule #2 for type u64?
             id: c.id, // Rule #2 for type u64
+            invoice_description: c.invoice_description, // Rule #2 for type string?
             label: c.label, // Rule #2 for type string?
             partid: c.partid, // Rule #2 for type u64?
             payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
@@ -2183,9 +2186,9 @@ impl From<responses::ListpaysPays> for pb::ListpaysPays {
             completed_at: c.completed_at, // Rule #2 for type u64?
             created_at: c.created_at, // Rule #2 for type u64
             created_index: c.created_index, // Rule #2 for type u64?
-            description: c.description, // Rule #2 for type string?
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             erroronion: c.erroronion.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
+            invoice_description: c.invoice_description, // Rule #2 for type string?
             label: c.label, // Rule #2 for type string?
             number_of_parts: c.number_of_parts, // Rule #2 for type u64?
             payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash

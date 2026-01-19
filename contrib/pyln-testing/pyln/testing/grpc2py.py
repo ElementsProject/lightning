@@ -149,6 +149,7 @@ def sendpay2py(m):
         "destination": hexlify(m.destination),  # PrimitiveField in generate_composite
         "groupid": m.groupid,  # PrimitiveField in generate_composite
         "id": m.id,  # PrimitiveField in generate_composite
+        "invoice_description": m.invoice_description,  # PrimitiveField in generate_composite
         "label": m.label,  # PrimitiveField in generate_composite
         "message": m.message,  # PrimitiveField in generate_composite
         "partid": m.partid,  # PrimitiveField in generate_composite
@@ -615,11 +616,11 @@ def listsendpays_payments2py(m):
         "completed_at": m.completed_at,  # PrimitiveField in generate_composite
         "created_at": m.created_at,  # PrimitiveField in generate_composite
         "created_index": m.created_index,  # PrimitiveField in generate_composite
-        "description": m.description,  # PrimitiveField in generate_composite
         "destination": hexlify(m.destination),  # PrimitiveField in generate_composite
         "erroronion": hexlify(m.erroronion),  # PrimitiveField in generate_composite
         "groupid": m.groupid,  # PrimitiveField in generate_composite
         "id": m.id,  # PrimitiveField in generate_composite
+        "invoice_description": m.invoice_description,  # PrimitiveField in generate_composite
         "label": m.label,  # PrimitiveField in generate_composite
         "partid": m.partid,  # PrimitiveField in generate_composite
         "payment_hash": hexlify(m.payment_hash),  # PrimitiveField in generate_composite
@@ -790,6 +791,7 @@ def waitsendpay2py(m):
         "destination": hexlify(m.destination),  # PrimitiveField in generate_composite
         "groupid": m.groupid,  # PrimitiveField in generate_composite
         "id": m.id,  # PrimitiveField in generate_composite
+        "invoice_description": m.invoice_description,  # PrimitiveField in generate_composite
         "label": m.label,  # PrimitiveField in generate_composite
         "partid": m.partid,  # PrimitiveField in generate_composite
         "payment_hash": hexlify(m.payment_hash),  # PrimitiveField in generate_composite
@@ -1400,6 +1402,7 @@ def delpay_payments2py(m):
         "erroronion": hexlify(m.erroronion),  # PrimitiveField in generate_composite
         "groupid": m.groupid,  # PrimitiveField in generate_composite
         "id": m.id,  # PrimitiveField in generate_composite
+        "invoice_description": m.invoice_description,  # PrimitiveField in generate_composite
         "label": m.label,  # PrimitiveField in generate_composite
         "partid": m.partid,  # PrimitiveField in generate_composite
         "payment_hash": hexlify(m.payment_hash),  # PrimitiveField in generate_composite
@@ -1738,9 +1741,9 @@ def listpays_pays2py(m):
         "completed_at": m.completed_at,  # PrimitiveField in generate_composite
         "created_at": m.created_at,  # PrimitiveField in generate_composite
         "created_index": m.created_index,  # PrimitiveField in generate_composite
-        "description": m.description,  # PrimitiveField in generate_composite
         "destination": hexlify(m.destination),  # PrimitiveField in generate_composite
         "erroronion": hexlify(m.erroronion),  # PrimitiveField in generate_composite
+        "invoice_description": m.invoice_description,  # PrimitiveField in generate_composite
         "label": m.label,  # PrimitiveField in generate_composite
         "number_of_parts": m.number_of_parts,  # PrimitiveField in generate_composite
         "payment_hash": hexlify(m.payment_hash),  # PrimitiveField in generate_composite

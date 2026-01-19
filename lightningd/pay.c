@@ -17,6 +17,39 @@
 #include <lightningd/peer_htlcs.h>
 #include <wallet/invoices.h>
 
+/* Helper functions for extracting description from bolt11/12 string*/
+static const char *decode_bolt11_description_simple(const tal_t *ctx,
+                                                    const char *invstr)
+{
+    char *fail;
+    struct bolt11 *b11 = bolt11_decode(ctx, invstr, NULL, NULL, NULL, &fail);
+    if (!b11)
+        return NULL;
+
+    if (!b11->description)
+        return NULL;
+
+    return tal_strdup(ctx, b11->description);
+}
+
+static const char *decode_bolt12_description(const tal_t *ctx,
+                                             const char *invstr)
+{
+    char *fail;
+    struct tlv_invoice *tinv =
+        invoice_decode(ctx, invstr, strlen(invstr), NULL, NULL, &fail);
+
+    if (!tinv)
+        return NULL;
+
+    if (!tinv->invreq_payer_note)
+        return NULL;
+
+    return tal_hexstr(ctx,
+                      tinv->invreq_payer_note,
+                      tal_count(tinv->invreq_payer_note));
+}
+
 /* Routing failure object */
 struct routing_failure {
 	unsigned int erring_index;
@@ -138,6 +171,7 @@ add_waitsendpay_waiter_(struct lightningd *ld,
 void json_add_payment_fields(struct json_stream *response,
 			     const struct wallet_payment *t)
 {
+	const char *invoice_description = NULL;
 	json_add_u64(response, "created_index", t->id);
 	json_add_u64(response, "id", t->id);
 	json_add_sha256(response, "payment_hash", &t->payment_hash);
@@ -176,13 +210,18 @@ void json_add_payment_fields(struct json_stream *response,
 	if (t->label)
 		json_add_string(response, "label", t->label);
 	if (t->invstring) {
-		if (strstarts(t->invstring, "lni"))
-			json_add_string(response, "bolt12", t->invstring);
-		else
-			json_add_string(response, "bolt11", t->invstring);
-	}
+    if (strstarts(t->invstring, "lni")) {
+        json_add_string(response, "bolt12", t->invstring);
+        invoice_description = decode_bolt12_description(response, t->invstring);
+    } else {
+        json_add_string(response, "bolt11", t->invstring);
+        invoice_description = decode_bolt11_description_simple(response, t->invstring);
+    }
+}
 	if (t->description)
 		json_add_string(response, "description", t->description);
+	if (invoice_description)
+		json_add_string(response, "invoice_description", invoice_description);
 
 	if (t->failonion)
 		json_add_hex(response, "erroronion", t->failonion,
