@@ -1474,15 +1474,15 @@ static struct command_result *json_sqlstatus(struct command *cmd,
 
 	ret = jsonrpc_stream_success(cmd);
 	json_array_start(ret, "tables");
-	if (td) 
+	if (td)
 	{
 		while (td->parent)
 		{
 			td = td->parent;
 		}
 		add_one_table_status(td->name, td, ret);
-	} 
-	else 
+	}
+	else
 	{
 		strmap_iterate(&sql->tablemap, add_one_table_status, ret);
 	}
