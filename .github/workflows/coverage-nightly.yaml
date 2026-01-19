@@ -64,42 +64,102 @@ jobs:
             db: sqlite3
             pytest_par: 4
             test_group: 1
-            test_group_count: 4
+            test_group_count: 10
           - name: sqlite-2
             db: sqlite3
             pytest_par: 4
             test_group: 2
-            test_group_count: 4
+            test_group_count: 10
           - name: sqlite-3
             db: sqlite3
             pytest_par: 4
             test_group: 3
-            test_group_count: 4
+            test_group_count: 10
           - name: sqlite-4
             db: sqlite3
             pytest_par: 4
             test_group: 4
-            test_group_count: 4
+            test_group_count: 10
+          - name: sqlite-5
+            db: sqlite3
+            pytest_par: 4
+            test_group: 5
+            test_group_count: 10
+          - name: sqlite-6
+            db: sqlite3
+            pytest_par: 4
+            test_group: 6
+            test_group_count: 10
+          - name: sqlite-7
+            db: sqlite3
+            pytest_par: 4
+            test_group: 7
+            test_group_count: 10
+          - name: sqlite-8
+            db: sqlite3
+            pytest_par: 4
+            test_group: 8
+            test_group_count: 10
+          - name: sqlite-9
+            db: sqlite3
+            pytest_par: 4
+            test_group: 9
+            test_group_count: 10
+          - name: sqlite-10
+            db: sqlite3
+            pytest_par: 4
+            test_group: 10
+            test_group_count: 10
           - name: postgres-1
             db: postgres
             pytest_par: 4
             test_group: 1
-            test_group_count: 4
+            test_group_count: 10
           - name: postgres-2
             db: postgres
             pytest_par: 4
             test_group: 2
-            test_group_count: 4
+            test_group_count: 10
           - name: postgres-3
             db: postgres
             pytest_par: 4
             test_group: 3
-            test_group_count: 4
+            test_group_count: 10
           - name: postgres-4
             db: postgres
             pytest_par: 4
             test_group: 4
-            test_group_count: 4
+            test_group_count: 10
+          - name: postgres-5
+            db: postgres
+            pytest_par: 4
+            test_group: 5
+            test_group_count: 10
+          - name: postgres-6
+            db: postgres
+            pytest_par: 4
+            test_group: 6
+            test_group_count: 10
+          - name: postgres-7
+            db: postgres
+            pytest_par: 4
+            test_group: 7
+            test_group_count: 10
+          - name: postgres-8
+            db: postgres
+            pytest_par: 4
+            test_group: 8
+            test_group_count: 10
+          - name: postgres-9
+            db: postgres
+            pytest_par: 4
+            test_group: 9
+            test_group_count: 10
+          - name: postgres-10
+            db: postgres
+            pytest_par: 4
+            test_group: 10
+            test_group_count: 10
 
     steps:
       - name: Checkout
