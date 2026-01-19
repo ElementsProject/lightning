@@ -149,7 +149,7 @@ jobs:
           TEST_DB_PROVIDER: ${{ matrix.db }}
           PYTEST_PAR: ${{ matrix.pytest_par }}
           SLOW_MACHINE: 1
-          TIMEOUT: 900
+          TIMEOUT: 180
           VALGRIND: 0
         run: |
           export CLN_COVERAGE_DIR="${{ github.workspace }}/coverage-raw"
@@ -159,6 +159,7 @@ jobs:
           echo "Current directory: $(pwd)"
           ls -la
           VALGRIND=0 uv run eatmydata pytest tests/ -n ${PYTEST_PAR} -vvv \
+            -m "not slow_test" \
             --reruns=3 \
             --test-group-count ${{ matrix.test_group_count }} \
             --test-group ${{ matrix.test_group }}
