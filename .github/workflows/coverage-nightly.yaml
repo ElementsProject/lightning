@@ -99,7 +99,7 @@ jobs:
             db: postgres
             pytest_par: 4
             test_group: 4
-            test_group_count: 2
+            test_group_count: 4
 
     steps:
       - name: Checkout
