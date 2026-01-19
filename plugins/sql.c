@@ -1383,13 +1383,13 @@ static void json_add_schema(struct json_stream *js,
 	}
 	if (have_indices)
 		json_array_end(js);
-	
-	if (td->has_been_refreshed) 
+
+	if (td->has_been_refreshed)
 	{
 		struct timerel since_refresh = timemono_since(td->last_refresh_time);
 		json_add_u64(js, "last_refresh_seconds_ago",(u64)since_refresh.ts.tv_sec);
 	}
-	
+
 	json_object_end(js);
 }
 
@@ -1429,31 +1429,31 @@ static bool add_one_table_status(const char *member, struct table_desc *td, stru
 	{
 		return true;
 	}
-	
+
 	json_object_start(js, NULL);
 	json_add_string(js, "tablename", td->name);
 	json_add_string(js, "command", td->cmdname);
 	json_add_bool(js, "has_been_refreshed", td->has_been_refreshed);
 	json_add_bool(js, "needs_refresh", td->needs_refresh);
 	json_add_bool(js, "refreshing", td->refreshing);
-	
-	if (td->has_been_refreshed) 
+
+	if (td->has_been_refreshed)
 	{
 		struct timerel since_refresh = timemono_since(td->last_refresh_time);
 		json_add_u64(js, "last_refresh_seconds_ago",(u64)since_refresh.ts.tv_sec);
 	}
-	
-	if (td->refreshing) 
+
+	if (td->refreshing)
 	{
 		struct timerel refresh_duration = timemono_since(td->refresh_start);
 		json_add_u64(js, "refresh_duration_seconds",(u64)refresh_duration.ts.tv_sec);
 	}
-	
+
 	if (td->has_created_index)
 	{
 		json_add_u64(js, "last_created_index", td->last_created_index);
 	}
-	
+
 	json_object_end(js);
 	return true;
 }
