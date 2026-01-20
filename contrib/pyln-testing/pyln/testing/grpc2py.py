@@ -335,8 +335,6 @@ def close2py(m):
         "txids": [hexlify(m.txids) for i in hexlify(m.txids)], # ArrayField[primitive] in generate_composite
         "txs": [hexlify(m.txs) for i in hexlify(m.txs)], # ArrayField[primitive] in generate_composite
         "type": str(m.item_type),  # EnumField in generate_composite
-        "tx": hexlify(m.tx),  # PrimitiveField in generate_composite
-        "txid": hexlify(m.txid),  # PrimitiveField in generate_composite
     })
 
 

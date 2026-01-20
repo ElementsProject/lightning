@@ -9,8 +9,6 @@ privacy:
 
 | Name                                               | Type               | First Deprecated | Last Supported | Description                                                                                                               |
 |----------------------------------------------------|--------------------|------------------|----------------|---------------------------------------------------------------------------------------------------------------------------|
-| close.tx                                           | Field              | v24.11           | v25.12         | Use txs array instead                                                                                                     |
-| close.txid                                         | Field              | v24.11           | v25.12         | Use txids array instead                                                                                                   |
 | xpay.ignore_bolt12_mpp                             | Field              | v25.05           | v25.12         | Try MPP even if the BOLT12 invoice doesn't explicitly allow it (CLN didn't until 25.02)                                   |
 | listpeerchannels.max_total_htlc_in_msat            | Field              | v25.02           | v26.03         | Use our_max_total_htlc_out_msat                                                                                           |
 | wait.details                                       | Field              | v25.05           | v26.06         | Use subsystem-specific object instead                                                                                     |

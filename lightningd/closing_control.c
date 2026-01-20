@@ -39,22 +39,6 @@ resolve_one_close_command(struct close_command *cc, bool cooperative,
 			  const struct bitcoin_tx **close_txs)
 {
 	struct json_stream *result = json_stream_success(cc->cmd);
-	const struct bitcoin_tx *close_tx;
-
-	/* Withheld funding channels can have no close_txs! */
-	if (tal_count(close_txs) != 0)
-		close_tx = close_txs[tal_count(close_txs) - 1];
-	else
-		close_tx = NULL;
-
-	if (close_tx && command_deprecated_out_ok(cc->cmd, "tx", "v24.11", "v25.12"))
-		json_add_tx(result, "tx", close_tx);
-	if (close_tx && !invalid_last_tx(close_tx)) {
-		struct bitcoin_txid txid;
-		bitcoin_txid(close_tx, &txid);
-		if (command_deprecated_out_ok(cc->cmd, "txid", "v24.11", "v25.12"))
-			json_add_txid(result, "txid", &txid);
-	}
 
 	json_array_start(result, "txs");
 	for (int i = 0; i < tal_count(close_txs); i++)

@@ -449,14 +449,10 @@ impl From<responses::CheckmessageResponse> for pb::CheckmessageResponse {
     }
 }
 
-#[allow(unused_variables,deprecated)]
+#[allow(unused_variables)]
 impl From<responses::CloseResponse> for pb::CloseResponse {
     fn from(c: responses::CloseResponse) -> Self {
         Self {
-            #[allow(deprecated)]
-            tx: c.tx.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
-            #[allow(deprecated)]
-            txid: c.txid.map(|v| hex::decode(v).unwrap()), // Rule #2 for type txid?
             // Field: Close.txids[]
             txids: c.txids.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
             // Field: Close.txs[]
