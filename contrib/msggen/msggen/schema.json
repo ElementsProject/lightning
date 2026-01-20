@@ -33917,6 +33917,91 @@
         }
       ]
     },
+    "spliceout.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "added": "v26.04",
+      "rpc": "spliceout",
+      "title": "Command to splice funds out of a channel",
+      "warning": "experimental-splicing only",
+      "description": [
+        "`spliceout` is the command to move funds into a channel."
+      ],
+      "request": {
+        "required": [
+          "channel",
+          "amount"
+        ],
+        "properties": {
+          "channel": {
+            "type": "string",
+            "description": [
+              "channel identifier or channel query. Format is the same as is used in `dev-splice`."
+            ]
+          },
+          "amount": {
+            "type": "string",
+            "description": [
+              "Amount in satoshis taken from the channel. Format is the same as is used in `dev-splice`."
+            ]
+          },
+          "destination": {
+            "type": "string",
+            "description": [
+              "Where to send the funds to. Defaults to `wallet` which sends the funds to your onchain wallet. Specify a bitcoin address to send funds to that address or specify a channel identifier to send funds to another channel. Format is the same as is used in `dev-splice`."
+            ]
+          },
+          "force_feerate": {
+            "type": "boolean",
+            "description": [
+              "By default splices will fail if the fee provided looks too high. This is to protect against accidentally setting your fee higher than intended. Set `force_feerate` to true to skip this saftey check"
+            ]
+          }
+        }
+      },
+      "response": {
+        "required": [],
+        "properties": {
+          "psbt": {
+            "type": "string",
+            "description": [
+              "The final psbt"
+            ]
+          },
+          "tx": {
+            "type": "string",
+            "description": [
+              "The final transaction in hex"
+            ]
+          },
+          "txid": {
+            "type": "string",
+            "description": [
+              "The txid of the final transaction"
+            ]
+          }
+        }
+      },
+      "usage": [
+        "`spliceout` is the command take funds from a channel. It takes `amount` funds from the specified `channel` and puts them somewhere.",
+        "",
+        "The default destination is your onchain wallet.",
+        "By specifying the `destination` as a bitcoin address, the funds will be sent to the specified address",
+        "By specifying the `destination` as a channel identifier, the funds will be sent to the specified channel. This accomplishes a simple \"cross-splice\".",
+        "",
+        "The fee for the transaction will be taken from channel funds."
+      ],
+      "author": [
+        "Dusty [@dusty_daemon](mailto:@dustydaemon) is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-dev-splice(7)"
+      ],
+      "resources": [
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+      ]
+    },
     "sql-template.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
