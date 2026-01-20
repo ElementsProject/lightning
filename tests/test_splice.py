@@ -197,7 +197,6 @@ def test_script_splice_in(node_factory, bitcoind, chainparams):
     assert not account_info['account_closed']
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')

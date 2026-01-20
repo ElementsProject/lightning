@@ -1462,10 +1462,63 @@ json_splice(struct command *cmd, const char *buf, const jsmntok_t *params)
 	return send_outreq(req);
 }
 
+static struct command_result *
+json_spliceout(struct command *cmd, const char *buf, const jsmntok_t *params)
+{
+	struct out_req *req;
+	const char *channel, *amount, *destination;
+	struct splice_cmd *splice_cmd;
+	bool *force_feerate;
+	char *script;
+
+	if (!param(cmd, buf, params,
+		   p_req("channel", param_string, &channel),
+		   p_req("amount", param_string, &amount),
+		   p_opt("destination", param_string, &destination),
+		   p_opt_def("force_feerate", param_bool, &force_feerate,
+		   	     false),
+		   NULL))
+		return command_param_failed();
+
+	if (!destination)
+		destination = "wallet";
+
+	script = tal_fmt(NULL,
+			 "%s -> %s + fee; 100%% -> %s",
+			 channel, amount, destination);
+
+	splice_cmd = tal(cmd, struct splice_cmd);
+
+	splice_cmd->cmd = cmd;
+	splice_cmd->script = tal_steal(splice_cmd, script);
+	splice_cmd->psbt = create_psbt(splice_cmd, 0, 0, 0);
+	splice_cmd->dryrun = false;
+	splice_cmd->wetrun = false;
+	splice_cmd->feerate_per_kw = 0;
+	splice_cmd->force_feerate = *force_feerate;
+	splice_cmd->wallet_inputs_to_signed = 0;
+	splice_cmd->fee_calculated = false;
+	splice_cmd->initial_funds = AMOUNT_SAT(0);
+	splice_cmd->emergency_sat = AMOUNT_SAT(0);
+	splice_cmd->debug_log = NULL;
+	splice_cmd->debug_counter = 0;
+	memset(&splice_cmd->final_txid, 0, sizeof(splice_cmd->final_txid));
+
+	req = jsonrpc_request_start(cmd, "listpeerchannels",
+				    listpeerchannels_get_result,
+				    splice_error, splice_cmd);
+
+	return send_outreq(req);
+}
+
 const struct plugin_command splice_commands[] = {
 	{
 		"dev-splice",
 		json_splice
+	},
+	{
+		"spliceout",
+		json_spliceout
 	},
 };
 const size_t num_splice_commands = ARRAY_SIZE(splice_commands);
