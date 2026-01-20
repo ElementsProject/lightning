@@ -4177,9 +4177,9 @@ def test_sql(node_factory, bitcoind):
 def test_sql_deprecated(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, opts=[{'allow-deprecated-apis': True}, {}])
 
-    # l1 allows it, l2 doesn't
-    ret = l1.rpc.sql("SELECT max_total_htlc_in_msat FROM peerchannels;")
-    assert ret == {'rows': [[-1]]}
+    # Even with deprecated APIs, this isn't there.
+    with pytest.raises(RpcError, match="Deprecated column table peerchannels.max_total_htlc_in_msat"):
+        l1.rpc.sql("SELECT max_total_htlc_in_msat FROM peerchannels;")
 
     # It's deprecated in l2, so that will fail!
     with pytest.raises(RpcError, match="Deprecated column table peerchannels.max_total_htlc_in_msat"):

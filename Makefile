@@ -7,10 +7,10 @@ VERSION ?= $(shell git describe --tags --always --dirty=-modded --abbrev=7 2>/de
 $(info Building version $(VERSION))
 
 # Next release.
-CLN_NEXT_VERSION := v25.12
+CLN_NEXT_VERSION := v26.04
 
 # Previous release (for downgrade testing)
-CLN_PREV_VERSION := v25.09
+CLN_PREV_VERSION := v25.12
 
 # --quiet / -s means quiet, dammit!
 ifeq ($(findstring s,$(word 1, $(MAKEFLAGS))),s)

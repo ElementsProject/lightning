@@ -299,8 +299,8 @@ jobs:
         run: |
           mkdir /tmp/old-cln
           cd /tmp/old-cln
-          wget https://github.com/ElementsProject/lightning/releases/download/v25.09/clightning-v25.09-ubuntu-24.04-amd64.tar.xz
-          tar -xaf clightning-v25.09-ubuntu-24.04-amd64.tar.xz
+          wget https://github.com/ElementsProject/lightning/releases/download/v25.12/clightning-v25.12-ubuntu-24.04-amd64.tar.xz
+          tar -xaf clightning-v25.12-ubuntu-24.04-amd64.tar.xz
 
       - name: Switch network
         if: ${{ matrix.TEST_NETWORK == 'liquid-regtest' }}
