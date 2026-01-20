@@ -621,7 +621,6 @@ def test_script_two_chan_splice_z(node_factory, bitcoind):
                    [500000 + int(100000 * 0.7), 500000 + int(100000 * 0.3)], [-0.7, -0.3])
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
