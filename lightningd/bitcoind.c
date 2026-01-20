@@ -93,9 +93,10 @@ void bitcoind_check_commands(struct bitcoind *bitcoind)
 }
 
 /* Our Bitcoin backend plugin gave us a bad response. We can't recover. */
-static void bitcoin_plugin_error(struct bitcoind *bitcoind, const char *buf,
-				 const jsmntok_t *toks, const char *method,
-				 const char *fmt, ...)
+static void NORETURN
+bitcoin_plugin_error(struct bitcoind *bitcoind, const char *buf,
+		     const jsmntok_t *toks, const char *method,
+		     const char *fmt, ...)
 {
 	va_list ap;
 	char *reason;
@@ -137,19 +138,7 @@ static void bitcoin_plugin_send(struct bitcoind *bitcoind,
  *   - `min` is the minimum acceptable feerate
  *   - `max` is the maximum acceptable feerate
  *
- * Plugin response (deprecated):
- * {
- *	"opening": <sat per kVB>,
- *	"mutual_close": <sat per kVB>,
- *	"unilateral_close": <sat per kVB>,
- *	"delayed_to_us": <sat per kVB>,
- *	"htlc_resolution": <sat per kVB>,
- *	"penalty": <sat per kVB>,
- *	"min_acceptable": <sat per kVB>,
- *	"max_acceptable": <sat per kVB>,
- * }
- *
- * Plugin response (modern):
+ * Plugin response:
  * {
  *	"feerate_floor": <sat per kVB>,
  *	"feerates": {
@@ -230,55 +219,6 @@ static struct feerate_est *parse_feerate_ranges(const tal_t *ctx,
 	return rates;
 }
 
-static struct feerate_est *parse_deprecated_feerates(const tal_t *ctx,
-						     struct bitcoind *bitcoind,
-						     const char *buf,
-						     const jsmntok_t *toks)
-{
-	struct feerate_est *rates = tal_arr(ctx, struct feerate_est, 0);
-	struct oldstyle {
-		const char *name;
-		size_t blockcount;
-		size_t multiplier;
-	} oldstyles[] = { { "max_acceptable", 2, 10 },
-			  { "unilateral_close", 6, 1 },
-			  { "opening", 12, 1 },
-			  { "mutual_close", 100, 1 } };
-
-	for (size_t i = 0; i < ARRAY_SIZE(oldstyles); i++) {
-		const jsmntok_t *feeratetok;
-		struct feerate_est rate;
-
-		feeratetok = json_get_member(buf, toks, oldstyles[i].name);
-		if (!feeratetok) {
- 			bitcoin_plugin_error(bitcoind, buf, toks,
- 					     "estimatefees",
-					     "missing '%s' field",
-					     oldstyles[i].name);
-		}
-		if (!json_to_u32(buf, feeratetok, &rate.rate)) {
-			if (chainparams->testnet)
-				log_debug(bitcoind->log,
-					  "Unable to estimate %s fees",
-					  oldstyles[i].name);
-			else
-				log_unusual(bitcoind->log,
-					    "Unable to estimate %s fees",
-					    oldstyles[i].name);
-			continue;
-		}
-
-		if (rate.rate == 0)
-			continue;
-
-		/* Cancel out the 10x multiplier on max_acceptable */
-		rate.rate /= oldstyles[i].multiplier;
-		rate.blockcount = oldstyles[i].blockcount;
-		tal_arr_expand(&rates, rate);
-	}
-	return rates;
-}
-
 static void estimatefees_callback(const char *buf, const jsmntok_t *toks,
 				  const jsmntok_t *idtok,
 				  struct estimatefee_call *call)
@@ -302,20 +242,9 @@ static void estimatefees_callback(const char *buf, const jsmntok_t *toks,
 								"feerates"),
 						&floor);
 	} else {
-		if (!lightningd_deprecated_in_ok(call->bitcoind->ld,
-						 call->bitcoind->ld->log,
-						 call->bitcoind->ld->deprecated_ok,
-						 "estimatefeesv1", NULL,
-						 "v23.05", "v24.05",
-						 NULL)) {
-			bitcoin_plugin_error(call->bitcoind, buf, resulttok,
-					     "estimatefees",
-					     "missing feerate_floor field");
-		}
-
-		feerates = parse_deprecated_feerates(call, call->bitcoind,
-						     buf, resulttok);
-		floor = feerate_from_style(FEERATE_FLOOR, FEERATE_PER_KSIPA);
+		bitcoin_plugin_error(call->bitcoind, buf, resulttok,
+				     "estimatefees",
+				     "missing feerate_floor field");
 	}
 
 	/* Convert to perkw */
