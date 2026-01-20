@@ -1504,7 +1504,7 @@ static const char *plugin_hooks_add(struct plugin *plugin, const char *buffer,
 			aftertok = json_get_member(buffer, t, "after");
 			filterstok = json_get_member(buffer, t, "filters");
 		} else {
-			/* FIXME: deprecate in 3 releases after v0.9.2! */
+			/* Simple names also work */
 			name = json_strdup(tmpctx, buffer, t);
 			beforetok = aftertok = filterstok = NULL;
 		}
