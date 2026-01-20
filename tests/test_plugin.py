@@ -4402,8 +4402,9 @@ def test_important_plugin_shutdown(node_factory):
 
 
 @unittest.skipIf(VALGRIND, "It does not play well with prompt and key derivation.")
-def test_exposesecret(node_factory):
-    l1, l2 = node_factory.get_nodes(2, opts=[{'exposesecret-passphrase': "test_exposesecret"}, {}])
+@pytest.mark.parametrize("old_hsmsecret", [True, False])
+def test_exposesecret(node_factory, old_hsmsecret):
+    l1, l2 = node_factory.get_nodes(2, opts=[{'exposesecret-passphrase': "test_exposesecret", 'old_hsmsecret': old_hsmsecret}, {}])
 
     # listconfigs will conceal the value for us, even if we ask directly.
     l1.rpc.listconfigs()['configs']['exposesecret-passphrase']['value_str'] == '...'
@@ -4436,26 +4437,46 @@ def test_exposesecret(node_factory):
         with pytest.raises(RpcError, match="must be valid bech32 string"):
             l1.rpc.exposesecret(passphrase='test_exposesecret', identifier=invalid)
 
-    # As given by lightning-hsmtool:
-    # $ ./tools/lightning-hsmtool getcodexsecret /tmp/ltests-10uyxcnw/test_exposesecret_1/lightning-1/regtest/hsm_secret junr
-    # cl10junrsd35kw6r5de5kueedxyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqj00m675kxffh
-    # $ ./tools/lightning-hsmtool getcodexsecret /tmp/ltests-10uyxcnw/test_exposesecret_1/lightning-1/regtest/hsm_secret junx
-    # cl10junxsd35kw6r5de5kueedxyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq6mdtn5lql6p8m
-    # $ ./tools/lightning-hsmtool getcodexsecret /tmp/ltests-10uyxcnw/test_exposesecret_1/lightning-1/regtest/hsm_secret cln2
-    # cl10cln2sd35kw6r5de5kueedxyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq2v3y60yxxn4mq
-    assert l1.rpc.exposesecret(passphrase='test_exposesecret') == {'codex32': 'cl10junrsd35kw6r5de5kueedxyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqj00m675kxffh',
-                                                                   'identifier': 'junr'}
+    if old_hsmsecret:
+        # As given by lightning-hsmtool:
+        # $ ./tools/lightning-hsmtool getcodexsecret /tmp/ltests-10uyxcnw/test_exposesecret_1/lightning-1/regtest/hsm_secret junr
+        # cl10junrsd35kw6r5de5kueedxyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqj00m675kxffh
+        # $ ./tools/lightning-hsmtool getcodexsecret /tmp/ltests-10uyxcnw/test_exposesecret_1/lightning-1/regtest/hsm_secret junx
+        # cl10junxsd35kw6r5de5kueedxyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq6mdtn5lql6p8m
+        # $ ./tools/lightning-hsmtool getcodexsecret /tmp/ltests-10uyxcnw/test_exposesecret_1/lightning-1/regtest/hsm_secret cln2
+        # cl10cln2sd35kw6r5de5kueedxyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq2v3y60yxxn4mq
+        assert l1.rpc.exposesecret(passphrase='test_exposesecret') == {'codex32': 'cl10junrsd35kw6r5de5kueedxyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqj00m675kxffh',
+                                                                       'identifier': 'junr'}
 
-    assert l1.rpc.exposesecret(passphrase='test_exposesecret', identifier='cln2') == {'codex32': 'cl10cln2sd35kw6r5de5kueedxyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq2v3y60yxxn4mq',
-                                                                                      'identifier': 'cln2'}
+        assert l1.rpc.exposesecret(passphrase='test_exposesecret', identifier='cln2') == {'codex32': 'cl10cln2sd35kw6r5de5kueedxyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq2v3y60yxxn4mq',
+                                                                                          'identifier': 'cln2'}
+    else:
+        # As given by lightning-hsmtool:
+        # $ ./tools/lightning-hsmtool getcodexsecret /tmp/ltests-2xbjux9b/test_exposesecret_1/lightning-1/regtest/hsm_secret stra
+        # cl10strasmms5axpgnml3svm0urkrvv2cuvxmz0xyd3dlfhaljvcy5wuu2gts07pad39rz85w6
+        # $ ./tools/lightning-hsmtool getcodexsecret /tmp/ltests-2xbjux9b/test_exposesecret_1/lightning-1/regtest/hsm_secret junx
+        # cl10junxsmms5axpgnml3svm0urkrvv2cuvxmz0xyd3dlfhaljvcy5wuu2gtsfcrlankxlxmaa
+        # $ ./tools/lightning-hsmtool getcodexsecret /tmp/ltests-2xbjux9b/test_exposesecret_1/lightning-1/regtest/hsm_secret cln2
+        # cl10cln2smms5axpgnml3svm0urkrvv2cuvxmz0xyd3dlfhaljvcy5wuu2gtse0ls5gdqx00px
+        assert l1.rpc.exposesecret(passphrase='test_exposesecret') == {'codex32': 'cl10strasmms5axpgnml3svm0urkrvv2cuvxmz0xyd3dlfhaljvcy5wuu2gts07pad39rz85w6',
+                                                                       'identifier': 'stra',
+                                                                       'mnemonic': 'hockey enroll sure trip track rescue original plate abandon abandon abandon account'}
+        assert l1.rpc.exposesecret(passphrase='test_exposesecret', identifier='cln2') == {'codex32': 'cl10cln2smms5axpgnml3svm0urkrvv2cuvxmz0xyd3dlfhaljvcy5wuu2gtse0ls5gdqx00px',
+                                                                                          'identifier': 'cln2',
+                                                                                          'mnemonic': 'hockey enroll sure trip track rescue original plate abandon abandon abandon account'}
 
     # FIXME: runtime config for alias!!
     l1.stop()
     l1.daemon.opts["alias"] = 'J1U1IOBiobN'
     l1.start()
 
-    assert l1.rpc.exposesecret(passphrase='test_exposesecret') == {'codex32': 'cl10junxsd35kw6r5de5kueedxyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq6mdtn5lql6p8m',
-                                                                   'identifier': 'junx'}
+    if old_hsmsecret:
+        assert l1.rpc.exposesecret(passphrase='test_exposesecret') == {'codex32': 'cl10junxsd35kw6r5de5kueedxyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq6mdtn5lql6p8m',
+                                                                       'identifier': 'junx'}
+    else:
+        assert l1.rpc.exposesecret(passphrase='test_exposesecret') == {'codex32': 'cl10junxsmms5axpgnml3svm0urkrvv2cuvxmz0xyd3dlfhaljvcy5wuu2gtsfcrlankxlxmaa',
+                                                                       'identifier': 'junx',
+                                                                       'mnemonic': 'hockey enroll sure trip track rescue original plate abandon abandon abandon account'}
 
 
 @unittest.skipIf(VALGRIND, "It does not play well with prompt and key derivation.")
