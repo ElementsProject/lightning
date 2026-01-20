@@ -4636,29 +4636,30 @@ def test_setconfig_changed(node_factory, bitcoind):
 
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "deletes database, which is assumed sqlite3")
-def test_recover_command(node_factory, bitcoind):
-    l1, l2 = node_factory.get_nodes(2)
+@pytest.mark.parametrize("old_hsmsecret", [False, True])
+def test_recover_command(node_factory, bitcoind, old_hsmsecret):
+    l1, l2 = node_factory.get_nodes(2, opts={'old_hsmsecret': old_hsmsecret})
 
     l1oldid = l1.info['id']
 
     def get_hsm_secret(n):
-        """Returns codex32 and hex"""
+        """Returns recoversecret and hex"""
         hsmfile = os.path.join(n.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
-        codex32 = subprocess.check_output(["tools/lightning-hsmtool", "getcodexsecret", hsmfile, "leet"]).decode('utf-8').strip()
+        recover = subprocess.check_output(["tools/lightning-hsmtool", "getsecret", hsmfile, "leet"]).decode('utf-8').strip()
         with open(hsmfile, "rb") as f:
             hexhsm = f.read().hex()
-        return codex32, hexhsm
+        return recover, hexhsm
 
-    l1codex32, l1hex = get_hsm_secret(l1)
-    l2codex32, l2hex = get_hsm_secret(l2)
+    l1recover, l1hex = get_hsm_secret(l1)
+    l2recover, l2hex = get_hsm_secret(l2)
 
     # Get the PID for later
     with open(os.path.join(l1.daemon.lightning_dir,
                            f"lightningd-{TEST_NETWORK}.pid"), "r") as f:
         pid = f.read().strip()
 
-    assert l1.rpc.check('recover', hsmsecret=l2codex32) == {'command_to_check': 'recover'}
-    l1.rpc.recover(hsmsecret=l2codex32)
+    assert l1.rpc.check('recover', hsmsecret=l2recover) == {'command_to_check': 'recover'}
+    l1.rpc.recover(hsmsecret=l2recover)
     l1.daemon.wait_for_log("Server started with public key")
     # l1.info is cached on start, so won't reflect current reality!
     assert l1.rpc.getinfo()['id'] == l2.info['id']
@@ -4667,10 +4668,10 @@ def test_recover_command(node_factory, bitcoind):
     l2.rpc.newaddr()
 
     with pytest.raises(RpcError, match='Node has already issued bitcoin addresses'):
-        l2.rpc.recover(hsmsecret=l1codex32)
+        l2.rpc.recover(hsmsecret=l1recover)
 
     with pytest.raises(RpcError, match='Node has already issued bitcoin addresses'):
-        l2.rpc.check('recover', hsmsecret=l1codex32)
+        l2.rpc.check('recover', hsmsecret=l1recover)
 
     # Now try recovering using hex secret (remove old prerecover!)
     shutil.rmtree(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK,
@@ -4679,14 +4680,21 @@ def test_recover_command(node_factory, bitcoind):
     # l1 already has --recover in cmdline: recovering again would add it
     # twice!
     with pytest.raises(RpcError, match='Already doing recover'):
-        l1.rpc.check('recover', hsmsecret=l1hex)
+        l1.rpc.check('recover', hsmsecret=l1recover)
 
     with pytest.raises(RpcError, match='Already doing recover'):
-        l1.rpc.recover(hsmsecret=l1hex)
+        l1.rpc.recover(hsmsecret=l1recover)
 
     l1.restart()
-    assert l1.rpc.check('recover', hsmsecret=l1hex) == {'command_to_check': 'recover'}
-    l1.rpc.recover(hsmsecret=l1hex)
+
+    if old_hsmsecret:
+        assert l1.rpc.check('recover', hsmsecret=l1hex) == {'command_to_check': 'recover'}
+        l1.rpc.recover(hsmsecret=l1hex)
+    else:
+        # Modern style requires mnemonic arg.
+        assert l1.rpc.check('recover', hsmsecret=l1recover) == {'command_to_check': 'recover'}
+        l1.rpc.recover(hsmsecret=l1recover)
+
     l1.daemon.wait_for_log("Server started with public key")
     assert l1.rpc.getinfo()['id'] == l1oldid
 
