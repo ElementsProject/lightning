@@ -110,7 +110,6 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 	case WIRE_HSMD_SIGN_DELAYED_PAYMENT_TO_US:
 	case WIRE_HSMD_SIGN_REMOTE_HTLC_TO_US:
 	case WIRE_HSMD_SIGN_PENALTY_TO_US:
-	case WIRE_HSMD_SIGN_LOCAL_HTLC_TX:
 		return (client->capabilities & HSM_PERM_SIGN_ONCHAIN_TX) != 0;
 
 	case WIRE_HSMD_GET_PER_COMMITMENT_POINT:
@@ -1559,25 +1558,7 @@ static u8 *do_sign_local_htlc_tx(struct hsmd_client *c,
 	return towire_hsmd_sign_tx_reply(NULL, &sig);
 }
 
-/*~ Called from onchaind (deprecated) */
-static u8 *handle_sign_local_htlc_tx(struct hsmd_client *c, const u8 *msg_in)
-{
-	u64 commit_num;
-	struct bitcoin_tx *tx;
-	u8 *wscript;
-	bool option_anchor_outputs;
-
-	if (!fromwire_hsmd_sign_local_htlc_tx(tmpctx, msg_in,
-					     &commit_num, &tx, &wscript,
-					     &option_anchor_outputs))
-		return hsmd_status_malformed_request(c, msg_in);
-
-	return do_sign_local_htlc_tx(c, msg_in, 0, &c->id, c->dbid,
-				     commit_num, tx, wscript,
-				     option_anchor_outputs);
-}
-
-/*~ This is the same function, but lightningd calling it */
+/*~ lightningd asks us to sign our HTLC transaction. */
 static u8 *handle_sign_any_local_htlc_tx(struct hsmd_client *c, const u8 *msg_in)
 {
 	u64 commit_num;
@@ -1752,7 +1733,7 @@ static u8 *do_sign_penalty_to_us(struct hsmd_client *c,
 				    SIGHASH_ALL);
 }
 
-/*~ Called from onchaind (deprecated) */
+/*~ Called from channeld: used by watchtower code. */
 static u8 *handle_sign_penalty_to_us(struct hsmd_client *c, const u8 *msg_in)
 {
 	struct secret revocation_secret;
@@ -2287,8 +2268,6 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 		return handle_sign_mutual_close_tx(client, msg);
 	case WIRE_HSMD_SIGN_SPLICE_TX:
 		return handle_sign_splice_tx(client, msg);
-	case WIRE_HSMD_SIGN_LOCAL_HTLC_TX:
-		return handle_sign_local_htlc_tx(client, msg);
 	case WIRE_HSMD_SIGN_REMOTE_HTLC_TX:
 		return handle_sign_remote_htlc_tx(client, msg);
 	case WIRE_HSMD_SIGN_REMOTE_COMMITMENT_TX:
