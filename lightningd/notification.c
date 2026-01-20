@@ -100,31 +100,38 @@ void notify_disconnect(struct lightningd *ld, const struct node_id *nodeid)
 /*'warning' is based on LOG_UNUSUAL/LOG_BROKEN level log
  *(in plugin module, they're 'warn'/'error' level). */
 static void warning_notification_serialize(struct json_stream *stream,
-					   struct log_entry *l)
+					   enum log_level level,
+					   struct timeabs time,
+					   const char *source,
+					   const char *logmsg)
 {
 	/* Choose "BROKEN"/"UNUSUAL" to keep consistent with the habit
 	 * of plugin. But this may confuses the users who want to 'getlog'
 	 * with the level indicated by notifications. It is the duty of a
 	 * plugin to eliminate this misunderstanding. */
 	json_add_string(stream, "level",
-			l->level == LOG_BROKEN ? "error"
+			level == LOG_BROKEN ? "error"
 			: "warn");
 	/* unsuaul/broken event is rare, plugin pay more attentions on
 	 * the absolute time, like when channels failed. */
-	json_add_timestr(stream, "time", l->time.ts);
-	json_add_timeiso(stream, "timestamp", l->time);
-	json_add_string(stream, "source", l->prefix->prefix);
-	json_add_string(stream, "log", l->log);
+	json_add_timestr(stream, "time", time.ts);
+	json_add_timeiso(stream, "timestamp", time);
+	json_add_string(stream, "source", source);
+	json_add_string(stream, "log", logmsg);
 }
 
 REGISTER_NOTIFICATION(warning);
 
-void notify_warning(struct lightningd *ld, struct log_entry *l)
+void notify_warning(struct lightningd *ld,
+		    enum log_level level,
+		    struct timeabs time,
+		    const char *source,
+		    const char *logmsg)
 {
 	struct jsonrpc_notification *n = notify_start(ld, "warning");
 	if (!n)
 		return;
-	warning_notification_serialize(n->stream, l);
+	warning_notification_serialize(n->stream, level, time, source, logmsg);
 	notify_send(ld, n);
 }
 
@@ -631,26 +638,33 @@ bool notify_deprecated_oneshot(struct lightningd *ld,
 REGISTER_NOTIFICATION(deprecated_oneshot);
 
 static void log_notification_serialize(struct json_stream *stream,
-				       const struct log_entry *l)
+				       enum log_level level,
+				       struct timeabs time,
+				       const char *source,
+				       const char *logmsg)
 {
-	json_add_string(stream, "level", log_level_name(l->level));
-	json_add_timestr(stream, "time", l->time.ts);
-	json_add_timeiso(stream, "timestamp", l->time);
-	json_add_string(stream, "source", l->prefix->prefix);
-	json_add_string(stream, "log", l->log);
+	json_add_string(stream, "level", log_level_name(level));
+	json_add_timestr(stream, "time", time.ts);
+	json_add_timeiso(stream, "timestamp", time);
+	json_add_string(stream, "source", source);
+	json_add_string(stream, "log", logmsg);
 }
 
 
 REGISTER_NOTIFICATION(log);
 
-void notify_log(struct lightningd *ld, const struct log_entry *l)
+void notify_log(struct lightningd *ld,
+		enum log_level level,
+		struct timeabs time,
+		const char *source,
+		const char *logmsg)
 {
 	struct jsonrpc_notification *n;
 
 	n = notify_start(ld, "log");
 	if (!n)
 		return;
-	log_notification_serialize(n->stream, l);
+	log_notification_serialize(n->stream, level, time, source, logmsg);
 	notify_send(ld, n);
 }
 

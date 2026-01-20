@@ -21,6 +21,24 @@
 /* Once we're up and running, this is set up. */
 struct logger *crashlog;
 
+/* Reference counted log_prefix.  Log entries keep a pointer, and they
+ * can outlast the log entry point which created them. */
+struct log_prefix {
+	size_t refcnt;
+	const char *prefix;
+};
+
+struct log_entry {
+	struct timeabs time;
+	enum log_level level;
+	unsigned int skipped;
+	struct node_id_cache *nc;
+	struct log_prefix *prefix;
+	char *log;
+	/* Iff LOG_IO */
+	const u8 *io;
+};
+
 struct print_filter {
 	/* In list log_book->print_filters / log_file->print_filters */
 	struct list_node list;
@@ -565,7 +583,11 @@ static void maybe_notify_log(struct logger *log,
 			     const struct log_entry *l)
 {
 	if (l->level >= log->print_level)
-		notify_log(log->log_book->ld, l);
+		notify_log(log->log_book->ld,
+			   l->level,
+			   l->time,
+			   l->prefix->prefix,
+			   l->log);
 }
 
 void logv(struct logger *log, enum log_level level,
@@ -594,7 +616,11 @@ void logv(struct logger *log, enum log_level level,
 	add_entry(log, &l);
 
 	if (call_notifier)
-		notify_warning(log->log_book->ld, l);
+		notify_warning(log->log_book->ld,
+			       l->level,
+			       l->time,
+			       l->prefix->prefix,
+			       l->log);
 
 	errno = save_errno;
 }
