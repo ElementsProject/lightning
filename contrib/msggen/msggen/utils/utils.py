@@ -57,7 +57,6 @@ grpc_method_names = [
     "TxSend",
     "ListPeerChannels",
     "ListClosedChannels",
-    "DecodePay",
     "Decode",
     "DelPay",
     "DelForward",

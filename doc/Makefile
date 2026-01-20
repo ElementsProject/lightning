@@ -45,7 +45,6 @@ MARKDOWNPAGES := doc/addgossip.7 \
 	doc/datastore.7 \
 	doc/datastoreusage.7 \
 	doc/decode.7 \
-	doc/decodepay.7 \
 	doc/deldatastore.7 \
 	doc/delforward.7 \
 	doc/delinvoice.7 \

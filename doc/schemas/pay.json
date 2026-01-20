@@ -229,7 +229,7 @@
   ],
   "see_also": [
     "lightning-listpays(7)",
-    "lightning-decodepay(7)",
+    "lightning-decode(7)",
     "lightning-listinvoices(7)",
     "lightning-delinvoice(7)",
     "lightning-getroute(7)",

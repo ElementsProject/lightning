@@ -9,7 +9,6 @@ privacy:
 
 | Name                                               | Type               | First Deprecated | Last Supported | Description                                                                                                               |
 |----------------------------------------------------|--------------------|------------------|----------------|---------------------------------------------------------------------------------------------------------------------------|
-| decodepay                                          | Command            | v24.11           | v25.12         | Use `decode` which is more powerful (since v23.05)                                                                        |
 | close.tx                                           | Field              | v24.11           | v25.12         | Use txs array instead                                                                                                     |
 | close.txid                                         | Field              | v24.11           | v25.12         | Use txids array instead                                                                                                   |
 | xpay.ignore_bolt12_mpp                             | Field              | v25.05           | v25.12         | Try MPP even if the BOLT12 invoice doesn't explicitly allow it (CLN didn't until 25.02)                                   |

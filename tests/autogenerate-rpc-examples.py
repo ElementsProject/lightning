@@ -1226,7 +1226,6 @@ def generate_utils_examples(l1, l2, l3, l4, l5, l6, c23_2, c34_2, inv_l11, inv_l
         update_example(node=l2, method='checkmessage', params={'message': 'this is a test!', 'zbase': 'd6tqaeuonjhi98mmont9m4wag7gg4krg1f4txonug3h31e9h6p6k6nbwjondnj46dkyausobstnk7fhyy998bhgc1yr98dfmhb4k54d7'})
         addr = l2.rpc.newaddr('bech32')['bech32']
         update_example(node=l2, method='signmessagewithkey', params={'message': 'a test message', 'address': addr})
-        decodepay_res1 = update_example(node=l2, method='decodepay', params={'bolt11': inv_l11['bolt11']})
         update_example(node=l2, method='decode', params=[rune_l21['rune']])
         decode_res2 = update_example(node=l2, method='decode', params=[inv_l22['bolt11']])
 
@@ -1284,8 +1283,6 @@ def generate_utils_examples(l1, l2, l3, l4, l5, l6, c23_2, c34_2, inv_l11, inv_l
             {'data_keys': ['created_at'], 'original_value': decode_res2['created_at'], 'new_value': NEW_VALUES_LIST['time_at_800']},
             {'data_keys': ['signature'], 'original_value': decode_res2['signature'], 'new_value': NEW_VALUES_LIST['signature_1']},
             {'data_keys': ['short_channel_id'], 'original_value': decode_res2['routes'][0][0]['short_channel_id'], 'new_value': NEW_VALUES_LIST['c23']},
-            {'data_keys': ['created_at'], 'original_value': decodepay_res1['created_at'], 'new_value': NEW_VALUES_LIST['time_at_800']},
-            {'data_keys': ['signature'], 'original_value': decodepay_res1['signature'], 'new_value': NEW_VALUES_LIST['signature_2']},
             {'data_keys': ['tx'], 'original_value': multiwithdraw_res1['tx'], 'new_value': NEW_VALUES_LIST['tx_55']},
             {'data_keys': ['txid'], 'original_value': multiwithdraw_res1['txid'], 'new_value': NEW_VALUES_LIST['txid_55']},
             {'data_keys': ['tx'], 'original_value': multiwithdraw_res2['tx'], 'new_value': NEW_VALUES_LIST['tx_56']},

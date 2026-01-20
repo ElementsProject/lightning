@@ -131,7 +131,7 @@
   ],
   "see_also": [
     "lightning-pay(7)",
-    "lightning-decodepay(7)"
+    "lightning-decode(7)"
   ],
   "resources": [
     "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"

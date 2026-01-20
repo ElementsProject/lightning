@@ -70,7 +70,6 @@ pub enum Request {
 	TxSend(requests::TxsendRequest),
 	ListPeerChannels(requests::ListpeerchannelsRequest),
 	ListClosedChannels(requests::ListclosedchannelsRequest),
-	DecodePay(requests::DecodepayRequest),
 	Decode(requests::DecodeRequest),
 	DelPay(requests::DelpayRequest),
 	DelForward(requests::DelforwardRequest),
@@ -256,7 +255,6 @@ pub enum Response {
 	TxSend(responses::TxsendResponse),
 	ListPeerChannels(responses::ListpeerchannelsResponse),
 	ListClosedChannels(responses::ListclosedchannelsResponse),
-	DecodePay(responses::DecodepayResponse),
 	Decode(responses::DecodeResponse),
 	DelPay(responses::DelpayResponse),
 	DelForward(responses::DelforwardResponse),
@@ -2055,30 +2053,6 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "listclosedchannels"
-	    }
-	}
-	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct DecodepayRequest {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub description: Option<String>,
-	    pub bolt11: String,
-	}
-
-	impl From<DecodepayRequest> for Request {
-	    fn from(r: DecodepayRequest) -> Self {
-	        Request::DecodePay(r)
-	    }
-	}
-
-	impl IntoRequest for DecodepayRequest {
-	    type Response = super::responses::DecodepayResponse;
-	}
-
-	impl TypedRequest for DecodepayRequest {
-	    type Response = super::responses::DecodepayResponse;
-
-	    fn method(&self) -> &str {
-	        "decodepay"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -7758,104 +7732,6 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::ListClosedChannels(response) => Ok(response),
-	            _ => Err(TryFromResponseError)
-	        }
-	    }
-	}
-
-	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct DecodepayExtra {
-	    pub data: String,
-	    pub tag: String,
-	}
-
-	/// ['The address type (if known).']
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-	#[allow(non_camel_case_types)]
-	pub enum DecodepayFallbacksType {
-	    #[serde(rename = "P2PKH")]
-	    P2PKH = 0,
-	    #[serde(rename = "P2SH")]
-	    P2SH = 1,
-	    #[serde(rename = "P2WPKH")]
-	    P2WPKH = 2,
-	    #[serde(rename = "P2WSH")]
-	    P2WSH = 3,
-	    #[serde(rename = "P2TR")]
-	    P2TR = 4,
-	}
-
-	impl TryFrom<i32> for DecodepayFallbacksType {
-	    type Error = anyhow::Error;
-	    fn try_from(c: i32) -> Result<DecodepayFallbacksType, anyhow::Error> {
-	        match c {
-	    0 => Ok(DecodepayFallbacksType::P2PKH),
-	    1 => Ok(DecodepayFallbacksType::P2SH),
-	    2 => Ok(DecodepayFallbacksType::P2WPKH),
-	    3 => Ok(DecodepayFallbacksType::P2WSH),
-	    4 => Ok(DecodepayFallbacksType::P2TR),
-	            o => Err(anyhow::anyhow!("Unknown variant {} for enum DecodepayFallbacksType", o)),
-	        }
-	    }
-	}
-
-	impl ToString for DecodepayFallbacksType {
-	    fn to_string(&self) -> String {
-	        match self {
-	            DecodepayFallbacksType::P2PKH => "P2PKH",
-	            DecodepayFallbacksType::P2SH => "P2SH",
-	            DecodepayFallbacksType::P2WPKH => "P2WPKH",
-	            DecodepayFallbacksType::P2WSH => "P2WSH",
-	            DecodepayFallbacksType::P2TR => "P2TR",
-	        }.to_string()
-	    }
-	}
-
-	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct DecodepayFallbacks {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub addr: Option<String>,
-	    // Path `DecodePay.fallbacks[].type`
-	    #[serde(rename = "type")]
-	    pub item_type: DecodepayFallbacksType,
-	    pub hex: String,
-	}
-
-	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct DecodepayResponse {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub amount_msat: Option<Amount>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub description: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub description_hash: Option<Sha256>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub features: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub payment_metadata: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub payment_secret: Option<Sha256>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub routes: Option<DecodeRoutehintList>,
-	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
-	    pub extra: Option<Vec<DecodepayExtra>>,
-	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
-	    pub fallbacks: Option<Vec<DecodepayFallbacks>>,
-	    pub created_at: u64,
-	    pub currency: String,
-	    pub expiry: u64,
-	    pub min_final_cltv_expiry: u32,
-	    pub payee: PublicKey,
-	    pub payment_hash: Sha256,
-	    pub signature: String,
-	}
-
-	impl TryFrom<Response> for DecodepayResponse {
-	    type Error = super::TryFromResponseError;
-
-	    fn try_from(response: Response) -> Result<Self, Self::Error> {
-	        match response {
-	            Response::DecodePay(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

@@ -547,7 +547,6 @@ overrides = {
     'KeySend.routehints': RoutehintListField,
     'KeySend.extratlvs': TlvStreamField,
     'Decode.routes': DecodeRoutehintListField,
-    'DecodePay.routes': DecodeRoutehintListField,
     'CreateInvoice.label': InvoiceLabelField,
     'DatastoreUsage.key': DatastoreUsageKeyField,
     'WaitInvoice.label': InvoiceLabelField,

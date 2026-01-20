@@ -6080,46 +6080,6 @@ def test_fetch_no_description_with_amount(node_factory):
         _ = l2.rpc.call('offer', {'amount': '2msat'})
 
 
-def test_decodepay(node_factory, chainparams):
-    """Test we don't break (deprecated) decodepay command"""
-    l1 = node_factory.get_node(options={'allow-deprecated-apis': True,
-                                        'i-promise-to-fix-broken-api-user': 'decodepay'})
-
-    addr1 = l1.rpc.newaddr('bech32')['bech32']
-    addr2 = '2MxqzNANJNAdMjHQq8ZLkwzooxAFiRzXvEz' if not chainparams['elements'] else 'XGx1E2JSTLZLmqYMAo3CGpsco85aS7so33'
-
-    before = int(time.time())
-    inv = l1.rpc.invoice(123000, 'label', 'description', 3700, [addr1, addr2])
-    after = int(time.time())
-    b11 = l1.rpc.decodepay(inv['bolt11'])
-
-    # This can vary within a range.
-    created = b11['created_at']
-    assert created >= before
-    assert created <= after
-
-    # Don't bother checking these
-    del b11['fallbacks'][0]['hex']
-    del b11['fallbacks'][1]['hex']
-    del b11['payment_secret']
-    del b11['signature']
-
-    assert b11 == {
-        'amount_msat': 123000,
-        'currency': chainparams['bip173_prefix'],
-        'created_at': created,
-        'payment_hash': inv['payment_hash'],
-        'description': 'description',
-        'expiry': 3700,
-        'payee': l1.info['id'],
-        'fallbacks': [{'addr': addr1,
-                       'type': 'P2WPKH'},
-                      {'addr': addr2,
-                       'type': 'P2SH'}],
-        'features': '02024100',
-        'min_final_cltv_expiry': 5}
-
-
 def test_enableoffer(node_factory):
     l1, l2 = node_factory.line_graph(2)
 

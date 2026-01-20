@@ -1116,42 +1116,6 @@ def listclosedchannels2py(m):
     })
 
 
-def decodepay_extra2py(m):
-    return remove_default({
-        "data": m.data,  # PrimitiveField in generate_composite
-        "tag": m.tag,  # PrimitiveField in generate_composite
-    })
-
-
-def decodepay_fallbacks2py(m):
-    return remove_default({
-        "type": str(m.item_type),  # EnumField in generate_composite
-        "addr": m.addr,  # PrimitiveField in generate_composite
-        "hex": hexlify(m.hex),  # PrimitiveField in generate_composite
-    })
-
-
-def decodepay2py(m):
-    return remove_default({
-        "extra": [decodepay_extra2py(i) for i in m.extra],  # ArrayField[composite] in generate_composite
-        "fallbacks": [decodepay_fallbacks2py(i) for i in m.fallbacks],  # ArrayField[composite] in generate_composite
-        "amount_msat": amount2msat(m.amount_msat),  # PrimitiveField in generate_composite
-        "created_at": m.created_at,  # PrimitiveField in generate_composite
-        "currency": m.currency,  # PrimitiveField in generate_composite
-        "description": m.description,  # PrimitiveField in generate_composite
-        "description_hash": hexlify(m.description_hash),  # PrimitiveField in generate_composite
-        "expiry": m.expiry,  # PrimitiveField in generate_composite
-        "features": hexlify(m.features),  # PrimitiveField in generate_composite
-        "min_final_cltv_expiry": m.min_final_cltv_expiry,  # PrimitiveField in generate_composite
-        "payee": hexlify(m.payee),  # PrimitiveField in generate_composite
-        "payment_hash": hexlify(m.payment_hash),  # PrimitiveField in generate_composite
-        "payment_metadata": hexlify(m.payment_metadata),  # PrimitiveField in generate_composite
-        "payment_secret": hexlify(m.payment_secret),  # PrimitiveField in generate_composite
-        "routes": [[decodepay_routes2py(i) for i in routehints] for routehints in m.routes],  # OverrideField in DecodeRoutehintList
-        "signature": hexlify(m.signature),  # PrimitiveField in generate_composite
-    })
-
-
 def decode_extra2py(m):
     return remove_default({
         "data": m.data,  # PrimitiveField in generate_composite
