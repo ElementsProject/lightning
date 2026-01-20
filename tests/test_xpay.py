@@ -28,7 +28,7 @@ def test_pay_fakenet(node_factory):
     gsfile, nodemap = generate_gossip_store([GenChannel(0, 1, capacity_sats=100_000),
                                              GenChannel(1, 2, capacity_sats=100_000),
                                              GenChannel(2, 3, capacity_sats=200_000)],
-                                            nodemap={0: '022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59'})
+                                            nodemap={0: '033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a'})
 
     # l2 will warn l1 about its invalid gossip: ignore.
     l1, l2 = node_factory.line_graph(2,
@@ -220,7 +220,7 @@ def test_xpay_fake_channeld(node_factory, bitcoind, chainparams, slow_mode):
     outfile = tempfile.NamedTemporaryFile(prefix='gossip-store-')
     nodeids = subprocess.check_output(['devtools/gossmap-compress',
                                        'decompress',
-                                       '--node-map=3301=022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59',
+                                       '--node-map=3301=033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a',
                                        'tests/data/gossip-store-2024-09-22.compressed',
                                        outfile.name]).decode('utf-8').splitlines()
     AMOUNT = 100_000_000
@@ -544,7 +544,7 @@ def test_xpay_maxfee(node_factory, bitcoind, chainparams):
     outfile = tempfile.NamedTemporaryFile(prefix='gossip-store-')
     subprocess.check_output(['devtools/gossmap-compress',
                              'decompress',
-                             '--node-map=3301=022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59',
+                             '--node-map=3301=033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a',
                              'tests/data/gossip-store-2024-09-22.compressed',
                              outfile.name]).decode('utf-8').splitlines()
     AMOUNT = 100_000_000
@@ -657,7 +657,7 @@ def test_xpay_no_mpp(node_factory, chainparams):
     b11_no_mpp = subprocess.check_output(["devtools/bolt11-cli",
                                           "encode",
                                           # secret for l3
-                                          "dae24b3853e1443a176daba5544ee04f7db33ebe38e70bdfdb1da34e89512c10",
+                                          "79893b45d1e57cf2ebf302af91aa52c9e573f638a61a83c6e603a331b53f452c",
                                           f"currency={chainparams['bip173_prefix']}",
                                           f"p={no_mpp['payment_hash']}",
                                           f"s={no_mpp['payment_secret']}",
@@ -778,7 +778,7 @@ def test_fail_after_success(node_factory, bitcoind, executor, slow_mode):
     l2.daemon.wait_for_log('Peer permanent failure in CHANNELD_NORMAL: Offered HTLC 0 SENT_ADD_ACK_REVOCATION cltv 124 hit deadline')
     bitcoind.generate_block(3, wait_for_mempool=1)
 
-    l1.daemon.wait_for_log(r"UNUSUAL.*Destination accepted partial payment, failed a part \(Error permanent_channel_failure for path ->022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59->0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199->032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e, from 022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59\)")
+    l1.daemon.wait_for_log(r"UNUSUAL.*Destination accepted partial payment, failed a part \(Error permanent_channel_failure for path ->033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a->02287bfac8b99b35477ebe9334eede1e32b189e24644eb701c079614712331cec0->0258f3ff3e0853ccc09f6fe89823056d7c0c55c95fab97674df5e1ad97a72f6265, from 033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a\)")
     # Could be either way around, check both
     line = l1.daemon.is_in_log(r"UNUSUAL.*Destination accepted partial payment, failed a part")
     assert re.search(r'but accepted only .* of 800000000msat\.  Winning\?!', line)

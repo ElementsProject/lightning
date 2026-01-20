@@ -15,6 +15,7 @@
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/htable/htable_type.h>
 #include <ccan/mem/mem.h>
+#include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <channeld/channeld_wiregen.h>
 #include <channeld/full_channel.h>
@@ -257,19 +258,13 @@ static u8 *get_next_onion(const tal_t *ctx, const struct route_step *rs)
 static struct node *make_peer_node(const tal_t *ctx)
 {
 	struct node *n = tal(ctx, struct node);
-	u32 salt = 0;
-	struct secret hsm_secret;
 	struct pubkey pubkey;
 
-	memset(&hsm_secret, 0, sizeof(hsm_secret));
-	snprintf((char *)&hsm_secret, sizeof(hsm_secret),
-		 "lightning-2");
-
-	/* This maps hsm_secret -> node privkey */
-	hkdf_sha256(&n->p, sizeof(n->p),
-		    &salt, sizeof(salt),
-		    &hsm_secret, sizeof(hsm_secret),
-		    "nodeid", 6);
+	/* l2's secret key */
+	if (!hex_decode("0c633a7c17c701a0980158f5483035e01fa8bd091b47fadf2e86e589a9f93fca",
+			strlen("0c633a7c17c701a0980158f5483035e01fa8bd091b47fadf2e86e589a9f93fca"),
+			&n->p, sizeof(n->p)))
+		abort();
 	pubkey_from_privkey(&n->p, &pubkey);
 	node_id_from_pubkey(&n->id, &pubkey);
 	n->name = tal_fmt(n, "lightningd-2");

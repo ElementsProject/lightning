@@ -724,13 +724,10 @@ class LightningD(TailableProc):
         if not os.path.exists(os.path.join(lightning_dir, TEST_NETWORK)):
             os.makedirs(os.path.join(lightning_dir, TEST_NETWORK))
 
-        # Default: use old-timey hsm_secret.
+        # Default: use newfangled hsm_secret, except old versions.
         if old_hsmsecret is None:
-            old_hsmsecret = True
-
-        # BIP 39 secrets were only added in v25.12.
-        if old_hsmsecret is True:
-            assert self.cln_version >= "v25.12"
+            # BIP 39 secrets were only added in v25.12.
+            old_hsmsecret = (self.cln_version < "v25.12")
 
         if not random_hsm:
             # Last 32-bytes of final part of dir -> seed.
