@@ -31,7 +31,7 @@ def check_events(node, channel_id, exp_events):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "fixme: broadcast fails, dusty")
 def test_bookkeeping_closing_trimmed_htlcs(node_factory, bitcoind, executor):
-    l1, l2 = node_factory.line_graph(2)
+    l1, l2 = node_factory.line_graph(2, opts={'old_hsmsecret': True})
 
     # Send l2 funds via the channel
     l1.pay(l2, 11000000)
