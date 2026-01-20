@@ -711,7 +711,6 @@ int connectd_init(struct lightningd *ld)
 				   ld->tor_service_password ? ld->tor_service_password : "",
 				   ld->config.connection_timeout_secs,
 				   websocket_helper_path,
-				   !ld->deprecated_ok,
 				   ld->dev_fast_gossip,
 				   ld->dev_disconnect_fd >= 0,
 				   ld->dev_no_ping_timer,
