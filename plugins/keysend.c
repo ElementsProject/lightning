@@ -15,7 +15,6 @@
 
 #define PREIMAGE_TLV_TYPE 5482373484
 #define KEYSEND_FEATUREBIT 55
-static unsigned int maxdelay_default;
 static struct node_id my_id;
 static u64 *accepted_extra_tlvs;
 static struct channel_hint_set *global_hints;
@@ -140,20 +139,9 @@ static const char *init(struct command *init_cmd, const char *buf UNUSED,
 	global_hints = notleak_with_children(channel_hint_set_new(init_cmd->plugin));
 
 	accepted_extra_tlvs = notleak(tal_arr(NULL, u64, 0));
-	/* BOLT #4:
-	 * ## `max_htlc_cltv` Selection
-	 *
-	 * This ... value is defined as 2016 blocks, based on historical value
-	 * deployed by Lightning implementations.
-	 */
-	/* FIXME: Typo in spec for CLTV in descripton!  But it breaks our spelling check, so we omit it above */
-	maxdelay_default = 2016;
-	/* max-locktime-blocks deprecated in v24.05, but still grab it! */
 	rpc_scan(init_cmd, "listconfigs", take(json_out_obj(NULL, NULL, NULL)),
 		 "{configs:{"
-		 "max-locktime-blocks?:{value_int:%},"
 		 "accept-htlc-tlv-type:{values_int:%}}}",
-		 JSON_SCAN(json_to_u32, &maxdelay_default),
 		 JSON_SCAN(jsonarr_accumulate_u64, &accepted_extra_tlvs));
 
 	return NULL;
@@ -203,6 +191,13 @@ static struct command_result *json_keysend(struct command *cmd, const char *buf,
 	bool *dev_use_shadow;
 	struct out_req *req;
 
+	/* BOLT #4:
+	 * ## `max_htlc_cltv` Selection
+	 *
+	 * This ... value is defined as 2016 blocks, based on historical value
+	 * deployed by Lightning implementations.
+	 */
+	/* FIXME: Typo in spec for CLTV in descripton!  But it breaks our spelling check, so we omit it above */
 	if (!param_check(cmd, buf, params,
 		   p_req("destination", param_node_id, &destination),
 		   p_req("amount_msat", param_msat, &msat),
@@ -210,8 +205,7 @@ static struct command_result *json_keysend(struct command *cmd, const char *buf,
 		   p_opt("maxfeepercent", param_millionths,
 			 &maxfee_pct_millionths),
 		   p_opt_def("retry_for", param_number, &retryfor, 60),
-		   p_opt_def("maxdelay", param_number, &maxdelay,
-			     maxdelay_default),
+		   p_opt_def("maxdelay", param_number, &maxdelay, 2016),
 		   p_opt("exemptfee", param_msat, &exemptfee),
 		   p_opt("extratlvs", param_extra_tlvs, &extra_fields),
 		   p_opt("routehints", param_routehint_array, &hints),
