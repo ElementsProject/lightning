@@ -619,3 +619,104 @@ def test_script_two_chan_splice_y(node_factory, bitcoind):
 def test_script_two_chan_splice_z(node_factory, bitcoind):
     execute_script(node_factory, bitcoind, "wallet -> 100000; 70% -> {}; 30% -> {}",
                    [500000 + int(100000 * 0.7), 500000 + int(100000 * 0.3)], [-0.7, -0.3])
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_easy_splice_out(node_factory, bitcoind, chainparams):
+    fundamt = 1000000
+
+    coin_mvt_plugin = Path(__file__).parent / "plugins" / "coin_movements.py"
+    l1, l2 = node_factory.line_graph(2, fundamount=fundamt, wait_for_announce=True,
+                                     opts={'experimental-splicing': None,
+                                           'plugin': coin_mvt_plugin})
+
+    initial_wallet_balance = Millisatoshi(bkpr_account_balance(l1, 'wallet'))
+
+    # Splice out 100k from first channel, putting result less fees into onchain wallet
+    spliceamt = 100000
+    l1.rpc.spliceout("*:?", f"{spliceamt}", force_feerate=True)
+
+    bitcoind.generate_block(6, wait_for_mempool=1)
+    l2.daemon.wait_for_log(r'lightningd, splice_locked clearing inflights')
+
+    p1 = only_one(l1.rpc.listpeerchannels(peer_id=l2.info['id'])['channels'])
+    p2 = only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])
+    assert 'inflight' not in p1
+    assert 'inflight' not in p2
+
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 2)
+    wait_for(lambda: len(l1.rpc.listfunds()['channels']) == 1)
+
+    end_wallet_balance = Millisatoshi(bkpr_account_balance(l1, 'wallet'))
+    assert initial_wallet_balance + Millisatoshi(spliceamt * 1000) == end_wallet_balance
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_easy_splice_out_address(node_factory, bitcoind, chainparams):
+    fundamt = 1000000
+
+    l1, l2 = node_factory.line_graph(2, fundamount=fundamt, wait_for_announce=True,
+                                     opts={'experimental-splicing': None})
+
+    initial_wallet_balance = Millisatoshi(bkpr_account_balance(l1, 'wallet'))
+
+    addr = l1.rpc.newaddr()['p2tr']
+
+    # Splice out 100k from first channel, putting result less fees into onchain wallet via addres
+    spliceamt = 100000
+    l1.rpc.spliceout("*:?", f"{spliceamt}", destination=addr, force_feerate=True)
+
+    bitcoind.generate_block(6, wait_for_mempool=1)
+    l2.daemon.wait_for_log(r'lightningd, splice_locked clearing inflights')
+
+    p1 = only_one(l1.rpc.listpeerchannels(peer_id=l2.info['id'])['channels'])
+    p2 = only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])
+    assert 'inflight' not in p1
+    assert 'inflight' not in p2
+
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 2)
+    wait_for(lambda: len(l1.rpc.listfunds()['channels']) == 1)
+
+    end_wallet_balance = Millisatoshi(bkpr_account_balance(l1, 'wallet'))
+    assert initial_wallet_balance + Millisatoshi(spliceamt * 1000) == end_wallet_balance
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_easy_splice_out_into_channel(node_factory, bitcoind, chainparams):
+    fundamt = 1000000
+
+    l1, l2, l3 = node_factory.line_graph(3, fundamount=fundamt, wait_for_announce=True,
+                                         opts={'experimental-splicing': None})
+
+    chan1 = first_channel_id(l1, l2)
+    chan2 = first_channel_id(l2, l3)
+
+    initial_chan1_balance = Millisatoshi(bkpr_account_balance(l2, chan1))
+    assert initial_chan1_balance == 0
+
+    # Splice out 100k from first channel, putting result into channel
+    spliceamt = 100000
+    l2.rpc.spliceout(f"{chan2}", f"{spliceamt}", destination=chan1, force_feerate=True)
+
+    bitcoind.generate_block(6, wait_for_mempool=1)
+    l2.daemon.wait_for_log(r'lightningd, splice_locked clearing inflights')
+
+    p1 = only_one(l1.rpc.listpeerchannels())
+    p2 = only_one(l3.rpc.listpeerchannels())
+    assert 'inflight' not in p1
+    assert 'inflight' not in p2
+
+    wait_for(lambda: len(l2.rpc.listfunds()['outputs']) == 1)
+    wait_for(lambda: len(l2.rpc.listfunds()['channels']) == 2)
+
+    end_chan1_balance = Millisatoshi(bkpr_account_balance(l2, chan1))
+    assert initial_chan1_balance + Millisatoshi(spliceamt * 1000) == end_chan1_balance
