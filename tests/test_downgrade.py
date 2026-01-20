@@ -84,7 +84,8 @@ def test_downgrade(node_factory, executor):
     # Should be able to upgrade without any trouble
     l1.daemon.opts['database-upgrade'] = True
     l1.start()
-    assert l1.daemon.is_in_log("Updating database from version")
+    # Note: currently a noop, this will break on first database upgrade.
+    assert not l1.daemon.is_in_log("Updating database from version 280")
 
     l1.connect(l2)
     inv2 = l2.rpc.invoice(1000, 'test_downgrade2', 'test_downgrade2')
@@ -96,8 +97,8 @@ def test_downgrade(node_factory, executor):
     assert bias['bias'] == 1
 
 
-def test_downgrade_fail(node_factory, executor):
-    """If we have created as node bias, we cannot downgrade"""
+def test_downgrade_bias(node_factory, executor):
+    """If we have created as node bias, we *can* downgrade this version."""
     l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True}, wait_for_announce=True)
 
     l1.rpc.askrene_bias_node('xpay', l2.info['id'], 'in', 1)
@@ -108,5 +109,4 @@ def test_downgrade_fail(node_factory, executor):
     p = subprocess.Popen(cmd_line, stdout=subprocess.DEVNULL,
                          stderr=subprocess.PIPE)
     _, err = p.communicate(timeout=TIMEOUT)
-    assert p.returncode == ERROR_DBFAIL
-    assert 'Askrene has a node bias, which is not supported in v25.09' in err.decode('utf-8')
+    assert p.returncode == 0
