@@ -134,6 +134,7 @@ MARKDOWNPAGES := doc/addgossip.7 \
 	doc/signinvoice.7 \
 	doc/signmessage.7 \
 	doc/signpsbt.7 \
+	doc/splicein.7 \
 	doc/splice_init.7 \
 	doc/splice_signed.7 \
 	doc/splice_update.7 \
