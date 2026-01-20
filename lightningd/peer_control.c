@@ -1093,11 +1093,8 @@ static void NON_NULL_ARGS(1, 2, 4, 5) json_add_channel(struct command *cmd,
 		json_add_string(response, NULL, "option_static_remotekey");
 	if (channel_has(channel, OPT_ANCHOR_OUTPUTS_DEPRECATED))
 		json_add_string(response, NULL, "option_anchor_outputs");
-	if (channel_has(channel, OPT_ANCHORS_ZERO_FEE_HTLC_TX)) {
-		if (command_deprecated_out_ok(cmd, "features", "v24.08", "v25.09"))
-			json_add_string(response, NULL, "option_anchors_zero_fee_htlc_tx");
+	if (channel_has(channel, OPT_ANCHORS_ZERO_FEE_HTLC_TX))
 		json_add_string(response, NULL, "option_anchors");
-	}
 	if (channel_has(channel, OPT_ZEROCONF))
 		json_add_string(response, NULL, "option_zeroconf");
 	if (channel_has(channel, OPT_SCID_ALIAS))
