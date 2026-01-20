@@ -503,16 +503,14 @@ static struct gossmap_chan *add_channel(struct gossmap *map,
 	return chan;
 }
 
-/* Does not set hc->nodeidx! */
-static void fill_from_update(struct gossmap *map,
+/* Does not set hc->nodeidx!
+ * Returns false if it doesn't fit in our representation: this happens
+ * on the real network, as people set absurd fees
+ */
+static bool fill_from_update(struct gossmap *map,
 			     struct short_channel_id_dir *scidd,
 			     struct half_chan *hc,
-			     u64 cupdate_off,
-			     void (*logcb)(void *cbarg,
-					   enum log_level level,
-					   const char *fmt,
-					   ...),
-			     void *cbarg)
+			     u64 cupdate_off)
 {
 	/* Note that first two bytes are message type */
 	const u64 scid_off = cupdate_off + 2 + (64 + 32);
@@ -543,18 +541,15 @@ static void fill_from_update(struct gossmap *map,
 	hc->proportional_fee = proportional_fee;
 	hc->delay = delay;
 
-	/* Check they fit: we turn off if not, log (at debug, it happens!). */
+	/* Check they fit: we turn off if not. */
 	if (hc->base_fee != base_fee
 	    || hc->proportional_fee != proportional_fee
 	    || hc->delay != delay) {
 		hc->htlc_max = 0;
 		hc->enabled = false;
-		if (logcb)
-			logcb(cbarg, LOG_DBG,
-			      "Bad cupdate for %s, ignoring (delta=%u, fee=%u/%u)",
-			      fmt_short_channel_id_dir(tmpctx, scidd),
-			      delay, base_fee, proportional_fee);
+		return false;
 	}
+	return true;
 }
 
 /* BOLT #7:
@@ -572,23 +567,24 @@ static void fill_from_update(struct gossmap *map,
  *     * [`u32`:`fee_proportional_millionths`]
  *     * [`u64`:`htlc_maximum_msat`]
  */
-static void update_channel(struct gossmap *map, u64 cupdate_off)
+static bool update_channel(struct gossmap *map, u64 cupdate_off)
 {
 	struct short_channel_id_dir scidd;
 	struct gossmap_chan *chan;
 	struct half_chan hc;
+	bool ret;
 
-	fill_from_update(map, &scidd, &hc, cupdate_off,
-			 map->logcb, map->cbarg);
+	ret = fill_from_update(map, &scidd, &hc, cupdate_off);
 	chan = gossmap_find_chan(map, &scidd.scid);
 	/* This can happen if channel gets deleted! */
 	if (!chan)
-		return;
+		return ret;
 
 	/* Preserve this */
 	hc.nodeidx = chan->half[scidd.dir].nodeidx;
 	chan->half[scidd.dir] = hc;
 	chan->cupdate_off[scidd.dir] = cupdate_off;
+	return ret;
 }
 
 static void remove_channel_by_deletemsg(struct gossmap *map, u64 del_off)
@@ -677,7 +673,7 @@ static bool csum_matches(const struct gossmap *map,
 /* Returns false only if must_be_clean is true. */
 static bool map_catchup(struct gossmap *map, bool must_be_clean, bool *changed)
 {
-	size_t reclen;
+	size_t reclen, num_bad_cupdates = 0;
 
 	*changed = false;
 
@@ -749,7 +745,7 @@ static bool map_catchup(struct gossmap *map, bool must_be_clean, bool *changed)
 			if (redundant && must_be_clean)
 				return false;
 		} else if (type == WIRE_CHANNEL_UPDATE)
-			update_channel(map, off);
+			num_bad_cupdates += update_channel(map, off);
 		else if (type == WIRE_GOSSIP_STORE_DELETE_CHAN)
 			remove_channel_by_deletemsg(map, off);
 		else if (type == WIRE_NODE_ANNOUNCEMENT)
@@ -774,6 +770,12 @@ static bool map_catchup(struct gossmap *map, bool must_be_clean, bool *changed)
 
 		*changed = true;
 	}
+
+	if (num_bad_cupdates != 0)
+		map->logcb(map->cbarg,
+			   LOG_DBG,
+			   "Got %zu bad cupdates, ignoring them (expected on mainnet)",
+			   num_bad_cupdates);
 
 	return true;
 }
@@ -1168,7 +1170,7 @@ void gossmap_apply_localmods(struct gossmap *map,
 			off = insert_local_space(&map->local_updates, tal_bytelen(cupdatemsg));
 			memcpy(map->local_updates + off, cupdatemsg, tal_bytelen(cupdatemsg));
 			chan->cupdate_off[h] = map->map_size + tal_bytelen(map->local_announces) + off;
-			fill_from_update(map, &scidd, &chan->half[h], chan->cupdate_off[h], NULL, NULL);
+			fill_from_update(map, &scidd, &chan->half[h], chan->cupdate_off[h]);
 
 			/* We wrote the right update, correct? */
 			assert(short_channel_id_eq(scidd.scid, mod->scid));
