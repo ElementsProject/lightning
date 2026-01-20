@@ -1226,6 +1226,16 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("dev-splice", payload)
 
+    def spliceout(self, channel, amount, destination=None, force_feerate=None):
+        """ Execute a splice out """
+        payload = {
+            "channel": channel,
+            "amount": amount,
+            "destination": destination,
+            "force_feerate": force_feerate,
+        }
+        return self.call("spliceout", payload)
+
     def stfu_channels(self, channel_ids):
         """ STFU multiple channels """
         payload = {
