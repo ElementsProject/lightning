@@ -574,7 +574,7 @@
               ],
               "deprecated": [
                 "v25.02",
-                "v26.06"
+                "v26.03"
               ]
             },
             "their_max_htlc_value_in_flight_msat": {
