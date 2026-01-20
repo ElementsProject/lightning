@@ -1487,7 +1487,7 @@ static struct command_result *get_beglist(struct command *aux_cmd,
 	const char *err;
 
 	err = json_scan(tmpctx, buf, result,
-			"{configs:{i-promise-to-fix-broken-api-user?:%}}",
+			"{configs:{i-promise-to-fix-broken-api-user:{values_str:%}}}",
 			JSON_SCAN_TAL(plugin, json_to_apilist, &plugin->beglist));
 	if (err)
 		plugin_err(aux_cmd->plugin, "bad listconfigs '%.*s': %s",
