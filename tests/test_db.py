@@ -19,8 +19,9 @@ def test_db_dangling_peer_fix(node_factory, bitcoind):
     bitcoind.generate_block(104)
     # This was taken from test_fail_unconfirmed() node.
     l1 = node_factory.get_node(dbfile='dangling-peer.sqlite3.xz',
+                               old_hsmsecret=True,
                                options={'database-upgrade': True})
-    l2 = node_factory.get_node()
+    l2 = node_factory.get_node(old_hsmsecret=True)
 
     # Must match entry in db
     assert l2.info['id'] == '022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59'
@@ -175,6 +176,7 @@ def test_last_tx_inflight_psbt_upgrade(node_factory, bitcoind):
     upgraded_psbts = ['cHNidP8BAgQCAAAAAQMEmj7WIAEEAQEBBQECAQYBAwH7BAIAAAAAAQEroIYBAAAAAAAiACBbjNO5FM9nzdj6YnPJMDU902R2c0+9liECwt9TuQiAzSICAuO9OACYZsnajsSqmcxOqcbA3UbfFcYe8M4fJxKRcU5XRjBDAiBgFZ+8xOkvxfBoC9QdAhBuX6zhpvKsqWw8QeN2gK1b4wIfQdSIq+vNMfnFZqLyv3Un4s7i2MzHUiTs2morB/t/SwEBAwQBAAAAAQVHUiECMkJm3oQDs6sVegnx94TVh69hgxyZjBUbzCG7dMKyMUshAuO9OACYZsnajsSqmcxOqcbA3UbfFcYe8M4fJxKRcU5XUq4iBgIyQmbehAOzqxV6CfH3hNWHr2GDHJmMFRvMIbt0wrIxSwhK0xNpAAAAACIGAuO9OACYZsnajsSqmcxOqcbA3UbfFcYe8M4fJxKRcU5XCBq8wdAAAAAAAQ4gnMyi5Z2GOwC1vYNb97qTzCV5MtLHzb5R7+LuSp0p38sBDwQBAAAAARAEnbDigAABAwhKAQAAAAAAAAEEIgAgvnk1p3ypq3CkuLGQaCVjd2f+08AIJKqQyYiYNYfWhIgAAQMI8IIBAAAAAAABBCIAIJ9GhN2yis3HOVm8GU0aJd+Qb2HtAw9S0WPm8eJH0yy7AA==', 'cHNidP8BAgQCAAAAAQMEmj7WIAEEAQEBBQECAQYBAwH7BAIAAAAAAQEroIYBAAAAAAAiACBbjNO5FM9nzdj6YnPJMDU902R2c0+9liECwt9TuQiAzSICAuO9OACYZsnajsSqmcxOqcbA3UbfFcYe8M4fJxKRcU5XRzBEAiBWXvsSYMpD69abqr7X9XurE6B6GkhyI5JeGuKYByBukAIgUmk9q/g3PIS9HjTVJ4OmRoSZAMKLFdsowq15Sl9OAD8BAQMEAQAAAAEFR1IhAjJCZt6EA7OrFXoJ8feE1YevYYMcmYwVG8whu3TCsjFLIQLjvTgAmGbJ2o7EqpnMTqnGwN1G3xXGHvDOHycSkXFOV1KuIgYCMkJm3oQDs6sVegnx94TVh69hgxyZjBUbzCG7dMKyMUsIStMTaQAAAAAiBgLjvTgAmGbJ2o7EqpnMTqnGwN1G3xXGHvDOHycSkXFOVwgavMHQAAAAAAEOICL56+OPVCCFRbaBrX9zp641BKCcggH1Amc9NOKEJGh8AQ8EAQAAAAEQBJ2w4oAAAQMISgEAAAAAAAABBCIAIL55Nad8qatwpLixkGglY3dn/tPACCSqkMmImDWH1oSIAAEDCPCCAQAAAAAAAQQiACCfRoTdsorNxzlZvBlNGiXfkG9h7QMPUtFj5vHiR9MsuwA=']
 
     l1 = node_factory.get_node(dbfile='upgrade_inflight.sqlite3.xz',
+                               old_hsmsecret=True,
                                options={'database-upgrade': True})
 
     b64_last_txs = [base64.b64encode(x['last_tx']).decode('utf-8') for x in l1.db_query('SELECT last_tx FROM channel_funding_inflights ORDER BY channel_id, funding_feerate;')]
@@ -197,6 +199,7 @@ def test_last_tx_psbt_upgrade(node_factory, bitcoind):
                                # actually from l2, not l1.  But if we make this l1, then last_tx changes
                                broken_log='gossipd rejected our channel announcement',
                                allow_bad_gossip=True,
+                               old_hsmsecret=True,
                                options={'database-upgrade': True})
 
     b64_last_txs = [base64.b64encode(x['last_tx']).decode('utf-8') for x in l1.db_query('SELECT last_tx FROM channels ORDER BY id;')]
@@ -257,6 +260,7 @@ def test_backfill_scriptpubkeys(node_factory, bitcoind):
     l1 = node_factory.get_node(node_id=3, dbfile='pubkey_regen.sqlite.xz',
                                # Our db had the old non-DER sig in psbt!
                                broken_log='Forced database repair of psbt',
+                               old_hsmsecret=True,
                                options={'database-upgrade': True})
     results = l1.db_query('SELECT hex(prev_out_tx) AS txid, hex(scriptpubkey) AS script FROM outputs')
     scripts = [{'txid': x['txid'], 'scriptpubkey': x['script']} for x in results]
@@ -294,6 +298,7 @@ def test_backfill_scriptpubkeys(node_factory, bitcoind):
     l2 = node_factory.get_node(node_id=3, dbfile='pubkey_regen_commitment_point.sqlite3.xz',
                                # Our db had the old non-DER sig in psbt!
                                broken_log='Forced database repair of psbt',
+                               old_hsmsecret=True,
                                options={'database-upgrade': True})
     results = l2.db_query('SELECT hex(prev_out_tx) AS txid, hex(scriptpubkey) AS script FROM outputs')
     scripts = [{'txid': x['txid'], 'scriptpubkey': x['script']} for x in results]
@@ -374,6 +379,7 @@ def test_local_basepoints_cache(bitcoind, node_factory):
         start=False,
         # Our db had the old non-DER sig in psbt!
         broken_log='Forced database repair of psbt',
+        old_hsmsecret=True,
         options={'database-upgrade': True}
     )
 
@@ -505,6 +511,7 @@ def test_db_forward_migrate(bitcoind, node_factory):
     # assert False
     bitcoind.generate_block(113)
     l1 = node_factory.get_node(dbfile='v0.12.1-forward.sqlite3.xz',
+                               old_hsmsecret=True,
                                options={'database-upgrade': True})
 
     assert l1.rpc.getinfo()['fees_collected_msat'] == 4
@@ -629,6 +636,7 @@ def test_channel_htlcs_id_change(bitcoind, node_factory):
               '000000204488f00bb863cfcb1e038e7e3a5f7b48439a78e55294617d318e89aa1adfad436fe12257d5e7456c01f069ba5c03945cc377c345f7d9efce224ffe37fc03064e0c642868ffff7f200000000002020000000001010000000000000000000000000000000000000000000000000000000000000000ffffffff03016600ffffffff028df2052a01000000160014db9680a36eba1588d654997b4dfe8367750601560000000000000000266a24aa21a9ede1cda2213558058f747117e749d912456522f34f1d56266b6ebd8b00a9f2643e012000000000000000000000000000000000000000000000000000000000000000000000000002000000000101754da9b9e16d987364f7c82d252ca2f12d18a26e5d23e1eb1d7b1aa19682e1250000000000fdffffff02f36ce7290100000016001406d100d7761da1b04a7c879676b0bd8b8f054b8480841e000000000016001401fad90abcd66697e2592164722de4a95ebee165024730440220393e40c25bdae368e3dba1161b84b4d79f555c75b507c0825c12bb5dc4bd5e33022032527f64e57b3c223c6ceb90f495b9aac804537aec757ed2e826fc0993fd27f3012102ee9864ff8b00633cf9dfdca577142831ccf641d9c066d26cfaf0e3e7e763b48d65000000']
     bitcoind.restore_blocks(blocks)
     l1 = node_factory.get_node(dbfile='channel_htlcs-pre-pagination.sqlite3.xz',
+                               old_hsmsecret=True,
                                options={'database-upgrade': True})
 
     # l2 is the node l1 thinks it has a channel with.  l2 has no idea, but we allocate it so

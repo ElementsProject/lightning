@@ -1976,10 +1976,12 @@ def test_migration(node_factory, bitcoind):
     bitcoind.generate_block(1)
     l1 = node_factory.get_node(dbfile="l1-before-moves-in-db.sqlite3.xz",
                                bkpr_dbfile="l1-bkpr-accounts.sqlite3.xz",
-                               options={'database-upgrade': True})
+                               options={'database-upgrade': True},
+                               old_hsmsecret=True)
     l2 = node_factory.get_node(dbfile="l2-before-moves-in-db.sqlite3.xz",
                                bkpr_dbfile="l2-bkpr-accounts.sqlite3.xz",
-                               options={'database-upgrade': True})
+                               options={'database-upgrade': True},
+                               old_hsmsecret=True)
     chan = only_one(l1.rpc.listpeerchannels()['channels'])
     payment = only_one(l1.rpc.listsendpays()['payments'])
 
@@ -2057,9 +2059,11 @@ def test_migration_no_bkpr(node_factory, bitcoind):
     """These nodes need to invent coinmoves to make the balances work"""
     bitcoind.generate_block(1)
     l1 = node_factory.get_node(dbfile="l1-before-moves-in-db.sqlite3.xz",
-                               options={'database-upgrade': True})
+                               options={'database-upgrade': True},
+                               old_hsmsecret=True)
     l2 = node_factory.get_node(dbfile="l2-before-moves-in-db.sqlite3.xz",
-                               options={'database-upgrade': True})
+                               options={'database-upgrade': True},
+                               old_hsmsecret=True)
 
     chan = only_one(l1.rpc.listpeerchannels()['channels'])
 

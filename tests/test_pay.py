@@ -2935,7 +2935,7 @@ def test_error_returns_blockheight(node_factory, bitcoind):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Invoice is network specific")
 def test_pay_no_secret(node_factory, bitcoind):
-    l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True, opts={'old_hsmsecret': True})
 
     l2.rpc.invoice(100000, "test_pay_no_secret", "test_pay_no_secret",
                    preimage='00' * 32, expiry=2000000000)
@@ -5285,7 +5285,7 @@ def test_pay_manual_exclude(node_factory, bitcoind):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Invoice is network specific")
 def test_pay_bolt11_metadata(node_factory, bitcoind):
-    l1, l2 = node_factory.line_graph(2)
+    l1, l2 = node_factory.line_graph(2, opts={'old_hsmsecret': True})
 
     # BOLT #11:
     # > ### Please send 0.01 BTC with payment metadata 0x01fafaf0
