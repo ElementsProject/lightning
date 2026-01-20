@@ -459,14 +459,14 @@ def test_gossip_jsonrpc(node_factory):
     assert n2['nodeid'] == l2.info['id']
 
     # Might not have seen other node-announce yet.
-    assert n1['alias'].startswith('JUNIORBEAM')
-    assert n1['color'] == '0266e4'
+    assert n1['alias'].startswith('STRANGEBOUNCE')
+    assert n1['color'] == '038194'
     if 'alias' not in n2:
         assert 'color' not in n2
         assert 'addresses' not in n2
     else:
-        assert n2['alias'].startswith('SILENTARTIST')
-        assert n2['color'] == '022d22'
+        assert n2['alias'].startswith('SILENTGOPHER')
+        assert n2['color'] == '033845'
 
     assert [c['active'] for c in l1.rpc.listchannels()['channels']] == [True, True]
     assert [c['public'] for c in l1.rpc.listchannels()['channels']] == [True, True]
@@ -1312,7 +1312,7 @@ def test_node_reannounce(node_factory, bitcoind, chainparams):
     # Wait for it to process it.
     wait_for(lambda: l2.rpc.listnodes(l1.info['id'])['nodes'] != [])
     wait_for(lambda: 'alias' in only_one(l2.rpc.listnodes(l1.info['id'])['nodes']))
-    assert only_one(l2.rpc.listnodes(l1.info['id'])['nodes'])['alias'].startswith('JUNIORBEAM')
+    assert only_one(l2.rpc.listnodes(l1.info['id'])['nodes'])['alias'].startswith('STRANGEBOUNCE')
 
     # Make sure it gets features correct.
     assert only_one(l2.rpc.listnodes(l1.info['id'])['nodes'])['features'] == expected_node_features()
@@ -1501,7 +1501,7 @@ def test_getroute_exclude(node_factory, bitcoind):
     # This should work
     route = l1.rpc.getroute(l4.info['id'], 1, 1)['route']
 
-    # l1 id is > l2 id, so 1 means l1->l2
+    # l1 id (038194) > l2 id (033845), so direction 1 means l1->l2
     chan_l1l2 = route[0]['channel'] + '/1'
     chan_l2l1 = route[0]['channel'] + '/0'
 
@@ -1527,13 +1527,11 @@ def test_getroute_exclude(node_factory, bitcoind):
                              r'update for channel {}/1 now ACTIVE'
                              .format(scid)])
 
-    # l3 id is > l2 id, so 1 means l3->l2
-    # chan_l3l2 = route[1]['channel'] + '/1'
+    # l2 id (033845) < l3 id (03cecb), so direction 0 means l2->l3
     chan_l2l3 = route[1]['channel'] + '/0'
 
-    # l4 is > l2
-    # chan_l4l2 = scid + '/1'
-    chan_l2l4 = scid + '/0'
+    # l2 id (033845) > l4 id (02287b), so direction 1 means l2->l4
+    chan_l2l4 = scid + '/1'
 
     # This works
     l1.rpc.getroute(l4.info['id'], 1, 1, exclude=[chan_l2l3])

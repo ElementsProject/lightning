@@ -2993,7 +2993,7 @@ def test_makesecret(node_factory):
     l1 = node_factory.get_node(options={"dev-force-privkey": "1212121212121212121212121212121212121212121212121212121212121212"})
     secret = l1.rpc.makesecret("73636220736563726574")["secret"]
 
-    assert (secret == "a9a2e742405c28f059349132923a99337ae7f71168b7485496e3365f5bc664ed")
+    assert (secret == "498a16a6c6b82b7280de7f5b0afa0478b29d3a1cbe52c376249cf46abb6c03da")
 
     # Same if we do it by parameter name
     assert l1.rpc.makesecret(hex="73636220736563726574")["secret"] == secret
@@ -4985,8 +4985,9 @@ def test_listaddresses(node_factory):
     # Check all fields are present in the response
     addresses = l1.rpc.listaddresses(address=addr[0])["addresses"]
     assert addresses[0]['keyidx'] == 1
-    assert addresses[0]['bech32'] == 'bcrt1qq8adjz4u6enf0cjey9j8yt0y490tact93fzgsf'
-    assert addresses[0]['p2tr'] == 'bcrt1pjaazqg6qgqpv2wxgdpg8hyj49wehrfgajqe2tyuzhcp7p50hachq7tkdxf'
+    # With BIP86, addresses are different from BIP32
+    assert addresses[0]['p2tr'] == 'bcrt1ph9gd3vrxqv5c43lhz330n6u497utuqzzjwtrwj89wy879z6nwrpseaf4et'
+    assert addresses[0]['bech32'] == 'bcrt1qufr4lmec5a8humz7anckxk092uel83r2eqr33s'
 
     # start > 10 (issued addresses till now)
     addresses = l1.rpc.listaddresses(start=11, limit=2)["addresses"]

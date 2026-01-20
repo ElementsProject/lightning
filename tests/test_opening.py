@@ -1580,7 +1580,7 @@ def test_zeroconf_mindepth(bitcoind, node_factory):
         {},
         {
             'plugin': str(plugin_path),
-            'zeroconf_allow': '0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518',
+            'zeroconf_allow': '038194b5f32bdf0aa59812c86c4ef7ad2f294104fa027d1ace9b469bb6f88cf37b',
             'zeroconf_mindepth': '2',
         },
     ])
@@ -1627,7 +1627,7 @@ def test_zeroconf_open(bitcoind, node_factory):
         {},
         {
             'plugin': str(plugin_path),
-            'zeroconf_allow': '022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59'
+            'zeroconf_allow': '033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a'
         },
     ])
 
@@ -1702,7 +1702,7 @@ def test_zeroconf_public(bitcoind, node_factory, chainparams):
         {'plugin': str(coin_mvt_plugin)},
         {
             'plugin': str(plugin_path),
-            'zeroconf_allow': '0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518'
+            'zeroconf_allow': '038194b5f32bdf0aa59812c86c4ef7ad2f294104fa027d1ace9b469bb6f88cf37b'
         },
         {}
     ])
@@ -1804,7 +1804,7 @@ def test_zeroconf_forward(node_factory, bitcoind):
         {},
         {
             'plugin': str(plugin_path),
-            'zeroconf_allow': '022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59'
+            'zeroconf_allow': '033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a'
         }
     ]
     l1, l2, l3 = node_factory.get_nodes(3, opts=opts)
@@ -2073,7 +2073,7 @@ def test_zeroconf_multichan_forward(node_factory):
     higher spendable msat, which should cause it to be chosen instead.
 
     """
-    node_id = '022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59'
+    node_id = '033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a'
     plugin_path = Path(__file__).parent / "plugins" / "zeroconf-selective.py"
     l1, l2, l3 = node_factory.line_graph(3, opts=[
         {},
@@ -2600,7 +2600,7 @@ def test_opening_explicit_channel_type(node_factory, bitcoind):
     l1, l2, l3, l4 = node_factory.get_nodes(4,
                                             opts=[{'experimental-dual-fund': None},
                                                   {'plugin': str(plugin_path),
-                                                   'zeroconf_allow': '0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518'},
+                                                   'zeroconf_allow': '038194b5f32bdf0aa59812c86c4ef7ad2f294104fa027d1ace9b469bb6f88cf37b'},
                                                   {'experimental-dual-fund': None},
                                                   {}])
 
@@ -2734,7 +2734,7 @@ def test_zeroconf_forget(node_factory, bitcoind, dopay: bool):
             {},
             {
                 "plugin": str(plugin_path),
-                "zeroconf_allow": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+                "zeroconf_allow": "038194b5f32bdf0aa59812c86c4ef7ad2f294104fa027d1ace9b469bb6f88cf37b",
                 "zeroconf_mindepth": "0",
                 "dev-max-funding-unconfirmed-blocks": blocks,
             },
@@ -2887,7 +2887,7 @@ def test_zeroconf_withhold(node_factory, bitcoind, stay_withheld, mutual_close):
                                               'dev-no-reconnect': None,
                                               },
                                              {'plugin': str(plugin_path),
-                                              'zeroconf_allow': '0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518',
+                                              'zeroconf_allow': '038194b5f32bdf0aa59812c86c4ef7ad2f294104fa027d1ace9b469bb6f88cf37b',
                                               'may_reconnect': True,
                                               'dev-no-reconnect': None,
                                               }])
