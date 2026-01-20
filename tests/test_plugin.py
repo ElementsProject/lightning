@@ -4127,6 +4127,9 @@ def test_sql(node_factory, bitcoind):
     row = only_one(ret['rows'])
     assert row == [v for v in optret.values()]
 
+    # Make sure we have a node_announcement for l1
+    wait_for(lambda: l2.rpc.listnodes(l1.info['id'])['nodes'] != [])
+
     # Correctly handles missing object.
     assert l2.rpc.sql("SELECT option_will_fund_lease_fee_base_msat,"
                       " option_will_fund_lease_fee_basis,"
