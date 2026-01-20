@@ -338,9 +338,6 @@ struct daemon {
 	u32 gossip_recent_time;
 	struct gossmap_iter *gossmap_iter_recent;
 
-	/* We only announce websocket addresses if !deprecated_apis */
-	bool announce_websocket;
-
 	/* Shutting down, don't send new stuff */
 	bool shutting_down;
 

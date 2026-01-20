@@ -1652,7 +1652,6 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 				    &tor_password,
 				    &daemon->timeout_secs,
 				    &daemon->websocket_helper,
-				    &daemon->announce_websocket,
 				    &daemon->dev_fast_gossip,
 				    &dev_disconnect,
 				    &daemon->dev_no_ping_timer,
