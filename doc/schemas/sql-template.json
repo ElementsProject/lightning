@@ -286,12 +286,6 @@
             "option_static_remotekey"
           ],
           [
-            29,
-            23,
-            1,
-            "option_anchors_zero_fee_htlc_tx"
-          ],
-          [
             30,
             23,
             2,

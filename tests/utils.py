@@ -465,7 +465,7 @@ def first_scidd(n1, n2):
 
 def basic_fee(feerate, anchor_expected):
     if anchor_expected:
-        # option_anchor_outputs / option_anchors_zero_fee_htlc_tx
+        # option_anchor_outputs
         weight = 1124
     else:
         weight = 724

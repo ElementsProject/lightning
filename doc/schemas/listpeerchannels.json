@@ -462,12 +462,11 @@
                   "option_static_remotekey",
                   "option_anchor_outputs",
                   "option_anchors",
-                  "option_anchors_zero_fee_htlc_tx",
                   "option_scid_alias",
                   "option_zeroconf"
                 ],
                 "description": [
-                  "BOLT #9 features which apply to this channel. Note that *anchors_zero_fee_htlc_tx* is a deprecated synonym for *anchors*."
+                  "BOLT #9 features which apply to this channel."
                 ]
               }
             },
@@ -1536,7 +1535,6 @@
             },
             "features": [
               "option_static_remotekey",
-              "option_anchors_zero_fee_htlc_tx",
               "option_anchors"
             ],
             "funding": {
@@ -1668,7 +1666,6 @@
             },
             "features": [
               "option_static_remotekey",
-              "option_anchors_zero_fee_htlc_tx",
               "option_anchors"
             ],
             "funding": {
@@ -1794,7 +1791,6 @@
             },
             "features": [
               "option_static_remotekey",
-              "option_anchors_zero_fee_htlc_tx",
               "option_anchors"
             ],
             "funding": {

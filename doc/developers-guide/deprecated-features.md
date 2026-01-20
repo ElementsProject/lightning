@@ -9,7 +9,6 @@ privacy:
 
 | Name                                               | Type               | First Deprecated | Last Supported | Description                                                                                                               |
 |----------------------------------------------------|--------------------|------------------|----------------|---------------------------------------------------------------------------------------------------------------------------|
-| listpeers.features.option_anchors_zero_fee_htlc_tx | Field              | v24.08           | v25.09         | Renamed to `option_anchors` in the spec: check for that in `features` instead                                             |
 | decodepay                                          | Command            | v24.11           | v25.12         | Use `decode` which is more powerful (since v23.05)                                                                        |
 | close.tx                                           | Field              | v24.11           | v25.12         | Use txs array instead                                                                                                     |
 | close.txid                                         | Field              | v24.11           | v25.12         | Use txids array instead                                                                                                   |

@@ -162,11 +162,8 @@ void json_add_unsaved_channel(struct command *cmd,
 
 	if (feature_negotiated(channel->peer->ld->our_features,
 			       channel->peer->their_features,
-			       OPT_ANCHORS_ZERO_FEE_HTLC_TX)) {
-		if (command_deprecated_out_ok(cmd, "features", "v24.08", "v25.09"))
-			json_add_string(response, NULL, "option_anchors_zero_fee_htlc_tx");
+			       OPT_ANCHORS_ZERO_FEE_HTLC_TX))
 		json_add_string(response, NULL, "option_anchors");
-	}
 
 	json_array_end(response);
 	json_object_end(response);
