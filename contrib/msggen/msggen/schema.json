@@ -33917,6 +33917,73 @@
         }
       ]
     },
+    "splicein.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "added": "v26.04",
+      "rpc": "splicein",
+      "title": "Command to splice funds into a channel",
+      "warning": "experimental-splicing only",
+      "description": [
+        "`splicein` is the command to move funds into a channel."
+      ],
+      "request": {
+        "required": [
+          "channel",
+          "amount"
+        ],
+        "properties": {
+          "channel": {
+            "type": "string",
+            "description": [
+              "channel identifier or channel query. Format is the same as is used in `dev-splice`."
+            ]
+          },
+          "amount": {
+            "type": "string",
+            "description": [
+              "Amount in satoshis taken from the internal wallet and add to the channel. Format is the same as is used in `dev-splice`."
+            ]
+          }
+        }
+      },
+      "response": {
+        "required": [],
+        "properties": {
+          "psbt": {
+            "type": "string",
+            "description": [
+              "The final psbt"
+            ]
+          },
+          "tx": {
+            "type": "string",
+            "description": [
+              "The final transaction in hex"
+            ]
+          },
+          "txid": {
+            "type": "string",
+            "description": [
+              "The txid of the final transaction"
+            ]
+          }
+        }
+      },
+      "usage": [
+        "`splicein` is the command to add funds to a channel. It takes `amount` funds from your onchain wallet and places them into `channel`."
+      ],
+      "author": [
+        "Dusty [@dusty_daemon](mailto:@dustydaemon) is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-dev-splice(7)"
+      ],
+      "resources": [
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+      ]
+    },
     "sql-template.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
