@@ -274,11 +274,22 @@ def test_createrune_per_restriction(node_factory):
     do_test_rune_per_restriction(l1, rune_per_min, 60)
 
 
-def test_showrunes(node_factory):
-    l1 = node_factory.get_node()
+@pytest.mark.parametrize("old_hsmsecret", [True, False])
+def test_showrunes(node_factory, old_hsmsecret):
+    l1 = node_factory.get_node(old_hsmsecret=old_hsmsecret)
     rune1 = l1.rpc.createrune()
+
+    if old_hsmsecret:
+        first_rune = 'OSqc7ixY6F-gjcigBfxtzKUI54uzgFSA6YfBQoWGDV89MA=='
+        second_rune = 'geZmO6U7yqpHn-moaX93FVMVWrDRfSNY4AXx9ypLcqg9MQ=='
+        ninth_rune = 'lI6iPwM1R9OkcRW25SH0a06PscPDinTfLFAjzSGFGE09OQ=='
+    else:
+        first_rune = 'I9TZsYEWiAwThQye-gYhpWIe1h15szWEN_qNyMSBOdE9MA=='
+        second_rune = 'uJXLfjDwNvh3KLkiCHc-wE2eBM7-AT7IT9oprKL1EtY9MQ=='
+        ninth_rune = 'j6bX7Q4L3jcVnMp56cRKRROWQevIVyIHExNKsL9iqCg9OQ=='
+
     assert rune1 == {
-        'rune': 'OSqc7ixY6F-gjcigBfxtzKUI54uzgFSA6YfBQoWGDV89MA==',
+        'rune': first_rune,
         'unique_id': '0',
         'warning_unrestricted_rune': 'WARNING: This rune has no restrictions! Anyone who has access to this rune could drain funds from your node. Be careful when giving this to apps that you don\'t trust. Consider using the restrictions parameter to only allow access to specific rpc methods.'
     }
@@ -290,13 +301,13 @@ def test_showrunes(node_factory):
     assert showrunes == {
         'runes': [
             {
-                'rune': 'OSqc7ixY6F-gjcigBfxtzKUI54uzgFSA6YfBQoWGDV89MA==',
+                'rune': first_rune,
                 'unique_id': '0',
                 'restrictions': [],
                 'restrictions_as_english': ''
             },
             {
-                'rune': 'geZmO6U7yqpHn-moaX93FVMVWrDRfSNY4AXx9ypLcqg9MQ==',
+                'rune': second_rune,
                 'unique_id': '1',
                 'restrictions': [],
                 'restrictions_as_english': ''
@@ -304,9 +315,11 @@ def test_showrunes(node_factory):
         ]
     }
 
-    our_unstored_rune = l1.rpc.showrunes(rune='lI6iPwM1R9OkcRW25SH0a06PscPDinTfLFAjzSGFGE09OQ==')['runes'][0]
+    our_unstored_rune = l1.rpc.showrunes(rune=ninth_rune)['runes'][0]
     assert our_unstored_rune['unique_id'] == '9'
     assert our_unstored_rune['stored'] is False
+    # This is only present if False, which is unusual.
+    assert 'our_rune' not in our_unstored_rune
 
     not_our_rune = l1.rpc.showrunes(rune='oNJAqigqDrHBGzsm7gV3z87oGpzq-KqFlOxx2O9iEQk9MA==')['runes'][0]
     assert not_our_rune['stored'] is False
