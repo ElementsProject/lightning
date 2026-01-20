@@ -460,6 +460,7 @@ dependencies = [
     { name = "grpcio" },
     { name = "grpcio-tools" },
     { name = "mako" },
+    { name = "mnemonic" },
     { name = "protobuf" },
     { name = "pyln-client" },
     { name = "pyln-grpc-proto" },
@@ -501,6 +502,7 @@ requires-dist = [
     { name = "grpcio", specifier = "==1.75.1" },
     { name = "grpcio-tools", specifier = "==1.75.1" },
     { name = "mako", specifier = ">=1.1.6" },
+    { name = "mnemonic", specifier = ">=0.21" },
     { name = "protobuf", specifier = "==6.32.1" },
     { name = "pyln-client", editable = "contrib/pyln-client" },
     { name = "pyln-grpc-proto", editable = "contrib/pyln-grpc-proto" },
@@ -1262,6 +1264,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/e7/ff/0ffefdcac38932a54d2b5eed4e0ba8a408f215002cd178ad1df0f2806ff8/mccabe-0.7.0.tar.gz", hash = "sha256:348e0240c33b60bbdf4e523192ef919f28cb2c3d7d5c7794f74009290f236325", size = 9658, upload-time = "2022-01-24T01:14:51.113Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/27/1a/1f68f9ba0c207934b35b86a8ca3aad8395a3d6dd7921c0686e23853ff5a9/mccabe-0.7.0-py2.py3-none-any.whl", hash = "sha256:6c2d30ab6be0e4a46919781807b4f0d834ebdd6c6e3dca0bda5a15f863427b6e", size = 7350, upload-time = "2022-01-24T01:14:49.62Z" },
+]
+
+[[package]]
+name = "mnemonic"
+version = "0.21"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ff/77/e6232ed59fbd7b90208bb8d4f89ed5aabcf30a524bc2fb8f0dafbe8e7df9/mnemonic-0.21.tar.gz", hash = "sha256:1fe496356820984f45559b1540c80ff10de448368929b9c60a2b55744cc88acf", size = 152462, upload-time = "2024-01-05T10:46:14.895Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/57/48/5abb16ce7f9d97b728e6b97c704ceaa614362e0847651f379ed0511942a0/mnemonic-0.21-py3-none-any.whl", hash = "sha256:72dc9de16ec5ef47287237b9b6943da11647a03fe7cf1f139fc3d7c4a7439288", size = 92701, upload-time = "2024-01-05T10:46:12.703Z" },
 ]
 
 [[package]]
