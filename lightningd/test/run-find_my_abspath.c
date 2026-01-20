@@ -145,7 +145,7 @@ bool log_status_msg(struct logger *log UNNEEDED,
 		    const u8 *msg UNNEEDED)
 { fprintf(stderr, "log_status_msg called!\n"); abort(); }
 /* Generated stub for new_log_book */
-struct log_book *new_log_book(struct lightningd *ld UNNEEDED, size_t max_mem UNNEEDED)
+struct log_book *new_log_book(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "new_log_book called!\n"); abort(); }
 /* Generated stub for new_logger */
 struct logger *new_logger(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED,
