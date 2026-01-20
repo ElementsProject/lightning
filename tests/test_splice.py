@@ -308,6 +308,46 @@ def test_script_two_chan_splice_inout(node_factory, bitcoind):
     l2.rpc.pay(inv['bolt11'])
 
 
+@pytest.mark.xfail(strict=True)
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_easy_splice_in(node_factory, bitcoind, chainparams):
+    fundamt = 1000000
+
+    coin_mvt_plugin = Path(__file__).parent / "plugins" / "coin_movements.py"
+    l1, l2 = node_factory.line_graph(2, fundamount=fundamt, wait_for_announce=True,
+                                     opts={'experimental-splicing': None,
+                                           'plugin': coin_mvt_plugin})
+
+    # Splice in 100k sats into first channel
+    spliceamt = 100000
+
+    l1.rpc.splicein("*:?", f"{spliceamt}")
+    p1 = only_one(l1.rpc.listpeerchannels(peer_id=l2.info['id'])['channels'])
+    p2 = only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])
+    assert p1['inflight'][0]['splice_amount'] == spliceamt
+    assert p1['inflight'][0]['total_funding_msat'] == (fundamt + spliceamt) * 1000
+    assert p1['inflight'][0]['our_funding_msat'] == fundamt * 1000
+    assert p2['inflight'][0]['splice_amount'] == 0
+    assert p2['inflight'][0]['total_funding_msat'] == (fundamt + spliceamt) * 1000
+    assert p2['inflight'][0]['our_funding_msat'] == 0
+    bitcoind.generate_block(6, wait_for_mempool=1)
+    l2.daemon.wait_for_log(r'lightningd, splice_locked clearing inflights')
+
+    p1 = only_one(l1.rpc.listpeerchannels(peer_id=l2.info['id'])['channels'])
+    p2 = only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])
+    assert p1['to_us_msat'] == (fundamt + spliceamt) * 1000
+    assert p1['total_msat'] == (fundamt + spliceamt) * 1000
+    assert p2['to_us_msat'] == 0
+    assert p2['total_msat'] == (fundamt + spliceamt) * 1000
+    assert 'inflight' not in p1
+    assert 'inflight' not in p2
+
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
+    wait_for(lambda: len(l1.rpc.listfunds()['channels']) == 1)
+
+
 # Makes channels going from node 1 -> 2, 2 -> 3, etc up to 'qty' number channels.
 # If balanced is True, than each channel will be balanced -- otherwise the lower
 # index channel will have funds in the channel to the higher indexed one.
