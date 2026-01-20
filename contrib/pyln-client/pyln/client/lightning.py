@@ -584,16 +584,6 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("datastoreusage", payload)
 
-    def decodepay(self, bolt11, description=None):
-        """
-        Decode {bolt11}, using {description} if necessary.
-        """
-        payload = {
-            "bolt11": bolt11,
-            "description": description
-        }
-        return self.call("decodepay", payload)
-
     def deldatastore(self, key, generation=None):
         """
         Remove an existing entry from the datastore.

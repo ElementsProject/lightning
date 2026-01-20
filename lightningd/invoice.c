@@ -1549,45 +1549,6 @@ static const struct json_command waitinvoice_command = {
 };
 AUTODATA(json_command, &waitinvoice_command);
 
-static struct command_result *json_decodepay(struct command *cmd,
-					     const char *buffer,
-					     const jsmntok_t *obj UNNEEDED,
-					     const jsmntok_t *params)
-{
-	struct bolt11 *b11;
-	struct json_stream *response;
-	const char *str, *desc;
-	char *fail;
-
-	if (!param_check(cmd, buffer, params,
-			 p_req("bolt11", param_invstring, &str),
-			 p_opt("description", param_escaped_string, &desc),
-			 NULL))
-		return command_param_failed();
-
-	b11 = bolt11_decode(cmd, str, cmd->ld->our_features, desc, NULL,
-			    &fail);
-
-	if (!b11) {
-		return command_fail(cmd, LIGHTNINGD, "Invalid bolt11: %s", fail);
-	}
-
-	if (command_check_only(cmd))
-		return command_check_done(cmd);
-
-	response = json_stream_success(cmd);
-	json_add_bolt11(response, b11);
-	return command_success(cmd, response);
-}
-
-static const struct json_command decodepay_command = {
-	"decodepay",
-	json_decodepay,
-	.depr_start = "v24.11",
-	.depr_end = "v25.12"
-};
-AUTODATA(json_command, &decodepay_command);
-
 /* If we fail because it exists, we also return the clashing invoice */
 static struct command_result *fail_exists(struct command *cmd,
 					  const struct json_escape *label)

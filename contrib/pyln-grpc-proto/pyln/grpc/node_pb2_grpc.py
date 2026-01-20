@@ -289,11 +289,6 @@ class NodeStub(object):
                 request_serializer=node__pb2.ListclosedchannelsRequest.SerializeToString,
                 response_deserializer=node__pb2.ListclosedchannelsResponse.FromString,
                 _registered_method=True)
-        self.DecodePay = channel.unary_unary(
-                '/cln.Node/DecodePay',
-                request_serializer=node__pb2.DecodepayRequest.SerializeToString,
-                response_deserializer=node__pb2.DecodepayResponse.FromString,
-                _registered_method=True)
         self.Decode = channel.unary_unary(
                 '/cln.Node/Decode',
                 request_serializer=node__pb2.DecodeRequest.SerializeToString,
@@ -1085,12 +1080,6 @@ class NodeServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def ListClosedChannels(self, request, context):
-        """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def DecodePay(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1935,11 +1924,6 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.ListClosedChannels,
                     request_deserializer=node__pb2.ListclosedchannelsRequest.FromString,
                     response_serializer=node__pb2.ListclosedchannelsResponse.SerializeToString,
-            ),
-            'DecodePay': grpc.unary_unary_rpc_method_handler(
-                    servicer.DecodePay,
-                    request_deserializer=node__pb2.DecodepayRequest.FromString,
-                    response_serializer=node__pb2.DecodepayResponse.SerializeToString,
             ),
             'Decode': grpc.unary_unary_rpc_method_handler(
                     servicer.Decode,
@@ -3804,33 +3788,6 @@ class Node(object):
             '/cln.Node/ListClosedChannels',
             node__pb2.ListclosedchannelsRequest.SerializeToString,
             node__pb2.ListclosedchannelsResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def DecodePay(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/cln.Node/DecodePay',
-            node__pb2.DecodepayRequest.SerializeToString,
-            node__pb2.DecodepayResponse.FromString,
             options,
             channel_credentials,
             insecure,

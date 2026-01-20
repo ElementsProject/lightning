@@ -59,7 +59,6 @@ service Node {
 	rpc TxSend(TxsendRequest) returns (TxsendResponse) {}
 	rpc ListPeerChannels(ListpeerchannelsRequest) returns (ListpeerchannelsResponse) {}
 	rpc ListClosedChannels(ListclosedchannelsRequest) returns (ListclosedchannelsResponse) {}
-	rpc DecodePay(DecodepayRequest) returns (DecodepayResponse) {}
 	rpc Decode(DecodeRequest) returns (DecodeResponse) {}
 	rpc DelPay(DelpayRequest) returns (DelpayResponse) {}
 	rpc DelForward(DelforwardRequest) returns (DelforwardResponse) {}
@@ -1583,49 +1582,6 @@ message ListclosedchannelsClosedchannels {
 message ListclosedchannelsClosedchannelsAlias {
 	optional string local = 1;
 	optional string remote = 2;
-}
-
-message DecodepayRequest {
-	string bolt11 = 1;
-	optional string description = 2;
-}
-
-message DecodepayResponse {
-	string currency = 1;
-	uint64 created_at = 2;
-	uint64 expiry = 3;
-	bytes payee = 4;
-	optional Amount amount_msat = 5;
-	bytes payment_hash = 6;
-	string signature = 7;
-	optional string description = 8;
-	optional bytes description_hash = 9;
-	uint32 min_final_cltv_expiry = 10;
-	optional bytes payment_secret = 11;
-	optional bytes features = 12;
-	optional bytes payment_metadata = 13;
-	repeated DecodepayFallbacks fallbacks = 14;
-	repeated DecodepayExtra extra = 16;
-	optional DecodeRoutehintList routes = 17;
-}
-
-message DecodepayFallbacks {
-	// DecodePay.fallbacks[].type
-	enum DecodepayFallbacksType {
-		P2PKH = 0;
-		P2SH = 1;
-		P2WPKH = 2;
-		P2WSH = 3;
-		P2TR = 4;
-	}
-	DecodepayFallbacksType item_type = 1;
-	optional string addr = 2;
-	bytes hex = 3;
-}
-
-message DecodepayExtra {
-	string tag = 1;
-	string data = 2;
 }
 
 message DecodeRequest {

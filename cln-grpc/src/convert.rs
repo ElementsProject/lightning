@@ -1461,53 +1461,6 @@ impl From<responses::ListclosedchannelsResponse> for pb::ListclosedchannelsRespo
 }
 
 #[allow(unused_variables)]
-impl From<responses::DecodepayExtra> for pb::DecodepayExtra {
-    fn from(c: responses::DecodepayExtra) -> Self {
-        Self {
-            data: c.data, // Rule #2 for type string
-            tag: c.tag, // Rule #2 for type string
-        }
-    }
-}
-
-#[allow(unused_variables)]
-impl From<responses::DecodepayFallbacks> for pb::DecodepayFallbacks {
-    fn from(c: responses::DecodepayFallbacks) -> Self {
-        Self {
-            addr: c.addr, // Rule #2 for type string?
-            hex: hex::decode(&c.hex).unwrap(), // Rule #2 for type hex
-            item_type: c.item_type as i32,
-        }
-    }
-}
-
-#[allow(unused_variables)]
-impl From<responses::DecodepayResponse> for pb::DecodepayResponse {
-    fn from(c: responses::DecodepayResponse) -> Self {
-        Self {
-            amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
-            created_at: c.created_at, // Rule #2 for type u64
-            currency: c.currency, // Rule #2 for type string
-            description: c.description, // Rule #2 for type string?
-            description_hash: c.description_hash.map(|v| <Sha256 as AsRef<[u8]>>::as_ref(&v).to_vec()), // Rule #2 for type hash?
-            expiry: c.expiry, // Rule #2 for type u64
-            // Field: DecodePay.extra[]
-            extra: c.extra.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
-            // Field: DecodePay.fallbacks[]
-            fallbacks: c.fallbacks.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
-            features: c.features.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
-            min_final_cltv_expiry: c.min_final_cltv_expiry, // Rule #2 for type u32
-            payee: c.payee.serialize().to_vec(), // Rule #2 for type pubkey
-            payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
-            payment_metadata: c.payment_metadata.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
-            payment_secret: c.payment_secret.map(|v| <Sha256 as AsRef<[u8]>>::as_ref(&v).to_vec()), // Rule #2 for type hash?
-            routes: c.routes.map(|drl| drl.into()), // Rule #2 for type DecodeRoutehintList?
-            signature: c.signature, // Rule #2 for type signature
-        }
-    }
-}
-
-#[allow(unused_variables)]
 impl From<responses::DecodeExtra> for pb::DecodeExtra {
     fn from(c: responses::DecodeExtra) -> Self {
         Self {
@@ -5312,16 +5265,6 @@ impl From<requests::ListclosedchannelsRequest> for pb::ListclosedchannelsRequest
 }
 
 #[allow(unused_variables)]
-impl From<requests::DecodepayRequest> for pb::DecodepayRequest {
-    fn from(c: requests::DecodepayRequest) -> Self {
-        Self {
-            bolt11: c.bolt11, // Rule #2 for type string
-            description: c.description, // Rule #2 for type string?
-        }
-    }
-}
-
-#[allow(unused_variables)]
 impl From<requests::DecodeRequest> for pb::DecodeRequest {
     fn from(c: requests::DecodeRequest) -> Self {
         Self {
@@ -7109,16 +7052,6 @@ impl From<pb::ListclosedchannelsRequest> for requests::ListclosedchannelsRequest
     fn from(c: pb::ListclosedchannelsRequest) -> Self {
         Self {
             id: c.id.map(|v| PublicKey::from_slice(&v).unwrap()), // Rule #1 for type pubkey?
-        }
-    }
-}
-
-#[allow(unused_variables)]
-impl From<pb::DecodepayRequest> for requests::DecodepayRequest {
-    fn from(c: pb::DecodepayRequest) -> Self {
-        Self {
-            bolt11: c.bolt11, // Rule #1 for type string
-            description: c.description, // Rule #1 for type string?
         }
     }
 }

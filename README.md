@@ -166,7 +166,7 @@ This returns some internal details, and a standard invoice string called `bolt11
 
 [BOLT11]: https://github.com/lightning/bolts/blob/master/11-payment-encoding.md
 
-The sender can feed this `bolt11` string to the `decodepay` command to see what it is, and pay it simply using the `pay` command:
+The sender can feed this `bolt11` string to the `decode` command to see what it is, and pay it simply using the `pay` command:
 
 ```bash
 lightning-cli pay <bolt11>

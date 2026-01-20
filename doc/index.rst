@@ -53,7 +53,6 @@ Core Lightning Documentation
    datastore <datastore.7.md>
    datastoreusage <datastoreusage.7.md>
    decode <decode.7.md>
-   decodepay <decodepay.7.md>
    deldatastore <deldatastore.7.md>
    delforward <delforward.7.md>
    delinvoice <delinvoice.7.md>
