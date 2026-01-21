@@ -1659,16 +1659,116 @@ static struct command_result *limited_list_done(struct command *cmd,
 
 /* The simplest case: append-only lists */
 static struct command_result *refresh_by_created_index(struct command *cmd,
-						       const struct table_desc *td,
-						       struct db_query *dbq)
+												   const struct table_desc *td,
+												   struct db_query *dbq)
 {
 	struct out_req *req;
 	req = jsonrpc_request_start(cmd, td->cmdname,
-				    limited_list_done, forward_error,
-				    dbq);
+								limited_list_done, forward_error,
+								dbq);
 	json_add_string(req->js, "index", "created");
 	json_add_u64(req->js, "start", *dbq->last_created_index + 1);
 	json_add_u64(req->js, "limit", LIMIT_PER_LIST);
+	return send_outreq(req);
+}
+
+
+static struct command_result *refresh_invoices_full(struct command *cmd,
+													const struct table_desc *td,
+													struct db_query *dbq)
+{
+	struct sql *sql = sql_of(cmd->plugin);
+	int err;
+	char *errmsg;
+
+	plugin_log(cmd->plugin, LOG_INFORM,"Full reload of invoices: wait API event indicates possible deletion/change");
+
+	err = sqlite3_exec(sql->db, tal_fmt(tmpctx, "DELETE FROM %s;", td->name),NULL, NULL, &errmsg);
+	if (err != SQLITE_OK) 
+	{
+		return command_fail(cmd, LIGHTNINGD, "cleaning '%s' failed: %s", td->name, errmsg);
+	}
+
+	struct out_req *req = jsonrpc_request_start(cmd, td->cmdname,
+												limited_list_done, forward_error,
+												dbq);
+
+	json_add_u64(req->js, "limit", LIMIT_PER_LIST);
+	json_add_u64(req->js, "start", 0);
+	return send_outreq(req);
+}
+
+static struct command_result *refresh_forwards_full(struct command *cmd,
+													const struct table_desc *td,
+													struct db_query *dbq)
+{
+	struct sql *sql = sql_of(cmd->plugin);
+	int err;
+	char *errmsg;
+
+	plugin_log(cmd->plugin, LOG_INFORM,"Full reload of forwards: wait API event indicates possible deletion/change");
+
+	err = sqlite3_exec(sql->db, tal_fmt(tmpctx, "DELETE FROM %s;", td->name), NULL, NULL, &errmsg);
+	if (err != SQLITE_OK) 
+	{
+		return command_fail(cmd, LIGHTNINGD, "cleaning '%s' failed: %s",td->name, errmsg);
+	}
+
+	struct out_req *req = jsonrpc_request_start(cmd, td->cmdname,
+												limited_list_done, forward_error,
+												dbq);
+
+	json_add_u64(req->js, "limit", LIMIT_PER_LIST);
+	json_add_u64(req->js, "start", 0);
+	return send_outreq(req);
+}
+
+static struct command_result *refresh_htlcs_full(struct command *cmd,
+												 const struct table_desc *td,
+												 struct db_query *dbq)
+{
+	struct sql *sql = sql_of(cmd->plugin);
+	int err;
+	char *errmsg;
+
+	plugin_log(cmd->plugin, LOG_INFORM, "Full reload of htlcs: wait API event indicates possible deletion/change");
+
+	err = sqlite3_exec(sql->db, tal_fmt(tmpctx, "DELETE FROM %s;", td->name),  NULL, NULL, &errmsg);
+	if (err != SQLITE_OK) 
+	{
+		return command_fail(cmd, LIGHTNINGD, "cleaning '%s' failed: %s", td->name, errmsg);
+	}
+
+	struct out_req *req = jsonrpc_request_start(cmd, td->cmdname,
+												limited_list_done, forward_error,
+												dbq);
+
+	json_add_u64(req->js, "limit", LIMIT_PER_LIST);
+	json_add_u64(req->js, "start", 0);
+	return send_outreq(req);
+}
+
+static struct command_result *refresh_sendpays_full(struct command *cmd,
+													const struct table_desc *td,
+													struct db_query *dbq)
+{
+	struct sql *sql = sql_of(cmd->plugin);
+	int err;
+	char *errmsg;
+
+	plugin_log(cmd->plugin, LOG_INFORM, "Full reload of sendpays: wait API event indicates possible deletion/change");
+	
+	err = sqlite3_exec(sql->db, tal_fmt(tmpctx, "DELETE FROM %s;", td->name),NULL, NULL, &errmsg);
+	if (err != SQLITE_OK) 
+	{
+		return command_fail(cmd, LIGHTNINGD, "cleaning '%s' failed: %s",td->name, errmsg);
+	}
+	struct out_req *req = jsonrpc_request_start(cmd, td->cmdname,
+												limited_list_done, forward_error,
+												dbq);
+
+	json_add_u64(req->js, "limit", LIMIT_PER_LIST);
+	json_add_u64(req->js, "start", 0);
 	return send_outreq(req);
 }
 
@@ -1685,10 +1785,11 @@ static const struct refresh_funcs refresh_funcs[] = {
 	{ "listchannels", channels_refresh, NULL },
 	{ "listnodes", nodes_refresh, NULL },
 	/* These support wait and full pagination */
-	{ "listhtlcs", refresh_by_created_index, "htlcs" },
-	{ "listforwards", refresh_by_created_index, "forwards" },
-	{ "listinvoices", refresh_by_created_index, "invoices" },
-	{ "listsendpays", refresh_by_created_index, "sendpays" },
+	/* For mutable tables, use full reload logic due to mutability */
+	{ "listhtlcs", refresh_htlcs_full, "htlcs" },
+	{ "listforwards", refresh_forwards_full, "forwards" },
+	{ "listinvoices", refresh_invoices_full, "invoices" },
+	{ "listsendpays", refresh_sendpays_full, "sendpays" },
 	/* These are never changed or deleted */
 	{ "listchainmoves", refresh_by_created_index, "chainmoves" },
 	{ "listchannelmoves", refresh_by_created_index, "channelmoves" },
