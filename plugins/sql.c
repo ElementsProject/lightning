@@ -1684,7 +1684,7 @@ static struct command_result *refresh_invoices_full(struct command *cmd,
 	plugin_log(cmd->plugin, LOG_INFORM,"Full reload of invoices: wait API event indicates possible deletion/change");
 
 	err = sqlite3_exec(sql->db, tal_fmt(tmpctx, "DELETE FROM %s;", td->name),NULL, NULL, &errmsg);
-	if (err != SQLITE_OK) 
+	if (err != SQLITE_OK)
 	{
 		return command_fail(cmd, LIGHTNINGD, "cleaning '%s' failed: %s", td->name, errmsg);
 	}
@@ -1709,7 +1709,7 @@ static struct command_result *refresh_forwards_full(struct command *cmd,
 	plugin_log(cmd->plugin, LOG_INFORM,"Full reload of forwards: wait API event indicates possible deletion/change");
 
 	err = sqlite3_exec(sql->db, tal_fmt(tmpctx, "DELETE FROM %s;", td->name), NULL, NULL, &errmsg);
-	if (err != SQLITE_OK) 
+	if (err != SQLITE_OK)
 	{
 		return command_fail(cmd, LIGHTNINGD, "cleaning '%s' failed: %s",td->name, errmsg);
 	}
@@ -1734,7 +1734,7 @@ static struct command_result *refresh_htlcs_full(struct command *cmd,
 	plugin_log(cmd->plugin, LOG_INFORM, "Full reload of htlcs: wait API event indicates possible deletion/change");
 
 	err = sqlite3_exec(sql->db, tal_fmt(tmpctx, "DELETE FROM %s;", td->name),  NULL, NULL, &errmsg);
-	if (err != SQLITE_OK) 
+	if (err != SQLITE_OK)
 	{
 		return command_fail(cmd, LIGHTNINGD, "cleaning '%s' failed: %s", td->name, errmsg);
 	}
@@ -1757,9 +1757,9 @@ static struct command_result *refresh_sendpays_full(struct command *cmd,
 	char *errmsg;
 
 	plugin_log(cmd->plugin, LOG_INFORM, "Full reload of sendpays: wait API event indicates possible deletion/change");
-	
+
 	err = sqlite3_exec(sql->db, tal_fmt(tmpctx, "DELETE FROM %s;", td->name),NULL, NULL, &errmsg);
-	if (err != SQLITE_OK) 
+	if (err != SQLITE_OK)
 	{
 		return command_fail(cmd, LIGHTNINGD, "cleaning '%s' failed: %s",td->name, errmsg);
 	}
