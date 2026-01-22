@@ -857,7 +857,6 @@ void release_one_waiting_connection(struct daemon *daemon, const char *why)
 	c = connecting_htable_pick(daemon->connecting, pseudorand_u64(), &it);
 	for (size_t i = 0; i < connecting_htable_count(daemon->connecting); i++) {
 		if (c->waiting) {
-			
 			status_peer_info(&c->id, "Unblocking for %s", why);
 			status_info("Unblocking for %s", why);
 			c->waiting = false;
@@ -1662,8 +1661,7 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 					&daemon->dev_handshake_no_reply,
 					&dev_throttle_gossip,
 					&daemon->dev_no_reconnect,
-					&daemon->dev_fast_reconnect,
-					&dev_limit_connections_inflight)) {
+					&daemon->dev_fast_reconnect)) {
 		/* This is a helper which prints the type expected and the actual
 		 * message, then exits (it should never be called!). */
 		master_badmsg(WIRE_CONNECTD_INIT, msg);
