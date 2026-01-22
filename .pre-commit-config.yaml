@@ -1,3 +1,7 @@
+default_language_version:
+  node: system
+  python: python3
+
 repos:
 - repo: https://github.com/pycqa/flake8
   rev: 7.3.0
@@ -65,7 +69,7 @@ repos:
   rev: v9.23.0
   hooks:
     - id: commitlint
-      stages: [commit-msg]
+      stages: [ commit-msg ]
 
 - repo: local
   hooks:
