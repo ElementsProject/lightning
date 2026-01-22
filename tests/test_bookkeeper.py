@@ -29,6 +29,155 @@ def check_events(node, channel_id, exp_events):
     assert stripped == exp_events
 
 
+@unittest.skipIf(TEST_NETWORK != 'regtest', "network fees hardcoded")
+def test_bookkeeping_routing_fees(node_factory, bitcoind):
+    """
+    Test that routing fees are correctly tracked as income.
+    """
+    # Set explicit fees on l2 so we can verify exact amounts
+    # fee-base: 1000 msat, fee-per-satoshi: 100 (millionths)
+    l2_opts = {'fee-base': 1000, 'fee-per-satoshi': 100}
+
+    l1, l2, l3 = node_factory.line_graph(
+        3,
+        wait_for_announce=True,
+        opts=[{}, l2_opts, {}]
+    )
+
+    # Get channel IDs for verification
+    chan_l1_l2 = first_channel_id(l1, l2)
+    chan_l2_l3 = first_channel_id(l2, l3)
+
+    # Payment amount: 1,000,000 msat (1000 sat)
+    payment_amt = 1000000
+
+    # Calculate expected fee for l2:
+    # fee = 1000 + (1000000 * 100 / 1000000) = 1000 + 100 = 1100 msat
+    expected_fee = 1000 + (payment_amt * 100 // 1000000)
+    assert expected_fee == 1100
+
+    # Create invoice on l3 and pay from l1
+    inv = l3.rpc.invoice(payment_amt, 'test_routing', 'test routing fee')
+    l1.rpc.pay(inv['bolt11'])
+
+    # Wait for payment to complete and be recorded
+    wait_for(lambda: only_one(l1.rpc.listpays(inv['bolt11'])['pays'])['status'] == 'complete')
+
+    # Wait for l2's bookkeeper to record the routed event
+    def check_routed_event():
+        events = l2.rpc.bkpr_listaccountevents()['events']
+        routed = [e for e in events if e['tag'] == 'routed']
+        return len(routed) == 2  # One debit, one credit for the routing
+
+    wait_for(check_routed_event)
+
+    # Verify routed events in l2's account events
+    events = l2.rpc.bkpr_listaccountevents()['events']
+    routed_events = find_tags(events, 'routed')
+
+    # Should have 2 routed events: one on each channel
+    assert len(routed_events) == 2
+
+    # Find the outbound routed event (debit from l2-l3 channel)
+    # and inbound routed event (credit to l1-l2 channel)
+    outbound = [e for e in routed_events if e['debit_msat'] > Millisatoshi(0)]
+    inbound = [e for e in routed_events if e['credit_msat'] > Millisatoshi(0)]
+
+    assert len(outbound) == 1
+    assert len(inbound) == 1
+
+    outbound_ev = outbound[0]
+    inbound_ev = inbound[0]
+
+    # Outbound: l2 sends payment_amt to l3
+    assert outbound_ev['account'] == chan_l2_l3
+    assert outbound_ev['debit_msat'] == Millisatoshi(payment_amt)
+    assert outbound_ev['fees_msat'] == Millisatoshi(expected_fee)
+
+    # Inbound: l2 receives payment_amt + fee from l1
+    assert inbound_ev['account'] == chan_l1_l2
+    assert inbound_ev['credit_msat'] == Millisatoshi(payment_amt + expected_fee)
+    assert inbound_ev['fees_msat'] == Millisatoshi(expected_fee)
+
+    # Verify income events show the routing fee as income
+    income_events = l2.rpc.bkpr_listincome()['income_events']
+    routed_income = find_tags(income_events, 'routed')
+
+    # Routed income should show the fee earned
+    assert len(routed_income) == 1
+    assert routed_income[0]['credit_msat'] == Millisatoshi(expected_fee)
+    assert routed_income[0]['debit_msat'] == Millisatoshi(0)
+
+    # Verify channelsapy metrics
+    apy_result = l2.rpc.bkpr_channelsapy()
+    channels_apy = apy_result['channels_apy']
+
+    # Should have entries for both channels plus 'net' rollup
+    assert len(channels_apy) >= 3
+
+    # Find the channel APY entries
+    chan_l1_l2_apy = only_one([c for c in channels_apy if c['account'] == chan_l1_l2])
+    chan_l2_l3_apy = only_one([c for c in channels_apy if c['account'] == chan_l2_l3])
+    net_apy = only_one([c for c in channels_apy if c['account'] == 'net'])
+
+    # l1-l2 channel: payment routed IN (l2 received from l1)
+    assert chan_l1_l2_apy['routed_in_msat'] == Millisatoshi(payment_amt + expected_fee)
+    assert chan_l1_l2_apy['fees_in_msat'] == Millisatoshi(expected_fee)
+
+    # l2-l3 channel: payment routed OUT (l2 sent to l3)
+    assert chan_l2_l3_apy['routed_out_msat'] == Millisatoshi(payment_amt)
+    assert chan_l2_l3_apy['fees_out_msat'] == Millisatoshi(expected_fee)
+
+    # Net should aggregate the fees
+    assert net_apy['fees_out_msat'] == Millisatoshi(expected_fee)
+    assert net_apy['fees_in_msat'] == Millisatoshi(expected_fee)
+
+    # Verify utilization is non-zero (payment was routed)
+    assert float(chan_l2_l3_apy['utilization_out'].rstrip('%')) > 0
+
+    # Route a second payment from l3 to verify accumulation
+    payment_amt_2 = 500000  # 500 sat
+    expected_fee_2 = 1000 + (payment_amt_2 * 100 // 1000000)  # 1050 msat
+
+    inv2 = l3.rpc.invoice(payment_amt_2, 'test_routing_2', 'second routing test')
+    l1.rpc.pay(inv2['bolt11'])
+
+    wait_for(lambda: only_one(l1.rpc.listpays(inv2['bolt11'])['pays'])['status'] == 'complete')
+
+    # Wait for bookkeeper to process
+    def check_second_routed():
+        events = l2.rpc.bkpr_listaccountevents()['events']
+        routed = [e for e in events if e['tag'] == 'routed']
+        return len(routed) == 4  # 2 per payment
+
+    wait_for(check_second_routed)
+
+    # Verify accumulated routing income
+    income_events = l2.rpc.bkpr_listincome()['income_events']
+    routed_income = find_tags(income_events, 'routed')
+
+    total_routing_income = sum(e['credit_msat'] for e in routed_income)
+    assert total_routing_income == Millisatoshi(expected_fee + expected_fee_2)
+
+    # Verify updated channelsapy
+    apy_result = l2.rpc.bkpr_channelsapy()
+    net_apy = only_one([c for c in apy_result['channels_apy'] if c['account'] == 'net'])
+
+    # Total routed amounts should include both payments
+    total_routed_out = payment_amt + payment_amt_2
+    total_fees = expected_fee + expected_fee_2
+
+    assert net_apy['fees_out_msat'] == Millisatoshi(total_fees)
+
+    # Verify persistence across restart
+    l2.restart()
+
+    income_events = l2.rpc.bkpr_listincome()['income_events']
+    routed_income = find_tags(income_events, 'routed')
+    total_routing_income = sum(e['credit_msat'] for e in routed_income)
+    assert total_routing_income == Millisatoshi(expected_fee + expected_fee_2)
+
+
 @unittest.skipIf(TEST_NETWORK != 'regtest', "fixme: broadcast fails, dusty")
 def test_bookkeeping_closing_trimmed_htlcs(node_factory, bitcoind, executor):
     l1, l2 = node_factory.line_graph(2)
