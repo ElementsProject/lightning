@@ -11,6 +11,7 @@ import logging
 import os
 from pathlib import Path, PosixPath
 import shutil
+import socket
 from subprocess import Popen, PIPE, TimeoutExpired, run
 import tempfile
 import time
@@ -51,10 +52,33 @@ class Logger:
         self.json_output = {"result": [],
                             "log": []}
         self.capture = capture
+        self.socket = None
+
+    def connect_socket(self, port: int):
+        """Streams log updates via this socket for lightningd notifications.
+        Used by the reckless-rpc plugin."""
+        assert not self.socket
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            self.socket.connect(('localhost', port))
+        except Exception as e:
+            logging.warning(f'socket failed to connect with {e}')
+            self.socket = None
 
     def str_esc(self, raw_string: str) -> str:
         assert isinstance(raw_string, str)
         return json.dumps(raw_string)[1:-1]
+
+    def push_to_socket(self, to_log: str, prefix: str):
+        if not self.socket or self.socket.fileno() <= 0:
+            return
+        try:
+            self.socket.sendall(f'{prefix}{to_log}\n'.encode('utf8'))
+        except Exception as e:
+            if self.capture:
+                self.json_output['log'].append(f'while feeding log to socket, encountered exception {e}')
+            else:
+                print(f'while feeding log to socket, encountered exception {e}')
 
     def debug(self, to_log: str):
         assert isinstance(to_log, str) or hasattr(to_log, "__repr__")
@@ -65,6 +89,8 @@ class Logger:
         else:
             logging.debug(to_log)
 
+        self.push_to_socket(to_log, 'DEBUG: ')
+
     def info(self, to_log: str):
         assert isinstance(to_log, str) or hasattr(to_log, "__repr__")
         if logging.root.level > logging.INFO:
@@ -73,6 +99,8 @@ class Logger:
             self.json_output['log'].append(self.str_esc(f"INFO: {to_log}"))
         else:
             print(to_log)
+
+        self.push_to_socket(to_log, 'INFO: ')
 
     def warning(self, to_log: str):
         assert isinstance(to_log, str) or hasattr(to_log, "__repr__")
@@ -83,6 +111,8 @@ class Logger:
         else:
             logging.warning(to_log)
 
+        self.push_to_socket(to_log, 'WARNING: ')
+
     def error(self, to_log: str):
         assert isinstance(to_log, str) or hasattr(to_log, "__repr__")
         if logging.root.level > logging.ERROR:
@@ -91,6 +121,8 @@ class Logger:
             self.json_output['log'].append(self.str_esc(f"ERROR: {to_log}"))
         else:
             logging.error(to_log)
+
+        self.push_to_socket(to_log, 'ERROR: ')
 
     def add_result(self, result: Union[str, None]):
         assert json.dumps(result), "result must be json serializable"
@@ -2473,6 +2505,8 @@ if __name__ == '__main__':
                        const=None)
         p.add_argument('-j', '--json', action=StoreTrueIdempotent,
                        help='output in json format')
+        p.add_argument('--logging-port', action=StoreIdempotent,
+                       help='lightning-rpc connects to this socket port to ingest log notifications')
 
     args = parser.parse_args()
     args = process_idempotent_args(args)
@@ -2522,6 +2556,10 @@ if __name__ == '__main__':
     LIGHTNING_CONFIG = args.conf
     RECKLESS_CONFIG = load_config(reckless_dir=str(RECKLESS_DIR),
                                   network=NETWORK)
+    if args.logging_port:
+        log.connect_socket(int(args.logging_port))
+    else:
+        log.debug('logging port argument not provided')
     GITHUB_COM = 'https://github.com'
     # Used for blackbox testing to avoid hitting github servers
     if 'REDIR_GITHUB' in os.environ:
