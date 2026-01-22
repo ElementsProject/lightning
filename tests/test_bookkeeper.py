@@ -3,7 +3,7 @@ from decimal import Decimal
 from pyln.client import Millisatoshi, RpcError
 from fixtures import TEST_NETWORK
 from utils import (
-    sync_blockheight, wait_for, only_one, first_channel_id, TIMEOUT
+    sync_blockheight, wait_for, only_one, first_channel_id, first_scid,TIMEOUT
 )
 
 from pathlib import Path
@@ -27,6 +27,174 @@ def check_events(node, channel_id, exp_events):
     chan_events = [ev for ev in node.rpc.bkpr_listaccountevents()['events'] if ev['account'] == channel_id]
     stripped = [{k: d[k] for k in ('tag', 'credit_msat', 'debit_msat') if k in d} for d in chan_events]
     assert stripped == exp_events
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', "network fees hardcoded")
+def test_bookkeeping_penalty(node_factory, bitcoind, executor):
+    """
+    Test penalty transaction tracking both from the punisher and the cheater peer.
+    """
+    coin_mvt_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
+    # l1 will be the cheater, l2 will claim penalty
+    # dev-disable-commit-after stops commits so we can snapshot old state
+    l1_opts = {
+        'may_fail': True,
+        'feerates': (7500, 7500, 7500, 7500),
+        'dev-disable-commit-after': 1,
+        'plugin': coin_mvt_plugin,
+        # l1 will notice it broadcast revoked state
+        'broken_log': r"onchaind-chan#[0-9]*: Could not find resolution for output .*: did \*we\* cheat\?"
+    }
+    l2_opts = {
+        'dev-disable-commit-after': 1,
+        'plugin': coin_mvt_plugin,
+    }
+
+    l1, l2 = node_factory.line_graph(2, opts=[l1_opts, l2_opts])
+
+    channel_id = first_channel_id(l1, l2)
+    scid = first_scid(l1, l2)
+
+    # Start a payment - this will get stuck due to disabled commits
+    t = executor.submit(l1.pay, l2, 100000000)  # 100,000 sat
+
+    assert l1.is_local_channel_active(scid)
+    assert l2.is_local_channel_active(scid)
+
+    # Wait for both sides to disable commits
+    l1.daemon.wait_for_log('dev-disable-commit-after: disabling')
+    l2.daemon.wait_for_log('dev-disable-commit-after: disabling')
+
+    # Make sure l1 got l2's commitment to the HTLC
+    l1.daemon.wait_for_log('got commitsig')
+
+    # Take snapshot of l1's current (soon-to-be-old) commitment tx
+    old_commitment_tx = l1.rpc.dev_sign_last_tx(l2.info['id'])['tx']
+
+    # Re-enable commits to let the payment complete
+    l1.rpc.dev_reenable_commit(l2.info['id'])
+    l2.rpc.dev_reenable_commit(l1.info['id'])
+
+    # Wait for payment to complete (state advances, old tx becomes revoked)
+    l1.daemon.wait_for_log('peer_in WIRE_UPDATE_FULFILL_HTLC')
+    l1.daemon.wait_for_log('peer_out WIRE_REVOKE_AND_ACK')
+    l2.daemon.wait_for_log('peer_out WIRE_UPDATE_FULFILL_HTLC')
+    l1.daemon.wait_for_log('peer_in WIRE_REVOKE_AND_ACK')
+
+    # Payment should complete
+    t.result(timeout=10)
+
+    # Make sure both sides are settled
+    wait_for(lambda: all([
+        only_one(n.rpc.listpeerchannels()['channels'])['htlcs'] == []
+        for n in (l1, l2)
+    ]))
+
+    # Record l2's wallet balance before penalty
+    l2_balance_before = sum(
+        o['amount_msat'] for o in l2.rpc.listfunds()['outputs']
+    )
+
+    # l1 cheats by broadcasting old revoked commitment
+    bitcoind.rpc.sendrawtransaction(old_commitment_tx)
+    bitcoind.generate_block(1)
+
+    # l2 detects the breach and goes to ONCHAIN
+    l2.daemon.wait_for_log(' to ONCHAIN')
+
+    # l2 should broadcast penalty transactions to claim l1's outputs
+    # Wait for penalty txs to be broadcast
+    ((_, penalty_txid1, blocks1), (_, penalty_txid2, blocks2)) = \
+        l2.wait_for_onchaind_txs(
+            ('OUR_PENALTY_TX', 'THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM'),
+            ('OUR_PENALTY_TX', 'THEIR_REVOKED_UNILATERAL/THEIR_HTLC')
+        )
+
+    # Penalty txs should be broadcast immediately (no delay)
+    assert blocks1 == 0
+    assert blocks2 == 0
+
+    # Mine penalty transactions and enough blocks for resolution
+    bitcoind.generate_block(100, wait_for_mempool=[penalty_txid1, penalty_txid2])
+    sync_blockheight(bitcoind, [l1, l2])
+
+    # Wait for channel to be forgotten
+    wait_for(lambda: l2.rpc.listpeerchannels()['channels'] == [])
+
+    # Now verify bookkeeper tracked the penalty correctly
+
+    # l2's account events should show 'penalty' tags
+    l2_events = l2.rpc.bkpr_listaccountevents()['events']
+    l2_penalty_events = find_tags(l2_events, 'penalty')
+
+    # Should have penalty events for the outputs l2 claimed
+    assert len(l2_penalty_events) >= 2, f"Expected at least 2 penalty events, got {len(l2_penalty_events)}"
+
+    # All penalty events should be credits (l2 gains funds)
+    for ev in l2_penalty_events:
+        assert ev['credit_msat'] > Millisatoshi(0), "Penalty should be a credit"
+        assert ev['debit_msat'] == Millisatoshi(0), "Penalty should have no debit"
+        assert ev['account'] == channel_id, "Penalty should be on channel account"
+
+    # Verify 'to_wallet' events show penalty funds moved to wallet
+    l2_to_wallet = find_tags(l2_events, 'to_wallet')
+    assert len(l2_to_wallet) >= 2, "Should have to_wallet events for penalty outputs"
+
+    # Verify channel account is resolved with zero balance
+    l2_balances = l2.rpc.bkpr_listbalances()['accounts']
+    channel_bal = [a for a in l2_balances if a['account'] == channel_id]
+    if channel_bal:
+        # If account still exists, it should be resolved
+        assert channel_bal[0].get('account_resolved', False), "Channel should be resolved"
+        assert only_one(channel_bal[0]['balances'])['balance_msat'] == Millisatoshi(0)
+
+    # l2's wallet should have increased by penalty amounts (minus fees)
+    l2_wallet_bal = only_one([
+        a for a in l2_balances if a['account'] == 'wallet'
+    ])
+    l2_wallet_balance = only_one(l2_wallet_bal['balances'])['balance_msat']
+
+    # Wallet balance should be greater than before (gained penalty funds)
+    # Note: l2 already had the payment amount, plus now gets l1's funds
+    assert l2_wallet_balance > l2_balance_before
+
+    # Verify income statement shows penalty as income
+    l2_income = l2.rpc.bkpr_listincome()['income_events']
+
+    # Check that channel id balance credit from penalty are recorded
+    credit_from_penalty = [
+        e for e in l2_income
+        if e['account'] == channel_id and e['tag'] == 'penalty_adj'
+    ]
+    # Should have deposits from penalty tx outputs
+    assert len(credit_from_penalty) >= 2
+
+    # l1's perspective: funds lost to external (penalty to l2)
+    l1_events = l1.rpc.bkpr_listaccountevents()['events']
+    l1_external = [e for e in l1_events if e['account'] == 'external']
+
+    # l1 should see penalty outputs going to external (lost funds)
+    l1_penalty_to_external = [
+        e for e in l1_external if e['tag'] == 'penalty'
+    ]
+    assert len(l1_penalty_to_external) >= 2, f"l1 should see funds lost to penalty. L1 events\n{l1_events}"
+
+    # l1's penalty events should be credits to external (funds leaving l1)
+    for ev in l1_penalty_to_external:
+        assert ev['credit_msat'] > Millisatoshi(0)
+
+    # l1's channel account should also be zero (all funds lost)
+    l1_balances = l1.rpc.bkpr_listbalances()['accounts']
+    l1_channel_bal = [a for a in l1_balances if a['account'] == channel_id]
+    if l1_channel_bal:
+        assert only_one(l1_channel_bal[0]['balances'])['balance_msat'] == Millisatoshi(0)
+
+    # Verify persistence after restart
+    l2.restart()
+
+    l2_events_after = l2.rpc.bkpr_listaccountevents()['events']
+    l2_penalty_after = find_tags(l2_events_after, 'penalty')
+    assert len(l2_penalty_after) == len(l2_penalty_events)
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "network fees hardcoded")
