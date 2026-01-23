@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Test P2TR change outputs with dust limit 330 sat (issue #8395)."""
 import unittest
-from pyln.testing.fixtures import *
-from pyln.testing.utils import only_one, TEST_NETWORK, wait_for
+
+from pyln.testing.utils import TEST_NETWORK, wait_for
 
 
 @unittest.skipIf(TEST_NETWORK == 'liquid-regtest', "P2TR not yet supported on Elements")
@@ -18,10 +18,10 @@ def test_p2tr_change_dust_limit(node_factory, bitcoind):
     outputs = l1.rpc.listfunds()['outputs']
     assert len(outputs) == 1
     utxo = outputs[0]
-    
-    utxo_amount = int(utxo['amount_msat'] / 1000)  
 
-    target_amount = utxo_amount - 450  
+    utxo_amount = int(utxo['amount_msat'] / 1000)
+
+    target_amount = utxo_amount - 450
 
     result = l1.rpc.fundpsbt(
         satoshi=f"{target_amount}sat",
