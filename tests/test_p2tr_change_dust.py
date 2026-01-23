@@ -31,14 +31,14 @@ def test_p2tr_change_dust_limit(node_factory, bitcoind):
     )
     
     assert 'change_outnum' in result, "Expected change output to be created"
-    
+
     psbt = bitcoind.rpc.decodepsbt(result['psbt'])
-    
+
     change_outnum = result['change_outnum']
-    if 'tx' in psbt:  
+    if 'tx' in psbt:
         change_output = psbt['tx']['vout'][change_outnum]
         change_amount_btc = float(change_output['value'])
-    else:  
+    else:
         change_output = psbt['outputs'][change_outnum]
         change_amount_btc = float(change_output['amount'])
 
