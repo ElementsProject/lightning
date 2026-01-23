@@ -1223,8 +1223,7 @@ void channel_gossip_channel_reestablished(struct channel *channel)
 	 *      `announcement_signatures` for the funding transaction:
 	 *        - MUST send its own `announcement_signatures` message.
 	 */
-	
-	 
+
 	if (channel->channel_gossip->state == CGOSSIP_WAITING_FOR_MATCHING_PEER_SIGS
 	    && channel->channel_gossip->remote_sigs) {
 		log_debug(channel->log, "channel_gossip: already have remote sigs, checking if we can progress");
