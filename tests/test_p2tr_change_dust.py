@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Test P2TR change outputs with dust limit 330 sat (issue #8395)."""
 import unittest
-from pyln.testing.fixtures import *  
+from pyln.testing.fixtures import *
 from pyln.testing.utils import only_one, TEST_NETWORK, wait_for
 
 
@@ -9,27 +9,27 @@ from pyln.testing.utils import only_one, TEST_NETWORK, wait_for
 def test_p2tr_change_dust_limit(node_factory, bitcoind):
 
     l1 = node_factory.get_node(feerates=(253, 253, 253, 253))
-    
+
     addr = l1.rpc.newaddr('p2tr')['p2tr']
     bitcoind.rpc.sendtoaddress(addr, 1.0)
     bitcoind.generate_block(1)
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
-    
+
     outputs = l1.rpc.listfunds()['outputs']
     assert len(outputs) == 1
     utxo = outputs[0]
     
     utxo_amount = int(utxo['amount_msat'] / 1000)  
-    
+
     target_amount = utxo_amount - 450  
-    
+
     result = l1.rpc.fundpsbt(
         satoshi=f"{target_amount}sat",
         feerate="253perkw",
         startweight=0,
         excess_as_change=True
     )
-    
+
     assert 'change_outnum' in result, "Expected change output to be created"
 
     psbt = bitcoind.rpc.decodepsbt(result['psbt'])
