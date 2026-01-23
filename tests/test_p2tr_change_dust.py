@@ -2,7 +2,9 @@
 """Test P2TR change outputs with dust limit 330 sat (issue #8395)."""
 import unittest
 
-from pyln.testing.utils import TEST_NETWORK, wait_for
+from fixtures import *  # noqa: F401,F403
+from fixtures import TEST_NETWORK
+from utils import wait_for
 
 
 @unittest.skipIf(TEST_NETWORK == 'liquid-regtest', "P2TR not yet supported on Elements")
