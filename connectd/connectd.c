@@ -1636,7 +1636,7 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 	enum addr_listen_announce *proposed_listen_announce;
 	struct wireaddr *announceable;
 	char *tor_password;
-	bool dev_disconnect, dev_throttle_gossip, dev_limit_connections_inflight;
+	bool dev_disconnect = false, dev_throttle_gossip = false, dev_limit_connections_inflight = false;
 	bool announce_websocket;
 	char *errstr;
 
