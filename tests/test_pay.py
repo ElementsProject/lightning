@@ -6125,6 +6125,23 @@ def test_offer_with_private_channels_multyhop2(node_factory):
     l1.rpc.pay(invoice)
 
 
+def test_offer_with_private_channels_multyhop_with_dummy_hop(node_factory):
+    """We should be able to fetch an invoice through a private path with dummy hops and pay the invoice"""
+    l1, l2, l3, l4, l5 = node_factory.line_graph(5, fundchannel=False)
+
+    node_factory.join_nodes([l1, l2], wait_for_announce=True)
+    node_factory.join_nodes([l2, l3], wait_for_announce=True)
+    node_factory.join_nodes([l3, l4], wait_for_announce=True)
+    node_factory.join_nodes([l3, l5], announce_channels=False)
+    wait_for(lambda: ['alias' in n for n in l4.rpc.listnodes()['nodes']] == [True, True, True, True])
+
+    offer = l5.rpc.call('offer', {'amount': '2msat',
+                                  'description': 'test_offer_with_private_channels_multyhop2',
+                                  'dev_paths': [[l3.info['id'], l5.info['id'], l5.info['id']]]})['bolt12']
+    invoice = l1.rpc.fetchinvoice(offer=offer)["invoice"]
+    l1.rpc.pay(invoice)
+
+
 def diamond_network(node_factory):
     """Build a diamond, with a cheap route, that is exhausted. The
     first payment should try that route first, learn it's exhausted,
