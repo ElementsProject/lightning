@@ -32,8 +32,8 @@ def emit_deposit(plugin, acct, is_withdraw, outpoint, amount, **kwargs):
     transfer_from = None
 
     if is_withdraw:
-        acct = "external"
         transfer_from = acct
+        acct = "external"
 
     utxo_deposit = {
         "account": acct,
