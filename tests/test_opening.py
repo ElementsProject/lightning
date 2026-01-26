@@ -27,6 +27,7 @@ def test_opening_dualfund_with_unknown_feerates(node_factory, bitcoind):
         'ignore-fee-limits': True,
         'feerates': None,
         'dev-no-fake-fees': True,
+        'experimental-dual-fund': None
     }
 
     l1, l2= node_factory.get_nodes(2, opts=[opts, opts])
