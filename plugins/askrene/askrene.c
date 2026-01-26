@@ -1421,7 +1421,7 @@ static const char *init(struct command *init_cmd,
 	struct askrene *askrene = get_askrene(plugin);
 
 	askrene->plugin = plugin;
-	list_head_init(&askrene->layers);
+	askrene->layers = new_layer_name_hash(askrene);
 	askrene->reserved = new_reserve_htable(askrene);
 	askrene->gossmap = gossmap_load(askrene, GOSSIP_STORE_FILENAME,
 					plugin_gossmap_logcb, plugin);

@@ -17,6 +17,9 @@ struct askrene;
 struct layer;
 struct json_stream;
 
+/* Create a layer hash table */
+struct layer_name_hash *new_layer_name_hash(const tal_t *ctx);
+
 /* Look up a layer by name. */
 struct layer *find_layer(struct askrene *askrene, const char *name);
 
@@ -120,7 +123,7 @@ void layer_add_disabled_node(struct layer *layer, const struct node_id *node);
 
 /* Print out a json object for this layer, or all if layer is NULL */
 void json_add_layers(struct json_stream *js,
-		     struct askrene *askrene,
+		     const struct askrene *askrene,
 		     const char *fieldname,
 		     const struct layer *layer);
 

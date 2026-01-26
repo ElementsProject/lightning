@@ -266,6 +266,6 @@ def test_payment_speed(node_factory, benchmark):
 
 def test_askrene_layers(node_factory):
     l1 = get_bench_node(node_factory)
-    NUM_LAYERS = 20_000
+    NUM_LAYERS = 100_000
     for i in range(NUM_LAYERS):
         l1.rpc.askrene_create_layer(f'test_askrene_layers-{i}')
