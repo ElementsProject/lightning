@@ -525,7 +525,7 @@ jobs:
           SLOW_MACHINE: 1
           TEST_DEBUG: 1
         run: |
-          VALGRIND=1 uv run eatmydata pytest tests/ -n 3 ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}
+          VALGRIND=1 uv run eatmydata pytest tests/ -n 1 ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4

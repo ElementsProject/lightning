@@ -4,6 +4,10 @@ export DEBIAN_FRONTEND=noninteractive
 export RUST_VERSION=stable
 
 sudo useradd -ms /bin/bash tester
+
+sudo rm -f /etc/apt/sources.list.d/azure-cli.list || true
+sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list || true
+
 sudo apt-get update -qq
 
 sudo apt-get -qq install --no-install-recommends --allow-unauthenticated -yy \
