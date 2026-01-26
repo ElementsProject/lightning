@@ -19,13 +19,13 @@ def find_next_feerate(node, peer):
 
 @pytest.mark.openchannel('v1')
 @unittest.skipIf(TEST_NETWORK != 'regtest', "requires regtest")
-def test_open_with_unknown_feerates(node_factory, bitcoind):
+def test_opening_with_unknown_feerates(node_factory, bitcoind):
     """
     Test openchannel when feerates are unknown (like on signet/testnet with empty mempool).
     """
     opts = {
         'ignore-fee-limits': True,
-        'feerates': {252, 252, 252, 252}, 
+        'feerates': None, 
         'dev-no-fake-fees': True,
     }
 
@@ -35,8 +35,8 @@ def test_open_with_unknown_feerates(node_factory, bitcoind):
     l1.daemon.wait_for_log('Unable to estimate any fees')
     l2.daemon.wait_for_log('Unable to estimate any fees')
 
-    with pytest.raises(RpcError):
-        l1.rpc.fundchannel(id=l2.info['id'], amount=1000000, feerate=100, minconf=0)
+    with pytest.raises(RpcError) as e:
+        l1.rpc.fundchannel(id=l2.info['id'], amount=1000000, feerate='252perkw', minconf=0)
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
