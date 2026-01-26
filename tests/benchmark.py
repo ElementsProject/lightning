@@ -268,4 +268,7 @@ def test_askrene_layers(node_factory):
     l1 = get_bench_node(node_factory)
     NUM_LAYERS = 100_000
     for i in range(NUM_LAYERS):
-        l1.rpc.askrene_create_layer(f'test_askrene_layers-{i}')
+        l1.rpc.askrene_create_layer(f'test_askrene_layers-{i}', True)
+
+    l1.restart()
+    l1.rpc.askrene_create_layer(f'test_askrene_layers-{NUM_LAYERS}')
