@@ -42,6 +42,8 @@ endif
 
 EXTERNAL_LDLIBS := -L${TARGET_DIR} $(patsubst lib%.a,-l%,$(notdir $(EXTERNAL_LIBS)))
 
+.PHONY: submodcheck
+
 submodcheck: $(FORCE)
 ifneq ($(VERSION),)
 	@tools/refresh-submodules.sh $(SUBMODULES)
