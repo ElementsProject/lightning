@@ -1661,7 +1661,8 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 					&daemon->dev_handshake_no_reply,
 					&dev_throttle_gossip,
 					&daemon->dev_no_reconnect,
-					&daemon->dev_fast_reconnect)) {
+					&daemon->dev_fast_reconnect,
+					&dev_limit_connections_inflight)) {
 		/* This is a helper which prints the type expected and the actual
 		 * message, then exits (it should never be called!). */
 		master_badmsg(WIRE_CONNECTD_INIT, msg);
