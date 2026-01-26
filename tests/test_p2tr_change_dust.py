@@ -50,3 +50,4 @@ def test_p2tr_change_dust_limit(node_factory, bitcoind):
     assert change_amount_sat <= 546, f"Change {change_amount_sat} sat should be <= 546 sat (for this test)"
 
     print(f"SUCCESS: P2TR change output of {change_amount_sat} sat created (between 330 and 546 sat)")
+    
