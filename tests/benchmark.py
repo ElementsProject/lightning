@@ -262,3 +262,10 @@ def test_payment_speed(node_factory, benchmark):
             l1.rpc.waitsendpay(phash)
 
     benchmark(onepay, l1, routestep)
+
+
+def test_askrene_layers(node_factory):
+    l1 = get_bench_node(node_factory)
+    NUM_LAYERS = 20_000
+    for i in range(NUM_LAYERS):
+        l1.rpc.askrene_create_layer(f'test_askrene_layers-{i}')
