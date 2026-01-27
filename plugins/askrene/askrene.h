@@ -12,14 +12,6 @@
 
 struct gossmap_chan;
 
-/* A single route. */
-struct route {
-	/* Actual path to take */
-	struct route_hop *hops;
-	/* Probability estimate (0-1) */
-	double success_prob;
-};
-
 /* Grab-bag of "globals" for this plugin */
 struct askrene {
 	struct plugin *plugin;
