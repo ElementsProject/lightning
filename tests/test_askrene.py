@@ -2433,7 +2433,6 @@ def test_includefees(node_factory):
     )
 
 
-@unittest.skip
 def test_impossible_payment(node_factory):
     """A payment that is impossible due to HTLC constraints and fees. The
     constraint might cause a timeout in in askrene's main loop due to the refine

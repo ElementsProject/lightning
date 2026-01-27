@@ -303,6 +303,45 @@ remove_htlc_min_violations(const tal_t *ctx, struct route_query *rq,
 	return error_message;
 }
 
+/* Loop over the channels in the path and disable the one with the least
+ * permiting amount based on htlc_max and known max liquidity. */
+static const char *remove_bottleneck(const tal_t *ctx, struct route_query *rq,
+				     const struct flow *flow)
+{
+	const char *error_message = NULL;
+	struct amount_msat min = AMOUNT_MSAT(-1);
+	u32 min_pos = UINT32_MAX;
+	struct amount_msat htlc_max, known_max, unused;
+	struct short_channel_id_dir scidd;
+	size_t idx;
+	for (u32 i = 0; i < tal_count(flow->path); i++) {
+		htlc_max = get_chan_htlc_max(rq, flow->path[i], flow->dirs[i]);
+		get_constraints(rq, flow->path[i], flow->dirs[i], &unused,
+				&known_max);
+		known_max = amount_msat_min(known_max, htlc_max);
+		if (amount_msat_less(known_max, min)) {
+			min = known_max;
+			min_pos = i;
+		}
+	}
+	if (min_pos >= tal_count(flow->path)) {
+		error_message = rq_log(
+		    ctx, rq, LOG_BROKEN,
+		    "%s: failed to find any bottleneck, flow has no hops? %s",
+		    __func__, fmt_flow_full(tmpctx, rq, flow));
+	} else {
+		get_scidd(rq->gossmap, flow, min_pos, &scidd);
+		rq_log(ctx, rq, LOG_INFORM,
+		       "Disabling bottleneck channel %s with "
+		       "htlc_max/known_max at %s",
+		       fmt_short_channel_id_dir(ctx, &scidd),
+		       fmt_amount_msat(ctx, min));
+		idx = flow->dirs[min_pos] +
+		      2 * gossmap_chan_idx(rq->gossmap, flow->path[min_pos]);
+		bitmap_set_bit(rq->disabled_chans, idx);
+	}
+	return error_message;
+}
 
 static struct amount_msat sum_all_deliver(struct flow **flows)
 {
@@ -494,10 +533,43 @@ const char *refine_flows(const tal_t *ctx, struct route_query *rq,
 	size_t *flows_index;
 
 	/* do not deliver more than HTLC_MAX allow us */
-	for (size_t i = 0; i < tal_count(*flows); i++) {
+	for (size_t i = 0; i < tal_count(*flows);) {
+		struct amount_msat try_deliver = (*flows)[i]->delivers;
+		struct amount_msat deliverable =
+		    flow_max_deliverable(rq, (*flows)[i]);
+
+		/* We don't expect to have a zero flow amount here. Just report
+		 * it. */
+		if (amount_msat_is_zero(try_deliver)) {
+			rq_log(ctx, rq, LOG_UNUSUAL,
+			       "Tried to refine a flow with zero amount: %s",
+			       fmt_flow_full(tmpctx, rq, (*flows)[i]));
+			del_flow_from_arr(flows, i);
+			continue;
+		}
+
+		/* A path with a very small deliverable amount is not worth the
+		 * effort, and we don't want either a path that for fees and
+		 * HTLC max constraints removes too much from the actual
+		 * delivery amount. In theory the MCF already has partitioned
+		 * the payment in different paths. The refinement step is not
+		 * expected to change the flow by much. */
+		if (amount_msat_less(deliverable, AMOUNT_MSAT(1000)) ||
+		    amount_msat_ratio(deliverable, try_deliver) < 0.2) {
+			error_message = remove_bottleneck(ctx, rq, (*flows)[i]);
+			if (error_message)
+				goto fail;
+			del_flow_from_arr(flows, i);
+			continue;
+		}
+
 		(*flows)[i]->delivers =
-		    amount_msat_min((*flows)[i]->delivers,
-				    flow_max_deliverable(rq, (*flows)[i]));
+		    amount_msat_min(try_deliver, deliverable);
+		i++;
+	}
+	if (tal_count(*flows) == 0) {
+		/* No flows left to complete the next steps, early exit. */
+		goto fail;
 	}
 
 	/* remove excess from MCF granularity if any */
