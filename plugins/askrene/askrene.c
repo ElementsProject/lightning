@@ -20,16 +20,22 @@
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/route.h>
+#include <common/status_wiregen.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <math.h>
 #include <plugins/askrene/askrene.h>
+#include <plugins/askrene/child/child_log.h>
 #include <plugins/askrene/flow.h>
 #include <plugins/askrene/layer.h>
 #include <plugins/askrene/mcf.h>
 #include <plugins/askrene/reserve.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <wire/wire_sync.h>
+
+/* Temporary hack */
+static bool am_child = false;
 
 /* "spendable" for a channel assumes a single HTLC: for additional HTLCs,
  * the need to pay for fees (if we're the owner) reduces it */
@@ -316,6 +322,12 @@ const char *rq_log(const tal_t *ctx,
 	msg = tal_vfmt(ctx, fmt, args);
 	va_end(args);
 
+	/* FIXME: This is a hack! */
+	if (am_child) {
+		child_log(tmpctx, level, "%s", msg);
+		return msg;
+	}
+
 	plugin_notify_message(rq->cmd, level, "%s", msg);
 
 	/* Notifications already get logged at debug. Otherwise reduce
@@ -578,9 +590,10 @@ static int fork_router_child(struct route_query *rq,
 			     u32 finalcltv, u32 maxdelay,
 			     const char *cmd_id,
 			     struct json_filter *cmd_filter,
+			     int *log_fd,
 			     int *child_pid)
 {
-	int replyfds[2];
+	int replyfds[2], logfds[2];
 	double probability;
 	struct flow **flows;
 	struct route **routes;
@@ -590,19 +603,31 @@ static int fork_router_child(struct route_query *rq,
 
 	if (pipe(replyfds) != 0)
 		return -1;
-	*child_pid = fork();
-	if (*child_pid < 0) {
+	if (pipe(logfds) != 0) {
 		close_noerr(replyfds[0]);
 		close_noerr(replyfds[1]);
 		return -1;
 	}
+	*child_pid = fork();
+	if (*child_pid < 0) {
+		close_noerr(replyfds[0]);
+		close_noerr(replyfds[1]);
+		close_noerr(logfds[0]);
+		close_noerr(logfds[1]);
+		return -1;
+	}
 	if (*child_pid != 0) {
+		close(logfds[1]);
 		close(replyfds[1]);
+		*log_fd = logfds[0];
 		return replyfds[0];
 	}
 
 	/* We are the child.  Run the algo */
+	close(logfds[0]);
 	close(replyfds[0]);
+	set_child_log_fd(logfds[1]);
+	am_child = true;
 	if (algo == ALGO_SINGLE_PATH) {
 		err = single_path_routes(rq, rq, deadline, srcnode, dstnode,
 					 amount, maxfee, finalcltv,
@@ -658,6 +683,18 @@ static int fork_router_child(struct route_query *rq,
 	exit(0);
 }
 
+static void process_child_logs(struct route_query *rq, int log_fd)
+{
+	u8 *msg;
+	while ((msg = wire_sync_read(tmpctx, log_fd)) != NULL) {
+		enum log_level level;
+		char *entry;
+		struct node_id *peer;
+		if (fromwire_status_log(tmpctx, msg, &level, &peer, &entry))
+			rq_log(tmpctx, rq, level, "%s", entry);
+	}
+}
+
 static struct command_result *do_getroutes(struct command *cmd,
 					   struct gossmap_localmods *localmods,
 					   struct getroutes_info *info)
@@ -667,7 +704,7 @@ static struct command_result *do_getroutes(struct command *cmd,
 	const struct gossmap_node *me;
 	const char *err, *json;
 	struct timemono time_start, deadline;
-	int child_fd, child_pid, child_status;
+	int child_fd, log_fd, child_pid, child_status;
 
 	/* update the gossmap */
 	if (gossmap_refresh(askrene->gossmap)) {
@@ -780,13 +817,15 @@ static struct command_result *do_getroutes(struct command *cmd,
 	child_fd = fork_router_child(rq, info->dev_algo,
 				     deadline, srcnode, dstnode, info->amount,
 				     info->maxfee, info->finalcltv, info->maxdelay,
-				     cmd->id, cmd->filter, &child_pid);
+				     cmd->id, cmd->filter, &log_fd, &child_pid);
 	if (child_fd == -1) {
 		err = tal_fmt(tmpctx, "failed to fork: %s", strerror(errno));
 		goto fail_broken;
 	}
 
 	/* FIXME: Go async! */
+	process_child_logs(rq, log_fd);
+	close(log_fd);
 	json = grab_fd_str(cmd, child_fd);
 	close(child_fd);
 	waitpid(child_pid, &child_status, 0);
