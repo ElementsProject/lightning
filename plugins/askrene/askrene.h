@@ -28,6 +28,8 @@ struct askrene {
 	struct command *layer_cmd;
 	/* How long before we abort trying to find a route? */
 	u32 route_seconds;
+	/* Routing children currently in flight. */
+	struct list_head children;
 };
 
 /* Useful plugin->askrene mapping */
