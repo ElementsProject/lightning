@@ -43,7 +43,7 @@ def test_opening_with_unknown_feerates(node_factory, bitcoind):
         l1.rpc.fundchannel(l2.info['id'], 1000000, minconf=0)
     
     # Opening should work fine since fees are specified manually
-    l1.rpc.fundchannel(l1.info['id'], 1000000, feerate='1perkw',minconf=0)
+    l1.rpc.fundchannel(l2.info['id'], 1000000, feerate='1perkw', minconf=0)
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
