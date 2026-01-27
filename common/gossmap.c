@@ -29,11 +29,7 @@ static bool chanidx_eq_id(const ptrint_t *pidx,
 	struct short_channel_id pidxid = chanidx_id(pidx);
 	return short_channel_id_eq(pidxid, scid);
 }
-static size_t scid_hash(const struct short_channel_id scid)
-{
-	return siphash24(siphash_seed(), &scid, sizeof(scid));
-}
-HTABLE_DEFINE_NODUPS_TYPE(ptrint_t, chanidx_id, scid_hash, chanidx_eq_id,
+HTABLE_DEFINE_NODUPS_TYPE(ptrint_t, chanidx_id, hash_scid, chanidx_eq_id,
 			  chanidx_htable);
 
 static struct node_id nodeidx_id(const ptrint_t *pidx);
