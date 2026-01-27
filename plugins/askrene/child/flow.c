@@ -6,7 +6,7 @@
 #include <common/overflows.h>
 #include <math.h>
 #include <plugins/askrene/askrene.h>
-#include <plugins/askrene/flow.h>
+#include <plugins/askrene/child/flow.h>
 #include <plugins/libplugin.h>
 #include <stdio.h>
 

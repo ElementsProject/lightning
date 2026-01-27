@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_PLUGINS_ASKRENE_EXPLAIN_FAILURE_H
-#define LIGHTNING_PLUGINS_ASKRENE_EXPLAIN_FAILURE_H
+#ifndef LIGHTNING_PLUGINS_ASKRENE_CHILD_EXPLAIN_FAILURE_H
+#define LIGHTNING_PLUGINS_ASKRENE_CHILD_EXPLAIN_FAILURE_H
 #include "config.h"
 #include <common/amount.h>
 
@@ -13,4 +13,4 @@ const char *explain_failure(const tal_t *ctx,
 			    const struct gossmap_node *dstnode,
 			    struct amount_msat amount);
 
-#endif /* LIGHTNING_PLUGINS_ASKRENE_EXPLAIN_FAILURE_H */
+#endif /* LIGHTNING_PLUGINS_ASKRENE_CHILD_EXPLAIN_FAILURE_H */
