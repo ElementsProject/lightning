@@ -2,10 +2,10 @@ PLUGIN_ASKRENE_PARENT_SRC := \
 	plugins/askrene/askrene.c \
 	plugins/askrene/datastore_wire.c \
 	plugins/askrene/layer.c \
-	plugins/askrene/reserve.c \
+	plugins/askrene/reserve.c
 
 PLUGIN_ASKRENE_CHILD_SRC := \
-	plugins/askrene/child/entry.c \
+	plugins/askrene/child/child.c \
 	plugins/askrene/child/mcf.c \
 	plugins/askrene/child/dijkstra.c \
 	plugins/askrene/child/flow.c \
