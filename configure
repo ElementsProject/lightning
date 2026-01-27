@@ -202,7 +202,6 @@ set_defaults()
 	FUZZFLAGS="-fsanitize=fuzzer-no-link -DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION"
 	CSANFLAGS="$CSANFLAGS $FUZZFLAGS"
     fi
-    echo CSANFLAGS = $CSANFLAGS
     PYTHON=${PYTHON-$(default_python)}
     SED=${SED-$(default_sed)}
     PYTEST=${PYTEST-$(default_pytest $PYTHON)}
