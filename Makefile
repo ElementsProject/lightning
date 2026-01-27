@@ -313,6 +313,10 @@ else
 LDLIBS = -L$(CPATH) -lm $(SQLITE3_LDLIBS) $(COVFLAGS)
 endif
 
+ifeq ($(HAVE_FUNCTION_SECTIONS),1)
+LDLIBS += -Wl,--gc-sections
+endif
+
 # If we have the postgres client library we need to link against it as well
 ifeq ($(HAVE_POSTGRES),1)
 LDLIBS += $(POSTGRES_LDLIBS)
