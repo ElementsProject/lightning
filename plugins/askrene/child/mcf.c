@@ -1341,6 +1341,7 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 	      const struct gossmap_node *srcnode,
 	      const struct gossmap_node *dstnode, struct amount_msat amount,
 	      struct amount_msat maxfee, u32 finalcltv, u32 maxdelay,
+	      size_t maxparts,
 	      struct flow ***flows, double *probability,
 	      struct flow **(*solver)(const tal_t *, const struct route_query *,
 				      const struct gossmap_node *,
@@ -1551,10 +1552,10 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 
 	/* If we're over the number of parts, try to cram excess into the
 	 * largest-capacity parts */
-	if (tal_count(*flows) > rq->maxparts) {
+	if (tal_count(*flows) > maxparts) {
 		struct amount_msat fee;
 
-		error_message = reduce_num_flows(rq, rq, flows, amount, rq->maxparts);
+		error_message = reduce_num_flows(rq, rq, flows, amount, maxparts);
 		if (error_message) {
 			*flows = tal_free(*flows);
 			return error_message;
@@ -1594,14 +1595,13 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 		return child_log(rq, LOG_BROKEN,
 				 "%s: check_htlc_max_limits failed", __func__);
 	}
-	if (tal_count(*flows) > rq->maxparts) {
+	if (tal_count(*flows) > maxparts) {
 		size_t num_flows = tal_count(*flows);
 		*flows = tal_free(*flows);
 		return child_log(rq, LOG_BROKEN,
 				 "%s: the number of flows (%zu) exceeds the limit set "
-				 "on payment parts (%" PRIu32
-				 "), please submit a bug report",
-				 __func__, num_flows, rq->maxparts);
+				 "on payment parts (%zu), please submit a bug report",
+				 __func__, num_flows, maxparts);
 	}
 
 	return NULL;
@@ -1618,11 +1618,12 @@ const char *default_routes(const tal_t *ctx, struct route_query *rq,
 			   const struct gossmap_node *srcnode,
 			   const struct gossmap_node *dstnode,
 			   struct amount_msat amount, struct amount_msat maxfee,
-			   u32 finalcltv, u32 maxdelay, struct flow ***flows,
+			   u32 finalcltv, u32 maxdelay, size_t maxparts,
+			   struct flow ***flows,
 			   double *probability)
 {
 	return linear_routes(ctx, rq, deadline, srcnode, dstnode, amount, maxfee,
-			     finalcltv, maxdelay, flows, probability, minflow);
+			     finalcltv, maxdelay, maxparts, flows, probability, minflow);
 }
 
 const char *single_path_routes(const tal_t *ctx, struct route_query *rq,
@@ -1635,6 +1636,6 @@ const char *single_path_routes(const tal_t *ctx, struct route_query *rq,
 			       double *probability)
 {
 	return linear_routes(ctx, rq, deadline, srcnode, dstnode, amount, maxfee,
-			     finalcltv, maxdelay, flows, probability,
+			     finalcltv, maxdelay, 1, flows, probability,
 			     single_path_flow);
 }

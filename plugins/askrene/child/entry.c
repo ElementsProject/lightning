@@ -134,7 +134,7 @@ int fork_router_child(struct route_query *rq,
 		      const struct gossmap_node *srcnode,
 		      const struct gossmap_node *dstnode,
 		      struct amount_msat amount, struct amount_msat maxfee,
-		      u32 finalcltv, u32 maxdelay,
+		      u32 finalcltv, u32 maxdelay, size_t maxparts,
 		      const char *cmd_id,
 		      struct json_filter *cmd_filter,
 		      int *log_fd,
@@ -181,7 +181,7 @@ int fork_router_child(struct route_query *rq,
 	} else {
 		err = default_routes(rq, rq, deadline, srcnode, dstnode,
 				     amount, maxfee, finalcltv, maxdelay,
-				     &flows, &probability);
+				     maxparts, &flows, &probability);
 	}
 	if (err) {
 		write_all(replyfds[1], err, strlen(err));
