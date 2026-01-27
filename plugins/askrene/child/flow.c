@@ -6,6 +6,7 @@
 #include <common/overflows.h>
 #include <math.h>
 #include <plugins/askrene/askrene.h>
+#include <plugins/askrene/child/child_log.h>
 #include <plugins/askrene/child/flow.h>
 #include <plugins/libplugin.h>
 #include <stdio.h>
@@ -17,16 +18,15 @@
 #endif
 
 /* How much do we deliver to destination using this set of routes */
-struct amount_msat flowset_delivers(struct plugin *plugin,
-				    struct flow **flows)
+struct amount_msat flowset_delivers(struct flow **flows)
 {
 	struct amount_msat final = AMOUNT_MSAT(0);
 	for (size_t i = 0; i < tal_count(flows); i++) {
 		if (!amount_msat_accumulate(&final, flows[i]->delivers)) {
-			plugin_err(plugin, "Could not add flowsat %s to %s (%zu/%zu)",
-				   fmt_amount_msat(tmpctx, flows[i]->delivers),
-				   fmt_amount_msat(tmpctx, final),
-				   i, tal_count(flows));
+			child_err("Could not add flowsat %s to %s (%zu/%zu)",
+				  fmt_amount_msat(tmpctx, flows[i]->delivers),
+				  fmt_amount_msat(tmpctx, final),
+				  i, tal_count(flows));
 		}
 	}
 	return final;
@@ -68,7 +68,7 @@ static double edge_probability(const struct route_query *rq,
 	return 1.0 - amount_msat_ratio(numerator, denominator);
 }
 
-struct amount_msat flow_spend(struct plugin *plugin, const struct flow *flow)
+struct amount_msat flow_spend(const struct flow *flow)
 {
 	const size_t pathlen = tal_count(flow->path);
 	struct amount_msat spend = flow->delivers;
@@ -77,38 +77,38 @@ struct amount_msat flow_spend(struct plugin *plugin, const struct flow *flow)
 		const struct half_chan *h = flow_edge(flow, i);
 		if (!amount_msat_add_fee(&spend, h->base_fee,
 					 h->proportional_fee)) {
-			plugin_err(plugin, "Could not add fee %u/%u to amount %s in %i/%zu",
-				   h->base_fee, h->proportional_fee,
-				   fmt_amount_msat(tmpctx, spend),
-				   i, pathlen);
+			child_err("Could not add fee %u/%u to amount %s in %i/%zu",
+				  h->base_fee, h->proportional_fee,
+				  fmt_amount_msat(tmpctx, spend),
+				  i, pathlen);
 		}
 	}
 
 	return spend;
 }
 
-struct amount_msat flow_fee(struct plugin *plugin, const struct flow *flow)
+struct amount_msat flow_fee(const struct flow *flow)
 {
-	struct amount_msat spend = flow_spend(plugin, flow);
+	struct amount_msat spend = flow_spend(flow);
 	struct amount_msat fee;
 	if (!amount_msat_sub(&fee, spend, flow->delivers)) {
-		plugin_err(plugin, "Could not subtract %s from %s for fee",
-				   fmt_amount_msat(tmpctx, flow->delivers),
-				   fmt_amount_msat(tmpctx, spend));
+		child_err("Could not subtract %s from %s for fee",
+			  fmt_amount_msat(tmpctx, flow->delivers),
+			  fmt_amount_msat(tmpctx, spend));
 	}
 
 	return fee;
 }
 
-struct amount_msat flowset_fee(struct plugin *plugin, struct flow **flows)
+struct amount_msat flowset_fee(struct flow **flows)
 {
 	struct amount_msat fee = AMOUNT_MSAT(0);
 	for (size_t i = 0; i < tal_count(flows); i++) {
-		struct amount_msat this_fee = flow_fee(plugin, flows[i]);
+		struct amount_msat this_fee = flow_fee(flows[i]);
 		if (!amount_msat_accumulate(&fee, this_fee)) {
-			plugin_err(plugin, "Could not add %s to %s for flowset fee",
-				   fmt_amount_msat(tmpctx, this_fee),
-				   fmt_amount_msat(tmpctx, fee));
+			child_err("Could not add %s to %s for flowset fee",
+				  fmt_amount_msat(tmpctx, this_fee),
+				  fmt_amount_msat(tmpctx, fee));
 		}
 	}
 	return fee;
@@ -144,10 +144,10 @@ double flow_probability(const struct flow *flow,
 
 		if (!amount_msat_add_fee(&spend, h->base_fee,
 					 h->proportional_fee)) {
-			plugin_err(rq->plugin, "Could not add fee %u/%u to amount %s in %i/%zu",
-				   h->base_fee, h->proportional_fee,
-				   fmt_amount_msat(tmpctx, spend),
-				   i, pathlen);
+			child_err("Could not add fee %u/%u to amount %s in %i/%zu",
+				  h->base_fee, h->proportional_fee,
+				  fmt_amount_msat(tmpctx, spend),
+				  i, pathlen);
 		}
 	}
 
