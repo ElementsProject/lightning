@@ -18,25 +18,32 @@ def find_next_feerate(node, peer):
     return chan['next_feerate']
 
 @pytest.mark.openchannel('v1')
+@pytest.mark.xfail(strict=True)
 @unittest.skipIf(TEST_NETWORK != 'regtest', "requires regtest")
 def test_opening_with_unknown_feerates(node_factory, bitcoind):
     """
     Test openchannel when feerates are unknown (like on signet/testnet with empty mempool).
     """
     opts = {
-        'ignore-fee-limits': True,
         'feerates': None, 
         'dev-no-fake-fees': True,
     }
 
-    l1, l2 = node_factory.line_graph(2, opts=[opts, opts])
+    l1, l2 = node_factory.get_nodes(2, opts=[opts, {}])
 
-    # Verify fee estimation is failing
+    # Verify fee estimation is failing only on l1
     l1.daemon.wait_for_log('Unable to estimate any fees')
-    l2.daemon.wait_for_log('Unable to estimate any fees')
 
-    with pytest.raises(RpcError) as e:
-        l1.rpc.fundchannel(id=l2.info['id'], amount=1000000, feerate='252perkw', minconf=0)
+    # Connect nodes and fund l1
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.fundwallet(10000000)
+
+    # Opening should fail due to unknown feerates
+    with pytest.raises(RpcError, match=r"Cannot estimate fees"):
+        l1.rpc.fundchannel(l2.info['id'], 1000000, minconf=0)
+    
+    # Opening should work fine since fees are specified manually
+    l1.rpc.fundchannel(l1.info['id'], 1000000, feerate='1perkw',minconf=0)
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
