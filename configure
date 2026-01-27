@@ -213,6 +213,17 @@ set_defaults()
     RUST=${RUST:-$(default_rust_setting)}
 }
 
+# Given CC and FLAGS do we support -ffunction-sections and --gc-sections?
+have_function_sections()
+{
+    # This gets removed automatically on exit!
+    TMPCFILE=$CONFIG_VAR_FILE.$$.c
+    TMPOBJFILE=$CONFIG_VAR_FILE.$$.o
+    
+    echo "int foo(void); int foo(void) { return 0; }" > $TMPCFILE
+    $1 $2 -ffunction-sections -Wl,--gc-sections -c $TMPCFILE -o $TMPOBJFILE
+}
+
 usage()
 {
     echo "Usage: ./configure [--reconfigure] [setting=value] [options]"
@@ -355,10 +366,19 @@ EOF
     done
 fi
 
+# We call this first, so we can make sure configurator runs with it as a sanity check!
+if have_function_sections $CC "${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS"; then
+    HAVE_FUNCTION_SECTIONS=1
+    LDFLAGS="-Wl,--gc-sections"
+    COPTFLAGS="$COPTFLAGS -ffunction-sections"
+else
+    HAVE_FUNCTION_SECTIONS=0
+    LDFLAGS=
+fi
 
 # We assume warning flags don't affect congfigurator that much!
 echo -n "Compiling $CONFIGURATOR..."
-$CC ${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS -o $CONFIGURATOR $CONFIGURATOR.c
+$CC ${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS $LDFLAGS -o $CONFIGURATOR $CONFIGURATOR.c
 echo "done"
 
 if [ "$CLANG_COVERAGE" = "1" ]; then
@@ -406,7 +426,7 @@ if command -v "${PG_CONFIG}" >/dev/null; then
 fi
 
 # Clean up on exit.
-trap "rm -f $CONFIG_VAR_FILE.$$" 0
+trap "rm -f $CONFIG_VAR_FILE.$$*" 0
 
 $CONFIGURATOR --extra-tests --autotools-style --var-file=$CONFIG_VAR_FILE.$$ --header-file=$CONFIG_HEADER.$$ --configurator-cc="$CONFIGURATOR_CC" --wrapper="$CONFIGURATOR_WRAPPER" "$CC" ${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS $CSANFLAGS -I$CPATH -L$LIBRARY_PATH $SQLITE3_CFLAGS $SODIUM_CFLAGS $POSTGRES_INCLUDE <<EOF
 
@@ -619,6 +639,7 @@ add_var FUZZING "$FUZZING"
 add_var RUST "$RUST"
 add_var PYTHON "$PYTHON"
 add_var SED "$SED"
+add_var HAVE_FUNCTION_SECTIONS "$HAVE_FUNCTION_SECTIONS"
 
 # Hack to avoid sha256 name clash with libwally: will be fixed when that
 # becomes a standalone shared lib.
