@@ -73,39 +73,6 @@ jobs:
             echo "Not a PR event."
           fi
 
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-
-      - name: Install dependencies
-        run: |
-          bash -x .github/scripts/setup.sh
-          # We're going to check BOLT quotes, so get the latest version
-          git clone https://github.com/lightning/bolts.git ../${BOLTDIR}
-      - name: Configure
-        run: ./configure --enable-debugbuild --enable-rust
-      - name: Check source
-        env:
-          VALGRIND: 0
-          PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }}
-        run: |
-          uv run make check-source BASE_REF="origin/${{ github.base_ref }}"
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: pytest-results-prebuild
-          path: report.xml
-          if-no-files-found: ignore
-      - name: Check Generated Files have been updated
-        run: uv run make check-gen-updated
-      - name: Check docs
-        run: uv run make check-doc
-
   compile:
     name: Compile CLN ${{ matrix.cfg }}
     runs-on: ubuntu-24.04
@@ -170,6 +137,65 @@ jobs:
         with:
           name: cln-${{ matrix.CFG }}.tar.bz2
           path: cln-${{ matrix.CFG }}.tar.bz2
+
+  postbuild:
+    name: Postbuild checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      BOLTDIR: bolts
+    needs:
+      - compile
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - CFG: compile-gcc
+            VALGRIND: 1
+          - CFG: compile-clang-sanitizers
+            VALGRIND: 0
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: |
+          bash -x .github/scripts/setup.sh
+          sudo apt-get update -qq
+          # We're going to check BOLT quotes, so get the latest version
+          git clone https://github.com/lightning/bolts.git ../${BOLTDIR}
+
+      - name: Download build
+        uses: actions/download-artifact@v4
+        with:
+          name: cln-${{ matrix.CFG }}.tar.bz2
+
+      - name: Check source
+        env:
+          VALGRIND: 0
+          PYTEST_OPTS:  ${{ env.PYTEST_OPTS_BASE }}
+        run: |
+          tar -xmaf cln-${{ matrix.CFG }}.tar.bz2
+          uv run make check-source BASE_REF="origin/${{ github.base_ref }}"
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-results-postbuild
+          path: report.xml
+          if-no-files-found: ignore
+      - name: Check Generated Files have been updated
+        run: uv run make check-gen-updated
+      - name: Check docs
+        run: uv run make check-doc
 
   check-units:
     # The unit test checks are not in the critical path (not dependent
@@ -768,11 +794,12 @@ jobs:
       - integration-sanitizers
       - min-btc-support
       - check-downgrade
+      - postbuild
     if: ${{ always() }}
     steps:
       - name: Complete
         env:
-          JOB_NAMES: "INTEGRATION CHECK_UNITS VALGRIND SANITIZERS BTC"
+          JOB_NAMES: "INTEGRATION CHECK_UNITS VALGRIND SANITIZERS BTC POSTBUILD"
           INTEGRATION: ${{ needs.integration.result }}
           CHECK_UNITS: ${{ needs['check-units'].result }}
           VALGRIND: ${{ needs['integration-valgrind'].result }}
@@ -780,6 +807,7 @@ jobs:
           DOCS: ${{ needs['update-docs-examples'].result }}
           BTC: ${{ needs['min-btc-support'].result }}
           CHECK_DOWNGRADE: ${{ needs['check-downgrade'].result }}
+          POSTBUILD: ${{ needs['postbuild'].result }}
         run: |
           failed=""
           for name in $JOB_NAMES; do
