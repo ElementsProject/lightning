@@ -4496,9 +4496,15 @@ def test_connect_ratelimit(node_factory, bitcoind):
     assert not l1.daemon.is_in_log('Unblocking for')
 
     l1.stop()
-    # Suspend the others, to make sure they cannot respond too fast.
+
+    # Suspend the others' connectd, to make sure they cannot respond too fast.
+    connectd_pids = []
     for n in nodes:
-        os.kill(n.daemon.proc.pid, signal.SIGSTOP)
+        log = n.daemon.is_in_log(' connectd: pid .*, msgfd')
+        m = re.search(r'connectd: pid (\d*),', log)
+        pid = int(m.groups()[0])
+        connectd_pids.append(pid)
+        os.kill(pid, signal.SIGSTOP)
 
     try:
         l1.start()
@@ -4509,13 +4515,13 @@ def test_connect_ratelimit(node_factory, bitcoind):
                                 * (len(nodes) - 1))
     except Exception as err:
         # Resume, so pytest doesn't hang!
-        for n in nodes:
-            os.kill(n.daemon.proc.pid, signal.SIGCONT)
+        for p in connectd_pids:
+            os.kill(p, signal.SIGCONT)
         raise err
 
     # Resume them
-    for n in nodes:
-        os.kill(n.daemon.proc.pid, signal.SIGCONT)
+    for p in connectd_pids:
+        os.kill(p, signal.SIGCONT)
 
     # And now they're all connected
     wait_for(lambda: [p['connected'] for p in l1.rpc.listpeers()['peers']] == [True] * len(nodes))
