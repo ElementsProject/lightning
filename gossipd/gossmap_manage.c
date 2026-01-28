@@ -1,24 +1,35 @@
 #include "config.h"
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
+#include <ccan/closefrom/closefrom.h>
+#include <ccan/err/err.h>
+#include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/str/str.h>
 #include <common/clock_time.h>
 #include <common/daemon_conn.h>
 #include <common/gossip_store.h>
+#include <common/gossip_store_wiregen.h>
 #include <common/gossmap.h>
 #include <common/memleak.h>
 #include <common/status.h>
 #include <common/timeout.h>
 #include <common/utils.h>
 #include <common/wire_error.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <gossipd/gossip_store.h>
-#include <gossipd/gossip_store_wiregen.h>
 #include <gossipd/gossipd.h>
 #include <gossipd/gossipd_wiregen.h>
 #include <gossipd/gossmap_manage.h>
 #include <gossipd/seeker.h>
 #include <gossipd/sigcheck.h>
 #include <gossipd/txout_failures.h>
+#include <stdio.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+#define GOSSIP_STORE_COMPACT_FILENAME "gossip_store.compact"
 
 struct pending_cannounce {
 	const u8 *scriptpubkey;
@@ -56,6 +67,16 @@ struct cannounce_map {
 	bool flood_reported;
 };
 
+struct compactd {
+	struct io_conn *in_conn;
+	u64 old_size;
+	bool dev_compact;
+	u8 ignored;
+	int outfd;
+	pid_t pid;
+	u8 uuid[32];
+};
+
 struct gossmap_manage {
 	struct daemon *daemon;
 
@@ -64,10 +85,6 @@ struct gossmap_manage {
 
 	/* gossip map itself (access via gossmap_manage_get_gossmap, so it's fresh!) */
 	struct gossmap *raw_gossmap;
-
-	/* Last writes to gossmap since previous sync, in case it
-	 * messes up and we need to force it. */
-	const u8 **last_writes;
 
 	/* The gossip_store, which writes to the gossip_store file */
 	struct gossip_store *gs;
@@ -96,6 +113,9 @@ struct gossmap_manage {
 
 	/* Are we populated yet? */
 	bool gossip_store_populated;
+
+	/* Non-NULL if a compactd is running. */
+	struct compactd *compactd;
 };
 
 /* Timer recursion */
@@ -268,7 +288,7 @@ static void remove_channel(struct gossmap_manage *gm,
 	/* Put in tombstone marker. */
 	gossip_store_add(gm->gs,
 			 towire_gossip_store_delete_chan(tmpctx, scid),
-			 0, &gm->last_writes);
+			 0);
 
 	/* Delete from store */
 	gossip_store_del(gm->gs, chan->cann_off, WIRE_CHANNEL_ANNOUNCEMENT);
@@ -309,7 +329,7 @@ static void remove_channel(struct gossmap_manage *gm,
 			timestamp = gossip_store_get_timestamp(gm->gs, node->nann_off);
 
 			gossip_store_del(gm->gs, node->nann_off, WIRE_NODE_ANNOUNCEMENT);
-			offset = gossip_store_add(gm->gs, nannounce, timestamp, &gm->last_writes);
+			offset = gossip_store_add(gm->gs, nannounce, timestamp);
 		} else {
 			/* Are all remaining channels dying but we weren't?
 			 * Can happen if we removed this channel immediately
@@ -430,7 +450,7 @@ static void start_prune_timer(struct gossmap_manage *gm)
 
 static void reprocess_queued_msgs(struct gossmap_manage *gm);
 
-static void gossmap_logcb(struct daemon *daemon,
+static void gossmap_logcb(struct gossmap_manage *gm,
 			  enum log_level level,
 			  const char *fmt,
 			  ...)
@@ -442,34 +462,48 @@ static void gossmap_logcb(struct daemon *daemon,
 	va_end(ap);
 }
 
-static bool setup_gossmap(struct gossmap_manage *gm,
-			  struct daemon *daemon,
-			  struct chan_dying **dying)
+static void gossmap_add_dying_chan(struct short_channel_id scid,
+				   u32 blockheight,
+				   u64 offset,
+				   struct gossmap_manage *gm)
 {
-	u64 expected_len;
+	struct chan_dying cd;
 
-	*dying = NULL;
+	cd.scid = scid;
+	cd.deadline = blockheight;
+	cd.gossmap_offset = offset;
+	tal_arr_expand(&gm->dying_channels, cd);
+}
 
-	/* This does simple sanitry checks, compacts, and creates if
-	 * necessary */
+static bool setup_gossmap(struct gossmap_manage *gm,
+			  struct daemon *daemon)
+{
+	u64 expected_len, num_live, num_dead;
+
+	/* This does creates or converts if necessary. */
 	gm->gs = gossip_store_new(gm,
 				  daemon,
-				  &gm->gossip_store_populated,
-				  dying);
+				  &gm->gossip_store_populated);
 	if (!gm->gs)
 		return false;
 
+	gm->dying_channels = tal_arr(gm, struct chan_dying, 0);
 	expected_len = gossip_store_len_written(gm->gs);
 
 	/* This actually loads it into memory, with strict checks. */
 	gm->raw_gossmap = gossmap_load_initial(gm, GOSSIP_STORE_FILENAME,
 					       expected_len,
-					       gossmap_logcb, daemon);
+					       gossmap_logcb,
+					       gossmap_add_dying_chan,
+					       gm);
 	if (!gm->raw_gossmap) {
 		gm->gs = tal_free(gm->gs);
 		return false;
 	}
-	gm->last_writes = tal_arr(gm, const u8 *, 0);
+
+	gossmap_stats(gm->raw_gossmap, &num_live, &num_dead);
+	status_debug("gossip_store: %"PRIu64" live records, %"PRIu64" deleted",
+		     num_live, num_dead);
 	return true;
 }
 
@@ -485,16 +519,17 @@ struct gossmap_manage *gossmap_manage_new(const tal_t *ctx,
 {
 	struct gossmap_manage *gm = tal(ctx, struct gossmap_manage);
 
-	if (!setup_gossmap(gm, daemon, &gm->dying_channels)) {
+	if (!setup_gossmap(gm, daemon)) {
 		tal_free(gm->dying_channels);
 		gossip_store_corrupt();
-		if (!setup_gossmap(gm, daemon, &gm->dying_channels))
+		if (!setup_gossmap(gm, daemon))
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Could not re-initialize %s", GOSSIP_STORE_FILENAME);
 	}
 	assert(gm->gs);
 	assert(gm->raw_gossmap);
 	gm->daemon = daemon;
+	gm->compactd = NULL;
 
 	map_init(&gm->pending_ann_map, "pending announcements");
 	gm->pending_cupdates = tal_arr(gm, struct pending_cupdate *, 0);
@@ -620,10 +655,9 @@ const char *gossmap_manage_channel_announcement(const tal_t *ctx,
 	 */
 	if (known_amount) {
 		/* Set with timestamp 0 (we will update once we have a channel_update) */
-		gossip_store_add(gm->gs, announce, 0, &gm->last_writes);
+		gossip_store_add(gm->gs, announce, 0);
 		gossip_store_add(gm->gs,
-				 towire_gossip_store_channel_amount(tmpctx, *known_amount), 0,
-				 &gm->last_writes);
+				 towire_gossip_store_channel_amount(tmpctx, *known_amount), 0);
 
 		node_announcements_not_dying(gm, gossmap, pca);
 		tal_free(pca);
@@ -754,10 +788,9 @@ void gossmap_manage_handle_get_txout_reply(struct gossmap_manage *gm, const u8 *
 	}
 
 	/* Set with timestamp 0 (we will update once we have a channel_update) */
-	gossip_store_add(gm->gs, pca->channel_announcement, 0, &gm->last_writes);
+	gossip_store_add(gm->gs, pca->channel_announcement, 0);
 	gossip_store_add(gm->gs,
-			 towire_gossip_store_channel_amount(tmpctx, sat), 0,
-			 &gm->last_writes);
+			 towire_gossip_store_channel_amount(tmpctx, sat), 0);
 
 	/* If we looking specifically for this, we no longer are. */
 	remove_unknown_scid(gm->daemon->seeker, &scid, true);
@@ -859,7 +892,7 @@ static const char *process_channel_update(const tal_t *ctx,
 	}
 
 	/* OK, apply the new one */
-	offset = gossip_store_add(gm->gs, update, timestamp, &gm->last_writes);
+	offset = gossip_store_add(gm->gs, update, timestamp);
 
 	/* If channel is dying, make sure update is also marked dying! */
 	if (gossmap_chan_is_dying(gossmap, chan)) {
@@ -1038,7 +1071,7 @@ static void process_node_announcement(struct gossmap_manage *gm,
 	}
 
 	/* OK, apply the new one */
-	offset = gossip_store_add(gm->gs, nannounce, timestamp, &gm->last_writes);
+	offset = gossip_store_add(gm->gs, nannounce, timestamp);
 	/* If all channels are dying, make sure this is marked too. */
 	if (all_node_channels_dying(gossmap, node, NULL)) {
 		gossip_store_set_flag(gm->gs, offset,
@@ -1365,7 +1398,7 @@ void gossmap_manage_channel_spent(struct gossmap_manage *gm,
 
 	/* Save to gossip_store in case we restart */
 	msg = towire_gossip_store_chan_dying(tmpctx, cd.scid, cd.deadline);
-	cd.gossmap_offset = gossip_store_add(gm->gs, msg, 0, &gm->last_writes);
+	cd.gossmap_offset = gossip_store_add(gm->gs, msg, 0);
 	tal_arr_expand(&gm->dying_channels, cd);
 
 	/* Mark it dying, so we don't gossip it */
@@ -1469,7 +1502,7 @@ struct gossmap *gossmap_manage_get_gossmap(struct gossmap_manage *gm)
 		gossmap_disable_mmap(gm->raw_gossmap);
 
 		/* Try rewriting the last few records, syncing. */
-		gossip_store_rewrite_end(gm->gs, gm->last_writes);
+		gossip_store_rewrite_end(gm->gs);
 		gossmap_refresh(gm->raw_gossmap);
 
 		map_used = gossmap_lengths(gm->raw_gossmap, &map_size);
@@ -1481,8 +1514,7 @@ struct gossmap *gossmap_manage_get_gossmap(struct gossmap_manage *gm)
 	}
 
 	/* Free up last_writes, since we've seen it on disk */
-	tal_free(gm->last_writes);
-	gm->last_writes = tal_arr(gm, const u8 *, 0);
+	gossip_store_writes_confirmed(gm->gs);
 	return gm->raw_gossmap;
 }
 
@@ -1549,3 +1581,236 @@ bool gossmap_manage_populated(const struct gossmap_manage *gm)
 {
 	return gm->gossip_store_populated;
 }
+
+static void compactd_broken(const struct gossmap_manage *gm,
+			    const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	status_vfmt(LOG_BROKEN, NULL, fmt, ap);
+	va_end(ap);
+
+	if (gm->compactd->dev_compact) {
+		va_start(ap, fmt);
+		daemon_conn_send(gm->daemon->master,
+				 take(towire_gossipd_dev_compact_store_reply(NULL,
+									     tal_vfmt(tmpctx, fmt, ap))));
+		va_end(ap);
+	}
+}
+
+static void compactd_done(struct io_conn *unused, struct gossmap_manage *gm)
+{
+	int status;
+	struct stat st;
+
+	if (waitpid(gm->compactd->pid, &status, 0) < 0)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Waiting for %u: %s",
+			      (unsigned int)gm->compactd->pid,
+			      strerror(errno));
+
+	if (!WIFEXITED(status)) {
+		compactd_broken(gm, "compactd failed with signal %u",
+				WTERMSIG(status));
+		goto failed;
+	}
+	if (WEXITSTATUS(status) != 0) {
+		compactd_broken(gm, "compactd exited with status %u",
+			      WEXITSTATUS(status));
+		goto failed;
+	}
+
+	if (stat(GOSSIP_STORE_COMPACT_FILENAME, &st) != 0) {
+		compactd_broken(gm, "compactd did not create file? %s",
+			      strerror(errno));
+		goto failed;
+	}
+
+	status_debug("compaction done: %"PRIu64" -> %"PRIu64" bytes",
+		     gm->compactd->old_size, (u64)st.st_size);
+
+	/* Switch gossmap to new one, as a sanity check (rather than
+	 * writing end marker and letting it reopen) */
+	tal_free(gm->raw_gossmap);
+	gm->raw_gossmap = gossmap_load_initial(gm, GOSSIP_STORE_COMPACT_FILENAME,
+					       st.st_size,
+					       gossmap_logcb,
+					       NULL,
+					       gm);
+	if (!gm->raw_gossmap)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "compacted gossip_store is invalid");
+
+	if (rename(GOSSIP_STORE_COMPACT_FILENAME, GOSSIP_STORE_FILENAME) != 0)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Error renaming gossip store: %s",
+			      strerror(errno));
+
+	/* Now append record to old one, so everyone will switch */
+	gossip_store_add(gm->gs,
+			 towire_gossip_store_ended(tmpctx, st.st_size, gm->compactd->uuid),
+			 0);
+	gossip_store_reopen(gm->gs);
+	if (gm->compactd->dev_compact)
+		daemon_conn_send(gm->daemon->master,
+				 take(towire_gossipd_dev_compact_store_reply(NULL, "")));
+
+failed:
+	gm->compactd = tal_free(gm->compactd);
+}
+
+/* When it's caught up to where we were, we wait. */
+static struct io_plan *compactd_read_done(struct io_conn *conn,
+					  struct gossmap_manage *gm)
+{
+	status_debug("compactd caught up, waiting for final bytes.");
+
+	/* Make sure everything has hit storage in the current version. */
+	gossip_store_fsync(gm->gs);
+	gossmap_manage_get_gossmap(gm);
+
+	/* Tell it to do the remainder, then we wait for it to exit in destructor. */
+	write_all(gm->compactd->outfd, "", 1);
+	return io_close(conn);
+}
+
+static struct io_plan *init_compactd_conn_in(struct io_conn *conn,
+					     struct gossmap_manage *gm)
+{
+	return io_read(conn, &gm->compactd->ignored, sizeof(gm->compactd->ignored),
+		       compactd_read_done, gm);
+}
+/* Returns false if already running */
+static bool gossmap_compact(struct gossmap_manage *gm, bool dev_compact)
+{
+	int childin[2], execfail[2], childout[2];
+	int saved_errno;
+
+	/* Only one at a time please! */
+	if (gm->compactd)
+		return false;
+
+	/* This checks contents: we want to make sure compactd sees an
+	 * up-to-date version. */
+	gossmap_manage_get_gossmap(gm);
+
+	gm->compactd = tal(gm, struct compactd);
+	for (size_t i = 0; i < ARRAY_SIZE(gm->compactd->uuid); i++)
+		gm->compactd->uuid[i] = pseudorand(256);
+
+	gm->compactd->old_size = gossip_store_len_written(gm->gs);
+	status_debug("Executing lightning_gossip_compactd %s %s %s %s",
+		     GOSSIP_STORE_FILENAME,
+		     GOSSIP_STORE_COMPACT_FILENAME,
+		     tal_fmt(tmpctx, "%"PRIu64, gm->compactd->old_size),
+		     tal_hexstr(tmpctx, gm->compactd->uuid, sizeof(gm->compactd->uuid)));
+
+	if (pipe(childin) != 0 || pipe(childout) != 0 || pipe(execfail) != 0)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Could not create pipes for compactd: %s",
+			      strerror(errno));
+
+	if (fcntl(execfail[1], F_SETFD, fcntl(execfail[1], F_GETFD)
+		  | FD_CLOEXEC) < 0)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Could not set cloexec on compactd fd: %s",
+			      strerror(errno));
+
+	gm->compactd->pid = fork();
+	if (gm->compactd->pid < 0)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Could not fork for compactd: %s",
+			      strerror(errno));
+
+	if (gm->compactd->pid == 0) {
+		close(childin[0]);
+		close(childout[1]);
+		close(execfail[0]);
+
+		/* In practice, low fds are all open, so we don't have
+		 * to handle those horrible cases */
+		assert(childin[1] > 2);
+		assert(childout[0] > 2);
+		if (dup2(childin[1], STDOUT_FILENO) == -1)
+			err(1, "Failed to duplicate fd to stdout");
+		close(childin[1]);
+		if (dup2(childout[0], STDIN_FILENO) == -1)
+			err(1, "Failed to duplicate fd to stdin");
+		close(childout[0]);
+		closefrom_limit(0);
+		closefrom(3);
+		/* Tell compactd helper what we read so far. */
+		execlp(gm->daemon->compactd_helper,
+		       gm->daemon->compactd_helper,
+		       GOSSIP_STORE_FILENAME,
+		       GOSSIP_STORE_COMPACT_FILENAME,
+		       tal_fmt(tmpctx, "%"PRIu64, gm->compactd->old_size),
+		       tal_hexstr(tmpctx, gm->compactd->uuid, sizeof(gm->compactd->uuid)),
+		       NULL);
+		saved_errno = errno;
+		/* Gcc's warn-unused-result fail. */
+		if (write(execfail[1], &saved_errno, sizeof(saved_errno))) {
+			;
+		}
+		exit(127);
+	}
+	close(childin[1]);
+	close(childout[0]);
+	close(execfail[1]);
+
+	/* Child will close this without writing on successful exec. */
+	if (read(execfail[0], &saved_errno, sizeof(saved_errno)) == sizeof(saved_errno)) {
+		close(execfail[0]);
+		waitpid(gm->compactd->pid, NULL, 0);
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Exec of %s failed: %s",
+			      gm->daemon->compactd_helper, strerror(saved_errno));
+	}
+	close(execfail[0]);
+
+	gm->compactd->dev_compact = dev_compact;
+	gm->compactd->outfd = childout[1];
+	gm->compactd->in_conn = io_new_conn(gm->compactd, childin[0],
+					    init_compactd_conn_in, gm);
+	io_set_finish(gm->compactd->in_conn, compactd_done, gm);
+	return true;
+}
+
+void gossmap_manage_maybe_compact(struct gossmap_manage *gm)
+{
+	u64 num_live, num_dead;
+	struct gossmap *gossmap = gossmap_manage_get_gossmap(gm);
+	bool compact_started;
+
+	gossmap_stats(gossmap, &num_live, &num_dead);
+
+	/* Don't get out of bed for less that 10MB */
+	if (gossip_store_len_written(gm->gs) < 10000000)
+		return;
+
+	/* Compact when the density would be 5x better */
+	if (num_dead < 4 * num_live)
+		return;
+
+	compact_started = gossmap_compact(gm, false);
+	status_debug("%s gossmap compaction:"
+		     " %"PRIu64" with"
+		     " %"PRIu64" live records and %"PRIu64" dead records",
+		     compact_started ? "Beginning" : "Already running",
+		     gossip_store_len_written(gm->gs),
+		     num_live, num_dead);
+}
+
+void gossmap_manage_handle_dev_compact_store(struct gossmap_manage *gm, const u8 *msg)
+{
+	if (!fromwire_gossipd_dev_compact_store(msg))
+		master_badmsg(WIRE_GOSSIPD_DEV_COMPACT_STORE, msg);
+
+	if (!gossmap_compact(gm, true))
+		daemon_conn_send(gm->daemon->master,
+				 take(towire_gossipd_dev_compact_store_reply(NULL,
+									     "Already compacting")));
+}
+

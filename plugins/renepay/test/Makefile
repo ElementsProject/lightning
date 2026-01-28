@@ -11,7 +11,6 @@ $(PLUGIN_RENEPAY_TEST_OBJS): $(PLUGIN_RENEPAY_SRC) plugins/renepay/test/common.h
 $(PLUGIN_RENEPAY_TEST_PROGRAMS):		\
 	plugins/renepay/dijkstra.o		\
 	plugins/renepay/chan_extra.o		\
-	gossipd/gossip_store_wiregen.o		\
 	libcommon.a
 
 check-renepay: $(PLUGIN_RENEPAY_TEST_PROGRAMS:%=unittest/%)

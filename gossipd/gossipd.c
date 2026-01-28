@@ -282,6 +282,8 @@ handled_msg_errmsg:
 handled_msg:
 	if (err)
 		queue_peer_msg(daemon, &source, take(err));
+	/* We need to keep gossmap to reasonable size */
+	gossmap_manage_maybe_compact(daemon->gm);
 }
 
 /*~ connectd's input handler is very simple. */
@@ -372,12 +374,13 @@ static void master_or_connectd_gone(struct daemon_conn *dc UNUSED)
 static void gossip_init(struct daemon *daemon, const u8 *msg)
 {
 	if (!fromwire_gossipd_init(daemon, msg,
-				     &chainparams,
-				     &daemon->our_features,
-				     &daemon->id,
-				     &daemon->dev_fast_gossip,
-				     &daemon->dev_fast_gossip_prune,
-				     &daemon->autoconnect_seeker_peers)) {
+				   &chainparams,
+				   &daemon->our_features,
+				   &daemon->id,
+				   &daemon->autoconnect_seeker_peers,
+				   &daemon->compactd_helper,
+				   &daemon->dev_fast_gossip,
+				   &daemon->dev_fast_gossip_prune)) {
 		master_badmsg(WIRE_GOSSIPD_INIT, msg);
 	}
 
@@ -539,6 +542,12 @@ static struct io_plan *recv_req(struct io_conn *conn,
 			goto done;
 		}
 		/* fall thru */
+	case WIRE_GOSSIPD_DEV_COMPACT_STORE:
+		if (daemon->developer) {
+			gossmap_manage_handle_dev_compact_store(daemon->gm, msg);
+			goto done;
+		}
+		/* fall thru */
 
 	/* We send these, we don't receive them */
 	case WIRE_GOSSIPD_INIT_CUPDATE:
@@ -546,6 +555,7 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_GOSSIPD_INIT_REPLY:
 	case WIRE_GOSSIPD_GET_TXOUT:
 	case WIRE_GOSSIPD_DEV_MEMLEAK_REPLY:
+	case WIRE_GOSSIPD_DEV_COMPACT_STORE_REPLY:
 	case WIRE_GOSSIPD_ADDGOSSIP_REPLY:
 	case WIRE_GOSSIPD_NEW_BLOCKHEIGHT_REPLY:
 	case WIRE_GOSSIPD_REMOTE_CHANNEL_UPDATE:

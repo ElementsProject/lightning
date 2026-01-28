@@ -63,6 +63,9 @@ struct daemon {
 	/* Features lightningd told us to set. */
 	struct feature_set *our_features;
 
+	/* Program to run to compact the datastore */
+	char *compactd_helper;
+
 	/* Speed up gossip. */
 	bool dev_fast_gossip;
 

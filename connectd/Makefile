@@ -35,7 +35,7 @@ ALL_PROGRAMS += lightningd/lightning_websocketd
 LIGHTNINGD_CONTROL_HEADERS += connectd/connectd_wiregen.h
 LIGHTNINGD_CONTROL_OBJS += connectd/connectd_wiregen.o
 
-lightningd/lightning_connectd: $(CONNECTD_OBJS) $(HSMD_CLIENT_OBJS) gossipd/gossipd_wiregen.o gossipd/gossip_store_wiregen.o libcommon.a
+lightningd/lightning_connectd: $(CONNECTD_OBJS) $(HSMD_CLIENT_OBJS) gossipd/gossipd_wiregen.o libcommon.a
 
 lightningd/lightning_websocketd: $(WEBSOCKETD_OBJS) libcommon.a
 
