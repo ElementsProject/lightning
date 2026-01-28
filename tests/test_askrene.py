@@ -1473,14 +1473,13 @@ def test_real_data(node_factory, bitcoind):
     # CI, it's slow.
     if SLOW_MACHINE:
         limit = 25
-        expected = (6, 25, 1568821, 144649, 91)
+        expected = (5, 25, 1566235, 198155, 88)
     else:
         limit = 100
-        expected = (9, 96, 6565466, 668476, 90)
+        expected = (9, 96, 6562880, 721982, 89)
 
     fees = {}
     for n in range(0, limit):
-        print(f"XXX: {n}")
         # 0.5% is the norm
         MAX_FEE = AMOUNT // 200
 
@@ -2018,5 +2017,77 @@ def test_excessive_fee_cost(node_factory):
             amount_msat=one_btc // 2,
             layers=["mylayer", "auto.no_mpp_support"],
             maxfee_msat=1000,
+            final_cltv=5,
+        )
+
+
+def test_impossible_payment(node_factory):
+    """A payment that is impossible due to HTLC constraints and fees. The
+    constraint might cause a timeout in in askrene's main loop due to the refine
+    step."""
+    l1 = node_factory.get_node()
+    node1 = "020000000000000000000000000000000000000000000000000000000000000001"
+    node2 = "020000000000000000000000000000000000000000000000000000000000000002"
+    node3 = "020000000000000000000000000000000000000000000000000000000000000003"
+    million_sats = 1000000000
+    pay_amt = 10000000
+    base_amt = int(pay_amt * 1.1)
+    l1.rpc.askrene_create_layer("mylayer")
+    l1.rpc.askrene_create_channel(
+        layer="mylayer",
+        source=node1,
+        destination=node2,
+        short_channel_id="0x0x1",
+        capacity_msat=million_sats,
+    )
+    l1.rpc.askrene_update_channel(
+        layer="mylayer",
+        short_channel_id_dir="0x0x1/0",
+        enabled=True,
+        htlc_minimum_msat=0,
+        htlc_maximum_msat=base_amt,
+        fee_base_msat=0,
+        fee_proportional_millionths=0,
+        cltv_expiry_delta=18,
+    )
+    l1.rpc.askrene_create_channel(
+        layer="mylayer",
+        source=node2,
+        destination=node3,
+        short_channel_id="0x0x2",
+        capacity_msat=million_sats,
+    )
+    l1.rpc.askrene_update_channel(
+        layer="mylayer",
+        short_channel_id_dir="0x0x2/0",
+        enabled=True,
+        htlc_minimum_msat=0,
+        htlc_maximum_msat=million_sats,
+        fee_base_msat=base_amt,
+        fee_proportional_millionths=0,
+        cltv_expiry_delta=18,
+    )
+    with pytest.raises(
+        RpcError,
+        match=r"I\'m not sure why we didn\'t find the obvious route 0x0x1->0x0x2",
+    ):
+        l1.rpc.getroutes(
+            source=node1,
+            destination=node3,
+            amount_msat=pay_amt,
+            layers=["mylayer"],
+            maxfee_msat=2 * pay_amt,
+            final_cltv=5,
+        )
+    with pytest.raises(
+        RpcError,
+        match=r"I\'m not sure why we didn\'t find the obvious route 0x0x1->0x0x2",
+    ):
+        l1.rpc.getroutes(
+            source=node1,
+            destination=node3,
+            amount_msat=pay_amt,
+            layers=["mylayer", "auto.no_mpp_support"],
+            maxfee_msat=2 * pay_amt,
             final_cltv=5,
         )
