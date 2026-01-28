@@ -282,6 +282,8 @@ handled_msg_errmsg:
 handled_msg:
 	if (err)
 		queue_peer_msg(daemon, &source, take(err));
+	/* We need to keep gossmap to reasonable size */
+	gossmap_manage_maybe_compact(daemon->gm);
 }
 
 /*~ connectd's input handler is very simple. */
