@@ -754,6 +754,85 @@ static const struct json_command addpsbtoutput_command = {
 };
 AUTODATA(json_command, &addpsbtoutput_command);
 
+static struct command_result *param_txout(struct command *cmd,
+					  const char *name,
+					  const char *buffer,
+					  const jsmntok_t *tok,
+					  struct utxo **utxo)
+{
+	jsmntok_t txid_tok, outnum_tok;
+	struct bitcoin_outpoint outpoint;
+
+	if (!split_tok(buffer, tok, ':', &txid_tok, &outnum_tok))
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Could not decode the outpoint from \"%s\""
+				    " The utxos should be specified as"
+				    " 'txid:output_index'.",
+				    json_strdup(tmpctx, buffer, tok));
+
+	if (!json_to_txid(buffer, &txid_tok, &outpoint.txid)) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Could not get a txid out of \"%s\"",
+				    json_strdup(tmpctx, buffer, &txid_tok));
+	}
+	if (!json_to_number(buffer, &outnum_tok, &outpoint.n)) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Could not get a vout out of \"%s\"",
+				    json_strdup(tmpctx, buffer, &outnum_tok));
+	}
+
+	// bitcoind_getutxout(info, cmd->ld->topology->bitcoind, &outpoint,
+	// 		   check_utxo_block, info);
+
+	// cocommand is now pending. Replace check_utxo_block with callback function,
+	// info is parameter value to callback
+
+	// will need to refactor this for callback-y nagture of `bitcoind_getutxout`
+
+	// *utxo = wallet_utxo_get(cmd, cmd->ld->wallet, &outpoint);
+	if (!*utxo) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Unknown UTXO %s",
+				    fmt_bitcoin_outpoint(tmpctx,
+						   &outpoint));
+	}
+
+	return NULL;
+}
+
+static struct command_result *json_addexternalinput(struct command *cmd,
+						    const char *buffer,
+						    const jsmntok_t *obj UNNEEDED,
+						    const jsmntok_t *params)
+{
+	// struct json_stream *response;
+	struct utxo *utxo;
+	struct wally_psbt *psbt;
+	u32 *locktime;
+	bool *add_initiator_serial_ids;
+	// struct wally_psbt_input *input;
+	// u64 serial_id;
+
+	/* FIXME: getutxo doesn't support minconf or coinbase flags though these
+	 * settings would be helpful */
+	if (!param_check(cmd, buffer, params,
+			 p_req("txout", param_txout, &utxo),
+			 p_opt("initialpsbt", param_psbt, &psbt),
+			 p_opt("locktime", param_number, &locktime),
+			 p_opt_def("add_initiator_serial_ids", param_bool,
+			 	   &add_initiator_serial_ids, false),
+			 NULL))
+		return command_param_failed();
+	return NULL;
+}
+
+static const struct json_command addexternalinput_command = {
+	"addexternalinput",
+	json_addexternalinput,
+	false
+};
+AUTODATA(json_command, &addexternalinput_command);
+
 static struct command_result *json_addpsbtinput(struct command *cmd,
 						const char *buffer,
 						const jsmntok_t *obj UNNEEDED,
@@ -932,11 +1011,11 @@ static const struct json_command addpsbtinput_command = {
 };
 AUTODATA(json_command, &addpsbtinput_command);
 
-static struct command_result *param_txout(struct command *cmd,
-					  const char *name,
-					  const char *buffer,
-					  const jsmntok_t *tok,
-					  struct utxo ***utxos)
+static struct command_result *param_txouts(struct command *cmd,
+					   const char *name,
+					   const char *buffer,
+					   const jsmntok_t *tok,
+					   struct utxo ***utxos)
 {
 	size_t i;
 	const jsmntok_t *curr;
@@ -1007,7 +1086,7 @@ static struct command_result *json_utxopsbt(struct command *cmd,
 			 p_req("satoshi", param_sat_or_all, &amount),
 			 p_req("feerate", param_feerate, &feerate_per_kw),
 			 p_req("startweight", param_number, &weight),
-			 p_req("utxos", param_txout, &utxos),
+			 p_req("utxos", param_txouts, &utxos),
 			 p_opt_def("reserve", param_number, &reserve,
 				   RESERVATION_DEFAULT),
 			 p_opt_def("reservedok", param_bool, &reserved_ok, false),

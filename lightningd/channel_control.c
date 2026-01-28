@@ -46,12 +46,37 @@ struct splice_command {
 	u32 user_psbt_ver;
 };
 
+static u32 default_feerate(struct lightningd *ld, const struct channel *channel,
+			   bool add_offset)
+{
+	u32 max_feerate;
+	bool anchors = channel_type_has_anchors(channel->type);
+	u32 feerate = unilateral_feerate(ld->topology, anchors);
+
+	/* Nothing to do if we don't know feerate. */
+	if (!feerate)
+		return 0;
+
+	max_feerate = feerate_max(ld, NULL);
+
+	/* The channel opener should use a slightly higher than minimal feerate
+	 * in order to avoid excessive feerate disagreements */
+	if (channel->opener == LOCAL) {
+		feerate += ld->config.feerate_offset;
+		if (feerate > max_feerate)
+			feerate = max_feerate;
+	}
+
+	return feerate;
+}
+
 void channel_update_feerates(struct lightningd *ld, const struct channel *channel)
 {
 	u8 *msg;
 	u32 min_feerate, max_feerate;
 	bool anchors = channel_type_has_anchors(channel->type);
-	u32 feerate = unilateral_feerate(ld->topology, anchors);
+	u32 feerate = default_feerate(ld, channel, (channel->opener == LOCAL));
+	u32 feerate_splice = default_feerate(ld, channel, true);
 
 	/* Nothing to do if we don't know feerate. */
 	if (!feerate)
@@ -63,13 +88,6 @@ void channel_update_feerates(struct lightningd *ld, const struct channel *channe
 	else
 		min_feerate = feerate_min(ld, NULL);
 	max_feerate = feerate_max(ld, NULL);
-	/* The channel opener should use a slightly higher than minimal feerate
-	 * in order to avoid excessive feerate disagreements */
-	if (channel->opener == LOCAL) {
-		feerate += ld->config.feerate_offset;
-		if (feerate > max_feerate)
-			feerate = max_feerate;
-	}
 
 	if (channel->ignore_fee_limits || ld->config.ignore_fee_limits) {
 		min_feerate = 1;
@@ -77,16 +95,21 @@ void channel_update_feerates(struct lightningd *ld, const struct channel *channe
 	}
 
 	log_debug(ld->log,
-		  "update_feerates: feerate = %u, min=%u, max=%u, penalty=%u",
+		  "update_feerates: feerate = %u, min=%u, max=%u, penalty=%u,"
+		  " opening=%u, splicing: %u",
 		  feerate,
 		  min_feerate,
 		  feerate_max(ld, NULL),
-		  penalty_feerate(ld->topology));
+		  penalty_feerate(ld->topology),
+		  opening_feerate(ld->topology),
+		  feerate_splice);
 
 	msg = towire_channeld_feerates(NULL, feerate,
 				       min_feerate,
 				       max_feerate,
-				       penalty_feerate(ld->topology));
+				       penalty_feerate(ld->topology),
+				       opening_feerate(ld->topology),
+				       feerate_splice);
 	subd_send_msg(channel->owner, take(msg));
 }
 
@@ -587,9 +610,10 @@ static void send_splice_tx(struct channel *channel,
 	u8* tx_bytes = linearize_tx(tmpctx, tx);
 
 	log_debug(channel->log,
-		  "Broadcasting splice tx %s for channel %s.",
+		  "Broadcasting splice tx %s for channel %s. Final weight %lu",
 		  tal_hex(tmpctx, tx_bytes),
-		  fmt_channel_id(tmpctx, &channel->cid));
+		  fmt_channel_id(tmpctx, &channel->cid),
+		  bitcoin_tx_weight(tx));
 
 	struct send_splice_info *info = tal(NULL, struct send_splice_info);
 
@@ -1488,8 +1512,16 @@ static void handle_confirmed_stfu(struct lightningd *ld,
 		return;
 	}
 
-	log_info(channel->log, "lightningd got confirmed stfu from channeld,"
-		 " channel_id count: %zu", tal_count(cc->channel_ids));
+	log_info(channel->log, "lightningd got confirmed stfu from channeld");
+
+	if (!tal_count(cc->channel_ids)) {
+		channel_internal_error(channel, "confirmed_stfu received"
+				       " without any channel ids");
+		return;
+	}
+
+	log_info(channel->log, "channel_id count: %zu",
+		 tal_count(cc->channel_ids));
 
 	for (size_t i = 0; i < tal_count(cc->channel_ids); i++) {
 		if (channel_id_eq(cc->channel_ids[i], &channel->cid)) {
@@ -1512,6 +1544,8 @@ static void handle_confirmed_stfu(struct lightningd *ld,
 	if (tal_count(cc->channel_ids))
 		return;
 
+	log_info(channel->log, "All channels confirmed stfu");
+
 	struct json_stream *response = json_stream_success(cc->cmd);
 
 	json_array_start(response, "channels");
@@ -1526,8 +1560,8 @@ static void handle_confirmed_stfu(struct lightningd *ld,
 	json_array_end(response);
 
 	/* channel_ids and results are free'd when the last stfu is finished */
-	tal_free(cc->channel_ids);
-	tal_free(cc->results);
+	cc->channel_ids = tal_free(cc->channel_ids);
+	cc->results = tal_free(cc->results);
 
 	was_pending(command_success(cc->cmd, response));
 }
@@ -1685,7 +1719,7 @@ bool peer_start_channeld(struct channel *channel,
 	const struct config *cfg = &ld->config;
 	struct secret last_remote_per_commit_secret;
 	struct penalty_base *pbases;
-	u32 min_feerate, max_feerate, curr_blockheight;
+	u32 feerate_splice, min_feerate, max_feerate, curr_blockheight;
 	struct channel_inflight *inflight;
 	struct inflight **inflights;
 	struct bitcoin_txid txid;
@@ -1845,6 +1879,8 @@ bool peer_start_channeld(struct channel *channel,
 		tal_arr_expand(&inflights, infcopy);
 	}
 
+	feerate_splice = default_feerate(ld, channel, true);
+
 	initmsg = towire_channeld_init(tmpctx,
 				       chainparams,
 				       ld->our_features,
@@ -1860,9 +1896,11 @@ bool peer_start_channeld(struct channel *channel,
 				       &channel->our_config,
 				       &channel->channel_info.their_config,
 				       channel->fee_states,
+				       feerate_splice,
 				       min_feerate,
 				       max_feerate,
 				       penalty_feerate(ld->topology),
+				       opening_feerate(ld->topology),
 				       &channel->last_sig,
 				       &channel->channel_info.remote_fundingkey,
 				       &channel->channel_info.theirbase,
@@ -2288,7 +2326,7 @@ static struct command_result *json_splice_init(struct command *cmd,
 
 	if (!feerate_per_kw) {
 		feerate_per_kw = tal(cmd, u32);
-		*feerate_per_kw = opening_feerate(cmd->ld->topology);
+		*feerate_per_kw = default_feerate(cmd->ld, channel, true);
 	}
 
 	if (!initialpsbt)
@@ -2298,8 +2336,10 @@ static struct command_result *json_splice_init(struct command *cmd,
 				    SPLICE_INPUT_ERROR,
 				    "PSBT failed to validate.");
 
-	log_debug(cmd->ld->log, "splice_init input PSBT version %d",
-		  initialpsbt->version);
+	log_debug(cmd->ld->log, "splice_init input PSBT version %d,"
+		  " feerate: %u",
+		  initialpsbt->version,
+		  *feerate_per_kw);
 
 	cc = tal(cmd, struct splice_command);
 
@@ -2527,8 +2567,8 @@ static struct command_result *json_stfu_channels(struct command *cmd,
 
 	/* Next we split into multiple `stfu` commands. The final command to
 	 * return will handle free'ing `stfu_result` and `channel_ids` */
-	stfu_result = tal_arr(NULL, struct stfu_result*, 0);
-	channel_ids = tal_arr(NULL, struct channel_id*, tal_count(channels));
+	stfu_result = tal_arr(cmd->ld, struct stfu_result*, 0);
+	channel_ids = tal_arr(cmd->ld, struct channel_id*, tal_count(channels));
 
 	for (i = 0; i < tal_count(channels); i++) {
 		channel = channels[i];
@@ -2659,7 +2699,9 @@ static struct command_result *json_dev_feerate(struct command *cmd,
 	msg = towire_channeld_feerates(NULL, *feerate,
 				       feerate_min(cmd->ld, NULL),
 				       feerate_max(cmd->ld, NULL),
-				       penalty_feerate(cmd->ld->topology));
+				       penalty_feerate(cmd->ld->topology),
+				       opening_feerate(cmd->ld->topology),
+				       default_feerate(cmd->ld, channel, true));
 	subd_send_msg(channel->owner, take(msg));
 
 	response = json_stream_success(cmd);

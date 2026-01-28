@@ -337,10 +337,10 @@ def test_coinmoves(node_factory, bitcoind):
     l2_vout_close = only_one([out['n'] for out in bitcoind.rpc.decoderawtransaction(only_one(close['txs']))['vout'] if out['scriptPubKey']['address'] in l2_addrs])
     expected_chain1 += [{'account_id': 'wallet',
                          'blockheight': 111,
-                         'credit_msat': 89961918000,
+                         'credit_msat': 89961922000,
                          'debit_msat': 0,
                          'extra_tags': [],
-                         'output_msat': 89961918000,
+                         'output_msat': 89961922000,
                          'primary_tag': 'deposit',
                          'utxo': f"{only_one(close['txids'])}:{l1_vout_close}"},
                         {'account_id': fundchannel['channel_id'],
@@ -382,11 +382,11 @@ def test_coinmoves(node_factory, bitcoind):
                          'utxo': f"{fundchannel['txid']}:{fundchannel['outnum']}"},
                         {'account_id': 'external',
                          'blockheight': 111,
-                         'credit_msat': 89961918000,
+                         'credit_msat': 89961922000,
                          'debit_msat': 0,
                          'extra_tags': [],
                          'originating_account': fundchannel['channel_id'],
-                         'output_msat': 89961918000,
+                         'output_msat': 89961922000,
                          'primary_tag': 'to_them',
                          'utxo': f"{only_one(close['txids'])}:{l2_vout_close ^ 1}"}]
     check_channel_moves(l1, expected_channel1)

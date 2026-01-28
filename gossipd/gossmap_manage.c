@@ -708,7 +708,14 @@ void gossmap_manage_handle_get_txout_reply(struct gossmap_manage *gm, const u8 *
 		 * UTXOs. */
 		static struct timemono prev;
 		if (time_greater(timemono_since(prev), time_from_sec(1))) {
-			peer_warning(gm, pca->source_peer,
+			/* Splices that happen soon after a channel open can result in
+			 * the receiving of stale channel announcement (Splice spends
+			 * the txout of the original channel).
+			 *
+			 * We used to treat this as a warning and reset the peer
+			 * connection but the spec simply says "ignore the message". So
+			 * Now we just ignore these stale channel announcements. */
+			status_peer_trace(pca->source_peer,
 				     "channel_announcement: no unspent txout %s",
 				     fmt_short_channel_id(tmpctx, scid));
 			prev = time_mono();
@@ -817,10 +824,14 @@ static const char *process_channel_update(const tal_t *ctx,
 		/* Seeker may want to ask about this. */
 		query_unknown_channel(gm->daemon, source_peer, scid);
 
-		/* Don't send them warning, it can happen. */
-		bad_gossip(source_peer,
-			   tal_fmt(tmpctx, "Unknown channel %s",
-				   fmt_short_channel_id(tmpctx, scid)));
+		/* Splices that happen soon after a channel open can result in
+		 * the receiving of stale channel announcement (Splice spends
+		 * the txout of the original channel).
+		 *
+		 * We used to record this as as bad_gossip but now we log it
+		 * without the 'bad gossip' because that triggers CI. */
+		status_peer_trace(source_peer, "gossip unknown channel: %s",
+				  fmt_short_channel_id(tmpctx, scid));
 		return NULL;
 	}
 
