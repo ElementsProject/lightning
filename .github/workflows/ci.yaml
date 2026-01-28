@@ -286,7 +286,7 @@ jobs:
     name: Check we can downgrade the node
     runs-on: ubuntu-24.04
     needs:
-      - compile
+      - postbuild
     strategy:
       fail-fast: false
       matrix:
@@ -379,7 +379,7 @@ jobs:
       RUST_PROFILE: release # Has to match the one in the compile step
       PYTEST_OPTS: -vvv --junit-xml=report.xml --timeout=1800 --durations=10
     needs:
-      - compile
+      - postbuild
     strategy:
       fail-fast: false
       matrix:
@@ -496,7 +496,7 @@ jobs:
       CFG: compile-gcc
       PYTEST_OPTS: -vvv --junit-xml=report.xml --timeout=1800 --durations=10 --test-group-random-seed=42
     needs:
-      - compile
+      - postbuild
     strategy:
       fail-fast: false
       matrix:
@@ -588,7 +588,7 @@ jobs:
       TEST_DEBUG: 1
       PYTEST_OPTS: -vvv --junit-xml=report.xml --timeout=1800 --durations=10 --test-group-random-seed=42 
     needs:
-      - compile
+      - postbuild
     strategy:
       fail-fast: false
       matrix:
