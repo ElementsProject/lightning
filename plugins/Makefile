@@ -138,23 +138,19 @@ $(shell test -d plugins/clnrest && $(RM) -r plugins/clnrest || true)
 $(shell test -d plugins/wss-proxy && $(RM) -r plugins/wss-proxy || true)
 
 ifneq ($(RUST),0)
+RUST_PLUGIN_NAMES := cln-grpc clnrest cln-lsps-client cln-lsps-service wss-proxy cln-bip353
+
 # Builtin plugins must be in this plugins dir to work when we're executed
 # *without* make install.
-plugins/cln-grpc: $(RUST_TARGET_DIR)/cln-grpc
-	@cp $< $@
-plugins/clnrest: $(RUST_TARGET_DIR)/clnrest
-	@cp $< $@
-plugins/cln-lsps-client: $(RUST_TARGET_DIR)/cln-lsps-client
-	@cp $< $@
-plugins/cln-lsps-service: $(RUST_TARGET_DIR)/cln-lsps-service
-	@cp $< $@
-plugins/wss-proxy: $(RUST_TARGET_DIR)/wss-proxy
-	@cp $< $@
-plugins/cln-bip353: $(RUST_TARGET_DIR)/cln-bip353
+RUST_PLUGINS := $(addprefix plugins/,$(RUST_PLUGIN_NAMES))
+$(RUST_PLUGINS): plugins/%: $(RUST_TARGET_DIR)/%
 	@cp $< $@
 
-PLUGINS += plugins/cln-grpc plugins/clnrest plugins/cln-lsps-client plugins/cln-lsps-service plugins/wss-proxy plugins/cln-bip353
-endif
+PLUGINS += $(RUST_PLUGINS)
+
+# You don't need the originals if you have the final ones.
+.INTERMEDIATE: $(RUST_PLUGIN_NAMES:%=$(RUST_TARGET_DIR)/%)
+endif # RUST
 
 include plugins/askrene/Makefile
 include plugins/bkpr/Makefile
@@ -241,7 +237,7 @@ plugins/list_of_builtin_plugins_gen.h: plugins/Makefile Makefile config.vars
 	@$(call VERBOSE,GEN $@,echo "static const char *list_of_builtin_plugins[] = { $(PLUGIN_BASES:%=\"%\",) NULL };" > $@)
 
 $(RUST_TARGET_DIR)/examples/cln-subscribe-wildcard: ${CLN_PLUGIN_SRC} plugins/examples/cln-subscribe-wildcard.rs
-	cargo build ${CARGO_OPTS} --example cln-subscribe-wildcard
+	$(CARGO) build ${CARGO_OPTS} --example cln-subscribe-wildcard
 
 CLN_PLUGIN_EXAMPLES := \
 	$(RUST_TARGET_DIR)/examples/cln-plugin-startup \
@@ -257,17 +253,17 @@ CLN_WSS_PROXY_PLUGIN_SRC = $(shell find plugins/wss-proxy-plugin/src -name "*.rs
 CLN_BIP353_PLUGIN_SRC = $(shell find plugins/bip353-plugin/src -name "*.rs")
 
 $(RUST_TARGET_DIR)/cln-grpc: ${CLN_PLUGIN_SRC} ${CLN_GRPC_PLUGIN_SRC} $(MSGGEN_GENALL) $(MSGGEN_GEN_ALL)
-	cargo build ${CARGO_OPTS} --bin cln-grpc
+	$(CARGO) build ${CARGO_OPTS} --bin cln-grpc
 $(RUST_TARGET_DIR)/clnrest: ${CLN_REST_PLUGIN_SRC}
-	cargo build ${CARGO_OPTS} --bin clnrest
+	$(CARGO) build ${CARGO_OPTS} --bin clnrest
 $(RUST_TARGET_DIR)/cln-lsps-client: ${CLN_LSPS_PLUGIN_SRC}
-	cargo build ${CARGO_OPTS} --bin cln-lsps-client
+	$(CARGO) build ${CARGO_OPTS} --bin cln-lsps-client
 $(RUST_TARGET_DIR)/cln-lsps-service: ${CLN_LSPS_PLUGIN_SRC}
-	cargo build ${CARGO_OPTS} --bin cln-lsps-service
+	$(CARGO) build ${CARGO_OPTS} --bin cln-lsps-service
 $(RUST_TARGET_DIR)/wss-proxy: ${CLN_WSS_PROXY_PLUGIN_SRC}
-	cargo build ${CARGO_OPTS} --bin wss-proxy
+	$(CARGO) build ${CARGO_OPTS} --bin wss-proxy
 $(RUST_TARGET_DIR)/cln-bip353: ${CLN_BIP353_PLUGIN_SRC}
-	cargo build ${CARGO_OPTS} --bin cln-bip353
+	$(CARGO) build ${CARGO_OPTS} --bin cln-bip353
 
 ifneq ($(RUST),0)
 include plugins/rest-plugin/Makefile
