@@ -319,9 +319,10 @@ void gossip_init(struct lightningd *ld, int connectd_fd)
 	    chainparams,
 	    ld->our_features,
 	    &ld->our_nodeid,
+	    ld->autoconnect_seeker_peers,
+	    subdaemon_path(tmpctx, ld, "lightning_gossip_compactd"),
 	    ld->dev_fast_gossip,
-	    ld->dev_fast_gossip_prune,
-	    ld->autoconnect_seeker_peers);
+	    ld->dev_fast_gossip_prune);
 
 	subd_req(ld->gossip, ld->gossip, take(msg), -1, 0,
 		 gossipd_init_done, NULL);

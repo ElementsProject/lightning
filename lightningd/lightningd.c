@@ -381,9 +381,10 @@ static const char *subdaemons[] = {
 	"lightning_closingd",
 	"lightning_connectd",
 	"lightning_gossipd",
+	"lightning_gossip_compactd",
 	"lightning_hsmd",
 	"lightning_onchaind",
-	"lightning_openingd"
+	"lightning_openingd",
 };
 
 /* Return true if called with a recognized subdaemon e.g. "hsmd" */
