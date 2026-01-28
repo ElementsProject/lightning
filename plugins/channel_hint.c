@@ -3,15 +3,6 @@
 #include <common/memleak.h>
 #include <plugins/channel_hint.h>
 
-size_t channel_hint_hash(const struct short_channel_id_dir *out)
-{
-	struct siphash24_ctx ctx;
-	siphash24_init(&ctx, siphash_seed());
-	siphash24_update(&ctx, &out->scid.u64, sizeof(u64));
-	siphash24_update(&ctx, &out->dir, sizeof(int));
-	return siphash24_done(&ctx);
-}
-
 const struct short_channel_id_dir *channel_hint_keyof(const struct channel_hint *out)
 {
 	return &out->scid;
@@ -20,8 +11,7 @@ const struct short_channel_id_dir *channel_hint_keyof(const struct channel_hint 
 bool channel_hint_eq(const struct channel_hint *a,
 		     const struct short_channel_id_dir *b)
 {
-	return short_channel_id_eq(a->scid.scid, b->scid) &&
-		a->scid.dir == b->dir;
+	return short_channel_id_dir_eq(&a->scid, b);
 }
 
 void channel_hint_to_json(const char *name, const struct channel_hint *hint,

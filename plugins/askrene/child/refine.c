@@ -3,9 +3,11 @@
 #include <ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
 #include <common/gossmap.h>
-#include <plugins/askrene/askrene.h>
-#include <plugins/askrene/flow.h>
-#include <plugins/askrene/refine.h>
+#include <common/utils.h>
+#include <plugins/askrene/child/child_log.h>
+#include <plugins/askrene/child/flow.h>
+#include <plugins/askrene/child/refine.h>
+#include <plugins/askrene/child/route_query.h>
 #include <plugins/askrene/reserve.h>
 #include <string.h>
 
@@ -23,10 +25,10 @@ static void get_scidd(const struct gossmap *gossmap,
 	scidd->dir = flow->dirs[i];
 }
 
-static void destroy_reservations(struct reserve_hop *rhops, struct askrene *askrene)
+static void destroy_reservations(struct reserve_hop *rhops, struct reserve_htable *reserved)
 {
 	for (size_t i = 0; i < tal_count(rhops); i++)
-		reserve_remove(askrene->reserved, &rhops[i]);
+		reserve_remove(reserved, &rhops[i]);
 }
 
 struct reserve_hop *new_reservations(const tal_t *ctx,
@@ -35,7 +37,7 @@ struct reserve_hop *new_reservations(const tal_t *ctx,
 	struct reserve_hop *rhops = tal_arr(ctx, struct reserve_hop, 0);
 
 	/* Unreserve on free */
-	tal_add_destructor2(rhops, destroy_reservations, get_askrene(rq->plugin));
+	tal_add_destructor2(rhops, destroy_reservations, rq->reserved);
 	return rhops;
 }
 
@@ -58,16 +60,15 @@ static void add_reservation(struct reserve_hop **reservations,
 			    struct amount_msat amt)
 {
 	struct reserve_hop rhop, *prev;
-	struct askrene *askrene = get_askrene(rq->plugin);
 	size_t idx;
 
 	/* Update in-place if possible */
 	prev = find_reservation(*reservations, scidd);
 	if (prev) {
-		reserve_remove(askrene->reserved, prev);
+		reserve_remove(rq->reserved, prev);
 		if (!amount_msat_accumulate(&prev->amount, amt))
 			abort();
-		reserve_add(askrene->reserved, prev, rq->cmd->id);
+		reserve_add(rq->reserved, prev, rq->cmd_id);
 		return;
 	}
 	rhop.scidd = *scidd;
@@ -75,7 +76,7 @@ static void add_reservation(struct reserve_hop **reservations,
 	/* We don't have to restrict it to a layer, since it's transitory:
 	 * nobody else will see this. */
 	rhop.layer = NULL;
-	reserve_add(askrene->reserved, &rhop, rq->cmd->id);
+	reserve_add(rq->reserved, &rhop, rq->cmd_id);
 
 	/* Set capacities entry to 0 so it get_constraints() looks in reserve. */
 	idx = gossmap_chan_idx(rq->gossmap, chan);
@@ -109,7 +110,7 @@ void create_flow_reservations(const struct route_query *rq,
 				amount_to_reserve);
 		if (!amount_msat_add_fee(&msat,
 					 h->base_fee, h->proportional_fee))
-			plugin_err(rq->plugin, "Adding fee to amount");
+			child_err("Adding fee to amount");
 	}
 }
 
@@ -281,8 +282,8 @@ remove_htlc_min_violations(const tal_t *ctx, struct route_query *rq,
 				+ 2 * gossmap_chan_idx(rq->gossmap, flow->path[i]);
 
 			get_scidd(rq->gossmap, flow, i, &scidd);
-			rq_log(
-			    ctx, rq, LOG_INFORM,
+			child_log(
+			    ctx, LOG_INFORM,
 			    "Sending %s across %s would violate htlc_min "
 			    "(~%s), disabling this channel",
 			    fmt_amount_msat(ctx, msat),
@@ -295,8 +296,8 @@ remove_htlc_min_violations(const tal_t *ctx, struct route_query *rq,
 			&msat, hc->base_fee,
 			hc->proportional_fee)) {
 			error_message =
-			    rq_log(ctx, rq, LOG_BROKEN,
-				   "%s: Adding fee to amount", __func__);
+			    child_log(ctx, LOG_BROKEN,
+				      "%s: Adding fee to amount", __func__);
 			break;
 		}
 	}
@@ -450,11 +451,11 @@ static bool increase_flows(const struct route_query *rq,
 			 * capacity.  That shouldn't happen, but if it does,
 			 * we don't crash */
 			if (!amount_msat_sub(&remaining, capacity, flows[i]->delivers)) {
-			        rq_log(rq, rq, LOG_BROKEN,
-				       "%s: flow %s delivers %s which is more than the path's capacity %s", __func__,
-				       fmt_flow_full(tmpctx, rq, flows[i]),
-				       fmt_amount_msat(tmpctx, flows[i]->delivers),
-				       fmt_amount_msat(tmpctx, capacity));
+			        child_log(rq, LOG_BROKEN,
+					  "%s: flow %s delivers %s which is more than the path's capacity %s", __func__,
+					  fmt_flow_full(tmpctx, rq, flows[i]),
+					  fmt_amount_msat(tmpctx, flows[i]->delivers),
+					  fmt_amount_msat(tmpctx, capacity));
 				continue;
 			}
 			if (amount_msat_greater(remaining, best_remaining)) {
@@ -643,9 +644,9 @@ const char *reduce_num_flows(const tal_t *ctx,
 		del_flow_from_arr(flows, tal_count(*flows) - 1);
 
 	if (!increase_flows(rq, *flows, deliver, -1.0))
-		return rq_log(ctx, rq, LOG_INFORM,
-			      "Failed to reduce %zu flows down to maxparts (%zu)",
-			      orig_num_flows, num_parts);
+		return child_log(ctx, LOG_INFORM,
+				 "Failed to reduce %zu flows down to maxparts (%zu)",
+				 orig_num_flows, num_parts);
 
 	return NULL;
 }

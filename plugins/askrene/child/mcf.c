@@ -9,15 +9,15 @@
 #include <float.h>
 #include <inttypes.h>
 #include <math.h>
-#include <plugins/askrene/algorithm.h>
-#include <plugins/askrene/askrene.h>
-#include <plugins/askrene/dijkstra.h>
-#include <plugins/askrene/explain_failure.h>
-#include <plugins/askrene/flow.h>
-#include <plugins/askrene/graph.h>
-#include <plugins/askrene/mcf.h>
-#include <plugins/askrene/refine.h>
-#include <plugins/libplugin.h>
+#include <plugins/askrene/child/algorithm.h>
+#include <plugins/askrene/child/child_log.h>
+#include <plugins/askrene/child/dijkstra.h>
+#include <plugins/askrene/child/explain_failure.h>
+#include <plugins/askrene/child/flow.h>
+#include <plugins/askrene/child/graph.h>
+#include <plugins/askrene/child/mcf.h>
+#include <plugins/askrene/child/refine.h>
+#include <plugins/askrene/child/route_query.h>
 #include <stdint.h>
 
 /* # Optimal payments
@@ -528,26 +528,6 @@ static double base_fee_penalty_estimate(struct amount_msat amount)
 	return amount_msat_ratio(AMOUNT_MSAT(10000000), amount);
 }
 
-struct amount_msat linear_flow_cost(const struct flow *flow,
-				    struct amount_msat total_amount,
-				    double delay_feefactor)
-{
-	struct amount_msat msat_cost;
-	s64 cost_ppm = 0;
-	double base_fee_penalty = base_fee_penalty_estimate(total_amount);
-
-	for (size_t i = 0; i < tal_count(flow->path); i++) {
-		const struct half_chan *h = &flow->path[i]->half[flow->dirs[i]];
-
-		cost_ppm +=
-		    linear_fee_cost(h->base_fee, h->proportional_fee, h->delay,
-				    base_fee_penalty, delay_feefactor);
-	}
-	if (!amount_msat_fee(&msat_cost, flow->delivers, 0, cost_ppm))
-		abort();
-	return msat_cost;
-}
-
 static void init_linear_network(const tal_t *ctx,
 				const struct pay_parameters *params,
 				struct graph **graph, double **arc_prob_cost,
@@ -965,13 +945,13 @@ get_flow_singlepath(const tal_t *ctx, const struct pay_parameters *params,
  * Check that local channels have fee costs = 0 and bounds with certainty (min=max). */
 // TODO(eduardo): we should LOG_DBG the process of finding the MCF while
 // adjusting the frugality factor.
-struct flow **minflow(const tal_t *ctx,
-		      const struct route_query *rq,
-		      const struct gossmap_node *source,
-		      const struct gossmap_node *target,
-		      struct amount_msat amount,
-		      u32 mu,
-		      double delay_feefactor)
+static struct flow **minflow(const tal_t *ctx,
+			     const struct route_query *rq,
+			     const struct gossmap_node *source,
+			     const struct gossmap_node *target,
+			     struct amount_msat amount,
+			     u32 mu,
+			     double delay_feefactor)
 {
 	struct flow **flow_paths;
 	/* We allocate everything off this, and free it at the end,
@@ -1036,8 +1016,8 @@ struct flow **minflow(const tal_t *ctx,
 
 	if (!simple_feasibleflow(working_ctx, graph, src, dst,
 				 arc_capacity, pay_amount)) {
-		rq_log(tmpctx, rq, LOG_INFORM,
-		       "%s failed: unable to find a feasible flow.", __func__);
+		child_log(tmpctx, LOG_INFORM,
+			  "%s failed: unable to find a feasible flow.", __func__);
 		goto fail;
 	}
 	combine_cost_function(working_ctx, graph, arc_prob_cost, arc_fee_cost,
@@ -1050,8 +1030,8 @@ struct flow **minflow(const tal_t *ctx,
 			    arc_capacity,
 			    arc_cost,
 			    node_potential)) {
-		rq_log(tmpctx, rq, LOG_BROKEN,
-		       "%s: MCF optimization step failed", __func__);
+		child_log(tmpctx, LOG_BROKEN,
+			  "%s: MCF optimization step failed", __func__);
 		goto fail;
 	}
 
@@ -1060,10 +1040,10 @@ struct flow **minflow(const tal_t *ctx,
 	 * channel in the routes. */
 	flow_paths = get_flow_paths(ctx, working_ctx, params,
 				    graph, arc_capacity);
-	if(!flow_paths){
-		rq_log(tmpctx, rq, LOG_BROKEN,
-		       "%s: failed to extract flow paths from the MCF solution",
-		       __func__);
+	if (!flow_paths) {
+		child_log(tmpctx, LOG_BROKEN,
+			  "%s: failed to extract flow paths from the MCF solution",
+			  __func__);
 		goto fail;
 	}
 	tal_free(working_ctx);
@@ -1164,12 +1144,27 @@ static void init_linear_network_single_path(
 	}
 }
 
-/* Similar to minflow but computes routes that have a single path. */
-struct flow **single_path_flow(const tal_t *ctx, const struct route_query *rq,
-			       const struct gossmap_node *source,
-			       const struct gossmap_node *target,
-			       struct amount_msat amount, u32 mu,
-			       double delay_feefactor)
+/**
+ * API for min cost single path.
+ * @ctx: context to allocate returned flows from
+ * @rq: the route_query we're processing (for logging)
+ * @source: the source to start from
+ * @target: the target to pay
+ * @amount: the amount we want to reach @target
+ * @mu: 0 = corresponds to only probabilities, 100 corresponds to only fee.
+ * @delay_feefactor: convert 1 block delay into msat.
+ *
+ * @delay_feefactor converts 1 block delay into msat, as if it were an additional
+ * fee.  So if a CLTV delay on a node is 5 blocks, that's treated as if it
+ * were a fee of 5 * @delay_feefactor.
+ *
+ * Returns an array with one flow which deliver amount to target, or NULL.
+ */
+static struct flow **single_path_flow(const tal_t *ctx, const struct route_query *rq,
+				      const struct gossmap_node *source,
+				      const struct gossmap_node *target,
+				      struct amount_msat amount, u32 mu,
+				      double delay_feefactor)
 {
 	struct flow **flow_paths;
 	/* We allocate everything off this, and free it at the end,
@@ -1217,8 +1212,8 @@ struct flow **single_path_flow(const tal_t *ctx, const struct route_query *rq,
 			   distance)) {
                 /* This might fail if we are unable to find a suitable route, it
                  * doesn't mean the plugin is broken, that's why we LOG_INFORM. */
-		rq_log(tmpctx, rq, LOG_INFORM,
-		       "%s: could not find a feasible single path", __func__);
+		child_log(tmpctx, LOG_INFORM,
+			  "%s: could not find a feasible single path", __func__);
 		goto fail;
 	}
 	const u64 pay_amount =
@@ -1230,17 +1225,16 @@ struct flow **single_path_flow(const tal_t *ctx, const struct route_query *rq,
 	flow_paths = get_flow_singlepath(ctx, params, graph, rq->gossmap,
 					 src, dst, pay_amount, prev);
 	if (!flow_paths) {
-		rq_log(tmpctx, rq, LOG_BROKEN,
-		       "%s: failed to extract flow paths from the single-path "
-		       "solution",
-		       __func__);
+		child_log(tmpctx, LOG_BROKEN,
+			  "%s: failed to extract flow paths from the single-path "
+			  "solution",
+			  __func__);
 		goto fail;
 	}
 	if (tal_count(flow_paths) != 1) {
-		rq_log(
-		    tmpctx, rq, LOG_BROKEN,
-		    "%s: single-path solution returned a multi route solution",
-		    __func__);
+		child_log(tmpctx, LOG_BROKEN,
+			  "%s: single-path solution returned a multi route solution",
+			  __func__);
 		goto fail;
 	}
 	tal_free(working_ctx);
@@ -1347,6 +1341,7 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 	      const struct gossmap_node *srcnode,
 	      const struct gossmap_node *dstnode, struct amount_msat amount,
 	      struct amount_msat maxfee, u32 finalcltv, u32 maxdelay,
+	      size_t maxparts,
 	      struct flow ***flows, double *probability,
 	      struct flow **(*solver)(const tal_t *, const struct route_query *,
 				      const struct gossmap_node *,
@@ -1375,9 +1370,9 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 
 	while (!amount_msat_is_zero(amount_to_deliver)) {
 		if (timemono_after(time_mono(), deadline)) {
-			error_message = rq_log(ctx, rq, LOG_BROKEN,
-					       "%s: timed out after deadline",
-					       __func__);
+			error_message = child_log(ctx, LOG_BROKEN,
+						  "%s: timed out after deadline",
+						  __func__);
 			goto fail;
 		}
 
@@ -1414,7 +1409,7 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 			goto fail;
 
 		/* we finished removing flows and excess */
-		all_deliver = flowset_delivers(rq->plugin, new_flows);
+		all_deliver = flowset_delivers(new_flows);
 		if (amount_msat_is_zero(all_deliver)) {
 			/* We removed all flows and we have not modified the
 			 * MCF parameters. We will not have an infinite loop
@@ -1443,19 +1438,18 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 		 * flows deliver with respect to the total remaining amount,
 		 * ie. we avoid "consuming" all the feebudget if we still need
 		 * to run MCF again for some remaining amount. */
-		struct amount_msat all_fees =
-		    flowset_fee(rq->plugin, new_flows);
+		struct amount_msat all_fees = flowset_fee(new_flows);
 		const double deliver_fraction =
 		    amount_msat_ratio(all_deliver, amount_to_deliver);
 		struct amount_msat partial_feebudget;
 		if (!amount_msat_scale(&partial_feebudget, feebudget,
 				       deliver_fraction)) {
 			error_message =
-			    rq_log(ctx, rq, LOG_BROKEN,
-				   "%s: failed to scale the fee budget (%s) by "
-				   "fraction (%lf)",
-				   __func__, fmt_amount_msat(tmpctx, feebudget),
-				   deliver_fraction);
+			    child_log(ctx, LOG_BROKEN,
+				      "%s: failed to scale the fee budget (%s) by "
+				      "fraction (%lf)",
+				      __func__, fmt_amount_msat(tmpctx, feebudget),
+				      deliver_fraction);
 			goto fail;
 		}
 		if (amount_msat_greater(all_fees, partial_feebudget)) {
@@ -1467,8 +1461,8 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 				else
 					mu += 10;
 				mu = MIN(mu, MU_MAX);
-				rq_log(
-				    tmpctx, rq, LOG_INFORM,
+				child_log(
+				    tmpctx, LOG_INFORM,
 				    "The flows had a fee of %s, greater than "
 				    "max of %s, retrying with mu of %u%%...",
 				    fmt_amount_msat(tmpctx, all_fees),
@@ -1479,16 +1473,16 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 				/* we cannot increase mu anymore and all_fees
 				 * already exceeds feebudget we fail. */
 				error_message =
-				    rq_log(ctx, rq, LOG_UNUSUAL,
-					   "Could not find route without "
-					   "excessive cost");
+				    child_log(ctx, LOG_UNUSUAL,
+					      "Could not find route without "
+					      "excessive cost");
 				goto fail;
 			} else {
 				/* mu cannot be increased but at least all_fees
 				 * does not exceed feebudget, we give it a shot.
 				 */
-				rq_log(
-				    tmpctx, rq, LOG_UNUSUAL,
+				child_log(
+				    tmpctx, LOG_UNUSUAL,
 				    "The flows had a fee of %s, greater than "
 				    "max of %s, but still within the fee "
 				    "budget %s, we accept those flows.",
@@ -1502,18 +1496,18 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 		if (finalcltv + flows_worst_delay(new_flows) > maxdelay) {
 			if (delay_feefactor > 10) {
 				error_message =
-				    rq_log(ctx, rq, LOG_UNUSUAL,
-					   "Could not find route without "
-					   "excessive delays");
+				    child_log(ctx, LOG_UNUSUAL,
+					      "Could not find route without "
+					      "excessive delays");
 				goto fail;
 			}
 
 			delay_feefactor *= 2;
-			rq_log(tmpctx, rq, LOG_INFORM,
-			       "The worst flow delay is %" PRIu64
-			       " (> %i), retrying with delay_feefactor %f...",
-			       flows_worst_delay(new_flows), maxdelay - finalcltv,
-			       delay_feefactor);
+			child_log(tmpctx, LOG_INFORM,
+				  "The worst flow delay is %" PRIu64
+				  " (> %i), retrying with delay_feefactor %f...",
+				  flows_worst_delay(new_flows), maxdelay - finalcltv,
+				  delay_feefactor);
                         continue;
 		}
 
@@ -1532,7 +1526,7 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 					&all_deliver, new_flows[i]->delivers) ||
 				    !amount_msat_accumulate(
 					&all_fees,
-					flow_fee(rq->plugin, new_flows[i])))
+					flow_fee(new_flows[i])))
 					abort();
 			}
 		}
@@ -1540,10 +1534,10 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 		if (!amount_msat_deduct(&feebudget, all_fees) ||
 		    !amount_msat_deduct(&amount_to_deliver, all_deliver)) {
 			error_message =
-			    rq_log(ctx, rq, LOG_BROKEN,
-				   "%s: unexpected arithmetic operation "
-				   "failure on amount_msat",
-				   __func__);
+			    child_log(ctx, LOG_BROKEN,
+				      "%s: unexpected arithmetic operation "
+				      "failure on amount_msat",
+				      __func__);
 			goto fail;
 		}
 	}
@@ -1558,29 +1552,27 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 
 	/* If we're over the number of parts, try to cram excess into the
 	 * largest-capacity parts */
-	if (tal_count(*flows) > rq->maxparts) {
+	if (tal_count(*flows) > maxparts) {
 		struct amount_msat fee;
 
-		error_message = reduce_num_flows(rq, rq, flows, amount, rq->maxparts);
+		error_message = reduce_num_flows(rq, rq, flows, amount, maxparts);
 		if (error_message) {
 			*flows = tal_free(*flows);
 			return error_message;
 		}
 
 		/* Check fee budget! */
-		fee = flowset_fee(rq->plugin, *flows);
+		fee = flowset_fee(*flows);
 		if (amount_msat_greater(fee, maxfee)) {
-			error_message = rq_log(rq, rq, LOG_INFORM,
-					       "After reducing the flows to %zu (i.e. maxparts),"
-					       " we had a fee of %s, greater than "
-					       "max of %s.",
-					       tal_count(*flows),
-					       fmt_amount_msat(tmpctx, fee),
-					       fmt_amount_msat(tmpctx, maxfee));
-			if (error_message) {
-				*flows = tal_free(*flows);
-				return error_message;
-			}
+			error_message = child_log(rq, LOG_INFORM,
+						  "After reducing the flows to %zu (i.e. maxparts),"
+						  " we had a fee of %s, greater than "
+						  "max of %s.",
+						  tal_count(*flows),
+						  fmt_amount_msat(tmpctx, fee),
+						  fmt_amount_msat(tmpctx, maxfee));
+			*flows = tal_free(*flows);
+			return error_message;
 		}
 	}
 
@@ -1593,24 +1585,23 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 	 * verify" */
 	if (!check_htlc_min_limits(rq, *flows)) {
 		error_message =
-		    rq_log(rq, rq, LOG_BROKEN,
+		    child_log(rq, LOG_BROKEN,
 			   "%s: check_htlc_min_limits failed", __func__);
 		*flows = tal_free(*flows);
 		return error_message;
 	}
 	if (!check_htlc_max_limits(rq, *flows)) {
 		*flows = tal_free(*flows);
-		return rq_log(rq, rq, LOG_BROKEN,
-			      "%s: check_htlc_max_limits failed", __func__);
+		return child_log(rq, LOG_BROKEN,
+				 "%s: check_htlc_max_limits failed", __func__);
 	}
-	if (tal_count(*flows) > rq->maxparts) {
+	if (tal_count(*flows) > maxparts) {
 		size_t num_flows = tal_count(*flows);
 		*flows = tal_free(*flows);
-		return rq_log(rq, rq, LOG_BROKEN,
-			      "%s: the number of flows (%zu) exceeds the limit set "
-			      "on payment parts (%" PRIu32
-			      "), please submit a bug report",
-			      __func__, num_flows, rq->maxparts);
+		return child_log(rq, LOG_BROKEN,
+				 "%s: the number of flows (%zu) exceeds the limit set "
+				 "on payment parts (%zu), please submit a bug report",
+				 __func__, num_flows, maxparts);
 	}
 
 	return NULL;
@@ -1627,11 +1618,12 @@ const char *default_routes(const tal_t *ctx, struct route_query *rq,
 			   const struct gossmap_node *srcnode,
 			   const struct gossmap_node *dstnode,
 			   struct amount_msat amount, struct amount_msat maxfee,
-			   u32 finalcltv, u32 maxdelay, struct flow ***flows,
+			   u32 finalcltv, u32 maxdelay, size_t maxparts,
+			   struct flow ***flows,
 			   double *probability)
 {
 	return linear_routes(ctx, rq, deadline, srcnode, dstnode, amount, maxfee,
-			     finalcltv, maxdelay, flows, probability, minflow);
+			     finalcltv, maxdelay, maxparts, flows, probability, minflow);
 }
 
 const char *single_path_routes(const tal_t *ctx, struct route_query *rq,
@@ -1644,6 +1636,6 @@ const char *single_path_routes(const tal_t *ctx, struct route_query *rq,
 			       double *probability)
 {
 	return linear_routes(ctx, rq, deadline, srcnode, dstnode, amount, maxfee,
-			     finalcltv, maxdelay, flows, probability,
+			     finalcltv, maxdelay, 1, flows, probability,
 			     single_path_flow);
 }
