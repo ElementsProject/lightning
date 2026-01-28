@@ -241,6 +241,13 @@ static bool is_single_arg_cmd(const char *command) {
 	return false;
 }
 
+static void log_notify(char * log_line TAKES)
+{
+	struct json_stream *js = plugin_notification_start(NULL, "reckless_log");
+	json_add_stringn(js, "log", log_line, tal_count(log_line));
+	plugin_notification_end(plugin, js);
+}
+
 static void log_conn_finish(struct io_conn *conn, struct reckless *reckless)
 {
 	io_close(conn);
@@ -263,8 +270,8 @@ static struct io_plan *log_read_more(struct io_conn *conn,
 		char * note;
 		note = tal_strndup(tmpctx, rkls->log_to_process,
 				   lineend - rkls->log_to_process);
-		/* FIXME: Add notification for the utility logs. */
-		plugin_log(plugin, LOG_DBG, "RECKLESS UTILITY: %s", note);
+		plugin_log(plugin, LOG_DBG, "reckless utility: %s", note);
+		log_notify(note);
 		rkls->log_to_process = lineend + 1;
 		unprocessed = rkls->log_read - (rkls->log_to_process - rkls->logbuf);
 		lineend = memchr(rkls->log_to_process, 0x0A, unprocessed);
@@ -444,6 +451,10 @@ static const struct plugin_command commands[] = {
 	},
 };
 
+static const char *notifications[] = {
+	"reckless_log",
+};
+
 int main(int argc, char **argv)
 {
 	setup_locale();
@@ -453,7 +464,7 @@ int main(int argc, char **argv)
 		    commands, ARRAY_SIZE(commands),
 		    NULL, 0,	/* Notifications */
 		    NULL, 0,	/* Hooks */
-		    NULL, 0,	/* Notification topics */
+		    notifications, ARRAY_SIZE(notifications),	/* Notification topics */
 		    NULL);	/* plugin options */
 
 	return 0;
