@@ -3,25 +3,17 @@
 #include <common/gossip_store_wiregen.h>
 #include <unistd.h>
 
-/* We cheat and read first two bytes of message too. */
-struct hdr_and_type {
-	struct gossip_hdr hdr;
-	be16 type;
-};
-/* Beware padding! */
-#define HDR_AND_TYPE_SIZE (sizeof(struct gossip_hdr) + sizeof(u16))
-
 bool gossip_store_readhdr(int gossip_store_fd, size_t off,
 			  size_t *len,
 			  u32 *timestamp,
 			  u16 *flags,
 			  u16 *type)
 {
-	struct hdr_and_type buf;
+	struct gossip_hdr_and_type buf;
 	int r;
 
-	r = pread(gossip_store_fd, &buf, HDR_AND_TYPE_SIZE, off);
-	if (r != HDR_AND_TYPE_SIZE)
+	r = pread(gossip_store_fd, &buf, GOSSIP_HDR_AND_TYPE_SIZE, off);
+	if (r != GOSSIP_HDR_AND_TYPE_SIZE)
 		return false;
 	if (!(buf.hdr.flags & CPU_TO_BE16(GOSSIP_STORE_COMPLETED_BIT)))
 		return false;
