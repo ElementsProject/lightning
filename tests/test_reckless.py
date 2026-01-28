@@ -140,10 +140,10 @@ def reckless(cmds: list, dir: PosixPath = None,
     return RecklessResult(r, r.returncode, stdout, stderr)
 
 
-def get_reckless_node(node_factory):
+def get_reckless_node(node_factory, options={}, start=False):
     '''This may be unnecessary, but a preconfigured lightning dir
     is useful for reckless testing.'''
-    node = node_factory.get_node(options={}, start=False)
+    node = node_factory.get_node(options=options, start=start)
     return node
 
 
@@ -461,3 +461,16 @@ def test_reckless_available(node_factory):
     assert r.search_stdout('testplugpass')
     assert r.search_stdout('testplugpyproj')
     assert r.search_stdout('testpluguv')
+
+
+def test_reckless_notifications(node_factory):
+    """Reckless streams logs to the reckless-rpc plugin which are emitted
+    as 'reckless_log' notifications"""
+    notification_plugin = os.path.join(os.getcwd(), 'tests/plugins/custom_notifications.py')
+    node = get_reckless_node(node_factory, options={"plugin": notification_plugin})
+    node.start()
+    listconfig_log = node.rpc.reckless('listconfig')['log']
+    # Some trouble escaping the clone url for searching
+    listconfig_log.pop(1)
+    for log in listconfig_log:
+        assert node.daemon.is_in_log(f"reckless_log: {{'reckless_log': {{'log': '{log}'", start=0)
