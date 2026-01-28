@@ -21,6 +21,7 @@ ECHO := echo
 SUPPRESS_OUTPUT :=
 endif
 
+CARGO := cargo
 DISTRO=$(shell lsb_release -is 2>/dev/null || echo unknown)-$(shell lsb_release -rs 2>/dev/null || echo unknown)
 OS=$(shell uname -s)
 ARCH=$(shell uname -m)
