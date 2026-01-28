@@ -1901,6 +1901,8 @@
             "FundPsbt.reservations[]": 6
         },
         "GetemergencyrecoverdataResponse": {
+            "GetEmergencyRecoverData.backed_up_channel_ids[]": 3,
+            "GetEmergencyRecoverData.can_create_penalty": 2,
             "GetEmergencyRecoverData.filedata": 1
         },
         "GetinfoAddress": {
@@ -7841,6 +7843,14 @@
             "deprecated": null
         },
         "GetEmergencyRecoverData": {
+            "added": "v24.11",
+            "deprecated": null
+        },
+        "GetEmergencyRecoverData.backed_up_channel_ids[]": {
+            "added": "v24.11",
+            "deprecated": null
+        },
+        "GetEmergencyRecoverData.can_create_penalty": {
             "added": "v24.11",
             "deprecated": null
         },

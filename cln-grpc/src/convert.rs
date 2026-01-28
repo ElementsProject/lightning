@@ -625,6 +625,9 @@ impl From<responses::EmergencyrecoverResponse> for pb::EmergencyrecoverResponse 
 impl From<responses::GetemergencyrecoverdataResponse> for pb::GetemergencyrecoverdataResponse {
     fn from(c: responses::GetemergencyrecoverdataResponse) -> Self {
         Self {
+            // Field: GetEmergencyRecoverData.backed_up_channel_ids[]
+            backed_up_channel_ids: c.backed_up_channel_ids.into_iter().map(|i| hex::decode(i).unwrap()).collect(), // Rule #3 for type hex
+            can_create_penalty: c.can_create_penalty, // Rule #2 for type boolean
             filedata: hex::decode(&c.filedata).unwrap(), // Rule #2 for type hex
         }
     }
