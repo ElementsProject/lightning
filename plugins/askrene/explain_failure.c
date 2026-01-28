@@ -290,7 +290,7 @@ const char *explain_failure(const tal_t *ctx,
 			      explanation);
 	}
 
-	return rq_log(ctx, rq, LOG_BROKEN,
+	return rq_log(ctx, rq, LOG_UNUSUAL,
 		       "Actually, I'm not sure why we didn't find the"
 		       " obvious route %s: perhaps this is a bug?",
 		       path);
