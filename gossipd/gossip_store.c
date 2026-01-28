@@ -199,8 +199,7 @@ static u8 *new_uuid_record(const tal_t *ctx, int fd, u64 *off)
  */
 static int gossip_store_compact(struct daemon *daemon,
 				u64 *total_len,
-				bool *populated,
-				struct chan_dying **dying)
+				bool *populated)
 {
 	size_t cannounces = 0, cupdates = 0, nannounces = 0, deleted = 0;
 	int old_fd, new_fd;
@@ -324,20 +323,6 @@ static int gossip_store_compact(struct daemon *daemon,
 		case WIRE_CHANNEL_ANNOUNCEMENT:
 			cannounces++;
 			break;
-		case WIRE_GOSSIP_STORE_CHAN_DYING: {
-			struct chan_dying cd;
-
-			if (!fromwire_gossip_store_chan_dying(msg,
-							      &cd.scid,
-							      &cd.deadline)) {
-				bad = "Bad gossip_store_chan_dying";
-				goto badmsg;
-			}
-			/* By convention, these offsets are *after* header */
-			cd.gossmap_offset = *total_len + sizeof(hdr);
-			tal_arr_expand(dying, cd);
-			break;
-		}
 		case WIRE_CHANNEL_UPDATE:
 			cupdates++;
 			break;
@@ -421,14 +406,12 @@ void gossip_store_corrupt(void)
 
 struct gossip_store *gossip_store_new(const tal_t *ctx,
 				      struct daemon *daemon,
-				      bool *populated,
-				      struct chan_dying **dying)
+				      bool *populated)
 {
 	struct gossip_store *gs = tal(ctx, struct gossip_store);
 
 	gs->daemon = daemon;
-	*dying = tal_arr(ctx, struct chan_dying, 0);
-	gs->fd = gossip_store_compact(daemon, &gs->len, populated, dying);
+	gs->fd = gossip_store_compact(daemon, &gs->len, populated);
 	if (gs->fd < 0)
 		return tal_free(gs);
 	tal_add_destructor(gs, gossip_store_destroy);
