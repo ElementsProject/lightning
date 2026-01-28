@@ -1480,7 +1480,6 @@ def test_real_data(node_factory, bitcoind):
 
     fees = {}
     for n in range(0, limit):
-        print(f"XXX: {n}")
         # 0.5% is the norm
         MAX_FEE = AMOUNT // 200
 
