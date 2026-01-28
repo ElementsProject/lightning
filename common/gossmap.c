@@ -641,21 +641,91 @@ static void node_announcement(struct gossmap *map, u64 nann_off)
 		n->nann_off = nann_off;
 }
 
+/* Mutual recursion */
+static bool map_catchup(struct gossmap *map, bool must_be_clean, bool *changed);
+
+static void init_map_structs(struct gossmap *map)
+{
+	/* Since channel_announcement is ~430 bytes, and channel_update is 136,
+	 * node_announcement is 144, and current topology has 35000 channels
+	 * and 10000 nodes, let's assume each channel gets about 750 bytes.
+	 *
+	 * We halve this, since often some records are deleted. */
+	map->channels = tal(map, struct chanidx_htable);
+	chanidx_htable_init_sized(map->channels, map->map_size / 750 / 2);
+	map->nodes = tal(map, struct nodeidx_htable);
+	nodeidx_htable_init_sized(map->nodes, map->map_size / 2500 / 2);
+
+	map->num_chan_arr = map->map_size / 750 / 2 + 1;
+	map->chan_arr = tal_arr(map, struct gossmap_chan, map->num_chan_arr);
+	map->freed_chans = init_chan_arr(map->chan_arr, 0);
+	map->num_node_arr = map->map_size / 2500 / 2 + 1;
+	map->node_arr = tal_arr(map, struct gossmap_node, map->num_node_arr);
+	map->freed_nodes = init_node_arr(map->node_arr, 0);
+}
+
 static bool reopen_store(struct gossmap *map, u64 ended_off)
 {
-	int fd;
-
-	fd = open(map->fname, O_RDONLY);
-	if (fd < 0)
-		err(1, "Failed to reopen %s", map->fname);
+	u64 equivalent_off;
+	u8 verbyte;
+	u8 expected_uuid[32], uuid[32];
+	struct gossip_hdr ghdr;
+	bool changed;
 
 	/* This tells us the equivalent offset in new map */
-	map->map_end = map_be64(map, ended_off + 2);
-
+	equivalent_off = map_be64(map, ended_off + 2);
+	map_copy(map, ended_off + 2 + 8, expected_uuid, sizeof(expected_uuid));
 	close(map->fd);
-	map->fd = fd;
+
+	map->fd = open(map->fname, O_RDONLY);
+	if (map->fd < 0)
+		err(1, "Failed to reopen %s", map->fname);
+
+	/* If mmap isn't disabled, we try to mmap if we can. */
+	map->map_size = lseek(map->fd, 0, SEEK_END);
+	if (map->mmap) {
+		map->mmap = mmap(NULL, map->map_size, PROT_READ, MAP_SHARED, map->fd, 0);
+		if (map->mmap == MAP_FAILED)
+			map->mmap = NULL;
+	}
+
+	if (map->map_size < 1 + sizeof(ghdr) + 2 + sizeof(uuid))
+		errx(1, "Truncated gossip_store len %"PRIu64, map->map_size);
+
+	/* version then ghdr then uuid. */
+	verbyte = map_u8(map, 0);
+	if (GOSSIP_STORE_MAJOR_VERSION(verbyte) != 0 || GOSSIP_STORE_MINOR_VERSION(verbyte) < 16)
+		errx(1, "Bad gossip_store version %u", verbyte);
+
+	if (map_be16(map, 1 + sizeof(struct gossip_hdr)) != WIRE_GOSSIP_STORE_UUID)
+		errx(1, "First gossip_store record is not uuid?");
+	map_copy(map, 1 + sizeof(struct gossip_hdr) + 2, uuid, sizeof(uuid));
+
+	/* FIXME: we can skip if uuid is as expected, but we'd have to re-calc all
+	 * our offsets anyway.  It's not worth it, given how fast we are. */
+	if (memcmp(uuid, expected_uuid, sizeof(uuid)) == 0) {
+		map->logcb(map->cbarg, LOG_DBG,
+			   "Reopened gossip_store, reduced to offset %"PRIu64,
+			   equivalent_off);
+	} else {
+		/* Start from scratch */
+		map->logcb(map->cbarg, LOG_INFORM,
+			   "Reopened gossip_store, but we missed some (%s vs %s)",
+			   tal_hexstr(tmpctx, uuid, sizeof(uuid)),
+			   tal_hexstr(tmpctx, expected_uuid, sizeof(expected_uuid)));
+	}
+
+	tal_free(map->channels);
+	tal_free(map->nodes);
+	tal_free(map->chan_arr);
+	tal_free(map->node_arr);
+	init_map_structs(map);
+	map->map_end = 1;
 	map->generation++;
-	return gossmap_refresh(map);
+
+	/* Now do reload. */
+	map_catchup(map, false, &changed);
+	return changed;
 }
 
 /* Extra sanity check (if it's cheap): does crc match? */
@@ -804,22 +874,7 @@ static bool load_gossip_store(struct gossmap *map, bool must_be_clean)
 		return false;
 	}
 
-	/* Since channel_announcement is ~430 bytes, and channel_update is 136,
-	 * node_announcement is 144, and current topology has 35000 channels
-	 * and 10000 nodes, let's assume each channel gets about 750 bytes.
-	 *
-	 * We halve this, since often some records are deleted. */
-	map->channels = tal(map, struct chanidx_htable);
-	chanidx_htable_init_sized(map->channels, map->map_size / 750 / 2);
-	map->nodes = tal(map, struct nodeidx_htable);
-	nodeidx_htable_init_sized(map->nodes, map->map_size / 2500 / 2);
-
-	map->num_chan_arr = map->map_size / 750 / 2 + 1;
-	map->chan_arr = tal_arr(map, struct gossmap_chan, map->num_chan_arr);
-	map->freed_chans = init_chan_arr(map->chan_arr, 0);
-	map->num_node_arr = map->map_size / 2500 / 2 + 1;
-	map->node_arr = tal_arr(map, struct gossmap_node, map->num_node_arr);
-	map->freed_nodes = init_node_arr(map->node_arr, 0);
+	init_map_structs(map);
 
 	map->map_end = 1;
 	return map_catchup(map, must_be_clean, &updated);
