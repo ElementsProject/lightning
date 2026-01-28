@@ -282,6 +282,10 @@ static struct command_result *json_enableoffer(struct command *cmd,
 		return command_fail(cmd, OFFER_ALREADY_ENABLED,
 				    "offer already active");
 
+	if (offer_status_single(status) && offer_status_used(status))
+		return command_fail(cmd, OFFER_USED_SINGLE_USE,
+				    "cannot activate an used single use offer");
+
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
 
