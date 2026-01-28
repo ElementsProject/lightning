@@ -46,17 +46,21 @@ struct gossmap_chan {
 					   enum log_level,		\
 					   const char *fmt,		\
 					   ...),			\
-		      (cbarg))
+		      NULL, (cbarg))
 
 /* If we're the author of the gossmap, it should have no redundant records, corruption, etc.
  * So this fails if that's not the case. */
-#define gossmap_load_initial(ctx, filename, expected_len, logcb, cbarg)	\
+#define gossmap_load_initial(ctx, filename, expected_len, logcb, dyingcb, cb_arg) \
 	gossmap_load_((ctx), (filename), (expected_len),			\
-		      typesafe_cb_postargs(void, void *, (logcb), (cbarg), \
+		      typesafe_cb_postargs(void, void *, (logcb), (cb_arg), \
 					   enum log_level,		\
 					   const char *fmt,		\
 					   ...),			\
-		      (cbarg))
+		      typesafe_cb_preargs(void, void *, (dyingcb), (cb_arg), \
+					  struct short_channel_id,	\
+					  u32,				\
+					  u64),				\
+		      (cb_arg))
 
 struct gossmap *gossmap_load_(const tal_t *ctx,
 			      const char *filename,
@@ -65,6 +69,10 @@ struct gossmap *gossmap_load_(const tal_t *ctx,
 					    enum log_level level,
 					    const char *fmt,
 					    ...),
+			      void (*dyingcb)(struct short_channel_id scid,
+					      u32 blockheight,
+					      u64 offset,
+					      void *cb_arg),
 			      void *cb_arg);
 
 /* Disable mmap.  Noop if already disabled. */
@@ -305,4 +313,5 @@ u64 gossmap_lengths(const struct gossmap *map, u64 *total);
 
 /* Debugging: connectd wants to enumerate fds */
 int gossmap_fd(const struct gossmap *map);
+
 #endif /* LIGHTNING_COMMON_GOSSMAP_H */

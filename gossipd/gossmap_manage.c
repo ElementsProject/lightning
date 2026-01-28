@@ -464,7 +464,9 @@ static bool setup_gossmap(struct gossmap_manage *gm,
 	/* This actually loads it into memory, with strict checks. */
 	gm->raw_gossmap = gossmap_load_initial(gm, GOSSIP_STORE_FILENAME,
 					       expected_len,
-					       gossmap_logcb, daemon);
+					       gossmap_logcb,
+					       NULL,
+					       daemon);
 	if (!gm->raw_gossmap) {
 		gm->gs = tal_free(gm->gs);
 		return false;

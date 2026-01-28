@@ -641,8 +641,47 @@ static void node_announcement(struct gossmap *map, u64 nann_off)
 		n->nann_off = nann_off;
 }
 
+static bool report_dying_cb(struct gossmap *map,
+			    u64 dying_off,
+			    u16 msglen,
+			    void (*dyingcb)(struct short_channel_id scid,
+					    u32 blockheight,
+					    u64 offset,
+					    void *cb_arg),
+			    void *cb_arg)
+{
+	struct short_channel_id scid;
+	u32 blockheight;
+	u8 *msg;
+
+	msg = tal_arr(NULL, u8, msglen);
+	map_copy(map, dying_off, msg, msglen);
+
+	if (!fromwire_gossip_store_chan_dying(msg, &scid, &blockheight)) {
+		map->logcb(map->cbarg,
+			   LOG_BROKEN,
+			   "Invalid chan_dying message @%"PRIu64
+			   "/%"PRIu64": %s",
+			   dying_off, map->map_size, msglen,
+			   tal_hex(tmpctx, msg));
+		tal_free(msg);
+		return false;
+	}
+	tal_free(msg);
+
+	dyingcb(scid, blockheight, dying_off, cb_arg);
+	return true;
+}
+
 /* Mutual recursion */
-static bool map_catchup(struct gossmap *map, bool must_be_clean, bool *changed);
+static bool map_catchup(struct gossmap *map,
+			void (*dyingcb)(struct short_channel_id scid,
+					u32 blockheight,
+					u64 offset,
+					void *cb_arg),
+			void *cb_arg,
+			bool must_be_clean,
+			bool *changed);
 
 static void init_map_structs(struct gossmap *map)
 {
@@ -724,7 +763,7 @@ static bool reopen_store(struct gossmap *map, u64 ended_off)
 	map->generation++;
 
 	/* Now do reload. */
-	map_catchup(map, false, &changed);
+	map_catchup(map, NULL, NULL, false, &changed);
 	return changed;
 }
 
@@ -744,7 +783,14 @@ static bool csum_matches(const struct gossmap *map,
 }
 
 /* Returns false only if must_be_clean is true. */
-static bool map_catchup(struct gossmap *map, bool must_be_clean, bool *changed)
+static bool map_catchup(struct gossmap *map,
+			void (*dyingcb)(struct short_channel_id scid,
+					u32 blockheight,
+					u64 offset,
+					void *cb_arg),
+			void *cb_arg,
+			bool must_be_clean,
+			bool *changed)
 {
 	size_t reclen, num_bad_cupdates = 0;
 
@@ -830,6 +876,8 @@ static bool map_catchup(struct gossmap *map, bool must_be_clean, bool *changed)
 			/* We absorbed this in add_channel; ignore */
 			continue;
 		} else if (type == WIRE_GOSSIP_STORE_CHAN_DYING) {
+			if (dyingcb && !report_dying_cb(map, off, msglen, dyingcb, cb_arg))
+				return false;
 			/* We don't really care until it's deleted */
 			continue;
 		} else if (type == WIRE_GOSSIP_STORE_UUID) {
@@ -856,7 +904,13 @@ static bool map_catchup(struct gossmap *map, bool must_be_clean, bool *changed)
 	return true;
 }
 
-static bool load_gossip_store(struct gossmap *map, bool must_be_clean)
+static bool load_gossip_store(struct gossmap *map,
+			      void (*dyingcb)(struct short_channel_id scid,
+					      u32 blockheight,
+					      u64 offset,
+					      void *cb_arg),
+			      void *cb_arg,
+			      bool must_be_clean)
 {
 	bool updated;
 
@@ -880,7 +934,7 @@ static bool load_gossip_store(struct gossmap *map, bool must_be_clean)
 	init_map_structs(map);
 
 	map->map_end = 1;
-	return map_catchup(map, must_be_clean, &updated);
+	return map_catchup(map, dyingcb, cb_arg, must_be_clean, &updated);
 }
 
 static void destroy_map(struct gossmap *map)
@@ -1292,7 +1346,7 @@ bool gossmap_refresh(struct gossmap *map)
 		}
 	}
 
-	map_catchup(map, false, &changed);
+	map_catchup(map, NULL, NULL, false, &changed);
 	return changed;
 }
 
@@ -1319,7 +1373,11 @@ struct gossmap *gossmap_load_(const tal_t *ctx,
 					    enum log_level level,
 					    const char *fmt,
 					    ...),
-			      void *cbarg)
+			      void (*dyingcb)(struct short_channel_id scid,
+					      u32 blockheight,
+					      u64 offset,
+					      void *cb_arg),
+			      void *cb_arg)
 {
 	map = tal(ctx, struct gossmap);
 	map->generation = 0;
@@ -1331,15 +1389,15 @@ struct gossmap *gossmap_load_(const tal_t *ctx,
 		map->logcb = logcb;
 	else
 		map->logcb = log_stderr;
-	map->cbarg = cbarg;
+	map->cbarg = cb_arg;
 	tal_add_destructor(map, destroy_map);
 
-	if (!load_gossip_store(map, expected_len != 0))
+	if (!load_gossip_store(map, dyingcb, cb_arg, expected_len != 0))
 		return tal_free(map);
 	if (expected_len != 0
 	    && (map->map_size != map->map_end
 		|| map->map_size != expected_len)) {
-		logcb(cbarg, LOG_BROKEN,
+		logcb(cb_arg, LOG_BROKEN,
 		      "gossip_store only processed %"PRIu64
 		      " bytes of %"PRIu64" (expected %"PRIu64")",
 		      map->map_end, map->map_size, expected_len);
