@@ -196,11 +196,13 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPD_GET_TXOUT_REPLY:
 	case WIRE_GOSSIPD_OUTPOINTS_SPENT:
 	case WIRE_GOSSIPD_DEV_MEMLEAK:
+	case WIRE_GOSSIPD_DEV_COMPACT_STORE:
 	case WIRE_GOSSIPD_NEW_BLOCKHEIGHT:
 	case WIRE_GOSSIPD_ADDGOSSIP:
 	/* This is a reply, so never gets through to here. */
 	case WIRE_GOSSIPD_INIT_REPLY:
 	case WIRE_GOSSIPD_DEV_MEMLEAK_REPLY:
+	case WIRE_GOSSIPD_DEV_COMPACT_STORE_REPLY:
 	case WIRE_GOSSIPD_ADDGOSSIP_REPLY:
 	case WIRE_GOSSIPD_NEW_BLOCKHEIGHT_REPLY:
 		break;
@@ -488,3 +490,46 @@ static const struct json_command dev_set_max_scids_encode_size = {
 	.dev_only = true,
 };
 AUTODATA(json_command, &dev_set_max_scids_encode_size);
+
+static void dev_compact_gossip_store_reply(struct subd *gossip UNUSED,
+					   const u8 *reply,
+					   const int *fds UNUSED,
+					   struct command *cmd)
+{
+	char *result;
+
+	if (!fromwire_gossipd_dev_compact_store_reply(cmd, reply, &result)) {
+		was_pending(command_fail(cmd, LIGHTNINGD,
+					 "Gossip gave bad dev_gossip_compact_store_reply"));
+		return;
+	}
+
+	if (streq(result, ""))
+		was_pending(command_success(cmd, json_stream_success(cmd)));
+	else
+		was_pending(command_fail(cmd, LIGHTNINGD,
+					 "gossip_compact_store failed: %s", result));
+}
+
+static struct command_result *json_dev_compact_gossip_store(struct command *cmd,
+							    const char *buffer,
+							    const jsmntok_t *obj UNNEEDED,
+							    const jsmntok_t *params)
+{
+	u8 *msg;
+
+	if (!param(cmd, buffer, params, NULL))
+		return command_param_failed();
+
+	msg = towire_gossipd_dev_compact_store(NULL);
+	subd_req(cmd->ld->gossip, cmd->ld->gossip,
+		 take(msg), -1, 0, dev_compact_gossip_store_reply, cmd);
+	return command_still_pending(cmd);
+}
+
+static const struct json_command dev_compact_gossip_store = {
+	"dev-compact-gossip-store",
+	json_dev_compact_gossip_store,
+	.dev_only = true,
+};
+AUTODATA(json_command, &dev_compact_gossip_store);
