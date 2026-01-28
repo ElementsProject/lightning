@@ -104,35 +104,28 @@ def test_db_upgrade(node_factory):
 
 
 def test_bitcoin_failure(node_factory, bitcoind):
-    l1 = node_factory.get_node()
+    # The node will crash when bitcoind fails, so we need `may_fail` and `broken_log`.
+    l1 = node_factory.get_node(may_fail=True, broken_log=r'getrawblockbyheight|FATAL SIGNAL|backtrace')
 
     # Make sure we're not failing it between getblockhash and getblock.
     sync_blockheight(bitcoind, [l1])
 
     def crash_bitcoincli(r):
-        return {'error': 'go away'}
+        return {'id': r['id'], 'result': 'not_a_valid_blockhash', 'error': None}
 
-    # This is not a JSON-RPC response by purpose
-    l1.daemon.rpcproxy.mock_rpc('estimatesmartfee', crash_bitcoincli)
+    # This is not a JSON-RPC response by purpose.
     l1.daemon.rpcproxy.mock_rpc('getblockhash', crash_bitcoincli)
 
-    # This should cause both estimatefee and getblockhash fail
-    l1.daemon.wait_for_logs(['Unable to estimate any fees',
-                             'getblockhash .* exited with status 1'])
+    # Generate a block to trigger the topology update which calls getblockhash.
+    bitcoind.generate_block(1)
 
-    # And they should retry!
-    l1.daemon.wait_for_logs(['Unable to estimate any fees',
-                             'getblockhash .* exited with status 1'])
-
-    # Restore, then it should recover and get blockheight.
-    l1.daemon.rpcproxy.mock_rpc('estimatesmartfee', None)
-    l1.daemon.rpcproxy.mock_rpc('getblockhash', None)
-
-    bitcoind.generate_block(5)
-    sync_blockheight(bitcoind, [l1])
+    # lightningd should crash with the error
+    # `fatal()` calls `abort()` when crashlog is set (during operation), so exit code is -6 (SIGABRT).
+    l1.daemon.wait_for_log(r'bad response to getrawblockbyheight')
+    assert l1.daemon.wait() != 0
 
     # We refuse to start if bitcoind is in `blocksonly`
-    l1.stop()
+    # l1 already crashed, so we just need to restart bitcoind.
     bitcoind.stop()
     bitcoind.cmd_line += ["-blocksonly"]
     bitcoind.start()
@@ -2243,31 +2236,17 @@ def test_bitcoind_fail_first(node_factory, bitcoind):
     """
     # Do not start the lightning node since we need to instrument bitcoind
     # first.
-    timeout = 5 if 5 < TIMEOUT // 3 else TIMEOUT // 3
-    l1 = node_factory.get_node(start=False,
-                               broken_log=r'plugin-bcli: .*(-stdinrpcpass -stdin getblockhash 100 exited 1 \(after [0-9]* other errors\)|we have been retrying command for)',
-                               may_fail=True,
-                               options={'bitcoin-retry-timeout': timeout})
+    l1 = node_factory.get_node(start=False, may_fail=True)
 
     # Instrument bitcoind to fail some queries first.
-    def mock_fail(*args):
-        raise ValueError()
+    def crash_bitcoincli(r):
+        return {'id': r['id'], 'result': 'not_a_valid_blockhash', 'error': None}
 
-    # If any of these succeed, they reset fail timeout.
-    l1.daemon.rpcproxy.mock_rpc('getblockhash', mock_fail)
-    l1.daemon.rpcproxy.mock_rpc('estimatesmartfee', mock_fail)
-    l1.daemon.rpcproxy.mock_rpc('getmempoolinfo', mock_fail)
-
+    l1.daemon.rpcproxy.mock_rpc('getblockhash', crash_bitcoincli)
     l1.daemon.start(wait_for_initialized=False, stderr_redir=True)
-    l1.daemon.wait_for_logs([r'getblockhash [a-z0-9]* exited with status 1',
-                             r'Unable to estimate any fees',
-                             r'BROKEN.*we have been retrying command for --bitcoin-retry-timeout={} seconds'.format(timeout)])
-    # Will exit with failure code.
-    assert l1.daemon.wait() == 1
 
-    # Now unset the mock, so calls go through again
-    l1.daemon.rpcproxy.mock_rpc('getblockhash', None)
-    l1.daemon.rpcproxy.mock_rpc('estimatesmartfee', None)
+    assert l1.daemon.wait() == 1
+    assert l1.daemon.is_in_stderr('bad response to getrawblockbyheight')
 
 
 @unittest.skipIf(TEST_NETWORK == 'liquid-regtest', "Fees on elements are different")
