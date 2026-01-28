@@ -2,6 +2,7 @@
  */
 
 #include "config.h"
+#include <arpa/inet.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/io/io.h>
 #include <ccan/pipecmd/pipecmd.h>
@@ -10,8 +11,10 @@
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <errno.h>
+#include <netinet/in.h>
 #include <plugins/libplugin.h>
 #include <signal.h>
+#include <sys/socket.h>
 #include <unistd.h>
 
 static struct plugin *plugin;
@@ -21,12 +24,17 @@ struct reckless {
 	int stdinfd;
 	int stdoutfd;
 	int stderrfd;
+	int logfd;
 	char *stdoutbuf;
 	char *stderrbuf;
+	char *logbuf;
 	size_t stdout_read;	/* running total */
 	size_t stdout_new;	/* new since last read */
 	size_t stderr_read;
 	size_t stderr_new;
+	size_t log_read;
+	size_t log_new;
+	char* log_to_process;
 	pid_t pid;
 	char *process_failed;
 };
@@ -51,7 +59,7 @@ static void reckless_send_yes(struct reckless *reckless)
 static struct io_plan *read_more(struct io_conn *conn, struct reckless *rkls)
 {
 	rkls->stdout_read += rkls->stdout_new;
-	if (rkls->stdout_read == tal_count(rkls->stdoutbuf))
+	if (rkls->stdout_read * 2 > tal_count(rkls->stdoutbuf))
 		tal_resize(&rkls->stdoutbuf, rkls->stdout_read * 2);
 	return io_read_partial(conn, rkls->stdoutbuf + rkls->stdout_read,
 			       tal_count(rkls->stdoutbuf) - rkls->stdout_read,
@@ -68,7 +76,7 @@ static struct command_result *reckless_result(struct io_conn *conn,
 					       reckless->process_failed);
 		return command_finished(reckless->cmd, response);
 	}
-	const jsmntok_t *results, *result, *logs, *log;
+	const jsmntok_t *results, *result, *logs, *log, *conf;
 	size_t i;
 	jsmn_parser parser;
 	jsmntok_t *toks;
@@ -97,15 +105,26 @@ static struct command_result *reckless_result(struct io_conn *conn,
 	}
 
 	response = jsonrpc_stream_success(reckless->cmd);
-	json_array_start(response, "result");
 	results = json_get_member(reckless->stdoutbuf, toks, "result");
-	json_for_each_arr(i, result, results) {
-		json_add_string(response,
-				NULL,
-				json_strdup(reckless, reckless->stdoutbuf,
-					    result));
+	conf = json_get_member(reckless->stdoutbuf, results, "requested_lightning_conf");
+	if (conf) {
+		plugin_log(plugin, LOG_DBG, "dealing with listconfigs output");
+		json_object_start(response, "result");
+		json_for_each_obj(i, result, results) {
+			json_add_tok(response, json_strdup(tmpctx, reckless->stdoutbuf, result), result+1, reckless->stdoutbuf);
+		}
+		json_object_end(response);
+
+	} else {
+		json_array_start(response, "result");
+		json_for_each_arr(i, result, results) {
+			json_add_string(response,
+					NULL,
+					json_strdup(reckless, reckless->stdoutbuf,
+						    result));
+		}
+		json_array_end(response);
 	}
-	json_array_end(response);
 	json_array_start(response, "log");
 	logs = json_get_member(reckless->stdoutbuf, toks, "log");
 	json_for_each_arr(i, log, logs) {
@@ -151,6 +170,7 @@ static void reckless_conn_finish(struct io_conn *conn,
 			reckless_result(conn, reckless);
 		/* Don't try to process json if python raised an error. */
 		} else {
+			plugin_log(plugin, LOG_DBG, "%s", reckless->stderrbuf);
 			plugin_log(plugin, LOG_DBG,
 				   "Reckless process has crashed (%i).",
 				   WEXITSTATUS(status));
@@ -184,7 +204,7 @@ static struct io_plan *stderr_read_more(struct io_conn *conn,
                                        struct reckless *rkls)
 {
 	rkls->stderr_read += rkls->stderr_new;
-	if (rkls->stderr_read == tal_count(rkls->stderrbuf))
+	if (rkls->stderr_read * 2 > tal_count(rkls->stderrbuf))
 		tal_resize(&rkls->stderrbuf, rkls->stderr_read * 2);
 	if (strends(rkls->stderrbuf, "[Y] to create one now.\n")) {
 		plugin_log(plugin, LOG_DBG, "confirming config creation");
@@ -211,13 +231,115 @@ static struct io_plan *stderr_conn_init(struct io_conn *conn,
 	return stderr_read_more(conn, reckless);
 }
 
+static bool is_single_arg_cmd(const char *command) {
+	if (strcmp(command, "listconfig"))
+		return true;
+	if (strcmp(command, "listavailable"))
+		return true;
+	if (strcmp(command, "listinstalled"))
+		return true;
+	return false;
+}
+
+static void log_notify(char * log_line TAKES)
+{
+	struct json_stream *js = plugin_notification_start(NULL, "reckless_log");
+	json_add_stringn(js, "log", log_line, tal_count(log_line));
+	plugin_notification_end(plugin, js);
+}
+
+static void log_conn_finish(struct io_conn *conn, struct reckless *reckless)
+{
+	io_close(conn);
+	close(reckless->logfd);
+
+}
+
+static struct io_plan *log_read_more(struct io_conn *conn,
+                                       struct reckless *rkls)
+{
+	rkls->log_read += rkls->log_new;
+
+	if (rkls->log_read*2 >= tal_count(rkls->logbuf))
+		tal_resize(&rkls->logbuf, rkls->log_read * 2);
+
+	int unprocessed = rkls->log_read - (rkls->log_to_process - rkls->logbuf);
+	char *lineend = memchr(rkls->log_to_process, 0x0A, unprocessed);
+
+	while (lineend != NULL) {
+		char * note;
+		note = tal_strndup(tmpctx, rkls->log_to_process,
+				   lineend - rkls->log_to_process);
+		plugin_log(plugin, LOG_DBG, "reckless utility: %s", note);
+		log_notify(note);
+		rkls->log_to_process = lineend + 1;
+		unprocessed = rkls->log_read - (rkls->log_to_process - rkls->logbuf);
+		lineend = memchr(rkls->log_to_process, 0x0A, unprocessed);
+	}
+
+	return io_read_partial(conn, rkls->logbuf + rkls->log_read,
+			       tal_count(rkls->logbuf) - rkls->log_read,
+			       &rkls->log_new, log_read_more, rkls);
+}
+
+static struct io_plan *log_conn_init(struct io_conn *conn, struct reckless *rkls)
+{
+	io_set_finish(conn, log_conn_finish, rkls);
+	return log_read_more(conn, rkls);
+}
+
+static int open_socket(int *port)
+{
+	int sock;
+	sock = socket(AF_INET, SOCK_STREAM, 0);
+	if (sock < 0) {
+		plugin_log(plugin, LOG_UNUSUAL, "could not open socket for "
+			   "streaming logs");
+		return -1;
+	}
+	struct sockaddr_in ai;
+	ai.sin_family = AF_INET;
+	ai.sin_port = htons(0);
+	inet_pton(AF_INET, "127.0.0.1", &ai.sin_addr);
+
+	if (bind(sock, (struct sockaddr *)&ai, sizeof(ai)) < 0) {
+		plugin_log(plugin, LOG_UNUSUAL, "failed to bind socket: %s", strerror(errno));
+		close(sock);
+		return -1;
+	}
+
+	socklen_t len = sizeof(ai);
+	if (getsockname(sock, (struct sockaddr *)&ai, &len) < 0) {
+		plugin_log(plugin, LOG_DBG, "couldn't retrieve socket port");
+		return -1;
+	}
+	*port = ntohs(ai.sin_port);
+
+	if (listen(sock, 64) != 0) {
+		plugin_log(plugin, LOG_UNUSUAL, "failed to listen on socket: %s", strerror(errno));
+		close(sock);
+		return -1;
+	}
+
+	return sock;
+}
+
 static struct command_result *reckless_call(struct command *cmd,
 					    const char *subcommand,
 					    const char *target,
 					    const char *target2)
 {
-	if (!subcommand || !target)
-		return command_fail(cmd, PLUGIN_ERROR, "invalid reckless call");
+	if (!is_single_arg_cmd(subcommand)) {
+		if (!subcommand || !target)
+			return command_fail(cmd, PLUGIN_ERROR, "invalid reckless call");
+	}
+	int sock;
+	int *port = tal(tmpctx, int);
+	sock = open_socket(port);
+	if (sock < 0)
+		plugin_log(plugin, LOG_BROKEN, "not streaming logs "
+			   "from reckless utility");
+
 	char **my_call;
 	my_call = tal_arrz(tmpctx, char *, 0);
 	tal_arr_expand(&my_call, "reckless");
@@ -227,12 +349,18 @@ static struct command_result *reckless_call(struct command *cmd,
 	tal_arr_expand(&my_call, lconfig.lightningdir);
 	tal_arr_expand(&my_call, "--network");
 	tal_arr_expand(&my_call, lconfig.network);
+	if (sock > 0) {
+		tal_arr_expand(&my_call, "--logging-port");
+		tal_arr_expand(&my_call, tal_fmt(tmpctx, "%i", *port));
+	}
+
 	if (lconfig.config) {
 		tal_arr_expand(&my_call, "--conf");
 		tal_arr_expand(&my_call, lconfig.config);
 	}
 	tal_arr_expand(&my_call, (char *) subcommand);
-	tal_arr_expand(&my_call, (char *) target);
+	if (target)
+		tal_arr_expand(&my_call, (char *) target);
 	if (target2)
 		tal_arr_expand(&my_call, (char *) target2);
 	tal_arr_expand(&my_call, NULL);
@@ -241,11 +369,17 @@ static struct command_result *reckless_call(struct command *cmd,
 	reckless->cmd = cmd;
 	reckless->stdoutbuf = tal_arrz(reckless, char, 4096);
 	reckless->stderrbuf = tal_arrz(reckless, char, 4096);
+	reckless->logbuf = tal_arrz(reckless, char, 4096);
 	reckless->stdout_read = 0;
 	reckless->stdout_new = 0;
 	reckless->stderr_read = 0;
 	reckless->stderr_new = 0;
+	reckless->log_read = 0;
+	reckless->log_new = 0;
+	reckless->log_to_process = reckless->logbuf;
 	reckless->process_failed = NULL;
+	reckless->logfd = sock;
+
 	char * full_cmd;
 	full_cmd = tal_fmt(tmpctx, "calling:");
 	for (int i=0; i<tal_count(my_call); i++)
@@ -256,9 +390,13 @@ static struct command_result *reckless_call(struct command *cmd,
 	reckless->pid = pipecmdarr(&reckless->stdinfd, &reckless->stdoutfd,
 				   &reckless->stderrfd, my_call);
 
+	if (sock > 0)
+		io_new_listener(reckless, reckless->logfd,
+				log_conn_init, reckless);
 	/* FIXME: fail if invalid pid*/
 	io_new_conn(reckless, reckless->stdoutfd, conn_init, reckless);
 	io_new_conn(reckless, reckless->stderrfd, stderr_conn_init, reckless);
+
 	tal_free(my_call);
 	return command_still_pending(cmd);
 }
@@ -273,7 +411,7 @@ static struct command_result *json_reckless(struct command *cmd,
 	/* Allow check command to evaluate. */
 	if (!param(cmd, buf, params,
 		   p_req("command", param_string, &command),
-		   p_req("target/subcommand", param_string, &target),
+		   p_opt("target/subcommand", param_string, &target),
 		   p_opt("target", param_string, &target2),
 		   NULL))
 		return command_param_failed();
@@ -313,6 +451,10 @@ static const struct plugin_command commands[] = {
 	},
 };
 
+static const char *notifications[] = {
+	"reckless_log",
+};
+
 int main(int argc, char **argv)
 {
 	setup_locale();
@@ -322,7 +464,7 @@ int main(int argc, char **argv)
 		    commands, ARRAY_SIZE(commands),
 		    NULL, 0,	/* Notifications */
 		    NULL, 0,	/* Hooks */
-		    NULL, 0,	/* Notification topics */
+		    notifications, ARRAY_SIZE(notifications),	/* Notification topics */
 		    NULL);	/* plugin options */
 
 	return 0;
