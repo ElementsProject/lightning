@@ -62,8 +62,13 @@ class Logger:
         try:
             self.socket.connect(('localhost', port))
         except Exception as e:
-            logging.warning(f'socket failed to connect with {e}')
             self.socket = None
+            if logging.root.level <= logging.WARNING:
+                msg = f'socket failed to connect with {e}'
+                if self.capture:
+                    self.json_output['log'].append(self.str_esc(msg))
+                else:
+                    logging.warning(msg)
 
     def str_esc(self, raw_string: str) -> str:
         assert isinstance(raw_string, str)
