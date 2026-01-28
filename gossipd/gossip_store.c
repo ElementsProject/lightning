@@ -199,7 +199,7 @@ static int gossip_store_compact(struct daemon *daemon,
 	const char *bad;
 
 	*populated = false;
-	old_len = 0;
+	old_len = 1;
 
 	new_fd = open(GOSSIP_STORE_TEMP_FILENAME, O_RDWR|O_TRUNC|O_CREAT, 0600);
 	if (new_fd < 0) {
