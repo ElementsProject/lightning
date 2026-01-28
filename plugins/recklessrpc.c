@@ -2,6 +2,7 @@
  */
 
 #include "config.h"
+#include <arpa/inet.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/io/io.h>
 #include <ccan/pipecmd/pipecmd.h>
@@ -10,8 +11,10 @@
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <errno.h>
+#include <netinet/in.h>
 #include <plugins/libplugin.h>
 #include <signal.h>
+#include <sys/socket.h>
 #include <unistd.h>
 
 static struct plugin *plugin;
@@ -21,12 +24,17 @@ struct reckless {
 	int stdinfd;
 	int stdoutfd;
 	int stderrfd;
+	int logfd;
 	char *stdoutbuf;
 	char *stderrbuf;
+	char *logbuf;
 	size_t stdout_read;	/* running total */
 	size_t stdout_new;	/* new since last read */
 	size_t stderr_read;
 	size_t stderr_new;
+	size_t log_read;
+	size_t log_new;
+	char* log_to_process;
 	pid_t pid;
 	char *process_failed;
 };
@@ -51,7 +59,7 @@ static void reckless_send_yes(struct reckless *reckless)
 static struct io_plan *read_more(struct io_conn *conn, struct reckless *rkls)
 {
 	rkls->stdout_read += rkls->stdout_new;
-	if (rkls->stdout_read == tal_count(rkls->stdoutbuf))
+	if (rkls->stdout_read * 2 > tal_count(rkls->stdoutbuf))
 		tal_resize(&rkls->stdoutbuf, rkls->stdout_read * 2);
 	return io_read_partial(conn, rkls->stdoutbuf + rkls->stdout_read,
 			       tal_count(rkls->stdoutbuf) - rkls->stdout_read,
@@ -196,7 +204,7 @@ static struct io_plan *stderr_read_more(struct io_conn *conn,
                                        struct reckless *rkls)
 {
 	rkls->stderr_read += rkls->stderr_new;
-	if (rkls->stderr_read == tal_count(rkls->stderrbuf))
+	if (rkls->stderr_read * 2 > tal_count(rkls->stderrbuf))
 		tal_resize(&rkls->stderrbuf, rkls->stderr_read * 2);
 	if (strends(rkls->stderrbuf, "[Y] to create one now.\n")) {
 		plugin_log(plugin, LOG_DBG, "confirming config creation");
@@ -233,6 +241,82 @@ static bool is_single_arg_cmd(const char *command) {
 	return false;
 }
 
+static void log_conn_finish(struct io_conn *conn, struct reckless *reckless)
+{
+	io_close(conn);
+	close(reckless->logfd);
+
+}
+
+static struct io_plan *log_read_more(struct io_conn *conn,
+                                       struct reckless *rkls)
+{
+	rkls->log_read += rkls->log_new;
+
+	if (rkls->log_read*2 >= tal_count(rkls->logbuf))
+		tal_resize(&rkls->logbuf, rkls->log_read * 2);
+
+	int unprocessed = rkls->log_read - (rkls->log_to_process - rkls->logbuf);
+	char *lineend = memchr(rkls->log_to_process, 0x0A, unprocessed);
+
+	while (lineend != NULL) {
+		char * note;
+		note = tal_strndup(tmpctx, rkls->log_to_process,
+				   lineend - rkls->log_to_process);
+		/* FIXME: Add notification for the utility logs. */
+		plugin_log(plugin, LOG_DBG, "RECKLESS UTILITY: %s", note);
+		rkls->log_to_process = lineend + 1;
+		unprocessed = rkls->log_read - (rkls->log_to_process - rkls->logbuf);
+		lineend = memchr(rkls->log_to_process, 0x0A, unprocessed);
+	}
+
+	return io_read_partial(conn, rkls->logbuf + rkls->log_read,
+			       tal_count(rkls->logbuf) - rkls->log_read,
+			       &rkls->log_new, log_read_more, rkls);
+}
+
+static struct io_plan *log_conn_init(struct io_conn *conn, struct reckless *rkls)
+{
+	io_set_finish(conn, log_conn_finish, rkls);
+	return log_read_more(conn, rkls);
+}
+
+static int open_socket(int *port)
+{
+	int sock;
+	sock = socket(AF_INET, SOCK_STREAM, 0);
+	if (sock < 0) {
+		plugin_log(plugin, LOG_UNUSUAL, "could not open socket for "
+			   "streaming logs");
+		return -1;
+	}
+	struct sockaddr_in ai;
+	ai.sin_family = AF_INET;
+	ai.sin_port = htons(0);
+	inet_pton(AF_INET, "127.0.0.1", &ai.sin_addr);
+
+	if (bind(sock, (struct sockaddr *)&ai, sizeof(ai)) < 0) {
+		plugin_log(plugin, LOG_UNUSUAL, "failed to bind socket: %s", strerror(errno));
+		close(sock);
+		return -1;
+	}
+
+	socklen_t len = sizeof(ai);
+	if (getsockname(sock, (struct sockaddr *)&ai, &len) < 0) {
+		plugin_log(plugin, LOG_DBG, "couldn't retrieve socket port");
+		return -1;
+	}
+	*port = ntohs(ai.sin_port);
+
+	if (listen(sock, 64) != 0) {
+		plugin_log(plugin, LOG_UNUSUAL, "failed to listen on socket: %s", strerror(errno));
+		close(sock);
+		return -1;
+	}
+
+	return sock;
+}
+
 static struct command_result *reckless_call(struct command *cmd,
 					    const char *subcommand,
 					    const char *target,
@@ -242,6 +326,13 @@ static struct command_result *reckless_call(struct command *cmd,
 		if (!subcommand || !target)
 			return command_fail(cmd, PLUGIN_ERROR, "invalid reckless call");
 	}
+	int sock;
+	int *port = tal(tmpctx, int);
+	sock = open_socket(port);
+	if (sock < 0)
+		plugin_log(plugin, LOG_BROKEN, "not streaming logs "
+			   "from reckless utility");
+
 	char **my_call;
 	my_call = tal_arrz(tmpctx, char *, 0);
 	tal_arr_expand(&my_call, "reckless");
@@ -251,6 +342,11 @@ static struct command_result *reckless_call(struct command *cmd,
 	tal_arr_expand(&my_call, lconfig.lightningdir);
 	tal_arr_expand(&my_call, "--network");
 	tal_arr_expand(&my_call, lconfig.network);
+	if (sock > 0) {
+		tal_arr_expand(&my_call, "--logging-port");
+		tal_arr_expand(&my_call, tal_fmt(tmpctx, "%i", *port));
+	}
+
 	if (lconfig.config) {
 		tal_arr_expand(&my_call, "--conf");
 		tal_arr_expand(&my_call, lconfig.config);
@@ -266,11 +362,17 @@ static struct command_result *reckless_call(struct command *cmd,
 	reckless->cmd = cmd;
 	reckless->stdoutbuf = tal_arrz(reckless, char, 4096);
 	reckless->stderrbuf = tal_arrz(reckless, char, 4096);
+	reckless->logbuf = tal_arrz(reckless, char, 4096);
 	reckless->stdout_read = 0;
 	reckless->stdout_new = 0;
 	reckless->stderr_read = 0;
 	reckless->stderr_new = 0;
+	reckless->log_read = 0;
+	reckless->log_new = 0;
+	reckless->log_to_process = reckless->logbuf;
 	reckless->process_failed = NULL;
+	reckless->logfd = sock;
+
 	char * full_cmd;
 	full_cmd = tal_fmt(tmpctx, "calling:");
 	for (int i=0; i<tal_count(my_call); i++)
@@ -281,9 +383,13 @@ static struct command_result *reckless_call(struct command *cmd,
 	reckless->pid = pipecmdarr(&reckless->stdinfd, &reckless->stdoutfd,
 				   &reckless->stderrfd, my_call);
 
+	if (sock > 0)
+		io_new_listener(reckless, reckless->logfd,
+				log_conn_init, reckless);
 	/* FIXME: fail if invalid pid*/
 	io_new_conn(reckless, reckless->stdoutfd, conn_init, reckless);
 	io_new_conn(reckless, reckless->stderrfd, stderr_conn_init, reckless);
+
 	tal_free(my_call);
 	return command_still_pending(cmd);
 }
