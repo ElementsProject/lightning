@@ -35,6 +35,10 @@ struct gossip_store {
 
 	/* Timestamp of store when we opened it (0 if we created it) */
 	u32 timestamp;
+
+	/* Last writes since previous sync, in case it messes up and
+	 * we need to force it. */
+	const u8 **last_writes;
 };
 
 static void gossip_store_destroy(struct gossip_store *gs)
@@ -414,20 +418,22 @@ struct gossip_store *gossip_store_new(const tal_t *ctx,
 	gs->fd = gossip_store_upgrade(daemon, &gs->len, populated);
 	if (gs->fd < 0)
 		return tal_free(gs);
+	gs->last_writes = tal_arr(gs, const u8 *, 0);
 	tal_add_destructor(gs, gossip_store_destroy);
 	return gs;
 }
 
-void gossip_store_fsync(const struct gossip_store *gs)
+static void gossip_store_fsync(const struct gossip_store *gs)
 {
 	if (fsync(gs->fd) != 0)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "gossmap fsync failed: %s", strerror(errno));
 }
 
-void gossip_store_rewrite_end(struct gossip_store *gs, const u8 **msgs)
+void gossip_store_rewrite_end(struct gossip_store *gs)
 {
 	u64 offset = gs->len;
+	const u8 **msgs = gs->last_writes;
 
 	for (size_t i = 0; i < tal_count(msgs); i++) {
 		/* Don't overwrite version byte */
@@ -447,10 +453,15 @@ void gossip_store_rewrite_end(struct gossip_store *gs, const u8 **msgs)
 	gossip_store_fsync(gs);
 }
 
+void gossip_store_writes_confirmed(struct gossip_store *gs)
+{
+	tal_free(gs->last_writes);
+	gs->last_writes = tal_arr(gs, const u8 *, 0);
+}
+
 u64 gossip_store_add(struct gossip_store *gs,
 		     const u8 *gossip_msg,
-		     u32 timestamp,
-		     const u8 ***msgs)
+		     u32 timestamp)
 {
 	u64 off = gs->len, filelen;
 
@@ -470,7 +481,7 @@ u64 gossip_store_add(struct gossip_store *gs,
 				      filelen, off);
 	}
 
-	if (!append_msg(gs->fd, gossip_msg, timestamp, &gs->len, msgs)) {
+	if (!append_msg(gs->fd, gossip_msg, timestamp, &gs->len, &gs->last_writes)) {
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Failed writing to gossip store: %s",
 			      strerror(errno));
