@@ -231,7 +231,7 @@ plugins/sql-schema_gen.h: $(SQL_SCHEMA_PARTS)
 	)
 
 plugins/sql.o: plugins/sql-schema_gen.h
-plugins/sql: $(PLUGIN_SQL_OBJS) $(PLUGIN_LIB_OBJS) gossipd/gossip_store_wiregen.o libcommon.a
+plugins/sql: $(PLUGIN_SQL_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
 
 # Generated from PLUGINS definition in plugins/Makefile
 ALL_C_HEADERS += plugins/list_of_builtin_plugins_gen.h

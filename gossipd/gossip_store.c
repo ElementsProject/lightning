@@ -5,12 +5,12 @@
 #include <ccan/tal/str/str.h>
 #include <common/clock_time.h>
 #include <common/gossip_store.h>
+#include <common/gossip_store_wiregen.h>
 #include <common/status.h>
 #include <common/utils.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <gossipd/gossip_store.h>
-#include <gossipd/gossip_store_wiregen.h>
 #include <gossipd/gossipd.h>
 #include <inttypes.h>
 #include <sys/stat.h>

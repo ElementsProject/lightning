@@ -3,9 +3,9 @@
 #include <ccan/err/err.h>
 #include <ccan/opt/opt.h>
 #include <common/gossip_store.h>
+#include <common/gossip_store_wiregen.h>
 #include <common/utils.h>
 #include <fcntl.h>
-#include <gossipd/gossip_store_wiregen.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <unistd.h>

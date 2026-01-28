@@ -1,6 +1,6 @@
 #include "config.h"
 #include <common/gossip_store.h>
-#include <gossipd/gossip_store_wiregen.h>
+#include <common/gossip_store_wiregen.h>
 #include <unistd.h>
 
 /* We cheat and read first two bytes of message too. */
