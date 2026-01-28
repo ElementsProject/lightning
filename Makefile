@@ -468,6 +468,7 @@ PKGLIBEXEC_PROGRAMS = \
 	       lightningd/lightning_connectd \
 	       lightningd/lightning_dualopend \
 	       lightningd/lightning_gossipd \
+	       lightningd/lightning_gossip_compactd \
 	       lightningd/lightning_hsmd \
 	       lightningd/lightning_onchaind \
 	       lightningd/lightning_openingd \
