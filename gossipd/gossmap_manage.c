@@ -458,10 +458,9 @@ static void gossmap_add_dying_chan(struct short_channel_id scid,
 static bool setup_gossmap(struct gossmap_manage *gm,
 			  struct daemon *daemon)
 {
-	u64 expected_len;
+	u64 expected_len, num_live, num_dead;
 
-	/* This does simple sanitry checks, compacts, and creates if
-	 * necessary */
+	/* This does creates or converts if necessary. */
 	gm->gs = gossip_store_new(gm,
 				  daemon,
 				  &gm->gossip_store_populated);
@@ -482,6 +481,10 @@ static bool setup_gossmap(struct gossmap_manage *gm,
 		return false;
 	}
 	gm->last_writes = tal_arr(gm, const u8 *, 0);
+
+	gossmap_stats(gm->raw_gossmap, &num_live, &num_dead);
+	status_debug("gossip_store: %"PRIu64" live records, %"PRIu64" deleted",
+		     num_live, num_dead);
 	return true;
 }
 
