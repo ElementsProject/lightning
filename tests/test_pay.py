@@ -4509,6 +4509,7 @@ def test_fetchinvoice_3hop(node_factory, bitcoind):
     l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12']})
 
 
+@pytest.mark.xfail(strict=True)
 def test_fetchinvoice(node_factory, bitcoind):
     # We remove the conversion plugin on l3, causing it to get upset.
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
@@ -4570,9 +4571,11 @@ def test_fetchinvoice(node_factory, bitcoind):
     assert 'msat' not in inv1['changes']
 
     # Single-use invoice can be fetched multiple times, only paid once.
-    offer2 = l3.rpc.call('offer', {'amount': '1msat',
-                                   'description': 'single-use test',
-                                   'single_use': True})['bolt12']
+    offer2_ret = l3.rpc.call('offer', {'amount': '1msat',
+                                       'description': 'single-use test',
+                                       'single_use': True})
+    offer2 = offer2_ret['bolt12']
+    offer2_id = offer2_ret['offer_id']
 
     # We've done 3 onion calls: sleep now to avoid hitting ratelimit!
     time.sleep(1)
@@ -4592,6 +4595,12 @@ def test_fetchinvoice(node_factory, bitcoind):
     # We can't reuse the offer, either.
     with pytest.raises(RpcError, match='Offer no longer available'):
         l1.rpc.call('fetchinvoice', {'offer': offer2})
+
+    # Can't enable it either!
+    OFFER_USED_SINGLE_USE = 1007
+    with pytest.raises(RpcError) as excinfo:
+        l3.rpc.enableoffer(offer_id=offer2_id)
+    assert excinfo.value.error['code'] == OFFER_USED_SINGLE_USE
 
     # Now, test amount in different currency!
     plugin = os.path.join(os.path.dirname(__file__), 'plugins/currencyUSDAUD5000.py')
