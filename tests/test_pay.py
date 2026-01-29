@@ -7166,5 +7166,5 @@ def test_invoice_amount_override(node_factory):
 
 def test_offer_currency_no_amount(node_factory):
     l1 = node_factory.get_node()
-    ret = l1.rpc.decode("lno1qcp4256ypgx9getnwss8vetrw3hhyuckyypwa3eyt44h6txtxquqh7lz5djge4afgfjn7k4rgrkuag0jsd5xvxg")
-    assert ret['valid'] is False
+    with pytest.raises(RpcError, match="currency with no amount"):
+        l1.rpc.decode("lno1qcp4256ypgx9getnwss8vetrw3hhyuckyypwa3eyt44h6txtxquqh7lz5djge4afgfjn7k4rgrkuag0jsd5xvxg")
