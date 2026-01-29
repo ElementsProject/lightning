@@ -687,7 +687,7 @@ static void stash_remote_announce_sigs(struct channel *channel,
  *   - MUST NOT send the `announcement_signatures` message.
  */
 
-static bool send_channel_announce_sigs(struct channel *channel)
+static void send_channel_announce_sigs(struct channel *channel)
 {
 	/* First 2 + 256 byte are the signatures and msg type, skip them */
 	const size_t offset = 258;
@@ -698,10 +698,8 @@ static bool send_channel_announce_sigs(struct channel *channel)
 	const u8 *ca, *msg;
 
 	/* Wait until we've exchanged reestablish messages */
-	if (!channel->reestablished) {
+	if (!channel->reestablished)
 		log_debug(channel->log, "channel_gossip: not sending channel_announcement_sigs until reestablished");
-		return false;
-	}
 
 	ca = create_channel_announcement(tmpctx, channel, *channel->scid,
 					 NULL, NULL, NULL, NULL);
@@ -716,33 +714,29 @@ static bool send_channel_announce_sigs(struct channel *channel)
 
 	/* Double-check that HSM gave valid signatures. */
 	sha256_double(&hash, ca + offset, tal_count(ca) - offset);
-	if (!check_signed_hash(&hash, &local_node_sig, &ld->our_pubkey)) {
+	if (!check_signed_hash(&hash, &local_node_sig, &ld->our_pubkey))
 		channel_internal_error(channel,
 				       "HSM returned an invalid node signature");
-		return false;
-	}
 
-	if (!check_signed_hash(&hash, &local_bitcoin_sig, &channel->local_funding_pubkey)) {
+	if (!check_signed_hash(&hash, &local_bitcoin_sig, &channel->local_funding_pubkey))
 		channel_internal_error(channel,
 				       "HSM returned an invalid bitcoin signature");
-		return false;
-	}
 
 	msg = towire_announcement_signatures(NULL,
 					     &channel->cid, *channel->scid,
 					     &local_node_sig, &local_bitcoin_sig);
 	msg_to_peer(channel->peer, take(msg));
-	return cg->sent_sigs = true;
+	cg->sent_sigs = true;
 }
 
-static bool send_channel_announce_sigs_once(struct channel *channel)
+static void send_channel_announce_sigs_once(struct channel *channel)
 {
 	struct channel_gossip *cg = channel->channel_gossip;
 
 	if (cg->sent_sigs)
-		return false;
+		return;
 
-	return send_channel_announce_sigs(channel);
+	send_channel_announce_sigs(channel);
 }
 
 /* Sends channel_announcement */
