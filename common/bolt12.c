@@ -224,6 +224,16 @@ struct tlv_offer *offer_decode(const tal_t *ctx,
 
 	/* BOLT #12:
 	 *
+	 *   - if `offer_currency` is set and `offer_amount` is not set:
+	 *     - MUST NOT respond to the offer.
+	 */
+	if (offer->offer_currency && !offer->offer_amount) {
+		*fail = tal_strdup(ctx, "Offer contains a currency with no amount");
+		return tal_free(offer);
+	}
+
+	/* BOLT #12:
+	 *
 	 *   - if neither `offer_issuer_id` nor `offer_paths` are set:
 	 *     - MUST NOT respond to the offer.
 	 */
