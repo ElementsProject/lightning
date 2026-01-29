@@ -3016,8 +3016,6 @@ static const u8 *peer_expect_msg_four(const tal_t *ctx,
 
 	msg = peer_read(ctx, peer->pps);
 	type = fromwire_peektype(msg);
-	if (type == WIRE_ERROR)
-		abort();
 	if (type != expect_type
 	    && type != second_allowed_type
 	    && type != third_allowed_type
@@ -3100,9 +3098,14 @@ static struct commitsig *interactive_send_commitments(struct peer *peer,
 					   WIRE_TX_ABORT,
 					   allowed_premature_msg);
 
+		/* If the message is a type that we allow to receive
+		 * prematurely: process this, then come back and get another
+		 * message */
 		if (allowed_premature_msg
 		    && fromwire_peektype(msg) == allowed_premature_msg) {
+		    	/* Process the pre-allowed message */
 			peer_in(peer, msg);
+			/* Now get a new message */
 			msg = peer_expect_msg_four(tmpctx, peer,
 					   WIRE_COMMITMENT_SIGNED,
 					   WIRE_TX_SIGNATURES,
@@ -6021,7 +6024,7 @@ static void peer_reconnect(struct peer *peer,
 	if (retransmit_revoke_and_ack && peer->last_was_revoke)
 		resend_revoke(peer);
 
-	/* BOLT-??? #2
+	/* BOLT-splice #2
 	 *     1. type: 5 (`my_current_funding_locked`)
 	 *     2. data:
 	 *         * [`sha256`:`my_current_funding_locked_txid`]
