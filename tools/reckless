@@ -2597,3 +2597,6 @@ if __name__ == '__main__':
 
     if log.capture:
         log.reply_json()
+    # We're done streaming to this socket, but the rpc plugin will close it.
+    if log.socket:
+        log.socket.shutdown(socket.SHUT_WR)
