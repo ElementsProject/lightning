@@ -215,6 +215,11 @@ const char *explain_failure(const tal_t *ctx,
 	const struct dijkstra *dij;
 	char *path;
 	const char *cap_check;
+	const char *explanation;
+	struct short_channel_id_dir scidd;
+	struct gossmap_chan *c;
+	struct amount_msat rolling_amount;
+	struct amount_msat *path_amount;
 
 	/* Do we have enough funds? */
 	cap_check = check_capacity(ctx, rq, srcnode, OUT_OF_NODE,
@@ -247,11 +252,33 @@ const char *explain_failure(const tal_t *ctx,
 			       fmt_short_channel_id(tmpctx, hops[i].scid));
 	}
 
+	path_amount = tal_arr(tmpctx, struct amount_msat, tal_count(hops));
+	rolling_amount = amount;
+	for (size_t i = tal_count(hops) - 1; i < tal_count(hops); i--) {
+		scidd.scid = hops[i].scid;
+		scidd.dir = hops[i].direction;
+		c = gossmap_find_chan(rq->gossmap, &scidd.scid);
+
+		path_amount[i] = rolling_amount;
+		if (!amount_msat_add_fee(&rolling_amount,
+					 c->half[scidd.dir].base_fee,
+					 c->half[scidd.dir].proportional_fee)) {
+			/* Should not happen, but since the branch exists we use
+			 * it. */
+			explanation = tal_fmt(
+			    tmpctx, "produces a fee overflow for amount %s",
+			    fmt_amount_msat(tmpctx, rolling_amount));
+			return rq_log(ctx, rq, LOG_INFORM,
+				      NO_USABLE_PATHS_STRING
+				      "  The shortest path is %s, but %s %s",
+				      path,
+				      fmt_short_channel_id_dir(tmpctx, &scidd),
+				      explanation);
+		}
+	}
+
 	/* Now walk through this: is it disabled?  Insuff capacity? */
 	for (size_t i = 0; i < tal_count(hops); i++) {
-		const char *explanation;
-		struct short_channel_id_dir scidd;
-		struct gossmap_chan *c;
 		struct amount_msat cap_msat, min, max, htlc_max, htlc_min;
 
 		scidd.scid = hops[i].scid;
@@ -266,16 +293,16 @@ const char *explain_failure(const tal_t *ctx,
 			explanation = "has no gossip";
 		else if (!c->half[scidd.dir].enabled)
 			explanation = describe_disabled(tmpctx, rq, c, &scidd);
-		else if (amount_msat_greater(amount, cap_msat))
-			explanation = describe_capacity(tmpctx, rq, &scidd, amount);
-		else if (amount_msat_greater(amount, max))
+		else if (amount_msat_greater(path_amount[i], cap_msat))
+			explanation = describe_capacity(tmpctx, rq, &scidd, path_amount[i]);
+		else if (amount_msat_greater(path_amount[i], max))
 			explanation = why_max_constrained(tmpctx, rq,
-							  &scidd, amount);
-		else if (amount_msat_greater(amount, htlc_max))
+							  &scidd, path_amount[i]);
+		else if (amount_msat_greater(path_amount[i], htlc_max))
 			explanation = tal_fmt(tmpctx,
 					      "exceeds htlc_maximum_msat ~%s",
 					      fmt_amount_msat(tmpctx, htlc_max));
-		else if (amount_msat_less(amount, htlc_min))
+		else if (amount_msat_less(path_amount[i], htlc_min))
 			explanation = tal_fmt(tmpctx,
 					      "below htlc_minumum_msat ~%s",
 					      fmt_amount_msat(tmpctx, htlc_min));
