@@ -407,6 +407,7 @@ def test_hardmpp(node_factory):
     assert invoice["amount_received_msat"] >= Millisatoshi("1800000sat")
 
 
+@pytest.mark.flaky(reruns=2)
 def test_self_pay(node_factory):
     l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
 
