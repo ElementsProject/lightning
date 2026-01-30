@@ -4021,6 +4021,9 @@ def test_sql(node_factory, bitcoind):
     # Make sure l3 sees new channel
     wait_for(lambda: len(l3.rpc.listchannels(scid)['channels']) == 2)
 
+    # Make sure we have a node_announcement for l1
+    wait_for(lambda: l2.rpc.listnodes(l1.info['id'])['nodes'] != [])
+
     # This should create a forward through l2
     l1.rpc.pay(l3.rpc.invoice(amount_msat=12300, label='inv1', description='description')['bolt11'])
 
