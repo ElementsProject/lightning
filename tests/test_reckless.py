@@ -419,7 +419,7 @@ def test_tag_install(node_factory):
 
 # Note: uv timeouts from the GH network seem to happen?
 @pytest.mark.slow_test
-@pytest.mark.flaky(reruns=3)
+@pytest.mark.flaky(max_runs=3)
 def test_reckless_uv_install(node_factory):
     node = get_reckless_node(node_factory)
     node.start()
@@ -468,6 +468,11 @@ def test_reckless_notifications(node_factory):
     as 'reckless_log' notifications"""
     notification_plugin = os.path.join(os.getcwd(), 'tests/plugins/custom_notifications.py')
     node = get_reckless_node(node_factory, options={"plugin": notification_plugin})
+    NETWORK = os.environ.get('TEST_NETWORK')
+    if not NETWORK:
+        NETWORK = 'regtest'
+    reckless(['listconfig', f'--network={NETWORK}', '--json'],
+             dir=node.lightning_dir)
     node.start()
     listconfig_log = node.rpc.reckless('listconfig')['log']
     # Some trouble escaping the clone url for searching

@@ -69,6 +69,7 @@ static struct io_plan *read_more(struct io_conn *conn, struct reckless *rkls)
 static struct command_result *reckless_result(struct io_conn *conn,
 					      struct reckless *reckless)
 {
+	io_close(conn);
 	struct json_stream *response;
 	if (reckless->process_failed) {
 		response = jsonrpc_stream_fail(reckless->cmd,
@@ -152,6 +153,16 @@ static void reckless_conn_finish(struct io_conn *conn,
 	/* FIXME: avoid EBADFD - leave stdin fd open? */
 	if (errno && errno != 9)
 		plugin_log(plugin, LOG_DBG, "err: %s", strerror(errno));
+	struct pollfd pfd = { .fd = reckless->logfd, .events = POLLIN };
+	poll(&pfd, 1, 20); // wait for any remaining log data
+
+	/* Close the log streaming socket. */
+	if (reckless->logfd) {
+		if (close(reckless->logfd) != 0)
+			plugin_log(plugin, LOG_DBG, "closing log socket failed: %s", strerror(errno));
+		reckless->logfd = 0;
+	}
+
 	if (reckless->pid > 0) {
 		int status = 0;
 		pid_t p;
@@ -160,6 +171,7 @@ static void reckless_conn_finish(struct io_conn *conn,
 		if (p != reckless->pid && reckless->pid) {
 			plugin_log(plugin, LOG_DBG, "reckless failed to exit, "
 				   "killing now.");
+			io_close(conn);
 			kill(reckless->pid, SIGKILL);
 			reckless_fail(reckless, "reckless process hung");
 		/* Reckless process exited and with normal status? */
@@ -251,7 +263,7 @@ static void log_notify(char * log_line TAKES)
 static void log_conn_finish(struct io_conn *conn, struct reckless *reckless)
 {
 	io_close(conn);
-	close(reckless->logfd);
+	reckless->logfd = 0;
 
 }
 
