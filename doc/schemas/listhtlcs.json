@@ -1,6 +1,7 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
+  "added": "v22.11",
   "rpc": "listhtlcs",
   "title": "Command for querying HTLCs",
   "description": [

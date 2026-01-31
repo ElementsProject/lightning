@@ -241,8 +241,21 @@ def load_jsonrpc_method(name):
     """
     schema = get_schema_bundle()
     rpc_name = f"{name.lower()}.json"
+
+    root_added = schema["methods"][rpc_name].get('added', None)
+    root_deprecated = schema["methods"][rpc_name].get('deprecated', None)
+
     request = CompositeField.from_js(schema["methods"][rpc_name]['request'], path=name)
     response = CompositeField.from_js(schema["methods"][rpc_name]['response'], path=name)
+
+    if request.added is None:
+        request.added = root_added
+    if request.deprecated is None:
+        request.deprecated = root_deprecated
+    if response.added is None:
+        response.added = root_added
+    if response.deprecated is None:
+        response.deprecated = root_deprecated
 
     # Normalize the method request and response typename so they no
     # longer conflict.
@@ -263,8 +276,21 @@ def load_notification(name, typename: TypeName):
 
     notifications = get_schema_bundle()["notifications"]
     notif_name = f"{name.lower()}.json"
+
+    root_added = notifications[notif_name].get('added', None)
+    root_deprecated = notifications[notif_name].get('deprecated', None)
+
     request = CompositeField.from_js(notifications[notif_name]['request'], path=name)
     response = CompositeField.from_js(notifications[notif_name]['response'], path=name)
+
+    if request.added is None:
+        request.added = root_added
+    if request.deprecated is None:
+        request.deprecated = root_deprecated
+    if response.added is None:
+        response.added = root_added
+    if response.deprecated is None:
+        response.deprecated = root_deprecated
 
     request.typename = TypeName(f"Stream{typename}Request")
     response.typename = TypeName(f"{typename}Notification")
