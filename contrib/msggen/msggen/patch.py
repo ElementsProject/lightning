@@ -148,7 +148,7 @@ class OptionalPatch(Patch):
         fields more stringent.
         """
 
-        return OptionalPatch.version_to_number("v0.10.1")
+        return OptionalPatch.version_to_number("v24.11")
 
     def visit(self, f: model.Field, parent: Optional[model.Field] = None, **kwargs) -> None:
         # Return if the optional field has been set already
