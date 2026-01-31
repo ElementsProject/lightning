@@ -56,7 +56,7 @@ impl From<responses::GetinfoResponse> for pb::GetinfoResponse {
         Self {
             // Field: Getinfo.address[]
             address: c.address.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
-            alias: c.alias, // Rule #2 for type string?
+            alias: c.alias, // Rule #2 for type string
             // Field: Getinfo.binding[]
             binding: c.binding.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
             blockheight: c.blockheight, // Rule #2 for type u32
@@ -4082,7 +4082,7 @@ impl From<responses::AskrenelistlayersLayersConstraints> for pb::Askrenelistlaye
         Self {
             maximum_msat: c.maximum_msat.map(|f| f.into()), // Rule #2 for type msat?
             minimum_msat: c.minimum_msat.map(|f| f.into()), // Rule #2 for type msat?
-            short_channel_id_dir: c.short_channel_id_dir.map(|v| v.to_string()), // Rule #2 for type short_channel_id_dir?
+            short_channel_id_dir: c.short_channel_id_dir.to_string(), // Rule #2 for type short_channel_id_dir
             timestamp: c.timestamp, // Rule #2 for type u64?
         }
     }
@@ -4120,7 +4120,7 @@ impl From<responses::AskrenelistlayersLayers> for pb::AskrenelistlayersLayers {
             // Field: AskRene-ListLayers.layers[].biases[]
             biases: c.biases.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
             // Field: AskRene-ListLayers.layers[].channel_updates[]
-            channel_updates: c.channel_updates.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            channel_updates: c.channel_updates.into_iter().map(|i| i.into()).collect(), // Rule #3 for type AskrenelistlayersLayersChannelUpdates
             // Field: AskRene-ListLayers.layers[].constraints[]
             constraints: c.constraints.into_iter().map(|i| i.into()).collect(), // Rule #3 for type AskrenelistlayersLayersConstraints
             // Field: AskRene-ListLayers.layers[].created_channels[]
@@ -4132,7 +4132,7 @@ impl From<responses::AskrenelistlayersLayers> for pb::AskrenelistlayersLayers {
             layer: c.layer, // Rule #2 for type string
             // Field: AskRene-ListLayers.layers[].node_biases[]
             node_biases: c.node_biases.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
-            persistent: c.persistent, // Rule #2 for type boolean?
+            persistent: c.persistent, // Rule #2 for type boolean
         }
     }
 }
@@ -4276,7 +4276,7 @@ impl From<responses::GetroutesRoutesPath> for pb::GetroutesRoutesPath {
             amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
             delay: c.delay, // Rule #2 for type u32
             next_node_id: c.next_node_id.serialize().to_vec(), // Rule #2 for type pubkey
-            short_channel_id_dir: c.short_channel_id_dir.map(|v| v.to_string()), // Rule #2 for type short_channel_id_dir?
+            short_channel_id_dir: c.short_channel_id_dir.to_string(), // Rule #2 for type short_channel_id_dir
         }
     }
 }
@@ -4286,7 +4286,7 @@ impl From<responses::GetroutesRoutes> for pb::GetroutesRoutes {
     fn from(c: responses::GetroutesRoutes) -> Self {
         Self {
             amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
-            final_cltv: c.final_cltv, // Rule #2 for type u32?
+            final_cltv: c.final_cltv, // Rule #2 for type u32
             // Field: GetRoutes.routes[].path[]
             path: c.path.into_iter().map(|i| i.into()).collect(), // Rule #3 for type GetroutesRoutesPath
             probability_ppm: c.probability_ppm, // Rule #2 for type u64
@@ -4331,7 +4331,7 @@ impl From<responses::AskreneinformchannelResponse> for pb::AskreneinformchannelR
     fn from(c: responses::AskreneinformchannelResponse) -> Self {
         Self {
             // Field: AskRene-Inform-Channel.constraints[]
-            constraints: c.constraints.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            constraints: c.constraints.into_iter().map(|i| i.into()).collect(), // Rule #3 for type AskreneinformchannelConstraints
         }
     }
 }
@@ -6113,7 +6113,7 @@ impl From<requests::AskreneunreservePath> for pb::AskreneunreservePath {
         Self {
             amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
             layer: c.layer, // Rule #2 for type string?
-            short_channel_id_dir: c.short_channel_id_dir.map(|v| v.to_string()), // Rule #2 for type short_channel_id_dir?
+            short_channel_id_dir: c.short_channel_id_dir.to_string(), // Rule #2 for type short_channel_id_dir
         }
     }
 }
@@ -6162,7 +6162,7 @@ impl From<requests::AskrenereservePath> for pb::AskrenereservePath {
         Self {
             amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
             layer: c.layer, // Rule #2 for type string?
-            short_channel_id_dir: c.short_channel_id_dir.map(|v| v.to_string()), // Rule #2 for type short_channel_id_dir?
+            short_channel_id_dir: c.short_channel_id_dir.to_string(), // Rule #2 for type short_channel_id_dir
         }
     }
 }
@@ -6193,7 +6193,7 @@ impl From<requests::GetroutesRequest> for pb::GetroutesRequest {
         Self {
             amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
             destination: c.destination.serialize().to_vec(), // Rule #2 for type pubkey
-            final_cltv: c.final_cltv, // Rule #2 for type u32?
+            final_cltv: c.final_cltv, // Rule #2 for type u32
             // Field: GetRoutes.layers[]
             layers: c.layers.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
             maxdelay: c.maxdelay, // Rule #2 for type u32?
@@ -6218,10 +6218,10 @@ impl From<requests::AskrenedisablenodeRequest> for pb::AskrenedisablenodeRequest
 impl From<requests::AskreneinformchannelRequest> for pb::AskreneinformchannelRequest {
     fn from(c: requests::AskreneinformchannelRequest) -> Self {
         Self {
-            amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
-            inform: c.inform.map(|v| v as i32),
+            amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
+            inform: c.inform as i32,
             layer: c.layer, // Rule #2 for type string
-            short_channel_id_dir: c.short_channel_id_dir.map(|v| v.to_string()), // Rule #2 for type short_channel_id_dir?
+            short_channel_id_dir: c.short_channel_id_dir.to_string(), // Rule #2 for type short_channel_id_dir
         }
     }
 }
@@ -7894,7 +7894,7 @@ impl From<pb::AskreneunreservePath> for requests::AskreneunreservePath {
         Self {
             amount_msat: c.amount_msat.unwrap().into(), // Rule #1 for type msat
             layer: c.layer, // Rule #1 for type string?
-            short_channel_id_dir: c.short_channel_id_dir.map(|v| cln_rpc::primitives::ShortChannelIdDir::from_str(&v).unwrap()), // Rule #1 for type short_channel_id_dir?
+            short_channel_id_dir: cln_rpc::primitives::ShortChannelIdDir::from_str(&c.short_channel_id_dir).unwrap(), // Rule #1 for type short_channel_id_dir
         }
     }
 }
@@ -7942,7 +7942,7 @@ impl From<pb::AskrenereservePath> for requests::AskrenereservePath {
         Self {
             amount_msat: c.amount_msat.unwrap().into(), // Rule #1 for type msat
             layer: c.layer, // Rule #1 for type string?
-            short_channel_id_dir: c.short_channel_id_dir.map(|v| cln_rpc::primitives::ShortChannelIdDir::from_str(&v).unwrap()), // Rule #1 for type short_channel_id_dir?
+            short_channel_id_dir: cln_rpc::primitives::ShortChannelIdDir::from_str(&c.short_channel_id_dir).unwrap(), // Rule #1 for type short_channel_id_dir
         }
     }
 }
@@ -7972,7 +7972,7 @@ impl From<pb::GetroutesRequest> for requests::GetroutesRequest {
         Self {
             amount_msat: c.amount_msat.unwrap().into(), // Rule #1 for type msat
             destination: PublicKey::from_slice(&c.destination).unwrap(), // Rule #1 for type pubkey
-            final_cltv: c.final_cltv, // Rule #1 for type u32?
+            final_cltv: c.final_cltv, // Rule #1 for type u32
             layers: c.layers.into_iter().map(|s| s.into()).collect(), // Rule #4
             maxdelay: c.maxdelay, // Rule #1 for type u32?
             maxfee_msat: c.maxfee_msat.unwrap().into(), // Rule #1 for type msat
@@ -7996,10 +7996,10 @@ impl From<pb::AskrenedisablenodeRequest> for requests::AskrenedisablenodeRequest
 impl From<pb::AskreneinformchannelRequest> for requests::AskreneinformchannelRequest {
     fn from(c: pb::AskreneinformchannelRequest) -> Self {
         Self {
-            amount_msat: c.amount_msat.map(|a| a.into()), // Rule #1 for type msat?
-            inform: c.inform.map(|v| v.try_into().unwrap()),
+            amount_msat: c.amount_msat.unwrap().into(), // Rule #1 for type msat
+            inform: c.inform.try_into().unwrap(),
             layer: c.layer, // Rule #1 for type string
-            short_channel_id_dir: c.short_channel_id_dir.map(|v| cln_rpc::primitives::ShortChannelIdDir::from_str(&v).unwrap()), // Rule #1 for type short_channel_id_dir?
+            short_channel_id_dir: cln_rpc::primitives::ShortChannelIdDir::from_str(&c.short_channel_id_dir).unwrap(), // Rule #1 for type short_channel_id_dir
         }
     }
 }

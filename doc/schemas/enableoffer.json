@@ -1,6 +1,7 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
+  "added": "v24.08",
   "rpc": "enableoffer",
   "title": "Command for re-enabling an offer",
   "description": [

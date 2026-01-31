@@ -1,6 +1,7 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
+  "added": "v24.11",
   "additionalProperties": false,
   "rpc": "bkpr-editdescriptionbypaymentid",
   "title": "Command to change the description for events with `payment_id` after they're made",
