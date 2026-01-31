@@ -3795,7 +3795,7 @@ message AskreneunreserveResponse {
 
 message AskreneunreservePath {
 	Amount amount_msat = 3;
-	optional string short_channel_id_dir = 4;
+	string short_channel_id_dir = 4;
 	optional string layer = 5;
 }
 
@@ -3812,7 +3812,7 @@ message AskrenelistlayersLayers {
 	repeated bytes disabled_nodes = 2;
 	repeated AskrenelistlayersLayersCreatedChannels created_channels = 3;
 	repeated AskrenelistlayersLayersConstraints constraints = 4;
-	optional bool persistent = 5;
+	bool persistent = 5;
 	repeated string disabled_channels = 6;
 	repeated AskrenelistlayersLayersChannelUpdates channel_updates = 7;
 	repeated AskrenelistlayersLayersBiases biases = 8;
@@ -3839,7 +3839,7 @@ message AskrenelistlayersLayersChannelUpdates {
 message AskrenelistlayersLayersConstraints {
 	optional Amount maximum_msat = 3;
 	optional Amount minimum_msat = 4;
-	optional string short_channel_id_dir = 5;
+	string short_channel_id_dir = 5;
 	optional uint64 timestamp = 6;
 }
 
@@ -3932,7 +3932,7 @@ message AskrenereserveResponse {
 
 message AskrenereservePath {
 	Amount amount_msat = 3;
-	optional string short_channel_id_dir = 4;
+	string short_channel_id_dir = 4;
 	optional string layer = 5;
 }
 
@@ -3992,9 +3992,9 @@ message AskreneinformchannelRequest {
 		SUCCEEDED = 2;
 	}
 	string layer = 1;
-	optional string short_channel_id_dir = 6;
-	optional Amount amount_msat = 7;
-	optional AskreneinformchannelInform inform = 8;
+	string short_channel_id_dir = 6;
+	Amount amount_msat = 7;
+	AskreneinformchannelInform inform = 8;
 }
 
 message AskreneinformchannelResponse {

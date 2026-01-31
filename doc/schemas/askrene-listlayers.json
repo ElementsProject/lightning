@@ -13,6 +13,7 @@
     "properties": {
       "layer": {
         "type": "string",
+        "added": "v24.11",
         "description": [
           "The name of the layer to report on."
         ]
@@ -27,6 +28,7 @@
     "properties": {
       "layers": {
         "type": "array",
+        "added": "v24.11",
         "items": {
           "type": "object",
           "additionalProperties": false,
@@ -41,18 +43,21 @@
           "properties": {
             "layer": {
               "type": "string",
+              "added": "v24.11",
               "description": [
                 "The name of the layer."
               ]
             },
             "persistent": {
               "type": "boolean",
+              "added": "v24.11",
               "description": [
                 "Whether the layer is saved across restarts."
               ]
             },
             "disabled_nodes": {
               "type": "array",
+              "added": "v24.11",
               "items": {
                 "type": "pubkey",
                 "description": [
@@ -62,6 +67,7 @@
             },
             "disabled_channels": {
               "type": "array",
+              "added": "v24.11",
               "items": {
                 "type": "short_channel_id_dir",
                 "description": [
@@ -71,6 +77,7 @@
             },
             "created_channels": {
               "type": "array",
+              "added": "v24.11",
               "items": {
                 "type": "object",
                 "required": [
@@ -83,24 +90,28 @@
                 "properties": {
                   "source": {
                     "type": "pubkey",
+                    "added": "v24.11",
                     "description": [
                       "The source node id for the channel."
                     ]
                   },
                   "destination": {
                     "type": "pubkey",
+                    "added": "v24.11",
                     "description": [
                       "The destination node id for the channel."
                     ]
                   },
                   "short_channel_id": {
                     "type": "short_channel_id",
+                    "added": "v24.11",
                     "description": [
                       "The short channel id for the channel."
                     ]
                   },
                   "capacity_msat": {
                     "type": "msat",
+                    "added": "v24.11",
                     "description": [
                       "The capacity (onchain size) of the channel."
                     ]
@@ -110,6 +121,7 @@
             },
             "channel_updates": {
               "type": "array",
+              "added": "v24.11",
               "items": {
                 "type": "object",
                 "required": [
@@ -119,42 +131,49 @@
                 "properties": {
                   "short_channel_id_dir": {
                     "type": "short_channel_id_dir",
+                    "added": "v24.11",
                     "description": [
                       "The short channel id and direction this update applies to."
                     ]
                   },
                   "enabled": {
                     "type": "boolean",
+                    "added": "v24.11",
                     "description": [
                       "True if this can be used, false otherwise."
                     ]
                   },
                   "htlc_minimum_msat": {
                     "type": "msat",
+                    "added": "v24.11",
                     "description": [
                       "The minimum value allowed in this direction."
                     ]
                   },
                   "htlc_maximum_msat": {
                     "type": "msat",
+                    "added": "v24.11",
                     "description": [
                       "The maximum value allowed in this direction."
                     ]
                   },
                   "fee_base_msat": {
                     "type": "msat",
+                    "added": "v24.11",
                     "description": [
                       "The base fee to apply to use the channel in this direction."
                     ]
                   },
                   "fee_proportional_millionths": {
                     "type": "u32",
+                    "added": "v24.11",
                     "description": [
                       "The proportional fee (in parts per million) to apply to use the channel in this direction."
                     ]
                   },
                   "cltv_expiry_delta": {
                     "type": "u16",
+                    "added": "v24.11",
                     "description": [
                       "The CLTV delay required for this direction."
                     ]
@@ -164,6 +183,7 @@
             },
             "constraints": {
               "type": "array",
+              "added": "v24.11",
               "items": {
                 "type": "object",
                 "required": [
@@ -173,24 +193,28 @@
                 "properties": {
                   "short_channel_id_dir": {
                     "type": "short_channel_id_dir",
+                    "added": "v24.11",
                     "description": [
                       "The short channel id and direction"
                     ]
                   },
                   "timestamp": {
                     "type": "u64",
+                    "added": "v24.11",
                     "description": [
                       "The UNIX timestamp when this constraint was created."
                     ]
                   },
                   "maximum_msat": {
                     "type": "msat",
+                    "added": "v24.11",
                     "description": [
                       "The maximum value which this channel could pass."
                     ]
                   },
                   "minimum_msat": {
                     "type": "msat",
+                    "added": "v24.11",
                     "description": [
                       "The minimum value which this channel could pass."
                     ]
@@ -200,6 +224,7 @@
             },
             "biases": {
               "type": "array",
+              "added": "v24.11",
               "items": {
                 "type": "object",
                 "required": [
@@ -211,18 +236,21 @@
                 "properties": {
                   "short_channel_id_dir": {
                     "type": "short_channel_id_dir",
+                    "added": "v24.11",
                     "description": [
                       "The short channel id and direction"
                     ]
                   },
                   "bias": {
                     "type": "integer",
+                    "added": "v24.11",
                     "description": [
                       "The bias (-100 to +100)"
                     ]
                   },
                   "description": {
                     "type": "string",
+                    "added": "v24.11",
                     "description": [
                       "Description/annotation for the bias"
                     ]

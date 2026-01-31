@@ -17,6 +17,7 @@
     "properties": {
       "path": {
         "type": "array",
+        "added": "v24.11",
         "items": {
           "type": "object",
           "additionalProperties": false,
@@ -27,12 +28,14 @@
           "properties": {
             "short_channel_id_dir": {
               "type": "short_channel_id_dir",
+              "added": "v24.11",
               "description": [
                 "The channel and direction joining these nodes."
               ]
             },
             "amount_msat": {
               "type": "msat",
+              "added": "v24.11",
               "description": [
                 "The amount to send into this hop."
               ]

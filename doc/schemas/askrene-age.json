@@ -16,12 +16,14 @@
     "properties": {
       "layer": {
         "type": "string",
+        "added": "v24.11",
         "description": [
           "The name of the layer to apply this change to."
         ]
       },
       "cutoff": {
         "type": "u64",
+        "added": "v24.11",
         "description": [
           "The UNIX timestamp: constraints older than this will be forgotten."
         ]
@@ -37,12 +39,14 @@
     "properties": {
       "layer": {
         "type": "string",
+        "added": "v24.11",
         "description": [
           "The *layer* parameter provided."
         ]
       },
       "num_removed": {
         "type": "u64",
+        "added": "v24.11",
         "description": [
           "The number of constraints removed from *layer*"
         ]

@@ -81,24 +81,28 @@
         "properties": {
           "satoshi": {
             "type": "sat",
+            "added": "v23.11",
             "description": [
               "The satoshi value of the output. It can be a whole number, a whole number ending in *sat*, or a number with 1 to 8 decimal places ending in *btc*."
             ]
           },
           "initialpsbt": {
             "type": "string",
+            "added": "v23.11",
             "description": [
               "Base 64 encoded PSBT to add the output to. If not specified, one will be generated automatically."
             ]
           },
           "locktime": {
             "type": "u32",
+            "added": "v23.11",
             "description": [
               "If not set, it is set to a recent block height (if no initial psbt is specified)."
             ]
           },
           "destination": {
             "type": "string",
+            "added": "v23.11",
             "description": [
               "If it is not set, an internal address is generated."
             ]
@@ -115,18 +119,21 @@
         "properties": {
           "psbt": {
             "type": "string",
+            "added": "v23.11",
             "description": [
               "Unsigned PSBT which fulfills the parameters given."
             ]
           },
           "estimated_added_weight": {
             "type": "u32",
+            "added": "v23.11",
             "description": [
               "The estimated weight of the added output."
             ]
           },
           "outnum": {
             "type": "u32",
+            "added": "v23.11",
             "description": [
               "The 0-based number where the output was placed."
             ]
@@ -213,12 +220,14 @@
         "properties": {
           "layer": {
             "type": "string",
+            "added": "v24.11",
             "description": [
               "The name of the layer to apply this change to."
             ]
           },
           "cutoff": {
             "type": "u64",
+            "added": "v24.11",
             "description": [
               "The UNIX timestamp: constraints older than this will be forgotten."
             ]
@@ -234,12 +243,14 @@
         "properties": {
           "layer": {
             "type": "string",
+            "added": "v24.11",
             "description": [
               "The *layer* parameter provided."
             ]
           },
           "num_removed": {
             "type": "u64",
+            "added": "v24.11",
             "description": [
               "The number of constraints removed from *layer*"
             ]
@@ -639,30 +650,35 @@
         "properties": {
           "layer": {
             "type": "string",
+            "added": "v24.11",
             "description": [
               "The name of the layer to apply this change to."
             ]
           },
           "source": {
             "type": "pubkey",
+            "added": "v24.11",
             "description": [
               "The source node id for the channel."
             ]
           },
           "destination": {
             "type": "pubkey",
+            "added": "v24.11",
             "description": [
               "The destination node id for the channel."
             ]
           },
           "short_channel_id": {
             "type": "short_channel_id",
+            "added": "v24.11",
             "description": [
               "The short channel id for the channel.  If a channel with this short channel id already exists in *layer*, the *source*, *destination* and *capacity_msat* must be the same."
             ]
           },
           "capacity_msat": {
             "type": "msat",
+            "added": "v24.11",
             "description": [
               "The capacity (onchain size) of the channel.",
               "NOTE: this is in millisatoshis!"
@@ -1057,12 +1073,14 @@
         "properties": {
           "layer": {
             "type": "string",
+            "added": "v24.11",
             "description": [
               "The name of the layer to apply this change to."
             ]
           },
           "node": {
             "type": "pubkey",
+            "added": "v24.11",
             "description": [
               "The node to disable.  It does not need to exist."
             ]
@@ -1121,24 +1139,28 @@
         "properties": {
           "layer": {
             "type": "string",
+            "added": "v24.11",
             "description": [
               "The name of the layer to apply this change to.  Also causes us to consider any reservations which are local to that layer (which is useful for fake channels where `layer` is set in an `askrene-reserve` `path` object)."
             ]
           },
           "short_channel_id_dir": {
             "type": "short_channel_id_dir",
+            "added": "v24.11",
             "description": [
               "The short channel id and direction to apply this change to."
             ]
           },
           "amount_msat": {
             "type": "msat",
+            "added": "v24.11",
             "description": [
               "The amount we used on the channel"
             ]
           },
           "inform": {
             "type": "string",
+            "added": "v24.11",
             "enum": [
               "constrained",
               "unconstrained",
@@ -1158,6 +1180,7 @@
         "properties": {
           "constraints": {
             "type": "array",
+            "added": "v24.11",
             "items": {
               "type": "object",
               "required": [
@@ -1169,30 +1192,35 @@
               "properties": {
                 "short_channel_id_dir": {
                   "type": "short_channel_id_dir",
+                  "added": "v24.11",
                   "description": [
                     "The short channel id and direction"
                   ]
                 },
                 "layer": {
                   "type": "string",
+                  "added": "v24.11",
                   "description": [
                     "The name of the layer to apply this change to."
                   ]
                 },
                 "timestamp": {
                   "type": "u64",
+                  "added": "v24.11",
                   "description": [
                     "The UNIX timestamp when this constraint was created."
                   ]
                 },
                 "maximum_msat": {
                   "type": "msat",
+                  "added": "v24.11",
                   "description": [
                     "The maximum value which this channel could pass."
                   ]
                 },
                 "minimum_msat": {
                   "type": "msat",
+                  "added": "v24.11",
                   "description": [
                     "The minimum value which this channel could pass."
                   ]
@@ -1255,6 +1283,7 @@
         "properties": {
           "layer": {
             "type": "string",
+            "added": "v24.11",
             "description": [
               "The name of the layer to report on."
             ]
@@ -1269,6 +1298,7 @@
         "properties": {
           "layers": {
             "type": "array",
+            "added": "v24.11",
             "items": {
               "type": "object",
               "additionalProperties": false,
@@ -1283,18 +1313,21 @@
               "properties": {
                 "layer": {
                   "type": "string",
+                  "added": "v24.11",
                   "description": [
                     "The name of the layer."
                   ]
                 },
                 "persistent": {
                   "type": "boolean",
+                  "added": "v24.11",
                   "description": [
                     "Whether the layer is saved across restarts."
                   ]
                 },
                 "disabled_nodes": {
                   "type": "array",
+                  "added": "v24.11",
                   "items": {
                     "type": "pubkey",
                     "description": [
@@ -1304,6 +1337,7 @@
                 },
                 "disabled_channels": {
                   "type": "array",
+                  "added": "v24.11",
                   "items": {
                     "type": "short_channel_id_dir",
                     "description": [
@@ -1313,6 +1347,7 @@
                 },
                 "created_channels": {
                   "type": "array",
+                  "added": "v24.11",
                   "items": {
                     "type": "object",
                     "required": [
@@ -1325,24 +1360,28 @@
                     "properties": {
                       "source": {
                         "type": "pubkey",
+                        "added": "v24.11",
                         "description": [
                           "The source node id for the channel."
                         ]
                       },
                       "destination": {
                         "type": "pubkey",
+                        "added": "v24.11",
                         "description": [
                           "The destination node id for the channel."
                         ]
                       },
                       "short_channel_id": {
                         "type": "short_channel_id",
+                        "added": "v24.11",
                         "description": [
                           "The short channel id for the channel."
                         ]
                       },
                       "capacity_msat": {
                         "type": "msat",
+                        "added": "v24.11",
                         "description": [
                           "The capacity (onchain size) of the channel."
                         ]
@@ -1352,6 +1391,7 @@
                 },
                 "channel_updates": {
                   "type": "array",
+                  "added": "v24.11",
                   "items": {
                     "type": "object",
                     "required": [
@@ -1361,42 +1401,49 @@
                     "properties": {
                       "short_channel_id_dir": {
                         "type": "short_channel_id_dir",
+                        "added": "v24.11",
                         "description": [
                           "The short channel id and direction this update applies to."
                         ]
                       },
                       "enabled": {
                         "type": "boolean",
+                        "added": "v24.11",
                         "description": [
                           "True if this can be used, false otherwise."
                         ]
                       },
                       "htlc_minimum_msat": {
                         "type": "msat",
+                        "added": "v24.11",
                         "description": [
                           "The minimum value allowed in this direction."
                         ]
                       },
                       "htlc_maximum_msat": {
                         "type": "msat",
+                        "added": "v24.11",
                         "description": [
                           "The maximum value allowed in this direction."
                         ]
                       },
                       "fee_base_msat": {
                         "type": "msat",
+                        "added": "v24.11",
                         "description": [
                           "The base fee to apply to use the channel in this direction."
                         ]
                       },
                       "fee_proportional_millionths": {
                         "type": "u32",
+                        "added": "v24.11",
                         "description": [
                           "The proportional fee (in parts per million) to apply to use the channel in this direction."
                         ]
                       },
                       "cltv_expiry_delta": {
                         "type": "u16",
+                        "added": "v24.11",
                         "description": [
                           "The CLTV delay required for this direction."
                         ]
@@ -1406,6 +1453,7 @@
                 },
                 "constraints": {
                   "type": "array",
+                  "added": "v24.11",
                   "items": {
                     "type": "object",
                     "required": [
@@ -1415,24 +1463,28 @@
                     "properties": {
                       "short_channel_id_dir": {
                         "type": "short_channel_id_dir",
+                        "added": "v24.11",
                         "description": [
                           "The short channel id and direction"
                         ]
                       },
                       "timestamp": {
                         "type": "u64",
+                        "added": "v24.11",
                         "description": [
                           "The UNIX timestamp when this constraint was created."
                         ]
                       },
                       "maximum_msat": {
                         "type": "msat",
+                        "added": "v24.11",
                         "description": [
                           "The maximum value which this channel could pass."
                         ]
                       },
                       "minimum_msat": {
                         "type": "msat",
+                        "added": "v24.11",
                         "description": [
                           "The minimum value which this channel could pass."
                         ]
@@ -1442,6 +1494,7 @@
                 },
                 "biases": {
                   "type": "array",
+                  "added": "v24.11",
                   "items": {
                     "type": "object",
                     "required": [
@@ -1453,18 +1506,21 @@
                     "properties": {
                       "short_channel_id_dir": {
                         "type": "short_channel_id_dir",
+                        "added": "v24.11",
                         "description": [
                           "The short channel id and direction"
                         ]
                       },
                       "bias": {
                         "type": "integer",
+                        "added": "v24.11",
                         "description": [
                           "The bias (-100 to +100)"
                         ]
                       },
                       "description": {
                         "type": "string",
+                        "added": "v24.11",
                         "description": [
                           "Description/annotation for the bias"
                         ]
@@ -1860,6 +1916,7 @@
         "properties": {
           "path": {
             "type": "array",
+            "added": "v24.11",
             "items": {
               "type": "object",
               "additionalProperties": false,
@@ -1870,12 +1927,14 @@
               "properties": {
                 "short_channel_id_dir": {
                   "type": "short_channel_id_dir",
+                  "added": "v24.11",
                   "description": [
                     "The channel and direction joining these nodes."
                   ]
                 },
                 "amount_msat": {
                   "type": "msat",
+                  "added": "v24.11",
                   "description": [
                     "The amount to send into this hop."
                   ]
@@ -1968,6 +2027,7 @@
         "properties": {
           "path": {
             "type": "array",
+            "added": "v24.11",
             "items": {
               "type": "object",
               "additionalProperties": false,
@@ -1978,12 +2038,14 @@
               "properties": {
                 "short_channel_id_dir": {
                   "type": "short_channel_id_dir",
+                  "added": "v24.11",
                   "description": [
                     "The channel and direction joining these nodes."
                   ]
                 },
                 "amount_msat": {
                   "type": "msat",
+                  "added": "v24.11",
                   "description": [
                     "The amount to send into this hop."
                   ]
@@ -5114,12 +5176,14 @@
         "properties": {
           "start": {
             "type": "u64",
+            "added": "v23.08",
             "description": [
               "First rune unique id to blacklist."
             ]
           },
           "end": {
             "type": "u64",
+            "added": "v23.08",
             "description": [
               "Final rune unique id to blacklist (defaults to start)."
             ]
@@ -5146,6 +5210,7 @@
         "properties": {
           "blacklist": {
             "type": "array",
+            "added": "v23.08",
             "description": [
               "The resulting blacklist ranges after the command."
             ],
@@ -5159,12 +5224,14 @@
               "properties": {
                 "start": {
                   "type": "u64",
+                  "added": "v23.08",
                   "description": [
                     "Unique id of first rune in this blacklist range."
                   ]
                 },
                 "end": {
                   "type": "u64",
+                  "added": "v23.08",
                   "description": [
                     "Unique id of last rune in this blacklist range."
                   ]
@@ -5578,18 +5645,21 @@
         "properties": {
           "rune": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "Rune to check for authorization."
             ]
           },
           "nodeid": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "Node id of requesting node *(required until v23.11)*."
             ]
           },
           "method": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "Method for which rune needs to be validated *(required until v23.11)*."
             ]
@@ -5598,12 +5668,14 @@
             "oneOf": [
               {
                 "type": "array",
+                "added": "v23.08",
                 "description": [
                   "Array of positional parameters."
                 ]
               },
               {
                 "type": "object",
+                "added": "v23.08",
                 "description": [
                   "Parameters for method."
                 ]
@@ -5620,6 +5692,7 @@
         "properties": {
           "valid": {
             "type": "boolean",
+            "added": "v23.08",
             "description": [
               "True if the rune is valid."
             ]
@@ -6813,6 +6886,7 @@
         "properties": {
           "rune": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "If supplied, the restrictions are simple appended to that *rune* (it doesn't need to be a rune belonging to this node). If not supplied, a new *rune* is constructed, with a new unique id."
             ]
@@ -6825,6 +6899,7 @@
             "oneOf": [
               {
                 "type": "array",
+                "added": "v23.08",
                 "description": [
                   "Alternatives use a simple language to examine the command which is being run:",
                   "    * time: the current UNIX time, e.g. `time<1656759180`.",
@@ -6842,6 +6917,7 @@
                 ],
                 "items": {
                   "type": "array",
+                  "added": "v23.08",
                   "items": {
                     "type": "string"
                   }
@@ -6849,6 +6925,7 @@
               },
               {
                 "type": "string",
+                "added": "v23.08",
                 "enum": [
                   "readonly"
                 ],
@@ -6869,18 +6946,21 @@
         "properties": {
           "rune": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "The resulting rune."
             ]
           },
           "unique_id": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "The id of this rune: this is set at creation and cannot be changed (even as restrictions are added)."
             ]
           },
           "warning_unrestricted_rune": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "A warning shown when runes are created with powers that could drain your node."
             ]
@@ -11564,6 +11644,7 @@
         "properties": {
           "invreq_id": {
             "type": "string",
+            "added": "v22.11",
             "description": [
               "A specific invoice can be disabled by providing the `invreq_id`, which is presented by lightning-invoicerequest(7)."
             ]
@@ -11582,12 +11663,14 @@
         "properties": {
           "invreq_id": {
             "type": "hash",
+            "added": "v22.11",
             "description": [
               "The SHA256 hash of all invoice_request fields less than 160."
             ]
           },
           "active": {
             "type": "boolean",
+            "added": "v22.11",
             "enum": [
               false
             ],
@@ -11597,24 +11680,28 @@
           },
           "single_use": {
             "type": "boolean",
+            "added": "v22.11",
             "description": [
               "Whether the invoice_request will become inactive after we pay an invoice for it."
             ]
           },
           "bolt12": {
             "type": "string",
+            "added": "v22.11",
             "description": [
               "The bolt12 string starting with lnr."
             ]
           },
           "used": {
             "type": "boolean",
+            "added": "v22.11",
             "description": [
               "Whether the invoice_request has already been used."
             ]
           },
           "label": {
             "type": "string",
+            "added": "v22.11",
             "description": [
               "The label provided when creating the invoice_request."
             ]
@@ -16186,36 +16273,42 @@
         "properties": {
           "amount": {
             "type": "msat",
+            "added": "v22.11",
             "description": [
               "A positive value in millisatoshi precision; it can be a whole number, or a whole number ending in *msat* or *sat*, or a number with three decimal places ending in *sat*, or a number with 1 to 11 decimal places ending in *btc*."
             ]
           },
           "description": {
             "type": "string",
+            "added": "v22.11",
             "description": [
               "A short description of purpose of the payment, e.g. *ATM withdrawl*. This value is encoded into the resulting `invoice_request` and is viewable by anyone you expose it to. It must be UTF-8, and cannot use *\\u* JSON escape codes."
             ]
           },
           "issuer": {
             "type": "string",
+            "added": "v22.11",
             "description": [
               "Who is issuing it (i.e. you) if appropriate."
             ]
           },
           "label": {
             "type": "string",
+            "added": "v22.11",
             "description": [
               "An internal-use name for the offer, which can be any UTF-8 string."
             ]
           },
           "absolute_expiry": {
             "type": "u64",
+            "added": "v22.11",
             "description": [
               "The time the offer is valid until, in seconds since the first day of 1970 UTC. If not set, the `invoice_request` remains valid (though it can be deactivated by the issuer of course). This is encoded in the `invoice_request`."
             ]
           },
           "single_use": {
             "type": "boolean",
+            "added": "v22.11",
             "description": [
               "Indicates that the `invoice_request` is only valid once; we may attempt multiple payments, but as soon as one is successful no more invoices are accepted (i.e. only one person can take the money)."
             ],
@@ -16235,12 +16328,14 @@
         "properties": {
           "invreq_id": {
             "type": "hash",
+            "added": "v22.11",
             "description": [
               "The SHA256 hash of all invoice_request fields less than 160."
             ]
           },
           "active": {
             "type": "boolean",
+            "added": "v22.11",
             "enum": [
               true
             ],
@@ -16250,18 +16345,21 @@
           },
           "single_use": {
             "type": "boolean",
+            "added": "v22.11",
             "description": [
               "Whether the invoice_request will become inactive after we pay an invoice for it."
             ]
           },
           "bolt12": {
             "type": "string",
+            "added": "v22.11",
             "description": [
               "The bolt12 string starting with lnr."
             ]
           },
           "used": {
             "type": "boolean",
+            "added": "v22.11",
             "enum": [
               false
             ],
@@ -16271,6 +16369,7 @@
           },
           "label": {
             "type": "string",
+            "added": "v22.11",
             "description": [
               "The label provided when creating the invoice_request."
             ]
@@ -22011,12 +22110,14 @@
         "properties": {
           "invreq_id": {
             "type": "string",
+            "added": "v22.11",
             "description": [
               "A specific invoice can be queried by providing the `invreq_id`, which is presented by lightning-invoicerequest(7), or can be calculated from a bolt12 invoice."
             ]
           },
           "active_only": {
             "type": "boolean",
+            "added": "v22.11",
             "description": [
               "If it is *True* then only active invoice requests are returned."
             ],
@@ -22032,6 +22133,7 @@
         "properties": {
           "invoicerequests": {
             "type": "array",
+            "added": "v22.11",
             "items": {
               "type": "object",
               "additionalProperties": true,
@@ -22045,36 +22147,42 @@
               "properties": {
                 "invreq_id": {
                   "type": "hash",
+                  "added": "v22.11",
                   "description": [
                     "The SHA256 hash of all invoice_request fields less than 160."
                   ]
                 },
                 "active": {
                   "type": "boolean",
+                  "added": "v22.11",
                   "description": [
                     "Whether the invoice_request is currently active."
                   ]
                 },
                 "single_use": {
                   "type": "boolean",
+                  "added": "v22.11",
                   "description": [
                     "Whether the invoice_request will become inactive after we pay an invoice for it."
                   ]
                 },
                 "bolt12": {
                   "type": "string",
+                  "added": "v22.11",
                   "description": [
                     "The bolt12 string starting with lnr."
                   ]
                 },
                 "used": {
                   "type": "boolean",
+                  "added": "v22.11",
                   "description": [
                     "Whether the invoice_request has already been used."
                   ]
                 },
                 "label": {
                   "type": "string",
+                  "added": "v22.11",
                   "description": [
                     "The label provided when creating the invoice_request."
                   ]
@@ -30343,30 +30451,35 @@
         "properties": {
           "invstring": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "Bolt11 invoice which the RPC command attempts to pay. Currently, **renepay** supports bolt11 invoices only."
             ]
           },
           "amount_msat": {
             "type": "msat",
+            "added": "v23.08",
             "description": [
               "If the *invstring* does not contain an amount, *amount_msat* is required, otherwise if it is specified it must be *null*. in millisatoshi precision; it can be a whole number, or a whole number with suffix *msat* or *sat*, or a three decimal point number with suffix *sat*, or an 1 to 11 decimal point number suffixed by *btc*."
             ]
           },
           "maxfee": {
             "type": "msat",
+            "added": "v23.08",
             "description": [
               "*maxfee* is a hard bound, in the sense that the command will never attempt a payment when the fees exceed that value."
             ]
           },
           "maxdelay": {
             "type": "u32",
+            "added": "v23.08",
             "description": [
               "Overrides the value of `max-locktime-blocks` for this payment. It serves to limit the locktime of funds in the payment HTLC measured in blocks."
             ]
           },
           "retry_for": {
             "type": "u32",
+            "added": "v23.08",
             "description": [
               "Measured in seconds specifies how much time it is allowed for the command to keep retrying the payment."
             ],
@@ -30374,12 +30487,14 @@
           },
           "description": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "Only required for bolt11 invoices which do not contain a description themselves, but contain a description hash: in this case *description* is required. *description* is then checked against the hash inside the invoice before it will be paid."
             ]
           },
           "label": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "Used to attach a label to payments, and is returned in lightning-listpays(7) and lightning-listsendpays(7)."
             ]
@@ -30404,7 +30519,8 @@
           },
           "dev_use_shadow": {
             "hidden": true,
-            "type": "boolean"
+            "type": "boolean",
+            "added": "v23.08"
           }
         }
       },
@@ -30422,12 +30538,14 @@
         "properties": {
           "payment_preimage": {
             "type": "secret",
+            "added": "v23.08",
             "description": [
               "The proof of payment: SHA256 of this **payment_hash**."
             ]
           },
           "payment_hash": {
             "type": "hash",
+            "added": "v23.08",
             "description": [
               "The hash of the *payment_preimage* which will prove payment."
             ]
@@ -30448,6 +30566,7 @@
           },
           "created_at": {
             "type": "number",
+            "added": "v23.08",
             "description": [
               "The UNIX timestamp showing when this payment was initiated."
             ]
@@ -30461,24 +30580,28 @@
           },
           "parts": {
             "type": "u32",
+            "added": "v23.08",
             "description": [
               "How many attempts this took."
             ]
           },
           "amount_msat": {
             "type": "msat",
+            "added": "v23.08",
             "description": [
               "Amount the recipient received."
             ]
           },
           "amount_sent_msat": {
             "type": "msat",
+            "added": "v23.08",
             "description": [
               "Total amount we sent (including fees)."
             ]
           },
           "status": {
             "type": "string",
+            "added": "v23.08",
             "enum": [
               "complete",
               "pending",
@@ -30490,6 +30613,7 @@
           },
           "destination": {
             "type": "pubkey",
+            "added": "v23.08",
             "description": [
               "The final destination of the payment."
             ]
@@ -30601,6 +30725,7 @@
         "properties": {
           "invstring": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "If specified, the command will return a list of payment attempts whose invoice matches *invstring*, otherwise all payments with be listed."
             ]
@@ -30615,6 +30740,7 @@
         "properties": {
           "paystatus": {
             "type": "array",
+            "added": "v23.08",
             "description": [
               "A list of payments attempted by renepay."
             ],
@@ -30632,54 +30758,63 @@
               "properties": {
                 "bolt11": {
                   "type": "string",
+                  "added": "v23.08",
                   "description": [
                     "Invoice string BOLT11."
                   ]
                 },
                 "payment_preimage": {
                   "type": "secret",
+                  "added": "v23.08",
                   "description": [
                     "The proof of payment: SHA256 of this **payment_hash** (for completed payments only)."
                   ]
                 },
                 "payment_hash": {
                   "type": "hash",
+                  "added": "v23.08",
                   "description": [
                     "The hash of the *payment_preimage* which will prove payment."
                   ]
                 },
                 "created_at": {
                   "type": "number",
+                  "added": "v23.08",
                   "description": [
                     "The UNIX timestamp showing when this payment was initiated."
                   ]
                 },
                 "groupid": {
                   "type": "u32",
+                  "added": "v23.08",
                   "description": [
                     "The id for this payment attempt."
                   ]
                 },
                 "parts": {
                   "type": "u32",
+                  "added": "v23.08",
                   "description": [
                     "How many attempts this took."
                   ]
                 },
                 "amount_msat": {
                   "type": "msat",
+                  "added": "v23.08",
                   "description": [
                     "Amount the recipient received."
                   ]
                 },
                 "amount_sent_msat": {
                   "type": "msat",
+                  "added": "v23.08",
                   "description": [
                     "Total amount we sent including fees (for completed payments only)."
                   ]
                 },
                 "status": {
                   "type": "string",
+                  "added": "v23.08",
                   "enum": [
                     "complete",
                     "pending",
@@ -30691,12 +30826,14 @@
                 },
                 "destination": {
                   "type": "pubkey",
+                  "added": "v23.08",
                   "description": [
                     "The final destination of the payment."
                   ]
                 },
                 "notes": {
                   "type": "array",
+                  "added": "v23.08",
                   "description": [
                     "A list of messages for debugging purposes."
                   ],
@@ -32320,6 +32457,7 @@
         "properties": {
           "config": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "Name of the config variable which should be set to the value of the variable."
             ]
@@ -32327,12 +32465,15 @@
           "val": {
             "oneOf": [
               {
+                "added": "v23.08",
                 "type": "string"
               },
               {
+                "added": "v23.08",
                 "type": "integer"
               },
               {
+                "added": "v23.08",
                 "type": "boolean"
               }
             ],
@@ -32358,6 +32499,7 @@
         "properties": {
           "config": {
             "type": "object",
+            "added": "v23.08",
             "description": [
               "Config settings after completion."
             ],
@@ -32370,24 +32512,28 @@
             "properties": {
               "config": {
                 "type": "string",
+                "added": "v23.08",
                 "description": [
                   "Name of the config variable which was set."
                 ]
               },
               "source": {
                 "type": "string",
+                "added": "v23.08",
                 "description": [
                   "Source of configuration setting (`file`:`linenum`)."
                 ]
               },
               "plugin": {
                 "type": "string",
+                "added": "v23.08",
                 "description": [
                   "The plugin this configuration setting is for."
                 ]
               },
               "dynamic": {
                 "type": "boolean",
+                "added": "v23.08",
                 "enum": [
                   true
                 ],
@@ -32397,30 +32543,35 @@
               },
               "set": {
                 "type": "boolean",
+                "added": "v23.08",
                 "description": [
                   "For simple flag options."
                 ]
               },
               "value_str": {
                 "type": "string",
+                "added": "v23.08",
                 "description": [
                   "For string options."
                 ]
               },
               "value_msat": {
                 "type": "msat",
+                "added": "v23.08",
                 "description": [
                   "For msat options."
                 ]
               },
               "value_int": {
                 "type": "integer",
+                "added": "v23.08",
                 "description": [
                   "For integer options."
                 ]
               },
               "value_bool": {
                 "type": "boolean",
+                "added": "v23.08",
                 "description": [
                   "For boolean options."
                 ]
@@ -32587,6 +32738,7 @@
         "properties": {
           "rune": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "If specified, only details of that rune will be returned."
             ]
@@ -32601,6 +32753,7 @@
         "properties": {
           "runes": {
             "type": "array",
+            "added": "v23.08",
             "items": {
               "type": "object",
               "additionalProperties": false,
@@ -32613,18 +32766,21 @@
               "properties": {
                 "rune": {
                   "type": "string",
+                  "added": "v23.08",
                   "description": [
                     "Base64 encoded rune."
                   ]
                 },
                 "unique_id": {
                   "type": "string",
+                  "added": "v23.08",
                   "description": [
                     "Unique id assigned when the rune was generated; this is always a u64 for commando runes."
                   ]
                 },
                 "restrictions": {
                   "type": "array",
+                  "added": "v23.08",
                   "description": [
                     "The restrictions on what commands this rune can authorize."
                   ],
@@ -32638,6 +32794,7 @@
                     "properties": {
                       "alternatives": {
                         "type": "array",
+                        "added": "v23.08",
                         "items": {
                           "type": "object",
                           "additionalProperties": false,
@@ -32650,24 +32807,28 @@
                           "properties": {
                             "fieldname": {
                               "type": "string",
+                              "added": "v23.08",
                               "description": [
                                 "The field this restriction applies to; see commando-rune(7)."
                               ]
                             },
                             "value": {
                               "type": "string",
+                              "added": "v23.08",
                               "description": [
                                 "The value accepted for this field."
                               ]
                             },
                             "condition": {
                               "type": "string",
+                              "added": "v23.08",
                               "description": [
                                 "The way to compare fieldname and value."
                               ]
                             },
                             "english": {
                               "type": "string",
+                              "added": "v23.08",
                               "description": [
                                 "English readable description of this alternative."
                               ]
@@ -32677,6 +32838,7 @@
                       },
                       "english": {
                         "type": "string",
+                        "added": "v23.08",
                         "description": [
                           "English readable summary of alternatives above."
                         ]
@@ -32686,12 +32848,14 @@
                 },
                 "restrictions_as_english": {
                   "type": "string",
+                  "added": "v23.08",
                   "description": [
                     "English readable description of the restrictions array above."
                   ]
                 },
                 "stored": {
                   "type": "boolean",
+                  "added": "v23.08",
                   "enum": [
                     false
                   ],
@@ -32701,6 +32865,7 @@
                 },
                 "blacklisted": {
                   "type": "boolean",
+                  "added": "v23.08",
                   "enum": [
                     true
                   ],
@@ -32717,6 +32882,7 @@
                 },
                 "our_rune": {
                   "type": "boolean",
+                  "added": "v23.08",
                   "enum": [
                     false
                   ],
@@ -33459,12 +33625,14 @@
         "properties": {
           "channel_id": {
             "type": "hash",
+            "added": "v23.08",
             "description": [
               "The channel id of the channel to be spliced."
             ]
           },
           "relative_amount": {
             "type": "integer",
+            "added": "v23.08",
             "description": [
               "A positive or negative amount of satoshis to add or subtract from the channel. Note you may need to add a double dash (--) after splice_init if using a negative *relative_amount* so it is not interpretted as a command modifier. For example:",
               "```shell",
@@ -33474,18 +33642,21 @@
           },
           "initialpsbt": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "The (optional) base 64 encoded PSBT to begin with. If not specified, one will be generated automatically."
             ]
           },
           "feerate_per_kw": {
             "type": "u32",
+            "added": "v23.08",
             "description": [
               "The miner fee we promise our peer to pay for our side of the splice transaction. It is calculated by `feerate_per_kw` * our_bytes_in_splice_tx / 1000."
             ]
           },
           "force_feerate": {
             "type": "boolean",
+            "added": "v23.08",
             "description": [
               "By default splices will fail if the fee provided looks too high. This is to protect against accidentally setting your fee higher than intended. Set `force_feerate` to true to skip this saftey check."
             ]
@@ -33500,6 +33671,7 @@
         "properties": {
           "psbt": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "The (incomplete) PSBT of the splice transaction."
             ]
@@ -33604,18 +33776,21 @@
         "properties": {
           "channel_id": {
             "type": "hash",
+            "added": "v23.08",
             "description": [
               "The channel id of the channel to be spliced."
             ]
           },
           "psbt": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "The psbt of the resulting transaction after splice negotiation(s)"
             ]
           },
           "sign_first": {
             "type": "boolean",
+            "added": "v23.08",
             "description": [
               "A flag that makes our node offer the final splice signature first (defaults to false). When false, the node will calculate who should sign first based off who is adding inputting the least sats to the splice as per spec."
             ]
@@ -33632,18 +33807,21 @@
         "properties": {
           "tx": {
             "type": "hex",
+            "added": "v23.08",
             "description": [
               "The hex representation of the final transaction that is published."
             ]
           },
           "txid": {
             "type": "txid",
+            "added": "v23.08",
             "description": [
               "The txid is of the final transaction."
             ]
           },
           "psbt": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "The psbt of the resulting transaction after splice negotiation(s)"
             ]
@@ -33778,12 +33956,14 @@
         "properties": {
           "channel_id": {
             "type": "hash",
+            "added": "v23.08",
             "description": [
               "The channel id of the channel to be spliced."
             ]
           },
           "psbt": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "The base 64 encoded PSBT returned from `splice_init` with any changes added by the user."
             ]
@@ -33800,12 +33980,14 @@
         "properties": {
           "psbt": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "The (incomplete) PSBT of the splice transaction."
             ]
           },
           "commitments_secured": {
             "type": "boolean",
+            "added": "v23.08",
             "description": [
               "Whether or not the commitments were secured."
             ]

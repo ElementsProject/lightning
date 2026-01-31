@@ -4342,9 +4342,8 @@ pub mod requests {
 	pub struct AskreneunreservePath {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub layer: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub short_channel_id_dir: Option<ShortChannelIdDir>,
 	    pub amount_msat: Amount,
+	    pub short_channel_id_dir: ShortChannelIdDir,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -4442,9 +4441,8 @@ pub mod requests {
 	pub struct AskrenereservePath {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub layer: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub short_channel_id_dir: Option<ShortChannelIdDir>,
 	    pub amount_msat: Amount,
+	    pub short_channel_id_dir: ShortChannelIdDir,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -4583,13 +4581,11 @@ pub mod requests {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct AskreneinformchannelRequest {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub amount_msat: Option<Amount>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub inform: Option<AskreneinformchannelInform>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub short_channel_id_dir: Option<ShortChannelIdDir>,
+	    // Path `AskRene-Inform-Channel.inform`
+	    pub inform: AskreneinformchannelInform,
+	    pub amount_msat: Amount,
 	    pub layer: String,
+	    pub short_channel_id_dir: ShortChannelIdDir,
 	}
 
 	impl From<AskreneinformchannelRequest> for Request {
@@ -11725,6 +11721,16 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskrenelistlayersLayersNodeBiases {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub description: Option<String>,
+	    pub in_bias: i64,
+	    pub node: PublicKey,
+	    pub out_bias: i64,
+	    pub timestamp: u64,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct AskrenelistlayersLayersChannelUpdates {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub cltv_expiry_delta: Option<u16>,
@@ -11742,25 +11748,14 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct AskrenelistlayersLayersNodeBiases {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub description: Option<String>,
-	    pub in_bias: i64,
-	    pub node: PublicKey,
-	    pub out_bias: i64,
-	    pub timestamp: u64,
-	}
-
-	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct AskrenelistlayersLayersConstraints {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub maximum_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub minimum_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub short_channel_id_dir: Option<ShortChannelIdDir>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub timestamp: Option<u64>,
+	    pub short_channel_id_dir: ShortChannelIdDir,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -11773,20 +11768,18 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct AskrenelistlayersLayers {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub persistent: Option<bool>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub biases: Option<Vec<AskrenelistlayersLayersBiases>>,
-	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
-	    pub channel_updates: Option<Vec<AskrenelistlayersLayersChannelUpdates>>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub disabled_channels: Option<Vec<ShortChannelIdDir>>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub node_biases: Option<Vec<AskrenelistlayersLayersNodeBiases>>,
+	    pub channel_updates: Vec<AskrenelistlayersLayersChannelUpdates>,
 	    pub constraints: Vec<AskrenelistlayersLayersConstraints>,
 	    pub created_channels: Vec<AskrenelistlayersLayersCreatedChannels>,
 	    pub disabled_nodes: Vec<PublicKey>,
 	    pub layer: String,
+	    pub persistent: bool,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -11999,8 +11992,7 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct AskreneinformchannelResponse {
-	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
-	    pub constraints: Option<Vec<AskreneinformchannelConstraints>>,
+	    pub constraints: Vec<AskreneinformchannelConstraints>,
 	}
 
 	impl TryFrom<Response> for AskreneinformchannelResponse {
