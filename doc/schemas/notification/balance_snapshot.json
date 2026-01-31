@@ -1,0 +1,82 @@
+{
+  "$schema": "../../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "notification": "balance_snapshot",
+  "title": "Notification for balance snapshot",
+  "description": [
+    "Emitted after we've caught up to the chain head on first start. Lists all current accounts (account_id matches the account_id emitted from coin_movement). Useful for checkpointing account balances."
+  ],
+  "added": "pre-v0.10.1",
+  "request": {},
+  "response": {
+    "required": [
+      "node_id",
+      "blockheight",
+      "timestamp",
+      "accounts"
+    ],
+    "properties": {
+      "node_id": {
+        "type": "pubkey",
+        "added": "pre-v0.10.1",
+        "description": [
+          "The node id for this balance snapshot."
+        ]
+      },
+      "blockheight": {
+        "type": "u32",
+        "added": "pre-v0.10.1",
+        "description": [
+          "The block height at the time of the snapshot."
+        ]
+      },
+      "timestamp": {
+        "type": "u64",
+        "added": "pre-v0.10.1",
+        "description": [
+          "The timestamp at the time of the snapshot."
+        ]
+      },
+      "accounts": {
+        "type": "array",
+        "added": "pre-v0.10.1",
+        "description": [
+          "A list of account balances."
+        ],
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "account_id",
+            "balance_msat",
+            "coin_type"
+          ],
+          "properties": {
+            "account_id": {
+              "type": "string",
+              "added": "pre-v0.10.1",
+              "description": [
+                "The account id. The node's wallet is named 'wallet', all channel accounts are the channel id."
+              ]
+            },
+            "balance_msat": {
+              "type": "msat",
+              "added": "pre-v0.10.1",
+              "description": [
+                "The current balance of this account."
+              ]
+            },
+            "coin_type": {
+              "type": "string",
+              "added": "pre-v0.10.1",
+              "description": [
+                "The BIP173 name for the coin."
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

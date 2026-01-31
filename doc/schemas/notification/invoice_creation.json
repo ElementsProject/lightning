@@ -1,0 +1,41 @@
+{
+  "$schema": "../../rpc-schema-draft.json",
+  "type": "object",
+  "added": "pre-v0.10.1",
+  "additionalProperties": false,
+  "notification": "invoice_creation",
+  "title": "Notification that an invoice was created",
+  "description": [
+    "A notification for topic **invoice_creation** is sent every time an invoice is created."
+  ],
+  "request": {},
+  "response": {
+    "required": [
+      "label",
+      "preimage"
+    ],
+    "properties": {
+      "label": {
+        "type": "string",
+        "added": "pre-v0.10.1",
+        "description": [
+          "The label of the invoice."
+        ]
+      },
+      "preimage": {
+        "type": "hex",
+        "added": "pre-v0.10.1",
+        "description": [
+          "The payment preimage of the invoice."
+        ]
+      },
+      "msat": {
+        "type": "msat",
+        "added": "pre-v0.10.1",
+        "description": [
+          "The invoice amount."
+        ]
+      }
+    }
+  }
+}

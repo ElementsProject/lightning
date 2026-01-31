@@ -171,12 +171,80 @@ grpc_notification_names = [
         "typename": "Connect"
     },
     {
+        "name": "disconnect",
+        "typename": "Disconnect"
+    },
+    {
         "name": "custommsg",
         "typename": "CustomMsg"
     },
     {
         "name": "channel_state_changed",
         "typename": "ChannelStateChanged"
+    },
+    {
+        "name": "invoice_creation",
+        "typename": "InvoiceCreation"
+    },
+    {
+        "name": "invoice_payment",
+        "typename": "InvoicePayment"
+    },
+    {
+        "name": "deprecated_oneshot",
+        "typename": "DeprecatedOneshot"
+    },
+    {
+        "name": "warning",
+        "typename": "Warning"
+    },
+    {
+        "name": "forward_event",
+        "typename": "ForwardEvent"
+    },
+    {
+        "name": "sendpay_success",
+        "typename": "SendpaySuccess"
+    },
+    {
+        "name": "sendpay_failure",
+        "typename": "SendpayFailure"
+    },
+    {
+        "name": "coin_movement",
+        "typename": "CoinMovement"
+    },
+    {
+        "name": "balance_snapshot",
+        "typename": "BalanceSnapshot"
+    },
+    {
+        "name": "openchannel_peer_sigs",
+        "typename": "OpenchannelPeerSigs"
+    },
+    {
+        "name": "onionmessage_forward_fail",
+        "typename": "OnionmessageForwardFail"
+    },
+    {
+        "name": "shutdown",
+        "typename": "Shutdown"
+    },
+    {
+        "name": "plugin_started",
+        "typename": "PluginStarted"
+    },
+    {
+        "name": "plugin_stopped",
+        "typename": "PluginStopped"
+    },
+    {
+        "name": "pay_part_start",
+        "typename": "PayPartStart"
+    },
+    {
+        "name": "pay_part_end",
+        "typename": "PayPartEnd"
     }
 ]
 

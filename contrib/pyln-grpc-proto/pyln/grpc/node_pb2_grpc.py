@@ -764,6 +764,11 @@ class NodeStub(object):
                 request_serializer=node__pb2.StreamConnectRequest.SerializeToString,
                 response_deserializer=node__pb2.PeerConnectNotification.FromString,
                 _registered_method=True)
+        self.SubscribeDisconnect = channel.unary_stream(
+                '/cln.Node/SubscribeDisconnect',
+                request_serializer=node__pb2.StreamDisconnectRequest.SerializeToString,
+                response_deserializer=node__pb2.DisconnectNotification.FromString,
+                _registered_method=True)
         self.SubscribeCustomMsg = channel.unary_stream(
                 '/cln.Node/SubscribeCustomMsg',
                 request_serializer=node__pb2.StreamCustomMsgRequest.SerializeToString,
@@ -773,6 +778,86 @@ class NodeStub(object):
                 '/cln.Node/SubscribeChannelStateChanged',
                 request_serializer=node__pb2.StreamChannelStateChangedRequest.SerializeToString,
                 response_deserializer=node__pb2.ChannelStateChangedNotification.FromString,
+                _registered_method=True)
+        self.SubscribeInvoiceCreation = channel.unary_stream(
+                '/cln.Node/SubscribeInvoiceCreation',
+                request_serializer=node__pb2.StreamInvoiceCreationRequest.SerializeToString,
+                response_deserializer=node__pb2.InvoiceCreationNotification.FromString,
+                _registered_method=True)
+        self.SubscribeInvoicePayment = channel.unary_stream(
+                '/cln.Node/SubscribeInvoicePayment',
+                request_serializer=node__pb2.StreamInvoicePaymentRequest.SerializeToString,
+                response_deserializer=node__pb2.InvoicePaymentNotification.FromString,
+                _registered_method=True)
+        self.SubscribeDeprecatedOneshot = channel.unary_stream(
+                '/cln.Node/SubscribeDeprecatedOneshot',
+                request_serializer=node__pb2.StreamDeprecatedOneshotRequest.SerializeToString,
+                response_deserializer=node__pb2.DeprecatedOneshotNotification.FromString,
+                _registered_method=True)
+        self.SubscribeWarning = channel.unary_stream(
+                '/cln.Node/SubscribeWarning',
+                request_serializer=node__pb2.StreamWarningRequest.SerializeToString,
+                response_deserializer=node__pb2.WarningNotification.FromString,
+                _registered_method=True)
+        self.SubscribeForwardEvent = channel.unary_stream(
+                '/cln.Node/SubscribeForwardEvent',
+                request_serializer=node__pb2.StreamForwardEventRequest.SerializeToString,
+                response_deserializer=node__pb2.ForwardEventNotification.FromString,
+                _registered_method=True)
+        self.SubscribeSendpaySuccess = channel.unary_stream(
+                '/cln.Node/SubscribeSendpaySuccess',
+                request_serializer=node__pb2.StreamSendpaySuccessRequest.SerializeToString,
+                response_deserializer=node__pb2.SendpaySuccessNotification.FromString,
+                _registered_method=True)
+        self.SubscribeSendpayFailure = channel.unary_stream(
+                '/cln.Node/SubscribeSendpayFailure',
+                request_serializer=node__pb2.StreamSendpayFailureRequest.SerializeToString,
+                response_deserializer=node__pb2.SendpayFailureNotification.FromString,
+                _registered_method=True)
+        self.SubscribeCoinMovement = channel.unary_stream(
+                '/cln.Node/SubscribeCoinMovement',
+                request_serializer=node__pb2.StreamCoinMovementRequest.SerializeToString,
+                response_deserializer=node__pb2.CoinMovementNotification.FromString,
+                _registered_method=True)
+        self.SubscribeBalanceSnapshot = channel.unary_stream(
+                '/cln.Node/SubscribeBalanceSnapshot',
+                request_serializer=node__pb2.StreamBalanceSnapshotRequest.SerializeToString,
+                response_deserializer=node__pb2.BalanceSnapshotNotification.FromString,
+                _registered_method=True)
+        self.SubscribeOpenchannelPeerSigs = channel.unary_stream(
+                '/cln.Node/SubscribeOpenchannelPeerSigs',
+                request_serializer=node__pb2.StreamOpenchannelPeerSigsRequest.SerializeToString,
+                response_deserializer=node__pb2.OpenchannelPeerSigsNotification.FromString,
+                _registered_method=True)
+        self.SubscribeOnionmessageForwardFail = channel.unary_stream(
+                '/cln.Node/SubscribeOnionmessageForwardFail',
+                request_serializer=node__pb2.StreamOnionmessageForwardFailRequest.SerializeToString,
+                response_deserializer=node__pb2.OnionmessageForwardFailNotification.FromString,
+                _registered_method=True)
+        self.SubscribeShutdown = channel.unary_stream(
+                '/cln.Node/SubscribeShutdown',
+                request_serializer=node__pb2.StreamShutdownRequest.SerializeToString,
+                response_deserializer=node__pb2.ShutdownNotification.FromString,
+                _registered_method=True)
+        self.SubscribePluginStarted = channel.unary_stream(
+                '/cln.Node/SubscribePluginStarted',
+                request_serializer=node__pb2.StreamPluginStartedRequest.SerializeToString,
+                response_deserializer=node__pb2.PluginStartedNotification.FromString,
+                _registered_method=True)
+        self.SubscribePluginStopped = channel.unary_stream(
+                '/cln.Node/SubscribePluginStopped',
+                request_serializer=node__pb2.StreamPluginStoppedRequest.SerializeToString,
+                response_deserializer=node__pb2.PluginStoppedNotification.FromString,
+                _registered_method=True)
+        self.SubscribePayPartStart = channel.unary_stream(
+                '/cln.Node/SubscribePayPartStart',
+                request_serializer=node__pb2.StreamPayPartStartRequest.SerializeToString,
+                response_deserializer=node__pb2.PayPartStartNotification.FromString,
+                _registered_method=True)
+        self.SubscribePayPartEnd = channel.unary_stream(
+                '/cln.Node/SubscribePayPartEnd',
+                request_serializer=node__pb2.StreamPayPartEndRequest.SerializeToString,
+                response_deserializer=node__pb2.PayPartEndNotification.FromString,
                 _registered_method=True)
 
 
@@ -1655,6 +1740,12 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SubscribeDisconnect(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def SubscribeCustomMsg(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -1662,6 +1753,102 @@ class NodeServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def SubscribeChannelStateChanged(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SubscribeInvoiceCreation(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SubscribeInvoicePayment(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SubscribeDeprecatedOneshot(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SubscribeWarning(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SubscribeForwardEvent(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SubscribeSendpaySuccess(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SubscribeSendpayFailure(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SubscribeCoinMovement(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SubscribeBalanceSnapshot(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SubscribeOpenchannelPeerSigs(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SubscribeOnionmessageForwardFail(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SubscribeShutdown(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SubscribePluginStarted(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SubscribePluginStopped(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SubscribePayPartStart(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SubscribePayPartEnd(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -2400,6 +2587,11 @@ def add_NodeServicer_to_server(servicer, server):
                     request_deserializer=node__pb2.StreamConnectRequest.FromString,
                     response_serializer=node__pb2.PeerConnectNotification.SerializeToString,
             ),
+            'SubscribeDisconnect': grpc.unary_stream_rpc_method_handler(
+                    servicer.SubscribeDisconnect,
+                    request_deserializer=node__pb2.StreamDisconnectRequest.FromString,
+                    response_serializer=node__pb2.DisconnectNotification.SerializeToString,
+            ),
             'SubscribeCustomMsg': grpc.unary_stream_rpc_method_handler(
                     servicer.SubscribeCustomMsg,
                     request_deserializer=node__pb2.StreamCustomMsgRequest.FromString,
@@ -2409,6 +2601,86 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.SubscribeChannelStateChanged,
                     request_deserializer=node__pb2.StreamChannelStateChangedRequest.FromString,
                     response_serializer=node__pb2.ChannelStateChangedNotification.SerializeToString,
+            ),
+            'SubscribeInvoiceCreation': grpc.unary_stream_rpc_method_handler(
+                    servicer.SubscribeInvoiceCreation,
+                    request_deserializer=node__pb2.StreamInvoiceCreationRequest.FromString,
+                    response_serializer=node__pb2.InvoiceCreationNotification.SerializeToString,
+            ),
+            'SubscribeInvoicePayment': grpc.unary_stream_rpc_method_handler(
+                    servicer.SubscribeInvoicePayment,
+                    request_deserializer=node__pb2.StreamInvoicePaymentRequest.FromString,
+                    response_serializer=node__pb2.InvoicePaymentNotification.SerializeToString,
+            ),
+            'SubscribeDeprecatedOneshot': grpc.unary_stream_rpc_method_handler(
+                    servicer.SubscribeDeprecatedOneshot,
+                    request_deserializer=node__pb2.StreamDeprecatedOneshotRequest.FromString,
+                    response_serializer=node__pb2.DeprecatedOneshotNotification.SerializeToString,
+            ),
+            'SubscribeWarning': grpc.unary_stream_rpc_method_handler(
+                    servicer.SubscribeWarning,
+                    request_deserializer=node__pb2.StreamWarningRequest.FromString,
+                    response_serializer=node__pb2.WarningNotification.SerializeToString,
+            ),
+            'SubscribeForwardEvent': grpc.unary_stream_rpc_method_handler(
+                    servicer.SubscribeForwardEvent,
+                    request_deserializer=node__pb2.StreamForwardEventRequest.FromString,
+                    response_serializer=node__pb2.ForwardEventNotification.SerializeToString,
+            ),
+            'SubscribeSendpaySuccess': grpc.unary_stream_rpc_method_handler(
+                    servicer.SubscribeSendpaySuccess,
+                    request_deserializer=node__pb2.StreamSendpaySuccessRequest.FromString,
+                    response_serializer=node__pb2.SendpaySuccessNotification.SerializeToString,
+            ),
+            'SubscribeSendpayFailure': grpc.unary_stream_rpc_method_handler(
+                    servicer.SubscribeSendpayFailure,
+                    request_deserializer=node__pb2.StreamSendpayFailureRequest.FromString,
+                    response_serializer=node__pb2.SendpayFailureNotification.SerializeToString,
+            ),
+            'SubscribeCoinMovement': grpc.unary_stream_rpc_method_handler(
+                    servicer.SubscribeCoinMovement,
+                    request_deserializer=node__pb2.StreamCoinMovementRequest.FromString,
+                    response_serializer=node__pb2.CoinMovementNotification.SerializeToString,
+            ),
+            'SubscribeBalanceSnapshot': grpc.unary_stream_rpc_method_handler(
+                    servicer.SubscribeBalanceSnapshot,
+                    request_deserializer=node__pb2.StreamBalanceSnapshotRequest.FromString,
+                    response_serializer=node__pb2.BalanceSnapshotNotification.SerializeToString,
+            ),
+            'SubscribeOpenchannelPeerSigs': grpc.unary_stream_rpc_method_handler(
+                    servicer.SubscribeOpenchannelPeerSigs,
+                    request_deserializer=node__pb2.StreamOpenchannelPeerSigsRequest.FromString,
+                    response_serializer=node__pb2.OpenchannelPeerSigsNotification.SerializeToString,
+            ),
+            'SubscribeOnionmessageForwardFail': grpc.unary_stream_rpc_method_handler(
+                    servicer.SubscribeOnionmessageForwardFail,
+                    request_deserializer=node__pb2.StreamOnionmessageForwardFailRequest.FromString,
+                    response_serializer=node__pb2.OnionmessageForwardFailNotification.SerializeToString,
+            ),
+            'SubscribeShutdown': grpc.unary_stream_rpc_method_handler(
+                    servicer.SubscribeShutdown,
+                    request_deserializer=node__pb2.StreamShutdownRequest.FromString,
+                    response_serializer=node__pb2.ShutdownNotification.SerializeToString,
+            ),
+            'SubscribePluginStarted': grpc.unary_stream_rpc_method_handler(
+                    servicer.SubscribePluginStarted,
+                    request_deserializer=node__pb2.StreamPluginStartedRequest.FromString,
+                    response_serializer=node__pb2.PluginStartedNotification.SerializeToString,
+            ),
+            'SubscribePluginStopped': grpc.unary_stream_rpc_method_handler(
+                    servicer.SubscribePluginStopped,
+                    request_deserializer=node__pb2.StreamPluginStoppedRequest.FromString,
+                    response_serializer=node__pb2.PluginStoppedNotification.SerializeToString,
+            ),
+            'SubscribePayPartStart': grpc.unary_stream_rpc_method_handler(
+                    servicer.SubscribePayPartStart,
+                    request_deserializer=node__pb2.StreamPayPartStartRequest.FromString,
+                    response_serializer=node__pb2.PayPartStartNotification.SerializeToString,
+            ),
+            'SubscribePayPartEnd': grpc.unary_stream_rpc_method_handler(
+                    servicer.SubscribePayPartEnd,
+                    request_deserializer=node__pb2.StreamPayPartEndRequest.FromString,
+                    response_serializer=node__pb2.PayPartEndNotification.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -6364,6 +6636,33 @@ class Node(object):
             _registered_method=True)
 
     @staticmethod
+    def SubscribeDisconnect(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/cln.Node/SubscribeDisconnect',
+            node__pb2.StreamDisconnectRequest.SerializeToString,
+            node__pb2.DisconnectNotification.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
     def SubscribeCustomMsg(request,
             target,
             options=(),
@@ -6407,6 +6706,438 @@ class Node(object):
             '/cln.Node/SubscribeChannelStateChanged',
             node__pb2.StreamChannelStateChangedRequest.SerializeToString,
             node__pb2.ChannelStateChangedNotification.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SubscribeInvoiceCreation(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/cln.Node/SubscribeInvoiceCreation',
+            node__pb2.StreamInvoiceCreationRequest.SerializeToString,
+            node__pb2.InvoiceCreationNotification.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SubscribeInvoicePayment(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/cln.Node/SubscribeInvoicePayment',
+            node__pb2.StreamInvoicePaymentRequest.SerializeToString,
+            node__pb2.InvoicePaymentNotification.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SubscribeDeprecatedOneshot(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/cln.Node/SubscribeDeprecatedOneshot',
+            node__pb2.StreamDeprecatedOneshotRequest.SerializeToString,
+            node__pb2.DeprecatedOneshotNotification.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SubscribeWarning(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/cln.Node/SubscribeWarning',
+            node__pb2.StreamWarningRequest.SerializeToString,
+            node__pb2.WarningNotification.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SubscribeForwardEvent(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/cln.Node/SubscribeForwardEvent',
+            node__pb2.StreamForwardEventRequest.SerializeToString,
+            node__pb2.ForwardEventNotification.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SubscribeSendpaySuccess(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/cln.Node/SubscribeSendpaySuccess',
+            node__pb2.StreamSendpaySuccessRequest.SerializeToString,
+            node__pb2.SendpaySuccessNotification.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SubscribeSendpayFailure(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/cln.Node/SubscribeSendpayFailure',
+            node__pb2.StreamSendpayFailureRequest.SerializeToString,
+            node__pb2.SendpayFailureNotification.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SubscribeCoinMovement(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/cln.Node/SubscribeCoinMovement',
+            node__pb2.StreamCoinMovementRequest.SerializeToString,
+            node__pb2.CoinMovementNotification.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SubscribeBalanceSnapshot(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/cln.Node/SubscribeBalanceSnapshot',
+            node__pb2.StreamBalanceSnapshotRequest.SerializeToString,
+            node__pb2.BalanceSnapshotNotification.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SubscribeOpenchannelPeerSigs(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/cln.Node/SubscribeOpenchannelPeerSigs',
+            node__pb2.StreamOpenchannelPeerSigsRequest.SerializeToString,
+            node__pb2.OpenchannelPeerSigsNotification.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SubscribeOnionmessageForwardFail(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/cln.Node/SubscribeOnionmessageForwardFail',
+            node__pb2.StreamOnionmessageForwardFailRequest.SerializeToString,
+            node__pb2.OnionmessageForwardFailNotification.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SubscribeShutdown(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/cln.Node/SubscribeShutdown',
+            node__pb2.StreamShutdownRequest.SerializeToString,
+            node__pb2.ShutdownNotification.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SubscribePluginStarted(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/cln.Node/SubscribePluginStarted',
+            node__pb2.StreamPluginStartedRequest.SerializeToString,
+            node__pb2.PluginStartedNotification.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SubscribePluginStopped(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/cln.Node/SubscribePluginStopped',
+            node__pb2.StreamPluginStoppedRequest.SerializeToString,
+            node__pb2.PluginStoppedNotification.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SubscribePayPartStart(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/cln.Node/SubscribePayPartStart',
+            node__pb2.StreamPayPartStartRequest.SerializeToString,
+            node__pb2.PayPartStartNotification.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SubscribePayPartEnd(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/cln.Node/SubscribePayPartEnd',
+            node__pb2.StreamPayPartEndRequest.SerializeToString,
+            node__pb2.PayPartEndNotification.FromString,
             options,
             channel_credentials,
             insecure,

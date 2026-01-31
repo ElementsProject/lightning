@@ -37,6 +37,10 @@
             "unilateral": 1,
             "unopened": 2
         },
+        "CoinMovementType": {
+            "chain_mvt": 0,
+            "channel_mvt": 1
+        },
         "ConnectAddressType": {
             "ipv4": 1,
             "ipv6": 2,
@@ -104,6 +108,16 @@
         "FeeratesStyle": {
             "perkb": 0,
             "perkw": 1
+        },
+        "ForwardEventStatus": {
+            "failed": 3,
+            "local_failed": 2,
+            "offered": 0,
+            "settled": 1
+        },
+        "ForwardEventStyle": {
+            "legacy": 0,
+            "tlv": 1
         },
         "FunderupdatePolicy": {
             "available": 1,
@@ -465,6 +479,10 @@
             "bech32": 0,
             "p2tr": 3
         },
+        "PayPartEndStatus": {
+            "failure": 1,
+            "success": 0
+        },
         "PayStatus": {
             "complete": 0,
             "failed": 2,
@@ -518,7 +536,16 @@
             "complete": 1,
             "pending": 0
         },
+        "SendpayFailureDataStatus": {
+            "complete": 1,
+            "failed": 2,
+            "pending": 0
+        },
         "SendpayStatus": {
+            "complete": 1,
+            "pending": 0
+        },
+        "SendpaySuccessStatus": {
             "complete": 1,
             "pending": 0
         },
@@ -966,6 +993,17 @@
             "AutoCleanInvoice.enabled": 1,
             "AutoCleanInvoice.expired_by": 2
         },
+        "BalanceSnapshotAccounts": {
+            "balance_snapshot.accounts[].account_id": 1,
+            "balance_snapshot.accounts[].balance_msat": 2,
+            "balance_snapshot.accounts[].coin_type": 3
+        },
+        "BalanceSnapshotNotification": {
+            "balance_snapshot.accounts[]": 4,
+            "balance_snapshot.blockheight": 2,
+            "balance_snapshot.node_id": 1,
+            "balance_snapshot.timestamp": 3
+        },
         "Bkpr-channelsapyChannelsApy": {
             "Bkpr-ChannelsApy.channels_apy[].account": 1,
             "Bkpr-ChannelsApy.channels_apy[].apy_in": 18,
@@ -1235,6 +1273,34 @@
             "Close.txids[]": 5,
             "Close.txs[]": 4,
             "Close.type": 1
+        },
+        "CoinMovementNotification": {
+            "coin_movement.account_id": 6,
+            "coin_movement.blockheight": 25,
+            "coin_movement.coin_type": 2,
+            "coin_movement.created_index": 5,
+            "coin_movement.credit_msat": 17,
+            "coin_movement.debit_msat": 18,
+            "coin_movement.extra_tags[]": 24,
+            "coin_movement.fees_msat": 21,
+            "coin_movement.group_id": 16,
+            "coin_movement.node_id": 3,
+            "coin_movement.originating_account": 7,
+            "coin_movement.output_count": 20,
+            "coin_movement.output_msat": 19,
+            "coin_movement.part_id": 15,
+            "coin_movement.payment_hash": 14,
+            "coin_movement.peer_id": 13,
+            "coin_movement.primary_tag": 22,
+            "coin_movement.spending_txid": 9,
+            "coin_movement.tags[]": 23,
+            "coin_movement.timestamp": 26,
+            "coin_movement.txid": 8,
+            "coin_movement.type": 4,
+            "coin_movement.utxo": 10,
+            "coin_movement.utxo_txid": 11,
+            "coin_movement.version": 1,
+            "coin_movement.vout": 12
         },
         "ConnectAddress": {
             "Connect.address.address": 3,
@@ -1595,6 +1661,9 @@
         "DelpayResponse": {
             "DelPay.payments[]": 1
         },
+        "DeprecatedOneshotNotification": {
+            "deprecated_oneshot.deprecated_ok": 1
+        },
         "Dev-forget-channelRequest": {
             "Dev-Forget-Channel.channel_id": 3,
             "Dev-Forget-Channel.force": 4,
@@ -1642,6 +1711,9 @@
             "DisableOffer.offer_id": 1,
             "DisableOffer.single_use": 3,
             "DisableOffer.used": 5
+        },
+        "DisconnectNotification": {
+            "disconnect.id": 1
         },
         "DisconnectRequest": {
             "Disconnect.force": 2,
@@ -1768,6 +1840,24 @@
             "FetchInvoice.changes": 2,
             "FetchInvoice.invoice": 1,
             "FetchInvoice.next_period": 3
+        },
+        "ForwardEventNotification": {
+            "forward_event.created_index": 1,
+            "forward_event.failcode": 12,
+            "forward_event.failreason": 13,
+            "forward_event.fee_msat": 10,
+            "forward_event.in_channel": 4,
+            "forward_event.in_htlc_id": 5,
+            "forward_event.in_msat": 8,
+            "forward_event.out_channel": 6,
+            "forward_event.out_htlc_id": 7,
+            "forward_event.out_msat": 9,
+            "forward_event.payment_hash": 3,
+            "forward_event.received_time": 15,
+            "forward_event.resolved_time": 16,
+            "forward_event.status": 11,
+            "forward_event.style": 14,
+            "forward_event.updated_index": 2
         },
         "FundchannelCancelRequest": {
             "FundChannel_Cancel.id": 1
@@ -2045,6 +2135,17 @@
             "InjectPaymentOnion.created_at": 1,
             "InjectPaymentOnion.created_index": 3,
             "InjectPaymentOnion.payment_preimage": 4
+        },
+        "InvoiceCreationNotification": {
+            "invoice_creation.label": 1,
+            "invoice_creation.msat": 3,
+            "invoice_creation.preimage": 2
+        },
+        "InvoicePaymentNotification": {
+            "invoice_payment.label": 1,
+            "invoice_payment.msat": 3,
+            "invoice_payment.outpoint": 4,
+            "invoice_payment.preimage": 2
         },
         "InvoiceRequest": {
             "Invoice.amount_msat": 10,
@@ -3358,6 +3459,14 @@
             "Offer.single_use": 3,
             "Offer.used": 5
         },
+        "OnionmessageForwardFailNotification": {
+            "onionmessage_forward_fail.incoming": 2,
+            "onionmessage_forward_fail.next_node_id": 5,
+            "onionmessage_forward_fail.next_short_channel_id_dir": 6,
+            "onionmessage_forward_fail.outgoing": 4,
+            "onionmessage_forward_fail.path_key": 3,
+            "onionmessage_forward_fail.source": 1
+        },
         "OpenchannelAbortRequest": {
             "OpenChannel_Abort.channel_id": 1
         },
@@ -3408,6 +3517,10 @@
             "OpenChannel_Init.psbt": 2,
             "OpenChannel_Init.requires_confirmed_inputs": 6
         },
+        "OpenchannelPeerSigsNotification": {
+            "openchannel_peer_sigs.channel_id": 1,
+            "openchannel_peer_sigs.signed_psbt": 2
+        },
         "OpenchannelSignedRequest": {
             "OpenChannel_Signed.channel_id": 1,
             "OpenChannel_Signed.signed_psbt": 2
@@ -3433,6 +3546,34 @@
             "OpenChannel_Update.funding_outnum": 5,
             "OpenChannel_Update.psbt": 3,
             "OpenChannel_Update.requires_confirmed_inputs": 7
+        },
+        "PayPartEndNotification": {
+            "pay_part_end.duration": 2,
+            "pay_part_end.error_code": 10,
+            "pay_part_end.error_message": 11,
+            "pay_part_end.failed_direction": 8,
+            "pay_part_end.failed_msg": 9,
+            "pay_part_end.failed_node_id": 6,
+            "pay_part_end.failed_short_channel_id": 7,
+            "pay_part_end.groupid": 4,
+            "pay_part_end.partid": 5,
+            "pay_part_end.payment_hash": 3,
+            "pay_part_end.status": 1
+        },
+        "PayPartStartHops": {
+            "pay_part_start.hops[].channel_in_msat": 4,
+            "pay_part_start.hops[].channel_out_msat": 5,
+            "pay_part_start.hops[].direction": 3,
+            "pay_part_start.hops[].next_node": 1,
+            "pay_part_start.hops[].short_channel_id": 2
+        },
+        "PayPartStartNotification": {
+            "pay_part_start.attempt_msat": 5,
+            "pay_part_start.groupid": 2,
+            "pay_part_start.hops[]": 6,
+            "pay_part_start.partid": 3,
+            "pay_part_start.payment_hash": 1,
+            "pay_part_start.total_payment_msat": 4
         },
         "PayRequest": {
             "Pay.amount_msat": 13,
@@ -3486,6 +3627,16 @@
             "Plugin.plugins[]": 2,
             "Plugin.result": 3,
             "Plugin.subcommand": 4
+        },
+        "PluginStartedNotification": {
+            "plugin_started.methods[]": 3,
+            "plugin_started.plugin_name": 1,
+            "plugin_started.plugin_path": 2
+        },
+        "PluginStoppedNotification": {
+            "plugin_stopped.methods[]": 3,
+            "plugin_stopped.plugin_name": 1,
+            "plugin_stopped.plugin_path": 2
         },
         "PreapproveinvoiceRequest": {
             "PreApproveInvoice.bolt11": 1
@@ -3642,6 +3793,39 @@
             "SendOnionMessage.first_id": 1,
             "SendOnionMessage.hops[]": 3
         },
+        "SendpayFailureData": {
+            "sendpay_failure.data.amount_msat": 8,
+            "sendpay_failure.data.amount_sent_msat": 9,
+            "sendpay_failure.data.bolt11": 15,
+            "sendpay_failure.data.bolt12": 16,
+            "sendpay_failure.data.completed_at": 11,
+            "sendpay_failure.data.created_at": 10,
+            "sendpay_failure.data.created_index": 1,
+            "sendpay_failure.data.description": 17,
+            "sendpay_failure.data.destination": 7,
+            "sendpay_failure.data.erring_channel": 24,
+            "sendpay_failure.data.erring_direction": 25,
+            "sendpay_failure.data.erring_index": 20,
+            "sendpay_failure.data.erring_node": 23,
+            "sendpay_failure.data.erroronion": 18,
+            "sendpay_failure.data.failcode": 21,
+            "sendpay_failure.data.failcodename": 22,
+            "sendpay_failure.data.groupid": 4,
+            "sendpay_failure.data.id": 2,
+            "sendpay_failure.data.label": 14,
+            "sendpay_failure.data.onionreply": 19,
+            "sendpay_failure.data.partid": 6,
+            "sendpay_failure.data.payment_hash": 3,
+            "sendpay_failure.data.payment_preimage": 13,
+            "sendpay_failure.data.raw_message": 26,
+            "sendpay_failure.data.status": 12,
+            "sendpay_failure.data.updated_index": 5
+        },
+        "SendpayFailureNotification": {
+            "sendpay_failure.code": 1,
+            "sendpay_failure.data": 3,
+            "sendpay_failure.message": 2
+        },
         "SendpayRequest": {
             "SendPay.amount_msat": 10,
             "SendPay.bolt11": 5,
@@ -3682,6 +3866,26 @@
             "SendPay.route[].delay": 3,
             "SendPay.route[].id": 2,
             "SendPay.route[].msatoshi": 1
+        },
+        "SendpaySuccessNotification": {
+            "sendpay_success.amount_msat": 7,
+            "sendpay_success.amount_sent_msat": 11,
+            "sendpay_success.bolt11": 14,
+            "sendpay_success.bolt12": 15,
+            "sendpay_success.completed_at": 10,
+            "sendpay_success.created_at": 9,
+            "sendpay_success.created_index": 1,
+            "sendpay_success.description": 18,
+            "sendpay_success.destination": 8,
+            "sendpay_success.groupid": 4,
+            "sendpay_success.id": 3,
+            "sendpay_success.label": 12,
+            "sendpay_success.message": 16,
+            "sendpay_success.partid": 13,
+            "sendpay_success.payment_hash": 5,
+            "sendpay_success.payment_preimage": 17,
+            "sendpay_success.status": 6,
+            "sendpay_success.updated_index": 2
         },
         "SendpsbtRequest": {
             "SendPsbt.psbt": 1,
@@ -4068,6 +4272,13 @@
             "WaitSendPay.payment_preimage": 13,
             "WaitSendPay.status": 4,
             "WaitSendPay.updated_index": 16
+        },
+        "WarningNotification": {
+            "warning.level": 1,
+            "warning.log": 5,
+            "warning.source": 4,
+            "warning.time": 2,
+            "warning.timestamp": 3
         },
         "WithdrawRequest": {
             "Withdraw.destination": 1,
@@ -14124,6 +14335,38 @@
             "added": "v24.11",
             "deprecated": null
         },
+        "balance_snapshot": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "balance_snapshot.accounts[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "balance_snapshot.accounts[].account_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "balance_snapshot.accounts[].balance_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "balance_snapshot.accounts[].coin_type": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "balance_snapshot.blockheight": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "balance_snapshot.node_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "balance_snapshot.timestamp": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
         "block_added": {
             "added": "v22.11",
             "deprecated": null
@@ -14200,6 +14443,114 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "coin_movement": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "coin_movement.account_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "coin_movement.blockheight": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "coin_movement.coin_type": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "coin_movement.created_index": {
+            "added": "v23.08",
+            "deprecated": null
+        },
+        "coin_movement.credit_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "coin_movement.debit_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "coin_movement.extra_tags[]": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "coin_movement.fees_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "coin_movement.group_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "coin_movement.node_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "coin_movement.originating_account": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "coin_movement.output_count": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "coin_movement.output_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "coin_movement.part_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "coin_movement.payment_hash": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "coin_movement.peer_id": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "coin_movement.primary_tag": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "coin_movement.spending_txid": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "coin_movement.tags[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v25.09"
+        },
+        "coin_movement.timestamp": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "coin_movement.txid": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v25.09"
+        },
+        "coin_movement.type": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "coin_movement.utxo": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "coin_movement.utxo_txid": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v25.09"
+        },
+        "coin_movement.version": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "coin_movement.vout": {
+            "added": "pre-v0.10.1",
+            "deprecated": "v25.09"
+        },
         "connect": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -14242,6 +14593,126 @@
         },
         "custommsg.peer_id": {
             "added": "v24.02",
+            "deprecated": null
+        },
+        "deprecated_oneshot": {
+            "added": "v24.02",
+            "deprecated": null
+        },
+        "deprecated_oneshot.deprecated_ok": {
+            "added": "v24.02",
+            "deprecated": null
+        },
+        "disconnect": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "disconnect.id": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "forward_event": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "forward_event.created_index": {
+            "added": "v23.11",
+            "deprecated": null
+        },
+        "forward_event.failcode": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "forward_event.failreason": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "forward_event.fee_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "forward_event.in_channel": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "forward_event.in_htlc_id": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "forward_event.in_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "forward_event.out_channel": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "forward_event.out_htlc_id": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "forward_event.out_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "forward_event.payment_hash": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "forward_event.received_time": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "forward_event.resolved_time": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "forward_event.status": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "forward_event.style": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "forward_event.updated_index": {
+            "added": "v23.11",
+            "deprecated": null
+        },
+        "invoice_creation": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "invoice_creation.label": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "invoice_creation.msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "invoice_creation.preimage": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "invoice_payment": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "invoice_payment.label": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "invoice_payment.msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "invoice_payment.outpoint": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "invoice_payment.preimage": {
+            "added": "pre-v0.10.1",
             "deprecated": null
         },
         "multifundchannel": {
@@ -14369,6 +14840,398 @@
             "deprecated": null
         },
         "multifundchannel.utxos[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "onionmessage_forward_fail": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "onionmessage_forward_fail.incoming": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "onionmessage_forward_fail.next_node_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "onionmessage_forward_fail.next_short_channel_id_dir": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "onionmessage_forward_fail.outgoing": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "onionmessage_forward_fail.path_key": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "onionmessage_forward_fail.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel_peer_sigs": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel_peer_sigs.channel_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel_peer_sigs.signed_psbt": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "pay_part_end": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_end.duration": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_end.error_code": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_end.error_message": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_end.failed_direction": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_end.failed_msg": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_end.failed_node_id": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_end.failed_short_channel_id": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_end.groupid": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_end.partid": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_end.payment_hash": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_end.status": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_start": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_start.attempt_msat": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_start.groupid": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_start.hops[]": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_start.hops[].channel_in_msat": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_start.hops[].channel_out_msat": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_start.hops[].direction": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_start.hops[].next_node": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_start.hops[].short_channel_id": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_start.partid": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_start.payment_hash": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_start.total_payment_msat": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "plugin_started": {
+            "added": "v25.02",
+            "deprecated": null
+        },
+        "plugin_started.methods[]": {
+            "added": "v25.02",
+            "deprecated": null
+        },
+        "plugin_started.plugin_name": {
+            "added": "v25.02",
+            "deprecated": null
+        },
+        "plugin_started.plugin_path": {
+            "added": "v25.02",
+            "deprecated": null
+        },
+        "plugin_stopped": {
+            "added": "v25.02",
+            "deprecated": null
+        },
+        "plugin_stopped.methods[]": {
+            "added": "v25.02",
+            "deprecated": null
+        },
+        "plugin_stopped.plugin_name": {
+            "added": "v25.02",
+            "deprecated": null
+        },
+        "plugin_stopped.plugin_path": {
+            "added": "v25.02",
+            "deprecated": null
+        },
+        "sendpay_failure": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_failure.code": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_failure.data": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_failure.data.amount_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_failure.data.amount_sent_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_failure.data.bolt11": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_failure.data.bolt12": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_failure.data.completed_at": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_failure.data.created_at": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_failure.data.created_index": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_failure.data.description": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_failure.data.destination": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_failure.data.erring_channel": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_failure.data.erring_direction": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_failure.data.erring_index": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_failure.data.erring_node": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_failure.data.erroronion": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_failure.data.failcode": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_failure.data.failcodename": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_failure.data.groupid": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_failure.data.id": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_failure.data.label": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_failure.data.onionreply": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_failure.data.partid": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_failure.data.payment_hash": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_failure.data.payment_preimage": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_failure.data.raw_message": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_failure.data.status": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_failure.data.updated_index": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_failure.message": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_success": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_success.amount_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_success.amount_sent_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_success.bolt11": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_success.bolt12": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_success.completed_at": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_success.created_at": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_success.created_index": {
+            "added": "v23.11",
+            "deprecated": null
+        },
+        "sendpay_success.description": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_success.destination": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_success.groupid": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_success.id": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_success.label": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_success.message": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_success.partid": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_success.payment_hash": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_success.payment_preimage": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_success.status": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "sendpay_success.updated_index": {
+            "added": "v23.11",
+            "deprecated": null
+        },
+        "shutdown": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "warning": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "warning.level": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "warning.log": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "warning.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "warning.time": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "warning.timestamp": {
             "added": "pre-v0.10.1",
             "deprecated": null
         }

@@ -48,16 +48,7 @@ async fn main() -> Result<()> {
         .option(OPTION_GRPC_PORT)
         .option(OPTION_GRPC_HOST)
         .option(OPTION_GRPC_MSG_BUFFER_SIZE)
-        // TODO: Use the catch-all subscribe method
-        // However, doing this breaks the plugin at the time begin
-        // We should fix this
-        // .subscribe("*", handle_notification)
-        .subscribe("block_added", handle_notification)
-        .subscribe("channel_open_failed", handle_notification)
-        .subscribe("channel_opened", handle_notification)
-        .subscribe("channel_state_changed", handle_notification)
-        .subscribe("connect", handle_notification)
-        .subscribe("custommsg", handle_notification)
+        .subscribe("*", handle_notification)
         .configure()
         .await?
     {
@@ -132,8 +123,8 @@ async fn run_interface(bind_addr: SocketAddr, state: PluginState) -> Result<()> 
         .serve(bind_addr);
 
     log::info!(
-        "Connecting to {:?} and serving grpc on {:?}",
-        &state.rpc_path,
+        "Connecting to {} and serving grpc on {:?}",
+        &state.rpc_path.display(),
         &bind_addr
     );
 
@@ -149,12 +140,20 @@ async fn handle_notification(plugin: Plugin<PluginState>, value: serde_json::Val
             log::debug!("Failed to parse notification from lightningd {:?}", err);
         }
         Ok(notification) => {
-            /* Depending on whether or not there is a wildcard
-             * subscription we may receive notifications for which we
-             * don't have a handler. We suppress the `SendError` which
-             * would indicate there is no subscriber for the given
-             * topic. */
-            let _ = plugin.state().events.send(notification);
+            match notification {
+                Notification::Shutdown(_shutdown_notification) => {
+                    let _ = plugin.shutdown();
+                    std::process::exit(0)
+                }
+                _ => {
+                    /* Depending on whether or not there is a wildcard
+                     * subscription we may receive notifications for which we
+                     * don't have a handler. We suppress the `SendError` which
+                     * would indicate there is no subscriber for the given
+                     * topic. */
+                    let _ = plugin.state().events.send(notification);
+                }
+            }
         }
     };
     Ok(())

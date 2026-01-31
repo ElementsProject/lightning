@@ -1,0 +1,233 @@
+{
+  "$schema": "../../rpc-schema-draft.json",
+  "type": "object",
+  "notification": "sendpay_failure",
+  "title": "Notification for sendpay failures",
+  "description": [
+    "A notification for topic sendpay_failure is sent every time a sendpay completes with failed status. The JSON is same as the return value of the commands sendpay/waitsendpay when these commands fail"
+  ],
+  "additionalProperties": false,
+  "added": "pre-v0.10.1",
+  "request": {},
+  "response": {
+    "required": [
+      "code",
+      "message",
+      "data"
+    ],
+    "properties": {
+      "code": {
+        "type": "integer",
+        "added": "pre-v0.10.1",
+        "description": [
+          "The error code (from json-rpc error codes)."
+        ]
+      },
+      "message": {
+        "type": "string",
+        "added": "pre-v0.10.1",
+        "description": [
+          "The error message."
+        ]
+      },
+      "data": {
+        "type": "object",
+        "added": "pre-v0.10.1",
+        "description": [
+          "Additional error data."
+        ],
+        "additionalProperties": false,
+        "required": [],
+        "properties": {
+          "created_index": {
+            "type": "u64",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The index of when the payment was created."
+            ]
+          },
+          "id": {
+            "type": "u64",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The unique payment id."
+            ]
+          },
+          "payment_hash": {
+            "type": "hash",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The hash of the payment_preimage which will prove payment."
+            ]
+          },
+          "groupid": {
+            "type": "u64",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The group id for this payment."
+            ]
+          },
+          "updated_index": {
+            "type": "u64",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The index of when the payment was last updated."
+            ]
+          },
+          "partid": {
+            "type": "u64",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The part id for this payment (if it's a multipart payment)."
+            ]
+          },
+          "destination": {
+            "type": "pubkey",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The final destination pubkey."
+            ]
+          },
+          "amount_msat": {
+            "type": "msat",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The amount the destination received, if known."
+            ]
+          },
+          "amount_sent_msat": {
+            "type": "msat",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The amount we sent (including fees)."
+            ]
+          },
+          "created_at": {
+            "type": "u64",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The UNIX timestamp showing when this payment was initiated."
+            ]
+          },
+          "completed_at": {
+            "type": "u64",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The UNIX timestamp showing when this payment completed."
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "complete",
+              "failed"
+            ],
+            "added": "pre-v0.10.1",
+            "description": [
+              "The status of the payment."
+            ]
+          },
+          "payment_preimage": {
+            "type": "secret",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The proof of payment (if successful)."
+            ]
+          },
+          "label": {
+            "type": "string",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The label, if given to sendpay."
+            ]
+          },
+          "bolt11": {
+            "type": "string",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The bolt11 string (if supplied for sendpay)."
+            ]
+          },
+          "bolt12": {
+            "type": "string",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The bolt12 string (if supplied for sendpay)."
+            ]
+          },
+          "description": {
+            "type": "string",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The description (if supplied for sendpay)."
+            ]
+          },
+          "erroronion": {
+            "type": "hex",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The error onion returned on failure, if any."
+            ]
+          },
+          "onionreply": {
+            "type": "hex",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The raw onion reply (if unparseable)."
+            ]
+          },
+          "erring_index": {
+            "type": "u32",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The index of the node along the route that reported the error."
+            ]
+          },
+          "failcode": {
+            "type": "u32",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The failure code as per BOLT #4."
+            ]
+          },
+          "failcodename": {
+            "type": "string",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The name of the failure code."
+            ]
+          },
+          "erring_node": {
+            "type": "pubkey",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The pubkey of the node that reported the error."
+            ]
+          },
+          "erring_channel": {
+            "type": "short_channel_id",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The channel that reported the error."
+            ]
+          },
+          "erring_direction": {
+            "type": "u32",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The direction of the erring channel."
+            ]
+          },
+          "raw_message": {
+            "type": "hex",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The raw failure message."
+            ]
+          }
+        }
+      }
+    }
+  }
+}

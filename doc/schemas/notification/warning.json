@@ -1,0 +1,58 @@
+{
+  "$schema": "../../rpc-schema-draft.json",
+  "type": "object",
+  "added": "pre-v0.10.1",
+  "additionalProperties": false,
+  "notification": "warning",
+  "title": "Notification for BROKEN/UNUSUAL level logs",
+  "description": [
+    "A notification for topic warning is sent every time a new BROKEN/UNUSUAL level (in plugins, we use error/warn) log generated, which means an unusual/broken thing happens, such as channel failed, message resolving failed."
+  ],
+  "request": {},
+  "response": {
+    "required": [
+      "level",
+      "time",
+      "timestamp",
+      "source",
+      "log"
+    ],
+    "properties": {
+      "level": {
+        "type": "string",
+        "added": "pre-v0.10.1",
+        "description": [
+          "level is warn or error: warn means something seems bad happened and it's under control, but we'd better check it; error means something extremely bad is out of control, and it may lead to crash"
+        ]
+      },
+      "time": {
+        "type": "string",
+        "added": "pre-v0.10.1",
+        "description": [
+          "Seconds since epoch"
+        ]
+      },
+      "timestamp": {
+        "type": "string",
+        "added": "pre-v0.10.1",
+        "description": [
+          "ISO_8601 timestamp string, i.e. '2019-09-07T15:50+01:00'"
+        ]
+      },
+      "source": {
+        "type": "string",
+        "added": "pre-v0.10.1",
+        "description": [
+          "source means where the event happened, it may have the following forms: <node_id> chan #<db_id_of_channel>:,lightningd(<lightningd_pid>):, plugin-<plugin_name>:, <daemon_name>(<daemon_pid>):, jsonrpc:, jcon fd <error_fd_to_jsonrpc>:, plugin-manager"
+        ]
+      },
+      "log": {
+        "type": "string",
+        "added": "pre-v0.10.1",
+        "description": [
+          "context of the original log entry"
+        ]
+      }
+    }
+  }
+}
