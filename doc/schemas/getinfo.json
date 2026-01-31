@@ -148,6 +148,7 @@
       },
       "address": {
         "type": "array",
+        "added": "v23.02",
         "description": [
           "The addresses we announce to the world."
         ],
@@ -161,6 +162,7 @@
           "properties": {
             "type": {
               "type": "string",
+              "added": "v23.02",
               "enum": [
                 "dns",
                 "ipv4",
@@ -174,6 +176,7 @@
             },
             "port": {
               "type": "u16",
+              "added": "v23.02",
               "description": [
                 "Port number."
               ]
@@ -206,6 +209,7 @@
               "port": {},
               "address": {
                 "type": "string",
+                "added": "v23.02",
                 "description": [
                   "Address in expected format for **type**."
                 ]

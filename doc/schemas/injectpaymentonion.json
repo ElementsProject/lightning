@@ -1,6 +1,7 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
+  "added": "v24.11",
   "rpc": "injectpaymentonion",
   "title": "Send a payment with a custom onion packet",
   "description": [
