@@ -3386,6 +3386,28 @@ static struct amount_sat check_balances(struct peer *peer,
 		     fmt_amount_m_as_sat(tmpctx, in[TX_INITIATOR]),
 		     fmt_amount_m_as_sat(tmpctx, in[TX_ACCEPTER]));
 
+	/* Here in[*] only contains the amounts from this channel.
+	 * This is a great opportunity to check their splice out amount does
+	 * not exceed their channel funds as this is never allowed even if
+	 * additional funds are otherwise contributed. */
+	if (!amount_msat_can_add_sat_s64(in[TX_INITIATOR],
+					 peer->splicing->opener_relative)) {
+		splice_abort(peer, NULL, "Intiator is attempting to splice out"
+			     " %"PRId64"sat funds out of channel while only "
+			     "having %s funds attributable to them.",
+			     peer->splicing->opener_relative,
+			     fmt_amount_m_as_sat(tmpctx, in[TX_INITIATOR]));
+	}
+	if (!amount_msat_can_add_sat_s64(in[TX_ACCEPTER],
+					 peer->splicing->accepter_relative)) {
+		splice_abort(peer, NULL, "Accepter is attempting to splice out"
+			     " %"PRId64"sat funds out of channel while only "
+			     "having %s funds attributable to them.",
+			     peer->splicing->accepter_relative,
+			     fmt_amount_m_as_sat(tmpctx, in[TX_ACCEPTER]));
+	}
+
+	/* Now add values from the other outputs */
 	for (size_t i = 0; i < psbt->num_inputs; i++)
 		if (i != chan_input_index)
 			add_amount_to_side(peer, in,
