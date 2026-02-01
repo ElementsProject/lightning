@@ -610,9 +610,10 @@ static void send_splice_tx(struct channel *channel,
 	u8* tx_bytes = linearize_tx(tmpctx, tx);
 
 	log_debug(channel->log,
-		  "Broadcasting splice tx %s for channel %s.",
+		  "Broadcasting splice tx %s for channel %s. Final weight %lu",
 		  tal_hex(tmpctx, tx_bytes),
-		  fmt_channel_id(tmpctx, &channel->cid));
+		  fmt_channel_id(tmpctx, &channel->cid),
+		  bitcoin_tx_weight(tx));
 
 	struct send_splice_info *info = tal(NULL, struct send_splice_info);
 

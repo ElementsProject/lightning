@@ -207,6 +207,10 @@ WARN_UNUSED_RESULT bool psbt_input_get_ecdsa_sig(const tal_t *ctx,
 
 void psbt_input_set_witscript(struct wally_psbt *psbt, size_t in, const u8 *wscript);
 
+const u8 *psbt_input_get_witscript(const tal_t *ctx,
+				   const struct wally_psbt *psbt,
+				   size_t in);
+
 /* psbt_input_set_unknown - Set the given Key-Value in the psbt's input keymap
  * @ctx - tal context for allocations
  * @in - psbt input to set key-value on
@@ -265,9 +269,20 @@ void psbt_output_set_unknown(const tal_t *ctx,
 struct amount_sat psbt_input_get_amount(const struct wally_psbt *psbt,
 					size_t in);
 
-/* psbt_input_get_weight - Calculate the tx weight for input index `in` */
+enum PSBT_GUESS {
+	PSBT_GUESS_ZERO = 0x0, /* Assume unknown is 0 bytes (fallback) */
+	PSBT_GUESS_2OF2 = 0x1, /* Assume P2WSH is 2of2 multisig (req prevtx) */
+};
+
+/* psbt_input_get_weight - Calculate the tx weight for input index `in`.
+ *
+ * @psbt - psbt
+ * @in - index of input who's weight you want
+ * @guess - How to guess if we have incomplete information
+ * */
 size_t psbt_input_get_weight(const struct wally_psbt *psbt,
-			     size_t in);
+			     size_t in,
+			     enum PSBT_GUESS guess);
 
 /* psbt_output_get_amount - Returns the value of this output
  *
