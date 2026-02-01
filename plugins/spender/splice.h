@@ -2,6 +2,7 @@
 #define LIGHTNING_PLUGINS_SPENDER_SPLICE_H
 #include "config.h"
 
+#include <common/amount.h>
 #include <plugins/libplugin.h>
 
 extern const struct plugin_command splice_commands[];
@@ -55,6 +56,8 @@ struct splice_cmd {
 	char *debug_log;
 	/* Counter used for more readable debug logs */
 	int debug_counter;
+	/* Remaining funds needed from wallet */
+	struct amount_sat needed_funds;
 };
 
 #endif /* LIGHTNING_PLUGINS_SPENDER_SPLICE_H */
