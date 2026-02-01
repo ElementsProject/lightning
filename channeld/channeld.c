@@ -76,13 +76,16 @@ struct peer {
 	/* What (additional) messages the HSM accepts */
 	u32 *hsm_capabilities;
 
+	/* The feerate to initiate a splice */
+	u32 feerate_splice;
+
 	/* Tolerable amounts for feerate (only relevant for fundee). */
 	u32 feerate_min, feerate_max;
 
 	/* Feerate to be used when creating penalty transactions. */
 	u32 feerate_penalty;
 
-	/* Feerate to be used when opening (or splicing) a channel. */
+	/* Feerate to be used when opening a channel. */
 	u32 feerate_opening;
 
 	/* Local next per-commit point. */
@@ -6305,11 +6308,13 @@ static void handle_feerates(struct peer *peer, const u8 *inmsg)
 {
 	u32 feerate;
 
-	if (!fromwire_channeld_feerates(inmsg, &feerate,
-				       &peer->feerate_min,
-				       &peer->feerate_max,
-				       &peer->feerate_penalty,
-				       &peer->feerate_opening))
+	if (!fromwire_channeld_feerates(inmsg,
+					&feerate,
+				        &peer->feerate_min,
+				        &peer->feerate_max,
+				        &peer->feerate_penalty,
+				        &peer->feerate_opening,
+				        &peer->feerate_splice))
 		master_badmsg(WIRE_CHANNELD_FEERATES, inmsg);
 
 	/* BOLT #2:
@@ -6677,6 +6682,7 @@ static void init_channel(struct peer *peer)
 				    &lease_expiry,
 				    &conf[LOCAL], &conf[REMOTE],
 				    &fee_states,
+				    &peer->feerate_splice,
 				    &peer->feerate_min,
 				    &peer->feerate_max,
 				    &peer->feerate_penalty,

@@ -46,12 +46,37 @@ struct splice_command {
 	u32 user_psbt_ver;
 };
 
+static u32 default_feerate(struct lightningd *ld, const struct channel *channel,
+			   bool add_offset)
+{
+	u32 max_feerate;
+	bool anchors = channel_type_has_anchors(channel->type);
+	u32 feerate = unilateral_feerate(ld->topology, anchors);
+
+	/* Nothing to do if we don't know feerate. */
+	if (!feerate)
+		return 0;
+
+	max_feerate = feerate_max(ld, NULL);
+
+	/* The channel opener should use a slightly higher than minimal feerate
+	 * in order to avoid excessive feerate disagreements */
+	if (channel->opener == LOCAL) {
+		feerate += ld->config.feerate_offset;
+		if (feerate > max_feerate)
+			feerate = max_feerate;
+	}
+
+	return feerate;
+}
+
 void channel_update_feerates(struct lightningd *ld, const struct channel *channel)
 {
 	u8 *msg;
 	u32 min_feerate, max_feerate;
 	bool anchors = channel_type_has_anchors(channel->type);
-	u32 feerate = unilateral_feerate(ld->topology, anchors);
+	u32 feerate = default_feerate(ld, channel, (channel->opener == LOCAL));
+	u32 feerate_splice = default_feerate(ld, channel, true);
 
 	/* Nothing to do if we don't know feerate. */
 	if (!feerate)
@@ -63,13 +88,6 @@ void channel_update_feerates(struct lightningd *ld, const struct channel *channe
 	else
 		min_feerate = feerate_min(ld, NULL);
 	max_feerate = feerate_max(ld, NULL);
-	/* The channel opener should use a slightly higher than minimal feerate
-	 * in order to avoid excessive feerate disagreements */
-	if (channel->opener == LOCAL) {
-		feerate += ld->config.feerate_offset;
-		if (feerate > max_feerate)
-			feerate = max_feerate;
-	}
 
 	if (channel->ignore_fee_limits || ld->config.ignore_fee_limits) {
 		min_feerate = 1;
@@ -77,17 +95,21 @@ void channel_update_feerates(struct lightningd *ld, const struct channel *channe
 	}
 
 	log_debug(ld->log,
-		  "update_feerates: feerate = %u, min=%u, max=%u, penalty=%u",
+		  "update_feerates: feerate = %u, min=%u, max=%u, penalty=%u,"
+		  " opening=%u, splicing: %u",
 		  feerate,
 		  min_feerate,
 		  feerate_max(ld, NULL),
-		  penalty_feerate(ld->topology));
+		  penalty_feerate(ld->topology),
+		  opening_feerate(ld->topology),
+		  feerate_splice);
 
 	msg = towire_channeld_feerates(NULL, feerate,
 				       min_feerate,
 				       max_feerate,
 				       penalty_feerate(ld->topology),
-				       opening_feerate(ld->topology));
+				       opening_feerate(ld->topology),
+				       feerate_splice);
 	subd_send_msg(channel->owner, take(msg));
 }
 
@@ -1686,7 +1708,7 @@ bool peer_start_channeld(struct channel *channel,
 	const struct config *cfg = &ld->config;
 	struct secret last_remote_per_commit_secret;
 	struct penalty_base *pbases;
-	u32 min_feerate, max_feerate, curr_blockheight;
+	u32 feerate_splice, min_feerate, max_feerate, curr_blockheight;
 	struct channel_inflight *inflight;
 	struct inflight **inflights;
 	struct bitcoin_txid txid;
@@ -1846,6 +1868,8 @@ bool peer_start_channeld(struct channel *channel,
 		tal_arr_expand(&inflights, infcopy);
 	}
 
+	feerate_splice = default_feerate(ld, channel, true);
+
 	initmsg = towire_channeld_init(tmpctx,
 				       chainparams,
 				       ld->our_features,
@@ -1861,6 +1885,7 @@ bool peer_start_channeld(struct channel *channel,
 				       &channel->our_config,
 				       &channel->channel_info.their_config,
 				       channel->fee_states,
+				       feerate_splice,
 				       min_feerate,
 				       max_feerate,
 				       penalty_feerate(ld->topology),
@@ -2290,7 +2315,7 @@ static struct command_result *json_splice_init(struct command *cmd,
 
 	if (!feerate_per_kw) {
 		feerate_per_kw = tal(cmd, u32);
-		*feerate_per_kw = opening_feerate(cmd->ld->topology);
+		*feerate_per_kw = default_feerate(cmd->ld, channel, true);
 	}
 
 	if (!initialpsbt)
@@ -2300,8 +2325,10 @@ static struct command_result *json_splice_init(struct command *cmd,
 				    SPLICE_INPUT_ERROR,
 				    "PSBT failed to validate.");
 
-	log_debug(cmd->ld->log, "splice_init input PSBT version %d",
-		  initialpsbt->version);
+	log_debug(cmd->ld->log, "splice_init input PSBT version %d,"
+		  " feerate: %u",
+		  initialpsbt->version,
+		  *feerate_per_kw);
 
 	cc = tal(cmd, struct splice_command);
 
@@ -2662,7 +2689,8 @@ static struct command_result *json_dev_feerate(struct command *cmd,
 				       feerate_min(cmd->ld, NULL),
 				       feerate_max(cmd->ld, NULL),
 				       penalty_feerate(cmd->ld->topology),
-				       opening_feerate(cmd->ld->topology));
+				       opening_feerate(cmd->ld->topology),
+				       default_feerate(cmd->ld, channel, true));
 	subd_send_msg(channel->owner, take(msg));
 
 	response = json_stream_success(cmd);
