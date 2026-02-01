@@ -26,7 +26,7 @@ def test_script_splice_out(node_factory, bitcoind, chainparams):
 
     # Splice out 100k from first channel, explicitly putting result less fees into onchain wallet
     spliceamt = 100000
-    l1.rpc.splice(f"*:? -> {spliceamt}; 100%-fee -> wallet", force_feerate=True, debug_log=True)
+    l1.rpc.splice(f"*:? -> {spliceamt}; 100%-fee -> wallet", debug_log=True)
     p1 = only_one(l1.rpc.listpeerchannels(peer_id=l2.info['id'])['channels'])
     p2 = only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])
 
@@ -122,7 +122,7 @@ def test_script_splice_in(node_factory, bitcoind, chainparams):
     withdraw_amt = 200000
     starting_wallet_msat = withdraw_amt * 10000
 
-    l1.rpc.splice(f"wallet -> {withdraw_amt}; {spliceamt} -> *:?", force_feerate=True, debug_log=True)
+    l1.rpc.splice(f"wallet -> {withdraw_amt}; {spliceamt} -> *:?", debug_log=True)
     p1 = only_one(l1.rpc.listpeerchannels(peer_id=l2.info['id'])['channels'])
     p2 = only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])
     assert p1['inflight'][0]['splice_amount'] == spliceamt

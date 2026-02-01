@@ -17,7 +17,7 @@ def test_splice(node_factory, bitcoind):
     chan_id = l1.get_channel_id(l2)
 
     # add extra sats to pay fee
-    funds_result = l1.rpc.fundpsbt("109000sat", "slow", 166, excess_as_change=True)
+    funds_result = l1.rpc.fundpsbt("105790sat", 0, 0, excess_as_change=True)
 
     result = l1.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
     result = l1.rpc.splice_update(chan_id, result['psbt'])
@@ -59,7 +59,7 @@ def test_two_chan_splice_in(node_factory, bitcoind):
     chan_id2 = l2.get_channel_id(l3)
 
     # add extra sats to pay fee
-    funds_result = l2.rpc.fundpsbt("209000sat", "slow", 166, excess_as_change=True)
+    funds_result = l2.rpc.fundpsbt("205790sat", 0, 0, excess_as_change=True)
 
     # Intiate splices to both channels
     result = l2.rpc.splice_init(chan_id1, 100000, funds_result['psbt'])
@@ -130,7 +130,7 @@ def test_splice_rbf(node_factory, bitcoind):
 
     funds_result = l1.rpc.addpsbtoutput(100000)
 
-    # Pay with fee by subjtracting 5000 from channel balance
+    # Pay with fee by subtracting 5000 from channel balance
     result = l1.rpc.splice_init(chan_id, -105000, funds_result['psbt'])
     result = l1.rpc.splice_update(chan_id, result['psbt'])
     assert(result['commitments_secured'] is False)
@@ -150,8 +150,8 @@ def test_splice_rbf(node_factory, bitcoind):
 
     funds_result = l1.rpc.addpsbtoutput(100000)
 
-    # Pay with fee by subjtracting 5000 from channel balance
-    result = l1.rpc.splice_init(chan_id, -110000, funds_result['psbt'])
+    # Pay with fee by subtracting 5790 from channel balance
+    result = l1.rpc.splice_init(chan_id, -105790, funds_result['psbt'])
     result = l1.rpc.splice_update(chan_id, result['psbt'])
     assert(result['commitments_secured'] is False)
     result = l1.rpc.splice_update(chan_id, result['psbt'])
@@ -189,7 +189,7 @@ def test_splice_nosign(node_factory, bitcoind):
     chan_id = l1.get_channel_id(l2)
 
     # add extra sats to pay fee
-    funds_result = l1.rpc.fundpsbt("109000sat", "slow", 166, excess_as_change=True)
+    funds_result = l1.rpc.fundpsbt("105790sat", 0, 0, excess_as_change=True)
 
     result = l1.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
     result = l1.rpc.splice_update(chan_id, result['psbt'])
@@ -214,7 +214,7 @@ def test_splice_gossip(node_factory, bitcoind):
     pre_splice_scid = first_scid(l1, l2)
 
     # add extra sats to pay fee
-    funds_result = l1.rpc.fundpsbt("109000sat", "slow", 166, excess_as_change=True)
+    funds_result = l1.rpc.fundpsbt("105790sat", 0, 0, excess_as_change=True)
 
     result = l1.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
     result = l1.rpc.splice_update(chan_id, result['psbt'])
@@ -277,7 +277,7 @@ def test_splice_listnodes(node_factory, bitcoind):
     chan_id = l1.get_channel_id(l2)
 
     # add extra sats to pay fee
-    funds_result = l1.rpc.fundpsbt("109000sat", "slow", 166, excess_as_change=True)
+    funds_result = l1.rpc.fundpsbt("105790sat", 0, 0, excess_as_change=True)
 
     result = l1.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
     result = l1.rpc.splice_update(chan_id, result['psbt'])
@@ -373,7 +373,7 @@ def test_invalid_splice(node_factory, bitcoind):
     assert l1.db_query("SELECT count(*) as c FROM channel_funding_inflights;")[0]['c'] == 0
 
     # Now we do a real splice to confirm everything works after restart
-    funds_result = l1.rpc.fundpsbt("109000sat", "slow", 166, excess_as_change=True)
+    funds_result = l1.rpc.fundpsbt("105790sat", 0, 0, excess_as_change=True)
 
     result = l1.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
     result = l1.rpc.splice_update(chan_id, result['psbt'])
@@ -469,7 +469,7 @@ def test_splice_stuck_htlc(node_factory, bitcoind, executor):
     chan_id = l1.get_channel_id(l2)
 
     # add extra sats to pay fee
-    funds_result = l1.rpc.fundpsbt("109000sat", "slow", 166, excess_as_change=True)
+    funds_result = l1.rpc.fundpsbt("105790sat", 0, 0, excess_as_change=True)
 
     result = l1.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
     result = l1.rpc.splice_update(chan_id, result['psbt'])
@@ -515,7 +515,7 @@ def test_route_by_old_scid(node_factory, bitcoind):
     route = l1.rpc.getroute(l3.info['id'], 10000000, 1, cltv=16)['route']
 
     # Do a splice
-    funds_result = l2.rpc.fundpsbt("109000sat", "slow", 166, excess_as_change=True)
+    funds_result = l2.rpc.fundpsbt("105790sat", 0, 0, excess_as_change=True)
     chan_id = l2.get_channel_id(l3)
     result = l2.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
     result = l2.rpc.splice_update(chan_id, result['psbt'])
@@ -535,7 +535,7 @@ def test_route_by_old_scid(node_factory, bitcoind):
 
     # Let's splice again, so the original scid is two behind the times.
     l3.fundwallet(200000)
-    funds_result = l3.rpc.fundpsbt("109000sat", "slow", 166, excess_as_change=True)
+    funds_result = l3.rpc.fundpsbt("105790sat", 0, 0, excess_as_change=True)
     chan_id = l3.get_channel_id(l2)
     result = l3.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
     result = l3.rpc.splice_update(chan_id, result['psbt'])
@@ -568,7 +568,7 @@ def test_splice_unannounced(node_factory, bitcoind):
     chan_id = l1.get_channel_id(l2)
 
     # add extra sats to pay fee
-    funds_result = l1.rpc.fundpsbt("109000sat", "slow", 166, excess_as_change=True)
+    funds_result = l1.rpc.fundpsbt("105790sat", 0, 0, excess_as_change=True)
     result = l1.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
     result = l1.rpc.splice_update(chan_id, result['psbt'])
     assert(result['commitments_secured'] is False)
