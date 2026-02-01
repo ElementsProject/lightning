@@ -278,6 +278,19 @@ static struct splice_script_error *new_error(const tal_t *ctx,
 	return new_error_offset(ctx, type, token, phase, 0);
 }
 
+static struct splice_script_error *new_error_msg(const tal_t *ctx,
+						 enum splice_script_error_type type,
+						 struct token *token,
+						 const char *phase,
+						 char *msg)
+{
+	struct splice_script_error *error = new_error(ctx, type, token, phase);
+
+	tal_append_fmt(&error->message, "%s", msg);
+
+	return error;
+}
+
 static char *context_snippet(const tal_t *ctx,
 			     const char *script,
 			     struct splice_script_error *error)
@@ -2341,10 +2354,15 @@ static struct splice_script_error *calculate_amounts(const tal_t *ctx,
 	/* Do we know precisely how much we're getting? */
 	if (!right_wilds && !right_used_ppm) {
 		/* Then we can give sat amount errors */
-		if (amount_sat_greater(left_total, right_total))
-			return new_error(ctx, INSUFFICENT_FUNDS,
-					 left_wildcard_token ?: input[0],
-					 "calculate_amounts");
+		if (amount_sat_greater(left_total, right_total)) {
+			return new_error_msg(ctx, INSUFFICENT_FUNDS,
+					     left_wildcard_token ?: input[0],
+					     "calculate_amounts",
+					     tal_fmt(tmpctx, "required: %s,"
+						     " provided: %s",
+						     fmt_amount_sat(tmpctx, left_total),
+						     fmt_amount_sat(tmpctx, right_total)));
+		}
 		if (left_used_ppm && amount_sat_eq(left_total, right_total))
 			return new_error(ctx, PERCENT_IS_ZERO,
 					 left_percent_token ?: input[0],
@@ -2759,11 +2777,13 @@ char *splice_to_string(const tal_t *ctx,
 				  result->feerate_per_kw);
 
 	if (!amount_sat_is_zero(result->in_sat))
-		tal_append_fmt(&str, "%sput %s%s into ", into_prefix,
+		tal_append_fmt(&str, "%sput %s%s %s ", into_prefix,
 			       fmt_amount_sat(ctx, result->in_sat),
-			       fee_str);
+			       fee_str,
+			       result->in_ppm ? "and" : "into");
 	if (result->in_ppm)
-		tal_append_fmt(&str, "%sput %s%s of rest into ", into_prefix,
+		tal_append_fmt(&str, "%s%s%s%s of rest into ", into_prefix,
+			       amount_sat_is_zero(result->in_sat) ? "put " : "",
 			       ppm_to_str(ctx, result->in_ppm),
 			       fee_str);
 
@@ -2789,7 +2809,9 @@ char *splice_to_string(const tal_t *ctx,
 			       fmt_amount_sat(ctx, result->out_sat),
 			       fee_str);
 	if (result->out_ppm)
-		tal_append_fmt(&str, " withdraw %s%s",
+		tal_append_fmt(&str, " %s %s%s",
+			       amount_sat_is_zero(result->out_sat)
+			       	 ? "withdraw" : "and",
 			       ppm_to_str(ctx, result->out_ppm),
 			       fee_str);
 
