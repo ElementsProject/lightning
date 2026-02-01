@@ -1690,6 +1690,7 @@
             "Feerates.perkb.mutual_close": 4,
             "Feerates.perkb.opening": 3,
             "Feerates.perkb.penalty": 8,
+            "Feerates.perkb.splice": 12,
             "Feerates.perkb.unilateral_anchor_close": 11,
             "Feerates.perkb.unilateral_close": 5
         },
@@ -1708,6 +1709,7 @@
             "Feerates.perkw.mutual_close": 4,
             "Feerates.perkw.opening": 3,
             "Feerates.perkw.penalty": 8,
+            "Feerates.perkw.splice": 12,
             "Feerates.perkw.unilateral_anchor_close": 11,
             "Feerates.perkw.unilateral_close": 5
         },
@@ -7319,6 +7321,10 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "Feerates.perkb.splice": {
+            "added": "v26.04",
+            "deprecated": null
+        },
         "Feerates.perkb.unilateral_anchor_close": {
             "added": "v23.08",
             "deprecated": null
@@ -7377,6 +7383,10 @@
         },
         "Feerates.perkw.penalty": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Feerates.perkw.splice": {
+            "added": "v26.04",
             "deprecated": null
         },
         "Feerates.perkw.unilateral_anchor_close": {
