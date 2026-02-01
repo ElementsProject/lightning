@@ -9,7 +9,7 @@ def make_pending_splice(node_factory):
 
     chan_id = l1.get_channel_id(l2)
 
-    funds_result = l1.rpc.fundpsbt("109000sat", "slow", 166, excess_as_change=True)
+    funds_result = l1.rpc.fundpsbt("105790sat", 0, 0, excess_as_change=True)
 
     result = l1.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
     result = l1.rpc.splice_update(chan_id, result['psbt'])
@@ -50,7 +50,7 @@ def wait_for_restart(l1, l2):
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
-def test_splice_insane(node_factory, bitcoind):
+def test_splice_insane_a(node_factory, bitcoind):
     nodes = []
 
     l1, l2 = make_pending_splice(node_factory)
@@ -60,12 +60,14 @@ def test_splice_insane(node_factory, bitcoind):
     nodes.append(l1)
     nodes.append(l2)
 
-    l1, l2 = make_pending_splice(node_factory)
-    l1.restart()
-    wait_for_restart(l1, l2)
-    confirm_and_wait(l1, l2, bitcoind)
-    nodes.append(l1)
-    nodes.append(l2)
+    confirm_funding_not_spent(nodes)
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_splice_insane_b(node_factory, bitcoind):
+    nodes = []
 
     l1, l2 = make_pending_splice(node_factory)
     l1.restart()
@@ -73,6 +75,31 @@ def test_splice_insane(node_factory, bitcoind):
     confirm_and_wait(l1, l2, bitcoind)
     nodes.append(l1)
     nodes.append(l2)
+
+    confirm_funding_not_spent(nodes)
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_splice_insane_c(node_factory, bitcoind):
+    nodes = []
+
+    l1, l2 = make_pending_splice(node_factory)
+    l1.restart()
+    wait_for_restart(l1, l2)
+    confirm_and_wait(l1, l2, bitcoind)
+    nodes.append(l1)
+    nodes.append(l2)
+
+    confirm_funding_not_spent(nodes)
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_splice_insane_d(node_factory, bitcoind):
+    nodes = []
 
     l1, l2 = make_pending_splice(node_factory)
     l2.restart()
@@ -81,12 +108,30 @@ def test_splice_insane(node_factory, bitcoind):
     nodes.append(l1)
     nodes.append(l2)
 
+    confirm_funding_not_spent(nodes)
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_splice_insane_e(node_factory, bitcoind):
+    nodes = []
+
     l1, l2 = make_pending_splice(node_factory)
     confirm_and_wait(l1, l2, bitcoind)
     l1.restart()
     wait_for_restart(l1, l2)
     nodes.append(l1)
     nodes.append(l2)
+
+    confirm_funding_not_spent(nodes)
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_splice_insane_f(node_factory, bitcoind):
+    nodes = []
 
     l1, l2 = make_pending_splice(node_factory)
     confirm_and_wait(l1, l2, bitcoind)
