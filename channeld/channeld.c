@@ -970,6 +970,10 @@ static struct bitcoin_signature *calc_commitsigs(const tal_t *ctx,
 	const u8 *msg;
 	struct bitcoin_signature *htlc_sigs;
 
+	status_debug("calc_commitsigs(%p, %p, %p, %p, %p, %d, %p, %p)",
+		     ctx, peer, txs, funding_wscript, htlc_map,
+		     (int)commit_index, remote_per_commit, commit_sig);
+
 	htlcs = collect_htlcs(tmpctx, htlc_map);
 	msg = towire_hsmd_sign_remote_commitment_tx(NULL, txs[0],
 						    &remote_funding_pubkey,
@@ -3355,6 +3359,10 @@ static struct amount_sat check_balances(struct peer *peer,
 					 "Unable to add HTLC balance");
 	}
 
+	status_debug("in[TX_INITIATOR] %s; in[TX_ACCEPTER] %s",
+		     fmt_amount_m_as_sat(tmpctx, in[TX_INITIATOR]),
+		     fmt_amount_m_as_sat(tmpctx, in[TX_ACCEPTER]));
+
 	for (size_t i = 0; i < psbt->num_inputs; i++)
 		if (i != chan_input_index)
 			add_amount_to_side(peer, in,
@@ -3408,6 +3416,11 @@ static struct amount_sat check_balances(struct peer *peer,
 			     " %"PRIu64,
 			     fmt_amount_msat(tmpctx, funding_amount),
 			     peer->splicing->opener_relative);
+
+	status_debug("out[TX_INITIATOR] %s + %"PRId64,
+		     fmt_amount_m_as_sat(tmpctx, out[TX_INITIATOR]),
+		     peer->splicing->opener_relative);
+
 	if (!amount_msat_add_sat_s64(&out[TX_INITIATOR], out[TX_INITIATOR],
 				     peer->splicing->opener_relative))
 		peer_failed_warn(peer->pps, &peer->channel_id,
@@ -3421,6 +3434,10 @@ static struct amount_sat check_balances(struct peer *peer,
 				     peer->splicing->accepter_relative))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Unable to add accepter funding to out amnt.");
+
+	status_debug("is in[TX_INITIATOR] %s less than out[TX_INITIATOR] %s?",
+		     fmt_amount_m_as_sat(tmpctx, in[TX_INITIATOR]),
+		     fmt_amount_m_as_sat(tmpctx, out[TX_INITIATOR]));
 
 	if (amount_msat_less(in[TX_INITIATOR], out[TX_INITIATOR])) {
 		msg = towire_channeld_splice_funding_error(NULL,
