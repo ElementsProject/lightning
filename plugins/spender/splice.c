@@ -1141,6 +1141,11 @@ static struct command_result *execute_splice(struct command *cmd,
 		state = splice_cmd->states[i];
 		char *bitcoin_address;
 
+		/* Today UINT32_MAX just means 100%. In the future it might mean
+		 * something different. */
+		if (action->out_ppm == UINT32_MAX)
+			action->out_ppm = 1000000;
+
 		/* Load (only one) feerate if user provided one */
 		if (action->feerate_per_kw) {
 			if (splice_cmd->feerate_per_kw)
