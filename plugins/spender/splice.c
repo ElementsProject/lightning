@@ -125,8 +125,8 @@ static struct command_result *do_fail(struct command *cmd,
 	splice_cmd->wetrun = false;
 
 	plugin_log(cmd->plugin, LOG_DBG,
-		   "splice_error(psbt:%p, splice_cmd_stat:%p)",
-		   splice_cmd->psbt, splice_cmd);
+		   "splice_error(psbt:%p, splice_cmd:%p, str: %s)",
+		   splice_cmd->psbt, splice_cmd, str ?: "");
 
 	abort_pkg = tal(cmd->plugin, struct abort_pkg);
 	abort_pkg->splice_cmd = tal_steal(abort_pkg, splice_cmd);
@@ -464,41 +464,71 @@ static size_t calc_weight(struct splice_cmd *splice_cmd,
 			  bool simulate_wallet_outputs)
 {
 	struct splice_script_result *action;
+	struct plugin *plugin = splice_cmd->cmd->plugin;
 	struct wally_psbt *psbt = splice_cmd->psbt;
-	size_t weight = 0;
+	size_t lweight = 0, weight = 0;
 	size_t extra_inputs = 0;
 	size_t extra_outputs = 0;
+
+	plugin_log(plugin, LOG_DBG, "Counting potenetial tx weight;");
 
 	/* BOLT #2:
 	 * The rest of the transaction bytes' fees are the responsibility of
 	 * the peer who contributed that input or output via `tx_add_input` or
 	 * `tx_add_output`, at the agreed upon `feerate`.
 	 */
-	for (size_t i = 0; i < psbt->num_inputs; i++)
-		weight += psbt_input_get_weight(psbt, i);
+	for (size_t i = 0; i < psbt->num_inputs; i++) {
+		weight += psbt_input_get_weight(psbt, i, PSBT_GUESS_2OF2);
+		plugin_log(plugin, LOG_DBG, " Adding input; weight: %lu",
+			   weight - lweight);
+		lweight = weight;
+	}
 
-	for (size_t i = 0; i < psbt->num_outputs; i++)
-		weight += psbt_output_get_weight(psbt, i);
+	/* Count the splice input manually */
+	for (size_t i = 0; i < tal_count(splice_cmd->actions); i++) {
+		action = splice_cmd->actions[i];
+		if (splice_cmd->actions[i]->channel_id) {
+			weight += bitcoin_tx_input_weight(false,
+							  bitcoin_tx_2of2_input_witness_weight());
+			plugin_log(plugin, LOG_DBG, " Adding input"
+				   " (simulated channel); weight:"
+				   " %lu", weight - lweight);
+			lweight = weight;
+			extra_inputs++;
+		}
+	}
 
-	/* Count the splice input & outputs manually */
+	/* Count the splice outputs manually */
 	for (size_t i = 0; i < tal_count(splice_cmd->actions); i++) {
 		action = splice_cmd->actions[i];
 		if (simulate_wallet_outputs && action->onchain_wallet) {
 			if (!amount_sat_is_zero(action->in_sat) || action->in_ppm) {
 				weight += bitcoin_tx_output_weight(BITCOIN_SCRIPTPUBKEY_P2TR_LEN);
 				extra_outputs++;
+				plugin_log(plugin, LOG_DBG, " Adding output"
+					   " (simulated wallet); weight:"
+					   " %lu", weight - lweight);
+				lweight = weight;
 			}
-
-		} else if (splice_cmd->actions[i]->channel_id) {
+			assert(!splice_cmd->actions[i]->channel_id);
+		}
+		if (splice_cmd->actions[i]->channel_id) {
 			weight += bitcoin_tx_output_weight(BITCOIN_SCRIPTPUBKEY_P2WSH_LEN);
-			weight += bitcoin_tx_input_weight(true,
-							  bitcoin_tx_2of2_input_witness_weight());
-			extra_inputs++;
+			plugin_log(plugin, LOG_DBG, " Adding output"
+				   " (simulated channel); weight:"
+				   " %lu", weight - lweight);
+			lweight = weight;
+
 			extra_outputs++;
 		}
 	}
 
-	/* DTODO make a test to confirm weight calculation is correct */
+	for (size_t i = 0; i < psbt->num_outputs; i++) {
+		weight += psbt_output_get_weight(psbt, i);
+		plugin_log(plugin, LOG_DBG, " Adding output; weight: %lu",
+			   weight - lweight);
+		lweight = weight;
+	}
 
 	/* BOLT #2:
 	 * The *initiator* is responsible for paying the fees for the following fields,
@@ -512,7 +542,11 @@ static size_t calc_weight(struct splice_cmd *splice_cmd,
 	 */
 	weight += bitcoin_tx_core_weight(psbt->num_inputs + extra_inputs,
 					 psbt->num_outputs + extra_outputs);
+	plugin_log(plugin, LOG_DBG, " Adding bitcoin_tx_core_weight;"
+		   " weight: %lu", weight - lweight);
+	lweight = weight;
 
+	plugin_log(plugin, LOG_DBG, " Total weight: %lu", weight);
 	return weight;
 }
 
@@ -921,11 +955,11 @@ static struct command_result *continue_splice(struct command *cmd,
 
 		plugin_log(cmd->plugin, LOG_INFORM,
 			   "Splice fee is %s at %"PRIu32" perkw (%.02f sat/vB) "
-			   "on tx where our personal vbytes are %.02f",
+			   "on tx where our weight units are %lu",
 			   fmt_amount_sat(tmpctx, onchain_fee),
 			   splice_cmd->feerate_per_kw,
 			   4 * splice_cmd->feerate_per_kw / 1000.0f,
-			   weight / 4.0f);
+			   weight);
 
 		result = calc_in_ppm_and_fee(cmd, splice_cmd, onchain_fee);
 		if (result)
