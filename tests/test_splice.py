@@ -195,3 +195,343 @@ def test_script_splice_in(node_factory, bitcoind, chainparams):
     l1.wait_for_channel_onchain(l2.info['id'])
     account_info = only_one([acct for acct in l1.rpc.bkpr_listbalances()['accounts'] if acct['account'] == account_id])
     assert not account_info['account_closed']
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_script_two_chan_splice_in(node_factory, bitcoind):
+    l1, l2, l3 = node_factory.line_graph(3, fundamount=1000000, wait_for_announce=True, opts={'experimental-splicing': None})
+
+    chan_id1 = l2.get_channel_id(l1)
+    chan_id2 = l2.get_channel_id(l3)
+
+    # l2 will splice funds into the channels with l1 and l3 at the same time
+    result = l2.rpc.splice(f"wallet -> 200000+fee; 100000 -> {chan_id1}; 100000 -> {chan_id2}")
+
+    l3.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+    l2.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+    l1.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+
+    wait_for(lambda: len(list(bitcoind.rpc.getrawmempool(True).keys())) == 1)
+    assert result['txid'] in list(bitcoind.rpc.getrawmempool(True).keys())
+
+    bitcoind.generate_block(6, wait_for_mempool=1)
+
+    l3.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+    l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+    l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+
+    inv = l2.rpc.invoice(10**2, '1', 'no_1')
+    l1.rpc.pay(inv['bolt11'])
+
+    inv = l3.rpc.invoice(10**2, '2', 'no_2')
+    l2.rpc.pay(inv['bolt11'])
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_script_two_chan_splice_out(node_factory, bitcoind):
+    l1, l2, l3 = node_factory.line_graph(3, fundamount=1000000, wait_for_announce=True, opts={'experimental-splicing': None})
+
+    # We need to get funds into l1 -> l2 channel so we can splice it out
+    inv = l2.rpc.invoice(100000000, '1', 'no_1')
+    l1.rpc.pay(inv['bolt11'])
+
+    chan_id1 = l2.get_channel_id(l1)
+    chan_id2 = l2.get_channel_id(l3)
+
+    # l2 will splice funds out of the channels with l1 and l3 at the same time
+    result = l2.rpc.splice(f"{chan_id1} -> 100000; {chan_id2} -> 100000")
+
+    l3.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+    l2.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+    l1.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+
+    wait_for(lambda: len(list(bitcoind.rpc.getrawmempool(True).keys())) == 1)
+    assert result['txid'] in list(bitcoind.rpc.getrawmempool(True).keys())
+
+    bitcoind.generate_block(6, wait_for_mempool=1)
+
+    l3.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+    l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+    l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+
+    inv = l2.rpc.invoice(10**2, '2', 'no_2')
+    l1.rpc.pay(inv['bolt11'])
+
+    inv = l3.rpc.invoice(10**2, '3', 'no_3')
+    l2.rpc.pay(inv['bolt11'])
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_script_two_chan_splice_inout(node_factory, bitcoind):
+    l1, l2, l3 = node_factory.line_graph(3, fundamount=1000000, wait_for_announce=True, opts={'experimental-splicing': None})
+
+    chan_id1 = l2.get_channel_id(l1)
+    chan_id2 = l2.get_channel_id(l3)
+
+    # move sats from chan 2 into chan 1
+    result = l2.rpc.splice(f"wallet -> 10000; 100000 -> {chan_id1}; {chan_id2} -> 100000")
+
+    l3.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+    l2.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+    l1.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+
+    wait_for(lambda: len(list(bitcoind.rpc.getrawmempool(True).keys())) == 1)
+    assert result['txid'] in list(bitcoind.rpc.getrawmempool(True).keys())
+
+    bitcoind.generate_block(6, wait_for_mempool=1)
+
+    l3.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+    l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+    l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+
+    inv = l2.rpc.invoice(10**2, '2', 'no_2')
+    l1.rpc.pay(inv['bolt11'])
+
+    inv = l3.rpc.invoice(10**2, '3', 'no_3')
+    l2.rpc.pay(inv['bolt11'])
+
+
+# Makes channels going from node 1 -> 2, 2 -> 3, etc up to 'qty' number channels.
+# If balanced is True, than each channel will be balanced -- otherwise the lower
+# index channel will have funds in the channel to the higher indexed one.
+#
+# The channels for the second node are returned in chanids
+def make_chans(node_factory, qty=2, fundamount=1000000, balanced=True):
+    nodes = node_factory.line_graph(qty + 1, fundamount=fundamount, opts={'experimental-splicing': None, 'allow_bad_gossip': True})
+    chanids = []
+
+    for i in range(len(nodes) - 1):
+        nodes[i].daemon.wait_for_log(' to CHANNELD_NORMAL')
+        if balanced:
+            inv = nodes[i + 1].rpc.invoice(1000 * fundamount // 2, 'balance', 'balance')
+            nodes[i].rpc.pay(inv['bolt11'])
+
+    chanids.insert(0, nodes[1].get_channel_id(nodes[0]))
+    if qty > 1:
+        chanids.insert(0, nodes[1].get_channel_id(nodes[2]))
+
+    return [nodes, chanids]
+
+
+def verify_chans(nodes, bitcoind, txid, payment_check_style=1, payamount=1000000):
+    for node in nodes:
+        node.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+
+    wait_for(lambda: len(list(bitcoind.rpc.getrawmempool(True).keys())) == 1)
+
+    bitcoind.generate_block(6, wait_for_mempool=1)
+
+    for node in nodes:
+        node.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+
+    if payment_check_style == 1:
+        for i in range(len(nodes) - 1):
+            inv = nodes[i + 1].rpc.invoice(payamount, str(i) + "test", str(i) + "test")
+            nodes[i].rpc.pay(inv['bolt11'])
+
+
+def execute_script(node_factory, bitcoind, script):
+    nodes, chanids = make_chans(node_factory, script.count("{}"))
+    result = nodes[1].rpc.splice(script.format(*chanids), debug_log=True)
+    verify_chans(nodes, bitcoind, result['txid'])
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_script_two_chan_splice_b(node_factory, bitcoind):
+    execute_script(node_factory, bitcoind, "wallet -> 10000; {} -> 100000; {} -> 100000")
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_script_two_chan_splice_c(node_factory, bitcoind):
+    execute_script(node_factory, bitcoind, "wallet -> 10000; 100000 -> {}; {} -> 100000")
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_script_two_chan_splice_d(node_factory, bitcoind):
+    execute_script(node_factory, bitcoind, "wallet -> 250000; 100000 -> {}; 100000 -> {}")
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_script_two_chan_splice_e(node_factory, bitcoind):
+    execute_script(node_factory, bitcoind, "{} -> 100000; {} -> 100000")
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_script_two_chan_splice_f(node_factory, bitcoind):
+    execute_script(node_factory, bitcoind, "{} -> 200000; 100000 -> {}")
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_script_two_chan_splice_g(node_factory, bitcoind):
+    execute_script(node_factory, bitcoind, "{} -> 200000; 100000 -> {}; * -> wallet")
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_script_two_chan_splice_h(node_factory, bitcoind):
+    execute_script(node_factory, bitcoind, "wallet -> 200000+fee; 100000 -> {}; 100000 -> {}")
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_script_two_chan_splice_ii(node_factory, bitcoind):
+    execute_script(node_factory, bitcoind, "100000 -> {}; {} -> 100000+fee")
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_script_two_chan_splice_j(node_factory, bitcoind):
+    execute_script(node_factory, bitcoind, "100000-fee -> {}; {} -> 100000")
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_script_two_chan_splice_k(node_factory, bitcoind):
+    execute_script(node_factory, bitcoind, "{} -> 10000; 1000 -> {}")
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_script_two_chan_splice_l(node_factory, bitcoind):
+    execute_script(node_factory, bitcoind, "wallet -> 100000; * -> {}; * -> {}")
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_script_two_chan_splice_m(node_factory, bitcoind):
+    execute_script(node_factory, bitcoind, "wallet -> *+fee; 100000 -> {}; 100000 -> {}")
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_script_two_chan_splice_n(node_factory, bitcoind):
+    execute_script(node_factory, bitcoind, "wallet -> 100%+fee; {} -> 50%; 100000 -> {}")
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_script_two_chan_splice_oo(node_factory, bitcoind):
+    execute_script(node_factory, bitcoind, "wallet -> *+fee; {} -> 50%; 100000 -> {}")
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_script_two_chan_splice_p(node_factory, bitcoind):
+    execute_script(node_factory, bitcoind, "wallet -> *; {} -> 50%+fee; 100000 -> {}")
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_script_two_chan_splice_q(node_factory, bitcoind):
+    execute_script(node_factory, bitcoind, "wallet -> *; {} -> 50000+fee; 100000 -> {}")
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_script_two_chan_splice_r(node_factory, bitcoind):
+    execute_script(node_factory, bitcoind, "wallet -> 0+fee; {} -> 100000; 100000 -> {}")
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_script_two_chan_splice_s(node_factory, bitcoind):
+    execute_script(node_factory, bitcoind, "wallet -> 50000; {} -> 50000+fee; 100000 -> {}")
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_script_two_chan_splice_t(node_factory, bitcoind):
+    execute_script(node_factory, bitcoind, "wallet -> 100%; {} -> 50000+fee; 100000 -> {}")
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_script_two_chan_splice_u(node_factory, bitcoind):
+    execute_script(node_factory, bitcoind, "wallet -> 100%; {} -> 50000; 100000 -> {}")
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_script_two_chan_splice_v(node_factory, bitcoind):
+    execute_script(node_factory, bitcoind, "wallet -> 100%; {} -> 100000; 100000 -> {}")
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_script_two_chan_splice_x(node_factory, bitcoind):
+    execute_script(node_factory, bitcoind, "* -> wallet; * -> {}; {} -> 100000")
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_script_two_chan_splice_y(node_factory, bitcoind):
+    execute_script(node_factory, bitcoind, "wallet -> *; 100000 -> {}; 100000 -> {}")
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_script_two_chan_splice_z(node_factory, bitcoind):
+    execute_script(node_factory, bitcoind, "wallet -> 100000; 70% -> {}; 30% -> {}")
