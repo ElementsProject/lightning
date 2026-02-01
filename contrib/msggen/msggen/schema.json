@@ -12309,6 +12309,13 @@
                 "description": [
                   "Feerate to use when creating penalty tx for watchtowers."
                 ]
+              },
+              "splice": {
+                "type": "u32",
+                "added": "v26.04",
+                "description": [
+                  "Feerate to use when performing a splice."
+                ]
               }
             }
           },
@@ -12433,6 +12440,13 @@
                 "description": [
                   "Feerate to use when creating penalty tx for watchtowers."
                 ]
+              },
+              "splice": {
+                "type": "u32",
+                "added": "v26.04",
+                "description": [
+                  "Feerate to use when performing a splice."
+                ]
               }
             }
           },
@@ -12539,6 +12553,7 @@
               "unilateral_close": 11000,
               "unilateral_anchor_close": 3750,
               "penalty": 7500,
+              "splice": 7505,
               "min_acceptable": 1875,
               "max_acceptable": 150000,
               "floor": 253,
@@ -12590,6 +12605,7 @@
               "unilateral_close": 44000,
               "unilateral_anchor_close": 15000,
               "penalty": 30000,
+              "splice": 30005,
               "min_acceptable": 7500,
               "max_acceptable": 600000,
               "floor": 1012,

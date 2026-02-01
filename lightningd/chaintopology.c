@@ -712,6 +712,14 @@ static struct command_result *json_feerates(struct command *cmd,
 	if (rate)
 		json_add_num(response, "penalty",
 			     feerate_to_style(rate, *style));
+	rate = unilateral_feerate(topo, true);
+	if (rate) {
+		rate += cmd->ld->config.feerate_offset;
+		if (rate > feerate_max(cmd->ld, NULL))
+			rate = feerate_max(cmd->ld, NULL);
+		json_add_num(response, "splice",
+			     feerate_to_style(rate, *style));
+	}
 
 	json_add_u64(response, "min_acceptable",
 		     feerate_to_style(feerate_min(cmd->ld, NULL), *style));
