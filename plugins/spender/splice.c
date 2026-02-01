@@ -1200,6 +1200,21 @@ static struct command_result *execute_splice(struct command *cmd,
 		}
 	}
 
+	/* Set needed funds to the wallet contributions. */
+	for (size_t i = 0; i < tal_count(splice_cmd->actions); i++) {
+		action = splice_cmd->actions[i];
+		state = splice_cmd->states[i];
+		if (action->onchain_wallet
+		    && !amount_sat_is_zero(action->out_sat)) {
+			splice_cmd->needed_funds = action->out_sat;
+			plugin_log(cmd->plugin, LOG_INFORM, "setting"
+				   " needed_funds to %s",
+				   fmt_amount_sat(tmpctx,
+				   		  splice_cmd->needed_funds));
+			action->out_sat = AMOUNT_SAT(0);
+		}
+	}
+
 	return continue_splice(cmd, splice_cmd);
 }
 
@@ -1497,6 +1512,7 @@ json_splice(struct command *cmd, const char *buf, const jsmntok_t *params)
 	splice_cmd->emergency_sat = AMOUNT_SAT(0);
 	splice_cmd->debug_log = *debug_log ? tal_strdup(splice_cmd, "") : NULL;
 	splice_cmd->debug_counter = 0;
+	splice_cmd->needed_funds = AMOUNT_SAT(0);
 	memset(&splice_cmd->final_txid, 0, sizeof(splice_cmd->final_txid));
 
 	/* If script validates as json, parse it as json instead */
