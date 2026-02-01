@@ -248,6 +248,71 @@ static struct command_result *splice_error_pkg(struct command *cmd,
 	return res;
 }
 
+static struct splice_script_result *input_wallet(struct splice_cmd *splice_cmd,
+						 size_t *index)
+{
+	for (size_t i = 0; i < tal_count(splice_cmd->actions); i++) {
+		struct splice_script_result *action = splice_cmd->actions[i];
+		if (action->onchain_wallet
+		    && !action->in_ppm
+		    && amount_sat_is_zero(action->in_sat)) {
+			if (index)
+				*index = i;
+			return action;
+		}
+	}
+	return NULL;
+}
+
+static struct splice_script_result *output_wallet(struct splice_cmd *splice_cmd)
+{
+	for (size_t i = 0; i < tal_count(splice_cmd->actions); i++) {
+		struct splice_script_result *action = splice_cmd->actions[i];
+		if (!action->onchain_wallet)
+			continue;
+		if (action->in_ppm || !amount_sat_is_zero(action->in_sat))
+			return action;
+	}
+	return NULL;
+}
+
+static struct splice_script_result *fee_action(struct splice_cmd *splice_cmd)
+{
+	for (size_t i = 0; i < tal_count(splice_cmd->actions); i++) {
+		struct splice_script_result *action = splice_cmd->actions[i];
+		if (action->pays_fee)
+			return action;
+	}
+	return NULL;
+}
+
+static struct command_result *notice_missing_funds(struct command *cmd,
+						   struct splice_cmd *splice_cmd,
+						   struct amount_sat *missing_funds,
+						   struct amount_sat funds_needed,
+						   struct amount_sat *funds_available)
+{
+	if (!amount_sat_add(missing_funds, *missing_funds, funds_needed))
+		return do_fail(cmd, splice_cmd, JSONRPC2_INVALID_PARAMS,
+				    "Unable to add for missing_funds");
+	if (!amount_sat_sub(missing_funds, *missing_funds, *funds_available))
+		return do_fail(cmd, splice_cmd, JSONRPC2_INVALID_PARAMS,
+				    "Unable to sub for missing_funds");
+	*funds_available = AMOUNT_SAT(0);
+	plugin_log(cmd->plugin, LOG_DBG, "  missing_funds detected, now %s",
+		   fmt_amount_sat(tmpctx, *missing_funds));
+	return NULL;
+}
+
+#define NOTICE_MISSING(missing_funds, funds_needed, funds_available) \
+	{ \
+		struct command_result *result; \
+		result = notice_missing_funds(cmd, splice_cmd, missing_funds, \
+					      funds_needed, funds_available); \
+		if (result) \
+			return result; \
+	}
+
 static struct command_result *calc_in_ppm_and_fee(struct command *cmd,
 						  struct splice_cmd *splice_cmd,
 						  struct amount_sat onchain_fee)
@@ -354,16 +419,21 @@ static bool json_to_msat_to_sat(const char *buffer, const jsmntok_t *tok,
 	return amount_msat_to_sat(sat, msat);
 }
 
-static struct splice_script_result *output_wallet(struct splice_cmd *splice_cmd)
+static struct splice_script_result *make_wallet(struct splice_cmd *splice_cmd)
 {
-	for (size_t i = 0; i < tal_count(splice_cmd->actions); i++) {
-		struct splice_script_result *action = splice_cmd->actions[i];
-		if (!action->onchain_wallet)
-			continue;
-		if (action->in_ppm || !amount_sat_is_zero(action->in_sat))
-			return action;
-	}
-	return NULL;
+	struct splice_script_result *action;
+	struct splice_cmd_action_state *state;
+
+	action = talz(splice_cmd->actions, struct splice_script_result);
+	state = talz(splice_cmd->states, struct splice_cmd_action_state);
+
+	action->onchain_wallet = true;
+	state->state = SPLICE_CMD_NONE;
+
+	tal_arr_expand(&splice_cmd->actions, action);
+	tal_arr_expand(&splice_cmd->states, state);
+
+	return action;
 }
 
 static struct command_result *addpsbt_get_result(struct command *cmd,
@@ -517,6 +587,41 @@ static struct command_result *load_feerate(struct command *cmd,
 	json_add_string(req->js, "style", "perkw");
 
 	return send_outreq(req);
+}
+
+static struct amount_sat wallet_funding_amnt(struct splice_cmd *splice_cmd)
+{
+	struct amount_sat wallet_funding = AMOUNT_SAT(0);
+
+	/* Being unable to wallet inputs shouldn't happen, so we log UNUSUAL */
+	for (size_t i = 0; i < tal_count(splice_cmd->actions); i++) {
+		if (splice_cmd->actions[i]->onchain_wallet) {
+			if (!amount_sat_add(&wallet_funding, wallet_funding,
+					    splice_cmd->actions[i]->out_sat))
+				plugin_log(splice_cmd->cmd->plugin, LOG_UNUSUAL,
+					   "Failed to add out_sat %s to"
+					   " wallet_funding %s",
+					   fmt_amount_sat(tmpctx, splice_cmd->actions[i]->out_sat),
+					   fmt_amount_sat(tmpctx, wallet_funding));
+		}
+	}
+
+	for (size_t i = 0; i < tal_count(splice_cmd->actions); i++) {
+		if (splice_cmd->actions[i]->onchain_wallet) {
+			if (!amount_sat_sub(&wallet_funding, wallet_funding,
+					    splice_cmd->actions[i]->in_sat))
+				wallet_funding = AMOUNT_SAT(0);
+		}
+	}
+
+	return wallet_funding;
+}
+
+static bool unresolved_wallet_inputs(struct splice_cmd *splice_cmd)
+{
+	struct amount_sat wallet_funding = wallet_funding_amnt(splice_cmd);
+
+	return amount_sat_less(wallet_funding, splice_cmd->needed_funds);
 }
 
 static size_t calc_weight(struct splice_cmd *splice_cmd,
