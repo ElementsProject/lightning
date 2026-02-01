@@ -20,6 +20,65 @@ struct abort_pkg {
 	char *str;
 };
 
+static const char *cmd_state_string(enum splice_cmd_state state)
+{
+	switch (state) {
+		case SPLICE_CMD_NONE:
+			return "                    ";
+		case SPLICE_CMD_PENDING:
+			return "       PENDING      ";
+		case SPLICE_CMD_INIT:
+			return "        INIT        ";
+		case SPLICE_CMD_UPDATE:
+			return "       UPDATE       ";
+		case SPLICE_CMD_UPDATE_NEEDS_CHANGES:
+			return "UPDATE_NEEDS_CHANGES";
+		case SPLICE_CMD_UPDATE_DONE:
+			return "     UPDATE_DONE    ";
+		case SPLICE_CMD_RECVED_SIGS:
+			return "     RECVED_SIGS    ";
+		case SPLICE_CMD_DONE:
+			return "        DONE        ";
+	}
+	return NULL;
+}
+
+static void add_to_debug_log(struct splice_cmd *scmd, const char *phase)
+{
+	char **log = &scmd->debug_log;
+	if (!*log)
+		return;
+
+	tal_append_fmt(log, "#%d: (%s)\n", ++scmd->debug_counter, phase);
+
+	for (size_t i = 0; i < tal_count(scmd->actions); i++) {
+		struct splice_script_result *action = scmd->actions[i];
+		struct splice_cmd_action_state *state = scmd->states[i];
+		bool simulate_wallet_amount = false;
+		bool hide_fee = false;
+
+		if (action->onchain_wallet && action->pays_fee) {
+			if (amount_sat_is_zero(action->out_sat)) {
+				simulate_wallet_amount = true;
+				action->out_sat = scmd->needed_funds;
+			} else {
+				hide_fee = true;
+				action->pays_fee = false;
+			}
+		}
+
+		tal_append_fmt(log, "[%s] %s\n",
+			       cmd_state_string(state->state),
+			       splice_to_string(tmpctx, action));
+
+		if (simulate_wallet_amount)
+			action->out_sat = AMOUNT_SAT(0);
+
+		if (hide_fee)
+			action->pays_fee = true;
+	}
+}
+
 static void debug_log_to_json(struct json_stream *response,
 			      const char *debug_log)
 {
@@ -845,45 +904,6 @@ static struct command_result *check_emergency_sat(struct command *cmd,
 				       fmt_amount_sat(tmpctx, splice_cmd->emergency_sat)));
 
 	return NULL;
-}
-
-static const char *cmd_state_string(enum splice_cmd_state state)
-{
-	switch (state) {
-		case SPLICE_CMD_NONE:
-			return "                    ";
-		case SPLICE_CMD_INIT:
-			return "        INIT        ";
-		case SPLICE_CMD_UPDATE:
-			return "       UPDATE       ";
-		case SPLICE_CMD_UPDATE_NEEDS_CHANGES:
-			return "UPDATE_NEEDS_CHANGES";
-		case SPLICE_CMD_UPDATE_DONE:
-			return "     UPDATE_DONE    ";
-		case SPLICE_CMD_RECVED_SIGS:
-			return "     RECVED_SIGS    ";
-		case SPLICE_CMD_DONE:
-			return "        DONE        ";
-	}
-	return NULL;
-}
-
-static void add_to_debug_log(struct splice_cmd *scmd, const char *phase)
-{
-	char **log = &scmd->debug_log;
-	if (!*log)
-		return;
-
-	tal_append_fmt(log, "#%d: (%s)\n", ++scmd->debug_counter, phase);
-
-	for (size_t i = 0; i < tal_count(scmd->actions); i++) {
-		struct splice_script_result *action = scmd->actions[i];
-		struct splice_cmd_action_state *state = scmd->states[i];
-
-		tal_append_fmt(log, "[%s] %s\n",
-			       cmd_state_string(state->state),
-			       splice_to_string(tmpctx, action));
-	}
 }
 
 static struct command_result *handle_wetrun(struct command *cmd,
