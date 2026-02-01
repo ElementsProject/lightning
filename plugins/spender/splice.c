@@ -1090,9 +1090,10 @@ static struct command_result *execute_splice(struct command *cmd,
 		action = splice_cmd->actions[i];
 		state = splice_cmd->states[i];
 
-		if (splice_cmd->actions[i]->out_ppm)
+		if (action->out_ppm && !action->onchain_wallet)
 			return do_fail(cmd, splice_cmd, JSONRPC2_INVALID_PARAMS,
-					    "Should be no out_ppm on final");
+					    "Should be no out_ppm on final"
+					    " except for the wallet");
 		if (splice_cmd->actions[i]->pays_fee) {
 			if (pays_fee)
 				return do_fail(cmd, splice_cmd,
