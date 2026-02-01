@@ -1440,6 +1440,7 @@ def feerates_perkb2py(m):
         "mutual_close": m.mutual_close,  # PrimitiveField in generate_composite
         "opening": m.opening,  # PrimitiveField in generate_composite
         "penalty": m.penalty,  # PrimitiveField in generate_composite
+        "splice": m.splice,  # PrimitiveField in generate_composite
         "unilateral_anchor_close": m.unilateral_anchor_close,  # PrimitiveField in generate_composite
         "unilateral_close": m.unilateral_close,  # PrimitiveField in generate_composite
     })
@@ -1464,6 +1465,7 @@ def feerates_perkw2py(m):
         "mutual_close": m.mutual_close,  # PrimitiveField in generate_composite
         "opening": m.opening,  # PrimitiveField in generate_composite
         "penalty": m.penalty,  # PrimitiveField in generate_composite
+        "splice": m.splice,  # PrimitiveField in generate_composite
         "unilateral_anchor_close": m.unilateral_anchor_close,  # PrimitiveField in generate_composite
         "unilateral_close": m.unilateral_close,  # PrimitiveField in generate_composite
     })
