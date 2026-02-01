@@ -197,7 +197,6 @@ def test_script_splice_in(node_factory, bitcoind, chainparams):
     assert not account_info['account_closed']
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
@@ -230,7 +229,6 @@ def test_script_two_chan_splice_in(node_factory, bitcoind):
     l2.rpc.pay(inv['bolt11'])
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
@@ -267,7 +265,6 @@ def test_script_two_chan_splice_out(node_factory, bitcoind):
     l2.rpc.pay(inv['bolt11'])
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
@@ -345,7 +342,6 @@ def execute_script(node_factory, bitcoind, script):
     verify_chans(nodes, bitcoind, result['txid'])
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
@@ -353,7 +349,6 @@ def test_script_two_chan_splice_b(node_factory, bitcoind):
     execute_script(node_factory, bitcoind, "wallet -> 10000; {} -> 100000; {} -> 100000")
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
@@ -361,7 +356,6 @@ def test_script_two_chan_splice_c(node_factory, bitcoind):
     execute_script(node_factory, bitcoind, "wallet -> 10000; 100000 -> {}; {} -> 100000")
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
@@ -369,7 +363,6 @@ def test_script_two_chan_splice_d(node_factory, bitcoind):
     execute_script(node_factory, bitcoind, "wallet -> 250000; 100000 -> {}; 100000 -> {}")
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
@@ -377,7 +370,6 @@ def test_script_two_chan_splice_e(node_factory, bitcoind):
     execute_script(node_factory, bitcoind, "{} -> 100000; {} -> 100000")
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
@@ -385,7 +377,6 @@ def test_script_two_chan_splice_f(node_factory, bitcoind):
     execute_script(node_factory, bitcoind, "{} -> 200000; 100000 -> {}")
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
@@ -393,7 +384,6 @@ def test_script_two_chan_splice_g(node_factory, bitcoind):
     execute_script(node_factory, bitcoind, "{} -> 200000; 100000 -> {}; * -> wallet")
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
@@ -401,7 +391,6 @@ def test_script_two_chan_splice_h(node_factory, bitcoind):
     execute_script(node_factory, bitcoind, "wallet -> 200000+fee; 100000 -> {}; 100000 -> {}")
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
@@ -409,7 +398,6 @@ def test_script_two_chan_splice_ii(node_factory, bitcoind):
     execute_script(node_factory, bitcoind, "100000 -> {}; {} -> 100000+fee")
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
@@ -417,7 +405,6 @@ def test_script_two_chan_splice_j(node_factory, bitcoind):
     execute_script(node_factory, bitcoind, "100000-fee -> {}; {} -> 100000")
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
@@ -425,7 +412,6 @@ def test_script_two_chan_splice_k(node_factory, bitcoind):
     execute_script(node_factory, bitcoind, "{} -> 10000; 1000 -> {}")
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
@@ -433,7 +419,6 @@ def test_script_two_chan_splice_l(node_factory, bitcoind):
     execute_script(node_factory, bitcoind, "wallet -> 100000; * -> {}; * -> {}")
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
@@ -441,7 +426,6 @@ def test_script_two_chan_splice_m(node_factory, bitcoind):
     execute_script(node_factory, bitcoind, "wallet -> *+fee; 100000 -> {}; 100000 -> {}")
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
@@ -449,7 +433,6 @@ def test_script_two_chan_splice_n(node_factory, bitcoind):
     execute_script(node_factory, bitcoind, "wallet -> 100%+fee; {} -> 50%; 100000 -> {}")
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
@@ -457,7 +440,6 @@ def test_script_two_chan_splice_oo(node_factory, bitcoind):
     execute_script(node_factory, bitcoind, "wallet -> *+fee; {} -> 50%; 100000 -> {}")
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
@@ -465,7 +447,6 @@ def test_script_two_chan_splice_p(node_factory, bitcoind):
     execute_script(node_factory, bitcoind, "wallet -> *; {} -> 50%+fee; 100000 -> {}")
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
@@ -473,7 +454,6 @@ def test_script_two_chan_splice_q(node_factory, bitcoind):
     execute_script(node_factory, bitcoind, "wallet -> *; {} -> 50000+fee; 100000 -> {}")
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
@@ -481,7 +461,6 @@ def test_script_two_chan_splice_r(node_factory, bitcoind):
     execute_script(node_factory, bitcoind, "wallet -> 0+fee; {} -> 100000; 100000 -> {}")
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
@@ -489,7 +468,6 @@ def test_script_two_chan_splice_s(node_factory, bitcoind):
     execute_script(node_factory, bitcoind, "wallet -> 50000; {} -> 50000+fee; 100000 -> {}")
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
@@ -497,7 +475,6 @@ def test_script_two_chan_splice_t(node_factory, bitcoind):
     execute_script(node_factory, bitcoind, "wallet -> 100%; {} -> 50000+fee; 100000 -> {}")
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
@@ -505,7 +482,6 @@ def test_script_two_chan_splice_u(node_factory, bitcoind):
     execute_script(node_factory, bitcoind, "wallet -> 100%; {} -> 50000; 100000 -> {}")
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
@@ -513,7 +489,6 @@ def test_script_two_chan_splice_v(node_factory, bitcoind):
     execute_script(node_factory, bitcoind, "wallet -> 100%; {} -> 100000; 100000 -> {}")
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
@@ -521,7 +496,6 @@ def test_script_two_chan_splice_x(node_factory, bitcoind):
     execute_script(node_factory, bitcoind, "* -> wallet; * -> {}; {} -> 100000")
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
@@ -529,7 +503,6 @@ def test_script_two_chan_splice_y(node_factory, bitcoind):
     execute_script(node_factory, bitcoind, "wallet -> *; 100000 -> {}; 100000 -> {}")
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
