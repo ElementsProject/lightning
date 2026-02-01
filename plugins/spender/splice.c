@@ -558,7 +558,7 @@ static struct command_result *feerate_get_result(struct command *cmd,
 			struct splice_cmd *splice_cmd)
 {
 	const jsmntok_t *tok = json_get_member(buf, result, "perkw");
-	tok = json_get_member(buf, tok, "opening");
+	tok = json_get_member(buf, tok, "splice");
 
 	if (!json_to_u32(buf, tok, &splice_cmd->feerate_per_kw))
 		return command_fail_badparam(cmd, "opening", buf,
