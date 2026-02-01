@@ -633,6 +633,7 @@ static size_t calc_weight(struct splice_cmd *splice_cmd,
 	size_t lweight = 0, weight = 0;
 	size_t extra_inputs = 0;
 	size_t extra_outputs = 0;
+	bool add_wallet_output = output_wallet(splice_cmd) ? true : false;
 
 	plugin_log(plugin, LOG_DBG, "Counting potenetial tx weight;");
 
@@ -643,19 +644,28 @@ static size_t calc_weight(struct splice_cmd *splice_cmd,
 	 */
 	for (size_t i = 0; i < psbt->num_inputs; i++) {
 		weight += psbt_input_get_weight(psbt, i, PSBT_GUESS_2OF2);
-		plugin_log(plugin, LOG_DBG, " Adding input; weight: %lu",
+		plugin_log(plugin, LOG_DBG, " Counting input; weight: %lu",
 			   weight - lweight);
+		lweight = weight;
+	}
+
+	if (unresolved_wallet_inputs(splice_cmd)) {
+		add_wallet_output = true;
+		weight += bitcoin_tx_input_weight(false,
+						  bitcoin_tx_input_witness_weight(UTXO_P2TR) - 1);
+		plugin_log(plugin, LOG_DBG, " Simulating input (wallet);"
+			   " weight: %lu", weight - lweight);
 		lweight = weight;
 	}
 
 	/* Count the splice input manually */
 	for (size_t i = 0; i < tal_count(splice_cmd->actions); i++) {
 		action = splice_cmd->actions[i];
-		if (splice_cmd->actions[i]->channel_id) {
+		if (action->channel_id) {
 			weight += bitcoin_tx_input_weight(false,
-							  bitcoin_tx_2of2_input_witness_weight());
-			plugin_log(plugin, LOG_DBG, " Adding input"
-				   " (simulated channel); weight:"
+							  bitcoin_tx_2of2_input_witness_weight() - 1);
+			plugin_log(plugin, LOG_DBG, " Simulating input"
+				   " (channel); weight:"
 				   " %lu", weight - lweight);
 			lweight = weight;
 			extra_inputs++;
@@ -665,26 +675,29 @@ static size_t calc_weight(struct splice_cmd *splice_cmd,
 	/* Count the splice outputs manually */
 	for (size_t i = 0; i < tal_count(splice_cmd->actions); i++) {
 		action = splice_cmd->actions[i];
-		if (simulate_wallet_outputs && action->onchain_wallet) {
-			if (!amount_sat_is_zero(action->in_sat) || action->in_ppm) {
-				weight += bitcoin_tx_output_weight(BITCOIN_SCRIPTPUBKEY_P2TR_LEN);
-				extra_outputs++;
-				plugin_log(plugin, LOG_DBG, " Adding output"
-					   " (simulated wallet); weight:"
-					   " %lu", weight - lweight);
-				lweight = weight;
-			}
+		if (action->onchain_wallet) {
+			if (!amount_sat_is_zero(action->in_sat) || action->in_ppm)
+				add_wallet_output = true;
 			assert(!splice_cmd->actions[i]->channel_id);
 		}
 		if (splice_cmd->actions[i]->channel_id) {
 			weight += bitcoin_tx_output_weight(BITCOIN_SCRIPTPUBKEY_P2WSH_LEN);
-			plugin_log(plugin, LOG_DBG, " Adding output"
-				   " (simulated channel); weight:"
+			plugin_log(plugin, LOG_DBG, " Simulating output"
+				   " (channel); weight:"
 				   " %lu", weight - lweight);
 			lweight = weight;
 
 			extra_outputs++;
 		}
+	}
+
+	if (simulate_wallet_outputs && add_wallet_output) {
+		weight += bitcoin_tx_output_weight(BITCOIN_SCRIPTPUBKEY_P2TR_LEN);
+		extra_outputs++;
+		plugin_log(plugin, LOG_DBG, " Simulating output"
+			   " (wallet); weight:"
+			   " %lu", weight - lweight);
+		lweight = weight;
 	}
 
 	for (size_t i = 0; i < psbt->num_outputs; i++) {
@@ -710,7 +723,7 @@ static size_t calc_weight(struct splice_cmd *splice_cmd,
 		   " weight: %lu", weight - lweight);
 	lweight = weight;
 
-	plugin_log(plugin, LOG_DBG, " Total weight: %lu", weight);
+	plugin_log(plugin, LOG_DBG, "Total weight: %lu", weight);
 	return weight;
 }
 
