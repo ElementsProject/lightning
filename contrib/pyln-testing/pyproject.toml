@@ -17,6 +17,7 @@ dependencies = [
   "cheroot>=8,<=10",
   "psutil>=5.9.0",
   "requests>=2.32.0",
+  "mnemonic>=0.21",
 ]
 
 [dependency-groups]
