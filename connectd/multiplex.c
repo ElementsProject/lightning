@@ -856,6 +856,22 @@ static bool handle_custommsg(struct daemon *daemon,
 	return true;
 }
 
+void custommsg_completed(struct daemon *daemon, const u8 *msg)
+{
+	struct node_id id;
+	const struct peer *peer;
+
+	if (!fromwire_connectd_custommsg_in_complete(msg, &id))
+		master_badmsg(WIRE_CONNECTD_CUSTOMMSG_IN_COMPLETE, msg);
+
+	/* If it's still around, log it. */
+	peer = peer_htable_get(daemon->peers, &id);
+	if (peer) {
+		status_peer_debug(&peer->id, "custommsg processing finished");
+		log_peer_io(peer, msg);
+	}
+}
+
 /* We handle pings and gossip messages. */
 static bool handle_message_locally(struct peer *peer, const u8 *msg)
 {
