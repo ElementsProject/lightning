@@ -732,6 +732,14 @@ static void handle_pong_in(struct peer *peer, const u8 *msg)
 	abort();
 }
 
+/* Various cases where we don't send the msg to a gossipd, we want to
+ * do IO logging! */
+static void log_peer_io(const struct peer *peer, const u8 *msg)
+{
+	status_peer_io(LOG_IO_IN, &peer->id, msg);
+	io_wake(peer->peer_outq);
+}
+
 /* Forward to gossipd */
 static void handle_gossip_in(struct peer *peer, const u8 *msg)
 {
@@ -744,7 +752,7 @@ static void handle_gossip_in(struct peer *peer, const u8 *msg)
 	gmsg = towire_gossipd_recv_gossip(NULL, &peer->id, msg);
 
 	/* gossipd doesn't log IO, so we log it here. */
-	status_peer_io(LOG_IO_IN, &peer->id, msg);
+	log_peer_io(peer, msg);
 	daemon_conn_send(peer->daemon->gossipd, take(gmsg));
 }
 
@@ -857,19 +865,19 @@ static bool handle_message_locally(struct peer *peer, const u8 *msg)
 	gossip_rcvd_filter_add(peer->gs.grf, msg);
 
 	if (type == WIRE_GOSSIP_TIMESTAMP_FILTER) {
-		status_peer_io(LOG_IO_IN, &peer->id, msg);
+		log_peer_io(peer, msg);
 		handle_gossip_timestamp_filter_in(peer, msg);
 		return true;
 	} else if (type == WIRE_PING) {
-		status_peer_io(LOG_IO_IN, &peer->id, msg);
+		log_peer_io(peer, msg);
 		handle_ping_in(peer, msg);
 		return true;
 	} else if (type == WIRE_PONG) {
-		status_peer_io(LOG_IO_IN, &peer->id, msg);
+		log_peer_io(peer, msg);
 		handle_pong_in(peer, msg);
 		return true;
 	} else if (type == WIRE_ONION_MESSAGE) {
-		status_peer_io(LOG_IO_IN, &peer->id, msg);
+		log_peer_io(peer, msg);
 		handle_onion_message(peer->daemon, peer, msg);
 		return true;
  	} else if (type == WIRE_QUERY_CHANNEL_RANGE) {
@@ -1267,7 +1275,6 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
        /* If we swallow this, just try again. */
        if (handle_message_locally(peer, decrypted)) {
 	       /* Make sure to update peer->peer_in_lastmsg so we blame correct msg! */
-	       io_wake(peer->peer_outq);
 	       goto out;
        }
 
