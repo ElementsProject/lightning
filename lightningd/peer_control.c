@@ -1322,13 +1322,11 @@ peer_connected_serialize(struct peer_connected_hook_payload *payload,
 	json_object_start(stream, "peer");
 	json_add_node_id(stream, "id", &payload->peer_id);
 	json_add_string(stream, "direction", payload->incoming ? "in" : "out");
-	json_add_string(
-	    stream, "addr",
-	    fmt_wireaddr_internal(stream, &payload->addr));
+	json_add_string(stream, "addr",
+			fmt_wireaddr_internal(tmpctx, &payload->addr));
 	if (payload->remote_addr)
-		json_add_string(
-		    stream, "remote_addr",
-		    fmt_wireaddr(stream, payload->remote_addr));
+		json_add_string(stream, "remote_addr",
+				fmt_wireaddr(tmpctx, payload->remote_addr));
 	/* Since this is start of hook, peer is always in table! */
 	json_add_hex_talarr(stream, "features",
 			    peer_by_id(payload->ld, &payload->peer_id)
