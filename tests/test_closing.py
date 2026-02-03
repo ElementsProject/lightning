@@ -871,7 +871,8 @@ def test_channel_lease_post_expiry(node_factory, bitcoind, chainparams):
     bitcoind.generate_block(6)
     sync_blockheight(bitcoind, [l1, l2])
     # make sure we're at the right place for the csv lock
-    l2.daemon.wait_for_log('Blockheight: SENT_ADD_ACK_COMMIT->RCVD_ADD_ACK_REVOCATION LOCAL now 115')
+    height = bitcoind.rpc.getblockchaininfo()['blocks']
+    l2.daemon.wait_for_log(f'Blockheight: SENT_ADD_ACK_COMMIT->RCVD_ADD_ACK_REVOCATION LOCAL now {height}')
 
     # We need to give l1-l2 time to update their blockheights
     for i in range(0, 4000, 1000):
@@ -980,7 +981,8 @@ def test_channel_lease_unilat_closes(node_factory, bitcoind):
     bitcoind.generate_block(2)
     sync_blockheight(bitcoind, [l1, l2, l3])
     # make sure we're at the right place for the csv lock
-    l2.daemon.wait_for_log('Blockheight: SENT_ADD_ACK_COMMIT->RCVD_ADD_ACK_REVOCATION LOCAL now 110')
+    height = bitcoind.rpc.getblockchaininfo()['blocks']
+    l2.daemon.wait_for_log(f'Blockheight: SENT_ADD_ACK_COMMIT->RCVD_ADD_ACK_REVOCATION LOCAL now {height}')
     l2.stop()
 
     # unilateral close channels l1<->l2 & l3<->l2
