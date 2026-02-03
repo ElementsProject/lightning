@@ -23,10 +23,10 @@ def find_first_tag(evs, tag):
     return ev[0]
 
 
-def check_events(node, channel_id, exp_events):
+def check_events(node, channel_id, exp_events, alt_events=None):
     chan_events = [ev for ev in node.rpc.bkpr_listaccountevents()['events'] if ev['account'] == channel_id]
     stripped = [{k: d[k] for k in ('tag', 'credit_msat', 'debit_msat') if k in d} for d in chan_events]
-    assert stripped == exp_events
+    assert stripped == exp_events or stripped == alt_events
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "fixme: broadcast fails, dusty")
@@ -399,7 +399,12 @@ def test_bookkeeping_missed_chans_pushed(node_factory, bitcoind):
                   {'tag': 'pushed', 'credit_msat': 0, 'debit_msat': push_amt},
                   {'tag': 'onchain_fee', 'credit_msat': 4927000, 'debit_msat': 0},
                   {'tag': 'invoice', 'credit_msat': 0, 'debit_msat': invoice_msat}]
-    check_events(l1, channel_id, exp_events)
+    # We sometimes see onchain_fee first:
+    alt_events = [{'tag': 'channel_open', 'credit_msat': open_amt * 1000, 'debit_msat': 0},
+                  {'tag': 'onchain_fee', 'credit_msat': 4927000, 'debit_msat': 0},
+                  {'tag': 'pushed', 'credit_msat': 0, 'debit_msat': push_amt},
+                  {'tag': 'invoice', 'credit_msat': 0, 'debit_msat': invoice_msat}]
+    check_events(l1, channel_id, exp_events, alt_events)
 
     # l2 events
     exp_events = [{'tag': 'channel_open', 'credit_msat': 0, 'debit_msat': 0},
