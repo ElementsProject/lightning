@@ -2401,6 +2401,10 @@ static struct io_plan *recv_req(struct io_conn *conn,
 		add_scid_map(daemon, msg);
 		goto out;
 
+	case WIRE_CONNECTD_CUSTOMMSG_IN_COMPLETE:
+		custommsg_completed(daemon, msg);
+		goto out;
+
 	case WIRE_CONNECTD_DEV_MEMLEAK:
 		if (daemon->developer) {
 			dev_connect_memleak(daemon, msg);

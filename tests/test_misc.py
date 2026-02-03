@@ -4719,6 +4719,8 @@ def test_even_sendcustommsg(node_factory):
     l1.rpc.sendcustommsg(l2.info['id'], msg)
     l2.daemon.wait_for_log(r'\[IN\] {}'.format(msg))
     l2.daemon.wait_for_log(r'allow_even_msgs.*Got message 43690')
+    # Make sure it *processes* before we remove plugin.
+    l2.daemon.wait_for_log(f"{l1.info['id']}-connectd: custommsg processing finished")
 
     # And nobody gets upset
     assert only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected']

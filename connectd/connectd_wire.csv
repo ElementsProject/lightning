@@ -194,6 +194,10 @@ msgdata,connectd_custommsg_in,id,node_id,
 msgdata,connectd_custommsg_in,msg_len,u16,
 msgdata,connectd_custommsg_in,msg,u8,msg_len
 
+# We got that custommsg, thankyou, it was delightful.
+msgtype,connectd_custommsg_in_complete,2111
+msgdata,connectd_custommsg_in_complete,id,node_id,
+
 # A custom message that the lightningd tells us to send to the peer.
 msgtype,connectd_custommsg_out,2011
 msgdata,connectd_custommsg_out,id,node_id,

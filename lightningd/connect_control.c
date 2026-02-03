@@ -351,6 +351,7 @@ void connect_succeeded(struct lightningd *ld, const struct peer *peer,
 }
 
 struct custommsg_payload {
+	struct lightningd *ld;
 	struct node_id peer_id;
 	u8 *msg;
 };
@@ -376,6 +377,11 @@ static bool custommsg_cb(struct custommsg_payload *payload,
 
 static void custommsg_final(struct custommsg_payload *payload STEALS)
 {
+	/* Note: on shutdown, ld->connectd can be NULL! */
+	if (payload->ld->connectd) {
+		subd_send_msg(payload->ld->connectd,
+			      take(towire_connectd_custommsg_in_complete(NULL, &payload->peer_id)));
+	}
 	tal_steal(tmpctx, payload);
 }
 
@@ -397,6 +403,7 @@ static void handle_custommsg_in(struct lightningd *ld, const u8 *msg)
 {
 	struct custommsg_payload *p = tal(NULL, struct custommsg_payload);
 
+	p->ld = ld;
 	if (!fromwire_connectd_custommsg_in(p, msg, &p->peer_id, &p->msg)) {
 		log_broken(ld->log, "Malformed custommsg: %s",
 			   tal_hex(tmpctx, msg));
@@ -550,6 +557,7 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 	case WIRE_CONNECTD_DEV_EXHAUST_FDS:
 	case WIRE_CONNECTD_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
 	case WIRE_CONNECTD_SCID_MAP:
+	case WIRE_CONNECTD_CUSTOMMSG_IN_COMPLETE:
 	/* This is a reply, so never gets through to here. */
 	case WIRE_CONNECTD_INIT_REPLY:
 	case WIRE_CONNECTD_ACTIVATE_REPLY:
