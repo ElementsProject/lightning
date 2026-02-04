@@ -59,8 +59,7 @@ def test_close_unknownfees_cpfp(node_factory, bitcoind):
 
     l2.stop()
 
-    # l1 initiates a mutual close.  Even without fee estimation the peer
-    # negotiation should succeed because l2 *can* estimate.
+    # l1 initiates unilateral close while l2 is offline.
     close = l1.rpc.close(l2.info['id'], 1)
     close_txid = only_one(close['txids'])
 
