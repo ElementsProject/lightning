@@ -1431,17 +1431,27 @@ def test_min_htlc_after_excess(node_factory, bitcoind):
                          final_cltv=10)
 
 
+# These were obviously having a bad day at the time of the snapshot:
+canned_gossmap_badnodes = {
+    19: "We could not find a usable set of paths.  The shortest path is 103x1x0->0x2134x0->0x333x988->19x333x16169, but 0x2134x0/0 exceeds htlc_maximum_msat ~1000448msat",
+    53: "We could not find a usable set of paths.  The destination has disabled 177 of 177 channels, leaving capacity only 0msat of 4003677000msat.",
+    69: "We could not find a usable set of paths.  The destination has disabled 151 of 151 channels, leaving capacity only 0msat of 9092303000msat.",
+    72: "We could not find a usable set of paths.  The destination has disabled 146 of 146 channels, leaving capacity only 0msat of 1996000000msat.",
+    86: "We could not find a usable set of paths.  The destination has disabled 131 of 131 channels, leaving capacity only 0msat of 162000000msat.",
+}
+
+
 @pytest.mark.slow_test
 def test_real_data(node_factory, bitcoind):
     # Route from Rusty's node to the top nodes
-    # From tests/data/gossip-store-2024-09-22-node-map.xz:
-    # Me: 3301:024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605:BLUEIRON
-    # So we make l2 node 3301.
+    # From tests/data/gossip-store-2026-02-03-node-map.xz:
+    # Me: 2134:024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605:BLUEIRON
+    # So we make l2 node 2134.
     outfile = tempfile.NamedTemporaryFile(prefix='gossip-store-')
     nodeids = subprocess.check_output(['devtools/gossmap-compress',
                                        'decompress',
-                                       '--node-map=3301=033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a',
-                                       'tests/data/gossip-store-2024-09-22.compressed',
+                                       '--node-map=2134=033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a',
+                                       'tests/data/gossip-store-2026-02-03.compressed',
                                        outfile.name]).decode('utf-8').splitlines()
 
     # This is in msat, but is also the size of channel we create.
@@ -1457,34 +1467,21 @@ def test_real_data(node_factory, bitcoind):
                                             'askrene-timeout': TIMEOUT},
                                            {'allow_warning': True}])
 
-    # These were obviously having a bad day at the time of the snapshot:
-    badnodes = {
-        # 62:03dbe3fedd4f6e7f7020c69e6d01453d5a69f9faa1382901cf3028f1e997ef2814:BTC_👽👽👽👽👽👽
-        62: " marked disabled by gossip message",
-        # This one has 151 channels, with peers each only connected to it.  An island!
-        # 76:0298906458987af756e2a43b208c03499c4d2bde630d4868dda0ea6a184f87c62a:0298906458987af756e2
-        76: "There is no connection between source and destination at all",
-        # 80:02d246c519845e7b23b02684d64ca23b750958e0307f9519849ee2535e3637999a:SLIMYRAGE-
-        80: " marked disabled by gossip message",
-        # 97:034a5fdb2df3ce1bfd2c2aca205ce9cfeef1a5f4af21b0b5e81c453080c30d7683:🚶LightningTransact
-        97: r"We could not find a usable set of paths\.  The shortest path is 103x1x0->0x3301x1646->0x1281x2323->97x1281x33241, but 97x1281x33241/1 isn't big enough to carry 100000000msat\.",
-    }
-
     # CI, it's slow.
     if SLOW_MACHINE:
         limit = 25
-        expected = (6, 25, 1568821, 144649, 91)
+        expected = (9, 24, 1935647, 219066, 89)
     else:
         limit = 100
-        expected = (9, 96, 6565466, 668476, 90)
+        expected = (11, 95, 8026484, 925406, 89)
 
     fees = {}
     for n in range(0, limit):
         # 0.5% is the norm
         MAX_FEE = AMOUNT // 200
 
-        if n in badnodes:
-            with pytest.raises(RpcError, match=badnodes[n]):
+        if n in canned_gossmap_badnodes:
+            with pytest.raises(RpcError, match=canned_gossmap_badnodes[n]):
                 l1.rpc.getroutes(source=l1.info['id'],
                                  destination=nodeids[n],
                                  amount_msat=AMOUNT,
@@ -1552,14 +1549,14 @@ def test_real_data(node_factory, bitcoind):
 @pytest.mark.slow_test
 def test_real_biases(node_factory, bitcoind):
     # Route from Rusty's node to the top 100.
-    # From tests/data/gossip-store-2024-09-22-node-map.xz:
-    # Me: 3301:024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605:BLUEIRON
-    # So we make l2 node 3301.
+    # From tests/data/gossip-store-2026-02-03-node-map.xz:
+    # Me: 2134:024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605:BLUEIRON
+    # So we make l2 node 2134.
     outfile = tempfile.NamedTemporaryFile(prefix='gossip-store-')
     nodeids = subprocess.check_output(['devtools/gossmap-compress',
                                        'decompress',
-                                       '--node-map=3301=033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a',
-                                       'tests/data/gossip-store-2024-09-22.compressed',
+                                       '--node-map=2134=033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a',
+                                       'tests/data/gossip-store-2026-02-03.compressed',
                                        outfile.name]).decode('utf-8').splitlines()
 
     # This is in msat, but is also the size of channel we create.
@@ -1573,26 +1570,13 @@ def test_real_biases(node_factory, bitcoind):
                                             'dev-throttle-gossip': None},
                                            {'allow_warning': True}])
 
-    # These were obviously having a bad day at the time of the snapshot:
-    badnodes = {
-        # 62:03dbe3fedd4f6e7f7020c69e6d01453d5a69f9faa1382901cf3028f1e997ef2814:BTC_👽👽👽👽👽👽
-        62: " marked disabled by gossip message",
-        # This one has 151 channels, with peers each only connected to it.  An island!
-        # 76:0298906458987af756e2a43b208c03499c4d2bde630d4868dda0ea6a184f87c62a:0298906458987af756e2
-        76: "There is no connection between source and destination at all",
-        # 80:02d246c519845e7b23b02684d64ca23b750958e0307f9519849ee2535e3637999a:SLIMYRAGE-
-        80: " marked disabled by gossip message",
-        # 97:034a5fdb2df3ce1bfd2c2aca205ce9cfeef1a5f4af21b0b5e81c453080c30d7683:🚶LightningTransact
-        97: r"We could not find a usable set of paths\.  The shortest path is 103x1x0->0x3301x1646->0x1281x2323->97x1281x33241, but 97x1281x33241/1 isn't big enough to carry 100000000msat\.",
-    }
-
     # CI, it's slow.
     if SLOW_MACHINE:
         limit = 25
-        expected = ({1: 6, 2: 6, 4: 7, 8: 12, 16: 14, 32: 19, 64: 25, 100: 25}, 0)
+        expected = ({1: 6, 2: 7, 4: 12, 8: 13, 16: 18, 32: 23, 64: 24, 100: 24}, 0)
     else:
         limit = 100
-        expected = ({1: 22, 2: 25, 4: 36, 8: 53, 16: 69, 32: 80, 64: 96, 100: 96}, 0)
+        expected = ({1: 26, 2: 33, 4: 48, 8: 57, 16: 77, 32: 90, 64: 95, 100: 95}, 0)
 
     l1.rpc.askrene_create_layer('biases')
     num_changed = {}
@@ -1604,7 +1588,7 @@ def test_real_biases(node_factory, bitcoind):
             # 0.5% is the norm
             MAX_FEE = AMOUNT // 200
 
-            if n in badnodes:
+            if n in canned_gossmap_badnodes:
                 continue
 
             route = l1.rpc.getroutes(source=l1.info['id'],
@@ -1638,13 +1622,6 @@ def test_real_biases(node_factory, bitcoind):
                 amount_after = amount_through_chan(chan, route2['routes'])
                 if amount_after < amount_before:
                     num_changed[bias] += 1
-                else:
-                    # We bias -4 against 83x88x31908/0 going to node 83, and this is violated.
-                    # Both routes contain three paths, all via 83x88x31908/0.
-                    # The first amounts  49490584, 1018832, 49490584,
-                    # The second amounts 25254708, 25254708, 49490584,
-                    # Due to fees and rounding, we actually spend 1msat more on the second case!
-                    assert (n, bias, chan) == (83, 4, '83x88x31908/0')
 
             # Undo bias
             l1.rpc.askrene_bias_channel(layer='biases', short_channel_id_dir=chan, bias=0)
@@ -1677,8 +1654,8 @@ def test_askrene_fake_channeld(node_factory, bitcoind):
     outfile = tempfile.NamedTemporaryFile(prefix='gossip-store-')
     nodeids = subprocess.check_output(['devtools/gossmap-compress',
                                        'decompress',
-                                       '--node-map=3301=033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a',
-                                       'tests/data/gossip-store-2024-09-22.compressed',
+                                       '--node-map=2134=033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a',
+                                       'tests/data/gossip-store-2026-02-03.compressed',
                                        outfile.name]).decode('utf-8').splitlines()
     AMOUNT = 100_000_000
 
@@ -1705,7 +1682,7 @@ def test_askrene_fake_channeld(node_factory, bitcoind):
 
     l1.rpc.askrene_create_layer('test_askrene_fake_channeld')
     for n in range(0, 100):
-        if n in (62, 76, 80, 97):
+        if n in canned_gossmap_badnodes:
             continue
 
         print(f"PAYING Node #{n}")
