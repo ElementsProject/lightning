@@ -68,10 +68,6 @@ else
 DEV_CFLAGS=
 endif
 
-ifeq ($(COVERAGE),1)
-COVFLAGS = --coverage
-endif
-
 ifeq ($(CLANG_COVERAGE),1)
 COVFLAGS+=-fprofile-instr-generate -fcoverage-mapping
 endif
@@ -378,10 +374,12 @@ endif
 RUST_PROFILE ?= debug
 
 # Cargo places cross compiled packages in a different directory, using the target triple
+# Respect CARGO_TARGET_DIR if set in the environment
+CARGO_BASE_DIR = $(or $(CARGO_TARGET_DIR),target)
 ifeq ($(TARGET),)
-RUST_TARGET_DIR = target/$(RUST_PROFILE)
+RUST_TARGET_DIR = $(CARGO_BASE_DIR)/$(RUST_PROFILE)
 else
-RUST_TARGET_DIR = target/$(TARGET)/$(RUST_PROFILE)
+RUST_TARGET_DIR = $(CARGO_BASE_DIR)/$(TARGET)/$(RUST_PROFILE)
 endif
 
 ifneq ($(RUST_PROFILE),debug)
