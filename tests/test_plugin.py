@@ -17,6 +17,7 @@ from tests.test_wallet import HsmTool, write_all, WAIT_TIMEOUT
 import ast
 import copy
 import json
+import math
 import os
 import pytest
 import random
@@ -4034,7 +4035,7 @@ def test_sql(node_factory, bitcoind):
 
     # And I need at least one HTLC in-flight so listpeers.channels.htlcs isn't empty:
     l3.rpc.plugin_start(os.path.join(os.getcwd(), 'tests/plugins/hold_invoice.py'),
-                        holdtime=TIMEOUT * 2)
+                        holdtime=int(math.sqrt(TIMEOUT) + 1) * 2)
     inv = l3.rpc.invoice(amount_msat=12300, label='inv3', description='description')
     route = l1.rpc.getroute(l3.info['id'], 12300, 1)['route']
     l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
