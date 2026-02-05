@@ -5,6 +5,7 @@
 #include <arpa/inet.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/io/io.h>
+#include <ccan/membuf/membuf.h>
 #include <ccan/pipecmd/pipecmd.h>
 #include <ccan/tal/str/str.h>
 #include <common/json_param.h>
@@ -27,16 +28,16 @@ struct reckless {
 	int logfd;
 	char *stdoutbuf;
 	char *stderrbuf;
-	char *logbuf;
 	size_t stdout_read;	/* running total */
 	size_t stdout_new;	/* new since last read */
 	size_t stderr_read;
 	size_t stderr_new;
-	size_t log_read;
-	size_t log_new;
-	char* log_to_process;
 	pid_t pid;
 	char *process_failed;
+
+	MEMBUF(char) logbuf;
+	/* Amount just read by io_read_partial */
+	size_t logbytes_read;
 };
 
 struct lconfig {
@@ -253,10 +254,10 @@ static bool is_single_arg_cmd(const char *command) {
 	return false;
 }
 
-static void log_notify(char * log_line TAKES)
+static void log_notify(const char *log_line, size_t len)
 {
 	struct json_stream *js = plugin_notification_start(NULL, "reckless_log");
-	json_add_stringn(js, "log", log_line, tal_count(log_line));
+	json_add_stringn(js, "log", log_line, len);
 	plugin_notification_end(plugin, js);
 }
 
@@ -267,31 +268,43 @@ static void log_conn_finish(struct io_conn *conn, struct reckless *reckless)
 
 }
 
-static struct io_plan *log_read_more(struct io_conn *conn,
-                                       struct reckless *rkls)
+/* len does NOT include the \n */
+static const char *get_line(const struct reckless *rkls, size_t *len)
 {
-	rkls->log_read += rkls->log_new;
+	const char *line = membuf_elems(&rkls->logbuf);
+	const char *eol = memchr(line, '\n', membuf_num_elems(&rkls->logbuf));
 
-	if (rkls->log_read*2 >= tal_count(rkls->logbuf))
-		tal_resize(&rkls->logbuf, rkls->log_read * 2);
+	if (eol) {
+		*len = eol - line;
+		return line;
+	}
+	return NULL;
+}
 
-	int unprocessed = rkls->log_read - (rkls->log_to_process - rkls->logbuf);
-	char *lineend = memchr(rkls->log_to_process, 0x0A, unprocessed);
+static struct io_plan *log_read_more(struct io_conn *conn,
+				     struct reckless *rkls)
+{
+	size_t len;
+	const char *line;
 
-	while (lineend != NULL) {
-		char * note;
-		note = tal_strndup(tmpctx, rkls->log_to_process,
-				   lineend - rkls->log_to_process);
-		plugin_log(plugin, LOG_DBG, "reckless utility: %s", note);
-		log_notify(note);
-		rkls->log_to_process = lineend + 1;
-		unprocessed = rkls->log_read - (rkls->log_to_process - rkls->logbuf);
-		lineend = memchr(rkls->log_to_process, 0x0A, unprocessed);
+	/* We read some more stuff in! */
+	membuf_added(&rkls->logbuf, rkls->logbytes_read);
+	rkls->logbytes_read = 0;
+
+	while ((line = get_line(rkls, &len)) != NULL) {
+		plugin_log(plugin, LOG_DBG, "reckless utility: %.*s", (int)len, line);
+		log_notify(line, len);
+		membuf_consume(&rkls->logbuf, len + 1);
 	}
 
-	return io_read_partial(conn, rkls->logbuf + rkls->log_read,
-			       tal_count(rkls->logbuf) - rkls->log_read,
-			       &rkls->log_new, log_read_more, rkls);
+	/* Make sure there's more room */
+	membuf_prepare_space(&rkls->logbuf, 4096);
+
+	return io_read_partial(conn,
+			       membuf_space(&rkls->logbuf),
+			       membuf_num_space(&rkls->logbuf),
+			       &rkls->logbytes_read,
+			       log_read_more, rkls);
 }
 
 static struct io_plan *log_conn_init(struct io_conn *conn, struct reckless *rkls)
@@ -381,16 +394,16 @@ static struct command_result *reckless_call(struct command *cmd,
 	reckless->cmd = cmd;
 	reckless->stdoutbuf = tal_arrz(reckless, char, 4096);
 	reckless->stderrbuf = tal_arrz(reckless, char, 4096);
-	reckless->logbuf = tal_arrz(reckless, char, 4096);
 	reckless->stdout_read = 0;
 	reckless->stdout_new = 0;
 	reckless->stderr_read = 0;
 	reckless->stderr_new = 0;
-	reckless->log_read = 0;
-	reckless->log_new = 0;
-	reckless->log_to_process = reckless->logbuf;
 	reckless->process_failed = NULL;
 	reckless->logfd = sock;
+	membuf_init(&reckless->logbuf,
+		    tal_arr(reckless, char, 10),
+		    10, membuf_tal_resize);
+	reckless->logbytes_read = 0;
 
 	char * full_cmd;
 	full_cmd = tal_fmt(tmpctx, "calling:");
