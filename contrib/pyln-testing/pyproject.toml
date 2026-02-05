@@ -23,7 +23,7 @@ dependencies = [
 dev = ["pyln-client", "pyln-grpc-proto"]
 
 [project.optional-dependencies]
-grpc = ["pyln-grpc-proto>=0.1", "grpcio>=1.75.0"]
+grpc = ["pyln-grpc-proto>=0.1", "grpcio>=1.76"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["pyln"]
