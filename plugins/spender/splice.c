@@ -1280,6 +1280,15 @@ static struct command_result *handle_wetrun(struct command *cmd,
 	return send_outreq(req);
 }
 
+/* Before calling, ensure `onchain_fee` is accounted for in `needed_funds`.
+ *
+ * If we need to fund from the onchain wallet this requires another pass so
+ * `onchain_fee` will be subtracted out of `needed_funds` and an
+ * `onchain_wallet_fund` command is returned.
+ *
+ * If we are finished funding or we can take the needed funds out of a wallet
+ * output, we return NULL for success and leave `needed_funds` unmolested.
+ */
 static struct command_result *handle_wallet_fund(struct command *cmd,
 						 struct splice_cmd *splice_cmd,
 						 struct amount_sat onchain_fee)
@@ -1338,6 +1347,9 @@ static struct command_result *handle_wallet_fund(struct command *cmd,
 			       JSONRPC2_INVALID_PARAMS,
 			       "Unable to add missing funds to wallet input");
 
+	/* Retruning `onchain_wallet_fund` means we will need to go around
+	 * again and the caller will added the new `onchain_fee` to
+	 * `needed_funds`, so we must take the now old amount out. */
 	if (!amount_sat_sub(&splice_cmd->needed_funds,
 			    splice_cmd->needed_funds,
 			    onchain_fee))
@@ -1444,6 +1456,7 @@ static struct command_result *handle_fee_and_ppm(struct command *cmd,
 			   funding_wallet_action->out_ppm,
 			   fmt_amount_sat(tmpctx, sat));
 
+		/* Add onchain fee to `sat` if wallet pays the fee */
 		if (funding_wallet_action->pays_fee) {
 			if (!amount_sat_add(&sat, sat, onchain_fee))
 				return do_fail(cmd, splice_cmd,
@@ -1457,17 +1470,23 @@ static struct command_result *handle_fee_and_ppm(struct command *cmd,
 				   fmt_amount_sat(tmpctx, sat));
 		}
 
-		/* Do we need to remove funds and put in the wallet? */
 		if (!amount_sat_is_zero(extra_funds)) {
 			plugin_log(cmd->plugin, LOG_DBG,
 				   "Extra funds %s",
 				   fmt_amount_sat(tmpctx, extra_funds));
 		}
 
-		/* Do we need to add funds to the wallet? */
+		/* Marking `out_ppm` as resolved allows the next pass
+		 * here to drop down past this block */
+		funding_wallet_action->out_ppm = 0;
+
+		/* If sat resolves to real number, add it to `needed_funds` and
+		 * fund it */
 		if (!amount_sat_is_zero(sat)) {
+
+			/* PENDING is a special case that funds the wallet but
+			 * keeps it from being marked DONE by the funder */
 			splice_cmd->states[funding_wallet_index]->state = SPLICE_CMD_PENDING;
-			funding_wallet_action->out_ppm = 0;
 
 			if (!amount_sat_add(&splice_cmd->needed_funds,
 					    splice_cmd->needed_funds,
@@ -1492,8 +1511,11 @@ static struct command_result *handle_fee_and_ppm(struct command *cmd,
 		}
 	}
 
+	/* Here we know `funding_wallet_action->out_ppm` is resolved
+	 * but we need to check for repeat funding needs */
+
 	/* If adding funds required more funds to pay for fees, we must repeat
-	 * the funding operation */
+	 * the funding operation started by the `out_ppm` block */
 	if (funding_wallet_action
 	    && splice_cmd->states[funding_wallet_index]->state == SPLICE_CMD_PENDING) {
 
@@ -1515,7 +1537,7 @@ static struct command_result *handle_fee_and_ppm(struct command *cmd,
 		} else if (funding_wallet_action->pays_fee
 			|| !fee_action(splice_cmd)) {
 			/* We only do extra rounds if our wallet pays the fee
-			 * or if no one is paying fee (ie fee is paied from)
+			 * or if no one is paying fee (ie fee is paid from)
 			 * general funds */
 
 			if (amount_sat_greater(missing_funds, onchain_fee))
@@ -1645,15 +1667,21 @@ static struct command_result *continue_splice(struct command *cmd,
 		state = splice_cmd->states[i];
 		if (state->state != SPLICE_CMD_NONE)
 			continue;
-		if (action->onchain_wallet) {
-			/* Add output for wallet funds */
-			if(!amount_sat_is_zero(action->in_sat))
-				return onchain_wallet_fund(cmd, splice_cmd, i,
-							   AMOUNT_SAT(0));
-			/* else: funds to wallet is 0 sats, no need to add
-			 * output */
-			state->state = SPLICE_CMD_DONE;
+		if (!action->onchain_wallet)
+			continue;
+		/* Add output for wallet funds */
+		if (amount_sat_less(action->in_sat, splice_cmd->dust_limit)) {
+			plugin_log(cmd->plugin, LOG_INFORM, "Adding a"
+				   " wallet output of %s is below"
+				   " dust_limit of %s. Leaving dust as"
+				   " contribution to fee",
+				   fmt_amount_sat(tmpctx, action->in_sat),
+				   fmt_amount_sat(tmpctx, splice_cmd->dust_limit));
+		} else {
+			return onchain_wallet_fund(cmd, splice_cmd, i,
+						   AMOUNT_SAT(0));
 		}
+		state->state = SPLICE_CMD_DONE;
 	}
 
 	result = check_emergency_sat(cmd, splice_cmd);
@@ -1799,8 +1827,9 @@ static struct command_result *execute_splice(struct command *cmd,
 		state = splice_cmd->states[i];
 		char *bitcoin_address;
 
-		/* Today UINT32_MAX just means 100%. In the future it might mean
-		 * something different. */
+		/* `out_ppm` is the percent to take out of the action.
+		 * If it is set to '*' we get a value of UINT32_MAX.
+		 * In this case we treat it as "take 100% out of the action." */
 		if (action->out_ppm == UINT32_MAX)
 			action->out_ppm = 1000000;
 
@@ -2043,21 +2072,28 @@ static struct command_result *listpeerchannels_get_result(struct command *cmd,
 	size_t i;
 	const char *err;
 
+	splice_cmd->dust_limit = AMOUNT_SAT(0);
 	channels = tal_arr(tmpctx, struct splice_script_chan*, 0);
 	jchannels = json_get_member(buf, toks, "channels");
 	json_for_each_arr(i, jchannel, jchannels) {
+		struct amount_sat dust_candidate;
 		tal_arr_expand(&channels, tal(channels,
 					      struct splice_script_chan));
 
 		err = json_scan(tmpctx, buf, jchannel,
-				"{peer_id?:%,channel_id?:%}",
+				"{peer_id?:%,channel_id?:%,dust_limit_msat?:%}",
 				JSON_SCAN(json_to_node_id,
 					  &channels[i]->node_id),
 				JSON_SCAN(json_to_channel_id,
-					  &channels[i]->chan_id));
+					  &channels[i]->chan_id),
+				JSON_SCAN(json_to_msat_to_sat,
+					  &dust_candidate));
 		if (err)
 			errx(1, "Bad listpeerchannels.channels %zu: %s",
 			     i, err);
+
+		if (amount_sat_greater(dust_candidate, splice_cmd->dust_limit))
+			splice_cmd->dust_limit = dust_candidate;
 	}
 
 	if (splice_cmd->script) {
@@ -2147,6 +2183,7 @@ json_splice(struct command *cmd, const char *buf, const jsmntok_t *params)
 	splice_cmd->debug_log = *debug_log ? tal_strdup(splice_cmd, "") : NULL;
 	splice_cmd->debug_counter = 0;
 	splice_cmd->needed_funds = AMOUNT_SAT(0);
+	splice_cmd->dust_limit = AMOUNT_SAT(0);
 	memset(&splice_cmd->final_txid, 0, sizeof(splice_cmd->final_txid));
 
 	/* If script validates as json, parse it as json instead */

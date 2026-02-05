@@ -58,6 +58,8 @@ struct splice_cmd {
 	int debug_counter;
 	/* Remaining funds needed from wallet */
 	struct amount_sat needed_funds;
+	/* The highest dust limit of all channels */
+	struct amount_sat dust_limit;
 };
 
 #endif /* LIGHTNING_PLUGINS_SPENDER_SPLICE_H */
