@@ -71,7 +71,7 @@ uv sync --all-extras --all-groups
 # required for reckless till poetry to uv migration
 uv tool install poetry
 
-# We use grpcio-tools which bundles a compatible protoc compiler.
+# Install protoc wrapper that uses grpcio-tools bundled compiler.
 # This ensures the protoc version matches the protobuf Python package,
 # avoiding version mismatches between generated code and runtime.
-# The Makefile uses `uv run python -m grpc_tools.protoc` for code generation.
+sudo install -m 755 contrib/protoc /usr/local/bin/protoc
