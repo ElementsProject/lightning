@@ -492,20 +492,55 @@ static struct command_result *poll_finished(struct command *cmd)
  * ============================================================================
  */
 
-/* Send watch_found request to lightningd (stub - will be implemented in next commit)
+/* Send watch_found notification to lightningd
  * @txindex: position of tx in the block (0 = coinbase)
  * @outnum: for scriptpubkey watches, which output matched (or -1 if not applicable)
  * @innum: for outpoint watches, which input matched (or -1 if not applicable)
  */
-static void json_watch_found(struct command *cmd UNUSED,
-			     const struct bitcoin_tx *tx UNUSED,
-			     u32 blockheight UNUSED,
-			     const struct watch *w UNUSED,
-			     u32 txindex UNUSED,
-			     int outnum UNUSED,
-			     int innum UNUSED)
+static void json_watch_found(struct command *cmd,
+			     const struct bitcoin_tx *tx,
+			     u32 blockheight,
+			     const struct watch *w,
+			     u32 txindex,
+			     int outnum,
+			     int innum)
 {
-	/* TODO: Implement in next commit */
+	struct json_stream *js;
+	const char *tx_hex = fmt_bitcoin_tx(tmpctx, tx);
+
+	js = plugin_notification_start(tmpctx, "watch_found");
+	json_add_string(js, "tx", tx_hex);
+	json_add_u32(js, "blockheight", blockheight);
+	json_add_u32(js, "txindex", txindex);
+
+	/* Add type and corresponding field */
+	switch (w->type) {
+	case WATCH_TXID:
+		json_add_string(js, "type", "txid");
+		json_add_txid(js, "txid", &w->key.txid);
+		break;
+	case WATCH_SCRIPTPUBKEY:
+		json_add_string(js, "type", "scriptpubkey");
+		json_add_hex(js, "scriptpubkey", w->key.scriptpubkey.script,
+			     w->key.scriptpubkey.len);
+		if (outnum >= 0)
+			json_add_u32(js, "outnum", outnum);
+		break;
+	case WATCH_OUTPOINT:
+		json_add_string(js, "type", "outpoint");
+		json_add_outpoint(js, "outpoint", &w->key.outpoint);
+		if (innum >= 0)
+			json_add_u32(js, "innum", innum);
+		break;
+	}
+
+	/* Add owners array */
+	json_array_start(js, "owners");
+	for (size_t i = 0; i < tal_count(w->owners); i++)
+		json_add_string(js, NULL, w->owners[i]);
+	json_array_end(js);
+
+	plugin_notification_end(cmd->plugin, js);
 }
 
 /* Check all txid watches via hash lookup */
