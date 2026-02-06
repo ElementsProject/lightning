@@ -417,7 +417,27 @@ static const char *init(struct command *cmd,
 /* Forward declarations */
 static struct command_result *poll_chain(struct command *cmd, void *unused);
 
-/* ==== BLOCK FETCHING ==== */
+/* ==== BLOCK FETCHING AND PARSING ==== */
+
+/* Parse block from RPC response */
+static struct bitcoin_block *block_from_response(const char *buf,
+						 const jsmntok_t *result,
+						 struct bitcoin_blkid *blockhash_out)
+{
+	const jsmntok_t *blocktok = json_get_member(buf, result, "block");
+	struct bitcoin_block *block;
+
+	if (!blocktok)
+		return NULL;
+
+	block = bitcoin_block_from_hex(tmpctx, chainparams,
+				       buf + blocktok->start,
+				       blocktok->end - blocktok->start);
+	if (block && blockhash_out)
+		bitcoin_block_blkid(block, blockhash_out);
+
+	return block;
+}
 
 /* Fetch a block by height for normal processing */
 static struct command_result *fetch_block_handle(struct command *cmd,
@@ -449,15 +469,60 @@ static struct command_result *poll_finished(struct command *cmd)
 	return timer_complete(cmd);
 }
 
-/* Stub implementation - will be replaced with full implementation when process_block_txs is added */
+/* Process or initialize from a block */
 static struct command_result *handle_block(struct command *cmd,
 					   const char *method,
 					   const char *buf,
 					   const jsmntok_t *result,
 					   u32 *block_height)
 {
-	/* TODO: Implement full block handling when process_block_txs is added */
-	return poll_finished(cmd);
+	struct bwatch *bwatch = bwatch_of(cmd->plugin);
+	struct bitcoin_blkid blockhash;
+	struct bitcoin_block *block;
+	bool is_init = (bwatch->current_height == 0);
+
+	block = block_from_response(buf, result, &blockhash);
+	if (!block) {
+		plugin_log(cmd->plugin, LOG_BROKEN, "Failed to get/parse block %u: '%.*s'",
+			   *block_height,
+			   json_tok_full_len(result),
+			   json_tok_full(buf, result));
+		return poll_finished(cmd);
+	}
+
+	/* If not initializing, validate block continuity */
+	if (!is_init) {
+		/* Unexpected predecessor? Remove tip and use the new chain's hash */
+		if (!bitcoin_blkid_eq(&block->hdr.prev_hash, &bwatch->current_blockhash)) {
+			plugin_log(cmd->plugin, LOG_INFORM,
+				   "Reorg detected at block %u: expected parent %s, got %s (fetched block hash: %s)",
+				   *block_height,
+				   fmt_bitcoin_blkid(tmpctx, &bwatch->current_blockhash),
+				   fmt_bitcoin_blkid(tmpctx, &block->hdr.prev_hash),
+				   fmt_bitcoin_blkid(tmpctx, &blockhash));
+			/* TODO: Implement remove_tip and retry logic in next commit */
+			plugin_log(cmd->plugin, LOG_BROKEN, "Reorg handling not yet implemented");
+			return poll_finished(cmd);
+		}
+
+		/* TODO: Process watches when process_block_txs is implemented */
+		/* process_block_txs(cmd, bwatch, block, *block_height, &blockhash, NULL); */
+	}
+
+	/* Update state */
+	bwatch->current_height = *block_height;
+	bwatch->current_blockhash = blockhash;
+
+	/* Persist to datastore */
+	struct block_record_wire br = { *block_height, blockhash, block->hdr.prev_hash };
+	add_block_to_datastore(cmd, &br);
+
+	/* TODO: Update in-memory history when add_block_to_history is implemented */
+	/* TODO: Notify watchman when send_block_processed is implemented */
+
+	/* Schedule immediate re-poll to check if there are more blocks */
+	bwatch->poll_timer = global_timer(cmd->plugin, time_from_sec(0), poll_chain, NULL);
+	return timer_complete(cmd);
 }
 
 /* Handle getchaininfo response */
