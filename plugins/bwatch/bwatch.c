@@ -494,16 +494,16 @@ static struct command_result *poll_finished(struct command *cmd)
 
 /* Send watch_found notification to lightningd
  * @txindex: position of tx in the block (0 = coinbase)
- * @outnum: for scriptpubkey watches, which output matched (or -1 if not applicable)
- * @innum: for outpoint watches, which input matched (or -1 if not applicable)
+ * @outnum: for scriptpubkey watches, which output matched
+ * @innum: for outpoint watches, which input matched
  */
 static void json_watch_found(struct command *cmd,
 			     const struct bitcoin_tx *tx,
 			     u32 blockheight,
 			     const struct watch *w,
 			     u32 txindex,
-			     int outnum,
-			     int innum)
+			     u32 outnum,
+			     u32 innum)
 {
 	struct json_stream *js;
 	const char *tx_hex = fmt_bitcoin_tx(tmpctx, tx);
@@ -518,19 +518,23 @@ static void json_watch_found(struct command *cmd,
 	case WATCH_TXID:
 		json_add_string(js, "type", "txid");
 		json_add_txid(js, "txid", &w->key.txid);
+		assert(outnum == UINT32_MAX);
+		assert(innum == UINT32_MAX);
 		break;
 	case WATCH_SCRIPTPUBKEY:
 		json_add_string(js, "type", "scriptpubkey");
 		json_add_hex(js, "scriptpubkey", w->key.scriptpubkey.script,
 			     w->key.scriptpubkey.len);
-		if (outnum >= 0)
-			json_add_u32(js, "outnum", outnum);
+		assert(outnum != UINT32_MAX);
+		assert(innum == UINT32_MAX);
+		json_add_u32(js, "outnum", outnum);
 		break;
 	case WATCH_OUTPOINT:
 		json_add_string(js, "type", "outpoint");
 		json_add_outpoint(js, "outpoint", &w->key.outpoint);
-		if (innum >= 0)
-			json_add_u32(js, "innum", innum);
+		assert(outnum == UINT32_MAX);
+		assert(innum != UINT32_MAX);
+		json_add_u32(js, "innum", innum);
 		break;
 	}
 
@@ -566,7 +570,7 @@ static void check_txid_watches(struct command *cmd,
 			   w->start_block, blockheight);
 		return;
 	}
-	json_watch_found(cmd, tx, blockheight, w, txindex, -1, -1);
+	json_watch_found(cmd, tx, blockheight, w, txindex, UINT32_MAX, UINT32_MAX);
 }
 
 /* Check all scriptpubkey watches via hash lookup */
@@ -594,7 +598,7 @@ static void check_scriptpubkey_watches(struct command *cmd,
 				   w->start_block, blockheight);
 			continue;
 		}
-		json_watch_found(cmd, tx, blockheight, w, txindex, i, -1);
+		json_watch_found(cmd, tx, blockheight, w, txindex, i, UINT32_MAX);
 	}
 }
 
@@ -623,7 +627,7 @@ static void check_outpoint_watches(struct command *cmd,
 				   w->start_block, blockheight);
 			continue;
 		}
-		json_watch_found(cmd, tx, blockheight, w, txindex, -1, i);
+		json_watch_found(cmd, tx, blockheight, w, txindex, UINT32_MAX, i);
 	}
 }
 
@@ -650,7 +654,7 @@ static void check_tx_txid(struct command *cmd,
 			  u32 txindex)
 {
 	if (bitcoin_txid_eq(tx_txid, &w->key.txid))
-		json_watch_found(cmd, tx, blockheight, w, txindex, -1, -1);
+		json_watch_found(cmd, tx, blockheight, w, txindex, UINT32_MAX, UINT32_MAX);
 }
 
 /* Check tx outputs against a specific scriptpubkey */
@@ -664,7 +668,7 @@ static void check_tx_scriptpubkey(struct command *cmd,
 	for (size_t i = 0; i < tx->wtx->num_outputs; i++) {
 		if (memeq(tx->wtx->outputs[i].script, tx->wtx->outputs[i].script_len,
 			  w->key.scriptpubkey.script, w->key.scriptpubkey.len)) {
-			json_watch_found(cmd, tx, blockheight, w, txindex, i, -1);
+			json_watch_found(cmd, tx, blockheight, w, txindex, i, UINT32_MAX);
 			/* Don't return - tx might have multiple outputs to same scriptpubkey */
 		}
 	}
@@ -685,7 +689,7 @@ static void check_tx_outpoint(struct command *cmd,
 		outpoint.n = tx->wtx->inputs[i].index;
 
 		if (bitcoin_outpoint_eq(&outpoint, &w->key.outpoint)) {
-			json_watch_found(cmd, tx, blockheight, w, txindex, -1, i);
+			json_watch_found(cmd, tx, blockheight, w, txindex, UINT32_MAX, i);
 			return; /* An outpoint can only be spent once */
 		}
 	}
