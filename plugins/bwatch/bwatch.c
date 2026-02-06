@@ -14,6 +14,7 @@
 #include <common/json_parse.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
+#include <common/mkdatastorekey.h>
 #include <common/wireaddr.h>
 #include <plugins/bwatch/bwatch_wiregen.h>
 #include <plugins/libplugin.h>
@@ -149,6 +150,60 @@ static struct bwatch *bwatch_of(struct plugin *plugin)
 {
 	return plugin_get_data(plugin, struct bwatch);
 }
+
+/*
+ * ============================================================================
+ * DATASTORE OPERATIONS:
+ * Individual items are stored at specific keys for efficient updates.
+ *
+ * STORAGE KEYS:
+ * - bwatch/block_history/<height> - individual block records
+ * - bwatch/{watch_type}/<key> - individual watches
+ * - bwatch/pending_events/<event_id> - individual pending events
+ * ============================================================================
+ */
+
+/* ==== BLOCK HISTORY DATASTORE OPERATIONS ==== */
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
+/* Add a single block to the datastore */
+static void add_block_to_datastore(struct command *cmd, const struct block_record_wire *br)
+{
+	/* Zero-pad to 10 digits for lexicographic sorting: ensures keys sort
+	 * numerically by height (e.g., "0000000100" < "0000000101") */
+	const char **key = mkdatastorekey(tmpctx, "bwatch", "block_history",
+					  take(tal_fmt(NULL, "%010u", br->height)));
+	const u8 *data = towire_bwatch_block(tmpctx, br);
+
+	jsonrpc_set_datastore_binary(cmd, key,
+				     data, tal_bytelen(data),
+				     "must-create",
+				     NULL, NULL, NULL);
+
+	plugin_log(cmd->plugin, LOG_DBG, "Added block %u to datastore", br->height);
+}
+
+/* Delete a single block from datastore */
+static void delete_block_from_datastore(struct command *cmd, u32 height)
+{
+	struct json_out *params = json_out_new(tmpctx);
+	const char *buf;
+
+	json_out_start(params, NULL, '{');
+	json_out_start(params, "key", '[');
+	json_out_addstr(params, NULL, "bwatch");
+	json_out_addstr(params, NULL, "block_history");
+	json_out_addstr(params, NULL, tal_fmt(tmpctx, "%010u", height));
+	json_out_end(params, ']');
+	json_out_end(params, '}');
+
+	/* Use synchronous delete to avoid race with subsequent add */
+	jsonrpc_request_sync(tmpctx, cmd, "deldatastore", params, &buf);
+
+	plugin_log(cmd->plugin, LOG_DBG, "Deleted block %u from datastore", height);
+}
+#pragma GCC diagnostic pop
 
 static const char *init(struct command *cmd,
 			const char *buf UNUSED,
