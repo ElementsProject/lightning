@@ -68,6 +68,7 @@ COMMON_SRC_NOGEN :=				\
 	common/keyset.c				\
 	common/lease_rates.c			\
 	common/memleak.c			\
+	common/mkdatastorekey.c			\
 	common/msg_queue.c			\
 	common/node_id.c			\
 	common/onion_decode.c			\
