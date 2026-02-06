@@ -327,6 +327,44 @@ static struct watch *watch_from_wire(const tal_t *ctx, const struct watch_wire *
 }
 #pragma GCC diagnostic pop
 
+/* ==== HASH TABLE OPERATIONS ==== */
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
+/* Add watch to appropriate hash table */
+static void add_watch_to_hash(struct bwatch *bwatch, struct watch *w)
+{
+	switch (w->type) {
+	case WATCH_SCRIPTPUBKEY:
+		scriptpubkey_watch_hash_add(bwatch->scriptpubkey_watches, w);
+		break;
+	case WATCH_OUTPOINT:
+		outpoint_watch_hash_add(bwatch->outpoint_watches, w);
+		break;
+	case WATCH_TXID:
+		txid_watch_hash_add(bwatch->txid_watches, w);
+		break;
+	}
+}
+
+/* Remove a watch from its hash table */
+static void remove_watch_from_hash(struct bwatch *bwatch, struct watch *w)
+{
+	switch (w->type) {
+	case WATCH_SCRIPTPUBKEY:
+		scriptpubkey_watch_hash_del(bwatch->scriptpubkey_watches, w);
+		return;
+	case WATCH_OUTPOINT:
+		outpoint_watch_hash_del(bwatch->outpoint_watches, w);
+		return;
+	case WATCH_TXID:
+		txid_watch_hash_del(bwatch->txid_watches, w);
+		return;
+	}
+	abort();
+}
+#pragma GCC diagnostic pop
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
 /* Save watch to datastore (converts to wire format) */
