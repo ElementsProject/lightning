@@ -70,12 +70,9 @@ static bool scriptpubkey_watch_eq(const struct watch *w, const struct scriptpubk
 	       memeq(w->key.scriptpubkey.script, scriptpubkey->len, scriptpubkey->script, scriptpubkey->len);
 }
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-function"
 HTABLE_DEFINE_NODUPS_TYPE(struct watch, scriptpubkey_watch_keyof,
 			  scriptpubkey_hash, scriptpubkey_watch_eq,
 			  scriptpubkey_watch_hash);
-#pragma GCC diagnostic pop
 
 /* Hash table key functions for outpoint watches */
 static const struct bitcoin_outpoint *outpoint_watch_keyof(const struct watch *w)
@@ -96,12 +93,9 @@ static bool outpoint_watch_eq(const struct watch *w, const struct bitcoin_outpoi
 	return bitcoin_outpoint_eq(&w->key.outpoint, outpoint);
 }
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-function"
 HTABLE_DEFINE_NODUPS_TYPE(struct watch, outpoint_watch_keyof,
 			  outpoint_hash, outpoint_watch_eq,
 			  outpoint_watch_hash);
-#pragma GCC diagnostic pop
 
 /* Hash table key functions for txid watches */
 static const struct bitcoin_txid *txid_watch_keyof(const struct watch *w)
@@ -121,11 +115,8 @@ static bool txid_watch_eq(const struct watch *w, const struct bitcoin_txid *txid
 	return bitcoin_txid_eq(&w->key.txid, txid);
 }
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-function"
 HTABLE_DEFINE_NODUPS_TYPE(struct watch, txid_watch_keyof, txid_hash,
 			  txid_watch_eq, txid_watch_hash);
-#pragma GCC diagnostic pop
 
 /* Global plugin state */
 struct bwatch {
@@ -170,10 +161,29 @@ static struct bwatch *bwatch_of(struct plugin *plugin)
  * ============================================================================
  */
 
+/* Helper to list datastore entries under a key path */
+static const jsmntok_t *list_datastore(const tal_t *ctx,
+				       struct command *cmd,
+				       const char *key1, const char *key2,
+				       const char **buf_out)
+{
+	struct json_out *params = json_out_new(tmpctx);
+	const jsmntok_t *result;
+
+	json_out_start(params, NULL, '{');
+	json_out_start(params, "key", '[');
+	json_out_addstr(params, NULL, key1);
+	if (key2)
+		json_out_addstr(params, NULL, key2);
+	json_out_end(params, ']');
+	json_out_end(params, '}');
+
+	result = jsonrpc_request_sync(ctx, cmd, "listdatastore", params, buf_out);
+	return json_get_member(*buf_out, result, "datastore");
+}
+
 /* ==== BLOCK HISTORY DATASTORE OPERATIONS ==== */
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-function"
 /* Add a single block to the datastore */
 static void add_block_to_datastore(struct command *cmd, const struct block_record_wire *br)
 {
@@ -231,21 +241,11 @@ static void delete_block_from_datastore(struct command *cmd, u32 height)
 /* Load block history from datastore on startup */
 static void load_block_history(struct command *cmd, struct bwatch *bwatch)
 {
-	struct json_out *params = json_out_new(tmpctx);
-	const jsmntok_t *result;
 	const char *buf;
 	const jsmntok_t *datastore, *t;
 	size_t i;
 
-	json_out_start(params, NULL, '{');
-	json_out_start(params, "key", '[');
-	json_out_addstr(params, NULL, "bwatch");
-	json_out_addstr(params, NULL, "block_history");
-	json_out_end(params, ']');
-	json_out_end(params, '}');
-
-	result = jsonrpc_request_sync(tmpctx, cmd, "listdatastore", params, &buf);
-	datastore = json_get_member(buf, result, "datastore");
+	datastore = list_datastore(tmpctx, cmd, "bwatch", "block_history", &buf);
 
 	json_for_each_arr(i, t, datastore) {
 		const u8 *data = json_tok_bin_from_hex(tmpctx, buf,
@@ -280,7 +280,6 @@ static void load_block_history(struct command *cmd, struct bwatch *bwatch)
 			   count, bwatch->current_height);
 	}
 }
-#pragma GCC diagnostic pop
 
 /* ==== WATCH DATASTORE OPERATIONS ==== */
 
@@ -370,8 +369,6 @@ static struct watch_wire *watch_to_wire(const tal_t *ctx, const struct watch *w)
 	return wire;
 }
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-function"
 /* Convert wire format to in-memory watch */
 static struct watch *watch_from_wire(const tal_t *ctx, const struct watch_wire *wire)
 {
@@ -402,7 +399,6 @@ static struct watch *watch_from_wire(const tal_t *ctx, const struct watch_wire *
 
 	return w;
 }
-#pragma GCC diagnostic pop
 
 /* ==== HASH TABLE OPERATIONS ==== */
 
@@ -463,28 +459,17 @@ static void remove_watch_from_hash(struct bwatch *bwatch, struct watch *w)
 	}
 	abort();
 }
-#pragma GCC diagnostic pop
 
 /* Load watches from datastore by type */
 static void load_watches_by_type(struct command *cmd, struct bwatch *bwatch,
 				 enum watch_type type)
 {
 	const char *watch_type_name = get_watch_type_name(type);
-	struct json_out *params = json_out_new(tmpctx);
-	const jsmntok_t *result;
 	const char *buf;
 	const jsmntok_t *datastore, *t;
 	size_t i, count = 0;
 
-	json_out_start(params, NULL, '{');
-	json_out_start(params, "key", '[');
-	json_out_addstr(params, NULL, "bwatch");
-	json_out_addstr(params, NULL, watch_type_name);
-	json_out_end(params, ']');
-	json_out_end(params, '}');
-
-	result = jsonrpc_request_sync(tmpctx, cmd, "listdatastore", params, &buf);
-	datastore = json_get_member(buf, result, "datastore");
+	datastore = list_datastore(tmpctx, cmd, "bwatch", watch_type_name, &buf);
 
 	json_for_each_arr(i, t, datastore) {
 		const u8 *data = json_tok_bin_from_hex(tmpctx, buf,
