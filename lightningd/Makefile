@@ -44,7 +44,8 @@ LIGHTNINGD_SRC :=				\
 	lightningd/runes.c			\
 	lightningd/subd.c			\
 	lightningd/wait.c			\
-	lightningd/watch.c
+	lightningd/watch.c			\
+	lightningd/watchman.c
 
 LIGHTNINGD_SRC_NOHDR :=				\
 	lightningd/configs.c			\

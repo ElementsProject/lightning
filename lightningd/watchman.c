@@ -334,7 +334,7 @@ static struct command_result *param_bitcoin_tx(struct command *cmd,
 		return command_fail_badparam(cmd, name, buffer, tok,
 					     "Expected a hex-encoded transaction");
 	return NULL;
-{
+}
 
 /**
  * json_watch_found - RPC handler for watch_found notifications from bwatch
@@ -354,7 +354,6 @@ static struct command_result *json_watch_found(struct command *cmd,
 	const char *type, **owners;
 	u32 *blockheight, *txindex, *outnum, *innum;
 	struct bitcoin_tx *tx;
-	size_t i;
 
 	if (!param_check(cmd, buffer, params,
 		   p_req("tx", param_bitcoin_tx, &tx),
@@ -383,8 +382,7 @@ static struct command_result *json_watch_found(struct command *cmd,
 	 * innum = input index for outpoint watches
 	 * For txid watches, neither is set so index defaults to 0
 	 * (which those handlers ignore anyway). */
-	json_for_each_arr(i, owner_tok, owners_tok) {
-		const char *owner = json_strdup(tmpctx, buffer, owner_tok);
+	for (size_t i = 0; i < tal_count(owners); i++) {
 		size_t index;
 		
 		if (outnum)
@@ -394,7 +392,7 @@ static struct command_result *json_watch_found(struct command *cmd,
 		else
 			index = 0;
 		
-		dispatch_watch_found(cmd->ld, owner, tx, index, *blockheight, *txindex);
+		dispatch_watch_found(cmd->ld, owners[i], tx, index, *blockheight, *txindex);
 	}
 
 	struct json_stream *response = json_stream_success(cmd);

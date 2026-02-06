@@ -75,6 +75,7 @@
 #include <lightningd/plugin_hook.h>
 #include <lightningd/runes.h>
 #include <lightningd/subd.h>
+#include <lightningd/watchman.h>
 #include <sys/resource.h>
 #include <wallet/invoices.h>
 #include <wallet/txfilter.h>
@@ -1347,6 +1348,10 @@ int main(int argc, char *argv[])
 	 * in hsm_secret will have strange consequences! */
 	if (!wallet_sanity_check(ld->wallet))
 		errx(EXITCODE_WALLET_DB_MISMATCH, "Wallet sanity check failed.");
+
+	/*~ Initialize the watch manager which consumes watch events from bwatch plugin.
+	 * Must be done before init_txfilter as it now adds watches. */
+	ld->watchman = watchman_new(ld, ld);
 
 	/*~ Initialize the transaction filter with our pubkeys. */
 	trace_span_start("init_txfilter", ld->wallet);
