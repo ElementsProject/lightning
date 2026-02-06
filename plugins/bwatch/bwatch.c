@@ -220,6 +220,59 @@ static void delete_block_from_datastore(struct command *cmd, u32 height)
 
 	plugin_log(cmd->plugin, LOG_DBG, "Deleted block %u from datastore", height);
 }
+
+/* Load block history from datastore on startup */
+static void load_block_history(struct command *cmd, struct bwatch *bwatch)
+{
+	struct json_out *params = json_out_new(tmpctx);
+	const jsmntok_t *result;
+	const char *buf;
+	const jsmntok_t *datastore, *t;
+	size_t i;
+
+	json_out_start(params, NULL, '{');
+	json_out_start(params, "key", '[');
+	json_out_addstr(params, NULL, "bwatch");
+	json_out_addstr(params, NULL, "block_history");
+	json_out_end(params, ']');
+	json_out_end(params, '}');
+
+	result = jsonrpc_request_sync(tmpctx, cmd, "listdatastore", params, &buf);
+	datastore = json_get_member(buf, result, "datastore");
+
+	json_for_each_arr(i, t, datastore) {
+		const u8 *data = json_tok_bin_from_hex(tmpctx, buf,
+						       json_get_member(buf, t, "hex"));
+		if (!data)
+			plugin_err(cmd->plugin,
+				   "Bad block_history hex %.*s",
+				   json_tok_full_len(t),
+				   json_tok_full(buf, t));
+
+		struct block_record_wire *br = tal(bwatch, struct block_record_wire);
+		if (!fromwire_bwatch_block(&data, br)) {
+			plugin_err(cmd->plugin,
+				   "Bad block_history %.*s",
+				   json_tok_full_len(t),
+				   json_tok_full(buf, t));
+		}
+
+		tal_arr_expand(&bwatch->block_history, br);
+	}
+
+	/* Datastore returns keys in lexicographic order, and we zero-pad heights,
+	 * so blocks are already in ascending order (oldest first). */
+	if (tal_count(bwatch->block_history) > 0) {
+		size_t count = tal_count(bwatch->block_history);
+		struct block_record_wire *most_recent = bwatch->block_history[count - 1];
+
+		bwatch->current_height = most_recent->height;
+		bwatch->current_blockhash = most_recent->hash;
+		plugin_log(cmd->plugin, LOG_DBG,
+			   "Restored %zu blocks from datastore, current height=%u",
+			   count, bwatch->current_height);
+	}
+}
 #pragma GCC diagnostic pop
 
 /* ==== WATCH DATASTORE OPERATIONS ==== */
@@ -414,6 +467,9 @@ static const char *init(struct command *cmd,
 
 	/* Initialize block history */
 	bwatch->block_history = tal_arr(bwatch, struct block_record_wire *, 0);
+
+	/* Load block history from datastore */
+	load_block_history(cmd, bwatch);
 
 	/* If no history, initialize to zero (will be set on first poll) */
 	if (tal_count(bwatch->block_history) == 0) {
