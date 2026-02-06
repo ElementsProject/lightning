@@ -486,6 +486,42 @@ static struct command_result *poll_finished(struct command *cmd)
 	return timer_complete(cmd);
 }
 
+/* Remove tip block on reorg, update to the new chain's hash for the previous block */
+static void remove_tip(struct command *cmd, struct bwatch *bwatch)
+{
+	size_t count = tal_count(bwatch->block_history);
+
+	if (count == 0) {
+		plugin_log(bwatch->plugin, LOG_BROKEN,
+			   "remove_tip called with no block history!");
+		return;
+	}
+
+	plugin_log(bwatch->plugin, LOG_DBG, "Removing stale block %u: %s",
+		   bwatch->current_height,
+		   fmt_bitcoin_blkid(tmpctx, &bwatch->current_blockhash));
+
+	/* Delete block from datastore */
+	delete_block_from_datastore(cmd, bwatch->current_height);
+
+	/* Remove last block from history */
+	tal_free(bwatch->block_history[count - 1]);
+	tal_resize(&bwatch->block_history, count - 1);
+
+	/* Move tip back one */
+	size_t newcount = count - 1;
+	if (newcount > 0) {
+		struct block_record_wire *newtip = bwatch->block_history[newcount - 1];
+		bwatch->current_height = newtip->height;
+		bwatch->current_blockhash = newtip->hash;
+		assert(newtip->height == bwatch->current_height);
+	} else {
+		/* Back to genesis */
+		bwatch->current_height = 0;
+		memset(&bwatch->current_blockhash, 0, sizeof(bwatch->current_blockhash));
+	}
+}
+
 /*
  * ============================================================================
  * TRANSACTION WATCH CHECKING
@@ -770,9 +806,11 @@ static struct command_result *handle_block(struct command *cmd,
 				   fmt_bitcoin_blkid(tmpctx, &bwatch->current_blockhash),
 				   fmt_bitcoin_blkid(tmpctx, &block->hdr.prev_hash),
 				   fmt_bitcoin_blkid(tmpctx, &blockhash));
-			/* TODO: Implement remove_tip and retry logic in next commit */
-			plugin_log(cmd->plugin, LOG_BROKEN, "Reorg handling not yet implemented");
-			return poll_finished(cmd);
+			/* Remove tip and retry from new height */
+			remove_tip(cmd, bwatch);
+			/* Retry from new current height + 1 */
+			*block_height = bwatch->current_height + 1;
+			return fetch_block_handle(cmd, *block_height, handle_block, block_height);
 		}
 
 		/* Good block, process watches */
