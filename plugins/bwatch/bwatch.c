@@ -205,6 +205,145 @@ static void delete_block_from_datastore(struct command *cmd, u32 height)
 }
 #pragma GCC diagnostic pop
 
+/* ==== WATCH DATASTORE OPERATIONS ==== */
+
+/* Get the watch type subdirectory name */
+static const char *get_watch_type_name(enum watch_type type)
+{
+	switch (type) {
+	case WATCH_SCRIPTPUBKEY:
+		return "scriptpubkey_watches";
+	case WATCH_OUTPOINT:
+		return "outpoint_watches";
+	case WATCH_TXID:
+		return "txid_watches";
+	}
+	abort();
+}
+
+/* Get datastore key for a watch */
+static const char **get_watch_datastore_key(const tal_t *ctx, const struct watch *w)
+{
+	const char *type_name = get_watch_type_name(w->type);
+
+	switch (w->type) {
+	case WATCH_SCRIPTPUBKEY: {
+		char *hex = tal_hexstr(ctx, w->key.scriptpubkey.script, w->key.scriptpubkey.len);
+		return mkdatastorekey(ctx, "bwatch", type_name, hex);
+	}
+	case WATCH_OUTPOINT:
+		return mkdatastorekey(ctx, "bwatch", type_name,
+				      take(fmt_bitcoin_outpoint(NULL, &w->key.outpoint)));
+	case WATCH_TXID:
+		return mkdatastorekey(ctx, "bwatch", type_name,
+				      take(fmt_bitcoin_txid(NULL, &w->key.txid)));
+	}
+	abort();
+}
+
+/* Datastore operation finished, but we're not the one to complete the command. */
+static struct command_result *datastore_done(struct command *cmd,
+					     const char *method,
+					     const char *buf,
+					     const jsmntok_t *result,
+					     void *arg)
+{
+	return command_still_pending(cmd);
+}
+
+/*
+ * ============================================================================
+ * CONVERSION FUNCTIONS: in-memory <-> wire
+ * Wire structs are used ONLY for serialization/deserialization.
+ * ============================================================================
+ */
+
+/* Convert in-memory watch to wire format for persistence */
+static struct watch_wire *watch_to_wire(const tal_t *ctx, const struct watch *w)
+{
+	struct watch_wire *wire = tal(ctx, struct watch_wire);
+
+	wire->type = w->type;
+	wire->start_block = w->start_block;
+
+	/* Initialize all key fields */
+	wire->scriptpubkey = NULL;
+	memset(&wire->outpoint, 0, sizeof(wire->outpoint));
+	memset(&wire->txid, 0, sizeof(wire->txid));
+
+	/* Copy the relevant key field based on type */
+	switch (w->type) {
+	case WATCH_SCRIPTPUBKEY:
+		wire->scriptpubkey = tal_dup_arr(wire, u8, w->key.scriptpubkey.script, w->key.scriptpubkey.len, 0);
+		break;
+	case WATCH_OUTPOINT:
+		wire->outpoint = w->key.outpoint;
+		break;
+	case WATCH_TXID:
+		wire->txid = w->key.txid;
+		break;
+	}
+
+	/* Copy owners array */
+	size_t num_owners = tal_count(w->owners);
+	wire->owners = tal_arr(wire, wirestring *, num_owners);
+	for (size_t i = 0; i < num_owners; i++)
+		wire->owners[i] = tal_strdup(wire->owners, w->owners[i]);
+
+	return wire;
+}
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
+/* Convert wire format to in-memory watch */
+static struct watch *watch_from_wire(const tal_t *ctx, const struct watch_wire *wire)
+{
+	struct watch *w = tal(ctx, struct watch);
+
+	w->type = wire->type;
+	w->start_block = wire->start_block;
+
+	/* Copy the relevant key field based on type */
+	switch (wire->type) {
+	case WATCH_SCRIPTPUBKEY:
+		w->key.scriptpubkey.len = tal_bytelen(wire->scriptpubkey);
+		w->key.scriptpubkey.script = tal_dup_arr(w, u8, wire->scriptpubkey, w->key.scriptpubkey.len, 0);
+		break;
+	case WATCH_OUTPOINT:
+		w->key.outpoint = wire->outpoint;
+		break;
+	case WATCH_TXID:
+		w->key.txid = wire->txid;
+		break;
+	}
+
+	/* Copy owners array */
+	size_t num_owners = tal_count(wire->owners);
+	w->owners = tal_arr(w, wirestring *, num_owners);
+	for (size_t i = 0; i < num_owners; i++)
+		w->owners[i] = tal_strdup(w->owners, wire->owners[i]);
+
+	return w;
+}
+#pragma GCC diagnostic pop
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
+/* Save watch to datastore (converts to wire format) */
+static void save_watch_to_datastore(struct command *cmd, const struct watch *w)
+{
+	const u8 *data = towire_bwatch_watch(tmpctx, watch_to_wire(tmpctx, w));
+
+	jsonrpc_set_datastore_binary(cmd, get_watch_datastore_key(tmpctx, w),
+				     data, tal_bytelen(data),
+				     "create-or-replace",
+				     datastore_done, datastore_done, NULL);
+
+	plugin_log(cmd->plugin, LOG_DBG, "Saved watch to datastore (type=%d, num_owners=%zu)",
+		   w->type, tal_count(w->owners));
+}
+#pragma GCC diagnostic pop
+
 static const char *init(struct command *cmd,
 			const char *buf UNUSED,
 			const jsmntok_t *config UNUSED)
