@@ -2017,4 +2017,50 @@ void wallet_datastore_save_payment_description(struct db *db,
 					       const char *desc);
 void migrate_setup_coinmoves(struct lightningd *ld, struct db *db);
 
+/**
+ * wallet_watch_p2wpkh - Handler for P2WPKH scriptpubkey watch_found notifications
+ * @ld: lightningd instance
+ * @keyindex: the wallet keyindex that was watched
+ * @tx: the transaction that matched
+ * @outnum: which output to check
+ * @blockheight: the block height where tx was found
+ * @txindex: position of tx in block (0 = coinbase)
+ */
+void wallet_watch_p2wpkh(struct lightningd *ld,
+			 u32 keyindex,
+			 const struct bitcoin_tx *tx,
+			 size_t outnum,
+			 u32 blockheight,
+			 u32 txindex);
+
+/**
+ * wallet_watch_p2tr - Handler for P2TR scriptpubkey watch_found notifications
+ */
+void wallet_watch_p2tr(struct lightningd *ld,
+		       u32 keyindex,
+		       const struct bitcoin_tx *tx,
+		       size_t outnum,
+		       u32 blockheight,
+		       u32 txindex);
+
+/**
+ * wallet_watch_p2sh_p2wpkh - Handler for P2SH-wrapped P2WPKH watch_found notifications
+ */
+void wallet_watch_p2sh_p2wpkh(struct lightningd *ld,
+			      u32 keyindex,
+			      const struct bitcoin_tx *tx,
+			      size_t outnum,
+			      u32 blockheight,
+			      u32 txindex);
+
+/* Bwatch watch helpers */
+void wallet_add_bwatch_scriptpubkey(struct lightningd *ld,
+				    const char *owner_prefix,
+				    u64 keyindex,
+				    const u8 *script,
+				    size_t script_len);
+void wallet_add_bwatch_derkey(struct lightningd *ld,
+			      u64 keyindex,
+			      const u8 derkey[PUBKEY_CMPR_LEN]);
+
 #endif /* LIGHTNING_WALLET_WALLET_H */

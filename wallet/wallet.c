@@ -3,10 +3,12 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>
 #include <ccan/cast/cast.h>
+#include <ccan/json_out/json_out.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <channeld/channeld_wiregen.h>
 #include <common/clock_time.h>
+#include <common/json_stream.h>
 #include <common/memleak.h>
 #include <common/mkdatastorekey.h>
 #include <common/onionreply.h>
@@ -21,9 +23,11 @@
 #include <lightningd/closed_channel.h>
 #include <lightningd/coin_mvts.h>
 #include <lightningd/hsm_control.h>
+#include <lightningd/invoice.h>
 #include <lightningd/notification.h>
 #include <lightningd/peer_htlcs.h>
 #include <lightningd/runes.h>
+#include <lightningd/watchman.h>
 #include <onchaind/onchaind_wiregen.h>
 #include <wallet/datastore.h>
 #include <wallet/invoices.h>
@@ -31,6 +35,7 @@
 #include <wallet/txfilter.h>
 #include <wallet/wallet.h>
 #include <wally_bip32.h>
+
 
 #define SQLITE_MAX_UINT 0x7FFFFFFFFFFFFFFF
 #define DIRECTION_INCOMING 0
@@ -103,6 +108,69 @@ HTABLE_DEFINE_NODUPS_TYPE(struct wallet_address,
 			  script_with_len_hash,
 			  wallet_address_eq_scriptpubkey,
 			  wallet_address_htable);
+
+/* Convert addrtype to string for bwatch owner prefix */
+static const char *wallet_addrtype_to_owner_prefix(enum addrtype addrtype)
+{
+	switch (addrtype) {
+	case ADDR_BECH32:
+		return "p2wpkh";
+	case ADDR_P2TR:
+		return "p2tr";
+	case ADDR_P2SH_SEGWIT:
+		return "p2sh_p2wpkh";
+	default:
+		return NULL;
+	}
+}
+
+/* Helper to add a bwatch watch for a scriptpubkey */
+void wallet_add_bwatch_scriptpubkey(struct lightningd *ld,
+				    const char *owner_prefix,
+				    u64 keyindex,
+				    const u8 *script,
+				    size_t script_len)
+{
+	const char *owner;
+	struct json_stream *js;
+	size_t len;
+	char *json_params;
+	u32 start_block;
+	
+	owner = tal_fmt(tmpctx, "wallet/%s/%"PRIu64, owner_prefix, keyindex);
+	
+	/* Use watchman's last processed height to avoid rescanning from genesis */
+	start_block = watchman_get_height(ld);
+	
+	/* Build JSON params properly using json_stream */
+	js = new_json_stream(tmpctx, NULL, NULL);
+	json_object_start(js, NULL);
+	json_add_string(js, "owner", owner);
+	json_add_string(js, "type", "scriptpubkey");
+	json_add_hex(js, "scriptpubkey", script, script_len);
+	json_add_u32(js, "start_block", start_block);
+	json_object_end(js);
+	
+	json_params = tal_strndup(tmpctx, json_out_contents(js->jout, &len), len);
+	watchman_add(ld, owner, json_params);
+}
+
+/* Helper to add bwatch watches for all scriptpubkeys derived from a derkey */
+void wallet_add_bwatch_derkey(struct lightningd *ld,
+			      u64 keyindex,
+			      const u8 derkey[PUBKEY_CMPR_LEN])
+{
+	u8 *skp, *p2sh, *p2tr;
+	
+	skp = scriptpubkey_p2wpkh_derkey(tmpctx, derkey);
+	p2sh = scriptpubkey_p2sh(tmpctx, skp);
+	p2tr = scriptpubkey_p2tr_derkey(tmpctx, derkey);
+	
+	/* Add watches for all 3 scriptpubkey types */
+	wallet_add_bwatch_scriptpubkey(ld, "p2wpkh", keyindex, skp, tal_bytelen(skp));
+	wallet_add_bwatch_scriptpubkey(ld, "p2sh_p2wpkh", keyindex, p2sh, tal_bytelen(p2sh));
+	wallet_add_bwatch_scriptpubkey(ld, "p2tr", keyindex, p2tr, tal_bytelen(p2tr));
+}
 
 static void our_addresses_add(struct wallet_address_htable *our_addresses,
 			      u32 index,
@@ -3356,8 +3424,18 @@ type_ok:
 	}
 
 	/* This is an unconfirmed change output, we should track it */
-	if (utxo->utxotype != UTXO_P2SH_P2WPKH && !blockheight)
+	if (utxo->utxotype != UTXO_P2SH_P2WPKH && !blockheight) {
+		const char *addrtype_str = wallet_addrtype_to_owner_prefix(addrtype);
+		
+		if (addrtype_str) {
+			/* Add bwatch watch for this scriptpubkey */
+			wallet_add_bwatch_scriptpubkey(w->ld, addrtype_str, keyindex,
+						      txout->script, txout->script_len);
+		}
+		
+		/* SC TODO: Remove txfilter_add_scriptpubkey once bwatch is proven */
 		txfilter_add_scriptpubkey(w->ld->owned_txfilter, txout->script);
+	}
 
 	outpointfilter_add(w->owned_outpoints, &utxo->outpoint);
 
@@ -3388,6 +3466,92 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct wally_tx *wtx,
 		num_utxos++;
 	}
 	return num_utxos;
+}
+
+/* Common implementation for all wallet scriptpubkey watch handlers */
+static void wallet_watch_scriptpubkey_common(struct lightningd *ld,
+					     u32 keyindex,
+					     enum addrtype addrtype,
+					     const struct bitcoin_tx *tx,
+					     size_t outnum,
+					     u32 blockheight,
+					     u32 txindex)
+{
+	struct wallet *w = ld->wallet;
+	const struct wally_tx_output *txout;
+	struct amount_asset asset;
+	bool is_coinbase = (txindex == 0);
+
+	/* Sanity check the output index */
+	if (outnum >= tx->wtx->num_outputs) {
+		log_broken(w->log, "Invalid outnum %zu for tx with %zu outputs",
+			   outnum, tx->wtx->num_outputs);
+		return;
+	}
+
+	txout = &tx->wtx->outputs[outnum];
+	asset = wally_tx_output_get_amount(txout);
+	
+	if (!amount_asset_is_main(&asset)) {
+		log_debug(w->log, "Ignoring non-main asset output");
+		return;
+	}
+
+	/* Process the UTXO - bwatch already verified this output matches our watch */
+	got_utxo(w, keyindex, addrtype, tx->wtx, outnum, is_coinbase, 
+		 &blockheight, NULL);
+
+	/* Add transaction to wallet database */
+	wallet_transaction_add(w, tx->wtx, blockheight, txindex);
+
+	/* Check if this pays an invoice */
+	struct amount_sat amount;
+	struct bitcoin_outpoint outpoint;
+	struct bitcoin_txid txid;
+	
+	bitcoin_txid(tx, &txid);
+	outpoint.txid = txid;
+	outpoint.n = outnum;
+	bitcoin_tx_output_get_amount_sat(tx, outnum, &amount);
+	
+	invoice_check_onchain_payment(ld, txout->script, amount, &outpoint);
+
+	log_debug(w->log, "Wallet watch found: keyindex=%u, addrtype=%d, amount=%s, blockheight=%u%s",
+		  keyindex, addrtype, fmt_amount_sat(tmpctx, amount), blockheight,
+		  is_coinbase ? " COINBASE" : "");
+}
+
+void wallet_watch_p2wpkh(struct lightningd *ld,
+			 u32 keyindex,
+			 const struct bitcoin_tx *tx,
+			 size_t outnum,
+			 u32 blockheight,
+			 u32 txindex)
+{
+	wallet_watch_scriptpubkey_common(ld, keyindex, ADDR_BECH32, 
+					 tx, outnum, blockheight, txindex);
+}
+
+void wallet_watch_p2tr(struct lightningd *ld,
+		       u32 keyindex,
+		       const struct bitcoin_tx *tx,
+		       size_t outnum,
+		       u32 blockheight,
+		       u32 txindex)
+{
+	wallet_watch_scriptpubkey_common(ld, keyindex, ADDR_P2TR,
+					 tx, outnum, blockheight, txindex);
+}
+
+void wallet_watch_p2sh_p2wpkh(struct lightningd *ld,
+			      u32 keyindex,
+			      const struct bitcoin_tx *tx,
+			      size_t outnum,
+			      u32 blockheight,
+			      u32 txindex)
+{
+	wallet_watch_scriptpubkey_common(ld, keyindex, ADDR_P2SH_SEGWIT,
+					 tx, outnum, blockheight, txindex);
 }
 
 void wallet_htlc_save_in(struct wallet *wallet,
