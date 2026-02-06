@@ -184,6 +184,23 @@ static void add_block_to_datastore(struct command *cmd, const struct block_recor
 	plugin_log(cmd->plugin, LOG_DBG, "Added block %u to datastore", br->height);
 }
 
+/* Add a block to the history (append, oldest first, most recent last) */
+static void add_block_to_history(struct bwatch *bwatch, u32 height,
+				 const struct bitcoin_blkid *hash,
+				 const struct bitcoin_blkid *prev_hash)
+{
+	struct block_record_wire *br = tal(bwatch, struct block_record_wire);
+
+	br->height = height;
+	br->hash = *hash;
+	br->prev_hash = *prev_hash;
+
+	tal_arr_expand(&bwatch->block_history, br);
+
+	plugin_log(bwatch->plugin, LOG_DBG, "Added block %u to history (now %zu blocks)",
+		   height, tal_count(bwatch->block_history));
+}
+
 /* Delete a single block from datastore */
 static void delete_block_from_datastore(struct command *cmd, u32 height)
 {
@@ -513,11 +530,11 @@ static struct command_result *handle_block(struct command *cmd,
 	bwatch->current_height = *block_height;
 	bwatch->current_blockhash = blockhash;
 
-	/* Persist to datastore */
+	/* Persist to datastore, then update in-memory history */
 	struct block_record_wire br = { *block_height, blockhash, block->hdr.prev_hash };
 	add_block_to_datastore(cmd, &br);
+	add_block_to_history(bwatch, *block_height, &blockhash, &block->hdr.prev_hash);
 
-	/* TODO: Update in-memory history when add_block_to_history is implemented */
 	/* TODO: Notify watchman when send_block_processed is implemented */
 
 	/* Schedule immediate re-poll to check if there are more blocks */
