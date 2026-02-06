@@ -508,8 +508,6 @@ static void load_watches_by_type(struct command *cmd, struct bwatch *bwatch,
 		   count, watch_type_name);
 }
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-function"
 /* Save watch to datastore (converts to wire format) */
 static void save_watch_to_datastore(struct command *cmd, const struct watch *w)
 {
@@ -523,7 +521,31 @@ static void save_watch_to_datastore(struct command *cmd, const struct watch *w)
 	plugin_log(cmd->plugin, LOG_DBG, "Saved watch to datastore (type=%d, num_owners=%zu)",
 		   w->type, tal_count(w->owners));
 }
-#pragma GCC diagnostic pop
+
+/* Simple callback for async deldatastore (watches) - handles both success and error */
+static struct command_result *deldatastore_done(struct command *cmd,
+						const char *method UNUSED,
+						const char *buf UNUSED,
+						const jsmntok_t *result UNUSED,
+						void *arg UNUSED)
+{
+	return command_still_pending(cmd);
+}
+
+/* Delete a watch from datastore */
+static void delete_watch_from_datastore(struct command *cmd, const struct watch *w)
+{
+	const char **key = get_watch_datastore_key(tmpctx, w);
+	struct out_req *req = jsonrpc_request_start(cmd, "deldatastore",
+						    deldatastore_done,
+						    deldatastore_done,
+						    NULL);
+	json_add_keypath(req->js->jout, "key", key);
+	send_outreq(req);
+
+	plugin_log(cmd->plugin, LOG_DBG,
+		   "Deleting watch from datastore: ...%s", key[tal_count(key)-1]);
+}
 
 /*
  * ============================================================================
@@ -1143,6 +1165,46 @@ static struct watch *add_watch(struct command *cmd,
 	return w;
 }
 
+/* Remove a watch */
+static void del_watch(struct command *cmd, struct bwatch *bwatch,
+		      enum watch_type type,
+		      /* Exactly one of these three is non-NULL */
+		      const struct bitcoin_outpoint *outpoint,
+		      const u8 *scriptpubkey,
+		      const struct bitcoin_txid *txid,
+		      const char *owner_id)
+{
+	struct watch *w = get_watch(bwatch, type, outpoint, scriptpubkey, txid);
+
+	if (!w) {
+		plugin_log(cmd->plugin, LOG_BROKEN,
+			   "Attempted to remove non-existent %s watch",
+			   get_watch_type_name(type));
+		return;
+	}
+
+	/* Find and remove the specific owner */
+	for (size_t i = 0; i < tal_count(w->owners); i++) {
+		if (streq(w->owners[i], owner_id)) {
+			tal_free(w->owners[i]);
+			tal_arr_remove(&w->owners, i);
+
+			/* If no more owners, delete the watch entirely */
+			if (tal_count(w->owners) == 0) {
+				delete_watch_from_datastore(cmd, w);
+				remove_watch_from_hash(bwatch, w);
+				tal_free(w);
+			} else {
+				save_watch_to_datastore(cmd, w);
+			}
+			return;
+		}
+	}
+
+	plugin_log(cmd->plugin, LOG_BROKEN,
+		   "Attempted to remove watch for owner %s but it wasn't watching", owner_id);
+}
+
 static struct command_result *param_watch_type(struct command *cmd, const char *name,
 					       const char *buffer, const jsmntok_t *tok,
 					       enum watch_type *type)
@@ -1247,6 +1309,39 @@ static struct command_result *json_bwatch_add(struct command *cmd,
 	return command_success(cmd, json_out_obj(cmd, NULL, NULL));
 }
 
+/* RPC command: delwatch */
+static struct command_result *json_bwatch_del(struct command *cmd,
+					      const char *buffer,
+					      const jsmntok_t *params)
+{
+	struct bwatch *bwatch = bwatch_of(cmd->plugin);
+	const char *owner;
+	u8 *scriptpubkey;
+	struct bitcoin_outpoint *outpoint;
+	struct bitcoin_txid *txid;
+	enum watch_type type;
+	struct command_result *res;
+
+	if (!param_check(cmd, buffer, params,
+			 p_req("owner", param_string, &owner),
+			 p_req("type", param_watch_type, &type),
+			 p_opt("outpoint", param_outpoint, &outpoint),
+			 p_opt("scriptpubkey", param_bin_from_hex, &scriptpubkey),
+			 p_opt("txid", param_txid, &txid),
+			 NULL))
+		return command_param_failed();
+
+	res = check_type_params(cmd, type, outpoint, scriptpubkey, txid);
+	if (res)
+		return res;
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
+
+	del_watch(cmd, bwatch, type, outpoint, scriptpubkey, txid, owner);
+	return command_success(cmd, json_out_obj(cmd, "removed", "true"));
+}
+
 static const char *init(struct command *cmd,
 			const char *buf UNUSED,
 			const jsmntok_t *config UNUSED)
@@ -1291,6 +1386,10 @@ static const struct plugin_command commands[] = {
 	{
 		"addwatch",
 		json_bwatch_add,
+	},
+	{
+		"delwatch",
+		json_bwatch_del,
 	},
 };
 
