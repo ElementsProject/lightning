@@ -3,6 +3,7 @@
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/jsonrpc.h>
+#include <lightningd/plugin.h>
 #include <wallet/wallet.h>
 #include <db/exec.h>
 #include <common/autodata.h>
@@ -14,6 +15,7 @@
 #include <bitcoin/tx.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/str/str.h>
+#include <ccan/tal/str/str.h>
 
 /*
  * Watchman is the interface between lightningd and the bwatch plugin.
@@ -40,6 +42,66 @@ struct watchman {
 	struct pending_op **pending_ops;  /* Array of pending operations */
 };
 
+/*
+ * Datastore persistence helpers
+ * Pending operations are stored at ["watchman", "pending", op_id]
+ */
+
+/* Generate datastore key for a pending operation */
+static const char **make_key(const tal_t *ctx, const char *op_id)
+{
+	const char **key = tal_arr(ctx, const char *, 3);
+	key[0] = "watchman";
+	key[1] = "pending";
+	key[2] = op_id;
+	return key;
+}
+
+/* Persist a pending operation to the datastore for crash recovery */
+static void db_save(struct watchman *wm, const struct pending_op *op)
+{
+	const char **key = make_key(tmpctx, op->op_id);
+	u8 *data = tal_dup_arr(tmpctx, u8, (u8 *)op->json_params,
+			       strlen(op->json_params) + 1, 0);
+	wallet_datastore_create(wm->ld->wallet, key, data);
+}
+
+/* Remove a pending operation from the datastore */
+static void db_remove(struct watchman *wm, const char *op_id)
+{
+	const char **key = make_key(tmpctx, op_id);
+	wallet_datastore_remove(wm->ld->wallet, key);
+}
+
+/* Load all pending operations from datastore on startup */
+static void load_pending_ops(struct watchman *wm)
+{
+	const char **startkey = tal_arr(tmpctx, const char *, 2);
+	const char **key;
+	const u8 *data;
+	u64 generation;
+	struct db_stmt *stmt;
+
+	startkey[0] = "watchman";
+	startkey[1] = "pending";
+
+	for (stmt = wallet_datastore_first(tmpctx, wm->ld->wallet, startkey,
+					   &key, &data, &generation);
+	     stmt;
+	     stmt = wallet_datastore_next(tmpctx, startkey, stmt,
+					  &key, &data, &generation)) {
+		if (tal_count(key) != 3)
+			continue;
+
+		struct pending_op *op = tal(wm, struct pending_op);
+		op->op_id = tal_strdup(op, key[2]);
+		op->json_params = tal_strdup(op, (const char *)data);
+		tal_arr_expand(&wm->pending_ops, op);
+
+		log_debug(wm->ld->log, "Loaded pending op: %s", op->op_id);
+	}
+}
+
 struct watchman *watchman_new(const tal_t *ctx, struct lightningd *ld)
 {
 	struct watchman *wm = tal(ctx, struct watchman);
@@ -49,12 +111,49 @@ struct watchman *watchman_new(const tal_t *ctx, struct lightningd *ld)
 						  "last_watchman_block_height", 0);
 	wm->pending_ops = tal_arr(wm, struct pending_op *, 0);
 
-	/* TODO: load_pending_ops(wm); */
+	load_pending_ops(wm);
 
 	log_info(ld->log, "Watchman: height=%u, %zu pending ops",
 		 wm->last_processed_height, tal_count(wm->pending_ops));
 
 	return wm;
+}
+
+/* Send an RPC request to the bwatch plugin */
+static void send_to_bwatch(struct watchman *wm, const char *method,
+			   const char *op_id, const char *json_params)
+{
+	struct plugin *bwatch;
+	struct jsonrpc_request *req;
+	size_t len;
+
+	/* Find bwatch plugin by the command it registers */
+	bwatch = find_plugin_for_command(wm->ld, method);
+	if (!bwatch) {
+		log_broken(wm->ld->log, "bwatch plugin not found, cannot send %s", method);
+		return;
+	}
+
+	if (bwatch->plugin_state != INIT_COMPLETE) {
+		log_debug(wm->ld->log, "bwatch plugin not ready (state %d), queuing %s %s",
+			  bwatch->plugin_state, method, op_id);
+		/* Operation is already queued, will be sent when plugin is ready */
+		return;
+	}
+
+	req = jsonrpc_request_start(wm, method, op_id, bwatch->log,
+				     NULL, NULL, NULL);
+
+	/* json_params is a JSON object string like {"key":"value"}.
+	 * jsonrpc_request_start already opened "params":{, so skip outer braces */
+	len = strlen(json_params);
+	if (len >= 2 && json_params[0] == '{' && json_params[len-1] == '}')
+		json_stream_append(req->stream, json_params + 1, len - 2);
+	else
+		json_stream_append(req->stream, json_params, len);
+
+	jsonrpc_request_end(req);
+	plugin_request_send(bwatch, req);
 }
 
 /* Dispatch table - add new watch types here */
