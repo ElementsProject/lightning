@@ -540,6 +540,9 @@ static void delete_watch_from_datastore(struct command *cmd, const struct watch 
 
 /* ==== BLOCK FETCHING AND PARSING ==== */
 
+/* Forward declarations */
+static void send_block_processed(struct command *cmd, u32 blockheight);
+
 /* Parse block from RPC response */
 static struct bitcoin_block *block_from_response(const char *buf,
 						 const jsmntok_t *result,
@@ -947,7 +950,8 @@ static struct command_result *handle_block(struct command *cmd,
 	add_block_to_datastore(cmd, &br);
 	add_block_to_history(bwatch, *block_height, &blockhash, &block->hdr.prev_hash);
 
-	/* TODO: Notify watchman when send_block_processed is implemented */
+	/* Notify watchman that we've processed this block */
+	send_block_processed(cmd, *block_height);
 
 	/* Schedule immediate re-poll to check if there are more blocks */
 	bwatch->poll_timer = global_timer(cmd->plugin, time_from_sec(0), poll_chain, NULL);
@@ -1078,6 +1082,41 @@ static struct command_result *sync_with_watchman(struct command *cmd, void *unus
 	return send_outreq(req);
 }
 
+/* Callback for block_processed acknowledgement from watchman */
+static struct command_result *block_processed_ack(struct command *cmd,
+						  const char *method UNUSED,
+						  const char *buf,
+						  const jsmntok_t *result,
+						  void *unused UNUSED)
+{
+	u32 acked_height;
+	const char *err;
+
+	/* Parse the acknowledged height */
+	err = json_scan(tmpctx, buf, result,
+			"{blockheight:%}",
+			JSON_SCAN(json_to_number, &acked_height));
+	if (err)
+		plugin_err(cmd->plugin, "block_processed ack '%.*s': %s",
+			   json_tok_full_len(result),
+			   json_tok_full(buf, result), err);
+
+	plugin_log(cmd->plugin, LOG_DBG,
+		   "Received block_processed ack for height %u", acked_height);
+	return command_success(cmd, json_out_obj(cmd, NULL, NULL));
+}
+
+/* Send block_processed notification to watchman */
+static void send_block_processed(struct command *cmd, u32 blockheight)
+{
+	struct out_req *req;
+
+	req = jsonrpc_request_start(cmd, "block_processed",
+				    block_processed_ack, plugin_broken_cb, NULL);
+	json_add_u32(req->js, "blockheight", blockheight);
+	send_outreq(req);
+}
+
 /*
  * ============================================================================
  * RESCAN FUNCTIONS
@@ -1118,7 +1157,9 @@ static struct command_result *rescan_block_done(struct command *cmd,
 	if (++rescan->current_block <= rescan->target_block)
 		return fetch_block_rescan(cmd, rescan->current_block, rescan_block_done, rescan);
 
-	/* Rescan complete */
+	/* Rescan complete - notify watchman about the final block height */
+	send_block_processed(cmd, rescan->target_block);
+
 	plugin_log(cmd->plugin, LOG_INFORM, "Rescan complete");
 	return command_success(cmd, json_out_obj(cmd, NULL, NULL));
 }
