@@ -421,23 +421,32 @@ static void add_watch_to_hash(struct bwatch *bwatch, struct watch *w)
 		break;
 	}
 }
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-function"
+
 /* Get a watch from the appropriate hash table by key */
-static struct watch *get_watch(struct bwatch *bwatch, const struct watch *key)
+static struct watch *get_watch(struct bwatch *bwatch,
+			       enum watch_type type,
+			       /* Exactly one of these three is non-NULL */
+			       const struct bitcoin_outpoint *outpoint,
+			       const u8 *scriptpubkey,
+			       const struct bitcoin_txid *txid)
 {
-	switch (key->type) {
-	case WATCH_SCRIPTPUBKEY:
-		return scriptpubkey_watch_hash_get(bwatch->scriptpubkey_watches, &key->key.scriptpubkey);
+	switch (type) {
+	case WATCH_SCRIPTPUBKEY: {
+		struct scriptpubkey k = {
+			.script = scriptpubkey,
+			.len = tal_bytelen(scriptpubkey),
+		};
+		return scriptpubkey_watch_hash_get(bwatch->scriptpubkey_watches, &k);
+	}
 	case WATCH_OUTPOINT:
-		return outpoint_watch_hash_get(bwatch->outpoint_watches, &key->key.outpoint);
+		return outpoint_watch_hash_get(bwatch->outpoint_watches, outpoint);
 	case WATCH_TXID:
-		return txid_watch_hash_get(bwatch->txid_watches, &key->key.txid);
+		return txid_watch_hash_get(bwatch->txid_watches, txid);
 	}
 	abort();
 }
-
-
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
 /* Remove a watch from its hash table */
 static void remove_watch_from_hash(struct bwatch *bwatch, struct watch *w)
 {
@@ -1052,8 +1061,6 @@ static struct command_result *rescan_block_done(struct command *cmd,
 	return command_success(cmd, json_out_obj(cmd, NULL, NULL));
 }
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-function"
 /* Start scanning historical blocks.
  * If w is NULL, rescans all watches; otherwise rescans only that watch.
  * Rescan state is tied to command lifetime. */
@@ -1078,7 +1085,167 @@ static void start_rescan(struct command *cmd,
 
 	fetch_block_rescan(cmd, rescan->current_block, rescan_block_done, rescan);
 }
-#pragma GCC diagnostic pop
+
+/* Forward declaration */
+static void save_watch_to_datastore(struct command *cmd, const struct watch *w);
+
+/* Add or update a watch.  Returns NULL if we already had it. */
+static struct watch *add_watch(struct command *cmd,
+			       struct bwatch *bwatch,
+			       enum watch_type type,
+			       /* Exactly one of these three is non-NULL */
+			       const struct bitcoin_outpoint *outpoint,
+			       const u8 *scriptpubkey,
+			       const struct bitcoin_txid *txid,
+			       u32 start_block,
+			       const char *owner_id)
+{
+	struct watch *w = get_watch(bwatch, type, outpoint, scriptpubkey, txid);
+
+	if (!w) {
+		/* Woah!  A new one */
+		w = tal(bwatch, struct watch);
+		w->type = type;
+		w->start_block = start_block;
+		w->owners = tal_arr(w, wirestring *, 0);
+		switch (w->type) {
+		case WATCH_TXID:
+			w->key.txid = *txid;
+			break;
+		case WATCH_SCRIPTPUBKEY:
+			w->key.scriptpubkey.len = tal_bytelen(scriptpubkey);
+			w->key.scriptpubkey.script = tal_dup_talarr(w, u8, scriptpubkey);
+			break;
+		case WATCH_OUTPOINT:
+			w->key.outpoint = *outpoint;
+		}
+	}
+
+	/* Check if this owner already exists */
+	for (size_t i = 0; i < tal_count(w->owners); i++) {
+		if (streq(w->owners[i], owner_id)) {
+			/* FIXME: Determine if this actually happens
+			 * across crash scenarios, and maybe downgrade
+			 * this msg if it does.  Or, if it really
+			 * cannot happen, fail the caller! */
+			plugin_log(cmd->plugin, LOG_UNUSUAL,
+				   "Owner %s already watching", owner_id);
+			return NULL;
+		}
+	}
+
+	/* In case this starts before the previous identical watch */
+	if (start_block < w->start_block)
+		w->start_block = start_block;
+
+	tal_arr_expand(&w->owners, tal_strdup(w->owners, owner_id));
+	save_watch_to_datastore(cmd, w);
+	return w;
+}
+
+static struct command_result *param_watch_type(struct command *cmd, const char *name,
+					       const char *buffer, const jsmntok_t *tok,
+					       enum watch_type *type)
+{
+	if (json_tok_streq(buffer, tok, "scriptpubkey"))
+		*type = WATCH_SCRIPTPUBKEY;
+	if (json_tok_streq(buffer, tok, "outpoint"))
+		*type = WATCH_OUTPOINT;
+	if (json_tok_streq(buffer, tok, "txid"))
+		*type = WATCH_TXID;
+	else {
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "should be scriptpubkey, outpoint or txid");
+	}
+	return NULL;
+}
+
+/* Returns NULL if OK */
+static struct command_result *check_type_params(struct command *cmd,
+						enum watch_type type,
+						/* Ensures exactly one of these three is non-NULL */
+						const struct bitcoin_outpoint *outpoint,
+						const u8 *scriptpubkey,
+						const struct bitcoin_txid *txid)
+{
+	switch (type) {
+	case WATCH_SCRIPTPUBKEY:
+		if (!scriptpubkey)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "scriptpubkey required for type 'scriptpubkey'");
+		if (outpoint || txid)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "no outpoint or txid for type 'scriptpubkey'");
+		return NULL;
+	case WATCH_OUTPOINT:
+		if (!outpoint)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "outpoint required for type 'outpoint'");
+		if (scriptpubkey || txid)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "no scriptpubkey or txid for type 'outpoint'");
+		return NULL;
+	case WATCH_TXID:
+		if (!txid)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "txid required for type 'txid'");
+		if (outpoint || scriptpubkey)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "no outpoint or scriptpubkey for type 'txid'");
+		return NULL;
+	}
+	abort();
+}
+
+/* RPC command: addwatch */
+/* FIXME: consider breaking into three bwatch_add_XXX apis? */
+static struct command_result *json_bwatch_add(struct command *cmd,
+					      const char *buffer,
+					      const jsmntok_t *params)
+{
+	struct bwatch *bwatch = bwatch_of(cmd->plugin);
+	const char *owner;
+	u32 *start_block;
+	u8 *scriptpubkey;
+	struct bitcoin_outpoint *outpoint;
+	struct bitcoin_txid *txid;
+	struct watch *w;
+	enum watch_type type;
+	struct command_result *res;
+
+	if (!param_check(cmd, buffer, params,
+			 p_req("owner", param_string, &owner),
+			 p_req("type", param_watch_type, &type),
+			 p_req("start_block", param_u32, &start_block),
+			 p_opt("outpoint", param_outpoint, &outpoint),
+			 p_opt("scriptpubkey", param_bin_from_hex, &scriptpubkey),
+			 p_opt("txid", param_txid, &txid),
+			 NULL))
+		return command_param_failed();
+
+	res = check_type_params(cmd, type, outpoint, scriptpubkey, txid);
+	if (res)
+		return res;
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
+
+	w = add_watch(cmd, bwatch,
+		      type,
+		      outpoint,
+		      scriptpubkey,
+		      txid,
+		      *start_block,
+		      owner);
+
+	if (w && bwatch->current_height > 0 && w->start_block <= bwatch->current_height) {
+		/* Rescan needed - command completes when rescan finishes */
+		start_rescan(cmd, w, *start_block, bwatch->current_height);
+		return command_still_pending(cmd);
+	}
+
+	return command_success(cmd, json_out_obj(cmd, NULL, NULL));
+}
 
 static const char *init(struct command *cmd,
 			const char *buf UNUSED,
@@ -1120,6 +1287,13 @@ static const char *init(struct command *cmd,
 	return NULL;
 }
 
+static const struct plugin_command commands[] = {
+	{
+		"addwatch",
+		json_bwatch_add,
+	},
+};
+
 int main(int argc, char *argv[])
 {
 	struct bwatch *bwatch;
@@ -1127,7 +1301,7 @@ int main(int argc, char *argv[])
 	setup_locale();
 	bwatch = tal(NULL, struct bwatch);
 	plugin_main(argv, init, take(bwatch), PLUGIN_RESTARTABLE, true, NULL,
-		    NULL, 0,  /* commands */
+		    commands, ARRAY_SIZE(commands),
 		    NULL, 0,  /* notifications */
 		    NULL, 0,  /* hooks */
 		    NULL, 0,  /* notification topics */
