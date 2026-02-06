@@ -146,6 +146,13 @@ struct bwatch {
 	struct plugin_timer *poll_timer;
 };
 
+/* Rescan state for catching up on historical blocks */
+struct rescan_state {
+	const struct watch *watch;	/* NULL = rescan all watches, non-NULL = single watch */
+	u32 current_block;		/* Next block to fetch */
+	u32 target_block;		/* Stop after this block */
+};
+
 static struct bwatch *bwatch_of(struct plugin *plugin)
 {
 	return plugin_get_data(plugin, struct bwatch);
@@ -535,6 +542,22 @@ static struct bitcoin_block *block_from_response(const char *buf,
 		bitcoin_block_blkid(block, blockhash_out);
 
 	return block;
+}
+
+/* Fetch a block by height for rescan */
+static struct command_result *fetch_block_rescan(struct command *cmd,
+						 u32 height,
+						 struct command_result *(*cb)(struct command *,
+									      const char *,
+									      const char *,
+									      const jsmntok_t *,
+									      struct rescan_state *),
+						 struct rescan_state *rescan)
+{
+	struct out_req *req = jsonrpc_request_start(cmd, "getrawblockbyheight",
+						    cb, cb, rescan);
+	json_add_u32(req->js, "height", height);
+	return send_outreq(req);
 }
 
 /* Fetch a block by height for normal processing */
@@ -983,6 +1006,79 @@ static struct command_result *poll_chain(struct command *cmd, void *unused)
 	json_add_u32(req->js, "last_height", bwatch->current_height);
 	return send_outreq(req);
 }
+
+/*
+ * ============================================================================
+ * RESCAN FUNCTIONS
+ *
+ * When a watch is added with start_block <= current_height, we need to scan
+ * historical blocks for that specific watch. We scan from start_block up to
+ * current_height (inclusive), but no further - this ensures rescans don't
+ * race ahead of normal polling, keeping all watches synchronized.
+ *
+ * The rescan runs asynchronously: fetch block -> process -> fetch next.
+ * ============================================================================
+ */
+
+/* Called when we receive a block during rescan */
+static struct command_result *rescan_block_done(struct command *cmd,
+						const char *method,
+						const char *buf,
+						const jsmntok_t *result,
+						struct rescan_state *rescan)
+{
+	struct bitcoin_blkid blockhash;
+	struct bitcoin_block *block = block_from_response(buf, result, &blockhash);
+
+	if (!block) {
+		plugin_log(cmd->plugin, LOG_BROKEN,
+			   "Rescan: Failed to get/parse block %u",
+			   rescan->current_block);
+		return command_fail(cmd, LIGHTNINGD,
+				    "Rescan failed at block %u",
+				    rescan->current_block);
+	}
+
+	/* Process block: if rescan->watch is NULL, check all watches; otherwise check only that watch */
+	process_block_txs(cmd, bwatch_of(cmd->plugin), block, rescan->current_block,
+			  &blockhash, rescan->watch);
+
+	/* More blocks to scan? */
+	if (++rescan->current_block <= rescan->target_block)
+		return fetch_block_rescan(cmd, rescan->current_block, rescan_block_done, rescan);
+
+	/* Rescan complete */
+	plugin_log(cmd->plugin, LOG_INFORM, "Rescan complete");
+	return command_success(cmd, json_out_obj(cmd, NULL, NULL));
+}
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
+/* Start scanning historical blocks.
+ * If w is NULL, rescans all watches; otherwise rescans only that watch.
+ * Rescan state is tied to command lifetime. */
+static void start_rescan(struct command *cmd,
+			 const struct watch *w,
+			 u32 start_block, u32 target_block)
+{
+	struct rescan_state *rescan;
+
+	if (w) {
+		plugin_log(cmd->plugin, LOG_INFORM, "Starting rescan for %s watch: blocks %u-%u",
+			   get_watch_type_name(w->type), start_block, target_block);
+	} else {
+		plugin_log(cmd->plugin, LOG_INFORM, "Starting rescan for all watches: blocks %u-%u",
+			   start_block, target_block);
+	}
+
+	rescan = tal(cmd, struct rescan_state);
+	rescan->watch = w;
+	rescan->current_block = start_block;
+	rescan->target_block = target_block;
+
+	fetch_block_rescan(cmd, rescan->current_block, rescan_block_done, rescan);
+}
+#pragma GCC diagnostic pop
 
 static const char *init(struct command *cmd,
 			const char *buf UNUSED,
