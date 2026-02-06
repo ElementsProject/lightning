@@ -1,0 +1,32 @@
+#include <bitcoin/block.h>
+#include <bitcoin/tx.h>
+
+# Block record: complete serializable structure
+subtype,block_record_wire
+subtypedata,block_record_wire,height,u32,
+subtypedata,block_record_wire,hash,bitcoin_blkid,
+subtypedata,block_record_wire,prev_hash,bitcoin_blkid,
+
+# Watch: complete serializable structure
+# Type is stored to enable reconstruction of watch key from wire data
+subtype,watch_wire
+subtypedata,watch_wire,type,u32,
+# Scriptpubkey key (for WATCH_SCRIPTPUBKEY)
+subtypedata,watch_wire,scriptpubkey_len,u32,
+subtypedata,watch_wire,scriptpubkey,u8,scriptpubkey_len
+# Outpoint key (for WATCH_OUTPOINT)
+subtypedata,watch_wire,outpoint,bitcoin_outpoint,
+# Txid key (for WATCH_TXID)
+subtypedata,watch_wire,txid,bitcoin_txid,
+# Common fields
+subtypedata,watch_wire,start_block,u32,
+subtypedata,watch_wire,num_owners,u16,
+subtypedata,watch_wire,owners,wirestring,num_owners
+
+# Messages for datastore persistence - use these to serialize/deserialize
+# Each message wraps a single item for storage
+msgtype,bwatch_block,1
+msgdata,bwatch_block,block,block_record_wire,
+
+msgtype,bwatch_watch,2
+msgdata,bwatch_watch,watch,watch_wire,

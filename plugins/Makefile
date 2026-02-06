@@ -17,7 +17,8 @@ PLUGIN_TXPREPARE_OBJS := $(PLUGIN_TXPREPARE_SRC:.c=.o)
 PLUGIN_BCLI_SRC := plugins/bcli.c
 PLUGIN_BCLI_OBJS := $(PLUGIN_BCLI_SRC:.c=.o)
 
-PLUGIN_BWATCH_SRC := plugins/bwatch/bwatch.c
+PLUGIN_BWATCH_SRC := plugins/bwatch/bwatch.c plugins/bwatch/bwatch_wiregen.c
+PLUGIN_BWATCH_HEADER := plugins/bwatch/bwatch_wiregen.h
 PLUGIN_BWATCH_OBJS := $(PLUGIN_BWATCH_SRC:.c=.o)
 
 PLUGIN_COMMANDO_SRC := plugins/commando.c
@@ -106,7 +107,8 @@ PLUGIN_ALL_HEADER :=				\
 	$(PLUGIN_FUNDER_HEADER)			\
 	$(PLUGIN_PAY_LIB_HEADER)		\
 	$(PLUGIN_OFFERS_HEADER)			\
-	$(PLUGIN_SPENDER_HEADER)
+	$(PLUGIN_SPENDER_HEADER)		\
+	$(PLUGIN_BWATCH_HEADER)
 
 C_PLUGINS :=					\
 	plugins/autoclean			\
@@ -194,6 +196,8 @@ plugins/exposesecret: $(PLUGIN_EXPOSESECRET_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
 
 plugins/bcli: $(PLUGIN_BCLI_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
 
+plugins/bwatch/bwatch.o: $(PLUGIN_BWATCH_HEADER)
+plugins/bwatch/bwatch_wiregen.o: $(PLUGIN_BWATCH_HEADER)
 plugins/bwatch/bwatch: $(PLUGIN_BWATCH_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
 
 plugins/keysend: $(PLUGIN_KEYSEND_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_PAY_LIB_OBJS) libcommon.a
