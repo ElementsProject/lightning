@@ -1,21 +1,21 @@
 #include "config.h"
-#include <lightningd/watchman.h>
-#include <lightningd/lightningd.h>
-#include <lightningd/log.h>
-#include <lightningd/jsonrpc.h>
-#include <lightningd/plugin.h>
-#include <wallet/wallet.h>
-#include <db/exec.h>
+#include <bitcoin/tx.h>
+#include <ccan/array_size/array_size.h>
+#include <ccan/str/str.h>
+#include <ccan/tal/str/str.h>
 #include <common/autodata.h>
 #include <common/json_command.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/jsonrpc_errors.h>
-#include <common/utils.h>
-#include <bitcoin/tx.h>
-#include <ccan/array_size/array_size.h>
-#include <ccan/str/str.h>
-#include <ccan/tal/str/str.h>
+#include <common/jsonrpc_io.h>
+#include <db/exec.h>
+#include <lightningd/jsonrpc.h>
+#include <lightningd/lightningd.h>
+#include <lightningd/log.h>
+#include <lightningd/plugin.h>
+#include <lightningd/watchman.h>
+#include <wallet/wallet.h>
 
 /*
  * Watchman is the interface between lightningd and the bwatch plugin.
@@ -376,7 +376,7 @@ static struct command_result *json_watch_found(struct command *cmd,
 		return command_check_done(cmd);
 
 	/* Log the watch_found notification */
-	log_inform(cmd->ld->log, "watch_found: %s at block %u", type, *blockheight);
+	log_info(cmd->ld->log, "watch_found: %s at block %u", type, *blockheight);
 
 	/* Bwatch now tells us exactly which output/input matched.
 	 * outnum = output index for scriptpubkey watches
