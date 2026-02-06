@@ -156,6 +156,98 @@ static void send_to_bwatch(struct watchman *wm, const char *method,
 	plugin_request_send(bwatch, req);
 }
 
+/**
+ * watchman_add - Queue an add watch operation
+ *
+ * Simply queues the operation and sends to bwatch.
+ * Bwatch handles duplicate adds idempotently.
+ */
+void watchman_add(struct lightningd *ld, const char *owner, const char *json_params)
+{
+	struct watchman *wm = ld->watchman;
+	char *op_id = tal_fmt(tmpctx, "add:%s", owner);
+	struct pending_op *op = tal(wm, struct pending_op);
+
+	op->op_id = tal_strdup(op, op_id);
+	op->json_params = tal_strdup(op, json_params);
+
+	tal_arr_expand(&wm->pending_ops, op);
+	db_save(wm, op);
+	send_to_bwatch(wm, "addwatch", op_id, json_params);
+}
+
+/**
+ * watchman_del - Queue a delete watch operation
+ *
+ * Simply queues the operation and sends to bwatch.
+ * Bwatch handles duplicate deletes idempotently.
+ */
+void watchman_del(struct lightningd *ld, const char *owner, const char *json_params)
+{
+	struct watchman *wm = ld->watchman;
+	char *op_id = tal_fmt(tmpctx, "del:%s", owner);
+	struct pending_op *op = tal(wm, struct pending_op);
+
+	op->op_id = tal_strdup(op, op_id);
+	op->json_params = tal_strdup(op, json_params);
+
+	tal_arr_expand(&wm->pending_ops, op);
+	db_save(wm, op);
+	send_to_bwatch(wm, "delwatch", op_id, json_params);
+}
+
+/**
+ * watchman_ack - Acknowledge a completed watch operation
+ *
+ * Called when bwatch confirms it has processed an add/del operation.
+ * Removes the operation from the pending queue and datastore.
+ */
+void watchman_ack(struct lightningd *ld, const char *op_id)
+{
+	struct watchman *wm = ld->watchman;
+
+	for (size_t i = 0; i < tal_count(wm->pending_ops); i++) {
+		if (streq(wm->pending_ops[i]->op_id, op_id)) {
+			db_remove(wm, op_id);
+			tal_free(wm->pending_ops[i]);
+			tal_arr_remove(&wm->pending_ops, i);
+			return;
+		}
+	}
+}
+
+/**
+ * watchman_replay_pending - Resend all pending operations to bwatch
+ *
+ * Called on startup after bwatch is ready, to ensure any operations
+ * that were pending before a crash are sent to bwatch.
+ */
+void watchman_replay_pending(struct lightningd *ld)
+{
+	struct watchman *wm = ld->watchman;
+
+	for (size_t i = 0; i < tal_count(wm->pending_ops); i++) {
+		struct pending_op *op = wm->pending_ops[i];
+		const char *method = strstarts(op->op_id, "add:") ? "addwatch" : "delwatch";
+		send_to_bwatch(wm, method, op->op_id, op->json_params);
+	}
+}
+
+/**
+ * watchman_get_height - Get watchman's last processed block height
+ *
+ * Returns the last block height that bwatch has processed.
+ * This should be used as the start_block when adding new watches
+ * to avoid rescanning from genesis.
+ */
+u32 watchman_get_height(struct lightningd *ld)
+{
+	struct watchman *wm = ld->watchman;
+	if (!wm)
+		return 0;
+	return wm->last_processed_height;
+}
+
 /* Dispatch table - add new watch types here */
 static const struct watch_dispatch {
 	const char *prefix;

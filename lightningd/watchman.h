@@ -34,4 +34,58 @@ typedef void (*watch_found_fn)(struct lightningd *ld,
  */
 struct watchman *watchman_new(const tal_t *ctx, struct lightningd *ld);
 
+/**
+ * watchman_add - Add a watch via raw JSON params
+ * @ld: lightningd instance
+ * @owner: the owner identifier (e.g., "wallet/p2wpkh/42")
+ * @json_params: the raw JSON params string to send to bwatch
+ *
+ * Adds a watch to the pending queue and sends it to bwatch.
+ * If a conflicting delete is pending, it will be canceled.
+ */
+void watchman_add(struct lightningd *ld,
+		  const char *owner,
+		  const char *json_params);
+
+/**
+ * watchman_del - Remove a watch via raw JSON params
+ * @ld: lightningd instance
+ * @owner: the owner identifier
+ * @json_params: the raw JSON params string to send to bwatch
+ *
+ * Removes a watch by adding a delete operation to the pending queue.
+ * If a conflicting add is pending, it will be canceled instead.
+ */
+void watchman_del(struct lightningd *ld,
+		  const char *owner,
+		  const char *json_params);
+
+/**
+ * watchman_ack - Acknowledge a completed watch operation
+ * @ld: lightningd instance
+ * @op_id: the operation ID that was acknowledged
+ *
+ * Called when bwatch acknowledges a watch operation.
+ */
+void watchman_ack(struct lightningd *ld, const char *op_id);
+
+/**
+ * watchman_replay_pending - Replay all pending operations
+ * @ld: lightningd instance
+ *
+ * Resends all pending watch operations to bwatch.
+ * Call this when bwatch is ready (e.g., on startup).
+ */
+void watchman_replay_pending(struct lightningd *ld);
+
+/**
+ * watchman_get_height - Get watchman's last processed block height
+ * @ld: lightningd instance
+ *
+ * Returns the last block height that bwatch has processed.
+ * This should be used as the start_block when adding new watches
+ * to avoid rescanning from genesis.
+ */
+u32 watchman_get_height(struct lightningd *ld);
+
 #endif /* LIGHTNING_LIGHTNINGD_WATCHMAN_H */
