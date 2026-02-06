@@ -1528,13 +1528,6 @@ static const struct plugin_command commands[] = {
 	},
 };
 
-static bool json_hex_to_be64(const char *buffer, const jsmntok_t *tok,
-			     be64 *val)
-{
-	return hex_decode(buffer + tok->start, tok->end - tok->start,
-			  val, sizeof(*val));
-}
-
 static const char *init(struct command *init_cmd, const char *b, const jsmntok_t *t)
 {
 	struct plugin *p = init_cmd->plugin;
