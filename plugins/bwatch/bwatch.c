@@ -1023,6 +1023,61 @@ static struct command_result *poll_chain(struct command *cmd, void *unused)
 	return send_outreq(req);
 }
 
+/* Handle getwatchmanheight response - sync with watchman's last processed height */
+static struct command_result *getwatchmanheight_done(struct command *cmd,
+						     const char *method UNUSED,
+						     const char *buf,
+						     const jsmntok_t *result,
+						     void *unused UNUSED)
+{
+	struct bwatch *bwatch = bwatch_of(cmd->plugin);
+	u32 watchman_height;
+	const jsmntok_t *height_tok;
+
+	/* Parse the response */
+	height_tok = json_get_member(buf, result, "height");
+	if (!height_tok || !json_to_u32(buf, height_tok, &watchman_height)) {
+		plugin_log(cmd->plugin, LOG_BROKEN,
+			   "Failed to parse getwatchmanheight response");
+		watchman_height = 0; /* Fall through to normal init */
+	}
+
+	plugin_log(cmd->plugin, LOG_DBG,
+		   "Watchman reports height %u, bwatch has height %u",
+		   watchman_height, bwatch->current_height);
+
+	/* Roll back to watchman's height if we're ahead.
+	 * Normal polling will catch up and re-send block_processed for each block. */
+	if (bwatch->current_height > watchman_height) {
+		plugin_log(cmd->plugin, LOG_INFORM,
+			   "Watchman height (%u) < bwatch height (%u), rescanning from watchman height",
+			   watchman_height, bwatch->current_height);
+		while (bwatch->current_height > watchman_height)
+			remove_tip(cmd, bwatch);
+	}
+
+	/* Start polling - will catch up naturally with proper reorg handling */
+	bwatch->poll_timer = global_timer(cmd->plugin, time_from_sec(1),
+					   poll_chain, NULL);
+
+	plugin_log(cmd->plugin, LOG_INFORM,
+		   "bwatch plugin initialized at height %u with %zu blocks in history, polling every %u seconds",
+		   bwatch->current_height, tal_count(bwatch->block_history),
+		   bwatch->poll_interval);
+
+	return timer_complete(cmd);
+}
+
+/* Timer callback to sync with watchman's height before starting normal polling */
+static struct command_result *sync_with_watchman(struct command *cmd, void *unused UNUSED)
+{
+	struct out_req *req = jsonrpc_request_start(cmd, "getwatchmanheight",
+						    getwatchmanheight_done,
+						    getwatchmanheight_done,
+						    NULL);
+	return send_outreq(req);
+}
+
 /*
  * ============================================================================
  * RESCAN FUNCTIONS
@@ -1426,11 +1481,10 @@ static const char *init(struct command *cmd,
 	/* Set poll interval (30 seconds default) */
 	bwatch->poll_interval = 30;
 
-	/* Start polling - will catch up naturally with proper reorg handling */
-	bwatch->poll_timer = global_timer(cmd->plugin, time_from_sec(1), poll_chain, NULL);
+	/* Defer watchman height sync to a timer so init can complete synchronously */
+	global_timer(cmd->plugin, time_from_sec(0), sync_with_watchman, NULL);
 	
-	plugin_log(bwatch->plugin, LOG_INFORM, "bwatch plugin initialized");
-	return NULL;
+	return NULL; /* Success */
 }
 
 static const struct plugin_command commands[] = {
