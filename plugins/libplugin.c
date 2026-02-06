@@ -828,9 +828,9 @@ void rpc_scan(struct command *cmd,
 			   guide, method, err);
 }
 
-static void json_add_keypath(struct json_out *jout,
-			     const char *fieldname,
-			     const char **keys)
+void json_add_keypath(struct json_out *jout,
+		      const char *fieldname,
+		      const char **keys)
 {
 	json_out_start(jout, fieldname, '[');
 	for (size_t i = 0; i < tal_count(keys); i++)

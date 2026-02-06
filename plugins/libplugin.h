@@ -685,6 +685,11 @@ struct listpeers_channel **json_to_listpeers_channels(const tal_t *ctx,
 						      const char *buffer,
 						      const jsmntok_t *tok);
 
+/* Helper to write keys[] array (mainly for datastore ops) */
+void json_add_keypath(struct json_out *jout,
+		      const char *fieldname,
+		      const char **keys);
+
 struct createonion_response {
 	u8 *onion;
 	struct secret *shared_secrets;
