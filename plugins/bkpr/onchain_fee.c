@@ -8,6 +8,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
+#include <common/mkdatastorekey.h>
 #include <common/pseudorand.h>
 #include <inttypes.h>
 #include <plugins/bkpr/account.h>
@@ -173,15 +174,15 @@ static struct onchain_fee *fromwire_onchain_fee(struct onchain_fees *onchain_fee
 			       update_count);
 }
 
-static const char *ds_ofee_path(const tal_t *ctx, const char *acctname)
+static const char **ds_ofee_path(const tal_t *ctx, const char *acctname TAKES)
 {
-	return tal_fmt(ctx, "bookkeeper/onchain_fee/%s", acctname);
+	return mkdatastorekey(ctx, "bookkeeper", "onchain_fee", acctname);
 }
 
 static void onchain_fee_datastore_add(struct command *cmd,
 				      const struct onchain_fee *of)
 {
-	const char *path = ds_ofee_path(tmpctx, of->acct_name);
+	const char **path = ds_ofee_path(tmpctx, of->acct_name);
 	u8 *data = tal_arr(tmpctx, u8, 0);
 
 	towire_onchain_fee(&data, of);

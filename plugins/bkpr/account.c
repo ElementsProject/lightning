@@ -5,6 +5,7 @@
 #include <ccan/str/str.h>
 #include <ccan/tal/str/str.h>
 #include <common/memleak.h>
+#include <common/mkdatastorekey.h>
 #include <common/node_id.h>
 #include <plugins/bkpr/account.h>
 #include <plugins/bkpr/bookkeeper.h>
@@ -144,16 +145,16 @@ struct account **list_accounts(const tal_t *ctx, const struct bkpr *bkpr)
 	return results;
 }
 
-static const char *ds_path(const tal_t *ctx, const char *acctname)
+static const char **ds_path(const tal_t *ctx, const char *acctname)
 {
-	return tal_fmt(ctx, "bookkeeper/account/%s", acctname);
+	return mkdatastorekey(ctx, "bookkeeper", "account", acctname);
 }
 
 static void account_datastore_set(struct command *cmd,
 				  const struct account *acct,
 				  const char *mode)
 {
-	const char *path = ds_path(tmpctx, acct->name);
+	const char **path = ds_path(tmpctx, acct->name);
 	u8 *data = tal_arr(tmpctx, u8, 0);
 
 	towire_account(&data, acct);

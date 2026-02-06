@@ -268,7 +268,7 @@ struct json_stream *jsonrpc_stream_fail_data(struct command *cmd,
  * NULL cb means ignore, NULL errcb means plugin_error.
  */
 struct command_result *jsonrpc_set_datastore_(struct command *cmd,
-					      const char *path,
+					      const char **keys,
 					      const void *value,
 					      int len_or_str,
 					      const char *mode,
@@ -285,8 +285,8 @@ struct command_result *jsonrpc_set_datastore_(struct command *cmd,
 					      void *arg)
 	NON_NULL_ARGS(1, 2, 3, 5);
 
-#define jsonrpc_set_datastore_string(cmd, path, str, mode, cb, errcb, arg) \
-	jsonrpc_set_datastore_((cmd), (path), (str), -1, (mode),	\
+#define jsonrpc_set_datastore_string(cmd, keys, str, mode, cb, errcb, arg) \
+	jsonrpc_set_datastore_((cmd), (keys), (str), -1, (mode),	\
 			       typesafe_cb_preargs(struct command_result *, void *, \
 						   (cb), (arg),		\
 						   struct command *command, \
@@ -301,8 +301,8 @@ struct command_result *jsonrpc_set_datastore_(struct command *cmd,
 						   const jsmntok_t *result), \
 			       (arg))
 
-#define jsonrpc_set_datastore_binary(cmd, path, ptr, len, mode, cb, errcb, arg) \
-	jsonrpc_set_datastore_((cmd), (path), (ptr), (len), (mode),	\
+#define jsonrpc_set_datastore_binary(cmd, keys, ptr, len, mode, cb, errcb, arg) \
+	jsonrpc_set_datastore_((cmd), (keys), (ptr), (len), (mode),	\
 			       typesafe_cb_preargs(struct command_result *, void *, \
 						   (cb), (arg),		\
 						   struct command *command, \
@@ -321,7 +321,7 @@ struct command_result *jsonrpc_set_datastore_(struct command *cmd,
  * If the value not found, cb gets NULL @val.
  */
 struct command_result *jsonrpc_get_datastore_(struct command *cmd,
-					      const char *path,
+					      const char **keys,
 					      struct command_result *(*string_cb)(struct command *command,
 									   const char *val,
 									   void *arg),
@@ -331,8 +331,8 @@ struct command_result *jsonrpc_get_datastore_(struct command *cmd,
 					      void *arg)
 	NON_NULL_ARGS(1, 2);
 
-#define jsonrpc_get_datastore_string(cmd, path, cb, arg)		\
-	jsonrpc_get_datastore_((cmd), (path),				\
+#define jsonrpc_get_datastore_string(cmd, keys, cb, arg)		\
+	jsonrpc_get_datastore_((cmd), (keys),				\
 			       typesafe_cb_preargs(struct command_result *, \
 						   void *,		\
 						   (cb), (arg),		\
@@ -341,8 +341,8 @@ struct command_result *jsonrpc_get_datastore_(struct command *cmd,
 			       NULL,				     \
 			       (arg))
 
-#define jsonrpc_get_datastore_binary(cmd, path, cb, arg)		\
-	jsonrpc_get_datastore_((cmd), (path),				\
+#define jsonrpc_get_datastore_binary(cmd, keys, cb, arg)		\
+	jsonrpc_get_datastore_((cmd), (keys),				\
 			       NULL,					\
 			       typesafe_cb_preargs(struct command_result *, \
 						   void *,		\
@@ -449,17 +449,17 @@ void rpc_scan(struct command *cmd,
 	      ...);
 
 /* Helper to scan datastore.  Returns error msg (usually meaning field
- * does not exist), or NULL on success. path is /-separated.  Final
+ * does not exist), or NULL on success. keys is usually from mkdatastorekey.  Final
  * arg is JSON_SCAN or JSON_SCAN_TAL.
  */
 const char *rpc_scan_datastore_str(const tal_t *ctx,
 				   struct command *cmd,
-				   const char *path,
+				   const char **keys,
 				   ...);
 /* This variant scans the hex encoding, not the string */
 const char *rpc_scan_datastore_hex(const tal_t *ctx,
 				   struct command *cmd,
-				   const char *path,
+				   const char **keys,
 				   ...);
 
 /* This sets batching of database commitments */

@@ -7,6 +7,7 @@
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
 #include <common/memleak.h>
+#include <common/mkdatastorekey.h>
 #include <common/utils.h>
 #include <plugins/bkpr/bookkeeper.h>
 #include <plugins/bkpr/chain_event.h>
@@ -78,16 +79,16 @@ struct descriptions {
 	struct payment_hash_desc_htable *by_payment_hash;
 };
 
-static const char *ds_desc_utxo_path(const tal_t *ctx,
-				     const struct bitcoin_outpoint *outp)
+static const char **ds_desc_utxo_path(const tal_t *ctx,
+				      const struct bitcoin_outpoint *outp)
 {
-	return tal_fmt(ctx, "bookkeeper/description/utxo/%s", fmt_bitcoin_outpoint(tmpctx, outp));
+	return mkdatastorekey(ctx, "bookkeeper", "description", "utxo", take(fmt_bitcoin_outpoint(NULL, outp)));
 }
 
 static void utxo_desc_datastore_update(struct command *cmd,
 				       const struct utxo_desc *utxo_desc)
 {
-	const char *path = ds_desc_utxo_path(tmpctx, &utxo_desc->outp);
+	const char **path = ds_desc_utxo_path(tmpctx, &utxo_desc->outp);
 
 	jsonrpc_set_datastore_binary(cmd, path,
 				     utxo_desc->desc, strlen(utxo_desc->desc),
@@ -95,17 +96,17 @@ static void utxo_desc_datastore_update(struct command *cmd,
 				     ignore_datastore_reply, NULL, NULL);
 }
 
-static const char *ds_desc_payment_hash_path(const tal_t *ctx,
-						    const struct sha256 *payment_hash)
+static const char **ds_desc_payment_hash_path(const tal_t *ctx,
+					      const struct sha256 *payment_hash)
 {
-	return tal_fmt(ctx, "bookkeeper/description/payment/%s",
-		       fmt_sha256(tmpctx, payment_hash));
+	return mkdatastorekey(ctx, "bookkeeper", "description", "payment",
+			      take(fmt_sha256(NULL, payment_hash)));
 }
 
 static void payment_hash_desc_datastore_update(struct command *cmd,
 					       const struct payment_hash_desc *phd)
 {
-	const char *path = ds_desc_payment_hash_path(tmpctx, &phd->payment_hash);
+	const char **path = ds_desc_payment_hash_path(tmpctx, &phd->payment_hash);
 	jsonrpc_set_datastore_binary(cmd, path, phd->desc, strlen(phd->desc),
 				     "create-or-replace",
 				     ignore_datastore_reply, NULL, NULL);

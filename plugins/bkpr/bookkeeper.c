@@ -13,6 +13,7 @@
 #include <common/coin_mvt.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
+#include <common/mkdatastorekey.h>
 #include <common/node_id.h>
 #include <db/exec.h>
 #include <errno.h>
@@ -126,7 +127,8 @@ static struct command_result *listchannelmoves_done(struct command *cmd,
 		parse_and_log_channel_move(cmd, buf, t, rinfo);
 
 	be_index = cpu_to_be64(bkpr->channelmoves_index);
-	jsonrpc_set_datastore_binary(cmd, "bookkeeper/channelmoves_index",
+	jsonrpc_set_datastore_binary(cmd,
+				     mkdatastorekey(tmpctx, "bookkeeper", "channelmoves_index"),
 				     &be_index, sizeof(be_index),
 				     "create-or-replace",
 				     datastore_done, NULL, use_rinfo(rinfo));
@@ -171,7 +173,8 @@ static struct command_result *listchainmoves_done(struct command *cmd,
 		parse_and_log_chain_move(cmd, buf, t, rinfo);
 
 	be_index = cpu_to_be64(bkpr->chainmoves_index);
-	jsonrpc_set_datastore_binary(cmd, "bookkeeper/chainmoves_index",
+	jsonrpc_set_datastore_binary(cmd,
+				     mkdatastorekey(tmpctx, "bookkeeper", "chainmoves_index"),
 				     &be_index, sizeof(be_index),
 				     "create-or-replace",
 				     datastore_done, NULL, use_rinfo(rinfo));
@@ -1548,12 +1551,14 @@ static const char *init(struct command *init_cmd, const char *b, const jsmntok_t
 	find_or_create_account(init_cmd, bkpr, ACCOUNT_NAME_WALLET);
 
 	/* Not existing is OK! */
-	if (rpc_scan_datastore_hex(tmpctx, init_cmd, "bookkeeper/channelmoves_index",
+	if (rpc_scan_datastore_hex(tmpctx, init_cmd,
+				   mkdatastorekey(tmpctx, "bookkeeper", "channelmoves_index"),
 				   JSON_SCAN(json_hex_to_be64, &index)) == NULL) {
 		bkpr->channelmoves_index = be64_to_cpu(index);
 	} else
 		bkpr->channelmoves_index = 0;
-	if (rpc_scan_datastore_hex(tmpctx, init_cmd, "bookkeeper/chainmoves_index",
+	if (rpc_scan_datastore_hex(tmpctx, init_cmd,
+				   mkdatastorekey(tmpctx, "bookkeeper", "chainmoves_index"),
 				   JSON_SCAN(json_hex_to_be64, &index)) == NULL) {
 		bkpr->chainmoves_index = be64_to_cpu(index);
 	} else

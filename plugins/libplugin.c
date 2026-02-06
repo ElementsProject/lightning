@@ -828,19 +828,19 @@ void rpc_scan(struct command *cmd,
 			   guide, method, err);
 }
 
-static void json_add_keypath(struct json_out *jout, const char *fieldname, const char *path)
+static void json_add_keypath(struct json_out *jout,
+			     const char *fieldname,
+			     const char **keys)
 {
-	char **parts = tal_strsplit(tmpctx, path, "/", STR_EMPTY_OK);
-
 	json_out_start(jout, fieldname, '[');
-	for (size_t i = 0; parts[i]; parts++)
-		json_out_addstr(jout, NULL, parts[i]);
+	for (size_t i = 0; i < tal_count(keys); i++)
+		json_out_addstr(jout, NULL, keys[i]);
 	json_out_end(jout, ']');
 }
 
 static const char *rpc_scan_datastore(const tal_t *ctx,
 				      struct command *cmd,
-				      const char *path,
+				      const char **keys,
 				      const char *hex_or_string,
 				      va_list ap)
 {
@@ -849,7 +849,7 @@ static const char *rpc_scan_datastore(const tal_t *ctx,
 
 	params = json_out_new(NULL);
 	json_out_start(params, NULL, '{');
-	json_add_keypath(params, "key", path);
+	json_add_keypath(params, "key", keys);
 	json_out_end(params, '}');
 	json_out_finished(params);
 
@@ -860,14 +860,14 @@ static const char *rpc_scan_datastore(const tal_t *ctx,
 
 const char *rpc_scan_datastore_str(const tal_t *ctx,
 				   struct command *cmd,
-				   const char *path,
+				   const char **keys,
 				   ...)
 {
 	const char *ret;
 	va_list ap;
 
-	va_start(ap, path);
-	ret = rpc_scan_datastore(ctx, cmd, path, "string", ap);
+	va_start(ap, keys);
+	ret = rpc_scan_datastore(ctx, cmd, keys, "string", ap);
 	va_end(ap);
 	return ret;
 }
@@ -875,14 +875,14 @@ const char *rpc_scan_datastore_str(const tal_t *ctx,
 /* This variant scans the hex encoding, not the string */
 const char *rpc_scan_datastore_hex(const tal_t *ctx,
 				   struct command *cmd,
-				   const char *path,
+				   const char **keys,
 				   ...)
 {
 	const char *ret;
 	va_list ap;
 
-	va_start(ap, path);
-	ret = rpc_scan_datastore(ctx, cmd, path, "hex", ap);
+	va_start(ap, keys);
+	ret = rpc_scan_datastore(ctx, cmd, keys, "hex", ap);
 	va_end(ap);
 	return ret;
 }
@@ -903,7 +903,7 @@ void rpc_enable_batching(struct plugin *plugin)
 }
 
 struct command_result *jsonrpc_set_datastore_(struct command *cmd,
-					      const char *path,
+					      const char **keys,
 					      const void *value,
 					      int len_or_str,
 					      const char *mode,
@@ -928,7 +928,7 @@ struct command_result *jsonrpc_set_datastore_(struct command *cmd,
 
 	req = jsonrpc_request_start(cmd, "datastore", cb, errcb, arg);
 
-	json_add_keypath(req->js->jout, "key", path);
+	json_add_keypath(req->js->jout, "key", keys);
 	if (len_or_str == -1)
 		json_add_string(req->js, "string", value);
 	else
@@ -988,7 +988,7 @@ static struct command_result *listdatastore_done(struct command *cmd,
 }
 
 struct command_result *jsonrpc_get_datastore_(struct command *cmd,
-					      const char *path,
+					      const char **keys,
 					      struct command_result *(*string_cb)(struct command *command,
 									   const char *val,
 									   void *arg),
@@ -1009,7 +1009,7 @@ struct command_result *jsonrpc_get_datastore_(struct command *cmd,
 				    listdatastore_done, plugin_broken_cb, dsi);
 	tal_steal(req, dsi);
 
-	json_add_keypath(req->js->jout, "key", path);
+	json_add_keypath(req->js->jout, "key", keys);
 	return send_outreq(req);
 }
 

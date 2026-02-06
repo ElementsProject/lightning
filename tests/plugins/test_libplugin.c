@@ -4,6 +4,7 @@
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
+#include <common/mkdatastorekey.h>
 #include <plugins/libplugin.h>
 
 /* Stash this in plugin's data */
@@ -36,7 +37,7 @@ static struct command_result *get_ds_bin_done(struct command *cmd,
 		   val ? tal_hex(tmpctx, val) : "NOT FOUND");
 
 	return jsonrpc_get_datastore_string(cmd,
-					    "test_libplugin/name",
+					    mkdatastorekey(tmpctx, "test_libplugin", "name"),
 					    get_ds_done, arg);
 }
 
@@ -63,7 +64,7 @@ static struct command_result *json_helloworld(struct command *cmd,
 
 	if (!name)
 		return jsonrpc_get_datastore_binary(cmd,
-						    "test_libplugin/name",
+						    mkdatastorekey(tmpctx, "test_libplugin", "name"),
 						    get_ds_bin_done,
 						    "hello");
 
@@ -291,12 +292,14 @@ static const char *init(struct command *init_cmd,
 		return "Disabled via selfdisable option";
 
 	/* Test rpc_scan_datastore funcs */
-	err_str = rpc_scan_datastore_str(tmpctx, init_cmd, "test_libplugin/name",
+	err_str = rpc_scan_datastore_str(tmpctx, init_cmd,
+					 mkdatastorekey(tmpctx, "test_libplugin", "name"),
 					 JSON_SCAN_TAL(tmpctx, json_strdup,
 						       &name));
 	if (err_str)
 		name = NULL;
-	err_hex = rpc_scan_datastore_hex(tmpctx, init_cmd, "test_libplugin/name",
+	err_hex = rpc_scan_datastore_hex(tmpctx, init_cmd,
+					 mkdatastorekey(tmpctx, "test_libplugin", "name"),
 					 JSON_SCAN_TAL(tmpctx, json_tok_bin_from_hex,
 						       &binname));
 	if (err_hex)
