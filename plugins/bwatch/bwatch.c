@@ -1342,6 +1342,72 @@ static struct command_result *json_bwatch_del(struct command *cmd,
 	return command_success(cmd, json_out_obj(cmd, "removed", "true"));
 }
 
+/* Helper to output common watch fields */
+static void json_out_watch_common(struct json_out *jout,
+				  enum watch_type type,
+				  u32 start_block,
+				  wirestring **owners)
+{
+	json_out_addstr(jout, "type", get_watch_type_name(type));
+	json_out_add(jout, "start_block", false, "%u", start_block);
+	json_out_start(jout, "owners", '[');
+	for (size_t i = 0; i < tal_count(owners); i++)
+		json_out_addstr(jout, NULL, owners[i]);
+	json_out_end(jout, ']');
+}
+
+/* RPC command: listwatch */
+static struct command_result *json_bwatch_list(struct command *cmd,
+					       const char *buffer,
+					       const jsmntok_t *params)
+{
+	struct bwatch *bwatch = bwatch_of(cmd->plugin);
+	struct json_out *jout;
+	struct watch *w;
+	struct scriptpubkey_watch_hash_iter sit;
+	struct outpoint_watch_hash_iter oit;
+	struct txid_watch_hash_iter tit;
+
+	if (!param(cmd, buffer, params, NULL))
+		return command_param_failed();
+
+	jout = json_out_new(cmd);
+	json_out_start(jout, NULL, '{');
+	json_out_start(jout, "watches", '[');
+
+	w = scriptpubkey_watch_hash_first(bwatch->scriptpubkey_watches, &sit);
+	while (w) {
+		json_out_start(jout, NULL, '{');
+		json_out_addstr(jout, "scriptpubkey",
+				tal_hexstr(tmpctx, w->key.scriptpubkey.script, w->key.scriptpubkey.len));
+		json_out_watch_common(jout, w->type, w->start_block, w->owners);
+		json_out_end(jout, '}');
+		w = scriptpubkey_watch_hash_next(bwatch->scriptpubkey_watches, &sit);
+	}
+
+	w = outpoint_watch_hash_first(bwatch->outpoint_watches, &oit);
+	while (w) {
+		json_out_start(jout, NULL, '{');
+		json_out_addstr(jout, "outpoint", fmt_bitcoin_outpoint(tmpctx, &w->key.outpoint));
+		json_out_watch_common(jout, w->type, w->start_block, w->owners);
+		json_out_end(jout, '}');
+		w = outpoint_watch_hash_next(bwatch->outpoint_watches, &oit);
+	}
+
+	w = txid_watch_hash_first(bwatch->txid_watches, &tit);
+	while (w) {
+		json_out_start(jout, NULL, '{');
+		json_out_addstr(jout, "txid", fmt_bitcoin_txid(tmpctx, &w->key.txid));
+		json_out_watch_common(jout, w->type, w->start_block, w->owners);
+		json_out_end(jout, '}');
+		w = txid_watch_hash_next(bwatch->txid_watches, &tit);
+	}
+
+	json_out_end(jout, ']');
+	json_out_end(jout, '}');
+	return command_success(cmd, jout);
+}
+
 static const char *init(struct command *cmd,
 			const char *buf UNUSED,
 			const jsmntok_t *config UNUSED)
@@ -1390,6 +1456,10 @@ static const struct plugin_command commands[] = {
 	{
 		"delwatch",
 		json_bwatch_del,
+	},
+	{
+		"listwatch",
+		json_bwatch_list,
 	},
 };
 
