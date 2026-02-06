@@ -408,6 +408,63 @@ static const char *init(struct command *cmd,
 	return NULL;
 }
 
+/*
+ * ============================================================================
+ * BLOCK PROCESSING: Polling
+ * ============================================================================
+ */
+
+/* Forward declarations for chain polling */
+static struct command_result *poll_chain(struct command *cmd, void *unused);
+static struct command_result *getchaininfo_done(struct command *cmd,
+						const char *method,
+						const char *buf,
+						const jsmntok_t *result,
+						void *unused);
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
+/* Reschedule the timer and complete */
+static struct command_result *poll_finished(struct command *cmd)
+{
+	struct bwatch *bwatch = bwatch_of(cmd->plugin);
+
+	plugin_log(cmd->plugin, LOG_DBG, "Rescheduling poll timer (current_height=%u)",
+		   bwatch->current_height);
+	bwatch->poll_timer = global_timer(cmd->plugin, time_from_sec(bwatch->poll_interval),
+					   poll_chain, NULL);
+	return timer_complete(cmd);
+}
+
+/* Stub implementation - will be replaced with full implementation */
+static struct command_result *getchaininfo_done(struct command *cmd,
+						const char *method,
+						const char *buf,
+						const jsmntok_t *result,
+						void *unused)
+{
+	/* TODO: Implement full getchaininfo handling */
+	return poll_finished(cmd);
+}
+
+/* Timer callback to poll the chain */
+static struct command_result *poll_chain(struct command *cmd, void *unused)
+{
+	struct bwatch *bwatch = bwatch_of(cmd->plugin);
+	struct out_req *req;
+
+	plugin_log(cmd->plugin, LOG_DBG, "Polling chain for new blocks (current_height=%u)",
+		   bwatch->current_height);
+
+	req = jsonrpc_request_start(cmd, "getchaininfo",
+				    getchaininfo_done,
+				    getchaininfo_done,
+				    NULL);
+	json_add_u32(req->js, "last_height", bwatch->current_height);
+	return send_outreq(req);
+}
+#pragma GCC diagnostic pop
+
 int main(int argc, char *argv[])
 {
 	struct bwatch *bwatch;
