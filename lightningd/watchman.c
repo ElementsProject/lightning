@@ -2,9 +2,18 @@
 #include <lightningd/watchman.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
+#include <lightningd/jsonrpc.h>
 #include <wallet/wallet.h>
 #include <db/exec.h>
+#include <common/autodata.h>
+#include <common/json_command.h>
+#include <common/json_param.h>
+#include <common/json_stream.h>
+#include <common/jsonrpc_errors.h>
 #include <common/utils.h>
+#include <bitcoin/tx.h>
+#include <ccan/array_size/array_size.h>
+#include <ccan/str/str.h>
 
 /*
  * Watchman is the interface between lightningd and the bwatch plugin.
@@ -47,3 +56,241 @@ struct watchman *watchman_new(const tal_t *ctx, struct lightningd *ld)
 
 	return wm;
 }
+
+/* Dispatch table - add new watch types here */
+static const struct watch_dispatch {
+	const char *prefix;
+	watch_found_fn handler;
+} watch_handlers[] = {
+	/* TODO: Add wallet handlers when wallet.c is updated */
+	/* { "wallet/p2wpkh/",      wallet_watch_p2wpkh }, */
+	/* { "wallet/p2tr/",        wallet_watch_p2tr }, */
+	/* { "wallet/p2sh_p2wpkh/", wallet_watch_p2sh_p2wpkh }, */
+	/* Future:
+	{ "channel/funding/",    channel_watch_funding },
+	{ "onchaind/penalty/",   onchaind_watch_penalty },
+	*/
+};
+
+/**
+ * parse_watch_id - Extract numeric ID from owner suffix
+ *
+ * Parses the numeric ID from the owner string suffix.
+ * This is used for keyindex (wallet), channel_dbid (channel watches),
+ * etc. Returns true on success, false on parse error.
+ */
+static bool parse_watch_id(const char *suffix, u32 *id)
+{
+	char *endp;
+	
+	*id = strtol(suffix, &endp, 10);
+	return (*endp == '\0');
+}
+
+/**
+ * dispatch_watch_found - Find and call the appropriate handler for an owner
+ *
+ * Matches the owner string against registered prefixes, parses the ID,
+ * and dispatches to the appropriate handler.
+ */
+static void dispatch_watch_found(struct lightningd *ld,
+				 const char *owner,
+				 const struct bitcoin_tx *tx,
+				 size_t outnum,
+				 u32 blockheight,
+				 u32 txindex)
+{
+	const struct watch_dispatch *handler = NULL;
+	const char *suffix = NULL;
+	u32 id;
+	
+	/* Find matching handler by prefix */
+	for (size_t i = 0; i < ARRAY_SIZE(watch_handlers); i++) {
+		if (strstarts(owner, watch_handlers[i].prefix)) {
+			handler = &watch_handlers[i];
+			/* Extract suffix by skipping past the prefix
+			 * E.g., owner="wallet/p2wpkh/42", prefix="wallet/p2wpkh/"
+			 *       -> suffix="42" */
+			suffix = owner + strlen(handler->prefix);
+			break;
+		}
+	}
+	
+	if (!handler) {
+		/* No handler found - this is ok, might be a watch type we don't handle yet */
+		log_debug(ld->log, "No handler for watch owner: %s", owner);
+		return;
+	}
+	
+	/* Parse the ID from the suffix (keyindex, channel_dbid, etc.) */
+	if (!parse_watch_id(suffix, &id)) {
+		log_broken(ld->log, "Invalid ID in watch owner: %s", owner);
+		return;
+	}
+	
+	/* Dispatch to handler */
+	handler->handler(ld, id, tx, outnum, blockheight, txindex);
+}
+
+static struct command_result *param_bitcoin_tx(struct command *cmd,
+					       const char *name,
+					       const char *buffer,
+					       const jsmntok_t *tok,
+					       struct bitcoin_tx **tx)
+{
+	*tx = bitcoin_tx_from_hex(cmd, buffer + tok->start, tok->start - tok->end);
+	if (!*tx)
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "Expected a hex-encoded transaction");
+	return NULL;
+{
+
+/**
+ * json_watch_found - RPC handler for watch_found notifications from bwatch
+ *
+ * Called by bwatch when a watched transaction appears in a block.
+ * The notification includes the tx, blockheight, txindex, list of owners, and
+ * optionally outnum (for scriptpubkey watches) or innum (for outpoint watches).
+ *
+ * Dispatches to subsystem handlers based on owner prefix.
+ */
+static struct command_result *json_watch_found(struct command *cmd,
+					       const char *buffer,
+					       const jsmntok_t *obj UNNEEDED,
+					       const jsmntok_t *params)
+{
+	struct watchman *wm = cmd->ld->watchman;
+	const char *type, **owners;
+	u32 *blockheight, *txindex, *outnum, *innum;
+	struct bitcoin_tx *tx;
+	size_t i;
+
+	if (!param_check(cmd, buffer, params,
+		   p_req("tx", param_bitcoin_tx, &tx),
+		   p_req("blockheight", param_number, &blockheight),
+		   p_req("txindex", param_number, &txindex),
+		   p_req("type", param_string, &type),
+		   p_req("owners", param_string_array, &owners),
+		   p_opt("outnum", param_number, &outnum),
+		   p_opt("innum", param_number, &innum),
+		   NULL))
+		return command_param_failed();
+
+	if (outnum && innum)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Can only set one of outnum or innum");
+
+	assert(wm);
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
+
+	/* Log the watch_found notification */
+	log_inform(cmd->ld->log, "watch_found: %s at block %u", type, *blockheight);
+
+	/* Bwatch now tells us exactly which output/input matched.
+	 * outnum = output index for scriptpubkey watches
+	 * innum = input index for outpoint watches
+	 * For txid watches, neither is set so index defaults to 0
+	 * (which those handlers ignore anyway). */
+	json_for_each_arr(i, owner_tok, owners_tok) {
+		const char *owner = json_strdup(tmpctx, buffer, owner_tok);
+		size_t index;
+		
+		if (outnum)
+			index = *outnum;
+		else if (innum)
+			index = *innum;
+		else
+			index = 0;
+		
+		dispatch_watch_found(cmd->ld, owner, tx, index, *blockheight, *txindex);
+	}
+
+	struct json_stream *response = json_stream_success(cmd);
+	json_add_u32(response, "blockheight", *blockheight);
+	return command_success(cmd, response);
+}
+
+/**
+ * json_block_processed - RPC handler for block_processed notifications from bwatch
+ *
+ * Called by bwatch after it finishes processing all watches in a block.
+ * We track this height to know where bwatch is in the chain, which helps
+ * during startup/reorg scenarios.
+ */
+static struct command_result *json_block_processed(struct command *cmd,
+						   const char *buffer,
+						   const jsmntok_t *obj UNNEEDED,
+						   const jsmntok_t *params)
+{
+	struct watchman *wm = cmd->ld->watchman;
+	u32 *blockheight;
+
+	if (!param_check(cmd, buffer, params,
+			 p_req("blockheight", param_number, &blockheight),
+			 NULL))
+		return command_param_failed();
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
+
+	if (!wm)
+		return command_fail(cmd, LIGHTNINGD, "Watchman not initialized");
+
+	/* FIXME: tell gossipd, then when it replies, update last_processed_block */
+	/* Accept any height - handles both forward progress and reorgs */
+	if (*blockheight != wm->last_processed_height) {
+		log_debug(wm->ld->log, "block_processed: %u -> %u",
+			  wm->last_processed_height, *blockheight);
+		wm->last_processed_height = *blockheight;
+		db_set_intvar(wm->ld->wallet->db, "last_watchman_block_height",
+			      *blockheight);
+	}
+
+	struct json_stream *response = json_stream_success(cmd);
+	json_add_u32(response, "blockheight", *blockheight);
+	return command_success(cmd, response);
+}
+
+/**
+ * json_getwatchmanheight - RPC handler to return watchman's last processed height
+ *
+ * Called by bwatch on startup to determine what height to rescan from.
+ */
+static struct command_result *json_getwatchmanheight(struct command *cmd,
+						     const char *buffer,
+						     const jsmntok_t *obj UNNEEDED,
+						     const jsmntok_t *params)
+{
+	/* FIXME: REMOVE */
+	struct watchman *wm = cmd->ld->watchman;
+	struct json_stream *response;
+
+	if (!param(cmd, buffer, params, NULL))
+		return command_param_failed();
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
+
+	response = json_stream_success(cmd);
+	json_add_u32(response, "height", wm ? wm->last_processed_height : 0);
+	return command_success(cmd, response);
+}
+
+static const struct json_command watch_found_command = {
+	"watch_found",
+	json_watch_found,
+};
+AUTODATA(json_command, &watch_found_command);
+
+static const struct json_command block_processed_command = {
+	"block_processed",
+	json_block_processed,
+};
+AUTODATA(json_command, &block_processed_command);
+
+static const struct json_command getwatchmanheight_command = {
+	"getwatchmanheight",
+	json_getwatchmanheight,
+};
+AUTODATA(json_command, &getwatchmanheight_command);
