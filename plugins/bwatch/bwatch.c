@@ -414,13 +414,26 @@ static const char *init(struct command *cmd,
  * ============================================================================
  */
 
-/* Forward declarations for chain polling */
+/* Forward declarations */
 static struct command_result *poll_chain(struct command *cmd, void *unused);
-static struct command_result *getchaininfo_done(struct command *cmd,
-						const char *method,
-						const char *buf,
-						const jsmntok_t *result,
-						void *unused);
+
+/* ==== BLOCK FETCHING ==== */
+
+/* Fetch a block by height for normal processing */
+static struct command_result *fetch_block_handle(struct command *cmd,
+						 u32 height,
+						 struct command_result *(*cb)(struct command *,
+									      const char *,
+									      const char *,
+									      const jsmntok_t *,
+									      u32 *),
+						 u32 *block_height)
+{
+	struct out_req *req = jsonrpc_request_start(cmd, "getrawblockbyheight",
+						    cb, cb, block_height);
+	json_add_u32(req->js, "height", height);
+	return send_outreq(req);
+}
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -436,14 +449,66 @@ static struct command_result *poll_finished(struct command *cmd)
 	return timer_complete(cmd);
 }
 
-/* Stub implementation - will be replaced with full implementation */
+/* Stub implementation - will be replaced with full implementation when process_block_txs is added */
+static struct command_result *handle_block(struct command *cmd,
+					   const char *method,
+					   const char *buf,
+					   const jsmntok_t *result,
+					   u32 *block_height)
+{
+	/* TODO: Implement full block handling when process_block_txs is added */
+	return poll_finished(cmd);
+}
+
+/* Handle getchaininfo response */
 static struct command_result *getchaininfo_done(struct command *cmd,
 						const char *method,
 						const char *buf,
 						const jsmntok_t *result,
 						void *unused)
 {
-	/* TODO: Implement full getchaininfo handling */
+	struct bwatch *bwatch = bwatch_of(cmd->plugin);
+	u32 blockheight;
+	const char *err;
+
+	plugin_log(cmd->plugin, LOG_DBG, "getchaininfo_done: current_height=%u", bwatch->current_height);
+
+	/* Parse the response */
+
+	/* Extract block height */
+	err = json_scan(tmpctx, buf, result,
+			"{blockcount:%}",
+			JSON_SCAN(json_to_number, &blockheight));
+	if (err) {
+		plugin_log(cmd->plugin, LOG_BROKEN, "getchaininfo parse failed for '%.*s': %s",
+			   json_tok_full_len(result),
+			   json_tok_full(buf, result),
+			   err);
+		return poll_finished(cmd);
+	}
+
+	plugin_log(cmd->plugin, LOG_DBG, "Parsed getchaininfo: blockheight=%u", blockheight);
+
+	/* Check if block height changed (or if we need to initialize) */
+	if (blockheight > bwatch->current_height) {
+		u32 *target_height;
+		bool is_first_init = (bwatch->current_height == 0);
+
+		target_height = tal(cmd, u32);
+		if (is_first_init) {
+			plugin_log(cmd->plugin, LOG_DBG, "First poll: init at block %u", blockheight);
+			*target_height = blockheight;  /* Jump to tip */
+		} else {
+			plugin_log(cmd->plugin, LOG_DBG, "Block change: %u -> %u",
+				   bwatch->current_height, blockheight);
+			*target_height = bwatch->current_height + 1;  /* Catch up sequentially */
+		}
+
+		return fetch_block_handle(cmd, *target_height, handle_block, target_height);
+	}
+
+	/* No change, reschedule at normal interval */
+	plugin_log(cmd->plugin, LOG_DBG, "No block change, current_height remains %u", bwatch->current_height);
 	return poll_finished(cmd);
 }
 
