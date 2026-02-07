@@ -4395,6 +4395,9 @@ def test_reestablish_closed_channels(node_factory, bitcoind):
     # Make sure l2 was happy with the reestablish message.
     assert not l2.daemon.is_in_log('bad reestablish')
 
+    # Remove mock so l2 can sync during teardown
+    l2.daemon.rpcproxy.mock_rpc('getblockhash', None)
+
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "elementsd doesn't use p2tr anyway")
 def test_onchain_close_no_p2tr(node_factory, bitcoind):
