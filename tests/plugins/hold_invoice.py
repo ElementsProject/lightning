@@ -3,6 +3,7 @@
 """
 
 from pyln.client import Plugin
+import os
 import time
 
 plugin = Plugin()
@@ -10,9 +11,10 @@ plugin = Plugin()
 
 @plugin.hook('invoice_payment')
 def on_payment(payment, plugin, **kwargs):
-    time.sleep(float(plugin.get_option('holdtime')))
+    # Block until file appears
+    while not os.path.exists("unhold"):
+        time.sleep(0.25)
     return {'result': 'continue'}
 
 
-plugin.add_option('holdtime', '10', 'The time to hold invoice for.')
 plugin.run()

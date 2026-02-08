@@ -2667,7 +2667,7 @@ def test_setchannel_startup_opts(node_factory, bitcoind):
 def test_channel_spendable(node_factory, bitcoind, anchors):
     """Test that spendable_msat is accurate"""
     sats = 10**6
-    opts = {'plugin': os.path.join(os.getcwd(), 'tests/plugins/hold_invoice.py'), 'holdtime': '30'}
+    opts = {'plugin': os.path.join(os.getcwd(), 'tests/plugins/hold_invoice.py')}
     if anchors is False:
         opts['dev-force-features'] = "-23"
     l1, l2 = node_factory.line_graph(2, fundamount=sats, wait_for_announce=True,
@@ -2693,6 +2693,8 @@ def test_channel_spendable(node_factory, bitcoind, anchors):
     # hold_invoice.py plugin.
     wait_for(lambda: len(l1.rpc.listpeerchannels()['channels'][0]['htlcs']) == 1)
     assert l1.rpc.listpeerchannels()['channels'][0]['spendable_msat'] == Millisatoshi(0)
+    # Tell hold_invoice.py to release hold
+    open(os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, "unhold"), "w").close()
     l1.rpc.waitsendpay(payment_hash, TIMEOUT)
 
     # Make sure l2 thinks it's all over.
@@ -2718,6 +2720,7 @@ def test_channel_spendable(node_factory, bitcoind, anchors):
     # hold_invoice.py plugin.
     wait_for(lambda: len(l2.rpc.listpeerchannels()['channels'][0]['htlcs']) == 1)
     assert l2.rpc.listpeerchannels()['channels'][0]['spendable_msat'] == Millisatoshi(0)
+    open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "unhold"), "w").close()
     l2.rpc.waitsendpay(payment_hash, TIMEOUT)
 
 
@@ -2725,7 +2728,7 @@ def test_channel_receivable(node_factory, bitcoind):
     """Test that receivable_msat is accurate"""
     sats = 10**6
     l1, l2 = node_factory.line_graph(2, fundamount=sats, wait_for_announce=True,
-                                     opts={'plugin': os.path.join(os.getcwd(), 'tests/plugins/hold_invoice.py'), 'holdtime': '30'})
+                                     opts={'plugin': os.path.join(os.getcwd(), 'tests/plugins/hold_invoice.py')})
 
     inv = l2.rpc.invoice('any', 'inv', 'for testing')
     payment_hash = inv['payment_hash']
@@ -2747,6 +2750,7 @@ def test_channel_receivable(node_factory, bitcoind):
     # hold_invoice.py plugin.
     wait_for(lambda: len(l2.rpc.listpeerchannels()['channels'][0]['htlcs']) == 1)
     assert l2.rpc.listpeerchannels()['channels'][0]['receivable_msat'] == Millisatoshi(0)
+    open(os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, "unhold"), "w").close()
     l1.rpc.waitsendpay(payment_hash, TIMEOUT)
 
     # Make sure both think it's all over.
@@ -2773,6 +2777,7 @@ def test_channel_receivable(node_factory, bitcoind):
     # hold_invoice.py plugin.
     wait_for(lambda: len(l1.rpc.listpeerchannels()['channels'][0]['htlcs']) == 1)
     assert l1.rpc.listpeerchannels()['channels'][0]['receivable_msat'] == Millisatoshi(0)
+    open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "unhold"), "w").close()
     l2.rpc.waitsendpay(payment_hash, TIMEOUT)
 
 
@@ -2786,7 +2791,6 @@ def test_channel_spendable_large(node_factory, bitcoind):
         wait_for_announce=True,
         opts={
             'plugin': os.path.join(os.getcwd(), 'tests/plugins/hold_invoice.py'),
-            'holdtime': '30'
         }
     )
 
@@ -2809,6 +2813,7 @@ def test_channel_spendable_large(node_factory, bitcoind):
     # Exact amount should succeed.
     route = l1.rpc.getroute(l2.info['id'], spendable, riskfactor=1, fuzzpercent=0)['route']
     l1.rpc.sendpay(route, payment_hash, payment_secret=inv['payment_secret'])
+    open(os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, "unhold"), "w").close()
     l1.rpc.waitsendpay(payment_hash, TIMEOUT)
 
 
