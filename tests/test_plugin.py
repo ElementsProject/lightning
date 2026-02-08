@@ -17,7 +17,6 @@ from tests.test_wallet import HsmTool, write_all, WAIT_TIMEOUT
 import ast
 import copy
 import json
-import math
 import os
 import pytest
 import random
@@ -663,14 +662,21 @@ def test_invoice_payment_hook(node_factory):
     l2.daemon.wait_for_log('preimage=' + '0' * 64)
 
 
-def test_invoice_payment_hook_hold(node_factory):
+def test_invoice_payment_hook_hold(node_factory, executor):
     """ l1 uses the hold_invoice plugin to delay invoice payment.
     """
-    opts = [{}, {'plugin': os.path.join(os.getcwd(), 'tests/plugins/hold_invoice.py'), 'holdtime': TIMEOUT / 2}]
+    opts = [{}, {'plugin': os.path.join(os.getcwd(), 'tests/plugins/hold_invoice.py')}]
     l1, l2 = node_factory.line_graph(2, opts=opts)
 
     inv1 = l2.rpc.invoice(1230, 'label', 'description', preimage='1' * 64)
-    l1.rpc.pay(inv1['bolt11'])
+
+    # This should block.
+    f = executor.submit(l1.rpc.pay, inv1['bolt11'])
+    time.sleep(5)
+    assert not f.done()
+
+    open(os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, "unhold"), "w").close()
+    f.result(TIMEOUT)
 
 
 @pytest.mark.openchannel('v1')
@@ -4034,8 +4040,7 @@ def test_sql(node_factory, bitcoind):
     l2.rpc.pay(l3.rpc.invoice(amount_msat=12300, label='inv2', description='description')['bolt11'])
 
     # And I need at least one HTLC in-flight so listpeers.channels.htlcs isn't empty:
-    l3.rpc.plugin_start(os.path.join(os.getcwd(), 'tests/plugins/hold_invoice.py'),
-                        holdtime=int(math.sqrt(TIMEOUT) + 1) * 2)
+    l3.rpc.plugin_start(os.path.join(os.getcwd(), 'tests/plugins/hold_invoice.py'))
     inv = l3.rpc.invoice(amount_msat=12300, label='inv3', description='description')
     route = l1.rpc.getroute(l3.info['id'], 12300, 1)['route']
     l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
@@ -4103,6 +4108,7 @@ def test_sql(node_factory, bitcoind):
     l3.daemon.wait_for_log("Refreshing channel: {}".format(scid))
 
     # This has to wait for the hold_invoice plugin to let go!
+    open(os.path.join(l3.daemon.lightning_dir, TEST_NETWORK, "unhold"), "w").close()
     txid = only_one(l1.rpc.close(l2.info['id'])['txids'])
     bitcoind.generate_block(13, wait_for_mempool=txid)
     wait_for(lambda: len(l3.rpc.listchannels(source=l1.info['id'])['channels']) == 0)
