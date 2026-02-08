@@ -281,12 +281,12 @@ def test_xpay_fake_channeld(node_factory, bitcoind, chainparams, slow_mode):
     # Should be no reservations left (clean up happens after return though)
     wait_for(lambda: l1.rpc.askrene_listreservations() == {'reservations': []})
 
+    # Wait for temporary layers to be gone too.
+    wait_for(lambda: len(l1.rpc.askrene_listlayers()['layers']) == 1)
+
     # It should remember the information it learned across restarts!
     # FIXME: channeld_fakenet doesn't restart properly, so just redo xpay.
     layers = l1.rpc.askrene_listlayers()
-    # Temporary layers should be gone.
-    assert len(layers['layers']) == 1
-
     l1.rpc.plugin_stop("cln-askrene")
     l1.rpc.plugin_start(os.path.join(os.getcwd(), 'plugins/cln-askrene'))
     layers_after = l1.rpc.askrene_listlayers()
