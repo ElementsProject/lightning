@@ -1309,6 +1309,7 @@ struct peer_connected_hook_payload {
 	struct lightningd *ld;
 	struct wireaddr_internal addr;
 	struct wireaddr *remote_addr;
+	u8 *their_features;
 	bool incoming;
 	/* We don't keep a pointer to peer: it might be freed! */
 	struct node_id peer_id;
@@ -1327,10 +1328,7 @@ peer_connected_serialize(struct peer_connected_hook_payload *payload,
 	if (payload->remote_addr)
 		json_add_string(stream, "remote_addr",
 				fmt_wireaddr(tmpctx, payload->remote_addr));
-	/* Since this is start of hook, peer is always in table! */
-	json_add_hex_talarr(stream, "features",
-			    peer_by_id(payload->ld, &payload->peer_id)
-			    ->their_features);
+	json_add_hex_talarr(stream, "features", payload->their_features);
 	json_object_end(stream); /* .peer */
 }
 
@@ -1759,7 +1757,6 @@ REGISTER_PLUGIN_HOOK(peer_connected,
 void handle_peer_connected(struct lightningd *ld, const u8 *msg)
 {
 	struct node_id id;
-	u8 *their_features;
 	struct peer *peer;
 	struct peer_connected_hook_payload *hook_payload;
 	u64 connectd_counter;
@@ -1776,7 +1773,7 @@ void handle_peer_connected(struct lightningd *ld, const u8 *msg)
 					      &hook_payload->addr,
 					      &hook_payload->remote_addr,
 					      &hook_payload->incoming,
-					      &their_features,
+					      &hook_payload->their_features,
 					      &connect_reason,
 					      &connect_nsec)) {
 		u64 prev_connectd_counter, connected_time_nsec;
@@ -1786,7 +1783,7 @@ void handle_peer_connected(struct lightningd *ld, const u8 *msg)
 							&hook_payload->addr,
 							&hook_payload->remote_addr,
 							&hook_payload->incoming,
-							&their_features,
+							&hook_payload->their_features,
 							&connected_time_nsec)) {
 			fatal("Connectd gave bad CONNECT_PEER_(RE)CONNECTED message %s",
 			      tal_hex(msg, msg));
@@ -1830,10 +1827,12 @@ void handle_peer_connected(struct lightningd *ld, const u8 *msg)
 		/* If we connected to them, we know this is a good address. */
 		peer = new_peer(ld, 0, &id, &hook_payload->addr,
 				last_known_addr,
-				take(their_features), hook_payload->incoming);
+				hook_payload->their_features,
+				hook_payload->incoming);
 	} else {
 		tal_free(peer->their_features);
-		peer->their_features = tal_steal(peer, their_features);
+		peer->their_features = tal_dup_talarr(peer, u8,
+						      hook_payload->their_features);
 
 		/* Update known address. */
 		tal_free(peer->last_known_addr);
