@@ -13,6 +13,35 @@ import unittest
 import time
 
 
+@pytest.mark.xfail(strict=True)
+@unittest.skipIf(TEST_NETWORK != 'regtest', "requires regtest")
+def test_opening_dualfund_with_unknown_feerates(node_factory, bitcoind):
+    """
+    Test dualfund openchannel when feerates are unknown (like on signet/testnet with empty mempool).
+    """
+    opts = {
+        'ignore-fee-limits': True,
+        'feerates': None,
+        'dev-no-fake-fees': True,
+        'experimental-dual-fund': None
+    }
+
+    l1, l2 = node_factory.get_nodes(2, opts=opts)
+
+    l1.fundwallet(FUNDAMOUNT)
+
+    # Connect peers
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # Verify fee estimation is failing
+    l1.daemon.wait_for_log('Unable to estimate any fees')
+    l2.daemon.wait_for_log('Unable to estimate any fees')
+
+    # Open channel l1 <-> l2
+    l1.rpc.fundchannel(l2.info['id'], 100000, feerate='253perkw', minconf=0)['txid']
+    l2.rpc.listpeerchannels(l1.info['id'])['channels']
+
+
 def find_next_feerate(node, peer):
     chan = only_one(node.rpc.listpeerchannels(peer.info['id'])['channels'])
     return chan['next_feerate']
