@@ -172,7 +172,9 @@ u32 marginal_feerate(u32 current_feerate)
 	if (current_feerate == 0)
 		return 0;
 #endif
-	assert(current_feerate >= minfeerate);
+	/* This could happen in future if we celebrate sub-sat summer! */
+	if (current_feerate < minfeerate)
+		current_feerate = minfeerate;
 	if (current_feerate > maxfeerate)
 		return current_feerate * 1.1;
 
