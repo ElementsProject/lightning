@@ -17,6 +17,8 @@ env:
   SLOW_MACHINE: 1
   CI_SERVER_URL: "http://35.239.136.52:3170"
   PYTEST_OPTS_BASE: "-vvv --junit-xml=report.xml --timeout=1800 --durations=10"
+  # With 4 CPUS, not much point going over parallelism 5
+  PYTEST_PAR: 5
   TEST_LOG_IGNORE_ERRORS: "1"
 
 jobs:
@@ -312,7 +314,6 @@ jobs:
       - name: Test
         env:
           SLOW_MACHINE: 1
-          PYTEST_PAR: 4
           TEST_DEBUG: 1
           TEST_DB_PROVIDER: ${{ matrix.TEST_DB_PROVIDER }}
           TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
@@ -430,7 +431,6 @@ jobs:
           COMPAT: 1
           CFG: ${{ matrix.CFG }}
           SLOW_MACHINE: 1
-          PYTEST_PAR: 4
           TEST_DEBUG: 1
           TEST_DB_PROVIDER: ${{ matrix.TEST_DB_PROVIDER }}
           TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
@@ -740,7 +740,6 @@ jobs:
           COMPAT: 1
           CFG: ${{ matrix.CFG }}
           SLOW_MACHINE: 1
-          PYTEST_PAR: 4
           TEST_DEBUG: 1
           TEST_DB_PROVIDER: ${{ matrix.TEST_DB_PROVIDER }}
           TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
