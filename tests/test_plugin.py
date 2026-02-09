@@ -514,6 +514,30 @@ def test_plugin_connected_hook_chaining(node_factory):
     assert not l1.daemon.is_in_log(f"peer_connected_logger_b {l3id}")
 
 
+@pytest.mark.xfail(strict=True)
+def test_plugin_connected_hook_disconnect_crash(node_factory, executor):
+    """A peer disconnnects between plugin hook invocations"""
+    opts = [{},
+            {'plugin':
+             [os.path.join(os.getcwd(),
+                           'tests/plugins/peer_connected_logger_a.py'),
+              os.path.join(os.getcwd(),
+                           'tests/plugins/peer_connected_logger_b.py')],
+             'logger_a_sleep': True},
+            ]
+
+    l1, l2 = node_factory.get_nodes(2, opts=opts)
+    executor.submit(l1.rpc.connect, l2.info['id'], 'localhost', l2.port)
+    l2.daemon.wait_for_log(f'plugin-peer_connected_logger_a.py: peer_connected_logger_a {l1.info["id"]}')
+    l1.stop()
+
+    # Now make first plugin continue...
+    open(os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, "unsleep"), "w").close()
+
+    # Should get log from second
+    l2.daemon.wait_for_log(f'plugin-peer_connected_logger_b.py: peer_connected_logger_b {l1.info["id"]}')
+
+
 def test_peer_connected_remote_addr(node_factory):
     """This tests the optional tlv `remote_addr` being passed to a plugin.
 
