@@ -3136,13 +3136,12 @@ def test_emergencyrecoverpenaltytxn(node_factory, bitcoind):
 
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "deletes database, which is assumed sqlite3")
-@pytest.mark.xfail(strict=True)
 def test_emergencyrecover(node_factory, bitcoind):
     """
     Test emergencyrecover
     """
     l1, l2 = node_factory.get_nodes(2, opts=[{'may_reconnect': True,
-                                              'broken_log': 'ERROR: Unknown commitment #.*, recovering our funds'},
+                                              'broken_log': 'ERROR: Unknown commitment #.*, recovering our funds|plugin-bookkeeper: Cannot find the open_event for '},
                                              {'may_reconnect': True}])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
