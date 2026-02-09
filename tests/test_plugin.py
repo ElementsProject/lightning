@@ -514,7 +514,6 @@ def test_plugin_connected_hook_chaining(node_factory):
     assert not l1.daemon.is_in_log(f"peer_connected_logger_b {l3id}")
 
 
-@pytest.mark.xfail(strict=True)
 def test_plugin_connected_hook_disconnect_crash(node_factory, executor):
     """A peer disconnnects between plugin hook invocations"""
     opts = [{},
