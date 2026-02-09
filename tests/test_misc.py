@@ -3136,6 +3136,7 @@ def test_emergencyrecoverpenaltytxn(node_factory, bitcoind):
 
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "deletes database, which is assumed sqlite3")
+@pytest.mark.xfail(strict=True)
 def test_emergencyrecover(node_factory, bitcoind):
     """
     Test emergencyrecover
@@ -3176,6 +3177,9 @@ def test_emergencyrecover(node_factory, bitcoind):
     # Make sure l1 can spend its recovered funds.
     wait_for(lambda: l1.rpc.listfunds()["channels"][0]["state"] == "ONCHAIN")
     wait_for(lambda: l2.rpc.listfunds()["channels"][0]["state"] == "ONCHAIN")
+
+    # Does bookkeeper get upset?
+    l1.rpc.bkpr_listbalances()
 
     withdraw = l1.rpc.withdraw(l2.rpc.newaddr('bech32')['bech32'], 'all')
     # Should have two inputs
