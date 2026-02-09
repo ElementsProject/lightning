@@ -871,6 +871,16 @@ static void opening_got_offer(struct subd *openingd,
 		return;
 	}
 
+	/* Don't allow opening if we don't know any fees; even if
+	 * ignore-feerates is set. */
+	if (unknown_feerates(openingd->ld->topology)) {
+		subd_send_msg(openingd,
+			      take(towire_openingd_got_offer_reply(NULL, "Cannot accept channel: feerates unknown",
+								   NULL, NULL, NULL, 0)));
+		tal_free(payload);
+		return;
+	}
+
 	tal_add_destructor2(openingd, openchannel_payload_remove_openingd, payload);
 	plugin_hook_call_openchannel(openingd->ld, NULL, payload);
 }

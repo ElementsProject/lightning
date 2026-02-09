@@ -2090,6 +2090,15 @@ static void accepter_got_offer(struct subd *dualopend,
 		return;
 	}
 
+	/* Don't allow opening if we don't know any fees; even if
+	 * ignore-feerates is set. */
+	if (unknown_feerates(dualopend->ld->topology)) {
+		subd_send_msg(dualopend,
+			      take(towire_dualopend_fail(NULL, "Cannot accept channel: feerates unknown")));
+		tal_free(payload);
+		return;
+	}
+
 	/* As a convenience to the plugin, we provide our current known
 	 * min + max feerates. Ideally, the plugin will fail to
 	 * contribute funds if the peer's feerate range is outside of
