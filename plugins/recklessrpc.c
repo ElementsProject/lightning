@@ -486,10 +486,14 @@ static struct command_result *reckless_call(struct command *cmd,
 	reckless->pid = pipecmdarr(&reckless->stdinfd, &reckless->stdoutfd,
 				   &reckless->stderrfd, my_call);
 
+	if (reckless->pid < 0) {
+		return command_fail(cmd, LIGHTNINGD, "reckless failed: %s",
+				    strerror(errno));
+	}
+
 	if (sock > 0)
 		io_new_listener(reckless, reckless->logfd,
 				log_conn_init, reckless);
-	/* FIXME: fail if invalid pid*/
 	io_new_conn(reckless, reckless->stdoutfd, conn_init, reckless);
 	io_new_conn(reckless, reckless->stderrfd, stderr_conn_init, reckless);
 
