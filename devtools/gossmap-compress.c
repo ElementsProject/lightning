@@ -7,12 +7,12 @@
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/str/str.h>
 #include <common/gossip_store.h>
+#include <common/gossip_store_wiregen.h>
 #include <common/gossmap.h>
 #include <common/setup.h>
 #include <common/utils.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <gossipd/gossip_store_wiregen.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <wire/peer_wiregen.h>

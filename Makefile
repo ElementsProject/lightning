@@ -489,9 +489,14 @@ mkdocs.yml: $(MANPAGES:=.md)
 # Every single object file.
 ALL_OBJS := $(ALL_C_SOURCES:.c=.o)
 
+WIREGEN_FILES := $(filter %printgen.h %printgen.c %wiregen.h %wiregen.c, $(ALL_C_HEADERS) $(ALL_C_SOURCES))
+
+# Always make wiregen files before any object file
+$(ALL_OBJS): $(WIREGEN_FILES)
+
 # We always regen wiregen and printgen files, since SHA256STAMP protects against
 # spurious rebuilds.
-$(filter %printgen.h %printgen.c %wiregen.h %wiregen.c, $(ALL_C_HEADERS) $(ALL_C_SOURCES)): $(FORCE)
+$(WIREGEN_FILES): $(FORCE)
 
 ifneq ($(TEST_GROUP_COUNT),)
 PYTEST_OPTS += --test-group=$(TEST_GROUP) --test-group-count=$(TEST_GROUP_COUNT)

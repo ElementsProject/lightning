@@ -1,11 +1,11 @@
 #include "config.h"
 #include <ccan/crc32c/crc32c.h>
+#include <common/gossip_store_wiregen.h>
 #include <common/status.h>
 #include <common/utils.h>
 #include <connectd/gossip_store.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <gossipd/gossip_store_wiregen.h>
 #include <inttypes.h>
 #include <unistd.h>
 #include <wire/peer_wire.h>

@@ -3,8 +3,8 @@
 #include <ccan/err/err.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <common/gossip_store.h>
+#include <common/gossip_store_wiregen.h>
 #include <common/utils.h>
-#include <gossipd/gossip_store_wiregen.h>
 #include <unistd.h>
 #include <wire/peer_wire.h>
 
