@@ -22,7 +22,10 @@ env:
 jobs:
   prebuild:
     name: Pre-build checks
-    runs-on: ubuntu-24.04
+    runs-on: &prefer-self-hosted >
+      ${{ github.actor == 'rustyrussell'
+          && fromJSON('["self-hosted","rusty"]')
+          || 'ubuntu-24.04' }}
     timeout-minutes: 120
     if: |
       github.event.action != 'edited' ||
@@ -108,7 +111,7 @@ jobs:
 
   compile:
     name: Compile CLN ${{ matrix.cfg }}
-    runs-on: ubuntu-24.04
+    runs-on: *prefer-self-hosted
     timeout-minutes: 30
     needs:
       - prebuild
@@ -175,7 +178,7 @@ jobs:
     # The unit test checks are not in the critical path (not dependent
     # on the integration tests), so run them with `valgrind`
     name: Run unit tests
-    runs-on: ubuntu-24.04
+    runs-on: *prefer-self-hosted
     timeout-minutes: 60
     env:
       BOLTDIR: bolts
@@ -220,7 +223,7 @@ jobs:
 
   check-fuzz:
     name: Run fuzz regression tests
-    runs-on: ubuntu-24.04
+    runs-on: *prefer-self-hosted
     needs:
       - prebuild
     steps:
@@ -246,7 +249,7 @@ jobs:
 
   check-downgrade:
     name: Check we can downgrade the node
-    runs-on: ubuntu-24.04
+    runs-on: *prefer-self-hosted
     needs:
       - compile
     strategy:
@@ -334,7 +337,7 @@ jobs:
 
   integration:
     name: Test CLN ${{ matrix.name }}
-    runs-on: ubuntu-24.04
+    runs-on: *prefer-self-hosted
     timeout-minutes: 120
     env:
       RUST_PROFILE: release # Has to match the one in the compile step
@@ -449,7 +452,7 @@ jobs:
 
   integration-valgrind:
     name: Valgrind Test CLN ${{ matrix.name }}
-    runs-on: ubuntu-24.04
+    runs-on: *prefer-self-hosted
     timeout-minutes: 120
     env:
       RUST_PROFILE: release # Has to match the one in the compile step
@@ -537,7 +540,7 @@ jobs:
 
   integration-sanitizers:
     name: Sanitizers Test CLN
-    runs-on: ubuntu-24.04
+    runs-on: *prefer-self-hosted
     timeout-minutes: 120
     env:
       RUST_PROFILE: release
@@ -629,7 +632,7 @@ jobs:
   update-docs-examples:
     name: Update examples in doc schemas (disabled temporarily!)
     if: false
-    runs-on: ubuntu-24.04
+    runs-on: *prefer-self-hosted
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -678,7 +681,7 @@ jobs:
 
   min-btc-support:
     name: Test minimum supported BTC v${{ matrix.MIN_BTC_VERSION }} with ${{ matrix.NAME }}
-    runs-on: ubuntu-24.04
+    runs-on: *prefer-self-hosted
     timeout-minutes: 120
     env:
       RUST_PROFILE: release # Has to match the one in the compile step
