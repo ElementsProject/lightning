@@ -20,8 +20,8 @@
 #define GOSSIP_STORE_ZOMBIE_BIT_V13 0x1000U
 
 #define GOSSIP_STORE_TEMP_FILENAME "gossip_store.tmp"
-/* We write it as major version 0, minor version 14 */
-#define GOSSIP_STORE_VER ((0 << 5) | 15)
+/* We write it as major version 0, minor version 16 */
+#define GOSSIP_STORE_VER ((0 << 5) | 16)
 
 struct gossip_store {
 	/* Back pointer. */
@@ -85,10 +85,11 @@ static bool append_msg(int fd, const u8 *msg, u32 timestamp, u64 *len,
  * v13 removed private gossip entries
  * v14 removed zombie and spam flags
  * v15 added the complete flag
+ * v16 add uuid field, ended field uuid extension
  */
 static bool can_upgrade(u8 oldversion)
 {
-	return oldversion >= 9 && oldversion <= 14;
+	return oldversion >= 9 && oldversion <= 15;
 }
 
 /* On upgrade, do best effort on private channels: hand them to
@@ -355,7 +356,9 @@ rename_new:
 
 	/* Create end marker now new file exists. */
 	if (old_fd != -1) {
-		append_msg(old_fd, towire_gossip_store_ended(tmpctx, *total_len),
+		/* FIXME: real uuid! */
+		u8 uuid[32] = {0};
+		append_msg(old_fd, towire_gossip_store_ended(tmpctx, *total_len, uuid),
 			   0, &old_len, NULL);
 		close(old_fd);
 	}

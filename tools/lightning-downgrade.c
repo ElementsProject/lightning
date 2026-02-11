@@ -168,7 +168,7 @@ static const char *downgrade_askrene_layers(const tal_t *ctx, struct db *db)
 
 static const struct db_version db_versions[] = {
 	{ "v25.09", 276, downgrade_askrene_layers, false },
-	{ "v25.12", 280, NULL, true },
+	{ "v25.12", 280, NULL, false },
 };
 
 static const struct db_version *version_db(const char *version)
