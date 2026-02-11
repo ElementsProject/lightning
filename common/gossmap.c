@@ -832,6 +832,9 @@ static bool map_catchup(struct gossmap *map, bool must_be_clean, bool *changed)
 		} else if (type == WIRE_GOSSIP_STORE_CHAN_DYING) {
 			/* We don't really care until it's deleted */
 			continue;
+		} else if (type == WIRE_GOSSIP_STORE_UUID) {
+			/* We handled this reopen, otherwise we don't care. */
+			continue;
 		} else {
 			map->logcb(map->cbarg, LOG_BROKEN,
 				   "Unknown record %u@%u (size %zu) in gossmap: ignoring",
