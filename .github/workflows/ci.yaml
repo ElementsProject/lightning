@@ -85,6 +85,8 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
+        env:
+          TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
         run: |
           bash -x .github/scripts/setup.sh
           uv sync --all-extras --all-groups
@@ -145,6 +147,8 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
+        env:
+          TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
         run: |
           bash -x .github/scripts/setup.sh
           uv sync --all-extras --all-groups
@@ -192,6 +196,8 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
+        env:
+          TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
         run: |
           bash -x .github/scripts/setup.sh
           uv sync --all-extras --all-groups
@@ -242,6 +248,8 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
+        env:
+          TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
         run: |
           bash -x .github/scripts/setup.sh
           uv sync --all-extras --all-groups
@@ -276,6 +284,8 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
+        env:
+          TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
         run: |
           bash -x .github/scripts/setup.sh
           uv sync --all-extras --all-groups
@@ -317,14 +327,11 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
+        env:
+          TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
         run: |
           bash -x .github/scripts/setup.sh
           uv sync --all-extras --all-groups
-
-      - name: Install bitcoind
-        env:
-          TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
-        run: .github/scripts/install-bitcoind.sh
 
       - name: Download build
         uses: actions/download-artifact@v4
@@ -437,14 +444,11 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
+        env:
+          TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
         run: |
           bash -x .github/scripts/setup.sh
           uv sync --all-extras --all-groups
-
-      - name: Install bitcoind
-        env:
-          TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
-        run: .github/scripts/install-bitcoind.sh
 
       - name: Download build
         uses: actions/download-artifact@v4
@@ -545,12 +549,11 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
+        env:
+          TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
         run: |
           bash -x .github/scripts/setup.sh
           uv sync --all-extras --all-groups
-
-      - name: Install bitcoind
-        run: .github/scripts/install-bitcoind.sh
 
       - name: Download build
         uses: actions/download-artifact@v4
@@ -638,12 +641,11 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
+        env:
+          TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
         run: |
           bash -x .github/scripts/setup.sh
           uv sync --all-extras --all-groups
-
-      - name: Install bitcoind
-        run: .github/scripts/install-bitcoind.sh
 
       - name: Download build
         uses: actions/download-artifact@v4
@@ -690,14 +692,12 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
+        env:
+          TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
         run: |
           bash -x .github/scripts/setup.sh
           uv sync --all-extras --all-groups
 
-      - name: Install bitcoind
-        env:
-          TEST_NETWORK: regtest
-        run: .github/scripts/install-bitcoind.sh
       - name: Download build
         uses: actions/download-artifact@v4
         with:
@@ -748,6 +748,8 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
+        env:
+          TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
         run: |
           bash -x .github/scripts/setup.sh
           uv sync --all-extras --all-groups
