@@ -67,6 +67,51 @@ static struct io_plan *read_more(struct io_conn *conn, struct reckless *rkls)
 			       &rkls->stdout_new, read_more, rkls);
 }
 
+static void dup_listavailable_result(struct reckless *reckless,
+				     struct json_stream *response,
+				     char *reckless_result,
+				     const jsmntok_t *results_tok)
+{
+	json_array_start(response, "result");
+	size_t plugins, requirements;
+	const jsmntok_t *result, *requirement, *requirements_tok;
+	const char *plugin_name, *short_description, *long_description, *entrypoint;
+
+	json_for_each_arr(plugins, result, results_tok) {
+		json_object_start(response, NULL);
+
+		json_scan(tmpctx, reckless_result, result,
+			  "{name:%,"
+			  "short_description:%,"
+			  "long_description:%,"
+			  "entrypoint:%}",
+			  JSON_SCAN_TAL(tmpctx, json_strdup, &plugin_name),
+			  JSON_SCAN_TAL(tmpctx, json_strdup, &short_description),
+			  JSON_SCAN_TAL(tmpctx, json_strdup, &long_description),
+			  JSON_SCAN_TAL(tmpctx, json_strdup, &entrypoint));
+
+		json_add_string(response, "name", plugin_name);
+		if (!streq(short_description, "null"))
+			json_add_string(response, "short_description", short_description);
+		if (!streq(long_description, "null"))
+			json_add_string(response, "long_description", long_description);
+		json_add_string(response, "entypoint", entrypoint);
+
+		json_array_start(response, "requirements");
+		requirements_tok = json_get_member(reckless_result, result, "requirements");
+		if (requirements_tok) {
+			json_for_each_arr(requirements, requirement, requirements_tok) {
+				json_add_string(response, NULL,
+						json_strdup(tmpctx, reckless_result, requirement));
+			}
+		}
+		json_array_end(response);
+
+		json_object_end(response);
+	}
+	json_array_end(response);
+}
+
 static struct command_result *reckless_result(struct io_conn *conn,
 					      struct reckless *reckless)
 {
@@ -78,7 +123,10 @@ static struct command_result *reckless_result(struct io_conn *conn,
 					       reckless->process_failed);
 		return command_finished(reckless->cmd, response);
 	}
-	const jsmntok_t *results, *result, *logs, *log, *conf;
+
+	/* The reckless utility outputs utf-8 and ends the transmission with
+	 * \u0004, which jsmn is unable to parse. */
+	const jsmntok_t *results, *result, *logs, *log, *conf, *next;
 	size_t i;
 	jsmn_parser parser;
 	jsmntok_t *toks;
@@ -90,7 +138,7 @@ static struct command_result *reckless_result(struct io_conn *conn,
 	const char *err;
 	if (res == JSMN_ERROR_INVAL)
 		err = tal_fmt(tmpctx, "reckless returned invalid character in json "
-			      "output");
+			      "output. (total length %lu)", strlen(reckless->stdoutbuf));
 	else if (res == JSMN_ERROR_PART)
 		err = tal_fmt(tmpctx, "reckless returned partial output");
 	else if (res == JSMN_ERROR_NOMEM )
@@ -100,7 +148,8 @@ static struct command_result *reckless_result(struct io_conn *conn,
 		err = NULL;
 
 	if (err) {
-		plugin_log(plugin, LOG_UNUSUAL, "failed to parse json: %s", err);
+		if (res == JSMN_ERROR_INVAL)
+			plugin_log(plugin, LOG_BROKEN, "invalid char in json");
 		response = jsonrpc_stream_fail(reckless->cmd, PLUGIN_ERROR,
 					       err);
 		return command_finished(reckless->cmd, response);
@@ -108,14 +157,19 @@ static struct command_result *reckless_result(struct io_conn *conn,
 
 	response = jsonrpc_stream_success(reckless->cmd);
 	results = json_get_member(reckless->stdoutbuf, toks, "result");
+	next = json_get_arr(results, 0);
 	conf = json_get_member(reckless->stdoutbuf, results, "requested_lightning_conf");
 	if (conf) {
-		plugin_log(plugin, LOG_DBG, "dealing with listconfigs output");
+		plugin_log(plugin, LOG_DBG, "ingesting listconfigs output");
 		json_object_start(response, "result");
 		json_for_each_obj(i, result, results) {
 			json_add_tok(response, json_strdup(tmpctx, reckless->stdoutbuf, result), result+1, reckless->stdoutbuf);
 		}
 		json_object_end(response);
+
+	} else if (next && next->type == JSMN_OBJECT) {
+		plugin_log(plugin, LOG_DBG, "ingesting listavailable output");
+		dup_listavailable_result(reckless, response, reckless->stdoutbuf, results);
 
 	} else {
 		json_array_start(response, "result");
