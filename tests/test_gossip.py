@@ -1294,7 +1294,7 @@ def test_gossip_store_load_amount_truncated(node_factory):
     # May preceed the Started msg waited for in 'start'.
     wait_for(lambda: l1.daemon.is_in_log(r'\*\*BROKEN\*\* gossipd: gossip_store only processed 1 bytes of 445 \(expected 445\)'))
     wait_for(lambda: l1.daemon.is_in_log(r'\*\*BROKEN\*\* gossipd: gossip_store: Moving to gossip_store.corrupt'))
-    wait_for(lambda: l1.daemon.is_in_log(r'gossip_store: Read 0/0/0/0 cannounce/cupdate/nannounce/delete from store in 0 bytes, now 1 bytes \(populated=false\)'))
+    wait_for(lambda: l1.daemon.is_in_log(r'gossip_store: Read 0/0/0/0 cannounce/cupdate/nannounce/delete from store in 1 bytes, now 1 bytes \(populated=false\)'))
     assert os.path.exists(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store.corrupt'))
 
 
@@ -1581,8 +1581,8 @@ def test_getroute_exclude(node_factory, bitcoind):
         l1.rpc.getroute(l4.info['id'], 1, 1, exclude=[chan_l2l3, l5.info['id'], chan_l2l4])
 
 
-def setup_gossip_store_test(node_factory, bitcoind):
-    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+def setup_gossip_store_test(node_factory, bitcoind, opts=None):
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True, opts=opts)
 
     # Now, replace the one channel_update, so it's past the node announcements.
     l2.rpc.setchannel(l3.info['id'], 20, 1000)
@@ -1608,16 +1608,20 @@ def setup_gossip_store_test(node_factory, bitcoind):
     return l2
 
 
-def test_gossip_store_compact_noappend(node_factory, bitcoind):
-    l2 = setup_gossip_store_test(node_factory, bitcoind)
+def test_gossip_store_corrupt(node_factory, bitcoind):
+    l2 = setup_gossip_store_test(node_factory, bitcoind, opts=[{}, {'broken_log': 'gossipd:.*bad version'}, {}])
 
+    l2.stop()
     # It should truncate this, not leave junk!
-    with open(os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, 'gossip_store.tmp'), 'wb') as f:
+    with open(os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'), 'wb') as f:
         f.write(bytearray.fromhex("07deadbeef"))
+    l2.start()
 
-    l2.restart()
     wait_for(lambda: l2.daemon.is_in_log('gossip_store: Read '))
-    assert not l2.daemon.is_in_log('gossip_store:.*truncate')
+    assert l2.daemon.is_in_log('gossip_store_compact: bad version')
+
+    # Will simply overwrite, due to old version.
+    assert not os.path.exists(os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, 'gossip_store.corrupt'))
 
 
 def test_gossip_store_load_complex(node_factory, bitcoind):
