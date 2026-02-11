@@ -87,6 +87,7 @@ jobs:
       - name: Install dependencies
         run: |
           bash -x .github/scripts/setup.sh
+          uv sync --all-extras --all-groups
           # We're going to check BOLT quotes, so get the latest version
           git clone https://github.com/lightning/bolts.git ../${BOLTDIR}
       - name: Configure
@@ -146,6 +147,7 @@ jobs:
       - name: Install dependencies
         run: |
           bash -x .github/scripts/setup.sh
+          uv sync --all-extras --all-groups
 
       - name: Build
         env:
@@ -192,6 +194,7 @@ jobs:
       - name: Install dependencies
         run: |
           bash -x .github/scripts/setup.sh
+          uv sync --all-extras --all-groups
 
       - name: Download build
         uses: actions/download-artifact@v4
@@ -241,7 +244,7 @@ jobs:
       - name: Install dependencies
         run: |
           bash -x .github/scripts/setup.sh
-          sudo apt-get update -qq
+          uv sync --all-extras --all-groups
           # We're going to check BOLT quotes, so get the latest version
           git clone https://github.com/lightning/bolts.git ../${BOLTDIR}
 
@@ -275,6 +278,7 @@ jobs:
       - name: Install dependencies
         run: |
           bash -x .github/scripts/setup.sh
+          uv sync --all-extras --all-groups
 
       - name: Build
         run: |
@@ -315,6 +319,7 @@ jobs:
       - name: Install dependencies
         run: |
           bash -x .github/scripts/setup.sh
+          uv sync --all-extras --all-groups
 
       - name: Install bitcoind
         env:
@@ -434,6 +439,7 @@ jobs:
       - name: Install dependencies
         run: |
           bash -x .github/scripts/setup.sh
+          uv sync --all-extras --all-groups
 
       - name: Install bitcoind
         env:
@@ -540,9 +546,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -yyq valgrind
           bash -x .github/scripts/setup.sh
+          uv sync --all-extras --all-groups
 
       - name: Install bitcoind
         run: .github/scripts/install-bitcoind.sh
@@ -635,6 +640,7 @@ jobs:
       - name: Install dependencies
         run: |
           bash -x .github/scripts/setup.sh
+          uv sync --all-extras --all-groups
 
       - name: Install bitcoind
         run: .github/scripts/install-bitcoind.sh
@@ -686,6 +692,8 @@ jobs:
       - name: Install dependencies
         run: |
           bash -x .github/scripts/setup.sh
+          uv sync --all-extras --all-groups
+
       - name: Install bitcoind
         env:
           TEST_NETWORK: regtest
@@ -742,6 +750,7 @@ jobs:
       - name: Install dependencies
         run: |
           bash -x .github/scripts/setup.sh
+          uv sync --all-extras --all-groups
 
       - name: Download Bitcoin Core
         run: wget "https://bitcoincore.org/bin/bitcoin-core-${{ matrix.MIN_BTC_VERSION }}/bitcoin-${{ matrix.MIN_BTC_VERSION }}-x86_64-linux-gnu.tar.gz"

@@ -3,6 +3,13 @@ set -e
 export DEBIAN_FRONTEND=noninteractive
 export RUST_VERSION=stable
 
+# If you have your own runner, you can pre-setup and avoid this
+# (also means you don't need to allow sudo!)
+if [ -f "$HOME"/runner-no-setup ]; then
+    echo "Runner does not need setup, skipping"
+    exit 0
+fi
+
 sudo useradd -ms /bin/bash tester
 sudo apt-get update -qq
 
@@ -66,10 +73,6 @@ sudo chmod 0440 /etc/sudoers.d/tester
 
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- \
      -y --default-toolchain ${RUST_VERSION}
-
-uv sync --all-extras --all-groups
-# required for reckless till poetry to uv migration
-uv tool install poetry
 
 # We also need a relatively recent protobuf-compiler, at least 3.12.0,
 # in order to support the experimental `optional` flag.
