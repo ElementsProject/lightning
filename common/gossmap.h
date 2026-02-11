@@ -308,6 +308,9 @@ void gossmap_iter_fast_forward(const struct gossmap *map,
 /* Moves iterator to the end. */
 void gossmap_iter_end(const struct gossmap *map, struct gossmap_iter *iter);
 
+/* How dense is this? */
+void gossmap_stats(const struct gossmap *map, u64 *num_live, u64 *num_dead);
+
 /* For debugging: returns length read, and total known length of file */
 u64 gossmap_lengths(const struct gossmap *map, u64 *total);
 

@@ -89,6 +89,9 @@ struct gossmap {
 	/* local channel_update messages, if any. */
 	u8 *local_updates;
 
+	/* How many live and dead records? */
+	size_t num_live, num_dead;
+
 	/* Optional logging callback */
 	void (*logcb)(void *cbarg,
 		      enum log_level level,
@@ -320,6 +323,13 @@ static void remove_node(struct gossmap *map, struct gossmap_node *node)
 	u32 nodeidx = gossmap_node_idx(map, node);
 	if (!nodeidx_htable_del(map->nodes, node2ptrint(node)))
 		abort();
+
+	/* If we had a node_announcement, it's now dead. */
+	if (gossmap_node_announced(node)) {
+		map->num_live--;
+		map->num_dead++;
+	}
+
 	node->nann_off = map->freed_nodes;
 	free(node->chan_idxs);
 	node->chan_idxs = NULL;
@@ -414,6 +424,8 @@ void gossmap_remove_chan(struct gossmap *map, struct gossmap_chan *chan)
 	chan->cann_off = map->freed_chans;
 	chan->plus_scid_off = 0;
 	map->freed_chans = chanidx;
+	map->num_live--;
+	map->num_dead++;
 }
 
 void gossmap_remove_node(struct gossmap *map, struct gossmap_node *node)
@@ -583,10 +595,17 @@ static bool update_channel(struct gossmap *map, u64 cupdate_off)
 	if (!chan)
 		return ret;
 
+	/* Are we replacing an existing one?  Then old one is dead. */
+	if (gossmap_chan_set(chan, scidd.dir))
+		map->num_dead++;
+	else
+		map->num_live++;
+
 	/* Preserve this */
 	hc.nodeidx = chan->half[scidd.dir].nodeidx;
 	chan->half[scidd.dir] = hc;
 	chan->cupdate_off[scidd.dir] = cupdate_off;
+
 	return ret;
 }
 
@@ -637,8 +656,15 @@ static void node_announcement(struct gossmap *map, u64 nann_off)
 
 	feature_len = map_be16(map, nann_off + feature_len_off);
 	map_nodeid(map, nann_off + feature_len_off + 2 + feature_len + 4, &id);
-	if ((n = gossmap_find_node(map, &id)))
+	if ((n = gossmap_find_node(map, &id))) {
+		/* Did this replace old announcement?  If so, that's dead. */
+		if (gossmap_node_announced(n)) {
+			map->num_live--;
+			map->num_dead++;
+		}
 		n->nann_off = nann_off;
+	}
+	map->num_live++;
 }
 
 static bool report_dying_cb(struct gossmap *map,
@@ -762,6 +788,9 @@ static bool reopen_store(struct gossmap *map, u64 ended_off)
 	map->map_end = 1;
 	map->generation++;
 
+	/* This isn't quite true, as there may be deleted ones, but not many. */
+	map->num_dead = 0;
+
 	/* Now do reload. */
 	map_catchup(map, NULL, NULL, false, &changed);
 	return changed;
@@ -812,8 +841,10 @@ static bool map_catchup(struct gossmap *map,
 		if (!(flags & GOSSIP_STORE_COMPLETED_BIT))
 			break;
 
-		if (flags & GOSSIP_STORE_DELETED_BIT)
+		if (flags & GOSSIP_STORE_DELETED_BIT) {
+			map->num_dead++;
 			continue;
+		}
 
 		/* Partial write, should not happen with completed records. */
 		if (map->map_end + reclen > map->map_size)
@@ -863,6 +894,7 @@ static bool map_catchup(struct gossmap *map,
 				break;
 			if (redundant && must_be_clean)
 				return false;
+			map->num_live++;
 		} else if (type == WIRE_CHANNEL_UPDATE)
 			num_bad_cupdates += update_channel(map, off);
 		else if (type == WIRE_GOSSIP_STORE_DELETE_CHAN)
@@ -1383,6 +1415,7 @@ struct gossmap *gossmap_load_(const tal_t *ctx,
 	map->generation = 0;
 	map->fname = tal_strdup(map, filename);
 	map->fd = open(map->fname, O_RDONLY);
+	map->num_live = map->num_dead = 0;
  	if (map->fd < 0)
 		return tal_free(map);
 	if (logcb)
@@ -1991,4 +2024,10 @@ void gossmap_disable_mmap(struct gossmap *map)
 	if (map->mmap)
 		munmap(map->mmap, map->map_size);
 	map->mmap = NULL;
+}
+
+void gossmap_stats(const struct gossmap *map, u64 *num_live, u64 *num_dead)
+{
+	*num_live = map->num_live;
+	*num_dead = map->num_dead;
 }
