@@ -1207,8 +1207,9 @@ def test_gossip_store_load(node_factory):
 
     l1.start()
     # May preceed the Started msg waited for in 'start'.
-    wait_for(lambda: l1.daemon.is_in_log('Read 1/1/1/0 cannounce/cupdate/nannounce/delete from store in 832 bytes, now 824 bytes'))
-    assert not l1.daemon.is_in_log('gossip_store.*truncating')
+    l1.daemon.logsearch_start = 0
+    l1.daemon.wait_for_log("gossipd: Time to convert version 12 store")
+    l1.daemon.wait_for_log("gossipd: gossip_store: 3 live records, 0 deleted")
 
 
 def test_gossip_store_v10_upgrade(node_factory):
@@ -1275,8 +1276,10 @@ def test_gossip_store_load_announce_before_update(node_factory):
 
     l1.start()
     # May preceed the Started msg waited for in 'start'.
-    wait_for(lambda: l1.daemon.is_in_log('Read 1/1/1/1 cannounce/cupdate/nannounce/delete from store in 982 bytes, now 824 bytes'))
-    assert not l1.daemon.is_in_log('gossip_store.*truncating')
+    l1.daemon.logsearch_start = 0
+    l1.daemon.wait_for_log("gossipd: Time to convert version 12 store: [0-9]* msec")
+    l1.daemon.wait_for_log("gossipd: gossip_store: 3 live records, 0 deleted")
+    assert not l1.daemon.is_in_log('gossip_store.*corrupt')
 
 
 def test_gossip_store_load_amount_truncated(node_factory):
@@ -1294,7 +1297,7 @@ def test_gossip_store_load_amount_truncated(node_factory):
     # May preceed the Started msg waited for in 'start'.
     wait_for(lambda: l1.daemon.is_in_log(r'\*\*BROKEN\*\* gossipd: gossip_store only processed 47 bytes of 491 \(expected 491\)'))
     wait_for(lambda: l1.daemon.is_in_log(r'\*\*BROKEN\*\* gossipd: gossip_store: Moving to gossip_store.corrupt'))
-    wait_for(lambda: l1.daemon.is_in_log(r'gossip_store: Read 0/0/0/0 cannounce/cupdate/nannounce/delete from store in 1 bytes, now 47 bytes \(populated=false\)'))
+    wait_for(lambda: l1.daemon.is_in_log('gossip_store: 0 live records, 0 deleted'))
     assert os.path.exists(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store.corrupt'))
 
 
@@ -1609,7 +1612,7 @@ def setup_gossip_store_test(node_factory, bitcoind, opts=None):
 
 
 def test_gossip_store_corrupt(node_factory, bitcoind):
-    l2 = setup_gossip_store_test(node_factory, bitcoind, opts=[{}, {'broken_log': 'gossipd:.*bad version'}, {}])
+    l2 = setup_gossip_store_test(node_factory, bitcoind, opts=[{}, {'broken_log': 'gossip_store: Moving to gossip_store.corrupt'}, {}])
 
     l2.stop()
     # It should truncate this, not leave junk!
@@ -1617,11 +1620,9 @@ def test_gossip_store_corrupt(node_factory, bitcoind):
         f.write(bytearray.fromhex("07deadbeef"))
     l2.start()
 
-    wait_for(lambda: l2.daemon.is_in_log('gossip_store: Read '))
-    assert l2.daemon.is_in_log('gossip_store_compact: bad version')
-
-    # Will simply overwrite, due to old version.
-    assert not os.path.exists(os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, 'gossip_store.corrupt'))
+    # Complains, moves.
+    wait_for(lambda: l2.daemon.is_in_log('gossipd: Cannot upgrade gossip_store version 7'))
+    assert os.path.exists(os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, 'gossip_store.corrupt'))
 
 
 def test_gossip_store_load_complex(node_factory, bitcoind):
@@ -1629,7 +1630,7 @@ def test_gossip_store_load_complex(node_factory, bitcoind):
 
     l2.restart()
 
-    wait_for(lambda: l2.daemon.is_in_log('gossip_store: Read '))
+    wait_for(lambda: l2.daemon.is_in_log('gossip_store: 9 live records, 2 deleted'))
 
 
 def test_gossip_store_load_no_channel_update(node_factory):
@@ -1658,11 +1659,14 @@ def test_gossip_store_load_no_channel_update(node_factory):
     l1.start()
 
     # May preceed the Started msg waited for in 'start'.
-    wait_for(lambda: l1.daemon.is_in_log('Read 1/0/1/0 cannounce/cupdate/nannounce/delete from store in 682 bytes, now 674 bytes'))
+    l1.daemon.logsearch_start = 0
+    l1.daemon.wait_for_log("gossipd: Time to convert version 13 store: [0-9]* msec")
+    # One is the uuid we insert!
+    l1.daemon.wait_for_log("gossipd: gossip_store: 2 live records, 0 deleted")
     assert not os.path.exists(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store.corrupt'))
 
 
-def test_gossip_store_compact_on_load(node_factory, bitcoind):
+def test_gossip_store_load_uncompacted(node_factory, bitcoind):
     l2 = setup_gossip_store_test(node_factory, bitcoind)
 
     gs_path = os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, 'gossip_store')
@@ -1673,7 +1677,7 @@ def test_gossip_store_compact_on_load(node_factory, bitcoind):
     l2.restart()
 
     # These appear before we're fully started, so will already in log:
-    assert l2.daemon.is_in_log('gossip_store: Read 2/4/3/2 cannounce/cupdate/nannounce/delete from store')
+    assert l2.daemon.is_in_log('gossip_store: 9 live records, 2 deleted')
 
 
 def test_gossip_announce_invalid_block(node_factory, bitcoind):
