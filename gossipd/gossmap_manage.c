@@ -1,6 +1,9 @@
 #include "config.h"
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
+#include <ccan/closefrom/closefrom.h>
+#include <ccan/err/err.h>
+#include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/str/str.h>
 #include <common/clock_time.h>
 #include <common/daemon_conn.h>
@@ -12,6 +15,8 @@
 #include <common/timeout.h>
 #include <common/utils.h>
 #include <common/wire_error.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <gossipd/gossip_store.h>
 #include <gossipd/gossipd.h>
 #include <gossipd/gossipd_wiregen.h>
@@ -19,6 +24,12 @@
 #include <gossipd/seeker.h>
 #include <gossipd/sigcheck.h>
 #include <gossipd/txout_failures.h>
+#include <stdio.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+#define GOSSIP_STORE_COMPACT_FILENAME "gossip_store.compact"
 
 struct pending_cannounce {
 	const u8 *scriptpubkey;
@@ -54,6 +65,15 @@ struct cannounce_map {
 	/* Name, for flood reporting */
 	const char *name;
 	bool flood_reported;
+};
+
+struct compactd {
+	struct io_conn *in_conn;
+	u64 old_size;
+	u8 ignored;
+	int outfd;
+	pid_t pid;
+	u8 uuid[32];
 };
 
 struct gossmap_manage {
@@ -92,6 +112,9 @@ struct gossmap_manage {
 
 	/* Are we populated yet? */
 	bool gossip_store_populated;
+
+	/* Non-NULL if a compactd is running. */
+	struct compactd *compactd;
 };
 
 /* Timer recursion */
@@ -506,6 +529,7 @@ struct gossmap_manage *gossmap_manage_new(const tal_t *ctx,
 	assert(gm->gs);
 	assert(gm->raw_gossmap);
 	gm->daemon = daemon;
+	gm->compactd = NULL;
 
 	map_init(&gm->pending_ann_map, "pending announcements");
 	gm->pending_cupdates = tal_arr(gm, struct pending_cupdate *, 0);
@@ -1556,4 +1580,178 @@ void gossmap_manage_tell_lightningd_locals(struct daemon *daemon,
 bool gossmap_manage_populated(const struct gossmap_manage *gm)
 {
 	return gm->gossip_store_populated;
+}
+
+static void compactd_done(struct io_conn *unused, struct gossmap_manage *gm)
+{
+	int status;
+	struct stat st;
+
+	if (waitpid(gm->compactd->pid, &status, 0) < 0)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Waiting for %u: %s",
+			      (unsigned int)gm->compactd->pid,
+			      strerror(errno));
+
+	if (!WIFEXITED(status)) {
+		status_broken("compactd failed with signal %u",
+			      WTERMSIG(status));
+		goto failed;
+	}
+	if (WEXITSTATUS(status) != 0) {
+		status_broken("compactd exited with status %u",
+			      WEXITSTATUS(status));
+		goto failed;
+	}
+
+	if (stat(GOSSIP_STORE_COMPACT_FILENAME, &st) != 0) {
+		status_broken("compactd did not create file? %s",
+			      strerror(errno));
+		goto failed;
+	}
+
+	status_debug("compaction done: %"PRIu64" -> %"PRIu64" bytes",
+		     gm->compactd->old_size, (u64)st.st_size);
+
+	/* Switch gossmap to new one, as a sanity check (rather than
+	 * writing end marker and letting it reopen) */
+	tal_free(gm->raw_gossmap);
+	gm->raw_gossmap = gossmap_load_initial(gm, GOSSIP_STORE_COMPACT_FILENAME,
+					       st.st_size,
+					       gossmap_logcb,
+					       NULL,
+					       gm);
+	if (!gm->raw_gossmap)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "compacted gossip_store is invalid");
+
+	if (rename(GOSSIP_STORE_COMPACT_FILENAME, GOSSIP_STORE_FILENAME) != 0)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Error renaming gossip store: %s",
+			      strerror(errno));
+
+	/* Now append record to old one, so everyone will switch */
+	gossip_store_add(gm->gs,
+			 towire_gossip_store_ended(tmpctx, st.st_size, gm->compactd->uuid),
+			 0);
+	gossip_store_reopen(gm->gs);
+
+failed:
+	gm->compactd = tal_free(gm->compactd);
+}
+
+/* When it's caught up to where we were, we wait. */
+static struct io_plan *compactd_read_done(struct io_conn *conn,
+					  struct gossmap_manage *gm)
+{
+	status_debug("compactd caught up, waiting for final bytes.");
+
+	/* Make sure everything has hit storage in the current version. */
+	gossip_store_fsync(gm->gs);
+	gossmap_manage_get_gossmap(gm);
+
+	/* Tell it to do the remainder, then we wait for it to exit in destructor. */
+	write_all(gm->compactd->outfd, "", 1);
+	return io_close(conn);
+}
+
+static struct io_plan *init_compactd_conn_in(struct io_conn *conn,
+					     struct gossmap_manage *gm)
+{
+	return io_read(conn, &gm->compactd->ignored, sizeof(gm->compactd->ignored),
+		       compactd_read_done, gm);
+}
+/* Returns false if already running */
+static UNNEEDED bool gossmap_compact(struct gossmap_manage *gm)
+{
+	int childin[2], execfail[2], childout[2];
+	int saved_errno;
+
+	/* Only one at a time please! */
+	if (gm->compactd)
+		return false;
+
+	/* This checks contents: we want to make sure compactd sees an
+	 * up-to-date version. */
+	gossmap_manage_get_gossmap(gm);
+
+	gm->compactd = tal(gm, struct compactd);
+	for (size_t i = 0; i < ARRAY_SIZE(gm->compactd->uuid); i++)
+		gm->compactd->uuid[i] = pseudorand(256);
+
+	gm->compactd->old_size = gossip_store_len_written(gm->gs);
+	status_debug("Executing lightning_gossip_compactd %s %s %s %s",
+		     GOSSIP_STORE_FILENAME,
+		     GOSSIP_STORE_COMPACT_FILENAME,
+		     tal_fmt(tmpctx, "%"PRIu64, gm->compactd->old_size),
+		     tal_hexstr(tmpctx, gm->compactd->uuid, sizeof(gm->compactd->uuid)));
+
+	if (pipe(childin) != 0 || pipe(childout) != 0 || pipe(execfail) != 0)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Could not create pipes for compactd: %s",
+			      strerror(errno));
+
+	if (fcntl(execfail[1], F_SETFD, fcntl(execfail[1], F_GETFD)
+		  | FD_CLOEXEC) < 0)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Could not set cloexec on compactd fd: %s",
+			      strerror(errno));
+
+	gm->compactd->pid = fork();
+	if (gm->compactd->pid < 0)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Could not fork for compactd: %s",
+			      strerror(errno));
+
+	if (gm->compactd->pid == 0) {
+		close(childin[0]);
+		close(childout[1]);
+		close(execfail[0]);
+
+		/* In practice, low fds are all open, so we don't have
+		 * to handle those horrible cases */
+		assert(childin[1] > 2);
+		assert(childout[0] > 2);
+		if (dup2(childin[1], STDOUT_FILENO) == -1)
+			err(1, "Failed to duplicate fd to stdout");
+		close(childin[1]);
+		if (dup2(childout[0], STDIN_FILENO) == -1)
+			err(1, "Failed to duplicate fd to stdin");
+		close(childin[2]);
+		closefrom_limit(0);
+		closefrom(3);
+		/* Tell compactd helper what we read so far. */
+		execlp(gm->daemon->compactd_helper,
+		       gm->daemon->compactd_helper,
+		       GOSSIP_STORE_FILENAME,
+		       GOSSIP_STORE_COMPACT_FILENAME,
+		       tal_fmt(tmpctx, "%"PRIu64, gm->compactd->old_size),
+		       tal_hexstr(tmpctx, gm->compactd->uuid, sizeof(gm->compactd->uuid)),
+		       NULL);
+		saved_errno = errno;
+		/* Gcc's warn-unused-result fail. */
+		if (write(execfail[1], &saved_errno, sizeof(saved_errno))) {
+			;
+		}
+		exit(127);
+	}
+	close(childin[1]);
+	close(childout[0]);
+	close(execfail[1]);
+
+	/* Child will close this without writing on successful exec. */
+	if (read(execfail[0], &saved_errno, sizeof(saved_errno)) == sizeof(saved_errno)) {
+		close(execfail[0]);
+		waitpid(gm->compactd->pid, NULL, 0);
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Exec of %s failed: %s",
+			      gm->daemon->compactd_helper, strerror(saved_errno));
+	}
+	close(execfail[0]);
+
+	gm->compactd->outfd = childout[1];
+	gm->compactd->in_conn = io_new_conn(gm->compactd, childin[0],
+					    init_compactd_conn_in, gm);
+	io_set_finish(gm->compactd->in_conn, compactd_done, gm);
+	return true;
 }

@@ -372,12 +372,13 @@ static void master_or_connectd_gone(struct daemon_conn *dc UNUSED)
 static void gossip_init(struct daemon *daemon, const u8 *msg)
 {
 	if (!fromwire_gossipd_init(daemon, msg,
-				     &chainparams,
-				     &daemon->our_features,
-				     &daemon->id,
-				     &daemon->dev_fast_gossip,
-				     &daemon->dev_fast_gossip_prune,
-				     &daemon->autoconnect_seeker_peers)) {
+				   &chainparams,
+				   &daemon->our_features,
+				   &daemon->id,
+				   &daemon->autoconnect_seeker_peers,
+				   &daemon->compactd_helper,
+				   &daemon->dev_fast_gossip,
+				   &daemon->dev_fast_gossip_prune)) {
 		master_badmsg(WIRE_GOSSIPD_INIT, msg);
 	}
 

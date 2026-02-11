@@ -218,6 +218,25 @@ static int make_new_gossip_store(u64 *total_len)
 	return new_fd;
 }
 
+static int gossip_store_open(u64 *total_len, bool *recent)
+{
+	struct stat st;
+	int fd = open(GOSSIP_STORE_FILENAME, O_RDWR);
+	if (fd == -1)
+		return -1;
+
+	if (fstat(fd, &st) != 0) {
+		close_noerr(fd);
+		return -1;
+	}
+
+	if (recent)
+		*recent = (st.st_mtime > clock_time().ts.tv_sec - 3600);
+
+	*total_len = st.st_size;
+	return fd;
+}
+
 /* If this returns -1, we cannot upgrade. */
 static int gossip_store_upgrade(struct daemon *daemon,
 				u64 *total_len,
@@ -227,12 +246,12 @@ static int gossip_store_upgrade(struct daemon *daemon,
 	u64 old_len, cur_off;
 	struct gossip_hdr hdr;
 	u8 oldversion, version = GOSSIP_STORE_VER;
-	struct stat st;
 	struct timemono start = time_mono();
 	const char *bad;
+	bool recent;
 	u8 *uuid;
 
-	old_fd = open(GOSSIP_STORE_FILENAME, O_RDWR);
+	old_fd = gossip_store_open(total_len, &recent);
 	if (old_fd == -1) {
 		if (errno == ENOENT) {
 			*populated = false;
@@ -249,22 +268,13 @@ static int gossip_store_upgrade(struct daemon *daemon,
 		goto upgrade_failed;
 	}
 
-	if (fstat(old_fd, &st) != 0) {
-		status_broken("Could not stat gossip_store: %s",
-			      strerror(errno));
-		goto upgrade_failed;
-	}
-
 	/* If we have any contents (beyond uuid), and the file is less
 	 * than 1 hour old, say "seems good" */
-	*populated = (st.st_mtime > time_now().ts.tv_sec - 3600
-		      && st.st_size > 1 + sizeof(hdr) + 2 + 32);
+	*populated = recent && *total_len > 1 + sizeof(hdr) + 2 + 32;
 
 	/* No upgrade necessary?  We're done. */
-	if (oldversion == GOSSIP_STORE_VER) {
-		*total_len = st.st_size;
+	if (oldversion == GOSSIP_STORE_VER)
 		return old_fd;
-	}
 
 	if (!can_upgrade(oldversion)) {
 		status_unusual("Cannot upgrade gossip_store version %u",
@@ -423,7 +433,16 @@ struct gossip_store *gossip_store_new(const tal_t *ctx,
 	return gs;
 }
 
-static void gossip_store_fsync(const struct gossip_store *gs)
+void gossip_store_reopen(struct gossip_store *gs)
+{
+	close(gs->fd);
+	gs->fd = gossip_store_open(&gs->len, NULL);
+	if (gs->fd < 0)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "gossmap reopen failed: %s", strerror(errno));
+}
+
+void gossip_store_fsync(const struct gossip_store *gs)
 {
 	if (fsync(gs->fd) != 0)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,

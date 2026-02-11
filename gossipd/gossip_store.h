@@ -35,9 +35,22 @@ struct gossip_store *gossip_store_new(const tal_t *ctx,
 				      bool *populated);
 
 /**
+ * Reopen the gossip_store
+ * @gs: the gossip store.
+ *
+ * We've rewritten it, so reopen the file.
+ */
+void gossip_store_reopen(struct gossip_store *gs);
+
+/**
  * Move the old gossip store out the way.  Log a broken message about it.
  */
 void gossip_store_corrupt(void);
+
+/**
+ * Extra paranoia: make sure it's on disk.  Don't call often!\
+ */
+void gossip_store_fsync(const struct gossip_store *gs);
 
 /**
  * Append a gossip message to the gossip_store
