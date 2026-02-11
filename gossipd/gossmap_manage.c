@@ -65,10 +65,6 @@ struct gossmap_manage {
 	/* gossip map itself (access via gossmap_manage_get_gossmap, so it's fresh!) */
 	struct gossmap *raw_gossmap;
 
-	/* Last writes to gossmap since previous sync, in case it
-	 * messes up and we need to force it. */
-	const u8 **last_writes;
-
 	/* The gossip_store, which writes to the gossip_store file */
 	struct gossip_store *gs;
 
@@ -268,7 +264,7 @@ static void remove_channel(struct gossmap_manage *gm,
 	/* Put in tombstone marker. */
 	gossip_store_add(gm->gs,
 			 towire_gossip_store_delete_chan(tmpctx, scid),
-			 0, &gm->last_writes);
+			 0);
 
 	/* Delete from store */
 	gossip_store_del(gm->gs, chan->cann_off, WIRE_CHANNEL_ANNOUNCEMENT);
@@ -309,7 +305,7 @@ static void remove_channel(struct gossmap_manage *gm,
 			timestamp = gossip_store_get_timestamp(gm->gs, node->nann_off);
 
 			gossip_store_del(gm->gs, node->nann_off, WIRE_NODE_ANNOUNCEMENT);
-			offset = gossip_store_add(gm->gs, nannounce, timestamp, &gm->last_writes);
+			offset = gossip_store_add(gm->gs, nannounce, timestamp);
 		} else {
 			/* Are all remaining channels dying but we weren't?
 			 * Can happen if we removed this channel immediately
@@ -481,7 +477,6 @@ static bool setup_gossmap(struct gossmap_manage *gm,
 		gm->gs = tal_free(gm->gs);
 		return false;
 	}
-	gm->last_writes = tal_arr(gm, const u8 *, 0);
 
 	gossmap_stats(gm->raw_gossmap, &num_live, &num_dead);
 	status_debug("gossip_store: %"PRIu64" live records, %"PRIu64" deleted",
@@ -636,10 +631,9 @@ const char *gossmap_manage_channel_announcement(const tal_t *ctx,
 	 */
 	if (known_amount) {
 		/* Set with timestamp 0 (we will update once we have a channel_update) */
-		gossip_store_add(gm->gs, announce, 0, &gm->last_writes);
+		gossip_store_add(gm->gs, announce, 0);
 		gossip_store_add(gm->gs,
-				 towire_gossip_store_channel_amount(tmpctx, *known_amount), 0,
-				 &gm->last_writes);
+				 towire_gossip_store_channel_amount(tmpctx, *known_amount), 0);
 
 		node_announcements_not_dying(gm, gossmap, pca);
 		tal_free(pca);
@@ -770,10 +764,9 @@ void gossmap_manage_handle_get_txout_reply(struct gossmap_manage *gm, const u8 *
 	}
 
 	/* Set with timestamp 0 (we will update once we have a channel_update) */
-	gossip_store_add(gm->gs, pca->channel_announcement, 0, &gm->last_writes);
+	gossip_store_add(gm->gs, pca->channel_announcement, 0);
 	gossip_store_add(gm->gs,
-			 towire_gossip_store_channel_amount(tmpctx, sat), 0,
-			 &gm->last_writes);
+			 towire_gossip_store_channel_amount(tmpctx, sat), 0);
 
 	/* If we looking specifically for this, we no longer are. */
 	remove_unknown_scid(gm->daemon->seeker, &scid, true);
@@ -875,7 +868,7 @@ static const char *process_channel_update(const tal_t *ctx,
 	}
 
 	/* OK, apply the new one */
-	offset = gossip_store_add(gm->gs, update, timestamp, &gm->last_writes);
+	offset = gossip_store_add(gm->gs, update, timestamp);
 
 	/* If channel is dying, make sure update is also marked dying! */
 	if (gossmap_chan_is_dying(gossmap, chan)) {
@@ -1054,7 +1047,7 @@ static void process_node_announcement(struct gossmap_manage *gm,
 	}
 
 	/* OK, apply the new one */
-	offset = gossip_store_add(gm->gs, nannounce, timestamp, &gm->last_writes);
+	offset = gossip_store_add(gm->gs, nannounce, timestamp);
 	/* If all channels are dying, make sure this is marked too. */
 	if (all_node_channels_dying(gossmap, node, NULL)) {
 		gossip_store_set_flag(gm->gs, offset,
@@ -1381,7 +1374,7 @@ void gossmap_manage_channel_spent(struct gossmap_manage *gm,
 
 	/* Save to gossip_store in case we restart */
 	msg = towire_gossip_store_chan_dying(tmpctx, cd.scid, cd.deadline);
-	cd.gossmap_offset = gossip_store_add(gm->gs, msg, 0, &gm->last_writes);
+	cd.gossmap_offset = gossip_store_add(gm->gs, msg, 0);
 	tal_arr_expand(&gm->dying_channels, cd);
 
 	/* Mark it dying, so we don't gossip it */
@@ -1485,7 +1478,7 @@ struct gossmap *gossmap_manage_get_gossmap(struct gossmap_manage *gm)
 		gossmap_disable_mmap(gm->raw_gossmap);
 
 		/* Try rewriting the last few records, syncing. */
-		gossip_store_rewrite_end(gm->gs, gm->last_writes);
+		gossip_store_rewrite_end(gm->gs);
 		gossmap_refresh(gm->raw_gossmap);
 
 		map_used = gossmap_lengths(gm->raw_gossmap, &map_size);
@@ -1497,8 +1490,7 @@ struct gossmap *gossmap_manage_get_gossmap(struct gossmap_manage *gm)
 	}
 
 	/* Free up last_writes, since we've seen it on disk */
-	tal_free(gm->last_writes);
-	gm->last_writes = tal_arr(gm, const u8 *, 0);
+	gossip_store_writes_confirmed(gm->gs);
 	return gm->raw_gossmap;
 }
 
