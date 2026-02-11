@@ -70,6 +70,7 @@ struct cannounce_map {
 struct compactd {
 	struct io_conn *in_conn;
 	u64 old_size;
+	bool dev_compact;
 	u8 ignored;
 	int outfd;
 	pid_t pid;
@@ -1582,6 +1583,24 @@ bool gossmap_manage_populated(const struct gossmap_manage *gm)
 	return gm->gossip_store_populated;
 }
 
+static void compactd_broken(const struct gossmap_manage *gm,
+			    const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	status_vfmt(LOG_BROKEN, NULL, fmt, ap);
+	va_end(ap);
+
+	if (gm->compactd->dev_compact) {
+		va_start(ap, fmt);
+		daemon_conn_send(gm->daemon->master,
+				 take(towire_gossipd_dev_compact_store_reply(NULL,
+									     tal_vfmt(tmpctx, fmt, ap))));
+		va_end(ap);
+	}
+}
+
 static void compactd_done(struct io_conn *unused, struct gossmap_manage *gm)
 {
 	int status;
@@ -1594,18 +1613,18 @@ static void compactd_done(struct io_conn *unused, struct gossmap_manage *gm)
 			      strerror(errno));
 
 	if (!WIFEXITED(status)) {
-		status_broken("compactd failed with signal %u",
-			      WTERMSIG(status));
+		compactd_broken(gm, "compactd failed with signal %u",
+				WTERMSIG(status));
 		goto failed;
 	}
 	if (WEXITSTATUS(status) != 0) {
-		status_broken("compactd exited with status %u",
+		compactd_broken(gm, "compactd exited with status %u",
 			      WEXITSTATUS(status));
 		goto failed;
 	}
 
 	if (stat(GOSSIP_STORE_COMPACT_FILENAME, &st) != 0) {
-		status_broken("compactd did not create file? %s",
+		compactd_broken(gm, "compactd did not create file? %s",
 			      strerror(errno));
 		goto failed;
 	}
@@ -1639,6 +1658,9 @@ static void compactd_done(struct io_conn *unused, struct gossmap_manage *gm)
 			 towire_gossip_store_ended(tmpctx, st.st_size, gm->compactd->uuid),
 			 0);
 	gossip_store_reopen(gm->gs);
+	if (gm->compactd->dev_compact)
+		daemon_conn_send(gm->daemon->master,
+				 take(towire_gossipd_dev_compact_store_reply(NULL, "")));
 
 failed:
 	gm->compactd = tal_free(gm->compactd);
@@ -1666,7 +1688,7 @@ static struct io_plan *init_compactd_conn_in(struct io_conn *conn,
 		       compactd_read_done, gm);
 }
 /* Returns false if already running */
-static bool gossmap_compact(struct gossmap_manage *gm)
+static bool gossmap_compact(struct gossmap_manage *gm, bool dev_compact)
 {
 	int childin[2], execfail[2], childout[2];
 	int saved_errno;
@@ -1753,6 +1775,7 @@ static bool gossmap_compact(struct gossmap_manage *gm)
 	}
 	close(execfail[0]);
 
+	gm->compactd->dev_compact = dev_compact;
 	gm->compactd->outfd = childout[1];
 	gm->compactd->in_conn = io_new_conn(gm->compactd, childin[0],
 					    init_compactd_conn_in, gm);
@@ -1776,7 +1799,7 @@ void gossmap_manage_maybe_compact(struct gossmap_manage *gm)
 	if (num_dead < 4 * num_live)
 		return;
 
-	compact_started = gossmap_compact(gm);
+	compact_started = gossmap_compact(gm, false);
 	status_debug("%s gossmap compaction:"
 		     " %"PRIu64" with"
 		     " %"PRIu64" live records and %"PRIu64" dead records",
@@ -1784,3 +1807,15 @@ void gossmap_manage_maybe_compact(struct gossmap_manage *gm)
 		     gossip_store_len_written(gm->gs),
 		     num_live, num_dead);
 }
+
+void gossmap_manage_handle_dev_compact_store(struct gossmap_manage *gm, const u8 *msg)
+{
+	if (!fromwire_gossipd_dev_compact_store(msg))
+		master_badmsg(WIRE_GOSSIPD_DEV_COMPACT_STORE, msg);
+
+	if (!gossmap_compact(gm, true))
+		daemon_conn_send(gm->daemon->master,
+				 take(towire_gossipd_dev_compact_store_reply(NULL,
+									     "Already compacting")));
+}
+
