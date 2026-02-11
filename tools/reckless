@@ -71,7 +71,9 @@ class Logger:
                     logging.warning(msg)
 
     def str_esc(self, raw_string: str) -> str:
-        assert isinstance(raw_string, str)
+        assert isinstance(raw_string, str) or hasattr(to_log, "__repr__")
+        if not isinstance(raw_string, str):
+            return json.dumps(str(raw_string))[1:-1]
         return json.dumps(raw_string)[1:-1]
 
     def push_to_socket(self, to_log: str, prefix: str):
@@ -94,7 +96,7 @@ class Logger:
         else:
             logging.debug(to_log)
 
-        self.push_to_socket(to_log, 'DEBUG: ')
+        self.push_to_socket(self.str_esc(to_log), 'DEBUG: ')
 
     def info(self, to_log: str):
         assert isinstance(to_log, str) or hasattr(to_log, "__repr__")
@@ -105,7 +107,7 @@ class Logger:
         else:
             print(to_log)
 
-        self.push_to_socket(to_log, 'INFO: ')
+        self.push_to_socket(self.str_esc(to_log), 'INFO: ')
 
     def warning(self, to_log: str):
         assert isinstance(to_log, str) or hasattr(to_log, "__repr__")
@@ -116,7 +118,7 @@ class Logger:
         else:
             logging.warning(to_log)
 
-        self.push_to_socket(to_log, 'WARNING: ')
+        self.push_to_socket(self.str_esc(to_log), 'WARNING: ')
 
     def error(self, to_log: str):
         assert isinstance(to_log, str) or hasattr(to_log, "__repr__")
@@ -127,7 +129,7 @@ class Logger:
         else:
             logging.error(to_log)
 
-        self.push_to_socket(to_log, 'ERROR: ')
+        self.push_to_socket(self.str_esc(to_log), 'ERROR: ')
 
     def add_result(self, result: Union[str, None]):
         assert json.dumps(result), "result must be json serializable"
@@ -1531,7 +1533,7 @@ def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
     # Create symlink in staging tree to redirect to the plugins entrypoint
     log.debug(f"linking source {staging_path / cloned_src.entry} to "
               f"{Path(staged_src.source_loc) / cloned_src.entry}")
-    log.debug(staged_src)
+    log.debug(str(staged_src))
     (Path(staged_src.source_loc) / cloned_src.entry).\
         symlink_to(staging_path / cloned_src.entry)
 
@@ -1884,7 +1886,7 @@ def enable(plugin_name: str):
             return None
         else:
             log.error(f'reckless: {inst.name} failed to start!')
-            log.error(err)
+            log.error(str(err))
             return None
     except RPCError:
         log.info(('lightningd rpc unavailable. '
