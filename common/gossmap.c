@@ -29,11 +29,7 @@ static bool chanidx_eq_id(const ptrint_t *pidx,
 	struct short_channel_id pidxid = chanidx_id(pidx);
 	return short_channel_id_eq(pidxid, scid);
 }
-static size_t scid_hash(const struct short_channel_id scid)
-{
-	return siphash24(siphash_seed(), &scid, sizeof(scid));
-}
-HTABLE_DEFINE_NODUPS_TYPE(ptrint_t, chanidx_id, scid_hash, chanidx_eq_id,
+HTABLE_DEFINE_NODUPS_TYPE(ptrint_t, chanidx_id, short_channel_id_hash, chanidx_eq_id,
 			  chanidx_htable);
 
 static struct node_id nodeidx_id(const ptrint_t *pidx);
@@ -42,9 +38,16 @@ static bool nodeidx_eq_id(const ptrint_t *pidx, const struct node_id id)
 	struct node_id pidxid = nodeidx_id(pidx);
 	return node_id_eq(&pidxid, &id);
 }
+/* You need to spend sats to create a channel to advertize your nodeid,
+ * so creating clashes is not free: we can be lazy! */
 static size_t nodeid_hash(const struct node_id id)
 {
-	return siphash24(siphash_seed(), &id, PUBKEY_CMPR_LEN);
+	size_t val;
+	size_t off = siphash_seed()->u.u8[0] % 16;
+
+	BUILD_ASSERT(15 + sizeof(val) < sizeof(id.k));
+	memcpy(&val, id.k + off, sizeof(val));
+	return val;
 }
 HTABLE_DEFINE_NODUPS_TYPE(ptrint_t, nodeidx_id, nodeid_hash, nodeidx_eq_id,
 			  nodeidx_htable);
