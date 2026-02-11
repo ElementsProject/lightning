@@ -459,7 +459,6 @@ static bool setup_gossmap(struct gossmap_manage *gm,
 			  struct daemon *daemon)
 {
 	u64 expected_len;
-	struct chan_dying *dying = NULL;
 
 	gm->dying_channels = tal_arr(gm, struct chan_dying, 0);
 
@@ -467,13 +466,10 @@ static bool setup_gossmap(struct gossmap_manage *gm,
 	 * necessary */
 	gm->gs = gossip_store_new(gm,
 				  daemon,
-				  &gm->gossip_store_populated,
-				  &dying);
+				  &gm->gossip_store_populated);
 	if (!gm->gs)
 		return false;
 
-	/* FIXME: Remove */
-	tal_free(dying);
 	expected_len = gossip_store_len_written(gm->gs);
 
 	/* This actually loads it into memory, with strict checks. */

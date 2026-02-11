@@ -27,14 +27,12 @@ struct chan_dying {
  * @ctx: the context to allocate from
  * @daemon: the daemon context
  * @populated: set to false if store is empty/obviously partial.
- * @dying: an array of channels we found dying markers for.
  *
  * Returns NULL on error.
  */
 struct gossip_store *gossip_store_new(const tal_t *ctx,
 				      struct daemon *daemon,
-				      bool *populated,
-				      struct chan_dying **dying);
+				      bool *populated);
 
 /**
  * Move the old gossip store out the way.  Log a broken message about it.
