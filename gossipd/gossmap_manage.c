@@ -1613,13 +1613,17 @@ static void compactd_done(struct io_conn *unused, struct gossmap_manage *gm)
 	status_debug("compaction done: %"PRIu64" -> %"PRIu64" bytes",
 		     gm->compactd->old_size, (u64)st.st_size);
 
+	/* We will reload dying_channels as we reopen */
+	tal_free(gm->dying_channels);
+	gm->dying_channels = tal_arr(gm, struct chan_dying, 0);
+
 	/* Switch gossmap to new one, as a sanity check (rather than
 	 * writing end marker and letting it reopen) */
 	tal_free(gm->raw_gossmap);
 	gm->raw_gossmap = gossmap_load_initial(gm, GOSSIP_STORE_COMPACT_FILENAME,
 					       st.st_size,
 					       gossmap_logcb,
-					       NULL,
+					       gossmap_add_dying_chan,
 					       gm);
 	if (!gm->raw_gossmap)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
