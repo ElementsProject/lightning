@@ -1662,7 +1662,7 @@ static struct io_plan *init_compactd_conn_in(struct io_conn *conn,
 		       compactd_read_done, gm);
 }
 /* Returns false if already running */
-static UNNEEDED bool gossmap_compact(struct gossmap_manage *gm)
+static bool gossmap_compact(struct gossmap_manage *gm)
 {
 	int childin[2], execfail[2], childout[2];
 	int saved_errno;
@@ -1717,7 +1717,7 @@ static UNNEEDED bool gossmap_compact(struct gossmap_manage *gm)
 		close(childin[1]);
 		if (dup2(childout[0], STDIN_FILENO) == -1)
 			err(1, "Failed to duplicate fd to stdin");
-		close(childin[2]);
+		close(childout[0]);
 		closefrom_limit(0);
 		closefrom(3);
 		/* Tell compactd helper what we read so far. */
@@ -1754,4 +1754,29 @@ static UNNEEDED bool gossmap_compact(struct gossmap_manage *gm)
 					    init_compactd_conn_in, gm);
 	io_set_finish(gm->compactd->in_conn, compactd_done, gm);
 	return true;
+}
+
+void gossmap_manage_maybe_compact(struct gossmap_manage *gm)
+{
+	u64 num_live, num_dead;
+	struct gossmap *gossmap = gossmap_manage_get_gossmap(gm);
+	bool compact_started;
+
+	gossmap_stats(gossmap, &num_live, &num_dead);
+
+	/* Don't get out of bed for less that 10MB */
+	if (gossip_store_len_written(gm->gs) < 10000000)
+		return;
+
+	/* Compact when the density would be 5x better */
+	if (num_dead < 4 * num_live)
+		return;
+
+	compact_started = gossmap_compact(gm);
+	status_debug("%s gossmap compaction:"
+		     " %"PRIu64" with"
+		     " %"PRIu64" live records and %"PRIu64" dead records",
+		     compact_started ? "Beginning" : "Already running",
+		     gossip_store_len_written(gm->gs),
+		     num_live, num_dead);
 }
