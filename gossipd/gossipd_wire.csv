@@ -50,6 +50,13 @@ msgtype,gossipd_dev_memleak,3033
 msgtype,gossipd_dev_memleak_reply,3133
 msgdata,gossipd_dev_memleak_reply,leak,bool,
 
+# master -> gossipd: please rewrite the gossip_store
+msgtype,gossipd_dev_compact_store,3034
+
+# gossipd -> master: empty string means no problem.
+msgtype,gossipd_dev_compact_store_reply,3134
+msgdata,gossipd_dev_compact_store_reply,result,wirestring,
+
 # master -> gossipd: blockheight increased.
 msgtype,gossipd_new_blockheight,3026
 msgdata,gossipd_new_blockheight,blockheight,u32,

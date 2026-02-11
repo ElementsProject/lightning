@@ -542,6 +542,12 @@ static struct io_plan *recv_req(struct io_conn *conn,
 			goto done;
 		}
 		/* fall thru */
+	case WIRE_GOSSIPD_DEV_COMPACT_STORE:
+		if (daemon->developer) {
+			gossmap_manage_handle_dev_compact_store(daemon->gm, msg);
+			goto done;
+		}
+		/* fall thru */
 
 	/* We send these, we don't receive them */
 	case WIRE_GOSSIPD_INIT_CUPDATE:
@@ -549,6 +555,7 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_GOSSIPD_INIT_REPLY:
 	case WIRE_GOSSIPD_GET_TXOUT:
 	case WIRE_GOSSIPD_DEV_MEMLEAK_REPLY:
+	case WIRE_GOSSIPD_DEV_COMPACT_STORE_REPLY:
 	case WIRE_GOSSIPD_ADDGOSSIP_REPLY:
 	case WIRE_GOSSIPD_NEW_BLOCKHEIGHT_REPLY:
 	case WIRE_GOSSIPD_REMOTE_CHANNEL_UPDATE:
