@@ -2189,7 +2189,7 @@ def test_generate_gossip_store(node_factory):
 
             expected.append({'source': n1,
                              'destination': n2,
-                             'short_channel_id': '{}x{}x{}'.format(c.node1, c.node2, chancount),
+                             'short_channel_id': '{}x{}x{}'.format(c.node1 + chancount, c.node2, chancount),
                              'direction': expected_dir,
                              'public': True,
                              'amount_msat': c.capacity_sats * 1000,

@@ -353,7 +353,7 @@ static void write_announce(int outfd,
 		node_id_from_pubkey(&nodeid2, &id1);
 	}
 	/* Use i to avoid clashing scids even if two nodes have > 1 channel */
-	if (!mk_short_channel_id(&scid, node1, node2, i & 0xFFFF))
+	if (!mk_short_channel_id(&scid, i + node1, node2, i & 0xFFFF))
 		abort();
 
 	msg = towire_channel_announcement(NULL, &vals.sig, &vals.sig, &vals.sig, &vals.sig,
@@ -406,7 +406,7 @@ static void write_update(int outfd,
 	memset(&vals, 0, sizeof(vals));
 
 	/* Use i to avoid clashing scids even if two nodes have > 1 channel */
-	if (!mk_short_channel_id(&scid, node1, node2, i & 0xFFFF))
+	if (!mk_short_channel_id(&scid, i + node1, node2, i & 0xFFFF))
 		abort();
 
 	/* If node ids are backward, dir is reversed */
