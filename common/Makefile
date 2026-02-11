@@ -159,8 +159,8 @@ common/htlc_state_names_gen.h: common/htlc_state.h ccan/ccan/cdump/tools/cdump-e
 
 common/gossip_store.o: gossipd/gossip_store_wiregen.h
 
-check-source-bolt: $(COMMON_SRC_NOGEN:%=bolt-check/%) $(COMMON_HEADERS:%=bolt-check/%)
-check-whitespace: $(COMMON_SRC_NOGEN:%=check-whitespace/%) $(COMMON_HEADERS:%=check-whitespace/%)
+check-source-bolt: $(COMMON_SRC_NOGEN:%=bolt-check/%) $(COMMON_HEADERS_NOGEN:%=bolt-check/%)
+check-whitespace: $(COMMON_SRC_NOGEN:%=check-whitespace/%) $(COMMON_HEADERS_NOGEN:%=check-whitespace/%)
 
 clean: common-clean
 
