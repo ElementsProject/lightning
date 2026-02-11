@@ -14,16 +14,21 @@ GOSSIPD_SRC := $(GOSSIPD_HEADERS_WSRC:.h=.c)
 GOSSIPD_OBJS := $(GOSSIPD_SRC:.c=.o)
 $(GOSSIPD_OBJS): $(GOSSIPD_HEADERS)
 
+GOSSIPD_COMPACT_SRC := gossipd/compactd.c
+GOSSIPD_COMPACT_OBJS := $(GOSSIPD_COMPACT_SRC:.c=.o)
+
 # Make sure these depend on everything.
-ALL_C_SOURCES += $(GOSSIPD_SRC)
+ALL_C_SOURCES += $(GOSSIPD_SRC) $(GOSSIPD_COMPACT_SRC)
 ALL_C_HEADERS += $(GOSSIPD_HEADERS)
-ALL_PROGRAMS += lightningd/lightning_gossipd
+ALL_PROGRAMS += lightningd/lightning_gossipd lightningd/lightning_gossip_compactd
 
 # Here's what lightningd depends on
 LIGHTNINGD_CONTROL_HEADERS += gossipd/gossipd_wiregen.h
 LIGHTNINGD_CONTROL_OBJS += gossipd/gossipd_wiregen.o
 
 lightningd/lightning_gossipd: $(GOSSIPD_OBJS) $(HSMD_CLIENT_OBJS) connectd/connectd_gossipd_wiregen.o libcommon.a
+
+lightningd/lightning_gossip_compactd: $(GOSSIPD_COMPACT_OBJS) libcommon.a
 
 # The CSV was removed, but the generated files may live on!
 clean: clean-old-gossip-gen
