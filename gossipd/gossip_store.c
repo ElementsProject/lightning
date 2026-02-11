@@ -179,6 +179,18 @@ static bool upgrade_field(u8 oldversion,
 	return true;
 }
 
+static u8 *new_uuid_record(const tal_t *ctx, int fd, u64 *off)
+{
+	u8 *uuid = tal_arr(ctx, u8, 32);
+
+	for (size_t i = 0; i < tal_bytelen(uuid); i++)
+		uuid[i] = pseudorand(256);
+	append_msg(fd, towire_gossip_store_uuid(tmpctx, uuid), 0, off, NULL);
+	/* append_msg does not change file offset, so do that now. */
+	lseek(fd, 0, SEEK_END);
+	return uuid;
+}
+
 /* Read gossip store entries, copy non-deleted ones.  Check basic
  * validity, but this code is written as simply and robustly as
  * possible!
@@ -198,6 +210,7 @@ static int gossip_store_compact(struct daemon *daemon,
 	struct stat st;
 	struct timemono start = time_mono();
 	const char *bad;
+	u8 *uuid = NULL;
 
 	*populated = false;
 	old_len = 1;
@@ -240,6 +253,10 @@ static int gossip_store_compact(struct daemon *daemon,
 	}
 
 	cur_off = old_len = sizeof(oldversion);
+
+	/* Make up uuid for old version */
+	if (oldversion < 16)
+		uuid = new_uuid_record(tmpctx, new_fd, total_len);
 
 	/* Read everything, write non-deleted ones to new_fd.  If something goes wrong,
 	 * we end up with truncated store. */
@@ -327,6 +344,13 @@ static int gossip_store_compact(struct daemon *daemon,
 		case WIRE_NODE_ANNOUNCEMENT:
 			nannounces++;
 			break;
+		case WIRE_GOSSIP_STORE_UUID:
+			uuid = tal_arr(tmpctx, u8, 32);
+			if (!fromwire_gossip_store_uuid(msg, uuid)) {
+				bad = "Corrupt uuid";
+				goto badmsg;
+			}
+			break;
 		}
 
 		if (!write_all(new_fd, &hdr, sizeof(hdr))
@@ -348,6 +372,16 @@ static int gossip_store_compact(struct daemon *daemon,
 	}
 
 rename_new:
+	/* If we didn't copy a uuid, do so now. */
+	if (!uuid) {
+		if (lseek(new_fd, 0, SEEK_END) != 1) {
+			bad = tal_fmt(tmpctx,
+				      "missing uuid in version %u", oldversion);
+			goto badmsg;
+		}
+		uuid = new_uuid_record(tmpctx, new_fd, total_len);
+	}
+
 	if (rename(GOSSIP_STORE_TEMP_FILENAME, GOSSIP_STORE_FILENAME) != 0) {
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "gossip_store_compact: rename failed: %s",
@@ -357,7 +391,6 @@ rename_new:
 	/* Create end marker now new file exists. */
 	if (old_fd != -1) {
 		/* FIXME: real uuid! */
-		u8 uuid[32] = {0};
 		append_msg(old_fd, towire_gossip_store_ended(tmpctx, *total_len, uuid),
 			   0, &old_len, NULL);
 		close(old_fd);
