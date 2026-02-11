@@ -2500,3 +2500,22 @@ def test_gossmap_lost_node(node_factory, bitcoind):
 
     assert post_channels == pre_channels
     assert post_nodes == pre_nodes
+
+
+def test_gossip_dying_when_compact(node_factory, bitcoind):
+    """During PR review, @daywalker90 found a crash when we compacted with a dying channel: our implementation did not reset these, so the offsets were wrong"""
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+
+    assert len(l1.rpc.listchannels()["channels"]) == 4
+
+    # Closed l2->l3, but it's just marked dying by l1.
+    l2.rpc.close(l3.info['id'])
+    bitcoind.generate_block(6, wait_for_mempool=1)
+
+    l1.daemon.wait_for_log('channel .* closing soon due to the funding outpoint being spent')
+    wait_for(lambda: len(l1.rpc.listchannels()["channels"]) == 4)
+    l1.rpc.call("dev-compact-gossip-store")
+
+    # Now actually close it (12 deep)
+    bitcoind.generate_block(11)
+    wait_for(lambda: len(l1.rpc.listchannels()["channels"]) == 2)
