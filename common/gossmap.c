@@ -6,12 +6,12 @@
 #include <ccan/tal/str/str.h>
 #include <common/features.h>
 #include <common/gossip_store.h>
+#include <common/gossip_store_wiregen.h>
 #include <common/gossmap.h>
 #include <common/sciddir_or_pubkey.h>
 #include <common/utils.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <gossipd/gossip_store_wiregen.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <sys/mman.h>

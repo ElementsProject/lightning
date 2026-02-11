@@ -5,6 +5,7 @@
 #include <common/clock_time.h>
 #include <common/daemon_conn.h>
 #include <common/gossip_store.h>
+#include <common/gossip_store_wiregen.h>
 #include <common/gossmap.h>
 #include <common/memleak.h>
 #include <common/status.h>
@@ -12,7 +13,6 @@
 #include <common/utils.h>
 #include <common/wire_error.h>
 #include <gossipd/gossip_store.h>
-#include <gossipd/gossip_store_wiregen.h>
 #include <gossipd/gossipd.h>
 #include <gossipd/gossipd_wiregen.h>
 #include <gossipd/gossmap_manage.h>

@@ -5,13 +5,13 @@
 #include <ccan/tal/str/str.h>
 #include <common/deprecation.h>
 #include <common/gossip_store.h>
+#include <common/gossip_store_wiregen.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <common/setup.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <gossipd/gossip_store_wiregen.h>
 #include <inttypes.h>
 #include <plugins/libplugin.h>
 #include <sqlite3.h>

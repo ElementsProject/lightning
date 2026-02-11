@@ -20,11 +20,6 @@ $(DEVTOOLS): %: %.o libcommon.a
 $(DEVTOOLS_TOOL_OBJS): wire/wire.h
 
 # Some devtools require extra objects
-DEVTOOLS_NEEDS_GOSSIP_STORE := devtools/gossmap-compress devtools/dump-gossipstore devtools/convert-gossmap devtools/create-gossipstore
-
-$(DEVTOOLS_NEEDS_GOSSIP_STORE): gossipd/gossip_store_wiregen.o
-$(DEVTOOLS_NEEDS_GOSSIP_STORE:=.o): gossipd/gossip_store_wiregen.h
-
 devtools/decodemsg: devtools/print_wire.o
 devtools/decodemsg.o: devtools/print_wire.h
 

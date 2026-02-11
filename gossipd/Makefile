@@ -1,7 +1,6 @@
 #! /usr/bin/make
 
 GOSSIPD_HEADERS_WSRC := gossipd/gossipd_wiregen.h \
-	gossipd/gossip_store_wiregen.h			\
 	gossipd/gossipd.h				\
 	gossipd/gossip_store.h				\
 	gossipd/gossmap_manage.h			\
