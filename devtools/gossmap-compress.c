@@ -79,7 +79,7 @@ static unsigned int verbose = 0;
 
 #define GC_HEADER "GOSSMAP_COMPRESSv1"
 #define GC_HEADERLEN (sizeof(GC_HEADER))
-#define GOSSIP_STORE_VER ((0 << 5) | 14)
+#define GOSSIP_STORE_VER ((0 << 5) | 16)
 
 /* Backwards, we want larger first */
 static int cmp_node_num_chans(struct gossmap_node *const *a,
@@ -295,7 +295,7 @@ static void write_msg_to_gstore(int outfd, const u8 *msg TAKES)
 {
 	struct gossip_hdr hdr;
 
-	hdr.flags = 0;
+	hdr.flags = CPU_TO_BE16(GOSSIP_STORE_COMPLETED_BIT);
 	hdr.len = cpu_to_be16(tal_bytelen(msg));
 	hdr.timestamp = 0;
 	hdr.crc = cpu_to_be32(crc32c(0, msg, tal_bytelen(msg)));
@@ -511,6 +511,17 @@ static const char *get_alias(const tal_t *ctx,
 					&tlvs))
 		return "";
 	return tal_strndup(ctx, (const char *)alias, 32);
+}
+
+static void write_uuid(int outfd)
+{
+	const u8 uuid[] = {
+		0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0
+	};
+	write_msg_to_gstore(outfd, take(towire_gossip_store_uuid(NULL, uuid)));
 }
 
 int main(int argc, char *argv[])
@@ -791,6 +802,7 @@ int main(int argc, char *argv[])
 		/* Now write out gossmap */
 		if (write(outfd, &version, 1) != 1)
 			err(1, "Failed to write output");
+		write_uuid(outfd);
 		for (size_t i = 0; i < channel_count; i++) {
 			write_announce(outfd,
 				       chans[i].node1,
