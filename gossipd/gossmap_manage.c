@@ -430,7 +430,7 @@ static void start_prune_timer(struct gossmap_manage *gm)
 
 static void reprocess_queued_msgs(struct gossmap_manage *gm);
 
-static void gossmap_logcb(struct daemon *daemon,
+static void gossmap_logcb(struct gossmap_manage *gm,
 			  enum log_level level,
 			  const char *fmt,
 			  ...)
@@ -442,31 +442,46 @@ static void gossmap_logcb(struct daemon *daemon,
 	va_end(ap);
 }
 
+static void gossmap_add_dying_chan(struct short_channel_id scid,
+				   u32 blockheight,
+				   u64 offset,
+				   struct gossmap_manage *gm)
+{
+	struct chan_dying cd;
+
+	cd.scid = scid;
+	cd.deadline = blockheight;
+	cd.gossmap_offset = offset;
+	tal_arr_expand(&gm->dying_channels, cd);
+}
+
 static bool setup_gossmap(struct gossmap_manage *gm,
-			  struct daemon *daemon,
-			  struct chan_dying **dying)
+			  struct daemon *daemon)
 {
 	u64 expected_len;
+	struct chan_dying *dying = NULL;
 
-	*dying = NULL;
+	gm->dying_channels = tal_arr(gm, struct chan_dying, 0);
 
 	/* This does simple sanitry checks, compacts, and creates if
 	 * necessary */
 	gm->gs = gossip_store_new(gm,
 				  daemon,
 				  &gm->gossip_store_populated,
-				  dying);
+				  &dying);
 	if (!gm->gs)
 		return false;
 
+	/* FIXME: Remove */
+	tal_free(dying);
 	expected_len = gossip_store_len_written(gm->gs);
 
 	/* This actually loads it into memory, with strict checks. */
 	gm->raw_gossmap = gossmap_load_initial(gm, GOSSIP_STORE_FILENAME,
 					       expected_len,
 					       gossmap_logcb,
-					       NULL,
-					       daemon);
+					       gossmap_add_dying_chan,
+					       gm);
 	if (!gm->raw_gossmap) {
 		gm->gs = tal_free(gm->gs);
 		return false;
@@ -487,10 +502,10 @@ struct gossmap_manage *gossmap_manage_new(const tal_t *ctx,
 {
 	struct gossmap_manage *gm = tal(ctx, struct gossmap_manage);
 
-	if (!setup_gossmap(gm, daemon, &gm->dying_channels)) {
+	if (!setup_gossmap(gm, daemon)) {
 		tal_free(gm->dying_channels);
 		gossip_store_corrupt();
-		if (!setup_gossmap(gm, daemon, &gm->dying_channels))
+		if (!setup_gossmap(gm, daemon))
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Could not re-initialize %s", GOSSIP_STORE_FILENAME);
 	}
