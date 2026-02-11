@@ -60,8 +60,8 @@ static void reckless_send_yes(struct reckless *reckless)
 static struct io_plan *read_more(struct io_conn *conn, struct reckless *rkls)
 {
 	rkls->stdout_read += rkls->stdout_new;
-	if (rkls->stdout_read * 2 > tal_count(rkls->stdoutbuf))
-		tal_resize(&rkls->stdoutbuf, rkls->stdout_read * 2);
+	while (rkls->stdout_read >= tal_count(rkls->stdoutbuf))
+		tal_resizez(&rkls->stdoutbuf, tal_count(rkls->stdoutbuf) * 2);
 	return io_read_partial(conn, rkls->stdoutbuf + rkls->stdout_read,
 			       tal_count(rkls->stdoutbuf) - rkls->stdout_read,
 			       &rkls->stdout_new, read_more, rkls);
