@@ -239,6 +239,12 @@ int main(int argc, char *argv[])
 	migrations = get_db_migrations(&num_migrations);
 	prev_version = version_db(PREV_VERSION);
 
+	/* Do this even if the db hasn't changed. */
+	if (!version_db(PREV_VERSION)->gossip_store_compatible) {
+		printf("Deleting incompatible gossip_store\n");
+		unlink(path_join(tmpctx, net_dir, "gossip_store"));
+	}
+
 	/* Open db, check it's the expected version */
 	db = db_open(tmpctx, wallet_dsn, false, false, db_error, NULL);
 	if (!db)
@@ -290,11 +296,6 @@ int main(int argc, char *argv[])
 	printf("Downgrade to %s succeeded.  Committing.\n", PREV_VERSION);
 	db_commit_transaction(db);
 	tal_free(db);
-
-	if (!version_db(PREV_VERSION)->gossip_store_compatible) {
-		printf("Deleting incompatible gossip_store\n");
-		unlink(path_join(tmpctx, net_dir, "gossip_store"));
-	}
 }
 
 /*** We don't actually perform migrations, so these are stubs which abort. ***/

@@ -80,7 +80,7 @@ def test_downgrade(node_factory, executor):
         l1.daemon.executable = current_executable
 
     # Another downgrade is a noop.
-    assert subprocess.check_output(cmd_line).decode("utf8").startswith("Already compatible with ")
+    assert "Already compatible with " in subprocess.check_output(cmd_line).decode("utf8")
 
     # Should be able to upgrade without any trouble
     l1.daemon.opts['database-upgrade'] = True
