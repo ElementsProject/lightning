@@ -28,8 +28,9 @@ static size_t reopen_gossip_store(int *gossip_store_fd, const u8 *msg)
 {
 	u64 equivalent_offset;
 	int newfd;
+	u8 uuid[32];
 
-	if (!fromwire_gossip_store_ended(msg, &equivalent_offset))
+	if (!fromwire_gossip_store_ended(msg, &equivalent_offset, uuid))
 		status_failed(STATUS_FAIL_GOSSIP_IO,
 			      "Bad gossipd GOSSIP_STORE_ENDED msg: %s",
 			      tal_hex(tmpctx, msg));

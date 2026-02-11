@@ -1207,7 +1207,7 @@ def test_gossip_store_load(node_factory):
 
     l1.start()
     # May preceed the Started msg waited for in 'start'.
-    wait_for(lambda: l1.daemon.is_in_log('Read 1/1/1/0 cannounce/cupdate/nannounce/delete from store in 800 bytes, now 778 bytes'))
+    wait_for(lambda: l1.daemon.is_in_log('Read 1/1/1/0 cannounce/cupdate/nannounce/delete from store in 832 bytes, now 778 bytes'))
     assert not l1.daemon.is_in_log('gossip_store.*truncating')
 
 

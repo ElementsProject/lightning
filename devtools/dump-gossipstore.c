@@ -7,13 +7,27 @@
 #include <common/utils.h>
 #include <fcntl.h>
 #include <gossipd/gossip_store_wiregen.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <wire/peer_wire.h>
 
 /* Current versions we support */
 #define GSTORE_MAJOR 0
-#define GSTORE_MINOR 15
+#define GSTORE_MINOR 16
+
+/* Ended marker for <= 15 */
+static bool fromwire_gossip_store_ended_obs(const void *p, u64 *equivalent_offset)
+{
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_GOSSIP_STORE_ENDED)
+		return false;
+ 	*equivalent_offset = fromwire_u64(&cursor, &plen);
+	return cursor != NULL;
+}
+
 
 static bool is_channel_announce(const u8 *msg, struct short_channel_id **scid)
 {
@@ -128,6 +142,8 @@ int main(int argc, char *argv[])
 		u8 *msg, *inner;
 		bool deleted, dying, complete;
 		u32 blockheight;
+		u64 offset;
+		u8 uuid[32];
 
 		deleted = (flags & GOSSIP_STORE_DELETED_BIT);
 		dying = (flags & GOSSIP_STORE_DYING_BIT);
@@ -184,6 +200,14 @@ int main(int argc, char *argv[])
 			printf("dying channel: %s (deadline %u)\n",
 			       fmt_short_channel_id(tmpctx, scid),
 			       blockheight);
+		} else if (fromwire_gossip_store_ended(msg, &offset, uuid)) {
+			printf("gossip store ended: offset %"PRIu64" in uuid %s\n",
+			       offset, tal_hexstr(tmpctx, uuid, sizeof(uuid)));
+		} else if (fromwire_gossip_store_ended_obs(msg, &offset)) {
+			printf("gossip store ended (v <= 15): offset %"PRIu64"\n",
+			       offset);
+		} else if (fromwire_gossip_store_uuid(msg, uuid)) {
+			printf("uuid %s\n", tal_hexstr(tmpctx, uuid, sizeof(uuid)));
 		} else {
 			printf("Unknown message %u: %s\n",
 			       fromwire_peektype(msg), tal_hex(msg, msg));
