@@ -157,6 +157,7 @@ def test_basic_help():
     assert r.search_stdout("options:") or r.search_stdout("optional arguments:")
 
 
+@pytest.mark.timeout(120)
 def test_reckless_version_listconfig(node_factory):
     '''Version should be reported without loading config and should advance
     with lightningd.'''
@@ -466,6 +467,7 @@ def test_reckless_available(node_factory):
     assert r.search_stdout('testpluguv')
 
 
+@pytest.mark.timeout(120)
 def test_reckless_notifications(node_factory):
     """Reckless streams logs to the reckless-rpc plugin which are emitted
     as 'reckless_log' notifications"""
