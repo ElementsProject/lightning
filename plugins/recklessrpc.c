@@ -112,10 +112,8 @@ static void dup_listavailable_result(struct reckless *reckless,
 	json_array_end(response);
 }
 
-static struct command_result *reckless_result(struct io_conn *conn,
-					      struct reckless *reckless)
+static struct command_result *reckless_result(struct reckless *reckless)
 {
-	io_close(conn);
 	struct json_stream *response;
 	if (reckless->process_failed) {
 		response = jsonrpc_stream_fail(reckless->cmd,
@@ -205,6 +203,7 @@ static struct command_result *reckless_fail(struct reckless *reckless,
 static void reckless_conn_finish(struct io_conn *conn,
 				 struct reckless *reckless)
 {
+	io_close(conn);
 	/* FIXME: avoid EBADFD - leave stdin fd open? */
 	if (errno && errno != 9)
 		plugin_log(plugin, LOG_DBG, "err: %s", strerror(errno));
@@ -226,15 +225,13 @@ static void reckless_conn_finish(struct io_conn *conn,
 		if (p != reckless->pid && reckless->pid) {
 			plugin_log(plugin, LOG_DBG, "reckless failed to exit, "
 				   "killing now.");
-			io_close(conn);
 			kill(reckless->pid, SIGKILL);
 			reckless_fail(reckless, "reckless process hung");
 		/* Reckless process exited and with normal status? */
 		} else if (WIFEXITED(status) && !WEXITSTATUS(status)) {
 			plugin_log(plugin, LOG_DBG,
-				   "Reckless subprocess complete: %s",
-				   reckless->stdoutbuf);
-			reckless_result(conn, reckless);
+				   "Reckless subprocess complete");
+			reckless_result(reckless);
 		/* Don't try to process json if python raised an error. */
 		} else {
 			plugin_log(plugin, LOG_DBG, "%s", reckless->stderrbuf);
@@ -252,7 +249,6 @@ static void reckless_conn_finish(struct io_conn *conn,
 				   "The reckless subprocess has failed.");
 		}
 	}
-	io_close(conn);
 	tal_free(reckless);
 }
 
