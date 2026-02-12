@@ -292,6 +292,7 @@ def test_install(node_factory):
     assert r.returncode == 0
 
 
+@unittest.skipIf(VALGRIND, "virtual environment triggers memleak detection")
 def test_install_cleanup(node_factory):
     """test failed installation and post install cleanup"""
     n = get_reckless_node(node_factory)
@@ -419,6 +420,7 @@ def test_tag_install(node_factory):
 
 # Note: uv timeouts from the GH network seem to happen?
 @pytest.mark.slow_test
+@unittest.skipIf(VALGRIND, "node too slow for starting plugin under valgrind")
 @pytest.mark.flaky(max_runs=3)
 def test_reckless_uv_install(node_factory):
     node = get_reckless_node(node_factory)
