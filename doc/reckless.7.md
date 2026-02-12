@@ -11,7 +11,7 @@ DESCRIPTION
 
 The **reckless** RPC starts a reckless process with the *command* and *target* provided.  Node configuration, network, and lightning direrctory are automatically passed to the reckless utility.
 
-- **command** (string) (one of "install", "uninstall", "search", "enable", "disable", "source", "--version"): Determines which command to pass to reckless
+- **command** (string) (one of "install", "uninstall", "search", "enable", "disable", "source", "listavailable", "listconfig", "listinstalled", "--version"): Determines which command to pass to reckless
    - *command* **install** takes a *plugin\_name* to search for and install a named plugin.
    - *command* **uninstall** takes a *plugin\_name* and attempts to uninstall a plugin of the same name.
    - *command* **search** takes a *plugin\_name* to search for a named plugin.

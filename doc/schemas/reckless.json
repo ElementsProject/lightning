@@ -21,6 +21,9 @@
           "enable",
           "disable",
           "source",
+          "listavailable",
+          "listconfig",
+          "listinstalled",
           "--version"
         ],
         "description": [
