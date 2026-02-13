@@ -2,6 +2,7 @@ import json
 import os
 from pathlib import PosixPath, Path
 import re
+import shutil
 import subprocess
 import time
 import unittest
@@ -77,6 +78,16 @@ def canned_github_server(directory):
     # Delete requirements.txt from the testplugpass directory
     with open(requirements_file_path, 'w') as f:
         f.write(f"pyln-client\n\n")
+
+
+@pytest.fixture(autouse=True)
+def add_reckless_to_env_path():
+    """Allows the reckless-rpc plugin to use the reckless executable from the
+    build directory, rather than whatever it finds already installed."""
+    current_path = os.environ['PATH']
+    tools_dir = Path(os.path.dirname(os.path.realpath(__file__))).parent / 'tools'
+    os.environ['PATH'] = f'{tools_dir}:{current_path}'
+    assert shutil.which('reckless')
 
 
 class RecklessResult:
