@@ -166,7 +166,22 @@ jobs:
 
           # Rename now so we don't clash
           mv testpack.tar.bz2 cln-${CFG}.tar.bz2
+      - name: Save build locally if cache dir exists
+        run: |
+          CACHE_BASE="/var/lib/github-runner/cache/"
+          if [ -d "$CACHE_BASE" ]; then
+            CACHE_DIR="$CACHE_BASE/${{ github.run_id }}"
+            echo "Using local cache directory"
+            mkdir -p -m g+w "$CACHE_DIR"
+            # Might exist from previous run: overwrite.
+            cp -f cln-${{ matrix.CFG }}.tar.bz2 "$CACHE_DIR/"
+            echo "LOCAL_ARTIFACT=1" >> "$GITHUB_ENV"
+          else
+            echo "No local cache directory found"
+            echo "LOCAL_ARTIFACT=0" >> "$GITHUB_ENV"
+          fi
       - uses: actions/upload-artifact@v4
+        if: env.LOCAL_ARTIFACT != '1'
         with:
           name: cln-${{ matrix.CFG }}.tar.bz2
           path: cln-${{ matrix.CFG }}.tar.bz2
@@ -198,7 +213,7 @@ jobs:
           uv sync --all-extras --all-groups
 
       - name: Download build
-        uses: actions/download-artifact@v4
+        uses: ./.github/actions/fetch-artifact
         with:
           name: cln-compile-gcc.tar.bz2
 
@@ -254,7 +269,7 @@ jobs:
           git clone https://github.com/lightning/bolts.git ../${BOLTDIR} || git -C ../${BOLTDIR} pull
 
       - name: Download build
-        uses: actions/download-artifact@v4
+        uses: ./.github/actions/fetch-artifact
         with:
           name: cln-${{ matrix.CFG }}.tar.bz2
 
@@ -331,7 +346,7 @@ jobs:
           uv sync --all-extras --all-groups
 
       - name: Download build
-        uses: actions/download-artifact@v4
+        uses: ./.github/actions/fetch-artifact
         with:
           name: cln-${{ matrix.CFG }}.tar.bz2
 
@@ -447,7 +462,7 @@ jobs:
           uv sync --all-extras --all-groups
 
       - name: Download build
-        uses: actions/download-artifact@v4
+        uses: ./.github/actions/fetch-artifact
         with:
           name: cln-${{ matrix.CFG }}.tar.bz2
 
@@ -551,7 +566,7 @@ jobs:
           uv sync --all-extras --all-groups
 
       - name: Download build
-        uses: actions/download-artifact@v4
+        uses: ./.github/actions/fetch-artifact
         with:
           name: cln-compile-gcc.tar.bz2
 
@@ -642,7 +657,7 @@ jobs:
           uv sync --all-extras --all-groups
 
       - name: Download build
-        uses: actions/download-artifact@v4
+        uses: ./.github/actions/fetch-artifact
         with:
           name: cln-compile-clang-sanitizers.tar.bz2
 
@@ -693,7 +708,7 @@ jobs:
           uv sync --all-extras --all-groups
 
       - name: Download build
-        uses: actions/download-artifact@v4
+        uses: ./.github/actions/fetch-artifact
         with:
           name: cln-compile-gcc.tar.bz2
       - name: Unpack pre-built CLN
@@ -760,7 +775,7 @@ jobs:
         run: rm -rf "bitcoin-${{ matrix.MIN_BTC_VERSION }}-x86_64-linux-gnu.tar.gz" "bitcoin-${{ matrix.MIN_BTC_VERSION }}"
 
       - name: Download build
-        uses: actions/download-artifact@v4
+        uses: ./.github/actions/fetch-artifact
         with:
           name: cln-${{ matrix.CFG }}.tar.bz2
 

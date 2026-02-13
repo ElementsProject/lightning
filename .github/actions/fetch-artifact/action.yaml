@@ -1,0 +1,31 @@
+name: Fetch artifact (local or GH)
+description: Fetch artifact from local cache if available, otherwise download
+
+inputs:
+  name:
+    required: true
+  path:
+    required: false
+    default: .
+
+runs:
+  using: "composite"
+  steps:
+    - shell: bash
+      run: |
+        CACHE_BASE="${CACHE_BASE:-/var/lib/github-runner/cache}"
+        CACHE_DIR="$CACHE_BASE/${{ github.run_id }}"
+
+        if [ -d "$CACHE_DIR" ] && [ -f "$CACHE_DIR/${{ inputs.name }}" ]; then
+          echo "Using local cached artifact"
+          cp "$CACHE_DIR/${{ inputs.name }}" "${{ inputs.path }}/"
+        else
+          echo "Falling back to GitHub artifact"
+          echo "DOWNLOAD_FROM_GH=1" >> "$GITHUB_ENV"
+        fi
+
+    - uses: actions/download-artifact@v4
+      if: env.DOWNLOAD_FROM_GH == '1'
+      with:
+        name: ${{ inputs.name }}
+        path: ${{ inputs.path }}
