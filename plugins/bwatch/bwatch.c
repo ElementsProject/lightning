@@ -1222,6 +1222,7 @@ static struct watch *add_watch(struct command *cmd,
 		case WATCH_OUTPOINT:
 			w->key.outpoint = *outpoint;
 		}
+		add_watch_to_hash(bwatch, w);
 	}
 
 	/* Check if this owner already exists */
