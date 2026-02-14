@@ -1293,9 +1293,9 @@ static struct command_result *param_watch_type(struct command *cmd, const char *
 {
 	if (json_tok_streq(buffer, tok, "scriptpubkey"))
 		*type = WATCH_SCRIPTPUBKEY;
-	if (json_tok_streq(buffer, tok, "outpoint"))
+	else if (json_tok_streq(buffer, tok, "outpoint"))
 		*type = WATCH_OUTPOINT;
-	if (json_tok_streq(buffer, tok, "txid"))
+	else if (json_tok_streq(buffer, tok, "txid"))
 		*type = WATCH_TXID;
 	else {
 		return command_fail_badparam(cmd, name, buffer, tok,
