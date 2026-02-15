@@ -645,12 +645,21 @@ static void remove_tip(struct command *cmd, struct bwatch *bwatch)
 		memset(&bwatch->current_blockhash, 0, sizeof(bwatch->current_blockhash));
 	}
 }
-
 /*
  * ============================================================================
- * TRANSACTION WATCH CHECKING
+ * SENDING WATCH_FOUND NOTIFICATIONS	
  * ============================================================================
  */
+
+/* Callback for watch_found RPC - we don't care about the response */
+static struct command_result *watch_found_done(struct command *cmd UNUSED,
+					       const char *method UNUSED,
+					       const char *buf UNUSED,
+					       const jsmntok_t *result UNUSED,
+					       void *arg UNUSED)
+{
+	return NULL;
+}
 
 /* Send watch_found notification to lightningd
  * @txindex: position of tx in the block (0 = coinbase)
@@ -665,48 +674,54 @@ static void json_watch_found(struct command *cmd,
 			     u32 outnum,
 			     u32 innum)
 {
-	struct json_stream *js;
-	const char *tx_hex = fmt_bitcoin_tx(tmpctx, tx);
+	struct out_req *req;
 
-	js = plugin_notification_start(tmpctx, "watch_found");
-	json_add_string(js, "tx", tx_hex);
-	json_add_u32(js, "blockheight", blockheight);
-	json_add_u32(js, "txindex", txindex);
+	req = jsonrpc_request_start(cmd, "watch_found",
+				    watch_found_done, watch_found_done, NULL);
+	json_add_tx(req->js, "tx", tx);
+	json_add_u32(req->js, "blockheight", blockheight);
+	json_add_u32(req->js, "txindex", txindex);
 
 	/* Add type and corresponding field */
 	switch (w->type) {
 	case WATCH_TXID:
-		json_add_string(js, "type", "txid");
-		json_add_txid(js, "txid", &w->key.txid);
+		json_add_string(req->js, "type", "txid");
+		json_add_txid(req->js, "txid", &w->key.txid);
 		assert(outnum == UINT32_MAX);
 		assert(innum == UINT32_MAX);
 		break;
 	case WATCH_SCRIPTPUBKEY:
-		json_add_string(js, "type", "scriptpubkey");
-		json_add_hex(js, "scriptpubkey", w->key.scriptpubkey.script,
+		json_add_string(req->js, "type", "scriptpubkey");
+		json_add_hex(req->js, "scriptpubkey", w->key.scriptpubkey.script,
 			     w->key.scriptpubkey.len);
 		assert(outnum != UINT32_MAX);
 		assert(innum == UINT32_MAX);
-		json_add_u32(js, "outnum", outnum);
+		json_add_u32(req->js, "outnum", outnum);
 		break;
 	case WATCH_OUTPOINT:
-		json_add_string(js, "type", "outpoint");
-		json_add_outpoint(js, "outpoint", &w->key.outpoint);
+		json_add_string(req->js, "type", "outpoint");
+		json_add_outpoint(req->js, "outpoint", &w->key.outpoint);
 		assert(outnum == UINT32_MAX);
 		assert(innum != UINT32_MAX);
-		json_add_u32(js, "innum", innum);
+		json_add_u32(req->js, "innum", innum);
 		break;
 	}
 
 	/* Add owners array */
-	json_array_start(js, "owners");
+	json_array_start(req->js, "owners");
 	for (size_t i = 0; i < tal_count(w->owners); i++)
-		json_add_string(js, NULL, w->owners[i]);
-	json_array_end(js);
+		json_add_string(req->js, NULL, w->owners[i]);
+	json_array_end(req->js);
 
-	plugin_notification_end(cmd->plugin, js);
+	send_outreq(req);
 }
 
+/*
+ * ============================================================================
+ * TRANSACTION WATCH CHECKING
+ * ============================================================================
+ */
+ 
 /* Check all txid watches via hash lookup */
 static void check_txid_watches(struct command *cmd,
 			       struct bwatch *bwatch,
