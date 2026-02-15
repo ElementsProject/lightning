@@ -20,6 +20,7 @@ struct route_query;
  * @single_part: don't do MCF at all, just create a single flow.
  *
  * @delay_feefactor converts 1 block delay into msat, as if it were an additional
+ * @needed_features: needed features for the nodes to be considered
  * fee.  So if a CLTV delay on a node is 5 blocks, that's treated as if it
  * were a fee of 5 * @delay_feefactor.
  *
@@ -31,7 +32,7 @@ struct flow **minflow(const tal_t *ctx,
 		      const struct gossmap_node *target,
 		      struct amount_msat amount,
 		      u32 mu,
-		      double delay_feefactor);
+		      double delay_feefactor, u64 needed_features);
 
 /**
  * API for min cost single path.
@@ -44,6 +45,7 @@ struct flow **minflow(const tal_t *ctx,
  * @delay_feefactor: convert 1 block delay into msat.
  *
  * @delay_feefactor converts 1 block delay into msat, as if it were an additional
+ * @needed_features: needed features for the nodes to be considered
  * fee.  So if a CLTV delay on a node is 5 blocks, that's treated as if it
  * were a fee of 5 * @delay_feefactor.
  *
@@ -53,7 +55,7 @@ struct flow **single_path_flow(const tal_t *ctx, const struct route_query *rq,
 			       const struct gossmap_node *source,
 			       const struct gossmap_node *target,
 			       struct amount_msat amount, u32 mu,
-			       double delay_feefactor);
+			       double delay_feefactor, u64 needed_features);
 
 /* To sanity check: this is the approximation mcf uses for the cost
  * of each channel. */
@@ -69,8 +71,8 @@ const char *default_routes(const tal_t *ctx, struct route_query *rq,
 			   const struct gossmap_node *dstnode,
 			   struct amount_msat amount,
 			   struct amount_msat maxfee, u32 finalcltv,
-			   u32 maxdelay, struct flow ***flows,
-			   double *probability);
+			   u32 maxdelay, u64 needed_features,
+			   struct flow ***flows, double *probability);
 
 /* A wrapper to the single-path constrained solver. */
 const char *single_path_routes(const tal_t *ctx, struct route_query *rq,
@@ -79,7 +81,12 @@ const char *single_path_routes(const tal_t *ctx, struct route_query *rq,
 			       const struct gossmap_node *dstnode,
 			       struct amount_msat amount,
 			       struct amount_msat maxfee, u32 finalcltv,
-			       u32 maxdelay, struct flow ***flows,
-			       double *probability);
+			       u32 maxdelay, u64 needed_features,
+			       struct flow ***flows, double *probability);
+
+bool node_has_needed_features(const struct gossmap *map,
+			     const struct gossmap_node *n,
+			     u64 needed_features);
+
 
 #endif /* LIGHTNING_PLUGINS_ASKRENE_MCF_H */
