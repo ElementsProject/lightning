@@ -257,7 +257,7 @@ static void load_block_history(struct command *cmd, struct bwatch *bwatch)
 				   json_tok_full(buf, t));
 
 		struct block_record_wire *br = tal(bwatch, struct block_record_wire);
-		if (!fromwire_bwatch_block(&data, br)) {
+		if (!fromwire_bwatch_block(data, br)) {
 			plugin_err(cmd->plugin,
 				   "Bad block_history %.*s",
 				   json_tok_full_len(t),
