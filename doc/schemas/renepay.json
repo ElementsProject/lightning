@@ -19,30 +19,35 @@
     "properties": {
       "invstring": {
         "type": "string",
+        "added": "v23.08",
         "description": [
           "Bolt11 invoice which the RPC command attempts to pay. Currently, **renepay** supports bolt11 invoices only."
         ]
       },
       "amount_msat": {
         "type": "msat",
+        "added": "v23.08",
         "description": [
           "If the *invstring* does not contain an amount, *amount_msat* is required, otherwise if it is specified it must be *null*. in millisatoshi precision; it can be a whole number, or a whole number with suffix *msat* or *sat*, or a three decimal point number with suffix *sat*, or an 1 to 11 decimal point number suffixed by *btc*."
         ]
       },
       "maxfee": {
         "type": "msat",
+        "added": "v23.08",
         "description": [
           "*maxfee* is a hard bound, in the sense that the command will never attempt a payment when the fees exceed that value."
         ]
       },
       "maxdelay": {
         "type": "u32",
+        "added": "v23.08",
         "description": [
           "Overrides the value of `max-locktime-blocks` for this payment. It serves to limit the locktime of funds in the payment HTLC measured in blocks."
         ]
       },
       "retry_for": {
         "type": "u32",
+        "added": "v23.08",
         "description": [
           "Measured in seconds specifies how much time it is allowed for the command to keep retrying the payment."
         ],
@@ -50,12 +55,14 @@
       },
       "description": {
         "type": "string",
+        "added": "v23.08",
         "description": [
           "Only required for bolt11 invoices which do not contain a description themselves, but contain a description hash: in this case *description* is required. *description* is then checked against the hash inside the invoice before it will be paid."
         ]
       },
       "label": {
         "type": "string",
+        "added": "v23.08",
         "description": [
           "Used to attach a label to payments, and is returned in lightning-listpays(7) and lightning-listsendpays(7)."
         ]
@@ -80,7 +87,8 @@
       },
       "dev_use_shadow": {
         "hidden": true,
-        "type": "boolean"
+        "type": "boolean",
+        "added": "v23.08"
       }
     }
   },
@@ -98,12 +106,14 @@
     "properties": {
       "payment_preimage": {
         "type": "secret",
+        "added": "v23.08",
         "description": [
           "The proof of payment: SHA256 of this **payment_hash**."
         ]
       },
       "payment_hash": {
         "type": "hash",
+        "added": "v23.08",
         "description": [
           "The hash of the *payment_preimage* which will prove payment."
         ]
@@ -124,6 +134,7 @@
       },
       "created_at": {
         "type": "number",
+        "added": "v23.08",
         "description": [
           "The UNIX timestamp showing when this payment was initiated."
         ]
@@ -137,24 +148,28 @@
       },
       "parts": {
         "type": "u32",
+        "added": "v23.08",
         "description": [
           "How many attempts this took."
         ]
       },
       "amount_msat": {
         "type": "msat",
+        "added": "v23.08",
         "description": [
           "Amount the recipient received."
         ]
       },
       "amount_sent_msat": {
         "type": "msat",
+        "added": "v23.08",
         "description": [
           "Total amount we sent (including fees)."
         ]
       },
       "status": {
         "type": "string",
+        "added": "v23.08",
         "enum": [
           "complete",
           "pending",
@@ -166,6 +181,7 @@
       },
       "destination": {
         "type": "pubkey",
+        "added": "v23.08",
         "description": [
           "The final destination of the payment."
         ]

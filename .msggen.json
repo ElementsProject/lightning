@@ -4109,51 +4109,51 @@
             "deprecated": null
         },
         "AddPsbtOutput": {
-            "added": "pre-v0.10.1",
+            "added": "v23.11",
             "deprecated": null
         },
         "AddPsbtOutput.destination": {
-            "added": "pre-v0.10.1",
+            "added": "v23.11",
             "deprecated": null
         },
         "AddPsbtOutput.estimated_added_weight": {
-            "added": "pre-v0.10.1",
+            "added": "v23.11",
             "deprecated": null
         },
         "AddPsbtOutput.initialpsbt": {
-            "added": "pre-v0.10.1",
+            "added": "v23.11",
             "deprecated": null
         },
         "AddPsbtOutput.locktime": {
-            "added": "pre-v0.10.1",
+            "added": "v23.11",
             "deprecated": null
         },
         "AddPsbtOutput.outnum": {
-            "added": "pre-v0.10.1",
+            "added": "v23.11",
             "deprecated": null
         },
         "AddPsbtOutput.psbt": {
-            "added": "pre-v0.10.1",
+            "added": "v23.11",
             "deprecated": null
         },
         "AddPsbtOutput.satoshi": {
-            "added": "pre-v0.10.1",
+            "added": "v23.11",
             "deprecated": null
         },
         "AskRene-Age": {
-            "added": "v24.08",
+            "added": "v24.11",
             "deprecated": null
         },
         "AskRene-Age.cutoff": {
-            "added": "v24.08",
+            "added": "v24.11",
             "deprecated": null
         },
         "AskRene-Age.layer": {
-            "added": "v24.08",
+            "added": "v24.11",
             "deprecated": null
         },
         "AskRene-Age.num_removed": {
-            "added": "v24.08",
+            "added": "v24.11",
             "deprecated": null
         },
         "AskRene-Bias-Channel": {
@@ -4205,7 +4205,7 @@
             "deprecated": null
         },
         "AskRene-Create-Channel": {
-            "added": "v24.08",
+            "added": "v24.11",
             "deprecated": null
         },
         "AskRene-Create-Channel.base_fee": {
@@ -4213,7 +4213,7 @@
             "deprecated": null
         },
         "AskRene-Create-Channel.capacity_msat": {
-            "added": "v24.08",
+            "added": "v24.11",
             "deprecated": null
         },
         "AskRene-Create-Channel.delay": {
@@ -4221,7 +4221,7 @@
             "deprecated": null
         },
         "AskRene-Create-Channel.destination": {
-            "added": "v24.08",
+            "added": "v24.11",
             "deprecated": null
         },
         "AskRene-Create-Channel.htlc_max": {
@@ -4233,7 +4233,7 @@
             "deprecated": null
         },
         "AskRene-Create-Channel.layer": {
-            "added": "v24.08",
+            "added": "v24.11",
             "deprecated": null
         },
         "AskRene-Create-Channel.proportional_fee": {
@@ -4241,11 +4241,11 @@
             "deprecated": null
         },
         "AskRene-Create-Channel.short_channel_id": {
-            "added": "v24.08",
+            "added": "v24.11",
             "deprecated": null
         },
         "AskRene-Create-Channel.source": {
-            "added": "v24.08",
+            "added": "v24.11",
             "deprecated": null
         },
         "AskRene-Create-Layer": {
@@ -4389,19 +4389,19 @@
             "deprecated": null
         },
         "AskRene-Disable-Node": {
-            "added": "v24.08",
+            "added": "v24.11",
             "deprecated": null
         },
         "AskRene-Disable-Node.layer": {
-            "added": "v24.08",
+            "added": "v24.11",
             "deprecated": null
         },
         "AskRene-Disable-Node.node": {
-            "added": "v24.08",
+            "added": "v24.11",
             "deprecated": null
         },
         "AskRene-Inform-Channel": {
-            "added": "v24.08",
+            "added": "v24.11",
             "deprecated": null
         },
         "AskRene-Inform-Channel.amount_msat": {
@@ -4465,7 +4465,7 @@
             "deprecated": null
         },
         "AskRene-Inform-Channel.layer": {
-            "added": "v24.08",
+            "added": "v24.11",
             "deprecated": null
         },
         "AskRene-Inform-Channel.maximum_msat": {
@@ -4485,15 +4485,15 @@
             "deprecated": null
         },
         "AskRene-ListLayers": {
-            "added": "v24.08",
+            "added": "v24.11",
             "deprecated": null
         },
         "AskRene-ListLayers.layer": {
-            "added": "v24.08",
+            "added": "v24.11",
             "deprecated": null
         },
         "AskRene-ListLayers.layers[]": {
-            "added": "v24.08",
+            "added": "v24.11",
             "deprecated": null
         },
         "AskRene-ListLayers.layers[].biases[]": {
@@ -4549,7 +4549,7 @@
             "deprecated": null
         },
         "AskRene-ListLayers.layers[].constraints[]": {
-            "added": "v24.08",
+            "added": "v24.11",
             "deprecated": null
         },
         "AskRene-ListLayers.layers[].constraints[].direction": {
@@ -4557,11 +4557,11 @@
             "deprecated": null
         },
         "AskRene-ListLayers.layers[].constraints[].maximum_msat": {
-            "added": "v24.08",
+            "added": "v24.11",
             "deprecated": null
         },
         "AskRene-ListLayers.layers[].constraints[].minimum_msat": {
-            "added": "v24.08",
+            "added": "v24.11",
             "deprecated": null
         },
         "AskRene-ListLayers.layers[].constraints[].short_channel_id": {
@@ -4577,11 +4577,11 @@
             "deprecated": null
         },
         "AskRene-ListLayers.layers[].created_channels[]": {
-            "added": "v24.08",
+            "added": "v24.11",
             "deprecated": null
         },
         "AskRene-ListLayers.layers[].created_channels[].capacity_msat": {
-            "added": "v24.08",
+            "added": "v24.11",
             "deprecated": null
         },
         "AskRene-ListLayers.layers[].created_channels[].delay": {
@@ -4589,7 +4589,7 @@
             "deprecated": null
         },
         "AskRene-ListLayers.layers[].created_channels[].destination": {
-            "added": "v24.08",
+            "added": "v24.11",
             "deprecated": null
         },
         "AskRene-ListLayers.layers[].created_channels[].fee_base_msat": {
@@ -4609,11 +4609,11 @@
             "deprecated": null
         },
         "AskRene-ListLayers.layers[].created_channels[].short_channel_id": {
-            "added": "v24.08",
+            "added": "v24.11",
             "deprecated": null
         },
         "AskRene-ListLayers.layers[].created_channels[].source": {
-            "added": "v24.08",
+            "added": "v24.11",
             "deprecated": null
         },
         "AskRene-ListLayers.layers[].disabled_channels[]": {
@@ -4621,11 +4621,11 @@
             "deprecated": null
         },
         "AskRene-ListLayers.layers[].disabled_nodes[]": {
-            "added": "v24.08",
+            "added": "v24.11",
             "deprecated": null
         },
         "AskRene-ListLayers.layers[].layer": {
-            "added": "v24.08",
+            "added": "v24.11",
             "deprecated": null
         },
         "AskRene-ListLayers.layers[].node_biases[]": {
@@ -4689,15 +4689,15 @@
             "deprecated": null
         },
         "AskRene-Reserve": {
-            "added": "v24.08",
+            "added": "v24.11",
             "deprecated": null
         },
         "AskRene-Reserve.path[]": {
-            "added": "v24.08",
+            "added": "v24.11",
             "deprecated": null
         },
         "AskRene-Reserve.path[].amount_msat": {
-            "added": "v24.08",
+            "added": "v24.11",
             "deprecated": null
         },
         "AskRene-Reserve.path[].direction": {
@@ -4717,15 +4717,15 @@
             "deprecated": null
         },
         "AskRene-Unreserve": {
-            "added": "v24.08",
+            "added": "v24.11",
             "deprecated": null
         },
         "AskRene-Unreserve.path[]": {
-            "added": "v24.08",
+            "added": "v24.11",
             "deprecated": null
         },
         "AskRene-Unreserve.path[].amount_msat": {
-            "added": "v24.08",
+            "added": "v24.11",
             "deprecated": null
         },
         "AskRene-Unreserve.path[].direction": {
@@ -5621,23 +5621,23 @@
             "deprecated": null
         },
         "BlacklistRune": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "BlacklistRune.blacklist[]": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "BlacklistRune.blacklist[].end": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "BlacklistRune.blacklist[].start": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "BlacklistRune.end": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "BlacklistRune.relist": {
@@ -5645,7 +5645,7 @@
             "deprecated": null
         },
         "BlacklistRune.start": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "CancelRecurringInvoice": {
@@ -5701,15 +5701,15 @@
             "deprecated": null
         },
         "CheckRune": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "CheckRune.method": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "CheckRune.nodeid": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "CheckRune.params": {
@@ -5717,11 +5717,11 @@
             "deprecated": null
         },
         "CheckRune.rune": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "CheckRune.valid": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "Clnrest-Register-Path": {
@@ -5977,7 +5977,7 @@
             "deprecated": null
         },
         "CreateRune": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "CreateRune.restrictions": {
@@ -5985,15 +5985,15 @@
             "deprecated": null
         },
         "CreateRune.rune": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "CreateRune.unique_id": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "CreateRune.warning_unrestricted_rune": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "Datastore": {
@@ -7073,31 +7073,31 @@
             "deprecated": null
         },
         "DisableInvoiceRequest": {
-            "added": "pre-v0.10.1",
+            "added": "v22.11",
             "deprecated": null
         },
         "DisableInvoiceRequest.active": {
-            "added": "pre-v0.10.1",
+            "added": "v22.11",
             "deprecated": null
         },
         "DisableInvoiceRequest.bolt12": {
-            "added": "pre-v0.10.1",
+            "added": "v22.11",
             "deprecated": null
         },
         "DisableInvoiceRequest.invreq_id": {
-            "added": "pre-v0.10.1",
+            "added": "v22.11",
             "deprecated": null
         },
         "DisableInvoiceRequest.label": {
-            "added": "pre-v0.10.1",
+            "added": "v22.11",
             "deprecated": null
         },
         "DisableInvoiceRequest.single_use": {
-            "added": "pre-v0.10.1",
+            "added": "v22.11",
             "deprecated": null
         },
         "DisableInvoiceRequest.used": {
-            "added": "pre-v0.10.1",
+            "added": "v22.11",
             "deprecated": null
         },
         "DisableOffer": {
@@ -8357,47 +8357,47 @@
             "deprecated": null
         },
         "InvoiceRequest": {
-            "added": "pre-v0.10.1",
+            "added": "v22.11",
             "deprecated": null
         },
         "InvoiceRequest.absolute_expiry": {
-            "added": "pre-v0.10.1",
+            "added": "v22.11",
             "deprecated": null
         },
         "InvoiceRequest.active": {
-            "added": "pre-v0.10.1",
+            "added": "v22.11",
             "deprecated": null
         },
         "InvoiceRequest.amount": {
-            "added": "pre-v0.10.1",
+            "added": "v22.11",
             "deprecated": null
         },
         "InvoiceRequest.bolt12": {
-            "added": "pre-v0.10.1",
+            "added": "v22.11",
             "deprecated": null
         },
         "InvoiceRequest.description": {
-            "added": "pre-v0.10.1",
+            "added": "v22.11",
             "deprecated": null
         },
         "InvoiceRequest.invreq_id": {
-            "added": "pre-v0.10.1",
+            "added": "v22.11",
             "deprecated": null
         },
         "InvoiceRequest.issuer": {
-            "added": "pre-v0.10.1",
+            "added": "v22.11",
             "deprecated": null
         },
         "InvoiceRequest.label": {
-            "added": "pre-v0.10.1",
+            "added": "v22.11",
             "deprecated": null
         },
         "InvoiceRequest.single_use": {
-            "added": "pre-v0.10.1",
+            "added": "v22.11",
             "deprecated": null
         },
         "InvoiceRequest.used": {
-            "added": "pre-v0.10.1",
+            "added": "v22.11",
             "deprecated": null
         },
         "KeySend": {
@@ -10325,43 +10325,43 @@
             "deprecated": null
         },
         "ListInvoiceRequests": {
-            "added": "pre-v0.10.1",
+            "added": "v22.11",
             "deprecated": null
         },
         "ListInvoiceRequests.active_only": {
-            "added": "pre-v0.10.1",
+            "added": "v22.11",
             "deprecated": null
         },
         "ListInvoiceRequests.invoicerequests[]": {
-            "added": "pre-v0.10.1",
+            "added": "v22.11",
             "deprecated": null
         },
         "ListInvoiceRequests.invoicerequests[].active": {
-            "added": "pre-v0.10.1",
+            "added": "v22.11",
             "deprecated": null
         },
         "ListInvoiceRequests.invoicerequests[].bolt12": {
-            "added": "pre-v0.10.1",
+            "added": "v22.11",
             "deprecated": null
         },
         "ListInvoiceRequests.invoicerequests[].invreq_id": {
-            "added": "pre-v0.10.1",
+            "added": "v22.11",
             "deprecated": null
         },
         "ListInvoiceRequests.invoicerequests[].label": {
-            "added": "pre-v0.10.1",
+            "added": "v22.11",
             "deprecated": null
         },
         "ListInvoiceRequests.invoicerequests[].single_use": {
-            "added": "pre-v0.10.1",
+            "added": "v22.11",
             "deprecated": null
         },
         "ListInvoiceRequests.invoicerequests[].used": {
-            "added": "pre-v0.10.1",
+            "added": "v22.11",
             "deprecated": null
         },
         "ListInvoiceRequests.invreq_id": {
-            "added": "pre-v0.10.1",
+            "added": "v22.11",
             "deprecated": null
         },
         "ListInvoices": {
@@ -12473,15 +12473,15 @@
             "deprecated": null
         },
         "RenePay": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "RenePay.amount_msat": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "RenePay.amount_sent_msat": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "RenePay.bolt11": {
@@ -12493,19 +12493,19 @@
             "deprecated": null
         },
         "RenePay.created_at": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "RenePay.description": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "RenePay.destination": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "RenePay.dev_use_shadow": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "RenePay.exclude": {
@@ -12517,95 +12517,95 @@
             "deprecated": null
         },
         "RenePay.invstring": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "RenePay.label": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "RenePay.maxdelay": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "RenePay.maxfee": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "RenePay.parts": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "RenePay.payment_hash": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "RenePay.payment_preimage": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "RenePay.retry_for": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "RenePay.status": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "RenePayStatus": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "RenePayStatus.invstring": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "RenePayStatus.paystatus[]": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "RenePayStatus.paystatus[].amount_msat": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "RenePayStatus.paystatus[].amount_sent_msat": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "RenePayStatus.paystatus[].bolt11": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "RenePayStatus.paystatus[].created_at": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "RenePayStatus.paystatus[].destination": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "RenePayStatus.paystatus[].groupid": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "RenePayStatus.paystatus[].notes[]": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "RenePayStatus.paystatus[].parts": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "RenePayStatus.paystatus[].payment_hash": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "RenePayStatus.paystatus[].payment_preimage": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "RenePayStatus.paystatus[].status": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ReserveInputs": {
@@ -13065,47 +13065,47 @@
             "deprecated": null
         },
         "SetConfig": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "SetConfig.config": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "SetConfig.config.config": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "SetConfig.config.dynamic": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "SetConfig.config.plugin": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "SetConfig.config.set": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "SetConfig.config.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "SetConfig.config.value_bool": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "SetConfig.config.value_int": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "SetConfig.config.value_msat": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "SetConfig.config.value_str": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "SetConfig.transient": {
@@ -13129,19 +13129,19 @@
             "deprecated": null
         },
         "ShowRunes": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ShowRunes.rune": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ShowRunes.runes[]": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ShowRunes.runes[].blacklisted": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ShowRunes.runes[].last_used": {
@@ -13149,51 +13149,51 @@
             "deprecated": null
         },
         "ShowRunes.runes[].our_rune": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ShowRunes.runes[].restrictions[]": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ShowRunes.runes[].restrictions[].alternatives[]": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ShowRunes.runes[].restrictions[].alternatives[].condition": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ShowRunes.runes[].restrictions[].alternatives[].english": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ShowRunes.runes[].restrictions[].alternatives[].fieldname": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ShowRunes.runes[].restrictions[].alternatives[].value": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ShowRunes.runes[].restrictions[].english": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ShowRunes.runes[].restrictions_as_english": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ShowRunes.runes[].rune": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ShowRunes.runes[].stored": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ShowRunes.runes[].unique_id": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "SignInvoice": {
@@ -13269,39 +13269,39 @@
             "deprecated": null
         },
         "Splice_Init": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "Splice_Init.channel_id": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "Splice_Init.feerate_per_kw": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "Splice_Init.force_feerate": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "Splice_Init.initialpsbt": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "Splice_Init.psbt": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "Splice_Init.relative_amount": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "Splice_Signed": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "Splice_Signed.channel_id": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "Splice_Signed.outnum": {
@@ -13309,35 +13309,35 @@
             "deprecated": null
         },
         "Splice_Signed.psbt": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "Splice_Signed.sign_first": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "Splice_Signed.tx": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "Splice_Signed.txid": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "Splice_Update": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "Splice_Update.channel_id": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "Splice_Update.commitments_secured": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "Splice_Update.psbt": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "Splice_Update.signatures_secured": {

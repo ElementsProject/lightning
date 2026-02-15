@@ -16,12 +16,14 @@
     "properties": {
       "layer": {
         "type": "string",
+        "added": "v24.11",
         "description": [
           "The name of the layer to apply this change to."
         ]
       },
       "node": {
         "type": "pubkey",
+        "added": "v24.11",
         "description": [
           "The node to disable.  It does not need to exist."
         ]

@@ -19,18 +19,21 @@
     "properties": {
       "rune": {
         "type": "string",
+        "added": "v23.08",
         "description": [
           "Rune to check for authorization."
         ]
       },
       "nodeid": {
         "type": "string",
+        "added": "v23.08",
         "description": [
           "Node id of requesting node *(required until v23.11)*."
         ]
       },
       "method": {
         "type": "string",
+        "added": "v23.08",
         "description": [
           "Method for which rune needs to be validated *(required until v23.11)*."
         ]
@@ -39,12 +42,14 @@
         "oneOf": [
           {
             "type": "array",
+            "added": "v23.08",
             "description": [
               "Array of positional parameters."
             ]
           },
           {
             "type": "object",
+            "added": "v23.08",
             "description": [
               "Parameters for method."
             ]
@@ -61,6 +66,7 @@
     "properties": {
       "valid": {
         "type": "boolean",
+        "added": "v23.08",
         "description": [
           "True if the rune is valid."
         ]

@@ -17,6 +17,7 @@
     "properties": {
       "invreq_id": {
         "type": "string",
+        "added": "v22.11",
         "description": [
           "A specific invoice can be disabled by providing the `invreq_id`, which is presented by lightning-invoicerequest(7)."
         ]
@@ -35,12 +36,14 @@
     "properties": {
       "invreq_id": {
         "type": "hash",
+        "added": "v22.11",
         "description": [
           "The SHA256 hash of all invoice_request fields less than 160."
         ]
       },
       "active": {
         "type": "boolean",
+        "added": "v22.11",
         "enum": [
           false
         ],
@@ -50,24 +53,28 @@
       },
       "single_use": {
         "type": "boolean",
+        "added": "v22.11",
         "description": [
           "Whether the invoice_request will become inactive after we pay an invoice for it."
         ]
       },
       "bolt12": {
         "type": "string",
+        "added": "v22.11",
         "description": [
           "The bolt12 string starting with lnr."
         ]
       },
       "used": {
         "type": "boolean",
+        "added": "v22.11",
         "description": [
           "Whether the invoice_request has already been used."
         ]
       },
       "label": {
         "type": "string",
+        "added": "v22.11",
         "description": [
           "The label provided when creating the invoice_request."
         ]

@@ -13,6 +13,7 @@
     "properties": {
       "rune": {
         "type": "string",
+        "added": "v23.08",
         "description": [
           "If specified, only details of that rune will be returned."
         ]
@@ -27,6 +28,7 @@
     "properties": {
       "runes": {
         "type": "array",
+        "added": "v23.08",
         "items": {
           "type": "object",
           "additionalProperties": false,
@@ -39,18 +41,21 @@
           "properties": {
             "rune": {
               "type": "string",
+              "added": "v23.08",
               "description": [
                 "Base64 encoded rune."
               ]
             },
             "unique_id": {
               "type": "string",
+              "added": "v23.08",
               "description": [
                 "Unique id assigned when the rune was generated; this is always a u64 for commando runes."
               ]
             },
             "restrictions": {
               "type": "array",
+              "added": "v23.08",
               "description": [
                 "The restrictions on what commands this rune can authorize."
               ],
@@ -64,6 +69,7 @@
                 "properties": {
                   "alternatives": {
                     "type": "array",
+                    "added": "v23.08",
                     "items": {
                       "type": "object",
                       "additionalProperties": false,
@@ -76,24 +82,28 @@
                       "properties": {
                         "fieldname": {
                           "type": "string",
+                          "added": "v23.08",
                           "description": [
                             "The field this restriction applies to; see commando-rune(7)."
                           ]
                         },
                         "value": {
                           "type": "string",
+                          "added": "v23.08",
                           "description": [
                             "The value accepted for this field."
                           ]
                         },
                         "condition": {
                           "type": "string",
+                          "added": "v23.08",
                           "description": [
                             "The way to compare fieldname and value."
                           ]
                         },
                         "english": {
                           "type": "string",
+                          "added": "v23.08",
                           "description": [
                             "English readable description of this alternative."
                           ]
@@ -103,6 +113,7 @@
                   },
                   "english": {
                     "type": "string",
+                    "added": "v23.08",
                     "description": [
                       "English readable summary of alternatives above."
                     ]
@@ -112,12 +123,14 @@
             },
             "restrictions_as_english": {
               "type": "string",
+              "added": "v23.08",
               "description": [
                 "English readable description of the restrictions array above."
               ]
             },
             "stored": {
               "type": "boolean",
+              "added": "v23.08",
               "enum": [
                 false
               ],
@@ -127,6 +140,7 @@
             },
             "blacklisted": {
               "type": "boolean",
+              "added": "v23.08",
               "enum": [
                 true
               ],
@@ -143,6 +157,7 @@
             },
             "our_rune": {
               "type": "boolean",
+              "added": "v23.08",
               "enum": [
                 false
               ],

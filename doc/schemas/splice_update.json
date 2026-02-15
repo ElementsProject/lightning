@@ -25,12 +25,14 @@
     "properties": {
       "channel_id": {
         "type": "hash",
+        "added": "v23.08",
         "description": [
           "The channel id of the channel to be spliced."
         ]
       },
       "psbt": {
         "type": "string",
+        "added": "v23.08",
         "description": [
           "The base 64 encoded PSBT returned from `splice_init` with any changes added by the user."
         ]
@@ -47,12 +49,14 @@
     "properties": {
       "psbt": {
         "type": "string",
+        "added": "v23.08",
         "description": [
           "The (incomplete) PSBT of the splice transaction."
         ]
       },
       "commitments_secured": {
         "type": "boolean",
+        "added": "v23.08",
         "description": [
           "Whether or not the commitments were secured."
         ]
