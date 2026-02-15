@@ -283,16 +283,16 @@ static void load_block_history(struct command *cmd, struct bwatch *bwatch)
 
 /* ==== WATCH DATASTORE OPERATIONS ==== */
 
-/* Get the watch type subdirectory name */
+/* Get the watch type name */
 static const char *get_watch_type_name(enum watch_type type)
 {
 	switch (type) {
 	case WATCH_SCRIPTPUBKEY:
-		return "scriptpubkey_watches";
+		return "scriptpubkey";
 	case WATCH_OUTPOINT:
-		return "outpoint_watches";
+		return "outpoint";
 	case WATCH_TXID:
-		return "txid_watches";
+		return "txid";
 	}
 	abort();
 }
