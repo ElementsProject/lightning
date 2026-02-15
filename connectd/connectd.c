@@ -857,7 +857,8 @@ void release_one_waiting_connection(struct daemon *daemon, const char *why)
 	c = connecting_htable_pick(daemon->connecting, pseudorand_u64(), &it);
 	for (size_t i = 0; i < connecting_htable_count(daemon->connecting); i++) {
 		if (c->waiting) {
-			status_peer_debug(&c->id, "Unblocking for %s", why);
+			status_peer_info(&c->id, "Unblocking for %s", why);
+			status_info("Unblocking for %s", why);
 			c->waiting = false;
 			c->start = time_mono();
 			try_connect_one_addr(c);
@@ -1635,31 +1636,33 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 	enum addr_listen_announce *proposed_listen_announce;
 	struct wireaddr *announceable;
 	char *tor_password;
-	bool dev_disconnect, dev_throttle_gossip, dev_limit_connections_inflight;
+	bool dev_disconnect = false, dev_throttle_gossip = false, dev_limit_connections_inflight = false;
+	bool announce_websocket;
 	char *errstr;
 
 	/* Fields which require allocation are allocated off daemon */
 	if (!fromwire_connectd_init(daemon, msg,
-				    &chainparams,
-				    &daemon->our_features,
-				    &daemon->id,
-				    &proposed_wireaddr,
-				    &proposed_listen_announce,
-				    &proxyaddr,
-				    &daemon->always_use_proxy,
-				    &daemon->dev_allow_localhost,
-				    &daemon->use_dns,
-				    &tor_password,
-				    &daemon->timeout_secs,
-				    &daemon->websocket_helper,
-				    &daemon->dev_fast_gossip,
-				    &dev_disconnect,
-				    &daemon->dev_no_ping_timer,
-				    &daemon->dev_handshake_no_reply,
-				    &dev_throttle_gossip,
-				    &daemon->dev_no_reconnect,
-				    &daemon->dev_fast_reconnect,
-				    &dev_limit_connections_inflight)) {
+					&chainparams,
+					&daemon->our_features,
+					&daemon->id,
+					&proposed_wireaddr,
+					&proposed_listen_announce,
+					&proxyaddr,
+					&daemon->always_use_proxy,
+					&daemon->dev_allow_localhost,
+					&daemon->use_dns,
+					&tor_password,
+					&daemon->timeout_secs,
+					&daemon->websocket_helper,
+					&announce_websocket,
+					&daemon->dev_fast_gossip,
+					&dev_disconnect,
+					&daemon->dev_no_ping_timer,
+					&daemon->dev_handshake_no_reply,
+					&dev_throttle_gossip,
+					&daemon->dev_no_reconnect,
+					&daemon->dev_fast_reconnect,
+					&dev_limit_connections_inflight)) {
 		/* This is a helper which prints the type expected and the actual
 		 * message, then exits (it should never be called!). */
 		master_badmsg(WIRE_CONNECTD_INIT, msg);
@@ -1908,9 +1911,10 @@ static void try_connect_peer(struct daemon *daemon,
 	 * progress (useful for startup of large nodes) */
 	connect->waiting = (connecting_htable_count(daemon->connecting)
 			    > daemon->max_connect_in_flight);
-	if (connect->waiting)
-		status_peer_debug(id, "Too many connections, waiting...");
-	else {
+	if (connect->waiting) {
+		status_peer_info(id, "Too many connections, waiting...");
+		status_info("Too many connections, waiting...");
+	} else {
 		connect->start = time_mono();
 		try_connect_one_addr(connect);
 	}
