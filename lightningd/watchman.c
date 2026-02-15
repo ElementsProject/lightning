@@ -329,7 +329,7 @@ static struct command_result *param_bitcoin_tx(struct command *cmd,
 					       const jsmntok_t *tok,
 					       struct bitcoin_tx **tx)
 {
-	*tx = bitcoin_tx_from_hex(cmd, buffer + tok->start, tok->start - tok->end);
+	*tx = bitcoin_tx_from_hex(cmd, buffer + tok->start, tok->end - tok->start);
 	if (!*tx)
 		return command_fail_badparam(cmd, name, buffer, tok,
 					     "Expected a hex-encoded transaction");
@@ -354,6 +354,7 @@ static struct command_result *json_watch_found(struct command *cmd,
 	const char *type, **owners;
 	u32 *blockheight, *txindex, *outnum, *innum;
 	struct bitcoin_tx *tx;
+	void *unused;
 
 	if (!param_check(cmd, buffer, params,
 		   p_req("tx", param_bitcoin_tx, &tx),
@@ -363,6 +364,9 @@ static struct command_result *json_watch_found(struct command *cmd,
 		   p_req("owners", param_string_array, &owners),
 		   p_opt("outnum", param_number, &outnum),
 		   p_opt("innum", param_number, &innum),
+		   p_opt("txid", param_ignore, &unused),
+		   p_opt("scriptpubkey", param_ignore, &unused),
+		   p_opt("outpoint", param_ignore, &unused),
 		   NULL))
 		return command_param_failed();
 
