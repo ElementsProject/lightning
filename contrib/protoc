@@ -1,0 +1,4 @@
+#!/bin/sh
+# Wrapper script that invokes protoc from grpcio-tools via uv
+# This ensures the protoc version matches the Python protobuf package
+exec uv run python3 -m grpc_tools.protoc "$@"

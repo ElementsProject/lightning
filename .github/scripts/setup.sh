@@ -71,29 +71,7 @@ uv sync --all-extras --all-groups
 # required for reckless till poetry to uv migration
 uv tool install poetry
 
-# We also need a relatively recent protobuf-compiler, at least 3.12.0,
-# in order to support the experimental `optional` flag.
-
-# BUT WAIT!  Gentoo wants this to match the version from the Python protobuf,
-# which comes from the same tree.  Makes sense!
-
-# And
-#   grpcio-tools-1.69.0` requires `protobuf = ">=5.26.1,<6.0dev"`
-
-# Now, protoc changed to date-based releases, BUT Python protobuf
-# didn't, so Python protobuf 4.21.12 (in Ubuntu 23.04) corresponds to
-# protoc 21.12 (which, FYI, is packaged in Ubuntu as version 3.21.12).
-
-# In general protobuf version x.y.z corresponds to protoc version y.z
-
-# Honorable mention go to Matt Whitlock for spelunking this horror with me!
-
-PROTOC_VERSION=29.4
-PB_REL="https://github.com/protocolbuffers/protobuf/releases"
-curl -LO $PB_REL/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip
-sudo unzip protoc-${PROTOC_VERSION}-linux-x86_64.zip -d /usr/local/
-sudo chmod a+x /usr/local/bin/protoc
-export PROTOC=/usr/local/bin/protoc
-export PATH=$PATH:/usr/local/bin
-env
-ls -lha /usr/local/bin
+# Install protoc wrapper that uses grpcio-tools bundled compiler.
+# This ensures the protoc version matches the protobuf Python package,
+# avoiding version mismatches between generated code and runtime.
+sudo install -m 755 contrib/protoc /usr/local/bin/protoc
