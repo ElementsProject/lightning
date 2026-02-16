@@ -131,7 +131,9 @@ static struct peer *new_peer(struct daemon *daemon,
 	peer->encrypted_peer_out = tal_arr(peer, u8, 0);
 	peer->encrypted_peer_out_off = 0;
 	peer->encrypted_peer_out_sent = 0;
-	peer->urgent = false;
+	peer->nonurgent_flush_timer = NULL;
+	peer->peer_out_urgent = 0;
+	peer->flushing_nonurgent = false;
 	peer->draining_state = NOT_DRAINING;
 	peer->peer_in_lastmsg = -1;
 	peer->peer_outq = msg_queue_new(peer, false);
