@@ -8,6 +8,10 @@
  */
 #include "config.h"
 #include <ccan/array_size/array_size.h>
+#include <ccan/json_out/json_out.h>
+#include <ccan/noerr/noerr.h>
+#include <ccan/read_write_all/read_write_all.h>
+#include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/str/str.h>
 #include <common/clock_time.h>
 #include <common/dijkstra.h>
@@ -24,6 +28,8 @@
 #include <plugins/askrene/layer.h>
 #include <plugins/askrene/mcf.h>
 #include <plugins/askrene/reserve.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 /* "spendable" for a channel assumes a single HTLC: for additional HTLCs,
  * the need to pay for fees (if we're the owner) reduces it */
@@ -612,20 +618,109 @@ void get_constraints(const struct route_query *rq,
 	reserve_sub(rq->reserved, &scidd, rq->layers, max);
 }
 
+/* Returns fd to child */
+static int fork_router_child(struct route_query *rq,
+			     enum algorithm algo,
+			     struct timemono deadline,
+			     const struct gossmap_node *srcnode,
+			     const struct gossmap_node *dstnode,
+			     struct amount_msat amount,
+			     struct amount_msat maxfee,
+			     u32 finalcltv, u32 maxdelay,
+			     bool include_fees,
+			     const char *cmd_id,
+			     struct json_filter *cmd_filter,
+			     int *child_pid)
+{
+	int replyfds[2];
+	double probability;
+	struct flow **flows;
+	struct route **routes;
+	struct amount_msat *amounts;
+	const char *err, *p;
+	size_t len;
+
+	if (pipe(replyfds) != 0)
+		return -1;
+	*child_pid = fork();
+	if (*child_pid < 0) {
+		close_noerr(replyfds[0]);
+		close_noerr(replyfds[1]);
+		return -1;
+	}
+	if (*child_pid != 0) {
+		close(replyfds[1]);
+		return replyfds[0];
+	}
+
+	/* We are the child.  Run the algo */
+	close(replyfds[0]);
+	if (algo == ALGO_SINGLE_PATH) {
+		err = single_path_routes(rq, rq, deadline, srcnode, dstnode,
+					 amount, maxfee, finalcltv,
+					 maxdelay, &flows, &probability);
+	} else {
+		assert(algo == ALGO_DEFAULT);
+		err = default_routes(rq, rq, deadline, srcnode, dstnode,
+				     amount, maxfee, finalcltv, maxdelay,
+				     &flows, &probability);
+	}
+	if (err) {
+		write_all(replyfds[1], err, strlen(err));
+		/* Non-zero exit tells parent this is an error string. */
+		exit(1);
+	}
+
+	/* otherwise we continue */
+	assert(tal_count(flows) > 0);
+	rq_log(tmpctx, rq, LOG_DBG, "Final answer has %zu flows",
+	       tal_count(flows));
+
+	/* convert flows to routes */
+	routes = convert_flows_to_routes(rq, rq, finalcltv, flows,
+					 &amounts, include_fees);
+	assert(tal_count(routes) == tal_count(flows));
+	assert(tal_count(amounts) == tal_count(flows));
+
+	/* output the results */
+	struct json_stream *js = new_json_stream(tmpctx, NULL, NULL);
+	json_object_start(js, NULL);
+	json_add_string(js, "jsonrpc", "2.0");
+	json_add_id(js, cmd_id);
+	json_object_start(js, "result");
+	if (cmd_filter)
+		json_stream_attach_filter(js, cmd_filter);
+	json_add_getroutes(js, routes, amounts, probability, finalcltv);
+
+	/* Detach filter before it complains about closing object it never saw */
+	if (cmd_filter) {
+		err = json_stream_detach_filter(tmpctx, js);
+		if (err)
+			json_add_string(js, "warning_parameter_filter", err);
+	}
+	/* "result" object */
+	json_object_end(js);
+	/* Global object */
+	json_object_end(js);
+	json_stream_close(js, NULL);
+
+	p = json_out_contents(js->jout, &len);
+	if (!write_all(replyfds[1], p, len))
+		abort();
+	exit(0);
+}
+
 static struct command_result *do_getroutes(struct command *cmd,
 					   struct gossmap_localmods *localmods,
 					   struct getroutes_info *info)
 {
 	struct askrene *askrene = get_askrene(cmd->plugin);
 	struct route_query *rq = tal(cmd, struct route_query);
-	const char *err;
-	double probability;
-	struct amount_msat *amounts;
-	struct route **routes;
-	struct flow **flows;
-	struct json_stream *response;
 	const struct gossmap_node *me;
 	bool include_fees;
+	const char *err, *json;
+	struct timemono time_start, deadline;
+	int child_fd, child_pid, child_status;
 
 	/* update the gossmap */
 	if (gossmap_refresh(askrene->gossmap)) {
@@ -732,52 +827,57 @@ static struct command_result *do_getroutes(struct command *cmd,
 		       "maxparts == 1: switching to a single path algorithm.");
 	}
 
-	/* Compute the routes. At this point we might select between multiple
-	 * algorithms. Right now there is only one algorithm available. */
-	struct timemono time_start = time_mono();
-	struct timemono deadline = timemono_add(time_start,
-						time_from_sec(askrene->route_seconds));
-	if (info->dev_algo == ALGO_SINGLE_PATH) {
-		err = single_path_routes(rq, rq, deadline, srcnode, dstnode, info->amount,
-					 info->maxfee, info->finalcltv,
-					 info->maxdelay, &flows, &probability);
-	} else {
-		assert(info->dev_algo == ALGO_DEFAULT);
-		err = default_routes(rq, rq, deadline, srcnode, dstnode, info->amount,
-				     info->maxfee, info->finalcltv,
-				     info->maxdelay, &flows, &probability);
+	include_fees = have_layer(info->layers, "auto.include_fees");
+
+	time_start = time_mono();
+	deadline = timemono_add(time_start,
+				time_from_sec(askrene->route_seconds));
+	child_fd = fork_router_child(rq, info->dev_algo,
+				     deadline, srcnode, dstnode, info->amount,
+				     info->maxfee, info->finalcltv, info->maxdelay,
+				     include_fees,
+				     cmd->id, cmd->filter, &child_pid);
+	if (child_fd == -1) {
+		err = tal_fmt(tmpctx, "failed to fork: %s", strerror(errno));
+		goto fail_broken;
 	}
+
+	/* FIXME: Go async! */
+	json = grab_fd_str(cmd, child_fd);
+	close(child_fd);
+	waitpid(child_pid, &child_status, 0);
+
 	struct timerel time_delta = timemono_between(time_mono(), time_start);
 
 	/* log the time of computation */
 	rq_log(tmpctx, rq, LOG_DBG, "get_routes %s %" PRIu64 " ms",
-	       err ? "failed after" : "completed in",
+	       WEXITSTATUS(child_status) != 0 ? "failed after" : "completed in",
 	       time_to_msec(time_delta));
-	if (err)
+
+	if (WIFSIGNALED(child_status)) {
+		err = tal_fmt(tmpctx, "child died with signal %u",
+			      WTERMSIG(child_status));
+		goto fail_broken;
+	}
+	/* This is how it indicates an error message */
+	if (WEXITSTATUS(child_status) != 0 && json) {
+		err = json;
 		goto fail;
-
-	/* otherwise we continue */
-	assert(tal_count(flows) > 0);
-	rq_log(tmpctx, rq, LOG_DBG, "Final answer has %zu flows",
-	       tal_count(flows));
-
-	include_fees = have_layer(info->layers, "auto.include_fees");
-
-	/* convert flows to routes */
-	routes = convert_flows_to_routes(rq, rq, info->finalcltv, flows,
-					 &amounts, include_fees);
-	assert(tal_count(routes) == tal_count(flows));
-	assert(tal_count(amounts) == tal_count(flows));
+	}
+	if (!json) {
+		err = tal_fmt(tmpctx, "child produced no output (exited %i)?",
+			      WEXITSTATUS(child_status));
+		goto fail_broken;
+	}
 
 	/* At last we remove the localmods from the gossmap. */
 	gossmap_remove_localmods(askrene->gossmap, localmods);
 
-	/* output the results */
-	response = jsonrpc_stream_success(cmd);
-	json_add_getroutes(response, routes, amounts, probability,
-			   info->finalcltv);
-	return command_finished(cmd, response);
+	/* Child already created this fully formed.  We just paste it */
+	return command_finish_rawstr(cmd, json, strlen(json));
 
+fail_broken:
+	plugin_log(cmd->plugin, LOG_BROKEN, "%s", err);
 fail:
 	assert(err);
 	gossmap_remove_localmods(askrene->gossmap, localmods);
