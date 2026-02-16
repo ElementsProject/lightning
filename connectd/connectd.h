@@ -79,9 +79,6 @@ struct peer {
 	/* Connections to the subdaemons */
 	struct subd **subds;
 
-	/* When socket has Nagle overridden */
-	bool urgent;
-
 	/* Input buffer. */
 	u8 *peer_in;
 
@@ -92,6 +89,9 @@ struct peer {
 	u8 *encrypted_peer_out;
 	size_t encrypted_peer_out_off;
 	size_t encrypted_peer_out_sent;
+	size_t peer_out_urgent;
+	bool flushing_nonurgent;
+	struct oneshot *nonurgent_flush_timer;
 
 	/* We stream from the gossip_store for them, when idle */
 	struct gossip_state gs;
