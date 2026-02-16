@@ -32,35 +32,30 @@ struct askrene {
 
 /* Information for a single route query. */
 struct route_query {
-	/* Command pointer, mainly for command id. */
-	struct command *cmd;
-
-	/* Plugin pointer, for logging mainly */
-	struct plugin *plugin;
-
 	/* This is *not* updated during a query!  Has all layers applied. */
 	const struct gossmap *gossmap;
 
-	/* We need to take in-flight payments into account */
-	const struct reserve_htable *reserved;
+	/* command id to use for reservations we create. */
+	const char *cmd_id;
 
 	/* Array of layers we're applying */
 	const struct layer **layers;
 
-	/* Cache of channel capacities for non-reserved, unknown channels. */
-	fp16_t *capacities;
-
 	/* Compact cache of biases */
-	s8 *biases;
+	const s8 *biases;
 
 	/* Additional per-htlc cost for local channels */
 	const struct additional_cost_htable *additional_costs;
 
+	/* We need to take in-flight payments into account (this is
+	 * askrene->reserved, so make sure to undo changes! */
+	struct reserve_htable *reserved;
+
+	/* Cache of channel capacities for non-reserved, unknown channels. */
+	fp16_t *capacities;
+
 	/* channels we disable during computation to meet constraints */
 	bitmap *disabled_chans;
-
-	/* limit the number of paths in the solution */
-	u32 maxparts;
 };
 
 /* Given a gossmap channel, get the current known min/max */
@@ -69,14 +64,6 @@ void get_constraints(const struct route_query *rq,
 		     int dir,
 		     struct amount_msat *min,
 		     struct amount_msat *max);
-
-/* Say something about this route_query */
-const char *rq_log(const tal_t *ctx,
-		   const struct route_query *rq,
-		   enum log_level level,
-		   const char *fmt,
-		   ...)
-	PRINTF_FMT(4, 5);
 
 /* Is there a known additional per-htlc cost for this channel? */
 struct amount_msat get_additional_per_htlc_cost(const struct route_query *rq,

@@ -78,8 +78,7 @@ static struct route **convert_flows_to_routes(const tal_t *ctx,
 
 				if (!amount_msat_add_fee(&msat, h->base_fee,
 							 h->proportional_fee))
-					plugin_err(rq->plugin,
-						   "Adding fee to amount");
+					abort();
 				delay += h->delay;
 
 				rh->scid = gossmap_chan_scid(rq->gossmap,
@@ -178,7 +177,7 @@ int fork_router_child(struct route_query *rq,
 		      const struct gossmap_node *srcnode,
 		      const struct gossmap_node *dstnode,
 		      struct amount_msat amount, struct amount_msat maxfee,
-		      u32 finalcltv, u32 maxdelay,
+		      u32 finalcltv, u32 maxdelay, size_t maxparts,
 		      bool include_fees,
 		      const char *cmd_id,
 		      struct json_filter *cmd_filter,
@@ -226,7 +225,7 @@ int fork_router_child(struct route_query *rq,
 	} else {
 		err = default_routes(rq, rq, deadline, srcnode, dstnode,
 				     amount, maxfee, finalcltv, maxdelay,
-				     &flows, &probability);
+				     maxparts, &flows, &probability);
 	}
 	if (err) {
 		write_all(replyfds[1], err, strlen(err));

@@ -24,10 +24,10 @@ static void get_scidd(const struct gossmap *gossmap,
 	scidd->dir = flow->dirs[i];
 }
 
-static void destroy_reservations(struct reserve_hop *rhops, struct askrene *askrene)
+static void destroy_reservations(struct reserve_hop *rhops, struct reserve_htable *reserved)
 {
 	for (size_t i = 0; i < tal_count(rhops); i++)
-		reserve_remove(askrene->reserved, &rhops[i]);
+		reserve_remove(reserved, &rhops[i]);
 }
 
 struct reserve_hop *new_reservations(const tal_t *ctx,
@@ -36,7 +36,7 @@ struct reserve_hop *new_reservations(const tal_t *ctx,
 	struct reserve_hop *rhops = tal_arr(ctx, struct reserve_hop, 0);
 
 	/* Unreserve on free */
-	tal_add_destructor2(rhops, destroy_reservations, get_askrene(rq->plugin));
+	tal_add_destructor2(rhops, destroy_reservations, rq->reserved);
 	return rhops;
 }
 
@@ -59,16 +59,15 @@ static void add_reservation(struct reserve_hop **reservations,
 			    struct amount_msat amt)
 {
 	struct reserve_hop rhop, *prev;
-	struct askrene *askrene = get_askrene(rq->plugin);
 	size_t idx;
 
 	/* Update in-place if possible */
 	prev = find_reservation(*reservations, scidd);
 	if (prev) {
-		reserve_remove(askrene->reserved, prev);
+		reserve_remove(rq->reserved, prev);
 		if (!amount_msat_accumulate(&prev->amount, amt))
 			abort();
-		reserve_add(askrene->reserved, prev, rq->cmd->id);
+		reserve_add(rq->reserved, prev, rq->cmd_id);
 		return;
 	}
 	rhop.scidd = *scidd;
@@ -76,7 +75,7 @@ static void add_reservation(struct reserve_hop **reservations,
 	/* We don't have to restrict it to a layer, since it's transitory:
 	 * nobody else will see this. */
 	rhop.layer = NULL;
-	reserve_add(askrene->reserved, &rhop, rq->cmd->id);
+	reserve_add(rq->reserved, &rhop, rq->cmd_id);
 
 	/* Set capacities entry to 0 so it get_constraints() looks in reserve. */
 	idx = gossmap_chan_idx(rq->gossmap, chan);
