@@ -16,6 +16,7 @@
 #include <common/gossmods_listpeerchannels.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
+#include <common/memleak.h>
 #include <common/route.h>
 #include <common/status_wiregen.h>
 #include <errno.h>
@@ -24,7 +25,6 @@
 #include <plugins/askrene/askrene.h>
 #include <plugins/askrene/child/additional_costs.h>
 #include <plugins/askrene/child/entry.h>
-#include <plugins/askrene/child/route_query.h>
 #include <plugins/askrene/layer.h>
 #include <plugins/askrene/reserve.h>
 #include <sys/wait.h>
@@ -330,45 +330,49 @@ struct getroutes_info {
 	u32 maxparts;
 };
 
-static void apply_layers(struct askrene *askrene,
-			 struct command *cmd,
-			 struct route_query *rq,
-			 const struct node_id *source,
-			 struct amount_msat amount,
-			 struct gossmap_localmods *localmods,
-			 const char **layers,
-			 const struct layer *local_layer)
+/* Gather layers, clear capacities where layers contains info */
+static const struct layer **apply_layers(const tal_t *ctx,
+					 struct askrene *askrene,
+					 struct command *cmd,
+					 const struct node_id *source,
+					 struct amount_msat amount,
+					 struct gossmap_localmods *localmods,
+					 const char **layernames,
+					 const struct layer *local_layer,
+					 fp16_t *capacities)
 {
+	const struct layer **layers = tal_arr(ctx, const struct layer *, 0);
 	/* Layers must exist, but might be special ones! */
-	for (size_t i = 0; i < tal_count(layers); i++) {
-		const struct layer *l = find_layer(askrene, layers[i]);
+	for (size_t i = 0; i < tal_count(layernames); i++) {
+		const struct layer *l = find_layer(askrene, layernames[i]);
 		if (!l) {
-			if (streq(layers[i], "auto.localchans")) {
+			if (streq(layernames[i], "auto.localchans")) {
 				cmd_log(tmpctx, cmd, LOG_DBG, "Adding auto.localchans");
 				l = local_layer;
-			} else if (streq(layers[i], "auto.no_mpp_support")) {
+			} else if (streq(layernames[i], "auto.no_mpp_support")) {
 				cmd_log(tmpctx, cmd, LOG_DBG, "Adding auto.no_mpp_support, sorry");
-				l = remove_small_channel_layer(layers, askrene, amount, localmods);
-			} else if (streq(layers[i], "auto.include_fees")) {
+				l = remove_small_channel_layer(layernames, askrene, amount, localmods);
+			} else if (streq(layernames[i], "auto.include_fees")) {
 				cmd_log(tmpctx, cmd, LOG_DBG, "Adding auto.include_fees");
 				/* This layer takes effect when converting flows
 				 * into routes. */
 				continue;
 			} else {
-				assert(streq(layers[i], "auto.sourcefree"));
+				assert(streq(layernames[i], "auto.sourcefree"));
 				cmd_log(tmpctx, cmd, LOG_DBG, "Adding auto.sourcefree");
-				l = source_free_layer(layers, askrene, source, localmods);
+				l = source_free_layer(layernames, askrene, source, localmods);
 			}
 		}
 
-		tal_arr_expand(&rq->layers, l);
+		tal_arr_expand(&layers, l);
 		/* FIXME: Implement localmods_merge, and cache this in layer? */
-		layer_add_localmods(l, rq->gossmap, localmods);
+		layer_add_localmods(l, askrene->gossmap, localmods);
 
 		/* Clear any entries in capacities array if we
 		 * override them (incl local channels) */
-		layer_clear_overridden_capacities(l, askrene->gossmap, rq->capacities);
+		layer_clear_overridden_capacities(l, askrene->gossmap, capacities);
 	}
+	return layers;
 }
 
 static void process_child_logs(struct command *cmd,
@@ -389,13 +393,14 @@ static struct command_result *do_getroutes(struct command *cmd,
 					   struct getroutes_info *info)
 {
 	struct askrene *askrene = get_askrene(cmd->plugin);
-	struct route_query *rq = tal(cmd, struct route_query);
 	const struct gossmap_node *me;
 	bool include_fees;
 	const char *err, *json;
 	struct timemono time_start, deadline;
 	int child_fd, log_fd, child_pid, child_status;
+	const struct layer **layers;
 	s8 *biases;
+	fp16_t *capacities;
 
 	/* update the gossmap */
 	if (gossmap_refresh(askrene->gossmap)) {
@@ -405,28 +410,21 @@ static struct command_result *do_getroutes(struct command *cmd,
 		    get_capacities(askrene, askrene->plugin, askrene->gossmap);
 	}
 
-	/* build this request structure */
-	rq->cmd_id = cmd->id;
-	rq->gossmap = askrene->gossmap;
-	rq->reserved = askrene->reserved;
-	rq->layers = tal_arr(rq, const struct layer *, 0);
-	rq->capacities = tal_dup_talarr(rq, fp16_t, askrene->capacities);
-	/* FIXME: we still need to do something useful with these */
-	rq->additional_costs = info->additional_costs;
+	capacities = tal_dup_talarr(cmd, fp16_t, askrene->capacities);
 
 	/* We also eliminate any local channels we *know* are dying.
 	 * Most channels get 12 blocks grace in case it's a splice,
 	 * but if it's us, we know about the splice already. */
-	me = gossmap_find_node(rq->gossmap, &askrene->my_id);
+	me = gossmap_find_node(askrene->gossmap, &askrene->my_id);
 	if (me) {
 		for (size_t i = 0; i < me->num_chans; i++) {
 			struct short_channel_id_dir scidd;
-			const struct gossmap_chan *c = gossmap_nth_chan(rq->gossmap,
+			const struct gossmap_chan *c = gossmap_nth_chan(askrene->gossmap,
 									me, i, NULL);
-			if (!gossmap_chan_is_dying(rq->gossmap, c))
+			if (!gossmap_chan_is_dying(askrene->gossmap, c))
 				continue;
 
-			scidd.scid = gossmap_chan_scid(rq->gossmap, c);
+			scidd.scid = gossmap_chan_scid(askrene->gossmap, c);
 			/* Disable both directions */
 			for (scidd.dir = 0; scidd.dir < 2; scidd.dir++) {
 				bool enabled = false;
@@ -439,32 +437,25 @@ static struct command_result *do_getroutes(struct command *cmd,
 	}
 
 	/* apply selected layers to the localmods */
-	apply_layers(askrene, cmd, rq, &info->source, info->amount, localmods,
-		     info->layers, info->local_layer);
+	layers = apply_layers(cmd, askrene, cmd,
+			      &info->source, info->amount, localmods,
+			      info->layers, info->local_layer, capacities);
 
 	/* Clear scids with reservations, too, so we don't have to look up
 	 * all the time! */
 	reserves_clear_capacities(askrene->reserved, askrene->gossmap,
-				  rq->capacities);
+				  capacities);
 
 	/* we temporarily apply localmods */
 	gossmap_apply_localmods(askrene->gossmap, localmods);
 
-	/* I want to be able to disable channels while working on this query.
-	 * Layers are for user interaction and cannot be used for this purpose.
-	 */
-	rq->disabled_chans =
-	    tal_arrz(rq, bitmap,
-		     2 * BITMAP_NWORDS(gossmap_max_chan_idx(askrene->gossmap)));
-
 	/* localmods can add channels, so we need to allocate biases array
 	 * *afterwards* */
-	rq->biases = biases =
-	    tal_arrz(rq, s8, gossmap_max_chan_idx(askrene->gossmap) * 2);
+	biases = tal_arrz(cmd, s8, gossmap_max_chan_idx(askrene->gossmap) * 2);
 
 	/* Note any channel biases */
-	for (size_t i = 0; i < tal_count(rq->layers); i++)
-		layer_apply_biases(rq->layers[i], askrene->gossmap, biases);
+	for (size_t i = 0; i < tal_count(layers); i++)
+		layer_apply_biases(layers[i], askrene->gossmap, biases);
 
 	/* checkout the source */
 	const struct gossmap_node *srcnode =
@@ -506,7 +497,13 @@ static struct command_result *do_getroutes(struct command *cmd,
 	time_start = time_mono();
 	deadline = timemono_add(time_start,
 				time_from_sec(askrene->route_seconds));
-	child_fd = fork_router_child(rq, info->dev_algo == ALGO_SINGLE_PATH,
+	child_fd = fork_router_child(askrene->gossmap,
+				     layers,
+				     biases,
+				     info->additional_costs,
+				     askrene->reserved,
+				     take(capacities),
+				     info->dev_algo == ALGO_SINGLE_PATH,
 				     deadline, srcnode, dstnode, info->amount,
 				     info->maxfee, info->finalcltv, info->maxdelay, info->maxparts,
 				     include_fees,
@@ -722,8 +719,7 @@ static struct command_result *json_getroutes(struct command *cmd,
 	info->finalcltv = *finalcltv;
 	info->maxdelay = *maxdelay;
 	info->dev_algo = *dev_algo;
-	info->additional_costs = tal(info, struct additional_cost_htable);
-	additional_cost_htable_init(info->additional_costs);
+	info->additional_costs = new_htable(info, additional_cost_htable);
 	info->maxparts = *maxparts;
 
 	if (have_layer(info->layers, "auto.localchans")) {

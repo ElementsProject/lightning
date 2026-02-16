@@ -170,8 +170,38 @@ static void json_add_getroutes(struct json_stream *js,
 }
 
 
+static struct route_query *new_route_query(const tal_t *ctx,
+					   const struct gossmap *gossmap,
+					   const char *cmd_id,
+					   const struct layer **layers,
+					   const s8 *biases,
+					   const struct additional_cost_htable *additional_costs,
+					   struct reserve_htable *reserved,
+					   fp16_t *capacities TAKES)
+{
+	struct route_query *rq = tal(ctx, struct route_query);
+
+	rq->gossmap = gossmap;
+	rq->cmd_id = tal_strdup(rq, cmd_id);
+	rq->layers = layers;
+	rq->biases = biases;
+	rq->additional_costs = additional_costs;
+	rq->reserved = reserved;
+	rq->capacities = tal_dup_talarr(rq, fp16_t, capacities);
+	rq->disabled_chans =
+	    tal_arrz(rq, bitmap,
+		     2 * BITMAP_NWORDS(gossmap_max_chan_idx(gossmap)));
+
+	return rq;
+}
+
 /* Returns fd to child */
-int fork_router_child(struct route_query *rq,
+int fork_router_child(const struct gossmap *gossmap,
+		      const struct layer **layers,
+		      const s8 *biases,
+		      const struct additional_cost_htable *additional_costs,
+		      struct reserve_htable *reserved,
+		      fp16_t *capacities TAKES,
 		      bool single_path,
 		      struct timemono deadline,
 		      const struct gossmap_node *srcnode,
@@ -191,13 +221,14 @@ int fork_router_child(struct route_query *rq,
 	struct amount_msat *amounts;
 	const char *err, *p;
 	size_t len;
+	struct route_query *rq;
 
 	if (pipe(replyfds) != 0)
-		return -1;
+		goto parent_fail;
 	if (pipe(logfds) != 0) {
 		close_noerr(replyfds[0]);
 		close_noerr(replyfds[1]);
-		return -1;
+		goto parent_fail;
 	}
 	*child_pid = fork();
 	if (*child_pid < 0) {
@@ -205,12 +236,14 @@ int fork_router_child(struct route_query *rq,
 		close_noerr(replyfds[1]);
 		close_noerr(logfds[0]);
 		close_noerr(logfds[1]);
-		return -1;
+		goto parent_fail;
 	}
 	if (*child_pid != 0) {
 		close(logfds[1]);
 		close(replyfds[1]);
 		*log_fd = logfds[0];
+		if (taken(capacities))
+			tal_free(capacities);
 		return replyfds[0];
 	}
 
@@ -218,6 +251,11 @@ int fork_router_child(struct route_query *rq,
 	close(logfds[0]);
 	close(replyfds[0]);
 	set_child_log_fd(logfds[1]);
+
+	/* We exit below, so we don't bother freeing this */
+	rq = new_route_query(NULL, gossmap, cmd_id, layers,
+			     biases, additional_costs,
+			     reserved, capacities);
 	if (single_path) {
 		err = single_path_routes(rq, rq, deadline, srcnode, dstnode,
 					 amount, maxfee, finalcltv,
@@ -270,5 +308,10 @@ int fork_router_child(struct route_query *rq,
 	if (!write_all(replyfds[1], p, len))
 		abort();
 	exit(0);
+
+parent_fail:
+	if (taken(capacities))
+		tal_free(capacities);
+	return -1;
 }
 

@@ -4,14 +4,23 @@
 #include <ccan/short_types/short_types.h>
 #include <ccan/time/time.h>
 #include <common/amount.h>
+#include <common/fp16.h>
 #include <stdbool.h>
 
 struct route_query;
 struct gossmap_node;
 struct json_filter;
+struct layer;
+struct reserve_htable;
+struct additional_cost_htable;
 
 /* Entry point to the child process. */
-int fork_router_child(struct route_query *rq,
+int fork_router_child(const struct gossmap *gossmap,
+		      const struct layer **layers,
+		      const s8 *biases,
+		      const struct additional_cost_htable *additional_costs,
+		      struct reserve_htable *reserved,
+		      fp16_t *capacities TAKES,
 		      bool single_path,
 		      struct timemono deadline,
 		      const struct gossmap_node *srcnode,
