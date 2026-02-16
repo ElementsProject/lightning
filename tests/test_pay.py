@@ -4797,7 +4797,7 @@ def test_fetchinvoice_autoconnect(node_factory, bitcoind):
 
     l3 = node_factory.get_node()
     l3.rpc.connect(l1.info['id'], 'localhost', l1.port)
-    wait_for(lambda: l3.rpc.listnodes(l2.info['id'])['nodes'] != [])
+    wait_for(lambda: ['addresses' in n for n in l3.rpc.listnodes(l2.info['id'])['nodes']] == [True])
 
     offer = l2.rpc.call('offer', {'amount': '2msat',
                                   'description': 'simple test'})
