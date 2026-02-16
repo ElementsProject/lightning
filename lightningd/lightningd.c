@@ -665,11 +665,10 @@ static void shutdown_global_subdaemons(struct lightningd *ld)
 
 /*~ Our wallet logic needs to know what outputs we might be interested in.  We
  * use BIP32 (a.k.a. "HD wallet") to generate keys from a single seed, so we
- * keep the maximum-ever-used key index in the db, and add them all to the
- * filter here. */
-static void init_txfilter(struct wallet *w,
-			  const struct ext_key *bip32_base,
-			  struct txfilter *filter)
+ * keep the maximum-ever-used key index in the db, and add them all as bwatch
+ * watches here. */
+static void init_wallet_scriptpubkey_watches(struct wallet *w,
+					     const struct ext_key *bip32_base)
 {
 	/*~ This is defined in libwally, so we didn't have to reimplement */
 	struct ext_key ext;
@@ -683,20 +682,24 @@ static void init_txfilter(struct wallet *w,
 		if (bip32_key_from_parent(bip32_base, i, BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
 			abort();
 		}
-		txfilter_add_derkey(filter, ext.pub_key);
+		wallet_add_bwatch_derkey(w->ld, i, ext.pub_key);
 	}
 
-	/* If BIP86 is enabled, also add BIP86-derived keys to the filter */
+	/* If BIP86 is enabled, also add BIP86-derived keys as watches */
 	if (w->ld->bip86_base) {
 		bip86_max_index = db_get_intvar(w->db, "bip86_max_index", 0);
 		for (u64 i = 0; i <= bip86_max_index + w->keyscan_gap; i++) {
 			struct pubkey pubkey;
+			u8 *p2tr_script, *p2wpkh_script;
+
 			bip86_pubkey(w->ld, &pubkey, i);
 			/* Add both P2TR and P2WPKH scripts since BIP86 keys can be used for both */
-			u8 *p2tr_script = scriptpubkey_p2tr(tmpctx, &pubkey);
-			txfilter_add_scriptpubkey(filter, take(p2tr_script));
-			u8 *p2wpkh_script = scriptpubkey_p2wpkh(tmpctx, &pubkey);
-			txfilter_add_scriptpubkey(filter, take(p2wpkh_script));
+			p2tr_script = scriptpubkey_p2tr(tmpctx, &pubkey);
+			wallet_add_bwatch_scriptpubkey(w->ld, "p2tr", i,
+						      p2tr_script, tal_bytelen(p2tr_script));
+			p2wpkh_script = scriptpubkey_p2wpkh(tmpctx, &pubkey);
+			wallet_add_bwatch_scriptpubkey(w->ld, "p2wpkh", i,
+						      p2wpkh_script, tal_bytelen(p2wpkh_script));
 		}
 	}
 }
@@ -1350,12 +1353,12 @@ int main(int argc, char *argv[])
 		errx(EXITCODE_WALLET_DB_MISMATCH, "Wallet sanity check failed.");
 
 	/*~ Initialize the watch manager which consumes watch events from bwatch plugin.
-	 * Must be done before init_txfilter as it now adds watches. */
+	 * Must be done before init_wallet_scriptpubkey_watches as it adds watches. */
 	ld->watchman = watchman_new(ld, ld);
 
-	/*~ Initialize the transaction filter with our pubkeys. */
-	trace_span_start("init_txfilter", ld->wallet);
-	init_txfilter(ld->wallet, ld->bip32_base, ld->owned_txfilter);
+	/*~ Add bwatch watches for our wallet scriptpubkeys (BIP32/BIP86 keys). */
+	trace_span_start("init_wallet_scriptpubkey_watches", ld->wallet);
+	init_wallet_scriptpubkey_watches(ld->wallet, ld->bip32_base);
 	trace_span_end(ld->wallet);
 
 	/*~ Finish our runes initialization (includes reading from db) */
