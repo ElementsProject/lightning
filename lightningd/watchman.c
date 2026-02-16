@@ -301,10 +301,9 @@ static const struct watch_dispatch {
 	const char *prefix;
 	watch_found_fn handler;
 } watch_handlers[] = {
-	/* TODO: Add wallet handlers when wallet.c is updated */
-	/* { "wallet/p2wpkh/",      wallet_watch_p2wpkh }, */
-	/* { "wallet/p2tr/",        wallet_watch_p2tr }, */
-	/* { "wallet/p2sh_p2wpkh/", wallet_watch_p2sh_p2wpkh }, */
+	{ "wallet/p2wpkh/",      wallet_watch_p2wpkh },
+	{ "wallet/p2tr/",        wallet_watch_p2tr },
+	{ "wallet/p2sh_p2wpkh/", wallet_watch_p2sh_p2wpkh },
 	/* Future:
 	{ "channel/funding/",    channel_watch_funding },
 	{ "onchaind/penalty/",   onchaind_watch_penalty },
