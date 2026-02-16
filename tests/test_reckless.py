@@ -519,7 +519,7 @@ def test_reckless_usage(node_factory):
 @pytest.mark.slow_test
 @pytest.mark.flaky(max_runs=3)
 @unittest.skipIf(VALGRIND, "virtual environment triggers memleak detection")
-def test_reckless_install_py(node_factory):
+def test_reckless_install_from_source_py(node_factory):
     """Test reckless install a real python plugin"""
     notification_plugin = os.path.join(os.getcwd(), 'tests/plugins/custom_notifications.py')
     node = get_reckless_node(node_factory, options={"plugin": notification_plugin})
@@ -559,6 +559,46 @@ def test_reckless_install_py(node_factory):
         # Restore redirect for other tests
         if saved_redir is not None:
             my_env['REDIR_GITHUB'] = saved_redir
+
+@pytest.mark.slow_test
+@pytest.mark.flaky(max_runs=3)
+@unittest.skipIf(VALGRIND, "virtual environment triggers memleak detection")
+def test_reckless_install_from_github_url(node_factory):
+    """Test reckless installs a plugin given a full GitHub URL.
+    """
+    # Bypass the canned local redirect so reckless clones from real GitHub.
+    saved_redir = my_env.pop('REDIR_GITHUB', None)
+
+    notification_plugin = os.path.join(os.getcwd(), 'tests/plugins/custom_notifications.py')
+    node = get_reckless_node(node_factory, options={"plugin": notification_plugin})
+
+    github_url = "https://github.com/ca-ruz/bumpit"
+    plugin_name = "bumpit"
+
+    try:
+        r = reckless([f"--network={NETWORK}", "-v", "install", github_url],
+                     dir=node.lightning_dir, timeout=300)
+        assert r.returncode == 0
+        assert r.search_stdout('plugin installed:')
+
+        installed_path = (Path(node.lightning_dir) / 'reckless' / plugin_name).resolve()
+        assert installed_path.is_dir()
+
+        node.start()
+
+        plugins = node.rpc.plugin_list()['plugins']
+        plugin_names = [p['name'] for p in plugins]
+        assert any(plugin_name in name for name in plugin_names)
+
+        r = reckless([f"--network={NETWORK}", "listavailable", "-v", "--json"],
+                     dir=node.lightning_dir)
+        assert r.returncode == 0
+        assert r.search_stdout(plugin_name)
+
+    finally:
+        if saved_redir is not None:
+            my_env['REDIR_GITHUB'] = saved_redir
+
 
 @pytest.mark.slow_test
 @pytest.mark.flaky(max_runs=3)
