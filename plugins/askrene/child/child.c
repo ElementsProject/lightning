@@ -1,18 +1,16 @@
 #include "config.h"
 #include <assert.h>
 #include <ccan/json_out/json_out.h>
-#include <ccan/noerr/noerr.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/str/str.h>
 #include <common/json_stream.h>
 #include <common/route.h>
 #include <common/utils.h>
+#include <plugins/askrene/child/child.h>
 #include <plugins/askrene/child/child_log.h>
-#include <plugins/askrene/child/entry.h>
 #include <plugins/askrene/child/flow.h>
 #include <plugins/askrene/child/mcf.h>
 #include <plugins/askrene/child/route_query.h>
-#include <unistd.h>
 
 /* A single route. */
 struct route {
@@ -195,26 +193,23 @@ static struct route_query *new_route_query(const tal_t *ctx,
 	return rq;
 }
 
-/* Returns fd to child */
-int fork_router_child(const struct gossmap *gossmap,
-		      const struct layer **layers,
-		      const s8 *biases,
-		      const struct additional_cost_htable *additional_costs,
-		      struct reserve_htable *reserved,
-		      fp16_t *capacities TAKES,
-		      bool single_path,
-		      struct timemono deadline,
-		      const struct gossmap_node *srcnode,
-		      const struct gossmap_node *dstnode,
-		      struct amount_msat amount, struct amount_msat maxfee,
-		      u32 finalcltv, u32 maxdelay, size_t maxparts,
-		      bool include_fees,
-		      const char *cmd_id,
-		      struct json_filter *cmd_filter,
-		      int *log_fd,
-		      int *child_pid)
+void run_child(const struct gossmap *gossmap,
+	       const struct layer **layers,
+	       const s8 *biases,
+	       const struct additional_cost_htable *additional_costs,
+	       struct reserve_htable *reserved,
+	       fp16_t *capacities TAKES,
+	       bool single_path,
+	       struct timemono deadline,
+	       const struct gossmap_node *srcnode,
+	       const struct gossmap_node *dstnode,
+	       struct amount_msat amount, struct amount_msat maxfee,
+	       u32 finalcltv, u32 maxdelay, size_t maxparts,
+              bool include_fees,
+	       const char *cmd_id,
+	       struct json_filter *cmd_filter,
+	       int replyfd)
 {
-	int replyfds[2], logfds[2];
 	double probability;
 	struct flow **flows;
 	struct route **routes;
@@ -222,35 +217,6 @@ int fork_router_child(const struct gossmap *gossmap,
 	const char *err, *p;
 	size_t len;
 	struct route_query *rq;
-
-	if (pipe(replyfds) != 0)
-		goto parent_fail;
-	if (pipe(logfds) != 0) {
-		close_noerr(replyfds[0]);
-		close_noerr(replyfds[1]);
-		goto parent_fail;
-	}
-	*child_pid = fork();
-	if (*child_pid < 0) {
-		close_noerr(replyfds[0]);
-		close_noerr(replyfds[1]);
-		close_noerr(logfds[0]);
-		close_noerr(logfds[1]);
-		goto parent_fail;
-	}
-	if (*child_pid != 0) {
-		close(logfds[1]);
-		close(replyfds[1]);
-		*log_fd = logfds[0];
-		if (taken(capacities))
-			tal_free(capacities);
-		return replyfds[0];
-	}
-
-	/* We are the child.  Run the algo */
-	close(logfds[0]);
-	close(replyfds[0]);
-	set_child_log_fd(logfds[1]);
 
 	/* We exit below, so we don't bother freeing this */
 	rq = new_route_query(NULL, gossmap, cmd_id, layers,
@@ -266,7 +232,7 @@ int fork_router_child(const struct gossmap *gossmap,
 				     maxparts, &flows, &probability);
 	}
 	if (err) {
-		write_all(replyfds[1], err, strlen(err));
+		write_all(replyfd, err, strlen(err));
 		/* Non-zero exit tells parent this is an error string. */
 		exit(1);
 	}
@@ -305,13 +271,8 @@ int fork_router_child(const struct gossmap *gossmap,
 	json_stream_close(js, NULL);
 
 	p = json_out_contents(js->jout, &len);
-	if (!write_all(replyfds[1], p, len))
+	if (!write_all(replyfd, p, len))
 		abort();
 	exit(0);
-
-parent_fail:
-	if (taken(capacities))
-		tal_free(capacities);
-	return -1;
 }
 

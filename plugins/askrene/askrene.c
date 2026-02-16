@@ -8,6 +8,7 @@
  */
 #include "config.h"
 #include <ccan/array_size/array_size.h>
+#include <ccan/noerr/noerr.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/str/str.h>
 #include <common/clock_time.h>
@@ -24,7 +25,8 @@
 #include <math.h>
 #include <plugins/askrene/askrene.h>
 #include <plugins/askrene/child/additional_costs.h>
-#include <plugins/askrene/child/entry.h>
+#include <plugins/askrene/child/child.h>
+#include <plugins/askrene/child/child_log.h>
 #include <plugins/askrene/layer.h>
 #include <plugins/askrene/reserve.h>
 #include <sys/wait.h>
@@ -522,12 +524,11 @@ static struct command_result *do_getroutes(struct command *cmd,
 	bool include_fees;
 	const char *err;
 	struct timemono deadline;
-	int child_fd, log_fd;
+	int replyfds[2], logfds[2];
 	struct router_child *child;
 	const struct layer **layers;
 	s8 *biases;
 	fp16_t *capacities;
-	int ecode;
 
 	/* update the gossmap */
 	if (gossmap_refresh(askrene->gossmap)) {
@@ -625,31 +626,56 @@ static struct command_result *do_getroutes(struct command *cmd,
 	child->start = time_mono();
 	deadline = timemono_add(child->start,
 				time_from_sec(askrene->route_seconds));
-	child_fd = fork_router_child(askrene->gossmap,
-				     layers,
-				     biases,
-				     info->additional_costs,
-				     askrene->reserved,
-				     take(capacities),
-				     info->dev_algo == ALGO_SINGLE_PATH,
-				     deadline, srcnode, dstnode, info->amount,
-				     info->maxfee, info->finalcltv, info->maxdelay, info->maxparts,
-				     include_fees,
-				     cmd->id, cmd->filter, &log_fd, &child->pid);
-	/* Save this, as remove_localmods won't preserve it. */
-	ecode = errno;
-	/* We don't need this any more. */
-	gossmap_remove_localmods(askrene->gossmap, localmods);
 
-	if (child_fd == -1) {
-		err = tal_fmt(tmpctx, "failed to fork: %s", strerror(ecode));
-		gossmap_remove_localmods(askrene->gossmap, localmods);
+	if (pipe(replyfds) != 0) {
+		err = tal_fmt(tmpctx, "failed to create pipes: %s", strerror(errno));
+		goto fail_broken;
+	}
+	if (pipe(logfds) != 0) {
+		err = tal_fmt(tmpctx, "failed to create pipes: %s", strerror(errno));
+		close_noerr(replyfds[0]);
+		close_noerr(replyfds[1]);
+		goto fail_broken;
+	}
+	child->pid = fork();
+	if (child->pid < 0) {
+		err = tal_fmt(tmpctx, "failed to fork: %s", strerror(errno));
+		close_noerr(replyfds[0]);
+		close_noerr(replyfds[1]);
+		close_noerr(logfds[0]);
+		close_noerr(logfds[1]);
 		goto fail_broken;
 	}
 
-	child->reply_conn = io_new_conn(child, child_fd,
+	if (child->pid == 0) {
+		/* We are the child.  Run the algo */
+		close(logfds[0]);
+		close(replyfds[0]);
+		set_child_log_fd(logfds[1]);
+
+		/* Does not return! */
+		run_child(askrene->gossmap,
+			  layers,
+			  biases,
+			  info->additional_costs,
+			  askrene->reserved,
+			  take(capacities),
+			  info->dev_algo == ALGO_SINGLE_PATH,
+			  deadline, srcnode, dstnode, info->amount,
+			  info->maxfee, info->finalcltv, info->maxdelay, info->maxparts,
+			  include_fees,
+			  cmd->id, cmd->filter, replyfds[1]);
+		abort();
+	}
+
+	close(logfds[1]);
+	close(replyfds[1]);
+
+	/* We don't need this any more. */
+	gossmap_remove_localmods(askrene->gossmap, localmods);
+	child->reply_conn = io_new_conn(child, replyfds[0],
 					child_reply_init, child);
-	child->log_conn = io_new_conn(child, log_fd, child_log_init, child);
+	child->log_conn = io_new_conn(child, logfds[0], child_log_init, child);
 	child->cmd = cmd;
 
 	list_add_tail(&askrene->children, &child->list);
