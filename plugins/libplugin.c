@@ -473,16 +473,22 @@ struct json_stream *jsonrpc_stream_fail_data(struct command *cmd,
 	return js;
 }
 
-static struct command_result *command_complete(struct command *cmd,
-					       struct json_stream *result)
+static struct command_result *command_complete_nojson(struct command *cmd,
+						      struct json_stream *result)
 {
-	/* Global object */
-	json_object_end(result);
 	json_stream_close(result, cmd);
 	ld_send(cmd->plugin, result);
 	tal_free(cmd);
 
 	return &complete;
+}
+
+static struct command_result *command_complete(struct command *cmd,
+					       struct json_stream *result)
+{
+	/* Global object */
+	json_object_end(result);
+	return command_complete_nojson(cmd, result);
 }
 
 struct command_result *command_finished(struct command *cmd,
@@ -504,6 +510,20 @@ struct command_result *command_finished(struct command *cmd,
 	json_object_end(response);
 
 	return command_complete(cmd, response);
+}
+
+struct command_result *command_finish_rawstr(struct command *cmd,
+					     const char *json,
+					     size_t json_len)
+{
+	struct json_stream *js = new_json_stream(cmd, cmd, NULL);
+	char *raw;
+
+	assert(cmd->type == COMMAND_TYPE_NORMAL
+	       || cmd->type == COMMAND_TYPE_HOOK);
+	raw = json_out_direct(js->jout, json_len);
+	memcpy(raw, json, json_len);
+	return command_complete_nojson(cmd, js);
 }
 
 struct command_result *WARN_UNUSED_RESULT
