@@ -1,8 +1,9 @@
-#ifndef LIGHTNING_PLUGINS_ASKRENE_MCF_H
-#define LIGHTNING_PLUGINS_ASKRENE_MCF_H
+#ifndef LIGHTNING_PLUGINS_ASKRENE_CHILD_MCF_H
+#define LIGHTNING_PLUGINS_ASKRENE_CHILD_MCF_H
 /* Eduardo Quintela's (lagrang3@protonmail.com) Min Cost Flow implementation
  * from renepay, as modified to fit askrene */
 #include "config.h"
+#include <ccan/time/time.h>
 #include <common/amount.h>
 #include <common/gossmap.h>
 
@@ -29,4 +30,4 @@ const char *single_path_routes(const tal_t *ctx, struct route_query *rq,
 			       u32 maxdelay, struct flow ***flows,
 			       double *probability);
 
-#endif /* LIGHTNING_PLUGINS_ASKRENE_MCF_H */
+#endif /* LIGHTNING_PLUGINS_ASKRENE_CHILD_MCF_H */

@@ -14,6 +14,7 @@
 #include <common/node_id.h>
 
 struct askrene;
+struct command;
 struct layer;
 struct json_stream;
 

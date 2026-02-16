@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_PLUGINS_ASKRENE_FLOW_H
-#define LIGHTNING_PLUGINS_ASKRENE_FLOW_H
+#ifndef LIGHTNING_PLUGINS_ASKRENE_CHILD_FLOW_H
+#define LIGHTNING_PLUGINS_ASKRENE_CHILD_FLOW_H
 #include "config.h"
 #include <bitcoin/short_channel_id.h>
 #include <common/amount.h>
@@ -66,4 +66,4 @@ const char *fmt_flows_step_scid(const tal_t *ctx,
 const char *fmt_flow_full(const tal_t *ctx,
 			  const struct route_query *rq,
 			  const struct flow *flow);
-#endif /* LIGHTNING_PLUGINS_ASKRENE_FLOW_H */
+#endif /* LIGHTNING_PLUGINS_ASKRENE_CHILD_FLOW_H */

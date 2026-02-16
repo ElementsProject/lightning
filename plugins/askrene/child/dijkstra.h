@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_PLUGINS_ASKRENE_DIJKSTRA_H
-#define LIGHTNING_PLUGINS_ASKRENE_DIJKSTRA_H
+#ifndef LIGHTNING_PLUGINS_ASKRENE_CHILD_DIJKSTRA_H
+#define LIGHTNING_PLUGINS_ASKRENE_CHILD_DIJKSTRA_H
 #include "config.h"
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
@@ -27,4 +27,4 @@ size_t dijkstra_size(const struct dijkstra *dijkstra);
 /* Maximum number of elements the heap can host */
 size_t dijkstra_maxsize(const struct dijkstra *dijkstra);
 
-#endif /* LIGHTNING_PLUGINS_ASKRENE_DIJKSTRA_H */
+#endif /* LIGHTNING_PLUGINS_ASKRENE_CHILD_DIJKSTRA_H */

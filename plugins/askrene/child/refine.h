@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_PLUGINS_ASKRENE_REFINE_H
-#define LIGHTNING_PLUGINS_ASKRENE_REFINE_H
+#ifndef LIGHTNING_PLUGINS_ASKRENE_CHILD_REFINE_H
+#define LIGHTNING_PLUGINS_ASKRENE_CHILD_REFINE_H
 #include "config.h"
 #include <ccan/tal/tal.h>
 
@@ -41,4 +41,4 @@ const char *reduce_num_flows(const tal_t *ctx,
 			     struct flow ***flows,
 			     struct amount_msat deliver,
 			     size_t num_parts);
-#endif /* LIGHTNING_PLUGINS_ASKRENE_REFINE_H */
+#endif /* LIGHTNING_PLUGINS_ASKRENE_CHILD_REFINE_H */

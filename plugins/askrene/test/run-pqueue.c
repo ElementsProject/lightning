@@ -6,7 +6,7 @@
 #include <stdio.h>
 
 #define ASKRENE_UNITTEST
-#include "../priorityqueue.c"
+#include "../child/priorityqueue.c"
 
 #define CHECK(arg) if(!(arg)){fprintf(stderr, "failed CHECK at line %d: %s\n", __LINE__, #arg); abort();}
 

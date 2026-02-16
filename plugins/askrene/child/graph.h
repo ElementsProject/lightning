@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_PLUGINS_ASKRENE_GRAPH_H
-#define LIGHTNING_PLUGINS_ASKRENE_GRAPH_H
+#ifndef LIGHTNING_PLUGINS_ASKRENE_CHILD_GRAPH_H
+#define LIGHTNING_PLUGINS_ASKRENE_CHILD_GRAPH_H
 
 /* Defines a graph data structure. */
 
@@ -168,4 +168,4 @@ bool graph_add_arc(struct graph *graph, const struct arc arc,
 struct graph *graph_new(const tal_t *ctx, const size_t max_num_nodes,
 			const size_t max_num_arcs, const size_t arc_dual_bit);
 
-#endif /* LIGHTNING_PLUGINS_ASKRENE_GRAPH_H */
+#endif /* LIGHTNING_PLUGINS_ASKRENE_CHILD_GRAPH_H */

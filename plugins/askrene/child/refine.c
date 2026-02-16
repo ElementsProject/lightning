@@ -4,8 +4,8 @@
 #include <ccan/tal/str/str.h>
 #include <common/gossmap.h>
 #include <plugins/askrene/askrene.h>
-#include <plugins/askrene/flow.h>
-#include <plugins/askrene/refine.h>
+#include <plugins/askrene/child/flow.h>
+#include <plugins/askrene/child/refine.h>
 #include <plugins/askrene/reserve.h>
 #include <string.h>
 
