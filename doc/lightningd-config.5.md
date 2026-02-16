@@ -563,6 +563,10 @@ command, so they invoices can also be paid onchain.
 
   This option makes the `getroutes` call fail if it takes more than this many seconds.  Setting it to zero is a fun way to ensure your node never makes payments.
 
+* **askrene-max-threads**=*NUMBER* [plugin `askrene`, *dynamic*]
+
+  This option controls how many routes askrene will calculate at once: this is only useful on nodes which make multiple payments at once, and setting the number higher than your number of cores/CPUS will not help.  The default is 4.
+
 ### Networking options
 
 Note that for simple setups, the implicit *autolisten* option does the

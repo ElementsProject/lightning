@@ -28,8 +28,14 @@ struct askrene {
 	struct command *layer_cmd;
 	/* How long before we abort trying to find a route? */
 	u32 route_seconds;
+	/* Maximum number of routing children */
+	u32 max_children;
+	/* How many requests live now? */
+	size_t num_live_requests;
 	/* Routing children currently in flight. */
 	struct list_head children;
+	/* Ones waiting */
+	struct list_head waiters;
 };
 
 /* Useful plugin->askrene mapping */
