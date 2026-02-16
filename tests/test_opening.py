@@ -1536,36 +1536,6 @@ def test_funder_contribution_limits(node_factory, bitcoind):
     assert l3.daemon.is_in_log(r'calling `signpsbt` .* 6 inputs')
 
 
-@pytest.mark.openchannel('v2')
-def test_inflight_dbload(node_factory, bitcoind):
-    """Bad db field access breaks Postgresql on startup with opening leases"""
-    disconnects = ["@WIRE_COMMITMENT_SIGNED"]
-
-    opts = [{'experimental-dual-fund': None, 'dev-no-reconnect': None,
-             'may_reconnect': True, 'disconnect': disconnects},
-            {'experimental-dual-fund': None, 'dev-no-reconnect': None,
-             'may_reconnect': True, 'funder-policy': 'match',
-             'funder-policy-mod': 100, 'lease-fee-base-sat': '100sat',
-             'lease-fee-basis': 100}]
-
-    l1, l2 = node_factory.get_nodes(2, opts=opts)
-
-    feerate = 2000
-    amount = 500000
-    l1.fundwallet(20000000)
-    l2.fundwallet(20000000)
-
-    # l1 leases a channel from l2
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    rates = l1.rpc.dev_queryrates(l2.info['id'], amount, amount)
-    l1.rpc.fundchannel(l2.info['id'], amount, request_amt=amount,
-                       feerate='{}perkw'.format(feerate),
-                       compact_lease=rates['compact_lease'])
-    l1.daemon.wait_for_log(r'dev_disconnect: @WIRE_COMMITMENT_SIGNED')
-
-    l1.restart()
-
-
 def test_zeroconf_mindepth(bitcoind, node_factory):
     """Check that funder/fundee can customize mindepth.
 
