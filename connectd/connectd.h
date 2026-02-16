@@ -3,6 +3,7 @@
 #include "config.h"
 #include <bitcoin/short_channel_id.h>
 #include <ccan/htable/htable_type.h>
+#include <ccan/membuf/membuf.h>
 #include <ccan/timer/timer.h>
 #include <common/bigsize.h>
 #include <common/crypto_state.h>
@@ -86,8 +87,7 @@ struct peer {
 	struct msg_queue *peer_outq;
 
 	/* Encrypted peer sending buffer */
-	u8 *encrypted_peer_out;
-	size_t encrypted_peer_out_off;
+	MEMBUF(u8) encrypted_peer_out;
 	size_t encrypted_peer_out_sent;
 	size_t peer_out_urgent;
 	bool flushing_nonurgent;
