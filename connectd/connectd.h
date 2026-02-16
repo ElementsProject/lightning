@@ -89,7 +89,7 @@ struct peer {
 	struct msg_queue *peer_outq;
 
 	/* Encrypted peer sending buffer */
-	const u8 *encrypted_peer_out;
+	u8 *encrypted_peer_out;
 	size_t encrypted_peer_out_off;
 	size_t encrypted_peer_out_sent;
 
