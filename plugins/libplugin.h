@@ -363,6 +363,13 @@ WARN_UNUSED_RESULT
 struct command_result *command_still_pending(struct command *cmd)
 	NON_NULL_ARGS(1);
 
+/* Forward this raw JSON string as the command response */
+WARN_UNUSED_RESULT
+struct command_result *command_finish_rawstr(struct command *cmd,
+					     const char *json,
+					     size_t json_len)
+	NO_NULL_ARGS;
+
 /* Helper to create a zero or single-value JSON object; if @str is NULL,
  * object is empty. */
 struct json_out *json_out_obj(const tal_t *ctx,
