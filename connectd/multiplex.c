@@ -22,7 +22,6 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <netinet/in.h>
-#include <netinet/tcp.h>
 #include <wire/peer_wire.h>
 #include <wire/wire_io.h>
 
@@ -294,42 +293,7 @@ void setup_peer_gossip_store(struct peer *peer,
 	return;
 }
 
-/* We're happy for the kernel to batch update and gossip messages, but a
- * commitment message, for example, should be instantly sent.  There's no
- * great way of doing this, unfortunately.
- *
- * Setting TCP_NODELAY on Linux flushes the socket, which really means
- * we'd want to toggle on then off it *after* sending.  But Linux has
- * TCP_CORK.  On FreeBSD, it seems (looking at source) not to, so
- * there we'd want to set it before the send, and reenable it
- * afterwards.  Even if this is wrong on other non-Linux platforms, it
- * only means one extra packet.
- */
-static void set_urgent_flag(struct peer *peer, bool urgent)
-{
-	int val;
-
-	if (urgent == peer->urgent)
-		return;
-
-	/* FIXME: We can't do this on websockets, but we could signal our
-	 * websocket proxy via some magic message to do so! */
-	if (peer->is_websocket != NORMAL_SOCKET)
-		return;
-
-	val = urgent;
-	if (setsockopt(io_conn_fd(peer->to_peer),
-		       IPPROTO_TCP, TCP_NODELAY, &val, sizeof(val)) != 0
-	    /* This actually happens in testing, where we blackhole the fd */
-	    && peer->daemon->dev_disconnect_fd == -1) {
-		status_broken("setsockopt TCP_NODELAY=1 fd=%u: %s",
-			      io_conn_fd(peer->to_peer),
-			      strerror(errno));
-	}
-	peer->urgent = urgent;
-}
-
-static bool is_urgent(enum peer_wire type)
+static bool UNNEEDED is_urgent(enum peer_wire type)
 {
 	switch (type) {
 	case WIRE_INIT:
@@ -509,8 +473,6 @@ static struct io_plan *write_encrypted_to_peer(struct peer *peer)
 static struct io_plan *encrypt_and_send(struct peer *peer, const u8 *msg TAKES)
 {
 	int type = fromwire_peektype(msg);
-
-	set_urgent_flag(peer, is_urgent(type));
 
 	/* Special message type directing us to process batch items. */
 	if (type == WIRE_PROTOCOL_BATCH_ELEMENT) {
