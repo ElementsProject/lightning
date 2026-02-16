@@ -256,16 +256,22 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 			}
 		} else if (pollfd[1].revents & POLLIN) {
 			u8 *pong;
+			bool is_padding;
 
 			msg = sync_crypto_read(NULL, peer_fd, cs);
 			if (!msg)
 				err(1, "Reading msg");
-			if (handle_pings
-			    && fromwire_peektype(msg) == WIRE_PING
-			    && check_ping_make_pong(tmpctx, msg, &pong)
-			    && pong) {
-				sync_crypto_write(peer_fd, cs, take(pong));
-			}
+			if (check_ping_make_pong(tmpctx, msg, &pong)) {
+				if (!pong)
+					is_padding = true;
+				else {
+					is_padding = false;
+					if (handle_pings)
+						sync_crypto_write(peer_fd, cs, take(pong));
+				}
+			} else
+				is_padding = false;
+
 			if (!accept_message(msg)) {
 				tal_free(msg);
 				continue;
@@ -278,7 +284,9 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 				    || !write_all(STDOUT_FILENO, msg, tal_bytelen(msg)))
 					err(1, "Writing out msg");
 			}
-			--max_messages;
+			/* Don't count "padding" pings as real messages */
+			if (!is_padding)
+				--max_messages;
 			tal_free(msg);
 		}
 	}
