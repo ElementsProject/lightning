@@ -454,33 +454,30 @@ static u8 *process_batch_elements(struct peer *peer, const u8 *msg TAKES)
 	return ret;
 }
 
-static struct io_plan *encrypt_and_send(struct peer *peer, const u8 *msg TAKES)
+/* --dev-disconnect can do magic things: if this returns non-NULL,
+     free msg and do that */
+static struct io_plan *msg_out_dev_disconnect(struct peer *peer, const u8 *msg)
 {
 	int type = fromwire_peektype(msg);
 
 	switch (dev_disconnect_out(&peer->id, type)) {
 	case DEV_DISCONNECT_OUT_BEFORE:
-		if (taken(msg))
-			tal_free(msg);
 		return io_close(peer->to_peer);
 	case DEV_DISCONNECT_OUT_AFTER:
 		/* Disallow reads from now on */
 		peer->dev_read_enabled = false;
 		free_all_subds(peer);
 		drain_peer(peer);
-		break;
+		return NULL;
 	case DEV_DISCONNECT_OUT_BLACKHOLE:
 		/* Disable both reads and writes from now on */
 		peer->dev_read_enabled = false;
 		peer->dev_writes_enabled = talz(peer, u32);
-		break;
+		return NULL;
 	case DEV_DISCONNECT_OUT_NORMAL:
-		break;
+		return NULL;
 	case DEV_DISCONNECT_OUT_DROP:
-		/* Drop this message and continue */
-		if (taken(msg))
-			tal_free(msg);
-		/* Tell them to read again, */
+		/* Tell them to read again. */
 		io_wake(&peer->subds);
 		return msg_queue_wait(peer->to_peer, peer->peer_outq,
 				      write_to_peer, peer);
@@ -488,8 +485,14 @@ static struct io_plan *encrypt_and_send(struct peer *peer, const u8 *msg TAKES)
 		peer->dev_read_enabled = false;
 		peer->dev_writes_enabled = tal(peer, u32);
 		*peer->dev_writes_enabled = 1;
-		break;
+		return NULL;
 	}
+	abort();
+}
+
+static struct io_plan *encrypt_and_send(struct peer *peer, const u8 *msg TAKES)
+{
+	int type = fromwire_peektype(msg);
 
 	set_urgent_flag(peer, is_urgent(type));
 
@@ -1116,6 +1119,8 @@ static struct io_plan *write_to_peer(struct io_conn *peer_conn,
 				     struct peer *peer)
 {
 	const u8 *msg;
+	struct io_plan *dev_override;
+
 	assert(peer->to_peer == peer_conn);
 
 	/* Free last sent one (if any) */
@@ -1143,6 +1148,11 @@ static struct io_plan *write_to_peer(struct io_conn *peer_conn,
 		status_peer_debug(&peer->id, "draining, but sending %s.",
 				  peer_wire_name(fromwire_peektype(msg)));
 
+	dev_override = msg_out_dev_disconnect(peer, msg);
+	if (dev_override) {
+		tal_free(msg);
+		return dev_override;
+	}
 	return encrypt_and_send(peer, take(msg));
 }
 
