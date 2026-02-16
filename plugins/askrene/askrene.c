@@ -361,34 +361,6 @@ static const char *fmt_route(const tal_t *ctx,
 	return str;
 }
 
-const char *fmt_flow_full(const tal_t *ctx,
-			  const struct route_query *rq,
-			  const struct flow *flow)
-{
-	struct amount_msat amt = flow->delivers;
-	char *str = fmt_amount_msat(ctx, flow->delivers);
-
-	for (int i = tal_count(flow->path) - 1; i >= 0; i--) {
-		struct short_channel_id_dir scidd;
-		struct amount_msat min, max;
-		scidd.scid = gossmap_chan_scid(rq->gossmap, flow->path[i]);
-		scidd.dir = flow->dirs[i];
-		if (!amount_msat_add_fee(&amt,
-					 flow->path[i]->half[scidd.dir].base_fee,
-					 flow->path[i]->half[scidd.dir].proportional_fee))
-			abort();
-		get_constraints(rq, flow->path[i], scidd.dir, &min, &max);
-		tal_append_fmt(&str, " <- %s %s (cap=%s,fee=%u+%u,delay=%u)",
-			       fmt_amount_msat(tmpctx, amt),
-			       fmt_short_channel_id_dir(tmpctx, &scidd),
-			       fmt_amount_msat(tmpctx, max),
-			       flow->path[i]->half[scidd.dir].base_fee,
-			       flow->path[i]->half[scidd.dir].proportional_fee,
-			       flow->path[i]->half[scidd.dir].delay);
-	}
-	return str;
-}
-
 enum algorithm {
 	/* Min. Cost Flow by successive shortests paths. */
 	ALGO_DEFAULT,
