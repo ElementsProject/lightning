@@ -3,9 +3,10 @@
 #include <common/dijkstra.h>
 #include <common/gossmap.h>
 #include <common/route.h>
-#include <plugins/askrene/askrene.h>
+#include <common/utils.h>
 #include <plugins/askrene/child/child_log.h>
 #include <plugins/askrene/child/explain_failure.h>
+#include <plugins/askrene/child/route_query.h>
 #include <plugins/askrene/layer.h>
 #include <plugins/askrene/reserve.h>
 

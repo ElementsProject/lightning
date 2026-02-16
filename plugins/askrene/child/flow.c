@@ -5,9 +5,9 @@
 #include <common/fp16.h>
 #include <common/overflows.h>
 #include <math.h>
-#include <plugins/askrene/askrene.h>
 #include <plugins/askrene/child/child_log.h>
 #include <plugins/askrene/child/flow.h>
+#include <plugins/askrene/child/route_query.h>
 #include <plugins/libplugin.h>
 #include <stdio.h>
 
