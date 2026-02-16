@@ -11,7 +11,7 @@
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
-#include <wallet/txfilter.h>
+#include <wallet/wallet.h>
 
 /* 12 hours is usually enough reservation time */
 #define RESERVATION_DEFAULT (6 * 12)
@@ -360,7 +360,7 @@ static struct command_result *finish_psbt(struct command *cmd,
 	change = change_amount(change, feerate_per_kw, weight);
 	if (amount_sat_greater(change, AMOUNT_SAT(0))) {
 		s64 keyidx;
-		u8 *b32script;
+		u8 *scriptpubkey;
 		enum addrtype type;
 
 		/* FIXME: P2TR for elements! */
@@ -377,19 +377,21 @@ static struct command_result *finish_psbt(struct command *cmd,
 					    " Keys exhausted.");
 
 		if (chainparams->is_elements) {
-			b32script = p2wpkh_for_keyidx(tmpctx, cmd->ld, keyidx);
+			scriptpubkey = p2wpkh_for_keyidx(tmpctx, cmd->ld, keyidx);
 		} else {
-			b32script = p2tr_for_keyidx(tmpctx, cmd->ld, keyidx);
+			scriptpubkey = p2tr_for_keyidx(tmpctx, cmd->ld, keyidx);
 		}
-		if (!b32script) {
+		if (!scriptpubkey) {
 			return command_fail(cmd, LIGHTNINGD,
 					    "Failed to generate change address."
 					    " Keys generation failure");
 		}
-		txfilter_add_scriptpubkey(cmd->ld->owned_txfilter, b32script);
+		wallet_add_bwatch_scriptpubkey(cmd->ld,
+					      type == ADDR_BECH32 ? "p2wpkh" : "p2tr",
+					      keyidx, scriptpubkey, tal_bytelen(scriptpubkey));
 
 		change_outnum = psbt->num_outputs;
-		psbt_append_output(psbt, b32script, change);
+		psbt_append_output(psbt, scriptpubkey, change);
 		/* Add additional weight of output */
 		weight += bitcoin_tx_output_weight(
 				chainparams->is_elements ? BITCOIN_SCRIPTPUBKEY_P2WPKH_LEN : BITCOIN_SCRIPTPUBKEY_P2TR_LEN);
@@ -657,7 +659,7 @@ static struct command_result *json_addpsbtoutput(struct command *cmd,
 	ssize_t outnum;
 	u32 weight;
 	s64 keyidx;
-	const u8 *b32script;
+	const u8 *scriptpubkey;
 	bool *add_initiator_serial_ids;
 	struct wally_psbt_output *output;
 	u64 serial_id;
@@ -667,7 +669,7 @@ static struct command_result *json_addpsbtoutput(struct command *cmd,
 			 p_opt("initialpsbt", param_psbt, &psbt),
 			 p_opt("locktime", param_number, &locktime),
 			 p_opt("destination", param_bitcoin_address,
-			       &b32script),
+			       &scriptpubkey),
 			 p_opt_def("add_initiator_serial_ids", param_bool,
 			 	   &add_initiator_serial_ids, false),
 			 NULL))
@@ -699,7 +701,7 @@ static struct command_result *json_addpsbtoutput(struct command *cmd,
 		return command_check_done(cmd);
 
 	/* Get a change adddress */
-	if (!b32script) {
+	if (!scriptpubkey) {
 		enum addrtype type;
 
 		/* FIXME: P2TR for elements! */
@@ -715,21 +717,23 @@ static struct command_result *json_addpsbtoutput(struct command *cmd,
 					    " Keys exhausted.");
 
 		if (chainparams->is_elements) {
-			b32script = p2wpkh_for_keyidx(tmpctx, cmd->ld, keyidx);
+			scriptpubkey = p2wpkh_for_keyidx(tmpctx, cmd->ld, keyidx);
 		} else {
-			b32script = p2tr_for_keyidx(tmpctx, cmd->ld, keyidx);
+			scriptpubkey = p2tr_for_keyidx(tmpctx, cmd->ld, keyidx);
 		}
 
-		if (!b32script) {
+		if (!scriptpubkey) {
 			return command_fail(cmd, LIGHTNINGD,
 					    "Failed to generate change address."
 					    " Keys generation failure");
 		}
-		txfilter_add_scriptpubkey(cmd->ld->owned_txfilter, b32script);
+		wallet_add_bwatch_scriptpubkey(cmd->ld,
+					      type == ADDR_BECH32 ? "p2wpkh" : "p2tr",
+					      keyidx, scriptpubkey, tal_bytelen(scriptpubkey));
 	}
 
 	outnum = psbt->num_outputs;
-	output = psbt_append_output(psbt, b32script, *amount);
+	output = psbt_append_output(psbt, scriptpubkey, *amount);
 
 	if (*add_initiator_serial_ids) {
 		serial_id = psbt_new_output_serial(psbt, TX_INITIATOR);
