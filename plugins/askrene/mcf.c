@@ -528,26 +528,6 @@ static double base_fee_penalty_estimate(struct amount_msat amount)
 	return amount_msat_ratio(AMOUNT_MSAT(10000000), amount);
 }
 
-struct amount_msat linear_flow_cost(const struct flow *flow,
-				    struct amount_msat total_amount,
-				    double delay_feefactor)
-{
-	struct amount_msat msat_cost;
-	s64 cost_ppm = 0;
-	double base_fee_penalty = base_fee_penalty_estimate(total_amount);
-
-	for (size_t i = 0; i < tal_count(flow->path); i++) {
-		const struct half_chan *h = &flow->path[i]->half[flow->dirs[i]];
-
-		cost_ppm +=
-		    linear_fee_cost(h->base_fee, h->proportional_fee, h->delay,
-				    base_fee_penalty, delay_feefactor);
-	}
-	if (!amount_msat_fee(&msat_cost, flow->delivers, 0, cost_ppm))
-		abort();
-	return msat_cost;
-}
-
 static void init_linear_network(const tal_t *ctx,
 				const struct pay_parameters *params,
 				struct graph **graph, double **arc_prob_cost,
@@ -965,13 +945,13 @@ get_flow_singlepath(const tal_t *ctx, const struct pay_parameters *params,
  * Check that local channels have fee costs = 0 and bounds with certainty (min=max). */
 // TODO(eduardo): we should LOG_DBG the process of finding the MCF while
 // adjusting the frugality factor.
-struct flow **minflow(const tal_t *ctx,
-		      const struct route_query *rq,
-		      const struct gossmap_node *source,
-		      const struct gossmap_node *target,
-		      struct amount_msat amount,
-		      u32 mu,
-		      double delay_feefactor)
+static struct flow **minflow(const tal_t *ctx,
+			     const struct route_query *rq,
+			     const struct gossmap_node *source,
+			     const struct gossmap_node *target,
+			     struct amount_msat amount,
+			     u32 mu,
+			     double delay_feefactor)
 {
 	struct flow **flow_paths;
 	/* We allocate everything off this, and free it at the end,
@@ -1164,12 +1144,27 @@ static void init_linear_network_single_path(
 	}
 }
 
-/* Similar to minflow but computes routes that have a single path. */
-struct flow **single_path_flow(const tal_t *ctx, const struct route_query *rq,
-			       const struct gossmap_node *source,
-			       const struct gossmap_node *target,
-			       struct amount_msat amount, u32 mu,
-			       double delay_feefactor)
+/**
+ * API for min cost single path.
+ * @ctx: context to allocate returned flows from
+ * @rq: the route_query we're processing (for logging)
+ * @source: the source to start from
+ * @target: the target to pay
+ * @amount: the amount we want to reach @target
+ * @mu: 0 = corresponds to only probabilities, 100 corresponds to only fee.
+ * @delay_feefactor: convert 1 block delay into msat.
+ *
+ * @delay_feefactor converts 1 block delay into msat, as if it were an additional
+ * fee.  So if a CLTV delay on a node is 5 blocks, that's treated as if it
+ * were a fee of 5 * @delay_feefactor.
+ *
+ * Returns an array with one flow which deliver amount to target, or NULL.
+ */
+static struct flow **single_path_flow(const tal_t *ctx, const struct route_query *rq,
+				      const struct gossmap_node *source,
+				      const struct gossmap_node *target,
+				      struct amount_msat amount, u32 mu,
+				      double delay_feefactor)
 {
 	struct flow **flow_paths;
 	/* We allocate everything off this, and free it at the end,
