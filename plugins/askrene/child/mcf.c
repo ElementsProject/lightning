@@ -9,7 +9,6 @@
 #include <float.h>
 #include <inttypes.h>
 #include <math.h>
-#include <plugins/askrene/askrene.h>
 #include <plugins/askrene/child/algorithm.h>
 #include <plugins/askrene/child/child_log.h>
 #include <plugins/askrene/child/dijkstra.h>
@@ -18,6 +17,7 @@
 #include <plugins/askrene/child/graph.h>
 #include <plugins/askrene/child/mcf.h>
 #include <plugins/askrene/child/refine.h>
+#include <plugins/askrene/child/route_query.h>
 #include <stdint.h>
 
 /* # Optimal payments
