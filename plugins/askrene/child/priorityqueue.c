@@ -1,6 +1,6 @@
 #define NDEBUG 1
 #include "config.h"
-#include <plugins/askrene/priorityqueue.h>
+#include <plugins/askrene/child/priorityqueue.h>
 
 /* priorityqueue: a data structure for pairs (key, value) with
  * 0<=key<max_num_elements, with easy access to elements by key and the pair

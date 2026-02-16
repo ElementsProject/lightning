@@ -1,32 +1,22 @@
-PLUGIN_ASKRENE_SRC := \
+PLUGIN_ASKRENE_PARENT_SRC := \
 	plugins/askrene/askrene.c \
 	plugins/askrene/datastore_wire.c \
 	plugins/askrene/layer.c \
 	plugins/askrene/reserve.c \
-	plugins/askrene/mcf.c \
-	plugins/askrene/dijkstra.c \
-	plugins/askrene/flow.c \
-	plugins/askrene/refine.c \
-	plugins/askrene/explain_failure.c \
-	plugins/askrene/graph.c \
-	plugins/askrene/priorityqueue.c \
-	plugins/askrene/algorithm.c \
+
+PLUGIN_ASKRENE_CHILD_SRC := \
+	plugins/askrene/child/mcf.c \
+	plugins/askrene/child/dijkstra.c \
+	plugins/askrene/child/flow.c \
+	plugins/askrene/child/refine.c \
+	plugins/askrene/child/explain_failure.c \
+	plugins/askrene/child/graph.c \
+	plugins/askrene/child/priorityqueue.c \
+	plugins/askrene/child/algorithm.c \
 	plugins/askrene/child/child_log.c \
 
-PLUGIN_ASKRENE_HEADER := \
-	plugins/askrene/askrene.h \
-	plugins/askrene/datastore_wire.h \
-	plugins/askrene/layer.h \
-	plugins/askrene/reserve.h \
-	plugins/askrene/mcf.h \
-	plugins/askrene/dijkstra.h \
-	plugins/askrene/flow.h \
-	plugins/askrene/refine.h \
-	plugins/askrene/explain_failure.h \
-	plugins/askrene/graph.h \
-	plugins/askrene/priorityqueue.h \
-	plugins/askrene/algorithm.h \
-	plugins/askrene/child/child_log.h \
+PLUGIN_ASKRENE_SRC := $(PLUGIN_ASKRENE_PARENT_SRC) $(PLUGIN_ASKRENE_CHILD_SRC)
+PLUGIN_ASKRENE_HEADER := $(PLUGIN_ASKRENE_SRC:.c=.h)
 
 PLUGIN_ASKRENE_OBJS := $(PLUGIN_ASKRENE_SRC:.c=.o)
 

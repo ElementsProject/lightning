@@ -1,5 +1,5 @@
 #include "config.h"
-#include <plugins/askrene/graph.h>
+#include <plugins/askrene/child/graph.h>
 
 /* in the background add the actual arc or dual arc */
 static void graph_push_outbound_arc(struct graph *graph, const struct arc arc,
