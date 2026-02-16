@@ -127,7 +127,9 @@ static struct peer *new_peer(struct daemon *daemon,
 	peer->cs = *cs;
 	peer->subds = tal_arr(peer, struct subd *, 0);
 	peer->peer_in = NULL;
-	peer->sent_to_peer = NULL;
+	peer->encrypted_peer_out = NULL;
+	peer->encrypted_peer_out_off = 0;
+	peer->encrypted_peer_out_sent = 0;
 	peer->urgent = false;
 	peer->draining_state = NOT_DRAINING;
 	peer->peer_in_lastmsg = -1;
