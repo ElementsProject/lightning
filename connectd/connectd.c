@@ -46,6 +46,7 @@
 #include <fcntl.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <signal.h>
 #include <sodium.h>
 #include <sys/stat.h>
@@ -507,6 +508,19 @@ static bool get_remote_address(struct io_conn *conn,
 	return true;
 }
 
+/* Nagle had a good idea of making networking more efficient by
+ * inserting a delay, creating a trap for every author of network code
+ * everywhere.
+ */
+static void set_tcp_no_delay(int fd)
+{
+	int val = 1;
+	if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &val, sizeof(val)) != 0) {
+		status_broken("setsockopt TCP_NODELAY=1 fd=%u: %s",
+			      fd, strerror(errno));
+	}
+}
+
 /*~ As so common in C, we need to bundle two args into a callback, so we
  * allocate a temporary structure to hold them: */
 struct conn_in {
@@ -638,6 +652,10 @@ static struct io_plan *connection_in(struct io_conn *conn,
 	conn_in_arg.addr.u.wireaddr.is_websocket = false;
 	if (!get_remote_address(conn, &conn_in_arg.addr))
 		return io_close(conn);
+
+	/* Don't try to set TCP options on UNIX socket! */
+	if (conn_in_arg.addr.itype == ADDR_INTERNAL_WIREADDR)
+		set_tcp_no_delay(io_conn_fd(conn));
 
 	conn_in_arg.daemon = daemon;
 	conn_in_arg.is_websocket = false;
@@ -1175,6 +1193,9 @@ static void try_connect_one_addr(struct connecting *connect)
 		goto next;
 	}
 
+	/* Don't try to set TCP options on UNIX socket! */
+	if (addr->itype == ADDR_INTERNAL_WIREADDR)
+		set_tcp_no_delay(fd);
 	connect->connect_attempted = true;
 
 	/* This creates the new connection using our fd, with the initialization
