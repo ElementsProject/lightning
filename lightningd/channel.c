@@ -16,7 +16,7 @@
 #include <lightningd/notification.h>
 #include <lightningd/opening_common.h>
 #include <lightningd/subd.h>
-#include <wallet/txfilter.h>
+#include <wallet/wallet.h>
 
 void channel_set_owner(struct channel *channel, struct subd *owner)
 {
@@ -718,17 +718,22 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
  	/* Populate channel->channel_gossip */
 	channel_gossip_init(channel, take(peer_update));
 
-	/* Make sure we see any spends using this key */
+	/* Make sure we see any funds sent to our shutdown script */
 	if (!local_shutdown_scriptpubkey) {
+		u8 *script;
+		const char *owner;
+
 		if (anysegwit) {
-			txfilter_add_scriptpubkey(peer->ld->owned_txfilter,
-						  take(p2tr_for_keyidx(NULL, peer->ld,
-									 channel->final_key_idx)));
+			script = p2tr_for_keyidx(tmpctx, peer->ld, channel->final_key_idx);
+			owner = "p2tr";
 		} else {
-			txfilter_add_scriptpubkey(peer->ld->owned_txfilter,
-						  take(p2wpkh_for_keyidx(NULL, peer->ld,
-									 channel->final_key_idx)));
+			script = p2wpkh_for_keyidx(tmpctx, peer->ld, channel->final_key_idx);
+			owner = "p2wpkh";
 		}
+		if (script)
+			wallet_add_bwatch_scriptpubkey(peer->ld, owner,
+						      channel->final_key_idx,
+						      script, tal_bytelen(script));
 	}
 	/* scid is NULL when opening a new channel so we don't
 	 * need to set error in that case as well */
