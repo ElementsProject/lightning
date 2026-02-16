@@ -14,9 +14,6 @@
 #include <plugins/askrene/child/mcf.h>
 #include <unistd.h>
 
-/* Temporary hack */
-bool am_child = false;
-
 /* A single route. */
 struct route {
 	/* Actual path to take */
@@ -222,7 +219,6 @@ int fork_router_child(struct route_query *rq,
 	close(logfds[0]);
 	close(replyfds[0]);
 	set_child_log_fd(logfds[1]);
-	am_child = true;
 	if (single_path) {
 		err = single_path_routes(rq, rq, deadline, srcnode, dstnode,
 					 amount, maxfee, finalcltv,

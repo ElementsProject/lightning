@@ -4,6 +4,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/gossmap.h>
 #include <plugins/askrene/askrene.h>
+#include <plugins/askrene/child/child_log.h>
 #include <plugins/askrene/child/flow.h>
 #include <plugins/askrene/child/refine.h>
 #include <plugins/askrene/reserve.h>
@@ -109,7 +110,7 @@ void create_flow_reservations(const struct route_query *rq,
 				amount_to_reserve);
 		if (!amount_msat_add_fee(&msat,
 					 h->base_fee, h->proportional_fee))
-			plugin_err(rq->plugin, "Adding fee to amount");
+			child_err("Adding fee to amount");
 	}
 }
 
@@ -281,8 +282,8 @@ remove_htlc_min_violations(const tal_t *ctx, struct route_query *rq,
 				+ 2 * gossmap_chan_idx(rq->gossmap, flow->path[i]);
 
 			get_scidd(rq->gossmap, flow, i, &scidd);
-			rq_log(
-			    ctx, rq, LOG_INFORM,
+			child_log(
+			    ctx, LOG_INFORM,
 			    "Sending %s across %s would violate htlc_min "
 			    "(~%s), disabling this channel",
 			    fmt_amount_msat(ctx, msat),
@@ -295,8 +296,8 @@ remove_htlc_min_violations(const tal_t *ctx, struct route_query *rq,
 			&msat, hc->base_fee,
 			hc->proportional_fee)) {
 			error_message =
-			    rq_log(ctx, rq, LOG_BROKEN,
-				   "%s: Adding fee to amount", __func__);
+			    child_log(ctx, LOG_BROKEN,
+				      "%s: Adding fee to amount", __func__);
 			break;
 		}
 	}
@@ -325,13 +326,13 @@ static const char *remove_bottleneck(const tal_t *ctx, struct route_query *rq,
 		}
 	}
 	if (min_pos >= tal_count(flow->path)) {
-		error_message = rq_log(
-		    ctx, rq, LOG_BROKEN,
+		error_message = child_log(
+		    ctx, LOG_BROKEN,
 		    "%s: failed to find any bottleneck, flow has no hops? %s",
 		    __func__, fmt_flow_full(tmpctx, rq, flow));
 	} else {
 		get_scidd(rq->gossmap, flow, min_pos, &scidd);
-		rq_log(ctx, rq, LOG_INFORM,
+		child_log(tmpctx, LOG_INFORM,
 		       "Disabling bottleneck channel %s with "
 		       "htlc_max/known_max at %s",
 		       fmt_short_channel_id_dir(ctx, &scidd),
@@ -489,11 +490,11 @@ static bool increase_flows(const struct route_query *rq,
 			 * capacity.  That shouldn't happen, but if it does,
 			 * we don't crash */
 			if (!amount_msat_sub(&remaining, capacity, flows[i]->delivers)) {
-			        rq_log(rq, rq, LOG_BROKEN,
-				       "%s: flow %s delivers %s which is more than the path's capacity %s", __func__,
-				       fmt_flow_full(tmpctx, rq, flows[i]),
-				       fmt_amount_msat(tmpctx, flows[i]->delivers),
-				       fmt_amount_msat(tmpctx, capacity));
+			        child_log(rq, LOG_BROKEN,
+					  "%s: flow %s delivers %s which is more than the path's capacity %s", __func__,
+					  fmt_flow_full(tmpctx, rq, flows[i]),
+					  fmt_amount_msat(tmpctx, flows[i]->delivers),
+					  fmt_amount_msat(tmpctx, capacity));
 				continue;
 			}
 			if (amount_msat_greater(remaining, best_remaining)) {
@@ -541,9 +542,9 @@ const char *refine_flows(const tal_t *ctx, struct route_query *rq,
 		/* We don't expect to have a zero flow amount here. Just report
 		 * it. */
 		if (amount_msat_is_zero(try_deliver)) {
-			rq_log(ctx, rq, LOG_UNUSUAL,
-			       "Tried to refine a flow with zero amount: %s",
-			       fmt_flow_full(tmpctx, rq, (*flows)[i]));
+			child_log(tmpctx, LOG_UNUSUAL,
+				  "Tried to refine a flow with zero amount: %s",
+				  fmt_flow_full(tmpctx, rq, (*flows)[i]));
 			del_flow_from_arr(flows, i);
 			continue;
 		}
@@ -715,9 +716,9 @@ const char *reduce_num_flows(const tal_t *ctx,
 		del_flow_from_arr(flows, tal_count(*flows) - 1);
 
 	if (!increase_flows(rq, *flows, deliver, -1.0))
-		return rq_log(ctx, rq, LOG_INFORM,
-			      "Failed to reduce %zu flows down to maxparts (%zu)",
-			      orig_num_flows, num_parts);
+		return child_log(ctx, LOG_INFORM,
+				 "Failed to reduce %zu flows down to maxparts (%zu)",
+				 orig_num_flows, num_parts);
 
 	return NULL;
 }

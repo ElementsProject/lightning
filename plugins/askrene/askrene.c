@@ -315,12 +315,6 @@ const char *rq_log(const tal_t *ctx,
 	msg = tal_vfmt(ctx, fmt, args);
 	va_end(args);
 
-	/* FIXME: This is a hack! */
-	if (am_child) {
-		child_log(tmpctx, level, "%s", msg);
-		return msg;
-	}
-
 	plugin_notify_message(rq->cmd, level, "%s", msg);
 
 	/* Notifications already get logged at debug. Otherwise reduce
