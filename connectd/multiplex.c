@@ -305,6 +305,21 @@ void setup_peer_gossip_store(struct peer *peer,
 static bool is_urgent(enum peer_wire type)
 {
 	switch (type) {
+	/* We are happy to batch UPDATE_ADD messages: it's the
+	 * commitment signed which matters. */
+	case WIRE_UPDATE_ADD_HTLC:
+	case WIRE_UPDATE_FULFILL_HTLC:
+	case WIRE_UPDATE_FAIL_HTLC:
+	case WIRE_UPDATE_FAIL_MALFORMED_HTLC:
+	case WIRE_UPDATE_FEE:
+	/* Gossip messages are also non-urgent */
+	case WIRE_CHANNEL_ANNOUNCEMENT:
+	case WIRE_NODE_ANNOUNCEMENT:
+	case WIRE_CHANNEL_UPDATE:
+		return false;
+
+	/* We don't delay for anything else, but we use a switch
+	 * statement to make you think about new cases! */
 	case WIRE_INIT:
 	case WIRE_ERROR:
 	case WIRE_WARNING:
@@ -328,17 +343,9 @@ static bool is_urgent(enum peer_wire type)
 	case WIRE_CLOSING_SIGNED:
 	case WIRE_CLOSING_COMPLETE:
 	case WIRE_CLOSING_SIG:
-	case WIRE_UPDATE_ADD_HTLC:
-	case WIRE_UPDATE_FULFILL_HTLC:
-	case WIRE_UPDATE_FAIL_HTLC:
-	case WIRE_UPDATE_FAIL_MALFORMED_HTLC:
-	case WIRE_UPDATE_FEE:
 	case WIRE_UPDATE_BLOCKHEIGHT:
 	case WIRE_CHANNEL_REESTABLISH:
 	case WIRE_ANNOUNCEMENT_SIGNATURES:
-	case WIRE_CHANNEL_ANNOUNCEMENT:
-	case WIRE_NODE_ANNOUNCEMENT:
-	case WIRE_CHANNEL_UPDATE:
 	case WIRE_QUERY_SHORT_CHANNEL_IDS:
 	case WIRE_REPLY_SHORT_CHANNEL_IDS_END:
 	case WIRE_QUERY_CHANNEL_RANGE:
@@ -351,9 +358,6 @@ static bool is_urgent(enum peer_wire type)
 	case WIRE_SPLICE:
 	case WIRE_SPLICE_ACK:
 	case WIRE_SPLICE_LOCKED:
-		return false;
-
-	/* These are time-sensitive, and so send without delay. */
 	case WIRE_PING:
 	case WIRE_PONG:
 	case WIRE_PROTOCOL_BATCH_ELEMENT:
@@ -363,8 +367,8 @@ static bool is_urgent(enum peer_wire type)
 		return true;
 	};
 
-	/* plugins can inject other messages; assume not urgent. */
-	return false;
+	/* plugins can inject other messages. */
+	return true;
 }
 
 /* Process and eat protocol_batch_element messages, encrypt each element message
