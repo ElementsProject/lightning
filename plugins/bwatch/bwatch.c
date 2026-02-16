@@ -317,16 +317,6 @@ static const char **get_watch_datastore_key(const tal_t *ctx, const struct watch
 	abort();
 }
 
-/* Datastore operation finished, but we're not the one to complete the command. */
-static struct command_result *datastore_done(struct command *cmd,
-					     const char *method,
-					     const char *buf,
-					     const jsmntok_t *result,
-					     void *arg)
-{
-	return command_still_pending(cmd);
-}
-
 /*
  * ============================================================================
  * CONVERSION FUNCTIONS: in-memory <-> wire
@@ -493,43 +483,53 @@ static void load_watches_by_type(struct command *cmd, struct bwatch *bwatch,
 		   count, watch_type_name);
 }
 
-/* Save watch to datastore (converts to wire format) */
+/*
+ * ============================================================================
+ * DATASTORE OPERATIONS: Watch persistence
+ * ============================================================================
+ */
+
+/* Save watch to datastore synchronously (converts to wire format) */
 static void save_watch_to_datastore(struct command *cmd, const struct watch *w)
 {
 	const u8 *data = towire_bwatch_watch(tmpctx, watch_to_wire(tmpctx, w));
+	const char **key = get_watch_datastore_key(tmpctx, w);
+	struct json_out *params = json_out_new(tmpctx);
+	const char *buf;
 
-	jsonrpc_set_datastore_binary(cmd, get_watch_datastore_key(tmpctx, w),
-				     data, tal_bytelen(data),
-				     "create-or-replace",
-				     datastore_done, datastore_done, NULL);
+	json_out_start(params, NULL, '{');
+	json_out_start(params, "key", '[');
+	for (size_t i = 0; i < tal_count(key); i++)
+		json_out_addstr(params, NULL, key[i]);
+	json_out_end(params, ']');
+	json_out_addstr(params, "mode", "create-or-replace");
+	json_out_addstr(params, "hex", tal_hex(tmpctx, data));
+	json_out_end(params, '}');
+
+	jsonrpc_request_sync(tmpctx, cmd, "datastore", params, &buf);
 
 	plugin_log(cmd->plugin, LOG_DBG, "Saved watch to datastore (type=%d, num_owners=%zu)",
 		   w->type, tal_count(w->owners));
 }
 
-/* Simple callback for async deldatastore (watches) - handles both success and error */
-static struct command_result *deldatastore_done(struct command *cmd,
-						const char *method UNUSED,
-						const char *buf UNUSED,
-						const jsmntok_t *result UNUSED,
-						void *arg UNUSED)
-{
-	return command_still_pending(cmd);
-}
-
-/* Delete a watch from datastore */
+/* Delete a watch from datastore synchronously */
 static void delete_watch_from_datastore(struct command *cmd, const struct watch *w)
 {
 	const char **key = get_watch_datastore_key(tmpctx, w);
-	struct out_req *req = jsonrpc_request_start(cmd, "deldatastore",
-						    deldatastore_done,
-						    deldatastore_done,
-						    NULL);
-	json_add_keypath(req->js->jout, "key", key);
-	send_outreq(req);
+	struct json_out *params = json_out_new(tmpctx);
+	const char *buf;
+
+	json_out_start(params, NULL, '{');
+	json_out_start(params, "key", '[');
+	for (size_t i = 0; i < tal_count(key); i++)
+		json_out_addstr(params, NULL, key[i]);
+	json_out_end(params, ']');
+	json_out_end(params, '}');
+
+	jsonrpc_request_sync(tmpctx, cmd, "deldatastore", params, &buf);
 
 	plugin_log(cmd->plugin, LOG_DBG,
-		   "Deleting watch from datastore: ...%s", key[tal_count(key)-1]);
+		   "Deleted watch from datastore: ...%s", key[tal_count(key)-1]);
 }
 
 /*
@@ -1237,7 +1237,6 @@ static struct watch *add_watch(struct command *cmd,
 		case WATCH_OUTPOINT:
 			w->key.outpoint = *outpoint;
 		}
-		add_watch_to_hash(bwatch, w);
 	}
 
 	/* Check if this owner already exists */
@@ -1258,7 +1257,12 @@ static struct watch *add_watch(struct command *cmd,
 		w->start_block = start_block;
 
 	tal_arr_expand(&w->owners, tal_strdup(w->owners, owner_id));
+	
+	/* Persist to datastore first, then make visible in hash table.
+	 * This ensures durability before the watch becomes active. */
 	save_watch_to_datastore(cmd, w);
+	add_watch_to_hash(bwatch, w);
+	
 	return w;
 }
 
@@ -1403,6 +1407,7 @@ static struct command_result *json_bwatch_add(struct command *cmd,
 		return command_still_pending(cmd);
 	}
 
+	/* Datastore operation completed synchronously */
 	return command_success(cmd, json_out_obj(cmd, NULL, NULL));
 }
 
@@ -1436,6 +1441,8 @@ static struct command_result *json_bwatch_del(struct command *cmd,
 		return command_check_done(cmd);
 
 	del_watch(cmd, bwatch, type, outpoint, scriptpubkey, txid, owner);
+	
+	/* Datastore operation completed synchronously */
 	return command_success(cmd, json_out_obj(cmd, "removed", "true"));
 }
 

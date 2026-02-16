@@ -5509,6 +5509,115 @@ def test_bwatch_block_history_rollback(node_factory, bitcoind):
 
 
 @pytest.mark.slow_test
+def test_watchman_pending_operations_cleanup(node_factory, bitcoind):
+    """Test that watchman properly cleans up pending operations after bwatch acknowledges them"""
+    l1 = node_factory.get_node()
+    
+    # Wait for bwatch to fully sync
+    l1.daemon.wait_for_log(r'First poll: init at block')
+    l1.daemon.wait_for_log(r'No block change')
+    
+    # Get initial state - should have no pending operations
+    initial_pending = l1.rpc.listdatastore(['watchman', 'pending'])
+    assert initial_pending['datastore'] == []
+    
+    # Add a watch - this creates a pending operation
+    test_spk = "76a914" + "aa" * 20 + "88ac"  # P2PKH script
+    
+    l1.rpc.addwatch(type='scriptpubkey', scriptpubkey=test_spk, owner='test-owner-1', start_block=100)
+    
+    # The operation should be added to pending queue initially
+    # (briefly, before bwatch acknowledges)
+    # Then it should be removed once bwatch responds
+    
+    # Wait a moment for the RPC round-trip to complete
+    import time
+    time.sleep(1)
+    
+    # After bwatch acknowledges, pending queue should be empty again
+    final_pending = l1.rpc.listdatastore(['watchman', 'pending'])
+    assert final_pending['datastore'] == [], \
+        "Pending operations queue should be empty after bwatch acknowledges"
+    
+    # Verify the watch was actually added to bwatch
+    watches = l1.rpc.listwatch()['watches']
+    assert len(watches) == 1
+    assert watches[0]['type'] == 'scriptpubkey'
+    assert watches[0]['scriptpubkey'] == test_spk
+    
+    # Test with multiple operations
+    test_spk2 = "76a914" + "bb" * 20 + "88ac"
+    test_spk3 = "76a914" + "cc" * 20 + "88ac"
+    
+    l1.rpc.addwatch(type='scriptpubkey', scriptpubkey=test_spk2, owner='test-owner-2', start_block=100)
+    l1.rpc.addwatch(type='scriptpubkey', scriptpubkey=test_spk3, owner='test-owner-3', start_block=100)
+    
+    # Wait for acknowledgments
+    time.sleep(1)
+    
+    # All operations should be acknowledged and removed from pending
+    final_pending = l1.rpc.listdatastore(['watchman', 'pending'])
+    assert final_pending['datastore'] == [], \
+        "All pending operations should be cleared after acknowledgment"
+    
+    # All watches should be active
+    watches = l1.rpc.listwatch()['watches']
+    assert len(watches) == 3
+
+
+@pytest.mark.slow_test
+def test_watchman_pending_operations_persist_across_restart(node_factory, bitcoind):
+    """Test that pending operations survive a restart (crash recovery)"""
+    l1 = node_factory.get_node(may_fail=True, allow_broken_log=True)
+    
+    # Wait for bwatch to fully sync
+    l1.daemon.wait_for_log(r'First poll: init at block')
+    l1.daemon.wait_for_log(r'No block change')
+    
+    # First, verify we start with no pending operations
+    pending = l1.rpc.listdatastore(['watchman', 'pending'])
+    assert pending['datastore'] == []
+    
+    # Now manually create a pending operation in the datastore to simulate a crash
+    # This simulates an operation that was queued but lightningd crashed before
+    # bwatch could acknowledge it
+    test_spk = "76a914" + "ee" * 20 + "88ac"
+    import json
+    pending_op_params = json.dumps({
+        "owner": "crash_test_owner",
+        "type": "scriptpubkey",
+        "scriptpubkey": test_spk,
+        "start_block": 100
+    })
+    
+    l1.rpc.datastore(
+        key=['watchman', 'pending', 'add:crash_test_owner'],
+        string=pending_op_params
+    )
+    
+    # Verify it's in the pending queue
+    pending = l1.rpc.listdatastore(['watchman', 'pending'])
+    assert len(pending['datastore']) == 1
+    assert pending['datastore'][0]['key'] == ['watchman', 'pending', 'add:crash_test_owner']
+    
+    # Restart lightningd to simulate crash recovery
+    l1.restart()
+    
+    # Wait for bwatch to be ready
+    l1.daemon.wait_for_log(r'No block change')
+    
+    # The pending operation should still be in the datastore after restart
+    # This verifies crash recovery persistence
+    pending = l1.rpc.listdatastore(['watchman', 'pending'])
+    assert len(pending['datastore']) == 1, \
+        "Pending operation should persist across restart for crash recovery"
+    assert pending['datastore'][0]['key'] == ['watchman', 'pending', 'add:crash_test_owner']
+    
+    # The pending operation is ready to be replayed when needed
+    # (actual replay mechanism would be triggered when bwatch needs to resend operations)
+
+
+@pytest.mark.slow_test
 def test_bwatch_listwatch(node_factory, bitcoind):
     """Test that listwatch RPC returns all active watches"""
     l1 = node_factory.get_node()

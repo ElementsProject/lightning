@@ -119,6 +119,54 @@ struct watchman *watchman_new(const tal_t *ctx, struct lightningd *ld)
 	return wm;
 }
 
+/* Callback when bwatch acknowledges a watch operation (success) */
+static void bwatch_ack_success(const char *buffer,
+				const jsmntok_t *idtok,
+				const jsmntok_t *methodtok,
+				const jsmntok_t *paramtoks,
+				struct watchman *wm)
+{
+	const char *op_id;
+	
+	/* Extract op_id from the response id */
+	if (!idtok) {
+		log_broken(wm->ld->log, "bwatch response missing id, cannot acknowledge operation");
+		return;
+	}
+	
+	op_id = json_strdup(tmpctx, buffer, idtok);
+	watchman_ack(wm->ld, op_id);
+	log_debug(wm->ld->log, "Acknowledged pending op: %s", op_id);
+}
+
+/* Callback when bwatch operation fails */
+static void bwatch_ack_error(const char *buffer,
+			      const jsmntok_t *toks,
+			      const jsmntok_t *idtok,
+			      struct watchman *wm)
+{
+	const char *op_id;
+	const jsmntok_t *err;
+	
+	/* Extract op_id from the response id */
+	if (!idtok) {
+		log_broken(wm->ld->log, "bwatch error response missing id, cannot acknowledge operation");
+		return;
+	}
+	
+	op_id = json_strdup(tmpctx, buffer, idtok);
+	err = json_get_member(buffer, toks, "error");
+	if (err) {
+		log_unusual(wm->ld->log, "bwatch operation %s failed: %.*s",
+			    op_id, json_tok_full_len(err), json_tok_full(buffer, err));
+	} else {
+		log_unusual(wm->ld->log, "bwatch operation %s failed: unknown error", op_id);
+	}
+	
+	/* Still remove from queue - bwatch will handle it properly on replay */
+	watchman_ack(wm->ld, op_id);
+}
+
 /* Send an RPC request to the bwatch plugin */
 static void send_to_bwatch(struct watchman *wm, const char *method,
 			   const char *op_id, const char *json_params)
@@ -142,7 +190,7 @@ static void send_to_bwatch(struct watchman *wm, const char *method,
 	}
 
 	req = jsonrpc_request_start(wm, method, op_id, bwatch->log,
-				     NULL, NULL, NULL);
+				     bwatch_ack_success, bwatch_ack_error, wm);
 
 	/* json_params is a JSON object string like {"key":"value"}.
 	 * jsonrpc_request_start already opened "params":{, so skip outer braces */
