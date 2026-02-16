@@ -28,6 +28,7 @@
 #include <lightningd/memdump.h>
 #include <lightningd/notification.h>
 #include <lightningd/onchain_control.h>
+#include <lightningd/watchman.h>
 #include <lightningd/opening_common.h>
 #include <lightningd/opening_control.h>
 #include <lightningd/peer_control.h>
@@ -3004,16 +3005,8 @@ static struct command_result *json_getinfo(struct command *cmd,
 	json_array_end(response);
 
 	json_add_string(response, "version", version());
-	/* If we're still syncing, put the height we're up to here, so
-	 * they can see progress!  Otherwise use the height gossipd knows
-	 * about, so tests work properly. */
-	if (!topology_synced(cmd->ld->topology)) {
-		json_add_num(response, "blockheight",
-			     get_block_height(cmd->ld->topology));
-	} else {
-		json_add_num(response, "blockheight",
-			     cmd->ld->gossip_blockheight);
-	}
+	/* Block height is authoritative from bwatch (via watchman). */
+	json_add_num(response, "blockheight", watchman_get_height(cmd->ld));
 	json_add_string(response, "network", chainparams->network_name);
 	json_add_amount_msat(response,
 			     "fees_collected_msat",

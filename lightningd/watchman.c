@@ -10,6 +10,7 @@
 #include <common/jsonrpc_errors.h>
 #include <common/jsonrpc_io.h>
 #include <db/exec.h>
+#include <lightningd/gossip_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
@@ -477,7 +478,6 @@ static struct command_result *json_block_processed(struct command *cmd,
 	if (!wm)
 		return command_fail(cmd, LIGHTNINGD, "Watchman not initialized");
 
-	/* FIXME: tell gossipd, then when it replies, update last_processed_block */
 	/* Accept any height - handles both forward progress and reorgs */
 	if (*blockheight != wm->last_processed_height) {
 		log_debug(wm->ld->log, "block_processed: %u -> %u",
@@ -486,6 +486,9 @@ static struct command_result *json_block_processed(struct command *cmd,
 		db_set_intvar(wm->ld->wallet->db, "last_watchman_block_height",
 			      *blockheight);
 	}
+
+	/* Notify gossipd of the authoritative block height (from bwatch) */
+	gossip_notify_blockheight(wm->ld, *blockheight);
 
 	struct json_stream *response = json_stream_success(cmd);
 	json_add_u32(response, "blockheight", *blockheight);

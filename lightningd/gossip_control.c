@@ -247,6 +247,16 @@ static void gossipd_new_blockheight_reply(struct subd *gossipd,
 			     gossipd->ld->gossip_blockheight);
 }
 
+void gossip_notify_blockheight(struct lightningd *ld, u32 blockheight)
+{
+	if (!ld->gossip)
+		return;
+
+	subd_req(ld->gossip, ld->gossip,
+		 take(towire_gossipd_new_blockheight(NULL, blockheight)),
+		 -1, 0, gossipd_new_blockheight_reply, int2ptr(blockheight));
+}
+
 void gossip_notify_new_block(struct lightningd *ld)
 {
 	u32 blockheight = get_block_height(ld->topology);
@@ -255,9 +265,7 @@ void gossip_notify_new_block(struct lightningd *ld)
 	if (!topology_synced(ld->topology))
 		return;
 
-	subd_req(ld->gossip, ld->gossip,
-		 take(towire_gossipd_new_blockheight(NULL, blockheight)),
-		 -1, 0, gossipd_new_blockheight_reply, int2ptr(blockheight));
+	gossip_notify_blockheight(ld, blockheight);
 }
 
 static void gossip_topology_synced(struct chain_topology *topo, void *unused)

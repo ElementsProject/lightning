@@ -14,4 +14,12 @@ void gossipd_notify_spends(struct lightningd *ld,
 
 void gossip_notify_new_block(struct lightningd *ld);
 
+/**
+ * gossip_notify_blockheight - Notify gossipd of a specific block height
+ *
+ * Used when bwatch processes a block; the authoritative height comes from
+ * bwatch's block_processed, not chaintopology.
+ */
+void gossip_notify_blockheight(struct lightningd *ld, u32 blockheight);
+
 #endif /* LIGHTNING_LIGHTNINGD_GOSSIP_CONTROL_H */
