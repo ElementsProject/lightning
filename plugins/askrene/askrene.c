@@ -302,11 +302,12 @@ struct amount_msat get_additional_per_htlc_cost(const struct route_query *rq,
 		return AMOUNT_MSAT(0);
 }
 
-const char *rq_log(const tal_t *ctx,
-		   const struct route_query *rq,
-		   enum log_level level,
-		   const char *fmt,
-		   ...)
+PRINTF_FMT(4, 5)
+static const char *cmd_log(const tal_t *ctx,
+			   struct command *cmd,
+			   enum log_level level,
+			   const char *fmt,
+			   ...)
 {
 	va_list args;
 	const char *msg;
@@ -315,14 +316,14 @@ const char *rq_log(const tal_t *ctx,
 	msg = tal_vfmt(ctx, fmt, args);
 	va_end(args);
 
-	plugin_notify_message(rq->cmd, level, "%s", msg);
+	plugin_notify_message(cmd, level, "%s", msg);
 
 	/* Notifications already get logged at debug. Otherwise reduce
 	 * severity. */
 	if (level != LOG_DBG)
-		plugin_log(rq->plugin,
+		plugin_log(cmd->plugin,
 			   level == LOG_BROKEN ? level : level - 1,
-			   "%s: %s", rq->cmd->id, msg);
+			   "%s: %s", cmd->id, msg);
 	return msg;
 }
 
@@ -364,7 +365,9 @@ struct getroutes_info {
 	u32 maxparts;
 };
 
-static void apply_layers(struct askrene *askrene, struct route_query *rq,
+static void apply_layers(struct askrene *askrene,
+			 struct command *cmd,
+			 struct route_query *rq,
 			 const struct node_id *source,
 			 struct amount_msat amount,
 			 struct gossmap_localmods *localmods,
@@ -376,20 +379,19 @@ static void apply_layers(struct askrene *askrene, struct route_query *rq,
 		const struct layer *l = find_layer(askrene, layers[i]);
 		if (!l) {
 			if (streq(layers[i], "auto.localchans")) {
-				plugin_log(rq->plugin, LOG_DBG, "Adding auto.localchans");
+				cmd_log(tmpctx, cmd, LOG_DBG, "Adding auto.localchans");
 				l = local_layer;
 			} else if (streq(layers[i], "auto.no_mpp_support")) {
-				plugin_log(rq->plugin, LOG_DBG, "Adding auto.no_mpp_support, sorry");
+				cmd_log(tmpctx, cmd, LOG_DBG, "Adding auto.no_mpp_support, sorry");
 				l = remove_small_channel_layer(layers, askrene, amount, localmods);
 			} else if (streq(layers[i], "auto.include_fees")) {
-				plugin_log(rq->plugin, LOG_DBG,
-					   "Adding auto.include_fees");
+				cmd_log(tmpctx, cmd, LOG_DBG, "Adding auto.include_fees");
 				/* This layer takes effect when converting flows
 				 * into routes. */
 				continue;
 			} else {
 				assert(streq(layers[i], "auto.sourcefree"));
-				plugin_log(rq->plugin, LOG_DBG, "Adding auto.sourcefree");
+				cmd_log(tmpctx, cmd, LOG_DBG, "Adding auto.sourcefree");
 				l = source_free_layer(layers, askrene, source, localmods);
 			}
 		}
@@ -440,7 +442,8 @@ void get_constraints(const struct route_query *rq,
 	reserve_sub(rq->reserved, &scidd, rq->layers, max);
 }
 
-static void process_child_logs(struct route_query *rq, int log_fd)
+static void process_child_logs(struct command *cmd,
+			       int log_fd)
 {
 	u8 *msg;
 	while ((msg = wire_sync_read(tmpctx, log_fd)) != NULL) {
@@ -448,7 +451,7 @@ static void process_child_logs(struct route_query *rq, int log_fd)
 		char *entry;
 		struct node_id *peer;
 		if (fromwire_status_log(tmpctx, msg, &level, &peer, &entry))
-			rq_log(tmpctx, rq, level, "%s", entry);
+			cmd_log(tmpctx, cmd, level, "%s", entry);
 	}
 }
 
@@ -463,6 +466,7 @@ static struct command_result *do_getroutes(struct command *cmd,
 	const char *err, *json;
 	struct timemono time_start, deadline;
 	int child_fd, log_fd, child_pid, child_status;
+	s8 *biases;
 
 	/* update the gossmap */
 	if (gossmap_refresh(askrene->gossmap)) {
@@ -473,15 +477,13 @@ static struct command_result *do_getroutes(struct command *cmd,
 	}
 
 	/* build this request structure */
-	rq->cmd = cmd;
-	rq->plugin = cmd->plugin;
+	rq->cmd_id = cmd->id;
 	rq->gossmap = askrene->gossmap;
 	rq->reserved = askrene->reserved;
 	rq->layers = tal_arr(rq, const struct layer *, 0);
 	rq->capacities = tal_dup_talarr(rq, fp16_t, askrene->capacities);
 	/* FIXME: we still need to do something useful with these */
 	rq->additional_costs = info->additional_costs;
-	rq->maxparts = info->maxparts;
 
 	/* We also eliminate any local channels we *know* are dying.
 	 * Most channels get 12 blocks grace in case it's a splice,
@@ -508,7 +510,7 @@ static struct command_result *do_getroutes(struct command *cmd,
 	}
 
 	/* apply selected layers to the localmods */
-	apply_layers(askrene, rq, &info->source, info->amount, localmods,
+	apply_layers(askrene, cmd, rq, &info->source, info->amount, localmods,
 		     info->layers, info->local_layer);
 
 	/* Clear scids with reservations, too, so we don't have to look up
@@ -528,18 +530,19 @@ static struct command_result *do_getroutes(struct command *cmd,
 
 	/* localmods can add channels, so we need to allocate biases array
 	 * *afterwards* */
-	rq->biases =
+	rq->biases = biases =
 	    tal_arrz(rq, s8, gossmap_max_chan_idx(askrene->gossmap) * 2);
 
 	/* Note any channel biases */
 	for (size_t i = 0; i < tal_count(rq->layers); i++)
-		layer_apply_biases(rq->layers[i], askrene->gossmap, rq->biases);
+		layer_apply_biases(rq->layers[i], askrene->gossmap, biases);
 
 	/* checkout the source */
 	const struct gossmap_node *srcnode =
 	    gossmap_find_node(askrene->gossmap, &info->source);
 	if (!srcnode) {
-		err = rq_log(tmpctx, rq, LOG_INFORM, "Unknown source node %s",
+		err = cmd_log(tmpctx, cmd, LOG_INFORM,
+			     "Unknown source node %s",
 			     fmt_node_id(tmpctx, &info->source));
 		goto fail;
 	}
@@ -548,7 +551,7 @@ static struct command_result *do_getroutes(struct command *cmd,
 	const struct gossmap_node *dstnode =
 	    gossmap_find_node(askrene->gossmap, &info->dest);
 	if (!dstnode) {
-		err = rq_log(tmpctx, rq, LOG_INFORM,
+		err = cmd_log(tmpctx, cmd, LOG_INFORM,
 			     "Unknown destination node %s",
 			     fmt_node_id(tmpctx, &info->dest));
 		goto fail;
@@ -558,14 +561,14 @@ static struct command_result *do_getroutes(struct command *cmd,
 	if (have_layer(info->layers, "auto.no_mpp_support") &&
 	    info->dev_algo != ALGO_SINGLE_PATH) {
 		info->dev_algo = ALGO_SINGLE_PATH;
-		rq_log(tmpctx, rq, LOG_DBG,
+		cmd_log(tmpctx, cmd, LOG_DBG,
 		       "Layer no_mpp_support is active we switch to a "
 		       "single path algorithm.");
 	}
-	if (rq->maxparts == 1 &&
+	if (info->maxparts == 1 &&
 	    info->dev_algo != ALGO_SINGLE_PATH) {
 		info->dev_algo = ALGO_SINGLE_PATH;
-		rq_log(tmpctx, rq, LOG_DBG,
+		cmd_log(tmpctx, cmd, LOG_DBG,
 		       "maxparts == 1: switching to a single path algorithm.");
 	}
 
@@ -576,7 +579,7 @@ static struct command_result *do_getroutes(struct command *cmd,
 				time_from_sec(askrene->route_seconds));
 	child_fd = fork_router_child(rq, info->dev_algo == ALGO_SINGLE_PATH,
 				     deadline, srcnode, dstnode, info->amount,
-				     info->maxfee, info->finalcltv, info->maxdelay,
+				     info->maxfee, info->finalcltv, info->maxdelay, info->maxparts,
 				     include_fees,
 				     cmd->id, cmd->filter, &log_fd, &child_pid);
 	if (child_fd == -1) {
@@ -585,7 +588,7 @@ static struct command_result *do_getroutes(struct command *cmd,
 	}
 
 	/* FIXME: Go async! */
-	process_child_logs(rq, log_fd);
+	process_child_logs(cmd, log_fd);
 	close(log_fd);
 	json = grab_fd_str(cmd, child_fd);
 	close(child_fd);
@@ -594,9 +597,9 @@ static struct command_result *do_getroutes(struct command *cmd,
 	struct timerel time_delta = timemono_between(time_mono(), time_start);
 
 	/* log the time of computation */
-	rq_log(tmpctx, rq, LOG_DBG, "get_routes %s %" PRIu64 " ms",
-	       WEXITSTATUS(child_status) != 0 ? "failed after" : "completed in",
-	       time_to_msec(time_delta));
+	cmd_log(tmpctx, cmd, LOG_DBG, "get_routes %s %" PRIu64 " ms",
+		WEXITSTATUS(child_status) != 0 ? "failed after" : "completed in",
+		time_to_msec(time_delta));
 
 	if (WIFSIGNALED(child_status)) {
 		err = tal_fmt(tmpctx, "child died with signal %u",
