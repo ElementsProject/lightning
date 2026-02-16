@@ -13,11 +13,9 @@
 #include <lightningd/coin_mvts.h>
 #include <lightningd/feerate.h>
 #include <lightningd/gossip_control.h>
-#include <lightningd/invoice.h>
 #include <lightningd/io_loop_with_timers.h>
 #include <lightningd/notification.h>
 #include <math.h>
-#include <wallet/txfilter.h>
 
 /* Mutual recursion via timer. */
 static void try_extend_tip(struct chain_topology *topo);
@@ -40,7 +38,6 @@ static bool we_broadcast(const struct chain_topology *topo,
 
 static void filter_block_txs(struct chain_topology *topo, struct block *b)
 {
-	struct txfilter *filter = topo->bitcoind->ld->owned_txfilter;
 	size_t i;
 
 	/* Now we see if any of those txs are interesting. */
@@ -49,7 +46,6 @@ static void filter_block_txs(struct chain_topology *topo, struct block *b)
 		struct bitcoin_tx *tx = b->full_txs[i];
 		struct bitcoin_txid txid;
 		size_t j;
-		bool is_coinbase = i == 0;
 
 		/* Tell them if it spends a txo we care about. */
 		for (j = 0; j < tx->wtx->num_inputs; j++) {
@@ -69,26 +65,7 @@ static void filter_block_txs(struct chain_topology *topo, struct block *b)
 		}
 
 		txid = b->txids[i];
-		if (txfilter_match(filter, tx)) {
-			wallet_extract_owned_outputs(topo->bitcoind->ld->wallet,
-						     tx->wtx, is_coinbase, &b->height);
-			wallet_transaction_add(topo->ld->wallet, tx->wtx,
-					       b->height, i);
-			// invoice_check_onchain_payment(tx);
-			for (size_t k = 0; k < tx->wtx->num_outputs; k++) {
-				const struct wally_tx_output *txout;
-				txout = &tx->wtx->outputs[k];
-				if (txfilter_scriptpubkey_matches(filter, txout->script)) {
-					struct amount_sat amount;
-					struct bitcoin_outpoint outpoint;
-					outpoint.txid = txid;
-					outpoint.n = k;
-					bitcoin_tx_output_get_amount_sat(tx, k, &amount);
-					invoice_check_onchain_payment(topo->ld, txout->script, amount, &outpoint);
-				}
-			}
-
-		}
+		/* Scriptpubkey matches are handled by bwatch watch_found notifications. */
 
 		/* We did spends first, in case that tells us to watch tx. */
 		if (watching_txid(topo, &txid) || we_broadcast(topo, &txid)) {
