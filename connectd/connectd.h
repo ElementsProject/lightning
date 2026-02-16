@@ -88,8 +88,10 @@ struct peer {
 	/* Output buffer. */
 	struct msg_queue *peer_outq;
 
-	/* Peer sent buffer (for freeing after sending) */
-	const u8 *sent_to_peer;
+	/* Encrypted peer sending buffer */
+	const u8 *encrypted_peer_out;
+	size_t encrypted_peer_out_off;
+	size_t encrypted_peer_out_sent;
 
 	/* We stream from the gossip_store for them, when idle */
 	struct gossip_state gs;
