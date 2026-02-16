@@ -23,7 +23,4 @@ int fork_router_child(struct route_query *rq,
 		      struct json_filter *cmd_filter,
 		      int *log_fd,
 		      int *child_pid);
-
-/* FIXME: Remove this */
-extern bool am_child;
 #endif /* LIGHTNING_PLUGINS_ASKRENE_CHILD_ENTRY_H */
