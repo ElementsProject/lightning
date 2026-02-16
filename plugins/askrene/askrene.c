@@ -338,6 +338,8 @@ param_algorithm(struct command *cmd, const char *name, const char *buffer,
 }
 
 struct getroutes_info {
+	/* We keep this around in askrene->waiting if we're busy */
+	struct list_node list;
 	struct command *cmd;
 	struct node_id source, dest;
 	struct amount_msat amount, maxfee;
@@ -650,7 +652,6 @@ static struct command_result *do_getroutes(struct command *cmd,
 	child->log_conn = io_new_conn(child, log_fd, child_log_init, child);
 	child->cmd = cmd;
 
-	/* FIXME: limit parallelism! */
 	list_add_tail(&askrene->children, &child->list);
 	tal_add_destructor(child, destroy_router_child);
 	return command_still_pending(cmd);
@@ -759,6 +760,49 @@ listpeerchannels_done(struct command *cmd,
 	return do_getroutes(cmd, localmods, info);
 }
 
+/* Mutual recursion */
+static struct command_result *begin_request(struct askrene *askrene,
+					    struct getroutes_info *info);
+
+/* One is finished.  Maybe wake up a waiter */
+static void destroy_live_command(struct command *cmd)
+{
+	struct askrene *askrene = get_askrene(cmd->plugin);
+	struct getroutes_info *info;
+
+	assert(askrene->num_live_requests > 0);
+	askrene->num_live_requests--;
+
+	if (askrene->num_live_requests >= askrene->max_children)
+		return;
+
+	info = list_pop(&askrene->waiters, struct getroutes_info, list);
+	if (info)
+		begin_request(askrene, info);
+}
+
+static struct command_result *begin_request(struct askrene *askrene,
+					    struct getroutes_info *info)
+{
+	askrene->num_live_requests++;
+
+	/* Wake any waiting ones when we're finished */
+	tal_add_destructor(info->cmd, destroy_live_command);
+
+	if (have_layer(info->layers, "auto.localchans")) {
+		struct out_req *req;
+
+		req = jsonrpc_request_start(info->cmd,
+					    "listpeerchannels",
+					    listpeerchannels_done,
+					    forward_error, info);
+		return send_outreq(req);
+	} else
+		info->local_layer = NULL;
+
+	return do_getroutes(info->cmd, gossmap_localmods_new(info->cmd), info);
+}
+
 static struct command_result *json_getroutes(struct command *cmd,
 					     const char *buffer,
 					     const jsmntok_t *params)
@@ -771,6 +815,7 @@ static struct command_result *json_getroutes(struct command *cmd,
 	 */
 	/* FIXME: Typo in spec for CLTV in descripton! But it breaks our spelling check, so we omit it above */
 	const u32 maxdelay_allowed = 2016;
+	struct askrene *askrene = get_askrene(cmd->plugin);
 	const u32 default_maxparts = 100;
 	struct getroutes_info *info = tal(cmd, struct getroutes_info);
 	/* param functions require pointers */
@@ -828,18 +873,15 @@ static struct command_result *json_getroutes(struct command *cmd,
 	info->additional_costs = new_htable(info, additional_cost_htable);
 	info->maxparts = *maxparts;
 
-	if (have_layer(info->layers, "auto.localchans")) {
-		struct out_req *req;
+	if (askrene->num_live_requests >= askrene->max_children) {
+		cmd_log(tmpctx, cmd, LOG_INFORM,
+			"Too many running at once (%zu vs %u): waiting",
+			askrene->num_live_requests, askrene->max_children);
+		list_add_tail(&askrene->waiters, &info->list);
+		return command_still_pending(cmd);
+	}
 
-		req = jsonrpc_request_start(cmd,
-					    "listpeerchannels",
-					    listpeerchannels_done,
-					    forward_error, info);
-		return send_outreq(req);
-	} else
-		info->local_layer = NULL;
-
-	return do_getroutes(cmd, gossmap_localmods_new(cmd), info);
+	return begin_request(askrene, info);
 }
 
 static struct command_result *json_askrene_reserve(struct command *cmd,
@@ -1355,6 +1397,8 @@ static const char *init(struct command *init_cmd,
 	askrene->plugin = plugin;
 	askrene->layers = new_layer_name_hash(askrene);
 	list_head_init(&askrene->children);
+	list_head_init(&askrene->waiters);
+	askrene->num_live_requests = 0;
 	askrene->reserved = new_reserve_htable(askrene);
 	askrene->gossmap = gossmap_load(askrene, GOSSIP_STORE_FILENAME,
 					plugin_gossmap_logcb, plugin);
@@ -1382,6 +1426,7 @@ int main(int argc, char *argv[])
 
 	askrene = tal(NULL, struct askrene);
 	askrene->route_seconds = 10;
+	askrene->max_children = 4;
 	plugin_main(argv, init, take(askrene), PLUGIN_RESTARTABLE, true, NULL, commands, ARRAY_SIZE(commands),
 	            NULL, 0, NULL, 0, NULL, 0,
 		    plugin_option_dynamic("askrene-timeout",
@@ -1390,5 +1435,11 @@ int main(int argc, char *argv[])
 					  " Defaults to 10 seconds",
 					  u32_option, u32_jsonfmt,
 					  &askrene->route_seconds),
+		    plugin_option_dynamic("askrene-max-threads",
+					  "int",
+					  "How many routes to calculate at once."
+					  " Defaults to 4",
+					  u32_option, u32_jsonfmt,
+					  &askrene->max_children),
 		    NULL);
 }
