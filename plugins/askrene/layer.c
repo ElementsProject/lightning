@@ -81,12 +81,6 @@ local_channel_scid(const struct local_channel *lc)
 	return lc->scid;
 }
 
-static size_t hash_scid(const struct short_channel_id scid)
-{
-	/* scids cost money to generate, so simple hash works here */
-	return (scid.u64 >> 32) ^ (scid.u64 >> 16) ^ scid.u64;
-}
-
 static inline bool local_channel_eq_scid(const struct local_channel *lc,
 					 const struct short_channel_id scid)
 {

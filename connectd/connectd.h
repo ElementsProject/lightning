@@ -262,7 +262,7 @@ static bool scid_to_node_id_eq_scid(const struct scid_to_node_id *scid_to_node_i
  * we use this to forward onion messages which specify the next hop by scid/dir. */
 HTABLE_DEFINE_NODUPS_TYPE(struct scid_to_node_id,
 			  scid_to_node_id_keyof,
-			  short_channel_id_hash,
+			  hash_scid,
 			  scid_to_node_id_eq_scid,
 			  scid_htable);
 
