@@ -52,9 +52,11 @@ sudo apt-get -qq install --no-install-recommends --allow-unauthenticated -yy \
      sudo \
      tcl \
      tclsh \
+     tshark \
      unzip \
      valgrind \
      wget \
+     wireshark-common \
      xsltproc \
      systemtap-sdt-dev \
      zlib1g-dev
@@ -97,3 +99,14 @@ export PROTOC=/usr/local/bin/protoc
 export PATH=$PATH:/usr/local/bin
 env
 ls -lha /usr/local/bin
+
+# wireshark-common normally does this, but GH runners are special, so we
+# do it explicitly
+sudo groupadd -f wireshark
+sudo chgrp wireshark /usr/bin/dumpcap
+sudo chmod 750 /usr/bin/dumpcap
+sudo setcap cap_net_raw,cap_net_admin=eip /usr/bin/dumpcap
+
+# Add ourselves to the wireshark group (still need "sg wireshark..." for it to take effect)
+sudo usermod -aG wireshark "$(id -nu)"
+
