@@ -323,7 +323,7 @@ jobs:
         run: |
           env
           cat config.vars
-          uv run eatmydata pytest tests/test_downgrade.py -n ${PYTEST_PAR} ${PYTEST_OPTS}
+          sg wireshark "uv run eatmydata pytest tests/test_downgrade.py -n ${PYTEST_PAR} ${PYTEST_OPTS}"
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -438,7 +438,7 @@ jobs:
         run: |
           env
           cat config.vars
-          VALGRIND=0 uv run eatmydata pytest tests/ -n ${PYTEST_PAR} ${PYTEST_OPTS}
+          VALGRIND=0 sg wireshark "uv run eatmydata pytest tests/ -n ${PYTEST_PAR} ${PYTEST_OPTS}"
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -526,7 +526,7 @@ jobs:
           TEST_DEBUG: 1
           PYTEST_PAR: 2
         run: |
-          VALGRIND=1 uv run eatmydata pytest tests/ -n ${PYTEST_PAR} ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}
+          VALGRIND=1 sg wireshark "uv run eatmydata pytest tests/ -n ${PYTEST_PAR} ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}"
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -617,7 +617,7 @@ jobs:
         env:
           PYTEST_PAR: 2
         run: |
-          uv run eatmydata pytest tests/ -n ${PYTEST_PAR} ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}
+          sg wireshark "uv run eatmydata pytest tests/ -n ${PYTEST_PAR} ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}"
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -748,7 +748,7 @@ jobs:
         run: |
           env
           cat config.vars
-          VALGRIND=0 uv run eatmydata pytest tests/ -n ${PYTEST_PAR} ${PYTEST_OPTS}
+          VALGRIND=0 sg wireshark "uv run eatmydata pytest tests/ -n ${PYTEST_PAR} ${PYTEST_OPTS}"
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
