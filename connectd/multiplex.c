@@ -25,8 +25,8 @@
 #include <wire/peer_wire.h>
 #include <wire/wire_io.h>
 
-/* Maximum write(), to create uniform size packets. */
-#define MAX_MESSAGE_SIZE 1460
+/* Size of write(), to create uniform size packets. */
+#define UNIFORM_MESSAGE_SIZE 1460
 
 struct subd {
 	/* Owner: we are in peer->subds[] */
@@ -360,9 +360,9 @@ static bool UNNEEDED is_urgent(enum peer_wire type)
 
 /* Process and eat protocol_batch_element messages, encrypt each element message
  * and return the encrypted messages as one long byte array. */
-static u8 *process_batch_elements(struct peer *peer, const u8 *msg TAKES)
+static u8 *process_batch_elements(const tal_t *ctx, struct peer *peer, const u8 *msg TAKES)
 {
-	u8 *ret = tal_arr(peer, u8, 0);
+	u8 *ret = tal_arr(ctx, u8, 0);
 	size_t ret_size = 0;
 	const u8 *cursor = msg;
 	size_t plen = tal_count(msg);
@@ -457,34 +457,112 @@ static struct io_plan *msg_out_dev_disconnect(struct peer *peer, const u8 *msg)
 	abort();
 }
 
+/* Do we have enough bytes without padding? */
+static bool have_full_encrypted_queue(const struct peer *peer)
+{
+	size_t bytes = tal_bytelen(peer->encrypted_peer_out) - peer->encrypted_peer_out_off;
+	return bytes >= UNIFORM_MESSAGE_SIZE;
+}
+
+/* Do we have nothing in queue? */
+static bool have_empty_encrypted_queue(const struct peer *peer)
+{
+	size_t bytes = tal_bytelen(peer->encrypted_peer_out) - peer->encrypted_peer_out_off;
+	return bytes == 0;
+}
+
 /* (Continue) writing the encrypted_peer_out array */
 static struct io_plan *write_encrypted_to_peer(struct peer *peer)
 {
-	size_t max = tal_bytelen(peer->encrypted_peer_out) - peer->encrypted_peer_out_off;
-	if (max > MAX_MESSAGE_SIZE)
-		max = MAX_MESSAGE_SIZE;
+	assert(have_full_encrypted_queue(peer));
 	return io_write_partial(peer->to_peer,
 				peer->encrypted_peer_out + peer->encrypted_peer_out_off,
-				max,
+				UNIFORM_MESSAGE_SIZE,
 				&peer->encrypted_peer_out_sent,
 				write_to_peer, peer);
 }
 
-static struct io_plan *encrypt_and_send(struct peer *peer, const u8 *msg TAKES)
+/* Close the connection if this fails */
+static bool encrypt_append(struct peer *peer, const u8 *msg TAKES)
 {
 	int type = fromwire_peektype(msg);
+	u8 *enc;
+	size_t prev_size;
 
 	/* Special message type directing us to process batch items. */
 	if (type == WIRE_PROTOCOL_BATCH_ELEMENT) {
-		peer->encrypted_peer_out = process_batch_elements(peer, msg);
-		if (!peer->encrypted_peer_out)
-			return io_close(peer->to_peer);
-	}
-	else {
-		peer->encrypted_peer_out = cryptomsg_encrypt_msg(peer, &peer->cs, msg);
+		enc = process_batch_elements(tmpctx, peer, msg);
+		if (!enc)
+			return false;
+	} else {
+		enc = cryptomsg_encrypt_msg(tmpctx, &peer->cs, msg);
 	}
 
-	return write_encrypted_to_peer(peer);
+	prev_size = tal_bytelen(peer->encrypted_peer_out);
+	tal_resize(&peer->encrypted_peer_out, prev_size + tal_bytelen(enc));
+	memcpy(peer->encrypted_peer_out + prev_size, enc, tal_bytelen(enc));
+	return true;
+}
+
+static void pad_encrypted_queue(struct peer *peer)
+{
+	size_t needed, pingpad, bytes;
+	u8 *ping;
+
+	/* BOLT #8:
+	 *
+	 * ```
+	 * +-------------------------------
+	 * |2-byte encrypted message length|
+	 * +-------------------------------
+	 * |  16-byte MAC of the encrypted |
+	 * |        message length         |
+	 * +-------------------------------
+	 * |                               |
+	 * |                               |
+	 * |     encrypted Lightning       |
+	 * |            message            |
+	 * |                               |
+	 * +-------------------------------
+	 * |     16-byte MAC of the        |
+	 * |      Lightning message        |
+	 * +-------------------------------
+	 * ```
+	 *
+	 * The prefixed message length is encoded as a 2-byte big-endian integer,
+	 * for a total maximum packet length of `2 + 16 + 65535 + 16` = `65569` bytes.
+	 */
+	assert(!have_full_encrypted_queue(peer));
+	bytes = tal_bytelen(peer->encrypted_peer_out) - peer->encrypted_peer_out_off;
+
+	needed = UNIFORM_MESSAGE_SIZE - bytes;
+
+	/* BOLT #1:
+	 * 1. type: 18 (`ping`)
+	 * 2. data:
+	 *     * [`u16`:`num_pong_bytes`]
+	 *     * [`u16`:`byteslen`]
+	 *     * [`byteslen*byte`:`ignored`]
+	 */
+	/* So smallest possible ping is 6 bytes (2 byte type field) */
+	if (needed < 2 + 16 + 16 + 6)
+		needed += UNIFORM_MESSAGE_SIZE;
+
+	pingpad = needed - (2 + 16 + 16 + 6);
+	/* Note: we don't bother --dev-disconnect here */
+	/* BOLT #1:
+	 * A node receiving a `ping` message:
+	 *   - if `num_pong_bytes` is less than 65532:
+	 *     - MUST respond by sending a `pong` message, with `byteslen` equal to `num_pong_bytes`.
+	 *   - otherwise (`num_pong_bytes` is **not** less than 65532):
+	 *     - MUST ignore the `ping`.
+	 */
+	ping = make_ping(NULL, 65535, pingpad);
+	if (!encrypt_append(peer, take(ping)))
+		abort();
+
+	assert(have_full_encrypted_queue(peer));
+	assert((tal_bytelen(peer->encrypted_peer_out) - peer->encrypted_peer_out_off) % UNIFORM_MESSAGE_SIZE == 0);
 }
 
 /* Kicks off write_to_peer() to look for more gossip to send from store */
@@ -1092,48 +1170,58 @@ static const u8 *next_msg_for_peer(struct peer *peer)
 static struct io_plan *write_to_peer(struct io_conn *peer_conn,
 				     struct peer *peer)
 {
-	const u8 *msg;
-	struct io_plan *dev_override;
-
 	assert(peer->to_peer == peer_conn);
 
 	/* Write any remainder. */
 	peer->encrypted_peer_out_off += peer->encrypted_peer_out_sent;
-	if (peer->encrypted_peer_out_off < tal_bytelen(peer->encrypted_peer_out))
-		return write_encrypted_to_peer(peer);
+	peer->encrypted_peer_out_sent = 0;
+	/* If all used, clean up */
+	if (peer->encrypted_peer_out_off == tal_bytelen(peer->encrypted_peer_out)) {
+		peer->encrypted_peer_out_off = 0;
+		tal_resize(&peer->encrypted_peer_out, 0);
+	}
 
-	/* Free last sent one (if any) */
-	peer->encrypted_peer_out = tal_free(peer->encrypted_peer_out);
-	peer->encrypted_peer_out_off = 0;
+	while (!have_full_encrypted_queue(peer)) {
+		const u8 *msg;
+		struct io_plan *dev_override;
 
-	/* Pop tail of send queue (or gossip) */
-	msg = next_msg_for_peer(peer);
-	if (!msg) {
-		/* Draining?  Shutdown socket (to avoid losing msgs) */
-		if (peer->draining_state == WRITING_TO_PEER) {
-			status_peer_debug(&peer->id, "draining done, shutting down");
-			io_wake(&peer->peer_in);
-			return io_sock_shutdown(peer_conn);
+		/* Pop tail of send queue (or gossip) */
+		msg = next_msg_for_peer(peer);
+		if (!msg) {
+			/* Nothing to send at all?  We're done */
+			if (have_empty_encrypted_queue(peer)) {
+				/* Draining?  Shutdown socket (to avoid losing msgs) */
+				if (peer->draining_state == WRITING_TO_PEER) {
+					status_peer_debug(&peer->id, "draining done, shutting down");
+					io_wake(&peer->peer_in);
+					return io_sock_shutdown(peer_conn);
+				}
+
+				/* Tell them to read again, */
+				io_wake(&peer->subds);
+				io_wake(&peer->peer_in);
+
+				/* Wait for them to wake us */
+				return msg_queue_wait(peer_conn, peer->peer_outq, write_to_peer, peer);
+			}
+			/* OK, add padding. */
+			pad_encrypted_queue(peer);
+		} else {
+			if (peer->draining_state == WRITING_TO_PEER)
+				status_peer_debug(&peer->id, "draining, but sending %s.",
+						  peer_wire_name(fromwire_peektype(msg)));
+
+			dev_override = msg_out_dev_disconnect(peer, msg);
+			if (dev_override) {
+				tal_free(msg);
+				return dev_override;
+			}
+
+			if (!encrypt_append(peer, take(msg)))
+				return io_close(peer->to_peer);
 		}
-
-		/* Tell them to read again, */
-		io_wake(&peer->subds);
-		io_wake(&peer->peer_in);
-
-		/* Wait for them to wake us */
-		return msg_queue_wait(peer_conn, peer->peer_outq, write_to_peer, peer);
 	}
-
-	if (peer->draining_state == WRITING_TO_PEER)
-		status_peer_debug(&peer->id, "draining, but sending %s.",
-				  peer_wire_name(fromwire_peektype(msg)));
-
-	dev_override = msg_out_dev_disconnect(peer, msg);
-	if (dev_override) {
-		tal_free(msg);
-		return dev_override;
-	}
-	return encrypt_and_send(peer, take(msg));
+	return write_encrypted_to_peer(peer);
 }
 
 static struct io_plan *read_from_subd(struct io_conn *subd_conn,

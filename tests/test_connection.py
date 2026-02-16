@@ -4773,7 +4773,6 @@ def test_networkevents(node_factory, executor):
                                                 'type': 'connect'}]}
 
 
-@pytest.mark.xfail(strict=True)
 def test_constant_packet_size(node_factory, tcp_capture):
     """
     Test that TCP packets between nodes are constant size.  This will be skipped unless
