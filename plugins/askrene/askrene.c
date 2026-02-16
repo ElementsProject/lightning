@@ -653,6 +653,13 @@ static struct command_result *do_getroutes(struct command *cmd,
 		close(replyfds[0]);
 		set_child_log_fd(logfds[1]);
 
+		/* Make sure we don't stomp over plugin fds, even if we have a bug */
+		for (int i = 0; i < min_u64(logfds[1], replyfds[1]); i++) {
+			/* stderr is maintained */
+			if (i != 2)
+				close(i);
+		}
+
 		/* Does not return! */
 		run_child(askrene->gossmap,
 			  layers,
