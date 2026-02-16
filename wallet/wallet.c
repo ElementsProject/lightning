@@ -3426,15 +3426,11 @@ type_ok:
 	/* This is an unconfirmed change output, we should track it */
 	if (utxo->utxotype != UTXO_P2SH_P2WPKH && !blockheight) {
 		const char *addrtype_str = wallet_addrtype_to_owner_prefix(addrtype);
-		
-		if (addrtype_str) {
-			/* Add bwatch watch for this scriptpubkey */
-			wallet_add_bwatch_scriptpubkey(w->ld, addrtype_str, keyindex,
-						      txout->script, txout->script_len);
-		}
-		
-		/* SC TODO: Remove txfilter_add_scriptpubkey once bwatch is proven */
-		txfilter_add_scriptpubkey(w->ld->owned_txfilter, txout->script);
+
+		/* our_addresses only stores ADDR_BECH32, ADDR_P2SH_SEGWIT, ADDR_P2TR */
+		assert(addrtype_str);
+		wallet_add_bwatch_scriptpubkey(w->ld, addrtype_str, keyindex,
+					      txout->script, txout->script_len);
 	}
 
 	outpointfilter_add(w->owned_outpoints, &utxo->outpoint);

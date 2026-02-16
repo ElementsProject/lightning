@@ -13,7 +13,7 @@
 #include <lightningd/channel.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/notification.h>
-#include <wallet/txfilter.h>
+#include <wallet/wallet.h>
 #include <wallet/walletrpc.h>
 #include <wire/wire_sync.h>
 
@@ -129,11 +129,13 @@ bool WARN_UNUSED_RESULT newaddr_inner(struct command *cmd, struct pubkey *pubkey
 	b32script = scriptpubkey_p2wpkh(tmpctx, pubkey);
 	p2tr_script = scriptpubkey_p2tr(tmpctx, pubkey);
 
-	/* Add scripts to filter based on requested address type */
+	/* Add bwatch watches based on requested address type */
 	if (addrtype & ADDR_BECH32)
-		txfilter_add_scriptpubkey(cmd->ld->owned_txfilter, b32script);
+		wallet_add_bwatch_scriptpubkey(cmd->ld, "p2wpkh", keyidx,
+					       b32script, tal_bytelen(b32script));
 	if (addrtype & ADDR_P2TR)
-		txfilter_add_scriptpubkey(cmd->ld->owned_txfilter, p2tr_script);
+		wallet_add_bwatch_scriptpubkey(cmd->ld, "p2tr", keyidx,
+					       p2tr_script, tal_bytelen(p2tr_script));
 
 	return true;
 }
