@@ -4771,3 +4771,29 @@ def test_networkevents(node_factory, executor):
                                                 'type': 'connect_fail'},
                                                {'created_index': 7,
                                                 'type': 'connect'}]}
+
+
+@pytest.mark.xfail(strict=True)
+def test_constant_packet_size(node_factory, tcp_capture):
+    """
+    Test that TCP packets between nodes are constant size.  This will be skipped unless
+    you can run `dumpcap` (usually means you have to be in the `wireshark` group).
+    """
+    l1, l2, l3, l4 = node_factory.get_nodes(4)
+
+    # Encrypted setup BOLT 8 has some short packets.
+    l1.connect(l2)
+    l2.connect(l3)
+
+    tcp_capture.start(l2.port)
+
+    # This gives us gossip send a recv, and channel establishment.
+    node_factory.join_nodes([l1, l2, l3, l4], wait_for_announce=True)
+
+    # Forwarding, incoming and outgoing payments.
+    for src, dest in (l1, l2), (l2, l3), (l1, l4):
+        inv = dest.rpc.invoice(10000000, "test_constant_packet_size", "test_constant_packet_size")
+        src.rpc.xpay(inv['bolt11'])
+
+    # Padding pings don't elicit a response
+    assert not l2.daemon.is_in_log("connectd: Unexpected pong")
