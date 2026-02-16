@@ -519,8 +519,8 @@ def test_reckless_usage(node_factory):
 @pytest.mark.slow_test
 @pytest.mark.flaky(max_runs=3)
 @unittest.skipIf(VALGRIND, "virtual environment triggers memleak detection")
-def test_reckless_install_from_real_py(node_factory):
-    """Test reckless install a real plugin"""
+def test_reckless_install_py(node_factory):
+    """Test reckless install a real python plugin"""
     notification_plugin = os.path.join(os.getcwd(), 'tests/plugins/custom_notifications.py')
     node = get_reckless_node(node_factory, options={"plugin": notification_plugin})
 
@@ -560,3 +560,46 @@ def test_reckless_install_from_real_py(node_factory):
         if saved_redir is not None:
             my_env['REDIR_GITHUB'] = saved_redir
 
+@pytest.mark.slow_test
+@pytest.mark.flaky(max_runs=3)
+@unittest.skipIf(VALGRIND, "virtual environment triggers memleak detection")
+def test_reckless_install_from_commit_py(node_factory):
+    """Test reckless install a real python plugin from specifi commit"""
+    notification_plugin = os.path.join(os.getcwd(), 'tests/plugins/custom_notifications.py')
+    node = get_reckless_node(node_factory, options={"plugin": notification_plugin})
+
+    # Temporarily bypass `canned_github_server` fixture so reckless hits real Github repo
+    saved_redir = my_env.pop('REDIR_GITHUB', None)
+    from_commit = "478505fab37dd57a48834a5018016546729cf39a"
+    try:
+        r = reckless([f"--network={NETWORK}", "-v", "install", f"backup@{from_commit}"],
+                     dir=node.lightning_dir)
+        assert r.returncode == 0
+        assert r.search_stdout('plugin installed:')
+
+        installed_path = (Path(node.lightning_dir) / 'reckless/backup').resolve()
+        assert installed_path.is_dir()
+
+        network_dir = (Path(node.lightning_dir) / NETWORK).resolve()
+        backup_dest = str(network_dir / 'backup.bkp')
+        venv_python = str(installed_path / '.venv' / 'bin' / 'python')
+        backup_cli = str(installed_path / 'source' / 'backup' / 'backup-cli')
+        subprocess.run([venv_python, backup_cli, 'init',
+                        '--lightning-dir', str(network_dir),
+                        f'file://{backup_dest}'],
+                       check=True, env=my_env, timeout=30)
+
+        node.start()
+
+        plugins = node.rpc.plugin_list()['plugins']
+        plugin_names = [p['name'] for p in plugins]
+        assert any('backup' in name for name in plugin_names)
+
+        r = reckless([f"--network={NETWORK}", "listavailable", "-v", "--json"], dir=node.lightning_dir)
+        assert r.returncode == 0
+        assert r.search_stdout('backup')
+
+    finally:
+        # Restore redirect for other tests
+        if saved_redir is not None:
+            my_env['REDIR_GITHUB'] = saved_redir
