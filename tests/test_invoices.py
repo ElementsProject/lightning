@@ -976,8 +976,15 @@ def test_payment_fronting(node_factory):
     l4offer = l4.rpc.offer(1000, 'l4offer', 'l4offer')['bolt12']
     assert [r['first_node_id'] for r in l4.rpc.decode(l4offer)['offer_paths']] == [l1.info['id'], l2.info['id']]
 
-    l1.rpc.fetchinvoice(l3offer)['invoice']
-    l1.rpc.fetchinvoice(l4offer)['invoice']
+    l3invb12 = l1.rpc.fetchinvoice(l3offer)['invoice']
+    l4invb12 = l1.rpc.fetchinvoice(l4offer)['invoice']
+
+    assert only_one(l3.rpc.decode(l3invb12)['invoice_paths'])['first_node_id'] == l1.info['id']
+    # Given multiple, it will pick one.
+    assert only_one(l3.rpc.decode(l4invb12)['invoice_paths'])['first_node_id'] in (l1.info['id'], l2.info['id'])
+
+    l1.rpc.xpay(l3invb12)
+    l1.rpc.xpay(l4invb12)
 
 
 def test_invoice_maxdesc(node_factory, chainparams):
