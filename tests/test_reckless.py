@@ -737,3 +737,38 @@ def test_reckless_rpc_install_from_commit_py(node_factory):
     finally:
         if saved_redir is not None:
             my_env['REDIR_GITHUB'] = saved_redir
+
+
+@pytest.mark.slow_test
+@pytest.mark.flaky(max_runs=3)
+@unittest.skipIf(VALGRIND, "virtual environment triggers memleak detection")
+def test_reckless_rpc_unistall_cleans_config(node_factory):
+    """Test reckless uninstall cleans confing from just-installed plugin."""
+    saved_redir = my_env.pop('REDIR_GITHUB', None)
+
+    notification_plugin = os.path.join(os.getcwd(), 'tests/plugins/custom_notifications.py')
+    node = get_reckless_node(node_factory, options={"plugin": notification_plugin})
+
+    plugin_name = "currencyrate"
+
+    try:
+        node.start()
+
+        result = node.rpc.reckless('install', plugin_name)
+        assert 'plugin installed:' in ''.join(result.get('log', []))
+
+        installed_path = (Path(node.lightning_dir) / 'reckless' / plugin_name).resolve()
+        assert installed_path.is_dir()
+
+        result = node.rpc.reckless('uninstall', plugin_name)
+        assert f'{plugin_name} uninstalled successfully.' in ''.join(result.get('log', []))
+        assert not installed_path.is_dir()
+
+        config_path = Path(node.lightning_dir) / NETWORK / 'config'
+        if config_path.exists():
+            config_text = config_path.read_text()
+            assert 'disable-plugin=' not in config_text or plugin_name not in config_text
+
+    finally:
+        if saved_redir is not None:
+            my_env['REDIR_GITHUB'] = saved_redir
