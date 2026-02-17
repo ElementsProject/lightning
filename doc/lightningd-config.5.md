@@ -539,6 +539,10 @@ delete the others.
 
 ### Payment and invoice control options:
 
+* **payment-fronting-node**=*nodeid*
+
+  Always use this *nodeid* as the entry point when we generate invoices or offers: currently, the node must be a neighbor we have a channel with.  For BOLT11 invoices we will use a routehint with the alias for the short channel id to provide limited privacy (we still reveal our node id).  For BOLT12 invoices and offers, we provide a blinded path from the node to us which provides better privacy.  This can be specified multiple times for multiple fronting nodes.
+
 * **disable-mpp** [plugin `pay`]
 
   Disable the multi-part payment sending support in the `pay` plugin. By default
