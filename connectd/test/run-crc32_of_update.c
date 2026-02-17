@@ -17,9 +17,6 @@ int unused_main(int argc, char *argv[]);
 /* Generated stub for fromwire_connectd_dev_set_max_scids_encode_size */
 bool fromwire_connectd_dev_set_max_scids_encode_size(const void *p UNNEEDED, u32 *max UNNEEDED)
 { fprintf(stderr, "fromwire_connectd_dev_set_max_scids_encode_size called!\n"); abort(); }
-/* Generated stub for fromwire_gossip_store_chan_dying */
-bool fromwire_gossip_store_chan_dying(const void *p UNNEEDED, struct short_channel_id *scid UNNEEDED, u32 *blockheight UNNEEDED)
-{ fprintf(stderr, "fromwire_gossip_store_chan_dying called!\n"); abort(); }
 /* Generated stub for get_gossmap */
 struct gossmap *get_gossmap(struct daemon *daemon UNNEEDED)
 { fprintf(stderr, "get_gossmap called!\n"); abort(); }
