@@ -1278,6 +1278,16 @@ static char *opt_add_api_beg(const char *arg, struct lightningd *ld)
 	return NULL;
 }
 
+static char *opt_add_node_id(const char *arg, struct node_id **arr)
+{
+	struct node_id n;
+	if (!node_id_from_hexstr(arg, strlen(arg), &n))
+		return "Unparsable nodeid";
+
+	tal_arr_expand(arr, n);
+	return NULL;
+}
+
 char *hsm_secret_arg(const tal_t *ctx,
 		     const char *arg,
 		     const struct hsm_secret **hsm_secret)
@@ -1632,6 +1642,10 @@ static void register_opts(struct lightningd *ld)
 		       ld,
 		       "Re-enable a long-deprecated API (which will be removed entirely next version!)");
 	opt_register_logging(ld);
+	clnopt_witharg("--payment-fronting-node",
+		       OPT_MULTI,
+		       opt_add_node_id, NULL,
+		       &ld->fronting_nodes, "Put this node in all invoices and offers, and use blinded path (bolt12) or route hints (bolt11) to route to this node.  Must be a neighboring node.  Can be specified multiple times.");
 
 	/* Old bookkeeper migration flags. */
 	opt_register_early_arg("--bookkeeper-dir",
@@ -1898,6 +1912,7 @@ bool is_known_opt_cb_arg(char *(*cb_arg)(const char *, void *))
 		|| cb_arg == (void *)opt_subd_dev_disconnect
 		|| cb_arg == (void *)opt_set_crash_timeout
 		|| cb_arg == (void *)opt_add_api_beg
+		|| cb_arg == (void *)opt_add_node_id
 		|| cb_arg == (void *)opt_force_featureset
 		|| cb_arg == (void *)opt_force_privkey
 		|| cb_arg == (void *)opt_force_bip32_seed

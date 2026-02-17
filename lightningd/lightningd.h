@@ -431,6 +431,9 @@ struct lightningd {
 
 	/* Minimum number of peers seeker should maintain. */
 	u32 autoconnect_seeker_peers;
+
+	/* Nodes to use for invoices / offers */
+	struct node_id *fronting_nodes;
 };
 
 /* Turning this on allows a tal allocation to return NULL, rather than aborting.
