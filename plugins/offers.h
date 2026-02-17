@@ -86,13 +86,14 @@ struct chaninfo {
 /* Calls listpeerchannels, then cb with best peer (if any!) which has needed_feature */
 struct command_result *find_best_peer_(struct command *cmd,
 				       u64 needed_features,
+				       const struct pubkey *fronting_only,
 				       struct command_result *(*cb)(struct command *,
 								    const struct chaninfo *,
 								    void *),
 				       void *arg);
 
-#define find_best_peer(cmd, needed_features, cb, arg)			\
-	find_best_peer_((cmd), (needed_features),			\
+#define find_best_peer(cmd, needed_features, fronting_only, cb, arg)	\
+	find_best_peer_((cmd), (needed_features), (fronting_only),	\
 			typesafe_cb_preargs(struct command_result *, void *, \
 					    (cb), (arg),		\
 					    struct command *,		\

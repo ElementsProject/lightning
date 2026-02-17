@@ -393,7 +393,7 @@ static struct command_result *add_blindedpaths(struct command *cmd,
 	 * us onion messaging. */
 	return find_best_peer(cmd,
 			      (1ULL << OPT_ROUTE_BLINDING) | (1ULL << OPT_ONION_MESSAGES),
-			      found_best_peer, ir);
+			      NULL, found_best_peer, ir);
 }
 
 static struct command_result *cancel_invoice(struct command *cmd,
