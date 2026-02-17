@@ -986,6 +986,15 @@ def test_payment_fronting(node_factory):
     l1.rpc.xpay(l3invb12)
     l1.rpc.xpay(l4invb12)
 
+    # Balance so l3 can pay ->l1->l4.
+    l3inv2 = l3.rpc.invoice(10000000, 'l3inv2', 'l3inv2')['bolt11']
+    l1.rpc.xpay(l3inv2)
+
+    # When l3 creates an invoice request, it will also use the fronting nodes.
+    l3invreq = l3.rpc.invoicerequest(amount=1000, description='l3invreq')['bolt12']
+    assert only_one(l3.rpc.decode(l3invreq)['invreq_paths'])['first_node_id'] == l1.info['id']
+    l4.rpc.sendinvoice(invreq=l3invreq, label='l3invreq')
+
 
 def test_invoice_maxdesc(node_factory, chainparams):
     l1, l2 = node_factory.line_graph(2)
