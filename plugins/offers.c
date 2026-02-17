@@ -32,36 +32,31 @@
 #define HEADER_LEN crypto_secretstream_xchacha20poly1305_HEADERBYTES
 #define ABYTES crypto_secretstream_xchacha20poly1305_ABYTES
 
-struct pubkey id;
-u32 blockheight;
-u16 cltv_final;
-bool disable_connect;
-bool dev_invoice_bpath_scid;
-struct short_channel_id *dev_invoice_internal_scid;
-struct secret invoicesecret_base;
-struct secret offerblinding_base;
-struct secret nodealias_base;
-static struct gossmap *global_gossmap;
-
-static void init_gossmap(struct plugin *plugin)
+struct offers_data *get_offers_data(struct plugin *plugin)
 {
-	global_gossmap
-		= notleak_with_children(gossmap_load(plugin,
-						     GOSSIP_STORE_FILENAME,
-						     plugin_gossmap_logcb,
-						     plugin));
-	if (!global_gossmap)
+	return plugin_get_data(plugin, struct offers_data);
+}
+
+static void init_gossmap(struct plugin *plugin,
+			 struct offers_data *od)
+{
+	od->global_gossmap_ = gossmap_load(plugin,
+					   GOSSIP_STORE_FILENAME,
+					   plugin_gossmap_logcb,
+					   plugin);
+	if (!od->global_gossmap_)
 		plugin_err(plugin, "Could not load gossmap %s: %s",
 			   GOSSIP_STORE_FILENAME, strerror(errno));
 }
 
 struct gossmap *get_gossmap(struct plugin *plugin)
 {
-	if (!global_gossmap)
-		init_gossmap(plugin);
+	struct offers_data *od = get_offers_data(plugin);
+	if (!od->global_gossmap_)
+		init_gossmap(plugin, od);
 	else
-		gossmap_refresh(global_gossmap);
-	return global_gossmap;
+		gossmap_refresh(od->global_gossmap_);
+	return od->global_gossmap_;
 }
 
 /* BOLT #12:
@@ -71,6 +66,7 @@ struct gossmap *get_gossmap(struct plugin *plugin)
  */
 bool we_want_blinded_path(struct plugin *plugin, bool for_payment)
 {
+	const struct offers_data *od = get_offers_data(plugin);
 	struct node_id local_nodeid;
 	const struct gossmap_node *node;
 	const u8 *nannounce;
@@ -82,7 +78,7 @@ bool we_want_blinded_path(struct plugin *plugin, bool for_payment)
 	u8 rgb_color[3], alias[32];
 	struct tlv_node_ann_tlvs *na_tlvs;
 
-	node_id_from_pubkey(&local_nodeid, &id);
+	node_id_from_pubkey(&local_nodeid, &od->id);
 
 	node = gossmap_find_node(gossmap, &local_nodeid);
 	if (!node)
@@ -237,6 +233,7 @@ send_onion_reply(struct command *cmd,
 		 struct blinded_path *reply_path,
 		 struct tlv_onionmsg_tlv *payload)
 {
+	const struct offers_data *od = get_offers_data(cmd->plugin);
 	struct onion_reply *onion_reply;
 
 	onion_reply = tal(cmd, struct onion_reply);
@@ -253,8 +250,8 @@ send_onion_reply(struct command *cmd,
 	}
 
 	return establish_onion_path(cmd, get_gossmap(cmd->plugin),
-				    &id, &onion_reply->reply_path->first_node_id.pubkey,
-				    disable_connect,
+				    &od->id, &onion_reply->reply_path->first_node_id.pubkey,
+				    od->disable_connect,
 				    send_onion_reply_after_established,
 				    send_onion_reply_not_established,
 				    onion_reply);
@@ -433,8 +430,9 @@ static struct command_result *block_added_notify(struct command *cmd,
 						 const char *buf,
 						 const jsmntok_t *params)
 {
+	struct offers_data *od = get_offers_data(cmd->plugin);
 	const char *err = json_scan(cmd, buf, params, "{block_added:{height:%}}",
-				    JSON_SCAN(json_to_u32, &blockheight));
+				    JSON_SCAN(json_to_u32, &od->blockheight));
 	if (err)
 		plugin_err(cmd->plugin, "Failed to parse block_added (%.*s): %s",
 			   json_tok_full_len(params),
@@ -1620,34 +1618,36 @@ static const char *init(struct command *init_cmd,
 			const char *buf UNUSED,
 			const jsmntok_t *config UNUSED)
 {
+	struct offers_data *od = get_offers_data(init_cmd->plugin);
+
 	rpc_scan(init_cmd, "getinfo",
 		 take(json_out_obj(NULL, NULL, NULL)),
-		 "{id:%}", JSON_SCAN(json_to_pubkey, &id));
+		 "{id:%}", JSON_SCAN(json_to_pubkey, &od->id));
 
 	rpc_scan(init_cmd, "getchaininfo",
 		 take(json_out_obj(NULL, "last_height", NULL)),
-		 "{headercount:%}", JSON_SCAN(json_to_u32, &blockheight));
+		 "{headercount:%}", JSON_SCAN(json_to_u32, &od->blockheight));
 
 	rpc_scan(init_cmd, "listconfigs",
 		 take(json_out_obj(NULL, NULL, NULL)),
 		 "{configs:"
 		 "{cltv-final:{value_int:%}}}",
-		 JSON_SCAN(json_to_u16, &cltv_final));
+		 JSON_SCAN(json_to_u16, &od->cltv_final));
 
 	rpc_scan(init_cmd, "makesecret",
 		 take(json_out_obj(NULL, "string", BOLT12_ID_BASE_STRING)),
 		 "{secret:%}",
-		 JSON_SCAN(json_to_secret, &invoicesecret_base));
+		 JSON_SCAN(json_to_secret, &od->invoicesecret_base));
 
 	rpc_scan(init_cmd, "makesecret",
 		 take(json_out_obj(NULL, "string", "offer-blinded-path")),
 		 "{secret:%}",
-		 JSON_SCAN(json_to_secret, &offerblinding_base));
+		 JSON_SCAN(json_to_secret, &od->offerblinding_base));
 
 	rpc_scan(init_cmd, "makesecret",
 		 take(json_out_obj(NULL, "string", NODE_ALIAS_BASE_STRING)),
 		 "{secret:%}",
-		 JSON_SCAN(json_to_secret, &nodealias_base));
+		 JSON_SCAN(json_to_secret, &od->nodealias_base));
 
 	return NULL;
 }
@@ -1708,22 +1708,28 @@ static bool scid_jsonfmt(struct plugin *plugin, struct json_stream *js, const ch
 int main(int argc, char *argv[])
 {
 	setup_locale();
+	struct offers_data *od = tal(NULL, struct offers_data);
+
+	od->disable_connect = false;
+	od->dev_invoice_bpath_scid = false;
+	od->dev_invoice_internal_scid = NULL;
+	od->global_gossmap_ = NULL;
 
 	/* We deal in UTC; mktime() uses local time */
 	setenv("TZ", "", 1);
-	plugin_main(argv, init, NULL, PLUGIN_RESTARTABLE, true, NULL,
+	plugin_main(argv, init, take(od), PLUGIN_RESTARTABLE, true, NULL,
 		    commands, ARRAY_SIZE(commands),
 		    notifications, ARRAY_SIZE(notifications),
 		    hooks, ARRAY_SIZE(hooks),
 		    NULL, 0,
 		    plugin_option("fetchinvoice-noconnect", "flag",
 				  "Don't try to connect directly to fetch/pay an invoice.",
-				  flag_option, flag_jsonfmt, &disable_connect),
+				  flag_option, flag_jsonfmt, &od->disable_connect),
 		    plugin_option_dev("dev-invoice-bpath-scid", "flag",
 				      "Use short_channel_id instead of pubkey when creating a blinded payment path",
-				      flag_option, flag_jsonfmt, &dev_invoice_bpath_scid),
+				      flag_option, flag_jsonfmt, &od->dev_invoice_bpath_scid),
 		    plugin_option_dev("dev-invoice-internal-scid", "string",
 				      "Use short_channel_id instead of pubkey when creating a blinded payment path",
-				      scid_option, scid_jsonfmt, &dev_invoice_internal_scid),
+				      scid_option, scid_jsonfmt, &od->dev_invoice_internal_scid),
 		    NULL);
 }

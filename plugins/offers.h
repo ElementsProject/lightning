@@ -7,26 +7,31 @@ struct command;
 struct onion_message;
 struct plugin;
 
-/* This is me. */
-extern struct pubkey id;
-/* --fetchinvoice-noconnect */
-extern bool disable_connect;
-/* --cltv-final */
-extern u16 cltv_final;
-/* Current header_count */
-extern u32 blockheight;
-/* Basis for invoice path_secrets */
-extern struct secret invoicesecret_base;
-/* Base for offers path_secrets */
-extern struct secret offerblinding_base;
-/* Base for node aliases for invoice requests */
-extern struct secret nodealias_base;
-/* --dev-invoice-bpath-scid */
-extern bool dev_invoice_bpath_scid;
-/* --dev-invoice-internal-scid */
-extern struct short_channel_id *dev_invoice_internal_scid;
-/* This is me. */
-extern struct pubkey id;
+/* plugin_data for this plugin */
+struct offers_data {
+	/* This is me. */
+	struct pubkey id;
+	/* --fetchinvoice-noconnect */
+	bool disable_connect;
+	/* --cltv-final */
+	u16 cltv_final;
+	/* Current header_count */
+	u32 blockheight;
+	/* Basis for invoice path_secrets */
+	struct secret invoicesecret_base;
+	/* Base for offers path_secrets */
+	struct secret offerblinding_base;
+	/* Base for node aliases for invoice requests */
+	struct secret nodealias_base;
+	/* --dev-invoice-bpath-scid */
+	bool dev_invoice_bpath_scid;
+	/* --dev-invoice-internal-scid */
+	struct short_channel_id *dev_invoice_internal_scid;
+	/* Use get_gossmap() to access this! */
+	struct gossmap *global_gossmap_;
+};
+
+struct offers_data *get_offers_data(struct plugin *plugin);
 
 /* Helper to send a reply (connecting if required), and discard result */
 struct command_result *WARN_UNUSED_RESULT

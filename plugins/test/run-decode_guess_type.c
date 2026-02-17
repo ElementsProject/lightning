@@ -174,6 +174,9 @@ void   plugin_err(struct plugin *p UNNEEDED, const char *fmt UNNEEDED, ...)
 /* Generated stub for plugin_feature_set */
 const struct feature_set *plugin_feature_set(const struct plugin *p UNNEEDED)
 { fprintf(stderr, "plugin_feature_set called!\n"); abort(); }
+/* Generated stub for plugin_get_data_ */
+void *plugin_get_data_(struct plugin *plugin UNNEEDED)
+{ fprintf(stderr, "plugin_get_data_ called!\n"); abort(); }
 /* Generated stub for plugin_gossmap_logcb */
 void plugin_gossmap_logcb(struct plugin *plugin UNNEEDED,
 			  enum log_level level UNNEEDED,

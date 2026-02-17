@@ -260,6 +260,8 @@ static struct command_result *found_best_peer(struct command *cmd,
 					      const struct chaninfo *best,
 					      struct invreq *ir)
 {
+	struct offers_data *od = get_offers_data(cmd->plugin);
+
 	/* BOLT #12:
 	 * - MUST include `invoice_paths` containing one or more paths to the node.
 	 * - MUST specify `invoice_paths` in order of most-preferred to
@@ -282,11 +284,11 @@ static struct command_result *found_best_peer(struct command *cmd,
 		/* Make a small 1-hop path to us */
 		ids = tal_arr(tmpctx, struct pubkey, 2);
 		ids[0] = best->id;
-		ids[1] = id;
+		ids[1] = od->id;
 
 		/* This does nothing unless dev_invoice_internal_scid is set */
 		scids = tal_arrz(tmpctx, struct short_channel_id *, 2);
-		scids[1] = dev_invoice_internal_scid;
+		scids[1] = od->dev_invoice_internal_scid;
 
 		/* Make basic tlvs, add payment restrictions */
 		etlvs = new_encdata_tlvs(tmpctx, ids,
@@ -306,9 +308,9 @@ static struct command_result *found_best_peer(struct command *cmd,
 		 *     - MUST set `invoice_relative_expiry`
 		 */
 		if (ir->inv->invoice_relative_expiry)
-			base = blockheight + *ir->inv->invoice_relative_expiry / 600;
+			base = od->blockheight + *ir->inv->invoice_relative_expiry / 600;
 		else
-			base = blockheight + 7200 / 600;
+			base = od->blockheight + 7200 / 600;
 
 		/* BOLT #4:
 		 * - MUST set `encrypted_data_tlv.payment_constraints`
@@ -326,12 +328,12 @@ static struct command_result *found_best_peer(struct command *cmd,
 		 * payments fail in practice!  We add 1008 (half the max possible) */
 		etlvs[0]->payment_constraints = tal(etlvs[0],
 						    struct tlv_encrypted_data_tlv_payment_constraints);
-		etlvs[0]->payment_constraints->max_cltv_expiry = 1008 + base + best->cltv + cltv_final;
+		etlvs[0]->payment_constraints->max_cltv_expiry = 1008 + base + best->cltv + od->cltv_final;
 		etlvs[0]->payment_constraints->htlc_minimum_msat = best->htlc_min.millisatoshis; /* Raw: tlv */
 
 		/* So we recognize this payment */
 		etlvs[1]->path_id = bolt12_path_id(etlvs[1],
-						   &invoicesecret_base,
+						   &od->invoicesecret_base,
 						   ir->inv->invoice_payment_hash);
 
 		ir->inv->invoice_paths = tal_arr(ir->inv, struct blinded_path *, 1);
@@ -342,7 +344,7 @@ static struct command_result *found_best_peer(struct command *cmd,
 
 		/* If they tell us to use scidd for first point, grab
 		 * a channel from node (must exist, it's public) */
-		if (dev_invoice_bpath_scid) {
+		if (od->dev_invoice_bpath_scid) {
 			struct gossmap *gossmap = get_gossmap(cmd->plugin);
 			struct node_id best_nodeid;
 			const struct gossmap_node *n;
@@ -366,7 +368,7 @@ static struct command_result *found_best_peer(struct command *cmd,
 		ir->inv->invoice_blindedpay[0] = tal(ir->inv->invoice_blindedpay, struct blinded_payinfo);
 		ir->inv->invoice_blindedpay[0]->fee_base_msat = best->feebase;
 		ir->inv->invoice_blindedpay[0]->fee_proportional_millionths = best->feeppm;
-		ir->inv->invoice_blindedpay[0]->cltv_expiry_delta = best->cltv + cltv_final;
+		ir->inv->invoice_blindedpay[0]->cltv_expiry_delta = best->cltv + od->cltv_final;
 		ir->inv->invoice_blindedpay[0]->htlc_minimum_msat = best->htlc_min;
 		ir->inv->invoice_blindedpay[0]->htlc_maximum_msat = best->htlc_max;
 		ir->inv->invoice_blindedpay[0]->features = NULL;
@@ -809,6 +811,7 @@ static struct command_result *listoffers_done(struct command *cmd,
 					      const jsmntok_t *result,
 					      struct invreq *ir)
 {
+	const struct offers_data *od = get_offers_data(cmd->plugin);
 	const jsmntok_t *arr = json_get_member(buf, result, "offers");
 	const jsmntok_t *offertok, *activetok, *b12tok;
 	bool active;
@@ -851,7 +854,7 @@ static struct command_result *listoffers_done(struct command *cmd,
 		ir->invreq->offer_paths = NULL;
 		invreq_offer_id(ir->invreq, &offer_id);
 		ir->invreq->offer_paths = offer_paths;
-		bolt12_path_secret(&offerblinding_base, &offer_id,
+		bolt12_path_secret(&od->offerblinding_base, &offer_id,
 				   &blinding_path_secret);
 		if (!secret_eq_consttime(ir->secret, &blinding_path_secret)) {
 			/* You used the wrong blinded path for invreq */

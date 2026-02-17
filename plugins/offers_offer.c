@@ -255,6 +255,8 @@ static struct command_result *found_best_peer(struct command *cmd,
 					      const struct chaninfo *best,
 					      struct offer_info *offinfo)
 {
+	const struct offers_data *od = get_offers_data(cmd->plugin);
+
 	/* BOLT #12:
 	 *   - if it is connected only by private channels:
 	 *     - MUST include `offer_paths` containing one or more paths to the node from
@@ -275,11 +277,11 @@ static struct command_result *found_best_peer(struct command *cmd,
 		/* Make a small 1-hop path to us */
 		ids = tal_arr(tmpctx, struct pubkey, 2);
 		ids[0] = best->id;
-		ids[1] = id;
+		ids[1] = od->id;
 
 		/* So we recognize this */
 		/* We can check this when they try to take up offer. */
-		bolt12_path_secret(&offerblinding_base, &offer_id,
+		bolt12_path_secret(&od->offerblinding_base, &offer_id,
 				   &blinding_path_secret);
 
 		offinfo->offer->offer_paths = tal_arr(offinfo->offer, struct blinded_path *, 1);
@@ -352,6 +354,7 @@ static struct command_result *param_paths(struct command *cmd, const char *name,
 {
 	size_t i;
 	const jsmntok_t *t;
+	const struct offers_data *od = get_offers_data(cmd->plugin);
 
 	if (tok->type != JSMN_ARRAY)
 		return command_fail_badparam(cmd, name, buffer, tok, "Must be array");
@@ -394,7 +397,7 @@ static struct command_result *param_paths(struct command *cmd, const char *name,
 								     "invalid pubkey");
 				}
 			}
-			if (j == t->size - 1 && !pubkey_eq(&pk, &id))
+			if (j == t->size - 1 && !pubkey_eq(&pk, &od->id))
 				return command_fail_badparam(cmd, name, buffer, p,
 							     "final pubkey must be this node");
 			(*paths)[i]->path[j] = pk;
@@ -407,6 +410,7 @@ struct command_result *json_offer(struct command *cmd,
 				  const char *buffer,
 				  const jsmntok_t *params)
 {
+	const struct offers_data *od = get_offers_data(cmd->plugin);
 	const char *desc, *issuer;
 	struct tlv_offer *offer;
 	struct offer_info *offinfo = tal(cmd, struct offer_info);
@@ -527,7 +531,7 @@ struct command_result *json_offer(struct command *cmd,
 	 *   - MUST set `offer_issuer_id` to the node's public key to request the
 	 *     invoice from.
 	 */
-	offer->offer_issuer_id = tal_dup(offer, struct pubkey, &id);
+	offer->offer_issuer_id = tal_dup(offer, struct pubkey, &od->id);
 
 	/* Now rest of offer will not change: we use pathless offer to create secret. */
 	if (paths) {
@@ -537,7 +541,7 @@ struct command_result *json_offer(struct command *cmd,
 		offer_offer_id(offer, &offer_id);
 
 		/* We can check this when they try to take up offer. */
-		bolt12_path_secret(&offerblinding_base, &offer_id,
+		bolt12_path_secret(&od->offerblinding_base, &offer_id,
 				   &blinding_path_secret);
 
 		offer->offer_paths = tal_arr(offer, struct blinded_path *, tal_count(paths));
@@ -599,6 +603,8 @@ static struct command_result *found_best_peer_invrequest(struct command *cmd,
 							 const struct chaninfo *best,
 							 struct invrequest_data *irdata)
 {
+	const struct offers_data *od = get_offers_data(cmd->plugin);
+
 	if (!best) {
 		/* FIXME: Make this a warning in the result! */
 		plugin_log(cmd->plugin, LOG_UNUSUAL,
@@ -623,11 +629,11 @@ static struct command_result *found_best_peer_invrequest(struct command *cmd,
 		/* Make a small 1-hop path to us */
 		ids = tal_arr(tmpctx, struct pubkey, 2);
 		ids[0] = best->id;
-		ids[1] = id;
+		ids[1] = od->id;
 
 		/* So we recognize this */
 		/* We can check this when they try to take up invoice_request. */
-		bolt12_path_secret(&offerblinding_base, &invreq_id,
+		bolt12_path_secret(&od->offerblinding_base, &invreq_id,
 				   &blinding_path_secret);
 
 		plugin_log(cmd->plugin, LOG_DBG,
@@ -650,6 +656,7 @@ struct command_result *json_invoicerequest(struct command *cmd,
 					   const char *buffer,
 					   const jsmntok_t *params)
 {
+	const struct offers_data *od = get_offers_data(cmd->plugin);
 	const char *desc, *issuer, *label;
 	struct tlv_invoice_request *invreq;
 	struct amount_msat *msat;
@@ -715,7 +722,7 @@ struct command_result *json_invoicerequest(struct command *cmd,
 	 *   - MUST set `invreq_payer_id` (as it would set `offer_issuer_id` for an offer).
 	 */
 	/* FIXME: Allow invoicerequests using aliases! */
-	invreq->invreq_payer_id = tal_dup(invreq, struct pubkey, &id);
+	invreq->invreq_payer_id = tal_dup(invreq, struct pubkey, &od->id);
 
 	/* BOLT #12:
 	 * - if it supports bolt12 invoice request features:
