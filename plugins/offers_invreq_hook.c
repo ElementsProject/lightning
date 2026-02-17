@@ -250,6 +250,10 @@ static struct command_result *create_invoicereq(struct command *cmd,
 	return send_outreq(req);
 }
 
+/* FIXME: Allow multihop! */
+/* FIXME: And add padding! */
+
+
 /* FIXME: This is naive:
  * - Only creates if we have no public channels.
  * - Always creates a path from direct neighbor.
