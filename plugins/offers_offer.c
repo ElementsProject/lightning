@@ -342,6 +342,7 @@ static struct command_result *maybe_add_path(struct command *cmd,
 							     tal_count(od->fronting_nodes));
 			} else {
 				return find_best_peer(cmd, 1ULL << OPT_ONION_MESSAGES,
+						      NULL,
 						      found_best_peer, offinfo);
 			}
 		}
@@ -776,7 +777,7 @@ struct command_result *json_invoicerequest(struct command *cmd,
 		idata->single_use = *single_use;
 		idata->label = label;
 		return find_best_peer(cmd, 1ULL << OPT_ONION_MESSAGES,
-				      found_best_peer_invrequest, idata);
+				      NULL, found_best_peer_invrequest, idata);
 	}
 
 	return call_createinvoicerequest(cmd, invreq, *single_use, label);
