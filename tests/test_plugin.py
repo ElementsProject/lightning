@@ -1741,6 +1741,7 @@ def test_libplugin(node_factory):
     assert l1.daemon.is_in_stderr(r"somearg-deprecated=test_opt: deprecated option")
 
     del l1.daemon.opts["somearg-deprecated"]
+    l1.daemon.opts["multiopt"] = ['hello', 'world']
     l1.start()
 
     # Test that check works as expected.
@@ -1753,6 +1754,9 @@ def test_libplugin(node_factory):
 
     # This works
     assert l1.rpc.check('checkthis', key=["test_libplugin", "name"]) == {'command_to_check': 'checkthis'}
+
+    assert l1.daemon.is_in_log('plugin-test_libplugin: multiopt#0 = hello')
+    assert l1.daemon.is_in_log('plugin-test_libplugin: multiopt#1 = world')
 
 
 def test_libplugin_deprecated(node_factory):
