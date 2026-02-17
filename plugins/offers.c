@@ -64,7 +64,9 @@ struct gossmap *get_gossmap(struct plugin *plugin)
  *     - MUST include `offer_paths` containing one or more paths to the node
  *       from publicly reachable nodes.
  */
-bool we_want_blinded_path(struct plugin *plugin, bool for_payment)
+bool we_want_blinded_path(struct plugin *plugin,
+			  const struct pubkey *fronting_nodes,
+			  bool for_payment)
 {
 	const struct offers_data *od = get_offers_data(plugin);
 	struct node_id local_nodeid;
@@ -79,7 +81,7 @@ bool we_want_blinded_path(struct plugin *plugin, bool for_payment)
 	struct tlv_node_ann_tlvs *na_tlvs;
 
 	/* If we're fronting, we always want a blinded path */
-	if (od->fronting_nodes)
+	if (fronting_nodes)
 		return true;
 
 	node_id_from_pubkey(&local_nodeid, &od->id);
@@ -318,7 +320,7 @@ struct find_best_peer_data {
 				     const struct chaninfo *,
 				     void *);
 	u64 needed_features;
-	const struct pubkey *fronting_only;
+	const struct pubkey *fronting_nodes;
 	void *arg;
 };
 
@@ -377,8 +379,8 @@ static struct command_result *listincoming_done(struct command *cmd,
 		}
 		ci.feebase = feebase.millisatoshis; /* Raw: feebase */
 
-		if (data->fronting_only) {
-			if (!is_in_pubkeys(data->fronting_only, &ci.id))
+		if (data->fronting_nodes) {
+			if (!is_in_pubkeys(data->fronting_nodes, &ci.id))
 				continue;
 
 			/* If disconnected, don't eliminate, simply
@@ -423,7 +425,7 @@ static struct command_result *listincoming_done(struct command *cmd,
 
 struct command_result *find_best_peer_(struct command *cmd,
 				       u64 needed_features,
-				       const struct pubkey *fronting_only,
+				       const struct pubkey *fronting_nodes,
 				       struct command_result *(*cb)(struct command *,
 								    const struct chaninfo *,
 								    void *),
@@ -434,7 +436,10 @@ struct command_result *find_best_peer_(struct command *cmd,
 	data->cb = cb;
 	data->arg = arg;
 	data->needed_features = needed_features;
-	data->fronting_only = fronting_only;
+	if (fronting_nodes)
+		data->fronting_nodes = tal_dup_talarr(data, struct pubkey, fronting_nodes);
+	else
+		data->fronting_nodes = NULL;
 	req = jsonrpc_request_start(cmd, "listincoming",
 				    listincoming_done, forward_error, data);
 	return send_outreq(req);

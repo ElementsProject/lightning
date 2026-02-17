@@ -392,7 +392,7 @@ static struct command_result *add_blindedpaths(struct command *cmd,
 {
 	const struct offers_data *od = get_offers_data(cmd->plugin);
 
-	if (!we_want_blinded_path(cmd->plugin, true))
+	if (!we_want_blinded_path(cmd->plugin, od->fronting_nodes, true))
 		return create_invoicereq(cmd, ir);
 
 	/* Technically, this only needs OPT_ROUTE_BLINDING, but we have a report
