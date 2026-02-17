@@ -694,3 +694,46 @@ def test_reckless_install_from_commit_py(node_factory):
         # Restore redirect for other tests
         if saved_redir is not None:
             my_env['REDIR_GITHUB'] = saved_redir
+
+
+@pytest.mark.slow_test
+@pytest.mark.flaky(max_runs=3)
+@unittest.skipIf(VALGRIND, "virtual environment triggers memleak detection")
+def test_reckless_rpc_install_from_commit_py(node_factory):
+    """Test reckless installs a plugin at a specific commit via RPC."""
+    saved_redir = my_env.pop('REDIR_GITHUB', None)
+
+    notification_plugin = os.path.join(os.getcwd(), 'tests/plugins/custom_notifications.py')
+    node = get_reckless_node(node_factory, options={"plugin": notification_plugin})
+
+    plugin_name = "currencyrate"
+    from_commit = "306cfadcc90e98ce6fb2e27915efa72be0f66ad6"
+
+    try:
+        node.start()
+
+        result = node.rpc.reckless('install', f'{plugin_name}@{from_commit}')
+        assert 'plugin installed:' in ''.join(result.get('log', []))
+
+        installed_path = (Path(node.lightning_dir) / 'reckless' / plugin_name).resolve()
+        assert installed_path.is_dir()
+
+        # Verify the .metadata file records the correct commit.
+        metadata_file = installed_path / '.metadata'
+        assert metadata_file.exists(), ".metadata file not found"
+        metadata_text = metadata_file.read_text()
+        metadata_lines = metadata_text.splitlines()
+        metadata = {}
+        for i, line in enumerate(metadata_lines):
+            if i > 0:
+                metadata[metadata_lines[i - 1].strip()] = line.strip()
+
+        assert metadata.get('requested commit') == from_commit, \
+            f"requested commit mismatch: {metadata.get('requested commit')}"
+        assert metadata.get('installed commit') is not None
+        assert metadata['installed commit'].startswith(from_commit[:7]), \
+            f"installed commit {metadata['installed commit']} does not match {from_commit}"
+
+    finally:
+        if saved_redir is not None:
+            my_env['REDIR_GITHUB'] = saved_redir
