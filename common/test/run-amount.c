@@ -347,6 +347,57 @@ int main(int argc, char *argv[])
 	/* Overflowingly big. */
 	FAIL_SAT(&sat, "21000000000000000000000000.00000000btc");
 
+	const char *partial_sats[] =
+	{
+		"10.111sat",
+		"10.11sat",
+		"10.1sat",
+		"10sat",
+		"10.001sat",
+		"10.01sat",
+		"10.1sat",
+		"1.111sat",
+		"1.11sat",
+		"1.1sat",
+		"1sat",
+		"0.111sat",
+		"0.011sat",
+		"0.001sat",
+		"0sat",
+		NULL,
+	};
+
+	u64 msat_amnts[] =
+	{
+		10111,
+		10110,
+		10100,
+		10000,
+		10001,
+		10010,
+		10100,
+		1111,
+		1110,
+		1100,
+		1000,
+		111,
+		11,
+		1,
+		0,
+	};
+
+	assert(sizeof(partial_sats) / sizeof(partial_sats[0]) - 1
+	       == sizeof(msat_amnts) / sizeof(msat_amnts[0]));
+
+	for (int i = 0; partial_sats[i]; i++) {
+		msat.millisatoshis = msat_amnts[i];
+		printf("Does '%s' equal '%s'\n",
+		       fmt_amount_m_as_sat(tmpctx, msat),
+		       partial_sats[i]);
+		assert(streq(fmt_amount_m_as_sat(tmpctx, msat),
+			     partial_sats[i]));
+	}
+
 	/* Test fmt_amount_msat_btc, fmt_amount_msat */
 	for (u64 i = 0; i <= UINT64_MAX / 10; i = i ? i * 10 : 1) {
 		const char *with, *without;

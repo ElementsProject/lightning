@@ -1871,6 +1871,7 @@ message FeeratesPerkb {
 	repeated FeeratesPerkbEstimates estimates = 9;
 	optional uint32 floor = 10;
 	optional uint32 unilateral_anchor_close = 11;
+	optional uint32 splice = 12;
 }
 
 message FeeratesPerkbEstimates {
@@ -1891,6 +1892,7 @@ message FeeratesPerkw {
 	repeated FeeratesPerkwEstimates estimates = 9;
 	optional uint32 floor = 10;
 	optional uint32 unilateral_anchor_close = 11;
+	optional uint32 splice = 12;
 }
 
 message FeeratesPerkwEstimates {
