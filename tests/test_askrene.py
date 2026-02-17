@@ -1442,7 +1442,7 @@ canned_gossmap_badnodes = {
 
 
 @pytest.mark.slow_test
-def test_real_data(node_factory, bitcoind):
+def test_real_data(node_factory, bitcoind, executor):
     # Route from Rusty's node to the top nodes
     # From tests/data/gossip-store-2026-02-03-node-map.xz:
     # Me: 2134:024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605:BLUEIRON
@@ -1475,47 +1475,53 @@ def test_real_data(node_factory, bitcoind):
         limit = 100
         expected = (11, 95, 8026484, 925406, 89)
 
-    fees = {}
-    for n in range(0, limit):
-        # 0.5% is the norm
-        MAX_FEE = AMOUNT // 200
+    # 0.5% is the norm
+    MAX_FEE = AMOUNT // 200
 
+    # Do these in parallel.
+    futs = {}
+    for n in range(0, limit):
+        futs[n] = executor.submit(l1.rpc.getroutes,
+                                  source=l1.info['id'],
+                                  destination=nodeids[n],
+                                  amount_msat=AMOUNT,
+                                  layers=['auto.sourcefree', 'auto.localchans'],
+                                  maxfee_msat=MAX_FEE,
+                                  final_cltv=18)
+
+    fees = {}
+    prevs = {}
+    for n in range(0, limit):
+        fees[n] = []
         if n in canned_gossmap_badnodes:
             with pytest.raises(RpcError, match=canned_gossmap_badnodes[n]):
-                l1.rpc.getroutes(source=l1.info['id'],
-                                 destination=nodeids[n],
-                                 amount_msat=AMOUNT,
-                                 layers=['auto.sourcefree', 'auto.localchans'],
-                                 maxfee_msat=MAX_FEE,
-                                 final_cltv=18)
-            fees[n] = []
+                futs[n].result(TIMEOUT)
             continue
 
-        try:
-            prev = l1.rpc.getroutes(source=l1.info['id'],
-                                    destination=nodeids[n],
-                                    amount_msat=AMOUNT,
-                                    layers=['auto.sourcefree', 'auto.localchans'],
-                                    maxfee_msat=MAX_FEE,
-                                    final_cltv=18)
-        except RpcError:
-            fees[n] = []
-            continue
+        prevs[n] = futs[n].result(TIMEOUT)
 
-        # Now stress it, by asking it to spend 1msat less!
-        fees[n] = [sum([r['path'][0]['amount_msat'] for r in prev['routes']]) - AMOUNT]
+    # Stress it by asking harder for each one which succeeded
+    while prevs != {}:
+        futs = {}
+        for n, prev in prevs.items():
+            # Record fees
+            fees[n].append(sum([r['path'][0]['amount_msat'] for r in prev['routes']]) - AMOUNT)
+            # Now stress it, by asking it to spend 1msat less!
+            futs[n] = executor.submit(l1.rpc.getroutes,
+                                      source=l1.info['id'],
+                                      destination=nodeids[n],
+                                      amount_msat=AMOUNT,
+                                      layers=['auto.sourcefree', 'auto.localchans'],
+                                      maxfee_msat=fees[n][-1] - 1,
+                                      final_cltv=18)
 
-        while True:
-            # Keep making it harder...
+        for n, fut in futs.items():
             try:
-                routes = l1.rpc.getroutes(source=l1.info['id'],
-                                          destination=nodeids[n],
-                                          amount_msat=AMOUNT,
-                                          layers=['auto.sourcefree', 'auto.localchans'],
-                                          maxfee_msat=fees[n][-1] - 1,
-                                          final_cltv=18)
+                routes = fut.result(TIMEOUT)
             except RpcError:
-                break
+                # Too much, this one is one.
+                del prevs[n]
+                continue
 
             fee = sum([r['path'][0]['amount_msat'] for r in routes['routes']]) - AMOUNT
             # Should get less expensive
@@ -1523,10 +1529,8 @@ def test_real_data(node_factory, bitcoind):
 
             # Should get less likely (Note!  This is violated because once we care
             # about fees, the total is reduced, leading to better prob!).
-#            assert routes['probability_ppm'] < prev['probability_ppm']
-
-            fees[n].append(fee)
-            prev = routes
+#            assert routes['probability_ppm'] < prevs[n]['probability_ppm']
+            prevs[n] = routes
 
     # Which succeeded in improving
     improved = [n for n in fees if len(fees[n]) > 1]
@@ -1544,10 +1548,12 @@ def test_real_data(node_factory, bitcoind):
             best = n
 
     assert (len(fees[best]), len(improved), total_first_fee, total_final_fee, percent_fee_reduction) == expected
+    # askrene will have restricted how many we run
+    assert l1.daemon.is_in_log(r"Too many running at once \(4 vs 4\): waiting")
 
 
 @pytest.mark.slow_test
-def test_real_biases(node_factory, bitcoind):
+def test_real_biases(node_factory, bitcoind, executor):
     # Route from Rusty's node to the top 100.
     # From tests/data/gossip-store-2026-02-03-node-map.xz:
     # Me: 2134:024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605:BLUEIRON
@@ -1582,22 +1588,34 @@ def test_real_biases(node_factory, bitcoind):
     num_changed = {}
     bias_ineffective = 0
 
-    for bias in (1, 2, 4, 8, 16, 32, 64, 100):
-        num_changed[bias] = 0
-        for n in range(0, limit):
-            # 0.5% is the norm
-            MAX_FEE = AMOUNT // 200
+    # 0.5% is the norm
+    MAX_FEE = AMOUNT // 200
 
-            if n in canned_gossmap_badnodes:
-                continue
-
-            route = l1.rpc.getroutes(source=l1.info['id'],
+    # To exercise parallelism, do bases all at once.
+    futures = {}
+    for n in range(0, limit):
+        if n in canned_gossmap_badnodes:
+            continue
+        futures[n] = executor.submit(l1.rpc.getroutes,
+                                     source=l1.info['id'],
                                      destination=nodeids[n],
                                      amount_msat=AMOUNT,
                                      layers=['auto.sourcefree', 'auto.localchans'],
                                      maxfee_msat=MAX_FEE,
                                      final_cltv=18)
 
+    base_routes = {}
+    for n in range(0, limit):
+        if n in canned_gossmap_badnodes:
+            continue
+        base_routes[n] = futures[n].result(TIMEOUT)
+
+    for bias in (1, 2, 4, 8, 16, 32, 64, 100):
+        num_changed[bias] = 0
+        for n in range(0, limit):
+            if n in canned_gossmap_badnodes:
+                continue
+            route = base_routes[n]
             # Now add bias against final channel, see if it changes.
             chan = route['routes'][0]['path'][-1]['short_channel_id_dir']
 
