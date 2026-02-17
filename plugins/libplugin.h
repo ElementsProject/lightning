@@ -593,7 +593,7 @@ void *plugin_get_data_(struct plugin *plugin);
 #define plugin_get_data(plugin, type) ((type *)(plugin_get_data_(plugin)))
 
 /* Macro to define arguments */
-#define plugin_option_(name, type, description, set, jsonfmt, arg, dev_only, depr_start, depr_end, dynamic) \
+#define plugin_option_(name, type, description, set, jsonfmt, arg, dev_only, depr_start, depr_end, dynamic, multi) \
 	(name),								\
 	(type),								\
 	(description),							\
@@ -610,23 +610,27 @@ void *plugin_get_data_(struct plugin *plugin);
 	(dev_only),							\
 	(depr_start),							\
 	(depr_end),							\
-	(dynamic)
+	(dynamic),							\
+	(multi)
 
 /* jsonfmt can be NULL, but then default won't be printed */
 #define plugin_option(name, type, description, set, jsonfmt, arg)	\
-	plugin_option_((name), (type), (description), (set), (jsonfmt), (arg), false, NULL, NULL, false)
+	plugin_option_((name), (type), (description), (set), (jsonfmt), (arg), false, NULL, NULL, false, false)
 
 #define plugin_option_dev(name, type, description, set, jsonfmt, arg)	\
-	plugin_option_((name), (type), (description), (set), (jsonfmt), (arg), true, NULL, NULL, false)
+	plugin_option_((name), (type), (description), (set), (jsonfmt), (arg), true, NULL, NULL, false, false)
 
 #define plugin_option_dev_dynamic(name, type, description, set, jsonfmt, arg) \
-	plugin_option_((name), (type), (description), (set), (jsonfmt), (arg), true, NULL, NULL, true)
+	plugin_option_((name), (type), (description), (set), (jsonfmt), (arg), true, NULL, NULL, true, false)
 
 #define plugin_option_dynamic(name, type, description, set, jsonfmt, arg) \
-	plugin_option_((name), (type), (description), (set), (jsonfmt), (arg), false, NULL, NULL, true)
+	plugin_option_((name), (type), (description), (set), (jsonfmt), (arg), false, NULL, NULL, true, false)
 
 #define plugin_option_deprecated(name, type, description, depr_start, depr_end, set, jsonfmt, arg) \
-	plugin_option_((name), (type), (description), (set), (jsonfmt), (arg), false, (depr_start), (depr_end), false)
+	plugin_option_((name), (type), (description), (set), (jsonfmt), (arg), false, (depr_start), (depr_end), false, false)
+
+#define plugin_option_multi(name, type, description, set, jsonfmt, arg)	\
+	plugin_option_((name), (type), (description), (set), (jsonfmt), (arg), false, NULL, NULL, false, true)
 
 /* Standard helpers */
 char *u64_option(struct plugin *plugin, const char *arg, bool check_only, u64 *i);
