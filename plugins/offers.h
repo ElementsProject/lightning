@@ -86,14 +86,14 @@ struct chaninfo {
 /* Calls listpeerchannels, then cb with best peer (if any!) which has needed_feature */
 struct command_result *find_best_peer_(struct command *cmd,
 				       u64 needed_features,
-				       const struct pubkey *fronting_only,
+				       const struct pubkey *fronting_nodes,
 				       struct command_result *(*cb)(struct command *,
 								    const struct chaninfo *,
 								    void *),
 				       void *arg);
 
-#define find_best_peer(cmd, needed_features, fronting_only, cb, arg)	\
-	find_best_peer_((cmd), (needed_features), (fronting_only),	\
+#define find_best_peer(cmd, needed_features, fronting_nodes, cb, arg)	\
+	find_best_peer_((cmd), (needed_features), (fronting_nodes),	\
 			typesafe_cb_preargs(struct command_result *, void *, \
 					    (cb), (arg),		\
 					    struct command *,		\
@@ -101,5 +101,7 @@ struct command_result *find_best_peer_(struct command *cmd,
 			(arg))
 
 /* Do we want a blinded path from a peer? */
-bool we_want_blinded_path(struct plugin *plugin, bool for_payment);
+bool we_want_blinded_path(struct plugin *plugin,
+			  const struct pubkey *fronting_nodes,
+			  bool for_payment);
 #endif /* LIGHTNING_PLUGINS_OFFERS_H */

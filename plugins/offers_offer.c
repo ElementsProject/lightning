@@ -205,6 +205,7 @@ struct offer_info {
 	struct tlv_offer *offer;
 	const char *label;
 	bool *single_use;
+	const struct pubkey *fronting_nodes;
 };
 
 static struct command_result *check_result(struct command *cmd,
@@ -331,15 +332,15 @@ static struct command_result *maybe_add_path(struct command *cmd,
 		 *     - MUST include `offer_paths` containing one or more paths to the node from
 		 *       publicly reachable nodes.
 		 */
-		if (we_want_blinded_path(cmd->plugin, false)) {
+		if (we_want_blinded_path(cmd->plugin, offinfo->fronting_nodes, false)) {
 			/* We use *all* fronting nodes (not just "best" one)
 			 * for offers */
-			if (od->fronting_nodes) {
+			if (offinfo->fronting_nodes) {
 				offinfo->offer->offer_paths
 					= offer_onehop_paths(offinfo->offer, od,
 							     offinfo->offer,
-							     od->fronting_nodes,
-							     tal_count(od->fronting_nodes));
+							     offinfo->fronting_nodes,
+							     tal_count(offinfo->fronting_nodes));
 			} else {
 				return find_best_peer(cmd, 1ULL << OPT_ONION_MESSAGES,
 						      NULL,
@@ -446,6 +447,30 @@ static struct command_result *param_paths(struct command *cmd, const char *name,
 	return NULL;
 }
 
+static struct command_result *param_pubkey_arr(struct command *cmd,
+					       const char *name,
+					       const char *buffer,
+					       const jsmntok_t *tok,
+					       const struct pubkey **keys)
+{
+	size_t i;
+	const jsmntok_t *t;
+	struct pubkey *arr;
+
+	if (tok->type != JSMN_ARRAY)
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "should be an array of nodes");
+
+	arr = tal_arr(cmd, struct pubkey, tok->size);
+	json_for_each_arr(i, t, tok) {
+		if (!json_to_pubkey(buffer, t, &arr[i]))
+			return command_fail_badparam(cmd, name, buffer, t,
+						     "invalid pubkey");
+	}
+	*keys = arr;
+	return NULL;
+}
+
 struct command_result *json_offer(struct command *cmd,
 				  const char *buffer,
 				  const jsmntok_t *params)
@@ -484,9 +509,21 @@ struct command_result *json_offer(struct command *cmd,
 			 p_opt_def("optional_recurrence",
 				   param_bool,
 				   &optional_recurrence, false),
+			 p_opt("fronting_nodes",
+			       param_pubkey_arr,
+			       &offinfo->fronting_nodes),
 			 p_opt("dev_paths", param_paths, &paths),
 			 NULL))
 		return command_param_failed();
+
+
+	/* If they don't specify explicitly, use config (if any) */
+	if (!offinfo->fronting_nodes)
+		offinfo->fronting_nodes = od->fronting_nodes;
+	else if (tal_count(offinfo->fronting_nodes) == 0) {
+		/* [] means "no fronting" */
+		offinfo->fronting_nodes = tal_free(offinfo->fronting_nodes);
+	}
 
 	/* BOLT #12:
 	 *
@@ -775,7 +812,7 @@ struct command_result *json_invoicerequest(struct command *cmd,
 	 *   - MUST set `invreq_features`.`features` to the bitmap of features.
 	 */
 
-	if (we_want_blinded_path(cmd->plugin, false)) {
+	if (we_want_blinded_path(cmd->plugin, od->fronting_nodes, false)) {
 		struct invrequest_data *idata = tal(cmd, struct invrequest_data);
 		idata->invreq = invreq;
 		idata->single_use = *single_use;
