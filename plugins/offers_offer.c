@@ -646,6 +646,12 @@ static struct command_result *found_best_peer_invrequest(struct command *cmd,
 	const struct offers_data *od = get_offers_data(cmd->plugin);
 
 	if (!best) {
+		/* Don't allow bare invoices if they explicitly told us to front */
+		if (od->fronting_nodes) {
+			return command_fail(cmd, LIGHTNINGD,
+					    "Could not find neighbour fronting node");
+		}
+
 		/* FIXME: Make this a warning in the result! */
 		plugin_log(cmd->plugin, LOG_UNUSUAL,
 			   "No incoming channel to public peer, so no blinded path for invoice request");
@@ -769,15 +775,14 @@ struct command_result *json_invoicerequest(struct command *cmd,
 	 *   - MUST set `invreq_features`.`features` to the bitmap of features.
 	 */
 
-	/* FIXME: We only set blinded path if private/noaddr, we should allow
-	 * setting otherwise! */
 	if (we_want_blinded_path(cmd->plugin, false)) {
 		struct invrequest_data *idata = tal(cmd, struct invrequest_data);
 		idata->invreq = invreq;
 		idata->single_use = *single_use;
 		idata->label = label;
 		return find_best_peer(cmd, 1ULL << OPT_ONION_MESSAGES,
-				      NULL, found_best_peer_invrequest, idata);
+				      od->fronting_nodes,
+				      found_best_peer_invrequest, idata);
 	}
 
 	return call_createinvoicerequest(cmd, invreq, *single_use, label);
