@@ -896,7 +896,7 @@ static bool map_catchup(struct gossmap *map,
 				return false;
 			map->num_live++;
 		} else if (type == WIRE_CHANNEL_UPDATE)
-			num_bad_cupdates += update_channel(map, off);
+			num_bad_cupdates += !update_channel(map, off);
 		else if (type == WIRE_GOSSIP_STORE_DELETE_CHAN)
 			remove_channel_by_deletemsg(map, off);
 		else if (type == WIRE_NODE_ANNOUNCEMENT)
