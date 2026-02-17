@@ -943,9 +943,12 @@ def test_invoice_botched_migration(node_factory, chainparams):
 
 
 def test_payment_fronting(node_factory):
-    l1, l2 = node_factory.get_nodes(2)
-    l3, l4 = node_factory.get_nodes(2, opts=[{'payment-fronting-node': l1.info['id']},
-                                             {'payment-fronting-node': [l1.info['id'], l2.info['id']]}])
+    # Nodes will not front for offers if they don't have an advertized address, so allow localhost.
+    l1, l2 = node_factory.get_nodes(2, opts={'dev-allow-localhost': None})
+    l3, l4 = node_factory.get_nodes(2, opts=[{'payment-fronting-node': l1.info['id'],
+                                              'dev-allow-localhost': None},
+                                             {'payment-fronting-node': [l1.info['id'], l2.info['id']],
+                                              'dev-allow-localhost': None}])
 
     assert l3.rpc.listconfigs('payment-fronting-node') == {'configs': {'payment-fronting-node': {'sources': ['cmdline'], 'values_str': [l1.info['id']]}}}
     assert l4.rpc.listconfigs('payment-fronting-node') == {'configs': {'payment-fronting-node': {'sources': ['cmdline', 'cmdline'], 'values_str': [l1.info['id'], l2.info['id']]}}}
@@ -965,6 +968,16 @@ def test_payment_fronting(node_factory):
 
     l1.rpc.xpay(l3inv)
     l1.rpc.xpay(l4inv)
+
+    # Now test offers.
+    l3offer = l3.rpc.offer(1000, 'l3offer', 'l3offer')['bolt12']
+    assert only_one(l3.rpc.decode(l3offer)['offer_paths'])['first_node_id'] == l1.info['id']
+
+    l4offer = l4.rpc.offer(1000, 'l4offer', 'l4offer')['bolt12']
+    assert [r['first_node_id'] for r in l4.rpc.decode(l4offer)['offer_paths']] == [l1.info['id'], l2.info['id']]
+
+    l1.rpc.fetchinvoice(l3offer)['invoice']
+    l1.rpc.fetchinvoice(l4offer)['invoice']
 
 
 def test_invoice_maxdesc(node_factory, chainparams):

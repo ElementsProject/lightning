@@ -78,6 +78,10 @@ bool we_want_blinded_path(struct plugin *plugin, bool for_payment)
 	u8 rgb_color[3], alias[32];
 	struct tlv_node_ann_tlvs *na_tlvs;
 
+	/* If we're fronting, we always want a blinded path */
+	if (od->fronting_nodes)
+		return true;
+
 	node_id_from_pubkey(&local_nodeid, &od->id);
 
 	node = gossmap_find_node(gossmap, &local_nodeid);
@@ -1614,6 +1618,25 @@ static struct command_result *json_decode(struct command *cmd,
 	return command_finished(cmd, response);
 }
 
+static struct pubkey *json_to_pubkeys(const tal_t *ctx,
+				      const char *buffer,
+				      const jsmntok_t *tok)
+{
+	size_t i;
+	const jsmntok_t *t;
+	struct pubkey *arr;
+
+	if (tok->type != JSMN_ARRAY)
+		return NULL;
+
+	arr = tal_arr(ctx, struct pubkey, tok->size);
+	json_for_each_arr(i, t, tok) {
+		if (!json_to_pubkey(buffer, t, &arr[i]))
+			return tal_free(arr);
+	}
+	return arr;
+}
+
 static const char *init(struct command *init_cmd,
 			const char *buf UNUSED,
 			const jsmntok_t *config UNUSED)
@@ -1631,8 +1654,13 @@ static const char *init(struct command *init_cmd,
 	rpc_scan(init_cmd, "listconfigs",
 		 take(json_out_obj(NULL, NULL, NULL)),
 		 "{configs:"
-		 "{cltv-final:{value_int:%}}}",
-		 JSON_SCAN(json_to_u16, &od->cltv_final));
+		 "{cltv-final:{value_int:%},"
+		 "payment-fronting-node?:{values_str:%}}}",
+		 JSON_SCAN(json_to_u16, &od->cltv_final),
+		 JSON_SCAN_TAL(od, json_to_pubkeys, &od->fronting_nodes));
+	/* Keep it simple if no fronting nodes */
+	if (tal_count(od->fronting_nodes) == 0)
+		od->fronting_nodes = tal_free(od->fronting_nodes);
 
 	rpc_scan(init_cmd, "makesecret",
 		 take(json_out_obj(NULL, "string", BOLT12_ID_BASE_STRING)),
