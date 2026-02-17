@@ -2062,12 +2062,8 @@ void plugins_init(struct plugins *plugins)
 	setenv("LIGHTNINGD_PLUGIN", "1", 1);
 	setenv("LIGHTNINGD_VERSION", version(), 1);
 
-	if (plugins_send_getmanifest(plugins, NULL)) {
-		void *ret;
-		ret = io_loop_with_timers(plugins->ld);
-		log_debug(plugins->ld->log, "io_loop_with_timers: %s", __func__);
-		assert(ret == plugins);
-	}
+	if (plugins_send_getmanifest(plugins, NULL))
+		io_loop_with_timers(plugins->ld);
 }
 
 static void plugin_config_cb(const char *buffer,
