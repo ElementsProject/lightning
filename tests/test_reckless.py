@@ -606,10 +606,9 @@ def test_reckless_install_from_github_url(node_factory):
 def test_install_crash_recovery(node_factory):
     """Test reckless can uninstall a plugin that prevents CLN from starting.
 
-    Installs the backup plugin via reckless, then replaces the entry
-    point with a script that exits immediately so CLN cannot start.
-    Verifies that reckless uninstall works while the node is stopped
-    and that CLN starts cleanly afterward.
+    Installs the backup plugin via reckless RPC call, then verify that
+    CLN crashed. Use reckless tool to unintall the plugin that caused
+    that prevents CLN from starting and verify that CLN starts cleanly afterward.
     """
     saved_redir = my_env.pop('REDIR_GITHUB', None)
 
@@ -620,17 +619,17 @@ def test_install_crash_recovery(node_factory):
     node.may_fail = True
 
     try:
-        r = reckless([f"--network={NETWORK}", "-v", "install", "backup"],
-                     dir=node.lightning_dir)
-        assert r.returncode == 0
-        assert r.search_stdout('plugin installed:')
+        node.start()
+        with pytest.raises(lightning.RpcError):
+            node.rpc.reckless('install', 'backup')
+        rc = node.daemon.wait(timeout=10)
+        assert rc != 0, f"Expected CLN to crash but got exit code {rc}"
 
         installed_path = (Path(node.lightning_dir) / 'reckless' / 'backup').resolve()
         assert installed_path.is_dir()
 
-        node.daemon.start(wait_for_initialized=False)
-        rc = node.daemon.wait(timeout=60)
-        assert rc != 0, f"Expected CLN to crash but got exit code {rc}"
+        installed_path = (Path(node.lightning_dir) / 'reckless' / 'backup').resolve()
+        assert installed_path.is_dir()
 
         r = reckless([f"--network={NETWORK}", "-v", "uninstall", "backup"],
                      dir=node.lightning_dir)
