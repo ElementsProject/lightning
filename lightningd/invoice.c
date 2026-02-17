@@ -660,6 +660,25 @@ static struct route_info **select_inchan_mpp(const tal_t *ctx,
 	return routehints;
 }
 
+static struct route_info **select_inchan_all(const tal_t *ctx,
+					     struct lightningd *ld,
+					     struct routehint_candidate
+					     *candidates)
+{
+	struct route_info **routehints;
+
+	log_debug(ld->log, "Selecting all %zu candidates",
+		  tal_count(candidates));
+
+	routehints = tal_arr(ctx, struct route_info *, tal_count(candidates));
+	for (size_t i = 0; i < tal_count(candidates); i++) {
+		routehints[i] = tal_dup(routehints, struct route_info,
+					candidates[i].r);
+	}
+
+	return routehints;
+}
+
 /* Encapsulating struct while we wait for gossipd to give us incoming channels */
 struct chanhints {
 	bool expose_all_private;
@@ -721,6 +740,10 @@ add_routehints(struct invoice_info *info,
 
 	needed = info->b11->msat ? *info->b11->msat : AMOUNT_MSAT(1);
 
+	/* --payment-fronting-node means use all candidates. */
+	if (tal_count(info->cmd->ld->fronting_nodes))
+		info->b11->routes = select_inchan_all(info->b11, info->cmd->ld, candidates);
+
 	/* If we are not completely unpublished, try with reservoir
 	 * sampling first.
 	 *
@@ -736,7 +759,7 @@ add_routehints(struct invoice_info *info,
 	 * should make an effort to avoid overlapping incoming
 	 * channels, which is done by select_inchan_mpp.
 	 */
-	if (!node_unpublished)
+	else if (!node_unpublished)
 		info->b11->routes = select_inchan(info->b11,
 						  info->cmd->ld,
 						  needed,

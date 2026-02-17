@@ -942,6 +942,31 @@ def test_invoice_botched_migration(node_factory, chainparams):
     assert l1.rpc.invoice(100, "test", "test")["created_index"] == 3
 
 
+def test_payment_fronting(node_factory):
+    l1, l2 = node_factory.get_nodes(2)
+    l3, l4 = node_factory.get_nodes(2, opts=[{'payment-fronting-node': l1.info['id']},
+                                             {'payment-fronting-node': [l1.info['id'], l2.info['id']]}])
+
+    assert l3.rpc.listconfigs('payment-fronting-node') == {'configs': {'payment-fronting-node': {'sources': ['cmdline'], 'values_str': [l1.info['id']]}}}
+    assert l4.rpc.listconfigs('payment-fronting-node') == {'configs': {'payment-fronting-node': {'sources': ['cmdline', 'cmdline'], 'values_str': [l1.info['id'], l2.info['id']]}}}
+
+    # l1  <----> l3
+    #   \
+    #    \-----> l4 <----> l2
+    node_factory.join_nodes([l1, l3], wait_for_announce=True)
+    node_factory.join_nodes([l1, l4], wait_for_announce=True)
+    node_factory.join_nodes([l2, l4], wait_for_announce=True)
+
+    l3inv = l3.rpc.invoice(1000, 'l3inv', 'l3inv')['bolt11']
+    assert only_one(only_one(l3.rpc.decode(l3inv)['routes']))['pubkey'] == l1.info['id']
+
+    l4inv = l4.rpc.invoice(1000, 'l4inv', 'l4inv')['bolt11']
+    assert [only_one(r)['pubkey'] for r in l4.rpc.decode(l4inv)['routes']] == [l1.info['id'], l2.info['id']]
+
+    l1.rpc.xpay(l3inv)
+    l1.rpc.xpay(l4inv)
+
+
 def test_invoice_maxdesc(node_factory, chainparams):
     l1, l2 = node_factory.line_graph(2)
 

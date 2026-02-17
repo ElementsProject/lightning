@@ -13,6 +13,16 @@ static bool scid_in_arr(const struct short_channel_id *scidarr,
 	return false;
 }
 
+static bool is_fronting_node(const struct lightningd *ld,
+			     const struct node_id *node)
+{
+	for (size_t i = 0; i < tal_count(ld->fronting_nodes); i++) {
+		if (node_id_eq(&ld->fronting_nodes[i], node))
+			return true;
+	}
+	return false;
+}
+
 struct routehint_candidate *
 routehint_candidates(const tal_t *ctx,
 		     struct lightningd *ld,
@@ -58,7 +68,7 @@ routehint_candidates(const tal_t *ctx,
 		struct routehint_candidate candidate;
 		struct amount_msat fee_base, htlc_max;
 		struct route_info *r;
-		bool is_public;
+		bool is_public, is_fronting;
 
 		r = tal(tmpctx, struct route_info);
 
@@ -87,6 +97,17 @@ routehint_candidates(const tal_t *ctx,
 			      json_tok_full_len(toks),
 			      json_tok_full(buf, toks));
 		}
+
+		/* If they specify fronting nodes, always use them. */
+		if (tal_count(ld->fronting_nodes)) {
+			if (!is_fronting_node(ld, &r->pubkey)) {
+				log_debug(ld->log, "%s: not a fronting node",
+					  fmt_node_id(tmpctx, &r->pubkey));
+				continue;
+			}
+			is_fronting = true;
+		} else
+			is_fronting = false;
 
 		/* Note: listincoming returns real scid or local alias if no real scid. */
 		candidate.c = any_channel_by_scid(ld, r->short_channel_id, true);
@@ -129,6 +150,10 @@ routehint_candidates(const tal_t *ctx,
 		if (expose_all_private != NULL && *expose_all_private)
 			is_public = true;
 
+		/* Also, consider fronting nodes public */
+		if (is_fronting)
+			is_public = true;
+
 		r->fee_base_msat = fee_base.millisatoshis; /* Raw: route_info */
 		/* Could wrap: if so ignore */
 		if (!amount_msat_eq(amount_msat(r->fee_base_msat), fee_base)) {
@@ -152,7 +177,7 @@ routehint_candidates(const tal_t *ctx,
 				continue;
 			}
 			/* If they give us a hint, we use even if capacity 0 */
-		} else if (amount_msat_is_zero(capacity)) {
+		} else if (!is_fronting && amount_msat_is_zero(capacity)) {
 			log_debug(ld->log, "%s: deadend",
 				  fmt_short_channel_id(tmpctx,
 						       r->short_channel_id));
@@ -162,8 +187,8 @@ routehint_candidates(const tal_t *ctx,
 			continue;
 		}
 
-		/* Is it offline? */
-		if (candidate.c->owner == NULL) {
+		/* Is it offline?  Leave it if it's fronting. */
+		if (!is_fronting && candidate.c->owner == NULL) {
 			log_debug(ld->log, "%s: offline",
 				  fmt_short_channel_id(tmpctx,
 						       r->short_channel_id));
