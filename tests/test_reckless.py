@@ -603,6 +603,58 @@ def test_reckless_install_from_github_url(node_factory):
 @pytest.mark.slow_test
 @pytest.mark.flaky(max_runs=3)
 @unittest.skipIf(VALGRIND, "virtual environment triggers memleak detection")
+def test_install_crash_recovery(node_factory):
+    """Test reckless can uninstall a plugin that prevents CLN from starting.
+
+    Installs the backup plugin via reckless, then replaces the entry
+    point with a script that exits immediately so CLN cannot start.
+    Verifies that reckless uninstall works while the node is stopped
+    and that CLN starts cleanly afterward.
+    """
+    saved_redir = my_env.pop('REDIR_GITHUB', None)
+
+    notification_plugin = os.path.join(os.getcwd(), 'tests/plugins/custom_notifications.py')
+    node = get_reckless_node(node_factory,
+                             options={"plugin": notification_plugin},
+                             start=False)
+    node.may_fail = True
+
+    try:
+        r = reckless([f"--network={NETWORK}", "-v", "install", "backup"],
+                     dir=node.lightning_dir)
+        assert r.returncode == 0
+        assert r.search_stdout('plugin installed:')
+
+        installed_path = (Path(node.lightning_dir) / 'reckless' / 'backup').resolve()
+        assert installed_path.is_dir()
+
+        node.daemon.start(wait_for_initialized=False)
+        rc = node.daemon.wait(timeout=60)
+        assert rc != 0, f"Expected CLN to crash but got exit code {rc}"
+
+        r = reckless([f"--network={NETWORK}", "-v", "uninstall", "backup"],
+                     dir=node.lightning_dir)
+        assert r.returncode == 0
+        assert r.search_stdout('uninstalled')
+
+        assert not installed_path.exists()
+
+        config_path = Path(node.lightning_dir) / NETWORK / 'config'
+        if config_path.exists():
+            config_text = config_path.read_text()
+            assert 'plugin=' not in config_text or 'backup' not in config_text
+
+        node.may_fail = False
+        node.start()
+
+    finally:
+        if saved_redir is not None:
+            my_env['REDIR_GITHUB'] = saved_redir
+
+
+@pytest.mark.slow_test
+@pytest.mark.flaky(max_runs=3)
+@unittest.skipIf(VALGRIND, "virtual environment triggers memleak detection")
 def test_reckless_install_from_commit_py(node_factory):
     """Test reckless install a real python plugin from specifi commit"""
     notification_plugin = os.path.join(os.getcwd(), 'tests/plugins/custom_notifications.py')
