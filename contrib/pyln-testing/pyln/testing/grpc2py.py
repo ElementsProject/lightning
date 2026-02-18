@@ -456,6 +456,8 @@ def emergencyrecover2py(m):
 
 def getemergencyrecoverdata2py(m):
     return remove_default({
+        "backed_up_channel_ids": [hexlify(m.backed_up_channel_ids) for i in hexlify(m.backed_up_channel_ids)], # ArrayField[primitive] in generate_composite
+        "can_create_penalty": m.can_create_penalty,  # PrimitiveField in generate_composite
         "filedata": hexlify(m.filedata),  # PrimitiveField in generate_composite
     })
 

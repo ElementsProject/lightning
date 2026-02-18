@@ -3017,8 +3017,10 @@ def test_getemergencyrecoverdata(node_factory):
     Test getemergencyrecoverdata
     """
     l1 = node_factory.get_node()
-    filedata = l1.rpc.getemergencyrecoverdata()['filedata']
-
+    rpc = l1.rpc.getemergencyrecoverdata()
+    filedata = rpc['filedata']
+    assert rpc['can_create_penalty'] is True
+    assert len(rpc['backed_up_channel_ids']) == 0
     with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "emergency.recover"), "rb") as f:
         lines = f.read().hex()
     assert lines == filedata
