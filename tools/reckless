@@ -1151,9 +1151,14 @@ def check_for_shebang(source: InstInfo) -> bool:
             if entrypoint_file.split('\n')[0].startswith('#!'):
                 # Calling the python interpreter will not manage dependencies.
                 # Leave this to another python installer.
-                for interpreter in ['bin/python', 'env python', 'uv run']:
-                    if interpreter in entrypoint_file.split('\n')[0]:
+                # Exception: 'uv run --script' uses PEP 723 inline metadata and
+                # is self-contained — let the shebang installer handle it.
+                shebang_line = entrypoint_file.split('\n')[0]
+                for interpreter in ['bin/python', 'env python']:
+                    if interpreter in shebang_line:
                         return False
+                if 'uv run' in shebang_line and '--script' not in shebang_line:
+                    return False
                 return True
     return False
 
