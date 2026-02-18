@@ -1151,7 +1151,7 @@ def check_for_shebang(source: InstInfo) -> bool:
             if entrypoint_file.split('\n')[0].startswith('#!'):
                 # Calling the python interpreter will not manage dependencies.
                 # Leave this to another python installer.
-                for interpreter in ['bin/python', 'env python']:
+                for interpreter in ['bin/python', 'env python', 'uv run']:
                     if interpreter in entrypoint_file.split('\n')[0]:
                         return False
                 return True
