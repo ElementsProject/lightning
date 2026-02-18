@@ -259,9 +259,6 @@ struct lightningd {
 	/* Maintained by invoices.c */
 	struct invoices *invoices;
 
-	/* Transaction filter matching what we're interested in */
-	struct txfilter *owned_txfilter;
-
 	/* PID file */
 	char *pidfile;
 

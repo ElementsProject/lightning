@@ -128,6 +128,7 @@ static const char *wallet_addrtype_to_owner_prefix(enum addrtype addrtype)
 void wallet_add_bwatch_scriptpubkey(struct lightningd *ld,
 				    const char *owner_prefix,
 				    u64 keyindex,
+				    u32 start_block,
 				    const u8 *script,
 				    size_t script_len)
 {
@@ -135,12 +136,8 @@ void wallet_add_bwatch_scriptpubkey(struct lightningd *ld,
 	struct json_stream *js;
 	size_t len;
 	char *json_params;
-	u32 start_block;
 	
 	owner = tal_fmt(tmpctx, "wallet/%s/%"PRIu64, owner_prefix, keyindex);
-	
-	/* Use watchman's last processed height to avoid rescanning from genesis */
-	start_block = watchman_get_height(ld);
 	
 	/* Build JSON params properly using json_stream */
 	js = new_json_stream(tmpctx, NULL, NULL);
@@ -158,6 +155,7 @@ void wallet_add_bwatch_scriptpubkey(struct lightningd *ld,
 /* Helper to add bwatch watches for all scriptpubkeys derived from a derkey */
 void wallet_add_bwatch_derkey(struct lightningd *ld,
 			      u64 keyindex,
+			      u32 start_block,
 			      const u8 derkey[PUBKEY_CMPR_LEN])
 {
 	u8 *skp, *p2sh, *p2tr;
@@ -167,9 +165,9 @@ void wallet_add_bwatch_derkey(struct lightningd *ld,
 	p2tr = scriptpubkey_p2tr_derkey(tmpctx, derkey);
 	
 	/* Add watches for all 3 scriptpubkey types */
-	wallet_add_bwatch_scriptpubkey(ld, "p2wpkh", keyindex, skp, tal_bytelen(skp));
-	wallet_add_bwatch_scriptpubkey(ld, "p2sh_p2wpkh", keyindex, p2sh, tal_bytelen(p2sh));
-	wallet_add_bwatch_scriptpubkey(ld, "p2tr", keyindex, p2tr, tal_bytelen(p2tr));
+	wallet_add_bwatch_scriptpubkey(ld, "p2wpkh", keyindex, start_block, skp, tal_bytelen(skp));
+	wallet_add_bwatch_scriptpubkey(ld, "p2sh_p2wpkh", keyindex, start_block, p2sh, tal_bytelen(p2sh));
+	wallet_add_bwatch_scriptpubkey(ld, "p2tr", keyindex, start_block, p2tr, tal_bytelen(p2tr));
 }
 
 static void our_addresses_add(struct wallet_address_htable *our_addresses,
@@ -3430,6 +3428,7 @@ type_ok:
 		/* our_addresses only stores ADDR_BECH32, ADDR_P2SH_SEGWIT, ADDR_P2TR */
 		assert(addrtype_str);
 		wallet_add_bwatch_scriptpubkey(w->ld, addrtype_str, keyindex,
+					      watchman_get_height(w->ld),
 					      txout->script, txout->script_len);
 	}
 

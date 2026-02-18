@@ -213,19 +213,23 @@ void stop_topology(struct chain_topology *topo UNNEEDED)
 /* Generated stub for towire_hsmd_ecdh_req */
 u8 *towire_hsmd_ecdh_req(const tal_t *ctx UNNEEDED, const struct pubkey *point UNNEEDED)
 { fprintf(stderr, "towire_hsmd_ecdh_req called!\n"); abort(); }
-/* Generated stub for txfilter_add_derkey */
-void txfilter_add_derkey(struct txfilter *filter UNNEEDED,
-			 const u8 derkey[PUBKEY_CMPR_LEN])
-{ fprintf(stderr, "txfilter_add_derkey called!\n"); abort(); }
-/* Generated stub for txfilter_add_scriptpubkey */
-void txfilter_add_scriptpubkey(struct txfilter *filter UNNEEDED, const u8 *script TAKES UNNEEDED)
-{ fprintf(stderr, "txfilter_add_scriptpubkey called!\n"); abort(); }
-/* Generated stub for txfilter_new */
-struct txfilter *txfilter_new(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "txfilter_new called!\n"); abort(); }
 /* Generated stub for waitblockheight_notify_new_block */
 void waitblockheight_notify_new_block(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "waitblockheight_notify_new_block called!\n"); abort(); }
+/* Generated stub for wallet_add_bwatch_derkey */
+void wallet_add_bwatch_derkey(struct lightningd *ld UNNEEDED,
+			      u64 keyindex UNNEEDED,
+			      u32 start_block UNNEEDED,
+			      const u8 derkey[PUBKEY_CMPR_LEN])
+{ fprintf(stderr, "wallet_add_bwatch_derkey called!\n"); abort(); }
+/* Generated stub for wallet_add_bwatch_scriptpubkey */
+void wallet_add_bwatch_scriptpubkey(struct lightningd *ld UNNEEDED,
+				    const char *owner_prefix UNNEEDED,
+				    u64 keyindex UNNEEDED,
+				    u32 start_block UNNEEDED,
+				    const u8 *script UNNEEDED,
+				    size_t script_len UNNEEDED)
+{ fprintf(stderr, "wallet_add_bwatch_scriptpubkey called!\n"); abort(); }
 /* Generated stub for wallet_begin_old_close_rescan */
 void wallet_begin_old_close_rescan(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "wallet_begin_old_close_rescan called!\n"); abort(); }
@@ -238,6 +242,7 @@ struct wallet *wallet_new(struct lightningd *ld UNNEEDED, struct timers *timers 
 /* Generated stub for wallet_sanity_check */
 bool wallet_sanity_check(struct wallet *w UNNEEDED)
 { fprintf(stderr, "wallet_sanity_check called!\n"); abort(); }
+/* Generated stub for watchman_get_height */
 /* Generated stub for watchman_new */
 struct watchman *watchman_new(const tal_t *ctx UNNEEDED, struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "watchman_new called!\n"); abort(); }

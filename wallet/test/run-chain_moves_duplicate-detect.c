@@ -382,9 +382,6 @@ u8 *towire_hsmd_get_channel_basepoints(const tal_t *ctx UNNEEDED, const struct n
 /* Generated stub for towire_hsmd_get_output_scriptpubkey */
 u8 *towire_hsmd_get_output_scriptpubkey(const tal_t *ctx UNNEEDED, u64 channel_id UNNEEDED, const struct node_id *peer_id UNNEEDED, const struct pubkey *commitment_point UNNEEDED)
 { fprintf(stderr, "towire_hsmd_get_output_scriptpubkey called!\n"); abort(); }
-/* Generated stub for txfilter_add_scriptpubkey */
-void txfilter_add_scriptpubkey(struct txfilter *filter UNNEEDED, const u8 *script TAKES UNNEEDED)
-{ fprintf(stderr, "txfilter_add_scriptpubkey called!\n"); abort(); }
 /* Generated stub for wait_index_increment */
 u64  wait_index_increment(struct lightningd *ld UNNEEDED,
 				       struct db *db UNNEEDED,

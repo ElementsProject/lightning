@@ -11,6 +11,7 @@
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
+#include <lightningd/watchman.h>
 #include <wallet/wallet.h>
 
 /* 12 hours is usually enough reservation time */
@@ -388,7 +389,8 @@ static struct command_result *finish_psbt(struct command *cmd,
 		}
 		wallet_add_bwatch_scriptpubkey(cmd->ld,
 					      type == ADDR_BECH32 ? "p2wpkh" : "p2tr",
-					      keyidx, scriptpubkey, tal_bytelen(scriptpubkey));
+					      keyidx, watchman_get_height(cmd->ld),
+					      scriptpubkey, tal_bytelen(scriptpubkey));
 
 		change_outnum = psbt->num_outputs;
 		psbt_append_output(psbt, scriptpubkey, change);
@@ -729,7 +731,8 @@ static struct command_result *json_addpsbtoutput(struct command *cmd,
 		}
 		wallet_add_bwatch_scriptpubkey(cmd->ld,
 					      type == ADDR_BECH32 ? "p2wpkh" : "p2tr",
-					      keyidx, scriptpubkey, tal_bytelen(scriptpubkey));
+					      keyidx, watchman_get_height(cmd->ld),
+					      scriptpubkey, tal_bytelen(scriptpubkey));
 	}
 
 	outnum = psbt->num_outputs;

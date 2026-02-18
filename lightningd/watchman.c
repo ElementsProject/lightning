@@ -217,6 +217,10 @@ void watchman_add(struct lightningd *ld, const char *owner, const char *json_par
 	char *op_id = tal_fmt(tmpctx, "add:%s", owner);
 	struct pending_op *op = tal(wm, struct pending_op);
 
+	/* Remove any existing add for this owner to avoid UNIQUE constraint
+	 * when BIP32 and BIP86 both register the same key (e.g. wallet/p2wpkh/0) */
+	watchman_ack(ld, op_id);
+
 	op->op_id = tal_strdup(op, op_id);
 	op->json_params = tal_strdup(op, json_params);
 
@@ -230,12 +234,16 @@ void watchman_add(struct lightningd *ld, const char *owner, const char *json_par
  *
  * Simply queues the operation and sends to bwatch.
  * Bwatch handles duplicate deletes idempotently.
+ * Cancels any pending add for this owner.
  */
 void watchman_del(struct lightningd *ld, const char *owner, const char *json_params)
 {
 	struct watchman *wm = ld->watchman;
 	char *op_id = tal_fmt(tmpctx, "del:%s", owner);
 	struct pending_op *op = tal(wm, struct pending_op);
+
+	/* Cancel any pending add for this owner; we're replacing it with a del */
+	watchman_ack(ld, tal_fmt(tmpctx, "add:%s", owner));
 
 	op->op_id = tal_strdup(op, op_id);
 	op->json_params = tal_strdup(op, json_params);

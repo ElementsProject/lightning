@@ -16,6 +16,7 @@
 #include <lightningd/notification.h>
 #include <lightningd/opening_common.h>
 #include <lightningd/subd.h>
+#include <lightningd/watchman.h>
 #include <wallet/wallet.h>
 
 void channel_set_owner(struct channel *channel, struct subd *owner)
@@ -733,6 +734,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 		if (script)
 			wallet_add_bwatch_scriptpubkey(peer->ld, owner,
 						      channel->final_key_idx,
+						      watchman_get_height(peer->ld),
 						      script, tal_bytelen(script));
 	}
 	/* scid is NULL when opening a new channel so we don't

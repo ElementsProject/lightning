@@ -78,7 +78,6 @@
 #include <lightningd/watchman.h>
 #include <sys/resource.h>
 #include <wallet/invoices.h>
-#include <wallet/txfilter.h>
 #include <wally_bip32.h>
 
 static void destroy_alt_subdaemons(struct lightningd *ld);
@@ -682,25 +681,26 @@ static void init_wallet_scriptpubkey_watches(struct wallet *w,
 		if (bip32_key_from_parent(bip32_base, i, BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
 			abort();
 		}
-		wallet_add_bwatch_derkey(w->ld, i, ext.pub_key);
+		wallet_add_bwatch_derkey(w->ld, i, watchman_get_height(w->ld), ext.pub_key);
 	}
 
 	/* If BIP86 is enabled, also add BIP86-derived keys as watches */
 	if (w->ld->bip86_base) {
 		bip86_max_index = db_get_intvar(w->db, "bip86_max_index", 0);
-		for (u64 i = 0; i <= bip86_max_index + w->keyscan_gap; i++) {
-			struct pubkey pubkey;
-			u8 *p2tr_script, *p2wpkh_script;
+	for (u64 i = 0; i <= bip86_max_index + w->keyscan_gap; i++) {
+		struct pubkey pubkey;
+		u8 *p2tr_script, *p2wpkh_script;
+		u32 start_block = watchman_get_height(w->ld);
 
-			bip86_pubkey(w->ld, &pubkey, i);
-			/* Add both P2TR and P2WPKH scripts since BIP86 keys can be used for both */
-			p2tr_script = scriptpubkey_p2tr(tmpctx, &pubkey);
-			wallet_add_bwatch_scriptpubkey(w->ld, "p2tr", i,
-						      p2tr_script, tal_bytelen(p2tr_script));
-			p2wpkh_script = scriptpubkey_p2wpkh(tmpctx, &pubkey);
-			wallet_add_bwatch_scriptpubkey(w->ld, "p2wpkh", i,
-						      p2wpkh_script, tal_bytelen(p2wpkh_script));
-		}
+		bip86_pubkey(w->ld, &pubkey, i);
+		/* Add both P2TR and P2WPKH scripts since BIP86 keys can be used for both */
+		p2tr_script = scriptpubkey_p2tr(tmpctx, &pubkey);
+		wallet_add_bwatch_scriptpubkey(w->ld, "p2tr", i, start_block,
+					      p2tr_script, tal_bytelen(p2tr_script));
+		p2wpkh_script = scriptpubkey_p2wpkh(tmpctx, &pubkey);
+		wallet_add_bwatch_scriptpubkey(w->ld, "p2wpkh", i, start_block,
+					      p2wpkh_script, tal_bytelen(p2wpkh_script));
+	}
 	}
 }
 
@@ -1317,9 +1317,6 @@ int main(int argc, char *argv[])
 	trace_span_start("wallet_new", ld);
 	ld->wallet = wallet_new(ld, ld->timers);
 	trace_span_end(ld);
-
-	/*~ We keep a filter of scriptpubkeys we're interested in. */
-	ld->owned_txfilter = txfilter_new(ld);
 
 	/*~ This is the ccan/io central poll override from above. */
 	io_poll_override(io_poll_lightningd);

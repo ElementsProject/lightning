@@ -2057,10 +2057,12 @@ void wallet_watch_p2sh_p2wpkh(struct lightningd *ld,
 void wallet_add_bwatch_scriptpubkey(struct lightningd *ld,
 				    const char *owner_prefix,
 				    u64 keyindex,
+				    u32 start_block,
 				    const u8 *script,
 				    size_t script_len);
 void wallet_add_bwatch_derkey(struct lightningd *ld,
 			      u64 keyindex,
+			      u32 start_block,
 			      const u8 derkey[PUBKEY_CMPR_LEN]);
 
 #endif /* LIGHTNING_WALLET_WALLET_H */

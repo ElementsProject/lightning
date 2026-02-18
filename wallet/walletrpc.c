@@ -13,6 +13,7 @@
 #include <lightningd/channel.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/notification.h>
+#include <lightningd/watchman.h>
 #include <wallet/wallet.h>
 #include <wallet/walletrpc.h>
 #include <wire/wire_sync.h>
@@ -132,9 +133,11 @@ bool WARN_UNUSED_RESULT newaddr_inner(struct command *cmd, struct pubkey *pubkey
 	/* Add bwatch watches based on requested address type */
 	if (addrtype & ADDR_BECH32)
 		wallet_add_bwatch_scriptpubkey(cmd->ld, "p2wpkh", keyidx,
+					       watchman_get_height(cmd->ld),
 					       b32script, tal_bytelen(b32script));
 	if (addrtype & ADDR_P2TR)
 		wallet_add_bwatch_scriptpubkey(cmd->ld, "p2tr", keyidx,
+					       watchman_get_height(cmd->ld),
 					       p2tr_script, tal_bytelen(p2tr_script));
 
 	return true;
