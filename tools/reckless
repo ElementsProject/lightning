@@ -385,8 +385,9 @@ class SourceDir():
             self.contents = populate_local_dir(self.location)
         elif self.srctype in [Source.LOCAL_REPO, Source.GIT_LOCAL_CLONE]:
             self.contents = populate_local_repo(self.location, parent=self, parent_source=self.parent_source)
-        elif self.srctype == Source.GITHUB_REPO:
-            self.contents = populate_github_repo(self.location)
+        elif self.srctype == Source.REMOTE_GIT_REPO:
+            self.contents = copy_remote_git_source(InstInfo(self.name, self.location)).contents
+
         else:
             raise Exception("populate method undefined for {self.srctype}")
         # Ensure the relative path of the contents is inherited.
@@ -659,92 +660,7 @@ def populate_local_repo(path: str, parent=None, parent_source=None) -> list:
     return basedir.contents
 
 
-def source_element_from_repo_api(member: dict):
-    # api accessed via <repo>/contents/
-    if 'type' in member and 'name' in member and 'git_url' in member:
-        if member['type'] == 'dir':
-            return SourceDir(member['git_url'], srctype=Source.GITHUB_REPO,
-                             name=member['name'])
-        elif member['type'] == 'file':
-            # Likely a submodule
-            if member['size'] == 0:
-                return SourceDir(None, srctype=Source.GITHUB_REPO,
-                                 name=member['name'])
-            return SourceFile(member['name'])
-        elif member['type'] == 'commit':
-            # No path is given by the api here
-            return SourceDir(None, srctype=Source.GITHUB_REPO,
-                             name=member['name'])
-    # git_url with <repo>/tree/ presents results a little differently
-    elif 'type' in member and 'path' in member and 'url' in member:
-        if member['type'] not in ['tree', 'blob']:
-            log.debug(f'  skipping {member["path"]} type={member["type"]}')
-        if member['type'] == 'tree':
-            return SourceDir(member['url'], srctype=Source.GITHUB_REPO,
-                             name=member['path'])
-        elif member['type'] == 'blob':
-            # This can be a submodule
-            if member['size'] == 0:
-                return SourceDir(member['git_url'], srctype=Source.GITHUB_REPO,
-                                 name=member['name'])
-            return SourceFile(member['path'])
-        elif member['type'] == 'commit':
-            # No path is given by the api here
-            return SourceDir(None, srctype=Source.GITHUB_REPO,
-                             name=member['name'])
-    return None
-
-
-def populate_github_repo(url: str) -> list:
-    """populate one level of a github repository via REST API"""
-    # Forces search to clone remote repos (for blackbox testing)
-    if GITHUB_API_FALLBACK:
-        with tempfile.NamedTemporaryFile() as tmp:
-            raise HTTPError(url, 403, 'simulated ratelimit', {}, tmp)
-    # FIXME: This probably contains leftover cruft.
-    repo = url.split('/')
-    while '' in repo:
-        repo.remove('')
-    repo_name = None
-    parsed_url = urlparse(url.removesuffix('.git'))
-    if 'github.com' not in parsed_url.netloc:
-        return None
-    if len(parsed_url.path.split('/')) < 2:
-        return None
-    start = 1
-    # Maybe we were passed an api.github.com/repo/<user> url
-    if 'api' in parsed_url.netloc:
-        start += 1
-    repo_user = parsed_url.path.split('/')[start]
-    repo_name = parsed_url.path.split('/')[start + 1]
-
-    # Get details from the github API.
-    if API_GITHUB_COM in url:
-        api_url = url
-    else:
-        api_url = f'{API_GITHUB_COM}/repos/{repo_user}/{repo_name}/contents/'
-
-    git_url = api_url
-    if "api.github.com" in git_url:
-        # This lets us redirect to handle blackbox testing
-        log.debug(f'fetching from gh API: {git_url}')
-        git_url = (API_GITHUB_COM + git_url.split("api.github.com")[-1])
-    # Ratelimiting occurs for non-authenticated GH API calls at 60 in 1 hour.
-    r = urlopen(git_url, timeout=5)
-    if r.status != 200:
-        return False
-    if 'git/tree' in git_url:
-        tree = json.loads(r.read().decode())['tree']
-    else:
-        tree = json.loads(r.read().decode())
-    contents = []
-    for sub in tree:
-        if source_element_from_repo_api(sub):
-            contents.append(source_element_from_repo_api(sub))
-    return contents
-
-
-def copy_remote_git_source(github_source: InstInfo, verbose: bool=True) -> SourceDir:
+def copy_remote_git_source(github_source: InstInfo, verbose: bool=True, parent_source=None) -> SourceDir:
     """clone or fetch & checkout a local copy of a remote git repo"""
     user, repo = Source.get_github_user_repo(github_source.source_loc)
     if not user or not repo:
@@ -2336,7 +2252,7 @@ def fetch_manifest(source: SourceDir) -> dict:
         return None
     with open(path, 'r+') as manifest_file:
         try:
-            manifest = json.loads(manifest_file.read())
+            manifest = json.load(manifest_file)
             return manifest
         except json.decoder.JSONDecodeError:
             log.warning(f'{source.name} contains malformed manifest ({source.parent_source.original_source})')
@@ -2360,7 +2276,7 @@ def find_plugin_candidates(source: Union[LoadedSource, SourceDir], depth=2) -> l
                 assert s.srctype == source.srctype, f'source dir {s.name}, {s.srctype} did not inherit {source.srctype} from {source.name}'
                 assert s.parent_source == source.parent_source, f'source dir {s.name} did not inherit parent {source.parent_source} from {source.name}'
 
-    guess = InstInfo(source.name, source.location, None, source_dir=source)
+    guess = InstInfo(source.name, source.location, source_dir=source)
     guess.srctype = source.srctype
     manifest = None
     if guess.get_inst_details():
@@ -2408,7 +2324,8 @@ def available_plugins() -> list:
             clone = copy_remote_git_source(InstInfo(None,
                                                     source.original_source,
                                                     source_dir=source.content),
-                                           verbose=False)
+                                           verbose=False,
+                                           parent_source=source)
             clone.srctype = Source.GIT_LOCAL_CLONE
             clone.parent_source = source
             if not clone:
