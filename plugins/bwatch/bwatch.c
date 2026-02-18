@@ -217,6 +217,7 @@ static struct command_result *getchaininfo_done(struct command *cmd,
 		u32 *target_height = tal(cmd, u32);
 		
 		if (bwatch->current_height == 0) {
+			plugin_log(cmd->plugin, LOG_DBG, "First poll: init at block %u", blockheight);
 			*target_height = blockheight;  /* Jump to tip on first init */
 		} else {
 			*target_height = bwatch->current_height + 1;  /* Catch up sequentially */

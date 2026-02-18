@@ -446,44 +446,42 @@ struct watch *bwatch_add_watch(struct command *cmd,
 {
 	struct watch *w = bwatch_get_watch(bwatch, type, outpoint, scriptpubkey, txid);
 
-	if (!w) {
-		/* New watch */
-		w = tal(bwatch, struct watch);
-		w->type = type;
-		w->start_block = start_block;
-		w->owners = tal_arr(w, wirestring *, 0);
-		switch (w->type) {
-		case WATCH_TXID:
-			w->key.txid = *txid;
-			break;
-		case WATCH_SCRIPTPUBKEY:
-			w->key.scriptpubkey.len = tal_bytelen(scriptpubkey);
-			w->key.scriptpubkey.script = tal_dup_talarr(w, u8, scriptpubkey);
-			break;
-		case WATCH_OUTPOINT:
-			w->key.outpoint = *outpoint;
+	if (w) {
+		/* Existing watch: just add owner. The hash table pointer already
+		 * points to w, so mutating w->owners is visible without re-adding. */
+		for (size_t i = 0; i < tal_count(w->owners); i++) {
+			if (streq(w->owners[i], owner_id)) {
+				plugin_log(cmd->plugin, LOG_UNUSUAL,
+					   "Owner %s already watching", owner_id);
+				return NULL;
+			}
 		}
+		if (start_block < w->start_block)
+			w->start_block = start_block;
+		tal_arr_expand(&w->owners, tal_strdup(w->owners, owner_id));
+		bwatch_save_watch_to_datastore(cmd, w);
+		return w;
 	}
 
-	/* Check if this owner already exists */
-	for (size_t i = 0; i < tal_count(w->owners); i++) {
-		if (streq(w->owners[i], owner_id)) {
-			plugin_log(cmd->plugin, LOG_UNUSUAL,
-				   "Owner %s already watching", owner_id);
-			return NULL;
-		}
+	/* New watch */
+	w = tal(bwatch, struct watch);
+	w->type = type;
+	w->start_block = start_block;
+	w->owners = tal_arr(w, wirestring *, 0);
+	switch (w->type) {
+	case WATCH_TXID:
+		w->key.txid = *txid;
+		break;
+	case WATCH_SCRIPTPUBKEY:
+		w->key.scriptpubkey.len = tal_bytelen(scriptpubkey);
+		w->key.scriptpubkey.script = tal_dup_talarr(w, u8, scriptpubkey);
+		break;
+	case WATCH_OUTPOINT:
+		w->key.outpoint = *outpoint;
 	}
-
-	/* In case this starts before the previous identical watch */
-	if (start_block < w->start_block)
-		w->start_block = start_block;
-
 	tal_arr_expand(&w->owners, tal_strdup(w->owners, owner_id));
-	
-	/* Persist to datastore first, then make visible in hash table */
 	bwatch_save_watch_to_datastore(cmd, w);
 	bwatch_add_watch_to_hash(bwatch, w);
-	
 	return w;
 }
 

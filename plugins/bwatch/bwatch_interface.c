@@ -368,14 +368,13 @@ static struct command_result *getwatchmanheight_done(struct command *cmd,
 			bwatch_remove_tip(cmd, bwatch);
 	}
 
-	/* Start polling */
-	bwatch_poll_chain(cmd, NULL);
-
 	plugin_log(cmd->plugin, LOG_INFORM,
 		   "bwatch initialized at height %u with %zu blocks, polling every %u ms",
 		   bwatch->current_height, tal_count(bwatch->block_history),
 		   bwatch->poll_interval_ms);
 
+	/* Schedule poll timer so poll_chain runs with its own command lifecycle */
+	bwatch->poll_timer = global_timer(cmd->plugin, time_from_sec(0), bwatch_poll_chain, NULL);
 	return timer_complete(cmd);
 }
 

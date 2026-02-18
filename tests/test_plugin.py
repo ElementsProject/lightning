@@ -4796,9 +4796,9 @@ def test_openchannel_hook_channel_type(node_factory, bitcoind):
 def test_bwatch_add_watch_creates_datastore_entry(node_factory, bitcoind):
     """Test that adding a watch creates a datastore entry"""
     l1 = node_factory.get_node()
-    # Add a txid watch
+    # Add a txid watch (use wallet owner - watchman only allows wallet watches)
     test_txid = "0" * 64
-    l1.rpc.addwatch(type='txid', txid=test_txid, owner='test-owner-1', start_block=100)
+    l1.rpc.addwatch(type='txid', txid=test_txid, owner='wallet/p2wpkh/0', start_block=100)
 
     # Verify it's in the datastore
     ds = l1.rpc.listdatastore(['bwatch', 'txid'])
@@ -4812,11 +4812,11 @@ def test_bwatch_multiple_owners_same_watch(node_factory, bitcoind):
 
     test_txid = "1" * 64
 
-    # Add watch with first owner
-    l1.rpc.addwatch(type='txid', txid=test_txid, owner='owner-a', start_block=100)
+    # Add watch with first owner (use wallet owners - watchman only allows wallet watches)
+    l1.rpc.addwatch(type='txid', txid=test_txid, owner='wallet/p2wpkh/0', start_block=100)
 
     # Add same watch with second owner
-    l1.rpc.addwatch(type='txid', txid=test_txid, owner='owner-b', start_block=200)
+    l1.rpc.addwatch(type='txid', txid=test_txid, owner='wallet/p2tr/0', start_block=200)
 
     # Should still be one datastore entry (but with two owners)
     ds = l1.rpc.listdatastore(['bwatch', 'txid'])
@@ -4829,21 +4829,21 @@ def test_bwatch_same_owner_adds_twice(node_factory, bitcoind):
 
     test_txid = "6" * 64
 
-    # Add watch with start_block 100
-    l1.rpc.addwatch(type='txid', txid=test_txid, owner='same-owner', start_block=100)
+    # Add watch with start_block 100 (use wallet owner)
+    l1.rpc.addwatch(type='txid', txid=test_txid, owner='wallet/p2wpkh/0', start_block=100)
 
     # Add same watch again with different start_block
-    l1.rpc.addwatch(type='txid', txid=test_txid, owner='same-owner', start_block=200)
+    l1.rpc.addwatch(type='txid', txid=test_txid, owner='wallet/p2wpkh/0', start_block=200)
 
     # Should log that owner already exists
-    l1.daemon.wait_for_log(r'Owner same-owner already watching')
+    l1.daemon.wait_for_log(r'Owner wallet/p2wpkh/0 already watching')
 
     # Should still be just one datastore entry
     ds = l1.rpc.listdatastore(['bwatch', 'txid'])
     assert len(ds['datastore']) == 1
 
     # Removing once should delete the watch (only one owner, not two)
-    l1.rpc.delwatch(type='txid', txid=test_txid, owner='same-owner')
+    l1.rpc.delwatch(type='txid', txid=test_txid, owner='wallet/p2wpkh/0')
 
     ds = l1.rpc.listdatastore(['bwatch', 'txid'])
     assert len(ds['datastore']) == 0
@@ -4855,12 +4855,12 @@ def test_bwatch_remove_one_owner_keeps_watch(node_factory, bitcoind):
 
     test_txid = "2" * 64
 
-    # Add watch with two owners
-    l1.rpc.addwatch(type='txid', txid=test_txid, owner='owner-a', start_block=100)
-    l1.rpc.addwatch(type='txid', txid=test_txid, owner='owner-b', start_block=100)
+    # Add watch with two owners (use wallet owners)
+    l1.rpc.addwatch(type='txid', txid=test_txid, owner='wallet/p2wpkh/0', start_block=100)
+    l1.rpc.addwatch(type='txid', txid=test_txid, owner='wallet/p2tr/0', start_block=100)
 
     # Remove first owner
-    l1.rpc.delwatch(type='txid', txid=test_txid, owner='owner-a')
+    l1.rpc.delwatch(type='txid', txid=test_txid, owner='wallet/p2wpkh/0')
 
     # Watch should still exist (owner-b is still watching)
     ds = l1.rpc.listdatastore(['bwatch', 'txid'])
@@ -4873,15 +4873,15 @@ def test_bwatch_remove_last_owner_deletes_watch(node_factory, bitcoind):
 
     test_txid = "3" * 64
 
-    # Add watch with one owner
-    l1.rpc.addwatch(type='txid', txid=test_txid, owner='sole-owner', start_block=100)
+    # Add watch with one owner (use wallet owner)
+    l1.rpc.addwatch(type='txid', txid=test_txid, owner='wallet/p2wpkh/0', start_block=100)
 
     # Verify it exists
     ds = l1.rpc.listdatastore(['bwatch', 'txid'])
     assert len(ds['datastore']) == 1
 
     # Remove the only owner
-    l1.rpc.delwatch(type='txid', txid=test_txid, owner='sole-owner')
+    l1.rpc.delwatch(type='txid', txid=test_txid, owner='wallet/p2wpkh/0')
 
     # Watch should be gone
     ds = l1.rpc.listdatastore(['bwatch', 'txid'])
@@ -4895,7 +4895,7 @@ def test_bwatch_scriptpubkey_watch(node_factory, bitcoind):
     # A simple P2PKH scriptpubkey (OP_DUP OP_HASH160 <20 bytes> OP_EQUALVERIFY OP_CHECKSIG)
     test_spk = "76a914" + "00" * 20 + "88ac"
 
-    l1.rpc.addwatch(type='scriptpubkey', scriptpubkey=test_spk, owner='spk-owner', start_block=100)
+    l1.rpc.addwatch(type='scriptpubkey', scriptpubkey=test_spk, owner='wallet/p2wpkh/0', start_block=100)
 
     # Verify it's in the datastore
     ds = l1.rpc.listdatastore(['bwatch', 'scriptpubkey'])
@@ -4903,7 +4903,7 @@ def test_bwatch_scriptpubkey_watch(node_factory, bitcoind):
     assert ds['datastore'][0]['key'] == ['bwatch', 'scriptpubkey', test_spk]
 
     # Remove it
-    l1.rpc.delwatch(type='scriptpubkey', scriptpubkey=test_spk, owner='spk-owner')
+    l1.rpc.delwatch(type='scriptpubkey', scriptpubkey=test_spk, owner='wallet/p2wpkh/0')
 
     ds = l1.rpc.listdatastore(['bwatch', 'scriptpubkey'])
     assert len(ds['datastore']) == 0
@@ -4915,14 +4915,14 @@ def test_bwatch_outpoint_watch(node_factory, bitcoind):
     test_txid = "4" * 64
     test_outpoint = f"{test_txid}:0"
 
-    l1.rpc.addwatch(type='outpoint', outpoint=test_outpoint, owner='outpoint-owner', start_block=100)
+    l1.rpc.addwatch(type='outpoint', outpoint=test_outpoint, owner='wallet/p2wpkh/0', start_block=100)
 
     # Verify it's in the datastore
     ds = l1.rpc.listdatastore(['bwatch', 'outpoint'])
     assert len(ds['datastore']) == 1
 
     # Remove it
-    l1.rpc.delwatch(type='outpoint', outpoint=test_outpoint, owner='outpoint-owner')
+    l1.rpc.delwatch(type='outpoint', outpoint=test_outpoint, owner='wallet/p2wpkh/0')
 
     ds = l1.rpc.listdatastore(['bwatch', 'outpoint'])
     assert len(ds['datastore']) == 0
@@ -4943,7 +4943,7 @@ def test_bwatch_rescan_triggered_for_past_start_block(node_factory, bitcoind):
 
     # Add watch with start_block in the past (before current height)
     start_block = current_height - 5
-    l1.rpc.addwatch(type='txid', txid=test_txid, owner='rescan-owner', start_block=start_block)
+    l1.rpc.addwatch(type='txid', txid=test_txid, owner='wallet/p2wpkh/0', start_block=start_block)
 
     # Should trigger a rescan
     l1.daemon.wait_for_log(rf'Starting rescan for txid watch: blocks {start_block}-{current_height}')
@@ -4966,7 +4966,7 @@ def test_bwatch_no_rescan_for_future_start_block(node_factory, bitcoind):
 
     # Add watch with start_block in the future
     future_block = current_height + 100
-    l1.rpc.addwatch(type='txid', txid=test_txid, owner='future-owner', start_block=future_block)
+    l1.rpc.addwatch(type='txid', txid=test_txid, owner='wallet/p2wpkh/0', start_block=future_block)
 
     # Should NOT trigger a rescan - give it a moment then check logs
     import time
@@ -4989,7 +4989,7 @@ def test_bwatch_rescan_scriptpubkey(node_factory, bitcoind):
     test_spk = "76a914" + "11" * 20 + "88ac"
     start_block = current_height - 3
 
-    l1.rpc.addwatch(type='scriptpubkey', scriptpubkey=test_spk, owner='spk-rescan', start_block=start_block)
+    l1.rpc.addwatch(type='scriptpubkey', scriptpubkey=test_spk, owner='wallet/p2wpkh/0', start_block=start_block)
 
     l1.daemon.wait_for_log(rf'Starting rescan for scriptpubkey watch: blocks {start_block}-{current_height}')
     l1.daemon.wait_for_log(r'Rescan complete')
@@ -5034,8 +5034,8 @@ def test_bwatch_txid_watch_notifies_lightningd(node_factory, bitcoind):
     # Create a transaction
     txid = bitcoind.rpc.sendtoaddress(addr, 0.01)
 
-    # Add a watch for this specific txid BEFORE mining
-    l1.rpc.addwatch(type='txid', txid=txid, owner='txid-notify-test', start_block=100)
+    # Add a watch for this specific txid BEFORE mining (use wallet owner)
+    l1.rpc.addwatch(type='txid', txid=txid, owner='wallet/p2wpkh/0', start_block=100)
 
     # Mine the block containing the transaction
     bitcoind.generate_block(1)
@@ -5059,7 +5059,7 @@ def test_bwatch_outpoint_watch_notifies_lightningd(node_factory, bitcoind):
     # Watch one of the outpoints
     utxo = utxos[0]
     outpoint = f"{utxo['txid']}:{utxo['output']}"
-    l1.rpc.addwatch(type='outpoint', outpoint=outpoint, owner='outpoint-notify-test', start_block=100)
+    l1.rpc.addwatch(type='outpoint', outpoint=outpoint, owner='wallet/p2wpkh/0', start_block=100)
 
     # Spend the UTXO by sending somewhere
     addr = bitcoind.rpc.getnewaddress()
@@ -5111,7 +5111,7 @@ def test_bwatch_watches_persist_across_restart(node_factory, bitcoind):
     test_txid = "5" * 64
 
     # Add a watch
-    l1.rpc.addwatch(type='txid', txid=test_txid, owner='persistent-owner', start_block=500)
+    l1.rpc.addwatch(type='txid', txid=test_txid, owner='wallet/p2wpkh/0', start_block=500)
 
     # Restart the node
     l1.restart()
@@ -5517,14 +5517,16 @@ def test_watchman_pending_operations_cleanup(node_factory, bitcoind):
     l1.daemon.wait_for_log(r'First poll: init at block')
     l1.daemon.wait_for_log(r'No block change')
     
-    # Get initial state - should have no pending operations
-    initial_pending = l1.rpc.listdatastore(['watchman', 'pending'])
-    assert initial_pending['datastore'] == []
+    # Wait for wallet's initial watches to be acknowledged (they go through watchman)
+    def pending_drained():
+        pending = l1.rpc.listdatastore(['watchman', 'pending'])
+        return len(pending['datastore']) == 0
+    wait_for(pending_drained, timeout=30)
     
     # Add a watch - this creates a pending operation
     test_spk = "76a914" + "aa" * 20 + "88ac"  # P2PKH script
     
-    l1.rpc.addwatch(type='scriptpubkey', scriptpubkey=test_spk, owner='test-owner-1', start_block=100)
+    l1.rpc.addwatch(type='scriptpubkey', scriptpubkey=test_spk, owner='wallet/p2wpkh/0', start_block=100)
     
     # The operation should be added to pending queue initially
     # (briefly, before bwatch acknowledges)
@@ -5549,8 +5551,8 @@ def test_watchman_pending_operations_cleanup(node_factory, bitcoind):
     test_spk2 = "76a914" + "bb" * 20 + "88ac"
     test_spk3 = "76a914" + "cc" * 20 + "88ac"
     
-    l1.rpc.addwatch(type='scriptpubkey', scriptpubkey=test_spk2, owner='test-owner-2', start_block=100)
-    l1.rpc.addwatch(type='scriptpubkey', scriptpubkey=test_spk3, owner='test-owner-3', start_block=100)
+    l1.rpc.addwatch(type='scriptpubkey', scriptpubkey=test_spk2, owner='wallet/p2tr/0', start_block=100)
+    l1.rpc.addwatch(type='scriptpubkey', scriptpubkey=test_spk3, owner='wallet/p2sh_p2wpkh/0', start_block=100)
     
     # Wait for acknowledgments
     time.sleep(1)
@@ -5574,9 +5576,11 @@ def test_watchman_pending_operations_persist_across_restart(node_factory, bitcoi
     l1.daemon.wait_for_log(r'First poll: init at block')
     l1.daemon.wait_for_log(r'No block change')
     
-    # First, verify we start with no pending operations
-    pending = l1.rpc.listdatastore(['watchman', 'pending'])
-    assert pending['datastore'] == []
+    # Wait for wallet's initial watches to be acknowledged first
+    def pending_drained():
+        pending = l1.rpc.listdatastore(['watchman', 'pending'])
+        return len(pending['datastore']) == 0
+    wait_for(pending_drained, timeout=30)
     
     # Now manually create a pending operation in the datastore to simulate a crash
     # This simulates an operation that was queued but lightningd crashed before
@@ -5626,25 +5630,25 @@ def test_bwatch_listwatch(node_factory, bitcoind):
     result = l1.rpc.listwatch()
     assert result['watches'] == []
 
-    # Add a txid watch
+    # Add a txid watch (use wallet owners - watchman only allows wallet watches)
     test_txid = "a" * 64
-    l1.rpc.addwatch(type='txid', txid=test_txid, owner='owner-txid',
+    l1.rpc.addwatch(type='txid', txid=test_txid, owner='wallet/p2wpkh/0',
                     start_block=100)
 
     # Add a scriptpubkey watch
     test_scriptpubkey = "76a914" + "b" * 40 + "88ac"  # P2PKH script
     l1.rpc.addwatch(type='scriptpubkey', scriptpubkey=test_scriptpubkey,
-                    owner='owner-spk', start_block=200)
+                    owner='wallet/p2tr/0', start_block=200)
 
     # Add an outpoint watch
     test_outpoint_txid = "c" * 64
     test_outpoint = f"{test_outpoint_txid}:1"
     l1.rpc.addwatch(type='outpoint', outpoint=test_outpoint,
-                    owner='owner-outpoint', start_block=150)
+                    owner='wallet/p2sh_p2wpkh/0', start_block=150)
 
-    # Add second owner to txid watch
+    # Add second owner to txid watch (use different wallet key type)
     l1.rpc.addwatch(type='txid', txid=test_txid,
-                    owner='owner-txid-2', start_block=50)
+                    owner='wallet/p2tr/0', start_block=50)
 
     # List all watches
     result = l1.rpc.listwatch()
@@ -5672,25 +5676,25 @@ def test_bwatch_listwatch(node_factory, bitcoind):
     # Should be the minimum of 100 and 50
     assert txid_watch['start_block'] == 50
     assert len(txid_watch['owners']) == 2
-    assert 'owner-txid' in txid_watch['owners']
-    assert 'owner-txid-2' in txid_watch['owners']
+    assert 'wallet/p2wpkh/0' in txid_watch['owners']
+    assert 'wallet/p2tr/0' in txid_watch['owners']
 
     # Verify scriptpubkey watch
     assert scriptpubkey_watch is not None
     assert scriptpubkey_watch['scriptpubkey'] == test_scriptpubkey
     assert scriptpubkey_watch['start_block'] == 200
     assert len(scriptpubkey_watch['owners']) == 1
-    assert scriptpubkey_watch['owners'][0] == 'owner-spk'
+    assert scriptpubkey_watch['owners'][0] == 'wallet/p2tr/0'
 
     # Verify outpoint watch
     assert outpoint_watch is not None
     assert outpoint_watch['outpoint'] == test_outpoint
     assert outpoint_watch['start_block'] == 150
     assert len(outpoint_watch['owners']) == 1
-    assert outpoint_watch['owners'][0] == 'owner-outpoint'
+    assert outpoint_watch['owners'][0] == 'wallet/p2sh_p2wpkh/0'
 
     # Remove one owner from txid watch
-    l1.rpc.delwatch(type='txid', txid=test_txid, owner='owner-txid')
+    l1.rpc.delwatch(type='txid', txid=test_txid, owner='wallet/p2wpkh/0')
 
     result = l1.rpc.listwatch()
     watches = result['watches']
@@ -5701,10 +5705,10 @@ def test_bwatch_listwatch(node_factory, bitcoind):
     # Find txid watch again
     txid_watch = next(w for w in watches if w["type"] == "txid")
     assert len(txid_watch["owners"]) == 1
-    assert txid_watch["owners"][0] == "owner-txid-2"
+    assert txid_watch["owners"][0] == "wallet/p2tr/0"
 
     # Remove the last owner from txid watch
-    l1.rpc.delwatch(type="txid", txid=test_txid, owner="owner-txid-2")
+    l1.rpc.delwatch(type="txid", txid=test_txid, owner="wallet/p2tr/0")
 
     result = l1.rpc.listwatch()
     watches = result["watches"]
