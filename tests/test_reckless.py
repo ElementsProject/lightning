@@ -569,9 +569,8 @@ def test_reckless_install_from_source_py(node_factory):
 
         network_dir = (Path(node.lightning_dir) / NETWORK).resolve()
         backup_dest = str(network_dir / 'backup.bkp')
-        venv_python = str(installed_path / '.venv' / 'bin' / 'python')
         backup_cli = str(installed_path / 'source' / 'backup' / 'backup-cli')
-        subprocess.run([venv_python, backup_cli, 'init',
+        subprocess.run([backup_cli, 'init',
                         '--lightning-dir', str(network_dir),
                         f'file://{backup_dest}'],
                        check=True, env=my_env, timeout=30)
@@ -704,9 +703,8 @@ def test_reckless_install_from_commit_py(node_factory):
 
         network_dir = (Path(node.lightning_dir) / NETWORK).resolve()
         backup_dest = str(network_dir / 'backup.bkp')
-        venv_python = str(installed_path / '.venv' / 'bin' / 'python')
         backup_cli = str(installed_path / 'source' / 'backup' / 'backup-cli')
-        subprocess.run([venv_python, backup_cli, 'init',
+        subprocess.run([backup_cli, 'init',
                         '--lightning-dir', str(network_dir),
                         f'file://{backup_dest}'],
                        check=True, env=my_env, timeout=30)
