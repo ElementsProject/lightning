@@ -387,7 +387,7 @@ def test_disable_enable(node_factory):
                  dir=n.lightning_dir)
     assert r.returncode == 0
     assert r.search_stdout('testplugpass enabled')
-    test_plugin = {'name': str(plugin_path / 'testplugpass.py'),
+    test_plugin = {'name': str((plugin_path / 'testplugpass.py').resolve()),
                    'active': True, 'dynamic': True}
     time.sleep(1)
     print(n.rpc.plugin_list()['plugins'])
