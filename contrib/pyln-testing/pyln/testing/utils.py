@@ -744,6 +744,7 @@ class LightningD(TailableProc):
 
         self.opts['dev-fast-gossip'] = None
         self.opts['dev-bitcoind-poll'] = 1
+        self.opts['bwatch-poll-interval'] = 500  # 0.5s for fast test feedback
         self.prefix = 'lightningd-%d' % (node_id)
         # Log to stdout so we see it in failure cases, and log file for TailableProc.
         self.opts['log-file'] = ['-', os.path.join(lightning_dir, "log")]

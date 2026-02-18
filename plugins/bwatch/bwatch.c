@@ -133,7 +133,7 @@ struct bwatch {
 	struct block_record_wire **block_history;	/* Oldest first, most recent last */
 
 	/* Polling */
-	u32 poll_interval;
+	u32 poll_interval_ms;  /* Milliseconds between chain polls */
 	struct plugin_timer *poll_timer;
 };
 
@@ -605,7 +605,7 @@ static struct command_result *poll_finished(struct command *cmd)
 
 	plugin_log(cmd->plugin, LOG_DBG, "Rescheduling poll timer (current_height=%u)",
 		   bwatch->current_height);
-	bwatch->poll_timer = global_timer(cmd->plugin, time_from_sec(bwatch->poll_interval),
+	bwatch->poll_timer = global_timer(cmd->plugin, time_from_msec(bwatch->poll_interval_ms),
 					   poll_chain, NULL);
 	return timer_complete(cmd);
 }
@@ -1080,9 +1080,9 @@ static struct command_result *getwatchmanheight_done(struct command *cmd,
 					   poll_chain, NULL);
 
 	plugin_log(cmd->plugin, LOG_INFORM,
-		   "bwatch plugin initialized at height %u with %zu blocks in history, polling every %u seconds",
+		   "bwatch plugin initialized at height %u with %zu blocks in history, polling every %u ms",
 		   bwatch->current_height, tal_count(bwatch->block_history),
-		   bwatch->poll_interval);
+		   bwatch->poll_interval_ms);
 
 	return timer_complete(cmd);
 }
@@ -1542,9 +1542,6 @@ static const char *init(struct command *cmd,
 	load_watches_by_type(cmd, bwatch, WATCH_OUTPOINT);
 	load_watches_by_type(cmd, bwatch, WATCH_TXID);
 
-	/* Set poll interval (30 seconds default) */
-	bwatch->poll_interval = 30;
-
 	/* Defer watchman height sync to a timer so init can complete synchronously */
 	global_timer(cmd->plugin, time_from_sec(0), sync_with_watchman, NULL);
 	
@@ -1572,10 +1569,14 @@ int main(int argc, char *argv[])
 
 	setup_locale();
 	bwatch = tal(NULL, struct bwatch);
+	bwatch->poll_interval_ms = 30000;  /* Default: 30 seconds */
 	plugin_main(argv, init, take(bwatch), PLUGIN_RESTARTABLE, true, NULL,
 		    commands, ARRAY_SIZE(commands),
 		    NULL, 0,  /* notifications */
 		    NULL, 0,  /* hooks */
 		    NULL, 0,  /* notification topics */
+		    plugin_option("bwatch-poll-interval", "int",
+				  "Milliseconds between chain polls (default: 30000)",
+				  u32_option, u32_jsonfmt, &bwatch->poll_interval_ms),
 		    NULL);
 }
