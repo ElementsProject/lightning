@@ -479,6 +479,37 @@ def test_reckless_available(node_factory):
     assert r.search_stdout('testpluguv')
 
 
+def test_listavailable_json_format(node_factory):
+    """Verify listavailable --json returns properly structured JSON objects."""
+    n = get_reckless_node(node_factory)
+    r = reckless([f"--network={NETWORK}", "listavailable", "--json"],
+                 dir=n.lightning_dir)
+    assert r.returncode == 0
+
+    result = json.loads(''.join(r.stdout))
+    plugins = result['result']
+    assert isinstance(plugins, list)
+    assert len(plugins) > 0
+
+    expected_fields = {'name', 'short_description', 'long_description',
+                       'entrypoint', 'requirements'}
+
+    for plugin in plugins:
+
+        assert isinstance(plugin, dict), \
+            f"expected dict but got {type(plugin).__name__}: {plugin!r}"
+
+        missing = expected_fields - plugin.keys()
+        assert not missing, \
+            f"plugin {plugin.get('name', '?')} missing fields: {missing}"
+
+        assert isinstance(plugin['name'], str) and plugin['name']
+        assert isinstance(plugin['entrypoint'], str) and plugin['entrypoint']
+
+        assert isinstance(plugin['requirements'], list), \
+            f"plugin {plugin['name']}: requirements should be a list"
+
+
 @pytest.mark.timeout(120)
 def test_reckless_notifications(node_factory):
     """Reckless streams logs to the reckless-rpc plugin which are emitted
