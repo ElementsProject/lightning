@@ -91,8 +91,7 @@ ARG target_arch=arm-linux-gnueabihf
 ARG target_arch_gcc=arm-linux-gnueabihf
 ARG target_arch_dpkg=armhf
 ARG target_arch_rust=armv7-unknown-linux-gnueabihf
-#TODO: bug with -O2 in armv7, see https://github.com/ElementsProject/lightning/issues/8501
-ARG COPTFLAGS="-O1 -march=armv7-a -mfpu=vfpv3-d16 -mfloat-abi=hard"
+ARG COPTFLAGS="-O2 -march=armv7-a -mfpu=vfpv3-d16 -mfloat-abi=hard"
 
 FROM base-builder-${TARGETOS}-${TARGETARCH} AS builder
 
