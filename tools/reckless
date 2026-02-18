@@ -935,16 +935,17 @@ def create_wrapper(plugin: InstInfo):
     then run the plugin from within the same process.'''
     assert hasattr(plugin, 'venv')
     venv_full_path = Path(plugin.source_loc) / plugin.venv
+    real_source_loc = str(Path(plugin.source_loc).resolve())
     with open(Path(plugin.source_loc) / plugin.entry, 'w') as wrapper:
         wrapper.write((f"#!{venv_full_path}/bin/python\n"
                        "import sys\n"
                        "import runpy\n\n"
-                       f"if '{plugin.source_loc}/{plugin.subdir}' not in "
+                       f"if '{real_source_loc}/{plugin.subdir}' not in "
                        "sys.path:\n"
-                       f"    sys.path.append('{plugin.source_loc}/"
+                       f"    sys.path.append('{real_source_loc}/"
                        f"{plugin.subdir}')\n"
-                       f"if '{plugin.source_loc}' in sys.path:\n"
-                       f"    sys.path.remove('{plugin.source_loc}')\n"
+                       f"if '{real_source_loc}' in sys.path:\n"
+                       f"    sys.path.remove('{real_source_loc}')\n"
                        f"runpy.run_module(\"{plugin.name}\", "
                        "{}, \"__main__\")"))
     wrapper_file = Path(plugin.source_loc) / plugin.entry
@@ -1875,7 +1876,7 @@ def enable(plugin_name: str):
     except NotFoundError as err:
         log.error(err)
         return None
-    path = inst.entry
+    path = str(Path(inst.entry).resolve())
     if not Path(path).exists():
         log.error(f'cannot find installed plugin at expected path {path}')
         return None
@@ -1907,7 +1908,7 @@ def disable(plugin_name: str):
     except NotFoundError as err:
         log.warning(f'failed to disable: {err}')
         return None
-    path = inst.entry
+    path = str(Path(inst.entry).resolve())
     if not Path(path).exists():
         sys.stderr.write(f'Could not find plugin at {path}\n')
         return None
