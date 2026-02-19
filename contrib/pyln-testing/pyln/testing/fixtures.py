@@ -1,6 +1,6 @@
 from concurrent import futures
 from pyln.testing.db import SqliteDbProvider, PostgresDbProvider
-from pyln.testing.utils import NodeFactory, BitcoinD, ElementsD, env, LightningNode, TEST_DEBUG, TEST_NETWORK
+from pyln.testing.utils import NodeFactory, BitcoinD, ElementsD, env, LightningNode, TEST_DEBUG, TEST_NETWORK, SLOW_MACHINE, VALGRIND
 from pyln.client import Millisatoshi
 from typing import Dict
 from pathlib import Path
@@ -635,6 +635,10 @@ def checkBroken(node):
     if node.broken_log:
         ex = re.compile(node.broken_log)
         broken_lines = [l for l in broken_lines if not ex.search(l)]
+    # Valgrind under CI can be really slow, so we get spurious alerts
+    if SLOW_MACHINE and VALGRIND:
+        slowreq = re.compile("That's weird: Request .* took [0-9]* milliseconds")
+        broken_lines = [l for l in broken_lines if not slowreq.search(l)]
     if broken_lines:
         print(broken_lines)
         return 1
