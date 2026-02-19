@@ -515,9 +515,13 @@ static bool get_remote_address(struct io_conn *conn,
  * inserting a delay, creating a trap for every author of network code
  * everywhere.
  */
-static void set_tcp_no_delay(int fd)
+static void set_tcp_no_delay(const struct daemon *daemon, int fd)
 {
 	int val = 1;
+
+	if (daemon->dev_keep_nagle)
+		return;
+
 	if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &val, sizeof(val)) != 0) {
 		status_broken("setsockopt TCP_NODELAY=1 fd=%u: %s",
 			      fd, strerror(errno));
@@ -658,7 +662,7 @@ static struct io_plan *connection_in(struct io_conn *conn,
 
 	/* Don't try to set TCP options on UNIX socket! */
 	if (conn_in_arg.addr.itype == ADDR_INTERNAL_WIREADDR)
-		set_tcp_no_delay(io_conn_fd(conn));
+		set_tcp_no_delay(daemon, io_conn_fd(conn));
 
 	conn_in_arg.daemon = daemon;
 	conn_in_arg.is_websocket = false;
@@ -1198,7 +1202,7 @@ static void try_connect_one_addr(struct connecting *connect)
 
 	/* Don't try to set TCP options on UNIX socket! */
 	if (addr->itype == ADDR_INTERNAL_WIREADDR)
-		set_tcp_no_delay(fd);
+		set_tcp_no_delay(connect->daemon, fd);
 	connect->connect_attempted = true;
 
 	/* This creates the new connection using our fd, with the initialization
@@ -1685,7 +1689,8 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 				    &dev_throttle_gossip,
 				    &daemon->dev_no_reconnect,
 				    &daemon->dev_fast_reconnect,
-				    &dev_limit_connections_inflight)) {
+				    &dev_limit_connections_inflight,
+				    &daemon->dev_keep_nagle)) {
 		/* This is a helper which prints the type expected and the actual
 		 * message, then exits (it should never be called!). */
 		master_badmsg(WIRE_CONNECTD_INIT, msg);
@@ -2555,6 +2560,7 @@ int main(int argc, char *argv[])
 	daemon->custom_msgs = NULL;
 	daemon->dev_exhausted_fds = false;
 	daemon->dev_lightningd_is_slow = false;
+	daemon->dev_keep_nagle = false;
 	/* We generally allow 1MB per second per peer, except for dev testing */
 	daemon->gossip_stream_limit = 1000000;
 	daemon->scid_htable = new_htable(daemon, scid_htable);

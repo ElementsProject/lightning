@@ -28,6 +28,7 @@ msgdata,connectd_init,dev_throttle_gossip,bool,
 msgdata,connectd_init,dev_no_reconnect,bool,
 msgdata,connectd_init,dev_fast_reconnect,bool,
 msgdata,connectd_init,dev_limit_connections_inflight,bool,
+msgdata,connectd_init,dev_keep_nagle,bool,
 
 # Connectd->master, here are the addresses I bound, can announce.
 msgtype,connectd_init_reply,2100
