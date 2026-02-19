@@ -948,6 +948,10 @@ static void dev_register_opts(struct lightningd *ld)
 		       opt_set_charp, opt_show_charp,
 		       &ld->plugins->dev_save_io,
 		       "Directory to place all plugin notifications/hooks JSON into.");
+	clnopt_noarg("--dev-keep-nagle", OPT_DEV,
+		       opt_set_bool,
+		       &ld->dev_keep_nagle,
+		       "Tell connectd not to set TCP_NODELAY.");
 	/* This is handled directly in daemon_developer_mode(), so we ignore it here */
 	clnopt_noarg("--dev-debug-self", OPT_DEV,
 		     opt_ignore,

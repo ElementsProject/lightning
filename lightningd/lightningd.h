@@ -369,6 +369,9 @@ struct lightningd {
 	/* Tell connectd to block more than 1 simultanous connection attempt */
 	bool dev_limit_connections_inflight;
 
+	/* Tell connectd we don't want TCP_NODELAY */
+	bool dev_keep_nagle;
+
 	/* tor support */
 	struct wireaddr *proxyaddr;
 	bool always_use_proxy;

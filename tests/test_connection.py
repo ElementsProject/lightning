@@ -4581,10 +4581,11 @@ def test_private_channel_no_reconnect(node_factory):
     assert only_one(l1.rpc.listpeers()['peers'])['connected'] is False
 
 
-@unittest.skipIf(VALGRIND, "We assume machine is reasonably fast")
+@pytest.mark.slow_test
 def test_no_delay(node_factory):
     """Is our Nagle disabling for critical messages working?"""
-    l1, l2 = node_factory.line_graph(2)
+    l1, l2 = node_factory.line_graph(2, opts={'dev-keep-nagle': None,
+                                              'may_reconnect': True})
 
     scid = only_one(l1.rpc.listpeerchannels()['channels'])['short_channel_id']
     routestep = {
@@ -4593,16 +4594,36 @@ def test_no_delay(node_factory):
         'delay': 5,
         'channel': scid
     }
+
+    # Test with nagle
     start = time.time()
-    # If we were stupid enough to leave Nagle enabled, this would add 200ms
-    # seconds delays each way!
     for _ in range(100):
         phash = random.randbytes(32).hex()
         l1.rpc.sendpay([routestep], phash)
         with pytest.raises(RpcError, match="WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS"):
             l1.rpc.waitsendpay(phash)
     end = time.time()
-    assert end < start + 100 * 0.5
+    nagle_time = end - start
+
+    del l1.daemon.opts['dev-keep-nagle']
+    del l2.daemon.opts['dev-keep-nagle']
+    l1.restart()
+    l2.restart()
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # Test without nagle
+    start = time.time()
+    for _ in range(100):
+        phash = random.randbytes(32).hex()
+        l1.rpc.sendpay([routestep], phash)
+        with pytest.raises(RpcError, match="WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS"):
+            l1.rpc.waitsendpay(phash)
+    end = time.time()
+    normal_time = end - start
+
+    # 100 round trips, average delay 1/2 of 200ms -> 10 seconds extra.
+    # Make it half that for variance.
+    assert normal_time < nagle_time - 100 * (0.2 / 2) / 2
 
 
 def test_listpeerchannels_by_scid(node_factory):

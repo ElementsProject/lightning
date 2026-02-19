@@ -371,6 +371,8 @@ struct daemon {
 	bool dev_fast_reconnect;
 	/* Don't complain about lightningd being unresponsive. */
 	bool dev_lightningd_is_slow;
+	/* Don't set TCP_NODELAY */
+	bool dev_keep_nagle;
  };
 
 /* Called by io_tor_connect once it has a connection out. */
