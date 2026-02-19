@@ -1225,8 +1225,7 @@ def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
 @unittest.skipIf(TEST_NETWORK == 'liquid-regtest', "BIP86 random_hsm not compatible with liquid-regtest bech32")
 def test_txsend(node_factory, bitcoind, chainparams):
     amount = 1000000
-    # Under valgrind, we can actually take 5 seconds to sign multiple inputs!
-    l1 = node_factory.get_node(random_hsm=True, broken_log="That's weird: Request signpsbt took")
+    l1 = node_factory.get_node(random_hsm=True)
     addr = chainparams['example_addr']
 
     # Add some funds to withdraw later
