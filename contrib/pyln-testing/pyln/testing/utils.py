@@ -292,15 +292,43 @@ class TailableProc(object):
             except Exception:
                 pass
 
+    def readlines_wait_for_end(self, f, timeout=TIMEOUT):
+        """Read all complete lines from file object `f`.
+
+        If the last line is incomplete (no trailing newline), wait briefly
+        for it to complete before returning.
+
+        Returns list of lines including trailing newline.
+        """
+        lines = []
+        cur = ''
+        start = time.time()
+
+        while True:
+            line = f.readline()
+
+            if not line:
+                if cur != '':
+                    if time.time() - start > timeout:
+                        raise TimeoutError(f"Incomplete line never finished: {cur}")
+                    time.sleep(0.01)
+                    continue
+                return lines
+
+            cur += line
+            if cur.endswith('\n'):
+                lines.append(cur)
+                cur = ''
+
     def logs_catchup(self):
         """Save the latest stdout / stderr contents; return true if we got anything.
         """
-        new_stdout = self.stdout_read.readlines()
+        new_stdout = self.readlines_wait_for_end(self.stdout_read)
         if self.verbose:
             for line in new_stdout:
                 sys.stdout.write("{}: {}".format(self.prefix, line))
         self.logs += [l.rstrip() for l in new_stdout]
-        new_stderr = self.stderr_read.readlines()
+        new_stderr = self.readlines_wait_for_end(self.stderr_read)
         if self.verbose:
             for line in new_stderr:
                 sys.stderr.write("{}-stderr: {}".format(self.prefix, line))
