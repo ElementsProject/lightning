@@ -4308,6 +4308,10 @@ def test_onchain_reestablish_reply(node_factory, bitcoind, executor):
     l3.daemon.wait_for_log("peer_in WIRE_ERROR")
     wait_for(lambda: only_one(l3.rpc.listpeerchannels(l2.info['id'])['channels'])['state'] == 'AWAITING_UNILATERAL')
 
+    # If we're slow enough, l3 can get upset with the invalid
+    # responses from bitcoind, so stop that now.
+    l3.daemon.rpcproxy.mock_rpc('getblockhash', None)
+
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd anchors not supportd')
 def test_onchain_slow_anchor(node_factory, bitcoind):
@@ -4394,6 +4398,10 @@ def test_reestablish_closed_channels(node_factory, bitcoind):
 
     # Make sure l2 was happy with the reestablish message.
     assert not l2.daemon.is_in_log('bad reestablish')
+
+    # If we're slow enough, l2 can get upset with the invalid
+    # responses from bitcoind, so stop that now.
+    l2.daemon.rpcproxy.mock_rpc('getblockhash', None)
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "elementsd doesn't use p2tr anyway")
