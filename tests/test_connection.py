@@ -3081,6 +3081,12 @@ def test_dataloss_protection(node_factory, bitcoind):
     Path(dbpath).write_bytes(orig_db)
     l2.start()
 
+    # l1 will keep trying to reconnect, but it's using exponential backoff,
+    # which only gets reset after the connection has lasted MAX_WAIT_SECONDS (300)
+    # which it hasn't.  Speed things up (and avoid a timeout flake!) by reconnecting
+    # manually now.
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
     # l2 should freak out!
     l2.daemon.wait_for_log("Peer permanent failure in CHANNELD_NORMAL:.*Awaiting unilateral close")
 
