@@ -482,10 +482,6 @@ mkdocs.yml: $(MANPAGES:=.md)
 	)
 
 
-
-# Don't delete these intermediaries.
-.PRECIOUS: $(ALL_GEN_HEADERS) $(ALL_GEN_SOURCES) $(PYTHON_GENERATED)
-
 # Every single object file.
 ALL_OBJS := $(ALL_C_SOURCES:.c=.o)
 
@@ -743,6 +739,9 @@ endif
 # That forces this rule to be run every time, too.
 header_versions_gen.h: tools/headerversions $(FORCE)
 	@tools/headerversions $@
+
+# Once you have libccan.a, you don't need these.
+.INTERMEDIATE: $(CCAN_OBJS)
 
 # We make a static library, this way linker can discard unused parts.
 libccan.a: $(CCAN_OBJS)
