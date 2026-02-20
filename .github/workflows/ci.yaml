@@ -11,9 +11,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Makes the upload-artifact work more reliably at the cost
-  # of a bit of compile time.
-  RUST_PROFILE: release
+  # Reduce size, helps upload-artifact work more reliably
+  RUST_PROFILE: small
   SLOW_MACHINE: 1
   CI_SERVER_URL: "http://35.239.136.52:3170"
   PYTEST_OPTS_BASE: "-vvv --junit-xml=report.xml --timeout=1800 --durations=10"
@@ -373,7 +372,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
-      RUST_PROFILE: release # Has to match the one in the compile step
+      RUST_PROFILE: small # Has to match the one in the compile step
       PYTEST_OPTS: -vvv --junit-xml=report.xml --timeout=1800 --durations=10
     needs:
       - compile
@@ -484,7 +483,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
-      RUST_PROFILE: release # Has to match the one in the compile step
+      RUST_PROFILE: small # Has to match the one in the compile step
       CFG: compile-gcc
       PYTEST_OPTS: -vvv --junit-xml=report.xml --timeout=1800 --durations=10 --test-group-random-seed=42
     needs:
@@ -569,7 +568,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
-      RUST_PROFILE: release
+      RUST_PROFILE: small
       SLOW_MACHINE: 1
       TEST_DEBUG: 1
       PYTEST_OPTS: -vvv --junit-xml=report.xml --timeout=1800 --durations=10 --test-group-random-seed=42 
@@ -707,7 +706,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
-      RUST_PROFILE: release # Has to match the one in the compile step
+      RUST_PROFILE: small # Has to match the one in the compile step
       PYTEST_OPTS: -vvv --junit-xml=report.xml --timeout=1800 --durations=10
     needs:
       - compile
