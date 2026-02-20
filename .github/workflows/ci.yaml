@@ -296,7 +296,7 @@ jobs:
     name: Check we can downgrade the node
     runs-on: ubuntu-24.04
     needs:
-      - compile
+      - check-compiled-source
     strategy:
       fail-fast: false
       matrix:
@@ -496,7 +496,7 @@ jobs:
     env:
       RUST_PROFILE: small # Has to match the one in the compile step
     needs:
-      - compile
+      - check-compiled-source
     strategy:
       fail-fast: false
       matrix:
@@ -557,7 +557,7 @@ jobs:
       SLOW_MACHINE: 1
       TEST_DEBUG: 1
     needs:
-      - compile
+      - check-compiled-source
     strategy:
       fail-fast: false
       matrix:
