@@ -513,9 +513,9 @@ static struct command_result *json_getwatchmanheight(struct command *cmd,
 						     const jsmntok_t *obj UNNEEDED,
 						     const jsmntok_t *params)
 {
-	/* FIXME: REMOVE */
 	struct watchman *wm = cmd->ld->watchman;
 	struct json_stream *response;
+	u32 height;
 
 	if (!param(cmd, buffer, params, NULL))
 		return command_param_failed();
@@ -523,8 +523,11 @@ static struct command_result *json_getwatchmanheight(struct command *cmd,
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
 
+	height = wm ? wm->last_processed_height : 0;
+	log_debug(cmd->ld->log, "getwatchmanheight: returning height=%u (wm=%s)",
+		  height, wm ? "ok" : "NULL");
 	response = json_stream_success(cmd);
-	json_add_u32(response, "height", wm ? wm->last_processed_height : 0);
+	json_add_u32(response, "height", height);
 	return command_success(cmd, response);
 }
 

@@ -110,13 +110,26 @@ static struct command_result *block_processed_ack(struct command *cmd,
 	return command_success(cmd, json_out_obj(cmd, NULL, NULL));
 }
 
+/* Non-fatal error handler for block_processed — watchman may not be ready */
+static struct command_result *block_processed_err(struct command *cmd,
+						  const char *method UNUSED,
+						  const char *buf,
+						  const jsmntok_t *result,
+						  void *unused UNUSED)
+{
+	plugin_log(cmd->plugin, LOG_DBG,
+		   "block_processed RPC failed (watchman not ready?): %.*s",
+		   json_tok_full_len(result), json_tok_full(buf, result));
+	return command_success(cmd, json_out_obj(cmd, NULL, NULL));
+}
+
 /* Send block_processed notification to watchman */
 void bwatch_send_block_processed(struct command *cmd, u32 blockheight)
 {
 	struct out_req *req;
 
 	req = jsonrpc_request_start(cmd, "block_processed",
-				    block_processed_ack, plugin_broken_cb, NULL);
+				    block_processed_ack, block_processed_err, NULL);
 	json_add_u32(req->js, "blockheight", blockheight);
 	send_outreq(req);
 }
@@ -219,7 +232,7 @@ struct command_result *json_bwatch_add(struct command *cmd,
 			     *start_block,
 			     owner);
 
-	if (w && bwatch->current_height > 0 && w->start_block <= bwatch->current_height) {
+	if (w && bwatch->current_height > 0 && *start_block <= bwatch->current_height) {
 		/* Rescan needed - command completes when rescan finishes */
 		bwatch_start_rescan(cmd, w, *start_block, bwatch->current_height);
 		return command_still_pending(cmd);
@@ -336,6 +349,21 @@ struct command_result *json_bwatch_list(struct command *cmd,
  * ============================================================================
  */
 
+/* Called when getwatchmanheight fails (watchman not ready, method missing, etc.).
+ * Retry until watchman is up — bwatch must not start polling before watchman is ready,
+ * otherwise block_processed notifications will arrive before watchman can handle them. */
+static struct command_result *getwatchmanheight_failed(struct command *cmd,
+						       const char *method UNUSED,
+						       const char *buf UNUSED,
+						       const jsmntok_t *result UNUSED,
+						       void *unused UNUSED)
+{
+	plugin_log(cmd->plugin, LOG_DBG,
+		   "getwatchmanheight failed (watchman not ready?), retrying in 500ms");
+	global_timer(cmd->plugin, time_from_msec(500), bwatch_sync_with_watchman, NULL);
+	return timer_complete(cmd);
+}
+
 /* Handle getwatchmanheight response - sync with watchman's last processed height */
 static struct command_result *getwatchmanheight_done(struct command *cmd,
 						     const char *method UNUSED,
@@ -350,9 +378,10 @@ static struct command_result *getwatchmanheight_done(struct command *cmd,
 	/* Parse the response */
 	height_tok = json_get_member(buf, result, "height");
 	if (!height_tok || !json_to_u32(buf, height_tok, &watchman_height)) {
-		plugin_log(cmd->plugin, LOG_BROKEN,
-			   "Failed to parse getwatchmanheight response");
-		watchman_height = 0;
+		plugin_log(cmd->plugin, LOG_DBG,
+			   "Could not parse getwatchmanheight response, starting poll from height %u",
+			   bwatch->current_height);
+		watchman_height = bwatch->current_height;
 	}
 
 	plugin_log(cmd->plugin, LOG_DBG,
@@ -383,7 +412,7 @@ struct command_result *bwatch_sync_with_watchman(struct command *cmd, void *unus
 {
 	struct out_req *req = jsonrpc_request_start(cmd, "getwatchmanheight",
 						    getwatchmanheight_done,
-						    getwatchmanheight_done,
+						    getwatchmanheight_failed,
 						    NULL);
 	return send_outreq(req);
 }

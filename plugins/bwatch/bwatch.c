@@ -231,6 +231,19 @@ static struct command_result *getchaininfo_done(struct command *cmd,
 	return poll_finished(cmd);
 }
 
+/* Non-fatal error callback for getchaininfo — bcli may not be ready yet */
+static struct command_result *getchaininfo_failed(struct command *cmd,
+						  const char *method UNUSED,
+						  const char *buf,
+						  const jsmntok_t *result,
+						  void *unused UNUSED)
+{
+	plugin_log(cmd->plugin, LOG_DBG,
+		   "getchaininfo failed (bcli not ready?): %.*s",
+		   json_tok_full_len(result), json_tok_full(buf, result));
+	return poll_finished(cmd);
+}
+
 /* Timer callback to poll the chain (exposed for bwatch_interface.c) */
 struct command_result *bwatch_poll_chain(struct command *cmd, void *unused)
 {
@@ -242,7 +255,7 @@ struct command_result *bwatch_poll_chain(struct command *cmd, void *unused)
 
 	req = jsonrpc_request_start(cmd, "getchaininfo",
 				    getchaininfo_done,
-				    getchaininfo_done,
+				    getchaininfo_failed,
 				    NULL);
 	json_add_u32(req->js, "last_height", bwatch->current_height);
 	return send_outreq(req);
