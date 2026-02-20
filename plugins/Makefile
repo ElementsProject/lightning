@@ -237,7 +237,7 @@ plugins/list_of_builtin_plugins_gen.h: plugins/Makefile Makefile config.vars
 	@$(call VERBOSE,GEN $@,echo "static const char *list_of_builtin_plugins[] = { $(PLUGIN_BASES:%=\"%\",) NULL };" > $@)
 
 $(RUST_TARGET_DIR)/examples/cln-subscribe-wildcard: ${CLN_PLUGIN_SRC} plugins/examples/cln-subscribe-wildcard.rs
-	cargo build ${CARGO_OPTS} --example cln-subscribe-wildcard
+	$(CARGO) build ${CARGO_OPTS} --example cln-subscribe-wildcard
 
 CLN_PLUGIN_EXAMPLES := \
 	$(RUST_TARGET_DIR)/examples/cln-plugin-startup \
@@ -253,17 +253,17 @@ CLN_WSS_PROXY_PLUGIN_SRC = $(shell find plugins/wss-proxy-plugin/src -name "*.rs
 CLN_BIP353_PLUGIN_SRC = $(shell find plugins/bip353-plugin/src -name "*.rs")
 
 $(RUST_TARGET_DIR)/cln-grpc: ${CLN_PLUGIN_SRC} ${CLN_GRPC_PLUGIN_SRC} $(MSGGEN_GENALL) $(MSGGEN_GEN_ALL)
-	cargo build ${CARGO_OPTS} --bin cln-grpc
+	$(CARGO) build ${CARGO_OPTS} --bin cln-grpc
 $(RUST_TARGET_DIR)/clnrest: ${CLN_REST_PLUGIN_SRC}
-	cargo build ${CARGO_OPTS} --bin clnrest
+	$(CARGO) build ${CARGO_OPTS} --bin clnrest
 $(RUST_TARGET_DIR)/cln-lsps-client: ${CLN_LSPS_PLUGIN_SRC}
-	cargo build ${CARGO_OPTS} --bin cln-lsps-client
+	$(CARGO) build ${CARGO_OPTS} --bin cln-lsps-client
 $(RUST_TARGET_DIR)/cln-lsps-service: ${CLN_LSPS_PLUGIN_SRC}
-	cargo build ${CARGO_OPTS} --bin cln-lsps-service
+	$(CARGO) build ${CARGO_OPTS} --bin cln-lsps-service
 $(RUST_TARGET_DIR)/wss-proxy: ${CLN_WSS_PROXY_PLUGIN_SRC}
-	cargo build ${CARGO_OPTS} --bin wss-proxy
+	$(CARGO) build ${CARGO_OPTS} --bin wss-proxy
 $(RUST_TARGET_DIR)/cln-bip353: ${CLN_BIP353_PLUGIN_SRC}
-	cargo build ${CARGO_OPTS} --bin cln-bip353
+	$(CARGO) build ${CARGO_OPTS} --bin cln-bip353
 
 ifneq ($(RUST),0)
 include plugins/rest-plugin/Makefile

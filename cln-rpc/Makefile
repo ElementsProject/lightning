@@ -9,13 +9,13 @@ DEFAULT_TARGETS += $(CLN_RPC_EXAMPLES) $(CLN_RPC_GENALL)
 MSGGEN_GENALL += $(CLN_RPC_GENALL)
 
 target/${RUST_PROFILE}/examples/cln-rpc-getinfo: ${CLN_RPC_SOURCES} cln-rpc/examples/getinfo.rs
-	cargo build ${CARGO_OPTS} --example cln-rpc-getinfo
+	$(CARGO) build ${CARGO_OPTS} --example cln-rpc-getinfo
 
 target/${RUST_PROFILE}/examples/cln-plugin-startup: ${CLN_RPC_SOURCES} plugins/examples/cln-plugin-startup.rs
-	cargo build ${CARGO_OPTS} --example cln-plugin-startup
+	$(CARGO) build ${CARGO_OPTS} --example cln-plugin-startup
 
 target/${RUST_PROFILE}/examples/cln-plugin-reentrant: ${CLN_RPC_SOURCES} plugins/examples/cln-plugin-reentrant.rs
-	cargo build ${CARGO_OPTS} --example cln-plugin-reentrant
+	$(CARGO) build ${CARGO_OPTS} --example cln-plugin-reentrant
 
 
 cln-rpc-all: ${CLN_RPC_GENALL} ${CLN_RPC_EXAMPLES}

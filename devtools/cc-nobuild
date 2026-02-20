@@ -1,0 +1,9 @@
+#! /bin/sh
+# Version of CC which only supports -dumpmachine (for external/Makefile), and fails otherwise
+set -e
+
+if [ x"$*" = x"-dumpmachine" ]; then
+    CC="$(grep ^CC= config.vars | cut -d= -f2-)"
+    exec ${CC:=cc} "$@"
+fi
+exit 1
