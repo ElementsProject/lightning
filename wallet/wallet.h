@@ -1179,20 +1179,12 @@ void wallet_htlc_sigs_add(struct wallet *w, u64 channel_id,
  */
 bool wallet_sanity_check(struct wallet *w);
 
-/**
- * wallet_block_add - Add a block to the blockchain tracked by this wallet
- */
-void wallet_block_add(struct wallet *w, struct block *b);
 
 /**
- * wallet_block_remove - Remove a block (and all its descendants) from the tracked blockchain
+ * wallet_utxoset_refresh_filters - Rebuild outpoint filters from the utxoset table.
+ * Called after a reorg removes blocks, so we rewatch UTXOs that are no longer spent.
  */
-void wallet_block_remove(struct wallet *w, struct block *b);
-
-/**
- * wallet_blocks_rollback - Roll the blockchain back to the given height
- */
-void wallet_blocks_rollback(struct wallet *w, u32 height);
+void wallet_utxoset_refresh_filters(struct wallet *w);
 
 /**
  * Return whether we have a block for the given height.

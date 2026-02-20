@@ -975,7 +975,6 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx, bool bi
 	struct pubkey pk;
 	struct node_id id;
 	struct wireaddr_internal addr;
-	struct block block;
 	struct channel channel;
 	struct utxo *one_utxo;
 	const struct utxo **utxos;
@@ -1069,12 +1068,6 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx, bool bi
 	 * closed UTXO to be spendable */
 	u32 *blockheight = tal(w, u32);
 	*blockheight = 100;
-	/* We gotta add a block to the database though */
-	memset(&block, 0, sizeof(block));
-	block.height = 100;
-	memset(&block.blkid, 2, sizeof(block.blkid));
-	wallet_block_add(w, &block);
-	CHECK_MSG(!wallet_err, wallet_err);
 
 	u.blockheight = blockheight;
 	u.scriptPubkey = tal_arr(w, u8, BITCOIN_SCRIPTPUBKEY_P2WPKH_LEN);

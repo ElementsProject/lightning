@@ -953,10 +953,6 @@ static void add_tip(struct chain_topology *topo, struct block *b)
 	b->prev = topo->tip;
 	topo->tip->next = b;	/* FIXME this doesn't seem to be used anywhere */
 	topo->tip = b;
-	trace_span_start("wallet_block_add", b);
-	wallet_block_add(topo->ld->wallet, b);
-	trace_span_end(b);
-
 	trace_span_start("topo_add_utxo", b);
 	topo_add_utxos(topo, b);
 	trace_span_end(b);
@@ -1026,7 +1022,7 @@ static void remove_tip(struct chain_topology *topo)
 	/* Grab these before we delete block from db */
 	removed_scids = wallet_utxoset_get_created(tmpctx, topo->ld->wallet,
 						   b->height);
-	wallet_block_remove(topo->ld->wallet, b);
+	wallet_utxoset_refresh_filters(topo->ld->wallet);
 
 	/* This may have unconfirmed txs: reconfirm as we add blocks. */
 	watch_for_utxo_reconfirmation(topo, topo->ld->wallet);
@@ -1483,7 +1479,7 @@ void setup_topology(struct chain_topology *topo)
 
 	/* Rollback to the given blockheight, so we start track
 	 * correctly again */
-	wallet_blocks_rollback(topo->ld->wallet, blockscan_start);
+	wallet_utxoset_refresh_filters(topo->ld->wallet);
 
 	/* May have unconfirmed txs: reconfirm as we add blocks. */
 	watch_for_utxo_reconfirmation(topo, topo->ld->wallet);

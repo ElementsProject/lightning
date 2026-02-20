@@ -266,6 +266,11 @@ static void refill_outpointfilters(struct wallet *w)
 	tal_free(stmt);
 }
 
+void wallet_utxoset_refresh_filters(struct wallet *w)
+{
+	refill_outpointfilters(w);
+}
+
 static void outpointfilters_init(struct wallet *w)
 {
 	struct utxo **utxos = wallet_get_all_utxos(NULL, w);
@@ -5026,49 +5031,6 @@ void wallet_utxoset_prune(struct wallet *w, u32 blockheight)
 	db_exec_prepared_v2(take(stmt));
 }
 
-void wallet_block_add(struct wallet *w, struct block *b)
-{
-	struct db_stmt *stmt =
-	    db_prepare_v2(w->db, SQL("INSERT INTO blocks "
-				     "(height, hash, prev_hash) "
-				     "VALUES (?, ?, ?);"));
-	db_bind_int(stmt, b->height);
-	db_bind_sha256d(stmt, &b->blkid.shad);
-	if (b->prev) {
-		db_bind_sha256d(stmt, &b->prev->blkid.shad);
-	} else {
-		db_bind_null(stmt);
-	}
-	db_exec_prepared_v2(take(stmt));
-}
-
-void wallet_block_remove(struct wallet *w, struct block *b)
-{
-	struct db_stmt *stmt =
-		db_prepare_v2(w->db, SQL("DELETE FROM blocks WHERE hash = ?"));
-	db_bind_sha256d(stmt, &b->blkid.shad);
-	db_exec_prepared_v2(take(stmt));
-
-	/* Make sure that all descendants of the block are also deleted */
-	stmt = db_prepare_v2(w->db,
-			     SQL("SELECT * FROM blocks WHERE height >= ?;"));
-	db_bind_int(stmt, b->height);
-	db_query_prepared(stmt);
-	assert(!db_step(stmt));
-	tal_free(stmt);
-
-	/* We might need to watch more now-unspent UTXOs */
-	refill_outpointfilters(w);
-}
-
-void wallet_blocks_rollback(struct wallet *w, u32 height)
-{
-	struct db_stmt *stmt = db_prepare_v2(w->db, SQL("DELETE FROM blocks "
-							"WHERE height > ?"));
-	db_bind_int(stmt, height);
-	db_exec_prepared_v2(take(stmt));
-	refill_outpointfilters(w);
-}
 
 bool wallet_outpoint_spend(const tal_t *ctx, struct wallet *w, const u32 blockheight,
 			   const struct bitcoin_outpoint *outpoint)
