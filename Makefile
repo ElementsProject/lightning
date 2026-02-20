@@ -964,25 +964,21 @@ install-data: installdirs $(MAN1PAGES) $(MAN5PAGES) $(MAN7PAGES) $(MAN8PAGES) $(
 
 install: install-program install-data
 
-# Non-artifacts that are needed for testing. These are added to the
-# testpack.tar, used to transfer things between builder and tester
-# phase. If you get a missing file/executable while testing on CI it
-# is likely missing from this variable.
-TESTBINS = \
-	$(CLN_PLUGIN_EXAMPLES) \
-	tests/plugins/test_libplugin \
-	tests/plugins/channeld_fakenet \
-	tests/plugins/test_selfdisable_after_getmanifest
+# We exclude most of target/ and external, but we need:
+# 1. config files (we only tar up files *newer* than these)
+# 2. $(DEFAULT_TARGETS) for rust stuff.
+# 3. $(EXTERNAL_LIBS) for prebuild external libraries.
+TESTPACK_EXTRAS :=			\
+	config.vars ccan/config.h	\
+	header_versions_gen.h		\
+	$(DEFAULT_TARGETS)		\
+	$(EXTERNAL_LIBS)
 
 # The testpack is used in CI to transfer built artefacts between the
-# build and the test phase. This is necessary because the fixtures in
-# `tests/` explicitly use the binaries built in the current directory
-# rather than using `$PATH`, as that may pick up some other installed
-# version of `lightningd` leading to bogus results. We bundle up all
-# built artefacts here, and will unpack them on the tester (overlaying
-# on top of the checked out repo as if we had just built it in place).
-testpack.tar.bz2: $(BIN_PROGRAMS) $(PKGLIBEXEC_PROGRAMS) $(PLUGINS) $(PY_PLUGINS) $(MAN1PAGES) $(MAN5PAGES) $(MAN7PAGES) $(MAN8PAGES) $(DOC_DATA) config.vars $(TESTBINS) $(DEVTOOLS) $(TOOLS)
-	tar -caf $@ $^
+# build and the test phase.  Only useful on a freshly build tree!
+# We use Posix format for timestamps with subsecond accuracy.
+testpack.tar.gz: all-programs all-fuzz-programs all-test-programs default-targets
+	(find * -path external -prune -o -path target -prune -o -newer config.vars -type f -print; ls $(TESTPACK_EXTRAS)) | tar --verbatim-files-from -T- -c --format=posix -f - | gzip -5 > $@
 
 uninstall:
 	@$(NORMAL_UNINSTALL)
