@@ -116,19 +116,23 @@ jobs:
           - CFG: compile-gcc
             VALGRIND: 1
             COMPILER: gcc
+            DEBUG_BUILD: --enable-debugbuild
           - CFG: compile-gcc-O3
             VALGRIND: 1
             COMPILER: gcc
             COPTFLAGS_VAR: COPTFLAGS="-O3 -Werror"
+            DEBUG_BUILD:
           # While we're at it let's try to compile with clang
           - CFG: compile-clang
             VALGRIND: 1
             COMPILER: clang
+            DEBUG_BUILD: --enable-debugbuild
           - CFG: compile-clang-sanitizers
             COMPILER: clang
             ASAN: 1
             UBSAN: 1
             VALGRIND: 0
+            DEBUG_BUILD:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -156,7 +160,7 @@ jobs:
           COMPAT: 1
         run: |
           set -e
-          ./configure --enable-debugbuild CC="$COMPILER" ${{ matrix.COPTFLAGS_VAR }}
+          ./configure ${{ matrix.DEBUG_BUILD }} CC="$COMPILER" ${{ matrix.COPTFLAGS_VAR }}
 
           uv run make -j $(nproc) testpack.tar.gz
 
@@ -395,15 +399,10 @@ jobs:
             TEST_DB_PROVIDER: sqlite3
             COMPILER: gcc
             TEST_NETWORK: regtest
-          # While we're at it let's try to compile with clang
-          - NAME: clang
-            CFG: compile-clang
-            TEST_DB_PROVIDER: sqlite3
-            COMPILER: clang
-            TEST_NETWORK: regtest
+          # We do a clang run, but with minimum BTC version, to avoid YA test run.
           # And of course we want to test postgres too
           - NAME: postgres
-            CFG: compile-gcc
+            CFG: compile-gcc-O3
             COMPILER: gcc
             TEST_DB_PROVIDER: postgres
             TEST_NETWORK: regtest
@@ -423,7 +422,7 @@ jobs:
             EXPERIMENTAL_DUAL_FUND: 1
           # And splicing!
           - NAME: splicing
-            CFG: compile-gcc
+            CFG: compile-gcc-O3
             TEST_DB_PROVIDER: sqlite3
             COMPILER: gcc
             TEST_NETWORK: regtest
