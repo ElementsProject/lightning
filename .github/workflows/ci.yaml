@@ -82,6 +82,8 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
+        env:
+          TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
         run: |
           bash -x .github/scripts/setup.sh
           # We're going to check BOLT quotes, so get the latest version
@@ -141,6 +143,8 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
+        env:
+          TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
         run: |
           bash -x .github/scripts/setup.sh
 
@@ -184,6 +188,8 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
+        env:
+          TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
         run: |
           bash -x .github/scripts/setup.sh
 
@@ -233,9 +239,10 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
+        env:
+          TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
         run: |
           bash -x .github/scripts/setup.sh
-          sudo apt-get update -qq
           # We're going to check BOLT quotes, so get the latest version
           git clone https://github.com/lightning/bolts.git ../${BOLTDIR}
 
@@ -267,6 +274,8 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
+        env:
+          TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
         run: |
           bash -x .github/scripts/setup.sh
 
@@ -307,13 +316,10 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
-        run: |
-          bash -x .github/scripts/setup.sh
-
-      - name: Install bitcoind
         env:
           TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
-        run: .github/scripts/install-bitcoind.sh
+        run: |
+          bash -x .github/scripts/setup.sh
 
       - name: Download build
         uses: actions/download-artifact@v4
@@ -426,13 +432,10 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
-        run: |
-          bash -x .github/scripts/setup.sh
-
-      - name: Install bitcoind
         env:
           TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
-        run: .github/scripts/install-bitcoind.sh
+        run: |
+          bash -x .github/scripts/setup.sh
 
       - name: Download build
         uses: actions/download-artifact@v4
@@ -534,8 +537,6 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -yyq valgrind
           bash -x .github/scripts/setup.sh
 
       - name: Install bitcoind
@@ -627,11 +628,10 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
+        env:
+          TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
         run: |
           bash -x .github/scripts/setup.sh
-
-      - name: Install bitcoind
-        run: .github/scripts/install-bitcoind.sh
 
       - name: Download build
         uses: actions/download-artifact@v4
@@ -734,6 +734,8 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
+        env:
+          TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
         run: |
           bash -x .github/scripts/setup.sh
 
