@@ -138,23 +138,19 @@ $(shell test -d plugins/clnrest && $(RM) -r plugins/clnrest || true)
 $(shell test -d plugins/wss-proxy && $(RM) -r plugins/wss-proxy || true)
 
 ifneq ($(RUST),0)
+RUST_PLUGIN_NAMES := cln-grpc clnrest cln-lsps-client cln-lsps-service wss-proxy cln-bip353
+
 # Builtin plugins must be in this plugins dir to work when we're executed
 # *without* make install.
-plugins/cln-grpc: $(RUST_TARGET_DIR)/cln-grpc
-	@cp $< $@
-plugins/clnrest: $(RUST_TARGET_DIR)/clnrest
-	@cp $< $@
-plugins/cln-lsps-client: $(RUST_TARGET_DIR)/cln-lsps-client
-	@cp $< $@
-plugins/cln-lsps-service: $(RUST_TARGET_DIR)/cln-lsps-service
-	@cp $< $@
-plugins/wss-proxy: $(RUST_TARGET_DIR)/wss-proxy
-	@cp $< $@
-plugins/cln-bip353: $(RUST_TARGET_DIR)/cln-bip353
+RUST_PLUGINS := $(addprefix plugins/,$(RUST_PLUGIN_NAMES))
+$(RUST_PLUGINS): plugins/%: $(RUST_TARGET_DIR)/%
 	@cp $< $@
 
-PLUGINS += plugins/cln-grpc plugins/clnrest plugins/cln-lsps-client plugins/cln-lsps-service plugins/wss-proxy plugins/cln-bip353
-endif
+PLUGINS += $(RUST_PLUGINS)
+
+# You don't need the originals if you have the final ones.
+.INTERMEDIATE: $(RUST_PLUGIN_NAMES:%=$(RUST_TARGET_DIR)/%)
+endif # RUST
 
 include plugins/askrene/Makefile
 include plugins/bkpr/Makefile
