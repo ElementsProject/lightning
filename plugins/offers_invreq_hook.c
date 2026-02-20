@@ -36,6 +36,9 @@ struct invreq {
 
 	/* Optional secret. */
 	const struct secret *secret;
+
+	/* Fronting nodes to use for invoice. */
+	const struct pubkey *fronting_nodes;
 };
 
 static struct command_result *WARN_UNUSED_RESULT
@@ -275,9 +278,12 @@ static struct command_result *found_best_peer(struct command *cmd,
 	 */
 	if (!best) {
 		/* Don't allow bare invoices if they explicitly told us to front */
-		if (od->fronting_nodes) {
+		if (ir->fronting_nodes) {
 			return fail_invreq(cmd, ir,
-					   "Could not find path from payment-fronting-node");
+					   "Could not find path from %zu nodes (%s%s)",
+					   tal_count(ir->fronting_nodes),
+					   fmt_pubkey(tmpctx, &ir->fronting_nodes[0]),
+					   tal_count(ir->fronting_nodes) > 1 ? ", ..." : "");
 		}
 
 		/* Note: since we don't make one, createinvoice adds a dummy. */
@@ -390,9 +396,7 @@ static struct command_result *found_best_peer(struct command *cmd,
 static struct command_result *add_blindedpaths(struct command *cmd,
 					       struct invreq *ir)
 {
-	const struct offers_data *od = get_offers_data(cmd->plugin);
-
-	if (!we_want_blinded_path(cmd->plugin, od->fronting_nodes, true))
+	if (!we_want_blinded_path(cmd->plugin, ir->fronting_nodes, true))
 		return create_invoicereq(cmd, ir);
 
 	/* Technically, this only needs OPT_ROUTE_BLINDING, but we have a report
@@ -401,7 +405,7 @@ static struct command_result *add_blindedpaths(struct command *cmd,
 	 * us onion messaging. */
 	return find_best_peer(cmd,
 			      (1ULL << OPT_ROUTE_BLINDING) | (1ULL << OPT_ONION_MESSAGES),
-			      od->fronting_nodes, found_best_peer, ir);
+			      ir->fronting_nodes, found_best_peer, ir);
 }
 
 static struct command_result *cancel_invoice(struct command *cmd,
@@ -830,6 +834,7 @@ static struct command_result *listoffers_done(struct command *cmd,
 	struct command_result *err;
 	struct amount_msat amt;
 	struct tlv_invoice_request_invreq_recurrence_cancel *cancel;
+	struct pubkey *offer_fronts;
 
 	/* BOLT #12:
 	 *
@@ -913,6 +918,37 @@ static struct command_result *listoffers_done(struct command *cmd,
 		|| *ir->invreq->invreq_recurrence_counter == 0)
 	    && clock_time().ts.tv_sec >= *ir->invreq->offer_absolute_expiry) {
 		return fail_invreq(cmd, ir, "Offer expired");
+	}
+
+	/* If offer used fronting nodes, we use them too. */
+	offer_fronts = tal_arr(ir, struct pubkey, 0);
+	for (size_t i = 0; i < tal_count(ir->invreq->offer_paths); i++) {
+		const struct blinded_path *p = ir->invreq->offer_paths[i];
+		struct sciddir_or_pubkey first = p->first_node_id;
+
+		/* In dev mode we could set this.  Ignore if we can't map */
+		if (!first.is_pubkey && !gossmap_scidd_pubkey(get_gossmap(cmd->plugin), &first)) {
+			plugin_log(cmd->plugin, LOG_UNUSUAL,
+				   "Can't find front %s, ignoring in %s",
+				   fmt_sciddir_or_pubkey(tmpctx, &p->first_node_id),
+				   invrequest_encode(tmpctx, ir->invreq));
+			continue;
+		}
+		assert(first.is_pubkey);
+		/* Self-paths are not fronting nodes */
+		if (!pubkey_eq(&od->id, &first.pubkey))
+			tal_arr_expand(&offer_fronts, first.pubkey);
+	}
+	if (tal_count(offer_fronts) != 0)
+		ir->fronting_nodes = offer_fronts;
+	else {
+		/* Get upset if none from offer (via invreq) were usable! */
+		if (tal_count(ir->invreq->offer_paths) != 0)
+			return fail_invreq(cmd, ir, "Fronting failed, could not find any fronts");
+
+		/* Otherwise, use defaults */
+		tal_free(offer_fronts);
+		ir->fronting_nodes = od->fronting_nodes;
 	}
 
 	/* BOLT-recurrence #12:
