@@ -93,7 +93,7 @@ jobs:
           VALGRIND: 0
           PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }}
         run: |
-          uv run make check-source BASE_REF="origin/${{ github.base_ref }}"
+          uv run make -j $(nproc) check-source BASE_REF="origin/${{ github.base_ref }}"
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -312,7 +312,6 @@ jobs:
       - name: Test
         env:
           SLOW_MACHINE: 1
-          PYTEST_PAR: 4
           TEST_DEBUG: 1
           TEST_DB_PROVIDER: ${{ matrix.TEST_DB_PROVIDER }}
           TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
@@ -323,7 +322,7 @@ jobs:
         run: |
           env
           cat config.vars
-          sg wireshark "uv run eatmydata pytest tests/test_downgrade.py -n ${PYTEST_PAR} ${PYTEST_OPTS}"
+          sg wireshark "uv run eatmydata pytest tests/test_downgrade.py -n $(($(nproc) + 1)) ${PYTEST_OPTS}"
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -430,7 +429,6 @@ jobs:
           COMPAT: 1
           CFG: ${{ matrix.CFG }}
           SLOW_MACHINE: 1
-          PYTEST_PAR: 4
           TEST_DEBUG: 1
           TEST_DB_PROVIDER: ${{ matrix.TEST_DB_PROVIDER }}
           TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
@@ -438,7 +436,7 @@ jobs:
         run: |
           env
           cat config.vars
-          VALGRIND=0 sg wireshark "uv run eatmydata pytest tests/ -n ${PYTEST_PAR} ${PYTEST_OPTS}"
+          VALGRIND=0 sg wireshark "uv run eatmydata pytest tests/ -n $(($(nproc) + 1)) ${PYTEST_OPTS}"
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -524,9 +522,8 @@ jobs:
         env:
           SLOW_MACHINE: 1
           TEST_DEBUG: 1
-          PYTEST_PAR: 2
         run: |
-          VALGRIND=1 sg wireshark "uv run eatmydata pytest tests/ -n ${PYTEST_PAR} ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}"
+          VALGRIND=1 sg wireshark "uv run eatmydata pytest tests/ -n $(($(nproc) + 1)) ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}"
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -614,10 +611,8 @@ jobs:
         run: tar -xvjf cln-compile-clang-sanitizers.tar.bz2
 
       - name: Test
-        env:
-          PYTEST_PAR: 2
         run: |
-          sg wireshark "uv run eatmydata pytest tests/ -n ${PYTEST_PAR} ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}"
+          sg wireshark "uv run eatmydata pytest tests/ -n $(($(nproc) + 1)) ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}"
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -667,7 +662,7 @@ jobs:
           tar -xaf cln-compile-gcc.tar.bz2
       - name: Test
         run: |
-          uv run eatmydata make -j $(nproc) check-doc-examples
+          uv run eatmydata make -j $(($(nproc) + 1)) check-doc-examples
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -740,7 +735,6 @@ jobs:
           COMPAT: 1
           CFG: ${{ matrix.CFG }}
           SLOW_MACHINE: 1
-          PYTEST_PAR: 4
           TEST_DEBUG: 1
           TEST_DB_PROVIDER: ${{ matrix.TEST_DB_PROVIDER }}
           TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
@@ -748,7 +742,7 @@ jobs:
         run: |
           env
           cat config.vars
-          VALGRIND=0 sg wireshark "uv run eatmydata pytest tests/ -n ${PYTEST_PAR} ${PYTEST_OPTS}"
+          VALGRIND=0 sg wireshark "uv run eatmydata pytest tests/ -n $(($(nproc) + 1)) ${PYTEST_OPTS}"
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
