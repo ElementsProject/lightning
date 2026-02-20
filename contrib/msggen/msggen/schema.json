@@ -81,24 +81,28 @@
         "properties": {
           "satoshi": {
             "type": "sat",
+            "added": "v23.11",
             "description": [
               "The satoshi value of the output. It can be a whole number, a whole number ending in *sat*, or a number with 1 to 8 decimal places ending in *btc*."
             ]
           },
           "initialpsbt": {
             "type": "string",
+            "added": "v23.11",
             "description": [
               "Base 64 encoded PSBT to add the output to. If not specified, one will be generated automatically."
             ]
           },
           "locktime": {
             "type": "u32",
+            "added": "v23.11",
             "description": [
               "If not set, it is set to a recent block height (if no initial psbt is specified)."
             ]
           },
           "destination": {
             "type": "string",
+            "added": "v23.11",
             "description": [
               "If it is not set, an internal address is generated."
             ]
@@ -115,18 +119,21 @@
         "properties": {
           "psbt": {
             "type": "string",
+            "added": "v23.11",
             "description": [
               "Unsigned PSBT which fulfills the parameters given."
             ]
           },
           "estimated_added_weight": {
             "type": "u32",
+            "added": "v23.11",
             "description": [
               "The estimated weight of the added output."
             ]
           },
           "outnum": {
             "type": "u32",
+            "added": "v23.11",
             "description": [
               "The 0-based number where the output was placed."
             ]
@@ -213,12 +220,14 @@
         "properties": {
           "layer": {
             "type": "string",
+            "added": "v24.11",
             "description": [
               "The name of the layer to apply this change to."
             ]
           },
           "cutoff": {
             "type": "u64",
+            "added": "v24.11",
             "description": [
               "The UNIX timestamp: constraints older than this will be forgotten."
             ]
@@ -234,12 +243,14 @@
         "properties": {
           "layer": {
             "type": "string",
+            "added": "v24.11",
             "description": [
               "The *layer* parameter provided."
             ]
           },
           "num_removed": {
             "type": "u64",
+            "added": "v24.11",
             "description": [
               "The number of constraints removed from *layer*"
             ]
@@ -639,30 +650,35 @@
         "properties": {
           "layer": {
             "type": "string",
+            "added": "v24.11",
             "description": [
               "The name of the layer to apply this change to."
             ]
           },
           "source": {
             "type": "pubkey",
+            "added": "v24.11",
             "description": [
               "The source node id for the channel."
             ]
           },
           "destination": {
             "type": "pubkey",
+            "added": "v24.11",
             "description": [
               "The destination node id for the channel."
             ]
           },
           "short_channel_id": {
             "type": "short_channel_id",
+            "added": "v24.11",
             "description": [
               "The short channel id for the channel.  If a channel with this short channel id already exists in *layer*, the *source*, *destination* and *capacity_msat* must be the same."
             ]
           },
           "capacity_msat": {
             "type": "msat",
+            "added": "v24.11",
             "description": [
               "The capacity (onchain size) of the channel.",
               "NOTE: this is in millisatoshis!"
@@ -1057,12 +1073,14 @@
         "properties": {
           "layer": {
             "type": "string",
+            "added": "v24.11",
             "description": [
               "The name of the layer to apply this change to."
             ]
           },
           "node": {
             "type": "pubkey",
+            "added": "v24.11",
             "description": [
               "The node to disable.  It does not need to exist."
             ]
@@ -1121,24 +1139,28 @@
         "properties": {
           "layer": {
             "type": "string",
+            "added": "v24.11",
             "description": [
               "The name of the layer to apply this change to.  Also causes us to consider any reservations which are local to that layer (which is useful for fake channels where `layer` is set in an `askrene-reserve` `path` object)."
             ]
           },
           "short_channel_id_dir": {
             "type": "short_channel_id_dir",
+            "added": "v24.11",
             "description": [
               "The short channel id and direction to apply this change to."
             ]
           },
           "amount_msat": {
             "type": "msat",
+            "added": "v24.11",
             "description": [
               "The amount we used on the channel"
             ]
           },
           "inform": {
             "type": "string",
+            "added": "v24.11",
             "enum": [
               "constrained",
               "unconstrained",
@@ -1158,6 +1180,7 @@
         "properties": {
           "constraints": {
             "type": "array",
+            "added": "v24.11",
             "items": {
               "type": "object",
               "required": [
@@ -1169,30 +1192,35 @@
               "properties": {
                 "short_channel_id_dir": {
                   "type": "short_channel_id_dir",
+                  "added": "v24.11",
                   "description": [
                     "The short channel id and direction"
                   ]
                 },
                 "layer": {
                   "type": "string",
+                  "added": "v24.11",
                   "description": [
                     "The name of the layer to apply this change to."
                   ]
                 },
                 "timestamp": {
                   "type": "u64",
+                  "added": "v24.11",
                   "description": [
                     "The UNIX timestamp when this constraint was created."
                   ]
                 },
                 "maximum_msat": {
                   "type": "msat",
+                  "added": "v24.11",
                   "description": [
                     "The maximum value which this channel could pass."
                   ]
                 },
                 "minimum_msat": {
                   "type": "msat",
+                  "added": "v24.11",
                   "description": [
                     "The minimum value which this channel could pass."
                   ]
@@ -1255,6 +1283,7 @@
         "properties": {
           "layer": {
             "type": "string",
+            "added": "v24.11",
             "description": [
               "The name of the layer to report on."
             ]
@@ -1269,6 +1298,7 @@
         "properties": {
           "layers": {
             "type": "array",
+            "added": "v24.11",
             "items": {
               "type": "object",
               "additionalProperties": false,
@@ -1283,18 +1313,21 @@
               "properties": {
                 "layer": {
                   "type": "string",
+                  "added": "v24.11",
                   "description": [
                     "The name of the layer."
                   ]
                 },
                 "persistent": {
                   "type": "boolean",
+                  "added": "v24.11",
                   "description": [
                     "Whether the layer is saved across restarts."
                   ]
                 },
                 "disabled_nodes": {
                   "type": "array",
+                  "added": "v24.11",
                   "items": {
                     "type": "pubkey",
                     "description": [
@@ -1304,6 +1337,7 @@
                 },
                 "disabled_channels": {
                   "type": "array",
+                  "added": "v24.11",
                   "items": {
                     "type": "short_channel_id_dir",
                     "description": [
@@ -1313,6 +1347,7 @@
                 },
                 "created_channels": {
                   "type": "array",
+                  "added": "v24.11",
                   "items": {
                     "type": "object",
                     "required": [
@@ -1325,24 +1360,28 @@
                     "properties": {
                       "source": {
                         "type": "pubkey",
+                        "added": "v24.11",
                         "description": [
                           "The source node id for the channel."
                         ]
                       },
                       "destination": {
                         "type": "pubkey",
+                        "added": "v24.11",
                         "description": [
                           "The destination node id for the channel."
                         ]
                       },
                       "short_channel_id": {
                         "type": "short_channel_id",
+                        "added": "v24.11",
                         "description": [
                           "The short channel id for the channel."
                         ]
                       },
                       "capacity_msat": {
                         "type": "msat",
+                        "added": "v24.11",
                         "description": [
                           "The capacity (onchain size) of the channel."
                         ]
@@ -1352,6 +1391,7 @@
                 },
                 "channel_updates": {
                   "type": "array",
+                  "added": "v24.11",
                   "items": {
                     "type": "object",
                     "required": [
@@ -1361,42 +1401,49 @@
                     "properties": {
                       "short_channel_id_dir": {
                         "type": "short_channel_id_dir",
+                        "added": "v24.11",
                         "description": [
                           "The short channel id and direction this update applies to."
                         ]
                       },
                       "enabled": {
                         "type": "boolean",
+                        "added": "v24.11",
                         "description": [
                           "True if this can be used, false otherwise."
                         ]
                       },
                       "htlc_minimum_msat": {
                         "type": "msat",
+                        "added": "v24.11",
                         "description": [
                           "The minimum value allowed in this direction."
                         ]
                       },
                       "htlc_maximum_msat": {
                         "type": "msat",
+                        "added": "v24.11",
                         "description": [
                           "The maximum value allowed in this direction."
                         ]
                       },
                       "fee_base_msat": {
                         "type": "msat",
+                        "added": "v24.11",
                         "description": [
                           "The base fee to apply to use the channel in this direction."
                         ]
                       },
                       "fee_proportional_millionths": {
                         "type": "u32",
+                        "added": "v24.11",
                         "description": [
                           "The proportional fee (in parts per million) to apply to use the channel in this direction."
                         ]
                       },
                       "cltv_expiry_delta": {
                         "type": "u16",
+                        "added": "v24.11",
                         "description": [
                           "The CLTV delay required for this direction."
                         ]
@@ -1406,6 +1453,7 @@
                 },
                 "constraints": {
                   "type": "array",
+                  "added": "v24.11",
                   "items": {
                     "type": "object",
                     "required": [
@@ -1415,24 +1463,28 @@
                     "properties": {
                       "short_channel_id_dir": {
                         "type": "short_channel_id_dir",
+                        "added": "v24.11",
                         "description": [
                           "The short channel id and direction"
                         ]
                       },
                       "timestamp": {
                         "type": "u64",
+                        "added": "v24.11",
                         "description": [
                           "The UNIX timestamp when this constraint was created."
                         ]
                       },
                       "maximum_msat": {
                         "type": "msat",
+                        "added": "v24.11",
                         "description": [
                           "The maximum value which this channel could pass."
                         ]
                       },
                       "minimum_msat": {
                         "type": "msat",
+                        "added": "v24.11",
                         "description": [
                           "The minimum value which this channel could pass."
                         ]
@@ -1442,6 +1494,7 @@
                 },
                 "biases": {
                   "type": "array",
+                  "added": "v24.11",
                   "items": {
                     "type": "object",
                     "required": [
@@ -1453,18 +1506,21 @@
                     "properties": {
                       "short_channel_id_dir": {
                         "type": "short_channel_id_dir",
+                        "added": "v24.11",
                         "description": [
                           "The short channel id and direction"
                         ]
                       },
                       "bias": {
                         "type": "integer",
+                        "added": "v24.11",
                         "description": [
                           "The bias (-100 to +100)"
                         ]
                       },
                       "description": {
                         "type": "string",
+                        "added": "v24.11",
                         "description": [
                           "Description/annotation for the bias"
                         ]
@@ -1860,6 +1916,7 @@
         "properties": {
           "path": {
             "type": "array",
+            "added": "v24.11",
             "items": {
               "type": "object",
               "additionalProperties": false,
@@ -1870,12 +1927,14 @@
               "properties": {
                 "short_channel_id_dir": {
                   "type": "short_channel_id_dir",
+                  "added": "v24.11",
                   "description": [
                     "The channel and direction joining these nodes."
                   ]
                 },
                 "amount_msat": {
                   "type": "msat",
+                  "added": "v24.11",
                   "description": [
                     "The amount to send into this hop."
                   ]
@@ -1968,6 +2027,7 @@
         "properties": {
           "path": {
             "type": "array",
+            "added": "v24.11",
             "items": {
               "type": "object",
               "additionalProperties": false,
@@ -1978,12 +2038,14 @@
               "properties": {
                 "short_channel_id_dir": {
                   "type": "short_channel_id_dir",
+                  "added": "v24.11",
                   "description": [
                     "The channel and direction joining these nodes."
                   ]
                 },
                 "amount_msat": {
                   "type": "msat",
+                  "added": "v24.11",
                   "description": [
                     "The amount to send into this hop."
                   ]
@@ -5114,12 +5176,14 @@
         "properties": {
           "start": {
             "type": "u64",
+            "added": "v23.08",
             "description": [
               "First rune unique id to blacklist."
             ]
           },
           "end": {
             "type": "u64",
+            "added": "v23.08",
             "description": [
               "Final rune unique id to blacklist (defaults to start)."
             ]
@@ -5146,6 +5210,7 @@
         "properties": {
           "blacklist": {
             "type": "array",
+            "added": "v23.08",
             "description": [
               "The resulting blacklist ranges after the command."
             ],
@@ -5159,12 +5224,14 @@
               "properties": {
                 "start": {
                   "type": "u64",
+                  "added": "v23.08",
                   "description": [
                     "Unique id of first rune in this blacklist range."
                   ]
                 },
                 "end": {
                   "type": "u64",
+                  "added": "v23.08",
                   "description": [
                     "Unique id of last rune in this blacklist range."
                   ]
@@ -5578,18 +5645,21 @@
         "properties": {
           "rune": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "Rune to check for authorization."
             ]
           },
           "nodeid": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "Node id of requesting node *(required until v23.11)*."
             ]
           },
           "method": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "Method for which rune needs to be validated *(required until v23.11)*."
             ]
@@ -5598,12 +5668,14 @@
             "oneOf": [
               {
                 "type": "array",
+                "added": "v23.08",
                 "description": [
                   "Array of positional parameters."
                 ]
               },
               {
                 "type": "object",
+                "added": "v23.08",
                 "description": [
                   "Parameters for method."
                 ]
@@ -5620,6 +5692,7 @@
         "properties": {
           "valid": {
             "type": "boolean",
+            "added": "v23.08",
             "description": [
               "True if the rune is valid."
             ]
@@ -6813,6 +6886,7 @@
         "properties": {
           "rune": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "If supplied, the restrictions are simple appended to that *rune* (it doesn't need to be a rune belonging to this node). If not supplied, a new *rune* is constructed, with a new unique id."
             ]
@@ -6825,6 +6899,7 @@
             "oneOf": [
               {
                 "type": "array",
+                "added": "v23.08",
                 "description": [
                   "Alternatives use a simple language to examine the command which is being run:",
                   "    * time: the current UNIX time, e.g. `time<1656759180`.",
@@ -6842,6 +6917,7 @@
                 ],
                 "items": {
                   "type": "array",
+                  "added": "v23.08",
                   "items": {
                     "type": "string"
                   }
@@ -6849,6 +6925,7 @@
               },
               {
                 "type": "string",
+                "added": "v23.08",
                 "enum": [
                   "readonly"
                 ],
@@ -6869,18 +6946,21 @@
         "properties": {
           "rune": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "The resulting rune."
             ]
           },
           "unique_id": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "The id of this rune: this is set at creation and cannot be changed (even as restrictions are added)."
             ]
           },
           "warning_unrestricted_rune": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "A warning shown when runes are created with powers that could drain your node."
             ]
@@ -11564,6 +11644,7 @@
         "properties": {
           "invreq_id": {
             "type": "string",
+            "added": "v22.11",
             "description": [
               "A specific invoice can be disabled by providing the `invreq_id`, which is presented by lightning-invoicerequest(7)."
             ]
@@ -11582,12 +11663,14 @@
         "properties": {
           "invreq_id": {
             "type": "hash",
+            "added": "v22.11",
             "description": [
               "The SHA256 hash of all invoice_request fields less than 160."
             ]
           },
           "active": {
             "type": "boolean",
+            "added": "v22.11",
             "enum": [
               false
             ],
@@ -11597,24 +11680,28 @@
           },
           "single_use": {
             "type": "boolean",
+            "added": "v22.11",
             "description": [
               "Whether the invoice_request will become inactive after we pay an invoice for it."
             ]
           },
           "bolt12": {
             "type": "string",
+            "added": "v22.11",
             "description": [
               "The bolt12 string starting with lnr."
             ]
           },
           "used": {
             "type": "boolean",
+            "added": "v22.11",
             "description": [
               "Whether the invoice_request has already been used."
             ]
           },
           "label": {
             "type": "string",
+            "added": "v22.11",
             "description": [
               "The label provided when creating the invoice_request."
             ]
@@ -16186,36 +16273,42 @@
         "properties": {
           "amount": {
             "type": "msat",
+            "added": "v22.11",
             "description": [
               "A positive value in millisatoshi precision; it can be a whole number, or a whole number ending in *msat* or *sat*, or a number with three decimal places ending in *sat*, or a number with 1 to 11 decimal places ending in *btc*."
             ]
           },
           "description": {
             "type": "string",
+            "added": "v22.11",
             "description": [
               "A short description of purpose of the payment, e.g. *ATM withdrawl*. This value is encoded into the resulting `invoice_request` and is viewable by anyone you expose it to. It must be UTF-8, and cannot use *\\u* JSON escape codes."
             ]
           },
           "issuer": {
             "type": "string",
+            "added": "v22.11",
             "description": [
               "Who is issuing it (i.e. you) if appropriate."
             ]
           },
           "label": {
             "type": "string",
+            "added": "v22.11",
             "description": [
               "An internal-use name for the offer, which can be any UTF-8 string."
             ]
           },
           "absolute_expiry": {
             "type": "u64",
+            "added": "v22.11",
             "description": [
               "The time the offer is valid until, in seconds since the first day of 1970 UTC. If not set, the `invoice_request` remains valid (though it can be deactivated by the issuer of course). This is encoded in the `invoice_request`."
             ]
           },
           "single_use": {
             "type": "boolean",
+            "added": "v22.11",
             "description": [
               "Indicates that the `invoice_request` is only valid once; we may attempt multiple payments, but as soon as one is successful no more invoices are accepted (i.e. only one person can take the money)."
             ],
@@ -16235,12 +16328,14 @@
         "properties": {
           "invreq_id": {
             "type": "hash",
+            "added": "v22.11",
             "description": [
               "The SHA256 hash of all invoice_request fields less than 160."
             ]
           },
           "active": {
             "type": "boolean",
+            "added": "v22.11",
             "enum": [
               true
             ],
@@ -16250,18 +16345,21 @@
           },
           "single_use": {
             "type": "boolean",
+            "added": "v22.11",
             "description": [
               "Whether the invoice_request will become inactive after we pay an invoice for it."
             ]
           },
           "bolt12": {
             "type": "string",
+            "added": "v22.11",
             "description": [
               "The bolt12 string starting with lnr."
             ]
           },
           "used": {
             "type": "boolean",
+            "added": "v22.11",
             "enum": [
               false
             ],
@@ -16271,6 +16369,7 @@
           },
           "label": {
             "type": "string",
+            "added": "v22.11",
             "description": [
               "The label provided when creating the invoice_request."
             ]
@@ -22011,12 +22110,14 @@
         "properties": {
           "invreq_id": {
             "type": "string",
+            "added": "v22.11",
             "description": [
               "A specific invoice can be queried by providing the `invreq_id`, which is presented by lightning-invoicerequest(7), or can be calculated from a bolt12 invoice."
             ]
           },
           "active_only": {
             "type": "boolean",
+            "added": "v22.11",
             "description": [
               "If it is *True* then only active invoice requests are returned."
             ],
@@ -22032,6 +22133,7 @@
         "properties": {
           "invoicerequests": {
             "type": "array",
+            "added": "v22.11",
             "items": {
               "type": "object",
               "additionalProperties": true,
@@ -22045,36 +22147,42 @@
               "properties": {
                 "invreq_id": {
                   "type": "hash",
+                  "added": "v22.11",
                   "description": [
                     "The SHA256 hash of all invoice_request fields less than 160."
                   ]
                 },
                 "active": {
                   "type": "boolean",
+                  "added": "v22.11",
                   "description": [
                     "Whether the invoice_request is currently active."
                   ]
                 },
                 "single_use": {
                   "type": "boolean",
+                  "added": "v22.11",
                   "description": [
                     "Whether the invoice_request will become inactive after we pay an invoice for it."
                   ]
                 },
                 "bolt12": {
                   "type": "string",
+                  "added": "v22.11",
                   "description": [
                     "The bolt12 string starting with lnr."
                   ]
                 },
                 "used": {
                   "type": "boolean",
+                  "added": "v22.11",
                   "description": [
                     "Whether the invoice_request has already been used."
                   ]
                 },
                 "label": {
                   "type": "string",
+                  "added": "v22.11",
                   "description": [
                     "The label provided when creating the invoice_request."
                   ]
@@ -30343,30 +30451,35 @@
         "properties": {
           "invstring": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "Bolt11 invoice which the RPC command attempts to pay. Currently, **renepay** supports bolt11 invoices only."
             ]
           },
           "amount_msat": {
             "type": "msat",
+            "added": "v23.08",
             "description": [
               "If the *invstring* does not contain an amount, *amount_msat* is required, otherwise if it is specified it must be *null*. in millisatoshi precision; it can be a whole number, or a whole number with suffix *msat* or *sat*, or a three decimal point number with suffix *sat*, or an 1 to 11 decimal point number suffixed by *btc*."
             ]
           },
           "maxfee": {
             "type": "msat",
+            "added": "v23.08",
             "description": [
               "*maxfee* is a hard bound, in the sense that the command will never attempt a payment when the fees exceed that value."
             ]
           },
           "maxdelay": {
             "type": "u32",
+            "added": "v23.08",
             "description": [
               "Overrides the value of `max-locktime-blocks` for this payment. It serves to limit the locktime of funds in the payment HTLC measured in blocks."
             ]
           },
           "retry_for": {
             "type": "u32",
+            "added": "v23.08",
             "description": [
               "Measured in seconds specifies how much time it is allowed for the command to keep retrying the payment."
             ],
@@ -30374,12 +30487,14 @@
           },
           "description": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "Only required for bolt11 invoices which do not contain a description themselves, but contain a description hash: in this case *description* is required. *description* is then checked against the hash inside the invoice before it will be paid."
             ]
           },
           "label": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "Used to attach a label to payments, and is returned in lightning-listpays(7) and lightning-listsendpays(7)."
             ]
@@ -30404,7 +30519,8 @@
           },
           "dev_use_shadow": {
             "hidden": true,
-            "type": "boolean"
+            "type": "boolean",
+            "added": "v23.08"
           }
         }
       },
@@ -30422,12 +30538,14 @@
         "properties": {
           "payment_preimage": {
             "type": "secret",
+            "added": "v23.08",
             "description": [
               "The proof of payment: SHA256 of this **payment_hash**."
             ]
           },
           "payment_hash": {
             "type": "hash",
+            "added": "v23.08",
             "description": [
               "The hash of the *payment_preimage* which will prove payment."
             ]
@@ -30448,6 +30566,7 @@
           },
           "created_at": {
             "type": "number",
+            "added": "v23.08",
             "description": [
               "The UNIX timestamp showing when this payment was initiated."
             ]
@@ -30461,24 +30580,28 @@
           },
           "parts": {
             "type": "u32",
+            "added": "v23.08",
             "description": [
               "How many attempts this took."
             ]
           },
           "amount_msat": {
             "type": "msat",
+            "added": "v23.08",
             "description": [
               "Amount the recipient received."
             ]
           },
           "amount_sent_msat": {
             "type": "msat",
+            "added": "v23.08",
             "description": [
               "Total amount we sent (including fees)."
             ]
           },
           "status": {
             "type": "string",
+            "added": "v23.08",
             "enum": [
               "complete",
               "pending",
@@ -30490,6 +30613,7 @@
           },
           "destination": {
             "type": "pubkey",
+            "added": "v23.08",
             "description": [
               "The final destination of the payment."
             ]
@@ -30601,6 +30725,7 @@
         "properties": {
           "invstring": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "If specified, the command will return a list of payment attempts whose invoice matches *invstring*, otherwise all payments with be listed."
             ]
@@ -30615,6 +30740,7 @@
         "properties": {
           "paystatus": {
             "type": "array",
+            "added": "v23.08",
             "description": [
               "A list of payments attempted by renepay."
             ],
@@ -30632,54 +30758,63 @@
               "properties": {
                 "bolt11": {
                   "type": "string",
+                  "added": "v23.08",
                   "description": [
                     "Invoice string BOLT11."
                   ]
                 },
                 "payment_preimage": {
                   "type": "secret",
+                  "added": "v23.08",
                   "description": [
                     "The proof of payment: SHA256 of this **payment_hash** (for completed payments only)."
                   ]
                 },
                 "payment_hash": {
                   "type": "hash",
+                  "added": "v23.08",
                   "description": [
                     "The hash of the *payment_preimage* which will prove payment."
                   ]
                 },
                 "created_at": {
                   "type": "number",
+                  "added": "v23.08",
                   "description": [
                     "The UNIX timestamp showing when this payment was initiated."
                   ]
                 },
                 "groupid": {
                   "type": "u32",
+                  "added": "v23.08",
                   "description": [
                     "The id for this payment attempt."
                   ]
                 },
                 "parts": {
                   "type": "u32",
+                  "added": "v23.08",
                   "description": [
                     "How many attempts this took."
                   ]
                 },
                 "amount_msat": {
                   "type": "msat",
+                  "added": "v23.08",
                   "description": [
                     "Amount the recipient received."
                   ]
                 },
                 "amount_sent_msat": {
                   "type": "msat",
+                  "added": "v23.08",
                   "description": [
                     "Total amount we sent including fees (for completed payments only)."
                   ]
                 },
                 "status": {
                   "type": "string",
+                  "added": "v23.08",
                   "enum": [
                     "complete",
                     "pending",
@@ -30691,12 +30826,14 @@
                 },
                 "destination": {
                   "type": "pubkey",
+                  "added": "v23.08",
                   "description": [
                     "The final destination of the payment."
                   ]
                 },
                 "notes": {
                   "type": "array",
+                  "added": "v23.08",
                   "description": [
                     "A list of messages for debugging purposes."
                   ],
@@ -32320,6 +32457,7 @@
         "properties": {
           "config": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "Name of the config variable which should be set to the value of the variable."
             ]
@@ -32327,12 +32465,15 @@
           "val": {
             "oneOf": [
               {
+                "added": "v23.08",
                 "type": "string"
               },
               {
+                "added": "v23.08",
                 "type": "integer"
               },
               {
+                "added": "v23.08",
                 "type": "boolean"
               }
             ],
@@ -32358,6 +32499,7 @@
         "properties": {
           "config": {
             "type": "object",
+            "added": "v23.08",
             "description": [
               "Config settings after completion."
             ],
@@ -32370,24 +32512,28 @@
             "properties": {
               "config": {
                 "type": "string",
+                "added": "v23.08",
                 "description": [
                   "Name of the config variable which was set."
                 ]
               },
               "source": {
                 "type": "string",
+                "added": "v23.08",
                 "description": [
                   "Source of configuration setting (`file`:`linenum`)."
                 ]
               },
               "plugin": {
                 "type": "string",
+                "added": "v23.08",
                 "description": [
                   "The plugin this configuration setting is for."
                 ]
               },
               "dynamic": {
                 "type": "boolean",
+                "added": "v23.08",
                 "enum": [
                   true
                 ],
@@ -32397,30 +32543,35 @@
               },
               "set": {
                 "type": "boolean",
+                "added": "v23.08",
                 "description": [
                   "For simple flag options."
                 ]
               },
               "value_str": {
                 "type": "string",
+                "added": "v23.08",
                 "description": [
                   "For string options."
                 ]
               },
               "value_msat": {
                 "type": "msat",
+                "added": "v23.08",
                 "description": [
                   "For msat options."
                 ]
               },
               "value_int": {
                 "type": "integer",
+                "added": "v23.08",
                 "description": [
                   "For integer options."
                 ]
               },
               "value_bool": {
                 "type": "boolean",
+                "added": "v23.08",
                 "description": [
                   "For boolean options."
                 ]
@@ -32587,6 +32738,7 @@
         "properties": {
           "rune": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "If specified, only details of that rune will be returned."
             ]
@@ -32601,6 +32753,7 @@
         "properties": {
           "runes": {
             "type": "array",
+            "added": "v23.08",
             "items": {
               "type": "object",
               "additionalProperties": false,
@@ -32613,18 +32766,21 @@
               "properties": {
                 "rune": {
                   "type": "string",
+                  "added": "v23.08",
                   "description": [
                     "Base64 encoded rune."
                   ]
                 },
                 "unique_id": {
                   "type": "string",
+                  "added": "v23.08",
                   "description": [
                     "Unique id assigned when the rune was generated; this is always a u64 for commando runes."
                   ]
                 },
                 "restrictions": {
                   "type": "array",
+                  "added": "v23.08",
                   "description": [
                     "The restrictions on what commands this rune can authorize."
                   ],
@@ -32638,6 +32794,7 @@
                     "properties": {
                       "alternatives": {
                         "type": "array",
+                        "added": "v23.08",
                         "items": {
                           "type": "object",
                           "additionalProperties": false,
@@ -32650,24 +32807,28 @@
                           "properties": {
                             "fieldname": {
                               "type": "string",
+                              "added": "v23.08",
                               "description": [
                                 "The field this restriction applies to; see commando-rune(7)."
                               ]
                             },
                             "value": {
                               "type": "string",
+                              "added": "v23.08",
                               "description": [
                                 "The value accepted for this field."
                               ]
                             },
                             "condition": {
                               "type": "string",
+                              "added": "v23.08",
                               "description": [
                                 "The way to compare fieldname and value."
                               ]
                             },
                             "english": {
                               "type": "string",
+                              "added": "v23.08",
                               "description": [
                                 "English readable description of this alternative."
                               ]
@@ -32677,6 +32838,7 @@
                       },
                       "english": {
                         "type": "string",
+                        "added": "v23.08",
                         "description": [
                           "English readable summary of alternatives above."
                         ]
@@ -32686,12 +32848,14 @@
                 },
                 "restrictions_as_english": {
                   "type": "string",
+                  "added": "v23.08",
                   "description": [
                     "English readable description of the restrictions array above."
                   ]
                 },
                 "stored": {
                   "type": "boolean",
+                  "added": "v23.08",
                   "enum": [
                     false
                   ],
@@ -32701,6 +32865,7 @@
                 },
                 "blacklisted": {
                   "type": "boolean",
+                  "added": "v23.08",
                   "enum": [
                     true
                   ],
@@ -32717,6 +32882,7 @@
                 },
                 "our_rune": {
                   "type": "boolean",
+                  "added": "v23.08",
                   "enum": [
                     false
                   ],
@@ -33459,12 +33625,14 @@
         "properties": {
           "channel_id": {
             "type": "hash",
+            "added": "v23.08",
             "description": [
               "The channel id of the channel to be spliced."
             ]
           },
           "relative_amount": {
             "type": "integer",
+            "added": "v23.08",
             "description": [
               "A positive or negative amount of satoshis to add or subtract from the channel. Note you may need to add a double dash (--) after splice_init if using a negative *relative_amount* so it is not interpretted as a command modifier. For example:",
               "```shell",
@@ -33474,18 +33642,21 @@
           },
           "initialpsbt": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "The (optional) base 64 encoded PSBT to begin with. If not specified, one will be generated automatically."
             ]
           },
           "feerate_per_kw": {
             "type": "u32",
+            "added": "v23.08",
             "description": [
               "The miner fee we promise our peer to pay for our side of the splice transaction. It is calculated by `feerate_per_kw` * our_bytes_in_splice_tx / 1000."
             ]
           },
           "force_feerate": {
             "type": "boolean",
+            "added": "v23.08",
             "description": [
               "By default splices will fail if the fee provided looks too high. This is to protect against accidentally setting your fee higher than intended. Set `force_feerate` to true to skip this saftey check."
             ]
@@ -33500,6 +33671,7 @@
         "properties": {
           "psbt": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "The (incomplete) PSBT of the splice transaction."
             ]
@@ -33604,18 +33776,21 @@
         "properties": {
           "channel_id": {
             "type": "hash",
+            "added": "v23.08",
             "description": [
               "The channel id of the channel to be spliced."
             ]
           },
           "psbt": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "The psbt of the resulting transaction after splice negotiation(s)"
             ]
           },
           "sign_first": {
             "type": "boolean",
+            "added": "v23.08",
             "description": [
               "A flag that makes our node offer the final splice signature first (defaults to false). When false, the node will calculate who should sign first based off who is adding inputting the least sats to the splice as per spec."
             ]
@@ -33632,18 +33807,21 @@
         "properties": {
           "tx": {
             "type": "hex",
+            "added": "v23.08",
             "description": [
               "The hex representation of the final transaction that is published."
             ]
           },
           "txid": {
             "type": "txid",
+            "added": "v23.08",
             "description": [
               "The txid is of the final transaction."
             ]
           },
           "psbt": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "The psbt of the resulting transaction after splice negotiation(s)"
             ]
@@ -33778,12 +33956,14 @@
         "properties": {
           "channel_id": {
             "type": "hash",
+            "added": "v23.08",
             "description": [
               "The channel id of the channel to be spliced."
             ]
           },
           "psbt": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "The base 64 encoded PSBT returned from `splice_init` with any changes added by the user."
             ]
@@ -33800,12 +33980,14 @@
         "properties": {
           "psbt": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "The (incomplete) PSBT of the splice transaction."
             ]
           },
           "commitments_secured": {
             "type": "boolean",
+            "added": "v23.08",
             "description": [
               "Whether or not the commitments were secured."
             ]
@@ -37231,6 +37413,88 @@
     }
   },
   "notifications": {
+    "balance_snapshot.json": {
+      "$schema": "../../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "notification": "balance_snapshot",
+      "title": "Notification for balance snapshot",
+      "description": [
+        "Emitted after we've caught up to the chain head on first start. Lists all current accounts (account_id matches the account_id emitted from coin_movement). Useful for checkpointing account balances."
+      ],
+      "added": "pre-v0.10.1",
+      "request": {},
+      "response": {
+        "required": [
+          "node_id",
+          "blockheight",
+          "timestamp",
+          "accounts"
+        ],
+        "properties": {
+          "node_id": {
+            "type": "pubkey",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The node id for this balance snapshot."
+            ]
+          },
+          "blockheight": {
+            "type": "u32",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The block height at the time of the snapshot."
+            ]
+          },
+          "timestamp": {
+            "type": "u64",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The timestamp at the time of the snapshot."
+            ]
+          },
+          "accounts": {
+            "type": "array",
+            "added": "pre-v0.10.1",
+            "description": [
+              "A list of account balances."
+            ],
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "account_id",
+                "balance_msat",
+                "coin_type"
+              ],
+              "properties": {
+                "account_id": {
+                  "type": "string",
+                  "added": "pre-v0.10.1",
+                  "description": [
+                    "The account id. The node's wallet is named 'wallet', all channel accounts are the channel id."
+                  ]
+                },
+                "balance_msat": {
+                  "type": "msat",
+                  "added": "pre-v0.10.1",
+                  "description": [
+                    "The current balance of this account."
+                  ]
+                },
+                "coin_type": {
+                  "type": "string",
+                  "added": "pre-v0.10.1",
+                  "description": [
+                    "The BIP173 name for the coin."
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "block_added.json": {
       "$schema": "../../rpc-schema-draft.json",
       "type": "object",
@@ -37463,6 +37727,248 @@
         }
       }
     },
+    "coin_movement.json": {
+      "$schema": "../../rpc-schema-draft.json",
+      "type": "object",
+      "notification": "coin_movement",
+      "title": "Notification for coin movements",
+      "description": [
+        "A notification for topic **coin_movement** is sent to record the movement of coins. It is only triggered by finalized ledger updates, i.e. only definitively resolved HTLCs or confirmed bitcoin transactions."
+      ],
+      "additionalProperties": false,
+      "added": "pre-v0.10.1",
+      "request": {},
+      "response": {
+        "required": [
+          "version",
+          "coin_type",
+          "node_id",
+          "type",
+          "created_index",
+          "account_id",
+          "credit_msat",
+          "debit_msat",
+          "timestamp",
+          "primary_tag"
+        ],
+        "properties": {
+          "version": {
+            "type": "u32",
+            "added": "pre-v0.10.1",
+            "description": [
+              "Indicates which version of the coin movement data struct this notification adheres to."
+            ]
+          },
+          "coin_type": {
+            "type": "string",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The BIP173 name for the coin which moved."
+            ]
+          },
+          "node_id": {
+            "type": "pubkey",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The node issuing the coin movement."
+            ]
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "chain_mvt",
+              "channel_mvt"
+            ],
+            "added": "pre-v0.10.1",
+            "description": [
+              "Marks the underlying mechanism which moved these coins. channel_mvt occurs as a result of htlcs being resolved, chain_mvt occurs as a result of bitcoin txs being mined."
+            ]
+          },
+          "created_index": {
+            "type": "u64",
+            "added": "v23.08",
+            "description": [
+              "The index for this movement."
+            ]
+          },
+          "account_id": {
+            "type": "string",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The name of this account. The node's wallet is named 'wallet', all channel funds' account are the channel id."
+            ]
+          },
+          "originating_account": {
+            "type": "string",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The account that this movement originated from. Only tagged on external events (deposits/withdrawals to an external party). Only for chain_mvt."
+            ]
+          },
+          "txid": {
+            "type": "txid",
+            "added": "pre-v0.10.1",
+            "deprecated": [
+              "v25.09",
+              "v26.09"
+            ],
+            "description": [
+              "The transaction id of the bitcoin transaction that triggered this ledger event. Replaced by spending_txid. Only for chain_mvt."
+            ]
+          },
+          "spending_txid": {
+            "type": "txid",
+            "added": "v25.09",
+            "description": [
+              "The transaction id of the bitcoin transaction that triggered this ledger event. Only for chain_mvt."
+            ]
+          },
+          "utxo": {
+            "type": "outpoint",
+            "added": "v25.09",
+            "description": [
+              "The outpoint (txid and vout) which triggered this notification. Only for chain_mvt."
+            ]
+          },
+          "utxo_txid": {
+            "type": "txid",
+            "added": "pre-v0.10.1",
+            "deprecated": [
+              "v25.09",
+              "v26.09"
+            ],
+            "description": [
+              "The transaction id of the UTXO. Replaced by utxo field. Only for chain_mvt."
+            ]
+          },
+          "vout": {
+            "type": "u32",
+            "added": "pre-v0.10.1",
+            "deprecated": [
+              "v25.09",
+              "v26.09"
+            ],
+            "description": [
+              "The output index of the UTXO. Replaced by utxo field. Only for chain_mvt."
+            ]
+          },
+          "peer_id": {
+            "type": "pubkey",
+            "added": "v25.09",
+            "description": [
+              "The peer id for this movement. Only for chain_mvt."
+            ]
+          },
+          "payment_hash": {
+            "type": "hash",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The hash of the preimage used to move this payment. Only present for HTLC mediated moves (both chain_mvt and channel_mvt). A chain_mvt will have a payment_hash iff it's recording an htlc that was fulfilled onchain."
+            ]
+          },
+          "part_id": {
+            "type": "u64",
+            "added": "pre-v0.10.1",
+            "description": [
+              "Part id for this multi-part payment. Only for channel_mvt."
+            ]
+          },
+          "group_id": {
+            "type": "u64",
+            "added": "pre-v0.10.1",
+            "description": [
+              "Group id for this multi-part payment. Only for channel_mvt."
+            ]
+          },
+          "credit_msat": {
+            "type": "msat",
+            "added": "pre-v0.10.1",
+            "description": [
+              "Millisatoshi amount credited to the account."
+            ]
+          },
+          "debit_msat": {
+            "type": "msat",
+            "added": "pre-v0.10.1",
+            "description": [
+              "Millisatoshi amount debited from the account."
+            ]
+          },
+          "output_msat": {
+            "type": "msat",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The total value of the on-chain UTXO. Note that for channel opens/closes the total output value will not necessarily correspond to the amount that's credited/debited. Only for chain_mvt."
+            ]
+          },
+          "output_count": {
+            "type": "u32",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The total outputs to expect for a channel close. Useful for figuring out when every onchain output for a close has been resolved. Only for chain_mvt."
+            ]
+          },
+          "fees_msat": {
+            "type": "msat",
+            "added": "pre-v0.10.1",
+            "description": [
+              "HTLC annotation for the amount of fees either paid or earned. For invoice tagged events, the fees are the total fees paid. For routed tagged events, both the debit/credit contain fees. Only for channel_mvt."
+            ]
+          },
+          "primary_tag": {
+            "type": "string",
+            "added": "pre-v0.10.1",
+            "description": [
+              "A movement descriptor. Current primary tags are: deposit, withdrawal, penalty, invoice, routed, pushed, channel_open, channel_close, delayed_to_us, htlc_timeout, htlc_fulfill, htlc_tx, to_wallet, anchor, to_them, penalized, stolen, to_miner, lease_fee, channel_proposed."
+            ]
+          },
+          "tags": {
+            "type": "array",
+            "added": "pre-v0.10.1",
+            "deprecated": [
+              "v25.09",
+              "v26.09"
+            ],
+            "description": [
+              "Movement tags. Replaced by primary_tag and extra_tags."
+            ],
+            "items": {
+              "type": "string",
+              "description": [
+                "Movement tag."
+              ]
+            }
+          },
+          "extra_tags": {
+            "type": "array",
+            "added": "v25.09",
+            "description": [
+              "Zero or more additional tags. Current extra tags are: ignored, opener, stealable, leased, splice."
+            ],
+            "items": {
+              "type": "string",
+              "description": [
+                "Extra tag."
+              ]
+            }
+          },
+          "blockheight": {
+            "type": "u32",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The block the txid is included in. Only for chain_mvt. channel_mvt will be null, so will the blockheight for withdrawals to external parties."
+            ]
+          },
+          "timestamp": {
+            "type": "u64",
+            "added": "pre-v0.10.1",
+            "description": [
+              "Seconds since Unix epoch of the node's machine time at the time lightningd broadcasts the notification."
+            ]
+          }
+        }
+      }
+    },
     "connect.json": {
       "$schema": "../../rpc-schema-draft.json",
       "type": "object",
@@ -37629,6 +38135,1250 @@
               "The hex-encoded payload. The first 2 bytes represent the BOLT-8 message type followed by the message content"
             ],
             "added": "v24.02"
+          }
+        }
+      }
+    },
+    "deprecated_oneshot.json": {
+      "$schema": "../../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "notification": "deprecated_oneshot",
+      "title": "Notification that an invoice was paid",
+      "description": [
+        "This is a special notification, which the plugin will only receive it it set deprecated_oneshot to true in its getmanifest response. It indicates that the immeditately following command wants a different deprecation status than the global allow-deprecated-apis setting."
+      ],
+      "added": "v24.02",
+      "request": {},
+      "response": {
+        "required": [
+          "deprecated_ok"
+        ],
+        "properties": {
+          "deprecated_ok": {
+            "type": "boolean",
+            "added": "v24.02",
+            "description": [
+              "If the next command should be allowed to be deprecated."
+            ]
+          }
+        }
+      }
+    },
+    "disconnect.json": {
+      "$schema": "../../rpc-schema-draft.json",
+      "type": "object",
+      "notification": "disconnect",
+      "title": "Notification for disconnection from a peer",
+      "description": [
+        "The **disconnect** informs whenever the node is disconnected from a peer."
+      ],
+      "additionalProperties": false,
+      "added": "pre-v0.10.1",
+      "request": {},
+      "response": {
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "pubkey",
+            "description": [
+              "The id of the peer which sent the custom message"
+            ],
+            "added": "pre-v0.10.1"
+          }
+        }
+      }
+    },
+    "forward_event.json": {
+      "$schema": "../../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "notification": "forward_event",
+      "title": "Notification for forward payment status changes",
+      "description": [
+        "A notification for topic forward_event is sent every time the status of a forward payment is set. The json format is same as the API listforwards."
+      ],
+      "added": "pre-v0.10.1",
+      "request": {},
+      "response": {
+        "required": [
+          "payment_hash",
+          "in_channel",
+          "in_msat",
+          "status",
+          "received_time"
+        ],
+        "properties": {
+          "created_index": {
+            "type": "u64",
+            "added": "v23.11",
+            "description": [
+              "1-based index indicating order this forward was created in."
+            ]
+          },
+          "updated_index": {
+            "type": "u64",
+            "added": "v23.11",
+            "description": [
+              "1-based index indicating order this forward was changed (only present if it has changed since creation)."
+            ]
+          },
+          "payment_hash": {
+            "type": "hash",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The hash of the payment."
+            ]
+          },
+          "in_channel": {
+            "type": "short_channel_id",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The channel that received the HTLC."
+            ]
+          },
+          "in_htlc_id": {
+            "type": "u64",
+            "added": "v22.11",
+            "description": [
+              "The unique HTLC id the sender gave this (not present if incoming channel was closed before upgrade to v22.11)."
+            ]
+          },
+          "out_channel": {
+            "type": "short_channel_id",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The channel that the HTLC (trying to) forward to."
+            ]
+          },
+          "out_htlc_id": {
+            "type": "u64",
+            "added": "v22.11",
+            "description": [
+              "The unique HTLC id we gave this when sending (may be missing even if out_channel is present, for old forwards before v22.11)."
+            ]
+          },
+          "in_msat": {
+            "type": "msat",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The value of the incoming HTLC."
+            ]
+          },
+          "out_msat": {
+            "type": "msat",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The amount we sent out the out_channel."
+            ]
+          },
+          "fee_msat": {
+            "type": "msat",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The amount this paid in fees."
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "offered",
+              "settled",
+              "local_failed",
+              "failed"
+            ],
+            "added": "pre-v0.10.1",
+            "description": [
+              "Still ongoing, completed, failed locally, or failed after forwarding."
+            ]
+          },
+          "failcode": {
+            "type": "u32",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The numeric onion code returned (only present if status is local_failed or failed)."
+            ]
+          },
+          "failreason": {
+            "type": "string",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The name of the onion code returned (only present if status is local_failed or failed)."
+            ]
+          },
+          "style": {
+            "type": "string",
+            "enum": [
+              "legacy",
+              "tlv"
+            ],
+            "added": "pre-v0.10.1",
+            "description": [
+              "Either a legacy onion format or a modern tlv format."
+            ]
+          },
+          "received_time": {
+            "type": "number",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The UNIX timestamp when this was received (may be zero for old forwards)."
+            ]
+          },
+          "resolved_time": {
+            "type": "number",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The UNIX timestamp when this was resolved (only present for settled and failed status)."
+            ]
+          }
+        }
+      }
+    },
+    "invoice_creation.json": {
+      "$schema": "../../rpc-schema-draft.json",
+      "type": "object",
+      "added": "pre-v0.10.1",
+      "additionalProperties": false,
+      "notification": "invoice_creation",
+      "title": "Notification that an invoice was created",
+      "description": [
+        "A notification for topic **invoice_creation** is sent every time an invoice is created."
+      ],
+      "request": {},
+      "response": {
+        "required": [
+          "label",
+          "preimage"
+        ],
+        "properties": {
+          "label": {
+            "type": "string",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The label of the invoice."
+            ]
+          },
+          "preimage": {
+            "type": "hex",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The payment preimage of the invoice."
+            ]
+          },
+          "msat": {
+            "type": "msat",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The invoice amount."
+            ]
+          }
+        }
+      }
+    },
+    "invoice_payment.json": {
+      "$schema": "../../rpc-schema-draft.json",
+      "type": "object",
+      "added": "pre-v0.10.1",
+      "additionalProperties": false,
+      "notification": "invoice_payment",
+      "title": "Notification that an invoice was paid",
+      "description": [
+        "A notification for topic **invoice_payment** is sent every time an invoice is paid."
+      ],
+      "request": {},
+      "response": {
+        "required": [
+          "label",
+          "preimage",
+          "msat"
+        ],
+        "properties": {
+          "label": {
+            "type": "string",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The label of the invoice."
+            ]
+          },
+          "preimage": {
+            "type": "hex",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The payment preimage of the invoice."
+            ]
+          },
+          "msat": {
+            "type": "msat",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The invoice amount."
+            ]
+          },
+          "outpoint": {
+            "type": "outpoint",
+            "added": "pre-v0.10.1",
+            "description": [
+              "If the payment was onchain (possible with the invoices-onchain-fallback config option) this is the outpoint of the transaction."
+            ]
+          }
+        }
+      }
+    },
+    "onionmessage_forward_fail.json": {
+      "$schema": "../../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "notification": "onionmessage_forward_fail",
+      "title": "Notification for onion message forward failures",
+      "description": [
+        "When we receive an onion message from a peer (and it's not ratelimited), and we cannot forward it for some reason. There are three reasons why this can be called: (1) The onion message cannot be parsed. In this case, outgoing and next_node_id/next_short_channel_id_dir fields are missing. (2) The forward was by short_channel_id, but we don't know that id. In this case, next_node_id is missing, but next_short_channel_id_dir is present. (3) The next peer wasn't connected. In this case, only next_short_channel_id_dir is missing."
+      ],
+      "added": "pre-v0.10.1",
+      "request": {},
+      "response": {
+        "required": [
+          "source",
+          "incoming",
+          "path_key"
+        ],
+        "properties": {
+          "source": {
+            "type": "pubkey",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The node id of the peer that sent us the onion message."
+            ]
+          },
+          "incoming": {
+            "type": "hex",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The incoming onion message."
+            ]
+          },
+          "path_key": {
+            "type": "pubkey",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The path key for this onion message."
+            ]
+          },
+          "outgoing": {
+            "type": "hex",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The outgoing onion message. Only present if the message could be parsed."
+            ]
+          },
+          "next_node_id": {
+            "type": "pubkey",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The next node id to forward to. Only present if we successfully parsed the message and the next hop is specified by node id."
+            ]
+          },
+          "next_short_channel_id_dir": {
+            "type": "short_channel_id_dir",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The next short channel id and direction to forward to. Only present if we successfully parsed the message and the next hop is specified by short channel id."
+            ]
+          }
+        }
+      }
+    },
+    "openchannel_peer_sigs.json": {
+      "$schema": "../../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "notification": "openchannel_peer_sigs",
+      "title": "Notification for when peer sends transaction signatures",
+      "description": [
+        "When opening a channel with a peer using the collaborative transaction protocol (opt_dual_fund), this notification is fired when the peer sends us their funding transaction signatures, tx_signatures. We update the in-progress PSBT and return it here, with the peer's signatures attached."
+      ],
+      "added": "pre-v0.10.1",
+      "request": {},
+      "response": {
+        "required": [
+          "channel_id",
+          "signed_psbt"
+        ],
+        "properties": {
+          "channel_id": {
+            "type": "hash",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The channel id of the channel."
+            ]
+          },
+          "signed_psbt": {
+            "type": "string",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The PSBT with the peer's signatures attached."
+            ]
+          }
+        }
+      }
+    },
+    "pay_part_end.json": {
+      "$schema": "../../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "notification": "pay_part_end",
+      "title": "Notification for payment part end",
+      "description": [
+        "Emitted by xpay when part of a payment ends. payment_hash, groupid and partid will match a previous pay_part_start. status will be success or failure. duration will be a number of seconds, with 9 decimal places. This is the time between xpay telling lightningd to send the onion, to when xpay processes the response. If status is failure, there will always be an error_message: the other fields below will be missing in the unusual case where the error onion is corrupted."
+      ],
+      "added": "v25.09",
+      "request": {},
+      "response": {
+        "required": [
+          "status",
+          "duration",
+          "payment_hash",
+          "groupid",
+          "partid"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "success",
+              "failure"
+            ],
+            "added": "v25.09",
+            "description": [
+              "The status of this payment part attempt."
+            ]
+          },
+          "duration": {
+            "type": "number",
+            "added": "v25.09",
+            "description": [
+              "The duration in seconds (with 9 decimal places) from sending the onion to processing the response."
+            ]
+          },
+          "payment_hash": {
+            "type": "hash",
+            "added": "v25.09",
+            "description": [
+              "The hash of the payment_preimage which will prove payment."
+            ]
+          },
+          "groupid": {
+            "type": "u64",
+            "added": "v25.09",
+            "description": [
+              "The grouping id for this payment."
+            ]
+          },
+          "partid": {
+            "type": "u64",
+            "added": "v25.09",
+            "description": [
+              "The part id for this payment attempt."
+            ]
+          },
+          "failed_node_id": {
+            "type": "pubkey",
+            "added": "v25.09",
+            "description": [
+              "If it's a non-local error, the source of the error. Only present on failure."
+            ]
+          },
+          "failed_short_channel_id": {
+            "type": "short_channel_id",
+            "added": "v25.09",
+            "description": [
+              "If it's not the final node, the channel it's complaining about. Only present on failure."
+            ]
+          },
+          "failed_direction": {
+            "type": "u32",
+            "added": "v25.09",
+            "description": [
+              "If it's not the final node, the channel direction. Only present on failure."
+            ]
+          },
+          "failed_msg": {
+            "type": "hex",
+            "added": "v25.09",
+            "description": [
+              "The decrypted onion message, in hex, if it was valid. Only present on failure."
+            ]
+          },
+          "error_code": {
+            "type": "u32",
+            "added": "v25.09",
+            "description": [
+              "The error code returned (present on failure unless onion was corrupted)."
+            ]
+          },
+          "error_message": {
+            "type": "string",
+            "added": "v25.09",
+            "description": [
+              "Always present on failure: if failed_node_id is present it's just the name of the error_code, but otherwise it can be a more informative error from our own node."
+            ]
+          }
+        }
+      }
+    },
+    "pay_part_start.json": {
+      "$schema": "../../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "notification": "pay_part_start",
+      "title": "Notification for payment part start",
+      "description": [
+        "Emitted by xpay when part of a payment begins. payment_hash and groupid uniquely identify this xpay invocation, and partid then identifies this particular attempt to pay part of that. total_payment_msat is the total amount (usually the invoice amount), which will be the same across all parts, and attempt_msat is the amount being delivered to the destination by this part. Each element in hops shows the amount going into the node (i.e. with fees, channel_in_msat) and the amount we're telling it to send to the other end (channel_out_msat). The channel_out_msat will be equal to the next channel_in_msat. The final channel_out_msat will be equal to the attempt_msat."
+      ],
+      "added": "v25.09",
+      "request": {},
+      "response": {
+        "required": [
+          "payment_hash",
+          "groupid",
+          "partid",
+          "total_payment_msat",
+          "attempt_msat",
+          "hops"
+        ],
+        "properties": {
+          "payment_hash": {
+            "type": "hash",
+            "added": "v25.09",
+            "description": [
+              "The hash of the payment_preimage which will prove payment."
+            ]
+          },
+          "groupid": {
+            "type": "u64",
+            "added": "v25.09",
+            "description": [
+              "The grouping id for this payment."
+            ]
+          },
+          "partid": {
+            "type": "u64",
+            "added": "v25.09",
+            "description": [
+              "The part id for this payment attempt."
+            ]
+          },
+          "total_payment_msat": {
+            "type": "msat",
+            "added": "v25.09",
+            "description": [
+              "The total amount being paid (usually the invoice amount)."
+            ]
+          },
+          "attempt_msat": {
+            "type": "msat",
+            "added": "v25.09",
+            "description": [
+              "The amount being delivered to the destination by this part."
+            ]
+          },
+          "hops": {
+            "type": "array",
+            "added": "v25.09",
+            "description": [
+              "The route hops for this payment part."
+            ],
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "next_node",
+                "short_channel_id",
+                "direction",
+                "channel_in_msat",
+                "channel_out_msat"
+              ],
+              "properties": {
+                "next_node": {
+                  "type": "pubkey",
+                  "added": "v25.09",
+                  "description": [
+                    "The next node in the route."
+                  ]
+                },
+                "short_channel_id": {
+                  "type": "short_channel_id",
+                  "added": "v25.09",
+                  "description": [
+                    "The short channel id for this hop."
+                  ]
+                },
+                "direction": {
+                  "type": "u32",
+                  "added": "v25.09",
+                  "description": [
+                    "The direction (0 or 1) for this channel."
+                  ]
+                },
+                "channel_in_msat": {
+                  "type": "msat",
+                  "added": "v25.09",
+                  "description": [
+                    "The amount going into the channel (with fees)."
+                  ]
+                },
+                "channel_out_msat": {
+                  "type": "msat",
+                  "added": "v25.09",
+                  "description": [
+                    "The amount coming out of the channel (without fees for this hop)."
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "plugin_started.json": {
+      "$schema": "../../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "notification": "plugin_started",
+      "title": "Notification for plugin startup completion",
+      "description": [
+        "Emitted when a plugin has completed startup."
+      ],
+      "added": "v25.02",
+      "request": {},
+      "response": {
+        "required": [
+          "plugin_name",
+          "plugin_path",
+          "methods"
+        ],
+        "properties": {
+          "plugin_name": {
+            "type": "string",
+            "added": "v25.02",
+            "description": [
+              "The short name of the plugin."
+            ]
+          },
+          "plugin_path": {
+            "type": "string",
+            "added": "v25.02",
+            "description": [
+              "The full file path to the plugin executable."
+            ]
+          },
+          "methods": {
+            "type": "array",
+            "added": "v25.02",
+            "description": [
+              "An array of RPC method names that the plugin registered."
+            ],
+            "items": {
+              "type": "string",
+              "description": [
+                "RPC method name."
+              ]
+            }
+          }
+        }
+      }
+    },
+    "plugin_stopped.json": {
+      "$schema": "../../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "notification": "plugin_stopped",
+      "title": "Notification for plugin stop",
+      "description": [
+        "Emitted when a plugin has been stopped or has exited."
+      ],
+      "added": "v25.02",
+      "request": {},
+      "response": {
+        "required": [
+          "plugin_name",
+          "plugin_path",
+          "methods"
+        ],
+        "properties": {
+          "plugin_name": {
+            "type": "string",
+            "added": "v25.02",
+            "description": [
+              "The short name of the plugin."
+            ]
+          },
+          "plugin_path": {
+            "type": "string",
+            "added": "v25.02",
+            "description": [
+              "The full file path to the plugin executable."
+            ]
+          },
+          "methods": {
+            "type": "array",
+            "added": "v25.02",
+            "description": [
+              "An array of RPC method names that the plugin registered."
+            ],
+            "items": {
+              "type": "string",
+              "description": [
+                "RPC method name."
+              ]
+            }
+          }
+        }
+      }
+    },
+    "sendpay_failure.json": {
+      "$schema": "../../rpc-schema-draft.json",
+      "type": "object",
+      "notification": "sendpay_failure",
+      "title": "Notification for sendpay failures",
+      "description": [
+        "A notification for topic sendpay_failure is sent every time a sendpay completes with failed status. The JSON is same as the return value of the commands sendpay/waitsendpay when these commands fail"
+      ],
+      "additionalProperties": false,
+      "added": "pre-v0.10.1",
+      "request": {},
+      "response": {
+        "required": [
+          "code",
+          "message",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The error code (from json-rpc error codes)."
+            ]
+          },
+          "message": {
+            "type": "string",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The error message."
+            ]
+          },
+          "data": {
+            "type": "object",
+            "added": "pre-v0.10.1",
+            "description": [
+              "Additional error data."
+            ],
+            "additionalProperties": false,
+            "required": [],
+            "properties": {
+              "created_index": {
+                "type": "u64",
+                "added": "pre-v0.10.1",
+                "description": [
+                  "The index of when the payment was created."
+                ]
+              },
+              "id": {
+                "type": "u64",
+                "added": "pre-v0.10.1",
+                "description": [
+                  "The unique payment id."
+                ]
+              },
+              "payment_hash": {
+                "type": "hash",
+                "added": "pre-v0.10.1",
+                "description": [
+                  "The hash of the payment_preimage which will prove payment."
+                ]
+              },
+              "groupid": {
+                "type": "u64",
+                "added": "pre-v0.10.1",
+                "description": [
+                  "The group id for this payment."
+                ]
+              },
+              "updated_index": {
+                "type": "u64",
+                "added": "pre-v0.10.1",
+                "description": [
+                  "The index of when the payment was last updated."
+                ]
+              },
+              "partid": {
+                "type": "u64",
+                "added": "pre-v0.10.1",
+                "description": [
+                  "The part id for this payment (if it's a multipart payment)."
+                ]
+              },
+              "destination": {
+                "type": "pubkey",
+                "added": "pre-v0.10.1",
+                "description": [
+                  "The final destination pubkey."
+                ]
+              },
+              "amount_msat": {
+                "type": "msat",
+                "added": "pre-v0.10.1",
+                "description": [
+                  "The amount the destination received, if known."
+                ]
+              },
+              "amount_sent_msat": {
+                "type": "msat",
+                "added": "pre-v0.10.1",
+                "description": [
+                  "The amount we sent (including fees)."
+                ]
+              },
+              "created_at": {
+                "type": "u64",
+                "added": "pre-v0.10.1",
+                "description": [
+                  "The UNIX timestamp showing when this payment was initiated."
+                ]
+              },
+              "completed_at": {
+                "type": "u64",
+                "added": "pre-v0.10.1",
+                "description": [
+                  "The UNIX timestamp showing when this payment completed."
+                ]
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "complete",
+                  "failed"
+                ],
+                "added": "pre-v0.10.1",
+                "description": [
+                  "The status of the payment."
+                ]
+              },
+              "payment_preimage": {
+                "type": "secret",
+                "added": "pre-v0.10.1",
+                "description": [
+                  "The proof of payment (if successful)."
+                ]
+              },
+              "label": {
+                "type": "string",
+                "added": "pre-v0.10.1",
+                "description": [
+                  "The label, if given to sendpay."
+                ]
+              },
+              "bolt11": {
+                "type": "string",
+                "added": "pre-v0.10.1",
+                "description": [
+                  "The bolt11 string (if supplied for sendpay)."
+                ]
+              },
+              "bolt12": {
+                "type": "string",
+                "added": "pre-v0.10.1",
+                "description": [
+                  "The bolt12 string (if supplied for sendpay)."
+                ]
+              },
+              "description": {
+                "type": "string",
+                "added": "pre-v0.10.1",
+                "description": [
+                  "The description (if supplied for sendpay)."
+                ]
+              },
+              "erroronion": {
+                "type": "hex",
+                "added": "pre-v0.10.1",
+                "description": [
+                  "The error onion returned on failure, if any."
+                ]
+              },
+              "onionreply": {
+                "type": "hex",
+                "added": "pre-v0.10.1",
+                "description": [
+                  "The raw onion reply (if unparseable)."
+                ]
+              },
+              "erring_index": {
+                "type": "u32",
+                "added": "pre-v0.10.1",
+                "description": [
+                  "The index of the node along the route that reported the error."
+                ]
+              },
+              "failcode": {
+                "type": "u32",
+                "added": "pre-v0.10.1",
+                "description": [
+                  "The failure code as per BOLT #4."
+                ]
+              },
+              "failcodename": {
+                "type": "string",
+                "added": "pre-v0.10.1",
+                "description": [
+                  "The name of the failure code."
+                ]
+              },
+              "erring_node": {
+                "type": "pubkey",
+                "added": "pre-v0.10.1",
+                "description": [
+                  "The pubkey of the node that reported the error."
+                ]
+              },
+              "erring_channel": {
+                "type": "short_channel_id",
+                "added": "pre-v0.10.1",
+                "description": [
+                  "The channel that reported the error."
+                ]
+              },
+              "erring_direction": {
+                "type": "u32",
+                "added": "pre-v0.10.1",
+                "description": [
+                  "The direction of the erring channel."
+                ]
+              },
+              "raw_message": {
+                "type": "hex",
+                "added": "pre-v0.10.1",
+                "description": [
+                  "The raw failure message."
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "sendpay_success.json": {
+      "$schema": "../../rpc-schema-draft.json",
+      "type": "object",
+      "notification": "sendpay_success",
+      "title": "Notification for sendpay succeeds",
+      "description": [
+        "A notification for topic sendpay_success is sent every time a sendpay succeeds (with complete status). The json is the same as the return value of the commands sendpay/waitsendpay when these commands succeed."
+      ],
+      "additionalProperties": false,
+      "added": "pre-v0.10.1",
+      "request": {},
+      "response": {
+        "required": [
+          "id",
+          "created_index",
+          "payment_hash",
+          "status",
+          "created_at",
+          "amount_sent_msat"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "created_index": {
+            "added": "v23.11",
+            "type": "u64",
+            "description": [
+              "1-based index indicating order this payment was created in."
+            ]
+          },
+          "updated_index": {
+            "added": "v23.11",
+            "type": "u64",
+            "description": [
+              "1-based index indicating order this payment was changed (only present if it has changed since creation)."
+            ]
+          },
+          "id": {
+            "type": "u64",
+            "added": "pre-v0.10.1",
+            "description": [
+              "Old synonym for created_index."
+            ]
+          },
+          "groupid": {
+            "type": "u64",
+            "added": "pre-v0.10.1",
+            "description": [
+              "Grouping key to disambiguate multiple attempts to pay an invoice or the same payment_hash."
+            ]
+          },
+          "payment_hash": {
+            "type": "hash",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The hash of the *payment_preimage* which will prove payment."
+            ]
+          },
+          "status": {
+            "type": "string",
+            "added": "pre-v0.10.1",
+            "enum": [
+              "pending",
+              "complete"
+            ],
+            "description": [
+              "Status of the payment (could be complete if already sent previously)."
+            ]
+          },
+          "amount_msat": {
+            "type": "msat",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The amount delivered to destination (if known)."
+            ]
+          },
+          "destination": {
+            "type": "pubkey",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The final destination of the payment if known."
+            ]
+          },
+          "created_at": {
+            "type": "u64",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The UNIX timestamp showing when this payment was initiated."
+            ]
+          },
+          "completed_at": {
+            "type": "u64",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The UNIX timestamp showing when this payment was completed."
+            ]
+          },
+          "amount_sent_msat": {
+            "type": "msat",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The amount sent."
+            ]
+          },
+          "label": {
+            "type": "string",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The *label*, if given to sendpay."
+            ]
+          },
+          "partid": {
+            "type": "u64",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The *partid*, if given to sendpay."
+            ]
+          },
+          "bolt11": {
+            "type": "string",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The bolt11 string (if supplied)."
+            ]
+          },
+          "bolt12": {
+            "type": "string",
+            "added": "pre-v0.10.1",
+            "description": [
+              "The bolt12 string (if supplied)."
+            ]
+          },
+          "description": {
+            "type": "string",
+            "added": "pre-v0.10.1",
+            "description": [
+              "A short description of purpose of payment, e.g. *1 cup of coffee*. This value is encoded into the BOLT11 invoice and is viewable by any node you send this invoice to (unless *deschashonly* is true as described below). It must be UTF-8, and cannot use *\\u* JSON escape codes."
+            ]
+          },
+          "message": {},
+          "payment_preimage": {}
+        },
+        "allOf": [
+          {
+            "if": {
+              "additionalProperties": true,
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "added": "pre-v0.10.1",
+                  "enum": [
+                    "complete"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "additionalProperties": false,
+              "required": [
+                "payment_preimage"
+              ],
+              "properties": {
+                "id": {},
+                "created_index": {},
+                "updated_index": {},
+                "groupid": {},
+                "payment_hash": {},
+                "status": {},
+                "msatoshi": {},
+                "amount_msat": {},
+                "destination": {},
+                "created_at": {},
+                "completed_at": {},
+                "msatoshi_sent": {},
+                "amount_sent_msat": {},
+                "label": {},
+                "partid": {},
+                "bolt11": {},
+                "bolt12": {},
+                "description": {},
+                "payment_preimage": {
+                  "type": "secret",
+                  "added": "pre-v0.10.1",
+                  "description": [
+                    "The proof of payment: SHA256 of this **payment_hash**."
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "additionalProperties": true,
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "added": "pre-v0.10.1",
+                  "enum": [
+                    "pending"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "additionalProperties": false,
+              "required": [
+                "message"
+              ],
+              "properties": {
+                "id": {},
+                "created_index": {},
+                "updated_index": {},
+                "groupid": {},
+                "payment_hash": {},
+                "status": {},
+                "msatoshi": {},
+                "amount_msat": {},
+                "destination": {},
+                "created_at": {},
+                "completed_at": {},
+                "msatoshi_sent": {},
+                "amount_sent_msat": {},
+                "label": {},
+                "partid": {},
+                "bolt11": {},
+                "bolt12": {},
+                "description": {},
+                "message": {
+                  "type": "string",
+                  "added": "pre-v0.10.1",
+                  "description": [
+                    "Monitor status with listpays or waitsendpay."
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "shutdown.json": {
+      "$schema": "../../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "notification": "shutdown",
+      "title": "Notification for lightningd shutdown",
+      "description": [
+        "Sent in two situations: lightningd is (almost completely) shutdown, or the plugin stop command has been called for this plugin. In both cases the plugin has 30 seconds to exit itself, otherwise it's killed. In the shutdown case, plugins should not interact with lightningd except via (id-less) logging or notifications. New rpc calls will fail with error code -5 and (plugin's) responses will be ignored. Because lightningd can crash or be killed, a plugin cannot rely on the shutdown notification always being sent."
+      ],
+      "added": "pre-v0.10.1",
+      "request": {},
+      "response": {
+        "required": [],
+        "properties": {}
+      }
+    },
+    "warning.json": {
+      "$schema": "../../rpc-schema-draft.json",
+      "type": "object",
+      "added": "pre-v0.10.1",
+      "additionalProperties": false,
+      "notification": "warning",
+      "title": "Notification for BROKEN/UNUSUAL level logs",
+      "description": [
+        "A notification for topic warning is sent every time a new BROKEN/UNUSUAL level (in plugins, we use error/warn) log generated, which means an unusual/broken thing happens, such as channel failed, message resolving failed."
+      ],
+      "request": {},
+      "response": {
+        "required": [
+          "level",
+          "time",
+          "timestamp",
+          "source",
+          "log"
+        ],
+        "properties": {
+          "level": {
+            "type": "string",
+            "added": "pre-v0.10.1",
+            "description": [
+              "level is warn or error: warn means something seems bad happened and it's under control, but we'd better check it; error means something extremely bad is out of control, and it may lead to crash"
+            ]
+          },
+          "time": {
+            "type": "string",
+            "added": "pre-v0.10.1",
+            "description": [
+              "Seconds since epoch"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "added": "pre-v0.10.1",
+            "description": [
+              "ISO_8601 timestamp string, i.e. '2019-09-07T15:50+01:00'"
+            ]
+          },
+          "source": {
+            "type": "string",
+            "added": "pre-v0.10.1",
+            "description": [
+              "source means where the event happened, it may have the following forms: <node_id> chan #<db_id_of_channel>:,lightningd(<lightningd_pid>):, plugin-<plugin_name>:, <daemon_name>(<daemon_pid>):, jsonrpc:, jcon fd <error_fd_to_jsonrpc>:, plugin-manager"
+            ]
+          },
+          "log": {
+            "type": "string",
+            "added": "pre-v0.10.1",
+            "description": [
+              "context of the original log entry"
+            ]
           }
         }
       }

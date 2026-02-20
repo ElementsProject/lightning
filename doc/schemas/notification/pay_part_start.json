@@ -1,0 +1,114 @@
+{
+  "$schema": "../../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "notification": "pay_part_start",
+  "title": "Notification for payment part start",
+  "description": [
+    "Emitted by xpay when part of a payment begins. payment_hash and groupid uniquely identify this xpay invocation, and partid then identifies this particular attempt to pay part of that. total_payment_msat is the total amount (usually the invoice amount), which will be the same across all parts, and attempt_msat is the amount being delivered to the destination by this part. Each element in hops shows the amount going into the node (i.e. with fees, channel_in_msat) and the amount we're telling it to send to the other end (channel_out_msat). The channel_out_msat will be equal to the next channel_in_msat. The final channel_out_msat will be equal to the attempt_msat."
+  ],
+  "added": "v25.09",
+  "request": {},
+  "response": {
+    "required": [
+      "payment_hash",
+      "groupid",
+      "partid",
+      "total_payment_msat",
+      "attempt_msat",
+      "hops"
+    ],
+    "properties": {
+      "payment_hash": {
+        "type": "hash",
+        "added": "v25.09",
+        "description": [
+          "The hash of the payment_preimage which will prove payment."
+        ]
+      },
+      "groupid": {
+        "type": "u64",
+        "added": "v25.09",
+        "description": [
+          "The grouping id for this payment."
+        ]
+      },
+      "partid": {
+        "type": "u64",
+        "added": "v25.09",
+        "description": [
+          "The part id for this payment attempt."
+        ]
+      },
+      "total_payment_msat": {
+        "type": "msat",
+        "added": "v25.09",
+        "description": [
+          "The total amount being paid (usually the invoice amount)."
+        ]
+      },
+      "attempt_msat": {
+        "type": "msat",
+        "added": "v25.09",
+        "description": [
+          "The amount being delivered to the destination by this part."
+        ]
+      },
+      "hops": {
+        "type": "array",
+        "added": "v25.09",
+        "description": [
+          "The route hops for this payment part."
+        ],
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "next_node",
+            "short_channel_id",
+            "direction",
+            "channel_in_msat",
+            "channel_out_msat"
+          ],
+          "properties": {
+            "next_node": {
+              "type": "pubkey",
+              "added": "v25.09",
+              "description": [
+                "The next node in the route."
+              ]
+            },
+            "short_channel_id": {
+              "type": "short_channel_id",
+              "added": "v25.09",
+              "description": [
+                "The short channel id for this hop."
+              ]
+            },
+            "direction": {
+              "type": "u32",
+              "added": "v25.09",
+              "description": [
+                "The direction (0 or 1) for this channel."
+              ]
+            },
+            "channel_in_msat": {
+              "type": "msat",
+              "added": "v25.09",
+              "description": [
+                "The amount going into the channel (with fees)."
+              ]
+            },
+            "channel_out_msat": {
+              "type": "msat",
+              "added": "v25.09",
+              "description": [
+                "The amount coming out of the channel (without fees for this hop)."
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "$schema": "../../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "notification": "openchannel_peer_sigs",
+  "title": "Notification for when peer sends transaction signatures",
+  "description": [
+    "When opening a channel with a peer using the collaborative transaction protocol (opt_dual_fund), this notification is fired when the peer sends us their funding transaction signatures, tx_signatures. We update the in-progress PSBT and return it here, with the peer's signatures attached."
+  ],
+  "added": "pre-v0.10.1",
+  "request": {},
+  "response": {
+    "required": [
+      "channel_id",
+      "signed_psbt"
+    ],
+    "properties": {
+      "channel_id": {
+        "type": "hash",
+        "added": "pre-v0.10.1",
+        "description": [
+          "The channel id of the channel."
+        ]
+      },
+      "signed_psbt": {
+        "type": "string",
+        "added": "pre-v0.10.1",
+        "description": [
+          "The PSBT with the peer's signatures attached."
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "$schema": "../../rpc-schema-draft.json",
+  "type": "object",
+  "notification": "disconnect",
+  "title": "Notification for disconnection from a peer",
+  "description": [
+    "The **disconnect** informs whenever the node is disconnected from a peer."
+  ],
+  "additionalProperties": false,
+  "added": "pre-v0.10.1",
+  "request": {},
+  "response": {
+    "required": [
+      "id"
+    ],
+    "properties": {
+      "id": {
+        "type": "pubkey",
+        "description": [
+          "The id of the peer which sent the custom message"
+        ],
+        "added": "pre-v0.10.1"
+      }
+    }
+  }
+}

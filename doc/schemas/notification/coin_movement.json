@@ -1,0 +1,242 @@
+{
+  "$schema": "../../rpc-schema-draft.json",
+  "type": "object",
+  "notification": "coin_movement",
+  "title": "Notification for coin movements",
+  "description": [
+    "A notification for topic **coin_movement** is sent to record the movement of coins. It is only triggered by finalized ledger updates, i.e. only definitively resolved HTLCs or confirmed bitcoin transactions."
+  ],
+  "additionalProperties": false,
+  "added": "pre-v0.10.1",
+  "request": {},
+  "response": {
+    "required": [
+      "version",
+      "coin_type",
+      "node_id",
+      "type",
+      "created_index",
+      "account_id",
+      "credit_msat",
+      "debit_msat",
+      "timestamp",
+      "primary_tag"
+    ],
+    "properties": {
+      "version": {
+        "type": "u32",
+        "added": "pre-v0.10.1",
+        "description": [
+          "Indicates which version of the coin movement data struct this notification adheres to."
+        ]
+      },
+      "coin_type": {
+        "type": "string",
+        "added": "pre-v0.10.1",
+        "description": [
+          "The BIP173 name for the coin which moved."
+        ]
+      },
+      "node_id": {
+        "type": "pubkey",
+        "added": "pre-v0.10.1",
+        "description": [
+          "The node issuing the coin movement."
+        ]
+      },
+      "type": {
+        "type": "string",
+        "enum": [
+          "chain_mvt",
+          "channel_mvt"
+        ],
+        "added": "pre-v0.10.1",
+        "description": [
+          "Marks the underlying mechanism which moved these coins. channel_mvt occurs as a result of htlcs being resolved, chain_mvt occurs as a result of bitcoin txs being mined."
+        ]
+      },
+      "created_index": {
+        "type": "u64",
+        "added": "v23.08",
+        "description": [
+          "The index for this movement."
+        ]
+      },
+      "account_id": {
+        "type": "string",
+        "added": "pre-v0.10.1",
+        "description": [
+          "The name of this account. The node's wallet is named 'wallet', all channel funds' account are the channel id."
+        ]
+      },
+      "originating_account": {
+        "type": "string",
+        "added": "pre-v0.10.1",
+        "description": [
+          "The account that this movement originated from. Only tagged on external events (deposits/withdrawals to an external party). Only for chain_mvt."
+        ]
+      },
+      "txid": {
+        "type": "txid",
+        "added": "pre-v0.10.1",
+        "deprecated": [
+          "v25.09",
+          "v26.09"
+        ],
+        "description": [
+          "The transaction id of the bitcoin transaction that triggered this ledger event. Replaced by spending_txid. Only for chain_mvt."
+        ]
+      },
+      "spending_txid": {
+        "type": "txid",
+        "added": "v25.09",
+        "description": [
+          "The transaction id of the bitcoin transaction that triggered this ledger event. Only for chain_mvt."
+        ]
+      },
+      "utxo": {
+        "type": "outpoint",
+        "added": "v25.09",
+        "description": [
+          "The outpoint (txid and vout) which triggered this notification. Only for chain_mvt."
+        ]
+      },
+      "utxo_txid": {
+        "type": "txid",
+        "added": "pre-v0.10.1",
+        "deprecated": [
+          "v25.09",
+          "v26.09"
+        ],
+        "description": [
+          "The transaction id of the UTXO. Replaced by utxo field. Only for chain_mvt."
+        ]
+      },
+      "vout": {
+        "type": "u32",
+        "added": "pre-v0.10.1",
+        "deprecated": [
+          "v25.09",
+          "v26.09"
+        ],
+        "description": [
+          "The output index of the UTXO. Replaced by utxo field. Only for chain_mvt."
+        ]
+      },
+      "peer_id": {
+        "type": "pubkey",
+        "added": "v25.09",
+        "description": [
+          "The peer id for this movement. Only for chain_mvt."
+        ]
+      },
+      "payment_hash": {
+        "type": "hash",
+        "added": "pre-v0.10.1",
+        "description": [
+          "The hash of the preimage used to move this payment. Only present for HTLC mediated moves (both chain_mvt and channel_mvt). A chain_mvt will have a payment_hash iff it's recording an htlc that was fulfilled onchain."
+        ]
+      },
+      "part_id": {
+        "type": "u64",
+        "added": "pre-v0.10.1",
+        "description": [
+          "Part id for this multi-part payment. Only for channel_mvt."
+        ]
+      },
+      "group_id": {
+        "type": "u64",
+        "added": "pre-v0.10.1",
+        "description": [
+          "Group id for this multi-part payment. Only for channel_mvt."
+        ]
+      },
+      "credit_msat": {
+        "type": "msat",
+        "added": "pre-v0.10.1",
+        "description": [
+          "Millisatoshi amount credited to the account."
+        ]
+      },
+      "debit_msat": {
+        "type": "msat",
+        "added": "pre-v0.10.1",
+        "description": [
+          "Millisatoshi amount debited from the account."
+        ]
+      },
+      "output_msat": {
+        "type": "msat",
+        "added": "pre-v0.10.1",
+        "description": [
+          "The total value of the on-chain UTXO. Note that for channel opens/closes the total output value will not necessarily correspond to the amount that's credited/debited. Only for chain_mvt."
+        ]
+      },
+      "output_count": {
+        "type": "u32",
+        "added": "pre-v0.10.1",
+        "description": [
+          "The total outputs to expect for a channel close. Useful for figuring out when every onchain output for a close has been resolved. Only for chain_mvt."
+        ]
+      },
+      "fees_msat": {
+        "type": "msat",
+        "added": "pre-v0.10.1",
+        "description": [
+          "HTLC annotation for the amount of fees either paid or earned. For invoice tagged events, the fees are the total fees paid. For routed tagged events, both the debit/credit contain fees. Only for channel_mvt."
+        ]
+      },
+      "primary_tag": {
+        "type": "string",
+        "added": "pre-v0.10.1",
+        "description": [
+          "A movement descriptor. Current primary tags are: deposit, withdrawal, penalty, invoice, routed, pushed, channel_open, channel_close, delayed_to_us, htlc_timeout, htlc_fulfill, htlc_tx, to_wallet, anchor, to_them, penalized, stolen, to_miner, lease_fee, channel_proposed."
+        ]
+      },
+      "tags": {
+        "type": "array",
+        "added": "pre-v0.10.1",
+        "deprecated": [
+          "v25.09",
+          "v26.09"
+        ],
+        "description": [
+          "Movement tags. Replaced by primary_tag and extra_tags."
+        ],
+        "items": {
+          "type": "string",
+          "description": [
+            "Movement tag."
+          ]
+        }
+      },
+      "extra_tags": {
+        "type": "array",
+        "added": "v25.09",
+        "description": [
+          "Zero or more additional tags. Current extra tags are: ignored, opener, stealable, leased, splice."
+        ],
+        "items": {
+          "type": "string",
+          "description": [
+            "Extra tag."
+          ]
+        }
+      },
+      "blockheight": {
+        "type": "u32",
+        "added": "pre-v0.10.1",
+        "description": [
+          "The block the txid is included in. Only for chain_mvt. channel_mvt will be null, so will the blockheight for withdrawals to external parties."
+        ]
+      },
+      "timestamp": {
+        "type": "u64",
+        "added": "pre-v0.10.1",
+        "description": [
+          "Seconds since Unix epoch of the node's machine time at the time lightningd broadcasts the notification."
+        ]
+      }
+    }
+  }
+}

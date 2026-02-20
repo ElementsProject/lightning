@@ -1,0 +1,239 @@
+{
+  "$schema": "../../rpc-schema-draft.json",
+  "type": "object",
+  "notification": "sendpay_success",
+  "title": "Notification for sendpay succeeds",
+  "description": [
+    "A notification for topic sendpay_success is sent every time a sendpay succeeds (with complete status). The json is the same as the return value of the commands sendpay/waitsendpay when these commands succeed."
+  ],
+  "additionalProperties": false,
+  "added": "pre-v0.10.1",
+  "request": {},
+  "response": {
+    "required": [
+      "id",
+      "created_index",
+      "payment_hash",
+      "status",
+      "created_at",
+      "amount_sent_msat"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "created_index": {
+        "added": "v23.11",
+        "type": "u64",
+        "description": [
+          "1-based index indicating order this payment was created in."
+        ]
+      },
+      "updated_index": {
+        "added": "v23.11",
+        "type": "u64",
+        "description": [
+          "1-based index indicating order this payment was changed (only present if it has changed since creation)."
+        ]
+      },
+      "id": {
+        "type": "u64",
+        "added": "pre-v0.10.1",
+        "description": [
+          "Old synonym for created_index."
+        ]
+      },
+      "groupid": {
+        "type": "u64",
+        "added": "pre-v0.10.1",
+        "description": [
+          "Grouping key to disambiguate multiple attempts to pay an invoice or the same payment_hash."
+        ]
+      },
+      "payment_hash": {
+        "type": "hash",
+        "added": "pre-v0.10.1",
+        "description": [
+          "The hash of the *payment_preimage* which will prove payment."
+        ]
+      },
+      "status": {
+        "type": "string",
+        "added": "pre-v0.10.1",
+        "enum": [
+          "pending",
+          "complete"
+        ],
+        "description": [
+          "Status of the payment (could be complete if already sent previously)."
+        ]
+      },
+      "amount_msat": {
+        "type": "msat",
+        "added": "pre-v0.10.1",
+        "description": [
+          "The amount delivered to destination (if known)."
+        ]
+      },
+      "destination": {
+        "type": "pubkey",
+        "added": "pre-v0.10.1",
+        "description": [
+          "The final destination of the payment if known."
+        ]
+      },
+      "created_at": {
+        "type": "u64",
+        "added": "pre-v0.10.1",
+        "description": [
+          "The UNIX timestamp showing when this payment was initiated."
+        ]
+      },
+      "completed_at": {
+        "type": "u64",
+        "added": "pre-v0.10.1",
+        "description": [
+          "The UNIX timestamp showing when this payment was completed."
+        ]
+      },
+      "amount_sent_msat": {
+        "type": "msat",
+        "added": "pre-v0.10.1",
+        "description": [
+          "The amount sent."
+        ]
+      },
+      "label": {
+        "type": "string",
+        "added": "pre-v0.10.1",
+        "description": [
+          "The *label*, if given to sendpay."
+        ]
+      },
+      "partid": {
+        "type": "u64",
+        "added": "pre-v0.10.1",
+        "description": [
+          "The *partid*, if given to sendpay."
+        ]
+      },
+      "bolt11": {
+        "type": "string",
+        "added": "pre-v0.10.1",
+        "description": [
+          "The bolt11 string (if supplied)."
+        ]
+      },
+      "bolt12": {
+        "type": "string",
+        "added": "pre-v0.10.1",
+        "description": [
+          "The bolt12 string (if supplied)."
+        ]
+      },
+      "description": {
+        "type": "string",
+        "added": "pre-v0.10.1",
+        "description": [
+          "A short description of purpose of payment, e.g. *1 cup of coffee*. This value is encoded into the BOLT11 invoice and is viewable by any node you send this invoice to (unless *deschashonly* is true as described below). It must be UTF-8, and cannot use *\\u* JSON escape codes."
+        ]
+      },
+      "message": {},
+      "payment_preimage": {}
+    },
+    "allOf": [
+      {
+        "if": {
+          "additionalProperties": true,
+          "properties": {
+            "status": {
+              "type": "string",
+              "added": "pre-v0.10.1",
+              "enum": [
+                "complete"
+              ]
+            }
+          }
+        },
+        "then": {
+          "additionalProperties": false,
+          "required": [
+            "payment_preimage"
+          ],
+          "properties": {
+            "id": {},
+            "created_index": {},
+            "updated_index": {},
+            "groupid": {},
+            "payment_hash": {},
+            "status": {},
+            "msatoshi": {},
+            "amount_msat": {},
+            "destination": {},
+            "created_at": {},
+            "completed_at": {},
+            "msatoshi_sent": {},
+            "amount_sent_msat": {},
+            "label": {},
+            "partid": {},
+            "bolt11": {},
+            "bolt12": {},
+            "description": {},
+            "payment_preimage": {
+              "type": "secret",
+              "added": "pre-v0.10.1",
+              "description": [
+                "The proof of payment: SHA256 of this **payment_hash**."
+              ]
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "additionalProperties": true,
+          "properties": {
+            "status": {
+              "type": "string",
+              "added": "pre-v0.10.1",
+              "enum": [
+                "pending"
+              ]
+            }
+          }
+        },
+        "then": {
+          "additionalProperties": false,
+          "required": [
+            "message"
+          ],
+          "properties": {
+            "id": {},
+            "created_index": {},
+            "updated_index": {},
+            "groupid": {},
+            "payment_hash": {},
+            "status": {},
+            "msatoshi": {},
+            "amount_msat": {},
+            "destination": {},
+            "created_at": {},
+            "completed_at": {},
+            "msatoshi_sent": {},
+            "amount_sent_msat": {},
+            "label": {},
+            "partid": {},
+            "bolt11": {},
+            "bolt12": {},
+            "description": {},
+            "message": {
+              "type": "string",
+              "added": "pre-v0.10.1",
+              "description": [
+                "Monitor status with listpays or waitsendpay."
+              ]
+            }
+          }
+        }
+      }
+    ]
+  }
+}

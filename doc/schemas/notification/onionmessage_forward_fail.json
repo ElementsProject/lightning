@@ -1,0 +1,63 @@
+{
+  "$schema": "../../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "notification": "onionmessage_forward_fail",
+  "title": "Notification for onion message forward failures",
+  "description": [
+    "When we receive an onion message from a peer (and it's not ratelimited), and we cannot forward it for some reason. There are three reasons why this can be called: (1) The onion message cannot be parsed. In this case, outgoing and next_node_id/next_short_channel_id_dir fields are missing. (2) The forward was by short_channel_id, but we don't know that id. In this case, next_node_id is missing, but next_short_channel_id_dir is present. (3) The next peer wasn't connected. In this case, only next_short_channel_id_dir is missing."
+  ],
+  "added": "pre-v0.10.1",
+  "request": {},
+  "response": {
+    "required": [
+      "source",
+      "incoming",
+      "path_key"
+    ],
+    "properties": {
+      "source": {
+        "type": "pubkey",
+        "added": "pre-v0.10.1",
+        "description": [
+          "The node id of the peer that sent us the onion message."
+        ]
+      },
+      "incoming": {
+        "type": "hex",
+        "added": "pre-v0.10.1",
+        "description": [
+          "The incoming onion message."
+        ]
+      },
+      "path_key": {
+        "type": "pubkey",
+        "added": "pre-v0.10.1",
+        "description": [
+          "The path key for this onion message."
+        ]
+      },
+      "outgoing": {
+        "type": "hex",
+        "added": "pre-v0.10.1",
+        "description": [
+          "The outgoing onion message. Only present if the message could be parsed."
+        ]
+      },
+      "next_node_id": {
+        "type": "pubkey",
+        "added": "pre-v0.10.1",
+        "description": [
+          "The next node id to forward to. Only present if we successfully parsed the message and the next hop is specified by node id."
+        ]
+      },
+      "next_short_channel_id_dir": {
+        "type": "short_channel_id_dir",
+        "added": "pre-v0.10.1",
+        "description": [
+          "The next short channel id and direction to forward to. Only present if we successfully parsed the message and the next hop is specified by short channel id."
+        ]
+      }
+    }
+  }
+}
