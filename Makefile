@@ -104,6 +104,7 @@ CCAN_OBJS :=					\
 	ccan-bitmap.o				\
 	ccan-bitops.o				\
 	ccan-breakpoint.o			\
+	ccan-cdump.o				\
 	ccan-closefrom.o			\
 	ccan-crc32c.o				\
 	ccan-crypto-hmac.o			\
@@ -228,8 +229,6 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/timer/timer.h			\
 	$(CCANDIR)/ccan/typesafe_cb/typesafe_cb.h	\
 	$(CCANDIR)/ccan/utf8/utf8.h
-
-CDUMP_OBJS := ccan-cdump.o ccan-strmap.o
 
 BOLT_GEN := tools/generate-wire.py
 WIRE_GEN := $(BOLT_GEN)
@@ -723,7 +722,7 @@ TAGS:
 tags:
 	$(RM) tags; find * -name test -type d -prune -o \( -name '*.[ch]' -o -name '*.py' \) -print0 | xargs -0 ctags --append
 
-ccan/ccan/cdump/tools/cdump-enumstr: ccan/ccan/cdump/tools/cdump-enumstr.o $(CDUMP_OBJS) $(CCAN_OBJS)
+ccan/ccan/cdump/tools/cdump-enumstr: ccan/ccan/cdump/tools/cdump-enumstr.o libccan.a
 
 ALL_PROGRAMS += ccan/ccan/cdump/tools/cdump-enumstr
 # Can't add to ALL_OBJS, as that makes a circular dep.
