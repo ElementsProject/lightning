@@ -17,6 +17,7 @@ env:
   CI_SERVER_URL: "http://35.239.136.52:3170"
   PYTEST_OPTS_BASE: "-vvv --junit-xml=report.xml --timeout=1800 --durations=10"
   TEST_LOG_IGNORE_ERRORS: "1"
+  SCCACHE_GHA_ENABLED: "true"
 
 jobs:
   prebuild:
@@ -151,6 +152,10 @@ jobs:
         run: |
           bash -x .github/scripts/setup.sh
 
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
+      - run: sccache --zero-stats
+
       - name: Build
         env:
           COMPILER: ${{ matrix.COMPILER }}
@@ -158,9 +163,10 @@ jobs:
           UBSAN: ${{ matrix.UBSAN }}
           VALGRIND: ${{ matrix.VALGRIND }}
           COMPAT: 1
+          RUSTC_WRAPPER: sccache
         run: |
           set -e
-          ./configure ${{ matrix.DEBUG_BUILD }} CC="$COMPILER" ${{ matrix.COPTFLAGS_VAR }}
+          ./configure ${{ matrix.DEBUG_BUILD }} CC="sccache $COMPILER" ${{ matrix.COPTFLAGS_VAR }}
 
           uv run make -j $(nproc) testpack.tar.gz
 
@@ -170,6 +176,9 @@ jobs:
         with:
           name: cln-${{ matrix.CFG }}.tar.gz
           path: cln-${{ matrix.CFG }}.tar.gz
+
+      - name: sccache report
+        run: sccache --show-stats
 
   check-compiled-source:
     runs-on: ubuntu-24.04
@@ -208,11 +217,20 @@ jobs:
           find . -type f -print0 | xargs -0 touch -d yesterday
           tar xaf cln-${{ matrix.CFG }}.tar.gz
 
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
+      - run: sccache --zero-stats
+
       - name: Check
         run: |
           uv run eatmydata make -j $(nproc) check-source-bolt check-python check-gen-updated check-doc CARGO=false CC=devtools/cc-nobuild SUPPRESS_GENERATION=1
       - name: Check rust packages
+        env:
+          RUSTC_WRAPPER: sccache
         run: cargo test --all
+
+      - name: sccache report
+        run: sccache --show-stats
 
   check-units:
     # The unit test checks are not in the critical path (not dependent
@@ -244,6 +262,10 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
 
+      # We need the same compiler as we they will find in the build
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
+
       - name: Install dependencies
         env:
           TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
@@ -266,7 +288,7 @@ jobs:
 
       - name: Check
         run: |
-          uv run eatmydata make -j $(nproc) check-units installcheck VALGRIND=${{ matrix.VALGRIND }} CARGO=false CC=devtools/cc-nobuild SUPPRESS_GENERATION=1
+          uv run eatmydata make -j $(nproc) check-units installcheck VALGRIND=${{ matrix.VALGRIND }} CARGO=false CC="sccache devtools/cc-nobuild" SUPPRESS_GENERATION=1
 
   check-fuzz:
     name: Run fuzz regression tests
@@ -291,10 +313,19 @@ jobs:
         run: |
           bash -x .github/scripts/setup.sh
 
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
+      - run: sccache --zero-stats
+
       - name: Build
+        env:
+          RUSTC_WRAPPER: sccache
         run: |
-          ./configure --enable-debugbuild --enable-fuzzing --enable-address-sanitizer --enable-ub-sanitizer --disable-valgrind CC=clang
+          ./configure --enable-debugbuild --enable-fuzzing --enable-address-sanitizer --enable-ub-sanitizer --disable-valgrind CC="sccache clang"
           uv run make -j $(nproc) check-fuzz
+
+      - name: sccache report
+        run: sccache --show-stats
 
   check-downgrade:
     name: Check we can downgrade the node
