@@ -101,10 +101,6 @@ jobs:
           name: pytest-results-prebuild
           path: report.xml
           if-no-files-found: ignore
-      - name: Check Generated Files have been updated
-        run: uv run make check-gen-updated
-      - name: Check docs
-        run: uv run make check-doc
 
   compile:
     name: Compile CLN ${{ matrix.cfg }}
@@ -170,6 +166,41 @@ jobs:
         with:
           name: cln-${{ matrix.CFG }}.tar.bz2
           path: cln-${{ matrix.CFG }}.tar.bz2
+
+  check-compiled-source:
+    runs-on: ubuntu-24.04
+    needs:
+      - compile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: |
+          bash -x .github/scripts/setup.sh
+
+      - name: Download build
+        uses: actions/download-artifact@v4
+        with:
+          name: cln-compile-gcc.tar.bz2
+
+      - name: Unpack pre-built CLN
+        env:
+          CFG: ${{ matrix.CFG }}
+        run: |
+          tar -xaf cln-compile-gcc.tar.bz2
+
+      - name: Check
+        run: |
+          uv run eatmydata make -j $(nproc) check-source-bolt check-python check-gen-updated check-doc
 
   check-units:
     # The unit test checks are not in the critical path (not dependent
@@ -765,11 +796,12 @@ jobs:
       - integration-sanitizers
       - min-btc-support
       - check-downgrade
+      - check-compiled-source
     if: ${{ always() }}
     steps:
       - name: Complete
         env:
-          JOB_NAMES: "INTEGRATION CHECK_UNITS VALGRIND SANITIZERS BTC"
+          JOB_NAMES: "INTEGRATION CHECK_UNITS VALGRIND SANITIZERS BTC CHECK_COMPILED_SOURCE"
           INTEGRATION: ${{ needs.integration.result }}
           CHECK_UNITS: ${{ needs['check-units'].result }}
           VALGRIND: ${{ needs['integration-valgrind'].result }}
@@ -777,6 +809,7 @@ jobs:
           DOCS: ${{ needs['update-docs-examples'].result }}
           BTC: ${{ needs['min-btc-support'].result }}
           CHECK_DOWNGRADE: ${{ needs['check-downgrade'].result }}
+          CHECK_COMPILED_SOURCE: ${{ needs['check-compiled-source'].result }}
         run: |
           failed=""
           for name in $JOB_NAMES; do
