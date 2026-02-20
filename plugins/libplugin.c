@@ -56,6 +56,8 @@ struct plugin_option {
 	const char *depr_start, *depr_end;
 	/* If true, allow setting after plugin has initialized */
 	bool dynamic;
+	/* If true, allow multiple settings. */
+	bool multi;
 };
 
 struct plugin {
@@ -1272,6 +1274,7 @@ handle_getmanifest(struct command *getmanifest_cmd,
 		json_add_string(params, "description", p->opts[i].description);
 		json_add_deprecated(params, "deprecated", p->opts[i].depr_start, p->opts[i].depr_end);
 		json_add_bool(params, "dynamic", p->opts[i].dynamic);
+		json_add_bool(params, "multi", p->opts[i].multi);
 		if (p->opts[i].jsonfmt)
 			p->opts[i].jsonfmt(p, params, "default", p->opts[i].arg);
 		json_object_end(params);
@@ -1567,9 +1570,19 @@ static struct command_result *handle_init(struct command *cmd,
 		if (!popt)
 			plugin_err(p, "lightningd specified unknown option '%s'?", name);
 
-		problem = popt->handle(p, json_strdup(tmpctx, buf, t+1), false, popt->arg);
-		if (problem)
-			plugin_err(p, "option '%s': %s", popt->name, problem);
+		if (popt->multi) {
+			size_t j;
+			const jsmntok_t *opt;
+			json_for_each_arr(j, opt, t+1) {
+				problem = popt->handle(p, json_strdup(tmpctx, buf, opt), false, popt->arg);
+				if (problem)
+					plugin_err(p, "option '%s': %s", popt->name, problem);
+			}
+		} else {
+			problem = popt->handle(p, json_strdup(tmpctx, buf, t+1), false, popt->arg);
+			if (problem)
+				plugin_err(p, "option '%s': %s", popt->name, problem);
+		}
 	}
 
 	if (p->init) {
@@ -2391,6 +2404,7 @@ static struct plugin *new_plugin(const tal_t *ctx,
 		o.depr_start = va_arg(ap, const char *);
 		o.depr_end = va_arg(ap, const char *);
 		o.dynamic = va_arg(ap, int); /* bool gets promoted! */
+		o.multi = va_arg(ap, int); /* bool gets promoted! */
 		tal_arr_expand(&p->opts, o);
 	}
 

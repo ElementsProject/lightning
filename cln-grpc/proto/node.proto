@@ -2426,6 +2426,7 @@ message OfferRequest {
 	optional bool single_use = 11;
 	optional bool proportional_amount = 13;
 	optional bool optional_recurrence = 14;
+	repeated bytes fronting_nodes = 15;
 }
 
 message OfferResponse {

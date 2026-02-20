@@ -3337,6 +3337,7 @@
             "Offer.absolute_expiry": 6,
             "Offer.amount": 1,
             "Offer.description": 2,
+            "Offer.fronting_nodes[]": 15,
             "Offer.issuer": 3,
             "Offer.label": 4,
             "Offer.optional_recurrence": 14,
@@ -11986,6 +11987,10 @@
         },
         "Offer.description": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Offer.fronting_nodes[]": {
+            "added": "v26.04",
             "deprecated": null
         },
         "Offer.issuer": {

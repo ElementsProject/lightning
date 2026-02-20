@@ -5596,6 +5596,8 @@ impl From<requests::OfferRequest> for pb::OfferRequest {
             absolute_expiry: c.absolute_expiry, // Rule #2 for type u64?
             amount: c.amount, // Rule #2 for type string
             description: c.description, // Rule #2 for type string?
+            // Field: Offer.fronting_nodes[]
+            fronting_nodes: c.fronting_nodes.map(|arr| arr.into_iter().map(|i| i.serialize().to_vec()).collect()).unwrap_or(vec![]), // Rule #3
             issuer: c.issuer, // Rule #2 for type string?
             label: c.label, // Rule #2 for type string?
             optional_recurrence: c.optional_recurrence, // Rule #2 for type boolean?
@@ -7380,6 +7382,7 @@ impl From<pb::OfferRequest> for requests::OfferRequest {
             absolute_expiry: c.absolute_expiry, // Rule #1 for type u64?
             amount: c.amount, // Rule #1 for type string
             description: c.description, // Rule #1 for type string?
+            fronting_nodes: Some(c.fronting_nodes.into_iter().map(|s| PublicKey::from_slice(&s).unwrap()).collect()), // Rule #4
             issuer: c.issuer, // Rule #1 for type string?
             label: c.label, // Rule #1 for type string?
             optional_recurrence: c.optional_recurrence, // Rule #1 for type boolean?

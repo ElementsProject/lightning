@@ -942,6 +942,98 @@ def test_invoice_botched_migration(node_factory, chainparams):
     assert l1.rpc.invoice(100, "test", "test")["created_index"] == 3
 
 
+def test_payment_fronting(node_factory):
+    # Nodes will not front for offers if they don't have an advertized address, so allow localhost.
+    l1, l2 = node_factory.get_nodes(2, opts={'dev-allow-localhost': None})
+    l3, l4 = node_factory.get_nodes(2, opts=[{'payment-fronting-node': l1.info['id'],
+                                              'dev-allow-localhost': None},
+                                             {'payment-fronting-node': [l1.info['id'], l2.info['id']],
+                                              'dev-allow-localhost': None}])
+
+    assert l3.rpc.listconfigs('payment-fronting-node') == {'configs': {'payment-fronting-node': {'sources': ['cmdline'], 'values_str': [l1.info['id']]}}}
+    assert l4.rpc.listconfigs('payment-fronting-node') == {'configs': {'payment-fronting-node': {'sources': ['cmdline', 'cmdline'], 'values_str': [l1.info['id'], l2.info['id']]}}}
+
+    # l1  <----> l3
+    #   \
+    #    \-----> l4 <----> l2
+    node_factory.join_nodes([l1, l3], wait_for_announce=True)
+    node_factory.join_nodes([l1, l4], wait_for_announce=True)
+    node_factory.join_nodes([l2, l4], wait_for_announce=True)
+
+    l3inv = l3.rpc.invoice(1000, 'l3inv', 'l3inv')['bolt11']
+    assert only_one(only_one(l3.rpc.decode(l3inv)['routes']))['pubkey'] == l1.info['id']
+
+    l4inv = l4.rpc.invoice(1000, 'l4inv', 'l4inv')['bolt11']
+    assert [only_one(r)['pubkey'] for r in l4.rpc.decode(l4inv)['routes']] == [l1.info['id'], l2.info['id']]
+
+    l1.rpc.xpay(l3inv)
+    l1.rpc.xpay(l4inv)
+
+    # Now test offers.
+    l3offer = l3.rpc.offer(1000, 'l3offer', 'l3offer')['bolt12']
+    assert only_one(l3.rpc.decode(l3offer)['offer_paths'])['first_node_id'] == l1.info['id']
+
+    l4offer = l4.rpc.offer(1000, 'l4offer', 'l4offer')['bolt12']
+    assert [r['first_node_id'] for r in l4.rpc.decode(l4offer)['offer_paths']] == [l1.info['id'], l2.info['id']]
+
+    l3invb12 = l1.rpc.fetchinvoice(l3offer)['invoice']
+    l4invb12 = l1.rpc.fetchinvoice(l4offer)['invoice']
+
+    assert only_one(l3.rpc.decode(l3invb12)['invoice_paths'])['first_node_id'] == l1.info['id']
+    # Given multiple, it will pick one.
+    assert only_one(l3.rpc.decode(l4invb12)['invoice_paths'])['first_node_id'] in (l1.info['id'], l2.info['id'])
+
+    l1.rpc.xpay(l3invb12)
+    l1.rpc.xpay(l4invb12)
+
+    # Balance so l3 can pay ->l1->l4.
+    l3inv2 = l3.rpc.invoice(10000000, 'l3inv2', 'l3inv2')['bolt11']
+    l1.rpc.xpay(l3inv2)
+
+    # When l3 creates an invoice request, it will also use the fronting nodes.
+    l3invreq = l3.rpc.invoicerequest(amount=1000, description='l3invreq')['bolt12']
+    assert only_one(l3.rpc.decode(l3invreq)['invreq_paths'])['first_node_id'] == l1.info['id']
+    l4.rpc.sendinvoice(invreq=l3invreq, label='l3invreq')
+
+    # We can explicitly override offers: make it use a specific node
+    l4offer_front2 = l4.rpc.offer(1000, 'l4offer', 'l4offer', fronting_nodes=[l2.info['id']])['bolt12']
+    assert [r['first_node_id'] for r in l4.rpc.decode(l4offer_front2)['offer_paths']] == [l2.info['id']]
+
+    # ... or make it not front at all
+    l4offer_nofront = l4.rpc.offer(1000, 'l4offer', 'l4offer', fronting_nodes=[])['bolt12']
+    assert 'offer_paths' not in l4.rpc.decode(l4offer_nofront)
+
+
+def test_offer_fronting(node_factory):
+    # l1 -> l2 -> l3
+    #         \   /
+    #          l4
+    # Nodes will not front for offers if they don't have an advertized address.
+    l1, l2, l3, l4 = node_factory.get_nodes(4, opts={'dev-allow-localhost': None})
+    node_factory.join_nodes([l1, l2, l3], wait_for_announce=True)
+    node_factory.join_nodes([l2, l4], wait_for_announce=True)
+    node_factory.join_nodes([l3, l4], wait_for_announce=True)
+
+    offer_nofront = l4.rpc.offer("any", "nofront")['bolt12']
+    assert 'offer_paths' not in l1.rpc.decode(offer_nofront)
+    offer_front_l2 = l4.rpc.offer("any", "frontl2", fronting_nodes=[l2.info['id']])['bolt12']
+    assert only_one(l1.rpc.decode(offer_front_l2)['offer_paths'])['first_node_id'] == l2.info['id']
+    offer_front_l2l3 = l4.rpc.offer("any", "frontl2l3", fronting_nodes=[l2.info['id'], l3.info['id']])['bolt12']
+    assert [p['first_node_id'] for p in l1.rpc.decode(offer_front_l2l3)['offer_paths']] == [l2.info['id'], l3.info['id']]
+
+    inv_nofront = l1.rpc.fetchinvoice(offer_nofront, 1)['invoice']
+    assert only_one(l1.rpc.decode(inv_nofront)['invoice_paths'])['first_node_id'] == l4.info['id']
+    l1.rpc.xpay(inv_nofront)
+
+    inv_front_l2 = l1.rpc.fetchinvoice(offer_front_l2, 2)['invoice']
+    assert only_one(l1.rpc.decode(inv_front_l2)['invoice_paths'])['first_node_id'] == l2.info['id']
+    l1.rpc.xpay(inv_front_l2)
+
+    inv_front_l2l3 = l1.rpc.fetchinvoice(offer_front_l2l3, 3)['invoice']
+    assert only_one(l1.rpc.decode(inv_front_l2l3)['invoice_paths'])['first_node_id'] in (l2.info['id'], l3.info['id'])
+    l1.rpc.xpay(inv_front_l2l3)
+
+
 def test_invoice_maxdesc(node_factory, chainparams):
     l1, l2 = node_factory.line_graph(2)
 

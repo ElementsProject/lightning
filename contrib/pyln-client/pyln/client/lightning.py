@@ -1120,7 +1120,7 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def offer(self, amount, description=None, issuer=None, label=None, quantity_max=None, absolute_expiry=None,
               recurrence=None, recurrence_base=None, recurrence_paywindow=None, recurrence_limit=None,
-              single_use=None):
+              single_use=None, fronting_nodes=None):
         """
         Create an offer (or returns an existing one), which is a precursor to creating one or more invoices.
         It automatically enables the processing of an incoming invoice_request, and issuing of invoices.
@@ -1137,6 +1137,7 @@ class LightningRpc(UnixDomainSocketRpc):
             "recurrence_paywindow": recurrence_paywindow,
             "recurrence_limit": recurrence_limit,
             "single_use": single_use,
+            "fronting_nodes": fronting_nodes,
         }
         return self.call("offer", payload)
 
