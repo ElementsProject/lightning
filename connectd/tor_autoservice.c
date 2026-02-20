@@ -12,6 +12,7 @@
 #include <netdb.h>
 #include <unistd.h>
 
+int tor_service_fd = -1;
 
 static void *buf_resize(struct membuf *mb, void *buf, size_t len)
 {
@@ -331,5 +332,6 @@ struct wireaddr *tor_fixed_service(const tal_t *ctx,
 	* read_partial to keep it open until LN drops
 	* DO NOT CLOSE FD TO KEEP ADDRESS ALIVE AS WE DO NOT DETACH WITH STATIC ADDRESS
 	*/
+	tor_service_fd = fd;
 	return onion;
 }

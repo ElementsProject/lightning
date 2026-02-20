@@ -21,6 +21,7 @@ ECHO := echo
 SUPPRESS_OUTPUT :=
 endif
 
+CARGO := cargo
 DISTRO=$(shell lsb_release -is 2>/dev/null || echo unknown)-$(shell lsb_release -rs 2>/dev/null || echo unknown)
 OS=$(shell uname -s)
 ARCH=$(shell uname -m)
@@ -104,6 +105,7 @@ CCAN_OBJS :=					\
 	ccan-bitmap.o				\
 	ccan-bitops.o				\
 	ccan-breakpoint.o			\
+	ccan-cdump.o				\
 	ccan-closefrom.o			\
 	ccan-crc32c.o				\
 	ccan-crypto-hmac.o			\
@@ -228,8 +230,6 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/timer/timer.h			\
 	$(CCANDIR)/ccan/typesafe_cb/typesafe_cb.h	\
 	$(CCANDIR)/ccan/utf8/utf8.h
-
-CDUMP_OBJS := ccan-cdump.o ccan-strmap.o
 
 BOLT_GEN := tools/generate-wire.py
 WIRE_GEN := $(BOLT_GEN)
@@ -483,10 +483,6 @@ mkdocs.yml: $(MANPAGES:=.md)
 	)
 
 
-
-# Don't delete these intermediaries.
-.PRECIOUS: $(ALL_GEN_HEADERS) $(ALL_GEN_SOURCES) $(PYTHON_GENERATED)
-
 # Every single object file.
 ALL_OBJS := $(ALL_C_SOURCES:.c=.o)
 
@@ -649,10 +645,8 @@ update-doc-examples:
 check-doc-examples: update-doc-examples
 	git diff --exit-code HEAD
 
-# For those without working cppcheck
-check-source-no-cppcheck: check-makefile check-source-bolt check-whitespace check-spelling check-python check-includes check-shellcheck check-setup_locale check-tmpctx check-discouraged-functions check-amount-access check-bad-sprintf
-
-check-source: check-source-no-cppcheck
+# This should NOT compile things!
+check-source: check-makefile check-whitespace check-spelling check-python-flake8 check-includes check-shellcheck check-setup_locale check-tmpctx check-discouraged-functions check-amount-access check-bad-sprintf
 
 full-check: check check-source
 
@@ -725,7 +719,7 @@ TAGS:
 tags:
 	$(RM) tags; find * -name test -type d -prune -o \( -name '*.[ch]' -o -name '*.py' \) -print0 | xargs -0 ctags --append
 
-ccan/ccan/cdump/tools/cdump-enumstr: ccan/ccan/cdump/tools/cdump-enumstr.o $(CDUMP_OBJS) $(CCAN_OBJS)
+ccan/ccan/cdump/tools/cdump-enumstr: ccan/ccan/cdump/tools/cdump-enumstr.o libccan.a
 
 ALL_PROGRAMS += ccan/ccan/cdump/tools/cdump-enumstr
 # Can't add to ALL_OBJS, as that makes a circular dep.
@@ -746,6 +740,9 @@ endif
 # That forces this rule to be run every time, too.
 header_versions_gen.h: tools/headerversions $(FORCE)
 	@tools/headerversions $@
+
+# Once you have libccan.a, you don't need these.
+.INTERMEDIATE: $(CCAN_OBJS)
 
 # We make a static library, this way linker can discard unused parts.
 libccan.a: $(CCAN_OBJS)
@@ -968,25 +965,21 @@ install-data: installdirs $(MAN1PAGES) $(MAN5PAGES) $(MAN7PAGES) $(MAN8PAGES) $(
 
 install: install-program install-data
 
-# Non-artifacts that are needed for testing. These are added to the
-# testpack.tar, used to transfer things between builder and tester
-# phase. If you get a missing file/executable while testing on CI it
-# is likely missing from this variable.
-TESTBINS = \
-	$(CLN_PLUGIN_EXAMPLES) \
-	tests/plugins/test_libplugin \
-	tests/plugins/channeld_fakenet \
-	tests/plugins/test_selfdisable_after_getmanifest
+# We exclude most of target/ and external, but we need:
+# 1. config files (we only tar up files *newer* than these)
+# 2. $(DEFAULT_TARGETS) for rust stuff.
+# 3. $(EXTERNAL_LIBS) for prebuild external libraries.
+TESTPACK_EXTRAS :=			\
+	config.vars ccan/config.h	\
+	header_versions_gen.h		\
+	$(DEFAULT_TARGETS)		\
+	$(EXTERNAL_LIBS)
 
 # The testpack is used in CI to transfer built artefacts between the
-# build and the test phase. This is necessary because the fixtures in
-# `tests/` explicitly use the binaries built in the current directory
-# rather than using `$PATH`, as that may pick up some other installed
-# version of `lightningd` leading to bogus results. We bundle up all
-# built artefacts here, and will unpack them on the tester (overlaying
-# on top of the checked out repo as if we had just built it in place).
-testpack.tar.bz2: $(BIN_PROGRAMS) $(PKGLIBEXEC_PROGRAMS) $(PLUGINS) $(PY_PLUGINS) $(MAN1PAGES) $(MAN5PAGES) $(MAN7PAGES) $(MAN8PAGES) $(DOC_DATA) config.vars $(TESTBINS) $(DEVTOOLS) $(TOOLS)
-	tar -caf $@ $^
+# build and the test phase.  Only useful on a freshly build tree!
+# We use Posix format for timestamps with subsecond accuracy.
+testpack.tar.gz: all-programs all-fuzz-programs all-test-programs default-targets
+	(find * -path external -prune -o -path target -prune -o -newer config.vars -type f -print; ls $(TESTPACK_EXTRAS)) | tar --verbatim-files-from -T- -c --format=posix -f - | gzip -5 > $@
 
 uninstall:
 	@$(NORMAL_UNINSTALL)
