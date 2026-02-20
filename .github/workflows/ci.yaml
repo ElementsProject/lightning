@@ -164,8 +164,6 @@ jobs:
 
           # Rename now so we don't clash
           mv testpack.tar.bz2 cln-${CFG}.tar.bz2
-      - name: Check rust packages
-        run: cargo test --all
       - uses: actions/upload-artifact@v4
         with:
           name: cln-${{ matrix.CFG }}.tar.bz2
@@ -207,6 +205,8 @@ jobs:
       - name: Check
         run: |
           uv run eatmydata make -j $(nproc) check-source-bolt check-python check-gen-updated check-doc
+      - name: Check rust packages
+        run: cargo test --all
 
   check-units:
     # The unit test checks are not in the critical path (not dependent
