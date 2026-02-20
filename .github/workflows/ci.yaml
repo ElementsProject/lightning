@@ -94,7 +94,7 @@ jobs:
           VALGRIND: 0
           PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }}
         run: |
-          uv run make -j $(nproc) check-source BASE_REF="origin/${{ github.base_ref }}"
+          uv run make -j $(nproc) check-source BASE_REF="origin/${{ github.base_ref }}" CARGO=false CC=devtools/cc-nobuild SUPPRESS_GENERATION=1
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -154,24 +154,26 @@ jobs:
           UBSAN: ${{ matrix.UBSAN }}
           VALGRIND: ${{ matrix.VALGRIND }}
           COMPAT: 1
-          CFG: ${{ matrix.CFG }}
         run: |
           set -e
           ./configure --enable-debugbuild CC="$COMPILER" ${{ matrix.COPTFLAGS_VAR }}
 
-          uv run make -j $(nproc) testpack.tar.bz2
+          uv run make -j $(nproc) testpack.tar.gz
 
           # Rename now so we don't clash
-          mv testpack.tar.bz2 cln-${CFG}.tar.bz2
+          mv testpack.tar.gz cln-${{ matrix.CFG }}.tar.gz
       - uses: actions/upload-artifact@v4
         with:
-          name: cln-${{ matrix.CFG }}.tar.bz2
-          path: cln-${{ matrix.CFG }}.tar.bz2
+          name: cln-${{ matrix.CFG }}.tar.gz
+          path: cln-${{ matrix.CFG }}.tar.gz
 
   check-compiled-source:
     runs-on: ubuntu-24.04
     needs:
       - compile
+    strategy:
+      matrix:
+        CFG: [compile-gcc]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -193,17 +195,18 @@ jobs:
       - name: Download build
         uses: actions/download-artifact@v4
         with:
-          name: cln-compile-gcc.tar.bz2
+          name: cln-${{ matrix.CFG }}.tar.gz
 
-      - name: Unpack pre-built CLN
-        env:
-          CFG: ${{ matrix.CFG }}
+      - name: Unpack prebuilt binaries
         run: |
-          tar -xaf cln-compile-gcc.tar.bz2
+          git submodule sync && git submodule update --init --recursive
+          # Make sure source appears older than what we're about to unpack
+          find . -type f -print0 | xargs -0 touch -d yesterday
+          tar xaf cln-${{ matrix.CFG }}.tar.gz
 
       - name: Check
         run: |
-          uv run eatmydata make -j $(nproc) check-source-bolt check-python check-gen-updated check-doc
+          uv run eatmydata make -j $(nproc) check-source-bolt check-python check-gen-updated check-doc CARGO=false CC=devtools/cc-nobuild SUPPRESS_GENERATION=1
       - name: Check rust packages
         run: cargo test --all
 
@@ -248,12 +251,18 @@ jobs:
       - name: Download build
         uses: actions/download-artifact@v4
         with:
-          name: cln-${{ matrix.CFG }}.tar.bz2
+          name: cln-${{ matrix.CFG }}.tar.gz
+
+      - name: Unpack prebuilt binaries
+        run: |
+          git submodule sync && git submodule update --init --recursive
+          # Make sure source appears older than what we're about to unpack
+          find . -type f -print0 | xargs -0 touch -d yesterday
+          tar xaf cln-${{ matrix.CFG }}.tar.gz
 
       - name: Check
         run: |
-          tar -xaf cln-${{ matrix.CFG }}.tar.bz2
-          uv run eatmydata make -j $(nproc) check-units installcheck VALGRIND=${{ matrix.VALGRIND }}
+          uv run eatmydata make -j $(nproc) check-units installcheck VALGRIND=${{ matrix.VALGRIND }} CARGO=false CC=devtools/cc-nobuild SUPPRESS_GENERATION=1
 
   check-fuzz:
     name: Run fuzz regression tests
@@ -323,13 +332,14 @@ jobs:
       - name: Download build
         uses: actions/download-artifact@v4
         with:
-          name: cln-${{ matrix.CFG }}.tar.bz2
+          name: cln-${{ matrix.CFG }}.tar.gz
 
-      - name: Unpack pre-built CLN
-        env:
-          CFG: ${{ matrix.CFG }}
+      - name: Unpack prebuilt binaries
         run: |
-          tar -xaf cln-${CFG}.tar.bz2
+          git submodule sync && git submodule update --init --recursive
+          # Make sure source appears older than what we're about to unpack
+          find . -type f -print0 | xargs -0 touch -d yesterday
+          tar xaf cln-${{ matrix.CFG }}.tar.gz
 
       - name: Fetch and unpack previous CLN
         run: |
@@ -344,6 +354,7 @@ jobs:
           # Loading the network from config.vars rather than the envvar is a terrible idea...
           sed -i 's/TEST_NETWORK=regtest/TEST_NETWORK=liquid-regtest/g' config.vars
           cat config.vars
+          touch -d yesterday config.vars
 
       - name: Test
         env:
@@ -373,7 +384,6 @@ jobs:
     timeout-minutes: 120
     env:
       RUST_PROFILE: small # Has to match the one in the compile step
-      PYTEST_OPTS: -vvv --junit-xml=report.xml --timeout=1800 --durations=10
     needs:
       - compile
     strategy:
@@ -439,13 +449,14 @@ jobs:
       - name: Download build
         uses: actions/download-artifact@v4
         with:
-          name: cln-${{ matrix.CFG }}.tar.bz2
+          name: cln-${{ matrix.CFG }}.tar.gz
 
-      - name: Unpack pre-built CLN
-        env:
-          CFG: ${{ matrix.CFG }}
+      - name: Unpack prebuilt binaries
         run: |
-          tar -xaf cln-${CFG}.tar.bz2
+          git submodule sync && git submodule update --init --recursive
+          # Make sure source appears older than what we're about to unpack
+          find . -type f -print0 | xargs -0 touch -d yesterday
+          tar xaf cln-${{ matrix.CFG }}.tar.gz
 
       - name: Switch network
         if: ${{ matrix.TEST_NETWORK == 'liquid-regtest' }}
@@ -460,12 +471,12 @@ jobs:
           EXPERIMENTAL_DUAL_FUND: ${{ matrix.EXPERIMENTAL_DUAL_FUND }}
           EXPERIMENTAL_SPLICING: ${{ matrix.EXPERIMENTAL_SPLICING }}
           COMPAT: 1
-          CFG: ${{ matrix.CFG }}
           SLOW_MACHINE: 1
           TEST_DEBUG: 1
           TEST_DB_PROVIDER: ${{ matrix.TEST_DB_PROVIDER }}
           TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
           LIGHTNINGD_POSTGRES_NO_VACUUM: 1
+          PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }}
         run: |
           env
           cat config.vars
@@ -479,49 +490,18 @@ jobs:
           if-no-files-found: ignore
 
   integration-valgrind:
-    name: Valgrind Test CLN ${{ matrix.name }}
+    name: Valgrind Test CLN (${{ matrix.GROUP }}/12)
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
       RUST_PROFILE: small # Has to match the one in the compile step
-      CFG: compile-gcc
-      PYTEST_OPTS: -vvv --junit-xml=report.xml --timeout=1800 --durations=10 --test-group-random-seed=42
     needs:
       - compile
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - NAME: Valgrind (01/10)
-            GROUP: 1
-            PYTEST_OPTS: --test-group=1  --test-group-count=10
-          - NAME: Valgrind (02/10)
-            GROUP: 2
-            PYTEST_OPTS: --test-group=2  --test-group-count=10
-          - NAME: Valgrind (03/10)
-            GROUP: 3
-            PYTEST_OPTS: --test-group=3  --test-group-count=10
-          - NAME: Valgrind (04/10)
-            GROUP: 4
-            PYTEST_OPTS: --test-group=4  --test-group-count=10
-          - NAME: Valgrind (05/10)
-            GROUP: 5
-            PYTEST_OPTS: --test-group=5  --test-group-count=10
-          - NAME: Valgrind (06/10)
-            GROUP: 6
-            PYTEST_OPTS: --test-group=6  --test-group-count=10
-          - NAME: Valgrind (07/10)
-            GROUP: 7
-            PYTEST_OPTS: --test-group=7  --test-group-count=10
-          - NAME: Valgrind (08/10)
-            GROUP: 8
-            PYTEST_OPTS: --test-group=8  --test-group-count=10
-          - NAME: Valgrind (09/10)
-            GROUP: 9
-            PYTEST_OPTS: --test-group=9  --test-group-count=10
-          - NAME: Valgrind (10/10)
-            GROUP: 10
-            PYTEST_OPTS: --test-group=10 --test-group-count=10
+        CFG: [compile-gcc]
+        GROUP: [1,2,3,4,5,6,7,8,9,10]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -544,17 +524,22 @@ jobs:
       - name: Download build
         uses: actions/download-artifact@v4
         with:
-          name: cln-compile-gcc.tar.bz2
+          name: cln-${{ matrix.CFG }}.tar.gz
 
-      - name: Unpack build
-        run: tar -xvjf cln-compile-gcc.tar.bz2
+      - name: Unpack prebuilt binaries
+        run: |
+          git submodule sync && git submodule update --init --recursive
+          # Make sure source appears older than what we're about to unpack
+          find . -type f -print0 | xargs -0 touch -d yesterday
+          tar xaf cln-${{ matrix.CFG }}.tar.gz
 
       - name: Test
         env:
           SLOW_MACHINE: 1
           TEST_DEBUG: 1
+          PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }} --test-group-random-seed=42
         run: |
-          VALGRIND=1 sg wireshark "uv run eatmydata pytest tests/ -n $(($(nproc) + 1)) ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}"
+          VALGRIND=1 sg wireshark "uv run eatmydata pytest tests/ -n $(($(nproc) + 1)) ${PYTEST_OPTS} --test-group=${{ matrix.GROUP }} --test-group-count=10"
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -564,56 +549,20 @@ jobs:
           if-no-files-found: ignore
 
   integration-sanitizers:
-    name: Sanitizers Test CLN
+    name: ASan/UBSan (${{ matrix.GROUP }}/12)
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
       RUST_PROFILE: small
       SLOW_MACHINE: 1
       TEST_DEBUG: 1
-      PYTEST_OPTS: -vvv --junit-xml=report.xml --timeout=1800 --durations=10 --test-group-random-seed=42 
     needs:
       - compile
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - NAME: ASan/UBSan (01/12)
-            GROUP: 1
-            PYTEST_OPTS: --test-group=1  --test-group-count=12
-          - NAME: ASan/UBSan (02/12)
-            GROUP: 2
-            PYTEST_OPTS: --test-group=2  --test-group-count=12
-          - NAME: ASan/UBSan (03/12)
-            GROUP: 3
-            PYTEST_OPTS: --test-group=3  --test-group-count=12
-          - NAME: ASan/UBSan (04/12)
-            GROUP: 4
-            PYTEST_OPTS: --test-group=4  --test-group-count=12
-          - NAME: ASan/UBSan (05/12)
-            GROUP: 5
-            PYTEST_OPTS: --test-group=5  --test-group-count=12
-          - NAME: ASan/UBSan (06/12)
-            GROUP: 6
-            PYTEST_OPTS: --test-group=6  --test-group-count=12
-          - NAME: ASan/UBSan (07/12)
-            GROUP: 7
-            PYTEST_OPTS: --test-group=7  --test-group-count=12
-          - NAME: ASan/UBSan (08/12)
-            GROUP: 8
-            PYTEST_OPTS: --test-group=8  --test-group-count=12
-          - NAME: ASan/UBSan (09/12)
-            GROUP: 9
-            PYTEST_OPTS: --test-group=9  --test-group-count=12
-          - NAME: ASan/UBSan (10/12)
-            GROUP: 10
-            PYTEST_OPTS: --test-group=10 --test-group-count=12
-          - NAME: ASan/UBSan (11/12)
-            GROUP: 11
-            PYTEST_OPTS: --test-group=11 --test-group-count=12
-          - NAME: ASan/UBSan (12/12)
-            GROUP: 12
-            PYTEST_OPTS: --test-group=12 --test-group-count=12
+        CFG: [compile-clang-sanitizers]
+        GROUP: [1,2,3,4,5,6,7,8,9,10,11,12]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -635,14 +584,20 @@ jobs:
       - name: Download build
         uses: actions/download-artifact@v4
         with:
-          name: cln-compile-clang-sanitizers.tar.bz2
+          name: cln-${{ matrix.CFG }}.tar.gz
 
-      - name: Unpack build
-        run: tar -xvjf cln-compile-clang-sanitizers.tar.bz2
+      - name: Unpack prebuilt binaries
+        run: |
+          git submodule sync && git submodule update --init --recursive
+          # Make sure source appears older than what we're about to unpack
+          find . -type f -print0 | xargs -0 touch -d yesterday
+          tar xaf cln-${{ matrix.CFG }}.tar.gz
 
       - name: Test
+        env:
+          PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }} --test-group-random-seed=42 
         run: |
-          sg wireshark "uv run eatmydata pytest tests/ -n $(($(nproc) + 1)) ${PYTEST_OPTS}  ${{ matrix.PYTEST_OPTS }}"
+          sg wireshark "uv run eatmydata pytest tests/ -n $(($(nproc) + 1)) ${PYTEST_OPTS} --test-group=${{ matrix.GROUP }} --test-group-count=12"
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -658,10 +613,11 @@ jobs:
     timeout-minutes: 30
     strategy:
       fail-fast: false
+      matrix:
+        CFG: [compile-gcc]
     env:
       VALGRIND: 0
       GENERATE_EXAMPLES: 1
-      PYTEST_OPTS: -vvv --junit-xml=report.xml --timeout=1800 --durations=10
       TEST_NETWORK: regtest
     needs:
       - compile
@@ -686,13 +642,19 @@ jobs:
       - name: Download build
         uses: actions/download-artifact@v4
         with:
-          name: cln-compile-gcc.tar.bz2
-      - name: Unpack pre-built CLN
+          name: cln-${{ matrix.CFG }}.tar.gz
+      - name: Unpack prebuilt binaries
         run: |
-          tar -xaf cln-compile-gcc.tar.bz2
+          git submodule sync && git submodule update --init --recursive
+          # Make sure source appears older than what we're about to unpack
+          find . -type f -print0 | xargs -0 touch -d yesterday
+          tar xaf cln-${{ matrix.CFG }}.tar.gz
+
       - name: Test
+        env:
+          PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }}
         run: |
-          uv run eatmydata make -j $(($(nproc) + 1)) check-doc-examples
+          uv run eatmydata make -j $(($(nproc) + 1)) check-doc-examples CARGO=false CC=devtools/cc-nobuild SUPPRESS_GENERATION=1
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -707,7 +669,6 @@ jobs:
     timeout-minutes: 120
     env:
       RUST_PROFILE: small # Has to match the one in the compile step
-      PYTEST_OPTS: -vvv --junit-xml=report.xml --timeout=1800 --durations=10
     needs:
       - compile
     strategy:
@@ -753,24 +714,25 @@ jobs:
       - name: Download build
         uses: actions/download-artifact@v4
         with:
-          name: cln-${{ matrix.CFG }}.tar.bz2
+          name: cln-${{ matrix.CFG }}.tar.gz
 
-      - name: Unpack pre-built CLN
-        env:
-          CFG: ${{ matrix.CFG }}
+      - name: Unpack prebuilt binaries
         run: |
-          tar -xaf cln-${CFG}.tar.bz2
+          git submodule sync && git submodule update --init --recursive
+          # Make sure source appears older than what we're about to unpack
+          find . -type f -print0 | xargs -0 touch -d yesterday
+          tar xaf cln-${{ matrix.CFG }}.tar.gz
 
       - name: Test
         env:
           COMPILER: ${{ matrix.COMPILER }}
           COMPAT: 1
-          CFG: ${{ matrix.CFG }}
           SLOW_MACHINE: 1
           TEST_DEBUG: 1
           TEST_DB_PROVIDER: ${{ matrix.TEST_DB_PROVIDER }}
           TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
           LIGHTNINGD_POSTGRES_NO_VACUUM: 1
+          PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }}
         run: |
           env
           cat config.vars
