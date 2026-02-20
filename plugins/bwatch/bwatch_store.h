@@ -4,6 +4,7 @@
 #include "config.h"
 #include "bwatch.h"
 #include <ccan/htable/htable_type.h>
+#include <common/amount.h>
 
 /*
  * ============================================================================
@@ -85,5 +86,20 @@ void bwatch_del_watch(struct command *cmd,
 		      const u8 *scriptpubkey,
 		      const struct bitcoin_txid *txid,
 		      const char *owner_id);
+
+/* Utxoset (replaces wallet utxoset table) */
+void bwatch_utxoset_add(struct command *cmd,
+		       const struct bitcoin_outpoint *outpoint,
+		       u32 blockheight, u32 txindex,
+		       const u8 *scriptpubkey, size_t scriptpubkey_len,
+		       struct amount_sat satoshis);
+void bwatch_utxoset_spend(struct command *cmd,
+			 const struct bitcoin_outpoint *outpoint,
+			 u32 spendheight);
+
+/* Transactions (replaces wallet transactions table) */
+void bwatch_transaction_add(struct command *cmd,
+			    const struct bitcoin_tx *tx,
+			    u32 blockheight, u32 txindex);
 
 #endif /* LIGHTNING_PLUGINS_BWATCH_BWATCH_STORE_H */

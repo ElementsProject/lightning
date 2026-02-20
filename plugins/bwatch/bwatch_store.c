@@ -2,10 +2,13 @@
 #include "bwatch.h"
 #include "bwatch_store.h"
 #include <bitcoin/block.h>
+#include <bitcoin/script.h>
 #include <bitcoin/tx.h>
+#include <common/amount.h>
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/htable/htable_type.h>
 #include <ccan/json_out/json_out.h>
+#include <ccan/cast/cast.h>
 #include <ccan/mem/mem.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
@@ -82,10 +85,11 @@ bool txid_watch_eq(const struct watch *w, const struct bitcoin_txid *txid)
  * ============================================================================
  */
 
+/* List all datastore entries under a key prefix (up to 2 components). */
 static const jsmntok_t *bwatch_list_datastore(const tal_t *ctx,
-				       struct command *cmd,
-				       const char *key1, const char *key2,
-				       const char **buf_out)
+			       struct command *cmd,
+			       const char *key1, const char *key2,
+			       const char **buf_out)
 {
 	struct json_out *params = json_out_new(tmpctx);
 	const jsmntok_t *result;
@@ -100,6 +104,30 @@ static const jsmntok_t *bwatch_list_datastore(const tal_t *ctx,
 
 	result = jsonrpc_request_sync(ctx, cmd, "listdatastore", params, buf_out);
 	return json_get_member(*buf_out, result, "datastore");
+}
+
+/* Fetch a single datastore entry by its exact key (returns NULL if not found). */
+static const jsmntok_t *bwatch_get_datastore(const tal_t *ctx,
+					     struct command *cmd,
+					     const char **key,
+					     const char **buf_out)
+{
+	struct json_out *params = json_out_new(tmpctx);
+	const jsmntok_t *result, *entries;
+
+	json_out_start(params, NULL, '{');
+	json_out_start(params, "key", '[');
+	for (size_t i = 0; key[i]; i++)
+		json_out_addstr(params, NULL, key[i]);
+	json_out_end(params, ']');
+	json_out_end(params, '}');
+
+	result = jsonrpc_request_sync(ctx, cmd, "listdatastore", params, buf_out);
+	entries = json_get_member(*buf_out, result, "datastore");
+	if (!entries || entries->size == 0)
+		return NULL;
+	/* listdatastore returns an array; exact key match is the first element */
+	return json_get_arr(entries, 0);
 }
 
 /*
@@ -156,6 +184,109 @@ void bwatch_delete_block_from_datastore(struct command *cmd, u32 height)
 	jsonrpc_request_sync(tmpctx, cmd, "deldatastore", params, &buf);
 
 	plugin_log(cmd->plugin, LOG_DBG, "Deleted block %u from datastore", height);
+}
+
+/*
+ * ============================================================================
+ * UTXOSET STORAGE
+ *
+ * Each unspent output we care about is stored under the key:
+ *   ["bwatch", "utxoset", <txid_hex>, "<outnum>"]
+ *
+ * The value is a serialised utxoset_entry_wire (see bwatch_wire.csv).
+ * spendheight == BWATCH_UTXOSET_UNSPENT (UINT32_MAX) means the output
+ * has not yet been spent.
+ * ============================================================================
+ */
+
+#define BWATCH_UTXOSET_UNSPENT UINT32_MAX
+
+/* Record a newly-created output in the datastore.
+ *
+ * Called when bwatch sees a scriptpubkey we watch appear in a confirmed block.
+ * The key encodes the outpoint so we can look it up in O(1) later. */
+void bwatch_utxoset_add(struct command *cmd,
+			const struct bitcoin_outpoint *outpoint,
+			u32 blockheight, u32 txindex,
+			const u8 *scriptpubkey, size_t scriptpubkey_len UNUSED,
+			struct amount_sat satoshis)
+{
+	/* The wire-gen struct uses u8 * (not const), but towire only reads it,
+	 * so stripping const here is safe. */
+	struct utxoset_entry_wire entry = {
+		.txid = outpoint->txid,
+		.outnum = outpoint->n,
+		.blockheight = blockheight,
+		.spendheight = BWATCH_UTXOSET_UNSPENT,
+		.txindex = txindex,
+		.scriptpubkey = cast_const(u8 *, scriptpubkey),
+		.satoshis = satoshis,
+	};
+	const char **key = mkdatastorekey(tmpctx, "bwatch", "utxoset",
+					  fmt_bitcoin_txid(tmpctx, &outpoint->txid),
+					  tal_fmt(tmpctx, "%u", outpoint->n));
+	const u8 *data = towire_bwatch_utxoset_entry(tmpctx, &entry);
+
+	jsonrpc_set_datastore_binary(cmd, key, data, tal_bytelen(data),
+				     "must-create", NULL, NULL, NULL);
+}
+
+/* Mark an existing utxoset entry as spent by setting its spendheight.
+ *
+ * Fetches the entry by its exact outpoint key (O(1)), deserialises it,
+ * updates spendheight, and writes it back with must-replace. */
+void bwatch_utxoset_spend(struct command *cmd,
+			 const struct bitcoin_outpoint *outpoint,
+			 u32 spendheight)
+{
+	const char **key = mkdatastorekey(tmpctx, "bwatch", "utxoset",
+					  fmt_bitcoin_txid(tmpctx, &outpoint->txid),
+					  tal_fmt(tmpctx, "%u", outpoint->n));
+	const char *buf;
+	const jsmntok_t *entry_tok = bwatch_get_datastore(tmpctx, cmd, key, &buf);
+	if (!entry_tok)
+		return;
+
+	const u8 *data = json_tok_bin_from_hex(tmpctx, buf,
+					       json_get_member(buf, entry_tok, "hex"));
+	if (!data)
+		return;
+
+	struct utxoset_entry_wire *entry = tal(tmpctx, struct utxoset_entry_wire);
+	if (!fromwire_bwatch_utxoset_entry(tmpctx, data, &entry))
+		return;
+
+	entry->spendheight = spendheight;
+	data = towire_bwatch_utxoset_entry(tmpctx, entry);
+	jsonrpc_set_datastore_binary(cmd, key, data, tal_bytelen(data),
+				     "must-replace", NULL, NULL, NULL);
+}
+
+/*
+ * ============================================================================
+ * TRANSACTION STORAGE (replaces wallet transactions table)
+ * ============================================================================
+ */
+
+void bwatch_transaction_add(struct command *cmd,
+			    const struct bitcoin_tx *tx,
+			    u32 blockheight, u32 txindex)
+{
+	struct bitcoin_txid txid;
+	struct transaction_entry_wire entry;
+
+	bitcoin_txid(tx, &txid);
+	entry.txid = txid;
+	entry.blockheight = blockheight;
+	entry.txindex = txindex;
+	entry.rawtx = linearize_wtx(tmpctx, tx->wtx);
+
+	const char **key = mkdatastorekey(tmpctx, "bwatch", "transactions",
+					  fmt_bitcoin_txid(tmpctx, &txid));
+	const u8 *data = towire_bwatch_transaction_entry(tmpctx, &entry);
+
+	jsonrpc_set_datastore_binary(cmd, key, data, tal_bytelen(data),
+				     "create-or-replace", NULL, NULL, NULL);
 }
 
 void bwatch_load_block_history(struct command *cmd, struct bwatch *bwatch)

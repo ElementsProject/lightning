@@ -23,6 +23,25 @@ subtypedata,watch_wire,start_block,u32,
 subtypedata,watch_wire,num_owners,u16,
 subtypedata,watch_wire,owners,wirestring,num_owners
 
+# Utxoset entry: P2WSH output we've seen (replaces wallet utxoset table)
+subtype,utxoset_entry_wire
+subtypedata,utxoset_entry_wire,txid,bitcoin_txid,
+subtypedata,utxoset_entry_wire,outnum,u32,
+subtypedata,utxoset_entry_wire,blockheight,u32,
+subtypedata,utxoset_entry_wire,spendheight,u32,
+subtypedata,utxoset_entry_wire,txindex,u32,
+subtypedata,utxoset_entry_wire,scriptpubkey_len,u32,
+subtypedata,utxoset_entry_wire,scriptpubkey,u8,scriptpubkey_len
+subtypedata,utxoset_entry_wire,satoshis,u64,
+
+# Transaction entry: tx we care about (replaces wallet transactions table)
+subtype,transaction_entry_wire
+subtypedata,transaction_entry_wire,txid,bitcoin_txid,
+subtypedata,transaction_entry_wire,blockheight,u32,
+subtypedata,transaction_entry_wire,txindex,u32,
+subtypedata,transaction_entry_wire,rawtx_len,u32,
+subtypedata,transaction_entry_wire,rawtx,u8,rawtx_len
+
 # Messages for datastore persistence - use these to serialize/deserialize
 # Each message wraps a single item for storage
 msgtype,bwatch_block,1
@@ -30,3 +49,9 @@ msgdata,bwatch_block,block,block_record_wire,
 
 msgtype,bwatch_watch,2
 msgdata,bwatch_watch,watch,watch_wire,
+
+msgtype,bwatch_utxoset_entry,3
+msgdata,bwatch_utxoset_entry,entry,utxoset_entry_wire,
+
+msgtype,bwatch_transaction_entry,4
+msgdata,bwatch_transaction_entry,entry,transaction_entry_wire,
