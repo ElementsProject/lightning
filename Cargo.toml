@@ -1,6 +1,12 @@
 [profile.release]
 strip = "debuginfo"
 
+[profile.small]
+inherits = "dev"
+opt-level = 0
+debug = 0
+codegen-units = 32
+
 [workspace]
 resolver = "2"
 members = [
