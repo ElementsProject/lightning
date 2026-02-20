@@ -334,8 +334,8 @@ jobs:
 
       - name: Fetch and unpack previous CLN
         run: |
-          mkdir /tmp/old-cln
-          cd /tmp/old-cln
+          mkdir old-cln
+          cd old-cln
           wget https://github.com/ElementsProject/lightning/releases/download/v25.12/clightning-v25.12-ubuntu-24.04-amd64.tar.xz
           tar -xaf clightning-v25.12-ubuntu-24.04-amd64.tar.xz
 
@@ -354,7 +354,7 @@ jobs:
           TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
           LIGHTNINGD_POSTGRES_NO_VACUUM: 1
           VALGRIND: ${{ matrix.VALGRIND }}
-          PREV_LIGHTNINGD: /tmp/old-cln/usr/bin/lightningd
+          PREV_LIGHTNINGD: old-cln/usr/bin/lightningd
           PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }}
         run: |
           env
