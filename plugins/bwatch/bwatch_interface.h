@@ -32,4 +32,8 @@ struct command_result *json_bwatch_list(struct command *cmd,
 					const char *buffer,
 					const jsmntok_t *params);
 
+struct command_result *json_bwatch_addutxo(struct command *cmd,
+					   const char *buffer,
+					   const jsmntok_t *params);
+
 #endif /* LIGHTNING_PLUGINS_BWATCH_BWATCH_INTERFACE_H */

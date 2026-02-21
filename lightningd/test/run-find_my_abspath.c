@@ -243,6 +243,8 @@ struct wallet *wallet_new(struct lightningd *ld UNNEEDED, struct timers *timers 
 bool wallet_sanity_check(struct wallet *w UNNEEDED)
 { fprintf(stderr, "wallet_sanity_check called!\n"); abort(); }
 /* Generated stub for watchman_get_height */
+u32 watchman_get_height(struct lightningd *ld UNNEEDED)
+{ fprintf(stderr, "watchman_get_height called!\n"); abort(); }
 /* Generated stub for watchman_new */
 struct watchman *watchman_new(const tal_t *ctx UNNEEDED, struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "watchman_new called!\n"); abort(); }

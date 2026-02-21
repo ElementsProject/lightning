@@ -5,6 +5,7 @@
 #include "bwatch_interface.h"
 #include <bitcoin/tx.h>
 #include <ccan/mem/mem.h>
+#include <common/amount.h>
 #include <plugins/libplugin.h>
 
 /*
@@ -39,6 +40,24 @@ static void check_txid_watches(struct command *cmd,
 	bwatch_send_watch_found(cmd, tx, blockheight, w, txindex, UINT32_MAX, UINT32_MAX);
 }
 
+/* Store a matched scriptpubkey output in bwatch's datastore (utxoset + transaction) */
+static void store_scriptpubkey_match(struct command *cmd,
+				    const struct bitcoin_tx *tx,
+				    size_t outnum,
+				    u32 blockheight,
+				    u32 txindex,
+				    const u8 *script, size_t script_len,
+				    struct amount_sat amount)
+{
+	struct bitcoin_outpoint outpoint;
+
+	bitcoin_txid(tx, &outpoint.txid);
+	outpoint.n = outnum;
+	bwatch_utxoset_add(cmd, &outpoint, blockheight, txindex,
+			   script, script_len, amount);
+	bwatch_transaction_add(cmd, tx, blockheight, txindex);
+}
+
 /* Check all scriptpubkey watches via hash lookup */
 static void check_scriptpubkey_watches(struct command *cmd,
 				       struct bwatch *bwatch,
@@ -47,12 +66,18 @@ static void check_scriptpubkey_watches(struct command *cmd,
 				       const struct bitcoin_blkid *blockhash,
 				       u32 txindex)
 {
+	struct bitcoin_txid txid;
+
+	bitcoin_txid(tx, &txid);
+
 	for (size_t i = 0; i < tx->wtx->num_outputs; i++) {
 		struct watch *w;
 		struct scriptpubkey k = {
 			.script = tx->wtx->outputs[i].script,
 			.len = tx->wtx->outputs[i].script_len
 		};
+		struct amount_asset asset;
+		struct amount_sat sat;
 
 		w = scriptpubkey_watches_get(bwatch->scriptpubkey_watches, &k);
 		if (!w)
@@ -64,6 +89,10 @@ static void check_scriptpubkey_watches(struct command *cmd,
 				   w->start_block, blockheight);
 			continue;
 		}
+		asset = wally_tx_output_get_amount(&tx->wtx->outputs[i]);
+		sat = amount_asset_to_sat(&asset);
+		store_scriptpubkey_match(cmd, tx, i, blockheight, txindex,
+					 k.script, k.len, sat);
 		bwatch_send_watch_found(cmd, tx, blockheight, w, txindex, i, UINT32_MAX);
 	}
 }
@@ -97,6 +126,19 @@ static void check_outpoint_watches(struct command *cmd,
 	}
 }
 
+/* Mark any utxoset entries as spent when we see them as inputs */
+static void check_utxoset_spends(struct command *cmd,
+				 const struct bitcoin_tx *tx,
+				 u32 blockheight)
+{
+	for (size_t i = 0; i < tx->wtx->num_inputs; i++) {
+		struct bitcoin_outpoint outpoint;
+
+		bitcoin_tx_input_get_outpoint(tx, i, &outpoint);
+		bwatch_utxoset_spend(cmd, &outpoint, blockheight);
+	}
+}
+
 /* Check a tx against all watches (during normal block processing) */
 static void check_tx_against_all_watches(struct command *cmd,
 					 struct bwatch *bwatch,
@@ -105,6 +147,7 @@ static void check_tx_against_all_watches(struct command *cmd,
 					 const struct bitcoin_blkid *blockhash,
 					 u32 txindex)
 {
+	check_utxoset_spends(cmd, tx, blockheight);
 	check_txid_watches(cmd, bwatch, tx, blockheight, blockhash, txindex);
 	check_scriptpubkey_watches(cmd, bwatch, tx, blockheight, blockhash, txindex);
 	check_outpoint_watches(cmd, bwatch, tx, blockheight, blockhash, txindex);
@@ -134,6 +177,14 @@ static void check_tx_scriptpubkey(struct command *cmd,
 	for (size_t i = 0; i < tx->wtx->num_outputs; i++) {
 		if (memeq(tx->wtx->outputs[i].script, tx->wtx->outputs[i].script_len,
 			  w->key.scriptpubkey.script, w->key.scriptpubkey.len)) {
+			struct amount_asset asset;
+			struct amount_sat sat;
+
+			asset = wally_tx_output_get_amount(&tx->wtx->outputs[i]);
+			sat = amount_asset_to_sat(&asset);
+			store_scriptpubkey_match(cmd, tx, i, blockheight, txindex,
+						tx->wtx->outputs[i].script,
+						tx->wtx->outputs[i].script_len, sat);
 			bwatch_send_watch_found(cmd, tx, blockheight, w, txindex, i, UINT32_MAX);
 			/* Don't return - tx might have multiple outputs to same scriptpubkey */
 		}

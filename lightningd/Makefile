@@ -74,7 +74,7 @@ ALL_PROGRAMS += lightningd/lightningd
 lightningd/lightningd.o: header_versions_gen.h
 
 $(LIGHTNINGD_OBJS): $(LIGHTNINGD_HDRS)
-$(WALLET_OBJS): $(LIGHTNINGD_HDRS) $(DB_HEADERS)
+$(WALLET_OBJS): $(LIGHTNINGD_HDRS) $(DB_HEADERS) plugins/bwatch/bwatch_wiregen.h
 
 # Only the plugin component needs to depend on this header.
 lightningd/plugin.o: plugins/list_of_builtin_plugins_gen.h
@@ -82,6 +82,9 @@ lightningd/plugin.o: plugins/list_of_builtin_plugins_gen.h
 lightningd/channel_state_names_gen.h: lightningd/channel_state.h ccan/ccan/cdump/tools/cdump-enumstr
 	ccan/ccan/cdump/tools/cdump-enumstr lightningd/channel_state.h > $@
 
-lightningd/lightningd: $(LIGHTNINGD_OBJS) $(WALLET_OBJS) $(LIGHTNINGD_CONTROL_OBJS) $(HSMD_CLIENT_OBJS) $(DB_OBJS) libcommon.a
+# bwatch wire format for reading utxoset from datastore (shared with bwatch plugin)
+BWATCH_WIRE_OBJ := plugins/bwatch/bwatch_wiregen.o
+
+lightningd/lightningd: $(LIGHTNINGD_OBJS) $(WALLET_OBJS) $(BWATCH_WIRE_OBJ) $(LIGHTNINGD_CONTROL_OBJS) $(HSMD_CLIENT_OBJS) $(DB_OBJS) libcommon.a
 
 include lightningd/test/Makefile

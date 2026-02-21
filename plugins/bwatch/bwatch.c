@@ -378,6 +378,10 @@ static const struct plugin_command commands[] = {
 		json_bwatch_add,
 	},
 	{
+		"addutxo",
+		json_bwatch_addutxo,
+	},
+	{
 		"delwatch",
 		json_bwatch_del,
 	},

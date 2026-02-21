@@ -88,4 +88,23 @@ void watchman_replay_pending(struct lightningd *ld);
  */
 u32 watchman_get_height(struct lightningd *ld);
 
+/**
+ * watchman_add_utxo - Add a wallet-originated UTXO to bwatch's datastore
+ * @ld: lightningd instance
+ * @outpoint: the output to add
+ * @blockheight: block height (0 for unconfirmed)
+ * @txindex: position in block (0 for unconfirmed)
+ * @script: scriptpubkey
+ * @script_len: script length
+ * @sat: amount in satoshis
+ *
+ * Called when we create our own outputs (e.g. change outputs).
+ * Fire-and-forget; bwatch must be ready.
+ */
+void watchman_add_utxo(struct lightningd *ld,
+		       const struct bitcoin_outpoint *outpoint,
+		       u32 blockheight, u32 txindex,
+		       const u8 *script, size_t script_len,
+		       struct amount_sat sat);
+
 #endif /* LIGHTNING_LIGHTNINGD_WATCHMAN_H */

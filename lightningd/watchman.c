@@ -1,6 +1,7 @@
 #include "config.h"
 #include <bitcoin/tx.h>
 #include <ccan/array_size/array_size.h>
+#include <ccan/json_out/json_out.h>
 #include <ccan/str/str.h>
 #include <ccan/tal/str/str.h>
 #include <common/autodata.h>
@@ -303,6 +304,45 @@ u32 watchman_get_height(struct lightningd *ld)
 	if (!wm)
 		return 0;
 	return wm->last_processed_height;
+}
+
+void watchman_add_utxo(struct lightningd *ld,
+		       const struct bitcoin_outpoint *outpoint,
+		       u32 blockheight, u32 txindex,
+		       const u8 *script, size_t script_len,
+		       struct amount_sat sat)
+{
+	struct watchman *wm = ld->watchman;
+	struct json_stream *js;
+	size_t len;
+	char *json_params;
+	struct plugin *bwatch;
+
+	if (!wm)
+		return;
+
+	bwatch = find_plugin_for_command(ld, "addutxo");
+	if (!bwatch) {
+		log_debug(ld->log, "bwatch plugin not found, skipping addutxo");
+		return;
+	}
+	if (bwatch->plugin_state != INIT_COMPLETE) {
+		log_debug(ld->log, "bwatch not ready (state %d), skipping addutxo",
+			  bwatch->plugin_state);
+		return;
+	}
+
+	js = new_json_stream(tmpctx, NULL, NULL);
+	json_object_start(js, NULL);
+	json_add_outpoint(js, "outpoint", outpoint);
+	json_add_u32(js, "blockheight", blockheight);
+	json_add_u32(js, "txindex", txindex);
+	json_add_hex(js, "scriptpubkey", script, script_len);
+	json_add_u64(js, "satoshis", sat.satoshis);
+	json_object_end(js);
+
+	json_params = tal_strndup(tmpctx, json_out_contents(js->jout, &len), len);
+	send_to_bwatch(wm, "addutxo", "addutxo", json_params);
 }
 
 /* Dispatch table - add new watch types here */

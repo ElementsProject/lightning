@@ -277,6 +277,36 @@ struct command_result *json_bwatch_del(struct command *cmd,
 	return command_success(cmd, json_out_obj(cmd, "removed", "true"));
 }
 
+/* RPC command: addutxo - Add a wallet-originated UTXO to bwatch's datastore.
+ * Called by lightningd when we create our own outputs (e.g. change outputs).
+ * blockheight 0 = unconfirmed. */
+struct command_result *json_bwatch_addutxo(struct command *cmd,
+					   const char *buffer,
+					   const jsmntok_t *params)
+{
+	struct bitcoin_outpoint *outpoint;
+	u32 *blockheight;
+	u32 *txindex;
+	u8 *scriptpubkey;
+	struct amount_sat *satoshis;
+
+	if (!param_check(cmd, buffer, params,
+			 p_req("outpoint", param_outpoint, &outpoint),
+			 p_req("blockheight", param_u32, &blockheight),
+			 p_req("txindex", param_u32, &txindex),
+			 p_req("scriptpubkey", param_bin_from_hex, &scriptpubkey),
+			 p_req("satoshis", param_sat, &satoshis),
+			 NULL))
+		return command_param_failed();
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
+
+	bwatch_utxoset_add(cmd, outpoint, *blockheight, *txindex,
+			  scriptpubkey, tal_bytelen(scriptpubkey), *satoshis);
+	return command_success(cmd, json_out_obj(cmd, NULL, NULL));
+}
+
 /* Helper to output common watch fields */
 static void json_out_watch_common(struct json_out *jout,
 				  enum watch_type type,

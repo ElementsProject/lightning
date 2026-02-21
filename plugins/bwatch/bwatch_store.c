@@ -227,8 +227,9 @@ void bwatch_utxoset_add(struct command *cmd,
 					  tal_fmt(tmpctx, "%u", outpoint->n));
 	const u8 *data = towire_bwatch_utxoset_entry(tmpctx, &entry);
 
+	/* create-or-replace: idempotent for rescan (same block processed twice) */
 	jsonrpc_set_datastore_binary(cmd, key, data, tal_bytelen(data),
-				     "must-create", NULL, NULL, NULL);
+				     "create-or-replace", NULL, NULL, NULL);
 }
 
 /* Mark an existing utxoset entry as spent by setting its spendheight.
