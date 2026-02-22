@@ -15,6 +15,7 @@
     "properties": {
       "invstring": {
         "type": "string",
+        "added": "v23.08",
         "description": [
           "If specified, the command will return a list of payment attempts whose invoice matches *invstring*, otherwise all payments with be listed."
         ]
@@ -29,6 +30,7 @@
     "properties": {
       "paystatus": {
         "type": "array",
+        "added": "v23.08",
         "description": [
           "A list of payments attempted by renepay."
         ],
@@ -46,54 +48,63 @@
           "properties": {
             "bolt11": {
               "type": "string",
+              "added": "v23.08",
               "description": [
                 "Invoice string BOLT11."
               ]
             },
             "payment_preimage": {
               "type": "secret",
+              "added": "v23.08",
               "description": [
                 "The proof of payment: SHA256 of this **payment_hash** (for completed payments only)."
               ]
             },
             "payment_hash": {
               "type": "hash",
+              "added": "v23.08",
               "description": [
                 "The hash of the *payment_preimage* which will prove payment."
               ]
             },
             "created_at": {
               "type": "number",
+              "added": "v23.08",
               "description": [
                 "The UNIX timestamp showing when this payment was initiated."
               ]
             },
             "groupid": {
               "type": "u32",
+              "added": "v23.08",
               "description": [
                 "The id for this payment attempt."
               ]
             },
             "parts": {
               "type": "u32",
+              "added": "v23.08",
               "description": [
                 "How many attempts this took."
               ]
             },
             "amount_msat": {
               "type": "msat",
+              "added": "v23.08",
               "description": [
                 "Amount the recipient received."
               ]
             },
             "amount_sent_msat": {
               "type": "msat",
+              "added": "v23.08",
               "description": [
                 "Total amount we sent including fees (for completed payments only)."
               ]
             },
             "status": {
               "type": "string",
+              "added": "v23.08",
               "enum": [
                 "complete",
                 "pending",
@@ -105,12 +116,14 @@
             },
             "destination": {
               "type": "pubkey",
+              "added": "v23.08",
               "description": [
                 "The final destination of the payment."
               ]
             },
             "notes": {
               "type": "array",
+              "added": "v23.08",
               "description": [
                 "A list of messages for debugging purposes."
               ],

@@ -18,24 +18,28 @@
     "properties": {
       "layer": {
         "type": "string",
+        "added": "v24.11",
         "description": [
           "The name of the layer to apply this change to.  Also causes us to consider any reservations which are local to that layer (which is useful for fake channels where `layer` is set in an `askrene-reserve` `path` object)."
         ]
       },
       "short_channel_id_dir": {
         "type": "short_channel_id_dir",
+        "added": "v24.11",
         "description": [
           "The short channel id and direction to apply this change to."
         ]
       },
       "amount_msat": {
         "type": "msat",
+        "added": "v24.11",
         "description": [
           "The amount we used on the channel"
         ]
       },
       "inform": {
         "type": "string",
+        "added": "v24.11",
         "enum": [
           "constrained",
           "unconstrained",
@@ -55,6 +59,7 @@
     "properties": {
       "constraints": {
         "type": "array",
+        "added": "v24.11",
         "items": {
           "type": "object",
           "required": [
@@ -66,30 +71,35 @@
           "properties": {
             "short_channel_id_dir": {
               "type": "short_channel_id_dir",
+              "added": "v24.11",
               "description": [
                 "The short channel id and direction"
               ]
             },
             "layer": {
               "type": "string",
+              "added": "v24.11",
               "description": [
                 "The name of the layer to apply this change to."
               ]
             },
             "timestamp": {
               "type": "u64",
+              "added": "v24.11",
               "description": [
                 "The UNIX timestamp when this constraint was created."
               ]
             },
             "maximum_msat": {
               "type": "msat",
+              "added": "v24.11",
               "description": [
                 "The maximum value which this channel could pass."
               ]
             },
             "minimum_msat": {
               "type": "msat",
+              "added": "v24.11",
               "description": [
                 "The minimum value which this channel could pass."
               ]

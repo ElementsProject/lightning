@@ -19,6 +19,7 @@
     "properties": {
       "config": {
         "type": "string",
+        "added": "v23.08",
         "description": [
           "Name of the config variable which should be set to the value of the variable."
         ]
@@ -26,12 +27,15 @@
       "val": {
         "oneOf": [
           {
+            "added": "v23.08",
             "type": "string"
           },
           {
+            "added": "v23.08",
             "type": "integer"
           },
           {
+            "added": "v23.08",
             "type": "boolean"
           }
         ],
@@ -57,6 +61,7 @@
     "properties": {
       "config": {
         "type": "object",
+        "added": "v23.08",
         "description": [
           "Config settings after completion."
         ],
@@ -69,24 +74,28 @@
         "properties": {
           "config": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "Name of the config variable which was set."
             ]
           },
           "source": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "Source of configuration setting (`file`:`linenum`)."
             ]
           },
           "plugin": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "The plugin this configuration setting is for."
             ]
           },
           "dynamic": {
             "type": "boolean",
+            "added": "v23.08",
             "enum": [
               true
             ],
@@ -96,30 +105,35 @@
           },
           "set": {
             "type": "boolean",
+            "added": "v23.08",
             "description": [
               "For simple flag options."
             ]
           },
           "value_str": {
             "type": "string",
+            "added": "v23.08",
             "description": [
               "For string options."
             ]
           },
           "value_msat": {
             "type": "msat",
+            "added": "v23.08",
             "description": [
               "For msat options."
             ]
           },
           "value_int": {
             "type": "integer",
+            "added": "v23.08",
             "description": [
               "For integer options."
             ]
           },
           "value_bool": {
             "type": "boolean",
+            "added": "v23.08",
             "description": [
               "For boolean options."
             ]

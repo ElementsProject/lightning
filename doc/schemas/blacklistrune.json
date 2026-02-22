@@ -17,12 +17,14 @@
     "properties": {
       "start": {
         "type": "u64",
+        "added": "v23.08",
         "description": [
           "First rune unique id to blacklist."
         ]
       },
       "end": {
         "type": "u64",
+        "added": "v23.08",
         "description": [
           "Final rune unique id to blacklist (defaults to start)."
         ]
@@ -49,6 +51,7 @@
     "properties": {
       "blacklist": {
         "type": "array",
+        "added": "v23.08",
         "description": [
           "The resulting blacklist ranges after the command."
         ],
@@ -62,12 +65,14 @@
           "properties": {
             "start": {
               "type": "u64",
+              "added": "v23.08",
               "description": [
                 "Unique id of first rune in this blacklist range."
               ]
             },
             "end": {
               "type": "u64",
+              "added": "v23.08",
               "description": [
                 "Unique id of last rune in this blacklist range."
               ]

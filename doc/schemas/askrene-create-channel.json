@@ -19,30 +19,35 @@
     "properties": {
       "layer": {
         "type": "string",
+        "added": "v24.11",
         "description": [
           "The name of the layer to apply this change to."
         ]
       },
       "source": {
         "type": "pubkey",
+        "added": "v24.11",
         "description": [
           "The source node id for the channel."
         ]
       },
       "destination": {
         "type": "pubkey",
+        "added": "v24.11",
         "description": [
           "The destination node id for the channel."
         ]
       },
       "short_channel_id": {
         "type": "short_channel_id",
+        "added": "v24.11",
         "description": [
           "The short channel id for the channel.  If a channel with this short channel id already exists in *layer*, the *source*, *destination* and *capacity_msat* must be the same."
         ]
       },
       "capacity_msat": {
         "type": "msat",
+        "added": "v24.11",
         "description": [
           "The capacity (onchain size) of the channel.",
           "NOTE: this is in millisatoshis!"
