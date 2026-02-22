@@ -1,0 +1,104 @@
+{
+  "$schema": "../../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "notification": "pay_part_end",
+  "title": "Notification for payment part end",
+  "description": [
+    "Emitted by xpay when part of a payment ends. payment_hash, groupid and partid will match a previous pay_part_start. status will be success or failure. duration will be a number of seconds, with 9 decimal places. This is the time between xpay telling lightningd to send the onion, to when xpay processes the response. If status is failure, there will always be an error_message: the other fields below will be missing in the unusual case where the error onion is corrupted."
+  ],
+  "added": "v25.09",
+  "request": {},
+  "response": {
+    "required": [
+      "status",
+      "duration",
+      "payment_hash",
+      "groupid",
+      "partid"
+    ],
+    "properties": {
+      "status": {
+        "type": "string",
+        "enum": [
+          "success",
+          "failure"
+        ],
+        "added": "v25.09",
+        "description": [
+          "The status of this payment part attempt."
+        ]
+      },
+      "duration": {
+        "type": "number",
+        "added": "v25.09",
+        "description": [
+          "The duration in seconds (with 9 decimal places) from sending the onion to processing the response."
+        ]
+      },
+      "payment_hash": {
+        "type": "hash",
+        "added": "v25.09",
+        "description": [
+          "The hash of the payment_preimage which will prove payment."
+        ]
+      },
+      "groupid": {
+        "type": "u64",
+        "added": "v25.09",
+        "description": [
+          "The grouping id for this payment."
+        ]
+      },
+      "partid": {
+        "type": "u64",
+        "added": "v25.09",
+        "description": [
+          "The part id for this payment attempt."
+        ]
+      },
+      "failed_node_id": {
+        "type": "pubkey",
+        "added": "v25.09",
+        "description": [
+          "If it's a non-local error, the source of the error. Only present on failure."
+        ]
+      },
+      "failed_short_channel_id": {
+        "type": "short_channel_id",
+        "added": "v25.09",
+        "description": [
+          "If it's not the final node, the channel it's complaining about. Only present on failure."
+        ]
+      },
+      "failed_direction": {
+        "type": "u32",
+        "added": "v25.09",
+        "description": [
+          "If it's not the final node, the channel direction. Only present on failure."
+        ]
+      },
+      "failed_msg": {
+        "type": "hex",
+        "added": "v25.09",
+        "description": [
+          "The decrypted onion message, in hex, if it was valid. Only present on failure."
+        ]
+      },
+      "error_code": {
+        "type": "u32",
+        "added": "v25.09",
+        "description": [
+          "The error code returned (present on failure unless onion was corrupted)."
+        ]
+      },
+      "error_message": {
+        "type": "string",
+        "added": "v25.09",
+        "description": [
+          "Always present on failure: if failed_node_id is present it's just the name of the error_code, but otherwise it can be a more informative error from our own node."
+        ]
+      }
+    }
+  }
+}

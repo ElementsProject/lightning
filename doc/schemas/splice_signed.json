@@ -19,18 +19,21 @@
     "properties": {
       "channel_id": {
         "type": "hash",
+        "added": "v23.08",
         "description": [
           "The channel id of the channel to be spliced."
         ]
       },
       "psbt": {
         "type": "string",
+        "added": "v23.08",
         "description": [
           "The psbt of the resulting transaction after splice negotiation(s)"
         ]
       },
       "sign_first": {
         "type": "boolean",
+        "added": "v23.08",
         "description": [
           "A flag that makes our node offer the final splice signature first (defaults to false). When false, the node will calculate who should sign first based off who is adding inputting the least sats to the splice as per spec."
         ]
@@ -47,18 +50,21 @@
     "properties": {
       "tx": {
         "type": "hex",
+        "added": "v23.08",
         "description": [
           "The hex representation of the final transaction that is published."
         ]
       },
       "txid": {
         "type": "txid",
+        "added": "v23.08",
         "description": [
           "The txid is of the final transaction."
         ]
       },
       "psbt": {
         "type": "string",
+        "added": "v23.08",
         "description": [
           "The psbt of the resulting transaction after splice negotiation(s)"
         ]

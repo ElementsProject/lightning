@@ -17,12 +17,14 @@
     "properties": {
       "channel_id": {
         "type": "hash",
+        "added": "v23.08",
         "description": [
           "The channel id of the channel to be spliced."
         ]
       },
       "relative_amount": {
         "type": "integer",
+        "added": "v23.08",
         "description": [
           "A positive or negative amount of satoshis to add or subtract from the channel. Note you may need to add a double dash (--) after splice_init if using a negative *relative_amount* so it is not interpretted as a command modifier. For example:",
           "```shell",
@@ -32,18 +34,21 @@
       },
       "initialpsbt": {
         "type": "string",
+        "added": "v23.08",
         "description": [
           "The (optional) base 64 encoded PSBT to begin with. If not specified, one will be generated automatically."
         ]
       },
       "feerate_per_kw": {
         "type": "u32",
+        "added": "v23.08",
         "description": [
           "The miner fee we promise our peer to pay for our side of the splice transaction. It is calculated by `feerate_per_kw` * our_bytes_in_splice_tx / 1000."
         ]
       },
       "force_feerate": {
         "type": "boolean",
+        "added": "v23.08",
         "description": [
           "By default splices will fail if the fee provided looks too high. This is to protect against accidentally setting your fee higher than intended. Set `force_feerate` to true to skip this saftey check."
         ]
@@ -58,6 +63,7 @@
     "properties": {
       "psbt": {
         "type": "string",
+        "added": "v23.08",
         "description": [
           "The (incomplete) PSBT of the splice transaction."
         ]

@@ -4728,6 +4728,31 @@ impl Node for Server
     }
 
 
+    type SubscribeDisconnectStream = NotificationStream<pb::DisconnectNotification>;
+
+    async fn subscribe_disconnect(
+        &self,
+        _request : tonic::Request<pb::StreamDisconnectRequest>
+    ) -> Result<tonic::Response<Self::SubscribeDisconnectStream>, tonic::Status> {
+        let receiver = self.events.subscribe();
+        let stream = BroadcastStream::new(receiver);
+        let boxed = Box::pin(stream);
+
+        let result = NotificationStream {
+            inner : boxed,
+            fn_filter_map : |x| {
+                match x {
+                    Notification::Disconnect(x) => {
+                        Some(x.into())
+                    }
+                    _ => None
+                }
+            }
+        };
+        Ok(tonic::Response::new(result))
+    }
+
+
     type SubscribeCustomMsgStream = NotificationStream<pb::CustomMsgNotification>;
 
     async fn subscribe_custom_msg(
@@ -4768,6 +4793,406 @@ impl Node for Server
             fn_filter_map : |x| {
                 match x {
                     Notification::ChannelStateChanged(x) => {
+                        Some(x.into())
+                    }
+                    _ => None
+                }
+            }
+        };
+        Ok(tonic::Response::new(result))
+    }
+
+
+    type SubscribeInvoiceCreationStream = NotificationStream<pb::InvoiceCreationNotification>;
+
+    async fn subscribe_invoice_creation(
+        &self,
+        _request : tonic::Request<pb::StreamInvoiceCreationRequest>
+    ) -> Result<tonic::Response<Self::SubscribeInvoiceCreationStream>, tonic::Status> {
+        let receiver = self.events.subscribe();
+        let stream = BroadcastStream::new(receiver);
+        let boxed = Box::pin(stream);
+
+        let result = NotificationStream {
+            inner : boxed,
+            fn_filter_map : |x| {
+                match x {
+                    Notification::InvoiceCreation(x) => {
+                        Some(x.into())
+                    }
+                    _ => None
+                }
+            }
+        };
+        Ok(tonic::Response::new(result))
+    }
+
+
+    type SubscribeInvoicePaymentStream = NotificationStream<pb::InvoicePaymentNotification>;
+
+    async fn subscribe_invoice_payment(
+        &self,
+        _request : tonic::Request<pb::StreamInvoicePaymentRequest>
+    ) -> Result<tonic::Response<Self::SubscribeInvoicePaymentStream>, tonic::Status> {
+        let receiver = self.events.subscribe();
+        let stream = BroadcastStream::new(receiver);
+        let boxed = Box::pin(stream);
+
+        let result = NotificationStream {
+            inner : boxed,
+            fn_filter_map : |x| {
+                match x {
+                    Notification::InvoicePayment(x) => {
+                        Some(x.into())
+                    }
+                    _ => None
+                }
+            }
+        };
+        Ok(tonic::Response::new(result))
+    }
+
+
+    type SubscribeDeprecatedOneshotStream = NotificationStream<pb::DeprecatedOneshotNotification>;
+
+    async fn subscribe_deprecated_oneshot(
+        &self,
+        _request : tonic::Request<pb::StreamDeprecatedOneshotRequest>
+    ) -> Result<tonic::Response<Self::SubscribeDeprecatedOneshotStream>, tonic::Status> {
+        let receiver = self.events.subscribe();
+        let stream = BroadcastStream::new(receiver);
+        let boxed = Box::pin(stream);
+
+        let result = NotificationStream {
+            inner : boxed,
+            fn_filter_map : |x| {
+                match x {
+                    Notification::DeprecatedOneshot(x) => {
+                        Some(x.into())
+                    }
+                    _ => None
+                }
+            }
+        };
+        Ok(tonic::Response::new(result))
+    }
+
+
+    type SubscribeWarningStream = NotificationStream<pb::WarningNotification>;
+
+    async fn subscribe_warning(
+        &self,
+        _request : tonic::Request<pb::StreamWarningRequest>
+    ) -> Result<tonic::Response<Self::SubscribeWarningStream>, tonic::Status> {
+        let receiver = self.events.subscribe();
+        let stream = BroadcastStream::new(receiver);
+        let boxed = Box::pin(stream);
+
+        let result = NotificationStream {
+            inner : boxed,
+            fn_filter_map : |x| {
+                match x {
+                    Notification::Warning(x) => {
+                        Some(x.into())
+                    }
+                    _ => None
+                }
+            }
+        };
+        Ok(tonic::Response::new(result))
+    }
+
+
+    type SubscribeForwardEventStream = NotificationStream<pb::ForwardEventNotification>;
+
+    async fn subscribe_forward_event(
+        &self,
+        _request : tonic::Request<pb::StreamForwardEventRequest>
+    ) -> Result<tonic::Response<Self::SubscribeForwardEventStream>, tonic::Status> {
+        let receiver = self.events.subscribe();
+        let stream = BroadcastStream::new(receiver);
+        let boxed = Box::pin(stream);
+
+        let result = NotificationStream {
+            inner : boxed,
+            fn_filter_map : |x| {
+                match x {
+                    Notification::ForwardEvent(x) => {
+                        Some(x.into())
+                    }
+                    _ => None
+                }
+            }
+        };
+        Ok(tonic::Response::new(result))
+    }
+
+
+    type SubscribeSendpaySuccessStream = NotificationStream<pb::SendpaySuccessNotification>;
+
+    async fn subscribe_sendpay_success(
+        &self,
+        _request : tonic::Request<pb::StreamSendpaySuccessRequest>
+    ) -> Result<tonic::Response<Self::SubscribeSendpaySuccessStream>, tonic::Status> {
+        let receiver = self.events.subscribe();
+        let stream = BroadcastStream::new(receiver);
+        let boxed = Box::pin(stream);
+
+        let result = NotificationStream {
+            inner : boxed,
+            fn_filter_map : |x| {
+                match x {
+                    Notification::SendpaySuccess(x) => {
+                        Some(x.into())
+                    }
+                    _ => None
+                }
+            }
+        };
+        Ok(tonic::Response::new(result))
+    }
+
+
+    type SubscribeSendpayFailureStream = NotificationStream<pb::SendpayFailureNotification>;
+
+    async fn subscribe_sendpay_failure(
+        &self,
+        _request : tonic::Request<pb::StreamSendpayFailureRequest>
+    ) -> Result<tonic::Response<Self::SubscribeSendpayFailureStream>, tonic::Status> {
+        let receiver = self.events.subscribe();
+        let stream = BroadcastStream::new(receiver);
+        let boxed = Box::pin(stream);
+
+        let result = NotificationStream {
+            inner : boxed,
+            fn_filter_map : |x| {
+                match x {
+                    Notification::SendpayFailure(x) => {
+                        Some(x.into())
+                    }
+                    _ => None
+                }
+            }
+        };
+        Ok(tonic::Response::new(result))
+    }
+
+
+    type SubscribeCoinMovementStream = NotificationStream<pb::CoinMovementNotification>;
+
+    async fn subscribe_coin_movement(
+        &self,
+        _request : tonic::Request<pb::StreamCoinMovementRequest>
+    ) -> Result<tonic::Response<Self::SubscribeCoinMovementStream>, tonic::Status> {
+        let receiver = self.events.subscribe();
+        let stream = BroadcastStream::new(receiver);
+        let boxed = Box::pin(stream);
+
+        let result = NotificationStream {
+            inner : boxed,
+            fn_filter_map : |x| {
+                match x {
+                    Notification::CoinMovement(x) => {
+                        Some(x.into())
+                    }
+                    _ => None
+                }
+            }
+        };
+        Ok(tonic::Response::new(result))
+    }
+
+
+    type SubscribeBalanceSnapshotStream = NotificationStream<pb::BalanceSnapshotNotification>;
+
+    async fn subscribe_balance_snapshot(
+        &self,
+        _request : tonic::Request<pb::StreamBalanceSnapshotRequest>
+    ) -> Result<tonic::Response<Self::SubscribeBalanceSnapshotStream>, tonic::Status> {
+        let receiver = self.events.subscribe();
+        let stream = BroadcastStream::new(receiver);
+        let boxed = Box::pin(stream);
+
+        let result = NotificationStream {
+            inner : boxed,
+            fn_filter_map : |x| {
+                match x {
+                    Notification::BalanceSnapshot(x) => {
+                        Some(x.into())
+                    }
+                    _ => None
+                }
+            }
+        };
+        Ok(tonic::Response::new(result))
+    }
+
+
+    type SubscribeOpenchannelPeerSigsStream = NotificationStream<pb::OpenchannelPeerSigsNotification>;
+
+    async fn subscribe_openchannel_peer_sigs(
+        &self,
+        _request : tonic::Request<pb::StreamOpenchannelPeerSigsRequest>
+    ) -> Result<tonic::Response<Self::SubscribeOpenchannelPeerSigsStream>, tonic::Status> {
+        let receiver = self.events.subscribe();
+        let stream = BroadcastStream::new(receiver);
+        let boxed = Box::pin(stream);
+
+        let result = NotificationStream {
+            inner : boxed,
+            fn_filter_map : |x| {
+                match x {
+                    Notification::OpenchannelPeerSigs(x) => {
+                        Some(x.into())
+                    }
+                    _ => None
+                }
+            }
+        };
+        Ok(tonic::Response::new(result))
+    }
+
+
+    type SubscribeOnionmessageForwardFailStream = NotificationStream<pb::OnionmessageForwardFailNotification>;
+
+    async fn subscribe_onionmessage_forward_fail(
+        &self,
+        _request : tonic::Request<pb::StreamOnionmessageForwardFailRequest>
+    ) -> Result<tonic::Response<Self::SubscribeOnionmessageForwardFailStream>, tonic::Status> {
+        let receiver = self.events.subscribe();
+        let stream = BroadcastStream::new(receiver);
+        let boxed = Box::pin(stream);
+
+        let result = NotificationStream {
+            inner : boxed,
+            fn_filter_map : |x| {
+                match x {
+                    Notification::OnionmessageForwardFail(x) => {
+                        Some(x.into())
+                    }
+                    _ => None
+                }
+            }
+        };
+        Ok(tonic::Response::new(result))
+    }
+
+
+    type SubscribeShutdownStream = NotificationStream<pb::ShutdownNotification>;
+
+    async fn subscribe_shutdown(
+        &self,
+        _request : tonic::Request<pb::StreamShutdownRequest>
+    ) -> Result<tonic::Response<Self::SubscribeShutdownStream>, tonic::Status> {
+        let receiver = self.events.subscribe();
+        let stream = BroadcastStream::new(receiver);
+        let boxed = Box::pin(stream);
+
+        let result = NotificationStream {
+            inner : boxed,
+            fn_filter_map : |x| {
+                match x {
+                    Notification::Shutdown(x) => {
+                        Some(x.into())
+                    }
+                    _ => None
+                }
+            }
+        };
+        Ok(tonic::Response::new(result))
+    }
+
+
+    type SubscribePluginStartedStream = NotificationStream<pb::PluginStartedNotification>;
+
+    async fn subscribe_plugin_started(
+        &self,
+        _request : tonic::Request<pb::StreamPluginStartedRequest>
+    ) -> Result<tonic::Response<Self::SubscribePluginStartedStream>, tonic::Status> {
+        let receiver = self.events.subscribe();
+        let stream = BroadcastStream::new(receiver);
+        let boxed = Box::pin(stream);
+
+        let result = NotificationStream {
+            inner : boxed,
+            fn_filter_map : |x| {
+                match x {
+                    Notification::PluginStarted(x) => {
+                        Some(x.into())
+                    }
+                    _ => None
+                }
+            }
+        };
+        Ok(tonic::Response::new(result))
+    }
+
+
+    type SubscribePluginStoppedStream = NotificationStream<pb::PluginStoppedNotification>;
+
+    async fn subscribe_plugin_stopped(
+        &self,
+        _request : tonic::Request<pb::StreamPluginStoppedRequest>
+    ) -> Result<tonic::Response<Self::SubscribePluginStoppedStream>, tonic::Status> {
+        let receiver = self.events.subscribe();
+        let stream = BroadcastStream::new(receiver);
+        let boxed = Box::pin(stream);
+
+        let result = NotificationStream {
+            inner : boxed,
+            fn_filter_map : |x| {
+                match x {
+                    Notification::PluginStopped(x) => {
+                        Some(x.into())
+                    }
+                    _ => None
+                }
+            }
+        };
+        Ok(tonic::Response::new(result))
+    }
+
+
+    type SubscribePayPartStartStream = NotificationStream<pb::PayPartStartNotification>;
+
+    async fn subscribe_pay_part_start(
+        &self,
+        _request : tonic::Request<pb::StreamPayPartStartRequest>
+    ) -> Result<tonic::Response<Self::SubscribePayPartStartStream>, tonic::Status> {
+        let receiver = self.events.subscribe();
+        let stream = BroadcastStream::new(receiver);
+        let boxed = Box::pin(stream);
+
+        let result = NotificationStream {
+            inner : boxed,
+            fn_filter_map : |x| {
+                match x {
+                    Notification::PayPartStart(x) => {
+                        Some(x.into())
+                    }
+                    _ => None
+                }
+            }
+        };
+        Ok(tonic::Response::new(result))
+    }
+
+
+    type SubscribePayPartEndStream = NotificationStream<pb::PayPartEndNotification>;
+
+    async fn subscribe_pay_part_end(
+        &self,
+        _request : tonic::Request<pb::StreamPayPartEndRequest>
+    ) -> Result<tonic::Response<Self::SubscribePayPartEndStream>, tonic::Status> {
+        let receiver = self.events.subscribe();
+        let stream = BroadcastStream::new(receiver);
+        let boxed = Box::pin(stream);
+
+        let result = NotificationStream {
+            inner : boxed,
+            fn_filter_map : |x| {
+                match x {
+                    Notification::PayPartEnd(x) => {
                         Some(x.into())
                     }
                     _ => None

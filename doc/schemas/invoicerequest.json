@@ -16,36 +16,42 @@
     "properties": {
       "amount": {
         "type": "msat",
+        "added": "v22.11",
         "description": [
           "A positive value in millisatoshi precision; it can be a whole number, or a whole number ending in *msat* or *sat*, or a number with three decimal places ending in *sat*, or a number with 1 to 11 decimal places ending in *btc*."
         ]
       },
       "description": {
         "type": "string",
+        "added": "v22.11",
         "description": [
           "A short description of purpose of the payment, e.g. *ATM withdrawl*. This value is encoded into the resulting `invoice_request` and is viewable by anyone you expose it to. It must be UTF-8, and cannot use *\\u* JSON escape codes."
         ]
       },
       "issuer": {
         "type": "string",
+        "added": "v22.11",
         "description": [
           "Who is issuing it (i.e. you) if appropriate."
         ]
       },
       "label": {
         "type": "string",
+        "added": "v22.11",
         "description": [
           "An internal-use name for the offer, which can be any UTF-8 string."
         ]
       },
       "absolute_expiry": {
         "type": "u64",
+        "added": "v22.11",
         "description": [
           "The time the offer is valid until, in seconds since the first day of 1970 UTC. If not set, the `invoice_request` remains valid (though it can be deactivated by the issuer of course). This is encoded in the `invoice_request`."
         ]
       },
       "single_use": {
         "type": "boolean",
+        "added": "v22.11",
         "description": [
           "Indicates that the `invoice_request` is only valid once; we may attempt multiple payments, but as soon as one is successful no more invoices are accepted (i.e. only one person can take the money)."
         ],
@@ -65,12 +71,14 @@
     "properties": {
       "invreq_id": {
         "type": "hash",
+        "added": "v22.11",
         "description": [
           "The SHA256 hash of all invoice_request fields less than 160."
         ]
       },
       "active": {
         "type": "boolean",
+        "added": "v22.11",
         "enum": [
           true
         ],
@@ -80,18 +88,21 @@
       },
       "single_use": {
         "type": "boolean",
+        "added": "v22.11",
         "description": [
           "Whether the invoice_request will become inactive after we pay an invoice for it."
         ]
       },
       "bolt12": {
         "type": "string",
+        "added": "v22.11",
         "description": [
           "The bolt12 string starting with lnr."
         ]
       },
       "used": {
         "type": "boolean",
+        "added": "v22.11",
         "enum": [
           false
         ],
@@ -101,6 +112,7 @@
       },
       "label": {
         "type": "string",
+        "added": "v22.11",
         "description": [
           "The label provided when creating the invoice_request."
         ]

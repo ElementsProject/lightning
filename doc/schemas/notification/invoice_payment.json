@@ -1,0 +1,49 @@
+{
+  "$schema": "../../rpc-schema-draft.json",
+  "type": "object",
+  "added": "pre-v0.10.1",
+  "additionalProperties": false,
+  "notification": "invoice_payment",
+  "title": "Notification that an invoice was paid",
+  "description": [
+    "A notification for topic **invoice_payment** is sent every time an invoice is paid."
+  ],
+  "request": {},
+  "response": {
+    "required": [
+      "label",
+      "preimage",
+      "msat"
+    ],
+    "properties": {
+      "label": {
+        "type": "string",
+        "added": "pre-v0.10.1",
+        "description": [
+          "The label of the invoice."
+        ]
+      },
+      "preimage": {
+        "type": "hex",
+        "added": "pre-v0.10.1",
+        "description": [
+          "The payment preimage of the invoice."
+        ]
+      },
+      "msat": {
+        "type": "msat",
+        "added": "pre-v0.10.1",
+        "description": [
+          "The invoice amount."
+        ]
+      },
+      "outpoint": {
+        "type": "outpoint",
+        "added": "pre-v0.10.1",
+        "description": [
+          "If the payment was onchain (possible with the invoices-onchain-fallback config option) this is the outpoint of the transaction."
+        ]
+      }
+    }
+  }
+}
