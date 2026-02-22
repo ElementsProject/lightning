@@ -747,6 +747,8 @@ message GetemergencyrecoverdataRequest {
 
 message GetemergencyrecoverdataResponse {
 	bytes filedata = 1;
+	bool can_create_penalty = 2;
+	repeated bytes backed_up_channel_ids = 3;
 }
 
 message ExposesecretRequest {
