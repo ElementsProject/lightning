@@ -26,7 +26,7 @@ def test_splice_disconnect_sig(node_factory, bitcoind):
     chan_id = l1.get_channel_id(l2)
 
     # add extra sats to pay fee
-    funds_result = l1.rpc.fundpsbt("109000sat", "slow", 166, excess_as_change=True)
+    funds_result = l1.rpc.fundpsbt("105790sat", 0, 0, excess_as_change=True)
 
     result = l1.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
     result = l1.rpc.splice_update(chan_id, result['psbt'])
@@ -85,7 +85,7 @@ def test_splice_disconnect_commit(node_factory, bitcoind, executor):
     chan_id = l1.get_channel_id(l2)
 
     # add extra sats to pay fee
-    funds_result = l1.rpc.fundpsbt("109000sat", "slow", 166, excess_as_change=True)
+    funds_result = l1.rpc.fundpsbt("105790sat", 0, 0, excess_as_change=True)
 
     result = l1.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
     result = l1.rpc.splice_update(chan_id, result['psbt'])

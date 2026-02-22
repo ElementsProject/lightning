@@ -743,7 +743,14 @@ void gossmap_manage_handle_get_txout_reply(struct gossmap_manage *gm, const u8 *
 		 * UTXOs. */
 		static struct timemono prev;
 		if (time_greater(timemono_since(prev), time_from_sec(1))) {
-			peer_warning(gm, pca->source_peer,
+			/* Splices that happen soon after a channel open can result in
+			 * the receiving of stale channel announcement (Splice spends
+			 * the txout of the original channel).
+			 *
+			 * We used to treat this as a warning and reset the peer
+			 * connection but the spec simply says "ignore the message". So
+			 * Now we just ignore these stale channel announcements. */
+			status_peer_trace(pca->source_peer,
 				     "channel_announcement: no unspent txout %s",
 				     fmt_short_channel_id(tmpctx, scid));
 			prev = time_mono();

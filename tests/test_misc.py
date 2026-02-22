@@ -2265,6 +2265,7 @@ def test_bitcoind_feerate_floor(node_factory, bitcoind, anchors):
             "unilateral_close": 44000,
             'unilateral_anchor_close': 15000,
             "penalty": 30000,
+            "splice": 15020,
             "min_acceptable": 7500,
             "max_acceptable": 600000,
             "floor": 1012,
@@ -2308,6 +2309,7 @@ def test_bitcoind_feerate_floor(node_factory, bitcoind, anchors):
             # This has increased (rounded up)
             "unilateral_close": 44000,
             "penalty": 30000,
+            "splice": 20024,
             # This has increased (rounded up)
             "min_acceptable": 20004,
             "max_acceptable": 600000,
@@ -2353,6 +2355,7 @@ def test_bitcoind_feerate_floor(node_factory, bitcoind, anchors):
             "unilateral_close": 44000,
             # This has increased (rounded up!)
             "penalty": 30004,
+            "splice": 30024,
             # This has increased (rounded up)
             "min_acceptable": 30004,
             "max_acceptable": 600000,
@@ -3850,6 +3853,7 @@ def test_force_feerates(node_factory):
         "unilateral_close": 1111,
         "unilateral_anchor_close": 1111,
         "penalty": 1111,
+        "splice": 1116,
         "min_acceptable": 1875,
         "max_acceptable": 150000,
         "estimates": estimates,
@@ -3866,6 +3870,7 @@ def test_force_feerates(node_factory):
         "unilateral_close": 2222,
         "unilateral_anchor_close": 2222,
         "penalty": 2222,
+        "splice": 2227,
         "min_acceptable": 1875,
         "max_acceptable": 150000,
         "estimates": estimates,
@@ -3882,6 +3887,7 @@ def test_force_feerates(node_factory):
         "unilateral_close": 3333,
         "unilateral_anchor_close": 3333,
         "penalty": 6666,
+        "splice": 3338,
         "min_acceptable": 1875,
         "max_acceptable": 150000,
         "estimates": estimates,

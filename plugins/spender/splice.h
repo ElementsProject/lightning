@@ -2,6 +2,7 @@
 #define LIGHTNING_PLUGINS_SPENDER_SPLICE_H
 #include "config.h"
 
+#include <common/amount.h>
 #include <plugins/libplugin.h>
 
 extern const struct plugin_command splice_commands[];
@@ -14,6 +15,7 @@ enum splice_cmd_state {
 	SPLICE_CMD_UPDATE_NEEDS_CHANGES,
 	SPLICE_CMD_UPDATE_DONE,
 	SPLICE_CMD_RECVED_SIGS,
+	SPLICE_CMD_PENDING,
 	SPLICE_CMD_DONE,
 };
 
@@ -54,6 +56,10 @@ struct splice_cmd {
 	char *debug_log;
 	/* Counter used for more readable debug logs */
 	int debug_counter;
+	/* Remaining funds needed from wallet */
+	struct amount_sat needed_funds;
+	/* The highest dust limit of all channels */
+	struct amount_sat dust_limit;
 };
 
 #endif /* LIGHTNING_PLUGINS_SPENDER_SPLICE_H */

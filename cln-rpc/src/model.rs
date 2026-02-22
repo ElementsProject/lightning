@@ -8276,6 +8276,8 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub penalty: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub splice: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub unilateral_anchor_close: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub unilateral_close: Option<u32>,
@@ -8308,6 +8310,8 @@ pub mod responses {
 	    pub opening: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub penalty: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub splice: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub unilateral_anchor_close: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]

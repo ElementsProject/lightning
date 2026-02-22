@@ -818,14 +818,14 @@ static char *check_balances(const tal_t *ctx,
 			assert(ok);
 
 			initiator_weight +=
-				psbt_input_get_weight(psbt, i);
+				psbt_input_get_weight(psbt, i, PSBT_GUESS_ZERO);
 		} else {
 			ok = amount_sat_add(&accepter_inputs,
 					    accepter_inputs, amt);
 			assert(ok);
 
 			accepter_weight +=
-				psbt_input_get_weight(psbt, i);
+				psbt_input_get_weight(psbt, i, PSBT_GUESS_ZERO);
 		}
 	}
 	tot_output_amt = AMOUNT_SAT(0);
