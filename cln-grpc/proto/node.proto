@@ -3804,6 +3804,7 @@ message ShowrunesRunesRestrictionsAlternatives {
 
 message AskreneunreserveRequest {
 	repeated AskreneunreservePath path = 1;
+	optional bool dev_remove_all = 2;
 }
 
 message AskreneunreserveResponse {

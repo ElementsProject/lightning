@@ -4352,6 +4352,8 @@ pub mod requests {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct AskreneunreserveRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub dev_remove_all: Option<bool>,
 	    pub path: Vec<AskreneunreservePath>,
 	}
 
