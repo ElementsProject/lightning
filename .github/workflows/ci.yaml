@@ -17,6 +17,7 @@ env:
   CI_SERVER_URL: "http://35.239.136.52:3170"
   PYTEST_OPTS_BASE: "-vvv --junit-xml=report.xml --timeout=1800 --durations=10"
   TEST_LOG_IGNORE_ERRORS: "1"
+  SCCACHE_GHA_ENABLED: "true"
 
 jobs:
   prebuild:
@@ -151,6 +152,10 @@ jobs:
         run: |
           bash -x .github/scripts/setup.sh
 
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
+      - run: sccache --zero-stats
+
       - name: Build
         env:
           COMPILER: ${{ matrix.COMPILER }}
@@ -158,9 +163,10 @@ jobs:
           UBSAN: ${{ matrix.UBSAN }}
           VALGRIND: ${{ matrix.VALGRIND }}
           COMPAT: 1
+          RUSTC_WRAPPER: sccache
         run: |
           set -e
-          ./configure ${{ matrix.DEBUG_BUILD }} CC="$COMPILER" ${{ matrix.COPTFLAGS_VAR }}
+          ./configure ${{ matrix.DEBUG_BUILD }} CC="sccache $COMPILER" ${{ matrix.COPTFLAGS_VAR }}
 
           uv run make -j $(nproc) testpack.tar.gz
 
@@ -208,10 +214,16 @@ jobs:
           find . -type f -print0 | xargs -0 touch -d yesterday
           tar xaf cln-${{ matrix.CFG }}.tar.gz
 
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
+      - run: sccache --zero-stats
+
       - name: Check
         run: |
           uv run eatmydata make -j $(nproc) check-source-bolt check-python check-gen-updated check-doc CARGO=false CC=devtools/cc-nobuild SUPPRESS_GENERATION=1
       - name: Check rust packages
+        env:
+          RUSTC_WRAPPER: sccache
         run: cargo test --all
 
   check-units:
@@ -264,6 +276,10 @@ jobs:
           find . -type f -print0 | xargs -0 touch -d yesterday
           tar xaf cln-${{ matrix.CFG }}.tar.gz
 
+      # external/Makefile uses `TARGET_DIR := external/build-$(shell ${CC} -dumpmachine)` so we need sccache to "work" for that.
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
+
       - name: Check
         run: |
           uv run eatmydata make -j $(nproc) check-units installcheck VALGRIND=${{ matrix.VALGRIND }} CARGO=false CC=devtools/cc-nobuild SUPPRESS_GENERATION=1
@@ -291,9 +307,15 @@ jobs:
         run: |
           bash -x .github/scripts/setup.sh
 
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
+      - run: sccache --zero-stats
+
       - name: Build
+        env:
+          RUSTC_WRAPPER: sccache
         run: |
-          ./configure --enable-debugbuild --enable-fuzzing --enable-address-sanitizer --enable-ub-sanitizer --disable-valgrind CC=clang
+          ./configure --enable-debugbuild --enable-fuzzing --enable-address-sanitizer --enable-ub-sanitizer --disable-valgrind CC="sccache clang"
           uv run make -j $(nproc) check-fuzz
 
   check-downgrade:
