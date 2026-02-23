@@ -1907,6 +1907,33 @@ def test_reservations_leak(node_factory, executor):
     # wrong.
     assert l1.daemon.is_in_log("askrene-unreserve failed") is None
 
+
+def test_unreserve_all(node_factory):
+    """Test removing all reservations."""
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+
+    # initially no reserves
+    assert l1.rpc.askrene_listreservations() == {"reservations": []}
+
+    # then we add a couple of reservations
+    scid12 = first_scid(l1, l2)
+    scid23 = first_scid(l2, l3)
+    scid12dir = f"{scid12}/{direction(l1.info['id'], l2.info['id'])}"
+    scid23dir = f"{scid23}/{direction(l2.info['id'], l3.info['id'])}"
+    l1.rpc.askrene_reserve(
+        path=[
+            {"short_channel_id_dir": scid12dir, "amount_msat": 1000_000},
+            {"short_channel_id_dir": scid23dir, "amount_msat": 1000_001},
+        ]
+    )
+
+    listres = l1.rpc.askrene_listreservations()["reservations"]
+    assert len(listres) == 2
+
+    # remove all reservations
+    l1.rpc.askrene_unreserve(path=[], dev_remove_all=True)
+    assert l1.rpc.askrene_listreservations() == {"reservations": []}
+
     # It will exit instantly.
     l1.rpc.setconfig('askrene-timeout', 0)
 

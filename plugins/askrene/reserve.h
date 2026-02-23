@@ -29,6 +29,9 @@ void reserve_add(struct reserve_htable *reserved,
 bool reserve_remove(struct reserve_htable *reserved,
 		    const struct reserve_hop *rhop);
 
+/* Remove all reservations. */
+void reserve_remove_all(struct reserve_htable *reserved);
+
 /* Clear capacities array where we have reserves */
 void reserves_clear_capacities(struct reserve_htable *reserved,
 			       const struct gossmap *gossmap,
