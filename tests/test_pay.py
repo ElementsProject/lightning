@@ -3310,6 +3310,7 @@ def test_partial_payment_timeout(node_factory, bitcoind):
     l2.daemon.wait_for_log(r'HTLC set contains 2 HTLCs, for a total of 1000msat out of 1000msat \(payment_secret\)')
 
 
+@pytest.mark.slow_test
 def test_partial_payment_restart(node_factory, bitcoind):
     """Test that we recover a set when we restart"""
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
