@@ -322,12 +322,6 @@ static struct bitcoin_tx *sign_and_send_last(const tal_t *ctx,
 	return tx;
 }
 
-/* FIXME: reorder! */
-static enum watch_result funding_spent(struct channel *channel,
-				       const struct bitcoin_tx *tx,
-				       size_t inputnum UNUSED,
-				       const struct block *block);
-
 /* We coop-closed channel: if another inflight confirms, force close */
 static enum watch_result closed_inflight_depth_cb(struct lightningd *ld,
 						  const struct bitcoin_txid *txid,
@@ -363,16 +357,6 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 		free_htlcs(ld, channel);
 		delete_channel(channel, false);
 		return;
-	}
-
-	/* If we're not already (e.g. close before channel fully open),
-	 * make sure we're watching for the funding spend */
-	if (!channel->funding_spend_watch) {
-		log_debug(channel->log, "Adding funding_spend_watch");
-		channel->funding_spend_watch = watch_txo(channel,
-							 ld->topology, channel,
-							 &channel->funding,
-							 funding_spent);
 	}
 
 	/* If this was triggered by a close command, get a copy of the cmd id */
