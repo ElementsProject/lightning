@@ -410,8 +410,10 @@ jobs:
           path: report.xml
           if-no-files-found: ignore
 
-  integration:
-    name: Test CLN ${{ matrix.name }}
+  # For speed, we run a first integration test using gcc and sqlite3, in 6 parts.
+  # If that passes, we move on to the more complete integration tests.
+  first-integration:
+    name: First Integration Tests (${{ matrix.GROUP }}/6)
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
@@ -421,12 +423,77 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        CFG: [compile-gcc]
+        GROUP: [1,2,3,4,5,6]
+        TEST_DB_PROVIDER: [sqlite3]
+        COMPILER: [gcc]
+        TEST_NETWORK: [regtest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        env:
+          TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
+        run: |
+          bash -x .github/scripts/setup.sh
+
+      - name: Download build
+        uses: actions/download-artifact@v4
+        with:
+          name: cln-${{ matrix.CFG }}.tar.gz
+
+      - name: Unpack prebuilt binaries
+        run: |
+          git submodule sync && git submodule update --init --recursive
+          # Make sure source appears older than what we're about to unpack
+          find . -type f -print0 | xargs -0 touch -d yesterday
+          tar xaf cln-${{ matrix.CFG }}.tar.gz
+
+      - name: Test
+        env:
+          COMPILER: ${{ matrix.COMPILER }}
+          EXPERIMENTAL_DUAL_FUND: ${{ matrix.EXPERIMENTAL_DUAL_FUND }}
+          EXPERIMENTAL_SPLICING: ${{ matrix.EXPERIMENTAL_SPLICING }}
+          COMPAT: 1
+          SLOW_MACHINE: 1
+          TEST_DEBUG: 1
+          TEST_DB_PROVIDER: ${{ matrix.TEST_DB_PROVIDER }}
+          TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
+          LIGHTNINGD_POSTGRES_NO_VACUUM: 1
+          PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }} --test-group-random-seed=42
+        run: |
+          env
+          cat config.vars
+          VALGRIND=0 sg wireshark "uv run eatmydata pytest tests/ -n $(($(nproc) + 1)) ${PYTEST_OPTS} --test-group=${{ matrix.GROUP }} --test-group-count=6"
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-results-first-integration-${{ matrix.GROUP }}
+          path: report.xml
+          if-no-files-found: ignore
+
+  full-integration:
+    name: Test CLN ${{ matrix.name }} Full Integration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      RUST_PROFILE: small # Has to match the one in the compile step
+    needs:
+      - first-integration
+    strategy:
+      fail-fast: false
+      matrix:
         include:
-          - NAME: gcc
-            CFG: compile-gcc
-            TEST_DB_PROVIDER: sqlite3
-            COMPILER: gcc
-            TEST_NETWORK: regtest
           # We do a clang run, but with minimum BTC version, to avoid YA test run.
           # And of course we want to test postgres too
           - NAME: postgres
@@ -780,7 +847,8 @@ jobs:
     name: CI completion
     runs-on: ubuntu-24.04
     needs:
-      - integration
+      - first-integration
+      - full-integration
       - check-units
       - integration-valgrind
       - integration-sanitizers
@@ -791,8 +859,9 @@ jobs:
     steps:
       - name: Complete
         env:
-          JOB_NAMES: "INTEGRATION CHECK_UNITS VALGRIND SANITIZERS BTC CHECK_COMPILED_SOURCE"
-          INTEGRATION: ${{ needs.integration.result }}
+          JOB_NAMES: "FIRST_INTEGRATION FULL_INTEGRATION CHECK_UNITS VALGRIND SANITIZERS BTC CHECK_COMPILED_SOURCE"
+          FIRST_INTEGRATION: ${{ needs['first-integration'].result }}
+          FULL_INTEGRATION: ${{ needs['full-integration'].result }}
           CHECK_UNITS: ${{ needs['check-units'].result }}
           VALGRIND: ${{ needs['integration-valgrind'].result }}
           SANITIZERS: ${{ needs['integration-sanitizers'].result }}
