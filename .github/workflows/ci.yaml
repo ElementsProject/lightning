@@ -413,7 +413,7 @@ jobs:
   # For speed, we run a first integration test using gcc and sqlite3, in 6 parts.
   # If that passes, we move on to the more complete integration tests.
   first-integration:
-    name: First Integration Tests (${{ matrix.GROUP }}/6)
+    name: First Integration Tests (${{ matrix.GROUP }}/${{ matrix.GROUP_COUNT }})
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
@@ -425,6 +425,7 @@ jobs:
       matrix:
         CFG: [compile-gcc]
         GROUP: [1,2,3,4,5,6]
+        GROUP_COUNT: [6]
         TEST_DB_PROVIDER: [sqlite3]
         COMPILER: [gcc]
         TEST_NETWORK: [regtest]
@@ -473,7 +474,7 @@ jobs:
         run: |
           env
           cat config.vars
-          VALGRIND=0 sg wireshark "uv run eatmydata pytest tests/ -n $(($(nproc) + 1)) ${PYTEST_OPTS} --test-group=${{ matrix.GROUP }} --test-group-count=6"
+          VALGRIND=0 sg wireshark "uv run eatmydata pytest tests/ -n $(($(nproc) + 1)) ${PYTEST_OPTS} --test-group=${{ matrix.GROUP }} --test-group-count=${{ matrix.GROUP_COUNT }}"
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -584,7 +585,7 @@ jobs:
           if-no-files-found: ignore
 
   integration-valgrind:
-    name: Valgrind Test CLN (${{ matrix.GROUP }}/12)
+    name: Valgrind Test CLN (${{ matrix.GROUP }}/${{ matrix.GROUP_COUNT }})
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
@@ -596,6 +597,7 @@ jobs:
       matrix:
         CFG: [compile-gcc-O1]
         GROUP: [1,2,3,4,5,6,7,8,9,10,11,12]
+        GROUP_COUNT: [12]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -633,7 +635,7 @@ jobs:
           TEST_DEBUG: 1
           PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }} --test-group-random-seed=42
         run: |
-          VALGRIND=1 sg wireshark "uv run eatmydata pytest tests/ -n $(($(nproc) + 1)) ${PYTEST_OPTS} --test-group=${{ matrix.GROUP }} --test-group-count=12"
+          VALGRIND=1 sg wireshark "uv run eatmydata pytest tests/ -n $(($(nproc) + 1)) ${PYTEST_OPTS} --test-group=${{ matrix.GROUP }} --test-group-count=${{ matrix.GROUP_COUNT }}"
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -643,7 +645,7 @@ jobs:
           if-no-files-found: ignore
 
   integration-sanitizers:
-    name: ASan/UBSan (${{ matrix.GROUP }}/6)
+    name: ASan/UBSan (${{ matrix.GROUP }}/${{ matrix.GROUP_COUNT }})
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
@@ -657,6 +659,7 @@ jobs:
       matrix:
         CFG: [compile-clang-sanitizers]
         GROUP: [1,2,3,4,5,6]
+        GROUP_COUNT: [6]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -691,7 +694,7 @@ jobs:
         env:
           PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }} --test-group-random-seed=42 
         run: |
-          sg wireshark "uv run eatmydata pytest tests/ -n $(($(nproc) + 1)) ${PYTEST_OPTS} --test-group=${{ matrix.GROUP }} --test-group-count=6"
+          sg wireshark "uv run eatmydata pytest tests/ -n $(($(nproc) + 1)) ${PYTEST_OPTS} --test-group=${{ matrix.GROUP }} --test-group-count=${{ matrix.GROUP_COUNT }}"
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
