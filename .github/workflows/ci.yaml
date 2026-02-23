@@ -528,7 +528,7 @@ jobs:
       fail-fast: false
       matrix:
         CFG: [compile-gcc-O1]
-        GROUP: [1,2,3,4,5,6,7,8,9,10]
+        GROUP: [1,2,3,4,5,6,7,8,9,10,11,12]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -566,7 +566,7 @@ jobs:
           TEST_DEBUG: 1
           PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }} --test-group-random-seed=42
         run: |
-          VALGRIND=1 sg wireshark "uv run eatmydata pytest tests/ -n $(($(nproc) + 1)) ${PYTEST_OPTS} --test-group=${{ matrix.GROUP }} --test-group-count=10"
+          VALGRIND=1 sg wireshark "uv run eatmydata pytest tests/ -n $(($(nproc) + 1)) ${PYTEST_OPTS} --test-group=${{ matrix.GROUP }} --test-group-count=12"
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -576,7 +576,7 @@ jobs:
           if-no-files-found: ignore
 
   integration-sanitizers:
-    name: ASan/UBSan (${{ matrix.GROUP }}/12)
+    name: ASan/UBSan (${{ matrix.GROUP }}/6)
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
@@ -589,7 +589,7 @@ jobs:
       fail-fast: false
       matrix:
         CFG: [compile-clang-sanitizers]
-        GROUP: [1,2,3,4,5,6,7,8,9,10,11,12]
+        GROUP: [1,2,3,4,5,6]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -624,7 +624,7 @@ jobs:
         env:
           PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }} --test-group-random-seed=42 
         run: |
-          sg wireshark "uv run eatmydata pytest tests/ -n $(($(nproc) + 1)) ${PYTEST_OPTS} --test-group=${{ matrix.GROUP }} --test-group-count=12"
+          sg wireshark "uv run eatmydata pytest tests/ -n $(($(nproc) + 1)) ${PYTEST_OPTS} --test-group=${{ matrix.GROUP }} --test-group-count=6"
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
