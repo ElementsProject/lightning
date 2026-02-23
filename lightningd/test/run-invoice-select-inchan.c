@@ -53,6 +53,9 @@ void broadcast_tx_(const tal_t *ctx UNNEEDED,
 		   bool (*refresh)(struct channel * UNNEEDED, const struct bitcoin_tx ** UNNEEDED, void *) UNNEEDED,
 		   void *cbarg TAKES UNNEEDED)
 { fprintf(stderr, "broadcast_tx_ called!\n"); abort(); }
+/* Generated stub for channel_by_dbid */
+struct channel *channel_by_dbid(struct lightningd *ld UNNEEDED, const u64 dbid UNNEEDED)
+{ fprintf(stderr, "channel_by_dbid called!\n"); abort(); }
 /* Generated stub for channel_change_state_reason_str */
 const char *channel_change_state_reason_str(enum state_change reason UNNEEDED)
 { fprintf(stderr, "channel_change_state_reason_str called!\n"); abort(); }
@@ -101,9 +104,6 @@ struct htlc_out *channel_has_htlc_out(struct channel *channel UNNEEDED)
 /* Generated stub for channel_important_filter */
 bool channel_important_filter(const struct channel *channel UNNEEDED, void *unused UNNEEDED)
 { fprintf(stderr, "channel_important_filter called!\n"); abort(); }
-/* Generated stub for channel_internal_error */
-void channel_internal_error(struct channel *channel UNNEEDED, const char *fmt UNNEEDED, ...)
-{ fprintf(stderr, "channel_internal_error called!\n"); abort(); }
 /* Generated stub for channel_last_funding_feerate */
 u32 channel_last_funding_feerate(const struct channel *channel UNNEEDED)
 { fprintf(stderr, "channel_last_funding_feerate called!\n"); abort(); }
@@ -240,11 +240,6 @@ struct anchor_details *create_anchor_details(const tal_t *ctx UNNEEDED,
 void delete_channel(struct channel *channel STEALS UNNEEDED,
 		    bool completely_eliminate UNNEEDED)
 { fprintf(stderr, "delete_channel called!\n"); abort(); }
-/* Generated stub for depthcb_update_scid */
-bool depthcb_update_scid(struct channel *channel UNNEEDED,
-			 const struct bitcoin_txid *txid UNNEEDED,
-			 const struct bitcoin_outpoint *outpoint UNNEEDED)
-{ fprintf(stderr, "depthcb_update_scid called!\n"); abort(); }
 /* Generated stub for dev_disconnect_permanent */
 bool dev_disconnect_permanent(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "dev_disconnect_permanent called!\n"); abort(); }
@@ -259,16 +254,6 @@ struct channel *find_channel_by_id(const struct peer *peer UNNEEDED,
 struct plugin *find_plugin_for_command(struct lightningd *ld UNNEEDED,
 				       const char *cmd_name UNNEEDED)
 { fprintf(stderr, "find_plugin_for_command called!\n"); abort(); }
-/* Generated stub for find_txwatch_ */
-struct txwatch *find_txwatch_(struct chain_topology *topo UNNEEDED,
-			      const struct bitcoin_txid *txid UNNEEDED,
-			      enum watch_result (*cb)(struct lightningd *ld UNNEEDED,
-						      const struct bitcoin_txid * UNNEEDED,
-						      const struct bitcoin_tx * UNNEEDED,
-						      unsigned int depth UNNEEDED,
-						      void *arg) UNNEEDED,
-			    void *arg UNNEEDED)
-{ fprintf(stderr, "find_txwatch_ called!\n"); abort(); }
 /* Generated stub for fixup_htlcs_out */
 void fixup_htlcs_out(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "fixup_htlcs_out called!\n"); abort(); }
@@ -495,6 +480,9 @@ void local_fail_in_htlc(struct htlc_in *hin UNNEEDED, const u8 *failmsg TAKES UN
 void lockin_complete(struct channel *channel UNNEEDED,
 		     enum channel_state expected_state UNNEEDED)
 { fprintf(stderr, "lockin_complete called!\n"); abort(); }
+/* Generated stub for lockin_has_completed */
+void lockin_has_completed(struct channel *channel UNNEEDED, bool record_push UNNEEDED)
+{ fprintf(stderr, "lockin_has_completed called!\n"); abort(); }
 /* Generated stub for log_ */
 void log_(struct logger *logger UNNEEDED, enum log_level level UNNEEDED,
 	  const struct node_id *node_id UNNEEDED,
@@ -619,6 +607,11 @@ void subd_send_fd(struct subd *sd UNNEEDED, int fd UNNEEDED)
 /* Generated stub for subd_send_msg */
 void subd_send_msg(struct subd *sd UNNEEDED, const u8 *msg_out UNNEEDED)
 { fprintf(stderr, "subd_send_msg called!\n"); abort(); }
+/* Generated stub for tell_connectd_scid */
+void tell_connectd_scid(struct lightningd *ld UNNEEDED,
+			struct short_channel_id scid UNNEEDED,
+			const struct node_id *peer_id UNNEEDED)
+{ fprintf(stderr, "tell_connectd_scid called!\n"); abort(); }
 /* Generated stub for towire_channeld_dev_memleak */
 u8 *towire_channeld_dev_memleak(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_channeld_dev_memleak called!\n"); abort(); }
@@ -664,6 +657,11 @@ u8 *towire_onchaind_dev_memleak(const tal_t *ctx UNNEEDED)
 /* Generated stub for towire_openingd_dev_memleak */
 u8 *towire_openingd_dev_memleak(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_openingd_dev_memleak called!\n"); abort(); }
+/* Generated stub for wallet_annotate_txout */
+void wallet_annotate_txout(struct wallet *w UNNEEDED,
+			   const struct bitcoin_outpoint *outpoint UNNEEDED,
+			   enum wallet_tx_type type UNNEEDED, u64 channel UNNEEDED)
+{ fprintf(stderr, "wallet_annotate_txout called!\n"); abort(); }
 /* Generated stub for wallet_channel_save */
 void wallet_channel_save(struct wallet *w UNNEEDED, struct channel *chan UNNEEDED)
 { fprintf(stderr, "wallet_channel_save called!\n"); abort(); }
@@ -753,6 +751,24 @@ struct txowatch *watch_txo(const tal_t *ctx UNNEEDED,
 /* Generated stub for watchman_get_height */
 u32 watchman_get_height(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "watchman_get_height called!\n"); abort(); }
+/* Generated stub for watchman_unwatch_outpoint */
+void watchman_unwatch_outpoint(struct lightningd *ld UNNEEDED,
+			       const char *owner UNNEEDED,
+			       const struct bitcoin_outpoint *outpoint UNNEEDED)
+{ fprintf(stderr, "watchman_unwatch_outpoint called!\n"); abort(); }
+/* Generated stub for watchman_watch_outpoint */
+void watchman_watch_outpoint(struct lightningd *ld UNNEEDED,
+			     const char *owner UNNEEDED,
+			     const struct bitcoin_outpoint *outpoint UNNEEDED,
+			     u32 start_block UNNEEDED)
+{ fprintf(stderr, "watchman_watch_outpoint called!\n"); abort(); }
+/* Generated stub for watchman_watch_scriptpubkey */
+void watchman_watch_scriptpubkey(struct lightningd *ld UNNEEDED,
+				 const char *owner UNNEEDED,
+				 const u8 *scriptpubkey UNNEEDED,
+				 size_t script_len UNNEEDED,
+				 u32 start_block UNNEEDED)
+{ fprintf(stderr, "watchman_watch_scriptpubkey called!\n"); abort(); }
 /* AUTOGENERATED MOCKS END */
 
 static void add_candidate(struct routehint_candidate **candidates, int n,

@@ -15,6 +15,7 @@
 #include <lightningd/gossip_control.h>
 #include <lightningd/io_loop_with_timers.h>
 #include <lightningd/notification.h>
+#include <lightningd/watchman.h>
 #include <math.h>
 
 /* Mutual recursion via timer. */
@@ -1078,7 +1079,7 @@ static void try_extend_tip(struct chain_topology *topo)
 
 u32 get_block_height(const struct chain_topology *topo)
 {
-	return topo->tip->height;
+	return watchman_get_height(topo->ld);
 }
 
 u32 get_network_blockheight(const struct chain_topology *topo)

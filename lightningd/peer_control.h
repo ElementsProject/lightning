@@ -140,6 +140,44 @@ void channel_watch_funding(struct lightningd *ld, struct channel *channel);
 /* If this channel has a "wrong funding" shutdown, watch that too. */
 void channel_watch_wrong_funding(struct lightningd *ld, struct channel *channel);
 
+/**
+ * channel_funding_watch_found - bwatch handler: funding scriptpubkey appeared on-chain.
+ * Owner prefix: "channel/funding/<dbid>"
+ *
+ * Fires when bwatch sees the funding scriptpubkey in a block output.
+ * Drives first-confirmation logic and installs the outpoint spend watch.
+ */
+void channel_funding_watch_found(struct lightningd *ld,
+				 u32 dbid,
+				 const struct bitcoin_tx *tx,
+				 size_t outnum,
+				 u32 blockheight,
+				 u32 txindex);
+
+/**
+ * channel_funding_spent_watch_found - bwatch handler: funding outpoint was spent.
+ * Owner prefix: "channel/funding_spent/<dbid>"
+ *
+ * Fires when bwatch sees a tx input spending the funding outpoint.
+ * Drives onchaind startup (equivalent to the old funding_spent txowatch callback).
+ */
+void channel_funding_spent_watch_found(struct lightningd *ld,
+				       u32 dbid,
+				       const struct bitcoin_tx *tx,
+				       size_t innum,
+				       u32 blockheight,
+				       u32 txindex);
+
+/**
+ * channel_block_processed - Drive funding depth on every new block.
+ *
+ * Called from watchman's block_processed handler after bwatch reports a new
+ * block height. Iterates all channels whose funding tx has confirmed (scid set)
+ * and calls channeld_tell_depth / lockin_complete as appropriate.
+ * Replaces the old topology txwatch / funding_depth_cb per-block callbacks.
+ */
+void channel_block_processed(struct lightningd *ld, u32 blockheight);
+
 /* How much can we spend in this channel? */
 struct amount_msat channel_amount_spendable(const struct channel *channel);
 

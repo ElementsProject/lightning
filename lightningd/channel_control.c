@@ -1905,7 +1905,7 @@ bool peer_start_channeld(struct channel *channel,
 						   inflights),
 				       *channel->alias[LOCAL]);
 
-	/* We don't expect a response: we are triggered by funding_depth_cb. */
+	/* We don't expect a response: we are triggered by channel_block_processed. */
 	subd_send_msg(channel->owner, take(initmsg));
 
 	/* On restart, feerate and blockheight

@@ -15,6 +15,7 @@
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
+#include <lightningd/peer_control.h>
 #include <lightningd/plugin.h>
 #include <lightningd/watchman.h>
 #include <wallet/wallet.h>
@@ -306,6 +307,48 @@ u32 watchman_get_height(struct lightningd *ld)
 	return wm->last_processed_height;
 }
 
+void watchman_watch_scriptpubkey(struct lightningd *ld,
+				 const char *owner,
+				 const u8 *scriptpubkey,
+				 size_t script_len,
+				 u32 start_block)
+{
+	watchman_add(ld, owner,
+		     tal_fmt(tmpctx,
+			     "{\"type\":\"scriptpubkey\""
+			     ",\"scriptpubkey\":\"%s\""
+			     ",\"start_block\":%u}",
+			     tal_hexstr(tmpctx, scriptpubkey, script_len),
+			     start_block));
+}
+
+void watchman_watch_outpoint(struct lightningd *ld,
+			     const char *owner,
+			     const struct bitcoin_outpoint *outpoint,
+			     u32 start_block)
+{
+	watchman_add(ld, owner,
+		     tal_fmt(tmpctx,
+			     "{\"type\":\"outpoint\""
+			     ",\"outpoint\":\"%s:%u\""
+			     ",\"start_block\":%u}",
+			     fmt_bitcoin_txid(tmpctx, &outpoint->txid),
+			     outpoint->n,
+			     start_block));
+}
+
+void watchman_unwatch_outpoint(struct lightningd *ld,
+			       const char *owner,
+			       const struct bitcoin_outpoint *outpoint)
+{
+	watchman_del(ld, owner,
+		     tal_fmt(tmpctx,
+			     "{\"type\":\"outpoint\""
+			     ",\"outpoint\":\"%s:%u\"}",
+			     fmt_bitcoin_txid(tmpctx, &outpoint->txid),
+			     outpoint->n));
+}
+
 void watchman_add_utxo(struct lightningd *ld,
 		       const struct bitcoin_outpoint *outpoint,
 		       u32 blockheight, u32 txindex,
@@ -350,13 +393,13 @@ static const struct watch_dispatch {
 	const char *prefix;
 	watch_found_fn handler;
 } watch_handlers[] = {
-	{ "wallet/p2wpkh/",      wallet_watch_p2wpkh },
-	{ "wallet/p2tr/",        wallet_watch_p2tr },
-	{ "wallet/p2sh_p2wpkh/", wallet_watch_p2sh_p2wpkh },
-	/* Future:
-	{ "channel/funding/",    channel_watch_funding },
-	{ "onchaind/penalty/",   onchaind_watch_penalty },
-	*/
+	{ "wallet/p2wpkh/",       wallet_watch_p2wpkh },
+	{ "wallet/p2tr/",         wallet_watch_p2tr },
+	{ "wallet/p2sh_p2wpkh/",  wallet_watch_p2sh_p2wpkh },
+	/* channel/funding/<dbid>: WATCH_SCRIPTPUBKEY, fires when funding tx confirmed */
+	{ "channel/funding/",         channel_funding_watch_found },
+	/* channel/funding_spent/<dbid>: WATCH_OUTPOINT, fires when funding outpoint spent */
+	{ "channel/funding_spent/",   channel_funding_spent_watch_found },
 };
 
 /**
@@ -537,6 +580,9 @@ static struct command_result *json_block_processed(struct command *cmd,
 
 	/* Notify gossipd of the authoritative block height (from bwatch) */
 	gossip_notify_blockheight(wm->ld, *blockheight);
+
+	/* Drive funding depth for all channels */
+	channel_block_processed(wm->ld, *blockheight);
 
 	struct json_stream *response = json_stream_success(cmd);
 	json_add_u32(response, "blockheight", *blockheight);

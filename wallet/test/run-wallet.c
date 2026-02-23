@@ -27,13 +27,29 @@ static inline u32 test_watchman_get_height(struct lightningd *ld UNUSED)
 }
 #define watchman_get_height test_watchman_get_height
 
-static inline void test_watchman_add(struct lightningd *ld UNUSED,
-				     const char *owner UNUSED,
-				     const char *json_params UNUSED)
+static inline void test_watchman_watch_scriptpubkey(struct lightningd *ld UNUSED,
+						    const char *owner UNUSED,
+						    const u8 *scriptpubkey UNUSED,
+						    size_t script_len UNUSED,
+						    u32 start_block UNUSED)
 {
-	/* Do nothing in tests */
 }
-#define watchman_add test_watchman_add
+#define watchman_watch_scriptpubkey test_watchman_watch_scriptpubkey
+
+static inline void test_watchman_watch_outpoint(struct lightningd *ld UNUSED,
+						const char *owner UNUSED,
+						const struct bitcoin_outpoint *outpoint UNUSED,
+						u32 start_block UNUSED)
+{
+}
+#define watchman_watch_outpoint test_watchman_watch_outpoint
+
+static inline void test_watchman_unwatch_outpoint(struct lightningd *ld UNUSED,
+						  const char *owner UNUSED,
+						  const struct bitcoin_outpoint *outpoint UNUSED)
+{
+}
+#define watchman_unwatch_outpoint test_watchman_unwatch_outpoint
 
 static inline void test_watchman_add_utxo(struct lightningd *ld UNUSED,
 					  const struct bitcoin_outpoint *outpoint UNUSED,
@@ -282,11 +298,6 @@ u8 *create_channel_announcement(const tal_t *ctx UNNEEDED,
 				const secp256k1_ecdsa_signature *remote_node_signature UNNEEDED,
 				const secp256k1_ecdsa_signature *remote_bitcoin_signature UNNEEDED)
 { fprintf(stderr, "create_channel_announcement called!\n"); abort(); }
-/* Generated stub for depthcb_update_scid */
-bool depthcb_update_scid(struct channel *channel UNNEEDED,
-			 const struct bitcoin_txid *txid UNNEEDED,
-			 const struct bitcoin_outpoint *outpoint UNNEEDED)
-{ fprintf(stderr, "depthcb_update_scid called!\n"); abort(); }
 /* Generated stub for dev_disconnect_permanent */
 bool dev_disconnect_permanent(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "dev_disconnect_permanent called!\n"); abort(); }
@@ -296,16 +307,6 @@ void   fatal(const char *fmt UNNEEDED, ...)
 /* Generated stub for fatal_vfmt */
 void  fatal_vfmt(const char *fmt UNNEEDED, va_list ap UNNEEDED)
 { fprintf(stderr, "fatal_vfmt called!\n"); abort(); }
-/* Generated stub for find_txwatch_ */
-struct txwatch *find_txwatch_(struct chain_topology *topo UNNEEDED,
-			      const struct bitcoin_txid *txid UNNEEDED,
-			      enum watch_result (*cb)(struct lightningd *ld UNNEEDED,
-						      const struct bitcoin_txid * UNNEEDED,
-						      const struct bitcoin_tx * UNNEEDED,
-						      unsigned int depth UNNEEDED,
-						      void *arg) UNNEEDED,
-			    void *arg UNNEEDED)
-{ fprintf(stderr, "find_txwatch_ called!\n"); abort(); }
 /* Generated stub for force_peer_disconnect */
 void force_peer_disconnect(struct lightningd *ld UNNEEDED,
 			   const struct peer *peer UNNEEDED,
@@ -335,6 +336,9 @@ u64 forward_index_update_status(struct lightningd *ld UNNEEDED,
 				struct amount_msat in_amount UNNEEDED,
 				const struct short_channel_id *out_channel UNNEEDED)
 { fprintf(stderr, "forward_index_update_status called!\n"); abort(); }
+/* Generated stub for fromwire_bwatch_utxoset_entry */
+bool fromwire_bwatch_utxoset_entry(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct utxoset_entry_wire **entry UNNEEDED)
+{ fprintf(stderr, "fromwire_bwatch_utxoset_entry called!\n"); abort(); }
 /* Generated stub for fromwire_channeld_dev_memleak_reply */
 bool fromwire_channeld_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
 { fprintf(stderr, "fromwire_channeld_dev_memleak_reply called!\n"); abort(); }
@@ -506,6 +510,9 @@ void kill_uncommitted_channel(struct uncommitted_channel *uc UNNEEDED,
 void lockin_complete(struct channel *channel UNNEEDED,
 		     enum channel_state expected_state UNNEEDED)
 { fprintf(stderr, "lockin_complete called!\n"); abort(); }
+/* Generated stub for lockin_has_completed */
+void lockin_has_completed(struct channel *channel UNNEEDED, bool record_push UNNEEDED)
+{ fprintf(stderr, "lockin_has_completed called!\n"); abort(); }
 /* Generated stub for logv */
 void logv(struct logger *logger UNNEEDED, enum log_level level UNNEEDED, const struct node_id *node_id UNNEEDED,
 	  bool call_notifier UNNEEDED, const char *fmt UNNEEDED, va_list ap UNNEEDED)
@@ -696,6 +703,11 @@ void subd_send_msg(struct subd *sd UNNEEDED, const u8 *msg_out UNNEEDED)
 void tell_connectd_peer_importance(struct peer *peer UNNEEDED,
 				   bool was_important UNNEEDED)
 { fprintf(stderr, "tell_connectd_peer_importance called!\n"); abort(); }
+/* Generated stub for tell_connectd_scid */
+void tell_connectd_scid(struct lightningd *ld UNNEEDED,
+			struct short_channel_id scid UNNEEDED,
+			const struct node_id *peer_id UNNEEDED)
+{ fprintf(stderr, "tell_connectd_scid called!\n"); abort(); }
 /* Generated stub for tlv_hsmd_dev_preinit_tlvs_new */
 struct tlv_hsmd_dev_preinit_tlvs *tlv_hsmd_dev_preinit_tlvs_new(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "tlv_hsmd_dev_preinit_tlvs_new called!\n"); abort(); }
@@ -978,8 +990,10 @@ static struct wallet *create_test_wallet(struct lightningd *ld, const tal_t *ctx
 	return w;
 }
 
-/* TODO: Re-enable when outputs migration to bwatch is complete */
-#if 0
+/* test_wallet_outputs removed: relied on test_wallet_add_utxo/wallet_add_utxo
+ * which were removed when outputs migrated to bwatch. Phase 4 will add tests
+ * for channel outputs (wallet_add_onchaind_utxo) and bwatch integration. */
+#if 0 /* deleted - test_wallet_add_utxo no longer exists */
 static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx, bool bip86)
 {
 	struct wallet *w = create_test_wallet(ld, ctx, bip86);
@@ -2014,7 +2028,7 @@ int main(int argc, const char *argv[])
 			ok &= test_channel_inflight_crud(ld, tmpctx, bip86);
 			ok &= test_channel_config_crud(ld, tmpctx, bip86);
 			ok &= test_channel_inflight_crud(ld, tmpctx, bip86);
-			/* ok &= test_wallet_outputs(ld, tmpctx, bip86); */ /* Disabled: outputs migrated to bwatch */
+			/* test_wallet_outputs removed - see comment above */
 			ok &= test_htlc_crud(ld, tmpctx, bip86);
 			ok &= test_payment_crud(ld, tmpctx, bip86);
 			ok &= test_wallet_payment_status_enum();

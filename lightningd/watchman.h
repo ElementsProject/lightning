@@ -2,6 +2,7 @@
 #define LIGHTNING_LIGHTNINGD_WATCHMAN_H
 
 #include "config.h"
+#include <bitcoin/tx.h>
 
 struct lightningd;
 struct watchman;
@@ -87,6 +88,26 @@ void watchman_replay_pending(struct lightningd *ld);
  * to avoid rescanning from genesis.
  */
 u32 watchman_get_height(struct lightningd *ld);
+
+/* Typed watch helpers — prefer these over calling watchman_add/del directly. */
+
+/** Register a WATCH_SCRIPTPUBKEY — fires channel_funding_watch_found when seen. */
+void watchman_watch_scriptpubkey(struct lightningd *ld,
+				 const char *owner,
+				 const u8 *scriptpubkey,
+				 size_t script_len,
+				 u32 start_block);
+
+/** Register a WATCH_OUTPOINT — fires when the outpoint is spent. */
+void watchman_watch_outpoint(struct lightningd *ld,
+			     const char *owner,
+			     const struct bitcoin_outpoint *outpoint,
+			     u32 start_block);
+
+/** Remove a WATCH_OUTPOINT (e.g. during splice before re-adding for new outpoint). */
+void watchman_unwatch_outpoint(struct lightningd *ld,
+			       const char *owner,
+			       const struct bitcoin_outpoint *outpoint);
 
 /**
  * watchman_add_utxo - Add a wallet-originated UTXO to bwatch's datastore
