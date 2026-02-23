@@ -505,7 +505,7 @@ jobs:
           # And don't forget about elements (like cdecker did when
           # reworking the CI...)
           - NAME: liquid
-            CFG: compile-gcc
+            CFG: compile-gcc-O3
             COMPILER: gcc
             TEST_NETWORK: liquid-regtest
             TEST_DB_PROVIDER: sqlite3
