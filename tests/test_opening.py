@@ -1949,7 +1949,7 @@ def test_buy_liquidity_ad_check_bookkeeping(node_factory, bitcoind):
     # Avoid bad gossip messages caused by channel announcements being
     # processed after closing.
     for n in (l1, l2):
-        wait_for(lambda: all([c['active'] for c in n.rpc.listchannels()['channels']]))
+        wait_for(lambda: [c['active'] for c in n.rpc.listchannels()['channels']] == [True, True])
 
     chan_id = first_channel_id(l1, l2)
     ev_tags = [e['tag'] for e in l1.rpc.bkpr_listaccountevents(chan_id)['events']]
