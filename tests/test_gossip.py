@@ -1691,6 +1691,8 @@ def test_gossip_store_compact_while_extending(node_factory, bitcoind, executor):
     wait_for(lambda: sorted([c['fee_per_millionth'] for c in l1.rpc.listchannels(scid12)['channels']]) == [10, 1004])
 
     pre_channels = l1.rpc.listchannels()
+    # Make sure all node_announcements have been seen.
+    wait_for(lambda: all(['alias' in n for n in l1.rpc.listnodes()['nodes']]))
     pre_nodes = sorted(l1.rpc.listnodes()['nodes'], key=lambda n: n['nodeid'])
 
     # Compaction "continues".
@@ -2493,6 +2495,8 @@ def test_gossmap_lost_node(node_factory, bitcoind):
     assert l1.rpc.listchannels(scid23) == {'channels': []}
 
     pre_channels = l1.rpc.listchannels()
+    # Make sure all node_announcements have been seen.
+    wait_for(lambda: all(['alias' in n for n in l1.rpc.listnodes()['nodes']]))
     pre_nodes = sorted(l1.rpc.listnodes()['nodes'], key=lambda n: n['nodeid'])
     l1.restart()
     post_channels = l1.rpc.listchannels()
