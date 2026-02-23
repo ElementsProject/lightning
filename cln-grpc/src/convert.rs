@@ -6122,6 +6122,7 @@ impl From<requests::AskreneunreservePath> for pb::AskreneunreservePath {
 impl From<requests::AskreneunreserveRequest> for pb::AskreneunreserveRequest {
     fn from(c: requests::AskreneunreserveRequest) -> Self {
         Self {
+            dev_remove_all: c.dev_remove_all, // Rule #2 for type boolean?
             // Field: AskRene-Unreserve.path[]
             path: c.path.into_iter().map(|i| i.into()).collect(), // Rule #3 for type AskreneunreservePath
         }
@@ -7903,6 +7904,7 @@ impl From<pb::AskreneunreservePath> for requests::AskreneunreservePath {
 impl From<pb::AskreneunreserveRequest> for requests::AskreneunreserveRequest {
     fn from(c: pb::AskreneunreserveRequest) -> Self {
         Self {
+            dev_remove_all: c.dev_remove_all, // Rule #1 for type boolean?
             path: c.path.into_iter().map(|s| s.into()).collect(), // Rule #4
         }
     }

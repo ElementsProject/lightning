@@ -1997,6 +1997,11 @@
                 }
               }
             }
+          },
+          "dev_remove_all": {
+            "hidden": true,
+            "type": "boolean",
+            "added": "v26.04"
           }
         }
       },

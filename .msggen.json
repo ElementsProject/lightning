@@ -851,6 +851,7 @@
             "AskRene-Unreserve.path[].short_channel_id_dir": 4
         },
         "Askrene-unreserveRequest": {
+            "AskRene-Unreserve.dev_remove_all": 2,
             "AskRene-Unreserve.path[]": 1
         },
         "Askrene-update-channelRequest": {
@@ -4744,6 +4745,10 @@
         },
         "AskRene-Unreserve": {
             "added": "v24.11",
+            "deprecated": null
+        },
+        "AskRene-Unreserve.dev_remove_all": {
+            "added": "v26.04",
             "deprecated": null
         },
         "AskRene-Unreserve.path[]": {
