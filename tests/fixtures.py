@@ -11,6 +11,8 @@ import shutil
 import subprocess
 import tempfile
 import time
+from pyln.testing.utils import env
+from vls import ValidatingLightningSignerD
 
 
 @pytest.fixture
@@ -24,6 +26,23 @@ class LightningNode(utils.LightningNode):
         # something in out path.
         kwargs["executable"] = "lightningd/lightningd"
         utils.LightningNode.__init__(self, *args, **kwargs)
+
+        # New VLS integration
+        mode = env("VLS_MODE", "cln:native")
+
+        subdaemon = {
+            "cln:native": None,
+            "cln:socket": "path/to/vls/artifact"
+        }[mode]
+
+        if subdaemon:
+            self.REQUEST = None
+            self.use_vlsd = self.subdaemon is not None
+            self.vlsd: ValidatingLightningSignerD | None = None
+            self.vls_dir = self.lightning_dir / "vlsd"
+            self.vlsd_port = utils.reserve_unused_port()
+            self.vlsd_rpc_port = utils.reserve_unused_port()
+            self.daemon.opts["subdaemon"] = subdaemon
 
         # Avoid socket path name too long on Linux
         if os.uname()[0] == 'Linux' and \
@@ -60,6 +79,32 @@ class LightningNode(utils.LightningNode):
         if db_type == 'postgres' and ('disable-plugin', 'bookkeeper') not in self.daemon.opts.items():
             accts_db = self.db.provider.get_db('', 'accounts', 0)
             self.daemon.opts['bookkeeper-db'] = accts_db.get_dsn()
+
+        def start(self, wait_for_bitcoind_sync=True, stderr_redir=False):
+            self.vls_dir.mkdir(exist_ok=True, parents=True)
+
+            # We start the signer first, otherwise the lightningd startup hangs on the init message
+            if self.use_vlsd:
+                self.daemon.env["VLS_PORT"] = str(self.vlsd_port)
+                self.daemon.env["VLS_LSS"] = os.environ.get("LSS_URI", "")
+                self.vlsd = ValidatingLightningSignerD(
+                    vlsd_dir=self.vls_dir,
+                    vlsd_port=self.vlsd_port,
+                    vlsd_rpc_port=self.vlsd_rpc_port,
+                    node_id=self.node_id,
+                    network=self.network,
+                )
+                import threading
+
+                threading.Timer(1, self.vlsd.start).start()
+                self.REQUEST.addfinalizer(self.vlsd.stop)
+
+            self.start(
+                self,
+                wait_for_bitcoind_sync=wait_for_bitcoind_sync,
+                stderr_redir=stderr_redir,
+            )
+
 
 
 class CompatLevel(object):
