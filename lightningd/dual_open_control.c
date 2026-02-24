@@ -27,6 +27,7 @@
 #include <lightningd/hsm_control.h>
 #include <lightningd/notification.h>
 #include <lightningd/opening_common.h>
+#include <lightningd/peer_control.h>
 #include <lightningd/peer_fd.h>
 #include <lightningd/plugin_hook.h>
 #include <openingd/dualopend_wiregen.h>
@@ -1002,72 +1003,40 @@ static void dualopend_tell_depth(struct channel *channel,
 					      to_go));
 }
 
-static enum watch_result opening_depth_cb(struct lightningd *ld,
-					  const struct bitcoin_txid *txid,
-					  const struct bitcoin_tx *tx,
-					  unsigned int depth,
-					  struct channel_inflight *inflight)
+/* Called from channel_block_processed for DUALOPEND_AWAITING_LOCKIN channels.
+ * Drives dualopend's depth state machine per new block. */
+void dualopend_channel_depth(struct lightningd *ld,
+			     struct channel *channel,
+			     u32 depth)
 {
-	struct txlocator *loc;
-	struct short_channel_id scid;
+	struct channel_inflight *inflight;
 
-	/* Usually, we're here because we're awaiting a lockin, but
-	 * we could also mutual shutdown */
-	if (inflight->channel->state != DUALOPEND_AWAITING_LOCKIN)
-		return DELETE_WATCH;
+	/* Scid is set by channel_funding_watch_found on first confirmation. */
+	if (!channel->scid)
+		return;
 
-	/* Reorged out?  OK, we're not committed yet. */
-	if (depth == 0)
-		return KEEP_WATCHING;
+	dualopend_tell_depth(channel, &channel->funding.txid, depth);
 
-	/* FIXME: Don't do this until we're actually locked in! */
-	loc = wallet_transaction_locate(tmpctx, ld->wallet, txid);
-	if (!mk_short_channel_id(&scid,
-				 loc->blkheight, loc->index,
-				 inflight->funding->outpoint.n)) {
-		channel_fail_permanent(inflight->channel,
-				       REASON_LOCAL,
-				       "Invalid funding scid %u:%u:%u",
-				       loc->blkheight, loc->index,
-				       inflight->funding->outpoint.n);
-		return DELETE_WATCH;
+	if (depth >= channel->minimum_depth) {
+		/* Promote the matching inflight so channel funding fields are current. */
+		list_for_each(&channel->inflights, inflight, list) {
+			if (bitcoin_outpoint_eq(&inflight->funding->outpoint,
+						&channel->funding)) {
+				update_channel_from_inflight(ld, channel,
+							     inflight, false);
+				break;
+			}
+		}
 	}
-
-	if (!inflight->channel->scid) {
-		wallet_annotate_txout(ld->wallet, &inflight->funding->outpoint,
-				      TX_CHANNEL_FUNDING, inflight->channel->dbid);
-		channel_set_scid(inflight->channel, &scid);
-		wallet_channel_save(ld->wallet, inflight->channel);
-	} else if (!short_channel_id_eq(*inflight->channel->scid, scid)) {
-		/* We freaked out if required when original was
-		 * removed, so just update now */
-		log_info(inflight->channel->log, "Short channel id changed from %s->%s",
-			 fmt_short_channel_id(tmpctx, *inflight->channel->scid),
-			 fmt_short_channel_id(tmpctx, scid));
-		channel_set_scid(inflight->channel, &scid);
-		wallet_channel_save(ld->wallet, inflight->channel);
-	}
-
-	/* Tell connectd it can forward onion messages via this scid (ok if redundant!) */
-	if (inflight->channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL)
-		tell_connectd_scid(ld, *inflight->channel->scid,
-				   &inflight->channel->peer->id);
-
-	if (depth >= inflight->channel->minimum_depth)
-		update_channel_from_inflight(ld, inflight->channel, inflight,
-					     false);
-
-	dualopend_tell_depth(inflight->channel, txid, depth);
-
-	return KEEP_WATCHING;
 }
+
 
 void watch_opening_inflight(struct lightningd *ld,
 			    struct channel_inflight *inflight)
 {
-	watch_txid(inflight, ld->topology,
-		   &inflight->funding->outpoint.txid,
-		   opening_depth_cb, inflight);
+	/* bwatch scriptpubkey watch covers the inflight funding tx.
+	 * channel_block_processed drives dualopend depth via dualopend_channel_depth. */
+	channel_watch_funding(ld, inflight->channel);
 }
 
 static void

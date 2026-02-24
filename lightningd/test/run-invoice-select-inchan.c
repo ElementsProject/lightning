@@ -723,10 +723,6 @@ u32 wallet_transaction_height(struct wallet *w UNNEEDED, const struct bitcoin_tx
 void watch_opening_inflight(struct lightningd *ld UNNEEDED,
 			    struct channel_inflight *inflight UNNEEDED)
 { fprintf(stderr, "watch_opening_inflight called!\n"); abort(); }
-/* Generated stub for watch_splice_inflight */
-void watch_splice_inflight(struct lightningd *ld UNNEEDED,
-			   struct channel_inflight *inflight UNNEEDED)
-{ fprintf(stderr, "watch_splice_inflight called!\n"); abort(); }
 /* Generated stub for watch_txid_ */
 struct txwatch *watch_txid_(const tal_t *ctx UNNEEDED,
 			    struct chain_topology *topo UNNEEDED,

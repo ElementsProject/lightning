@@ -141,6 +141,17 @@ void channel_watch_funding(struct lightningd *ld, struct channel *channel);
 void channel_watch_wrong_funding(struct lightningd *ld, struct channel *channel);
 
 /**
+ * channel_wrong_funding_spent_watch_found - bwatch handler: wrong funding outpoint was spent.
+ * Owner prefix: "channel/wrong_funding_spent/<dbid>"
+ */
+void channel_wrong_funding_spent_watch_found(struct lightningd *ld,
+					     u32 dbid,
+					     const struct bitcoin_tx *tx,
+					     size_t innum,
+					     u32 blockheight,
+					     u32 txindex);
+
+/**
  * channel_funding_watch_found - bwatch handler: funding scriptpubkey appeared on-chain.
  * Owner prefix: "channel/funding/<dbid>"
  *

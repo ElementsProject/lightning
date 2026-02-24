@@ -21,6 +21,12 @@ void channeld_tell_depth(struct channel *channel,
 			 const struct bitcoin_txid *txid,
 			 u32 depth);
 
+/* Send splice-specific depth message (is_splice=true) to channeld. */
+void channeld_tell_splice_depth(struct channel *channel,
+				const struct short_channel_id *splice_scid,
+				const struct bitcoin_txid *txid,
+				u32 depth);
+
 /* Notify channels of new blocks. */
 void channel_notify_new_block(struct lightningd *ld);
 
@@ -50,9 +56,6 @@ void lockin_complete(struct channel *channel,
 /* Accessor for zeroconf to tell us we've actually got an scid */
 void lockin_has_completed(struct channel *channel, bool record_push);
 
-/* Watch this incoming splice */
-void watch_splice_inflight(struct lightningd *ld,
-			   struct channel_inflight *inflight);
 
 /* Update/set scid now this txid is mined. */
 bool depthcb_update_scid(struct channel *channel,

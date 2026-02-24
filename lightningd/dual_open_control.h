@@ -17,6 +17,12 @@ bool peer_restart_dualopend(struct peer *peer,
 void watch_opening_inflight(struct lightningd *ld,
 			    struct channel_inflight *inflight);
 
+/* Per-block depth driver for DUALOPEND_AWAITING_LOCKIN channels, called
+ * from channel_block_processed. */
+void dualopend_channel_depth(struct lightningd *ld,
+			     struct channel *channel,
+			     u32 depth);
+
 /* Close connection to an unsaved channel */
 void channel_unsaved_close_conn(struct channel *channel, const char *why);
 

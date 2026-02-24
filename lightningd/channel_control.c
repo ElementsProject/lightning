@@ -651,78 +651,6 @@ static void handle_splice_confirmed_signed(struct lightningd *ld,
 	send_splice_tx(channel, tx, cc, output_index, inflight->funding_psbt);
 }
 
-static enum watch_result splice_depth_cb(struct lightningd *ld,
-					 const struct bitcoin_txid *txid,
-					 const struct bitcoin_tx *tx,
-					 unsigned int depth,
-					 void *param)
-{
-	/* find_txwatch triggers a type warning on inflight, so we do this. */
-	struct channel_inflight *inflight = param;
-	struct txlocator *loc;
-	struct short_channel_id scid;
-
-	/* What scid is this giving us? */
-	loc = wallet_transaction_locate(tmpctx, ld->wallet, txid);
-	if (!mk_short_channel_id(&scid,
-				 loc->blkheight, loc->index,
-				 inflight->funding->outpoint.n)) {
-		channel_fail_permanent(inflight->channel,
-				       REASON_LOCAL,
-				       "Invalid funding scid %u:%u:%u",
-				       loc->blkheight, loc->index,
-				       inflight->funding->outpoint.n);
-		return false;
-	}
-
-	/* Usually, we're here because we're awaiting a splice, but
-	 * we could also mutual shutdown, or that weird splice_locked_memonly
-	 * hack... */
-	if (inflight->channel->state != CHANNELD_AWAITING_SPLICE) {
-		log_info(inflight->channel->log, "Splice inflight event but not"
-			 " in AWAITING_SPLICE, ending watch of txid %s",
-			 fmt_bitcoin_txid(tmpctx, txid));
-		return DELETE_WATCH;
-	}
-
-	/* Reorged out?  OK, we're not committed yet. */
-	if (depth == 0) {
-		return KEEP_WATCHING;
-	}
-
-	if (inflight->channel->owner) {
-		log_info(inflight->channel->log, "splice_depth_cb: sending funding depth scid: %s",
-			fmt_short_channel_id(tmpctx, scid));
-		subd_send_msg(inflight->channel->owner,
-			      take(towire_channeld_funding_depth(
-					   NULL, &scid,
-					   depth, true, txid)));
-	}
-
-	/* channeld will tell us when splice is locked in: we'll clean
-	 * this watch up then. */
-	return KEEP_WATCHING;
-}
-
-void watch_splice_inflight(struct lightningd *ld,
-			   struct channel_inflight *inflight)
-{
-	log_info(inflight->channel->log, "Watching splice inflight %s",
-		 fmt_bitcoin_txid(tmpctx,
-				  &inflight->funding->outpoint.txid));
-	watch_txid(inflight, ld->topology,
-		   &inflight->funding->outpoint.txid,
-		   splice_depth_cb, inflight);
-}
-
-static struct txwatch *splice_inflight_txwatch(struct channel *channel,
-					       struct channel_inflight *inflight)
-{
-	return find_txwatch(channel->peer->ld->topology,
-			    &inflight->funding->outpoint.txid,
-			    splice_depth_cb, channel);
-}
-
 static void handle_splice_sending_sigs(struct lightningd *ld,
 				       struct channel *channel,
 				       const u8 *msg)
@@ -764,7 +692,10 @@ static void handle_splice_sending_sigs(struct lightningd *ld,
 			  cc ? REASON_USER : REASON_REMOTE,
 			  "Splice signatures sent");
 
-	watch_splice_inflight(ld, inflight);
+	/* bwatch's persistent channel/funding/<dbid> scriptpubkey watch catches
+	 * the splice tx via channel_funding_watch_found when it confirms. */
+	log_debug(channel->log, "Splice sigs sent, bwatch watching for %s",
+		  fmt_bitcoin_txid(tmpctx, &inflight->funding->outpoint.txid));
 }
 
 bool depthcb_update_scid(struct channel *channel,
@@ -1106,7 +1037,6 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 	s64 splice_amnt;
 	struct channel_inflight *inflight;
 	struct bitcoin_txid locked_txid;
-	struct txwatch *txw;
 
 	if (!fromwire_channeld_got_splice_locked(msg, &funding_sats,
 						 &splice_amnt,
@@ -1126,14 +1056,21 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 	wallet_htlcsigs_confirm_inflight(channel->peer->ld->wallet, channel,
 					 &inflight->funding->outpoint);
 
-	/* Stop watching previous funding tx (could be, for announcement) */
+	/* Stop watching current funding outpoint (channel_watch_funding below
+	 * re-registers it after the financial fields are updated). */
 	channel_unwatch_funding(channel->peer->ld, channel);
 
 	/* Stash prev funding data so we can log it after scid is updated
-	 * (to get the blockheight) */
+	 * (to get the blockheight).
+	 * channel->funding has already been moved to the splice outpoint by
+	 * channel_splice_watch_found, so use pre_splice_funding if set to get
+	 * the original outpoint for channel_record_splice bookkeeping. */
 	prev_our_msats = channel->our_msat;
 	prev_funding_sats = channel->funding_sats;
-	prev_funding_out = channel->funding;
+	prev_funding_out = channel->pre_splice_funding
+			   ? *channel->pre_splice_funding
+			   : channel->funding;
+	channel->pre_splice_funding = tal_free(channel->pre_splice_funding);
 
 	update_channel_from_inflight(channel->peer->ld, channel, inflight, true);
 
@@ -1177,12 +1114,6 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 
 	lockin_complete(channel, CHANNELD_AWAITING_SPLICE);
 
-	/* Turn off tx watcher for the splice */
-	txw = splice_inflight_txwatch(channel, inflight);
-	if (!txw)
-		log_unusual(channel->log, "Can't unwatch txid %s",
-			    fmt_bitcoin_txid(tmpctx, &locked_txid));
-	tal_free(txw);
 }
 
 /* We were informed by channeld that channel is ready (reached mindepth) */
@@ -1950,6 +1881,34 @@ void channeld_tell_depth(struct channel *channel,
 		      take(towire_channeld_funding_depth(
 			  NULL, channel->scid, depth,
 			  false, txid)));
+}
+
+/* Send the splice-specific depth message to channeld (is_splice=true).
+ * splice_scid is the short_channel_id of the confirmed splice tx. */
+void channeld_tell_splice_depth(struct channel *channel,
+				const struct short_channel_id *splice_scid,
+				const struct bitcoin_txid *txid,
+				u32 depth)
+{
+	struct short_channel_id scid_copy;
+
+	if (!channel->owner) {
+		log_debug(channel->log,
+			  "Splice tx %s confirmed, but peer disconnected",
+			  fmt_bitcoin_txid(tmpctx, txid));
+		return;
+	}
+
+	log_debug(channel->log,
+		  "Sending splice funding_depth scid=%s depth=%u",
+		  fmt_short_channel_id(tmpctx, *splice_scid), depth);
+
+	/* towire_channeld_funding_depth takes non-const pointer */
+	scid_copy = *splice_scid;
+	subd_send_msg(channel->owner,
+		      take(towire_channeld_funding_depth(
+			  NULL, &scid_copy, depth,
+			  true, txid)));
 }
 
 /* Check if we are the fundee of this channel, the channel

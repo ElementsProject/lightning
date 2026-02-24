@@ -397,9 +397,11 @@ static const struct watch_dispatch {
 	{ "wallet/p2tr/",         wallet_watch_p2tr },
 	{ "wallet/p2sh_p2wpkh/",  wallet_watch_p2sh_p2wpkh },
 	/* channel/funding/<dbid>: WATCH_SCRIPTPUBKEY, fires when funding tx confirmed */
-	{ "channel/funding/",         channel_funding_watch_found },
+	{ "channel/funding/",               channel_funding_watch_found },
 	/* channel/funding_spent/<dbid>: WATCH_OUTPOINT, fires when funding outpoint spent */
-	{ "channel/funding_spent/",   channel_funding_spent_watch_found },
+	{ "channel/funding_spent/",         channel_funding_spent_watch_found },
+	/* channel/wrong_funding_spent/<dbid>: WATCH_OUTPOINT, fires when shutdown_wrong_funding outpoint spent */
+	{ "channel/wrong_funding_spent/",   channel_wrong_funding_spent_watch_found },
 };
 
 /**
