@@ -160,7 +160,9 @@ u64 forward_index_update_status(struct lightningd *ld UNNEEDED,
 				struct amount_msat in_amount UNNEEDED,
 				const struct short_channel_id *out_channel UNNEEDED)
 { fprintf(stderr, "forward_index_update_status called!\n"); abort(); }
-/* Could not find declaration for fromwire_bwatch_utxoset_entry */
+/* Generated stub for fromwire_bwatch_utxoset_entry */
+bool fromwire_bwatch_utxoset_entry(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct utxoset_entry_wire **entry UNNEEDED)
+{ fprintf(stderr, "fromwire_bwatch_utxoset_entry called!\n"); abort(); }
 /* Generated stub for fromwire_hsmd_get_channel_basepoints_reply */
 bool fromwire_hsmd_get_channel_basepoints_reply(const void *p UNNEEDED, struct basepoints *basepoints UNNEEDED, struct pubkey *funding_pubkey UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_get_channel_basepoints_reply called!\n"); abort(); }

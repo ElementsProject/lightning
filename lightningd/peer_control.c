@@ -322,24 +322,6 @@ static struct bitcoin_tx *sign_and_send_last(const tal_t *ctx,
 	return tx;
 }
 
-/* We coop-closed channel: if another inflight confirms, force close */
-static enum watch_result closed_inflight_depth_cb(struct lightningd *ld,
-						  const struct bitcoin_txid *txid,
-						  const struct bitcoin_tx *tx,
-						  unsigned int depth,
-						  struct channel_inflight *inflight)
-{
-	if (depth == 0)
-		return KEEP_WATCHING;
-
-	/* This is now the main tx. */
-	update_channel_from_inflight(ld, inflight->channel, inflight, false);
-	channel_fail_saw_onchain(inflight->channel,
-				 REASON_UNKNOWN,
-				 tx,
-				 "Inflight tx confirmed after mutual close");
-	return DELETE_WATCH;
-}
 
 void drop_to_chain(struct lightningd *ld, struct channel *channel,
 		   bool cooperative,
@@ -426,19 +408,24 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 		resolve_close_command(ld, channel, cooperative, txs);
 	}
 
-	/* In cooperative mode, we're assuming that we closed the right one:
-	 * this might not happen if we're splicing, or dual-funding still
-	 * opening.  So, if we get any unexpected inflight confirming, we
-	 * force close. */
+	/* In cooperative mode we closed the right outpoint, but there may be
+	 * other live inflights (dual-fund RBF candidates, splice inflights).
+	 * If any of those confirm unexpectedly the funds are locked in a 2-of-2
+	 * nobody is closing — register a WATCH_TXID for each so bwatch tells us
+	 * if one appears on-chain.  channel_rogue_inflight_watch_found then
+	 * promotes it to the real funding and hands it to onchaind for recovery.
+	 * All watches share the same owner; the handler disambiguates via txid. */
 	if (cooperative) {
 		list_for_each(&channel->inflights, inflight, list) {
 			if (bitcoin_outpoint_eq(&inflight->funding->outpoint,
-						&channel->funding)) {
+						&channel->funding))
 				continue;
-			}
-			watch_txid(inflight, ld->topology,
-				   &inflight->funding->outpoint.txid,
-				   closed_inflight_depth_cb, inflight);
+			watchman_watch_txid(ld,
+				tal_fmt(tmpctx,
+					"channel/rogue_inflight/%"PRIu64,
+					channel->dbid),
+				&inflight->funding->outpoint.txid,
+				get_block_height(ld->topology));
 		}
 	}
 }
@@ -2366,6 +2353,77 @@ void channel_wrong_funding_spent_watch_found(struct lightningd *ld,
 	onchaind_funding_spent(channel, tx, blockheight);
 }
 
+/* Called by watchman when a WATCH_TXID registered for a rogue inflight fires.
+ *
+ * This happens after a cooperative close when one of the non-closed inflights
+ * (dual-fund RBF candidate, or live splice inflight) unexpectedly confirms.
+ * Those funds are locked in a 2-of-2 that nobody is actively closing, so we
+ * treat the inflight as the real funding and hand it to onchaind for recovery.
+ *
+ * One-shot: no depth tracking needed.  We unwatch all other inflight txid
+ * watches so bwatch doesn't fire for them anymore.
+ */
+void channel_rogue_inflight_watch_found(struct lightningd *ld,
+					u32 dbid,
+					const struct bitcoin_tx *tx,
+					size_t outnum UNUSED,
+					u32 blockheight UNUSED,
+					u32 txindex UNUSED)
+{
+	struct channel *channel = channel_by_dbid(ld, (u64)dbid);
+	struct channel_inflight *inflight, *other;
+	struct bitcoin_txid txid;
+	const char *owner;
+
+	if (!channel) {
+		log_broken(ld->log,
+			   "channel/rogue_inflight watch_found: no channel for dbid %u",
+			   dbid);
+		return;
+	}
+
+	bitcoin_txid(tx, &txid);
+
+	/* Find the matching inflight by txid. */
+	inflight = channel_inflight_find(channel, &txid);
+	if (!inflight) {
+		log_unusual(channel->log,
+			    "bwatch: rogue inflight watch fired for unknown txid %s"
+			    " (dbid %u) - ignoring",
+			    fmt_bitcoin_txid(tmpctx, &txid), dbid);
+		return;
+	}
+
+	log_unusual(channel->log,
+		    "bwatch: rogue inflight %s confirmed after close"
+		    " — triggering onchaind for fund recovery",
+		    fmt_bitcoin_txid(tmpctx, &txid));
+
+	owner = tal_fmt(tmpctx, "channel/rogue_inflight/%"PRIu64, channel->dbid);
+
+	/* Cancel watches for all other inflights — one of them just won,
+	 * the others are irrelevant. */
+	list_for_each(&channel->inflights, other, list) {
+		if (other == inflight)
+			continue;
+		if (bitcoin_outpoint_eq(&other->funding->outpoint,
+					&channel->funding))
+			continue;
+		watchman_unwatch_txid(ld, owner,
+				      &other->funding->outpoint.txid);
+	}
+
+	/* Promote this inflight to the channel's actual funding so onchaind
+	 * operates on the right outpoint and financial fields. */
+	wallet_annotate_txout(ld->wallet, &inflight->funding->outpoint,
+			      TX_CHANNEL_FUNDING, channel->dbid);
+	update_channel_from_inflight(ld, channel, inflight, false);
+
+	/* Hand to onchaind for fund recovery — one-shot, no depth needed. */
+	channel_fail_saw_onchain(channel, REASON_UNKNOWN, tx,
+				 "Inflight tx confirmed after mutual close");
+}
+
 void channel_watch_wrong_funding(struct lightningd *ld, struct channel *channel)
 {
 	/* Watch the "wrong" funding too, in case we spend it. */
@@ -2464,6 +2522,8 @@ static bool channel_splice_watch_found(struct lightningd *ld,
 
 		/* Update channel to the new splice funding outpoint. */
 		channel->funding = inflight->funding->outpoint;
+		wallet_annotate_txout(ld->wallet, &channel->funding,
+				      TX_CHANNEL_FUNDING, channel->dbid);
 		channel_set_scid(channel, scid);
 		wallet_channel_save(ld->wallet, channel);
 

@@ -109,6 +109,18 @@ void watchman_unwatch_outpoint(struct lightningd *ld,
 			       const char *owner,
 			       const struct bitcoin_outpoint *outpoint);
 
+/** Register a WATCH_TXID — fires when a tx with that txid is confirmed.
+ *  outnum and innum will both be UINT32_MAX in the handler. */
+void watchman_watch_txid(struct lightningd *ld,
+			 const char *owner,
+			 const struct bitcoin_txid *txid,
+			 u32 start_block);
+
+/** Remove a WATCH_TXID. */
+void watchman_unwatch_txid(struct lightningd *ld,
+			   const char *owner,
+			   const struct bitcoin_txid *txid);
+
 /**
  * watchman_add_utxo - Add a wallet-originated UTXO to bwatch's datastore
  * @ld: lightningd instance

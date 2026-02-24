@@ -44,9 +44,9 @@ for SYMBOL; do
     # If there are multiple declarations, pick first (eg. common/memleak.h
     # has notleak_ as a declaration, and then an inline).
     # Also, prefer local headers over generic ones.
-    WHERE=$(shopt -s nullglob; grep -nH "^[a-zA-Z0-9_ (),]* [*]*$SYMBOL(" "$UPDIRNAME"/*.h ./*/*.h | head -n1)
+    WHERE=$(shopt -s nullglob; grep -nH "^[a-zA-Z0-9_ (),]* [*]*$SYMBOL(" "$UPDIRNAME"/*.h ./*/*.h ./plugins/*/*.h | head -n1)
     if [ -z "$WHERE" ]; then
-	WHERE=$(shopt -s nullglob; grep -nH "^extern [a-zA-Z0-9_ (),]* [*]*$SYMBOL;" "$UPDIRNAME"/*.h ./*/*.h | head -n1)
+	WHERE=$(shopt -s nullglob; grep -nH "^extern [a-zA-Z0-9_ (),]* [*]*$SYMBOL;" "$UPDIRNAME"/*.h ./*/*.h ./plugins/*/*.h | head -n1)
 	STUB=";"
 	if [ -z "$WHERE" ]; then
 	    echo "/* Could not find declaration for $SYMBOL */"

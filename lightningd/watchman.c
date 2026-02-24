@@ -349,6 +349,31 @@ void watchman_unwatch_outpoint(struct lightningd *ld,
 			     outpoint->n));
 }
 
+void watchman_watch_txid(struct lightningd *ld,
+			 const char *owner,
+			 const struct bitcoin_txid *txid,
+			 u32 start_block)
+{
+	watchman_add(ld, owner,
+		     tal_fmt(tmpctx,
+			     "{\"type\":\"txid\""
+			     ",\"txid\":\"%s\""
+			     ",\"start_block\":%u}",
+			     fmt_bitcoin_txid(tmpctx, txid),
+			     start_block));
+}
+
+void watchman_unwatch_txid(struct lightningd *ld,
+			   const char *owner,
+			   const struct bitcoin_txid *txid)
+{
+	watchman_del(ld, owner,
+		     tal_fmt(tmpctx,
+			     "{\"type\":\"txid\""
+			     ",\"txid\":\"%s\"}",
+			     fmt_bitcoin_txid(tmpctx, txid)));
+}
+
 void watchman_add_utxo(struct lightningd *ld,
 		       const struct bitcoin_outpoint *outpoint,
 		       u32 blockheight, u32 txindex,
@@ -402,6 +427,8 @@ static const struct watch_dispatch {
 	{ "channel/funding_spent/",         channel_funding_spent_watch_found },
 	/* channel/wrong_funding_spent/<dbid>: WATCH_OUTPOINT, fires when shutdown_wrong_funding outpoint spent */
 	{ "channel/wrong_funding_spent/",   channel_wrong_funding_spent_watch_found },
+	/* channel/rogue_inflight/<dbid>: WATCH_TXID, fires when a non-primary inflight tx confirms */
+	{ "channel/rogue_inflight/",        channel_rogue_inflight_watch_found },
 };
 
 /**

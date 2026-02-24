@@ -1890,8 +1890,6 @@ void channeld_tell_splice_depth(struct channel *channel,
 				const struct bitcoin_txid *txid,
 				u32 depth)
 {
-	struct short_channel_id scid_copy;
-
 	if (!channel->owner) {
 		log_debug(channel->log,
 			  "Splice tx %s confirmed, but peer disconnected",
@@ -1904,10 +1902,9 @@ void channeld_tell_splice_depth(struct channel *channel,
 		  fmt_short_channel_id(tmpctx, *splice_scid), depth);
 
 	/* towire_channeld_funding_depth takes non-const pointer */
-	scid_copy = *splice_scid;
 	subd_send_msg(channel->owner,
 		      take(towire_channeld_funding_depth(
-			  NULL, &scid_copy, depth,
+			  NULL, (struct short_channel_id *)splice_scid, depth,
 			  true, txid)));
 }
 
