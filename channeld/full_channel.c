@@ -1544,47 +1544,27 @@ static bool adjust_balance(struct balance view_owed[NUM_SIDES][NUM_SIDES],
 	return true;
 }
 
-bool pending_updates(const struct channel *channel,
-		     enum side side,
-		     bool uncommitted_ok)
+bool pending_updates(const struct channel *channel, enum side side)
 {
 	struct htlc_map_iter it;
 	const struct htlc *htlc;
 
 	/* Initiator might have fee changes or blockheight updates in play. */
 	if (side == channel->opener) {
-		if (!feerate_changes_done(channel->fee_states, uncommitted_ok))
+		if (!feerate_changes_done(channel->fee_states, false))
 			return true;
 
-		if (!blockheight_changes_done(channel->blockheight_states,
-					      uncommitted_ok))
+		if (!blockheight_changes_done(channel->blockheight_states, false))
 			return true;
 	}
 
+	/* Are we still waiting for the side to send something? */
 	for (htlc = htlc_map_first(channel->htlcs, &it);
 	     htlc;
 	     htlc = htlc_map_next(channel->htlcs, &it)) {
-		int flags = htlc_state_flags(htlc->state);
-
-		/* If it's still being added, its owner added it. */
-		if (flags & HTLC_ADDING) {
-			/* It might be OK if it's added, but not committed */
-			if (uncommitted_ok
-			    && (flags & HTLC_FLAG(!side, HTLC_F_PENDING)))
-				continue;
-			if (htlc_owner(htlc) == side)
-				return true;
-		/* If it's being removed, non-owner removed it */
-		} else if (htlc_state_flags(htlc->state) & HTLC_REMOVING) {
-			/* It might be OK if it's removed, but not committed */
-			if (uncommitted_ok
-			    && (flags & HTLC_FLAG(!side, HTLC_F_PENDING)))
-				continue;
-			if (htlc_owner(htlc) != side)
-				return true;
-		}
+		if (htlc_state_flags(htlc->state) & HTLC_FLAG(side, HTLC_F_WILL_SEND))
+			return true;
 	}
-
 	return false;
 }
 
