@@ -231,10 +231,20 @@ static void end_stfu_mode(struct peer *peer)
 
 static bool maybe_send_stfu(struct peer *peer)
 {
+	struct htlc_map_iter it;
+	const struct htlc *htlc;
+
 	if (!peer->want_stfu)
 		return false;
 
-	if (pending_updates(peer->channel, LOCAL, false)) {
+	for (htlc = htlc_map_first(peer->channel->htlcs, &it);
+	     htlc;
+	     htlc = htlc_map_next(peer->channel->htlcs, &it)) {
+		status_info("maybe_send_stfu: htlc %"PRIu64" state %s",
+			    htlc->id, htlc_state_name(htlc->state));
+	}
+
+	if (pending_updates(peer->channel, LOCAL)) {
 		status_info("Pending updates prevent us from STFU mode at this"
 			    " time.");
 		return false;
@@ -297,7 +307,7 @@ static void handle_stfu(struct peer *peer, const u8 *stfu)
 	}
 
 	/* Sanity check */
-	if (pending_updates(peer->channel, REMOTE, false))
+	if (pending_updates(peer->channel, REMOTE))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "STFU but you still have updates pending?");
 
