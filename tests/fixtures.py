@@ -21,28 +21,25 @@ def node_cls():
 
 
 class LightningNode(utils.LightningNode):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, node_id, *args, **kwargs):
         # Yes, we really want to test the local development version, not
         # something in out path.
         kwargs["executable"] = "lightningd/lightningd"
-        utils.LightningNode.__init__(self, *args, **kwargs)
+        utils.LightningNode.__init__(self, node_id, *args, **kwargs)
+
+        self.node_id = node_id
+        self.network = TEST_NETWORK
 
         # New VLS integration
         mode = env("VLS_MODE", "cln:native")
-
         subdaemon = {
             "cln:native": None,
             "cln:socket": f"hsmd:{self.lightning_dir/'validating-lightning-signer'/'target'/'debug'/'remote_hsmd_socket'}",
         }[mode]
 
+        self.use_vlsd = subdaemon is not None
+        self.vlsd: ValidatingLightningSignerD | None = None
         if subdaemon:
-            self.REQUEST = None
-            self.subdaemon = subdaemon
-            self.use_vlsd = self.subdaemon is not None
-            self.vlsd: ValidatingLightningSignerD | None = None
-            self.vls_dir = self.lightning_dir / "validating-lightning-signer"
-            self.vlsd_port = utils.reserve_unused_port()
-            self.vlsd_rpc_port = utils.reserve_unused_port()
             self.daemon.opts["subdaemon"] = subdaemon
 
         # Avoid socket path name too long on Linux
@@ -81,36 +78,30 @@ class LightningNode(utils.LightningNode):
             accts_db = self.db.provider.get_db('', 'accounts', 0)
             self.daemon.opts['bookkeeper-db'] = accts_db.get_dsn()
 
-        def start(self, wait_for_bitcoind_sync=True, stderr_redir=False):
-            self.vls_dir.mkdir(exist_ok=True, parents=True)
-
-            # We start the signer first, otherwise the lightningd startup hangs on the init message
-            if self.use_vlsd:
-                self.daemon.env["VLS_PORT"] = str(self.vlsd_port)
-                self.daemon.env["VLS_LSS"] = os.environ.get("LSS_URI", "")
-                self.vlsd = ValidatingLightningSignerD(
-                    vlsd_dir=self.vls_dir,
-                    vlsd_port=self.vlsd_port,
-                    vlsd_rpc_port=self.vlsd_rpc_port,
-                    node_id=self.node_id,
-                    network=self.network,
-                )
-                import threading
-
-                threading.Timer(1, self.vlsd.start).start()
-                self.REQUEST.addfinalizer(self.vlsd.stop)
-
-            utils.LightningNode.start(
-                self,
-                wait_for_bitcoind_sync=wait_for_bitcoind_sync,
-                stderr_redir=stderr_redir,
+    def start(self, wait_for_bitcoind_sync=True, stderr_redir=False):
+        # We start the signer first, otherwise the lightningd startup hangs on the init message.
+        if self.use_vlsd:
+            self.vlsd = ValidatingLightningSignerD(
+                lightning_dir=self.lightning_dir,
+                node_id=self.node_id,
+                network=self.network,
             )
+            self.daemon.env["VLS_PORT"] = str(self.vlsd.port)
+            self.daemon.env["VLS_LSS"] = os.environ.get("LSS_URI", "")
+            import threading
+            threading.Timer(1, self.vlsd.start).start()
 
-        def stop(self, timeout: int = 10):
-            utils.LightningNode.stop(self, timeout=timeout)
-            if self.vlsd is not None and self.use_vlsd:
-                rc = self.vlsd.stop(timeout=timeout)
-                print(f"VLSD2 exited with rc={rc}")
+        utils.LightningNode.start(
+            self,
+            wait_for_bitcoind_sync=wait_for_bitcoind_sync,
+            stderr_redir=stderr_redir,
+        )
+
+    def stop(self, timeout: int = 10):
+        utils.LightningNode.stop(self, timeout=timeout)
+        if self.vlsd is not None:
+            rc = self.vlsd.stop(timeout=timeout)
+            print(f"VLSD2 exited with rc={rc}")
 
 
 
