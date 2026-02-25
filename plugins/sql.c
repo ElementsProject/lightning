@@ -24,8 +24,6 @@ static const char schemas[] =
 	;
 
 /* TODO:
- * 2. Refresh time in API.
- * 8. time_msec fields.
  * 10. General pagination API (not just chainmoves and channelmoves)
  * 11. Normalize account_id fields into another table, as they are highly duplicate, and use views to maintain the current API.
 */
