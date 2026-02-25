@@ -12,8 +12,8 @@ enum side {
 };
 
 /* What are we doing: adding or removing? */
-#define HTLC_ADDING			0x400
-#define HTLC_REMOVING			0x800
+#define HTLC_ADDING			0x1000
+#define HTLC_REMOVING			0x2000
 
 /* Uncommitted change is pending */
 #define HTLC_F_PENDING			0x01
@@ -25,21 +25,25 @@ enum side {
 #define HTLC_F_OWNER			0x08
 /* HTLC was ever in a commit_tx */
 #define HTLC_F_WAS_COMMITTED		0x10
+/* We need to send more messages to reach steady state */
+#define HTLC_F_WILL_SEND		0x20
 
 /* Each of the above flags applies to both sides */
-#define HTLC_FLAG(side,flag)		((flag) << ((side) * 5))
+#define HTLC_FLAG(side,flag)		((flag) << ((side) * 6))
 
 #define HTLC_REMOTE_F_PENDING		HTLC_FLAG(REMOTE,HTLC_F_PENDING)
 #define HTLC_REMOTE_F_COMMITTED		HTLC_FLAG(REMOTE,HTLC_F_COMMITTED)
 #define HTLC_REMOTE_F_REVOKED		HTLC_FLAG(REMOTE,HTLC_F_REVOKED)
 #define HTLC_REMOTE_F_OWNER		HTLC_FLAG(REMOTE,HTLC_F_OWNER)
 #define HTLC_REMOTE_F_WAS_COMMITTED	HTLC_FLAG(REMOTE,HTLC_F_WAS_COMMITTED)
+#define HTLC_REMOTE_F_WILL_SEND		HTLC_FLAG(REMOTE,HTLC_F_WILL_SEND)
 
 #define HTLC_LOCAL_F_PENDING		HTLC_FLAG(LOCAL,HTLC_F_PENDING)
 #define HTLC_LOCAL_F_COMMITTED		HTLC_FLAG(LOCAL,HTLC_F_COMMITTED)
 #define HTLC_LOCAL_F_REVOKED		HTLC_FLAG(LOCAL,HTLC_F_REVOKED)
 #define HTLC_LOCAL_F_OWNER		HTLC_FLAG(LOCAL,HTLC_F_OWNER)
 #define HTLC_LOCAL_F_WAS_COMMITTED	HTLC_FLAG(LOCAL,HTLC_F_WAS_COMMITTED)
+#define HTLC_LOCAL_F_WILL_SEND		HTLC_FLAG(LOCAL,HTLC_F_WILL_SEND)
 
 const char *htlc_state_name(enum htlc_state s);
 int htlc_state_flags(enum htlc_state state);
