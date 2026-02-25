@@ -1679,7 +1679,7 @@
               }
             }
           },
-          "add-source": {
+          "currencyrate-add-source": {
             "added": "v26.04",
             "type": "object",
             "additionalProperties": false,
@@ -1694,7 +1694,7 @@
                 "items": {
                   "type": "string",
                   "description": [
-                    "A source for currencyrate to fetch price data from in the format of NAME,URL,MEMBERS"
+                    "A source for cln-currencyrate to fetch price data from in the format of NAME,URL,MEMBERS"
                   ]
                 }
               },
@@ -1717,7 +1717,7 @@
               }
             }
           },
-          "disable-source": {
+          "currencyrate-disable-source": {
             "added": "v26.04",
             "type": "object",
             "additionalProperties": false,
@@ -1732,7 +1732,7 @@
                 "items": {
                   "type": "string",
                   "description": [
-                    "The name of the currencyrate source to disable"
+                    "The name of the cln-currencyrate source to disable"
                   ]
                 }
               },

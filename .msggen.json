@@ -2255,6 +2255,8 @@
             "ListConfigs.configs.commit-feerate-offset": 70,
             "ListConfigs.configs.commit-time": 38,
             "ListConfigs.configs.conf": 1,
+            "ListConfigs.configs.currencyrate-add-source": 74,
+            "ListConfigs.configs.currencyrate-disable-source": 75,
             "ListConfigs.configs.daemon": 18,
             "ListConfigs.configs.database-upgrade": 28,
             "ListConfigs.configs.developer": 2,
@@ -2389,6 +2391,16 @@
         "ListconfigsConfigsConf": {
             "ListConfigs.configs.conf.source": 2,
             "ListConfigs.configs.conf.value_str": 1
+        },
+        "ListconfigsConfigsCurrencyrate-add-source": {
+            "ListConfigs.configs.currencyrate-add-source.plugin": 3,
+            "ListConfigs.configs.currencyrate-add-source.sources[]": 2,
+            "ListConfigs.configs.currencyrate-add-source.values_str[]": 1
+        },
+        "ListconfigsConfigsCurrencyrate-disable-source": {
+            "ListConfigs.configs.currencyrate-disable-source.plugin": 3,
+            "ListConfigs.configs.currencyrate-disable-source.sources[]": 2,
+            "ListConfigs.configs.currencyrate-disable-source.values_str[]": 1
         },
         "ListconfigsConfigsDaemon": {
             "ListConfigs.configs.daemon.set": 1,
@@ -9220,6 +9232,38 @@
         },
         "ListConfigs.configs.conf.value_str": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.currencyrate-add-source": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "ListConfigs.configs.currencyrate-add-source.plugin": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "ListConfigs.configs.currencyrate-add-source.sources[]": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "ListConfigs.configs.currencyrate-add-source.values_str[]": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "ListConfigs.configs.currencyrate-disable-source": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "ListConfigs.configs.currencyrate-disable-source.plugin": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "ListConfigs.configs.currencyrate-disable-source.sources[]": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "ListConfigs.configs.currencyrate-disable-source.values_str[]": {
+            "added": "v26.04",
             "deprecated": null
         },
         "ListConfigs.configs.daemon": {

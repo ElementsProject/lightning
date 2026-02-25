@@ -41,18 +41,18 @@ async fn main() -> Result<(), anyhow::Error> {
     log_panics::init();
     std::env::set_var(
         "CLN_PLUGIN_LOG",
-        "cln_plugin=info,cln_rpc=info,currencyrate=debug,warn",
+        "cln_plugin=info,cln_rpc=info,cln-currencyrate=debug,warn",
     );
 
     let _ = rustls::crypto::ring::default_provider().install_default();
 
     let add_source_opt = StringArrayConfigOption::new_str_arr_no_default(
-        "add-source",
-        "A source for currencyrate to fetch price data from in the format of `NAME,URL,MEMBERS`",
+        "currencyrate-add-source",
+        "A source for cln-currencyrate to fetch price data from in the format of `NAME,URL,MEMBERS`",
     );
     let disable_source_opt = StringArrayConfigOption::new_str_arr_no_default(
-        "disable-source",
-        "The name of the currencyrate source to disable",
+        "currencyrate-disable-source",
+        "The name of the cln-currencyrate source to disable",
     );
 
     let Some(plugin) = Builder::new(tokio::io::stdin(), tokio::io::stdout())
@@ -221,11 +221,11 @@ fn gather_sources(
 ) -> Result<Vec<Source>, anyhow::Error> {
     let mut result = Vec::new();
 
-    let source_opts = plugin.option_str("add-source").unwrap();
+    let source_opts = plugin.option_str("currencyrate-add-source").unwrap();
     if let Some(sources) = source_opts {
         let sources_arr = sources
             .as_str_arr()
-            .ok_or(anyhow!("add-source is not a string array"))?;
+            .ok_or(anyhow!("currencyrate-add-source is not a string array"))?;
         for source in sources_arr {
             let parts: Vec<&str> = source.splitn(3, ',').collect();
             if parts.len() != 3 {
@@ -238,11 +238,11 @@ fn gather_sources(
 
     add_default_sources(&mut result, has_proxy);
 
-    let disable_sources = plugin.option_str("disable-source").unwrap();
+    let disable_sources = plugin.option_str("currencyrate-disable-source").unwrap();
     if let Some(dis_sorc) = disable_sources {
         let disable_sources_arr = dis_sorc
             .as_str_arr()
-            .ok_or(anyhow!("disable-source is not a string array"))?;
+            .ok_or(anyhow!("currencyrate-disable-source is not a string array"))?;
         for source in disable_sources_arr {
             result.retain(|s| s.name() != source);
         }
