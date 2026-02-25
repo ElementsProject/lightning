@@ -3076,8 +3076,8 @@ message ListconfigsConfigs {
 	optional ListconfigsConfigsCommitfee commit_fee = 69;
 	optional ListconfigsConfigsCommitfeerateoffset commit_feerate_offset = 70;
 	optional ListconfigsConfigsAutoconnectseekerpeers autoconnect_seeker_peers = 71;
-	optional ListconfigsConfigsAddsource add_source = 72;
-	optional ListconfigsConfigsDisablesource disable_source = 73;
+	optional ListconfigsConfigsCurrencyrateaddsource currencyrate_add_source = 74;
+	optional ListconfigsConfigsCurrencyratedisablesource currencyrate_disable_source = 75;
 }
 
 message ListconfigsConfigsConf {
@@ -3443,13 +3443,13 @@ message ListconfigsConfigsAutoconnectseekerpeers {
 	string source = 2;
 }
 
-message ListconfigsConfigsAddsource {
+message ListconfigsConfigsCurrencyrateaddsource {
 	repeated string values_str = 1;
 	repeated string sources = 2;
 	optional string plugin = 3;
 }
 
-message ListconfigsConfigsDisablesource {
+message ListconfigsConfigsCurrencyratedisablesource {
 	repeated string values_str = 1;
 	repeated string sources = 2;
 	optional string plugin = 3;

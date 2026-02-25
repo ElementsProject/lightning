@@ -10321,14 +10321,6 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct ListconfigsConfigsAddsource {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub plugin: Option<String>,
-	    pub sources: Vec<String>,
-	    pub values_str: Vec<String>,
-	}
-
-	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListconfigsConfigsAllowdeprecatedapis {
 	    pub source: String,
 	    pub value_bool: bool,
@@ -10448,6 +10440,22 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsCurrencyrateaddsource {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub plugin: Option<String>,
+	    pub sources: Vec<String>,
+	    pub values_str: Vec<String>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsCurrencyratedisablesource {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub plugin: Option<String>,
+	    pub sources: Vec<String>,
+	    pub values_str: Vec<String>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListconfigsConfigsDatabaseupgrade {
 	    pub source: String,
 	    pub value_bool: bool,
@@ -10469,14 +10477,6 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListconfigsConfigsDisableplugin {
-	    pub sources: Vec<String>,
-	    pub values_str: Vec<String>,
-	}
-
-	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct ListconfigsConfigsDisablesource {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub plugin: Option<String>,
 	    pub sources: Vec<String>,
 	    pub values_str: Vec<String>,
 	}
@@ -10820,9 +10820,6 @@ pub mod responses {
 	    #[serde(rename = "max-locktime-blocks")]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub max_locktime_blocks: Option<ListconfigsConfigsMaxlocktimeblocks>,
-	    #[serde(rename = "add-source")]
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub add_source: Option<ListconfigsConfigsAddsource>,
 	    #[serde(rename = "allow-deprecated-apis")]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub allow_deprecated_apis: Option<ListconfigsConfigsAllowdeprecatedapis>,
@@ -10865,6 +10862,12 @@ pub mod responses {
 	    #[serde(rename = "commit-time")]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub commit_time: Option<ListconfigsConfigsCommittime>,
+	    #[serde(rename = "currencyrate-add-source")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub currencyrate_add_source: Option<ListconfigsConfigsCurrencyrateaddsource>,
+	    #[serde(rename = "currencyrate-disable-source")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub currencyrate_disable_source: Option<ListconfigsConfigsCurrencyratedisablesource>,
 	    #[serde(rename = "database-upgrade")]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub database_upgrade: Option<ListconfigsConfigsDatabaseupgrade>,
@@ -10877,9 +10880,6 @@ pub mod responses {
 	    #[serde(rename = "disable-plugin")]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub disable_plugin: Option<ListconfigsConfigsDisableplugin>,
-	    #[serde(rename = "disable-source")]
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub disable_source: Option<ListconfigsConfigsDisablesource>,
 	    #[serde(rename = "encrypted-hsm")]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub encrypted_hsm: Option<ListconfigsConfigsEncryptedhsm>,

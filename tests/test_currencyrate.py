@@ -9,7 +9,7 @@ LOGGER = logging.getLogger(__name__)
 
 def test_apis_batch1(node_factory):
     opts = {
-        "disable-source": ["bitstamp", "coinbase"],
+        "currencyrate-disable-source": ["bitstamp", "coinbase"],
     }
     l1 = node_factory.get_node(options=opts)
 
@@ -54,7 +54,7 @@ def test_apis_batch1(node_factory):
 
 def test_apis_batch2(node_factory):
     opts = {
-        "disable-source": [
+        "currencyrate-disable-source": [
             "coingecko",
             "kraken",
             "blockchain.info",
@@ -94,7 +94,7 @@ def test_apis_batch2(node_factory):
 
 def test_custom_source(node_factory):
     opts = {
-        "disable-source": [
+        "currencyrate-disable-source": [
             "bitstamp",
             "coinbase",
             "coingecko",
@@ -103,7 +103,7 @@ def test_custom_source(node_factory):
             "coindesk",
             "binance",
         ],
-        "add-source": [
+        "currencyrate-add-source": [
             r"my-coingecko,https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies={currency_lc},bitcoin,{currency_lc}",
             r"my-kraken,https://api.kraken.com/0/public/Ticker?pair=XXBTZ{currency},result,XXBTZ{currency},c,0",
         ],
@@ -142,7 +142,7 @@ def test_custom_source(node_factory):
 
 def test_no_sources(node_factory):
     opts = {
-        "disable-source": [
+        "currencyrate-disable-source": [
             "bitstamp",
             "coinbase",
             "coingecko",

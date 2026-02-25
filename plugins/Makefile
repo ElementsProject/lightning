@@ -138,7 +138,7 @@ $(shell test -d plugins/clnrest && $(RM) -r plugins/clnrest || true)
 $(shell test -d plugins/wss-proxy && $(RM) -r plugins/wss-proxy || true)
 
 ifneq ($(RUST),0)
-RUST_PLUGIN_NAMES := cln-grpc clnrest cln-lsps-client cln-lsps-service wss-proxy cln-bip353 currencyrate
+RUST_PLUGIN_NAMES := cln-grpc clnrest cln-lsps-client cln-lsps-service wss-proxy cln-bip353 cln-currencyrate
 
 # Builtin plugins must be in this plugins dir to work when we're executed
 # *without* make install.
@@ -265,13 +265,13 @@ $(RUST_TARGET_DIR)/wss-proxy: ${CLN_WSS_PROXY_PLUGIN_SRC}
 	$(CARGO) build ${CARGO_OPTS} --bin wss-proxy
 $(RUST_TARGET_DIR)/cln-bip353: ${CLN_BIP353_PLUGIN_SRC}
 	$(CARGO) build ${CARGO_OPTS} --bin cln-bip353
-$(RUST_TARGET_DIR)/currencyrate: ${CLN_CURRENCYRATE_PLUGIN_SRC}
-	cargo build ${CARGO_OPTS} --bin currencyrate
+$(RUST_TARGET_DIR)/cln-currencyrate: ${CLN_CURRENCYRATE_PLUGIN_SRC}
+	$(CARGO) build ${CARGO_OPTS} --bin cln-currencyrate
 
 ifneq ($(RUST),0)
 include plugins/rest-plugin/Makefile
 include plugins/wss-proxy-plugin/Makefile
-DEFAULT_TARGETS += $(CLN_PLUGIN_EXAMPLES) plugins/cln-grpc plugins/clnrest plugins/cln-lsps-client plugins/cln-lsps-service plugins/wss-proxy plugins/cln-bip353 plugins/currencyrate
+DEFAULT_TARGETS += $(CLN_PLUGIN_EXAMPLES) plugins/cln-grpc plugins/clnrest plugins/cln-lsps-client plugins/cln-lsps-service plugins/wss-proxy plugins/cln-bip353 plugins/cln-currencyrate
 endif
 
 clean: plugins-clean
