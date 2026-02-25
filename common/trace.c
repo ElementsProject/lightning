@@ -312,7 +312,7 @@ void trace_span_start_(const char *name, const void *key)
 	current = s;
 	DTRACE_PROBE1(lightningd, span_start, s->id);
 	if (trace_to_file) {
-		fprintf(trace_to_file, "span_start %016"PRIx64"\n", s->id);
+		fprintf(trace_to_file, "span_start %016"PRIx64" %s\n", s->id, name);
 		fflush(trace_to_file);
 	}
 }

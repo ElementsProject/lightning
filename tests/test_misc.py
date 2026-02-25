@@ -5008,7 +5008,7 @@ def test_tracing(node_factory):
         with open(fname, "rt") as f:
             for linenum, l in enumerate(f.readlines(), 1):
                 # In case an assertion fails
-                print(f"Parsing {fname}:{linenum}")
+                print(f"Parsing {fname}:{linenum}: {l.strip()}")
                 parts = l.split(maxsplit=2)
                 cmd = parts[0]
                 spanid = parts[1]
@@ -5046,8 +5046,9 @@ def test_tracing(node_factory):
                 else:
                     assert False, "Unknown trace line"
 
-        assert suspended == set()
-        assert traces == set()
+        # We can actually have a calls suspended when we shut down!
+        assert len(suspended) <= 1
+        assert suspended == traces
 
     # Test parent trace
     trace_fnamebase = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "l1.parent.trace")
