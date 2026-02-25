@@ -754,7 +754,16 @@ authenticate to the Tor control port.
   can have `{currency}` and `{currency_lc}` to substitute for upper-case and
   lower-case currency names. `MEMBERS` is how to deconstruct the result, for
   example if the result is `{"USD": {"last_trade": 12456.79}}` then `MEMBERS`
-  would be `USD,last_trade`. If you need to deconstruct an array specifiy it's position with it's index, starting at 0. (added in v26.04)
+  would be `USD,last_trade`. If you need to deconstruct an array specify it's position with it's index, starting at 0. (added in v26.04)
+
+  The default sources are:
+  * coingecko: https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies={currency_lc}
+  * kraken: https://api.kraken.com/0/public/Ticker?pair=XXBTZ{currency}
+  * blockchain: https://blockchain.info/ticker
+  * bitstamp: https://www.bitstamp.net/api/v2/ticker/btc{currency_lc}
+  * coindesk: https://data-api.coindesk.com/index/cc/v1/latest/tic
+  * coinbase: https://api.coinbase.com/v2/prices/BTC-{currency}/spot
+  * binance: https://data-api.binance.vision/api/v3/ticker/price?symbol=BTC{currency}
 
 * **currencyrate-disable-source**=*NAME* [plugin `cln-currencyrate`]
 
