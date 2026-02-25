@@ -748,6 +748,18 @@ authenticate to the Tor control port.
 
   Defines a passphrase which will let users extract the `hsm_secret` using the `exposesecret` command.  If this is not set, the `exposesecret` command always fails.
 
+* **add-source**=*NAME,URL,MEMBER* [plugin `currencyrate`]
+
+  Add a price source for the `currencyrate` plugin, of form `NAME,URL,MEMBERS` where `URL` and `MEMBERS`
+  can have `{currency}` and `{currency_lc}` to substitute for upper-case and
+  lower-case currency names. `MEMBERS` is how to deconstruct the result, for
+  example if the result is `{"USD": {"last_trade": 12456.79}}` then `MEMBERS`
+  would be `USD,last_trade`. If you need to deconstruct an array specifiy it's position with it's index, starting at 0. (added in v26.04)
+
+* **disable-source**=*NAME* [plugin `currencyrate`]
+
+  Disable the `currencyrate` source with this name. (added in v26.04)
+
 
 ### Lightning Plugins
 

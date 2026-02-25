@@ -4311,7 +4311,7 @@ def test_mpp_overload_payee(node_factory, bitcoind):
 
 def test_offer(node_factory, bitcoind):
     plugin = os.path.join(os.path.dirname(__file__), 'plugins/currencyUSDAUD5000.py')
-    l1 = node_factory.get_node(options={'plugin': plugin})
+    l1 = node_factory.get_node(options={'disable-plugin': 'currencyrate', 'plugin': plugin})
 
     # Try empty description
     ret = l1.rpc.call('offer', [9, ''])
@@ -4521,7 +4521,8 @@ def test_fetchinvoice(node_factory, bitcoind):
                                          opts=[{},
                                                {'dev-allow-localhost': None},
                                                {'broken_log': "plugin-offers: Failed invreq.*Unknown command 'currencyconvert'",
-                                                'dev-allow-localhost': None}])
+                                                'dev-allow-localhost': None,
+                                                'disable-plugin': 'currencyrate'}])
 
     # Simple offer first.
     offer1 = l3.rpc.call('offer', {'amount': '2msat',
