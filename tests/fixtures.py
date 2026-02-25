@@ -32,14 +32,15 @@ class LightningNode(utils.LightningNode):
 
         subdaemon = {
             "cln:native": None,
-            "cln:socket": "path/to/vls/artifact"
+            "cln:socket": f"hsmd:{self.lightning_dir/'validating-lightning-signer'/'target'/'debug'/'remote_hsmd_socket'}",
         }[mode]
 
         if subdaemon:
             self.REQUEST = None
+            self.subdaemon = subdaemon
             self.use_vlsd = self.subdaemon is not None
             self.vlsd: ValidatingLightningSignerD | None = None
-            self.vls_dir = self.lightning_dir / "vlsd"
+            self.vls_dir = self.lightning_dir / "validating-lightning-signer"
             self.vlsd_port = utils.reserve_unused_port()
             self.vlsd_rpc_port = utils.reserve_unused_port()
             self.daemon.opts["subdaemon"] = subdaemon
@@ -99,11 +100,17 @@ class LightningNode(utils.LightningNode):
                 threading.Timer(1, self.vlsd.start).start()
                 self.REQUEST.addfinalizer(self.vlsd.stop)
 
-            self.start(
+            utils.LightningNode.start(
                 self,
                 wait_for_bitcoind_sync=wait_for_bitcoind_sync,
                 stderr_redir=stderr_redir,
             )
+
+        def stop(self, timeout: int = 10):
+            utils.LightningNode.stop(self, timeout=timeout)
+            if self.vlsd is not None and self.use_vlsd:
+                rc = self.vlsd.stop(timeout=timeout)
+                print(f"VLSD2 exited with rc={rc}")
 
 
 
