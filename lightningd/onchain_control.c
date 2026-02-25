@@ -45,7 +45,14 @@ static bool onchaind_watched_tx_eq_txid(const struct onchaind_watched_tx *entry,
 	return bitcoin_txid_eq(&entry->txid, txid);
 }
 
-HTABLE_DEFINE_NODUPS_TYPE(struct onchaind_watched_tx, onchaind_watched_tx_keyof, txid_hash, onchaind_watched_tx_eq_txid,
+static size_t onchaind_txid_hash(const struct bitcoin_txid *txid)
+{
+	size_t ret;
+	memcpy(&ret, txid, sizeof(ret));
+	return ret;
+}
+
+HTABLE_DEFINE_NODUPS_TYPE(struct onchaind_watched_tx, onchaind_watched_tx_keyof, onchaind_txid_hash, onchaind_watched_tx_eq_txid,
 			  onchaind_tx_map);
 
 /* We dump all the known preimages when onchaind starts up. */

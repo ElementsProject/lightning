@@ -1,14 +1,13 @@
 #ifndef LIGHTNING_LIGHTNINGD_CHAINTOPOLOGY_H
 #define LIGHTNING_LIGHTNINGD_CHAINTOPOLOGY_H
 #include "config.h"
-#include <lightningd/watch.h>
+#include <bitcoin/tx.h>
+#include <ccan/htable/htable_type.h>
 
-struct bitcoin_tx;
 struct bitcoind;
 struct command;
 struct lightningd;
 struct peer;
-struct txwatch;
 struct wallet;
 
 /* We keep the last three in case there are outliers (for min/max) */
@@ -136,10 +135,6 @@ struct chain_topology {
 	/* Bitcoin transactions we're broadcasting */
 	struct outgoing_tx_map *outgoing_txs;
 
-	/* Transactions/txos we are watching. */
-	struct txwatch_hash *txwatches;
-	struct txowatch_hash *txowatches;
-
 	/* The number of headers known to the bitcoin backend at startup. Not
 	 * updated after the initial check. */
 	u32 headercount;
@@ -160,11 +155,6 @@ struct txlocator {
 
 /* Get the minimum feerate that bitcoind will accept */
 u32 get_feerate_floor(const struct chain_topology *topo);
-
-/* This is the number of blocks which would have to be mined to invalidate
- * the tx */
-size_t get_tx_depth(const struct chain_topology *topo,
-		    const struct bitcoin_txid *txid);
 
 /* Get highest block number. */
 u32 get_block_height(const struct chain_topology *topo);
@@ -282,10 +272,4 @@ void topology_add_sync_waiter_(const tal_t *ctx,
 /* In channel_control.c */
 void notify_feerate_change(struct lightningd *ld);
 
-/* We want to update db when this txid is confirmed.  We always do this
- * if it's related to a channel or incoming funds, but sendpsbt without
- * change would be otherwise untracked. */
-void watch_unconfirmed_txid(struct lightningd *ld,
-			    struct chain_topology *topo,
-			    const struct bitcoin_txid *txid);
 #endif /* LIGHTNING_LIGHTNINGD_CHAINTOPOLOGY_H */

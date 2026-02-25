@@ -37,58 +37,19 @@ static bool we_broadcast(const struct chain_topology *topo,
 	return outgoing_tx_map_exists(topo->outgoing_txs, txid);
 }
 
+/* Record our own broadcast txs in the transactions table when they confirm. */
 static void filter_block_txs(struct chain_topology *topo, struct block *b)
 {
-	size_t i;
-
-	/* Now we see if any of those txs are interesting. */
-	const size_t num_txs = tal_count(b->full_txs);
-	for (i = 0; i < num_txs; i++) {
-		struct bitcoin_tx *tx = b->full_txs[i];
-		struct bitcoin_txid txid;
-		size_t j;
-
-		/* Tell them if it spends a txo we care about. */
-		for (j = 0; j < tx->wtx->num_inputs; j++) {
-			struct bitcoin_outpoint out;
-			struct txowatch_hash_iter it;
-
-			bitcoin_tx_input_get_txid(tx, j, &out.txid);
-			out.n = tx->wtx->inputs[j].index;
-
-			for (struct txowatch *txo = txowatch_hash_getfirst(topo->txowatches, &out, &it);
-			     txo;
-			     txo = txowatch_hash_getnext(topo->txowatches, &out, &it)) {
-				wallet_transaction_add(topo->ld->wallet,
-						       tx->wtx, b->height, i);
-				txowatch_fire(txo, tx, j, b);
-			}
-		}
-
-		txid = b->txids[i];
-		/* Scriptpubkey matches are handled by bwatch watch_found notifications. */
-
-		/* We did spends first, in case that tells us to watch tx. */
-		if (watching_txid(topo, &txid) || we_broadcast(topo, &txid)) {
+	for (size_t i = 0; i < tal_count(b->full_txs); i++) {
+		const struct bitcoin_txid txid = b->txids[i];
+		if (we_broadcast(topo, &txid))
 			wallet_transaction_add(topo->ld->wallet,
-					       tx->wtx, b->height, i);
-		}
-
-		txwatch_inform(topo, &txid, take(tx));
+					       b->full_txs[i]->wtx, b->height, i);
 	}
 	b->full_txs = tal_free(b->full_txs);
 	b->txids = tal_free(b->txids);
 }
 
-size_t get_tx_depth(const struct chain_topology *topo,
-		    const struct bitcoin_txid *txid)
-{
-	u32 blockheight = wallet_transaction_height(topo->ld->wallet, txid);
-
-	if (blockheight == 0)
-		return 0;
-	return topo->tip->height - blockheight + 1;
-}
 
 struct tx_rebroadcast {
 	/* otx destructor sets this to NULL if it's been freed */
@@ -266,95 +227,6 @@ void broadcast_tx_(const tal_t *ctx,
 			   broadcast_done, otx);
 }
 
-static enum watch_result closeinfo_txid_confirmed(struct lightningd *ld,
-						  const struct bitcoin_txid *txid,
-						  const struct bitcoin_tx *tx,
-						  unsigned int depth,
-						  void *unused)
-{
-	/* Sanity check. */
-	if (tx != NULL) {
-		struct bitcoin_txid txid2;
-
-		bitcoin_txid(tx, &txid2);
-		if (!bitcoin_txid_eq(txid, &txid2)) {
-			fatal("Txid for %s is not %s",
-			      fmt_bitcoin_tx(tmpctx, tx),
-			      fmt_bitcoin_txid(tmpctx, txid));
-		}
-	}
-
-	/* We delete ourselves first time, so should not be reorged out!! */
-	assert(depth > 0);
-	/* Subtle: depth 1 == current block. */
-	wallet_confirm_tx(ld->wallet, txid,
-			  get_block_height(ld->topology) + 1 - depth);
-	return DELETE_WATCH;
-}
-
-/* We need to know if close_info UTXOs (which the wallet doesn't natively know
- * how to spend, so is not in the normal path) get reconfirmed.
- *
- * This can happen on startup (where we manually unwind 100 blocks) or on a
- * reorg.  The db NULLs out the confirmation_height, so we can't easily figure
- * out just the new ones (and removing the ON DELETE SET NULL clause is
- * non-trivial).
- *
- * So every time, we just set a notification for every tx in this class we're
- * not already watching: there are not usually many, nor many reorgs, so the
- * redundancy is OK.
- */
-static void watch_for_utxo_reconfirmation(struct chain_topology *topo,
-					  struct wallet *wallet)
-{
-	struct utxo **unconfirmed;
-
-	unconfirmed = wallet_get_unconfirmed_closeinfo_utxos(tmpctx, wallet);
-	const size_t num_unconfirmed = tal_count(unconfirmed);
-	for (size_t i = 0; i < num_unconfirmed; i++) {
-		assert(unconfirmed[i]->close_info != NULL);
-		assert(unconfirmed[i]->blockheight == NULL);
-
-		if (find_txwatch(topo, &unconfirmed[i]->outpoint.txid,
-				 closeinfo_txid_confirmed, NULL))
-			continue;
-
-		watch_txid(topo, topo,
-			   &unconfirmed[i]->outpoint.txid,
-			   closeinfo_txid_confirmed, NULL);
-	}
-}
-
-static enum watch_result tx_confirmed(struct lightningd *ld,
-				      const struct bitcoin_txid *txid,
-				      const struct bitcoin_tx *tx,
-				      unsigned int depth,
-				      void *unused)
-{
-	/* We don't actually need to do anything here: the fact that we were
-	 * watching the tx made chaintopology.c update the transaction depth */
-	if (depth != 0)
-		return DELETE_WATCH;
-	return KEEP_WATCHING;
-}
-
-void watch_unconfirmed_txid(struct lightningd *ld,
-			    struct chain_topology *topo,
-			    const struct bitcoin_txid *txid)
-{
-	watch_txid(ld->wallet, topo, txid, tx_confirmed, NULL);
-}
-
-static void watch_for_unconfirmed_txs(struct lightningd *ld,
-				      struct chain_topology *topo)
-{
-	struct bitcoin_txid *txids;
-
-	txids = wallet_transactions_by_height(tmpctx, ld->wallet, 0);
-	log_debug(ld->log, "Got %zu unconfirmed transactions", tal_count(txids));
-	for (size_t i = 0; i < tal_count(txids); i++)
-		watch_unconfirmed_txid(ld, topo, &txids[i]);
-}
 
 /* Mutual recursion via timer. */
 static void next_updatefee_timer(struct chain_topology *topo);
@@ -825,9 +697,6 @@ static void updates_complete(struct chain_topology *topo)
 		/* Tell lightningd about new block. */
 		notify_new_block(topo->bitcoind->ld);
 
-		/* Tell watch code to re-evaluate all txs. */
-		watch_topology_changed(topo);
-
 		/* Maybe need to rebroadcast. */
 		rebroadcast_txs(topo);
 
@@ -997,8 +866,6 @@ static struct block *new_block(struct chain_topology *topo,
 static void remove_tip(struct chain_topology *topo)
 {
 	struct block *b = topo->tip;
-	struct bitcoin_txid *txs;
-	size_t n;
 	const struct short_channel_id *removed_scids;
 
 	log_debug(topo->log, "Removing stale block %u: %s",
@@ -1013,20 +880,10 @@ static void remove_tip(struct chain_topology *topo)
 		      b->height,
 		      fmt_bitcoin_blkid(tmpctx, &b->blkid));
 
-	txs = wallet_transactions_by_height(b, topo->ld->wallet, b->height);
-	n = tal_count(txs);
-
-	/* Notify that txs are kicked out (their height will be set NULL in db) */
-	for (size_t i = 0; i < n; i++)
-		txwatch_fire(topo, &txs[i], 0);
-
 	/* Grab these before we delete block from db */
 	removed_scids = wallet_utxoset_get_created(tmpctx, topo->ld->wallet,
 						   b->height);
 	wallet_utxoset_refresh_filters(topo->ld->wallet);
-
-	/* This may have unconfirmed txs: reconfirm as we add blocks. */
-	watch_for_utxo_reconfirmation(topo, topo->ld->wallet);
 
 	block_map_del(topo->block_map, b);
 
@@ -1199,8 +1056,6 @@ struct chain_topology *new_topology(struct lightningd *ld, struct logger *log)
 	topo->ld = ld;
 	topo->block_map = new_htable(topo, block_map);
 	topo->outgoing_txs = new_htable(topo, outgoing_tx_map);
-	topo->txwatches = new_htable(topo, txwatch_hash);
-	topo->txowatches = new_htable(topo, txowatch_hash);
 	topo->log = log;
 	topo->bitcoind = new_bitcoind(topo, ld, log);
 	topo->poll_seconds = 30;
@@ -1482,13 +1337,6 @@ void setup_topology(struct chain_topology *topo)
 	 * correctly again */
 	wallet_utxoset_refresh_filters(topo->ld->wallet);
 
-	/* May have unconfirmed txs: reconfirm as we add blocks. */
-	watch_for_utxo_reconfirmation(topo, topo->ld->wallet);
-
-	/* We usually watch txs because we have outputs coming to us, or they're
-	 * related to a channel.  But not if they're created by sendpsbt without any
-	 * outputs to us. */
-	watch_for_unconfirmed_txs(topo->ld, topo);
 	db_commit_transaction(topo->ld->wallet->db);
 
 	tal_free(local_ctx);
