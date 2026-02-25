@@ -294,13 +294,13 @@ bool channel_force_htlcs(struct channel *channel,
 void dump_htlcs(const struct channel *channel, const char *prefix);
 
 /**
- * pending_updates: does this side have updates pending in channel?
+ * pending_updates: does this side have to send more messages to process channel?
  * @channel: the channel
  * @side: the side who is offering or failing/fulfilling HTLC, or feechange
- * @uncommitted_ok: don't count uncommitted changes.
+ *
+ * If this is true, you can't send STFU.
  */
-bool pending_updates(const struct channel *channel, enum side side,
-		     bool uncommitted_ok);
+bool pending_updates(const struct channel *channel, enum side side);
 
 const char *channel_add_err_name(enum channel_add_err e);
 const char *channel_remove_err_name(enum channel_remove_err e);
