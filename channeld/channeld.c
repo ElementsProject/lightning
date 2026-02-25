@@ -214,9 +214,16 @@ const u8 *hsm_req(const tal_t *ctx, const u8 *req TAKES)
 	return msg;
 }
 
+/* We're in STFU mode now: must not send messages. */
 static bool is_stfu_active(const struct peer *peer)
 {
 	return peer->stfu_sent[LOCAL] && peer->stfu_sent[REMOTE];
+}
+
+/* We're trying to enter STFU mode now: don't start *new* conversations */
+static bool is_entering_stfu(const struct peer *peer)
+{
+	return peer->want_stfu || peer->stfu_sent[LOCAL] || peer->stfu_sent[REMOTE];
 }
 
 static void end_stfu_mode(struct peer *peer)
@@ -353,7 +360,7 @@ static void handle_stfu(struct peer *peer, const u8 *stfu)
 /* Returns true if we queued this for later handling (steals if true) */
 static bool handle_master_request_later(struct peer *peer, const u8 *msg)
 {
-	if (is_stfu_active(peer)) {
+	if (is_entering_stfu(peer)) {
 		msg_enqueue(peer->update_queue, take(msg));
 		return true;
 	}
@@ -1087,7 +1094,7 @@ static bool want_fee_update(const struct peer *peer, u32 *target)
 		return false;
 
 	/* No fee update while quiescing! */
-	if (peer->want_stfu || is_stfu_active(peer))
+	if (is_entering_stfu(peer))
 		return false;
 
 	current = channel_feerate(peer->channel, REMOTE);
@@ -1125,8 +1132,8 @@ static bool want_blockheight_update(const struct peer *peer, u32 *height)
 	if (peer->channel->lease_expiry == 0)
 		return false;
 
-	/* No fee update while quiescing! */
-	if (peer->want_stfu || is_stfu_active(peer))
+	/* No block update while quiescing! */
+	if (is_entering_stfu(peer))
 		return false;
 
 	/* What's the current blockheight */
@@ -1509,10 +1516,9 @@ static void send_commit(struct peer *peer)
 
 static void send_commit_if_not_stfu(struct peer *peer)
 {
-	if (!is_stfu_active(peer) && !peer->want_stfu) {
+	if (!peer->stfu_sent[LOCAL]) {
 		send_commit(peer);
-	}
-	else {
+	} else {
 		/* Timer now considered expired, you can add a new one. */
 		peer->commit_timer = NULL;
 		start_commit_timer(peer);
