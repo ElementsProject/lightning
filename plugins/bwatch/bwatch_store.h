@@ -102,4 +102,11 @@ void bwatch_transaction_add(struct command *cmd,
 			    const struct bitcoin_tx *tx,
 			    u32 blockheight, u32 txindex);
 
+/* Look up a stored transaction entry by txid. Returns the entry JSON token
+ * (with blockheight + hex fields) into *buf_out, or NULL if not found. */
+const jsmntok_t *bwatch_get_transaction(const tal_t *ctx,
+					struct command *cmd,
+					const struct bitcoin_txid *txid,
+					const char **buf_out);
+
 #endif /* LIGHTNING_PLUGINS_BWATCH_BWATCH_STORE_H */

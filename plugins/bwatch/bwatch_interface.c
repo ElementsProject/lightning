@@ -6,7 +6,9 @@
 #include <ccan/json_out/json_out.h>
 #include <ccan/tal/str/str.h>
 #include <common/json_param.h>
+#include <common/json_parse.h>
 #include <common/json_stream.h>
+#include <plugins/bwatch/bwatch_wiregen.h>
 #include <plugins/libplugin.h>
 
 /*
@@ -435,6 +437,66 @@ static struct command_result *getwatchmanheight_done(struct command *cmd,
 	/* Schedule poll timer so poll_chain runs with its own command lifecycle */
 	bwatch->poll_timer = global_timer(cmd->plugin, time_from_sec(0), bwatch_poll_chain, NULL);
 	return timer_complete(cmd);
+}
+
+/*
+ * ============================================================================
+ * gettransaction RPC
+ *
+ * Looks up a transaction by txid from bwatch's own datastore and returns
+ * the blockheight and raw hex. This is the proper API for lightningd to
+ * retrieve transactions stored by bwatch — direct datastore access is
+ * forbidden to preserve the layering boundary.
+ * ============================================================================
+ */
+
+struct command_result *json_bwatch_get_transaction(struct command *cmd,
+						   const char *buf,
+						   const jsmntok_t *params)
+{
+	struct bitcoin_txid *txid;
+	const char *store_buf;
+	const jsmntok_t *entry_tok, *hex_tok;
+	const u8 *wire_data;
+	struct transaction_entry_wire *entry;
+	struct json_stream *response;
+
+	if (!param(cmd, buf, params,
+		   p_req("txid", param_txid, &txid),
+		   NULL))
+		return command_param_failed();
+
+	/* bwatch_get_transaction returns the listdatastore array entry for
+	 * ["bwatch", "transactions", "<txid>"], which has a "hex" field
+	 * containing the wire-serialised transaction_entry_wire blob. */
+	entry_tok = bwatch_get_transaction(tmpctx, cmd, txid, &store_buf);
+	if (!entry_tok)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Transaction %s not found in bwatch store",
+				    fmt_bitcoin_txid(tmpctx, txid));
+
+	hex_tok = json_get_member(store_buf, entry_tok, "hex");
+	if (!hex_tok)
+		return command_fail(cmd, LIGHTNINGD,
+				    "Missing hex in transaction entry for %s",
+				    fmt_bitcoin_txid(tmpctx, txid));
+
+	wire_data = json_tok_bin_from_hex(tmpctx, store_buf, hex_tok);
+	if (!wire_data)
+		return command_fail(cmd, LIGHTNINGD,
+				    "Bad hex in transaction entry for %s",
+				    fmt_bitcoin_txid(tmpctx, txid));
+
+	if (!fromwire_bwatch_transaction_entry(tmpctx, wire_data, &entry))
+		return command_fail(cmd, LIGHTNINGD,
+				    "Failed to deserialise transaction entry for %s",
+				    fmt_bitcoin_txid(tmpctx, txid));
+
+	response = jsonrpc_stream_success(cmd);
+	json_add_txid(response, "txid", txid);
+	json_add_u32(response, "blockheight", entry->blockheight);
+	json_add_hex(response, "rawtx", entry->rawtx, tal_bytelen(entry->rawtx));
+	return command_finished(cmd, response);
 }
 
 /* Timer callback to sync with watchman before starting normal polling */

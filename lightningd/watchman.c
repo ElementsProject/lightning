@@ -7,14 +7,17 @@
 #include <common/autodata.h>
 #include <common/json_command.h>
 #include <common/json_param.h>
+#include <common/json_parse.h>
 #include <common/json_stream.h>
 #include <common/jsonrpc_errors.h>
 #include <common/jsonrpc_io.h>
 #include <db/exec.h>
+#include <lightningd/channel.h>
 #include <lightningd/gossip_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
+#include <lightningd/onchain_control.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/plugin.h>
 #include <lightningd/watchman.h>
@@ -374,6 +377,94 @@ void watchman_unwatch_txid(struct lightningd *ld,
 			     fmt_bitcoin_txid(tmpctx, txid)));
 }
 
+struct gettransaction_call {
+	struct lightningd *ld;
+	void (*cb)(struct bitcoin_tx *tx, u32 blockheight, void *arg);
+	void *arg;
+};
+
+static void gettransaction_cb(const char *buf, const jsmntok_t *toks,
+			      const jsmntok_t *idtok UNUSED,
+			      struct gettransaction_call *call)
+{
+	const jsmntok_t *result_tok, *rawtx_tok;
+	u8 *rawtx;
+	const u8 *p;
+	size_t len;
+	u32 blockheight;
+	struct bitcoin_tx *tx;
+
+	result_tok = json_get_member(buf, toks, "result");
+	if (!result_tok) {
+		log_unusual(call->ld->log, "bwatch gettransaction failed");
+		tal_free(call);
+		return;
+	}
+
+	rawtx_tok = json_get_member(buf, result_tok, "rawtx");
+	if (!rawtx_tok
+	    || !(rawtx = json_tok_bin_from_hex(tmpctx, buf, rawtx_tok))) {
+		log_unusual(call->ld->log, "bwatch gettransaction: bad rawtx");
+		tal_free(call);
+		return;
+	}
+
+	if (!json_scan(tmpctx, buf, result_tok, "{blockheight:%}",
+		       JSON_SCAN(json_to_u32, &blockheight))) {
+		log_unusual(call->ld->log,
+			    "bwatch gettransaction: missing blockheight");
+		tal_free(call);
+		return;
+	}
+
+	p = rawtx;
+	len = tal_bytelen(rawtx);
+	tx = pull_bitcoin_tx(tmpctx, &p, &len);
+	if (!tx) {
+		log_unusual(call->ld->log,
+			    "bwatch gettransaction: failed to parse rawtx");
+		tal_free(call);
+		return;
+	}
+
+	call->cb(tx, blockheight, call->arg);
+	tal_free(call);
+}
+
+void watchman_get_transaction(struct lightningd *ld,
+			      const struct bitcoin_txid *txid,
+			      void (*cb)(struct bitcoin_tx *tx,
+					 u32 blockheight,
+					 void *arg),
+			      void *arg)
+{
+	struct plugin *bwatch;
+	struct jsonrpc_request *req;
+	struct gettransaction_call *call;
+
+	bwatch = find_plugin_for_command(ld, "gettransaction");
+	if (!bwatch) {
+		log_unusual(ld->log, "bwatch plugin not found, cannot get transaction");
+		return;
+	}
+	if (bwatch->plugin_state != INIT_COMPLETE) {
+		log_unusual(ld->log, "bwatch not ready, cannot get transaction");
+		return;
+	}
+
+	call = tal(ld, struct gettransaction_call);
+	call->ld = ld;
+	call->cb = cb;
+	call->arg = arg;
+
+	req = jsonrpc_request_start(call, "gettransaction",
+				    "gettransaction", bwatch->log,
+				    NULL, gettransaction_cb, call);
+	json_add_txid(req->stream, "txid", txid);
+	jsonrpc_request_end(req);
+	plugin_request_send(bwatch, req);
+}
+
 void watchman_add_utxo(struct lightningd *ld,
 		       const struct bitcoin_outpoint *outpoint,
 		       u32 blockheight, u32 txindex,
@@ -429,6 +520,10 @@ static const struct watch_dispatch {
 	{ "channel/wrong_funding_spent/",   channel_wrong_funding_spent_watch_found },
 	/* channel/rogue_inflight/<dbid>: WATCH_TXID, fires when a non-primary inflight tx confirms */
 	{ "channel/rogue_inflight/",        channel_rogue_inflight_watch_found },
+	/* onchaind/txid/<dbid>: WATCH_TXID, fires when any onchaind-tracked tx confirms */
+	{ "onchaind/txid/",                   onchaind_tx_watch_found },
+	/* onchaind/outpoint/<dbid>: WATCH_OUTPOINT, fires when any onchaind output is spent */
+	{ "onchaind/outpoint/",               onchaind_output_watch_found },
 };
 
 /**
@@ -443,7 +538,7 @@ static bool parse_watch_id(const char *suffix, u32 *id)
 	char *endp;
 	
 	*id = strtol(suffix, &endp, 10);
-	return (*endp == '\0');
+	return *endp == '\0';
 }
 
 /**

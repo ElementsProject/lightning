@@ -350,6 +350,9 @@ u64 forward_index_update_status(struct lightningd *ld UNNEEDED,
 /* Generated stub for fromwire_bwatch_utxoset_entry */
 bool fromwire_bwatch_utxoset_entry(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct utxoset_entry_wire **entry UNNEEDED)
 { fprintf(stderr, "fromwire_bwatch_utxoset_entry called!\n"); abort(); }
+/* Generated stub for fromwire_bwatch_transaction_entry */
+bool fromwire_bwatch_transaction_entry(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct transaction_entry_wire **entry UNNEEDED)
+{ fprintf(stderr, "fromwire_bwatch_transaction_entry called!\n"); abort(); }
 /* Generated stub for fromwire_channeld_dev_memleak_reply */
 bool fromwire_channeld_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
 { fprintf(stderr, "fromwire_channeld_dev_memleak_reply called!\n"); abort(); }
@@ -622,10 +625,14 @@ void notify_sendpay_success(struct lightningd *ld UNNEEDED,
 			    const struct wallet_payment *payment UNNEEDED)
 { fprintf(stderr, "notify_sendpay_success called!\n"); abort(); }
 /* Generated stub for onchaind_funding_spent */
-enum watch_result onchaind_funding_spent(struct channel *channel UNNEEDED,
-					 const struct bitcoin_tx *tx UNNEEDED,
-					 u32 blockheight UNNEEDED)
+void onchaind_funding_spent(struct channel *channel UNNEEDED,
+			    const struct bitcoin_tx *tx UNNEEDED,
+			    u32 blockheight UNNEEDED)
 { fprintf(stderr, "onchaind_funding_spent called!\n"); abort(); }
+/* Generated stub for onchaind_send_depth_updates */
+void onchaind_send_depth_updates(struct channel *channel UNNEEDED,
+				 u32 blockheight UNNEEDED)
+{ fprintf(stderr, "onchaind_send_depth_updates called!\n"); abort(); }
 /* Generated stub for outpointfilter_add */
 void outpointfilter_add(struct outpointfilter *of UNNEEDED,
 			const struct bitcoin_outpoint *outpoint UNNEEDED)

@@ -1288,12 +1288,13 @@ void wallet_insert_funding_spend(struct wallet *w,
 				 const u32 input_num, const u32 blockheight);
 
 /**
- * Get the transaction which spend funding for this channel, if any.
+ * Get txid and blockheight of the funding spend for this channel, if any.
+ * Returns true if found. Fetch the raw tx via bwatch-gettransaction RPC.
  */
-struct bitcoin_tx *wallet_get_funding_spend(const tal_t *ctx,
-					    struct wallet *w,
-					    u64 channel_id,
-					    u32 *blockheight);
+bool wallet_get_funding_spend_txid(struct wallet *w,
+				   u64 channel_id,
+				   struct bitcoin_txid *txid,
+				   u32 *blockheight);
 
 /**
  * Add of update a forwarded_payment

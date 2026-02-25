@@ -122,6 +122,19 @@ void watchman_unwatch_txid(struct lightningd *ld,
 			   const struct bitcoin_txid *txid);
 
 /**
+ * watchman_get_transaction - Fetch a tx from bwatch via gettransaction RPC.
+ *
+ * Async: calls bwatch-gettransaction. On success, cb(tx, blockheight, arg)
+ * is called. On error cb is not called.
+ */
+void watchman_get_transaction(struct lightningd *ld,
+			      const struct bitcoin_txid *txid,
+			      void (*cb)(struct bitcoin_tx *tx,
+					 u32 blockheight,
+					 void *arg),
+			      void *arg);
+
+/**
  * watchman_add_utxo - Add a wallet-originated UTXO to bwatch's datastore
  * @ld: lightningd instance
  * @outpoint: the output to add

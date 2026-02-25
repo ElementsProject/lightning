@@ -133,6 +133,9 @@ u64 forward_index_update_status(struct lightningd *ld UNNEEDED,
 /* Generated stub for fromwire_bwatch_utxoset_entry */
 bool fromwire_bwatch_utxoset_entry(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct utxoset_entry_wire **entry UNNEEDED)
 { fprintf(stderr, "fromwire_bwatch_utxoset_entry called!\n"); abort(); }
+/* Generated stub for fromwire_bwatch_transaction_entry */
+bool fromwire_bwatch_transaction_entry(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct transaction_entry_wire **entry UNNEEDED)
+{ fprintf(stderr, "fromwire_bwatch_transaction_entry called!\n"); abort(); }
 /* Generated stub for fromwire_hsmd_get_channel_basepoints_reply */
 bool fromwire_hsmd_get_channel_basepoints_reply(const void *p UNNEEDED, struct basepoints *basepoints UNNEEDED, struct pubkey *funding_pubkey UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_get_channel_basepoints_reply called!\n"); abort(); }

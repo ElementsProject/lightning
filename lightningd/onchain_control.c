@@ -19,29 +19,34 @@
 #include <lightningd/onchain_control.h>
 #include <lightningd/peer_htlcs.h>
 #include <lightningd/subd.h>
+#include <lightningd/watchman.h>
 #include <onchaind/onchaind_wiregen.h>
 #include <wallet/txfilter.h>
 
-/* If we're restarting, we keep a per-channel copy of watches, and replay */
-struct replay_tx {
+/* Per-session per-channel tx tracking for onchaind.
+ * Stores {txid, confirm_height, num_outputs} for each tx onchaind is watching:
+ *  - blockheight: for depth = current_height - blockheight + 1 per block
+ *  - num_outputs: to unwatch each output if onchaind loses interest
+ */
+struct onchaind_watched_tx {
 	u32 blockheight;
+	u32 num_outputs;
 	struct bitcoin_txid txid;
-	struct bitcoin_tx *tx;
 };
 
-static const struct bitcoin_txid *replay_tx_keyof(const struct replay_tx *rtx)
+static const struct bitcoin_txid *onchaind_watched_tx_keyof(const struct onchaind_watched_tx *entry)
 {
-	return &rtx->txid;
+	return &entry->txid;
 }
 
-static bool replay_tx_eq_txid(const struct replay_tx *rtx,
+static bool onchaind_watched_tx_eq_txid(const struct onchaind_watched_tx *entry,
 			      const struct bitcoin_txid *txid)
 {
-	return bitcoin_txid_eq(&rtx->txid, txid);
+	return bitcoin_txid_eq(&entry->txid, txid);
 }
 
-HTABLE_DEFINE_NODUPS_TYPE(struct replay_tx, replay_tx_keyof, txid_hash, replay_tx_eq_txid,
-			  replay_tx_hash);
+HTABLE_DEFINE_NODUPS_TYPE(struct onchaind_watched_tx, onchaind_watched_tx_keyof, txid_hash, onchaind_watched_tx_eq_txid,
+			  onchaind_tx_map);
 
 /* We dump all the known preimages when onchaind starts up. */
 static void onchaind_tell_fulfill(struct channel *channel)
@@ -164,9 +169,6 @@ static void handle_onchain_init_reply(struct channel *channel, const u8 *msg)
 	onchaind_tell_fulfill(channel);
 }
 
-/**
- * Notify onchaind about the depth change of the watched tx.
- */
 static void onchain_tx_depth(struct channel *channel,
 			     const struct bitcoin_txid *txid,
 			     unsigned int depth)
@@ -177,51 +179,41 @@ static void onchain_tx_depth(struct channel *channel,
 }
 
 /**
- * Entrypoint for the txwatch callback, calls onchain_tx_depth.
+ * bwatch_register_tx - Track a tx and register its outputs with bwatch.
+ *
+ * Idempotent: skips if already tracked.  Adds the tx to the per-channel
+ * hash table (confirm height for depth math; full tx for output enumeration
+ * on unwatch), then registers a WATCH_TXID for depth notifications and a
+ * WATCH_OUTPOINT per output so onchaind_output_watch_found fires if/when
+ * each output is spent.
  */
-static enum watch_result onchain_tx_watched(struct lightningd *ld,
-					    const struct bitcoin_txid *txid,
-					    const struct bitcoin_tx *tx,
-					    unsigned int depth,
-					    struct channel *channel)
+static void bwatch_register_tx(struct channel *channel,
+				const struct bitcoin_tx *tx,
+				u32 blockheight)
 {
-	u32 blockheight = get_block_height(ld->topology);
+	struct bitcoin_outpoint outpoint;
+	struct lightningd *ld = channel->peer->ld;
+	const char *owner_tx, *owner_out;
+	struct onchaind_watched_tx *entry;
 
-	if (tx != NULL) {
-		struct bitcoin_txid txid2;
+	bitcoin_txid(tx, &outpoint.txid);
 
-		bitcoin_txid(tx, &txid2);
-		if (!bitcoin_txid_eq(txid, &txid2)) {
-			channel_internal_error(channel, "Txid for %s is not %s",
-					       fmt_bitcoin_tx(tmpctx, tx),
-					       fmt_bitcoin_txid(tmpctx, txid));
-			return DELETE_WATCH;
-		}
-	}
+	if (onchaind_tx_map_get(channel->onchaind_watches, &outpoint.txid))
+		return;
 
-	if (depth == 0) {
-		log_unusual(channel->log, "Chain reorganization!");
-		channel_set_owner(channel, NULL);
+	entry = tal(channel->onchaind_watches, struct onchaind_watched_tx);
+	entry->txid = outpoint.txid;
+	entry->blockheight = blockheight;
+	entry->num_outputs = tx->wtx->num_outputs;
+	onchaind_tx_map_add(channel->onchaind_watches, entry);
 
-		/* We will most likely be freed, so this is a noop */
-		return KEEP_WATCHING;
-	}
+	owner_tx  = tal_fmt(tmpctx, "onchaind/txid/%"PRIu64, channel->dbid);
+	owner_out = tal_fmt(tmpctx, "onchaind/outpoint/%"PRIu64, channel->dbid);
 
-	/* Store so we remember if we crash, and can replay later */
-	wallet_insert_funding_spend(ld->wallet, channel, txid, 0, blockheight);
+	watchman_watch_txid(ld, owner_tx, &outpoint.txid, blockheight);
 
-	onchain_tx_depth(channel, txid, depth);
-	return KEEP_WATCHING;
-}
-
-static void watch_tx_and_outputs(struct channel *channel,
-				 const struct bitcoin_tx *tx);
-static void onchaind_replay(struct channel *channel);
-
-static void replay_unwatch_txid(struct channel *channel,
-				const struct bitcoin_txid *txid)
-{
-	replay_tx_hash_delkey(channel->onchaind_replay_watches, txid);
+	for (outpoint.n = 0; outpoint.n < tx->wtx->num_outputs; outpoint.n++)
+		watchman_watch_outpoint(ld, owner_out, &outpoint, blockheight);
 }
 
 static void onchaind_spent_reply(struct subd *onchaind, const u8 *msg,
@@ -229,8 +221,9 @@ static void onchaind_spent_reply(struct subd *onchaind, const u8 *msg,
 				 struct bitcoin_txid *txid)
 {
 	bool interested;
-	struct txwatch *txw;
 	struct channel *channel = onchaind->channel;
+	struct lightningd *ld = channel->peer->ld;
+	struct onchaind_watched_tx *entry;
 
 	if (!fromwire_onchaind_spent_reply(msg, &interested))
 		channel_internal_error(channel, "Invalid onchaind_spent_reply %s",
@@ -238,47 +231,48 @@ static void onchaind_spent_reply(struct subd *onchaind, const u8 *msg,
 
 	channel->num_onchain_spent_calls--;
 
-	/* Only delete watch if it says it doesn't care */
 	if (interested)
-		goto out;
+		return;
 
-	/* If we're doing replay: */
-	if (channel->onchaind_replay_watches) {
-		replay_unwatch_txid(channel, txid);
-		goto out;
-	}
-
-	/* Frees the txo watches, too: see watch_tx_and_outputs() */
-	txw = find_txwatch(channel->peer->ld->topology, txid,
-			   onchain_tx_watched, channel);
-	if (!txw)
-		log_unusual(channel->log, "Can't unwatch txid %s",
+	entry = onchaind_tx_map_get(channel->onchaind_watches, txid);
+	if (!entry) {
+		log_unusual(channel->log, "onchaind_spent_reply: %s not in watch table",
 			    fmt_bitcoin_txid(tmpctx, txid));
-	tal_free(txw);
-
-out:
-	/* If that's the last request, continue asking for blocks */
-	if (channel->onchaind_replay_watches
-	    && channel->num_onchain_spent_calls == 0) {
-		onchaind_replay(channel);
+		return;
 	}
+
+	/* Unwatch txid and all outputs from bwatch */
+	watchman_unwatch_txid(ld,
+			      tal_fmt(tmpctx, "onchaind/txid/%"PRIu64, channel->dbid),
+			      txid);
+
+	struct bitcoin_outpoint outpoint = { .txid = *txid };
+	const char *owner_out = tal_fmt(tmpctx, "onchaind/outpoint/%"PRIu64, channel->dbid);
+	for (outpoint.n = 0; outpoint.n < entry->num_outputs; outpoint.n++)
+		watchman_unwatch_outpoint(ld, owner_out, &outpoint);
+
+	onchaind_tx_map_delkey(channel->onchaind_watches, txid);
+	tal_free(entry);
 }
 
 /**
- * Notify onchaind that an output was spent and register new watches.
+ * onchain_txo_spent - Notify onchaind that an output was spent.
+ *
+ * The caller (onchaind_output_watch_found) is responsible for registering the
+ * spending tx with bwatch_register_tx before calling this.
  */
-static void onchain_txo_spent(struct channel *channel, const struct bitcoin_tx *tx, size_t input_num, u32 blockheight)
+static void onchain_txo_spent(struct channel *channel,
+			      const struct bitcoin_tx *tx,
+			      size_t input_num,
+			      u32 blockheight)
 {
 	u8 *msg;
 	struct bitcoin_txid *txid;
-	/* Onchaind needs all inputs, since it uses those to compare
-	 * with existing spends (which can vary, with feerate changes). */
-	struct tx_parts *parts = tx_parts_from_wally_tx(tmpctx, tx->wtx,
-							-1, -1);
+	/* Onchaind needs all inputs so it can compare with alternative spends
+	 * (feerate-varied RBF variants). */
+	struct tx_parts *parts = tx_parts_from_wally_tx(tmpctx, tx->wtx, -1, -1);
 
-	watch_tx_and_outputs(channel, tx);
-
-	/* Reply will need this if we want to unwatch */
+	/* Reply context carries the txid so onchaind_spent_reply can unwatch. */
 	txid = tal(NULL, struct bitcoin_txid);
 	bitcoin_txid(tx, txid);
 
@@ -289,39 +283,105 @@ static void onchain_txo_spent(struct channel *channel, const struct bitcoin_tx *
 }
 
 /**
- * Entrypoint for the txowatch callback, stores tx and calls onchain_txo_spent.
+ * onchaind_output_watch_found - bwatch handler: a watched output was spent.
+ *
+ * Owner format: "onchaind/outpoint/<dbid>"
  */
-static enum watch_result onchain_txo_watched(struct channel *channel,
-					     const struct bitcoin_tx *tx,
-					     size_t input_num,
-					     const struct block *block)
+void onchaind_output_watch_found(struct lightningd *ld,
+				 u32 dbid,
+				 const struct bitcoin_tx *tx,
+				 size_t innum,
+				 u32 blockheight,
+				 u32 txindex UNUSED)
 {
-	onchain_txo_spent(channel, tx, input_num, block->height);
+	struct channel *channel = channel_by_dbid(ld, (u64)dbid);
 
-	/* We don't need to keep watching: If this output is double-spent
-	 * (reorg), we'll get a zero depth cb to onchain_tx_watched, and
-	 * restart onchaind. */
-	return DELETE_WATCH;
+	if (!channel) {
+		log_broken(ld->log,
+			   "onchaind/outpoint watch_found: unknown channel dbid %u", dbid);
+		return;
+	}
+
+	if (!channel->owner) {
+		log_debug(channel->log,
+			  "onchaind/outpoint watch_found: onchaind not running, skipping");
+		return;
+	}
+
+	/* Register the spending tx (and its outputs) so onchaind gets depth
+	 * updates and spend notifications for the whole resolution chain. */
+	bwatch_register_tx(channel, tx, blockheight);
+	onchain_txo_spent(channel, tx, innum, blockheight);
 }
 
-/* To avoid races, we watch the tx and all outputs. */
-static void watch_tx_and_outputs(struct channel *channel,
-				 const struct bitcoin_tx *tx)
+/**
+ * onchaind_tx_watch_found - bwatch handler: a watched txid was confirmed.
+ *
+ * Owner format: "onchaind/txid/<dbid>"
+ * Sends the current depth to onchaind; per-block depth updates thereafter
+ * come from onchaind_send_depth_updates via channel_block_processed.
+ */
+void onchaind_tx_watch_found(struct lightningd *ld,
+			     u32 dbid,
+			     const struct bitcoin_tx *tx,
+			     size_t outnum UNUSED,
+			     u32 blockheight,
+			     u32 txindex UNUSED)
 {
-	struct bitcoin_outpoint outpoint;
-	struct txwatch *txw;
-	struct lightningd *ld = channel->peer->ld;
+	struct channel *channel = channel_by_dbid(ld, (u64)dbid);
+	struct bitcoin_txid txid;
+	struct onchaind_watched_tx *entry;
+	u32 depth;
 
-	bitcoin_txid(tx, &outpoint.txid);
+	if (!channel) {
+		log_broken(ld->log,
+			   "onchaind/txid watch_found: unknown channel dbid %u", dbid);
+		return;
+	}
 
-	/* Make txwatch a parent of txo watches, so we can unwatch together. */
-	txw = watch_txid(channel->owner, ld->topology,
-			 &outpoint.txid,
-			 onchain_tx_watched, channel);
+	if (!channel->owner) {
+		log_debug(channel->log,
+			  "onchaind/txid watch_found: onchaind not running, skipping");
+		return;
+	}
 
-	for (outpoint.n = 0; outpoint.n < tx->wtx->num_outputs; outpoint.n++)
-		watch_txo(txw, ld->topology, channel, &outpoint,
-			  onchain_txo_watched);
+	bitcoin_txid(tx, &txid);
+	entry = onchaind_tx_map_get(channel->onchaind_watches, &txid);
+	if (!entry) {
+		/* Can happen if bwatch fires before bwatch_register_tx is called
+		 * (e.g., restart ordering race).  Ignore; the depth will be sent
+		 * next block via onchaind_send_depth_updates. */
+		log_debug(channel->log,
+			  "onchaind/txid watch_found: %s not in watch table yet",
+			  fmt_bitcoin_txid(tmpctx, &txid));
+		return;
+	}
+
+	depth = watchman_get_height(ld) - entry->blockheight + 1;
+	onchain_tx_depth(channel, &txid, depth);
+}
+
+/**
+ * onchaind_send_depth_updates - Send current depth for all tracked txs.
+ *
+ * Called from channel_block_processed for ONCHAIN/FUNDING_SPEND_SEEN channels.
+ * Replaces the old per-tx topology txwatch per-block callbacks.
+ */
+void onchaind_send_depth_updates(struct channel *channel, u32 blockheight)
+{
+	struct onchaind_watched_tx *entry;
+	struct onchaind_tx_map_iter rit;
+
+	if (!channel->onchaind_watches)
+		return;
+
+	for (entry = onchaind_tx_map_first(channel->onchaind_watches, &rit);
+	     entry;
+	     entry = onchaind_tx_map_next(channel->onchaind_watches, &rit)) {
+		u32 depth = (blockheight >= entry->blockheight)
+			? (blockheight - entry->blockheight + 1) : 0;
+		onchain_tx_depth(channel, &entry->txid, depth);
+	}
 }
 
 static void handle_onchain_log_coin_move(struct channel *channel, const u8 *msg)
@@ -358,104 +418,6 @@ static void handle_onchain_log_penalty_adj(struct channel *channel, const u8 *ms
 	wallet_save_channel_mvt(channel->peer->ld, mvt);
 	mvt = new_channel_mvt_penalty_adj(tmpctx, channel, msat, COIN_DEBIT);
 	wallet_save_channel_mvt(channel->peer->ld, mvt);
-}
-
-static void replay_watch_tx(struct channel *channel,
-			    u32 blockheight,
-			    const struct bitcoin_tx *tx TAKES)
-{
-	struct replay_tx *rtx = tal(channel->onchaind_replay_watches, struct replay_tx);
-	bitcoin_txid(tx, &rtx->txid);
-	rtx->blockheight = blockheight;
-	rtx->tx = clone_bitcoin_tx(rtx, tx);
-
-	/* We might already be watching, in which case don't re-add! */
-	if (replay_tx_hash_get(channel->onchaind_replay_watches, &rtx->txid))
-		tal_free(rtx);
-	else
-		replay_tx_hash_add(channel->onchaind_replay_watches, rtx);
-}
-
-/* We've finished replaying, turn any txs left into live watches */
-static void convert_replay_txs(struct channel *channel)
-{
-	struct replay_tx *rtx;
-	struct replay_tx_hash_iter rit;
-	struct replay_tx_hash *watches;
-
-	/* Set to NULL so these are queued as real watches */
-	watches = tal_steal(tmpctx, channel->onchaind_replay_watches);
-	channel->onchaind_replay_watches = NULL;
-	for (rtx = replay_tx_hash_first(watches, &rit);
-	     rtx;
-	     rtx = replay_tx_hash_next(watches, &rit)) {
-		watch_tx_and_outputs(channel, rtx->tx);
-	}
-}
-
-static void replay_block(struct bitcoind *bitcoind,
-			 u32 height,
-			 struct bitcoin_blkid *blkid,
-			 struct bitcoin_block *blk,
-			 struct channel *channel)
-{
-	struct replay_tx *rtx;
-	struct replay_tx_hash_iter rit;
-
-	/* If we're shutting down, this can happen! */
-	if (!channel->owner)
-		return;
-
-	/* Tell onchaind that all existing txs have reached a new depth */
-	for (rtx = replay_tx_hash_first(channel->onchaind_replay_watches, &rit);
-	     rtx;
-	     rtx = replay_tx_hash_next(channel->onchaind_replay_watches, &rit)) {
-		/* Note: if you're in this block, that's depth 1! */
-		onchain_tx_depth(channel, &rtx->txid, height - rtx->blockheight + 1);
-	}
-
-	/* See if we add any new txs which spend a watched one */
-	for (size_t i = 0; i < tal_count(blk->tx); i++) {
-		for (size_t j = 0; j < blk->tx[i]->wtx->num_inputs; j++) {
-			struct bitcoin_txid spent;
-			bitcoin_tx_input_get_txid(blk->tx[i], j, &spent);
-			rtx = replay_tx_hash_get(channel->onchaind_replay_watches, &spent);
-			if (rtx) {
-				/* Note: for efficiency, blk->tx's don't have
-				 * PSBTs, so add one now */
-				if (!blk->tx[i]->psbt)
-					blk->tx[i]->psbt = new_psbt(blk->tx[i], blk->tx[i]->wtx);
-				onchain_txo_spent(channel, blk->tx[i], j, height);
-				/* Watch this and all the children too. */
-				replay_watch_tx(channel, height, blk->tx[i]);
-			}
-		}
-	}
-
-	/* Replay finished?  Now we'll get fed real blocks */
-	if (height == get_block_height(bitcoind->ld->topology)) {
-		convert_replay_txs(channel);
-		return;
-	}
-
-	/* Ready for next block */
-	channel->onchaind_replay_height = height + 1;
-
-	/* Otherwise, wait for those to be resolved (in case onchaind is slow,
-	 * e.g. waiting for HSM). */
-	if (channel->num_onchain_spent_calls == 0)
-		onchaind_replay(channel);
-}
-
-static void onchaind_replay(struct channel *channel)
-{
-	assert(channel->onchaind_replay_watches);
-	assert(channel->num_onchain_spent_calls == 0);
-
-	bitcoind_getrawblockbyheight(channel,
-				     channel->peer->ld->topology->bitcoind,
-				     channel->onchaind_replay_height,
-				     replay_block, channel);
 }
 
 static void handle_extracted_preimage(struct channel *channel, const u8 *msg)
@@ -1741,9 +1703,9 @@ static void onchain_error(struct channel *channel,
 
 /* With a reorg, this can get called multiple times; each time we'll kill
  * onchaind (like any other owner), and restart */
-enum watch_result onchaind_funding_spent(struct channel *channel,
-					 const struct bitcoin_tx *tx,
-					 u32 blockheight)
+void onchaind_funding_spent(struct channel *channel,
+			    const struct bitcoin_tx *tx,
+			    u32 blockheight)
 {
 	u8 *msg;
 	struct bitcoin_txid our_last_txid;
@@ -1787,7 +1749,7 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 	if (hsmfd < 0) {
 		log_broken(channel->log, "Could not get hsm fd for onchaind: %s",
 			   strerror(errno));
-		return KEEP_WATCHING;
+		return;
 	}
 
 	channel_set_owner(channel, new_channel_subd(channel, ld,
@@ -1805,7 +1767,7 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 	if (!channel->owner) {
 		log_broken(channel->log, "Could not subdaemon onchain: %s",
 			   strerror(errno));
-		return KEEP_WATCHING;
+		return;
 	}
 
 	struct ext_key final_wallet_ext_key;
@@ -1816,7 +1778,7 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 		    &final_wallet_ext_key) != WALLY_OK) {
 		log_broken(channel->log, "Could not derive final_wallet_ext_key %"PRIu64,
 			   channel->final_key_idx);
-		return KEEP_WATCHING;
+		return;
 	}
 
 	/* This could be a mutual close, but it doesn't matter.
@@ -1872,18 +1834,41 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 				  feerate_min(ld, NULL));
 	subd_send_msg(channel->owner, take(msg));
 
-	/* If we're replaying, we just watch this */
-	if (channel->onchaind_replay_watches) {
-		replay_watch_tx(channel, blockheight, tx);
-	} else {
-		watch_tx_and_outputs(channel, tx);
+	/* Persist the spend so onchaind_restart_closed_channels can restart us if we
+	 * crash before reaching ONCHAIN state. */
+	{
+		struct bitcoin_txid txid;
+		bitcoin_txid(tx, &txid);
+		wallet_insert_funding_spend(ld->wallet, channel, &txid, 0, blockheight);
 	}
 
-	/* We keep watching until peer finally deleted, for reorgs. */
-	return KEEP_WATCHING;
+	/* Init per-session tracking and register bwatch watches for the close
+	 * tx.  bwatch persists these so replay on restart is automatic. */
+	if (!channel->onchaind_watches)
+		channel->onchaind_watches = new_htable(channel, onchaind_tx_map);
+	bwatch_register_tx(channel, tx, blockheight);
 }
 
-void onchaind_replay_channels(struct lightningd *ld)
+struct onchaind_restart_ctx {
+	struct channel *channel;
+	u32 blockheight;
+};
+
+static void onchaind_restart_got_tx(struct bitcoin_tx *tx,
+				    u32 blockheight,
+				    void *arg)
+{
+	struct onchaind_restart_ctx *ctx = arg;
+
+	log_info(ctx->channel->log,
+		 "Restarting onchaind (%s): closed in block %u",
+		 channel_state_name(ctx->channel), blockheight);
+
+	onchaind_funding_spent(ctx->channel, tx, blockheight);
+	tal_free(ctx);
+}
+
+void onchaind_restart_closed_channels(struct lightningd *ld)
 {
 	struct peer *peer;
 	struct peer_node_id_map_iter it;
@@ -1891,34 +1876,33 @@ void onchaind_replay_channels(struct lightningd *ld)
 	/* We don't hold a db tx for all of init */
 	db_begin_transaction(ld->wallet->db);
 
-	/* For each channel, if we've recorded a spend, it's onchaind time! */
+	/* For each channel with a recorded funding spend, fetch the spending
+	 * tx from bwatch and restart onchaind to resume processing the close. */
 	for (peer = peer_node_id_map_first(ld->peers, &it);
 	     peer;
 	     peer = peer_node_id_map_next(ld->peers, &it)) {
 		struct channel *channel;
 
 		list_for_each(&peer->channels, channel, list) {
-			struct bitcoin_tx *tx;
+			struct bitcoin_txid txid;
 			u32 blockheight;
+			struct onchaind_restart_ctx *ctx;
 
 			if (channel_state_uncommitted(channel->state))
 				continue;
 
-			tx = wallet_get_funding_spend(tmpctx, ld->wallet, channel->dbid,
-						      &blockheight);
-			if (!tx)
+			if (!wallet_get_funding_spend_txid(ld->wallet, channel->dbid,
+							   &txid, &blockheight))
 				continue;
 
-			log_info(channel->log,
-				 "Restarting onchaind (%s): closed in block %u",
-				 channel_state_name(channel), blockheight);
+			/* Fetch the raw spending tx from bwatch's store;
+			 * onchaind_restart_got_tx will start onchaind when it arrives. */
+			ctx = tal(channel, struct onchaind_restart_ctx);
+			ctx->channel = channel;
+			ctx->blockheight = blockheight;
 
-			/* We're in replay mode */
-			channel->onchaind_replay_watches = new_htable(channel, replay_tx_hash);
-			channel->onchaind_replay_height = blockheight;
-
-			onchaind_funding_spent(channel, tx, blockheight);
-			onchaind_replay(channel);
+			watchman_get_transaction(ld, &txid,
+						 onchaind_restart_got_tx, ctx);
 		}
 	}
 	db_commit_transaction(ld->wallet->db);

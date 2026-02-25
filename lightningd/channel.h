@@ -208,12 +208,13 @@ struct channel {
 	 * the wallet.  NULL when no splice detection is pending. */
 	struct bitcoin_outpoint *pre_splice_funding;
 
-	/* If we're doing a replay for onchaind, here are the txids it's watching */
-	struct replay_tx_hash *onchaind_replay_watches;
+	/* Per-session onchaind tx tracking: txid → {confirm_height, num_outputs}.
+	 * Enables per-block depth updates (onchaind_send_depth_updates) and
+	 * clean unwatch-on-disinterest (onchaind_spent_reply).
+	 * Initialised by onchaind_funding_spent; NULL before onchaind starts. */
+	struct onchaind_tx_map *onchaind_watches;
 	/* Number of outstanding onchaind_spent calls */
 	size_t num_onchain_spent_calls;
-	/* Height we're replaying at (if onchaind_replay_watches set) */
-	u32 onchaind_replay_height;
 
 	/* Our original funds, in funding amount */
 	struct amount_sat our_funds;

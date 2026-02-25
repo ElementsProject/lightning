@@ -2261,6 +2261,14 @@ void channel_block_processed(struct lightningd *ld, u32 blockheight)
 		list_for_each(&peer->channels, channel, list) {
 			u32 fund_block, depth;
 
+			/* onchaind handles its own per-tx depth tracking. */
+			if (channel->state == ONCHAIN
+			    || channel->state == FUNDING_SPEND_SEEN) {
+				if (channel->owner)
+					onchaind_send_depth_updates(channel, blockheight);
+				continue;
+			}
+
 			/* Skip unconfirmed channels; stub scids are zero-conf placeholders. */
 			if (!channel->scid || is_stub_scid(*channel->scid))
 				continue;

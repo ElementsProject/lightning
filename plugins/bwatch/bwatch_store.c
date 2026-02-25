@@ -269,6 +269,16 @@ void bwatch_utxoset_spend(struct command *cmd,
  * ============================================================================
  */
 
+const jsmntok_t *bwatch_get_transaction(const tal_t *ctx,
+					struct command *cmd,
+					const struct bitcoin_txid *txid,
+					const char **buf_out)
+{
+	const char **key = mkdatastorekey(tmpctx, "bwatch", "transactions",
+					  fmt_bitcoin_txid(tmpctx, txid));
+	return bwatch_get_datastore(ctx, cmd, key, buf_out);
+}
+
 void bwatch_transaction_add(struct command *cmd,
 			    const struct bitcoin_tx *tx,
 			    u32 blockheight, u32 txindex)
