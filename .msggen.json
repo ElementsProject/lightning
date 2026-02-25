@@ -2236,6 +2236,7 @@
         },
         "ListconfigsConfigs": {
             "ListConfigs.configs.accept-htlc-tlv-types": 65,
+            "ListConfigs.configs.add-source": 72,
             "ListConfigs.configs.addr": 47,
             "ListConfigs.configs.alias": 30,
             "ListConfigs.configs.allow-deprecated-apis": 14,
@@ -2260,6 +2261,7 @@
             "ListConfigs.configs.disable-dns": 53,
             "ListConfigs.configs.disable-mpp": 4,
             "ListConfigs.configs.disable-plugin": 16,
+            "ListConfigs.configs.disable-source": 73,
             "ListConfigs.configs.encrypted-hsm": 56,
             "ListConfigs.configs.experimental-anchors": 27,
             "ListConfigs.configs.experimental-dual-fund": 21,
@@ -2310,6 +2312,11 @@
         "ListconfigsConfigsAccept-htlc-tlv-types": {
             "ListConfigs.configs.accept-htlc-tlv-types.source": 2,
             "ListConfigs.configs.accept-htlc-tlv-types.value_str": 1
+        },
+        "ListconfigsConfigsAdd-source": {
+            "ListConfigs.configs.add-source.plugin": 3,
+            "ListConfigs.configs.add-source.sources[]": 2,
+            "ListConfigs.configs.add-source.values_str[]": 1
         },
         "ListconfigsConfigsAddr": {
             "ListConfigs.configs.addr.sources[]": 2,
@@ -2407,6 +2414,11 @@
         "ListconfigsConfigsDisable-plugin": {
             "ListConfigs.configs.disable-plugin.sources[]": 2,
             "ListConfigs.configs.disable-plugin.values_str[]": 1
+        },
+        "ListconfigsConfigsDisable-source": {
+            "ListConfigs.configs.disable-source.plugin": 3,
+            "ListConfigs.configs.disable-source.sources[]": 2,
+            "ListConfigs.configs.disable-source.values_str[]": 1
         },
         "ListconfigsConfigsEncrypted-hsm": {
             "ListConfigs.configs.encrypted-hsm.set": 1,
@@ -8978,6 +8990,22 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "ListConfigs.configs.add-source": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "ListConfigs.configs.add-source.plugin": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "ListConfigs.configs.add-source.sources[]": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "ListConfigs.configs.add-source.values_str[]": {
+            "added": "v26.04",
+            "deprecated": null
+        },
         "ListConfigs.configs.addr": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -9268,6 +9296,22 @@
         },
         "ListConfigs.configs.disable-plugin.values_str[]": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.disable-source": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "ListConfigs.configs.disable-source.plugin": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "ListConfigs.configs.disable-source.sources[]": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "ListConfigs.configs.disable-source.values_str[]": {
+            "added": "v26.04",
             "deprecated": null
         },
         "ListConfigs.configs.encrypted-hsm": {

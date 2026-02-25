@@ -2803,6 +2803,19 @@ impl From<responses::WaitResponse> for pb::WaitResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsAddsource> for pb::ListconfigsConfigsAddsource {
+    fn from(c: responses::ListconfigsConfigsAddsource) -> Self {
+        Self {
+            plugin: c.plugin, // Rule #2 for type string?
+            // Field: ListConfigs.configs.add-source.sources[]
+            sources: c.sources.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+            // Field: ListConfigs.configs.add-source.values_str[]
+            values_str: c.values_str.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::ListconfigsConfigsAddr> for pb::ListconfigsConfigsAddr {
     fn from(c: responses::ListconfigsConfigsAddr) -> Self {
         Self {
@@ -3046,6 +3059,19 @@ impl From<responses::ListconfigsConfigsDisableplugin> for pb::ListconfigsConfigs
             // Field: ListConfigs.configs.disable-plugin.sources[]
             sources: c.sources.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
             // Field: ListConfigs.configs.disable-plugin.values_str[]
+            values_str: c.values_str.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsDisablesource> for pb::ListconfigsConfigsDisablesource {
+    fn from(c: responses::ListconfigsConfigsDisablesource) -> Self {
+        Self {
+            plugin: c.plugin, // Rule #2 for type string?
+            // Field: ListConfigs.configs.disable-source.sources[]
+            sources: c.sources.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+            // Field: ListConfigs.configs.disable-source.values_str[]
             values_str: c.values_str.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
         }
     }
@@ -3527,6 +3553,7 @@ impl From<responses::ListconfigsConfigsWatchtimeblocks> for pb::ListconfigsConfi
 impl From<responses::ListconfigsConfigs> for pb::ListconfigsConfigs {
     fn from(c: responses::ListconfigsConfigs) -> Self {
         Self {
+            add_source: c.add_source.map(|v| v.into()),
             addr: c.addr.map(|v| v.into()),
             alias: c.alias.map(|v| v.into()),
             allow_deprecated_apis: c.allow_deprecated_apis.map(|v| v.into()),
@@ -3551,6 +3578,7 @@ impl From<responses::ListconfigsConfigs> for pb::ListconfigsConfigs {
             disable_dns: c.disable_dns.map(|v| v.into()),
             disable_mpp: c.disable_mpp.map(|v| v.into()),
             disable_plugin: c.disable_plugin.map(|v| v.into()),
+            disable_source: c.disable_source.map(|v| v.into()),
             encrypted_hsm: c.encrypted_hsm.map(|v| v.into()),
             experimental_anchors: c.experimental_anchors.map(|v| v.into()),
             experimental_dual_fund: c.experimental_dual_fund.map(|v| v.into()),

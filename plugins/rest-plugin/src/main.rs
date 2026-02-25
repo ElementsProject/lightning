@@ -54,6 +54,8 @@ async fn main() -> Result<(), anyhow::Error> {
         "cln_plugin=info,cln_rpc=info,clnrest=debug,warn",
     );
 
+    let _ = rustls::crypto::ring::default_provider().install_default();
+
     let plugin = match Builder::new(tokio::io::stdin(), tokio::io::stdout())
         .option(OPT_CLNREST_PORT)
         .option(OPT_CLNREST_CERTS)
