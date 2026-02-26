@@ -4535,20 +4535,32 @@ def test_sql_during_change(node_factory):
         l1.rpc.invoice(100, l, l)
     assert l1.rpc.sql("SELECT amount_msat, description, status FROM invoices ORDER BY description") == {'rows': [[100, l, 'unpaid'] for l in labels]}
 
+    # It should wait on correct values
+    l1.daemon.wait_for_logs(['lightningd: waiting on invoices created 11$',
+                             'lightningd: waiting on invoices updated 1$',
+                             'lightningd: waiting on invoices deleted 1$'])
+
     # Should notice extra one (note shorter expiry)
     l = f"test_sql_during_delete{11}"
     l1.rpc.invoice(100, l, l, expiry=10)
     labels.append(l)
     assert l1.rpc.sql("SELECT amount_msat, description, status FROM invoices ORDER BY description") == {'rows': [[100, l, 'unpaid'] for l in labels]}
 
+    l1.daemon.wait_for_log('invoices: records created, inserting from 11')
+    assert not l1.daemon.is_in_log('invoices: records updated')
+    assert not l1.daemon.is_in_log('invoices: total reload due to delete')
+
     # Should notice delete.
     l1.rpc.delinvoice(labels[0], 'unpaid')
     del labels[0]
     assert l1.rpc.sql("SELECT amount_msat, description, status FROM invoices ORDER BY description") == {'rows': [[100, l, 'unpaid'] for l in labels]}
 
+    l1.daemon.wait_for_log('invoices: total reload due to delete')
+
     # Should notice change once invoice has expired.
     wait_for(lambda: only_one(l1.rpc.listinvoices(label=labels[-1])['invoices'])['status'] != 'unpaid', timeout=10 + TIMEOUT)
     assert l1.rpc.sql("SELECT amount_msat, description, status FROM invoices ORDER BY description") == {'rows': [[100, l, 'unpaid'] for l in labels[:-1]] + [[100, labels[-1], 'expired']]}
+    l1.daemon.wait_for_log('invoices: records updated, updating from 1')
 
 
 def test_listchannels_broken_message(node_factory):

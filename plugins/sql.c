@@ -624,6 +624,7 @@ static struct command_result *process_json_list(struct command *cmd,
 						const jsmntok_t *arr,
 						const u64 *rowid,
 						const struct table_desc *td,
+						bool update,
 						u64 *last_created_index,
 						u64 *last_updated_index);
 
@@ -651,7 +652,8 @@ static struct command_result *process_json_subobjs(struct command *cmd,
 		/* If it's an array, use process_json_list */
 		if (!col->sub->is_subobject) {
 			ret = process_json_list(cmd, buf, coltok, &this_rowid,
-						col->sub, last_created_index, last_updated_index);
+						col->sub, false,
+						last_created_index, last_updated_index);
 		} else {
 			ret = process_json_subobjs(cmd, buf, coltok, col->sub,
 						   this_rowid, last_created_index, last_updated_index);
@@ -836,6 +838,7 @@ static struct command_result *process_json_list(struct command *cmd,
 						const jsmntok_t *arr,
 						const u64 *parent_rowid,
 						const struct table_desc *td,
+						bool update,
 						u64 *last_created_index,
 						u64 *last_updated_index)
 {
@@ -843,7 +846,7 @@ static struct command_result *process_json_list(struct command *cmd,
 	size_t i;
 	const jsmntok_t *t;
 	int err;
-	sqlite3_stmt *insert_stmt;
+	sqlite3_stmt *insert_stmt, *delete_stmt;
 	struct command_result *ret = NULL;
 
 	err = sqlite3_prepare_v2(sql->db, td->insert_stmt, -1, &insert_stmt, NULL);
@@ -851,6 +854,18 @@ static struct command_result *process_json_list(struct command *cmd,
 		return command_fail(cmd, LIGHTNINGD, "preparing '%s' failed: %s",
 				    td->insert_stmt,
 				    sqlite3_errmsg(sql->db));
+	}
+
+	/* Updating?  Delete any previous record */
+	if (update) {
+		err = sqlite3_prepare_v2(sql->db, td->delete_stmt, -1, &delete_stmt, NULL);
+		if (err != SQLITE_OK) {
+			return command_fail(cmd, LIGHTNINGD, "preparing '%s' failed: %s",
+					    td->delete_stmt,
+					    sqlite3_errmsg(sql->db));
+		}
+	} else {
+		delete_stmt = NULL;
 	}
 
 	json_for_each_arr(i, t, arr) {
@@ -862,6 +877,7 @@ static struct command_result *process_json_list(struct command *cmd,
 			this_rowid = sql->next_rowid++;
 			/* First entry is always the rowid */
 			sqlite3_bind_int64(insert_stmt, off++, this_rowid);
+			assert(!delete_stmt);
 		} else {
 			if (!json_to_u64(buf,
 					 json_get_member(buf, t, "created_index"),
@@ -870,6 +886,23 @@ static struct command_result *process_json_list(struct command *cmd,
 						    td->cmdname,
 						    json_tok_full_len(t),
 						    json_tok_full(buf, t));
+
+			/* For updates, we simply delete old entry: this
+			 * cascades to subtables.  We ignore updates on
+			 * entries we don't have yet, too. */
+			if (delete_stmt) {
+				if (this_rowid > td->last_created_index)
+					continue;
+				sqlite3_bind_int64(delete_stmt, 1, this_rowid);
+				err = sqlite3_step(delete_stmt);
+				if (err != SQLITE_DONE) {
+					return command_fail(cmd, LIGHTNINGD,
+							    "Error executing %s on id %"PRIu64": %s",
+							    td->delete_stmt, this_rowid,
+							    sqlite3_errmsg(sql->db));
+				}
+				sqlite3_reset(delete_stmt);
+			}
 		}
 		ret = process_json_obj(cmd, buf, t, td, i, this_rowid, parent_rowid, &off, insert_stmt, last_created_index, last_updated_index);
 		if (ret)
@@ -877,14 +910,23 @@ static struct command_result *process_json_list(struct command *cmd,
 		sqlite3_reset(insert_stmt);
 	}
 	sqlite3_finalize(insert_stmt);
+	if (delete_stmt)
+		sqlite3_finalize(delete_stmt);
+
 	return ret;
 }
 
-/* Process top-level JSON result object */
+/* Process top-level JSON result object.
+ * If update is true, ignore entries > td->last_created_index, and
+ * delete before insert.
+ * Put the maximum processed created_index in *last_created_index.
+ * Put the number of entries in *num_entries, if not NULL;
+ */
 static struct command_result *process_json_result(struct command *cmd,
 						  const char *buf,
 						  const jsmntok_t *result,
 						  const struct table_desc *td,
+						  bool update,
 						  u64 *last_created_index,
 						  u64 *last_updated_index,
 						  size_t *num_entries)
@@ -892,14 +934,15 @@ static struct command_result *process_json_result(struct command *cmd,
 	const jsmntok_t *arr;
 	struct timerel so_far = timemono_since(td->refresh_start);
 	plugin_log(cmd->plugin, LOG_DBG,
-		   "Time to call %s: %"PRIu64".%09"PRIu64" seconds",
-		   td->cmdname,
+		   "Time to call %s%s: %"PRIu64".%09"PRIu64" seconds",
+		   td->cmdname, update ? " (updates)" : "",
 		   (u64)so_far.ts.tv_sec, (u64)so_far.ts.tv_nsec);
 
 	arr = json_get_member(buf, result, td->arrname);
 	if (num_entries)
 		*num_entries = arr->size;
-	return process_json_list(cmd, buf, arr, NULL, td, last_created_index, last_updated_index);
+	return process_json_list(cmd, buf, arr, NULL, td, update,
+				 last_created_index, last_updated_index);
 }
 
 static struct command_result *default_list_done(struct command *cmd,
@@ -922,7 +965,8 @@ static struct command_result *default_list_done(struct command *cmd,
 				    td->name, errmsg);
 	}
 
-	ret = process_json_result(cmd, buf, result, td, &td->last_created_index, &td->last_updated_index, NULL);
+	ret = process_json_result(cmd, buf, result, td, false,
+				  &td->last_created_index, &td->last_updated_index, NULL);
 	if (ret)
 		return ret;
 
@@ -1005,7 +1049,8 @@ static struct command_result *listchannels_one_done(struct command *cmd,
 	struct table_desc *td = dbq->tables[0];
 	struct command_result *ret;
 
-	ret = process_json_result(cmd, buf, result, td, &td->last_created_index, &td->last_updated_index, NULL);
+	ret = process_json_result(cmd, buf, result, td, false,
+				  &td->last_created_index, &td->last_updated_index, NULL);
 	if (ret)
 		return ret;
 
@@ -1106,7 +1151,8 @@ static struct command_result *listnodes_one_done(struct command *cmd,
 	struct table_desc *td = dbq->tables[0];
 	struct command_result *ret;
 
-	ret = process_json_result(cmd, buf, result, td, &td->last_created_index, &td->last_updated_index, NULL);
+	ret = process_json_result(cmd, buf, result, td, false,
+				  &td->last_created_index, &td->last_updated_index, NULL);
 	if (ret)
 		return ret;
 
@@ -1681,7 +1727,7 @@ static struct command_result *limited_list_done(struct command *cmd,
 	struct command_result *ret;
 	size_t num_entries;
 
-	ret = process_json_result(cmd, buf, result, td,
+	ret = process_json_result(cmd, buf, result, td, false,
 				  &td->last_created_index,
 				  &td->last_updated_index,
 				  &num_entries);
@@ -1712,6 +1758,63 @@ static struct command_result *refresh_by_created_index(struct command *cmd,
 	return send_outreq(req);
 }
 
+static struct command_result *updated_list_done(struct command *cmd,
+						const char *method,
+						const char *buf,
+						const jsmntok_t *result,
+						struct db_query *dbq)
+{
+	struct table_desc *td = dbq->tables[0];
+	struct command_result *ret;
+	u64 unused = 0;
+
+	/* We don't care what max created_index it processes. */
+	ret = process_json_result(cmd, buf, result, td, true, &unused, &td->last_updated_index,
+				  NULL);
+	if (ret)
+		return ret;
+
+	/* Now we can process any new ones */
+	if (td->refresh_needs & REFRESH_CREATED) {
+		plugin_log(cmd->plugin, LOG_DBG,
+			   "%s: records created, inserting from %"PRIu64, td->name, td->last_created_index + 1);
+		return refresh_by_created_index(cmd, td, dbq);
+	}
+
+	td->refresh_needs = REFRESH_UNNECESSARY;
+	return one_refresh_done(cmd, dbq, false);
+}
+
+static struct command_result *paginated_refresh(struct command *cmd,
+						struct table_desc *td,
+						struct db_query *dbq)
+{
+	/* In case something was deleted (rare!) we just reload the
+	 * entire thing */
+	if (td->refresh_needs & REFRESH_DELETED) {
+		plugin_log(cmd->plugin, LOG_DBG, "%s: total reload due to delete", td->name);
+		td->refresh_needs = REFRESH_UNNECESSARY;
+		return default_refresh(cmd, td, dbq);
+	}
+
+	if (td->refresh_needs & REFRESH_UPDATED) {
+		struct out_req *req;
+		plugin_log(cmd->plugin, LOG_DBG,
+			   "%s: records updated, updating from %"PRIu64, td->name, td->last_updated_index + 1);
+		req = jsonrpc_request_start(cmd, td->cmdname,
+					    updated_list_done, forward_error,
+					    dbq);
+		json_add_string(req->js, "index", "updated");
+		json_add_u64(req->js, "start", td->last_updated_index + 1);
+		return send_outreq(req);
+	}
+
+	/* No updates, no deletes: the simple case! */
+	plugin_log(cmd->plugin, LOG_DBG,
+		   "%s: records created, inserting from %"PRIu64, td->name, td->last_created_index + 1);
+	return refresh_by_created_index(cmd, td, dbq);
+}
+
 struct refresh_funcs {
 	const char *cmdname;
 	struct command_result *(*refresh)(struct command *cmd,
@@ -1724,11 +1827,12 @@ static const struct refresh_funcs refresh_funcs[] = {
 	/* These are special, using gossmap */
 	{ "listchannels", channels_refresh, NULL },
 	{ "listnodes", nodes_refresh, NULL },
-	/* FIXME: These support wait and full pagination,  but we need to watch for deletes, too! */
-	{ "listhtlcs", default_refresh, NULL },
-	{ "listforwards", default_refresh, NULL },
-	{ "listinvoices", default_refresh, NULL },
-	{ "listsendpays", default_refresh, NULL },
+	/* These support wait and full pagination. */
+	{ "listhtlcs", paginated_refresh, "htlcs" },
+	{ "listforwards", paginated_refresh, "forwards" },
+	{ "listinvoices", paginated_refresh, "invoices" },
+	{ "listsendpays", paginated_refresh, "sendpays" },
+	{ "listnetworkevents", paginated_refresh, "networkevents" },
 	/* These are never changed or deleted */
 	{ "listchainmoves", refresh_by_created_index, "chainmoves" },
 	{ "listchannelmoves", refresh_by_created_index, "channelmoves" },
@@ -1740,7 +1844,6 @@ static const struct refresh_funcs refresh_funcs[] = {
 	{ "listtransactions", default_refresh, NULL },
 	{ "bkpr-listaccountevents", default_refresh, NULL },
 	{ "bkpr-listincome", default_refresh, NULL },
-	{ "listnetworkevents", default_refresh, NULL },
 };
 
 static const struct refresh_funcs *find_command_refresh(const char *cmdname)
