@@ -91,8 +91,6 @@ struct db_query {
 	struct table_desc **tables;
 	const char *authfail;
 	bool has_wildcard;
-	/* Update *last_created_index */
-	u64 *last_created_index;
 };
 
 /* Waiting for another command to refresh table */
@@ -901,7 +899,7 @@ static struct command_result *default_list_done(struct command *cmd,
 						struct db_query *dbq)
 {
 	struct sql *sql = sql_of(cmd->plugin);
-	const struct table_desc *td = dbq->tables[0];
+	struct table_desc *td = dbq->tables[0];
 	struct command_result *ret;
 	int err;
 	char *errmsg;
@@ -914,7 +912,7 @@ static struct command_result *default_list_done(struct command *cmd,
 				    td->name, errmsg);
 	}
 
-	ret = process_json_result(cmd, buf, result, td, dbq->last_created_index, NULL);
+	ret = process_json_result(cmd, buf, result, td, &td->last_created_index, NULL);
 	if (ret)
 		return ret;
 
@@ -994,10 +992,10 @@ static struct command_result *listchannels_one_done(struct command *cmd,
 						    const jsmntok_t *result,
 						    struct db_query *dbq)
 {
-	const struct table_desc *td = dbq->tables[0];
+	struct table_desc *td = dbq->tables[0];
 	struct command_result *ret;
 
-	ret = process_json_result(cmd, buf, result, td, dbq->last_created_index, NULL);
+	ret = process_json_result(cmd, buf, result, td, &td->last_created_index, NULL);
 	if (ret)
 		return ret;
 
@@ -1095,10 +1093,10 @@ static struct command_result *listnodes_one_done(struct command *cmd,
 						 const jsmntok_t *result,
 						 struct db_query *dbq)
 {
-	const struct table_desc *td = dbq->tables[0];
+	struct table_desc *td = dbq->tables[0];
 	struct command_result *ret;
 
-	ret = process_json_result(cmd, buf, result, td, dbq->last_created_index, NULL);
+	ret = process_json_result(cmd, buf, result, td, &td->last_created_index, NULL);
 	if (ret)
 		return ret;
 
@@ -1225,8 +1223,6 @@ static struct command_result *refresh_tables(struct command *cmd,
 	if (tal_count(dbq->tables) == 0)
 		return refresh_complete(cmd, dbq);
 
-	/* td is const, but last_created_index needs updating, so we hand
-	 * pointer in dbq. */
 	td = dbq->tables[0];
 
 	/* If it's currently being refreshed, wait */
@@ -1241,7 +1237,6 @@ static struct command_result *refresh_tables(struct command *cmd,
 	if (!td->needs_refresh)
 		return next_refresh(cmd, dbq);
 
-	dbq->last_created_index = &dbq->tables[0]->last_created_index;
 	td->refreshing = true;
 	td->refresh_start = time_mono();
 	return td->refresh(cmd, dbq->tables[0], dbq);
@@ -1567,7 +1562,7 @@ static struct command_result *limited_list_done(struct command *cmd,
 	struct command_result *ret;
 	size_t num_entries;
 
-	ret = process_json_result(cmd, buf, result, td, dbq->last_created_index,
+	ret = process_json_result(cmd, buf, result, td, &td->last_created_index,
 				  &num_entries);
 	if (ret)
 		return ret;
@@ -1586,7 +1581,7 @@ static struct command_result *refresh_by_created_index(struct command *cmd,
 				    limited_list_done, forward_error,
 				    dbq);
 	json_add_string(req->js, "index", "created");
-	json_add_u64(req->js, "start", *dbq->last_created_index + 1);
+	json_add_u64(req->js, "start", td->last_created_index + 1);
 	json_add_u64(req->js, "limit", LIMIT_PER_LIST);
 	return send_outreq(req);
 }
