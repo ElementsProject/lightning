@@ -3,14 +3,18 @@ set -e
 export DEBIAN_FRONTEND=noninteractive
 export RUST_VERSION=stable
 
-sudo useradd -ms /bin/bash tester
 sudo mkdir -p /var/cache/apt/archives
 mkdir -p ~/ci-cache/apt/
 sudo cp -a ~/ci-cache/apt/. /var/cache/apt/archives/ 2>/dev/null || true
 
 sudo apt-get update
 
+# Install eatmydata, then use it for the rest.
 sudo apt-get install --no-install-recommends --allow-unauthenticated -yy \
+     -o APT::Keep-Downloaded-Packages=true \
+     eatmydata
+
+sudo eatmydata apt-get install --no-install-recommends --allow-unauthenticated -yy \
     -o APT::Keep-Downloaded-Packages=true \
      autoconf \
      automake \
@@ -19,7 +23,6 @@ sudo apt-get install --no-install-recommends --allow-unauthenticated -yy \
      clang \
      cppcheck \
      docbook-xml \
-     eatmydata \
      gcc-aarch64-linux-gnu \
      gcc-arm-linux-gnueabihf \
      gcc-arm-none-eabi \
