@@ -622,7 +622,8 @@ static struct command_result *process_json_list(struct command *cmd,
 						const jsmntok_t *arr,
 						const u64 *rowid,
 						const struct table_desc *td,
-						u64 *last_created_index);
+						u64 *last_created_index,
+						u64 *last_updated_index);
 
 /* Process all subobject columns */
 static struct command_result *process_json_subobjs(struct command *cmd,
@@ -630,7 +631,8 @@ static struct command_result *process_json_subobjs(struct command *cmd,
 						   const jsmntok_t *t,
 						   const struct table_desc *td,
 						   u64 this_rowid,
-						   u64 *last_created_index)
+						   u64 *last_created_index,
+						   u64 *last_updated_index)
 {
 	for (size_t i = 0; i < tal_count(td->columns); i++) {
 		const struct column *col = td->columns[i];
@@ -647,10 +649,10 @@ static struct command_result *process_json_subobjs(struct command *cmd,
 		/* If it's an array, use process_json_list */
 		if (!col->sub->is_subobject) {
 			ret = process_json_list(cmd, buf, coltok, &this_rowid,
-						col->sub, last_created_index);
+						col->sub, last_created_index, last_updated_index);
 		} else {
 			ret = process_json_subobjs(cmd, buf, coltok, col->sub,
-						   this_rowid, last_created_index);
+						   this_rowid, last_created_index, last_updated_index);
 		}
 		if (ret)
 			return ret;
@@ -668,7 +670,8 @@ static struct command_result *process_json_obj(struct command *cmd,
 					       const u64 *parent_rowid,
 					       size_t *sqloff,
 					       sqlite3_stmt *stmt,
-					       u64 *last_created_index)
+					       u64 *last_created_index,
+					       u64 *last_updated_index)
 {
 	struct sql *sql = sql_of(cmd->plugin);
 	int err;
@@ -696,7 +699,7 @@ static struct command_result *process_json_obj(struct command *cmd,
 			else
 				coltok = json_get_member(buf, t, col->jsonname);
 			ret = process_json_obj(cmd, buf, coltok, col->sub, row, this_rowid,
-					       NULL, sqloff, stmt, last_created_index);
+					       NULL, sqloff, stmt, last_created_index, last_updated_index);
 			if (ret)
 				return ret;
 			continue;
@@ -745,6 +748,11 @@ static struct command_result *process_json_obj(struct command *cmd,
 				if (streq(col->dbname, "created_index")
 				    && val64 > *last_created_index) {
 					*last_created_index = val64;
+				}
+				/* updated_index -> last_updated_index */
+				if (streq(col->dbname, "updated_index")
+				    && val64 > *last_updated_index) {
+					*last_updated_index = val64;
 				}
 				break;
 			case FIELD_BOOL:
@@ -817,7 +825,7 @@ static struct command_result *process_json_obj(struct command *cmd,
 				    sqlite3_errmsg(sql->db));
 	}
 
-	return process_json_subobjs(cmd, buf, t, td, this_rowid, last_created_index);
+	return process_json_subobjs(cmd, buf, t, td, this_rowid, last_created_index, last_updated_index);
 }
 
 /* A list, such as in the top-level reply, or for a sub-table */
@@ -826,7 +834,8 @@ static struct command_result *process_json_list(struct command *cmd,
 						const jsmntok_t *arr,
 						const u64 *parent_rowid,
 						const struct table_desc *td,
-						u64 *last_created_index)
+						u64 *last_created_index,
+						u64 *last_updated_index)
 {
 	struct sql *sql = sql_of(cmd->plugin);
 	size_t i;
@@ -860,7 +869,7 @@ static struct command_result *process_json_list(struct command *cmd,
 						    json_tok_full_len(t),
 						    json_tok_full(buf, t));
 		}
-		ret = process_json_obj(cmd, buf, t, td, i, this_rowid, parent_rowid, &off, stmt, last_created_index);
+		ret = process_json_obj(cmd, buf, t, td, i, this_rowid, parent_rowid, &off, stmt, last_created_index, last_updated_index);
 		if (ret)
 			break;
 		sqlite3_reset(stmt);
@@ -875,6 +884,7 @@ static struct command_result *process_json_result(struct command *cmd,
 						  const jsmntok_t *result,
 						  const struct table_desc *td,
 						  u64 *last_created_index,
+						  u64 *last_updated_index,
 						  size_t *num_entries)
 {
 	const jsmntok_t *arr;
@@ -887,7 +897,7 @@ static struct command_result *process_json_result(struct command *cmd,
 	arr = json_get_member(buf, result, td->arrname);
 	if (num_entries)
 		*num_entries = arr->size;
-	return process_json_list(cmd, buf, arr, NULL, td, last_created_index);
+	return process_json_list(cmd, buf, arr, NULL, td, last_created_index, last_updated_index);
 }
 
 static struct command_result *default_list_done(struct command *cmd,
@@ -910,7 +920,7 @@ static struct command_result *default_list_done(struct command *cmd,
 				    td->name, errmsg);
 	}
 
-	ret = process_json_result(cmd, buf, result, td, &td->last_created_index, NULL);
+	ret = process_json_result(cmd, buf, result, td, &td->last_created_index, &td->last_updated_index, NULL);
 	if (ret)
 		return ret;
 
@@ -993,7 +1003,7 @@ static struct command_result *listchannels_one_done(struct command *cmd,
 	struct table_desc *td = dbq->tables[0];
 	struct command_result *ret;
 
-	ret = process_json_result(cmd, buf, result, td, &td->last_created_index, NULL);
+	ret = process_json_result(cmd, buf, result, td, &td->last_created_index, &td->last_updated_index, NULL);
 	if (ret)
 		return ret;
 
@@ -1094,7 +1104,7 @@ static struct command_result *listnodes_one_done(struct command *cmd,
 	struct table_desc *td = dbq->tables[0];
 	struct command_result *ret;
 
-	ret = process_json_result(cmd, buf, result, td, &td->last_created_index, NULL);
+	ret = process_json_result(cmd, buf, result, td, &td->last_created_index, &td->last_updated_index, NULL);
 	if (ret)
 		return ret;
 
@@ -1665,7 +1675,9 @@ static struct command_result *limited_list_done(struct command *cmd,
 	struct command_result *ret;
 	size_t num_entries;
 
-	ret = process_json_result(cmd, buf, result, td, &td->last_created_index,
+	ret = process_json_result(cmd, buf, result, td,
+				  &td->last_created_index,
+				  &td->last_updated_index,
 				  &num_entries);
 	if (ret)
 		return ret;
