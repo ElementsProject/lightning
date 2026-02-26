@@ -132,6 +132,7 @@ jobs:
           - CFG: compile-clang
             VALGRIND: 1
             COMPILER: clang
+            COPTFLAGS_VAR: COPTFLAGS="-O3"
             DEBUG_BUILD: --enable-debugbuild
           - CFG: compile-clang-sanitizers
             COMPILER: clang
