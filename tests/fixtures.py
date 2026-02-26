@@ -75,15 +75,8 @@ class LightningNode(utils.LightningNode):
             # Setting this env var causes all nodes use the same mode
             self.vls_mode = env("VLS_MODE", "cln:native")
         
-        subdaemon = {
-            "cln:native": None,
-            "cln:socket": f"hsmd:{self.lightning_dir/'validating-lightning-signer'/'target'/'debug'/'remote_hsmd_socket'}",
-        }[self.vls_mode]
-
-        self.use_vlsd = subdaemon is not None
+        self.use_vls = use_vls is not None
         self.vlsd: ValidatingLightningSignerD | None = None
-        if subdaemon:
-            self.daemon.opts["subdaemon"] = subdaemon
 
         # Avoid socket path name too long on Linux
         if os.uname()[0] == 'Linux' and \
@@ -123,12 +116,13 @@ class LightningNode(utils.LightningNode):
 
     def start(self, wait_for_bitcoind_sync=True, stderr_redir=False):
         # We start the signer first, otherwise the lightningd startup hangs on the init message.
-        if self.use_vlsd:
+        if self.use_vls:
             self.vlsd = ValidatingLightningSignerD(
                 lightning_dir=self.lightning_dir,
                 node_id=self.node_id,
                 network=self.network,
             )
+            self.daemon.opts["subdaemon"] = f"hsmd:{self.vlsd.remote_socket}"
             self.daemon.env["VLS_PORT"] = str(self.vlsd.port)
             self.daemon.env["VLS_LSS"] = os.environ.get("LSS_URI", "")
             import threading

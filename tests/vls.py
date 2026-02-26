@@ -120,7 +120,8 @@ class ValidatingLightningSignerD(TailableProc):
             log.info("Successfully built vlsd")
 
         TailableProc.__init__(self, self.dir, verbose=True)
-        self.executable = env("REMOTE_SIGNER_CMD", Path(self.dir / "target" / "debug" / "vlsd"))
+        self.executable = env("REMOTE_SIGNER_CMD", Path(self.dir / "target" / "debug" / "vlsd").resolve())
+        self.remote_socket = Path(self.dir / "target" / "debug" / "remote_hsmd_socket").resolve()
         os.environ['ALLOWLIST'] = env(
             'REMOTE_SIGNER_ALLOWLIST',
             'contrib/remote_hsmd/TESTING_ALLOWLIST')
