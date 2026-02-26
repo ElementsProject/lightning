@@ -2,6 +2,7 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/err/err.h>
+#include <ccan/json_out/json_out.h>
 #include <ccan/tal/str/str.h>
 #include <common/deprecation.h>
 #include <common/gossip_store.h>
@@ -100,6 +101,20 @@ struct refresh_waiter {
 	struct db_query *dbq;
 };
 
+enum refresh_needs {
+	/* Naive tables always need refresh */
+	REFRESH_ALWAYS = 0x8,
+
+	/* Up-to-date! */
+	REFRESH_UNNECESSARY = 0,
+	/* We were notified of new created entries */
+	REFRESH_CREATED = 0x1,
+	/* We were notified of new updated entries */
+	REFRESH_UPDATED = 0x2,
+	/* We were notified of new deleted entries */
+	REFRESH_DELETED = 0x4,
+};
+
 struct table_desc {
 	/* e.g. listpeers.  For sub-tables, the raw name without
 	 * parent prepended */
@@ -122,12 +137,13 @@ struct table_desc {
 	bool populated;
 	/* function to refresh it. */
 	struct command_result *(*refresh)(struct command *cmd,
-					  const struct table_desc *td,
+					  struct table_desc *td,
 					  struct db_query *dbq);
 	/* some refresh functions maintain changed and created indexes */
 	u64 last_created_index;
+	u64 last_updated_index;
 	/* Do we need a refresh? */
-	bool needs_refresh;
+	enum refresh_needs refresh_needs;
 	/* Are we refreshing now? */
 	bool refreshing;
 	/* When did we start refreshing? */
@@ -144,6 +160,9 @@ struct sql {
 	int gosstore_fd ;
 	size_t gosstore_nodes_off, gosstore_channels_off;
 	u64 next_rowid;
+
+	/* This is an aux_command for all our watches */
+	struct command *waitcmd;
 };
 
 static struct sql *sql_of(struct plugin *plugin)
@@ -543,16 +562,7 @@ static struct command_result *next_refresh(struct command *cmd,
 	return refresh_tables(cmd, dbq);
 }
 
-static struct command_result *wait_done(struct command *cmd,
-					const char *method,
-					const char *buf,
-					const jsmntok_t *result,
-					struct table_desc *td)
-{
-	td->needs_refresh = true;
-	return aux_command_done(cmd);
-}
-
+/* Recursion */
 static struct command_result *one_refresh_done(struct command *cmd,
 					       struct db_query *dbq,
 					       bool was_limited)
@@ -587,18 +597,6 @@ static struct command_result *one_refresh_done(struct command *cmd,
 			   td->name,
 			   (u64)refresh_duration.ts.tv_sec,
 			   (u64)refresh_duration.ts.tv_nsec);
-	}
-
-	/* We put in a wait command to we get told when we need to refresh */
-	if (td->waitname) {
-		struct out_req *req;
-		td->needs_refresh = false;
-		req = jsonrpc_request_start(aux_command(cmd), "wait", wait_done,
-					    plugin_broken_cb, td);
-		json_add_string(req->js, "subsystem", td->waitname);
-		json_add_string(req->js, "indexname", "created");
-		json_add_u64(req->js, "nextvalue", td->last_created_index+1);
-		send_outreq(req);
 	}
 
 	/* Transfer refresh waiters onto local list */
@@ -920,7 +918,7 @@ static struct command_result *default_list_done(struct command *cmd,
 }
 
 static struct command_result *default_refresh(struct command *cmd,
-					      const struct table_desc *td,
+					      struct table_desc *td,
 					      struct db_query *dbq)
 {
 	struct out_req *req;
@@ -983,7 +981,7 @@ static void delete_channel_from_db(struct command *cmd,
 }
 
 static struct command_result *channels_refresh(struct command *cmd,
-					       const struct table_desc *td,
+					       struct table_desc *td,
 					       struct db_query *dbq);
 
 static struct command_result *listchannels_one_done(struct command *cmd,
@@ -1004,8 +1002,8 @@ static struct command_result *listchannels_one_done(struct command *cmd,
 }
 
 static struct command_result *channels_refresh(struct command *cmd,
-						const struct table_desc *td,
-						struct db_query *dbq)
+					       struct table_desc *td,
+					       struct db_query *dbq)
 {
 	struct sql *sql = sql_of(cmd->plugin);
 	struct out_req *req;
@@ -1084,7 +1082,7 @@ static struct command_result *channels_refresh(struct command *cmd,
 }
 
 static struct command_result *nodes_refresh(struct command *cmd,
-					    const struct table_desc *td,
+					    struct table_desc *td,
 					    struct db_query *dbq);
 
 static struct command_result *listnodes_one_done(struct command *cmd,
@@ -1152,7 +1150,7 @@ static bool extract_node_id(int gosstore_fd, size_t off, u16 type,
 }
 
 static struct command_result *nodes_refresh(struct command *cmd,
-					    const struct table_desc *td,
+					    struct table_desc *td,
 					    struct db_query *dbq)
 {
 	struct sql *sql = sql_of(cmd->plugin);
@@ -1215,6 +1213,102 @@ static struct command_result *nodes_refresh(struct command *cmd,
 	return one_refresh_done(cmd, dbq, false);
 }
 
+/* Mutual recursion */
+static void watch_for(struct sql *sql,
+		      struct table_desc *td,
+		      const char *indexname,
+		      u64 next_index);
+
+static struct command_result *wait_done(struct command *auxcmd,
+					const char *method,
+					const char *buf,
+					const jsmntok_t *result,
+					struct table_desc *td)
+{
+	const jsmntok_t *valtok;
+	const char *indexname;
+	u64 val;
+
+	if ((valtok = json_get_member(buf, result, "created")) != NULL) {
+		indexname = "created";
+		td->refresh_needs |= REFRESH_CREATED;
+	} else if ((valtok = json_get_member(buf, result, "updated")) != NULL) {
+		indexname = "updated";
+		td->refresh_needs |= REFRESH_UPDATED;
+	} else if ((valtok = json_get_member(buf, result, "deleted")) != NULL) {
+		indexname = "deleted";
+		td->refresh_needs |= REFRESH_DELETED;
+	} else {
+		plugin_err(auxcmd->plugin,
+			   "Invalid wait_done for %s: '%.*s'",
+			   td->name,
+			   json_tok_full_len(result),
+			   json_tok_full(buf, result));
+	}
+
+	if (!json_to_u64(buf, valtok, &val)) {
+		plugin_err(auxcmd->plugin,
+			   "Invalid wait_done index for %s: '%.*s'",
+			   td->name,
+			   json_tok_full_len(result),
+			   json_tok_full(buf, result));
+	}
+
+	/* Keep watching for next one */
+	watch_for(sql_of(auxcmd->plugin), td, indexname, val + 1);
+	return command_still_pending(auxcmd);
+}
+
+static void watch_for(struct sql *sql,
+		      struct table_desc *td,
+		      const char *indexname,
+		      u64 next_index)
+{
+	struct out_req *req;
+
+	req = jsonrpc_request_start(sql->waitcmd, "wait", wait_done,
+				    plugin_broken_cb, td);
+	json_add_string(req->js, "subsystem", td->waitname);
+	json_add_string(req->js, "indexname", indexname);
+	json_add_u64(req->js, "nextvalue", next_index);
+	send_outreq(req);
+}
+
+/* First time we initialize counters and figure where we're up to */
+static void watch_init(struct command *cmd,
+		       struct table_desc *td,
+		       const char *indexname,
+		       u64 *max)
+{
+	struct json_out *params = json_out_new(NULL);
+	const jsmntok_t *result, *valtok;
+	const char *buf;
+	u64 val;
+
+	json_out_start(params, NULL, '{');
+	json_out_addstr(params, "subsystem", td->waitname);
+	json_out_addstr(params, "indexname", indexname);
+	json_out_add(params, "nextvalue", false, "0");
+	json_out_end(params, '}');
+
+	result = jsonrpc_request_sync(tmpctx, cmd, "wait", take(params), &buf);
+
+	valtok = json_get_member(buf, result, indexname);
+	if (!valtok || !json_to_u64(buf, valtok, &val)) {
+		plugin_err(cmd->plugin,
+			   "Invalid wait reply for %s %s: '%.*s'",
+			   td->name, indexname,
+			   json_tok_full_len(result),
+			   json_tok_full(buf, result));
+	}
+
+	if (max != NULL)
+		*max = val;
+
+	/* Place watch for when it increases */
+	watch_for(sql_of(cmd->plugin), td, indexname, val + 1);
+}
+
 static struct command_result *refresh_tables(struct command *cmd,
 					     struct db_query *dbq)
 {
@@ -1234,11 +1328,20 @@ static struct command_result *refresh_tables(struct command *cmd,
 		return command_still_pending(cmd);
 	}
 
-	if (!td->needs_refresh)
+	if (td->refresh_needs == REFRESH_UNNECESSARY)
 		return next_refresh(cmd, dbq);
 
 	td->refreshing = true;
 	td->refresh_start = time_mono();
+
+	/* The first time, we may need to install watches */
+	if (!td->populated && td->waitname) {
+		/* We will initialize td->last_created_index as we read them in */
+		watch_init(cmd, td, "created", NULL);
+		watch_init(cmd, td, "updated", &td->last_updated_index);
+		watch_init(cmd, td, "deleted", NULL);
+	}
+
 	return td->refresh(cmd, dbq->tables[0], dbq);
 }
 
@@ -1573,10 +1676,15 @@ static struct command_result *limited_list_done(struct command *cmd,
 
 /* The simplest case: append-only lists */
 static struct command_result *refresh_by_created_index(struct command *cmd,
-						       const struct table_desc *td,
+						       struct table_desc *td,
 						       struct db_query *dbq)
 {
 	struct out_req *req;
+
+	/* Since we're relying on watches, mark refreshing unnecessary to start */
+	assert(td->refresh_needs != REFRESH_UNNECESSARY);
+	td->refresh_needs = REFRESH_UNNECESSARY;
+
 	req = jsonrpc_request_start(cmd, td->cmdname,
 				    limited_list_done, forward_error,
 				    dbq);
@@ -1589,7 +1697,7 @@ static struct command_result *refresh_by_created_index(struct command *cmd,
 struct refresh_funcs {
 	const char *cmdname;
 	struct command_result *(*refresh)(struct command *cmd,
-					  const struct table_desc *td,
+					  struct table_desc *td,
 					  struct db_query *dbq);
 	const char *waitname;
 };
@@ -1649,8 +1757,9 @@ static struct table_desc *new_table_desc(const tal_t *ctx,
 	td->arrname = json_strdup(td, schemas, arrname);
 	td->columns = tal_arr(td, struct column *, 0);
 	td->last_created_index = 0;
+	td->last_updated_index = 0;
 	td->has_created_index = false;
-	td->needs_refresh = true;
+	td->refresh_needs = REFRESH_ALWAYS;
 	td->refreshing = false;
 	td->populated = false;
 	list_head_init(&td->refresh_waiters);
@@ -1850,6 +1959,7 @@ static const char *init(struct command *init_cmd,
 	struct sql *sql = sql_of(plugin);
 	sql->db = sqlite_setup(plugin);
 	init_tablemap(plugin, &sql->tablemap);
+	sql->waitcmd = aux_command(init_cmd);
 
 	plugin_set_memleak_handler(plugin, memleak_mark_tablemap);
 	return NULL;
