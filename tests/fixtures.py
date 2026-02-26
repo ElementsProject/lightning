@@ -1,6 +1,7 @@
 from utils import TEST_NETWORK, VALGRIND  # noqa: F401,F403
-from pyln.testing.fixtures import directory, test_base_dir, test_name, chainparams, node_factory, bitcoind, teardown_checks, db_provider, executor, setup_logging, jsonschemas  # noqa: F401,F403
+from pyln.testing.fixtures import directory, test_base_dir, test_name, chainparams, bitcoind, teardown_checks, db_provider, executor, setup_logging, jsonschemas  # noqa: F401,F403
 from pyln.testing import utils
+from pyln.testing.utils import NodeFactory as _NodeFactory
 from utils import COMPAT
 from pathlib import Path
 
@@ -15,13 +16,48 @@ from pyln.testing.utils import env
 from vls import ValidatingLightningSignerD
 
 
+class NodeFactory(_NodeFactory):
+    """Make `use_vls` option reaches the `LightningNode.__init__` in 
+    `NodeFactory` as node-level kwarg instead of being forwarded as a
+    lightningd CLI flag."""
+
+    def split_options(self, opts):
+        node_opts, cli_opts = super().split_options(opts)
+        if 'use_vls' in cli_opts:
+            node_opts['use_vls'] = cli_opts.pop('use_vls')
+        return node_opts, cli_opts
+
+
 @pytest.fixture
 def node_cls():
     return LightningNode
 
+# Override the default fixture to use the new `NodeFactory` which supports `use_vls` as a node-level option. 
+@pytest.fixture
+def node_factory(request, directory, test_name, bitcoind, executor, db_provider, teardown_checks, node_cls, jsonschemas):
+    nf = NodeFactory(
+        request,
+        test_name,
+        bitcoind,
+        executor,
+        directory=directory,
+        db_provider=db_provider,
+        node_cls=node_cls,
+        jsonschemas=jsonschemas,
+    )
+
+    yield nf
+    ok, errs = nf.killall([not n.may_fail for n in nf.nodes])
+
+    for e in errs:
+        print(e.format())
+
+    if not ok:
+        raise Exception("At least one lightning exited with unexpected non-zero return code")
+
 
 class LightningNode(utils.LightningNode):
-    def __init__(self, node_id, *args, **kwargs):
+    def __init__(self, node_id, *args, use_vls=None, **kwargs):
         # Yes, we really want to test the local development version, not
         # something in out path.
         kwargs["executable"] = "lightningd/lightningd"
@@ -30,12 +66,19 @@ class LightningNode(utils.LightningNode):
         self.node_id = node_id
         self.network = TEST_NETWORK
 
-        # New VLS integration
-        mode = env("VLS_MODE", "cln:native")
+        if use_vls is True:
+            self.vls_mode = "cln:socket"
+        elif use_vls is False:
+            self.vls_mode = "cln:native"
+        else:
+            # use_vls=None (default) falls back to the VLS_MODE env var.
+            # Setting this env var causes all nodes use the same mode
+            self.vls_mode = env("VLS_MODE", "cln:native")
+        
         subdaemon = {
             "cln:native": None,
             "cln:socket": f"hsmd:{self.lightning_dir/'validating-lightning-signer'/'target'/'debug'/'remote_hsmd_socket'}",
-        }[mode]
+        }[self.vls_mode]
 
         self.use_vlsd = subdaemon is not None
         self.vlsd: ValidatingLightningSignerD | None = None
