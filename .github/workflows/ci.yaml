@@ -660,9 +660,6 @@ jobs:
         run: |
           bash -x .github/scripts/setup.sh
 
-      - name: Install bitcoind
-        run: .github/scripts/install-bitcoind.sh
-
       - name: Download build
         uses: actions/download-artifact@v4
         with:
@@ -788,10 +785,7 @@ jobs:
       - name: Install dependencies
         run: |
           bash -x .github/scripts/setup.sh
-      - name: Install bitcoind
-        env:
-          TEST_NETWORK: regtest
-        run: .github/scripts/install-bitcoind.sh
+
       - name: Download build
         uses: actions/download-artifact@v4
         with:
