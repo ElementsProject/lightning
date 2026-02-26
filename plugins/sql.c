@@ -126,7 +126,9 @@ struct table_desc {
 	/* name if we need to wait for changes */
 	const char *waitname;
 	struct column **columns;
-	char *insert_stmt;
+	const char *insert_stmt;
+	/* If we have create_index, we can delete by it */
+	const char *delete_stmt;
 	/* If we are a subtable */
 	struct table_desc *parent;
 	/* Is this a sub object (otherwise, subarray if parent is true) */
@@ -1558,7 +1560,7 @@ static const char *primary_key_name(const struct table_desc *td)
 static void finish_td(struct plugin *plugin, struct table_desc *td)
 {
 	struct sql *sql = sql_of(plugin);
-	char *create_stmt;
+	char *create_stmt, *insert_stmt;
 	int err;
 	char *errmsg;
 	const char *sep = "";
@@ -1569,11 +1571,14 @@ static void finish_td(struct plugin *plugin, struct table_desc *td)
 		goto do_subtables;
 
 	create_stmt = tal_fmt(tmpctx, "CREATE TABLE %s (", td->name);
-	td->insert_stmt = tal_fmt(td, "INSERT INTO %s VALUES (", td->name);
+	insert_stmt = tal_fmt(td, "INSERT INTO %s VALUES (", td->name);
 	/* If no created_index, create explicit rowid */
 	if (!td->has_created_index) {
 		tal_append_fmt(&create_stmt, "rowid INTEGER PRIMARY KEY, ");
-		tal_append_fmt(&td->insert_stmt, "?, ");
+		tal_append_fmt(&insert_stmt, "?, ");
+		td->delete_stmt = NULL;
+	} else {
+		td->delete_stmt = tal_fmt(td, "DELETE FROM %s WHERE created_index = ?;", td->name);
 	}
 
 	/* If we're a child array, we reference the parent column */
@@ -1586,7 +1591,7 @@ static void finish_td(struct plugin *plugin, struct table_desc *td)
 			       "row INTEGER REFERENCES %s(%s) ON DELETE CASCADE,"
 			       " arrindex INTEGER",
 			       parent->name, primary_key_name(parent));
-		tal_append_fmt(&td->insert_stmt, "?,?");
+		tal_append_fmt(&insert_stmt, "?,?");
 		sep = ",";
 	}
 
@@ -1594,11 +1599,11 @@ static void finish_td(struct plugin *plugin, struct table_desc *td)
 		const struct column *col = td->columns[i];
 
 		if (col->sub) {
-			add_sub_object(&td->insert_stmt, &create_stmt,
+			add_sub_object(&insert_stmt, &create_stmt,
 				       &sep, col->sub);
 			continue;
 		}
-		tal_append_fmt(&td->insert_stmt, "%s?", sep);
+		tal_append_fmt(&insert_stmt, "%s?", sep);
 		tal_append_fmt(&create_stmt, "%s%s %s",
 			       sep,
 			       col->dbname,
@@ -1609,7 +1614,8 @@ static void finish_td(struct plugin *plugin, struct table_desc *td)
 		sep = ",";
 	}
 	tal_append_fmt(&create_stmt, ");");
-	tal_append_fmt(&td->insert_stmt, ");");
+	tal_append_fmt(&insert_stmt, ");");
+	td->insert_stmt = insert_stmt;
 
 	err = sqlite3_exec(sql->db, create_stmt, NULL, NULL, &errmsg);
 	if (err != SQLITE_OK)
