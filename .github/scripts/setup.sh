@@ -4,9 +4,14 @@ export DEBIAN_FRONTEND=noninteractive
 export RUST_VERSION=stable
 
 sudo useradd -ms /bin/bash tester
-sudo apt-get update -qq
+sudo apt-get update
 
-sudo apt-get -qq install --no-install-recommends --allow-unauthenticated -yy \
+# Sometimes this command stalls, so I added debug flags.
+sudo apt-get install --no-install-recommends --allow-unauthenticated -yy \
+    -o Debug::pkgProblemResolver=yes \
+    -o Debug::Acquire::http=true \
+    -o Debug::Acquire::https=true \
+    -o Debug::Acquire::gpgv=true \
      autoconf \
      automake \
      binfmt-support \
