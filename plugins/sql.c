@@ -120,8 +120,8 @@ struct table_desc {
 	bool is_subobject;
 	/* Do we use created_index as primary key?  Otherwise we create rowid. */
 	bool has_created_index;
-	/* Have we created our sql indexes yet? */
-	bool indices_created;
+	/* Have we ever been used? */
+	bool populated;
 	/* function to refresh it. */
 	struct command_result *(*refresh)(struct command *cmd,
 					  const struct table_desc *td,
@@ -578,9 +578,11 @@ static struct command_result *one_refresh_done(struct command *cmd,
 		   (u64)refresh_duration.ts.tv_nsec,
 		   td->last_created_index);
 
-	if (!td->indices_created) {
+	if (!td->populated) {
+		/* Now we've done initial population, install indices:
+		 * much faster than creating them before! */
 		init_indices(cmd->plugin, td);
-		td->indices_created = 1;
+		td->populated = true;
 		refresh_duration = timemono_since(td->refresh_start);
 		plugin_log(cmd->plugin, LOG_DBG,
 			   "Time to refresh + create indices for %s: %"PRIu64".%09"PRIu64" seconds",
@@ -1655,7 +1657,7 @@ static struct table_desc *new_table_desc(const tal_t *ctx,
 	td->has_created_index = false;
 	td->needs_refresh = true;
 	td->refreshing = false;
-	td->indices_created = false;
+	td->populated = false;
 	list_head_init(&td->refresh_waiters);
 
 	/* Only top-levels have refresh functions */
