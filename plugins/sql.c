@@ -126,7 +126,7 @@ struct table_desc {
 	/* name if we need to wait for changes */
 	const char *waitname;
 	struct column **columns;
-	char *update_stmt;
+	char *insert_stmt;
 	/* If we are a subtable */
 	struct table_desc *parent;
 	/* Is this a sub object (otherwise, subarray if parent is true) */
@@ -820,7 +820,7 @@ static struct command_result *process_json_obj(struct command *cmd,
 	if (err != SQLITE_DONE) {
 		return command_fail(cmd, LIGHTNINGD,
 				    "Error executing %s on row %zu: %s",
-				    td->update_stmt,
+				    td->insert_stmt,
 				    row,
 				    sqlite3_errmsg(sql->db));
 	}
@@ -841,13 +841,13 @@ static struct command_result *process_json_list(struct command *cmd,
 	size_t i;
 	const jsmntok_t *t;
 	int err;
-	sqlite3_stmt *stmt;
+	sqlite3_stmt *insert_stmt;
 	struct command_result *ret = NULL;
 
-	err = sqlite3_prepare_v2(sql->db, td->update_stmt, -1, &stmt, NULL);
+	err = sqlite3_prepare_v2(sql->db, td->insert_stmt, -1, &insert_stmt, NULL);
 	if (err != SQLITE_OK) {
 		return command_fail(cmd, LIGHTNINGD, "preparing '%s' failed: %s",
-				    td->update_stmt,
+				    td->insert_stmt,
 				    sqlite3_errmsg(sql->db));
 	}
 
@@ -859,7 +859,7 @@ static struct command_result *process_json_list(struct command *cmd,
 		if (!td->has_created_index) {
 			this_rowid = sql->next_rowid++;
 			/* First entry is always the rowid */
-			sqlite3_bind_int64(stmt, off++, this_rowid);
+			sqlite3_bind_int64(insert_stmt, off++, this_rowid);
 		} else {
 			if (!json_to_u64(buf,
 					 json_get_member(buf, t, "created_index"),
@@ -869,12 +869,12 @@ static struct command_result *process_json_list(struct command *cmd,
 						    json_tok_full_len(t),
 						    json_tok_full(buf, t));
 		}
-		ret = process_json_obj(cmd, buf, t, td, i, this_rowid, parent_rowid, &off, stmt, last_created_index, last_updated_index);
+		ret = process_json_obj(cmd, buf, t, td, i, this_rowid, parent_rowid, &off, insert_stmt, last_created_index, last_updated_index);
 		if (ret)
 			break;
-		sqlite3_reset(stmt);
+		sqlite3_reset(insert_stmt);
 	}
-	sqlite3_finalize(stmt);
+	sqlite3_finalize(insert_stmt);
 	return ret;
 }
 
@@ -1518,7 +1518,7 @@ static struct command_result *json_listsqlschemas(struct command *cmd,
 }
 
 /* Adds a sub_object to this sql statement (and sub-sub etc) */
-static void add_sub_object(char **update_stmt, char **create_stmt,
+static void add_sub_object(char **insert_stmt, char **create_stmt,
 			   const char **sep, struct table_desc *sub)
 {
 	/* sub-arrays are a completely separate table. */
@@ -1530,11 +1530,11 @@ static void add_sub_object(char **update_stmt, char **create_stmt,
 		const struct column *subcol = sub->columns[j];
 
 		if (subcol->sub) {
-			add_sub_object(update_stmt, create_stmt, sep,
+			add_sub_object(insert_stmt, create_stmt, sep,
 				       subcol->sub);
 			continue;
 		}
-		tal_append_fmt(update_stmt, "%s?", *sep);
+		tal_append_fmt(insert_stmt, "%s?", *sep);
 		tal_append_fmt(create_stmt, "%s%s %s",
 			       *sep,
 			       subcol->dbname,
@@ -1569,11 +1569,11 @@ static void finish_td(struct plugin *plugin, struct table_desc *td)
 		goto do_subtables;
 
 	create_stmt = tal_fmt(tmpctx, "CREATE TABLE %s (", td->name);
-	td->update_stmt = tal_fmt(td, "INSERT INTO %s VALUES (", td->name);
+	td->insert_stmt = tal_fmt(td, "INSERT INTO %s VALUES (", td->name);
 	/* If no created_index, create explicit rowid */
 	if (!td->has_created_index) {
 		tal_append_fmt(&create_stmt, "rowid INTEGER PRIMARY KEY, ");
-		tal_append_fmt(&td->update_stmt, "?, ");
+		tal_append_fmt(&td->insert_stmt, "?, ");
 	}
 
 	/* If we're a child array, we reference the parent column */
@@ -1586,7 +1586,7 @@ static void finish_td(struct plugin *plugin, struct table_desc *td)
 			       "row INTEGER REFERENCES %s(%s) ON DELETE CASCADE,"
 			       " arrindex INTEGER",
 			       parent->name, primary_key_name(parent));
-		tal_append_fmt(&td->update_stmt, "?,?");
+		tal_append_fmt(&td->insert_stmt, "?,?");
 		sep = ",";
 	}
 
@@ -1594,11 +1594,11 @@ static void finish_td(struct plugin *plugin, struct table_desc *td)
 		const struct column *col = td->columns[i];
 
 		if (col->sub) {
-			add_sub_object(&td->update_stmt, &create_stmt,
+			add_sub_object(&td->insert_stmt, &create_stmt,
 				       &sep, col->sub);
 			continue;
 		}
-		tal_append_fmt(&td->update_stmt, "%s?", sep);
+		tal_append_fmt(&td->insert_stmt, "%s?", sep);
 		tal_append_fmt(&create_stmt, "%s%s %s",
 			       sep,
 			       col->dbname,
@@ -1609,7 +1609,7 @@ static void finish_td(struct plugin *plugin, struct table_desc *td)
 		sep = ",";
 	}
 	tal_append_fmt(&create_stmt, ");");
-	tal_append_fmt(&td->update_stmt, ");");
+	tal_append_fmt(&td->insert_stmt, ");");
 
 	err = sqlite3_exec(sql->db, create_stmt, NULL, NULL, &errmsg);
 	if (err != SQLITE_OK)
