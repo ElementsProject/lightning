@@ -81,6 +81,11 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
 
+      - uses: actions/cache@v4
+        with:
+          path: ~/ci-cache
+          key: apt-${{ runner.os }}
+
       - name: Install dependencies
         env:
           TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
@@ -153,6 +158,11 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
 
+      - uses: actions/cache@v4
+        with:
+          path: ~/ci-cache
+          key: apt-${{ runner.os }}
+
       - name: Install dependencies
         env:
           TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
@@ -202,6 +212,11 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/ci-cache
+          key: apt-${{ runner.os }}
 
       - name: Install dependencies
         env:
@@ -263,6 +278,11 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
 
+      - uses: actions/cache@v4
+        with:
+          path: ~/ci-cache
+          key: apt-${{ runner.os }}
+
       - name: Install dependencies
         env:
           TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
@@ -307,6 +327,11 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/ci-cache
+          key: apt-${{ runner.os }}
 
       - name: Install dependencies
         env:
@@ -355,6 +380,11 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/ci-cache
+          key: apt-${{ runner.os }}
 
       - name: Install dependencies
         env:
@@ -441,6 +471,11 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/ci-cache
+          key: apt-${{ runner.os }}
 
       - name: Install dependencies
         env:
@@ -536,6 +571,11 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
 
+      - uses: actions/cache@v4
+        with:
+          path: ~/ci-cache
+          key: apt-${{ runner.os }}
+
       - name: Install dependencies
         env:
           TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
@@ -611,6 +651,11 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
 
+      - uses: actions/cache@v4
+        with:
+          path: ~/ci-cache
+          key: apt-${{ runner.os }}
+
       - name: Install dependencies
         run: |
           bash -x .github/scripts/setup.sh
@@ -673,6 +718,11 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
 
+      - uses: actions/cache@v4
+        with:
+          path: ~/ci-cache
+          key: apt-${{ runner.os }}
+
       - name: Install dependencies
         env:
           TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
@@ -729,6 +779,11 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/ci-cache
+          key: apt-${{ runner.os }}
 
       - name: Install dependencies
         run: |
@@ -790,6 +845,11 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/ci-cache
+          key: apt-${{ runner.os }}
 
       - name: Install dependencies
         env:
