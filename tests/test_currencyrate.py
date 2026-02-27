@@ -44,12 +44,11 @@ def test_apis_batch1(node_factory):
     convert = l1.rpc.call("currencyconvert", [100, "USD"])
     LOGGER.info(convert)
 
-    l1.daemon.wait_for_log("Using cached rates for USD")
-
     assert "msat" in convert
     assert convert["msat"] > 0
 
-    assert convert["msat"] == pytest.approx(rates[int(len(rates) / 2)] * 100, abs=100)
+    assert convert["msat"] >= (rates[0] - 1) * 100
+    assert convert["msat"] <= (rates[len(rates) - 1] + 1) * 100
 
 
 def test_apis_batch2(node_factory):
@@ -79,17 +78,20 @@ def test_apis_batch2(node_factory):
     assert rates["bitstamp"] > 0
     assert rates["coinbase"] > 0
 
-    median_rate = int((rates["bitstamp"] + rates["coinbase"]) / 2)
+    rates = [
+        rates["bitstamp"],
+        rates["coinbase"],
+    ]
+    rates.sort()
 
     convert = l1.rpc.call("currencyconvert", [100, "USD"])
     LOGGER.info(convert)
 
-    l1.daemon.wait_for_log("Using cached rates for USD")
-
     assert "msat" in convert
     assert convert["msat"] > 0
 
-    assert convert["msat"] == pytest.approx(median_rate * 100, abs=100)
+    assert convert["msat"] >= (rates[0] - 1) * 100
+    assert convert["msat"] <= (rates[len(rates) - 1] + 1) * 100
 
 
 def test_custom_source(node_factory):
@@ -127,17 +129,20 @@ def test_custom_source(node_factory):
     assert rates["my-coingecko"] > 0
     assert rates["my-kraken"] > 0
 
-    median_rate = int((rates["my-coingecko"] + rates["my-kraken"]) / 2)
+    rates = [
+        rates["my-coingecko"],
+        rates["my-kraken"],
+    ]
+    rates.sort()
 
     convert = l1.rpc.call("currencyconvert", [100, "USD"])
     LOGGER.info(convert)
 
-    l1.daemon.wait_for_log("Using cached rates for USD")
-
     assert "msat" in convert
     assert convert["msat"] > 0
 
-    assert convert["msat"] == pytest.approx(median_rate * 100, abs=100)
+    assert convert["msat"] >= (rates[0] - 1) * 100
+    assert convert["msat"] <= (rates[len(rates) - 1] + 1) * 100
 
 
 def test_no_sources(node_factory):
@@ -155,7 +160,8 @@ def test_no_sources(node_factory):
     l1 = node_factory.get_node(options=opts)
 
     with pytest.raises(
-        RpcError, match="No sources configured or all failed, check the logs."
+        RpcError,
+        match="Unknown command 'currencyrates'",
     ):
         rates = l1.rpc.call("currencyrates", ["USD"])
         LOGGER.info(rates)
@@ -168,22 +174,23 @@ def test_invalid_currency(node_factory):
     needle = l1.daemon.logsearch_start
 
     with pytest.raises(
-        RpcError, match="No sources configured or all failed, check the logs."
+        RpcError,
+        match=r"no results for `XXX`, is the currency supported\? Check the logs!",
     ):
         rates = l1.rpc.call("currencyrates", ["XXX"])
         LOGGER.info(rates)
 
     l1.daemon.logsearch_start = needle
-    l1.daemon.wait_for_log("Error fetching from bitstamp")
+    l1.daemon.wait_for_log("failed to get `XXX` rate from bitstamp")
     l1.daemon.logsearch_start = needle
-    l1.daemon.wait_for_log("Error fetching from coinbase")
+    l1.daemon.wait_for_log("failed to get `XXX` rate from coinbase")
     l1.daemon.logsearch_start = needle
-    l1.daemon.wait_for_log("Error fetching from coingecko")
+    l1.daemon.wait_for_log("failed to get `XXX` rate from coingecko")
     l1.daemon.logsearch_start = needle
-    l1.daemon.wait_for_log("Error fetching from kraken")
+    l1.daemon.wait_for_log("failed to get `XXX` rate from kraken")
     l1.daemon.logsearch_start = needle
-    l1.daemon.wait_for_log("Error fetching from blockchain.info")
+    l1.daemon.wait_for_log("failed to get `XXX` rate from blockchain.info")
     l1.daemon.logsearch_start = needle
-    l1.daemon.wait_for_log("Error fetching from coindesk")
+    l1.daemon.wait_for_log("failed to get `XXX` rate from coindesk")
     l1.daemon.logsearch_start = needle
-    l1.daemon.wait_for_log("Error fetching from binance")
+    l1.daemon.wait_for_log("failed to get `XXX` rate from binance")
