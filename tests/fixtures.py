@@ -119,12 +119,6 @@ def dumpcap_usable():
         return False
 
 
-@pytest.fixture(scope="session")
-def have_pcap_tools():
-    if not dumpcap_usable():
-        pytest.skip("dumpcap/tshark not available or insufficient privileges")
-
-
 class TcpCapture:
     def __init__(self, tmpdir):
         self.tmpdir = Path(tmpdir)
@@ -179,7 +173,7 @@ class TcpCapture:
 
 
 @pytest.fixture
-def tcp_capture(have_pcap_tools, tmp_path):
+def tcp_capture(tmp_path):
     # You will need permissions.  Most distributions have a group which has
     # permissions to use dumpcap:
     #     $ ls -l /usr/bin/dumpcap
@@ -187,6 +181,9 @@ def tcp_capture(have_pcap_tools, tmp_path):
     #     $ getcap /usr/bin/dumpcap
     #     /usr/bin/dumpcap cap_net_admin,cap_net_raw=eip
     # So you just need to be in the wireshark group.
+    if not dumpcap_usable():
+        pytest.skip("dumpcap/tshark not available or insufficient privileges")
+
     cap = TcpCapture(tmp_path)
     yield cap
     cap.stop()
