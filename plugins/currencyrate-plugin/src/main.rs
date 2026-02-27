@@ -3,27 +3,18 @@ use cln_plugin::options::StringArrayConfigOption;
 use cln_plugin::{Builder, ConfiguredPlugin, Plugin, RpcMethodBuilder};
 use cln_rpc::ClnRpc;
 use serde_json::{json, Value};
-use std::collections::HashMap;
 use std::net::{IpAddr, SocketAddr};
 use std::path::Path;
 use std::str::FromStr;
 use std::sync::Arc;
+use std::vec;
 use tokio::sync::Mutex;
 
 use crate::oracle::{BtcPriceOracle, Source};
 
 mod oracle;
 
-pub const CONVERT_SOURCES_COUNT: usize = 3;
-pub const SOURCE_TIMEOUT_SECS: u64 = 5;
-const CACHE_DURATIONS_SECS: u64 = 10;
 const DEFAULT_PROXY_PORT: u16 = 9050;
-
-#[derive(Debug, Clone)]
-pub struct CachedPrice {
-    data: HashMap<String, Vec<SourceResult>>,
-    timestamp: u64,
-}
 
 #[derive(Debug, Clone)]
 pub struct SourceResult {
@@ -41,7 +32,7 @@ async fn main() -> Result<(), anyhow::Error> {
     log_panics::init();
     std::env::set_var(
         "CLN_PLUGIN_LOG",
-        "cln_plugin=info,cln_rpc=info,cln-currencyrate=debug,warn",
+        "cln_plugin=info,cln_rpc=info,cln_currencyrate=debug,warn",
     );
 
     let _ = rustls::crypto::ring::default_provider().install_default();
@@ -88,7 +79,7 @@ median from currencyrates results",
         Err(e) => return plugin.disable(&e.to_string()).await,
     };
 
-    let price_oracle = match BtcPriceOracle::new(CACHE_DURATIONS_SECS, proxy, sources) {
+    let price_oracle = match BtcPriceOracle::new(proxy, sources) {
         Ok(o) => o,
         Err(e) => return plugin.disable(&e.to_string()).await,
     };
@@ -116,7 +107,7 @@ async fn currencyconvert(plugin: Plugin<PluginState>, args: Value) -> Result<Val
                 .as_str()
                 .ok_or_else(|| anyhow!("currency must be a string"))?
                 .to_owned();
-            (amount, currency)
+            (amount, currency.to_uppercase())
         }
         Value::Object(map) => {
             let amount = map
@@ -130,12 +121,13 @@ async fn currencyconvert(plugin: Plugin<PluginState>, args: Value) -> Result<Val
                 .as_str()
                 .ok_or_else(|| anyhow!("currency must be a string"))?
                 .to_owned();
-            (amount, currency)
+            (amount, currency.to_uppercase())
         }
         _ => return Err(anyhow!("Arguments must be an array or dictionary")),
     };
 
-    let mut oracle = plugin.state().oracle.lock().await;
+    let oracle = plugin.state().oracle.lock().await;
+    oracle.currency_requested(&currency).await;
 
     match oracle.convert(amount, &currency).await {
         Ok(result) => Ok(json!({
@@ -154,7 +146,7 @@ async fn currencyrates(plugin: Plugin<PluginState>, args: Value) -> Result<Value
                 .as_str()
                 .ok_or_else(|| anyhow!("currency must be a string"))?
                 .to_owned();
-            currency
+            currency.to_uppercase()
         }
         Value::Object(map) => {
             let currency = map
@@ -163,16 +155,15 @@ async fn currencyrates(plugin: Plugin<PluginState>, args: Value) -> Result<Value
                 .as_str()
                 .ok_or_else(|| anyhow!("currency must be a string"))?
                 .to_owned();
-            currency
+            currency.to_uppercase()
         }
         _ => return Err(anyhow!("Arguments must be an array or dictionary")),
     };
 
-    let mut oracle = plugin.state().oracle.lock().await;
+    let oracle = plugin.state().oracle.lock().await;
+    oracle.currency_requested(&currency).await;
 
-    let sources_count = oracle.source_count();
-
-    match oracle.get_rates(&currency, sources_count).await {
+    match oracle.get_all_rates(&currency).await {
         Ok(result) => {
             let mut map = serde_json::Map::new();
             for source_result in result {
@@ -246,6 +237,10 @@ fn gather_sources(
         for source in disable_sources_arr {
             result.retain(|s| s.name() != source);
         }
+    }
+
+    if result.is_empty() {
+        return Err(anyhow!("No sources configured"));
     }
 
     Ok(result)
