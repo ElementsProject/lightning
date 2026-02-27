@@ -110,7 +110,7 @@ jobs:
           if-no-files-found: ignore
 
   compile:
-    name: Compile CLN ${{ matrix.cfg }}
+    name: Build ${{ matrix.cfg }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     needs:
