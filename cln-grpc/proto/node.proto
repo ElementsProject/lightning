@@ -59,6 +59,7 @@ service Node {
 	rpc TxSend(TxsendRequest) returns (TxsendResponse) {}
 	rpc ListPeerChannels(ListpeerchannelsRequest) returns (ListpeerchannelsResponse) {}
 	rpc ListClosedChannels(ListclosedchannelsRequest) returns (ListclosedchannelsResponse) {}
+	rpc DecodePay(DecodepayRequest) returns (DecodepayResponse) {}
 	rpc Decode(DecodeRequest) returns (DecodeResponse) {}
 	rpc DelPay(DelpayRequest) returns (DelpayResponse) {}
 	rpc DelForward(DelforwardRequest) returns (DelforwardResponse) {}
@@ -149,7 +150,6 @@ service Node {
 	rpc ListChainMoves(ListchainmovesRequest) returns (ListchainmovesResponse) {}
 	rpc ListNetworkEvents(ListnetworkeventsRequest) returns (ListnetworkeventsResponse) {}
 	rpc DelNetworkEvent(DelnetworkeventRequest) returns (DelnetworkeventResponse) {}
-	rpc ClnrestRegisterPath(ClnrestregisterpathRequest) returns (ClnrestregisterpathResponse) {}
 
 	rpc SubscribeBlockAdded(StreamBlockAddedRequest) returns (stream BlockAddedNotification) {}
 	rpc SubscribeChannelOpenFailed(StreamChannelOpenFailedRequest) returns (stream ChannelOpenFailedNotification) {}
@@ -547,6 +547,8 @@ message CloseResponse {
 		UNOPENED = 2;
 	}
 	CloseType item_type = 1;
+	optional bytes tx = 2;
+	optional bytes txid = 3;
 	repeated bytes txs = 4;
 	repeated bytes txids = 5;
 }
@@ -1396,7 +1398,6 @@ message TxsendResponse {
 message ListpeerchannelsRequest {
 	optional bytes id = 1;
 	optional string short_channel_id = 2;
-	optional bytes channel_id = 3;
 }
 
 message ListpeerchannelsResponse {
@@ -1460,7 +1461,7 @@ message ListpeerchannelsChannels {
 	optional bool lost_state = 57;
 	optional bool reestablished = 58;
 	optional Amount last_tx_fee_msat = 59;
-	optional sint64 direction = 60;
+	optional uint32 direction = 60;
 	optional Amount their_max_htlc_value_in_flight_msat = 61;
 	optional Amount our_max_htlc_value_in_flight_msat = 62;
 }
@@ -1581,6 +1582,49 @@ message ListclosedchannelsClosedchannels {
 message ListclosedchannelsClosedchannelsAlias {
 	optional string local = 1;
 	optional string remote = 2;
+}
+
+message DecodepayRequest {
+	string bolt11 = 1;
+	optional string description = 2;
+}
+
+message DecodepayResponse {
+	string currency = 1;
+	uint64 created_at = 2;
+	uint64 expiry = 3;
+	bytes payee = 4;
+	optional Amount amount_msat = 5;
+	bytes payment_hash = 6;
+	string signature = 7;
+	optional string description = 8;
+	optional bytes description_hash = 9;
+	uint32 min_final_cltv_expiry = 10;
+	optional bytes payment_secret = 11;
+	optional bytes features = 12;
+	optional bytes payment_metadata = 13;
+	repeated DecodepayFallbacks fallbacks = 14;
+	repeated DecodepayExtra extra = 16;
+	optional DecodeRoutehintList routes = 17;
+}
+
+message DecodepayFallbacks {
+	// DecodePay.fallbacks[].type
+	enum DecodepayFallbacksType {
+		P2PKH = 0;
+		P2SH = 1;
+		P2WPKH = 2;
+		P2WSH = 3;
+		P2TR = 4;
+	}
+	DecodepayFallbacksType item_type = 1;
+	optional string addr = 2;
+	bytes hex = 3;
+}
+
+message DecodepayExtra {
+	string tag = 1;
+	string data = 2;
 }
 
 message DecodeRequest {
@@ -1819,7 +1863,6 @@ message DisableofferResponse {
 	string bolt12 = 4;
 	bool used = 5;
 	optional string label = 6;
-	optional string description = 7;
 }
 
 message EnableofferRequest {
@@ -1833,7 +1876,6 @@ message EnableofferResponse {
 	string bolt12 = 4;
 	bool used = 5;
 	optional string label = 6;
-	optional string description = 7;
 }
 
 message DisconnectRequest {
@@ -2257,7 +2299,6 @@ message ListoffersOffers {
 	string bolt12 = 4;
 	bool used = 5;
 	optional string label = 6;
-	optional string description = 7;
 }
 
 message ListpaysRequest {
@@ -2427,7 +2468,6 @@ message OfferRequest {
 	optional bool single_use = 11;
 	optional bool proportional_amount = 13;
 	optional bool optional_recurrence = 14;
-	repeated bytes fronting_nodes = 15;
 }
 
 message OfferResponse {
@@ -4128,7 +4168,6 @@ message XpayRequest {
 	optional uint32 retry_for = 5;
 	optional Amount partial_msat = 6;
 	optional uint32 maxdelay = 7;
-	optional string payer_note = 8;
 }
 
 message XpayResponse {
@@ -4269,23 +4308,6 @@ message DelnetworkeventRequest {
 }
 
 message DelnetworkeventResponse {
-}
-
-message ClnrestregisterpathRequest {
-	string path = 1;
-	string rpc_method = 2;
-	optional ClnrestregisterpathRuneRestrictions rune_restrictions = 3;
-	optional bool rune_required = 4;
-	optional string http_method = 5;
-}
-
-message ClnrestregisterpathResponse {
-}
-
-message ClnrestregisterpathRuneRestrictions {
-	optional string nodeid = 1;
-	optional string method = 2;
-	map<string, string> params = 3;
 }
 
 message StreamBlockAddedRequest {

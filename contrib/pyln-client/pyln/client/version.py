@@ -75,4 +75,4 @@ class NodeVersion:
         return False
 
 
-__all__ = ["NodeVersion"]
+__all__ = [NodeVersion]

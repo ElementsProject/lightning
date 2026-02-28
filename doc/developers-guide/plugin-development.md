@@ -14,4 +14,3 @@ Plugins are a simple yet powerful way to extend the functionality provided by Co
 - **[JSON-RPC command passthrough](doc:json-rpc-passthrough)** adds a way for plugins to add their own commands to the JSON-RPC interface.
 - **[Event stream subscriptions](doc:event-notifications)** provide plugins with a push-based notification mechanism about events from the `lightningd`.
 - **[Hooks](doc:hooks)** are a primitive that allows plugins to be notified about internal events in `lightningd` and alter its behavior or inject custom behaviors.
-- **[Dynamic REST paths](ref:clnrest-register-path)** allows a plugin to register an rpc command with a custom REST path for ``clnrest``.

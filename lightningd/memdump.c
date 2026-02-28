@@ -16,13 +16,6 @@
 #include <lightningd/memdump.h>
 #include <lightningd/subd.h>
 
-struct leak_detect {
-	struct command *cmd;
-	struct lightningd *ld;
-	size_t num_outstanding_requests;
-	const char **leakers;
-};
-
 static void json_add_ptr(struct json_stream *response, const char *name,
 			 const void *ptr)
 {
@@ -169,13 +162,8 @@ static void leak_detect_req_done(const struct subd_req *req,
 				 struct leak_detect *leak_detect)
 {
 	leak_detect->num_outstanding_requests--;
-	if (leak_detect->num_outstanding_requests == 0) {
-		/* We do this off a timer: doing it off a subd reply makes us think that the
-		 * subd->conn (temporarily set to NULL during the cb) is a leak! */
-		new_reltimer(leak_detect->ld->timers, leak_detect,
-			     time_from_sec(0),
-			     finish_report, leak_detect);
-	}
+	if (leak_detect->num_outstanding_requests == 0)
+		finish_report(leak_detect);
 }
 
 /* Start a leak request: decrements num_outstanding_requests when freed. */
@@ -242,7 +230,6 @@ static struct command_result *json_memleak(struct command *cmd,
 		return command_check_done(cmd);
 
 	leaks = tal(cmd, struct leak_detect);
-	leaks->ld = cmd->ld;
 	leaks->cmd = cmd;
 	leaks->num_outstanding_requests = 0;
 	leaks->leakers = tal_arr(leaks, const char *, 0);

@@ -43,7 +43,6 @@ Core Lightning Documentation
    check <check.7.md>
    checkmessage <checkmessage.7.md>
    checkrune <checkrune.7.md>
-   clnrest-register-path <clnrest-register-path.7.md>
    close <close.7.md>
    commando <commando.7.md>
    connect <connect.7.md>
@@ -53,6 +52,7 @@ Core Lightning Documentation
    datastore <datastore.7.md>
    datastoreusage <datastoreusage.7.md>
    decode <decode.7.md>
+   decodepay <decodepay.7.md>
    deldatastore <deldatastore.7.md>
    delforward <delforward.7.md>
    delinvoice <delinvoice.7.md>
@@ -149,7 +149,6 @@ Core Lightning Documentation
    showrunes <showrunes.7.md>
    signinvoice <signinvoice.7.md>
    signmessage <signmessage.7.md>
-   signmessagewithkey <signmessagewithkey.7.md>
    signpsbt <signpsbt.7.md>
    splice_init <splice_init.7.md>
    splice_signed <splice_signed.7.md>

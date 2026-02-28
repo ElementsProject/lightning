@@ -117,7 +117,7 @@ echo "Parallel: $MAKEPAR"
 
 if [ "$VERIFY_RELEASE" = "true" ]; then
     if [ -f "SHA256SUMS-$VERSION.asc" ] && [ -f "SHA256SUMS-$VERSION" ]; then
-        ALL_TARGETS="bin-Fedora bin-Ubuntu"
+        ALL_TARGETS="bin-Ubuntu"
     else
         echo "Unable to verify. File SHA256SUMS-$VERSION or SHA256SUMS-$VERSION.asc not found in the root."
         exit 1
@@ -177,7 +177,7 @@ for target in $TARGETS; do
         TAG=fedora
         DOCKERFILE=contrib/docker/Dockerfile.builder.fedora
         FEDORA_VERSION=$(grep -oP '^FROM fedora:\K[0-9]+' "$DOCKERFILE")
-        docker build --no-cache -f $DOCKERFILE -t $TAG --load .
+        docker build -f $DOCKERFILE -t $TAG --load .
         docker run --rm=true -v "$(pwd)":/src:ro -v "$RELEASEDIR":/release $TAG /src/tools/build-release.sh --inside-docker "$VERSION" "$platform" "$FEDORA_VERSION" "$ARCH" "$MAKEPAR"
         docker run --rm=true -w /build $TAG rm -rf /"$VERSION-$platform-$FEDORA_VERSION-$ARCH" /build
         echo "Fedora Image Built"

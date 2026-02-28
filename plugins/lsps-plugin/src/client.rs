@@ -1,43 +1,35 @@
 use anyhow::{anyhow, bail, Context};
 use bitcoin::hashes::{hex::FromHex, sha256, Hash};
 use chrono::{Duration, Utc};
-use cln_lsps::{
-    cln_adapters::{
-        hooks,
-        sender::ClnSender,
-        state::ClientState,
-        types::{
-            HtlcAcceptedRequest, HtlcAcceptedResponse, InvoicePaymentRequest, OpenChannelRequest,
-        },
-    },
-    core::{
-        client::LspsClient,
-        features::is_feature_bit_set_reversed,
-        tlv::{encode_tu64, TLV_FORWARD_AMT, TLV_PAYMENT_SECRET},
-        transport::{MultiplexedTransport, PendingRequests},
-    },
-    proto::{
-        lsps0::{Msat, LSP_FEATURE_BIT},
-        lsps2::{compute_opening_fee, Lsps2BuyResponse, Lsps2GetInfoResponse, OpeningFeeParams},
-    },
+use cln_lsps::jsonrpc::client::JsonRpcClient;
+use cln_lsps::lsps0::primitives::Msat;
+use cln_lsps::lsps0::{
+    self,
+    transport::{Bolt8Transport, CustomMessageHookManager, WithCustomMessageHookManager},
 };
+use cln_lsps::lsps2::cln::tlv::encode_tu64;
+use cln_lsps::lsps2::cln::{
+    HtlcAcceptedRequest, HtlcAcceptedResponse, InvoicePaymentRequest, OpenChannelRequest,
+    TLV_FORWARD_AMT, TLV_PAYMENT_SECRET,
+};
+use cln_lsps::lsps2::model::{
+    compute_opening_fee, Lsps2BuyRequest, Lsps2BuyResponse, Lsps2GetInfoRequest,
+    Lsps2GetInfoResponse, OpeningFeeParams,
+};
+use cln_lsps::util;
+use cln_lsps::LSP_FEATURE_BIT;
 use cln_plugin::options;
-use cln_rpc::{
-    model::{
-        requests::{
-            DatastoreMode, DatastoreRequest, DeldatastoreRequest, DelinvoiceRequest,
-            DelinvoiceStatus, ListdatastoreRequest, ListinvoicesRequest, ListpeersRequest,
-        },
-        responses::InvoiceResponse,
-    },
-    primitives::{Amount, AmountOrAny, PublicKey, ShortChannelId},
-    ClnRpc,
+use cln_rpc::model::requests::{
+    DatastoreMode, DatastoreRequest, DeldatastoreRequest, DelinvoiceRequest, DelinvoiceStatus,
+    ListdatastoreRequest, ListinvoicesRequest, ListpeersRequest,
 };
+use cln_rpc::model::responses::InvoiceResponse;
+use cln_rpc::primitives::{Amount, AmountOrAny, PublicKey, ShortChannelId};
+use cln_rpc::ClnRpc;
 use log::{debug, info, warn};
 use rand::{CryptoRng, Rng};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
-use std::path::PathBuf;
 use std::str::FromStr as _;
 
 /// An option to enable this service.
@@ -46,43 +38,24 @@ const OPTION_ENABLED: options::FlagConfigOption = options::ConfigOption::new_fla
     "Enables an LSPS client on the node.",
 );
 
-const DEFAULT_REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
-
 #[derive(Clone)]
-pub struct State {
-    sender: ClnSender,
-    pending: PendingRequests,
-    timeout: std::time::Duration,
+struct State {
+    hook_manager: CustomMessageHookManager,
 }
 
-impl State {
-    pub fn new(rpc_path: PathBuf, timeout: std::time::Duration) -> Self {
-        Self {
-            sender: ClnSender::new(rpc_path),
-            pending: PendingRequests::new(),
-            timeout,
-        }
-    }
-
-    pub fn client(&self) -> LspsClient<MultiplexedTransport<ClnSender>> {
-        LspsClient::new(self.transport())
-    }
-}
-
-impl ClientState for State {
-    fn transport(&self) -> MultiplexedTransport<ClnSender> {
-        MultiplexedTransport::new(self.sender.clone(), self.pending.clone(), self.timeout)
-    }
-
-    fn pending(&self) -> &PendingRequests {
-        &self.pending
+impl WithCustomMessageHookManager for State {
+    fn get_custommsg_hook_manager(&self) -> &CustomMessageHookManager {
+        &self.hook_manager
     }
 }
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
+    let hook_manager = CustomMessageHookManager::new();
+    let state = State { hook_manager };
+
     if let Some(plugin) = cln_plugin::Builder::new(tokio::io::stdin(), tokio::io::stdout())
-        .hook("custommsg", hooks::client_custommsg_hook)
+        .hook("custommsg", CustomMessageHookManager::on_custommsg::<State>)
         .option(OPTION_ENABLED)
         .rpcmethod(
             "lsps-listprotocols",
@@ -121,10 +94,6 @@ async fn main() -> Result<(), anyhow::Error> {
                 .await;
         }
 
-        let dir = plugin.configuration().lightning_dir;
-        let rpc_path = Path::new(&dir).join(&plugin.configuration().rpc_file);
-        let state = State::new(rpc_path, DEFAULT_REQUEST_TIMEOUT);
-
         let plugin = plugin.start(state).await?;
         plugin.join().await
     } else {
@@ -144,8 +113,6 @@ async fn on_lsps_lsps2_getinfo(
         req.lsp_id, req.token
     );
 
-    let lsp_id = PublicKey::from_str(&req.lsp_id).context("lsp_id is not a valid public key")?;
-
     let dir = p.configuration().lightning_dir;
     let rpc_path = Path::new(&dir).join(&p.configuration().rpc_file);
     let mut cln_client = cln_rpc::ClnRpc::new(rpc_path.clone()).await?;
@@ -164,12 +131,25 @@ async fn on_lsps_lsps2_getinfo(
         debug!("Peer {} doesn't have the LSP feature bit set.", &req.lsp_id);
     }
 
+    // Create Transport and Client
+    let transport = Bolt8Transport::new(
+        &req.lsp_id,
+        rpc_path.clone(), // Clone path for potential reuse
+        p.state().hook_manager.clone(),
+        None, // Use default timeout
+    )
+    .context("Failed to create Bolt8Transport")?;
+    let client = JsonRpcClient::new(transport);
+
     // 1. Call lsps2.get_info.
-    let client = p.state().client();
-    match client.get_info(&lsp_id, req.token).await?.as_result() {
-        Ok(i) => Ok(serde_json::to_value(i)?),
-        Err(e) => Ok(serde_json::to_value(e)?),
-    }
+    let info_req = Lsps2GetInfoRequest { token: req.token };
+    let info_res: Lsps2GetInfoResponse = client
+        .call_typed(info_req)
+        .await
+        .context("lsps2.get_info call failed")?;
+    debug!("received lsps2.get_info response: {:?}", info_res);
+
+    Ok(serde_json::to_value(info_res)?)
 }
 
 /// Rpc Method handler for `lsps-lsps2-buy`.
@@ -184,8 +164,6 @@ async fn on_lsps_lsps2_buy(
         req.lsp_id, req.opening_fee_params, req.payment_size_msat
     );
 
-    let lsp_id = PublicKey::from_str(&req.lsp_id).context("lsp_id is not a valid public key")?;
-
     let dir = p.configuration().lightning_dir;
     let rpc_path = Path::new(&dir).join(&p.configuration().rpc_file);
     let mut cln_client = cln_rpc::ClnRpc::new(rpc_path.clone()).await?;
@@ -204,7 +182,15 @@ async fn on_lsps_lsps2_buy(
         debug!("Peer {} doesn't have the LSP feature bit set.", &req.lsp_id);
     }
 
-    let client = p.state().client();
+    // Create Transport and Client
+    let transport = Bolt8Transport::new(
+        &req.lsp_id,
+        rpc_path.clone(), // Clone path for potential reuse
+        p.state().hook_manager.clone(),
+        None, // Use default timeout
+    )
+    .context("Failed to create Bolt8Transport")?;
+    let client = JsonRpcClient::new(transport);
 
     let selected_params = req.opening_fee_params;
     if let Some(payment_size) = req.payment_size_msat {
@@ -250,14 +236,16 @@ async fn on_lsps_lsps2_buy(
     }
 
     debug!("Calling lsps2.buy for peer {}", req.lsp_id);
-    match client
-        .buy(&lsp_id, selected_params, req.payment_size_msat)
-        .await?
-        .as_result()
-    {
-        Ok(i) => Ok(serde_json::to_value(i)?),
-        Err(e) => Ok(serde_json::to_value(e)?),
-    }
+    let buy_req = Lsps2BuyRequest {
+        opening_fee_params: selected_params, // Pass the chosen params back
+        payment_size_msat: req.payment_size_msat,
+    };
+    let buy_res: Lsps2BuyResponse = client
+        .call_typed(buy_req)
+        .await
+        .context("lsps2.buy call failed")?;
+
+    Ok(serde_json::to_value(buy_res)?)
 }
 
 async fn on_lsps_lsps2_approve(
@@ -715,7 +703,6 @@ async fn on_lsps_listprotocols(
     let mut cln_client = cln_rpc::ClnRpc::new(rpc_path.clone()).await?;
 
     let req: Request = serde_json::from_value(v).context("Failed to parse request JSON")?;
-    let lsp_id = PublicKey::from_str(&req.lsp_id).context("lsp_id is not a valid public key")?;
     let lsp_status = check_peer_lsp_status(&mut cln_client, &req.lsp_id).await?;
 
     // Fail early: Check that we are connected to the peer.
@@ -730,14 +717,26 @@ async fn on_lsps_listprotocols(
         debug!("Peer {} doesn't have the LSP feature bit set.", &req.lsp_id);
     }
 
-    let client = p.state().client();
-    match client.list_protocols(&lsp_id).await?.as_result() {
-        Ok(i) => {
-            debug!("Received lsps0.list_protocols response: {:?}", i);
-            Ok(serde_json::to_value(i)?)
-        }
-        Err(e) => Ok(serde_json::to_value(e)?),
-    }
+    // Create the transport first and handle potential errors
+    let transport = Bolt8Transport::new(
+        &req.lsp_id,
+        rpc_path,
+        p.state().hook_manager.clone(),
+        None, // Use default timeout
+    )
+    .context("Failed to create Bolt8Transport")?;
+
+    // Now create the client using the transport
+    let client = JsonRpcClient::new(transport);
+
+    let request = lsps0::model::Lsps0listProtocolsRequest {};
+    let res: lsps0::model::Lsps0listProtocolsResponse = client
+        .call_typed(request)
+        .await
+        .map_err(|e| anyhow!("lsps0.list_protocols call failed: {}", e))?;
+
+    debug!("Received lsps0.list_protocols response: {:?}", res);
+    Ok(serde_json::to_value(res)?)
 }
 
 struct PeerLspStatus {
@@ -772,7 +771,7 @@ async fn check_peer_lsp_status(
     let has_lsp_feature = if let Some(f_str) = &peer.features {
         let feature_bits = hex::decode(f_str)
             .map_err(|e| anyhow!("Invalid feature bits hex for peer {peer_id}, {f_str}: {e}"))?;
-        is_feature_bit_set_reversed(&feature_bits, LSP_FEATURE_BIT)
+        util::is_feature_bit_set_reversed(&feature_bits, LSP_FEATURE_BIT)
     } else {
         false
     };

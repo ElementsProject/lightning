@@ -138,3 +138,4 @@ int htlc_state_flags(enum htlc_state state)
 	assert(per_state_bits[state]);
 	return per_state_bits[state];
 }
+

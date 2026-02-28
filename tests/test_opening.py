@@ -1536,6 +1536,36 @@ def test_funder_contribution_limits(node_factory, bitcoind):
     assert l3.daemon.is_in_log(r'calling `signpsbt` .* 6 inputs')
 
 
+@pytest.mark.openchannel('v2')
+def test_inflight_dbload(node_factory, bitcoind):
+    """Bad db field access breaks Postgresql on startup with opening leases"""
+    disconnects = ["@WIRE_COMMITMENT_SIGNED"]
+
+    opts = [{'experimental-dual-fund': None, 'dev-no-reconnect': None,
+             'may_reconnect': True, 'disconnect': disconnects},
+            {'experimental-dual-fund': None, 'dev-no-reconnect': None,
+             'may_reconnect': True, 'funder-policy': 'match',
+             'funder-policy-mod': 100, 'lease-fee-base-sat': '100sat',
+             'lease-fee-basis': 100}]
+
+    l1, l2 = node_factory.get_nodes(2, opts=opts)
+
+    feerate = 2000
+    amount = 500000
+    l1.fundwallet(20000000)
+    l2.fundwallet(20000000)
+
+    # l1 leases a channel from l2
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    rates = l1.rpc.dev_queryrates(l2.info['id'], amount, amount)
+    l1.rpc.fundchannel(l2.info['id'], amount, request_amt=amount,
+                       feerate='{}perkw'.format(feerate),
+                       compact_lease=rates['compact_lease'])
+    l1.daemon.wait_for_log(r'dev_disconnect: @WIRE_COMMITMENT_SIGNED')
+
+    l1.restart()
+
+
 def test_zeroconf_mindepth(bitcoind, node_factory):
     """Check that funder/fundee can customize mindepth.
 
@@ -1550,7 +1580,7 @@ def test_zeroconf_mindepth(bitcoind, node_factory):
         {},
         {
             'plugin': str(plugin_path),
-            'zeroconf_allow': '038194b5f32bdf0aa59812c86c4ef7ad2f294104fa027d1ace9b469bb6f88cf37b',
+            'zeroconf_allow': '0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518',
             'zeroconf_mindepth': '2',
         },
     ])
@@ -1597,7 +1627,7 @@ def test_zeroconf_open(bitcoind, node_factory):
         {},
         {
             'plugin': str(plugin_path),
-            'zeroconf_allow': '033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a'
+            'zeroconf_allow': '022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59'
         },
     ])
 
@@ -1672,7 +1702,7 @@ def test_zeroconf_public(bitcoind, node_factory, chainparams):
         {'plugin': str(coin_mvt_plugin)},
         {
             'plugin': str(plugin_path),
-            'zeroconf_allow': '038194b5f32bdf0aa59812c86c4ef7ad2f294104fa027d1ace9b469bb6f88cf37b'
+            'zeroconf_allow': '0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518'
         },
         {}
     ])
@@ -1774,7 +1804,7 @@ def test_zeroconf_forward(node_factory, bitcoind):
         {},
         {
             'plugin': str(plugin_path),
-            'zeroconf_allow': '033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a'
+            'zeroconf_allow': '022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59'
         }
     ]
     l1, l2, l3 = node_factory.get_nodes(3, opts=opts)
@@ -1946,11 +1976,6 @@ def test_buy_liquidity_ad_check_bookkeeping(node_factory, bitcoind):
     bitcoind.generate_block(2)
     l1.daemon.wait_for_log('to CHANNELD_NORMAL')
 
-    # Avoid bad gossip messages caused by channel announcements being
-    # processed after closing.
-    for n in (l1, l2):
-        wait_for(lambda: [c['active'] for c in n.rpc.listchannels()['channels']] == [True, True])
-
     chan_id = first_channel_id(l1, l2)
     ev_tags = [e['tag'] for e in l1.rpc.bkpr_listaccountevents(chan_id)['events']]
     assert 'lease_fee' in ev_tags
@@ -2043,7 +2068,7 @@ def test_zeroconf_multichan_forward(node_factory):
     higher spendable msat, which should cause it to be chosen instead.
 
     """
-    node_id = '033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a'
+    node_id = '022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59'
     plugin_path = Path(__file__).parent / "plugins" / "zeroconf-selective.py"
     l1, l2, l3 = node_factory.line_graph(3, opts=[
         {},
@@ -2570,7 +2595,7 @@ def test_opening_explicit_channel_type(node_factory, bitcoind):
     l1, l2, l3, l4 = node_factory.get_nodes(4,
                                             opts=[{'experimental-dual-fund': None},
                                                   {'plugin': str(plugin_path),
-                                                   'zeroconf_allow': '038194b5f32bdf0aa59812c86c4ef7ad2f294104fa027d1ace9b469bb6f88cf37b'},
+                                                   'zeroconf_allow': '0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518'},
                                                   {'experimental-dual-fund': None},
                                                   {}])
 
@@ -2704,7 +2729,7 @@ def test_zeroconf_forget(node_factory, bitcoind, dopay: bool):
             {},
             {
                 "plugin": str(plugin_path),
-                "zeroconf_allow": "038194b5f32bdf0aa59812c86c4ef7ad2f294104fa027d1ace9b469bb6f88cf37b",
+                "zeroconf_allow": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
                 "zeroconf_mindepth": "0",
                 "dev-max-funding-unconfirmed-blocks": blocks,
             },
@@ -2828,11 +2853,7 @@ def test_opening_crash(bitcoind, node_factory):
 def test_sendpsbt_crash(bitcoind, node_factory):
     """Stop sendpsbt, check it eventually opens"""
     plugin_path = Path(__file__).parent / "plugins" / "stop_sendpsbt.py"
-    l1, l2 = node_factory.get_nodes(2, opts=[{"plugin": plugin_path, 'may_fail': True, 'start': False}, {}])
-    # Saving IO can cause JSON errors when we check it, due to partial writes if we
-    # get lucky when we kill it.
-    del l1.daemon.opts['dev-save-plugin-io']
-    l1.start()
+    l1, l2 = node_factory.get_nodes(2, opts=[{"plugin": plugin_path, 'may_fail': True}, {}])
 
     l1.fundwallet(3_000_000)
     l1.connect(l2)
@@ -2857,7 +2878,7 @@ def test_zeroconf_withhold(node_factory, bitcoind, stay_withheld, mutual_close):
                                               'dev-no-reconnect': None,
                                               },
                                              {'plugin': str(plugin_path),
-                                              'zeroconf_allow': '038194b5f32bdf0aa59812c86c4ef7ad2f294104fa027d1ace9b469bb6f88cf37b',
+                                              'zeroconf_allow': '0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518',
                                               'may_reconnect': True,
                                               'dev-no-reconnect': None,
                                               }])

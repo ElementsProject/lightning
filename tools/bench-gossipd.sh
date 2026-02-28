@@ -5,7 +5,7 @@ set -e
 
 DIR=""
 TARGETS=""
-DEFAULT_TARGETS=" store_load_msec vsz_kb store_rewrite_sec listnodes_sec listchannels_sec routing_sec peer_write_all_sec peer_read_all_sec "
+DEFAULT_TARGETS=" store_load_msec vsz_kb listnodes_sec listchannels_sec routing_sec peer_write_all_sec peer_read_all_sec "
 MCP_DIR=../million-channels-project/data/1M/gossip/
 CSV=false
 
@@ -109,12 +109,6 @@ fi
 # How big is gossipd?
 if [ -z "${TARGETS##* vsz_kb *}" ]; then
     ps -o vsz= -p "$(pidof lightning_gossipd)" | print_stat vsz_kb
-fi
-
-# How long does rewriting the store take?
-if [ -z "${TARGETS##* store_rewrite_sec *}" ]; then
-    # shellcheck disable=SC2086
-    /usr/bin/time --append -f %e $LCLI1 dev-compact-gossip-store 2>&1 > /dev/null | print_stat store_rewrite_sec
 fi
 
 # Now, how long does listnodes take?

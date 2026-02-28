@@ -289,6 +289,11 @@ class NodeStub(object):
                 request_serializer=node__pb2.ListclosedchannelsRequest.SerializeToString,
                 response_deserializer=node__pb2.ListclosedchannelsResponse.FromString,
                 _registered_method=True)
+        self.DecodePay = channel.unary_unary(
+                '/cln.Node/DecodePay',
+                request_serializer=node__pb2.DecodepayRequest.SerializeToString,
+                response_deserializer=node__pb2.DecodepayResponse.FromString,
+                _registered_method=True)
         self.Decode = channel.unary_unary(
                 '/cln.Node/Decode',
                 request_serializer=node__pb2.DecodeRequest.SerializeToString,
@@ -739,11 +744,6 @@ class NodeStub(object):
                 request_serializer=node__pb2.DelnetworkeventRequest.SerializeToString,
                 response_deserializer=node__pb2.DelnetworkeventResponse.FromString,
                 _registered_method=True)
-        self.ClnrestRegisterPath = channel.unary_unary(
-                '/cln.Node/ClnrestRegisterPath',
-                request_serializer=node__pb2.ClnrestregisterpathRequest.SerializeToString,
-                response_deserializer=node__pb2.ClnrestregisterpathResponse.FromString,
-                _registered_method=True)
         self.SubscribeBlockAdded = channel.unary_stream(
                 '/cln.Node/SubscribeBlockAdded',
                 request_serializer=node__pb2.StreamBlockAddedRequest.SerializeToString,
@@ -1080,6 +1080,12 @@ class NodeServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def ListClosedChannels(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DecodePay(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1625,12 +1631,6 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def ClnrestRegisterPath(self, request, context):
-        """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
     def SubscribeBlockAdded(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -1924,6 +1924,11 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.ListClosedChannels,
                     request_deserializer=node__pb2.ListclosedchannelsRequest.FromString,
                     response_serializer=node__pb2.ListclosedchannelsResponse.SerializeToString,
+            ),
+            'DecodePay': grpc.unary_unary_rpc_method_handler(
+                    servicer.DecodePay,
+                    request_deserializer=node__pb2.DecodepayRequest.FromString,
+                    response_serializer=node__pb2.DecodepayResponse.SerializeToString,
             ),
             'Decode': grpc.unary_unary_rpc_method_handler(
                     servicer.Decode,
@@ -2374,11 +2379,6 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.DelNetworkEvent,
                     request_deserializer=node__pb2.DelnetworkeventRequest.FromString,
                     response_serializer=node__pb2.DelnetworkeventResponse.SerializeToString,
-            ),
-            'ClnrestRegisterPath': grpc.unary_unary_rpc_method_handler(
-                    servicer.ClnrestRegisterPath,
-                    request_deserializer=node__pb2.ClnrestregisterpathRequest.FromString,
-                    response_serializer=node__pb2.ClnrestregisterpathResponse.SerializeToString,
             ),
             'SubscribeBlockAdded': grpc.unary_stream_rpc_method_handler(
                     servicer.SubscribeBlockAdded,
@@ -3788,6 +3788,33 @@ class Node(object):
             '/cln.Node/ListClosedChannels',
             node__pb2.ListclosedchannelsRequest.SerializeToString,
             node__pb2.ListclosedchannelsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DecodePay(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/cln.Node/DecodePay',
+            node__pb2.DecodepayRequest.SerializeToString,
+            node__pb2.DecodepayResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -6218,33 +6245,6 @@ class Node(object):
             '/cln.Node/DelNetworkEvent',
             node__pb2.DelnetworkeventRequest.SerializeToString,
             node__pb2.DelnetworkeventResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def ClnrestRegisterPath(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/cln.Node/ClnrestRegisterPath',
-            node__pb2.ClnrestregisterpathRequest.SerializeToString,
-            node__pb2.ClnrestregisterpathResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -3,11 +3,11 @@
 #include <ccan/tal/tal.h>
 #include <common/setup.h>
 #include <inttypes.h>
-#include <plugins/askrene/child/graph.h>
+#include <plugins/askrene/graph.h>
 #include <stdio.h>
 
 #define ASKRENE_UNITTEST
-#include "../child/algorithm.c"
+#include "../algorithm.c"
 
 #ifdef HAVE_ZLIB
 #include <zlib.h>

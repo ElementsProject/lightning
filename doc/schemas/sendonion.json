@@ -327,7 +327,7 @@
     "the error details are decrypted and presented here, if *shared_secrets* was provided and an error was returned by one of the intermediate nodes"
   ],
   "author": [
-    "Christian Decker [decker.christian@gmail.com](mailto:decker.christian@gmail.com) is mainly responsible."
+    "Christian Decker <<decker.christian@gmail.com>> is mainly responsible."
   ],
   "see_also": [
     "lightning-injectpaymentonion(7)",
@@ -336,7 +336,7 @@
     "lightning-listsendpays(7)"
   ],
   "resources": [
-    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)",
+    "Main web site: <https://github.com/ElementsProject/lightning>",
     "",
     "[bolt04]: https://github.com/lightning/bolts/blob/master/04-onion-routing.md"
   ],

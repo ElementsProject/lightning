@@ -1,0 +1,305 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "added": "v23.05",
+  "depecated": [
+    "v24.11",
+    "v25.12"
+  ],
+  "rpc": "decodepay",
+  "title": "Command for decoding a bolt11 string (low-level)",
+  "description": [
+    "WARNING: deprecated: use *decode* which also handles bolt12.",
+    "",
+    "The **decodepay** RPC command checks and parses a *bolt11* string as specified by the BOLT 11 specification."
+  ],
+  "request": {
+    "required": [
+      "bolt11"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "bolt11": {
+        "type": "string",
+        "description": [
+          "Bolt11 invoice to decode."
+        ]
+      },
+      "description": {
+        "type": "string",
+        "description": [
+          "Description of the invoice to decode."
+        ]
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "currency",
+      "created_at",
+      "expiry",
+      "payee",
+      "min_final_cltv_expiry",
+      "payment_hash",
+      "signature"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "currency": {
+        "type": "string",
+        "description": [
+          "The BIP173 name for the currency."
+        ]
+      },
+      "created_at": {
+        "type": "u64",
+        "description": [
+          "The UNIX-style timestamp of the invoice."
+        ]
+      },
+      "expiry": {
+        "type": "u64",
+        "description": [
+          "The number of seconds this is valid after *timestamp*."
+        ]
+      },
+      "payee": {
+        "type": "pubkey",
+        "description": [
+          "The public key of the recipient."
+        ]
+      },
+      "amount_msat": {
+        "type": "msat",
+        "description": [
+          "Amount the invoice asked for."
+        ]
+      },
+      "payment_hash": {
+        "type": "hash",
+        "description": [
+          "The hash of the *payment_preimage*."
+        ]
+      },
+      "signature": {
+        "type": "signature",
+        "description": [
+          "Signature of the *payee* on this invoice."
+        ]
+      },
+      "description": {
+        "type": "string",
+        "description": [
+          "The description of the purpose of the purchase."
+        ]
+      },
+      "description_hash": {
+        "type": "hash",
+        "description": [
+          "The hash of the description, in place of *description*."
+        ]
+      },
+      "min_final_cltv_expiry": {
+        "type": "u32",
+        "description": [
+          "The minimum CLTV delay for the final node."
+        ]
+      },
+      "payment_secret": {
+        "type": "hash",
+        "description": [
+          "The secret to hand to the payee node."
+        ]
+      },
+      "features": {
+        "type": "hex",
+        "description": [
+          "The features bitmap for this invoice."
+        ]
+      },
+      "payment_metadata": {
+        "type": "hex",
+        "description": [
+          "The payment_metadata to put in the payment."
+        ]
+      },
+      "fallbacks": {
+        "type": "array",
+        "description": [
+          "Onchain addresses."
+        ],
+        "items": {
+          "type": "object",
+          "required": [
+            "type",
+            "hex"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "type": "string",
+              "description": [
+                "The address type (if known)."
+              ],
+              "enum": [
+                "P2PKH",
+                "P2SH",
+                "P2WPKH",
+                "P2WSH",
+                "P2TR"
+              ]
+            },
+            "addr": {
+              "type": "string",
+              "description": [
+                "The address in appropriate format for *type*."
+              ]
+            },
+            "hex": {
+              "type": "hex",
+              "description": [
+                "Raw encoded address."
+              ]
+            }
+          }
+        }
+      },
+      "routes": {
+        "type": "array",
+        "description": [
+          "Route hints to the *payee*."
+        ],
+        "items": {
+          "type": "array",
+          "description": [
+            "Hops in the route."
+          ],
+          "items": {
+            "type": "object",
+            "required": [
+              "pubkey",
+              "short_channel_id",
+              "fee_base_msat",
+              "fee_proportional_millionths",
+              "cltv_expiry_delta"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "pubkey": {
+                "type": "pubkey",
+                "description": [
+                  "The public key of the node."
+                ]
+              },
+              "short_channel_id": {
+                "type": "short_channel_id",
+                "description": [
+                  "A channel to the next peer."
+                ]
+              },
+              "fee_base_msat": {
+                "type": "msat",
+                "description": [
+                  "The base fee for payments."
+                ]
+              },
+              "fee_proportional_millionths": {
+                "type": "u32",
+                "description": [
+                  "The parts-per-million fee for payments."
+                ]
+              },
+              "cltv_expiry_delta": {
+                "type": "u32",
+                "description": [
+                  "The CLTV delta across this hop."
+                ]
+              }
+            }
+          }
+        }
+      },
+      "extra": {
+        "type": "array",
+        "description": [
+          "Any extra fields we didn't know how to parse."
+        ],
+        "items": {
+          "type": "object",
+          "required": [
+            "tag",
+            "data"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "tag": {
+              "type": "string",
+              "description": [
+                "The bech32 letter which identifies this field."
+              ],
+              "maxLength": 1,
+              "minLength": 1
+            },
+            "data": {
+              "type": "string",
+              "description": [
+                "The bech32 data for this field."
+              ]
+            }
+          }
+        }
+      }
+    },
+    "post_return_value_notes": [
+      "Technically, the *description* field is optional if a *description_hash* field is given, but in this case **decodepay** will only succeed if the optional *description* field is passed and matches the *description_hash*. In practice, these are currently unused."
+    ]
+  },
+  "author": [
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-pay(7)",
+    "lightning-getroute(7)",
+    "lightning-sendpay(7)"
+  ],
+  "resources": [
+    "[BOLT #11](https://github.com/lightning/bolts/blob/master/11-payment-encoding.md)",
+    "",
+    "Main web site: <https://github.com/ElementsProject/lightning>"
+  ],
+  "examples": [
+    {
+      "request": {
+        "id": "example:decodepay#1",
+        "method": "decodepay",
+        "params": {
+          "bolt11": "lnbcrt100n1pnt2bolt11invl010100000000bolt11invl010100000000bolt11invl010100000000bolt11invl010100000000bolt11invl010100000000bolt11invl010100000000bolt11invl010100000000bolt11invl010100000000bolt11invl010100000000bolt11invl010100000000"
+        }
+      },
+      "response": {
+        "currency": "bcrt",
+        "created_at": 1738000000,
+        "expiry": 604800,
+        "payee": "nodeid010101010101010101010101010101010101010101010101010101010101",
+        "amount_msat": 10000,
+        "description": "l11 description",
+        "min_final_cltv_expiry": 5,
+        "payment_secret": "paymentsecretinvl00110001100011000110001100011000110001100011000",
+        "features": "02024100",
+        "routes": [
+          [
+            {
+              "pubkey": "nodeid020202020202020202020202020202020202020202020202020202020202",
+              "short_channel_id": "109x1x1",
+              "fee_base_msat": 1,
+              "fee_proportional_millionths": 10,
+              "cltv_expiry_delta": 6
+            }
+          ]
+        ],
+        "payment_hash": "paymenthashinvl0110011001100110011001100110011001100110011001100",
+        "signature": "dcdepay30c4bb50bed209d020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202"
+      }
+    }
+  ]
+}

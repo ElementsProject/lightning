@@ -5,12 +5,12 @@
 #include <ccan/tal/str/str.h>
 #include <common/clock_time.h>
 #include <common/gossip_store.h>
-#include <common/gossip_store_wiregen.h>
 #include <common/status.h>
 #include <common/utils.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <gossipd/gossip_store.h>
+#include <gossipd/gossip_store_wiregen.h>
 #include <gossipd/gossipd.h>
 #include <inttypes.h>
 #include <sys/stat.h>
@@ -20,8 +20,8 @@
 #define GOSSIP_STORE_ZOMBIE_BIT_V13 0x1000U
 
 #define GOSSIP_STORE_TEMP_FILENAME "gossip_store.tmp"
-/* We write it as major version 0, minor version 16 */
-#define GOSSIP_STORE_VER ((0 << 5) | 16)
+/* We write it as major version 0, minor version 14 */
+#define GOSSIP_STORE_VER ((0 << 5) | 15)
 
 struct gossip_store {
 	/* Back pointer. */
@@ -35,10 +35,6 @@ struct gossip_store {
 
 	/* Timestamp of store when we opened it (0 if we created it) */
 	u32 timestamp;
-
-	/* Last writes since previous sync, in case it messes up and
-	 * we need to force it. */
-	const u8 **last_writes;
 };
 
 static void gossip_store_destroy(struct gossip_store *gs)
@@ -89,11 +85,10 @@ static bool append_msg(int fd, const u8 *msg, u32 timestamp, u64 *len,
  * v13 removed private gossip entries
  * v14 removed zombie and spam flags
  * v15 added the complete flag
- * v16 add uuid field, ended field uuid extension
  */
 static bool can_upgrade(u8 oldversion)
 {
-	return oldversion >= 9 && oldversion <= 15;
+	return oldversion >= 9 && oldversion <= 14;
 }
 
 /* On upgrade, do best effort on private channels: hand them to
@@ -183,106 +178,29 @@ static bool upgrade_field(u8 oldversion,
 	return true;
 }
 
-static u8 *new_uuid_record(const tal_t *ctx, int fd, u64 *off)
-{
-	u8 *uuid = tal_arr(ctx, u8, 32);
-
-	for (size_t i = 0; i < tal_bytelen(uuid); i++)
-		uuid[i] = pseudorand(256);
-	if (!append_msg(fd, towire_gossip_store_uuid(tmpctx, uuid), 0, off, NULL))
-		return tal_free(uuid);
-	/* append_msg does not change file offset, so do that now. */
-	lseek(fd, 0, SEEK_END);
-	return uuid;
-}
-
-static int make_new_gossip_store(u64 *total_len)
-{
-	u8 version = GOSSIP_STORE_VER;
-	int new_fd = open(GOSSIP_STORE_TEMP_FILENAME, O_RDWR|O_TRUNC|O_CREAT, 0600);
-
-	*total_len = sizeof(version);
-
-	if (new_fd < 0
-	    || !write_all(new_fd, &version, sizeof(version))
-	    || !new_uuid_record(tmpctx, new_fd, total_len)) {
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Creating new gossip_store file: %s",
-			      strerror(errno));
-	}
-	if (rename(GOSSIP_STORE_TEMP_FILENAME, GOSSIP_STORE_FILENAME) != 0) {
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Renaming gossip_store failed: %s",
-			      strerror(errno));
-	}
-	return new_fd;
-}
-
-static int gossip_store_open(u64 *total_len, bool *recent)
-{
-	struct stat st;
-	int fd = open(GOSSIP_STORE_FILENAME, O_RDWR);
-	if (fd == -1)
-		return -1;
-
-	if (fstat(fd, &st) != 0) {
-		close_noerr(fd);
-		return -1;
-	}
-
-	if (recent)
-		*recent = (st.st_mtime > clock_time().ts.tv_sec - 3600);
-
-	*total_len = st.st_size;
-	return fd;
-}
-
-/* If this returns -1, we cannot upgrade. */
-static int gossip_store_upgrade(struct daemon *daemon,
+/* Read gossip store entries, copy non-deleted ones.  Check basic
+ * validity, but this code is written as simply and robustly as
+ * possible!
+ *
+ * Returns fd of new store, or -1 if it was grossly invalid.
+ */
+static int gossip_store_compact(struct daemon *daemon,
 				u64 *total_len,
-				bool *populated)
+				bool *populated,
+				struct chan_dying **dying)
 {
+	size_t cannounces = 0, cupdates = 0, nannounces = 0, deleted = 0;
 	int old_fd, new_fd;
 	u64 old_len, cur_off;
 	struct gossip_hdr hdr;
 	u8 oldversion, version = GOSSIP_STORE_VER;
+	struct stat st;
 	struct timemono start = time_mono();
 	const char *bad;
-	bool recent;
-	u8 *uuid;
 
-	old_fd = gossip_store_open(total_len, &recent);
-	if (old_fd == -1) {
-		if (errno == ENOENT) {
-			*populated = false;
-			return make_new_gossip_store(total_len);
-		}
+	*populated = false;
+	old_len = 0;
 
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Reading gossip_store file: %s",
-			      strerror(errno));
-	}
-
-	if (!read_all(old_fd, &oldversion, sizeof(oldversion))) {
-		status_broken("Cannot read gossip_store version");
-		goto upgrade_failed;
-	}
-
-	/* If we have any contents (beyond uuid), and the file is less
-	 * than 1 hour old, say "seems good" */
-	*populated = recent && *total_len > 1 + sizeof(hdr) + 2 + 32;
-
-	/* No upgrade necessary?  We're done. */
-	if (oldversion == GOSSIP_STORE_VER)
-		return old_fd;
-
-	if (!can_upgrade(oldversion)) {
-		status_unusual("Cannot upgrade gossip_store version %u",
-			       oldversion);
-		goto upgrade_failed;
-	}
-
-	/* OK, create new gossip store to convert into */
 	new_fd = open(GOSSIP_STORE_TEMP_FILENAME, O_RDWR|O_TRUNC|O_CREAT, 0600);
 	if (new_fd < 0) {
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -295,20 +213,32 @@ static int gossip_store_upgrade(struct daemon *daemon,
 			      "Writing new gossip_store file: %s",
 			      strerror(errno));
 	}
-
 	*total_len = sizeof(version);
-	cur_off = old_len = sizeof(oldversion);
 
-	/* Create a fresh uuid, make sure we're after it. */
-	uuid = new_uuid_record(tmpctx, new_fd, total_len);
-	if (!uuid) {
+	/* RDWR since we add closed marker at end! */
+	old_fd = open(GOSSIP_STORE_FILENAME, O_RDWR);
+	if (old_fd == -1) {
+		if (errno == ENOENT)
+			goto rename_new;
+
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Writing new gossip_store file: %s",
+			      "Reading gossip_store file: %s",
 			      strerror(errno));
+	};
+
+	if (fstat(old_fd, &st) != 0) {
+		status_broken("Could not stat gossip_store: %s",
+			      strerror(errno));
+		goto rename_new;
 	}
-	assert(*total_len == lseek(new_fd, 0, SEEK_END));
-	/* Move to the end (new_uuid_record uses pwrite, not write) */
-	lseek(new_fd, *total_len, SEEK_SET);
+
+	if (!read_all(old_fd, &oldversion, sizeof(oldversion))
+	    || (oldversion != version && !can_upgrade(oldversion))) {
+		status_broken("gossip_store_compact: bad version");
+		goto rename_new;
+	}
+
+	cur_off = old_len = sizeof(oldversion);
 
 	/* Read everything, write non-deleted ones to new_fd.  If something goes wrong,
 	 * we end up with truncated store. */
@@ -323,13 +253,14 @@ static int gossip_store_upgrade(struct daemon *daemon,
 			status_unusual("gossip_store_compact: store ends early at %"PRIu64,
 				       old_len);
 			tal_free(msg);
-			goto upgrade_failed_close_new;
+			goto rename_new;
 		}
 
 		cur_off = old_len;
 		old_len += sizeof(hdr) + msglen;
 
 		if (be16_to_cpu(hdr.flags) & GOSSIP_STORE_DELETED_BIT) {
+			deleted++;
 			tal_free(msg);
 			continue;
 		}
@@ -352,8 +283,10 @@ static int gossip_store_upgrade(struct daemon *daemon,
 			}
 
 			/* It can tell us to delete record entirely. */
-			if (msg == NULL)
+			if (msg == NULL) {
+				deleted++;
 				continue;
+			}
 
 			/* Recalc msglen and header */
 			msglen = tal_bytelen(msg);
@@ -364,19 +297,39 @@ static int gossip_store_upgrade(struct daemon *daemon,
 
 		/* Don't write out old tombstones */
 		if (fromwire_peektype(msg) == WIRE_GOSSIP_STORE_DELETE_CHAN) {
+			deleted++;
 			tal_free(msg);
 			continue;
 		}
 
-		/* Ignore uuid: fresh file will have fresh uuid */
-		if (fromwire_peektype(msg) == WIRE_GOSSIP_STORE_UUID) {
-			tal_free(msg);
-			continue;
+		switch (fromwire_peektype(msg)) {
+		case WIRE_CHANNEL_ANNOUNCEMENT:
+			cannounces++;
+			break;
+		case WIRE_GOSSIP_STORE_CHAN_DYING: {
+			struct chan_dying cd;
+
+			if (!fromwire_gossip_store_chan_dying(msg,
+							      &cd.scid,
+							      &cd.deadline)) {
+				bad = "Bad gossip_store_chan_dying";
+				goto badmsg;
+			}
+			/* By convention, these offsets are *after* header */
+			cd.gossmap_offset = *total_len + sizeof(hdr);
+			tal_arr_expand(dying, cd);
+			break;
+		}
+		case WIRE_CHANNEL_UPDATE:
+			cupdates++;
+			break;
+		case WIRE_NODE_ANNOUNCEMENT:
+			nannounces++;
+			break;
 		}
 
 		if (!write_all(new_fd, &hdr, sizeof(hdr))
 		    || !write_all(new_fd, msg, msglen)) {
-			/* We fail hard here, since we're probably out of space. */
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "gossip_store_compact: writing msg len %zu to new store: %s",
 				      msglen, strerror(errno));
@@ -387,6 +340,13 @@ static int gossip_store_upgrade(struct daemon *daemon,
 
 	assert(*total_len == lseek(new_fd, 0, SEEK_END));
 
+	/* If we have any contents, and the file is less than 1 hour
+	 * old, say "seems good" */
+	if (st.st_mtime > clock_time().ts.tv_sec - 3600 && *total_len > 1) {
+		*populated = true;
+	}
+
+rename_new:
 	if (rename(GOSSIP_STORE_TEMP_FILENAME, GOSSIP_STORE_FILENAME) != 0) {
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "gossip_store_compact: rename failed: %s",
@@ -394,20 +354,25 @@ static int gossip_store_upgrade(struct daemon *daemon,
 	}
 
 	/* Create end marker now new file exists. */
-	append_msg(old_fd, towire_gossip_store_ended(tmpctx, *total_len, uuid), 0, &old_len, NULL);
-	close(old_fd);
+	if (old_fd != -1) {
+		append_msg(old_fd, towire_gossip_store_ended(tmpctx, *total_len),
+			   0, &old_len, NULL);
+		close(old_fd);
+	}
 
-	status_debug("Time to convert version %u store: %"PRIu64" msec",
-		     oldversion,
+	status_debug("Store compact time: %"PRIu64" msec",
 		     time_to_msec(timemono_between(time_mono(), start)));
+	status_debug("gossip_store: Read %zu/%zu/%zu/%zu cannounce/cupdate/nannounce/delete from store in %"PRIu64" bytes, now %"PRIu64" bytes (populated=%s)",
+		     cannounces, cupdates, nannounces, deleted,
+		     old_len, *total_len,
+		     *populated ? "true": "false");
 	return new_fd;
 
 badmsg:
+	/* Caller will presumably try gossip_store_reset. */
 	status_broken("gossip_store: %s (offset %"PRIu64").", bad, cur_off);
-upgrade_failed_close_new:
-	close(new_fd);
-upgrade_failed:
 	close(old_fd);
+	close(new_fd);
 	return -1;
 }
 
@@ -420,26 +385,18 @@ void gossip_store_corrupt(void)
 
 struct gossip_store *gossip_store_new(const tal_t *ctx,
 				      struct daemon *daemon,
-				      bool *populated)
+				      bool *populated,
+				      struct chan_dying **dying)
 {
 	struct gossip_store *gs = tal(ctx, struct gossip_store);
 
 	gs->daemon = daemon;
-	gs->fd = gossip_store_upgrade(daemon, &gs->len, populated);
+	*dying = tal_arr(ctx, struct chan_dying, 0);
+	gs->fd = gossip_store_compact(daemon, &gs->len, populated, dying);
 	if (gs->fd < 0)
 		return tal_free(gs);
-	gs->last_writes = tal_arr(gs, const u8 *, 0);
 	tal_add_destructor(gs, gossip_store_destroy);
 	return gs;
-}
-
-void gossip_store_reopen(struct gossip_store *gs)
-{
-	close(gs->fd);
-	gs->fd = gossip_store_open(&gs->len, NULL);
-	if (gs->fd < 0)
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "gossmap reopen failed: %s", strerror(errno));
 }
 
 void gossip_store_fsync(const struct gossip_store *gs)
@@ -449,10 +406,9 @@ void gossip_store_fsync(const struct gossip_store *gs)
 			      "gossmap fsync failed: %s", strerror(errno));
 }
 
-void gossip_store_rewrite_end(struct gossip_store *gs)
+void gossip_store_rewrite_end(struct gossip_store *gs, const u8 **msgs)
 {
 	u64 offset = gs->len;
-	const u8 **msgs = gs->last_writes;
 
 	for (size_t i = 0; i < tal_count(msgs); i++) {
 		/* Don't overwrite version byte */
@@ -472,15 +428,10 @@ void gossip_store_rewrite_end(struct gossip_store *gs)
 	gossip_store_fsync(gs);
 }
 
-void gossip_store_writes_confirmed(struct gossip_store *gs)
-{
-	tal_free(gs->last_writes);
-	gs->last_writes = tal_arr(gs, const u8 *, 0);
-}
-
 u64 gossip_store_add(struct gossip_store *gs,
 		     const u8 *gossip_msg,
-		     u32 timestamp)
+		     u32 timestamp,
+		     const u8 ***msgs)
 {
 	u64 off = gs->len, filelen;
 
@@ -500,7 +451,7 @@ u64 gossip_store_add(struct gossip_store *gs,
 				      filelen, off);
 	}
 
-	if (!append_msg(gs->fd, gossip_msg, timestamp, &gs->len, &gs->last_writes)) {
+	if (!append_msg(gs->fd, gossip_msg, timestamp, &gs->len, msgs)) {
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Failed writing to gossip store: %s",
 			      strerror(errno));

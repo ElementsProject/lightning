@@ -9,6 +9,10 @@ privacy:
 
 | Name                                               | Type               | First Deprecated | Last Supported | Description                                                                                                               |
 |----------------------------------------------------|--------------------|------------------|----------------|---------------------------------------------------------------------------------------------------------------------------|
+| listpeers.features.option_anchors_zero_fee_htlc_tx | Field              | v24.08           | v25.09         | Renamed to `option_anchors` in the spec: check for that in `features` instead                                             |
+| decodepay                                          | Command            | v24.11           | v25.12         | Use `decode` which is more powerful (since v23.05)                                                                        |
+| close.tx                                           | Field              | v24.11           | v25.12         | Use txs array instead                                                                                                     |
+| close.txid                                         | Field              | v24.11           | v25.12         | Use txids array instead                                                                                                   |
 | xpay.ignore_bolt12_mpp                             | Field              | v25.05           | v25.12         | Try MPP even if the BOLT12 invoice doesn't explicitly allow it (CLN didn't until 25.02)                                   |
 | listpeerchannels.max_total_htlc_in_msat            | Field              | v25.02           | v26.03         | Use our_max_total_htlc_out_msat                                                                                           |
 | wait.details                                       | Field              | v25.05           | v26.06         | Use subsystem-specific object instead                                                                                     |
@@ -22,7 +26,7 @@ privacy:
 | encrypted_hsm                                      | Config             | v25.12           | v26.12         | `hsm-passphrase` is a name which also makes sense for modern hsm_secrets which use BIP 39                                 |
 | newaddr.addresstype.defaultbech32                  | Parameter          | v25.12           | v26.12         | Use `p2tr` in the response (present since v23.08 if `addresstype` is `p2tr`,  and always present since v24.12).           |
 | channel_state_changed.null_message                 | Notification Field | v25.12           | v26.12         | In channel_state_changed notification, `message` will be missing instead of `null`                                        |
-| hsmtool.getcodexsecret                             | Command            | v25.12.1         | v26.12         | Doesn't work on nodes using mnemonic secrets (v25.12 or later).  Use `getsecret` instead.                                 |
+ 
 Inevitably there are features which need to change: either to be generalized, or removed when they can no longer be supported.
 
 Types of deprecation:

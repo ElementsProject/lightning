@@ -1,8 +1,7 @@
 from concurrent import futures
 from fixtures import *  # noqa: F401,F403
-from pyln.client import RpcError
 from tqdm import tqdm
-from utils import (wait_for, TIMEOUT, only_one)
+from utils import (wait_for, TIMEOUT)
 
 
 import os
@@ -229,46 +228,3 @@ def test_spam_listcommands(node_factory, bitcoind, benchmark):
 
     # This calls "listinvoice" 100,000 times (which doesn't need a transaction commit)
     benchmark(l1.rpc.spamlistcommand, 100_000)
-
-
-def test_payment_speed(node_factory, benchmark):
-    """This makes sure we don't screw up nagle handling.
-
-    Normally:
-    Name (time in ms)           Min       Max      Mean  StdDev    Median     IQR  Outliers     OPS  Rounds  Iterations
-    test_payment_speed      16.3587  40.4925  27.4874  5.5512  27.7885  8.9291       9;0  36.3803      33           1
-
-    Without TCP_NODELAY:
-    Name (time in ms)           Min       Max      Mean  StdDev    Median     IQR  Outliers     OPS  Rounds  Iterations
-    test_payment_speed     153.7132  163.2027  158.6747  3.4059  158.5219  6.3745       3;0  6.3022       9           1
-    """
-    l1 = get_bench_node(node_factory, extra_options={'commit-time': 0})
-    l2 = get_bench_node(node_factory, extra_options={'commit-time': 0})
-
-    node_factory.join_nodes([l1, l2])
-
-    scid = only_one(l1.rpc.listpeerchannels()['channels'])['short_channel_id']
-    routestep = {
-        'amount_msat': 100,
-        'id': l2.info['id'],
-        'delay': 5,
-        'channel': scid
-    }
-
-    def onepay(l1, routestep):
-        phash = random.randbytes(32).hex()
-        l1.rpc.sendpay([routestep], phash)
-        with pytest.raises(RpcError, match="WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS"):
-            l1.rpc.waitsendpay(phash)
-
-    benchmark(onepay, l1, routestep)
-
-
-def test_askrene_layers(node_factory):
-    l1 = get_bench_node(node_factory)
-    NUM_LAYERS = 100_000
-    for i in range(NUM_LAYERS):
-        l1.rpc.askrene_create_layer(f'test_askrene_layers-{i}', True)
-
-    l1.restart()
-    l1.rpc.askrene_create_layer(f'test_askrene_layers-{NUM_LAYERS}')

@@ -17,7 +17,7 @@ static inline bool short_channel_id_eq(struct short_channel_id a,
 	return a.u64 == b.u64;
 }
 
-static inline size_t hash_scid(struct short_channel_id scid)
+static inline size_t short_channel_id_hash(struct short_channel_id scid)
 {
 	/* scids cost money to generate, so simple hash works here */
 	return (scid.u64 >> 32) ^ (scid.u64 >> 16) ^ scid.u64;
@@ -44,12 +44,6 @@ static inline bool short_channel_id_dir_eq(const struct short_channel_id_dir *a,
 					   const struct short_channel_id_dir *b)
 {
 	return short_channel_id_eq(a->scid, b->scid) && a->dir == b->dir;
-}
-
-static inline size_t hash_scidd(const struct short_channel_id_dir *scidd)
-{
-	/* Bottom bit is common, so use bit 4 for direction */
-	return hash_scid(scidd->scid) | (scidd->dir << 4);
 }
 
 static inline u32 short_channel_id_blocknum(struct short_channel_id scid)

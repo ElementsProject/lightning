@@ -501,13 +501,7 @@ def test_splice_stuck_htlc(node_factory, bitcoind, executor):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 def test_route_by_old_scid(node_factory, bitcoind):
-    opts = {'experimental-splicing': None, 'may_reconnect': True}
-    # l1 sometimes talks about pre-splice channels.  l2 (being part of the splice) immediately forgets
-    # the old scid and uses the new one, then complains when l1 talks about it.  Which is fine, but
-    # breaks CI.
-    l1opts = opts.copy()
-    l1opts['allow_warning'] = True
-    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True, opts=[l1opts, opts, opts])
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True, opts={'experimental-splicing': None, 'may_reconnect': True})
 
     # Get pre-splice route.
     inv = l3.rpc.invoice(10000000, 'test_route_by_old_scid', 'test_route_by_old_scid')
@@ -533,6 +527,11 @@ def test_route_by_old_scid(node_factory, bitcoind):
     l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
     l1.rpc.waitsendpay(inv['payment_hash'])
 
+    # Make sure l1 has seen and processed announcement for new splice
+    # scid, otherwise we can get gossip warning here (which breaks CI) if we splice again.
+    scid = only_one(l3.rpc.listchannels(source=l3.info['id'])['channels'])['short_channel_id']
+    wait_for(lambda: l1.rpc.listchannels(short_channel_id=scid)['channels'] != [])
+
     # Let's splice again, so the original scid is two behind the times.
     l3.fundwallet(200000)
     funds_result = l3.rpc.fundpsbt("109000sat", "slow", 166, excess_as_change=True)
@@ -551,7 +550,7 @@ def test_route_by_old_scid(node_factory, bitcoind):
 
     # Now restart l2, make sure it remembers the original!
     l2.restart()
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
 
     wait_for(lambda: only_one(l1.rpc.listpeers()['peers'])['connected'] is True)

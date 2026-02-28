@@ -1,11 +1,11 @@
 #include "config.h"
 #include <ccan/crc32c/crc32c.h>
-#include <common/gossip_store_wiregen.h>
 #include <common/status.h>
 #include <common/utils.h>
 #include <connectd/gossip_store.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <gossipd/gossip_store_wiregen.h>
 #include <inttypes.h>
 #include <unistd.h>
 #include <wire/peer_wire.h>
@@ -28,9 +28,8 @@ static size_t reopen_gossip_store(int *gossip_store_fd, const u8 *msg)
 {
 	u64 equivalent_offset;
 	int newfd;
-	u8 uuid[32];
 
-	if (!fromwire_gossip_store_ended(msg, &equivalent_offset, uuid))
+	if (!fromwire_gossip_store_ended(msg, &equivalent_offset))
 		status_failed(STATUS_FAIL_GOSSIP_IO,
 			      "Bad gossipd GOSSIP_STORE_ENDED msg: %s",
 			      tal_hex(tmpctx, msg));

@@ -8,6 +8,7 @@ ALL_C_SOURCES += $(PLUGIN_TEST_SRC)
 ALL_TEST_PROGRAMS += $(PLUGIN_TEST_PROGRAMS)
 
 plugins/test/run-route-overlong:		\
+        gossipd/gossip_store_wiregen.o		\
 	plugins/channel_hint.o
 
 plugins/test/run-route-calc:			\
@@ -15,6 +16,7 @@ plugins/test/run-route-calc:			\
 	common/gossmap.o			\
 	common/node_id.o			\
 	common/route.o				\
+	gossipd/gossip_store_wiregen.o		\
 	plugins/channel_hint.o
 
 $(PLUGIN_TEST_PROGRAMS): libcommon.a

@@ -19,9 +19,6 @@ bigsize_t fromwire_bigsize(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 bool fromwire_channel_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 			 struct channel_id *channel_id UNNEEDED)
 { fprintf(stderr, "fromwire_channel_id called!\n"); abort(); }
-/* Generated stub for fromwire_gossip_store_chan_dying */
-bool fromwire_gossip_store_chan_dying(const void *p UNNEEDED, struct short_channel_id *scid UNNEEDED, u32 *blockheight UNNEEDED)
-{ fprintf(stderr, "fromwire_gossip_store_chan_dying called!\n"); abort(); }
 /* Generated stub for sciddir_or_pubkey_from_node_id */
 bool sciddir_or_pubkey_from_node_id(struct sciddir_or_pubkey *sciddpk UNNEEDED,
 				    const struct node_id *node_id UNNEEDED)

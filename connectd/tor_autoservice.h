@@ -18,7 +18,4 @@ struct wireaddr *tor_fixed_service(const tal_t *ctx,
 				 const struct wireaddr *bind,
 				 const u8 index);
 
-/* For dev_report_fds */
-extern int tor_service_fd;
-
 #endif /* LIGHTNING_CONNECTD_TOR_AUTOSERVICE_H */

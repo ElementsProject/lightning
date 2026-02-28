@@ -3,9 +3,9 @@
   "type": "object",
   "additionalProperties": false,
   "rpc": "bkpr-editdescriptionbypaymentid",
-  "title": "Command to change the description for events with `payment_id` after they're made",
+  "title": "Command to change the description for events with {payment_id} after they're made",
   "description": [
-    "The **bkpr-editdescriptionbypaymentid** RPC command updates all chain and channel events that match the `payment_id` with the provided `description`"
+    "The **bkpr-editdescriptionbypaymentid** RPC command updates all chain and channel events that match the {payment_id} with the provided {description}"
   ],
   "request": {
     "required": [
@@ -249,7 +249,7 @@
     }
   },
   "author": [
-    "Lisa Neigut [niftynei@gmail.com](mailto:niftynei@gmail.com) is mainly responsible."
+    "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
   ],
   "see_also": [
     "lightning-bkpr-editdescriptionbyoutpoint(7)",
@@ -257,7 +257,7 @@
     "lightning-bkpr-listincome(7)"
   ],
   "resources": [
-    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+    "Main web site: <https://github.com/ElementsProject/lightning>"
   ],
   "examples": [
     {

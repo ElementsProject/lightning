@@ -4,7 +4,6 @@ lightning_closingd
 lightning_connectd
 lightning_dualopend
 lightning_gossipd
-lightning_gossip_compactd
 lightning_hsmd
 lightning_onchaind
 lightning_openingd

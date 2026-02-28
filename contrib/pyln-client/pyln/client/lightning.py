@@ -584,6 +584,16 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("datastoreusage", payload)
 
+    def decodepay(self, bolt11, description=None):
+        """
+        Decode {bolt11}, using {description} if necessary.
+        """
+        payload = {
+            "bolt11": bolt11,
+            "description": description
+        }
+        return self.call("decodepay", payload)
+
     def deldatastore(self, key, generation=None):
         """
         Remove an existing entry from the datastore.
@@ -1052,7 +1062,7 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("listpeers", payload)
 
-    def listpeerchannels(self, peer_id=None, short_channel_id=None, channel_id=None):
+    def listpeerchannels(self, peer_id=None, short_channel_id=None):
         """
         Show current peers channels, and if the {peer_id} is specified
         all the channels for the peer are returned, and if {short_channel_id} is
@@ -1061,7 +1071,6 @@ class LightningRpc(UnixDomainSocketRpc):
         payload = {
             "id": peer_id,
             "short_channel_id": short_channel_id,
-            "channel_id": channel_id,
         }
         return self.call("listpeerchannels", payload)
 
@@ -1121,7 +1130,7 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def offer(self, amount, description=None, issuer=None, label=None, quantity_max=None, absolute_expiry=None,
               recurrence=None, recurrence_base=None, recurrence_paywindow=None, recurrence_limit=None,
-              single_use=None, fronting_nodes=None):
+              single_use=None):
         """
         Create an offer (or returns an existing one), which is a precursor to creating one or more invoices.
         It automatically enables the processing of an incoming invoice_request, and issuing of invoices.
@@ -1138,7 +1147,6 @@ class LightningRpc(UnixDomainSocketRpc):
             "recurrence_paywindow": recurrence_paywindow,
             "recurrence_limit": recurrence_limit,
             "single_use": single_use,
-            "fronting_nodes": fronting_nodes,
         }
         return self.call("offer", payload)
 

@@ -459,14 +459,14 @@ def test_gossip_jsonrpc(node_factory):
     assert n2['nodeid'] == l2.info['id']
 
     # Might not have seen other node-announce yet.
-    assert n1['alias'].startswith('STRANGEBOUNCE')
-    assert n1['color'] == '038194'
+    assert n1['alias'].startswith('JUNIORBEAM')
+    assert n1['color'] == '0266e4'
     if 'alias' not in n2:
         assert 'color' not in n2
         assert 'addresses' not in n2
     else:
-        assert n2['alias'].startswith('SILENTGOPHER')
-        assert n2['color'] == '033845'
+        assert n2['alias'].startswith('SILENTARTIST')
+        assert n2['color'] == '022d22'
 
     assert [c['active'] for c in l1.rpc.listchannels()['channels']] == [True, True]
     assert [c['public'] for c in l1.rpc.listchannels()['channels']] == [True, True]
@@ -748,7 +748,7 @@ def test_gossip_query_channel_range(node_factory, bitcoind, chainparams):
     msgs = l4.query_gossip('query_channel_range',
                            chainparams['chain_hash'],
                            0, 1000000,
-                           filters=['0109', '0107', '0012', '0105'])
+                           filters=['0109', '0107', '0012'])
     # Either order!
     encoded1 = subprocess.run(['devtools/mkencoded', '--scids', '00', scid12, scid23],
                               check=True,
@@ -1207,9 +1207,8 @@ def test_gossip_store_load(node_factory):
 
     l1.start()
     # May preceed the Started msg waited for in 'start'.
-    l1.daemon.logsearch_start = 0
-    l1.daemon.wait_for_log("gossipd: Time to convert version 12 store")
-    l1.daemon.wait_for_log("gossipd: gossip_store: 3 live records, 0 deleted")
+    wait_for(lambda: l1.daemon.is_in_log('Read 1/1/1/0 cannounce/cupdate/nannounce/delete from store in 800 bytes, now 778 bytes'))
+    assert not l1.daemon.is_in_log('gossip_store.*truncating')
 
 
 def test_gossip_store_v10_upgrade(node_factory):
@@ -1276,18 +1275,13 @@ def test_gossip_store_load_announce_before_update(node_factory):
 
     l1.start()
     # May preceed the Started msg waited for in 'start'.
-    l1.daemon.logsearch_start = 0
-    l1.daemon.wait_for_log("gossipd: Time to convert version 12 store: [0-9]* msec")
-    l1.daemon.wait_for_log("gossipd: gossip_store: 3 live records, 0 deleted")
-    assert not l1.daemon.is_in_log('gossip_store.*corrupt')
-
-    # Extra sanity check if we can.
-    l1.rpc.call('dev-compact-gossip-store')
+    wait_for(lambda: l1.daemon.is_in_log('Read 1/1/1/1 cannounce/cupdate/nannounce/delete from store in 950 bytes, now 778 bytes'))
+    assert not l1.daemon.is_in_log('gossip_store.*truncating')
 
 
 def test_gossip_store_load_amount_truncated(node_factory):
     """Make sure we can read canned gossip store with truncated amount"""
-    l1 = node_factory.get_node(start=False, broken_log=r'gossip_store only processed 47 bytes of 491 \(expected 491\)|Moving to gossip_store.corrupt|plugin-cln-renepay:.*unable to fetch channel capacity')
+    l1 = node_factory.get_node(start=False, broken_log=r'gossip_store only processed 1 bytes of 445 \(expected 445\)|Moving to gossip_store.corrupt|plugin-cln-renepay:.*unable to fetch channel capacity')
     with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'), 'wb') as f:
         f.write(bytearray.fromhex("0c"        # GOSSIP_STORE_VERSION
                                   "000001b0"  # len
@@ -1298,15 +1292,10 @@ def test_gossip_store_load_amount_truncated(node_factory):
 
     l1.start()
     # May preceed the Started msg waited for in 'start'.
-    wait_for(lambda: l1.daemon.is_in_log(r'\*\*BROKEN\*\* gossipd: gossip_store only processed 47 bytes of 491 \(expected 491\)'))
+    wait_for(lambda: l1.daemon.is_in_log(r'\*\*BROKEN\*\* gossipd: gossip_store only processed 1 bytes of 445 \(expected 445\)'))
     wait_for(lambda: l1.daemon.is_in_log(r'\*\*BROKEN\*\* gossipd: gossip_store: Moving to gossip_store.corrupt'))
-    wait_for(lambda: l1.daemon.is_in_log('gossip_store: 0 live records, 0 deleted'))
+    wait_for(lambda: l1.daemon.is_in_log(r'gossip_store: Read 0/0/0/0 cannounce/cupdate/nannounce/delete from store in 0 bytes, now 1 bytes \(populated=false\)'))
     assert os.path.exists(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store.corrupt'))
-
-    # Extra sanity check if we can.
-    l1.rpc.call('dev-compact-gossip-store')
-    l1.restart()
-    l1.rpc.call('dev-compact-gossip-store')
 
 
 @pytest.mark.openchannel('v1')
@@ -1323,7 +1312,7 @@ def test_node_reannounce(node_factory, bitcoind, chainparams):
     # Wait for it to process it.
     wait_for(lambda: l2.rpc.listnodes(l1.info['id'])['nodes'] != [])
     wait_for(lambda: 'alias' in only_one(l2.rpc.listnodes(l1.info['id'])['nodes']))
-    assert only_one(l2.rpc.listnodes(l1.info['id'])['nodes'])['alias'].startswith('STRANGEBOUNCE')
+    assert only_one(l2.rpc.listnodes(l1.info['id'])['nodes'])['alias'].startswith('JUNIORBEAM')
 
     # Make sure it gets features correct.
     assert only_one(l2.rpc.listnodes(l1.info['id'])['nodes'])['features'] == expected_node_features()
@@ -1512,7 +1501,7 @@ def test_getroute_exclude(node_factory, bitcoind):
     # This should work
     route = l1.rpc.getroute(l4.info['id'], 1, 1)['route']
 
-    # l1 id (038194) > l2 id (033845), so direction 1 means l1->l2
+    # l1 id is > l2 id, so 1 means l1->l2
     chan_l1l2 = route[0]['channel'] + '/1'
     chan_l2l1 = route[0]['channel'] + '/0'
 
@@ -1538,11 +1527,13 @@ def test_getroute_exclude(node_factory, bitcoind):
                              r'update for channel {}/1 now ACTIVE'
                              .format(scid)])
 
-    # l2 id (033845) < l3 id (03cecb), so direction 0 means l2->l3
+    # l3 id is > l2 id, so 1 means l3->l2
+    # chan_l3l2 = route[1]['channel'] + '/1'
     chan_l2l3 = route[1]['channel'] + '/0'
 
-    # l2 id (033845) > l4 id (02287b), so direction 1 means l2->l4
-    chan_l2l4 = scid + '/1'
+    # l4 is > l2
+    # chan_l4l2 = scid + '/1'
+    chan_l2l4 = scid + '/0'
 
     # This works
     l1.rpc.getroute(l4.info['id'], 1, 1, exclude=[chan_l2l3])
@@ -1592,8 +1583,8 @@ def test_getroute_exclude(node_factory, bitcoind):
         l1.rpc.getroute(l4.info['id'], 1, 1, exclude=[chan_l2l3, l5.info['id'], chan_l2l4])
 
 
-def setup_gossip_store_test(node_factory, bitcoind, opts=None):
-    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True, opts=opts)
+def setup_gossip_store_test(node_factory, bitcoind):
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
 
     # Now, replace the one channel_update, so it's past the node announcements.
     l2.rpc.setchannel(l3.info['id'], 20, 1000)
@@ -1619,123 +1610,24 @@ def setup_gossip_store_test(node_factory, bitcoind, opts=None):
     return l2
 
 
-def test_gossip_store_corrupt(node_factory, bitcoind):
-    l2 = setup_gossip_store_test(node_factory, bitcoind, opts=[{}, {'broken_log': 'gossip_store: Moving to gossip_store.corrupt'}, {}])
+def test_gossip_store_compact_noappend(node_factory, bitcoind):
+    l2 = setup_gossip_store_test(node_factory, bitcoind)
 
-    l2.stop()
     # It should truncate this, not leave junk!
-    with open(os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'), 'wb') as f:
+    with open(os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, 'gossip_store.tmp'), 'wb') as f:
         f.write(bytearray.fromhex("07deadbeef"))
-    l2.start()
 
-    # Complains, moves.
-    wait_for(lambda: l2.daemon.is_in_log('gossipd: Cannot upgrade gossip_store version 7'))
-    assert os.path.exists(os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, 'gossip_store.corrupt'))
+    l2.restart()
+    wait_for(lambda: l2.daemon.is_in_log('gossip_store: Read '))
+    assert not l2.daemon.is_in_log('gossip_store:.*truncate')
 
 
 def test_gossip_store_load_complex(node_factory, bitcoind):
     l2 = setup_gossip_store_test(node_factory, bitcoind)
 
-    l2.rpc.call('dev-compact-gossip-store')
     l2.restart()
 
-    wait_for(lambda: l2.daemon.is_in_log('gossip_store: 9 live records, 0 deleted'))
-
-
-def test_gossip_store_compact(node_factory, bitcoind):
-    l2 = setup_gossip_store_test(node_factory, bitcoind)
-
-    # Now compact store.
-    l2.rpc.call('dev-compact-gossip-store')
-    # Splicing changes features, making this size 2365 bytes -> 2065 bytes.
-    l2.daemon.wait_for_logs(['gossipd: compaction done: 236[25] -> 206[25] bytes',
-                             'connectd: Reopened gossip_store, reduced to offset 206[25]'])
-
-    # Should still be connected.
-    time.sleep(1)
-    assert len(l2.rpc.listpeers()['peers']) == 2
-
-    # Should restart ok.
-    l2.restart()
-    wait_for(lambda: l2.daemon.is_in_log('gossipd: gossip_store: 9 live records, 0 deleted'))
-
-
-def test_gossip_store_compact_while_extending(node_factory, bitcoind, executor):
-    """We change gossip_store file (additions, deletion) during compaction"""
-    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
-                                         opts=[{'subdaemon': 'gossip_compactd:../tests/plugins/compacter-slow.sh'}, {}, {}])
-    l2.rpc.setchannel(l3.info['id'], 20, 1000)
-    l3.rpc.setchannel(l2.info['id'], 21, 1001)
-
-    # Wait for it to hit l2's gossip store.
-    wait_for(lambda: sorted([c['fee_per_millionth'] for c in l1.rpc.listchannels()['channels']]) == [10, 10, 1000, 1001])
-
-    # We start compaction, but gossip store continues
-    fut = executor.submit(l1.rpc.call, 'dev-compact-gossip-store')
-    # Make sure it started!
-    l1.daemon.wait_for_log('Executing lightning_gossip_compactd')
-
-    # We make another channel, remove old one
-    l4 = node_factory.get_node()
-    node_factory.join_nodes([l3, l4], wait_for_announce=True)
-    scid34 = only_one(l4.rpc.listpeerchannels()['channels'])['short_channel_id']
-    wait_for(lambda: len(l1.rpc.listchannels(scid34)['channels']) == 2)
-
-    scid23 = only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['short_channel_id']
-    l2.rpc.close(l3.info['id'])
-    bitcoind.generate_block(13, wait_for_mempool=1)
-    wait_for(lambda: l1.rpc.listchannels(scid23) == {'channels': []})
-
-    l1.rpc.setchannel(l2.info['id'], 41, 1004)
-    scid12 = only_one(l1.rpc.listpeerchannels()['channels'])['short_channel_id']
-    wait_for(lambda: sorted([c['fee_per_millionth'] for c in l1.rpc.listchannels(scid12)['channels']]) == [10, 1004])
-
-    pre_channels = l1.rpc.listchannels()
-    # Make sure all node_announcements have been seen.
-    wait_for(lambda: all(['alias' in n for n in l1.rpc.listnodes()['nodes']]))
-    pre_nodes = sorted(l1.rpc.listnodes()['nodes'], key=lambda n: n['nodeid'])
-
-    # Compaction "continues".
-    with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'compactd-continue'), 'wb') as f:
-        f.write(b'')
-
-    fut.result(TIMEOUT)
-    # Exact gossip size varies with EXPERIMENTAL_SPLICING.
-    l1.daemon.wait_for_logs(['gossipd: compaction done',
-                             'connectd: Reopened gossip_store, reduced to offset 224[59]'])
-
-    post_channels = l1.rpc.listchannels()
-    post_nodes = sorted(l1.rpc.listnodes()['nodes'], key=lambda n: n['nodeid'])
-    l1.daemon.wait_for_log('topology: Reopened gossip_store, reduced to offset 224[59]')
-
-    assert post_channels == pre_channels
-    assert post_nodes == pre_nodes
-
-
-def test_gossip_store_compact_miss_update(node_factory, bitcoind, executor):
-    """If we compact twice, you should notice the UUID difference."""
-    l2 = setup_gossip_store_test(node_factory, bitcoind)
-
-    pre_channels = l2.rpc.listchannels()
-
-    # Now compact store twice.
-    l2.rpc.call('dev-compact-gossip-store')
-    l2.rpc.call('dev-compact-gossip-store')
-
-    post_channels = l2.rpc.listchannels()
-    l2.daemon.wait_for_log('topology: Reopened gossip_store, but we missed some')
-    assert pre_channels == post_channels
-
-
-def test_gossip_store_compact_restart(node_factory, bitcoind):
-    l2 = setup_gossip_store_test(node_factory, bitcoind)
-
-    # Should restart ok.
-    l2.restart()
-    wait_for(lambda: l2.daemon.is_in_log('gossip_store: 9 live records, 2 deleted'))
-
-    # Now compact store.
-    l2.rpc.call('dev-compact-gossip-store')
+    wait_for(lambda: l2.daemon.is_in_log('gossip_store: Read '))
 
 
 def test_gossip_store_load_no_channel_update(node_factory):
@@ -1764,14 +1656,11 @@ def test_gossip_store_load_no_channel_update(node_factory):
     l1.start()
 
     # May preceed the Started msg waited for in 'start'.
-    l1.daemon.logsearch_start = 0
-    l1.daemon.wait_for_log("gossipd: Time to convert version 13 store: [0-9]* msec")
-    # One is the uuid we insert!
-    l1.daemon.wait_for_log("gossipd: gossip_store: 2 live records, 0 deleted")
+    wait_for(lambda: l1.daemon.is_in_log('Read 1/0/1/0 cannounce/cupdate/nannounce/delete from store in 650 bytes, now 628 bytes'))
     assert not os.path.exists(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store.corrupt'))
 
 
-def test_gossip_store_load_uncompacted(node_factory, bitcoind):
+def test_gossip_store_compact_on_load(node_factory, bitcoind):
     l2 = setup_gossip_store_test(node_factory, bitcoind)
 
     gs_path = os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, 'gossip_store')
@@ -1782,7 +1671,7 @@ def test_gossip_store_load_uncompacted(node_factory, bitcoind):
     l2.restart()
 
     # These appear before we're fully started, so will already in log:
-    assert l2.daemon.is_in_log('gossip_store: 9 live records, 2 deleted')
+    assert l2.daemon.is_in_log('gossip_store: Read 2/4/3/2 cannounce/cupdate/nannounce/delete from store')
 
 
 def test_gossip_announce_invalid_block(node_factory, bitcoind):
@@ -2298,7 +2187,7 @@ def test_generate_gossip_store(node_factory):
 
             expected.append({'source': n1,
                              'destination': n2,
-                             'short_channel_id': '{}x{}x{}'.format(c.node1 + chancount, c.node2, chancount),
+                             'short_channel_id': '{}x{}x{}'.format(c.node1, c.node2, chancount),
                              'direction': expected_dir,
                              'public': True,
                              'amount_msat': c.capacity_sats * 1000,
@@ -2395,7 +2284,7 @@ def test_gossip_force_broadcast_channel_msgs(node_factory, bitcoind):
     # Make sure the noise is within reasonable bounds
     assert tally['query_short_channel_ids'] <= 1
     assert tally['query_channel_range'] <= 1
-    assert tally['ping'] <= 5
+    assert tally['ping'] <= 1
     assert tally['gossip_filter'] >= 1
     del tally['query_short_channel_ids']
     del tally['query_channel_range']
@@ -2481,45 +2370,3 @@ def test_incoming_unreasonable(node_factory):
     wait_for(lambda: [c['updates']['remote']['fee_base_msat'] for c in l3.rpc.listpeerchannels()['channels']] == [100000000, 100000000])
     l3.restart()
     l3.rpc.listincoming()
-
-
-def test_gossmap_lost_node(node_factory, bitcoind):
-    l1, l2, l3, l4 = node_factory.line_graph(4, wait_for_announce=True)
-
-    scid23 = only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['short_channel_id']
-    l2.rpc.close(l3.info['id'])
-    bitcoind.generate_block(13, wait_for_mempool=1)
-
-    # Order of nodes is not stable.
-    sync_blockheight(bitcoind, [l1])
-    assert l1.rpc.listchannels(scid23) == {'channels': []}
-
-    pre_channels = l1.rpc.listchannels()
-    # Make sure all node_announcements have been seen.
-    wait_for(lambda: all(['alias' in n for n in l1.rpc.listnodes()['nodes']]))
-    pre_nodes = sorted(l1.rpc.listnodes()['nodes'], key=lambda n: n['nodeid'])
-    l1.restart()
-    post_channels = l1.rpc.listchannels()
-    post_nodes = sorted(l1.rpc.listnodes()['nodes'], key=lambda n: n['nodeid'])
-
-    assert post_channels == pre_channels
-    assert post_nodes == pre_nodes
-
-
-def test_gossip_dying_when_compact(node_factory, bitcoind):
-    """During PR review, @daywalker90 found a crash when we compacted with a dying channel: our implementation did not reset these, so the offsets were wrong"""
-    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
-
-    assert len(l1.rpc.listchannels()["channels"]) == 4
-
-    # Closed l2->l3, but it's just marked dying by l1.
-    l2.rpc.close(l3.info['id'])
-    bitcoind.generate_block(6, wait_for_mempool=1)
-
-    l1.daemon.wait_for_log('channel .* closing soon due to the funding outpoint being spent')
-    wait_for(lambda: len(l1.rpc.listchannels()["channels"]) == 4)
-    l1.rpc.call("dev-compact-gossip-store")
-
-    # Now actually close it (12 deep)
-    bitcoind.generate_block(11)
-    wait_for(lambda: len(l1.rpc.listchannels()["channels"]) == 2)

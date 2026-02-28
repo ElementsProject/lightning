@@ -1706,7 +1706,7 @@
     "- -32602: Error in given parameters or field with *config* name doesn't exist."
   ],
   "author": [
-    "Vincenzo Palazzo [vincenzo.palazzo@protonmail.com](mailto:vincenzo.palazzo@protonmail.com) wrote the initial version of this man page,",
+    "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
     "but many others did the hard work of actually implementing this rpc command."
   ],
   "see_also": [
@@ -1714,7 +1714,7 @@
     "lightningd-config(5)"
   ],
   "resources": [
-    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+    "Main web site: <https://github.com/ElementsProject/lightning>"
   ],
   "examples": [
     {

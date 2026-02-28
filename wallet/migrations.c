@@ -1079,9 +1079,6 @@ static const struct db_migration dbmigrations[] = {
      NULL, revert_withheld_column},
     /* ^v25.12 */
 
-    {NULL, migrate_fix_payments_faildetail_type,
-     /* Fixing data types is idempotent, so no revert needed */
-     NULL, NULL},
 };
 
 const struct db_migration *get_db_migrations(size_t *num)

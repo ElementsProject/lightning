@@ -35,7 +35,6 @@ typemap = {
     "secret": "bytes",
     "bip340sig": "string",
     "hash": "bytes",
-    "string_map": "map<string, string>",
 }
 
 

@@ -1,12 +1,11 @@
 /*~ Welcome to the gossip daemon: keeper of maps!
  *
- * This is the last "global" daemon; it has one main purpose: to
- * maintain the append-only gossip_store file for other daemons and
- * plugins to read the global network map.
+ * This is the last "global" daemon; it has three purposes.
  *
- * To do this, it gets gossip messages forwarded from connectd, makes
- * gossip queries to peers, and can ask connect out to random peers to
- * get more gossip.
+ * 1. To determine routes for payments when lightningd asks.
+ * 2. The second purpose is to receive gossip from peers (via their
+ *    per-peer daemons) and send it out to them.
+ * 3. Talk to `connectd` to to answer address queries for nodes.
  *
  * The gossip protocol itself is fairly simple, but has some twists which
  * add complexity to this daemon.
@@ -15,6 +14,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/clock_time.h>
 #include <common/daemon_conn.h>
+#include <common/ecdh_hsmd.h>
 #include <common/memleak.h>
 #include <common/status.h>
 #include <common/subdaemon.h>
@@ -282,8 +282,6 @@ handled_msg_errmsg:
 handled_msg:
 	if (err)
 		queue_peer_msg(daemon, &source, take(err));
-	/* We need to keep gossmap to reasonable size */
-	gossmap_manage_maybe_compact(daemon->gm);
 }
 
 /*~ connectd's input handler is very simple. */
@@ -370,17 +368,31 @@ static void master_or_connectd_gone(struct daemon_conn *dc UNUSED)
 	exit(2);
 }
 
+/* We don't check this when loading from the gossip_store: that would break
+ * our canned tests, and usually old gossip is better than no gossip */
+bool timestamp_reasonable(const struct daemon *daemon, u32 timestamp)
+{
+	u64 now = clock_time().ts.tv_sec;
+
+	/* More than one day ahead? */
+	if (timestamp > now + 24*60*60)
+		return false;
+	/* More than 2 weeks behind? */
+	if (timestamp < now - GOSSIP_PRUNE_INTERVAL(daemon->dev_fast_gossip_prune))
+		return false;
+	return true;
+}
+
 /*~ Parse init message from lightningd: starts the daemon properly. */
 static void gossip_init(struct daemon *daemon, const u8 *msg)
 {
 	if (!fromwire_gossipd_init(daemon, msg,
-				   &chainparams,
-				   &daemon->our_features,
-				   &daemon->id,
-				   &daemon->autoconnect_seeker_peers,
-				   &daemon->compactd_helper,
-				   &daemon->dev_fast_gossip,
-				   &daemon->dev_fast_gossip_prune)) {
+				     &chainparams,
+				     &daemon->our_features,
+				     &daemon->id,
+				     &daemon->dev_fast_gossip,
+				     &daemon->dev_fast_gossip_prune,
+				     &daemon->autoconnect_seeker_peers)) {
 		master_badmsg(WIRE_GOSSIPD_INIT, msg);
 	}
 
@@ -542,12 +554,6 @@ static struct io_plan *recv_req(struct io_conn *conn,
 			goto done;
 		}
 		/* fall thru */
-	case WIRE_GOSSIPD_DEV_COMPACT_STORE:
-		if (daemon->developer) {
-			gossmap_manage_handle_dev_compact_store(daemon->gm, msg);
-			goto done;
-		}
-		/* fall thru */
 
 	/* We send these, we don't receive them */
 	case WIRE_GOSSIPD_INIT_CUPDATE:
@@ -555,7 +561,6 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_GOSSIPD_INIT_REPLY:
 	case WIRE_GOSSIPD_GET_TXOUT:
 	case WIRE_GOSSIPD_DEV_MEMLEAK_REPLY:
-	case WIRE_GOSSIPD_DEV_COMPACT_STORE_REPLY:
 	case WIRE_GOSSIPD_ADDGOSSIP_REPLY:
 	case WIRE_GOSSIPD_NEW_BLOCKHEIGHT_REPLY:
 	case WIRE_GOSSIPD_REMOTE_CHANNEL_UPDATE:
@@ -586,6 +591,9 @@ int main(int argc, char *argv[])
 	daemon->deferred_txouts = tal_arr(daemon, struct short_channel_id, 0);
 	daemon->current_blockheight = 0; /* i.e. unknown */
 
+	/* Tell the ecdh() function how to talk to hsmd */
+	ecdh_hsmd_setup(HSM_FD, status_failed);
+
 	/* Note the use of time_mono() here.  That's a monotonic clock, which
 	 * is really useful: it can only be used to measure relative events
 	 * (there's no correspondence to time-since-Ken-grew-a-beard or
@@ -612,9 +620,8 @@ int main(int argc, char *argv[])
 	}
 }
 
-/*~ Note that the production of the gossip_store file is in gossmap_manage.c
- * and gossip_store.c, and the (highly optimized!)  read side is in
- * common/gossmap.c; you might want to check those out later.
+/*~ Note that the actual routing stuff is in routing.c; you might want to
+ * check that out later.
  *
  * But that's the last of the global daemons.  We now move on to the first of
  * the per-peer daemons: openingd/openingd.c.

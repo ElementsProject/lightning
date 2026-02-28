@@ -111,6 +111,26 @@
           ],
           "properties": {
             "type": {},
+            "tx": {
+              "type": "hex",
+              "deprecated": [
+                "v24.11",
+                "v25.12"
+              ],
+              "description": [
+                "The raw bitcoin transaction used to close the channel (if it was open)."
+              ]
+            },
+            "txid": {
+              "type": "txid",
+              "deprecated": [
+                "v24.11",
+                "v25.12"
+              ],
+              "description": [
+                "The transaction id of the *tx* field."
+              ]
+            },
             "txs": {
               "added": "v24.11",
               "type": "array",
@@ -154,7 +174,7 @@
     "Notifications may be returned indicating what is going on, especially if the peer is offline and we are waiting."
   ],
   "author": [
-    "ZmnSCPxj [ZmnSCPxj@protonmail.com](mailto:ZmnSCPxj@protonmail.com) is mainly responsible."
+    "ZmnSCPxj <<ZmnSCPxj@protonmail.com>> is mainly responsible."
   ],
   "see_also": [
     "lightning-disconnect(7)",
@@ -162,7 +182,7 @@
     "lightningd-config(5)"
   ],
   "resources": [
-    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+    "Main web site: <https://github.com/ElementsProject/lightning>"
   ],
   "examples": [
     {

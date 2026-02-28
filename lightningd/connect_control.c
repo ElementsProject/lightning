@@ -277,22 +277,10 @@ static void connect_failed(struct lightningd *ld,
 					  connect_nsec,
 					  connect_attempted);
 
-	/* There's a race between autoreconnect and connect commands.  This
-	 * matters because the autoreconnect might have failed, but that was before
-	 * the connect_to_peer command gave connectd a new address.  This we wait for
-	 * one we explicitly asked for before failing.
-	 *
-	 * A similar pattern could occur with multiple connect commands, however connectd
-	 * does simply combine those, so we don't get a response per request, and it's a
-	 * very rare corner case (which, unlike the above, doesn't happen in CI!).
-	 */
-	if (strstarts(connect_reason, "connect command")
-	    || errcode == CONNECT_DISCONNECTED_DURING) {
-		/* We can have multiple connect commands: fail them all */
-		while ((c = find_connect(ld, id)) != NULL) {
-			/* They delete themselves from list */
-			was_pending(command_fail(c->cmd, errcode, "%s", errmsg));
-		}
+	/* We can have multiple connect commands: fail them all */
+	while ((c = find_connect(ld, id)) != NULL) {
+		/* They delete themselves from list */
+		was_pending(command_fail(c->cmd, errcode, "%s", errmsg));
 	}
 }
 
@@ -351,7 +339,6 @@ void connect_succeeded(struct lightningd *ld, const struct peer *peer,
 }
 
 struct custommsg_payload {
-	struct lightningd *ld;
 	struct node_id peer_id;
 	u8 *msg;
 };
@@ -377,11 +364,6 @@ static bool custommsg_cb(struct custommsg_payload *payload,
 
 static void custommsg_final(struct custommsg_payload *payload STEALS)
 {
-	/* Note: on shutdown, ld->connectd can be NULL! */
-	if (payload->ld->connectd) {
-		subd_send_msg(payload->ld->connectd,
-			      take(towire_connectd_custommsg_in_complete(NULL, &payload->peer_id)));
-	}
 	tal_steal(tmpctx, payload);
 }
 
@@ -403,7 +385,6 @@ static void handle_custommsg_in(struct lightningd *ld, const u8 *msg)
 {
 	struct custommsg_payload *p = tal(NULL, struct custommsg_payload);
 
-	p->ld = ld;
 	if (!fromwire_connectd_custommsg_in(p, msg, &p->peer_id, &p->msg)) {
 		log_broken(ld->log, "Malformed custommsg: %s",
 			   tal_hex(tmpctx, msg));
@@ -557,7 +538,6 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 	case WIRE_CONNECTD_DEV_EXHAUST_FDS:
 	case WIRE_CONNECTD_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
 	case WIRE_CONNECTD_SCID_MAP:
-	case WIRE_CONNECTD_CUSTOMMSG_IN_COMPLETE:
 	/* This is a reply, so never gets through to here. */
 	case WIRE_CONNECTD_INIT_REPLY:
 	case WIRE_CONNECTD_ACTIVATE_REPLY:
@@ -719,6 +699,7 @@ int connectd_init(struct lightningd *ld)
 				   ld->tor_service_password ? ld->tor_service_password : "",
 				   ld->config.connection_timeout_secs,
 				   websocket_helper_path,
+				   !ld->deprecated_ok,
 				   ld->dev_fast_gossip,
 				   ld->dev_disconnect_fd >= 0,
 				   ld->dev_no_ping_timer,
@@ -726,8 +707,7 @@ int connectd_init(struct lightningd *ld)
 				   ld->dev_throttle_gossip,
 				   !ld->reconnect,
 				   ld->dev_fast_reconnect,
-				   ld->dev_limit_connections_inflight,
-				   ld->dev_keep_nagle);
+				   ld->dev_limit_connections_inflight);
 
 	subd_req(ld->connectd, ld->connectd, take(msg), -1, 0,
 		 connect_init_done, NULL);

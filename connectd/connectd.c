@@ -46,7 +46,6 @@
 #include <fcntl.h>
 #include <netdb.h>
 #include <netinet/in.h>
-#include <netinet/tcp.h>
 #include <signal.h>
 #include <sodium.h>
 #include <sys/stat.h>
@@ -128,13 +127,8 @@ static struct peer *new_peer(struct daemon *daemon,
 	peer->cs = *cs;
 	peer->subds = tal_arr(peer, struct subd *, 0);
 	peer->peer_in = NULL;
-	membuf_init(&peer->encrypted_peer_out,
-		    tal_arr(peer, u8, 0), 0,
-		    membuf_tal_resize);
-	peer->encrypted_peer_out_sent = 0;
-	peer->nonurgent_flush_timer = NULL;
-	peer->peer_out_urgent = 0;
-	peer->flushing_nonurgent = false;
+	peer->sent_to_peer = NULL;
+	peer->urgent = false;
 	peer->draining_state = NOT_DRAINING;
 	peer->peer_in_lastmsg = -1;
 	peer->peer_outq = msg_queue_new(peer, false);
@@ -511,23 +505,6 @@ static bool get_remote_address(struct io_conn *conn,
 	return true;
 }
 
-/* Nagle had a good idea of making networking more efficient by
- * inserting a delay, creating a trap for every author of network code
- * everywhere.
- */
-static void set_tcp_no_delay(const struct daemon *daemon, int fd)
-{
-	int val = 1;
-
-	if (daemon->dev_keep_nagle)
-		return;
-
-	if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &val, sizeof(val)) != 0) {
-		status_broken("setsockopt TCP_NODELAY=1 fd=%u: %s",
-			      fd, strerror(errno));
-	}
-}
-
 /*~ As so common in C, we need to bundle two args into a callback, so we
  * allocate a temporary structure to hold them: */
 struct conn_in {
@@ -659,10 +636,6 @@ static struct io_plan *connection_in(struct io_conn *conn,
 	conn_in_arg.addr.u.wireaddr.is_websocket = false;
 	if (!get_remote_address(conn, &conn_in_arg.addr))
 		return io_close(conn);
-
-	/* Don't try to set TCP options on UNIX socket! */
-	if (conn_in_arg.addr.itype == ADDR_INTERNAL_WIREADDR)
-		set_tcp_no_delay(daemon, io_conn_fd(conn));
 
 	conn_in_arg.daemon = daemon;
 	conn_in_arg.is_websocket = false;
@@ -1200,9 +1173,6 @@ static void try_connect_one_addr(struct connecting *connect)
 		goto next;
 	}
 
-	/* Don't try to set TCP options on UNIX socket! */
-	if (addr->itype == ADDR_INTERNAL_WIREADDR)
-		set_tcp_no_delay(connect->daemon, fd);
 	connect->connect_attempted = true;
 
 	/* This creates the new connection using our fd, with the initialization
@@ -1682,6 +1652,7 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 				    &tor_password,
 				    &daemon->timeout_secs,
 				    &daemon->websocket_helper,
+				    &daemon->announce_websocket,
 				    &daemon->dev_fast_gossip,
 				    &dev_disconnect,
 				    &daemon->dev_no_ping_timer,
@@ -1689,8 +1660,7 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 				    &dev_throttle_gossip,
 				    &daemon->dev_no_reconnect,
 				    &daemon->dev_fast_reconnect,
-				    &dev_limit_connections_inflight,
-				    &daemon->dev_keep_nagle)) {
+				    &dev_limit_connections_inflight)) {
 		/* This is a helper which prints the type expected and the actual
 		 * message, then exits (it should never be called!). */
 		master_badmsg(WIRE_CONNECTD_INIT, msg);
@@ -2255,10 +2225,6 @@ static void dev_report_fds(struct daemon *daemon, const u8 *msg)
 			status_info("dev_report_fds: %i -> gossip_store", fd);
 			continue;
 		}
-		if (fd == tor_service_fd) {
-			status_info("dev_report_fds: %i -> tor service fd", fd);
-			continue;
-		}
 		c = io_have_fd(fd, &listener);
 		if (!c) {
 			/* We consider a single CHR as expected */
@@ -2436,10 +2402,6 @@ static struct io_plan *recv_req(struct io_conn *conn,
 		add_scid_map(daemon, msg);
 		goto out;
 
-	case WIRE_CONNECTD_CUSTOMMSG_IN_COMPLETE:
-		custommsg_completed(daemon, msg);
-		goto out;
-
 	case WIRE_CONNECTD_DEV_MEMLEAK:
 		if (daemon->developer) {
 			dev_connect_memleak(daemon, msg);
@@ -2564,7 +2526,6 @@ int main(int argc, char *argv[])
 	daemon->custom_msgs = NULL;
 	daemon->dev_exhausted_fds = false;
 	daemon->dev_lightningd_is_slow = false;
-	daemon->dev_keep_nagle = false;
 	/* We generally allow 1MB per second per peer, except for dev testing */
 	daemon->gossip_stream_limit = 1000000;
 	daemon->scid_htable = new_htable(daemon, scid_htable);

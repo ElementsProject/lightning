@@ -17,7 +17,6 @@ import json
 import logging
 import lzma
 import math
-import mnemonic
 import os
 import random
 import re
@@ -198,29 +197,6 @@ class TailableProc(object):
     def __init__(self, outputDir, verbose=True):
         self.logs = []
         self.env = os.environ.copy()
-
-        # Add coverage support: inject LLVM_PROFILE_FILE if CLN_COVERAGE_DIR is set
-        if os.getenv('CLN_COVERAGE_DIR'):
-            coverage_dir = os.getenv('CLN_COVERAGE_DIR')
-
-            # Organize profraw files by test name for per-test coverage analysis
-            test_name = os.getenv('CLN_TEST_NAME')
-            if test_name:
-                test_coverage_dir = os.path.join(coverage_dir, test_name)
-                os.makedirs(test_coverage_dir, exist_ok=True)
-                profraw_path = test_coverage_dir
-            else:
-                os.makedirs(coverage_dir, exist_ok=True)
-                profraw_path = coverage_dir
-
-            # %p=PID, %m=binary signature prevents collisions across parallel processes
-            # Note: We don't use %c (continuous mode) as it causes "__llvm_profile_counter_bias"
-            # errors with our multi-binary setup. Instead, we validate and filter corrupt files
-            # during collection (see contrib/coverage/collect-coverage.sh)
-            self.env['LLVM_PROFILE_FILE'] = os.path.join(
-                profraw_path, '%p-%m.profraw'
-            )
-
         self.proc = None
         self.outputDir = outputDir
         if not os.path.exists(outputDir):
@@ -292,43 +268,15 @@ class TailableProc(object):
             except Exception:
                 pass
 
-    def readlines_wait_for_end(self, f, timeout=TIMEOUT):
-        """Read all complete lines from file object `f`.
-
-        If the last line is incomplete (no trailing newline), wait briefly
-        for it to complete before returning.
-
-        Returns list of lines including trailing newline.
-        """
-        lines = []
-        cur = ''
-        start = time.time()
-
-        while True:
-            line = f.readline()
-
-            if not line:
-                if cur != '':
-                    if time.time() - start > timeout:
-                        raise TimeoutError(f"Incomplete line never finished: {cur}")
-                    time.sleep(0.01)
-                    continue
-                return lines
-
-            cur += line
-            if cur.endswith('\n'):
-                lines.append(cur)
-                cur = ''
-
     def logs_catchup(self):
         """Save the latest stdout / stderr contents; return true if we got anything.
         """
-        new_stdout = self.readlines_wait_for_end(self.stdout_read)
+        new_stdout = self.stdout_read.readlines()
         if self.verbose:
             for line in new_stdout:
                 sys.stdout.write("{}: {}".format(self.prefix, line))
         self.logs += [l.rstrip() for l in new_stdout]
-        new_stderr = self.readlines_wait_for_end(self.stderr_read)
+        new_stderr = self.stderr_read.readlines()
         if self.verbose:
             for line in new_stderr:
                 sys.stderr.write("{}-stderr: {}".format(self.prefix, line))
@@ -693,14 +641,6 @@ class ElementsD(BitcoinD):
         return info['unconfidential']
 
 
-def mnemonic_from_seed(seed):
-    m = mnemonic.Mnemonic('english')
-    mnem = m.to_mnemonic(seed)
-    if not m.check(mnem):
-        raise RuntimeError("Generated mnemonic failed BIP39 validation (unexpected).")
-    return mnem
-
-
 class LightningD(TailableProc):
     def __init__(
             self,
@@ -710,7 +650,6 @@ class LightningD(TailableProc):
             random_hsm=False,
             node_id=0,
             executable=None,
-            old_hsmsecret=None,
     ):
         # We handle our own version of verbose, below.
         TailableProc.__init__(self, lightning_dir, verbose=False)
@@ -752,24 +691,11 @@ class LightningD(TailableProc):
         if not os.path.exists(os.path.join(lightning_dir, TEST_NETWORK)):
             os.makedirs(os.path.join(lightning_dir, TEST_NETWORK))
 
-        # Default: use newfangled hsm_secret, except old versions.
-        if old_hsmsecret is None:
-            # BIP 39 secrets were only added in v25.12.
-            old_hsmsecret = (self.cln_version < "v25.12")
-
+        # Last 32-bytes of final part of dir -> seed.
+        seed = (bytes(re.search('([^/]+)/*$', lightning_dir).group(1), encoding='utf-8') + bytes(32))[:32]
         if not random_hsm:
-            # Last 32-bytes of final part of dir -> seed.
-            seed = (bytes(re.search('([^/]+)/*$', lightning_dir).group(1), encoding='utf-8') + bytes(32))[:32]
-            # Modern style is 32 zeroes then a 12-word mnemonic phrase.
-            if not old_hsmsecret:
-                # Use first 16 bytes (128 bits) for 12-word mnemonic
-                entropy_128 = seed[:16]
-                mnemonic_phrase = mnemonic_from_seed(entropy_128)
-                seed = bytes(32) + bytes(mnemonic_phrase, encoding='utf-8')
-
             with open(os.path.join(lightning_dir, TEST_NETWORK, 'hsm_secret'), 'wb') as f:
                 f.write(seed)
-
         self.opts['dev-fast-gossip'] = None
         self.opts['dev-bitcoind-poll'] = 1
         self.prefix = 'lightningd-%d' % (node_id)
@@ -892,7 +818,7 @@ class PrettyPrintingLightningRpc(LightningRpc):
 
 
 class LightningNode(object):
-    def __init__(self, node_id, lightning_dir, bitcoind, executor, may_fail=False,
+    def __init__(self, node_id, lightning_dir, bitcoind, executor, valgrind, may_fail=False,
                  may_reconnect=False,
                  broken_log=None,
                  allow_warning=False,
@@ -902,7 +828,6 @@ class LightningNode(object):
                  valgrind_plugins=True,
                  executable=None,
                  bad_notifications=False,
-                 old_hsmsecret=None,
                  **kwargs):
         self.bitcoin = bitcoind
         self.executor = executor
@@ -927,7 +852,6 @@ class LightningNode(object):
             lightning_dir, bitcoindproxy=bitcoind.get_proxy(),
             port=port, random_hsm=random_hsm, node_id=node_id,
             executable=executable,
-            old_hsmsecret=old_hsmsecret,
         )
         self.cln_version = self.daemon.cln_version
 
@@ -953,7 +877,7 @@ class LightningNode(object):
             self.daemon.opts["dev-debugger"] = dbgvar
         if os.getenv("DEBUG_LIGHTNINGD"):
             self.daemon.opts["dev-debug-self"] = None
-        if VALGRIND:
+        if valgrind:
             self.daemon.env["LIGHTNINGD_DEV_NO_BACKTRACE"] = "1"
             self.daemon.opts["dev-no-plugin-checksum"] = None
         else:
@@ -979,7 +903,7 @@ class LightningNode(object):
         dsn = db.get_dsn()
         if dsn is not None:
             self.daemon.opts['wallet'] = dsn
-        if VALGRIND:
+        if valgrind:
             trace_skip_pattern = '*python*,*bitcoin-cli*,*elements-cli*,*cln-grpc*,*clnrest*,*wss-proxy*,*cln-bip353*,*reckless'
             if not valgrind_plugins:
                 trace_skip_pattern += ',*plugins*'
@@ -1706,11 +1630,11 @@ class NodeFactory(object):
     """
     def __init__(self, request, testname, bitcoind, executor, directory,
                  db_provider, node_cls, jsonschemas):
+        if request.node.get_closest_marker("slow_test") and SLOW_MACHINE:
+            self.valgrind = False
+        else:
+            self.valgrind = VALGRIND
         self.testname = testname
-
-        # Set test name in environment for coverage file organization
-        os.environ['CLN_TEST_NAME'] = testname
-
         self.next_id = 1
         self.nodes = []
         self.reserved_ports = []
@@ -1742,7 +1666,6 @@ class NodeFactory(object):
             'allow_bad_gossip',
             'start',
             'gossip_store_file',
-            'old_hsmsecret',
         ]
         node_opts = {k: v for k, v in opts.items() if k in node_opt_keys}
         cli_opts = {k: v for k, v in opts.items() if k not in node_opt_keys}
@@ -1805,7 +1728,7 @@ class NodeFactory(object):
         db = self.db_provider.get_db(os.path.join(lightning_dir, TEST_NETWORK), self.testname, node_id)
         db.provider = self.db_provider
         node = self.node_cls(
-            node_id, lightning_dir, self.bitcoind, self.executor, db=db,
+            node_id, lightning_dir, self.bitcoind, self.executor, self.valgrind, db=db,
             port=port, grpc_port=grpc_port, options=options, may_fail=may_fail or expect_fail,
             jsonschemas=self.jsonschemas,
             **kwargs
@@ -1922,7 +1845,7 @@ class NodeFactory(object):
             # leak detection upsets VALGRIND by reading uninitialized mem,
             # and valgrind adds extra fds.
             # If it's dead, we'll catch it below.
-            if not VALGRIND:
+            if not self.valgrind:
                 try:
                     # This also puts leaks in log.
                     leaks = self.nodes[i].rpc.dev_memleak()['leaks']

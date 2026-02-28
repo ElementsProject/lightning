@@ -31,14 +31,14 @@
     "- -32602: Error in given parameters."
   ],
   "author": [
-    "Rusty Russell [rusty@blockstream.com](mailto:rusty@blockstream.com) wrote the initial version of this man page."
+    "Rusty Russell <<rusty@blockstream.com>> wrote the initial version of this man page."
   ],
   "see_also": [
     "lightningd-config(5)",
     "lightning-notifications(7)"
   ],
   "resources": [
-    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+    "Main web site: <https://github.com/ElementsProject/lightning>"
   ],
   "examples": [
     {

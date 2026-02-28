@@ -18,7 +18,7 @@ GOSSIP_STORE_LEN_DELETED_BIT = 0x8000
 GOSSIP_STORE_LEN_PUSH_BIT = 0x4000
 GOSSIP_STORE_LEN_COMPLETE_BIT = 0x2000
 
-# These duplicate constants in lightning/common/gossip_store_wiregen.h
+# These duplicate constants in lightning/gossipd/gossip_store_wiregen.h
 WIRE_GOSSIP_STORE_PRIVATE_CHANNEL = 4104
 WIRE_GOSSIP_STORE_PRIVATE_UPDATE = 4102
 WIRE_GOSSIP_STORE_DELETE_CHAN = 4103

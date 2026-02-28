@@ -286,35 +286,18 @@ def test_coinmoves(node_factory, bitcoind):
     l3.rpc.xpay(inv['bolt11'], '10000000sat')
     # Make sure it's fully settled.
     wait_for(lambda: only_one(l3.rpc.listpeerchannels(l1.info['id'])['channels'])['htlcs'] == [])
-    # These can actually go in either order, since we record them when HTLC is *fully*
-    # resolved.
-    wait_for(lambda: len(l1.rpc.listchannelmoves()['channelmoves']) > len(expected_channel1))
-    if l1.rpc.listchannelmoves()['channelmoves'][len(expected_channel1)]['credit_msat'] == 0:
-        expected_channel1 += [{'account_id': fundchannel['channel_id'],
-                               'credit_msat': 0,
-                               'debit_msat': 10000000000,
-                               'fees_msat': 100001,
-                               'payment_hash': inv['payment_hash'],
-                               'primary_tag': 'routed'},
-                              {'account_id': l3fundchannel['channel_id'],
-                               'credit_msat': 10000100001,
-                               'debit_msat': 0,
-                               'fees_msat': 100001,
-                               'payment_hash': inv['payment_hash'],
-                               'primary_tag': 'routed'}]
-    else:
-        expected_channel1 += [{'account_id': l3fundchannel['channel_id'],
-                               'credit_msat': 10000100001,
-                               'debit_msat': 0,
-                               'fees_msat': 100001,
-                               'payment_hash': inv['payment_hash'],
-                               'primary_tag': 'routed'},
-                              {'account_id': fundchannel['channel_id'],
-                               'credit_msat': 0,
-                               'debit_msat': 10000000000,
-                               'fees_msat': 100001,
-                               'payment_hash': inv['payment_hash'],
-                               'primary_tag': 'routed'}]
+    expected_channel1 += [{'account_id': fundchannel['channel_id'],
+                           'credit_msat': 0,
+                           'debit_msat': 10000000000,
+                           'fees_msat': 100001,
+                           'payment_hash': inv['payment_hash'],
+                           'primary_tag': 'routed'},
+                          {'account_id': l3fundchannel['channel_id'],
+                           'credit_msat': 10000100001,
+                           'debit_msat': 0,
+                           'fees_msat': 100001,
+                           'payment_hash': inv['payment_hash'],
+                           'primary_tag': 'routed'}]
     expected_channel2 += [{'account_id': fundchannel['channel_id'],
                            'credit_msat': 10000000000,
                            'debit_msat': 0,
@@ -538,7 +521,6 @@ def test_coinmoves_unilateral_htlc_before_included(node_factory, bitcoind):
     check_chain_moves(l2, expected_chain2)
 
     close_info = l1.rpc.close(l2.info['id'], unilateraltimeout=1)
-    # Close, no anchor.
     bitcoind.generate_block(1, wait_for_mempool=1)
 
     # Make sure onchaind has digested it.
@@ -557,8 +539,6 @@ def test_coinmoves_unilateral_htlc_before_included(node_factory, bitcoind):
     line = l1.daemon.is_in_log('Tracking output.*/OUTPUT_TO_THEM')
     to_l2 = int(re.search(r'output [0-9a-f]{64}:([0-9]):', line).group(1))
 
-    # New format: ordering is channel_close, anchor, anchor, to_them
-    # With new format, anch_to_l1 comes before anch_to_l2 in the creation order
     expected_chain1 += [{'account_id': fundchannel['channel_id'],
                          'blockheight': 104,
                          'credit_msat': 0,
@@ -577,7 +557,7 @@ def test_coinmoves_unilateral_htlc_before_included(node_factory, bitcoind):
                          'originating_account': fundchannel['channel_id'],
                          'output_msat': 330000,
                          'primary_tag': 'anchor',
-                         'utxo': f"{only_one(close_info['txids'])}:{anch_to_l1}"},
+                         'utxo': f"{only_one(close_info['txids'])}:{anch_to_l2}"},
                         {'account_id': 'external',
                          'blockheight': 104,
                          'credit_msat': 330000,
@@ -586,7 +566,7 @@ def test_coinmoves_unilateral_htlc_before_included(node_factory, bitcoind):
                          'originating_account': fundchannel['channel_id'],
                          'output_msat': 330000,
                          'primary_tag': 'anchor',
-                         'utxo': f"{only_one(close_info['txids'])}:{anch_to_l2}"},
+                         'utxo': f"{only_one(close_info['txids'])}:{anch_to_l1}"},
                         {'account_id': 'external',
                          'blockheight': 104,
                          'credit_msat': 50000000000,
@@ -596,7 +576,6 @@ def test_coinmoves_unilateral_htlc_before_included(node_factory, bitcoind):
                          'output_msat': 50000000000,
                          'primary_tag': 'to_them',
                          'utxo': f"{only_one(close_info['txids'])}:{to_l2}"}]
-    # For l2, anchors are also in the same order (anch_to_l1 before anch_to_l2)
     expected_chain2 += [{'account_id': fundchannel['channel_id'],
                          'blockheight': 104,
                          'credit_msat': 0,
@@ -615,7 +594,7 @@ def test_coinmoves_unilateral_htlc_before_included(node_factory, bitcoind):
                          'originating_account': fundchannel['channel_id'],
                          'output_msat': 330000,
                          'primary_tag': 'anchor',
-                         'utxo': f"{only_one(close_info['txids'])}:{anch_to_l1}"},
+                         'utxo': f"{only_one(close_info['txids'])}:{anch_to_l2}"},
                         {'account_id': 'external',
                          'blockheight': 104,
                          'credit_msat': 330000,
@@ -624,7 +603,7 @@ def test_coinmoves_unilateral_htlc_before_included(node_factory, bitcoind):
                          'originating_account': fundchannel['channel_id'],
                          'output_msat': 330000,
                          'primary_tag': 'anchor',
-                         'utxo': f"{only_one(close_info['txids'])}:{anch_to_l2}"},
+                         'utxo': f"{only_one(close_info['txids'])}:{anch_to_l1}"},
                         {'account_id': 'external',
                          'blockheight': 104,
                          'credit_msat': 49965193000,
@@ -735,8 +714,7 @@ def test_coinmoves_unilateral_htlc_timeout(node_factory, bitcoind):
     line = l1.daemon.wait_for_log("Creating anchor spend for local commit tx ")
     anchor_spend_txid = re.search(r'Creating anchor spend for local commit tx ([0-9a-f]{64})', line).group(1)
 
-    # Close, and anchor.
-    bitcoind.generate_block(1, wait_for_mempool=2)
+    bitcoind.generate_block(1, wait_for_mempool=1)
     sync_blockheight(bitcoind, [l1, l2])
 
     # Make sure onchaind has digested it.
@@ -797,7 +775,7 @@ def test_coinmoves_unilateral_htlc_timeout(node_factory, bitcoind):
                          'originating_account': fundchannel['channel_id'],
                          'output_msat': 330000,
                          'primary_tag': 'anchor',
-                         'utxo': f"{only_one(close_info['txids'])}:{anch_to_l1}"},
+                         'utxo': f"{only_one(close_info['txids'])}:{anch_to_l2}"},
                         {'account_id': 'external',
                          'blockheight': 104,
                          'credit_msat': 330000,
@@ -806,7 +784,7 @@ def test_coinmoves_unilateral_htlc_timeout(node_factory, bitcoind):
                          'originating_account': fundchannel['channel_id'],
                          'output_msat': 330000,
                          'primary_tag': 'anchor',
-                         'utxo': f"{only_one(close_info['txids'])}:{anch_to_l2}"},
+                         'utxo': f"{only_one(close_info['txids'])}:{anch_to_l1}"},
                         {'account_id': 'external',
                          'blockheight': 104,
                          'credit_msat': 50000000000,
@@ -834,7 +812,7 @@ def test_coinmoves_unilateral_htlc_timeout(node_factory, bitcoind):
                          'originating_account': fundchannel['channel_id'],
                          'output_msat': 330000,
                          'primary_tag': 'anchor',
-                         'utxo': f"{only_one(close_info['txids'])}:{anch_to_l1}"},
+                         'utxo': f"{only_one(close_info['txids'])}:{anch_to_l2}"},
                         {'account_id': 'external',
                          'blockheight': 104,
                          'credit_msat': 330000,
@@ -843,7 +821,7 @@ def test_coinmoves_unilateral_htlc_timeout(node_factory, bitcoind):
                          'originating_account': fundchannel['channel_id'],
                          'output_msat': 330000,
                          'primary_tag': 'anchor',
-                         'utxo': f"{only_one(close_info['txids'])}:{anch_to_l2}"},
+                         'utxo': f"{only_one(close_info['txids'])}:{anch_to_l1}"},
                         {'account_id': 'external',
                          'blockheight': 104,
                          'credit_msat': 49864547000,
@@ -1046,7 +1024,6 @@ def test_coinmoves_unilateral_htlc_dust(node_factory, bitcoind):
     check_chain_moves(l2, expected_chain2)
 
     close_info = l1.rpc.close(l2.info['id'], unilateraltimeout=1)
-    # Close, no anchor.
     bitcoind.generate_block(1, wait_for_mempool=1)
     sync_blockheight(bitcoind, [l1, l2])
 
@@ -1084,7 +1061,7 @@ def test_coinmoves_unilateral_htlc_dust(node_factory, bitcoind):
                          'originating_account': fundchannel['channel_id'],
                          'output_msat': 330000,
                          'primary_tag': 'anchor',
-                         'utxo': f"{only_one(close_info['txids'])}:{anch_to_l1}"},
+                         'utxo': f"{only_one(close_info['txids'])}:{anch_to_l2}"},
                         {'account_id': 'external',
                          'blockheight': 104,
                          'credit_msat': 330000,
@@ -1093,7 +1070,7 @@ def test_coinmoves_unilateral_htlc_dust(node_factory, bitcoind):
                          'originating_account': fundchannel['channel_id'],
                          'output_msat': 330000,
                          'primary_tag': 'anchor',
-                         'utxo': f"{only_one(close_info['txids'])}:{anch_to_l2}"},
+                         'utxo': f"{only_one(close_info['txids'])}:{anch_to_l1}"},
                         {'account_id': 'external',
                          'blockheight': 104,
                          'credit_msat': 50000000000,
@@ -1121,7 +1098,7 @@ def test_coinmoves_unilateral_htlc_dust(node_factory, bitcoind):
                          'originating_account': fundchannel['channel_id'],
                          'output_msat': 330000,
                          'primary_tag': 'anchor',
-                         'utxo': f"{only_one(close_info['txids'])}:{anch_to_l1}"},
+                         'utxo': f"{only_one(close_info['txids'])}:{anch_to_l2}"},
                         {'account_id': 'external',
                          'blockheight': 104,
                          'credit_msat': 330000,
@@ -1130,7 +1107,7 @@ def test_coinmoves_unilateral_htlc_dust(node_factory, bitcoind):
                          'originating_account': fundchannel['channel_id'],
                          'output_msat': 330000,
                          'primary_tag': 'anchor',
-                         'utxo': f"{only_one(close_info['txids'])}:{anch_to_l2}"},
+                         'utxo': f"{only_one(close_info['txids'])}:{anch_to_l1}"},
                         {'account_id': 'external',
                          'blockheight': 104,
                          'credit_msat': 49965183000,
@@ -1240,8 +1217,7 @@ def test_coinmoves_unilateral_htlc_fulfill(node_factory, bitcoind):
     line = l1.daemon.wait_for_log("Creating anchor spend for local commit tx ")
     anchor_spend_txid = re.search(r'Creating anchor spend for local commit tx ([0-9a-f]{64})', line).group(1)
 
-    # Close, and anchor.
-    bitcoind.generate_block(1, wait_for_mempool=2)
+    bitcoind.generate_block(1, wait_for_mempool=1)
     sync_blockheight(bitcoind, [l1, l2])
 
     # Make sure onchaind has digested it.
@@ -1301,7 +1277,7 @@ def test_coinmoves_unilateral_htlc_fulfill(node_factory, bitcoind):
                          'originating_account': fundchannel['channel_id'],
                          'output_msat': 330000,
                          'primary_tag': 'anchor',
-                         'utxo': f"{only_one(close_info['txids'])}:{anch_to_l1}"},
+                         'utxo': f"{only_one(close_info['txids'])}:{anch_to_l2}"},
                         {'account_id': 'external',
                          'blockheight': 104,
                          'credit_msat': 330000,
@@ -1310,7 +1286,7 @@ def test_coinmoves_unilateral_htlc_fulfill(node_factory, bitcoind):
                          'originating_account': fundchannel['channel_id'],
                          'output_msat': 330000,
                          'primary_tag': 'anchor',
-                         'utxo': f"{only_one(close_info['txids'])}:{anch_to_l2}"},
+                         'utxo': f"{only_one(close_info['txids'])}:{anch_to_l1}"},
                         {'account_id': 'external',
                          'blockheight': 104,
                          'credit_msat': 50000000000,
@@ -1338,7 +1314,7 @@ def test_coinmoves_unilateral_htlc_fulfill(node_factory, bitcoind):
                          'originating_account': fundchannel['channel_id'],
                          'output_msat': 330000,
                          'primary_tag': 'anchor',
-                         'utxo': f"{only_one(close_info['txids'])}:{anch_to_l1}"},
+                         'utxo': f"{only_one(close_info['txids'])}:{anch_to_l2}"},
                         {'account_id': 'external',
                          'blockheight': 104,
                          'credit_msat': 330000,
@@ -1347,7 +1323,7 @@ def test_coinmoves_unilateral_htlc_fulfill(node_factory, bitcoind):
                          'originating_account': fundchannel['channel_id'],
                          'output_msat': 330000,
                          'primary_tag': 'anchor',
-                         'utxo': f"{only_one(close_info['txids'])}:{anch_to_l2}"},
+                         'utxo': f"{only_one(close_info['txids'])}:{anch_to_l1}"},
                         {'account_id': 'external',
                          'blockheight': 104,
                          'credit_msat': 49864547000,
@@ -1573,7 +1549,7 @@ def test_coinmoves_unilateral_htlc_fulfilled_oneside(node_factory, bitcoind):
                          'originating_account': fundchannel['channel_id'],
                          'output_msat': 330000,
                          'primary_tag': 'anchor',
-                         'utxo': f"{only_one(close_info['txids'])}:{anch_to_l1}"},
+                         'utxo': f"{only_one(close_info['txids'])}:{anch_to_l2}"},
                         {'account_id': 'external',
                          'blockheight': 104,
                          'credit_msat': 330000,
@@ -1582,7 +1558,7 @@ def test_coinmoves_unilateral_htlc_fulfilled_oneside(node_factory, bitcoind):
                          'originating_account': fundchannel['channel_id'],
                          'output_msat': 330000,
                          'primary_tag': 'anchor',
-                         'utxo': f"{only_one(close_info['txids'])}:{anch_to_l2}"},
+                         'utxo': f"{only_one(close_info['txids'])}:{anch_to_l1}"},
                         {'account_id': 'external',
                          'blockheight': 104,
                          'credit_msat': 50100000000,
@@ -1610,7 +1586,7 @@ def test_coinmoves_unilateral_htlc_fulfilled_oneside(node_factory, bitcoind):
                          'originating_account': fundchannel['channel_id'],
                          'output_msat': 330000,
                          'primary_tag': 'anchor',
-                         'utxo': f"{only_one(close_info['txids'])}:{anch_to_l1}"},
+                         'utxo': f"{only_one(close_info['txids'])}:{anch_to_l2}"},
                         {'account_id': 'external',
                          'blockheight': 104,
                          'credit_msat': 330000,
@@ -1619,7 +1595,7 @@ def test_coinmoves_unilateral_htlc_fulfilled_oneside(node_factory, bitcoind):
                          'originating_account': fundchannel['channel_id'],
                          'output_msat': 330000,
                          'primary_tag': 'anchor',
-                         'utxo': f"{only_one(close_info['txids'])}:{anch_to_l2}"},
+                         'utxo': f"{only_one(close_info['txids'])}:{anch_to_l1}"},
                         {'account_id': 'external',
                          'blockheight': 104,
                          'credit_msat': 49865193000,
@@ -1798,7 +1774,7 @@ def test_coinmoves_unilateral_htlc_penalty(node_factory, bitcoind):
                          'originating_account': fundchannel['channel_id'],
                          'output_msat': 330000,
                          'primary_tag': 'anchor',
-                         'utxo': f"{cheattxid}:{anch_to_l2}"},
+                         'utxo': f"{cheattxid}:{anch_to_l1}"},
                         {'account_id': 'external',
                          'blockheight': 104,
                          'credit_msat': 330000,
@@ -1807,7 +1783,7 @@ def test_coinmoves_unilateral_htlc_penalty(node_factory, bitcoind):
                          'originating_account': fundchannel['channel_id'],
                          'output_msat': 330000,
                          'primary_tag': 'anchor',
-                         'utxo': f"{cheattxid}:{anch_to_l1}"},
+                         'utxo': f"{cheattxid}:{anch_to_l2}"},
                         {'account_id': 'wallet',
                          'blockheight': 104,
                          'credit_msat': 50000000000,
@@ -1941,7 +1917,6 @@ def test_wait(node_factory, bitcoind, executor):
     l1, l2 = node_factory.get_nodes(2)
 
     fut = executor.submit(l1.rpc.wait, subsystem='chainmoves', indexname='created', nextvalue=1)
-    l1.daemon.wait_for_log('waiting on chainmoves created 1')
 
     addr = l1.rpc.newaddr('bech32')['bech32']
     bitcoind.rpc.sendtoaddress(addr, 200000000 / 10**8)
@@ -1960,7 +1935,6 @@ def test_wait(node_factory, bitcoind, executor):
     wait_for(lambda: all([c['state'] == 'CHANNELD_NORMAL' for c in l1.rpc.listpeerchannels(l2.info['id'])['channels']]))
 
     fut = executor.submit(l1.rpc.wait, subsystem='channelmoves', indexname='created', nextvalue=1)
-    l1.daemon.wait_for_log('waiting on channelmoves created 1')
     inv = l2.rpc.invoice('any', 'test_wait', 'test_wait')
     l1.rpc.xpay(inv['bolt11'], '1000000sat')
 
@@ -1979,12 +1953,10 @@ def test_migration(node_factory, bitcoind):
     bitcoind.generate_block(1)
     l1 = node_factory.get_node(dbfile="l1-before-moves-in-db.sqlite3.xz",
                                bkpr_dbfile="l1-bkpr-accounts.sqlite3.xz",
-                               options={'database-upgrade': True},
-                               old_hsmsecret=True)
+                               options={'database-upgrade': True})
     l2 = node_factory.get_node(dbfile="l2-before-moves-in-db.sqlite3.xz",
                                bkpr_dbfile="l2-bkpr-accounts.sqlite3.xz",
-                               options={'database-upgrade': True},
-                               old_hsmsecret=True)
+                               options={'database-upgrade': True})
     chan = only_one(l1.rpc.listpeerchannels()['channels'])
     payment = only_one(l1.rpc.listsendpays()['payments'])
 
@@ -2062,11 +2034,9 @@ def test_migration_no_bkpr(node_factory, bitcoind):
     """These nodes need to invent coinmoves to make the balances work"""
     bitcoind.generate_block(1)
     l1 = node_factory.get_node(dbfile="l1-before-moves-in-db.sqlite3.xz",
-                               options={'database-upgrade': True},
-                               old_hsmsecret=True)
+                               options={'database-upgrade': True})
     l2 = node_factory.get_node(dbfile="l2-before-moves-in-db.sqlite3.xz",
-                               options={'database-upgrade': True},
-                               old_hsmsecret=True)
+                               options={'database-upgrade': True})
 
     chan = only_one(l1.rpc.listpeerchannels()['channels'])
 

@@ -62,5 +62,4 @@ void migrate_remove_chain_moves_duplicates(struct lightningd *ld, struct db *db)
 void migrate_from_account_db(struct lightningd *ld, struct db *db);
 void migrate_datastore_commando_runes(struct lightningd *ld, struct db *db);
 void migrate_runes_idfix(struct lightningd *ld, struct db *db);
-void migrate_fix_payments_faildetail_type(struct lightningd *ld, struct db *db);
 #endif /* LIGHTNING_WALLET_MIGRATIONS_H */

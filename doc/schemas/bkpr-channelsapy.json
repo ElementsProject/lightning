@@ -193,7 +193,7 @@
     }
   },
   "author": [
-    "Lisa Neigut [niftynei@gmail.com](mailto:niftynei@gmail.com) is mainly responsible."
+    "Lisa Neigut <<niftynei@gmail.com>> is mainly responsible."
   ],
   "see_also": [
     "lightning-bkpr-listincome(7)",
@@ -203,7 +203,7 @@
     "lightning-listpeers(7)"
   ],
   "resources": [
-    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+    "Main web site: <https://github.com/ElementsProject/lightning>"
   ],
   "examples": [
     {

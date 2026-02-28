@@ -175,14 +175,7 @@ bool find_txo_chain(const tal_t *ctx,
 	bool is_complete = true;
 	const char *start_acct_name;
 
-	/* If we have lost our database and used recovery, this can be
-	 * NULL.  That's the least of our problems though! */
-	if (!acct->open_event_db_id) {
-		plugin_log(cmd->plugin, LOG_BROKEN,
-			   "Cannot find the open_event for %s: did we lose our db?",
-			   acct->name);
-		return false;
-	}
+	assert(acct->open_event_db_id);
 	open_ev = find_chain_event_by_id(ctx, bkpr, cmd,
 					 *acct->open_event_db_id);
 

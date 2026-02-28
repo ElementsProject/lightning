@@ -93,10 +93,9 @@ void bitcoind_check_commands(struct bitcoind *bitcoind)
 }
 
 /* Our Bitcoin backend plugin gave us a bad response. We can't recover. */
-static void NORETURN
-bitcoin_plugin_error(struct bitcoind *bitcoind, const char *buf,
-		     const jsmntok_t *toks, const char *method,
-		     const char *fmt, ...)
+static void bitcoin_plugin_error(struct bitcoind *bitcoind, const char *buf,
+				 const jsmntok_t *toks, const char *method,
+				 const char *fmt, ...)
 {
 	va_list ap;
 	char *reason;
@@ -110,35 +109,6 @@ bitcoin_plugin_error(struct bitcoind *bitcoind, const char *buf,
 	fatal("%s error: bad response to %s (%s), response was %.*s",
 	      p ? p->cmd : "UNKNOWN CALL", method, reason,
 	      toks->end - toks->start, buf + toks->start);
-}
-
-/* Check response for error (fatal if found) and return result token (fatal if not found). */
-static const jsmntok_t *get_bitcoin_result(struct bitcoind *bitcoind,
-					   const char *buf,
-					   const jsmntok_t *toks,
-					   const char *method)
-{
-	const jsmntok_t *err_tok, *msg_tok, *result_tok;
-
-	err_tok = json_get_member(buf, toks, "error");
-	if (err_tok) {
-		msg_tok = json_get_member(buf, err_tok, "message");
-		if (msg_tok)
-			bitcoin_plugin_error(bitcoind, buf, toks, method,
-					     "%.*s", json_tok_full_len(msg_tok),
-					     json_tok_full(buf, msg_tok));
-		else
-			bitcoin_plugin_error(bitcoind, buf, toks, method,
-					     "%.*s", json_tok_full_len(err_tok),
-					     json_tok_full(buf, err_tok));
-	}
-
-	result_tok = json_get_member(buf, toks, "result");
-	if (!result_tok)
-		bitcoin_plugin_error(bitcoind, buf, toks, method,
-				     "missing 'result' field");
-
-	return result_tok;
 }
 
 /* Send a request to the Bitcoin plugin which registered that method,
@@ -167,7 +137,19 @@ static void bitcoin_plugin_send(struct bitcoind *bitcoind,
  *   - `min` is the minimum acceptable feerate
  *   - `max` is the maximum acceptable feerate
  *
- * Plugin response:
+ * Plugin response (deprecated):
+ * {
+ *	"opening": <sat per kVB>,
+ *	"mutual_close": <sat per kVB>,
+ *	"unilateral_close": <sat per kVB>,
+ *	"delayed_to_us": <sat per kVB>,
+ *	"htlc_resolution": <sat per kVB>,
+ *	"penalty": <sat per kVB>,
+ *	"min_acceptable": <sat per kVB>,
+ *	"max_acceptable": <sat per kVB>,
+ * }
+ *
+ * Plugin response (modern):
  * {
  *	"feerate_floor": <sat per kVB>,
  *	"feerates": {
@@ -248,6 +230,55 @@ static struct feerate_est *parse_feerate_ranges(const tal_t *ctx,
 	return rates;
 }
 
+static struct feerate_est *parse_deprecated_feerates(const tal_t *ctx,
+						     struct bitcoind *bitcoind,
+						     const char *buf,
+						     const jsmntok_t *toks)
+{
+	struct feerate_est *rates = tal_arr(ctx, struct feerate_est, 0);
+	struct oldstyle {
+		const char *name;
+		size_t blockcount;
+		size_t multiplier;
+	} oldstyles[] = { { "max_acceptable", 2, 10 },
+			  { "unilateral_close", 6, 1 },
+			  { "opening", 12, 1 },
+			  { "mutual_close", 100, 1 } };
+
+	for (size_t i = 0; i < ARRAY_SIZE(oldstyles); i++) {
+		const jsmntok_t *feeratetok;
+		struct feerate_est rate;
+
+		feeratetok = json_get_member(buf, toks, oldstyles[i].name);
+		if (!feeratetok) {
+ 			bitcoin_plugin_error(bitcoind, buf, toks,
+ 					     "estimatefees",
+					     "missing '%s' field",
+					     oldstyles[i].name);
+		}
+		if (!json_to_u32(buf, feeratetok, &rate.rate)) {
+			if (chainparams->testnet)
+				log_debug(bitcoind->log,
+					  "Unable to estimate %s fees",
+					  oldstyles[i].name);
+			else
+				log_unusual(bitcoind->log,
+					    "Unable to estimate %s fees",
+					    oldstyles[i].name);
+			continue;
+		}
+
+		if (rate.rate == 0)
+			continue;
+
+		/* Cancel out the 10x multiplier on max_acceptable */
+		rate.rate /= oldstyles[i].multiplier;
+		rate.blockcount = oldstyles[i].blockcount;
+		tal_arr_expand(&rates, rate);
+	}
+	return rates;
+}
+
 static void estimatefees_callback(const char *buf, const jsmntok_t *toks,
 				  const jsmntok_t *idtok,
 				  struct estimatefee_call *call)
@@ -256,7 +287,11 @@ static void estimatefees_callback(const char *buf, const jsmntok_t *toks,
 	struct feerate_est *feerates;
 	u32 floor;
 
-	resulttok = get_bitcoin_result(call->bitcoind, buf, toks, "estimatefees");
+	resulttok = json_get_member(buf, toks, "result");
+	if (!resulttok)
+		bitcoin_plugin_error(call->bitcoind, buf, toks,
+				     "estimatefees",
+				     "bad 'result' field");
 
 	/* Modern style has floor. */
 	floortok = json_get_member(buf, resulttok, "feerate_floor");
@@ -267,9 +302,20 @@ static void estimatefees_callback(const char *buf, const jsmntok_t *toks,
 								"feerates"),
 						&floor);
 	} else {
-		bitcoin_plugin_error(call->bitcoind, buf, resulttok,
-				     "estimatefees",
-				     "missing feerate_floor field");
+		if (!lightningd_deprecated_in_ok(call->bitcoind->ld,
+						 call->bitcoind->ld->log,
+						 call->bitcoind->ld->deprecated_ok,
+						 "estimatefeesv1", NULL,
+						 "v23.05", "v24.05",
+						 NULL)) {
+			bitcoin_plugin_error(call->bitcoind, buf, resulttok,
+					     "estimatefees",
+					     "missing feerate_floor field");
+		}
+
+		feerates = parse_deprecated_feerates(call, call->bitcoind,
+						     buf, resulttok);
+		floor = feerate_from_style(FEERATE_FLOOR, FEERATE_PER_KSIPA);
 	}
 
 	/* Convert to perkw */
@@ -340,24 +386,21 @@ static void sendrawtx_callback(const char *buf, const jsmntok_t *toks,
 			       const jsmntok_t *idtok,
 			       struct sendrawtx_call *call)
 {
-	const jsmntok_t *resulttok;
 	const char *err;
 	const char *errmsg = NULL;
 	bool success = false;
 
-	resulttok = get_bitcoin_result(call->bitcoind, buf, toks, "sendrawtransaction");
-
-	err = json_scan(tmpctx, buf, resulttok, "{success:%}",
+	err = json_scan(tmpctx, buf, toks, "{result:{success:%}}",
 			JSON_SCAN(json_to_bool, &success));
 	if (err) {
-		bitcoin_plugin_error(call->bitcoind, buf, resulttok,
+		bitcoin_plugin_error(call->bitcoind, buf, toks,
 				     "sendrawtransaction",
 				     "bad 'result' field: %s", err);
 	} else if (!success) {
-		err = json_scan(tmpctx, buf, resulttok, "{errmsg:%}",
+		err = json_scan(tmpctx, buf, toks, "{result:{errmsg:%}}",
 				JSON_SCAN_TAL(tmpctx, json_strdup, &errmsg));
 		if (err)
-			bitcoin_plugin_error(call->bitcoind, buf, resulttok,
+			bitcoin_plugin_error(call->bitcoind, buf, toks,
 					     "sendrawtransaction",
 					     "bad 'errmsg' field: %s",
 					     err);
@@ -422,15 +465,12 @@ getrawblockbyheight_callback(const char *buf, const jsmntok_t *toks,
 			     const jsmntok_t *idtok,
 			     struct getrawblockbyheight_call *call)
 {
-	const jsmntok_t *resulttok;
 	const char *block_str, *err;
 	struct bitcoin_blkid blkid;
 	struct bitcoin_block *blk;
 	const tal_t *ctx;
 	trace_span_resume(call);
 	trace_span_end(call);
-
-	resulttok = get_bitcoin_result(call->bitcoind, buf, toks, "getrawblockbyheight");
 
 	/* Callback may free parent of call, so steal onto context to
 	 * free if it doesn't */
@@ -439,24 +479,24 @@ getrawblockbyheight_callback(const char *buf, const jsmntok_t *toks,
 
 	/* If block hash is `null`, this means not found! Call the callback
 	 * with NULL values. */
-	err = json_scan(tmpctx, buf, resulttok, "{blockhash:null}");
+	err = json_scan(tmpctx, buf, toks, "{result:{blockhash:null}}");
 	if (!err) {
 		call->cb(call->bitcoind, call->height, NULL, NULL, call->cb_arg);
 		goto clean;
 	}
 
-	err = json_scan(tmpctx, buf, resulttok, "{blockhash:%,block:%}",
+	err = json_scan(tmpctx, buf, toks, "{result:{blockhash:%,block:%}}",
 			JSON_SCAN(json_to_sha256, &blkid.shad.sha),
 			JSON_SCAN_TAL(tmpctx, json_strdup, &block_str));
 	if (err)
-		bitcoin_plugin_error(call->bitcoind, buf, resulttok,
+		bitcoin_plugin_error(call->bitcoind, buf, toks,
 				     "getrawblockbyheight",
 				     "bad 'result' field: %s", err);
 
 	blk = bitcoin_block_from_hex(tmpctx, chainparams, block_str,
 				     strlen(block_str));
 	if (!blk)
-		bitcoin_plugin_error(call->bitcoind, buf, resulttok,
+		bitcoin_plugin_error(call->bitcoind, buf, toks,
 				     "getrawblockbyheight",
 				     "bad block");
 
@@ -525,21 +565,18 @@ static void getchaininfo_callback(const char *buf, const jsmntok_t *toks,
 				  const jsmntok_t *idtok,
 				  struct getchaininfo_call *call)
 {
-	const jsmntok_t *resulttok;
 	const char *err, *chain;
 	u32 headers, blocks;
 	bool ibd;
 
-	resulttok = get_bitcoin_result(call->bitcoind, buf, toks, "getchaininfo");
-
-	err = json_scan(tmpctx, buf, resulttok,
-			"{chain:%,headercount:%,blockcount:%,ibd:%}",
+	err = json_scan(tmpctx, buf, toks,
+			"{result:{chain:%,headercount:%,blockcount:%,ibd:%}}",
 			JSON_SCAN_TAL(tmpctx, json_strdup, &chain),
 			JSON_SCAN(json_to_number, &headers),
 			JSON_SCAN(json_to_number, &blocks),
 			JSON_SCAN(json_to_bool, &ibd));
 	if (err)
-		bitcoin_plugin_error(call->bitcoind, buf, resulttok, "getchaininfo",
+		bitcoin_plugin_error(call->bitcoind, buf, toks, "getchaininfo",
 				     "bad 'result' field: %s", err);
 
 	call->cb(call->bitcoind, chain, headers, blocks, ibd,
@@ -599,27 +636,24 @@ static void getutxout_callback(const char *buf, const jsmntok_t *toks,
 			      const jsmntok_t *idtok,
 			      struct getutxout_call *call)
 {
-	const jsmntok_t *resulttok;
 	const char *err;
 	struct bitcoin_tx_output txout;
 
 	/* Whatever happens, we want to free this. */
 	tal_steal(tmpctx, call);
 
-	resulttok = get_bitcoin_result(call->bitcoind, buf, toks, "getutxout");
-
-	err = json_scan(tmpctx, buf, resulttok, "{script:null}");
+	err = json_scan(tmpctx, buf, toks, "{result:{script:null}}");
 	if (!err) {
 		call->cb(call->bitcoind, NULL, call->cb_arg);
 		return;
 	}
 
-	err = json_scan(tmpctx, buf, resulttok, "{script:%,amount:%}",
+	err = json_scan(tmpctx, buf, toks, "{result:{script:%,amount:%}}",
 			JSON_SCAN_TAL(tmpctx, json_tok_bin_from_hex,
 				      &txout.script),
 			JSON_SCAN(json_to_sat, &txout.amount));
 	if (err)
-		bitcoin_plugin_error(call->bitcoind, buf, resulttok, "getutxout",
+		bitcoin_plugin_error(call->bitcoind, buf, toks, "getutxout",
 				     "bad 'result' field: %s", err);
 
 	call->cb(call->bitcoind, &txout, call->cb_arg);

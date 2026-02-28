@@ -8,16 +8,31 @@
 #include <common/gossmap.h>
 #include <common/node_id.h>
 
-static inline const struct short_channel_id_dir *
+static inline size_t hash_scidd(const struct short_channel_id_dir scidd)
+{
+	/* scids cost money to generate, so simple hash works here. Letting same
+	 * scid with two directions collide. */
+	return (scidd.scid.u64 >> 32) ^ (scidd.scid.u64 >> 16) ^ scidd.scid.u64;
+}
+
+static inline struct short_channel_id_dir
 self_scidd(const struct short_channel_id_dir *self)
 {
-	return self;
+	return *self;
+}
+
+static inline bool
+my_short_channel_id_dir_eq(const struct short_channel_id_dir *scidd_a,
+			   const struct short_channel_id_dir scidd_b)
+{
+	return short_channel_id_eq(scidd_a->scid, scidd_b.scid) &&
+	       scidd_a->dir == scidd_b.dir;
 }
 
 /* A htable for short_channel_id_dir, the structure itself is the element key.
  */
 HTABLE_DEFINE_NODUPS_TYPE(struct short_channel_id_dir, self_scidd, hash_scidd,
-			  short_channel_id_dir_eq, scidd_map);
+			  my_short_channel_id_dir_eq, scidd_map);
 
 struct disabledmap {
 	/* Channels we decided to disable for various reasons. */

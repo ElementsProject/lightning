@@ -9,10 +9,9 @@ msgtype,gossipd_init,3000
 msgdata,gossipd_init,chainparams,chainparams,
 msgdata,gossipd_init,our_features,feature_set,
 msgdata,gossipd_init,id,node_id,
-msgdata,gossipd_init,autoconnect_seeker_peers,u32,
-msgdata,gossipd_init,compactd_helper,wirestring,
 msgdata,gossipd_init,dev_fast_gossip,bool,
 msgdata,gossipd_init,dev_fast_gossip_prune,bool,
+msgdata,gossipd_init,autoconnect_seeker_peers,u32,
 
 # Gossipd tells us all our public channel_updates before init_reply.
 msgtype,gossipd_init_cupdate,3101
@@ -49,13 +48,6 @@ msgtype,gossipd_dev_memleak,3033
 
 msgtype,gossipd_dev_memleak_reply,3133
 msgdata,gossipd_dev_memleak_reply,leak,bool,
-
-# master -> gossipd: please rewrite the gossip_store
-msgtype,gossipd_dev_compact_store,3034
-
-# gossipd -> master: empty string means no problem.
-msgtype,gossipd_dev_compact_store_reply,3134
-msgdata,gossipd_dev_compact_store_reply,result,wirestring,
 
 # master -> gossipd: blockheight increased.
 msgtype,gossipd_new_blockheight,3026

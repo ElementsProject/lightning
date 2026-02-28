@@ -40,13 +40,15 @@ struct channel_hint {
 	struct amount_msat capacity;
 };
 
+size_t channel_hint_hash(const struct short_channel_id_dir *out);
+
 const struct short_channel_id_dir *channel_hint_keyof(const struct channel_hint *out);
 
 bool channel_hint_eq(const struct channel_hint *a,
 		     const struct short_channel_id_dir *b);
 
 HTABLE_DEFINE_NODUPS_TYPE(struct channel_hint, channel_hint_keyof,
-			  hash_scidd, channel_hint_eq, channel_hint_map)
+			  channel_hint_hash, channel_hint_eq, channel_hint_map)
 
 /* A collection of channel_hint instances, allowing us to handle and
  * update them more easily. */

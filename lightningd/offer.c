@@ -25,26 +25,6 @@ static void json_populate_offer(struct json_stream *response,
 		json_add_escaped_string(response, "label", label);
 }
 
-static const char *offer_description_from_b12(const tal_t *ctx,
-					struct lightningd *ld,
-					const char *b12)
-{
-    struct tlv_offer *offer;
-    char *fail;
-
-	offer = offer_decode(ctx, b12, strlen(b12),
-                         NULL, NULL, &fail);
-    if (!offer) {
-        log_debug(ld->log, "Failed to decode BOLT12: %s", fail);
-        return NULL;
-    }
-
-    if (!offer->offer_description)
-        return NULL;
-
-    return offer->offer_description;
-}
-
 static struct command_result *param_b12_offer(struct command *cmd,
 					      const char *name,
 					      const char *buffer,
@@ -154,7 +134,6 @@ static struct command_result *json_listoffers(struct command *cmd,
 	struct json_stream *response;
 	struct wallet *wallet = cmd->ld->wallet;
 	const char *b12;
-	const char *description;
 	const struct json_escape *label;
 	bool *active_only;
 	enum offer_status status;
@@ -175,9 +154,6 @@ static struct command_result *json_listoffers(struct command *cmd,
 			json_populate_offer(response,
 					    offer_id, b12,
 					    label, status);
-			description = offer_description_from_b12(tmpctx, cmd->ld, b12);
-			if (description)
-				json_add_stringn(response, "description", description, tal_bytelen(description));
 			json_object_end(response);
 		}
 	} else {
@@ -194,9 +170,6 @@ static struct command_result *json_listoffers(struct command *cmd,
 				json_populate_offer(response,
 						    &id, b12,
 						    label, status);
-				description = offer_description_from_b12(tmpctx, cmd->ld, b12);
-				if (description)
-					json_add_stringn(response, "description", description, tal_bytelen(description));
 				json_object_end(response);
 			}
 		}
@@ -220,7 +193,6 @@ static struct command_result *json_disableoffer(struct command *cmd,
 	struct sha256 *offer_id;
 	struct wallet *wallet = cmd->ld->wallet;
 	const char *b12;
-	const char *description;
 	const struct json_escape *label;
 	enum offer_status status;
 
@@ -244,9 +216,6 @@ static struct command_result *json_disableoffer(struct command *cmd,
 
 	response = json_stream_success(cmd);
 	json_populate_offer(response, offer_id, b12, label, status);
-	description = offer_description_from_b12(tmpctx, cmd->ld, b12);
-	if (description)
-		json_add_stringn(response, "description", description, tal_bytelen(description));
 	return command_success(cmd, response);
 }
 
@@ -265,7 +234,6 @@ static struct command_result *json_enableoffer(struct command *cmd,
 	struct sha256 *offer_id;
 	struct wallet *wallet = cmd->ld->wallet;
 	const char *b12;
-	const char *description;
 	const struct json_escape *label;
 	enum offer_status status;
 
@@ -282,10 +250,6 @@ static struct command_result *json_enableoffer(struct command *cmd,
 		return command_fail(cmd, OFFER_ALREADY_ENABLED,
 				    "offer already active");
 
-	if (offer_status_single(status) && offer_status_used(status))
-		return command_fail(cmd, OFFER_USED_SINGLE_USE,
-				    "cannot activate an used single use offer");
-
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
 
@@ -293,9 +257,6 @@ static struct command_result *json_enableoffer(struct command *cmd,
 
 	response = json_stream_success(cmd);
 	json_populate_offer(response, offer_id, b12, label, status);
-	description = offer_description_from_b12(tmpctx, cmd->ld, b12);
-	if (description)
-		json_add_stringn(response, "description", description, tal_bytelen(description));
 	return command_success(cmd, response);
 }
 

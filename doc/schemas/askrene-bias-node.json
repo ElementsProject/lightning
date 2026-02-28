@@ -124,10 +124,10 @@
     "lightning-askrene-age(7)"
   ],
   "author": [
-    "Lagrange [lagrang3@protonmail.com](mailto:lagrang3@protonmail.com) is mainly responsible."
+    "Lagrange <<lagrang3@protonmail.com>> is mainly responsible."
   ],
   "resources": [
-    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+    "Main web site: <https://github.com/ElementsProject/lightning>"
   ],
   "examples": [
     {

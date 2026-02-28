@@ -46,7 +46,6 @@ typemap = {
     "secret": "Secret",
     "bip340sig": "String",
     "integer": "i64",
-    "string_map": "HashMap<String, String>",
 }
 
 header = f"""
@@ -307,7 +306,6 @@ class RustGenerator(IGenerator):
             #[allow(unused_imports)]
             use serde::{{Deserialize, Serialize}};
             use core::fmt::Debug;
-            use std::collections::HashMap;
             use super::{IntoRequest, Request, TypedRequest};
         """
         )

@@ -19,6 +19,7 @@
 #include <plugins/renepay/mods.h>
 #include <plugins/renepay/payplugin.h>
 #include <plugins/renepay/routetracker.h>
+#include <plugins/renepay/sendpay.h>
 #include <stdio.h>
 
 // TODO(eduardo): notice that pending attempts performed with another
@@ -58,6 +59,14 @@ static const char *init(struct command *init_cmd,
 	 */
 	/* FIXME: Typo in spec for CLTV in descripton!  But it breaks our spelling check, so we omit it above */
 	pay_plugin->maxdelay_default = 2016;
+	/* max-locktime-blocks deprecated in v24.05, but still grab it! */
+	rpc_scan(init_cmd, "listconfigs",
+		 take(json_out_obj(NULL, NULL, NULL)),
+		 "{configs:"
+		 "{max-locktime-blocks?:{value_int:%}}}",
+		 JSON_SCAN(json_to_number, &pay_plugin->maxdelay_default)
+		 );
+
 	pay_plugin->payment_map = tal(pay_plugin, struct payment_map);
 	payment_map_init(pay_plugin->payment_map);
 
@@ -450,6 +459,10 @@ static const struct plugin_command commands[] = {
 	{
 		"renepay",
 		json_renepay
+	},
+	{
+		"renesendpay",
+		json_renesendpay
 	},
 };
 

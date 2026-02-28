@@ -15,7 +15,7 @@ struct gossip_rcvd_filter;
 /* First byte of file is the version.
  *
  * Top three bits mean incompatible change.
- * As of this writing, major == 0, minor == 16.
+ * As of this writing, major == 0, minor == 15.
  */
 #define GOSSIP_STORE_MAJOR_VERSION_MASK 0xE0
 #define GOSSIP_STORE_MINOR_VERSION_MASK 0x1F
@@ -50,14 +50,6 @@ struct gossip_hdr {
 	beint32_t timestamp; /* timestamp of msg. */
 };
 
-/* Useful to read gossip_hdr and type of msg.  */
-struct gossip_hdr_and_type {
-	struct gossip_hdr hdr;
-	be16 type;
-};
-/* Beware padding! */
-#define GOSSIP_HDR_AND_TYPE_SIZE (sizeof(struct gossip_hdr) + sizeof(u16))
-
 /**
  * Direct store accessor: read gossip msg hdr from store.
  * @gossip_store_fd: the readable file descriptor
@@ -67,8 +59,11 @@ struct gossip_hdr_and_type {
  * @flags (out): if non-NULL, set to the flags.
  * @type (out): if non-NULL, set to the msg type.
  *
- * Returns false if there are no more gossip msgs, or message
- * is incomplete.  To iterate, simply add sizeof(gossip_hdr) + *len to off.
+ * Returns false if there are no more gossip msgs.  If you
+ * want to read the message, use gossip_store_next, if you
+ * want to skip, simply add sizeof(gossip_hdr) + *len to *off.
+ * Note: it's possible that entire record isn't there yet,
+ * so gossip_store_next can fail.
  */
 bool gossip_store_readhdr(int gossip_store_fd, size_t off,
 			  size_t *len,

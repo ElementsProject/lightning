@@ -56,7 +56,7 @@ static void show_usage(const char *progname)
 	printf("	- checkhsm <path/to/new/hsm_secret>\n");
 	printf("	- dumponchaindescriptors [--show-secrets] <path/to/hsm_secret> [network]\n");
 	printf("	- makerune <path/to/hsm_secret>\n");
-	printf("	- getsecret <path/to/hsm_secret> [<id>]\n");
+	printf("	- getcodexsecret <path/to/hsm_secret> <id>\n");
 	printf("	- getemergencyrecover <path/to/emergency.recover>\n");
 	printf("	- getnodeid <path/to/hsm_secret>\n");
 	exit(0);
@@ -269,40 +269,20 @@ static void get_channel_seed(struct secret *channel_seed, const struct node_id *
 	            info, strlen(info));
 }
 
-static void print_secret(const char *hsm_secret_path, const char *id, bool must_be_oldstyle)
+static void print_codexsecret(const char *hsm_secret_path, const char *id)
 {
 	struct secret hsm_secret;
 	char *bip93;
 	const char *err;
 	struct hsm_secret *hsms = load_hsm_secret(tmpctx, hsm_secret_path);
+	/* Extract first 32 bytes for legacy compatibility */
+	memcpy(hsm_secret.data, hsms->secret_data, 32);
 
-	switch (hsms->type) {
-	case HSM_SECRET_ENCRYPTED:
-		errx(ERROR_USAGE, "Encrypted hsm_secret");
-	case HSM_SECRET_MNEMONIC_NO_PASS:
-		if (must_be_oldstyle)
-			errx(ERROR_USAGE, "Cannot use getcodexsecret with modern nodes: use getsecret");
-		printf("%s\n", hsms->mnemonic);
-		return;
-	case HSM_SECRET_MNEMONIC_WITH_PASS:
-		errx(ERROR_USAGE, "hsm_secret with passphrase");
-	case HSM_SECRET_PLAIN:
-		if (id == NULL)
-			errx(ERROR_USAGE, "Must set 'id' for a codex32 secret");
-		/* Extract first 32 bytes for legacy compatibility */
-		memcpy(hsm_secret.data, hsms->secret_data, 32);
+	err = codex32_secret_encode(tmpctx, "cl", id, 0, hsm_secret.data, 32, &bip93);
+	if (err)
+		errx(ERROR_USAGE, "%s", err);
 
-		err = codex32_secret_encode(tmpctx, "cl", id, 0, hsm_secret.data, 32, &bip93);
-		if (err)
-			errx(ERROR_USAGE, "%s", err);
-
-		printf("%s\n", bip93);
-		return;
-	case HSM_SECRET_INVALID:
-		break;
-	}
-	/* Never happens. */
-	abort();
+	printf("%s\n", bip93);
 }
 
 static void print_emergencyrecover(const char *emer_rec_path)
@@ -477,60 +457,29 @@ static void derive_to_remote(const struct unilateral_close_info *info, const cha
 				     fmt_pubkey(tmpctx, info->commitment_point));
 	printf("privkey : %s\n", fmt_secret(tmpctx, &privkey.secret));
 }
-
 static void dumponchaindescriptors(const char *hsm_secret_path,
 				   const u32 version, bool show_secrets)
 {
+	struct secret hsm_secret;
 	u8 bip32_seed[BIP32_ENTROPY_LEN_256];
 	u32 salt = 0;
 	struct ext_key master_extkey;
 	char *enc_xkey, *descriptor;
 	struct descriptor_checksum checksum;
 	struct hsm_secret *hsms = load_hsm_secret(tmpctx, hsm_secret_path);
-	const char *path;
+	/* Extract first 32 bytes for legacy compatibility */
+	memcpy(hsm_secret.data, hsms->secret_data, 32);
 
-	/* For BIP 86, we derive from subkey: m/86'/0'/0' */
-	if (use_bip86_derivation(tal_bytelen(hsms->secret_data))) {
-		/* First create the master key from the seed */
-		struct ext_key master_key, bip86_base;
-		u32 base_path[3];
-		base_path[0] = 86 | 0x80000000;  /* 86' */
-		base_path[1] = 0x80000000;       /* 0' */
-		base_path[2] = 0x80000000;       /* 0' */
-
-		if (bip32_key_from_seed(hsms->secret_data, tal_bytelen(hsms->secret_data),
-					version, 0, &master_key) != WALLY_OK) {
-			errx(ERROR_LIBWALLY,
-			     "Failed to create master key from BIP32 seed");
-		}
-
-		/* Derive the BIP86 base key */
-		if (bip32_key_from_parent_path(&master_key, base_path, 3, BIP32_FLAG_KEY_PRIVATE, &bip86_base) != WALLY_OK) {
-			errx(ERROR_LIBWALLY,
-			     "Failed to derive BIP86 base key");
-		}
-		master_extkey = bip86_base;
-		/* Remaining path is 0/ */
-		path = "0";
-	} else {
-		struct secret hsm_secret;
-
-		/* Extract first 32 bytes for legacy compatibility */
-		memcpy(hsm_secret.data, hsms->secret_data, 32);
-
-		/* The root seed is derived from hsm_secret using hkdf.. */
-		do {
-			hkdf_sha256(bip32_seed, sizeof(bip32_seed),
-				    &salt, sizeof(salt),
-				    &hsm_secret, sizeof(hsm_secret),
-				    "bip32 seed", strlen("bip32 seed"));
-			salt++;
-			/* ..Which is used to derive m/ */
-		} while (bip32_key_from_seed(bip32_seed, sizeof(bip32_seed),
-					     version, 0, &master_extkey) != WALLY_OK);
-		/* Remaining path is 0/0/ */
-		path = "0/0";
-	}
+	/* The root seed is derived from hsm_secret using hkdf.. */
+	do {
+		hkdf_sha256(bip32_seed, sizeof(bip32_seed),
+			    &salt, sizeof(salt),
+			    &hsm_secret, sizeof(hsm_secret),
+			    "bip32 seed", strlen("bip32 seed"));
+		salt++;
+		/* ..Which is used to derive m/ */
+	} while (bip32_key_from_seed(bip32_seed, sizeof(bip32_seed),
+				     version, 0, &master_extkey) != WALLY_OK);
 
 	if (show_secrets) {
 		if (bip32_key_to_base58(&master_extkey, BIP32_FLAG_KEY_PRIVATE,
@@ -544,19 +493,20 @@ static void dumponchaindescriptors(const char *hsm_secret_path,
 
 	/* Now we format the descriptor strings (we only ever create P2TR, P2WPKH, and
 	 * P2SH-P2WPKH outputs). */
-	descriptor = tal_fmt(NULL, "wpkh(%s/%s/*)", enc_xkey, path);
+
+	descriptor = tal_fmt(NULL, "wpkh(%s/0/0/*)", enc_xkey);
 	if (!descriptor_checksum(descriptor, strlen(descriptor), &checksum))
 		errx(ERROR_LIBWALLY, "Can't derive descriptor checksum for wpkh");
 	printf("%s#%s\n", descriptor, checksum.csum);
 	tal_free(descriptor);
 
-	descriptor = tal_fmt(NULL, "sh(wpkh(%s/%s/*))", enc_xkey, path);
+	descriptor = tal_fmt(NULL, "sh(wpkh(%s/0/0/*))", enc_xkey);
 	if (!descriptor_checksum(descriptor, strlen(descriptor), &checksum))
 		errx(ERROR_LIBWALLY, "Can't derive descriptor checksum for sh(wpkh)");
 	printf("%s#%s\n", descriptor, checksum.csum);
 	tal_free(descriptor);
 
-	descriptor = tal_fmt(NULL, "tr(%s/%s/*)", enc_xkey, path);
+	descriptor = tal_fmt(NULL, "tr(%s/0/0/*)", enc_xkey);
 	if (!descriptor_checksum(descriptor, strlen(descriptor), &checksum))
 		errx(ERROR_LIBWALLY, "Can't derive descriptor checksum for tr");
 	printf("%s#%s\n", descriptor, checksum.csum);
@@ -795,14 +745,10 @@ int main(int argc, char *argv[])
 		if (argc < 3)
 			show_usage(argv[0]);
 		make_rune(argv[2]);
-	} else if(streq(method, "getsecret")) {
-		if (argc < 3 || argc > 4)
-			show_usage(argv[0]);
-		print_secret(argv[2], argv[3], false);
 	} else if(streq(method, "getcodexsecret")) {
-		if (argc != 4)
+		if (argc < 4)
 			show_usage(argv[0]);
-		print_secret(argv[2], argv[3], true);
+		print_codexsecret(argv[2], argv[3]);
 	} else if(streq(method, "getemergencyrecover")) {
 		if (argc < 3)
 			show_usage(argv[0]);

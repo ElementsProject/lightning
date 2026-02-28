@@ -948,10 +948,6 @@ static void dev_register_opts(struct lightningd *ld)
 		       opt_set_charp, opt_show_charp,
 		       &ld->plugins->dev_save_io,
 		       "Directory to place all plugin notifications/hooks JSON into.");
-	clnopt_noarg("--dev-keep-nagle", OPT_DEV,
-		       opt_set_bool,
-		       &ld->dev_keep_nagle,
-		       "Tell connectd not to set TCP_NODELAY.");
 	/* This is handled directly in daemon_developer_mode(), so we ignore it here */
 	clnopt_noarg("--dev-debug-self", OPT_DEV,
 		     opt_ignore,
@@ -1282,65 +1278,43 @@ static char *opt_add_api_beg(const char *arg, struct lightningd *ld)
 	return NULL;
 }
 
-static char *opt_add_node_id(const char *arg, struct node_id **arr)
-{
-	struct node_id n;
-	if (!node_id_from_hexstr(arg, strlen(arg), &n))
-		return "Unparsable nodeid";
-
-	tal_arr_expand(arr, n);
-	return NULL;
-}
-
 char *hsm_secret_arg(const tal_t *ctx,
 		     const char *arg,
-		     const struct hsm_secret **hsm_secret)
+		     const u8 **hsm_secret)
 {
 	char *codex32_fail;
 	struct codex32 *codex32;
-	struct hsm_secret *hsms = tal(tmpctx, struct hsm_secret);
 
 	/* We accept hex, or codex32.  hex is very very very unlikely to
 	 * give a valid codex32, so try that first */
 	codex32 = codex32_decode(tmpctx, "cl", arg, &codex32_fail);
 	if (codex32) {
-		hsms->type = HSM_SECRET_PLAIN;
-		hsms->secret_data = tal_steal(hsms, codex32->payload);
+		*hsm_secret = tal_steal(ctx, codex32->payload);
 		if (codex32->threshold != 0
 		    || codex32->type != CODEX32_ENCODING_SECRET) {
 			return "This is only one share of codex32!";
 		}
-		if (tal_count(hsms->secret_data) != 32)
-			return "Invalid length: must be 32 bytes";
-	/* Not codex32, was it hex? */
-	} else if ((hsms->secret_data = tal_hexdata(hsms, arg, strlen(arg))) != NULL) {
-		hsms->type = HSM_SECRET_PLAIN;
-		if (tal_count(hsms->secret_data) != 32)
-			return "Invalid length: must be 32 bytes";
-	/* Not hex, is is a mnemonic? */
 	} else {
-		enum hsm_secret_error err = validate_mnemonic(arg);
-		if (err != HSM_SECRET_OK) {
-			/* If it looks kinda like a codex32, give that error. */
-			if (strstarts(arg, "cl"))
-				return codex32_fail;
-			else
-				return "Not a valid mnemonic, hex, or codex32 string";
+		/* Not codex32, was it hex? */
+		*hsm_secret = tal_hexdata(ctx, arg, strlen(arg));
+		if (!*hsm_secret) {
+			/* It's not hex!  So give codex32 error */
+ 			return codex32_fail;
 		}
-		hsms->type = HSM_SECRET_MNEMONIC_NO_PASS;
-		hsms->mnemonic = tal_strdup(hsms, arg);
 	}
 
-	*hsm_secret = tal_steal(ctx, hsms);
+	if (tal_count(*hsm_secret) != 32)
+		return "Invalid length: must be 32 bytes";
+
 	return NULL;
 }
 
-static char *opt_set_hsm_secret(const char *arg, struct lightningd *ld)
+static char *opt_set_codex32_or_hex(const char *arg, struct lightningd *ld)
 {
 	char *err;
-	const struct hsm_secret *hsm_secret;
+	const u8 *payload;
 
-	err = hsm_secret_arg(tmpctx, arg, &hsm_secret);
+	err = hsm_secret_arg(tmpctx, arg, &payload);
 	if (err)
 		return err;
 
@@ -1355,36 +1329,10 @@ static char *opt_set_hsm_secret(const char *arg, struct lightningd *ld)
 			       strerror(errno));
 	}
 
-	switch (hsm_secret->type) {
-	case HSM_SECRET_PLAIN:
-		/* Legacy 32-byte format */
-		if (!write_all(fd, hsm_secret->secret_data, tal_count(hsm_secret->secret_data))) {
-			unlink_noerr("hsm_secret");
-			return tal_fmt(tmpctx, "Writing HSM: %s",
-				       strerror(errno));
-		}
-		break;
-	case HSM_SECRET_ENCRYPTED:
-	case HSM_SECRET_MNEMONIC_WITH_PASS:
-		return tal_fmt(tmpctx, "Recovery of encrypted/passworded secrets not supported");
-	case HSM_SECRET_MNEMONIC_NO_PASS: {
-		struct sha256 seed_hash;
-		if (!derive_seed_hash(hsm_secret->mnemonic, NULL, &seed_hash)) {
-			unlink_noerr("hsm_secret");
-			return tal_fmt(tmpctx, "Deriving from mnemonic failed!");
-		}
-		/* Write seed hash (32 bytes) + mnemonic */
-		if (!write_all(fd, &seed_hash, sizeof(seed_hash))
-		    || !write_all(fd, hsm_secret->mnemonic, strlen(hsm_secret->mnemonic))) {
-			unlink_noerr("hsm_secret");
-			return tal_fmt(tmpctx, "Error writing to hsm_secret file: %s", strerror(errno));
-		}
-		break;
-	}
-	case HSM_SECRET_INVALID:
-		/* Shouldn't happen? */
+	if (!write_all(fd, payload, tal_count(payload))) {
 		unlink_noerr("hsm_secret");
-		return tal_fmt(tmpctx, "invalid hsm secret?");
+		return tal_fmt(tmpctx, "Writing HSM: %s",
+			   strerror(errno));
 	}
 
 	/*~ fsync (mostly!) ensures that the file has reached the disk. */
@@ -1466,9 +1414,9 @@ static void register_opts(struct lightningd *ld)
 			       &ld->wallet_dsn,
 			       "Location of the wallet database.");
 
-	opt_register_early_arg("--recover", opt_set_hsm_secret, NULL,
+	opt_register_early_arg("--recover", opt_set_codex32_or_hex, NULL,
 				ld,
-				"Populate hsm_secret with the given codex32/hex/mnemonic secret"
+				"Populate hsm_secret with the given codex32 secret"
 				" and starts the node in `offline` mode.");
 
 	/* This affects our features, so set early. */
@@ -1646,10 +1594,6 @@ static void register_opts(struct lightningd *ld)
 		       ld,
 		       "Re-enable a long-deprecated API (which will be removed entirely next version!)");
 	opt_register_logging(ld);
-	clnopt_witharg("--payment-fronting-node",
-		       OPT_MULTI,
-		       opt_add_node_id, NULL,
-		       &ld->fronting_nodes, "Put this node in all invoices and offers, and use blinded path (bolt12) or route hints (bolt11) to route to this node.  Must be a neighboring node.  Can be specified multiple times.");
 
 	/* Old bookkeeper migration flags. */
 	opt_register_early_arg("--bookkeeper-dir",
@@ -1912,11 +1856,10 @@ bool is_known_opt_cb_arg(char *(*cb_arg)(const char *, void *))
 		|| cb_arg == (void *)opt_set_db_upgrade
 		|| cb_arg == (void *)arg_log_to_file
 		|| cb_arg == (void *)opt_add_accept_htlc_tlv
-		|| cb_arg == (void *)opt_set_hsm_secret
+		|| cb_arg == (void *)opt_set_codex32_or_hex
 		|| cb_arg == (void *)opt_subd_dev_disconnect
 		|| cb_arg == (void *)opt_set_crash_timeout
 		|| cb_arg == (void *)opt_add_api_beg
-		|| cb_arg == (void *)opt_add_node_id
 		|| cb_arg == (void *)opt_force_featureset
 		|| cb_arg == (void *)opt_force_privkey
 		|| cb_arg == (void *)opt_force_bip32_seed

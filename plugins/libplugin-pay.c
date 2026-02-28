@@ -1196,15 +1196,12 @@ static void payment_result_infer(struct route_hop *route,
 
 	len = tal_count(route);
 	i = *r->erring_index;
-	/* This can actually be greater than the route length?  Perhaps
-	 * multi-hop routehints?  Ignore. */
-	if (i > len)
-		return;
+	assert(i <= len);
 
 	if (r->erring_node == NULL)
 		r->erring_node = &route[i-1].node_id;
 
-	/* The above check was enough for the erring_node, but might be off
+	/* The above assert was enough for the erring_node, but might be off
 	 * by one on channel and direction, in case the destination failed on
 	 * us. */
 	if (i == len)
@@ -3482,15 +3479,6 @@ static struct command_result *direct_pay_override(struct payment *p)
 	hint = channel_hint_set_find(root->hints, d->chan);
 	if (hint && hint->enabled &&
 	    amount_msat_greater(hint->estimated_capacity, p->our_amount)) {
-		if (p->getroute->cltv > p->constraints.cltv_budget) {
-			paymod_log(p, LOG_DBG,
-				   "Direct channel (%s) skipped: "
-				   "CLTV delay %u exceeds budget %u.",
-				   fmt_short_channel_id_dir(tmpctx, &hint->scid),
-				   p->getroute->cltv, p->constraints.cltv_budget);
-			return payment_continue(p);
-		}
-
 		/* Now build a route that consists only of this single hop */
 		p->route = tal_arr(p, struct route_hop, 1);
 		p->route[0].amount = p->our_amount;

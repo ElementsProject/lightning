@@ -42,8 +42,6 @@ endif
 
 EXTERNAL_LDLIBS := -L${TARGET_DIR} $(patsubst lib%.a,-l%,$(notdir $(EXTERNAL_LIBS)))
 
-.PHONY: submodcheck
-
 submodcheck: $(FORCE)
 ifneq ($(VERSION),)
 	@tools/refresh-submodules.sh $(SUBMODULES)
@@ -61,8 +59,6 @@ $(TARGET_DIR)/libsecp256k1.% $(TARGET_DIR)/libwallycore.%: $(TARGET_DIR)/libwall
 ifeq ($(DEBUGBUILD),1)
 WALLY_OPTS=--enable-debug
 endif
-
-.INTERMEDIATE: $(TARGET_DIR)/libwally-core-build/src/secp256k1/libsecp256k1.la $(TARGET_DIR)/libwally-core-build/src/libwallycore.la
 
 $(TARGET_DIR)/libwally-core-build/src/libwallycore.% $(TARGET_DIR)/libwally-core-build/src/secp256k1/libsecp256k1.%: $(LIBWALLY_HEADERS) $(LIBSECP_HEADERS)
 	cd external/libwally-core && ./tools/autogen.sh
@@ -88,8 +84,6 @@ $(TARGET_DIR)/jsmn-build/jsmn.o: external/jsmn/jsmn.c Makefile
 
 $(TARGET_DIR)/libjsmn.a: $(TARGET_DIR)/jsmn-build/jsmn.o
 	$(AR) rc $@ $<
-
-.INTERMEDIATE: $(TARGET_DIR)/jsmn-build/jsmn.o
 
 # Need separate build dir: changes inside submodule make git think it's dirty.
 $(TARGET_DIR)/libbacktrace.a: external/libbacktrace/backtrace.h

@@ -6,12 +6,12 @@
 #include <ccan/tal/str/str.h>
 #include <common/features.h>
 #include <common/gossip_store.h>
-#include <common/gossip_store_wiregen.h>
 #include <common/gossmap.h>
 #include <common/sciddir_or_pubkey.h>
 #include <common/utils.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <gossipd/gossip_store_wiregen.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <sys/mman.h>
@@ -29,7 +29,11 @@ static bool chanidx_eq_id(const ptrint_t *pidx,
 	struct short_channel_id pidxid = chanidx_id(pidx);
 	return short_channel_id_eq(pidxid, scid);
 }
-HTABLE_DEFINE_NODUPS_TYPE(ptrint_t, chanidx_id, hash_scid, chanidx_eq_id,
+static size_t scid_hash(const struct short_channel_id scid)
+{
+	return siphash24(siphash_seed(), &scid, sizeof(scid));
+}
+HTABLE_DEFINE_NODUPS_TYPE(ptrint_t, chanidx_id, scid_hash, chanidx_eq_id,
 			  chanidx_htable);
 
 static struct node_id nodeidx_id(const ptrint_t *pidx);
@@ -38,16 +42,9 @@ static bool nodeidx_eq_id(const ptrint_t *pidx, const struct node_id id)
 	struct node_id pidxid = nodeidx_id(pidx);
 	return node_id_eq(&pidxid, &id);
 }
-/* You need to spend sats to create a channel to advertize your nodeid,
- * so creating clashes is not free: we can be lazy! */
 static size_t nodeid_hash(const struct node_id id)
 {
-	size_t val;
-	size_t off = siphash_seed()->u.u8[0] % 16;
-
-	BUILD_ASSERT(15 + sizeof(val) < sizeof(id.k));
-	memcpy(&val, id.k + off, sizeof(val));
-	return val;
+	return siphash24(siphash_seed(), &id, PUBKEY_CMPR_LEN);
 }
 HTABLE_DEFINE_NODUPS_TYPE(ptrint_t, nodeidx_id, nodeid_hash, nodeidx_eq_id,
 			  nodeidx_htable);
@@ -88,9 +85,6 @@ struct gossmap {
 	const u8 *local_announces;
 	/* local channel_update messages, if any. */
 	u8 *local_updates;
-
-	/* How many live and dead records? */
-	size_t num_live, num_dead;
 
 	/* Optional logging callback */
 	void (*logcb)(void *cbarg,
@@ -323,13 +317,6 @@ static void remove_node(struct gossmap *map, struct gossmap_node *node)
 	u32 nodeidx = gossmap_node_idx(map, node);
 	if (!nodeidx_htable_del(map->nodes, node2ptrint(node)))
 		abort();
-
-	/* If we had a node_announcement, it's now dead. */
-	if (gossmap_node_announced(node)) {
-		map->num_live--;
-		map->num_dead++;
-	}
-
 	node->nann_off = map->freed_nodes;
 	free(node->chan_idxs);
 	node->chan_idxs = NULL;
@@ -424,8 +411,6 @@ void gossmap_remove_chan(struct gossmap *map, struct gossmap_chan *chan)
 	chan->cann_off = map->freed_chans;
 	chan->plus_scid_off = 0;
 	map->freed_chans = chanidx;
-	map->num_live--;
-	map->num_dead++;
 }
 
 void gossmap_remove_node(struct gossmap *map, struct gossmap_node *node)
@@ -518,14 +503,16 @@ static struct gossmap_chan *add_channel(struct gossmap *map,
 	return chan;
 }
 
-/* Does not set hc->nodeidx!
- * Returns false if it doesn't fit in our representation: this happens
- * on the real network, as people set absurd fees
- */
-static bool fill_from_update(struct gossmap *map,
+/* Does not set hc->nodeidx! */
+static void fill_from_update(struct gossmap *map,
 			     struct short_channel_id_dir *scidd,
 			     struct half_chan *hc,
-			     u64 cupdate_off)
+			     u64 cupdate_off,
+			     void (*logcb)(void *cbarg,
+					   enum log_level level,
+					   const char *fmt,
+					   ...),
+			     void *cbarg)
 {
 	/* Note that first two bytes are message type */
 	const u64 scid_off = cupdate_off + 2 + (64 + 32);
@@ -556,15 +543,18 @@ static bool fill_from_update(struct gossmap *map,
 	hc->proportional_fee = proportional_fee;
 	hc->delay = delay;
 
-	/* Check they fit: we turn off if not. */
+	/* Check they fit: we turn off if not, log (at debug, it happens!). */
 	if (hc->base_fee != base_fee
 	    || hc->proportional_fee != proportional_fee
 	    || hc->delay != delay) {
 		hc->htlc_max = 0;
 		hc->enabled = false;
-		return false;
+		if (logcb)
+			logcb(cbarg, LOG_DBG,
+			      "Bad cupdate for %s, ignoring (delta=%u, fee=%u/%u)",
+			      fmt_short_channel_id_dir(tmpctx, scidd),
+			      delay, base_fee, proportional_fee);
 	}
-	return true;
 }
 
 /* BOLT #7:
@@ -582,31 +572,23 @@ static bool fill_from_update(struct gossmap *map,
  *     * [`u32`:`fee_proportional_millionths`]
  *     * [`u64`:`htlc_maximum_msat`]
  */
-static bool update_channel(struct gossmap *map, u64 cupdate_off)
+static void update_channel(struct gossmap *map, u64 cupdate_off)
 {
 	struct short_channel_id_dir scidd;
 	struct gossmap_chan *chan;
 	struct half_chan hc;
-	bool ret;
 
-	ret = fill_from_update(map, &scidd, &hc, cupdate_off);
+	fill_from_update(map, &scidd, &hc, cupdate_off,
+			 map->logcb, map->cbarg);
 	chan = gossmap_find_chan(map, &scidd.scid);
 	/* This can happen if channel gets deleted! */
 	if (!chan)
-		return ret;
-
-	/* Are we replacing an existing one?  Then old one is dead. */
-	if (gossmap_chan_set(chan, scidd.dir))
-		map->num_dead++;
-	else
-		map->num_live++;
+		return;
 
 	/* Preserve this */
 	hc.nodeidx = chan->half[scidd.dir].nodeidx;
 	chan->half[scidd.dir] = hc;
 	chan->cupdate_off[scidd.dir] = cupdate_off;
-
-	return ret;
 }
 
 static void remove_channel_by_deletemsg(struct gossmap *map, u64 del_off)
@@ -656,144 +638,25 @@ static void node_announcement(struct gossmap *map, u64 nann_off)
 
 	feature_len = map_be16(map, nann_off + feature_len_off);
 	map_nodeid(map, nann_off + feature_len_off + 2 + feature_len + 4, &id);
-	if ((n = gossmap_find_node(map, &id))) {
-		/* Did this replace old announcement?  If so, that's dead. */
-		if (gossmap_node_announced(n)) {
-			map->num_live--;
-			map->num_dead++;
-		}
+	if ((n = gossmap_find_node(map, &id)))
 		n->nann_off = nann_off;
-	}
-	map->num_live++;
-}
-
-static bool report_dying_cb(struct gossmap *map,
-			    u64 dying_off,
-			    u16 msglen,
-			    void (*dyingcb)(struct short_channel_id scid,
-					    u32 blockheight,
-					    u64 offset,
-					    void *cb_arg),
-			    void *cb_arg)
-{
-	struct short_channel_id scid;
-	u32 blockheight;
-	u8 *msg;
-
-	msg = tal_arr(NULL, u8, msglen);
-	map_copy(map, dying_off, msg, msglen);
-
-	if (!fromwire_gossip_store_chan_dying(msg, &scid, &blockheight)) {
-		map->logcb(map->cbarg,
-			   LOG_BROKEN,
-			   "Invalid chan_dying message @%"PRIu64
-			   "/%"PRIu64": %s",
-			   dying_off, map->map_size, msglen,
-			   tal_hex(tmpctx, msg));
-		tal_free(msg);
-		return false;
-	}
-	tal_free(msg);
-
-	dyingcb(scid, blockheight, dying_off, cb_arg);
-	return true;
-}
-
-/* Mutual recursion */
-static bool map_catchup(struct gossmap *map,
-			void (*dyingcb)(struct short_channel_id scid,
-					u32 blockheight,
-					u64 offset,
-					void *cb_arg),
-			void *cb_arg,
-			bool must_be_clean,
-			bool *changed);
-
-static void init_map_structs(struct gossmap *map)
-{
-	/* Since channel_announcement is ~430 bytes, and channel_update is 136,
-	 * node_announcement is 144, and current topology has 35000 channels
-	 * and 10000 nodes, let's assume each channel gets about 750 bytes.
-	 *
-	 * We halve this, since often some records are deleted. */
-	map->channels = tal(map, struct chanidx_htable);
-	chanidx_htable_init_sized(map->channels, map->map_size / 750 / 2);
-	map->nodes = tal(map, struct nodeidx_htable);
-	nodeidx_htable_init_sized(map->nodes, map->map_size / 2500 / 2);
-
-	map->num_chan_arr = map->map_size / 750 / 2 + 1;
-	map->chan_arr = tal_arr(map, struct gossmap_chan, map->num_chan_arr);
-	map->freed_chans = init_chan_arr(map->chan_arr, 0);
-	map->num_node_arr = map->map_size / 2500 / 2 + 1;
-	map->node_arr = tal_arr(map, struct gossmap_node, map->num_node_arr);
-	map->freed_nodes = init_node_arr(map->node_arr, 0);
 }
 
 static bool reopen_store(struct gossmap *map, u64 ended_off)
 {
-	u64 equivalent_off;
-	u8 verbyte;
-	u8 expected_uuid[32], uuid[32];
-	struct gossip_hdr ghdr;
-	bool changed;
+	int fd;
 
-	/* This tells us the equivalent offset in new map */
-	equivalent_off = map_be64(map, ended_off + 2);
-	map_copy(map, ended_off + 2 + 8, expected_uuid, sizeof(expected_uuid));
-	close(map->fd);
-
-	map->fd = open(map->fname, O_RDONLY);
-	if (map->fd < 0)
+	fd = open(map->fname, O_RDONLY);
+	if (fd < 0)
 		err(1, "Failed to reopen %s", map->fname);
 
-	/* If mmap isn't disabled, we try to mmap if we can. */
-	map->map_size = lseek(map->fd, 0, SEEK_END);
-	if (map->mmap) {
-		map->mmap = mmap(NULL, map->map_size, PROT_READ, MAP_SHARED, map->fd, 0);
-		if (map->mmap == MAP_FAILED)
-			map->mmap = NULL;
-	}
+	/* This tells us the equivalent offset in new map */
+	map->map_end = map_be64(map, ended_off + 2);
 
-	if (map->map_size < 1 + sizeof(ghdr) + 2 + sizeof(uuid))
-		errx(1, "Truncated gossip_store len %"PRIu64, map->map_size);
-
-	/* version then ghdr then uuid. */
-	verbyte = map_u8(map, 0);
-	if (GOSSIP_STORE_MAJOR_VERSION(verbyte) != 0 || GOSSIP_STORE_MINOR_VERSION(verbyte) < 16)
-		errx(1, "Bad gossip_store version %u", verbyte);
-
-	if (map_be16(map, 1 + sizeof(struct gossip_hdr)) != WIRE_GOSSIP_STORE_UUID)
-		errx(1, "First gossip_store record is not uuid?");
-	map_copy(map, 1 + sizeof(struct gossip_hdr) + 2, uuid, sizeof(uuid));
-
-	/* FIXME: we can skip if uuid is as expected, but we'd have to re-calc all
-	 * our offsets anyway.  It's not worth it, given how fast we are. */
-	if (memcmp(uuid, expected_uuid, sizeof(uuid)) == 0) {
-		map->logcb(map->cbarg, LOG_DBG,
-			   "Reopened gossip_store, reduced to offset %"PRIu64,
-			   equivalent_off);
-	} else {
-		/* Start from scratch */
-		map->logcb(map->cbarg, LOG_INFORM,
-			   "Reopened gossip_store, but we missed some (%s vs %s)",
-			   tal_hexstr(tmpctx, uuid, sizeof(uuid)),
-			   tal_hexstr(tmpctx, expected_uuid, sizeof(expected_uuid)));
-	}
-
-	tal_free(map->channels);
-	tal_free(map->nodes);
-	tal_free(map->chan_arr);
-	tal_free(map->node_arr);
-	init_map_structs(map);
-	map->map_end = 1;
+	close(map->fd);
+	map->fd = fd;
 	map->generation++;
-
-	/* This isn't quite true, as there may be deleted ones, but not many. */
-	map->num_dead = 0;
-
-	/* Now do reload. */
-	map_catchup(map, NULL, NULL, false, &changed);
-	return changed;
+	return gossmap_refresh(map);
 }
 
 /* Extra sanity check (if it's cheap): does crc match? */
@@ -812,16 +675,9 @@ static bool csum_matches(const struct gossmap *map,
 }
 
 /* Returns false only if must_be_clean is true. */
-static bool map_catchup(struct gossmap *map,
-			void (*dyingcb)(struct short_channel_id scid,
-					u32 blockheight,
-					u64 offset,
-					void *cb_arg),
-			void *cb_arg,
-			bool must_be_clean,
-			bool *changed)
+static bool map_catchup(struct gossmap *map, bool must_be_clean, bool *changed)
 {
-	size_t reclen, num_bad_cupdates = 0;
+	size_t reclen;
 
 	*changed = false;
 
@@ -841,10 +697,8 @@ static bool map_catchup(struct gossmap *map,
 		if (!(flags & GOSSIP_STORE_COMPLETED_BIT))
 			break;
 
-		if (flags & GOSSIP_STORE_DELETED_BIT) {
-			map->num_dead++;
+		if (flags & GOSSIP_STORE_DELETED_BIT)
 			continue;
-		}
 
 		/* Partial write, should not happen with completed records. */
 		if (map->map_end + reclen > map->map_size)
@@ -894,9 +748,8 @@ static bool map_catchup(struct gossmap *map,
 				break;
 			if (redundant && must_be_clean)
 				return false;
-			map->num_live++;
 		} else if (type == WIRE_CHANNEL_UPDATE)
-			num_bad_cupdates += !update_channel(map, off);
+			update_channel(map, off);
 		else if (type == WIRE_GOSSIP_STORE_DELETE_CHAN)
 			remove_channel_by_deletemsg(map, off);
 		else if (type == WIRE_NODE_ANNOUNCEMENT)
@@ -908,12 +761,7 @@ static bool map_catchup(struct gossmap *map,
 			/* We absorbed this in add_channel; ignore */
 			continue;
 		} else if (type == WIRE_GOSSIP_STORE_CHAN_DYING) {
-			if (dyingcb && !report_dying_cb(map, off, msglen, dyingcb, cb_arg))
-				return false;
 			/* We don't really care until it's deleted */
-			continue;
-		} else if (type == WIRE_GOSSIP_STORE_UUID) {
-			/* We handled this reopen, otherwise we don't care. */
 			continue;
 		} else {
 			map->logcb(map->cbarg, LOG_BROKEN,
@@ -927,22 +775,10 @@ static bool map_catchup(struct gossmap *map,
 		*changed = true;
 	}
 
-	if (num_bad_cupdates != 0)
-		map->logcb(map->cbarg,
-			   LOG_DBG,
-			   "Got %zu bad cupdates, ignoring them (expected on mainnet)",
-			   num_bad_cupdates);
-
 	return true;
 }
 
-static bool load_gossip_store(struct gossmap *map,
-			      void (*dyingcb)(struct short_channel_id scid,
-					      u32 blockheight,
-					      u64 offset,
-					      void *cb_arg),
-			      void *cb_arg,
-			      bool must_be_clean)
+static bool load_gossip_store(struct gossmap *map, bool must_be_clean)
 {
 	bool updated;
 
@@ -963,10 +799,25 @@ static bool load_gossip_store(struct gossmap *map,
 		return false;
 	}
 
-	init_map_structs(map);
+	/* Since channel_announcement is ~430 bytes, and channel_update is 136,
+	 * node_announcement is 144, and current topology has 35000 channels
+	 * and 10000 nodes, let's assume each channel gets about 750 bytes.
+	 *
+	 * We halve this, since often some records are deleted. */
+	map->channels = tal(map, struct chanidx_htable);
+	chanidx_htable_init_sized(map->channels, map->map_size / 750 / 2);
+	map->nodes = tal(map, struct nodeidx_htable);
+	nodeidx_htable_init_sized(map->nodes, map->map_size / 2500 / 2);
+
+	map->num_chan_arr = map->map_size / 750 / 2 + 1;
+	map->chan_arr = tal_arr(map, struct gossmap_chan, map->num_chan_arr);
+	map->freed_chans = init_chan_arr(map->chan_arr, 0);
+	map->num_node_arr = map->map_size / 2500 / 2 + 1;
+	map->node_arr = tal_arr(map, struct gossmap_node, map->num_node_arr);
+	map->freed_nodes = init_node_arr(map->node_arr, 0);
 
 	map->map_end = 1;
-	return map_catchup(map, dyingcb, cb_arg, must_be_clean, &updated);
+	return map_catchup(map, must_be_clean, &updated);
 }
 
 static void destroy_map(struct gossmap *map)
@@ -1317,7 +1168,7 @@ void gossmap_apply_localmods(struct gossmap *map,
 			off = insert_local_space(&map->local_updates, tal_bytelen(cupdatemsg));
 			memcpy(map->local_updates + off, cupdatemsg, tal_bytelen(cupdatemsg));
 			chan->cupdate_off[h] = map->map_size + tal_bytelen(map->local_announces) + off;
-			fill_from_update(map, &scidd, &chan->half[h], chan->cupdate_off[h]);
+			fill_from_update(map, &scidd, &chan->half[h], chan->cupdate_off[h], NULL, NULL);
 
 			/* We wrote the right update, correct? */
 			assert(short_channel_id_eq(scidd.scid, mod->scid));
@@ -1378,7 +1229,7 @@ bool gossmap_refresh(struct gossmap *map)
 		}
 	}
 
-	map_catchup(map, NULL, NULL, false, &changed);
+	map_catchup(map, false, &changed);
 	return changed;
 }
 
@@ -1405,32 +1256,27 @@ struct gossmap *gossmap_load_(const tal_t *ctx,
 					    enum log_level level,
 					    const char *fmt,
 					    ...),
-			      void (*dyingcb)(struct short_channel_id scid,
-					      u32 blockheight,
-					      u64 offset,
-					      void *cb_arg),
-			      void *cb_arg)
+			      void *cbarg)
 {
 	map = tal(ctx, struct gossmap);
 	map->generation = 0;
 	map->fname = tal_strdup(map, filename);
 	map->fd = open(map->fname, O_RDONLY);
-	map->num_live = map->num_dead = 0;
  	if (map->fd < 0)
 		return tal_free(map);
 	if (logcb)
 		map->logcb = logcb;
 	else
 		map->logcb = log_stderr;
-	map->cbarg = cb_arg;
+	map->cbarg = cbarg;
 	tal_add_destructor(map, destroy_map);
 
-	if (!load_gossip_store(map, dyingcb, cb_arg, expected_len != 0))
+	if (!load_gossip_store(map, expected_len != 0))
 		return tal_free(map);
 	if (expected_len != 0
 	    && (map->map_size != map->map_end
 		|| map->map_size != expected_len)) {
-		logcb(cb_arg, LOG_BROKEN,
+		logcb(cbarg, LOG_BROKEN,
 		      "gossip_store only processed %"PRIu64
 		      " bytes of %"PRIu64" (expected %"PRIu64")",
 		      map->map_end, map->map_size, expected_len);
@@ -2024,10 +1870,4 @@ void gossmap_disable_mmap(struct gossmap *map)
 	if (map->mmap)
 		munmap(map->mmap, map->map_size);
 	map->mmap = NULL;
-}
-
-void gossmap_stats(const struct gossmap *map, u64 *num_live, u64 *num_dead)
-{
-	*num_live = map->num_live;
-	*num_dead = map->num_dead;
 }

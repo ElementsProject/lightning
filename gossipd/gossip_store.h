@@ -27,20 +27,14 @@ struct chan_dying {
  * @ctx: the context to allocate from
  * @daemon: the daemon context
  * @populated: set to false if store is empty/obviously partial.
+ * @dying: an array of channels we found dying markers for.
  *
  * Returns NULL on error.
  */
 struct gossip_store *gossip_store_new(const tal_t *ctx,
 				      struct daemon *daemon,
-				      bool *populated);
-
-/**
- * Reopen the gossip_store
- * @gs: the gossip store.
- *
- * We've rewritten it, so reopen the file.
- */
-void gossip_store_reopen(struct gossip_store *gs);
+				      bool *populated,
+				      struct chan_dying **dying);
 
 /**
  * Move the old gossip store out the way.  Log a broken message about it.
@@ -48,21 +42,18 @@ void gossip_store_reopen(struct gossip_store *gs);
 void gossip_store_corrupt(void);
 
 /**
- * Extra paranoia: make sure it's on disk.  Don't call often!\
- */
-void gossip_store_fsync(const struct gossip_store *gs);
-
-/**
  * Append a gossip message to the gossip_store
  * @gs: gossip store
  * @gossip_msg: the gossip message to insert.
  * @timestamp: the timestamp for filtering of this messsage.
+ * @msgs: the option pointer to a u8 *array to append the written msgs to.
  *
  * Returns the offset (after the gossip_hdr).
  */
 u64 gossip_store_add(struct gossip_store *gs,
 		     const u8 *gossip_msg,
-		     u32 timestamp);
+		     u32 timestamp,
+		     const u8 ***msgs);
 
 /**
  * Delete the record at this offset (offset is that of
@@ -118,16 +109,12 @@ void gossip_store_set_timestamp(struct gossip_store *gs, u64 offset, u32 timesta
 /**
  * We've seen (ZFS on Linux) writes not show up in the gossip store.
  * This lets us rewrite the last bytes. */
-void gossip_store_rewrite_end(struct gossip_store *gs);
-
-/**
- * Once we've checked the contents are good, the last_writes storage can
- * be reset. */
-void gossip_store_writes_confirmed(struct gossip_store *gs);
+void gossip_store_rewrite_end(struct gossip_store *gs, const u8 **msgs);
 
 /**
  * For debugging.
  */
 u64 gossip_store_len_written(const struct gossip_store *gs);
+void gossip_store_fsync(const struct gossip_store *gs);
 
 #endif /* LIGHTNING_GOSSIPD_GOSSIP_STORE_H */

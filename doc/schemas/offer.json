@@ -103,17 +103,6 @@
           "Make recurrence optional, for backwards compatibility (older payers will only pay once)."
         ]
       },
-      "fronting_nodes": {
-        "added": "v26.04",
-        "type": "array",
-        "items": {
-          "type": "pubkey"
-        },
-        "description": [
-          "An optional array of peer nodes to create blinded paths from.  One of these blinded paths will also be used for the invoice, when they request it.  This overrides the `payment-fronting-node` configuration setting.  If set to the empty array, this means *no fronting nodes*."
-        ],
-        "default": "The `payment-fronting-node` configuration setting"
-      },
       "dev_paths": {
         "hidden": true
       }
@@ -186,7 +175,7 @@
     "- 1000: Offer with this offer_id already exists (but is not active)."
   ],
   "author": [
-    "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
   ],
   "see_also": [
     "lightning-listoffers(7)",
@@ -194,7 +183,7 @@
     "lightning-invoicerequest(7)"
   ],
   "resources": [
-    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+    "Main web site: <https://github.com/ElementsProject/lightning>"
   ],
   "examples": [
     {

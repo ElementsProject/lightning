@@ -33,7 +33,6 @@
  * v6 with hsm_secret struct cleanup: 06c56396fe42f4f47911d7f865dd0004d264fc1348f89547743755b6b33fec90
  * v6 with hsm_secret_type TLV: 7bb5deb2367482feb084d304ee14b2373d42910ad56484fbf47614dbb3d4cb74
  * v6 with bip86_base in TLV: 6bb6e6ee256f22a6fb41856c90feebde3065a9074e79a46731e453a932be83f0
- * v6 with hsmd_sign_local_htlc_tx removed: 0e28ca3699196cf9d26d38f8f621d1bf68c76cf5e2cdc1f4157a6937b02dc2f6
  */
 #define HSM_MIN_VERSION 5
 #define HSM_MAX_VERSION 6

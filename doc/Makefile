@@ -9,16 +9,16 @@ MARKDOWNPAGES := doc/addgossip.7 \
 	doc/askrene-age.7 \
 	doc/askrene-bias-channel.7 \
 	doc/askrene-bias-node.7 \
-	doc/askrene-create-channel.7 \
 	doc/askrene-create-layer.7 \
+	doc/askrene-remove-layer.7 \
+	doc/askrene-create-channel.7 \
+	doc/askrene-update-channel.7 \
 	doc/askrene-disable-node.7 \
 	doc/askrene-inform-channel.7 \
 	doc/askrene-listlayers.7 \
 	doc/askrene-listreservations.7 \
-	doc/askrene-remove-layer.7 \
 	doc/askrene-reserve.7 \
 	doc/askrene-unreserve.7 \
-	doc/askrene-update-channel.7 \
 	doc/autoclean-once.7 \
 	doc/autoclean-status.7 \
 	doc/batching.7 \
@@ -35,7 +35,6 @@ MARKDOWNPAGES := doc/addgossip.7 \
 	doc/check.7 \
 	doc/checkmessage.7 \
 	doc/checkrune.7 \
-	doc/clnrest-register-path.7 \
 	doc/close.7 \
 	doc/commando.7 \
 	doc/connect.7 \
@@ -45,6 +44,7 @@ MARKDOWNPAGES := doc/addgossip.7 \
 	doc/datastore.7 \
 	doc/datastoreusage.7 \
 	doc/decode.7 \
+	doc/decodepay.7 \
 	doc/deldatastore.7 \
 	doc/delforward.7 \
 	doc/delinvoice.7 \
@@ -57,7 +57,7 @@ MARKDOWNPAGES := doc/addgossip.7 \
 	doc/disableoffer.7 \
 	doc/disconnect.7 \
 	doc/emergencyrecover.7 \
-	doc/enableoffer.7 \
+	doc/enableoffer.7	\
 	doc/exposesecret.7 \
 	doc/feerates.7 \
 	doc/fetchbip353.7 \
@@ -133,7 +133,6 @@ MARKDOWNPAGES := doc/addgossip.7 \
 	doc/showrunes.7 \
 	doc/signinvoice.7 \
 	doc/signmessage.7 \
-	doc/signmessagewithkey.7 \
 	doc/signpsbt.7 \
 	doc/splice_init.7 \
 	doc/splice_signed.7 \

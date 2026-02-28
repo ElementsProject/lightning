@@ -2,7 +2,6 @@
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/str/str.h>
-#include <common/utils.h>
 #include <common/version.h>
 #include <db/bindings.h>
 #include <db/common.h>
@@ -35,9 +34,6 @@ static bool db_migrate(struct lightningd *ld, struct db *db,
 	/* This is the final number, not the count! */
 	available = num_migrations - 1;
 	orig = current = db_get_version(db);
-
-	/* Disable STRICT for upgrades: legacy data may have wrong type affinity. */
-	db->in_migration = (current != -1);
 
 	if (current == -1)
 		log_info(ld->log, "Creating database");
@@ -115,8 +111,6 @@ struct db *db_setup(const tal_t *ctx, struct lightningd *ld,
 	migrated = db_migrate(ld, db, bip32_base);
 
 	db_commit_transaction(db);
-
-	db->in_migration = false;
 
 	/* This needs to be done outside a transaction, apparently.
 	 * It's a good idea to do this every so often, and on db
@@ -1075,47 +1069,3 @@ void migrate_fail_pending_payments_without_htlcs(struct lightningd *ld,
 	db_bind_int(stmt, payment_status_in_db(PAYMENT_PENDING));
 	db_exec_prepared_v2(take(stmt));
 }
-
-void migrate_fix_payments_faildetail_type(struct lightningd *ld UNUSED,
-					  struct db *db)
-{
-	struct db_stmt *stmt;
-
-	/* sqlite3 may have BLOB in TEXT column due to type affinity */
-	if (!streq(db->config->name, "sqlite3"))
-		return;
-
-	stmt = db_prepare_v2(db, SQL("SELECT id, faildetail "
-				     "FROM payments "
-				     "WHERE typeof(faildetail) = 'blob'"));
-	db_query_prepared(stmt);
-
-	while (db_step(stmt)) {
-		u64 id = db_col_u64(stmt, "id");
-		const u8 *blob = db_col_blob(stmt, "faildetail");
-		size_t len = db_col_bytes(stmt, "faildetail");
-		struct db_stmt *upd;
-
-		if (!utf8_check(blob, len)) {
-			upd = db_prepare_v2(db,
-				SQL("UPDATE payments "
-				    "SET faildetail = NULL "
-				    "WHERE id = ?"));
-			db_bind_u64(upd, id);
-			db_exec_prepared_v2(take(upd));
-			continue;
-		}
-
-		char *text = tal_strndup(tmpctx, (char *)blob, len);
-		upd = db_prepare_v2(db,
-			SQL("UPDATE payments "
-			    "SET faildetail = ? "
-			    "WHERE id = ?"));
-		db_bind_text(upd, text);
-		db_bind_u64(upd, id);
-		db_exec_prepared_v2(take(upd));
-	}
-
-	tal_free(stmt);
-}
-

@@ -2,7 +2,7 @@
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
   "rpc": "getlog",
-  "title": "Command to show recent logs.",
+  "title": "Command to show logs.",
   "description": [
     "The **getlog** the RPC command to show logs, with optional log *level*."
   ],
@@ -176,7 +176,8 @@
                 "required": [
                   "time",
                   "source",
-                  "log"
+                  "log",
+                  "data"
                 ],
                 "properties": {
                   "type": {},
@@ -224,11 +225,11 @@
     "- -32602: Error in given parameters."
   ],
   "author": [
-    "Vincenzo Palazzo [vincenzo.palazzo@protonmail.com](mailto:vincenzo.palazzo@protonmail.com) wrote the initial version of this man page,",
+    "Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page,",
     "but many others did the hard work of actually implementing this rpc command."
   ],
   "resources": [
-    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+    "Main web site: <https://github.com/ElementsProject/lightning>"
   ],
   "examples": [
     {
