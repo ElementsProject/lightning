@@ -2,7 +2,7 @@ from fixtures import *  # noqa: F401,F403
 import subprocess
 from pathlib import PosixPath, Path
 import socket
-from pyln.testing.utils import VALGRIND
+from pyln.testing.utils import VALGRIND, SLOW_MACHINE
 import pytest
 import os
 import re
@@ -224,32 +224,6 @@ def test_search(node_factory):
     assert r.search_stdout('found testplugpass in source: https://github.com/lightningd/plugins')
 
 
-def test_search_partial_match(node_factory):
-    """test that partial/substring search returns multiple matches"""
-    n = get_reckless_node(node_factory)
-
-    # Search for partial name "testplug" - should find all test plugins
-    r = reckless([f"--network={NETWORK}", "search", "testplug"], dir=n.lightning_dir)
-    # Should show the "Plugins matching" header
-    assert r.search_stdout("Plugins matching 'testplug':")
-    # Should list multiple plugins (all start with "testplug")
-    assert r.search_stdout('testplugpass')
-    assert r.search_stdout('testplugfail')
-    assert r.search_stdout('testplugpyproj')
-    assert r.search_stdout('testpluguv')
-
-    # Search for "pass" - should find testplugpass
-    r = reckless([f"--network={NETWORK}", "search", "pass"], dir=n.lightning_dir)
-    assert r.search_stdout("Plugins matching 'pass':")
-    assert r.search_stdout('testplugpass')
-    # Should not find plugins without "pass" in name
-    assert not r.search_stdout('testplugfail')
-
-    # Search for something that doesn't exist
-    r = reckless([f"--network={NETWORK}", "search", "nonexistent"], dir=n.lightning_dir)
-    assert r.search_stdout("Search exhausted all sources")
-
-
 def test_install(node_factory):
     """test search, git clone, and installation to folder."""
     n = get_reckless_node(node_factory)
@@ -377,9 +351,7 @@ def test_tag_install(node_factory):
             header = line
 
 
-# Note: uv timeouts from the GH network seem to happen?
-@pytest.mark.slow_test
-@pytest.mark.flaky(reruns=3)
+@unittest.skipIf(VALGRIND and SLOW_MACHINE, "node too slow for starting plugin under valgrind")
 def test_reckless_uv_install(node_factory):
     node = get_reckless_node(node_factory)
     node.start()

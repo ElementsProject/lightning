@@ -127,14 +127,14 @@
     }
   },
   "author": [
-    "Eduardo Quintana-Miranda [eduardo.quintana@pm.me](mailto:eduardo.quintana@pm.me) is mainly responsible."
+    "Eduardo Quintana-Miranda <<eduardo.quintana@pm.me>> is mainly responsible."
   ],
   "see_also": [
     "lightning-renepay(7)",
     "lightning-listpays(7)"
   ],
   "resources": [
-    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+    "Main web site: <https://github.com/ElementsProject/lightning>"
   ],
   "examples": [
     {

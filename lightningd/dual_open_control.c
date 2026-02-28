@@ -162,8 +162,11 @@ void json_add_unsaved_channel(struct command *cmd,
 
 	if (feature_negotiated(channel->peer->ld->our_features,
 			       channel->peer->their_features,
-			       OPT_ANCHORS_ZERO_FEE_HTLC_TX))
+			       OPT_ANCHORS_ZERO_FEE_HTLC_TX)) {
+		if (command_deprecated_out_ok(cmd, "features", "v24.08", "v25.09"))
+			json_add_string(response, NULL, "option_anchors_zero_fee_htlc_tx");
 		json_add_string(response, NULL, "option_anchors");
+	}
 
 	json_array_end(response);
 	json_object_end(response);
@@ -2251,7 +2254,7 @@ static bool verify_option_will_fund_signature(struct peer *peer,
 static void handle_validate_lease(struct subd *dualopend,
 				  const u8 *msg)
 {
-	secp256k1_ecdsa_signature sig = {{0}};
+	const secp256k1_ecdsa_signature sig;
 	u16 chan_fee_max_ppt;
 	u32 chan_fee_max_base_msat, lease_expiry;
 	struct pubkey their_pubkey;

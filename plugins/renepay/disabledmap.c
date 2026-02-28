@@ -47,7 +47,7 @@ void disabledmap_add_channel(struct disabledmap *p,
 			     struct short_channel_id_dir scidd)
 {
 	struct short_channel_id_dir *ptr_scidd =
-	    scidd_map_get(p->disabled_map, &scidd);
+	    scidd_map_get(p->disabled_map, scidd);
 	if (ptr_scidd) {
 		/* htable allows for duplicates, but we don't want duplicates.
 		 */
@@ -64,7 +64,7 @@ void disabledmap_warn_channel(struct disabledmap *p,
 			      struct short_channel_id_dir scidd)
 {
 	struct short_channel_id_dir *ptr_scidd =
-	    scidd_map_get(p->warned_map, &scidd);
+	    scidd_map_get(p->warned_map, scidd);
 	if (ptr_scidd) {
 		/* htable allows for duplicates, but we don't want duplicates.
 		 */
@@ -84,7 +84,7 @@ void disabledmap_add_node(struct disabledmap *p, struct node_id node)
 bool disabledmap_channel_is_warned(struct disabledmap *p,
 				   struct short_channel_id_dir scidd)
 {
-	return scidd_map_get(p->warned_map, &scidd) != NULL;
+	return scidd_map_get(p->warned_map, scidd) != NULL;
 }
 
 bitmap *tal_disabledmap_get_bitmap(const tal_t *ctx, struct disabledmap *p,

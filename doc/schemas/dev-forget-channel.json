@@ -79,7 +79,7 @@
     "- -1: Catch all nonspecific errors, eg. `Multiple channels: please specify short_channel_id.` OR `No channels matching that peer_id and that short_channel_id.`, etc."
   ],
   "author": [
-    "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
   ],
   "see_also": [
     "lightning-close(7)",
@@ -88,7 +88,7 @@
     "lightning-listfunds(7)"
   ],
   "resources": [
-    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+    "Main web site: <https://github.com/ElementsProject/lightning>"
   ],
   "examples": [
     {

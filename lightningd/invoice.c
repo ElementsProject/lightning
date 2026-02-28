@@ -660,25 +660,6 @@ static struct route_info **select_inchan_mpp(const tal_t *ctx,
 	return routehints;
 }
 
-static struct route_info **select_inchan_all(const tal_t *ctx,
-					     struct lightningd *ld,
-					     struct routehint_candidate
-					     *candidates)
-{
-	struct route_info **routehints;
-
-	log_debug(ld->log, "Selecting all %zu candidates",
-		  tal_count(candidates));
-
-	routehints = tal_arr(ctx, struct route_info *, tal_count(candidates));
-	for (size_t i = 0; i < tal_count(candidates); i++) {
-		routehints[i] = tal_dup(routehints, struct route_info,
-					candidates[i].r);
-	}
-
-	return routehints;
-}
-
 /* Encapsulating struct while we wait for gossipd to give us incoming channels */
 struct chanhints {
 	bool expose_all_private;
@@ -740,10 +721,6 @@ add_routehints(struct invoice_info *info,
 
 	needed = info->b11->msat ? *info->b11->msat : AMOUNT_MSAT(1);
 
-	/* --payment-fronting-node means use all candidates. */
-	if (tal_count(info->cmd->ld->fronting_nodes))
-		info->b11->routes = select_inchan_all(info->b11, info->cmd->ld, candidates);
-
 	/* If we are not completely unpublished, try with reservoir
 	 * sampling first.
 	 *
@@ -759,7 +736,7 @@ add_routehints(struct invoice_info *info,
 	 * should make an effort to avoid overlapping incoming
 	 * channels, which is done by select_inchan_mpp.
 	 */
-	else if (!node_unpublished)
+	if (!node_unpublished)
 		info->b11->routes = select_inchan(info->b11,
 						  info->cmd->ld,
 						  needed,
@@ -1571,6 +1548,45 @@ static const struct json_command waitinvoice_command = {
 	json_waitinvoice,
 };
 AUTODATA(json_command, &waitinvoice_command);
+
+static struct command_result *json_decodepay(struct command *cmd,
+					     const char *buffer,
+					     const jsmntok_t *obj UNNEEDED,
+					     const jsmntok_t *params)
+{
+	struct bolt11 *b11;
+	struct json_stream *response;
+	const char *str, *desc;
+	char *fail;
+
+	if (!param_check(cmd, buffer, params,
+			 p_req("bolt11", param_invstring, &str),
+			 p_opt("description", param_escaped_string, &desc),
+			 NULL))
+		return command_param_failed();
+
+	b11 = bolt11_decode(cmd, str, cmd->ld->our_features, desc, NULL,
+			    &fail);
+
+	if (!b11) {
+		return command_fail(cmd, LIGHTNINGD, "Invalid bolt11: %s", fail);
+	}
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
+
+	response = json_stream_success(cmd);
+	json_add_bolt11(response, b11);
+	return command_success(cmd, response);
+}
+
+static const struct json_command decodepay_command = {
+	"decodepay",
+	json_decodepay,
+	.depr_start = "v24.11",
+	.depr_end = "v25.12"
+};
+AUTODATA(json_command, &decodepay_command);
 
 /* If we fail because it exists, we also return the clashing invoice */
 static struct command_result *fail_exists(struct command *cmd,

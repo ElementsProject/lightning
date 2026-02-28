@@ -134,14 +134,14 @@
     "- -32602: JSONRPC2_INVALID_PARAMS, i.e. the parameter is not dynamic, or the val was invalid."
   ],
   "author": [
-    "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible for this feature."
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible for this feature."
   ],
   "see_also": [
     "lightningd-config(5)",
     "lightning-listconfigs(7)"
   ],
   "resources": [
-    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+    "Main web site: <https://github.com/ElementsProject/lightning>"
   ],
   "examples": [
     {

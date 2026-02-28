@@ -28,7 +28,7 @@ def test_pay_fakenet(node_factory):
     gsfile, nodemap = generate_gossip_store([GenChannel(0, 1, capacity_sats=100_000),
                                              GenChannel(1, 2, capacity_sats=100_000),
                                              GenChannel(2, 3, capacity_sats=200_000)],
-                                            nodemap={0: '033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a'})
+                                            nodemap={0: '022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59'})
 
     # l2 will warn l1 about its invalid gossip: ignore.
     l1, l2 = node_factory.line_graph(2,
@@ -172,10 +172,10 @@ def test_xpay_simple(node_factory):
     b11 = l4.rpc.invoice('10000msat', 'test_xpay_simple', 'test_xpay_simple bolt11')['bolt11']
     l1.rpc.xpay(b11)
 
-    # BOLT 12 (with payer_note specified).
+    # BOLT 12.
     offer = l3.rpc.offer('any')['bolt12']
     b12 = l1.rpc.fetchinvoice(offer, '100000msat')['invoice']
-    l1.rpc.xpay(invstring=b12, payer_note="Payment for a cup of coffee")
+    l1.rpc.xpay(b12)
 
     # Failure from l4.
     b11 = l4.rpc.invoice('10000msat', 'test_xpay_simple2', 'test_xpay_simple2 bolt11')['bolt11']
@@ -213,10 +213,6 @@ def test_xpay_selfpay(node_factory):
     l1.rpc.xpay(b12)
 
 
-# These were obviously having a bad day at the time of the snapshot:
-canned_gossmap_badnodes = [19, 53, 69, 72, 86]
-
-
 @pytest.mark.slow_test
 @unittest.skipIf(TEST_NETWORK != 'regtest', '29-way split for node 17 is too dusty on elements')
 @pytest.mark.parametrize("slow_mode", [False, True])
@@ -224,11 +220,10 @@ def test_xpay_fake_channeld(node_factory, bitcoind, chainparams, slow_mode):
     outfile = tempfile.NamedTemporaryFile(prefix='gossip-store-')
     nodeids = subprocess.check_output(['devtools/gossmap-compress',
                                        'decompress',
-                                       '--node-map=2134=033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a',
-                                       'tests/data/gossip-store-2026-02-03.compressed',
+                                       '--node-map=3301=022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59',
+                                       'tests/data/gossip-store-2024-09-22.compressed',
                                        outfile.name]).decode('utf-8').splitlines()
-    # 100,000sat gave no failures at all, which is not very interesting!
-    AMOUNT = 500_000_000
+    AMOUNT = 100_000_000
 
     # l2 will warn l1 about its invalid gossip: ignore.
     # We throttle l1's gossip to avoid massive log spam.
@@ -259,7 +254,7 @@ def test_xpay_fake_channeld(node_factory, bitcoind, chainparams, slow_mode):
     l1.rpc.setconfig('xpay-slow-mode', slow_mode)
     failed_parts = []
     for n in range(0, 100):
-        if n in canned_gossmap_badnodes:
+        if n in (62, 76, 80, 97):
             continue
 
         print(f"PAYING Node #{n}")
@@ -281,12 +276,12 @@ def test_xpay_fake_channeld(node_factory, bitcoind, chainparams, slow_mode):
     # Should be no reservations left (clean up happens after return though)
     wait_for(lambda: l1.rpc.askrene_listreservations() == {'reservations': []})
 
-    # Wait for temporary layers to be gone too.
-    wait_for(lambda: len(l1.rpc.askrene_listlayers()['layers']) == 1)
-
     # It should remember the information it learned across restarts!
     # FIXME: channeld_fakenet doesn't restart properly, so just redo xpay.
     layers = l1.rpc.askrene_listlayers()
+    # Temporary layers should be gone.
+    assert len(layers['layers']) == 1
+
     l1.rpc.plugin_stop("cln-askrene")
     l1.rpc.plugin_start(os.path.join(os.getcwd(), 'plugins/cln-askrene'))
     layers_after = l1.rpc.askrene_listlayers()
@@ -294,7 +289,7 @@ def test_xpay_fake_channeld(node_factory, bitcoind, chainparams, slow_mode):
 
     failed_parts_retry = []
     for n in range(0, 100):
-        if n in canned_gossmap_badnodes:
+        if n in (62, 76, 80, 97):
             continue
 
         print(f"PAYING Node #{n}")
@@ -542,6 +537,56 @@ def test_xpay_preapprove(node_factory):
         l1.rpc.xpay(inv)
 
 
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'too dusty on elements')
+@pytest.mark.slow_test
+def test_xpay_maxfee(node_factory, bitcoind, chainparams):
+    """Test which shows that we don't excees maxfee"""
+    outfile = tempfile.NamedTemporaryFile(prefix='gossip-store-')
+    subprocess.check_output(['devtools/gossmap-compress',
+                             'decompress',
+                             '--node-map=3301=022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59',
+                             'tests/data/gossip-store-2024-09-22.compressed',
+                             outfile.name]).decode('utf-8').splitlines()
+    AMOUNT = 100_000_000
+
+    # l2 will warn l1 about its invalid gossip: ignore.
+    # We throttle l1's gossip to avoid massive log spam.
+    l1, l2 = node_factory.line_graph(2,
+                                     # This is in sats, so 1000x amount we send.
+                                     fundamount=AMOUNT,
+                                     opts=[{'gossip_store_file': outfile.name,
+                                            'subdaemon': 'channeld:../tests/plugins/channeld_fakenet',
+                                            'allow_warning': True,
+                                            'dev-throttle-gossip': None},
+                                           {'allow_bad_gossip': True}])
+
+    # l1 needs to know l2's shaseed for the channel so it can make revocations
+    hsmfile = os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
+    # Needs peer node id and channel dbid (1, it's the first channel), prints out:
+    # "shaseed: xxxxxxx\n"
+    shaseed = subprocess.check_output(["tools/lightning-hsmtool", "dumpcommitments", l1.info['id'], "1", "0", hsmfile]).decode('utf-8').strip().partition(": ")[2]
+    l1.rpc.dev_peer_shachain(l2.info['id'], shaseed)
+
+    # This one triggers the bug!
+    n = 59
+    maxfee = 57966
+    preimage_hex = bytes([n + 100]).hex() + '00' * 31
+    hash_hex = sha256(bytes.fromhex(preimage_hex)).hexdigest()
+    inv = subprocess.check_output(["devtools/bolt11-cli",
+                                   "encode",
+                                   n.to_bytes(length=8, byteorder=sys.byteorder).hex() + '01' * 24,
+                                   f"currency={chainparams['bip173_prefix']}",
+                                   f"p={hash_hex}",
+                                   "9=020000",  # option_basic_mpp
+                                   f"s={'00' * 32}",
+                                   f"d=Paying node {n} with maxfee",
+                                   f"amount={AMOUNT}msat"]).decode('utf-8').strip()
+
+    ret = l1.rpc.xpay(invstring=inv, maxfee=maxfee)
+    fee = ret['amount_sent_msat'] - ret['amount_msat']
+    assert fee <= maxfee
+
+
 def test_xpay_maxdelay(node_factory):
     l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
 
@@ -610,7 +655,7 @@ def test_xpay_no_mpp(node_factory, chainparams):
     b11_no_mpp = subprocess.check_output(["devtools/bolt11-cli",
                                           "encode",
                                           # secret for l3
-                                          "79893b45d1e57cf2ebf302af91aa52c9e573f638a61a83c6e603a331b53f452c",
+                                          "dae24b3853e1443a176daba5544ee04f7db33ebe38e70bdfdb1da34e89512c10",
                                           f"currency={chainparams['bip173_prefix']}",
                                           f"p={no_mpp['payment_hash']}",
                                           f"s={no_mpp['payment_secret']}",
@@ -627,12 +672,12 @@ def test_xpay_no_mpp(node_factory, chainparams):
 
 @pytest.mark.parametrize("deprecations", [False, True])
 def test_xpay_bolt12_no_mpp(node_factory, chainparams, deprecations):
-    """If we force it, we use MPP even if BOLT12 invoice doesn't say we should"""
+    """In deprecated mode, we use MPP even if BOLT12 invoice doesn't say we should"""
     # l4 needs dev-allow-localhost so it considers itself to have an advertized address, and doesn't create a blinded path from l2/l4.
     opts = [{}, {}, {'dev-force-features': -17, 'dev-allow-localhost': None}, {}]
     if deprecations is True:
         for o in opts:
-            o['i-promise-to-fix-broken-api-user'] = 'xpay.ignore_bolt12_mpp'
+            o['allow-deprecated-apis'] = True
             o['broken_log'] = 'DEPRECATED API USED: xpay.ignore_bolt12_mpp'
 
     l1, l2, l3, l4 = node_factory.get_nodes(4, opts=opts)
@@ -731,7 +776,7 @@ def test_fail_after_success(node_factory, bitcoind, executor, slow_mode):
     l2.daemon.wait_for_log('Peer permanent failure in CHANNELD_NORMAL: Offered HTLC 0 SENT_ADD_ACK_REVOCATION cltv 124 hit deadline')
     bitcoind.generate_block(3, wait_for_mempool=1)
 
-    l1.daemon.wait_for_log(r"UNUSUAL.*Destination accepted partial payment, failed a part \(Error permanent_channel_failure for path ->033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a->02287bfac8b99b35477ebe9334eede1e32b189e24644eb701c079614712331cec0->0258f3ff3e0853ccc09f6fe89823056d7c0c55c95fab97674df5e1ad97a72f6265, from 033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a\)")
+    l1.daemon.wait_for_log(r"UNUSUAL.*Destination accepted partial payment, failed a part \(Error permanent_channel_failure for path ->022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59->0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199->032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e, from 022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59\)")
     # Could be either way around, check both
     line = l1.daemon.is_in_log(r"UNUSUAL.*Destination accepted partial payment, failed a part")
     assert re.search(r'but accepted only .* of 800000000msat\.  Winning\?!', line)

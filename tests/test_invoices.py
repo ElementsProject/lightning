@@ -407,10 +407,9 @@ def test_invoice_expiry(node_factory, executor):
 
     # Test expiration waiting.
     # The second invoice created expires first.
-    # Times should be long enough even for our terrible CI runners!
-    l2.rpc.invoice('any', 'inv1', 'description', 16)
-    l2.rpc.invoice('any', 'inv2', 'description', 10)
-    l2.rpc.invoice('any', 'inv3', 'description', 22)
+    l2.rpc.invoice('any', 'inv1', 'description', 10)
+    l2.rpc.invoice('any', 'inv2', 'description', 4)
+    l2.rpc.invoice('any', 'inv3', 'description', 16)
 
     # Check waitinvoice correctly waits
     w1 = executor.submit(l2.rpc.waitinvoice, 'inv1')
@@ -420,18 +419,19 @@ def test_invoice_expiry(node_factory, executor):
     assert not w1.done()
     assert not w2.done()
     assert not w3.done()
-    time.sleep(7)  # total 9
+    time.sleep(4)  # total 6
     assert not w1.done()
 
-    with pytest.raises(RpcError):  # total 10
+    with pytest.raises(RpcError):
         w2.result()
     assert not w3.done()
 
-    time.sleep(5)  # total 15
-    with pytest.raises(RpcError):  # total 16
+    time.sleep(6)  # total 12
+    with pytest.raises(RpcError):
         w1.result()
     assert not w3.done()
 
+    time.sleep(8)  # total 20
     with pytest.raises(RpcError):
         w3.result()
 
@@ -668,7 +668,7 @@ def test_wait_invoices(node_factory, executor):
 
     # Now ask for 1.
     waitfut = executor.submit(l2.rpc.call, 'wait', {'subsystem': 'invoices', 'indexname': 'created', 'nextvalue': 1})
-    l2.daemon.wait_for_log('waiting on invoices created 1')
+    time.sleep(1)
 
     inv = l2.rpc.invoice(42, 'invlabel', 'invdesc')
     waitres = waitfut.result(TIMEOUT)
@@ -691,7 +691,7 @@ def test_wait_invoices(node_factory, executor):
                        'updated': 0}
 
     waitfut = executor.submit(l2.rpc.call, 'wait', {'subsystem': 'invoices', 'indexname': 'updated', 'nextvalue': 1})
-    l2.daemon.wait_for_log('waiting on invoices updated 1')
+    time.sleep(1)
     l1.rpc.pay(inv['bolt11'])
     waitres = waitfut.result(TIMEOUT)
     assert waitres == {'subsystem': 'invoices',
@@ -724,7 +724,7 @@ def test_wait_invoices(node_factory, executor):
                        'deleted': 0}
 
     waitfut = executor.submit(l2.rpc.call, 'wait', {'subsystem': 'invoices', 'indexname': 'deleted', 'nextvalue': 1})
-    l2.daemon.wait_for_log('waiting on invoices deleted 1')
+    time.sleep(1)
     l2.rpc.delinvoice('invlabel', 'paid')
     waitres = waitfut.result(TIMEOUT)
 
@@ -741,8 +741,7 @@ def test_wait_invoices(node_factory, executor):
 
     # Now check autoclean works.
     waitfut = executor.submit(l2.rpc.call, 'wait', {'subsystem': 'invoices', 'indexname': 'deleted', 'nextvalue': 2})
-    l2.daemon.wait_for_log('waiting on invoices deleted 2')
-    time.sleep(1)
+    time.sleep(2)
     l2.rpc.autoclean_once('expiredinvoices', 1)
     waitres = waitfut.result(TIMEOUT)
 
@@ -754,7 +753,7 @@ def test_wait_invoices(node_factory, executor):
 
     # Creating a new on gives us 3, not another 2!
     waitfut = executor.submit(l2.rpc.call, 'wait', {'subsystem': 'invoices', 'indexname': 'created', 'nextvalue': 3})
-    l2.daemon.wait_for_log('waiting on invoices created 3')
+    time.sleep(1)
     inv = l2.rpc.invoice(42, 'invlabel2', 'invdesc2', deschashonly=True)
     waitres = waitfut.result(TIMEOUT)
     assert waitres == {'subsystem': 'invoices',
@@ -767,7 +766,7 @@ def test_wait_invoices(node_factory, executor):
 
     # Deleting a description causes updated to fire!
     waitfut = executor.submit(l2.rpc.call, 'wait', {'subsystem': 'invoices', 'indexname': 'updated', 'nextvalue': 3})
-    l2.daemon.wait_for_log('waiting on invoices updated 3')
+    time.sleep(1)
     l2.rpc.delinvoice('invlabel2', status='unpaid', desconly=True)
     waitres = waitfut.result(TIMEOUT)
     assert waitres == {'subsystem': 'invoices',
@@ -820,7 +819,7 @@ def test_invoice_deschash(node_factory, chainparams):
     assert inv['description'] == b11['description_hash']
 
 
-def test_listinvoices_index(node_factory):
+def test_listinvoices_index(node_factory, executor):
     l1, l2 = node_factory.line_graph(2)
 
     invs = {}
@@ -864,7 +863,7 @@ def test_listinvoices_index(node_factory):
         assert only_one(l2.rpc.listinvoices(index='updated', start=i, limit=1)['invoices'])['label'] == str(70 + 1 - i)
 
 
-def test_unified_invoices(node_factory, bitcoind):
+def test_unified_invoices(node_factory, executor, bitcoind):
     l1, l2 = node_factory.line_graph(2, opts={'invoices-onchain-fallback': None})
     amount_sat = 1000
     inv = l1.rpc.invoice(amount_sat * 1000, "inv1", "test_unified_invoices")
@@ -919,7 +918,6 @@ def test_invoices_wait_db_migration(node_factory, bitcoind):
     bitcoind.generate_block(28)
     l2 = node_factory.get_node(node_id=2,
                                dbfile='invoices_pre_waitindex.sqlite3.xz',
-                               old_hsmsecret=True,
                                options={'database-upgrade': True})
 
     # And now we crash:
@@ -934,104 +932,11 @@ def test_invoice_botched_migration(node_factory, chainparams):
     Error executing statement: wallet/db.c:1684: UPDATE vars SET name = 'last_invoices_created_index' WHERE name = 'last_invoice_created_index': UNIQUE constraint failed: vars.name
     """
     l1 = node_factory.get_node(dbfile='invoices_botched_waitindex_migrate.sqlite3.xz',
-                               old_hsmsecret=True,
                                options={'database-upgrade': True})
 
     assert ([(i['created_index'], i['label']) for i in l1.rpc.listinvoices()["invoices"]]
             == [(1, "made_after_bad_migration"), (2, "label1")])
     assert l1.rpc.invoice(100, "test", "test")["created_index"] == 3
-
-
-def test_payment_fronting(node_factory):
-    # Nodes will not front for offers if they don't have an advertized address, so allow localhost.
-    l1, l2 = node_factory.get_nodes(2, opts={'dev-allow-localhost': None})
-    l3, l4 = node_factory.get_nodes(2, opts=[{'payment-fronting-node': l1.info['id'],
-                                              'dev-allow-localhost': None},
-                                             {'payment-fronting-node': [l1.info['id'], l2.info['id']],
-                                              'dev-allow-localhost': None}])
-
-    assert l3.rpc.listconfigs('payment-fronting-node') == {'configs': {'payment-fronting-node': {'sources': ['cmdline'], 'values_str': [l1.info['id']]}}}
-    assert l4.rpc.listconfigs('payment-fronting-node') == {'configs': {'payment-fronting-node': {'sources': ['cmdline', 'cmdline'], 'values_str': [l1.info['id'], l2.info['id']]}}}
-
-    # l1  <----> l3
-    #   \
-    #    \-----> l4 <----> l2
-    node_factory.join_nodes([l1, l3], wait_for_announce=True)
-    node_factory.join_nodes([l1, l4], wait_for_announce=True)
-    node_factory.join_nodes([l2, l4], wait_for_announce=True)
-
-    l3inv = l3.rpc.invoice(1000, 'l3inv', 'l3inv')['bolt11']
-    assert only_one(only_one(l3.rpc.decode(l3inv)['routes']))['pubkey'] == l1.info['id']
-
-    l4inv = l4.rpc.invoice(1000, 'l4inv', 'l4inv')['bolt11']
-    assert [only_one(r)['pubkey'] for r in l4.rpc.decode(l4inv)['routes']] == [l1.info['id'], l2.info['id']]
-
-    l1.rpc.xpay(l3inv)
-    l1.rpc.xpay(l4inv)
-
-    # Now test offers.
-    l3offer = l3.rpc.offer(1000, 'l3offer', 'l3offer')['bolt12']
-    assert only_one(l3.rpc.decode(l3offer)['offer_paths'])['first_node_id'] == l1.info['id']
-
-    l4offer = l4.rpc.offer(1000, 'l4offer', 'l4offer')['bolt12']
-    assert [r['first_node_id'] for r in l4.rpc.decode(l4offer)['offer_paths']] == [l1.info['id'], l2.info['id']]
-
-    l3invb12 = l1.rpc.fetchinvoice(l3offer)['invoice']
-    l4invb12 = l1.rpc.fetchinvoice(l4offer)['invoice']
-
-    assert only_one(l3.rpc.decode(l3invb12)['invoice_paths'])['first_node_id'] == l1.info['id']
-    # Given multiple, it will pick one.
-    assert only_one(l3.rpc.decode(l4invb12)['invoice_paths'])['first_node_id'] in (l1.info['id'], l2.info['id'])
-
-    l1.rpc.xpay(l3invb12)
-    l1.rpc.xpay(l4invb12)
-
-    # Balance so l3 can pay ->l1->l4.
-    l3inv2 = l3.rpc.invoice(10000000, 'l3inv2', 'l3inv2')['bolt11']
-    l1.rpc.xpay(l3inv2)
-
-    # When l3 creates an invoice request, it will also use the fronting nodes.
-    l3invreq = l3.rpc.invoicerequest(amount=1000, description='l3invreq')['bolt12']
-    assert only_one(l3.rpc.decode(l3invreq)['invreq_paths'])['first_node_id'] == l1.info['id']
-    l4.rpc.sendinvoice(invreq=l3invreq, label='l3invreq')
-
-    # We can explicitly override offers: make it use a specific node
-    l4offer_front2 = l4.rpc.offer(1000, 'l4offer', 'l4offer', fronting_nodes=[l2.info['id']])['bolt12']
-    assert [r['first_node_id'] for r in l4.rpc.decode(l4offer_front2)['offer_paths']] == [l2.info['id']]
-
-    # ... or make it not front at all
-    l4offer_nofront = l4.rpc.offer(1000, 'l4offer', 'l4offer', fronting_nodes=[])['bolt12']
-    assert 'offer_paths' not in l4.rpc.decode(l4offer_nofront)
-
-
-def test_offer_fronting(node_factory):
-    # l1 -> l2 -> l3
-    #         \   /
-    #          l4
-    # Nodes will not front for offers if they don't have an advertized address.
-    l1, l2, l3, l4 = node_factory.get_nodes(4, opts={'dev-allow-localhost': None})
-    node_factory.join_nodes([l1, l2, l3], wait_for_announce=True)
-    node_factory.join_nodes([l2, l4], wait_for_announce=True)
-    node_factory.join_nodes([l3, l4], wait_for_announce=True)
-
-    offer_nofront = l4.rpc.offer("any", "nofront")['bolt12']
-    assert 'offer_paths' not in l1.rpc.decode(offer_nofront)
-    offer_front_l2 = l4.rpc.offer("any", "frontl2", fronting_nodes=[l2.info['id']])['bolt12']
-    assert only_one(l1.rpc.decode(offer_front_l2)['offer_paths'])['first_node_id'] == l2.info['id']
-    offer_front_l2l3 = l4.rpc.offer("any", "frontl2l3", fronting_nodes=[l2.info['id'], l3.info['id']])['bolt12']
-    assert [p['first_node_id'] for p in l1.rpc.decode(offer_front_l2l3)['offer_paths']] == [l2.info['id'], l3.info['id']]
-
-    inv_nofront = l1.rpc.fetchinvoice(offer_nofront, 1)['invoice']
-    assert only_one(l1.rpc.decode(inv_nofront)['invoice_paths'])['first_node_id'] == l4.info['id']
-    l1.rpc.xpay(inv_nofront)
-
-    inv_front_l2 = l1.rpc.fetchinvoice(offer_front_l2, 2)['invoice']
-    assert only_one(l1.rpc.decode(inv_front_l2)['invoice_paths'])['first_node_id'] == l2.info['id']
-    l1.rpc.xpay(inv_front_l2)
-
-    inv_front_l2l3 = l1.rpc.fetchinvoice(offer_front_l2l3, 3)['invoice']
-    assert only_one(l1.rpc.decode(inv_front_l2l3)['invoice_paths'])['first_node_id'] in (l2.info['id'], l3.info['id'])
-    l1.rpc.xpay(inv_front_l2l3)
 
 
 def test_invoice_maxdesc(node_factory, chainparams):

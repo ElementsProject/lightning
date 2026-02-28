@@ -36,9 +36,6 @@ struct invreq {
 
 	/* Optional secret. */
 	const struct secret *secret;
-
-	/* Fronting nodes to use for invoice. */
-	const struct pubkey *fronting_nodes;
 };
 
 static struct command_result *WARN_UNUSED_RESULT
@@ -253,10 +250,6 @@ static struct command_result *create_invoicereq(struct command *cmd,
 	return send_outreq(req);
 }
 
-/* FIXME: Allow multihop! */
-/* FIXME: And add padding! */
-
-
 /* FIXME: This is naive:
  * - Only creates if we have no public channels.
  * - Always creates a path from direct neighbor.
@@ -267,8 +260,6 @@ static struct command_result *found_best_peer(struct command *cmd,
 					      const struct chaninfo *best,
 					      struct invreq *ir)
 {
-	struct offers_data *od = get_offers_data(cmd->plugin);
-
 	/* BOLT #12:
 	 * - MUST include `invoice_paths` containing one or more paths to the node.
 	 * - MUST specify `invoice_paths` in order of most-preferred to
@@ -277,15 +268,6 @@ static struct command_result *found_best_peer(struct command *cmd,
 	 *   for each `blinded_path` in `paths`, in order.
 	 */
 	if (!best) {
-		/* Don't allow bare invoices if they explicitly told us to front */
-		if (ir->fronting_nodes) {
-			return fail_invreq(cmd, ir,
-					   "Could not find path from %zu nodes (%s%s)",
-					   tal_count(ir->fronting_nodes),
-					   fmt_pubkey(tmpctx, &ir->fronting_nodes[0]),
-					   tal_count(ir->fronting_nodes) > 1 ? ", ..." : "");
-		}
-
 		/* Note: since we don't make one, createinvoice adds a dummy. */
 		plugin_log(cmd->plugin, LOG_UNUSUAL,
 			   "No incoming channel for %s, so no blinded path",
@@ -300,11 +282,11 @@ static struct command_result *found_best_peer(struct command *cmd,
 		/* Make a small 1-hop path to us */
 		ids = tal_arr(tmpctx, struct pubkey, 2);
 		ids[0] = best->id;
-		ids[1] = od->id;
+		ids[1] = id;
 
 		/* This does nothing unless dev_invoice_internal_scid is set */
 		scids = tal_arrz(tmpctx, struct short_channel_id *, 2);
-		scids[1] = od->dev_invoice_internal_scid;
+		scids[1] = dev_invoice_internal_scid;
 
 		/* Make basic tlvs, add payment restrictions */
 		etlvs = new_encdata_tlvs(tmpctx, ids,
@@ -324,9 +306,9 @@ static struct command_result *found_best_peer(struct command *cmd,
 		 *     - MUST set `invoice_relative_expiry`
 		 */
 		if (ir->inv->invoice_relative_expiry)
-			base = od->blockheight + *ir->inv->invoice_relative_expiry / 600;
+			base = blockheight + *ir->inv->invoice_relative_expiry / 600;
 		else
-			base = od->blockheight + 7200 / 600;
+			base = blockheight + 7200 / 600;
 
 		/* BOLT #4:
 		 * - MUST set `encrypted_data_tlv.payment_constraints`
@@ -344,12 +326,12 @@ static struct command_result *found_best_peer(struct command *cmd,
 		 * payments fail in practice!  We add 1008 (half the max possible) */
 		etlvs[0]->payment_constraints = tal(etlvs[0],
 						    struct tlv_encrypted_data_tlv_payment_constraints);
-		etlvs[0]->payment_constraints->max_cltv_expiry = 1008 + base + best->cltv + od->cltv_final;
+		etlvs[0]->payment_constraints->max_cltv_expiry = 1008 + base + best->cltv + cltv_final;
 		etlvs[0]->payment_constraints->htlc_minimum_msat = best->htlc_min.millisatoshis; /* Raw: tlv */
 
 		/* So we recognize this payment */
 		etlvs[1]->path_id = bolt12_path_id(etlvs[1],
-						   &od->invoicesecret_base,
+						   &invoicesecret_base,
 						   ir->inv->invoice_payment_hash);
 
 		ir->inv->invoice_paths = tal_arr(ir->inv, struct blinded_path *, 1);
@@ -360,7 +342,7 @@ static struct command_result *found_best_peer(struct command *cmd,
 
 		/* If they tell us to use scidd for first point, grab
 		 * a channel from node (must exist, it's public) */
-		if (od->dev_invoice_bpath_scid) {
+		if (dev_invoice_bpath_scid) {
 			struct gossmap *gossmap = get_gossmap(cmd->plugin);
 			struct node_id best_nodeid;
 			const struct gossmap_node *n;
@@ -384,7 +366,7 @@ static struct command_result *found_best_peer(struct command *cmd,
 		ir->inv->invoice_blindedpay[0] = tal(ir->inv->invoice_blindedpay, struct blinded_payinfo);
 		ir->inv->invoice_blindedpay[0]->fee_base_msat = best->feebase;
 		ir->inv->invoice_blindedpay[0]->fee_proportional_millionths = best->feeppm;
-		ir->inv->invoice_blindedpay[0]->cltv_expiry_delta = best->cltv + od->cltv_final;
+		ir->inv->invoice_blindedpay[0]->cltv_expiry_delta = best->cltv + cltv_final;
 		ir->inv->invoice_blindedpay[0]->htlc_minimum_msat = best->htlc_min;
 		ir->inv->invoice_blindedpay[0]->htlc_maximum_msat = best->htlc_max;
 		ir->inv->invoice_blindedpay[0]->features = NULL;
@@ -396,7 +378,7 @@ static struct command_result *found_best_peer(struct command *cmd,
 static struct command_result *add_blindedpaths(struct command *cmd,
 					       struct invreq *ir)
 {
-	if (!we_want_blinded_path(cmd->plugin, ir->fronting_nodes, true))
+	if (!we_want_blinded_path(cmd->plugin, true))
 		return create_invoicereq(cmd, ir);
 
 	/* Technically, this only needs OPT_ROUTE_BLINDING, but we have a report
@@ -405,7 +387,7 @@ static struct command_result *add_blindedpaths(struct command *cmd,
 	 * us onion messaging. */
 	return find_best_peer(cmd,
 			      (1ULL << OPT_ROUTE_BLINDING) | (1ULL << OPT_ONION_MESSAGES),
-			      ir->fronting_nodes, found_best_peer, ir);
+			      found_best_peer, ir);
 }
 
 static struct command_result *cancel_invoice(struct command *cmd,
@@ -827,14 +809,12 @@ static struct command_result *listoffers_done(struct command *cmd,
 					      const jsmntok_t *result,
 					      struct invreq *ir)
 {
-	const struct offers_data *od = get_offers_data(cmd->plugin);
 	const jsmntok_t *arr = json_get_member(buf, result, "offers");
 	const jsmntok_t *offertok, *activetok, *b12tok;
 	bool active;
 	struct command_result *err;
 	struct amount_msat amt;
 	struct tlv_invoice_request_invreq_recurrence_cancel *cancel;
-	struct pubkey *offer_fronts;
 
 	/* BOLT #12:
 	 *
@@ -871,7 +851,7 @@ static struct command_result *listoffers_done(struct command *cmd,
 		ir->invreq->offer_paths = NULL;
 		invreq_offer_id(ir->invreq, &offer_id);
 		ir->invreq->offer_paths = offer_paths;
-		bolt12_path_secret(&od->offerblinding_base, &offer_id,
+		bolt12_path_secret(&offerblinding_base, &offer_id,
 				   &blinding_path_secret);
 		if (!secret_eq_consttime(ir->secret, &blinding_path_secret)) {
 			/* You used the wrong blinded path for invreq */
@@ -918,37 +898,6 @@ static struct command_result *listoffers_done(struct command *cmd,
 		|| *ir->invreq->invreq_recurrence_counter == 0)
 	    && clock_time().ts.tv_sec >= *ir->invreq->offer_absolute_expiry) {
 		return fail_invreq(cmd, ir, "Offer expired");
-	}
-
-	/* If offer used fronting nodes, we use them too. */
-	offer_fronts = tal_arr(ir, struct pubkey, 0);
-	for (size_t i = 0; i < tal_count(ir->invreq->offer_paths); i++) {
-		const struct blinded_path *p = ir->invreq->offer_paths[i];
-		struct sciddir_or_pubkey first = p->first_node_id;
-
-		/* In dev mode we could set this.  Ignore if we can't map */
-		if (!first.is_pubkey && !gossmap_scidd_pubkey(get_gossmap(cmd->plugin), &first)) {
-			plugin_log(cmd->plugin, LOG_UNUSUAL,
-				   "Can't find front %s, ignoring in %s",
-				   fmt_sciddir_or_pubkey(tmpctx, &p->first_node_id),
-				   invrequest_encode(tmpctx, ir->invreq));
-			continue;
-		}
-		assert(first.is_pubkey);
-		/* Self-paths are not fronting nodes */
-		if (!pubkey_eq(&od->id, &first.pubkey))
-			tal_arr_expand(&offer_fronts, first.pubkey);
-	}
-	if (tal_count(offer_fronts) != 0)
-		ir->fronting_nodes = offer_fronts;
-	else {
-		/* Get upset if none from offer (via invreq) were usable! */
-		if (tal_count(ir->invreq->offer_paths) != 0)
-			return fail_invreq(cmd, ir, "Fronting failed, could not find any fronts");
-
-		/* Otherwise, use defaults */
-		tal_free(offer_fronts);
-		ir->fronting_nodes = od->fronting_nodes;
 	}
 
 	/* BOLT-recurrence #12:

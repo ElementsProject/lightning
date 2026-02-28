@@ -7,9 +7,9 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/crc32c/crc32c.h>
 #include <common/gossip_store.h>
-#include <common/gossip_store_wiregen.h>
 #include <common/setup.h>
 #include <common/utils.h>
+#include <gossipd/gossip_store_wiregen.h>
 #include <stdio.h>
 #include <unistd.h>
 

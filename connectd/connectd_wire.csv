@@ -18,6 +18,7 @@ msgdata,connectd_init,use_dns,bool,
 msgdata,connectd_init,tor_password,wirestring,
 msgdata,connectd_init,timeout_secs,u32,
 msgdata,connectd_init,websocket_helper,wirestring,
+msgdata,connectd_init,announce_websocket,bool,
 msgdata,connectd_init,dev_fast_gossip,bool,
 # If this is set, then fd 5 is dev_disconnect_fd.
 msgdata,connectd_init,dev_disconnect,bool,
@@ -28,7 +29,6 @@ msgdata,connectd_init,dev_throttle_gossip,bool,
 msgdata,connectd_init,dev_no_reconnect,bool,
 msgdata,connectd_init,dev_fast_reconnect,bool,
 msgdata,connectd_init,dev_limit_connections_inflight,bool,
-msgdata,connectd_init,dev_keep_nagle,bool,
 
 # Connectd->master, here are the addresses I bound, can announce.
 msgtype,connectd_init_reply,2100
@@ -194,10 +194,6 @@ msgtype,connectd_custommsg_in,2110
 msgdata,connectd_custommsg_in,id,node_id,
 msgdata,connectd_custommsg_in,msg_len,u16,
 msgdata,connectd_custommsg_in,msg,u8,msg_len
-
-# We got that custommsg, thankyou, it was delightful.
-msgtype,connectd_custommsg_in_complete,2111
-msgdata,connectd_custommsg_in_complete,id,node_id,
 
 # A custom message that the lightningd tells us to send to the peer.
 msgtype,connectd_custommsg_out,2011

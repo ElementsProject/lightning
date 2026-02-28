@@ -8,8 +8,11 @@
 #include <lightningd/options.h>
 #include <wire/peer_wire.h>
 
-/* connectd forwards gossip messages to us. */
-#define CONNECTD_FD 3
+/* We talk to `hsmd` to sign our gossip messages with the node key */
+#define HSM_FD 3
+/* connectd asks us for help finding nodes, and gossip fds for new peers */
+#define CONNECTD_FD 4
+#define CONNECTD2_FD 5
 
 struct chan;
 struct peer;
@@ -62,9 +65,6 @@ struct daemon {
 
 	/* Features lightningd told us to set. */
 	struct feature_set *our_features;
-
-	/* Program to run to compact the datastore */
-	char *compactd_helper;
 
 	/* Speed up gossip. */
 	bool dev_fast_gossip;
@@ -160,5 +160,10 @@ void tell_lightningd_peer_update(struct daemon *daemon,
 				 u16 cltv_delta,
 				 struct amount_msat htlc_minimum,
 				 struct amount_msat htlc_maximum);
+
+/**
+ * Is this gossip timestamp reasonable?
+ */
+bool timestamp_reasonable(const struct daemon *daemon, u32 timestamp);
 
 #endif /* LIGHTNING_GOSSIPD_GOSSIPD_H */

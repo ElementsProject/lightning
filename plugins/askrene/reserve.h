@@ -8,8 +8,6 @@
 #include <common/amount.h>
 #include <common/fp16.h>
 
-struct json_stream;
-
 /* Initialize hash table for reservations */
 struct reserve_htable *new_reserve_htable(const tal_t *ctx);
 

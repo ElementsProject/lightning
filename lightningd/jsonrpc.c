@@ -240,18 +240,17 @@ static bool have_channels(struct lightningd *ld)
 	return false;
 }
 
-static struct command_result *param_hsm_secret(struct command *cmd,
-					       const char *name,
-					       const char *buffer,
-					       const jsmntok_t *tok,
-					       const char **hsm_secret)
+static struct command_result *param_codex32_or_hex(struct command *cmd,
+						   const char *name,
+						   const char *buffer,
+						   const jsmntok_t *tok,
+						   const char **hsm_secret)
 {
 	char *err;
-	/* We parse here for sanity checking, but we just hand string to --recover */
-	const struct hsm_secret *hsms;
+	const u8 *payload;
 
 	*hsm_secret = json_strdup(cmd, buffer, tok);
-	err = hsm_secret_arg(tmpctx, *hsm_secret, &hsms);
+	err = hsm_secret_arg(tmpctx, *hsm_secret, &payload);
 	if (err)
 		return command_fail_badparam(cmd, name, buffer, tok, err);
 	return NULL;
@@ -280,10 +279,10 @@ static struct command_result *json_recover(struct command *cmd,
 					   const jsmntok_t *obj UNNEEDED,
 					   const jsmntok_t *params)
 {
-	const char *dir, *hsm_secret;
+	const char *hsm_secret, *dir;
 
 	if (!param_check(cmd, buffer, params,
-			 p_req("hsmsecret", param_hsm_secret, &hsm_secret),
+			 p_req("hsmsecret", param_codex32_or_hex, &hsm_secret),
 			 NULL))
 		return command_param_failed();
 
@@ -293,8 +292,7 @@ static struct command_result *json_recover(struct command *cmd,
 				    "Only sqlite3 supported for recover command");
 
 	/* Check this is an empty node! */
-	if (db_get_intvar(cmd->ld->wallet->db, "bip32_max_index", 0) != 0
-	    || db_get_intvar(cmd->ld->wallet->db, "bip86_max_index", 0) != 0) {
+	if (db_get_intvar(cmd->ld->wallet->db, "bip32_max_index", 0) != 0) {
 		return command_fail(cmd, RECOVER_NODE_IN_USE,
 				    "Node has already issued bitcoin addresses!");
 	}
@@ -1072,13 +1070,6 @@ parse_request(struct json_connection *jcon,
 				    "Expected string for method");
 	}
 
-	c->json_cmd = find_cmd(jcon->ld->jsonrpc, buffer, method);
-	if (!c->json_cmd) {
-		return command_fail(
-		    c, JSONRPC2_METHOD_NOT_FOUND, "Unknown command '%.*s'",
-		    method->end - method->start, buffer + method->start);
-	}
-
 	if (filter) {
 		struct command_result *ret;
 		ret = parse_filter(c, "filter", buffer, filter);
@@ -1090,6 +1081,12 @@ parse_request(struct json_connection *jcon,
 	 * actually just logging the id */
 	log_io(jcon->log, LOG_IO_IN, NULL, c->id, NULL, 0);
 
+	c->json_cmd = find_cmd(jcon->ld->jsonrpc, buffer, method);
+	if (!c->json_cmd) {
+		return command_fail(
+		    c, JSONRPC2_METHOD_NOT_FOUND, "Unknown command '%.*s'",
+		    method->end - method->start, buffer + method->start);
+	}
 	if (!command_deprecated_in_ok(c, NULL,
 				      c->json_cmd->depr_start,
 				      c->json_cmd->depr_end)) {

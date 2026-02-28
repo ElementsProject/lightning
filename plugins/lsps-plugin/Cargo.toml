@@ -20,9 +20,8 @@ cln-plugin = { workspace = true }
 cln-rpc = { workspace = true }
 hex = "0.4"
 log = "0.4"
-paste = "1.0.15"
 rand = "0.9"
 serde = { version = "1.0", features = ["derive"] }
-serde_json = { version = "1.0", features = ["raw_value"] }
+serde_json = "1.0"
 thiserror = "2.0"
 tokio = { version = "1.44", features = ["full"] }

@@ -218,18 +218,18 @@
     "*channel_update*: The hex string of the *channel_update* message received from the remote node. Only present if error is from the remote node and the *failcode* has the `UPDATE` bit set, as per BOLT #4."
   ],
   "author": [
-    "Christian Decker [decker@blockstream.com](mailto:decker@blockstream.com) is mainly responsible."
+    "Christian Decker <<decker@blockstream.com>> is mainly responsible."
   ],
   "see_also": [
     "lightning-listpays(7)",
-    "lightning-decode(7)",
+    "lightning-decodepay(7)",
     "lightning-listinvoices(7)",
     "lightning-delinvoice(7)",
     "lightning-getroute(7)",
     "lightning-invoice(7)"
   ],
   "resources": [
-    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+    "Main web site: <https://github.com/ElementsProject/lightning>"
   ],
   "examples": [
     {

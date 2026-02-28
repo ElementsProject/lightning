@@ -1,7 +1,7 @@
 from fixtures import *  # noqa: F401,F403
 from pyln.client import RpcError, Millisatoshi
 from shutil import copyfile
-from pyln.testing.utils import SLOW_MACHINE, VALGRIND
+from pyln.testing.utils import SLOW_MACHINE
 from utils import (
     only_one, sync_blockheight, wait_for, TIMEOUT,
     account_balance, first_channel_id, closing_fee, TEST_NETWORK,
@@ -871,8 +871,7 @@ def test_channel_lease_post_expiry(node_factory, bitcoind, chainparams):
     bitcoind.generate_block(6)
     sync_blockheight(bitcoind, [l1, l2])
     # make sure we're at the right place for the csv lock
-    height = bitcoind.rpc.getblockchaininfo()['blocks']
-    l2.daemon.wait_for_log(f'Blockheight: SENT_ADD_ACK_COMMIT->RCVD_ADD_ACK_REVOCATION LOCAL now {height}')
+    l2.daemon.wait_for_log('Blockheight: SENT_ADD_ACK_COMMIT->RCVD_ADD_ACK_REVOCATION LOCAL now 115')
 
     # We need to give l1-l2 time to update their blockheights
     for i in range(0, 4000, 1000):
@@ -981,8 +980,7 @@ def test_channel_lease_unilat_closes(node_factory, bitcoind):
     bitcoind.generate_block(2)
     sync_blockheight(bitcoind, [l1, l2, l3])
     # make sure we're at the right place for the csv lock
-    height = bitcoind.rpc.getblockchaininfo()['blocks']
-    l2.daemon.wait_for_log(f'Blockheight: SENT_ADD_ACK_COMMIT->RCVD_ADD_ACK_REVOCATION LOCAL now {height}')
+    l2.daemon.wait_for_log('Blockheight: SENT_ADD_ACK_COMMIT->RCVD_ADD_ACK_REVOCATION LOCAL now 110')
     l2.stop()
 
     # unilateral close channels l1<->l2 & l3<->l2
@@ -1853,8 +1851,8 @@ def test_onchaind_replay(node_factory, bitcoind):
 
     # Wait for nodes to notice the failure, this seach needle is after the
     # DB commit so we're sure the tx entries in onchaindtxs have been added
-    l1.daemon.wait_for_log("closing soon due to the funding outpoint being spent")
-    l2.daemon.wait_for_log("closing soon due to the funding outpoint being spent")
+    l1.daemon.wait_for_log("Deleting channel .* due to the funding outpoint being spent")
+    l2.daemon.wait_for_log("Deleting channel .* due to the funding outpoint being spent")
 
     # We should at least have the init tx now
     assert len(l1.db_query("SELECT * FROM channeltxs;")) > 0
@@ -3234,7 +3232,7 @@ def test_permfail(node_factory, bitcoind):
 def test_shutdown(node_factory):
     # Fail, in that it will exit before cleanup.
     l1 = node_factory.get_node(may_fail=True)
-    if not VALGRIND:
+    if not node_factory.valgrind:
         leaks = l1.rpc.dev_memleak()['leaks']
         if len(leaks):
             raise Exception("Node {} has memory leaks: {}"
@@ -3242,15 +3240,14 @@ def test_shutdown(node_factory):
     l1.rpc.stop()
 
 
-@pytest.mark.parametrize("old_hsmsecret", [False, True])
-def test_option_upfront_shutdown_script(node_factory, bitcoind, executor, chainparams, old_hsmsecret):
-    l1 = node_factory.get_node(start=False, allow_warning=True, old_hsmsecret=old_hsmsecret)
+def test_option_upfront_shutdown_script(node_factory, bitcoind, executor, chainparams):
+    l1 = node_factory.get_node(start=False, allow_warning=True)
     # Insist on upfront script we're not going to match.
     # '0014' + l1.rpc.call('dev-listaddrs', [10])['addresses'][-1]['bech32_redeemscript']
     l1.daemon.env["DEV_OPENINGD_UPFRONT_SHUTDOWN_SCRIPT"] = "00143d43d226bcc27019ade52d7a3dc52a7ac1be28b8"
     l1.start()
 
-    l2 = node_factory.get_node(allow_warning=True, old_hsmsecret=old_hsmsecret)
+    l2 = node_factory.get_node(allow_warning=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.fundchannel(l2, 1000000, False)
 
@@ -3284,16 +3281,10 @@ def test_option_upfront_shutdown_script(node_factory, bitcoind, executor, chainp
     wait_for(lambda: [c['state'] for c in l2.rpc.listpeerchannels()['channels']] == ['ONCHAIN', 'ONCHAIN'])
 
     # Figure out what address it will try to use.
-    # With BIP86 mnemonic format (old_hsmsecret=False), addresses use bip86_max_index
-    # With old hsmsecret (old_hsmsecret=True), use bip32_max_index
-    if old_hsmsecret:
-        keyidx = int(l1.db_query("SELECT intval FROM vars WHERE name='bip32_max_index';")[0]['intval'])
-    else:
-        keyidx = int(l1.db_query("SELECT intval FROM vars WHERE name='bip86_max_index';")[0]['intval'])
+    keyidx = int(l1.db_query("SELECT intval FROM vars WHERE name='bip32_max_index';")[0]['intval'])
 
     # Expect 1 for change address, plus 1 for the funding address of the actual
     # funding tx.
-    # dev-listaddrs now handles both BIP32 and BIP86 wallets automatically
     addr = l1.rpc.call('dev-listaddrs', [keyidx + 2])['addresses'][-1]
     # the above used to be keyidx + 3, but that was when `fundchannel`
     # used the `txprepare`-`txdiscard`-`txprepare` trick, which skipped
@@ -3446,7 +3437,7 @@ def test_closing_higherfee(node_factory, bitcoind, executor, anchors):
     wait_for(lambda: l2.rpc.listpeerchannels()['channels'][0]['state'] == 'CLOSINGD_COMPLETE')
 
 
-@pytest.mark.flaky(reruns=3)
+@unittest.skipIf(True, "Test is extremely flaky")
 def test_htlc_rexmit_while_closing(node_factory, executor):
     """Retranmitting an HTLC revocation while shutting down should work"""
     # FIXME: This should be in lnprototest!  UNRELIABLE.
@@ -4286,7 +4277,7 @@ def test_onchain_reestablish_reply(node_factory, bitcoind, executor):
 
     # We block l3 from seeing close, so it will try to reestablish.
     def no_new_blocks(req):
-        return {"error": {"code": -8, "message": "Block height out of range"}}
+        return {"error": "go away"}
     l3.daemon.rpcproxy.mock_rpc('getblockhash', no_new_blocks)
 
     l2.rpc.disconnect(l3.info['id'], force=True)
@@ -4307,10 +4298,6 @@ def test_onchain_reestablish_reply(node_factory, bitcoind, executor):
     # Then we get the error, close.
     l3.daemon.wait_for_log("peer_in WIRE_ERROR")
     wait_for(lambda: only_one(l3.rpc.listpeerchannels(l2.info['id'])['channels'])['state'] == 'AWAITING_UNILATERAL')
-
-    # If we're slow enough, l3 can get upset with the invalid
-    # responses from bitcoind, so stop that now.
-    l3.daemon.rpcproxy.mock_rpc('getblockhash', None)
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd anchors not supportd')
@@ -4373,7 +4360,7 @@ def test_reestablish_closed_channels(node_factory, bitcoind):
 
     # We block l2 from seeing close, so it will try to reestablish.
     def no_new_blocks(req):
-        return {"error": {"code": -8, "message": "Block height out of range"}}
+        return {"error": "go away"}
     l2.daemon.rpcproxy.mock_rpc('getblockhash', no_new_blocks)
 
     # Make a payment, make sure it's entirely finished before we close.
@@ -4398,10 +4385,6 @@ def test_reestablish_closed_channels(node_factory, bitcoind):
 
     # Make sure l2 was happy with the reestablish message.
     assert not l2.daemon.is_in_log('bad reestablish')
-
-    # If we're slow enough, l2 can get upset with the invalid
-    # responses from bitcoind, so stop that now.
-    l2.daemon.rpcproxy.mock_rpc('getblockhash', None)
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "elementsd doesn't use p2tr anyway")

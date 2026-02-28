@@ -850,7 +850,7 @@ struct logger *new_logger(const tal_t *ctx UNNEEDED, struct log_book *record UNN
 	return NULL;
 }
 
-struct log_book *new_log_book(struct lightningd *ld UNNEEDED)
+struct log_book *new_log_book(struct lightningd *ld UNNEEDED, size_t max_mem UNNEEDED)
 {
 	return NULL;
 }
@@ -892,7 +892,7 @@ static void cleanup_test_wallet(struct wallet *w, char *filename)
 	tal_free(filename);
 }
 
-static struct wallet *create_test_wallet(struct lightningd *ld, const tal_t *ctx, bool bip86)
+static struct wallet *create_test_wallet(struct lightningd *ld, const tal_t *ctx)
 {
 	char *dsn, *filename;
 	int fd = tmpdir_mkstemp(ctx, "ldb-XXXXXX", &filename);
@@ -915,12 +915,6 @@ static struct wallet *create_test_wallet(struct lightningd *ld, const tal_t *ctx
 	CHECK(bip32_key_from_seed(badseed, sizeof(badseed),
 				  BIP32_VER_TEST_PRIVATE, 0,
 				  ld->bip32_base) == WALLY_OK);
-	if (bip86) {
-		ld->bip86_base = ld->bip32_base;
-		ld->bip32_base = NULL;
-	} else {
-		ld->bip86_base = NULL;
-	}
 
 	CHECK_MSG(w->db, "Failed opening the db");
 	w->db->data_version = 0;
@@ -938,9 +932,9 @@ static struct wallet *create_test_wallet(struct lightningd *ld, const tal_t *ctx
 	return w;
 }
 
-static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx, bool bip86)
+static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 {
-	struct wallet *w = create_test_wallet(ld, ctx, bip86);
+	struct wallet *w = create_test_wallet(ld, ctx);
 	struct utxo u;
 	struct pubkey pk;
 	struct node_id id;
@@ -1150,10 +1144,10 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx, bool bi
 	return true;
 }
 
-static bool test_shachain_crud(struct lightningd *ld, const tal_t *ctx, bool bip86)
+static bool test_shachain_crud(struct lightningd *ld, const tal_t *ctx)
 {
 	struct wallet_shachain a, b;
-	struct wallet *w = create_test_wallet(ld, ctx, bip86);
+	struct wallet *w = create_test_wallet(ld, ctx);
 	struct sha256 seed, hash;
 	struct secret secret;
 	uint64_t index = UINT64_MAX >> (64 - SHACHAIN_BITS);
@@ -1349,9 +1343,9 @@ static struct channel *wallet_channel_load(struct wallet *w, const u64 dbid)
 	return channel;
 }
 
-static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx, bool bip86)
+static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 {
-	struct wallet *w = create_test_wallet(ld, ctx, bip86);
+	struct wallet *w = create_test_wallet(ld, ctx);
 	struct channel c1, *c2 = tal(w, struct channel);
 	struct wireaddr_internal addr;
 	struct peer *p;
@@ -1531,9 +1525,9 @@ static int count_inflights(struct wallet *w, u64 channel_dbid)
 	return count;
 }
 
-static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx, bool bip86)
+static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 {
-	struct wallet *w = create_test_wallet(ld, ctx, bip86);
+	struct wallet *w = create_test_wallet(ld, ctx);
 	struct channel *chan, *c2;
 	struct channel_inflight *inflight;
 	struct bitcoin_outpoint outpoint;
@@ -1725,11 +1719,11 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx, 
 	return true;
 }
 
-static bool test_channel_config_crud(struct lightningd *ld, const tal_t *ctx, bool bip86)
+static bool test_channel_config_crud(struct lightningd *ld, const tal_t *ctx)
 {
 	struct channel_config *cc1 = talz(ctx, struct channel_config),
 			      *cc2 = talz(ctx, struct channel_config);
-	struct wallet *w = create_test_wallet(ld, ctx, bip86);
+	struct wallet *w = create_test_wallet(ld, ctx);
 	CHECK(w);
 
 	cc1->dust_limit.satoshis = 1;
@@ -1750,7 +1744,7 @@ static bool test_channel_config_crud(struct lightningd *ld, const tal_t *ctx, bo
        	return true;
 }
 
-static bool test_htlc_crud(struct lightningd *ld, const tal_t *ctx, bool bip86)
+static bool test_htlc_crud(struct lightningd *ld, const tal_t *ctx)
 {
 	struct db_stmt *stmt;
 	struct htlc_in in, in2, *hin;
@@ -1758,7 +1752,7 @@ static bool test_htlc_crud(struct lightningd *ld, const tal_t *ctx, bool bip86)
 	struct preimage payment_key;
 	struct channel *chan = tal(ctx, struct channel);
 	struct peer *peer = talz(ctx, struct peer);
-	struct wallet *w = create_test_wallet(ld, ctx, bip86);
+	struct wallet *w = create_test_wallet(ld, ctx);
 	struct htlc_in_map *htlcs_in = tal(ctx, struct htlc_in_map), *rem;
 	struct htlc_out_map *htlcs_out = tal(ctx, struct htlc_out_map);
 	struct onionreply *onionreply;
@@ -1866,10 +1860,10 @@ static bool test_htlc_crud(struct lightningd *ld, const tal_t *ctx, bool bip86)
 	return true;
 }
 
-static bool test_payment_crud(struct lightningd *ld, const tal_t *ctx, bool bip86)
+static bool test_payment_crud(struct lightningd *ld, const tal_t *ctx)
 {
 	struct wallet_payment *t, *t2;
-	struct wallet *w = create_test_wallet(ld, ctx, bip86);
+	struct wallet *w = create_test_wallet(ld, ctx);
 	struct sha256 payment_hash;
 	struct node_id destination;
 
@@ -1972,17 +1966,15 @@ int main(int argc, const char *argv[])
 
 	/* We do a runtime test here, so we still check compile! */
 	if (HAVE_SQLITE3) {
-		for (int bip86 = 0; bip86 < 2; bip86++) {
-			ok &= test_shachain_crud(ld, tmpctx, bip86);
-			ok &= test_channel_crud(ld, tmpctx, bip86);
-			ok &= test_channel_inflight_crud(ld, tmpctx, bip86);
-			ok &= test_channel_config_crud(ld, tmpctx, bip86);
-			ok &= test_channel_inflight_crud(ld, tmpctx, bip86);
-			ok &= test_wallet_outputs(ld, tmpctx, bip86);
-			ok &= test_htlc_crud(ld, tmpctx, bip86);
-			ok &= test_payment_crud(ld, tmpctx, bip86);
-			ok &= test_wallet_payment_status_enum();
-		}
+		ok &= test_shachain_crud(ld, tmpctx);
+		ok &= test_channel_crud(ld, tmpctx);
+		ok &= test_channel_inflight_crud(ld, tmpctx);
+		ok &= test_channel_config_crud(ld, tmpctx);
+		ok &= test_channel_inflight_crud(ld, tmpctx);
+		ok &= test_wallet_outputs(ld, tmpctx);
+		ok &= test_htlc_crud(ld, tmpctx);
+		ok &= test_payment_crud(ld, tmpctx);
+		ok &= test_wallet_payment_status_enum();
 	}
 
 	/* Do not clean up in the case of an error, we might want to debug the

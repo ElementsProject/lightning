@@ -196,7 +196,7 @@
     "- -32602: Error in given parameters."
   ],
   "resources": [
-    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+    "Main web site: <https://github.com/ElementsProject/lightning>"
   ],
   "examples": [
     {

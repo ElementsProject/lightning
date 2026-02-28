@@ -181,7 +181,7 @@ static struct command_result *xpay_core(struct command *cmd,
 					u32 retryfor,
 					const struct amount_msat *partial,
 					u32 maxdelay,
-                                        bool as_pay);
+					bool as_pay);
 
 /* Wrapper for pending commands (ignores return) */
 static void was_pending(const struct command_result *res)
@@ -1790,7 +1790,6 @@ struct xpay_params {
 	unsigned int retryfor;
 	u32 maxdelay;
 	const char *bip353;
-	const char *payer_note;
 };
 
 static struct command_result *
@@ -1821,12 +1820,9 @@ do_fetchinvoice(struct command *cmd, const char *offerstr, struct xpay_params *x
 	json_add_string(req->js, "offer", offerstr);
 	if (xparams->msat)
 		json_add_amount_msat(req->js, "amount_msat", *xparams->msat);
-        if (xparams->bip353)
-            json_add_string(req->js, "bip353", xparams->bip353);
-        if (xparams->payer_note)
-            json_add_string(req->js, "payer_note", xparams->payer_note);
-
-    return send_outreq(req);
+	if (xparams->bip353)
+		json_add_string(req->js, "bip353", xparams->bip353);
+	return send_outreq(req);
 }
 
 static struct command_result *
@@ -1871,8 +1867,7 @@ static struct command_result *json_xpay_params(struct command *cmd,
 	const char *invstring;
 	const char **layers;
 	u32 *maxdelay;
-        const char *payer_note;
-        unsigned int *retryfor;
+	unsigned int *retryfor;
 	struct out_req *req;
 	struct xpay_params *xparams;
 
@@ -1884,8 +1879,7 @@ static struct command_result *json_xpay_params(struct command *cmd,
 			 p_opt_def("retry_for", param_number, &retryfor, 60),
 			 p_opt("partial_msat", param_msat, &partial),
 			 p_opt_def("maxdelay", param_u32, &maxdelay, 2016),
-                         p_opt("payer_note", param_string, &payer_note),
-                         NULL))
+			 NULL))
 		return command_param_failed();
 
 	/* Is this a one-shot vibe payment?  Kids these days! */
@@ -1907,7 +1901,6 @@ static struct command_result *json_xpay_params(struct command *cmd,
 		xparams->retryfor = *retryfor;
 		xparams->maxdelay = *maxdelay;
 		xparams->bip353 = NULL;
-                xparams->payer_note = payer_note;
 
 		return do_fetchinvoice(cmd, invstring, xparams);
 	}
@@ -1922,7 +1915,6 @@ static struct command_result *json_xpay_params(struct command *cmd,
 		xparams->retryfor = *retryfor;
 		xparams->maxdelay = *maxdelay;
 		xparams->bip353 = invstring;
-                xparams->payer_note = payer_note;
 
 		req = jsonrpc_request_start(cmd, "fetchbip353",
 					    bip353_fetched,

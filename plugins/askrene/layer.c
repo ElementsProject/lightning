@@ -81,6 +81,12 @@ local_channel_scid(const struct local_channel *lc)
 	return lc->scid;
 }
 
+static size_t hash_scid(const struct short_channel_id scid)
+{
+	/* scids cost money to generate, so simple hash works here */
+	return (scid.u64 >> 32) ^ (scid.u64 >> 16) ^ scid.u64;
+}
+
 static inline bool local_channel_eq_scid(const struct local_channel *lc,
 					 const struct short_channel_id scid)
 {
@@ -140,6 +146,9 @@ HTABLE_DEFINE_NODUPS_TYPE(struct node_bias, bias_nodeid, hash_nodeid,
 			  bias_eq_nodeid, node_bias_hash);
 
 struct layer {
+	/* Inside global list of layers */
+	struct list_node list;
+
 	/* Convenience pointer to askrene */
 	struct askrene *askrene;
 
@@ -168,25 +177,6 @@ struct layer {
 	struct node_id *disabled_nodes;
 };
 
-static size_t hash_str(const char *str)
-{
-	return siphash24(siphash_seed(), str, strlen(str));
-}
-
-static bool layer_eq_name(const struct layer *l,
-			  const char *name)
-{
-	return streq(l->name, name);
-}
-
-HTABLE_DEFINE_NODUPS_TYPE(struct layer, layer_name, hash_str,
-			  layer_eq_name, layer_name_hash);
-
-struct layer_name_hash *new_layer_name_hash(const tal_t *ctx)
-{
-	return new_htable(ctx, layer_name_hash);
-}
-
 struct layer *new_temp_layer(const tal_t *ctx, struct askrene *askrene, const char *name TAKES)
 {
 	struct layer *l = tal(ctx, struct layer);
@@ -206,8 +196,7 @@ struct layer *new_temp_layer(const tal_t *ctx, struct askrene *askrene, const ch
 
 static void destroy_layer(struct layer *l, struct askrene *askrene)
 {
-	if (!layer_name_hash_del(askrene->layers, l))
-		abort();
+	list_del_from(&askrene->layers, &l->list);
 }
 
 /* Low-level versions of routines which do *not* save (used for loading, too) */
@@ -216,7 +205,7 @@ static struct layer *add_layer(struct askrene *askrene, const char *name TAKES, 
 	struct layer *l = new_temp_layer(askrene, askrene, name);
 	l->persistent = persistent;
 	assert(!find_layer(askrene, l->name));
-	layer_name_hash_add(askrene->layers, l);
+	list_add(&askrene->layers, &l->list);
 	tal_add_destructor2(l, destroy_layer, askrene);
 	return l;
 }
@@ -858,7 +847,12 @@ struct layer *new_layer(struct askrene *askrene,
 
 struct layer *find_layer(struct askrene *askrene, const char *name)
 {
-	return layer_name_hash_get(askrene->layers, name);
+	struct layer *l;
+	list_for_each(&askrene->layers, l, list) {
+		if (streq(l->name, name))
+			return l;
+	}
+	return NULL;
 }
 
 const char *layer_name(const struct layer *layer)
@@ -1301,21 +1295,17 @@ static void json_add_layer(struct json_stream *js,
 }
 
 void json_add_layers(struct json_stream *js,
-		     const struct askrene *askrene,
+		     struct askrene *askrene,
 		     const char *fieldname,
 		     const struct layer *layer)
 {
-	json_array_start(js, fieldname);
-	if (layer) {
-		json_add_layer(js, NULL, layer);
-	} else {
-		struct layer_name_hash_iter it;
+	struct layer *l;
 
-		for (struct layer *l = layer_name_hash_first(askrene->layers, &it);
-		     l;
-		     l = layer_name_hash_next(askrene->layers, &it)) {
-			json_add_layer(js, NULL, l);
-		}
+	json_array_start(js, fieldname);
+	list_for_each(&askrene->layers, l, list) {
+		if (layer && l != layer)
+			continue;
+		json_add_layer(js, NULL, l);
 	}
 	json_array_end(js);
 }

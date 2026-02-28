@@ -3,14 +3,14 @@
 # Prefer VERSION from environment if provided (e.g., from GitHub Actions)
 # Extract version from git, or if we're from a zipfile, use dirname
 VERSION ?= $(shell git describe --tags --always --dirty=-modded --abbrev=7 2>/dev/null || \
-	pwd | $(SED) -n 's|.*/c\{0,1\}lightning-v\{0,1\}\([0-9a-f.rc\-]*\)$$|v\1|gp')
+	pwd | sed -n 's|.*/c\{0,1\}lightning-v\{0,1\}\([0-9a-f.rc\-]*\)$$|v\1|gp')
 $(info Building version $(VERSION))
 
 # Next release.
-CLN_NEXT_VERSION := v26.04
+CLN_NEXT_VERSION := v25.12
 
 # Previous release (for downgrade testing)
-CLN_PREV_VERSION := v25.12
+CLN_PREV_VERSION := v25.09
 
 # --quiet / -s means quiet, dammit!
 ifeq ($(findstring s,$(word 1, $(MAKEFLAGS))),s)
@@ -21,7 +21,6 @@ ECHO := echo
 SUPPRESS_OUTPUT :=
 endif
 
-CARGO := cargo
 DISTRO=$(shell lsb_release -is 2>/dev/null || echo unknown)-$(shell lsb_release -rs 2>/dev/null || echo unknown)
 OS=$(shell uname -s)
 ARCH=$(shell uname -m)
@@ -105,7 +104,6 @@ CCAN_OBJS :=					\
 	ccan-bitmap.o				\
 	ccan-bitops.o				\
 	ccan-breakpoint.o			\
-	ccan-cdump.o				\
 	ccan-closefrom.o			\
 	ccan-crc32c.o				\
 	ccan-crypto-hmac.o			\
@@ -231,6 +229,8 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/typesafe_cb/typesafe_cb.h	\
 	$(CCANDIR)/ccan/utf8/utf8.h
 
+CDUMP_OBJS := ccan-cdump.o ccan-strmap.o
+
 BOLT_GEN := tools/generate-wire.py
 WIRE_GEN := $(BOLT_GEN)
 
@@ -311,10 +311,6 @@ ifeq ($(STATIC),1)
 LDLIBS = -L$(CPATH) -Wl,-dn $(SQLITE3_LDLIBS) -Wl,-dy -lm -lpthread -ldl $(COVFLAGS)
 else
 LDLIBS = -L$(CPATH) -lm $(SQLITE3_LDLIBS) $(COVFLAGS)
-endif
-
-ifeq ($(HAVE_FUNCTION_SECTIONS),1)
-LDLIBS += -Wl,--gc-sections
 endif
 
 # If we have the postgres client library we need to link against it as well
@@ -416,7 +412,7 @@ include plugins/Makefile
 include tests/plugins/Makefile
 
 # Only include fuzz tests if OpenSSL >= 3.0, will be disabled on ubuntu focal
-OPENSSL_VERSION := $(shell openssl version | $(SED) -n 's/OpenSSL \([0-9]\+\)\..*/\1/p')
+OPENSSL_VERSION := $(shell openssl version | sed -n 's/OpenSSL \([0-9]\+\)\..*/\1/p')
 ifneq ($(shell test $(OPENSSL_VERSION) -ge 3 && echo yes),)
 include tests/fuzz/Makefile
 endif
@@ -468,7 +464,6 @@ PKGLIBEXEC_PROGRAMS = \
 	       lightningd/lightning_connectd \
 	       lightningd/lightning_dualopend \
 	       lightningd/lightning_gossipd \
-	       lightningd/lightning_gossip_compactd \
 	       lightningd/lightning_hsmd \
 	       lightningd/lightning_onchaind \
 	       lightningd/lightning_openingd \
@@ -483,17 +478,16 @@ mkdocs.yml: $(MANPAGES:=.md)
 	)
 
 
+
+# Don't delete these intermediaries.
+.PRECIOUS: $(ALL_GEN_HEADERS) $(ALL_GEN_SOURCES) $(PYTHON_GENERATED)
+
 # Every single object file.
 ALL_OBJS := $(ALL_C_SOURCES:.c=.o)
 
-WIREGEN_FILES := $(filter %printgen.h %printgen.c %wiregen.h %wiregen.c, $(ALL_C_HEADERS) $(ALL_C_SOURCES))
-
-# Always make wiregen files before any object file
-$(ALL_OBJS): $(WIREGEN_FILES)
-
 # We always regen wiregen and printgen files, since SHA256STAMP protects against
 # spurious rebuilds.
-$(WIREGEN_FILES): $(FORCE)
+$(filter %printgen.h %printgen.c %wiregen.h %wiregen.c, $(ALL_C_HEADERS) $(ALL_C_SOURCES)): $(FORCE)
 
 ifneq ($(TEST_GROUP_COUNT),)
 PYTEST_OPTS += --test-group=$(TEST_GROUP) --test-group-count=$(TEST_GROUP_COUNT)
@@ -524,7 +518,7 @@ ifeq ($(PYTEST),)
 	exit 1
 else
 # Explicitly hand VALGRIND so you can override on make cmd line.
-	PYTHONPATH=$(MY_CHECK_PYTHONPATH) TEST_DEBUG=1 TEST_LOG_IGNORE_ERRORS=1 VALGRIND=$(VALGRIND) uv run $(PYTEST) $(PYTEST_TESTS) $(PYTEST_OPTS)
+	PYTHONPATH=$(MY_CHECK_PYTHONPATH) TEST_DEBUG=1 VALGRIND=$(VALGRIND) uv run $(PYTEST) $(PYTEST_TESTS) $(PYTEST_OPTS)
 endif
 
 check-fuzz: $(ALL_FUZZ_TARGETS)
@@ -551,11 +545,6 @@ check-makefile:
 SRC_TO_CHECK := $(filter-out $(ALL_TEST_PROGRAMS:=.c), $(ALL_NONGEN_SOURCES))
 check-src-includes: $(SRC_TO_CHECK:%=check-src-include-order/%)
 check-hdr-includes: $(ALL_NONGEN_HEADERS:%=check-hdr-include-order/%)
-
-print-src-to-check:
-	@echo $(SRC_TO_CHECK)
-print-hdr-to-check:
-	@echo $(ALL_NONGEN_HEADERS)
 
 # If you want to check a specific variant of quotes use:
 #   make check-source-bolt BOLTVERSION=xxx
@@ -645,8 +634,10 @@ update-doc-examples:
 check-doc-examples: update-doc-examples
 	git diff --exit-code HEAD
 
-# This should NOT compile things!
-check-source: check-makefile check-whitespace check-spelling check-python-flake8 check-includes check-shellcheck check-setup_locale check-tmpctx check-discouraged-functions check-amount-access check-bad-sprintf
+# For those without working cppcheck
+check-source-no-cppcheck: check-makefile check-source-bolt check-whitespace check-spelling check-python check-includes check-shellcheck check-setup_locale check-tmpctx check-discouraged-functions check-amount-access check-bad-sprintf
+
+check-source: check-source-no-cppcheck
 
 full-check: check check-source
 
@@ -683,30 +674,6 @@ coverage/coverage.info: check pytest
 coverage: coverage/coverage.info
 	genhtml coverage/coverage.info --output-directory coverage
 
-# Clang coverage targets (source-based coverage)
-coverage-clang-collect:
-	@./contrib/coverage/collect-coverage.sh "$(CLN_COVERAGE_DIR)" coverage/merged.profdata
-
-coverage-clang-report: coverage/merged.profdata
-	@./contrib/coverage/generate-coverage-report.sh coverage/merged.profdata coverage/html
-
-coverage-clang: coverage-clang-collect coverage-clang-report
-	@echo "Coverage report: coverage/html/index.html"
-
-coverage-clang-clean:
-	rm -rf coverage/ "$(CLN_COVERAGE_DIR)"
-
-.PHONY: coverage-clang-collect coverage-clang-report coverage-clang coverage-clang-clean
-
-# Python API documentation targets
-python-docs:
-	@./contrib/api/generate-python-docs.py
-
-python-docs-clean:
-	rm -rf docs/python
-
-.PHONY: python-docs python-docs-clean
-
 # We make libwallycore.la a dependency, so that it gets built normally, without ncc.
 # Ncc can't handle the libwally source code (yet).
 ncc: ${TARGET_DIR}/libwally-core-build/src/libwallycore.la
@@ -719,7 +686,7 @@ TAGS:
 tags:
 	$(RM) tags; find * -name test -type d -prune -o \( -name '*.[ch]' -o -name '*.py' \) -print0 | xargs -0 ctags --append
 
-ccan/ccan/cdump/tools/cdump-enumstr: ccan/ccan/cdump/tools/cdump-enumstr.o libccan.a
+ccan/ccan/cdump/tools/cdump-enumstr: ccan/ccan/cdump/tools/cdump-enumstr.o $(CDUMP_OBJS) $(CCAN_OBJS)
 
 ALL_PROGRAMS += ccan/ccan/cdump/tools/cdump-enumstr
 # Can't add to ALL_OBJS, as that makes a circular dep.
@@ -740,9 +707,6 @@ endif
 # That forces this rule to be run every time, too.
 header_versions_gen.h: tools/headerversions $(FORCE)
 	@tools/headerversions $@
-
-# Once you have libccan.a, you don't need these.
-.INTERMEDIATE: $(CCAN_OBJS)
 
 # We make a static library, this way linker can discard unused parts.
 libccan.a: $(CCAN_OBJS)
@@ -965,21 +929,25 @@ install-data: installdirs $(MAN1PAGES) $(MAN5PAGES) $(MAN7PAGES) $(MAN8PAGES) $(
 
 install: install-program install-data
 
-# We exclude most of target/ and external, but we need:
-# 1. config files (we only tar up files *newer* than these)
-# 2. $(DEFAULT_TARGETS) for rust stuff.
-# 3. $(EXTERNAL_LIBS) for prebuild external libraries.
-TESTPACK_EXTRAS :=			\
-	config.vars ccan/config.h	\
-	header_versions_gen.h		\
-	$(DEFAULT_TARGETS)		\
-	$(EXTERNAL_LIBS)
+# Non-artifacts that are needed for testing. These are added to the
+# testpack.tar, used to transfer things between builder and tester
+# phase. If you get a missing file/executable while testing on CI it
+# is likely missing from this variable.
+TESTBINS = \
+	$(CLN_PLUGIN_EXAMPLES) \
+	tests/plugins/test_libplugin \
+	tests/plugins/channeld_fakenet \
+	tests/plugins/test_selfdisable_after_getmanifest
 
 # The testpack is used in CI to transfer built artefacts between the
-# build and the test phase.  Only useful on a freshly build tree!
-# We use Posix format for timestamps with subsecond accuracy.
-testpack.tar.gz: all-programs all-fuzz-programs all-test-programs default-targets
-	(find * -path external -prune -o -path target -prune -o -newer config.vars -type f -print; ls $(TESTPACK_EXTRAS)) | tar --verbatim-files-from -T- -c --format=posix -f - | gzip -5 > $@
+# build and the test phase. This is necessary because the fixtures in
+# `tests/` explicitly use the binaries built in the current directory
+# rather than using `$PATH`, as that may pick up some other installed
+# version of `lightningd` leading to bogus results. We bundle up all
+# built artefacts here, and will unpack them on the tester (overlaying
+# on top of the checked out repo as if we had just built it in place).
+testpack.tar.bz2: $(BIN_PROGRAMS) $(PKGLIBEXEC_PROGRAMS) $(PLUGINS) $(PY_PLUGINS) $(MAN1PAGES) $(MAN5PAGES) $(MAN7PAGES) $(MAN8PAGES) $(DOC_DATA) config.vars $(TESTBINS) $(DEVTOOLS) $(TOOLS)
+	tar -caf $@ $^
 
 uninstall:
 	@$(NORMAL_UNINSTALL)
@@ -1155,11 +1123,7 @@ ccan-rune-rune.o: $(CCANDIR)/ccan/rune/rune.c
 ccan-rune-coding.o: $(CCANDIR)/ccan/rune/coding.c
 	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 
-canned-gossmap: devtools/gossmap-compress
-	DATE=`date +%Y-%m-%d` && devtools/gossmap-compress compress --output-node-map /tmp/gossip_store tests/data/gossip-store-$$DATE.compressed > tests/data/gossip-store-$$DATE-node-map && xz -9 tests/data/gossip-store-$$DATE-node-map && ls -l tests/data/gossip-store-$$DATE*
-
-print-binary-sizes: $(ALL_PROGRAMS) $(ALL_TEST_PROGRAMS) $(BIN_PROGRAMS)
-	@echo User programs:
-	@size -t $(PKGLIBEXEC_PROGRAMS) $(filter-out tools/reckless,$(BIN_PROGRAMS)) $(PLUGINS)
-	@echo All programs:
-	@size -t $(ALL_PROGRAMS) $(ALL_TEST_PROGRAMS) | tail -n1
+print-binary-sizes: $(ALL_PROGRAMS) $(ALL_TEST_PROGRAMS)
+	@find $(ALL_PROGRAMS) $(ALL_TEST_PROGRAMS) -printf '%p\t%s\n'
+	@echo 'Total program size:	'`find $(ALL_PROGRAMS) -printf '%s\n' | awk '{TOTAL+= $$1} END {print TOTAL}'`
+	@echo 'Total tests size:	'`find $(ALL_TEST_PROGRAMS) -printf '%s\n' | awk '{TOTAL+= $$1} END {print TOTAL}'`

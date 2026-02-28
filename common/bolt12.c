@@ -171,7 +171,6 @@ struct tlv_offer *offer_decode(const tal_t *ctx,
 	const u8 *data;
 	size_t dlen;
 	const struct tlv_field *badf;
-	const struct recurrence *recurr;
 
 	data = string_to_data(tmpctx, b12, b12len, "lno", &dlen, fail);
 	if (!data)
@@ -224,16 +223,6 @@ struct tlv_offer *offer_decode(const tal_t *ctx,
 
 	/* BOLT #12:
 	 *
-	 *   - if `offer_currency` is set and `offer_amount` is not set:
-	 *     - MUST NOT respond to the offer.
-	 */
-	if (offer->offer_currency && !offer->offer_amount) {
-		*fail = tal_strdup(ctx, "Offer contains a currency with no amount");
-		return tal_free(offer);
-	}
-
-	/* BOLT #12:
-	 *
 	 *   - if neither `offer_issuer_id` nor `offer_paths` are set:
 	 *     - MUST NOT respond to the offer.
 	 */
@@ -249,46 +238,6 @@ struct tlv_offer *offer_decode(const tal_t *ctx,
 	for (size_t i = 0; i < tal_count(offer->offer_paths); i++) {
 		if (tal_count(offer->offer_paths[i]->path) == 0) {
 			*fail = tal_strdup(ctx, "Offer contains an empty offer_path");
-			return tal_free(offer);
-		}
-	}
-
-	/* BOLT-recurrence #12
-	 *   - if `offer_recurrence_optional` or `offer_recurrence_compulsory` are set:
-	 *     - if `time_unit` is not one of 0, 1, or 2:
-	 *        - MUST NOT respond to the offer.
-	 *     - if `period` is 0:
-	 *        - MUST NOT respond to the offer.
-	 *     - if `offer_recurrence_limit` is set and `max_period_index` is 0:
-	 *        - MUST NOT respond to the offer.
-	 */
-	recurr = offer_recurrence(offer);
-	if (recurr) {
-		if (recurr->time_unit != 0
-		    && recurr->time_unit != 1
-		    && recurr->time_unit != 2) {
-			*fail = tal_fmt(ctx, "Offer contains invalid recurrence time_unit %u", recurr->time_unit);
-			return tal_free(offer);
-		}
-		if (recurr->period == 0) {
-			*fail = tal_fmt(ctx, "Offer contains invalid recurrence period %u", recurr->period);
-			return tal_free(offer);
-		}
-		if (offer->offer_recurrence_limit && *offer->offer_recurrence_limit == 0) {
-			*fail = tal_fmt(ctx, "Offer contains invalid recurrence limit %u",
-					*offer->offer_recurrence_limit);
-			return tal_free(offer);
-		}
-	} else {
-		/* BOLT-recurrence #12
-		 *   - otherwise: (no recurrence):
-		 *     - if it `offer_recurrence_paywindow`, `offer_recurrence_limit` or `offer_recurrence_base` are set:
-		 *        - MUST NOT respond to the offer.
-		 */
-		if (offer->offer_recurrence_paywindow
-		    || offer->offer_recurrence_limit
-		    || offer->offer_recurrence_base) {
-			*fail = tal_strdup(ctx, "Offer contains recurrence fields but no recurrence");
 			return tal_free(offer);
 		}
 	}

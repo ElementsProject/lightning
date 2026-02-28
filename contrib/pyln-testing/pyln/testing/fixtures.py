@@ -1,6 +1,6 @@
 from concurrent import futures
 from pyln.testing.db import SqliteDbProvider, PostgresDbProvider
-from pyln.testing.utils import NodeFactory, BitcoinD, ElementsD, env, LightningNode, TEST_DEBUG, TEST_NETWORK, SLOW_MACHINE, VALGRIND
+from pyln.testing.utils import NodeFactory, BitcoinD, ElementsD, env, LightningNode, TEST_DEBUG, TEST_NETWORK
 from pyln.client import Millisatoshi
 from typing import Dict
 from pathlib import Path
@@ -58,9 +58,6 @@ def setup_logging():
     """
     if TEST_DEBUG:
         logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
-
-    if env("TEST_LOG_IGNORE_ERRORS", "0") == "1":
-        logging.raiseExceptions = False
 
     yield
 
@@ -414,17 +411,6 @@ def _extra_validator(is_request: bool):
             return True
         return False
 
-    def is_string_map(checker, instance):
-        """key, value map with strings"""
-        if not checker.is_type(instance, "object"):
-            return False
-        for k, v in instance.items():
-            if not checker.is_type(k, "string"):
-                return False
-            if not checker.is_type(v, "string"):
-                return False
-        return True
-
     # "msat" for request can be many forms
     if is_request:
         is_msat = is_msat_request
@@ -453,7 +439,6 @@ def _extra_validator(is_request: bool):
         "outpoint": is_outpoint,
         "feerate": is_feerate,
         "outputdesc": is_outputdesc,
-        "string_map": is_string_map,
     })
 
     return jsonschema.validators.extend(jsonschema.Draft7Validator,
@@ -513,7 +498,7 @@ def node_factory(request, directory, test_name, bitcoind, executor, db_provider,
 
     map_node_error(nf.nodes, printValgrindErrors, "reported valgrind errors")
     map_node_error(nf.nodes, printCrashLog, "had crash.log files")
-    map_node_error(nf.nodes, checkBroken, "had BROKEN or That's weird messages")
+    map_node_error(nf.nodes, checkBroken, "had BROKEN messages")
     map_node_error(nf.nodes, lambda n: not n.allow_warning and n.daemon.is_in_log(r' WARNING:'), "had warning messages")
     map_node_error(nf.nodes, checkReconnect, "had unexpected reconnections")
     map_node_error(nf.nodes, checkPluginJSON, "had malformed hooks/notifications")
@@ -635,10 +620,6 @@ def checkBroken(node):
     if node.broken_log:
         ex = re.compile(node.broken_log)
         broken_lines = [l for l in broken_lines if not ex.search(l)]
-    # Valgrind under CI can be really slow, so we get spurious alerts
-    if SLOW_MACHINE and VALGRIND:
-        slowreq = re.compile("That's weird: Request .* took [0-9]* milliseconds")
-        broken_lines = [l for l in broken_lines if not slowreq.search(l)]
     if broken_lines:
         print(broken_lines)
         return 1

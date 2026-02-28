@@ -14,33 +14,33 @@ def test_createrune(node_factory):
         'allow-deprecated-apis': True,
     })
 
-    # l1's master rune secret is 4ac018131e70b044e17891e67960f59b9d602525d3aef9956e900189f456e595
+    # l1's master rune secret is edb8893c04fdeef8f5f06ed70edef309a5c83f20624594e136e392504a270c40
     rune1 = l1.rpc.createrune()
-    assert rune1['rune'] == 'I9TZsYEWiAwThQye-gYhpWIe1h15szWEN_qNyMSBOdE9MA=='
+    assert rune1['rune'] == 'OSqc7ixY6F-gjcigBfxtzKUI54uzgFSA6YfBQoWGDV89MA=='
     assert rune1['unique_id'] == '0'
     rune2 = l1.rpc.createrune(restrictions="readonly")
-    assert rune2['rune'] == 's0IEnsikGDw76tdpAiMbqzigYhlkjqSVh0ZuvJ1Np1w9MSZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl'
+    assert rune2['rune'] == 'zm0x_eLgHexaTvZn3Cz7gb_YlvrlYGDo_w4BYlR9SS09MSZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl'
     assert rune2['unique_id'] == '1'
     rune3 = l1.rpc.createrune(restrictions=[["time>1656675211"]])
-    assert rune3['rune'] == 'K0c0pWvBWb3y9HF1GMy33Zx2KRg1zcEvQLr2vtWwMew9MiZ0aW1lPjE2NTY2NzUyMTE='
+    assert rune3['rune'] == 'mxHwVsC_W-PH7r79wXQWqxBNHaHncIqIjEPyP_vGOsE9MiZ0aW1lPjE2NTY2NzUyMTE='
     assert rune3['unique_id'] == '2'
     rune4 = l1.rpc.createrune(restrictions=[["id^022d223620a359a47ff7"], ["method=listpeers"]])
-    assert rune4['rune'] == 'ixuStVB4oewJtVNnim1P_qEL89ZU0G8Tnxg_JZgJTUk9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJz'
+    assert rune4['rune'] == 'YPojv9qgHPa3im0eiqRb-g8aRq76OasyfltGGqdFUOU9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJz'
     assert rune4['unique_id'] == '3'
     rune5 = l1.rpc.createrune(rune4['rune'], [["pnamelevel!", "pnamelevel/io"]])
-    assert rune5['rune'] == 'NUPHrMs1TEdfWbRfO_KJ4rXhJSBjmSqbdcz-W0yH9J89MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJzJnBuYW1lbGV2ZWwhfHBuYW1lbGV2ZWwvaW8='
+    assert rune5['rune'] == 'Zm7A2mKkLnd5l6Er_OMAHzGKba97ij8lA-MpNYMw9nk9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJzJnBuYW1lbGV2ZWwhfHBuYW1lbGV2ZWwvaW8='
     assert rune5['unique_id'] == '3'
     rune6 = l1.rpc.createrune(rune5['rune'], [["parr1!", "parr1/io"]])
-    assert rune6['rune'] == 'sloBq0jn21v4LWhkswsHZgdtvQ0-jqgXXp_2jNNWLJA9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJzJnBuYW1lbGV2ZWwhfHBuYW1lbGV2ZWwvaW8mcGFycjEhfHBhcnIxL2lv'
+    assert rune6['rune'] == 'm_tyR0qqHUuLEbFJW6AhmBg-9npxVX2yKocQBFi9cvY9MyZpZF4wMjJkMjIzNjIwYTM1OWE0N2ZmNyZtZXRob2Q9bGlzdHBlZXJzJnBuYW1lbGV2ZWwhfHBuYW1lbGV2ZWwvaW8mcGFycjEhfHBhcnIxL2lv'
     assert rune6['unique_id'] == '3'
     rune7 = l1.rpc.createrune(restrictions=[["pnum=0"]])
-    assert rune7['rune'] == 'k6kQt9dkGMaz75f51-PEkPk8Qovbiqz2HXconizqa-w9NCZwbnVtPTA='
+    assert rune7['rune'] == 'enX0sTpHB8y1ktyTAF80CnEvGetG340Ne3AGItudBS49NCZwbnVtPTA='
     assert rune7['unique_id'] == '4'
     rune8 = l1.rpc.createrune(rune7['rune'], [["rate=3"]])
-    assert rune8['rune'] == 'jHidm2_terhiOytrn8xgEWR1pvFkKuoIvKgvcEeLLQQ9NCZwbnVtPTAmcmF0ZT0z'
+    assert rune8['rune'] == '_h2eKjoK7ITAF-JQ1S5oum9oMQesrz-t1FR9kDChRB49NCZwbnVtPTAmcmF0ZT0z'
     assert rune8['unique_id'] == '4'
     rune9 = l1.rpc.createrune(rune8['rune'], [["rate=1"]])
-    assert rune9['rune'] == 'AWO9sW94iv7Y99h0b6kyQO5yePUXQOSIpSuTRp8XFTM9NCZwbnVtPTAmcmF0ZT0zJnJhdGU9MQ=='
+    assert rune9['rune'] == 'U1GDXqXRvfN1A4WmDVETazU9YnvMsDyt7WwNzpY0khE9NCZwbnVtPTAmcmF0ZT0zJnJhdGU9MQ=='
     assert rune9['unique_id'] == '4'
 
     # Test rune with \|.
@@ -244,52 +244,41 @@ def test_createrune_per_restriction(node_factory):
     l1 = node_factory.get_node()
 
     # 1 sec = 1,000,000,000 nanoseconds (nsec)
-    rune_per_nano_sec = l1.rpc.createrune(restrictions=[["per=2000000000nsec"]])['rune']
-    assert rune_per_nano_sec == 'IUhHCEYyQOTSbBjJ09MNiPZMrV_tHFX0JG2U5yCUmIU9MCZwZXI9MjAwMDAwMDAwMG5zZWM='
-    do_test_rune_per_restriction(l1, rune_per_nano_sec, 2)
+    rune_per_nano_sec = l1.rpc.createrune(restrictions=[["per=1000000000nsec"]])['rune']
+    assert rune_per_nano_sec == 'Bl0V_vkVkGr4h356JbCMCcoDyyKE8djkoQ2156iPB509MCZwZXI9MTAwMDAwMDAwMG5zZWM='
+    do_test_rune_per_restriction(l1, rune_per_nano_sec, 1)
 
     # 1 sec = 1,000,000 microseconds (usec)
     rune_per_micro_sec = l1.rpc.createrune(restrictions=[["per=2000000usec"]])['rune']
-    assert rune_per_micro_sec == '7ugvfMdjxoW6rKq__8d2gB7me5PL2KZOttq83mGuPvU9MSZwZXI9MjAwMDAwMHVzZWM='
+    assert rune_per_micro_sec == 'i8H9Rk5iDvXdiNgRUbeWqKUdMH2x0h58-1LqE1jthio9MSZwZXI9MjAwMDAwMHVzZWM='
     do_test_rune_per_restriction(l1, rune_per_micro_sec, 2)
 
     # 1 sec = 1,000 milliseconds (msec)
-    rune_per_milli_sec = l1.rpc.createrune(restrictions=[["per=2000msec"]])['rune']
-    assert rune_per_milli_sec == 'uC5mTQfEmhbcFiUDMYIErTJcmaKZYMCUogncByZhMbk9MiZwZXI9MjAwMG1zZWM='
-    do_test_rune_per_restriction(l1, rune_per_milli_sec, 2)
+    rune_per_milli_sec = l1.rpc.createrune(restrictions=[["per=1000msec"]])['rune']
+    assert rune_per_milli_sec == 'EzVpQwjYe2aoNQiRa4_s7FJtomD3kWzx7lusMpzA59w9MiZwZXI9MTAwMG1zZWM='
+    do_test_rune_per_restriction(l1, rune_per_milli_sec, 1)
 
     # 1 sec
     rune_per_sec = l1.rpc.createrune(restrictions=[["per=2sec"]])['rune']
-    assert rune_per_sec == 'jjk21GQ-MeO2FWD0uo6lYplwadKHe3q9q38FP_ol3_M9MyZwZXI9MnNlYw=='
+    assert rune_per_sec == 'dBbGI4T85cF4eSHvuQF_kW8bXgSDJY8Wr9cTsPGRCqg9MyZwZXI9MnNlYw=='
     do_test_rune_per_restriction(l1, rune_per_sec, 2)
 
     # default (sec)
-    rune_per_default = l1.rpc.createrune(restrictions=[["per=2"]])['rune']
-    assert rune_per_default == 'RQwZdN5OeWxIR2zPJ55mOkJ8s0SPmdFmwuNAp8TATlI9NCZwZXI9Mg=='
-    do_test_rune_per_restriction(l1, rune_per_default, 2)
+    rune_per_default = l1.rpc.createrune(restrictions=[["per=1"]])['rune']
+    assert rune_per_default == 'NrM7go6C4qzfRQDkUSv1DtRroJWSKqdjIOuvGS4TLFE9NCZwZXI9MQ=='
+    do_test_rune_per_restriction(l1, rune_per_default, 1)
 
     # 1 minute
     rune_per_min = l1.rpc.createrune(restrictions=[["per=1min"]])['rune']
-    assert rune_per_min == 'gDyB_VRT5IKmpmjr4GnplGMlp-7_g8VVCR2KCjcC0Gk9NSZwZXI9MW1pbg=='
+    assert rune_per_min == 'ZfWDjFa7wTiadUWOjwpztSClfiubwVusxxUEtoLtCBk9NSZwZXI9MW1pbg=='
     do_test_rune_per_restriction(l1, rune_per_min, 60)
 
 
-@pytest.mark.parametrize("old_hsmsecret", [True, False])
-def test_showrunes(node_factory, old_hsmsecret):
-    l1 = node_factory.get_node(old_hsmsecret=old_hsmsecret)
+def test_showrunes(node_factory):
+    l1 = node_factory.get_node()
     rune1 = l1.rpc.createrune()
-
-    if old_hsmsecret:
-        first_rune = 'OSqc7ixY6F-gjcigBfxtzKUI54uzgFSA6YfBQoWGDV89MA=='
-        second_rune = 'geZmO6U7yqpHn-moaX93FVMVWrDRfSNY4AXx9ypLcqg9MQ=='
-        ninth_rune = 'lI6iPwM1R9OkcRW25SH0a06PscPDinTfLFAjzSGFGE09OQ=='
-    else:
-        first_rune = 'I9TZsYEWiAwThQye-gYhpWIe1h15szWEN_qNyMSBOdE9MA=='
-        second_rune = 'uJXLfjDwNvh3KLkiCHc-wE2eBM7-AT7IT9oprKL1EtY9MQ=='
-        ninth_rune = 'j6bX7Q4L3jcVnMp56cRKRROWQevIVyIHExNKsL9iqCg9OQ=='
-
     assert rune1 == {
-        'rune': first_rune,
+        'rune': 'OSqc7ixY6F-gjcigBfxtzKUI54uzgFSA6YfBQoWGDV89MA==',
         'unique_id': '0',
         'warning_unrestricted_rune': 'WARNING: This rune has no restrictions! Anyone who has access to this rune could drain funds from your node. Be careful when giving this to apps that you don\'t trust. Consider using the restrictions parameter to only allow access to specific rpc methods.'
     }
@@ -301,13 +290,13 @@ def test_showrunes(node_factory, old_hsmsecret):
     assert showrunes == {
         'runes': [
             {
-                'rune': first_rune,
+                'rune': 'OSqc7ixY6F-gjcigBfxtzKUI54uzgFSA6YfBQoWGDV89MA==',
                 'unique_id': '0',
                 'restrictions': [],
                 'restrictions_as_english': ''
             },
             {
-                'rune': second_rune,
+                'rune': 'geZmO6U7yqpHn-moaX93FVMVWrDRfSNY4AXx9ypLcqg9MQ==',
                 'unique_id': '1',
                 'restrictions': [],
                 'restrictions_as_english': ''
@@ -315,11 +304,9 @@ def test_showrunes(node_factory, old_hsmsecret):
         ]
     }
 
-    our_unstored_rune = l1.rpc.showrunes(rune=ninth_rune)['runes'][0]
+    our_unstored_rune = l1.rpc.showrunes(rune='lI6iPwM1R9OkcRW25SH0a06PscPDinTfLFAjzSGFGE09OQ==')['runes'][0]
     assert our_unstored_rune['unique_id'] == '9'
     assert our_unstored_rune['stored'] is False
-    # This is only present if False, which is unusual.
-    assert 'our_rune' not in our_unstored_rune
 
     not_our_rune = l1.rpc.showrunes(rune='oNJAqigqDrHBGzsm7gV3z87oGpzq-KqFlOxx2O9iEQk9MA==')['runes'][0]
     assert not_our_rune['stored'] is False
@@ -664,8 +651,7 @@ def test_showrune_id(node_factory):
 def test_id_migration(node_factory):
     """Database was taken from test_createrune"""
     l1 = node_factory.get_node(dbfile='runes_bad_id.sqlite3.xz',
-                               options={'database-upgrade': True},
-                               old_hsmsecret=True)
+                               options={'database-upgrade': True})
 
     for rune in ('OSqc7ixY6F-gjcigBfxtzKUI54uzgFSA6YfBQoWGDV89MA==',
                  'zm0x_eLgHexaTvZn3Cz7gb_YlvrlYGDo_w4BYlR9SS09MSZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl',

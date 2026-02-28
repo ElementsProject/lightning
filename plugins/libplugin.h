@@ -363,13 +363,6 @@ WARN_UNUSED_RESULT
 struct command_result *command_still_pending(struct command *cmd)
 	NON_NULL_ARGS(1);
 
-/* Forward this raw JSON string as the command response */
-WARN_UNUSED_RESULT
-struct command_result *command_finish_rawstr(struct command *cmd,
-					     const char *json,
-					     size_t json_len)
-	NO_NULL_ARGS;
-
 /* Helper to create a zero or single-value JSON object; if @str is NULL,
  * object is empty. */
 struct json_out *json_out_obj(const tal_t *ctx,
@@ -423,12 +416,14 @@ command_success(struct command *cmd, const struct json_out *result)
 	NON_NULL_ARGS(1, 2);
 
 /* End a hook normally (with "result": "continue") */
-struct command_result *command_hook_success(struct command *cmd)
-	WARN_UNUSED_RESULT NON_NULL_ARGS(1);
+struct command_result *WARN_UNUSED_RESULT
+command_hook_success(struct command *cmd)
+	NON_NULL_ARGS(1);
 
 /* End a notification handler.  */
-struct command_result *notification_handled(struct command *cmd)
-	WARN_UNUSED_RESULT NON_NULL_ARGS(1);
+struct command_result *WARN_UNUSED_RESULT
+notification_handled(struct command *cmd)
+	NON_NULL_ARGS(1);
 
 /* End a command created with aux_command.  */
 struct command_result *WARN_UNUSED_RESULT
@@ -593,7 +588,7 @@ void *plugin_get_data_(struct plugin *plugin);
 #define plugin_get_data(plugin, type) ((type *)(plugin_get_data_(plugin)))
 
 /* Macro to define arguments */
-#define plugin_option_(name, type, description, set, jsonfmt, arg, dev_only, depr_start, depr_end, dynamic, multi) \
+#define plugin_option_(name, type, description, set, jsonfmt, arg, dev_only, depr_start, depr_end, dynamic) \
 	(name),								\
 	(type),								\
 	(description),							\
@@ -610,27 +605,23 @@ void *plugin_get_data_(struct plugin *plugin);
 	(dev_only),							\
 	(depr_start),							\
 	(depr_end),							\
-	(dynamic),							\
-	(multi)
+	(dynamic)
 
 /* jsonfmt can be NULL, but then default won't be printed */
 #define plugin_option(name, type, description, set, jsonfmt, arg)	\
-	plugin_option_((name), (type), (description), (set), (jsonfmt), (arg), false, NULL, NULL, false, false)
+	plugin_option_((name), (type), (description), (set), (jsonfmt), (arg), false, NULL, NULL, false)
 
 #define plugin_option_dev(name, type, description, set, jsonfmt, arg)	\
-	plugin_option_((name), (type), (description), (set), (jsonfmt), (arg), true, NULL, NULL, false, false)
+	plugin_option_((name), (type), (description), (set), (jsonfmt), (arg), true, NULL, NULL, false)
 
 #define plugin_option_dev_dynamic(name, type, description, set, jsonfmt, arg) \
-	plugin_option_((name), (type), (description), (set), (jsonfmt), (arg), true, NULL, NULL, true, false)
+	plugin_option_((name), (type), (description), (set), (jsonfmt), (arg), true, NULL, NULL, true)
 
 #define plugin_option_dynamic(name, type, description, set, jsonfmt, arg) \
-	plugin_option_((name), (type), (description), (set), (jsonfmt), (arg), false, NULL, NULL, true, false)
+	plugin_option_((name), (type), (description), (set), (jsonfmt), (arg), false, NULL, NULL, true)
 
 #define plugin_option_deprecated(name, type, description, depr_start, depr_end, set, jsonfmt, arg) \
-	plugin_option_((name), (type), (description), (set), (jsonfmt), (arg), false, (depr_start), (depr_end), false, false)
-
-#define plugin_option_multi(name, type, description, set, jsonfmt, arg)	\
-	plugin_option_((name), (type), (description), (set), (jsonfmt), (arg), false, NULL, NULL, false, true)
+	plugin_option_((name), (type), (description), (set), (jsonfmt), (arg), false, (depr_start), (depr_end), false)
 
 /* Standard helpers */
 char *u64_option(struct plugin *plugin, const char *arg, bool check_only, u64 *i);

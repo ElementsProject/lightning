@@ -189,15 +189,6 @@ void *membuf_tal_resize(struct membuf *mb, void *rawelems, size_t newsize);
 char *str_lowering(const void *ctx, const char *string TAKES);
 
 /**
- * tal_struppering - return the same string by in upper case.
- * @ctx: the context to tal from (often NULL)
- * @string: the string that is going to be UPPERED (can be take())
- *
- * FIXME: move this in ccan
- */
-char *str_uppering(const void *ctx, const char *string TAKES);
-
-/**
  * Assign two different structs which are the same size.
  * We use this for assigning secrets <-> sha256 for example.
  */

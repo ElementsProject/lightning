@@ -3,7 +3,6 @@
 #include "config.h"
 #include <bitcoin/short_channel_id.h>
 #include <ccan/htable/htable_type.h>
-#include <ccan/membuf/membuf.h>
 #include <ccan/timer/timer.h>
 #include <common/bigsize.h>
 #include <common/crypto_state.h>
@@ -80,18 +79,17 @@ struct peer {
 	/* Connections to the subdaemons */
 	struct subd **subds;
 
+	/* When socket has Nagle overridden */
+	bool urgent;
+
 	/* Input buffer. */
 	u8 *peer_in;
 
 	/* Output buffer. */
 	struct msg_queue *peer_outq;
 
-	/* Encrypted peer sending buffer */
-	MEMBUF(u8) encrypted_peer_out;
-	size_t encrypted_peer_out_sent;
-	size_t peer_out_urgent;
-	bool flushing_nonurgent;
-	struct oneshot *nonurgent_flush_timer;
+	/* Peer sent buffer (for freeing after sending) */
+	const u8 *sent_to_peer;
 
 	/* We stream from the gossip_store for them, when idle */
 	struct gossip_state gs;
@@ -262,7 +260,7 @@ static bool scid_to_node_id_eq_scid(const struct scid_to_node_id *scid_to_node_i
  * we use this to forward onion messages which specify the next hop by scid/dir. */
 HTABLE_DEFINE_NODUPS_TYPE(struct scid_to_node_id,
 			  scid_to_node_id_keyof,
-			  hash_scid,
+			  short_channel_id_hash,
 			  scid_to_node_id_eq_scid,
 			  scid_htable);
 
@@ -340,6 +338,9 @@ struct daemon {
 	u32 gossip_recent_time;
 	struct gossmap_iter *gossmap_iter_recent;
 
+	/* We only announce websocket addresses if !deprecated_apis */
+	bool announce_websocket;
+
 	/* Shutting down, don't send new stuff */
 	bool shutting_down;
 
@@ -371,8 +372,6 @@ struct daemon {
 	bool dev_fast_reconnect;
 	/* Don't complain about lightningd being unresponsive. */
 	bool dev_lightningd_is_slow;
-	/* Don't set TCP_NODELAY */
-	bool dev_keep_nagle;
  };
 
 /* Called by io_tor_connect once it has a connection out. */

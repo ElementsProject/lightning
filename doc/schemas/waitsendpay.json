@@ -223,14 +223,14 @@
     "*failcodename*: The human-readable name corresponding to *failcode*, if known."
   ],
   "author": [
-    "ZmnSCPxj [ZmnSCPxj@protonmail.com](mailto:ZmnSCPxj@protonmail.com) is mainly responsible."
+    "ZmnSCPxj <<ZmnSCPxj@protonmail.com>> is mainly responsible."
   ],
   "see_also": [
     "lightning-sendpay(7)",
     "lightning-pay(7)"
   ],
   "resources": [
-    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+    "Main web site: <https://github.com/ElementsProject/lightning>"
   ],
   "examples": [
     {

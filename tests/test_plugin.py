@@ -1,4 +1,3 @@
-from bitcoin.rpc import RawProxy
 from collections import OrderedDict
 from datetime import datetime
 from fixtures import *  # noqa: F401,F403
@@ -515,29 +514,6 @@ def test_plugin_connected_hook_chaining(node_factory):
     assert not l1.daemon.is_in_log(f"peer_connected_logger_b {l3id}")
 
 
-def test_plugin_connected_hook_disconnect_crash(node_factory, executor):
-    """A peer disconnnects between plugin hook invocations"""
-    opts = [{},
-            {'plugin':
-             [os.path.join(os.getcwd(),
-                           'tests/plugins/peer_connected_logger_a.py'),
-              os.path.join(os.getcwd(),
-                           'tests/plugins/peer_connected_logger_b.py')],
-             'logger_a_sleep': True},
-            ]
-
-    l1, l2 = node_factory.get_nodes(2, opts=opts)
-    executor.submit(l1.rpc.connect, l2.info['id'], 'localhost', l2.port)
-    l2.daemon.wait_for_log(f'plugin-peer_connected_logger_a.py: peer_connected_logger_a {l1.info["id"]}')
-    l1.stop()
-
-    # Now make first plugin continue...
-    open(os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, "unsleep"), "w").close()
-
-    # Should get log from second
-    l2.daemon.wait_for_log(f'plugin-peer_connected_logger_b.py: peer_connected_logger_b {l1.info["id"]}')
-
-
 def test_peer_connected_remote_addr(node_factory):
     """This tests the optional tlv `remote_addr` being passed to a plugin.
 
@@ -686,21 +662,14 @@ def test_invoice_payment_hook(node_factory):
     l2.daemon.wait_for_log('preimage=' + '0' * 64)
 
 
-def test_invoice_payment_hook_hold(node_factory, executor):
+def test_invoice_payment_hook_hold(node_factory):
     """ l1 uses the hold_invoice plugin to delay invoice payment.
     """
-    opts = [{}, {'plugin': os.path.join(os.getcwd(), 'tests/plugins/hold_invoice.py')}]
+    opts = [{}, {'plugin': os.path.join(os.getcwd(), 'tests/plugins/hold_invoice.py'), 'holdtime': TIMEOUT / 2}]
     l1, l2 = node_factory.line_graph(2, opts=opts)
 
     inv1 = l2.rpc.invoice(1230, 'label', 'description', preimage='1' * 64)
-
-    # This should block.
-    f = executor.submit(l1.rpc.pay, inv1['bolt11'])
-    time.sleep(5)
-    assert not f.done()
-
-    open(os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, "unhold"), "w").close()
-    f.result(TIMEOUT)
+    l1.rpc.pay(inv1['bolt11'])
 
 
 @pytest.mark.openchannel('v1')
@@ -1742,7 +1711,6 @@ def test_libplugin(node_factory):
     assert l1.daemon.is_in_stderr(r"somearg-deprecated=test_opt: deprecated option")
 
     del l1.daemon.opts["somearg-deprecated"]
-    l1.daemon.opts["multiopt"] = ['hello', 'world']
     l1.start()
 
     # Test that check works as expected.
@@ -1755,9 +1723,6 @@ def test_libplugin(node_factory):
 
     # This works
     assert l1.rpc.check('checkthis', key=["test_libplugin", "name"]) == {'command_to_check': 'checkthis'}
-
-    assert l1.daemon.is_in_log('plugin-test_libplugin: multiopt#0 = hello')
-    assert l1.daemon.is_in_log('plugin-test_libplugin: multiopt#1 = world')
 
 
 def test_libplugin_deprecated(node_factory):
@@ -1939,7 +1904,7 @@ def test_bitcoin_backend(node_factory, bitcoind):
 def test_bitcoin_backend_gianttx(node_factory, bitcoind):
     """Test that a giant tx doesn't crash bcli"""
     # This complains about how long fundpsbt took.
-    l1 = node_factory.get_node(start=False, broken_log="That's weird: Request .*psbt took")
+    l1 = node_factory.get_node(start=False, broken_log='Request fundpsbt took')
     # With memleak we spend far too much time gathering backtraces.
     if "LIGHTNINGD_DEV_MEMLEAK" in l1.daemon.env:
         del l1.daemon.env["LIGHTNINGD_DEV_MEMLEAK"]
@@ -2024,111 +1989,6 @@ def test_bcli(node_factory, bitcoind, chainparams):
 
     resp = l1.rpc.call("sendrawtransaction", {"tx": "dummy", "allowhighfees": False})
     assert not resp["success"] and "decode failed" in resp["errmsg"]
-
-
-def test_bcli_concurrent(node_factory, bitcoind, executor):
-    """Test bcli handles concurrent requests while `getblockfrompeer` retry is active.
-
-    Simulates a pruned node scenario where getblock initially fails. The bcli
-    plugin should use getblockfrompeer to fetch the block from peers, then
-    retry `getblock` successfully. Meanwhile, other concurrent requests
-    (`getchaininfo`, `estimatefees`) should complete normally.
-    """
-    retry_count = 5
-    getblockfrompeer_count = 0
-
-    def mock_getblock(r):
-        if getblockfrompeer_count >= retry_count:
-            conf_file = os.path.join(bitcoind.bitcoin_dir, "bitcoin.conf")
-            brpc = RawProxy(btc_conf_file=conf_file)
-            return {
-                "result": brpc._call(r["method"], *r["params"]),
-                "error": None,
-                "id": r["id"]
-            }
-        return {
-            "id": r["id"],
-            "result": None,
-            "error": {"code": -1, "message": "Block not available (pruned data)"}
-        }
-
-    def mock_getpeerinfo(r):
-        return {"id": r["id"], "result": [{"id": 1, "services": "000000000000040d"}]}
-
-    def mock_getblockfrompeer(r):
-        nonlocal getblockfrompeer_count
-        getblockfrompeer_count += 1
-        return {"id": r["id"], "result": {}}
-
-    l1 = node_factory.get_node(start=False)
-    l1.daemon.rpcproxy.mock_rpc("getblock", mock_getblock)
-    l1.daemon.rpcproxy.mock_rpc("getpeerinfo", mock_getpeerinfo)
-    l1.daemon.rpcproxy.mock_rpc("getblockfrompeer", mock_getblockfrompeer)
-    l1.start(wait_for_bitcoind_sync=False)
-
-    # Submit concurrent bcli requests, `getrawblockbyheight` hits a retry path.
-    block_future = executor.submit(l1.rpc.call, "getrawblockbyheight", {"height": 1})
-    chaininfo_futures = []
-    fees_futures = []
-    for _ in range(5):
-        chaininfo_futures.append(executor.submit(l1.rpc.call, "getchaininfo", {"last_height": 0}))
-        fees_futures.append(executor.submit(l1.rpc.call, "estimatefees"))
-
-    block_result = block_future.result(TIMEOUT)
-    assert "blockhash" in block_result
-    assert "block" in block_result
-
-    for fut in chaininfo_futures:
-        result = fut.result(TIMEOUT)
-        assert "chain" in result
-        assert "blockcount" in result
-
-    for fut in fees_futures:
-        result = fut.result(TIMEOUT)
-        assert "feerates" in result
-        assert "feerate_floor" in result
-
-    assert getblockfrompeer_count == retry_count
-
-
-def test_bcli_retry_timeout(node_factory, bitcoind):
-    """Test that lightningd crashes when getblock retries are exhausted.
-
-    Currently, when bcli returns an error after retry timeout, lightningd's
-    get_bitcoin_result() calls fatal(). This test documents that behavior.
-    """
-    getblockfrompeer_count = 0
-
-    def mock_getblock(r):
-        return {
-            "id": r["id"],
-            "result": None,
-            "error": {"code": -1, "message": "Block not available (pruned data)"}
-        }
-
-    def mock_getpeerinfo(r):
-        return {"id": r["id"], "result": [{"id": 1, "services": "000000000000040d"}]}
-
-    def mock_getblockfrompeer(r):
-        nonlocal getblockfrompeer_count
-        getblockfrompeer_count += 1
-        return {"id": r["id"], "result": {}}
-
-    l1 = node_factory.get_node(may_fail=True,
-                               broken_log=r'getrawblockbyheight|FATAL SIGNAL|backtrace',
-                               options={"bitcoin-retry-timeout": 3})
-    sync_blockheight(bitcoind, [l1])
-
-    l1.daemon.rpcproxy.mock_rpc("getblock", mock_getblock)
-    l1.daemon.rpcproxy.mock_rpc("getpeerinfo", mock_getpeerinfo)
-    l1.daemon.rpcproxy.mock_rpc("getblockfrompeer", mock_getblockfrompeer)
-
-    # Mine a new block - lightningd will try to fetch it and crash.
-    bitcoind.generate_block(1)
-
-    l1.daemon.wait_for_log(r"timed out after 3 seconds")
-    assert l1.daemon.wait() != 0
-    assert getblockfrompeer_count > 0
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'p2tr addresses not supported by elementsd')
@@ -2408,9 +2268,6 @@ def test_coin_movement_notices(node_factory, bitcoind, chainparams):
     l2.rpc.sendpay(route, payment_hash21, payment_secret=inv['payment_secret'])
     l2.rpc.waitsendpay(payment_hash21)
 
-    # Make sure coin_movements.py sees event before we restart!
-    l2.daemon.wait_for_log(f"plugin-coin_movements.py: coin movement: .*'payment_hash': '{payment_hash21}'")
-
     # restart to test index
     l2.restart()
     wait_for(lambda: all(c['state'] == 'CHANNELD_NORMAL' for c in l2.rpc.listpeerchannels()["channels"]))
@@ -2459,7 +2316,7 @@ def test_important_plugin(node_factory):
     n = node_factory.get_node(options={"important-plugin": os.path.join(pluginsdir, "nonexistent")},
                               may_fail=True, expect_fail=True,
                               # Other plugins can complain as lightningd stops suddenly:
-                              broken_log='Plugin marked as important, shutting down lightningd|Reading sync lightningd: Connection reset by peer|Lost connection to the RPC socket|Plugin terminated before replying to RPC call|plugin-cln-xpay: askrene-create-layer failed with.*Unkown command',
+                              broken_log='Plugin marked as important, shutting down lightningd|Reading sync lightningd: Connection reset by peer|Lost connection to the RPC socket',
                               start=False)
 
     n.daemon.start(wait_for_initialized=False, stderr_redir=True)
@@ -2754,7 +2611,6 @@ def test_htlc_accepted_hook_failonion(node_factory):
         l1.rpc.pay(inv)
 
 
-@pytest.mark.slow_test  # VALGRIND running generally too slow to trigger race we need.
 def test_hook_in_use(node_factory):
     """If a hook is in use when we add a plugin to it, we have to defer"""
     dep_a = os.path.join(os.path.dirname(__file__), 'plugins/dep_a.py')
@@ -3126,7 +2982,7 @@ def test_autoclean(node_factory):
 
     # Under valgrind in CI, it can 50 seconds between creating invoice
     # and restarting.
-    if VALGRIND:
+    if node_factory.valgrind:
         short_timeout = 10
         longer_timeout = 60
     else:
@@ -3393,16 +3249,14 @@ def test_block_added_notifications(node_factory, bitcoind):
 def test_sql(node_factory, bitcoind):
     opts = {'experimental-dual-fund': None,
             'dev-allow-localhost': None,
-            'may_reconnect': True,
-            'dev-no-reconnect': None}
+            'may_reconnect': True}
     l2opts = {'lease-fee-basis': 50,
               'experimental-dual-fund': None,
               'lease-fee-base-sat': '2000msat',
               'channel-fee-max-base-msat': '500sat',
               'channel-fee-max-proportional-thousandths': 200,
               'dev-sqlfilename': 'sql.sqlite3',
-              'may_reconnect': True,
-              'dev-no-reconnect': None}
+              'may_reconnect': True}
     l2opts.update(opts)
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
                                          opts=[opts, l2opts, opts])
@@ -3653,8 +3507,6 @@ def test_sql(node_factory, bitcoind):
                          'type': 'boolean'},
                         {'name': 'bolt12',
                          'type': 'string'},
-                        {'name': 'description',
-                         'type': 'string'},
                         {'name': 'used',
                          'type': 'boolean'},
                         {'name': 'label',
@@ -3760,8 +3612,6 @@ def test_sql(node_factory, bitcoind):
                          'type': 'string'},
                         {'name': 'short_channel_id',
                          'type': 'short_channel_id'},
-                        {'name': 'direction',
-                         'type': 'u32'},
                         {'name': 'channel_id',
                          'type': 'hash'},
                         {'name': 'funding_txid',
@@ -3864,7 +3714,9 @@ def test_sql(node_factory, bitcoind):
                         {'name': 'close_to_addr',
                          'type': 'string'},
                         {'name': 'last_tx_fee_msat',
-                         'type': 'msat'}]},
+                         'type': 'msat'},
+                        {'name': 'direction',
+                         'type': 'u32'}]},
         'peerchannels_features': {
             'columns': [{'name': 'row',
                          'type': 'u64'},
@@ -4160,9 +4012,6 @@ def test_sql(node_factory, bitcoind):
     # Make sure l3 sees new channel
     wait_for(lambda: len(l3.rpc.listchannels(scid)['channels']) == 2)
 
-    # Make sure we have a node_announcement for l1
-    wait_for(lambda: l2.rpc.listnodes(l1.info['id'])['nodes'] != [])
-
     # This should create a forward through l2
     l1.rpc.pay(l3.rpc.invoice(amount_msat=12300, label='inv1', description='description')['bolt11'])
 
@@ -4172,7 +4021,8 @@ def test_sql(node_factory, bitcoind):
     l2.rpc.pay(l3.rpc.invoice(amount_msat=12300, label='inv2', description='description')['bolt11'])
 
     # And I need at least one HTLC in-flight so listpeers.channels.htlcs isn't empty:
-    l3.rpc.plugin_start(os.path.join(os.getcwd(), 'tests/plugins/hold_invoice.py'))
+    l3.rpc.plugin_start(os.path.join(os.getcwd(), 'tests/plugins/hold_invoice.py'),
+                        holdtime=TIMEOUT * 2)
     inv = l3.rpc.invoice(amount_msat=12300, label='inv3', description='description')
     route = l1.rpc.getroute(l3.info['id'], 12300, 1)['route']
     l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
@@ -4240,7 +4090,6 @@ def test_sql(node_factory, bitcoind):
     l3.daemon.wait_for_log("Refreshing channel: {}".format(scid))
 
     # This has to wait for the hold_invoice plugin to let go!
-    open(os.path.join(l3.daemon.lightning_dir, TEST_NETWORK, "unhold"), "w").close()
     txid = only_one(l1.rpc.close(l2.info['id'])['txids'])
     bitcoind.generate_block(13, wait_for_mempool=txid)
     wait_for(lambda: len(l3.rpc.listchannels(source=l1.info['id'])['channels']) == 0)
@@ -4319,9 +4168,9 @@ def test_sql(node_factory, bitcoind):
 def test_sql_deprecated(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, opts=[{'allow-deprecated-apis': True}, {}])
 
-    # Even with deprecated APIs, this isn't there.
-    with pytest.raises(RpcError, match="Deprecated column table peerchannels.max_total_htlc_in_msat"):
-        l1.rpc.sql("SELECT max_total_htlc_in_msat FROM peerchannels;")
+    # l1 allows it, l2 doesn't
+    ret = l1.rpc.sql("SELECT max_total_htlc_in_msat FROM peerchannels;")
+    assert ret == {'rows': [[-1]]}
 
     # It's deprecated in l2, so that will fail!
     with pytest.raises(RpcError, match="Deprecated column table peerchannels.max_total_htlc_in_msat"):
@@ -4456,6 +4305,7 @@ def test_plugin_nostart(node_factory):
     assert [p['name'] for p in l1.rpc.plugin_list()['plugins'] if 'badinterp' in p['name']] == []
 
 
+@unittest.skip("A bit flaky, but when breaks, it is costing us 2h of CI time")
 def test_plugin_startdir_lol(node_factory):
     """Though we fail to start many of them, we don't crash!"""
     l1 = node_factory.get_node(broken_log='.*')
@@ -4544,9 +4394,8 @@ def test_important_plugin_shutdown(node_factory):
 
 
 @unittest.skipIf(VALGRIND, "It does not play well with prompt and key derivation.")
-@pytest.mark.parametrize("old_hsmsecret", [True, False])
-def test_exposesecret(node_factory, old_hsmsecret):
-    l1, l2 = node_factory.get_nodes(2, opts=[{'exposesecret-passphrase': "test_exposesecret", 'old_hsmsecret': old_hsmsecret}, {}])
+def test_exposesecret(node_factory):
+    l1, l2 = node_factory.get_nodes(2, opts=[{'exposesecret-passphrase': "test_exposesecret"}, {}])
 
     # listconfigs will conceal the value for us, even if we ask directly.
     l1.rpc.listconfigs()['configs']['exposesecret-passphrase']['value_str'] == '...'
@@ -4579,46 +4428,26 @@ def test_exposesecret(node_factory, old_hsmsecret):
         with pytest.raises(RpcError, match="must be valid bech32 string"):
             l1.rpc.exposesecret(passphrase='test_exposesecret', identifier=invalid)
 
-    if old_hsmsecret:
-        # As given by lightning-hsmtool:
-        # $ ./tools/lightning-hsmtool getcodexsecret /tmp/ltests-10uyxcnw/test_exposesecret_1/lightning-1/regtest/hsm_secret junr
-        # cl10junrsd35kw6r5de5kueedxyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqj00m675kxffh
-        # $ ./tools/lightning-hsmtool getcodexsecret /tmp/ltests-10uyxcnw/test_exposesecret_1/lightning-1/regtest/hsm_secret junx
-        # cl10junxsd35kw6r5de5kueedxyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq6mdtn5lql6p8m
-        # $ ./tools/lightning-hsmtool getcodexsecret /tmp/ltests-10uyxcnw/test_exposesecret_1/lightning-1/regtest/hsm_secret cln2
-        # cl10cln2sd35kw6r5de5kueedxyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq2v3y60yxxn4mq
-        assert l1.rpc.exposesecret(passphrase='test_exposesecret') == {'codex32': 'cl10junrsd35kw6r5de5kueedxyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqj00m675kxffh',
-                                                                       'identifier': 'junr'}
+    # As given by lightning-hsmtool:
+    # $ ./tools/lightning-hsmtool getcodexsecret /tmp/ltests-10uyxcnw/test_exposesecret_1/lightning-1/regtest/hsm_secret junr
+    # cl10junrsd35kw6r5de5kueedxyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqj00m675kxffh
+    # $ ./tools/lightning-hsmtool getcodexsecret /tmp/ltests-10uyxcnw/test_exposesecret_1/lightning-1/regtest/hsm_secret junx
+    # cl10junxsd35kw6r5de5kueedxyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq6mdtn5lql6p8m
+    # $ ./tools/lightning-hsmtool getcodexsecret /tmp/ltests-10uyxcnw/test_exposesecret_1/lightning-1/regtest/hsm_secret cln2
+    # cl10cln2sd35kw6r5de5kueedxyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq2v3y60yxxn4mq
+    assert l1.rpc.exposesecret(passphrase='test_exposesecret') == {'codex32': 'cl10junrsd35kw6r5de5kueedxyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqj00m675kxffh',
+                                                                   'identifier': 'junr'}
 
-        assert l1.rpc.exposesecret(passphrase='test_exposesecret', identifier='cln2') == {'codex32': 'cl10cln2sd35kw6r5de5kueedxyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq2v3y60yxxn4mq',
-                                                                                          'identifier': 'cln2'}
-    else:
-        # As given by lightning-hsmtool:
-        # $ ./tools/lightning-hsmtool getcodexsecret /tmp/ltests-2xbjux9b/test_exposesecret_1/lightning-1/regtest/hsm_secret stra
-        # cl10strasmms5axpgnml3svm0urkrvv2cuvxmz0xyd3dlfhaljvcy5wuu2gts07pad39rz85w6
-        # $ ./tools/lightning-hsmtool getcodexsecret /tmp/ltests-2xbjux9b/test_exposesecret_1/lightning-1/regtest/hsm_secret junx
-        # cl10junxsmms5axpgnml3svm0urkrvv2cuvxmz0xyd3dlfhaljvcy5wuu2gtsfcrlankxlxmaa
-        # $ ./tools/lightning-hsmtool getcodexsecret /tmp/ltests-2xbjux9b/test_exposesecret_1/lightning-1/regtest/hsm_secret cln2
-        # cl10cln2smms5axpgnml3svm0urkrvv2cuvxmz0xyd3dlfhaljvcy5wuu2gtse0ls5gdqx00px
-        assert l1.rpc.exposesecret(passphrase='test_exposesecret') == {'codex32': 'cl10strasmms5axpgnml3svm0urkrvv2cuvxmz0xyd3dlfhaljvcy5wuu2gts07pad39rz85w6',
-                                                                       'identifier': 'stra',
-                                                                       'mnemonic': 'hockey enroll sure trip track rescue original plate abandon abandon abandon account'}
-        assert l1.rpc.exposesecret(passphrase='test_exposesecret', identifier='cln2') == {'codex32': 'cl10cln2smms5axpgnml3svm0urkrvv2cuvxmz0xyd3dlfhaljvcy5wuu2gtse0ls5gdqx00px',
-                                                                                          'identifier': 'cln2',
-                                                                                          'mnemonic': 'hockey enroll sure trip track rescue original plate abandon abandon abandon account'}
+    assert l1.rpc.exposesecret(passphrase='test_exposesecret', identifier='cln2') == {'codex32': 'cl10cln2sd35kw6r5de5kueedxyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq2v3y60yxxn4mq',
+                                                                                      'identifier': 'cln2'}
 
     # FIXME: runtime config for alias!!
     l1.stop()
     l1.daemon.opts["alias"] = 'J1U1IOBiobN'
     l1.start()
 
-    if old_hsmsecret:
-        assert l1.rpc.exposesecret(passphrase='test_exposesecret') == {'codex32': 'cl10junxsd35kw6r5de5kueedxyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq6mdtn5lql6p8m',
-                                                                       'identifier': 'junx'}
-    else:
-        assert l1.rpc.exposesecret(passphrase='test_exposesecret') == {'codex32': 'cl10junxsmms5axpgnml3svm0urkrvv2cuvxmz0xyd3dlfhaljvcy5wuu2gtsfcrlankxlxmaa',
-                                                                       'identifier': 'junx',
-                                                                       'mnemonic': 'hockey enroll sure trip track rescue original plate abandon abandon abandon account'}
+    assert l1.rpc.exposesecret(passphrase='test_exposesecret') == {'codex32': 'cl10junxsd35kw6r5de5kueedxyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq6mdtn5lql6p8m',
+                                                                   'identifier': 'junx'}
 
 
 @unittest.skipIf(VALGRIND, "It does not play well with prompt and key derivation.")

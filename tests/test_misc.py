@@ -30,49 +30,22 @@ import time
 import unittest
 
 
-@pytest.mark.parametrize("old_hsmsecret", [False, True])
-def test_names(node_factory, old_hsmsecret):
-    if old_hsmsecret:
-        # Note:
-        # private keys:
-        # l1: 41bfd2660762506c9933ade59f1debf7e6495b10c14a92dbcd2d623da2507d3d01,
-        # l2: c4a813f81ffdca1da6864db81795ad2d320add274452cafa1fb2ac2d07d062bd01
-        # l3: dae24b3853e1443a176daba5544ee04f7db33ebe38e70bdfdb1da34e89512c1001
-        configs = [
-            ('0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518', 'JUNIORBEAM', '0266e4'),
-            ('022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59', 'SILENTARTIST', '022d22'),
-            ('035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d', 'HOPPINGFIRE', '035d2b'),
-            ('0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199', 'JUNIORFELONY', '0382ce'),
-            ('032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e', 'SOMBERFIRE', '032cf1'),
-            ('0265b6ab5ec860cd257865d61ef0bbf5b3339c36cbda8b26b74e7f1dca490b6518', 'LOUDPHOTO', '0265b6')
-        ]
-    else:
-        # Note:
-        # mnemonics:
-        # l1: hockey enroll sure trip track rescue original plate abandon abandon abandon account
-        # l2: hockey enroll sure trip track rescue original play abandon abandon abandon achieve
-        # l3: hockey enroll sure trip track rescue original please abandon abandon abandon ability
-        # l4: hockey enroll sure trip track rescue original pledge abandon abandon abandon achieve
-        # l5: hockey enroll sure trip track rescue original pluck abandon abandon abandon access
-        # l6: hockey enroll sure trip track rescue original plug abandon abandon abandon above
-        # private keys:
-        #
-        # l1: 0a2d7086e54a0982829f15e61d42f5bbd49d4fbdfb9b876a1064b7b89edd05aa01
-        # l2: 0c633a7c17c701a0980158f5483035e01fa8bd091b47fadf2e86e589a9f93fca01
-        # l3: 79893b45d1e57cf2ebf302af91aa52c9e573f638a61a83c6e603a331b53f452c01
-        # l4: 351895a3f18dbfd0b1c70da7c37297b8676eba3a689dc4ba825f9d3c52f3f20501
-        # l5: bb94a63cfdb447ea3a9c7953ae98539a46a90bc114b494673453b0dae58194dd01
-        # l6: 12ecb4eecac5c0c2c49fc491ae6af30fe6788736989b8f1ed05be7581bfb3d6501
-        configs = [
-            ('038194b5f32bdf0aa59812c86c4ef7ad2f294104fa027d1ace9b469bb6f88cf37b', 'STRANGEBOUNCE', '038194'),
-            ('033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a', 'SILENTGOPHER', '033845'),
-            ('03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31', 'GREENCHEF', '03cecb'),
-            ('02287bfac8b99b35477ebe9334eede1e32b189e24644eb701c079614712331cec0', 'JUNIORYARD', '02287b'),
-            ('0258f3ff3e0853ccc09f6fe89823056d7c0c55c95fab97674df5e1ad97a72f6265', 'BLUEFEED', '0258f3'),
-            ('02186115cb7e93e2cb4d9d9fe7a9cf5ff7a5784bfdda4f164ff041655e4bcd4fd0', 'VIOLETYARD', '021861'),
-        ]
+def test_names(node_factory):
+    # Note:
+    # private keys:
+    # l1: 41bfd2660762506c9933ade59f1debf7e6495b10c14a92dbcd2d623da2507d3d01,
+    # l2: c4a813f81ffdca1da6864db81795ad2d320add274452cafa1fb2ac2d07d062bd01
+    # l3: dae24b3853e1443a176daba5544ee04f7db33ebe38e70bdfdb1da34e89512c1001
+    configs = [
+        ('0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518', 'JUNIORBEAM', '0266e4'),
+        ('022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59', 'SILENTARTIST', '022d22'),
+        ('035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d', 'HOPPINGFIRE', '035d2b'),
+        ('0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199', 'JUNIORFELONY', '0382ce'),
+        ('032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e', 'SOMBERFIRE', '032cf1'),
+        ('0265b6ab5ec860cd257865d61ef0bbf5b3339c36cbda8b26b74e7f1dca490b6518', 'LOUDPHOTO', '0265b6')
+    ]
 
-    nodes = node_factory.get_nodes(len(configs), opts={'old_hsmsecret': old_hsmsecret})
+    nodes = node_factory.get_nodes(len(configs))
     for n, (key, alias, color) in zip(nodes, configs):
         assert n.daemon.is_in_log(r'public key {}, alias {}.* \(color #{}\)'
                                   .format(key, alias, color))
@@ -104,28 +77,35 @@ def test_db_upgrade(node_factory):
 
 
 def test_bitcoin_failure(node_factory, bitcoind):
-    # The node will crash when bitcoind fails, so we need `may_fail` and `broken_log`.
-    l1 = node_factory.get_node(may_fail=True, broken_log=r'getrawblockbyheight|FATAL SIGNAL|backtrace')
+    l1 = node_factory.get_node()
 
     # Make sure we're not failing it between getblockhash and getblock.
     sync_blockheight(bitcoind, [l1])
 
     def crash_bitcoincli(r):
-        return {'id': r['id'], 'result': 'not_a_valid_blockhash', 'error': None}
+        return {'error': 'go away'}
 
-    # This is not a JSON-RPC response by purpose.
+    # This is not a JSON-RPC response by purpose
+    l1.daemon.rpcproxy.mock_rpc('estimatesmartfee', crash_bitcoincli)
     l1.daemon.rpcproxy.mock_rpc('getblockhash', crash_bitcoincli)
 
-    # Generate a block to trigger the topology update which calls getblockhash.
-    bitcoind.generate_block(1)
+    # This should cause both estimatefee and getblockhash fail
+    l1.daemon.wait_for_logs(['Unable to estimate any fees',
+                             'getblockhash .* exited with status 1'])
 
-    # lightningd should crash with the error
-    # `fatal()` calls `abort()` when crashlog is set (during operation), so exit code is -6 (SIGABRT).
-    l1.daemon.wait_for_log(r'bad response to getrawblockbyheight')
-    assert l1.daemon.wait() != 0
+    # And they should retry!
+    l1.daemon.wait_for_logs(['Unable to estimate any fees',
+                             'getblockhash .* exited with status 1'])
+
+    # Restore, then it should recover and get blockheight.
+    l1.daemon.rpcproxy.mock_rpc('estimatesmartfee', None)
+    l1.daemon.rpcproxy.mock_rpc('getblockhash', None)
+
+    bitcoind.generate_block(5)
+    sync_blockheight(bitcoind, [l1])
 
     # We refuse to start if bitcoind is in `blocksonly`
-    # l1 already crashed, so we just need to restart bitcoind.
+    l1.stop()
     bitcoind.stop()
     bitcoind.cmd_line += ["-blocksonly"]
     bitcoind.start()
@@ -1508,8 +1488,8 @@ def test_funding_reorg_remote_lags(node_factory, bitcoind):
 
     l1.rpc.close(l2.info['id'])
     bitcoind.generate_block(1, True)
-    l1.daemon.wait_for_log(r'closing soon due to the funding outpoint being spent')
-    l2.daemon.wait_for_log(r'closing soon due to the funding outpoint being spent')
+    l1.daemon.wait_for_log(r'Deleting channel')
+    l2.daemon.wait_for_log(r'Deleting channel')
 
 
 @pytest.mark.openchannel('v1')
@@ -1543,61 +1523,50 @@ def test_decode(node_factory, bitcoind):
 
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "deletes database, which is assumed sqlite3")
-@pytest.mark.parametrize("old_hsmsecret", [False, True])
-def test_recover(node_factory, bitcoind, old_hsmsecret):
+def test_recover(node_factory, bitcoind):
     """Test the recover option
     """
-    if old_hsmsecret:
-        recoverarg = "cl10leetsllhdmn9m42vcsamx24zrxgs3qrl7ahwvhw4fnzrhve25gvezzyqqjdsjnzedu43ns"
-        hsmsecret = bytes.fromhex("ffeeddccbbaa99887766554433221100ffeeddccbbaa99887766554433221100")
-        bad_recoverarg = "CL10LEETSLLHDMN9M42VCSAMX24ZRXGS3QQAT3LTDVAKMT73"
-    else:
-        recoverarg = "hockey enroll sure trip track rescue original plate abandon abandon abandon account"
-        hsmsecret = bytes.fromhex("0000000000000000000000000000000000000000000000000000000000000000") + recoverarg.encode('utf-8')
-        bad_recoverarg = "hockey enroll sure trip track rescue original plate abandon abandon abandon abandon"
-
-    # Start the node with --recovery with valid secret
+    # Start the node with --recovery with valid codex32 secret
     l1 = node_factory.get_node(start=False,
-                               options={"recover": recoverarg}, old_hsmsecret=old_hsmsecret)
+                               options={"recover": "cl10leetsllhdmn9m42vcsamx24zrxgs3qrl7ahwvhw4fnzrhve25gvezzyqqjdsjnzedu43ns"})
 
     os.unlink(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret"))
     l1.daemon.start()
 
-    cmd_line = ["tools/lightning-hsmtool", "getsecret", os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")]
-    out = subprocess.check_output(cmd_line + ["leet"]).decode('utf-8')
-    assert out == recoverarg + "\n"
+    cmd_line = ["tools/lightning-hsmtool", "getcodexsecret", os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")]
+    out = subprocess.check_output(cmd_line + ["leet", "0"]).decode('utf-8')
+    assert out == "cl10leetsllhdmn9m42vcsamx24zrxgs3qrl7ahwvhw4fnzrhve25gvezzyqqjdsjnzedu43ns\n"
 
-    # Check bad ids (we ignore id for modern hsm_secret)
-    if old_hsmsecret:
-        out = subprocess.run(cmd_line + ["lee"], stderr=subprocess.PIPE, timeout=TIMEOUT)
-        assert 'Invalid id: must be 4 characters' in out.stderr.decode('utf-8')
+    # Check bad ids.
+    out = subprocess.run(cmd_line + ["lee", "0"], stderr=subprocess.PIPE, timeout=TIMEOUT)
+    assert 'Invalid id: must be 4 characters' in out.stderr.decode('utf-8')
+    assert out.returncode == 2
+
+    out = subprocess.run(cmd_line + ["Leet", "0"], stderr=subprocess.PIPE, timeout=TIMEOUT)
+    assert 'Invalid id: must be lower-case' in out.stderr.decode('utf-8')
+    assert out.returncode == 2
+
+    out = subprocess.run(cmd_line + ["💔", "0"], stderr=subprocess.PIPE, timeout=TIMEOUT)
+    assert 'Invalid id: must be ASCII' in out.stderr.decode('utf-8')
+    assert out.returncode == 2
+
+    for bad_bech32 in ['b', 'o', 'i', '1']:
+        out = subprocess.run(cmd_line + [bad_bech32 + "eet", "0"], stderr=subprocess.PIPE, timeout=TIMEOUT)
+        assert 'Invalid id: must be valid bech32 string' in out.stderr.decode('utf-8')
         assert out.returncode == 2
-
-        out = subprocess.run(cmd_line + ["Leet"], stderr=subprocess.PIPE, timeout=TIMEOUT)
-        assert 'Invalid id: must be lower-case' in out.stderr.decode('utf-8')
-        assert out.returncode == 2
-
-        out = subprocess.run(cmd_line + ["💔"], stderr=subprocess.PIPE, timeout=TIMEOUT)
-        assert 'Invalid id: must be ASCII' in out.stderr.decode('utf-8')
-        assert out.returncode == 2
-
-        for bad_bech32 in ['b', 'o', 'i', '1']:
-            out = subprocess.run(cmd_line + [bad_bech32 + "eet"], stderr=subprocess.PIPE, timeout=TIMEOUT)
-            assert 'Invalid id: must be valid bech32 string' in out.stderr.decode('utf-8')
-            assert out.returncode == 2
 
     basedir = l1.daemon.opts.get("lightning-dir")
     with open(os.path.join(basedir, TEST_NETWORK, 'hsm_secret'), 'rb') as f:
         buff = f.read()
 
     # Check the node secret
-    assert buff == hsmsecret
+    assert buff.hex() == "ffeeddccbbaa99887766554433221100ffeeddccbbaa99887766554433221100"
     l1.stop()
 
     os.unlink(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "lightningd.sqlite3"))
 
     # Node should throw error to recover flag if HSM already exists.
-    l1.daemon.opts['recover'] = recoverarg
+    l1.daemon.opts['recover'] = "cl10leetsllhdmn9m42vcsamx24zrxgs3qrl7ahwvhw4fnzrhve25gvezzyqqjdsjnzedu43ns"
     l1.daemon.start(wait_for_initialized=False, stderr_redir=True)
 
     # Will exit with failure code.
@@ -1606,15 +1575,12 @@ def test_recover(node_factory, bitcoind, old_hsmsecret):
 
     os.unlink(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret"))
 
-    l1.daemon.opts.update({"recover": bad_recoverarg})
+    l1.daemon.opts.update({"recover": "CL10LEETSLLHDMN9M42VCSAMX24ZRXGS3QQAT3LTDVAKMT73"})
     l1.daemon.start(wait_for_initialized=False, stderr_redir=True)
     assert l1.daemon.wait() == 1
-    if old_hsmsecret:
-        assert l1.daemon.is_in_stderr(r"Invalid length: must be 32 bytes")
-    else:
-        assert l1.daemon.is_in_stderr(r"Not a valid mnemonic, hex, or codex32 string")
+    assert l1.daemon.is_in_stderr(r"Invalid length: must be 32 bytes")
 
-    # Old-style can do HSM secret in hex, too!
+    # Can do HSM secret in hex, too!
     l1.daemon.opts["recover"] = "6c696768746e696e672d31000000000000000000000000000000000000000000"
     l1.daemon.start()
     l1.stop()
@@ -2188,13 +2154,6 @@ def test_bad_onion_immediate_peer(node_factory, bitcoind):
     WIRE_INVALID_ONION_HMAC = 0x8000 | 0x4000 | 5
     assert err.value.error['data']['failcode'] == WIRE_INVALID_ONION_HMAC
 
-    # Asking again about the same payment should give same result.
-    with pytest.raises(RpcError) as err:
-        l1.rpc.waitsendpay(inv['payment_hash'])
-
-    assert err.value.error['code'] == PAY_UNPARSEABLE_ONION
-    assert err.value.error['data']['failcode'] == WIRE_INVALID_ONION_HMAC
-
     # Same, but using injectpaymentonion with corrupt onion.
     blockheight = l1.rpc.getinfo()['blockheight']
     hops = [{'pubkey': l1.info['id'],
@@ -2236,17 +2195,31 @@ def test_bitcoind_fail_first(node_factory, bitcoind):
     """
     # Do not start the lightning node since we need to instrument bitcoind
     # first.
-    l1 = node_factory.get_node(start=False, may_fail=True)
+    timeout = 5 if 5 < TIMEOUT // 3 else TIMEOUT // 3
+    l1 = node_factory.get_node(start=False,
+                               broken_log=r'plugin-bcli: .*(-stdinrpcpass -stdin getblockhash 100 exited 1 \(after [0-9]* other errors\)|we have been retrying command for)',
+                               may_fail=True,
+                               options={'bitcoin-retry-timeout': timeout})
 
     # Instrument bitcoind to fail some queries first.
-    def crash_bitcoincli(r):
-        return {'id': r['id'], 'result': 'not_a_valid_blockhash', 'error': None}
+    def mock_fail(*args):
+        raise ValueError()
 
-    l1.daemon.rpcproxy.mock_rpc('getblockhash', crash_bitcoincli)
+    # If any of these succeed, they reset fail timeout.
+    l1.daemon.rpcproxy.mock_rpc('getblockhash', mock_fail)
+    l1.daemon.rpcproxy.mock_rpc('estimatesmartfee', mock_fail)
+    l1.daemon.rpcproxy.mock_rpc('getmempoolinfo', mock_fail)
+
     l1.daemon.start(wait_for_initialized=False, stderr_redir=True)
-
+    l1.daemon.wait_for_logs([r'getblockhash [a-z0-9]* exited with status 1',
+                             r'Unable to estimate any fees',
+                             r'BROKEN.*we have been retrying command for --bitcoin-retry-timeout={} seconds'.format(timeout)])
+    # Will exit with failure code.
     assert l1.daemon.wait() == 1
-    assert l1.daemon.is_in_stderr('bad response to getrawblockbyheight')
+
+    # Now unset the mock, so calls go through again
+    l1.daemon.rpcproxy.mock_rpc('getblockhash', None)
+    l1.daemon.rpcproxy.mock_rpc('estimatesmartfee', None)
 
 
 @unittest.skipIf(TEST_NETWORK == 'liquid-regtest', "Fees on elements are different")
@@ -2387,7 +2360,7 @@ def test_bitcoind_feerate_floor(node_factory, bitcoind, anchors):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Addresses are network specific")
 def test_dev_force_bip32_seed(node_factory):
-    l1 = node_factory.get_node(old_hsmsecret=True, options={'dev-force-bip32-seed': '0000000000000000000000000000000000000000000000000000000000000001'})
+    l1 = node_factory.get_node(options={'dev-force-bip32-seed': '0000000000000000000000000000000000000000000000000000000000000001'})
     # First is m/0/0/1 ..
     bech32 = l1.rpc.newaddr('bech32')['bech32']
     assert bech32 == "bcrt1qsdzqt93xsyewdjvagndw9523m27e52er5ca7hm"
@@ -2972,7 +2945,7 @@ def test_makesecret(node_factory):
     l1 = node_factory.get_node(options={"dev-force-privkey": "1212121212121212121212121212121212121212121212121212121212121212"})
     secret = l1.rpc.makesecret("73636220736563726574")["secret"]
 
-    assert (secret == "498a16a6c6b82b7280de7f5b0afa0478b29d3a1cbe52c376249cf46abb6c03da")
+    assert (secret == "a9a2e742405c28f059349132923a99337ae7f71168b7485496e3365f5bc664ed")
 
     # Same if we do it by parameter name
     assert l1.rpc.makesecret(hex="73636220736563726574")["secret"] == secret
@@ -3029,8 +3002,7 @@ def test_emergencyrecover_old_format_handling(node_factory, bitcoind):
     """
     Test test_emergencyrecover_old_format_handling
     """
-    # Use old_hsmsecret because the encrypted data was created with the old HSM secret
-    l1 = node_factory.get_node(old_hsmsecret=True)
+    l1 = node_factory.get_node()
 
     encrypted_data = (
         "4e90ed80be3ddf666967ecdebc296cb0ec9f9f2e1adf3b1ef359d74ae40dd152"
@@ -3120,7 +3092,7 @@ def test_emergencyrecover(node_factory, bitcoind):
     Test emergencyrecover
     """
     l1, l2 = node_factory.get_nodes(2, opts=[{'may_reconnect': True,
-                                              'broken_log': 'ERROR: Unknown commitment #.*, recovering our funds|plugin-bookkeeper: Cannot find the open_event for '},
+                                              'broken_log': 'ERROR: Unknown commitment #.*, recovering our funds'},
                                              {'may_reconnect': True}])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -3155,9 +3127,6 @@ def test_emergencyrecover(node_factory, bitcoind):
     # Make sure l1 can spend its recovered funds.
     wait_for(lambda: l1.rpc.listfunds()["channels"][0]["state"] == "ONCHAIN")
     wait_for(lambda: l2.rpc.listfunds()["channels"][0]["state"] == "ONCHAIN")
-
-    # Does bookkeeper get upset?
-    l1.rpc.bkpr_listbalances()
 
     withdraw = l1.rpc.withdraw(l2.rpc.newaddr('bech32')['bech32'], 'all')
     # Should have two inputs
@@ -3551,7 +3520,7 @@ def test_listforwards_wait(node_factory, executor):
     # Now ask for 1.
     waitcreate = executor.submit(l2.rpc.wait, subsystem='forwards', indexname='created', nextvalue=1)
     waitupdate = executor.submit(l2.rpc.wait, subsystem='forwards', indexname='updated', nextvalue=1)
-    l2.daemon.wait_for_logs(['waiting on forwards created 1', 'waiting on forwards updated 1'])
+    time.sleep(1)
 
     amt1 = 1000
     inv1 = l3.rpc.invoice(amt1, 'inv1', 'desc')
@@ -3581,7 +3550,6 @@ def test_listforwards_wait(node_factory, executor):
 
     waitcreate = executor.submit(l2.rpc.wait, subsystem='forwards', indexname='created', nextvalue=2)
     waitupdate = executor.submit(l2.rpc.wait, subsystem='forwards', indexname='updated', nextvalue=2)
-    l2.daemon.wait_for_logs(['waiting on forwards created 2', 'waiting on forwards updated 2'])
     time.sleep(1)
 
     with pytest.raises(RpcError, match="WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS"):
@@ -3616,7 +3584,7 @@ def test_listforwards_wait(node_factory, executor):
 
     # Finally, check deletion.
     waitfut = executor.submit(l2.rpc.wait, subsystem='forwards', indexname='deleted', nextvalue=1)
-    l2.daemon.wait_for_log('waiting on forwards deleted 1')
+    time.sleep(1)
 
     l2.rpc.delforward(scid12, 1, 'failed')
 
@@ -3640,7 +3608,7 @@ def test_listhtlcs_wait(node_factory, bitcoind, executor):
     # Now ask for 1.
     waitcreate = executor.submit(l2.rpc.wait, subsystem='htlcs', indexname='created', nextvalue=1)
     waitupdate = executor.submit(l2.rpc.wait, subsystem='htlcs', indexname='updated', nextvalue=1)
-    l2.daemon.wait_for_logs(['waiting on htlcs created 1', 'waiting on htlcs updated 1'])
+    time.sleep(1)
 
     amt1 = 1000
     inv1 = l3.rpc.invoice(amt1, 'inv1', 'desc')
@@ -3676,7 +3644,7 @@ def test_listhtlcs_wait(node_factory, bitcoind, executor):
     l3.rpc.delinvoice('inv2', 'unpaid')
 
     waitcreate = executor.submit(l2.rpc.wait, subsystem='htlcs', indexname='created', nextvalue=4)
-    l2.daemon.wait_for_log('waiting on htlcs created 4')
+    time.sleep(1)
 
     with pytest.raises(RpcError, match="WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS"):
         l1.rpc.pay(inv2['bolt11'])
@@ -3696,7 +3664,7 @@ def test_listhtlcs_wait(node_factory, bitcoind, executor):
     l1.rpc.close(l2.info['id'])
 
     waitfut = executor.submit(l2.rpc.wait, subsystem='htlcs', indexname='deleted', nextvalue=1)
-    l2.daemon.wait_for_log('waiting on htlcs deleted 1')
+    time.sleep(1)
 
     bitcoind.generate_block(100, wait_for_mempool=1)
 
@@ -3779,19 +3747,20 @@ def test_getlog(node_factory):
     """Test the getlog command"""
     l1 = node_factory.get_node(options={'log-level': 'io'})
 
+    # Default will skip some entries
     logs = l1.rpc.getlog()['log']
-    assert [l for l in logs if l['type'] not in ("BROKEN", "UNUSUAL", "INFO")] == []
+    assert [l for l in logs if l['type'] == 'SKIPPED'] != []
 
+    # This should not
     logs = l1.rpc.getlog(level='io')['log']
-    assert [l for l in logs if l['type'] not in ("BROKEN", "UNUSUAL", "INFO", "DEBUG", "TRACE", "IO_IN", "IO_OUT")] == []
+    assert [l for l in logs if l['type'] == 'SKIPPED'] == []
 
 
 def test_log_filter(node_factory):
     """Test the log-level option with subsystem filters"""
     # This actually suppresses debug!
-    l1 = node_factory.get_node(options={'log-level': ['debug', 'broken:022d223620']},
-                               old_hsmsecret=True)
-    l2 = node_factory.get_node(start=False, old_hsmsecret=True)
+    l1 = node_factory.get_node(options={'log-level': ['debug', 'broken:022d223620']})
+    l2 = node_factory.get_node(start=False)
 
     log1 = os.path.join(l2.daemon.lightning_dir, "log")
     log2 = os.path.join(l2.daemon.lightning_dir, "log2")
@@ -4616,30 +4585,29 @@ def test_setconfig_changed(node_factory, bitcoind):
 
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "deletes database, which is assumed sqlite3")
-@pytest.mark.parametrize("old_hsmsecret", [False, True])
-def test_recover_command(node_factory, bitcoind, old_hsmsecret):
-    l1, l2 = node_factory.get_nodes(2, opts={'old_hsmsecret': old_hsmsecret})
+def test_recover_command(node_factory, bitcoind):
+    l1, l2 = node_factory.get_nodes(2)
 
     l1oldid = l1.info['id']
 
     def get_hsm_secret(n):
-        """Returns recoversecret and hex"""
+        """Returns codex32 and hex"""
         hsmfile = os.path.join(n.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
-        recover = subprocess.check_output(["tools/lightning-hsmtool", "getsecret", hsmfile, "leet"]).decode('utf-8').strip()
+        codex32 = subprocess.check_output(["tools/lightning-hsmtool", "getcodexsecret", hsmfile, "leet"]).decode('utf-8').strip()
         with open(hsmfile, "rb") as f:
             hexhsm = f.read().hex()
-        return recover, hexhsm
+        return codex32, hexhsm
 
-    l1recover, l1hex = get_hsm_secret(l1)
-    l2recover, l2hex = get_hsm_secret(l2)
+    l1codex32, l1hex = get_hsm_secret(l1)
+    l2codex32, l2hex = get_hsm_secret(l2)
 
     # Get the PID for later
     with open(os.path.join(l1.daemon.lightning_dir,
                            f"lightningd-{TEST_NETWORK}.pid"), "r") as f:
         pid = f.read().strip()
 
-    assert l1.rpc.check('recover', hsmsecret=l2recover) == {'command_to_check': 'recover'}
-    l1.rpc.recover(hsmsecret=l2recover)
+    assert l1.rpc.check('recover', hsmsecret=l2codex32) == {'command_to_check': 'recover'}
+    l1.rpc.recover(hsmsecret=l2codex32)
     l1.daemon.wait_for_log("Server started with public key")
     # l1.info is cached on start, so won't reflect current reality!
     assert l1.rpc.getinfo()['id'] == l2.info['id']
@@ -4648,10 +4616,10 @@ def test_recover_command(node_factory, bitcoind, old_hsmsecret):
     l2.rpc.newaddr()
 
     with pytest.raises(RpcError, match='Node has already issued bitcoin addresses'):
-        l2.rpc.recover(hsmsecret=l1recover)
+        l2.rpc.recover(hsmsecret=l1codex32)
 
     with pytest.raises(RpcError, match='Node has already issued bitcoin addresses'):
-        l2.rpc.check('recover', hsmsecret=l1recover)
+        l2.rpc.check('recover', hsmsecret=l1codex32)
 
     # Now try recovering using hex secret (remove old prerecover!)
     shutil.rmtree(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK,
@@ -4660,21 +4628,14 @@ def test_recover_command(node_factory, bitcoind, old_hsmsecret):
     # l1 already has --recover in cmdline: recovering again would add it
     # twice!
     with pytest.raises(RpcError, match='Already doing recover'):
-        l1.rpc.check('recover', hsmsecret=l1recover)
+        l1.rpc.check('recover', hsmsecret=l1hex)
 
     with pytest.raises(RpcError, match='Already doing recover'):
-        l1.rpc.recover(hsmsecret=l1recover)
+        l1.rpc.recover(hsmsecret=l1hex)
 
     l1.restart()
-
-    if old_hsmsecret:
-        assert l1.rpc.check('recover', hsmsecret=l1hex) == {'command_to_check': 'recover'}
-        l1.rpc.recover(hsmsecret=l1hex)
-    else:
-        # Modern style requires mnemonic arg.
-        assert l1.rpc.check('recover', hsmsecret=l1recover) == {'command_to_check': 'recover'}
-        l1.rpc.recover(hsmsecret=l1recover)
-
+    assert l1.rpc.check('recover', hsmsecret=l1hex) == {'command_to_check': 'recover'}
+    l1.rpc.recover(hsmsecret=l1hex)
     l1.daemon.wait_for_log("Server started with public key")
     assert l1.rpc.getinfo()['id'] == l1oldid
 
@@ -4701,17 +4662,12 @@ def test_even_sendcustommsg(node_factory):
     l1.rpc.sendcustommsg(l2.info['id'], msg)
     l2.daemon.wait_for_log(r'\[IN\] {}'.format(msg))
     l2.daemon.wait_for_log(r'allow_even_msgs.*Got message 43690')
-    # Make sure it *processes* before we remove plugin.
-    l2.daemon.wait_for_log(f"{l1.info['id']}-connectd: custommsg processing finished")
 
     # And nobody gets upset
     assert only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected']
 
     # It does if we remove the plugin though!
     l2.rpc.plugin_stop("allow_even_msgs.py")
-    # Make sure connectd has processed the update!
-    l2.daemon.wait_for_log("connectd: Now allowing 0 custom message types")
-
     l1.rpc.sendcustommsg(l2.info['id'], msg)
     l2.daemon.wait_for_log(r'\[IN\] {}'.format(msg))
     l1.daemon.wait_for_log('Invalid unknown even msg')
@@ -4967,9 +4923,8 @@ def test_listaddresses(node_factory):
     # Check all fields are present in the response
     addresses = l1.rpc.listaddresses(address=addr[0])["addresses"]
     assert addresses[0]['keyidx'] == 1
-    # With BIP86, addresses are different from BIP32
-    assert addresses[0]['p2tr'] == 'bcrt1ph9gd3vrxqv5c43lhz330n6u497utuqzzjwtrwj89wy879z6nwrpseaf4et'
-    assert addresses[0]['bech32'] == 'bcrt1qufr4lmec5a8humz7anckxk092uel83r2eqr33s'
+    assert addresses[0]['bech32'] == 'bcrt1qq8adjz4u6enf0cjey9j8yt0y490tact93fzgsf'
+    assert addresses[0]['p2tr'] == 'bcrt1pjaazqg6qgqpv2wxgdpg8hyj49wehrfgajqe2tyuzhcp7p50hachq7tkdxf'
 
     # start > 10 (issued addresses till now)
     addresses = l1.rpc.listaddresses(start=11, limit=2)["addresses"]
@@ -5087,27 +5042,3 @@ def test_zero_locktime_blocks(node_factory, bitcoind):
     l2.rpc.close(l3.info['id'])
     bitcoind.generate_block(1, wait_for_mempool=2)
     sync_blockheight(bitcoind, [l1, l2, l3])
-
-
-def test_filter_with_invalid_json(node_factory):
-    # This crashes only in *non-developer mode*: it uses command_log()
-    # in that case (since it doesn't print the invalid token in
-    # non-dev mode), and that expects cmd->json_cmd to be populated!`
-    l1 = node_factory.get_node(start=False)
-    l1.daemon.early_opts = []
-    l1.daemon.opts = {k: v for k, v in l1.daemon.opts.items() if not k.startswith('dev')}
-    l1.start()
-
-    out = subprocess.run(['cli/lightning-cli',
-                          '--network={}'.format(TEST_NETWORK),
-                          '--lightning-dir={}'
-                          .format(l1.daemon.lightning_dir),
-                          '-l', '1',
-                          '-k',
-                          'wait',
-                          'subsystem=invoices',
-                          'indexname=created',
-                          'nextvalue=0'],
-                         stdout=subprocess.PIPE)
-    assert 'filter: Expected object: invalid token' in out.stdout.decode('utf-8')
-    assert out.returncode == 1

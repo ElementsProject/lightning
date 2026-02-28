@@ -7,12 +7,12 @@
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/str/str.h>
 #include <common/gossip_store.h>
-#include <common/gossip_store_wiregen.h>
 #include <common/gossmap.h>
 #include <common/setup.h>
 #include <common/utils.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <gossipd/gossip_store_wiregen.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <wire/peer_wiregen.h>
@@ -79,7 +79,7 @@ static unsigned int verbose = 0;
 
 #define GC_HEADER "GOSSMAP_COMPRESSv1"
 #define GC_HEADERLEN (sizeof(GC_HEADER))
-#define GOSSIP_STORE_VER ((0 << 5) | 16)
+#define GOSSIP_STORE_VER ((0 << 5) | 14)
 
 /* Backwards, we want larger first */
 static int cmp_node_num_chans(struct gossmap_node *const *a,
@@ -295,7 +295,7 @@ static void write_msg_to_gstore(int outfd, const u8 *msg TAKES)
 {
 	struct gossip_hdr hdr;
 
-	hdr.flags = CPU_TO_BE16(GOSSIP_STORE_COMPLETED_BIT);
+	hdr.flags = 0;
 	hdr.len = cpu_to_be16(tal_bytelen(msg));
 	hdr.timestamp = 0;
 	hdr.crc = cpu_to_be32(crc32c(0, msg, tal_bytelen(msg)));
@@ -353,7 +353,7 @@ static void write_announce(int outfd,
 		node_id_from_pubkey(&nodeid2, &id1);
 	}
 	/* Use i to avoid clashing scids even if two nodes have > 1 channel */
-	if (!mk_short_channel_id(&scid, i + node1, node2, i & 0xFFFF))
+	if (!mk_short_channel_id(&scid, node1, node2, i & 0xFFFF))
 		abort();
 
 	msg = towire_channel_announcement(NULL, &vals.sig, &vals.sig, &vals.sig, &vals.sig,
@@ -406,7 +406,7 @@ static void write_update(int outfd,
 	memset(&vals, 0, sizeof(vals));
 
 	/* Use i to avoid clashing scids even if two nodes have > 1 channel */
-	if (!mk_short_channel_id(&scid, i + node1, node2, i & 0xFFFF))
+	if (!mk_short_channel_id(&scid, node1, node2, i & 0xFFFF))
 		abort();
 
 	/* If node ids are backward, dir is reversed */
@@ -511,17 +511,6 @@ static const char *get_alias(const tal_t *ctx,
 					&tlvs))
 		return "";
 	return tal_strndup(ctx, (const char *)alias, 32);
-}
-
-static void write_uuid(int outfd)
-{
-	const u8 uuid[] = {
-		0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0
-	};
-	write_msg_to_gstore(outfd, take(towire_gossip_store_uuid(NULL, uuid)));
 }
 
 int main(int argc, char *argv[])
@@ -802,7 +791,6 @@ int main(int argc, char *argv[])
 		/* Now write out gossmap */
 		if (write(outfd, &version, 1) != 1)
 			err(1, "Failed to write output");
-		write_uuid(outfd);
 		for (size_t i = 0; i < channel_count; i++) {
 			write_announce(outfd,
 				       chans[i].node1,

@@ -15,7 +15,6 @@
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/htable/htable_type.h>
 #include <ccan/mem/mem.h>
-#include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <channeld/channeld_wiregen.h>
 #include <channeld/full_channel.h>
@@ -132,8 +131,7 @@ static u64 channel_range(const struct info *info,
 			 const struct short_channel_id_dir *scidd,
 			 u64 min, u64 max)
 {
-	assert(max != min);
-	return min + (siphash24(&info->seed, scidd, sizeof(scidd)) % (max - min));
+	return min + (siphash24(&info->seed, scidd, sizeof(scidd)) % max);
 }
 
 void ecdh(const struct pubkey *point, struct secret *ss)
@@ -259,13 +257,19 @@ static u8 *get_next_onion(const tal_t *ctx, const struct route_step *rs)
 static struct node *make_peer_node(const tal_t *ctx)
 {
 	struct node *n = tal(ctx, struct node);
+	u32 salt = 0;
+	struct secret hsm_secret;
 	struct pubkey pubkey;
 
-	/* l2's secret key */
-	if (!hex_decode("0c633a7c17c701a0980158f5483035e01fa8bd091b47fadf2e86e589a9f93fca",
-			strlen("0c633a7c17c701a0980158f5483035e01fa8bd091b47fadf2e86e589a9f93fca"),
-			&n->p, sizeof(n->p)))
-		abort();
+	memset(&hsm_secret, 0, sizeof(hsm_secret));
+	snprintf((char *)&hsm_secret, sizeof(hsm_secret),
+		 "lightning-2");
+
+	/* This maps hsm_secret -> node privkey */
+	hkdf_sha256(&n->p, sizeof(n->p),
+		    &salt, sizeof(salt),
+		    &hsm_secret, sizeof(hsm_secret),
+		    "nodeid", 6);
 	pubkey_from_privkey(&n->p, &pubkey);
 	node_id_from_pubkey(&n->id, &pubkey);
 	n->name = tal_fmt(n, "lightningd-2");
@@ -840,9 +844,9 @@ found_next:
 	dfwd->path_key = tal_steal(dfwd, next_path_key);
 	dfwd->expected = next;
 
-	/* Delay 1 - 100 milliseconds, but skewed lower */
-	msec_delay = channel_range(info, &scidd, 1, 90);
-	msec_delay = 10 + channel_range(info, &scidd, 0, msec_delay);
+	/* Delay 0.1 - 1 seconds, but skewed lower */
+	msec_delay = channel_range(info, &scidd, 0, 900);
+	msec_delay = 100 + channel_range(info, &scidd, 0, msec_delay);
 
 	status_debug("Delaying %u msec for %s",
 		     msec_delay, fmt_short_channel_id_dir(tmpctx, &scidd));

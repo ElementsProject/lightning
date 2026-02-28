@@ -745,13 +745,8 @@ static struct command_result *wait_payment(struct lightningd *ld,
 			/* FIXME: We don't store this! */
 			fail->msg = NULL;
 
-			/* Peers which fail directly can hit this! */
-			if (failcode & BADONION)
-				rpcerrorcode = PAY_UNPARSEABLE_ONION;
-			else if (faildestperm)
-				rpcerrorcode = PAY_DESTINATION_PERM_FAIL;
-			else
-				rpcerrorcode = PAY_TRY_OTHER_ROUTE;
+			rpcerrorcode = faildestperm ? PAY_DESTINATION_PERM_FAIL
+						    : PAY_TRY_OTHER_ROUTE;
 
 			return sendpay_fail(
 			    cmd, payment, rpcerrorcode, NULL, fail,

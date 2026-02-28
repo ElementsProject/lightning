@@ -70,13 +70,6 @@
                 "The bolt12 encoding of the offer."
               ]
             },
-            "description": {
-              "added": "v26.04",
-              "type": "string",
-              "description": [
-                "The user-specified bolt 12 description."
-              ]
-            },
             "used": {
               "type": "boolean",
               "description": [
@@ -95,14 +88,14 @@
     }
   },
   "author": [
-    "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
   ],
   "see_also": [
     "lightning-offer(7)",
     "lightning-listoffers(7)"
   ],
   "resources": [
-    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+    "Main web site: <https://github.com/ElementsProject/lightning>"
   ],
   "examples": [
     {
@@ -120,7 +113,6 @@
             "active": true,
             "single_use": false,
             "bolt12": "lno1qgsq000bolt210002100021000210002100021000210002100021000210002100021000210002100021000210002100021000210002100021000210002100021000",
-            "description": "Fish sale!",
             "used": false
           },
           {
@@ -128,7 +120,6 @@
             "active": true,
             "single_use": false,
             "bolt12": "lno1qgsq000bolt220002200022000220002200022000220002200022000220002200022000220002200022000220002200022000220002200022000220002200022000",
-            "description": "Coffee",
             "used": false
           },
           {
@@ -136,7 +127,6 @@
             "active": true,
             "single_use": false,
             "bolt12": "lno1qgsq000bolt230002300023000230002300023000230002300023000230002300023000230002300023000230002300023000230002300023000230002300023000",
-            "description": "Movie ticket",
             "used": false
           }
         ]

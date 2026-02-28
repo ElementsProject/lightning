@@ -24,11 +24,6 @@ gen_*.h
 wire/gen_*_csv
 cli/lightning-cli
 coverage
-# Coverage profiling data files
-*.profraw
-*.profdata
-# Generated Python API documentation
-docs/python
 ccan/config.h
 __pycache__
 config.vars
@@ -41,8 +36,6 @@ monkeytype.sqlite3
 !*/test/exp-run-*.c
 */*/test/run-*
 !*/*/test/run-*.c
-devtools/check-bolt
-tools/lightning-downgrade
 test/test_protocol
 test/test_sphinx
 tests/.pytest.restart

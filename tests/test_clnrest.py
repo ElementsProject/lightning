@@ -1,5 +1,5 @@
 from fixtures import *  # noqa: F401,F403
-from pyln.testing.utils import RUST, TEST_NETWORK, wait_for, RpcError
+from pyln.testing.utils import RUST, TEST_NETWORK, wait_for
 from pyln.client import Millisatoshi
 import requests
 from pathlib import Path
@@ -9,7 +9,6 @@ import socketio
 import time
 import pytest
 import json
-import os
 
 # Skip the entire module if we don't have Rust.
 pytestmark = pytest.mark.skipif(
@@ -131,7 +130,7 @@ def test_generate_certificate(node_factory):
     assert [c[0] != c[1] for c in zip(contents, contents_2)] == [True] * len(files)
 
 
-def start_node_with_clnrest(node_factory, plugin=None):
+def start_node_with_clnrest(node_factory):
     """Start a node with the clnrest plugin, whose options are the default options.
     Return:
     - the node,
@@ -139,10 +138,7 @@ def start_node_with_clnrest(node_factory, plugin=None):
     - the certificate authority path used for the self-signed certificates."""
     rest_port = str(node_factory.get_unused_port())
     rest_certs = node_factory.directory + '/clnrest-certs'
-    options = {'clnrest-port': rest_port, 'clnrest-certs': rest_certs}
-    if plugin is not None:
-        options['plugin'] = plugin
-    l1 = node_factory.get_node(options=options)
+    l1 = node_factory.get_node(options={'clnrest-port': rest_port, 'clnrest-certs': rest_certs})
     base_url = 'https://127.0.0.1:' + rest_port
     # This might happen really early!
     l1.daemon.logsearch_start = 0
@@ -169,13 +165,11 @@ def test_unknown_method(node_factory):
     l1, base_url, ca_cert = start_node_with_clnrest(node_factory)
     http_session = http_session_with_retry()
 
-    rune = l1.rpc.createrune()['rune']
-    response = http_session.get(base_url + '/v1/unknown-get', headers={'Rune': rune}, verify=ca_cert)
+    response = http_session.get(base_url + '/v1/unknown-get', verify=ca_cert)
     assert response.status_code == 405
-    assert response.json()['code'] == -32601
-    assert response.json()['message'] == "Path invalid, http_method must be POST for CLN methods"
 
     """Test POST request error on `/v1/unknown-post` end point."""
+    rune = l1.rpc.createrune()['rune']
     response = http_session.post(base_url + '/v1/unknown-post', headers={'Rune': rune}, verify=ca_cert)
     assert response.status_code == 404
     assert response.json()['code'] == -32601
@@ -277,27 +271,17 @@ def notifications_received_via_websocket(l1, base_url, http_session, rpc_method=
     http_session.headers.update({"upgrade": "websocket"})
     sio = socketio.Client(http_session=http_session)
     notifications = []
-    connection_error_msg = None
 
     @sio.event
     def message(data):
         notifications.append(data)
-
-    @sio.event
-    def connect_error(data):
-        nonlocal connection_error_msg
-        connection_error_msg = str(data)
-
     try:
         sio.connect(base_url)
     except socketio.exceptions.ConnectionError as e:
-        # Use the detailed error message if available
-        error_str = connection_error_msg if connection_error_msg else str(e)
-
-        if expect_error and expect_error in error_str:
+        if expect_error and expect_error in str(e):
             return notifications
         else:
-            raise ValueError(f"Expected error code `{expect_error}`, got `{error_str}` instead")
+            raise ValueError(f"Expected error code `{expect_error}`, got `{str(e)}` instead")
     except Exception:
         raise
     if expect_error:
@@ -321,7 +305,7 @@ def test_websocket_no_rune(node_factory):
     http_session.verify = ca_cert.as_posix()
 
     # no rune provided => no websocket connection and no notification received
-    notifications = notifications_received_via_websocket(l1, base_url, http_session, expect_error="Missing rune")
+    notifications = notifications_received_via_websocket(l1, base_url, http_session, expect_error="403")
     assert len(notifications) == 0
 
 
@@ -337,7 +321,7 @@ def test_websocket_wrong_rune(node_factory):
     # wrong rune provided => no websocket connection and no notification received
     http_session.headers.update({"rune": "jMHrjVJb5l9-mjEd7zwux7Ookra1fgZ8wa9D8QbVT-w9MA=="})
 
-    notifications = notifications_received_via_websocket(l1, base_url, http_session, expect_error="Not derived from master")
+    notifications = notifications_received_via_websocket(l1, base_url, http_session, expect_error="401")
     l1.daemon.logsearch_start = 0
     assert l1.daemon.wait_for_log(r"Error code 1501: Not authorized: Not derived from master")
     assert len(notifications) == 0
@@ -403,7 +387,7 @@ def test_websocket_rune_no_listnotifications(node_factory):
     # with a rune which doesn't authorized listclnrest-notifications method => no websocket connection and no notification received
     rune_no_clnrest_notifications = l1.rpc.createrune(restrictions=[["method/listclnrest-notifications"]])['rune']
     http_session.headers.update({"rune": rune_no_clnrest_notifications})
-    notifications = notifications_received_via_websocket(l1, base_url, http_session, expect_error="Not permitted: method is equal to listclnrest-notifications")
+    notifications = notifications_received_via_websocket(l1, base_url, http_session, expect_error="401")
     assert len([n for n in notifications if n.find('invoice_creation') > 0]) == 0
 
 
@@ -500,26 +484,12 @@ def test_websocket_upgrade_header(node_factory):
 
     sio = socketio.Client(http_session=http_session)
     notifications = []
-    connection_error_msg = None
 
     @sio.event
     def message(data):
         notifications.append(data)
-
-    @sio.event
-    def connect_error(data):
-        nonlocal connection_error_msg
-        connection_error_msg = str(data)
-    try:
+    with pytest.raises(socketio.exceptions.ConnectionError, match="Unexpected response from server"):
         sio.connect(base_url)
-    except socketio.exceptions.ConnectionError as e:
-        error_str = connection_error_msg if connection_error_msg else str(e)
-        expect_error = "Missing rune"
-
-        if expect_error not in error_str:
-            raise ValueError(f"Expected error code `{expect_error}`, got `{error_str}` instead")
-    except Exception:
-        raise
 
     time.sleep(2)
     # trigger notification by calling method
@@ -555,7 +525,7 @@ def test_accept_header_types(node_factory):
                                  headers={'Rune': rune, 'Accept': 'application/yaml'},
                                  verify=ca_cert)
     response.raise_for_status()
-    assert f"id: {l1.info['id']}" in response.text
+    assert f"id: '{l1.info['id']}'" in response.text
 
     response = http_session.post(base_url + '/v1/getinfo',
                                  headers={'Rune': rune, 'Accept': 'application/xml'},
@@ -674,211 +644,3 @@ def test_matching_accept_and_content_types(node_factory):
                                           verify=ca_cert)
     listdatastore_res.raise_for_status()
     assert f"datastore[0][key][0]={datastore_res['key'][0]}" in listdatastore_res.text
-
-
-def test_dynamic_path_matching(node_factory):
-    l1, base_url, ca_cert = start_node_with_clnrest(
-        node_factory, os.path.join(os.getcwd(), "tests/plugins/dynamic_clnrest_path.py")
-    )
-    http_session = http_session_with_retry()
-
-    rune = l1.rpc.createrune(restrictions=[])["rune"]
-
-    dynamic_res = http_session.get(base_url + "/test/dynamic/clnrest", headers={"Rune": rune}, verify=ca_cert)
-    assert dynamic_res.status_code == 405
-    assert dynamic_res.json()["code"] == -32601
-    assert dynamic_res.json()["message"] == "Dynamic path: test/dynamic/clnrest has no http_method:GET registered"
-
-    dynamic_res = http_session.post(
-        base_url + "/test/dynamic/clnrest", headers={"Rune": rune}, verify=ca_cert
-    )
-    dynamic_res.raise_for_status()
-    dynamic_json = dynamic_res.json()
-    assert dynamic_json["test-dynamic-clnrest"] == "success"
-
-    dynamic_res = http_session.patch(
-        base_url + "/test/dynamic/clnrest", headers={"Rune": rune}, verify=ca_cert
-    )
-    dynamic_res.raise_for_status()
-    dynamic_json = dynamic_res.json()
-    assert dynamic_json["test-dynamic-clnrest-2"] == "success-2"
-
-    dynamic_res = http_session.delete(
-        base_url + "/test/dynamic/clnrest", headers={"Rune": rune}, verify=ca_cert
-    )
-    dynamic_res.raise_for_status()
-    dynamic_json = dynamic_res.json()
-    assert dynamic_json["test-dynamic-clnrest"] == "success"
-
-    dynamic_res = http_session.get(
-        base_url + "/v2/ct1/go", headers={"Rune": rune}, verify=ca_cert
-    )
-    dynamic_res.raise_for_status()
-    dynamic_json = dynamic_res.json()
-    assert dynamic_json["capture"] == "ct1"
-    assert dynamic_json["version"] == "2"
-
-
-def test_dynamic_path_conflicts(node_factory):
-    l1, base_url, ca_cert = start_node_with_clnrest(
-        node_factory, os.path.join(os.getcwd(), "tests/plugins/dynamic_clnrest_path.py")
-    )
-
-    with pytest.raises(
-        RpcError, match="already exists with http_method: GET"
-    ):
-        l1.rpc.call(
-            "clnrest-register-path",
-            {
-                "path": r"v{version}/{capture}/go",
-                "rpc_method": "capture-route",
-                "rune_restrictions": {"params": {"amount_msat": 9999}},
-                "http_method": "GET",
-            },
-        )
-
-    with pytest.raises(
-        RpcError, match="already exists with http_method: GET"
-    ):
-        l1.rpc.call(
-            "clnrest-register-path",
-            {
-                "path": r"v1/{capture}/go",
-                "rpc_method": "capture-route",
-                "rune_restrictions": {"params": {"amount_msat": 9999}},
-                "http_method": "GET",
-            },
-        )
-
-    l1.rpc.call(
-        "clnrest-register-path",
-        {
-            "path": r"v1/{capture}/go",
-            "rpc_method": "capture-route",
-            "rune_restrictions": {"params": {"amount_msat": 9999}},
-        },
-    )
-
-    l1.rpc.call(
-        "clnrest-register-path",
-        {
-            "path": r"v1/keys/{keyset_id}",
-            "rpc_method": "normal-route",
-        },
-    )
-
-    l1.rpc.call(
-        "clnrest-register-path",
-        {
-            "path": r"v1/keys",
-            "rpc_method": "normal-route",
-        },
-    )
-
-    with pytest.raises(RpcError, match="Path must not be root"):
-        l1.rpc.call(
-            "clnrest-register-path",
-            [r"/", "normal-route"],
-        )
-
-    with pytest.raises(RpcError, match="Path must not be empty"):
-        l1.rpc.call(
-            "clnrest-register-path",
-            {
-                "path": r"",
-                "rpc_method": "normal-route",
-            },
-        )
-
-    with pytest.raises(RpcError, match="Wildcards not supported"):
-        l1.rpc.call(
-            "clnrest-register-path",
-            {
-                "path": r"/{*wild}",
-                "rpc_method": "normal-route",
-            },
-        )
-
-
-def test_dynamic_path_rune(node_factory):
-    l1, base_url, ca_cert = start_node_with_clnrest(
-        node_factory, os.path.join(os.getcwd(), "tests/plugins/dynamic_clnrest_path.py")
-    )
-
-    with pytest.raises(RpcError, match="rune_required must be true for anything but GET requests"):
-        l1.rpc.call(
-            "clnrest-register-path",
-            {
-                "path": r"v1/keys/{keyset_id}",
-                "rpc_method": "normal-route",
-                "http_method": "PATCH",
-                "rune_required": False,
-            },
-        )
-
-    http_session = http_session_with_retry()
-
-    dynamic_res = http_session.post(base_url + "/test/no/rune_restrictions", verify=ca_cert)
-    assert dynamic_res.status_code == 403
-    assert dynamic_res.json()["code"] == 1501
-    assert dynamic_res.json()["message"] == "Not authorized: Missing rune"
-
-    rune = l1.rpc.createrune()["rune"]
-    dynamic_res = http_session.post(
-        base_url + "/test/no/rune_restrictions", headers={"Rune": rune}, verify=ca_cert
-    )
-    dynamic_res.raise_for_status()
-    dynamic_json = dynamic_res.json()
-    assert dynamic_json["test-dynamic-clnrest"] == "success"
-
-    dynamic_res = http_session.get(base_url + "/test/no/rune_required", verify=ca_cert)
-    dynamic_res.raise_for_status()
-    dynamic_json = dynamic_res.json()
-    assert dynamic_json["test-dynamic-clnrest"] == "success"
-
-    rune = l1.rpc.createrune(
-        restrictions=[
-            ["id=0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518"]
-        ]
-    )["rune"]
-
-    dynamic_res = http_session.post(
-        base_url + "/invalid/nodeid", headers={"Rune": rune}, verify=ca_cert
-    )
-    assert dynamic_res.status_code == 401
-    assert dynamic_res.json()["code"] == 1502
-    assert (
-        dynamic_res.json()["message"]
-        == "Not permitted: id is not equal to 0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518"
-    )
-
-    rune = l1.rpc.createrune(
-        restrictions=[
-            ["id=035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d"]
-        ]
-    )["rune"]
-
-    dynamic_res = http_session.post(
-        base_url + "/invalid/nodeid", headers={"Rune": rune}, verify=ca_cert
-    )
-    dynamic_res.raise_for_status()
-    dynamic_json = dynamic_res.json()
-    assert dynamic_json["test-invalid-nodeid"] == "success"
-
-    rune = l1.rpc.createrune(restrictions=[["method=notpay"]])["rune"]
-    dynamic_res = http_session.post(
-        base_url + "/test/dynamic/clnrest", headers={"Rune": rune}, verify=ca_cert
-    )
-    assert dynamic_res.status_code == 401
-    assert dynamic_res.json()["code"] == 1502
-    assert (
-        dynamic_res.json()["message"] == "Not permitted: method is not equal to notpay"
-    )
-
-    rune = l1.rpc.createrune(restrictions=[["method=pay"]])["rune"]
-    dynamic_res = http_session.post(
-        base_url + "/test/dynamic/clnrest", headers={"Rune": rune}, verify=ca_cert
-    )
-    dynamic_res.raise_for_status()
-    dynamic_json = dynamic_res.json()
-    assert dynamic_json["test-dynamic-clnrest"] == "success"

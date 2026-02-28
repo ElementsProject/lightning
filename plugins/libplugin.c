@@ -56,8 +56,6 @@ struct plugin_option {
 	const char *depr_start, *depr_end;
 	/* If true, allow setting after plugin has initialized */
 	bool dynamic;
-	/* If true, allow multiple settings. */
-	bool multi;
 };
 
 struct plugin {
@@ -475,22 +473,16 @@ struct json_stream *jsonrpc_stream_fail_data(struct command *cmd,
 	return js;
 }
 
-static struct command_result *command_complete_nojson(struct command *cmd,
-						      struct json_stream *result)
-{
-	json_stream_close(result, cmd);
-	ld_send(cmd->plugin, result);
-	tal_free(cmd);
-
-	return &complete;
-}
-
 static struct command_result *command_complete(struct command *cmd,
 					       struct json_stream *result)
 {
 	/* Global object */
 	json_object_end(result);
-	return command_complete_nojson(cmd, result);
+	json_stream_close(result, cmd);
+	ld_send(cmd->plugin, result);
+	tal_free(cmd);
+
+	return &complete;
 }
 
 struct command_result *command_finished(struct command *cmd,
@@ -512,20 +504,6 @@ struct command_result *command_finished(struct command *cmd,
 	json_object_end(response);
 
 	return command_complete(cmd, response);
-}
-
-struct command_result *command_finish_rawstr(struct command *cmd,
-					     const char *json,
-					     size_t json_len)
-{
-	struct json_stream *js = new_json_stream(cmd, cmd, NULL);
-	char *raw;
-
-	assert(cmd->type == COMMAND_TYPE_NORMAL
-	       || cmd->type == COMMAND_TYPE_HOOK);
-	raw = json_out_direct(js->jout, json_len);
-	memcpy(raw, json, json_len);
-	return command_complete_nojson(cmd, js);
 }
 
 struct command_result *WARN_UNUSED_RESULT
@@ -1274,7 +1252,6 @@ handle_getmanifest(struct command *getmanifest_cmd,
 		json_add_string(params, "description", p->opts[i].description);
 		json_add_deprecated(params, "deprecated", p->opts[i].depr_start, p->opts[i].depr_end);
 		json_add_bool(params, "dynamic", p->opts[i].dynamic);
-		json_add_bool(params, "multi", p->opts[i].multi);
 		if (p->opts[i].jsonfmt)
 			p->opts[i].jsonfmt(p, params, "default", p->opts[i].arg);
 		json_object_end(params);
@@ -1510,7 +1487,7 @@ static struct command_result *get_beglist(struct command *aux_cmd,
 	const char *err;
 
 	err = json_scan(tmpctx, buf, result,
-			"{configs:{i-promise-to-fix-broken-api-user:{values_str:%}}}",
+			"{configs:{i-promise-to-fix-broken-api-user?:%}}",
 			JSON_SCAN_TAL(plugin, json_to_apilist, &plugin->beglist));
 	if (err)
 		plugin_err(aux_cmd->plugin, "bad listconfigs '%.*s': %s",
@@ -1570,19 +1547,9 @@ static struct command_result *handle_init(struct command *cmd,
 		if (!popt)
 			plugin_err(p, "lightningd specified unknown option '%s'?", name);
 
-		if (popt->multi) {
-			size_t j;
-			const jsmntok_t *opt;
-			json_for_each_arr(j, opt, t+1) {
-				problem = popt->handle(p, json_strdup(tmpctx, buf, opt), false, popt->arg);
-				if (problem)
-					plugin_err(p, "option '%s': %s", popt->name, problem);
-			}
-		} else {
-			problem = popt->handle(p, json_strdup(tmpctx, buf, t+1), false, popt->arg);
-			if (problem)
-				plugin_err(p, "option '%s': %s", popt->name, problem);
-		}
+		problem = popt->handle(p, json_strdup(tmpctx, buf, t+1), false, popt->arg);
+		if (problem)
+			plugin_err(p, "option '%s': %s", popt->name, problem);
 	}
 
 	if (p->init) {
@@ -2404,7 +2371,6 @@ static struct plugin *new_plugin(const tal_t *ctx,
 		o.depr_start = va_arg(ap, const char *);
 		o.depr_end = va_arg(ap, const char *);
 		o.dynamic = va_arg(ap, int); /* bool gets promoted! */
-		o.multi = va_arg(ap, int); /* bool gets promoted! */
 		tal_arr_expand(&p->opts, o);
 	}
 

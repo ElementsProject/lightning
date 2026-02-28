@@ -225,18 +225,18 @@
     "The *data* field of errors will include statistics *getroute_tries* and *sendpay_tries*. It will also contain a *failures* field with detailed data about routing errors."
   ],
   "author": [
-    "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
   ],
   "see_also": [
     "lightning-listpays(7)",
-    "lightning-decode(7)",
+    "lightning-decodepay(7)",
     "lightning-listinvoices(7)",
     "lightning-delinvoice(7)",
     "lightning-getroute(7)",
     "lightning-invoice(7)"
   ],
   "resources": [
-    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+    "Main web site: <https://github.com/ElementsProject/lightning>"
   ],
   "examples": [
     {

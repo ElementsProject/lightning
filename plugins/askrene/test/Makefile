@@ -9,11 +9,12 @@ ALL_TEST_PROGRAMS += $(PLUGIN_ASKRENE_TEST_PROGRAMS)
 $(PLUGIN_RENEPAY_TEST_OBJS): $(PLUGIN_ASKRENE_SRC) plugins/askrene/test/Makefile
 
 plugins/askrene/test/run-bfs plugins/askrene/test/run-dijkstra plugins/askrene/test/run-flow plugins/askrene/test/run-mcf plugins/askrene/test/run-mcf-large: \
-	plugins/askrene/child/priorityqueue.o \
-	plugins/askrene/child/graph.o
+	plugins/askrene/priorityqueue.o \
+	plugins/askrene/graph.o
 
 $(PLUGIN_ASKRENE_TEST_PROGRAMS): $(PLUGIN_LIB_OBJS) libcommon.a
 
 check-askrene: $(PLUGIN_ASKRENE_TEST_PROGRAMS:%=unittest/%)
 
 check-units: check-askrene
+

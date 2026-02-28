@@ -47,7 +47,7 @@ common/test/run-route common/test/run-route-specific common/test/run-route-inflo
 	common/node_id.o				\
 	common/pseudorand.o				\
 	common/route.o					\
-        common/gossip_store_wiregen.o			\
+        gossipd/gossip_store_wiregen.o			\
 	wire/fromwire.o					\
 	wire/peer_wiregen.o				\
 	wire/towire.o

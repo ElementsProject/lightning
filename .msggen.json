@@ -1208,18 +1208,6 @@
         "CheckruneResponse": {
             "CheckRune.valid": 1
         },
-        "Clnrest-register-pathRequest": {
-            "Clnrest-Register-Path.http_method": 5,
-            "Clnrest-Register-Path.path": 1,
-            "Clnrest-Register-Path.rpc_method": 2,
-            "Clnrest-Register-Path.rune_required": 4,
-            "Clnrest-Register-Path.rune_restrictions": 3
-        },
-        "Clnrest-register-pathRuneRestrictions": {
-            "Clnrest-Register-Path.rune_restrictions.method": 2,
-            "Clnrest-Register-Path.rune_restrictions.nodeid": 1,
-            "Clnrest-Register-Path.rune_restrictions.params": 3
-        },
         "CloseRequest": {
             "Close.destination": 3,
             "Close.fee_negotiation_step": 4,
@@ -1637,7 +1625,6 @@
         "DisableofferResponse": {
             "DisableOffer.active": 2,
             "DisableOffer.bolt12": 4,
-            "DisableOffer.description": 7,
             "DisableOffer.label": 6,
             "DisableOffer.offer_id": 1,
             "DisableOffer.single_use": 3,
@@ -1656,7 +1643,6 @@
         "EnableofferResponse": {
             "EnableOffer.active": 2,
             "EnableOffer.bolt12": 4,
-            "EnableOffer.description": 7,
             "EnableOffer.label": 6,
             "EnableOffer.offer_id": 1,
             "EnableOffer.single_use": 3,
@@ -2873,7 +2859,6 @@
         "ListoffersOffers": {
             "ListOffers.offers[].active": 2,
             "ListOffers.offers[].bolt12": 4,
-            "ListOffers.offers[].description": 7,
             "ListOffers.offers[].label": 6,
             "ListOffers.offers[].offer_id": 1,
             "ListOffers.offers[].single_use": 3,
@@ -3045,7 +3030,6 @@
             "ListPeerChannels.channels[].updates.remote.htlc_minimum_msat": 1
         },
         "ListpeerchannelsRequest": {
-            "ListPeerChannels.channel_id": 3,
             "ListPeerChannels.id": 1,
             "ListPeerChannels.short_channel_id": 2
         },
@@ -3338,7 +3322,6 @@
             "Offer.absolute_expiry": 6,
             "Offer.amount": 1,
             "Offer.description": 2,
-            "Offer.fronting_nodes[]": 15,
             "Offer.issuer": 3,
             "Offer.label": 4,
             "Offer.optional_recurrence": 14,
@@ -4090,7 +4073,6 @@
             "Xpay.maxdelay": 7,
             "Xpay.maxfee": 3,
             "Xpay.partial_msat": 6,
-            "Xpay.payer_note": 8,
             "Xpay.retry_for": 5
         },
         "XpayResponse": {
@@ -5726,42 +5708,6 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
-        "Clnrest-Register-Path": {
-            "added": "v26.04",
-            "deprecated": null
-        },
-        "Clnrest-Register-Path.http_method": {
-            "added": "v26.04",
-            "deprecated": null
-        },
-        "Clnrest-Register-Path.path": {
-            "added": "v26.04",
-            "deprecated": null
-        },
-        "Clnrest-Register-Path.rpc_method": {
-            "added": "v26.04",
-            "deprecated": null
-        },
-        "Clnrest-Register-Path.rune_required": {
-            "added": "v26.04",
-            "deprecated": null
-        },
-        "Clnrest-Register-Path.rune_restrictions": {
-            "added": "v26.04",
-            "deprecated": null
-        },
-        "Clnrest-Register-Path.rune_restrictions.method": {
-            "added": "v26.04",
-            "deprecated": null
-        },
-        "Clnrest-Register-Path.rune_restrictions.nodeid": {
-            "added": "v26.04",
-            "deprecated": null
-        },
-        "Clnrest-Register-Path.rune_restrictions.params": {
-            "added": "v26.04",
-            "deprecated": null
-        },
         "Close": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -7114,10 +7060,6 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
-        "DisableOffer.description": {
-            "added": "v26.04",
-            "deprecated": null
-        },
         "DisableOffer.label": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -7164,10 +7106,6 @@
         },
         "EnableOffer.bolt12": {
             "added": "v24.11",
-            "deprecated": null
-        },
-        "EnableOffer.description": {
-            "added": "v26.04",
             "deprecated": null
         },
         "EnableOffer.label": {
@@ -10630,10 +10568,6 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
-        "ListOffers.offers[].description": {
-            "added": "v26.04",
-            "deprecated": null
-        },
         "ListOffers.offers[].label": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -10756,10 +10690,6 @@
         },
         "ListPeerChannels": {
             "added": "v23.02",
-            "deprecated": null
-        },
-        "ListPeerChannels.channel_id": {
-            "added": "v26.03",
             "deprecated": null
         },
         "ListPeerChannels.channels[]": {
@@ -11992,10 +11922,6 @@
         },
         "Offer.description": {
             "added": "pre-v0.10.1",
-            "deprecated": null
-        },
-        "Offer.fronting_nodes[]": {
-            "added": "v26.04",
             "deprecated": null
         },
         "Offer.issuer": {
@@ -14116,10 +14042,6 @@
         },
         "Xpay.partial_msat": {
             "added": "v24.11",
-            "deprecated": null
-        },
-        "Xpay.payer_note": {
-            "added": "v26.04",
             "deprecated": null
         },
         "Xpay.payment_preimage": {

@@ -177,7 +177,7 @@
     "On error, the reason why the action could not be taken upon the plugin is returned."
   ],
   "author": [
-    "Antoine Poinsot [darosior@protonmail.com](mailto:darosior@protonmail.com) is mainly responsible."
+    "Antoine Poinsot <<darosior@protonmail.com>> is mainly responsible."
   ],
   "see_also": [
     "lightning-cli(1)",
@@ -185,7 +185,7 @@
     "[writing plugins][writing plugins]"
   ],
   "resources": [
-    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)",
+    "Main web site: <https://github.com/ElementsProject/lightning>",
     "",
     "[writing plugins]: https://docs.corelightning.org/docs/plugin-development"
   ],

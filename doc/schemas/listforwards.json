@@ -369,14 +369,14 @@
     }
   },
   "author": [
-    "Rene Pickhardt [r.pickhardt@gmail.com](mailto:r.pickhardt@gmail.com) is mainly responsible."
+    "Rene Pickhardt <<r.pickhardt@gmail.com>> is mainly responsible."
   ],
   "see_also": [
     "lightning-autoclean-status(7)",
     "lightning-getinfo(7)"
   ],
   "resources": [
-    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+    "Main web site: <https://github.com/ElementsProject/lightning>"
   ],
   "examples": [
     {

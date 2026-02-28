@@ -16,28 +16,24 @@ dependencies = [
   "pyln-proto",
   "pyln-grpc-proto",
   "pytest-trackflaky",
-  "pytest-rerunfailures>=16.0.1",
   "pyln-testing",
-  "pyln-proto",
-  "mnemonic>=0.21",
 ]
 package-mode = false
 [dependency-groups]
 dev = [
   # Test dependencies and inherited dependencies belong here
-  "crc32c>=2.2.post0", # Belongs to lnprototest
+  "crc32c>=2.2.post0",              # Belongs to lnprototest
   "pytest>=8.0.0",
   "pytest-xdist>=3.6.0",
   "pytest-test-groups>=1.2.0",
   "pytest-timeout>=2.4.0",
   "flake8>=7.0",
   "pytest-custom-exit-code==0.3.0",
+  "flaky>=3.7.0",
   "requests>=2.32.0",
   "flask-socketio>=5",
   "tqdm",
   "pytest-benchmark",
-  "pdoc3>=0.11.6",
-  "pre-commit>=4.3.0",
 ]
 
 [project.optional-dependencies]

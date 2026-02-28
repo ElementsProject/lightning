@@ -112,16 +112,6 @@ void gossmap_manage_tell_lightningd_locals(struct daemon *daemon,
  */
 bool gossmap_manage_populated(const struct gossmap_manage *gm);
 
-/**
- * gossmap_manage_maybe_compact: rewrite gossmap if it's getting giant.
- * @gm: the gossmap_manage context
- */
-void gossmap_manage_maybe_compact(struct gossmap_manage *gm);
-
-/* For testing */
-void gossmap_manage_handle_dev_compact_store(struct gossmap_manage *gm,
-					     const u8 *msg);
-
 /* For memleak to see inside of maps */
 void gossmap_manage_memleak(struct htable *memtable, const struct gossmap_manage *gm);
 #endif /* LIGHTNING_GOSSIPD_GOSSMAP_MANAGE_H */

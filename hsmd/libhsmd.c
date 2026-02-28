@@ -110,6 +110,7 @@ bool hsmd_check_client_capabilities(struct hsmd_client *client,
 	case WIRE_HSMD_SIGN_DELAYED_PAYMENT_TO_US:
 	case WIRE_HSMD_SIGN_REMOTE_HTLC_TO_US:
 	case WIRE_HSMD_SIGN_PENALTY_TO_US:
+	case WIRE_HSMD_SIGN_LOCAL_HTLC_TX:
 		return (client->capabilities & HSM_PERM_SIGN_ONCHAIN_TX) != 0;
 
 	case WIRE_HSMD_GET_PER_COMMITMENT_POINT:
@@ -539,8 +540,9 @@ static void hsm_key_for_utxo(struct privkey *privkey, struct pubkey *pubkey,
 		hsmd_status_debug("Derived public key %s from unilateral close",
 				  fmt_pubkey(tmpctx, pubkey));
 	} else {
-		/* Modern HSMs use bip86. */
-		if (use_bip86_derivation(tal_bytelen(secretstuff.bip32_seed))) {
+		/* Modern HSMs use bip86 for p2tr. */
+		if (is_p2tr(utxo->scriptPubkey, tal_bytelen(utxo->scriptPubkey), NULL)
+		    && use_bip86_derivation(tal_bytelen(secretstuff.bip32_seed))) {
 			/* Use BIP86 derivation */
 			bip86_key(privkey, pubkey, utxo->keyindex);
 		} else {
@@ -766,12 +768,8 @@ static u8 *handle_bip137_sign_message(struct hsmd_client *c, const u8 *msg_in)
 	sha256_update(&sctx, msg, msg_len);
 	sha256_double_done(&sctx, &shad);
 
-	/* Get the private key using appropriate derivation method */
-	if (use_bip86_derivation(tal_bytelen(secretstuff.bip32_seed))) {
-		bip86_key(&privkey, &pubkey, keyidx);
-	} else {
-		bitcoin_key(&privkey, &pubkey, keyidx);
-	}
+	/* get the private key BIP32 */
+	bitcoin_key(&privkey, &pubkey, keyidx);
 
 	if (!secp256k1_ecdsa_sign_recoverable(
 		secp256k1_ctx, &rsig, shad.sha.u.u8, privkey.secret.data, NULL,
@@ -1558,7 +1556,25 @@ static u8 *do_sign_local_htlc_tx(struct hsmd_client *c,
 	return towire_hsmd_sign_tx_reply(NULL, &sig);
 }
 
-/*~ lightningd asks us to sign our HTLC transaction. */
+/*~ Called from onchaind (deprecated) */
+static u8 *handle_sign_local_htlc_tx(struct hsmd_client *c, const u8 *msg_in)
+{
+	u64 commit_num;
+	struct bitcoin_tx *tx;
+	u8 *wscript;
+	bool option_anchor_outputs;
+
+	if (!fromwire_hsmd_sign_local_htlc_tx(tmpctx, msg_in,
+					     &commit_num, &tx, &wscript,
+					     &option_anchor_outputs))
+		return hsmd_status_malformed_request(c, msg_in);
+
+	return do_sign_local_htlc_tx(c, msg_in, 0, &c->id, c->dbid,
+				     commit_num, tx, wscript,
+				     option_anchor_outputs);
+}
+
+/*~ This is the same function, but lightningd calling it */
 static u8 *handle_sign_any_local_htlc_tx(struct hsmd_client *c, const u8 *msg_in)
 {
 	u64 commit_num;
@@ -1733,7 +1749,7 @@ static u8 *do_sign_penalty_to_us(struct hsmd_client *c,
 				    SIGHASH_ALL);
 }
 
-/*~ Called from channeld: used by watchtower code. */
+/*~ Called from onchaind (deprecated) */
 static u8 *handle_sign_penalty_to_us(struct hsmd_client *c, const u8 *msg_in)
 {
 	struct secret revocation_secret;
@@ -1803,17 +1819,6 @@ static u8 *handle_sign_anchorspend(struct hsmd_client *c, const u8 *msg_in)
 				    "sign anchor key %s. PSBT: %s",
 				    fmt_pubkey(tmpctx, &local_funding_pubkey),
 				    fmt_wally_psbt(tmpctx, psbt));
-	}
-
-	if (dev_warn_on_overgrind) {
-		for (size_t i = 0; i < psbt->num_inputs; i++) {
-			if (psbt->inputs[i].signatures.num_items == 1
-			    && psbt->inputs[i].signatures.items[0].value_len < 71) {
-				hsmd_status_fmt(LOG_BROKEN, NULL,
-						"overgrind: short signature length %zu",
-						psbt->inputs[i].signatures.items[0].value_len);
-			}
-		}
 	}
 
 	return towire_hsmd_sign_anchorspend_reply(NULL, psbt);
@@ -2268,6 +2273,8 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 		return handle_sign_mutual_close_tx(client, msg);
 	case WIRE_HSMD_SIGN_SPLICE_TX:
 		return handle_sign_splice_tx(client, msg);
+	case WIRE_HSMD_SIGN_LOCAL_HTLC_TX:
+		return handle_sign_local_htlc_tx(client, msg);
 	case WIRE_HSMD_SIGN_REMOTE_HTLC_TX:
 		return handle_sign_remote_htlc_tx(client, msg);
 	case WIRE_HSMD_SIGN_REMOTE_COMMITMENT_TX:

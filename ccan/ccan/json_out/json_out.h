@@ -122,20 +122,6 @@ bool json_out_addstr(struct json_out *jout,
 		     const char *str);
 
 /**
- * json_out_addstrn - convenience helper to add a string field (with length).
- * @jout: the json_out object to write into.
- * @fieldname: optional fieldname to prepend.
- * @str: the string to add (must not be NULL).
- * @len: the length of @str
- *
- * Equivalent to json_out_add(@jout, @fieldname, true, "%.*s", @len, @str);
- */
-bool json_out_addstrn(struct json_out *jout,
-		      const char *fieldname,
-		      const char *str,
-		      size_t len);
-
-/**
  * json_out_member_direct - add a field, with direct access.
  * @jout: the json_out object to write into.
  * @fieldname: optional fieldname to prepend.

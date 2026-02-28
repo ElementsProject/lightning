@@ -1504,7 +1504,7 @@ static const char *plugin_hooks_add(struct plugin *plugin, const char *buffer,
 			aftertok = json_get_member(buffer, t, "after");
 			filterstok = json_get_member(buffer, t, "filters");
 		} else {
-			/* Simple names also work */
+			/* FIXME: deprecate in 3 releases after v0.9.2! */
 			name = json_strdup(tmpctx, buffer, t);
 			beforetok = aftertok = filterstok = NULL;
 		}
@@ -2062,8 +2062,12 @@ void plugins_init(struct plugins *plugins)
 	setenv("LIGHTNINGD_PLUGIN", "1", 1);
 	setenv("LIGHTNINGD_VERSION", version(), 1);
 
-	if (plugins_send_getmanifest(plugins, NULL))
-		io_loop_with_timers(plugins->ld);
+	if (plugins_send_getmanifest(plugins, NULL)) {
+		void *ret;
+		ret = io_loop_with_timers(plugins->ld);
+		log_debug(plugins->ld->log, "io_loop_with_timers: %s", __func__);
+		assert(ret == plugins);
+	}
 }
 
 static void plugin_config_cb(const char *buffer,

@@ -51,7 +51,7 @@
     "If an unrecognized address type is requested an error message will be returned."
   ],
   "author": [
-    "Felix [fixone@gmail.com](mailto:fixone@gmail.com) is mainly responsible."
+    "Felix <<fixone@gmail.com>> is mainly responsible."
   ],
   "see_also": [
     "lightning-listfunds(7)",
@@ -60,7 +60,7 @@
     "lightning-listtransactions(7)"
   ],
   "resources": [
-    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+    "Main web site: <https://github.com/ElementsProject/lightning>"
   ],
   "examples": [
     {

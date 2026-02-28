@@ -82,7 +82,7 @@ to gain our eternal gratitude!
 AUTHOR
 ------
 
-Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) wrote the initial version of **lightning-downgrade** and this man page.
+Rusty Russell <<rusty@rustcorp.com.au>> wrote the initial version of **lightning-downgrade** and this man page.
 
 SEE ALSO
 --------
@@ -92,11 +92,11 @@ lightningd(8), lightningd-config(5)
 RESOURCES
 ---------
 
-Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)
+Main web site: <https://github.com/ElementsProject/lightning>
 
 COPYING
 -------
 
 Note: the modules in the ccan/ directory have their own licenses, but
 the rest of the code is covered by the BSD-style MIT license.
-Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)
+Main web site: <https://github.com/ElementsProject/lightning>

@@ -130,8 +130,6 @@ class GrpcConverterGenerator(IGenerator):
                     "TlvStream?": f"c.{name}.map(|s| s.into())",
                     "RoutehintList?": f"c.{name}.map(|rl| rl.into())",
                     "DecodeRoutehintList?": f"c.{name}.map(|drl| drl.into())",
-                    "string_map": f"Some(c.{name})",
-                    "string_map?": f"c.{name}.unwrap_or(HashMap::new())",
                 }.get(
                     typ, f"c.{name}"  # default to just assignment
                 )
@@ -204,7 +202,6 @@ class GrpcConverterGenerator(IGenerator):
         use cln_rpc::notifications;
         use crate::pb;
         use std::str::FromStr;
-        use std::collections::HashMap;
         use bitcoin::hashes::sha256::Hash as Sha256;
         use bitcoin::hashes::Hash;
         use cln_rpc::primitives::PublicKey;

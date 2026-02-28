@@ -882,29 +882,15 @@ static struct bitcoin_tx *onchaind_tx_unsigned(const tal_t *ctx,
 	struct lightningd *ld = channel->peer->ld;
 	bool keypath_ok;
 
-	/* Use BIP86 derivation for P2TR if available, otherwise BIP32 */
-	if (ld->bip86_base) {
-		bip86_pubkey(ld, &final_key, channel->final_key_idx);
-		if (bip32_key_from_parent(ld->bip86_base,
-					  channel->final_key_idx,
-					  BIP32_FLAG_KEY_PUBLIC,
-					  &final_wallet_ext_key) != WALLY_OK) {
-			channel_internal_error(channel,
-					       "Could not derive final_wallet_ext_key (bip86) %"PRIu64,
-					       channel->final_key_idx);
-			return NULL;
-		}
-	} else {
-		bip32_pubkey(ld, &final_key, channel->final_key_idx);
-		if (bip32_key_from_parent(ld->bip32_base,
-					  channel->final_key_idx,
-					  BIP32_FLAG_KEY_PUBLIC,
-					  &final_wallet_ext_key) != WALLY_OK) {
-			channel_internal_error(channel,
-					       "Could not derive final_wallet_ext_key %"PRIu64,
-					       channel->final_key_idx);
-			return NULL;
-		}
+	bip32_pubkey(ld, &final_key, channel->final_key_idx);
+	if (bip32_key_from_parent(ld->bip32_base,
+				  channel->final_key_idx,
+				  BIP32_FLAG_KEY_PUBLIC,
+				  &final_wallet_ext_key) != WALLY_OK) {
+ 		channel_internal_error(channel,
+				       "Could not derive final_wallet_ext_key %"PRIu64,
+				       channel->final_key_idx);
+		return NULL;
 	}
 
 	tx = bitcoin_tx(ctx, chainparams, 1, 1, info->locktime);
@@ -1154,12 +1140,7 @@ static bool consider_onchain_htlc_tx_rebroadcast(struct channel *channel,
 	if (!amount_sat_eq(change, AMOUNT_SAT(0))) {
 		/* Append change output. */
 		struct pubkey final_key;
-		/* Use BIP86 derivation for P2TR if available, otherwise BIP32 */
-		if (ld->bip86_base) {
-			bip86_pubkey(ld, &final_key, channel->final_key_idx);
-		} else {
-			bip32_pubkey(ld, &final_key, channel->final_key_idx);
-		}
+		bip32_pubkey(ld, &final_key, channel->final_key_idx);
 		psbt_append_output(psbt,
 				   scriptpubkey_p2tr(tmpctx, &final_key),
 				   change);

@@ -15,6 +15,7 @@
 
 /* Public key of this node. */
 static struct node_id my_id;
+static unsigned int maxdelay_default;
 static bool disablempp = false;
 static struct channel_hint_set *global_hints;
 
@@ -626,7 +627,22 @@ static const char *init(struct command *init_cmd,
 	rpc_scan(init_cmd, "getinfo", take(json_out_obj(NULL, NULL, NULL)),
 		 "{id:%}", JSON_SCAN(json_to_node_id, &my_id));
 
+	/* BOLT #4:
+	 * ## `max_htlc_cltv` Selection
+	 *
+	 * This ... value is defined as 2016 blocks, based on historical value
+	 * deployed by Lightning implementations.
+	 */
+	/* FIXME: Typo in spec for CLTV in descripton!  But it breaks our spelling check, so we omit it above */
+	maxdelay_default = 2016;
+
 	global_hints = notleak_with_children(channel_hint_set_new(init_cmd->plugin));
+
+	/* max-locktime-blocks deprecated in v24.05, but still grab it! */
+	rpc_scan(init_cmd, "listconfigs", take(json_out_obj(NULL, NULL, NULL)),
+		 "{configs:"
+		 "{max-locktime-blocks?:{value_int:%}}}",
+		 JSON_SCAN(json_to_number, &maxdelay_default));
 
 	plugin_set_memleak_handler(init_cmd->plugin, memleak_mark_payments);
 	return NULL;
@@ -1278,13 +1294,6 @@ static struct command_result *json_pay(struct command *cmd,
 	/* If any of the modifiers need to add params to the JSON-RPC call we
 	 * would add them to the `param()` call below, and have them be
 	 * initialized directly that way. */
-	/* BOLT #4:
-	 * ## `max_htlc_cltv` Selection
-	 *
-	 * This ... value is defined as 2016 blocks, based on historical value
-	 * deployed by Lightning implementations.
-	 */
-	/* FIXME: Typo in spec for CLTV in descripton!  But it breaks our spelling check, so we omit it above */
 	if (!param_check(cmd, buf, params,
 		   /* FIXME: parameter should be invstring now */
 		   p_req("bolt11", param_invstring, &b11str),
@@ -1296,7 +1305,7 @@ static struct command_result *json_pay(struct command *cmd,
 			 &maxfee_pct_millionths),
 		   p_opt_def("retry_for", param_number, &retryfor, 60),
 		   p_opt_def("maxdelay", param_number, &maxdelay,
-			     2016),
+			     maxdelay_default),
 		   p_opt("exemptfee", param_msat, &exemptfee),
 		   p_opt("localinvreqid", param_sha256, &local_invreq_id),
 		   p_opt("exclude", param_route_exclusion_array, &exclusions),

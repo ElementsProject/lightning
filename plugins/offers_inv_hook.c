@@ -218,7 +218,6 @@ struct command_result *handle_invoice(struct command *cmd,
 				      struct blinded_path *reply_path STEALS,
 				      const struct secret *secret)
 {
-	const struct offers_data *od = get_offers_data(cmd->plugin);
 	size_t len = tal_count(invbin);
 	struct inv *inv = tal(cmd, struct inv);
 	struct out_req *req;
@@ -244,7 +243,7 @@ struct command_result *handle_invoice(struct command *cmd,
 		invoice_invreq_id(inv->inv, &invreq_id_nopath);
 		inv->inv->invreq_paths = invreq_paths;
 
-		path_secret = bolt12_path_id(tmpctx, &od->offerblinding_base, &invreq_id_nopath);
+		path_secret = bolt12_path_id(tmpctx, &offerblinding_base, &invreq_id_nopath);
 		if (!memeq(path_secret, tal_count(path_secret),
 			   secret, sizeof(*secret))) {
 			if (command_dev_apis(cmd))

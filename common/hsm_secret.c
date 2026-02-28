@@ -29,7 +29,7 @@
 #define HSM_SECRET_PLAIN_SIZE 32
 
 /* Helper function to validate a mnemonic string */
-enum hsm_secret_error validate_mnemonic(const char *mnemonic)
+static bool validate_mnemonic(const char *mnemonic, enum hsm_secret_error *err)
 {
 	struct words *words;
 	bool ok;
@@ -44,10 +44,12 @@ enum hsm_secret_error validate_mnemonic(const char *mnemonic)
 	/* Wordlists can persist, so provide a common context! */
 	tal_wally_end(notleak_with_children(tal(NULL, char)));
 
-	if (!ok)
-		return HSM_SECRET_ERR_INVALID_MNEMONIC;
+	if (!ok) {
+		*err = HSM_SECRET_ERR_INVALID_MNEMONIC;
+		return false;
+	}
 
-	return HSM_SECRET_OK;
+	return true;
 }
 
 struct secret *get_encryption_key(const tal_t *ctx, const char *passphrase)
@@ -312,8 +314,7 @@ static struct hsm_secret *extract_mnemonic_secret(const tal_t *ctx,
 	}
 
 	/* Validate mnemonic */
-	*err = validate_mnemonic(hsms->mnemonic);
-	if (*err != HSM_SECRET_OK) {
+	if (!validate_mnemonic(hsms->mnemonic, err)) {
 		return tal_free(hsms);
 	}
 
@@ -463,9 +464,8 @@ const char *read_stdin_mnemonic(const tal_t *ctx, enum hsm_secret_error *err)
 	}
 
 	/* Validate mnemonic */
-	*err = validate_mnemonic(line);
-	if (*err != HSM_SECRET_OK) {
-		return tal_free(line);
+	if (!validate_mnemonic(line, err)) {
+		return NULL;
 	}
 
 	*err = HSM_SECRET_OK;

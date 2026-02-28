@@ -12,7 +12,6 @@ struct test_libplugin {
 	bool self_disable;
 	bool dont_shutdown;
 	u32 dynamic_opt;
-	const char **strarr;
 };
 
 static struct test_libplugin *get_test_libplugin(struct plugin *plugin)
@@ -288,13 +287,6 @@ static const char *init(struct command *init_cmd,
 		plugin_log(p, LOG_DBG, "somearg = %s", tlp->somearg);
 	tlp->somearg = tal_free(tlp->somearg);
 
-	for (size_t i = 0; i < tal_count(tlp->strarr); i++) {
-		plugin_log(p, LOG_DBG, "multiopt#%zu = %s",
-			   i, tlp->strarr[i]);
-	}
-	if (tlp->somearg)
-		plugin_log(p, LOG_DBG, "somearg = %s", tlp->somearg);
-
 	if (tlp->self_disable)
 		return "Disabled via selfdisable option";
 
@@ -369,25 +361,6 @@ static const struct plugin_notification notifs[] = { {
 	}
 };
 
-static char *set_multi_string_option(struct plugin *plugin,
-				     const char *arg,
-				     bool check_only,
-				     const char ***arr)
-{
-	if (!check_only)
-		tal_arr_expand(arr, tal_strdup(*arr, arg));
-	return NULL;
-}
-
-static bool multi_string_jsonfmt(struct plugin *plugin, struct json_stream *js, const char *fieldname, const char ***arr)
-{
-	json_array_start(js, fieldname);
-	for (size_t i = 0; i < tal_count(*arr); i++)
-		json_add_string(js, NULL, (*arr)[i]);
-	json_array_end(js);
-	return true;
-}
-
 int main(int argc, char *argv[])
 {
 	setup_locale();
@@ -399,7 +372,6 @@ int main(int argc, char *argv[])
 	tlp->self_disable = false;
 	tlp->dont_shutdown = false;
 	tlp->dynamic_opt = 7;
-	tlp->strarr = tal_arr(tlp, const char *, 0);
 
 	plugin_main(argv, init, take(tlp), PLUGIN_RESTARTABLE, true, NULL,
 		    commands, ARRAY_SIZE(commands),
@@ -430,11 +402,5 @@ int main(int argc, char *argv[])
 					  "Set me!",
 					  set_dynamic, u32_jsonfmt,
 					  &tlp->dynamic_opt),
-		    plugin_option_multi("multiopt",
-					"string",
-					"Set me multiple times!",
-					set_multi_string_option,
-					multi_string_jsonfmt,
-					&tlp->strarr),
 		    NULL);
 }

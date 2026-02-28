@@ -111,7 +111,7 @@ COMMON_SRC_NOGEN :=				\
 	common/wire_error.c
 
 
-COMMON_SRC_GEN := common/status_wiregen.c common/peer_status_wiregen.c common/scb_wiregen.c common/gossip_store_wiregen.c
+COMMON_SRC_GEN := common/status_wiregen.c common/peer_status_wiregen.c common/scb_wiregen.c
 
 COMMON_HEADERS_NOGEN := $(COMMON_SRC_NOGEN:.c=.h)	\
 	common/closing_fee.h				\
@@ -124,7 +124,7 @@ COMMON_HEADERS_NOGEN := $(COMMON_SRC_NOGEN:.c=.h)	\
 	common/jsonrpc_errors.h				\
 	common/overflows.h
 
-COMMON_HEADERS_GEN := common/htlc_state_names_gen.h common/status_wiregen.h common/peer_status_wiregen.h common/scb_wiregen.h common/gossip_store_wiregen.h
+COMMON_HEADERS_GEN := common/htlc_state_names_gen.h common/status_wiregen.h common/peer_status_wiregen.h common/scb_wiregen.h
 
 COMMON_HEADERS := $(COMMON_HEADERS_GEN) $(COMMON_HEADERS_NOGEN)
 COMMON_SRC := $(COMMON_SRC_NOGEN) $(COMMON_SRC_GEN)
@@ -157,8 +157,10 @@ ALL_C_SOURCES += $(COMMON_SRC)
 common/htlc_state_names_gen.h: common/htlc_state.h ccan/ccan/cdump/tools/cdump-enumstr
 	ccan/ccan/cdump/tools/cdump-enumstr common/htlc_state.h > $@
 
-check-source-bolt: $(COMMON_SRC_NOGEN:%=bolt-check/%) $(COMMON_HEADERS_NOGEN:%=bolt-check/%)
-check-whitespace: $(COMMON_SRC_NOGEN:%=check-whitespace/%) $(COMMON_HEADERS_NOGEN:%=check-whitespace/%)
+common/gossip_store.o: gossipd/gossip_store_wiregen.h
+
+check-source-bolt: $(COMMON_SRC_NOGEN:%=bolt-check/%) $(COMMON_HEADERS:%=bolt-check/%)
+check-whitespace: $(COMMON_SRC_NOGEN:%=check-whitespace/%) $(COMMON_HEADERS:%=check-whitespace/%)
 
 clean: common-clean
 

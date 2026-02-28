@@ -299,12 +299,19 @@ msgdata,hsmd_sign_remote_htlc_to_us,wscript_len,u16,
 msgdata,hsmd_sign_remote_htlc_to_us,wscript,u8,wscript_len
 msgdata,hsmd_sign_remote_htlc_to_us,option_anchor_outputs,bool,
 
-# channeld asks HSM to sign penalty, for watchtower code.
 msgtype,hsmd_sign_penalty_to_us,14
 msgdata,hsmd_sign_penalty_to_us,revocation_secret,secret,
 msgdata,hsmd_sign_penalty_to_us,tx,bitcoin_tx,
 msgdata,hsmd_sign_penalty_to_us,wscript_len,u16,
 msgdata,hsmd_sign_penalty_to_us,wscript,u8,wscript_len
+
+# Onchaind asks HSM to sign a local HTLC success or HTLC timeout tx.
+msgtype,hsmd_sign_local_htlc_tx,16
+msgdata,hsmd_sign_local_htlc_tx,commit_num,u64,
+msgdata,hsmd_sign_local_htlc_tx,tx,bitcoin_tx,
+msgdata,hsmd_sign_local_htlc_tx,wscript_len,u16,
+msgdata,hsmd_sign_local_htlc_tx,wscript,u8,wscript_len
+msgdata,hsmd_sign_local_htlc_tx,option_anchor_outputs,bool,
 
 # Openingd/channeld asks HSM to sign the other sides' commitment tx.
 msgtype,hsmd_sign_remote_commitment_tx,19

@@ -4,9 +4,9 @@
 #include <ccan/opt/opt.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <common/gossip_store.h>
-#include <common/gossip_store_wiregen.h>
 #include <common/utils.h>
 #include <fcntl.h>
+#include <gossipd/gossip_store_wiregen.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <unistd.h>

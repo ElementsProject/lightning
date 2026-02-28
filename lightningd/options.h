@@ -3,7 +3,6 @@
 #include "config.h"
 #include <ccan/ccan/opt/opt.h>
 
-struct hsm_secret;
 struct json_stream;
 struct lightningd;
 
@@ -17,7 +16,7 @@ void handle_opts(struct lightningd *ld);
 void setup_color_and_alias(struct lightningd *ld);
 
 /**
- * hsm_secret_arg - parse an hsm_secret as hex, codex32 or mnemonic.
+ * hsm_secret_arg - parse an hsm_secret as hex or codex32
  * @ctx: context to allocate @hsm_secret from
  * @arg: string to parse
  * @hsm_secret: set on success.
@@ -26,7 +25,7 @@ void setup_color_and_alias(struct lightningd *ld);
  */
 char *hsm_secret_arg(const tal_t *ctx,
 		     const char *arg,
-		     const struct hsm_secret **hsm_secret);
+		     const u8 **hsm_secret);
 
 enum opt_autobool {
 	OPT_AUTOBOOL_FALSE = 0,

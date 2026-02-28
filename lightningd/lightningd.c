@@ -150,7 +150,6 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->dev_handshake_no_reply = false;
 	ld->dev_strict_forwarding = false;
 	ld->dev_limit_connections_inflight = false;
-	ld->dev_keep_nagle = false;
 
 	/*~ We try to ensure enough fds for twice the number of channels
 	 * we start with.  We have a developer option to change that factor
@@ -214,11 +213,11 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 * who talk to us about long-closed channels. */
 	ld->closed_channels = new_htable(ld, closed_channel_map);
 
-	/*~ We have a multi-entry log-book infrastructure: we define a 16MB log
-	 * book to hold all the entries in a circular buffer, and multiple
+	/*~ We have a multi-entry log-book infrastructure: we define a 10MB log
+	 * book to hold all the entries (and trims as necessary), and multiple
 	 * log objects which each can write into it, each with a unique
 	 * prefix. */
-	ld->log_book = new_log_book(ld);
+	ld->log_book = new_log_book(ld, 10*1024*1024);
 	/*~ Note the tal context arg (by convention, the first argument to any
 	 * allocation function): ld->log will be implicitly freed when ld
 	 * is. */
@@ -372,7 +371,6 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	/* The gossip seeker automatically connects to a this many peers */
 	ld->autoconnect_seeker_peers = 10;
 
-	ld->fronting_nodes = tal_arr(ld, struct node_id, 0);
 	return ld;
 }
 
@@ -383,10 +381,9 @@ static const char *subdaemons[] = {
 	"lightning_closingd",
 	"lightning_connectd",
 	"lightning_gossipd",
-	"lightning_gossip_compactd",
 	"lightning_hsmd",
 	"lightning_onchaind",
-	"lightning_openingd",
+	"lightning_openingd"
 };
 
 /* Return true if called with a recognized subdaemon e.g. "hsmd" */
@@ -694,11 +691,8 @@ static void init_txfilter(struct wallet *w,
 		for (u64 i = 0; i <= bip86_max_index + w->keyscan_gap; i++) {
 			struct pubkey pubkey;
 			bip86_pubkey(w->ld, &pubkey, i);
-			/* Add both P2TR and P2WPKH scripts since BIP86 keys can be used for both */
-			u8 *p2tr_script = scriptpubkey_p2tr(tmpctx, &pubkey);
-			txfilter_add_scriptpubkey(filter, take(p2tr_script));
-			u8 *p2wpkh_script = scriptpubkey_p2wpkh(tmpctx, &pubkey);
-			txfilter_add_scriptpubkey(filter, take(p2wpkh_script));
+			u8 *script = scriptpubkey_p2tr(tmpctx, &pubkey);
+			txfilter_add_scriptpubkey(filter, take(script));
 		}
 	}
 }

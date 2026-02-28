@@ -292,40 +292,28 @@ static struct command_result *json_listaddrs(struct command *cmd,
 {
 	struct json_stream *response;
 	struct pubkey pubkey;
-	u64 *max_index;
-	bool use_bip86 = (cmd->ld->bip86_base != NULL);
+	u64 *bip32_max_index;
 
 	if (!param(cmd, buffer, params,
-		   p_opt("max_index", param_u64, &max_index),
+		   p_opt("bip32_max_index", param_u64, &bip32_max_index),
 		   NULL))
 		return command_param_failed();
 
-	if (!max_index) {
-		max_index = tal(cmd, u64);
-		/* Use bip86_max_index for BIP86 wallets, bip32_max_index for legacy */
-		if (use_bip86) {
-			*max_index = db_get_intvar(cmd->ld->wallet->db,
-						   "bip86_max_index", 0);
-		} else {
-			*max_index = db_get_intvar(cmd->ld->wallet->db,
-						   "bip32_max_index", 0);
-		}
+	if (!bip32_max_index) {
+		bip32_max_index = tal(cmd, u64);
+		*bip32_max_index = db_get_intvar(cmd->ld->wallet->db,
+						 "bip32_max_index", 0);
 	}
 	response = json_stream_success(cmd);
 	json_array_start(response, "addresses");
 
-	for (s64 keyidx = 1; keyidx <= *max_index; keyidx++) {
+	for (s64 keyidx = 1; keyidx <= *bip32_max_index; keyidx++) {
 
 		if (keyidx == BIP32_INITIAL_HARDENED_CHILD){
 			break;
 		}
 
-		/* Use BIP86 derivation for BIP86 wallets, BIP32 for legacy */
-		if (use_bip86) {
-			bip86_pubkey(cmd->ld, &pubkey, keyidx);
-		} else {
-			bip32_pubkey(cmd->ld, &pubkey, keyidx);
-		}
+		bip32_pubkey(cmd->ld, &pubkey, keyidx);
 
 		// bech32 : p2wpkh
 		u8 *redeemscript_p2wpkh;
@@ -1294,22 +1282,36 @@ json_signmessagewithkey(struct command *cmd, const char *buffer,
 		    "HSM does not support signing BIP137 signing.");
 	}
 
+	const u32 bip32_max_index =
+	    db_get_intvar(cmd->ld->wallet->db, "bip32_max_index", 0);
+        bool match_found = false;
 	u32 keyidx;
-	enum addrtype addrtype;
+        enum addrtype addrtype;
 
-	/* Use wallet_can_spend which handles both BIP32 and BIP86 addresses */
-	if (!wallet_can_spend(cmd->ld->wallet, scriptpubkey, script_len,
-			      &keyidx, &addrtype)) {
+	/* loop over all generated keys, find a matching key */
+	for (keyidx = 1; keyidx <= bip32_max_index; keyidx++) {
+		bip32_pubkey(cmd->ld, &pubkey, keyidx);
+		u8 *redeemscript_p2wpkh;
+		char *out_p2wpkh = encode_pubkey_to_addr(
+		    cmd, &pubkey, ADDR_BECH32, &redeemscript_p2wpkh);
+		if (!out_p2wpkh) {
+			abort();
+		}
+		/* wallet_get_addrtype fails for entries prior to v24.11, all
+		 * address types are assumed in that case. */
+		if (!wallet_get_addrtype(cmd->ld->wallet, keyidx, &addrtype))
+			addrtype = ADDR_ALL;
+		if (streq(addr, out_p2wpkh) &&
+		    (addrtype == ADDR_BECH32 || addrtype == ADDR_ALL)) {
+			match_found = true;
+			break;
+		}
+	}
+
+	if (!match_found) {
 		return command_fail(
 		    cmd, JSONRPC2_INVALID_PARAMS,
 		    "Address is not found in the wallet's database");
-	}
-
-	/* Derive the pubkey for the found key index */
-	if (cmd->ld->bip86_base) {
-		bip86_pubkey(cmd->ld, &pubkey, keyidx);
-	} else {
-		bip32_pubkey(cmd->ld, &pubkey, keyidx);
 	}
 
 	/* wire to hsmd a sign request */

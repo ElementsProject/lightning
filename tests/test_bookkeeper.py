@@ -23,15 +23,15 @@ def find_first_tag(evs, tag):
     return ev[0]
 
 
-def check_events(node, channel_id, exp_events, alt_events=None):
+def check_events(node, channel_id, exp_events):
     chan_events = [ev for ev in node.rpc.bkpr_listaccountevents()['events'] if ev['account'] == channel_id]
     stripped = [{k: d[k] for k in ('tag', 'credit_msat', 'debit_msat') if k in d} for d in chan_events]
-    assert stripped == exp_events or stripped == alt_events
+    assert stripped == exp_events
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "fixme: broadcast fails, dusty")
 def test_bookkeeping_closing_trimmed_htlcs(node_factory, bitcoind, executor):
-    l1, l2 = node_factory.line_graph(2, opts={'old_hsmsecret': True})
+    l1, l2 = node_factory.line_graph(2)
 
     # Send l2 funds via the channel
     l1.pay(l2, 11000000)
@@ -81,7 +81,7 @@ def test_bookkeeping_closing_trimmed_htlcs(node_factory, bitcoind, executor):
 @unittest.skipIf(TEST_NETWORK != 'regtest', "fixme: broadcast fails, dusty")
 def test_bookkeeping_closing_subsat_htlcs(node_factory, bitcoind, chainparams):
     """Test closing balances when HTLCs are: sub 1-satoshi"""
-    l1, l2 = node_factory.line_graph(2, opts={'old_hsmsecret': True})
+    l1, l2 = node_factory.line_graph(2)
 
     l1.pay(l2, 111)
     l1.pay(l2, 222)
@@ -399,12 +399,7 @@ def test_bookkeeping_missed_chans_pushed(node_factory, bitcoind):
                   {'tag': 'pushed', 'credit_msat': 0, 'debit_msat': push_amt},
                   {'tag': 'onchain_fee', 'credit_msat': 4927000, 'debit_msat': 0},
                   {'tag': 'invoice', 'credit_msat': 0, 'debit_msat': invoice_msat}]
-    # We sometimes see onchain_fee first:
-    alt_events = [{'tag': 'channel_open', 'credit_msat': open_amt * 1000, 'debit_msat': 0},
-                  {'tag': 'onchain_fee', 'credit_msat': 4927000, 'debit_msat': 0},
-                  {'tag': 'pushed', 'credit_msat': 0, 'debit_msat': push_amt},
-                  {'tag': 'invoice', 'credit_msat': 0, 'debit_msat': invoice_msat}]
-    check_events(l1, channel_id, exp_events, alt_events)
+    check_events(l1, channel_id, exp_events)
 
     # l2 events
     exp_events = [{'tag': 'channel_open', 'credit_msat': 0, 'debit_msat': 0},
@@ -962,12 +957,10 @@ def test_migration(node_factory, bitcoind):
         bitcoind.generate_block(1)
         l1 = node_factory.get_node(dbfile="l1-before-moves-in-db.sqlite3.xz",
                                    bkpr_dbfile="l1-bkpr-accounts.sqlite3.xz",
-                                   options={'database-upgrade': True},
-                                   old_hsmsecret=True)
+                                   options={'database-upgrade': True})
         l2 = node_factory.get_node(dbfile="l2-before-moves-in-db.sqlite3.xz",
                                    bkpr_dbfile="l2-bkpr-accounts.sqlite3.xz",
-                                   options={'database-upgrade': True},
-                                   old_hsmsecret=True)
+                                   options={'database-upgrade': True})
 
         chan = only_one(l1.rpc.listpeerchannels()['channels'])
 
@@ -1116,11 +1109,9 @@ def test_migration_no_bkpr(node_factory, bitcoind):
     """These nodes need to invent coinmoves to make the balances work"""
     bitcoind.generate_block(1)
     l1 = node_factory.get_node(dbfile="l1-before-moves-in-db.sqlite3.xz",
-                               options={'database-upgrade': True},
-                               old_hsmsecret=True)
+                               options={'database-upgrade': True})
     l2 = node_factory.get_node(dbfile="l2-before-moves-in-db.sqlite3.xz",
-                               options={'database-upgrade': True},
-                               old_hsmsecret=True)
+                               options={'database-upgrade': True})
 
     chan = only_one(l1.rpc.listpeerchannels()['channels'])
 
@@ -1210,8 +1201,7 @@ def test_bkpr_parallel(node_factory, bitcoind, executor):
     """Bookkeeper could crash with parallel requests"""
     bitcoind.generate_block(1)
     l1 = node_factory.get_node(dbfile="l1-before-moves-in-db.sqlite3.xz",
-                               options={'database-upgrade': True},
-                               old_hsmsecret=True)
+                               options={'database-upgrade': True})
 
     fut1 = executor.submit(l1.rpc.bkpr_listincome)
     fut2 = executor.submit(l1.rpc.bkpr_listincome)

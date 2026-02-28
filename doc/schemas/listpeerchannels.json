@@ -5,11 +5,9 @@
   "rpc": "listpeerchannels",
   "title": "Command returning data on channels of connected lightning nodes",
   "description": [
-    "The **listpeerchannels** RPC command returns a list of this node's channels.",
+    "The **listpeerchannels** RPC command returns list of this node's channels, with the possibility to filter them by peer's node id.",
     "",
-    "By default, data for all known channels is returned, including those to peers that are currently connected and those to peers that are disconnected but still have open channels.",
-    "",
-    "At most one of *id*, *short_channel_id* or *channel_id* may be provided as a filter. If more than one is provided, the command fails with an error."
+    "If no *id* is supplied, then channel data on all lightning nodes that are connected, or not connected but have open channels with this node, are returned."
   ],
   "categories": [
     "readonly"
@@ -21,21 +19,14 @@
       "id": {
         "type": "pubkey",
         "description": [
-          "If supplied, limits the channels to just the peer with the given ID, if it exists. Cannot be used with 'short_channel_id' or 'channel_id'."
+          "If supplied, limits the channels to just the peer with the given ID, if it exists."
         ]
       },
       "short_channel_id": {
         "added": "v25.05",
         "type": "short_channel_id",
         "description": [
-          "If supplied, limits the channels to just this short_channel_id (or local alias), if it exists. Cannot be used with 'id' or 'channel_id'."
-        ]
-      },
-      "channel_id": {
-        "added": "v26.03",
-        "type": "hash",
-        "description": [
-          "If supplied, limits the channels to just this channel_id, if it exists. Cannot be used with 'id' or 'short_channel_id'."
+          "If supplied, limits the channels to just this short_channel_id (or local alias), if it exists.  Cannot be used with 'id'."
         ]
       }
     }
@@ -320,12 +311,6 @@
                 "The short_channel_id (once locked in)."
               ]
             },
-            "direction": {
-              "type": "integer",
-              "description": [
-                "The direction of the channel (i.e. 0 if we are the lesser node id, 1 if we are the greater)."
-              ]
-            },
             "channel_id": {
               "type": "hash",
               "description": [
@@ -471,11 +456,12 @@
                   "option_static_remotekey",
                   "option_anchor_outputs",
                   "option_anchors",
+                  "option_anchors_zero_fee_htlc_tx",
                   "option_scid_alias",
                   "option_zeroconf"
                 ],
                 "description": [
-                  "BOLT #9 features which apply to this channel."
+                  "BOLT #9 features which apply to this channel. Note that *anchors_zero_fee_htlc_tx* is a deprecated synonym for *anchors*."
                 ]
               }
             },
@@ -582,7 +568,7 @@
               ],
               "deprecated": [
                 "v25.02",
-                "v26.03"
+                "v26.06"
               ]
             },
             "their_max_htlc_value_in_flight_msat": {
@@ -1467,16 +1453,16 @@
     "- -32602: If the given parameters are wrong."
   ],
   "author": [
-    "Michael Hawkins [michael.hawkins@protonmail.com](mailto:michael.hawkins@protonmail.com)."
+    "Michael Hawkins <<michael.hawkins@protonmail.com>>."
   ],
   "see_also": [
     "lightning-connect(7)",
     "lightning-fundchannel_start(7)"
   ],
   "resources": [
-    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)",
+    "Main web site: <https://github.com/ElementsProject/lightning>",
     "Lightning RFC site (BOLT #9): ",
-    "[https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md](https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md)"
+    "<https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md>"
   ],
   "examples": [
     {
@@ -1544,6 +1530,7 @@
             },
             "features": [
               "option_static_remotekey",
+              "option_anchors_zero_fee_htlc_tx",
               "option_anchors"
             ],
             "funding": {
@@ -1675,6 +1662,7 @@
             },
             "features": [
               "option_static_remotekey",
+              "option_anchors_zero_fee_htlc_tx",
               "option_anchors"
             ],
             "funding": {
@@ -1800,6 +1788,7 @@
             },
             "features": [
               "option_static_remotekey",
+              "option_anchors_zero_fee_htlc_tx",
               "option_anchors"
             ],
             "funding": {

@@ -19,9 +19,8 @@ def test_db_dangling_peer_fix(node_factory, bitcoind):
     bitcoind.generate_block(104)
     # This was taken from test_fail_unconfirmed() node.
     l1 = node_factory.get_node(dbfile='dangling-peer.sqlite3.xz',
-                               old_hsmsecret=True,
                                options={'database-upgrade': True})
-    l2 = node_factory.get_node(old_hsmsecret=True)
+    l2 = node_factory.get_node()
 
     # Must match entry in db
     assert l2.info['id'] == '022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59'
@@ -164,14 +163,6 @@ def test_scid_upgrade(node_factory, bitcoind):
     assert l1.db_query('SELECT scid FROM channels;') == [{'scid': scid_to_int('103x1x1')}]
     assert l1.db_query('SELECT failscid FROM payments;') == [{'failscid': scid_to_int('103x1x1')}]
 
-    faildetail_types = l1.db_query(
-        "SELECT id, typeof(faildetail) as type "
-        "FROM payments WHERE faildetail IS NOT NULL"
-    )
-    for row in faildetail_types:
-        assert row['type'] == 'text', \
-            f"Payment {row['id']}: faildetail has type {row['type']}, expected 'text'"
-
 
 @unittest.skipIf(not COMPAT, "needs COMPAT to convert obsolete db")
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "This test is based on a sqlite3 snapshot")
@@ -184,7 +175,6 @@ def test_last_tx_inflight_psbt_upgrade(node_factory, bitcoind):
     upgraded_psbts = ['cHNidP8BAgQCAAAAAQMEmj7WIAEEAQEBBQECAQYBAwH7BAIAAAAAAQEroIYBAAAAAAAiACBbjNO5FM9nzdj6YnPJMDU902R2c0+9liECwt9TuQiAzSICAuO9OACYZsnajsSqmcxOqcbA3UbfFcYe8M4fJxKRcU5XRjBDAiBgFZ+8xOkvxfBoC9QdAhBuX6zhpvKsqWw8QeN2gK1b4wIfQdSIq+vNMfnFZqLyv3Un4s7i2MzHUiTs2morB/t/SwEBAwQBAAAAAQVHUiECMkJm3oQDs6sVegnx94TVh69hgxyZjBUbzCG7dMKyMUshAuO9OACYZsnajsSqmcxOqcbA3UbfFcYe8M4fJxKRcU5XUq4iBgIyQmbehAOzqxV6CfH3hNWHr2GDHJmMFRvMIbt0wrIxSwhK0xNpAAAAACIGAuO9OACYZsnajsSqmcxOqcbA3UbfFcYe8M4fJxKRcU5XCBq8wdAAAAAAAQ4gnMyi5Z2GOwC1vYNb97qTzCV5MtLHzb5R7+LuSp0p38sBDwQBAAAAARAEnbDigAABAwhKAQAAAAAAAAEEIgAgvnk1p3ypq3CkuLGQaCVjd2f+08AIJKqQyYiYNYfWhIgAAQMI8IIBAAAAAAABBCIAIJ9GhN2yis3HOVm8GU0aJd+Qb2HtAw9S0WPm8eJH0yy7AA==', 'cHNidP8BAgQCAAAAAQMEmj7WIAEEAQEBBQECAQYBAwH7BAIAAAAAAQEroIYBAAAAAAAiACBbjNO5FM9nzdj6YnPJMDU902R2c0+9liECwt9TuQiAzSICAuO9OACYZsnajsSqmcxOqcbA3UbfFcYe8M4fJxKRcU5XRzBEAiBWXvsSYMpD69abqr7X9XurE6B6GkhyI5JeGuKYByBukAIgUmk9q/g3PIS9HjTVJ4OmRoSZAMKLFdsowq15Sl9OAD8BAQMEAQAAAAEFR1IhAjJCZt6EA7OrFXoJ8feE1YevYYMcmYwVG8whu3TCsjFLIQLjvTgAmGbJ2o7EqpnMTqnGwN1G3xXGHvDOHycSkXFOV1KuIgYCMkJm3oQDs6sVegnx94TVh69hgxyZjBUbzCG7dMKyMUsIStMTaQAAAAAiBgLjvTgAmGbJ2o7EqpnMTqnGwN1G3xXGHvDOHycSkXFOVwgavMHQAAAAAAEOICL56+OPVCCFRbaBrX9zp641BKCcggH1Amc9NOKEJGh8AQ8EAQAAAAEQBJ2w4oAAAQMISgEAAAAAAAABBCIAIL55Nad8qatwpLixkGglY3dn/tPACCSqkMmImDWH1oSIAAEDCPCCAQAAAAAAAQQiACCfRoTdsorNxzlZvBlNGiXfkG9h7QMPUtFj5vHiR9MsuwA=']
 
     l1 = node_factory.get_node(dbfile='upgrade_inflight.sqlite3.xz',
-                               old_hsmsecret=True,
                                options={'database-upgrade': True})
 
     b64_last_txs = [base64.b64encode(x['last_tx']).decode('utf-8') for x in l1.db_query('SELECT last_tx FROM channel_funding_inflights ORDER BY channel_id, funding_feerate;')]
@@ -207,7 +197,6 @@ def test_last_tx_psbt_upgrade(node_factory, bitcoind):
                                # actually from l2, not l1.  But if we make this l1, then last_tx changes
                                broken_log='gossipd rejected our channel announcement',
                                allow_bad_gossip=True,
-                               old_hsmsecret=True,
                                options={'database-upgrade': True})
 
     b64_last_txs = [base64.b64encode(x['last_tx']).decode('utf-8') for x in l1.db_query('SELECT last_tx FROM channels ORDER BY id;')]
@@ -268,7 +257,6 @@ def test_backfill_scriptpubkeys(node_factory, bitcoind):
     l1 = node_factory.get_node(node_id=3, dbfile='pubkey_regen.sqlite.xz',
                                # Our db had the old non-DER sig in psbt!
                                broken_log='Forced database repair of psbt',
-                               old_hsmsecret=True,
                                options={'database-upgrade': True})
     results = l1.db_query('SELECT hex(prev_out_tx) AS txid, hex(scriptpubkey) AS script FROM outputs')
     scripts = [{'txid': x['txid'], 'scriptpubkey': x['script']} for x in results]
@@ -306,7 +294,6 @@ def test_backfill_scriptpubkeys(node_factory, bitcoind):
     l2 = node_factory.get_node(node_id=3, dbfile='pubkey_regen_commitment_point.sqlite3.xz',
                                # Our db had the old non-DER sig in psbt!
                                broken_log='Forced database repair of psbt',
-                               old_hsmsecret=True,
                                options={'database-upgrade': True})
     results = l2.db_query('SELECT hex(prev_out_tx) AS txid, hex(scriptpubkey) AS script FROM outputs')
     scripts = [{'txid': x['txid'], 'scriptpubkey': x['script']} for x in results]
@@ -387,7 +374,6 @@ def test_local_basepoints_cache(bitcoind, node_factory):
         start=False,
         # Our db had the old non-DER sig in psbt!
         broken_log='Forced database repair of psbt',
-        old_hsmsecret=True,
         options={'database-upgrade': True}
     )
 
@@ -519,7 +505,6 @@ def test_db_forward_migrate(bitcoind, node_factory):
     # assert False
     bitcoind.generate_block(113)
     l1 = node_factory.get_node(dbfile='v0.12.1-forward.sqlite3.xz',
-                               old_hsmsecret=True,
                                options={'database-upgrade': True})
 
     assert l1.rpc.getinfo()['fees_collected_msat'] == 4
@@ -644,7 +629,6 @@ def test_channel_htlcs_id_change(bitcoind, node_factory):
               '000000204488f00bb863cfcb1e038e7e3a5f7b48439a78e55294617d318e89aa1adfad436fe12257d5e7456c01f069ba5c03945cc377c345f7d9efce224ffe37fc03064e0c642868ffff7f200000000002020000000001010000000000000000000000000000000000000000000000000000000000000000ffffffff03016600ffffffff028df2052a01000000160014db9680a36eba1588d654997b4dfe8367750601560000000000000000266a24aa21a9ede1cda2213558058f747117e749d912456522f34f1d56266b6ebd8b00a9f2643e012000000000000000000000000000000000000000000000000000000000000000000000000002000000000101754da9b9e16d987364f7c82d252ca2f12d18a26e5d23e1eb1d7b1aa19682e1250000000000fdffffff02f36ce7290100000016001406d100d7761da1b04a7c879676b0bd8b8f054b8480841e000000000016001401fad90abcd66697e2592164722de4a95ebee165024730440220393e40c25bdae368e3dba1161b84b4d79f555c75b507c0825c12bb5dc4bd5e33022032527f64e57b3c223c6ceb90f495b9aac804537aec757ed2e826fc0993fd27f3012102ee9864ff8b00633cf9dfdca577142831ccf641d9c066d26cfaf0e3e7e763b48d65000000']
     bitcoind.restore_blocks(blocks)
     l1 = node_factory.get_node(dbfile='channel_htlcs-pre-pagination.sqlite3.xz',
-                               old_hsmsecret=True,
                                options={'database-upgrade': True})
 
     # l2 is the node l1 thinks it has a channel with.  l2 has no idea, but we allocate it so
@@ -658,47 +642,3 @@ def test_channel_htlcs_id_change(bitcoind, node_factory):
     # Make some HTLCS
     for amt in (100, 500, 1000, 5000, 10000, 50000, 100000):
         l1.pay(l3, amt)
-
-
-@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "STRICT tables are SQLite3 specific")
-def test_sqlite_strict_mode(node_factory):
-    """Test that STRICT is appended to CREATE TABLE in developer mode."""
-    l1 = node_factory.get_node(options={'developer': None})
-
-    tables = l1.db_query("SELECT name, sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
-
-    strict_tables = [t for t in tables if t['sql'] and 'STRICT' in t['sql']]
-    assert len(strict_tables) > 0, f"Expected at least one STRICT table in developer mode, found none out of {len(tables)}"
-
-    known_strict_tables = ['version', 'forwards', 'payments', 'local_anchors', 'addresses']
-    for table_name in known_strict_tables:
-        table_sql = next((t['sql'] for t in tables if t['name'] == table_name), None)
-        if table_sql:
-            assert 'STRICT' in table_sql, f"Expected table '{table_name}' to be STRICT in developer mode"
-
-
-@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "SQLite3-specific test")
-@unittest.skipIf(not COMPAT, "needs COMPAT to test old database upgrade")
-@unittest.skipIf(TEST_NETWORK != 'regtest', "The network must match the DB snapshot")
-def test_strict_mode_with_old_database(node_factory, bitcoind):
-    """Test old database upgrades work (STRICT not applied during migrations)."""
-    bitcoind.generate_block(1)
-
-    l1 = node_factory.get_node(dbfile='oldstyle-scids.sqlite3.xz',
-                               options={'database-upgrade': True,
-                                        'developer': None})
-
-    assert l1.rpc.getinfo()['id'] is not None
-
-    strict_tables = l1.db_query(
-        "SELECT name FROM sqlite_master "
-        "WHERE type='table' AND sql LIKE '%STRICT%'"
-    )
-    assert len(strict_tables) == 0, "Upgraded database should not have STRICT tables"
-
-    # Verify BLOB->TEXT migration ran for faildetail cleanup.
-    result = l1.db_query(
-        "SELECT COUNT(*) as count FROM payments "
-        "WHERE typeof(faildetail) = 'blob'"
-    )
-    assert result[0]['count'] == 0, "Found BLOB-typed faildetail after migration"

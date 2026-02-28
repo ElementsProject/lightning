@@ -1,108 +1,13 @@
-default_language_version:
-  node: system
-  python: python3
-
 repos:
-- repo: https://github.com/pycqa/flake8
-  rev: 7.3.0
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  # Ruff version.
+  rev: v0.8.0
   hooks:
-    - id: flake8
-      args: [ "--ignore=E501,E731,E741,W503,F541,E275" ]
+    # Run the linter.
+    - id: ruff
+      args: [ --diff ]
       exclude: "contrib/pyln-grpc-proto/pyln/grpc/(primitives|node)_pb2(|_grpc).py"
-
-- repo: https://github.com/shellcheck-py/shellcheck-py
-  rev: v0.11.0.1
-  hooks:
-    - id: shellcheck
-      args: [ -fgcc ]
-
-- repo: https://github.com/pre-commit/mirrors-clang-format
-  rev: v19.1.4
-  hooks:
-    - id: clang-format
-      description: Runs formatting checks on the c code and and throws errors if suggestions
-        are detected, without modifying the code. Style is defined in `.clang-format`. When
-        encountering formatting-related errors, run `clang-format -i <path-to-file>` to make
-        (destructively) the suggestions and evalute the resulting diff for more context.
-      args: [ --dry-run, -Werror ]
-      entry: clang-format
-      types: [ c ]
-      stages: [ manual ]
-
-- repo: https://github.com/python-jsonschema/check-jsonschema
-  rev: 0.30.0
-  hooks:
-    - id: check-jsonschema
-      name: check doc JSON schemas
-      args: ["--schemafile", "doc/rpc-schema-draft.json"]
-      files: ^doc/schemas/.*\.json$
-      types: [ json ]
-
-    - id: check-metaschema
-      name: check doc JSON metaschemas
-      args: ["--verbose"]
-      files: ^doc/schemas/.*\.json$
-      types: [ json ]
-
-- repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: v5.0.0
-  hooks:
-    - id: pretty-format-json
-      args: [ "--indent", "2", "--no-sort-keys" ]
-      files: ^doc/schemas/.*\.json$
-      types: [ json ]
-    - id: trailing-whitespace
-      args: [ "--markdown-linebreak-ext=md" ]
-      exclude: ccan|contrib|tests/fuzz/corpora
-    - id: end-of-file-fixer
-      exclude: ccan|contrib|tests/fuzz/corpora
-
-- repo: https://github.com/codespell-project/codespell
-  rev: v2.3.0
-  hooks:
-    - id: codespell
-      description: Checks for common misspellings.
-      exclude: ccan|contrib|tests/fuzz/corpora
-      stages: [ manual ]
-
-- repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
-  rev: v9.23.0
-  hooks:
-    - id: commitlint
-      stages: [ commit-msg ]
-
-- repo: local
-  hooks:
-    # Reimplementation of `make check-amount-access` for pygrep.
-    - id: check-amount-access
-      name: Check amount_msat and amount_sat members are not accessed directly
-      description: "Don't access amount_msat and amount_sat members directly without a good reason since it risks overflow."
-      language: pygrep
-      entry: (->|\.)(milli)?satoshis(?!.*\/\*\ Raw:)|(?<!sizeof)\(struct\ amount_(m)?sat\)
-      types: [ c ]
-      exclude: common/amount|.*/test/.*
-
-    # Reimplementation of `make check-discouraged-functions` for pygrep.
-    - id: check-discouraged-functions
-      name: Check for usage of discouraged funtions
-      language: pygrep
-      entry: '[^a-z_/](?:fgets|fputs|gets|scanf|sprintf)\('
-      types: [ c ]
-      exclude: ccan|contrib
-
-    - id: include-order-fixer
-      name: Fix Include Order
-      language: python
-      description: Analyzes Core Lightning C source and header files, assesses the order of
-        their include directives according to the published Coding Style Guidelines
-        [here](https://docs.corelightning.org/docs/coding-style-guidelines), automatically
-        applying sorting them. Aims to conform with `make check-includes`.
-      entry: python devtools/include-order-fixer.py
-      stages: [ manual ]
-      pass_filenames: false
-
-    - id: check-includes
-      name: Check Includes
-      language: system
-      entry: make check-includes
-      pass_filenames: false
+    # Run the formatter.
+    - id: ruff-format
+      args: [ --diff ]
+      exclude: "contrib/pyln-grpc-proto/pyln/grpc/(primitives|node)_pb2(|_grpc).py"

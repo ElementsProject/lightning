@@ -5,7 +5,6 @@
 #include <common/json_command.h>
 #include <common/overflows.h>
 #include <db/exec.h>
-#include <inttypes.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/wait.h>
@@ -278,10 +277,6 @@ static struct command_result *json_wait(struct command *cmd,
 
 	waiter->cmd = cmd;
 	list_add_tail(&cmd->ld->wait_commands, &waiter->list);
-	log_trace(cmd->ld->log, "waiting on %s %s %"PRIu64,
-		  wait_subsystem_name(*waiter->subsystem),
-		  wait_index_name(*waiter->index),
-		  *waiter->nextval);
 	return command_still_pending(cmd);
 }
 

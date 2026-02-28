@@ -1548,32 +1548,6 @@ def uninstall(plugin_name: str) -> str:
     return "uninstalled"
 
 
-def _get_all_plugins_from_source(src: str) -> list:
-    """Get all plugin directories from a source repository.
-    Returns a list of (plugin_name, source_url) tuples."""
-    plugins = []
-    srctype = Source.get_type(src)
-    if srctype == Source.UNKNOWN:
-        return plugins
-
-    try:
-        root = SourceDir(src, srctype=srctype)
-        root.populate()
-    except Exception as e:
-        log.debug(f"Failed to populate source {src}: {e}")
-        return plugins
-
-    plugins.append((root.name, src))
-    
-    for item in root.contents:
-        if isinstance(item, SourceDir):
-            # Skip archive directories
-            if 'archive' in item.name.lower():
-                continue
-            plugins.append((item.name, src))
-    return plugins
-
-
 def search(plugin_name: str) -> Union[InstInfo, None]:
     """searches plugin index for plugin"""
     ordered_sources = RECKLESS_SOURCES.copy()
@@ -1589,22 +1563,6 @@ def search(plugin_name: str) -> Union[InstInfo, None]:
         if Source.get_type(src) in [Source.DIRECTORY, Source.LOCAL_REPO]:
             ordered_sources.remove(src)
             ordered_sources.insert(0, src)
-
-    # First, collect all partial matches to display to user
-    partial_matches = []
-    for source in ordered_sources:
-        for plugin_name_found, src_url in _get_all_plugins_from_source(source):
-            if plugin_name.lower() in plugin_name_found.lower():
-                partial_matches.append((plugin_name_found, src_url))
-
-    # Display all partial matches
-    if partial_matches:
-        log.info(f"Plugins matching '{plugin_name}':")
-        for name, src_url in partial_matches:
-            log.info(f"  {name} ({src_url})")
-
-    # Now try exact match for installation purposes
-    exact_match = None
     for source in ordered_sources:
         srctype = Source.get_type(source)
         if srctype == Source.UNKNOWN:
@@ -1615,21 +1573,17 @@ def search(plugin_name: str) -> Union[InstInfo, None]:
             found = _source_search(plugin_name, source)
             if found:
                 log.debug(f"{found}, {found.srctype}")
-                exact_match = found
-                break
-
-    if exact_match:
-        log.info(f"found {exact_match.name} in source: {exact_match.source_loc}")
-        log.debug(f"entry: {exact_match.entry}")
-        if exact_match.subdir:
-            log.debug(f'sub-directory: {exact_match.subdir}')
+        if not found:
+            continue
+        log.info(f"found {found.name} in source: {found.source_loc}")
+        log.debug(f"entry: {found.entry}")
+        if found.subdir:
+            log.debug(f'sub-directory: {found.subdir}')
         global LAST_FOUND
         # Stashing the search result saves install() a call to _source_search.
-        LAST_FOUND = exact_match
-        return str(exact_match.source_loc)
-
-    if not partial_matches:
-        log.info("Search exhausted all sources")
+        LAST_FOUND = found
+        return str(found.source_loc)
+    log.info("Search exhausted all sources")
     return None
 
 

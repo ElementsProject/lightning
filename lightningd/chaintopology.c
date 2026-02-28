@@ -1420,7 +1420,7 @@ void setup_topology(struct chain_topology *topo)
 	fixup = db_get_intvar(topo->ld->wallet->db, "fixup_block_scan", -1);
 	if (fixup == -1) {
 		/* Never done fixup: this is set to non-zero if we have blocks. */
-		topo->old_block_scan = wallet_blocks_contig_minheight(topo->ld->wallet);
+		topo->old_block_scan = wallet_blocks_minheight(topo->ld->wallet);
 		db_set_intvar(topo->ld->wallet->db, "fixup_block_scan",
 			      topo->old_block_scan);
 	} else {
@@ -1528,14 +1528,6 @@ static void fixup_scan_block(struct bitcoind *bitcoind,
 			     struct bitcoin_block *blk,
 			     struct chain_topology *topo)
 {
-	/* Can't scan the block?  We will try again next restart */
-	if (!blk) {
-		log_unusual(topo->ld->log,
-			    "fixup_scan: could not load block %u, will retry next restart",
-			    height);
-		return;
-	}
-
 	log_debug(topo->ld->log, "fixup_scan: block %u with %zu txs", height, tal_count(blk->tx));
 	topo_update_spends(topo, blk->tx, blk->txids, height);
 

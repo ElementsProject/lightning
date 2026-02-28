@@ -59,13 +59,6 @@
           "The bolt12 string representing this offer."
         ]
       },
-      "description": {
-        "added": "v26.04",
-        "type": "string",
-        "description": [
-          "The user-specified bolt 12 description."
-        ]
-      },
       "used": {
         "type": "boolean",
         "description": [
@@ -84,7 +77,7 @@
     ]
   },
   "author": [
-    "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
+    "Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible."
   ],
   "see_also": [
     "lightning-enableoffer(7)",
@@ -92,7 +85,7 @@
     "lightning-listoffers(7)"
   ],
   "resources": [
-    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+    "Main web site: <https://github.com/ElementsProject/lightning>"
   ],
   "examples": [
     {
@@ -108,7 +101,6 @@
         "active": false,
         "single_use": false,
         "bolt12": "lno1qgsq000bolt230002300023000230002300023000230002300023000230002300023000230002300023000230002300023000230002300023000230002300023000",
-        "description": "Movie ticket",
         "used": false
       }
     }

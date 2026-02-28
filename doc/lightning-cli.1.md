@@ -112,7 +112,7 @@ this is to avoid having lightningd interpret the position of an argument.
 
 Arguments may be integer numbers (composed entirely of digits), floating-point 
 numbers (has a radix point but otherwise composed of digits), *true*, *false*,
-or *null*. Arguments which begin with *`{`*, *`[`* or *`"`* are also considered
+or *null*. Arguments which begin with *{*, *[* or *"* are also considered
 raw JSON and are passed through.  Other arguments are treated as strings.
 
 Some commands have optional arguments. You may use *null* to skip
@@ -147,12 +147,12 @@ If the command succeeds, the exit status is 0.  Otherwise:
 AUTHOR
 ------
 
-Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly to blame.
+Rusty Russell <<rusty@rustcorp.com.au>> is mainly to blame.
 
 RESOURCES
 ---------
 
-Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)
+Main web site: <https://github.com/ElementsProject/lightning>
 
 COPYING
 -------

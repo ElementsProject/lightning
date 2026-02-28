@@ -432,7 +432,6 @@ class PrimitiveField(Field):
         "secret",
         "bip340sig",
         "hash",
-        "string_map",
     ]
 
     def __init__(self, typename, path, description, added, deprecated):
@@ -520,7 +519,6 @@ DecodeRoutehintListField = PrimitiveField(
 CreateRuneRestrictionsField = ArrayField(itemtype=PrimitiveField("string", None, None, added=None, deprecated=None), dims=1, path=None, description=None, added=None, deprecated=None)
 CheckRuneParamsField = ArrayField(itemtype=PrimitiveField("string", None, None, added=None, deprecated=None), dims=1, path=None, description=None, added=None, deprecated=None)
 ChainMovesExtraTagsField = ArrayField(itemtype=PrimitiveField("string", None, None, added=None, deprecated=None), dims=1, path=None, description=None, added=None, deprecated=None)
-ClnrestRegisterPathParamsField = PrimitiveField("string_map", None, None, added=None, deprecated=None)
 
 # TlvStreams are special, they don't have preset dict-keys, rather
 # they can specify `u64` keys pointing to hex payloads. So the schema
@@ -547,6 +545,7 @@ overrides = {
     'KeySend.routehints': RoutehintListField,
     'KeySend.extratlvs': TlvStreamField,
     'Decode.routes': DecodeRoutehintListField,
+    'DecodePay.routes': DecodeRoutehintListField,
     'CreateInvoice.label': InvoiceLabelField,
     'DatastoreUsage.key': DatastoreUsageKeyField,
     'WaitInvoice.label': InvoiceLabelField,
@@ -556,7 +555,6 @@ overrides = {
     'CreateRune.restrictions': CreateRuneRestrictionsField,
     'CheckRune.params': CheckRuneParamsField,
     "ListChainMoves.chainmoves[].extra_tags": ChainMovesExtraTagsField,
-    "Clnrest-Register-Path.rune_restrictions.params": ClnrestRegisterPathParamsField,
 }
 
 

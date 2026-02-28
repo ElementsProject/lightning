@@ -8,7 +8,7 @@
 int main(int argx, char *argv[])
 {
 	/* Just some context objects to hang spans off of. */
-	int a = 0, b = 0, c = 0, d = 0;
+	int a, b, c, d;
 
 	common_setup(argv[0]);
 

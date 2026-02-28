@@ -336,11 +336,9 @@ connections. Default is 9736.
 
 ### Lightning node customization options
 
-* **recover**=*mnemonic*
+* **recover**=*hsmsecret*
 
-  Restore the node from a mnemonic.  For pre-25.12 nodes (which didn't have a mnemonic), use a 32-byte secret encoded as either a codex32 secret string or a 64-character hex string.
-  
-  This will fail if the `hsm_secret` file exists.  Your node will start the node in offline mode, for manual recovery.  The secret can be extracted from the `hsm_secret` using lightning-hsmtool(8)'s `getsecret`.
+  Restore the node from a 32-byte secret encoded as either a codex32 secret string or a 64-character hex string: this will fail if the `hsm_secret` file exists.  Your node will start the node in offline mode, for manual recovery.  The secret can be extracted from the `hsm_secret` using lightning-hsmtool(8).
 
 * **alias**=*NAME*
 
@@ -539,10 +537,6 @@ delete the others.
 
 ### Payment and invoice control options:
 
-* **payment-fronting-node**=*nodeid*
-
-  Always use this *nodeid* as the entry point when we generate invoices or offers: currently, the node must be a neighbor we have a channel with.  For BOLT11 invoices we will use a routehint with the alias for the short channel id to provide limited privacy (we still reveal our node id).  For BOLT12 invoices and offers, we provide a blinded path from the node to us which provides better privacy.  This can be specified multiple times for multiple fronting nodes.
-
 * **disable-mpp** [plugin `pay`]
 
   Disable the multi-part payment sending support in the `pay` plugin. By default
@@ -566,10 +560,6 @@ command, so they invoices can also be paid onchain.
 * **askrene-timeout**=*SECONDS* [plugin `askrene`, *dynamic*]
 
   This option makes the `getroutes` call fail if it takes more than this many seconds.  Setting it to zero is a fun way to ensure your node never makes payments.
-
-* **askrene-max-threads**=*NUMBER* [plugin `askrene`, *dynamic*]
-
-  This option controls how many routes askrene will calculate at once: this is only useful on nodes which make multiple payments at once, and setting the number higher than your number of cores/CPUS will not help.  The default is 4.
 
 ### Networking options
 
@@ -865,7 +855,7 @@ to gain our eternal gratitude!
 AUTHOR
 ------
 
-Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) wrote this man page, and
+Rusty Russell <<rusty@rustcorp.com.au>> wrote this man page, and
 much of the configuration language, but many others did the hard work of
 actually implementing these options.
 
@@ -878,7 +868,7 @@ lightning-hsmtool(8)
 RESOURCES
 ---------
 
-Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)
+Main web site: <https://github.com/ElementsProject/lightning>
 
 COPYING
 -------
