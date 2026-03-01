@@ -1,6 +1,7 @@
 from utils import TEST_NETWORK, VALGRIND  # noqa: F401,F403
-from pyln.testing.fixtures import directory, test_base_dir, test_name, chainparams, node_factory, bitcoind, teardown_checks, db_provider, executor, setup_logging, jsonschemas  # noqa: F401,F403
+from pyln.testing.fixtures import directory, test_base_dir, test_name, chainparams, bitcoind, teardown_checks, db_provider, executor, setup_logging, jsonschemas  # noqa: F401,F403
 from pyln.testing import utils
+from pyln.testing.utils import NodeFactory as _NodeFactory
 from utils import COMPAT
 from pathlib import Path
 
@@ -11,19 +12,71 @@ import shutil
 import subprocess
 import tempfile
 import time
+from pyln.testing.utils import env
+from vls import ValidatingLightningSignerD
+
+
+class NodeFactory(_NodeFactory):
+    """Make `use_vls` option reaches the `LightningNode.__init__` in 
+    `NodeFactory` as node-level kwarg instead of being forwarded as a
+    lightningd CLI flag."""
+
+    def split_options(self, opts):
+        node_opts, cli_opts = super().split_options(opts)
+        if 'use_vls' in cli_opts:
+            node_opts['use_vls'] = cli_opts.pop('use_vls')
+        return node_opts, cli_opts
 
 
 @pytest.fixture
 def node_cls():
     return LightningNode
 
+# Override the default fixture to use the new `NodeFactory` which supports `use_vls` as a node-level option. 
+@pytest.fixture
+def node_factory(request, directory, test_name, bitcoind, executor, db_provider, teardown_checks, node_cls, jsonschemas):
+    nf = NodeFactory(
+        request,
+        test_name,
+        bitcoind,
+        executor,
+        directory=directory,
+        db_provider=db_provider,
+        node_cls=node_cls,
+        jsonschemas=jsonschemas,
+    )
+
+    yield nf
+    ok, errs = nf.killall([not n.may_fail for n in nf.nodes])
+
+    for e in errs:
+        print(e.format())
+
+    if not ok:
+        raise Exception("At least one lightning exited with unexpected non-zero return code")
+
 
 class LightningNode(utils.LightningNode):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, node_id, *args, use_vls=None, **kwargs):
         # Yes, we really want to test the local development version, not
         # something in out path.
         kwargs["executable"] = "lightningd/lightningd"
-        utils.LightningNode.__init__(self, *args, **kwargs)
+        utils.LightningNode.__init__(self, node_id, *args, **kwargs)
+
+        self.node_id = node_id
+        self.network = TEST_NETWORK
+
+        if use_vls is True:
+            self.vls_mode = "cln:socket"
+        elif use_vls is False:
+            self.vls_mode = "cln:native"
+        else:
+            # use_vls=None (default) falls back to the VLS_MODE env var.
+            # Setting this env var causes all nodes use the same mode
+            self.vls_mode = env("VLS_MODE", "cln:native")
+        
+        self.use_vls = use_vls is not None
+        self.vlsd: ValidatingLightningSignerD | None = None
 
         # Avoid socket path name too long on Linux
         if os.uname()[0] == 'Linux' and \
@@ -60,6 +113,33 @@ class LightningNode(utils.LightningNode):
         if db_type == 'postgres' and ('disable-plugin', 'bookkeeper') not in self.daemon.opts.items():
             accts_db = self.db.provider.get_db('', 'accounts', 0)
             self.daemon.opts['bookkeeper-db'] = accts_db.get_dsn()
+
+    def start(self, wait_for_bitcoind_sync=True, stderr_redir=False):
+        # We start the signer first, otherwise the lightningd startup hangs on the init message.
+        if self.use_vls:
+            self.vlsd = ValidatingLightningSignerD(
+                lightning_dir=self.lightning_dir,
+                node_id=self.node_id,
+                network=self.network,
+            )
+            self.daemon.opts["subdaemon"] = f"hsmd:{self.vlsd.remote_socket}"
+            self.daemon.env["VLS_PORT"] = str(self.vlsd.port)
+            self.daemon.env["VLS_LSS"] = os.environ.get("LSS_URI", "")
+            import threading
+            threading.Timer(1, self.vlsd.start).start()
+
+        utils.LightningNode.start(
+            self,
+            wait_for_bitcoind_sync=wait_for_bitcoind_sync,
+            stderr_redir=stderr_redir,
+        )
+
+    def stop(self, timeout: int = 10):
+        utils.LightningNode.stop(self, timeout=timeout)
+        if self.vlsd is not None:
+            rc = self.vlsd.stop(timeout=timeout)
+            print(f"VLSD2 exited with rc={rc}")
+
 
 
 class CompatLevel(object):
