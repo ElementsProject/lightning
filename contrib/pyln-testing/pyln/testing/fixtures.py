@@ -723,8 +723,9 @@ providers = {
 
 
 @pytest.fixture
-def db_provider(test_base_dir):
+def db_provider(test_base_dir, request):
     provider = providers[os.getenv('TEST_DB_PROVIDER', 'sqlite3')](test_base_dir)
+    provider.request = request  # Allow provider to register finalizers
     provider.start()
     yield provider
     provider.stop()

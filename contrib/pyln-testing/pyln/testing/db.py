@@ -297,11 +297,21 @@ class SystemPostgresDbProvider(object):
                 "SystemPostgresDbProvider requires TEST_DB_PROVIDER_DSN environment variable"
             )
         self.conn = None
+        self.request = None  # Set by fixture to allow registering finalizers
 
     def start(self):
         self.conn = psycopg2.connect(self.dsn)
         self.conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
         logging.info(f"Connected to system PostgreSQL via {self.dsn}")
+
+    def _drop_database(self, dbname):
+        """Drop a database, used as finalizer."""
+        try:
+            cur = self.conn.cursor()
+            cur.execute("DROP DATABASE IF EXISTS {};".format(dbname))
+            cur.close()
+        except Exception as e:
+            logging.warning(f"Failed to drop database {dbname}: {e}")
 
     def get_db(self, node_directory, testname, node_id):
         # Random suffix to avoid collisions on repeated tests
@@ -311,6 +321,11 @@ class SystemPostgresDbProvider(object):
         cur = self.conn.cursor()
         cur.execute("CREATE DATABASE {};".format(dbname))
         cur.close()
+
+        # Register finalizer to drop this database at end of test
+        if self.request is not None:
+            self.request.addfinalizer(lambda db=dbname: self._drop_database(db))
+
         db = PostgresDb(dbname, port=None, base_dsn=self.dsn)
         return db
 
