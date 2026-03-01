@@ -1847,6 +1847,93 @@ def test_askrene_timeout(node_factory, bitcoind):
                      maxfee_msat=1,
                      final_cltv=5)
 
+
+def test_reservations_leak(node_factory, executor):
+    l1, l2, l3, l4, l5, l6 = node_factory.get_nodes(
+        6,
+        opts=[
+            {"fee-base": 0, "fee-per-satoshi": 0},
+            {"fee-base": 0, "fee-per-satoshi": 0},
+            {
+                "fee-base": 0,
+                "fee-per-satoshi": 0,
+                "plugin": os.path.join(os.getcwd(), "tests/plugins/hold_htlcs.py"),
+            },
+            {"fee-base": 0, "fee-per-satoshi": 0},
+            {"fee-base": 0, "fee-per-satoshi": 0},
+            {"fee-base": 1000, "fee-per-satoshi": 0},
+        ],
+    )
+
+    # There must be a common non-local channel in both payment paths.
+    # With a local channel we cannot trigger the reservation leak because we
+    # reserve slightly different amounts locally due to HTLC onchain costs.
+    node_factory.join_nodes([l1, l2, l4, l6, l3], wait_for_announce=True)
+    node_factory.join_nodes([l1, l2, l4, l5], wait_for_announce=True)
+
+    # Use offers instead of bolt11 because we are going to pay through a blinded
+    # path and trigger a fake channel collision between both payments.
+    offer1 = l3.rpc.offer("any")["bolt12"]
+    offer2 = l5.rpc.offer("any")["bolt12"]
+
+    inv1 = l1.rpc.fetchinvoice(offer1, "100sat")["invoice"]
+    inv2 = l1.rpc.fetchinvoice(offer2, "101sat")["invoice"]
+
+    # Initiate the first payment that has a delay.
+    fut = executor.submit(l1.rpc.xpay, (inv1))
+
+    # Wait for the first payment to reserve the path.
+    l1.daemon.wait_for_log(r"json_askrene_reserve called")
+
+    # A second payment starts.
+    l1.rpc.xpay(inv2)
+    l1.daemon.wait_for_log(r"json_askrene_unreserve called")
+
+    l3.daemon.wait_for_log(r"Holding onto an incoming htlc for 10 seconds")
+
+    # There is a payment pending therefore we expect reservations.
+    reservations = l1.rpc.askrene_listreservations()
+    assert reservations != {"reservations": []}
+
+    l3.daemon.wait_for_log(r"htlc_accepted hook called")
+    fut.result()
+    l1.daemon.wait_for_log(r"json_askrene_unreserve called")
+
+    # The first payment has finished we expect no reservations.
+    reservations = l1.rpc.askrene_listreservations()
+    assert reservations == {"reservations": []}
+
+    # We shouldn't fail askrene-unreserve. If it does it means something went
+    # wrong.
+    assert l1.daemon.is_in_log("askrene-unreserve failed") is None
+
+
+def test_unreserve_all(node_factory):
+    """Test removing all reservations."""
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+
+    # initially no reserves
+    assert l1.rpc.askrene_listreservations() == {"reservations": []}
+
+    # then we add a couple of reservations
+    scid12 = first_scid(l1, l2)
+    scid23 = first_scid(l2, l3)
+    scid12dir = f"{scid12}/{direction(l1.info['id'], l2.info['id'])}"
+    scid23dir = f"{scid23}/{direction(l2.info['id'], l3.info['id'])}"
+    l1.rpc.askrene_reserve(
+        path=[
+            {"short_channel_id_dir": scid12dir, "amount_msat": 1000_000},
+            {"short_channel_id_dir": scid23dir, "amount_msat": 1000_001},
+        ]
+    )
+
+    listres = l1.rpc.askrene_listreservations()["reservations"]
+    assert len(listres) == 2
+
+    # remove all reservations
+    l1.rpc.askrene_unreserve(path=[], dev_remove_all=True)
+    assert l1.rpc.askrene_listreservations() == {"reservations": []}
+
     # It will exit instantly.
     l1.rpc.setconfig('askrene-timeout', 0)
 

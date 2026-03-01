@@ -946,24 +946,30 @@ static struct command_result *json_askrene_unreserve(struct command *cmd,
 	struct reserve_hop *path;
 	struct json_stream *response;
 	struct askrene *askrene = get_askrene(cmd->plugin);
+	bool *remove_all;
 
 	if (!param(cmd, buffer, params,
 		   p_req("path", param_reserve_path, &path),
+		   p_opt_dev("dev_remove_all", param_bool, &remove_all, false),
 		   NULL))
 		return command_param_failed();
 	plugin_log(cmd->plugin, LOG_TRACE, "%s called: %.*s", __func__,
 		   json_tok_full_len(params), json_tok_full(buffer, params));
 
-	for (size_t i = 0; i < tal_count(path); i++) {
-		if (!reserve_remove(askrene->reserved, &path[i])) {
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "Unknown reservation for %s%s%s",
-					    fmt_short_channel_id_dir(tmpctx,
-								     &path[i].scidd),
-					    path[i].layer ? " on layer " : "",
-					    path[i].layer ? layer_name(path[i].layer) : "");
+	if (*remove_all) {
+		reserve_remove_all(askrene->reserved);
+	} else {
+		for (size_t i = 0; i < tal_count(path); i++) {
+			if (!reserve_remove(askrene->reserved, &path[i])) {
+				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+						    "Unknown reservation for %s%s%s",
+						    fmt_short_channel_id_dir(tmpctx,
+									     &path[i].scidd),
+						    path[i].layer ? " on layer " : "",
+						    path[i].layer ? layer_name(path[i].layer) : "");
+			}
 		}
- 	}
+	}
 
 	response = jsonrpc_stream_success(cmd);
 	return command_finished(cmd, response);
