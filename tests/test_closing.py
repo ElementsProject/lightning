@@ -24,6 +24,100 @@ import time
 import unittest
 
 
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'Uses regtest')
+def test_close_unknownfees_cpfp(node_factory, bitcoind):
+    """Open a channel, make a payment, close it when CLN cannot estimate fees,
+    then use withdraw as CPFP to bump the closing transaction."""
+
+    # l1 cannot estimate fees (dev-no-fake-fees + mocked estimatesmartfee error).
+    # We start it stopped so we can install the mock before startup.
+    opts = {
+        'feerates': None, 
+        'dev-no-fake-fees': True,
+    }
+
+    l1, l2 = node_factory.get_nodes(2, opts=[opts, {}])
+    l1.fundwallet(10**7)
+    l2.fundwallet(10**7)
+
+    # Verify fee estimation is failing only on l1
+    l1.daemon.wait_for_log('Unable to estimate any fees')
+
+    # l1 can't open channels (no fee estimates), so l2 opens to l1.
+    l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
+    l2.rpc.fundchannel(l1.info['id'], 10**6, minconf=0)
+
+    # Mine funding and verify channel is active.
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    l2.daemon.wait_for_log(r'CHANNELD_NORMAL')
+
+    # Make some payment while mining some blocks.
+    for i in range(10):
+        l2.pay(l1, 10**5)
+        bitcoind.generate_block(1)
+        sync_blockheight(bitcoind, [l1, l2])
+
+    l2.stop()
+
+    # l1 initiates unilateral close while l2 is offline.
+    close = l1.rpc.close(l2.info['id'], 1)
+    close_txid = only_one(close['txids'])
+
+    wait_for(lambda: close_txid in bitcoind.rpc.getrawmempool())
+
+    # The closing tx should appear in the mempool.
+    assert close_txid in bitcoind.rpc.getrawmempool()
+
+    # `bitcoind.generate_block` expects a `needfeerate` in sat/kW
+    mempool_details = bitcoind.rpc.getrawmempool(True)
+    close_fees = float(mempool_details[close_txid]['fees']['ancestor'])
+    close_vsize = float(mempool_details[close_txid]['ancestorsize'])
+    close_feerate = close_fees * 10**8 / (close_vsize * 4 / 1000)
+
+    # Create 1 block but exclude the closing tx (feerate too low).
+    bitcoind.generate_block(1, needfeerate=close_feerate + 1)
+
+    # Verify the close tx is still unconfirmed in the mempool.
+    assert close_txid in bitcoind.rpc.getrawmempool()
+
+    l1_close_out = only_one([o for o in l1.rpc.listfunds()['channels']
+                             if o['peer_id'] == l2.info['id']])
+    assert l1_close_out['state'] == 'AWAITING_UNILATERAL'
+
+    # Now perform CPFP: spend the unconfirmed close output using withdraw
+    # with an explicit feerate and minconf=0 to allow spending unconfirmed.
+    cpfp_addr = l1.rpc.newaddr()['p2tr']
+    
+    # Withdraw should fail without 
+    with pytest.raises(RpcError, match=r'Cannot estimate fees \(yet\)'):
+        l1.rpc.withdraw(cpfp_addr, 'all')
+
+    # Withdraw should succed
+    cpfp_txid = l1.rpc.withdraw(cpfp_addr, 'all', '1perkb', minconf=0)['txid']
+
+    # There should now be two transactions in the mempool: the close tx and
+    # the CPFP child tx that spends from it.
+    wait_for(lambda: len(bitcoind.rpc.getrawmempool()) > 1)
+    mempool_after = bitcoind.rpc.getrawmempool()
+    assert close_txid in mempool_after
+
+    # Mine both transactions.
+    bitcoind.generate_block(1, wait_for_mempool=2)
+
+    # l1 should see the CPFP output as confirmed.
+    wait_for(lambda: all(o['status'] == 'confirmed' and o['txid'] == cpfp_txid
+                         for o in l1.rpc.listfunds()['outputs']))
+    
+    # Start l2
+    l2.start()
+
+    # Why l1 does not connect with l2 after channel close?
+    # Verify l2 should see the channel as closed onchain.
+    wait_for(lambda: all(o['state'] == 'ONCHAIN'
+                         for o in l2.rpc.listfunds()['channels']
+                         if o['peer_id'] == l1.info['id']))
+  
+
 def test_closing_simple(node_factory, bitcoind, chainparams):
     coin_mvt_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
     l1, l2 = node_factory.line_graph(2, opts={'plugin': coin_mvt_plugin})
