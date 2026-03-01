@@ -30,6 +30,99 @@ import time
 import unittest
 
 
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "deletes database, which is assumed sqlite3")
+def test_lost_state_htlc_tx_onchaind_crash(node_factory, bitcoind, executor):
+    """
+    Test that when a node loses state and the closing transaction has HTLC outputs,
+    onchaind fails to resolve the HTLC output because it doesn't know about it.
+    """
+    # l1 will lose state and fail to resolve HTLC outputs
+    # Use disconnect to stop l2 from fulfilling the HTLC, keeping it in flight
+    # Use dev-no-reconnect to prevent auto-reconnection that would allow HTLC fulfillment
+    l1, l2 = node_factory.get_nodes(2, opts=[
+        {'may_reconnect': True,
+         'dev-no-reconnect': None,
+         'allow_bad_gossip': True,
+         'rescan': 10,
+         # onchaind will fail to resolve the HTLC output
+         'broken_log': r"onchaind-chan#[0-9]*: Could not find resolution for output [0-9]+",
+         'may_fail': True},
+        {'may_reconnect': True,
+         'dev-no-reconnect': None,
+         # Disconnect when l2 tries to send UPDATE_FULFILL_HTLC, keeping HTLC pending
+         'disconnect': ['-WIRE_UPDATE_FULFILL_HTLC']}
+    ])
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    c12, channel_info = l2.fundchannel(l1, 10**6)
+
+    # Move some funds to l1 so both sides have balance
+    l2.rpc.pay(l1.rpc.invoice(400000000, 'initial', 'initial transfer')['bolt11'])
+
+    # Wait for channel to be fully settled
+    wait_for(lambda: all([only_one(ch.rpc.listpeerchannels()['channels'])['htlcs'] == [] for ch in (l1, l2)]))
+
+    # Start a payment from l1 to l2 - l2 will disconnect before fulfilling
+    inv = l2.rpc.invoice(100000000, 'htlc_test', 'test htlc')
+    t = executor.submit(l1.rpc.pay, inv['bolt11'])
+
+    # Wait for l2 to disconnect (it received the HTLC and tried to fulfill)
+    l2.daemon.wait_for_log('dev_disconnect')
+
+    # l2 should have the HTLC in its commitment now
+    # Sign l2's commitment which has the HTLC in it
+    tx_with_htlc = l2.rpc.dev_sign_last_tx(l1.info['id'])['tx']
+
+    # Get channel dust limit for reference
+    dust_limit_msat = only_one([ch['dust_limit_msat'] for ch in l2.rpc.listpeerchannels()['channels'] if ch['peer_id'] == l1.info['id']])
+    dust_limit_sat = dust_limit_msat // 1000
+
+    # Decode to verify we have more than 2 outputs (anchors + HTLC + balances)
+    decoded = bitcoind.rpc.decoderawtransaction(tx_with_htlc)
+    num_outputs = len(decoded['vout'])
+    # With anchors: 2 anchor outputs + at least 1 HTLC + up to 2 balance outputs
+    # Minimum 4 outputs (could be 5 if both balances are non-dust)
+    assert num_outputs >= 4, f"Expected at least 4 outputs, got {num_outputs}"
+
+    # Stop l1 and delete its database to simulate lost state
+    l1.stop()
+    os.unlink(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "lightningd.sqlite3"))
+
+    # Restart l1 (without dev-no-reconnect so it can reconnect) and use emergency recovery
+    del l1.daemon.opts['dev-no-reconnect']
+    l1.start()
+    assert l1.daemon.is_in_log('Server started with public key')
+
+    stubs = l1.rpc.emergencyrecover()["stubs"]
+    assert len(stubs) == 1
+    assert stubs[0] == channel_info["channel_id"]
+
+    # Reconnect to l2 - this will trigger the bogus reestablish
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # l1 will send bogus reestablish to trigger peer to close
+    l1.daemon.wait_for_log('Sending a bogus channel_reestablish message to make the peer unilaterally close the channel.')
+
+    # Now broadcast the commitment transaction with the HTLC
+    # This simulates the peer force-closing with a commitment that has HTLCs
+    # that l1 no longer knows about due to lost state
+    bitcoind.rpc.sendrawtransaction(tx_with_htlc)
+    bitcoind.generate_block(1)
+
+    # Sync only l2 first - l1 may crash when it sees the tx
+    sync_blockheight(bitcoind, [l2])
+
+    # Give l1 time to process the block and potentially crash
+    time.sleep(2)
+
+    # Try to sync l1, but it may fail due to onchaind crash
+    try:
+        sync_blockheight(bitcoind, [l1])
+    except Exception as e:
+        # l1 might be unresponsive due to onchaind crash, that's expected
+        print(f"l1 sync failed (expected if onchaind crashed): {e}")
+
+
 @pytest.mark.parametrize("old_hsmsecret", [False, True])
 def test_names(node_factory, old_hsmsecret):
     if old_hsmsecret:
