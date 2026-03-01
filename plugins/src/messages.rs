@@ -1,4 +1,5 @@
 use crate::options::UntypedConfigOption;
+use crate::HookFilter;
 use serde::de::{self, Deserializer};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -150,6 +151,14 @@ pub(crate) struct RpcMethod {
     pub(crate) usage: String,
 }
 
+#[derive(Serialize, Default, Debug)]
+pub(crate) struct Hook {
+    pub(crate) name: String,
+    pub(crate) before: Vec<String>,
+    pub(crate) after: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) filters: Option<Vec<HookFilter>>,
+}
 #[derive(Serialize, Default, Debug, Clone)]
 pub struct NotificationTopic {
     pub method: String,
@@ -175,7 +184,7 @@ pub(crate) struct GetManifestResponse {
     pub(crate) rpcmethods: Vec<RpcMethod>,
     pub(crate) subscriptions: Vec<String>,
     pub(crate) notifications: Vec<NotificationTopic>,
-    pub(crate) hooks: Vec<String>,
+    pub(crate) hooks: Vec<Hook>,
     pub(crate) dynamic: bool,
     pub(crate) featurebits: FeatureBits,
     pub(crate) nonnumericids: bool,
