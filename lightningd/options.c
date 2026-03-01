@@ -109,6 +109,17 @@ static char *opt_set_s32(const char *arg, s32 *u)
 	return NULL;
 }
 
+static char *opt_set_bool_dynamic(const char *arg, bool *b)
+{
+	bool ignored;
+
+	/* In case we're called for arg checking only */
+	if (!b)
+		b = &ignored;
+
+	return opt_set_bool_arg(arg, b);
+}
+
 char *opt_set_autobool_arg(const char *arg, enum opt_autobool *b)
 {
 	if (!strcasecmp(arg, "yes") ||
@@ -1577,6 +1588,10 @@ static void register_opts(struct lightningd *ld)
 		       "Sets the public TCP port to use for announcing discovered IPs.");
 	opt_register_noarg("--offline", opt_set_offline, ld,
 			   "Start in offline-mode (do not automatically reconnect and do not accept incoming connections)");
+	clnopt_witharg("--snub-idle-channels", OPT_SHOWBOOL|OPT_DYNAMIC,
+		       opt_set_bool_dynamic, opt_show_bool,
+		       &ld->snub_idle_channels,
+		       "If true, do not reestablish channels with zero outstanding HTLCs");
 	clnopt_witharg("--autolisten", OPT_SHOWBOOL,
 		       opt_set_bool_arg, opt_show_bool,
 		       &ld->autolisten,
