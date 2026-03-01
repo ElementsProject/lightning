@@ -1163,7 +1163,7 @@ static struct channel *handle_init(struct info *info, const u8 *init_msg)
 	channel->htlcs = htlc_map;
 
 	status_debug("Created channel");
-	daemon_conn_send(info->dc, take(towire_channeld_reestablished(NULL)));
+	daemon_conn_send(info->dc, take(towire_channeld_reestablished(NULL, false)));
 
 	return channel;
 }

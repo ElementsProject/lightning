@@ -3004,28 +3004,39 @@ static struct wally_psbt *next_splice_step(const tal_t *ctx,
 	return ictx->desired_psbt;
 }
 
-static const u8 *peer_expect_msg_three(const tal_t *ctx,
+static const u8 *peer_expect_msg_four(const tal_t *ctx,
 				       struct peer *peer,
 				       enum peer_wire expect_type,
 				       enum peer_wire second_allowed_type,
-				       enum peer_wire third_allowed_type)
+				       enum peer_wire third_allowed_type,
+				       enum peer_wire fourth_allowed_type)
 {
 	u8 *msg;
 	enum peer_wire type;
 
 	msg = peer_read(ctx, peer->pps);
 	type = fromwire_peektype(msg);
-	if (type != expect_type && type != second_allowed_type
-	    && type != third_allowed_type)
+	if (type != expect_type
+	    && type != second_allowed_type
+	    && type != third_allowed_type
+	    && type != fourth_allowed_type)
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				"Got incorrect message from peer: %s"
-				" (should be %s) [%s]",
+				" (should be %s or %s or %s of %s) [%s]",
 				peer_wire_name(type),
 				peer_wire_name(expect_type),
+				peer_wire_name(second_allowed_type),
+				peer_wire_name(third_allowed_type),
+				peer_wire_name(fourth_allowed_type),
 				sanitize_error(tmpctx, msg, &peer->channel_id));
 
 	return msg;
 }
+
+/* In some circumstances Eclair send CHANNEL_READY after CHANNEL_REESTABLISH but
+ * before resuming splice negotiation, so we need a way to process it in this
+ * order. */
+static void peer_in(struct peer *peer, const u8 *msg);
 
 /* The question of "who signs splice commitments first" is the same order as the
  * splice `tx_signature`s are. This function handles sending & receiving the
@@ -3038,7 +3049,8 @@ static struct commitsig *interactive_send_commitments(struct peer *peer,
 						      size_t inflight_index,
 						      bool send_commitments,
 						      bool recv_commitments,
-						      const u8 **msg_received)
+						      const u8 **msg_received,
+						      int allowed_premature_msg)
 {
 	struct commitsig_info *result;
 	const u8 *msg;
@@ -3080,10 +3092,26 @@ static struct commitsig *interactive_send_commitments(struct peer *peer,
 	result = NULL;
 
 	if (recv_commitments) {
-		msg = peer_expect_msg_three(tmpctx, peer,
-					    WIRE_COMMITMENT_SIGNED,
-					    WIRE_TX_SIGNATURES,
-					    WIRE_TX_ABORT);
+		msg = peer_expect_msg_four(tmpctx, peer,
+					   WIRE_COMMITMENT_SIGNED,
+					   WIRE_TX_SIGNATURES,
+					   WIRE_TX_ABORT,
+					   allowed_premature_msg);
+
+		/* If the message is a type that we allow to receive
+		 * prematurely: process this, then come back and get another
+		 * message */
+		if (allowed_premature_msg
+		    && fromwire_peektype(msg) == allowed_premature_msg) {
+		    	/* Process the pre-allowed message */
+			peer_in(peer, msg);
+			/* Now get a new message */
+			msg = peer_expect_msg_four(tmpctx, peer,
+					   WIRE_COMMITMENT_SIGNED,
+					   WIRE_TX_SIGNATURES,
+					   WIRE_TX_ABORT,
+					   0);
+		}
 
 		check_tx_abort(peer, msg, &inflight->outpoint.txid);
 
@@ -3633,7 +3661,8 @@ static void resume_splice_negotiation(struct peer *peer,
 				      bool send_commitments,
 				      bool recv_commitments,
 				      bool send_signature,
-				      bool recv_signature)
+				      bool recv_signature,
+				      int allowed_premature_msg)
 {
 	struct inflight *inflight = last_inflight(peer);
 	enum tx_role our_role = inflight->i_am_initiator
@@ -3692,7 +3721,8 @@ static void resume_splice_negotiation(struct peer *peer,
 						    last_inflight_index(peer),
 						    send_commitments,
 						    recv_commitments,
-						    &msg_received);
+						    &msg_received,
+						    allowed_premature_msg);
 
 	check_tx_abort(peer, msg_received, &inflight->outpoint.txid);
 
@@ -4250,7 +4280,7 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 
 	peer->splice_state->count++;
 
-	resume_splice_negotiation(peer, true, true, true, true);
+	resume_splice_negotiation(peer, true, true, true, true, 0);
 }
 
 /* splice_initiator runs when splice_ack is received by the other side. It
@@ -4556,7 +4586,7 @@ static void splice_initiator_user_finalized(struct peer *peer)
 	their_commit = interactive_send_commitments(peer, new_inflight->psbt,
 						    our_role,
 						    last_inflight_index(peer),
-						    true, true, NULL);
+						    true, true, NULL, 0);
 
 	new_inflight->last_tx = tal_steal(new_inflight, their_commit->tx);
 	new_inflight->last_sig = their_commit->commit_signature;
@@ -4572,7 +4602,7 @@ static void splice_initiator_user_finalized(struct peer *peer)
 				     peer->splicing->force_sign_first);
 
 	if (!sign_first)
-		resume_splice_negotiation(peer, false, false, false, true);
+		resume_splice_negotiation(peer, false, false, false, true, 0);
 
 	outmsg = towire_channeld_splice_confirmed_update(NULL,
 							 new_inflight->psbt,
@@ -4773,7 +4803,7 @@ static void splice_initiator_user_signed(struct peer *peer, const u8 *inmsg)
 	audit_psbt(inflight->psbt, inflight->psbt);
 	assert(tal_parent(inflight->psbt) != tmpctx);
 
-	resume_splice_negotiation(peer, false, false, true, sign_first);
+	resume_splice_negotiation(peer, false, false, true, sign_first, 0);
 
 	audit_psbt(inflight->psbt, inflight->psbt);
 	assert(tal_parent(inflight->psbt) != tmpctx);
@@ -5499,6 +5529,7 @@ static void peer_reconnect(struct peer *peer,
 			   const struct secret *last_remote_per_commit_secret)
 {
 	struct channel_id channel_id;
+	bool announcement_sigs_requested;
 	/* Note: BOLT #2 uses these names! */
 	u64 next_commitment_number, next_revocation_number;
 	bool retransmit_revoke_and_ack, retransmit_commitment_signed;
@@ -5705,6 +5736,8 @@ static void peer_reconnect(struct peer *peer,
 	do {
 		clean_tmpctx();
 		msg = peer_read(tmpctx, peer->pps);
+		check_tx_abort(peer, msg,
+			       inflight ? &inflight->outpoint.txid : NULL);
 	} while (handle_peer_error_or_warning(peer->pps, msg) ||
 		 capture_premature_msg(&premature_msgs, msg));
 
@@ -5757,7 +5790,8 @@ static void peer_reconnect(struct peer *peer,
 						  false,
 						  !inflight->last_tx,
 						  false,
-						  true);
+						  true,
+						  WIRE_CHANNEL_READY);
 		} else if (bitcoin_txid_eq(&remote_next_funding->next_funding_txid,
 					   &inflight->outpoint.txid)) {
 			/* Don't send sigs unless we have theirs */
@@ -5773,7 +5807,8 @@ static void peer_reconnect(struct peer *peer,
 						  	: false,
 						  local_next_funding && !inflight->last_tx,
 						  true,
-						  local_next_funding);
+						  local_next_funding,
+						  WIRE_CHANNEL_READY);
 		} else if (bitcoin_txid_eq(&remote_next_funding->next_funding_txid,
 					   &peer->channel->funding.txid)) {
 			peer_failed_err(peer->pps,
@@ -5989,6 +6024,24 @@ static void peer_reconnect(struct peer *peer,
 	if (retransmit_revoke_and_ack && peer->last_was_revoke)
 		resend_revoke(peer);
 
+	/* BOLT-splice #2
+	 *     1. type: 5 (`my_current_funding_locked`)
+	 *     2. data:
+	 *         * [`sha256`:`my_current_funding_locked_txid`]
+	 *         * [`byte`:`retransmit_flags`]
+	 *
+	 * The `retransmit_flags` bitfield is used to let our peer know which messages
+	 * we expect them to retransmit after the reconnection:
+	 *
+	 * | Bit Position  | Name                      |
+	 * | ------------- | --------------------------|
+	 * | 0             | `announcement_signatures` |
+	 */
+	announcement_sigs_requested = false;
+	if (recv_tlvs && recv_tlvs->my_current_funding_locked
+	    && recv_tlvs->my_current_funding_locked->retransmit_flags & 1)
+		announcement_sigs_requested = true;
+
 	/* BOLT #2:
 	 *
 	 *   - upon reconnection:
@@ -6001,7 +6054,7 @@ static void peer_reconnect(struct peer *peer,
 	tal_free(send_tlvs);
 
 	/* We've reestablished! */
-	wire_sync_write(MASTER_FD, take(towire_channeld_reestablished(NULL)));
+	wire_sync_write(MASTER_FD, take(towire_channeld_reestablished(NULL, announcement_sigs_requested)));
 
 	/* Corner case: we didn't send shutdown before because update_add_htlc
 	 * pending, but now they're cleared by restart, and we're actually

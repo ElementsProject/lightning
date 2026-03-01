@@ -482,7 +482,6 @@ static void handle_splice_lookup_tx(struct lightningd *ld,
 /* Extra splice data we want to store for bitcoin send tx interface */
 struct send_splice_info
 {
-	struct splice_command *cc;
 	struct channel *channel;
 	const struct bitcoin_tx *final_tx;
 	u32 output_index;
@@ -497,6 +496,7 @@ static void handle_tx_broadcast(struct send_splice_info *info)
 	struct bitcoin_txid txid;
 	u8 *tx_bytes;
 	int num_utxos;
+	struct splice_command *cc;
 
 	tx_bytes = linearize_tx(tmpctx, info->final_tx);
 	bitcoin_txid(info->final_tx, &txid);
@@ -508,15 +508,17 @@ static void handle_tx_broadcast(struct send_splice_info *info)
 	if (num_utxos)
 		wallet_transaction_add(ld->wallet, info->final_tx->wtx, 0, 0);
 
-	if (info->cc) {
-		response = json_stream_success(info->cc->cmd);
+	cc = splice_command_for_chan(ld, info->channel);
+
+	if (cc) {
+		response = json_stream_success(cc->cmd);
 
 		json_add_hex(response, "tx", tx_bytes, tal_bytelen(tx_bytes));
 		json_add_txid(response, "txid", &txid);
 		json_add_u32(response, "outnum", info->output_index);
 		json_add_psbt(response, "psbt", info->psbt);
 
-		was_pending(command_success(info->cc->cmd, response));
+		was_pending(command_success(cc->cmd, response));
 	}
 }
 
@@ -527,25 +529,32 @@ static void check_utxo_block(struct bitcoind *bitcoind UNUSED,
 			     void *arg)
 {
 	struct send_splice_info *info = arg;
+	struct lightningd *ld = info->channel->peer->ld;
+	struct splice_command *cc;
 
 	if(!txout) {
-		if (info->cc)
-			was_pending(command_fail(info->cc->cmd,
+		cc = splice_command_for_chan(ld, info->channel);
+		if (cc)
+			was_pending(command_fail(cc->cmd,
 						 SPLICE_BROADCAST_FAIL,
-						 "Error broadcasting splice "
-						 "tx: %s. Unsent tx discarded "
-						 "%s.",
+						 "Error broadcasting splice"
+						 " %s. Unsent tx discarded"
+						 " %s.",
 						 info->err_msg,
-						 fmt_wally_tx(tmpctx,
-							      info->final_tx->wtx)));
+						 info->final_tx && info->final_tx->wtx ?
+							 fmt_wally_tx(tmpctx,
+								      info->final_tx->wtx)
+							 : "NULL"));
 
 		log_unusual(info->channel->log,
-			    "Error broadcasting splice "
-			    "tx: %s. Unsent tx discarded "
-			    "%s.",
+			    "Error broadcasting splice"
+			    " %s. Unsent tx discarded"
+			    " %s.",
 			    info->err_msg,
-			    fmt_wally_tx(tmpctx,
-					 info->final_tx->wtx));
+			    info->final_tx && info->final_tx->wtx ?
+				    fmt_wally_tx(tmpctx,
+					         info->final_tx->wtx)
+				    : "NULL");
 	}
 	else
 		handle_tx_broadcast(info);
@@ -558,8 +567,6 @@ static void send_splice_tx_done(struct bitcoind *bitcoind UNUSED,
 				bool success, const char *msg,
 				struct send_splice_info *info)
 {
-	/* A NULL value of `info->cc` means we got here without user intiation.
-	 * This means we are the ACCEPTER side of the splice */
 	struct lightningd *ld = info->channel->peer->ld;
 	struct bitcoin_outpoint outpoint;
 
@@ -593,7 +600,6 @@ static void send_splice_tx(struct channel *channel,
 
 	struct send_splice_info *info = tal(NULL, struct send_splice_info);
 
-	info->cc = tal_steal(info, cc);
 	info->channel = channel;
 	info->final_tx = tal_steal(info, tx);
 	info->output_index = output_index;
@@ -1305,6 +1311,17 @@ static void peer_got_shutdown(struct channel *channel, const u8 *msg)
 	wallet_channel_save(ld->wallet, channel);
 }
 
+static void peer_channeld_reestablished(struct channel *channel, const u8* msg)
+{
+	bool announcement_sigs_requested;
+	if (!fromwire_channeld_reestablished(msg, &announcement_sigs_requested))
+		channel_internal_error(channel,
+				       "bad channeld_reestablished %s",
+				       tal_hex(channel, msg));
+
+	channel_gossip_channel_reestablished(channel, announcement_sigs_requested);
+}
+
 void channel_fallen_behind(struct channel *channel)
 {
 	channel->has_future_per_commitment_point = true;
@@ -1559,7 +1576,7 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 		peer_got_shutdown(sd->channel, msg);
 		break;
 	case WIRE_CHANNELD_REESTABLISHED:
-		channel_gossip_channel_reestablished(sd->channel);
+		peer_channeld_reestablished(sd->channel, msg);
 		break;
 	case WIRE_CHANNELD_SHUTDOWN_COMPLETE:
 		/* We expect 1 fd. */
@@ -1917,7 +1934,7 @@ bool peer_start_channeld(struct channel *channel,
 
 	/* "Reestablished" if we've just opened. */
 	if (!reconnected)
-		channel_gossip_channel_reestablished(channel);
+		channel_gossip_channel_reestablished(channel, false);
 
 	/* FIXME: DTODO: Use a pointer to a txid instead of zero'ing one out. */
 	memset(&txid, 0, sizeof(txid));
