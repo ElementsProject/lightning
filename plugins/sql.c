@@ -24,9 +24,6 @@ static const char schemas[] =
 	;
 
 /* TODO:
- * 2. Refresh time in API.
- * 8. time_msec fields.
- * 10. General pagination API (not just chainmoves and channelmoves)
  * 11. Normalize account_id fields into another table, as they are highly duplicate, and use views to maintain the current API.
 */
 enum fieldtype {
@@ -44,6 +41,7 @@ enum fieldtype {
 	FIELD_U16,
 	FIELD_U8,
 	FIELD_BOOL,
+	FIELD_TIME_MSEC,
 	/* Randoms */
 	FIELD_NUMBER,
 	FIELD_STRING,
@@ -69,6 +67,7 @@ static const struct fieldtypemap fieldtypemap[] = {
 	{ "u16", "INTEGER" }, /* FIELD_U16 */
 	{ "u8", "INTEGER" }, /* FIELD_U8 */
 	{ "boolean", "INTEGER" }, /* FIELD_BOOL */
+	{ "time_msec", "INTEGER" }, /* FIELD_TIME_MSEC */
 	{ "number", "REAL" }, /* FIELD_NUMBER */
 	{ "string", "TEXT" }, /* FIELD_STRING */
 	{ "short_channel_id", "TEXT" }, /* FIELD_SCID */
@@ -136,6 +135,10 @@ struct table_desc {
 	bool refreshing;
 	/* When did we start refreshing? */
 	struct timemono refresh_start;
+	/* When did we last complete a refresh? */
+	struct timemono last_refresh_time;
+	/* Have we completed at least one refresh? */
+	bool has_been_refreshed;
 	/* Any other commands waiting for the refresh completion */
 	struct list_head refresh_waiters;
 };
@@ -573,6 +576,9 @@ static struct command_result *one_refresh_done(struct command *cmd,
 	/* We are no longer refreshing */
 	assert(td->refreshing);
 	td->refreshing = false;
+
+	td->last_refresh_time = time_mono();
+	td->has_been_refreshed = true;
 	plugin_log(cmd->plugin, LOG_DBG,
 		   "Time to refresh %s: %"PRIu64".%09"PRIu64" seconds (last=%"PRIu64")",
 		   td->name,
@@ -737,6 +743,7 @@ static struct command_result *process_json_obj(struct command *cmd,
 			case FIELD_U32:
 			case FIELD_U64:
 			case FIELD_INTEGER:
+			case FIELD_TIME_MSEC:
 				if (!json_to_u64(buf, coltok, &val64)) {
 					return command_fail(cmd, LIGHTNINGD,
 							    "column %zu row %zu not a u64: %.*s",
@@ -1376,6 +1383,13 @@ static void json_add_schema(struct json_stream *js,
 	}
 	if (have_indices)
 		json_array_end(js);
+
+	if (td->has_been_refreshed)
+	{
+		struct timerel since_refresh = timemono_since(td->last_refresh_time);
+		json_add_u64(js, "last_refresh_seconds_ago",(u64)since_refresh.ts.tv_sec);
+	}
+
 	json_object_end(js);
 }
 
@@ -1405,6 +1419,73 @@ static struct command_result *json_listsqlschemas(struct command *cmd,
 		json_add_schema(ret, td);
 	else
 		strmap_iterate(&sql->tablemap, add_one_schema, ret);
+	json_array_end(ret);
+	return command_finished(cmd, ret);
+}
+
+static bool add_one_table_status(const char *member, struct table_desc *td, struct json_stream *js)
+{
+	if (td->parent)
+	{
+		return true;
+	}
+
+	json_object_start(js, NULL);
+	json_add_string(js, "tablename", td->name);
+	json_add_string(js, "command", td->cmdname);
+	json_add_bool(js, "has_been_refreshed", td->has_been_refreshed);
+	json_add_bool(js, "needs_refresh", td->needs_refresh);
+	json_add_bool(js, "refreshing", td->refreshing);
+
+	if (td->has_been_refreshed)
+	{
+		struct timerel since_refresh = timemono_since(td->last_refresh_time);
+		json_add_u64(js, "last_refresh_seconds_ago",(u64)since_refresh.ts.tv_sec);
+	}
+
+	if (td->refreshing)
+	{
+		struct timerel refresh_duration = timemono_since(td->refresh_start);
+		json_add_u64(js, "refresh_duration_seconds",(u64)refresh_duration.ts.tv_sec);
+	}
+
+	if (td->has_created_index)
+	{
+		json_add_u64(js, "last_created_index", td->last_created_index);
+	}
+
+	json_object_end(js);
+	return true;
+}
+
+static struct command_result *json_sqlstatus(struct command *cmd,
+					     const char *buffer,
+					     const jsmntok_t *params)
+{
+	struct sql *sql = sql_of(cmd->plugin);
+
+	struct table_desc *td;
+	struct json_stream *ret;
+
+	if (!param(cmd, buffer, params,p_opt("table", param_tablename, &td), NULL))
+	{
+		return command_param_failed();
+	}
+
+	ret = jsonrpc_stream_success(cmd);
+	json_array_start(ret, "tables");
+	if (td)
+	{
+		while (td->parent)
+		{
+			td = td->parent;
+		}
+		add_one_table_status(td->name, td, ret);
+	}
+	else
+	{
+		strmap_iterate(&sql->tablemap, add_one_table_status, ret);
+	}
 	json_array_end(ret);
 	return command_finished(cmd, ret);
 }
@@ -1578,16 +1659,116 @@ static struct command_result *limited_list_done(struct command *cmd,
 
 /* The simplest case: append-only lists */
 static struct command_result *refresh_by_created_index(struct command *cmd,
-						       const struct table_desc *td,
-						       struct db_query *dbq)
+												   const struct table_desc *td,
+												   struct db_query *dbq)
 {
 	struct out_req *req;
 	req = jsonrpc_request_start(cmd, td->cmdname,
-				    limited_list_done, forward_error,
-				    dbq);
+								limited_list_done, forward_error,
+								dbq);
 	json_add_string(req->js, "index", "created");
 	json_add_u64(req->js, "start", *dbq->last_created_index + 1);
 	json_add_u64(req->js, "limit", LIMIT_PER_LIST);
+	return send_outreq(req);
+}
+
+
+static struct command_result *refresh_invoices_full(struct command *cmd,
+													const struct table_desc *td,
+													struct db_query *dbq)
+{
+	struct sql *sql = sql_of(cmd->plugin);
+	int err;
+	char *errmsg;
+
+	plugin_log(cmd->plugin, LOG_INFORM,"Full reload of invoices: wait API event indicates possible deletion/change");
+
+	err = sqlite3_exec(sql->db, tal_fmt(tmpctx, "DELETE FROM %s;", td->name),NULL, NULL, &errmsg);
+	if (err != SQLITE_OK)
+	{
+		return command_fail(cmd, LIGHTNINGD, "cleaning '%s' failed: %s", td->name, errmsg);
+	}
+
+	struct out_req *req = jsonrpc_request_start(cmd, td->cmdname,
+												limited_list_done, forward_error,
+												dbq);
+
+	json_add_u64(req->js, "limit", LIMIT_PER_LIST);
+	json_add_u64(req->js, "start", 0);
+	return send_outreq(req);
+}
+
+static struct command_result *refresh_forwards_full(struct command *cmd,
+													const struct table_desc *td,
+													struct db_query *dbq)
+{
+	struct sql *sql = sql_of(cmd->plugin);
+	int err;
+	char *errmsg;
+
+	plugin_log(cmd->plugin, LOG_INFORM,"Full reload of forwards: wait API event indicates possible deletion/change");
+
+	err = sqlite3_exec(sql->db, tal_fmt(tmpctx, "DELETE FROM %s;", td->name), NULL, NULL, &errmsg);
+	if (err != SQLITE_OK)
+	{
+		return command_fail(cmd, LIGHTNINGD, "cleaning '%s' failed: %s",td->name, errmsg);
+	}
+
+	struct out_req *req = jsonrpc_request_start(cmd, td->cmdname,
+												limited_list_done, forward_error,
+												dbq);
+
+	json_add_u64(req->js, "limit", LIMIT_PER_LIST);
+	json_add_u64(req->js, "start", 0);
+	return send_outreq(req);
+}
+
+static struct command_result *refresh_htlcs_full(struct command *cmd,
+												 const struct table_desc *td,
+												 struct db_query *dbq)
+{
+	struct sql *sql = sql_of(cmd->plugin);
+	int err;
+	char *errmsg;
+
+	plugin_log(cmd->plugin, LOG_INFORM, "Full reload of htlcs: wait API event indicates possible deletion/change");
+
+	err = sqlite3_exec(sql->db, tal_fmt(tmpctx, "DELETE FROM %s;", td->name),  NULL, NULL, &errmsg);
+	if (err != SQLITE_OK)
+	{
+		return command_fail(cmd, LIGHTNINGD, "cleaning '%s' failed: %s", td->name, errmsg);
+	}
+
+	struct out_req *req = jsonrpc_request_start(cmd, td->cmdname,
+												limited_list_done, forward_error,
+												dbq);
+
+	json_add_u64(req->js, "limit", LIMIT_PER_LIST);
+	json_add_u64(req->js, "start", 0);
+	return send_outreq(req);
+}
+
+static struct command_result *refresh_sendpays_full(struct command *cmd,
+													const struct table_desc *td,
+													struct db_query *dbq)
+{
+	struct sql *sql = sql_of(cmd->plugin);
+	int err;
+	char *errmsg;
+
+	plugin_log(cmd->plugin, LOG_INFORM, "Full reload of sendpays: wait API event indicates possible deletion/change");
+
+	err = sqlite3_exec(sql->db, tal_fmt(tmpctx, "DELETE FROM %s;", td->name),NULL, NULL, &errmsg);
+	if (err != SQLITE_OK)
+	{
+		return command_fail(cmd, LIGHTNINGD, "cleaning '%s' failed: %s",td->name, errmsg);
+	}
+	struct out_req *req = jsonrpc_request_start(cmd, td->cmdname,
+												limited_list_done, forward_error,
+												dbq);
+
+	json_add_u64(req->js, "limit", LIMIT_PER_LIST);
+	json_add_u64(req->js, "start", 0);
 	return send_outreq(req);
 }
 
@@ -1603,11 +1784,12 @@ static const struct refresh_funcs refresh_funcs[] = {
 	/* These are special, using gossmap */
 	{ "listchannels", channels_refresh, NULL },
 	{ "listnodes", nodes_refresh, NULL },
-	/* FIXME: These support wait and full pagination,  but we need to watch for deletes, too! */
-	{ "listhtlcs", default_refresh, NULL },
-	{ "listforwards", default_refresh, NULL },
-	{ "listinvoices", default_refresh, NULL },
-	{ "listsendpays", default_refresh, NULL },
+	/* These support wait and full pagination */
+	/* For mutable tables, use full reload logic due to mutability */
+	{ "listhtlcs", refresh_htlcs_full, "htlcs" },
+	{ "listforwards", refresh_forwards_full, "forwards" },
+	{ "listinvoices", refresh_invoices_full, "invoices" },
+	{ "listsendpays", refresh_sendpays_full, "sendpays" },
 	/* These are never changed or deleted */
 	{ "listchainmoves", refresh_by_created_index, "chainmoves" },
 	{ "listchannelmoves", refresh_by_created_index, "channelmoves" },
@@ -1658,6 +1840,7 @@ static struct table_desc *new_table_desc(const tal_t *ctx,
 	td->needs_refresh = true;
 	td->refreshing = false;
 	td->indices_created = false;
+	td->has_been_refreshed = false;
 	list_head_init(&td->refresh_waiters);
 
 	/* Only top-levels have refresh functions */
@@ -1867,6 +2050,10 @@ static const struct plugin_command commands[] = { {
 	{
 		"listsqlschemas",
 		json_listsqlschemas,
+	},
+	{
+		"sqlstatus",
+		json_sqlstatus,
 	},
 };
 
