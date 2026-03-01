@@ -1,5 +1,5 @@
 from concurrent import futures
-from pyln.testing.db import SqliteDbProvider, PostgresDbProvider
+from pyln.testing.db import SqliteDbProvider, PostgresDbProvider, SystemPostgresDbProvider
 from pyln.testing.utils import NodeFactory, BitcoinD, ElementsD, env, LightningNode, TEST_DEBUG, TEST_NETWORK, SLOW_MACHINE, VALGRIND
 from pyln.client import Millisatoshi
 from typing import Dict
@@ -718,12 +718,14 @@ def checkMemleak(node):
 providers = {
     'sqlite3': SqliteDbProvider,
     'postgres': PostgresDbProvider,
+    'postgres-system': SystemPostgresDbProvider,
 }
 
 
 @pytest.fixture
-def db_provider(test_base_dir):
+def db_provider(test_base_dir, request):
     provider = providers[os.getenv('TEST_DB_PROVIDER', 'sqlite3')](test_base_dir)
+    provider.request = request  # Allow provider to register finalizers
     provider.start()
     yield provider
     provider.stop()

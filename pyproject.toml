@@ -20,6 +20,7 @@ dependencies = [
   "pyln-testing",
   "pyln-proto",
   "mnemonic>=0.21",
+  "flaky>=3.8.1",
 ]
 package-mode = false
 [dependency-groups]

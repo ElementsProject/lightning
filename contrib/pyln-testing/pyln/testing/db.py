@@ -1,4 +1,5 @@
 from .utils import reserve_unused_port, drop_unused_port
+from urllib.parse import urlparse, urlunparse
 
 import itertools
 import logging
@@ -12,6 +13,18 @@ import string
 import subprocess
 import time
 from typing import Dict, List, Optional, Union
+
+
+def replace_dsn_database(dsn: str, dbname: str) -> str:
+    """Replace the database name in a PostgreSQL DSN.
+
+    Takes a DSN like 'postgres://user:pass@host:port/olddb' and returns
+    'postgres://user:pass@host:port/newdb'.
+    """
+    parsed = urlparse(dsn)
+    # Replace path (database name) with the new one
+    new_parsed = parsed._replace(path=f"/{dbname}")
+    return urlunparse(new_parsed)
 
 
 class BaseDb(object):
@@ -72,19 +85,26 @@ class Sqlite3Db(BaseDb):
 
 
 class PostgresDb(BaseDb):
-    def __init__(self, dbname, port):
+    def __init__(self, dbname, port, base_dsn=None):
         self.dbname = dbname
         self.port = port
+        self.base_dsn = base_dsn
         self.provider = None
 
-        self.conn = psycopg2.connect("dbname={dbname} user=postgres host=localhost port={port}".format(
-            dbname=dbname, port=port
-        ))
+        if base_dsn:
+            # Connect using base DSN but with our specific database
+            self.conn = psycopg2.connect(replace_dsn_database(base_dsn, dbname))
+        else:
+            self.conn = psycopg2.connect("dbname={dbname} user=postgres host=localhost port={port}".format(
+                dbname=dbname, port=port
+            ))
         cur = self.conn.cursor()
         cur.execute('SELECT 1')
         cur.close()
 
     def get_dsn(self):
+        if self.base_dsn:
+            return replace_dsn_database(self.base_dsn, self.dbname)
         return "postgres://postgres:password@localhost:{port}/{dbname}".format(
             port=self.port, dbname=self.dbname
         )
@@ -118,10 +138,15 @@ class PostgresDb(BaseDb):
         """Clean up the database.
         """
         self.conn.close()
-        conn = psycopg2.connect("dbname=postgres user=postgres host=localhost port={self.port}")
+        if self.base_dsn:
+            conn = psycopg2.connect(self.base_dsn)
+        else:
+            conn = psycopg2.connect(f"dbname=postgres user=postgres host=localhost port={self.port}")
+        conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
         cur = conn.cursor()
         cur.execute("DROP DATABASE {};".format(self.dbname))
         cur.close()
+        conn.close()
 
     def wipe_db(self):
         cur = self.conn.cursor()
@@ -251,3 +276,59 @@ class PostgresDbProvider(object):
         self.proc.wait()
         shutil.rmtree(self.pgdir)
         drop_unused_port(self.port)
+
+
+class SystemPostgresDbProvider(object):
+    """Use an existing system-wide PostgreSQL instance instead of spawning one.
+
+    This provider connects to an existing PostgreSQL server using a DSN from
+    the TEST_DB_PROVIDER_DSN environment variable. The DSN should point to a
+    database where the user has CREATE DATABASE privileges (typically the
+    'postgres' database with a superuser).
+
+    Example DSN: postgres://postgres:password@localhost:5432/postgres
+    """
+
+    def __init__(self, directory):
+        self.directory = directory
+        self.dsn = os.environ.get('TEST_DB_PROVIDER_DSN')
+        if not self.dsn:
+            raise ValueError(
+                "SystemPostgresDbProvider requires TEST_DB_PROVIDER_DSN environment variable"
+            )
+        self.conn = None
+        self.request = None  # Set by fixture to allow registering finalizers
+
+    def start(self):
+        self.conn = psycopg2.connect(self.dsn)
+        self.conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
+        logging.info(f"Connected to system PostgreSQL via {self.dsn}")
+
+    def _drop_database(self, dbname):
+        """Drop a database, used as finalizer."""
+        try:
+            cur = self.conn.cursor()
+            cur.execute("DROP DATABASE IF EXISTS {};".format(dbname))
+            cur.close()
+        except Exception as e:
+            logging.warning(f"Failed to drop database {dbname}: {e}")
+
+    def get_db(self, node_directory, testname, node_id):
+        # Random suffix to avoid collisions on repeated tests
+        nonce = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(8))
+        dbname = "{}_{}_{}".format(testname, node_id, nonce)
+
+        cur = self.conn.cursor()
+        cur.execute("CREATE DATABASE {};".format(dbname))
+        cur.close()
+
+        # Register finalizer to drop this database at end of test
+        if self.request is not None:
+            self.request.addfinalizer(lambda db=dbname: self._drop_database(db))
+
+        db = PostgresDb(dbname, port=None, base_dsn=self.dsn)
+        return db
+
+    def stop(self):
+        if self.conn:
+            self.conn.close()
