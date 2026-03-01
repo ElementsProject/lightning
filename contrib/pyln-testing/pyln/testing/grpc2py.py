@@ -2304,6 +2304,22 @@ def listconfigs_configs_conf2py(m):
     })
 
 
+def listconfigs_configs_currencyrate_add_source2py(m):
+    return remove_default({
+        "sources": [m.sources for i in m.sources], # ArrayField[primitive] in generate_composite
+        "values_str": [m.values_str for i in m.values_str], # ArrayField[primitive] in generate_composite
+        "plugin": m.plugin,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_currencyrate_disable_source2py(m):
+    return remove_default({
+        "sources": [m.sources for i in m.sources], # ArrayField[primitive] in generate_composite
+        "values_str": [m.values_str for i in m.values_str], # ArrayField[primitive] in generate_composite
+        "plugin": m.plugin,  # PrimitiveField in generate_composite
+    })
+
+
 def listconfigs_configs_daemon2py(m):
     return remove_default({
         "set": m.set,  # PrimitiveField in generate_composite

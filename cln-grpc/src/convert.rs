@@ -2989,6 +2989,32 @@ impl From<responses::ListconfigsConfigsConf> for pb::ListconfigsConfigsConf {
 }
 
 #[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsCurrencyrateaddsource> for pb::ListconfigsConfigsCurrencyrateaddsource {
+    fn from(c: responses::ListconfigsConfigsCurrencyrateaddsource) -> Self {
+        Self {
+            plugin: c.plugin, // Rule #2 for type string?
+            // Field: ListConfigs.configs.currencyrate-add-source.sources[]
+            sources: c.sources.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+            // Field: ListConfigs.configs.currencyrate-add-source.values_str[]
+            values_str: c.values_str.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsCurrencyratedisablesource> for pb::ListconfigsConfigsCurrencyratedisablesource {
+    fn from(c: responses::ListconfigsConfigsCurrencyratedisablesource) -> Self {
+        Self {
+            plugin: c.plugin, // Rule #2 for type string?
+            // Field: ListConfigs.configs.currencyrate-disable-source.sources[]
+            sources: c.sources.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+            // Field: ListConfigs.configs.currencyrate-disable-source.values_str[]
+            values_str: c.values_str.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::ListconfigsConfigsDaemon> for pb::ListconfigsConfigsDaemon {
     fn from(c: responses::ListconfigsConfigsDaemon) -> Self {
         Self {
@@ -3545,6 +3571,8 @@ impl From<responses::ListconfigsConfigs> for pb::ListconfigsConfigs {
             commit_feerate_offset: c.commit_feerate_offset.map(|v| v.into()),
             commit_time: c.commit_time.map(|v| v.into()),
             conf: c.conf.map(|v| v.into()),
+            currencyrate_add_source: c.currencyrate_add_source.map(|v| v.into()),
+            currencyrate_disable_source: c.currencyrate_disable_source.map(|v| v.into()),
             daemon: c.daemon.map(|v| v.into()),
             database_upgrade: c.database_upgrade.map(|v| v.into()),
             developer: c.developer.map(|v| v.into()),

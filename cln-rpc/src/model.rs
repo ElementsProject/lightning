@@ -10440,6 +10440,22 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsCurrencyrateaddsource {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub plugin: Option<String>,
+	    pub sources: Vec<String>,
+	    pub values_str: Vec<String>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsCurrencyratedisablesource {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub plugin: Option<String>,
+	    pub sources: Vec<String>,
+	    pub values_str: Vec<String>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListconfigsConfigsDatabaseupgrade {
 	    pub source: String,
 	    pub value_bool: bool,
@@ -10846,6 +10862,12 @@ pub mod responses {
 	    #[serde(rename = "commit-time")]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub commit_time: Option<ListconfigsConfigsCommittime>,
+	    #[serde(rename = "currencyrate-add-source")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub currencyrate_add_source: Option<ListconfigsConfigsCurrencyrateaddsource>,
+	    #[serde(rename = "currencyrate-disable-source")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub currencyrate_disable_source: Option<ListconfigsConfigsCurrencyratedisablesource>,
 	    #[serde(rename = "database-upgrade")]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub database_upgrade: Option<ListconfigsConfigsDatabaseupgrade>,

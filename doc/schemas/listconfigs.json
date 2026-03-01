@@ -1678,6 +1678,82 @@
                 ]
               }
             }
+          },
+          "currencyrate-add-source": {
+            "added": "v26.04",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "values_str",
+              "sources"
+            ],
+            "properties": {
+              "values_str": {
+                "type": "array",
+                "added": "v26.04",
+                "items": {
+                  "type": "string",
+                  "description": [
+                    "A source for cln-currencyrate to fetch price data from in the format of NAME,URL,MEMBERS"
+                  ]
+                }
+              },
+              "sources": {
+                "type": "array",
+                "added": "v26.04",
+                "items": {
+                  "type": "string",
+                  "description": [
+                    "Source of configuration setting."
+                  ]
+                }
+              },
+              "plugin": {
+                "type": "string",
+                "added": "v26.04",
+                "description": [
+                  "Plugin which registered this configuration setting."
+                ]
+              }
+            }
+          },
+          "currencyrate-disable-source": {
+            "added": "v26.04",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "values_str",
+              "sources"
+            ],
+            "properties": {
+              "values_str": {
+                "type": "array",
+                "added": "v26.04",
+                "items": {
+                  "type": "string",
+                  "description": [
+                    "The name of the cln-currencyrate source to disable"
+                  ]
+                }
+              },
+              "sources": {
+                "type": "array",
+                "added": "v26.04",
+                "items": {
+                  "type": "string",
+                  "description": [
+                    "Source of configuration setting."
+                  ]
+                }
+              },
+              "plugin": {
+                "type": "string",
+                "added": "v26.04",
+                "description": [
+                  "Plugin which registered this configuration setting."
+                ]
+              }
+            }
           }
         }
       }
