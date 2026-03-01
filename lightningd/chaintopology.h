@@ -183,6 +183,9 @@ u32 smoothed_feerate_for_deadline(const struct chain_topology *topo, u32 blockco
 /* Get feerate to hit this *block number*. */
 u32 feerate_for_target(const struct chain_topology *topo, u64 deadline);
 
+/* Has our feerate estimation failed altogether? */
+bool unknown_feerates(const struct chain_topology *topo);
+
 /* Get range of feerates to insist other side abide by for normal channels.
  * If we have to guess, sets *unknown to true, otherwise false. */
 u32 feerate_min(struct lightningd *ld, bool *unknown);
