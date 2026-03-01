@@ -51,5 +51,10 @@ def on_faulty_emit(origin, payload, **kwargs):
     plugin.log("Got the ididntannouncethis event")
 
 
+@plugin.subscribe("reckless_log")
+def on_reckless_log(origin, **kwargs):
+    plugin.log("Got reckless_log: {}".format(kwargs))
+
+
 plugin.add_notification_topic("custom")
 plugin.run()
