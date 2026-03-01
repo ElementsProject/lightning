@@ -154,6 +154,7 @@ Core Lightning Documentation
    splice_init <splice_init.7.md>
    splice_signed <splice_signed.7.md>
    splice_update <splice_update.7.md>
+   spliceout <spliceout.7.md>
    sql <sql.7.md>
    staticbackup <staticbackup.7.md>
    stop <stop.7.md>
