@@ -71,6 +71,7 @@ class GrpcConverterGenerator(IGenerator):
                     "short_channel_id": f"i.to_string()",
                     "short_channel_id_dir": f"i.to_string()",
                     "pubkey": f"i.serialize().to_vec()",
+                    "txid": f"hex::decode(i).unwrap()",
                 }.get(typ, f"i.into()")
 
                 self.write(f"// Field: {f.path}\n", numindent=3)
