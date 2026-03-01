@@ -30,6 +30,120 @@ import time
 import unittest
 
 
+
+def test_ch_life_with_receiving_node_up_after_a_while(node_factory, bitcoind):
+    """
+    Test channel lifecycle with receiving node restart after a while.
+    """
+    l1, l2 = node_factory.get_nodes(2)
+    l1.fundwallet(10000000)
+    l2.fundwallet(10000000)
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.rpc.fundchannel(l2.info['id'], 500000, minconf=0)
+
+    bitcoind.generate_block(1, wait_for_mempool=1)
+
+    l1.daemon.wait_for_log(' to CHANNELD_NORMAL')
+
+    chan12 = l1.get_channel_scid(l2)
+
+    dust_limit = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['dust_limit_msat']
+
+    inv = l2.rpc.invoice(dust_limit + 1000, 'test1', 'description1')
+    l1.rpc.pay(inv['bolt11'])
+
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+
+    l2.stop()
+
+    l1.rpc.close(chan12, 1)
+
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    sync_blockheight(bitcoind, [l1])
+
+    l1_channel = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])
+    assert all('ONCHAIN' in status for status in l1_channel['status'])
+
+    sync_blockheight(bitcoind, [l1])
+
+    l1_addr = l1.rpc.newaddr()['p2tr']
+
+    assert len(l1.rpc.listfunds()['outputs']) > 0, "l1 has no outputs to withdraw"
+
+    l1.rpc.withdraw(l1_addr, 'all')
+
+    bitcoind.generate_block(210, wait_for_mempool=1)
+    sync_blockheight(bitcoind, [l1])
+
+    l2.start()
+
+    funds_l1 = l1.rpc.listfunds()
+    total_funds_l1 = sum([output['amount_msat'] for output in funds_l1['outputs']])
+    assert 950000000 <= total_funds_l1 < 10000000000, f"Total funds {total_funds_l1} not in expected range"
+
+    funds_l2 = l2.rpc.listfunds()
+    total_funds_l2 = sum([output['amount_msat'] for output in funds_l2['outputs']])
+    assert total_funds_l2 > 10000000000, f"Total funds {total_funds_l2} not in expected range"
+
+
+def test_ch_life_with_opening_node_up_after_a_while(node_factory, bitcoind):
+    """
+    Test channel lifecycle with opening node restart after a while.
+    """
+    l1, l2 = node_factory.get_nodes(2, opts=[{'feerates': (7500, 7500, 7500, 7500)}, {}])
+    l1.fundwallet(10000000)
+    l2.fundwallet(10000000)
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.rpc.fundchannel(l2.info['id'], 500000, minconf=0)
+
+    bitcoind.generate_block(1, wait_for_mempool=1)
+
+    l1.daemon.wait_for_log(' to CHANNELD_NORMAL')
+
+    chan12 = l1.get_channel_scid(l2)
+
+    dust_limit = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['dust_limit_msat']
+
+    inv = l2.rpc.invoice(dust_limit + 1000, 'test1', 'description1')
+    l1.rpc.pay(inv['bolt11'])
+
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+
+    l1.stop()
+
+    l2.rpc.close(chan12, 1)
+
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    sync_blockheight(bitcoind, [l2])
+
+    l2_channel = only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])
+    assert all('ONCHAIN' in status for status in l2_channel['status'])
+
+    sync_blockheight(bitcoind, [l2])
+
+    l2_addr = l2.rpc.newaddr()['p2tr']
+
+    assert len(l2.rpc.listfunds()['outputs']) > 0, "l2 has no outputs to withdraw"
+
+    l2.rpc.withdraw(l2_addr, 'all')
+    bitcoind.generate_block(210, wait_for_mempool=1)
+    sync_blockheight(bitcoind, [l2])
+
+    l1.start()
+
+    funds_l1 = l1.rpc.listfunds()
+    total_funds_l1 = sum([output['amount_msat'] for output in funds_l1['outputs']])
+    assert 950000000 <= total_funds_l1 < 10000000000, f"Total funds {total_funds_l1} not in expected range"
+
+    funds_l2 = l2.rpc.listfunds()
+    total_funds_l2 = sum([output['amount_msat'] for output in funds_l2['outputs']])
+    assert total_funds_l2 > 10000000000, f"Total funds {total_funds_l2} not in expected range"
+
+
 @pytest.mark.parametrize("old_hsmsecret", [False, True])
 def test_names(node_factory, old_hsmsecret):
     if old_hsmsecret:
