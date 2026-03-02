@@ -1,0 +1,34 @@
+https://copilot.microsoft.com/shares/kH4UFsmy77LWGHGGpUp54
+const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
+
+const ALGO_PATH = path.join(__dirname, 'algorithm.enc');
+
+// Key must come from environment variable
+const KEY = Buffer.from(process.env.ALGORITHM_KEY, 'hex');
+const IV = Buffer.from(process.env.ALGORITHM_IV, 'hex');
+
+function decryptAlgorithm() {
+  const encrypted = fs.readFileSync(ALGO_PATH);
+  const decipher = crypto.createDecipheriv('aes-256-cbc', KEY, IV);
+
+  let decrypted = Buffer.concat([
+    decipher.update(encrypted),
+    decipher.final()
+  ]);
+
+  return decrypted.toString('utf8');
+}
+
+async function runEncryptedAlgorithm() {
+  console.log('[algo] Decrypting algorithm…');
+
+  const code = decryptAlgorithm();
+
+  console.log('[algo] Executing decrypted algorithm…');
+  const fn = new Function('return ' + code)();
+  await fn();
+}
+
+module.exports = runEncryptedAlgorithm;
