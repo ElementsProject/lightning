@@ -2785,3 +2785,67 @@ def test_rescan_missing_utxo(node_factory, bitcoind):
     time.sleep(5)
     assert not l1.daemon.is_in_log("Scanning for missed UTXOs", start=oldstart_l1)
     assert not l3.daemon.is_in_log("Scanning for missed UTXOs", start=oldstart_l3)
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', "Uses regtest-specific address types")
+def test_withdraw_stuck_reserved_on_broadcast_failure(node_factory, bitcoind):
+    """Test funds don't get stuck as reserved after withdraw fails due to
+    broadcast rejection (e.g. feerate below mempoolminfee).
+
+    """
+    l1 = node_factory.get_node(random_hsm=True)
+    addr = l1.rpc.newaddr('p2tr')['p2tr']
+
+    # Fund the node
+    bitcoind.rpc.sendtoaddress(addr, 0.01)
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
+
+    output = only_one(l1.rpc.listfunds()['outputs'])
+    assert output['status'] == 'confirmed'
+    assert not output.get('reserved', False)
+
+    waddr = bitcoind.rpc.getnewaddress()
+
+    # Mock sendrawtransaction to simulate bitcoind rejecting the transaction
+    # because the feerate is below its mempoolminfee
+    def mock_fail_sendrawtx(r):
+        # Self-remove after first call so subsequent transactions aren't blocked
+        l1.daemon.rpcproxy.mock_rpc('sendrawtransaction', None)
+        return {
+            'id': r['id'],
+            'error': {
+                'code': -26,
+                'message': 'min relay fee not met, 253 < 5000',
+            },
+            'result': None,
+        }
+
+    l1.daemon.rpcproxy.mock_rpc('sendrawtransaction', mock_fail_sendrawtx)
+
+    with pytest.raises(RpcError, match=r'Error broadcasting transaction'):
+        l1.rpc.withdraw(waddr, 'all')
+
+    # BUG: UTXOs remain reserved despite the failed broadcast.
+    # sendpsbt_done correctly unreserves the reservation it added (72 blocks),
+    # but fundpsbt's prior reservation (72 blocks) is NOT cleaned up.
+    outputs = l1.rpc.listfunds()['outputs']
+    reserved = [o for o in outputs if o.get('reserved', False)]
+    assert len(reserved) > 0, \
+        "Expected UTXOs to be reserved after failed broadcast (known bug)"
+
+    with pytest.raises(RpcError, match=r'Could not afford'):
+        l1.rpc.withdraw(waddr, 'all')
+
+    # Workaround: build a PSBT from the stuck UTXOs and call unreserveinputs.
+    stuck_utxos = [{'txid': o['txid'], 'vout': o['output']} for o in reserved]
+    psbt = bitcoind.rpc.createpsbt(stuck_utxos, [])
+    l1.rpc.unreserveinputs(psbt)
+
+    outputs = l1.rpc.listfunds()['outputs']
+    assert not any(o.get('reserved', False) for o in outputs)
+
+    l1.rpc.withdraw(waddr, 'all')
+    bitcoind.generate_block(1)
+    sync_blockheight(bitcoind, [l1])
+    assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=0')[0]['c'] == 0
