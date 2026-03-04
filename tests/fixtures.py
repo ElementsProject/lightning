@@ -123,8 +123,13 @@ class LightningNode(utils.LightningNode):
                 network=self.network,
             )
             self.daemon.opts["subdaemon"] = f"hsmd:{self.vlsd.remote_socket}"
+            # FIXME: we should not need to set these env vars, 
+            # but remote_hsmd_socket CLI options.
             self.daemon.env["VLS_PORT"] = str(self.vlsd.port)
             self.daemon.env["VLS_LSS"] = os.environ.get("LSS_URI", "")
+            self.daemon.env["VLS_NETWORK"] = self.network
+            self.daemon.env["BITCOIND_RPC_URL"] = env("BITCOIND_RPC_URL", "http://rpcuser:rpcpass@127.0.0.1:{}".format(self.bitcoin.rpcport))
+            self.daemon.env["VLS_CLN_VERSION"] = env("VLS_CLN_VERSION", "v25.12-391-gc1dc506-modded")
             import threading
             threading.Timer(1, self.vlsd.start).start()
 
