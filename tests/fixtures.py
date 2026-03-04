@@ -126,8 +126,8 @@ class LightningNode(utils.LightningNode):
             # FIXME: we should not need to set these env vars, 
             # but remote_hsmd_socket CLI options.
             self.daemon.env["VLS_PORT"] = str(self.vlsd.port)
-            self.daemon.env["VLS_LSS"] = os.environ.get("LSS_URI", "")
-            self.daemon.env["VLS_NETWORK"] = self.network
+            self.daemon.env["VLS_LSS"] = env("LSS_URI", "")
+            self.daemon.env["VLS_NETWORK"] = env("VLS_NETWORK", self.network)
             self.daemon.env["BITCOIND_RPC_URL"] = env("BITCOIND_RPC_URL", f"http://{BITCOIND_CONFIG['rpcuser']}:{BITCOIND_CONFIG['rpcpassword']}@127.0.0.1:{self.bitcoin.rpcport}")
             cln_version_str = subprocess.check_output([self.daemon.executable, "--version"]).decode('ascii').strip()
             self.daemon.env["VLS_CLN_VERSION"] = env("VLS_CLN_VERSION", cln_version_str)
