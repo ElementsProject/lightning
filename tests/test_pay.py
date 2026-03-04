@@ -25,7 +25,7 @@ import unittest
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 def test_vls_simple(node_factory):
-    l1, l2 = node_factory.line_graph(2, opts={'use_vls': True})
+    l1, l2 = node_factory.line_graph(2, opts=[{'use_vls': True}, {}])
 
     inv = l2.rpc.invoice(123000, 'test_vls_simple', 'description')['bolt11']
     details = l1.dev_pay(inv, dev_use_shadow=False)

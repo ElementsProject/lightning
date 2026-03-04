@@ -113,7 +113,7 @@ class ValidatingLightningSignerD(TailableProc):
         else:
             log.info(f"Successfully cloned repository: {clone.stdout}")
 
-        cargo = run(['cargo', 'build'], cwd=self.dir, check=True, timeout=300)
+        cargo = run(['cargo', 'build', '--features', 'developer'], cwd=self.dir, check=True, timeout=300)
         if cargo.returncode != 0:
             log.error(f"Failed to build vlsd: {cargo.stderr}")
         else:
@@ -130,7 +130,7 @@ class ValidatingLightningSignerD(TailableProc):
             '--datadir={}'.format(self.dir),
             '--connect=http://localhost:{}'.format(self.port),
             '--rpc-server-port={}'.format(self.rpc_port),
-            '--integration-test',
+            # '--integration-test',
         ]
         self.prefix = 'vlsd-%d' % (node_id)
 
