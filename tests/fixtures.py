@@ -1,4 +1,4 @@
-from utils import TEST_NETWORK, VALGRIND  # noqa: F401,F403
+from utils import TEST_NETWORK, BITCOIND_CONFIG, VALGRIND  # noqa: F401,F403
 from pyln.testing.fixtures import directory, test_base_dir, test_name, chainparams, bitcoind, teardown_checks, db_provider, executor, setup_logging, jsonschemas  # noqa: F401,F403
 from pyln.testing import utils
 from pyln.testing.utils import NodeFactory as _NodeFactory
@@ -128,8 +128,9 @@ class LightningNode(utils.LightningNode):
             self.daemon.env["VLS_PORT"] = str(self.vlsd.port)
             self.daemon.env["VLS_LSS"] = os.environ.get("LSS_URI", "")
             self.daemon.env["VLS_NETWORK"] = self.network
-            self.daemon.env["BITCOIND_RPC_URL"] = env("BITCOIND_RPC_URL", "http://rpcuser:rpcpass@127.0.0.1:{}".format(self.bitcoin.rpcport))
-            self.daemon.env["VLS_CLN_VERSION"] = env("VLS_CLN_VERSION", "v25.12-391-gc1dc506-modded")
+            self.daemon.env["BITCOIND_RPC_URL"] = env("BITCOIND_RPC_URL", f"http://{BITCOIND_CONFIG['rpcuser']}:{BITCOIND_CONFIG['rpcpassword']}@127.0.0.1:{self.bitcoin.rpcport}")
+            cln_version_str = subprocess.check_output([self.daemon.executable, "--version"]).decode('ascii').strip()
+            self.daemon.env["VLS_CLN_VERSION"] = env("VLS_CLN_VERSION", cln_version_str)
             import threading
             threading.Timer(1, self.vlsd.start).start()
 
