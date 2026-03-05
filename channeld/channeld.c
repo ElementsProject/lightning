@@ -1655,6 +1655,10 @@ static void marshall_htlc_info(const tal_t *ctx,
 				assert(!htlc->failed);
 				f.id = htlc->id;
 				f.payment_preimage = *htlc->r;
+				if (htlc->attr_data)
+					f.attr_data = tal_dup(fulfilled, struct attribution_data, htlc->attr_data);
+				else
+					f.attr_data = NULL;
 				tal_arr_expand(fulfilled, f);
 			} else {
 				assert(!htlc->r);
@@ -2660,9 +2664,10 @@ static void handle_peer_fulfill_htlc(struct peer *peer, const u8 *msg)
 	struct preimage preimage;
 	enum channel_remove_err e;
 	struct htlc *h;
+	struct tlv_update_fulfill_htlc_tlvs *fulfill_tlvs;
 
-	if (!fromwire_update_fulfill_htlc(msg, &channel_id,
-					  &id, &preimage)) {
+	if (!fromwire_update_fulfill_htlc(tmpctx, msg, &channel_id,
+					  &id, &preimage, &fulfill_tlvs)) {
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Bad update_fulfill_htlc %s", tal_hex(msg, msg));
 	}
@@ -2670,7 +2675,18 @@ static void handle_peer_fulfill_htlc(struct peer *peer, const u8 *msg)
 	e = channel_fulfill_htlc(peer->channel, LOCAL, id, &preimage, &h);
 	switch (e) {
 	case CHANNEL_ERR_REMOVE_OK:
-		/* FIXME: We could send preimages to master immediately. */
+		if (fulfill_tlvs && fulfill_tlvs->attribution_data) {
+			h->attr_data = tal(h, struct attribution_data);
+			memcpy(h->attr_data->data,
+			       fulfill_tlvs->attribution_data->htlc_hold_times,
+			       ATTR_HOLD_TIMES_SIZE);
+			memcpy(h->attr_data->data + ATTR_HMAC_OFFSET,
+			       fulfill_tlvs->attribution_data->truncated_hmacs,
+			       ATTR_HMAC_SIZE);
+		} else {
+			h->attr_data = NULL;
+		}
+
 		start_commit_timer(peer);
 		return;
 	/* These shouldn't happen, because any offered HTLC (which would give
@@ -5323,8 +5339,18 @@ static void send_fail_or_fulfill(struct peer *peer, const struct htlc *h)
 						      f->onion->contents, fail_tlvs);
 		}
 	} else if (h->r) {
+		struct tlv_update_fulfill_htlc_tlvs *fulfill_tlvs = tlv_update_fulfill_htlc_tlvs_new(tmpctx);
+		if (h->attr_data != NULL) {
+			fulfill_tlvs->attribution_data = tal(fulfill_tlvs, struct tlv_update_fulfill_htlc_tlvs_attribution_data);
+			memcpy(fulfill_tlvs->attribution_data->htlc_hold_times,
+			       h->attr_data->data,
+			       ATTR_HOLD_TIMES_SIZE);
+			memcpy(fulfill_tlvs->attribution_data->truncated_hmacs,
+			       h->attr_data->data + ATTR_HMAC_OFFSET,
+			       ATTR_HMAC_SIZE);
+		}
 		msg = towire_update_fulfill_htlc(NULL, &peer->channel_id, h->id,
-						 h->r);
+						 h->r, fulfill_tlvs);
 	} else
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "HTLC %"PRIu64" state %s not failed/fulfilled",
