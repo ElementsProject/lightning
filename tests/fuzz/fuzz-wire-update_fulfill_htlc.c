@@ -12,15 +12,15 @@ struct update_fulfill_htlc {
 static void *encode(const tal_t *ctx, const struct update_fulfill_htlc *s)
 {
 	return towire_update_fulfill_htlc(ctx, &s->channel_id, s->id,
-					  &s->payment_preimage);
+					  &s->payment_preimage, NULL);
 }
 
 static struct update_fulfill_htlc *decode(const tal_t *ctx, const void *p)
 {
 	struct update_fulfill_htlc *s = tal(ctx, struct update_fulfill_htlc);
 
-	if (fromwire_update_fulfill_htlc(p, &s->channel_id, &s->id,
-					 &s->payment_preimage))
+	if (fromwire_update_fulfill_htlc(s, p, &s->channel_id, &s->id,
+					 &s->payment_preimage, NULL))
 		return s;
 	return tal_free(s);
 }
