@@ -54,8 +54,7 @@ void lockin_has_completed(struct channel *channel, bool record_push);
 void watch_splice_inflight(struct lightningd *ld,
 			   struct channel_inflight *inflight);
 
-/* Update/set scid now this txid is mined. */
+/* Update/set scid now this outpoint is mined. */
 bool depthcb_update_scid(struct channel *channel,
-			 const struct bitcoin_txid *txid,
 			 const struct bitcoin_outpoint *outpoint);
 #endif /* LIGHTNING_LIGHTNINGD_CHANNEL_CONTROL_H */
