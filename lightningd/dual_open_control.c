@@ -1009,7 +1009,6 @@ static enum watch_result opening_depth_cb(struct lightningd *ld,
 					  struct channel_inflight *inflight)
 {
 	struct txlocator *loc;
-	struct short_channel_id scid;
 
 	/* Usually, we're here because we're awaiting a lockin, but
 	 * we could also mutual shutdown */
@@ -1022,36 +1021,10 @@ static enum watch_result opening_depth_cb(struct lightningd *ld,
 
 	/* FIXME: Don't do this until we're actually locked in! */
 	loc = wallet_transaction_locate(tmpctx, ld->wallet, txid);
-	if (!mk_short_channel_id(&scid,
-				 loc->blkheight, loc->index,
-				 inflight->funding->outpoint.n)) {
-		channel_fail_permanent(inflight->channel,
-				       REASON_LOCAL,
-				       "Invalid funding scid %u:%u:%u",
-				       loc->blkheight, loc->index,
-				       inflight->funding->outpoint.n);
+	if (!depthcb_update_scid(inflight->channel,
+				 &inflight->funding->outpoint,
+				 loc))
 		return DELETE_WATCH;
-	}
-
-	if (!inflight->channel->scid) {
-		wallet_annotate_txout(ld->wallet, &inflight->funding->outpoint,
-				      TX_CHANNEL_FUNDING, inflight->channel->dbid);
-		channel_set_scid(inflight->channel, &scid);
-		wallet_channel_save(ld->wallet, inflight->channel);
-	} else if (!short_channel_id_eq(*inflight->channel->scid, scid)) {
-		/* We freaked out if required when original was
-		 * removed, so just update now */
-		log_info(inflight->channel->log, "Short channel id changed from %s->%s",
-			 fmt_short_channel_id(tmpctx, *inflight->channel->scid),
-			 fmt_short_channel_id(tmpctx, scid));
-		channel_set_scid(inflight->channel, &scid);
-		wallet_channel_save(ld->wallet, inflight->channel);
-	}
-
-	/* Tell connectd it can forward onion messages via this scid (ok if redundant!) */
-	if (inflight->channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL)
-		tell_connectd_scid(ld, *inflight->channel->scid,
-				   &inflight->channel->peer->id);
 
 	if (depth >= inflight->channel->minimum_depth)
 		update_channel_from_inflight(ld, inflight->channel, inflight,
