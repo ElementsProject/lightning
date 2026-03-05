@@ -56,5 +56,7 @@ void watch_splice_inflight(struct lightningd *ld,
 
 /* Update/set scid now this outpoint is mined. */
 bool depthcb_update_scid(struct channel *channel,
-			 const struct bitcoin_outpoint *outpoint);
+			 const struct bitcoin_outpoint *outpoint,
+			 const struct txlocator *loc);
+
 #endif /* LIGHTNING_LIGHTNINGD_CHANNEL_CONTROL_H */

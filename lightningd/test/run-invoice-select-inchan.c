@@ -246,7 +246,8 @@ void delete_channel(struct channel *channel STEALS UNNEEDED,
 { fprintf(stderr, "delete_channel called!\n"); abort(); }
 /* Generated stub for depthcb_update_scid */
 bool depthcb_update_scid(struct channel *channel UNNEEDED,
-			 const struct bitcoin_outpoint *outpoint UNNEEDED)
+			 const struct bitcoin_outpoint *outpoint UNNEEDED,
+			 const struct txlocator *loc UNNEEDED)
 { fprintf(stderr, "depthcb_update_scid called!\n"); abort(); }
 /* Generated stub for dev_disconnect_permanent */
 bool dev_disconnect_permanent(struct lightningd *ld UNNEEDED)
@@ -724,6 +725,10 @@ void wallet_transaction_add(struct wallet *w UNNEEDED, const struct wally_tx *tx
 /* Generated stub for wallet_transaction_height */
 u32 wallet_transaction_height(struct wallet *w UNNEEDED, const struct bitcoin_txid *txid UNNEEDED)
 { fprintf(stderr, "wallet_transaction_height called!\n"); abort(); }
+/* Generated stub for wallet_transaction_locate */
+struct txlocator *wallet_transaction_locate(const tal_t *ctx UNNEEDED, struct wallet *w UNNEEDED,
+					    const struct bitcoin_txid *txid UNNEEDED)
+{ fprintf(stderr, "wallet_transaction_locate called!\n"); abort(); }
 /* Generated stub for watch_opening_inflight */
 void watch_opening_inflight(struct lightningd *ld UNNEEDED,
 			    struct channel_inflight *inflight UNNEEDED)
