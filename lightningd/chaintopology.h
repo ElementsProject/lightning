@@ -141,6 +141,7 @@ struct chain_topology {
 	struct txwatch_hash *txwatches;
 	struct txowatch_hash *txowatches;
 	struct scriptpubkeywatch_hash *scriptpubkeywatches;
+	struct blockdepthwatch_hash *blockdepthwatches;
 
 	/* The number of headers known to the bitcoin backend at startup. Not
 	 * updated after the initial check. */
