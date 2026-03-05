@@ -766,16 +766,6 @@ u8 *unsigned_node_announcement(const tal_t *ctx UNNEEDED,
 			       struct lightningd *ld UNNEEDED,
 			       const u8 *prev UNNEEDED)
 { fprintf(stderr, "unsigned_node_announcement called!\n"); abort(); }
-/* Generated stub for unwrap_onionreply */
-u8 *unwrap_onionreply(const tal_t *ctx UNNEEDED,
-		      const struct secret *shared_secrets UNNEEDED,
-		      const int numhops UNNEEDED,
-		      const struct onionreply *reply UNNEEDED,
-		      int *origin_index UNNEEDED)
-{ fprintf(stderr, "unwrap_onionreply called!\n"); abort(); }
-/* Generated stub for update_attributable_data */
-void update_attributable_data(struct onionreply *failonion UNNEEDED, u32 hold_times UNNEEDED, struct secret *shared_secret UNNEEDED)
-{ fprintf(stderr, "update_attributable_data called!\n"); abort(); }
 /* Generated stub for watch_opening_inflight */
 void watch_opening_inflight(struct lightningd *ld UNNEEDED,
 			    struct channel_inflight *inflight UNNEEDED)
