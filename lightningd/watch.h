@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_LIGHTNINGD_WATCH_H
 #define LIGHTNING_LIGHTNINGD_WATCH_H
 #include "config.h"
+#include <bitcoin/script.h>
 #include <bitcoin/tx.h>
 #include <ccan/htable/htable_type.h>
 
@@ -8,8 +9,10 @@ struct block;
 struct channel;
 struct chain_topology;
 struct lightningd;
+struct txlocator;
 struct txowatch;
 struct txwatch;
+struct scriptpubkeywatch;
 
 enum watch_result {
 	DELETE_WATCH = -1,
@@ -29,6 +32,10 @@ bool txwatch_eq(const struct txwatch *w, const struct bitcoin_txid *txid);
 HTABLE_DEFINE_DUPS_TYPE(struct txwatch, txwatch_keyof, txid_hash, txwatch_eq,
 			txwatch_hash);
 
+const struct script_with_len *scriptpubkeywatch_keyof(const struct scriptpubkeywatch *w);
+bool scriptpubkeywatch_eq(const struct scriptpubkeywatch *w, const struct script_with_len *swl);
+HTABLE_DEFINE_DUPS_TYPE(struct scriptpubkeywatch, scriptpubkeywatch_keyof, script_with_len_hash, scriptpubkeywatch_eq,
+			scriptpubkeywatch_hash);
 
 struct txwatch *watch_txid_(const tal_t *ctx,
 			    struct chain_topology *topo,
@@ -92,6 +99,59 @@ bool watching_txid(const struct chain_topology *topo,
 void txwatch_inform(const struct chain_topology *topo,
 		    const struct bitcoin_txid *txid,
 		    struct bitcoin_tx *tx TAKES);
+
+/* Watch for specific spends to this scriptpubkey */
+void watch_scriptpubkey_(const tal_t *ctx,
+			 struct chain_topology *topo,
+			 const u8 *scriptpubkey TAKES,
+			 const struct bitcoin_outpoint *expected_outpoint,
+			 struct amount_sat expected_amount,
+			 void (*cb)(struct lightningd *ld,
+				    const struct bitcoin_tx *tx,
+				    u32 outnum,
+				    const struct txlocator *loc,
+				    void *),
+			 void *arg);
+
+#define watch_scriptpubkey(ctx, topo, scriptpubkey, expected_outpoint, expected_amount, cb, arg) \
+	watch_scriptpubkey_((ctx), (topo), (scriptpubkey),		\
+			    (expected_outpoint), (expected_amount), \
+			    typesafe_cb_preargs(void, void *,		\
+						(cb), (arg),		\
+						struct lightningd *,	\
+						const struct bitcoin_tx *, \
+						u32 outnum,		\
+						const struct txlocator *), \
+			    (arg))
+
+bool unwatch_scriptpubkey_(const tal_t *ctx,
+			   struct chain_topology *topo,
+			   const u8 *scriptpubkey TAKES,
+			   const struct bitcoin_outpoint *expected_outpoint,
+			   struct amount_sat expected_amount,
+			   void (*cb)(struct lightningd *ld,
+				      const struct bitcoin_tx *tx,
+				      u32 outnum,
+				      const struct txlocator *loc,
+				      void *),
+			   void *arg);
+
+#define unwatch_scriptpubkey(ctx, topo, scriptpubkey, expected_outpoint, expected_amount, cb, arg) \
+	unwatch_scriptpubkey_((ctx), (topo), (scriptpubkey),		\
+			      (expected_outpoint), (expected_amount),	\
+			      typesafe_cb_preargs(void, void *,		\
+						  (cb), (arg),		\
+						  struct lightningd *,	\
+						  const struct bitcoin_tx *, \
+						  u32 outnum,		\
+						  const struct txlocator *), \
+			      (arg))
+
+/* Call any scriptpubkey callbacks for this tx */
+bool watch_check_tx_outputs(const struct chain_topology *topo,
+			    const struct txlocator *loc,
+			    const struct bitcoin_tx *tx,
+			    const struct bitcoin_txid *txid);
 
 void watch_topology_changed(struct chain_topology *topo);
 #endif /* LIGHTNING_LIGHTNINGD_WATCH_H */
