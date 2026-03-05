@@ -2,6 +2,7 @@
 #include <ccan/cast/cast.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
+#include <ccan/tal/tal.h>
 #include <ccan/time/time.h>
 #include <channeld/channeld_wiregen.h>
 #include <common/amount.h>
@@ -427,8 +428,20 @@ void fulfill_htlc(struct htlc_in *hin, const struct preimage *preimage)
 		msg = towire_onchaind_known_preimage(hin, preimage);
 	} else {
 		struct fulfilled_htlc fulfilled_htlc;
+		struct attribution_data *ad = tal(hin, struct attribution_data);
 		fulfilled_htlc.id = hin->key.id;
 		fulfilled_htlc.payment_preimage = *preimage;
+		if (hin->fulfill_onion && hin->fulfill_onion->attr_data) {
+			ad->htlc_hold_time = tal_dup_arr(ad, u8,
+			       hin->fulfill_onion->attr_data->htlc_hold_time,
+			       80, 0);
+			ad->truncated_hmac = tal_dup_arr(ad, u8,
+			       hin->fulfill_onion->attr_data->truncated_hmac,
+			       840, 0);
+			fulfilled_htlc.attr_data = ad;
+		} else {
+			fulfilled_htlc.attr_data = NULL;
+		}
 		msg = towire_channeld_fulfill_htlc(hin, &fulfilled_htlc);
 	}
 	subd_send_msg(channel->owner, take(msg));
@@ -1650,6 +1663,16 @@ static void fulfill_our_htlc_out(struct channel *channel, struct htlc_out *hout,
 				    fmt_amount_msat(tmpctx, hout->msat));
 		} else {
 			struct short_channel_id scid = channel_scid_or_local_alias(hout->key.channel);
+			if (hout->fulfill_attr && hout->in->shared_secret) {
+				struct timerel delta = time_between(hout->send_timestamp, hout->in->received_time);
+				long total_ms = delta.ts.tv_sec * 1000 + delta.ts.tv_nsec / 1000000;
+				u32 hold_times = total_ms / 100;
+
+				u8 *contents = tal_dup_arr(tmpctx, u8, preimage->r, sizeof(*preimage), 0);
+				struct onionreply *reply = new_onionreply(tmpctx, contents, hout->fulfill_attr);
+				update_attributable_data(reply, hold_times, hout->in->shared_secret);
+				hout->in->fulfill_onion = dup_onionreply(hout, reply);
+			}
 			fulfill_htlc(hout->in, preimage);
 			wallet_forwarded_payment_add(ld->wallet, hout->in,
 						     FORWARD_STYLE_TLV,
@@ -1676,6 +1699,11 @@ static bool peer_fulfilled_our_htlc(struct channel *channel,
 	if (!htlc_out_update_state(channel, hout, RCVD_REMOVE_COMMIT))
 		return false;
 
+	if (fulfilled->attr_data) {
+		hout->fulfill_attr = tal_dup(hout, struct attribution_data, fulfilled->attr_data);
+	} else {
+		hout->fulfill_attr = NULL;
+	}
 	fulfill_our_htlc_out(channel, hout, &fulfilled->payment_preimage);
 	return true;
 }

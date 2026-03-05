@@ -39,6 +39,9 @@ struct htlc_in {
 	/* Otherwise, this contains the failure message to send. */
 	const struct onionreply *failonion;
 
+	/* This contains attribution data for the update_fulfill_htlc message. */
+	struct onionreply *fulfill_onion;
+
 	/* If they fulfilled, here's the preimage. */
 	struct preimage *preimage;
 
@@ -83,6 +86,9 @@ struct htlc_out {
 
 	/* For a remote error. */
 	const struct onionreply *failonion;
+
+	/* For attribution data. */
+	struct attribution_data *fulfill_attr;
 
 	/* If we fulfilled, here's the preimage. */
 	/* FIXME: This is basically unused, except as a bool! */
