@@ -522,17 +522,19 @@ static void *towire_struct_update_fulfill_htlc(const tal_t *ctx,
 	return towire_update_fulfill_htlc(ctx,
 				       &s->channel_id,
 				       s->id,
-				       &s->payment_preimage);
+				       &s->payment_preimage,
+				        NULL);
 }
 
 static struct msg_update_fulfill_htlc *fromwire_struct_update_fulfill_htlc(const tal_t *ctx, const void *p)
 {
 	struct msg_update_fulfill_htlc *s = tal(ctx, struct msg_update_fulfill_htlc);
 
-	if (fromwire_update_fulfill_htlc(p,
+	if (fromwire_update_fulfill_htlc(ctx, p,
 				      &s->channel_id,
 				      &s->id,
-				      &s->payment_preimage))
+				      &s->payment_preimage,
+				      NULL))
 		return s;
 	return tal_free(s);
 }

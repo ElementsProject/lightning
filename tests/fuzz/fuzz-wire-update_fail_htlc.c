@@ -13,14 +13,14 @@ struct update_fail_htlc {
 
 static void *encode(const tal_t *ctx, const struct update_fail_htlc *s)
 {
-	return towire_update_fail_htlc(ctx, &s->channel_id, s->id, s->reason);
+	return towire_update_fail_htlc(ctx, &s->channel_id, s->id, s->reason, NULL);
 }
 
 static struct update_fail_htlc *decode(const tal_t *ctx, const void *p)
 {
 	struct update_fail_htlc *s = tal(ctx, struct update_fail_htlc);
 
-	if (fromwire_update_fail_htlc(s, p, &s->channel_id, &s->id, &s->reason))
+	if (fromwire_update_fail_htlc(s, p, &s->channel_id, &s->id, &s->reason, NULL))
 		return s;
 	return tal_free(s);
 }
