@@ -92,7 +92,9 @@ void delete_channel(struct channel *channel STEALS,
 	struct peer *peer = channel->peer;
 	struct lightningd *ld = peer->ld;
 
-	
+	/* We no longer care about the funding transaction */
+	channel_unwatch_funding(ld, channel);
+
 	if (channel->dbid != 0) {
 		wallet_channel_close(ld->wallet, channel);
 		/* Never open at all, not ours. */

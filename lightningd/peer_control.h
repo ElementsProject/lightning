@@ -135,6 +135,7 @@ void update_channel_from_inflight(struct lightningd *ld,
 				  bool is_splice);
 
 void channel_watch_funding(struct lightningd *ld, struct channel *channel);
+void channel_unwatch_funding(struct lightningd *ld, struct channel *channel);
 
 /* If this channel has a "wrong funding" shutdown, watch that too. */
 void channel_watch_wrong_funding(struct lightningd *ld, struct channel *channel);

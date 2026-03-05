@@ -2473,6 +2473,25 @@ void channel_watch_funding(struct lightningd *ld, struct channel *channel)
 	channel_watch_wrong_funding(ld, channel);
 }
 
+void channel_unwatch_funding(struct lightningd *ld, struct channel *channel)
+{
+	const u8 *funding_wscript = bitcoin_redeem_2of2(tmpctx,
+							&channel->local_funding_pubkey,
+							&channel->channel_info.remote_fundingkey);
+
+	/* This is stub channel, we don't watch anything! */
+	if (channel->scid && is_stub_scid(*channel->scid))
+		return;
+
+	unwatch_scriptpubkey(channel, ld->topology,
+			     scriptpubkey_p2wsh(tmpctx, funding_wscript),
+			     &channel->funding,
+			     channel->funding_sats,
+			     channel_funding_found,
+			     channel);
+	/* FIXME: unwatch txo and depth too? */
+}
+
 static void json_add_peer(struct lightningd *ld,
 			  struct json_stream *response,
 			  struct peer *p,

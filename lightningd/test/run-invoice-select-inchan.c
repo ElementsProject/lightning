@@ -658,6 +658,19 @@ u8 *towire_onchaind_dev_memleak(const tal_t *ctx UNNEEDED)
 /* Generated stub for towire_openingd_dev_memleak */
 u8 *towire_openingd_dev_memleak(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_openingd_dev_memleak called!\n"); abort(); }
+/* Generated stub for unwatch_scriptpubkey_ */
+bool unwatch_scriptpubkey_(const tal_t *ctx UNNEEDED,
+			   struct chain_topology *topo UNNEEDED,
+			   const u8 *scriptpubkey TAKES UNNEEDED,
+			   const struct bitcoin_outpoint *expected_outpoint UNNEEDED,
+			   struct amount_sat expected_amount UNNEEDED,
+			   void (*cb)(struct lightningd *ld UNNEEDED,
+				      const struct bitcoin_tx *tx UNNEEDED,
+				      u32 outnum UNNEEDED,
+				      const struct txlocator *loc UNNEEDED,
+				      void *) UNNEEDED,
+			   void *arg UNNEEDED)
+{ fprintf(stderr, "unwatch_scriptpubkey_ called!\n"); abort(); }
 /* Generated stub for wallet_channel_save */
 void wallet_channel_save(struct wallet *w UNNEEDED, struct channel *chan UNNEEDED)
 { fprintf(stderr, "wallet_channel_save called!\n"); abort(); }
