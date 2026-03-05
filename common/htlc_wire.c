@@ -148,6 +148,11 @@ void towire_fulfilled_htlc(u8 **pptr, const struct fulfilled_htlc *fulfilled)
 {
 	towire_u64(pptr, fulfilled->id);
 	towire_preimage(pptr, &fulfilled->payment_preimage);
+	towire_bool(pptr, fulfilled->attr_data != NULL);
+	if (fulfilled->attr_data) {
+		towire_u8_array(pptr, fulfilled->attr_data->htlc_hold_time, 80);
+		towire_u8_array(pptr, fulfilled->attr_data->truncated_hmac, 840);
+	}
 }
 
 void towire_failed_htlc(u8 **pptr, const struct failed_htlc *failed)
@@ -272,11 +277,20 @@ struct existing_htlc *fromwire_existing_htlc(const tal_t *ctx,
 	return existing;
 }
 
-void fromwire_fulfilled_htlc(const u8 **cursor, size_t *max,
-			     struct fulfilled_htlc *fulfilled)
+struct fulfilled_htlc *fromwire_fulfilled_htlc(const tal_t *ctx, const u8 **cursor, size_t *max)
 {
+	struct fulfilled_htlc *fulfilled = tal(ctx, struct fulfilled_htlc);
 	fulfilled->id = fromwire_u64(cursor, max);
 	fromwire_preimage(cursor, max, &fulfilled->payment_preimage);
+	bool has_attr = fromwire_bool(cursor, max);
+	if (has_attr) {
+		fulfilled->attr_data = tal(fulfilled, struct attribution_data);
+		fulfilled->attr_data->htlc_hold_time = fromwire_tal_arrn(fulfilled->attr_data, cursor, max, 80);
+		fulfilled->attr_data->truncated_hmac = fromwire_tal_arrn(fulfilled->attr_data, cursor, max, 840);
+	} else {
+		fulfilled->attr_data = NULL;
+	}
+	return fulfilled;
 }
 
 struct failed_htlc *fromwire_failed_htlc(const tal_t *ctx, const u8 **cursor, size_t *max)
