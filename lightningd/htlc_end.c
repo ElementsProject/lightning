@@ -296,6 +296,7 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 	hout->failonion = NULL;
 	hout->preimage = NULL;
 	hout->timeout = NULL;
+	hout->fulfill_attr = NULL;
 
 	hout->path_key = tal_dup_or_null(hout, struct pubkey, path_key);
 
