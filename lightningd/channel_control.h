@@ -9,6 +9,7 @@ struct crypto_state;
 struct lightningd;
 struct peer_fd;
 struct peer;
+struct txlocator;
 
 bool peer_start_channeld(struct channel *channel,
 			 struct peer_fd *peer_fd,
