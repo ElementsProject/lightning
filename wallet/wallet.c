@@ -68,12 +68,6 @@ static enum state_change state_change_in_db(enum state_change s)
 	fatal("%s: %u is invalid", __func__, s);
 }
 
-/* libwally uses pointer/size pairs */
-struct script_with_len {
-	const u8 *script;
-	size_t len;
-};
-
 /* We keep a hash of these, for fast lookup */
 struct wallet_address {
 	u32 index;
@@ -81,20 +75,15 @@ struct wallet_address {
 	struct script_with_len swl;
 };
 
-static size_t script_with_len_hash(const struct script_with_len *swl)
-{
-	return siphash24(siphash_seed(), swl->script, swl->len);
-}
-
 static const struct script_with_len *wallet_address_keyof(const struct wallet_address *waddr)
 {
 	return &waddr->swl;
 }
 
 static bool wallet_address_eq_scriptpubkey(const struct wallet_address *waddr,
-					   const struct script_with_len *script)
+					   const struct script_with_len *swl)
 {
-	return memeq(waddr->swl.script, waddr->swl.len, script->script, script->len);
+	return script_with_len_eq(&waddr->swl, swl);
 }
 
 HTABLE_DEFINE_NODUPS_TYPE(struct wallet_address,

@@ -6,12 +6,25 @@
 #include <bitcoin/pubkey.h>
 #include <bitcoin/script.h>
 #include <ccan/mem/mem.h>
+#include <common/pseudorand.h>
 #include <common/randbytes.h>
 #include <common/utils.h>
 #include <wally_script.h>
 
 /* To push 0-75 bytes onto stack. */
 #define OP_PUSHBYTES(val) (val)
+
+size_t script_with_len_hash(const struct script_with_len *swl)
+{
+	return siphash24(siphash_seed(), swl->script, swl->len);
+}
+
+bool script_with_len_eq(const struct script_with_len *a,
+			       const struct script_with_len *b)
+{
+	return memeq(a->script, a->len, b->script, b->len);
+}
+
 
 /* Bitcoin's OP_HASH160 is RIPEMD(SHA256()) */
 static void hash160(struct ripemd160 *redeemhash, const void *mem, size_t len)

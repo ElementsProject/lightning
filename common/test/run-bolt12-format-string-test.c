@@ -8,7 +8,6 @@
 #include <common/bolt12.h>
 #include <common/bolt12_merkle.h>
 #include <common/features.h>
-#include <common/randbytes.h>
 #include <common/setup.h>
 #include <common/utils.h>
 
@@ -77,6 +76,9 @@ void sighash_from_merkle(const char *messagename UNNEEDED,
 			 const struct sha256 *merkle UNNEEDED,
 			 struct sha256 *sighash UNNEEDED)
 { fprintf(stderr, "sighash_from_merkle called!\n"); abort(); }
+/* Generated stub for siphash_seed */
+const struct siphash_seed *siphash_seed(void)
+{ fprintf(stderr, "siphash_seed called!\n"); abort(); }
 /* Generated stub for towire_blinded_path */
 void towire_blinded_path(u8 **p UNNEEDED, const struct blinded_path *blinded_path UNNEEDED)
 { fprintf(stderr, "towire_blinded_path called!\n"); abort(); }

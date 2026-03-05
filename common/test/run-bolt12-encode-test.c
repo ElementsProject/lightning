@@ -12,7 +12,6 @@
 #include <common/bolt12.c>
 #include <common/bolt12_merkle.h>
 #include <common/features.c>
-#include <common/randbytes.h>
 #include <common/sciddir_or_pubkey.c>
 #include <common/setup.h>
 #include <inttypes.h>
@@ -72,6 +71,9 @@ void sighash_from_merkle(const char *messagename UNNEEDED,
 			 const struct sha256 *merkle UNNEEDED,
 			 struct sha256 *sighash UNNEEDED)
 { fprintf(stderr, "sighash_from_merkle called!\n"); abort(); }
+/* Generated stub for siphash_seed */
+const struct siphash_seed *siphash_seed(void)
+{ fprintf(stderr, "siphash_seed called!\n"); abort(); }
 /* Generated stub for towire_amount_msat */
 void towire_amount_msat(u8 **pptr UNNEEDED, const struct amount_msat msat UNNEEDED)
 { fprintf(stderr, "towire_amount_msat called!\n"); abort(); }

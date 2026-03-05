@@ -12,6 +12,9 @@
  * environment. */
 void init(int *argc, char ***argv);
 
+/* Set if you want siphash_seed() to work */
+extern bool fuzz_allow_siphash_seed;
+
 /* The actual target called multiple times with mutated data. */
 void run(const uint8_t *data, size_t size);
 
