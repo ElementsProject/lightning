@@ -80,6 +80,7 @@ impl LightningProvider for ClnApiRpc {
         let mut rpc = self.create_rpc().await?;
         let r = rpc
             .call_typed(&ListpeerchannelsRequest {
+                channel_id: None,
                 id: Some(peer_id.to_owned()),
                 short_channel_id: None,
             })

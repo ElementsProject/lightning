@@ -53,6 +53,10 @@ void broadcast_tx_(const tal_t *ctx UNNEEDED,
 		   bool (*refresh)(struct channel * UNNEEDED, const struct bitcoin_tx ** UNNEEDED, void *) UNNEEDED,
 		   void *cbarg TAKES UNNEEDED)
 { fprintf(stderr, "broadcast_tx_ called!\n"); abort(); }
+/* Generated stub for channel_by_cid */
+struct channel *channel_by_cid(struct lightningd *ld UNNEEDED,
+			       const struct channel_id *cid UNNEEDED)
+{ fprintf(stderr, "channel_by_cid called!\n"); abort(); }
 /* Generated stub for channel_change_state_reason_str */
 const char *channel_change_state_reason_str(enum state_change reason UNNEEDED)
 { fprintf(stderr, "channel_change_state_reason_str called!\n"); abort(); }

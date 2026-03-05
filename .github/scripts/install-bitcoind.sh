@@ -1,4 +1,6 @@
 #!/bin/sh
+# If an argument is specified, that dir is checked before downloading,
+# and updated after successful install.
 
 set -e
 
@@ -18,13 +20,23 @@ cd /tmp/
 # testing against `bitcoind` but still believe that we ran against
 # `elementsd`.
 if [ "$TEST_NETWORK" = "liquid-regtest" ]; then
-    wget "https://github.com/ElementsProject/elements/releases/download/elements-${ELEMENTS_VERSION}/${EFILENAME}"
+    if [ -f "$1/${EFILENAME}" ]; then
+	cp "$1/${EFILENAME}" .
+    else
+	wget "https://github.com/ElementsProject/elements/releases/download/elements-${ELEMENTS_VERSION}/${EFILENAME}"
+    fi
     tar -xf "${EFILENAME}"
+    [ "$1" = "" ] || cp "${EFILENAME}" "$1"/
     sudo mv "${EDIRNAME}"/bin/* "/usr/local/bin"
     rm -rf "${EFILENAME}" "${EDIRNAME}"
 else
-    wget "https://bitcoincore.org/bin/bitcoin-core-${BITCOIN_VERSION}/${FILENAME}"
+    if [ -f "$1/${FILENAME}" ]; then
+	cp "$1/${FILENAME}" .
+    else
+	wget "https://bitcoincore.org/bin/bitcoin-core-${BITCOIN_VERSION}/${FILENAME}"
+    fi
     tar -xf "${FILENAME}"
+    [ "$1" = "" ] || cp "${FILENAME}" "$1"/
     sudo mv "${DIRNAME}"/bin/* "/usr/local/bin"
     rm -rf "${FILENAME}" "${DIRNAME}"
 fi

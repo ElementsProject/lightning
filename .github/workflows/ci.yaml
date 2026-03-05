@@ -14,7 +14,8 @@ env:
   # Reduce size, helps upload-artifact work more reliably
   RUST_PROFILE: small
   SLOW_MACHINE: 1
-  CI_SERVER_URL: "http://35.239.136.52:3170"
+  # This is for the pytest-trackflaky:
+  # CI_SERVER_URL: "http://35.239.136.52:3170"
   PYTEST_OPTS_BASE: "-vvv --junit-xml=report.xml --timeout=1800 --durations=10"
   TEST_LOG_IGNORE_ERRORS: "1"
   SCCACHE_GHA_ENABLED: "true"
@@ -81,6 +82,11 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
 
+      - uses: actions/cache@v4
+        with:
+          path: ~/ci-cache
+          key: apt-${{ runner.os }}
+
       - name: Install dependencies
         env:
           TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
@@ -105,7 +111,7 @@ jobs:
           if-no-files-found: ignore
 
   compile:
-    name: Compile CLN ${{ matrix.cfg }}
+    name: Build ${{ matrix.cfg }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     needs:
@@ -132,6 +138,7 @@ jobs:
           - CFG: compile-clang
             VALGRIND: 1
             COMPILER: clang
+            COPTFLAGS_VAR: COPTFLAGS="-O3"
             DEBUG_BUILD: --enable-debugbuild
           - CFG: compile-clang-sanitizers
             COMPILER: clang
@@ -151,6 +158,11 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/ci-cache
+          key: apt-${{ runner.os }}
 
       - name: Install dependencies
         env:
@@ -201,6 +213,11 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/ci-cache
+          key: apt-${{ runner.os }}
 
       - name: Install dependencies
         env:
@@ -262,6 +279,11 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
 
+      - uses: actions/cache@v4
+        with:
+          path: ~/ci-cache
+          key: apt-${{ runner.os }}
+
       - name: Install dependencies
         env:
           TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
@@ -306,6 +328,11 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/ci-cache
+          key: apt-${{ runner.os }}
 
       - name: Install dependencies
         env:
@@ -354,6 +381,11 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/ci-cache
+          key: apt-${{ runner.os }}
 
       - name: Install dependencies
         env:
@@ -440,6 +472,11 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/ci-cache
+          key: apt-${{ runner.os }}
 
       - name: Install dependencies
         env:
@@ -535,6 +572,11 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
 
+      - uses: actions/cache@v4
+        with:
+          path: ~/ci-cache
+          key: apt-${{ runner.os }}
+
       - name: Install dependencies
         env:
           TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
@@ -610,12 +652,14 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
 
+      - uses: actions/cache@v4
+        with:
+          path: ~/ci-cache
+          key: apt-${{ runner.os }}
+
       - name: Install dependencies
         run: |
           bash -x .github/scripts/setup.sh
-
-      - name: Install bitcoind
-        run: .github/scripts/install-bitcoind.sh
 
       - name: Download build
         uses: actions/download-artifact@v4
@@ -671,6 +715,11 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/ci-cache
+          key: apt-${{ runner.os }}
 
       - name: Install dependencies
         env:
@@ -729,13 +778,15 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
 
+      - uses: actions/cache@v4
+        with:
+          path: ~/ci-cache
+          key: apt-${{ runner.os }}
+
       - name: Install dependencies
         run: |
           bash -x .github/scripts/setup.sh
-      - name: Install bitcoind
-        env:
-          TEST_NETWORK: regtest
-        run: .github/scripts/install-bitcoind.sh
+
       - name: Download build
         uses: actions/download-artifact@v4
         with:
@@ -789,6 +840,11 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/ci-cache
+          key: apt-${{ runner.os }}
 
       - name: Install dependencies
         env:
