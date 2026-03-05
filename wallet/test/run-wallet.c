@@ -770,6 +770,19 @@ u8 *unsigned_node_announcement(const tal_t *ctx UNNEEDED,
 void watch_opening_inflight(struct lightningd *ld UNNEEDED,
 			    struct channel_inflight *inflight UNNEEDED)
 { fprintf(stderr, "watch_opening_inflight called!\n"); abort(); }
+/* Generated stub for watch_scriptpubkey_ */
+void watch_scriptpubkey_(const tal_t *ctx UNNEEDED,
+			 struct chain_topology *topo UNNEEDED,
+			 const u8 *scriptpubkey TAKES UNNEEDED,
+			 const struct bitcoin_outpoint *expected_outpoint UNNEEDED,
+			 struct amount_sat expected_amount UNNEEDED,
+			 void (*cb)(struct lightningd *ld UNNEEDED,
+				    const struct bitcoin_tx *tx UNNEEDED,
+				    u32 outnum UNNEEDED,
+				    const struct txlocator *loc UNNEEDED,
+				    void *) UNNEEDED,
+			 void *arg UNNEEDED)
+{ fprintf(stderr, "watch_scriptpubkey_ called!\n"); abort(); }
 /* Generated stub for watch_splice_inflight */
 void watch_splice_inflight(struct lightningd *ld UNNEEDED,
 			   struct channel_inflight *inflight UNNEEDED)
