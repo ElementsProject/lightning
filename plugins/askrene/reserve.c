@@ -88,6 +88,18 @@ bool reserve_remove(struct reserve_htable *reserved,
 	return false;
 }
 
+void reserve_remove_all(struct reserve_htable *reserved)
+{
+	struct reserve *r;
+	struct reserve_htable_iter rit;
+
+	for (r = reserve_htable_first(reserved, &rit); r;
+	     r = reserve_htable_next(reserved, &rit)) {
+		tal_free(r);
+	}
+	reserve_htable_clear(reserved);
+}
+
 void reserves_clear_capacities(struct reserve_htable *reserved,
 			       const struct gossmap *gossmap,
 			       fp16_t *capacities)
