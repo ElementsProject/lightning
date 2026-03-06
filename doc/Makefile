@@ -138,6 +138,7 @@ MARKDOWNPAGES := doc/addgossip.7 \
 	doc/splice_init.7 \
 	doc/splice_signed.7 \
 	doc/splice_update.7 \
+	doc/spliceout.7 \
 	doc/staticbackup.7 \
 	doc/stop.7 \
 	doc/txdiscard.7 \
