@@ -256,7 +256,11 @@ static struct command_result *reckless_call(struct command *cmd,
 	reckless->pid = pipecmdarr(&reckless->stdinfd, &reckless->stdoutfd,
 				   &reckless->stderrfd, my_call);
 
-	/* FIXME: fail if invalid pid*/
+	if (reckless->pid < 0) {
+		return command_fail(cmd, LIGHTNINGD, "reckless failed: %s",
+				    strerror(errno));
+	}
+
 	io_new_conn(reckless, reckless->stdoutfd, conn_init, reckless);
 	io_new_conn(reckless, reckless->stderrfd, stderr_conn_init, reckless);
 	tal_free(my_call);
