@@ -4258,8 +4258,8 @@ def test_all_subscription(node_factory, directory):
         assert l2.daemon.is_in_log(f'.*test_libplugin: all: {notstr}.*')
 
     # shutdown and connect are subscribed before the wildcard, so is handled by that handler
-    assert not l2.daemon.is_in_log(f'.*test_libplugin: all: shutdown.*')
-    assert not l2.daemon.is_in_log(f'.*test_libplugin: all: connect.*')
+    assert not l2.daemon.is_in_log('.*test_libplugin: all: shutdown.*')
+    assert not l2.daemon.is_in_log('.*test_libplugin: all: connect.*')
 
 
 def test_dynamic_option_python_plugin(node_factory):
@@ -4369,7 +4369,7 @@ def test_sql_crash(node_factory, bitcoind):
     l1.rpc.fundchannel_start(l2.info['id'], '10000000sat')
 
     assert 'updates' not in only_one(l1.rpc.listpeerchannels()['channels'])
-    l1.rpc.sql(f"SELECT * FROM peerchannels;")
+    l1.rpc.sql("SELECT * FROM peerchannels;")
 
 
 def test_sql_parallel(node_factory, executor):
@@ -4669,7 +4669,7 @@ def test_pay_plugin_notifications(node_factory, bitcoind, chainparams, deprecate
     l1.rpc.pay(inv1['bolt11'])
 
     # It gets a channel hint update notification
-    line = l1.daemon.wait_for_log(f"plugin-all_notifications.py: notification channel_hint_update: ")
+    line = l1.daemon.wait_for_log("plugin-all_notifications.py: notification channel_hint_update: ")
     dict_str = line.split("notification channel_hint_update: ", 1)[1]
     data = zero_timestamps(ast.literal_eval(dict_str))
 
@@ -4687,7 +4687,7 @@ def test_pay_plugin_notifications(node_factory, bitcoind, chainparams, deprecate
     assert data == channel_hint_update
 
     # It gets a success notification
-    line = l1.daemon.wait_for_log(f"plugin-all_notifications.py: notification pay_success: ")
+    line = l1.daemon.wait_for_log("plugin-all_notifications.py: notification pay_success: ")
     dict_str = line.split("notification pay_success: ", 1)[1]
     data = ast.literal_eval(dict_str)
     success_core = {'payment_hash': inv1['payment_hash'],
@@ -4704,7 +4704,7 @@ def test_pay_plugin_notifications(node_factory, bitcoind, chainparams, deprecate
     with pytest.raises(RpcError, match="WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS"):
         l1.rpc.pay(inv2['bolt11'])
 
-    line = l1.daemon.wait_for_log(f"plugin-all_notifications.py: notification pay_failure: ")
+    line = l1.daemon.wait_for_log("plugin-all_notifications.py: notification pay_failure: ")
     dict_str = line.split("notification pay_failure: ", 1)[1]
     data = ast.literal_eval(dict_str)
     failure_core = {'payment_hash': inv2['payment_hash'], 'bolt11': inv2['bolt11'], 'error': {'message': 'failed: WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS (reply from remote)'}}
