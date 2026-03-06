@@ -14,15 +14,6 @@
 #include <fcntl.h>
 #include <tests/fuzz/libfuzz.h>
 
-/* MOCKS START */
-const struct siphash_seed *siphash_seed(void)
-{
-	struct siphash_seed *siphashseed = tal(tmpctx, struct siphash_seed);
-	memset(siphashseed, 1, sizeof(*siphashseed));
-	return siphashseed;
-}
-/* MOCKS END */
-
 #define MAX_SATS ((u64)WALLY_SATOSHI_PER_BTC * WALLY_BTC_MAX)
 #define MAX_MSATS (MAX_SATS * 1000)
 #define MAX_HTLCS 1000000
@@ -243,6 +234,7 @@ void init(int *argc, char ***argv)
 	chainparams = chainparams_for_network("bitcoin");
 	int devnull = open("/dev/null", O_WRONLY);
 	status_setup_sync(devnull);
+	fuzz_allow_siphash_seed = true;
 }
 
 struct pending_htlc {

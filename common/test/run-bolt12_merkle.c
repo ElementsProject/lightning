@@ -7,7 +7,6 @@
 #include <ccan/array_size/array_size.h>
 #include <common/channel_type.h>
 #include <common/features.h>
-#include <common/randbytes.h>
 #include <common/setup.h>
 #include <secp256k1_schnorrsig.h>
 
@@ -27,6 +26,9 @@ struct blinded_path *fromwire_blinded_path(const tal_t *ctx UNNEEDED, const u8 *
 bool fromwire_channel_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 			 struct channel_id *channel_id UNNEEDED)
 { fprintf(stderr, "fromwire_channel_id called!\n"); abort(); }
+/* Generated stub for siphash_seed */
+const struct siphash_seed *siphash_seed(void)
+{ fprintf(stderr, "siphash_seed called!\n"); abort(); }
 /* Generated stub for towire_blinded_path */
 void towire_blinded_path(u8 **p UNNEEDED, const struct blinded_path *blinded_path UNNEEDED)
 { fprintf(stderr, "towire_blinded_path called!\n"); abort(); }

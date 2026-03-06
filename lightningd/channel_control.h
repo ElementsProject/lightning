@@ -9,6 +9,7 @@ struct crypto_state;
 struct lightningd;
 struct peer_fd;
 struct peer;
+struct txlocator;
 
 bool peer_start_channeld(struct channel *channel,
 			 struct peer_fd *peer_fd,
@@ -54,8 +55,9 @@ void lockin_has_completed(struct channel *channel, bool record_push);
 void watch_splice_inflight(struct lightningd *ld,
 			   struct channel_inflight *inflight);
 
-/* Update/set scid now this txid is mined. */
+/* Update/set scid now this outpoint is mined. */
 bool depthcb_update_scid(struct channel *channel,
-			 const struct bitcoin_txid *txid,
-			 const struct bitcoin_outpoint *outpoint);
+			 const struct bitcoin_outpoint *outpoint,
+			 const struct txlocator *loc);
+
 #endif /* LIGHTNING_LIGHTNINGD_CHANNEL_CONTROL_H */

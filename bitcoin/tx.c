@@ -326,13 +326,12 @@ struct amount_asset bitcoin_tx_output_get_amount(const struct bitcoin_tx *tx,
 	return wally_tx_output_get_amount(&tx->wtx->outputs[outnum]);
 }
 
-void bitcoin_tx_output_get_amount_sat(const struct bitcoin_tx *tx, int outnum,
-				      struct amount_sat *amount)
+struct amount_sat bitcoin_tx_output_get_amount_sat(const struct bitcoin_tx *tx, int outnum)
 {
 	struct amount_asset asset_amt;
 	asset_amt = bitcoin_tx_output_get_amount(tx, outnum);
 	assert(amount_asset_is_main(&asset_amt));
-	*amount = amount_asset_to_sat(&asset_amt);
+	return amount_asset_to_sat(&asset_amt);
 }
 
 void bitcoin_tx_input_set_witness(struct bitcoin_tx *tx, int innum,

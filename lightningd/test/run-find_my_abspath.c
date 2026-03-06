@@ -12,9 +12,6 @@ int unused_main(int argc, char *argv[]);
 /* Generated stub for begin_topology */
 void begin_topology(struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "begin_topology called!\n"); abort(); }
-/* Generated stub for bip86_pubkey */
-void bip86_pubkey(struct lightningd *ld UNNEEDED, struct pubkey *pubkey UNNEEDED, u32 index UNNEEDED)
-{ fprintf(stderr, "bip86_pubkey called!\n"); abort(); }
 /* Generated stub for channel_gossip_notify_new_block */
 void channel_gossip_notify_new_block(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "channel_gossip_notify_new_block called!\n"); abort(); }
@@ -55,9 +52,6 @@ void db_begin_transaction_(struct db *db UNNEEDED, const char *location UNNEEDED
 /* Generated stub for db_commit_transaction */
 void db_commit_transaction(struct db *db UNNEEDED)
 { fprintf(stderr, "db_commit_transaction called!\n"); abort(); }
-/* Generated stub for db_get_intvar */
-s64 db_get_intvar(struct db *db UNNEEDED, const char *varname UNNEEDED, s64 defval UNNEEDED)
-{ fprintf(stderr, "db_get_intvar called!\n"); abort(); }
 /* Generated stub for db_in_transaction */
 bool db_in_transaction(struct db *db UNNEEDED)
 { fprintf(stderr, "db_in_transaction called!\n"); abort(); }
@@ -213,16 +207,6 @@ void stop_topology(struct chain_topology *topo UNNEEDED)
 /* Generated stub for towire_hsmd_ecdh_req */
 u8 *towire_hsmd_ecdh_req(const tal_t *ctx UNNEEDED, const struct pubkey *point UNNEEDED)
 { fprintf(stderr, "towire_hsmd_ecdh_req called!\n"); abort(); }
-/* Generated stub for txfilter_add_derkey */
-void txfilter_add_derkey(struct txfilter *filter UNNEEDED,
-			 const u8 derkey[PUBKEY_CMPR_LEN])
-{ fprintf(stderr, "txfilter_add_derkey called!\n"); abort(); }
-/* Generated stub for txfilter_add_scriptpubkey */
-void txfilter_add_scriptpubkey(struct txfilter *filter UNNEEDED, const u8 *script TAKES UNNEEDED)
-{ fprintf(stderr, "txfilter_add_scriptpubkey called!\n"); abort(); }
-/* Generated stub for txfilter_new */
-struct txfilter *txfilter_new(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "txfilter_new called!\n"); abort(); }
 /* Generated stub for waitblockheight_notify_new_block */
 void waitblockheight_notify_new_block(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "waitblockheight_notify_new_block called!\n"); abort(); }

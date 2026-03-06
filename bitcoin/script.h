@@ -12,6 +12,16 @@ struct ripemd160;
 struct rel_locktime;
 struct abs_locktime;
 
+/* libwally uses pointer/size pairs */
+struct script_with_len {
+	const u8 *script;
+	size_t len;
+};
+
+size_t script_with_len_hash(const struct script_with_len *swl);
+bool script_with_len_eq(const struct script_with_len *a,
+			const struct script_with_len *b);
+
 /* tal_count() gives the length of the script. */
 u8 *bitcoin_redeem_2of2(const tal_t *ctx,
 			const struct pubkey *key1,
