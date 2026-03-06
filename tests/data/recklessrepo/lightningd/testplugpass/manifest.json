@@ -1,0 +1,7 @@
+{
+    "name": "testplugpass",
+    "short_description": "a plugin to test reckless installation",
+    "long_description": "This plugin is one of several used in the reckless blackbox tests.  This one should success in dependenciy installation, and start up when activated in Core Lightning.",
+    "entrypoint": "testplugpass.py",
+    "requirements": ["python3"]
+}
