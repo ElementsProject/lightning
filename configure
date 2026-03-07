@@ -130,12 +130,12 @@ check_command()
     name="$1"
     shift 1
 
-    printf 'checking for %s... ' "${name}"
+    printf 'checking for %s... ' "${name}" >&2
     if "$@" >/dev/null 2>&1 </dev/null; then
-	echo 'found'
+	echo 'found' >&2
 	return 0
     fi
-    echo 'not found'
+    echo 'not found' >&2
     return 1
 }
 
@@ -272,9 +272,9 @@ usage()
 add_var()
 {
     if [ -n "$2" ]; then
-        echo "Setting $1... $2"
+        echo "Setting $1... $2" >&2
     else
-        echo "$1 not found"
+        echo "$1 not found" >&2
     fi
     echo "$1=$2" >> $CONFIG_VAR_FILE.$$
     [ -z "$3" ] || echo "#define $1 $2" >> "$3"
@@ -329,10 +329,10 @@ for opt in "$@"; do
 	--disable-fuzzing) FUZZING=0;;
 	--enable-rust) RUST=1;;
 	--disable-rust) RUST=0;;
-	--help|-h) usage;;
+	--help|-h) usage >&2;;
 	*)
 	    echo "Unknown option '$opt'" >&2
-	    usage
+	    usage >&2
 	    ;;
     esac
 done
@@ -342,7 +342,7 @@ set_defaults
 
 if [ "$ASAN" = "1" ]; then
     if [ "$VALGRIND" = "1" ]; then
-	echo "Address sanitizer (ASAN) and valgrind cannot be enabled at the same time"
+	echo "Address sanitizer (ASAN) and valgrind cannot be enabled at the same time" >&2
 	exit 1
     fi
 
@@ -376,16 +376,16 @@ else
 fi
 
 # We assume warning flags don't affect congfigurator that much!
-printf 'Compiling %s...' "${CONFIGURATOR}"
+printf 'Compiling %s...' "${CONFIGURATOR}" >&2
 $CC ${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS $LDFLAGS -o $CONFIGURATOR $CONFIGURATOR.c
-echo "done"
+echo "done" >&2
 
 if [ "$CLANG_COVERAGE" = "1" ]; then
 	case "$CC" in
 		(*"clang"*)
 			;;
 		(*)
-			echo "Clang coverage requires building with CC=clang."
+			echo "Clang coverage requires building with CC=clang." >&2
 			exit 1
 			;;
 	esac
@@ -396,7 +396,7 @@ if [ "$FUZZING" = "1" ]; then
 		(*"clang"*)
 			;;
 		(*)
-			echo "Fuzzing is currently only supported with clang."
+			echo "Fuzzing is currently only supported with clang." >&2
 			exit 1
 			;;
 	esac
