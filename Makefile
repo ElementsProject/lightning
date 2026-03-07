@@ -298,9 +298,9 @@ endif
 endif
 
 # Put the environment-inherited flags *last* so the user has the final say.
-CPPFLAGS += -DCLN_NEXT_VERSION="\"$(CLN_NEXT_VERSION)\"" -DPKGLIBEXECDIR="\"$(pkglibexecdir)\"" -DBINDIR="\"$(bindir)\"" -DPLUGINDIR="\"$(plugindir)\"" -DCCAN_TAL_NEVER_RETURN_NULL=1 $(CPPFLAGS_FROM_ENV)
-CFLAGS = $(CPPFLAGS) $(CWARNFLAGS) $(CDEBUGFLAGS) $(COPTFLAGS) -I $(CCANDIR) $(EXTERNAL_INCLUDE_FLAGS) -I . -I$(CPATH) $(SQLITE3_CFLAGS) $(SODIUM_CFLAGS) $(POSTGRES_INCLUDE) $(FEATURES) $(COVFLAGS) $(DEV_CFLAGS) -DSHACHAIN_BITS=48 -DJSMN_PARENT_LINKS $(PIE_CFLAGS) $(COMPAT_CFLAGS) $(CSANFLAGS) $(CFLAGS_FROM_ENV)
-LDFLAGS += $(PIE_LDFLAGS) $(CSANFLAGS) $(COPTFLAGS) $(LDFLAGS_FROM_ENV)
+CPPFLAGS += -DCLN_NEXT_VERSION="\"$(CLN_NEXT_VERSION)\"" -DPKGLIBEXECDIR="\"$(pkglibexecdir)\"" -DBINDIR="\"$(bindir)\"" -DPLUGINDIR="\"$(plugindir)\"" -DCCAN_TAL_NEVER_RETURN_NULL=1 -I$(CCANDIR) $(EXTERNAL_INCLUDE_FLAGS) -I. -I$(CPATH) $(POSTGRES_INCLUDE) -DSHACHAIN_BITS=48 -DJSMN_PARENT_LINKS $(COMPAT_CFLAGS) $(CPPFLAGS_FROM_ENV)
+CFLAGS = $(CWARNFLAGS) $(CDEBUGFLAGS) $(COPTFLAGS) $(SQLITE3_CFLAGS) $(SODIUM_CFLAGS) $(FEATURES) $(COVFLAGS) $(DEV_CFLAGS) $(PIE_CFLAGS) $(CSANFLAGS) $(CFLAGS_FROM_ENV)
+LDFLAGS += $(PIE_LDFLAGS) $(LDFLAGS_FROM_ENV)
 
 # If CFLAGS is already set in the environment of make (to whatever value, it
 # does not matter) then it would export it to subprocesses with the above value
@@ -334,8 +334,8 @@ FORCE:
 endif
 
 show-flags: config.vars
-	@$(ECHO) "CC: $(CC) $(CFLAGS) -c -o"
-	@$(ECHO) "LD: $(LINK.o) $(filter-out %.a,$^) $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) -o"
+	@$(ECHO) "CC: $(COMPILE.c) -o"
+	@$(ECHO) "LD: $(LINK.c) $(filter-out %.a,$^) $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) -o"
 
 # We will re-generate, but we won't generate for the first time!
 ccan/config.h config.vars &: configure ccan/tools/configurator/configurator.c
@@ -343,7 +343,7 @@ ccan/config.h config.vars &: configure ccan/tools/configurator/configurator.c
 	./configure --reconfigure
 
 %.o: %.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 
 # tools/update-mocks.sh does nasty recursive make, must not do this!
 ifeq ($(SUPPRESS_GENERATION),1)
@@ -802,7 +802,7 @@ $(ALL_TEST_PROGRAMS) $(ALL_FUZZ_TARGETS): %: %.o
 # (as per EXTERNAL_LDLIBS) so we filter them out here.  We have to put the other
 # .a files (if any) at the end of the link line.
 $(ALL_PROGRAMS) $(ALL_TEST_PROGRAMS):
-	@$(call VERBOSE, "ld $@", $(LINK.o) $(filter-out %.a,$^) $(filter-out external/%,$(filter %.a,$^)) $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) $($(@)_LDLIBS) -o $@)
+	@$(call VERBOSE, "ld $@", $(LINK.c) $(filter-out %.a,$^) $(filter-out external/%,$(filter %.a,$^)) $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) $($(@)_LDLIBS) -o $@)
 ifeq ($(OS),Darwin)
 	@$(call VERBOSE, "dsymutil $@", dsymutil $@)
 endif
@@ -823,7 +823,7 @@ endif
 endif
 
 $(ALL_FUZZ_TARGETS):
-	@$(call VERBOSE, "ld $@", $(LINK.o) $(filter-out %.a,$^) libcommon.a libccan.a $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) $(FUZZ_LDFLAGS) -o $@)
+	@$(call VERBOSE, "ld $@", $(LINK.c) $(filter-out %.a,$^) libcommon.a libccan.a $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) $(FUZZ_LDFLAGS) -o $@)
 ifeq ($(OS),Darwin)
 	@$(call VERBOSE, "dsymutil $@", dsymutil $@)
 endif
@@ -1089,113 +1089,113 @@ clightning-$(VERSION)-$(DISTRO).tar.xz: install
 endif
 
 ccan-breakpoint.o: $(CCANDIR)/ccan/breakpoint/breakpoint.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-base64.o: $(CCANDIR)/ccan/base64/base64.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-tal.o: $(CCANDIR)/ccan/tal/tal.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-tal-str.o: $(CCANDIR)/ccan/tal/str/str.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-tal-link.o: $(CCANDIR)/ccan/tal/link/link.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-tal-path.o: $(CCANDIR)/ccan/tal/path/path.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-tal-grab_file.o: $(CCANDIR)/ccan/tal/grab_file/grab_file.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-take.o: $(CCANDIR)/ccan/take/take.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-list.o: $(CCANDIR)/ccan/list/list.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-asort.o: $(CCANDIR)/ccan/asort/asort.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-ptr_valid.o: $(CCANDIR)/ccan/ptr_valid/ptr_valid.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-read_write_all.o: $(CCANDIR)/ccan/read_write_all/read_write_all.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-str.o: $(CCANDIR)/ccan/str/str.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-opt.o: $(CCANDIR)/ccan/opt/opt.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-opt-helpers.o: $(CCANDIR)/ccan/opt/helpers.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-opt-parse.o: $(CCANDIR)/ccan/opt/parse.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-opt-usage.o: $(CCANDIR)/ccan/opt/usage.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-err.o: $(CCANDIR)/ccan/err/err.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-noerr.o: $(CCANDIR)/ccan/noerr/noerr.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-str-hex.o: $(CCANDIR)/ccan/str/hex/hex.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-crc32c.o: $(CCANDIR)/ccan/crc32c/crc32c.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-crypto-hmac.o: $(CCANDIR)/ccan/crypto/hmac_sha256/hmac_sha256.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-crypto-hkdf.o: $(CCANDIR)/ccan/crypto/hkdf_sha256/hkdf_sha256.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-crypto-shachain.o: $(CCANDIR)/ccan/crypto/shachain/shachain.c
-	@$(call VERBOSE, "cc $< -DSHACHAIN_BITS=48", $(CC) $(CFLAGS) -DSHACHAIN_BITS=48 -c -o $@ $<)
+	@$(call VERBOSE, "cc $< -DSHACHAIN_BITS=48", $(COMPILE.c) -DSHACHAIN_BITS=48 -o $@ $<)
 ccan-crypto-sha256.o: $(CCANDIR)/ccan/crypto/sha256/sha256.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-crypto-ripemd160.o: $(CCANDIR)/ccan/crypto/ripemd160/ripemd160.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-cdump.o: $(CCANDIR)/ccan/cdump/cdump.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-strmap.o: $(CCANDIR)/ccan/strmap/strmap.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-strset.o: $(CCANDIR)/ccan/strset/strset.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-crypto-siphash24.o: $(CCANDIR)/ccan/crypto/siphash24/siphash24.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-htable.o: $(CCANDIR)/ccan/htable/htable.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-ilog.o: $(CCANDIR)/ccan/ilog/ilog.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-intmap.o: $(CCANDIR)/ccan/intmap/intmap.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-isaac.o: $(CCANDIR)/ccan/isaac/isaac.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-isaac64.o: $(CCANDIR)/ccan/isaac/isaac64.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-time.o: $(CCANDIR)/ccan/time/time.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-timer.o: $(CCANDIR)/ccan/timer/timer.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-io-io.o: $(CCANDIR)/ccan/io/io.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-io-poll.o: $(CCANDIR)/ccan/io/poll.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-io-fdpass.o: $(CCANDIR)/ccan/io/fdpass/fdpass.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-pipecmd.o: $(CCANDIR)/ccan/pipecmd/pipecmd.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-mem.o: $(CCANDIR)/ccan/mem/mem.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-fdpass.o: $(CCANDIR)/ccan/fdpass/fdpass.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-bitops.o: $(CCANDIR)/ccan/bitops/bitops.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-rbuf.o: $(CCANDIR)/ccan/rbuf/rbuf.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-str-base32.o: $(CCANDIR)/ccan/str/base32/base32.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-utf8.o: $(CCANDIR)/ccan/utf8/utf8.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-bitmap.o: $(CCANDIR)/ccan/bitmap/bitmap.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-membuf.o: $(CCANDIR)/ccan/membuf/membuf.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-json_escape.o: $(CCANDIR)/ccan/json_escape/json_escape.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-json_out.o: $(CCANDIR)/ccan/json_out/json_out.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-closefrom.o: $(CCANDIR)/ccan/closefrom/closefrom.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-rune-rune.o: $(CCANDIR)/ccan/rune/rune.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 ccan-rune-coding.o: $(CCANDIR)/ccan/rune/coding.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 
 canned-gossmap: devtools/gossmap-compress
 	DATE=`date +%Y-%m-%d` && devtools/gossmap-compress compress --output-node-map /tmp/gossip_store tests/data/gossip-store-$$DATE.compressed > tests/data/gossip-store-$$DATE-node-map && xz -9 tests/data/gossip-store-$$DATE-node-map && ls -l tests/data/gossip-store-$$DATE*
