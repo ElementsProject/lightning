@@ -236,7 +236,7 @@ static void fail_mismatch(const char *filename,
 static bool find_strings(const char *bolttext, char **strings, size_t nstrings)
 {
 	const char *p = bolttext;
-	char *find;
+	const char *find;
 
 	if (nstrings == 0)
 		return true;
