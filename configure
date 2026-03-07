@@ -130,7 +130,7 @@ check_command()
     name="$1"
     shift 1
 
-    echo -n "checking for $name... "
+    printf 'checking for %s... ' "${name}"
     if "$@" >/dev/null 2>&1 </dev/null; then
 	echo 'found'
 	return 0
@@ -376,7 +376,7 @@ else
 fi
 
 # We assume warning flags don't affect congfigurator that much!
-echo -n "Compiling $CONFIGURATOR..."
+printf 'Compiling %s...' "${CONFIGURATOR}"
 $CC ${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS $LDFLAGS -o $CONFIGURATOR $CONFIGURATOR.c
 echo "done"
 
