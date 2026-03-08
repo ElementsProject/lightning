@@ -29,6 +29,245 @@ def check_events(node, channel_id, exp_events, alt_events=None):
     assert stripped == exp_events or stripped == alt_events
 
 
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_bookkeeping_splice_in(node_factory, bitcoind):
+    """
+    Test splice-in accounting - adding funds to an existing channel.
+    """
+    l1, l2 = node_factory.line_graph(
+        2,
+        fundamount=1000000,
+        wait_for_announce=True,
+        opts={'experimental-splicing': None}
+    )
+
+    chan_id = l1.get_channel_id(l2)
+    channel_id = first_channel_id(l1, l2)
+
+    # Record initial balances
+    initial_channel_bal = only_one(l1.rpc.listpeerchannels()['channels'])['to_us_msat']
+
+    # Get initial bookkeeper state
+    initial_events = l1.rpc.bkpr_listaccountevents()['events']
+    initial_balances = l1.rpc.bkpr_listbalances()['accounts']
+    initial_wallet_bal = only_one([
+        a for a in initial_balances if a['account'] == 'wallet'
+    ])['balances'][0]['balance_msat']
+
+    # Splice in 100,000 sats (add extra for fees)
+    splice_amount = 100000
+    funds_result = l1.rpc.fundpsbt("109000sat", "slow", 166, excess_as_change=True)
+
+    result = l1.rpc.splice_init(chan_id, splice_amount, funds_result['psbt'])
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert result['commitments_secured'] is False
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert result['commitments_secured'] is True
+    result = l1.rpc.signpsbt(result['psbt'])
+    result = l1.rpc.splice_signed(chan_id, result['signed_psbt'])
+
+    splice_txid = result['txid']
+
+    # Wait for splice to be in mempool
+    l1.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+    l2.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+
+    wait_for(lambda: splice_txid in bitcoind.rpc.getrawmempool())
+
+    # Mine the splice transaction
+    bitcoind.generate_block(6, wait_for_mempool=1)
+
+    # Compute fees from splice
+    splice_tx = bitcoind.rpc.getrawtransaction(splice_txid, True)
+    vin = splice_tx['vin']
+    vout = splice_tx['vout']
+    in_amount = sum(
+        [bitcoind.rpc.getrawtransaction(v['txid'], True)['vout'][v['vout']]['value'] 
+        for v in vin]
+    )
+    out_amount = sum([o['value'] for o in vout])
+    splice_fee = int((in_amount - out_amount) * 10**8)
+
+
+    # Wait for channel to return to normal
+    l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+    l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+
+    sync_blockheight(bitcoind, [l1, l2])
+
+    # Verify channel balance increased
+    new_channel_bal = only_one(l1.rpc.listpeerchannels()['channels'])['to_us_msat']
+    assert new_channel_bal > initial_channel_bal
+    # The increase should be approximately the splice amount (minus any fees)
+    balance_increase = new_channel_bal - initial_channel_bal
+    assert balance_increase >= Millisatoshi(splice_amount * 1000 - splice_fee)  # Allow for fees
+
+    # Verify bookkeeper recorded the splice events
+    events = l1.rpc.bkpr_listaccountevents()['events']
+
+    # Filter events for our channel
+    channel_events = [e for e in events if e['account'] == channel_id]
+
+    # Should have channel_open event (original) and channel_open for splice
+    channel_opens = find_tags(channel_events, 'channel_open')
+    # After splice, there should be a new channel_open for the new funding output
+    assert len(channel_opens) >= 1
+
+    # Check that balances are updated correctly
+    balances = l1.rpc.bkpr_listbalances()['accounts']
+    wallet_bal = only_one([
+        a for a in balances if a['account'] == 'wallet'
+    ])['balances'][0]['balance_msat']
+
+    # Wallet should have decreased (funds moved to channel + fees)
+    assert wallet_bal < initial_wallet_bal
+
+    # Verify channel can still operate after splice
+    inv = l2.rpc.invoice(10000, 'post_splice', 'test after splice')
+    l1.rpc.pay(inv['bolt11'])
+
+    # Payment should be recorded
+    wait_for(lambda: only_one(l1.rpc.listpays(inv['bolt11'])['pays'])['status'] == 'complete')
+
+    # Verify persistence after restart
+    l1.restart()
+
+    events_after = l1.rpc.bkpr_listaccountevents()['events']
+    assert len(events_after) >= len(events)
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_bookkeeping_splice_out(node_factory, bitcoind):
+    """
+    Test splice-out accounting - removing funds from an existing channel.
+    """
+    l1, l2 = node_factory.line_graph(
+        2,
+        fundamount=1000000,
+        wait_for_announce=True,
+        opts={'experimental-splicing': None}
+    )
+
+    chan_id = l1.get_channel_id(l2)
+    channel_id = first_channel_id(l1, l2)
+
+    # Record initial balances
+    initial_channel_bal = only_one(l1.rpc.listpeerchannels()['channels'])['to_us_msat']
+
+    # Get initial bookkeeper state
+    initial_balances = l1.rpc.bkpr_listbalances()['accounts']
+    initial_wallet_bal = only_one([
+        a for a in initial_balances if a['account'] == 'wallet'
+    ])['balances'][0]['balance_msat']
+
+    # Splice out 100,000 sats to a new output
+    # addpsbtoutput creates an output we'll receive
+    splice_out_amount = 100000
+    funds_result = l1.rpc.addpsbtoutput(splice_out_amount)
+
+    # Negative amount means splice out (remove from channel)
+    # We subtract extra for fees
+    result = l1.rpc.splice_init(chan_id, - (splice_out_amount + 5000), funds_result['psbt'])
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert result['commitments_secured'] is False
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert result['commitments_secured'] is True
+    result = l1.rpc.splice_signed(chan_id, result['psbt'])
+
+    splice_txid = result['txid']
+
+    # Wait for splice to be in mempool
+    l1.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+    l2.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+
+    wait_for(lambda: splice_txid in bitcoind.rpc.getrawmempool())
+
+    # Mine the splice transaction
+    bitcoind.generate_block(6, wait_for_mempool=1)
+
+    # Wait for channel to return to normal
+    l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+    l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+
+    sync_blockheight(bitcoind, [l1, l2])
+
+    # Verify channel balance decreased (funds removed + fees)
+    new_channel_bal = only_one(l1.rpc.listpeerchannels()['channels'])['to_us_msat']
+    assert new_channel_bal == initial_channel_bal - (splice_out_amount + 5000) * 1000
+    balance_decrease = initial_channel_bal - new_channel_bal
+    # Should be approximately splice_out_amount + fees
+    assert balance_decrease == Millisatoshi(splice_out_amount + 5000) * 1000
+
+    # Verify bookkeeper recorded the events
+    events = l1.rpc.bkpr_listaccountevents()['events']
+
+    # Filter events for our channel
+    channel_events = [e for e in events if e['account'] == channel_id]
+
+    # Should have channel events
+    assert len(channel_events) >= 1
+
+    # Check wallet events - should have a deposit from the splice out
+    wallet_events = [e for e in events if e['account'] == 'wallet']
+    wallet_deposits = find_tags(wallet_events, 'deposit')
+
+    # Should have deposits - including the splice out output
+    # one for initial funding, one for the change after 
+    # channel opening, and one for splice out
+    assert len(wallet_deposits) == 3
+
+    # Check final balances
+    balances = l1.rpc.bkpr_listbalances()['accounts']
+    wallet_bal = only_one([
+        a for a in balances if a['account'] == 'wallet'
+    ])['balances'][0]['balance_msat']
+
+    # Compute fees from splice
+    splice_tx = bitcoind.rpc.getrawtransaction(splice_txid, True)
+    vin = splice_tx['vin']
+    vout = splice_tx['vout']
+    in_amount = sum(
+        [bitcoind.rpc.getrawtransaction(v['txid'], True)['vout'][v['vout']]['value'] 
+        for v in vin]
+    )
+    out_amount = sum([o['value'] for o in vout])
+    splice_fee = int((in_amount - out_amount) * 10**8)
+
+    # Wallet should have increased (received splice out funds)
+    assert wallet_bal >= initial_wallet_bal + Millisatoshi(splice_out_amount * 1000)
+
+    # Verify on-chain fees are tracked
+    income_events = l1.rpc.bkpr_listincome()['income_events']
+    onchain_fees = find_tags(income_events, 'onchain_fee')
+    # Should have some fee events recorded
+    # channel open + splice
+    assert len(onchain_fees) >= 2  
+
+    # Verify channel can still operate after splice
+    inv = l2.rpc.invoice(10000, 'post_splice_out', 'test after splice out')
+    l1.rpc.pay(inv['bolt11'])
+
+    wait_for(lambda: only_one(l1.rpc.listpays(inv['bolt11'])['pays'])['status'] == 'complete')
+
+    # Verify persistence after restart
+    l1.restart()
+
+    events_after = l1.rpc.bkpr_listaccountevents()['events']
+    balances_after = l1.rpc.bkpr_listbalances()['accounts']
+
+    # Events and balances should persist
+    assert len(events_after) >= len(events)
+
+    wallet_bal_after = only_one([
+        a for a in balances_after if a['account'] == 'wallet'
+    ])['balances'][0]['balance_msat']
+    assert wallet_bal_after == wallet_bal
+
+
 @unittest.skipIf(TEST_NETWORK != 'regtest', "fixme: broadcast fails, dusty")
 def test_bookkeeping_closing_trimmed_htlcs(node_factory, bitcoind, executor):
     l1, l2 = node_factory.line_graph(2, opts={'old_hsmsecret': True})
