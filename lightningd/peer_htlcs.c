@@ -2,6 +2,8 @@
 #include <ccan/cast/cast.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
+#include <ccan/tal/tal.h>
+#include <ccan/time/time.h>
 #include <channeld/channeld_wiregen.h>
 #include <common/amount.h>
 #include <common/blinding.h>
@@ -10,6 +12,7 @@
 #include <common/json_parse.h>
 #include <common/onion_decode.h>
 #include <common/onionreply.h>
+#include <common/sphinx.h>
 #include <common/timeout.h>
 #include <db/exec.h>
 #include <lightningd/channel.h>
@@ -309,17 +312,26 @@ static void fail_out_htlc(struct htlc_out *hout, const char *localfail)
 			       hout->failmsg,
 			       localfail);
 	} else if (hout->in) {
-		const struct onionreply *failonion;
+		const struct onionreply *final_failonion;
+		struct onionreply *failonion;
+
+		struct timerel delta = time_between(hout->send_timestamp, hout->in->received_time);
+		long total_ms = delta.ts.tv_sec * 1000 + delta.ts.tv_nsec / 1000000;
+		u32 hold_times = total_ms / 100;
 
 		/* If we have an onion, simply copy it. */
 		if (hout->failonion)
-			failonion = hout->failonion;
+			failonion = dup_onionreply(hout, hout->failonion);
 		/* Otherwise, we need to onionize this local error. */
 		else
 			failonion = create_onionreply(hout,
 						      hout->in->shared_secret,
 						      hout->failmsg);
-		fail_in_htlc(hout->in, failonion);
+
+		update_attributable_data(failonion, hold_times, hout->in->shared_secret);
+
+		final_failonion = failonion;
+		fail_in_htlc(hout->in, final_failonion);
 	} else {
 		log_broken(hout->key.channel->log, "Neither origin nor in?");
 	}
@@ -416,8 +428,20 @@ void fulfill_htlc(struct htlc_in *hin, const struct preimage *preimage)
 		msg = towire_onchaind_known_preimage(hin, preimage);
 	} else {
 		struct fulfilled_htlc fulfilled_htlc;
+		struct attribution_data *ad = tal(hin, struct attribution_data);
 		fulfilled_htlc.id = hin->key.id;
 		fulfilled_htlc.payment_preimage = *preimage;
+		if (hin->fulfill_onion && hin->fulfill_onion->attr_data) {
+			ad->htlc_hold_time = tal_dup_arr(ad, u8,
+			       hin->fulfill_onion->attr_data->htlc_hold_time,
+			       80, 0);
+			ad->truncated_hmac = tal_dup_arr(ad, u8,
+			       hin->fulfill_onion->attr_data->truncated_hmac,
+			       840, 0);
+			fulfilled_htlc.attr_data = ad;
+		} else {
+			fulfilled_htlc.attr_data = NULL;
+		}
 		msg = towire_channeld_fulfill_htlc(hin, &fulfilled_htlc);
 	}
 	subd_send_msg(channel->owner, take(msg));
@@ -731,7 +755,7 @@ const u8 *send_htlc_out(const tal_t *ctx,
 			      path_key, extra_tlvs,
 			      in == NULL,
 			      final_msat,
-			      partid, groupid, in);
+			      partid, groupid, in, time_now());
 	tal_add_destructor(*houtp, destroy_hout_subd_died);
 
 	/* Give channel 30 seconds to commit this htlc. */
@@ -1142,7 +1166,7 @@ static bool htlc_accepted_hook_deserialize(struct htlc_accepted_hook_payload *re
 					   " Ignoring 'failure_message'.");
 
 			fail_in_htlc(hin, take(new_onionreply(NULL,
-							      failonion)));
+							      failonion, NULL)));
 			return false;
 		}
 		if (!failmsgtok) {
@@ -1639,6 +1663,16 @@ static void fulfill_our_htlc_out(struct channel *channel, struct htlc_out *hout,
 				    fmt_amount_msat(tmpctx, hout->msat));
 		} else {
 			struct short_channel_id scid = channel_scid_or_local_alias(hout->key.channel);
+			if (hout->fulfill_attr && hout->in->shared_secret) {
+				struct timerel delta = time_between(hout->send_timestamp, hout->in->received_time);
+				long total_ms = delta.ts.tv_sec * 1000 + delta.ts.tv_nsec / 1000000;
+				u32 hold_times = total_ms / 100;
+
+				u8 *contents = tal_dup_arr(tmpctx, u8, preimage->r, sizeof(*preimage), 0);
+				struct onionreply *reply = new_onionreply(tmpctx, contents, hout->fulfill_attr);
+				update_attributable_data(reply, hold_times, hout->in->shared_secret);
+				hout->in->fulfill_onion = dup_onionreply(hout, reply);
+			}
 			fulfill_htlc(hout->in, preimage);
 			wallet_forwarded_payment_add(ld->wallet, hout->in,
 						     FORWARD_STYLE_TLV,
@@ -1665,6 +1699,11 @@ static bool peer_fulfilled_our_htlc(struct channel *channel,
 	if (!htlc_out_update_state(channel, hout, RCVD_REMOVE_COMMIT))
 		return false;
 
+	if (fulfilled->attr_data) {
+		hout->fulfill_attr = tal_dup(hout, struct attribution_data, fulfilled->attr_data);
+	} else {
+		hout->fulfill_attr = NULL;
+	}
 	fulfill_our_htlc_out(channel, hout, &fulfilled->payment_preimage);
 	return true;
 }
