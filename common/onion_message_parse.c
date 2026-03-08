@@ -99,6 +99,7 @@ const char *onion_message_parse(const tal_t *ctx,
 	struct secret ss, onion_ss;
 	const u8 *cursor;
 	size_t max, maxlen;
+	struct pubkey next_path_key = *path_key;
 
 	/* We unwrap the onion now. */
 	op = parse_onionpacket(tmpctx,
@@ -110,79 +111,87 @@ const char *onion_message_parse(const tal_t *ctx,
 			       onion_wire_name(badreason));
 	}
 
-	ephemeral = op->ephemeralkey;
-	if (!unblind_onion(path_key, ecdh, &ephemeral, &ss)) {
-		return tal_fmt(ctx, "onion_message_parse: can't unblind onionpacket");
-	}
-
-	/* Now get onion shared secret and parse it. */
-	ecdh(&ephemeral, &onion_ss);
-	rs = process_onionpacket(tmpctx, op, &onion_ss, NULL, 0);
-	if (!rs) {
-		return tal_fmt(ctx, "onion_message_parse: can't process onionpacket ss=%s",
-			       fmt_secret(tmpctx, &onion_ss));
-	}
-
-	/* The raw payload is prepended with length in the modern onion. */
-	cursor = rs->raw_payload;
-	max = tal_bytelen(rs->raw_payload);
-	maxlen = fromwire_bigsize(&cursor, &max);
-	if (!cursor) {
-		return tal_fmt(ctx, "onion_message_parse: Invalid hop payload %s",
-			       tal_hex(tmpctx, rs->raw_payload));
-	}
-	if (maxlen > max) {
-		return tal_fmt(ctx, "onion_message_parse: overlong hop payload %s",
-			       tal_hex(tmpctx, rs->raw_payload));
-	}
-
-	om = fromwire_tlv_onionmsg_tlv(tmpctx, &cursor, &maxlen);
-	if (!om) {
-		return tal_fmt(ctx, "onion_message_parse: invalid onionmsg_tlv %s",
-			       tal_hex(tmpctx, rs->raw_payload));
-	}
-	if (rs->nextcase == ONION_END) {
-		*next_onion_msg = NULL;
-		*final_om = tal_steal(ctx, om);
-		/* Final enctlv is actually optional */
-		if (!om->encrypted_recipient_data) {
-			*final_alias = *me;
-			*final_path_id = NULL;
-		} else if (!decrypt_final_onionmsg(ctx, &ss,
-						   om->encrypted_recipient_data, me,
-						   final_alias,
-						   final_path_id)) {
-			return tal_fmt(ctx,
-					  "onion_message_parse: failed to decrypt encrypted_recipient_data"
-					  " %s", tal_hex(tmpctx, om->encrypted_recipient_data));
-		}
-	} else {
-		struct pubkey next_path_key;
-
-		*final_om = NULL;
-
-		/* BOLT #4:
-		 * - if it is not the final node according to the onion encryption:
-		 *   - if the `onionmsg_tlv` contains other tlv fields than `encrypted_recipient_data`:
-		 *     - MUST ignore the message.
-		 */
-		if (tal_count(om->fields) != 1) {
-			return tal_fmt(ctx, "onion_message_parse: disallowed tlv field");
+	for(;;) {
+		ephemeral = op->ephemeralkey;
+		if (!unblind_onion(&next_path_key, ecdh, &ephemeral, &ss)) {
+			return tal_fmt(ctx, "onion_message_parse: can't unblind onionpacket");
 		}
 
-		/* This fails as expected if no enctlv. */
-		if (!decrypt_forwarding_onionmsg(path_key, &ss, om->encrypted_recipient_data, next_node,
-						 &next_path_key)) {
-			return tal_fmt(ctx,
-				       "onion_message_parse: invalid encrypted_recipient_data %s",
-				       tal_hex(tmpctx, om->encrypted_recipient_data));
+		/* Now get onion shared secret and parse it. */
+		ecdh(&ephemeral, &onion_ss);
+		rs = process_onionpacket(tmpctx, op, &onion_ss, NULL, 0);
+		if (!rs) {
+			return tal_fmt(ctx, "onion_message_parse: can't process onionpacket ss=%s",
+					fmt_secret(tmpctx, &onion_ss));
 		}
-		*next_onion_msg = towire_onion_message(ctx,
-						       &next_path_key,
-						       serialize_onionpacket(tmpctx, rs->next));
-	}
 
-	/* Exactly one is set */
-	assert(!*next_onion_msg + !*final_om == 1);
-	return NULL;
+		/* The raw payload is prepended with length in the modern onion. */
+		cursor = rs->raw_payload;
+		max = tal_bytelen(rs->raw_payload);
+		maxlen = fromwire_bigsize(&cursor, &max);
+		if (!cursor) {
+			return tal_fmt(ctx, "onion_message_parse: Invalid hop payload %s",
+					tal_hex(tmpctx, rs->raw_payload));
+		}
+		if (maxlen > max) {
+			return tal_fmt(ctx, "onion_message_parse: overlong hop payload %s",
+					tal_hex(tmpctx, rs->raw_payload));
+		}
+
+		om = fromwire_tlv_onionmsg_tlv(tmpctx, &cursor, &maxlen);
+		if (!om) {
+			return tal_fmt(ctx, "onion_message_parse: invalid onionmsg_tlv %s",
+					tal_hex(tmpctx, rs->raw_payload));
+		}
+		if (rs->nextcase == ONION_END) {
+			*next_onion_msg = NULL;
+			*final_om = tal_steal(ctx, om);
+			/* Final enctlv is actually optional */
+			if (!om->encrypted_recipient_data) {
+				*final_alias = *me;
+				*final_path_id = NULL;
+			} else if (!decrypt_final_onionmsg(ctx, &ss,
+						om->encrypted_recipient_data, me,
+						final_alias,
+						final_path_id)) {
+				return tal_fmt(ctx,
+						"onion_message_parse: failed to decrypt encrypted_recipient_data"
+						" %s", tal_hex(tmpctx, om->encrypted_recipient_data));
+			}
+		} else {
+
+			*final_om = NULL;
+
+			/* BOLT #4:
+			 * - if it is not the final node according to the onion encryption:
+			 *   - if the `onionmsg_tlv` contains other tlv fields than `encrypted_recipient_data`:
+			 *     - MUST ignore the message.
+			 */
+			if (tal_count(om->fields) != 1) {
+				return tal_fmt(ctx, "onion_message_parse: disallowed tlv field");
+			}
+
+			/* This fails as expected if no enctlv. */
+			if (!decrypt_forwarding_onionmsg(&next_path_key, &ss, om->encrypted_recipient_data, next_node,
+						&next_path_key)) {
+				return tal_fmt(ctx,
+						"onion_message_parse: invalid encrypted_recipient_data %s",
+						tal_hex(tmpctx, om->encrypted_recipient_data));
+			}
+
+			if(next_node->is_pubkey && !pubkey_cmp(&next_node->pubkey, me)) {
+				op = rs->next;
+				continue;
+
+			} else {
+				*next_onion_msg = towire_onion_message(ctx,
+						&next_path_key,
+						serialize_onionpacket(tmpctx, rs->next));
+			}
+		}
+
+		/* Exactly one is set */
+		assert(!*next_onion_msg + !*final_om == 1);
+		return NULL;
+	}
 }
