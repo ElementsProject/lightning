@@ -260,6 +260,13 @@ static bool is_literal(const char *arg)
 	if (arglen == 0) {
 		return false;
 	}
+	/* A string of digits with a leading zero cannot be a literal unless it
+	 * is "0". It should be passed with quotes as it might encode a hex
+	 * data. */
+	if (strspn(arg, "0123456789") == arglen && arglen > 1 &&
+	    arg[0] == '0') {
+		return false;
+	}
 	return strspn(arg, "0123456789.") == arglen
 		|| streq(arg, "true")
 		|| streq(arg, "false")

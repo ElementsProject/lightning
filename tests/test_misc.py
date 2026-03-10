@@ -1011,6 +1011,30 @@ def test_malformed_rpc(node_factory):
     sock.close()
 
 
+def test_valid_json_cli(node_factory):
+    """Make sure lightning-cli passes valid json values, so that rust and python plugins
+    don't crash."""
+    l1 = node_factory.get_node(
+        options={
+            "log-level": "io",
+            "plugin": os.path.join(os.getcwd(), "tests/plugins/validatejson.py"),
+        }
+    )
+    # If passed as a literal number rust's serde_json::from_str will fail as the
+    # leading zero makes it invalid for an integer.
+    nodeid = "030000000000000000000000000000000000000000000000000000000000000001"
+    subprocess.check_output(
+        [
+            "cli/lightning-cli",
+            "--network={}".format(TEST_NETWORK),
+            "--lightning-dir={}".format(l1.daemon.lightning_dir),
+            "-k",
+            "validate-json-rpc",
+            f"nodeid={nodeid}",
+        ]
+    ).decode("utf-8")
+
+
 def test_cli(node_factory):
     l1 = node_factory.get_node(options={'log-level': 'io'})
 
