@@ -1011,7 +1011,6 @@ def test_malformed_rpc(node_factory):
     sock.close()
 
 
-@pytest.mark.skip
 def test_valid_json_cli(node_factory):
     """Make sure lightning-cli passes valid json values, so that rust and python plugins
     don't crash."""
