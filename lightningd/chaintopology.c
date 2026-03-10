@@ -166,8 +166,13 @@ static void rebroadcast_txs(struct chain_topology *topo)
 	for (otx = outgoing_tx_map_first(topo->outgoing_txs, &it); otx;
 	     otx = outgoing_tx_map_next(topo->outgoing_txs, &it)) {
 		struct tx_rebroadcast *txrb;
-		/* Already sent? */
-		if (wallet_transaction_height(topo->ld->wallet, &otx->txid))
+		struct bitcoin_txid cur_txid;
+
+		/* Already confirmed?  Use the txid of the current tx, not the
+		 * original otx->txid: refresh() may have replaced otx->tx with
+		 * a higher-fee version whose txid differs from the map key. */
+		bitcoin_txid(otx->tx, &cur_txid);
+		if (wallet_transaction_height(topo->ld->wallet, &cur_txid))
 			continue;
 
 		/* Don't send ones which aren't ready yet.  Note that if the
