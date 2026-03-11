@@ -1,0 +1,310 @@
+{
+  "$schema": "../../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "notification": "coin_movement",
+  "title": "Notification for coin movements",
+  "description": [
+    "The **coin_movement** notification informs whenever lightningd records a finalized ledger movement."
+  ],
+  "added": "pre-v0.10.1",
+  "request": {
+    "added": "pre-v0.10.1"
+  },
+  "response": {
+    "added": "pre-v0.10.1",
+    "required": [
+      "version",
+      "coin_type",
+      "node_id",
+      "type",
+      "created_index",
+      "account_id",
+      "credit_msat",
+      "debit_msat",
+      "timestamp",
+      "primary_tag"
+    ],
+    "properties": {
+      "version": {
+        "type": "u32",
+        "description": [
+          "The coin movement schema version."
+        ],
+        "added": "pre-v0.10.1"
+      },
+      "coin_type": {
+        "type": "string",
+        "description": [
+          "The BIP173 coin type name."
+        ],
+        "added": "pre-v0.10.1"
+      },
+      "node_id": {
+        "type": "pubkey",
+        "description": [
+          "The node id that emitted the notification."
+        ],
+        "added": "pre-v0.10.1"
+      },
+      "type": {
+        "type": "string",
+        "enum": [
+          "channel_mvt",
+          "chain_mvt"
+        ],
+        "description": [
+          "Whether this is a channel or chain movement."
+        ],
+        "added": "pre-v0.10.1"
+      },
+      "created_index": {
+        "type": "u64",
+        "description": [
+          "1-based index indicating order this move was created in."
+        ],
+        "added": "pre-v0.10.1"
+      },
+      "account_id": {
+        "type": "string",
+        "description": [
+          "The account identifier for the movement."
+        ],
+        "added": "pre-v0.10.1"
+      },
+      "credit_msat": {
+        "type": "msat",
+        "description": [
+          "Amount credited to the account."
+        ],
+        "added": "pre-v0.10.1"
+      },
+      "debit_msat": {
+        "type": "msat",
+        "description": [
+          "Amount debited from the account."
+        ],
+        "added": "pre-v0.10.1"
+      },
+      "timestamp": {
+        "type": "u64",
+        "description": [
+          "The UNIX timestamp when the movement was recorded."
+        ],
+        "added": "pre-v0.10.1"
+      },
+      "tags": {
+        "type": "array",
+        "description": [
+          "Deprecated legacy combined tag array, emitted only for deprecated output compatibility."
+        ],
+        "added": "pre-v0.10.1",
+        "deprecated": [
+          "v25.09",
+          "v26.09"
+        ],
+        "items": {
+          "type": "string",
+          "added": "pre-v0.10.1",
+          "description": [
+            "A legacy movement tag."
+          ]
+        }
+      },
+      "primary_tag": {
+        "type": "string",
+        "enum": [
+          "deposit",
+          "withdrawal",
+          "penalty",
+          "channel_open",
+          "channel_close",
+          "delayed_to_us",
+          "htlc_tx",
+          "htlc_timeout",
+          "htlc_fulfill",
+          "to_wallet",
+          "anchor",
+          "to_them",
+          "penalized",
+          "stolen",
+          "ignored",
+          "to_miner",
+          "invoice",
+          "routed",
+          "pushed",
+          "lease_fee",
+          "channel_proposed",
+          "penalty_adj",
+          "journal_entry"
+        ],
+        "description": [
+          "The primary movement tag."
+        ],
+        "added": "v25.09"
+      },
+      "extra_tags": {
+        "type": "array",
+        "description": [
+          "Additional movement tags."
+        ],
+        "added": "v25.09",
+        "items": {
+          "type": "string",
+          "added": "v25.09",
+          "description": [
+            "An additional movement tag."
+          ]
+        }
+      },
+      "payment_hash": {
+        "type": "hash",
+        "description": [
+          "The payment hash associated with the movement, if any."
+        ],
+        "added": "pre-v0.10.1"
+      },
+      "part_id": {
+        "type": "u64",
+        "description": [
+          "The part id for a multi-part channel payment."
+        ],
+        "added": "pre-v0.10.1"
+      },
+      "group_id": {
+        "type": "u64",
+        "description": [
+          "The group id for a multi-part channel payment."
+        ],
+        "added": "pre-v0.10.1"
+      },
+      "fees_msat": {
+        "type": "msat",
+        "description": [
+          "The fees associated with a channel movement."
+        ],
+        "added": "pre-v0.10.1"
+      },
+      "utxo": {
+        "type": "outpoint",
+        "description": [
+          "The outpoint for a chain movement."
+        ],
+        "added": "v25.09"
+      },
+      "peer_id": {
+        "type": "pubkey",
+        "description": [
+          "The peer associated with a chain movement, if any."
+        ],
+        "added": "pre-v0.10.1"
+      },
+      "originating_account": {
+        "type": "string",
+        "description": [
+          "The originating account for an external chain movement, if any."
+        ],
+        "added": "pre-v0.10.1"
+      },
+      "txid": {
+        "type": "txid",
+        "description": [
+          "Deprecated legacy field for the spending transaction id."
+        ],
+        "added": "pre-v0.10.1",
+        "deprecated": [
+          "v25.09",
+          "v26.09"
+        ]
+      },
+      "spending_txid": {
+        "type": "txid",
+        "description": [
+          "The spending transaction id for a chain movement, if any."
+        ],
+        "added": "v25.09"
+      },
+      "utxo_txid": {
+        "type": "txid",
+        "description": [
+          "Deprecated legacy field for the outpoint transaction id."
+        ],
+        "added": "pre-v0.10.1",
+        "deprecated": [
+          "v25.09",
+          "v26.09"
+        ]
+      },
+      "vout": {
+        "type": "u32",
+        "description": [
+          "Deprecated legacy field for the outpoint output index."
+        ],
+        "added": "pre-v0.10.1",
+        "deprecated": [
+          "v25.09",
+          "v26.09"
+        ]
+      },
+      "output_msat": {
+        "type": "msat",
+        "description": [
+          "The output amount for a chain movement."
+        ],
+        "added": "pre-v0.10.1"
+      },
+      "output_count": {
+        "type": "u32",
+        "description": [
+          "The number of outputs in the spending transaction, if known."
+        ],
+        "added": "pre-v0.10.1"
+      },
+      "blockheight": {
+        "type": "u32",
+        "description": [
+          "The blockheight for a chain movement."
+        ],
+        "added": "pre-v0.10.1"
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "channel_mvt"
+              ]
+            }
+          }
+        },
+        "then": {
+          "required": [
+            "fees_msat"
+          ]
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "chain_mvt"
+              ]
+            }
+          }
+        },
+        "then": {
+          "required": [
+            "utxo",
+            "output_msat",
+            "blockheight"
+          ]
+        }
+      }
+    ]
+  }
+}

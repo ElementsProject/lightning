@@ -1,0 +1,148 @@
+{
+  "$schema": "../../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "notification": "forward_event",
+  "title": "Notification for forwarding events",
+  "description": [
+    "The **forward_event** notification informs whenever the status of a forwarded HTLC changes."
+  ],
+  "added": "pre-v0.10.1",
+  "request": {
+    "added": "pre-v0.10.1"
+  },
+  "response": {
+    "added": "pre-v0.10.1",
+    "required": [
+      "in_channel",
+      "in_htlc_id",
+      "in_msat",
+      "status",
+      "received_time"
+    ],
+    "properties": {
+      "created_index": {
+        "type": "u64",
+        "description": [
+          "1-based index indicating order this forward was created in."
+        ],
+        "added": "v23.11"
+      },
+      "updated_index": {
+        "type": "u64",
+        "description": [
+          "1-based index indicating order this forward was updated in."
+        ],
+        "added": "v23.11"
+      },
+      "payment_hash": {
+        "type": "hash",
+        "description": [
+          "The payment hash for the forwarded HTLC."
+        ],
+        "added": "pre-v0.10.1"
+      },
+      "in_channel": {
+        "type": "short_channel_id",
+        "description": [
+          "The inbound channel that received the HTLC."
+        ],
+        "added": "pre-v0.10.1"
+      },
+      "in_htlc_id": {
+        "type": "u64",
+        "description": [
+          "The inbound HTLC id for the forwarded HTLC."
+        ],
+        "added": "v22.11"
+      },
+      "out_channel": {
+        "type": "short_channel_id",
+        "description": [
+          "The outbound channel used for the forward, if one was selected."
+        ],
+        "added": "pre-v0.10.1"
+      },
+      "out_htlc_id": {
+        "type": "u64",
+        "description": [
+          "The outbound HTLC id, if one was assigned."
+        ],
+        "added": "v22.11"
+      },
+      "in_msat": {
+        "type": "msat",
+        "description": [
+          "The amount of the incoming HTLC."
+        ],
+        "added": "pre-v0.10.1"
+      },
+      "out_msat": {
+        "type": "msat",
+        "description": [
+          "The amount forwarded to the outbound channel, if known."
+        ],
+        "added": "pre-v0.10.1"
+      },
+      "fee_msat": {
+        "type": "msat",
+        "description": [
+          "The fee earned on the forward, if an outbound amount is known."
+        ],
+        "added": "pre-v0.10.1"
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "offered",
+          "settled",
+          "local_failed",
+          "failed"
+        ],
+        "description": [
+          "The current forwarding status."
+        ],
+        "added": "pre-v0.10.1"
+      },
+      "failcode": {
+        "type": "u32",
+        "description": [
+          "The BOLT 4 failcode when the forward failed locally."
+        ],
+        "added": "pre-v0.10.1"
+      },
+      "failreason": {
+        "type": "string",
+        "description": [
+          "The symbolic failcode name when the forward failed locally."
+        ],
+        "added": "pre-v0.10.1"
+      },
+      "style": {
+        "type": "string",
+        "enum": [
+          "legacy",
+          "tlv"
+        ],
+        "description": [
+          "The onion format used for the forward, if known."
+        ],
+        "added": "v23.11"
+      },
+      "received_time": {
+        "type": "number",
+        "description": [
+          "The UNIX timestamp when the HTLC was received."
+        ],
+        "added": "pre-v0.10.1"
+      },
+      "resolved_time": {
+        "type": "number",
+        "description": [
+          "The UNIX timestamp when the HTLC was resolved, if it has been resolved."
+        ],
+        "added": "pre-v0.10.1"
+      }
+    }
+  }
+}
