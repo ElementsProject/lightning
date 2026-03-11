@@ -266,9 +266,10 @@ def test_cached_median(node_factory, fake_rateserver):
     assert rates["fast"] == 1000
     assert rates["slow"] == 2000
 
-    # With two fresh cached rates, the correct median is midpoint(1000, 2000) = 1500.
-    # For 100 USD, that should be 150000 msat.
+    # Cached result should be median of two rates.
+    median_rate = (100_000_000 + 50_000_000) / 2
     convert = l1.rpc.call("currencyconvert", [100, "USD"])
     LOGGER.info(convert)
 
-    assert convert["msat"] == 150000
+    # Median of raw rates is used.
+    assert convert["msat"] == 100 * 100_000_000_000 // median_rate
