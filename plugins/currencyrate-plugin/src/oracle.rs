@@ -512,9 +512,11 @@ impl BtcPriceOracle {
                     break;
                 }
 
+                let num_sources = inner.sources.len() as u32;
                 drop(inner);
 
-                let interval = SERVE_TTL
+                // We want to hit each server on average SERVE_TTL seconds, in steady state.
+                let interval = (SERVE_TTL / (num_sources + 1))
                     .saturating_sub(2 * SOURCE_TIMEOUT_SECS)
                     .max(Duration::from_secs(1));
 
