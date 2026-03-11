@@ -1,0 +1,157 @@
+{
+  "$schema": "../../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "notification": "sendpay_success",
+  "title": "Notification for successful sendpay completion",
+  "description": [
+    "The **sendpay_success** notification informs whenever a payment attempt completes successfully."
+  ],
+  "added": "pre-v0.10.1",
+  "request": {
+    "added": "pre-v0.10.1"
+  },
+  "response": {
+    "added": "pre-v0.10.1",
+    "required": [
+      "created_index",
+      "id",
+      "payment_hash",
+      "groupid",
+      "created_at",
+      "amount_sent_msat",
+      "status"
+    ],
+    "properties": {
+      "created_index": {
+        "type": "u64",
+        "description": [
+          "1-based index indicating order this payment was created in."
+        ],
+        "added": "v23.11"
+      },
+      "id": {
+        "type": "u64",
+        "description": [
+          "Old synonym for created_index."
+        ],
+        "added": "pre-v0.10.1"
+      },
+      "payment_hash": {
+        "type": "hash",
+        "description": [
+          "The hash of the payment preimage."
+        ],
+        "added": "pre-v0.10.1"
+      },
+      "groupid": {
+        "type": "u64",
+        "description": [
+          "Grouping key for multiple attempts on the same payment."
+        ],
+        "added": "pre-v0.10.1"
+      },
+      "updated_index": {
+        "type": "u64",
+        "description": [
+          "1-based index indicating order this payment was updated in."
+        ],
+        "added": "v23.11"
+      },
+      "partid": {
+        "type": "u64",
+        "description": [
+          "Part number for a multi-part payment."
+        ],
+        "added": "pre-v0.10.1"
+      },
+      "destination": {
+        "type": "pubkey",
+        "description": [
+          "The final destination of the payment, if known."
+        ],
+        "added": "pre-v0.10.1"
+      },
+      "amount_msat": {
+        "type": "msat",
+        "description": [
+          "The amount delivered to the destination, if known."
+        ],
+        "added": "pre-v0.10.1"
+      },
+      "amount_sent_msat": {
+        "type": "msat",
+        "description": [
+          "The total amount sent including fees."
+        ],
+        "added": "pre-v0.10.1"
+      },
+      "created_at": {
+        "type": "u64",
+        "description": [
+          "The UNIX timestamp when this payment was initiated."
+        ],
+        "added": "pre-v0.10.1"
+      },
+      "completed_at": {
+        "type": "u64",
+        "description": [
+          "The UNIX timestamp when this payment completed."
+        ],
+        "added": "pre-v0.10.1"
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "complete"
+        ],
+        "description": [
+          "The terminal status for a successful sendpay notification."
+        ],
+        "added": "pre-v0.10.1"
+      },
+      "payment_preimage": {
+        "type": "secret",
+        "description": [
+          "The payment preimage proving success."
+        ],
+        "added": "pre-v0.10.1"
+      },
+      "label": {
+        "type": "string",
+        "description": [
+          "The optional label associated with the payment."
+        ],
+        "added": "pre-v0.10.1"
+      },
+      "bolt11": {
+        "type": "string",
+        "description": [
+          "The bolt11 invoice string, if present."
+        ],
+        "added": "pre-v0.10.1"
+      },
+      "bolt12": {
+        "type": "string",
+        "description": [
+          "The bolt12 invoice or offer string, if present."
+        ],
+        "added": "v24.02"
+      },
+      "description": {
+        "type": "string",
+        "description": [
+          "The description associated with the payment, if present."
+        ],
+        "added": "pre-v0.10.1"
+      },
+      "erroronion": {
+        "type": "hex",
+        "description": [
+          "The raw error onion if one was retained for the payment."
+        ],
+        "added": "pre-v0.10.1"
+      }
+    }
+  }
+}
