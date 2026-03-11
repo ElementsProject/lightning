@@ -8,10 +8,12 @@ from utils import (
 )
 import os
 import pytest
+import random
 import subprocess
 import time
 import tempfile
 import unittest
+from concurrent import futures as concurrent_futures
 
 
 def direction(src, dst):
@@ -1956,6 +1958,47 @@ def test_unreserve_all(node_factory):
     # remove all reservations
     l1.rpc.askrene_unreserve(path=[], dev_remove_all=True)
     assert l1.rpc.askrene_listreservations() == {"reservations": []}
+
+
+def test_reservations_leak_under_load(node_factory, executor):
+    """Stress-test reservation cleanup: concurrent payments over shared channels
+    must leave zero stale reservations after all payments settle."""
+    # Topology: two paths share l4 as a bottleneck relay.
+    #   Path A: l1 -> l2 -> l4 -> l5
+    #   Path B: l1 -> l3 -> l4 -> l6
+    # join_nodes([l1, l2, l4, l5]) creates channels: l1-l2, l2-l4, l4-l5
+    # join_nodes([l1, l3, l4, l6]) creates channels: l1-l3, l3-l4, l4-l6
+    zero_fee = {"fee-base": 0, "fee-per-satoshi": 0}
+    l1, l2, l3, l4, l5, l6 = node_factory.get_nodes(
+        6,
+        opts=[zero_fee] * 6,
+    )
+    node_factory.join_nodes([l1, l2, l4, l5], wait_for_announce=True)  # creates channels: l1-l2, l2-l4, l4-l5
+    node_factory.join_nodes([l1, l3, l4, l6], wait_for_announce=True)  # creates channels: l1-l3, l3-l4, l4-l6
+
+    NUM = 300
+    invoices = [l5.rpc.invoice(1000, f"inv-a-{i}", "x")["bolt11"] for i in range(NUM // 2)]
+    invoices += [l6.rpc.invoice(1000, f"inv-b-{i}", "x")["bolt11"] for i in range(NUM // 2)]
+    random.shuffle(invoices)
+
+    futs = [executor.submit(l1.rpc.xpay, inv) for inv in invoices]
+
+    # While payments are in flight, reservations must be non-empty: this
+    # checks the test isn't trivially passing on an empty table.
+    wait_for(lambda: l1.rpc.askrene_listreservations()["reservations"] != [])
+
+    # Make sure that we have channel contention by looking for repeating scids
+    def has_channel_contention():
+        res = l1.rpc.askrene_listreservations()["reservations"]
+        scids = [r["short_channel_id_dir"] for r in res]
+        return len(scids) != len(set(scids))
+    wait_for(has_channel_contention)
+
+    for f in concurrent_futures.as_completed(futs, timeout=TIMEOUT):
+        f.result()  # raise on any payment failure
+
+    assert l1.rpc.askrene_listreservations() == {"reservations": []}
+    assert l1.daemon.is_in_log("reserve_remove failed") is None
 
 
 def test_askrene_reserve_clash(node_factory, bitcoind):
