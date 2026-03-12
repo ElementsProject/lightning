@@ -8,8 +8,11 @@
     "The **pay_part_end** notification is emitted by the xpay plugin when a payment part completes."
   ],
   "added": "v25.09",
-  "request": {},
+  "request": {
+    "added": "v25.09"
+  },
   "response": {
+    "added": "v25.09",
     "required": [
       "origin",
       "payload"

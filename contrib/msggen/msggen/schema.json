@@ -39186,8 +39186,11 @@
         "The **pay_part_end** notification is emitted by the xpay plugin when a payment part completes."
       ],
       "added": "v25.09",
-      "request": {},
+      "request": {
+        "added": "v25.09"
+      },
       "response": {
+        "added": "v25.09",
         "required": [
           "origin",
           "payload"
@@ -39311,8 +39314,11 @@
         "The **pay_part_start** notification is emitted by the xpay plugin when a payment part begins."
       ],
       "added": "v25.09",
-      "request": {},
+      "request": {
+        "added": "v25.09"
+      },
       "response": {
+        "added": "v25.09",
         "required": [
           "origin",
           "payload"
@@ -39384,6 +39390,7 @@
                 "added": "v25.09",
                 "items": {
                   "type": "object",
+                  "added": "v25.09",
                   "additionalProperties": false,
                   "required": [
                     "next_node",

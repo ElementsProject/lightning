@@ -51,6 +51,10 @@ pub enum Notification {
     Shutdown(ShutdownNotification),
     #[serde(rename = "warning")]
     Warning(WarningNotification),
+    #[serde(rename = "pay_part_end")]
+    PayPartEnd(PayPartEndNotification),
+    #[serde(rename = "pay_part_start")]
+    PayPartStart(PayPartStartNotification),
 }
 
 
@@ -863,6 +867,89 @@ pub struct WarningNotification {
     pub time: String,
 }
 
+/// ['Whether the payment part succeeded or failed.']
+#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[allow(non_camel_case_types)]
+pub enum PayPartEndPayloadStatus {
+    #[serde(rename = "success")]
+    SUCCESS = 0,
+    #[serde(rename = "failure")]
+    FAILURE = 1,
+}
+
+impl TryFrom<i32> for PayPartEndPayloadStatus {
+    type Error = anyhow::Error;
+    fn try_from(c: i32) -> Result<PayPartEndPayloadStatus, anyhow::Error> {
+        match c {
+    0 => Ok(PayPartEndPayloadStatus::SUCCESS),
+    1 => Ok(PayPartEndPayloadStatus::FAILURE),
+            o => Err(anyhow::anyhow!("Unknown variant {} for enum PayPartEndPayloadStatus", o)),
+        }
+    }
+}
+
+impl ToString for PayPartEndPayloadStatus {
+    fn to_string(&self) -> String {
+        match self {
+            PayPartEndPayloadStatus::SUCCESS => "SUCCESS",
+            PayPartEndPayloadStatus::FAILURE => "FAILURE",
+        }.to_string()
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct PayPartEndPayload {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_code: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_message: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub failed_direction: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub failed_msg: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub failed_node_id: Option<PublicKey>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub failed_short_channel_id: Option<ShortChannelId>,
+    // Path `pay_part_end.payload.status`
+    pub status: PayPartEndPayloadStatus,
+    pub duration: f64,
+    pub groupid: u64,
+    pub partid: u64,
+    pub payment_hash: Sha256,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct PayPartEndNotification {
+    pub origin: String,
+    pub payload: PayPartEndPayload,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct PayPartStartPayloadHops {
+    pub channel_in_msat: Amount,
+    pub channel_out_msat: Amount,
+    pub direction: u32,
+    pub next_node: PublicKey,
+    pub short_channel_id: ShortChannelId,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct PayPartStartPayload {
+    pub attempt_msat: Amount,
+    pub groupid: u64,
+    pub hops: Vec<PayPartStartPayloadHops>,
+    pub partid: u64,
+    pub payment_hash: Sha256,
+    pub total_payment_msat: Amount,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct PayPartStartNotification {
+    pub origin: String,
+    pub payload: PayPartStartPayload,
+}
+
 pub mod requests{
 use serde::{Serialize, Deserialize};
 
@@ -952,6 +1039,14 @@ use serde::{Serialize, Deserialize};
 
     #[derive(Clone, Debug, Deserialize, Serialize)]
     pub struct StreamWarningRequest {
+    }
+
+    #[derive(Clone, Debug, Deserialize, Serialize)]
+    pub struct StreamPayPartEndRequest {
+    }
+
+    #[derive(Clone, Debug, Deserialize, Serialize)]
+    pub struct StreamPayPartStartRequest {
     }
 
 }

@@ -512,6 +512,10 @@
             "bech32": 0,
             "p2tr": 3
         },
+        "PayPartEndPayloadStatus": {
+            "failure": 1,
+            "success": 0
+        },
         "PayStatus": {
             "complete": 0,
             "failed": 2,
@@ -3609,6 +3613,42 @@
             "OpenChannel_Update.funding_outnum": 5,
             "OpenChannel_Update.psbt": 3,
             "OpenChannel_Update.requires_confirmed_inputs": 7
+        },
+        "PayPartEndNotification": {
+            "pay_part_end.origin": 1,
+            "pay_part_end.payload": 2
+        },
+        "PayPartEndPayload": {
+            "pay_part_end.payload.duration": 2,
+            "pay_part_end.payload.error_code": 10,
+            "pay_part_end.payload.error_message": 11,
+            "pay_part_end.payload.failed_direction": 9,
+            "pay_part_end.payload.failed_msg": 6,
+            "pay_part_end.payload.failed_node_id": 7,
+            "pay_part_end.payload.failed_short_channel_id": 8,
+            "pay_part_end.payload.groupid": 4,
+            "pay_part_end.payload.partid": 5,
+            "pay_part_end.payload.payment_hash": 3,
+            "pay_part_end.payload.status": 1
+        },
+        "PayPartStartNotification": {
+            "pay_part_start.origin": 1,
+            "pay_part_start.payload": 2
+        },
+        "PayPartStartPayload": {
+            "pay_part_start.payload.attempt_msat": 5,
+            "pay_part_start.payload.groupid": 2,
+            "pay_part_start.payload.hops[]": 6,
+            "pay_part_start.payload.partid": 3,
+            "pay_part_start.payload.payment_hash": 1,
+            "pay_part_start.payload.total_payment_msat": 4
+        },
+        "PayPartStartPayloadHops": {
+            "pay_part_start.payload.hops[].channel_in_msat": 4,
+            "pay_part_start.payload.hops[].channel_out_msat": 5,
+            "pay_part_start.payload.hops[].direction": 3,
+            "pay_part_start.payload.hops[].next_node": 1,
+            "pay_part_start.payload.hops[].short_channel_id": 2
         },
         "PayRequest": {
             "Pay.amount_msat": 13,
@@ -15012,6 +15052,118 @@
         },
         "openchannel_peer_sigs.signed_psbt": {
             "added": "v24.02",
+            "deprecated": null
+        },
+        "pay_part_end": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_end.origin": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_end.payload": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_end.payload.duration": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_end.payload.error_code": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_end.payload.error_message": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_end.payload.failed_direction": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_end.payload.failed_msg": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_end.payload.failed_node_id": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_end.payload.failed_short_channel_id": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_end.payload.groupid": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_end.payload.partid": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_end.payload.payment_hash": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_end.payload.status": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_start": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_start.origin": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_start.payload": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_start.payload.attempt_msat": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_start.payload.groupid": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_start.payload.hops[]": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_start.payload.hops[].channel_in_msat": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_start.payload.hops[].channel_out_msat": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_start.payload.hops[].direction": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_start.payload.hops[].next_node": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_start.payload.hops[].short_channel_id": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_start.payload.partid": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_start.payload.payment_hash": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "pay_part_start.payload.total_payment_msat": {
+            "added": "v25.09",
             "deprecated": null
         },
         "plugin_started": {

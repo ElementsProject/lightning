@@ -173,6 +173,8 @@ service Node {
 	rpc SubscribeSendPaySuccess(StreamSendPaySuccessRequest) returns (stream SendPaySuccessNotification) {}
 	rpc SubscribeShutdown(StreamShutdownRequest) returns (stream ShutdownNotification) {}
 	rpc SubscribeWarning(StreamWarningRequest) returns (stream WarningNotification) {}
+	rpc SubscribePayPartEnd(StreamPayPartEndRequest) returns (stream PayPartEndNotification) {}
+	rpc SubscribePayPartStart(StreamPayPartStartRequest) returns (stream PayPartStartNotification) {}
 }
 
 message GetinfoRequest {
@@ -4698,4 +4700,56 @@ message WarningNotification {
 	optional string timestamp = 3;
 	string source = 4;
 	string log = 5;
+}
+
+message StreamPayPartEndRequest {
+}
+
+message PayPartEndNotification {
+	string origin = 1;
+	PayPartEndPayload payload = 2;
+}
+
+message PayPartEndPayload {
+	// pay_part_end.payload.status
+	enum PayPartEndPayloadStatus {
+		SUCCESS = 0;
+		FAILURE = 1;
+	}
+	PayPartEndPayloadStatus status = 1;
+	double duration = 2;
+	bytes payment_hash = 3;
+	uint64 groupid = 4;
+	uint64 partid = 5;
+	optional bytes failed_msg = 6;
+	optional bytes failed_node_id = 7;
+	optional string failed_short_channel_id = 8;
+	optional uint32 failed_direction = 9;
+	optional uint32 error_code = 10;
+	optional string error_message = 11;
+}
+
+message StreamPayPartStartRequest {
+}
+
+message PayPartStartNotification {
+	string origin = 1;
+	PayPartStartPayload payload = 2;
+}
+
+message PayPartStartPayload {
+	bytes payment_hash = 1;
+	uint64 groupid = 2;
+	uint64 partid = 3;
+	Amount total_payment_msat = 4;
+	Amount attempt_msat = 5;
+	repeated PayPartStartPayloadHops hops = 6;
+}
+
+message PayPartStartPayloadHops {
+	bytes next_node = 1;
+	string short_channel_id = 2;
+	uint32 direction = 3;
+	Amount channel_in_msat = 4;
+	Amount channel_out_msat = 5;
 }

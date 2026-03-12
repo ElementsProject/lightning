@@ -4931,6 +4931,73 @@ impl From<notifications::WarningNotification> for pb::WarningNotification {
 }
 
 #[allow(unused_variables)]
+impl From<notifications::PayPartEndPayload> for pb::PayPartEndPayload {
+    fn from(c: notifications::PayPartEndPayload) -> Self {
+        Self {
+            duration: c.duration, // Rule #2 for type number
+            error_code: c.error_code, // Rule #2 for type u32?
+            error_message: c.error_message, // Rule #2 for type string?
+            failed_direction: c.failed_direction, // Rule #2 for type u32?
+            failed_msg: c.failed_msg.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
+            failed_node_id: c.failed_node_id.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
+            failed_short_channel_id: c.failed_short_channel_id.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
+            groupid: c.groupid, // Rule #2 for type u64
+            partid: c.partid, // Rule #2 for type u64
+            payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
+            status: c.status as i32,
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<notifications::PayPartEndNotification> for pb::PayPartEndNotification {
+    fn from(c: notifications::PayPartEndNotification) -> Self {
+        Self {
+            origin: c.origin, // Rule #2 for type string
+            payload: Some(c.payload.into()),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<notifications::PayPartStartPayloadHops> for pb::PayPartStartPayloadHops {
+    fn from(c: notifications::PayPartStartPayloadHops) -> Self {
+        Self {
+            channel_in_msat: Some(c.channel_in_msat.into()), // Rule #2 for type msat
+            channel_out_msat: Some(c.channel_out_msat.into()), // Rule #2 for type msat
+            direction: c.direction, // Rule #2 for type u32
+            next_node: c.next_node.serialize().to_vec(), // Rule #2 for type pubkey
+            short_channel_id: c.short_channel_id.to_string(), // Rule #2 for type short_channel_id
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<notifications::PayPartStartPayload> for pb::PayPartStartPayload {
+    fn from(c: notifications::PayPartStartPayload) -> Self {
+        Self {
+            attempt_msat: Some(c.attempt_msat.into()), // Rule #2 for type msat
+            groupid: c.groupid, // Rule #2 for type u64
+            // Field: pay_part_start.payload.hops[]
+            hops: c.hops.into_iter().map(|i| i.into()).collect(), // Rule #3 for type PayPartStartPayloadHops
+            partid: c.partid, // Rule #2 for type u64
+            payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
+            total_payment_msat: Some(c.total_payment_msat.into()), // Rule #2 for type msat
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<notifications::PayPartStartNotification> for pb::PayPartStartNotification {
+    fn from(c: notifications::PayPartStartNotification) -> Self {
+        Self {
+            origin: c.origin, // Rule #2 for type string
+            payload: Some(c.payload.into()),
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::GetinfoRequest> for pb::GetinfoRequest {
     fn from(c: requests::GetinfoRequest) -> Self {
         Self {
@@ -6869,6 +6936,22 @@ impl From<notifications::requests::StreamWarningRequest> for pb::StreamWarningRe
     }
 }
 
+#[allow(unused_variables)]
+impl From<notifications::requests::StreamPayPartEndRequest> for pb::StreamPayPartEndRequest {
+    fn from(c: notifications::requests::StreamPayPartEndRequest) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<notifications::requests::StreamPayPartStartRequest> for pb::StreamPayPartStartRequest {
+    fn from(c: notifications::requests::StreamPayPartStartRequest) -> Self {
+        Self {
+        }
+    }
+}
+
 
 #[allow(unused_variables)]
 impl From<pb::GetinfoRequest> for requests::GetinfoRequest {
@@ -8769,6 +8852,22 @@ impl From<pb::StreamShutdownRequest> for notifications::requests::StreamShutdown
 #[allow(unused_variables)]
 impl From<pb::StreamWarningRequest> for notifications::requests::StreamWarningRequest {
     fn from(c: pb::StreamWarningRequest) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::StreamPayPartEndRequest> for notifications::requests::StreamPayPartEndRequest {
+    fn from(c: pb::StreamPayPartEndRequest) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::StreamPayPartStartRequest> for notifications::requests::StreamPayPartStartRequest {
+    fn from(c: pb::StreamPayPartStartRequest) -> Self {
         Self {
         }
     }

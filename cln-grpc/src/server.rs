@@ -5176,4 +5176,54 @@ impl Node for Server
         };
         Ok(tonic::Response::new(result))
     }
+
+
+    type SubscribePayPartEndStream = NotificationStream<pb::PayPartEndNotification>;
+
+    async fn subscribe_pay_part_end(
+        &self,
+        _request : tonic::Request<pb::StreamPayPartEndRequest>
+    ) -> Result<tonic::Response<Self::SubscribePayPartEndStream>, tonic::Status> {
+        let receiver = self.events.subscribe();
+        let stream = BroadcastStream::new(receiver);
+        let boxed = Box::pin(stream);
+
+        let result = NotificationStream {
+            inner : boxed,
+            fn_filter_map : |x| {
+                match x {
+                    Notification::PayPartEnd(x) => {
+                        Some(x.into())
+                    }
+                    _ => None
+                }
+            }
+        };
+        Ok(tonic::Response::new(result))
+    }
+
+
+    type SubscribePayPartStartStream = NotificationStream<pb::PayPartStartNotification>;
+
+    async fn subscribe_pay_part_start(
+        &self,
+        _request : tonic::Request<pb::StreamPayPartStartRequest>
+    ) -> Result<tonic::Response<Self::SubscribePayPartStartStream>, tonic::Status> {
+        let receiver = self.events.subscribe();
+        let stream = BroadcastStream::new(receiver);
+        let boxed = Box::pin(stream);
+
+        let result = NotificationStream {
+            inner : boxed,
+            fn_filter_map : |x| {
+                match x {
+                    Notification::PayPartStart(x) => {
+                        Some(x.into())
+                    }
+                    _ => None
+                }
+            }
+        };
+        Ok(tonic::Response::new(result))
+    }
 }

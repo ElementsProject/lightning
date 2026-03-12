@@ -241,6 +241,16 @@ grpc_notification_names = [
     {
         "name": "warning",
         "typename": "Warning"
+    },
+    {
+        "name": "pay_part_end",
+        "schema_name": "xpay_pay_part_end",
+        "typename": "PayPartEnd"
+    },
+    {
+        "name": "pay_part_start",
+        "schema_name": "xpay_pay_part_start",
+        "typename": "PayPartStart"
     }
 ]
 
@@ -320,13 +330,15 @@ def load_jsonrpc_method(name):
     )
 
 
-def load_notification(name, typename: TypeName):
+def load_notification(name, typename: TypeName, schema_name=None):
     """Load a notification that can be received by a plug-in
     """
     typename = str(typename)
 
     notifications = get_schema_bundle()["notifications"]
-    notif_name = f"{name.lower()}.json"
+    if schema_name is None:
+        schema_name = name
+    notif_name = f"{schema_name.lower()}.json"
     request = CompositeField.from_js(notifications[notif_name]['request'], path=name)
     response = CompositeField.from_js(notifications[notif_name]['response'], path=name)
 
@@ -338,7 +350,14 @@ def load_notification(name, typename: TypeName):
 
 def load_jsonrpc_service():
     methods = [load_jsonrpc_method(name) for name in grpc_method_names]
-    notifications = [load_notification(name=names["name"], typename=names["typename"]) for names in grpc_notification_names]
+    notifications = [
+        load_notification(
+            name=names["name"],
+            typename=names["typename"],
+            schema_name=names.get("schema_name"),
+        )
+        for names in grpc_notification_names
+    ]
     service = Service(name="Node", methods=methods, notifications=notifications)
     service.includes = ['primitives.proto']  # Make sure we have the primitives included.
     return service
