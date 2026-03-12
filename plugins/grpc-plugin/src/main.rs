@@ -52,12 +52,28 @@ async fn main() -> Result<()> {
         // However, doing this breaks the plugin at the time begin
         // We should fix this
         // .subscribe("*", handle_notification)
+        .subscribe("balance_snapshot", handle_notification)
         .subscribe("block_added", handle_notification)
         .subscribe("channel_open_failed", handle_notification)
         .subscribe("channel_opened", handle_notification)
         .subscribe("channel_state_changed", handle_notification)
+        .subscribe("coin_movement", handle_notification)
         .subscribe("connect", handle_notification)
         .subscribe("custommsg", handle_notification)
+        .subscribe("disconnect", handle_notification)
+        .subscribe("forward_event", handle_notification)
+        .subscribe("invoice_creation", handle_notification)
+        .subscribe("invoice_payment", handle_notification)
+        .subscribe("onionmessage_forward_fail", handle_notification)
+        .subscribe("openchannel_peer_sigs", handle_notification)
+        .subscribe("pay_part_start", handle_notification)
+        .subscribe("pay_part_end", handle_notification)
+        .subscribe("plugin_started", handle_notification)
+        .subscribe("plugin_stopped", handle_notification)
+        .subscribe("sendpay_failure", handle_notification)
+        .subscribe("sendpay_success", handle_notification)
+        .subscribe("shutdown", handle_notification)
+        .subscribe("warning", handle_notification)
         .configure()
         .await?
     {

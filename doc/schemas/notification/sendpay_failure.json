@@ -121,7 +121,9 @@
           "status": {
             "type": "string",
             "enum": [
-              "failed"
+              "failed",
+              "pending",
+              "complete"
             ],
             "description": [
               "The terminal status for a failed sendpay notification."
