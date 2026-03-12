@@ -1,6 +1,6 @@
 [project]
 name = "pyln-grpc-proto"
-version = "25.09"
+version = "25.12"
 description = "The compiled GRPC proto for CLN"
 authors = [{ name = "Christian Decker", email = "decker@blockstream.com" }]
 license = { text = "MIT" }
