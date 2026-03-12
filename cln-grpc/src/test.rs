@@ -321,6 +321,17 @@ fn test_keysend() {
     assert_eq!(v, v2);
 }
 
+/// Verify serde round-trip: serialize to JSON, deserialize back, and
+/// check the re-serialized value matches the first serialization.
+macro_rules! assert_serde_roundtrip {
+    ($value:expr, $type:ty) => {{
+        let v = serde_json::to_value(&$value).unwrap();
+        let rt: $type = serde_json::from_value(v.clone()).unwrap();
+        let v2 = serde_json::to_value(&rt).unwrap();
+        assert_eq!(v, v2);
+    }};
+}
+
 #[test]
 fn test_balance_snapshot() {
     let j: serde_json::Value = json!({
@@ -341,18 +352,12 @@ fn test_balance_snapshot() {
         ]
     });
     let u: cln_rpc::notifications::BalanceSnapshotNotification =
-        serde_json::from_value(j.clone()).unwrap();
+        serde_json::from_value(j).unwrap();
     assert_eq!(u.accounts.len(), 2);
     assert_eq!(u.accounts[0].account_id, "wallet");
     assert_eq!(u.blockheight, 103);
-    let _pb: crate::pb::BalanceSnapshotNotification = u.clone().into();
-
-    // Serde round-trip
-    let v = serde_json::to_value(u.clone()).unwrap();
-    let u2: cln_rpc::notifications::BalanceSnapshotNotification =
-        serde_json::from_value(v.clone()).unwrap();
-    let v2 = serde_json::to_value(u2).unwrap();
-    assert_eq!(v, v2);
+    assert_serde_roundtrip!(u, cln_rpc::notifications::BalanceSnapshotNotification);
+    let _pb: crate::pb::BalanceSnapshotNotification = u.into();
 }
 
 #[test]
@@ -376,12 +381,12 @@ fn test_coin_movement() {
         "extra_tags": ["keysend"]
     });
     let u: cln_rpc::notifications::CoinMovementNotification =
-        serde_json::from_value(j.clone()).unwrap();
+        serde_json::from_value(j).unwrap();
     assert_eq!(u.version, 2);
     assert_eq!(u.item_type, cln_rpc::notifications::CoinMovementType::CHANNEL_MVT);
     assert_eq!(u.primary_tag, Some(cln_rpc::notifications::CoinMovementPrimaryTag::INVOICE));
     assert_eq!(u.extra_tags, Some(vec!["keysend".to_string()]));
-    let _pb: crate::pb::CoinMovementNotification = u.clone().into();
+    let _pb: crate::pb::CoinMovementNotification = u.into();
 
     // Also test chain_mvt with utxo
     let j2: serde_json::Value = json!({
@@ -423,17 +428,11 @@ fn test_channel_state_changed() {
         "message": "Lockin complete"
     });
     let u: cln_rpc::notifications::ChannelStateChangedNotification =
-        serde_json::from_value(j.clone()).unwrap();
+        serde_json::from_value(j).unwrap();
     assert_eq!(u.cause, cln_rpc::notifications::ChannelStateChangedCause::REMOTE);
     assert_eq!(u.message, Some("Lockin complete".to_string()));
-    let _pb: crate::pb::ChannelStateChangedNotification = u.clone().into();
-
-    // Serde round-trip
-    let v = serde_json::to_value(u.clone()).unwrap();
-    let u2: cln_rpc::notifications::ChannelStateChangedNotification =
-        serde_json::from_value(v.clone()).unwrap();
-    let v2 = serde_json::to_value(u2).unwrap();
-    assert_eq!(v, v2);
+    assert_serde_roundtrip!(u, cln_rpc::notifications::ChannelStateChangedNotification);
+    let _pb: crate::pb::ChannelStateChangedNotification = u.into();
 
     // Also test without optional fields
     let j_minimal: serde_json::Value = json!({
@@ -471,11 +470,11 @@ fn test_forward_event() {
         "style": "tlv"
     });
     let u: cln_rpc::notifications::ForwardEventNotification =
-        serde_json::from_value(j.clone()).unwrap();
+        serde_json::from_value(j).unwrap();
     assert_eq!(u.status, cln_rpc::notifications::ForwardEventStatus::SETTLED);
     assert_eq!(u.style, Some(cln_rpc::notifications::ForwardEventStyle::TLV));
     assert!(u.out_channel.is_some());
-    let _pb: crate::pb::ForwardEventNotification = u.clone().into();
+    let _pb: crate::pb::ForwardEventNotification = u.into();
 
     // Failed forward with failure info
     let j_failed: serde_json::Value = json!({
@@ -524,7 +523,7 @@ fn test_sendpay_failure() {
         }
     });
     let u: cln_rpc::notifications::SendPayFailureNotification =
-        serde_json::from_value(j.clone()).unwrap();
+        serde_json::from_value(j).unwrap();
     assert_eq!(u.code, 204);
     assert_eq!(
         u.data.status,
@@ -555,19 +554,13 @@ fn test_sendpay_success() {
         "label": "test-payment-1"
     });
     let u: cln_rpc::notifications::SendPaySuccessNotification =
-        serde_json::from_value(j.clone()).unwrap();
+        serde_json::from_value(j).unwrap();
     assert_eq!(u.status, cln_rpc::notifications::SendpaySuccessStatus::COMPLETE);
     assert_eq!(u.id, 1);
     assert_eq!(u.groupid, 1);
     assert!(u.payment_preimage.is_some());
-    let _pb: crate::pb::SendPaySuccessNotification = u.clone().into();
-
-    // Serde round-trip
-    let v = serde_json::to_value(u.clone()).unwrap();
-    let u2: cln_rpc::notifications::SendPaySuccessNotification =
-        serde_json::from_value(v.clone()).unwrap();
-    let v2 = serde_json::to_value(u2).unwrap();
-    assert_eq!(v, v2);
+    assert_serde_roundtrip!(u, cln_rpc::notifications::SendPaySuccessNotification);
+    let _pb: crate::pb::SendPaySuccessNotification = u.into();
 }
 
 #[test]
@@ -580,17 +573,11 @@ fn test_warning() {
         "log": "Something unexpected happened"
     });
     let u: cln_rpc::notifications::WarningNotification =
-        serde_json::from_value(j.clone()).unwrap();
+        serde_json::from_value(j).unwrap();
     assert_eq!(u.level, cln_rpc::notifications::WarningLevel::WARN);
     assert_eq!(u.source, "lightningd(1234)");
-    let _pb: crate::pb::WarningNotification = u.clone().into();
-
-    // Serde round-trip
-    let v = serde_json::to_value(u.clone()).unwrap();
-    let u2: cln_rpc::notifications::WarningNotification =
-        serde_json::from_value(v.clone()).unwrap();
-    let v2 = serde_json::to_value(u2).unwrap();
-    assert_eq!(v, v2);
+    assert_serde_roundtrip!(u, cln_rpc::notifications::WarningNotification);
+    let _pb: crate::pb::WarningNotification = u.into();
 
     // Test error level
     let j_err: serde_json::Value = json!({
@@ -620,18 +607,12 @@ fn test_pay_part_end() {
         }
     });
     let u: cln_rpc::notifications::PayPartEndNotification =
-        serde_json::from_value(j.clone()).unwrap();
+        serde_json::from_value(j).unwrap();
     assert_eq!(u.origin, "xpay");
     assert_eq!(u.payload.status, cln_rpc::notifications::PayPartEndPayloadStatus::SUCCESS);
     assert!(u.payload.failed_node_id.is_none());
-    let _pb: crate::pb::PayPartEndNotification = u.clone().into();
-
-    // Serde round-trip
-    let v = serde_json::to_value(u.clone()).unwrap();
-    let u2: cln_rpc::notifications::PayPartEndNotification =
-        serde_json::from_value(v.clone()).unwrap();
-    let v2 = serde_json::to_value(u2).unwrap();
-    assert_eq!(v, v2);
+    assert_serde_roundtrip!(u, cln_rpc::notifications::PayPartEndNotification);
+    let _pb: crate::pb::PayPartEndNotification = u.into();
 
     // Failure case with error details
     let j_fail: serde_json::Value = json!({
