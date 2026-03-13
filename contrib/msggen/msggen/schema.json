@@ -37327,6 +37327,92 @@
     }
   },
   "notifications": {
+    "balance_snapshot.json": {
+      "$schema": "../../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "notification": "balance_snapshot",
+      "title": "Notification for balance snapshots",
+      "description": [
+        "The **balance_snapshot** notification informs whenever lightningd emits a balance snapshot for bookkeeping."
+      ],
+      "added": "v24.11",
+      "request": {
+        "added": "v24.11"
+      },
+      "response": {
+        "added": "v24.11",
+        "required": [
+          "node_id",
+          "blockheight",
+          "timestamp",
+          "accounts"
+        ],
+        "properties": {
+          "node_id": {
+            "type": "pubkey",
+            "description": [
+              "The node id the snapshot was taken for."
+            ],
+            "added": "v24.11"
+          },
+          "blockheight": {
+            "type": "u32",
+            "description": [
+              "The blockheight at which the snapshot was taken."
+            ],
+            "added": "v24.11"
+          },
+          "timestamp": {
+            "type": "u32",
+            "description": [
+              "The snapshot time as seconds since epoch."
+            ],
+            "added": "v24.11"
+          },
+          "accounts": {
+            "type": "array",
+            "description": [
+              "The balances for each tracked account at the snapshot time."
+            ],
+            "added": "v24.11",
+            "items": {
+              "type": "object",
+              "added": "v24.11",
+              "additionalProperties": false,
+              "required": [
+                "account_id",
+                "balance_msat",
+                "coin_type"
+              ],
+              "properties": {
+                "account_id": {
+                  "type": "string",
+                  "description": [
+                    "The account identifier for the balance."
+                  ],
+                  "added": "v24.11"
+                },
+                "balance_msat": {
+                  "type": "msat",
+                  "description": [
+                    "The account balance in millisatoshis."
+                  ],
+                  "added": "v24.11"
+                },
+                "coin_type": {
+                  "type": "string",
+                  "description": [
+                    "The BIP173 coin type name for the balance."
+                  ],
+                  "added": "v24.11"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "block_added.json": {
       "$schema": "../../rpc-schema-draft.json",
       "type": "object",
@@ -37559,6 +37645,316 @@
         }
       }
     },
+    "coin_movement.json": {
+      "$schema": "../../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "notification": "coin_movement",
+      "title": "Notification for coin movements",
+      "description": [
+        "The **coin_movement** notification informs whenever lightningd records a finalized ledger movement."
+      ],
+      "added": "pre-v0.10.1",
+      "request": {
+        "added": "pre-v0.10.1"
+      },
+      "response": {
+        "added": "pre-v0.10.1",
+        "required": [
+          "version",
+          "coin_type",
+          "node_id",
+          "type",
+          "created_index",
+          "account_id",
+          "credit_msat",
+          "debit_msat",
+          "timestamp",
+          "primary_tag"
+        ],
+        "properties": {
+          "version": {
+            "type": "u32",
+            "description": [
+              "The coin movement schema version."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "coin_type": {
+            "type": "string",
+            "description": [
+              "The BIP173 coin type name."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "node_id": {
+            "type": "pubkey",
+            "description": [
+              "The node id that emitted the notification."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "channel_mvt",
+              "chain_mvt"
+            ],
+            "description": [
+              "Whether this is a channel or chain movement."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "created_index": {
+            "type": "u64",
+            "description": [
+              "1-based index indicating order this move was created in."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "account_id": {
+            "type": "string",
+            "description": [
+              "The account identifier for the movement."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "credit_msat": {
+            "type": "msat",
+            "description": [
+              "Amount credited to the account."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "debit_msat": {
+            "type": "msat",
+            "description": [
+              "Amount debited from the account."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "timestamp": {
+            "type": "u64",
+            "description": [
+              "The UNIX timestamp when the movement was recorded."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "tags": {
+            "type": "array",
+            "description": [
+              "Deprecated legacy combined tag array, emitted only for deprecated output compatibility."
+            ],
+            "added": "pre-v0.10.1",
+            "deprecated": [
+              "v25.09",
+              "v26.09"
+            ],
+            "items": {
+              "type": "string",
+              "added": "pre-v0.10.1",
+              "description": [
+                "A legacy movement tag."
+              ]
+            }
+          },
+          "primary_tag": {
+            "type": "string",
+            "enum": [
+              "deposit",
+              "withdrawal",
+              "penalty",
+              "channel_open",
+              "channel_close",
+              "delayed_to_us",
+              "htlc_tx",
+              "htlc_timeout",
+              "htlc_fulfill",
+              "to_wallet",
+              "anchor",
+              "to_them",
+              "penalized",
+              "stolen",
+              "ignored",
+              "to_miner",
+              "invoice",
+              "routed",
+              "pushed",
+              "lease_fee",
+              "channel_proposed",
+              "penalty_adj",
+              "journal_entry"
+            ],
+            "description": [
+              "The primary movement tag."
+            ],
+            "added": "v25.09"
+          },
+          "extra_tags": {
+            "type": "array",
+            "description": [
+              "Additional movement tags."
+            ],
+            "added": "v25.09",
+            "items": {
+              "type": "string",
+              "added": "v25.09",
+              "description": [
+                "An additional movement tag."
+              ]
+            }
+          },
+          "payment_hash": {
+            "type": "hash",
+            "description": [
+              "The payment hash associated with the movement, if any."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "part_id": {
+            "type": "u64",
+            "description": [
+              "The part id for a multi-part channel payment."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "group_id": {
+            "type": "u64",
+            "description": [
+              "The group id for a multi-part channel payment."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "fees_msat": {
+            "type": "msat",
+            "description": [
+              "The fees associated with a channel movement."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "utxo": {
+            "type": "outpoint",
+            "description": [
+              "The outpoint for a chain movement."
+            ],
+            "added": "v25.09"
+          },
+          "peer_id": {
+            "type": "pubkey",
+            "description": [
+              "The peer associated with a chain movement, if any."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "originating_account": {
+            "type": "string",
+            "description": [
+              "The originating account for an external chain movement, if any."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "txid": {
+            "type": "txid",
+            "description": [
+              "Deprecated legacy field for the spending transaction id."
+            ],
+            "added": "pre-v0.10.1",
+            "deprecated": [
+              "v25.09",
+              "v26.09"
+            ]
+          },
+          "spending_txid": {
+            "type": "txid",
+            "description": [
+              "The spending transaction id for a chain movement, if any."
+            ],
+            "added": "v25.09"
+          },
+          "utxo_txid": {
+            "type": "txid",
+            "description": [
+              "Deprecated legacy field for the outpoint transaction id."
+            ],
+            "added": "pre-v0.10.1",
+            "deprecated": [
+              "v25.09",
+              "v26.09"
+            ]
+          },
+          "vout": {
+            "type": "u32",
+            "description": [
+              "Deprecated legacy field for the outpoint output index."
+            ],
+            "added": "pre-v0.10.1",
+            "deprecated": [
+              "v25.09",
+              "v26.09"
+            ]
+          },
+          "output_msat": {
+            "type": "msat",
+            "description": [
+              "The output amount for a chain movement."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "output_count": {
+            "type": "u32",
+            "description": [
+              "The number of outputs in the spending transaction, if known."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "blockheight": {
+            "type": "u32",
+            "description": [
+              "The blockheight for a chain movement."
+            ],
+            "added": "pre-v0.10.1"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "channel_mvt"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "fees_msat"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "chain_mvt"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "utxo",
+                "output_msat",
+                "blockheight"
+              ]
+            }
+          }
+        ]
+      }
+    },
     "connect.json": {
       "$schema": "../../rpc-schema-draft.json",
       "type": "object",
@@ -37725,6 +38121,1324 @@
               "The hex-encoded payload. The first 2 bytes represent the BOLT-8 message type followed by the message content"
             ],
             "added": "v24.02"
+          }
+        }
+      }
+    },
+    "deprecated_oneshot.json": {
+      "$schema": "../../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "notification": "deprecated_oneshot",
+      "title": "Notification for per-command deprecation settings",
+      "description": [
+        "The **deprecated_oneshot** notification informs a plugin that the immediately following command uses different deprecation handling than the global setting."
+      ],
+      "added": "v24.02",
+      "request": {
+        "added": "v24.02"
+      },
+      "response": {
+        "added": "v24.02",
+        "required": [
+          "deprecated_ok"
+        ],
+        "properties": {
+          "deprecated_ok": {
+            "type": "boolean",
+            "description": [
+              "Whether deprecated APIs are allowed for the immediately following command."
+            ],
+            "added": "v24.02"
+          }
+        }
+      }
+    },
+    "disconnect.json": {
+      "$schema": "../../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "notification": "disconnect",
+      "title": "Notification for peer disconnection",
+      "description": [
+        "The **disconnect** notification informs whenever the node disconnects from a peer."
+      ],
+      "added": "pre-v0.10.1",
+      "request": {
+        "added": "pre-v0.10.1"
+      },
+      "response": {
+        "added": "pre-v0.10.1",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "pubkey",
+            "description": [
+              "The id of the peer that disconnected."
+            ],
+            "added": "pre-v0.10.1"
+          }
+        }
+      }
+    },
+    "forward_event.json": {
+      "$schema": "../../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "notification": "forward_event",
+      "title": "Notification for forwarding events",
+      "description": [
+        "The **forward_event** notification informs whenever the status of a forwarded HTLC changes."
+      ],
+      "added": "pre-v0.10.1",
+      "request": {
+        "added": "pre-v0.10.1"
+      },
+      "response": {
+        "added": "pre-v0.10.1",
+        "required": [
+          "in_channel",
+          "in_htlc_id",
+          "in_msat",
+          "status",
+          "received_time"
+        ],
+        "properties": {
+          "created_index": {
+            "type": "u64",
+            "description": [
+              "1-based index indicating order this forward was created in."
+            ],
+            "added": "v23.11"
+          },
+          "updated_index": {
+            "type": "u64",
+            "description": [
+              "1-based index indicating order this forward was updated in."
+            ],
+            "added": "v23.11"
+          },
+          "payment_hash": {
+            "type": "hash",
+            "description": [
+              "The payment hash for the forwarded HTLC."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "in_channel": {
+            "type": "short_channel_id",
+            "description": [
+              "The inbound channel that received the HTLC."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "in_htlc_id": {
+            "type": "u64",
+            "description": [
+              "The inbound HTLC id for the forwarded HTLC."
+            ],
+            "added": "v22.11"
+          },
+          "out_channel": {
+            "type": "short_channel_id",
+            "description": [
+              "The outbound channel used for the forward, if one was selected."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "out_htlc_id": {
+            "type": "u64",
+            "description": [
+              "The outbound HTLC id, if one was assigned."
+            ],
+            "added": "v22.11"
+          },
+          "in_msat": {
+            "type": "msat",
+            "description": [
+              "The amount of the incoming HTLC."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "out_msat": {
+            "type": "msat",
+            "description": [
+              "The amount forwarded to the outbound channel, if known."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "fee_msat": {
+            "type": "msat",
+            "description": [
+              "The fee earned on the forward, if an outbound amount is known."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "offered",
+              "settled",
+              "local_failed",
+              "failed"
+            ],
+            "description": [
+              "The current forwarding status."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "failcode": {
+            "type": "u32",
+            "description": [
+              "The BOLT 4 failcode when the forward failed locally."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "failreason": {
+            "type": "string",
+            "description": [
+              "The symbolic failcode name when the forward failed locally."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "style": {
+            "type": "string",
+            "enum": [
+              "legacy",
+              "tlv"
+            ],
+            "description": [
+              "The onion format used for the forward, if known."
+            ],
+            "added": "v23.11"
+          },
+          "received_time": {
+            "type": "number",
+            "description": [
+              "The UNIX timestamp when the HTLC was received."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "resolved_time": {
+            "type": "number",
+            "description": [
+              "The UNIX timestamp when the HTLC was resolved, if it has been resolved."
+            ],
+            "added": "pre-v0.10.1"
+          }
+        }
+      }
+    },
+    "invoice_creation.json": {
+      "$schema": "../../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "notification": "invoice_creation",
+      "title": "Notification for invoice creation",
+      "description": [
+        "The **invoice_creation** notification informs whenever a new invoice is created."
+      ],
+      "added": "pre-v0.10.1",
+      "request": {
+        "added": "pre-v0.10.1"
+      },
+      "response": {
+        "added": "pre-v0.10.1",
+        "required": [
+          "preimage",
+          "label"
+        ],
+        "properties": {
+          "msat": {
+            "type": "msat",
+            "description": [
+              "The invoice amount, if the invoice amount was specified at creation time."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "preimage": {
+            "type": "secret",
+            "description": [
+              "The payment preimage for the created invoice."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "label": {
+            "type": "string",
+            "description": [
+              "The label of the created invoice."
+            ],
+            "added": "pre-v0.10.1"
+          }
+        }
+      }
+    },
+    "invoice_payment.json": {
+      "$schema": "../../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "notification": "invoice_payment",
+      "title": "Notification for invoice payment",
+      "description": [
+        "The **invoice_payment** notification informs whenever an invoice is paid."
+      ],
+      "added": "pre-v0.10.1",
+      "request": {
+        "added": "pre-v0.10.1"
+      },
+      "response": {
+        "added": "pre-v0.10.1",
+        "required": [
+          "msat",
+          "preimage",
+          "label"
+        ],
+        "properties": {
+          "msat": {
+            "type": "msat",
+            "description": [
+              "The amount paid for the invoice."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "preimage": {
+            "type": "secret",
+            "description": [
+              "The payment preimage for the invoice."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "outpoint": {
+            "type": "outpoint",
+            "description": [
+              "The onchain outpoint for a dual-funded or onchain invoice payment, if present."
+            ],
+            "added": "v23.11"
+          },
+          "label": {
+            "type": "string",
+            "description": [
+              "The label of the paid invoice."
+            ],
+            "added": "pre-v0.10.1"
+          }
+        }
+      }
+    },
+    "log.json": {
+      "$schema": "../../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "notification": "log",
+      "title": "Notification for log events",
+      "description": [
+        "The **log** notification informs whenever lightningd emits a log message and exposes the same payload shape as **warning**."
+      ],
+      "added": "v24.02",
+      "request": {
+        "added": "v24.02"
+      },
+      "response": {
+        "added": "v24.02",
+        "required": [
+          "level",
+          "time",
+          "timestamp",
+          "source",
+          "log"
+        ],
+        "properties": {
+          "level": {
+            "type": "string",
+            "enum": [
+              "io",
+              "trace",
+              "debug",
+              "info",
+              "unusual",
+              "broken"
+            ],
+            "description": [
+              "The log level of the emitted message."
+            ],
+            "added": "v24.02"
+          },
+          "time": {
+            "type": "string",
+            "description": [
+              "The event time as seconds since epoch with subsecond precision."
+            ],
+            "added": "v24.02"
+          },
+          "timestamp": {
+            "type": "string",
+            "description": [
+              "The event time in ISO 8601 format."
+            ],
+            "added": "v24.02"
+          },
+          "source": {
+            "type": "string",
+            "description": [
+              "The source component that emitted the log entry."
+            ],
+            "added": "v24.02"
+          },
+          "log": {
+            "type": "string",
+            "description": [
+              "The original log message."
+            ],
+            "added": "v24.02"
+          }
+        }
+      }
+    },
+    "onionmessage_forward_fail.json": {
+      "$schema": "../../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "notification": "onionmessage_forward_fail",
+      "title": "Notification for onion message forwarding failures",
+      "description": [
+        "The **onionmessage_forward_fail** notification informs whenever lightningd cannot forward an onion message."
+      ],
+      "added": "v24.02",
+      "request": {
+        "added": "v24.02"
+      },
+      "response": {
+        "added": "v24.02",
+        "required": [
+          "source",
+          "incoming",
+          "path_key"
+        ],
+        "properties": {
+          "source": {
+            "type": "pubkey",
+            "description": [
+              "The node that sent the incoming onion message."
+            ],
+            "added": "v24.02"
+          },
+          "incoming": {
+            "type": "hex",
+            "description": [
+              "The incoming onion message payload."
+            ],
+            "added": "v24.02"
+          },
+          "path_key": {
+            "type": "pubkey",
+            "description": [
+              "The path key used for the attempted forward."
+            ],
+            "added": "v24.02"
+          },
+          "outgoing": {
+            "type": "hex",
+            "description": [
+              "The outgoing onion message payload if a next hop had already been selected."
+            ],
+            "added": "v24.02"
+          },
+          "next_node_id": {
+            "type": "pubkey",
+            "description": [
+              "The next node id for the attempted forward when the next hop is a node."
+            ],
+            "added": "v24.02"
+          },
+          "next_short_channel_id_dir": {
+            "type": "short_channel_id_dir",
+            "description": [
+              "The next short_channel_id_dir for the attempted forward when the next hop is a channel."
+            ],
+            "added": "v24.02"
+          }
+        }
+      }
+    },
+    "openchannel_peer_sigs.json": {
+      "$schema": "../../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "notification": "openchannel_peer_sigs",
+      "title": "Notification for peer channel signatures",
+      "description": [
+        "The **openchannel_peer_sigs** notification informs whenever a peer provides signatures for an in-progress channel open."
+      ],
+      "added": "v24.02",
+      "request": {
+        "added": "v24.02"
+      },
+      "response": {
+        "added": "v24.02",
+        "required": [
+          "channel_id",
+          "signed_psbt"
+        ],
+        "properties": {
+          "channel_id": {
+            "type": "hash",
+            "description": [
+              "The channel id for the channel open attempt."
+            ],
+            "added": "v24.02"
+          },
+          "signed_psbt": {
+            "type": "string",
+            "description": [
+              "The signed PSBT from the peer."
+            ],
+            "added": "v24.02"
+          }
+        }
+      }
+    },
+    "plugin_started.json": {
+      "$schema": "../../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "notification": "plugin_started",
+      "title": "Notification for plugin start",
+      "description": [
+        "The **plugin_started** notification informs whenever a plugin has started and registered its methods."
+      ],
+      "added": "v24.02",
+      "request": {
+        "added": "v24.02"
+      },
+      "response": {
+        "added": "v24.02",
+        "required": [
+          "plugin_name",
+          "plugin_path",
+          "methods"
+        ],
+        "properties": {
+          "plugin_name": {
+            "type": "string",
+            "description": [
+              "The short name of the plugin."
+            ],
+            "added": "v24.02"
+          },
+          "plugin_path": {
+            "type": "string",
+            "description": [
+              "The executable path of the plugin."
+            ],
+            "added": "v24.02"
+          },
+          "methods": {
+            "type": "array",
+            "description": [
+              "The RPC methods registered by the plugin."
+            ],
+            "added": "v24.02",
+            "items": {
+              "type": "string",
+              "description": [
+                "A method registered by the plugin."
+              ],
+              "added": "v24.02"
+            }
+          }
+        }
+      }
+    },
+    "plugin_stopped.json": {
+      "$schema": "../../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "notification": "plugin_stopped",
+      "title": "Notification for plugin stop",
+      "description": [
+        "The **plugin_stopped** notification informs whenever a plugin stops and exposes the same payload shape as **plugin_started**."
+      ],
+      "added": "v24.02",
+      "request": {
+        "added": "v24.02"
+      },
+      "response": {
+        "added": "v24.02",
+        "required": [
+          "plugin_name",
+          "plugin_path",
+          "methods"
+        ],
+        "properties": {
+          "plugin_name": {
+            "type": "string",
+            "description": [
+              "The short name of the plugin."
+            ],
+            "added": "v24.02"
+          },
+          "plugin_path": {
+            "type": "string",
+            "description": [
+              "The executable path of the plugin."
+            ],
+            "added": "v24.02"
+          },
+          "methods": {
+            "type": "array",
+            "description": [
+              "The RPC methods registered by the plugin."
+            ],
+            "added": "v24.02",
+            "items": {
+              "type": "string",
+              "description": [
+                "A method registered by the plugin."
+              ],
+              "added": "v24.02"
+            }
+          }
+        }
+      }
+    },
+    "sendpay_failure.json": {
+      "$schema": "../../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "notification": "sendpay_failure",
+      "title": "Notification for failed sendpay completion",
+      "description": [
+        "The **sendpay_failure** notification informs whenever a payment attempt completes with failed status."
+      ],
+      "added": "pre-v0.10.1",
+      "request": {
+        "added": "pre-v0.10.1"
+      },
+      "response": {
+        "added": "pre-v0.10.1",
+        "required": [
+          "code",
+          "message",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer",
+            "description": [
+              "The JSON-RPC error code for the payment failure."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "message": {
+            "type": "string",
+            "description": [
+              "The human-readable payment failure message."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": [
+              "The structured payment failure details."
+            ],
+            "added": "pre-v0.10.1",
+            "properties": {
+              "created_index": {
+                "type": "u64",
+                "description": [
+                  "1-based index indicating order this payment was created in."
+                ],
+                "added": "v23.11"
+              },
+              "id": {
+                "type": "u64",
+                "description": [
+                  "Old synonym for created_index."
+                ],
+                "added": "pre-v0.10.1"
+              },
+              "payment_hash": {
+                "type": "hash",
+                "description": [
+                  "The hash of the payment preimage."
+                ],
+                "added": "pre-v0.10.1"
+              },
+              "groupid": {
+                "type": "u64",
+                "description": [
+                  "Grouping key for multiple attempts on the same payment."
+                ],
+                "added": "pre-v0.10.1"
+              },
+              "updated_index": {
+                "type": "u64",
+                "description": [
+                  "1-based index indicating order this payment was updated in."
+                ],
+                "added": "v23.11"
+              },
+              "partid": {
+                "type": "u64",
+                "description": [
+                  "Part number for a multi-part payment."
+                ],
+                "added": "pre-v0.10.1"
+              },
+              "destination": {
+                "type": "pubkey",
+                "description": [
+                  "The final destination of the payment, if known."
+                ],
+                "added": "pre-v0.10.1"
+              },
+              "amount_msat": {
+                "type": "msat",
+                "description": [
+                  "The amount intended for the destination, if known."
+                ],
+                "added": "pre-v0.10.1"
+              },
+              "amount_sent_msat": {
+                "type": "msat",
+                "description": [
+                  "The total amount sent including fees."
+                ],
+                "added": "pre-v0.10.1"
+              },
+              "created_at": {
+                "type": "u64",
+                "description": [
+                  "The UNIX timestamp when this payment was initiated."
+                ],
+                "added": "pre-v0.10.1"
+              },
+              "completed_at": {
+                "type": "u64",
+                "description": [
+                  "The UNIX timestamp when this payment completed."
+                ],
+                "added": "pre-v0.10.1"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "failed"
+                ],
+                "description": [
+                  "The terminal status for a failed sendpay notification."
+                ],
+                "added": "pre-v0.10.1"
+              },
+              "payment_preimage": {
+                "type": "secret",
+                "description": [
+                  "The payment preimage, if the payment later completed through another path."
+                ],
+                "added": "pre-v0.10.1"
+              },
+              "label": {
+                "type": "string",
+                "description": [
+                  "The optional label associated with the payment."
+                ],
+                "added": "pre-v0.10.1"
+              },
+              "bolt11": {
+                "type": "string",
+                "description": [
+                  "The bolt11 invoice string, if present."
+                ],
+                "added": "pre-v0.10.1"
+              },
+              "bolt12": {
+                "type": "string",
+                "description": [
+                  "The bolt12 invoice or offer string, if present."
+                ],
+                "added": "v24.02"
+              },
+              "description": {
+                "type": "string",
+                "description": [
+                  "The description associated with the payment, if present."
+                ],
+                "added": "pre-v0.10.1"
+              },
+              "erroronion": {
+                "type": "hex",
+                "description": [
+                  "The raw error onion if one was retained for the payment."
+                ],
+                "added": "pre-v0.10.1"
+              },
+              "onionreply": {
+                "type": "hex",
+                "description": [
+                  "The onion reply for an unparseable onion failure."
+                ],
+                "added": "pre-v0.10.1"
+              },
+              "erring_index": {
+                "type": "u32",
+                "description": [
+                  "The position in the route where the failure occurred."
+                ],
+                "added": "pre-v0.10.1"
+              },
+              "failcode": {
+                "type": "u32",
+                "description": [
+                  "The BOLT 4 failcode."
+                ],
+                "added": "pre-v0.10.1"
+              },
+              "failcodename": {
+                "type": "string",
+                "description": [
+                  "The symbolic name for the failcode, if known."
+                ],
+                "added": "pre-v0.10.1"
+              },
+              "erring_node": {
+                "type": "pubkey",
+                "description": [
+                  "The node that produced the failure, if known."
+                ],
+                "added": "pre-v0.10.1"
+              },
+              "erring_channel": {
+                "type": "short_channel_id",
+                "description": [
+                  "The channel that produced the failure, if known."
+                ],
+                "added": "pre-v0.10.1"
+              },
+              "erring_direction": {
+                "type": "u32",
+                "description": [
+                  "The direction within the erring channel."
+                ],
+                "added": "pre-v0.10.1"
+              },
+              "raw_message": {
+                "type": "hex",
+                "description": [
+                  "The raw failure message payload, if present."
+                ],
+                "added": "pre-v0.10.1"
+              }
+            }
+          }
+        }
+      }
+    },
+    "sendpay_success.json": {
+      "$schema": "../../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "notification": "sendpay_success",
+      "title": "Notification for successful sendpay completion",
+      "description": [
+        "The **sendpay_success** notification informs whenever a payment attempt completes successfully."
+      ],
+      "added": "pre-v0.10.1",
+      "request": {
+        "added": "pre-v0.10.1"
+      },
+      "response": {
+        "added": "pre-v0.10.1",
+        "required": [
+          "created_index",
+          "id",
+          "payment_hash",
+          "groupid",
+          "created_at",
+          "amount_sent_msat",
+          "status"
+        ],
+        "properties": {
+          "created_index": {
+            "type": "u64",
+            "description": [
+              "1-based index indicating order this payment was created in."
+            ],
+            "added": "v23.11"
+          },
+          "id": {
+            "type": "u64",
+            "description": [
+              "Old synonym for created_index."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "payment_hash": {
+            "type": "hash",
+            "description": [
+              "The hash of the payment preimage."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "groupid": {
+            "type": "u64",
+            "description": [
+              "Grouping key for multiple attempts on the same payment."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "updated_index": {
+            "type": "u64",
+            "description": [
+              "1-based index indicating order this payment was updated in."
+            ],
+            "added": "v23.11"
+          },
+          "partid": {
+            "type": "u64",
+            "description": [
+              "Part number for a multi-part payment."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "destination": {
+            "type": "pubkey",
+            "description": [
+              "The final destination of the payment, if known."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "amount_msat": {
+            "type": "msat",
+            "description": [
+              "The amount delivered to the destination, if known."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "amount_sent_msat": {
+            "type": "msat",
+            "description": [
+              "The total amount sent including fees."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "created_at": {
+            "type": "u64",
+            "description": [
+              "The UNIX timestamp when this payment was initiated."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "completed_at": {
+            "type": "u64",
+            "description": [
+              "The UNIX timestamp when this payment completed."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "complete"
+            ],
+            "description": [
+              "The terminal status for a successful sendpay notification."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "payment_preimage": {
+            "type": "secret",
+            "description": [
+              "The payment preimage proving success."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "label": {
+            "type": "string",
+            "description": [
+              "The optional label associated with the payment."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "bolt11": {
+            "type": "string",
+            "description": [
+              "The bolt11 invoice string, if present."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "bolt12": {
+            "type": "string",
+            "description": [
+              "The bolt12 invoice or offer string, if present."
+            ],
+            "added": "v24.02"
+          },
+          "description": {
+            "type": "string",
+            "description": [
+              "The description associated with the payment, if present."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "erroronion": {
+            "type": "hex",
+            "description": [
+              "The raw error onion if one was retained for the payment."
+            ],
+            "added": "pre-v0.10.1"
+          }
+        }
+      }
+    },
+    "shutdown.json": {
+      "$schema": "../../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "notification": "shutdown",
+      "title": "Notification for plugin shutdown",
+      "description": [
+        "The **shutdown** notification informs a plugin that lightningd is shutting down."
+      ],
+      "added": "pre-v0.10.1",
+      "request": {
+        "added": "pre-v0.10.1"
+      },
+      "response": {
+        "added": "pre-v0.10.1",
+        "properties": {}
+      }
+    },
+    "warning.json": {
+      "$schema": "../../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "notification": "warning",
+      "title": "Notification for warning-level log events",
+      "description": [
+        "The **warning** notification informs whenever lightningd emits a warning or error level event that should be surfaced to plugins."
+      ],
+      "added": "pre-v0.10.1",
+      "request": {
+        "added": "pre-v0.10.1"
+      },
+      "response": {
+        "added": "pre-v0.10.1",
+        "required": [
+          "level",
+          "time",
+          "timestamp",
+          "source",
+          "log"
+        ],
+        "properties": {
+          "level": {
+            "type": "string",
+            "enum": [
+              "warn",
+              "error"
+            ],
+            "description": [
+              "The log level of the warning notification."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "time": {
+            "type": "string",
+            "description": [
+              "The event time as seconds since epoch with subsecond precision."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "timestamp": {
+            "type": "string",
+            "description": [
+              "The event time in ISO 8601 format."
+            ],
+            "added": "v24.02"
+          },
+          "source": {
+            "type": "string",
+            "description": [
+              "The source component that emitted the log entry."
+            ],
+            "added": "pre-v0.10.1"
+          },
+          "log": {
+            "type": "string",
+            "description": [
+              "The original log message."
+            ],
+            "added": "pre-v0.10.1"
+          }
+        }
+      }
+    },
+    "xpay_pay_part_end.json": {
+      "$schema": "../../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "notification": "pay_part_end",
+      "title": "Notification for xpay part end",
+      "description": [
+        "The **pay_part_end** notification is emitted by the xpay plugin when a payment part completes."
+      ],
+      "added": "v25.09",
+      "request": {
+        "added": "v25.09"
+      },
+      "response": {
+        "added": "v25.09",
+        "required": [
+          "origin",
+          "payload"
+        ],
+        "properties": {
+          "origin": {
+            "type": "string",
+            "description": [
+              "The plugin origin for the forwarded notification."
+            ],
+            "added": "v25.09"
+          },
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "status",
+              "duration",
+              "payment_hash",
+              "groupid",
+              "partid"
+            ],
+            "description": [
+              "The xpay notification payload."
+            ],
+            "added": "v25.09",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "success",
+                  "failure"
+                ],
+                "description": [
+                  "Whether the payment part succeeded or failed."
+                ],
+                "added": "v25.09"
+              },
+              "duration": {
+                "type": "number",
+                "description": [
+                  "The time in seconds from send to result."
+                ],
+                "added": "v25.09"
+              },
+              "payment_hash": {
+                "type": "hash",
+                "description": [
+                  "The payment hash for the xpay invocation."
+                ],
+                "added": "v25.09"
+              },
+              "groupid": {
+                "type": "u64",
+                "description": [
+                  "The xpay group identifier for the payment attempt."
+                ],
+                "added": "v25.09"
+              },
+              "partid": {
+                "type": "u64",
+                "description": [
+                  "The identifier for this payment part."
+                ],
+                "added": "v25.09"
+              },
+              "failed_msg": {
+                "type": "hex",
+                "description": [
+                  "The decrypted onion error message, if available."
+                ],
+                "added": "v25.09"
+              },
+              "failed_node_id": {
+                "type": "pubkey",
+                "description": [
+                  "The node that generated the failure, if known."
+                ],
+                "added": "v25.09"
+              },
+              "failed_short_channel_id": {
+                "type": "short_channel_id",
+                "description": [
+                  "The short channel id complained about, if known."
+                ],
+                "added": "v25.09"
+              },
+              "failed_direction": {
+                "type": "u32",
+                "description": [
+                  "The direction within the failed short channel id, if known."
+                ],
+                "added": "v25.09"
+              },
+              "error_code": {
+                "type": "u32",
+                "description": [
+                  "The xpay error code, if known."
+                ],
+                "added": "v25.09"
+              },
+              "error_message": {
+                "type": "string",
+                "description": [
+                  "The human-readable xpay error message."
+                ],
+                "added": "v25.09"
+              }
+            }
+          }
+        }
+      }
+    },
+    "xpay_pay_part_start.json": {
+      "$schema": "../../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "notification": "pay_part_start",
+      "title": "Notification for xpay part start",
+      "description": [
+        "The **pay_part_start** notification is emitted by the xpay plugin when a payment part begins."
+      ],
+      "added": "v25.09",
+      "request": {
+        "added": "v25.09"
+      },
+      "response": {
+        "added": "v25.09",
+        "required": [
+          "origin",
+          "payload"
+        ],
+        "properties": {
+          "origin": {
+            "type": "string",
+            "description": [
+              "The plugin origin for the forwarded notification."
+            ],
+            "added": "v25.09"
+          },
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "payment_hash",
+              "groupid",
+              "partid",
+              "total_payment_msat",
+              "attempt_msat",
+              "hops"
+            ],
+            "description": [
+              "The xpay notification payload."
+            ],
+            "added": "v25.09",
+            "properties": {
+              "payment_hash": {
+                "type": "hash",
+                "description": [
+                  "The payment hash for the xpay invocation."
+                ],
+                "added": "v25.09"
+              },
+              "groupid": {
+                "type": "u64",
+                "description": [
+                  "The xpay group identifier for the payment attempt."
+                ],
+                "added": "v25.09"
+              },
+              "partid": {
+                "type": "u64",
+                "description": [
+                  "The identifier for this payment part."
+                ],
+                "added": "v25.09"
+              },
+              "total_payment_msat": {
+                "type": "msat",
+                "description": [
+                  "The total payment amount for the xpay invocation."
+                ],
+                "added": "v25.09"
+              },
+              "attempt_msat": {
+                "type": "msat",
+                "description": [
+                  "The amount this payment part attempts to deliver."
+                ],
+                "added": "v25.09"
+              },
+              "hops": {
+                "type": "array",
+                "description": [
+                  "The route hops for this payment part."
+                ],
+                "added": "v25.09",
+                "items": {
+                  "type": "object",
+                  "added": "v25.09",
+                  "additionalProperties": false,
+                  "required": [
+                    "next_node",
+                    "short_channel_id",
+                    "direction",
+                    "channel_in_msat",
+                    "channel_out_msat"
+                  ],
+                  "properties": {
+                    "next_node": {
+                      "type": "pubkey",
+                      "description": [
+                        "The next node for this hop."
+                      ],
+                      "added": "v25.09"
+                    },
+                    "short_channel_id": {
+                      "type": "short_channel_id",
+                      "description": [
+                        "The short channel id used for this hop."
+                      ],
+                      "added": "v25.09"
+                    },
+                    "direction": {
+                      "type": "u32",
+                      "description": [
+                        "The direction within the short channel id."
+                      ],
+                      "added": "v25.09"
+                    },
+                    "channel_in_msat": {
+                      "type": "msat",
+                      "description": [
+                        "The amount entering the hop."
+                      ],
+                      "added": "v25.09"
+                    },
+                    "channel_out_msat": {
+                      "type": "msat",
+                      "description": [
+                        "The amount leaving the hop."
+                      ],
+                      "added": "v25.09"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
