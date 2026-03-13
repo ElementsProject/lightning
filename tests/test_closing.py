@@ -3957,6 +3957,90 @@ def test_htlc_no_force_close(node_factory, bitcoind, anchors):
     # FIXME: l2 should complain!
 
 
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd anchors unsupported')
+def test_fulfilled_htlc_deadline_no_force_close(node_factory, bitcoind):
+    """Test that l2 does not force-close when fulfilled HTLC is in
+    SENT_REMOVE_HTLC state (preimage known, fulfill queued to channeld
+    but not yet sent to upstream peer).
+
+    Reproduces https://github.com/ElementsProject/lightning/issues/8899:
+    CLN force-closed with 'Fulfilled HTLC SENT_REMOVE_HTLC cltv hit deadline'
+    without attempting to send update_fulfill_htlc upstream first.
+    """
+    # l1 -> l2 -> l3 topology.
+    # l2 disconnects from l1 right before sending update_fulfill_htlc,
+    # so the incoming HTLC on l1-l2 stays in SENT_REMOVE_HTLC.
+    # l2 cannot reconnect (dev-no-reconnect), simulating the scenario where
+    # the upstream peer appears connected but isn't processing messages.
+    #
+    # Use identical feerates to avoid gratuitous commits to update them.
+    opts = [{'dev-no-reconnect': None,
+             'feerates': (7500, 7500, 7500, 7500)},
+            {'disconnect': ['-WIRE_UPDATE_FULFILL_HTLC'],
+             'dev-no-reconnect': None,
+             'feerates': (7500, 7500, 7500, 7500)},
+            {'feerates': (7500, 7500, 7500, 7500)}]
+
+    l1, l2, l3 = node_factory.line_graph(3, opts=opts, wait_for_announce=True)
+
+    amt = 12300000
+    inv = l3.rpc.invoice(amt, 'test_fulfilled_deadline', 'desc')
+
+    # Use explicit route with known delays to have predictable cltv_expiry.
+    # delay=16 for first hop (cltv_delta=6 + cltv_final=10),
+    # delay=10 for second hop (cltv_final=10).
+    route = [{'amount_msat': amt + 1 + amt * 10 // 1000000,
+              'id': l2.info['id'],
+              'delay': 16,
+              'channel': first_scid(l1, l2)},
+             {'amount_msat': amt,
+              'id': l3.info['id'],
+              'delay': 10,
+              'channel': first_scid(l2, l3)}]
+    l1.rpc.sendpay(route, inv['payment_hash'],
+                   payment_secret=inv['payment_secret'])
+
+    # l3 fulfills the HTLC, preimage flows back to l2.
+    # l2 transitions the incoming HTLC (from l1) to SENT_REMOVE_HTLC,
+    # then tries to send update_fulfill_htlc to l1 but disconnects.
+    l2.daemon.wait_for_log('dev_disconnect: -WIRE_UPDATE_FULFILL_HTLC')
+
+    # After disconnect, channeld for the l1-l2 channel will die because
+    # connectd closed the TCP socket.  Wait for that to settle so we
+    # have a stable state (channel stays CHANNELD_NORMAL, owner=NULL).
+    l2.daemon.wait_for_log('Peer transient failure in CHANNELD_NORMAL')
+
+    # Verify the HTLC is stuck on the l1-l2 channel in SENT_REMOVE_HTLC:
+    # l2 has the preimage but channeld died before sending it upstream.
+    htlcs = only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])['htlcs']
+    assert len(htlcs) == 1
+    assert htlcs[0]['state'] == 'SENT_REMOVE_HTLC'
+
+    # Block math for the deadline:
+    # line_graph(3, wait_for_announce=True) mines to height 108.
+    # sendpay uses cltv_expiry = get_network_blockheight() + 1 + delay.
+    # For the l1->l2 HTLC: cltv_expiry = 108 + 1 + 16 = 125.
+    # htlc_in_deadline = cltv_expiry - (cltv_expiry_delta + 1)/2 = 125 - 3 = 122.
+    # We need to mine 122 - 108 = 14 blocks to hit the deadline.
+    #
+    # BUG: l2 will force-close with "Fulfilled HTLC 0 SENT_REMOVE_HTLC cltv ... hit deadline"
+    # even though it has the preimage and just needs to reconnect to send it upstream.
+    # The correct behavior would be to NOT force-close when the HTLC is in
+    # SENT_REMOVE_HTLC (preimage known, fulfill already queued to channeld).
+    bitcoind.generate_block(13)
+    sync_blockheight(bitcoind, [l2])
+    assert not l2.daemon.is_in_log('hit deadline')
+
+    bitcoind.generate_block(1)
+    sync_blockheight(bitcoind, [l2])
+
+    # This is the bug: l2 force-closes with SENT_REMOVE_HTLC.
+    # After a fix, this line should be changed to assert the force-close
+    # does NOT happen:
+    #   assert not l2.daemon.is_in_log('Fulfilled HTLC 0 SENT_REMOVE_HTLC')
+    l2.daemon.wait_for_log('Fulfilled HTLC 0 SENT_REMOVE_HTLC cltv .* hit deadline')
+
+
 def test_closing_tx_valid(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True,
                                               'dev-no-reconnect': None})
