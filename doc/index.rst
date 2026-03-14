@@ -38,6 +38,7 @@ Core Lightning Documentation
    bkpr-listaccountevents <bkpr-listaccountevents.7.md>
    bkpr-listbalances <bkpr-listbalances.7.md>
    bkpr-listincome <bkpr-listincome.7.md>
+   bkpr-report <bkpr-report.7.md>
    blacklistrune <blacklistrune.7.md>
    cancelrecurringinvoice <cancelrecurringinvoice.7.md>
    check <check.7.md>

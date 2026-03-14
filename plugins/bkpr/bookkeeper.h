@@ -44,10 +44,16 @@ struct bkpr {
 /* Get bkpr struct for the plugin */
 struct bkpr *bkpr_of(struct plugin *plugin);
 
-/* Get currency rate for this timestamp, as string, or NULL. */
+/* Get currency rate for this timestamp, as string, or NULL.
+ * If msat is non-NULL, amount for that number of msat (otherwise 1 btc)*/
 const char *currencyrate_str(const tal_t *ctx,
 			     const struct bkpr *bkpr,
-			     u64 timestamp);
+			     u64 timestamp,
+			     const struct amount_msat *msat);
+
+/* Get the struct currencyrate covering this timestamp, if any. */
+const struct currencyrate *covering_currencyrate(const struct bkpr *bkpr,
+						 u64 timestamp);
 
 /* Add optional currencyrate for this timestamp */
 void json_add_currencyrate(struct json_stream *result,
