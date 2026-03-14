@@ -768,7 +768,6 @@ static void handle_splice_sending_sigs(struct lightningd *ld,
 }
 
 bool depthcb_update_scid(struct channel *channel,
-			 const struct bitcoin_txid *txid,
 			 const struct bitcoin_outpoint *outpoint)
 {
 	struct txlocator *loc;
@@ -776,7 +775,7 @@ bool depthcb_update_scid(struct channel *channel,
 	struct short_channel_id scid;
 
 	/* What scid is this giving us? */
-	loc = wallet_transaction_locate(tmpctx, ld->wallet, txid);
+	loc = wallet_transaction_locate(tmpctx, ld->wallet, &outpoint->txid);
 	if (!mk_short_channel_id(&scid,
 				 loc->blkheight, loc->index,
 				 outpoint->n)) {
@@ -1151,8 +1150,7 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 
 	wallet_channel_clear_inflights(channel->peer->ld->wallet, channel);
 
-	depthcb_update_scid(channel, &locked_txid,
-			    &inflight->funding->outpoint);
+	depthcb_update_scid(channel, &inflight->funding->outpoint);
 
 	/* That freed watchers in inflights: now watch funding tx */
 	channel_watch_funding(channel->peer->ld, channel);
