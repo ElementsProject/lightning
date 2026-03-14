@@ -59,8 +59,8 @@ median from currencyrates results",
                 .usage("amount currency"),
         )
         .rpcmethod_from_builder(
-            RpcMethodBuilder::new("currencyrates", currencyrates)
-                .description("Returns the number of msats per unit from every source")
+            RpcMethodBuilder::new("listcurrencyrates", listcurrencyrates)
+                .description("Returns the BTC price for the currency from every source")
                 .usage("currency"),
         )
         .dynamic()
@@ -138,7 +138,7 @@ async fn currencyconvert(plugin: Plugin<PluginState>, args: Value) -> Result<Val
     }
 }
 
-async fn currencyrates(plugin: Plugin<PluginState>, args: Value) -> Result<Value, anyhow::Error> {
+async fn listcurrencyrates(plugin: Plugin<PluginState>, args: Value) -> Result<Value, anyhow::Error> {
     let currency = match args {
         Value::Array(values) => {
             let currency = values
@@ -166,14 +166,21 @@ async fn currencyrates(plugin: Plugin<PluginState>, args: Value) -> Result<Value
 
     match oracle.get_all_rates(&currency).await {
         Ok(result) => {
-            let mut map = serde_json::Map::new();
-            for source_result in result {
-                let msat = (MSAT_PER_BTC / source_result.price).round() as u64;
-                map.insert(source_result.name.clone(), json!(msat));
-            }
-            Ok(json!(map))
+            let currencyrates = result
+                .into_iter()
+                .map(|source_result| {
+                    json!({
+                        "source": source_result.name,
+                        "amount": source_result.price,
+                    })
+                })
+                .collect::<Vec<_>>();
+
+            Ok(json!({
+                "currencyrates": currencyrates,
+            }))
         }
-        Err(e) => Err(anyhow!("Error converting currency: {e}")),
+        Err(e) => Err(anyhow!("Error listing currency rates: {e}")),
     }
 }
 

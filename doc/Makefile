@@ -85,6 +85,7 @@ MARKDOWNPAGES := doc/addgossip.7 \
 	doc/listchannels.7 \
 	doc/listclosedchannels.7 \
 	doc/listconfigs.7 \
+	doc/listcurrencyrates.7 \
 	doc/listdatastore.7 \
 	doc/listforwards.7 \
 	doc/listfunds.7 \
