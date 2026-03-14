@@ -756,6 +756,19 @@ u8 *unsigned_node_announcement(const tal_t *ctx UNNEEDED,
 			       struct lightningd *ld UNNEEDED,
 			       const u8 *prev UNNEEDED)
 { fprintf(stderr, "unsigned_node_announcement called!\n"); abort(); }
+/* Generated stub for unwatch_scriptpubkey_ */
+bool unwatch_scriptpubkey_(const tal_t *ctx UNNEEDED,
+			   struct chain_topology *topo UNNEEDED,
+			   const u8 *scriptpubkey TAKES UNNEEDED,
+			   const struct bitcoin_outpoint *expected_outpoint UNNEEDED,
+			   struct amount_sat expected_amount UNNEEDED,
+			   void (*cb)(struct lightningd *ld UNNEEDED,
+				      const struct bitcoin_tx *tx UNNEEDED,
+				      u32 outnum UNNEEDED,
+				      const struct txlocator *loc UNNEEDED,
+				      void *) UNNEEDED,
+			   void *arg UNNEEDED)
+{ fprintf(stderr, "unwatch_scriptpubkey_ called!\n"); abort(); }
 /* Generated stub for watch_blockdepth_ */
 void watch_blockdepth_(const tal_t *ctx UNNEEDED,
 		       struct chain_topology *topo UNNEEDED,
