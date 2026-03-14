@@ -8,6 +8,7 @@
 #include <channeld/channeld_wiregen.h>
 #include <common/clock_time.h>
 #include <common/memleak.h>
+#include <common/mkdatastorekey.h>
 #include <common/onionreply.h>
 #include <common/randbytes.h>
 #include <common/trace.h>
@@ -6403,13 +6404,9 @@ void wallet_datastore_save_utxo_description(struct db *db,
 					    const struct bitcoin_outpoint *outpoint,
 					    const char *desc)
 {
-	const char **key;
-
-	key = tal_arr(tmpctx, const char *, 4);
-	key[0] = "bookkeeper";
-	key[1] = "description";
-	key[2] = "utxo";
-	key[3] = fmt_bitcoin_outpoint(key, outpoint);
+	const char **key = mkdatastorekey(tmpctx,
+					  "bookkeeper", "description", "utxo",
+					  take(fmt_bitcoin_outpoint(NULL, outpoint)));
 
 	/* In case it's a duplicate, remove first */
 	db_datastore_remove(db, key);
@@ -6420,13 +6417,9 @@ void wallet_datastore_save_payment_description(struct db *db,
 					       const struct sha256 *payment_hash,
 					       const char *desc)
 {
-	const char **key;
-
-	key = tal_arr(tmpctx, const char *, 4);
-	key[0] = "bookkeeper";
-	key[1] = "description";
-	key[2] = "payment";
-	key[3] = fmt_sha256(key, payment_hash);
+	const char **key = mkdatastorekey(tmpctx,
+					  "bookkeeper", "description", "payment",
+					  take(fmt_sha256(NULL, payment_hash)));
 
 	/* In case it's a duplicate, remove first */
 	db_datastore_remove(db, key);
@@ -6779,12 +6772,8 @@ void migrate_datastore_commando_runes(struct lightningd *ld, struct db *db)
 {
 	const char **startkey;
 
-	/* datastore routines expect a tal_arr */
-	startkey = tal_arr(tmpctx, const char *, 2);
-
 	/* We deleted this from the datastore on migration. */
-	startkey[0] = "commando";
-	startkey[1] = "rune_counter";
+	startkey = mkdatastorekey(tmpctx, "commando", "rune_counter");
 	if (db_datastore_get(tmpctx, db, startkey, NULL))
 		db_fatal(db, "Commando runes still present?  Migration removed in v25.02: call Rusty!");
 }
