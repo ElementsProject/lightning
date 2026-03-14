@@ -4005,17 +4005,23 @@ def test_fulfilled_htlc_deadline_no_force_close(node_factory, bitcoind):
     # then tries to send update_fulfill_htlc to l1 but disconnects.
     l2.daemon.wait_for_log('dev_disconnect: -WIRE_UPDATE_FULFILL_HTLC')
 
-    # After disconnect, wait for the HTLC to appear in SENT_REMOVE_HTLC
-    # on the l1-l2 channel.  l2 has the preimage but the TCP connection
-    # to l1 was dropped before update_fulfill_htlc could be sent.
-    wait_for(lambda: only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])['htlcs'] != []
-             and only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])['htlcs'][0]['state'] == 'SENT_REMOVE_HTLC')
+    # After disconnect, the HTLC is in SENT_REMOVE_HTLC on the l1-l2
+    # channel: l2 has the preimage but the TCP connection to l1 was
+    # dropped before update_fulfill_htlc could be sent.
+    #
+    # The HTLC was already on the l1-l2 channel (added before fulfill).
+    # By the time dev_disconnect fires, lightningd has already
+    # transitioned it to SENT_REMOVE_HTLC in fulfill_htlc().
+    #
+    # Get the HTLC cltv_expiry from what l2 logged when it received the
+    # HTLC from l1 (this log appears before the disconnect).
+    cltv_log = l2.daemon.is_in_log(r'Adding HTLC 0 amount=\d+msat cltv=(\d+) gave CHANNEL_ERR_ADD_OK')
+    assert cltv_log, "HTLC add log not found"
+    cltv_expiry = int(cltv_log.group(1))
 
     # Compute the deadline dynamically from the actual HTLC cltv_expiry.
     # htlc_in_deadline = cltv_expiry - (cltv_expiry_delta + 1)/2
     # With regtest cltv_expiry_delta=6: deadline = cltv_expiry - 3
-    htlc = only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])['htlcs'][0]
-    cltv_expiry = htlc['expiry']
     deadline = cltv_expiry - (6 + 1) // 2
     current_height = bitcoind.rpc.getblockcount()
 
