@@ -1245,7 +1245,7 @@ param_funder_opt(struct command *cmd, const char *name,
 	opt_str = tal_strndup(cmd, buffer + tok->start,
 			      tok->end - tok->start);
 
-	err = funding_option(cmd->plugin, opt_str, false, *opt);
+	err = funding_option(cmd, opt_str, false, *opt);
 	if (err)
 		return command_fail_badparam(cmd, name, buffer, tok, err);
 
@@ -1265,7 +1265,7 @@ param_policy_mod(struct command *cmd, const char *name,
 	arg_str = tal_strndup(cmd, buffer + tok->start,
 			      tok->end - tok->start);
 
-	err = u64_option(cmd->plugin, arg_str, false, *mod);
+	err = u64_option(cmd, arg_str, false, *mod);
 	if (err) {
 		tal_free(err);
 		if (!parse_amount_sat(&sats, arg_str, strlen(arg_str)))
@@ -1562,7 +1562,7 @@ const struct plugin_notification notifs[] = {
 	},
 };
 
-static char *option_channel_base(struct plugin *plugin, const char *arg,
+static char *option_channel_base(struct command *cmd, const char *arg,
 				 bool check_only, struct funder_policy *policy)
 {
 	struct amount_msat amt;
@@ -1584,13 +1584,13 @@ static char *option_channel_base(struct plugin *plugin, const char *arg,
 }
 
 static char *
-option_channel_fee_proportional_thousandths_max(struct plugin *plugin,
+option_channel_fee_proportional_thousandths_max(struct command *cmd,
 						const char *arg,
 						bool check_only,
 						struct funder_policy *policy)
 {
 	u16 fptm;
-	char *problem = u16_option(plugin, arg, false, &fptm);
+	char *problem = u16_option(cmd, arg, false, &fptm);
 
 	if (problem || check_only)
 		return problem;
@@ -1601,7 +1601,7 @@ option_channel_fee_proportional_thousandths_max(struct plugin *plugin,
 	return NULL;
 }
 
-static char *amount_option(struct plugin *plugin, const char *arg, bool check_only,
+static char *amount_option(struct command *cmd, const char *arg, bool check_only,
 			   struct amount_sat *amt)
 {
 	struct amount_sat v;
@@ -1613,7 +1613,7 @@ static char *amount_option(struct plugin *plugin, const char *arg, bool check_on
 	return NULL;
 }
 
-static bool jsonfmt_amount_sat(struct plugin *plugin,
+static bool jsonfmt_amount_sat(struct command *cmd,
 			       struct json_stream *js,
 			       const char *fieldname,
 			       struct amount_sat *sats)
@@ -1624,7 +1624,7 @@ static bool jsonfmt_amount_sat(struct plugin *plugin,
 	return true;
 }
 
-static char *option_lease_fee_base(struct plugin *plugin, const char *arg,
+static char *option_lease_fee_base(struct command *cmd, const char *arg,
 				   bool check_only,
 				   struct funder_policy *policy)
 {
@@ -1632,7 +1632,7 @@ static char *option_lease_fee_base(struct plugin *plugin, const char *arg,
 	u32 lfbs;
 	char *err;
 
-	err = amount_option(plugin, arg, false, &amt);
+	err = amount_option(cmd, arg, false, &amt);
 	if (err)
 		return err;
 
@@ -1649,12 +1649,12 @@ static char *option_lease_fee_base(struct plugin *plugin, const char *arg,
 	return NULL;
 }
 
-static char *option_lease_fee_basis(struct plugin *plugin, const char *arg,
+static char *option_lease_fee_basis(struct command *cmd, const char *arg,
 				    bool check_only,
 				    struct funder_policy *policy)
 {
 	u16 lfb;
-	char *problem = u16_option(plugin, arg, false, &lfb);
+	char *problem = u16_option(cmd, arg, false, &lfb);
 
 	if (problem || check_only)
 		return problem;
@@ -1665,12 +1665,12 @@ static char *option_lease_fee_basis(struct plugin *plugin, const char *arg,
 	return NULL;
 }
 
-static char *option_lease_weight_max(struct plugin *plugin, const char *arg,
+static char *option_lease_weight_max(struct command *cmd, const char *arg,
 				     bool check_only,
 				     struct funder_policy *policy)
 {
 	u16 fw;
-	char *problem = u16_option(plugin, arg, false, &fw);
+	char *problem = u16_option(cmd, arg, false, &fw);
 
 	if (problem || check_only)
 		return problem;
@@ -1681,7 +1681,7 @@ static char *option_lease_weight_max(struct plugin *plugin, const char *arg,
 	return NULL;
 }
 
-static char *amount_sat_or_u64_option(struct plugin *plugin,
+static char *amount_sat_or_u64_option(struct command *cmd,
 				      const char *arg,
 				      bool check_only,
 				      u64 *amt)
@@ -1689,7 +1689,7 @@ static char *amount_sat_or_u64_option(struct plugin *plugin,
 	struct amount_sat sats;
 	char *err;
 
-	err = u64_option(plugin, arg, false, &sats.satoshis); /* Raw: want sats below */
+	err = u64_option(cmd, arg, false, &sats.satoshis); /* Raw: want sats below */
 	if (err) {
 		tal_free(err);
 		if (!parse_amount_sat(&sats, arg, strlen(arg)))
@@ -1704,7 +1704,7 @@ static char *amount_sat_or_u64_option(struct plugin *plugin,
 	return NULL;
 }
 
-static bool jsonfmt_policy_mod(struct plugin *plugin,
+static bool jsonfmt_policy_mod(struct command *cmd,
 			       struct json_stream *js,
 			       const char *fieldname,
 			       u64 *amt)
