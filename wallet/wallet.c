@@ -68,12 +68,6 @@ static enum state_change state_change_in_db(enum state_change s)
 	fatal("%s: %u is invalid", __func__, s);
 }
 
-/* libwally uses pointer/size pairs */
-struct script_with_len {
-	const u8 *script;
-	size_t len;
-};
-
 /* We keep a hash of these, for fast lookup */
 struct wallet_address {
 	u32 index;
@@ -81,20 +75,15 @@ struct wallet_address {
 	struct script_with_len swl;
 };
 
-static size_t script_with_len_hash(const struct script_with_len *swl)
-{
-	return siphash24(siphash_seed(), swl->script, swl->len);
-}
-
 static const struct script_with_len *wallet_address_keyof(const struct wallet_address *waddr)
 {
 	return &waddr->swl;
 }
 
 static bool wallet_address_eq_scriptpubkey(const struct wallet_address *waddr,
-					   const struct script_with_len *script)
+					   const struct script_with_len *swl)
 {
-	return memeq(waddr->swl.script, waddr->swl.len, script->script, script->len);
+	return script_with_len_eq(&waddr->swl, swl);
 }
 
 HTABLE_DEFINE_NODUPS_TYPE(struct wallet_address,
@@ -3354,10 +3343,6 @@ type_ok:
 		return;
 	}
 
-	/* This is an unconfirmed change output, we should track it */
-	if (utxo->utxotype != UTXO_P2SH_P2WPKH && !blockheight)
-		txfilter_add_scriptpubkey(w->ld->owned_txfilter, txout->script);
-
 	outpointfilter_add(w->owned_outpoints, &utxo->outpoint);
 
 	wallet_annotate_txout(w, &utxo->outpoint, TX_WALLET_DEPOSIT, 0);
@@ -3365,11 +3350,13 @@ type_ok:
 		*outpoint = utxo->outpoint;
 }
 
-int wallet_extract_owned_outputs(struct wallet *w, const struct wally_tx *wtx,
-				 bool is_coinbase,
-				 const u32 *blockheight)
+bool wallet_extract_owned_outputs(struct wallet *w,
+				  const struct wally_tx *wtx,
+				  bool is_coinbase,
+				  const u32 *blockheight,
+				  size_t **outputs)
 {
-	int num_utxos = 0;
+	bool matched = false;
 
 	for (size_t i = 0; i < wtx->num_outputs; i++) {
 		const struct wally_tx_output *txout = &wtx->outputs[i];
@@ -3384,9 +3371,11 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct wally_tx *wtx,
 			continue;
 
 		got_utxo(w, keyindex, addrtype, wtx, i, is_coinbase, blockheight, NULL);
-		num_utxos++;
+		matched = true;
+		if (outputs)
+			tal_arr_expand(outputs, i);
 	}
-	return num_utxos;
+	return matched;
 }
 
 void wallet_htlc_save_in(struct wallet *wallet,
@@ -5272,34 +5261,6 @@ u32 wallet_transaction_height(struct wallet *w, const struct bitcoin_txid *txid)
 		blockheight = 0;
 	tal_free(stmt);
 	return blockheight;
-}
-
-struct txlocator *wallet_transaction_locate(const tal_t *ctx, struct wallet *w,
-					    const struct bitcoin_txid *txid)
-{
-	struct txlocator *loc;
-	struct db_stmt *stmt;
-
-	stmt = db_prepare_v2(
-		w->db, SQL("SELECT blockheight, txindex FROM transactions WHERE id=?"));
-	db_bind_txid(stmt, txid);
-	db_query_prepared(stmt);
-
-	if (!db_step(stmt)) {
-		tal_free(stmt);
-		return NULL;
-	}
-
-	if (db_col_is_null(stmt, "blockheight")) {
-		db_col_ignore(stmt, "txindex");
-		loc = NULL;
-	} else {
-		loc = tal(ctx, struct txlocator);
-		loc->blkheight = db_col_int(stmt, "blockheight");
-		loc->index = db_col_int(stmt, "txindex");
-	}
-	tal_free(stmt);
-	return loc;
 }
 
 struct bitcoin_txid *wallet_transactions_by_height(const tal_t *ctx,

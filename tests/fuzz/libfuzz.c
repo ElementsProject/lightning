@@ -22,6 +22,20 @@ int LLVMFuzzerInitialize(int *argc, char ***argv);
 /* Provide a non-random pseudo-random function to speed fuzzing. */
 static isaac64_ctx isaac64;
 
+/* Most tests should not be calling this */
+bool fuzz_allow_siphash_seed = false;
+
+/* Define this so we don't try to link against common/pseudorand.o! */
+const struct siphash_seed *siphash_seed(void)
+{
+	if (!fuzz_allow_siphash_seed)
+		abort();
+
+	struct siphash_seed *siphashseed = tal(tmpctx, struct siphash_seed);
+	memset(siphashseed, 1, sizeof(*siphashseed));
+	return siphashseed;
+}
+
 uint64_t pseudorand_(uint64_t max, uint64_t *offset)
 {
 	assert(max);

@@ -5,7 +5,6 @@
 #include "../../wire/towire.c"
 #include "../bigsize.c"
 #include "../bolt12.c"
-#include <common/randbytes.h>
 #include <common/setup.h>
 #include <stdio.h>
 
@@ -88,6 +87,9 @@ void sighash_from_merkle(const char *messagename UNNEEDED,
 			 const struct sha256 *merkle UNNEEDED,
 			 struct sha256 *sighash UNNEEDED)
 { fprintf(stderr, "sighash_from_merkle called!\n"); abort(); }
+/* Generated stub for siphash_seed */
+const struct siphash_seed *siphash_seed(void)
+{ fprintf(stderr, "siphash_seed called!\n"); abort(); }
 /* Generated stub for to_bech32_charset */
 char *to_bech32_charset(const tal_t *ctx UNNEEDED,
 			const char *hrp UNNEEDED, const u8 *data UNNEEDED)

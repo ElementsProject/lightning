@@ -496,17 +496,16 @@ static void handle_tx_broadcast(struct send_splice_info *info)
 	struct json_stream *response;
 	struct bitcoin_txid txid;
 	u8 *tx_bytes;
-	int num_utxos;
 
 	tx_bytes = linearize_tx(tmpctx, info->final_tx);
 	bitcoin_txid(info->final_tx, &txid);
 
 	/* This might have spent UTXOs from our wallet */
-	num_utxos = wallet_extract_owned_outputs(ld->wallet,
-						 info->final_tx->wtx, false,
-						 NULL);
-	if (num_utxos)
+	if (wallet_extract_owned_outputs(ld->wallet,
+					 info->final_tx->wtx, false,
+					 NULL, NULL)) {
 		wallet_transaction_add(ld->wallet, info->final_tx->wtx, 0, 0);
+	}
 
 	if (info->cc) {
 		response = json_stream_success(info->cc->cmd);
@@ -652,51 +651,27 @@ static void handle_splice_confirmed_signed(struct lightningd *ld,
 }
 
 static enum watch_result splice_depth_cb(struct lightningd *ld,
-					 const struct bitcoin_txid *txid,
-					 const struct bitcoin_tx *tx,
 					 unsigned int depth,
-					 void *param)
+					 struct channel_inflight *inflight)
 {
-	/* find_txwatch triggers a type warning on inflight, so we do this. */
-	struct channel_inflight *inflight = param;
-	struct txlocator *loc;
-	struct short_channel_id scid;
-
-	/* What scid is this giving us? */
-	loc = wallet_transaction_locate(tmpctx, ld->wallet, txid);
-	if (!mk_short_channel_id(&scid,
-				 loc->blkheight, loc->index,
-				 inflight->funding->outpoint.n)) {
-		channel_fail_permanent(inflight->channel,
-				       REASON_LOCAL,
-				       "Invalid funding scid %u:%u:%u",
-				       loc->blkheight, loc->index,
-				       inflight->funding->outpoint.n);
-		return false;
-	}
-
 	/* Usually, we're here because we're awaiting a splice, but
 	 * we could also mutual shutdown, or that weird splice_locked_memonly
 	 * hack... */
 	if (inflight->channel->state != CHANNELD_AWAITING_SPLICE) {
-		log_info(inflight->channel->log, "Splice inflight event but not"
-			 " in AWAITING_SPLICE, ending watch of txid %s",
-			 fmt_bitcoin_txid(tmpctx, txid));
+		log_debug(inflight->channel->log, "Splice inflight event but not"
+			  " in AWAITING_SPLICE, ending watch of txid %s",
+			 fmt_bitcoin_txid(tmpctx, &inflight->funding->outpoint.txid));
 		return DELETE_WATCH;
 	}
 
-	/* Reorged out?  OK, we're not committed yet. */
-	if (depth == 0) {
-		return KEEP_WATCHING;
-	}
-
 	if (inflight->channel->owner) {
-		log_info(inflight->channel->log, "splice_depth_cb: sending funding depth scid: %s",
-			fmt_short_channel_id(tmpctx, scid));
+		log_debug(inflight->channel->log, "splice_depth_cb: sending funding depth scid: %s",
+			  fmt_short_channel_id(tmpctx, *inflight->scid));
 		subd_send_msg(inflight->channel->owner,
 			      take(towire_channeld_funding_depth(
-					   NULL, &scid,
-					   depth, true, txid)));
+					   NULL, inflight->scid,
+					   depth, true,
+					   &inflight->funding->outpoint.txid)));
 	}
 
 	/* channeld will tell us when splice is locked in: we'll clean
@@ -704,23 +679,61 @@ static enum watch_result splice_depth_cb(struct lightningd *ld,
 	return KEEP_WATCHING;
 }
 
+/* Reorged out?  OK, we're not committed yet. */
+static enum watch_result splice_reorged_cb(struct lightningd *ld, struct channel_inflight *inflight)
+{
+	log_unusual(inflight->channel->log, "Splice inflight txid %s reorged out",
+		    fmt_bitcoin_txid(tmpctx, &inflight->funding->outpoint.txid));
+	inflight->scid = tal_free(inflight->scid);
+	return DELETE_WATCH;
+}
+
+/* We see this tx output spend to the splice funding address. */
+static void splice_found(struct lightningd *ld,
+			 const struct bitcoin_tx *tx,
+			 u32 outnum,
+			 const struct txlocator *loc,
+			 struct channel_inflight *inflight)
+{
+	assert(!inflight->scid);
+	inflight->scid = tal(inflight, struct short_channel_id);
+
+	if (!mk_short_channel_id(inflight->scid,
+				 loc->blkheight, loc->index,
+				 inflight->funding->outpoint.n)) {
+		inflight->scid = tal_free(inflight->scid);
+		channel_fail_permanent(inflight->channel,
+				       REASON_LOCAL,
+				       "Invalid funding scid %u:%u:%u",
+				       loc->blkheight, loc->index,
+				       inflight->funding->outpoint.n);
+		return;
+	}
+
+	/* We will almost immediately get called, which is what we want! */
+	watch_blockdepth(inflight, ld->topology, loc->blkheight,
+			 splice_depth_cb,
+			 splice_reorged_cb,
+			 inflight);
+}
+
 void watch_splice_inflight(struct lightningd *ld,
 			   struct channel_inflight *inflight)
 {
+	const u8 *funding_wscript = bitcoin_redeem_2of2(tmpctx,
+							&inflight->channel->local_funding_pubkey,
+							inflight->funding->splice_remote_funding);
+
 	log_info(inflight->channel->log, "Watching splice inflight %s",
 		 fmt_bitcoin_txid(tmpctx,
 				  &inflight->funding->outpoint.txid));
-	watch_txid(inflight, ld->topology,
-		   &inflight->funding->outpoint.txid,
-		   splice_depth_cb, inflight);
-}
 
-static struct txwatch *splice_inflight_txwatch(struct channel *channel,
-					       struct channel_inflight *inflight)
-{
-	return find_txwatch(channel->peer->ld->topology,
-			    &inflight->funding->outpoint.txid,
-			    splice_depth_cb, channel);
+	watch_scriptpubkey(inflight, ld->topology,
+			   take(scriptpubkey_p2wsh(NULL, funding_wscript)),
+			   &inflight->funding->outpoint,
+			   inflight->funding->total_funds,
+			   splice_found,
+			   inflight);
 }
 
 static void handle_splice_sending_sigs(struct lightningd *ld,
@@ -767,16 +780,39 @@ static void handle_splice_sending_sigs(struct lightningd *ld,
 	watch_splice_inflight(ld, inflight);
 }
 
-bool depthcb_update_scid(struct channel *channel,
-			 const struct bitcoin_txid *txid,
-			 const struct bitcoin_outpoint *outpoint)
+static void scid_updated(struct channel *channel)
 {
-	struct txlocator *loc;
+	if (channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL)
+		tell_connectd_scid(channel->peer->ld, *channel->scid, &channel->peer->id);
+
+	wallet_channel_save(channel->peer->ld->wallet, channel);
+}
+
+/* You must call scid_updated after this! */
+static void change_scid(struct channel *channel,
+			struct short_channel_id scid)
+{
+	struct short_channel_id old_scid = *channel->scid;
+
+	/* We freaked out if required when original was
+	 * removed, so just update now */
+	log_info(channel->log, "Short channel id changed from %s->%s",
+		 fmt_short_channel_id(tmpctx, *channel->scid),
+		 fmt_short_channel_id(tmpctx, scid));
+	channel_set_scid(channel, &scid);
+	/* In case we broadcast it before (e.g. splice!) */
+	channel_add_old_scid(channel, old_scid);
+	channel_gossip_scid_changed(channel);
+}
+
+bool depthcb_update_scid(struct channel *channel,
+			 const struct bitcoin_outpoint *outpoint,
+			 const struct txlocator *loc)
+{
 	struct lightningd *ld = channel->peer->ld;
 	struct short_channel_id scid;
 
 	/* What scid is this giving us? */
-	loc = wallet_transaction_locate(tmpctx, ld->wallet, txid);
 	if (!mk_short_channel_id(&scid,
 				 loc->blkheight, loc->index,
 				 outpoint->n)) {
@@ -807,23 +843,10 @@ bool depthcb_update_scid(struct channel *channel,
 			lockin_has_completed(channel, false);
 
 	} else {
-		struct short_channel_id old_scid = *channel->scid;
-
-		/* We freaked out if required when original was
-		 * removed, so just update now */
-		log_info(channel->log, "Short channel id changed from %s->%s",
-			 fmt_short_channel_id(tmpctx, *channel->scid),
-			 fmt_short_channel_id(tmpctx, scid));
-		channel_set_scid(channel, &scid);
-		/* In case we broadcast it before (e.g. splice!) */
-		channel_add_old_scid(channel, old_scid);
-		channel_gossip_scid_changed(channel);
+		change_scid(channel, scid);
 	}
 
-	if (channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL)
-		tell_connectd_scid(ld, *channel->scid, &channel->peer->id);
-
-	wallet_channel_save(ld->wallet, channel);
+	scid_updated(channel);
 	return true;
 }
 
@@ -1106,7 +1129,6 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 	s64 splice_amnt;
 	struct channel_inflight *inflight;
 	struct bitcoin_txid locked_txid;
-	struct txwatch *txw;
 
 	if (!fromwire_channeld_got_splice_locked(msg, &funding_sats,
 						 &splice_amnt,
@@ -1125,9 +1147,6 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 
 	wallet_htlcsigs_confirm_inflight(channel->peer->ld->wallet, channel,
 					 &inflight->funding->outpoint);
-
-	/* Stop watching previous funding tx (could be, for announcement) */
-	channel_unwatch_funding(channel->peer->ld, channel);
 
 	/* Stash prev funding data so we can log it after scid is updated
 	 * (to get the blockheight) */
@@ -1151,8 +1170,8 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 
 	wallet_channel_clear_inflights(channel->peer->ld->wallet, channel);
 
-	depthcb_update_scid(channel, &locked_txid,
-			    &inflight->funding->outpoint);
+	/* Update the scid and tell everyone */
+	change_scid(channel, *inflight->locked_scid);
 
 	/* That freed watchers in inflights: now watch funding tx */
 	channel_watch_funding(channel->peer->ld, channel);
@@ -1176,13 +1195,6 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 	list_add_tail(&channel->inflights, &inflight->list);
 
 	lockin_complete(channel, CHANNELD_AWAITING_SPLICE);
-
-	/* Turn off tx watcher for the splice */
-	txw = splice_inflight_txwatch(channel, inflight);
-	if (!txw)
-		log_unusual(channel->log, "Can't unwatch txid %s",
-			    fmt_bitcoin_txid(tmpctx, &locked_txid));
-	tal_free(txw);
 }
 
 /* We were informed by channeld that channel is ready (reached mindepth) */

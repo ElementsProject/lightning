@@ -4,7 +4,6 @@
 #include <assert.h>
 #include <ccan/tal/str/str.h>
 #include <common/channel_type.h>
-#include <common/randbytes.h>
 #include <common/setup.h>
 #include <inttypes.h>
 #include <stdio.h>
@@ -111,6 +110,9 @@ const char *json_tok_full(const char *buffer UNNEEDED, const jsmntok_t *t UNNEED
 /* Generated stub for json_tok_full_len */
 int json_tok_full_len(const jsmntok_t *t UNNEEDED)
 { fprintf(stderr, "json_tok_full_len called!\n"); abort(); }
+/* Generated stub for siphash_seed */
+const struct siphash_seed *siphash_seed(void)
+{ fprintf(stderr, "siphash_seed called!\n"); abort(); }
 /* Generated stub for towire */
 void towire(u8 **pptr UNNEEDED, const void *data UNNEEDED, size_t len UNNEEDED)
 { fprintf(stderr, "towire called!\n"); abort(); }
