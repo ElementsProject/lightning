@@ -53,10 +53,16 @@ void json_add_currencyrate(struct json_stream *result,
 		json_add_primitive_fmt(result, fieldname, "%f", *currencyrate);
 }
 
-struct refresh_info {
-	size_t calls_remaining;
+struct refresh_cb {
+	struct command *cmd;
 	struct command_result *(*cb)(struct command *, void *);
 	void *arg;
+};
+
+/* If one is already running, simply append your own cb & arg */
+struct refresh_info {
+	size_t calls_remaining;
+	struct refresh_cb *callbacks;
 };
 
 /* Rules: call use_rinfo when handing to a callback.
@@ -75,10 +81,27 @@ static struct command_result *rinfo_one_done(struct command *cmd,
 					     struct refresh_info *rinfo)
 {
 	assert(rinfo->calls_remaining > 0);
-	if (--rinfo->calls_remaining == 0)
-		return rinfo->cb(cmd, rinfo->arg);
-	else
-		return command_still_pending(cmd);
+	if (--rinfo->calls_remaining == 0) {
+		struct command_result *first_ret = NULL;
+		struct bkpr *bkpr = bkpr_of(cmd->plugin);
+
+		assert(rinfo == bkpr->rinfo);
+		bkpr->rinfo = NULL;
+
+		/* We return first one (it's for this command), ignore the rest */
+		for (size_t i = 0; i < tal_count(rinfo->callbacks); i++) {
+			struct command_result *ret;
+			const struct refresh_cb *cb = &rinfo->callbacks[i];
+
+			ret = cb->cb(cb->cmd, cb->arg);
+			if (i == 0)
+				first_ret = ret;
+		}
+		tal_free(rinfo);
+		return first_ret;
+	}
+
+	return command_still_pending(cmd);
 }
 
 struct command_result *ignore_datastore_reply(struct command *cmd,
@@ -198,17 +221,31 @@ static struct command_result *refresh_moves_(struct command *cmd,
 						     void *),
 					     void *arg)
 {
-	struct refresh_info *rinfo = tal(cmd, struct refresh_info);
 	struct out_req *req;
 	struct bkpr *bkpr = bkpr_of(cmd->plugin);
+	struct refresh_cb refresh_cb;
 
-	rinfo->cb = cb;
-	rinfo->arg = arg;
-	rinfo->calls_remaining = 0;
+	refresh_cb.cmd = cmd;
+	refresh_cb.cb = cb;
+	refresh_cb.arg = arg;
+
+	/* If rinfo already running, just jump on that.
+	 *
+	 * NOTE: We assume cmd will not exit before refresh, which is
+	 * currently true, otherwise we'd need a destructor to remove it. */
+	if (bkpr->rinfo) {
+		tal_arr_expand(&bkpr->rinfo->callbacks, refresh_cb);
+		return command_still_pending(cmd);
+	}
+
+	bkpr->rinfo = tal(bkpr, struct refresh_info);
+	bkpr->rinfo->calls_remaining = 0;
+	bkpr->rinfo->callbacks = tal_dup_arr(bkpr->rinfo, struct refresh_cb, &refresh_cb, 1, 0);
+
 	req = jsonrpc_request_start(cmd, "listchainmoves",
 				    listchainmoves_done,
 				    plugin_broken_cb,
-				    use_rinfo(rinfo));
+				    use_rinfo(bkpr->rinfo));
 	json_add_string(req->js, "index", "created");
 	json_add_u64(req->js, "start", bkpr->chainmoves_index + 1);
 	return send_outreq(req);
@@ -1314,10 +1351,8 @@ parse_and_log_chain_move(struct command *cmd,
 	if (e->origin_acct)
 		find_or_create_account(cmd, bkpr, e->origin_acct);
 
-	/* Make this visible for queries (we expect increasing!).  If we raced, this is not true. */
-	if (e->db_id <= bkpr->chainmoves_index)
-		return;
-
+	/* Make this visible for queries (we expect increasing!). */
+	assert(e->db_id > bkpr->chainmoves_index);
 	bkpr->chainmoves_index = e->db_id;
 
 	/* This event *might* have implications for account;
@@ -1433,9 +1468,8 @@ parse_and_log_channel_move(struct command *cmd,
 			   " but no account exists %s",
 			   acct_name);
 
-	/* Make this visible for queries (we expect increasing!).  If we raced, this is not true. */
-	if (e->db_id <= bkpr->channelmoves_index)
-		return;
+	/* Make this visible for queries (we expect increasing!). */
+	assert(e->db_id > bkpr->channelmoves_index);
 	bkpr->channelmoves_index = e->db_id;
 
 	/* Check for invoice desc data, necessary */

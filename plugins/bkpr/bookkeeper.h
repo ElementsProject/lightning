@@ -18,6 +18,9 @@ struct bkpr {
 	struct rebalances *rebalances;
 	struct blockheights *blockheights;
 
+	/* Any outstanding refresh. */
+	struct refresh_info *rinfo;
+
 	/* Where we're up to in listchainmoves, listchannelmoves */
 	u64 chainmoves_index, channelmoves_index;
 
