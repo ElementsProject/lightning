@@ -1059,7 +1059,8 @@ static void NON_NULL_ARGS(1, 2, 4, 5) json_add_channel(struct command *cmd,
 	if (channel->shutdown_scriptpubkey[LOCAL]) {
 		char *addr = encode_scriptpubkey_to_addr(tmpctx,
 					chainparams,
-					channel->shutdown_scriptpubkey[LOCAL]);
+					channel->shutdown_scriptpubkey[LOCAL],
+					tal_bytelen(channel->shutdown_scriptpubkey[LOCAL]));
 		if (addr)
 			json_add_string(response, "close_to_addr", addr);
 		json_add_hex_talarr(response, "close_to",

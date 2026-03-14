@@ -213,7 +213,7 @@ static struct command_result *json_listaddresses(struct command *cmd,
 			 NULL))
 		return command_param_failed();
 
-	addr = encode_scriptpubkey_to_addr(tmpctx, chainparams, scriptpubkey);
+	addr = encode_scriptpubkey_to_addr(tmpctx, chainparams, scriptpubkey, tal_bytelen(scriptpubkey));
 
 	if (*liststart == 0) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
@@ -378,7 +378,8 @@ static void json_add_utxo(struct json_stream *response,
 
 	json_add_hex_talarr(response, "scriptpubkey", utxo->scriptPubkey);
 	out = encode_scriptpubkey_to_addr(tmpctx, chainparams,
-					  utxo->scriptPubkey);
+					  utxo->scriptPubkey,
+					  tal_bytelen(utxo->scriptPubkey));
 	if (!out)
 		log_broken(wallet->log,
 			   "Could not encode utxo %s%s!",
@@ -1266,7 +1267,8 @@ json_signmessagewithkey(struct command *cmd, const char *buffer,
 
 	/* FIXME: we already had the address from the input */
 	char *addr;
-	addr = encode_scriptpubkey_to_addr(tmpctx, chainparams, scriptpubkey);
+	addr = encode_scriptpubkey_to_addr(tmpctx, chainparams, scriptpubkey,
+					   script_len);
 
 	if (!is_p2wpkh(scriptpubkey, script_len, NULL)) {
 		/* FIXME add support for BIP 322 */
