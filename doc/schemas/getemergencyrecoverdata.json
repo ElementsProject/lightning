@@ -1,6 +1,7 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
+  "added": "v24.11",
   "rpc": "getemergencyrecoverdata",
   "title": "Command to fetch data from the emergency.recover file",
   "description": [

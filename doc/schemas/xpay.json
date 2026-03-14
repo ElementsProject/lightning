@@ -1,6 +1,7 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
+  "added": "v24.11",
   "additionalProperties": false,
   "rpc": "xpay",
   "title": "Command for sending a payment for an invoice",

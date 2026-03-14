@@ -3461,6 +3461,7 @@
     "bkpr-editdescriptionbyoutpoint.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
+      "added": "v24.11",
       "additionalProperties": false,
       "rpc": "bkpr-editdescriptionbyoutpoint",
       "title": "Command to change the description for events with {outpoint} after they're made",
@@ -3770,6 +3771,7 @@
     "bkpr-editdescriptionbypaymentid.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
+      "added": "v24.11",
       "additionalProperties": false,
       "rpc": "bkpr-editdescriptionbypaymentid",
       "title": "Command to change the description for events with `payment_id` after they're made",
@@ -11913,6 +11915,7 @@
     "enableoffer.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
+      "added": "v24.08",
       "rpc": "enableoffer",
       "title": "Command for re-enabling an offer",
       "description": [
@@ -12033,6 +12036,7 @@
     "exposesecret.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
+      "added": "v24.11",
       "additionalProperties": false,
       "rpc": "exposesecret",
       "title": "Command for extracting the hsm_secret file for backup",
@@ -14343,6 +14347,7 @@
     "getemergencyrecoverdata.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
+      "added": "v24.11",
       "rpc": "getemergencyrecoverdata",
       "title": "Command to fetch data from the emergency.recover file",
       "description": [
@@ -14537,6 +14542,7 @@
           },
           "address": {
             "type": "array",
+            "added": "v23.02",
             "description": [
               "The addresses we announce to the world."
             ],
@@ -14550,6 +14556,7 @@
               "properties": {
                 "type": {
                   "type": "string",
+                  "added": "v23.02",
                   "enum": [
                     "dns",
                     "ipv4",
@@ -14563,6 +14570,7 @@
                 },
                 "port": {
                   "type": "u16",
+                  "added": "v23.02",
                   "description": [
                     "Port number."
                   ]
@@ -14595,6 +14603,7 @@
                   "port": {},
                   "address": {
                     "type": "string",
+                    "added": "v23.02",
                     "description": [
                       "Address in expected format for **type**."
                     ]
@@ -15764,6 +15773,7 @@
     "injectpaymentonion.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
+      "added": "v24.11",
       "rpc": "injectpaymentonion",
       "title": "Send a payment with a custom onion packet",
       "description": [
@@ -21808,6 +21818,7 @@
     "listhtlcs.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
+      "added": "v22.11",
       "rpc": "listhtlcs",
       "title": "Command for querying HTLCs",
       "description": [
@@ -37154,6 +37165,7 @@
     "xpay.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
+      "added": "v24.11",
       "additionalProperties": false,
       "rpc": "xpay",
       "title": "Command for sending a payment for an invoice",
