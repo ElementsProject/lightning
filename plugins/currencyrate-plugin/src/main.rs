@@ -63,6 +63,13 @@ median from currencyrates results",
                 .description("Returns the BTC price for the currency from every source")
                 .usage("currency"),
         )
+        .rpcmethod_from_builder(
+            RpcMethodBuilder::new("currencyrate", currencyrate)
+                .description(
+                    "Provides the conversion of one BTC into the given currency, using the median of the available exchange-rate sources",
+                )
+                .usage("currency"),
+        )
         .dynamic()
         .configure()
         .await?
@@ -133,6 +140,40 @@ async fn currencyconvert(plugin: Plugin<PluginState>, args: Value) -> Result<Val
     match oracle.get_median_rate(&currency).await {
         Ok(rate) => Ok(json!({
             "msat": (amount * MSAT_PER_BTC / rate).round() as u64,
+        })),
+        Err(e) => Err(anyhow!("Error converting currency: {e}")),
+    }
+}
+
+async fn currencyrate(plugin: Plugin<PluginState>, args: Value) -> Result<Value, anyhow::Error> {
+    let currency = match args {
+        Value::Array(values) => {
+            let currency = values
+                .first()
+                .ok_or_else(|| anyhow!("Missing currency"))?
+                .as_str()
+                .ok_or_else(|| anyhow!("currency must be a string"))?
+                .to_owned();
+            currency.to_uppercase()
+        }
+        Value::Object(map) => {
+            let currency = map
+                .get("currency")
+                .ok_or_else(|| anyhow!("Missing currency"))?
+                .as_str()
+                .ok_or_else(|| anyhow!("currency must be a string"))?
+                .to_owned();
+            currency.to_uppercase()
+        }
+        _ => return Err(anyhow!("Arguments must be an array or dictionary")),
+    };
+
+    let oracle = plugin.state().oracle.lock().await;
+    oracle.currency_requested(&currency).await;
+
+    match oracle.get_median_rate(&currency).await {
+        Ok(result) => Ok(json!({
+            "rate": result,
         })),
         Err(e) => Err(anyhow!("Error converting currency: {e}")),
     }

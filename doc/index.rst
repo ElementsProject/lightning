@@ -50,6 +50,7 @@ Core Lightning Documentation
    createinvoice <createinvoice.7.md>
    createonion <createonion.7.md>
    createrune <createrune.7.md>
+   currencyrate <currencyrate.7.md>
    datastore <datastore.7.md>
    datastoreusage <datastoreusage.7.md>
    decode <decode.7.md>

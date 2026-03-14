@@ -11,20 +11,27 @@ from werkzeug.serving import make_server
 LOGGER = logging.getLogger(__name__)
 
 
-def median_range(amount, rateslist):
-    """Return the reasonable median of these rates (similar to what currencyrate does)"""
+def median(rateslist):
     rates = [entry["amount"] for entry in rateslist]
     rates.sort()
 
     if len(rates) % 2 == 1:
-        btc = rates[len(rates) // 2]
+        return rates[len(rates) // 2]
     else:
-        btc = (rates[len(rates) - 1] + rates[len(rates) - 1]) / 2
+        return (rates[len(rates) - 1] + rates[len(rates) - 1]) / 2
 
-    msats = amount * 100_000_000_000 / btc
+
+def median_conversion(amount, rateslist):
+    msats = amount * 100_000_000_000 / median(rateslist)
 
     # Give it +/- 1%
     return range(int(msats * 0.99), int(msats * 1.01))
+
+
+def median_rate(rateslist):
+    rate = median(rateslist)
+
+    return range(int(rate * 0.99), int(rate * 1.01))
 
 
 def test_apis_batch1(node_factory):
@@ -68,7 +75,9 @@ def test_apis_batch1(node_factory):
 
     assert "msat" in convert
     assert convert["msat"] > 0
-    assert convert["msat"] in median_range(100, rateslist)
+    assert convert["msat"] in median_conversion(100, rateslist)
+
+    assert int(l1.rpc.currencyrate("usd")['rate']) in median_rate(rateslist)
 
 
 def test_apis_batch2(node_factory):
@@ -110,7 +119,9 @@ def test_apis_batch2(node_factory):
 
     assert "msat" in convert
     assert convert["msat"] > 0
-    assert convert["msat"] in median_range(100, rateslist)
+    assert convert["msat"] in median_conversion(100, rateslist)
+
+    assert int(l1.rpc.currencyrate("USD")['rate']) in median_rate(rateslist)
 
 
 def test_custom_source(node_factory):
@@ -160,7 +171,9 @@ def test_custom_source(node_factory):
 
     assert "msat" in convert
     assert convert["msat"] > 0
-    assert convert["msat"] in median_range(100, rateslist)
+    assert convert["msat"] in median_conversion(100, rateslist)
+
+    assert int(l1.rpc.currencyrate("USD")['rate']) in median_rate(rateslist)
 
 
 def test_no_sources(node_factory):

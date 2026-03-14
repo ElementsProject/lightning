@@ -1,0 +1,49 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "rpc": "currencyrate",
+  "title": "Command to determine a reasonable rate of conversion for a given currency",
+  "added": "v26.04",
+  "description": [
+    "The **currencyrate** RPC command provides the conversion of one BTC into the given currency",
+    "It uses the median of the available exchange-rate sources for the requested currency."
+  ],
+  "request": {
+    "required": [
+      "currency"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "currency": {
+        "type": "string",
+        "description": [
+          "The ISO-4217 currency code (e.g. USD) to convert to.",
+          "The plugin normalizes this value to uppercase before querying sources."
+        ]
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "rate"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "rate": {
+        "type": "number",
+        "description": [
+          "The median value of one BTC, computed using the median result from the available sources."
+        ]
+      }
+    }
+  },
+  "author": [
+    "daywalker90 is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-listcurrencyrates(7)"
+  ],
+  "resources": [
+    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+  ]
+}
