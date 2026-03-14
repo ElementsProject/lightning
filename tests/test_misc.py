@@ -1453,7 +1453,7 @@ def test_funding_reorg_private(node_factory, bitcoind):
 
     # l2 was running, sees last stale block being removed
     l2.daemon.wait_for_logs([r'Removing stale block {}'.format(106),
-                             r'Got depth change .->{} for .* REORG'.format(0)])
+                             r'Funding txid .* REORG from depth 2'])
 
     # New one should replace old.
     wait_for(lambda: l2.is_local_channel_active('108x1x0'))
