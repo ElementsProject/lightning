@@ -108,8 +108,6 @@ static struct command_result *param_newaddr(struct command *cmd,
 bool WARN_UNUSED_RESULT newaddr_inner(struct command *cmd, struct pubkey *pubkey, enum addrtype addrtype)
 {
 	s64 keyidx;
-	u8 *b32script;
-	u8 *p2tr_script;
 	bool use_bip86_base = (cmd->ld->bip86_base != NULL);
 
 	/* Get new index - wallet_get_newindex now handles both BIP32 and BIP86 */
@@ -124,17 +122,6 @@ bool WARN_UNUSED_RESULT newaddr_inner(struct command *cmd, struct pubkey *pubkey
 		/* Legacy wallet - use BIP32 derivation */
 		bip32_pubkey(cmd->ld, pubkey, keyidx);
 	}
-
-	/* Generate scripts from pubkey (same logic for both wallet types) */
-	b32script = scriptpubkey_p2wpkh(tmpctx, pubkey);
-	p2tr_script = scriptpubkey_p2tr(tmpctx, pubkey);
-
-	/* Add scripts to filter based on requested address type */
-	if (addrtype & ADDR_BECH32)
-		txfilter_add_scriptpubkey(cmd->ld->owned_txfilter, b32script);
-	if (addrtype & ADDR_P2TR)
-		txfilter_add_scriptpubkey(cmd->ld->owned_txfilter, p2tr_script);
-
 	return true;
 }
 
