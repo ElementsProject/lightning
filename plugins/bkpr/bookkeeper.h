@@ -30,6 +30,8 @@ struct bkpr {
 	currencymap_t *currency_rates;
 	/* True if we've warned about currency failures */
 	bool warned_currency_fail;
+	/* aux_command and parent of currency queries */
+	struct command *currency_cmds;
 };
 
 /* Add optional currencyrate for this timestamp */
