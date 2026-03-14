@@ -12,6 +12,7 @@
 #include <common/bolt12.h>
 #include <common/clock_time.h>
 #include <common/coin_mvt.h>
+#include <common/iso4217.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
@@ -59,19 +60,36 @@ static const struct currencyrate *covering_currencyrate(const struct bkpr *bkpr,
 	return NULL;
 }
 
+static u64 ratefactor(const struct iso4217_name_and_divisor *currency)
+{
+	u64 mul = 1;
+	for (u32 i = 0; i < currency->minor_unit; i++)
+		mul *= 10;
+	return mul;
+}
+
 const char *currencyrate_str(const tal_t *ctx,
 			     const struct bkpr *bkpr,
 			     u64 timestamp)
 {
 	const struct currencyrate *crate;
+	u64 mul, intpart, fracpart;
 
 	crate = covering_currencyrate(bkpr, timestamp);
 	if (!crate)
 		return NULL;
+	mul = ratefactor(bkpr->currency);
 
-	return tal_fmt(ctx, "%"PRIu64".%04"PRIu64,
-		       crate->raw_rate / RATE_MUL_FACTOR,
-		       crate->raw_rate % RATE_MUL_FACTOR);
+	intpart = crate->raw_rate / mul;
+	fracpart = crate->raw_rate % mul;
+
+	if (bkpr->currency->minor_unit == 0)
+		return tal_fmt(ctx, "%"PRIu64, intpart);
+
+	return tal_fmt(ctx, "%"PRIu64".%0*"PRIu64,
+		       intpart,
+		       (int)bkpr->currency->minor_unit,
+		       fracpart);
 }
 
 void json_add_currencyrate(struct json_stream *result,
@@ -1165,7 +1183,7 @@ static struct command_result *lookup_invoice_desc(struct command *cmd,
 
 struct currency_time {
 	struct refresh_info *rinfo;
-	const char *currency;
+	const struct iso4217_name_and_divisor *currency;
 	u64 timestamp;
 };
 
@@ -1196,10 +1214,10 @@ static struct command_result *currency_done(struct command *cmd,
 			   json_tok_full_len(result),
 			   json_tok_full(buf, result), err);
 	/* Make sure they didn't change currency while we were out! */
-	} else if (bkpr->currency && streq(ctime->currency, bkpr->currency)) {
+	} else if (bkpr->currency == ctime->currency) {
 		char *val;
 		const char **key;
-		u64 raw_rate = (u64)(rate * RATE_MUL_FACTOR);
+		u64 raw_rate = (u64)(rate * ratefactor(bkpr->currency));
 		/* Can we extend previous entry */
 		u64 ts = ctime->timestamp + 1;
 		struct currencyrate *crate
@@ -1235,7 +1253,7 @@ static struct command_result *currency_done(struct command *cmd,
 		key = mkdatastorekey(tmpctx,
 				     "bookkeeper",
 				     "currencyrate",
-				     ctime->currency,
+				     ctime->currency->name,
 				     take(tal_fmt(NULL, "%"PRIu64, ts)));
 		jsonrpc_set_datastore_string(cmd, key, val,
 					     "create-or-replace",
@@ -1291,7 +1309,7 @@ static void lookup_currency(struct command *cmd,
 				   "Event %s timestamp %"PRIu64" is %"PRIu64" seconds old: too old for current %s currencyrate (only logging first such event: there may be others)",
 				   mvt_tag_str(primary_tag),
 				   timestamp, now - timestamp,
-				   bkpr->currency);
+				   bkpr->currency->name);
 			bkpr->warned_currency_fail = true;
 		}
 		return;
@@ -1299,14 +1317,14 @@ static void lookup_currency(struct command *cmd,
 
 	ctime = tal(cmd, struct currency_time);
 	ctime->timestamp = timestamp;
-	ctime->currency = tal_strdup(ctime, bkpr->currency);
+	ctime->currency = bkpr->currency;
 	ctime->rinfo = use_rinfo(rinfo);
 	req = jsonrpc_request_start(cmd,
 				    "currencyrate",
 				    currency_done,
 				    currency_error,
 				    ctime);
-	json_add_string(req->js, "currency", bkpr->currency);
+	json_add_string(req->js, "currency", bkpr->currency->name);
 	send_outreq(req);
 }
 
@@ -1873,7 +1891,7 @@ static void load_currencyrates(struct command *cmd,
 	json_out_start(params, "key", '[');
 	json_out_addstr(params, NULL, "bookkeeper");
 	json_out_addstr(params, NULL, "currencyrate");
-	json_out_addstr(params, NULL, bkpr->currency);
+	json_out_addstr(params, NULL, bkpr->currency->name);
 	json_out_end(params, ']');
 	json_out_end(params, '}');
 	json_out_finished(params);
@@ -1918,16 +1936,28 @@ static void load_currencyrates(struct command *cmd,
 	}
 }
 
+static bool currency_jsonfmt(struct command *cmd,
+			     struct json_stream *js,
+			     const char *fieldname,
+			     struct bkpr *bkpr)
+{
+	if (!bkpr->currency)
+		return false;
+	json_add_string(js, fieldname, bkpr->currency->name);
+	return true;
+}
+
 static char *option_currency(struct command *cmd,
 			     const char *arg,
 			     bool check_only,
-			     char **p)
+			     struct bkpr *bkpr)
 {
-	struct bkpr *bkpr = bkpr_of(cmd->plugin);
+	const struct iso4217_name_and_divisor *newcur;
 
-	assert(p == &bkpr->currency);
+	newcur = find_iso4217(arg, strlen(arg));
+	if (!newcur)
+		return "unknown ISO4217 code";
 
-	/* FIXME: Check for valid currency? */
 	if (check_only)
 		return NULL;
 
@@ -1940,14 +1970,14 @@ static char *option_currency(struct command *cmd,
 		bkpr->currency_rates = tal(bkpr, currencymap_t);
 		uintmap_init(bkpr->currency_rates);
 		memleak_add_helper(bkpr->currency_rates, memleak_scan_currencyrates);
-		bkpr->currency = tal_free(bkpr->currency);
+		bkpr->currency = NULL;
 	}
 
 	/* Explicit empty string means unset. */
 	if (streq(arg, ""))
 		return NULL;
 
-	bkpr->currency = tal_strdup(bkpr, arg);
+	bkpr->currency = newcur;
 	/* Reset this so we get a new message for new currency */
 	bkpr->warned_currency_fail = false;
 	load_currencyrates(cmd, bkpr);
@@ -1978,7 +2008,7 @@ int main(int argc, char *argv[])
 		    plugin_option_dynamic("bkpr-currency",
 					  "string",
 					  "Look up and record this currency on each event",
-					  option_currency, charp_jsonfmt, &bkpr->currency),
+					  option_currency, currency_jsonfmt, bkpr),
 		    NULL);
 
 	return 0;
