@@ -744,6 +744,21 @@ class NodeStub(object):
                 request_serializer=node__pb2.ClnrestregisterpathRequest.SerializeToString,
                 response_deserializer=node__pb2.ClnrestregisterpathResponse.FromString,
                 _registered_method=True)
+        self.ListCurrencyRates = channel.unary_unary(
+                '/cln.Node/ListCurrencyRates',
+                request_serializer=node__pb2.ListcurrencyratesRequest.SerializeToString,
+                response_deserializer=node__pb2.ListcurrencyratesResponse.FromString,
+                _registered_method=True)
+        self.CurrencyConvert = channel.unary_unary(
+                '/cln.Node/CurrencyConvert',
+                request_serializer=node__pb2.CurrencyconvertRequest.SerializeToString,
+                response_deserializer=node__pb2.CurrencyconvertResponse.FromString,
+                _registered_method=True)
+        self.CurrencyRate = channel.unary_unary(
+                '/cln.Node/CurrencyRate',
+                request_serializer=node__pb2.CurrencyrateRequest.SerializeToString,
+                response_deserializer=node__pb2.CurrencyrateResponse.FromString,
+                _registered_method=True)
         self.SubscribeBlockAdded = channel.unary_stream(
                 '/cln.Node/SubscribeBlockAdded',
                 request_serializer=node__pb2.StreamBlockAddedRequest.SerializeToString,
@@ -1631,6 +1646,24 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ListCurrencyRates(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CurrencyConvert(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CurrencyRate(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def SubscribeBlockAdded(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -2379,6 +2412,21 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.ClnrestRegisterPath,
                     request_deserializer=node__pb2.ClnrestregisterpathRequest.FromString,
                     response_serializer=node__pb2.ClnrestregisterpathResponse.SerializeToString,
+            ),
+            'ListCurrencyRates': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListCurrencyRates,
+                    request_deserializer=node__pb2.ListcurrencyratesRequest.FromString,
+                    response_serializer=node__pb2.ListcurrencyratesResponse.SerializeToString,
+            ),
+            'CurrencyConvert': grpc.unary_unary_rpc_method_handler(
+                    servicer.CurrencyConvert,
+                    request_deserializer=node__pb2.CurrencyconvertRequest.FromString,
+                    response_serializer=node__pb2.CurrencyconvertResponse.SerializeToString,
+            ),
+            'CurrencyRate': grpc.unary_unary_rpc_method_handler(
+                    servicer.CurrencyRate,
+                    request_deserializer=node__pb2.CurrencyrateRequest.FromString,
+                    response_serializer=node__pb2.CurrencyrateResponse.SerializeToString,
             ),
             'SubscribeBlockAdded': grpc.unary_stream_rpc_method_handler(
                     servicer.SubscribeBlockAdded,
@@ -6245,6 +6293,87 @@ class Node(object):
             '/cln.Node/ClnrestRegisterPath',
             node__pb2.ClnrestregisterpathRequest.SerializeToString,
             node__pb2.ClnrestregisterpathResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListCurrencyRates(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/cln.Node/ListCurrencyRates',
+            node__pb2.ListcurrencyratesRequest.SerializeToString,
+            node__pb2.ListcurrencyratesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CurrencyConvert(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/cln.Node/CurrencyConvert',
+            node__pb2.CurrencyconvertRequest.SerializeToString,
+            node__pb2.CurrencyconvertResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CurrencyRate(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/cln.Node/CurrencyRate',
+            node__pb2.CurrencyrateRequest.SerializeToString,
+            node__pb2.CurrencyrateResponse.FromString,
             options,
             channel_credentials,
             insecure,
