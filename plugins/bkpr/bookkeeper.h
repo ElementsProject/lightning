@@ -6,6 +6,7 @@
 #include <common/json_parse.h>
 
 struct command;
+struct plugin;
 
 /* Most currencies have 2 decimal places, but 4 is the current maximum. */
 #define RATE_MUL_FACTOR 10000
@@ -41,6 +42,14 @@ struct bkpr {
 	/* aux_command and parent of currency queries */
 	struct command *currency_cmds;
 };
+
+/* Get bkpr struct for the plugin */
+struct bkpr *bkpr_of(struct plugin *plugin);
+
+/* Get currency rate for this timestamp, as string, or NULL. */
+const char *currencyrate_str(const tal_t *ctx,
+			     const struct bkpr *bkpr,
+			     u64 timestamp);
 
 /* Add optional currencyrate for this timestamp */
 void json_add_currencyrate(struct json_stream *result,

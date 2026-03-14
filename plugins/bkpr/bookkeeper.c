@@ -42,7 +42,7 @@
 /* We accept currencyrate from about 60 seconds ago */
 #define CURRENCYRATE_TOLERANCE_SECONDS 60
 
-static struct bkpr *bkpr_of(struct plugin *plugin)
+struct bkpr *bkpr_of(struct plugin *plugin)
 {
 	return plugin_get_data(plugin, struct bkpr);
 }
@@ -59,17 +59,30 @@ static const struct currencyrate *covering_currencyrate(const struct bkpr *bkpr,
 	return NULL;
 }
 
+const char *currencyrate_str(const tal_t *ctx,
+			     const struct bkpr *bkpr,
+			     u64 timestamp)
+{
+	const struct currencyrate *crate;
+
+	crate = covering_currencyrate(bkpr, timestamp);
+	if (!crate)
+		return NULL;
+
+	return tal_fmt(ctx, "%"PRIu64".%04"PRIu64,
+		       crate->raw_rate / RATE_MUL_FACTOR,
+		       crate->raw_rate % RATE_MUL_FACTOR);
+}
+
 void json_add_currencyrate(struct json_stream *result,
 			   const char *fieldname,
 			   const struct bkpr *bkpr,
 			   u64 timestamp)
 {
-	const struct currencyrate *crate = covering_currencyrate(bkpr, timestamp);
+	const char *str = currencyrate_str(NULL, bkpr, timestamp);
 
-	if (crate)
-		json_add_primitive_fmt(result, fieldname, "%"PRIu64".%04"PRIu64,
-				       crate->raw_rate / RATE_MUL_FACTOR,
-				       crate->raw_rate % RATE_MUL_FACTOR);
+	if (str)
+		json_add_primitive(result, fieldname, take(str));
 }
 
 struct refresh_cb {
