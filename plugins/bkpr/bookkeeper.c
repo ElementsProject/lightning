@@ -39,9 +39,24 @@
 #define CHAIN_MOVE "chain_mvt"
 #define CHANNEL_MOVE "channel_mvt"
 
+/* We accept currencyrate from about 60 seconds ago */
+#define CURRENCYRATE_TOLERANCE_SECONDS 60
+
 static struct bkpr *bkpr_of(struct plugin *plugin)
 {
 	return plugin_get_data(plugin, struct bkpr);
+}
+
+static const struct currencyrate *covering_currencyrate(const struct bkpr *bkpr,
+							u64 timestamp)
+{
+	/* We look for the previous entry, then check duration covers this. */
+	u64 ts = timestamp + 1;
+	const struct currencyrate *crate = uintmap_before(bkpr->currency_rates, &ts);
+
+	if (crate && ts + crate->duration > timestamp)
+		return crate;
+	return NULL;
 }
 
 void json_add_currencyrate(struct json_stream *result,
@@ -49,10 +64,12 @@ void json_add_currencyrate(struct json_stream *result,
 			   const struct bkpr *bkpr,
 			   u64 timestamp)
 {
-	const double *currencyrate
-		= uintmap_get(bkpr->currency_rates, timestamp);
-	if (currencyrate)
-		json_add_primitive_fmt(result, fieldname, "%f", *currencyrate);
+	const struct currencyrate *crate = covering_currencyrate(bkpr, timestamp);
+
+	if (crate)
+		json_add_primitive_fmt(result, fieldname, "%"PRIu64".%04"PRIu64,
+				       crate->raw_rate / RATE_MUL_FACTOR,
+				       crate->raw_rate % RATE_MUL_FACTOR);
 }
 
 struct refresh_cb {
@@ -1167,28 +1184,53 @@ static struct command_result *currency_done(struct command *cmd,
 			   json_tok_full(buf, result), err);
 	/* Make sure they didn't change currency while we were out! */
 	} else if (bkpr->currency && streq(ctime->currency, bkpr->currency)) {
-		double *p = tal_dup(bkpr->currency_rates, double, &rate);
-		/* Can fail if we raced and asked twice */
-		if (!uintmap_add(bkpr->currency_rates,
-				 ctime->timestamp,
-				 p)) {
-			tal_free(p);
-		} else {
-			const char **key;
-			key = mkdatastorekey(tmpctx,
-					     "bookkeeper",
-					     "currencyrate",
-					     ctime->currency,
-					     take(tal_fmt(NULL, "%"PRIu64,
-							  ctime->timestamp)));
-			jsonrpc_set_datastore_string(cmd, key,
-						     tal_fmt(tmpctx, "%f", rate),
-						     "must-create",
-						     currencyrate_ds_done,
-						     plugin_broken_cb,
-						     use_rinfo(ctime->rinfo));
+		char *val;
+		const char **key;
+		u64 raw_rate = (u64)(rate * RATE_MUL_FACTOR);
+		/* Can we extend previous entry */
+		u64 ts = ctime->timestamp + 1;
+		struct currencyrate *crate
+			= uintmap_before(bkpr->currency_rates, &ts);
+
+		if (crate) {
+			u64 crate_end = ts + crate->duration;
+			/* If we raced, it might already be there! */
+			if (crate_end > ctime->timestamp)
+				goto out;
+
+			/* Reuse if it's recent, and the same rate.
+			 * (Recent check avoid glossing over failures, if we
+			 * couldn't get reliable data). */
+			if (raw_rate == crate->raw_rate
+			    && crate_end + CURRENCYRATE_TOLERANCE_SECONDS > ctime->timestamp) {
+				uintmap_del(bkpr->currency_rates, ts);
+				crate->duration = ctime->timestamp - ts + 1;
+			} else {
+				crate = NULL;
+			}
 		}
+
+		if (!crate) {
+			ts = ctime->timestamp;
+			crate = tal(bkpr->currency_rates, struct currencyrate);
+			crate->raw_rate = raw_rate;
+			crate->duration = 1;
+		}
+		uintmap_add(bkpr->currency_rates, ts, crate);
+		val = tal_fmt(tmpctx, "%"PRIu64":%u",
+			      crate->raw_rate, crate->duration);
+		key = mkdatastorekey(tmpctx,
+				     "bookkeeper",
+				     "currencyrate",
+				     ctime->currency,
+				     take(tal_fmt(NULL, "%"PRIu64, ts)));
+		jsonrpc_set_datastore_string(cmd, key, val,
+					     "create-or-replace",
+					     currencyrate_ds_done,
+					     plugin_broken_cb,
+					     use_rinfo(ctime->rinfo));
 	}
+out:
 	return rinfo_one_done(cmd, ctime->rinfo);
 }
 
@@ -1222,14 +1264,14 @@ static void lookup_currency(struct command *cmd,
 	u64 now;
 
 	/* If we already have the timestamp, we're done */
-	if (uintmap_get(bkpr->currency_rates, timestamp) != NULL)
+	if (covering_currencyrate(bkpr, timestamp) != NULL)
 		return;
 
 	/* If it's more than 60 seconds old, we should not apply the current
 	 * conversion.  This can definitely happen when we first turn on
 	 * currency conversion though, so don't print in that case. */
 	now = clock_time().ts.tv_sec;
-	if (now > timestamp + 60) {
+	if (now > timestamp + CURRENCYRATE_TOLERANCE_SECONDS) {
 		if (!uintmap_empty(bkpr->currency_rates)
 		    && !bkpr->warned_currency_fail) {
 			plugin_log(cmd->plugin, LOG_BROKEN,
@@ -1828,8 +1870,9 @@ static void load_currencyrates(struct command *cmd,
 	ds = json_get_member(buf, reply, "datastore");
 	json_for_each_arr(i, t, ds) {
 		const jsmntok_t *data, *keytok = json_get_member(buf, t, "key");
+		jsmntok_t ratetok, durationtok;
 		u64 ts;
-		double rate;
+		struct currencyrate *crate;
 
 		if (keytok->size != 4)
 			goto weird;
@@ -1841,12 +1884,17 @@ static void load_currencyrates(struct command *cmd,
 		data = json_get_member(buf, t, "string");
 		if (!data)
 			goto weird;
-		if (!json_to_double(buf, data, &rate))
-			goto weird;
 
-		uintmap_add(bkpr->currency_rates,
-			    ts,
-			    tal_dup(bkpr->currency_rates, double, &rate));
+		if (!split_tok(buf, data, ':', &ratetok, &durationtok))
+			goto weird;
+		crate = tal(bkpr->currency_rates, struct currencyrate);
+		if (!json_to_u64(buf, &ratetok, &crate->raw_rate)
+		    || !json_to_u32(buf, &durationtok, &crate->duration)) {
+			tal_free(crate);
+			goto weird;
+		}
+
+		uintmap_add(bkpr->currency_rates, ts, crate);
 		continue;
 
 	weird:
