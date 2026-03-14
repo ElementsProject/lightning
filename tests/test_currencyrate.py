@@ -487,3 +487,67 @@ def test_bkpr_currencyrate_persisted(node_factory, fake_rateserver):
     rates = l1.rpc.listdatastore(['bookkeeper', 'currencyrate', 'USD'])['datastore']
     assert {r['key'][3] for r in rates} == {str(e['timestamp']) for e in new_events}
     assert {float(r['string']) for r in rates} == {old_median, new_median}
+
+
+def test_bkpr_currencyrate_warns_for_old_events(node_factory, fake_rateserver):
+    opts = {
+        "currencyrate-disable-source": [
+            "bitstamp",
+            "coinbase",
+            "coingecko",
+            "kraken",
+            "blockchain.info",
+            "coindesk",
+            "binance",
+        ],
+        "currencyrate-add-source": [
+            f"fast,{fake_rateserver['url']}/fast,price",
+            f"slow,{fake_rateserver['url']}/slow,price",
+        ],
+        'may_reconnect': True,
+        'broken_log': "too old for current USD currencyrate",
+    }
+    l1, l2 = node_factory.line_graph(2, opts=opts)
+
+    # 1. Create old events before bkpr-currency is enabled.
+    inv1 = l2.rpc.invoice(100000, "test_bkpr_currencyrate_warns_old_1", "desc")
+    l1.rpc.pay(inv1["bolt11"])
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['htlcs'] == [])
+    events = l1.rpc.bkpr_listaccountevents()["events"]
+    assert events
+    assert all("currencyrate" not in e for e in events)
+    time.sleep(61)
+
+    # 2. Enable bkpr-currency. This historical backfill case should not warn (transient)
+    l1.rpc.setconfig("bkpr-currency", "USD", True)
+
+    # New events.
+    inv2 = l2.rpc.invoice(100000, "test_bkpr_currencyrate_warns_old_2", "desc")
+    l1.rpc.pay(inv2["bolt11"])
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['htlcs'] == [])
+
+    # It does NOT complain about records before we set currency at all.
+    new_events = l1.rpc.bkpr_listaccountevents()["events"][len(events):]
+    assert new_events
+    assert all("currencyrate" in e for e in new_events)
+    assert not l1.daemon.is_in_log("too old for current USD currencyrate")
+
+    # 3. Stop bookkeeper so new events will not be processed yet (not a dynamic plugin!)
+    l1.daemon.opts['disable-plugin'] = "bookkeeper"
+    l1.restart()
+    l1.connect(l2)
+
+    # 4. Create new events while bookkeeper is stopped, then let them go stale.
+    inv3 = l2.rpc.invoice(100000, "test_bkpr_currencyrate_warns_old_3", "desc")
+    l1.rpc.pay(inv3["bolt11"])
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['htlcs'] == [])
+    time.sleep(61)
+
+    # 5. Restart with bookkeeper (with currency)
+    del l1.daemon.opts['disable-plugin']
+    l1.daemon.opts['bkpr-currency'] = "USD"
+    l1.restart()
+
+    # 6. It should now complain about processing stale events with conversion enabled.
+    # (Could be early in startup!)
+    wait_for(lambda: l1.daemon.is_in_log("too old for current USD currencyrate"))

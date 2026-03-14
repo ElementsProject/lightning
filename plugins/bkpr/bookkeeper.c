@@ -1219,10 +1219,28 @@ static void lookup_currency(struct command *cmd,
 {
 	struct out_req *req;
 	struct currency_time *ctime;
+	u64 now;
 
 	/* If we already have the timestamp, we're done */
 	if (uintmap_get(bkpr->currency_rates, timestamp) != NULL)
 		return;
+
+	/* If it's more than 60 seconds old, we should not apply the current
+	 * conversion.  This can definitely happen when we first turn on
+	 * currency conversion though, so don't print in that case. */
+	now = clock_time().ts.tv_sec;
+	if (now > timestamp + 60) {
+		if (!uintmap_empty(bkpr->currency_rates)
+		    && !bkpr->warned_currency_fail) {
+			plugin_log(cmd->plugin, LOG_BROKEN,
+				   "Event %s timestamp %"PRIu64" is %"PRIu64" seconds old: too old for current %s currencyrate (only logging first such event: there may be others)",
+				   mvt_tag_str(primary_tag),
+				   timestamp, now - timestamp,
+				   bkpr->currency);
+			bkpr->warned_currency_fail = true;
+		}
+		return;
+	}
 
 	ctime = tal(cmd, struct currency_time);
 	ctime->timestamp = timestamp;
