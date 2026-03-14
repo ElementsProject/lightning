@@ -5263,34 +5263,6 @@ u32 wallet_transaction_height(struct wallet *w, const struct bitcoin_txid *txid)
 	return blockheight;
 }
 
-struct txlocator *wallet_transaction_locate(const tal_t *ctx, struct wallet *w,
-					    const struct bitcoin_txid *txid)
-{
-	struct txlocator *loc;
-	struct db_stmt *stmt;
-
-	stmt = db_prepare_v2(
-		w->db, SQL("SELECT blockheight, txindex FROM transactions WHERE id=?"));
-	db_bind_txid(stmt, txid);
-	db_query_prepared(stmt);
-
-	if (!db_step(stmt)) {
-		tal_free(stmt);
-		return NULL;
-	}
-
-	if (db_col_is_null(stmt, "blockheight")) {
-		db_col_ignore(stmt, "txindex");
-		loc = NULL;
-	} else {
-		loc = tal(ctx, struct txlocator);
-		loc->blkheight = db_col_int(stmt, "blockheight");
-		loc->index = db_col_int(stmt, "txindex");
-	}
-	tal_free(stmt);
-	return loc;
-}
-
 struct bitcoin_txid *wallet_transactions_by_height(const tal_t *ctx,
 						   struct wallet *w,
 						   const u32 blockheight)
