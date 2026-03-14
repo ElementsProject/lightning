@@ -4017,7 +4017,7 @@ def test_fulfilled_htlc_deadline_no_force_close(node_factory, bitcoind):
     # HTLC from l1 (this log appears before the disconnect).
     cltv_log = l2.daemon.is_in_log(r'Adding HTLC 0 amount=\d+msat cltv=(\d+) gave CHANNEL_ERR_ADD_OK')
     assert cltv_log, "HTLC add log not found"
-    cltv_expiry = int(cltv_log.group(1))
+    cltv_expiry = int(re.search(r'cltv=(\d+)', cltv_log).group(1))
 
     # Compute the deadline dynamically from the actual HTLC cltv_expiry.
     # htlc_in_deadline = cltv_expiry - (cltv_expiry_delta + 1)/2
