@@ -42,6 +42,17 @@ static struct bkpr *bkpr_of(struct plugin *plugin)
 	return plugin_get_data(plugin, struct bkpr);
 }
 
+void json_add_currencyrate(struct json_stream *result,
+			   const char *fieldname,
+			   const struct bkpr *bkpr,
+			   u64 timestamp)
+{
+	const double *currencyrate
+		= uintmap_get(bkpr->currency_rates, timestamp);
+	if (currencyrate)
+		json_add_primitive_fmt(result, fieldname, "%f", *currencyrate);
+}
+
 struct refresh_info {
 	size_t calls_remaining;
 	struct command_result *(*cb)(struct command *, void *);
@@ -601,7 +612,7 @@ static void json_add_events(struct json_stream *res,
 		}
 
 		/* Last thing left is the fee */
-		json_add_onchain_fee(res, fee);
+		json_add_onchain_fee(res, bkpr, fee);
 		k++;
 	}
 }

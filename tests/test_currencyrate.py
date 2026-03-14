@@ -292,3 +292,33 @@ def test_cached_median(node_factory, fake_rateserver):
 
     # Median of raw rates is used.
     assert convert["msat"] == 100 * 100_000_000_000 // median_rate
+
+
+def test_bkpr_listaccountevents_currencyrate(node_factory, fake_rateserver):
+    opts = {
+        "currencyrate-disable-source": [
+            "bitstamp",
+            "coinbase",
+            "coingecko",
+            "kraken",
+            "blockchain.info",
+            "coindesk",
+            "binance",
+        ],
+        "currencyrate-add-source": [
+            f"fast,{fake_rateserver}/fast,price",
+            f"slow,{fake_rateserver}/slow,price",
+        ],
+        "bkpr-currency": "USD",
+    }
+    l1, l2 = node_factory.line_graph(2, opts=opts)
+
+    inv = l2.rpc.invoice(100000, "test-bkpr-currency", "desc")
+    l1.rpc.pay(inv["bolt11"])
+    # We want this event in the list, so wait until it's totally closed.
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+
+    events = l1.rpc.bkpr_listaccountevents()["events"]
+    median_rate = (100_000_000 + 50_000_000) / 2
+    for e in events:
+        assert e["currencyrate"] == median_rate

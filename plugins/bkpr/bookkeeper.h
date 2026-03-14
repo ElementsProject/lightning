@@ -29,6 +29,12 @@ struct bkpr {
 	bool warned_currency_fail;
 };
 
+/* Add optional currencyrate for this timestamp */
+void json_add_currencyrate(struct json_stream *result,
+			   const char *fieldname,
+			   const struct bkpr *bkpr,
+			   u64 timestamp);
+
 /* Helper to ignore returns from datastore */
 struct command_result *ignore_datastore_reply(struct command *cmd,
 					      const char *method,

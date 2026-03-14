@@ -11356,6 +11356,8 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub blockheight: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub currencyrate: Option<f64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub description: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub fees_msat: Option<Amount>,
