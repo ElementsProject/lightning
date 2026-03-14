@@ -1084,6 +1084,18 @@ static struct command_result *json_fundchannel_complete(struct command *cmd,
 				    [*funding_txout_num].amount,
 				    fmt_amount_sat(tmpctx, fc->funding_sats));
 
+	/* Unsigned non-segwit inputs have malleable txids. */
+	for (size_t i = 0; i < funding_psbt->num_inputs; i++) {
+		struct wally_psbt_input *in = &funding_psbt->inputs[i];
+		if (!in->witness_utxo
+		    && !wally_map_get_integer(&in->psbt_fields,
+					      /* PSBT_IN_FINAL_SCRIPTSIG */ 0x07))
+			return command_fail(cmd, FUNDING_PSBT_INVALID,
+					    "Input %zu is non-segwit and unsigned:"
+					    " txid is unknown until signed",
+					    i);
+	}
+
 	funding_txid = tal(cmd, struct bitcoin_txid);
 	psbt_txid(NULL, funding_psbt, funding_txid, NULL);
 
