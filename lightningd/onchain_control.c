@@ -386,11 +386,13 @@ static void convert_replay_txs(struct channel *channel)
 	/* Set to NULL so these are queued as real watches */
 	watches = tal_steal(tmpctx, channel->onchaind_replay_watches);
 	channel->onchaind_replay_watches = NULL;
+	replay_tx_hash_lock(watches);
 	for (rtx = replay_tx_hash_first(watches, &rit);
 	     rtx;
 	     rtx = replay_tx_hash_next(watches, &rit)) {
 		watch_tx_and_outputs(channel, rtx->tx);
 	}
+	replay_tx_hash_unlock(watches);
 }
 
 static void replay_block(struct bitcoind *bitcoind,
@@ -407,12 +409,14 @@ static void replay_block(struct bitcoind *bitcoind,
 		return;
 
 	/* Tell onchaind that all existing txs have reached a new depth */
+	replay_tx_hash_lock(channel->onchaind_replay_watches);
 	for (rtx = replay_tx_hash_first(channel->onchaind_replay_watches, &rit);
 	     rtx;
 	     rtx = replay_tx_hash_next(channel->onchaind_replay_watches, &rit)) {
 		/* Note: if you're in this block, that's depth 1! */
 		onchain_tx_depth(channel, &rtx->txid, height - rtx->blockheight + 1);
 	}
+	replay_tx_hash_unlock(channel->onchaind_replay_watches);
 
 	/* See if we add any new txs which spend a watched one */
 	for (size_t i = 0; i < tal_count(blk->tx); i++) {
