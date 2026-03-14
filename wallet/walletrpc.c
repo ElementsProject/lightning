@@ -1027,7 +1027,7 @@ static void sendpsbt_done(struct bitcoind *bitcoind UNUSED,
 	wally_txid(sending->wtx, &txid);
 
 	/* Extract the change output and add it to the DB */
-	if (wallet_extract_owned_outputs(ld->wallet, sending->wtx, false, NULL) == 0) {
+	if (!wallet_extract_owned_outputs(ld->wallet, sending->wtx, false, NULL, NULL)) {
 		/* If we're not watching it for selfish reasons (i.e. pure send to
 		 * others), make sure we're watching it so we can update depth in db */
 		watch_unconfirmed_txid(ld, ld->topology, &txid);
