@@ -83,7 +83,7 @@ static void filter_block_txs(struct chain_topology *topo, struct block *b)
 					struct bitcoin_outpoint outpoint;
 					outpoint.txid = txid;
 					outpoint.n = k;
-					bitcoin_tx_output_get_amount_sat(tx, k, &amount);
+					amount = bitcoin_tx_output_get_amount_sat(tx, k);
 					invoice_check_onchain_payment(topo->ld, txout->script, amount, &outpoint);
 				}
 			}
