@@ -202,8 +202,6 @@ def test_invalid_currency(node_factory):
     opts = {}
     l1 = node_factory.get_node(options=opts)
 
-    needle = l1.daemon.logsearch_start
-
     with pytest.raises(
         RpcError,
         match=r"no results for `XXX`, is the currency supported\? Check the logs!",
@@ -211,20 +209,13 @@ def test_invalid_currency(node_factory):
         rates = l1.rpc.call("listcurrencyrates", ["XXX"])
         LOGGER.info(rates)
 
-    l1.daemon.logsearch_start = needle
-    l1.daemon.wait_for_log("failed to get `XXX` rate from bitstamp")
-    l1.daemon.logsearch_start = needle
-    l1.daemon.wait_for_log("failed to get `XXX` rate from coinbase")
-    l1.daemon.logsearch_start = needle
-    l1.daemon.wait_for_log("failed to get `XXX` rate from coingecko")
-    l1.daemon.logsearch_start = needle
-    l1.daemon.wait_for_log("failed to get `XXX` rate from kraken")
-    l1.daemon.logsearch_start = needle
-    l1.daemon.wait_for_log("failed to get `XXX` rate from blockchain.info")
-    l1.daemon.logsearch_start = needle
-    l1.daemon.wait_for_log("failed to get `XXX` rate from coindesk")
-    l1.daemon.logsearch_start = needle
-    l1.daemon.wait_for_log("failed to get `XXX` rate from binance")
+    l1.daemon.wait_for_logs(["failed to get `XXX` rate from bitstamp",
+                             "failed to get `XXX` rate from coinbase",
+                             "failed to get `XXX` rate from coingecko",
+                             "failed to get `XXX` rate from kraken",
+                             "failed to get `XXX` rate from blockchain.info",
+                             "failed to get `XXX` rate from coindesk",
+                             "failed to get `XXX` rate from binance"])
 
 
 class _ServerThread(threading.Thread):
