@@ -4005,39 +4005,36 @@ def test_fulfilled_htlc_deadline_no_force_close(node_factory, bitcoind):
     # then tries to send update_fulfill_htlc to l1 but disconnects.
     l2.daemon.wait_for_log('dev_disconnect: -WIRE_UPDATE_FULFILL_HTLC')
 
-    # After disconnect, channeld for the l1-l2 channel will die because
-    # connectd closed the TCP socket.  Wait for that to settle so we
-    # have a stable state (channel stays CHANNELD_NORMAL, owner=NULL).
-    l2.daemon.wait_for_log('Peer transient failure in CHANNELD_NORMAL')
+    # After disconnect, wait for the HTLC to appear in SENT_REMOVE_HTLC
+    # on the l1-l2 channel.  l2 has the preimage but the TCP connection
+    # to l1 was dropped before update_fulfill_htlc could be sent.
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])['htlcs'] != []
+             and only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])['htlcs'][0]['state'] == 'SENT_REMOVE_HTLC')
 
-    # Verify the HTLC is stuck on the l1-l2 channel in SENT_REMOVE_HTLC:
-    # l2 has the preimage but channeld died before sending it upstream.
-    htlcs = only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])['htlcs']
-    assert len(htlcs) == 1
-    assert htlcs[0]['state'] == 'SENT_REMOVE_HTLC'
+    # Compute the deadline dynamically from the actual HTLC cltv_expiry.
+    # htlc_in_deadline = cltv_expiry - (cltv_expiry_delta + 1)/2
+    # With regtest cltv_expiry_delta=6: deadline = cltv_expiry - 3
+    htlc = only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])['htlcs'][0]
+    cltv_expiry = htlc['expiry']
+    deadline = cltv_expiry - (6 + 1) // 2
+    current_height = bitcoind.rpc.getblockcount()
 
-    # Block math for the deadline:
-    # line_graph(3, wait_for_announce=True) mines to height 108.
-    # sendpay uses cltv_expiry = get_network_blockheight() + 1 + delay.
-    # For the l1->l2 HTLC: cltv_expiry = 108 + 1 + 16 = 125.
-    # htlc_in_deadline = cltv_expiry - (cltv_expiry_delta + 1)/2 = 125 - 3 = 122.
-    # We need to mine 122 - 108 = 14 blocks to hit the deadline.
-    #
-    # BUG: l2 will force-close with "Fulfilled HTLC 0 SENT_REMOVE_HTLC cltv ... hit deadline"
-    # even though it has the preimage and just needs to reconnect to send it upstream.
-    # The correct behavior would be to NOT force-close when the HTLC is in
-    # SENT_REMOVE_HTLC (preimage known, fulfill already queued to channeld).
-    bitcoind.generate_block(13)
+    # Mine up to one block before the deadline — should NOT trigger force-close.
+    blocks_to_deadline = deadline - current_height
+    assert blocks_to_deadline > 1, f"Not enough room: deadline={deadline}, height={current_height}"
+    bitcoind.generate_block(blocks_to_deadline - 1)
     sync_blockheight(bitcoind, [l2])
     assert not l2.daemon.is_in_log('hit deadline')
 
-    bitcoind.generate_block(1)
-    sync_blockheight(bitcoind, [l2])
-
-    # This is the bug: l2 force-closes with SENT_REMOVE_HTLC.
+    # Mine one more block to hit the deadline.
+    #
+    # BUG: l2 force-closes with "Fulfilled HTLC 0 SENT_REMOVE_HTLC cltv ... hit deadline"
+    # even though it has the preimage and just needs to reconnect to send it upstream.
     # After a fix, this line should be changed to assert the force-close
     # does NOT happen:
     #   assert not l2.daemon.is_in_log('Fulfilled HTLC 0 SENT_REMOVE_HTLC')
+    bitcoind.generate_block(1)
+    sync_blockheight(bitcoind, [l2])
     l2.daemon.wait_for_log('Fulfilled HTLC 0 SENT_REMOVE_HTLC cltv .* hit deadline')
 
 
