@@ -1,5 +1,6 @@
 #include "config.h"
 #include "../sphinx.c"
+#include <bitcoin/tx.h>
 #include <common/setup.h>
 #include <stdio.h>
 
@@ -103,6 +104,9 @@ struct onionreply *new_onionreply(const tal_t *ctx UNNEEDED, const u8 *contents 
 /* Generated stub for pubkey_from_node_id */
 bool pubkey_from_node_id(struct pubkey *key UNNEEDED, const struct node_id *id UNNEEDED)
 { fprintf(stderr, "pubkey_from_node_id called!\n"); abort(); }
+/* Generated stub for siphash_seed */
+const struct siphash_seed *siphash_seed(void)
+{ fprintf(stderr, "siphash_seed called!\n"); abort(); }
 /* Generated stub for subkey_from_hmac */
 void subkey_from_hmac(const char *prefix UNNEEDED,
 		      const struct secret *base UNNEEDED,

@@ -8,7 +8,6 @@
 #include <common/gossip_store_wiregen.h>
 #include <common/gossmap.h>
 #include <common/memleak.h>
-#include <common/randbytes.h>
 #include <common/route.h>
 #include <common/sciddir_or_pubkey.h>
 #include <common/setup.h>
