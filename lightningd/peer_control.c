@@ -2274,6 +2274,8 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 					  unsigned int depth,
 					  struct channel *channel)
 {
+	struct txlocator *loc;
+
 	/* This is stub channel, we don't activate anything! */
 	if (channel->scid && is_stub_scid(*channel->scid))
 		return DELETE_WATCH;
@@ -2343,7 +2345,8 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 		return KEEP_WATCHING;
 	}
 
-	if (!depthcb_update_scid(channel, &channel->funding))
+	loc = wallet_transaction_locate(tmpctx, ld->wallet, &channel->funding.txid);
+	if (!depthcb_update_scid(channel, &channel->funding, loc))
 		return DELETE_WATCH;
 
 	switch (channel->state) {
