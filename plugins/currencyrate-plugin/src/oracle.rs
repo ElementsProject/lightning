@@ -123,13 +123,13 @@ impl Source {
         }
 
         log::info!(
-            "Fetched price in {}ms from {}: {:.2} {currency}",
+            "Fetched price in {}ms from {}: {:.2} {currency}/BTC",
             now.elapsed().as_millis(),
             self.name,
             price
         );
 
-        Ok(1E11 / price)
+        Ok(price)
     }
 }
 
@@ -178,15 +178,15 @@ impl CurrencyCache {
         }
     }
 
-    fn latest_fresh_price(&self) -> Option<SourceResult> {
+    fn fresh_prices(&self) -> Vec<SourceResult> {
         self.prices
             .iter()
             .filter(|(_, p)| p.timestamp + SERVE_TTL > Instant::now())
-            .max_by_key(|(_, p)| p.timestamp)
             .map(|(n, p)| SourceResult {
                 name: n.clone(),
                 price: p.price,
             })
+            .collect()
     }
 
     fn is_drift_ok(&self) -> bool {
@@ -310,11 +310,12 @@ impl BtcPriceOracle {
         Ok(results)
     }
 
-    pub async fn convert(&self, amount: f64, currency: &str) -> Result<u64, anyhow::Error> {
+    pub async fn get_median_rate(&self, currency: &str) -> Result<f64, anyhow::Error> {
         let inner = self.inner.lock().await;
         let source_results = if let Some(currency_cache) = inner.currencies.get(currency) {
-            if let Some(price) = currency_cache.latest_fresh_price() {
-                vec![price]
+            let prices = currency_cache.fresh_prices();
+            if !prices.is_empty() {
+                prices
             } else {
                 log::warn!("background task failed to keep currency `{currency}` up to date");
                 drop(inner);
@@ -325,8 +326,7 @@ impl BtcPriceOracle {
             self.get_all_rates(currency).await?
         };
 
-        let median_rate = get_median_rate(source_results);
-        Ok((amount * median_rate).round() as u64)
+        Ok(get_median(source_results))
     }
 
     async fn refresh_currency(&self, currency: &str) -> Result<(), anyhow::Error> {
@@ -511,9 +511,11 @@ impl BtcPriceOracle {
                     break;
                 }
 
+                let num_sources = inner.sources.len() as u32;
                 drop(inner);
 
-                let interval = SERVE_TTL
+                // We want to hit each server on average SERVE_TTL seconds, in steady state.
+                let interval = (SERVE_TTL / (num_sources + 1))
                     .saturating_sub(2 * SOURCE_TIMEOUT_SECS)
                     .max(Duration::from_secs(1));
 
@@ -523,7 +525,7 @@ impl BtcPriceOracle {
     }
 }
 
-fn get_median_rate(source_results: Vec<SourceResult>) -> f64 {
+fn get_median(source_results: Vec<SourceResult>) -> f64 {
     let mut prices: Vec<f64> = source_results.iter().map(|r| r.price).collect();
     prices.sort_by(|a, b| a.partial_cmp(b).unwrap());
     let mid = prices.len() / 2;

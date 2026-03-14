@@ -2810,6 +2810,7 @@ def bkpr_listaccountevents_events2py(m):
         "blockheight": m.blockheight,  # PrimitiveField in generate_composite
         "credit_msat": amount2msat(m.credit_msat),  # PrimitiveField in generate_composite
         "currency": m.currency,  # PrimitiveField in generate_composite
+        "currencyrate": m.currencyrate,  # PrimitiveField in generate_composite
         "debit_msat": amount2msat(m.debit_msat),  # PrimitiveField in generate_composite
         "description": m.description,  # PrimitiveField in generate_composite
         "fees_msat": amount2msat(m.fees_msat),  # PrimitiveField in generate_composite
@@ -3359,6 +3360,31 @@ def delnetworkevent2py(m):
 
 def clnrest_register_path2py(m):
     return remove_default({
+    })
+
+
+def listcurrencyrates_currencyrates2py(m):
+    return remove_default({
+        "amount": m.amount,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+    })
+
+
+def listcurrencyrates2py(m):
+    return remove_default({
+        "currencyrates": [listcurrencyrates_currencyrates2py(i) for i in m.currencyrates],  # ArrayField[composite] in generate_composite
+    })
+
+
+def currencyconvert2py(m):
+    return remove_default({
+        "msat": amount2msat(m.msat),  # PrimitiveField in generate_composite
+    })
+
+
+def currencyrate2py(m):
+    return remove_default({
+        "rate": m.rate,  # PrimitiveField in generate_composite
     })
 
 

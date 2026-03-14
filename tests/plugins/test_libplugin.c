@@ -4,6 +4,7 @@
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
+#include <common/mkdatastorekey.h>
 #include <plugins/libplugin.h>
 
 /* Stash this in plugin's data */
@@ -37,7 +38,7 @@ static struct command_result *get_ds_bin_done(struct command *cmd,
 		   val ? tal_hex(tmpctx, val) : "NOT FOUND");
 
 	return jsonrpc_get_datastore_string(cmd,
-					    "test_libplugin/name",
+					    mkdatastorekey(tmpctx, "test_libplugin", "name"),
 					    get_ds_done, arg);
 }
 
@@ -64,7 +65,7 @@ static struct command_result *json_helloworld(struct command *cmd,
 
 	if (!name)
 		return jsonrpc_get_datastore_binary(cmd,
-						    "test_libplugin/name",
+						    mkdatastorekey(tmpctx, "test_libplugin", "name"),
 						    get_ds_bin_done,
 						    "hello");
 
@@ -256,7 +257,7 @@ static struct command_result *json_spamlistcommand(struct command *cmd,
 }
 
 
-static char *set_dynamic(struct plugin *plugin,
+static char *set_dynamic(struct command *cmd,
 			 const char *arg,
 			 bool check_only,
 			 u32 *dynamic_opt)
@@ -299,12 +300,14 @@ static const char *init(struct command *init_cmd,
 		return "Disabled via selfdisable option";
 
 	/* Test rpc_scan_datastore funcs */
-	err_str = rpc_scan_datastore_str(tmpctx, init_cmd, "test_libplugin/name",
+	err_str = rpc_scan_datastore_str(tmpctx, init_cmd,
+					 mkdatastorekey(tmpctx, "test_libplugin", "name"),
 					 JSON_SCAN_TAL(tmpctx, json_strdup,
 						       &name));
 	if (err_str)
 		name = NULL;
-	err_hex = rpc_scan_datastore_hex(tmpctx, init_cmd, "test_libplugin/name",
+	err_hex = rpc_scan_datastore_hex(tmpctx, init_cmd,
+					 mkdatastorekey(tmpctx, "test_libplugin", "name"),
 					 JSON_SCAN_TAL(tmpctx, json_tok_bin_from_hex,
 						       &binname));
 	if (err_hex)
@@ -369,7 +372,7 @@ static const struct plugin_notification notifs[] = { {
 	}
 };
 
-static char *set_multi_string_option(struct plugin *plugin,
+static char *set_multi_string_option(struct command *cmd,
 				     const char *arg,
 				     bool check_only,
 				     const char ***arr)
@@ -379,7 +382,7 @@ static char *set_multi_string_option(struct plugin *plugin,
 	return NULL;
 }
 
-static bool multi_string_jsonfmt(struct plugin *plugin, struct json_stream *js, const char *fieldname, const char ***arr)
+static bool multi_string_jsonfmt(struct command *cmd, struct json_stream *js, const char *fieldname, const char ***arr)
 {
 	json_array_start(js, fieldname);
 	for (size_t i = 0; i < tal_count(*arr); i++)

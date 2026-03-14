@@ -150,6 +150,9 @@ service Node {
 	rpc ListNetworkEvents(ListnetworkeventsRequest) returns (ListnetworkeventsResponse) {}
 	rpc DelNetworkEvent(DelnetworkeventRequest) returns (DelnetworkeventResponse) {}
 	rpc ClnrestRegisterPath(ClnrestregisterpathRequest) returns (ClnrestregisterpathResponse) {}
+	rpc ListCurrencyRates(ListcurrencyratesRequest) returns (ListcurrencyratesResponse) {}
+	rpc CurrencyConvert(CurrencyconvertRequest) returns (CurrencyconvertResponse) {}
+	rpc CurrencyRate(CurrencyrateRequest) returns (CurrencyrateResponse) {}
 
 	rpc SubscribeBlockAdded(StreamBlockAddedRequest) returns (stream BlockAddedNotification) {}
 	rpc SubscribeChannelOpenFailed(StreamChannelOpenFailedRequest) returns (stream ChannelOpenFailedNotification) {}
@@ -3621,6 +3624,7 @@ message BkprlistaccounteventsEvents {
 	optional Amount fees_msat = 14;
 	optional bool is_rebalance = 15;
 	optional uint32 part_id = 16;
+	optional double currencyrate = 17;
 }
 
 message BkprlistbalancesRequest {
@@ -4300,6 +4304,36 @@ message ClnrestregisterpathRuneRestrictions {
 	optional string nodeid = 1;
 	optional string method = 2;
 	map<string, string> params = 3;
+}
+
+message ListcurrencyratesRequest {
+	string currency = 1;
+}
+
+message ListcurrencyratesResponse {
+	repeated ListcurrencyratesCurrencyrates currencyrates = 1;
+}
+
+message ListcurrencyratesCurrencyrates {
+	string source = 1;
+	double amount = 2;
+}
+
+message CurrencyconvertRequest {
+	double amount = 1;
+	string currency = 2;
+}
+
+message CurrencyconvertResponse {
+	Amount msat = 1;
+}
+
+message CurrencyrateRequest {
+	string currency = 1;
+}
+
+message CurrencyrateResponse {
+	double rate = 1;
 }
 
 message StreamBlockAddedRequest {

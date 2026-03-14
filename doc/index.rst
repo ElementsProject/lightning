@@ -38,6 +38,7 @@ Core Lightning Documentation
    bkpr-listaccountevents <bkpr-listaccountevents.7.md>
    bkpr-listbalances <bkpr-listbalances.7.md>
    bkpr-listincome <bkpr-listincome.7.md>
+   bkpr-report <bkpr-report.7.md>
    blacklistrune <blacklistrune.7.md>
    cancelrecurringinvoice <cancelrecurringinvoice.7.md>
    check <check.7.md>
@@ -50,6 +51,8 @@ Core Lightning Documentation
    createinvoice <createinvoice.7.md>
    createonion <createonion.7.md>
    createrune <createrune.7.md>
+   currencyconvert <currencyconvert.7.md>
+   currencyrate <currencyrate.7.md>
    datastore <datastore.7.md>
    datastoreusage <datastoreusage.7.md>
    decode <decode.7.md>
@@ -100,6 +103,7 @@ Core Lightning Documentation
    listchannels <listchannels.7.md>
    listclosedchannels <listclosedchannels.7.md>
    listconfigs <listconfigs.7.md>
+   listcurrencyrates <listcurrencyrates.7.md>
    listdatastore <listdatastore.7.md>
    listforwards <listforwards.7.md>
    listfunds <listfunds.7.md>

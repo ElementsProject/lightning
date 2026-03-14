@@ -31,6 +31,7 @@ struct onchain_fee {
 };
 
 void json_add_onchain_fee(struct json_stream *out,
+			  const struct bkpr *bkpr,
 			  const struct onchain_fee *fee);
 
 /* List all chain fees, for all accounts */

@@ -571,6 +571,10 @@ command, so they invoices can also be paid onchain.
 
   This option controls how many routes askrene will calculate at once: this is only useful on nodes which make multiple payments at once, and setting the number higher than your number of cores/CPUS will not help.  The default is 4.
 
+* **bkpr-currency**=*name* [plugin `bookkeeper`, *dynamic*]
+
+  The *name* is an ISO-4217 name (e.g. USD), which will be passed to *currencyrate* to fetch the exchange rate for that currency on each bookkeeper event.  Setting *name* to the empty string is equivalent not setting it.
+
 ### Networking options
 
 Note that for simple setups, the implicit *autolisten* option does the

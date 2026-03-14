@@ -3,7 +3,13 @@
 
 #include "config.h"
 #include <ccan/tal/tal.h>
+#include <common/amount.h>
+#include <common/json_parse_simple.h>
 #include <stdio.h>
+
+struct bkpr;
+struct command;
+struct json_stream;
 
 struct income_event {
 	const char *acct_name;

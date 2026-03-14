@@ -6,6 +6,7 @@
 #include <ccan/str/str.h>
 #include <ccan/tal/str/str.h>
 #include <common/memleak.h>
+#include <common/mkdatastorekey.h>
 #include <common/utils.h>
 #include <inttypes.h>
 #include <plugins/bkpr/blockheights.h>
@@ -51,12 +52,13 @@ static void memleak_scan_blockheight_htable(struct htable *memtable,
 	memleak_scan_htable(memtable, &ht->raw);
 }
 
-static const char *ds_blockheight_path(const tal_t *ctx,
-				       const struct bitcoin_txid *txid)
+static const char **ds_blockheight_path(const tal_t *ctx,
+					const struct bitcoin_txid *txid)
 {
 	/* Keys like: bookkeeper/blockheights/<txid> */
-	return tal_fmt(ctx, "bookkeeper/blockheights/%s",
-		       fmt_bitcoin_txid(tmpctx, txid));
+	return mkdatastorekey(ctx,
+			      "bookkeeper", "blockheights",
+			      take(fmt_bitcoin_txid(NULL, txid)));
 }
 
 void add_blockheight(struct command *cmd,
@@ -67,7 +69,7 @@ void add_blockheight(struct command *cmd,
 	struct blockheights *bh = bkpr->blockheights;
 	struct blockheight_entry *e;
 	be32 be_blockheight;
-	const char *path = ds_blockheight_path(tmpctx, txid);
+	const char **path = ds_blockheight_path(tmpctx, txid);
 
 	/* Update in-memory map (replace or insert) */
 	e = blockheight_htable_get(bh->map, txid);

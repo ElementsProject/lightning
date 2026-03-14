@@ -4413,6 +4413,13 @@
                   "description": [
                     "Timestamp this event was recorded by the node. For consolidated events such as onchain_fees, the most recent timestamp."
                   ]
+                },
+                "currencyrate": {
+                  "added": "v26.04",
+                  "type": "number",
+                  "description": [
+                    "The value of `currencyrate` around the time the event occurred.  Only present if `bkpr-currency` is set, and a conversion value is available"
+                  ]
                 }
               },
               "allOf": [
@@ -4437,6 +4444,7 @@
                       "credit_msat": {},
                       "debit_msat": {},
                       "currency": {},
+                      "currencyrate": {},
                       "timestamp": {},
                       "description": {
                         "type": "string",
@@ -4503,6 +4511,7 @@
                       "debit_msat": {},
                       "currency": {},
                       "timestamp": {},
+                      "currencyrate": {},
                       "description": {},
                       "txid": {
                         "type": "txid",
@@ -4538,6 +4547,7 @@
                       "debit_msat": {},
                       "currency": {},
                       "timestamp": {},
+                      "currencyrate": {},
                       "description": {},
                       "fees_msat": {
                         "type": "msat",
@@ -5093,6 +5103,132 @@
             ]
           }
         }
+      ]
+    },
+    "bkpr-report.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "type": "object",
+      "added": "v26.04",
+      "rpc": "bkpr-report",
+      "title": "Formatting for all income impacting events",
+      "description": [
+        "The **bkpr-report** RPC command creates a list of all income impacting events that the bookkeeper plugin has recorded for this node.",
+        "",
+        "It has the useful property that when used with `lightning-cli` and the `escape=csv` it can directly produce valid CSV files."
+      ],
+      "request": {
+        "required": [],
+        "additionalProperties": false,
+        "properties": {
+          "format": {
+            "type": "string",
+            "description": [
+              "This format string is used for each income event (note that `lightning-cli` can get confused if the format begins and ends with `{` and `}`, so you may need to add a space).  The following tags in braces are replaced:",
+              "{account}: account name (channel id, or 'wallet')",
+              "{tag}: event tag.  This will be one of:",
+              " * `deposit`: an onchain send to the wallet by `outpoint`.",
+              " * `htlc_fulfill`: an onchain HTLC fulfill (due to unilaterally closed channel) at `outpoint`.",
+              " * `invoice`: either incoming (positive credit) or outgoing (positive debit) payment.",
+              " * `invoice_fee`: the routing fee paid to pay an outgoing invoice",
+              " * `journal_entry`: an accounting fixup, caused by loss of data (or, a node which predates bookkeeper)",
+              " * `lease_fee`: a fee paid or received to lease a channel via the experimental liquidity advertisement option",
+              " * `onchain_fee,`: a miner fee paid to open/close a channel, or make a bitcoin payment.  The `txid` will correspond to a `withdrawal` `outpoint` for withdrawl",
+              " * `pushed`: an amount pushed to or from us on channel open.",
+              " * `rebalance_fee`: routing fee paid for sending a payment to ourselves.",
+              " * `routed`: credit gained from routing a payment",
+              " * `withdrawal`: debit from an onchain spend.",
+              "{description}: description as provided in the invoice, if present",
+              "{credit}: credit amount in BTC",
+              "{debit}: debit amount in BTC",
+              "{fees}: fee amount in BTC",
+              "{localtime}: event timestamp in local time as YYYY-MM-DD HH:MM:SS",
+              "{utctime}: event timestamp in UTC as YYYY-MM-DD HH:MM:SS",
+              "{outpoint}: outpoint, if present",
+              "{txid}: txid, if present",
+              "{payment_id}: payment hash, if present",
+              "{bkpr-currency}: value of bkpr-currency, if any",
+              "{currencyrate}: exchange rate for 1 BTC at that event time, if available",
+              "{creditdebit}: +credit or -debit (or 0) in BTC",
+              "{currencycredit}: credit amount converted into bkpr-currency",
+              "{currencydebit}: debit amount converted into bkpr-currency",
+              "{currencycreditdebit}: +credit or -debit (or 0) in bkpr-currency",
+              "",
+              "If a field is unavailable, it expands to an empty string.",
+              "",
+              "You can provide fallback with ?, including more variable:",
+              " * {outpoint?NONE}",
+              " * {payment_id?txid: {txid?UNKNOWN}}",
+              "The first one the outpoint, or NONE if that is not available. ",
+              "The second prints the payment_id, or if that is not available, the string 'txid: ' followed by the txid, or if that is not available, 'txid: UNKNOWN'.",
+              "",
+              "The text after ? is used only if that tag would otherwise be empty.",
+              "",
+              "To include a literal {, write {{."
+            ]
+          },
+          "headers": {
+            "type": "array",
+            "description": [
+              "strings to place at the top of the output (useful when creating CSV files directly)."
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "escape": {
+            "type": "string",
+            "description": [
+              "How to handle fields: if set to `csv` it will handle fields with commas or double-quotes correctly for that format."
+            ],
+            "items": {
+              "type": "string"
+            },
+            "default": "none"
+          },
+          "start_time": {
+            "type": "u32",
+            "description": [
+              "UNIX timestamp (in seconds) that filters events after the provided timestamp."
+            ],
+            "default": "zero"
+          },
+          "end_time": {
+            "type": "u32",
+            "description": [
+              "UNIX timestamp (in seconds) that filters events up to and at the provided timestamp."
+            ],
+            "default": "max-int"
+          }
+        }
+      },
+      "response": {
+        "required": [
+          "report"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "format-hint": {},
+          "report": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": [
+                "The headers one per entry, followed by the formatted strings for each income event"
+              ]
+            }
+          }
+        }
+      },
+      "author": [
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-bkpr-listaccountevents(7)",
+        "lightning-bkpr-listbalances(7)",
+        "lightningd-config(5)"
+      ],
+      "resources": [
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ]
     },
     "blacklistrune.json": {
@@ -7228,6 +7364,111 @@
             "unique_id": "5"
           }
         }
+      ]
+    },
+    "currencyconvert.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "type": "object",
+      "rpc": "currencyconvert",
+      "title": "Command to convert a fiat amount into millisatoshis",
+      "added": "v26.04",
+      "description": [
+        "The **currencyconvert** RPC command converts a given amount in a given currency into millisatoshis.",
+        "It uses the median of the available exchange-rate sources for the requested currency."
+      ],
+      "request": {
+        "required": [
+          "amount",
+          "currency"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "type": "number",
+            "description": [
+              "The amount, expressed in the given currency, to convert into millisatoshis."
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "description": [
+              "The ISO-4217 currency code (e.g. USD) to convert from.",
+              "The plugin normalizes this value to uppercase before querying sources."
+            ]
+          }
+        }
+      },
+      "response": {
+        "required": [
+          "msat"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "msat": {
+            "type": "msat",
+            "description": [
+              "The converted amount in millisatoshis, computed using the median result from the available sources."
+            ]
+          }
+        }
+      },
+      "author": [
+        "daywalker90 is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-currencyrates(7)"
+      ],
+      "resources": [
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+      ]
+    },
+    "currencyrate.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "type": "object",
+      "rpc": "currencyrate",
+      "title": "Command to determine a reasonable rate of conversion for a given currency",
+      "added": "v26.04",
+      "description": [
+        "The **currencyrate** RPC command provides the conversion of one BTC into the given currency",
+        "It uses the median of the available exchange-rate sources for the requested currency."
+      ],
+      "request": {
+        "required": [
+          "currency"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "type": "string",
+            "description": [
+              "The ISO-4217 currency code (e.g. USD) to convert to.",
+              "The plugin normalizes this value to uppercase before querying sources."
+            ]
+          }
+        }
+      },
+      "response": {
+        "required": [
+          "rate"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "rate": {
+            "type": "number",
+            "description": [
+              "The median value of one BTC, computed using the median result from the available sources."
+            ]
+          }
+        }
+      },
+      "author": [
+        "daywalker90 is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-listcurrencyrates(7)"
+      ],
+      "resources": [
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ]
     },
     "datastore.json": {
@@ -20717,6 +20958,73 @@
             }
           }
         }
+      ]
+    },
+    "listcurrencyrates.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "type": "object",
+      "rpc": "currencyrates",
+      "added": "v26.04",
+      "title": "Command to list millisatoshis-per-unit from each configured source",
+      "description": [
+        "The **listcurrencyrates** RPC command returns the number of units of a given currency for one BTC from each configured exchange-rate source."
+      ],
+      "request": {
+        "required": [
+          "currency"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "type": "string",
+            "description": [
+              "The ISO4217 currency code to query, eg USD.",
+              "The plugin normalizes this value to uppercase before querying sources."
+            ]
+          }
+        }
+      },
+      "response": {
+        "required": [
+          "currencyrates"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "currencyrates": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "source",
+                "amount"
+              ],
+              "properties": {
+                "source": {
+                  "type": "string",
+                  "description": [
+                    "The name of the source of this rate (see `currencyrate-add-source` in lightningd-config)"
+                  ]
+                },
+                "amount": {
+                  "type": "number",
+                  "description": [
+                    "The amount of currency for 1 BTC."
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "author": [
+        "daywalker90 is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-currencyconvert(7)"
+      ],
+      "resources": [
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ]
     },
     "listdatastore.json": {

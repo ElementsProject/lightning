@@ -1742,7 +1742,7 @@ static const struct plugin_command commands[] = {
     },
 };
 
-static char *scid_option(struct plugin *plugin, const char *arg, bool check_only,
+static char *scid_option(struct command *cmd, const char *arg, bool check_only,
 			 struct short_channel_id **scidp)
 {
 	struct short_channel_id scid;
@@ -1750,11 +1750,11 @@ static char *scid_option(struct plugin *plugin, const char *arg, bool check_only
 	if (!short_channel_id_from_str(arg, strlen(arg), &scid))
 		return tal_fmt(tmpctx, "'%s' is not an scid", arg);
 
-	*scidp = notleak(tal_dup(plugin, struct short_channel_id, &scid));
+	*scidp = notleak(tal_dup(cmd->plugin, struct short_channel_id, &scid));
 	return NULL;
 }
 
-static bool scid_jsonfmt(struct plugin *plugin, struct json_stream *js, const char *fieldname,
+static bool scid_jsonfmt(struct command *cmd, struct json_stream *js, const char *fieldname,
 			 struct short_channel_id **scid)
 {
 	if (!*scid)
