@@ -3,6 +3,7 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
 #include <ccan/json_escape/json_escape.h>
+#include <ccan/json_out/json_out.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
@@ -1138,6 +1139,15 @@ struct currency_time {
 	u64 timestamp;
 };
 
+static struct command_result *currencyrate_ds_done(struct command *cmd,
+						   const char *method,
+						   const char *buf,
+						   const jsmntok_t *result,
+						   struct refresh_info *rinfo)
+{
+	return rinfo_one_done(cmd, rinfo);
+}
+
 static struct command_result *currency_done(struct command *cmd,
 					    const char *method,
 					    const char *buf,
@@ -1163,6 +1173,20 @@ static struct command_result *currency_done(struct command *cmd,
 				 ctime->timestamp,
 				 p)) {
 			tal_free(p);
+		} else {
+			const char **key;
+			key = mkdatastorekey(tmpctx,
+					     "bookkeeper",
+					     "currencyrate",
+					     ctime->currency,
+					     take(tal_fmt(NULL, "%"PRIu64,
+							  ctime->timestamp)));
+			jsonrpc_set_datastore_string(cmd, key,
+						     tal_fmt(tmpctx, "%f", rate),
+						     "must-create",
+						     currencyrate_ds_done,
+						     plugin_broken_cb,
+						     use_rinfo(ctime->rinfo));
 		}
 	}
 	return rinfo_one_done(cmd, ctime->rinfo);
@@ -1763,6 +1787,58 @@ static const char *init(struct command *init_cmd, const char *b, const jsmntok_t
 	return NULL;
 }
 
+static void load_currencyrates(struct command *cmd,
+			       struct bkpr *bkpr)
+{
+	struct json_out *params;
+	const jsmntok_t *reply, *ds, *t;
+	const char *buf;
+	size_t i;
+
+	params = json_out_new(NULL);
+	json_out_start(params, NULL, '{');
+	json_out_start(params, "key", '[');
+	json_out_addstr(params, NULL, "bookkeeper");
+	json_out_addstr(params, NULL, "currencyrate");
+	json_out_addstr(params, NULL, bkpr->currency);
+	json_out_end(params, ']');
+	json_out_end(params, '}');
+	json_out_finished(params);
+
+	reply = jsonrpc_request_sync(tmpctx, cmd, "listdatastore",
+				     take(params), &buf);
+	ds = json_get_member(buf, reply, "datastore");
+	json_for_each_arr(i, t, ds) {
+		const jsmntok_t *data, *keytok = json_get_member(buf, t, "key");
+		u64 ts;
+		double rate;
+
+		if (keytok->size != 4)
+			goto weird;
+
+		/* key = ["bookkeeper", "currencyrate", "USD", "timestamp"] */
+		if (!json_to_u64(buf, keytok + 4, &ts))
+			goto weird;
+
+		data = json_get_member(buf, t, "string");
+		if (!data)
+			goto weird;
+		if (!json_to_double(buf, data, &rate))
+			goto weird;
+
+		uintmap_add(bkpr->currency_rates,
+			    ts,
+			    tal_dup(bkpr->currency_rates, double, &rate));
+		continue;
+
+	weird:
+		plugin_log(cmd->plugin, LOG_BROKEN,
+			   "Unexpected datastore rate entry '%.*s'",
+			   json_tok_full_len(t),
+			   json_tok_full(buf, t));
+	}
+}
+
 static char *option_currency(struct command *cmd,
 			     const char *arg,
 			     bool check_only,
@@ -1795,6 +1871,7 @@ static char *option_currency(struct command *cmd,
 	bkpr->currency = tal_strdup(bkpr, arg);
 	/* Reset this so we get a new message for new currency */
 	bkpr->warned_currency_fail = false;
+	load_currencyrates(cmd, bkpr);
 	/* If we're supposed to do currency conversions, we refresh
 	 * all the time. */
 	bkpr->currency_cmds = aux_command(cmd);
