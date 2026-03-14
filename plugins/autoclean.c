@@ -6,6 +6,7 @@
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
+#include <common/mkdatastorekey.h>
 #include <inttypes.h>
 #include <plugins/libplugin.h>
 
@@ -261,12 +262,11 @@ static u64 *total_cleaned(const struct subsystem_and_variant *sv)
 	return &totals[sv->type][sv->variant];
 }
 
-static const char *datastore_path(const tal_t *ctx,
-				  const struct subsystem_and_variant *sv,
-				  const char *field)
+static const char **datastore_path(const tal_t *ctx,
+				   const struct subsystem_and_variant *sv,
+				   const char *field)
 {
-	return tal_fmt(ctx, "autoclean/%s/%s",
-		       subsystem_to_str(sv), field);
+	return mkdatastorekey(ctx, "autoclean", subsystem_to_str(sv), field);
 }
 
 static struct command_result *clean_finished(struct clean_info *cinfo)
