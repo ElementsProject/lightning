@@ -3,7 +3,7 @@ name = "cln-meta-project"
 version = "0.1.0"
 description = "Just a helper to get our python dependencies under control"
 authors = [{ name = "Christian Decker", email = "cdecker@blockstream.com" }]
-requires-python = ">=3.9.2,<4.0"
+requires-python = ">=3.9.2,<3.14"
 dependencies = [
   "Mako>=1.1.6",
   "websocket-client>=1.2.3",
@@ -20,6 +20,7 @@ dependencies = [
   "pyln-testing",
   "pyln-proto",
   "mnemonic>=0.21",
+  "flaky>=3.8.1",
 ]
 package-mode = false
 [dependency-groups]
