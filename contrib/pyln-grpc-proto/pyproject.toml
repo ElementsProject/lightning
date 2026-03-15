@@ -6,7 +6,7 @@ authors = [{ name = "Christian Decker", email = "decker@blockstream.com" }]
 license = { text = "MIT" }
 readme = "README.md"
 requires-python = ">=3.9,<4.0"
-dependencies = ["grpcio==1.75.1", "protobuf==6.32.1"]
+dependencies = ["grpcio==1.75.1", "protobuf==6.31.1"]
 
 [dependency-groups]
 dev = ["grpcio==1.75.1", "mypy-protobuf<4", "grpcio-tools==1.75.1"]
