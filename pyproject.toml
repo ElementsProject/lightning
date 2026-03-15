@@ -36,7 +36,6 @@ dev = [
   "requests>=2.32.0",
   "flask-socketio>=5",
   "tqdm",
-  "pytest-benchmark",
   "pdoc3>=0.11.6",
   "pre-commit>=4.3.0",
 ]
