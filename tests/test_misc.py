@@ -209,7 +209,7 @@ def test_bitcoin_failure(node_factory, bitcoind):
     assert l2.daemon.is_in_stderr(
         r".*deactivating transaction relay is not" " supported."
     )
-    assert l2.daemon.is_in_log("deactivating transaction" " relay is not supported")
+    assert l2.daemon.is_in_log("deactivating transaction relay is not supported")
 
 
 def test_bitcoin_ibd(node_factory, bitcoind):
@@ -5191,23 +5191,23 @@ def test_config_whitespace(node_factory):
     configs = l1.rpc.listconfigs()
 
     # Verify that the trimmed configuration values are correctly set
-    assert (
-        configs["configs"]["funder-policy-mod"]["value_str"] == "100"
-    ), "funder-policy-mod should be '100'"
-    assert (
-        configs["configs"]["funder-min-their-funding"]["value_str"] == "10000"
-    ), "funder-min-their-funding should be '10000'"
-    assert (
-        configs["configs"]["allow-deprecated-apis"]["value_bool"] is False
-    ), "allow-deprecated-apis should be False"
+    assert configs["configs"]["funder-policy-mod"]["value_str"] == "100", (
+        "funder-policy-mod should be '100'"
+    )
+    assert configs["configs"]["funder-min-their-funding"]["value_str"] == "10000", (
+        "funder-min-their-funding should be '10000'"
+    )
+    assert configs["configs"]["allow-deprecated-apis"]["value_bool"] is False, (
+        "allow-deprecated-apis should be False"
+    )
 
     # We want to keep the whitespaces at the parameter 'alias' & 'log-prefix'
-    assert (
-        configs["configs"]["alias"]["value_str"] == "MyLightningNode   "
-    ), "alias should be 'MyLightningNode   '"
-    assert (
-        configs["configs"]["log-prefix"]["value_str"] == "MyNode   "
-    ), "log-prefix should be 'MyNode   '"
+    assert configs["configs"]["alias"]["value_str"] == "MyLightningNode   ", (
+        "alias should be 'MyLightningNode   '"
+    )
+    assert configs["configs"]["log-prefix"]["value_str"] == "MyNode   ", (
+        "log-prefix should be 'MyNode   '"
+    )
 
 
 def test_setconfig(node_factory, bitcoind):
@@ -6080,6 +6080,46 @@ def test_tracing(node_factory):
                     assert res[0]["traceId"] == "00112233445566778899aabbccddeeff"
                     # Everyone has a parent!
                     assert "parentId" in res[0]
+
+
+def test_tracing_socket(node_factory):
+    """Test UDS datagram tracing backend via CLN_TRACE_SOCKET."""
+    l1 = node_factory.get_node(start=False)
+    sock_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "trace.sock")
+
+    # Create a SOCK_DGRAM UDS listener
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+    sock.bind(sock_path)
+    sock.settimeout(5)
+
+    l1.daemon.env["CLN_TRACE_SOCKET"] = sock_path
+    l1.start()
+    l1.stop()
+
+    # Collect all datagrams that were sent
+    spans = []
+    while True:
+        try:
+            data = sock.recv(4096)
+            spans.append(json.loads(data.decode("utf-8")))
+        except socket.timeout:
+            break
+
+    sock.close()
+
+    # We should have received at least some spans from startup
+    assert len(spans) > 0, "No spans received via UDS socket"
+
+    for span_array in spans:
+        # Each datagram is a Zipkin JSON array with one span
+        assert isinstance(span_array, list)
+        assert len(span_array) == 1
+        span = span_array[0]
+
+        # Validate required Zipkin fields are present
+        for key in ("id", "name", "timestamp", "duration", "traceId"):
+            assert key in span, f"Missing key {key} in span {span}"
+        assert span["localEndpoint"] == {"serviceName": "lightningd"}
 
 
 def test_zero_locktime_blocks(node_factory, bitcoind):
