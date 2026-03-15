@@ -61,7 +61,7 @@ Here's a checklist for the release process.
 3. Create a PR with above changes.
 4. After the PR is merged, create and push the release tag:
    - Run `git pull`.
-   - Set the current release version in your shell (e.g., if the current release is `v26.03`): `VERSION=26.03`
+   - Set the current release version in your shell (e.g., if the current release is `v26.04`): `VERSION=26.04`
    - Create a signed, annotated tag: `git tag -a -s v$VERSION -m "v$VERSION"`
    - Push the tag: `git push origin v$VERSION`
 5. Pushing the tag will trigger the CI pipeline, which will draft the pre-release and upload the build artifacts with project-signed checksums.
