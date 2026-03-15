@@ -10847,7 +10847,7 @@
             "deprecated": null
         },
         "ListPeerChannels.channel_id": {
-            "added": "v26.03",
+            "added": "v26.04",
             "deprecated": null
         },
         "ListPeerChannels.channels[]": {

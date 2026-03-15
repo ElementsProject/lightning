@@ -32,7 +32,7 @@
         ]
       },
       "channel_id": {
-        "added": "v26.03",
+        "added": "v26.04",
         "type": "hash",
         "description": [
           "If supplied, limits the channels to just this channel_id, if it exists. Cannot be used with 'id' or 'short_channel_id'."
@@ -582,7 +582,7 @@
               ],
               "deprecated": [
                 "v25.02",
-                "v26.03"
+                "v26.04"
               ]
             },
             "their_max_htlc_value_in_flight_msat": {
