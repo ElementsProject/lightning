@@ -3887,7 +3887,16 @@ def test_closing_anchorspend_htlc_tx_rbf(node_factory, bitcoind):
 @pytest.mark.parametrize("anchors", [False, True])
 def test_htlc_no_force_close(node_factory, bitcoind, anchors):
     """l2<->l3 force closes while an HTLC is in flight from l1, but l2 can't timeout because the feerate has spiked.  It should do so anyway."""
-    opts = [{}, {}, {'disconnect': ['-WIRE_UPDATE_FULFILL_HTLC']}]
+    # l3 disconnects before sending update_fulfill_htlc to l2, and
+    # dev-no-reconnect prevents automatic reconnection.  This leaves
+    # l3's incoming HTLC in SENT_REMOVE_HTLC: l3 has the preimage but
+    # can't deliver it.  l3 no longer force-closes for this (the
+    # preimage is safe in the DB and onchaind will claim on-chain),
+    # so l2 force-closes first for the offered HTLC timeout.
+    opts = [{'dev-no-reconnect': None},
+            {'dev-no-reconnect': None},
+            {'disconnect': ['-WIRE_UPDATE_FULFILL_HTLC'],
+             'dev-no-reconnect': None}]
     if anchors is False:
         for opt in opts:
             opt['dev-force-features'] = "-23"
@@ -3911,17 +3920,20 @@ def test_htlc_no_force_close(node_factory, bitcoind, anchors):
 
     htlc_txs = []
 
-    # l3 drops to chain, holding htlc (but we stop it xmitting txs)
+    # l3 won't force-close (removal in progress), so censor its
+    # onchaind txs for when l2 goes on-chain and l3 sees the
+    # commitment.
     def censoring_sendrawtx(r):
         htlc_txs.append(r['params'][0])
         return {'id': r['id'], 'result': {}}
 
     l3.daemon.rpcproxy.mock_rpc('sendrawtransaction', censoring_sendrawtx)
 
-    # l3 gets upset, drops to chain when there are < 4 blocks remaining.
-    # But tx doesn't get mined...
+    # l3 should NOT force-close: it has the preimage and the removal is
+    # already in progress.  It just logs a warning.
     bitcoind.generate_block(8)
-    l3.daemon.wait_for_log("Peer permanent failure in CHANNELD_NORMAL: Fulfilled HTLC 0 SENT_REMOVE_.* cltv 119 hit deadline")
+    l3.daemon.wait_for_log(r'but removal already in progress')
+    assert not l3.daemon.is_in_log(r'Peer permanent failure in CHANNELD_NORMAL: Fulfilled HTLC 0 SENT_REMOVE')
 
     # l2 closes drops the commitment tx at block 115 (one block after timeout)
     bitcoind.generate_block(4)
@@ -4031,15 +4043,13 @@ def test_fulfilled_htlc_deadline_no_force_close(node_factory, bitcoind):
     assert not l2.daemon.is_in_log('hit deadline')
 
     # Mine one more block to hit the deadline.
-    #
-    # BUG: l2 force-closes with "Fulfilled HTLC 0 SENT_REMOVE_HTLC cltv ... hit deadline"
-    # even though it has the preimage and just needs to reconnect to send it upstream.
-    # After a fix, this line should be changed to assert the force-close
-    # does NOT happen:
-    #   assert not l2.daemon.is_in_log('Fulfilled HTLC 0 SENT_REMOVE_HTLC')
+    # l2 should NOT force-close: it has the preimage and the removal is
+    # already in progress (SENT_REMOVE_HTLC or SENT_REMOVE_COMMIT).
+    # It just needs to reconnect to send update_fulfill_htlc upstream.
     bitcoind.generate_block(1)
     sync_blockheight(bitcoind, [l2])
-    l2.daemon.wait_for_log(r'Fulfilled HTLC 0 SENT_REMOVE_(HTLC|COMMIT) cltv .* hit deadline')
+    l2.daemon.wait_for_log(r'but removal already in progress')
+    assert not l2.daemon.is_in_log(r'Fulfilled HTLC 0 SENT_REMOVE_(HTLC|COMMIT) cltv .* hit deadline[^,]')
 
 
 def test_closing_tx_valid(node_factory, bitcoind):
