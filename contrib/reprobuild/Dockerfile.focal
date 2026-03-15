@@ -5,7 +5,7 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 ENV SOURCE_DATE_EPOCH=1672531200
 ENV RUST_PROFILE=release
 ENV PATH=/root/.pyenv/shims:/root/.pyenv/bin:/root/.cargo/bin:/root/.local/bin:$PATH
-ENV PROTOC_VERSION=29.4
+# protoc is provided by grpcio-tools via .github/scripts/protoc-wrapper.sh
 
 RUN sed -i '/updates/d' /etc/apt/sources.list && \
     sed -i '/security/d' /etc/apt/sources.list
@@ -65,14 +65,6 @@ RUN wget https://sh.rustup.rs -O rustup-install.sh && \
     rm rustup-install.sh && \
     /root/.cargo/bin/rustup install 1.85
 
-# Download protoc manually, it is in the update repos which we
-# disabled above, so `apt-get` can't find it anymore.
-RUN cd /tmp/ && \
-    wget https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip && \
-    unzip protoc-${PROTOC_VERSION}-linux-x86_64.zip && \
-    mv bin/protoc /usr/local/bin && \
-    rm -rf include bin protoc-${PROTOC_VERSION}-linux-x86_64.zip
-
 RUN mkdir /build
 WORKDIR /build
 
@@ -82,5 +74,6 @@ WORKDIR /build
 # that we no longer take the zipfile.
 CMD git clone /repo . \
     && uv sync --all-extras --all-groups \
+    && export PROTOC="$(pwd)/.github/scripts/protoc-wrapper.sh" \
     && uv run tools/repro-build.sh \
     && cp *.xz /repo/release/
