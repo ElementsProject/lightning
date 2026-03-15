@@ -56,7 +56,8 @@ struct forwarding {
  * `listforwardings_add_forwardings()`. */
 void json_add_forwarding_fields(struct json_stream *response,
 				const struct forwarding *cur,
-				const struct sha256 *payment_hash);
+				const struct sha256 *payment_hash,
+				const struct preimage *preimage);
 
 static inline const char* forward_status_name(enum forward_status status)
 {
