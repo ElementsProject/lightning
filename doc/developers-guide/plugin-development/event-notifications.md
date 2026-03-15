@@ -223,7 +223,8 @@ A notification for topic `forward_event` is sent every time the status of a forw
     "fee_msat": 1001,
     "status": "settled",
     "received_time": 1560696342.368,
-    "resolved_time": 1560696342.556
+    "resolved_time": 1560696342.556,
+    "preimage": "0000000000000000000000000000000000000000000000000000000000000000"
   }
 }
 ```
@@ -262,6 +263,7 @@ or
       fields;
 - `received_time` means when we received the htlc of this payment from the previous peer. It will be contained into all status case;
 - `resolved_time` means when the htlc of this payment between us and the next peer was resolved. The resolved result may success or fail, so only `settled` and `failed` case contain `resolved_time`;
+- `preimage` is the 64-hex-char payment preimage revealed when the HTLC was fulfilled. Only present when `status` is `settled`;
 - The `failcode` and `failreason` are defined in [BOLT 4](https://github.com/lightning/bolts/blob/master/04-onion-routing.md#failure-messages).
 
 ### `sendpay_success`

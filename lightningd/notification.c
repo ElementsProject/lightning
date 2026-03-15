@@ -1,4 +1,5 @@
 #include "config.h"
+#include <bitcoin/preimage.h>
 #include <ccan/cast/cast.h>
 #include <lightningd/channel.h>
 #include <lightningd/coin_mvts.h>
@@ -389,8 +390,7 @@ static void forward_event_notification_serialize(struct json_stream *stream,
 	cur->htlc_id_in = in->key.id;
 	cur->created_index = created_index;
 	cur->updated_index = updated_index;
-
-	json_add_forwarding_fields(stream, cur, &in->payment_hash);
+	json_add_forwarding_fields(stream, cur, &in->payment_hash, in->preimage);
 }
 
 REGISTER_NOTIFICATION(forward_event);
