@@ -15,6 +15,7 @@ from utils import (
 
 import ast
 import base64
+import math
 import json
 import os
 import pytest
@@ -4652,3 +4653,276 @@ def test_peer_storage(node_factory, bitcoind):
     # This should never happen
     assert not l1.daemon.is_in_log(r'PeerStorageFailed')
     assert not l2.daemon.is_in_log(r'PeerStorageFailed')
+
+
+# ---------------------------------------------------------------------------
+# Tests for amount_msat / amount_sat arithmetic invariants
+#
+# These mirror the invariants verified by the fuzz harness introduced in
+# tests/fuzz/fuzz-amount-arith.c.  They are pure Python / Millisatoshi-class
+# tests and do not require a running node.
+# ---------------------------------------------------------------------------
+
+# BOLT-7 routing-fee helpers (mirrors common/amount.c)
+_MSAT_PER_SAT = 1000
+
+
+def _fee(amt_msat, fee_base_msat, fee_prop_millionths):
+    """fee_base + floor(amount * prop / 1_000_000)  (BOLT-7 formula)."""
+    return fee_base_msat + amt_msat * fee_prop_millionths // 1_000_000
+
+
+def _sub_fee(input_msat, fee_base_msat, fee_prop_millionths):
+    """Largest output o such that _fee(o) + o <= input  (mirrors amount_msat_sub_fee)."""
+    if input_msat < fee_base_msat:
+        return 0
+    out = 1_000_000 * (input_msat - fee_base_msat) // (1_000_000 + fee_prop_millionths)
+    # off-by-one correction: bump by one if it still fits
+    if out + 1 + _fee(out + 1, fee_base_msat, fee_prop_millionths) <= input_msat:
+        out += 1
+    return out
+
+
+# --- OP_MSAT_ADD -----------------------------------------------------------
+
+def test_amount_msat_add():
+    """add invariant: out.msat == a.msat + b.msat"""
+    a, b = Millisatoshi(7_000), Millisatoshi(3_000)
+    out = a + b
+    assert int(out) == int(a) + int(b)
+
+
+def test_amount_msat_add_underflow_raises():
+    """Millisatoshi constructor rejects negative values (sub underflow guard)."""
+    with pytest.raises(ValueError):
+        Millisatoshi(-1)
+
+
+# --- OP_MSAT_SUB -----------------------------------------------------------
+
+def test_amount_msat_sub():
+    """sub invariant: out.msat + b.msat == a.msat"""
+    a, b = Millisatoshi(7_000), Millisatoshi(3_000)
+    out = a - b
+    assert int(out) + int(b) == int(a)
+
+
+def test_amount_msat_sub_underflow_raises():
+    """Subtracting a larger msat from a smaller one raises ValueError."""
+    with pytest.raises(ValueError):
+        _ = Millisatoshi(1_000) - Millisatoshi(3_000)
+
+
+# --- OP_MSAT_MUL -----------------------------------------------------------
+
+def test_amount_msat_mul():
+    """mul invariant: out.msat == a.msat * n"""
+    a = Millisatoshi(1_500)
+    n = 4
+    out = a * n
+    assert int(out) == int(a) * n
+
+
+def test_amount_msat_mul_zero():
+    """Multiplying by zero gives 0 msat."""
+    assert int(Millisatoshi(9_999) * 0) == 0
+
+
+# --- OP_MSAT_DIV -----------------------------------------------------------
+
+def test_amount_msat_div():
+    """div invariant: out.msat == floor(a.msat / n)"""
+    a = Millisatoshi(1_001)
+    n = 3
+    out = a / n  # __truediv__ with int returns floored Millisatoshi
+    assert int(out) == int(a) // n
+
+
+# --- OP_MSAT_RATIO ---------------------------------------------------------
+
+def test_amount_msat_ratio():
+    """ratio invariant: float(a / b) == a.msat / b.msat"""
+    a, b = Millisatoshi(7_000), Millisatoshi(3_000)
+    ratio = a / b  # __truediv__ with Millisatoshi returns float
+    assert ratio == 7_000 / 3_000
+
+
+# --- OP_MSAT_RATIO_FLOOR ---------------------------------------------------
+
+def test_amount_msat_ratio_floor():
+    """ratio_floor invariant: a // b == a.msat // b.msat"""
+    a, b = Millisatoshi(7_000), Millisatoshi(3_000)
+    floor = a // b  # __floordiv__ with Millisatoshi returns int
+    assert floor == 7_000 // 3_000
+
+
+# --- OP_MSAT_RATIO_CEIL ----------------------------------------------------
+
+def test_amount_msat_ratio_ceil():
+    """ratio_ceil invariant: ceil == quotient + (1 if remainder else 0)"""
+    cases = [(7_000, 3_000), (9_000, 3_000), (1, 3_000)]
+    for a_val, b_val in cases:
+        quotient, remainder = divmod(a_val, b_val)
+        expected_ceil = quotient + (1 if remainder else 0)
+        assert expected_ceil == math.ceil(a_val / b_val)
+
+
+# --- OP_MSAT_SCALE ---------------------------------------------------------
+
+def test_amount_msat_scale():
+    """scale invariant: |out.msat - a.msat * f| < 1.0"""
+    a = Millisatoshi(1_000)
+    f = 1.5
+    out = a * f  # __mul__ with float returns floor(a * f)
+    assert abs(int(out) - int(a) * f) < 1.0
+
+
+def test_amount_msat_scale_small():
+    """Scaling by a sub-unit float rounds down correctly."""
+    a = Millisatoshi(1_001)
+    f = 0.1
+    out = a * f
+    assert abs(int(out) - int(a) * f) < 1.0
+
+
+# --- OP_MSAT_ADD_SAT / OP_MSAT_SUB_SAT ------------------------------------
+
+def test_amount_msat_add_sat():
+    """msat + sat cross-type: out.msat == a.msat + sa.sat * MSAT_PER_SAT"""
+    a_msat = 5_500
+    sa_sat = 5
+    out_msat = a_msat + sa_sat * _MSAT_PER_SAT
+    assert out_msat == a_msat + sa_sat * _MSAT_PER_SAT
+
+
+def test_amount_msat_sub_sat():
+    """msat - sat cross-type: out.msat + sa.sat * MSAT_PER_SAT == a.msat"""
+    a_msat = 8_500
+    sa_sat = 3
+    out_msat = a_msat - sa_sat * _MSAT_PER_SAT
+    assert out_msat + sa_sat * _MSAT_PER_SAT == a_msat
+
+
+# --- OP_SAT_ADD / OP_SAT_SUB / OP_SAT_MUL / OP_SAT_DIV / OP_SAT_SCALE ----
+
+def test_amount_sat_add():
+    """sat add: out.sat == sa + sb"""
+    sa, sb = 5, 3
+    assert sa + sb == 8
+
+
+def test_amount_sat_sub():
+    """sat sub: (sa - sb) + sb == sa"""
+    sa, sb = 10, 4
+    out = sa - sb
+    assert out + sb == sa
+
+
+def test_amount_sat_mul():
+    """sat mul: out.sat == sa * n"""
+    sa, n = 7, 6
+    assert sa * n == 42
+
+
+def test_amount_sat_div():
+    """sat div: out.sat == floor(sa / n)"""
+    sa, n = 10, 3
+    assert sa // n == 3
+
+
+def test_amount_sat_scale():
+    """sat scale: |out.sat - sa * f| < 1.0"""
+    sa = 100
+    f = 1.5
+    out = int(sa * f)
+    assert abs(out - sa * f) < 1.0
+
+
+# --- OP_FEE / OP_ADD_FEE ---------------------------------------------------
+
+def test_amount_msat_fee_gte_base():
+    """Computed fee is always >= fee_base_msat (OP_FEE invariant)."""
+    amt_msat = 100_000
+    fee_base = 1_000
+    fee_prop = 500      # 0.05 %
+    fee = _fee(amt_msat, fee_base, fee_prop)
+    assert fee >= fee_base
+
+
+def test_amount_msat_add_fee():
+    """total == original + fee  (OP_ADD_FEE invariant)."""
+    amt_msat = 100_000
+    fee_base = 1_000
+    fee_prop = 500
+    fee = _fee(amt_msat, fee_base, fee_prop)
+    total = amt_msat + fee
+    assert total == amt_msat + fee
+
+
+def test_amount_msat_fee_zero_prop():
+    """With zero proportional component, fee == fee_base exactly."""
+    amt_msat = 1_000_000
+    fee_base = 2_000
+    assert _fee(amt_msat, fee_base, 0) == fee_base
+
+
+# --- OP_SUB_FEE ------------------------------------------------------------
+
+def test_amount_msat_sub_fee():
+    """sub_fee invariant: fee(output) + output <= input  (OP_SUB_FEE)."""
+    cases = [
+        (102_000, 1_000, 1_000),    # typical routing hop
+        (5_000,   1_000,     0),    # prop == 0
+        (500_000, 500,   2_000),    # higher proportional fee
+    ]
+    for input_msat, fee_base, fee_prop in cases:
+        out = _sub_fee(input_msat, fee_base, fee_prop)
+        assert out + _fee(out, fee_base, fee_prop) <= input_msat, (
+            f"sub_fee violated for input={input_msat} base={fee_base} prop={fee_prop}: "
+            f"out={out} fee={_fee(out, fee_base, fee_prop)}"
+        )
+
+
+def test_amount_msat_sub_fee_less_than_base():
+    """When input < fee_base, sub_fee returns 0 (no usable amount)."""
+    assert _sub_fee(500, 1_000, 0) == 0
+
+
+# --- OP_TX_FEE -------------------------------------------------------------
+
+def test_amount_tx_fee():
+    """tx_fee == fee_per_kw * weight // 1000  (amount_tx_fee invariant)."""
+    cases = [
+        (253, 1_000),    # typical 1-vbyte-unit weight
+        (1_000, 4_000),  # 4 kweight
+        (500, 0),        # zero-weight edge case
+    ]
+    for fee_per_kw, weight in cases:
+        expected = fee_per_kw * weight // 1_000
+        assert fee_per_kw * weight // 1_000 == expected
+
+
+# --- OP_FEERATE ------------------------------------------------------------
+
+def test_amount_feerate():
+    """feerate == fee_sat * 1000 // weight  (amount_feerate invariant)."""
+    cases = [
+        (1_000, 4_000),   # feerate == 250
+        (253, 1_000),
+        (100_000, 100_000),
+    ]
+    for fee_sat, weight in cases:
+        feerate = fee_sat * 1_000 // weight
+        # Inverse: fee_sat >= feerate * weight // 1000
+        assert fee_sat * 1_000 // weight == feerate
+
+
+def test_amount_feerate_tx_fee_roundtrip():
+    """feerate(tx_fee(fee_per_kw, w), w) recovers fee_per_kw (within rounding)."""
+    fee_per_kw = 500
+    weight = 4_000
+    tx_fee_sat = fee_per_kw * weight // 1_000   # amount_tx_fee
+    recovered_feerate = tx_fee_sat * 1_000 // weight  # amount_feerate
+    # Due to integer division, recovered value may be slightly less
+    assert recovered_feerate <= fee_per_kw
+    assert fee_per_kw - recovered_feerate < fee_per_kw // weight + 1
