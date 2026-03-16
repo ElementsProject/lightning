@@ -2922,3 +2922,69 @@ def test_zeroconf_withhold(node_factory, bitcoind, stay_withheld, mutual_close):
             wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['state'] == 'CLOSINGD_COMPLETE')
         else:
             wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['state'] == 'AWAITING_UNILATERAL')
+
+
+def test_zeroconf_withhold_htlc_failback(node_factory, bitcoind):
+    """Test that CLTV timeout on a withheld channel fails HTLCs back upstream without force-close."""
+    zeroconf_plugin = str(Path(__file__).parent / "plugins" / "zeroconf-selective.py")
+    hold_plugin = str(Path(__file__).parent / "plugins" / "hold_htlcs.py")
+
+    l1, l2, l3 = node_factory.get_nodes(3, opts=[
+        {},
+        {},
+        {'plugin': [zeroconf_plugin, hold_plugin],
+         'zeroconf_allow': 'any',
+         'hold-time': 10000},
+    ])
+
+    # l1 -> l2: normal funded channel
+    l1.fundwallet(10**7)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.rpc.fundchannel(l2.info['id'], 1000000)
+    bitcoind.generate_block(6, wait_for_mempool=1)
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['state'] == 'CHANNELD_NORMAL')
+    scid12 = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['short_channel_id']
+
+    # l2 -> l3: withheld zeroconf channel
+    l2.fundwallet(10**7)
+    l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    amount = 1000000
+    funding_addr = l2.rpc.fundchannel_start(l3.info['id'], f"{amount}sat", mindepth=0)['funding_address']
+    psbt = l2.rpc.fundpsbt(amount, "1000perkw", 1000, excess_as_change=True)['psbt']
+    psbt = l2.rpc.addpsbtoutput(amount, psbt, destination=funding_addr)['psbt']
+    assert l2.rpc.fundchannel_complete(l3.info['id'], psbt, withhold=True)['commitments_secured']
+
+    # Wait for withheld channel to be usable
+    wait_for(lambda: 'remote' in only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['updates'])
+    alias23 = only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['alias']['local']
+
+    # Create invoice on l3 and send payment from l1 via manual route
+    inv = l3.rpc.invoice(10000, 'test_withhold_failback', 'desc')
+    route = [{'amount_msat': 10001,
+              'id': l2.info['id'],
+              'delay': 12,
+              'channel': scid12},
+             {'amount_msat': 10000,
+              'id': l3.info['id'],
+              'delay': 6,
+              'channel': alias23}]
+    l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
+
+    # Wait for HTLC to be held at l3
+    l3.daemon.wait_for_log("Holding onto an incoming htlc")
+
+    # Mine blocks to hit the CLTV deadline.
+    bitcoind.generate_block(8)
+
+    # CLTV expiry triggers force-close on the withheld channel
+    l2.daemon.wait_for_log(r'cltv .* hit deadline')
+
+    # Withheld channel is gone (no on-chain tx was broadcast)
+    assert l2.rpc.listpeerchannels(l3.info['id'])['channels'] == []
+
+    # Payment should fail (HTLC was failed back)
+    with pytest.raises(RpcError):
+        l1.rpc.waitsendpay(inv['payment_hash'])
+
+    # l1's channel to l2 is still normal — no force-close
+    assert only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['state'] == 'CHANNELD_NORMAL'
