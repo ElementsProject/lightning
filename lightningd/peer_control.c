@@ -356,8 +356,27 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 
 	/* If we withheld the funding tx, we simply close */
 	if (channel->withheld) {
+		struct htlc_out_map_iter outi;
+		struct htlc_out *hout;
+
 		log_info(channel->log,
 			 "Withheld channel: not sending a close transaction");
+
+		for (hout = htlc_out_map_first(ld->htlcs_out, &outi);
+		     hout;
+		     hout = htlc_out_map_next(ld->htlcs_out, &outi)) {
+			if (hout->key.channel != channel)
+				continue;
+			/* Has already been settled or failed */
+			if (!hout->in
+			    || hout->in->badonion != 0
+			    || hout->in->failonion
+			    || hout->in->preimage)
+				continue;
+			local_fail_in_htlc(hout->in,
+					   take(towire_permanent_channel_failure(NULL)));
+		}
+
 		resolve_close_command(ld, channel, cooperative,
 				      tal_arr(tmpctx, const struct bitcoin_tx *, 0));
 		free_htlcs(ld, channel);
