@@ -2917,6 +2917,11 @@ def test_zeroconf_withhold(node_factory, bitcoind, stay_withheld, mutual_close):
     if stay_withheld:
         assert l1.rpc.listpeerchannels()['channels'] == []
         assert only_one(l1.rpc.listclosedchannels()['closedchannels'])['funding_withheld'] is True
+        # Verify UTXOs are unreserved after withheld channel close
+        funds = l1.rpc.listfunds()
+        for utxo in funds['outputs']:
+            assert utxo['status'] == 'confirmed', \
+                f"UTXO still reserved after withheld close"
     else:
         if mutual_close:
             wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['state'] == 'CLOSINGD_COMPLETE')

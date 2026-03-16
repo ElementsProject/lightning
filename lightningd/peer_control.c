@@ -11,6 +11,7 @@
 #include <common/initial_commit_tx.h>
 #include <common/json_channel_type.h>
 #include <common/json_command.h>
+#include <common/psbt_open.h>
 #include <common/timeout.h>
 #include <common/version.h>
 #include <common/wire_error.h>
@@ -375,6 +376,24 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 				continue;
 			local_fail_in_htlc(hout->in,
 					   take(towire_permanent_channel_failure(NULL)));
+		}
+
+		/* Unreserve any UTXOs from the withheld funding PSBT */
+		if (channel->funding_psbt) {
+			for (size_t i = 0; i < channel->funding_psbt->num_inputs; i++) {
+				struct bitcoin_outpoint outpoint;
+				struct utxo *utxo;
+
+				wally_psbt_input_get_outpoint(
+					&channel->funding_psbt->inputs[i], &outpoint);
+				utxo = wallet_utxo_get(tmpctx, ld->wallet, &outpoint);
+				if (!utxo || utxo->status != OUTPUT_STATE_RESERVED)
+					continue;
+
+				wallet_unreserve_utxo(ld->wallet, utxo,
+						      get_block_height(ld->topology),
+						      utxo->reserved_til);
+			}
 		}
 
 		resolve_close_command(ld, channel, cooperative,
