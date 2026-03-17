@@ -238,7 +238,6 @@ def fake_rateserver():
         srv.join()
 
 
-@pytest.mark.xfail(strict=True)
 def test_cached_median(node_factory, fake_rateserver):
     """This should use the median of available sources"""
     opts = {
