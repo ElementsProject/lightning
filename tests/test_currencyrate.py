@@ -11,14 +11,31 @@ from werkzeug.serving import make_server
 LOGGER = logging.getLogger(__name__)
 
 
+def median_range(amount, rateslist):
+    """Return the reasonable median of these rates (similar to what currencyrate does)"""
+    rates = [entry["amount"] for entry in rateslist]
+    rates.sort()
+
+    if len(rates) % 2 == 1:
+        btc = rates[len(rates) // 2]
+    else:
+        btc = (rates[len(rates) - 1] + rates[len(rates) - 1]) / 2
+
+    msats = amount * 100_000_000_000 / btc
+
+    # Give it +/- 1%
+    return range(int(msats * 0.99), int(msats * 1.01))
+
+
 def test_apis_batch1(node_factory):
     opts = {
         "currencyrate-disable-source": ["bitstamp", "coinbase"],
     }
     l1 = node_factory.get_node(options=opts)
 
-    rates = l1.rpc.call("currencyrates", ["USD"])
-    LOGGER.info(rates)
+    rateslist = l1.rpc.call("listcurrencyrates", ["USD"])['currencyrates']
+    LOGGER.info(rateslist)
+    rates = {entry["source"]: entry["amount"] for entry in rateslist}
 
     assert "bitstamp" not in rates
     assert "coinbase" not in rates
@@ -29,11 +46,12 @@ def test_apis_batch1(node_factory):
     assert "coindesk" in rates
     assert "binance" in rates
 
-    assert rates["coingecko"] > 0
-    assert rates["kraken"] > 0
-    assert rates["blockchain.info"] > 0
-    assert rates["coindesk"] > 0
-    assert rates["binance"] > 0
+    # Death to the 58k gang!
+    assert rates["coingecko"] > 58000
+    assert rates["kraken"] > 58000
+    assert rates["blockchain.info"] > 58000
+    assert rates["coindesk"] > 58000
+    assert rates["binance"] > 58000
 
     rates = [
         rates["coingecko"],
@@ -50,9 +68,7 @@ def test_apis_batch1(node_factory):
 
     assert "msat" in convert
     assert convert["msat"] > 0
-
-    assert convert["msat"] >= (rates[0] - 1) * 100
-    assert convert["msat"] <= (rates[len(rates) - 1] + 1) * 100
+    assert convert["msat"] in median_range(100, rateslist)
 
 
 def test_apis_batch2(node_factory):
@@ -67,8 +83,9 @@ def test_apis_batch2(node_factory):
     }
     l1 = node_factory.get_node(options=opts)
 
-    rates = l1.rpc.call("currencyrates", ["USD"])
-    LOGGER.info(rates)
+    rateslist = l1.rpc.call("listcurrencyrates", ["USD"])['currencyrates']
+    LOGGER.info(rateslist)
+    rates = {entry["source"]: entry["amount"] for entry in rateslist}
 
     assert "bitstamp" in rates
     assert "coinbase" in rates
@@ -93,9 +110,7 @@ def test_apis_batch2(node_factory):
 
     assert "msat" in convert
     assert convert["msat"] > 0
-
-    assert convert["msat"] >= (rates[0] - 1) * 100
-    assert convert["msat"] <= (rates[len(rates) - 1] + 1) * 100
+    assert convert["msat"] in median_range(100, rateslist)
 
 
 def test_custom_source(node_factory):
@@ -116,8 +131,9 @@ def test_custom_source(node_factory):
     }
     l1 = node_factory.get_node(options=opts)
 
-    rates = l1.rpc.call("currencyrates", ["USD"])
-    LOGGER.info(rates)
+    rateslist = l1.rpc.call("listcurrencyrates", ["USD"])['currencyrates']
+    LOGGER.info(rateslist)
+    rates = {entry["source"]: entry["amount"] for entry in rateslist}
 
     assert "bitstamp" not in rates
     assert "coinbase" not in rates
@@ -144,9 +160,7 @@ def test_custom_source(node_factory):
 
     assert "msat" in convert
     assert convert["msat"] > 0
-
-    assert convert["msat"] >= (rates[0] - 1) * 100
-    assert convert["msat"] <= (rates[len(rates) - 1] + 1) * 100
+    assert convert["msat"] in median_range(100, rateslist)
 
 
 def test_no_sources(node_factory):
@@ -165,9 +179,9 @@ def test_no_sources(node_factory):
 
     with pytest.raises(
         RpcError,
-        match="Unknown command 'currencyrates'",
+        match="Unknown command 'listcurrencyrates'",
     ):
-        rates = l1.rpc.call("currencyrates", ["USD"])
+        rates = l1.rpc.call("listcurrencyrates", ["USD"])
         LOGGER.info(rates)
 
 
@@ -181,7 +195,7 @@ def test_invalid_currency(node_factory):
         RpcError,
         match=r"no results for `XXX`, is the currency supported\? Check the logs!",
     ):
-        rates = l1.rpc.call("currencyrates", ["XXX"])
+        rates = l1.rpc.call("listcurrencyrates", ["XXX"])
         LOGGER.info(rates)
 
     l1.daemon.logsearch_start = needle
@@ -257,14 +271,15 @@ def test_cached_median(node_factory, fake_rateserver):
     }
     l1 = node_factory.get_node(options=opts)
 
-    rates = l1.rpc.call("currencyrates", ["USD"])
-    LOGGER.info(rates)
+    rateslist = l1.rpc.call("listcurrencyrates", ["USD"])['currencyrates']
+    LOGGER.info(rateslist)
+    rates = {entry["source"]: entry["amount"] for entry in rateslist}
 
     assert "fast" in rates
     assert "slow" in rates
 
-    assert rates["fast"] == 1000
-    assert rates["slow"] == 2000
+    assert rates["fast"] == 100_000_000
+    assert rates["slow"] == 50_000_000
 
     # Cached result should be median of two rates.
     median_rate = (100_000_000 + 50_000_000) / 2

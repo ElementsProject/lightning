@@ -100,6 +100,7 @@ Core Lightning Documentation
    listchannels <listchannels.7.md>
    listclosedchannels <listclosedchannels.7.md>
    listconfigs <listconfigs.7.md>
+   listcurrencyrates <listcurrencyrates.7.md>
    listdatastore <listdatastore.7.md>
    listforwards <listforwards.7.md>
    listfunds <listfunds.7.md>

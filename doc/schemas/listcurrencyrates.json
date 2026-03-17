@@ -1,0 +1,67 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "rpc": "currencyrates",
+  "added": "v26.04",
+  "title": "Command to list millisatoshis-per-unit from each configured source",
+  "description": [
+    "The **listcurrencyrates** RPC command returns the number of units of a given currency for one BTC from each configured exchange-rate source."
+  ],
+  "request": {
+    "required": [
+      "currency"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "currency": {
+        "type": "string",
+        "description": [
+          "The ISO4217 currency code to query, eg USD.",
+          "The plugin normalizes this value to uppercase before querying sources."
+        ]
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "currencyrates"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "currencyrates": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source",
+            "amount"
+          ],
+          "properties": {
+            "source": {
+              "type": "string",
+              "description": [
+                "The name of the source of this rate (see `currencyrate-add-source` in lightningd-config)"
+              ]
+            },
+            "amount": {
+              "type": "number",
+              "description": [
+                "The amount of currency for 1 BTC."
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "author": [
+    "daywalker90 is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-currencyconvert(7)"
+  ],
+  "resources": [
+    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+  ]
+}
