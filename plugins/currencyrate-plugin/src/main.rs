@@ -10,7 +10,7 @@ use std::sync::Arc;
 use std::vec;
 use tokio::sync::Mutex;
 
-use crate::oracle::{BtcPriceOracle, Source};
+use crate::oracle::{BtcPriceOracle, Source, MSAT_PER_BTC};
 
 mod oracle;
 
@@ -167,7 +167,7 @@ async fn currencyrates(plugin: Plugin<PluginState>, args: Value) -> Result<Value
         Ok(result) => {
             let mut map = serde_json::Map::new();
             for source_result in result {
-                let msat = source_result.price.round() as u64;
+                let msat = (MSAT_PER_BTC / source_result.price).round() as u64;
                 map.insert(source_result.name.clone(), json!(msat));
             }
             Ok(json!(map))
