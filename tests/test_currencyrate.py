@@ -1,7 +1,11 @@
 import logging
 import pytest
+import threading
+import time
 from pyln.client import RpcError
 from fixtures import *  # noqa: F401,F403
+from flask import Flask, jsonify
+from werkzeug.serving import make_server
 
 
 LOGGER = logging.getLogger(__name__)
@@ -194,3 +198,78 @@ def test_invalid_currency(node_factory):
     l1.daemon.wait_for_log("failed to get `XXX` rate from coindesk")
     l1.daemon.logsearch_start = needle
     l1.daemon.wait_for_log("failed to get `XXX` rate from binance")
+
+
+class _ServerThread(threading.Thread):
+    def __init__(self, app):
+        super().__init__(daemon=True)
+        self._server = make_server("127.0.0.1", 0, app)
+        self.port = self._server.server_port
+
+    def run(self):
+        self._server.serve_forever()
+
+    def shutdown(self):
+        self._server.shutdown()
+
+
+@pytest.fixture
+def fake_rateserver():
+    app = Flask(__name__)
+
+    @app.get("/fast")
+    def fast():
+        # 1e11 / 100_000_000 = 1000 msat per USD
+        return jsonify({"price": 100_000_000})
+
+    @app.get("/slow")
+    def slow():
+        # Make this complete later, so it becomes latest_fresh_price().
+        time.sleep(1)
+        # 1e11 / 50_000_000 = 2000 msat per USD
+        return jsonify({"price": 50_000_000})
+
+    srv = _ServerThread(app)
+    srv.start()
+    try:
+        yield f"http://127.0.0.1:{srv.port}"
+    finally:
+        srv.shutdown()
+        srv.join()
+
+
+@pytest.mark.xfail(strict=True)
+def test_cached_median(node_factory, fake_rateserver):
+    """This should use the median of available sources"""
+    opts = {
+        "currencyrate-disable-source": [
+            "bitstamp",
+            "coinbase",
+            "coingecko",
+            "kraken",
+            "blockchain.info",
+            "coindesk",
+            "binance",
+        ],
+        "currencyrate-add-source": [
+            f"fast,{fake_rateserver}/fast,price",
+            f"slow,{fake_rateserver}/slow,price",
+        ],
+    }
+    l1 = node_factory.get_node(options=opts)
+
+    rates = l1.rpc.call("currencyrates", ["USD"])
+    LOGGER.info(rates)
+
+    assert "fast" in rates
+    assert "slow" in rates
+
+    assert rates["fast"] == 1000
+    assert rates["slow"] == 2000
+
+    # With two fresh cached rates, the correct median is midpoint(1000, 2000) = 1500.
+    # For 100 USD, that should be 150000 msat.
+    convert = l1.rpc.call("currencyconvert", [100, "USD"])
+    LOGGER.info(convert)
+
+    assert convert["msat"] == 150000
