@@ -20,6 +20,8 @@ const DRIFT_THRESHOLD: f64 = 0.01;
 const INITIAL_BACKOFF: Duration = Duration::from_secs(30);
 const MAX_BACKOFF: Duration = Duration::from_secs(3_600);
 
+pub const MSAT_PER_BTC: f64 = 1e11;
+
 #[derive(Debug, Clone)]
 pub struct Source {
     name: String,
@@ -123,13 +125,13 @@ impl Source {
         }
 
         log::info!(
-            "Fetched price in {}ms from {}: {:.2} {currency}",
+            "Fetched price in {}ms from {}: {:.2} {currency}/BTC",
             now.elapsed().as_millis(),
             self.name,
             price
         );
 
-        Ok(1E11 / price)
+        Ok(price)
     }
 }
 
@@ -326,8 +328,8 @@ impl BtcPriceOracle {
             self.get_all_rates(currency).await?
         };
 
-        let median_rate = get_median_rate(source_results);
-        Ok((amount * median_rate).round() as u64)
+        let median_currency_per_btc = get_median_rate(source_results);
+        Ok((amount * MSAT_PER_BTC / median_currency_per_btc).round() as u64)
     }
 
     async fn refresh_currency(&self, currency: &str) -> Result<(), anyhow::Error> {
