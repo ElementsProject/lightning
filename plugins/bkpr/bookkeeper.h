@@ -2,9 +2,13 @@
 #define LIGHTNING_PLUGINS_BKPR_BOOKKEEPER_H
 
 #include "config.h"
+#include <ccan/intmap/intmap.h>
 #include <common/json_parse.h>
 
 struct command;
+
+/* For allocation convenience. */
+typedef UINTMAP(double *) currencymap_t;
 
 struct bkpr {
 	/* The datastore-backed lookup tables for our annotations */
@@ -16,6 +20,13 @@ struct bkpr {
 
 	/* Where we're up to in listchainmoves, listchannelmoves */
 	u64 chainmoves_index, channelmoves_index;
+
+	/* Optional currency if we're doing currencyconvert lookups */
+	char *currency;
+	/* Map of UNIX time -> currency rate */
+	currencymap_t *currency_rates;
+	/* True if we've warned about currency failures */
+	bool warned_currency_fail;
 };
 
 /* Helper to ignore returns from datastore */
