@@ -13,6 +13,7 @@
 #include <common/coin_mvt.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
+#include <common/memleak.h>
 #include <common/node_id.h>
 #include <db/exec.h>
 #include <errno.h>
@@ -1080,6 +1081,84 @@ static struct command_result *lookup_invoice_desc(struct command *cmd,
 	return send_outreq(req);
 }
 
+struct currency_time {
+	struct refresh_info *rinfo;
+	u64 timestamp;
+};
+
+static struct command_result *currency_done(struct command *cmd,
+					    const char *method,
+					    const char *buf,
+					    const jsmntok_t *result,
+					    struct currency_time *ctime)
+{
+	struct bkpr *bkpr = bkpr_of(cmd->plugin);
+	double rate;
+	const char *err;
+
+	err = json_scan(cmd, buf, result, "{rate:%}",
+			JSON_SCAN(json_to_double, &rate));
+	if (err) {
+		plugin_log(cmd->plugin, LOG_BROKEN,
+			   "Invalid currencyrate return '%.*s': %s",
+			   json_tok_full_len(result),
+			   json_tok_full(buf, result), err);
+	} else {
+		double *p = tal_dup(bkpr->currency_rates, double, &rate);
+		/* Can fail if we raced and asked twice */
+		if (!uintmap_add(bkpr->currency_rates,
+				 ctime->timestamp,
+				 p)) {
+			tal_free(p);
+		}
+	}
+	return rinfo_one_done(cmd, ctime->rinfo);
+}
+
+static struct command_result *currency_error(struct command *cmd,
+					     const char *method,
+					     const char *buf,
+					     const jsmntok_t *error,
+					     struct currency_time *ctime)
+{
+	struct bkpr *bkpr = bkpr_of(cmd->plugin);
+
+	if (!bkpr->warned_currency_fail) {
+		plugin_log(cmd->plugin, LOG_BROKEN,
+			   "error calling %s: %.*s",
+			   method, json_tok_full_len(error),
+			   json_tok_full(buf, error));
+		bkpr->warned_currency_fail = true;
+	}
+
+	return rinfo_one_done(cmd, ctime->rinfo);
+}
+
+static void lookup_currency(struct command *cmd,
+			    struct bkpr *bkpr,
+			    enum mvt_tag primary_tag,
+			    u64 timestamp,
+			    struct refresh_info *rinfo)
+{
+	struct out_req *req;
+	struct currency_time *ctime;
+
+	/* If we already have the timestamp, we're done */
+	if (uintmap_get(bkpr->currency_rates, timestamp) != NULL)
+		return;
+
+	ctime = tal(cmd, struct currency_time);
+	ctime->timestamp = timestamp;
+	ctime->rinfo = use_rinfo(rinfo);
+	req = jsonrpc_request_start(cmd,
+				    "currencyrate",
+				    currency_done,
+				    currency_error,
+				    ctime);
+	json_add_string(req->js, "currency", bkpr->currency);
+	send_outreq(req);
+}
+
 static enum mvt_tag *json_to_tags(const tal_t *ctx, const char *buffer, const jsmntok_t *tok)
 {
 	size_t i;
@@ -1273,6 +1352,9 @@ parse_and_log_chain_move(struct command *cmd,
 			break;
 		}
 	}
+
+	if (bkpr->currency)
+		lookup_currency(cmd, bkpr, tag, e->timestamp, rinfo);
 }
 
 static void
@@ -1353,8 +1435,10 @@ parse_and_log_channel_move(struct command *cmd,
 			maybe_record_rebalance(cmd, bkpr, e);
 
 		lookup_invoice_desc(cmd, e->credit, e->payment_id, rinfo);
-		return;
 	}
+
+	if (bkpr->currency)
+		lookup_currency(cmd, bkpr, tag, e->timestamp, rinfo);
 }
 
 static bool json_to_tok(const char *buffer, const jsmntok_t *tok, const jsmntok_t **ret)
@@ -1532,6 +1616,12 @@ static bool json_hex_to_be64(const char *buffer, const jsmntok_t *tok,
 			  val, sizeof(*val));
 }
 
+static void memleak_scan_currencyrates(struct htable *memtable,
+				       currencymap_t *currency_rates)
+{
+	memleak_scan_uintmap(memtable, currency_rates);
+}
+
 static const char *init(struct command *init_cmd, const char *b, const jsmntok_t *t)
 {
 	struct plugin *p = init_cmd->plugin;
@@ -1569,11 +1659,20 @@ int main(int argc, char *argv[])
 
 	/* No datadir is default */
 	bkpr = tal(NULL, struct bkpr);
+	bkpr->currency = NULL;
+	bkpr->warned_currency_fail = false;
+	bkpr->currency_rates = tal(bkpr, currencymap_t);
+	uintmap_init(bkpr->currency_rates);
+	memleak_add_helper(bkpr->currency_rates, memleak_scan_currencyrates);
 	plugin_main(argv, init, take(bkpr), PLUGIN_STATIC, true, NULL,
 		    commands, ARRAY_SIZE(commands),
 		    notifs, ARRAY_SIZE(notifs),
 		    NULL, 0,
 		    NULL, 0,
+		    plugin_option("bkpr-currency",
+				  "string",
+				  "Look up and record this currency on each event",
+				  charp_option, charp_jsonfmt, &bkpr->currency),
 		    NULL);
 
 	return 0;
