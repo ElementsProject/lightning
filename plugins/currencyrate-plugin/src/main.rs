@@ -10,11 +10,12 @@ use std::sync::Arc;
 use std::vec;
 use tokio::sync::Mutex;
 
-use crate::oracle::{BtcPriceOracle, Source, MSAT_PER_BTC};
+use crate::oracle::{BtcPriceOracle, Source};
 
 mod oracle;
 
 const DEFAULT_PROXY_PORT: u16 = 9050;
+const MSAT_PER_BTC: f64 = 1e11;
 
 #[derive(Debug, Clone)]
 pub struct SourceResult {
@@ -129,9 +130,9 @@ async fn currencyconvert(plugin: Plugin<PluginState>, args: Value) -> Result<Val
     let oracle = plugin.state().oracle.lock().await;
     oracle.currency_requested(&currency).await;
 
-    match oracle.convert(amount, &currency).await {
-        Ok(result) => Ok(json!({
-            "msat": result,
+    match oracle.get_median_rate(&currency).await {
+        Ok(rate) => Ok(json!({
+            "msat": (amount * MSAT_PER_BTC / rate).round() as u64,
         })),
         Err(e) => Err(anyhow!("Error converting currency: {e}")),
     }
