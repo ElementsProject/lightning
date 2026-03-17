@@ -178,15 +178,15 @@ impl CurrencyCache {
         }
     }
 
-    fn latest_fresh_price(&self) -> Option<SourceResult> {
+    fn fresh_prices(&self) -> Vec<SourceResult> {
         self.prices
             .iter()
             .filter(|(_, p)| p.timestamp + SERVE_TTL > Instant::now())
-            .max_by_key(|(_, p)| p.timestamp)
             .map(|(n, p)| SourceResult {
                 name: n.clone(),
                 price: p.price,
             })
+            .collect()
     }
 
     fn is_drift_ok(&self) -> bool {
@@ -313,8 +313,9 @@ impl BtcPriceOracle {
     pub async fn convert(&self, amount: f64, currency: &str) -> Result<u64, anyhow::Error> {
         let inner = self.inner.lock().await;
         let source_results = if let Some(currency_cache) = inner.currencies.get(currency) {
-            if let Some(price) = currency_cache.latest_fresh_price() {
-                vec![price]
+            let prices = currency_cache.fresh_prices();
+            if !prices.is_empty() {
+                prices
             } else {
                 log::warn!("background task failed to keep currency `{currency}` up to date");
                 drop(inner);
