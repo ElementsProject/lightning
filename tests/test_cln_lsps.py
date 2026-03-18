@@ -20,7 +20,9 @@ LSP_OPTS = {
 }
 
 
-def setup_lsps2_network(node_factory, bitcoind, lsp_opts=None, client_opts=None):
+def setup_lsps2_network(
+    node_factory, bitcoind, lsp_opts=None, client_opts=None, may_reconnect=False
+):
     """Create l1 (client), l2 (LSP), l3 (payer) with l3--l2 funded.
 
     Returns (l1, l2, l3, chanid) where chanid is the l3-l2 channel.
@@ -28,12 +30,15 @@ def setup_lsps2_network(node_factory, bitcoind, lsp_opts=None, client_opts=None)
     opts = lsp_opts or LSP_OPTS
     client = client_opts or {}
     l1_opts = {"experimental-lsps-client": None, **client}
+    if may_reconnect:
+        l1_opts["may_reconnect"] = True
+        opts = {**opts, "may_reconnect": True}
     l1, l2, l3 = node_factory.get_nodes(
         3,
         opts=[
             l1_opts,
             opts,
-            {},
+            {"may_reconnect": True} if may_reconnect else {},
         ],
     )
 
@@ -654,8 +659,6 @@ def test_lsps2_session_newblock_unsafe_htlc_timeout(node_factory, bitcoind):
     dec, inv = buy_and_invoice(l1, l2, amt)
     routehint = only_one(only_one(dec["routes"]))
 
-    current_height = l3.rpc.getinfo()["blockheight"]
-
     # Use small delay so cltv_expiry is close to current height.
     # The htlc_accepted hook intercepts before CLN's CLTV validation,
     # so the small delta is accepted by the LSPS2 plugin.
@@ -776,3 +779,328 @@ def test_lsps2_session_cltv_force_close_abandoned(node_factory, bitcoind):
             l3.rpc.waitsendpay(
                 dec["payment_hash"], partid=partid, groupid=1, timeout=60
             )
+
+
+def test_lsps2_restart_collecting_htlcs_replayed(node_factory, bitcoind):
+    """Restart during collecting phase — replayed HTLCs create fresh session.
+
+    Recovery path: pre-funding session in datastore → restart → CLN replays
+    unhandled HTLCs → new session collects and completes successfully.
+    """
+    l1, l2, l3, chanid = setup_lsps2_network(node_factory, bitcoind, may_reconnect=True)
+    amt = 10_000_000
+    dec, inv = buy_and_invoice(l1, l2, amt)
+
+    parts = 5
+    routehint = only_one(only_one(dec["routes"]))
+    route_part = [
+        {
+            "amount_msat": amt // parts,
+            "id": l2.info["id"],
+            "delay": routehint["cltv_expiry_delta"] + 6,
+            "channel": chanid,
+        },
+        {
+            "amount_msat": amt // parts,
+            "id": l1.info["id"],
+            "delay": 6,
+            "channel": routehint["short_channel_id"],
+        },
+    ]
+
+    for partid in range(
+        1, parts
+    ):  # One part is missing to make sure we are actually in CollectingParts state
+        l3.rpc.sendpay(
+            route_part,
+            dec["payment_hash"],
+            payment_secret=inv["payment_secret"],
+            bolt11=inv["bolt11"],
+            amount_msat=f"{amt}msat",
+            groupid=1,
+            partid=partid,
+        )
+
+    # Restart l2 after 4 of 5 parts arrived — plugin has not funded a channel yet
+    l2.daemon.wait_for_log(r"PaymentPartAdded.*n_parts: 4")
+    l2.restart()
+    l2.connect(l3)
+    l2.connect(l1)
+    wait_for(
+        lambda: (
+            only_one(l2.rpc.listpeerchannels(l3.info["id"])["channels"]).get("state")
+            == "CHANNELD_NORMAL"
+        )
+    )
+
+    # CLN replays all unhandled HTLCs after restart. The recovery + replay
+    # should result in a successful payment regardless of how far the
+    # original session got. Still need to send the last part
+    l3.rpc.sendpay(
+        route_part,
+        dec["payment_hash"],
+        payment_secret=inv["payment_secret"],
+        bolt11=inv["bolt11"],
+        amount_msat=f"{amt}msat",
+        groupid=1,
+        partid=parts,
+    )
+    res = l3.rpc.waitsendpay(dec["payment_hash"], partid=parts, groupid=1, timeout=60)
+    assert res["payment_preimage"]
+
+    # l1 should have exactly one JIT channel.
+    chs = l1.rpc.listpeerchannels()["channels"]
+    assert len(chs) == 1
+
+    # Mine a block so the funding confirms.
+    bitcoind.generate_block(1)
+    wait_for(
+        lambda: (
+            only_one(l1.rpc.listpeerchannels()["channels"]).get("short_channel_id")
+            is not None
+        )
+    )
+
+    # Finalized entry should show success.
+    wait_for(
+        lambda: (
+            len(
+                l2.rpc.listdatastore(["lsps", "lsps2", "sessions", "finalized"])[
+                    "datastore"
+                ]
+            )
+            > 0
+        )
+    )
+    ds = l2.rpc.listdatastore(["lsps", "lsps2", "sessions", "finalized"])
+    entry = json.loads(only_one(ds["datastore"])["string"])
+    assert entry["outcome"] == "Succeeded"
+
+    # Active entries should be empty.
+    active = l2.rpc.listdatastore(["lsps", "lsps2", "sessions", "active"])
+    assert active["datastore"] == []
+
+
+def test_lsps2_restart_pre_funding_expired_finalized_timeout(node_factory, bitcoind):
+    """Restart with expired pre-funding session — finalized as Timeout.
+
+    Recovery path: session valid_until has passed, no channel funded →
+    recovery classifies as Timeout.
+    """
+    l1, l2, l3, chanid = setup_lsps2_network(node_factory, bitcoind)
+    amt = 10_000_000
+    dec, inv = buy_and_invoice(l1, l2, amt)
+
+    # Tamper with the active session's valid_until so recovery sees it as
+    # expired.  This avoids needing a short-validity policy plugin which
+    # conflicts with the client's 1-minute safety margin.
+    active = l2.rpc.listdatastore(["lsps", "lsps2", "sessions", "active"])
+    ds_entry = only_one(active["datastore"])
+    session = json.loads(ds_entry["string"])
+    session["opening_fee_params"]["valid_until"] = "2000-01-01T00:00:00.000Z"
+    l2.rpc.datastore(
+        key=ds_entry["key"],
+        string=json.dumps(session),
+        mode="must-replace",
+    )
+
+    # Restart l2 — recovery finds expired session with no channel.
+    l2.restart()
+
+    # Recovery should finalize the session as Timeout.
+    wait_for(
+        lambda: (
+            len(
+                l2.rpc.listdatastore(["lsps", "lsps2", "sessions", "finalized"])[
+                    "datastore"
+                ]
+            )
+            > 0
+        )
+    )
+    ds = l2.rpc.listdatastore(["lsps", "lsps2", "sessions", "finalized"])
+    entry = json.loads(only_one(ds["datastore"])["string"])
+    assert entry["outcome"] == "Timeout"
+
+    # Active entries should be cleaned up.
+    active = l2.rpc.listdatastore(["lsps", "lsps2", "sessions", "active"])
+    assert active["datastore"] == []
+
+    # No channel should exist between l1 and l2.
+    chs = l1.rpc.listpeerchannels(l2.info["id"])["channels"]
+    assert len(chs) == 0
+
+
+def test_lsps2_restart_awaiting_settlement_payment_completes(node_factory, bitcoind):
+    """Restart while HTLCs are held — recovered session settles successfully.
+
+    Recovery path: funded session with OFFERED forwards → recover as
+    AwaitingSettlement → forward monitoring → payment settles → Succeeded.
+    """
+    hold_plugin = os.path.join(os.path.dirname(__file__), "plugins/hold_htlcs.py")
+    l1, l2, l3, chanid = setup_lsps2_network(
+        node_factory,
+        bitcoind,
+        client_opts={"plugin": hold_plugin, "hold-time": 15},
+        may_reconnect=True,
+    )
+    # JIT channels can trigger bookkeeper "Unable to calculate fees" on restart.
+    l2.broken_log = r"Unable to calculate fees collected"
+
+    amt = 10_000_000
+    dec, inv = buy_and_invoice(l1, l2, amt)
+
+    parts = 2
+    send_mpp(l3, l2.info["id"], l1.info["id"], chanid, dec, inv, amt, parts)
+
+    # Wait for l1 to hold HTLCs (channel funded, HTLCs forwarded).
+    l1.daemon.wait_for_log("Holding onto an incoming htlc for 15 seconds")
+
+    # Confirm early persistence: active session has channel_id.
+    wait_for(
+        lambda: (
+            len(
+                l2.rpc.listdatastore(["lsps", "lsps2", "sessions", "active"])[
+                    "datastore"
+                ]
+            )
+            > 0
+            and json.loads(
+                only_one(
+                    l2.rpc.listdatastore(["lsps", "lsps2", "sessions", "active"])[
+                        "datastore"
+                    ]
+                )["string"]
+            ).get("channel_id")
+            is not None
+        )
+    )
+
+    # Restart l2 while HTLCs are held on l1.
+    l2.restart()
+    l2.connect(l3)
+    l2.connect(l1)
+
+    # Hold expires → l1 settles → recovered actor detects SETTLED → Succeeded.
+    res = l3.rpc.waitsendpay(dec["payment_hash"], partid=parts, groupid=1, timeout=60)
+    assert res["payment_preimage"]
+
+    # l1 should have exactly one JIT channel.
+    chs = l1.rpc.listpeerchannels()["channels"]
+    assert len(chs) == 1
+
+    # Mine a block so the funding confirms.
+    bitcoind.generate_block(1)
+    wait_for(
+        lambda: (
+            only_one(l1.rpc.listpeerchannels()["channels"]).get("short_channel_id")
+            is not None
+        )
+    )
+
+    # Finalized entry should show success with funding_txid.
+    wait_for(
+        lambda: (
+            len(
+                l2.rpc.listdatastore(["lsps", "lsps2", "sessions", "finalized"])[
+                    "datastore"
+                ]
+            )
+            > 0
+        )
+    )
+    ds = l2.rpc.listdatastore(["lsps", "lsps2", "sessions", "finalized"])
+    entry = json.loads(only_one(ds["datastore"])["string"])
+    assert entry["outcome"] == "Succeeded"
+    assert isinstance(entry["funding_txid"], str) and entry["funding_txid"]
+
+    # Active entries should be empty.
+    active = l2.rpc.listdatastore(["lsps", "lsps2", "sessions", "active"])
+    assert active["datastore"] == []
+
+
+def test_lsps2_restart_awaiting_settlement_payment_fails_abandoned(
+    node_factory, bitcoind
+):
+    """Restart while HTLCs are held, payment fails — session Abandoned.
+
+    Recovery path: funded session with OFFERED forwards → recover as
+    AwaitingSettlement → forward monitoring → forwards fail → Abandoned.
+    """
+    hold_plugin = os.path.join(os.path.dirname(__file__), "plugins/hold_htlcs.py")
+    l1, l2, l3, chanid = setup_lsps2_network(
+        node_factory,
+        bitcoind,
+        client_opts={"plugin": hold_plugin, "hold-time": 15},
+        may_reconnect=True,
+    )
+    # JIT channels can trigger bookkeeper "Unable to calculate fees" on restart.
+    l2.broken_log = r"Unable to calculate fees collected"
+
+    amt = 10_000_000
+    dec, inv = buy_and_invoice(l1, l2, amt)
+
+    # Delete the invoice on l1 so it will reject HTLCs after hold expires.
+    invoices = l1.rpc.listinvoices()["invoices"]
+    for i in invoices:
+        if i["status"] == "unpaid":
+            l1.rpc.delinvoice(i["label"], "unpaid")
+
+    parts = 2
+    send_mpp(l3, l2.info["id"], l1.info["id"], chanid, dec, inv, amt, parts)
+
+    # Wait for l1 to hold HTLCs (channel funded, HTLCs forwarded).
+    l1.daemon.wait_for_log("Holding onto an incoming htlc for 15 seconds")
+
+    # Confirm early persistence: active session has channel_id.
+    wait_for(
+        lambda: (
+            len(
+                l2.rpc.listdatastore(["lsps", "lsps2", "sessions", "active"])[
+                    "datastore"
+                ]
+            )
+            > 0
+            and json.loads(
+                only_one(
+                    l2.rpc.listdatastore(["lsps", "lsps2", "sessions", "active"])[
+                        "datastore"
+                    ]
+                )["string"]
+            ).get("channel_id")
+            is not None
+        )
+    )
+
+    # Restart l2 while HTLCs are held.
+    l2.restart()
+    l2.connect(l3)
+    l2.connect(l1)
+
+    # Hold expires → l1 rejects (no invoice) → forwards fail → Abandoned.
+    for partid in range(1, parts + 1):
+        with pytest.raises(Exception):
+            l3.rpc.waitsendpay(
+                dec["payment_hash"], partid=partid, groupid=1, timeout=60
+            )
+
+    # Finalized entry should show Abandoned.
+    wait_for(
+        lambda: (
+            len(
+                l2.rpc.listdatastore(["lsps", "lsps2", "sessions", "finalized"])[
+                    "datastore"
+                ]
+            )
+            > 0
+        )
+    )
+    ds = l2.rpc.listdatastore(["lsps", "lsps2", "sessions", "finalized"])
+    entry = json.loads(only_one(ds["datastore"])["string"])
+    assert entry["outcome"] == "Abandoned"
+
+    # Channel should be gone on l2.
+    wait_for(lambda: len(l2.rpc.listpeerchannels(l1.info["id"])["channels"]) == 0)
+
+    # UTXOs should be unreserved.
+    assert not any(o["reserved"] for o in l2.rpc.listfunds()["outputs"])

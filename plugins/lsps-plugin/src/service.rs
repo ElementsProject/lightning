@@ -10,7 +10,7 @@ use cln_lsps::{
         lsps2::{
             actor::HtlcResponse,
             manager::{PaymentHash, SessionConfig, SessionManager},
-            provider::DatastoreProvider,
+            provider::{DatastoreProvider, RecoveryProvider},
             session::PaymentPart,
             service::Lsps2ServiceHandler,
         },
@@ -23,7 +23,7 @@ use cln_lsps::{
     },
 };
 use cln_plugin::{options, Plugin};
-use log::{debug, error, trace};
+use log::{debug, error, trace, warn};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -147,6 +147,13 @@ async fn main() -> Result<(), anyhow::Error> {
 
                 let collect_timeout_secs = plugin.option(&OPTION_COLLECT_TIMEOUT)? as u64;
                 let state = State::new(rpc_path, &secret, collect_timeout_secs);
+
+                // Recover in-flight sessions before processing replayed HTLCs
+                let recovery: Arc<dyn RecoveryProvider> = state.api.clone();
+                if let Err(e) = state.session_manager.recover(recovery).await {
+                    warn!("session recovery failed: {e}");
+                }
+
                 let plugin = plugin.start(state).await?;
                 plugin.join().await
             } else {
@@ -305,6 +312,8 @@ async fn on_forward_event(
         _ => return Ok(()),
     };
 
+    let updated_index = event.get("updated_index").and_then(|v| v.as_u64());
+
     match status {
         Some("settled") => {
             let preimage = event
@@ -315,7 +324,7 @@ async fn on_forward_event(
             if let Err(e) = p
                 .state()
                 .session_manager
-                .on_payment_settled(payment_hash, preimage)
+                .on_payment_settled(payment_hash, preimage, updated_index)
                 .await
             {
                 debug!("on_payment_settled error: {e:#}");
@@ -325,7 +334,7 @@ async fn on_forward_event(
             if let Err(e) = p
                 .state()
                 .session_manager
-                .on_payment_failed(payment_hash)
+                .on_payment_failed(payment_hash, updated_index)
                 .await
             {
                 debug!("on_payment_failed error: {e:#}");
