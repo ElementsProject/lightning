@@ -1,5 +1,6 @@
 use anyhow::bail;
 use bitcoin::hashes::Hash;
+use chrono::Utc;
 use cln_lsps::{
     cln_adapters::{
         hooks::service_custommsg_hook, rpc::ClnApiRpc, sender::ClnSender, state::ServiceState,
@@ -7,14 +8,21 @@ use cln_lsps::{
     },
     core::{
         lsps2::{
-            htlc::{Htlc, HtlcAcceptedHookHandler, HtlcDecision, Onion, RejectReason},
+            actor::HtlcResponse,
+            manager::{PaymentHash, SessionConfig, SessionManager},
+            provider::DatastoreProvider,
+            session::PaymentPart,
             service::Lsps2ServiceHandler,
         },
         server::LspsService,
+        tlv::{TlvStream, TLV_FORWARD_AMT},
     },
-    proto::lsps0::{Msat, LSPS0_MESSAGE_TYPE},
+    proto::{
+        lsps0::{Msat, ShortChannelId},
+        lsps2::{failure_codes::UNKNOWN_NEXT_PEER, SessionOutcome},
+    },
 };
-use cln_plugin::{options, HookBuilder, HookFilter, Plugin};
+use cln_plugin::{options, Plugin};
 use log::{debug, error, trace};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -30,23 +38,42 @@ pub const OPTION_PROMISE_SECRET: options::StringConfigOption =
         "A 64-character hex string that is the secret for promises",
     );
 
+pub const OPTION_COLLECT_TIMEOUT: options::DefaultIntegerConfigOption =
+    options::ConfigOption::new_i64_with_default(
+        "experimental-lsps2-collect-timeout",
+        90,
+        "Timeout in seconds for collecting MPP parts (default: 90)",
+    );
+
 #[derive(Clone)]
 struct State {
     lsps_service: Arc<LspsService>,
     sender: ClnSender,
     lsps2_enabled: bool,
+    api: Arc<ClnApiRpc>,
+    session_manager: Arc<SessionManager<ClnApiRpc, ClnApiRpc>>,
 }
 
 impl State {
-    pub fn new(rpc_path: PathBuf, promise_secret: &[u8; 32]) -> Self {
+    pub fn new(rpc_path: PathBuf, promise_secret: &[u8; 32], collect_timeout_secs: u64) -> Self {
         let api = Arc::new(ClnApiRpc::new(rpc_path.clone()));
         let sender = ClnSender::new(rpc_path);
-        let lsps2_handler = Arc::new(Lsps2ServiceHandler::new(api, promise_secret));
+        let lsps2_handler = Arc::new(Lsps2ServiceHandler::new(api.clone(), promise_secret));
         let lsps_service = Arc::new(LspsService::builder().with_protocol(lsps2_handler).build());
+        let session_manager = Arc::new(SessionManager::new(
+            api.clone(),
+            api.clone(),
+            SessionConfig {
+                collect_timeout_secs,
+                ..SessionConfig::default()
+            },
+        ));
         Self {
             lsps_service,
             sender,
             lsps2_enabled: true,
+            api,
+            session_manager,
         }
     }
 }
@@ -66,6 +93,7 @@ async fn main() -> Result<(), anyhow::Error> {
     if let Some(plugin) = cln_plugin::Builder::new(tokio::io::stdin(), tokio::io::stdout())
         .option(OPTION_ENABLED)
         .option(OPTION_PROMISE_SECRET)
+        .option(OPTION_COLLECT_TIMEOUT)
         // FIXME: Temporarily disabled lsp feature to please test cases, this is
         // ok as the feature is optional per spec.
         // We need to ensure that `connectd` only starts after all plugins have
@@ -78,11 +106,10 @@ async fn main() -> Result<(), anyhow::Error> {
         //     cln_plugin::FeatureBitsKind::Init,
         //     util::feature_bit_to_hex(LSP_FEATURE_BIT),
         // )
-        .hook_from_builder(
-            HookBuilder::new("custommsg", service_custommsg_hook)
-                .filters(vec![HookFilter::Int(i64::from(LSPS0_MESSAGE_TYPE))]),
-        )
+        .hook("custommsg", service_custommsg_hook)
         .hook("htlc_accepted", on_htlc_accepted)
+        .subscribe("forward_event", on_forward_event)
+        .subscribe("block_added", on_block_added)
         .configure()
         .await?
     {
@@ -118,7 +145,8 @@ async fn main() -> Result<(), anyhow::Error> {
                     }
                 };
 
-                let state = State::new(rpc_path, &secret);
+                let collect_timeout_secs = plugin.option(&OPTION_COLLECT_TIMEOUT)? as u64;
+                let state = State::new(rpc_path, &secret, collect_timeout_secs);
                 let plugin = plugin.start(state).await?;
                 plugin.join().await
             } else {
@@ -169,57 +197,161 @@ async fn handle_htlc_inner(
         }
     };
 
-    let rpc_path = Path::new(&p.configuration().lightning_dir).join(&p.configuration().rpc_file);
-    let api = ClnApiRpc::new(rpc_path);
-    // Fixme: Use real htlc_minimum_amount.
-    let handler = HtlcAcceptedHookHandler::new(api, 1000);
-
-    let onion = Onion {
-        short_channel_id,
-        payload: req.onion.payload,
-    };
-
-    let htlc = Htlc {
-        amount_msat: Msat::from_msat(req.htlc.amount_msat.msat()),
-        extra_tlvs: req.htlc.extra_tlvs.unwrap_or_default(),
-    };
-
-    debug!("Handle potential jit-session HTLC.");
-    let response = match handler.handle(&htlc, &onion).await {
-        Ok(dec) => {
-            log_decision(&dec);
-            decision_to_response(dec)?
-        }
-        Err(e) => {
-            // Fixme: Should we log **BROKEN** here?
-            debug!("Htlc handler failed (continuing): {:#}", e);
+    // Decide path: look up buy request to check for MPP.
+    let ds_rec = match p.state().api.get_buy_request(&short_channel_id).await {
+        Ok(rec) => rec,
+        Err(_) => {
+            trace!("SCID not ours, continue.");
             return Ok(json_continue());
         }
     };
 
-    Ok(serde_json::to_value(&response)?)
+    if Utc::now() >= ds_rec.opening_fee_params.valid_until {
+        let _ = p
+            .state()
+            .api
+            .finalize_session(&short_channel_id, SessionOutcome::Timeout)
+            .await;
+        return Ok(json_fail(UNKNOWN_NEXT_PEER));
+    }
+
+    handle_session_htlc(p, &req, short_channel_id).await
 }
 
-fn decision_to_response(decision: HtlcDecision) -> Result<serde_json::Value, anyhow::Error> {
-    Ok(match decision {
-        HtlcDecision::NotOurs => json_continue(),
-
-        HtlcDecision::Forward {
-            mut payload,
-            forward_to,
-            mut extra_tlvs,
-        } => json_continue_forward(
-            payload.to_bytes()?,
-            forward_to.as_byte_array().to_vec(),
-            extra_tlvs.to_bytes()?,
+async fn handle_session_htlc(
+    p: &Plugin<State>,
+    req: &HtlcAcceptedRequest,
+    scid: ShortChannelId,
+) -> Result<serde_json::Value, anyhow::Error> {
+    let payment_hash =
+        PaymentHash::from_byte_array(req.htlc.payment_hash.as_slice().try_into()?);
+    let part = PaymentPart {
+        htlc_id: req.htlc.id,
+        amount_msat: Msat::from_msat(req.htlc.amount_msat.msat()),
+        cltv_expiry: req.htlc.cltv_expiry,
+    };
+    match p
+        .state()
+        .session_manager
+        .on_part(payment_hash, scid, part)
+        .await
+    {
+        Ok(resp) => session_response_to_json(
+            resp,
+            &req.onion.payload,
+            req.htlc.amount_msat.msat(),
+            &req.htlc.extra_tlvs,
         ),
+        Err(e) => {
+            debug!("session manager error: {e:#}");
+            Ok(json_continue())
+        }
+    }
+}
 
-        // Fixme: once we implement MPP-Support we need to remove this.
-        HtlcDecision::Reject {
-            reason: RejectReason::MppNotSupported,
-        } => json_continue(),
-        HtlcDecision::Reject { reason } => json_fail(reason.failure_code()),
-    })
+fn session_response_to_json(
+    resp: HtlcResponse,
+    payload: &TlvStream,
+    _htlc_amount_msat: u64,
+    extra_tlvs: &Option<TlvStream>,
+) -> Result<serde_json::Value, anyhow::Error> {
+    match resp {
+        HtlcResponse::Forward {
+            channel_id,
+            fee_msat,
+            forward_msat,
+        } => {
+            let mut payload = payload.clone();
+            payload.set_tu64(TLV_FORWARD_AMT, forward_msat);
+
+            let mut extra_tlvs = extra_tlvs.clone().unwrap_or_default();
+            extra_tlvs.set_u64(65537, fee_msat);
+
+            let forward_to = hex::decode(&channel_id)?;
+
+            Ok(json_continue_forward(
+                payload.to_bytes()?,
+                forward_to,
+                extra_tlvs.to_bytes()?,
+            ))
+        }
+        HtlcResponse::Fail { failure_code } => Ok(json_fail(failure_code)),
+        HtlcResponse::Continue => Ok(json_continue()),
+    }
+}
+
+async fn on_forward_event(
+    p: Plugin<State>,
+    v: serde_json::Value,
+) -> Result<(), anyhow::Error> {
+    let event = match v.get("forward_event") {
+        Some(e) => e,
+        None => return Ok(()),
+    };
+
+    let status = event.get("status").and_then(|s| s.as_str());
+
+    let payment_hash = match status {
+        Some("settled") | Some("failed") | Some("local_failed") => {
+            let hash_hex = match event.get("payment_hash").and_then(|s| s.as_str()) {
+                Some(h) => h,
+                None => return Ok(()),
+            };
+            let bytes: [u8; 32] = hex::decode(hash_hex)?
+                .try_into()
+                .map_err(|v: Vec<u8>| anyhow::anyhow!("bad payment_hash len {}", v.len()))?;
+            PaymentHash::from_byte_array(bytes)
+        }
+        _ => return Ok(()),
+    };
+
+    match status {
+        Some("settled") => {
+            let preimage = event
+                .get("preimage")
+                .and_then(|s| s.as_str())
+                .map(|s| s.to_string());
+
+            if let Err(e) = p
+                .state()
+                .session_manager
+                .on_payment_settled(payment_hash, preimage)
+                .await
+            {
+                debug!("on_payment_settled error: {e:#}");
+            }
+        }
+        Some("failed") | Some("local_failed") => {
+            if let Err(e) = p
+                .state()
+                .session_manager
+                .on_payment_failed(payment_hash)
+                .await
+            {
+                debug!("on_payment_failed error: {e:#}");
+            }
+        }
+        _ => unreachable!(),
+    }
+
+    Ok(())
+}
+
+async fn on_block_added(
+    p: Plugin<State>,
+    v: serde_json::Value,
+) -> Result<(), anyhow::Error> {
+    let height = match v
+        .get("block_added")
+        .and_then(|b| b.get("height"))
+        .and_then(|h| h.as_u64())
+    {
+        Some(h) => h as u32,
+        None => return Ok(()),
+    };
+
+    p.state().session_manager.on_new_block(height).await;
+    Ok(())
 }
 
 fn json_continue() -> serde_json::Value {
@@ -246,19 +378,3 @@ fn json_fail(failure_code: &str) -> serde_json::Value {
     })
 }
 
-fn log_decision(decision: &HtlcDecision) {
-    match decision {
-        HtlcDecision::NotOurs => {
-            trace!("SCID not ours, continue");
-        }
-        HtlcDecision::Forward { forward_to, .. } => {
-            debug!(
-                "Forwarding via JIT channel {}",
-                hex::encode(forward_to.as_byte_array())
-            );
-        }
-        HtlcDecision::Reject { reason } => {
-            debug!("Rejecting HTLC: {:?}", reason);
-        }
-    }
-}
