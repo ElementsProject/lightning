@@ -2787,3 +2787,101 @@ def test_rescan_missing_utxo(node_factory, bitcoind):
     time.sleep(5)
     assert not l1.daemon.is_in_log("Scanning for missed UTXOs", start=oldstart_l1)
     assert not l3.daemon.is_in_log("Scanning for missed UTXOs", start=oldstart_l3)
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', "Address is network specific")
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3',
+                 "Requires direct SQLite3 manipulation")
+def test_hsm_migration_legacy_to_mnemonic_breaks_p2wpkh_spending(node_factory, bitcoind):
+    """Regression test: migrating from legacy (32-byte) to mnemonic (64-byte) HSM
+    leaves existing P2WPKH UTXOs unspendable with OP_EQUALVERIFY.
+    """
+    import sqlite3 as sqlite3_mod
+
+    # Create a node with a legacy 32-byte HSM secret (BIP32-derived addresses)
+    l1 = node_factory.get_node(old_hsmsecret=True)
+
+    # Generate a bech32 (P2WPKH) address — derived from BIP32 key at keyindex N
+    addr = l1.rpc.newaddr('bech32')['bech32']
+
+    # Fund the address
+    bitcoind.rpc.sendtoaddress(addr, 0.1)
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
+
+    outputs = l1.rpc.listfunds()['outputs']
+    assert len(outputs) == 1
+    assert outputs[0]['status'] == 'confirmed'
+
+    # Mine 31 more blocks so the UTXO's confirmation block falls outside
+    # lightningd's 30-block rollback window on restart.  Without this,
+    # wallet_blocks_rollback() sets confirmation_height = NULL (via the
+    # ON DELETE SET NULL FK), and the new HSM cannot re-confirm the output
+    # (wallet_can_spend returns false), leaving it invisible to
+    # wallet_find_utxo (deep_enough() rejects NULL blockheight).
+    bitcoind.generate_block(31)
+    sync_blockheight(bitcoind, [l1])
+    original_scriptpubkey = outputs[0]['scriptpubkey']
+    assert original_scriptpubkey.startswith('0014'), \
+        f"Expected P2WPKH scriptPubKey, got {original_scriptpubkey}"
+
+    l1.stop()
+
+    hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'hsm_secret')
+    db_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'lightningd.sqlite3')
+    mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+
+    # Create the mnemonic HSM secret in a temporary file first so we can read the
+    # new node ID before swapping (generatehsm refuses to overwrite an existing file)
+    tmp_hsm_path = hsm_path + '.new'
+    hsmtool = HsmTool(node_factory.directory, "generatehsm", tmp_hsm_path)
+    master_fd, slave_fd = os.openpty()
+    hsmtool.start(stdin=slave_fd)
+    hsmtool.wait_for_log(r"Introduce your BIP39 word list")
+    write_all(master_fd, f"{mnemonic}\n".encode("utf-8"))
+    hsmtool.wait_for_log(r"Enter your passphrase:")
+    write_all(master_fd, "\n".encode("utf-8"))  # No passphrase
+    assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
+    os.close(master_fd)
+    os.close(slave_fd)
+
+    # Derive the node ID that the mnemonic HSM would produce
+    new_node_id_hex = subprocess.check_output(
+        ["tools/lightning-hsmtool", "getnodeid", tmp_hsm_path]
+    ).decode().strip()
+    assert len(new_node_id_hex) == 66, \
+        f"Unexpected node ID length: {new_node_id_hex!r}"
+
+    # The wallet DB stores the node ID in the `vars` table and checks it on
+    # startup.  Patch it to match the new HSM so the node can start.
+    new_node_id_bytes = bytes.fromhex(new_node_id_hex)
+    conn = sqlite3_mod.connect(db_path)
+    conn.execute("UPDATE vars SET blobval = ? WHERE name = 'node_id'",
+                 (new_node_id_bytes,))
+    conn.commit()
+    conn.close()
+
+    # Swap the HSM secrets: remove the legacy 32-byte one, put the mnemonic in place
+    os.remove(hsm_path)
+    os.rename(tmp_hsm_path, hsm_path)
+
+    # Restart the node.  It now has a mnemonic (64-byte) HSM secret, so
+    # use_bip86_derivation() returns True — but the wallet DB still has the
+    # old P2WPKH UTXO whose scriptPubKey was derived from the BIP32 (32-byte) key.
+    l1.start()
+
+    # The old UTXO must still be visible and confirmed in the wallet DB
+    outputs = l1.rpc.listfunds()['outputs']
+    assert len(outputs) == 1, "Old UTXO should still be in wallet DB after HSM migration"
+    assert outputs[0]['scriptpubkey'] == original_scriptpubkey
+    assert outputs[0]['status'] == 'confirmed', \
+        f"UTXO should still be confirmed after HSM migration, got: {outputs[0]['status']}"
+
+    dest_addr = bitcoind.rpc.getnewaddress()
+
+    # Attempt to withdraw.
+    #   hsm_key_for_utxo() now calls bip86_key(N) instead of bitcoin_key(N).
+    #   The witness carries BIP86_pubkey(N), but the UTXO's scriptPubKey
+    #   contains hash160(BIP32_pubkey(N)).
+    with pytest.raises(RpcError, match=r"mandatory-script-verify-flag-failed \(Script failed an OP_EQUALVERIFY operation\)"):
+        l1.rpc.withdraw(dest_addr, 'all')
