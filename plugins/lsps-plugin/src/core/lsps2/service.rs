@@ -130,7 +130,7 @@ impl<A: DatastoreProvider + BlockheightProvider + Lsps2PolicyProvider + 'static>
             .channel_capacity_msat
             .ok_or_else(|| RpcError::internal_error("channel capacity denied by policy"))?;
 
-        let ok = self
+        let _entry = self
             .api
             .store_buy_request(
                 &jit_scid,
@@ -141,10 +141,6 @@ impl<A: DatastoreProvider + BlockheightProvider + Lsps2PolicyProvider + 'static>
             )
             .await
             .map_err(|_| RpcError::internal_error("internal error"))?;
-
-        if !ok {
-            return Err(RpcError::internal_error("internal error"))?;
-        }
 
         Ok(Lsps2BuyResponse {
             jit_channel_scid: jit_scid,
@@ -347,7 +343,7 @@ mod tests {
             _fee_params: &OpeningFeeParams,
             payment_size: &Option<Msat>,
             _channel_capacity_msat: &Msat,
-        ) -> AnyResult<bool> {
+        ) -> AnyResult<DatastoreEntry> {
             if *self.store_error.lock().unwrap() {
                 return Err(anyhow!("store error"));
             }
@@ -357,14 +353,42 @@ mod tests {
                 payment_size: *payment_size,
             });
 
-            Ok(self.store_result.lock().unwrap().unwrap_or(true))
+            if !self.store_result.lock().unwrap().unwrap_or(true) {
+                return Err(anyhow!("duplicate SCID"));
+            }
+
+            Ok(DatastoreEntry {
+                peer_id: *peer_id,
+                opening_fee_params: OpeningFeeParams {
+                    min_fee_msat: Msat(0),
+                    proportional: Ppm(0),
+                    valid_until: Utc::now(),
+                    min_lifetime: 0,
+                    max_client_to_self_delay: 0,
+                    min_payment_size_msat: Msat(0),
+                    max_payment_size_msat: Msat(0),
+                    promise: Promise(String::new()),
+                },
+                expected_payment_size: *payment_size,
+                channel_capacity_msat: Msat(0),
+                created_at: Utc::now(),
+                channel_id: None,
+                funding_psbt: None,
+                funding_txid: None,
+                preimage: None,
+                forwards_updated_index: None,
+            })
         }
 
         async fn get_buy_request(&self, _scid: &ShortChannelId) -> AnyResult<DatastoreEntry> {
             unimplemented!("not needed for service tests")
         }
 
-        async fn del_buy_request(&self, _scid: &ShortChannelId) -> AnyResult<()> {
+        async fn save_session(
+            &self,
+            _scid: &ShortChannelId,
+            _entry: &DatastoreEntry,
+        ) -> AnyResult<()> {
             unimplemented!("not needed for service tests")
         }
 
@@ -376,44 +400,7 @@ mod tests {
             unimplemented!("not needed for service tests")
         }
 
-        async fn update_session_funding(
-            &self,
-            _scid: &ShortChannelId,
-            _channel_id: &str,
-            _funding_psbt: &str,
-        ) -> AnyResult<()> {
-            unimplemented!("not needed for service tests")
-        }
-
-        async fn update_session_funding_txid(
-            &self,
-            _scid: &ShortChannelId,
-            _funding_txid: &str,
-        ) -> AnyResult<()> {
-            unimplemented!("not needed for service tests")
-        }
-
-        async fn update_session_preimage(
-            &self,
-            _scid: &ShortChannelId,
-            _preimage: &str,
-        ) -> AnyResult<()> {
-            unimplemented!("not needed for service tests")
-        }
-
         async fn list_active_sessions(&self) -> AnyResult<Vec<(ShortChannelId, DatastoreEntry)>> {
-            unimplemented!("not needed for service tests")
-        }
-
-        async fn update_session_forwards_index(
-            &self,
-            _scid: &ShortChannelId,
-            _index: u64,
-        ) -> AnyResult<()> {
-            unimplemented!("not needed for service tests")
-        }
-
-        async fn reset_session_funding(&self, _scid: &ShortChannelId) -> AnyResult<()> {
             unimplemented!("not needed for service tests")
         }
     }
@@ -662,7 +649,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn buy_handles_store_returns_false() {
+    async fn buy_handles_store_duplicate_error() {
         let api = MockApi::new()
             .with_blockheight(800_000)
             .with_store_result(false)

@@ -48,7 +48,7 @@ enum ActorInput {
     PaymentFailed {
         updated_index: Option<u64>,
     },
-    FundingBroadcasted,
+    FundingBroadcasted { txid: String },
     NewBlock {
         height: u32,
     },
@@ -123,6 +123,7 @@ impl ActorInboxHandle {
 /// effects and actions.
 pub struct SessionActor<A, D> {
     session: Session,
+    entry: DatastoreEntry,
     inbox: mpsc::Receiver<ActorInput>,
     pending_htlcs: HashMap<u64, oneshot::Sender<HtlcResponse>>,
     collect_timeout_handle: Option<JoinHandle<()>>,
@@ -140,6 +141,7 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
 {
     pub fn spawn_session_actor(
         session: Session,
+        entry: DatastoreEntry,
         executor: A,
         peer_id: String,
         collect_timeout_secs: u64,
@@ -149,6 +151,7 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
         let (tx, inbox) = mpsc::channel(128); // Should we use max_htlcs?
         let actor = SessionActor {
             session,
+            entry,
             inbox,
             pending_htlcs: HashMap::new(),
             collect_timeout_handle: None,
@@ -166,6 +169,7 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
 
     pub fn spawn_recovered_session_actor(
         session: Session,
+        entry: DatastoreEntry,
         initial_actions: Vec<SessionAction>,
         channel_id: String,
         executor: A,
@@ -179,6 +183,7 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
 
         let actor = SessionActor {
             session,
+            entry,
             inbox,
             pending_htlcs: HashMap::new(),
             collect_timeout_handle: None,
@@ -256,46 +261,51 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
                 ActorInput::ChannelReady {
                     channel_id,
                     funding_psbt,
-                } => SessionInput::ChannelReady {
-                    channel_id,
-                    funding_psbt,
-                },
+                } => {
+                    self.entry.channel_id = Some(channel_id.clone());
+                    self.entry.funding_psbt = Some(funding_psbt.clone());
+                    if let Err(e) = self.datastore.save_session(&self.scid, &self.entry).await {
+                        warn!("save_session failed on ChannelReady: {e}");
+                    }
+                    SessionInput::ChannelReady {
+                        channel_id,
+                        funding_psbt,
+                    }
+                }
                 ActorInput::FundingFailed => SessionInput::FundingFailed,
                 ActorInput::PaymentSettled {
                     preimage,
                     updated_index,
                 } => {
                     if let Some(index) = updated_index {
-                        if let Err(e) = self
-                            .datastore
-                            .update_session_forwards_index(&self.scid, index)
-                            .await
-                        {
-                            warn!("update_session_forwards_index failed: {e}");
-                        }
+                        self.entry.forwards_updated_index = Some(index);
                     }
                     if let Some(ref pre) = preimage {
-                        if let Err(e) =
-                            self.datastore.update_session_preimage(&self.scid, pre).await
-                        {
-                            warn!("update_session_preimage failed for scid={}: {e}", self.scid);
+                        self.entry.preimage = Some(pre.clone());
+                    }
+                    if updated_index.is_some() || preimage.is_some() {
+                        if let Err(e) = self.datastore.save_session(&self.scid, &self.entry).await {
+                            warn!("save_session failed on PaymentSettled: {e}");
                         }
                     }
                     SessionInput::PaymentSettled
                 }
                 ActorInput::PaymentFailed { updated_index } => {
                     if let Some(index) = updated_index {
-                        if let Err(e) = self
-                            .datastore
-                            .update_session_forwards_index(&self.scid, index)
-                            .await
-                        {
-                            warn!("update_session_forwards_index failed: {e}");
+                        self.entry.forwards_updated_index = Some(index);
+                        if let Err(e) = self.datastore.save_session(&self.scid, &self.entry).await {
+                            warn!("save_session failed on PaymentFailed: {e}");
                         }
                     }
                     SessionInput::PaymentFailed
                 }
-                ActorInput::FundingBroadcasted => SessionInput::FundingBroadcasted,
+                ActorInput::FundingBroadcasted { txid } => {
+                    self.entry.funding_txid = Some(txid);
+                    if let Err(e) = self.datastore.save_session(&self.scid, &self.entry).await {
+                        warn!("save_session failed on FundingBroadcasted: {e}");
+                    }
+                    SessionInput::FundingBroadcasted
+                }
                 ActorInput::NewBlock { height } => SessionInput::NewBlock { height },
                 ActorInput::ChannelClosed { channel_id } => {
                     SessionInput::ChannelClosed { channel_id }
@@ -305,7 +315,6 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
             match self.session.apply(input) {
                 Ok(result) => {
                     for event in &result.events {
-                        // Note: Add event handler later on.
                         debug!("session event: {:?}", event);
                     }
 
@@ -356,7 +365,6 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
         let monitor_handle = {
             let recovery = recovery.clone();
             let channel_id = channel_id.clone();
-            let datastore = self.datastore.clone();
             let scid = self.scid;
 
             tokio::spawn(async move {
@@ -392,21 +400,19 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
                         .await
                     {
                         Ok((ForwardActivity::Settled, new_index)) => {
-                            let _ =
-                                datastore.update_session_forwards_index(&scid, new_index).await;
                             let _ = self_tx
                                 .send(ActorInput::PaymentSettled {
                                     preimage: None,
-                                    updated_index: None,
+                                    updated_index: Some(new_index),
                                 })
                                 .await;
                             return;
                         }
                         Ok((ForwardActivity::AllFailed, new_index)) => {
-                            let _ =
-                                datastore.update_session_forwards_index(&scid, new_index).await;
                             let _ = self_tx
-                                .send(ActorInput::PaymentFailed { updated_index: None })
+                                .send(ActorInput::PaymentFailed {
+                                    updated_index: Some(new_index),
+                                })
                                 .await;
                             return;
                         }
@@ -432,26 +438,37 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
                     let session_input = match actor_input {
                         ActorInput::PaymentSettled {
                             preimage,
-                            updated_index: _,
+                            updated_index,
                         } => {
+                            if let Some(index) = updated_index {
+                                self.entry.forwards_updated_index = Some(index);
+                            }
                             if let Some(ref pre) = preimage {
-                                let datastore = self.datastore.clone();
-                                let scid = self.scid;
-                                let pre = pre.clone();
-                                tokio::spawn(async move {
-                                    if let Err(e) =
-                                        datastore.update_session_preimage(&scid, &pre).await
-                                    {
-                                        warn!("update_session_preimage failed: {e}");
-                                    }
-                                });
+                                self.entry.preimage = Some(pre.clone());
+                            }
+                            if updated_index.is_some() || preimage.is_some() {
+                                if let Err(e) = self.datastore.save_session(&self.scid, &self.entry).await {
+                                    warn!("save_session failed on PaymentSettled: {e}");
+                                }
                             }
                             SessionInput::PaymentSettled
                         }
-                        ActorInput::PaymentFailed { updated_index: _ } => {
+                        ActorInput::PaymentFailed { updated_index } => {
+                            if let Some(index) = updated_index {
+                                self.entry.forwards_updated_index = Some(index);
+                                if let Err(e) = self.datastore.save_session(&self.scid, &self.entry).await {
+                                    warn!("save_session failed on PaymentFailed: {e}");
+                                }
+                            }
                             SessionInput::PaymentFailed
                         }
-                        ActorInput::FundingBroadcasted => SessionInput::FundingBroadcasted,
+                        ActorInput::FundingBroadcasted { txid } => {
+                            self.entry.funding_txid = Some(txid);
+                            if let Err(e) = self.datastore.save_session(&self.scid, &self.entry).await {
+                                warn!("save_session failed on FundingBroadcasted: {e}");
+                            }
+                            SessionInput::FundingBroadcasted
+                        }
                         _ => continue,
                     };
 
@@ -571,21 +588,13 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
                 self.cancel_channel_poll();
                 let executor = self.executor.clone();
                 let self_tx = self.self_send.clone();
-                let datastore = self.datastore.clone();
-                let scid = self.scid;
                 tokio::spawn(async move {
                     match executor
                         .broadcast_tx(channel_id.clone(), funding_psbt.clone())
                         .await
                     {
                         Ok(txid) => {
-                            if let Err(e) = datastore
-                                .update_session_funding_txid(&scid, &txid)
-                                .await
-                            {
-                                warn!("update_session_funding_txid failed for scid={scid}: {e}");
-                            }
-                            let _ = self_tx.send(ActorInput::FundingBroadcasted).await;
+                            let _ = self_tx.send(ActorInput::FundingBroadcasted { txid }).await;
                         }
                         Err(e) => {
                             warn!(
@@ -657,7 +666,7 @@ impl<T: DatastoreProvider + Send + Sync> DatastoreProvider for Arc<T> {
         offer: &OpeningFeeParams,
         expected_payment_size: &Option<Msat>,
         channel_capacity_msat: &Msat,
-    ) -> Result<bool> {
+    ) -> Result<DatastoreEntry> {
         (**self)
             .store_buy_request(scid, peer_id, offer, expected_payment_size, channel_capacity_msat)
             .await
@@ -666,12 +675,16 @@ impl<T: DatastoreProvider + Send + Sync> DatastoreProvider for Arc<T> {
     async fn get_buy_request(
         &self,
         scid: &ShortChannelId,
-    ) -> Result<crate::proto::lsps2::DatastoreEntry> {
+    ) -> Result<DatastoreEntry> {
         (**self).get_buy_request(scid).await
     }
 
-    async fn del_buy_request(&self, scid: &ShortChannelId) -> Result<()> {
-        (**self).del_buy_request(scid).await
+    async fn save_session(
+        &self,
+        scid: &ShortChannelId,
+        entry: &DatastoreEntry,
+    ) -> Result<()> {
+        (**self).save_session(scid, entry).await
     }
 
     async fn finalize_session(
@@ -682,48 +695,7 @@ impl<T: DatastoreProvider + Send + Sync> DatastoreProvider for Arc<T> {
         (**self).finalize_session(scid, outcome).await
     }
 
-    async fn update_session_funding(
-        &self,
-        scid: &ShortChannelId,
-        channel_id: &str,
-        funding_psbt: &str,
-    ) -> Result<()> {
-        (**self)
-            .update_session_funding(scid, channel_id, funding_psbt)
-            .await
-    }
-
-    async fn update_session_funding_txid(
-        &self,
-        scid: &ShortChannelId,
-        funding_txid: &str,
-    ) -> Result<()> {
-        (**self)
-            .update_session_funding_txid(scid, funding_txid)
-            .await
-    }
-
-    async fn update_session_preimage(
-        &self,
-        scid: &ShortChannelId,
-        preimage: &str,
-    ) -> Result<()> {
-        (**self).update_session_preimage(scid, preimage).await
-    }
-
     async fn list_active_sessions(&self) -> Result<Vec<(ShortChannelId, DatastoreEntry)>> {
         (**self).list_active_sessions().await
-    }
-
-    async fn update_session_forwards_index(
-        &self,
-        scid: &ShortChannelId,
-        index: u64,
-    ) -> Result<()> {
-        (**self).update_session_forwards_index(scid, index).await
-    }
-
-    async fn reset_session_funding(&self, scid: &ShortChannelId) -> Result<()> {
-        (**self).reset_session_funding(scid).await
     }
 }

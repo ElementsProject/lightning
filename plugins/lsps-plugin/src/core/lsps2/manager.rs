@@ -84,7 +84,11 @@ impl<D: DatastoreProvider + 'static, A: ActionExecutor + Send + Sync + 'static>
                             recovery
                                 .close_and_unreserve(channel_id, funding_psbt)
                                 .await?;
-                            self.datastore.reset_session_funding(&scid).await?;
+                            let mut entry = entry;
+                            entry.channel_id = None;
+                            entry.funding_psbt = None;
+                            entry.funding_txid = None;
+                            self.datastore.save_session(&scid, &entry).await?;
                         }
                         ForwardActivity::AllFailed => {
                             self.datastore
@@ -102,13 +106,14 @@ impl<D: DatastoreProvider + 'static, A: ActionExecutor + Send + Sync + 'static>
                             let handle =
                                 SessionActor::spawn_recovered_session_actor(
                                     session,
+                                    entry,
                                     initial_actions,
-                                    channel_id.clone(),
+                                    channel_id,
                                     self.executor.clone(),
                                     scid,
                                     self.datastore.clone(),
                                     recovery.clone(),
-                                    entry.forwards_updated_index,
+                                    forwards_updated_index,
                                 );
 
                             self.recovery_handles.lock().await.push(handle);
@@ -230,18 +235,20 @@ impl<D: DatastoreProvider + 'static, A: ActionExecutor + Send + Sync + 'static>
             .await
             .map_err(ManagerError::DatastoreLookup)?;
 
+        let peer_id = entry.peer_id.to_string();
         let session = Session::new(
             self.config.max_parts,
-            entry.opening_fee_params,
+            entry.opening_fee_params.clone(),
             entry.expected_payment_size,
             entry.channel_capacity_msat,
-            entry.peer_id.to_string(),
+            peer_id.clone(),
         );
 
         Ok(SessionActor::spawn_session_actor(
             session,
+            entry,
             self.executor.clone(),
-            entry.peer_id.to_string(),
+            peer_id,
             self.config.collect_timeout_secs,
             *scid,
             self.datastore.clone(),
@@ -341,13 +348,13 @@ mod tests {
     impl DatastoreProvider for MockDatastore {
         async fn store_buy_request(
             &self,
-            _scid: &ShortChannelId,
+            scid: &ShortChannelId,
             _peer_id: &bitcoin::secp256k1::PublicKey,
             _offer: &OpeningFeeParams,
             _expected_payment_size: &Option<Msat>,
             _channel_capacity_msat: &Msat,
-        ) -> anyhow::Result<bool> {
-            Ok(true)
+        ) -> anyhow::Result<DatastoreEntry> {
+            self.get_buy_request(scid).await
         }
 
         async fn get_buy_request(&self, scid: &ShortChannelId) -> anyhow::Result<DatastoreEntry> {
@@ -357,7 +364,11 @@ mod tests {
                 .ok_or_else(|| anyhow::anyhow!("not found: {scid}"))
         }
 
-        async fn del_buy_request(&self, _scid: &ShortChannelId) -> anyhow::Result<()> {
+        async fn save_session(
+            &self,
+            _scid: &ShortChannelId,
+            _entry: &DatastoreEntry,
+        ) -> anyhow::Result<()> {
             Ok(())
         }
 
@@ -369,47 +380,10 @@ mod tests {
             Ok(())
         }
 
-        async fn update_session_funding(
-            &self,
-            _scid: &ShortChannelId,
-            _channel_id: &str,
-            _funding_psbt: &str,
-        ) -> anyhow::Result<()> {
-            Ok(())
-        }
-
-        async fn update_session_funding_txid(
-            &self,
-            _scid: &ShortChannelId,
-            _funding_txid: &str,
-        ) -> anyhow::Result<()> {
-            Ok(())
-        }
-
-        async fn update_session_preimage(
-            &self,
-            _scid: &ShortChannelId,
-            _preimage: &str,
-        ) -> anyhow::Result<()> {
-            Ok(())
-        }
-
         async fn list_active_sessions(&self) -> anyhow::Result<Vec<(ShortChannelId, DatastoreEntry)>> {
             Ok(self.entries.iter().map(|(k, v)| {
                 (k.parse::<ShortChannelId>().unwrap(), v.clone())
             }).collect())
-        }
-
-        async fn update_session_forwards_index(
-            &self,
-            _scid: &ShortChannelId,
-            _index: u64,
-        ) -> anyhow::Result<()> {
-            Ok(())
-        }
-
-        async fn reset_session_funding(&self, _scid: &ShortChannelId) -> anyhow::Result<()> {
-            Ok(())
         }
     }
 

@@ -156,6 +156,26 @@ impl ClnApiRpc {
         }
     }
 
+    async fn del_buy_request(&self, scid: &ShortChannelId) -> Result<()> {
+        let mut rpc = self.create_rpc().await?;
+        let key = vec![
+            DS_MAIN_KEY.to_string(),
+            DS_SUB_KEY.to_string(),
+            DS_SESSIONS_KEY.to_string(),
+            DS_ACTIVE_KEY.to_string(),
+            scid.to_string(),
+        ];
+
+        let _ = rpc
+            .call_typed(&DeldatastoreRequest {
+                generation: None,
+                key,
+            })
+            .await;
+
+        Ok(())
+    }
+
     /// Get the short_channel_id for a channel, needed for listforwards queries.
     /// Falls back to alias.local for unconfirmed JIT channels.
     async fn get_channel_scid(&self, channel_id: &str) -> Result<Option<ShortChannelId>> {
@@ -193,7 +213,7 @@ impl ActionExecutor for ClnApiRpc {
         peer_id: String,
         channel_size: Msat,
         _opening_fee_params: OpeningFeeParams,
-        scid: ShortChannelId,
+        _scid: ShortChannelId,
     ) -> anyhow::Result<(String, String)> {
         let pk = PublicKey::from_str(&peer_id)
             .with_context(|| format!("parsing peer_id '{peer_id}'"))?;
@@ -275,13 +295,6 @@ impl ActionExecutor for ClnApiRpc {
             }
         };
         let channel_id = complete_res.channel_id;
-
-        // Early persist: close crash window between fundchannel_complete
-        // and actor's datastore write. If we crash after fundchannel_complete,
-        // the withheld channel survives restart — this ensures we know about it.
-        self.update_session_funding(&scid, &channel_id.to_string(), &psbt)
-            .await
-            .context("early persist of funding after fundchannel_complete")?;
 
         if let Err(e) = self
             .poll_channel_ready(
@@ -427,7 +440,8 @@ impl DatastoreProvider for ClnApiRpc {
         opening_fee_params: &OpeningFeeParams,
         expected_payment_size: &Option<Msat>,
         channel_capacity_msat: &Msat,
-    ) -> Result<bool> {
+    ) -> Result<DatastoreEntry> {
+        let created_at = chrono::Utc::now();
         let mut rpc = self.create_rpc().await?;
         #[derive(Serialize)]
         struct BorrowedDatastoreEntry<'a> {
@@ -454,7 +468,7 @@ impl DatastoreProvider for ClnApiRpc {
             opening_fee_params,
             expected_payment_size,
             channel_capacity_msat,
-            created_at: chrono::Utc::now(),
+            created_at,
             channel_id: None,
             funding_psbt: None,
             funding_txid: None,
@@ -483,7 +497,18 @@ impl DatastoreProvider for ClnApiRpc {
             .map_err(anyhow::Error::new)
             .with_context(|| "calling datastore")?;
 
-        Ok(true)
+        Ok(DatastoreEntry {
+            peer_id: *peer_id,
+            opening_fee_params: opening_fee_params.clone(),
+            expected_payment_size: *expected_payment_size,
+            channel_capacity_msat: *channel_capacity_msat,
+            created_at,
+            channel_id: None,
+            funding_psbt: None,
+            funding_txid: None,
+            preimage: None,
+            forwards_updated_index: None,
+        })
     }
 
     async fn get_buy_request(&self, scid: &ShortChannelId) -> Result<DatastoreEntry> {
@@ -506,23 +531,24 @@ impl DatastoreProvider for ClnApiRpc {
         Ok(rec)
     }
 
-    async fn del_buy_request(&self, scid: &ShortChannelId) -> Result<()> {
+    async fn save_session(&self, scid: &ShortChannelId, entry: &DatastoreEntry) -> Result<()> {
+        let json_str = serde_json::to_string(entry)?;
         let mut rpc = self.create_rpc().await?;
-        let key = vec![
-            DS_MAIN_KEY.to_string(),
-            DS_SUB_KEY.to_string(),
-            DS_SESSIONS_KEY.to_string(),
-            DS_ACTIVE_KEY.to_string(),
-            scid.to_string(),
-        ];
-
-        let _ = rpc
-            .call_typed(&DeldatastoreRequest {
-                generation: None,
-                key,
-            })
-            .await;
-
+        rpc.call_typed(&DatastoreRequest {
+            generation: None,
+            hex: None,
+            mode: Some(DatastoreMode::CREATE_OR_REPLACE),
+            string: Some(json_str),
+            key: vec![
+                DS_MAIN_KEY.to_string(),
+                DS_SUB_KEY.to_string(),
+                DS_SESSIONS_KEY.to_string(),
+                DS_ACTIVE_KEY.to_string(),
+                scid.to_string(),
+            ],
+        })
+        .await
+        .with_context(|| "calling datastore for save_session")?;
         Ok(())
     }
 
@@ -564,88 +590,6 @@ impl DatastoreProvider for ClnApiRpc {
         Ok(())
     }
 
-    async fn update_session_funding(
-        &self,
-        scid: &ShortChannelId,
-        channel_id: &str,
-        funding_psbt: &str,
-    ) -> Result<()> {
-        let mut entry = self.get_buy_request(scid).await?;
-        entry.channel_id = Some(channel_id.to_string());
-        entry.funding_psbt = Some(funding_psbt.to_string());
-        let json_str = serde_json::to_string(&entry)?;
-
-        let mut rpc = self.create_rpc().await?;
-        rpc.call_typed(&DatastoreRequest {
-            generation: None,
-            hex: None,
-            mode: Some(DatastoreMode::CREATE_OR_REPLACE),
-            string: Some(json_str),
-            key: vec![
-                DS_MAIN_KEY.to_string(),
-                DS_SUB_KEY.to_string(),
-                DS_SESSIONS_KEY.to_string(),
-                DS_ACTIVE_KEY.to_string(),
-                scid.to_string(),
-            ],
-        })
-        .await
-        .with_context(|| "calling datastore for update_session_funding")?;
-        Ok(())
-    }
-
-    async fn update_session_funding_txid(
-        &self,
-        scid: &ShortChannelId,
-        funding_txid: &str,
-    ) -> Result<()> {
-        let mut entry = self.get_buy_request(scid).await?;
-        entry.funding_txid = Some(funding_txid.to_string());
-        let json_str = serde_json::to_string(&entry)?;
-
-        let mut rpc = self.create_rpc().await?;
-        rpc.call_typed(&DatastoreRequest {
-            generation: None,
-            hex: None,
-            mode: Some(DatastoreMode::CREATE_OR_REPLACE),
-            string: Some(json_str),
-            key: vec![
-                DS_MAIN_KEY.to_string(),
-                DS_SUB_KEY.to_string(),
-                DS_SESSIONS_KEY.to_string(),
-                DS_ACTIVE_KEY.to_string(),
-                scid.to_string(),
-            ],
-        })
-        .await
-        .with_context(|| "calling datastore for update_session_funding_txid")?;
-        Ok(())
-    }
-
-    async fn update_session_preimage(&self, scid: &ShortChannelId, preimage: &str) -> Result<()> {
-        let mut entry = self.get_buy_request(scid).await?;
-        entry.preimage = Some(preimage.to_string());
-        let json_str = serde_json::to_string(&entry)?;
-
-        let mut rpc = self.create_rpc().await?;
-        rpc.call_typed(&DatastoreRequest {
-            generation: None,
-            hex: None,
-            mode: Some(DatastoreMode::CREATE_OR_REPLACE),
-            string: Some(json_str),
-            key: vec![
-                DS_MAIN_KEY.to_string(),
-                DS_SUB_KEY.to_string(),
-                DS_SESSIONS_KEY.to_string(),
-                DS_ACTIVE_KEY.to_string(),
-                scid.to_string(),
-            ],
-        })
-        .await
-        .with_context(|| "calling datastore for update_session_preimage")?;
-        Ok(())
-    }
-
     async fn list_active_sessions(&self) -> Result<Vec<(ShortChannelId, DatastoreEntry)>> {
         let mut rpc = self.create_rpc().await?;
         let prefix = vec![
@@ -671,56 +615,6 @@ impl DatastoreProvider for ClnApiRpc {
             }
         }
         Ok(sessions)
-    }
-
-    async fn update_session_forwards_index(&self, scid: &ShortChannelId, index: u64) -> Result<()> {
-        let mut entry = self.get_buy_request(scid).await?;
-        entry.forwards_updated_index = Some(index);
-        let json_str = serde_json::to_string(&entry)?;
-
-        let mut rpc = self.create_rpc().await?;
-        rpc.call_typed(&DatastoreRequest {
-            generation: None,
-            hex: None,
-            mode: Some(DatastoreMode::CREATE_OR_REPLACE),
-            string: Some(json_str),
-            key: vec![
-                DS_MAIN_KEY.to_string(),
-                DS_SUB_KEY.to_string(),
-                DS_SESSIONS_KEY.to_string(),
-                DS_ACTIVE_KEY.to_string(),
-                scid.to_string(),
-            ],
-        })
-        .await
-        .with_context(|| "calling datastore for update_session_forwards_index")?;
-        Ok(())
-    }
-
-    async fn reset_session_funding(&self, scid: &ShortChannelId) -> Result<()> {
-        let mut entry = self.get_buy_request(scid).await?;
-        entry.channel_id = None;
-        entry.funding_psbt = None;
-        entry.funding_txid = None;
-        let json_str = serde_json::to_string(&entry)?;
-
-        let mut rpc = self.create_rpc().await?;
-        rpc.call_typed(&DatastoreRequest {
-            generation: None,
-            hex: None,
-            mode: Some(DatastoreMode::CREATE_OR_REPLACE),
-            string: Some(json_str),
-            key: vec![
-                DS_MAIN_KEY.to_string(),
-                DS_SUB_KEY.to_string(),
-                DS_SESSIONS_KEY.to_string(),
-                DS_ACTIVE_KEY.to_string(),
-                scid.to_string(),
-            ],
-        })
-        .await
-        .with_context(|| "calling datastore for reset_session_funding")?;
-        Ok(())
     }
 }
 
