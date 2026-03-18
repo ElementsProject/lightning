@@ -26,40 +26,15 @@ pub trait DatastoreProvider: Send + Sync {
         offer: &OpeningFeeParams,
         expected_payment_size: &Option<Msat>,
         channel_capacity_msat: &Msat,
-    ) -> Result<bool>;
+    ) -> Result<DatastoreEntry>;
 
     async fn get_buy_request(&self, scid: &ShortChannelId) -> Result<DatastoreEntry>;
-    async fn del_buy_request(&self, scid: &ShortChannelId) -> Result<()>;
+
+    async fn save_session(&self, scid: &ShortChannelId, entry: &DatastoreEntry) -> Result<()>;
 
     async fn finalize_session(&self, scid: &ShortChannelId, outcome: SessionOutcome) -> Result<()>;
 
-    async fn update_session_funding(
-        &self,
-        scid: &ShortChannelId,
-        channel_id: &str,
-        funding_psbt: &str,
-    ) -> Result<()>;
-
-    async fn update_session_funding_txid(
-        &self,
-        scid: &ShortChannelId,
-        funding_txid: &str,
-    ) -> Result<()>;
-
-    async fn update_session_preimage(&self, scid: &ShortChannelId, preimage: &str) -> Result<()>;
-
-    /// List all active session entries (for recovery scan).
     async fn list_active_sessions(&self) -> Result<Vec<(ShortChannelId, DatastoreEntry)>>;
-
-    /// Update the forwards_updated_index for a session.
-    async fn update_session_forwards_index(
-        &self,
-        scid: &ShortChannelId,
-        index: u64,
-    ) -> Result<()>;
-
-    /// Reset a session's funding fields back to None (for clean restart).
-    async fn reset_session_funding(&self, scid: &ShortChannelId) -> Result<()>;
 }
 
 /// Status of forwards on a channel, used during recovery classification.
