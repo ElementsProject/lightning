@@ -1,6 +1,6 @@
 use crate::{
     core::{
-        lsps2::provider::{BlockheightProvider, DatastoreProvider, Lsps2PolicyProvider},
+        lsps2::provider::{DatastoreProvider, Lsps2PolicyProvider},
         router::JsonRpcRouterBuilder,
         server::LspsProtocol,
     },
@@ -49,23 +49,20 @@ where
     }
 }
 
-pub struct Lsps2ServiceHandler<D, B, P> {
+pub struct Lsps2ServiceHandler<D, P> {
     pub datastore: Arc<D>,
-    pub blockheight: Arc<B>,
     pub policy: Arc<P>,
     pub promise_secret: [u8; 32],
 }
 
-impl<D, B, P> Lsps2ServiceHandler<D, B, P> {
+impl<D, P> Lsps2ServiceHandler<D, P> {
     pub fn new(
         datastore: Arc<D>,
-        blockheight: Arc<B>,
         policy: Arc<P>,
         promise_secret: &[u8; 32],
     ) -> Self {
         Lsps2ServiceHandler {
             datastore,
-            blockheight,
             policy,
             promise_secret: promise_secret.to_owned(),
         }
@@ -73,10 +70,9 @@ impl<D, B, P> Lsps2ServiceHandler<D, B, P> {
 }
 
 #[async_trait]
-impl<D, B, P> Lsps2Handler for Lsps2ServiceHandler<D, B, P>
+impl<D, P> Lsps2Handler for Lsps2ServiceHandler<D, P>
 where
     D: DatastoreProvider + 'static,
-    B: BlockheightProvider + 'static,
     P: Lsps2PolicyProvider + 'static,
 {
     async fn handle_get_info(
@@ -120,7 +116,7 @@ where
 
         // Generate a tmp scid to identify jit channel request in htlc.
         let blockheight = self
-            .blockheight
+            .policy
             .get_blockheight()
             .await
             .map_err(|_| RpcError::internal_error("internal error"))?;
@@ -301,6 +297,16 @@ mod tests {
 
     #[async_trait]
     impl Lsps2PolicyProvider for MockApi {
+        async fn get_blockheight(&self) -> AnyResult<u32> {
+            if *self.blockheight_error.lock().unwrap() {
+                return Err(anyhow!("blockheight error"));
+            }
+            self.blockheight
+                .lock()
+                .unwrap()
+                .ok_or_else(|| anyhow!("no blockheight set"))
+        }
+
         async fn get_info(
             &self,
             _request: &Lsps2PolicyGetInfoRequest,
@@ -330,19 +336,6 @@ mod tests {
             Ok(Lsps2PolicyBuyResponse {
                 channel_capacity_msat: cap,
             })
-        }
-    }
-
-    #[async_trait]
-    impl BlockheightProvider for MockApi {
-        async fn get_blockheight(&self) -> AnyResult<u32> {
-            if *self.blockheight_error.lock().unwrap() {
-                return Err(anyhow!("blockheight error"));
-            }
-            self.blockheight
-                .lock()
-                .unwrap()
-                .ok_or_else(|| anyhow!("no blockheight set"))
         }
     }
 
@@ -418,9 +411,9 @@ mod tests {
         }
     }
 
-    fn handler(api: MockApi) -> Lsps2ServiceHandler<MockApi, MockApi, MockApi> {
+    fn handler(api: MockApi) -> Lsps2ServiceHandler<MockApi, MockApi> {
         let api = Arc::new(api);
-        Lsps2ServiceHandler::new(api.clone(), api.clone(), api, &test_secret())
+        Lsps2ServiceHandler::new(api.clone(), api, &test_secret())
     }
 
     #[tokio::test]

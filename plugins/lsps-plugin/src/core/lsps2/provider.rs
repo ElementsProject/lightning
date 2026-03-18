@@ -10,13 +10,6 @@ use crate::proto::{
     },
 };
 
-pub type Blockheight = u32;
-
-#[async_trait]
-pub trait BlockheightProvider: Send + Sync {
-    async fn get_blockheight(&self) -> Result<Blockheight>;
-}
-
 #[async_trait]
 pub trait DatastoreProvider: Send + Sync {
     async fn store_buy_request(
@@ -83,6 +76,8 @@ pub trait RecoveryProvider: Send + Sync {
 
 #[async_trait]
 pub trait Lsps2PolicyProvider: Send + Sync {
+    async fn get_blockheight(&self) -> Result<u32>;
+
     async fn get_info(
         &self,
         request: &Lsps2PolicyGetInfoRequest,

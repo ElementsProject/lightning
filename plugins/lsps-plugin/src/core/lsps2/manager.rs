@@ -4,7 +4,7 @@ use super::session::{PaymentPart, Session};
 use crate::core::lsps2::actor::SessionActor;
 use crate::core::lsps2::event_sink::EventSink;
 use crate::proto::lsps0::ShortChannelId;
-use crate::proto::lsps2::SessionOutcome;
+use crate::proto::lsps2::{DatastoreEntry, SessionOutcome};
 pub use bitcoin::hashes::sha256::Hash as PaymentHash;
 use chrono::Utc;
 use log::{debug, warn};
@@ -61,84 +61,92 @@ impl<D: DatastoreProvider + 'static, A: ActionExecutor + Send + Sync + 'static>
         let entries = self.datastore.list_active_sessions().await?;
 
         for (scid, entry) in entries {
-            match (&entry.channel_id, &entry.funding_psbt) {
-                (None, _) => {
-                    if entry.opening_fee_params.valid_until < Utc::now() {
-                        self.datastore
-                            .finalize_session(&scid, SessionOutcome::Timeout)
-                            .await?;
-                    }
-                }
-
-                (Some(channel_id), Some(funding_psbt)) => {
-                    let channel_id = channel_id.clone();
-                    let funding_psbt = funding_psbt.clone();
-
-                    let info = recovery.get_channel_recovery_info(&channel_id).await?;
-
-                    if !info.exists {
-                        self.datastore
-                            .finalize_session(&scid, SessionOutcome::Abandoned)
-                            .await?;
-                        continue;
-                    }
-
-                    let activity = recovery.get_forward_activity(&channel_id).await?;
-
-                    match activity {
-                        ForwardActivity::NoForwards => {
-                            recovery
-                                .close_and_unreserve(&channel_id, &funding_psbt)
-                                .await?;
-                            let mut entry = entry;
-                            entry.channel_id = None;
-                            entry.funding_psbt = None;
-                            entry.funding_txid = None;
-                            self.datastore.save_session(&scid, &entry).await?;
-                        }
-                        ForwardActivity::AllFailed => {
-                            self.datastore
-                                .finalize_session(&scid, SessionOutcome::Abandoned)
-                                .await?;
-                        }
-                        ForwardActivity::Offered | ForwardActivity::Settled => {
-                            let (session, initial_actions) = Session::recover(
-                                channel_id.clone(),
-                                funding_psbt.clone(),
-                                entry.preimage.clone(),
-                                entry.opening_fee_params.clone(),
-                            );
-
-                            let forwards_updated_index = entry.forwards_updated_index;
-                            let handle =
-                                SessionActor::spawn_recovered_session_actor(
-                                    session,
-                                    entry,
-                                    initial_actions,
-                                    channel_id.clone(),
-                                    self.executor.clone(),
-                                    scid,
-                                    self.datastore.clone(),
-                                    recovery.clone(),
-                                    forwards_updated_index,
-                                    self.event_sink.clone(),
-                                );
-
-                            self.recovery_handles.lock().await.push(handle);
-                        }
-                    }
-                }
-
-                _ => {
-                    warn!("inconsistent datastore entry for scid={scid}, finalizing as Failed");
-                    self.datastore
-                        .finalize_session(&scid, SessionOutcome::Failed)
-                        .await?;
-                }
+            if let Some(handle) = self.recover_session(scid, entry, &recovery).await? {
+                self.recovery_handles.lock().await.push(handle);
             }
         }
 
         Ok(())
+    }
+
+    async fn recover_session(
+        &self,
+        scid: ShortChannelId,
+        entry: DatastoreEntry,
+        recovery: &Arc<dyn RecoveryProvider>,
+    ) -> anyhow::Result<Option<ActorInboxHandle>> {
+        let (channel_id, funding_psbt) = match (&entry.channel_id, &entry.funding_psbt) {
+            (None, _) => {
+                if entry.opening_fee_params.valid_until < Utc::now() {
+                    self.datastore
+                        .finalize_session(&scid, SessionOutcome::Timeout)
+                        .await?;
+                }
+                return Ok(None);
+            }
+            (Some(cid), Some(psbt)) => (cid.clone(), psbt.clone()),
+            _ => {
+                warn!("inconsistent datastore entry for scid={scid}, finalizing as Failed");
+                self.datastore
+                    .finalize_session(&scid, SessionOutcome::Failed)
+                    .await?;
+                return Ok(None);
+            }
+        };
+
+        let info = recovery.get_channel_recovery_info(&channel_id).await?;
+        if !info.exists {
+            self.datastore
+                .finalize_session(&scid, SessionOutcome::Abandoned)
+                .await?;
+            return Ok(None);
+        }
+
+        let activity = recovery.get_forward_activity(&channel_id).await?;
+
+        match activity {
+            ForwardActivity::NoForwards => {
+                recovery
+                    .close_and_unreserve(&channel_id, &funding_psbt)
+                    .await?;
+                let mut entry = entry;
+                entry.channel_id = None;
+                entry.funding_psbt = None;
+                entry.funding_txid = None;
+                self.datastore.save_session(&scid, &entry).await?;
+                Ok(None)
+            }
+            ForwardActivity::AllFailed => {
+                self.datastore
+                    .finalize_session(&scid, SessionOutcome::Abandoned)
+                    .await?;
+                Ok(None)
+            }
+            ForwardActivity::Offered | ForwardActivity::Settled => {
+                let forwards_updated_index = entry.forwards_updated_index;
+                let (session, initial_actions) = Session::recover(
+                    channel_id.clone(),
+                    funding_psbt.clone(),
+                    entry.preimage.clone(),
+                    entry.opening_fee_params.clone(),
+                );
+
+                let handle = SessionActor::spawn_recovered_session_actor(
+                    session,
+                    entry,
+                    initial_actions,
+                    channel_id,
+                    self.executor.clone(),
+                    scid,
+                    self.datastore.clone(),
+                    recovery.clone(),
+                    forwards_updated_index,
+                    self.event_sink.clone(),
+                );
+
+                Ok(Some(handle))
+            }
+        }
     }
 
     pub async fn on_part(
