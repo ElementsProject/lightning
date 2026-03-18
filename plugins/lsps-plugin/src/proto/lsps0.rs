@@ -1,6 +1,7 @@
 use crate::proto::jsonrpc::{JsonRpcRequest, RpcError};
 use core::fmt;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+use std::iter::Sum;
 use thiserror::Error;
 
 const MSAT_PER_SAT: u64 = 1_000;
@@ -97,6 +98,12 @@ impl Msat {
 impl core::fmt::Display for Msat {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}_msat", self.0)
+    }
+}
+
+impl Sum for Msat {
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        Msat(iter.map(|x| x.0).sum())
     }
 }
 
