@@ -352,6 +352,9 @@ pub struct DatastoreEntry {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     pub preimage: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub forwards_updated_index: Option<u64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
