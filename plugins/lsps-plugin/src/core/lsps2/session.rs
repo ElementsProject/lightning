@@ -243,6 +243,58 @@ impl Session {
         }
     }
 
+    /// Reconstruct a session from persisted state for crash recovery.
+    ///
+    /// Initializes the FSM in the appropriate state based on whether a
+    /// preimage was already captured:
+    /// - `preimage: None` → `AwaitingSettlement` (waiting for payment outcome)
+    /// - `preimage: Some` → `Broadcasting` (payment settled, need to broadcast)
+    ///
+    /// Forwarded HTLC parts are not reconstructed — CLN manages those
+    /// independently. The FSM only needs channel identity to drive
+    /// remaining actions.
+    pub fn recover(
+        channel_id: String,
+        funding_psbt: String,
+        preimage: Option<String>,
+        opening_fee_params: OpeningFeeParams,
+    ) -> (Self, Vec<SessionAction>) {
+        let (state, actions) = if preimage.is_some() {
+            (
+                SessionState::Broadcasting {
+                    channel_id: channel_id.clone(),
+                    funding_psbt: funding_psbt.clone(),
+                },
+                vec![SessionAction::BroadcastFundingTx {
+                    channel_id,
+                    funding_psbt,
+                }],
+            )
+        } else {
+            (
+                SessionState::AwaitingSettlement {
+                    forwarded_parts: vec![],
+                    forwarded_amount_msat: 0,
+                    deducted_fee_msat: 0,
+                    channel_id,
+                    funding_psbt,
+                },
+                vec![],
+            )
+        };
+
+        let session = Self {
+            state,
+            max_parts: 0,
+            opening_fee_params,
+            payment_size_msat: None,
+            channel_capacity_msat: Msat::from_msat(0),
+            peer_id: String::new(),
+        };
+
+        (session, actions)
+    }
+
     pub fn is_terminal(&self) -> bool {
         matches!(
             self.state,
@@ -1974,5 +2026,79 @@ mod tests {
             assert_eq!(res.events.len(), 1);
             assert!(matches!(&res.events[0], SessionEvent::UnusualInput { .. }));
         }
+    }
+
+    #[test]
+    fn recover_without_preimage_enters_awaiting_settlement() {
+        let (session, actions) = Session::recover(
+            "channel-id-1".to_string(),
+            "psbt-1".to_string(),
+            None,
+            opening_fee_params(1_000, 0),
+        );
+        assert!(actions.is_empty());
+        assert!(!session.is_terminal());
+    }
+
+    #[test]
+    fn recover_with_preimage_enters_broadcasting() {
+        let (session, actions) = Session::recover(
+            "channel-id-1".to_string(),
+            "psbt-1".to_string(),
+            Some("preimage-1".to_string()),
+            opening_fee_params(1_000, 0),
+        );
+        assert_eq!(actions.len(), 1);
+        assert!(matches!(
+            &actions[0],
+            SessionAction::BroadcastFundingTx { channel_id, funding_psbt }
+            if channel_id == "channel-id-1" && funding_psbt == "psbt-1"
+        ));
+        assert!(!session.is_terminal());
+    }
+
+    #[test]
+    fn recovered_awaiting_settlement_transitions_on_payment_settled() {
+        let (mut session, _) = Session::recover(
+            "channel-id-1".to_string(),
+            "psbt-1".to_string(),
+            None,
+            opening_fee_params(1_000, 0),
+        );
+        let result = session.apply(SessionInput::PaymentSettled).unwrap();
+        assert!(matches!(
+            result.actions.as_slice(),
+            [SessionAction::BroadcastFundingTx { .. }]
+        ));
+    }
+
+    #[test]
+    fn recovered_awaiting_settlement_transitions_on_payment_failed() {
+        let (mut session, _) = Session::recover(
+            "channel-id-1".to_string(),
+            "psbt-1".to_string(),
+            None,
+            opening_fee_params(1_000, 0),
+        );
+        let result = session.apply(SessionInput::PaymentFailed).unwrap();
+        assert!(matches!(
+            result.actions.as_slice(),
+            [SessionAction::AbandonSession { .. }, SessionAction::Disconnect]
+        ));
+        assert!(session.is_terminal());
+    }
+
+    #[test]
+    fn recovered_broadcasting_transitions_on_funding_broadcasted() {
+        let (mut session, _) = Session::recover(
+            "channel-id-1".to_string(),
+            "psbt-1".to_string(),
+            Some("preimage-1".to_string()),
+            opening_fee_params(1_000, 0),
+        );
+        let result = session.apply(SessionInput::FundingBroadcasted).unwrap();
+        let _ = result;
+        assert!(session.is_terminal());
+        assert_eq!(session.outcome(), Some(SessionOutcome::Succeeded));
     }
 }

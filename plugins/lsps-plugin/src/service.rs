@@ -10,7 +10,7 @@ use cln_lsps::{
         lsps2::{
             actor::HtlcResponse,
             manager::{PaymentHash, SessionConfig, SessionManager},
-            provider::DatastoreProvider,
+            provider::{DatastoreProvider, RecoveryProvider},
             service::Lsps2ServiceHandler,
             session::PaymentPart,
         },
@@ -23,7 +23,7 @@ use cln_lsps::{
     },
 };
 use cln_plugin::{HookBuilder, HookFilter, Plugin, options};
-use log::{debug, error, trace};
+use log::{debug, error, trace, warn};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -150,6 +150,13 @@ async fn main() -> Result<(), anyhow::Error> {
 
                 let collect_timeout_secs = plugin.option(&OPTION_COLLECT_TIMEOUT)? as u64;
                 let state = State::new(rpc_path, &secret, collect_timeout_secs);
+
+                // Recover in-flight sessions before processing replayed HTLCs
+                let recovery: Arc<dyn RecoveryProvider> = state.api.clone();
+                if let Err(e) = state.session_manager.recover(recovery).await {
+                    warn!("session recovery failed: {e}");
+                }
+
                 let plugin = plugin.start(state).await?;
                 plugin.join().await
             } else {
@@ -304,6 +311,8 @@ async fn on_forward_event(p: Plugin<State>, v: serde_json::Value) -> Result<(), 
         _ => return Ok(()),
     };
 
+    let updated_index = event.get("updated_index").and_then(|v| v.as_u64());
+
     match status {
         Some("settled") => {
             let preimage = event
@@ -314,7 +323,7 @@ async fn on_forward_event(p: Plugin<State>, v: serde_json::Value) -> Result<(), 
             if let Err(e) = p
                 .state()
                 .session_manager
-                .on_payment_settled(payment_hash, preimage)
+                .on_payment_settled(payment_hash, preimage, updated_index)
                 .await
             {
                 debug!("on_payment_settled error: {e:#}");
@@ -324,7 +333,7 @@ async fn on_forward_event(p: Plugin<State>, v: serde_json::Value) -> Result<(), 
             if let Err(e) = p
                 .state()
                 .session_manager
-                .on_payment_failed(payment_hash)
+                .on_payment_failed(payment_hash, updated_index)
                 .await
             {
                 debug!("on_payment_failed error: {e:#}");
