@@ -377,6 +377,7 @@ mod tests {
                 funding_txid: None,
                 preimage: None,
                 forwards_updated_index: None,
+                payment_hash: None,
             })
         }
 
