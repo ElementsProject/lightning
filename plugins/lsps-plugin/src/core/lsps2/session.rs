@@ -11,8 +11,6 @@ use crate::proto::{
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum Error {
-    #[error("variable amount payments are not supported")]
-    UnimplementedVarAmount,
     #[error("opening fee computation overflow")]
     FeeOverflow,
     #[error("invalid state transition")]
@@ -267,10 +265,6 @@ impl Session {
             // Collecting transitions.
             //
             (SessionState::Collecting { parts }, SessionInput::AddPart { part }) => {
-                if self.payment_size_msat.is_none() {
-                    return Err(Error::UnimplementedVarAmount);
-                }
-
                 parts.push(part.clone());
                 let n_parts = parts.len();
                 let parts_sum = parts.iter().map(|p| p.amount_msat).sum();
@@ -281,24 +275,46 @@ impl Session {
                     parts_sum,
                 }];
 
-                // Fail early if we have too many parts.
-                if n_parts > self.max_parts {
-                    self.state = SessionState::Failed;
-                    events.push(SessionEvent::TooManyParts { n_parts });
-                    events.push(SessionEvent::SessionFailed);
-                    return Ok(ApplyResult {
-                        actions: vec![
-                            SessionAction::FailHtlcs {
-                                failure_code: UNKNOWN_NEXT_PEER,
-                            },
-                            SessionAction::FailSession,
-                        ],
-                        events,
-                    });
-                }
+                // Variable-amount (None): first HTLC triggers immediately, second fails.
+                // Fixed-amount (Some): accumulate until threshold, fail if too many parts.
+                let threshold_reached = match self.payment_size_msat {
+                    None => {
+                        if n_parts > 1 {
+                            self.state = SessionState::Failed;
+                            events.push(SessionEvent::TooManyParts { n_parts });
+                            events.push(SessionEvent::SessionFailed);
+                            return Ok(ApplyResult {
+                                actions: vec![
+                                    SessionAction::FailHtlcs {
+                                        failure_code: UNKNOWN_NEXT_PEER,
+                                    },
+                                    SessionAction::FailSession,
+                                ],
+                                events,
+                            });
+                        }
+                        true
+                    }
+                    Some(_) => {
+                        if n_parts > self.max_parts {
+                            self.state = SessionState::Failed;
+                            events.push(SessionEvent::TooManyParts { n_parts });
+                            events.push(SessionEvent::SessionFailed);
+                            return Ok(ApplyResult {
+                                actions: vec![
+                                    SessionAction::FailHtlcs {
+                                        failure_code: UNKNOWN_NEXT_PEER,
+                                    },
+                                    SessionAction::FailSession,
+                                ],
+                                events,
+                            });
+                        }
+                        parts_sum >= self.payment_size_msat.unwrap()
+                    }
+                };
 
-                let expected_msat = self.payment_size_msat.unwrap_or_else(|| Msat(0)); // We checked that it isn't None
-                if parts_sum >= expected_msat {
+                if threshold_reached {
                     let opening_fee_msat = compute_opening_fee(
                         parts_sum.msat(),
                         self.opening_fee_params.min_fee_msat.msat(),
@@ -1118,16 +1134,70 @@ mod tests {
     }
 
     #[test]
-    fn collecting_payment_size_none_errors_without_mutating_state() {
+    fn collecting_var_amount_single_htlc_triggers_funding() {
         let mut s = session(3, None, 1);
-        let err = s
+        let res = s
             .apply(SessionInput::AddPart {
-                part: part(1, 1_000),
+                part: part(1, 10_000_000),
             })
-            .unwrap_err();
+            .unwrap();
 
-        assert_eq!(err, Error::UnimplementedVarAmount);
-        assert_eq!(s.state, SessionState::Collecting { parts: vec![] });
+        assert!(matches!(
+            s.state,
+            SessionState::AwaitingChannelReady { .. }
+        ));
+        assert!(res
+            .actions
+            .iter()
+            .any(|a| matches!(a, SessionAction::FundChannel { .. })));
+        assert!(res
+            .events
+            .iter()
+            .any(|e| matches!(e, SessionEvent::FundingChannel)));
+    }
+
+    #[test]
+    fn collecting_var_amount_second_htlc_fails() {
+        // Set up a session with one part already in Collecting
+        let mut s = session(3, None, 1);
+        s.state = SessionState::Collecting {
+            parts: vec![part(1, 5_000_000)],
+        };
+        let res = s
+            .apply(SessionInput::AddPart {
+                part: part(2, 5_000_000),
+            })
+            .unwrap();
+
+        assert_eq!(s.state, SessionState::Failed);
+        assert!(res
+            .events
+            .iter()
+            .any(|e| matches!(e, SessionEvent::TooManyParts { n_parts: 2 })));
+        assert!(res
+            .actions
+            .iter()
+            .any(|a| matches!(a, SessionAction::FailHtlcs { .. })));
+    }
+
+    #[test]
+    fn collecting_var_amount_fee_computed_on_htlc_amount() {
+        let mut s = session(3, None, 1);
+        let _ = s
+            .apply(SessionInput::AddPart {
+                part: part(1, 10_000_000),
+            })
+            .unwrap();
+
+        // fee = max(min_fee=1000, 10_000_000 * 1000 / 1_000_000) = max(1000, 10_000) = 10_000
+        if let SessionState::AwaitingChannelReady {
+            opening_fee_msat, ..
+        } = s.state
+        {
+            assert_eq!(opening_fee_msat, 10_000);
+        } else {
+            panic!("expected AwaitingChannelReady, got {:?}", s.state);
+        }
     }
 
     #[test]
