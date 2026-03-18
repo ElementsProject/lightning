@@ -311,6 +311,35 @@ impl Session {
         }
     }
 
+    fn check_cltv_timeout(
+        &mut self,
+        parts: &[PaymentPart],
+        height: u32,
+    ) -> Option<ApplyResult> {
+        let min = cltv_min(parts)?;
+        if height > min {
+            self.state = SessionState::Failed;
+            Some(ApplyResult {
+                actions: vec![
+                    SessionAction::FailHtlcs {
+                        failure_code: TEMPORARY_CHANNEL_FAILURE,
+                    },
+                    SessionAction::Disconnect,
+                    SessionAction::FailSession,
+                ],
+                events: vec![
+                    SessionEvent::UnsafeHtlcTimeout {
+                        height,
+                        cltv_min: min,
+                    },
+                    SessionEvent::SessionFailed,
+                ],
+            })
+        } else {
+            None
+        }
+    }
+
     pub fn apply(&mut self, input: SessionInput) -> Result<ApplyResult> {
         match (&mut self.state, input) {
             //
@@ -440,28 +469,8 @@ impl Session {
                 })
             }
             (SessionState::Collecting { parts }, SessionInput::NewBlock { height }) => {
-                if let Some(min) = cltv_min(parts) {
-                    if height > min {
-                        self.state = SessionState::Failed;
-                        return Ok(ApplyResult {
-                            actions: vec![
-                                SessionAction::FailHtlcs {
-                                    failure_code: TEMPORARY_CHANNEL_FAILURE,
-                                },
-                                SessionAction::FailSession,
-                            ],
-                            events: vec![
-                                SessionEvent::UnsafeHtlcTimeout {
-                                    height,
-                                    cltv_min: min,
-                                },
-                                SessionEvent::SessionFailed,
-                            ],
-                        });
-                    }
-                }
-                // No parts or height <= cltv_min: stay collecting.
-                Ok(ApplyResult::default())
+                let parts = parts.clone();
+                Ok(self.check_cltv_timeout(&parts, height).unwrap_or_default())
             }
             (
                 SessionState::Collecting { .. },
@@ -608,28 +617,8 @@ impl Session {
                 SessionState::AwaitingChannelReady { parts, .. },
                 SessionInput::NewBlock { height },
             ) => {
-                if let Some(min) = cltv_min(parts) {
-                    if height > min {
-                        self.state = SessionState::Failed;
-                        return Ok(ApplyResult {
-                            actions: vec![
-                                SessionAction::FailHtlcs {
-                                    failure_code: TEMPORARY_CHANNEL_FAILURE,
-                                },
-                                SessionAction::Disconnect,
-                                SessionAction::FailSession,
-                            ],
-                            events: vec![
-                                SessionEvent::UnsafeHtlcTimeout {
-                                    height,
-                                    cltv_min: min,
-                                },
-                                SessionEvent::SessionFailed,
-                            ],
-                        });
-                    }
-                }
-                Ok(ApplyResult::default())
+                let parts = parts.clone();
+                Ok(self.check_cltv_timeout(&parts, height).unwrap_or_default())
             }
             (
                 SessionState::AwaitingChannelReady { .. },
@@ -1819,6 +1808,7 @@ mod tests {
                 SessionAction::FailHtlcs {
                     failure_code: TEMPORARY_CHANNEL_FAILURE,
                 },
+                SessionAction::Disconnect,
                 SessionAction::FailSession,
             ]
         );

@@ -2,7 +2,7 @@ use crate::{
     core::lsps2::{
         actor::ActionExecutor,
         provider::{
-            Blockheight, BlockheightProvider, ChannelRecoveryInfo, DatastoreProvider,
+            ChannelRecoveryInfo, DatastoreProvider,
             ForwardActivity, Lsps2PolicyProvider, RecoveryProvider,
         },
     },
@@ -661,34 +661,6 @@ impl DatastoreProvider for ClnDatastore {
 }
 
 // ---------------------------------------------------------------------------
-// ClnBlockheight — implements BlockheightProvider
-// ---------------------------------------------------------------------------
-
-#[derive(Clone)]
-pub struct ClnBlockheight {
-    rpc: ClnRpcClient,
-}
-
-impl ClnBlockheight {
-    pub fn new(rpc: ClnRpcClient) -> Self {
-        Self { rpc }
-    }
-}
-
-#[async_trait]
-impl BlockheightProvider for ClnBlockheight {
-    async fn get_blockheight(&self) -> Result<Blockheight> {
-        let mut rpc = self.rpc.create_rpc().await?;
-        let info = rpc
-            .call_typed(&GetinfoRequest {})
-            .await
-            .map_err(anyhow::Error::new)
-            .with_context(|| "calling getinfo")?;
-        Ok(info.blockheight)
-    }
-}
-
-// ---------------------------------------------------------------------------
 // ClnPolicyProvider — implements Lsps2PolicyProvider
 // ---------------------------------------------------------------------------
 
@@ -705,6 +677,16 @@ impl ClnPolicyProvider {
 
 #[async_trait]
 impl Lsps2PolicyProvider for ClnPolicyProvider {
+    async fn get_blockheight(&self) -> Result<u32> {
+        let mut rpc = self.rpc.create_rpc().await?;
+        let info = rpc
+            .call_typed(&GetinfoRequest {})
+            .await
+            .map_err(anyhow::Error::new)
+            .with_context(|| "calling getinfo")?;
+        Ok(info.blockheight)
+    }
+
     async fn get_info(
         &self,
         request: &Lsps2PolicyGetInfoRequest,

@@ -4,7 +4,7 @@ use chrono::Utc;
 use cln_lsps::{
     cln_adapters::{
         hooks::service_custommsg_hook,
-        rpc::{ClnActionExecutor, ClnBlockheight, ClnDatastore, ClnPolicyProvider, ClnRecoveryProvider, ClnRpcClient},
+        rpc::{ClnActionExecutor, ClnDatastore, ClnPolicyProvider, ClnRecoveryProvider, ClnRpcClient},
         sender::ClnSender, state::ServiceState,
         types::HtlcAcceptedRequest,
     },
@@ -63,11 +63,10 @@ impl State {
         let rpc = ClnRpcClient::new(rpc_path.clone());
         let sender = ClnSender::new(rpc_path);
         let datastore = Arc::new(ClnDatastore::new(rpc.clone()));
-        let blockheight = Arc::new(ClnBlockheight::new(rpc.clone()));
         let policy = Arc::new(ClnPolicyProvider::new(rpc.clone()));
         let executor = Arc::new(ClnActionExecutor::new(rpc.clone()));
         let recovery = Arc::new(ClnRecoveryProvider::new(rpc));
-        let lsps2_handler = Arc::new(Lsps2ServiceHandler::new(datastore.clone(), blockheight, policy, promise_secret));
+        let lsps2_handler = Arc::new(Lsps2ServiceHandler::new(datastore.clone(), policy, promise_secret));
         let lsps_service = Arc::new(LspsService::builder().with_protocol(lsps2_handler).build());
         let session_manager = Arc::new(SessionManager::new(
             datastore.clone(),

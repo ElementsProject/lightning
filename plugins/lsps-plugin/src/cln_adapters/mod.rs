@@ -5,6 +5,6 @@ pub mod state;
 pub mod types;
 
 pub use rpc::{
-    ClnActionExecutor, ClnBlockheight, ClnDatastore, ClnPolicyProvider, ClnRecoveryProvider,
+    ClnActionExecutor, ClnDatastore, ClnPolicyProvider, ClnRecoveryProvider,
     ClnRpcClient,
 };
