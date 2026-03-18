@@ -1,7 +1,8 @@
 use crate::{
     core::lsps2::{
+        event_sink::{EventSink, SessionEventEnvelope},
         provider::{DatastoreProvider, ForwardActivity, RecoveryProvider},
-        session::{PaymentPart, Session, SessionAction, SessionInput},
+        session::{PaymentPart, Session, SessionAction, SessionEvent, SessionInput},
     },
     proto::{
         lsps0::{Msat, ShortChannelId},
@@ -10,6 +11,8 @@ use crate::{
 };
 use anyhow::Result;
 use async_trait::async_trait;
+use bitcoin::hashes::sha256::Hash as PaymentHash;
+use bitcoin::hashes::Hash;
 use log::{debug, warn};
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use tokio::{
@@ -134,6 +137,7 @@ pub struct SessionActor<A, D> {
     collect_timeout_secs: u64,
     scid: ShortChannelId,
     datastore: D,
+    event_sink: Arc<dyn EventSink>,
 }
 
 impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + Send + 'static>
@@ -147,6 +151,7 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
         collect_timeout_secs: u64,
         scid: ShortChannelId,
         datastore: D,
+        event_sink: Arc<dyn EventSink>,
     ) -> ActorInboxHandle {
         let (tx, inbox) = mpsc::channel(128); // Should we use max_htlcs?
         let actor = SessionActor {
@@ -162,6 +167,7 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
             collect_timeout_secs,
             scid,
             datastore,
+            event_sink,
         };
         tokio::spawn(actor.run());
         ActorInboxHandle { tx }
@@ -177,6 +183,7 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
         datastore: D,
         recovery: Arc<dyn RecoveryProvider>,
         forwards_updated_index: Option<u64>,
+        event_sink: Arc<dyn EventSink>,
     ) -> ActorInboxHandle {
         let (tx, inbox) = mpsc::channel(128);
         let handle = ActorInboxHandle { tx: tx.clone() };
@@ -194,6 +201,7 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
             collect_timeout_secs: 0,
             scid,
             datastore,
+            event_sink,
         };
 
         tokio::spawn(actor.run_recovered(
@@ -203,6 +211,27 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
             forwards_updated_index,
         ));
         handle
+    }
+
+    fn dispatch_events(&self, events: Vec<SessionEvent>) {
+        let payment_hash = match self.entry.payment_hash.as_deref() {
+            Some(s) => match s.parse::<PaymentHash>() {
+                Ok(h) => h,
+                Err(e) => {
+                    warn!("malformed payment_hash in datastore for scid={}: {e}", self.scid);
+                    PaymentHash::all_zeros()
+                }
+            },
+            None => PaymentHash::all_zeros(),
+        };
+        for event in events {
+            debug!("session event: {:?}", event);
+            self.event_sink.send(&SessionEventEnvelope {
+                scid: self.scid,
+                payment_hash,
+                event,
+            });
+        }
     }
 
     fn start_collect_timeout(&mut self) {
@@ -314,9 +343,7 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
 
             match self.session.apply(input) {
                 Ok(result) => {
-                    for event in &result.events {
-                        debug!("session event: {:?}", event);
-                    }
+                    self.dispatch_events(result.events);
 
                     for action in result.actions {
                         self.execute_action(action);
@@ -474,6 +501,7 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
 
                     match self.session.apply(session_input) {
                         Ok(result) => {
+                            self.dispatch_events(result.events);
                             for action in result.actions {
                                 self.execute_action(action);
                             }

@@ -2,6 +2,7 @@ use super::actor::{ActionExecutor, ActorInboxHandle, HtlcResponse};
 use super::provider::{DatastoreProvider, ForwardActivity, RecoveryProvider};
 use super::session::{PaymentPart, Session};
 use crate::core::lsps2::actor::SessionActor;
+use crate::core::lsps2::event_sink::EventSink;
 use crate::proto::lsps0::ShortChannelId;
 use crate::proto::lsps2::SessionOutcome;
 pub use bitcoin::hashes::sha256::Hash as PaymentHash;
@@ -39,18 +40,20 @@ pub struct SessionManager<D, A> {
     datastore: Arc<D>,
     executor: Arc<A>,
     config: SessionConfig,
+    event_sink: Arc<dyn EventSink>,
 }
 
 impl<D: DatastoreProvider + 'static, A: ActionExecutor + Send + Sync + 'static>
     SessionManager<D, A>
 {
-    pub fn new(datastore: Arc<D>, executor: Arc<A>, config: SessionConfig) -> Self {
+    pub fn new(datastore: Arc<D>, executor: Arc<A>, config: SessionConfig, event_sink: Arc<dyn EventSink>) -> Self {
         Self {
             sessions: Mutex::new(HashMap::new()),
             recovery_handles: Mutex::new(Vec::new()),
             datastore,
             executor,
             config,
+            event_sink,
         }
     }
 
@@ -114,6 +117,7 @@ impl<D: DatastoreProvider + 'static, A: ActionExecutor + Send + Sync + 'static>
                                     self.datastore.clone(),
                                     recovery.clone(),
                                     forwards_updated_index,
+                                    self.event_sink.clone(),
                                 );
 
                             self.recovery_handles.lock().await.push(handle);
@@ -144,7 +148,7 @@ impl<D: DatastoreProvider + 'static, A: ActionExecutor + Send + Sync + 'static>
             if let Some(handle) = sessions.get(&payment_hash) {
                 handle.clone()
             } else {
-                let handle = self.create_session(&scid).await?;
+                let handle = self.create_session(&scid, &payment_hash).await?;
                 sessions.insert(payment_hash, handle.clone());
                 handle
             }
@@ -228,10 +232,17 @@ impl<D: DatastoreProvider + 'static, A: ActionExecutor + Send + Sync + 'static>
     async fn create_session(
         &self,
         scid: &ShortChannelId,
+        payment_hash: &PaymentHash,
     ) -> Result<ActorInboxHandle, ManagerError> {
-        let entry = self
+        let mut entry = self
             .datastore
             .get_buy_request(scid)
+            .await
+            .map_err(ManagerError::DatastoreLookup)?;
+
+        entry.payment_hash = Some(payment_hash.to_string());
+        self.datastore
+            .save_session(scid, &entry)
             .await
             .map_err(ManagerError::DatastoreLookup)?;
 
@@ -252,6 +263,7 @@ impl<D: DatastoreProvider + 'static, A: ActionExecutor + Send + Sync + 'static>
             self.config.collect_timeout_secs,
             *scid,
             self.datastore.clone(),
+            self.event_sink.clone(),
         ))
     }
 
@@ -264,6 +276,7 @@ impl<D: DatastoreProvider + 'static, A: ActionExecutor + Send + Sync + 'static>
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::lsps2::event_sink::NoopEventSink;
     use crate::core::lsps2::provider::{ChannelRecoveryInfo, ForwardActivity, RecoveryProvider};
     use crate::proto::lsps0::{Msat, Ppm};
     use crate::proto::lsps2::{DatastoreEntry, OpeningFeeParams, Promise, SessionOutcome};
@@ -320,6 +333,7 @@ mod tests {
             funding_txid: None,
             preimage: None,
             forwards_updated_index: None,
+            payment_hash: None,
         }
     }
 
@@ -440,6 +454,7 @@ mod tests {
                 max_parts: 3,
                 ..SessionConfig::default()
             },
+            Arc::new(NoopEventSink),
         ))
     }
 
@@ -690,6 +705,7 @@ mod tests {
             Arc::new(ds),
             Arc::new(MockExecutor { fund_succeeds: true }),
             SessionConfig::default(),
+            Arc::new(NoopEventSink),
         ));
 
         mgr.recover(Arc::new(MockRecoveryProvider::default()))
@@ -705,6 +721,7 @@ mod tests {
             Arc::new(ds),
             Arc::new(MockExecutor { fund_succeeds: true }),
             SessionConfig::default(),
+            Arc::new(NoopEventSink),
         ));
 
         mgr.recover(Arc::new(MockRecoveryProvider::default())).await.unwrap();
@@ -732,6 +749,7 @@ mod tests {
             Arc::new(ds),
             Arc::new(MockExecutor { fund_succeeds: true }),
             SessionConfig::default(),
+            Arc::new(NoopEventSink),
         ));
 
         let recovery = Arc::new(MockRecoveryProvider {
@@ -756,6 +774,7 @@ mod tests {
             Arc::new(ds),
             Arc::new(MockExecutor { fund_succeeds: true }),
             SessionConfig::default(),
+            Arc::new(NoopEventSink),
         ));
 
         let recovery = Arc::new(MockRecoveryProvider {
@@ -780,6 +799,7 @@ mod tests {
             Arc::new(ds),
             Arc::new(MockExecutor { fund_succeeds: true }),
             SessionConfig::default(),
+            Arc::new(NoopEventSink),
         ));
 
         let recovery = Arc::new(MockRecoveryProvider {

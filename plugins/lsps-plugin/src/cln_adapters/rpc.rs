@@ -461,6 +461,8 @@ impl DatastoreProvider for ClnApiRpc {
             preimage: Option<String>,
             #[serde(skip_serializing_if = "Option::is_none")]
             forwards_updated_index: &'a Option<u64>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            payment_hash: Option<String>,
         }
 
         let ds = BorrowedDatastoreEntry {
@@ -474,6 +476,7 @@ impl DatastoreProvider for ClnApiRpc {
             funding_txid: None,
             preimage: None,
             forwards_updated_index: &None,
+            payment_hash: None,
         };
         let json_str = serde_json::to_string(&ds)?;
 
@@ -508,6 +511,7 @@ impl DatastoreProvider for ClnApiRpc {
             funding_txid: None,
             preimage: None,
             forwards_updated_index: None,
+            payment_hash: None,
         })
     }
 
