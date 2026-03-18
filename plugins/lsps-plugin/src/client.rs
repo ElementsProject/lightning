@@ -482,7 +482,7 @@ async fn on_lsps_lsps2_invoice(
     // 5. Approve jit_channel_scid for a jit channel opening.
     let appr_req = ClnRpcLsps2Approve {
         lsp_id: req.lsp_id,
-        jit_channel_scid: buy_res.jit_channel_scid,
+        jit_channel_scid: buy_res.jit_channel_scid.into(),
         payment_hash: public_inv.payment_hash.to_string(),
         client_trusts_lsp: Some(buy_res.client_trusts_lsp),
     };

@@ -3,7 +3,9 @@ use bitcoin::hashes::Hash;
 use chrono::Utc;
 use cln_lsps::{
     cln_adapters::{
-        hooks::service_custommsg_hook, rpc::ClnApiRpc, sender::ClnSender, state::ServiceState,
+        hooks::service_custommsg_hook,
+        rpc::{ClnActionExecutor, ClnBlockheight, ClnDatastore, ClnPolicyProvider, ClnRecoveryProvider, ClnRpcClient},
+        sender::ClnSender, state::ServiceState,
         types::HtlcAcceptedRequest,
     },
     core::{
@@ -51,19 +53,25 @@ struct State {
     lsps_service: Arc<LspsService>,
     sender: ClnSender,
     lsps2_enabled: bool,
-    api: Arc<ClnApiRpc>,
-    session_manager: Arc<SessionManager<ClnApiRpc, ClnApiRpc>>,
+    datastore: Arc<ClnDatastore>,
+    recovery: Arc<ClnRecoveryProvider>,
+    session_manager: Arc<SessionManager<ClnDatastore, ClnActionExecutor>>,
 }
 
 impl State {
     pub fn new(rpc_path: PathBuf, promise_secret: &[u8; 32], collect_timeout_secs: u64) -> Self {
-        let api = Arc::new(ClnApiRpc::new(rpc_path.clone()));
+        let rpc = ClnRpcClient::new(rpc_path.clone());
         let sender = ClnSender::new(rpc_path);
-        let lsps2_handler = Arc::new(Lsps2ServiceHandler::new(api.clone(), promise_secret));
+        let datastore = Arc::new(ClnDatastore::new(rpc.clone()));
+        let blockheight = Arc::new(ClnBlockheight::new(rpc.clone()));
+        let policy = Arc::new(ClnPolicyProvider::new(rpc.clone()));
+        let executor = Arc::new(ClnActionExecutor::new(rpc.clone()));
+        let recovery = Arc::new(ClnRecoveryProvider::new(rpc));
+        let lsps2_handler = Arc::new(Lsps2ServiceHandler::new(datastore.clone(), blockheight, policy, promise_secret));
         let lsps_service = Arc::new(LspsService::builder().with_protocol(lsps2_handler).build());
         let session_manager = Arc::new(SessionManager::new(
-            api.clone(),
-            api.clone(),
+            datastore.clone(),
+            executor,
             SessionConfig {
                 collect_timeout_secs,
                 ..SessionConfig::default()
@@ -74,7 +82,8 @@ impl State {
             lsps_service,
             sender,
             lsps2_enabled: true,
-            api,
+            datastore,
+            recovery,
             session_manager,
         }
     }
@@ -151,7 +160,7 @@ async fn main() -> Result<(), anyhow::Error> {
                 let state = State::new(rpc_path, &secret, collect_timeout_secs);
 
                 // Recover in-flight sessions before processing replayed HTLCs
-                let recovery: Arc<dyn RecoveryProvider> = state.api.clone();
+                let recovery: Arc<dyn RecoveryProvider> = state.recovery.clone();
                 if let Err(e) = state.session_manager.recover(recovery).await {
                     warn!("session recovery failed: {e}");
                 }
@@ -198,8 +207,8 @@ async fn handle_htlc_inner(
 
     let req: HtlcAcceptedRequest = serde_json::from_value(v)?;
 
-    let short_channel_id = match req.onion.short_channel_id {
-        Some(scid) => scid,
+    let short_channel_id: ShortChannelId = match req.onion.short_channel_id {
+        Some(scid) => scid.into(),
         None => {
             trace!("We are the destination of the HTLC, continue.");
             return Ok(json_continue());
@@ -207,7 +216,7 @@ async fn handle_htlc_inner(
     };
 
     // Decide path: look up buy request to check for MPP.
-    let ds_rec = match p.state().api.get_buy_request(&short_channel_id).await {
+    let ds_rec = match p.state().datastore.get_buy_request(&short_channel_id).await {
         Ok(rec) => rec,
         Err(_) => {
             trace!("SCID not ours, continue.");
@@ -218,7 +227,7 @@ async fn handle_htlc_inner(
     if Utc::now() >= ds_rec.opening_fee_params.valid_until {
         let _ = p
             .state()
-            .api
+            .datastore
             .finalize_session(&short_channel_id, SessionOutcome::Timeout)
             .await;
         return Ok(json_fail(UNKNOWN_NEXT_PEER));

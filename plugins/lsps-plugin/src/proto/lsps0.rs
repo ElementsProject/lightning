@@ -197,9 +197,79 @@ impl core::fmt::Display for Ppm {
     }
 }
 
-/// Represents a short channel id as defined in LSPS0.scid. Matches with the
-/// implementation in cln_rpc.
-pub type ShortChannelId = cln_rpc::primitives::ShortChannelId;
+/// Represents a short channel id as defined in LSPS0.scid.
+/// Format: `{block}x{txindex}x{outnum}` encoding a u64 as
+/// `(block << 40) | (txindex << 16) | outnum`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ShortChannelId(u64);
+
+impl ShortChannelId {
+    pub fn block(&self) -> u32 {
+        (self.0 >> 40) as u32 & 0xFFFFFF
+    }
+    pub fn txindex(&self) -> u32 {
+        (self.0 >> 16) as u32 & 0xFFFFFF
+    }
+    pub fn outnum(&self) -> u16 {
+        self.0 as u16 & 0xFFFF
+    }
+    pub fn to_u64(&self) -> u64 {
+        self.0
+    }
+}
+
+impl From<u64> for ShortChannelId {
+    fn from(v: u64) -> Self {
+        ShortChannelId(v)
+    }
+}
+
+impl core::fmt::Display for ShortChannelId {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{}x{}x{}", self.block(), self.txindex(), self.outnum())
+    }
+}
+
+impl core::str::FromStr for ShortChannelId {
+    type Err = String;
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let parts: Vec<&str> = s.split('x').collect();
+        if parts.len() != 3 {
+            return Err(format!("Malformed short_channel_id: expected 3 parts, got {}", parts.len()));
+        }
+        let block: u64 = parts[0].parse().map_err(|e| format!("bad block: {e}"))?;
+        let txindex: u64 = parts[1].parse().map_err(|e| format!("bad txindex: {e}"))?;
+        let outnum: u64 = parts[2].parse().map_err(|e| format!("bad outnum: {e}"))?;
+        Ok(ShortChannelId((block << 40) | (txindex << 16) | outnum))
+    }
+}
+
+impl serde::Serialize for ShortChannelId {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for ShortChannelId {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
+        let s: String = serde::Deserialize::deserialize(deserializer)?;
+        s.parse().map_err(serde::de::Error::custom)
+    }
+}
+
+#[cfg(feature = "cln")]
+impl From<ShortChannelId> for cln_rpc::primitives::ShortChannelId {
+    fn from(scid: ShortChannelId) -> Self {
+        cln_rpc::primitives::ShortChannelId::from(scid.0)
+    }
+}
+
+#[cfg(feature = "cln")]
+impl From<cln_rpc::primitives::ShortChannelId> for ShortChannelId {
+    fn from(scid: cln_rpc::primitives::ShortChannelId) -> Self {
+        ShortChannelId(scid.to_u64())
+    }
+}
 
 /// Represents a datetime as defined in LSPS0.datetime. Uses ISO8601 in UTC
 /// timezone.
