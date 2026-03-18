@@ -113,7 +113,7 @@ impl core::fmt::Display for PromiseError {
 
 impl core::error::Error for PromiseError {}
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Eq)]
 #[serde(try_from = "String")]
 pub struct Promise(pub String);
 
@@ -161,7 +161,7 @@ impl core::fmt::Display for Promise {
 
 /// Represents a set of parameters for calculating the opening fee for a JIT
 /// channel.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)] // LSPS2 requires the client to fail if a field is unrecognized.
 pub struct OpeningFeeParams {
     pub min_fee_msat: Msat,
@@ -280,15 +280,14 @@ pub struct Lsps2PolicyGetInfoResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct Lsps2PolicyGetChannelCapacityRequest {
+pub struct Lsps2PolicyBuyRequest {
     pub opening_fee_params: OpeningFeeParams,
-    pub init_payment_size: Msat,
-    pub scid: ShortChannelId,
+    pub payment_size_msat: Option<Msat>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct Lsps2PolicyGetChannelCapacityResponse {
-    pub channel_capacity_msat: Option<u64>,
+pub struct Lsps2PolicyBuyResponse {
+    pub channel_capacity_msat: Option<Msat>,
 }
 
 /// An internal representation of a policy of parameters for calculating the
@@ -342,6 +341,33 @@ pub struct DatastoreEntry {
     pub opening_fee_params: OpeningFeeParams,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expected_payment_size: Option<Msat>,
+    pub channel_capacity_msat: Msat,
+    pub created_at: DateTime,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub funding_psbt: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub funding_txid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub preimage: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum SessionOutcome {
+    Succeeded,
+    Abandoned,
+    Failed,
+    Timeout,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct FinalizedDatastoreEntry {
+    #[serde(flatten)]
+    pub entry: DatastoreEntry,
+    pub outcome: SessionOutcome,
+    pub finalized_at: DateTime,
 }
 
 /// Computes the opening fee in millisatoshis as described in LSPS2.
