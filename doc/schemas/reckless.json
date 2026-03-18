@@ -21,6 +21,9 @@
           "enable",
           "disable",
           "source",
+          "listavailable",
+          "listconfig",
+          "listinstalled",
           "--version"
         ],
         "description": [
@@ -67,12 +70,19 @@
     "additionalProperties": false,
     "properties": {
       "result": {
-        "type": "array",
-        "items": {
-          "type": "string"
-        },
-        "description": [
-          "Output of the requested reckless command."
+        "oneOf": [
+          {
+            "type": "array",
+            "description": [
+              "Output of the requested reckless command."
+            ]
+          },
+          {
+            "type": "object",
+            "description": [
+              "Output of the requested reckless command."
+            ]
+          }
         ]
       },
       "log": {
