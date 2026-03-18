@@ -714,6 +714,7 @@ async fn on_openchannel(
         return Ok(serde_json::json!({
             "result": "continue",
             "mindepth": 0,
+            "reserve": 0,
         }));
     } else {
         // Not a requested JIT-channel opening, continue.

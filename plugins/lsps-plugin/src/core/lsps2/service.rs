@@ -1,6 +1,6 @@
 use crate::{
     core::{
-        lsps2::provider::{BlockheightProvider, DatastoreProvider, Lsps2OfferProvider},
+        lsps2::provider::{BlockheightProvider, DatastoreProvider, Lsps2PolicyProvider},
         router::JsonRpcRouterBuilder,
         server::LspsProtocol,
     },
@@ -9,7 +9,8 @@ use crate::{
         lsps0::{LSPS0RpcErrorExt as _, ShortChannelId},
         lsps2::{
             Lsps2BuyRequest, Lsps2BuyResponse, Lsps2GetInfoRequest, Lsps2GetInfoResponse,
-            Lsps2PolicyGetInfoRequest, OpeningFeeParams, ShortChannelIdJITExt,
+            Lsps2PolicyBuyRequest, Lsps2PolicyGetInfoRequest, OpeningFeeParams,
+            ShortChannelIdJITExt,
         },
     },
     register_handler,
@@ -63,7 +64,7 @@ impl<A> Lsps2ServiceHandler<A> {
 }
 
 #[async_trait]
-impl<A: DatastoreProvider + BlockheightProvider + Lsps2OfferProvider + 'static> Lsps2Handler
+impl<A: DatastoreProvider + BlockheightProvider + Lsps2PolicyProvider + 'static> Lsps2Handler
     for Lsps2ServiceHandler<A>
 {
     async fn handle_get_info(
@@ -72,7 +73,7 @@ impl<A: DatastoreProvider + BlockheightProvider + Lsps2OfferProvider + 'static> 
     ) -> std::result::Result<Lsps2GetInfoResponse, RpcError> {
         let res_data = self
             .api
-            .get_offer(&Lsps2PolicyGetInfoRequest {
+            .get_info(&Lsps2PolicyGetInfoRequest {
                 token: request.token.clone(),
             })
             .await
@@ -116,9 +117,28 @@ impl<A: DatastoreProvider + BlockheightProvider + Lsps2OfferProvider + 'static> 
         // already handed out -> Check datastore entries.
         let jit_scid = ShortChannelId::generate_jit(blockheight, 12); // Approximately 2 hours in the future.
 
+        let ch_cap_res = self
+            .api
+            .buy(&Lsps2PolicyBuyRequest {
+                opening_fee_params: fee_params.clone(),
+                payment_size_msat: request.payment_size_msat,
+            })
+            .await
+            .map_err(|_| RpcError::internal_error("internal error"))?;
+
+        let channel_capacity_msat = ch_cap_res
+            .channel_capacity_msat
+            .ok_or_else(|| RpcError::internal_error("channel capacity denied by policy"))?;
+
         let ok = self
             .api
-            .store_buy_request(&jit_scid, &peer_id, &fee_params, &request.payment_size_msat)
+            .store_buy_request(
+                &jit_scid,
+                &peer_id,
+                &fee_params,
+                &request.payment_size_msat,
+                &channel_capacity_msat,
+            )
             .await
             .map_err(|_| RpcError::internal_error("internal error"))?;
 
@@ -142,9 +162,9 @@ mod tests {
     use super::*;
     use crate::proto::lsps0::{Msat, Ppm};
     use crate::proto::lsps2::{
-        DatastoreEntry, Lsps2PolicyGetChannelCapacityRequest,
-        Lsps2PolicyGetChannelCapacityResponse, Lsps2PolicyGetInfoResponse, OpeningFeeParams,
-        PolicyOpeningFeeParams, Promise,
+        DatastoreEntry, Lsps2PolicyBuyRequest, Lsps2PolicyBuyResponse,
+        Lsps2PolicyGetInfoResponse, OpeningFeeParams, PolicyOpeningFeeParams, Promise,
+        SessionOutcome,
     };
     use anyhow::{Result as AnyResult, anyhow};
     use chrono::{TimeZone, Utc};
@@ -188,11 +208,13 @@ mod tests {
         offer_response: Arc<Mutex<Option<Lsps2PolicyGetInfoResponse>>>,
         blockheight: Arc<Mutex<Option<u32>>>,
         store_result: Arc<Mutex<Option<bool>>>,
+        buy_response: Arc<Mutex<Option<Option<Msat>>>>,
 
         // Errors
         offer_error: Arc<Mutex<bool>>,
         blockheight_error: Arc<Mutex<bool>>,
         store_error: Arc<Mutex<bool>>,
+        buy_error: Arc<Mutex<bool>>,
 
         // Capture calls
         stored_requests: Arc<Mutex<Vec<StoredBuyRequest>>>,
@@ -254,14 +276,24 @@ mod tests {
             self
         }
 
+        fn with_buy_capacity(self, capacity_msat: u64) -> Self {
+            *self.buy_response.lock().unwrap() = Some(Some(Msat::from_msat(capacity_msat)));
+            self
+        }
+
+        fn with_buy_error(self) -> Self {
+            *self.buy_error.lock().unwrap() = true;
+            self
+        }
+
         fn stored_requests(&self) -> Vec<StoredBuyRequest> {
             self.stored_requests.lock().unwrap().clone()
         }
     }
 
     #[async_trait]
-    impl Lsps2OfferProvider for MockApi {
-        async fn get_offer(
+    impl Lsps2PolicyProvider for MockApi {
+        async fn get_info(
             &self,
             _request: &Lsps2PolicyGetInfoRequest,
         ) -> AnyResult<Lsps2PolicyGetInfoResponse> {
@@ -275,11 +307,21 @@ mod tests {
                 .ok_or_else(|| anyhow!("no offer response set"))
         }
 
-        async fn get_channel_capacity(
+        async fn buy(
             &self,
-            _params: &Lsps2PolicyGetChannelCapacityRequest,
-        ) -> AnyResult<Lsps2PolicyGetChannelCapacityResponse> {
-            unimplemented!("not needed for service tests")
+            _request: &Lsps2PolicyBuyRequest,
+        ) -> AnyResult<Lsps2PolicyBuyResponse> {
+            if *self.buy_error.lock().unwrap() {
+                return Err(anyhow!("buy error"));
+            }
+            let cap = self
+                .buy_response
+                .lock()
+                .unwrap()
+                .ok_or_else(|| anyhow!("no buy response set"))?;
+            Ok(Lsps2PolicyBuyResponse {
+                channel_capacity_msat: cap,
+            })
         }
     }
 
@@ -304,6 +346,7 @@ mod tests {
             peer_id: &PublicKey,
             _fee_params: &OpeningFeeParams,
             payment_size: &Option<Msat>,
+            _channel_capacity_msat: &Msat,
         ) -> AnyResult<bool> {
             if *self.store_error.lock().unwrap() {
                 return Err(anyhow!("store error"));
@@ -322,6 +365,39 @@ mod tests {
         }
 
         async fn del_buy_request(&self, _scid: &ShortChannelId) -> AnyResult<()> {
+            unimplemented!("not needed for service tests")
+        }
+
+        async fn finalize_session(
+            &self,
+            _scid: &ShortChannelId,
+            _outcome: SessionOutcome,
+        ) -> AnyResult<()> {
+            unimplemented!("not needed for service tests")
+        }
+
+        async fn update_session_funding(
+            &self,
+            _scid: &ShortChannelId,
+            _channel_id: &str,
+            _funding_psbt: &str,
+        ) -> AnyResult<()> {
+            unimplemented!("not needed for service tests")
+        }
+
+        async fn update_session_funding_txid(
+            &self,
+            _scid: &ShortChannelId,
+            _funding_txid: &str,
+        ) -> AnyResult<()> {
+            unimplemented!("not needed for service tests")
+        }
+
+        async fn update_session_preimage(
+            &self,
+            _scid: &ShortChannelId,
+            _preimage: &str,
+        ) -> AnyResult<()> {
             unimplemented!("not needed for service tests")
         }
     }
@@ -408,7 +484,8 @@ mod tests {
     async fn buy_success_with_payment_size() {
         let api = MockApi::new()
             .with_blockheight(800_000)
-            .with_store_result(true);
+            .with_store_result(true)
+            .with_buy_capacity(100_000_000);
         let h = handler(api.clone());
 
         let request = Lsps2BuyRequest {
@@ -434,7 +511,8 @@ mod tests {
     async fn buy_success_without_payment_size() {
         let api = MockApi::new()
             .with_blockheight(800_000)
-            .with_store_result(true);
+            .with_store_result(true)
+            .with_buy_capacity(100_000_000);
         let h = handler(api.clone());
 
         let request = Lsps2BuyRequest {
@@ -537,7 +615,7 @@ mod tests {
 
     #[tokio::test]
     async fn buy_handles_blockheight_error() {
-        let api = MockApi::new().with_blockheight_error();
+        let api = MockApi::new().with_blockheight_error().with_buy_capacity(100_000_000);
         let h = handler(api);
 
         let request = Lsps2BuyRequest {
@@ -553,7 +631,7 @@ mod tests {
 
     #[tokio::test]
     async fn buy_handles_store_error() {
-        let api = MockApi::new().with_blockheight(800_000).with_store_error();
+        let api = MockApi::new().with_blockheight(800_000).with_store_error().with_buy_capacity(100_000_000);
         let h = handler(api);
 
         let request = Lsps2BuyRequest {
@@ -571,7 +649,8 @@ mod tests {
     async fn buy_handles_store_returns_false() {
         let api = MockApi::new()
             .with_blockheight(800_000)
-            .with_store_result(false);
+            .with_store_result(false)
+            .with_buy_capacity(100_000_000);
         let h = handler(api);
 
         let request = Lsps2BuyRequest {
@@ -589,7 +668,8 @@ mod tests {
     async fn buy_generates_unique_scids() {
         let api = MockApi::new()
             .with_blockheight(800_000)
-            .with_store_result(true);
+            .with_store_result(true)
+            .with_buy_capacity(100_000_000);
         let h = handler(api);
 
         let request = Lsps2BuyRequest {
