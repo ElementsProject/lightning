@@ -46,22 +46,26 @@ pub const DS_SESSIONS_KEY: &str = "sessions";
 pub const DS_ACTIVE_KEY: &str = "active";
 pub const DS_FINALIZED_KEY: &str = "finalized";
 
+// ---------------------------------------------------------------------------
+// ClnRpcClient — shared connection helper
+// ---------------------------------------------------------------------------
+
 #[derive(Clone)]
-pub struct ClnApiRpc {
+pub struct ClnRpcClient {
     rpc_path: PathBuf,
 }
 
-impl ClnApiRpc {
+impl ClnRpcClient {
     pub fn new(rpc_path: PathBuf) -> Self {
         Self { rpc_path }
     }
 
-    async fn create_rpc(&self) -> Result<ClnRpc> {
+    pub async fn create_rpc(&self) -> Result<ClnRpc> {
         // Note: Add retry and backoff, be nicer than just failing.
         ClnRpc::new(&self.rpc_path).await
     }
 
-    async fn poll_channel_ready(
+    pub async fn poll_channel_ready(
         &self,
         channel_id: &Sha256,
         timeout: Duration,
@@ -82,7 +86,7 @@ impl ClnApiRpc {
         }
     }
 
-    async fn check_channel_normal(&self, channel_id: &Sha256) -> Result<bool> {
+    pub async fn check_channel_normal(&self, channel_id: &Sha256) -> Result<bool> {
         let mut rpc = self.create_rpc().await?;
         let r = rpc
             .call_typed(&ListpeerchannelsRequest {
@@ -98,37 +102,7 @@ impl ClnApiRpc {
             .is_some_and(|ch| ch.state == ChannelState::CHANNELD_NORMAL))
     }
 
-    async fn cleanup_failed_funding(&self, peer_id: &PublicKey, psbt: &str) {
-        if let Err(e) = self.unreserve_inputs(psbt).await {
-            warn!("cleanup: unreserveinputs for psbt={psbt} failed: {e}");
-        }
-        if let Err(e) = self.cancel_fundchannel(peer_id).await {
-            warn!("cleanup: fundchannel_cancel failed: {e}");
-        }
-    }
-
-    async fn unreserve_inputs(&self, psbt: &str) -> Result<()> {
-        let mut rpc = self.create_rpc().await?;
-        rpc.call_typed(&UnreserveinputsRequest {
-            reserve: None,
-            psbt: psbt.to_string(),
-        })
-        .await
-        .with_context(|| "calling unreserveinputs")?;
-        Ok(())
-    }
-
-    async fn cancel_fundchannel(&self, peer_id: &PublicKey) -> Result<()> {
-        let mut rpc = self.create_rpc().await?;
-        rpc.call_typed(&FundchannelCancelRequest {
-            id: peer_id.to_owned(),
-        })
-        .await
-        .with_context(|| "calling fundchannel_cancel")?;
-        Ok(())
-    }
-
-    async fn connect_with_retry(&self, peer_id: &str, timeout: Duration) -> Result<()> {
+    pub async fn connect_with_retry(&self, peer_id: &str, timeout: Duration) -> Result<()> {
         let deadline = tokio::time::Instant::now() + timeout;
         let mut backoff = Duration::from_secs(1);
         let max_backoff = Duration::from_secs(10);
@@ -156,29 +130,12 @@ impl ClnApiRpc {
         }
     }
 
-    async fn del_buy_request(&self, scid: &ShortChannelId) -> Result<()> {
-        let mut rpc = self.create_rpc().await?;
-        let key = vec![
-            DS_MAIN_KEY.to_string(),
-            DS_SUB_KEY.to_string(),
-            DS_SESSIONS_KEY.to_string(),
-            DS_ACTIVE_KEY.to_string(),
-            scid.to_string(),
-        ];
-
-        let _ = rpc
-            .call_typed(&DeldatastoreRequest {
-                generation: None,
-                key,
-            })
-            .await;
-
-        Ok(())
-    }
-
     /// Get the short_channel_id for a channel, needed for listforwards queries.
     /// Falls back to alias.local for unconfirmed JIT channels.
-    async fn get_channel_scid(&self, channel_id: &str) -> Result<Option<ShortChannelId>> {
+    pub async fn get_channel_scid(
+        &self,
+        channel_id: &str,
+    ) -> Result<Option<cln_rpc::primitives::ShortChannelId>> {
         let mut rpc = self.create_rpc().await?;
         let peers = rpc
             .call_typed(&ListpeerchannelsRequest {
@@ -199,15 +156,60 @@ impl ClnApiRpc {
         }
         Ok(None)
     }
+
+    pub async fn unreserve_inputs(&self, psbt: &str) -> Result<()> {
+        let mut rpc = self.create_rpc().await?;
+        rpc.call_typed(&UnreserveinputsRequest {
+            reserve: None,
+            psbt: psbt.to_string(),
+        })
+        .await
+        .with_context(|| "calling unreserveinputs")?;
+        Ok(())
+    }
 }
+
+// ---------------------------------------------------------------------------
+// ClnActionExecutor — implements ActionExecutor
+// ---------------------------------------------------------------------------
 
 /// Converts msat to sat, rounding up to avoid underfunding.
 fn msat_to_sat_ceil(msat: u64) -> u64 {
     msat.div_ceil(1000)
 }
 
+#[derive(Clone)]
+pub struct ClnActionExecutor {
+    rpc: ClnRpcClient,
+}
+
+impl ClnActionExecutor {
+    pub fn new(rpc: ClnRpcClient) -> Self {
+        Self { rpc }
+    }
+
+    async fn cleanup_failed_funding(&self, peer_id: &PublicKey, psbt: &str) {
+        if let Err(e) = self.rpc.unreserve_inputs(psbt).await {
+            warn!("cleanup: unreserveinputs for psbt={psbt} failed: {e}");
+        }
+        if let Err(e) = self.cancel_fundchannel(peer_id).await {
+            warn!("cleanup: fundchannel_cancel failed: {e}");
+        }
+    }
+
+    async fn cancel_fundchannel(&self, peer_id: &PublicKey) -> Result<()> {
+        let mut rpc = self.rpc.create_rpc().await?;
+        rpc.call_typed(&FundchannelCancelRequest {
+            id: peer_id.to_owned(),
+        })
+        .await
+        .with_context(|| "calling fundchannel_cancel")?;
+        Ok(())
+    }
+}
+
 #[async_trait]
-impl ActionExecutor for ClnApiRpc {
+impl ActionExecutor for ClnActionExecutor {
     async fn fund_channel(
         &self,
         peer_id: String,
@@ -219,10 +221,10 @@ impl ActionExecutor for ClnApiRpc {
             .with_context(|| format!("parsing peer_id '{peer_id}'"))?;
         let channel_sat = msat_to_sat_ceil(channel_size.msat());
 
-        self.connect_with_retry(&peer_id, Duration::from_secs(90))
+        self.rpc.connect_with_retry(&peer_id, Duration::from_secs(90))
             .await?;
 
-        let mut rpc = self.create_rpc().await?;
+        let mut rpc = self.rpc.create_rpc().await?;
         let start_res = rpc
             .call_typed(&FundchannelStartRequest {
                 id: pk,
@@ -240,7 +242,7 @@ impl ActionExecutor for ClnApiRpc {
         let funding_address = start_res.funding_address;
 
         // Reserve input and add to tx
-        let mut rpc = self.create_rpc().await?;
+        let mut rpc = self.rpc.create_rpc().await?;
         let fundpsbt_res = match rpc
             .call_typed(&FundpsbtRequest {
                 satoshi: AmountOrAll::Amount(Amount::from_sat(channel_sat)),
@@ -297,6 +299,7 @@ impl ActionExecutor for ClnApiRpc {
         let channel_id = complete_res.channel_id;
 
         if let Err(e) = self
+            .rpc
             .poll_channel_ready(
                 &channel_id,
                 Duration::from_secs(120),
@@ -320,7 +323,7 @@ impl ActionExecutor for ClnApiRpc {
         let sha = channel_id
             .parse::<Sha256>()
             .with_context(|| format!("parsing channel_id '{channel_id}'"))?;
-        let mut rpc = self.create_rpc().await?;
+        let mut rpc = self.rpc.create_rpc().await?;
         let list_res = rpc
             .call_typed(&ListpeerchannelsRequest {
                 channel_id: Some(sha),
@@ -344,7 +347,7 @@ impl ActionExecutor for ClnApiRpc {
             }
         }
 
-        let mut rpc = self.create_rpc().await?;
+        let mut rpc = self.rpc.create_rpc().await?;
         let sign_res = rpc
             .call_typed(&SignpsbtRequest {
                 psbt: funding_psbt,
@@ -376,7 +379,7 @@ impl ActionExecutor for ClnApiRpc {
         }
 
         let close_res = {
-            let mut rpc = self.create_rpc().await?;
+            let mut rpc = self.rpc.create_rpc().await?;
             rpc.call_typed(&CloseRequest {
                 destination: None,
                 fee_negotiation_step: None,
@@ -394,7 +397,7 @@ impl ActionExecutor for ClnApiRpc {
             warn!("abandon_session: close failed for channel_id={channel_id}: {e}");
         }
 
-        let unreserve_res = self.unreserve_inputs(&funding_psbt).await;
+        let unreserve_res = self.rpc.unreserve_inputs(&funding_psbt).await;
         if let Err(e) = &unreserve_res {
             warn!("abandon_session: unreserveinputs failed for funding_psbt={funding_psbt}: {e}");
         }
@@ -412,7 +415,7 @@ impl ActionExecutor for ClnApiRpc {
     async fn disconnect(&self, peer_id: String) -> anyhow::Result<()> {
         let pk = PublicKey::from_str(&peer_id)
             .with_context(|| format!("parsing peer_id '{peer_id}'"))?;
-        let mut rpc = self.create_rpc().await?;
+        let mut rpc = self.rpc.create_rpc().await?;
         let _ = rpc
             .call_typed(&DisconnectRequest {
                 id: pk,
@@ -427,12 +430,47 @@ impl ActionExecutor for ClnApiRpc {
         let sha = channel_id
             .parse::<Sha256>()
             .with_context(|| format!("parsing channel_id '{channel_id}'"))?;
-        self.check_channel_normal(&sha).await
+        self.rpc.check_channel_normal(&sha).await
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ClnDatastore — implements DatastoreProvider
+// ---------------------------------------------------------------------------
+
+#[derive(Clone)]
+pub struct ClnDatastore {
+    rpc: ClnRpcClient,
+}
+
+impl ClnDatastore {
+    pub fn new(rpc: ClnRpcClient) -> Self {
+        Self { rpc }
+    }
+
+    async fn del_buy_request(&self, scid: &ShortChannelId) -> Result<()> {
+        let mut rpc = self.rpc.create_rpc().await?;
+        let key = vec![
+            DS_MAIN_KEY.to_string(),
+            DS_SUB_KEY.to_string(),
+            DS_SESSIONS_KEY.to_string(),
+            DS_ACTIVE_KEY.to_string(),
+            scid.to_string(),
+        ];
+
+        let _ = rpc
+            .call_typed(&DeldatastoreRequest {
+                generation: None,
+                key,
+            })
+            .await;
+
+        Ok(())
     }
 }
 
 #[async_trait]
-impl DatastoreProvider for ClnApiRpc {
+impl DatastoreProvider for ClnDatastore {
     async fn store_buy_request(
         &self,
         scid: &ShortChannelId,
@@ -442,7 +480,7 @@ impl DatastoreProvider for ClnApiRpc {
         channel_capacity_msat: &Msat,
     ) -> Result<DatastoreEntry> {
         let created_at = chrono::Utc::now();
-        let mut rpc = self.create_rpc().await?;
+        let mut rpc = self.rpc.create_rpc().await?;
         #[derive(Serialize)]
         struct BorrowedDatastoreEntry<'a> {
             peer_id: &'a PublicKey,
@@ -516,7 +554,7 @@ impl DatastoreProvider for ClnApiRpc {
     }
 
     async fn get_buy_request(&self, scid: &ShortChannelId) -> Result<DatastoreEntry> {
-        let mut rpc = self.create_rpc().await?;
+        let mut rpc = self.rpc.create_rpc().await?;
         let key = vec![
             DS_MAIN_KEY.to_string(),
             DS_SUB_KEY.to_string(),
@@ -537,7 +575,7 @@ impl DatastoreProvider for ClnApiRpc {
 
     async fn save_session(&self, scid: &ShortChannelId, entry: &DatastoreEntry) -> Result<()> {
         let json_str = serde_json::to_string(entry)?;
-        let mut rpc = self.create_rpc().await?;
+        let mut rpc = self.rpc.create_rpc().await?;
         rpc.call_typed(&DatastoreRequest {
             generation: None,
             hex: None,
@@ -572,7 +610,7 @@ impl DatastoreProvider for ClnApiRpc {
         };
         let json_str = serde_json::to_string(&finalized)?;
 
-        let mut rpc = self.create_rpc().await?;
+        let mut rpc = self.rpc.create_rpc().await?;
         let key = vec![
             DS_MAIN_KEY.to_string(),
             DS_SUB_KEY.to_string(),
@@ -595,7 +633,7 @@ impl DatastoreProvider for ClnApiRpc {
     }
 
     async fn list_active_sessions(&self) -> Result<Vec<(ShortChannelId, DatastoreEntry)>> {
-        let mut rpc = self.create_rpc().await?;
+        let mut rpc = self.rpc.create_rpc().await?;
         let prefix = vec![
             DS_MAIN_KEY.to_string(),
             DS_SUB_KEY.to_string(),
@@ -622,31 +660,25 @@ impl DatastoreProvider for ClnApiRpc {
     }
 }
 
-#[async_trait]
-impl Lsps2PolicyProvider for ClnApiRpc {
-    async fn get_info(
-        &self,
-        request: &Lsps2PolicyGetInfoRequest,
-    ) -> Result<Lsps2PolicyGetInfoResponse> {
-        let mut rpc = self.create_rpc().await?;
-        rpc.call_raw("lsps2-policy-getpolicy", request)
-            .await
-            .context("failed to call lsps2-policy-getpolicy")
-    }
+// ---------------------------------------------------------------------------
+// ClnBlockheight — implements BlockheightProvider
+// ---------------------------------------------------------------------------
 
-    async fn buy(&self, request: &Lsps2PolicyBuyRequest) -> Result<Lsps2PolicyBuyResponse> {
-        let mut rpc = self.create_rpc().await?;
-        rpc.call_raw("lsps2-policy-buy", request)
-            .await
-            .map_err(anyhow::Error::new)
-            .with_context(|| "calling lsps2-policy-buy")
+#[derive(Clone)]
+pub struct ClnBlockheight {
+    rpc: ClnRpcClient,
+}
+
+impl ClnBlockheight {
+    pub fn new(rpc: ClnRpcClient) -> Self {
+        Self { rpc }
     }
 }
 
 #[async_trait]
-impl BlockheightProvider for ClnApiRpc {
+impl BlockheightProvider for ClnBlockheight {
     async fn get_blockheight(&self) -> Result<Blockheight> {
-        let mut rpc = self.create_rpc().await?;
+        let mut rpc = self.rpc.create_rpc().await?;
         let info = rpc
             .call_typed(&GetinfoRequest {})
             .await
@@ -656,11 +688,62 @@ impl BlockheightProvider for ClnApiRpc {
     }
 }
 
+// ---------------------------------------------------------------------------
+// ClnPolicyProvider — implements Lsps2PolicyProvider
+// ---------------------------------------------------------------------------
+
+#[derive(Clone)]
+pub struct ClnPolicyProvider {
+    rpc: ClnRpcClient,
+}
+
+impl ClnPolicyProvider {
+    pub fn new(rpc: ClnRpcClient) -> Self {
+        Self { rpc }
+    }
+}
+
 #[async_trait]
-impl RecoveryProvider for ClnApiRpc {
+impl Lsps2PolicyProvider for ClnPolicyProvider {
+    async fn get_info(
+        &self,
+        request: &Lsps2PolicyGetInfoRequest,
+    ) -> Result<Lsps2PolicyGetInfoResponse> {
+        let mut rpc = self.rpc.create_rpc().await?;
+        rpc.call_raw("lsps2-policy-getpolicy", request)
+            .await
+            .context("failed to call lsps2-policy-getpolicy")
+    }
+
+    async fn buy(&self, request: &Lsps2PolicyBuyRequest) -> Result<Lsps2PolicyBuyResponse> {
+        let mut rpc = self.rpc.create_rpc().await?;
+        rpc.call_raw("lsps2-policy-buy", request)
+            .await
+            .map_err(anyhow::Error::new)
+            .with_context(|| "calling lsps2-policy-buy")
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ClnRecoveryProvider — implements RecoveryProvider
+// ---------------------------------------------------------------------------
+
+#[derive(Clone)]
+pub struct ClnRecoveryProvider {
+    rpc: ClnRpcClient,
+}
+
+impl ClnRecoveryProvider {
+    pub fn new(rpc: ClnRpcClient) -> Self {
+        Self { rpc }
+    }
+}
+
+#[async_trait]
+impl RecoveryProvider for ClnRecoveryProvider {
     async fn get_forward_activity(&self, channel_id: &str) -> Result<ForwardActivity> {
         // Check historical forwards via listforwards using out_channel filter.
-        let scid = match self.get_channel_scid(channel_id).await? {
+        let scid = match self.rpc.get_channel_scid(channel_id).await? {
             Some(s) => s,
             None => {
                 // Channel has no scid yet — no forwards possible.
@@ -668,7 +751,7 @@ impl RecoveryProvider for ClnApiRpc {
             }
         };
 
-        let mut rpc = self.create_rpc().await?;
+        let mut rpc = self.rpc.create_rpc().await?;
         let fwd_res = rpc
             .call_typed(&ListforwardsRequest {
                 in_channel: None,
@@ -710,7 +793,7 @@ impl RecoveryProvider for ClnApiRpc {
         let sha = channel_id
             .parse::<Sha256>()
             .with_context(|| format!("parsing channel_id '{channel_id}'"))?;
-        let mut rpc = self.create_rpc().await?;
+        let mut rpc = self.rpc.create_rpc().await?;
         let list_res = rpc
             .call_typed(&ListpeerchannelsRequest {
                 channel_id: Some(sha),
@@ -740,8 +823,44 @@ impl RecoveryProvider for ClnApiRpc {
     }
 
     async fn close_and_unreserve(&self, channel_id: &str, funding_psbt: &str) -> Result<()> {
-        self.abandon_session(channel_id.to_string(), funding_psbt.to_string())
+        let sha = channel_id.parse::<Sha256>()
+            .with_context(|| format!("parsing channel_id '{channel_id}'"))?;
+        if !self.rpc.check_channel_normal(&sha).await.unwrap_or(false) {
+            return Ok(());
+        }
+
+        let close_res = {
+            let mut rpc = self.rpc.create_rpc().await?;
+            rpc.call_typed(&CloseRequest {
+                destination: None,
+                fee_negotiation_step: None,
+                force_lease_closed: None,
+                unilateraltimeout: Some(1),
+                wrong_funding: None,
+                feerange: None,
+                id: channel_id.to_string(),
+            })
             .await
+            .with_context(|| format!("calling close for channel_id={channel_id}"))
+        };
+
+        if let Err(e) = &close_res {
+            warn!("close_and_unreserve: close failed for channel_id={channel_id}: {e}");
+        }
+
+        let unreserve_res = self.rpc.unreserve_inputs(funding_psbt).await;
+        if let Err(e) = &unreserve_res {
+            warn!("close_and_unreserve: unreserveinputs failed: {e}");
+        }
+
+        match (close_res, unreserve_res) {
+            (Ok(_), Ok(())) => Ok(()),
+            (Err(e), Ok(())) => Err(e),
+            (Ok(_), Err(e)) => Err(e),
+            (Err(ce), Err(ue)) => Err(anyhow::anyhow!(
+                "close_and_unreserve failed: close: {ce}; unreserve: {ue}"
+            )),
+        }
     }
 
     async fn wait_for_forward_resolution(
@@ -750,11 +869,11 @@ impl RecoveryProvider for ClnApiRpc {
         from_index: u64,
     ) -> Result<(ForwardActivity, u64)> {
         // Get the scid for this channel so we can match wait responses.
-        let scid = self.get_channel_scid(channel_id).await?;
+        let scid = self.rpc.get_channel_scid(channel_id).await?;
 
         let mut next_index = from_index + 1;
         loop {
-            let mut rpc = self.create_rpc().await?;
+            let mut rpc = self.rpc.create_rpc().await?;
             let wait_res = rpc
                 .call_typed(&WaitRequest {
                     subsystem: WaitSubsystem::FORWARDS,
@@ -802,6 +921,10 @@ impl RecoveryProvider for ClnApiRpc {
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// Datastore helpers (standalone)
+// ---------------------------------------------------------------------------
 
 #[derive(Debug)]
 pub enum DsError {
