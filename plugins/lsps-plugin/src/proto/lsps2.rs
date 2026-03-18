@@ -337,7 +337,7 @@ impl PolicyOpeningFeeParams {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DatastoreEntry {
-    pub peer_id: cln_rpc::primitives::PublicKey,
+    pub peer_id: bitcoin::secp256k1::PublicKey,
     pub opening_fee_params: OpeningFeeParams,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expected_payment_size: Option<Msat>,

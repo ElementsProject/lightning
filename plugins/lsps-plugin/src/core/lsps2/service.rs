@@ -49,30 +49,42 @@ where
     }
 }
 
-pub struct Lsps2ServiceHandler<A> {
-    pub api: Arc<A>,
+pub struct Lsps2ServiceHandler<D, B, P> {
+    pub datastore: Arc<D>,
+    pub blockheight: Arc<B>,
+    pub policy: Arc<P>,
     pub promise_secret: [u8; 32],
 }
 
-impl<A> Lsps2ServiceHandler<A> {
-    pub fn new(api: Arc<A>, promise_seret: &[u8; 32]) -> Self {
+impl<D, B, P> Lsps2ServiceHandler<D, B, P> {
+    pub fn new(
+        datastore: Arc<D>,
+        blockheight: Arc<B>,
+        policy: Arc<P>,
+        promise_secret: &[u8; 32],
+    ) -> Self {
         Lsps2ServiceHandler {
-            api,
-            promise_secret: promise_seret.to_owned(),
+            datastore,
+            blockheight,
+            policy,
+            promise_secret: promise_secret.to_owned(),
         }
     }
 }
 
 #[async_trait]
-impl<A: DatastoreProvider + BlockheightProvider + Lsps2PolicyProvider + 'static> Lsps2Handler
-    for Lsps2ServiceHandler<A>
+impl<D, B, P> Lsps2Handler for Lsps2ServiceHandler<D, B, P>
+where
+    D: DatastoreProvider + 'static,
+    B: BlockheightProvider + 'static,
+    P: Lsps2PolicyProvider + 'static,
 {
     async fn handle_get_info(
         &self,
         request: Lsps2GetInfoRequest,
     ) -> std::result::Result<Lsps2GetInfoResponse, RpcError> {
         let res_data = self
-            .api
+            .policy
             .get_info(&Lsps2PolicyGetInfoRequest {
                 token: request.token.clone(),
             })
@@ -108,7 +120,7 @@ impl<A: DatastoreProvider + BlockheightProvider + Lsps2PolicyProvider + 'static>
 
         // Generate a tmp scid to identify jit channel request in htlc.
         let blockheight = self
-            .api
+            .blockheight
             .get_blockheight()
             .await
             .map_err(|_| RpcError::internal_error("internal error"))?;
@@ -118,7 +130,7 @@ impl<A: DatastoreProvider + BlockheightProvider + Lsps2PolicyProvider + 'static>
         let jit_scid = ShortChannelId::generate_jit(blockheight, 12); // Approximately 2 hours in the future.
 
         let ch_cap_res = self
-            .api
+            .policy
             .buy(&Lsps2PolicyBuyRequest {
                 opening_fee_params: fee_params.clone(),
                 payment_size_msat: request.payment_size_msat,
@@ -131,7 +143,7 @@ impl<A: DatastoreProvider + BlockheightProvider + Lsps2PolicyProvider + 'static>
             .ok_or_else(|| RpcError::internal_error("channel capacity denied by policy"))?;
 
         let _entry = self
-            .api
+            .datastore
             .store_buy_request(
                 &jit_scid,
                 &peer_id,
@@ -406,8 +418,9 @@ mod tests {
         }
     }
 
-    fn handler(api: MockApi) -> Lsps2ServiceHandler<MockApi> {
-        Lsps2ServiceHandler::new(Arc::new(api), &test_secret())
+    fn handler(api: MockApi) -> Lsps2ServiceHandler<MockApi, MockApi, MockApi> {
+        let api = Arc::new(api);
+        Lsps2ServiceHandler::new(api.clone(), api.clone(), api, &test_secret())
     }
 
     #[tokio::test]

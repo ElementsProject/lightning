@@ -7,18 +7,24 @@ rust-version.workspace = true
 [[bin]]
 name = "cln-lsps-client"
 path = "src/client.rs"
+required-features = ["cln"]
 
 [[bin]]
 name = "cln-lsps-service"
 path = "src/service.rs"
+required-features = ["cln"]
+
+[features]
+default = ["cln"]
+cln = ["cln-plugin", "cln-rpc"]
 
 [dependencies]
 anyhow = "1.0"
 async-trait = "0.1"
-bitcoin = "0.32.2"
+bitcoin = { version = "0.32", features = ["serde"] }
 chrono = { version = "0.4.42", features = ["serde"] }
-cln-plugin = { workspace = true }
-cln-rpc = { workspace = true }
+cln-plugin = { workspace = true, optional = true }
+cln-rpc = { workspace = true, optional = true }
 hex = "0.4"
 log = "0.4"
 rand = "0.10"

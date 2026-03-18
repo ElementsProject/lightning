@@ -71,7 +71,10 @@ impl<D: DatastoreProvider + 'static, A: ActionExecutor + Send + Sync + 'static>
                 }
 
                 (Some(channel_id), Some(funding_psbt)) => {
-                    let info = recovery.get_channel_recovery_info(channel_id).await?;
+                    let channel_id = channel_id.clone();
+                    let funding_psbt = funding_psbt.clone();
+
+                    let info = recovery.get_channel_recovery_info(&channel_id).await?;
 
                     if !info.exists {
                         self.datastore
@@ -80,12 +83,12 @@ impl<D: DatastoreProvider + 'static, A: ActionExecutor + Send + Sync + 'static>
                         continue;
                     }
 
-                    let activity = recovery.get_forward_activity(channel_id).await?;
+                    let activity = recovery.get_forward_activity(&channel_id).await?;
 
                     match activity {
                         ForwardActivity::NoForwards => {
                             recovery
-                                .close_and_unreserve(channel_id, funding_psbt)
+                                .close_and_unreserve(&channel_id, &funding_psbt)
                                 .await?;
                             let mut entry = entry;
                             entry.channel_id = None;
@@ -106,12 +109,13 @@ impl<D: DatastoreProvider + 'static, A: ActionExecutor + Send + Sync + 'static>
                                 entry.opening_fee_params.clone(),
                             );
 
+                            let forwards_updated_index = entry.forwards_updated_index;
                             let handle =
                                 SessionActor::spawn_recovered_session_actor(
                                     session,
                                     entry,
                                     initial_actions,
-                                    channel_id,
+                                    channel_id.clone(),
                                     self.executor.clone(),
                                     scid,
                                     self.datastore.clone(),
@@ -301,11 +305,10 @@ mod tests {
         ShortChannelId::from(999u64 << 40 | 9u64 << 16 | 9)
     }
 
-    fn test_peer_id() -> cln_rpc::primitives::PublicKey {
-        serde_json::from_value(serde_json::json!(
-            "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
-        ))
-        .unwrap()
+    fn test_peer_id() -> bitcoin::secp256k1::PublicKey {
+        "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
+            .parse()
+            .unwrap()
     }
 
     fn opening_fee_params(min_fee_msat: u64) -> OpeningFeeParams {
