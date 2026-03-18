@@ -355,6 +355,9 @@ pub struct DatastoreEntry {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     pub forwards_updated_index: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub payment_hash: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

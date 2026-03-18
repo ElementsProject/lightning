@@ -9,6 +9,7 @@ use cln_lsps::{
     core::{
         lsps2::{
             actor::HtlcResponse,
+            event_sink::NoopEventSink,
             manager::{PaymentHash, SessionConfig, SessionManager},
             provider::{DatastoreProvider, RecoveryProvider},
             service::Lsps2ServiceHandler,
@@ -67,6 +68,7 @@ impl State {
                 collect_timeout_secs,
                 ..SessionConfig::default()
             },
+            Arc::new(NoopEventSink),
         ));
         Self {
             lsps_service,
