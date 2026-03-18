@@ -5061,15 +5061,9 @@ static void handle_stfu_req(struct peer *peer, const u8 *inmsg)
 	peer->stfu_initiator = LOCAL;
 	peer->want_stfu = true;
 
-	if (!maybe_send_stfu(peer)) {
-		msg = towire_channeld_splice_state_error(NULL, tal_fmt(tmpctx,
-							 "Pending updates"
-							 " prevent us from STFU"
-							 " mode at this"
-							 " time."));
-		wire_sync_write(MASTER_FD, take(msg));
-		return;
-	}
+	/* If the `stfu` cant be sent now it will be sent when the current
+	 * pending actions are completed. */
+	maybe_send_stfu(peer);
 }
 
 static void handle_abort_req(struct peer *peer, const u8 *inmsg)
