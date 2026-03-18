@@ -15,10 +15,7 @@ use bitcoin::hashes::sha256::Hash as PaymentHash;
 use bitcoin::hashes::Hash;
 use log::{debug, warn};
 use std::{collections::HashMap, sync::Arc, time::Duration};
-use tokio::{
-    sync::{mpsc, oneshot},
-    task::JoinHandle,
-};
+use tokio::sync::{mpsc, oneshot};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HtlcResponse {
@@ -38,7 +35,6 @@ enum ActorInput {
         part: PaymentPart,
         reply_tx: oneshot::Sender<HtlcResponse>,
     },
-    CollectTimeout,
     ChannelReady {
         channel_id: String,
         funding_psbt: String,
@@ -129,8 +125,8 @@ pub struct SessionActor<A, D> {
     entry: DatastoreEntry,
     inbox: mpsc::Receiver<ActorInput>,
     pending_htlcs: HashMap<u64, oneshot::Sender<HtlcResponse>>,
-    collect_timeout_handle: Option<JoinHandle<()>>,
-    channel_poll_handle: Option<JoinHandle<()>>,
+    collect_fired: bool,
+    channel_poll_handle: Option<tokio::task::JoinHandle<()>>,
     self_send: mpsc::Sender<ActorInput>,
     executor: A,
     peer_id: String,
@@ -159,7 +155,7 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
             entry,
             inbox,
             pending_htlcs: HashMap::new(),
-            collect_timeout_handle: None,
+            collect_fired: false,
             channel_poll_handle: None,
             self_send: tx.clone(),
             executor,
@@ -193,7 +189,7 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
             entry,
             inbox,
             pending_htlcs: HashMap::new(),
-            collect_timeout_handle: None,
+            collect_fired: true,
             channel_poll_handle: None,
             self_send: tx,
             executor,
@@ -234,18 +230,88 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
         }
     }
 
-    fn start_collect_timeout(&mut self) {
-        let tx = self.self_send.clone();
-        let timeout = Duration::from_secs(self.collect_timeout_secs);
-        self.collect_timeout_handle = Some(tokio::spawn(async move {
-            tokio::time::sleep(timeout).await;
-            let _ = tx.send(ActorInput::CollectTimeout).await;
-        }));
+    async fn convert_input(&mut self, input: ActorInput) -> Option<SessionInput> {
+        match input {
+            ActorInput::AddPart { part, reply_tx } => {
+                let htlc_id = part.htlc_id;
+                self.pending_htlcs.insert(htlc_id, reply_tx);
+                Some(SessionInput::AddPart { part })
+            }
+            ActorInput::ChannelReady {
+                channel_id,
+                funding_psbt,
+            } => {
+                self.entry.channel_id = Some(channel_id.clone());
+                self.entry.funding_psbt = Some(funding_psbt.clone());
+                if let Err(e) = self.datastore.save_session(&self.scid, &self.entry).await {
+                    warn!("save_session failed on ChannelReady: {e}");
+                }
+                Some(SessionInput::ChannelReady {
+                    channel_id,
+                    funding_psbt,
+                })
+            }
+            ActorInput::FundingFailed => Some(SessionInput::FundingFailed),
+            ActorInput::PaymentSettled {
+                preimage,
+                updated_index,
+            } => {
+                if let Some(index) = updated_index {
+                    self.entry.forwards_updated_index = Some(index);
+                }
+                if let Some(ref pre) = preimage {
+                    self.entry.preimage = Some(pre.clone());
+                }
+                if updated_index.is_some() || preimage.is_some() {
+                    if let Err(e) = self.datastore.save_session(&self.scid, &self.entry).await {
+                        warn!("save_session failed on PaymentSettled: {e}");
+                    }
+                }
+                Some(SessionInput::PaymentSettled)
+            }
+            ActorInput::PaymentFailed { updated_index } => {
+                if let Some(index) = updated_index {
+                    self.entry.forwards_updated_index = Some(index);
+                    if let Err(e) = self.datastore.save_session(&self.scid, &self.entry).await {
+                        warn!("save_session failed on PaymentFailed: {e}");
+                    }
+                }
+                Some(SessionInput::PaymentFailed)
+            }
+            ActorInput::FundingBroadcasted { txid } => {
+                self.entry.funding_txid = Some(txid);
+                if let Err(e) = self.datastore.save_session(&self.scid, &self.entry).await {
+                    warn!("save_session failed on FundingBroadcasted: {e}");
+                }
+                Some(SessionInput::FundingBroadcasted)
+            }
+            ActorInput::NewBlock { height } => Some(SessionInput::NewBlock { height }),
+            ActorInput::ChannelClosed { channel_id } => {
+                Some(SessionInput::ChannelClosed { channel_id })
+            }
+        }
     }
 
-    fn cancel_collect_timeout(&mut self) {
-        if let Some(handle) = self.collect_timeout_handle.take() {
-            handle.abort();
+    /// Apply a session input to the FSM and execute resulting actions.
+    /// Returns `true` if the session reached a terminal state.
+    fn apply_and_execute(&mut self, input: SessionInput) -> bool {
+        match self.session.apply(input) {
+            Ok(result) => {
+                self.dispatch_events(result.events);
+                for action in result.actions {
+                    self.execute_action(action);
+                }
+                self.session.is_terminal()
+            }
+            Err(e) => {
+                warn!("session FSM error: {e}");
+                if self.session.is_terminal() {
+                    self.release_pending_htlcs();
+                    true
+                } else {
+                    false
+                }
+            }
         }
     }
 
@@ -278,93 +344,31 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
     }
 
     async fn run(mut self) {
-        self.start_collect_timeout();
-        while let Some(input) = self.inbox.recv().await {
-            let input = match input {
-                ActorInput::AddPart { part, reply_tx } => {
-                    let htlc_id = part.htlc_id;
-                    self.pending_htlcs.insert(htlc_id, reply_tx);
-                    SessionInput::AddPart { part }
-                }
-                ActorInput::CollectTimeout => SessionInput::CollectTimeout,
-                ActorInput::ChannelReady {
-                    channel_id,
-                    funding_psbt,
-                } => {
-                    self.entry.channel_id = Some(channel_id.clone());
-                    self.entry.funding_psbt = Some(funding_psbt.clone());
-                    if let Err(e) = self.datastore.save_session(&self.scid, &self.entry).await {
-                        warn!("save_session failed on ChannelReady: {e}");
-                    }
-                    SessionInput::ChannelReady {
-                        channel_id,
-                        funding_psbt,
-                    }
-                }
-                ActorInput::FundingFailed => SessionInput::FundingFailed,
-                ActorInput::PaymentSettled {
-                    preimage,
-                    updated_index,
-                } => {
-                    if let Some(index) = updated_index {
-                        self.entry.forwards_updated_index = Some(index);
-                    }
-                    if let Some(ref pre) = preimage {
-                        self.entry.preimage = Some(pre.clone());
-                    }
-                    if updated_index.is_some() || preimage.is_some() {
-                        if let Err(e) = self.datastore.save_session(&self.scid, &self.entry).await {
-                            warn!("save_session failed on PaymentSettled: {e}");
-                        }
-                    }
-                    SessionInput::PaymentSettled
-                }
-                ActorInput::PaymentFailed { updated_index } => {
-                    if let Some(index) = updated_index {
-                        self.entry.forwards_updated_index = Some(index);
-                        if let Err(e) = self.datastore.save_session(&self.scid, &self.entry).await {
-                            warn!("save_session failed on PaymentFailed: {e}");
-                        }
-                    }
-                    SessionInput::PaymentFailed
-                }
-                ActorInput::FundingBroadcasted { txid } => {
-                    self.entry.funding_txid = Some(txid);
-                    if let Err(e) = self.datastore.save_session(&self.scid, &self.entry).await {
-                        warn!("save_session failed on FundingBroadcasted: {e}");
-                    }
-                    SessionInput::FundingBroadcasted
-                }
-                ActorInput::NewBlock { height } => SessionInput::NewBlock { height },
-                ActorInput::ChannelClosed { channel_id } => {
-                    SessionInput::ChannelClosed { channel_id }
-                }
-            };
+        let collect_deadline = tokio::time::sleep(
+            Duration::from_secs(self.collect_timeout_secs),
+        );
+        tokio::pin!(collect_deadline);
 
-            match self.session.apply(input) {
-                Ok(result) => {
-                    self.dispatch_events(result.events);
-
-                    for action in result.actions {
-                        self.execute_action(action);
-                    }
-
-                    if self.session.is_terminal() {
+        loop {
+            tokio::select! {
+                input = self.inbox.recv() => {
+                    let Some(input) = input else { break };
+                    let Some(session_input) = self.convert_input(input).await else {
+                        continue;
+                    };
+                    if self.apply_and_execute(session_input) {
                         break;
                     }
                 }
-                Err(e) => {
-                    warn!("session FSM error: {e}");
-                    if self.session.is_terminal() {
-                        self.release_pending_htlcs();
+                _ = &mut collect_deadline, if !self.collect_fired => {
+                    self.collect_fired = true;
+                    if self.apply_and_execute(SessionInput::CollectTimeout) {
                         break;
                     }
                 }
             }
         }
 
-        // We exited the loop, just continue all held HTLCs and let the handler
-        // decide.
         self.release_pending_htlcs();
         Self::finalize(&self.session, &self.datastore, self.scid).await;
     }
@@ -462,58 +466,20 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
         loop {
             match self.inbox.recv().await {
                 Some(actor_input) => {
-                    let session_input = match actor_input {
-                        ActorInput::PaymentSettled {
-                            preimage,
-                            updated_index,
-                        } => {
-                            if let Some(index) = updated_index {
-                                self.entry.forwards_updated_index = Some(index);
-                            }
-                            if let Some(ref pre) = preimage {
-                                self.entry.preimage = Some(pre.clone());
-                            }
-                            if updated_index.is_some() || preimage.is_some() {
-                                if let Err(e) = self.datastore.save_session(&self.scid, &self.entry).await {
-                                    warn!("save_session failed on PaymentSettled: {e}");
-                                }
-                            }
-                            SessionInput::PaymentSettled
-                        }
-                        ActorInput::PaymentFailed { updated_index } => {
-                            if let Some(index) = updated_index {
-                                self.entry.forwards_updated_index = Some(index);
-                                if let Err(e) = self.datastore.save_session(&self.scid, &self.entry).await {
-                                    warn!("save_session failed on PaymentFailed: {e}");
-                                }
-                            }
-                            SessionInput::PaymentFailed
-                        }
-                        ActorInput::FundingBroadcasted { txid } => {
-                            self.entry.funding_txid = Some(txid);
-                            if let Err(e) = self.datastore.save_session(&self.scid, &self.entry).await {
-                                warn!("save_session failed on FundingBroadcasted: {e}");
-                            }
-                            SessionInput::FundingBroadcasted
+                    // Only process the three shared persistence arms
+                    let session_input = match &actor_input {
+                        ActorInput::PaymentSettled { .. }
+                        | ActorInput::PaymentFailed { .. }
+                        | ActorInput::FundingBroadcasted { .. } => {
+                            self.convert_input(actor_input).await
                         }
                         _ => continue,
                     };
 
-                    match self.session.apply(session_input) {
-                        Ok(result) => {
-                            self.dispatch_events(result.events);
-                            for action in result.actions {
-                                self.execute_action(action);
-                            }
-                        }
-                        Err(e) => {
-                            warn!("FSM error in recovered session: {e}");
+                    if let Some(input) = session_input {
+                        if self.apply_and_execute(input) {
                             break;
                         }
-                    }
-
-                    if self.session.is_terminal() {
-                        break;
                     }
                 }
                 None => break,
@@ -540,9 +506,9 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
                 }
             }
             SessionAction::ForwardHtlcs { parts, channel_id } => {
-                // First time forwarding HTLCs, we cancel the collect timeout
-                // and start polling the channel for closure:
-                self.cancel_collect_timeout();
+                // First time forwarding HTLCs, we mark the collect timeout as
+                // fired and start polling the channel for closure:
+                self.collect_fired = true;
                 self.start_channel_poll(channel_id.clone());
                 for part in &parts {
                     if let Some(reply_tx) = self.pending_htlcs.remove(&part.htlc_id) {
