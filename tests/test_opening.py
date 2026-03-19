@@ -2922,3 +2922,44 @@ def test_zeroconf_withhold(node_factory, bitcoind, stay_withheld, mutual_close):
             wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['state'] == 'CLOSINGD_COMPLETE')
         else:
             wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['state'] == 'AWAITING_UNILATERAL')
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v2')
+def test_openchannel_wrong_psbt_doesnt_crash_peer(node_factory, bitcoind):
+    """Test passing a wrong PSBT to openchannel_update must not crash the peer.
+    """
+    l1, l2 = node_factory.get_nodes(2, opts={'may_reconnect': True})
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    chan_amount = 100000
+    amount_btc = 0.02
+
+    # Fund l1 with two separate UTXOs so we can build two genuinely different PSBTs
+    bitcoind.rpc.sendmany("", {
+        l1.rpc.newaddr()['p2tr']: amount_btc,
+        l1.rpc.newaddr()['p2tr']: amount_btc,
+    })
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) >= 2)
+
+    utxos = l1.rpc.listfunds()['outputs']
+    utxo_a = '{}:{}'.format(utxos[0]['txid'], utxos[0]['output'])
+    utxo_b = '{}:{}'.format(utxos[1]['txid'], utxos[1]['output'])
+
+    # Build two PSBTs spending different UTXOs
+    psbt_a_res = l1.rpc.utxopsbt(chan_amount, 'opening', 250, [utxo_a],
+                                  excess_as_change=True)
+    psbt_b = l1.rpc.utxopsbt(chan_amount, 'opening', 250, [utxo_b],
+                              excess_as_change=True)['psbt']
+    funding_feerate = '{}perkw'.format(psbt_a_res['feerate_per_kw'])
+
+    init = l1.rpc.openchannel_init(l2.info['id'], chan_amount, psbt_a_res['psbt'],
+                                   funding_feerate=funding_feerate)
+    chan_id = init['channel_id']
+
+    # Pass the wrong PSBT (different inputs).
+    l1.rpc.call('openchannel_update', {'channel_id': chan_id, 'psbt': psbt_b})
+
+    # AFTER FIXME:l2 must still be running and responsive
+    # assert l2.rpc.getinfo()['id'] == l2.info['id']
