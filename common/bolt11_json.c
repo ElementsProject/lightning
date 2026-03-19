@@ -28,7 +28,7 @@ static void json_add_fallback(struct json_stream *response,
 		json_add_string(response, "type", "P2TR");
 	}
 
-	addr = encode_scriptpubkey_to_addr(tmpctx, chain, fallback);
+	addr = encode_scriptpubkey_to_addr(tmpctx, chain, fallback, fallback_len);
 	if (addr)
 		json_add_string(response, "addr", addr);
 	json_add_hex_talarr(response, "hex", fallback);
