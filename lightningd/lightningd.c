@@ -616,10 +616,11 @@ static void free_all_channels(struct lightningd *ld)
 	 * given a destructor (`destroy_peer`) which removes itself from the
 	 * hashtable.
 	 *
-	 * Deletion from a hashtable is allowed, but it does mean we could
-	 * skip entries in iteration.  Hence we repeat until empty!
+	 * Deletion from a hashtable during iteration is safe and consistent.
+	 * Adding is forbidden, hence the lock() function which causes that to
+	 * assert.
 	 */
-again:
+	peer_node_id_map_lock(ld->peers);
 	for (p = peer_node_id_map_first(ld->peers, &it);
 	     p;
 	     p = peer_node_id_map_next(ld->peers, &it)) {
@@ -644,8 +645,7 @@ again:
 		/* Removes itself from htable as we free it */
 		tal_free(p);
 	}
-	if (peer_node_id_map_first(ld->peers, &it))
-		goto again;
+	peer_node_id_map_unlock(ld->peers);
 
 	/*~ Commit the transaction.  Note that the db is actually
 	 * single-threaded, so commits never fail and we don't need
