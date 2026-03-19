@@ -2,6 +2,7 @@ import logging
 import pytest
 import threading
 import time
+from utils import wait_for, only_one
 from pyln.client import RpcError
 from fixtures import *  # noqa: F401,F403
 from flask import Flask, jsonify
@@ -427,3 +428,63 @@ def test_bkpr_currency_dynamic(node_factory, fake_rateserver):
     events = l1.rpc.bkpr_listaccountevents()["events"]
     assert events
     assert all("currencyrate" not in e for e in events)
+
+
+def test_bkpr_currencyrate_persisted(node_factory, fake_rateserver):
+    opts = {
+        "currencyrate-disable-source": [
+            "bitstamp",
+            "coinbase",
+            "coingecko",
+            "kraken",
+            "blockchain.info",
+            "coindesk",
+            "binance",
+        ],
+        "currencyrate-add-source": [
+            f"fast,{fake_rateserver['url']}/fast,price",
+            f"slow,{fake_rateserver['url']}/slow,price",
+        ],
+        "bkpr-currency": "USD",
+        'may_reconnect': True,
+    }
+    l1, l2 = node_factory.line_graph(2, opts=opts)
+
+    old_median = (fake_rateserver["state"]["fast"] + fake_rateserver["state"]["slow"]) / 2
+
+    inv = l2.rpc.invoice(100000, "test_bkpr_currencyrate_persisted", "desc")
+    l1.rpc.pay(inv["bolt11"])
+    # Make sure it's fully resolved so we get all events now.
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['htlcs'] == [])
+
+    events = l1.rpc.bkpr_listaccountevents()["events"]
+    assert events
+    for e in events:
+        assert e["currencyrate"] == old_median
+
+    l1.restart()
+    l1.connect(l2)
+
+    fake_rateserver["state"]["fast"] = 200_000_000
+    fake_rateserver["state"]["slow"] = 150_000_000
+    new_median = (fake_rateserver["state"]["fast"] + fake_rateserver["state"]["slow"]) / 2
+
+    new_events = l1.rpc.bkpr_listaccountevents()["events"]
+    assert new_events == events
+
+    # And we can add more.
+    inv2 = l2.rpc.invoice(100000, "test_bkpr_currencyrate_persisted2", "desc")
+    l1.rpc.pay(inv2["bolt11"])
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['htlcs'] == [])
+
+    new_events = l1.rpc.bkpr_listaccountevents()["events"]
+    assert new_events[:len(events)] == events
+    assert new_events[len(events):]
+
+    for e in new_events[len(events):]:
+        assert e["currencyrate"] == new_median
+
+    # Underlying check: they should all be human readable timestamp->rate.
+    rates = l1.rpc.listdatastore(['bookkeeper', 'currencyrate', 'USD'])['datastore']
+    assert {r['key'][3] for r in rates} == {str(e['timestamp']) for e in new_events}
+    assert {float(r['string']) for r in rates} == {old_median, new_median}
