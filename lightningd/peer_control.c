@@ -330,22 +330,18 @@ static enum watch_result funding_spent(struct channel *channel,
 				       const struct block *block);
 
 /* We coop-closed channel: if another inflight confirms, force close */
-static enum watch_result closed_inflight_depth_cb(struct lightningd *ld,
-						  const struct bitcoin_txid *txid,
-						  const struct bitcoin_tx *tx,
-						  unsigned int depth,
-						  struct channel_inflight *inflight)
+static void closed_inflight_splice_found(struct lightningd *ld,
+					 const struct bitcoin_tx *tx,
+					 u32 outnum,
+					 const struct txlocator *loc,
+					 struct channel_inflight *inflight)
 {
-	if (depth == 0)
-		return KEEP_WATCHING;
-
 	/* This is now the main tx. */
 	update_channel_from_inflight(ld, inflight->channel, inflight, false);
 	channel_fail_saw_onchain(inflight->channel,
 				 REASON_UNKNOWN,
 				 tx,
 				 "Inflight tx confirmed after mutual close");
-	return DELETE_WATCH;
 }
 
 void drop_to_chain(struct lightningd *ld, struct channel *channel,
@@ -490,9 +486,15 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 						&channel->funding)) {
 				continue;
 			}
-			watch_txid(inflight, ld->topology,
-				   &inflight->funding->outpoint.txid,
-				   closed_inflight_depth_cb, inflight);
+			const u8 *funding_wscript = bitcoin_redeem_2of2(tmpctx,
+									&channel->local_funding_pubkey,
+									inflight->funding->splice_remote_funding);
+			watch_scriptpubkey(inflight, ld->topology,
+					   take(scriptpubkey_p2wsh(NULL, funding_wscript)),
+					   &inflight->funding->outpoint,
+					   inflight->funding->total_funds,
+					   closed_inflight_splice_found,
+					   inflight);
 		}
 	}
 }
