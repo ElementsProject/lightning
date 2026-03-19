@@ -1871,8 +1871,7 @@ static bool run_tx_interactive(struct state *state,
 			if (is_elements(chainparams)) {
 				struct amount_asset asset;
 
-				bitcoin_tx_output_get_amount_sat(tx, outpoint.n,
-								 &amt);
+				amt = bitcoin_tx_output_get_amount_sat(tx, outpoint.n);
 
 				/* FIXME: persist asset tags */
 				asset = amount_sat_to_asset(&amt,
