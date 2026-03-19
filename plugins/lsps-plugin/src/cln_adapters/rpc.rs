@@ -2,8 +2,8 @@ use crate::{
     core::lsps2::{
         actor::ActionExecutor,
         provider::{
-            ChannelRecoveryInfo, DatastoreProvider,
-            ForwardActivity, Lsps2PolicyProvider, RecoveryProvider,
+            ChannelRecoveryInfo, DatastoreProvider, ForwardActivity, Lsps2PolicyProvider,
+            RecoveryProvider,
         },
     },
     proto::{
@@ -26,10 +26,9 @@ use cln_rpc::{
             DeldatastoreRequest, DisconnectRequest, FundchannelCancelRequest,
             FundchannelCompleteRequest, FundchannelStartRequest, FundpsbtRequest, GetinfoRequest,
             ListdatastoreRequest, ListforwardsIndex, ListforwardsRequest, ListpeerchannelsRequest,
-            SendpsbtRequest, SignpsbtRequest, UnreserveinputsRequest, WaitIndexname, WaitRequest,
-            WaitSubsystem,
+            SendpsbtRequest, SignpsbtRequest, UnreserveinputsRequest,
         },
-        responses::{ListdatastoreResponse, ListforwardsForwardsStatus, WaitForwardsStatus},
+        responses::{ListdatastoreResponse, ListforwardsForwardsStatus},
     },
     primitives::{AmountSat, AmountSatOrAll, ChannelState, Feerate, Sha256},
 };
@@ -221,7 +220,8 @@ impl ActionExecutor for ClnActionExecutor {
             .with_context(|| format!("parsing peer_id '{peer_id}'"))?;
         let channel_sat = msat_to_sat_ceil(channel_size.msat());
 
-        self.rpc.connect_with_retry(&peer_id, Duration::from_secs(90))
+        self.rpc
+            .connect_with_retry(&peer_id, Duration::from_secs(90))
             .await?;
 
         let mut rpc = self.rpc.create_rpc().await?;
@@ -805,7 +805,8 @@ impl RecoveryProvider for ClnRecoveryProvider {
     }
 
     async fn close_and_unreserve(&self, channel_id: &str, funding_psbt: &str) -> Result<()> {
-        let sha = channel_id.parse::<Sha256>()
+        let sha = channel_id
+            .parse::<Sha256>()
             .with_context(|| format!("parsing channel_id '{channel_id}'"))?;
         if !self.rpc.check_channel_normal(&sha).await.unwrap_or(false) {
             return Ok(());
@@ -842,64 +843,6 @@ impl RecoveryProvider for ClnRecoveryProvider {
             (Err(ce), Err(ue)) => Err(anyhow::anyhow!(
                 "close_and_unreserve failed: close: {ce}; unreserve: {ue}"
             )),
-        }
-    }
-
-    async fn wait_for_forward_resolution(
-        &self,
-        channel_id: &str,
-        from_index: u64,
-    ) -> Result<(ForwardActivity, u64)> {
-        // Get the scid for this channel so we can match wait responses.
-        let scid = self.rpc.get_channel_scid(channel_id).await?;
-
-        let mut next_index = from_index + 1;
-        loop {
-            let mut rpc = self.rpc.create_rpc().await?;
-            let wait_res = rpc
-                .call_typed(&WaitRequest {
-                    subsystem: WaitSubsystem::FORWARDS,
-                    indexname: WaitIndexname::UPDATED,
-                    nextvalue: next_index,
-                })
-                .await
-                .with_context(|| {
-                    format!("calling wait for channel_id={channel_id} at index={next_index}")
-                })?;
-
-            let new_index = wait_res.updated.unwrap_or(next_index);
-
-            // Check if this update is for our channel.
-            let is_our_channel = match (&scid, &wait_res.forwards) {
-                (Some(our_scid), Some(fwd)) => fwd
-                    .out_channel
-                    .as_ref()
-                    .map(|c| c == our_scid)
-                    .unwrap_or(false),
-                _ => false,
-            };
-
-            if is_our_channel {
-                if let Some(fwd) = &wait_res.forwards {
-                    match fwd.status {
-                        Some(WaitForwardsStatus::SETTLED) => {
-                            return Ok((ForwardActivity::Settled, new_index));
-                        }
-                        Some(WaitForwardsStatus::OFFERED) => {
-                            return Ok((ForwardActivity::Offered, new_index));
-                        }
-                        Some(WaitForwardsStatus::FAILED)
-                        | Some(WaitForwardsStatus::LOCAL_FAILED) => {
-                            // Check full history to decide AllFailed vs Active.
-                            let activity = self.get_forward_activity(channel_id).await?;
-                            return Ok((activity, new_index));
-                        }
-                        None => {}
-                    }
-                }
-            }
-
-            next_index = new_index + 1;
         }
     }
 }

@@ -36,7 +36,6 @@ impl Default for SessionConfig {
 
 pub struct SessionManager<D, A> {
     sessions: Mutex<HashMap<PaymentHash, ActorInboxHandle>>,
-    recovery_handles: Mutex<Vec<ActorInboxHandle>>,
     datastore: Arc<D>,
     executor: Arc<A>,
     config: SessionConfig,
@@ -49,7 +48,6 @@ impl<D: DatastoreProvider + 'static, A: ActionExecutor + Send + Sync + 'static>
     pub fn new(datastore: Arc<D>, executor: Arc<A>, config: SessionConfig, event_sink: Arc<dyn EventSink>) -> Self {
         Self {
             sessions: Mutex::new(HashMap::new()),
-            recovery_handles: Mutex::new(Vec::new()),
             datastore,
             executor,
             config,
@@ -61,8 +59,13 @@ impl<D: DatastoreProvider + 'static, A: ActionExecutor + Send + Sync + 'static>
         let entries = self.datastore.list_active_sessions().await?;
 
         for (scid, entry) in entries {
+            let payment_hash = entry.payment_hash.as_deref().and_then(|s| s.parse::<PaymentHash>().ok());
             if let Some(handle) = self.recover_session(scid, entry, &recovery).await? {
-                self.recovery_handles.lock().await.push(handle);
+                if let Some(hash) = payment_hash {
+                    self.sessions.lock().await.insert(hash, handle);
+                } else {
+                    warn!("recovered session for scid={scid} has no payment_hash, dropping handle");
+                }
             }
         }
 
@@ -122,12 +125,11 @@ impl<D: DatastoreProvider + 'static, A: ActionExecutor + Send + Sync + 'static>
                     .await?;
                 Ok(None)
             }
-            ForwardActivity::Offered | ForwardActivity::Settled => {
-                let forwards_updated_index = entry.forwards_updated_index;
+            ForwardActivity::Offered => {
                 let (session, initial_actions) = Session::recover(
                     channel_id.clone(),
                     funding_psbt.clone(),
-                    entry.preimage.clone(),
+                    None,
                     entry.opening_fee_params.clone(),
                 );
 
@@ -135,12 +137,33 @@ impl<D: DatastoreProvider + 'static, A: ActionExecutor + Send + Sync + 'static>
                     session,
                     entry,
                     initial_actions,
-                    channel_id,
                     self.executor.clone(),
                     scid,
                     self.datastore.clone(),
-                    recovery.clone(),
-                    forwards_updated_index,
+                    self.event_sink.clone(),
+                );
+
+                Ok(Some(handle))
+            }
+            ForwardActivity::Settled => {
+                // Forwards already settled — recover into Broadcasting state
+                // so the actor self-drives via BroadcastFundingTx without
+                // needing a forward_event notification from CLN.
+                let preimage = entry.preimage.clone().unwrap_or_default();
+                let (session, initial_actions) = Session::recover(
+                    channel_id.clone(),
+                    funding_psbt.clone(),
+                    Some(preimage),
+                    entry.opening_fee_params.clone(),
+                );
+
+                let handle = SessionActor::spawn_recovered_session_actor(
+                    session,
+                    entry,
+                    initial_actions,
+                    self.executor.clone(),
+                    scid,
+                    self.datastore.clone(),
                     self.event_sink.clone(),
                 );
 
@@ -694,13 +717,6 @@ mod tests {
         ) -> anyhow::Result<()> {
             Ok(())
         }
-        async fn wait_for_forward_resolution(
-            &self,
-            _channel_id: &str,
-            from_index: u64,
-        ) -> anyhow::Result<(ForwardActivity, u64)> {
-            Ok((self.forward_activity.clone(), from_index + 1))
-        }
     }
 
     #[tokio::test]
@@ -820,5 +836,155 @@ mod tests {
 
         mgr.recover(recovery).await.unwrap();
         assert_eq!(mgr.session_count().await, 0);
+    }
+
+    #[tokio::test]
+    async fn recover_funded_offered_registers_in_sessions() {
+        let mut ds = MockDatastore::new();
+        ds.entries.clear();
+        let mut entry = test_datastore_entry();
+        entry.channel_id = Some("channel-1".to_string());
+        entry.funding_psbt = Some("psbt-1".to_string());
+        entry.payment_hash = Some(test_payment_hash(1).to_string());
+        ds.entries.insert(test_scid().to_string(), entry);
+
+        let mgr = Arc::new(SessionManager::new(
+            Arc::new(ds),
+            Arc::new(MockExecutor { fund_succeeds: true }),
+            SessionConfig::default(),
+            Arc::new(NoopEventSink),
+        ));
+
+        let recovery = Arc::new(MockRecoveryProvider {
+            channel_exists: true,
+            forward_activity: ForwardActivity::Offered,
+        });
+
+        mgr.recover(recovery).await.unwrap();
+
+        // Recovered session must be reachable via on_payment_settled.
+        assert_eq!(mgr.session_count().await, 1);
+        let result = mgr.on_payment_settled(test_payment_hash(1), None, None).await;
+        assert!(result.is_ok());
+        assert_eq!(mgr.session_count().await, 0);
+    }
+
+    #[tokio::test]
+    async fn recover_funded_offered_reachable_by_on_payment_failed() {
+        let mut ds = MockDatastore::new();
+        ds.entries.clear();
+        let mut entry = test_datastore_entry();
+        entry.channel_id = Some("channel-1".to_string());
+        entry.funding_psbt = Some("psbt-1".to_string());
+        entry.payment_hash = Some(test_payment_hash(1).to_string());
+        ds.entries.insert(test_scid().to_string(), entry);
+
+        let mgr = Arc::new(SessionManager::new(
+            Arc::new(ds),
+            Arc::new(MockExecutor { fund_succeeds: true }),
+            SessionConfig::default(),
+            Arc::new(NoopEventSink),
+        ));
+
+        let recovery = Arc::new(MockRecoveryProvider {
+            channel_exists: true,
+            forward_activity: ForwardActivity::Offered,
+        });
+
+        mgr.recover(recovery).await.unwrap();
+        assert_eq!(mgr.session_count().await, 1);
+
+        let result = mgr.on_payment_failed(test_payment_hash(1), None).await;
+        assert!(result.is_ok());
+        assert_eq!(mgr.session_count().await, 0);
+    }
+
+    #[tokio::test]
+    async fn recover_funded_no_payment_hash_not_registered() {
+        let mut ds = MockDatastore::new();
+        ds.entries.clear();
+        let mut entry = test_datastore_entry();
+        entry.channel_id = Some("channel-1".to_string());
+        entry.funding_psbt = Some("psbt-1".to_string());
+        entry.payment_hash = None; // No payment_hash
+        ds.entries.insert(test_scid().to_string(), entry);
+
+        let mgr = Arc::new(SessionManager::new(
+            Arc::new(ds),
+            Arc::new(MockExecutor { fund_succeeds: true }),
+            SessionConfig::default(),
+            Arc::new(NoopEventSink),
+        ));
+
+        let recovery = Arc::new(MockRecoveryProvider {
+            channel_exists: true,
+            forward_activity: ForwardActivity::Offered,
+        });
+
+        mgr.recover(recovery).await.unwrap();
+        assert_eq!(mgr.session_count().await, 0);
+    }
+
+    #[tokio::test]
+    async fn recover_funded_settled_registers_in_sessions() {
+        let mut ds = MockDatastore::new();
+        ds.entries.clear();
+        let mut entry = test_datastore_entry();
+        entry.channel_id = Some("channel-1".to_string());
+        entry.funding_psbt = Some("psbt-1".to_string());
+        entry.payment_hash = Some(test_payment_hash(1).to_string());
+        ds.entries.insert(test_scid().to_string(), entry);
+
+        let mgr = Arc::new(SessionManager::new(
+            Arc::new(ds),
+            Arc::new(MockExecutor { fund_succeeds: true }),
+            SessionConfig::default(),
+            Arc::new(NoopEventSink),
+        ));
+
+        let recovery = Arc::new(MockRecoveryProvider {
+            channel_exists: true,
+            forward_activity: ForwardActivity::Settled,
+        });
+
+        mgr.recover(recovery).await.unwrap();
+
+        // Settled sessions should still be registered (actor will receive
+        // BroadcastFundingTx as initial action and self-drive to completion).
+        assert_eq!(mgr.session_count().await, 1);
+    }
+
+    #[tokio::test(flavor = "current_thread", start_paused = true)]
+    async fn recovered_actor_settles_via_inbox() {
+        let mut ds = MockDatastore::new();
+        ds.entries.clear();
+        let mut entry = test_datastore_entry();
+        entry.channel_id = Some("channel-1".to_string());
+        entry.funding_psbt = Some("psbt-1".to_string());
+        entry.payment_hash = Some(test_payment_hash(1).to_string());
+        ds.entries.insert(test_scid().to_string(), entry.clone());
+
+        let mgr = Arc::new(SessionManager::new(
+            Arc::new(ds),
+            Arc::new(MockExecutor { fund_succeeds: true }),
+            SessionConfig::default(),
+            Arc::new(NoopEventSink),
+        ));
+
+        let recovery = Arc::new(MockRecoveryProvider {
+            channel_exists: true,
+            forward_activity: ForwardActivity::Offered,
+        });
+
+        mgr.recover(recovery).await.unwrap();
+        assert_eq!(mgr.session_count().await, 1);
+
+        // Simulate forward_event delivering settlement.
+        let result = mgr.on_payment_settled(test_payment_hash(1), Some("preimage123".to_string()), Some(1)).await;
+        assert!(result.is_ok());
+        assert_eq!(mgr.session_count().await, 0);
+
+        // Give the actor time to finalize.
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
     }
 }
