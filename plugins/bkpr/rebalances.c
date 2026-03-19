@@ -6,6 +6,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/coin_mvt.h>
 #include <common/memleak.h>
+#include <common/mkdatastorekey.h>
 #include <common/node_id.h>
 #include <common/utils.h>
 #include <inttypes.h>
@@ -60,7 +61,7 @@ static void new_rebalance_pair(struct rebalances *r,
 	rebalance_htable_add(r->pairs, p2);
 }
 
-static const char *ds_rebalance_path(const tal_t *ctx, u64 id1, u64 id2)
+static const char **ds_rebalance_path(const tal_t *ctx, u64 id1, u64 id2)
 {
 	u64 lesser, greater;
 	if (id1 < id2) {
@@ -70,15 +71,16 @@ static const char *ds_rebalance_path(const tal_t *ctx, u64 id1, u64 id2)
 		lesser = id2;
 		greater = id1;
 	}
-	return tal_fmt(ctx, "bookkeeper/rebalances/%"PRIu64"-%"PRIu64,
-		       lesser, greater);
+	return mkdatastorekey(ctx, "bookkeeper", "rebalances",
+			      take(tal_fmt(NULL, "%"PRIu64"-%"PRIu64,
+					   lesser, greater)));
 }
 
 void add_rebalance_pair(struct command *cmd,
 			struct bkpr *bkpr,
 			u64 created_index1, u64 created_index2)
 {
-	const char *path;
+	const char **path;
 	new_rebalance_pair(bkpr->rebalances, created_index1, created_index2);
 
 	path = ds_rebalance_path(tmpctx, created_index1, created_index2);
