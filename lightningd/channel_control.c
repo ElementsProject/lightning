@@ -773,6 +773,31 @@ static void handle_splice_sending_sigs(struct lightningd *ld,
 	watch_splice_inflight(ld, inflight);
 }
 
+static void scid_updated(struct channel *channel)
+{
+	if (channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL)
+		tell_connectd_scid(channel->peer->ld, *channel->scid, &channel->peer->id);
+
+	wallet_channel_save(channel->peer->ld->wallet, channel);
+}
+
+/* You must call scid_updated after this! */
+static void change_scid(struct channel *channel,
+			struct short_channel_id scid)
+{
+	struct short_channel_id old_scid = *channel->scid;
+
+	/* We freaked out if required when original was
+	 * removed, so just update now */
+	log_info(channel->log, "Short channel id changed from %s->%s",
+		 fmt_short_channel_id(tmpctx, *channel->scid),
+		 fmt_short_channel_id(tmpctx, scid));
+	channel_set_scid(channel, &scid);
+	/* In case we broadcast it before (e.g. splice!) */
+	channel_add_old_scid(channel, old_scid);
+	channel_gossip_scid_changed(channel);
+}
+
 bool depthcb_update_scid(struct channel *channel,
 			 const struct bitcoin_outpoint *outpoint,
 			 const struct txlocator *loc)
@@ -811,23 +836,10 @@ bool depthcb_update_scid(struct channel *channel,
 			lockin_has_completed(channel, false);
 
 	} else {
-		struct short_channel_id old_scid = *channel->scid;
-
-		/* We freaked out if required when original was
-		 * removed, so just update now */
-		log_info(channel->log, "Short channel id changed from %s->%s",
-			 fmt_short_channel_id(tmpctx, *channel->scid),
-			 fmt_short_channel_id(tmpctx, scid));
-		channel_set_scid(channel, &scid);
-		/* In case we broadcast it before (e.g. splice!) */
-		channel_add_old_scid(channel, old_scid);
-		channel_gossip_scid_changed(channel);
+		change_scid(channel, scid);
 	}
 
-	if (channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL)
-		tell_connectd_scid(ld, *channel->scid, &channel->peer->id);
-
-	wallet_channel_save(ld->wallet, channel);
+	scid_updated(channel);
 	return true;
 }
 
@@ -1111,7 +1123,6 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 	struct channel_inflight *inflight;
 	struct bitcoin_txid locked_txid;
 	struct txwatch *txw;
-	struct txlocator *loc;
 
 	if (!fromwire_channeld_got_splice_locked(msg, &funding_sats,
 						 &splice_amnt,
@@ -1156,11 +1167,8 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 
 	wallet_channel_clear_inflights(channel->peer->ld->wallet, channel);
 
-	loc = wallet_transaction_locate(tmpctx, channel->peer->ld->wallet,
-					&inflight->funding->outpoint.txid);
-	/* Unrepresentable SCIDs cause channel failure */
-	if (!depthcb_update_scid(channel, &inflight->funding->outpoint, loc))
-		return;
+	/* Update the scid and tell everyone */
+	change_scid(channel, *inflight->locked_scid);
 
 	/* That freed watchers in inflights: now watch funding tx */
 	channel_watch_funding(channel->peer->ld, channel);
