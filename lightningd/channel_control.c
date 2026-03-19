@@ -690,10 +690,9 @@ static enum watch_result splice_depth_cb(struct lightningd *ld,
 					 const struct bitcoin_txid *txid,
 					 const struct bitcoin_tx *tx,
 					 unsigned int depth,
-					 void *param)
+					 struct channel_inflight *inflight)
 {
 	/* find_txwatch triggers a type warning on inflight, so we do this. */
-	struct channel_inflight *inflight = param;
 	struct txlocator *loc;
 	struct short_channel_id scid;
 
@@ -748,14 +747,6 @@ void watch_splice_inflight(struct lightningd *ld,
 	watch_txid(inflight, ld->topology,
 		   &inflight->funding->outpoint.txid,
 		   splice_depth_cb, inflight);
-}
-
-static struct txwatch *splice_inflight_txwatch(struct channel *channel,
-					       struct channel_inflight *inflight)
-{
-	return find_txwatch(channel->peer->ld->topology,
-			    &inflight->funding->outpoint.txid,
-			    splice_depth_cb, channel);
 }
 
 static void handle_splice_sending_sigs(struct lightningd *ld,
@@ -1151,7 +1142,6 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 	s64 splice_amnt;
 	struct channel_inflight *inflight;
 	struct bitcoin_txid locked_txid;
-	struct txwatch *txw;
 
 	if (!fromwire_channeld_got_splice_locked(msg, &funding_sats,
 						 &splice_amnt,
@@ -1221,13 +1211,6 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 	list_add_tail(&channel->inflights, &inflight->list);
 
 	lockin_complete(channel, CHANNELD_AWAITING_SPLICE);
-
-	/* Turn off tx watcher for the splice */
-	txw = splice_inflight_txwatch(channel, inflight);
-	if (!txw)
-		log_unusual(channel->log, "Can't unwatch txid %s",
-			    fmt_bitcoin_txid(tmpctx, &locked_txid));
-	tal_free(txw);
 }
 
 /* We were informed by channeld that channel is ready (reached mindepth) */
