@@ -1957,6 +1957,8 @@ static void handle_channel_locked(struct subd *dualopend,
 	assert(channel->scid);
 	assert(channel->remote_channel_ready);
 
+	log_debug(channel->log, "Lockin complete state %s",
+		  channel_state_name(channel));
 	/* This can happen if we missed their sigs, for some reason */
 	if (channel->state != DUALOPEND_AWAITING_LOCKIN)
 		log_debug(channel->log, "Lockin complete, but state %s",
@@ -1975,7 +1977,8 @@ static void handle_channel_locked(struct subd *dualopend,
 	wallet_channel_clear_inflights(dualopend->ld->wallet, channel);
 
 	/* That freed watchers in inflights: now watch funding tx */
-	channel_watch_funding(dualopend->ld, channel);
+	channel_watch_depth(dualopend->ld, short_channel_id_blocknum(*channel->scid), channel);
+	channel_watch_funding_out(dualopend->ld, channel);
 
 	/* FIXME: LND sigs/update_fee msgs? */
 	peer_start_channeld(channel, peer_fd, NULL, false);

@@ -263,16 +263,6 @@ struct channel *find_channel_by_id(const struct peer *peer UNNEEDED,
 struct plugin *find_plugin_for_command(struct lightningd *ld UNNEEDED,
 				       const char *cmd_name UNNEEDED)
 { fprintf(stderr, "find_plugin_for_command called!\n"); abort(); }
-/* Generated stub for find_txwatch_ */
-struct txwatch *find_txwatch_(struct chain_topology *topo UNNEEDED,
-			      const struct bitcoin_txid *txid UNNEEDED,
-			      enum watch_result (*cb)(struct lightningd *ld UNNEEDED,
-						      const struct bitcoin_txid * UNNEEDED,
-						      const struct bitcoin_tx * UNNEEDED,
-						      unsigned int depth UNNEEDED,
-						      void *arg) UNNEEDED,
-			    void *arg UNNEEDED)
-{ fprintf(stderr, "find_txwatch_ called!\n"); abort(); }
 /* Generated stub for fixup_htlcs_out */
 void fixup_htlcs_out(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "fixup_htlcs_out called!\n"); abort(); }
@@ -727,6 +717,14 @@ void wallet_transaction_add(struct wallet *w UNNEEDED, const struct wally_tx *tx
 /* Generated stub for wallet_transaction_height */
 u32 wallet_transaction_height(struct wallet *w UNNEEDED, const struct bitcoin_txid *txid UNNEEDED)
 { fprintf(stderr, "wallet_transaction_height called!\n"); abort(); }
+/* Generated stub for watch_blockdepth_ */
+bool watch_blockdepth_(const tal_t *ctx UNNEEDED,
+		       struct chain_topology *topo UNNEEDED,
+		       u32 blockheight UNNEEDED,
+		       enum watch_result (*depthcb)(struct lightningd *ld UNNEEDED, u32 depth UNNEEDED, void *) UNNEEDED,
+		       enum watch_result (*reorgcb)(struct lightningd *ld UNNEEDED, void *) UNNEEDED,
+		       void *arg UNNEEDED)
+{ fprintf(stderr, "watch_blockdepth_ called!\n"); abort(); }
 /* Generated stub for watch_opening_inflight */
 void watch_opening_inflight(struct lightningd *ld UNNEEDED,
 			    struct channel_inflight *inflight UNNEEDED)
