@@ -40,19 +40,17 @@ static bool we_broadcast(const struct chain_topology *topo,
 
 static void filter_block_txs(struct chain_topology *topo, struct block *b)
 {
-	size_t i;
-
 	/* Now we see if any of those txs are interesting. */
 	const size_t num_txs = tal_count(b->full_txs);
-	for (i = 0; i < num_txs; i++) {
+	for (size_t i = 0; i < num_txs; i++) {
 		struct bitcoin_tx *tx = b->full_txs[i];
 		struct bitcoin_txid txid;
-		size_t j;
+		const struct txlocator loc = { b->height, i };
 		bool is_coinbase = i == 0;
 		size_t *our_outnums;
 
 		/* Tell them if it spends a txo we care about. */
-		for (j = 0; j < tx->wtx->num_inputs; j++) {
+		for (size_t j = 0; j < tx->wtx->num_inputs; j++) {
 			struct bitcoin_outpoint out;
 			struct txowatch_hash_iter it;
 
@@ -89,7 +87,11 @@ static void filter_block_txs(struct chain_topology *topo, struct block *b)
 		}
 
 		/* We did spends first, in case that tells us to watch tx. */
-		if (watching_txid(topo, &txid) || we_broadcast(topo, &txid)) {
+
+		/* Make sure we preserve any transaction we are interested in */
+		if (watch_check_tx_outputs(topo, &loc, tx, &txid)
+		    || watching_txid(topo, &txid)
+		    || we_broadcast(topo, &txid)) {
 			wallet_transaction_add(topo->ld->wallet,
 					       tx->wtx, b->height, i);
 		}
@@ -1233,6 +1235,7 @@ struct chain_topology *new_topology(struct lightningd *ld, struct logger *log)
 	topo->outgoing_txs = new_htable(topo, outgoing_tx_map);
 	topo->txwatches = new_htable(topo, txwatch_hash);
 	topo->txowatches = new_htable(topo, txowatch_hash);
+	topo->scriptpubkeywatches = new_htable(topo, scriptpubkeywatch_hash);
 	topo->log = log;
 	topo->bitcoind = new_bitcoind(topo, ld, log);
 	topo->poll_seconds = 30;

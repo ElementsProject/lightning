@@ -9,6 +9,7 @@ struct command;
 struct lightningd;
 struct peer;
 struct txwatch;
+struct scriptpubkeywatch;
 struct wallet;
 
 /* We keep the last three in case there are outliers (for min/max) */
@@ -139,6 +140,7 @@ struct chain_topology {
 	/* Transactions/txos we are watching. */
 	struct txwatch_hash *txwatches;
 	struct txowatch_hash *txowatches;
+	struct scriptpubkeywatch_hash *scriptpubkeywatches;
 
 	/* The number of headers known to the bitcoin backend at startup. Not
 	 * updated after the initial check. */
