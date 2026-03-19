@@ -2381,7 +2381,7 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 		return KEEP_WATCHING;
 	}
 
-	if (!depthcb_update_scid(channel, txid, &channel->funding))
+	if (!depthcb_update_scid(channel, &channel->funding))
 		return DELETE_WATCH;
 
 	switch (channel->state) {
