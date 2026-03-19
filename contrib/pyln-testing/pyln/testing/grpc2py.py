@@ -2812,6 +2812,7 @@ def bkpr_listaccountevents_events2py(m):
         "blockheight": m.blockheight,  # PrimitiveField in generate_composite
         "credit_msat": amount2msat(m.credit_msat),  # PrimitiveField in generate_composite
         "currency": m.currency,  # PrimitiveField in generate_composite
+        "currencyrate": m.currencyrate,  # PrimitiveField in generate_composite
         "debit_msat": amount2msat(m.debit_msat),  # PrimitiveField in generate_composite
         "description": m.description,  # PrimitiveField in generate_composite
         "fees_msat": amount2msat(m.fees_msat),  # PrimitiveField in generate_composite

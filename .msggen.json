@@ -1089,6 +1089,7 @@
             "Bkpr-ListAccountEvents.events[].blockheight": 9,
             "Bkpr-ListAccountEvents.events[].credit_msat": 4,
             "Bkpr-ListAccountEvents.events[].currency": 6,
+            "Bkpr-ListAccountEvents.events[].currencyrate": 17,
             "Bkpr-ListAccountEvents.events[].debit_msat": 5,
             "Bkpr-ListAccountEvents.events[].description": 13,
             "Bkpr-ListAccountEvents.events[].fees_msat": 14,
@@ -5495,6 +5496,10 @@
         },
         "Bkpr-ListAccountEvents.events[].currency": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Bkpr-ListAccountEvents.events[].currencyrate": {
+            "added": "v26.04",
             "deprecated": null
         },
         "Bkpr-ListAccountEvents.events[].debit_msat": {

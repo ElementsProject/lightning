@@ -3795,6 +3795,7 @@ impl From<responses::BkprlistaccounteventsEvents> for pb::BkprlistaccounteventsE
             blockheight: c.blockheight, // Rule #2 for type u32?
             credit_msat: Some(c.credit_msat.into()), // Rule #2 for type msat
             currency: c.currency, // Rule #2 for type string
+            currencyrate: c.currencyrate, // Rule #2 for type number?
             debit_msat: Some(c.debit_msat.into()), // Rule #2 for type msat
             description: c.description, // Rule #2 for type string?
             fees_msat: c.fees_msat.map(|f| f.into()), // Rule #2 for type msat?

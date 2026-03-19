@@ -191,6 +191,7 @@ static void onchain_fee_datastore_add(struct command *cmd,
 }
 
 void json_add_onchain_fee(struct json_stream *out,
+			  const struct bkpr *bkpr,
 			  const struct onchain_fee *fee)
 {
 	json_object_start(out, NULL);
@@ -200,6 +201,7 @@ void json_add_onchain_fee(struct json_stream *out,
 	json_add_amount_msat(out, "credit_msat", fee->credit);
 	json_add_amount_msat(out, "debit_msat", fee->debit);
 	json_add_string(out, "currency", chainparams->lightning_hrp);
+	json_add_currencyrate(out, "currencyrate", bkpr, fee->timestamp);
 	json_add_u64(out, "timestamp", fee->timestamp);
 	json_add_txid(out, "txid", &fee->txid);
 	json_object_end(out);
