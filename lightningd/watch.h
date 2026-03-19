@@ -107,8 +107,8 @@ void txwatch_inform(const struct chain_topology *topo,
 		    const struct bitcoin_txid *txid,
 		    struct bitcoin_tx *tx TAKES);
 
-/* Watch for specific spends to this scriptpubkey */
-void watch_scriptpubkey_(const tal_t *ctx,
+/* Watch for specific spends to this scriptpubkey: returns false if was already watched. */
+bool watch_scriptpubkey_(const tal_t *ctx,
 			 struct chain_topology *topo,
 			 const u8 *scriptpubkey TAKES,
 			 const struct bitcoin_outpoint *expected_outpoint,
@@ -133,7 +133,7 @@ void watch_scriptpubkey_(const tal_t *ctx,
 
 bool unwatch_scriptpubkey_(const tal_t *ctx,
 			   struct chain_topology *topo,
-			   const u8 *scriptpubkey TAKES,
+			   const u8 *scriptpubkey,
 			   const struct bitcoin_outpoint *expected_outpoint,
 			   struct amount_sat expected_amount,
 			   void (*cb)(struct lightningd *ld,
@@ -154,8 +154,8 @@ bool unwatch_scriptpubkey_(const tal_t *ctx,
 						  const struct txlocator *), \
 			      (arg))
 
-/* Watch for this block getting deeper (or reorged out) */
-void watch_blockdepth_(const tal_t *ctx,
+/* Watch for this block getting deeper (or reorged out).  Returns false it if was a duplicate. */
+bool watch_blockdepth_(const tal_t *ctx,
 		       struct chain_topology *topo,
 		       u32 blockheight,
 		       enum watch_result (*depthcb)(struct lightningd *ld, u32 depth, void *),

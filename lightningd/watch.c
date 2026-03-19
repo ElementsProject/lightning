@@ -346,7 +346,34 @@ static void destroy_scriptpubkeywatch(struct scriptpubkeywatch *w, struct chain_
 	scriptpubkeywatch_hash_del(topo->scriptpubkeywatches, w);
 }
 
-void watch_scriptpubkey_(const tal_t *ctx,
+static struct scriptpubkeywatch *find_watchscriptpubkey(const struct scriptpubkeywatch_hash *scriptpubkeywatches,
+							const u8 *scriptpubkey,
+							const struct bitcoin_outpoint *expected_outpoint,
+							struct amount_sat expected_amount,
+							void (*cb)(struct lightningd *ld,
+								   const struct bitcoin_tx *tx,
+								   u32 outnum,
+								   const struct txlocator *loc,
+								   void *),
+							void *arg)
+{
+	struct scriptpubkeywatch_hash_iter it;
+	const struct script_with_len swl = { scriptpubkey, tal_bytelen(scriptpubkey) };
+
+	for (struct scriptpubkeywatch *w = scriptpubkeywatch_hash_getfirst(scriptpubkeywatches, &swl, &it);
+	     w;
+	     w = scriptpubkeywatch_hash_getnext(scriptpubkeywatches, &swl, &it)) {
+		if (bitcoin_outpoint_eq(&w->expected_outpoint, expected_outpoint)
+		    && amount_sat_eq(w->expected_amount, expected_amount)
+		    && w->cb == cb
+		    && w->arg == arg) {
+			return w;
+		}
+	}
+	return NULL;
+}
+
+bool watch_scriptpubkey_(const tal_t *ctx,
 			 struct chain_topology *topo,
 			 const u8 *scriptpubkey TAKES,
 			 const struct bitcoin_outpoint *expected_outpoint,
@@ -358,7 +385,19 @@ void watch_scriptpubkey_(const tal_t *ctx,
 				    void *),
 			 void *arg)
 {
-	struct scriptpubkeywatch *w = tal(ctx, struct scriptpubkeywatch);
+	struct scriptpubkeywatch *w;
+
+	if (find_watchscriptpubkey(topo->scriptpubkeywatches,
+				   scriptpubkey,
+				   expected_outpoint,
+				   expected_amount,
+				   cb, arg)) {
+		if (taken(scriptpubkey))
+			tal_free(scriptpubkey);
+		return false;
+	}
+
+	w = tal(ctx, struct scriptpubkeywatch);
 	w->swl.script = tal_dup_talarr(w, u8, scriptpubkey);
 	w->swl.len = tal_bytelen(w->swl.script);
 	w->expected_outpoint = *expected_outpoint;
@@ -367,11 +406,12 @@ void watch_scriptpubkey_(const tal_t *ctx,
 	w->arg = arg;
 	scriptpubkeywatch_hash_add(topo->scriptpubkeywatches, w);
 	tal_add_destructor2(w, destroy_scriptpubkeywatch, topo);
+	return true;
 }
 
 bool unwatch_scriptpubkey_(const tal_t *ctx,
 			   struct chain_topology *topo,
-			   const u8 *scriptpubkey TAKES,
+			   const u8 *scriptpubkey,
 			   const struct bitcoin_outpoint *expected_outpoint,
 			   struct amount_sat expected_amount,
 			   void (*cb)(struct lightningd *ld,
@@ -381,18 +421,12 @@ bool unwatch_scriptpubkey_(const tal_t *ctx,
 				      void *),
 			   void *arg)
 {
-	struct scriptpubkeywatch_hash_iter it;
-	const struct script_with_len swl = { scriptpubkey, tal_bytelen(scriptpubkey) };
-
-	for (struct scriptpubkeywatch *w = scriptpubkeywatch_hash_getfirst(topo->scriptpubkeywatches, &swl, &it);
-	     w;
-	     w = scriptpubkeywatch_hash_getnext(topo->scriptpubkeywatches, &swl, &it)) {
-		if (!bitcoin_outpoint_eq(&w->expected_outpoint, expected_outpoint)
-		    || !amount_sat_eq(w->expected_amount, expected_amount)
-		    || w->cb != cb
-		    || w->arg != arg) {
-			continue;
-		}
+	struct scriptpubkeywatch *w = find_watchscriptpubkey(topo->scriptpubkeywatches,
+							     scriptpubkey,
+							     expected_outpoint,
+							     expected_amount,
+							     cb, arg);
+	if (w) {
 		tal_free(w);
 		return true;
 	}
@@ -500,20 +534,47 @@ static void destroy_blockdepthwatch(struct blockdepthwatch *w, struct chain_topo
 	blockdepthwatch_hash_del(topo->blockdepthwatches, w);
 }
 
-void watch_blockdepth_(const tal_t *ctx,
+static struct blockdepthwatch *find_blockdepthwatch(const struct blockdepthwatch_hash *blockdepthwatches,
+						    u32 blockheight,
+						    enum watch_result (*depthcb)(struct lightningd *ld, u32 depth, void *),
+						    enum watch_result (*reorgcb)(struct lightningd *ld, void *),
+						    void *arg)
+{
+	struct blockdepthwatch_hash_iter it;
+
+	for (struct blockdepthwatch *w = blockdepthwatch_hash_first(blockdepthwatches, &it);
+	     w;
+	     w = blockdepthwatch_hash_next(blockdepthwatches, &it)) {
+		if (w->height == blockheight
+		    && w->depthcb == depthcb
+		    && w->reorgcb == reorgcb
+		    && w->arg == arg) {
+			return w;
+		}
+	}
+	return NULL;
+}
+
+bool watch_blockdepth_(const tal_t *ctx,
 		       struct chain_topology *topo,
 		       u32 blockheight,
 		       enum watch_result (*depthcb)(struct lightningd *ld, u32 depth, void *),
 		       enum watch_result (*reorgcb)(struct lightningd *ld, void *),
 		       void *arg)
 {
-	struct blockdepthwatch *w = tal(ctx, struct blockdepthwatch);
+	struct blockdepthwatch *w;
+
+	if (find_blockdepthwatch(topo->blockdepthwatches, blockheight, depthcb, reorgcb, arg))
+		return false;
+
+	w = tal(ctx, struct blockdepthwatch);
 	w->height = blockheight;
 	w->depthcb = depthcb;
 	w->reorgcb = reorgcb;
 	w->arg = arg;
 	blockdepthwatch_hash_add(topo->blockdepthwatches, w);
 	tal_add_destructor2(w, destroy_blockdepthwatch, topo);
+	return true;
 }
 
 void watch_check_block_added(const struct chain_topology *topo, u32 blockheight)
