@@ -1,6 +1,6 @@
 [package]
 name = "cln-lsps"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 
 [[bin]]
@@ -14,7 +14,7 @@ path = "src/service.rs"
 [dependencies]
 anyhow = "1.0"
 async-trait = "0.1"
-bitcoin = "0.31"
+bitcoin = "0.32.2"
 chrono = { version= "0.4.42", features = ["serde"] }
 cln-plugin = { workspace = true }
 cln-rpc = { workspace = true }
