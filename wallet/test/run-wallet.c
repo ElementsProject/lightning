@@ -879,6 +879,21 @@ void migrate_from_account_db(struct lightningd *ld UNNEEDED, struct db *db UNNEE
 {
 }
 
+bool unwatch_scriptpubkey_(const tal_t *ctx UNNEEDED,
+			   struct chain_topology *topo UNNEEDED,
+			   const u8 *scriptpubkey TAKES UNNEEDED,
+			   const struct bitcoin_outpoint *expected_outpoint UNNEEDED,
+			   struct amount_sat expected_amount UNNEEDED,
+			   void (*cb)(struct lightningd *ld UNNEEDED,
+				      const struct bitcoin_tx *tx UNNEEDED,
+				      u32 outnum UNNEEDED,
+				      const struct txlocator *loc UNNEEDED,
+				      void *) UNNEEDED,
+			   void *arg UNNEEDED)
+{
+	return true;
+}
+
 /**
  * mempat -- Set the memory to a pattern
  *
