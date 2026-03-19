@@ -469,3 +469,92 @@ bool watch_check_tx_outputs(const struct chain_topology *topo,
 
 	return tx_interesting;
 }
+
+struct blockdepthwatch {
+	u32 height;
+	enum watch_result (*depthcb)(struct lightningd *ld,
+				     u32 depth,
+				     void *);
+	enum watch_result (*reorgcb)(struct lightningd *ld,
+				     void *);
+	void *arg;
+};
+
+u32 blockdepthwatch_keyof(const struct blockdepthwatch *w)
+{
+	return w->height;
+}
+
+size_t u32_hash(u32 val)
+{
+	return siphash24(siphash_seed(), &val, sizeof(val));
+}
+
+bool blockdepthwatch_eq(const struct blockdepthwatch *w, u32 height)
+{
+	return w->height == height;
+}
+
+static void destroy_blockdepthwatch(struct blockdepthwatch *w, struct chain_topology *topo)
+{
+	blockdepthwatch_hash_del(topo->blockdepthwatches, w);
+}
+
+void watch_blockdepth_(const tal_t *ctx,
+		       struct chain_topology *topo,
+		       u32 blockheight,
+		       enum watch_result (*depthcb)(struct lightningd *ld, u32 depth, void *),
+		       enum watch_result (*reorgcb)(struct lightningd *ld, void *),
+		       void *arg)
+{
+	struct blockdepthwatch *w = tal(ctx, struct blockdepthwatch);
+	w->height = blockheight;
+	w->depthcb = depthcb;
+	w->reorgcb = reorgcb;
+	w->arg = arg;
+	blockdepthwatch_hash_add(topo->blockdepthwatches, w);
+	tal_add_destructor2(w, destroy_blockdepthwatch, topo);
+}
+
+void watch_check_block_added(const struct chain_topology *topo, u32 blockheight)
+{
+	struct blockdepthwatch_hash_iter it;
+
+	/* With ccan/htable, deleting during iteration is safe: adding isn't! */
+	blockdepthwatch_hash_lock(topo->blockdepthwatches);
+	for (struct blockdepthwatch *w = blockdepthwatch_hash_first(topo->blockdepthwatches, &it);
+	     w;
+	     w = blockdepthwatch_hash_next(topo->blockdepthwatches, &it)) {
+		/* You are not supposed to watch future blocks! */
+		assert(blockheight >= w->height);
+
+		u32 depth = blockheight - w->height + 1;
+		enum watch_result r = w->depthcb(topo->ld, depth, w->arg);
+
+		switch (r) {
+		case DELETE_WATCH:
+			tal_free(w);
+			continue;
+		case KEEP_WATCHING:
+			continue;
+		}
+		fatal("blockdepthwatch depth callback %p returned %i", w->depthcb, r);
+	}
+	blockdepthwatch_hash_unlock(topo->blockdepthwatches);
+}
+
+void watch_check_block_removed(const struct chain_topology *topo, u32 blockheight)
+{
+	struct blockdepthwatch_hash_iter it;
+
+	/* With ccan/htable, deleting during iteration is safe. */
+	blockdepthwatch_hash_lock(topo->blockdepthwatches);
+	for (struct blockdepthwatch *w = blockdepthwatch_hash_getfirst(topo->blockdepthwatches, blockheight, &it);
+	     w;
+	     w = blockdepthwatch_hash_getnext(topo->blockdepthwatches, blockheight, &it)) {
+		enum watch_result r = w->reorgcb(topo->ld, w->arg);
+		assert(r == DELETE_WATCH);
+		tal_free(w);
+	}
+	blockdepthwatch_hash_unlock(topo->blockdepthwatches);
+}
