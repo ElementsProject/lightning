@@ -136,6 +136,7 @@ void update_channel_from_inflight(struct lightningd *ld,
 
 /* Watch for funding tx. */
 void channel_watch_funding(struct lightningd *ld, struct channel *channel);
+void channel_unwatch_funding(struct lightningd *ld, struct channel *channel);
 
 /* Watch for spend of funding tx. */
 void channel_watch_funding_out(struct lightningd *ld, struct channel *channel);
