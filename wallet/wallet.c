@@ -3365,11 +3365,13 @@ type_ok:
 		*outpoint = utxo->outpoint;
 }
 
-int wallet_extract_owned_outputs(struct wallet *w, const struct wally_tx *wtx,
-				 bool is_coinbase,
-				 const u32 *blockheight)
+bool wallet_extract_owned_outputs(struct wallet *w,
+				  const struct wally_tx *wtx,
+				  bool is_coinbase,
+				  const u32 *blockheight,
+				  size_t **outputs)
 {
-	int num_utxos = 0;
+	bool matched = false;
 
 	for (size_t i = 0; i < wtx->num_outputs; i++) {
 		const struct wally_tx_output *txout = &wtx->outputs[i];
@@ -3384,9 +3386,11 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct wally_tx *wtx,
 			continue;
 
 		got_utxo(w, keyindex, addrtype, wtx, i, is_coinbase, blockheight, NULL);
-		num_utxos++;
+		matched = true;
+		if (outputs)
+			tal_arr_expand(outputs, i);
 	}
-	return num_utxos;
+	return matched;
 }
 
 void wallet_htlc_save_in(struct wallet *wallet,
