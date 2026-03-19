@@ -1728,6 +1728,14 @@ currency_channelmoves_wait(struct command *auxcmd, void *unused)
 	return send_outreq(req);
 }
 
+/* If we're supposed to do currency conversions, we refresh all the time. */
+static void start_waiting_for_currency(struct bkpr *bkpr, struct command *cmd)
+{
+	bkpr->currency_cmds = aux_command(cmd);
+	currency_chainmoves_wait(bkpr->currency_cmds, NULL);
+	currency_channelmoves_wait(bkpr->currency_cmds, NULL);
+}
+
 static const char *init(struct command *init_cmd, const char *b, const jsmntok_t *t)
 {
 	struct plugin *p = init_cmd->plugin;
@@ -1755,6 +1763,10 @@ static const char *init(struct command *init_cmd, const char *b, const jsmntok_t
 		bkpr->chainmoves_index = be64_to_cpu(index);
 	} else
 		bkpr->chainmoves_index = 0;
+
+	/* If we're supposed to do currency conversions, start refresh now. */
+	if (bkpr->currency)
+		start_waiting_for_currency(bkpr, init_cmd);
 
 	return NULL;
 }
@@ -1791,11 +1803,11 @@ static char *option_currency(struct command *cmd,
 	bkpr->currency = tal_strdup(bkpr, arg);
 	/* Reset this so we get a new message for new currency */
 	bkpr->warned_currency_fail = false;
-	/* If we're supposed to do currency conversions, we refresh
-	 * all the time. */
-	bkpr->currency_cmds = aux_command(cmd);
-	currency_chainmoves_wait(bkpr->currency_cmds, NULL);
-	currency_channelmoves_wait(bkpr->currency_cmds, NULL);
+
+	/* Don't do this yet if we're before init! */
+	if (bkpr->accounts)
+		start_waiting_for_currency(bkpr, cmd);
+
 	return NULL;
 }
 
@@ -1808,6 +1820,7 @@ int main(int argc, char *argv[])
 	bkpr = tal(NULL, struct bkpr);
 	bkpr->currency = NULL;
 	bkpr->currency_rates = tal(bkpr, currencymap_t);
+	bkpr->accounts = NULL;
 	uintmap_init(bkpr->currency_rates);
 	memleak_add_helper(bkpr->currency_rates, memleak_scan_currencyrates);
 	plugin_main(argv, init, take(bkpr), PLUGIN_STATIC, true, NULL,
