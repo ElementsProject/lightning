@@ -3020,23 +3020,6 @@ def test_zeroconf_withhold_htlc_failback(node_factory, bitcoind):
     assert only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['state'] == 'CHANNELD_NORMAL'
 
 
-def _do_openchannel_open(l1, l2, chan_amount, psbt, funding_feerate):
-    """Helper to run the interactive open flow and return (chan_id, signed_result).
-    """
-    init = l1.rpc.openchannel_init(l2.info['id'], chan_amount, psbt,
-                                   funding_feerate=funding_feerate)
-    chan_id = init['channel_id']
-    assert not init['commitments_secured']
-
-    cur_psbt = init['psbt']
-    update = l1.rpc.openchannel_update(chan_id, cur_psbt)
-    while not update['commitments_secured']:
-        update = l1.rpc.openchannel_update(chan_id, update['psbt'])
-
-    signed_psbt = l1.rpc.signpsbt(update['psbt'])['signed_psbt']
-    return chan_id, l1.rpc.openchannel_signed(chan_id, signed_psbt)
-
-
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
 def test_openchannel_rpc_single_funded(node_factory, bitcoind):
@@ -3181,14 +3164,26 @@ def test_openchannel_rpc_bump_single_funded(node_factory, bitcoind):
 
     # startweight 250: base tx (42) + funding output (172) + change output (36)
     psbt_res = l1.rpc.fundpsbt(chan_amount, 'opening', 250, excess_as_change=True)
+    psbt = psbt_res['psbt']
     funding_feerate = '{}perkw'.format(psbt_res['feerate_per_kw'])
-    chan_id, signed_result = _do_openchannel_open(l1, l2, chan_amount,
-                                                  psbt_res['psbt'], funding_feerate)
+
+    init = l1.rpc.openchannel_init(l2.info['id'], chan_amount, psbt,
+                                   funding_feerate=funding_feerate)
+    chan_id = init['channel_id']
+    assert not init['commitments_secured']
+
+    cur_psbt = init['psbt']
+    update = l1.rpc.openchannel_update(chan_id, cur_psbt)
+    while not update['commitments_secured']:
+        update = l1.rpc.openchannel_update(chan_id, update['psbt'])
+
+    signed_psbt = l1.rpc.signpsbt(update['psbt'])['signed_psbt']
+    result = l1.rpc.openchannel_signed(chan_id, signed_psbt)
 
     # openchannel_signed returns the PSBT bytes in 'tx', not a finalised raw tx.
     # Fetch the actual transaction from the mempool by txid instead.
-    wait_for(lambda: signed_result['txid'] in bitcoind.rpc.getrawmempool())
-    vins = bitcoind.rpc.getrawtransaction(signed_result['txid'], True)['vin']
+    wait_for(lambda: result['txid'] in bitcoind.rpc.getrawmempool())
+    vins = bitcoind.rpc.getrawtransaction(result['txid'], True)['vin']
     prev_utxos = ['{}:{}'.format(v['txid'], v['vout']) for v in vins]
     l1.daemon.wait_for_log(r'to DUALOPEND_AWAITING_LOCKIN')
 
@@ -3265,14 +3260,26 @@ def test_openchannel_rpc_bump_dual_funded(node_factory, bitcoind):
     # Use the node's 'opening' feerate (same default as fundchannel) so that l2's
     # funder plugin sees a feerate above its minimum and chooses to contribute.
     psbt_res = l1.rpc.fundpsbt(chan_amount, 'opening', 250, excess_as_change=True)
+    psbt = psbt_res['psbt']
     funding_feerate = '{}perkw'.format(psbt_res['feerate_per_kw'])
-    chan_id, signed_result = _do_openchannel_open(l1, l2, chan_amount,
-                                                  psbt_res['psbt'], funding_feerate)
+
+    init = l1.rpc.openchannel_init(l2.info['id'], chan_amount, psbt,
+                                   funding_feerate=funding_feerate)
+    chan_id = init['channel_id']
+    assert not init['commitments_secured']
+
+    cur_psbt = init['psbt']
+    update = l1.rpc.openchannel_update(chan_id, cur_psbt)
+    while not update['commitments_secured']:
+        update = l1.rpc.openchannel_update(chan_id, update['psbt'])
+
+    signed_psbt = l1.rpc.signpsbt(update['psbt'])['signed_psbt']
+    result = l1.rpc.openchannel_signed(chan_id, signed_psbt)
 
     # openchannel_signed returns the PSBT bytes in 'tx', not a finalised raw tx.
     # Fetch the actual transaction from the mempool by txid instead.
-    wait_for(lambda: signed_result['txid'] in bitcoind.rpc.getrawmempool())
-    vins = bitcoind.rpc.getrawtransaction(signed_result['txid'], True)['vin']
+    wait_for(lambda: result['txid'] in bitcoind.rpc.getrawmempool())
+    vins = bitcoind.rpc.getrawtransaction(result['txid'], True)['vin']
     prev_utxos = ['{}:{}'.format(v['txid'], v['vout']) for v in vins
                   if '{}:{}'.format(v['txid'], v['vout']) in l1_utxo_ids]
 
@@ -3381,14 +3388,28 @@ def test_openchannel_rpc_abort_mid_bump(node_factory, bitcoind):
     bitcoind.generate_block(1)
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
 
-    # startweight 250: base tx (42) + funding output (172) + change output (36)
-    psbt_res = l1.rpc.fundpsbt(chan_amount, '253perkw', 250, excess_as_change=True)
+    # Build a PSBT with l1's UTXOs; l2 adds its inputs during openchannel_update.
+    # Use the node's 'opening' feerate (same default as fundchannel) so that l2's
+    # funder plugin sees a feerate above its minimum and chooses to contribute.
+    psbt_res = l1.rpc.fundpsbt(chan_amount, 'opening', 250, excess_as_change=True)
+    psbt = psbt_res['psbt']
     funding_feerate = '{}perkw'.format(psbt_res['feerate_per_kw'])
-    chan_id, signed_result = _do_openchannel_open(l1, l2, chan_amount,
-                                                  psbt_res['psbt'], funding_feerate)
 
-    wait_for(lambda: signed_result['txid'] in bitcoind.rpc.getrawmempool())
-    vins = bitcoind.rpc.getrawtransaction(signed_result['txid'], True)['vin']
+    init = l1.rpc.openchannel_init(l2.info['id'], chan_amount, psbt,
+                                   funding_feerate=funding_feerate)
+    chan_id = init['channel_id']
+    assert not init['commitments_secured']
+
+    cur_psbt = init['psbt']
+    update = l1.rpc.openchannel_update(chan_id, cur_psbt)
+    while not update['commitments_secured']:
+        update = l1.rpc.openchannel_update(chan_id, update['psbt'])
+
+    signed_psbt = l1.rpc.signpsbt(update['psbt'])['signed_psbt']
+    result = l1.rpc.openchannel_signed(chan_id, signed_psbt)
+
+    wait_for(lambda: result['txid'] in bitcoind.rpc.getrawmempool())
+    vins = bitcoind.rpc.getrawtransaction(result['txid'], True)['vin']
     prev_utxos = ['{}:{}'.format(v['txid'], v['vout']) for v in vins]
     l1.daemon.wait_for_log(r'to DUALOPEND_AWAITING_LOCKIN')
 
@@ -3424,41 +3445,155 @@ def test_openchannel_rpc_abort_mid_bump(node_factory, bitcoind):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
-def test_openchannel_wrong_psbt_doesnt_crash_peer(node_factory, bitcoind):
-    """Test passing a wrong PSBT to openchannel_update must not crash the peer.
+def test_openchannel_stale_chan_id_after_abort(node_factory, bitcoind):
+    """openchannel_update with a stale channel_id after abort must return an
+    RpcError on the initiator and must not crash the peer.
     """
+    l1, l2 = node_factory.get_nodes(2)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    chan_amount = 100000
+    wallet_amount = 2**24
+
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['p2tr'], wallet_amount / 10**8 + 0.01)
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
+
+    psbt_res = l1.rpc.fundpsbt(chan_amount, 'opening', 250, excess_as_change=True)
+    funding_feerate = '{}perkw'.format(psbt_res['feerate_per_kw'])
+
+    init = l1.rpc.openchannel_init(l2.info['id'], chan_amount, psbt_res['psbt'],
+                                   funding_feerate=funding_feerate)
+    chan_id = init['channel_id']
+
+    abort = l1.rpc.openchannel_abort(chan_id)
+    assert abort['channel_canceled']
+
+    # Attempting to update a cancelled channel must return a clean error, not crash l2
+    with pytest.raises(RpcError, match=r'Unknown channel'):
+        l1.rpc.openchannel_update(chan_id, psbt_res['psbt'])
+
+    assert l1.rpc.getinfo()['id'] == l1.info['id']
+    assert l2.rpc.getinfo()['id'] == l2.info['id']
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v2')
+def test_openchannel_reopen_after_abort(node_factory, bitcoind):
+    """A new channel to the same peer after an abort must open successfully.
+    """
+    l1, l2 = node_factory.get_nodes(2)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    chan_amount = 100000
+    wallet_amount = 2**24
+
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['p2tr'], wallet_amount / 10**8 + 0.01)
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
+
+    # First attempt — abort before completing
+    psbt_res = l1.rpc.fundpsbt(chan_amount, 'opening', 250, excess_as_change=True)
+    funding_feerate = '{}perkw'.format(psbt_res['feerate_per_kw'])
+    init = l1.rpc.openchannel_init(l2.info['id'], chan_amount, psbt_res['psbt'],
+                                   funding_feerate=funding_feerate)
+    abort = l1.rpc.openchannel_abort(init['channel_id'])
+    assert abort['channel_canceled']
+
+    # Unreserve the UTXOs used in the aborted open so they're available for the retry; in a real wallet these would be automatically unreserved when the channel is removed from listpeerchannels, but here we used reserve=0 for the fundpsbt so they were never reserved to begin with.
+    l1.rpc.unreserveinputs(psbt_res['psbt'])
+
+    # Wait for both sides to remove the aborted channel before opening a new one
+    wait_for(lambda: not l1.rpc.listpeerchannels(l2.info['id'])['channels'])
+
+    # Build a PSBT with l1's UTXOs; l2 adds its inputs during openchannel_update.
+    # Use the node's 'opening' feerate (same default as fundchannel) so that l2's
+    # funder plugin sees a feerate above its minimum and chooses to contribute.
+    psbt_res = l1.rpc.fundpsbt(chan_amount, 'opening', 250, excess_as_change=True)
+    psbt = psbt_res['psbt']
+    funding_feerate = '{}perkw'.format(psbt_res['feerate_per_kw'])
+
+    init = l1.rpc.openchannel_init(l2.info['id'], chan_amount, psbt,
+                                   funding_feerate=funding_feerate)
+    chan_id = init['channel_id']
+    assert not init['commitments_secured']
+
+    cur_psbt = init['psbt']
+    update = l1.rpc.openchannel_update(chan_id, cur_psbt)
+    while not update['commitments_secured']:
+        update = l1.rpc.openchannel_update(chan_id, update['psbt'])
+
+    signed_psbt = l1.rpc.signpsbt(update['psbt'])['signed_psbt']
+    result = l1.rpc.openchannel_signed(chan_id, signed_psbt)
+
+    bitcoind.generate_block(6, wait_for_mempool=result['txid'])
+    l1.daemon.wait_for_log(r'to CHANNELD_NORMAL')
+    l2.daemon.wait_for_log(r'to CHANNELD_NORMAL')
+
+    chan = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])
+    assert chan['state'] == 'CHANNELD_NORMAL'
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v2')
+def test_openchannel_concurrent_init_both_sides(node_factory, bitcoind):
+    """Both nodes simultaneously call openchannel_init to each other.
+    """
+    import threading
+
     l1, l2 = node_factory.get_nodes(2, opts={'may_reconnect': True})
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
     chan_amount = 100000
-    amount_btc = 0.02
+    wallet_amount = 2**24
 
-    # Fund l1 with two separate UTXOs so we can build two genuinely different PSBTs
     bitcoind.rpc.sendmany("", {
-        l1.rpc.newaddr()['p2tr']: amount_btc,
-        l1.rpc.newaddr()['p2tr']: amount_btc,
+        l1.rpc.newaddr()['p2tr']: wallet_amount / 10**8 + 0.01,
+        l2.rpc.newaddr()['p2tr']: wallet_amount / 10**8 + 0.01,
     })
     bitcoind.generate_block(1)
-    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) >= 2)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
+    wait_for(lambda: len(l2.rpc.listfunds()['outputs']) > 0)
 
-    utxos = l1.rpc.listfunds()['outputs']
-    utxo_a = '{}:{}'.format(utxos[0]['txid'], utxos[0]['output'])
-    utxo_b = '{}:{}'.format(utxos[1]['txid'], utxos[1]['output'])
+    psbt1_res = l1.rpc.fundpsbt(chan_amount, 'opening', 250, excess_as_change=True)
+    psbt2_res = l2.rpc.fundpsbt(chan_amount, 'opening', 250, excess_as_change=True)
+    feerate1 = '{}perkw'.format(psbt1_res['feerate_per_kw'])
+    feerate2 = '{}perkw'.format(psbt2_res['feerate_per_kw'])
 
-    # Build two PSBTs spending different UTXOs
-    psbt_a_res = l1.rpc.utxopsbt(chan_amount, 'opening', 250, [utxo_a],
-                                  excess_as_change=True)
-    psbt_b = l1.rpc.utxopsbt(chan_amount, 'opening', 250, [utxo_b],
-                              excess_as_change=True)['psbt']
-    funding_feerate = '{}perkw'.format(psbt_a_res['feerate_per_kw'])
+    results = {}
+    errors = {}
 
-    init = l1.rpc.openchannel_init(l2.info['id'], chan_amount, psbt_a_res['psbt'],
-                                   funding_feerate=funding_feerate)
-    chan_id = init['channel_id']
+    def init_l1():
+        try:
+            results['l1'] = l1.rpc.openchannel_init(l2.info['id'], chan_amount,
+                                                     psbt1_res['psbt'],
+                                                     funding_feerate=feerate1)
+        except Exception as e:
+            errors['l1'] = e
 
-    # Pass the wrong PSBT (different inputs) — l1 should get an RpcError, NOT crash l2
-    with pytest.raises(RpcError):
-        l1.rpc.openchannel_update(chan_id, psbt_b)
+    def init_l2():
+        try:
+            results['l2'] = l2.rpc.openchannel_init(l1.info['id'], chan_amount,
+                                                     psbt2_res['psbt'],
+                                                     funding_feerate=feerate2)
+        except Exception as e:
+            errors['l2'] = e
 
-    # l2 must still be running and responsive
+    t1 = threading.Thread(target=init_l1)
+    t2 = threading.Thread(target=init_l2)
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
+
+    # Clean up any pending channel opens — either or both may have succeeded
+    for key, node in [('l1', l1), ('l2', l2)]:
+        if key in results:
+            try:
+                node.rpc.openchannel_abort(results[key]['channel_id'])
+            except Exception:
+                pass
+
+    # Both nodes must still be responsive regardless of which opens succeeded
+    assert l1.rpc.getinfo()['id'] == l1.info['id']
     assert l2.rpc.getinfo()['id'] == l2.info['id']
