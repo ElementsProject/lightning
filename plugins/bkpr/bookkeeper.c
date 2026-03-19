@@ -1131,6 +1131,7 @@ static struct command_result *lookup_invoice_desc(struct command *cmd,
 
 struct currency_time {
 	struct refresh_info *rinfo;
+	const char *currency;
 	u64 timestamp;
 };
 
@@ -1151,7 +1152,8 @@ static struct command_result *currency_done(struct command *cmd,
 			   "Invalid currencyrate return '%.*s': %s",
 			   json_tok_full_len(result),
 			   json_tok_full(buf, result), err);
-	} else {
+	/* Make sure they didn't change currency while we were out! */
+	} else if (bkpr->currency && streq(ctime->currency, bkpr->currency)) {
 		double *p = tal_dup(bkpr->currency_rates, double, &rate);
 		/* Can fail if we raced and asked twice */
 		if (!uintmap_add(bkpr->currency_rates,
@@ -1197,6 +1199,7 @@ static void lookup_currency(struct command *cmd,
 
 	ctime = tal(cmd, struct currency_time);
 	ctime->timestamp = timestamp;
+	ctime->currency = tal_strdup(ctime, bkpr->currency);
 	ctime->rinfo = use_rinfo(rinfo);
 	req = jsonrpc_request_start(cmd,
 				    "currencyrate",
@@ -1753,14 +1756,46 @@ static const char *init(struct command *init_cmd, const char *b, const jsmntok_t
 	} else
 		bkpr->chainmoves_index = 0;
 
-	/* If we're supposed to do currency conversions, we refresh
-	 * all the time. */
-	if (bkpr->currency) {
-		struct command *auxcmd = aux_command(init_cmd);
-		currency_chainmoves_wait(auxcmd, NULL);
-		currency_channelmoves_wait(auxcmd, NULL);
+	return NULL;
+}
+
+static char *option_currency(struct command *cmd,
+			     const char *arg,
+			     bool check_only,
+			     char **p)
+{
+	struct bkpr *bkpr = bkpr_of(cmd->plugin);
+
+	assert(p == &bkpr->currency);
+
+	/* FIXME: Check for valid currency? */
+	if (check_only)
+		return NULL;
+
+	/* Changed?  Clean up old one! */
+	if (bkpr->currency != NULL) {
+		/* Stop refreshes */
+		bkpr->currency_cmds = tal_free(bkpr->currency_cmds);
+		/* Clear existing values and free contents.*/
+		tal_free(bkpr->currency_rates);
+		bkpr->currency_rates = tal(bkpr, currencymap_t);
+		uintmap_init(bkpr->currency_rates);
+		memleak_add_helper(bkpr->currency_rates, memleak_scan_currencyrates);
+		bkpr->currency = tal_free(bkpr->currency);
 	}
 
+	/* Explicit empty string means unset. */
+	if (streq(arg, ""))
+		return NULL;
+
+	bkpr->currency = tal_strdup(bkpr, arg);
+	/* Reset this so we get a new message for new currency */
+	bkpr->warned_currency_fail = false;
+	/* If we're supposed to do currency conversions, we refresh
+	 * all the time. */
+	bkpr->currency_cmds = aux_command(cmd);
+	currency_chainmoves_wait(bkpr->currency_cmds, NULL);
+	currency_channelmoves_wait(bkpr->currency_cmds, NULL);
 	return NULL;
 }
 
@@ -1772,7 +1807,6 @@ int main(int argc, char *argv[])
 	/* No datadir is default */
 	bkpr = tal(NULL, struct bkpr);
 	bkpr->currency = NULL;
-	bkpr->warned_currency_fail = false;
 	bkpr->currency_rates = tal(bkpr, currencymap_t);
 	uintmap_init(bkpr->currency_rates);
 	memleak_add_helper(bkpr->currency_rates, memleak_scan_currencyrates);
@@ -1781,10 +1815,10 @@ int main(int argc, char *argv[])
 		    notifs, ARRAY_SIZE(notifs),
 		    NULL, 0,
 		    NULL, 0,
-		    plugin_option("bkpr-currency",
-				  "string",
-				  "Look up and record this currency on each event",
-				  charp_option, charp_jsonfmt, &bkpr->currency),
+		    plugin_option_dynamic("bkpr-currency",
+					  "string",
+					  "Look up and record this currency on each event",
+					  option_currency, charp_jsonfmt, &bkpr->currency),
 		    NULL);
 
 	return 0;
