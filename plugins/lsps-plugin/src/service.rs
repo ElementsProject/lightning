@@ -4,8 +4,11 @@ use chrono::Utc;
 use cln_lsps::{
     cln_adapters::{
         hooks::service_custommsg_hook,
-        rpc::{ClnActionExecutor, ClnDatastore, ClnPolicyProvider, ClnRecoveryProvider, ClnRpcClient},
-        sender::ClnSender, state::ServiceState,
+        rpc::{
+            ClnActionExecutor, ClnDatastore, ClnPolicyProvider, ClnRecoveryProvider, ClnRpcClient,
+        },
+        sender::ClnSender,
+        state::ServiceState,
         types::HtlcAcceptedRequest,
     },
     core::{
@@ -43,7 +46,7 @@ pub const OPTION_PROMISE_SECRET: options::StringConfigOption =
 
 pub const OPTION_COLLECT_TIMEOUT: options::DefaultIntegerConfigOption =
     options::ConfigOption::new_i64_with_default(
-        "experimental-lsps2-collect-timeout",
+        "dev-lsps2-collect-timeout",
         90,
         "Timeout in seconds for collecting MPP parts (default: 90)",
     );
@@ -66,7 +69,11 @@ impl State {
         let policy = Arc::new(ClnPolicyProvider::new(rpc.clone()));
         let executor = Arc::new(ClnActionExecutor::new(rpc.clone()));
         let recovery = Arc::new(ClnRecoveryProvider::new(rpc));
-        let lsps2_handler = Arc::new(Lsps2ServiceHandler::new(datastore.clone(), policy, promise_secret));
+        let lsps2_handler = Arc::new(Lsps2ServiceHandler::new(
+            datastore.clone(),
+            policy,
+            promise_secret,
+        ));
         let lsps_service = Arc::new(LspsService::builder().with_protocol(lsps2_handler).build());
         let session_manager = Arc::new(SessionManager::new(
             datastore.clone(),
