@@ -386,7 +386,6 @@ static struct command_result *finish_psbt(struct command *cmd,
 					    "Failed to generate change address."
 					    " Keys generation failure");
 		}
-		txfilter_add_scriptpubkey(cmd->ld->owned_txfilter, b32script);
 
 		change_outnum = psbt->num_outputs;
 		psbt_append_output(psbt, b32script, change);
@@ -725,7 +724,6 @@ static struct command_result *json_addpsbtoutput(struct command *cmd,
 					    "Failed to generate change address."
 					    " Keys generation failure");
 		}
-		txfilter_add_scriptpubkey(cmd->ld->owned_txfilter, b32script);
 	}
 
 	outnum = psbt->num_outputs;

@@ -77,7 +77,6 @@
 #include <lightningd/subd.h>
 #include <sys/resource.h>
 #include <wallet/invoices.h>
-#include <wallet/txfilter.h>
 #include <wally_bip32.h>
 
 static void destroy_alt_subdaemons(struct lightningd *ld);
@@ -663,44 +662,6 @@ static void shutdown_global_subdaemons(struct lightningd *ld)
 	ld->connectd = subd_shutdown(ld->connectd, 10);
 	ld->gossip = subd_shutdown(ld->gossip, 10);
 	ld->hsm = subd_shutdown(ld->hsm, 10);
-}
-
-/*~ Our wallet logic needs to know what outputs we might be interested in.  We
- * use BIP32 (a.k.a. "HD wallet") to generate keys from a single seed, so we
- * keep the maximum-ever-used key index in the db, and add them all to the
- * filter here. */
-static void init_txfilter(struct wallet *w,
-			  const struct ext_key *bip32_base,
-			  struct txfilter *filter)
-{
-	/*~ This is defined in libwally, so we didn't have to reimplement */
-	struct ext_key ext;
-	/*~ Note the use of ccan/short_types u64 rather than uint64_t.
-	 * Thank me later. */
-	u64 bip32_max_index, bip86_max_index;
-
-	bip32_max_index = db_get_intvar(w->db, "bip32_max_index", 0);
-	/*~ One of the C99 things I unequivocally approve: for-loop scope. */
-	for (u64 i = 0; i <= bip32_max_index + w->keyscan_gap; i++) {
-		if (bip32_key_from_parent(bip32_base, i, BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
-			abort();
-		}
-		txfilter_add_derkey(filter, ext.pub_key);
-	}
-
-	/* If BIP86 is enabled, also add BIP86-derived keys to the filter */
-	if (w->ld->bip86_base) {
-		bip86_max_index = db_get_intvar(w->db, "bip86_max_index", 0);
-		for (u64 i = 0; i <= bip86_max_index + w->keyscan_gap; i++) {
-			struct pubkey pubkey;
-			bip86_pubkey(w->ld, &pubkey, i);
-			/* Add both P2TR and P2WPKH scripts since BIP86 keys can be used for both */
-			u8 *p2tr_script = scriptpubkey_p2tr(tmpctx, &pubkey);
-			txfilter_add_scriptpubkey(filter, take(p2tr_script));
-			u8 *p2wpkh_script = scriptpubkey_p2wpkh(tmpctx, &pubkey);
-			txfilter_add_scriptpubkey(filter, take(p2wpkh_script));
-		}
-	}
 }
 
 /*~ The normal advice for daemons is to move into the root directory, so you
@@ -1317,9 +1278,6 @@ int main(int argc, char *argv[])
 	ld->wallet = wallet_new(ld, ld->timers);
 	trace_span_end(ld);
 
-	/*~ We keep a filter of scriptpubkeys we're interested in. */
-	ld->owned_txfilter = txfilter_new(ld);
-
 	/*~ This is the ccan/io central poll override from above. */
 	io_poll_override(io_poll_lightningd);
 
@@ -1350,11 +1308,6 @@ int main(int argc, char *argv[])
 	 * in hsm_secret will have strange consequences! */
 	if (!wallet_sanity_check(ld->wallet))
 		errx(EXITCODE_WALLET_DB_MISMATCH, "Wallet sanity check failed.");
-
-	/*~ Initialize the transaction filter with our pubkeys. */
-	trace_span_start("init_txfilter", ld->wallet);
-	init_txfilter(ld->wallet, ld->bip32_base, ld->owned_txfilter);
-	trace_span_end(ld->wallet);
 
 	/*~ Finish our runes initialization (includes reading from db) */
 	runes_finish_init(ld->runes);

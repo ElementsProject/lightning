@@ -858,12 +858,6 @@ struct log_book *new_log_book(struct lightningd *ld UNNEEDED)
 	return NULL;
 }
 
-void txfilter_add_scriptpubkey(struct txfilter *filter UNNEEDED, const u8 *script TAKES)
-{
-	if (taken(script))
-		tal_free(script);
-}
-
 /* Can actually be called by new_channel */
 u32 get_block_height(const struct chain_topology *topo UNNEEDED)
 {
