@@ -1003,44 +1003,60 @@ static void dualopend_tell_depth(struct channel *channel,
 }
 
 static enum watch_result opening_depth_cb(struct lightningd *ld,
-					  const struct bitcoin_txid *txid,
-					  const struct bitcoin_tx *tx,
 					  unsigned int depth,
 					  struct channel_inflight *inflight)
 {
-	struct txlocator *loc;
-
 	/* Usually, we're here because we're awaiting a lockin, but
 	 * we could also mutual shutdown */
 	if (inflight->channel->state != DUALOPEND_AWAITING_LOCKIN)
-		return DELETE_WATCH;
-
-	/* Reorged out?  OK, we're not committed yet. */
-	if (depth == 0)
-		return KEEP_WATCHING;
-
-	/* FIXME: Don't do this until we're actually locked in! */
-	loc = wallet_transaction_locate(tmpctx, ld->wallet, txid);
-	if (!depthcb_update_scid(inflight->channel,
-				 &inflight->funding->outpoint,
-				 loc))
 		return DELETE_WATCH;
 
 	if (depth >= inflight->channel->minimum_depth)
 		update_channel_from_inflight(ld, inflight->channel, inflight,
 					     false);
 
-	dualopend_tell_depth(inflight->channel, txid, depth);
-
+	dualopend_tell_depth(inflight->channel, &inflight->funding->outpoint.txid, depth);
 	return KEEP_WATCHING;
+}
+
+static enum watch_result opening_reorged_cb(struct lightningd *ld, struct channel_inflight *inflight)
+{
+	/* Reorged out?  OK, we're not committed yet. */
+	log_info(inflight->channel->log, "Candidate funding tx was in a block, now reorged out");
+	return DELETE_WATCH;
+}
+
+static void dual_funding_found(struct lightningd *ld,
+			       const struct bitcoin_tx *tx,
+			       u32 outnum,
+			       const struct txlocator *loc,
+			       struct channel_inflight *inflight)
+{
+	/* Kill it if the channel funding isn't a valid scid */
+	if (!depthcb_update_scid(inflight->channel,
+				 &inflight->funding->outpoint,
+				 loc))
+		return;
+
+	/* Otherwise, watch for block depth increases (we'll immediately expect one) */
+	watch_blockdepth(inflight, ld->topology, loc->blkheight,
+			 opening_depth_cb,
+			 opening_reorged_cb,
+			 inflight);
 }
 
 void watch_opening_inflight(struct lightningd *ld,
 			    struct channel_inflight *inflight)
 {
-	watch_txid(inflight, ld->topology,
-		   &inflight->funding->outpoint.txid,
-		   opening_depth_cb, inflight);
+	const u8 *funding_wscript = bitcoin_redeem_2of2(tmpctx,
+							&inflight->channel->local_funding_pubkey,
+							&inflight->channel->channel_info.remote_fundingkey);
+	watch_scriptpubkey(inflight, ld->topology,
+			   take(scriptpubkey_p2wsh(NULL, funding_wscript)),
+			   &inflight->funding->outpoint,
+			   inflight->funding->total_funds,
+			   dual_funding_found,
+			   inflight);
 }
 
 static void
