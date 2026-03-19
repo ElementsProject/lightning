@@ -2307,14 +2307,23 @@ void update_channel_from_inflight(struct lightningd *ld,
 	wallet_channel_save(ld->wallet, channel);
 }
 
+/* We see this tx output spend to the funding address. */
+static void channel_funding_found(struct lightningd *ld,
+				  const struct bitcoin_tx *tx,
+				  u32 outnum,
+				  const struct txlocator *loc,
+				  struct channel *channel)
+{
+	/* Closes channel if it doesn't fit in an scid! */
+	depthcb_update_scid(channel, &channel->funding, loc);
+}
+
 static enum watch_result funding_depth_cb(struct lightningd *ld,
 					  const struct bitcoin_txid *txid,
 					  const struct bitcoin_tx *tx,
 					  unsigned int depth,
 					  struct channel *channel)
 {
-	struct txlocator *loc;
-
 	/* This is stub channel, we don't activate anything! */
 	if (channel->scid && is_stub_scid(*channel->scid))
 		return DELETE_WATCH;
@@ -2383,10 +2392,6 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 				       channel_state_name(channel));
 		return KEEP_WATCHING;
 	}
-
-	loc = wallet_transaction_locate(tmpctx, ld->wallet, &channel->funding.txid);
-	if (!depthcb_update_scid(channel, &channel->funding, loc))
-		return DELETE_WATCH;
 
 	switch (channel->state) {
 	/* We should not be in the callback! */
@@ -2483,10 +2488,20 @@ void channel_unwatch_funding(struct lightningd *ld, struct channel *channel)
 
 void channel_watch_funding(struct lightningd *ld, struct channel *channel)
 {
+	const u8 *funding_wscript = bitcoin_redeem_2of2(tmpctx,
+							&channel->local_funding_pubkey,
+							&channel->channel_info.remote_fundingkey);
+
 	log_debug(channel->log, "Watching for funding txid: %s",
 		fmt_bitcoin_txid(tmpctx, &channel->funding.txid));
 	watch_txid(channel, ld->topology,
 		   &channel->funding.txid, funding_depth_cb, channel);
+	watch_scriptpubkey(channel, ld->topology,
+			   take(scriptpubkey_p2wsh(NULL, funding_wscript)),
+			   &channel->funding,
+			   channel->funding_sats,
+			   channel_funding_found,
+			   channel);
 
 	tal_free(channel->funding_spend_watch);
 	channel->funding_spend_watch = watch_txo(channel, ld->topology, channel,

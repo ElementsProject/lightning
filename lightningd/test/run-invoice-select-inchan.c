@@ -727,14 +727,23 @@ void wallet_transaction_add(struct wallet *w UNNEEDED, const struct wally_tx *tx
 /* Generated stub for wallet_transaction_height */
 u32 wallet_transaction_height(struct wallet *w UNNEEDED, const struct bitcoin_txid *txid UNNEEDED)
 { fprintf(stderr, "wallet_transaction_height called!\n"); abort(); }
-/* Generated stub for wallet_transaction_locate */
-struct txlocator *wallet_transaction_locate(const tal_t *ctx UNNEEDED, struct wallet *w UNNEEDED,
-					    const struct bitcoin_txid *txid UNNEEDED)
-{ fprintf(stderr, "wallet_transaction_locate called!\n"); abort(); }
 /* Generated stub for watch_opening_inflight */
 void watch_opening_inflight(struct lightningd *ld UNNEEDED,
 			    struct channel_inflight *inflight UNNEEDED)
 { fprintf(stderr, "watch_opening_inflight called!\n"); abort(); }
+/* Generated stub for watch_scriptpubkey_ */
+bool watch_scriptpubkey_(const tal_t *ctx UNNEEDED,
+			 struct chain_topology *topo UNNEEDED,
+			 const u8 *scriptpubkey TAKES UNNEEDED,
+			 const struct bitcoin_outpoint *expected_outpoint UNNEEDED,
+			 struct amount_sat expected_amount UNNEEDED,
+			 void (*cb)(struct lightningd *ld UNNEEDED,
+				    const struct bitcoin_tx *tx UNNEEDED,
+				    u32 outnum UNNEEDED,
+				    const struct txlocator *loc UNNEEDED,
+				    void *) UNNEEDED,
+			 void *arg UNNEEDED)
+{ fprintf(stderr, "watch_scriptpubkey_ called!\n"); abort(); }
 /* Generated stub for watch_splice_inflight */
 void watch_splice_inflight(struct lightningd *ld UNNEEDED,
 			   struct channel_inflight *inflight UNNEEDED)
