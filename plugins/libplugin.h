@@ -567,7 +567,7 @@ void plugin_notify_progress(struct command *cmd,
 			    u32 num_progress, u32 progress);
 
 /* Simply exists to check that `set` to plugin_option* is correct type */
-static inline void *plugin_option_cb_check(char *(*set)(struct plugin *plugin,
+static inline void *plugin_option_cb_check(char *(*set)(struct command *cmd,
 							const char *arg,
 							bool check_only,
 							void *))
@@ -576,7 +576,7 @@ static inline void *plugin_option_cb_check(char *(*set)(struct plugin *plugin,
 }
 
 /* Simply exists to check that `jsonfmt` to plugin_option* is correct type */
-static inline void *plugin_option_jsonfmt_check(bool (*jsonfmt)(struct plugin *,
+static inline void *plugin_option_jsonfmt_check(bool (*jsonfmt)(struct command *,
 								struct json_stream *,
 								const char *,
 								void *))
@@ -599,11 +599,11 @@ void *plugin_get_data_(struct plugin *plugin);
 	(description),							\
 	plugin_option_cb_check(typesafe_cb_preargs(char *, void *,	\
 						   (set), (arg),	\
-						   struct plugin *,	\
+						   struct command *,	\
 						   const char *, bool)),\
 	plugin_option_jsonfmt_check(typesafe_cb_preargs(bool, void *,	\
 							(jsonfmt), (arg), \
-							struct plugin *, \
+							struct command *, \
 							struct json_stream *, \
 							const char *)),	\
 	(arg),								\
@@ -633,26 +633,26 @@ void *plugin_get_data_(struct plugin *plugin);
 	plugin_option_((name), (type), (description), (set), (jsonfmt), (arg), false, NULL, NULL, false, true)
 
 /* Standard helpers */
-char *u64_option(struct plugin *plugin, const char *arg, bool check_only, u64 *i);
-char *u32_option(struct plugin *plugin, const char *arg, bool check_only, u32 *i);
-char *u16_option(struct plugin *plugin, const char *arg, bool check_only, u16 *i);
-char *bool_option(struct plugin *plugin, const char *arg, bool check_only, bool *i);
-char *charp_option(struct plugin *plugin, const char *arg, bool check_only, char **p);
-char *flag_option(struct plugin *plugin, const char *arg, bool check_only, bool *i);
+char *u64_option(struct command *cmd, const char *arg, bool check_only, u64 *i);
+char *u32_option(struct command *cmd, const char *arg, bool check_only, u32 *i);
+char *u16_option(struct command *cmd, const char *arg, bool check_only, u16 *i);
+char *bool_option(struct command *cmd, const char *arg, bool check_only, bool *i);
+char *charp_option(struct command *cmd, const char *arg, bool check_only, char **p);
+char *flag_option(struct command *cmd, const char *arg, bool check_only, bool *i);
 
-bool u64_jsonfmt(struct plugin *plugin, struct json_stream *js, const char *fieldname,
+bool u64_jsonfmt(struct command *cmd, struct json_stream *js, const char *fieldname,
 		 u64 *i);
-bool u32_jsonfmt(struct plugin *plugin, struct json_stream *js, const char *fieldname,
+bool u32_jsonfmt(struct command *cmd, struct json_stream *js, const char *fieldname,
 		 u32 *i);
-bool u16_jsonfmt(struct plugin *plugin, struct json_stream *js, const char *fieldname,
+bool u16_jsonfmt(struct command *cmd, struct json_stream *js, const char *fieldname,
 		 u16 *i);
-bool bool_jsonfmt(struct plugin *plugin, struct json_stream *js, const char *fieldname,
+bool bool_jsonfmt(struct command *cmd, struct json_stream *js, const char *fieldname,
 		  bool *i);
-bool charp_jsonfmt(struct plugin *plugin, struct json_stream *js, const char *fieldname,
+bool charp_jsonfmt(struct command *cmd, struct json_stream *js, const char *fieldname,
 		   char **p);
 
 /* Usually equivalent to NULL, since flag must default to false be useful! */
-bool flag_jsonfmt(struct plugin *plugin, struct json_stream *js, const char *fieldname,
+bool flag_jsonfmt(struct command *cmd, struct json_stream *js, const char *fieldname,
 		  bool *i);
 
 /* The main plugin runner: append with 0 or more plugin_option(), then NULL. */
