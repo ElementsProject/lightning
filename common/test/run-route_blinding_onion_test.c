@@ -41,6 +41,9 @@ bool node_id_from_hexstr(const char *str UNNEEDED, size_t slen UNNEEDED, struct 
 /* Generated stub for pubkey_from_node_id */
 bool pubkey_from_node_id(struct pubkey *key UNNEEDED, const struct node_id *id UNNEEDED)
 { fprintf(stderr, "pubkey_from_node_id called!\n"); abort(); }
+/* Generated stub for siphash_seed */
+const struct siphash_seed *siphash_seed(void)
+{ fprintf(stderr, "siphash_seed called!\n"); abort(); }
 /* Generated stub for towire_sciddir_or_pubkey */
 void towire_sciddir_or_pubkey(u8 **pptr UNNEEDED,
 			      const struct sciddir_or_pubkey *sciddpk UNNEEDED)
