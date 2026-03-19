@@ -13,7 +13,7 @@ POLICY_PLUGIN = os.path.join(os.path.dirname(__file__), "plugins/lsps2_policy.py
 LSP_OPTS = {
     "experimental-lsps2-service": None,
     "experimental-lsps2-promise-secret": "0" * 64,
-    "experimental-lsps2-collect-timeout": 5,
+    "dev-lsps2-collect-timeout": 5,
     "plugin": POLICY_PLUGIN,
     "fee-base": 0,
     "fee-per-satoshi": 0,
