@@ -4,8 +4,11 @@ use chrono::Utc;
 use cln_lsps::{
     cln_adapters::{
         hooks::service_custommsg_hook,
-        rpc::{ClnActionExecutor, ClnDatastore, ClnPolicyProvider, ClnRecoveryProvider, ClnRpcClient},
-        sender::ClnSender, state::ServiceState,
+        rpc::{
+            ClnActionExecutor, ClnDatastore, ClnPolicyProvider, ClnRecoveryProvider, ClnRpcClient,
+        },
+        sender::ClnSender,
+        state::ServiceState,
         types::HtlcAcceptedRequest,
     },
     core::{
@@ -14,8 +17,8 @@ use cln_lsps::{
             event_sink::NoopEventSink,
             manager::{PaymentHash, SessionConfig, SessionManager},
             provider::{DatastoreProvider, RecoveryProvider},
-            session::PaymentPart,
             service::Lsps2ServiceHandler,
+            session::PaymentPart,
         },
         server::LspsService,
         tlv::{TlvStream, TLV_FORWARD_AMT},
@@ -43,7 +46,7 @@ pub const OPTION_PROMISE_SECRET: options::StringConfigOption =
 
 pub const OPTION_COLLECT_TIMEOUT: options::DefaultIntegerConfigOption =
     options::ConfigOption::new_i64_with_default(
-        "experimental-lsps2-collect-timeout",
+        "dev-lsps2-collect-timeout",
         90,
         "Timeout in seconds for collecting MPP parts (default: 90)",
     );
@@ -66,7 +69,11 @@ impl State {
         let policy = Arc::new(ClnPolicyProvider::new(rpc.clone()));
         let executor = Arc::new(ClnActionExecutor::new(rpc.clone()));
         let recovery = Arc::new(ClnRecoveryProvider::new(rpc));
-        let lsps2_handler = Arc::new(Lsps2ServiceHandler::new(datastore.clone(), policy, promise_secret));
+        let lsps2_handler = Arc::new(Lsps2ServiceHandler::new(
+            datastore.clone(),
+            policy,
+            promise_secret,
+        ));
         let lsps_service = Arc::new(LspsService::builder().with_protocol(lsps2_handler).build());
         let session_manager = Arc::new(SessionManager::new(
             datastore.clone(),
@@ -240,8 +247,7 @@ async fn handle_session_htlc(
     req: &HtlcAcceptedRequest,
     scid: ShortChannelId,
 ) -> Result<serde_json::Value, anyhow::Error> {
-    let payment_hash =
-        PaymentHash::from_byte_array(req.htlc.payment_hash.as_slice().try_into()?);
+    let payment_hash = PaymentHash::from_byte_array(req.htlc.payment_hash.as_slice().try_into()?);
     let part = PaymentPart {
         htlc_id: req.htlc.id,
         amount_msat: Msat::from_msat(req.htlc.amount_msat.msat()),
@@ -297,10 +303,7 @@ fn session_response_to_json(
     }
 }
 
-async fn on_forward_event(
-    p: Plugin<State>,
-    v: serde_json::Value,
-) -> Result<(), anyhow::Error> {
+async fn on_forward_event(p: Plugin<State>, v: serde_json::Value) -> Result<(), anyhow::Error> {
     let event = match v.get("forward_event") {
         Some(e) => e,
         None => return Ok(()),
@@ -356,10 +359,7 @@ async fn on_forward_event(
     Ok(())
 }
 
-async fn on_block_added(
-    p: Plugin<State>,
-    v: serde_json::Value,
-) -> Result<(), anyhow::Error> {
+async fn on_block_added(p: Plugin<State>, v: serde_json::Value) -> Result<(), anyhow::Error> {
     let height = match v
         .get("block_added")
         .and_then(|b| b.get("height"))
@@ -396,4 +396,3 @@ fn json_fail(failure_code: &str) -> serde_json::Value {
         "failure_message": failure_code
     })
 }
-
