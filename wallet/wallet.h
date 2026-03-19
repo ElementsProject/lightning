@@ -1281,13 +1281,6 @@ struct bitcoin_tx *wallet_transaction_get(const tal_t *ctx, struct wallet *w,
 u32 wallet_transaction_height(struct wallet *w, const struct bitcoin_txid *txid);
 
 /**
- * Locate a transaction in the blockchain, returns NULL if the transaction is
- * not tracked or is not yet confirmed.
- */
-struct txlocator *wallet_transaction_locate(const tal_t *ctx, struct wallet *w,
-					    const struct bitcoin_txid *txid);
-
-/**
  * Get transaction IDs for transactions that we are tracking.
  */
 struct bitcoin_txid *wallet_transactions_by_height(const tal_t *ctx,

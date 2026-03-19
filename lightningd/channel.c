@@ -204,6 +204,7 @@ new_inflight(struct channel *channel,
 	inflight->funding_psbt = tal_steal(inflight, psbt);
 	inflight->last_tx = NULL;
 	inflight->tx_broadcast = false;
+	inflight->scid = NULL;
 
 	/* Channel lease infos */
 	inflight->lease_blockheight_start = lease_blockheight_start;
