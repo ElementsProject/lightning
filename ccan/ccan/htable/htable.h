@@ -25,7 +25,7 @@ struct htable {
 	size_t (*rehash)(const void *elem, void *priv);
 	void *priv;
 	unsigned int bits, perfect_bitnum;
-	size_t elems, deleted;
+	size_t elems, deleted, locked;
 	/* These are the bits which are the same in all pointers. */
 	uintptr_t common_mask, common_bits;
 	uintptr_t *table;
@@ -49,7 +49,7 @@ struct htable {
  *	static struct htable ht = HTABLE_INITIALIZER(ht, rehash, NULL);
  */
 #define HTABLE_INITIALIZER(name, rehash, priv)				\
-	{ rehash, priv, 0, 0, 0, 0, -1, 0, &name.common_bits }
+	{ rehash, priv, 0, 0, 0, 0, 0, -1, 0, &name.common_bits }
 
 /**
  * htable_init - initialize an empty hash table.
@@ -113,7 +113,7 @@ struct htable *htable_check(const struct htable *ht, const char *abortstr);
  * @dst: the hash table to overwrite
  * @src: the hash table to copy
  *
- * Only fails on out-of-memory.
+ * Only fails on out-of-memory.  Note that the copy is not locked (see htable_lock()).
  *
  * Equivalent to (but faster than):
  *    if (!htable_init_sized(dst, src->rehash, src->priv, 1U << src->bits))
@@ -129,6 +129,24 @@ struct htable *htable_check(const struct htable *ht, const char *abortstr);
 bool htable_copy_(struct htable *dst, const struct htable *src);
 
 /**
+ * htable_lock - prevent additions to the hash table.
+ * @ht: the hash table
+ *
+ * Causes an assertion on htable_add.  This is useful to enforce restrictions
+ * during iteration.  This function nests, so you can htable_lock() multiple
+ * times before calling htable_unlock() multiple times.
+ */
+void htable_lock(struct htable *ht);
+
+/**
+ * htable_unlock - allow additions to the hash table.
+ * @ht: the locked hash table
+ *
+ * See htable_lock().
+ */
+void htable_unlock(struct htable *ht);
+
+/**
  * htable_add - add a pointer into a hash table.
  * @ht: the htable
  * @hash: the hash value of the object
@@ -136,6 +154,8 @@ bool htable_copy_(struct htable *dst, const struct htable *src);
  *
  * Also note that this can only fail due to allocation failure.  Otherwise, it
  * returns true.
+ *
+ * Note that iteration is NOT safe over htable_add, as the table could be resized.
  */
 #define htable_add(ht, hash, p) \
 	htable_add_(htable_debug(ht, HTABLE_LOC), hash, p)
@@ -148,6 +168,7 @@ bool htable_add_(struct htable *ht, size_t hash, const void *p);
  * @p: the pointer
  *
  * Returns true if the pointer was found (and deleted).
+ * Note that iteration is safe over htable_del.
  */
 #define htable_del(ht, hash, p) \
 	htable_del_(htable_debug(ht, HTABLE_LOC), hash, p)
