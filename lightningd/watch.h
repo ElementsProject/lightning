@@ -13,6 +13,7 @@ struct txlocator;
 struct txowatch;
 struct txwatch;
 struct scriptpubkeywatch;
+struct blockdepthwatch;
 
 enum watch_result {
 	DELETE_WATCH = -1,
@@ -36,6 +37,12 @@ const struct script_with_len *scriptpubkeywatch_keyof(const struct scriptpubkeyw
 bool scriptpubkeywatch_eq(const struct scriptpubkeywatch *w, const struct script_with_len *swl);
 HTABLE_DEFINE_DUPS_TYPE(struct scriptpubkeywatch, scriptpubkeywatch_keyof, script_with_len_hash, scriptpubkeywatch_eq,
 			scriptpubkeywatch_hash);
+
+u32 blockdepthwatch_keyof(const struct blockdepthwatch *w);
+size_t u32_hash(u32);
+bool blockdepthwatch_eq(const struct blockdepthwatch *w, u32 height);
+HTABLE_DEFINE_DUPS_TYPE(struct blockdepthwatch, blockdepthwatch_keyof, u32_hash, blockdepthwatch_eq,
+			blockdepthwatch_hash);
 
 struct txwatch *watch_txid_(const tal_t *ctx,
 			    struct chain_topology *topo,
@@ -147,11 +154,36 @@ bool unwatch_scriptpubkey_(const tal_t *ctx,
 						  const struct txlocator *), \
 			      (arg))
 
+/* Watch for this block getting deeper (or reorged out) */
+void watch_blockdepth_(const tal_t *ctx,
+		       struct chain_topology *topo,
+		       u32 blockheight,
+		       enum watch_result (*depthcb)(struct lightningd *ld, u32 depth, void *),
+		       enum watch_result (*reorgcb)(struct lightningd *ld, void *),
+		       void *arg);
+
+#define watch_blockdepth(ctx, topo, blockheight, depthcb, reorgcb, arg)	\
+	watch_blockdepth_((ctx), (topo), (blockheight),		\
+			  typesafe_cb_preargs(enum watch_result, void *, \
+					      (depthcb), (arg),		\
+					      struct lightningd *,	\
+					      u32),			\
+			  typesafe_cb_preargs(enum watch_result, void *, \
+					      (reorgcb), (arg),		\
+					      struct lightningd *),	\
+			  (arg))
+
 /* Call any scriptpubkey callbacks for this tx */
 bool watch_check_tx_outputs(const struct chain_topology *topo,
 			    const struct txlocator *loc,
 			    const struct bitcoin_tx *tx,
 			    const struct bitcoin_txid *txid);
+
+/* Call anyone watching for block height increases. */
+void watch_check_block_added(const struct chain_topology *topo, u32 blockheight);
+
+/* Call anyone watching for block removals. */
+void watch_check_block_removed(const struct chain_topology *topo, u32 blockheight);
 
 void watch_topology_changed(struct chain_topology *topo);
 #endif /* LIGHTNING_LIGHTNINGD_WATCH_H */

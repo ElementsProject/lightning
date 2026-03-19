@@ -847,6 +847,9 @@ static void updates_complete(struct chain_topology *topo)
 		/* Tell lightningd about new block. */
 		notify_new_block(topo->bitcoind->ld);
 
+		/* Tell blockdepth watchers */
+		watch_check_block_added(topo, topo->tip->height);
+
 		/* Tell watch code to re-evaluate all txs. */
 		watch_topology_changed(topo);
 
@@ -1054,6 +1057,9 @@ static void remove_tip(struct chain_topology *topo)
 	/* This may have unconfirmed txs: reconfirm as we add blocks. */
 	watch_for_utxo_reconfirmation(topo, topo->ld->wallet);
 
+	/* Anyone watching for block removes */
+	watch_check_block_removed(topo, b->height);
+
 	block_map_del(topo->block_map, b);
 
 	/* These no longer exist, so gossipd drops any reference to them just
@@ -1228,6 +1234,7 @@ struct chain_topology *new_topology(struct lightningd *ld, struct logger *log)
 	topo->txwatches = new_htable(topo, txwatch_hash);
 	topo->txowatches = new_htable(topo, txowatch_hash);
 	topo->scriptpubkeywatches = new_htable(topo, scriptpubkeywatch_hash);
+	topo->blockdepthwatches = new_htable(topo, blockdepthwatch_hash);
 	topo->log = log;
 	topo->bitcoind = new_bitcoind(topo, ld, log);
 	topo->poll_seconds = 30;
