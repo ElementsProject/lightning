@@ -1655,14 +1655,13 @@ static void handle_tx_broadcast(struct channel_send *cs)
 	struct command *cmd = channel->openchannel_signed_cmd;
 	struct json_stream *response;
 	struct bitcoin_txid txid;
-	int num_utxos;
 
 	/* This might have spent UTXOs from our wallet */
-	num_utxos = wallet_extract_owned_outputs(ld->wallet,
-						 /* FIXME: what txindex? */
-						 wtx, false, NULL);
-	if (num_utxos)
+	if (wallet_extract_owned_outputs(ld->wallet,
+					 /* FIXME: what txindex? */
+					 wtx, false, NULL, NULL)) {
 		wallet_transaction_add(ld->wallet, wtx, 0, 0);
+	}
 
 	if (cmd) {
 		response = json_stream_success(cmd);

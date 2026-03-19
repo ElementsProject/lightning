@@ -801,10 +801,18 @@ u32 wallet_blocks_contig_minheight(struct wallet *w);
 
 /**
  * wallet_extract_owned_outputs - given a tx, extract all of our outputs
+ * @w: wallet
+ * @is_coinbase: true if this is output 0 (can't spend for 100 blocks)
+ * @blockheight: non-NULL blockheight if known.
+ * @outputs: if non-NULL, output numbers of owned outputs are appended to it.
+ *
+ * Returns true if at least one output was to one of our addresses.
  */
-int wallet_extract_owned_outputs(struct wallet *w, const struct wally_tx *tx,
-				 bool is_coinbase,
-				 const u32 *blockheight);
+bool wallet_extract_owned_outputs(struct wallet *w,
+				  const struct wally_tx *wtx,
+				  bool is_coinbase,
+				  const u32 *blockheight,
+				  size_t **outputs);
 
 /**
  * wallet_htlc_save_in - store an htlc_in in the database

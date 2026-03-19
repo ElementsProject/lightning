@@ -523,18 +523,17 @@ static void handle_tx_broadcast(struct send_splice_info *info)
 	struct json_stream *response;
 	struct bitcoin_txid txid;
 	u8 *tx_bytes;
-	int num_utxos;
 	struct splice_command *cc;
 
 	tx_bytes = linearize_tx(tmpctx, info->final_tx);
 	bitcoin_txid(info->final_tx, &txid);
 
 	/* This might have spent UTXOs from our wallet */
-	num_utxos = wallet_extract_owned_outputs(ld->wallet,
-						 info->final_tx->wtx, false,
-						 NULL);
-	if (num_utxos)
+	if (wallet_extract_owned_outputs(ld->wallet,
+					 info->final_tx->wtx, false,
+					 NULL, NULL)) {
 		wallet_transaction_add(ld->wallet, info->final_tx->wtx, 0, 0);
+	}
 
 	cc = splice_command_for_chan(ld, info->channel);
 
