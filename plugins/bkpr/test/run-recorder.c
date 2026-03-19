@@ -66,6 +66,12 @@ void command_log(struct command *cmd UNNEEDED, enum log_level level UNNEEDED,
 		 const char *fmt UNNEEDED, ...)
 
 { fprintf(stderr, "command_log called!\n"); abort(); }
+/* Generated stub for json_add_currencyrate */
+void json_add_currencyrate(struct json_stream *result UNNEEDED,
+			   const char *fieldname UNNEEDED,
+			   const struct bkpr *bkpr UNNEEDED,
+			   u64 timestamp UNNEEDED)
+{ fprintf(stderr, "json_add_currencyrate called!\n"); abort(); }
 /* Generated stub for plugin_err */
 void   plugin_err(struct plugin *p UNNEEDED, const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "plugin_err called!\n"); abort(); }
