@@ -256,7 +256,7 @@ static struct command_result *json_spamlistcommand(struct command *cmd,
 }
 
 
-static char *set_dynamic(struct plugin *plugin,
+static char *set_dynamic(struct command *cmd,
 			 const char *arg,
 			 bool check_only,
 			 u32 *dynamic_opt)
@@ -369,7 +369,7 @@ static const struct plugin_notification notifs[] = { {
 	}
 };
 
-static char *set_multi_string_option(struct plugin *plugin,
+static char *set_multi_string_option(struct command *cmd,
 				     const char *arg,
 				     bool check_only,
 				     const char ***arr)
@@ -379,7 +379,7 @@ static char *set_multi_string_option(struct plugin *plugin,
 	return NULL;
 }
 
-static bool multi_string_jsonfmt(struct plugin *plugin, struct json_stream *js, const char *fieldname, const char ***arr)
+static bool multi_string_jsonfmt(struct command *cmd, struct json_stream *js, const char *fieldname, const char ***arr)
 {
 	json_array_start(js, fieldname);
 	for (size_t i = 0; i < tal_count(*arr); i++)
