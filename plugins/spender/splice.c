@@ -1861,7 +1861,8 @@ static struct command_result *execute_splice(struct command *cmd,
 			/* Reencode scriptpubkey to addr for verification */
 			bitcoin_address = encode_scriptpubkey_to_addr(tmpctx,
 								      chainparams,
-								      scriptpubkey);
+								      scriptpubkey,
+								      tal_bytelen(scriptpubkey));
 			if (!bitcoin_address)
 				return do_fail(cmd, splice_cmd,
 					       JSONRPC2_INVALID_PARAMS,

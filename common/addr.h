@@ -6,7 +6,8 @@
 /* Given a scriptPubkey, return an encoded address for p2pkh/p2w{pkh,sh}/p2tr */
 char *encode_scriptpubkey_to_addr(const tal_t *ctx,
 				  const struct chainparams *chainparams,
-				  const u8 *scriptpubkey);
+				  const u8 *scriptpubkey,
+				  size_t scriptpubkey_len);
 
 bool decode_scriptpubkey_from_addr(const tal_t *ctx,
 				   const struct chainparams *chainparams,
