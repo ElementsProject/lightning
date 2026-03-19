@@ -1,5 +1,4 @@
 #include "config.h"
-#include <common/randbytes.h>
 #include <common/setup.h>
 #include <stdio.h>
 #include "../amount.c"
@@ -41,6 +40,9 @@ void fromwire_u8_array(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, u8 *arr
 /* Generated stub for pseudorand_u64_ */
 uint64_t pseudorand_u64_(uint64_t *offset UNNEEDED)
 { fprintf(stderr, "pseudorand_u64_ called!\n"); abort(); }
+/* Generated stub for siphash_seed */
+const struct siphash_seed *siphash_seed(void)
+{ fprintf(stderr, "siphash_seed called!\n"); abort(); }
 /* Generated stub for towire */
 void towire(u8 **pptr UNNEEDED, const void *data UNNEEDED, size_t len UNNEEDED)
 { fprintf(stderr, "towire called!\n"); abort(); }

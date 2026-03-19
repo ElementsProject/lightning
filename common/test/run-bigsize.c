@@ -4,7 +4,6 @@
 #include <common/amount.h>
 #include <common/json_parse.c>
 #include <common/json_parse_simple.c>
-#include <common/randbytes.h>
 #include <common/setup.h>
 
 static const char *reason;
@@ -91,6 +90,9 @@ bool parse_amount_msat(struct amount_msat *msat UNNEEDED, const char *s UNNEEDED
 /* Generated stub for parse_amount_sat */
 bool parse_amount_sat(struct amount_sat *sat UNNEEDED, const char *s UNNEEDED, size_t slen UNNEEDED)
 { fprintf(stderr, "parse_amount_sat called!\n"); abort(); }
+/* Generated stub for siphash_seed */
+const struct siphash_seed *siphash_seed(void)
+{ fprintf(stderr, "siphash_seed called!\n"); abort(); }
 /* Generated stub for towire */
 void towire(u8 **pptr UNNEEDED, const void *data UNNEEDED, size_t len UNNEEDED)
 { fprintf(stderr, "towire called!\n"); abort(); }

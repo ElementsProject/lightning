@@ -2,7 +2,7 @@
 #include <assert.h>
 #include <bitcoin/chainparams.h>
 #include <common/amount.h>
-#include <common/randbytes.h>
+#include <common/pseudorand.h>
 #include <common/setup.h>
 #include <stdio.h>
 #include "../fee_states.c"
@@ -80,6 +80,9 @@ int htlc_state_flags(enum htlc_state state UNNEEDED)
 /* Generated stub for htlc_state_name */
 const char *htlc_state_name(enum htlc_state s UNNEEDED)
 { fprintf(stderr, "htlc_state_name called!\n"); abort(); }
+/* Generated stub for siphash_seed */
+const struct siphash_seed *siphash_seed(void)
+{ fprintf(stderr, "siphash_seed called!\n"); abort(); }
 /* Generated stub for towire */
 void towire(u8 **pptr UNNEEDED, const void *data UNNEEDED, size_t len UNNEEDED)
 { fprintf(stderr, "towire called!\n"); abort(); }

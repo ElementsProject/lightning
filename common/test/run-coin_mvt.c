@@ -1,7 +1,6 @@
 #include "config.h"
 #include "../coin_mvt.c"
 #include <ccan/tal/str/str.h>
-#include <common/randbytes.h>
 #include <common/setup.h>
 #include <stdio.h>
 
@@ -91,6 +90,9 @@ void fromwire_u8_array(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, u8 *arr
 /* Generated stub for fromwire_wirestring */
 char *fromwire_wirestring(const tal_t *ctx UNNEEDED, const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_wirestring called!\n"); abort(); }
+/* Generated stub for siphash_seed */
+const struct siphash_seed *siphash_seed(void)
+{ fprintf(stderr, "siphash_seed called!\n"); abort(); }
 /* Generated stub for towire */
 void towire(u8 **pptr UNNEEDED, const void *data UNNEEDED, size_t len UNNEEDED)
 { fprintf(stderr, "towire called!\n"); abort(); }
