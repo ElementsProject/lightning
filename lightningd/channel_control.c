@@ -671,18 +671,11 @@ static enum watch_result splice_depth_cb(struct lightningd *ld,
 	}
 
 	if (inflight->channel->owner) {
-		/* FIXME: Save this in inflight so we don't neeed to re-derive. */
-		struct short_channel_id scid;
-		struct txlocator *loc = wallet_transaction_locate(tmpctx, ld->wallet, &inflight->funding->outpoint.txid);
-		if (!mk_short_channel_id(&scid,
-					 loc->blkheight, loc->index,
-					 inflight->funding->outpoint.n))
-			abort();
 		log_debug(inflight->channel->log, "splice_depth_cb: sending funding depth scid: %s",
-			  fmt_short_channel_id(tmpctx, scid));
+			  fmt_short_channel_id(tmpctx, *inflight->scid));
 		subd_send_msg(inflight->channel->owner,
 			      take(towire_channeld_funding_depth(
-					   NULL, &scid,
+					   NULL, inflight->scid,
 					   depth, true,
 					   &inflight->funding->outpoint.txid)));
 	}
@@ -697,6 +690,7 @@ static enum watch_result splice_reorged_cb(struct lightningd *ld, struct channel
 {
 	log_unusual(inflight->channel->log, "Splice inflight txid %s reorged out",
 		    fmt_bitcoin_txid(tmpctx, &inflight->funding->outpoint.txid));
+	inflight->scid = tal_free(inflight->scid);
 	return DELETE_WATCH;
 }
 
@@ -707,11 +701,13 @@ static void splice_found(struct lightningd *ld,
 			 const struct txlocator *loc,
 			 struct channel_inflight *inflight)
 {
-	struct short_channel_id scid;
+	assert(!inflight->scid);
+	inflight->scid = tal(inflight, struct short_channel_id);
 
-	if (!mk_short_channel_id(&scid,
+	if (!mk_short_channel_id(inflight->scid,
 				 loc->blkheight, loc->index,
 				 inflight->funding->outpoint.n)) {
+		inflight->scid = tal_free(inflight->scid);
 		channel_fail_permanent(inflight->channel,
 				       REASON_LOCAL,
 				       "Invalid funding scid %u:%u:%u",

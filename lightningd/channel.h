@@ -53,6 +53,9 @@ struct channel_inflight {
 	/* Channel context */
 	struct channel *channel;
 
+	/* SCID once we're mined, otherwise NULL */
+	struct short_channel_id *scid;
+
 	/* Funding info */
 	const struct funding_info *funding;
 	struct wally_psbt *funding_psbt;
