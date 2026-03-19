@@ -367,3 +367,63 @@ def test_bkpr_listaccountevents_realtime(node_factory, fake_rateserver):
     assert events
     for e in events:
         assert e["currencyrate"] == old_median
+
+
+def test_bkpr_currency_dynamic(node_factory, fake_rateserver):
+    opts = {
+        "currencyrate-disable-source": [
+            "bitstamp",
+            "coinbase",
+            "coingecko",
+            "kraken",
+            "blockchain.info",
+            "coindesk",
+            "binance",
+        ],
+        "currencyrate-add-source": [
+            f"fast,{fake_rateserver['url']}/fast,price",
+            f"slow,{fake_rateserver['url']}/slow,price",
+        ],
+    }
+    l1, l2 = node_factory.line_graph(2, opts=opts)
+
+    median_rate = (fake_rateserver["state"]["fast"] + fake_rateserver["state"]["slow"]) / 2
+
+    inv1 = l2.rpc.invoice(100000, "test_bkpr_currency_dynamic_1", "desc")
+    l1.rpc.pay(inv1["bolt11"])
+    # We want this event in the list, so wait until it's totally closed.
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+
+    # No bookkeeker-currency, no currencyrate
+    events = l1.rpc.bkpr_listaccountevents()["events"]
+    assert events
+    assert all("currencyrate" not in e for e in events)
+    num_events_1 = len(events)
+
+    l1.rpc.setconfig("bkpr-currency", "USD")
+
+    inv2 = l2.rpc.invoice(100000, "test_bkpr_currency_dynamic_2", "desc")
+    l1.rpc.pay(inv2["bolt11"])
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+
+    events = l1.rpc.bkpr_listaccountevents()["events"]
+    assert len(events) > num_events_1
+
+    old_events = events[:num_events_1]
+    new_events = events[num_events_1:]
+
+    assert all("currencyrate" not in e for e in old_events)
+    assert all(e["currencyrate"] == median_rate for e in new_events)
+
+    # Disables all currency conversions.
+    l1.rpc.setconfig("bkpr-currency", "")
+
+    inv3 = l2.rpc.invoice(100000, "test_bkpr_currency_dynamic_3", "desc")
+    l1.rpc.pay(inv3["bolt11"])
+    # If we don't wait here, we can get a spurious error from
+    # cln-currencyrate as fixture gets torn down!
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+
+    events = l1.rpc.bkpr_listaccountevents()["events"]
+    assert events
+    assert all("currencyrate" not in e for e in events)
