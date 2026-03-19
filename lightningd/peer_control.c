@@ -2307,15 +2307,60 @@ void update_channel_from_inflight(struct lightningd *ld,
 	wallet_channel_save(ld->wallet, channel);
 }
 
-/* We see this tx output spend to the funding address. */
-static void channel_funding_found(struct lightningd *ld,
-				  const struct bitcoin_tx *tx,
-				  u32 outnum,
-				  const struct txlocator *loc,
-				  struct channel *channel)
+static void funding_reorged_cb(struct lightningd *ld, struct channel *channel)
 {
-	/* Closes channel if it doesn't fit in an scid! */
-	depthcb_update_scid(channel, &channel->funding, loc);
+	/* That's not entirely unexpected in early states */
+	switch (channel->state) {
+	case DUALOPEND_AWAITING_LOCKIN:
+	case DUALOPEND_OPEN_INIT:
+	case DUALOPEND_OPEN_COMMIT_READY:
+	case DUALOPEND_OPEN_COMMITTED:
+		/* Shouldn't be here! */
+		channel_internal_error(channel,
+				       "Bad %s state: %s",
+				       __func__,
+				       channel_state_name(channel));
+		return;
+	case CHANNELD_AWAITING_LOCKIN:
+		/* That's not entirely unexpected in early states */
+		log_debug(channel->log, "Funding tx %s reorganized out!",
+			  fmt_bitcoin_txid(tmpctx, &channel->funding.txid));
+		channel_set_scid(channel, NULL);
+		return;
+
+		/* But it's often Bad News in later states */
+	case CHANNELD_AWAITING_SPLICE:
+	case CHANNELD_NORMAL:
+		/* If we opened, or it's zero-conf, we trust them anyway. */
+		if (channel->opener == LOCAL
+		    || channel->minimum_depth == 0) {
+			const char *str;
+
+			str = tal_fmt(tmpctx,
+				      "Funding tx %s reorganized out, but %s...",
+				      fmt_bitcoin_txid(tmpctx, &channel->funding.txid),
+				      channel->opener == LOCAL ? "we opened it" : "zeroconf anyway");
+
+			/* Log even if not connected! */
+			if (!channel->owner)
+				log_info(channel->log, "%s", str);
+			channel_fail_transient(channel, true, "%s", str);
+			return;
+		}
+		/* fall thru */
+	case AWAITING_UNILATERAL:
+	case CHANNELD_SHUTTING_DOWN:
+	case CLOSINGD_SIGEXCHANGE:
+	case CLOSINGD_COMPLETE:
+	case FUNDING_SPEND_SEEN:
+	case ONCHAIN:
+	case CLOSED:
+		break;
+	}
+
+	channel_internal_error(channel,
+			       "Funding transaction has been reorged out in state %s!",
+			       channel_state_name(channel));
 }
 
 static enum watch_result funding_depth_cb(struct lightningd *ld,
@@ -2339,57 +2384,7 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 
 	/* Reorged out? */
 	if (depth == 0) {
-		/* That's not entirely unexpected in early states */
-		switch (channel->state) {
-		case DUALOPEND_AWAITING_LOCKIN:
-		case DUALOPEND_OPEN_INIT:
-		case DUALOPEND_OPEN_COMMIT_READY:
-		case DUALOPEND_OPEN_COMMITTED:
-			/* Shouldn't be here! */
-			channel_internal_error(channel,
-					       "Bad %s state: %s",
-					       __func__,
-					       channel_state_name(channel));
-			return DELETE_WATCH;
-		case CHANNELD_AWAITING_LOCKIN:
-			/* That's not entirely unexpected in early states */
-			log_debug(channel->log, "Funding tx %s reorganized out!",
-				  fmt_bitcoin_txid(tmpctx, txid));
-			channel_set_scid(channel, NULL);
-			return KEEP_WATCHING;
-
-		/* But it's often Bad News in later states */
-		case CHANNELD_AWAITING_SPLICE:
-		case CHANNELD_NORMAL:
-			/* If we opened, or it's zero-conf, we trust them anyway. */
-			if (channel->opener == LOCAL
-			    || channel->minimum_depth == 0) {
-				const char *str;
-
-				str = tal_fmt(tmpctx,
-					      "Funding tx %s reorganized out, but %s...",
-					      fmt_bitcoin_txid(tmpctx, txid),
-					      channel->opener == LOCAL ? "we opened it" : "zeroconf anyway");
-
-				/* Log even if not connected! */
-				if (!channel->owner)
-					log_info(channel->log, "%s", str);
-				channel_fail_transient(channel, true, "%s", str);
-				return KEEP_WATCHING;
-			}
-			/* fall thru */
-		case AWAITING_UNILATERAL:
-		case CHANNELD_SHUTTING_DOWN:
-		case CLOSINGD_SIGEXCHANGE:
-		case CLOSINGD_COMPLETE:
-		case FUNDING_SPEND_SEEN:
-		case ONCHAIN:
-		case CLOSED:
-			break;
-		}
-		channel_internal_error(channel,
-				       "Funding transaction has been reorged out in state %s!",
-				       channel_state_name(channel));
+		funding_reorged_cb(ld, channel);
 		return KEEP_WATCHING;
 	}
 
@@ -2433,6 +2428,17 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 		return DELETE_WATCH;
 	}
 	abort();
+}
+
+/* We see this tx output spend to the funding address. */
+static void channel_funding_found(struct lightningd *ld,
+				  const struct bitcoin_tx *tx,
+				  u32 outnum,
+				  const struct txlocator *loc,
+				  struct channel *channel)
+{
+	/* Closes channel if it doesn't fit in an scid! */
+	depthcb_update_scid(channel, &channel->funding, loc);
 }
 
 static enum watch_result funding_spent(struct channel *channel,
