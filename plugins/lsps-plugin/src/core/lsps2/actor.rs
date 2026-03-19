@@ -1,7 +1,7 @@
 use crate::{
     core::lsps2::{
         event_sink::{EventSink, SessionEventEnvelope},
-        provider::{DatastoreProvider, ForwardActivity, RecoveryProvider},
+        provider::DatastoreProvider,
         session::{PaymentPart, Session, SessionAction, SessionEvent, SessionInput},
     },
     proto::{
@@ -173,12 +173,9 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
         session: Session,
         entry: DatastoreEntry,
         initial_actions: Vec<SessionAction>,
-        channel_id: String,
         executor: A,
         scid: ShortChannelId,
         datastore: D,
-        recovery: Arc<dyn RecoveryProvider>,
-        forwards_updated_index: Option<u64>,
         event_sink: Arc<dyn EventSink>,
     ) -> ActorInboxHandle {
         let (tx, inbox) = mpsc::channel(128);
@@ -200,12 +197,7 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
             event_sink,
         };
 
-        tokio::spawn(actor.run_recovered(
-            initial_actions,
-            channel_id,
-            recovery,
-            forwards_updated_index,
-        ));
+        tokio::spawn(actor.run_recovered(initial_actions));
         handle
     }
 
@@ -376,9 +368,6 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
     async fn run_recovered(
         mut self,
         initial_actions: Vec<SessionAction>,
-        channel_id: String,
-        recovery: Arc<dyn RecoveryProvider>,
-        forwards_updated_index: Option<u64>,
     ) {
         // Execute initial actions (e.g., BroadcastFundingTx for Broadcasting state)
         for action in initial_actions {
@@ -390,83 +379,11 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
             return;
         }
 
-        // Start forward monitoring
-        let from_index = forwards_updated_index.unwrap_or(0);
-        let self_tx = self.self_send.clone();
-        let monitor_handle = {
-            let recovery = recovery.clone();
-            let channel_id = channel_id.clone();
-            let scid = self.scid;
-
-            tokio::spawn(async move {
-                // First: check listforwards for already-settled forwards
-                match recovery.get_forward_activity(&channel_id).await {
-                    Ok(ForwardActivity::Settled) => {
-                        let _ = self_tx
-                            .send(ActorInput::PaymentSettled {
-                                preimage: None,
-                                updated_index: None,
-                            })
-                            .await;
-                        return;
-                    }
-                    Ok(ForwardActivity::AllFailed) => {
-                        let _ = self_tx
-                            .send(ActorInput::PaymentFailed { updated_index: None })
-                            .await;
-                        return;
-                    }
-                    Ok(ForwardActivity::Offered)
-                    | Ok(ForwardActivity::NoForwards)
-                    | Err(_) => {
-                        // Fall through to wait loop
-                    }
-                }
-
-                // Poll using wait subsystem
-                let mut current_index = from_index;
-                loop {
-                    match recovery
-                        .wait_for_forward_resolution(&channel_id, current_index)
-                        .await
-                    {
-                        Ok((ForwardActivity::Settled, new_index)) => {
-                            let _ = self_tx
-                                .send(ActorInput::PaymentSettled {
-                                    preimage: None,
-                                    updated_index: Some(new_index),
-                                })
-                                .await;
-                            return;
-                        }
-                        Ok((ForwardActivity::AllFailed, new_index)) => {
-                            let _ = self_tx
-                                .send(ActorInput::PaymentFailed {
-                                    updated_index: Some(new_index),
-                                })
-                                .await;
-                            return;
-                        }
-                        Ok((ForwardActivity::Offered, new_index))
-                        | Ok((ForwardActivity::NoForwards, new_index)) => {
-                            current_index = new_index;
-                            continue;
-                        }
-                        Err(e) => {
-                            warn!("forward monitoring error for scid={scid}: {e}");
-                            tokio::time::sleep(Duration::from_secs(5)).await;
-                            continue;
-                        }
-                    }
-                }
-            })
-        };
-
-        // Main loop: process inbox events
+        // Main loop: process inbox events from forward_event notifications
         loop {
             match self.inbox.recv().await {
                 Some(actor_input) => {
-                    // Only process the three shared persistence arms
+                    // Only process settlement/failure/broadcast events
                     let session_input = match &actor_input {
                         ActorInput::PaymentSettled { .. }
                         | ActorInput::PaymentFailed { .. }
@@ -486,7 +403,6 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
             }
         }
 
-        monitor_handle.abort();
         Self::finalize(&self.session, &self.datastore, self.scid).await;
     }
 

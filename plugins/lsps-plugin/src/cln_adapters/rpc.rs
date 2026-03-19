@@ -26,9 +26,8 @@ use cln_rpc::{
             FundchannelCompleteRequest, FundchannelStartRequest, FundpsbtRequest, GetinfoRequest,
             ListdatastoreRequest, ListforwardsIndex, ListforwardsRequest, ListpeerchannelsRequest,
             SendpsbtRequest, SignpsbtRequest, UnreserveinputsRequest,
-            WaitIndexname, WaitRequest, WaitSubsystem,
         },
-        responses::{ListdatastoreResponse, ListforwardsForwardsStatus, WaitForwardsStatus},
+        responses::{ListdatastoreResponse, ListforwardsForwardsStatus},
     },
     primitives::{Amount, AmountOrAll, ChannelState, Feerate, Sha256},
     ClnRpc,
@@ -845,63 +844,6 @@ impl RecoveryProvider for ClnRecoveryProvider {
         }
     }
 
-    async fn wait_for_forward_resolution(
-        &self,
-        channel_id: &str,
-        from_index: u64,
-    ) -> Result<(ForwardActivity, u64)> {
-        // Get the scid for this channel so we can match wait responses.
-        let scid = self.rpc.get_channel_scid(channel_id).await?;
-
-        let mut next_index = from_index + 1;
-        loop {
-            let mut rpc = self.rpc.create_rpc().await?;
-            let wait_res = rpc
-                .call_typed(&WaitRequest {
-                    subsystem: WaitSubsystem::FORWARDS,
-                    indexname: WaitIndexname::UPDATED,
-                    nextvalue: next_index,
-                })
-                .await
-                .with_context(|| {
-                    format!("calling wait for channel_id={channel_id} at index={next_index}")
-                })?;
-
-            let new_index = wait_res.updated.unwrap_or(next_index);
-
-            // Check if this update is for our channel.
-            let is_our_channel = match (&scid, &wait_res.forwards) {
-                (Some(our_scid), Some(fwd)) => fwd
-                    .out_channel
-                    .as_ref()
-                    .map(|c| c == our_scid)
-                    .unwrap_or(false),
-                _ => false,
-            };
-
-            if is_our_channel {
-                if let Some(fwd) = &wait_res.forwards {
-                    match fwd.status {
-                        Some(WaitForwardsStatus::SETTLED) => {
-                            return Ok((ForwardActivity::Settled, new_index));
-                        }
-                        Some(WaitForwardsStatus::OFFERED) => {
-                            return Ok((ForwardActivity::Offered, new_index));
-                        }
-                        Some(WaitForwardsStatus::FAILED)
-                        | Some(WaitForwardsStatus::LOCAL_FAILED) => {
-                            // Check full history to decide AllFailed vs Active.
-                            let activity = self.get_forward_activity(channel_id).await?;
-                            return Ok((activity, new_index));
-                        }
-                        None => {}
-                    }
-                }
-            }
-
-            next_index = new_index + 1;
-        }
-    }
 }
 
 // ---------------------------------------------------------------------------

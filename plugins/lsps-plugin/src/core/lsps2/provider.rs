@@ -63,15 +63,6 @@ pub trait RecoveryProvider: Send + Sync {
 
     /// Close a channel and unreserve its inputs.
     async fn close_and_unreserve(&self, channel_id: &str, funding_psbt: &str) -> Result<()>;
-
-    /// Monitor forward status changes using the wait subsystem.
-    /// Returns when a forward on the given channel settles or fails.
-    /// `from_index` is the last processed updated_index.
-    async fn wait_for_forward_resolution(
-        &self,
-        channel_id: &str,
-        from_index: u64,
-    ) -> Result<(ForwardActivity, u64)>;
 }
 
 #[async_trait]
