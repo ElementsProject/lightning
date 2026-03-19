@@ -234,23 +234,28 @@ class _ServerThread(threading.Thread):
 @pytest.fixture
 def fake_rateserver():
     app = Flask(__name__)
+    state = {
+        "fast": 100_000_000,
+        "slow": 50_000_000,
+        "slow_delay": 1,
+    }
 
     @app.get("/fast")
     def fast():
-        # 1e11 / 100_000_000 = 1000 msat per USD
-        return jsonify({"price": 100_000_000})
+        return jsonify({"price": state["fast"]})
 
     @app.get("/slow")
     def slow():
-        # Make this complete later, so it becomes latest_fresh_price().
-        time.sleep(1)
-        # 1e11 / 50_000_000 = 2000 msat per USD
-        return jsonify({"price": 50_000_000})
+        time.sleep(state["slow_delay"])
+        return jsonify({"price": state["slow"]})
 
     srv = _ServerThread(app)
     srv.start()
     try:
-        yield f"http://127.0.0.1:{srv.port}"
+        yield {
+            "url": f"http://127.0.0.1:{srv.port}",
+            "state": state,
+        }
     finally:
         srv.shutdown()
         srv.join()
@@ -269,8 +274,8 @@ def test_cached_median(node_factory, fake_rateserver):
             "binance",
         ],
         "currencyrate-add-source": [
-            f"fast,{fake_rateserver}/fast,price",
-            f"slow,{fake_rateserver}/slow,price",
+            f"fast,{fake_rateserver['url']}/fast,price",
+            f"slow,{fake_rateserver['url']}/slow,price",
         ],
     }
     l1 = node_factory.get_node(options=opts)
@@ -282,11 +287,11 @@ def test_cached_median(node_factory, fake_rateserver):
     assert "fast" in rates
     assert "slow" in rates
 
-    assert rates["fast"] == 100_000_000
-    assert rates["slow"] == 50_000_000
+    assert rates["fast"] == fake_rateserver["state"]["fast"]
+    assert rates["slow"] == fake_rateserver["state"]["slow"]
 
     # Cached result should be median of two rates.
-    median_rate = (100_000_000 + 50_000_000) / 2
+    median_rate = (fake_rateserver["state"]["fast"] + fake_rateserver["state"]["slow"]) / 2
     convert = l1.rpc.call("currencyconvert", [100, "USD"])
     LOGGER.info(convert)
 
@@ -306,8 +311,8 @@ def test_bkpr_listaccountevents_currencyrate(node_factory, fake_rateserver):
             "binance",
         ],
         "currencyrate-add-source": [
-            f"fast,{fake_rateserver}/fast,price",
-            f"slow,{fake_rateserver}/slow,price",
+            f"fast,{fake_rateserver['url']}/fast,price",
+            f"slow,{fake_rateserver['url']}/slow,price",
         ],
         "bkpr-currency": "USD",
     }
@@ -322,3 +327,43 @@ def test_bkpr_listaccountevents_currencyrate(node_factory, fake_rateserver):
     median_rate = (100_000_000 + 50_000_000) / 2
     for e in events:
         assert e["currencyrate"] == median_rate
+
+
+def test_bkpr_listaccountevents_realtime(node_factory, fake_rateserver):
+    """Make sure we don't wait for bkpr command to look up rates!"""
+    opts = {
+        "currencyrate-disable-source": [
+            "bitstamp",
+            "coinbase",
+            "coingecko",
+            "kraken",
+            "blockchain.info",
+            "coindesk",
+            "binance",
+        ],
+        "currencyrate-add-source": [
+            f"fast,{fake_rateserver['url']}/fast,price",
+            f"slow,{fake_rateserver['url']}/slow,price",
+        ],
+        "bkpr-currency": "USD",
+    }
+    l1, l2 = node_factory.line_graph(2, opts=opts)
+
+    old_median = (fake_rateserver["state"]["fast"] + fake_rateserver["state"]["slow"]) / 2
+
+    inv = l2.rpc.invoice(100000, "test_bkpr_listaccountevents_realtime", "desc")
+    l1.rpc.pay(inv["bolt11"])
+    # We want this event in the list, so wait until it's totally closed.
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+
+    # We could put a log msg inside bookkeeper, but that's spammy.
+    time.sleep(10)
+
+    # Change rates.  But old ones should be used!
+    fake_rateserver["state"]["fast"] = 200_000_000
+    fake_rateserver["state"]["slow"] = 150_000_000
+
+    events = l1.rpc.bkpr_listaccountevents()["events"]
+    assert events
+    for e in events:
+        assert e["currencyrate"] == old_median
