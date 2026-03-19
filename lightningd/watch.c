@@ -275,24 +275,24 @@ void watch_topology_changed(struct chain_topology *topo)
 {
 	struct txwatch_hash_iter i;
 	struct txwatch *w;
-	bool needs_rerun;
-	do {
-		/* Iterating a htable during deletes is safe, but might skip entries. */
-		needs_rerun = false;
-		for (w = txwatch_hash_first(topo->txwatches, &i);
-		     w;
-		     w = txwatch_hash_next(topo->txwatches, &i)) {
-			u32 depth;
 
-			depth = get_tx_depth(topo, &w->txid);
-			if (depth) {
-				if (!w->tx)
-					w->tx = wallet_transaction_get(w, topo->ld->wallet,
+	/* Iterating a htable during deletes is safe and consistent.
+	 * Adding is forbidden. */
+	txwatch_hash_lock(topo->txwatches);
+	for (w = txwatch_hash_first(topo->txwatches, &i);
+	     w;
+	     w = txwatch_hash_next(topo->txwatches, &i)) {
+		u32 depth;
+
+		depth = get_tx_depth(topo, &w->txid);
+		if (depth) {
+			if (!w->tx)
+				w->tx = wallet_transaction_get(w, topo->ld->wallet,
 								       &w->txid);
-				needs_rerun |= txw_fire(w, &w->txid, depth);
-			}
+			txw_fire(w, &w->txid, depth);
 		}
-	} while (needs_rerun);
+	}
+	txwatch_hash_unlock(topo->txwatches);
 }
 
 void txwatch_inform(const struct chain_topology *topo,

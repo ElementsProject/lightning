@@ -1064,6 +1064,8 @@ void channel_gossip_notify_new_block(struct lightningd *ld)
 	struct channel *channel;
 	struct peer_node_id_map_iter it;
 
+	/* No addition during iteration! */
+	peer_node_id_map_lock(ld->peers);
 	for (peer = peer_node_id_map_first(ld->peers, &it);
 	     peer;
 	     peer = peer_node_id_map_next(ld->peers, &it)) {
@@ -1075,6 +1077,7 @@ void channel_gossip_notify_new_block(struct lightningd *ld)
 			new_blockheight(ld, channel);
 		}
 	}
+	peer_node_id_map_unlock(ld->peers);
 }
 
 /* Gossipd told us about a channel update on one of our channels (on loading) */
