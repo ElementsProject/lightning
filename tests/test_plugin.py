@@ -4061,6 +4061,8 @@ def test_sql(node_factory, bitcoind):
                          'type': 'string'},
                         {'name': 'timestamp',
                          'type': 'u32'},
+                        {'name': 'currencyrate',
+                         'type': 'number'},
                         {'name': 'description',
                          'type': 'string'},
                         {'name': 'outpoint',

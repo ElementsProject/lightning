@@ -3623,6 +3623,7 @@ message BkprlistaccounteventsEvents {
 	optional Amount fees_msat = 14;
 	optional bool is_rebalance = 15;
 	optional uint32 part_id = 16;
+	optional double currencyrate = 17;
 }
 
 message BkprlistbalancesRequest {
