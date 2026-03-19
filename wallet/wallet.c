@@ -3354,10 +3354,6 @@ type_ok:
 		return;
 	}
 
-	/* This is an unconfirmed change output, we should track it */
-	if (utxo->utxotype != UTXO_P2SH_P2WPKH && !blockheight)
-		txfilter_add_scriptpubkey(w->ld->owned_txfilter, txout->script);
-
 	outpointfilter_add(w->owned_outpoints, &utxo->outpoint);
 
 	wallet_annotate_txout(w, &utxo->outpoint, TX_WALLET_DEPOSIT, 0);
