@@ -1187,7 +1187,9 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 
 	loc = wallet_transaction_locate(tmpctx, channel->peer->ld->wallet,
 					&inflight->funding->outpoint.txid);
-	depthcb_update_scid(channel, &inflight->funding->outpoint, loc);
+	/* Unrepresentable SCIDs cause channel failure */
+	if (!depthcb_update_scid(channel, &inflight->funding->outpoint, loc))
+		return;
 
 	/* That freed watchers in inflights: now watch funding tx */
 	channel_watch_funding(channel->peer->ld, channel);
