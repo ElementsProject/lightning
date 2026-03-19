@@ -1633,6 +1633,64 @@ static void memleak_scan_currencyrates(struct htable *memtable,
 	memleak_scan_uintmap(memtable, currency_rates);
 }
 
+/* Whenever wait says the chainmoves or channelmoves fires, we refresh */
+
+/* Mutual recursion */
+static struct command_result *
+currency_chainmoves_wait(struct command *auxcmd, void *unused);
+static struct command_result *
+currency_channelmoves_wait(struct command *auxcmd, void *unused);
+
+static struct command_result *
+currency_chainmoves_wait_done(struct command *auxcmd,
+			      const char *methodname,
+			      const char *buf,
+			      const jsmntok_t *result,
+			      void *unused)
+{
+	return refresh_moves(auxcmd, currency_chainmoves_wait, NULL);
+}
+
+static struct command_result *
+currency_channelmoves_wait_done(struct command *auxcmd,
+				const char *methodname,
+				const char *buf,
+				const jsmntok_t *result,
+				void *unused)
+{
+	return refresh_moves(auxcmd, currency_channelmoves_wait, NULL);
+}
+
+static struct command_result *
+currency_chainmoves_wait(struct command *auxcmd, void *unused)
+{
+	struct bkpr *bkpr = bkpr_of(auxcmd->plugin);
+	struct out_req *req;
+	req = jsonrpc_request_start(auxcmd, "wait",
+				    currency_chainmoves_wait_done,
+				    plugin_broken_cb,
+				    NULL);
+	json_add_string(req->js, "subsystem", "chainmoves");
+	json_add_string(req->js, "indexname", "created");
+	json_add_u64(req->js, "nextvalue", bkpr->chainmoves_index+1);
+	return send_outreq(req);
+}
+
+static struct command_result *
+currency_channelmoves_wait(struct command *auxcmd, void *unused)
+{
+	struct bkpr *bkpr = bkpr_of(auxcmd->plugin);
+	struct out_req *req;
+	req = jsonrpc_request_start(auxcmd, "wait",
+				    currency_channelmoves_wait_done,
+				    plugin_broken_cb,
+				    NULL);
+	json_add_string(req->js, "subsystem", "channelmoves");
+	json_add_string(req->js, "indexname", "created");
+	json_add_u64(req->js, "nextvalue", bkpr->channelmoves_index+1);
+	return send_outreq(req);
+}
+
 static const char *init(struct command *init_cmd, const char *b, const jsmntok_t *t)
 {
 	struct plugin *p = init_cmd->plugin;
@@ -1659,6 +1717,14 @@ static const char *init(struct command *init_cmd, const char *b, const jsmntok_t
 		bkpr->chainmoves_index = be64_to_cpu(index);
 	} else
 		bkpr->chainmoves_index = 0;
+
+	/* If we're supposed to do currency conversions, we refresh
+	 * all the time. */
+	if (bkpr->currency) {
+		struct command *auxcmd = aux_command(init_cmd);
+		currency_chainmoves_wait(auxcmd, NULL);
+		currency_channelmoves_wait(auxcmd, NULL);
+	}
 
 	return NULL;
 }
