@@ -13,6 +13,7 @@ BOOKKEEPER_PLUGIN_SRC := 			\
 	plugins/bkpr/onchain_fee.c		\
 	plugins/bkpr/rebalances.c		\
 	plugins/bkpr/recorder.c			\
+	plugins/bkpr/report.c			\
 	plugins/bkpr/sql.c
 
 BOOKKEEPER_SRC := $(BOOKKEEPER_PLUGIN_SRC) $(BOOKKEEPER_DB_QUERIES)

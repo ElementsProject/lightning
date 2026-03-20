@@ -30,6 +30,7 @@ MARKDOWNPAGES := doc/addgossip.7 \
 	doc/bkpr-listaccountevents.7 \
 	doc/bkpr-listbalances.7 \
 	doc/bkpr-listincome.7 \
+	doc/bkpr-report.7 \
 	doc/blacklistrune.7 \
 	doc/cancelrecurringinvoice.7 \
 	doc/check.7 \
