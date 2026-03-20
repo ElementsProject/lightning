@@ -13,7 +13,6 @@ import unittest
 import time
 
 
-
 def find_next_feerate(node, peer):
     chan = only_one(node.rpc.listpeerchannels(peer.info['id'])['channels'])
     return chan['next_feerate']
