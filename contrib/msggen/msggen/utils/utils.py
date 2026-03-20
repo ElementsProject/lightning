@@ -151,6 +151,9 @@ grpc_method_names = [
     "ListNetworkEvents",
     "DelNetworkEvent",
     "Clnrest-Register-Path",
+    "ListCurrencyRates",
+    "CurrencyConvert",
+    "CurrencyRate",
 ]
 
 grpc_notification_names = [

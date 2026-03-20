@@ -3365,6 +3365,31 @@ def clnrest_register_path2py(m):
     })
 
 
+def listcurrencyrates_currencyrates2py(m):
+    return remove_default({
+        "amount": m.amount,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+    })
+
+
+def listcurrencyrates2py(m):
+    return remove_default({
+        "currencyrates": [listcurrencyrates_currencyrates2py(i) for i in m.currencyrates],  # ArrayField[composite] in generate_composite
+    })
+
+
+def currencyconvert2py(m):
+    return remove_default({
+        "msat": amount2msat(m.msat),  # PrimitiveField in generate_composite
+    })
+
+
+def currencyrate2py(m):
+    return remove_default({
+        "rate": m.rate,  # PrimitiveField in generate_composite
+    })
+
+
 def decodekeysend_routes2py(m): # manual override
     return remove_default({
         "expirydelta": m.expirydelta,
