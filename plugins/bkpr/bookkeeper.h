@@ -7,9 +7,7 @@
 
 struct command;
 struct plugin;
-
-/* Most currencies have 2 decimal places, but 4 is the current maximum. */
-#define RATE_MUL_FACTOR 10000
+struct iso4217_name_and_divisor;
 
 struct currencyrate {
 	u32 duration;
@@ -34,7 +32,7 @@ struct bkpr {
 	u64 chainmoves_index, channelmoves_index;
 
 	/* Optional currency if we're doing currencyconvert lookups */
-	char *currency;
+	const struct iso4217_name_and_divisor *currency;
 	/* Map of UNIX time -> currency rate */
 	currencymap_t *currency_rates;
 	/* True if we've warned about currency failures */

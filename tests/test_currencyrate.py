@@ -616,11 +616,11 @@ def test_bkpr_currencyrate_ranges(node_factory, fake_rateserver):
 
     assert int(rates[0]['key'][3]) < int(rates[1]['key'][3])
     raw_rate, duration = rates[0]['string'].split(':')
-    assert int(raw_rate) == int(old_median * 10000)
+    assert int(raw_rate) == int(old_median * 100)
     assert int(duration) >= 2
 
     raw_rate, duration = rates[1]['string'].split(':')
-    assert int(raw_rate) == int(new_median * 10000)
+    assert int(raw_rate) == int(new_median * 100)
     assert int(duration) >= 1
 
     # We will load them fine on restart, too.
