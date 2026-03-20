@@ -36,7 +36,7 @@ static size_t human_readable(const char *buffer, const jsmntok_t *t, char term)
 	case JSMN_PRIMITIVE:
 	case JSMN_STRING:
 		for (i = t->start; i < t->end; i++) {
-			/* We only translate \n and \t. */
+			/* We only translate \n, \t and remove other \s. */
 			if (buffer[i] == '\\' && i + 1 < t->end) {
 				if (buffer[i+1] == 'n') {
 					fputc('\n', stdout);
@@ -47,6 +47,7 @@ static size_t human_readable(const char *buffer, const jsmntok_t *t, char term)
 					i++;
 					continue;
 				}
+				i++;
 			}
 			fputc(buffer[i], stdout);
 		}
