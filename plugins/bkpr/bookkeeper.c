@@ -33,6 +33,7 @@
 #include <plugins/bkpr/onchain_fee.h>
 #include <plugins/bkpr/rebalances.h>
 #include <plugins/bkpr/recorder.h>
+#include <plugins/bkpr/report.h>
 #include <plugins/libplugin.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -48,8 +49,8 @@ struct bkpr *bkpr_of(struct plugin *plugin)
 	return plugin_get_data(plugin, struct bkpr);
 }
 
-static const struct currencyrate *covering_currencyrate(const struct bkpr *bkpr,
-							u64 timestamp)
+const struct currencyrate *covering_currencyrate(const struct bkpr *bkpr,
+						 u64 timestamp)
 {
 	/* We look for the previous entry, then check duration covers this. */
 	u64 ts = timestamp + 1;
@@ -70,18 +71,27 @@ static u64 ratefactor(const struct iso4217_name_and_divisor *currency)
 
 const char *currencyrate_str(const tal_t *ctx,
 			     const struct bkpr *bkpr,
-			     u64 timestamp)
+			     u64 timestamp,
+			     const struct amount_msat *msat)
 {
 	const struct currencyrate *crate;
-	u64 mul, intpart, fracpart;
+	u64 mul, intpart, fracpart, raw_rate;
 
 	crate = covering_currencyrate(bkpr, timestamp);
 	if (!crate)
 		return NULL;
 	mul = ratefactor(bkpr->currency);
 
-	intpart = crate->raw_rate / mul;
-	fracpart = crate->raw_rate % mul;
+	if (msat) {
+		unsigned __int128 v;
+		v = (unsigned __int128)msat->millisatoshis * crate->raw_rate /* Raw: 128-bit math */;
+		raw_rate = v / MSAT_PER_BTC;
+	} else {
+		raw_rate = crate->raw_rate;
+	}
+
+	intpart = raw_rate / mul;
+	fracpart = raw_rate % mul;
 
 	if (bkpr->currency->minor_unit == 0)
 		return tal_fmt(ctx, "%"PRIu64, intpart);
@@ -97,7 +107,7 @@ void json_add_currencyrate(struct json_stream *result,
 			   const struct bkpr *bkpr,
 			   u64 timestamp)
 {
-	const char *str = currencyrate_str(NULL, bkpr, timestamp);
+	const char *str = currencyrate_str(NULL, bkpr, timestamp, NULL);
 
 	if (str)
 		json_add_primitive(result, fieldname, take(str));
@@ -468,6 +478,48 @@ static struct command_result *json_dump_income(struct command *cmd,
 		return command_param_failed();
 
 	return refresh_moves(cmd, do_dump_income, info);
+}
+
+static struct command_result *param_escaped_string_array(struct command *cmd,
+							 const char *name,
+							 const char *buffer,
+							 const jsmntok_t *tok,
+							 const char ***arr)
+{
+	size_t i;
+	const jsmntok_t *s;
+
+	if (tok->type != JSMN_ARRAY)
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "should be an array");
+	*arr = tal_arr(cmd, const char *, tok->size);
+	json_for_each_arr(i, s, tok) {
+		struct command_result *ret;
+
+		ret = param_escaped_string(cmd, name, buffer, s, &(*arr)[i]);
+		if (ret)
+			return ret;
+		tal_steal((*arr)[i], *arr);
+	}
+	return NULL;
+}
+
+static struct command_result *json_bkpr_report(struct command *cmd,
+					       const char *buf,
+					       const jsmntok_t *params)
+{
+	struct report_info *info = tal(cmd, struct report_info);
+
+	if (!param(cmd, buf, params,
+		   p_req("format", param_report_format, &info->format),
+		   p_opt("headers", param_escaped_string_array, &info->headers),
+		   p_opt_def("escape", param_escape_format, &info->escapes, REPORT_FMT_NONE),
+		   p_opt_def("start_time", param_u64, &info->start_time, 0),
+		   p_opt_def("end_time", param_u64, &info->end_time, SQLITE_MAX_UINT),
+		   NULL))
+		return command_param_failed();
+
+	return refresh_moves(cmd, do_bkpr_report, info);
 }
 
 struct list_income_info {
@@ -1764,6 +1816,10 @@ static const struct plugin_command commands[] = {
 	{
 		"bkpr-channelsapy",
 		json_channel_apy
+	},
+	{
+		"bkpr-report",
+		json_bkpr_report,
 	},
 	{
 		"bkpr-editdescriptionbypaymentid",

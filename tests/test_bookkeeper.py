@@ -6,9 +6,13 @@ from utils import (
     sync_blockheight, wait_for, only_one, first_channel_id, TIMEOUT
 )
 
+from datetime import datetime
 from pathlib import Path
+import csv
+import io
 import os
 import pytest
+import subprocess
 import time
 import unittest
 
@@ -1174,7 +1178,7 @@ def test_migration_no_bkpr(node_factory, bitcoind):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "External wallet support doesn't work with elements yet.")
-def test_listincome_timebox(node_factory, bitcoind):
+def test_listincome_and_report_timebox(node_factory, bitcoind):
     l1 = node_factory.get_node()
     addr = l1.rpc.newaddr()['p2tr']
 
@@ -1203,6 +1207,16 @@ def test_listincome_timebox(node_factory, bitcoind):
     incomes = l1.rpc.bkpr_listincome(end_time=first_one)['income_events']
     assert [i for i in incomes if i['timestamp'] > first_one] == []
 
+    # Test bkpr-report time bracketing too.
+    report = l1.rpc.bkpr_report(format="{localtime},{tag},{creditdebit}", end_time=first_one)['report']
+    assert [r for r in report if datetime.strptime(r.split(',')[0], "%Y-%m-%d %H:%M:%S").timestamp() > first_one] == []
+
+    first_entries = l1.rpc.bkpr_report(format="{localtime},{tag},{creditdebit}", end_time=first_one)['report']
+    last_entries = l1.rpc.bkpr_report(format="{localtime},{tag},{creditdebit}", start_time=first_one)['report']
+    all_entries = l1.rpc.bkpr_report(format="{localtime},{tag},{creditdebit}")['report']
+
+    assert first_entries + last_entries == all_entries
+
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Snapshots are bitcoin regtest.")
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "uses snapshots")
@@ -1225,3 +1239,111 @@ def test_bkpr_parallel(node_factory, bitcoind, executor):
 
     acctevents_after = l1.rpc.bkpr_listaccountevents()
     assert acctevents_after == acctevents_before
+
+
+def test_bkpr_report_tags_and_fallback(node_factory):
+    l1, l2 = node_factory.line_graph(2, opts={'bkpr-currency': 'USD'})
+
+    inv = l2.rpc.invoice(100000, "test_bkpr_report_tags_and_fallback", 'desc with "quotes"')
+    l1.rpc.pay(inv["bolt11"])
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['htlcs'] == [])
+
+    res = l1.rpc.call(
+        "bkpr-report",
+        {
+            "format": "{tag}|{account}|{outpoint?NONE}|{txid?NONE}|{payment_id?NONE}|{bkpr-currency?NONE}|{currencyrate?NONE}",
+            "headers": ['tag",account,outpoint,txid,payment_id,bkpr-currency,currencyrate', ",,,,,,"],
+        },
+    )
+
+    assert "report" in res
+    # Header lines copied literally (including ")
+    assert res["report"][0] == 'tag",account,outpoint,txid,payment_id,bkpr-currency,currencyrate'
+    assert res["report"][1] == ",,,,,,"
+    assert res["format-hint"] == "simple"
+
+    rows = [line.split("|") for line in res["report"][2:]]
+    assert all(len(r) == 7 for r in rows)
+
+    # Currency fields should be populated in this setup.
+    assert all(r[5] == "USD" for r in rows)
+    for r in rows:
+        if r[6] != "NONE":
+            assert float(r[6]) > 0
+
+    # At least one fallback should have been used for channel events.
+    assert any(r[2] == "NONE" or r[3] == "NONE" or r[4] == "NONE" for r in rows)
+
+    # Fancier fields should work, too
+    res = l1.rpc.bkpr_report(format="{tag}|{account}|{credit}|{debit}|{creditdebit}|{currencycredit}|{currencydebit}|{currencycreditdebit}")
+    rows = [line.split("|") for line in res["report"]]
+
+    for r in rows:
+        assert len(r) == 8
+        # Credit or debit?
+        if float(r[2]) > 0:
+            assert r[4] == '+' + r[2]
+            assert float(r[5]) > 0
+            assert r[6] == '0.00'
+            assert r[7] == '+' + r[5]
+        else:
+            assert r[4] == '-' + r[3]
+            assert float(r[6]) > 0
+            assert r[5] == '0.00'
+            assert r[7] == '-' + r[6]
+
+
+def test_bkpr_report_invoice(node_factory):
+    l1, l2 = node_factory.line_graph(2, opts={'bkpr-currency': 'USD'})
+    inv = l2.rpc.invoice(123456, "test", "test_bkpr_report_invoice")['bolt11']
+    l1.rpc.xpay(inv)
+
+    # Make sure bookkeeper saw the event.
+    wait_for(lambda: any([e['tag'] == 'invoice' for e in l1.rpc.bkpr_listincome()['income_events']]))
+
+    # This should fail!
+    with pytest.raises(RpcError, match=r'Unknown tag acc'):
+        l1.rpc.bkpr_report(headers=["Tag,Account,Description,Credit,Debit,BTC/USD,Credit (USD),Debit(USD)"], format="{tag},{acc},{description},{creditdebit},", escape='csv')
+
+    lines = l1.rpc.bkpr_report(headers=["Tag,Account,Description,Credit,Debit,BTC/USD,Credit (USD),Debit(USD)"], format="{tag},{account},{description},{creditdebit},", escape='csv')['report']
+
+    invline = only_one([line for line in lines if line.startswith('invoice,')])
+
+    cid = only_one(l1.rpc.listpeerchannels()['channels'])['channel_id']
+    assert invline == f"invoice,{cid},test_bkpr_report_invoice,-0.00000123456,"
+
+    # Test nested tags while we're here!
+    lines = l1.rpc.bkpr_report(format="{tag},{account},{description},{outpoint},{txid},{description?{outpoint?txid: {txid?UNKNOWN}}},{creditdebit}", escape='csv')['report']
+    for l in lines[1:]:
+        parts = l.split(',')
+        if parts[2] != '':
+            assert parts[5] == parts[2]
+        else:
+            if parts[3] != '':
+                assert parts[5] == parts[3]
+            else:
+                assert parts[5] == 'txid: ' + parts[4]
+
+
+def test_bkpr_report_lightning_cli_csv(node_factory):
+    l1, l2 = node_factory.line_graph(2)
+
+    # Give desc something awkward so CSV escaping matters if it shows up.
+    inv = l2.rpc.invoice(100000, "test_bkpr_report_lightning_cli_csv", 'hello, "csv"')
+    l1.rpc.pay(inv["bolt11"])
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['htlcs'] == [])
+
+    # Single-column CSV is enough to validate the CLI path and escaping.
+    res = subprocess.check_output(["cli/lightning-cli",
+                                   f"--network={TEST_NETWORK}",
+                                   f"--lightning-dir={l1.daemon.lightning_dir}",
+                                   "-k",
+                                   "bkpr-report",
+                                   'format={description?"hello, ""fallback"""},{tag},',
+                                   "escape=csv"],
+                                  text=True)
+
+    # Must parse cleanly as CSV, one row per returned line.
+    parsed = [next(csv.reader(io.StringIO(line))) for line in res.splitlines()]
+    assert parsed
+    assert all(len(row) == 3 for row in parsed)
