@@ -484,10 +484,20 @@ def test_bkpr_currencyrate_persisted(node_factory, fake_rateserver):
     for e in new_events[len(events):]:
         assert e["currencyrate"] == new_median
 
-    # Underlying check: they should all be human readable timestamp->rate.
-    rates = l1.rpc.listdatastore(['bookkeeper', 'currencyrate', 'USD'])['datastore']
-    assert {r['key'][3] for r in rates} == {str(e['timestamp']) for e in new_events}
-    assert {float(r['string']) for r in rates} == {old_median, new_median}
+    # Underlying datastore check: they should all be human readable timestamp->rate.
+    stored_rates = {}
+    for r in l1.rpc.listdatastore(['bookkeeper', 'currencyrate', 'USD'])['datastore']:
+        start = int(r['key'][3])
+        raw_rate, duration = r['string'].split(':')
+        raw_rate = int(raw_rate)
+        duration = int(duration)
+
+        for t in range(start, start + duration):
+            assert t not in stored_rates
+            stored_rates[t] = raw_rate
+
+    for e in new_events:
+        assert e["currencyrate"] == stored_rates[e["timestamp"]] / 100
 
 
 def test_bkpr_currencyrate_warns_for_old_events(node_factory, fake_rateserver):
@@ -552,3 +562,67 @@ def test_bkpr_currencyrate_warns_for_old_events(node_factory, fake_rateserver):
     # 6. It should now complain about processing stale events with conversion enabled.
     # (Could be early in startup!)
     wait_for(lambda: l1.daemon.is_in_log("too old for current USD currencyrate"))
+
+
+def test_bkpr_currencyrate_ranges(node_factory, fake_rateserver):
+    opts = {
+        "currencyrate-disable-source": [
+            "bitstamp",
+            "coinbase",
+            "coingecko",
+            "kraken",
+            "blockchain.info",
+            "coindesk",
+            "binance",
+        ],
+        "currencyrate-add-source": [
+            f"fast,{fake_rateserver['url']}/fast,price",
+            f"slow,{fake_rateserver['url']}/slow,price",
+        ],
+        "bkpr-currency": "USD",
+        'may_reconnect': True,
+    }
+    # This generates onchain events.
+    l1, l2 = node_factory.line_graph(2, opts=opts)
+    old_median = (fake_rateserver["state"]["fast"] + fake_rateserver["state"]["slow"]) / 2
+
+    # This generates a channel event: be sure timestamp is different.
+    time.sleep(1)
+
+    inv1 = l2.rpc.invoice(100000, "test_bkpr_currencyrate_ranges_1", "desc")
+    l1.rpc.pay(inv1["bolt11"])
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['htlcs'] == [])
+
+    # Now we change the rate (and make sure time goes forward so it re-checks!)
+    time.sleep(1)
+
+    fake_rateserver["state"]["fast"] = 200_000_000
+    fake_rateserver["state"]["slow"] = 150_000_000
+    new_median = (fake_rateserver["state"]["fast"] + fake_rateserver["state"]["slow"]) / 2
+
+    l1.restart()
+    l1.connect(l2)
+
+    inv2 = l2.rpc.invoice(100000, "test_bkpr_currencyrate_ranges_2", "desc")
+    l1.rpc.pay(inv2["bolt11"])
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['htlcs'] == [])
+
+    # Calling this here makes sure it's finished processing currencyrates
+    events = l1.rpc.bkpr_listaccountevents()
+    rates = l1.rpc.listdatastore(['bookkeeper', 'currencyrate', 'USD'])['datastore']
+
+    # Same-rate timestamps should be coalesced into one stored range.
+    assert len(rates) == 2
+
+    assert int(rates[0]['key'][3]) < int(rates[1]['key'][3])
+    raw_rate, duration = rates[0]['string'].split(':')
+    assert int(raw_rate) == int(old_median * 10000)
+    assert int(duration) >= 2
+
+    raw_rate, duration = rates[1]['string'].split(':')
+    assert int(raw_rate) == int(new_median * 10000)
+    assert int(duration) >= 1
+
+    # We will load them fine on restart, too.
+    l1.restart()
+    assert l1.rpc.bkpr_listaccountevents() == events

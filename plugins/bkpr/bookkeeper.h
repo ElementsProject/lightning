@@ -7,8 +7,16 @@
 
 struct command;
 
+/* Most currencies have 2 decimal places, but 4 is the current maximum. */
+#define RATE_MUL_FACTOR 10000
+
+struct currencyrate {
+	u32 duration;
+	u64 raw_rate;
+};
+
 /* For allocation convenience. */
-typedef UINTMAP(double *) currencymap_t;
+typedef UINTMAP(struct currencyrate *) currencymap_t;
 
 struct bkpr {
 	/* The datastore-backed lookup tables for our annotations */
