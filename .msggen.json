@@ -1315,6 +1315,19 @@
             "CreateRune.unique_id": 2,
             "CreateRune.warning_unrestricted_rune": 3
         },
+        "CurrencyconvertRequest": {
+            "CurrencyConvert.amount": 1,
+            "CurrencyConvert.currency": 2
+        },
+        "CurrencyconvertResponse": {
+            "CurrencyConvert.msat": 1
+        },
+        "CurrencyrateRequest": {
+            "CurrencyRate.currency": 1
+        },
+        "CurrencyrateResponse": {
+            "CurrencyRate.rate": 1
+        },
         "CustomMsgNotification": {
             "custommsg.payload": 2,
             "custommsg.peer_id": 1
@@ -2708,6 +2721,16 @@
             "ListConfigs.tor-service-password": 64,
             "ListConfigs.wallet": 15,
             "ListConfigs.watchtime-blocks": 31
+        },
+        "ListcurrencyratesCurrencyrates": {
+            "ListCurrencyRates.currencyrates[].amount": 2,
+            "ListCurrencyRates.currencyrates[].source": 1
+        },
+        "ListcurrencyratesRequest": {
+            "ListCurrencyRates.currency": 1
+        },
+        "ListcurrencyratesResponse": {
+            "ListCurrencyRates.currencyrates[]": 1
         },
         "ListdatastoreDatastore": {
             "ListDatastore.datastore[].generation": 2,
@@ -6032,6 +6055,34 @@
         },
         "CreateRune.warning_unrestricted_rune": {
             "added": "v23.08",
+            "deprecated": null
+        },
+        "CurrencyConvert": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "CurrencyConvert.amount": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "CurrencyConvert.currency": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "CurrencyConvert.msat": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "CurrencyRate": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "CurrencyRate.currency": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "CurrencyRate.rate": {
+            "added": "v26.04",
             "deprecated": null
         },
         "Datastore": {
@@ -10161,6 +10212,26 @@
         "ListConfigs.watchtime-blocks": {
             "added": "pre-v0.10.1",
             "deprecated": "v23.08"
+        },
+        "ListCurrencyRates": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "ListCurrencyRates.currency": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "ListCurrencyRates.currencyrates[]": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "ListCurrencyRates.currencyrates[].amount": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "ListCurrencyRates.currencyrates[].source": {
+            "added": "v26.04",
+            "deprecated": null
         },
         "ListDatastore": {
             "added": "pre-v0.10.1",

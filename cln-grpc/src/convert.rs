@@ -4573,6 +4573,44 @@ impl From<responses::ClnrestregisterpathResponse> for pb::ClnrestregisterpathRes
 }
 
 #[allow(unused_variables)]
+impl From<responses::ListcurrencyratesCurrencyrates> for pb::ListcurrencyratesCurrencyrates {
+    fn from(c: responses::ListcurrencyratesCurrencyrates) -> Self {
+        Self {
+            amount: c.amount, // Rule #2 for type number
+            source: c.source, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::ListcurrencyratesResponse> for pb::ListcurrencyratesResponse {
+    fn from(c: responses::ListcurrencyratesResponse) -> Self {
+        Self {
+            // Field: ListCurrencyRates.currencyrates[]
+            currencyrates: c.currencyrates.into_iter().map(|i| i.into()).collect(), // Rule #3 for type ListcurrencyratesCurrencyrates
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::CurrencyconvertResponse> for pb::CurrencyconvertResponse {
+    fn from(c: responses::CurrencyconvertResponse) -> Self {
+        Self {
+            msat: Some(c.msat.into()), // Rule #2 for type msat
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::CurrencyrateResponse> for pb::CurrencyrateResponse {
+    fn from(c: responses::CurrencyrateResponse) -> Self {
+        Self {
+            rate: c.rate, // Rule #2 for type number
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<notifications::BlockAddedNotification> for pb::BlockAddedNotification {
     fn from(c: notifications::BlockAddedNotification) -> Self {
         Self {
@@ -6417,6 +6455,34 @@ impl From<requests::ClnrestregisterpathRequest> for pb::ClnrestregisterpathReque
 }
 
 #[allow(unused_variables)]
+impl From<requests::ListcurrencyratesRequest> for pb::ListcurrencyratesRequest {
+    fn from(c: requests::ListcurrencyratesRequest) -> Self {
+        Self {
+            currency: c.currency, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::CurrencyconvertRequest> for pb::CurrencyconvertRequest {
+    fn from(c: requests::CurrencyconvertRequest) -> Self {
+        Self {
+            amount: c.amount, // Rule #2 for type number
+            currency: c.currency, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::CurrencyrateRequest> for pb::CurrencyrateRequest {
+    fn from(c: requests::CurrencyrateRequest) -> Self {
+        Self {
+            currency: c.currency, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<notifications::requests::StreamBlockAddedRequest> for pb::StreamBlockAddedRequest {
     fn from(c: notifications::requests::StreamBlockAddedRequest) -> Self {
         Self {
@@ -8190,6 +8256,34 @@ impl From<pb::ClnrestregisterpathRequest> for requests::ClnrestregisterpathReque
             rpc_method: c.rpc_method, // Rule #1 for type string
             rune_required: c.rune_required, // Rule #1 for type boolean?
             rune_restrictions: c.rune_restrictions.map(|v| v.into()),
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::ListcurrencyratesRequest> for requests::ListcurrencyratesRequest {
+    fn from(c: pb::ListcurrencyratesRequest) -> Self {
+        Self {
+            currency: c.currency, // Rule #1 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::CurrencyconvertRequest> for requests::CurrencyconvertRequest {
+    fn from(c: pb::CurrencyconvertRequest) -> Self {
+        Self {
+            amount: c.amount, // Rule #1 for type number
+            currency: c.currency, // Rule #1 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::CurrencyrateRequest> for requests::CurrencyrateRequest {
+    fn from(c: pb::CurrencyrateRequest) -> Self {
+        Self {
+            currency: c.currency, // Rule #1 for type string
         }
     }
 }

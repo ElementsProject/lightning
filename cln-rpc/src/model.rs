@@ -195,6 +195,9 @@ pub enum Request {
 	DelNetworkEvent(requests::DelnetworkeventRequest),
 	#[serde(rename = "clnrest-register-path")]
 	ClnrestRegisterPath(requests::ClnrestregisterpathRequest),
+	ListCurrencyRates(requests::ListcurrencyratesRequest),
+	CurrencyConvert(requests::CurrencyconvertRequest),
+	CurrencyRate(requests::CurrencyrateRequest),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -380,6 +383,9 @@ pub enum Response {
 	DelNetworkEvent(responses::DelnetworkeventResponse),
 	#[serde(rename = "clnrest-register-path")]
 	ClnrestRegisterPath(responses::ClnrestregisterpathResponse),
+	ListCurrencyRates(responses::ListcurrencyratesResponse),
+	CurrencyConvert(responses::CurrencyconvertResponse),
+	CurrencyRate(responses::CurrencyrateResponse),
 }
 
 
@@ -5086,6 +5092,73 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "clnrest-register-path"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListcurrencyratesRequest {
+	    pub currency: String,
+	}
+
+	impl From<ListcurrencyratesRequest> for Request {
+	    fn from(r: ListcurrencyratesRequest) -> Self {
+	        Request::ListCurrencyRates(r)
+	    }
+	}
+
+	impl IntoRequest for ListcurrencyratesRequest {
+	    type Response = super::responses::ListcurrencyratesResponse;
+	}
+
+	impl TypedRequest for ListcurrencyratesRequest {
+	    type Response = super::responses::ListcurrencyratesResponse;
+
+	    fn method(&self) -> &str {
+	        "listcurrencyrates"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct CurrencyconvertRequest {
+	    pub amount: f64,
+	    pub currency: String,
+	}
+
+	impl From<CurrencyconvertRequest> for Request {
+	    fn from(r: CurrencyconvertRequest) -> Self {
+	        Request::CurrencyConvert(r)
+	    }
+	}
+
+	impl IntoRequest for CurrencyconvertRequest {
+	    type Response = super::responses::CurrencyconvertResponse;
+	}
+
+	impl TypedRequest for CurrencyconvertRequest {
+	    type Response = super::responses::CurrencyconvertResponse;
+
+	    fn method(&self) -> &str {
+	        "currencyconvert"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct CurrencyrateRequest {
+	    pub currency: String,
+	}
+
+	impl From<CurrencyrateRequest> for Request {
+	    fn from(r: CurrencyrateRequest) -> Self {
+	        Request::CurrencyRate(r)
+	    }
+	}
+
+	impl IntoRequest for CurrencyrateRequest {
+	    type Response = super::responses::CurrencyrateResponse;
+	}
+
+	impl TypedRequest for CurrencyrateRequest {
+	    type Response = super::responses::CurrencyrateResponse;
+
+	    fn method(&self) -> &str {
+	        "currencyrate"
 	    }
 	}
 }
@@ -12456,6 +12529,60 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::ClnrestRegisterPath(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListcurrencyratesCurrencyrates {
+	    pub amount: f64,
+	    pub source: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListcurrencyratesResponse {
+	    pub currencyrates: Vec<ListcurrencyratesCurrencyrates>,
+	}
+
+	impl TryFrom<Response> for ListcurrencyratesResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::ListCurrencyRates(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct CurrencyconvertResponse {
+	    pub msat: Amount,
+	}
+
+	impl TryFrom<Response> for CurrencyconvertResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::CurrencyConvert(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct CurrencyrateResponse {
+	    pub rate: f64,
+	}
+
+	impl TryFrom<Response> for CurrencyrateResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::CurrencyRate(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }
