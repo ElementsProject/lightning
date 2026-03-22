@@ -526,7 +526,7 @@ impl From<responses::DatastoreResponse> for pb::DatastoreResponse {
         Self {
             generation: c.generation, // Rule #2 for type u64?
             hex: c.hex.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
-            // Field: Datastore.key
+            // Field: Datastore.key[]
             key: c.key.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
             string: c.string, // Rule #2 for type string?
         }
@@ -569,7 +569,7 @@ impl From<responses::DeldatastoreResponse> for pb::DeldatastoreResponse {
         Self {
             generation: c.generation, // Rule #2 for type u64?
             hex: c.hex.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
-            // Field: DelDatastore.key
+            // Field: DelDatastore.key[]
             key: c.key.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
             string: c.string, // Rule #2 for type string?
         }
@@ -4799,13 +4799,31 @@ impl From<requests::ConnectRequest> for pb::ConnectRequest {
     }
 }
 
+impl From<requests::CreateinvoiceLabel> for pb::createinvoice_request::Label {
+    fn from(c: requests::CreateinvoiceLabel) -> Self {
+        match c {
+requests::CreateinvoiceLabel::String(v) => pb::createinvoice_request::Label::LabelString(v),
+requests::CreateinvoiceLabel::Int(v) => pb::createinvoice_request::Label::LabelInt(v),
+        }
+    }
+}
+
 #[allow(unused_variables)]
 impl From<requests::CreateinvoiceRequest> for pb::CreateinvoiceRequest {
     fn from(c: requests::CreateinvoiceRequest) -> Self {
         Self {
             invstring: c.invstring, // Rule #2 for type string
-            label: c.label, // Rule #2 for type string
+            label: Some(c.label.into()),
             preimage: hex::decode(&c.preimage).unwrap(), // Rule #2 for type hex
+        }
+    }
+}
+
+impl From<requests::DatastoreKey> for pb::datastore_request::Key {
+    fn from(c: requests::DatastoreKey) -> Self {
+        match c {
+requests::DatastoreKey::ArrayOfString(v) => pb::datastore_request::Key::KeyArrString(pb::DatastoreRequestArrStringWrapper { items: v.into_iter().map(|i| i).collect() }),
+requests::DatastoreKey::String(v) => pb::datastore_request::Key::KeyString(v),
         }
     }
 }
@@ -4816,10 +4834,18 @@ impl From<requests::DatastoreRequest> for pb::DatastoreRequest {
         Self {
             generation: c.generation, // Rule #2 for type u64?
             hex: c.hex.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
-            // Field: Datastore.key
-            key: c.key.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+            key: Some(c.key.into()),
             mode: c.mode.map(|v| v as i32),
             string: c.string, // Rule #2 for type string?
+        }
+    }
+}
+
+impl From<requests::DatastoreusageKey> for pb::datastoreusage_request::Key {
+    fn from(c: requests::DatastoreusageKey) -> Self {
+        match c {
+requests::DatastoreusageKey::ArrayOfString(v) => pb::datastoreusage_request::Key::KeyArrString(pb::DatastoreusageRequestArrStringWrapper { items: v.into_iter().map(|i| i).collect() }),
+requests::DatastoreusageKey::String(v) => pb::datastoreusage_request::Key::KeyString(v),
         }
     }
 }
@@ -4828,8 +4854,7 @@ impl From<requests::DatastoreRequest> for pb::DatastoreRequest {
 impl From<requests::DatastoreusageRequest> for pb::DatastoreusageRequest {
     fn from(c: requests::DatastoreusageRequest) -> Self {
         Self {
-            // Field: DatastoreUsage.key
-            key: c.key.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            key: c.key.map(|v| v.into()),
         }
     }
 }
@@ -4857,13 +4882,30 @@ impl From<requests::CreateonionRequest> for pb::CreateonionRequest {
     }
 }
 
+impl From<requests::DeldatastoreKey> for pb::deldatastore_request::Key {
+    fn from(c: requests::DeldatastoreKey) -> Self {
+        match c {
+requests::DeldatastoreKey::ArrayOfString(v) => pb::deldatastore_request::Key::KeyArrString(pb::DeldatastoreRequestArrStringWrapper { items: v.into_iter().map(|i| i).collect() }),
+requests::DeldatastoreKey::String(v) => pb::deldatastore_request::Key::KeyString(v),
+        }
+    }
+}
+
 #[allow(unused_variables)]
 impl From<requests::DeldatastoreRequest> for pb::DeldatastoreRequest {
     fn from(c: requests::DeldatastoreRequest) -> Self {
         Self {
             generation: c.generation, // Rule #2 for type u64?
-            // Field: DelDatastore.key
-            key: c.key.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+            key: Some(c.key.into()),
+        }
+    }
+}
+
+impl From<requests::DelinvoiceLabel> for pb::delinvoice_request::Label {
+    fn from(c: requests::DelinvoiceLabel) -> Self {
+        match c {
+requests::DelinvoiceLabel::String(v) => pb::delinvoice_request::Label::LabelString(v),
+requests::DelinvoiceLabel::U64(v) => pb::delinvoice_request::Label::LabelU64(v),
         }
     }
 }
@@ -4873,7 +4915,7 @@ impl From<requests::DelinvoiceRequest> for pb::DelinvoiceRequest {
     fn from(c: requests::DelinvoiceRequest) -> Self {
         Self {
             desconly: c.desconly, // Rule #2 for type boolean?
-            label: c.label, // Rule #2 for type string
+            label: Some(c.label.into()),
             status: c.status as i32,
         }
     }
@@ -4936,6 +4978,25 @@ impl From<requests::RecoverchannelRequest> for pb::RecoverchannelRequest {
     }
 }
 
+impl From<requests::InvoiceExposeprivatechannels> for pb::invoice_request::Exposeprivatechannels {
+    fn from(c: requests::InvoiceExposeprivatechannels) -> Self {
+        match c {
+requests::InvoiceExposeprivatechannels::Bool(v) => pb::invoice_request::Exposeprivatechannels::ExposeprivatechannelsBool(v),
+requests::InvoiceExposeprivatechannels::ArrayOfShortChannelId(v) => pb::invoice_request::Exposeprivatechannels::ExposeprivatechannelsArrScid(pb::InvoiceRequestArrScidWrapper { items: v.into_iter().map(|i| i.to_string()).collect() }),
+requests::InvoiceExposeprivatechannels::ShortChannelId(v) => pb::invoice_request::Exposeprivatechannels::ExposeprivatechannelsScid(v.to_string()),
+        }
+    }
+}
+
+impl From<requests::InvoiceLabel> for pb::invoice_request::Label {
+    fn from(c: requests::InvoiceLabel) -> Self {
+        match c {
+requests::InvoiceLabel::String(v) => pb::invoice_request::Label::LabelString(v),
+requests::InvoiceLabel::Int(v) => pb::invoice_request::Label::LabelInt(v),
+        }
+    }
+}
+
 #[allow(unused_variables)]
 impl From<requests::InvoiceRequest> for pb::InvoiceRequest {
     fn from(c: requests::InvoiceRequest) -> Self {
@@ -4945,11 +5006,10 @@ impl From<requests::InvoiceRequest> for pb::InvoiceRequest {
             deschashonly: c.deschashonly, // Rule #2 for type boolean?
             description: c.description, // Rule #2 for type string
             expiry: c.expiry, // Rule #2 for type u64?
-            // Field: Invoice.exposeprivatechannels
-            exposeprivatechannels: c.exposeprivatechannels.map(|arr| arr.into_iter().map(|i| i.to_string()).collect()).unwrap_or(vec![]), // Rule #3
+            exposeprivatechannels: c.exposeprivatechannels.map(|v| v.into()),
             // Field: Invoice.fallbacks[]
             fallbacks: c.fallbacks.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
-            label: c.label, // Rule #2 for type string
+            label: Some(c.label.into()),
             preimage: c.preimage.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
         }
     }
@@ -4988,12 +5048,29 @@ impl From<requests::ListinvoicerequestsRequest> for pb::ListinvoicerequestsReque
     }
 }
 
+impl From<requests::ListdatastoreKey> for pb::listdatastore_request::Key {
+    fn from(c: requests::ListdatastoreKey) -> Self {
+        match c {
+requests::ListdatastoreKey::ArrayOfString(v) => pb::listdatastore_request::Key::KeyArrString(pb::ListdatastoreRequestArrStringWrapper { items: v.into_iter().map(|i| i).collect() }),
+requests::ListdatastoreKey::String(v) => pb::listdatastore_request::Key::KeyString(v),
+        }
+    }
+}
+
 #[allow(unused_variables)]
 impl From<requests::ListdatastoreRequest> for pb::ListdatastoreRequest {
     fn from(c: requests::ListdatastoreRequest) -> Self {
         Self {
-            // Field: ListDatastore.key
-            key: c.key.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            key: c.key.map(|v| v.into()),
+        }
+    }
+}
+
+impl From<requests::ListinvoicesLabel> for pb::listinvoices_request::Label {
+    fn from(c: requests::ListinvoicesLabel) -> Self {
+        match c {
+requests::ListinvoicesLabel::String(v) => pb::listinvoices_request::Label::LabelString(v),
+requests::ListinvoicesLabel::Int(v) => pb::listinvoices_request::Label::LabelInt(v),
         }
     }
 }
@@ -5004,7 +5081,7 @@ impl From<requests::ListinvoicesRequest> for pb::ListinvoicesRequest {
         Self {
             index: c.index.map(|v| v as i32),
             invstring: c.invstring, // Rule #2 for type string?
-            label: c.label, // Rule #2 for type string?
+            label: c.label.map(|v| v.into()),
             limit: c.limit, // Rule #2 for type u32?
             offer_id: c.offer_id, // Rule #2 for type string?
             payment_hash: c.payment_hash.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
@@ -5119,11 +5196,20 @@ impl From<requests::WaitanyinvoiceRequest> for pb::WaitanyinvoiceRequest {
     }
 }
 
+impl From<requests::WaitinvoiceLabel> for pb::waitinvoice_request::Label {
+    fn from(c: requests::WaitinvoiceLabel) -> Self {
+        match c {
+requests::WaitinvoiceLabel::String(v) => pb::waitinvoice_request::Label::LabelString(v),
+requests::WaitinvoiceLabel::Int(v) => pb::waitinvoice_request::Label::LabelInt(v),
+        }
+    }
+}
+
 #[allow(unused_variables)]
 impl From<requests::WaitinvoiceRequest> for pb::WaitinvoiceRequest {
     fn from(c: requests::WaitinvoiceRequest) -> Self {
         Self {
-            label: c.label, // Rule #2 for type string
+            label: Some(c.label.into()),
         }
     }
 }
@@ -5620,12 +5706,21 @@ impl From<requests::MultiwithdrawRequest> for pb::MultiwithdrawRequest {
     }
 }
 
+impl From<requests::OfferAmount> for pb::offer_request::Amount {
+    fn from(c: requests::OfferAmount) -> Self {
+        match c {
+requests::OfferAmount::MsatOrAny(v) => pb::offer_request::Amount::AmountMsatOrAny(v.into()),
+requests::OfferAmount::Currency(v) => pb::offer_request::Amount::AmountCurrency(v),
+        }
+    }
+}
+
 #[allow(unused_variables)]
 impl From<requests::OfferRequest> for pb::OfferRequest {
     fn from(c: requests::OfferRequest) -> Self {
         Self {
             absolute_expiry: c.absolute_expiry, // Rule #2 for type u64?
-            amount: c.amount, // Rule #2 for type string
+            amount: Some(c.amount.into()),
             description: c.description, // Rule #2 for type string?
             // Field: Offer.fronting_nodes[]
             fronting_nodes: c.fronting_nodes.map(|arr| arr.into_iter().map(|i| i.serialize().to_vec()).collect()).unwrap_or(vec![]), // Rule #3
@@ -5803,13 +5898,23 @@ impl From<requests::SetchannelRequest> for pb::SetchannelRequest {
     }
 }
 
+impl From<requests::SetconfigVal> for pb::setconfig_request::Val {
+    fn from(c: requests::SetconfigVal) -> Self {
+        match c {
+requests::SetconfigVal::String(v) => pb::setconfig_request::Val::ValString(v),
+requests::SetconfigVal::Int(v) => pb::setconfig_request::Val::ValInt(v),
+requests::SetconfigVal::Bool(v) => pb::setconfig_request::Val::ValBool(v),
+        }
+    }
+}
+
 #[allow(unused_variables)]
 impl From<requests::SetconfigRequest> for pb::SetconfigRequest {
     fn from(c: requests::SetconfigRequest) -> Self {
         Self {
             config: c.config, // Rule #2 for type string
             transient: c.transient, // Rule #2 for type boolean?
-            val: c.val, // Rule #2 for type string?
+            val: c.val.map(|v| v.into()),
         }
     }
 }
@@ -6610,13 +6715,31 @@ impl From<pb::ConnectRequest> for requests::ConnectRequest {
     }
 }
 
+impl From<pb::createinvoice_request::Label> for requests::CreateinvoiceLabel {
+    fn from(c: pb::createinvoice_request::Label) -> Self {
+        match c {
+pb::createinvoice_request::Label::LabelString(v) => requests::CreateinvoiceLabel::String(v),
+pb::createinvoice_request::Label::LabelInt(v) => requests::CreateinvoiceLabel::Int(v),
+        }
+    }
+}
+
 #[allow(unused_variables)]
 impl From<pb::CreateinvoiceRequest> for requests::CreateinvoiceRequest {
     fn from(c: pb::CreateinvoiceRequest) -> Self {
         Self {
             invstring: c.invstring, // Rule #1 for type string
-            label: c.label, // Rule #1 for type string
+            label: c.label.unwrap().into(),
             preimage: hex::encode(&c.preimage), // Rule #1 for type hex
+        }
+    }
+}
+
+impl From<pb::datastore_request::Key> for requests::DatastoreKey {
+    fn from(c: pb::datastore_request::Key) -> Self {
+        match c {
+pb::datastore_request::Key::KeyArrString(v) => requests::DatastoreKey::ArrayOfString(v.items.into_iter().map(|s| s.into()).collect()),
+pb::datastore_request::Key::KeyString(v) => requests::DatastoreKey::String(v),
         }
     }
 }
@@ -6627,9 +6750,18 @@ impl From<pb::DatastoreRequest> for requests::DatastoreRequest {
         Self {
             generation: c.generation, // Rule #1 for type u64?
             hex: c.hex.map(|v| hex::encode(v)), // Rule #1 for type hex?
-            key: c.key.into_iter().map(|s| s.into()).collect(), // Rule #4
+            key: c.key.unwrap().into(),
             mode: c.mode.map(|v| v.try_into().unwrap()),
             string: c.string, // Rule #1 for type string?
+        }
+    }
+}
+
+impl From<pb::datastoreusage_request::Key> for requests::DatastoreusageKey {
+    fn from(c: pb::datastoreusage_request::Key) -> Self {
+        match c {
+pb::datastoreusage_request::Key::KeyArrString(v) => requests::DatastoreusageKey::ArrayOfString(v.items.into_iter().map(|s| s.into()).collect()),
+pb::datastoreusage_request::Key::KeyString(v) => requests::DatastoreusageKey::String(v),
         }
     }
 }
@@ -6638,7 +6770,7 @@ impl From<pb::DatastoreRequest> for requests::DatastoreRequest {
 impl From<pb::DatastoreusageRequest> for requests::DatastoreusageRequest {
     fn from(c: pb::DatastoreusageRequest) -> Self {
         Self {
-            key: Some(c.key.into_iter().map(|s| s.into()).collect()), // Rule #4
+            key: c.key.map(|v| v.into()),
         }
     }
 }
@@ -6665,12 +6797,30 @@ impl From<pb::CreateonionRequest> for requests::CreateonionRequest {
     }
 }
 
+impl From<pb::deldatastore_request::Key> for requests::DeldatastoreKey {
+    fn from(c: pb::deldatastore_request::Key) -> Self {
+        match c {
+pb::deldatastore_request::Key::KeyArrString(v) => requests::DeldatastoreKey::ArrayOfString(v.items.into_iter().map(|s| s.into()).collect()),
+pb::deldatastore_request::Key::KeyString(v) => requests::DeldatastoreKey::String(v),
+        }
+    }
+}
+
 #[allow(unused_variables)]
 impl From<pb::DeldatastoreRequest> for requests::DeldatastoreRequest {
     fn from(c: pb::DeldatastoreRequest) -> Self {
         Self {
             generation: c.generation, // Rule #1 for type u64?
-            key: c.key.into_iter().map(|s| s.into()).collect(), // Rule #4
+            key: c.key.unwrap().into(),
+        }
+    }
+}
+
+impl From<pb::delinvoice_request::Label> for requests::DelinvoiceLabel {
+    fn from(c: pb::delinvoice_request::Label) -> Self {
+        match c {
+pb::delinvoice_request::Label::LabelString(v) => requests::DelinvoiceLabel::String(v),
+pb::delinvoice_request::Label::LabelU64(v) => requests::DelinvoiceLabel::U64(v),
         }
     }
 }
@@ -6680,7 +6830,7 @@ impl From<pb::DelinvoiceRequest> for requests::DelinvoiceRequest {
     fn from(c: pb::DelinvoiceRequest) -> Self {
         Self {
             desconly: c.desconly, // Rule #1 for type boolean?
-            label: c.label, // Rule #1 for type string
+            label: c.label.unwrap().into(),
             status: c.status.try_into().unwrap(),
         }
     }
@@ -6742,6 +6892,25 @@ impl From<pb::RecoverchannelRequest> for requests::RecoverchannelRequest {
     }
 }
 
+impl From<pb::invoice_request::Exposeprivatechannels> for requests::InvoiceExposeprivatechannels {
+    fn from(c: pb::invoice_request::Exposeprivatechannels) -> Self {
+        match c {
+pb::invoice_request::Exposeprivatechannels::ExposeprivatechannelsBool(v) => requests::InvoiceExposeprivatechannels::Bool(v),
+pb::invoice_request::Exposeprivatechannels::ExposeprivatechannelsArrScid(v) => requests::InvoiceExposeprivatechannels::ArrayOfShortChannelId(v.items.into_iter().map(|s| cln_rpc::primitives::ShortChannelId::from_str(&s).unwrap()).collect()),
+pb::invoice_request::Exposeprivatechannels::ExposeprivatechannelsScid(v) => requests::InvoiceExposeprivatechannels::ShortChannelId(cln_rpc::primitives::ShortChannelId::from_str(&v).unwrap()),
+        }
+    }
+}
+
+impl From<pb::invoice_request::Label> for requests::InvoiceLabel {
+    fn from(c: pb::invoice_request::Label) -> Self {
+        match c {
+pb::invoice_request::Label::LabelString(v) => requests::InvoiceLabel::String(v),
+pb::invoice_request::Label::LabelInt(v) => requests::InvoiceLabel::Int(v),
+        }
+    }
+}
+
 #[allow(unused_variables)]
 impl From<pb::InvoiceRequest> for requests::InvoiceRequest {
     fn from(c: pb::InvoiceRequest) -> Self {
@@ -6751,9 +6920,9 @@ impl From<pb::InvoiceRequest> for requests::InvoiceRequest {
             deschashonly: c.deschashonly, // Rule #1 for type boolean?
             description: c.description, // Rule #1 for type string
             expiry: c.expiry, // Rule #1 for type u64?
-            exposeprivatechannels: Some(c.exposeprivatechannels.into_iter().map(|s| cln_rpc::primitives::ShortChannelId::from_str(&s).unwrap()).collect()), // Rule #4
+            exposeprivatechannels: c.exposeprivatechannels.map(|v| v.into()),
             fallbacks: Some(c.fallbacks.into_iter().map(|s| s.into()).collect()), // Rule #4
-            label: c.label, // Rule #1 for type string
+            label: c.label.unwrap().into(),
             preimage: c.preimage.map(|v| hex::encode(v)), // Rule #1 for type hex?
         }
     }
@@ -6792,11 +6961,29 @@ impl From<pb::ListinvoicerequestsRequest> for requests::ListinvoicerequestsReque
     }
 }
 
+impl From<pb::listdatastore_request::Key> for requests::ListdatastoreKey {
+    fn from(c: pb::listdatastore_request::Key) -> Self {
+        match c {
+pb::listdatastore_request::Key::KeyArrString(v) => requests::ListdatastoreKey::ArrayOfString(v.items.into_iter().map(|s| s.into()).collect()),
+pb::listdatastore_request::Key::KeyString(v) => requests::ListdatastoreKey::String(v),
+        }
+    }
+}
+
 #[allow(unused_variables)]
 impl From<pb::ListdatastoreRequest> for requests::ListdatastoreRequest {
     fn from(c: pb::ListdatastoreRequest) -> Self {
         Self {
-            key: Some(c.key.into_iter().map(|s| s.into()).collect()), // Rule #4
+            key: c.key.map(|v| v.into()),
+        }
+    }
+}
+
+impl From<pb::listinvoices_request::Label> for requests::ListinvoicesLabel {
+    fn from(c: pb::listinvoices_request::Label) -> Self {
+        match c {
+pb::listinvoices_request::Label::LabelString(v) => requests::ListinvoicesLabel::String(v),
+pb::listinvoices_request::Label::LabelInt(v) => requests::ListinvoicesLabel::Int(v),
         }
     }
 }
@@ -6807,7 +6994,7 @@ impl From<pb::ListinvoicesRequest> for requests::ListinvoicesRequest {
         Self {
             index: c.index.map(|v| v.try_into().unwrap()),
             invstring: c.invstring, // Rule #1 for type string?
-            label: c.label, // Rule #1 for type string?
+            label: c.label.map(|v| v.into()),
             limit: c.limit, // Rule #1 for type u32?
             offer_id: c.offer_id, // Rule #1 for type string?
             payment_hash: c.payment_hash.map(|v| hex::encode(v)), // Rule #1 for type hex?
@@ -6920,11 +7107,20 @@ impl From<pb::WaitanyinvoiceRequest> for requests::WaitanyinvoiceRequest {
     }
 }
 
+impl From<pb::waitinvoice_request::Label> for requests::WaitinvoiceLabel {
+    fn from(c: pb::waitinvoice_request::Label) -> Self {
+        match c {
+pb::waitinvoice_request::Label::LabelString(v) => requests::WaitinvoiceLabel::String(v),
+pb::waitinvoice_request::Label::LabelInt(v) => requests::WaitinvoiceLabel::Int(v),
+        }
+    }
+}
+
 #[allow(unused_variables)]
 impl From<pb::WaitinvoiceRequest> for requests::WaitinvoiceRequest {
     fn from(c: pb::WaitinvoiceRequest) -> Self {
         Self {
-            label: c.label, // Rule #1 for type string
+            label: c.label.unwrap().into(),
         }
     }
 }
@@ -7408,12 +7604,21 @@ impl From<pb::MultiwithdrawRequest> for requests::MultiwithdrawRequest {
     }
 }
 
+impl From<pb::offer_request::Amount> for requests::OfferAmount {
+    fn from(c: pb::offer_request::Amount) -> Self {
+        match c {
+pb::offer_request::Amount::AmountMsatOrAny(v) => requests::OfferAmount::MsatOrAny(v.into()),
+pb::offer_request::Amount::AmountCurrency(v) => requests::OfferAmount::Currency(v),
+        }
+    }
+}
+
 #[allow(unused_variables)]
 impl From<pb::OfferRequest> for requests::OfferRequest {
     fn from(c: pb::OfferRequest) -> Self {
         Self {
             absolute_expiry: c.absolute_expiry, // Rule #1 for type u64?
-            amount: c.amount, // Rule #1 for type string
+            amount: c.amount.unwrap().into(),
             description: c.description, // Rule #1 for type string?
             fronting_nodes: Some(c.fronting_nodes.into_iter().map(|s| PublicKey::from_slice(&s).unwrap()).collect()), // Rule #4
             issuer: c.issuer, // Rule #1 for type string?
@@ -7587,13 +7792,23 @@ impl From<pb::SetchannelRequest> for requests::SetchannelRequest {
     }
 }
 
+impl From<pb::setconfig_request::Val> for requests::SetconfigVal {
+    fn from(c: pb::setconfig_request::Val) -> Self {
+        match c {
+pb::setconfig_request::Val::ValString(v) => requests::SetconfigVal::String(v),
+pb::setconfig_request::Val::ValInt(v) => requests::SetconfigVal::Int(v),
+pb::setconfig_request::Val::ValBool(v) => requests::SetconfigVal::Bool(v),
+        }
+    }
+}
+
 #[allow(unused_variables)]
 impl From<pb::SetconfigRequest> for requests::SetconfigRequest {
     fn from(c: pb::SetconfigRequest) -> Self {
         Self {
             config: c.config, // Rule #1 for type string
             transient: c.transient, // Rule #1 for type boolean?
-            val: c.val, // Rule #1 for type string?
+            val: c.val.map(|v| v.into()),
         }
     }
 }
